@@ -292,11 +292,13 @@ local motif =
 		p1_cursor_active_spr = {},
 		p1_cursor_active_offset = {0, 0},
 		p1_cursor_active_facing = 1,
+		p1_cursor_active_matchcellfacing = 1,
 		p1_cursor_active_scale = {1.0, 1.0},
 		p1_cursor_done_anim = -1,
 		p1_cursor_done_spr = {},
 		p1_cursor_done_offset = {0, 0},
 		p1_cursor_done_facing = 1,
+		p1_cursor_done_matchcellfacing = 1,
 		p1_cursor_done_scale = {1.0, 1.0},
 		p1_cursor_move_snd = {100, 0},
 		p1_cursor_done_snd = {100, 1},
@@ -306,11 +308,13 @@ local motif =
 		p2_cursor_active_spr = {},
 		p2_cursor_active_offset = {0, 0},
 		p2_cursor_active_facing = 1,
+		p2_cursor_active_matchcellfacing = 1,
 		p2_cursor_active_scale = {1.0, 1.0},
 		p2_cursor_done_anim = -1,
 		p2_cursor_done_spr = {},
 		p2_cursor_done_offset = {0, 0},
 		p2_cursor_done_facing = 1,
+		p2_cursor_done_matchcellfacing = 1,
 		p2_cursor_done_scale = {1.0, 1.0},
 		p2_cursor_blink = 1,
 		p2_cursor_move_snd = {100, 0},
@@ -341,6 +345,7 @@ local motif =
 		title_netplaysurvivalcoop_text = 'Online Survival', --Ikemen feature
 		title_tournament_text = 'Tournament Mode', --Ikemen feature (not implemented yet)
 		title_training_text = 'Training Mode', --Ikemen feature
+		title_trials_text = 'Trials Mode', --Ikemen feature
 		title_timeattack_text = 'Time Attack', --Ikemen feature
 		title_survival_text = 'Survival', --Ikemen feature
 		title_survivalcoop_text = 'Survival Cooperative', --Ikemen feature
@@ -375,6 +380,78 @@ local motif =
 		p2_face_window = {},
 		p2_face_spacing = {0, 0}, --Ikemen feature
 		p2_face_padding = 0, --Ikemen feature
+		p1_face1_pos = {0, 0},
+		p1_face1_num = 1, --Ikemen feature
+		p1_face1_anim = -1, --Ikemen feature
+		p1_face1_spr = {-1, 0},
+		p1_face1_done_anim = -1, --Ikemen feature
+		p1_face1_done_spr = {-1, 0}, --Ikemen feature
+		p1_face1_offset = {0, 0},
+		p1_face1_facing = 1,
+		p1_face1_scale = {1.0, 1.0},
+		p1_face1_window = {},
+		p1_face1_spacing = {0, 0}, --Ikemen feature
+		p1_face1_padding = 0, --Ikemen feature
+		p2_face1_pos = {0, 0},
+		p2_face1_num = 1, --Ikemen feature
+		p2_face1_anim = -1, --Ikemen feature
+		p2_face1_done_anim = -1, --Ikemen feature
+		p2_face1_done_spr = {-1, 0}, --Ikemen feature
+		p2_face1_spr = {-1, 0},
+		p2_face1_offset = {0, 0},
+		p2_face1_facing = -1,
+		p2_face1_scale = {1.0, 1.0},
+		p2_face1_window = {},
+		p2_face1_spacing = {0, 0}, --Ikemen feature
+		p2_face1_padding = 0, --Ikemen feature
+		p1_face2_pos = {0, 0},
+		p1_face2_num = 1, --Ikemen feature
+		p1_face2_anim = -1, --Ikemen feature
+		p1_face2_spr = {-1, 0},
+		p1_face2_done_anim = -1, --Ikemen feature
+		p1_face2_done_spr = {-1, 0}, --Ikemen feature
+		p1_face2_offset = {0, 0},
+		p1_face2_facing = 1,
+		p1_face2_scale = {1.0, 1.0},
+		p1_face2_window = {},
+		p1_face2_spacing = {0, 0}, --Ikemen feature
+		p1_face2_padding = 0, --Ikemen feature
+		p2_face2_pos = {0, 0},
+		p2_face2_num = 1, --Ikemen feature
+		p2_face2_anim = -1, --Ikemen feature
+		p2_face2_done_anim = -1, --Ikemen feature
+		p2_face2_done_spr = {-1, 0}, --Ikemen feature
+		p2_face2_spr = {-1, 0},
+		p2_face2_offset = {0, 0},
+		p2_face2_facing = -1,
+		p2_face2_scale = {1.0, 1.0},
+		p2_face2_window = {},
+		p2_face2_spacing = {0, 0}, --Ikemen feature
+		p2_face2_padding = 0, --Ikemen feature
+		p1_face3_pos = {0, 0},
+		p1_face3_num = 1, --Ikemen feature
+		p1_face3_anim = -1, --Ikemen feature
+		p1_face3_spr = {-1, 0},
+		p1_face3_done_anim = -1, --Ikemen feature
+		p1_face3_done_spr = {-1, 0}, --Ikemen feature
+		p1_face3_offset = {0, 0},
+		p1_face3_facing = 1,
+		p1_face3_scale = {1.0, 1.0},
+		p1_face3_window = {},
+		p1_face3_spacing = {0, 0}, --Ikemen feature
+		p1_face3_padding = 0, --Ikemen feature
+		p2_face3_pos = {0, 0},
+		p2_face3_num = 1, --Ikemen feature
+		p2_face3_anim = -1, --Ikemen feature
+		p2_face3_done_anim = -1, --Ikemen feature
+		p2_face3_done_spr = {-1, 0}, --Ikemen feature
+		p2_face3_spr = {-1, 0},
+		p2_face3_offset = {0, 0},
+		p2_face3_facing = -1,
+		p2_face3_scale = {1.0, 1.0},
+		p2_face3_window = {},
+		p2_face3_spacing = {0, 0}, --Ikemen feature
+		p2_face3_padding = 0, --Ikemen feature
 		--p<pn>_member<num>_face_anim = -1, --Ikemen feature
 		--p<pn>_member<num>_face_spr = {9000, 1}, --Ikemen feature
 		--p<pn>_member<num>_face_done_anim = -1, --Ikemen feature
@@ -383,6 +460,14 @@ local motif =
 		--p<pn>_member<num>_face_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_speed = {0, 0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_dist = {0, 0}, --Ikemen feature
+		--p<pn>_member<num>_char_anim = -1, --Ikemen feature
+		--p<pn>_member<num>_char_spr = {9000, 1}, --Ikemen feature
+		--p<pn>_member<num>_char_done_anim = -1, --Ikemen feature
+		--p<pn>_member<num>_char_done_spr = {9000, 1}, --Ikemen feature
+		--p<pn>_member<num>_char_offset = {0, 0}, --Ikemen feature
+		--p<pn>_member<num>_char_scale = {1.0, 1.0}, --Ikemen feature
+		--p<pn>_member<num>_char_slide_speed = {0, 0}, --Ikemen feature
+		--p<pn>_member<num>_char_slide_dist = {0, 0}, --Ikemen feature
 		p1_name_offset = {0, 0},
 		p1_name_font = {-1, 4, 1, 255, 255, 255},
 		p1_name_font_scale = {1.0, 1.0},
@@ -1754,6 +1839,120 @@ local motif =
 		--p<pn>_rank_<num>_facing = 1, --Ikemen feature
 		--p<pn>_rank_<num>_scale = {1.0, 1.0}, --Ikemen feature
 	},
+	trials_info =
+	{
+		pos = {0, 0}, --Ikemen feature
+		spacing = {0, 0}, --Ikemen feature
+		window = {0,0,0,0}, --Ikemen feature
+		resetonsuccess = 0, --Ikemen feature
+		trialslayout = 0, --Ikemen feature
+		trialcounter_offset = {0,0}, --Ikemen feature
+		trialcounter_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		trialcounter_font_scale = {1.0, 1.0}, --Ikemen feature
+		trialcounter_font_height = -1, --Ikemen feature
+		trialcounter_text = '', --Ikemen feature
+		bg_anim = -1, --Ikemen feature
+		bg_spr = {}, --Ikemen feature
+		bg_offset = {0, 0}, --Ikemen feature
+		bg_facing = 1, --Ikemen feature
+		bg_scale = {1.0, 1.0}, --Ikemen feature
+		bg_displaytime = 0, --Ikemen feature
+		upcomingstep_text_offset = {0,0}, --Ikemen feature
+		upcomingstep_text_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		upcomingstep_text_font_scale = {1.0, 1.0}, --Ikemen feature
+		upcomingstep_text_font_height = -1, --Ikemen feature
+		upcomingstep_text_text = '', --Ikemen feature
+		upcomingstep_bg_anim = -1, --Ikemen feature
+		upcomingstep_bg_spr = {}, --Ikemen feature
+		upcomingstep_bg_offset = {0, 0}, --Ikemen feature
+		upcomingstep_bg_facing = 1, --Ikemen feature
+		upcomingstep_bg_scale = {1.0, 1.0}, --Ikemen feature
+		upcomingstep_bg_displaytime = -1, --Ikemen feature
+		upcomingstep_bginc_anim = -1, --Ikemen feature
+		upcomingstep_bginc_spr = {}, --Ikemen feature
+		upcomingstep_bginc_offset = {0, 0}, --Ikemen feature
+		upcomingstep_bginc_facing = 1, --Ikemen feature
+		upcomingstep_bginc_scale = {1.0, 1.0}, --Ikemen feature
+		currentstep_text_offset = {0,0}, --Ikemen feature
+		currentstep_text_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		currentstep_text_font_scale = {1.0, 1.0}, --Ikemen feature
+		currentstep_text_font_height = -1, --Ikemen feature
+		currentstep_text_text = '', --Ikemen feature
+		currentstep_bg_anim = -1, --Ikemen feature
+		currentstep_bg_spr = {}, --Ikemen feature
+		currentstep_bg_offset = {0, 0}, --Ikemen feature
+		currentstep_bg_facing = 1, --Ikemen feature
+		currentstep_bg_scale = {1.0, 1.0}, --Ikemen feature
+		currentstep_bg_displaytime = -1, --Ikemen feature
+		currentstep_bginc_anim = -1, --Ikemen feature
+		currentstep_bginc_spr = {}, --Ikemen feature
+		currentstep_bginc_offset = {0, 0}, --Ikemen feature
+		currentstep_bginc_facing = 1, --Ikemen feature
+		currentstep_bginc_scale = {1.0, 1.0}, --Ikemen feature
+		completedstep_text_offset = {0,0}, --Ikemen feature
+		completedstep_text_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		completedstep_text_font_scale = {1.0, 1.0}, --Ikemen feature
+		completedstep_text_font_height = -1, --Ikemen feature
+		completedstep_text_text = '', --Ikemen feature
+		completedstep_bg_anim = -1, --Ikemen feature
+		completedstep_bg_spr = {}, --Ikemen feature
+		completedstep_bg_offset = {0, 0}, --Ikemen feature
+		completedstep_bg_facing = 1, --Ikemen feature
+		completedstep_bg_scale = {1.0, 1.0}, --Ikemen feature
+		completedstep_bg_displaytime = -1, --Ikemen feature
+		completedstep_bginc_anim = -1, --Ikemen feature
+		completedstep_bginc_spr = {}, --Ikemen feature
+		completedstep_bginc_offset = {0, 0}, --Ikemen feature
+		completedstep_bginc_facing = 1, --Ikemen feature
+		completedstep_bginc_scale = {1.0, 1.0}, --Ikemen feature
+		completedstep_bginctocts_anim = -1, --Ikemen feature
+		completedstep_bginctocts_spr = {}, --Ikemen feature
+		completedstep_bginctocts_offset = {0, 0}, --Ikemen feature
+		completedstep_bginctocts_facing = 1, --Ikemen feature
+		completedstep_bginctocts_scale = {1.0, 1.0}, --Ikemen feature
+		glyphs_offset = {0, 0}, --Ikemen feature
+		glyphs_scale = {1.0,1.0}, --Ikemen feature
+		glyphs_spacing = {0,0}, --Ikemen feature
+		glyphs_align = 1, --Ikemen feature
+		success_pos = {0, 0}, --Ikemen feature
+		success_snd = {-1, 0}, --Ikemen feature
+		success_bg_anim = -1, --Ikemen feature
+		success_bg_spr = {}, --Ikemen feature
+		success_bg_offset = {0, 0}, --Ikemen feature
+		success_bg_facing = 1, --Ikemen feature
+		success_bg_scale = {1.0, 1.0}, --Ikemen feature
+		success_bg_displaytime = -1, --Ikemen feature
+		success_front_anim = -1, --Ikemen feature
+		success_front_spr = {}, --Ikemen feature
+		success_front_offset = {0, 0}, --Ikemen feature
+		success_front_facing = 1, --Ikemen feature
+		success_front_scale = {1.0, 1.0}, --Ikemen feature
+		success_front_displaytime = -1, --Ikemen feature
+		success_text_offset = {0,0}, --Ikemen feature
+		success_text_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		success_text_font_scale = {1.0, 1.0}, --Ikemen feature
+		success_text_font_height = -1, --Ikemen feature
+		success_text_text = '', --Ikemen feature
+		allclear_pos = {0, 0}, --Ikemen feature
+		allclear_snd = {-1, 0}, --Ikemen feature
+		allclear_bg_anim = -1, --Ikemen feature
+		allclear_bg_spr = {}, --Ikemen feature
+		allclear_bg_offset = {0, 0}, --Ikemen feature
+		allclear_bg_facing = 1, --Ikemen feature
+		allclear_bg_scale = {1.0, 1.0}, --Ikemen feature
+		allclear_bg_displaytime = -1, --Ikemen feature
+		allclear_front_anim = -1, --Ikemen feature
+		allclear_front_spr = {}, --Ikemen feature
+		allclear_front_offset = {0, 0}, --Ikemen feature
+		allclear_front_facing = 1, --Ikemen feature
+		allclear_front_scale = {1.0, 1.0}, --Ikemen feature
+		allclear_front_displaytime = -1, --Ikemen feature
+		allclear_text_offset = {0,0}, --Ikemen feature
+		allclear_text_font = {'f-6x9.def', 0, 1, 255, 255, 255}, --Ikemen feature
+		allclear_text_font_scale = {1.0, 1.0}, --Ikemen feature
+		allclear_text_font_height = -1, --Ikemen feature
+		allclear_text_text = '', --Ikemen feature
+	},
 	dialogue_info =
 	{
 		enabled = 0, --Ikemen feature
@@ -2331,6 +2530,7 @@ function motif.setBaseMenuInfo()
 	motif.menu_info.menu_itemname_menuinput_inputdefault = "Default"
 	motif.menu_info.menu_itemname_menuinput_back = "Back"
 	motif.menu_info.menu_itemname_commandlist = "Command List"
+	--motif.menu_info.menu_itemname_trialslist = "Trials List"
 	motif.menu_info.menu_itemname_characterchange = "Character Change"
 	motif.menu_info.menu_itemname_exit = "Exit"
 	main.t_sort.menu_info = {}
@@ -2343,6 +2543,7 @@ function motif.setBaseMenuInfo()
 		"menuinput_inputdefault",
 		"menuinput_back",
 		"commandlist",
+		--"trialslist",
 		"characterchange",
 		"exit",
 	}
@@ -2357,6 +2558,7 @@ function motif.setBaseTrainingInfo()
 	motif.training_info.menu_itemname_menuinput_inputdefault = "Default"
 	motif.training_info.menu_itemname_menuinput_back = "Back"
 	motif.training_info.menu_itemname_commandlist = "Command List"
+	--motif.training_info.menu_itemname_trialslist = "Trials List"
 	motif.training_info.menu_itemname_characterchange = "Character Change"
 	motif.training_info.menu_itemname_exit = "Exit"
 	main.t_sort.training_info = {}
@@ -2369,6 +2571,7 @@ function motif.setBaseTrainingInfo()
 		"menuinput_inputdefault",
 		"menuinput_back",
 		"commandlist",
+		--"trialslist",
 		"characterchange",
 		"exit",
 	}
@@ -2577,7 +2780,7 @@ end
 
 --adjust window parameters
 for k, v in pairs({
-	select_info = {'p1_face_window', 'p2_face_window', 'stage_portrait_window'},
+	select_info = {'p1_face_window', 'p2_face_window', 'p1_face1_window', 'p2_face1_window', 'p1_face2_window', 'p2_face2_window', 'p1_face3_window', 'p2_face3_window','stage_portrait_window'},
 	vs_screen = {'p1_window', 'p2_window'},
 	victory_screen = {'p1_window', 'p2_window', 'winquote_window'},
 	dialogue_info = {'p1_face_window', 'p2_face_window', 'p1_text_window', 'p2_text_window'},
@@ -2749,7 +2952,7 @@ function motif.f_loadCursorData()
 end
 
 --creates fadein/fadeout anim data
-for _, v in ipairs({'title_info', 'select_info', 'vs_screen', 'demo_mode', 'continue_screen', 'victory_screen', 'win_screen', 'survival_results_screen', 'vs100_kumite_results_screen', 'time_attack_results_screen', 'time_challenge_results_screen', 'score_challenge_results_screen', 'boss_rush_results_screen', 'option_info', 'replay_info', 'menu_info', 'training_info', 'attract_mode', 'challenger_info', 'hiscore_info', 'tournament_info'}) do
+for _, v in ipairs({'title_info', 'select_info', 'vs_screen', 'demo_mode', 'continue_screen', 'victory_screen', 'win_screen', 'survival_results_screen', 'vs100_kumite_results_screen', 'time_attack_results_screen', 'time_challenge_results_screen', 'score_challenge_results_screen', 'boss_rush_results_screen', 'option_info', 'replay_info', 'menu_info', 'training_info', 'attract_mode', 'challenger_info', 'hiscore_info', 'tournament_info','trials_info'}) do
 	if motif[v].fadein_anim ~= -1 then
 		motif.f_loadSprData(motif[v], {s = 'fadein_', x = 0, y = 0})
 	end
@@ -2802,6 +3005,26 @@ motif.f_loadSprData(motif.continue_screen, {s = 'counter_', x = 0, y = 0})
 
 --challenger spr/anim data
 motif.f_loadSprData(motif.challenger_info, {s = 'bg_', x = 0, y = 0})
+
+--trials spr/anim data
+local tr_pos = motif.trials_info
+for _, v in ipairs({
+	{s = 'bg_',							x = tr_pos.pos[1] + tr_pos.bg_offset[1],						y = tr_pos.pos[2] + tr_pos.bg_offset[2],						},
+	{s = 'success_bg_',    				x = tr_pos.success_pos[1] + tr_pos.success_bg_offset[1],		y = tr_pos.success_pos[2] + tr_pos.success_bg_offset[2],		},
+	{s = 'allclear_bg_',	   			x = tr_pos.allclear_pos[1] + tr_pos.allclear_bg_offset[1],		y = tr_pos.allclear_pos[2] + tr_pos.allclear_bg_offset[2],		},
+	{s = 'success_front_',    			x = tr_pos.success_pos[1] + tr_pos.success_front_offset[1],		y = tr_pos.success_pos[2] + tr_pos.success_front_offset[2],		},
+	{s = 'allclear_front_',   			x = tr_pos.allclear_pos[1] + tr_pos.allclear_front_offset[1],	y = tr_pos.allclear_pos[2] + tr_pos.allclear_front_offset[2],	},
+	{s = 'upcomingstep_bg_',			x = 0,															y = 0,															},
+	{s = 'upcomingstep_bginc_',			x = 0,															y = 0,															},
+	{s = 'currentstep_bg_',				x = 0,															y = 0,															},
+	{s = 'currentstep_bginc_',			x = 0,															y = 0,															},
+	{s = 'completedstep_bg_',			x = 0,															y = 0,															},
+	{s = 'completedstep_bginc_',		x = 0,															y = 0,															},
+	{s = 'completedstep_bginctocts_',	x = 0,															y = 0,															},
+
+}) do
+	motif.f_loadSprData(motif.trials_info, v)
+end
 
 --arrows spr/anim data
 for _, v in ipairs({motif.title_info, motif.option_info, motif.replay_info, motif.menu_info, motif.training_info, motif.attract_mode}) do

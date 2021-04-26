@@ -1371,10 +1371,35 @@ local t_preload = {
 	{typ = 'cspr', arg = motif.select_info.p1_face_spr},
 	{typ = 'canim', arg = {motif.select_info.p2_face_anim, nil}},
 	{typ = 'cspr', arg = motif.select_info.p2_face_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face1_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face1_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face1_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face1_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face2_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face2_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face2_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face2_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face3_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face3_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face3_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face3_spr},
 	{typ = 'canim', arg = {motif.select_info.p1_face_done_anim, nil}},
 	{typ = 'cspr', arg = motif.select_info.p1_face_done_spr},
 	{typ = 'canim', arg = {motif.select_info.p2_face_done_anim, nil}},
 	{typ = 'cspr', arg = motif.select_info.p2_face_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face1_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face1_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face1_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face1_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face2_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face2_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face2_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face2_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p1_face3_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p1_face3_done_spr},
+	{typ = 'canim', arg = {motif.select_info.p2_face3_done_anim, nil}},
+	{typ = 'cspr', arg = motif.select_info.p2_face3_done_spr},
+
 	--vs_screen
 	{typ = 'canim', arg = {motif.vs_screen.p1_anim, nil}},
 	{typ = 'cspr', arg = motif.vs_screen.p1_spr},
@@ -1394,7 +1419,7 @@ local t_preload = {
 	{typ = 'cspr', arg = motif.hiscore_info.face_spr},
 }
 for i = 1, 2 do
-	for _, v in ipairs({{sec = 'select_info', sn = '_face'}, {sec = 'vs_screen', sn = ''}, {sec = 'victory_screen', sn = ''}}) do
+	for _, v in ipairs({{sec = 'select_info', sn = '_face'}, {sec = 'select_info', sn = '_face1'}, {sec = 'select_info', sn = '_face2'}, {sec = 'select_info', sn = '_face3'}, {sec = 'vs_screen', sn = ''}, {sec = 'victory_screen', sn = ''}}) do
 		for j = 1, motif[v.sec]['p' .. i .. v.sn .. '_num'] do
 			table.insert(t_preload, {typ = 'canim', arg = {motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_anim'], nil}})
 			table.insert(t_preload, {typ = 'cspr', arg = motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_spr']})
@@ -2771,6 +2796,24 @@ main.t_itemname = {
 	end,
 	--TRIALS
 	['trials'] = function()
+		main.f_playerInput(main.playerInput, 1)
+		main.cpuSide[2] = false
+		main.forceChar[2] = {main.t_charDef[config.TrainingChar:lower()]}
+		main.lifebar.p1score = false
+		main.lifebar.timer = true
+		main.roundTime = -1
+		main.selectMenu[2] = true
+		main.stageMenu = true
+		main.teamMenu[1].ratio = false
+		main.teamMenu[1].simul = false
+		main.teamMenu[1].single = true
+		main.teamMenu[1].tag = false
+		main.teamMenu[1].turns = false
+		main.teamMenu[2].single = true
+		main.txt_mainSelect:update({text = motif.select_info.title_trials_text})
+		--main.luaPath = 'external/script/trials.lua'
+		setGameMode('trials')
+		return start.f_selectMode
 	end,
 	--VS MODE / TEAM VERSUS
 	['versus'] = function(t, item)

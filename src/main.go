@@ -340,7 +340,7 @@ func setupConfig() configSettings {
 		4
 	],
 	"Players": 4,
-	"PngSpriteFilter": true,
+	"PngSpriteFilter": false,
 	"PostProcessingShader": 0,
 	"QuickContinue": false,
 	"RatioAttack": [

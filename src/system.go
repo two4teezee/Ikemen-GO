@@ -311,7 +311,9 @@ type System struct {
 	roundType       [2]RoundType
 	ocd             [MaxSimul*2 + MaxAttachedChar]OverrideCharData
 	ratioLevel      [MaxSimul*2 + MaxAttachedChar]int32
+	timerFrozen     bool
 	timerStart      int32
+	timerVal        string
 	timerRounds     []int32
 	scoreStart      [2]float32
 	scoreRounds     [][2]float32

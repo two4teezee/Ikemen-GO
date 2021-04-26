@@ -77,6 +77,15 @@ menu.t_itemname = {
 		end
 		return true
 	end,
+	--Trials List
+	['trialslist'] = function(t, item, cursorPosY, moveTxt, section)
+		if main.f_input(main.t_players, {'pal', 's'}) then
+			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
+			menu.f_trialsList()
+			menu.itemname = t.items[item].itemname
+		end
+		return true
+	end,
 	--Command List
 	['commandlist'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) then
@@ -274,6 +283,9 @@ function menu.f_run()
 	--Command List
 	elseif menu.itemname == 'commandlist' then
 		menu.f_commandlistRender(section, menu.t_movelists[menu.movelistChar])
+	--Trials List
+	--elseif menu.itemname == 'trialslist' then
+	--	menu.f_trialsList(section, start.trialsdata)
 	--Menu
 	else
 		menu.currentMenu[1]()
@@ -520,5 +532,20 @@ function menu.f_commandlistRender(section, t)
 		end
 	end
 end
+function menu.f_trialsList(section, t)
+	main.f_cmdInput()
+	local trialsList = {}
+	--draw overlay
+	menu[section .. '_movelist_overlay']:draw()
+	--draw title
+	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', t.name), motif[section].movelist_title_uppercase == 1)})
+	menu[section .. '_txt_title']:draw()
+	if gamemode('trials') then
+		if t.active then
+			--lots of stuff
+		end
+	else
 
+	end
+end
 return menu

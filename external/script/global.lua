@@ -212,6 +212,7 @@ function loop()
 		start.turnsRecoveryInit = false
 		start.rankInit = false
 		start.dialogueInit = false
+		start.trialsInit = false
 	end
 	--dialogue
 	if indialogue() then
@@ -271,6 +272,8 @@ function loop()
 					start.challenger = main.playerInput
 				end
 			end
+		elseif gamemode('trials') and gettrialinfo('trialspresent') then
+			start.f_trialsmode()
 		end
 	end
 end

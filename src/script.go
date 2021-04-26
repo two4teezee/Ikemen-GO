@@ -770,6 +770,10 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(newUserData(l, fnt))
 		return 1
 	})
+	luaRegister(l, "freezeLifeBarTimer", func(*lua.LState) int {
+		sys.timerFrozen = boolArg(l, 1)
+		return 0
+	})
 	// Execute a match of gameplay
 	luaRegister(l, "game", func(l *lua.LState) int {
 		// Anonymous function to load characters and stages, and/or wait for them to finish loading
@@ -971,6 +975,7 @@ func systemScriptInit(l *lua.LState) {
 				tbl.RawSetString("p1score", lua.LNumber(sc[0]))
 				tbl.RawSetString("p2score", lua.LNumber(sc[1]))
 				sys.timerStart = 0
+				sys.timerFrozen = false
 				sys.timerRounds = []int32{}
 				sys.scoreStart = [2]float32{}
 				sys.scoreRounds = [][2]float32{}
@@ -2918,6 +2923,45 @@ func triggerFunctions(l *lua.LState) {
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
 		l.Push(ln)
+		return 1
+	})
+	luaRegister(l, "gettrialinfo", func(*lua.LState) int {
+		switch strArg(l, 1) {
+		case "trialspresent":
+			l.Push(lua.LBool(sys.cgi[0].trialslist.trialspresent))
+		case "numoftrials":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.numoftrials))
+		case "currenttrial":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.currentTrial))
+		case "currenttrialname":
+			l.Push(lua.LString(sys.cgi[0].trialslist.trialnames[int(numArg(l, 2))]))
+		case "currenttrialstep":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.currenttrialStep))
+		case "currenttrialdummyaction":
+			l.Push(lua.LString(sys.cgi[0].trialslist.trialdummyaction[int(numArg(l, 2))]))
+		case "currenttrialnumofsteps":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialnumsteps[int(numArg(l, 2))]))
+		case "currenttrialtext":
+			l.Push(lua.LString(sys.cgi[0].trialslist.trialsteps[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialglyphs":
+			l.Push(lua.LString(sys.cgi[0].trialslist.trialglyphs[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialstateno":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialstateno[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialanimno":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialanimno[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialisthrow":
+			l.Push(lua.LBool(sys.cgi[0].trialslist.trialisthrow[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialishelper":
+			l.Push(lua.LBool(sys.cgi[0].trialslist.trialishelper[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialprojid":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialprojid[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialspecialbool":
+			l.Push(lua.LBool(sys.cgi[0].trialslist.trialspecialbool[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialspecialstr":
+			l.Push(lua.LString(sys.cgi[0].trialslist.trialspecialstr[int(numArg(l, 2))][int(numArg(l, 3))]))
+		case "currenttrialspecialval":
+			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialspecialval[int(numArg(l, 2))][int(numArg(l, 3))]))
+		}
 		return 1
 	})
 	luaRegister(l, "hitcount", func(*lua.LState) int {

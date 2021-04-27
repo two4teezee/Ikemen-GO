@@ -2530,7 +2530,6 @@ function motif.setBaseMenuInfo()
 	motif.menu_info.menu_itemname_menuinput_inputdefault = "Default"
 	motif.menu_info.menu_itemname_menuinput_back = "Back"
 	motif.menu_info.menu_itemname_commandlist = "Command List"
-	--motif.menu_info.menu_itemname_trialslist = "Trials List"
 	motif.menu_info.menu_itemname_characterchange = "Character Change"
 	motif.menu_info.menu_itemname_exit = "Exit"
 	main.t_sort.menu_info = {}
@@ -2543,7 +2542,6 @@ function motif.setBaseMenuInfo()
 		"menuinput_inputdefault",
 		"menuinput_back",
 		"commandlist",
-		--"trialslist",
 		"characterchange",
 		"exit",
 	}
@@ -2559,6 +2557,7 @@ function motif.setBaseTrainingInfo()
 	motif.training_info.menu_itemname_menuinput_back = "Back"
 	motif.training_info.menu_itemname_commandlist = "Command List"
 	--motif.training_info.menu_itemname_trialslist = "Trials List"
+	motif.training_info.menu_itemname_trainingoptions = "Training Mode Options"
 	motif.training_info.menu_itemname_characterchange = "Character Change"
 	motif.training_info.menu_itemname_exit = "Exit"
 	main.t_sort.training_info = {}
@@ -2571,6 +2570,7 @@ function motif.setBaseTrainingInfo()
 		"menuinput_inputdefault",
 		"menuinput_back",
 		"commandlist",
+		"trainingoptions",
 		--"trialslist",
 		"characterchange",
 		"exit",

@@ -174,6 +174,7 @@ for k, v in pairs(
 	{
 		{id = 'menu', section = 'menu_info', bgdef = 'menubgdef', txt_title = 'txt_title_menu'},
 		{id = 'training', section = 'training_info', bgdef = 'trainingbgdef', txt_title = 'txt_title_training'},
+		{id = 'trials', section = 'trials_info', bgdef = 'trialsbgdef', txt_title = 'txt_title_trials'},
 	}
 ) do
 	menu[v.txt_title] = main.f_createTextImg(motif[v.section], 'title', {defsc = motif.defaultMenu})
@@ -262,6 +263,11 @@ function menu.f_init()
 		main.f_bgReset(motif.trainingbgdef.bg)
 		main.f_fadeReset('fadein', motif.training_info)
 		menu.currentMenu = {menu.training.loop, menu.training.loop}
+	elseif gamemode('trials') then
+		sndPlay(motif.files.snd_data, motif.trials_info.enter_snd[1], motif.trials_info.enter_snd[2])
+		main.f_bgReset(motif.trialsbgdef.bg)
+		main.f_fadeReset('fadein', motif.trials_info)
+		menu.currentMenu = {menu.trials.loop, menu.trials.loop}
 	else
 		sndPlay(motif.files.snd_data, motif.menu_info.enter_snd[1], motif.menu_info.enter_snd[2])
 		main.f_bgReset(motif.menubgdef.bg)
@@ -279,6 +285,9 @@ function menu.f_run()
 	if gamemode('training') then
 		section = 'training_info'
 		bgdef = 'trainingbgdef'
+	elseif gamemode('trials') then
+		section = 'trials_info'
+		bgdef = 'trialsbgdef'
 	end
 	--draw overlay
 	menu[section .. '_overlay']:draw()
@@ -293,8 +302,8 @@ function menu.f_run()
 	elseif menu.itemname == 'commandlist' then
 		menu.f_commandlistRender(section, menu.t_movelists[menu.movelistChar])
 	--Trials List
-	--elseif menu.itemname == 'trialslist' then
-	--	menu.f_trialsList(section, start.trialsdata)
+	elseif menu.itemname == 'trialslist' then
+		menu.f_trialsList(section, start.trialsdata)
 	--Menu
 	else
 		menu.currentMenu[1]()
@@ -391,11 +400,12 @@ function menu.f_commandlistParse()
 	if main.debugLog then main.f_printTable(menu.t_movelists, "debug/t_movelists.txt") end
 end
 
-for _, v in ipairs({'menu_info', 'training_info'}) do
+for _, v in ipairs({'menu_info', 'training_info','trials_info'}) do
 	menu[v .. '_txt_title'] = main.f_createTextImg(motif[v], 'movelist_title', {defsc = motif.defaultMenu, addX = motif[v].movelist_pos[1], addY = motif[v].movelist_pos[2]})
 	menu[v .. '_txt_text'] = main.f_createTextImg(motif[v], 'movelist_text', {defsc = motif.defaultMenu, addX = motif[v].movelist_pos[1], addY = motif[v].movelist_pos[2]})
 	menu[v .. '_overlay'] = main.f_createOverlay(motif[v], 'overlay')
 	menu[v .. '_movelist_overlay'] = main.f_createOverlay(motif[v], 'movelist_overlay')
+	menu[v .. '_trialslist_overlay'] = main.f_createOverlay(motif[v], 'trialslist_overlay')
 	--menu[v .. '_t_movelistWindow'] = {0, 0, main.SP_Localcoord[1], main.SP_Localcoord[2]}
 	if motif[v].movelist_window_margins_y[1] ~= 0 or motif[v].movelist_window_margins_y[2] ~= 0 then
 		local data = menu[v .. '_txt_text']
@@ -544,37 +554,58 @@ end
 --;===========================================================
 --; TRIALS LIST
 --;===========================================================
-function menu.f_trialsList(section, t)
+function menu.f_trialsList(section, trialsdatatemp)
 	main.f_cmdInput()
 	local trialsList = {}
 	--draw overlay
-	menu[section .. '_movelist_overlay']:draw()
+	menu[section .. '_trialslist_overlay']:draw()
 	--draw title
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', t.name), motif[section].movelist_title_uppercase == 1)})
+	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].trialslist_title_text:gsub('%%s', t.name), motif[section].trialslist_title_uppercase == 1)})
 	menu[section .. '_txt_title']:draw()
-	if gamemode('trials') then
-		if t.active then
-			--lots of stuff
-		end
+	if trialsdatatemp.active then
+		--lots of stuff
 	else
-
+			
 	end
 end
 --;===========================================================
 --; TRAINING MODE OPTIONS
+--
+-- DUMMY MODE: idle, human, record, replay
+-- ACTION: stand, crouch, jump
+-- GUARD: none, always, auto, random, 
+-- STUN: normal, off, on, 
+-- TIMING GUARD: off, always
+-- COUNTER HIT: off, instant
+-- GROUND RECOVERY: 
+-- AIR RECOVERY:
+--
+-- 1P/2P HEALTH METER: normal, auto recover, infinite
+-- 1P/2P POWER BAR: normal, auto recover, infinite
+-- 1P/2P STUN BAR: normal, danger (80%), infinite
+-- 1P/2P GUARD METER: normal, danger (20%), infinite
+--
+-- DAMAGE DISPLAY: off, on
+-- INPUT DISPLAY: off, on
+--
+-- DEFAULT SETTINGS
 --;===========================================================
 function menu.f_trainingoptions(section, t)
 	main.f_cmdInput()
-	local trialsList = {}
+	if main.f_input(main.t_players, {'$U'}) and t.tbl.movelistLine > 1 then
+		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
+		t.tbl.movelistLine = t.tbl.movelistLine - 1
+	elseif main.f_input(main.t_players, {'$D'}) and t.tbl.movelistLine <= #cmdList - motif[section].movelist_window_visibleitems then
+		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
+		t.tbl.movelistLine = t.tbl.movelistLine + 1
+	end
 	--draw overlay
 	menu[section .. '_movelist_overlay']:draw()
 	--draw title
 	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', t.name), motif[section].movelist_title_uppercase == 1)})
 	menu[section .. '_txt_title']:draw()
 	if gamemode('training') then
-		if t.active then
-			--lots of stuff
-		end
+
 	else
 
 	end

@@ -81,7 +81,7 @@ menu.t_itemname = {
 	['trainingoptions'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			menu.f_trainingoptions()
+			--menu.f_trainingoptions()
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -90,7 +90,7 @@ menu.t_itemname = {
 	['trialslist'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			menu.f_trialsList()
+			--menu.f_trialslistParse()
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -303,7 +303,7 @@ function menu.f_run()
 		menu.f_commandlistRender(section, menu.t_movelists[menu.movelistChar])
 	--Trials List
 	elseif menu.itemname == 'trialslist' then
-		menu.f_trialsList(section, start.trialsdata)
+		menu.f_trialslistRender(section, start.trialsdata)
 	--Menu
 	else
 		menu.currentMenu[1]()
@@ -554,18 +554,21 @@ end
 --;===========================================================
 --; TRIALS LIST
 --;===========================================================
-function menu.f_trialsList(section, trialsdatatemp)
+function menu.f_trialslistRender(section, trialsdatatemp)
 	main.f_cmdInput()
 	local trialsList = {}
 	--draw overlay
 	menu[section .. '_trialslist_overlay']:draw()
 	--draw title
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].trialslist_title_text:gsub('%%s', t.name), motif[section].trialslist_title_uppercase == 1)})
+	print(start.p[1].t_selected)
+	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].trialslist_title_text:gsub('%%s', start.f_getCharData(start.p[1].t_selected).name), motif[section].trialslist_title_uppercase == 1)})
 	menu[section .. '_txt_title']:draw()
-	if trialsdatatemp.active then
+	if start.trialsInit then
+		if start.trialsdata.active then
 		--lots of stuff
-	else
-			
+		else
+
+		end
 	end
 end
 --;===========================================================
@@ -602,7 +605,7 @@ function menu.f_trainingoptions(section, t)
 	--draw overlay
 	menu[section .. '_movelist_overlay']:draw()
 	--draw title
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', t.name), motif[section].movelist_title_uppercase == 1)})
+	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', start.f_getCharData(1).name), motif[section].movelist_title_uppercase == 1)})
 	menu[section .. '_txt_title']:draw()
 	if gamemode('training') then
 

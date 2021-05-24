@@ -305,6 +305,9 @@ function menu.f_run()
 	elseif menu.itemname == 'trialslist' then
 		menu.f_trialslistRender(section, start.trialsdata)
 	--Menu
+	elseif menu.itemname == 'trainingoptions' then
+		menu.f_trainingoptions(section, start.trialsdata)
+	--Menu
 	else
 		menu.currentMenu[1]()
 	end
@@ -560,8 +563,7 @@ function menu.f_trialslistRender(section, trialsdatatemp)
 	--draw overlay
 	menu[section .. '_trialslist_overlay']:draw()
 	--draw title
-	print(start.p[1].t_selected)
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].trialslist_title_text:gsub('%%s', start.f_getCharData(start.p[1].t_selected).name), motif[section].trialslist_title_uppercase == 1)})
+	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper('Trials List')})
 	menu[section .. '_txt_title']:draw()
 	if start.trialsInit then
 		if start.trialsdata.active then
@@ -594,23 +596,156 @@ end
 -- DEFAULT SETTINGS
 --;===========================================================
 function menu.f_trainingoptions(section, t)
-	main.f_cmdInput()
-	if main.f_input(main.t_players, {'$U'}) and t.tbl.movelistLine > 1 then
-		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
-		t.tbl.movelistLine = t.tbl.movelistLine - 1
-	elseif main.f_input(main.t_players, {'$D'}) and t.tbl.movelistLine <= #cmdList - motif[section].movelist_window_visibleitems then
-		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
-		t.tbl.movelistLine = t.tbl.movelistLine + 1
-	end
+	menu.training_itemname = {
+		--Back
+		['back'] = function(t, item, cursorPosY, moveTxt)
+			if main.f_input(main.t_players, {'pal', 's'}) then
+				sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
+				return false
+			end
+			return true
+		end,
+		--Port Change
+		['dummymode'] = function(t, item, cursorPosY, moveTxt)
+			if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
+				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+				local port = main.f_drawInput(
+					main.f_extractText(motif.option_info.textinput_port_text),
+					txt_textinput,
+					overlay_textinput,
+					motif.option_info.textinput_offset[2],
+					main.f_ySpacing(motif.option_info, 'textinput_font'),
+					motif.optionbgdef
+				)
+				if tonumber(port) ~= nil then
+					sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
+					config.ListenPort = tostring(port)
+					setListenPort(port)
+					t.items[item].vardisplay = getListenPort()
+					modified = true
+				else
+					sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
+				end
+			end
+			return true
+		end,
+		--Default Values
+		['default'] = function(t, item, cursorPosY, moveTxt)
+			if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
+				sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
+				config.AIRamping = true
+				config.AIRandomColor = true
+				config.AudioDucking = false
+				config.AutoGuard = false
+				config.BarGuard = false
+				config.BarRedLife = true
+				config.BarStun = false
+				config.Borderless = false
+				config.ComboExtraFrameWindow = 1
+				--config.CommonAir = "data/common.air"
+				--config.CommonCmd = "data/common.cmd"
+				--config.CommonLua = {
+				--	"loop()"
+				--}
+				--config.CommonStates = {
+				--	"data/action.zss",
+				--	"data/dizzy.zss",
+				--	"data/guardbreak.zss",
+				--	"data/rank.zss",
+				--	"data/score.zss",
+				--	"data/tag.zss"
+				--}
+				--config.ControllerStickSensitivity = 0.4
+				config.Credits = 10
+				--config.DebugClipboardRows = 2
+				--config.DebugConsoleRows = 15
+				--config.DebugFont = "font/f-4x6.def"
+				--config.DebugFontScale = 
+				modified = true
+				needReload = true
+			end
+			return true
+		end,
+		--Difficulty Level
+		['difficulty'] = function(t, item, cursorPosY, moveTxt)
+			if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+				config.Difficulty = config.Difficulty + 1
+				t.items[item].vardisplay = config.Difficulty
+			modified = true
+			elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+				config.Difficulty = config.Difficulty - 1
+				t.items[item].vardisplay = config.Difficulty
+			modified = true
+			end
+			return true
+		end,
+		--Time Limit
+		['roundtime'] = function(t, item, cursorPosY, moveTxt)
+			if main.f_input(main.t_players, {'$F'}) and config.RoundTime < 1000 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+				config.RoundTime = config.RoundTime + 1
+				t.items[item].vardisplay = config.RoundTime
+				modified = true
+			elseif main.f_input(main.t_players, {'$B'}) and config.RoundTime > -1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+				config.RoundTime = config.RoundTime - 1
+				t.items[item].vardisplay = options.f_definedDisplay(config.RoundTime, {[-1] = motif.option_info.menu_valuename_none}, config.RoundTime)
+				modified = true
+			end
+			return true
+		end,
+	}
+
+	--main.f_cmdInput()
+	--if esc() or main.f_input(main.t_players, {'m'}) then
+	--	sndPlay(motif.files.snd_data, motif[section].cancel_snd[1], motif[section].cancel_snd[2])
+	--	menu.itemname = ''
+	--	return
+	--elseif main.f_input(main.t_players, {'$U'}) then --and t.tbl.movelistLine > 1 then
+	--	sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
+		--t.tbl.movelistLine = t.tbl.movelistLine - 1
+	--elseif main.f_input(main.t_players, {'$D'}) then --and t.tbl.movelistLine <= #cmdList - motif[section].movelist_window_visibleitems then
+	--	sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
+	--	--t.tbl.movelistLine = t.tbl.movelistLine + 1
+	--end
 	--draw overlay
-	menu[section .. '_movelist_overlay']:draw()
+	--menu[section .. '_overlay']:draw()
 	--draw title
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper(motif[section].movelist_title_text:gsub('%%s', start.f_getCharData(1).name), motif[section].movelist_title_uppercase == 1)})
-	menu[section .. '_txt_title']:draw()
-	if gamemode('training') then
+	--menu[section .. '_txt_title']:update({text = main.f_itemnameUpper('Training Mode Options')})
+	--menu[section .. '_txt_title']:draw()
 
-	else
 
+	menu.training_menu = {title = main.f_itemnameUpper(motif.training_info.title_text, motif.training_info.menu_title_uppercase == 1), submenu = {}, items = menu.training_itemname}
+	local moveTxt = 0
+	local cusrorPosY = 1
+	local item = 1
+	local t = {}
+	while true do
+		--if tbl.reset then
+		--	tbl.reset = false
+		--	main.f_cmdInput()
+		--else
+			main.f_menuCommonDraw(menu.training_menu, item, cursorPosY, moveTxt, 'training_info', 'trainingbgdef', main.f_createTextImg(motif.training_info, 'title'), false, {})
+		--end
+		cursorPosY, moveTxt, item = main.f_menuCommonCalc(menu.training_menu, item, cursorPosY, moveTxt, 'training_info', {'$U'}, {'$D'})
+		if esc() or main.f_input(main.t_players, {'m'}) then
+			sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
+			break
+		elseif menu.training_itemname[t[item].itemname] ~= nil then
+			if not options.t_itemname[t[item].itemname](tbl, item, cursorPosY, moveTxt) then
+				break
+			end
+		elseif main.f_input(main.t_players, {'pal', 's'}) then
+			local f = t[item].itemname
+			if tbl.submenu[f].loop ~= nil then
+				sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
+				tbl.submenu[f].loop()
+			elseif not options.t_itemname[f](tbl, item, cursorPosY, moveTxt) then
+				break
+			end
+		end
 	end
 end
 return menu

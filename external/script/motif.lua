@@ -1653,7 +1653,7 @@ local motif =
 		trialslist_arrow_down_offset = {0, 0}, --Ikemen feature
 		trialslist_arrow_down_facing = 1, --Ikemen feature
 		trialslist_arrow_down_scale = {1.0, 1.0}, --Ikemen feature
-		--menu_itemname_back = 'Continue', --Ikemen feature
+		menu_itemname_back = 'Back', --Ikemen feature
 		--menu_itemname_keyboard = 'Key Config', --Ikemen feature
 		--menu_itemname_gamepad = 'Joystick Config', --Ikemen feature
 		--menu_itemname_inputdefault = 'Default', --Ikemen feature
@@ -3243,6 +3243,7 @@ motif.defaultMenu = motif.menu_info.menu_uselocalcoord == 0
 motif.defaultOptions = motif.option_info.menu_uselocalcoord == 0
 motif.defaultOptionsTitle = t.option_info == nil or t.option_info.title_offset == nil or motif.defaultOptions
 motif.defaultReplay = motif.replay_info.menu_uselocalcoord == 0
+motif.defaultTrainingOptions = motif.training_info.menu_uselocalcoord == 0
 motif.defaultWarning = t.warning_info == nil
 
 if main.debugLog then main.f_printTable(motif, "debug/t_motif.txt") end

@@ -722,14 +722,14 @@ function menu.f_trainingoptions(section, t)
 	local cusrorPosY = 1
 	local item = 1
 	local t = {}
+	local txt_titleTrainOpt = main.f_createTextImg(motif.training_info, 'title')
+	local t_menuWindowTrainOpt = main.f_menuWindow(motif.training_info)
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Mode', displayname = 'Dummy Mode'})
+	--table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = menu.training_itemname.dummyaction, displayname = 'Dummy Action'})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'back', displayname = motif.training_info.menu_itemname_back})
 	while true do
-		--if tbl.reset then
-		--	tbl.reset = false
-		--	main.f_cmdInput()
-		--else
-			main.f_menuCommonDraw(menu.training_menu, item, cursorPosY, moveTxt, 'training_info', 'trainingbgdef', main.f_createTextImg(motif.training_info, 'title'), false, {})
-		--end
-		cursorPosY, moveTxt, item = main.f_menuCommonCalc(menu.training_menu, item, cursorPosY, moveTxt, 'training_info', {'$U'}, {'$D'})
+		main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, 'training_info', 'trainingbgdef', txt_titleTrainOpt, motif.defaultTrainingOptions, {})
+		cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, 'training_info', {'$U'}, {'$D'})
 		if esc() or main.f_input(main.t_players, {'m'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
 			break

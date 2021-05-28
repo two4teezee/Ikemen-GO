@@ -3744,6 +3744,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	title:draw()
 	--draw menu items
 	local items_shown = item + motif[section].menu_window_visibleitems - cursorPosY
+	print(items_shown)
 	if items_shown > #t or (motif[section].menu_window_visibleitems > 1 and items_shown < #t and (motif[section].menu_window_margins_y[1] ~= 0 or motif[section].menu_window_margins_y[2] ~= 0)) then
 		items_shown = #t
 	end

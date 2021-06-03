@@ -78,11 +78,171 @@ menu.t_itemname = {
 		return true
 	end,
 	--Training Mode Options
-	['trainingoptions'] = function(t, item, cursorPosY, moveTxt, section)
-		if main.f_input(main.t_players, {'pal', 's'}) then
-			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			--menu.f_trainingoptions()
-			menu.itemname = t.items[item].itemname
+	['dummymode'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['dummyaction'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['guard'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['counterhit'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['1PHealthMeter'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['2PHealthMeter'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['1PPowerBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['2PPowerBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['1PStunBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['2PStunBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['1PGuardBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		end
+		return true
+	end,
+	['2PGuardBar'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty + 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			config.Difficulty = config.Difficulty - 1
+			t.items[item].vardisplay = config.Difficulty
+			modified = true
 		end
 		return true
 	end,
@@ -408,7 +568,6 @@ for _, v in ipairs({'menu_info', 'training_info','trials_info'}) do
 	menu[v .. '_txt_text'] = main.f_createTextImg(motif[v], 'movelist_text', {defsc = motif.defaultMenu, addX = motif[v].movelist_pos[1], addY = motif[v].movelist_pos[2]})
 	menu[v .. '_overlay'] = main.f_createOverlay(motif[v], 'overlay')
 	menu[v .. '_movelist_overlay'] = main.f_createOverlay(motif[v], 'movelist_overlay')
-	menu[v .. '_trialslist_overlay'] = main.f_createOverlay(motif[v], 'trialslist_overlay')
 	--menu[v .. '_t_movelistWindow'] = {0, 0, main.SP_Localcoord[1], main.SP_Localcoord[2]}
 	if motif[v].movelist_window_margins_y[1] ~= 0 or motif[v].movelist_window_margins_y[2] ~= 0 then
 		local data = menu[v .. '_txt_text']
@@ -717,22 +876,35 @@ function menu.f_trainingoptions(section, t)
 	--menu[section .. '_txt_title']:draw()
 
 
-	menu.training_menu = {title = main.f_itemnameUpper(motif.training_info.title_text, motif.training_info.menu_title_uppercase == 1), submenu = {}, items = menu.training_itemname}
+	menu.training_menu = {title = main.f_itemnameUpper(motif.training_info.trainingoptions_title_text, motif.training_info.menu_title_uppercase == 1), submenu = {}, items = menu.training_itemname}
 	local moveTxt = 0
-	local cusrorPosY = 1
+	local cursorPosY = 1
 	local item = 1
 	local t = {}
-	local txt_titleTrainOpt = main.f_createTextImg(motif.training_info, 'title')
+	local txt_titleTrainOpt = main.f_createTextImg(motif.training_info, 'trainingoptions_title')
 	local t_menuWindowTrainOpt = main.f_menuWindow(motif.training_info)
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Mode', displayname = 'Dummy Mode'})
-	--table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = menu.training_itemname.dummyaction, displayname = 'Dummy Action'})
+	--local modes = {'Dummy Mode', 'Dummy Action', 'Dummy Guard Mode', 'Stun Meter', 'Guard Meter,' 'Counter Hit', '1P Health', '2P Health', '1P Power Bar', '2P Power Bar'}
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Mode', displayname = 'Dummy Mode', vardisplay = 'Idle', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Action', displayname = 'Dummy Action', vardisplay = 'Stand', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Guard Mode', displayname = 'Dummy Guard Mode', vardisplay = 'None', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Stun Meter', displayname = 'Stun Meter', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Counter Hit', displayname = 'Counter Hit', vardisplay = 'Off', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Health Meter', displayname = '1P Health Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Health Meter', displayname = '2P Health Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Power Bar', displayname = '1P Power Bar', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Power Bar', displayname = '2P Power Bar', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Stun Meter', displayname = '1P Stun Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Stun Meter', displayname = '2P Stun Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Guard Meter', displayname = '1P Guard Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
+	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Guard Meter', displayname = '2P Guard Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
 	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'back', displayname = motif.training_info.menu_itemname_back})
 	while true do
 		main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, 'training_info', 'trainingbgdef', txt_titleTrainOpt, motif.defaultTrainingOptions, {})
 		cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, 'training_info', {'$U'}, {'$D'})
 		if esc() or main.f_input(main.t_players, {'m'}) then
-			sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
-			break
+			sndPlay(motif.files.snd_data, motif[section].cancel_snd[1], motif[section].cancel_snd[2])
+			menu.itemname = ''
+			return
 		elseif menu.training_itemname[t[item].itemname] ~= nil then
 			if not options.t_itemname[t[item].itemname](tbl, item, cursorPosY, moveTxt) then
 				break

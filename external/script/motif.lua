@@ -1621,38 +1621,6 @@ local motif =
 		movelist_arrow_down_offset = {0, 0}, --Ikemen feature
 		movelist_arrow_down_facing = 1, --Ikemen feature
 		movelist_arrow_down_scale = {1.0, 1.0}, --Ikemen feature
-		trialslist_pos = {10, 20}, --Ikemen feature
-		trialslist_title_offset = {150, 0}, --Ikemen feature
-		trialslist_title_font = {'Open_Sans.def', 0, 0, 255, 255, 255}, --Ikemen feature
-		trialslist_title_font_scale = {0.4, 0.4}, --Ikemen feature
-		trialslist_title_font_height = -1, --Ikemen feature
-		trialslist_title_text = '%s', --Ikemen feature
-		trialslist_title_uppercase = 0, --Ikemen feature
-		trialslist_text_offset = {0, 12}, --Ikemen feature
-		trialslist_text_font = {'Open_Sans.def', 0, 1, 255, 255, 255}, --Ikemen feature
-		trialslist_text_font_scale = {0.4, 0.4}, --Ikemen feature
-		trialslist_text_font_height = -1, --Ikemen feature
-		trialslist_text_spacing = {1, 1}, --Ikemen feature
-		trialslist_text_text = 'Trials List not found.', --Ikemen feature
-		trialslist_glyphs_offset = {0, 2}, --Ikemen feature
-		trialslist_glyphs_scale = {1.0, 1.0}, --Ikemen feature
-		trialslist_glyphs_spacing = {2, 0}, --Ikemen feature
-		trialslist_window_width = 300, --Ikemen feature
-		trialslist_window_margins_y = {20, 1}, --Ikemen feature
-		trialslist_window_visibleitems = 18, --Ikemen feature
-		trialslist_overlay_window = {0, 0, width, height}, --Ikemen feature (0, 0, 320, 240)
-		trialslist_overlay_col = {0, 0, 0}, --Ikemen feature
-		trialslist_overlay_alpha = {20, 100}, --Ikemen feature
-		trialslist_arrow_up_anim = -1, --Ikemen feature
-		trialslist_arrow_up_spr = {}, --Ikemen feature
-		trialslist_arrow_up_offset = {0, 0}, --Ikemen feature
-		trialslist_arrow_up_facing = 1, --Ikemen feature
-		trialslist_arrow_up_scale = {1.0, 1.0}, --Ikemen feature
-		trialslist_arrow_down_anim = -1, --Ikemen feature
-		trialslist_arrow_down_spr = {}, --Ikemen feature
-		trialslist_arrow_down_offset = {0, 0}, --Ikemen feature
-		trialslist_arrow_down_facing = 1, --Ikemen feature
-		trialslist_arrow_down_scale = {1.0, 1.0}, --Ikemen feature
 		menu_itemname_back = 'Back', --Ikemen feature
 		--menu_itemname_keyboard = 'Key Config', --Ikemen feature
 		--menu_itemname_gamepad = 'Joystick Config', --Ikemen feature
@@ -2598,12 +2566,40 @@ function motif.setBaseTrainingInfo()
 	motif.training_info.menu_itemname_menuinput_back = "Back"
 	motif.training_info.menu_itemname_commandlist = "Command List"
 	motif.training_info.menu_itemname_trainingoptions = "Training Mode Options"
+	motif.training_info.menu_itemname_trainingoptions_dummymode = "Dummy Mode"
+	motif.training_info.menu_itemname_trainingoptions_dummyaction = "Dummy Action"
+	motif.training_info.menu_itemname_trainingoptions_guard = "Dummy Guard Mode"
+	motif.training_info.menu_itemname_trainingoptions_counterhit = "Counter Hit"
+	motif.training_info.menu_itemname_trainingoptions_1PHealthMeter = "1P Health Meter"
+	motif.training_info.menu_itemname_trainingoptions_2PHealthMeter = "2P Health Meter"
+	motif.training_info.menu_itemname_trainingoptions_1PPowerBar = "1P Power Bar"
+	motif.training_info.menu_itemname_trainingoptions_2PPowerBar = "2P Power Bar"
+	motif.training_info.menu_itemname_trainingoptions_1PStunBar = "1P Stun Bar"
+	motif.training_info.menu_itemname_trainingoptions_2PStunBar = "2P Stun Bar"
+	motif.training_info.menu_itemname_trainingoptions_1PGuardBar = "1P Guard Bar"
+	motif.training_info.menu_itemname_trainingoptions_2PGuardBar = "2P Guard Bar"
+	motif.training_info.menu_itemname_trainingoptions_empty = ""
+	motif.training_info.menu_itemname_trainingoptions_back = "Back"
 	motif.training_info.menu_itemname_characterchange = "Character Change"
 	motif.training_info.menu_itemname_exit = "Exit"
 	main.t_sort.training_info = {}
 	main.t_sort.training_info.menu = {
 		"back",
 		"trainingoptions",
+		"trainingoptions_dummymode",
+		"trainingoptions_dummyaction",
+		"trainingoptions_guard",
+		"trainingoptions_counterhit",
+		"trainingoptions_1PHealthMeter",
+		"trainingoptions_2PHealthMeter",
+		"trainingoptions_1PPowerBar",
+		"trainingoptions_2PPowerBar",
+		"trainingoptions_1PStunBar",
+		"trainingoptions_2PStunBar",
+		"trainingoptions_1PGuardBar",
+		"trainingoptions_2PGuardBar",
+		"trainingoptions_empty",
+		"trainingoptions_back",
 		"menuinput",
 		"menuinput_keyboard",
 		"menuinput_gamepad",
@@ -2626,13 +2622,11 @@ function motif.setBaseTrialsInfo()
 	motif.trials_info.menu_itemname_menuinput_back = "Back"
 	motif.trials_info.menu_itemname_commandlist = "Command List"
 	motif.trials_info.menu_itemname_trialslist = "Trials List"
-	--motif.training_info.menu_itemname_trainingoptions = "Training Mode Options"
 	motif.trials_info.menu_itemname_characterchange = "Character Change"
 	motif.trials_info.menu_itemname_exit = "Exit"
 	main.t_sort.trials_info = {}
 	main.t_sort.trials_info.menu = {
 		"back",
-		--"trainingoptions",
 		"trialslist",
 		"menuinput",
 		"menuinput_keyboard",

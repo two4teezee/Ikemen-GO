@@ -1,4 +1,5 @@
 local menu = {}
+local modified = false
 
 --;===========================================================
 --; PAUSE MENU
@@ -78,7 +79,8 @@ menu.t_itemname = {
 		return true
 	end,
 	--Training Mode Options
-	['dummymode'] = function(t, item, cursorPosY, moveTxt)
+	['trngdummymode'] = function(t, item, cursorPosY, moveTxt)
+		--{}
 		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Difficulty = config.Difficulty + 1
@@ -92,157 +94,231 @@ menu.t_itemname = {
 		end
 		return true
 	end,
-	['dummyaction'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trngdummyaction'] = function(t, item, cursorPosY, moveTxt)
+		local dummyactiontable = {
+			[0] = 'Standing',
+			[1] = 'Crouching',
+			[2] = 'Neutral Jump',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.TrngDummyAction < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.TrngDummyAction = config.TrngDummyAction + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, dummyactiontable, config.TrngDummyAction)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('dummyaction', config.TrngDummyAction)
+		elseif main.f_input(main.t_players, {'$B'}) and config.TrngDummyAction > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.TrngDummyAction = config.TrngDummyAction - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, dummyactiontable, config.TrngDummyAction)
 			modified = true
+			setTrngOption('dummyaction', config.TrngDummyAction)
 		end
 		return true
 	end,
-	['guard'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trngdummyguard'] = function(t, item, cursorPosY, moveTxt)
+		local dummyguardtable = {
+			[0] = 'None',
+			[1] = 'Always',
+			[2] = 'Auto',
+			[3] = 'Random',
+		}		
+		if main.f_input(main.t_players, {'$F'}) and config.TrngDummyGuard < 3 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.TrngDummyGuard = config.TrngDummyGuard + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyGuard, dummyguardtable, config.TrngDummyGuard)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('dummyguard', config.TrngDummyGuard)
+		elseif main.f_input(main.t_players, {'$B'}) and config.TrngDummyGuard > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.TrngDummyGuard = config.TrngDummyGuard - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyGuard, dummyguardtable, config.TrngDummyGuard)
 			modified = true
+			setTrngOption('dummyguard', config.TrngDummyGuard)
 		end
 		return true
 	end,
-	['counterhit'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trngcounterhit'] = function(t, item, cursorPosY, moveTxt)
+		--{'Off', 'Instant'}
+		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			if config.TrngCounterHit then
+				config.TrngCounterHit = false
+			else
+				config.TrngCounterHit = true
+			end
+			t.items[item].vardisplay = options.f_boolDisplay(config.TrngCounterHit, "Instant", "Off")
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
-			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
-			modified = true
+			setTrngOption('counterhit', config.TrngCounterHit)
 		end
 		return true
 	end,
-	['1PHealthMeter'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng1phealthmeter'] = function(t, item, cursorPosY, moveTxt)
+		local healthmetertable = {
+			[0] = 'Auto Recover',
+			[1] = 'Normal',
+			[2] = 'Danger (20%)',
+			[3] = 'Infinite',
+		}			
+		if main.f_input(main.t_players, {'$F'}) and config.Trng1PHealthMeter < 3 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PHealthMeter = config.Trng1PHealthMeter + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PHealthMeter, healthmetertable, config.Trng1PHealthMeter)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('lifebar', config.Trng1PHealthMeter, 1)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PHealthMeter > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PHealthMeter = config.Trng1PHealthMeter - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PHealthMeter, healthmetertable, config.Trng1PHealthMeter)
 			modified = true
+			setTrngOption('lifebar', config.Trng1PHealthMeter, 1)
 		end
 		return true
 	end,
-	['2PHealthMeter'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng2phealthmeter'] = function(t, item, cursorPosY, moveTxt)
+		local healthmetertable = {
+			[0] = 'Auto Recover',
+			[1] = 'Normal',
+			[2] = 'Danger (20%)',
+			[3] = 'Infinite',
+		}
+			if main.f_input(main.t_players, {'$F'}) and config.Trng2PHealthMeter < 3 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PHealthMeter = config.Trng2PHealthMeter + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PHealthMeter, healthmetertable, config.Trng2PHealthMeter)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('lifebar', config.Trng2PHealthMeter, 2)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PHealthMeter > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PHealthMeter = config.Trng2PHealthMeter - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PHealthMeter, healthmetertable, config.Trng2PHealthMeter)
 			modified = true
+			setTrngOption('lifebar', config.Trng2PHealthMeter, 2)
 		end
 		return true
 	end,
-	['1PPowerBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng1ppowerbar'] = function(t, item, cursorPosY, moveTxt)
+		local powerbartable = {
+			[0] = 'Normal',
+			[1] = 'Refill on Combo End',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng1PPowerBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PPowerBar = config.Trng1PPowerBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PPowerBar, powerbartable, config.Trng1PPowerBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('powerbar', config.Trng1PPowerBar, 1)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PPowerBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PPowerBar = config.Trng1PPowerBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PPowerBar, powerbartable, config.Trng1PPowerBar)
 			modified = true
+			setTrngOption('powerbar', config.Trng1PPowerBar, 1)
 		end
 		return true
 	end,
-	['2PPowerBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng2ppowerbar'] = function(t, item, cursorPosY, moveTxt)
+		local powerbartable = {
+			[0] = 'Normal',
+			[1] = 'Refill on Combo End',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng2PPowerBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PPowerBar = config.Trng2PPowerBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PPowerBar, powerbartable, config.Trng2PPowerBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('powerbar', config.Trng2PPowerBar, 2)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PPowerBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PPowerBar = config.Trng2PPowerBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PPowerBar, powerbartable, config.Trng2PPowerBar)
 			modified = true
+			setTrngOption('powerbar', config.Trng2PPowerBar, 2)
 		end
 		return true
 	end,
-	['1PStunBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng1pstunbar'] = function(t, item, cursorPosY, moveTxt)
+		local stunbartable = {
+			[0] = 'Normal',
+			[1] = 'Danger (80%)',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng1PStunBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PStunBar = config.Trng1PStunBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PStunBar, stunbartable, config.Trng1PStunBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('stunbar', config.Trng1PStunBar, 1)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PStunBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PStunBar = config.Trng1PStunBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PStunBar, stunbartable, config.Trng1PStunBar)
 			modified = true
+			setTrngOption('stunbar', config.Trng1PStunBar, 1)
 		end
 		return true
 	end,
-	['2PStunBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng2pstunbar'] = function(t, item, cursorPosY, moveTxt)
+		local stunbartable = {
+			[0] = 'Normal',
+			[1] = 'Danger (80%)',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng2PStunBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PStunBar = config.Trng2PStunBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PStunBar, stunbartable, config.Trng2PStunBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('stunbar', config.Trng2PStunBar, 2)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PStunBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PStunBar = config.Trng2PStunBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PStunBar, stunbartable, config.Trng2PStunBar)
 			modified = true
+			setTrngOption('stunbar', config.Trng2PStunBar, 2)
 		end
 		return true
 	end,
-	['1PGuardBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng1pguardbar'] = function(t, item, cursorPosY, moveTxt)
+		local guardbartable = {
+			[0] = 'Normal',
+			[1] = 'Danger (20%)',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng1PGuardBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PGuardBar = config.Trng1PGuardBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PGuardBar, guardbartable, config.Trng1PGuardBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('guardbar', config.Trng1PGuardBar, 1)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PGuardBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng1PGuardBar = config.Trng1PGuardBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PGuardBar, guardbartable, config.Trng1PGuardBar)
 			modified = true
+			setTrngOption('guardbar', config.Trng1PGuardBar, 1)
 		end
 		return true
 	end,
-	['2PGuardBar'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
+	['trng2pguardbar'] = function(t, item, cursorPosY, moveTxt)
+		local guardbartable = {
+			[0] = 'Normal',
+			[1] = 'Danger (20%)',
+			[2] = 'Infinite',
+		}
+		if main.f_input(main.t_players, {'$F'}) and config.Trng2PGuardBar < 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty + 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PGuardBar = config.Trng2PGuardBar + 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PGuardBar, guardbartable, config.Trng2PGuardBar)
 			modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
+			setTrngOption('guardbar', config.Trng2PGuardBar, 2)
+		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PGuardBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			config.Difficulty = config.Difficulty - 1
-			t.items[item].vardisplay = config.Difficulty
+			config.Trng2PGuardBar = config.Trng2PGuardBar - 1
+			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PGuardBar, guardbartable, config.Trng2PGuardBar)
 			modified = true
+			setTrngOption('guardbar', config.Trng2PGuardBar, 2)
 		end
 		return true
 	end,
@@ -304,6 +380,9 @@ function menu.f_createMenu(tbl, section, bgdef, txt_title, bool_main)
 			if bool_main then
 				togglePause(false)
 				main.pauseMenu = false
+				if modified then
+					options.f_saveCfg(needReload)
+				end
 			else
 				sndPlay(motif.files.snd_data, motif[section].cancel_snd[1], motif[section].cancel_snd[2])
 			end
@@ -326,6 +405,18 @@ function menu.f_createMenu(tbl, section, bgdef, txt_title, bool_main)
 end
 
 function menu.f_vardisplay(itemname)
+	--if itemname == 'TrngDummyMode' then return config.TrngDummyMode end
+	if itemname == 'trngdummyaction' then return options.f_definedDisplay(config.TrngDummyAction, {[0] = 'Standing', [1] = 'Crouching', [2] = 'Neutral Jump',}, config.TrngDummyAction) end
+	if itemname == 'trngdummyguard' then return options.f_definedDisplay(config.TrngDummyGuard, {[0] = 'None', [1] = 'Always', [2] = 'Auto', [3] = 'Random',}, config.TrngDummyGuard) end
+	if itemname == 'trngcounterhit' then return options.f_boolDisplay(config.TrngCounterHit, "Instant", "Off") end
+	if itemname == 'trng1phealthmeter' then return options.f_definedDisplay(config.Trng1PHealthMeter, {[0] = 'Auto Recover', [1] = 'Normal', [2] = 'Danger (20%)', [3] = 'Infinite',}, config.Trng1PHealthMeter) end
+	if itemname == 'trng2phealthmeter' then return options.f_definedDisplay(config.Trng2PHealthMeter, {[0] = 'Auto Recover', [1] = 'Normal', [2] = 'Danger (20%)', [3] = 'Infinite',}, config.Trng2PHealthMeter) end
+	if itemname == 'trng1ppowerbar' then return options.f_definedDisplay(config.Trng1PPowerBar, {[0] = 'Normal', [1] = 'Refill on Combo End', [2] = 'Infinite',}, config.Trng1PPowerBar) end
+	if itemname == 'trng2ppowerbar' then return options.f_definedDisplay(config.Trng2PPowerBar, {[0] = 'Normal', [1] = 'Refill on Combo End', [2] = 'Infinite',}, config.Trng2PPowerBar) end
+	if itemname == 'trng1pstunbar' then return options.f_definedDisplay(config.Trng1PStunBar, {[0] = 'Normal', [1] = 'Danger (80%)', [2] = 'Infinite',}, config.Trng1PStunBar) end
+	if itemname == 'trng2pstunbar' then return options.f_definedDisplay(config.Trng2PStunBar, {[0] = 'Normal', [1] = 'Danger (80%)', [2] = 'Infinite',}, config.Trng2PStunBar) end
+	if itemname == 'trng1pguardbar' then return options.f_definedDisplay(config.Trng1PGuardBar, {[0] = 'Normal', [1] = 'Danger (20%)', [2] = 'Infinite',}, config.Trng1PGuardBar) end
+	if itemname == 'trng2pguardbar' then return options.f_definedDisplay(config.Trng2PGuardBar, {[0] = 'Normal', [1] = 'Danger (20%)', [2] = 'Infinite',}, config.Trng2PGuardBar) end
 	return ''
 end
 
@@ -717,20 +808,7 @@ end
 --; TRIALS LIST
 --;===========================================================
 function menu.f_trialslistRender(section, trialsdatatemp)
-	main.f_cmdInput()
-	local trialsList = {}
-	--draw overlay
-	menu[section .. '_trialslist_overlay']:draw()
-	--draw title
-	menu[section .. '_txt_title']:update({text = main.f_itemnameUpper('Trials List')})
-	menu[section .. '_txt_title']:draw()
-	if start.trialsInit then
-		if start.trialsdata.active then
-		--lots of stuff
-		else
 
-		end
-	end
 end
 --;===========================================================
 --; TRAINING MODE OPTIONS
@@ -755,169 +833,6 @@ end
 -- DEFAULT SETTINGS
 --;===========================================================
 function menu.f_trainingoptions(section, t)
-	menu.training_itemname = {
-		--Back
-		['back'] = function(t, item, cursorPosY, moveTxt)
-			if main.f_input(main.t_players, {'pal', 's'}) then
-				sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
-				return false
-			end
-			return true
-		end,
-		--Port Change
-		['dummymode'] = function(t, item, cursorPosY, moveTxt)
-			if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
-				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-				local port = main.f_drawInput(
-					main.f_extractText(motif.option_info.textinput_port_text),
-					txt_textinput,
-					overlay_textinput,
-					motif.option_info.textinput_offset[2],
-					main.f_ySpacing(motif.option_info, 'textinput_font'),
-					motif.optionbgdef
-				)
-				if tonumber(port) ~= nil then
-					sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
-					config.ListenPort = tostring(port)
-					setListenPort(port)
-					t.items[item].vardisplay = getListenPort()
-					modified = true
-				else
-					sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
-				end
-			end
-			return true
-		end,
-		--Default Values
-		['default'] = function(t, item, cursorPosY, moveTxt)
-			if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
-				sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
-				config.AIRamping = true
-				config.AIRandomColor = true
-				config.AudioDucking = false
-				config.AutoGuard = false
-				config.BarGuard = false
-				config.BarRedLife = true
-				config.BarStun = false
-				config.Borderless = false
-				config.ComboExtraFrameWindow = 1
-				--config.CommonAir = "data/common.air"
-				--config.CommonCmd = "data/common.cmd"
-				--config.CommonLua = {
-				--	"loop()"
-				--}
-				--config.CommonStates = {
-				--	"data/action.zss",
-				--	"data/dizzy.zss",
-				--	"data/guardbreak.zss",
-				--	"data/rank.zss",
-				--	"data/score.zss",
-				--	"data/tag.zss"
-				--}
-				--config.ControllerStickSensitivity = 0.4
-				config.Credits = 10
-				--config.DebugClipboardRows = 2
-				--config.DebugConsoleRows = 15
-				--config.DebugFont = "font/f-4x6.def"
-				--config.DebugFontScale = 
-				modified = true
-				needReload = true
-			end
-			return true
-		end,
-		--Difficulty Level
-		['difficulty'] = function(t, item, cursorPosY, moveTxt)
-			if main.f_input(main.t_players, {'$F'}) and config.Difficulty < 8 then
-				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-				config.Difficulty = config.Difficulty + 1
-				t.items[item].vardisplay = config.Difficulty
-			modified = true
-			elseif main.f_input(main.t_players, {'$B'}) and config.Difficulty > 1 then
-				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-				config.Difficulty = config.Difficulty - 1
-				t.items[item].vardisplay = config.Difficulty
-			modified = true
-			end
-			return true
-		end,
-		--Time Limit
-		['roundtime'] = function(t, item, cursorPosY, moveTxt)
-			if main.f_input(main.t_players, {'$F'}) and config.RoundTime < 1000 then
-			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-				config.RoundTime = config.RoundTime + 1
-				t.items[item].vardisplay = config.RoundTime
-				modified = true
-			elseif main.f_input(main.t_players, {'$B'}) and config.RoundTime > -1 then
-			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-				config.RoundTime = config.RoundTime - 1
-				t.items[item].vardisplay = options.f_definedDisplay(config.RoundTime, {[-1] = motif.option_info.menu_valuename_none}, config.RoundTime)
-				modified = true
-			end
-			return true
-		end,
-	}
-
-	--main.f_cmdInput()
-	--if esc() or main.f_input(main.t_players, {'m'}) then
-	--	sndPlay(motif.files.snd_data, motif[section].cancel_snd[1], motif[section].cancel_snd[2])
-	--	menu.itemname = ''
-	--	return
-	--elseif main.f_input(main.t_players, {'$U'}) then --and t.tbl.movelistLine > 1 then
-	--	sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
-		--t.tbl.movelistLine = t.tbl.movelistLine - 1
-	--elseif main.f_input(main.t_players, {'$D'}) then --and t.tbl.movelistLine <= #cmdList - motif[section].movelist_window_visibleitems then
-	--	sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
-	--	--t.tbl.movelistLine = t.tbl.movelistLine + 1
-	--end
-	--draw overlay
-	--menu[section .. '_overlay']:draw()
-	--draw title
-	--menu[section .. '_txt_title']:update({text = main.f_itemnameUpper('Training Mode Options')})
-	--menu[section .. '_txt_title']:draw()
-
-
-	menu.training_menu = {title = main.f_itemnameUpper(motif.training_info.trainingoptions_title_text, motif.training_info.menu_title_uppercase == 1), submenu = {}, items = menu.training_itemname}
-	local moveTxt = 0
-	local cursorPosY = 1
-	local item = 1
-	local t = {}
-	local txt_titleTrainOpt = main.f_createTextImg(motif.training_info, 'trainingoptions_title')
-	local t_menuWindowTrainOpt = main.f_menuWindow(motif.training_info)
-	--local modes = {'Dummy Mode', 'Dummy Action', 'Dummy Guard Mode', 'Stun Meter', 'Guard Meter,' 'Counter Hit', '1P Health', '2P Health', '1P Power Bar', '2P Power Bar'}
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Mode', displayname = 'Dummy Mode', vardisplay = 'Idle', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Action', displayname = 'Dummy Action', vardisplay = 'Stand', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Dummy Guard Mode', displayname = 'Dummy Guard Mode', vardisplay = 'None', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Stun Meter', displayname = 'Stun Meter', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'Counter Hit', displayname = 'Counter Hit', vardisplay = 'Off', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Health Meter', displayname = '1P Health Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Health Meter', displayname = '2P Health Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Power Bar', displayname = '1P Power Bar', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Power Bar', displayname = '2P Power Bar', vardisplay = 'Normal', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Stun Meter', displayname = '1P Stun Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Stun Meter', displayname = '2P Stun Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '1P Guard Meter', displayname = '1P Guard Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = '2P Guard Meter', displayname = '2P Guard Meter', vardisplay = 'Auto Recover', vardata = text:create({window = t_menuWindowTrainOpt})})
-	table.insert(t, {data = text:create({window = t_menuWindowTrainOpt}), itemname = 'back', displayname = motif.training_info.menu_itemname_back})
-	while true do
-		main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, 'training_info', 'trainingbgdef', txt_titleTrainOpt, motif.defaultTrainingOptions, {})
-		cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, 'training_info', {'$U'}, {'$D'})
-		if esc() or main.f_input(main.t_players, {'m'}) then
-			sndPlay(motif.files.snd_data, motif[section].cancel_snd[1], motif[section].cancel_snd[2])
-			menu.itemname = ''
-			return
-		elseif menu.training_itemname[t[item].itemname] ~= nil then
-			if not options.t_itemname[t[item].itemname](tbl, item, cursorPosY, moveTxt) then
-				break
-			end
-		elseif main.f_input(main.t_players, {'pal', 's'}) then
-			local f = t[item].itemname
-			if tbl.submenu[f].loop ~= nil then
-				sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
-				tbl.submenu[f].loop()
-			elseif not options.t_itemname[f](tbl, item, cursorPosY, moveTxt) then
-				break
-			end
-		end
-	end
+	
 end
 return menu

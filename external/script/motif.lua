@@ -2566,18 +2566,18 @@ function motif.setBaseTrainingInfo()
 	motif.training_info.menu_itemname_menuinput_back = "Back"
 	motif.training_info.menu_itemname_commandlist = "Command List"
 	motif.training_info.menu_itemname_trainingoptions = "Training Mode Options"
-	motif.training_info.menu_itemname_trainingoptions_dummymode = "Dummy Mode"
-	motif.training_info.menu_itemname_trainingoptions_dummyaction = "Dummy Action"
-	motif.training_info.menu_itemname_trainingoptions_guard = "Dummy Guard Mode"
-	motif.training_info.menu_itemname_trainingoptions_counterhit = "Counter Hit"
-	motif.training_info.menu_itemname_trainingoptions_1PHealthMeter = "1P Health Meter"
-	motif.training_info.menu_itemname_trainingoptions_2PHealthMeter = "2P Health Meter"
-	motif.training_info.menu_itemname_trainingoptions_1PPowerBar = "1P Power Bar"
-	motif.training_info.menu_itemname_trainingoptions_2PPowerBar = "2P Power Bar"
-	motif.training_info.menu_itemname_trainingoptions_1PStunBar = "1P Stun Bar"
-	motif.training_info.menu_itemname_trainingoptions_2PStunBar = "2P Stun Bar"
-	motif.training_info.menu_itemname_trainingoptions_1PGuardBar = "1P Guard Bar"
-	motif.training_info.menu_itemname_trainingoptions_2PGuardBar = "2P Guard Bar"
+	--motif.training_info.menu_itemname_trainingoptions_trngdummymode = "Dummy Mode"
+	motif.training_info.menu_itemname_trainingoptions_trngdummyaction = "Dummy Action"
+	motif.training_info.menu_itemname_trainingoptions_trngdummyguard = "Dummy Guard"
+	motif.training_info.menu_itemname_trainingoptions_trngcounterhit = "Counter Hit"
+	motif.training_info.menu_itemname_trainingoptions_trng1phealthmeter = "1P Health Meter"
+	motif.training_info.menu_itemname_trainingoptions_trng2phealthmeter = "2P Health Meter"
+	motif.training_info.menu_itemname_trainingoptions_trng1ppowerbar = "1P Power Bar"
+	motif.training_info.menu_itemname_trainingoptions_trng2ppowerbar = "2P Power Bar"
+	motif.training_info.menu_itemname_trainingoptions_trng1pstunbar = "1P Stun Bar"
+	motif.training_info.menu_itemname_trainingoptions_trng2pstunbar = "2P Stun Bar"
+	motif.training_info.menu_itemname_trainingoptions_trng1pguardbar = "1P Guard Bar"
+	motif.training_info.menu_itemname_trainingoptions_trng2pguardbar = "2P Guard Bar"
 	motif.training_info.menu_itemname_trainingoptions_empty = ""
 	motif.training_info.menu_itemname_trainingoptions_back = "Back"
 	motif.training_info.menu_itemname_characterchange = "Character Change"
@@ -2586,18 +2586,18 @@ function motif.setBaseTrainingInfo()
 	main.t_sort.training_info.menu = {
 		"back",
 		"trainingoptions",
-		"trainingoptions_dummymode",
-		"trainingoptions_dummyaction",
-		"trainingoptions_guard",
-		"trainingoptions_counterhit",
-		"trainingoptions_1PHealthMeter",
-		"trainingoptions_2PHealthMeter",
-		"trainingoptions_1PPowerBar",
-		"trainingoptions_2PPowerBar",
-		"trainingoptions_1PStunBar",
-		"trainingoptions_2PStunBar",
-		"trainingoptions_1PGuardBar",
-		"trainingoptions_2PGuardBar",
+		--"trainingoptions_dummymode",
+		"trainingoptions_trngdummyaction",
+		"trainingoptions_trngdummyguard",
+		"trainingoptions_trngcounterhit",
+		"trainingoptions_trng1phealthmeter",
+		"trainingoptions_trng2phealthmeter",
+		"trainingoptions_trng1ppowerbar",
+		"trainingoptions_trng2ppowerbar",
+		"trainingoptions_trng1pstunbar",
+		"trainingoptions_trng2pstunbar",
+		"trainingoptions_trng1pguardbar",
+		"trainingoptions_trng2pguardbar",
 		"trainingoptions_empty",
 		"trainingoptions_back",
 		"menuinput",

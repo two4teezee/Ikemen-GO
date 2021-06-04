@@ -96,6 +96,34 @@ const (
 	TM_LAST = TM_Tag
 )
 
+var TrngOptionsSeed = TrngOptions{
+	TrngDummyAction:   0,
+	TrngDummyGuard:    0,
+	TrngCounterHit:    false,
+	Trng1PHealthMeter: 0,
+	Trng2PHealthMeter: 0,
+	Trng1PPowerBar:    0,
+	Trng2PPowerBar:    0,
+	Trng1PStunBar:     0,
+	Trng2PStunBar:     0,
+	Trng1PGuardBar:    0,
+	Trng2PGuardBar:    0,
+}
+
+type TrngOptions struct {
+	TrngDummyAction   int32
+	TrngDummyGuard    int32
+	TrngCounterHit    bool
+	Trng1PHealthMeter int32
+	Trng2PHealthMeter int32
+	Trng1PPowerBar    int32
+	Trng2PPowerBar    int32
+	Trng1PStunBar     int32
+	Trng2PStunBar     int32
+	Trng1PGuardBar    int32
+	Trng2PGuardBar    int32
+}
+
 // System struct, holds most of the data that is accessed globally through the program.
 type System struct {
 	randseed                int32
@@ -343,7 +371,8 @@ type System struct {
 	postMatchFlg    bool
 	brightnessOld   int32
 	// Controls the GL_TEXTURE_MAG_FILTER on 32bit sprites
-	pngFilter bool
+	pngFilter   bool
+	trngOptions TrngOptions
 }
 
 type Window struct {
@@ -2078,7 +2107,7 @@ func (s *System) fight() (reload bool) {
 			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
 			s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
 			oldTeamLeader = s.teamLeader
-			
+
 			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
 				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
 				/* Prepare for the next round */

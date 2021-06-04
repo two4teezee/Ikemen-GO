@@ -245,6 +245,18 @@ type configSettings struct {
 	TeamLifeShare              bool
 	TeamPowerShare             bool
 	TrainingChar               string
+	TrngDummyMode              int
+	TrngDummyAction            int
+	TrngDummyGuard             int
+	TrngCounterHit             bool
+	Trng1PHealthMeter          int
+	Trng2PHealthMeter          int
+	Trng1PPowerBar             int
+	Trng2PPowerBar             int
+	Trng1PStunBar              int
+	Trng2PStunBar              int
+	Trng1PGuardBar             int
+	Trng2PGuardBar             int
 	TurnsRecoveryBase          float32
 	TurnsRecoveryBonus         float32
 	VolumeBgm                  int
@@ -293,7 +305,8 @@ func setupConfig() configSettings {
 		"data/guardbreak.zss",
 		"data/rank.zss",
 		"data/score.zss",
-		"data/tag.zss"
+		"data/tag.zss",
+		"data/training.zss"
     ],
 	"ControllerStickSensitivity": 0.4,
 	"Credits": 10,
@@ -369,6 +382,18 @@ func setupConfig() configSettings {
 	"TeamLifeShare": false,
 	"TeamPowerShare": true,
 	"TrainingChar": "chars/training/training.def",
+	"TrngDummyMode": 0,
+	"TrngDummyAction": 0,
+	"TrngDummyGuard": 0,
+	"TrngCounterHit": false,
+	"Trng1PHealthMeter": 0,
+	"Trng2PHealthMeter": 0,
+	"Trng1PPowerBar": 0,
+	"Trng2PPowerBar": 0,
+	"Trng1PStunBar": 0,
+	"Trng2PStunBar": 0,
+	"Trng1PGuardBar": 0,
+	"Trng2PGuardBar": 0,
 	"TurnsRecoveryBase": 0,
 	"TurnsRecoveryBonus": 20,
 	"VolumeBgm": 80,

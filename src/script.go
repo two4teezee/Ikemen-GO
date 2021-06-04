@@ -2105,6 +2105,45 @@ func systemScriptInit(l *lua.LState) {
 		sys.lifebar.ti.framespercount = int32(numArg(l, 1))
 		return 0
 	})
+	luaRegister(l, "setTrngOption", func(*lua.LState) int {
+		switch strArg(l, 1) {
+		case "dummyaction":
+			sys.trngOptions.TrngDummyAction = int32(numArg(l, 2))
+		case "dummyguard":
+			sys.trngOptions.TrngDummyGuard = int32(numArg(l, 2))
+		case "counterhit":
+			sys.trngOptions.TrngCounterHit = boolArg(l, 2)
+		case "lifebar":
+			switch int(numArg(l, 3)) {
+			case 1:
+				sys.trngOptions.Trng1PHealthMeter = int32(numArg(l, 2))
+			case 2:
+				sys.trngOptions.Trng2PHealthMeter = int32(numArg(l, 2))
+			}
+		case "powerbar":
+			switch int(numArg(l, 3)) {
+			case 1:
+				sys.trngOptions.Trng1PPowerBar = int32(numArg(l, 2))
+			case 2:
+				sys.trngOptions.Trng1PPowerBar = int32(numArg(l, 2))
+			}
+		case "stunbar":
+			switch int(numArg(l, 3)) {
+			case 1:
+				sys.trngOptions.Trng1PStunBar = int32(numArg(l, 2))
+			case 2:
+				sys.trngOptions.Trng2PStunBar = int32(numArg(l, 2))
+			}
+		case "guardbar":
+			switch int(numArg(l, 3)) {
+			case 1:
+				sys.trngOptions.Trng1PGuardBar = int32(numArg(l, 2))
+			case 2:
+				sys.trngOptions.Trng2PGuardBar = int32(numArg(l, 2))
+			}
+		}
+		return 0
+	})
 	luaRegister(l, "setVolumeMaster", func(l *lua.LState) int {
 		sys.masterVolume = int(numArg(l, 1))
 		return 0
@@ -2961,6 +3000,45 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LString(sys.cgi[0].trialslist.trialspecialstr[int(numArg(l, 2))][int(numArg(l, 3))]))
 		case "currenttrialspecialval":
 			l.Push(lua.LNumber(sys.cgi[0].trialslist.trialspecialval[int(numArg(l, 2))][int(numArg(l, 3))]))
+		}
+		return 1
+	})
+	luaRegister(l, "getTrngOption", func(*lua.LState) int {
+		switch strArg(l, 1) {
+		case "dummyaction":
+			l.Push(lua.LNumber(sys.trngOptions.TrngDummyAction))
+		case "dummyguard":
+			l.Push(lua.LNumber(sys.trngOptions.TrngDummyGuard))
+		case "counterhit":
+			l.Push(lua.LBool(sys.trngOptions.TrngCounterHit))
+		case "lifebar":
+			switch int(numArg(l, 2)) {
+			case 1:
+				l.Push(lua.LNumber(sys.trngOptions.Trng1PHealthMeter))
+			case 2:
+				l.Push(lua.LNumber(sys.trngOptions.Trng2PHealthMeter))
+			}
+		case "powerbar":
+			switch int(numArg(l, 2)) {
+			case 1:
+				l.Push(lua.LNumber(sys.trngOptions.Trng1PPowerBar))
+			case 2:
+				l.Push(lua.LNumber(sys.trngOptions.Trng2PPowerBar))
+			}
+		case "stunbar":
+			switch int(numArg(l, 2)) {
+			case 1:
+				l.Push(lua.LNumber(sys.trngOptions.Trng1PStunBar))
+			case 2:
+				l.Push(lua.LNumber(sys.trngOptions.Trng2PStunBar))
+			}
+		case "guardbar":
+			switch int(numArg(l, 2)) {
+			case 1:
+				l.Push(lua.LNumber(sys.trngOptions.Trng1PGuardBar))
+			case 2:
+				l.Push(lua.LNumber(sys.trngOptions.Trng2PGuardBar))
+			}
 		}
 		return 1
 	})

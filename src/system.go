@@ -16,11 +16,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Windblade-GR01/go-openal/openal"
 	"github.com/faiface/beep"
 	"github.com/faiface/beep/speaker"
 	"github.com/go-gl/gl/v2.1/gl"
 	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/ikemen-engine/go-openal/openal"
 	"github.com/sqweek/dialog"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -28,8 +28,11 @@ import (
 const (
 	MaxSimul        = 32
 	MaxAttachedChar = 2
-	FPS             = 60
-	Mp3SampleRate   = 44100
+)
+
+var (
+	FPS           = 60
+	Mp3SampleRate = 44100
 )
 
 // sys
@@ -84,6 +87,8 @@ var sys = System{
 	consoleRows:          15,
 	clipboardRows:        2,
 	pngFilter:            false,
+
+	maxBgmVolume: 0,
 }
 
 type TeamMode int32
@@ -166,6 +171,7 @@ type System struct {
 	round                   int32
 	intro                   int32
 	time                    int32
+	lastHitter              [2]int
 	winTeam                 int
 	winType                 [2]WinType
 	winTrigger              [2]WinType
@@ -285,6 +291,7 @@ type System struct {
 	loseTag                 bool
 	fullscreen              bool
 	allowDebugKeys          bool
+	allowDebugMode          bool
 	commonAir               string
 	commonCmd               string
 	keyInput                glfw.Key
@@ -371,8 +378,9 @@ type System struct {
 	postMatchFlg    bool
 	brightnessOld   int32
 	// Controls the GL_TEXTURE_MAG_FILTER on 32bit sprites
-	pngFilter   bool
-	trngOptions TrngOptions
+	trngOptions  TrngOptions
+	pngFilter    bool
+	maxBgmVolume int
 }
 
 type Window struct {
@@ -950,6 +958,7 @@ func (s *System) nextRound() {
 	s.winTeam = -1
 	s.winType = [...]WinType{WT_N, WT_N}
 	s.winTrigger = [...]WinType{WT_N, WT_N}
+	s.lastHitter = [2]int{-1, -1}
 	s.fightOver = false
 	s.waitdown = s.lifebar.ro.over_hittime*s.lifebar.ro.over_waittime + 900
 	s.slowtime = s.lifebar.ro.slow_time
@@ -1226,7 +1235,7 @@ func (s *System) action(x, y *float32, scl float32) (leftest, rightest,
 		}
 		s.charList.action(*x, &cvmin, &cvmax,
 			&highest, &lowest, &leftest, &rightest)
-		s.nomusic = s.sf(GSF_nomusic)
+		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
 	} else {
 		s.charUpdate(&cvmin, &cvmax, &highest, &lowest, &leftest, &rightest)
 	}
@@ -1671,9 +1680,10 @@ func (s *System) drawTop() {
 	} else if s.fadeouttime > 0 && fadeout < s.fadeouttime-1 && !s.dialogueFlg {
 		fade(s.scrrect, s.lifebar.ro.fadeout_col, 256*(s.lifebar.ro.fadeout_time-s.fadeouttime)/s.lifebar.ro.fadeout_time)
 		s.fadeouttime--
-	} else if s.clsnDraw {
+	} // ToDo: Add this back as a option.
+	/*else if s.clsnDraw {
 		fade(s.scrrect, 0, 0)
-	}
+	}*/
 	if s.shuttertime > 0 {
 		rect := s.scrrect
 		rect[3] = s.shuttertime * ((s.scrrect[3] + 1) >> 1) / s.lifebar.ro.shutter_time
@@ -1755,7 +1765,8 @@ func (s *System) drawDebug() {
 			if f != nil {
 				if i == 1 {
 					s.debugFont.SetColor(199, 199, 219)
-				} else if i > 1 && s.debugWC.ss.sb.playerNo != s.debugWC.playerNo {
+				} else if (i == 2 && s.debugWC.animPN != s.debugWC.playerNo) ||
+					(i == 3 && s.debugWC.ss.sb.playerNo != s.debugWC.playerNo) {
 					s.debugFont.SetColor(255, 255, 127)
 				} else {
 					s.debugFont.SetColor(255, 255, 255)
@@ -2461,6 +2472,7 @@ func (s *Select) addChar(def string) {
 	idx := strings.Index(def, "/")
 	if len(def) >= 4 && strings.ToLower(def[len(def)-4:]) == ".def" {
 		if idx < 0 {
+			sc.name = "dummyslot"
 			return
 		}
 	} else if idx < 0 {
@@ -2472,10 +2484,12 @@ func (s *Select) addChar(def string) {
 		def = "chars/" + def
 	}
 	if def = FileExist(def); len(def) == 0 {
+		sc.name = "dummyslot"
 		return
 	}
 	str, err := LoadText(def)
 	if err != nil {
+		sc.name = "dummyslot"
 		return
 	}
 	sc.def = def

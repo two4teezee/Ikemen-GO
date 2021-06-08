@@ -311,7 +311,7 @@ func setupConfig() configSettings {
 		"data/guardbreak.zss",
 		"data/rank.zss",
 		"data/score.zss",
-		"data/tag.zss",
+		"data/tag.zss"
     ],
 	"ControllerStickSensitivity": 0.4,
 	"Credits": 10,

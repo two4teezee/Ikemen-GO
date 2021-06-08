@@ -2116,9 +2116,9 @@ func systemScriptInit(l *lua.LState) {
 		case "lifebar":
 			switch int(numArg(l, 3)) {
 			case 1:
-				sys.trngOptions.Trng1PHealthMeter = int32(numArg(l, 2))
+				sys.trngOptions.Trng1PLifeBar = int32(numArg(l, 2))
 			case 2:
-				sys.trngOptions.Trng2PHealthMeter = int32(numArg(l, 2))
+				sys.trngOptions.Trng2PLifeBar = int32(numArg(l, 2))
 			}
 		case "powerbar":
 			switch int(numArg(l, 3)) {
@@ -3014,9 +3014,9 @@ func triggerFunctions(l *lua.LState) {
 		case "lifebar":
 			switch int(numArg(l, 2)) {
 			case 1:
-				l.Push(lua.LNumber(sys.trngOptions.Trng1PHealthMeter))
+				l.Push(lua.LNumber(sys.trngOptions.Trng1PLifeBar))
 			case 2:
-				l.Push(lua.LNumber(sys.trngOptions.Trng2PHealthMeter))
+				l.Push(lua.LNumber(sys.trngOptions.Trng2PLifeBar))
 			}
 		case "powerbar":
 			switch int(numArg(l, 2)) {

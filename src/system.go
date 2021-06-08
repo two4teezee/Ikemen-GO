@@ -97,31 +97,31 @@ const (
 )
 
 var TrngOptionsSeed = TrngOptions{
-	TrngDummyAction:   0,
-	TrngDummyGuard:    0,
-	TrngCounterHit:    false,
-	Trng1PHealthMeter: 0,
-	Trng2PHealthMeter: 0,
-	Trng1PPowerBar:    0,
-	Trng2PPowerBar:    0,
-	Trng1PStunBar:     0,
-	Trng2PStunBar:     0,
-	Trng1PGuardBar:    0,
-	Trng2PGuardBar:    0,
+	TrngDummyAction: 0,
+	TrngDummyGuard:  0,
+	TrngCounterHit:  false,
+	Trng1PLifeBar:   0,
+	Trng2PLifeBar:   0,
+	Trng1PPowerBar:  0,
+	Trng2PPowerBar:  0,
+	Trng1PStunBar:   0,
+	Trng2PStunBar:   0,
+	Trng1PGuardBar:  0,
+	Trng2PGuardBar:  0,
 }
 
 type TrngOptions struct {
-	TrngDummyAction   int32
-	TrngDummyGuard    int32
-	TrngCounterHit    bool
-	Trng1PHealthMeter int32
-	Trng2PHealthMeter int32
-	Trng1PPowerBar    int32
-	Trng2PPowerBar    int32
-	Trng1PStunBar     int32
-	Trng2PStunBar     int32
-	Trng1PGuardBar    int32
-	Trng2PGuardBar    int32
+	TrngDummyAction int32
+	TrngDummyGuard  int32
+	TrngCounterHit  bool
+	Trng1PLifeBar   int32
+	Trng2PLifeBar   int32
+	Trng1PPowerBar  int32
+	Trng2PPowerBar  int32
+	Trng1PStunBar   int32
+	Trng2PStunBar   int32
+	Trng1PGuardBar  int32
+	Trng2PGuardBar  int32
 }
 
 // System struct, holds most of the data that is accessed globally through the program.

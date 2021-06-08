@@ -469,6 +469,17 @@ const (
 	OC_ex_timeelapsed
 	OC_ex_timeremaining
 	OC_ex_timetotal
+	OC_ex_trngdummyaction
+	OC_ex_trngdummyguard
+	OC_ex_trngcounterhit
+	OC_ex_trngp1lifebar
+	OC_ex_trngp2lifebar
+	OC_ex_trngp1powerbar
+	OC_ex_trngp2powerbar
+	OC_ex_trngp1stunbar
+	OC_ex_trngp2stunbar
+	OC_ex_trngp1guardbar
+	OC_ex_trngp2guardbar
 )
 const (
 	NumVar     = OC_sysvar0 - OC_var0
@@ -1849,6 +1860,28 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(timeRemaining())
 	case OC_ex_timetotal:
 		sys.bcStack.PushI(timeTotal())
+	case OC_ex_trngdummyaction:
+		sys.bcStack.PushI(sys.trngOptions.TrngDummyAction)
+	case OC_ex_trngdummyguard:
+		sys.bcStack.PushI(sys.trngOptions.TrngDummyGuard)
+	case OC_ex_trngcounterhit:
+		sys.bcStack.PushB(sys.trngOptions.TrngCounterHit)
+	case OC_ex_trngp1lifebar:
+		sys.bcStack.PushI(sys.trngOptions.Trng1PLifeBar)
+	case OC_ex_trngp2lifebar:
+		sys.bcStack.PushI(sys.trngOptions.Trng2PLifeBar)
+	case OC_ex_trngp1powerbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng1PPowerBar)
+	case OC_ex_trngp2powerbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng2PPowerBar)
+	case OC_ex_trngp1stunbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng1PStunBar)
+	case OC_ex_trngp2stunbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng2PStunBar)
+	case OC_ex_trngp1guardbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng1PGuardBar)
+	case OC_ex_trngp2guardbar:
+		sys.bcStack.PushI(sys.trngOptions.Trng2PGuardBar)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

@@ -356,6 +356,17 @@ var triggerMap = map[string]int{
 	"timeelapsed":      1,
 	"timeremaining":    1,
 	"timetotal":        1,
+	"trngdummyaction":  1,
+	"trngdummyguard":   1,
+	"trngcounterhit":   1,
+	"trngp1lifebar":    1,
+	"trngp2lifebar":    1,
+	"trngp1powerbar":   1,
+	"trngp2powerbar":   1,
+	"trngp1stunbar":    1,
+	"trngp2stunbar":    1,
+	"trngp1guardbar":   1,
+	"trngp2guardbar":   1,
 }
 
 func (c *Compiler) tokenizer(in *string) string {
@@ -2640,6 +2651,28 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_timeremaining) // Only here for backwards compatibility purposes, going to be deprecated once Add004 updates.
 	case "timetotal":
 		out.append(OC_ex_, OC_ex_timetotal)
+	case "trngdummyaction":
+		out.append(OC_ex_, OC_ex_trngdummyaction)
+	case "trngdummyguard":
+		out.append(OC_ex_, OC_ex_trngdummyguard)
+	case "trngcounterhit":
+		out.append(OC_ex_, OC_ex_trngcounterhit)
+	case "trngp1lifebar":
+		out.append(OC_ex_, OC_ex_trngp1lifebar)
+	case "trngp2lifebar":
+		out.append(OC_ex_, OC_ex_trngp2lifebar)
+	case "trngp1powerbar":
+		out.append(OC_ex_, OC_ex_trngp1powerbar)
+	case "trngp2powerbar":
+		out.append(OC_ex_, OC_ex_trngp2powerbar)
+	case "trngp1stunbar":
+		out.append(OC_ex_, OC_ex_trngp1stunbar)
+	case "trngp2stunbar":
+		out.append(OC_ex_, OC_ex_trngp2stunbar)
+	case "trngp1guardbar":
+		out.append(OC_ex_, OC_ex_trngp1guardbar)
+	case "trngp2guardbar":
+		out.append(OC_ex_, OC_ex_trngp2guardbar)
 	case "drawpalno":
 		out.append(OC_ex_, OC_ex_drawpalno)
 	case "=", "!=", ">", ">=", "<", "<=", "&", "&&", "^", "^^", "|", "||",

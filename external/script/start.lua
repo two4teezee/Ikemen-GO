@@ -4162,6 +4162,83 @@ function start.f_trialsmode()
 end
 
 --;===========================================================
+--; TRAINING MODE
+--;===========================================================
+function start.f_trainingmodemanager()
+--; The training mode manager function is fully customizable, with one exception: 
+--; the table entry for the [0] index must be "default" training option. 
+--;
+--; Ikemen GO currently ships with these training mode options:
+--;
+--; training_info.TrngDummyActionTable = {
+--;			[0] = 'Standing',
+--;			[1] = 'Crouching',
+--;			[2] = 'Neutral Jump',
+--;			[3] = 'Standing Attack',
+--;			[4] = 'Crouching Attack',
+--;			[5] = 'Projectile Attack',
+--;		}
+--;
+--; training_info.TrngDummyGuardTable = {
+--;			[0] = 'None',
+--;			[1] = 'Always',
+--;			[2] = 'Auto',
+--;			[3] = 'Random',
+--;		}
+--;
+--;	training_info.Trng1PHealthMeterTable = { --or 2P
+--;			[0] = 'Auto Recover',
+--;			[1] = 'Normal',
+--;			[2] = 'Danger (20%)',
+--;			[3] = 'Infinite',
+--;		}	
+--; training_info.Trng1PPowerBarTable = { --or 2P
+--;			[0] = 'Normal',
+--;			[1] = 'Refill on Combo End',
+--;			[2] = 'Infinite',
+--;		}
+--;
+--; training_info.Trng1PStunBarTable = { --or 2P
+--;			[0] = 'Normal',
+--;			[1] = 'Danger (80%)',
+--;			[2] = 'Infinite',
+--;		}
+--; training_info.Trng1PGuardBarTable = { --or 2P
+--;			[0] = 'Normal',
+--;			[1] = 'Danger (20%)',
+--;			[2] = 'Infinite',
+--;		}
+--;
+	if hitpausetime() < 1 and config.TrngDummyAction > 0 then
+		if config.TrngDummyAction == 1 then --Crouching
+			if p2stateno() == 0 then
+				charChangeState(2,10)
+			elseif p2stateno() == 10 then
+				charChangeState(2,11)
+			end
+		elseif config.TrngDummyAction == 2 then --Neutral Jump
+			--charChangeState(2,40)
+		elseif config.TrngDummyAction == 3 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Standing Attack
+			charChangeState(2,400)
+			menu.training_info.dummyactionspacer = 59
+		elseif config.TrngDummyAction == 4 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Crouching Attack
+			charChangeState(2,405)
+			menu.training_info.dummyactionspacer = 59
+		elseif config.TrngDummyAction == 5 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Projectile Attack
+			charChangeState(2,410)
+			menu.training_info.dummyactionspacer = 59
+		end
+		if p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then
+			menu.training_info.dummyactionno = 1
+		elseif p2stateno() == 0 and menu.training_info.dummyactionspacer > 0 then
+			menu.training_info.dummyactionspacer = menu.training_info.dummyactionspacer - 1
+		end
+	end
+end
+
+
+
+--;===========================================================
 --; CHALLENGER
 --;===========================================================
 local txt_challenger = main.f_createTextImg(motif.challenger_info, 'text')

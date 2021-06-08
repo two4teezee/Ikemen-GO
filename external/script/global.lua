@@ -274,6 +274,8 @@ function loop()
 			end
 		elseif gamemode('trials') and gettrialinfo('trialspresent') then
 			start.f_trialsmode()
+		elseif gamemode('training') then
+			start.f_trainingmodemanager()
 		end
 	end
 end

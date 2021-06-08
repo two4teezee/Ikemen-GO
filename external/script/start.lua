@@ -4175,7 +4175,7 @@ function start.f_trainingmodemanager()
 --;
 --; Ikemen GO currently ships with these training mode options:
 --;
---; training_info.TrngDummyActionTable = {
+--; menu.training_info.TrngDummyActionTable = {
 --;			[0] = 'Standing',
 --;			[1] = 'Crouching',
 --;			[2] = 'Neutral Jump',
@@ -4184,41 +4184,45 @@ function start.f_trainingmodemanager()
 --;			[5] = 'Projectile Attack',
 --;		}
 --;
---; training_info.TrngDummyGuardTable = {
+--; menu.training_info.TrngDummyGuardTable = {
 --;			[0] = 'None',
 --;			[1] = 'Always',
 --;			[2] = 'Auto',
 --;			[3] = 'Random',
 --;		}
 --;
---;	training_info.Trng1PHealthMeterTable = { --or 2P
+--;	menu.training_info.Trng1PHealthMeterTable = { --or 2P
 --;			[0] = 'Auto Recover',
 --;			[1] = 'Normal',
 --;			[2] = 'Danger (20%)',
 --;			[3] = 'Infinite',
 --;		}	
---; training_info.Trng1PPowerBarTable = { --or 2P
+--;
+--; menu.training_info.Trng1PPowerBarTable = { --or 2P
 --;			[0] = 'Normal',
 --;			[1] = 'Refill on Combo End',
 --;			[2] = 'Infinite',
 --;		}
 --;
---; training_info.Trng1PStunBarTable = { --or 2P
+--; menu.training_info.Trng1PStunBarTable = { --or 2P
 --;			[0] = 'Normal',
 --;			[1] = 'Danger (80%)',
 --;			[2] = 'Infinite',
 --;		}
---; training_info.Trng1PGuardBarTable = { --or 2P
+--;
+--; menu.training_info.Trng1PGuardBarTable = { --or 2P
 --;			[0] = 'Normal',
 --;			[1] = 'Danger (20%)',
 --;			[2] = 'Infinite',
 --;		}
 --;
+
+	--Training Dummy Action
 	if hitpausetime() < 1 and config.TrngDummyAction > 0 then
 		if config.TrngDummyAction == 1 then --Crouching
-			if p2stateno() == 0 then
+			if p2stateno() == 0 or p2stateno() == 20 then
 				charChangeState(2,10)
-			elseif p2stateno() == 10 then
+			elseif p2stateno() == 10 or p2stateno() == 11 or p2stateno() == 12 then
 				charChangeState(2,11)
 			end
 		elseif config.TrngDummyAction == 2 then --Neutral Jump
@@ -4239,6 +4243,52 @@ function start.f_trainingmodemanager()
 			menu.training_info.dummyactionspacer = menu.training_info.dummyactionspacer - 1
 		end
 	end
+
+	--Training Dummy Guard
+	if config.TrngDummyGuard > 0 then
+
+	end
+
+	--Training P1 Health Meter
+	if config.Trng1PHealthMeter == 0 and combocount() == 0 and hitpausetime() < 1 then --Auto Recover
+		setLife(lifemax(1))
+	elseif config.Trng1PHealthMeter == 1 then --Normal
+
+	elseif config.Trng1PHealthMeter == 2 then --20%
+		setLife(lifemax(1)*0.2)
+	elseif config.Trng1PHealthMeter == 3 then --Infinite
+		setLife(lifemax(1))
+	end
+
+	--Training P2 Health Meter
+	if config.Trng2PHealthMeter > 0 then --Training Dummy health already set to Auto Recover
+		if config.Trng2PHealthMeter == 1 then --Normal
+
+		elseif config.Trng2PHealthMeter == 2 then --20%
+			setLife(lifemax(2)*0.2)
+		elseif config.Trng2PHealthMeter == 3 then --Infinite
+			setLife(lifemax(2))
+		end
+	end
+
+	--Training P1 Powerbar
+	if config.Trng1PPowerBar > 0 then
+		if config.Trng1PPowerBar == 1 and combocount() == 0 and hitpausetime() < 1 then --refill on combo end
+			setPower(3000)
+		elseif config.Trng1PPowerBar == 2 then --Infinite
+			setPower(3000)
+		end
+	end
+
+	--Training P2 Powerbar
+	if config.Trng2PPowerBar > 0 then
+		if config.Trng2PPowerBar == 1 and combocount() == 0 and hitpausetime() < 1 then --refill on combo end
+			setPower(3000)
+		elseif config.Trng2PPowerBar == 2 then --Infinite
+			setPower(3000)
+		end
+	end
+
 end
 
 

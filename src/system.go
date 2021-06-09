@@ -101,34 +101,6 @@ const (
 	TM_LAST = TM_Tag
 )
 
-var TrngOptionsSeed = TrngOptions{
-	TrngDummyAction: 0,
-	TrngDummyGuard:  0,
-	TrngCounterHit:  false,
-	Trng1PLifeBar:   0,
-	Trng2PLifeBar:   0,
-	Trng1PPowerBar:  0,
-	Trng2PPowerBar:  0,
-	Trng1PStunBar:   0,
-	Trng2PStunBar:   0,
-	Trng1PGuardBar:  0,
-	Trng2PGuardBar:  0,
-}
-
-type TrngOptions struct {
-	TrngDummyAction int32
-	TrngDummyGuard  int32
-	TrngCounterHit  bool
-	Trng1PLifeBar   int32
-	Trng2PLifeBar   int32
-	Trng1PPowerBar  int32
-	Trng2PPowerBar  int32
-	Trng1PStunBar   int32
-	Trng2PStunBar   int32
-	Trng1PGuardBar  int32
-	Trng2PGuardBar  int32
-}
-
 // System struct, holds most of the data that is accessed globally through the program.
 type System struct {
 	randseed                int32
@@ -378,7 +350,6 @@ type System struct {
 	postMatchFlg    bool
 	brightnessOld   int32
 	// Controls the GL_TEXTURE_MAG_FILTER on 32bit sprites
-	trngOptions  TrngOptions
 	pngFilter    bool
 	maxBgmVolume int
 }

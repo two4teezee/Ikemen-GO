@@ -1654,6 +1654,7 @@ type Char struct {
 	defaultHitScale       [3]*HitScale
 	nextHitScale          map[int32][3]*HitScale
 	activeHitScale        map[int32][3]*HitScale
+	stateOverride         int32
 }
 
 func newChar(n int, idx int32) (c *Char) {
@@ -1708,6 +1709,7 @@ func (c *Char) clearState() {
 	c.counterHit = false
 	c.fallTime = 0
 	c.hitdefContact = false
+	c.stateOverride = -1
 }
 func (c *Char) clear1() {
 	c.anim = nil
@@ -5341,6 +5343,10 @@ func (c *Char) action() {
 		}
 	}
 	c.minus = -4
+	if c.stateOverride >= 0 {
+		c.changeState(c.stateOverride, -1, -1, false)
+		c.stateOverride = -1
+	}
 	if sb, ok := c.gi().states[-4]; ok {
 		sb.run(c)
 	}

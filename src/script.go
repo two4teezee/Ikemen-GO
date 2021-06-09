@@ -408,7 +408,7 @@ func systemScriptInit(l *lua.LState) {
 					ch.setSCF(SCF_disabled)
 				}
 			} else if c[0].selfStatenoExist(BytecodeInt(st)) == BytecodeBool(true) {
-				c[0].changeState(st, -1, -1, false)
+				c[0].stateOverride = st
 				l.Push(lua.LBool(true))
 				return 1
 			}
@@ -2110,45 +2110,6 @@ func systemScriptInit(l *lua.LState) {
 		sys.lifebar.ti.framespercount = int32(numArg(l, 1))
 		return 0
 	})
-	luaRegister(l, "setTrngOption", func(*lua.LState) int {
-		switch strArg(l, 1) {
-		case "dummyaction":
-			sys.trngOptions.TrngDummyAction = int32(numArg(l, 2))
-		case "dummyguard":
-			sys.trngOptions.TrngDummyGuard = int32(numArg(l, 2))
-		case "counterhit":
-			sys.trngOptions.TrngCounterHit = boolArg(l, 2)
-		case "lifebar":
-			switch int(numArg(l, 3)) {
-			case 1:
-				sys.trngOptions.Trng1PLifeBar = int32(numArg(l, 2))
-			case 2:
-				sys.trngOptions.Trng2PLifeBar = int32(numArg(l, 2))
-			}
-		case "powerbar":
-			switch int(numArg(l, 3)) {
-			case 1:
-				sys.trngOptions.Trng1PPowerBar = int32(numArg(l, 2))
-			case 2:
-				sys.trngOptions.Trng1PPowerBar = int32(numArg(l, 2))
-			}
-		case "stunbar":
-			switch int(numArg(l, 3)) {
-			case 1:
-				sys.trngOptions.Trng1PStunBar = int32(numArg(l, 2))
-			case 2:
-				sys.trngOptions.Trng2PStunBar = int32(numArg(l, 2))
-			}
-		case "guardbar":
-			switch int(numArg(l, 3)) {
-			case 1:
-				sys.trngOptions.Trng1PGuardBar = int32(numArg(l, 2))
-			case 2:
-				sys.trngOptions.Trng2PGuardBar = int32(numArg(l, 2))
-			}
-		}
-		return 0
-	})
 	luaRegister(l, "setVolumeMaster", func(l *lua.LState) int {
 		sys.masterVolume = int(numArg(l, 1))
 		return 0
@@ -3014,45 +2975,6 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "getTrngOption", func(*lua.LState) int {
-		switch strArg(l, 1) {
-		case "dummyaction":
-			l.Push(lua.LNumber(sys.trngOptions.TrngDummyAction))
-		case "dummyguard":
-			l.Push(lua.LNumber(sys.trngOptions.TrngDummyGuard))
-		case "counterhit":
-			l.Push(lua.LBool(sys.trngOptions.TrngCounterHit))
-		case "lifebar":
-			switch int(numArg(l, 2)) {
-			case 1:
-				l.Push(lua.LNumber(sys.trngOptions.Trng1PLifeBar))
-			case 2:
-				l.Push(lua.LNumber(sys.trngOptions.Trng2PLifeBar))
-			}
-		case "powerbar":
-			switch int(numArg(l, 2)) {
-			case 1:
-				l.Push(lua.LNumber(sys.trngOptions.Trng1PPowerBar))
-			case 2:
-				l.Push(lua.LNumber(sys.trngOptions.Trng2PPowerBar))
-			}
-		case "stunbar":
-			switch int(numArg(l, 2)) {
-			case 1:
-				l.Push(lua.LNumber(sys.trngOptions.Trng1PStunBar))
-			case 2:
-				l.Push(lua.LNumber(sys.trngOptions.Trng2PStunBar))
-			}
-		case "guardbar":
-			switch int(numArg(l, 2)) {
-			case 1:
-				l.Push(lua.LNumber(sys.trngOptions.Trng1PGuardBar))
-			case 2:
-				l.Push(lua.LNumber(sys.trngOptions.Trng2PGuardBar))
-			}
-		}
-		return 1
-	})
 	luaRegister(l, "hitcount", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.hitCount))
 		return 1
@@ -3887,7 +3809,7 @@ func triggerFunctions(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		l.Push(lua.LNumber(sys.lastHitter[tn - 1] + 1))
+		l.Push(lua.LNumber(sys.lastHitter[tn-1] + 1))
 		return 1
 	})
 	luaRegister(l, "localcoord", func(*lua.LState) int {

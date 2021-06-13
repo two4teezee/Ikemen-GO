@@ -1,8 +1,5 @@
 local menu = {}
 local modified = false
-menu.training_info = {
-	dummyactionspacer = 0,
-}
 
 --;===========================================================
 --; PAUSE MENU
@@ -111,13 +108,11 @@ menu.t_itemname = {
 			config.TrngDummyAction = config.TrngDummyAction + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, menu.training_info.TrngDummyActionTable, config.TrngDummyAction)
 			modified = true
-			setTrngOption('dummyaction', config.TrngDummyAction)
 		elseif main.f_input(main.t_players, {'$B'}) and config.TrngDummyAction > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.TrngDummyAction = config.TrngDummyAction - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, menu.training_info.TrngDummyActionTable, config.TrngDummyAction)
 			modified = true
-			setTrngOption('dummyaction', config.TrngDummyAction)
 		end
 		return true
 	end,
@@ -133,13 +128,11 @@ menu.t_itemname = {
 			config.TrngDummyGuard = config.TrngDummyGuard + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyGuard, menu.training_info.TrngDummyGuardTable, config.TrngDummyGuard)
 			modified = true
-			setTrngOption('dummyguard', config.TrngDummyGuard)
 		elseif main.f_input(main.t_players, {'$B'}) and config.TrngDummyGuard > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.TrngDummyGuard = config.TrngDummyGuard - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyGuard, menu.training_info.TrngDummyGuardTable, config.TrngDummyGuard)
 			modified = true
-			setTrngOption('dummyguard', config.TrngDummyGuard)
 		end
 		return true
 	end,
@@ -154,7 +147,6 @@ menu.t_itemname = {
 			end
 			t.items[item].vardisplay = options.f_boolDisplay(config.TrngCounterHit, "Instant", "Off")
 			modified = true
-			setTrngOption('counterhit', config.TrngCounterHit)
 		end
 		return true
 	end,
@@ -170,13 +162,11 @@ menu.t_itemname = {
 			config.Trng1PHealthMeter = config.Trng1PHealthMeter + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PHealthMeter, menu.training_info.Trng1PHealthMeterTable, config.Trng1PHealthMeter)
 			modified = true
-			setTrngOption('lifebar', config.Trng1PHealthMeter, 1)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PHealthMeter > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng1PHealthMeter = config.Trng1PHealthMeter - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PHealthMeter, menu.training_info.Trng1PHealthMeterTable, config.Trng1PHealthMeter)
 			modified = true
-			setTrngOption('lifebar', config.Trng1PHealthMeter, 1)
 		end
 		return true
 	end,
@@ -192,13 +182,11 @@ menu.t_itemname = {
 			config.Trng2PHealthMeter = config.Trng2PHealthMeter + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PHealthMeter, menu.training_info.Trng2PHealthMeterTable, config.Trng2PHealthMeter)
 			modified = true
-			setTrngOption('lifebar', config.Trng2PHealthMeter, 2)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PHealthMeter > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng2PHealthMeter = config.Trng2PHealthMeter - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PHealthMeter, menu.training_info.Trng2PHealthMeterTable, config.Trng2PHealthMeter)
 			modified = true
-			setTrngOption('lifebar', config.Trng2PHealthMeter, 2)
 		end
 		return true
 	end,
@@ -213,13 +201,11 @@ menu.t_itemname = {
 			config.Trng1PPowerBar = config.Trng1PPowerBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PPowerBar, menu.training_info.Trng1PPowerBarTable, config.Trng1PPowerBar)
 			modified = true
-			setTrngOption('powerbar', config.Trng1PPowerBar, 1)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PPowerBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng1PPowerBar = config.Trng1PPowerBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PPowerBar, menu.training_info.Trng1PPowerBarTable, config.Trng1PPowerBar)
 			modified = true
-			setTrngOption('powerbar', config.Trng1PPowerBar, 1)
 		end
 		return true
 	end,
@@ -234,13 +220,11 @@ menu.t_itemname = {
 			config.Trng2PPowerBar = config.Trng2PPowerBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PPowerBar, menu.training_info.Trng2PPowerBarTable, config.Trng2PPowerBar)
 			modified = true
-			setTrngOption('powerbar', config.Trng2PPowerBar, 2)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PPowerBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng2PPowerBar = config.Trng2PPowerBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PPowerBar, menu.training_info.Trng2PPowerBarTable, config.Trng2PPowerBar)
 			modified = true
-			setTrngOption('powerbar', config.Trng2PPowerBar, 2)
 		end
 		return true
 	end,
@@ -255,13 +239,11 @@ menu.t_itemname = {
 			config.Trng1PStunBar = config.Trng1PStunBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PStunBar, menu.training_info.Trng1PStunBarTable, config.Trng1PStunBar)
 			modified = true
-			setTrngOption('stunbar', config.Trng1PStunBar, 1)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PStunBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng1PStunBar = config.Trng1PStunBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PStunBar, menu.training_info.Trng1PStunBarTable, config.Trng1PStunBar)
 			modified = true
-			setTrngOption('stunbar', config.Trng1PStunBar, 1)
 		end
 		return true
 	end,
@@ -276,13 +258,11 @@ menu.t_itemname = {
 			config.Trng2PStunBar = config.Trng2PStunBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PStunBar, menu.training_info.Trng2PStunBarTable, config.Trng2PStunBar)
 			modified = true
-			setTrngOption('stunbar', config.Trng2PStunBar, 2)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PStunBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng2PStunBar = config.Trng2PStunBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PStunBar, menu.training_info.Trng2PStunBarTable, config.Trng2PStunBar)
 			modified = true
-			setTrngOption('stunbar', config.Trng2PStunBar, 2)
 		end
 		return true
 	end,
@@ -297,13 +277,11 @@ menu.t_itemname = {
 			config.Trng1PGuardBar = config.Trng1PGuardBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PGuardBar, menu.training_info.Trng1PGuardBarTable, config.Trng1PGuardBar)
 			modified = true
-			setTrngOption('guardbar', config.Trng1PGuardBar, 1)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng1PGuardBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng1PGuardBar = config.Trng1PGuardBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng1PGuardBar, menu.training_info.Trng1PGuardBarTable, config.Trng1PGuardBar)
 			modified = true
-			setTrngOption('guardbar', config.Trng1PGuardBar, 1)
 		end
 		return true
 	end,
@@ -318,13 +296,11 @@ menu.t_itemname = {
 			config.Trng2PGuardBar = config.Trng2PGuardBar + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PGuardBar, menu.training_info.Trng2PGuardBarTable, config.Trng2PGuardBar)
 			modified = true
-			setTrngOption('guardbar', config.Trng2PGuardBar, 2)
 		elseif main.f_input(main.t_players, {'$B'}) and config.Trng2PGuardBar > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.Trng2PGuardBar = config.Trng2PGuardBar - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.Trng2PGuardBar, menu.training_info.Trng2PGuardBarTable, config.Trng2PGuardBar)
 			modified = true
-			setTrngOption('guardbar', config.Trng2PGuardBar, 2)
 		end
 		return true
 	end,
@@ -838,7 +814,26 @@ end
 --
 -- DEFAULT SETTINGS
 --;===========================================================
-function menu.f_trainingoptions(section, t)
-	
-end
+menu.training_info = {
+	dummyactionspacer = 0,
+	p1spacers = {
+		lifebarrefill = 0,
+		powerbarrefill = 0,
+		stunbarrefill = 0,
+		guardbarrefill = 0,
+	},
+	p2spacers = {
+		lifebarrefill = 0,
+		powerbarrefill = 0,
+		stunbarrefill = 0,
+		guardbarrefill = 0,
+	},
+	defaultspacerpauses = {
+		dummyaction = 59,
+		lifebarrefill = 59,
+		powerbarrefill = 59,
+		stunbarrefill = 59,
+		guardbarrefill = 59,
+	},
+}
 return menu

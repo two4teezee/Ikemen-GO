@@ -1,5 +1,29 @@
 local menu = {}
 local modified = false
+menu.training_info = {
+	dummyactionspacer = 0,
+	p1spacers = {
+		lifebarrefill = 0,
+		powerbarrefill = 0,
+		stunbarrefill = 0,
+		guardbarrefill = 0,
+	},
+	p2spacers = {
+		lifebarrefill = 0,
+		powerbarrefill = 0,
+		stunbarrefill = 0,
+		guardbarrefill = 0,
+	},
+	defaultspacerpauses = {
+		--these are default wait values (in number of frames) 
+		--before dummy actions or bars are refilled
+		dummyaction = 179,
+		lifebarrefill = 59,
+		powerbarrefill = 59,
+		stunbarrefill = 59,
+		guardbarrefill = 59,
+	},
+}
 
 --;===========================================================
 --; PAUSE MENU
@@ -107,11 +131,13 @@ menu.t_itemname = {
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.TrngDummyAction = config.TrngDummyAction + 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, menu.training_info.TrngDummyActionTable, config.TrngDummyAction)
+			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
 			modified = true
 		elseif main.f_input(main.t_players, {'$B'}) and config.TrngDummyAction > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			config.TrngDummyAction = config.TrngDummyAction - 1
 			t.items[item].vardisplay = options.f_definedDisplay(config.TrngDummyAction, menu.training_info.TrngDummyActionTable, config.TrngDummyAction)
+			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
 			modified = true
 		end
 		return true
@@ -814,26 +840,5 @@ end
 --
 -- DEFAULT SETTINGS
 --;===========================================================
-menu.training_info = {
-	dummyactionspacer = 0,
-	p1spacers = {
-		lifebarrefill = 0,
-		powerbarrefill = 0,
-		stunbarrefill = 0,
-		guardbarrefill = 0,
-	},
-	p2spacers = {
-		lifebarrefill = 0,
-		powerbarrefill = 0,
-		stunbarrefill = 0,
-		guardbarrefill = 0,
-	},
-	defaultspacerpauses = {
-		dummyaction = 59,
-		lifebarrefill = 59,
-		powerbarrefill = 59,
-		stunbarrefill = 59,
-		guardbarrefill = 59,
-	},
-}
+
 return menu

@@ -2174,6 +2174,7 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(Random()))
 		return 1
 	})
+
 	luaRegister(l, "step", func(*lua.LState) int {
 		sys.step = true
 		return 0

@@ -4172,199 +4172,182 @@ end
 function start.f_trainingmodemanager()
 --; The training mode manager function is fully customizable, with one exception: 
 --; the table entry for the [0] index must be "default" training option. 
---;
---; Ikemen GO currently ships with these training mode options:
---;
---; menu.training_info.TrngDummyActionTable = {
---;			[0] = 'Standing',
---;			[1] = 'Crouching',
---;			[2] = 'Neutral Jump',
---;			[3] = 'Standing Attack',
---;			[4] = 'Crouching Attack',
---;			[5] = 'Projectile Attack',
---;		}
---;
---; menu.training_info.TrngDummyGuardTable = {
---;			[0] = 'None',
---;			[1] = 'Always',
---;			[2] = 'Auto',
---;			[3] = 'Random',
---;		}
---;
---;	menu.training_info.Trng1PHealthMeterTable = { --or 2P
---;			[0] = 'Auto Recover',
---;			[1] = 'Normal',
---;			[2] = 'Danger (20%)',
---;			[3] = 'Infinite',
---;		}	
---;
---; menu.training_info.Trng1PPowerBarTable = { --or 2P
---;			[0] = 'Normal',
---;			[1] = 'Refill on Combo End',
---;			[2] = 'Infinite',
---;		}
---;
---; menu.training_info.Trng1PStunBarTable = { --or 2P
---;			[0] = 'Normal',
---;			[1] = 'Danger (80%)',
---;			[2] = 'Infinite',
---;		}
---;
---; menu.training_info.Trng1PGuardBarTable = { --or 2P
---;			[0] = 'Normal',
---;			[1] = 'Danger (20%)',
---;			[2] = 'Infinite',
---;		}
---;
 
 	--Training Dummy Action
-	if hitpausetime() < 1 and config.TrngDummyAction > 0 then
-		if config.TrngDummyAction == 1 then --Crouching
-			if p2stateno() == 0 or p2stateno() == 20 then
-				charChangeState(2,10)
-			elseif p2stateno() == 10 or p2stateno() == 11 or p2stateno() == 12 then
-				charChangeState(2,11)
-			end
-		elseif config.TrngDummyAction == 2 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Neutral Jump
-			charChangeState(2,40)
-			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
-		elseif config.TrngDummyAction == 3 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Standing Attack
-			charChangeState(2,400)
-			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
-		elseif config.TrngDummyAction == 4 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Crouching Attack
-			charChangeState(2,405)
-			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
-		elseif config.TrngDummyAction == 5 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Projectile Attack
-			charChangeState(2,410)
-			menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
-		end
-		if p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then
-			menu.training_info.dummyactionno = 1
-		elseif p2stateno() == 0 and menu.training_info.dummyactionspacer > 0 then
-			menu.training_info.dummyactionspacer = menu.training_info.dummyactionspacer - 1
-		end
+	if config.TrngDummyAction > 0 then
+		start.f_trainingDummyAction()
 	end
 
 	--Training Dummy Guard
 	if config.TrngDummyGuard > 0 then
+		start.f_trainingDummyGuard()
+	end
 
+	if config.TrngCounterHit then
+		start.f_trainingCounterHit()
 	end
 
 	--Training P1 Health Meter
-	if config.Trng1PHealthMeter == 0 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p1spacers.lifebarrefill == 0 then --Auto Recover
-		player(1)
-		setLife(lifemax(1))
-		menu.training_info.p1spacers.lifebarrefill = menu.training_info.defaultspacerpauses.lifebarrefill
-	elseif config.Trng1PHealthMeter == 1 then --Normal
-		if life(1) == 0 then
-			player(1)
-			setLife(lifemax(1))
-		end
-	elseif config.Trng1PHealthMeter == 2 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p1spacers.lifebarrefill == 0 then --20%
-		player(1)
-		setLife(lifemax(1)*0.2)
-		menu.training_info.p1spacers.lifebarrefill = menu.training_info.defaultspacerpauses.lifebarrefill
-	elseif config.Trng1PHealthMeter == 3 then --Infinite
-		player(1)
-		setLife(lifemax(1))
-		menu.training_info.p1spacers.lifebarrefill = 0
-	elseif hitpausetime() < 1 and menu.training_info.p1spacers.lifebarrefill > 0 then
-		menu.training_info.p1spacers.lifebarrefill = menu.training_info.p1spacers.lifebarrefill - 1
-	end
+	start.f_trainingLifebar(1)
 
 	--Training P2 Health Meter
 	if config.Trng2PHealthMeter > 0 then --Training Dummy health already set to Auto Recover
-		if config.Trng2PHealthMeter == 1 then --Normal
-			--do nothing?
-		elseif config.Trng2PHealthMeter == 2 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p2spacers.lifebarrefill == 0 then --20%
-			player(2)
-			setLife(lifemax(2)*0.2)
-			menu.training_info.p2spacers.lifebarrefill = menu.training_info.defaultspacerpauses.lifebarrefill
-		elseif config.Trng2PHealthMeter == 3 then --Infinite
-			player(2)
-			setLife(lifemax(2))
-			menu.training_info.p2spacers.lifebarrefill = 0
-		elseif hitpausetime() < 1 and menu.training_info.p2spacers.lifebarrefill > 0 then
-			menu.training_info.p2spacers.lifebarrefill = menu.training_info.p2spacers.lifebarrefill - 1
-		end
+		start.f_trainingLifebar(2)
 	end
 
 	--Training P1 Powerbar
 	if config.Trng1PPowerBar > 0 then
-		if (config.Trng1PPowerBar == 1 and combocount() == 0 and hitpausetime() < 1) or config.Trng1PPowerBar == 2 then --refill on combo end or Infinte
-		player(1)	
-		setPower(3000)
-		end
+		start.f_trainingPowerbar(1)
 	end
 
 	--Training P2 Powerbar
 	if config.Trng2PPowerBar > 0 then
-		if (config.Trng2PPowerBar == 1 and combocount() == 0 and hitpausetime() < 1) or config.Trng2PPowerBar == 2 then --refill on combo end or Infinte
-		player(2)
-		setPower(3000)
-		end
+		start.f_trainingPowerbar(2)
 	end
 
 	--Training P1 Stunbar
 	if config.Trng1PStunBar > 0 then
-		if config.Trng1PStunBar == 1 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p1spacers.stunbarrefill == 0 and dizzyoints(1) < dizzypointsmax(1)*0.2 then --Danger (80%)
-			player(1)
-			setDizzyPoints(dizzypointsmax(1)*0.2)
-			menu.training_info.p1spacers.stunbarrefill = menu.training_info.defaultspacerpauses.stunbarrefill
-		elseif config.Trng1PStunBar == 2 and menu.training_info.p1spacers.stunbarrefill == 0 then --Infinite
-			player(1)
-			setDizzyPoints(dizzypointsmax(1))
-			menu.training_info.p1spacers.stunbarrefill = menu.training_info.defaultspacerpauses.stunbarrefill
-		elseif hitpausetime() < 1 and menu.training_info.p1spacers.stunbarrefill > 0 then
-			menu.training_info.p1spacers.stunbarrefill = menu.training_info.p1spacers.stunbarrefill - 1
-		end
+		start.f_trainingStunbar(1)
 	end
 
 	--Training P2 Stunbar
 	if config.Trng2PStunBar > 0 then
-		if config.Trng2PStunBar == 2 and combocount() == 0 and hitpausetime() < 2 and menu.training_info.p2spacers.stunbarrefill == 0 and dizzyoints(2) < dizzypointsmax(2)*0.2 then --Danger (80%)
-			player(2)
-			setDizzyPoints(dizzypointsmax(2)*0.2)
-			menu.training_info.p2spacers.stunbarrefill = menu.training_info.defaultspacerpauses.stunbarrefill
-		elseif config.Trng2PStunBar == 2 and menu.training_info.p2spacers.stunbarrefill == 0 then --Infinite
-			player(2)
-			setDizzyPoints(dizzypointsmax(2))
-			menu.training_info.p2spacers.stunbarrefill = menu.training_info.defaultspacerpauses.stunbarrefill
-		elseif hitpausetime() < 1 and menu.training_info.p2spacers.stunbarrefill > 0 then
-			menu.training_info.p2spacers.stunbarrefill = menu.training_info.p2spacers.stunbarrefill - 1
-		end
+		start.f_trainingStunbar(2)
 	end
 
 	--Training P1 Guardbar
 	if config.Trng1PGuardBar > 0 then
-		if config.Trng1PGuardBar == 1 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p2spacers.guardbarrefill == 0 and guardpoints(1) > guardpointsmax(1)*0.2 then --Danger (20%)
-			player(1)
-			setGuardPoints(guardpointsmax(1)*0.2)
-			menu.training_info.p2spacers.guardbarrefill = menu.training_info.defaultspacerpauses.guardbarrefill
-		elseif config.Trng1PGuardBar == 2 and menu.training_info.p2spacers.guardbarrefill == 0 then --Infinite
-			player(1)
-			setGuardPoints(guardpointsmax(1))
-		elseif hitpausetime() < 1 and menu.training_info.p1spacers.guardbarrefill > 0 then
-			menu.training_info.p1spacers.guardbarrefill = menu.training_info.p1spacers.guardbarrefill - 1
-		end
+		start.f_trainingGuardBar(1)
 	end
 
 	--Training P2 Guardbar
 	if config.Trng2PGuardBar > 0 then
-		if config.Trng2PGuardBar == 1 and combocount() == 0 and hitpausetime() < 1 and menu.training_info.p2spacers.guardbarrefill == 0 and guardpoints(2) > guardpointsmax(2)*0.2 then --Danger (20%)
-			player(2)
-			setGuardPoints(guardpointsmax(2)*0.2)
-			menu.training_info.p2spacers.guardbarrefill = menu.training_info.defaultspacerpauses.guardbarrefill
-		elseif config.Trng2PGuardBar == 2 then --Infinite
-			player(2)
-			setGuardPoints(guardpointsmax(2))
-		elseif hitpausetime() < 1 and menu.training_info.p2spacers.guardbarrefill > 0 then
-			menu.training_info.p2spacers.guardbarrefill = menu.training_info.p2spacers.guardbarrefill - 1
-		end
+		start.f_trainingGuardBar(2)
 	end
 end
 
+function start.f_trainingDummyAction()
+	--; menu.training_info.TrngDummyActionTable = {
+	--;			[0] = 'Standing',
+	--;			[1] = 'Crouching',
+	--;			[2] = 'Neutral Jump',
+	--;			[3] = 'Standing Attack',
+	--;			[4] = 'Crouching Attack',
+	--;			[5] = 'Projectile Attack',
+	--;		}
+	player(1)
+	if config.TrngDummyAction == 1 then --Crouching
+		if p2stateno() == 0 or p2stateno() == 20 then
+			charChangeState(2,10)
+		elseif p2stateno() == 10 or p2stateno() == 11 or p2stateno() == 12 then
+			charChangeState(2,11)
+		end
+	elseif config.TrngDummyAction == 2 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Neutral Jump
+		charChangeState(2,40)
+		menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
+	elseif hitpausetime() < 1 and config.TrngDummyAction == 3 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Standing Attack
+		charChangeState(2,400)
+		menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
+	elseif hitpausetime() < 1 and config.TrngDummyAction == 4 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Crouching Attack
+		charChangeState(2,405)
+		menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
+	elseif hitpausetime() < 1 and config.TrngDummyAction == 5 and p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then --Projectile Attack
+		charChangeState(2,410)
+		menu.training_info.dummyactionspacer = menu.training_info.defaultspacerpauses.dummyaction
+	end
+	if p2stateno() == 0 and menu.training_info.dummyactionspacer == 0 then
+		menu.training_info.dummyactionno = 1
+	elseif p2stateno() == 0 and menu.training_info.dummyactionspacer > 0 then
+		menu.training_info.dummyactionspacer = menu.training_info.dummyactionspacer - 1
+	end
+end
 
+function start.f_trainingDummyGuard()
+	--; menu.training_info.TrngDummyGuardTable = {
+	--;			[0] = 'None',
+	--;			[1] = 'Always',
+	--;			[2] = 'Auto',
+	--;			[3] = 'Random',
+	--;		}
+end
+
+function start.f_trainingLifebar(side)
+	--;	menu.training_info.Trng1PHealthMeterTable = { --or 2P
+	--;			[0] = 'Auto Recover',
+	--;			[1] = 'Normal',
+	--;			[2] = 'Danger (20%)',
+	--;			[3] = 'Infinite',
+	--;		}	
+	if config['Trng' .. side .. 'PHealthMeter'] == 0 and combocount() == 0 and hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers.lifebarrefill'] == 0 then --Auto Recover
+		player(side)
+		setLife(lifemax(side))
+		menu.training_info['p' .. side .. 'spacers.lifebarrefill'] = menu.training_info.defaultspacerpauses.lifebarrefill
+	elseif config['Trng' .. side .. 'PHealthMeter'] == 1 then --Normal
+		if life(side) == 0 then
+			player(side)
+			setLife(lifemax(side))
+		end
+	elseif config['Trng' .. side .. 'PHealthMeter'] == 2 and combocount() == 0 and hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers.lifebarrefill'] == 0 then --20%
+		player(side)
+		setLife(lifemax(side)*0.2)
+		menu.training_info['p' .. side .. 'spacers.lifebarrefill'] = menu.training_info.defaultspacerpauses.lifebarrefill
+	elseif config['Trng' .. side .. 'PHealthMeter'] == 3 then --Infinite
+		player(side)
+		setLife(lifemax(side))
+		menu.training_info['p' .. side .. 'spacers'].lifebarrefill = 0
+	elseif hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers'].lifebarrefill > 0 then
+		menu.training_info['p' .. side .. 'spacers.lifebarrefill'] = menu.training_info['p' .. side .. 'spacers.lifebarrefill'] - 1
+	end
+end
+
+function start.f_trainingPowerbar(side)
+	--; menu.training_info.Trng1PPowerBarTable = { --or 2P
+	--;			[0] = 'Normal',
+	--;			[1] = 'Refill on Combo End',
+	--;			[2] = 'Infinite',
+	--;		}
+	if (config['Trng' .. side .. 'PPowerBar'] == 1 and combocount() == 0 and hitpausetime() < 1) or config['Trng' .. side .. 'PPowerBar'] == 2 then --refill on combo end or Infinte
+	player(side)
+	setPower(3000)
+	end
+end
+
+function start.f_trainingStunbar(side)
+	--; menu.training_info.Trng1PStunBarTable = { --or 2P
+	--;			[0] = 'Normal',
+	--;			[1] = 'Danger (80%)',
+	--;			[2] = 'Infinite',
+	--;		}
+	if config['Trng' .. side .. 'PStunBar'] == 1 and combocount() == 0 and hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers.stunbarrefill'] == 0 and dizzyoints(side) < dizzypointsmax(side)*0.2 then --Danger (80%)
+		player(side)
+		setDizzyPoints(dizzypointsmax(side)*0.2)
+		menu.training_info['p' .. side .. 'spacers.stunbarrefill'] = menu.training_info.defaultspacerpauses.stunbarrefill
+	elseif config['Trng' .. side .. 'PStunBar'] == 2 and menu.training_info.p1spacers['p' .. side .. 'spacers.stunbarrefill'] == 0 then --Infinite
+		player(side)
+		setDizzyPoints(dizzypointsmax(side))
+		menu.training_info['p' .. side .. 'spacers.stunbarrefill'] = menu.training_info.defaultspacerpauses.stunbarrefill
+	elseif hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers.stunbarrefill'] > 0 then
+		menu.training_info['p' .. side .. 'spacers.stunbarrefill'] = menu.training_info['p' .. side .. 'spacers.stunbarrefill'] - 1
+	end
+end
+
+function start.f_trainingGuardBar(side)
+	--; menu.training_info.Trng1PGuardBarTable = { --or 2P
+	--;			[0] = 'Normal',
+	--;			[1] = 'Danger (20%)',
+	--;			[2] = 'Infinite',
+	--;		}
+	if config['Trng' .. side .. 'PGuardBar'] == 1 and combocount() == 0 and hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers.guardbarrefill'] == 0 and guardpoints(side) > guardpointsmax(side)*0.2 then --Danger (20%)
+		player(side)
+		setGuardPoints(guardpointsmax(side)*0.2)
+		menu.training_info['p' .. side .. 'spacers.guardbarrefill'] = menu.training_info.defaultspacerpauses.guardbarrefill
+	elseif config['Trng' .. side .. 'PGuardBar'] == 2 and menu.training_info['p' .. side .. 'spacers.guardbarrefill'] == 0 then --Infinite
+		player(side)
+		setGuardPoints(guardpointsmax(side))
+	elseif hitpausetime() < 1 and menu.training_info['p' .. side .. 'spacers'].guardbarrefill > 0 then
+		menu.training_info['p' .. side .. 'spacers.guardbarrefill'] = menu.training_info['p' .. side .. 'spacers.guardbarrefill'] - 1
+	end
+end
 
 --;===========================================================
 --; CHALLENGER

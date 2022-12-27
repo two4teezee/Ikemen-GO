@@ -2,6 +2,97 @@ package main
 
 import "math"
 
+type RollbackSystem struct {
+	session *RollbackSession
+	fight   Fight
+}
+
+func (rs *RollbackSystem) runShortcutScripts(sys System) {
+
+}
+
+func (rs *RollbackSystem) runNextRound(sys System) {
+
+}
+
+func (rs *RollbackSystem) updateStage(sys System) {
+
+}
+
+func (rs *RollbackSystem) action(sys System, input []InputBits) {
+
+}
+
+func (rs *RollbackSystem) handleFlags(sys System) {
+
+}
+
+func (rs *RollbackSystem) updateEvents(sys System) {
+
+}
+
+func (rs *RollbackSystem) updateCamera(sys System) {
+
+}
+
+func getAIInputs(player int) []byte {
+	var ib InputBits
+	ib.SetInputAI(player)
+	return writeI32(int32(ib))
+}
+
+func (ib *InputBits) SetInputAI(in int) {
+	*ib = InputBits(Btoi(sys.aiInput[in].U()) |
+		Btoi(sys.aiInput[in].D())<<1 |
+		Btoi(sys.aiInput[in].L())<<2 |
+		Btoi(sys.aiInput[in].R())<<3 |
+		Btoi(sys.aiInput[in].a())<<4 |
+		Btoi(sys.aiInput[in].b())<<5 |
+		Btoi(sys.aiInput[in].c())<<6 |
+		Btoi(sys.aiInput[in].x())<<7 |
+		Btoi(sys.aiInput[in].y())<<8 |
+		Btoi(sys.aiInput[in].z())<<9 |
+		Btoi(sys.aiInput[in].s())<<10 |
+		Btoi(sys.aiInput[in].d())<<11 |
+		Btoi(sys.aiInput[in].w())<<12 |
+		Btoi(sys.aiInput[in].m())<<13)
+}
+
+func readI32(b []byte) int32 {
+	if len(b) < 4 {
+		return 0
+	}
+	//fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
+	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
+}
+
+func decodeInputs(buffer [][]byte) []InputBits {
+	var inputs = make([]InputBits, len(buffer))
+	for i, b := range buffer {
+		inputs[i] = InputBits(readI32(b))
+	}
+	return inputs
+}
+
+// HACK: So you won't be playing eachothers characters
+func reverseInputs(inputs []InputBits) []InputBits {
+	for i, j := 0, len(inputs)-1; i < j; i, j = i+1, j-1 {
+		inputs[i], inputs[j] = inputs[j], inputs[i]
+	}
+	return inputs
+}
+
+func writeI32(i32 int32) []byte {
+	b := []byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
+	return b
+}
+
+func getInputs(player int) []byte {
+	var ib InputBits
+	ib.SetInput(player)
+	return writeI32(int32(ib))
+}
+
 type Fight struct {
 	fin                          bool
 	oldTeamLeader                [2]int

@@ -38,32 +38,18 @@ func (r *RollbackSession) IsConnected() bool {
 	return r.connected
 }
 
-func (g *RollbackSession) SaveGameState(stateID int) int {
-	g.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
-	g.saveStates[stateID].SaveState()
-
-	// fmt.Printf("Save state for stateID: %d\n", stateID)
-	// fmt.Println(g.saveStates[stateID])
-
-	// checksum := g.saveStates[stateID].Checksum()
-	// fmt.Printf("checksum: %d\n", checksum)
-	// return checksum
+func (r *RollbackSession) SaveGameState(stateID int) int {
+	r.saveStates[stateID] = sys.stateAlloc.AllocGameState()
+	r.saveStates[stateID].SaveState()
 	return ggpo.DefaultChecksum
 }
 
-func (g *RollbackSession) LoadGameState(stateID int) {
-	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
-	// fmt.Println(g.saveStates[stateID])
+func (r *RollbackSession) LoadGameState(stateID int) {
+	r.saveStates[stateID].LoadState()
 
-	// checksum := g.saveStates[stateID].Checksum()
-	// fmt.Printf("checksum: %d\n", checksum)
-
-	g.saveStates[stateID].LoadState()
-	sys.statePool.gameStatePool.Put(g.saveStates[stateID])
-	//sys.gameStatePool <- g.saveStates[stateID]
 }
 
-func (g *RollbackSession) AdvanceFrame(flags int) {
+func (r *RollbackSession) AdvanceFrame(flags int) {
 	var discconectFlags int
 	//Lua code executed before drawing fade, clsns and debug
 	for _, str := range sys.commonLua {
@@ -74,22 +60,23 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
-	inputs, result := g.backend.SyncInput(&discconectFlags)
+	inputs, result := r.backend.SyncInput(&discconectFlags)
 	if result == nil {
 		//fmt.Println("Advancing frame from within callback.")
 		input := decodeInputs(inputs)
 		//fmt.Printf("Inputs: %v\n", input)
 
 		sys.step = false
-		sys.runShortcutScripts()
+		sys.rollback.runShortcutScripts(sys)
 		// If next round
-		sys.runNextRound()
+		sys.rollback.runNextRound(sys)
 
-		sys.updateStage()
-		sys.action(input)
+		sys.rollback.updateStage(sys)
 
-		sys.handleFlags()
-		sys.updateEvents()
+		sys.rollback.action(sys, input)
+
+		sys.rollback.handleFlags(sys)
+		sys.rollback.updateEvents(sys)
 
 		if sys.endMatch {
 			sys.esc = true
@@ -97,28 +84,28 @@ func (g *RollbackSession) AdvanceFrame(flags int) {
 			sys.endMatch = sys.netInput != nil || len(sys.commonLua) == 0
 		}
 
-		sys.updateCamera()
-		err := g.backend.AdvanceFrame()
+		sys.rollback.updateCamera(sys)
+		err := r.backend.AdvanceFrame()
 		if err != nil {
 			panic(err)
 		}
 	}
 }
 
-func (g *RollbackSession) OnEvent(info *ggpo.Event) {
+func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 	switch info.Code {
 	case ggpo.EventCodeConnectedToPeer:
-		g.connected = true
+		r.connected = true
 	case ggpo.EventCodeSynchronizingWithPeer:
-		g.syncProgress = 100 * (info.Count / info.Total)
+		r.syncProgress = 100 * (info.Count / info.Total)
 	case ggpo.EventCodeSynchronizedWithPeer:
-		g.syncProgress = 100
-		g.synchronized = true
+		r.syncProgress = 100
+		r.synchronized = true
 	case ggpo.EventCodeRunning:
 		fmt.Println("EventCodeRunning")
 	case ggpo.EventCodeDisconnectedFromPeer:
 		fmt.Println("EventCodeDisconnectedFromPeer")
-		sys.currentFight.fin = true
+		sys.rollback.fight.fin = true
 		sys.endMatch = true
 		sys.esc = true
 		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
@@ -144,7 +131,7 @@ func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
 
-func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
+func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	//ggpo.EnableLogger()
 	ggpo.DisableLogger()
 
@@ -153,11 +140,11 @@ func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) 
 
 	player := ggpo.NewLocalPlayer(20, 1)
 	player2 := ggpo.NewRemotePlayer(20, 2, remoteIp, remotePort)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
+	rs.players = append(rs.players, player)
+	rs.players = append(rs.players, player2)
 
-	peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	sys.rollbackNetwork.backend = &peer
+	peer := ggpo.NewPeer(rs, localPort, numPlayers, inputSize)
+	rs.backend = &peer
 
 	peer.InitializeConnection()
 	peer.Start()
@@ -167,21 +154,21 @@ func GameInitP1(numPlayers int, localPort int, remotePort int, remoteIp string) 
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle)
+	rs.handles = append(rs.handles, handle)
 	var handle2 ggpo.PlayerHandle
 	result = peer.AddPlayer(&player2, &handle2)
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
-	sys.rollbackNetwork.currentPlayer = int(handle)
-	sys.rollbackNetwork.currentPlayerHandle = handle
+	rs.handles = append(rs.handles, handle2)
+	rs.currentPlayer = int(handle)
+	rs.currentPlayerHandle = handle
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)
 }
 
-func GameInitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
+func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	ggpo.DisableLogger()
 
 	var inputBits InputBits = 0
@@ -189,11 +176,11 @@ func GameInitP2(numPlayers int, localPort int, remotePort int, remoteIp string) 
 
 	player := ggpo.NewRemotePlayer(20, 1, remoteIp, remotePort)
 	player2 := ggpo.NewLocalPlayer(20, 2)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
+	rs.players = append(rs.players, player)
+	rs.players = append(rs.players, player2)
 
-	peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	sys.rollbackNetwork.backend = &peer
+	peer := ggpo.NewPeer(rs, localPort, numPlayers, inputSize)
+	rs.backend = &peer
 
 	peer.InitializeConnection()
 	peer.Start()
@@ -203,24 +190,22 @@ func GameInitP2(numPlayers int, localPort int, remotePort int, remoteIp string) 
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle)
+	rs.handles = append(rs.handles, handle)
 	var handle2 ggpo.PlayerHandle
 	result = peer.AddPlayer(&player2, &handle2)
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
-	sys.rollbackNetwork.currentPlayer = int(handle2)
-	sys.rollbackNetwork.currentPlayerHandle = handle2
+	rs.handles = append(rs.handles, handle2)
+	rs.currentPlayer = int(handle2)
+	rs.currentPlayerHandle = handle2
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)
 }
 
-func GameInitSyncTest(numPlayers int) {
-	rs := NewRollbackSesesion()
-	sys.rollbackNetwork = &rs
-	sys.rollbackNetwork.syncTest = true
+func (rs *RollbackSession) InitSyncTest(numPlayers int) {
+	rs.syncTest = true
 
 	ggpo.EnableLogger()
 
@@ -229,12 +214,12 @@ func GameInitSyncTest(numPlayers int) {
 
 	player := ggpo.NewLocalPlayer(20, 1)
 	player2 := ggpo.NewLocalPlayer(20, 2)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player)
-	sys.rollbackNetwork.players = append(sys.rollbackNetwork.players, player2)
+	rs.players = append(rs.players, player)
+	rs.players = append(rs.players, player2)
 
 	//peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	peer := ggpo.NewSyncTest(sys.rollbackNetwork, numPlayers, 8, inputSize)
-	sys.rollbackNetwork.backend = &peer
+	peer := ggpo.NewSyncTest(rs, numPlayers, 8, inputSize, true)
+	rs.backend = &peer
 
 	//
 	peer.InitializeConnection()
@@ -245,13 +230,13 @@ func GameInitSyncTest(numPlayers int) {
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle)
+	rs.handles = append(rs.handles, handle)
 	var handle2 ggpo.PlayerHandle
 	result = peer.AddPlayer(&player2, &handle2)
 	if result != nil {
 		panic("panic")
 	}
-	sys.rollbackNetwork.handles = append(sys.rollbackNetwork.handles, handle2)
+	rs.handles = append(rs.handles, handle2)
 
 	peer.SetDisconnectTimeout(3000)
 	peer.SetDisconnectNotifyStart(1000)

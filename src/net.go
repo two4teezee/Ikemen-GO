@@ -26,6 +26,37 @@ type RollbackSession struct {
 	remoteIp            string
 	currentPlayer       int
 	currentPlayerHandle ggpo.PlayerHandle
+	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
+	config              *RollbackConfig
+}
+
+func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
+	for len(rs.inputs) <= int(time) {
+		rs.inputs = append(rs.inputs, [MaxSimul*2 + MaxAttachedChar]InputBits{})
+	}
+	rs.inputs[time][player] = input
+}
+
+func (rs *RollbackSession) SaveReplay() {
+	if rs.rep != nil {
+		size := len(rs.inputs) * (MaxSimul*2 + MaxAttachedChar) * 4
+		buf := make([]byte, size)
+		offset := 0
+		for i := range rs.inputs {
+			inputBuf := rs.inputToBytes(i)
+			copy(buf[offset:offset+len(inputBuf)], inputBuf)
+			offset += len(inputBuf)
+		}
+		rs.rep.Write(buf)
+	}
+}
+
+func (rs *RollbackSession) inputToBytes(time int) []byte {
+	buf := []byte{}
+	for i := 0; i < MaxSimul*2+MaxAttachedChar; i++ {
+		buf = append(buf, writeI32(int32(rs.inputs[time][i]))...)
+	}
+	return buf
 }
 
 func (r *RollbackSession) Close() {
@@ -67,16 +98,16 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		//fmt.Printf("Inputs: %v\n", input)
 
 		sys.step = false
-		sys.rollback.runShortcutScripts(sys)
+		sys.rollback.runShortcutScripts(&sys)
 		// If next round
-		sys.rollback.runNextRound(sys)
+		sys.rollback.runNextRound(&sys)
 
-		sys.rollback.updateStage(sys)
+		sys.rollback.updateStage(&sys)
 
-		sys.rollback.action(sys, input)
+		sys.rollback.action(&sys, input)
 
-		sys.rollback.handleFlags(sys)
-		sys.rollback.updateEvents(sys)
+		sys.rollback.handleFlags(&sys)
+		sys.rollback.updateEvents(&sys)
 
 		if sys.endMatch {
 			sys.esc = true
@@ -84,7 +115,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			sys.endMatch = sys.netInput != nil || len(sys.commonLua) == 0
 		}
 
-		sys.rollback.updateCamera(sys)
+		sys.rollback.updateCamera(&sys)
 		err := r.backend.AdvanceFrame()
 		if err != nil {
 			panic(err)
@@ -105,11 +136,12 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 		fmt.Println("EventCodeRunning")
 	case ggpo.EventCodeDisconnectedFromPeer:
 		fmt.Println("EventCodeDisconnectedFromPeer")
-		sys.rollback.fight.fin = true
+		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
 		sys.esc = true
 		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
 		ShowInfoDialog(disconnectMessage, "Disconenection")
+		r.SaveReplay()
 	case ggpo.EventCodeTimeSync:
 		time.Sleep(time.Millisecond * time.Duration(info.FramesAhead/60))
 	case ggpo.EventCodeConnectionInterrupted:
@@ -164,8 +196,9 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 	rs.currentPlayer = int(handle)
 	rs.currentPlayerHandle = handle
 
-	peer.SetDisconnectTimeout(3000)
-	peer.SetDisconnectNotifyStart(1000)
+	peer.SetDisconnectTimeout(rs.config.DisconnectTimeout)
+	peer.SetDisconnectNotifyStart(rs.config.DisconnectNotifyStart)
+	peer.SetFrameDelay(handle, rs.config.FrameDelay)
 }
 
 func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
@@ -200,8 +233,9 @@ func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int,
 	rs.currentPlayer = int(handle2)
 	rs.currentPlayerHandle = handle2
 
-	peer.SetDisconnectTimeout(3000)
-	peer.SetDisconnectNotifyStart(1000)
+	peer.SetDisconnectTimeout(rs.config.DisconnectTimeout)
+	peer.SetDisconnectNotifyStart(rs.config.DisconnectNotifyStart)
+	peer.SetFrameDelay(handle2, rs.config.FrameDelay)
 }
 
 func (rs *RollbackSession) InitSyncTest(numPlayers int) {

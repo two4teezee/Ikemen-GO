@@ -355,6 +355,7 @@ type System struct {
 	panningRange    float32
 	windowCentered  bool
 	rollback        *RollbackSystem
+	rollbackConfig  RollbackConfig
 	saveState       *GameState
 	stateAlloc      *StateAllocator
 }

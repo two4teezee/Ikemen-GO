@@ -530,7 +530,7 @@ func (gs *GameState) LoadState() {
 	sys.stageLoopNo = gs.stageLoopNo
 
 	// 11/5/22
-	sys.rollback.fight = gs.fight
+	sys.rollback.currentFight = gs.fight
 }
 
 func (gs *GameState) SaveState() {
@@ -774,7 +774,7 @@ func (gs *GameState) SaveState() {
 	gs.stageLoopNo = sys.stageLoopNo
 
 	// 11/5/2022
-	gs.fight = sys.rollback.fight.Clone()
+	gs.fight = sys.rollback.currentFight.Clone()
 }
 
 func (gs *GameState) savePalFX() {

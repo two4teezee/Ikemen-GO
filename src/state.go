@@ -308,7 +308,8 @@ type GameState struct {
 	stageLoopNo int
 
 	// 11/5/2022
-	fight Fight
+	fight        Fight
+	introSkipped bool
 }
 
 func NewGameState() *GameState {
@@ -531,6 +532,7 @@ func (gs *GameState) LoadState() {
 
 	// 11/5/22
 	sys.rollback.currentFight = gs.fight
+	sys.introSkipped = gs.introSkipped
 }
 
 func (gs *GameState) SaveState() {
@@ -775,6 +777,8 @@ func (gs *GameState) SaveState() {
 
 	// 11/5/2022
 	gs.fight = sys.rollback.currentFight.Clone()
+
+	gs.introSkipped = sys.introSkipped
 }
 
 func (gs *GameState) savePalFX() {

@@ -3,35 +3,46 @@ package main
 import "math"
 
 type RollbackSystem struct {
-	session *RollbackSession
-	fight   Fight
+	session      *RollbackSession
+	currentFight Fight
 }
 
-func (rs *RollbackSystem) runShortcutScripts(sys System) {
-
+type RollbackConfig struct {
+	FrameDelay            int `json:"frameDelay"`
+	DisconnectNotifyStart int `json:"disconnectNotifyStart"`
+	DisconnectTimeout     int `json:"disconnectTimeout"`
 }
 
-func (rs *RollbackSystem) runNextRound(sys System) {
+func (rs *RollbackSystem) fight(sys *System) {
 
+	rs.session.SaveReplay()
 }
 
-func (rs *RollbackSystem) updateStage(sys System) {
-
-}
-
-func (rs *RollbackSystem) action(sys System, input []InputBits) {
-
-}
-
-func (rs *RollbackSystem) handleFlags(sys System) {
+func (rs *RollbackSystem) runShortcutScripts(sys *System) {
 
 }
 
-func (rs *RollbackSystem) updateEvents(sys System) {
+func (rs *RollbackSystem) runNextRound(sys *System) {
 
 }
 
-func (rs *RollbackSystem) updateCamera(sys System) {
+func (rs *RollbackSystem) updateStage(sys *System) {
+
+}
+
+func (rs *RollbackSystem) action(sys *System, input []InputBits) {
+
+}
+
+func (rs *RollbackSystem) handleFlags(sys *System) {
+
+}
+
+func (rs *RollbackSystem) updateEvents(sys *System) {
+
+}
+
+func (rs *RollbackSystem) updateCamera(sys *System) {
 
 }
 

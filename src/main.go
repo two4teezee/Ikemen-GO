@@ -274,6 +274,7 @@ type configSettings struct {
 		Joystick int
 		Buttons  []interface{}
 	}
+	RollbackConfig RollbackConfig
 }
 
 //go:embed resources/defaultConfig.json
@@ -416,6 +417,6 @@ func setupConfig() configSettings {
 				Atoi(b[12].(string)), Atoi(b[13].(string))})
 		}
 	}
-
+	sys.rollbackConfig = tmp.RollbackConfig
 	return tmp
 }

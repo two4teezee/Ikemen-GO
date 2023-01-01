@@ -1,6 +1,12 @@
 package main
 
-import "math"
+import (
+	"math"
+	"time"
+
+	ggpo "github.com/assemblaj/GGPO-Go/pkg"
+	lua "github.com/yuin/gopher-lua"
+)
 
 type RollbackSystem struct {
 	session      *RollbackSession
@@ -14,37 +20,346 @@ type RollbackConfig struct {
 	LogsEnabled           bool `json:"logsEnabled"`
 }
 
-func (rs *RollbackSystem) fight(sys *System) {
+func (rs *RollbackSystem) fight(s *System) bool {
+	// Reset variables
+	s.gameTime, s.paused, s.accel = 0, false, 1
+	s.aiInput = [len(s.aiInput)]AiInput{}
+	rs.currentFight = NewFight()
+	// Defer resetting variables on return
+	defer rs.currentFight.endFight()
 
+	s.debugWC = sys.chars[0][0]
+	// debugInput := func() {
+	// 	select {
+	// 	case cl := <-s.commandLine:
+	// 		if err := s.luaLState.DoString(cl); err != nil {
+	// 			s.errLog.Println(err.Error())
+	// 		}
+	// 	default:
+	// 	}
+	// }
+
+	// Synchronize with external inputs (netplay, replays, etc)
+	if err := s.synchronize(); err != nil {
+		s.errLog.Println(err.Error())
+		s.esc = true
+	}
+	if s.netInput != nil {
+		defer s.netInput.Stop()
+	}
+	s.wincnt.init()
+
+	// Initialize super meter values, and max power for teams sharing meter
+	rs.currentFight.initSuperMeter()
+	rs.currentFight.initTeamsLevels()
+
+	rs.currentFight.initChars()
+
+	//default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
+	if s.round == 1 && (s.gameMode == "" || len(sys.commonLua) == 0) {
+		s.bgm.Open(s.stage.bgmusic, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), 0)
+	}
+
+	rs.currentFight.oldWins, rs.currentFight.oldDraws = s.wins, s.draws
+	rs.currentFight.oldTeamLeader = s.teamLeader
+
+	var running bool
+	if rs.session != nil && sys.netInput != nil {
+		if rs.session.host != "" {
+			rs.session.InitP2(2, 7550, 7600, rs.session.host)
+			rs.session.playerNo = 2
+		} else {
+			rs.session.InitP1(2, 7600, 7550, rs.session.remoteIp)
+			rs.session.playerNo = 1
+		}
+		if !rs.session.IsConnected() {
+			rs.session.backend.Idle(0)
+		}
+		sys.netInput.Close()
+		sys.netInput = nil
+	} else if sys.netInput == nil && rs.session == nil {
+		rs.session.InitSyncTest(2)
+	}
+
+	rs.currentFight.reset()
+	// Loop until end of match
+	///fin := false
+	for !s.endMatch {
+
+		rs.session.now = time.Now().UnixMilli()
+		err := rs.session.backend.Idle(
+			int(math.Max(0, float64(rs.session.next-rs.session.now-1))))
+		if err != nil {
+			panic(err)
+		}
+
+		running = rs.runFrame(s)
+		rs.session.next = rs.session.now + 1000/60
+
+		if !running {
+			break
+		}
+
+		rs.render(s)
+		sys.update()
+	}
 	rs.session.SaveReplay()
+
+	return false
 }
 
-func (rs *RollbackSystem) runShortcutScripts(sys *System) {
+func (rs *RollbackSystem) runFrame(s *System) bool {
+	var buffer []byte
+	var result error
+	if rs.session.syncTest {
+		buffer = getInputs(0)
+		result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
+		buffer = getInputs(1)
+		result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+	} else {
+		buffer = getInputs(0)
+		result = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
+	}
+
+	if result == nil {
+
+		var values [][]byte
+		disconnectFlags := 0
+		values, result = rs.session.backend.SyncInput(&disconnectFlags)
+		inputs := decodeInputs(values)
+		if result == nil {
+			s.step = false
+			rs.runShortcutScripts(s)
+
+			// If next round
+			if !rs.runNextRound(s) {
+				return false
+			}
+
+			// If frame is ready to tick and not paused
+			rs.updateStage(s)
+
+			// Update game state
+			rs.action(s, inputs)
+
+			if rs.handleFlags(s) {
+				return true
+			}
+
+			if !rs.updateEvents(s) {
+				return false
+			}
+
+			// Break if finished
+			if rs.currentFight.fin && (!s.postMatchFlg || len(s.commonLua) == 0) {
+				return false
+			}
+
+			// Update system; break if update returns false (game ended)
+			//if !s.update() {
+			//	return false
+			//}
+
+			// If end match selected from menu/end of attract mode match/etc
+			if s.endMatch {
+				s.esc = true
+				return false
+			} else if s.esc {
+				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
+				return false
+			}
+
+			//fmt.Println("Advancing game from within runframe.")
+
+			err := rs.session.backend.AdvanceFrame()
+			if err != nil {
+				panic(err)
+			}
+
+		}
+	}
+	return true
 
 }
 
-func (rs *RollbackSystem) runNextRound(sys *System) {
+func (rs *RollbackSystem) runShortcutScripts(s *System) {
+	for _, v := range s.shortcutScripts {
+		if v.Activate {
+			if err := s.luaLState.DoString(v.Script); err != nil {
+				s.errLog.Println(err.Error())
+			}
+		}
+	}
+}
+
+func (rs *RollbackSystem) runNextRound(s *System) bool {
+	if s.roundOver() && !rs.currentFight.fin {
+		s.round++
+		for i := range s.roundsExisted {
+			s.roundsExisted[i]++
+		}
+		s.clearAllSound()
+		tbl_roundNo := s.luaLState.NewTable()
+		for _, p := range s.chars {
+			if len(p) > 0 && p[0].teamside != -1 {
+				tmp := s.luaLState.NewTable()
+				tmp.RawSetString("name", lua.LString(p[0].name))
+				tmp.RawSetString("id", lua.LNumber(p[0].id))
+				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+				tmp.RawSetString("life", lua.LNumber(p[0].life))
+				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+				tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
+				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+				tmp.RawSetString("win", lua.LBool(p[0].win()))
+				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
+				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
+				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+				tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+				tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
+				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+				p[0].firstAttack = false
+			}
+		}
+		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+		rs.currentFight.oldTeamLeader = s.teamLeader
+
+		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+			/* Prepare for the next round */
+			for i, p := range s.chars {
+				if len(p) > 0 {
+					if s.tmode[i&1] != TM_Turns || !p[0].win() {
+						p[0].life = p[0].lifeMax
+					} else if p[0].life <= 0 {
+						p[0].life = 1
+					}
+					p[0].redLife = 0
+					rs.currentFight.copyVar(i)
+				}
+			}
+			rs.currentFight.oldWins, rs.currentFight.oldDraws = s.wins, s.draws
+			rs.currentFight.oldStageVars.copyStageVars(s.stage)
+			rs.currentFight.reset()
+		} else {
+			/* End match, or prepare for a new character in turns mode */
+			for i, tm := range s.tmode {
+				if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
+					for j := i; j < len(s.chars); j += 2 {
+						if len(s.chars[j]) > 0 {
+							if s.chars[j][0].win() {
+								s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(rs.currentFight.lvmul,
+									float64(rs.currentFight.level[i]))*float64(s.chars[j][0].life))))
+							} else {
+								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+							}
+						}
+					}
+					//} else {
+					//	s.chars[i][0].life = 0
+				}
+			}
+			// If match isn't over, presumably this is turns mode,
+			// so break to restart fight for the next character
+			if !s.matchOver() {
+				return false
+			}
+
+			// Otherwise match is over
+			s.postMatchFlg = true
+			rs.currentFight.fin = true
+		}
+	}
+	return true
 
 }
 
-func (rs *RollbackSystem) updateStage(sys *System) {
-
+func (rs *RollbackSystem) updateStage(s *System) {
+	if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
+		(s.pause <= 0 || !s.pausebg) {
+		// Update stage
+		s.stage.action()
+	}
 }
 
 func (rs *RollbackSystem) action(sys *System, input []InputBits) {
 
 }
 
-func (rs *RollbackSystem) handleFlags(sys *System) {
+func (rs *RollbackSystem) handleFlags(s *System) bool {
+	// F4 pressed to restart round
+	if s.roundResetFlg && !s.postMatchFlg {
+		rs.currentFight.reset()
+	}
+	// Shift+F4 pressed to restart match
+	if s.reloadFlg {
+		return true
+	}
+	return false
 
 }
 
-func (rs *RollbackSystem) updateEvents(sys *System) {
-
+func (rs *RollbackSystem) updateEvents(s *System) bool {
+	if !s.addFrameTime(s.turbo) {
+		if !s.eventUpdate() {
+			return false
+		}
+		return false
+	}
+	return true
 }
 
 func (rs *RollbackSystem) updateCamera(sys *System) {
 
+}
+
+func (rs *RollbackSystem) render(s *System) {
+	if !s.frameSkip {
+		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
+		dx, dy, dscl := x, y, scl
+		if s.enableZoomstate {
+			if !s.debugPaused() {
+				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+			}
+			if s.zoomCameraBound {
+				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+				dx = s.cam.XBound(dscl, x+s.zoomPosXLag/scl)
+			} else {
+				dscl = s.drawScale / s.cam.BaseScale()
+				dx = x + s.zoomPosXLag/scl
+			}
+			dy = y + s.zoomPosYLag
+		} else {
+			s.zoomlag = 0
+			s.zoomPosXLag = 0
+			s.zoomPosYLag = 0
+			s.zoomScale = 1
+			s.zoomPos = [2]float32{0, 0}
+			s.drawScale = s.cam.Scale
+		}
+		s.draw(dx, dy, dscl)
+	}
+	//Lua code executed before drawing fade, clsns and debug
+	for _, str := range s.commonLua {
+		if err := s.luaLState.DoString(str); err != nil {
+			s.luaLState.RaiseError(err.Error())
+		}
+	}
+	// Render debug elements
+	if !s.frameSkip {
+		s.drawTop()
+		s.drawDebug()
+	}
 }
 
 func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
@@ -151,41 +466,6 @@ func (ib *InputBits) SetInputAI(in int) {
 		Btoi(sys.aiInput[in].d())<<11 |
 		Btoi(sys.aiInput[in].w())<<12 |
 		Btoi(sys.aiInput[in].m())<<13)
-}
-
-func readI32(b []byte) int32 {
-	if len(b) < 4 {
-		return 0
-	}
-	//fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
-	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
-}
-
-func decodeInputs(buffer [][]byte) []InputBits {
-	var inputs = make([]InputBits, len(buffer))
-	for i, b := range buffer {
-		inputs[i] = InputBits(readI32(b))
-	}
-	return inputs
-}
-
-// HACK: So you won't be playing eachothers characters
-func reverseInputs(inputs []InputBits) []InputBits {
-	for i, j := 0, len(inputs)-1; i < j; i, j = i+1, j-1 {
-		inputs[i], inputs[j] = inputs[j], inputs[i]
-	}
-	return inputs
-}
-
-func writeI32(i32 int32) []byte {
-	b := []byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
-	return b
-}
-
-func getInputs(player int) []byte {
-	var ib InputBits
-	ib.SetInput(player)
-	return writeI32(int32(ib))
 }
 
 type Fight struct {
@@ -442,4 +722,56 @@ func NewFight() Fight {
 	f.remapSpr = make([]RemapPreset, len(sys.chars))
 	f.level = make([]int32, len(sys.chars))
 	return f
+}
+func readI32(b []byte) int32 {
+	if len(b) < 4 {
+		return 0
+	}
+	//fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
+	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
+}
+
+func decodeInputs(buffer [][]byte) []InputBits {
+	var inputs = make([]InputBits, len(buffer))
+	for i, b := range buffer {
+		inputs[i] = InputBits(readI32(b))
+	}
+	return inputs
+}
+
+// HACK: So you won't be playing eachothers characters
+func reverseInputs(inputs []InputBits) []InputBits {
+	for i, j := 0, len(inputs)-1; i < j; i, j = i+1, j-1 {
+		inputs[i], inputs[j] = inputs[j], inputs[i]
+	}
+	return inputs
+}
+
+func writeI32(i32 int32) []byte {
+	b := []byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
+	return b
+}
+
+func getInputs(player int) []byte {
+	var ib InputBits
+	ib.SetInput(player)
+	return writeI32(int32(ib))
+}
+
+func (rs *RollbackSystem) roundState(s *System) int32 {
+	switch {
+	case s.postMatchFlg:
+		return -1
+	case s.intro > s.lifebar.ro.ctrl_time+1:
+		return 0
+	case s.lifebar.ro.cur == 0:
+		return 1
+	case s.intro >= 0 || s.finish == FT_NotYet:
+		return 2
+	case s.intro < -(s.lifebar.ro.over_hittime +
+		s.lifebar.ro.over_waittime):
+		return 4
+	default:
+		return 3
+	}
 }

@@ -100,9 +100,9 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 	}
 }
 
-func (rs *RollbackSystem) rollbackAction(cl *CharList, ib []InputBits,
+func (rs *RollbackSystem) rollbackAction(sys *System, cl *CharList, ib []InputBits,
 	x float32, cvmin, cvmax, highest, lowest, leftest, rightest *float32) {
-
+	rs.commandUpdate(ib, sys)
 	// Prepare characters before performing their actions
 	for i := 0; i < len(cl.runOrder); i++ {
 		cl.runOrder[i].actionPrepare()

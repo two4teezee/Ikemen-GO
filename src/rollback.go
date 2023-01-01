@@ -287,8 +287,414 @@ func (rs *RollbackSystem) updateStage(s *System) {
 	}
 }
 
-func (rs *RollbackSystem) action(sys *System, input []InputBits) {
+func (rs *RollbackSystem) action(s *System, input []InputBits) {
+	s.sprites = s.sprites[:0]
+	s.topSprites = s.topSprites[:0]
+	s.bottomSprites = s.bottomSprites[:0]
+	s.shadows = s.shadows[:0]
+	s.drawc1 = s.drawc1[:0]
+	s.drawc2 = s.drawc2[:0]
+	s.drawc2sp = s.drawc2sp[:0]
+	s.drawc2mtk = s.drawc2mtk[:0]
+	s.drawwh = s.drawwh[:0]
+	s.clsnText = nil
+	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
+	var cvmin, cvmax, highest, lowest, leftest, rightest float32 = 0, 0, 0, 0, 0, 0
+	leftest, rightest = x, x
 
+	if s.tickFrame() {
+		s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
+		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
+			float32(s.gameWidth)/s.cam.Scale - s.screenright
+		if s.xmin > s.xmax {
+			s.xmin = (s.xmin + s.xmax) / 2
+			s.xmax = s.xmin
+		}
+		s.allPalFX.step()
+		s.bgPalFX.step()
+		s.envShake.next()
+		if s.envcol_time > 0 {
+			s.envcol_time--
+		}
+		s.enableZoomstate = false
+		s.zoomCameraBound = true
+		if s.super > 0 {
+			s.super--
+		} else if s.pause > 0 {
+			s.pause--
+		}
+		if s.supertime < 0 {
+			s.supertime = ^s.supertime
+			s.super = s.supertime
+		}
+		if s.pausetime < 0 {
+			s.pausetime = ^s.pausetime
+			s.pause = s.pausetime
+		}
+		// in mugen 1.1 most global assertspecial flags are reset during pause
+		// TODO: test if roundnotover should reset (keep intro and noko active)
+		if s.super <= 0 && s.pause <= 0 {
+			s.specialFlag = 0
+		} else {
+			s.unsetSF(GSF_assertspecialpause)
+		}
+		if s.superanim != nil {
+			s.superanim.Action()
+		}
+		rs.rollbackAction(s, &s.charList, input, x, &cvmin, &cvmax,
+			&highest, &lowest, &leftest, &rightest)
+		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
+	} else {
+		s.charUpdate(&cvmin, &cvmax, &highest, &lowest, &leftest, &rightest)
+	}
+	s.lifebar.step()
+
+	// Action camera
+	var newx, newy float32 = x, y
+	var sclMul float32
+	leftest -= x
+	rightest -= x
+	sclMul = s.cam.action(&newx, &newy, leftest, rightest, lowest, highest,
+		cvmin, cvmax, s.super > 0 || s.pause > 0)
+
+	// Update camera
+	introSkip := false
+	if s.tickNextFrame() {
+		if s.lifebar.ro.cur < 1 && !s.introSkipped {
+			if s.shuttertime > 0 ||
+				s.anyButton() && !s.sf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				s.shuttertime++
+				if s.shuttertime == s.lifebar.ro.shutter_time {
+					s.fadeintime = 0
+					s.resetGblEffect()
+					s.intro = s.lifebar.ro.ctrl_time
+					for i, p := range s.chars {
+						if len(p) > 0 {
+							s.playerClear(i, false)
+							p[0].selfState(0, -1, -1, 0, false)
+						}
+					}
+					ox := newx
+					newx = 0
+					leftest = MaxF(float32(Min(s.stage.p[0].startx,
+						s.stage.p[1].startx))*s.stage.localscl,
+						-(float32(s.gameWidth)/2)/s.cam.BaseScale()+s.screenleft) - ox
+					rightest = MinF(float32(Max(s.stage.p[0].startx,
+						s.stage.p[1].startx))*s.stage.localscl,
+						(float32(s.gameWidth)/2)/s.cam.BaseScale()-s.screenright) - ox
+					introSkip = true
+					s.introSkipped = true
+				}
+			}
+		} else {
+			if s.shuttertime > 0 {
+				s.shuttertime--
+			}
+		}
+	}
+	if introSkip {
+		sclMul = 1 / scl
+	}
+	leftest = (leftest - s.screenleft) * s.cam.BaseScale()
+	rightest = (rightest + s.screenright) * s.cam.BaseScale()
+	scl = s.cam.ScaleBound(scl, sclMul)
+	tmp := (float32(s.gameWidth) / 2) / scl
+	if AbsF((leftest+rightest)-(newx-x)*2) >= tmp/2 {
+		tmp = MaxF(0, MinF(tmp, MaxF((newx-x)-leftest, rightest-(newx-x))))
+	}
+	x = s.cam.XBound(scl, MinF(x+leftest+tmp, MaxF(x+rightest-tmp, newx)))
+	if !s.cam.ZoomEnable {
+		// Pos X の誤差が出ないように精度を落とす
+		x = float32(math.Ceil(float64(x)*4-0.5) / 4)
+	}
+	y = s.cam.YBound(scl, newy)
+	s.cam.Update(scl, x, y)
+
+	if s.superanim != nil {
+		s.topSprites.add(&SprData{s.superanim, &s.superpmap, s.superpos,
+			[...]float32{s.superfacing, 1}, [2]int32{-1}, 5, Rotation{}, [2]float32{},
+			false, true, s.cgi[s.superplayer].ver[0] != 1, 1, 1, 0, 0, [4]float32{0, 0, 0, 0}}, 0, 0, 0, 0)
+		if s.superanim.loopend {
+			s.superanim = nil
+		}
+	}
+	for i, pr := range s.projs {
+		for j, p := range pr {
+			if p.id >= 0 {
+				s.projs[i][j].cueDraw(s.cgi[i].ver[0] != 1, i)
+			}
+		}
+	}
+	s.charList.cueDraw()
+	explUpdate := func(edl *[len(s.chars)][]int, drop bool) {
+		for i, el := range *edl {
+			for j := len(el) - 1; j >= 0; j-- {
+				if el[j] >= 0 {
+					s.explods[i][el[j]].update(s.cgi[i].ver[0] != 1, i)
+					if s.explods[i][el[j]].id == IErr {
+						if drop {
+							el = append(el[:j], el[j+1:]...)
+							(*edl)[i] = el
+						} else {
+							el[j] = -1
+						}
+					}
+				}
+			}
+		}
+	}
+	explUpdate(&s.explDrawlist, true)
+	explUpdate(&s.topexplDrawlist, false)
+	explUpdate(&s.underexplDrawlist, true)
+
+	if s.lifebar.ro.act() {
+		if s.intro > s.lifebar.ro.ctrl_time {
+			s.intro--
+			if s.sf(GSF_intro) && s.intro <= s.lifebar.ro.ctrl_time {
+				s.intro = s.lifebar.ro.ctrl_time + 1
+			}
+		} else if s.intro > 0 {
+			if s.intro == s.lifebar.ro.ctrl_time {
+				s.posReset()
+			}
+			s.intro--
+			if s.intro == 0 {
+				for _, p := range s.chars {
+					if len(p) > 0 {
+						p[0].unsetSCF(SCF_over)
+						if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
+							if p[0].ss.no == 0 {
+								p[0].setCtrl(true)
+							} else {
+								p[0].selfState(0, -1, -1, 1, false)
+							}
+						}
+					}
+				}
+			}
+		}
+		if s.intro == 0 && s.time > 0 && !s.sf(GSF_timerfreeze) &&
+			(s.super <= 0 || !s.superpausebg) && (s.pause <= 0 || !s.pausebg) {
+			s.time--
+		}
+		fin := func() bool {
+			if s.intro > 0 {
+				return false
+			}
+			ko := [...]bool{true, true}
+			for ii := range ko {
+				for i := ii; i < MaxSimul*2; i += 2 {
+					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
+						if s.chars[i][0].alive() {
+							ko[ii] = false
+						} else if (s.tmode[i&1] == TM_Simul && s.loseSimul && s.com[i] == 0) ||
+							(s.tmode[i&1] == TM_Tag && s.loseTag) {
+							ko[ii] = true
+							break
+						}
+					}
+				}
+				if ko[ii] {
+					i := ii ^ 1
+					for ; i < MaxSimul*2; i += 2 {
+						if len(s.chars[i]) > 0 && s.chars[i][0].life <
+							s.chars[i][0].lifeMax {
+							break
+						}
+					}
+					if i >= MaxSimul*2 {
+						s.winType[ii^1].SetPerfect()
+					}
+				}
+			}
+			ft := s.finish
+			if s.time == 0 {
+				l := [2]float32{}
+				for i := 0; i < 2; i++ {
+					for j := i; j < MaxSimul*2; j += 2 {
+						if len(s.chars[j]) > 0 {
+							if s.tmode[i] == TM_Simul || s.tmode[i] == TM_Tag {
+								l[i] += (float32(s.chars[j][0].life) /
+									float32(s.numSimul[i])) /
+									float32(s.chars[j][0].lifeMax)
+							} else {
+								l[i] += float32(s.chars[j][0].life) /
+									float32(s.chars[j][0].lifeMax)
+							}
+						}
+					}
+				}
+				if l[0] > l[1] {
+					p := true
+					for i := 0; i < MaxSimul*2; i += 2 {
+						if len(s.chars[i]) > 0 &&
+							s.chars[i][0].life < s.chars[i][0].lifeMax {
+							p = false
+							break
+						}
+					}
+					if p {
+						s.winType[0].SetPerfect()
+					}
+					s.finish = FT_TO
+					s.winTeam = 0
+				} else if l[0] < l[1] {
+					p := true
+					for i := 1; i < MaxSimul*2; i += 2 {
+						if len(s.chars[i]) > 0 &&
+							s.chars[i][0].life < s.chars[i][0].lifeMax {
+							p = false
+							break
+						}
+					}
+					if p {
+						s.winType[1].SetPerfect()
+					}
+					s.finish = FT_TO
+					s.winTeam = 1
+				} else {
+					s.finish = FT_TODraw
+					s.winTeam = -1
+				}
+				if !(ko[0] || ko[1]) {
+					s.winType[0], s.winType[1] = WT_T, WT_T
+				}
+			}
+			if s.intro >= -1 && (ko[0] || ko[1]) {
+				if ko[0] && ko[1] {
+					s.finish, s.winTeam = FT_DKO, -1
+				} else {
+					s.finish, s.winTeam = FT_KO, int(Btoi(ko[0]))
+				}
+			}
+			if ft != s.finish {
+				for i, p := range sys.chars {
+					if len(p) > 0 && ko[^i&1] {
+						for _, h := range p {
+							for _, tid := range h.targets {
+								if t := sys.playerID(tid); t != nil {
+									if t.ghv.attr&int32(AT_AH) != 0 {
+										s.winTrigger[i&1] = WT_H
+									} else if t.ghv.attr&int32(AT_AS) != 0 &&
+										s.winTrigger[i&1] == WT_N {
+										s.winTrigger[i&1] = WT_S
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+			return ko[0] || ko[1] || s.time == 0
+		}
+		if s.roundEnd() || fin() {
+			inclWinCount := func() {
+				w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+				if !w[0] || !w[1] ||
+					s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+					s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+					s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+					for i, win := range w {
+						if win {
+							s.wins[i]++
+							if s.matchOver() && s.wins[^i&1] == 0 {
+								s.consecutiveWins[i]++
+							}
+							s.consecutiveWins[^i&1] = 0
+						}
+					}
+				}
+			}
+			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
+				inclWinCount()
+			}
+			// Check if player skipped win pose time
+			if s.tickFrame() && s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
+				s.intro = Min(s.intro, -(s.lifebar.ro.over_hittime +
+					s.lifebar.ro.over_waittime + s.lifebar.ro.over_time -
+					s.lifebar.ro.start_waittime))
+				s.winskipped = true
+			}
+			rs4t := -(s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime)
+			if s.winskipped || !s.sf(GSF_roundnotover) ||
+				s.intro >= rs4t-s.lifebar.ro.over_wintime {
+				s.intro--
+				if s.intro == rs4t-1 {
+					if s.waitdown > 0 {
+						for _, p := range s.chars {
+							if len(p) > 0 && !p[0].over() {
+								s.intro = rs4t
+							}
+						}
+					}
+				}
+				if s.waitdown <= 0 || s.intro < rs4t-s.lifebar.ro.over_wintime {
+					if s.waitdown >= 0 {
+						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+						if !w[0] || !w[1] ||
+							s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+							s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+							s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+							for i, win := range w {
+								if win {
+									s.lifebar.wi[i].add(s.winType[i])
+									if s.matchOver() && s.wins[i] >= s.matchWins[i] {
+										s.lifebar.wc[i].wins += 1
+									}
+								}
+							}
+						} else {
+							s.draws++
+						}
+					}
+					for _, p := range s.chars {
+						if len(p) > 0 {
+							//default life recovery, used only if externalized Lua implementaion is disabled
+							if len(sys.commonLua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+								p[0].alive() && !s.matchOver() &&
+								(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
+								p[0].life += int32((float32(p[0].lifeMax) *
+									float32(s.time) / 60) * s.turnsRecoveryRate)
+								if p[0].life > p[0].lifeMax {
+									p[0].life = p[0].lifeMax
+								}
+							}
+							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() {
+								p[0].setSCF(SCF_over)
+								if p[0].win() {
+									p[0].selfState(180, -1, -1, 1, false)
+								} else if p[0].lose() {
+									p[0].selfState(170, -1, -1, 1, false)
+								} else {
+									p[0].selfState(175, -1, -1, 1, false)
+								}
+							}
+						}
+					}
+					s.waitdown = 0
+				}
+				s.waitdown--
+			}
+		} else if s.intro < 0 {
+			s.intro = 0
+		}
+	}
+
+	if s.tickNextFrame() {
+		spd := s.gameSpeed * s.accel
+		if s.postMatchFlg {
+			spd = 1
+		} else if !s.sf(GSF_nokoslow) && s.time != 0 && s.intro < 0 && s.slowtime > 0 {
+			spd *= s.lifebar.ro.slow_speed
+			if s.slowtime < s.lifebar.ro.slow_fadetime {
+				spd += (float32(1) - s.lifebar.ro.slow_speed) * float32(s.lifebar.ro.slow_fadetime-s.slowtime) / float32(s.lifebar.ro.slow_fadetime)
+			}
+			s.slowtime--
+		}
+		s.turbo = spd
+	}
+	s.tickSound()
+	return
 }
 
 func (rs *RollbackSystem) handleFlags(s *System) bool {

@@ -2818,7 +2818,8 @@ func (c *Char) isHelper(hid BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.helperIndex != 0 && (id == math.MinInt32 || c.helperId == id))
 }
 func (c *Char) isHost() bool {
-	return sys.netInput != nil && sys.netInput.host
+	return (sys.netInput != nil && sys.netInput.host) ||
+		(sys.rollback != nil && sys.rollback.session != nil && sys.rollback.session.host == "")
 }
 func (c *Char) leftEdge() float32 {
 	return sys.cam.ScreenPos[0] / c.localscl

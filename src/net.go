@@ -164,8 +164,9 @@ func encodeInputs(inputs InputBits) []byte {
 }
 
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
-	//ggpo.EnableLogger()
-	ggpo.DisableLogger()
+	if !rs.config.LogsEnabled {
+		ggpo.DisableLogger()
+	}
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))
@@ -202,7 +203,9 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 }
 
 func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
-	ggpo.DisableLogger()
+	if !rs.config.LogsEnabled {
+		ggpo.DisableLogger()
+	}
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))

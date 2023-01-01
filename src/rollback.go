@@ -8,9 +8,10 @@ type RollbackSystem struct {
 }
 
 type RollbackConfig struct {
-	FrameDelay            int `json:"frameDelay"`
-	DisconnectNotifyStart int `json:"disconnectNotifyStart"`
-	DisconnectTimeout     int `json:"disconnectTimeout"`
+	FrameDelay            int  `json:"frameDelay"`
+	DisconnectNotifyStart int  `json:"disconnectNotifyStart"`
+	DisconnectTimeout     int  `json:"disconnectTimeout"`
+	LogsEnabled           bool `json:"logsEnabled"`
 }
 
 func (rs *RollbackSystem) fight(sys *System) {
@@ -43,6 +44,10 @@ func (rs *RollbackSystem) updateEvents(sys *System) {
 }
 
 func (rs *RollbackSystem) updateCamera(sys *System) {
+
+}
+
+func (rs *RollbackSystem) rollbackAction(cl *CharList) {
 
 }
 

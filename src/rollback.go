@@ -168,9 +168,6 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 				return false
 			}
-
-			//fmt.Println("Advancing game from within runframe.")
-
 			err := rs.session.backend.AdvanceFrame()
 			if err != nil {
 				panic(err)

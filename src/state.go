@@ -10,6 +10,32 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+// func (c Char) Checksum() uint32 {
+// 	cSums := make([]uint32, 0)
+// 	c.name
+
+// 	c.redLife
+// 	c.juggle
+// 	c.life
+// 	c.key
+// 	c.localcoord
+// 	c.localscl
+// 	c.pos
+// 	c.drawPos
+// 	c.oldPos
+// 	c.vel
+// 	c.facing
+// 	c.id
+// 	cs.helperId
+// 	c.helperIndex
+// 	c.parentIndex
+// 	c.playerNo
+// 	c.teamside c.animPN c.animNo c.lifeMax c.powerMax c.dizzyPoints
+// 	c.guardPoints c.fallTime c.clsnScale c.hoIdx c.mctime c.targets c.targetsOfHitdef
+// 	c.atktmp c.hittmp c.acttmp c.minus c.groundAngle c.comboExtraFrameWindow c.inheritJuggle
+// 	c.preserve c.ivar c.fvar c.offset
+// }
+
 func (cs Char) String() string {
 	str := fmt.Sprintf(`Char %s 
 	RedLife             :%d 

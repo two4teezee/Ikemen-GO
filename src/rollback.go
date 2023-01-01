@@ -47,8 +47,87 @@ func (rs *RollbackSystem) updateCamera(sys *System) {
 
 }
 
-func (rs *RollbackSystem) rollbackAction(cl *CharList) {
+func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			r := p[0]
+			if (r.ctrlOver() && !r.sf(CSF_postroundinput)) || r.sf(CSF_noinput) ||
+				(r.aiLevel() > 0 && !r.alive()) {
+				for j := range r.cmd {
+					r.cmd[j].BufReset()
+				}
+				continue
+			}
+			act := true
+			if sys.super > 0 {
+				act = r.superMovetime != 0
+			} else if sys.pause > 0 && r.pauseMovetime == 0 {
+				act = false
+			}
+			if act && !r.sf(CSF_noautoturn) &&
+				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20) {
+				r.turn()
+			}
 
+			for _, c := range p {
+				if c.helperIndex == 0 ||
+					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
+					if i < len(ib) {
+						// if we have an input from the players
+						// update the command buffer based on that.
+						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
+					} else {
+						// Otherwise, this will ostensibly update the buffers based on AIInput
+						c.cmd[0].Input(c.key, int32(c.facing), sys.com[i], c.inputFlag)
+					}
+					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
+					buftime := Btoi(hp && c.gi().ver[0] != 1)
+					if sys.super > 0 {
+						if !act && sys.super <= sys.superendcmdbuftime {
+							hp = true
+						}
+					} else if sys.pause > 0 {
+						if !act && sys.pause <= sys.pauseendcmdbuftime {
+							hp = true
+						}
+					}
+					for j := range c.cmd {
+						c.cmd[j].Step(int32(c.facing), c.key < 0, hp, buftime+Btoi(hp))
+					}
+				}
+			}
+		}
+	}
+}
+
+func (rs *RollbackSystem) rollbackAction(cl *CharList, ib []InputBits,
+	x float32, cvmin, cvmax, highest, lowest, leftest, rightest *float32) {
+
+	// Prepare characters before performing their actions
+	for i := 0; i < len(cl.runOrder); i++ {
+		cl.runOrder[i].actionPrepare()
+	}
+	// Run character state controllers
+	// Process priority based on movetype: A > I > H (or anything else)
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType == MT_A {
+			cl.runOrder[i].actionRun()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType == MT_I {
+			cl.runOrder[i].actionRun()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		cl.runOrder[i].actionRun()
+	}
+	// Finish performing character actions
+	for i := 0; i < len(cl.runOrder); i++ {
+		cl.runOrder[i].actionFinish()
+	}
+	// Update chars
+	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
 }
 
 func getAIInputs(player int) []byte {

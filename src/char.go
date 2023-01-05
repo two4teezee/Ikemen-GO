@@ -1602,6 +1602,7 @@ type CharSystemVar struct {
 	bindTime         int32
 	bindToId         int32
 	bindPos          [2]float32
+	bindPosAdd       [2]float32
 	bindFacing       float32
 	hitPauseTime     int32
 	angle            float32
@@ -3827,17 +3828,15 @@ func (c *Char) setHitdefDefault(hd *HitDef, proj bool) {
 	ifnanset(&hd.down_velocity[1], hd.air_velocity[1])
 	ifnanset(&hd.fall.yvelocity, -4.5/c.localscl)
 	ifierrset(&hd.fall.envshake_ampl, -4)
-	if hd.fall.animtype == RA_Unknown {
-		if hd.air_animtype != RA_Unknown {
-			hd.fall.animtype = hd.air_animtype
-		} else if hd.animtype < RA_Back {
-			hd.fall.animtype = RA_Back
-		} else {
-			hd.fall.animtype = hd.animtype
-		}
-	}
 	if hd.air_animtype == RA_Unknown {
 		hd.air_animtype = hd.animtype
+	}
+	if hd.fall.animtype == RA_Unknown {
+		if hd.air_animtype >= RA_Up {
+			hd.fall.animtype = hd.air_animtype
+		} else {
+			hd.fall.animtype = RA_Back
+		}
 	}
 	// if hd.animtype == RA_Back {
 	// hd.animtype = RA_Hard
@@ -3914,9 +3913,6 @@ func (c *Char) setBWidth(bw float32) {
 }
 func (c *Char) gethitAnimtype() Reaction {
 	if c.ghv.fallf {
-		if c.ghv.fall.animtype < RA_Back {
-			return RA_Back
-		}
 		return c.ghv.fall.animtype
 	} else if c.ss.stateType == ST_A {
 		return c.ghv.airanimtype
@@ -4409,7 +4405,17 @@ func (c *Char) consecutiveWins() int32 {
 	return sys.consecutiveWins[c.teamside]
 }
 func (c *Char) distX(opp *Char, oc *Char) float32 {
-	return (opp.pos[0]*opp.localscl - c.pos[0]*c.localscl) / oc.localscl
+	currentPosX := c.pos[0] * c.localscl
+	if c.bindToId > 0 && !math.IsNaN(float64(c.bindPos[0])) && c.stCgi().ikemenver[0] == 0 && c.stCgi().ikemenver[1] == 0 {
+		if bt := sys.playerID(c.bindToId); bt != nil {
+			f := bt.facing
+			if AbsF(c.bindFacing) == 2 {
+				f = c.bindFacing / 2
+			}
+			currentPosX = bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0])
+		}
+	}
+	return (opp.pos[0]*opp.localscl - currentPosX) / oc.localscl
 }
 func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
 	dist := c.distX(opp, oc)
@@ -4435,7 +4441,13 @@ func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
 		return BytecodeSF()
 	}
-	dist := (rd.pos[1]*rd.localscl - c.pos[1]*c.localscl) / oc.localscl
+	currentPosY := c.pos[1] * c.localscl
+	if c.bindToId > 0 && !math.IsNaN(float64(c.bindPos[1])) && c.stCgi().ikemenver[0] == 0 && c.stCgi().ikemenver[1] == 0 {
+		if bt := sys.playerID(c.bindToId); bt != nil {
+			currentPosY = bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1])
+		}
+	}
+	dist := (rd.pos[1]*rd.localscl - currentPosY) / oc.localscl
 	return BytecodeFloat(dist)
 }
 func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
@@ -4984,6 +4996,7 @@ func (c *Char) posUpdate() {
 			c.velOff = 0
 		}
 	}
+	c.bindPosAdd = [...]float32{0, 0}
 }
 func (c *Char) addTarget(id int32) {
 	if !c.hasTarget(id) {
@@ -5041,26 +5054,26 @@ func (c *Char) bind() {
 				c.setBindTime(0)
 				return
 			}
-			if !math.IsNaN(float64(c.bindPos[0])) {
-				c.setXV(c.facing * bt.facing * bt.vel[0])
-			}
-			if !math.IsNaN(float64(c.bindPos[1])) {
-				c.setYV(bt.vel[1])
-			}
+			//if !math.IsNaN(float64(c.bindPos[0])) {
+			//c.setXV(c.facing * bt.facing * bt.vel[0])
+			//}
+			//if !math.IsNaN(float64(c.bindPos[1])) {
+			//c.setYV(bt.vel[1])
+			//}
 		}
 		if !math.IsNaN(float64(c.bindPos[0])) {
 			f := bt.facing
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
-			c.setX(bt.pos[0]*bt.localscl/c.localscl + f*c.bindPos[0])
+			c.setX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]))
 			c.drawPos[0] += bt.drawPos[0] - bt.pos[0]
 			c.oldPos[0] += bt.oldPos[0] - bt.pos[0]
 			c.pushed = c.pushed || bt.pushed
 			c.ghv.xoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[1])) {
-			c.setY(bt.pos[1]*bt.localscl/c.localscl + c.bindPos[1])
+			c.setY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]))
 			c.drawPos[1] += bt.drawPos[1] - bt.pos[1]
 			c.oldPos[1] += bt.oldPos[1] - bt.pos[1]
 			c.ghv.yoff = 0
@@ -5522,7 +5535,17 @@ func (c *Char) actionRun() {
 			c.gi().pctime++
 		}
 		// Set vel on binded targets
-
+		for _, tid := range c.targets {
+			if t := sys.playerID(tid); t != nil && t.bindTime > 0 && !t.sf(CSF_destroy) &&
+				t.bindToId == c.id {
+				if !math.IsNaN(float64(t.bindPos[0])) {
+					t.setXV(t.facing * c.facing * c.vel[0])
+				}
+				if !math.IsNaN(float64(t.bindPos[1])) {
+					t.setYV(c.vel[1])
+				}
+			}
+		}
 	}
 	c.minus = 1
 	c.acttmp += int8(Btoi(!c.pause() && !c.hitPause())) -
@@ -6869,7 +6892,8 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 		getter.enemyNearClear()
 		for _, c := range cl.runOrder {
 			if c.atktmp != 0 && c.id != getter.id && (c.hitdef.affectteam == 0 ||
-				(getter.teamside != c.hitdef.teamside-1) == (c.hitdef.affectteam > 0)) {
+				((getter.teamside != c.hitdef.teamside-1) == (c.hitdef.affectteam > 0) && c.hitdef.teamside >= 0) ||
+				((getter.teamside != c.teamside) == (c.hitdef.affectteam > 0) && c.hitdef.teamside < 0)) {
 				dist := -getter.distX(c, getter) * c.facing
 				if c.ss.moveType == MT_A && dist >= 0 && c.hitdef.guard_dist < 0 &&
 					dist <= c.attackDist*(c.localscl/getter.localscl) {
@@ -6918,6 +6942,27 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 									getter.mctype = MC_Reversed
 									getter.mctime = -1
 									getter.hitdefContact = true
+
+									fall := getter.ghv.fallf
+									getter.ghv.clear()
+									getter.ghv.attr = c.hitdef.attr
+									getter.ghv.hitid = c.hitdef.id
+									getter.ghv.fall = c.hitdef.fall
+									getter.fallTime = 0
+									getter.ghv.fall.xvelocity = c.hitdef.fall.xvelocity * (c.localscl / getter.localscl)
+									getter.ghv.fall.yvelocity = c.hitdef.fall.yvelocity * (c.localscl / getter.localscl)
+									if c.hitdef.forcenofall {
+										fall = false
+									}
+									if getter.ss.stateType == ST_A {
+										getter.ghv.fallf = c.hitdef.air_fall
+									} else if getter.ss.stateType == ST_L {
+										getter.ghv.fallf = c.hitdef.ground_fall
+									} else {
+										getter.ghv.fallf = c.hitdef.ground_fall
+									}
+									getter.ghv.fallf = getter.ghv.fallf || fall
+
 									getter.targetsOfHitdef = append(getter.targetsOfHitdef, c.id)
 									if getter.hittmp == 0 {
 										getter.hittmp = -1

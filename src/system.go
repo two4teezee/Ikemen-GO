@@ -88,6 +88,7 @@ var sys = System{
 	stereoEffects:        true,
 	panningRange:         30,
 	windowCentered:       true,
+	saveState:            NewGameState(),
 }
 
 type TeamMode int32
@@ -358,6 +359,8 @@ type System struct {
 	rollbackConfig  RollbackConfig
 	saveState       *GameState
 	stateAlloc      *StateAllocator
+	saveStateFlag   bool
+	loadStateFlag   bool
 }
 
 // Initialize stuff, this is called after the config int at main.go
@@ -771,6 +774,8 @@ func (s *System) playerClear(pn int, destroy bool) {
 func (s *System) nextRound() {
 	s.resetGblEffect()
 	s.lifebar.reset()
+	s.saveStateFlag = false
+	s.loadStateFlag = false
 	s.finish = FT_NotYet
 	s.winTeam = -1
 	s.winType = [...]WinType{WT_N, WT_N}
@@ -1917,6 +1922,15 @@ func (s *System) fight() (reload bool) {
 				}
 			}
 		}
+
+		// Save/load state
+		if s.saveStateFlag {
+			s.saveState.SaveState()
+		} else if s.loadStateFlag {
+			s.saveState.LoadState()
+		}
+		s.saveStateFlag = false
+		s.loadStateFlag = false
 
 		// If next round
 		if s.roundOver() && !fin {

@@ -336,6 +336,7 @@ type GameState struct {
 	// 11/5/2022
 	fight        Fight
 	introSkipped bool
+	preFightTime int32
 }
 
 func NewGameState() *GameState {
@@ -556,9 +557,14 @@ func (gs *GameState) LoadState() {
 	sys.continueFlg = gs.continueFlg
 	sys.stageLoopNo = gs.stageLoopNo
 
-	// 11/5/22
-	sys.rollback.currentFight = gs.fight
+	// This won't be around if we aren't in a proper rollback session.
+	if sys.rollback != nil {
+		sys.rollback.currentFight = gs.fight
+	}
+
 	sys.introSkipped = gs.introSkipped
+
+	sys.preFightTime = gs.preFightTime
 }
 
 func (gs *GameState) SaveState() {
@@ -801,10 +807,13 @@ func (gs *GameState) SaveState() {
 	gs.continueFlg = sys.continueFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
-	// 11/5/2022
-	gs.fight = sys.rollback.currentFight.Clone()
+	// This won't be around if we aren't in a proper rollback session.
+	if sys.rollback != nil {
+		gs.fight = sys.rollback.currentFight.Clone()
+	}
 
 	gs.introSkipped = sys.introSkipped
+	gs.preFightTime = sys.preFightTime
 }
 
 func (gs *GameState) savePalFX() {

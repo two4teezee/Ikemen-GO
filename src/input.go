@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-var ModAlt          = NewModifierKey(false, true, false)
-var ModCtrlAlt      = NewModifierKey(true,  true, false)
-var ModCtrlAltShift = NewModifierKey(true,  true, true)
+var ModAlt = NewModifierKey(false, true, false)
+var ModCtrlAlt = NewModifierKey(true, true, false)
+var ModCtrlAltShift = NewModifierKey(true, true, true)
 
 type CommandKey byte
 
@@ -100,7 +100,7 @@ func NewShortcutKey(key Key, ctrl, alt, shift bool) *ShortcutKey {
 }
 
 func (sk ShortcutKey) Test(k Key, m ModifierKey) bool {
-	return k == sk.Key && (m & ModCtrlAltShift) == sk.Mod
+	return k == sk.Key && (m&ModCtrlAltShift) == sk.Mod
 }
 
 func OnKeyReleased(key Key, mk ModifierKey) {
@@ -116,7 +116,7 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 		sys.keyState[key] = true
 		sys.keyInput = key
 		sys.esc = sys.esc ||
-			key == KeyEscape && (mk & ModCtrlAlt) == 0
+			key == KeyEscape && (mk&ModCtrlAlt) == 0
 		for k, v := range sys.shortcutScripts {
 			if sys.netInput == nil && (sys.fileInput == nil || !v.DebugKey) &&
 				(!sys.paused || sys.step || v.Pause) && (sys.allowDebugKeys || !v.DebugKey) {
@@ -126,7 +126,7 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 		if key == KeyF12 {
 			captureScreen()
 		}
-		if key == KeyEnter && (mk & ModAlt) != 0 {
+		if key == KeyEnter && (mk&ModAlt) != 0 {
 			sys.window.toggleFullscreen()
 		}
 	}
@@ -636,6 +636,7 @@ func (ni *NetInput) Accept(port string) error {
 			ln := ni.ln
 			if conn, err := ln.AcceptTCP(); err == nil {
 				ni.conn = conn
+				sys.rollback.session.remoteIp = conn.RemoteAddr().(*net.TCPAddr).IP.String()
 			}
 			ln.Close()
 		}()

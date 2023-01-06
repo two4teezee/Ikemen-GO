@@ -268,7 +268,7 @@ func systemScriptInit(l *lua.LState) {
 				case "invertall":
 					a.palfx.invertall = lua.LVAsNumber(value) == 1
 				case "color":
-					a.palfx.color = float32(lua.LVAsNumber(value))/256
+					a.palfx.color = float32(lua.LVAsNumber(value)) / 256
 				default:
 					l.RaiseError("\nInvalid table key: %v\n", k)
 				}
@@ -648,7 +648,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput.IsConnected()))
+		l.Push(lua.LBool(sys.netInput.IsConnected() || sys.rollback.session.IsConnected()))
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -672,13 +672,17 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
 		sys.netInput = NewNetInput()
+		rs := NewRollbackSesesion()
+		sys.rollback.session = &rs
 		if host := strArg(l, 1); host != "" {
+			sys.rollback.session.host = strArg(l, 1)
 			sys.netInput.Connect(host, sys.listenPort)
 		} else {
 			if err := sys.netInput.Accept(sys.listenPort); err != nil {
 				l.RaiseError(err.Error())
 			}
 		}
+
 		return 0
 	})
 	luaRegister(l, "enterReplay", func(*lua.LState) int {
@@ -697,6 +701,10 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "exitNetPlay", func(*lua.LState) int {
+		if sys.rollback.session != nil {
+			sys.rollback.session.Close()
+			sys.rollback.session = nil
+		}
 		if sys.netInput != nil {
 			sys.netInput.Close()
 			sys.netInput = nil
@@ -1438,6 +1446,10 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(newUserData(l, w))
 		return 1
 	})
+	luaRegister(l, "loadState", func(*lua.LState) int {
+		sys.loadStateFlag = true
+		return 0
+	})
 	luaRegister(l, "loadDebugFont", func(l *lua.LState) int {
 		ts := NewTextSprite()
 		f, err := loadFnt(strArg(l, 1), -1)
@@ -1685,6 +1697,10 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {
 		sys.roundResetFlg = true
+		return 0
+	})
+	luaRegister(l, "saveState", func(*lua.LState) int {
+		sys.saveStateFlag = true
 		return 0
 	})
 	luaRegister(l, "screenshot", func(*lua.LState) int {
@@ -4029,7 +4045,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput != nil || sys.fileInput != nil))
+		l.Push(lua.LBool((sys.rollback != nil && sys.rollback.session != nil) || sys.fileInput != nil || sys.netInput != nil))
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {

@@ -140,6 +140,7 @@ func newCompiler() *Compiler {
 		"guardpointsset":       c.guardPointsSet,
 		"lifebaraction":        c.lifebarAction,
 		"loadfile":             c.loadFile,
+		"loadstate":            c.loadState,
 		"mapset":               c.mapSet,
 		"mapadd":               c.mapAdd,
 		"parentmapset":         c.parentMapSet,
@@ -158,6 +159,7 @@ func newCompiler() *Compiler {
 		"roundtimeadd":         c.roundTimeAdd,
 		"roundtimeset":         c.roundTimeSet,
 		"savefile":             c.saveFile,
+		"savestate":            c.saveState,
 		"scoreadd":             c.scoreAdd,
 		"targetdizzypointsadd": c.targetDizzyPointsAdd,
 		"targetguardpointsadd": c.targetGuardPointsAdd,
@@ -1424,10 +1426,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_canrecover)
 	case "command", "selfcommand":
 		switch c.token {
-			case "command":
-				opc = OC_command
-			case "selfcommand":
-				opc = OC_ex_selfcommand
+		case "command":
+			opc = OC_command
+		case "selfcommand":
+			opc = OC_ex_selfcommand
 		}
 		if err := eqne(func() error {
 			if err := text(); err != nil {
@@ -1810,21 +1812,21 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return nil
 		}
 		// if sys.cgi[c.playerNo].ver[0] == 1 {
-			// if err := eqne(hda); err != nil {
-				// return bvNone(), err
-			// }
+		// if err := eqne(hda); err != nil {
+		// return bvNone(), err
+		// }
 		// } else {
-			// if not, err := c.kyuushiki(in); err != nil {
-				// if sys.ignoreMostErrors {
-					// out.appendValue(BytecodeBool(false))
-				// } else {
-					// return bvNone(), err
-				// }
-			// } else if err := hda(); err != nil {
-				// return bvNone(), err
-			// } else if not && !sys.ignoreMostErrors {
-				// return bvNone(), Error("hitdefattr doesn't support '!=' in this mugenversion")
-			// }
+		// if not, err := c.kyuushiki(in); err != nil {
+		// if sys.ignoreMostErrors {
+		// out.appendValue(BytecodeBool(false))
+		// } else {
+		// return bvNone(), err
+		// }
+		// } else if err := hda(); err != nil {
+		// return bvNone(), err
+		// } else if not && !sys.ignoreMostErrors {
+		// return bvNone(), Error("hitdefattr doesn't support '!=' in this mugenversion")
+		// }
 		// }
 		if err := eqne(hda); err != nil {
 			return bvNone(), err

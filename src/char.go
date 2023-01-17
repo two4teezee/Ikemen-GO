@@ -57,6 +57,7 @@ const (
 	CSF_nodizzypointsdamage
 	CSF_noguardpointsdamage
 	CSF_noredlifedamage
+	CSF_nomakedust
 	CSF_screenbound
 	CSF_movecamera_x
 	CSF_movecamera_y
@@ -79,7 +80,7 @@ const (
 		CSF_nofastrecoverfromliedown | CSF_nofallcount | CSF_nofalldefenceup |
 		CSF_noturntarget | CSF_noinput | CSF_nopowerbardisplay | CSF_autoguard |
 		CSF_animfreeze | CSF_postroundinput | CSF_nodizzypointsdamage |
-		CSF_noguardpointsdamage | CSF_noredlifedamage
+		CSF_noguardpointsdamage | CSF_noredlifedamage | CSF_nomakedust
 )
 
 type GlobalSpecialFlag uint32
@@ -1677,6 +1678,7 @@ type Char struct {
 	targets         []int32
 	targetsOfHitdef []int32
 	enemynear       [2][]*Char
+	p2enemy         []*Char
 	pos             [3]float32
 	drawPos         [3]float32
 	oldPos          [3]float32
@@ -1850,7 +1852,8 @@ func (c *Char) clear2() {
 		attackMul:       float32(c.gi().data.attack) * c.ocd().attackRatio / 100,
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
-		customDefense:   1}
+		customDefense:   1,
+		finalDefense:    1.0}
 	c.oldPos, c.drawPos = c.pos, c.pos
 	if c.helperIndex == 0 && c.teamside != -1 {
 		if sys.roundsExisted[c.playerNo&1] > 0 {
@@ -1866,6 +1869,7 @@ func (c *Char) clear2() {
 	}
 	c.aimg.timegap = -1
 	c.enemyNearClear()
+	c.p2enemy = c.p2enemy[:0]
 	c.targets = c.targets[:0]
 	c.cpucmd = -1
 }
@@ -5388,7 +5392,9 @@ func (c *Char) actionPrepare() {
 			} else {
 				switch c.ss.no {
 				case 11:
-					c.changeState(12, -1, -1, false)
+					if !c.sf(CSF_nostand) {
+						c.changeState(12, -1, -1, false)
+					}
 				case 20:
 					if !c.sf(CSF_nobrake) && c.cmd[0].Buffer.U < 0 && c.cmd[0].Buffer.D < 0 &&
 						c.cmd[0].Buffer.B < 0 && c.cmd[0].Buffer.F < 0 {
@@ -5718,7 +5724,7 @@ func (c *Char) update(cvmin, cvmax,
 				c.ghv.score = 0
 			}
 			if (c.ss.moveType == MT_H || c.ss.no == 52) && c.pos[1] == 0 &&
-				AbsF(c.pos[0]-c.oldPos[0]) >= 1 && c.ss.time%3 == 0 {
+				AbsF(c.pos[0]-c.oldPos[0]) >= 1 && c.ss.time%3 == 0 && !c.sf(CSF_nomakedust) {
 				c.makeDust(0, 0)
 			}
 		}
@@ -5837,7 +5843,16 @@ func (c *Char) tick() {
 			pn = c.ghv.playerNo
 		}
 		if c.stchtmp {
-			c.ss.prevno = 0
+			switch c.ss.stateType {
+			case ST_S:
+				c.ss.prevno = 5000
+			case ST_C:
+				c.ss.prevno = 5010
+			case ST_A:
+				c.ss.prevno = 5020
+			case ST_L:
+				c.ss.prevno = 5080
+			}
 		} else if c.ss.stateType == ST_L {
 			if c.pos[1] == 0 {
 				c.changeStateEx(5080, pn, -1, 0, false)
@@ -5914,6 +5929,14 @@ func (c *Char) tick() {
 				c.playSound(false, false, false, 11, 0, -1, vo, 0, 1, c.localscl, &c.pos[0], false, 0)
 			}
 			c.setSCF(SCF_ko)
+			for _, cl := range sys.charList.runOrder {
+				for i, p2cl := range cl.p2enemy {
+					if p2cl == c {
+						cl.p2enemy = cl.p2enemy[:i+copy(cl.p2enemy[i:], cl.p2enemy[i+1:])]
+						break
+					}
+				}
+			}
 		}
 		if c.ss.moveType != MT_H {
 			c.recoverTime = c.gi().data.liedown.time
@@ -6611,6 +6634,14 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					}
 				}
 			}
+			if ghvset || getter.sf(CSF_gethit) {
+				getter.receivedHits += hd.numhits * hits
+				getter.fakeReceivedHits += hd.numhits * hits
+				if c.teamside != -1 {
+					sys.lifebar.co[c.teamside].combo += hd.numhits * hits
+					sys.lifebar.co[c.teamside].fakeCombo += hd.numhits * hits
+				}
+			}
 		} else {
 			if hd.guard_sparkno != IErr {
 				if hd.reversal_attr > 0 {
@@ -6733,12 +6764,6 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 				sys.envShake.ampl = int32(float32(hd.envshake_ampl) * c.localscl)
 				sys.envShake.phase = hd.envshake_phase
 				sys.envShake.setDefPhase()
-			}
-			getter.receivedHits += hd.numhits * hits
-			getter.fakeReceivedHits += hd.numhits * hits
-			if c.teamside != -1 {
-				sys.lifebar.co[c.teamside].combo += hd.numhits * hits
-				sys.lifebar.co[c.teamside].fakeCombo += hd.numhits * hits
 			}
 			//getter.getcombodmg += hd.hitdamage
 			if hitType > 0 && !proj && getter.sf(CSF_screenbound) &&
@@ -7123,26 +7148,33 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2, ignoreDefeatedEnemy, log boo
 	if int(n) < len(*cache) {
 		return (*cache)[n]
 	}
-	*cache = (*cache)[:0]
-	var add func(*Char, int)
-	add = func(e *Char, idx int) {
+	if p2 {
+		cache = &c.p2enemy
+	} else {
+		*cache = (*cache)[:0]
+	}
+	var add func(*Char, int, float32)
+	add = func(e *Char, idx int, adddist float32) {
 		for i := idx; i <= int(n); i++ {
 			if i >= len(*cache) {
 				*cache = append(*cache, e)
 				return
 			}
-			if AbsF(c.distX(e, c)) < AbsF(c.distX((*cache)[i], c)) {
-				add((*cache)[i], i+1)
+			if AbsF(c.distX(e, c))+adddist < AbsF(c.distX((*cache)[i], c)) {
+				add((*cache)[i], i+1, adddist)
 				(*cache)[i] = e
 				return
 			}
 		}
 	}
 	for _, e := range cl.runOrder {
-		if e.player && e.teamside != c.teamside && !e.scf(SCF_standby) &&
-			(p2 && !e.scf(SCF_ko_round_middle) ||
-				(!p2 && e.helperIndex == 0 && (!ignoreDefeatedEnemy || ignoreDefeatedEnemy && (!e.scf(SCF_ko_round_middle) || sys.roundEnd())))) {
-			add(e, 0)
+		if e.player && e.teamside != c.teamside && !e.scf(SCF_standby) {
+			if p2 && !e.scf(SCF_ko_round_middle) {
+				add(e, 0, 30)
+			}
+			if !p2 && e.helperIndex == 0 && (!ignoreDefeatedEnemy || ignoreDefeatedEnemy && (!e.scf(SCF_ko_round_middle) || sys.roundEnd())) {
+				add(e, 0, 0)
+			}
 		}
 	}
 	if int(n) >= len(*cache) {

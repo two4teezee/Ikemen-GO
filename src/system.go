@@ -217,8 +217,9 @@ type System struct {
 	zoomScale               float32
 	zoomPosXLag             float32
 	zoomPosYLag             float32
-	enableZoomstate         bool
+	enableZoomtime          int32
 	zoomCameraBound         bool
+	zoomStageBound          bool
 	zoomPos                 [2]float32
 	debugWC                 *Char
 	cam                     Camera
@@ -355,6 +356,8 @@ type System struct {
 	stereoEffects   bool
 	panningRange    float32
 	windowCentered  bool
+	loopBreak       bool
+	loopContinue    bool
 	rollback        *RollbackSystem
 	rollbackConfig  RollbackConfig
 	saveState       *GameState
@@ -411,7 +414,7 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	// Now we proceed to init the render.
 	gfx.Init()
-	gfx.BeginFrame()
+	gfx.BeginFrame(false)
 	// And the audio.
 	speaker.Init(audioFrequency, audioOutLen)
 	speaker.Play(NewNormalizer(s.soundMixer))
@@ -505,8 +508,9 @@ func (s *System) await(fps int) bool {
 		// Render the finished frame
 		gfx.EndFrame()
 		s.window.SwapBuffers()
-		// Begin the next frame after events have been processed
-		defer gfx.BeginFrame()
+		// Begin the next frame after events have been processed. Do not clear
+		// the screen if network input is present.
+		defer gfx.BeginFrame(sys.netInput == nil)
 	}
 	s.runMainThreadTask()
 	now := time.Now()
@@ -561,18 +565,7 @@ func (s *System) tickSound() {
 		}
 	}
 
-	if !s.nomusic {
-		speaker.Lock()
-		if s.bgm.ctrl != nil && s.bgm.streamer != nil {
-			s.bgm.ctrl.Paused = false
-			// if s.bgm.bgmLoopEnd > 0 && s.bgm.streamer.Position() >= s.bgm.bgmLoopEnd {
-			// s.bgm.streamer.Seek(s.bgm.bgmLoopStart)
-			// }
-		}
-		speaker.Unlock()
-	} else {
-		s.bgm.Pause()
-	}
+	s.bgm.SetPaused(s.nomusic || s.paused)
 
 	//if s.FLAC_FrameWait >= 0 {
 	//	if s.FLAC_FrameWait == 0 {
@@ -999,7 +992,7 @@ func (s *System) posReset() {
 		}
 	}
 }
-func (s *System) action(x, y, scl *float32) {
+func (s *System) action() {
 	s.sprites = s.sprites[:0]
 	s.topSprites = s.topSprites[:0]
 	s.bottomSprites = s.bottomSprites[:0]
@@ -1010,11 +1003,12 @@ func (s *System) action(x, y, scl *float32) {
 	s.drawc2mtk = s.drawc2mtk[:0]
 	s.drawwh = s.drawwh[:0]
 	s.clsnText = nil
+	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	var cvmin, cvmax, highest, lowest, leftest, rightest float32 = 0, 0, 0, 0, 0, 0
-	leftest, rightest = *x, *x
+	leftest, rightest = x, x
 	if s.cam.ytensionenable {
-		if *y < 0 {
-			lowest = (*y - s.cam.CameraZoomYBound)
+		if y < 0 {
+			lowest = (y - s.cam.CameraZoomYBound)
 		}
 	}
 	if s.tickFrame() {
@@ -1031,8 +1025,12 @@ func (s *System) action(x, y, scl *float32) {
 		if s.envcol_time > 0 {
 			s.envcol_time--
 		}
-		s.enableZoomstate = false
-		s.zoomCameraBound = true
+		if s.enableZoomtime > 0 {
+			s.enableZoomtime--
+		} else {
+			s.zoomCameraBound = true
+			s.zoomStageBound = true
+		}
 		if s.super > 0 {
 			s.super--
 		} else if s.pause > 0 {
@@ -1056,7 +1054,7 @@ func (s *System) action(x, y, scl *float32) {
 		if s.superanim != nil {
 			s.superanim.Action()
 		}
-		s.charList.action(*x, &cvmin, &cvmax,
+		s.charList.action(x, &cvmin, &cvmax,
 			&highest, &lowest, &leftest, &rightest)
 		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
 	} else {
@@ -1065,10 +1063,10 @@ func (s *System) action(x, y, scl *float32) {
 	s.lifebar.step()
 
 	// Action camera
-	var newx, newy float32 = *x, *y
+	leftest -= x
+	rightest -= x
+	var newx, newy float32 = x, y
 	var sclMul float32
-	leftest -= *x
-	rightest -= *x
 	sclMul = s.cam.action(&newx, &newy, leftest, rightest, lowest, highest,
 		cvmin, cvmax, s.super > 0 || s.pause > 0)
 
@@ -1108,22 +1106,22 @@ func (s *System) action(x, y, scl *float32) {
 		}
 	}
 	if introSkip {
-		sclMul = 1 / *scl
+		sclMul = 1 / scl
 	}
 	leftest = (leftest - s.screenleft) * s.cam.BaseScale()
 	rightest = (rightest + s.screenright) * s.cam.BaseScale()
-	*scl = s.cam.ScaleBound(*scl, sclMul)
-	tmp := (float32(s.gameWidth) / 2) / *scl
-	if AbsF((leftest+rightest)-(newx-*x)*2) >= tmp/2 {
-		tmp = MaxF(0, MinF(tmp, MaxF((newx-*x)-leftest, rightest-(newx-*x))))
+	scl = s.cam.ScaleBound(scl, sclMul)
+	tmp := (float32(s.gameWidth) / 2) / scl
+	if AbsF((leftest+rightest)-(newx-x)*2) >= tmp/2 {
+		tmp = MaxF(0, MinF(tmp, MaxF((newx-x)-leftest, rightest-(newx-x))))
 	}
-	*x = s.cam.XBound(*scl, MinF(*x+leftest+tmp, MaxF(*x+rightest-tmp, newx)))
+	x = s.cam.XBound(scl, MinF(x+leftest+tmp, MaxF(x+rightest-tmp, newx)))
 	if !s.cam.ZoomEnable {
 		// Pos X の誤差が出ないように精度を落とす
-		*x = float32(math.Ceil(float64(*x)*4-0.5) / 4)
+		x = float32(math.Ceil(float64(x)*4-0.5) / 4)
 	}
-	*y = s.cam.YBound(*scl, newy)
-	s.cam.Update(*scl, *x, *y)
+	y = s.cam.YBound(scl, newy)
+	s.cam.Update(scl, x, y)
 
 	if s.superanim != nil {
 		s.topSprites.add(&SprData{s.superanim, &s.superpmap, s.superpos,
@@ -1870,7 +1868,6 @@ func (s *System) fight() (reload bool) {
 
 	oldWins, oldDraws := s.wins, s.draws
 	oldTeamLeader := s.teamLeader
-	var x, y, scl float32
 	// Anonymous function to reset values, called at the start of each round
 	reset := func() {
 		s.wins, s.draws = oldWins, oldDraws
@@ -1905,9 +1902,7 @@ func (s *System) fight() (reload bool) {
 		s.nextRound()
 		s.roundResetFlg, s.introSkipped = false, false
 		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
-		x, y = 0, 0
-		scl = s.cam.startzoom
-		s.cam.Update(scl, x, y)
+		s.cam.Update(s.cam.startzoom, 0, 0)
 	}
 	reset()
 
@@ -2023,7 +2018,7 @@ func (s *System) fight() (reload bool) {
 		s.stage.action()
 
 		// Update game state
-		s.action(&x, &y, &scl)
+		s.action()
 
 		// F4 pressed to restart round
 		if s.roundResetFlg && !s.postMatchFlg {
@@ -2043,21 +2038,27 @@ func (s *System) fight() (reload bool) {
 		}
 		// Render frame
 		if !s.frameSkip {
+			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
 			dx, dy, dscl := x, y, scl
-			if s.enableZoomstate {
+			if s.enableZoomtime > 0 {
 				if !s.debugPaused() {
 					s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
 					s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
 					s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
 				}
-				if s.zoomCameraBound {
+				if s.zoomStageBound {
 					dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-					dx = s.cam.XBound(dscl, x+s.zoomPosXLag/scl)
+					if s.zoomCameraBound {
+						dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
+					} else {
+						dx = x + s.zoomPosXLag/scl
+					}
+					dx = s.cam.XBound(dscl, dx)
 				} else {
 					dscl = s.drawScale / s.cam.BaseScale()
 					dx = x + s.zoomPosXLag/scl
 				}
-				dy = y + s.zoomPosYLag
+				dy = y + s.zoomPosYLag/scl
 			} else {
 				s.zoomlag = 0
 				s.zoomPosXLag = 0

@@ -2663,7 +2663,14 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-
+	luaRegister(l, "p2", func(*lua.LState) int {
+		ret := false
+		if c := sys.debugWC.p2(); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
 	// vanilla triggers
 	luaRegister(l, "ailevel", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.aiLevel()))
@@ -3813,6 +3820,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.sf(CSF_noguardpointsdamage)))
 		case "noredlifedamage":
 			l.Push(lua.LBool(sys.debugWC.sf(CSF_noredlifedamage)))
+		case "nomakedust":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_nomakedust)))
 		// GlobalSpecialFlag
 		case "intro":
 			l.Push(lua.LBool(sys.sf(GSF_intro)))

@@ -279,10 +279,12 @@ func (r *Renderer) Init() {
 func (r *Renderer) Close() {
 }
 
-func (r *Renderer) BeginFrame() {
+func (r *Renderer) BeginFrame(clear bool) {
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, int(sys.scrrect[2]), int(sys.scrrect[3]))
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	if clear {
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+	}
 }
 
 func (r *Renderer) EndFrame() {
@@ -343,7 +345,7 @@ func (r *Renderer) ReleasePipeline() {
 func (r *Renderer) ReadPixels(data[]uint8, width, height int) {
 	r.EndFrame()
 	gl.ReadPixels(data, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE)
-	r.BeginFrame()
+	r.BeginFrame(false)
 }
 
 func (r *Renderer) Scissor(x, y, width, height int32) {

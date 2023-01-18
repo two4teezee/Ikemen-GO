@@ -1,40 +1,16 @@
 package main
 
 import (
+	"arena"
 	"fmt"
 	"hash/fnv"
 	"strconv"
+	"sync"
 	"time"
 
 	glfw "github.com/fyne-io/glfw-js"
 	lua "github.com/yuin/gopher-lua"
 )
-
-// func (c Char) Checksum() uint32 {
-// 	cSums := make([]uint32, 0)
-// 	c.name
-
-// 	c.redLife
-// 	c.juggle
-// 	c.life
-// 	c.key
-// 	c.localcoord
-// 	c.localscl
-// 	c.pos
-// 	c.drawPos
-// 	c.oldPos
-// 	c.vel
-// 	c.facing
-// 	c.id
-// 	cs.helperId
-// 	c.helperIndex
-// 	c.parentIndex
-// 	c.playerNo
-// 	c.teamside c.animPN c.animNo c.lifeMax c.powerMax c.dizzyPoints
-// 	c.guardPoints c.fallTime c.clsnScale c.hoIdx c.mctime c.targets c.targetsOfHitdef
-// 	c.atktmp c.hittmp c.acttmp c.minus c.groundAngle c.comboExtraFrameWindow c.inheritJuggle
-// 	c.preserve c.ivar c.fvar c.offset
-// }
 
 func (cs Char) String() string {
 	str := fmt.Sprintf(`Char %s 
@@ -151,6 +127,8 @@ func (gs *GameState) String() (str string) {
 	return
 }
 
+const MaxSaveStates = 8
+
 type GameState struct {
 	bytes             []byte
 	id                int
@@ -253,7 +231,7 @@ type GameState struct {
 	zoomScale               float32
 	zoomPosXLag             float32
 	zoomPosYLag             float32
-	enableZoomstate         bool
+	enableZoomtime          int32
 	zoomCameraBound         bool
 	zoomPos                 [2]float32
 	finish                  FinishType // UIT
@@ -337,6 +315,10 @@ type GameState struct {
 	fight        Fight
 	introSkipped bool
 	preFightTime int32
+	debugWC      *Char
+
+	commandLists []*CommandList
+	luaTables    []*lua.LTable
 }
 
 func NewGameState() *GameState {
@@ -345,52 +327,45 @@ func NewGameState() *GameState {
 	}
 }
 
-func (gs *GameState) Equal(other GameState) (equality bool) {
+func (gs *GameState) LoadState(stateID int) {
+	sys.arenaLoadMap[stateID] = arena.NewArena()
+	a := sys.arenaLoadMap[stateID]
+	gsp := &sys.loadPool
 
-	if gs.randseed != other.randseed {
-		fmt.Printf("Error on randseed: %d : %d ", gs.randseed, other.randseed)
-		return false
-	}
-
-	if gs.Time != other.Time {
-		fmt.Println("Error on time.")
-		return false
-	}
-
-	if gs.GameTime != other.GameTime {
-		fmt.Println("Error on gameTime.")
-		return false
-	}
-	return true
-
-}
-
-func (gs *GameState) LoadState() {
 	sys.randseed = gs.randseed
 	sys.time = gs.Time // UIT
 	sys.gameTime = gs.GameTime
-	gs.loadCharData()
-	gs.loadExplodData()
+	gs.loadCharData(a, gsp)
+	gs.loadExplodData(a)
 	sys.cam = gs.cam
 	gs.loadPauseData()
-	gs.loadSuperData()
-	gs.loadPalFX()
-	gs.loadProjectileData()
+	gs.loadSuperData(a)
+	gs.loadPalFX(a)
+	gs.loadProjectileData(a)
 	sys.com = gs.com
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
 	sys.specialFlag = gs.specialFlag
 	sys.envcol = gs.envcol
-	sys.bcStack = gs.bcStack
-	sys.bcVarStack = gs.bcVarStack
-	sys.bcVar = gs.bcVar
-	//sys.stage.loadStageState(gs.stageState)
-	sys.stage = gs.stage
+
+	sys.bcStack = arena.MakeSlice[BytecodeValue](a, len(gs.bcStack), len(gs.bcStack))
+	copy(sys.bcStack, gs.bcStack)
+	sys.bcVarStack = arena.MakeSlice[BytecodeValue](a, len(gs.bcVarStack), len(gs.bcVarStack))
+	copy(sys.bcVarStack, gs.bcVarStack)
+	sys.bcVar = arena.MakeSlice[BytecodeValue](a, len(gs.bcVar), len(gs.bcVar))
+	copy(sys.bcVar, gs.bcVar)
+
+	sys.stage = gs.stage.Clone(a, gsp)
 
 	sys.aiInput = gs.aiInput
 	sys.inputRemap = gs.inputRemap
 	sys.autoguard = gs.autoguard
-	sys.workBe = gs.workBe
+
+	sys.workBe = arena.MakeSlice[BytecodeExp](a, len(gs.workBe), len(gs.workBe))
+	for i := 0; i < len(gs.workBe); i++ {
+		sys.workBe[i] = arena.MakeSlice[OpCode](a, len(gs.workBe[i]), len(gs.workBe[i]))
+		copy(sys.workBe[i], gs.workBe[i])
+	}
 
 	sys.finish = gs.finish
 	sys.winTeam = gs.winTeam
@@ -423,16 +398,27 @@ func (gs *GameState) LoadState() {
 	sys.turnsRecoveryRate = gs.turnsRecoveryRate
 
 	sys.changeStateNest = gs.changeStateNest
+
+	sys.drawc1 = arena.MakeSlice[[4]float32](a, len(gs.drawc1), len(gs.drawc1))
 	copy(sys.drawc1, gs.drawc1)
+	sys.drawc2 = arena.MakeSlice[[4]float32](a, len(gs.drawc2), len(gs.drawc2))
 	copy(sys.drawc2, gs.drawc2)
+	sys.drawc2sp = arena.MakeSlice[[4]float32](a, len(gs.drawc2sp), len(gs.drawc2sp))
 	copy(sys.drawc2sp, gs.drawc2sp)
+	sys.drawc2mtk = arena.MakeSlice[[4]float32](a, len(gs.drawc2mtk), len(gs.drawc2mtk))
 	copy(sys.drawc2mtk, gs.drawc2mtk)
+	sys.drawwh = arena.MakeSlice[[4]float32](a, len(gs.drawwh), len(gs.drawwh))
 	copy(sys.drawwh, gs.drawwh)
+
 	sys.accel = gs.accel
 	sys.clsnDraw = gs.clsnDraw
 	//sys.statusDraw = gs.statusDraw
 	sys.explodMax = gs.explodMax
+
+	// Things that directly or indirectly get put into CGO can't go into arenas
+	sys.workpal = make([]uint32, len(gs.workpal)) //arena.MakeSlice[uint32](a, len(gs.workpal), len(gs.workpal))
 	copy(sys.workpal, gs.workpal)
+
 	sys.playerProjectileMax = gs.playerProjectileMax
 	sys.nomusic = gs.nomusic
 	sys.lifeShare = gs.lifeShare
@@ -443,7 +429,7 @@ func (gs *GameState) LoadState() {
 	sys.zoomScale = gs.zoomScale
 	sys.zoomPosXLag = gs.zoomPosXLag
 	sys.zoomPosYLag = gs.zoomPosYLag
-	sys.enableZoomstate = gs.enableZoomstate
+	sys.enableZoomtime = gs.enableZoomtime
 	sys.zoomCameraBound = gs.zoomCameraBound
 	sys.zoomPos = gs.zoomPos
 
@@ -495,36 +481,34 @@ func (gs *GameState) LoadState() {
 		// if sys.workingState != nil {
 		// 	*sys.workingState = gs.workingStateState
 		// } else {
-		sys.workingState = &gs.workingStateState
+		ws := gs.workingStateState.Clone(a)
+		sys.workingState = &ws
 		// }
 	}
 
-	// else {
-	// 	sys.workingState = &gs.workingStateState
-	// }
-
-	// copy(sys.keyConfig, gs.keyConfig)
-	// copy(sys.joystickConfig, gs.joystickConfig)
-	//sys.redrawWait = gs.redrawWait
-	sys.lifebar = gs.lifebar
+	sys.lifebar = gs.lifebar.Clone(a)
 
 	sys.cgi = gs.cgi
-	// for i := range sys.cgi {
-	// 	for k, v := range gs.cgi[i].states {
-	// 		sys.cgi[i].states[k] = v
-	// 	}
-	// }
 
-	// New 11/04/2022
 	sys.timerStart = gs.timerStart
-	sys.timerRounds = gs.timerRounds
+
+	sys.timerRounds = arena.MakeSlice[int32](a, len(gs.timerRounds), len(gs.timerRounds))
+	copy(sys.timerRounds, gs.timerRounds)
+
 	sys.teamLeader = gs.teamLeader
 	sys.postMatchFlg = gs.postMatchFlg
 	sys.scoreStart = gs.scoreStart
-	sys.scoreRounds = gs.scoreRounds
+
+	sys.scoreRounds = arena.MakeSlice[[2]float32](a, len(gs.scoreRounds), len(gs.scoreRounds))
+	copy(sys.scoreRounds, gs.scoreRounds)
+
 	sys.roundType = gs.roundType
-	sys.sel = gs.sel
-	sys.stringPool = gs.stringPool
+
+	sys.sel = gs.sel.Clone(a)
+	for i := 0; i < len(sys.stringPool); i++ {
+		sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
+	}
+
 	sys.dialogueFlg = gs.dialogueFlg
 	sys.gameMode = gs.gameMode
 	sys.consecutiveWins = gs.consecutiveWins
@@ -543,13 +527,18 @@ func (gs *GameState) LoadState() {
 	//sys.keyState = gs.keyState
 	sys.keyInput = gs.keyInput
 	sys.keyString = gs.keyString
-	sys.timerCount = gs.timerCount
-	sys.commonLua = gs.commonLua
-	sys.commonStates = gs.commonStates
+
+	sys.timerCount = arena.MakeSlice[int32](a, len(gs.timerCount), len(gs.timerCount))
+	copy(sys.timerCount, gs.timerCount)
+	sys.commonLua = arena.MakeSlice[string](a, len(gs.commonLua), len(gs.commonLua))
+	copy(sys.commonLua, gs.commonLua)
+	sys.commonStates = arena.MakeSlice[string](a, len(gs.commonStates), len(gs.commonStates))
+	copy(sys.commonStates, gs.commonStates)
+
 	sys.endMatch = gs.endMatch
 
 	// theoretically this shouldn't do anything.
-	*sys.matchData = *gs.matchData
+	sys.matchData = gs.cloneLuaTable(gs.matchData)
 
 	sys.noSoundFlg = gs.noSoundFlg
 	sys.loseSimul = gs.loseSimul
@@ -557,9 +546,24 @@ func (gs *GameState) LoadState() {
 	sys.continueFlg = gs.continueFlg
 	sys.stageLoopNo = gs.stageLoopNo
 
+	// 11/5/22
+	if sys.rollback != nil {
+		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
+	}
+
+	wc := gs.debugWC.Clone(a, gsp)
+	sys.debugWC = &wc
+
+	// gotta keep these pointers around because they are userdata
+	for i := 0; i < len(sys.commandLists); i++ {
+		gs.commandLists[i].CopyTo(sys.commandLists[i], a)
+	}
+
+	// sys.luaTables = gs.luaTables
+
 	// This won't be around if we aren't in a proper rollback session.
 	if sys.rollback != nil {
-		sys.rollback.currentFight = gs.fight
+		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
 	}
 
 	sys.introSkipped = gs.introSkipped
@@ -567,72 +571,50 @@ func (gs *GameState) LoadState() {
 	sys.preFightTime = gs.preFightTime
 }
 
-func (gs *GameState) SaveState() {
-	gs.cgi = sys.cgi
-	// for i := range sys.cgi {
-	// 	gs.cgi[i].states = make(map[int32]StateBytecode)
-	// 	for k, v := range gs.cgi[i].states {
-	// 		gs.cgi[i].states[k] = v
-	// 	}
-	// }
+func (gs *GameState) SaveState(stateID int) {
+	sys.arenaSaveMap[stateID] = arena.NewArena()
+	a := sys.arenaSaveMap[stateID]
+	gsp := &sys.savePool
 
+	gs.cgi = sys.cgi
 	gs.saved = true
 	gs.frame = sys.frameCounter
 	gs.randseed = sys.randseed
 	gs.Time = sys.time
 	gs.GameTime = sys.gameTime
 
-	//timeBefore := time.Now().UnixMilli()
-	gs.saveCharData()
-	//timeAfter := time.Now().UnixMilli()
-	//fmt.Printf("Time to save chars: %d\n", timeAfter-timeBefore)
-
-	//timeBefore = time.Now().UnixMilli()
-	gs.saveExplodData()
-	//timeAfter = time.Now().UnixMilli()
-	//fmt.Printf("Time to save explod data: %d\n", timeAfter-timeBefore)
-
-	//timeBefore = time.Now().UnixMilli()
+	gs.saveCharData(a, gsp)
+	gs.saveExplodData(a)
 	gs.cam = sys.cam
 	gs.savePauseData()
-	gs.saveSuperData()
-	gs.savePalFX()
-	gs.saveProjectileData()
-	//timeAfter = time.Now().UnixMilli()
-	//fmt.Printf("Time to save blovk A: %d\n", timeAfter-timeBefore)
+	gs.saveSuperData(a)
+	gs.savePalFX(a)
+	gs.saveProjectileData(a)
 
-	//timeBefore = time.Now().UnixMilli()
 	gs.com = sys.com
 	gs.envShake = sys.envShake
 	gs.envcol_time = sys.envcol_time
 	gs.specialFlag = sys.specialFlag
 	gs.envcol = sys.envcol
-	gs.bcStack = make([]BytecodeValue, len(sys.bcStack))
+
+	gs.bcStack = arena.MakeSlice[BytecodeValue](a, len(sys.bcStack), len(sys.bcStack))
 	copy(gs.bcStack, sys.bcStack)
-
-	gs.bcVarStack = make([]BytecodeValue, len(sys.bcVarStack))
+	gs.bcVarStack = arena.MakeSlice[BytecodeValue](a, len(sys.bcVarStack), len(sys.bcVarStack))
 	copy(gs.bcVarStack, sys.bcVarStack)
-
-	gs.bcVar = make([]BytecodeValue, len(sys.bcVar))
+	gs.bcVar = arena.MakeSlice[BytecodeValue](a, len(sys.bcVar), len(sys.bcVar))
 	copy(gs.bcVar, sys.bcVar)
 
-	//gs.stageState = sys.stage.getStageState()
-	stage := sys.stage.Clone() // UIT
-	gs.stage = &stage
+	gs.stage = sys.stage.Clone(a, gsp)
 
 	gs.aiInput = sys.aiInput
 	gs.inputRemap = sys.inputRemap
 	gs.autoguard = sys.autoguard
-	gs.workBe = make([]BytecodeExp, len(sys.workBe))
+	gs.workBe = arena.MakeSlice[BytecodeExp](a, len(sys.workBe), len(sys.workBe))
 	for i := 0; i < len(sys.workBe); i++ {
-		gs.workBe[i] = make(BytecodeExp, len(sys.workBe[i]))
+		gs.workBe[i] = arena.MakeSlice[OpCode](a, len(sys.workBe[i]), len(sys.workBe[i]))
 		copy(gs.workBe[i], sys.workBe[i])
 	}
 
-	//timeAfter = time.Now().UnixMilli()
-	//fmt.Printf("Time to save block B: %d\n", timeAfter-timeBefore)
-
-	//timeBefore = time.Now().UnixMilli()
 	gs.finish = sys.finish
 	gs.winTeam = sys.winTeam
 	gs.winType = sys.winType
@@ -663,25 +645,24 @@ func (gs *GameState) SaveState() {
 
 	gs.changeStateNest = sys.changeStateNest
 
-	gs.drawc1 = make(ClsnRect, len(sys.drawc1))
+	gs.drawc1 = arena.MakeSlice[[4]float32](a, len(sys.drawc1), len(sys.drawc1))
 	copy(gs.drawc1, sys.drawc1)
-	gs.drawc2 = make(ClsnRect, len(sys.drawc2))
+	gs.drawc2 = arena.MakeSlice[[4]float32](a, len(sys.drawc2), len(sys.drawc2))
 	copy(gs.drawc2, sys.drawc2)
-	gs.drawc2sp = make(ClsnRect, len(sys.drawc2sp))
+	gs.drawc2sp = arena.MakeSlice[[4]float32](a, len(sys.drawc2sp), len(sys.drawc2sp))
 	copy(gs.drawc2sp, sys.drawc2sp)
-	gs.drawc2mtk = make(ClsnRect, len(sys.drawc2mtk))
+	gs.drawc2mtk = arena.MakeSlice[[4]float32](a, len(sys.drawc2mtk), len(sys.drawc2mtk))
 	copy(gs.drawc2mtk, sys.drawc2mtk)
-	gs.drawwh = make(ClsnRect, len(sys.drawwh))
+	gs.drawwh = arena.MakeSlice[[4]float32](a, len(sys.drawwh), len(sys.drawwh))
 	copy(gs.drawwh, sys.drawwh)
-	//timeAfter = time.Now().UnixMilli()
-	//fmt.Printf("Time to save block C: %d\n", timeAfter-timeBefore)
 
-	//timeBefore = time.Now().UnixMilli()
 	gs.accel = sys.accel
 	gs.clsnDraw = sys.clsnDraw
 	gs.statusDraw = sys.statusDraw
 	gs.explodMax = sys.explodMax
-	gs.workpal = make([]uint32, len(sys.workpal))
+
+	// Things that directly or indirectly get put into CGO can't go into arenas
+	gs.workpal = make([]uint32, len(sys.workpal)) //arena.MakeSlice[uint32](a, len(sys.workpal), len(sys.workpal))
 	copy(gs.workpal, sys.workpal)
 	gs.playerProjectileMax = sys.playerProjectileMax
 	gs.nomusic = sys.nomusic
@@ -693,7 +674,7 @@ func (gs *GameState) SaveState() {
 	gs.zoomScale = sys.zoomScale
 	gs.zoomPosXLag = sys.zoomPosXLag
 	gs.zoomPosYLag = sys.zoomPosYLag
-	gs.enableZoomstate = sys.enableZoomstate
+	gs.enableZoomtime = sys.enableZoomtime
 	gs.zoomCameraBound = sys.zoomCameraBound
 	gs.zoomPos = sys.zoomPos
 
@@ -741,40 +722,29 @@ func (gs *GameState) SaveState() {
 
 	// bug, if a prior state didn't have this
 	if sys.workingState != nil {
-		gs.workingStateState = sys.workingState.Clone()
+		gs.workingStateState = sys.workingState.Clone(a)
 	}
 
-	// gs.keyConfig = make([]KeyConfig, len(sys.keyConfig))
-	// copy(gs.keyConfig, sys.keyConfig)
+	gs.lifebar = sys.lifebar.Clone(a)
 
-	// gs.joystickConfig = make([]KeyConfig, len(sys.joystickConfig))
-	// copy(gs.joystickConfig, sys.joystickConfig)
-	//timeAfter = time.Now().UnixMilli()
-	//fmt.Printf("Time to save The rest: %d\n", timeAfter-timeBefore)
-
-	gs.lifebar = sys.lifebar.Clone()
-	gs.redrawWait = sys.redrawWait
-
-	// New 11/04/2022
-	// UIT
 	gs.timerStart = sys.timerStart
-	gs.timerRounds = make([]int32, len(sys.timerRounds))
+	gs.timerRounds = arena.MakeSlice[int32](a, len(sys.timerRounds), len(sys.timerRounds))
 	copy(gs.timerRounds, sys.timerRounds)
 	gs.teamLeader = sys.teamLeader
 	gs.postMatchFlg = sys.postMatchFlg
 	gs.scoreStart = sys.scoreStart
-	gs.scoreRounds = make([][2]float32, len(sys.scoreRounds))
+	gs.scoreRounds = arena.MakeSlice[[2]float32](a, len(sys.scoreRounds), len(sys.scoreRounds))
 	copy(gs.scoreRounds, sys.scoreRounds)
 	gs.roundType = sys.roundType
-	gs.sel = sys.sel.Clone()
+	gs.sel = sys.sel.Clone(a)
 	for i := 0; i < len(sys.stringPool); i++ {
-		gs.stringPool[i] = sys.stringPool[i].Clone()
+		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
 	}
+
 	gs.dialogueFlg = sys.dialogueFlg
 	gs.gameMode = sys.gameMode
 	gs.consecutiveWins = sys.consecutiveWins
 
-	// Not UIT
 	gs.stageLoop = sys.stageLoop
 	gs.panningRange = sys.panningRange
 	gs.stereoEffects = sys.stereoEffects
@@ -788,11 +758,11 @@ func (gs *GameState) SaveState() {
 	gs.keyInput = sys.keyInput
 	gs.keyString = sys.keyString
 
-	gs.timerCount = make([]int32, len(sys.timerCount))
+	gs.timerCount = arena.MakeSlice[int32](a, len(sys.timerCount), len(sys.timerCount))
 	copy(gs.timerCount, sys.timerCount)
-	gs.commonLua = make([]string, len(sys.commonLua))
+	gs.commonLua = arena.MakeSlice[string](a, len(sys.commonLua), len(sys.commonLua))
 	copy(gs.commonLua, sys.commonLua)
-	gs.commonStates = make([]string, len(sys.commonStates))
+	gs.commonStates = arena.MakeSlice[string](a, len(sys.commonStates), len(sys.commonStates))
 	copy(gs.commonStates, sys.commonStates)
 
 	gs.endMatch = sys.endMatch
@@ -807,61 +777,90 @@ func (gs *GameState) SaveState() {
 	gs.continueFlg = sys.continueFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
+	debugWC := sys.debugWC.Clone(a, gsp)
+	gs.debugWC = &debugWC
+	gs.commandLists = arena.MakeSlice[*CommandList](a, len(sys.commandLists), len(sys.commandLists))
+	for i := 0; i < len(sys.commandLists); i++ {
+		cl := sys.commandLists[i].Clone(a)
+		gs.commandLists[i] = &cl
+	}
+	gs.luaTables = arena.MakeSlice[*lua.LTable](a, len(sys.luaTables), len(sys.luaTables))
+	for i := 0; i < len(sys.luaTables); i++ {
+		gs.luaTables[i] = gs.cloneLuaTable(sys.luaTables[i])
+	}
+
 	// This won't be around if we aren't in a proper rollback session.
 	if sys.rollback != nil {
-		gs.fight = sys.rollback.currentFight.Clone()
+		gs.fight = sys.rollback.currentFight.Clone(a, gsp)
 	}
 
 	gs.introSkipped = sys.introSkipped
 	gs.preFightTime = sys.preFightTime
 }
 
-func (gs *GameState) savePalFX() {
-	gs.allPalFX = sys.allPalFX
-	gs.bgPalFX = sys.bgPalFX
+func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {
+	tbl := sys.luaLState.NewTable()
+	s.ForEach(func(key lua.LValue, value lua.LValue) {
+		switch value.Type() {
+		case lua.LTTable:
+			innerTbl := value.(*lua.LTable)
+			tbl.RawSet(key, gs.cloneLuaTable(innerTbl))
+		default:
+			tbl.RawSet(key, value)
+		}
+	})
+	return tbl
 }
 
-func (gs *GameState) saveCharData() {
+func (src *CommandList) CopyTo(dst *CommandList, a *arena.Arena) {
+	clone := src.Clone(a)
+	*dst = clone
+}
+
+func (gs *GameState) savePalFX(a *arena.Arena) {
+	gs.allPalFX = sys.allPalFX.Clone(a)
+	gs.bgPalFX = sys.bgPalFX.Clone(a)
+}
+
+func (gs *GameState) saveCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.chars {
-		gs.charData[i] = make([]Char, len(sys.chars[i]))
-		gs.chars[i] = make([]*Char, len(sys.chars[i]))
+		gs.charData[i] = arena.MakeSlice[Char](a, len(sys.chars[i]), len(sys.chars[i]))
+		gs.chars[i] = arena.MakeSlice[*Char](a, len(sys.chars[i]), len(sys.chars[i]))
 		for j, c := range sys.chars[i] {
-			//timeBefore := time.Now().UnixMilli()
-			gs.charData[i][j] = c.Clone()
+			gs.charData[i][j] = c.Clone(a, gsp)
 			gs.chars[i][j] = c
-			//timeAfter := time.Now().UnixMilli()
-			//fmt.Printf("Time to save character %s: %d ms\n", c.name, timeAfter-timeBefore)
-			//gs.charMap[gs.charState[i][j].id] = gs.charState[i][j]
 		}
 	}
+
+	for i := range gs.chars {
+		for _, c := range gs.chars[i] {
+			if !c.keyctrl[0] {
+				c.cmd = gs.chars[c.playerNo][0].cmd
+			}
+		}
+	}
+
 	if sys.workingChar != nil {
+		c := sys.workingChar.Clone(a, gsp)
+		gs.workingChar = &c
+	} else {
 		gs.workingChar = sys.workingChar
 	}
 
-	gs.charList = CharList{}
-	gs.charList.runOrder = make([]*Char, len(sys.charList.runOrder))
-	copy(gs.charList.runOrder, sys.charList.runOrder)
-
-	gs.charList.drawOrder = make([]*Char, len(sys.charList.drawOrder))
-	copy(gs.charList.drawOrder, sys.charList.drawOrder)
-
-	gs.charList.idMap = make(map[int32]*Char)
-	for k, v := range sys.charList.idMap {
-		gs.charList.idMap[k] = v
-	}
+	gs.charList = sys.charList.Clone(a, gsp)
 
 }
 
-func (gs *GameState) saveProjectileData() {
+func (gs *GameState) saveProjectileData(a *arena.Arena) {
 	for i := range sys.projs {
-		gs.projs[i] = make([]Projectile, len(sys.projs[i]))
+		gs.projs[i] = arena.MakeSlice[Projectile](a, len(sys.projs[i]), len(sys.projs[i]))
 		for j := 0; j < len(sys.projs[i]); j++ {
-			gs.projs[i][j] = sys.projs[i][j].Clone()
+			gs.projs[i][j] = sys.projs[i][j].clone(a)
 		}
 	}
 }
 
-func (gs *GameState) saveSuperData() {
+func (gs *GameState) saveSuperData(a *arena.Arena) {
 	gs.super = sys.super
 	gs.supertime = sys.supertime
 	gs.superpausebg = sys.superpausebg
@@ -869,87 +868,94 @@ func (gs *GameState) saveSuperData() {
 	gs.superplayer = sys.superplayer
 	gs.superdarken = sys.superdarken
 	if sys.superanim != nil {
-		superanim := sys.superanim.Clone()
-		gs.superanim = &superanim
+		gs.superanim = sys.superanim.Clone(a)
+	} else {
+		gs.superanim = sys.superanim
 	}
-	gs.superpmap = sys.superpmap.Clone()
+	gs.superpmap = sys.superpmap.Clone(a)
 	gs.superpos = [2]float32{sys.superpos[0], sys.superpos[1]}
 	gs.superfacing = sys.superfacing
 	gs.superp2defmul = sys.superp2defmul
 }
 
 func (gs *GameState) savePauseData() {
-	gs.pause = sys.pause // UIT
+	gs.pause = sys.pause
 	gs.pausetime = sys.pausetime
 	gs.pausebg = sys.pausebg
 	gs.pauseendcmdbuftime = sys.pauseendcmdbuftime
 	gs.pauseplayer = sys.pauseplayer
 }
 
-func (gs *GameState) saveExplodData() {
+func (gs *GameState) saveExplodData(a *arena.Arena) {
 	for i := range sys.explods {
-		gs.explods[i] = make([]Explod, len(sys.explods[i]))
+		gs.explods[i] = arena.MakeSlice[Explod](a, len(sys.explods[i]), len(sys.explods[i]))
 		for j := 0; j < len(sys.explods[i]); j++ {
-			gs.explods[i][j] = sys.explods[i][j].Clone()
+			gs.explods[i][j] = *sys.explods[i][j].Clone(a)
 		}
 	}
 	for i := range sys.explDrawlist {
-		gs.explDrawlist[i] = make([]int, len(sys.explDrawlist[i]))
+		gs.explDrawlist[i] = arena.MakeSlice[int](a, len(sys.explDrawlist[i]), len(sys.explDrawlist[i]))
 		copy(gs.explDrawlist[i], sys.explDrawlist[i])
 	}
 
 	for i := range sys.topexplDrawlist {
-		gs.topexplDrawlist[i] = make([]int, len(sys.topexplDrawlist[i]))
+		gs.topexplDrawlist[i] = arena.MakeSlice[int](a, len(sys.topexplDrawlist[i]), len(sys.topexplDrawlist[i]))
 		copy(gs.topexplDrawlist[i], sys.topexplDrawlist[i])
 	}
 
 	for i := range sys.underexplDrawlist {
-		gs.underexplDrawlist[i] = make([]int, len(sys.underexplDrawlist[i]))
+		gs.underexplDrawlist[i] = arena.MakeSlice[int](a, len(sys.underexplDrawlist[i]), len(sys.underexplDrawlist[i]))
 		copy(gs.underexplDrawlist[i], sys.underexplDrawlist[i])
 	}
 }
 
-func (gs *GameState) loadPalFX() {
-	sys.allPalFX = gs.allPalFX
-	sys.bgPalFX = gs.bgPalFX
+func (gs *GameState) loadPalFX(a *arena.Arena) {
+	sys.allPalFX = gs.allPalFX.Clone(a)
+	sys.bgPalFX = gs.bgPalFX.Clone(a)
 }
-
-func (gs *GameState) loadCharData() {
+func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := 0; i < len(sys.chars); i++ {
-		sys.chars[i] = make([]*Char, len(gs.chars[i]))
+		sys.chars[i] = arena.MakeSlice[*Char](a, len(gs.chars[i]), len(gs.chars[i]))
 		copy(sys.chars[i], gs.chars[i])
 	}
+
 	for i := 0; i < len(sys.chars); i++ {
 		for j := 0; j < len(sys.chars[i]); j++ {
-			*sys.chars[i][j] = gs.charData[i][j]
+			*sys.chars[i][j] = gs.charData[i][j].Clone(a, gsp)
 		}
 	}
-	sys.workingChar = gs.workingChar
 
-	sys.charList.runOrder = make([]*Char, len(gs.charList.runOrder))
-	copy(sys.charList.runOrder, gs.charList.runOrder)
-
-	sys.charList.drawOrder = make([]*Char, len(gs.charList.drawOrder))
-	copy(sys.charList.drawOrder, gs.charList.drawOrder)
-
-	sys.charList.idMap = make(map[int32]*Char)
-	for k, v := range gs.charList.idMap {
-		sys.charList.idMap[k] = v
+	for i := range sys.chars {
+		for _, c := range sys.chars[i] {
+			if !c.keyctrl[0] {
+				c.cmd = sys.chars[c.playerNo][0].cmd
+			}
+		}
 	}
 
+	if gs.workingChar != nil {
+		wc := gs.workingChar.Clone(a, gsp)
+		sys.workingChar = &wc
+	} else {
+		sys.workingChar = gs.workingChar
+	}
+
+	sys.charList = gs.charList.Clone(a, gsp)
 }
 
-func (gs *GameState) loadSuperData() {
-	sys.super = gs.super // UIT
+func (gs *GameState) loadSuperData(a *arena.Arena) {
+	sys.super = gs.super
 	sys.supertime = gs.supertime
 	sys.superpausebg = gs.superpausebg
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayer = gs.superplayer
 	sys.superdarken = gs.superdarken
-	if sys.superanim != nil {
+	if gs.superanim != nil {
+		sys.superanim = gs.superanim.Clone(a)
+	} else {
 		sys.superanim = gs.superanim
 	}
-	sys.superpmap = gs.superpmap
+	sys.superpmap = gs.superpmap.Clone(a)
 	sys.superpos = [2]float32{gs.superpos[0], gs.superpos[1]}
 	sys.superfacing = gs.superfacing
 	sys.superp2defmul = gs.superp2defmul
@@ -963,57 +969,150 @@ func (gs *GameState) loadPauseData() {
 	sys.pauseplayer = gs.pauseplayer
 }
 
-func (gs *GameState) loadExplodData() {
+func (gs *GameState) loadExplodData(a *arena.Arena) {
 	for i := range gs.explods {
-		sys.explods[i] = make([]Explod, len(gs.explods[i]))
-		copy(sys.explods[i], gs.explods[i])
+		sys.explods[i] = arena.MakeSlice[Explod](a, len(gs.explods[i]), len(gs.explods[i]))
+		for j := 0; j < len(gs.explods[i]); j++ {
+			sys.explods[i][j] = *gs.explods[i][j].Clone(a)
+		}
 	}
 
 	for i := range gs.explDrawlist {
-		sys.explDrawlist[i] = make([]int, len(gs.explDrawlist[i]))
+		sys.explDrawlist[i] = arena.MakeSlice[int](a, len(gs.explDrawlist[i]), len(gs.explDrawlist[i]))
 		copy(sys.explDrawlist[i], gs.explDrawlist[i])
 	}
 
 	for i := range gs.topexplDrawlist {
-		sys.topexplDrawlist[i] = make([]int, len(gs.topexplDrawlist[i]))
+		sys.topexplDrawlist[i] = arena.MakeSlice[int](a, len(gs.topexplDrawlist[i]), len(gs.topexplDrawlist[i]))
 		copy(sys.topexplDrawlist[i], gs.topexplDrawlist[i])
 	}
 
 	for i := range gs.underexplDrawlist {
-		sys.underexplDrawlist[i] = make([]int, len(gs.underexplDrawlist[i]))
+		sys.underexplDrawlist[i] = arena.MakeSlice[int](a, len(gs.underexplDrawlist[i]), len(gs.underexplDrawlist[i]))
 		copy(sys.underexplDrawlist[i], gs.underexplDrawlist[i])
 	}
 }
 
-func (gs *GameState) projectliesPersist() bool {
-	for i := 0; i < len(sys.projs); i++ {
-		if len(sys.projs[i]) != len(gs.projs[i]) {
-			return false
-		}
-		for j := 0; j < len(sys.projs[i]); j++ {
-			if sys.projs[i][j].id != gs.projs[i][j].id {
-				return false
-			}
+func (gs *GameState) loadProjectileData(a *arena.Arena) {
+	for i := range gs.projs {
+		sys.projs[i] = arena.MakeSlice[Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
+		for j := range gs.projs[i] {
+			sys.projs[i][j] = gs.projs[i][j].clone(a)
 		}
 	}
-	return true
 }
 
-func (gs *GameState) loadProjectileData() {
-	if gs.projectliesPersist() {
-		for i := range sys.projs {
-			for j := range sys.projs[i] {
-				sys.projs[i][j] = gs.projs[i][j]
-			}
-		}
-	} else {
-		for i := range gs.projs {
-			sys.projs[i] = make([]Projectile, len(gs.projs[i]))
-			for j := range gs.projs[i] {
-				sys.projs[i][j] = gs.projs[i][j]
-			}
-		}
-
+func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {
+	objs, ok := gsp.poolObjs[gsp.curStateID]
+	if !ok {
+		gsp.poolObjs[gsp.curStateID] = make([]interface{}, 0, 50)
+		objs = gsp.poolObjs[gsp.curStateID]
 	}
 
+	switch item.(type) {
+	case (map[int32][3]*HitScale):
+		objs = append(objs, gsp.hitscaleMapPool.Get())
+		return objs[len(objs)-1]
+	case (map[string]float32):
+		objs = append(objs, gsp.stringFloat32MapPool.Get())
+		return objs[len(objs)-1]
+	case (map[string]int):
+		objs = append(objs, gsp.stringIntMapPool.Get())
+		return objs[len(objs)-1]
+	case (AnimationTable):
+		objs = append(objs, gsp.animationTablePool.Get())
+		return objs[len(objs)-1]
+	case (map[int32]*Char):
+		objs = append(objs, gsp.int32CharPointerMapPool.Get())
+		return objs[len(objs)-1]
+	default:
+		return nil
+	}
+}
+
+func (gsp *GameStatePool) Put(item interface{}) {
+	switch item.(type) {
+	case (*map[int32][3]*HitScale):
+		gsp.hitscaleMapPool.Put(item)
+	case (*map[string]float32):
+		gsp.stringFloat32MapPool.Put(item)
+	case (*map[string]int):
+		gsp.stringIntMapPool.Put(item)
+	case (*AnimationTable):
+		gsp.animationTablePool.Put(item)
+	case (*map[int32]*Char):
+		gsp.int32CharPointerMapPool.Put(item)
+	default:
+	}
+}
+
+func (gsp *GameStatePool) Free(stateID int) {
+	objs, ok := gsp.poolObjs[stateID]
+	if ok {
+		for i := 0; i < len(objs); i++ {
+			gsp.Put(objs[i])
+		}
+	}
+	delete(gsp.poolObjs, stateID)
+}
+
+func NewGameStatePool() GameStatePool {
+	return GameStatePool{
+		gameStatePool: sync.Pool{
+			New: func() interface{} {
+				return NewGameState()
+			},
+		},
+		stringIntMapPool: sync.Pool{
+			New: func() interface{} {
+				si := make(map[string]int)
+				return &si
+			},
+		},
+		hitscaleMapPool: sync.Pool{
+			New: func() interface{} {
+				hs := make(map[int32][3]*HitScale)
+				return &hs
+			},
+		},
+		stringFloat32MapPool: sync.Pool{
+			New: func() interface{} {
+				sf := make(map[string]float32)
+				return &sf
+			},
+		},
+		animationTablePool: sync.Pool{
+			New: func() interface{} {
+				at := make(AnimationTable)
+				return &at
+			},
+		},
+		int32CharPointerMapPool: sync.Pool{
+			New: func() interface{} {
+				ic := make(map[int32]*Char)
+				return &ic
+			},
+		},
+		poolObjs: make(map[int][]interface{}),
+	}
+}
+
+func PreAllocHitScale() [3]*HitScale {
+	h := [3]*HitScale{}
+	for i := 0; i < len(h); i++ {
+		h[i] = &HitScale{}
+	}
+	return h
+}
+
+type GameStatePool struct {
+	gameStatePool           sync.Pool
+	stringIntMapPool        sync.Pool
+	hitscaleMapPool         sync.Pool
+	stringFloat32MapPool    sync.Pool
+	animationTablePool      sync.Pool
+	mapArraySlicePool       sync.Pool
+	int32CharPointerMapPool sync.Pool
+	poolObjs                map[int][]interface{}
+	curStateID              int
 }

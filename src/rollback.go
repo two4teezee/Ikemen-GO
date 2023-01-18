@@ -4,7 +4,7 @@ import (
 	"math"
 	"time"
 
-	ggpo "github.com/assemblaj/GGPO-Go/pkg"
+	ggpo "github.com/assemblaj/ggpo"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -64,7 +64,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.currentFight.oldTeamLeader = s.teamLeader
 
 	var running bool
-	if rs.session != nil && sys.netInput != nil {
+	if rs.session != nil && s.netInput != nil {
 		if rs.session.host != "" {
 			rs.session.InitP2(2, 7550, 7600, rs.session.host)
 			rs.session.playerNo = 2
@@ -75,9 +75,10 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		if !rs.session.IsConnected() {
 			rs.session.backend.Idle(0)
 		}
-		sys.netInput.Close()
-		sys.netInput = nil
-	} else if sys.netInput == nil && rs.session == nil {
+		s.netInput.Close()
+		rs.session.rep = sys.netInput.rep
+		s.netInput = nil
+	} else if s.netInput == nil && rs.session == nil {
 		rs.session.InitSyncTest(2)
 	}
 
@@ -101,7 +102,8 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		}
 
 		rs.render(s)
-		sys.update()
+		frameTime := rs.session.loopTimer.usToWaitThisLoop()
+		rs.update(s, frameTime)
 	}
 	rs.session.SaveReplay()
 
@@ -136,8 +138,17 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				return false
 			}
 
+			s.bgPalFX.step()
+			s.stage.action()
+
 			// If frame is ready to tick and not paused
-			rs.updateStage(s)
+			//rs.updateStage(s)
+
+			// update lua
+			for i := 0; i < len(inputs); i++ {
+				sys.commandLists[i].Buffer.InputBits(inputs[i], 1)
+				sys.commandLists[i].Step(1, false, false, 0)
+			}
 
 			// Update game state
 			rs.action(s, inputs)
@@ -168,7 +179,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 				return false
 			}
-			err := rs.session.backend.AdvanceFrame()
+			err := rs.session.backend.AdvanceFrame(ggpo.DefaultChecksum)
 			if err != nil {
 				panic(err)
 			}
@@ -301,7 +312,11 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	var cvmin, cvmax, highest, lowest, leftest, rightest float32 = 0, 0, 0, 0, 0, 0
 	leftest, rightest = x, x
-
+	if s.cam.ytensionenable {
+		if y < 0 {
+			lowest = (y - s.cam.CameraZoomYBound)
+		}
+	}
 	if s.tickFrame() {
 		s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
 		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
@@ -311,13 +326,17 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			s.xmax = s.xmin
 		}
 		s.allPalFX.step()
-		s.bgPalFX.step()
+		//s.bgPalFX.step()
 		s.envShake.next()
 		if s.envcol_time > 0 {
 			s.envcol_time--
 		}
-		s.enableZoomstate = false
-		s.zoomCameraBound = true
+		if s.enableZoomtime > 0 {
+			s.enableZoomtime--
+		} else {
+			s.zoomCameraBound = true
+			s.zoomStageBound = true
+		}
 		if s.super > 0 {
 			s.super--
 		} else if s.pause > 0 {
@@ -350,10 +369,10 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 	s.lifebar.step()
 
 	// Action camera
-	var newx, newy float32 = x, y
-	var sclMul float32
 	leftest -= x
 	rightest -= x
+	var newx, newy float32 = x, y
+	var sclMul float32
 	sclMul = s.cam.action(&newx, &newy, leftest, rightest, lowest, highest,
 		cvmin, cvmax, s.super > 0 || s.pause > 0)
 
@@ -659,7 +678,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 									p[0].life = p[0].lifeMax
 								}
 							}
-							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() {
+							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
 								p[0].setSCF(SCF_over)
 								if p[0].win() {
 									p[0].selfState(180, -1, -1, 1, false)
@@ -720,28 +739,49 @@ func (rs *RollbackSystem) updateEvents(s *System) bool {
 	return true
 }
 
-func (rs *RollbackSystem) updateCamera(sys *System) {
-
+func (rs *RollbackSystem) updateCamera(s *System) {
+	if !s.frameSkip {
+		scl := s.cam.Scale / s.cam.BaseScale()
+		if s.enableZoomtime > 0 {
+			if !s.debugPaused() {
+				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+			}
+		} else {
+			s.zoomlag = 0
+			s.zoomPosXLag = 0
+			s.zoomPosYLag = 0
+			s.zoomScale = 1
+			s.zoomPos = [2]float32{0, 0}
+			s.drawScale = s.cam.Scale
+		}
+	}
 }
 
 func (rs *RollbackSystem) render(s *System) {
 	if !s.frameSkip {
 		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
 		dx, dy, dscl := x, y, scl
-		if s.enableZoomstate {
+		if s.enableZoomtime > 0 {
 			if !s.debugPaused() {
 				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
 				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
 				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
 			}
-			if s.zoomCameraBound {
+			if s.zoomStageBound {
 				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-				dx = s.cam.XBound(dscl, x+s.zoomPosXLag/scl)
+				if s.zoomCameraBound {
+					dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
+				} else {
+					dx = x + s.zoomPosXLag/scl
+				}
+				dx = s.cam.XBound(dscl, dx)
 			} else {
 				dscl = s.drawScale / s.cam.BaseScale()
 				dx = x + s.zoomPosXLag/scl
 			}
-			dy = y + s.zoomPosYLag
+			dy = y + s.zoomPosYLag/scl
 		} else {
 			s.zoomlag = 0
 			s.zoomPosXLag = 0
@@ -763,6 +803,43 @@ func (rs *RollbackSystem) render(s *System) {
 		s.drawTop()
 		s.drawDebug()
 	}
+}
+
+func (rs *RollbackSystem) update(s *System, wait time.Duration) bool {
+	s.frameCounter++
+	return rs.await(s, wait)
+}
+
+func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
+	if !s.frameSkip {
+		// Render the finished frame
+		gfx.EndFrame()
+		s.window.SwapBuffers()
+		// Begin the next frame after events have been processed. Do not clear
+		// the screen if network input is present.
+		defer gfx.BeginFrame(sys.netInput == nil)
+	}
+	s.runMainThreadTask()
+	now := time.Now()
+	diff := s.redrawWait.nextTime.Sub(now)
+	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
+	switch {
+	case diff >= 0 && diff < wait+2*time.Millisecond:
+		time.Sleep(diff)
+		fallthrough
+	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
+		fallthrough
+	case diff >= -17*time.Millisecond:
+		s.redrawWait.lastDraw = now
+		s.frameSkip = false
+	default:
+		if diff < -150*time.Millisecond {
+			s.redrawWait.nextTime = now.Add(wait)
+		}
+		s.frameSkip = true
+	}
+	s.eventUpdate()
+	return !s.gameEnd
 }
 
 func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {

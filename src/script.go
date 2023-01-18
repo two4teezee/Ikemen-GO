@@ -1654,9 +1654,9 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netInput != nil && sys.netInput.rep != nil {
-			sys.netInput.rep.Close()
-			sys.netInput.rep = nil
+		if sys.rollback != nil && sys.rollback.session != nil && sys.rollback.session.rep != nil {
+			sys.rollback.session.rep.Close()
+			sys.rollback.session.rep = nil
 		}
 		return 0
 	})

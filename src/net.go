@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	ggpo "github.com/assemblaj/GGPO-Go/pkg"
+	ggpo "github.com/assemblaj/ggpo"
 )
 
 type RollbackSession struct {
@@ -26,6 +26,7 @@ type RollbackSession struct {
 	remoteIp            string
 	currentPlayer       int
 	currentPlayerHandle ggpo.PlayerHandle
+	loopTimer           LoopTimer
 	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
 	config              *RollbackConfig
 }
@@ -59,6 +60,39 @@ func (rs *RollbackSession) inputToBytes(time int) []byte {
 	return buf
 }
 
+type LoopTimer struct {
+	lastAdvantage      float32
+	usPergameLoop      time.Duration
+	usExtraToWait      int
+	framesToSpreadWait int
+	waitCount          time.Duration
+	timeWait           time.Duration
+	waitTotal          time.Duration
+}
+
+func NewLoopTimer(fps uint32, framesToSpread uint32) LoopTimer {
+	return LoopTimer{
+		framesToSpreadWait: int(framesToSpread),
+		usPergameLoop:      time.Second / time.Duration(fps),
+	}
+}
+
+func (lt *LoopTimer) OnGGPOTimeSyncEvent(framesAhead float32) {
+	lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
+	lt.lastAdvantage = float32(time.Second/60) * framesAhead
+	lt.lastAdvantage = lt.lastAdvantage / 4
+	lt.timeWait = time.Duration(lt.lastAdvantage) / time.Duration(lt.framesToSpreadWait)
+	lt.waitCount = time.Duration(lt.framesToSpreadWait)
+}
+
+func (lt *LoopTimer) usToWaitThisLoop() time.Duration {
+	if lt.waitCount > 0 {
+		lt.waitCount--
+		return lt.usPergameLoop + lt.timeWait
+	}
+	return lt.usPergameLoop
+}
+
 func (r *RollbackSession) Close() {
 	if r.backend != nil {
 		r.backend.Close()
@@ -70,13 +104,63 @@ func (r *RollbackSession) IsConnected() bool {
 }
 
 func (r *RollbackSession) SaveGameState(stateID int) int {
-	r.saveStates[stateID] = sys.stateAlloc.AllocGameState()
-	r.saveStates[stateID].SaveState()
-	return ggpo.DefaultChecksum
+	sys.savePool.curStateID = stateID
+	sys.rollbackStateID = stateID
+	oldest := stateID + 1%(MaxSaveStates+2)
+	if _, ok := sys.arenaSaveMap[oldest]; ok {
+		sys.arenaSaveMap[oldest].Free()
+		sys.arenaSaveMap[oldest] = nil
+		delete(sys.arenaSaveMap, oldest)
+	}
+	sys.savePool.Free(oldest)
+	if _, ok := sys.arenaSaveMap[stateID]; ok {
+		sys.arenaSaveMap[stateID].Free()
+		sys.arenaSaveMap[stateID] = nil
+		delete(sys.arenaSaveMap, stateID)
+	}
+	sys.savePool.Free(stateID)
+
+	r.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
+	r.saveStates[stateID].SaveState(stateID)
+
+	//fmt.Printf("Save state for stateID: %d\n", stateID)
+	//fmt.Println(g.saveStates[stateID])
+
+	checksum := r.saveStates[stateID].Checksum()
+	//fmt.Printf("checksum: %d\n", checksum)
+	return checksum
+
 }
 
+var lastLoadedFrame int = -1
+
 func (r *RollbackSession) LoadGameState(stateID int) {
-	r.saveStates[stateID].LoadState()
+	sys.loadPool.curStateID = stateID
+	// if _, ok := sys.arenaLoadMap[stateID]; ok {
+	// 	sys.arenaLoadMap[stateID].Free()
+	// 	sys.arenaLoadMap[stateID] = nil
+	// 	delete(sys.arenaLoadMap, stateID)
+	// }
+	// for sid := range sys.arenaLoadMap {
+	// 	if sid != lastLoadedFrame {
+	// 		sys.arenaLoadMap[sid].Free()
+	// 		sys.arenaLoadMap[sid] = nil
+	// 		delete(sys.arenaLoadMap, sid)
+	// 	}
+	// }
+	sys.loadPool.Free(stateID)
+
+	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
+	// fmt.Println(g.saveStates[stateID])
+
+	// checksum := g.saveStates[stateID].Checksum()
+	// fmt.Printf("checksum: %d\n", checksum)
+
+	r.saveStates[stateID].LoadState(stateID)
+	sys.statePool.gameStatePool.Put(r.saveStates[stateID])
+
+	//sys.gameStatePool <- g.saveStates[stateID]
+	lastLoadedFrame = stateID
 
 }
 
@@ -99,12 +183,22 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 
 		sys.step = false
 		sys.rollback.runShortcutScripts(&sys)
+
 		// If next round
 		sys.rollback.runNextRound(&sys)
 
-		sys.rollback.updateStage(&sys)
+		sys.bgPalFX.step()
+		sys.stage.action()
+
+		//sys.rollback.updateStage(&sys)
 
 		sys.rollback.action(&sys, input)
+
+		// update lua
+		for i := 0; i < len(inputs); i++ {
+			sys.commandLists[i].Buffer.InputBits(input[i], 1)
+			sys.commandLists[i].Step(1, false, false, 0)
+		}
 
 		sys.rollback.handleFlags(&sys)
 		sys.rollback.updateEvents(&sys)
@@ -116,7 +210,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		}
 
 		sys.rollback.updateCamera(&sys)
-		err := r.backend.AdvanceFrame()
+		err := r.backend.AdvanceFrame(ggpo.DefaultChecksum)
 		if err != nil {
 			panic(err)
 		}
@@ -165,7 +259,7 @@ func encodeInputs(inputs InputBits) []byte {
 
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if !rs.config.LogsEnabled {
-		ggpo.DisableLogger()
+		//ggpo.DisableLogger()
 	}
 
 	var inputBits InputBits = 0
@@ -204,7 +298,7 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 
 func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if !rs.config.LogsEnabled {
-		ggpo.DisableLogger()
+		//ggpo.DisableLogger()
 	}
 
 	var inputBits InputBits = 0
@@ -244,7 +338,7 @@ func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int,
 func (rs *RollbackSession) InitSyncTest(numPlayers int) {
 	rs.syncTest = true
 
-	ggpo.EnableLogger()
+	//ggpo.EnableLogger()
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))

@@ -1,6 +1,6 @@
 module github.com/ikemen-engine/Ikemen-GO
 
-go 1.18
+go 1.20
 
 require (
 	github.com/faiface/beep v1.1.0
@@ -17,6 +17,7 @@ require (
 require (
 	github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf // indirect
 	github.com/assemblaj/GGPO-Go v0.0.0-20220922023507-f681a44bab9c // indirect
+	github.com/assemblaj/ggpo v0.0.0-20230106194913-0f5ca8313c51 // indirect
 	github.com/go-gl/gl v0.0.0-20211210172815-726fda9656d6 // indirect
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220320163800-277f93cfa958 // indirect
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

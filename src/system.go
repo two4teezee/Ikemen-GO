@@ -1,6 +1,7 @@
 package main
 
 import (
+	"arena"
 	"bufio"
 	"fmt"
 	"image"
@@ -358,6 +359,16 @@ type System struct {
 	windowCentered  bool
 	loopBreak       bool
 	loopContinue    bool
+	statePool       GameStatePool
+	luaStringVars   map[string]string
+	luaNumVars      map[string]float32
+	luaTables       []*lua.LTable
+	commandLists    []*CommandList
+	arenaSaveMap    map[int]*arena.Arena
+	arenaLoadMap    map[int]*arena.Arena
+	rollbackStateID int
+	savePool        GameStatePool
+	loadPool        GameStatePool
 	rollback        *RollbackSystem
 	rollbackConfig  RollbackConfig
 	saveState       *GameState
@@ -1920,9 +1931,9 @@ func (s *System) fight() (reload bool) {
 
 		// Save/load state
 		if s.saveStateFlag {
-			s.saveState.SaveState()
+			s.saveState.SaveState(0)
 		} else if s.loadStateFlag {
-			s.saveState.LoadState()
+			s.saveState.LoadState(0)
 		}
 		s.saveStateFlag = false
 		s.loadStateFlag = false

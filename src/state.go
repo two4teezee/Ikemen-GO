@@ -61,36 +61,6 @@ func (cs Char) String() string {
 		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoIdx, cs.mctime, cs.targets, cs.targetsOfHitdef,
 		cs.atktmp, cs.hittmp, cs.acttmp, cs.minus, cs.groundAngle, cs.comboExtraFrameWindow, cs.inheritJuggle,
 		cs.preserve, cs.ivar, cs.fvar, cs.offset)
-	str += fmt.Sprintf("\nChildren of %s:", cs.name)
-	if len(cs.children) == 0 {
-		str += "None\n"
-	} else {
-		str += "{ \n"
-		for i := 0; i < len(cs.children); i++ {
-			if cs.children[i] != nil {
-				str += cs.children[i].String()
-			} else {
-				str += "Nil Child"
-			}
-			str += "\n"
-		}
-		str += "}\n"
-
-	}
-	str += fmt.Sprintf("EnemyNear of %s:", cs.name)
-	if len(cs.enemynear[0]) == 0 && len(cs.enemynear[1]) == 0 {
-		str += "None\n"
-	} else {
-		str += "{ \n "
-		for i := 0; i < len(cs.enemynear); i++ {
-			for j := 0; j < len(cs.enemynear[i]); j++ {
-				str += cs.enemynear[i][j].String()
-				str += "\n"
-			}
-		}
-		str += "}\n"
-
-	}
 	return str
 }
 

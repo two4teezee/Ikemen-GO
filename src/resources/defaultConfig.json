@@ -284,6 +284,9 @@
         "disconnectTimeout" : 3000, 
         "disconnectNotifyStart" : 1000, 
         "frameDelay" : 2, 
-        "logsEnabled": false 
+        "logsEnabled": false, 
+        "desyncTest" : false, 
+        "desyncTestFrames" : 0, 
+        "desyncTestAI": false 
     }
 }

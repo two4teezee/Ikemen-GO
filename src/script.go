@@ -672,7 +672,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
 		sys.netInput = NewNetInput()
-		rs := NewRollbackSesesion()
+		rs := NewRollbackSesesion(sys.rollbackConfig)
 		sys.rollback.session = &rs
 		if host := strArg(l, 1); host != "" {
 			sys.rollback.session.host = strArg(l, 1)
@@ -1654,7 +1654,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.rollback != nil && sys.rollback.session != nil && sys.rollback.session.rep != nil {
+		if sys.rollback.session != nil && sys.rollback.session.rep != nil {
 			sys.rollback.session.rep.Close()
 			sys.rollback.session.rep = nil
 		}
@@ -4054,7 +4054,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool((sys.rollback != nil && sys.rollback.session != nil) || sys.fileInput != nil || sys.netInput != nil))
+		l.Push(lua.LBool((sys.rollback.session != nil) || sys.fileInput != nil || sys.netInput != nil))
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {

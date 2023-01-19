@@ -547,9 +547,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.stageLoopNo = gs.stageLoopNo
 
 	// 11/5/22
-	if sys.rollback != nil {
-		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
-	}
 
 	wc := gs.debugWC.Clone(a, gsp)
 	sys.debugWC = &wc
@@ -562,7 +559,7 @@ func (gs *GameState) LoadState(stateID int) {
 	// sys.luaTables = gs.luaTables
 
 	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback != nil {
+	if sys.rollback.session != nil {
 		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
 	}
 
@@ -790,7 +787,7 @@ func (gs *GameState) SaveState(stateID int) {
 	}
 
 	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback != nil {
+	if sys.rollback.session != nil {
 		gs.fight = sys.rollback.currentFight.Clone(a, gsp)
 	}
 

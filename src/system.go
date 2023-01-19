@@ -90,6 +90,15 @@ var sys = System{
 	panningRange:         30,
 	windowCentered:       true,
 	saveState:            NewGameState(),
+	statePool:            NewGameStatePool(),
+	savePool:             NewGameStatePool(),
+	loadPool:             NewGameStatePool(),
+	luaStringVars:        make(map[string]string),
+	luaNumVars:           make(map[string]float32),
+	luaTables:            make([]*lua.LTable, 0),
+	commandLists:         make([]*CommandList, 0),
+	arenaSaveMap:         make(map[int]*arena.Arena),
+	arenaLoadMap:         make(map[int]*arena.Arena),
 }
 
 type TeamMode int32
@@ -369,7 +378,7 @@ type System struct {
 	rollbackStateID int
 	savePool        GameStatePool
 	loadPool        GameStatePool
-	rollback        *RollbackSystem
+	rollback        RollbackSystem
 	rollbackConfig  RollbackConfig
 	saveState       *GameState
 	stateAlloc      *StateAllocator
@@ -1655,6 +1664,10 @@ func (s *System) drawDebug() {
 // Called to start each match, on hard reset with shift+F4, and
 // at the start of any round where a new character tags in for turns mode
 func (s *System) fight() (reload bool) {
+	if s.rollback.session != nil || s.rollbackConfig.DesyncTestFrames > 0 {
+		return s.rollback.fight(s)
+	}
+
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}

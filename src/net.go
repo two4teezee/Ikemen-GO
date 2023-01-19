@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"hash/crc32"
+	"log"
 	"os"
 	"time"
 
@@ -28,7 +30,7 @@ type RollbackSession struct {
 	currentPlayerHandle ggpo.PlayerHandle
 	loopTimer           LoopTimer
 	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
-	config              *RollbackConfig
+	config              RollbackConfig
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
@@ -195,7 +197,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		sys.rollback.action(&sys, input)
 
 		// update lua
-		for i := 0; i < len(inputs); i++ {
+		for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
 			sys.commandLists[i].Buffer.InputBits(input[i], 1)
 			sys.commandLists[i].Step(1, false, false, 0)
 		}
@@ -210,7 +212,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		}
 
 		sys.rollback.updateCamera(&sys)
-		err := r.backend.AdvanceFrame(ggpo.DefaultChecksum)
+		err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
 		if err != nil {
 			panic(err)
 		}
@@ -237,7 +239,15 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 		ShowInfoDialog(disconnectMessage, "Disconenection")
 		r.SaveReplay()
 	case ggpo.EventCodeTimeSync:
-		time.Sleep(time.Millisecond * time.Duration(info.FramesAhead/60))
+		fmt.Printf("EventCodeTimeSync: FramesAhead %f TimeSyncPeriodInFrames: %d\n", info.FramesAhead, info.TimeSyncPeriodInFrames)
+		r.loopTimer.OnGGPOTimeSyncEvent(info.FramesAhead)
+	case ggpo.EventCodeDesync:
+		fmt.Println("EventCodeDesync")
+		sys.rollback.currentFight.fin = true
+		sys.endMatch = true
+		sys.esc = true
+		ShowInfoDialog("Desync Error. Please submit your replay and build to the IKEMEN team. Thank you for your patience. ", "Desync Error")
+		r.SaveReplay()
 	case ggpo.EventCodeConnectionInterrupted:
 		fmt.Println("EventCodeconnectionInterrupted")
 	case ggpo.EventCodeConnectionResumed:
@@ -245,11 +255,13 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 	}
 }
 
-func NewRollbackSesesion() RollbackSession {
+func NewRollbackSesesion(config RollbackConfig) RollbackSession {
 	r := RollbackSession{}
 	r.saveStates = make(map[int]*GameState)
 	r.players = make([]ggpo.Player, 9)
 	r.handles = make([]ggpo.PlayerHandle, 9)
+	r.config = config
+	r.loopTimer = NewLoopTimer(60, 100)
 	return r
 
 }
@@ -257,9 +269,26 @@ func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
 
+func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
+	buf := make([]byte, 0)
+	for i := 0; i < len(s.chars); i++ {
+		if len(s.chars[i]) > 0 {
+			buf = append(buf, writeI32(s.chars[i][0].life)...)
+		}
+	}
+	return crc32.ChecksumIEEE(buf)
+}
+
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
-	if !rs.config.LogsEnabled {
-		//ggpo.DisableLogger()
+	if rs.config.LogsEnabled {
+		logFileName := fmt.Sprintf("Rollback-%d", time.Now().UnixMicro())
+		f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		logger := log.New(f, "Logger:", log.Ldate|log.Ltime|log.Lshortfile)
+		ggpo.EnableLogs()
+		ggpo.SetLogger(logger)
 	}
 
 	var inputBits InputBits = 0
@@ -297,8 +326,15 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 }
 
 func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
-	if !rs.config.LogsEnabled {
-		//ggpo.DisableLogger()
+	if rs.config.LogsEnabled {
+		logFileName := fmt.Sprintf("Rollback-%d", time.Now().UnixMicro())
+		f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		logger := log.New(f, "Logger:", log.Ldate|log.Ltime|log.Lshortfile)
+		ggpo.EnableLogs()
+		ggpo.SetLogger(logger)
 	}
 
 	var inputBits InputBits = 0
@@ -349,7 +385,7 @@ func (rs *RollbackSession) InitSyncTest(numPlayers int) {
 	rs.players = append(rs.players, player2)
 
 	//peer := ggpo.NewPeer(sys.rollbackNetwork, localPort, numPlayers, inputSize)
-	peer := ggpo.NewSyncTest(rs, numPlayers, 8, inputSize, true)
+	peer := ggpo.NewSyncTest(rs, numPlayers, rs.config.DesyncTestFrames, inputSize, true)
 	rs.backend = &peer
 
 	//

@@ -11,6 +11,7 @@ import (
 type RollbackSystem struct {
 	session      *RollbackSession
 	currentFight Fight
+	active       bool
 }
 
 type RollbackConfig struct {
@@ -18,6 +19,9 @@ type RollbackConfig struct {
 	DisconnectNotifyStart int  `json:"disconnectNotifyStart"`
 	DisconnectTimeout     int  `json:"disconnectTimeout"`
 	LogsEnabled           bool `json:"logsEnabled"`
+	DesyncTest            bool `json:"desyncTest"`
+	DesyncTestFrames      int  `json:"desyncTestFrames"`
+	DesyncTestAI          bool `jaon:"desyncTestAI"`
 }
 
 func (rs *RollbackSystem) fight(s *System) bool {
@@ -79,6 +83,8 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		rs.session.rep = sys.netInput.rep
 		s.netInput = nil
 	} else if s.netInput == nil && rs.session == nil {
+		session := NewRollbackSesesion(s.rollbackConfig)
+		rs.session = &session
 		rs.session.InitSyncTest(2)
 	}
 
@@ -86,7 +92,6 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	// Loop until end of match
 	///fin := false
 	for !s.endMatch {
-
 		rs.session.now = time.Now().UnixMilli()
 		err := rs.session.backend.Idle(
 			int(math.Max(0, float64(rs.session.next-rs.session.now-1))))
@@ -114,10 +119,17 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 	var buffer []byte
 	var result error
 	if rs.session.syncTest {
-		buffer = getInputs(0)
-		result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
-		buffer = getInputs(1)
-		result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		if !rs.session.config.DesyncTestAI {
+			buffer = getInputs(0)
+			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
+			buffer = getInputs(1)
+			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		} else {
+			buffer = getAIInputs(0)
+			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
+			buffer = getAIInputs(1)
+			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		}
 	} else {
 		buffer = getInputs(0)
 		result = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
@@ -145,7 +157,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			//rs.updateStage(s)
 
 			// update lua
-			for i := 0; i < len(inputs); i++ {
+			for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
 				sys.commandLists[i].Buffer.InputBits(inputs[i], 1)
 				sys.commandLists[i].Step(1, false, false, 0)
 			}
@@ -179,7 +191,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 				return false
 			}
-			err := rs.session.backend.AdvanceFrame(ggpo.DefaultChecksum)
+			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
 			if err != nil {
 				panic(err)
 			}
@@ -868,6 +880,9 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 				if c.helperIndex == 0 ||
 					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
 					if i < len(ib) {
+						if sys.gameMode == "watch" && (c.key < 0 && ^c.key < len(sys.aiInput)) {
+							sys.aiInput[^c.key].Update(sys.com[i])
+						}
 						// if we have an input from the players
 						// update the command buffer based on that.
 						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))

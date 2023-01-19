@@ -138,18 +138,18 @@ var lastLoadedFrame int = -1
 
 func (r *RollbackSession) LoadGameState(stateID int) {
 	sys.loadPool.curStateID = stateID
-	// if _, ok := sys.arenaLoadMap[stateID]; ok {
-	// 	sys.arenaLoadMap[stateID].Free()
-	// 	sys.arenaLoadMap[stateID] = nil
-	// 	delete(sys.arenaLoadMap, stateID)
-	// }
-	// for sid := range sys.arenaLoadMap {
-	// 	if sid != lastLoadedFrame {
-	// 		sys.arenaLoadMap[sid].Free()
-	// 		sys.arenaLoadMap[sid] = nil
-	// 		delete(sys.arenaLoadMap, sid)
-	// 	}
-	// }
+	if _, ok := sys.arenaLoadMap[stateID]; ok {
+		sys.arenaLoadMap[stateID].Free()
+		sys.arenaLoadMap[stateID] = nil
+		delete(sys.arenaLoadMap, stateID)
+	}
+	for sid := range sys.arenaLoadMap {
+		if sid != lastLoadedFrame {
+			sys.arenaLoadMap[sid].Free()
+			sys.arenaLoadMap[sid] = nil
+			delete(sys.arenaLoadMap, sid)
+		}
+	}
 	sys.loadPool.Free(stateID)
 
 	// fmt.Printf("Loaded state for stateID: %d\n", stateID)

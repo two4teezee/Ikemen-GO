@@ -55,6 +55,94 @@ func (wt *WinType) SetPerfect() {
 	}
 }
 
+type FightFx struct {
+	fat      AnimationTable
+	fsff     *Sff
+	fsnd     *Snd
+	fx_scale float32
+}
+
+func newFightFx() *FightFx {
+	return &FightFx{fsff: &Sff{}, fx_scale: 1.0}
+}
+
+func loadFightFx(deffile string) error {
+	str, err := LoadText(deffile)
+	if err != nil {
+		return err
+	}
+	ffx := newFightFx()
+	prefix := ""
+	lines, i := SplitAndTrim(str, "\n"), 0
+	info, files := true, true
+	for i < len(lines) {
+		// Parse each ini section
+		is, name, _ := ReadIniSection(lines, &i)
+		switch name {
+		case "info":
+			// Read info for FightFx storing and scaling
+			if info {
+				info = false
+				var ok bool
+				prefix, ok, _ = is.getText("prefix")
+				if !ok || prefix == "" {
+					return Error("A prefix must be declared")
+				}
+				prefix = strings.ToLower(prefix)
+				if prefix == "f" || prefix == "s" {
+					return Error(fmt.Sprintf("%v preffix is reserved for the system and cannot be used", strings.ToUpper(prefix)))
+				}
+				is.ReadF32("fx.scale", &ffx.fx_scale)
+			}
+		case "files":
+			// Read files section to find sff, air and snd files
+			if files {
+				files = false
+				if is.LoadFile("sff", []string{deffile, sys.motifDir, "", "data/"},
+					func(filename string) error {
+						s, err := loadSff(filename, false)
+						if err != nil {
+							return err
+						}
+						*ffx.fsff = *s
+						return nil
+					}); err != nil {
+					return err
+				}
+				if is.LoadFile("air", []string{deffile, sys.motifDir, "", "data/"},
+					func(filename string) error {
+						str, err := LoadText(filename)
+						if err != nil {
+							return err
+						}
+						lines, i := SplitAndTrim(str, "\n"), 0
+						ffx.fat = ReadAnimationTable(ffx.fsff, lines, &i)
+						return nil
+					}); err != nil {
+					return err
+				}
+				if is.LoadFile("snd", []string{deffile, sys.motifDir, "", "data/"},
+					func(filename string) error {
+						ffx.fsnd, err = LoadSnd(filename)
+						return err
+					}); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	// Set fx scale to anims
+	for _, a := range ffx.fat {
+		a.start_scale = [...]float32{sys.lifebarScale * ffx.fx_scale,
+			sys.lifebarScale * ffx.fx_scale}
+	}
+	if sys.ffx[prefix] == nil {
+		sys.ffxRegexp += "|^(" + prefix + ")"
+	}
+	sys.ffx[prefix] = ffx
+	return nil
+}
+
 type LbText struct {
 	font  [6]int32
 	text  string
@@ -2864,9 +2952,9 @@ func (mo *LifeBarMode) draw(layerno int16, f []*Fnt) {
 }
 
 type Lifebar struct {
-	at, fat    AnimationTable
-	sff, fsff  *Sff
-	snd, fsnd  *Snd
+	at        AnimationTable
+	sff       *Sff
+	snd       *Snd
 	fnt        [10]*Fnt
 	ref        [2]int
 	order      [2][]int
@@ -2896,8 +2984,8 @@ type Lifebar struct {
 	guardbar   bool
 	stunbar    bool
 	hidebars   bool
-	fx_scale   float32
 	fnt_scale  float32
+	fx_limit   int
 	deffile    string
 	textsprite []*TextSprite
 }
@@ -2907,7 +2995,7 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Lifebar{sff: &Sff{}, fsff: &Sff{}, snd: &Snd{},
+	l := &Lifebar{sff: &Sff{}, snd: &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -2926,7 +3014,7 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 		nm: [...][]*LifeBarName{make([]*LifeBarName, 2), make([]*LifeBarName, 8),
 			make([]*LifeBarName, 2), make([]*LifeBarName, 8), make([]*LifeBarName, 6),
 			make([]*LifeBarName, 8), make([]*LifeBarName, 6), make([]*LifeBarName, 8)},
-		active: true, bars: true, mode: true, fx_scale: 1, fnt_scale: 1}
+		active: true, bars: true, mode: true, fnt_scale: 1, fx_limit: 3}
 	l.missing = map[string]int{
 		"[tag lifebar]": 3, "[simul_3p lifebar]": 4, "[simul_4p lifebar]": 5,
 		"[tag_3p lifebar]": 6, "[tag_4p lifebar]": 7, "[simul powerbar]": 1,
@@ -2957,6 +3045,7 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 	l.at = ReadAnimationTable(l.sff, lines, &i)
 	i = 0
 	filesflg := true
+	ffx := newFightFx()
 	for i < len(lines) {
 		is, name, subname := ReadIniSection(lines, &i)
 		switch name {
@@ -2996,7 +3085,7 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 						if err != nil {
 							return err
 						}
-						*l.fsff = *s
+						*ffx.fsff = *s
 						return nil
 					}); err != nil {
 					return nil, err
@@ -3008,17 +3097,28 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 							return err
 						}
 						lines, i := SplitAndTrim(str, "\n"), 0
-						l.fat = ReadAnimationTable(l.fsff, lines, &i)
+						ffx.fat = ReadAnimationTable(ffx.fsff, lines, &i)
 						return nil
 					}); err != nil {
 					return nil, err
 				}
 				if is.LoadFile("common.snd", []string{deffile, sys.motifDir, "", "data/"},
 					func(filename string) error {
-						l.fsnd, err = LoadSnd(filename)
+						ffx.fsnd, err = LoadSnd(filename)
 						return err
 					}); err != nil {
 					return nil, err
+				}
+				for i := 1; i <= l.fx_limit; i++ {
+					if err := is.LoadFile(fmt.Sprintf("fx%v", i), []string{deffile, sys.motifDir, "", "data/"},
+						func(filename string) error {
+							if err := loadFightFx(filename); err != nil {
+								return err
+							}
+							return nil
+						}); err != nil {
+						return nil, err
+					}
 				}
 				for i := range l.fnt {
 					/*if*/
@@ -3041,7 +3141,7 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 				}
 			}
 		case "fightfx":
-			is.ReadF32("scale", &l.fx_scale)
+			is.ReadF32("scale", &ffx.fx_scale)
 		case "lifebar":
 			if l.hb[0][0] == nil {
 				l.hb[0][0] = readHealthBar("p1.", is, l.sff, l.at, l.fnt[:])
@@ -3388,12 +3488,14 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 			}
 		}
 	}
+	sys.ffx["f"] = ffx
 	//fightfx scale
-	//if math.IsNaN(float64(l.fx_scale)) {
-	//	l.fx_scale = float32(sys.lifebarLocalcoord[0]) / 320
+	//if math.IsNaN(float64(sys.ffx["f"].fx_scale)) {
+	//	sys.ffx["f"].fx_scale = float32(sys.lifebarLocalcoord[0]) / 320
 	//}
-	for _, a := range l.fat {
-		a.start_scale = [...]float32{sys.lifebarScale * l.fx_scale, sys.lifebarScale * l.fx_scale}
+	for _, a := range sys.ffx["f"].fat {
+		a.start_scale = [...]float32{sys.lifebarScale * sys.ffx["f"].fx_scale,
+			sys.lifebarScale * sys.ffx["f"].fx_scale}
 	}
 	//Iterate over map in a stable iteration order
 	keys := make([]string, 0, len(l.missing))
@@ -3488,8 +3590,11 @@ func loadLifebar(deffile string) (*Lifebar, error) {
 	l.deffile = deffile
 	return l, nil
 }
-func (l *Lifebar) reloadLifebar() {
-	lb, _ := loadLifebar(l.deffile)
+func (l *Lifebar) reloadLifebar() error {
+	lb, err := loadLifebar(l.deffile)
+	if err != nil {
+		return err
+	}
 	lb.ti.framespercount = l.ti.framespercount
 	lb.ro.match_maxdrawgames = l.ro.match_maxdrawgames
 	lb.ro.match_wins = l.ro.match_wins
@@ -3507,8 +3612,9 @@ func (l *Lifebar) reloadLifebar() {
 	lb.redlifebar = l.redlifebar
 	lb.guardbar = l.guardbar
 	lb.stunbar = l.stunbar
-	lb.fx_scale = l.fx_scale
+	// lb.fx_scale = l.fx_scale
 	sys.lifebar = *lb
+	return nil
 }
 func (l *Lifebar) step() {
 	if sys.paused && !sys.step {

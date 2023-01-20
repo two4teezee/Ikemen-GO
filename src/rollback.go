@@ -402,7 +402,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					for i, p := range s.chars {
 						if len(p) > 0 {
 							s.playerClear(i, false)
-							p[0].selfState(0, -1, -1, 0, false)
+							p[0].selfState(0, -1, -1, 0, "")
 						}
 					}
 					ox := newx
@@ -497,7 +497,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 							if p[0].ss.no == 0 {
 								p[0].setCtrl(true)
 							} else {
-								p[0].selfState(0, -1, -1, 1, false)
+								p[0].selfState(0, -1, -1, 1, "")
 							}
 						}
 					}
@@ -693,11 +693,11 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
 								p[0].setSCF(SCF_over)
 								if p[0].win() {
-									p[0].selfState(180, -1, -1, 1, false)
+									p[0].selfState(180, -1, -1, 1, "")
 								} else if p[0].lose() {
-									p[0].selfState(170, -1, -1, 1, false)
+									p[0].selfState(170, -1, -1, 1, "")
 								} else {
-									p[0].selfState(175, -1, -1, 1, false)
+									p[0].selfState(175, -1, -1, 1, "")
 								}
 							}
 						}

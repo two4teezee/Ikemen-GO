@@ -287,7 +287,7 @@ type System struct {
 	windowTitle             string
 	screenshotFolder        string
 	//FLAC_FrameWait          int
-	
+
 	// Common Files
 	commonAir    string
 	commonCmd    string

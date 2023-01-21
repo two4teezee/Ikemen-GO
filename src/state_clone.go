@@ -274,6 +274,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 		copy(result.enemynear[i], c.enemynear[i])
 	}
 
+	result.p2enemy = arena.MakeSlice[*Char](a, len(c.p2enemy), len(c.p2enemy))
+	copy(result.p2enemy, c.p2enemy)
+
 	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
 

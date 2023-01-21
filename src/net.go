@@ -1,11 +1,14 @@
 package main
 
 import (
+	"encoding/binary"
 	"fmt"
 	"hash/crc32"
 	"log"
+	"math"
 	"os"
 	"time"
+	"unsafe"
 
 	ggpo "github.com/assemblaj/ggpo"
 )
@@ -128,10 +131,13 @@ func (r *RollbackSession) SaveGameState(stateID int) int {
 	//fmt.Printf("Save state for stateID: %d\n", stateID)
 	//fmt.Println(g.saveStates[stateID])
 
-	checksum := r.saveStates[stateID].Checksum()
-	//fmt.Printf("checksum: %d\n", checksum)
-	return checksum
-
+	if r.config.DesyncTest {
+		checksum := r.saveStates[stateID].Checksum()
+		//fmt.Printf("checksum: %d\n", checksum)
+		return checksum
+	} else {
+		return ggpo.DefaultChecksum
+	}
 }
 
 var lastLoadedFrame int = -1
@@ -187,14 +193,14 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		sys.rollback.runShortcutScripts(&sys)
 
 		// If next round
-		sys.rollback.runNextRound(&sys)
+		if !sys.rollback.runNextRound(&sys) {
+			return
+		}
 
 		sys.bgPalFX.step()
 		sys.stage.action()
 
 		//sys.rollback.updateStage(&sys)
-
-		sys.rollback.action(&sys, input)
 
 		// update lua
 		for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
@@ -202,8 +208,15 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			sys.commandLists[i].Step(1, false, false, 0)
 		}
 
+		sys.rollback.action(&sys, input)
+
 		sys.rollback.handleFlags(&sys)
 		sys.rollback.updateEvents(&sys)
+
+		if sys.rollback.currentFight.fin { //&& (!sys.postMatchFlg || len(sys.commonLua) == 0) {
+			sys.endMatch = true
+			sys.esc = true
+		}
 
 		if sys.endMatch {
 			sys.esc = true
@@ -269,14 +282,67 @@ func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
 
+type CharChecksum struct {
+	life    int32
+	redLife int32
+	juggle  int32
+	animNo  int32
+	pos     [3]float32
+}
+
+func (cc *CharChecksum) ToBytes() []byte {
+	buf := make([]byte, 0, unsafe.Sizeof(*cc))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.life))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.redLife))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.juggle))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.animNo))
+	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0]))
+	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
+	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
+	return buf
+}
+
+func (c *Char) LiveChecksum() []byte {
+	cc := CharChecksum{
+		life:    c.life,
+		redLife: c.redLife,
+		juggle:  c.juggle,
+		animNo:  c.animNo,
+		pos:     c.pos,
+	}
+	return cc.ToBytes()
+}
+
 func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
-	buf := make([]byte, 0)
+	buf := writeI32(s.randseed)
 	for i := 0; i < len(s.chars); i++ {
 		if len(s.chars[i]) > 0 {
-			buf = append(buf, writeI32(s.chars[i][0].life)...)
+			buf = append(buf, s.chars[i][0].LiveChecksum()...)
 		}
 	}
 	return crc32.ChecksumIEEE(buf)
+}
+func (rs *RollbackSession) Input(time int32, player int) (input InputBits) {
+	inputs := rs.inputs[time]
+	input = inputs[player]
+	return
+}
+func (rs *RollbackSession) AnyButton() bool {
+	for i := 0; i < len(rs.inputs[len(rs.inputs)-1]); i++ {
+		if rs.Input(sys.gameTime, i)&IB_anybutton != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (rs *RollbackSession) AnyButtonIB(ib []InputBits) bool {
+	for i := 0; i < len(ib); i++ {
+		if ib[i]&IB_anybutton != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {

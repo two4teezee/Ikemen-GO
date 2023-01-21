@@ -289,6 +289,10 @@ type GameState struct {
 
 	commandLists []*CommandList
 	luaTables    []*lua.LTable
+
+	loopBreak     bool
+	loopContinue  bool
+	brightnessOld int32
 }
 
 func NewGameState() *GameState {
@@ -346,8 +350,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.slowtime = gs.slowtime
 
 	sys.shuttertime = gs.shuttertime
-	//sys.fadeintime = gs.fadeintime
-	//sys.fadeouttime = gs.fadeouttime
+	sys.fadeintime = gs.fadeintime
+	sys.fadeouttime = gs.fadeouttime
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
@@ -536,6 +540,10 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.introSkipped = gs.introSkipped
 
 	sys.preFightTime = gs.preFightTime
+
+	sys.loopBreak = gs.loopBreak
+	sys.loopContinue = gs.loopContinue
+	sys.brightnessOld = gs.brightnessOld
 }
 
 func (gs *GameState) SaveState(stateID int) {
@@ -735,8 +743,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.endMatch = sys.endMatch
 
 	// can't deep copy because its members are private
-	matchData := *sys.matchData
-	gs.matchData = &matchData
+	//matchData := *sys.matchData
+	gs.matchData = gs.cloneLuaTable(sys.matchData)
 
 	gs.noSoundFlg = sys.noSoundFlg
 	gs.loseSimul = sys.loseSimul
@@ -763,6 +771,11 @@ func (gs *GameState) SaveState(stateID int) {
 
 	gs.introSkipped = sys.introSkipped
 	gs.preFightTime = sys.preFightTime
+
+	gs.loopBreak = sys.loopBreak
+	gs.loopContinue = sys.loopContinue
+	gs.brightnessOld = sys.brightnessOld
+
 }
 
 func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {

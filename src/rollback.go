@@ -91,7 +91,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.currentFight.reset()
 	// Loop until end of match
 	///fin := false
-	for !s.endMatch {
+	for !s.endMatch && !s.postMatchFlg {
 		rs.session.now = time.Now().UnixMilli()
 		err := rs.session.backend.Idle(
 			int(math.Max(0, float64(rs.session.next-rs.session.now-1))))
@@ -111,7 +111,11 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		rs.update(s, frameTime)
 	}
 	rs.session.SaveReplay()
-
+	sys.esc = true
+	sys.rollback.currentFight.fin = true
+	sys.endMatch = true
+	rs.session.backend.Close()
+	rs.session = nil
 	return false
 }
 
@@ -393,7 +397,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 	if s.tickNextFrame() {
 		if s.lifebar.ro.cur < 1 && !s.introSkipped {
 			if s.shuttertime > 0 ||
-				s.anyButton() && !s.sf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				rs.session.AnyButtonIB(input) && !s.sf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
 				s.shuttertime++
 				if s.shuttertime == s.lifebar.ro.shutter_time {
 					s.fadeintime = 0
@@ -640,7 +644,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
-			if s.tickFrame() && s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
+			if s.tickFrame() && s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.sf(GSF_roundnotskip)) {
 				s.intro = Min(s.intro, -(s.lifebar.ro.over_hittime +
 					s.lifebar.ro.over_waittime + s.lifebar.ro.over_time -
 					s.lifebar.ro.start_waittime))

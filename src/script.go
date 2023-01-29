@@ -1073,6 +1073,7 @@ func systemScriptInit(l *lua.LState) {
 				sys.postMatchFlg = false
 				sys.preFightTime += sys.gameTime
 				sys.gameTime = 0
+				sys.cam.CameraZoomYBound = 0
 				sys.consoleText = []string{}
 				sys.stageLoopNo = 0
 				return 2
@@ -2915,6 +2916,20 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.gi().velocity.air.gethit.airrecover.up)
 		case "velocity.air.gethit.airrecover.down":
 			ln = lua.LNumber(c.gi().velocity.air.gethit.airrecover.down)
+		case "velocity.air.gethit.ko.add.x":
+			ln = lua.LNumber(c.gi().velocity.air.gethit.ko.add[0])
+		case "velocity.air.gethit.ko.add.y":
+			ln = lua.LNumber(c.gi().velocity.air.gethit.ko.add[1])
+		case "velocity.air.gethit.ko.ymin":
+			ln = lua.LNumber(c.gi().velocity.air.gethit.ko.ymin)
+		case "velocity.ground.gethit.ko.xmul":
+			ln = lua.LNumber(c.gi().velocity.ground.gethit.ko.xmul)
+		case "velocity.ground.gethit.ko.add.x":
+			ln = lua.LNumber(c.gi().velocity.ground.gethit.ko.add[0])
+		case "velocity.ground.gethit.ko.add.y":
+			ln = lua.LNumber(c.gi().velocity.ground.gethit.ko.add[1])
+		case "velocity.ground.gethit.ko.ymin":
+			ln = lua.LNumber(c.gi().velocity.ground.gethit.ko.ymin)
 		case "movement.airjump.num":
 			ln = lua.LNumber(c.gi().movement.airjump.num)
 		case "movement.airjump.height":

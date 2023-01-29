@@ -294,6 +294,13 @@ const (
 	OC_const_velocity_air_gethit_airrecover_fwd
 	OC_const_velocity_air_gethit_airrecover_up
 	OC_const_velocity_air_gethit_airrecover_down
+	OC_const_velocity_air_gethit_ko_add_x
+	OC_const_velocity_air_gethit_ko_add_y
+	OC_const_velocity_air_gethit_ko_ymin
+	OC_const_velocity_ground_gethit_ko_xmul
+	OC_const_velocity_ground_gethit_ko_add_x
+	OC_const_velocity_ground_gethit_ko_add_y
+	OC_const_velocity_ground_gethit_ko_ymin
 	OC_const_movement_airjump_num
 	OC_const_movement_airjump_height
 	OC_const_movement_yaccel
@@ -1158,9 +1165,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_frontedgedist:
 			sys.bcStack.PushI(int32(c.frontEdgeDist()))
 		case OC_gameheight:
-			// Backward compatibility exception. 1.0 characters often use it to
-			// display elements that weren't designed to be affected by zooming.
-			if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 {
+			// Optional exception preventing GameHeight from being affected by stage zoom.
+			if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 &&
+				c.gi().constants["default.legacygamedistancespec"] == 1 {
 				sys.bcStack.PushF(c.screenHeight())
 			} else {
 				sys.bcStack.PushF(c.gameHeight())
@@ -1168,9 +1175,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_gametime:
 			sys.bcStack.PushI(sys.gameTime + sys.preFightTime)
 		case OC_gamewidth:
-			// Backward compatibility exception. 1.0 characters often use it to
-			// display elements that weren't designed to be affected by zooming.
-			if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 {
+			// Optional exception preventing GameWidth from being affected by stage zoom.
+			if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 &&
+				c.gi().constants["default.legacygamedistancespec"] == 1 {
 				sys.bcStack.PushF(c.screenWidth())
 			} else {
 				sys.bcStack.PushF(c.gameWidth())
@@ -1511,6 +1518,20 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.up * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_down:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.down * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_ko_add_x:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_ko_add_y:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_ko_ymin:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_ground_gethit_ko_xmul:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.xmul)
+	case OC_const_velocity_ground_gethit_ko_add_x:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_ground_gethit_ko_add_y:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_ground_gethit_ko_ymin:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_movement_airjump_num:
 		sys.bcStack.PushI(c.gi().movement.airjump.num)
 	case OC_const_movement_airjump_height:

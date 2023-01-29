@@ -352,6 +352,19 @@ type CharVelocity struct {
 				up   float32
 				down float32
 			}
+			ko struct {
+				add  [2]float32
+				ymin float32
+			}
+		}
+	}
+	ground struct {
+		gethit struct {
+			ko struct {
+				xmul float32
+				add  [2]float32
+				ymin float32
+			}
 		}
 	}
 }
@@ -368,6 +381,11 @@ func (cv *CharVelocity) init() {
 	cv.airjump.neu = [...]float32{0, -8.1}
 	cv.airjump.back = -2.55
 	cv.airjump.fwd = 2.5
+	cv.air.gethit.ko.add = [...]float32{-2, -2}
+	cv.air.gethit.ko.ymin = -3
+	cv.ground.gethit.ko.xmul = 0.66
+	cv.ground.gethit.ko.add = [...]float32{-2.5, -2}
+	cv.ground.gethit.ko.ymin = -6
 }
 
 type CharMovement struct {
@@ -516,9 +534,9 @@ type HitDef struct {
 	guard_sparkno_ffx          string
 	sparkxy                    [2]float32
 	hitsound                   [2]int32
-	hitsound_ffx                string
+	hitsound_ffx               string
 	guardsound                 [2]int32
-	guardsound_ffx              string
+	guardsound_ffx             string
 	ground_type                HitType
 	air_type                   HitType
 	ground_slidetime           int32
@@ -1540,6 +1558,7 @@ type CharGlobalInfo struct {
 	wakewakaLength   int32
 	pctype           ProjContact
 	pctime, pcid     int32
+	projidcount      int
 	unhittable       int32
 	quotes           [MaxQuotes]string
 	portraitscale    float32
@@ -2014,6 +2033,7 @@ func (c *Char) load(def string) error {
 	gi.constants["super.lifetodizzypointsmul"] = 0
 	gi.constants["default.lifetoredlifemul"] = 0.25
 	gi.constants["super.lifetoredlifemul"] = 0.25
+	gi.constants["default.legacygamedistancespec"] = 0
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
 
@@ -2065,6 +2085,13 @@ func (c *Char) load(def string) error {
 	gi.velocity.airjump.neu[1] /= originLs
 	gi.velocity.airjump.back /= originLs
 	gi.velocity.airjump.fwd /= originLs
+
+	gi.velocity.air.gethit.ko.add[0] /= originLs
+	gi.velocity.air.gethit.ko.add[1] /= originLs
+	gi.velocity.air.gethit.ko.ymin /= originLs
+	gi.velocity.ground.gethit.ko.add[0] /= originLs
+	gi.velocity.ground.gethit.ko.add[1] /= originLs
+	gi.velocity.ground.gethit.ko.ymin /= originLs
 
 	gi.movement.init()
 
@@ -2209,6 +2236,13 @@ func (c *Char) load(def string) error {
 							&gi.velocity.air.gethit.airrecover.up)
 						is.ReadF32("air.gethit.airrecover.down",
 							&gi.velocity.air.gethit.airrecover.down)
+						is.ReadF32("air.gethit.ko.add", &gi.velocity.air.gethit.ko.add[0],
+							&gi.velocity.air.gethit.ko.add[1])
+						is.ReadF32("air.gethit.ko.ymin", &gi.velocity.air.gethit.ko.ymin)
+						is.ReadF32("ground.gethit.ko.xmul", &gi.velocity.ground.gethit.ko.xmul)
+						is.ReadF32("ground.gethit.ko.add", &gi.velocity.ground.gethit.ko.add[0],
+							&gi.velocity.ground.gethit.ko.add[1])
+						is.ReadF32("ground.gethit.ko.ymin", &gi.velocity.ground.gethit.ko.ymin)
 					}
 				case "movement":
 					if movement {
@@ -3743,11 +3777,12 @@ func (c *Char) hitAdd(h int32) {
 	}
 }
 func (c *Char) newProj() *Projectile {
-	for i, p := range sys.projs[c.playerNo] {
-		if p.id < 0 {
+	for i := c.gi().projidcount; i < len(sys.projs[c.playerNo]); i++ {
+		if sys.projs[c.playerNo][i].id < 0 {
 			sys.projs[c.playerNo][i].clear()
 			sys.projs[c.playerNo][i].id = 0
 			sys.projs[c.playerNo][i].palfx = c.getPalfx()
+			c.gi().projidcount = i
 			return &sys.projs[c.playerNo][i]
 		}
 	}
@@ -5543,6 +5578,7 @@ func (c *Char) actionRun() {
 		if c.helperIndex == 0 && c.gi().pctime >= 0 {
 			c.gi().pctime++
 		}
+		c.gi().projidcount = 0
 		// Set vel on binded targets
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil && t.bindTime > 0 && !t.sf(CSF_destroy) &&
@@ -6517,25 +6553,25 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					if getter.kovelocity && !sys.sf(GSF_nokovelocity) {
 						if getter.ss.stateType == ST_A {
 							if getter.ghv.xvel < 0 {
-								getter.ghv.xvel -= 2 * getter.localscl * (320 / float32(sys.gameWidth))
+								getter.ghv.xvel += getter.gi().velocity.air.gethit.ko.add[0]
 							}
 							if getter.ghv.yvel <= 0 {
-								getter.ghv.yvel -= 2 * getter.localscl * (320 / float32(sys.gameWidth))
-								if getter.ghv.yvel > -3*getter.localscl*(320/float32(sys.gameWidth)) {
-									getter.ghv.yvel = -3 * getter.localscl * (320 / float32(sys.gameWidth))
+								getter.ghv.yvel += getter.gi().velocity.air.gethit.ko.add[1]
+								if getter.ghv.yvel > getter.gi().velocity.air.gethit.ko.ymin {
+									getter.ghv.yvel = getter.gi().velocity.air.gethit.ko.ymin
 								}
 							}
 						} else {
 							if getter.ghv.yvel == 0 {
-								getter.ghv.xvel *= 0.66
+								getter.ghv.xvel *= getter.gi().velocity.ground.gethit.ko.xmul
 							}
 							if getter.ghv.xvel < 0 {
-								getter.ghv.xvel -= 2.5 * getter.localscl * (320 / float32(sys.gameWidth))
+								getter.ghv.xvel += getter.gi().velocity.ground.gethit.ko.add[0]
 							}
 							if getter.ghv.yvel <= 0 {
-								getter.ghv.yvel -= 2 * getter.localscl * (320 / float32(sys.gameWidth))
-								if getter.ghv.yvel > -6*getter.localscl*(320/float32(sys.gameWidth)) {
-									getter.ghv.yvel = -6 * getter.localscl * (320 / float32(sys.gameWidth))
+								getter.ghv.yvel += getter.gi().velocity.ground.gethit.ko.add[1]
+								if getter.ghv.yvel > getter.gi().velocity.ground.gethit.ko.ymin {
+									getter.ghv.yvel = getter.gi().velocity.ground.gethit.ko.ymin
 								}
 							}
 						}
@@ -6795,6 +6831,7 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 			c := sys.chars[i][0]
 			orgatktmp := c.atktmp
 			c.atktmp = -1
+			ap_projhit := false
 			for j := range pr {
 				p := &pr[j]
 				if (i == getter.playerNo && getter.helperIndex == 0 && !p.platform) ||
@@ -6857,9 +6894,9 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 				}
 				if !(getter.stchtmp && (getter.sf(CSF_gethit) || getter.acttmp > 0)) &&
 					(c.sf(CSF_nojugglecheck) || getter.ghv.getJuggle(c.id,
-						c.gi().data.airjuggle) >= p.hitdef.air_juggle) &&
-					p.timemiss <= 0 && p.hitpause <= 0 && getter.hittable(&p.hitdef,
-					c, ST_N, func(h *HitDef) bool { return false }) {
+						c.gi().data.airjuggle) >= p.hitdef.air_juggle) && (!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
+					p.timemiss <= 0 && (p.hitpause <= 0 || p.hitpause > 0 && p.hitdef.hitonce <= 0) &&
+					getter.hittable(&p.hitdef, c, ST_N, func(h *HitDef) bool { return false }) {
 					orghittmp := getter.hittmp
 					if getter.sf(CSF_gethit) {
 						getter.hittmp = int8(Btoi(getter.ghv.fallf)) + 1
@@ -6887,6 +6924,10 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 								sys.cgi[i].pcid = p.id
 								p.hitpause = Max(0, p.hitdef.guard_pausetime)
 							}
+						}
+						//MUGENではattrにP属性が入っているProjectileは1Fに一つしかヒットしないらしい。
+						if p.hitdef.attr&int32(AT_AP) != 0 {
+							ap_projhit = true
 						}
 					}
 					getter.hittmp = orghittmp

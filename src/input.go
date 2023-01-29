@@ -730,6 +730,9 @@ func (ni *NetInput) Synchronize() error {
 	} else if tmp != ni.time {
 		return Error("Synchronization error")
 	}
+	if sys.rollback.session != nil {
+		sys.rollback.session.netTime = ni.time
+	}
 	ni.buf[ni.locIn].reset(ni.time)
 	ni.buf[ni.remIn].reset(ni.time)
 	ni.st = NS_Playing

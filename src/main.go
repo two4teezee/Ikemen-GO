@@ -49,6 +49,7 @@ func main() {
 	// Make save directories, if they don't exist
 	os.Mkdir("save", os.ModeSticky|0755)
 	os.Mkdir("save/replays", os.ModeSticky|0755)
+	os.Mkdir("save/logs", os.ModeSticky|0755)
 
 	processCommandLine()
 

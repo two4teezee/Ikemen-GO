@@ -12,6 +12,7 @@ type RollbackSystem struct {
 	session      *RollbackSession
 	currentFight Fight
 	active       bool
+	netInput     *NetInput
 }
 
 type RollbackConfig struct {
@@ -76,11 +77,16 @@ func (rs *RollbackSystem) fight(s *System) bool {
 			rs.session.InitP1(2, 7600, 7550, rs.session.remoteIp)
 			rs.session.playerNo = 1
 		}
-		if !rs.session.IsConnected() {
-			rs.session.backend.Idle(0)
-		}
-		s.netInput.Close()
-		rs.session.rep = sys.netInput.rep
+		s.time = rs.session.netTime
+		s.preFightTime = rs.session.netTime
+		//if !rs.session.IsConnected() {
+		// for !rs.session.synchronized {
+		// 	rs.session.backend.Idle(0)
+		// }
+		//}
+		// s.netInput.Close()
+		rs.session.rep = s.netInput.rep
+		rs.netInput = s.netInput
 		s.netInput = nil
 	} else if s.netInput == nil && rs.session == nil {
 		session := NewRollbackSesesion(s.rollbackConfig)
@@ -91,7 +97,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.currentFight.reset()
 	// Loop until end of match
 	///fin := false
-	for !s.endMatch && !s.postMatchFlg {
+	for !s.endMatch {
 		rs.session.now = time.Now().UnixMilli()
 		err := rs.session.backend.Idle(
 			int(math.Max(0, float64(rs.session.next-rs.session.now-1))))
@@ -100,29 +106,49 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		}
 
 		running = rs.runFrame(s)
+
+		if rs.currentFight.fin && (!s.postMatchFlg || len(s.commonLua) == 0) {
+			break
+		}
+
 		rs.session.next = rs.session.now + 1000/60
 
 		if !running {
 			break
 		}
-
 		rs.render(s)
 		frameTime := rs.session.loopTimer.usToWaitThisLoop()
-		rs.update(s, frameTime)
+		running = rs.update(s, frameTime)
+
+		if !running {
+			break
+		}
 	}
 	rs.session.SaveReplay()
-	sys.esc = true
-	sys.rollback.currentFight.fin = true
-	sys.endMatch = true
+	// sys.esc = true
+	//sys.rollback.currentFight.fin = true
+	s.netInput = rs.netInput
 	rs.session.backend.Close()
-	rs.session = nil
+
+	// Prep for the next match.
+	if s.netInput != nil {
+		newSession := NewRollbackSesesion(sys.rollbackConfig)
+		host := rs.session.host
+		remoteIp := rs.session.remoteIp
+
+		rs.session = &newSession
+		rs.session.host = host
+		rs.session.remoteIp = remoteIp
+	} else {
+		rs.session = nil
+	}
 	return false
 }
 
 func (rs *RollbackSystem) runFrame(s *System) bool {
 	var buffer []byte
 	var result error
-	if rs.session.syncTest {
+	if rs.session.syncTest && rs.session.netTime == 0 {
 		if !rs.session.config.DesyncTestAI {
 			buffer = getInputs(0)
 			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
@@ -140,14 +166,18 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 	}
 
 	if result == nil {
-
 		var values [][]byte
 		disconnectFlags := 0
 		values, result = rs.session.backend.SyncInput(&disconnectFlags)
 		inputs := decodeInputs(values)
 		if result == nil {
+			if rs.session.rep != nil {
+				rs.session.SetInput(s.gameTime, 0, inputs[0])
+				rs.session.SetInput(s.gameTime, 1, inputs[1])
+			}
+
 			s.step = false
-			rs.runShortcutScripts(s)
+			//rs.runShortcutScripts(s)
 
 			// If next round
 			if !rs.runNextRound(s) {
@@ -169,9 +199,9 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			// Update game state
 			rs.action(s, inputs)
 
-			if rs.handleFlags(s) {
-				return true
-			}
+			// if rs.handleFlags(s) {
+			// 	return true
+			// }
 
 			if !rs.updateEvents(s) {
 				return false
@@ -195,6 +225,17 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
 				return false
 			}
+
+			defer func() {
+				if re := recover(); re != nil {
+					if rs.session.config.DesyncTest {
+						rs.session.log.updateLogs()
+						rs.session.log.saveLogs()
+						panic("RaiseDesyncError")
+					}
+				}
+			}()
+
 			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
 			if err != nil {
 				panic(err)
@@ -1226,7 +1267,6 @@ func readI32(b []byte) int32 {
 	if len(b) < 4 {
 		return 0
 	}
-	//fmt.Printf("b[0] %d b[1] %d b[2] %d b[3] %d\n", b[0], b[1], b[2], b[3])
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
 }
 

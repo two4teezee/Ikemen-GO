@@ -310,12 +310,12 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.time = gs.Time // UIT
 	sys.gameTime = gs.GameTime
 	gs.loadCharData(a, gsp)
-	gs.loadExplodData(a)
+	gs.loadExplodData(a, gsp)
 	sys.cam = gs.cam
 	gs.loadPauseData()
-	gs.loadSuperData(a)
+	gs.loadSuperData(a, gsp)
 	gs.loadPalFX(a)
-	gs.loadProjectileData(a)
+	gs.loadProjectileData(a, gsp)
 	sys.com = gs.com
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
@@ -349,9 +349,12 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.waitdown = gs.waitdown
 	sys.slowtime = gs.slowtime
 
+	// This causes flicking when rolled back during desync testing.
+	if sys.rollback.session != nil && !sys.rollback.session.config.DesyncTest {
+		sys.fadeintime = gs.fadeintime
+		sys.fadeouttime = gs.fadeouttime
+	}
 	sys.shuttertime = gs.shuttertime
-	sys.fadeintime = gs.fadeintime
-	sys.fadeouttime = gs.fadeouttime
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
@@ -559,12 +562,12 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.GameTime = sys.gameTime
 
 	gs.saveCharData(a, gsp)
-	gs.saveExplodData(a)
+	gs.saveExplodData(a, gsp)
 	gs.cam = sys.cam
 	gs.savePauseData()
-	gs.saveSuperData(a)
+	gs.saveSuperData(a, gsp)
 	gs.savePalFX(a)
-	gs.saveProjectileData(a)
+	gs.saveProjectileData(a, gsp)
 
 	gs.com = sys.com
 	gs.envShake = sys.envShake
@@ -775,7 +778,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue
 	gs.brightnessOld = sys.brightnessOld
-
 }
 
 func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {
@@ -831,16 +833,16 @@ func (gs *GameState) saveCharData(a *arena.Arena, gsp *GameStatePool) {
 
 }
 
-func (gs *GameState) saveProjectileData(a *arena.Arena) {
+func (gs *GameState) saveProjectileData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.projs {
 		gs.projs[i] = arena.MakeSlice[Projectile](a, len(sys.projs[i]), len(sys.projs[i]))
 		for j := 0; j < len(sys.projs[i]); j++ {
-			gs.projs[i][j] = sys.projs[i][j].clone(a)
+			gs.projs[i][j] = sys.projs[i][j].clone(a, gsp)
 		}
 	}
 }
 
-func (gs *GameState) saveSuperData(a *arena.Arena) {
+func (gs *GameState) saveSuperData(a *arena.Arena, gsp *GameStatePool) {
 	gs.super = sys.super
 	gs.supertime = sys.supertime
 	gs.superpausebg = sys.superpausebg
@@ -848,7 +850,7 @@ func (gs *GameState) saveSuperData(a *arena.Arena) {
 	gs.superplayer = sys.superplayer
 	gs.superdarken = sys.superdarken
 	if sys.superanim != nil {
-		gs.superanim = sys.superanim.Clone(a)
+		gs.superanim = sys.superanim.Clone(a, gsp)
 	} else {
 		gs.superanim = sys.superanim
 	}
@@ -866,11 +868,11 @@ func (gs *GameState) savePauseData() {
 	gs.pauseplayer = sys.pauseplayer
 }
 
-func (gs *GameState) saveExplodData(a *arena.Arena) {
+func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.explods {
 		gs.explods[i] = arena.MakeSlice[Explod](a, len(sys.explods[i]), len(sys.explods[i]))
 		for j := 0; j < len(sys.explods[i]); j++ {
-			gs.explods[i][j] = *sys.explods[i][j].Clone(a)
+			gs.explods[i][j] = *sys.explods[i][j].Clone(a, gsp)
 		}
 	}
 	for i := range sys.explDrawlist {
@@ -923,7 +925,7 @@ func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 	sys.charList = gs.charList.Clone(a, gsp)
 }
 
-func (gs *GameState) loadSuperData(a *arena.Arena) {
+func (gs *GameState) loadSuperData(a *arena.Arena, gsp *GameStatePool) {
 	sys.super = gs.super
 	sys.supertime = gs.supertime
 	sys.superpausebg = gs.superpausebg
@@ -931,7 +933,7 @@ func (gs *GameState) loadSuperData(a *arena.Arena) {
 	sys.superplayer = gs.superplayer
 	sys.superdarken = gs.superdarken
 	if gs.superanim != nil {
-		sys.superanim = gs.superanim.Clone(a)
+		sys.superanim = gs.superanim.Clone(a, gsp)
 	} else {
 		sys.superanim = gs.superanim
 	}
@@ -949,11 +951,11 @@ func (gs *GameState) loadPauseData() {
 	sys.pauseplayer = gs.pauseplayer
 }
 
-func (gs *GameState) loadExplodData(a *arena.Arena) {
+func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.explods {
 		sys.explods[i] = arena.MakeSlice[Explod](a, len(gs.explods[i]), len(gs.explods[i]))
 		for j := 0; j < len(gs.explods[i]); j++ {
-			sys.explods[i][j] = *gs.explods[i][j].Clone(a)
+			sys.explods[i][j] = *gs.explods[i][j].Clone(a, gsp)
 		}
 	}
 
@@ -973,11 +975,11 @@ func (gs *GameState) loadExplodData(a *arena.Arena) {
 	}
 }
 
-func (gs *GameState) loadProjectileData(a *arena.Arena) {
+func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.projs {
 		sys.projs[i] = arena.MakeSlice[Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
 		for j := range gs.projs[i] {
-			sys.projs[i][j] = gs.projs[i][j].clone(a)
+			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
 		}
 	}
 }
@@ -1005,6 +1007,9 @@ func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {
 	case (map[int32]*Char):
 		objs = append(objs, gsp.int32CharPointerMapPool.Get())
 		return objs[len(objs)-1]
+	case ([]AnimFrame):
+		objs = append(objs, gsp.animFrameSlicePool.Get())
+		return objs[len(objs)-1]
 	default:
 		return nil
 	}
@@ -1022,6 +1027,8 @@ func (gsp *GameStatePool) Put(item interface{}) {
 		gsp.animationTablePool.Put(item)
 	case (*map[int32]*Char):
 		gsp.int32CharPointerMapPool.Put(item)
+	case (*[]AnimFrame):
+		gsp.animFrameSlicePool.Put(item)
 	default:
 	}
 }
@@ -1073,6 +1080,12 @@ func NewGameStatePool() GameStatePool {
 				return &ic
 			},
 		},
+		animFrameSlicePool: sync.Pool{
+			New: func() interface{} {
+				af := make([]AnimFrame, 0, 8)
+				return &af
+			},
+		},
 		poolObjs: make(map[int][]interface{}),
 	}
 }
@@ -1093,6 +1106,8 @@ type GameStatePool struct {
 	animationTablePool      sync.Pool
 	mapArraySlicePool       sync.Pool
 	int32CharPointerMapPool sync.Pool
-	poolObjs                map[int][]interface{}
-	curStateID              int
+
+	animFrameSlicePool sync.Pool
+	poolObjs           map[int][]interface{}
+	curStateID         int
 }

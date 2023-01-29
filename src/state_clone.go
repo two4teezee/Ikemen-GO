@@ -84,13 +84,14 @@ func DeepCopySlice[T Copyable[T]](src, dst *[]T) {
 	}
 }
 
-func (a *Animation) Clone(ar *arena.Arena) (result *Animation) {
+func (a *Animation) Clone(ar *arena.Arena, gsp *GameStatePool) (result *Animation) {
 	result = arena.New[Animation](ar)
 	*result = *a
 
-	result.frames = arena.MakeSlice[AnimFrame](ar, len(a.frames), len(a.frames))
+	result.frames = *gsp.Get(a.frames).(*[]AnimFrame)
+	result.frames = result.frames[:0]
 	for i := 0; i < len(a.frames); i++ {
-		result.frames[i] = *a.frames[i].Clone(ar)
+		result.frames = append(result.frames, *a.frames[i].Clone(ar))
 	}
 
 	result.interpolate_offset = arena.MakeSlice[int32](ar, len(a.interpolate_offset), len(a.interpolate_offset))
@@ -140,6 +141,15 @@ func (b *StateBlock) Clone(a *arena.Arena) (result StateBlock) {
 		eb := b.elseBlock.Clone(a)
 		result.elseBlock = &eb
 	}
+
+	result.forCtrlVar.be = arena.MakeSlice[OpCode](a, len(b.forCtrlVar.be), len(b.forCtrlVar.be))
+	copy(result.forCtrlVar.be, b.forCtrlVar.be)
+
+	for i := 0; i < len(b.forExpression); i++ {
+		result.forExpression[i] = arena.MakeSlice[OpCode](a, len(b.forExpression[i]), len(b.forExpression[i]))
+		copy(result.forExpression[i], b.forExpression[i])
+	}
+
 	result.ctrls = arena.MakeSlice[StateController](a, len(b.ctrls), len(b.ctrls))
 	copy(result.ctrls, b.ctrls)
 	return result
@@ -177,21 +187,21 @@ func (ai AfterImage) Clone(a *arena.Arena) (result AfterImage) {
 	return
 }
 
-func (e *Explod) Clone(a *arena.Arena) (result *Explod) {
+func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) (result *Explod) {
 	result = &Explod{}
 	*result = *e
 	if e.anim != nil {
-		result.anim = e.anim.Clone(a)
+		result.anim = e.anim.Clone(a, gsp)
 	}
 	palfx := e.palfx.Clone(a)
 	result.palfx = &palfx
 	return
 }
 
-func (p Projectile) clone(a *arena.Arena) (result Projectile) {
+func (p Projectile) clone(a *arena.Arena, gsp *GameStatePool) (result Projectile) {
 	result = p
 	if p.ani != nil {
-		*result.ani = *p.ani.Clone(a)
+		*result.ani = *p.ani.Clone(a, gsp)
 	}
 	result.aimg.palfx = arena.MakeSlice[PalFX](a, len(p.aimg.palfx), len(p.aimg.palfx))
 	for i := 0; i < len(p.aimg.palfx); i++ {
@@ -250,7 +260,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	// todo, find the curFrame index and set result.curFrame as the pointer at
 	// that index
 	if c.anim != nil {
-		result.anim = c.anim.Clone(a)
+		result.anim = c.anim.Clone(a, gsp)
 	}
 	if c.curFrame != nil {
 		result.curFrame = c.curFrame.Clone(a)
@@ -477,44 +487,44 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	return
 }
 
-func (bg *backGround) Clone(a *arena.Arena) (result *backGround) {
+func (bg *backGround) Clone(a *arena.Arena, gsp *GameStatePool) (result *backGround) {
 	result = &backGround{}
 	*result = *bg
-	result.anim = *bg.anim.Clone(a)
+	result.anim = *bg.anim.Clone(a, gsp)
 	return
 }
 
-func (bgc *bgCtrl) Clone(a *arena.Arena) (result bgCtrl) {
+func (bgc *bgCtrl) Clone(a *arena.Arena, gsp *GameStatePool) (result bgCtrl) {
 	result = bgCtrl{}
 	result = *bgc
 	result.bg = arena.MakeSlice[*backGround](a, len(bgc.bg), len(bgc.bg))
 	for i := 0; i < len(bgc.bg); i++ {
-		result.bg[i] = bgc.bg[i].Clone(a)
+		result.bg[i] = bgc.bg[i].Clone(a, gsp)
 	}
 	return
 }
 
-func (bgctn bgctNode) Clone(a *arena.Arena) (result bgctNode) {
+func (bgctn bgctNode) Clone(a *arena.Arena, gsp *GameStatePool) (result bgctNode) {
 	result = bgctNode{}
 	result = bgctn
 	result.bgc = arena.MakeSlice[*bgCtrl](a, len(bgctn.bgc), len(bgctn.bgc))
 	for i := 0; i < len(bgctn.bgc); i++ {
-		bgc := bgctn.bgc[i].Clone(a)
+		bgc := bgctn.bgc[i].Clone(a, gsp)
 		result.bgc[i] = &bgc
 	}
 	return
 }
 
-func (bgct *bgcTimeLine) Clone(a *arena.Arena) (result bgcTimeLine) {
+func (bgct *bgcTimeLine) Clone(a *arena.Arena, gsp *GameStatePool) (result bgcTimeLine) {
 	result = bgcTimeLine{}
 	result = *bgct
 	result.line = arena.MakeSlice[bgctNode](a, len(bgct.line), len(bgct.line))
 	for i := 0; i < len(bgct.line); i++ {
-		result.line[i] = bgct.line[i].Clone(a)
+		result.line[i] = bgct.line[i].Clone(a, gsp)
 	}
 	result.al = arena.MakeSlice[*bgCtrl](a, len(bgct.al), len(bgct.al))
 	for i := 0; i < len(bgct.al); i++ {
-		bgCtrl := bgct.al[i].Clone(a)
+		bgCtrl := bgct.al[i].Clone(a, gsp)
 		result.al[i] = &bgCtrl
 	}
 	return
@@ -535,20 +545,20 @@ func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) (result *Stage) {
 	result.at = *gsp.Get(s.at).(*AnimationTable)
 	maps.Clear(result.at)
 	for k, v := range s.at {
-		result.at[k] = v.Clone(a)
+		result.at[k] = v.Clone(a, gsp)
 	}
 
 	result.bg = arena.MakeSlice[*backGround](a, len(s.bg), len(s.bg))
 	for i := 0; i < len(s.bg); i++ {
-		result.bg[i] = s.bg[i].Clone(a)
+		result.bg[i] = s.bg[i].Clone(a, gsp)
 	}
 
 	result.bgc = arena.MakeSlice[bgCtrl](a, len(s.bgc), len(s.bgc))
 	for i := 0; i < len(s.bgc); i++ {
-		result.bgc[i] = s.bgc[i].Clone(a)
+		result.bgc[i] = s.bgc[i].Clone(a, gsp)
 	}
 
-	result.bgct = s.bgct.Clone(a)
+	result.bgct = s.bgct.Clone(a, gsp)
 	return
 }
 

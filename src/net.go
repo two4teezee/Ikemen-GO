@@ -7,11 +7,55 @@ import (
 	"log"
 	"math"
 	"os"
+	"strings"
 	"time"
 	"unsafe"
 
 	ggpo "github.com/assemblaj/ggpo"
 )
+
+type RollbackLogger struct {
+	filename   string
+	currentLog strings.Builder
+	logs       [(MaxSaveStates + 3) * 3]string
+}
+
+func NewRollbackLogger(timestamp string) RollbackLogger {
+	gl := RollbackLogger{filename: "save/logs/Rollback-State-" + timestamp + ".log"}
+	return gl
+}
+
+func (g *RollbackLogger) logState(action string, stateID int, state string, checksum int) {
+	fmt.Fprintf(&g.currentLog, "State Logger: \n")
+	fmt.Fprintf(&g.currentLog, "%s state for stateID: %d\n", action, stateID)
+	fmt.Fprintf(&g.currentLog, state+"\n")
+	fmt.Fprintf(&g.currentLog, "Checksum: %d\n", checksum)
+}
+
+func (g *RollbackLogger) Write(p []byte) (n int, err error) {
+	g.currentLog.WriteString(string(p))
+	return len(p), nil
+}
+
+func (g *RollbackLogger) updateLogs() {
+	tmp := g.logs
+	for i := 0; i < len(g.logs)-1; i++ {
+		g.logs[i] = tmp[i+1]
+	}
+	g.logs[len(g.logs)-1] = g.currentLog.String()
+	g.currentLog.Reset()
+}
+
+func (g *RollbackLogger) saveLogs() {
+	var fullLog string
+	for i := 0; i < len(g.logs); i++ {
+		fullLog += g.logs[i]
+	}
+	err := os.WriteFile(g.filename, []byte(fullLog), 0666)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
 
 type RollbackSession struct {
 	backend             ggpo.Backend
@@ -31,9 +75,13 @@ type RollbackSession struct {
 	remoteIp            string
 	currentPlayer       int
 	currentPlayerHandle ggpo.PlayerHandle
+	remotePlayerHandle  ggpo.PlayerHandle
 	loopTimer           LoopTimer
 	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
 	config              RollbackConfig
+	log                 RollbackLogger
+	timestamp           string
+	netTime             int32
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
@@ -128,14 +176,19 @@ func (r *RollbackSession) SaveGameState(stateID int) int {
 	r.saveStates[stateID] = sys.statePool.gameStatePool.Get().(*GameState)
 	r.saveStates[stateID].SaveState(stateID)
 
-	//fmt.Printf("Save state for stateID: %d\n", stateID)
-	//fmt.Println(g.saveStates[stateID])
-
 	if r.config.DesyncTest {
 		checksum := r.saveStates[stateID].Checksum()
-		//fmt.Printf("checksum: %d\n", checksum)
+		if r.config.LogsEnabled {
+			r.log.logState("Saving", stateID, r.saveStates[stateID].String(), checksum)
+			r.log.updateLogs()
+		}
 		return checksum
 	} else {
+		if r.config.LogsEnabled {
+			checksum := r.saveStates[stateID].Checksum()
+			r.log.logState("Saving", stateID, r.saveStates[stateID].String(), checksum)
+			r.log.updateLogs()
+		}
 		return ggpo.DefaultChecksum
 	}
 }
@@ -158,18 +211,16 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 	}
 	sys.loadPool.Free(stateID)
 
-	// fmt.Printf("Loaded state for stateID: %d\n", stateID)
-	// fmt.Println(g.saveStates[stateID])
-
-	// checksum := g.saveStates[stateID].Checksum()
-	// fmt.Printf("checksum: %d\n", checksum)
-
 	r.saveStates[stateID].LoadState(stateID)
+
+	if r.config.DesyncTest && r.config.LogsEnabled {
+		checksum := r.saveStates[stateID].Checksum()
+		r.log.logState("Loaded", stateID, r.saveStates[stateID].String(), checksum)
+	}
+
 	sys.statePool.gameStatePool.Put(r.saveStates[stateID])
 
-	//sys.gameStatePool <- g.saveStates[stateID]
 	lastLoadedFrame = stateID
-
 }
 
 func (r *RollbackSession) AdvanceFrame(flags int) {
@@ -185,12 +236,14 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	// the game state instead of reading from the keyboard.
 	inputs, result := r.backend.SyncInput(&discconectFlags)
 	if result == nil {
-		//fmt.Println("Advancing frame from within callback.")
 		input := decodeInputs(inputs)
-		//fmt.Printf("Inputs: %v\n", input)
+		if r.rep != nil {
+			r.SetInput(sys.gameTime, 0, input[0])
+			r.SetInput(sys.gameTime, 1, input[1])
+		}
 
 		sys.step = false
-		sys.rollback.runShortcutScripts(&sys)
+		//sys.rollback.runShortcutScripts(&sys)
 
 		// If next round
 		if !sys.rollback.runNextRound(&sys) {
@@ -207,24 +260,41 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			sys.commandLists[i].Buffer.InputBits(input[i], 1)
 			sys.commandLists[i].Step(1, false, false, 0)
 		}
-
 		sys.rollback.action(&sys, input)
 
-		sys.rollback.handleFlags(&sys)
-		sys.rollback.updateEvents(&sys)
+		// if sys.rollback.handleFlags(&sys) {
+		// 	return
+		// }
+
+		if !sys.rollback.updateEvents(&sys) {
+			return
+		}
 
 		if sys.rollback.currentFight.fin { //&& (!sys.postMatchFlg || len(sys.commonLua) == 0) {
 			sys.endMatch = true
 			sys.esc = true
+			return
 		}
 
 		if sys.endMatch {
 			sys.esc = true
+			return
 		} else if sys.esc {
 			sys.endMatch = sys.netInput != nil || len(sys.commonLua) == 0
+			return
 		}
 
-		sys.rollback.updateCamera(&sys)
+		//sys.rollback.updateCamera(&sys)
+		defer func() {
+			if re := recover(); re != nil {
+				if r.config.DesyncTest {
+					r.log.updateLogs()
+					r.log.saveLogs()
+					panic("RaiseDesyncError")
+				}
+			}
+		}()
+
 		err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
 		if err != nil {
 			panic(err)
@@ -244,23 +314,30 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 	case ggpo.EventCodeRunning:
 		fmt.Println("EventCodeRunning")
 	case ggpo.EventCodeDisconnectedFromPeer:
+		if sys.postMatchFlg {
+			return
+		}
+		if r.config.LogsEnabled {
+			r.log.saveLogs()
+		}
 		fmt.Println("EventCodeDisconnectedFromPeer")
 		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
-		sys.esc = true
 		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
-		ShowInfoDialog(disconnectMessage, "Disconenection")
 		r.SaveReplay()
+		ShowInfoDialog(disconnectMessage, "Disconnection")
 	case ggpo.EventCodeTimeSync:
 		fmt.Printf("EventCodeTimeSync: FramesAhead %f TimeSyncPeriodInFrames: %d\n", info.FramesAhead, info.TimeSyncPeriodInFrames)
 		r.loopTimer.OnGGPOTimeSyncEvent(info.FramesAhead)
 	case ggpo.EventCodeDesync:
+		if r.config.LogsEnabled {
+			r.log.saveLogs()
+		}
 		fmt.Println("EventCodeDesync")
 		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
-		sys.esc = true
-		ShowInfoDialog("Desync Error. Please submit your replay and build to the IKEMEN team. Thank you for your patience. ", "Desync Error")
 		r.SaveReplay()
+		ShowInfoDialog("Desync Error. Please report your issue to the rollback alpha issues page at https://github.com/assemblaj/Ikemen-GO/issues. Thanks for your patience", "Desync Error")
 	case ggpo.EventCodeConnectionInterrupted:
 		fmt.Println("EventCodeconnectionInterrupted")
 	case ggpo.EventCodeConnectionResumed:
@@ -275,6 +352,8 @@ func NewRollbackSesesion(config RollbackConfig) RollbackSession {
 	r.handles = make([]ggpo.PlayerHandle, 9)
 	r.config = config
 	r.loopTimer = NewLoopTimer(60, 100)
+	r.timestamp = time.Now().Format("2006-01-02_03-04PM-05s")
+	r.log = NewRollbackLogger(r.timestamp)
 	return r
 
 }
@@ -314,7 +393,12 @@ func (c *Char) LiveChecksum() []byte {
 }
 
 func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
+	// This (the full checksum) is unstable in live gameplay, do not use. Looking for replacements.
+	if rs.config.LogsEnabled {
+		return uint32(rs.saveStates[sys.rollbackStateID].Checksum())
+	}
 	buf := writeI32(s.randseed)
+	buf = append(buf, writeI32(s.gameTime)...)
 	for i := 0; i < len(s.chars); i++ {
 		if len(s.chars[i]) > 0 {
 			buf = append(buf, s.chars[i][0].LiveChecksum()...)
@@ -347,7 +431,7 @@ func (rs *RollbackSession) AnyButtonIB(ib []InputBits) bool {
 
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if rs.config.LogsEnabled {
-		logFileName := fmt.Sprintf("Rollback-%d", time.Now().UnixMicro())
+		logFileName := fmt.Sprintf("save/logs/Rollback-%s.log", rs.timestamp)
 		f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
 			panic(err)
@@ -369,7 +453,6 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 	rs.backend = &peer
 
 	peer.InitializeConnection()
-	peer.Start()
 
 	var handle ggpo.PlayerHandle
 	result := peer.AddPlayer(&player, &handle)
@@ -385,15 +468,18 @@ func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int,
 	rs.handles = append(rs.handles, handle2)
 	rs.currentPlayer = int(handle)
 	rs.currentPlayerHandle = handle
+	rs.remotePlayerHandle = handle2
 
 	peer.SetDisconnectTimeout(rs.config.DisconnectTimeout)
 	peer.SetDisconnectNotifyStart(rs.config.DisconnectNotifyStart)
 	peer.SetFrameDelay(handle, rs.config.FrameDelay)
+
+	peer.Start()
 }
 
 func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if rs.config.LogsEnabled {
-		logFileName := fmt.Sprintf("Rollback-%d", time.Now().UnixMicro())
+		logFileName := fmt.Sprintf("save/logs/Rollback-%s.log", rs.timestamp)
 		f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
 			panic(err)
@@ -415,7 +501,6 @@ func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int,
 	rs.backend = &peer
 
 	peer.InitializeConnection()
-	peer.Start()
 
 	var handle ggpo.PlayerHandle
 	result := peer.AddPlayer(&player, &handle)
@@ -431,16 +516,27 @@ func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int,
 	rs.handles = append(rs.handles, handle2)
 	rs.currentPlayer = int(handle2)
 	rs.currentPlayerHandle = handle2
+	rs.remotePlayerHandle = handle
 
 	peer.SetDisconnectTimeout(rs.config.DisconnectTimeout)
 	peer.SetDisconnectNotifyStart(rs.config.DisconnectNotifyStart)
 	peer.SetFrameDelay(handle2, rs.config.FrameDelay)
+
+	peer.Start()
 }
 
 func (rs *RollbackSession) InitSyncTest(numPlayers int) {
 	rs.syncTest = true
-
-	//ggpo.EnableLogger()
+	if rs.config.LogsEnabled {
+		logFileName := fmt.Sprintf("save/logs/Rollback-Desync-Test-%s.log", rs.timestamp)
+		f, err := os.OpenFile(logFileName, os.O_CREATE|os.O_RDWR, 0666)
+		if err != nil {
+			panic(err)
+		}
+		logger := log.New(f, "Logger:", log.Ldate|log.Ltime|log.Lshortfile)
+		ggpo.EnableLogs()
+		ggpo.SetLogger(logger)
+	}
 
 	var inputBits InputBits = 0
 	var inputSize int = len(encodeInputs(inputBits))

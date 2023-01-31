@@ -270,9 +270,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			return
 		}
 
-		if sys.rollback.currentFight.fin { //&& (!sys.postMatchFlg || len(sys.commonLua) == 0) {
-			sys.endMatch = true
-			sys.esc = true
+		if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.commonLua) == 0) {
 			return
 		}
 
@@ -394,9 +392,9 @@ func (c *Char) LiveChecksum() []byte {
 
 func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
 	// This (the full checksum) is unstable in live gameplay, do not use. Looking for replacements.
-	if rs.config.LogsEnabled {
-		return uint32(rs.saveStates[sys.rollbackStateID].Checksum())
-	}
+	// if rs.config.LogsEnabled {
+	// 	return uint32(rs.saveStates[sys.rollbackStateID].Checksum())
+	// }
 	buf := writeI32(s.randseed)
 	buf = append(buf, writeI32(s.gameTime)...)
 	for i := 0; i < len(s.chars); i++ {

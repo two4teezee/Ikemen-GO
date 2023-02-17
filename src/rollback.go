@@ -975,11 +975,26 @@ func (rs *RollbackSystem) rollbackAction(sys *System, cl *CharList, ib []InputBi
 		}
 	}
 	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionRun()
+		if cl.runOrder[i].ss.moveType != MT_A && cl.runOrder[i].ss.moveType != MT_I {
+			cl.runOrder[i].actionRun()
+		}
 	}
 	// Finish performing character actions
+	// Process priority based on movetype: A > I > H (or anything else)
 	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionFinish()
+		if cl.runOrder[i].ss.moveType == MT_A {
+			cl.runOrder[i].actionFinish()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType == MT_I {
+			cl.runOrder[i].actionFinish()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType != MT_A && cl.runOrder[i].ss.moveType != MT_I {
+			cl.runOrder[i].actionFinish()
+		}
 	}
 	// Update chars
 	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
@@ -1171,7 +1186,7 @@ func (f *Fight) initChars() {
 			} else if sys.round == 1 || sys.tmode[i&1] == TM_Turns {
 				/* If round 1 or a new character in turns mode, initialize values */
 				if p[0].ocd().life != -1 {
-					p[0].life = p[0].ocd().life
+					p[0].life = Clamp(p[0].ocd().life, 0, p[0].lifeMax)
 				} else {
 					p[0].life = p[0].lifeMax
 				}
@@ -1179,8 +1194,8 @@ func (f *Fight) initChars() {
 					if sys.maxPowerMode {
 						p[0].power = p[0].powerMax
 					} else if p[0].ocd().power != -1 {
-						p[0].power = p[0].ocd().power
-					} else {
+						p[0].power = Clamp(p[0].ocd().power, 0, p[0].powerMax)
+					} else if !sys.consecutiveRounds || sys.consecutiveWins[0] == 0 {
 						p[0].power = 0
 					}
 				}
@@ -1198,12 +1213,12 @@ func (f *Fight) initChars() {
 			}
 
 			if p[0].ocd().guardPoints != -1 {
-				p[0].guardPoints = p[0].ocd().guardPoints
+				p[0].guardPoints = Clamp(p[0].ocd().guardPoints, 0, p[0].guardPointsMax)
 			} else {
 				p[0].guardPoints = p[0].guardPointsMax
 			}
 			if p[0].ocd().dizzyPoints != -1 {
-				p[0].dizzyPoints = p[0].ocd().dizzyPoints
+				p[0].dizzyPoints = Clamp(p[0].ocd().dizzyPoints, 0, p[0].dizzyPointsMax)
 			} else {
 				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}

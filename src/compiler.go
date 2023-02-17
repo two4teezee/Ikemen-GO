@@ -9,27 +9,27 @@ import (
 	"strings"
 )
 
-const kuuhaktokigou = " !=<>()|&+-*/%,[]^:;{}#\"\t\r\n"
+const specialSymbols = " !=<>()|&+-*/%,[]^:;{}#\"\t\r\n"
 
 type expFunc func(out *BytecodeExp, in *string) (BytecodeValue, error)
 type scFunc func(is IniSection, sc *StateControllerBase,
 	ihp int8) (StateController, error)
 type Compiler struct {
-	cmdl     *CommandList
-	maeOp    string
-	usiroOp  bool
-	norange  bool
-	token    string
-	playerNo int
-	scmap    map[string]scFunc
-	block    *StateBlock
-	lines    []string
-	i        int
-	linechan chan *string
-	vars     map[string]uint8
-	funcs    map[string]bytecodeFunction
-	funcUsed map[string]bool
-	stateNo  int32
+	cmdl             *CommandList
+	previousOperator string
+	reverseOrder     bool
+	norange          bool
+	token            string
+	playerNo         int
+	scmap            map[string]scFunc
+	block            *StateBlock
+	lines            []string
+	i                int
+	linechan         chan *string
+	vars             map[string]uint8
+	funcs            map[string]bytecodeFunction
+	funcUsed         map[string]bool
+	stateNo          int32
 }
 
 func newCompiler() *Compiler {
@@ -172,18 +172,19 @@ func newCompiler() *Compiler {
 }
 
 var triggerMap = map[string]int{
-	//redirections
-	"player":    0,
-	"parent":    0,
-	"root":      0,
-	"helper":    0,
-	"target":    0,
-	"partner":   0,
-	"enemy":     0,
-	"enemynear": 0,
-	"playerid":  0,
-	"p2":        0,
-	//vanilla triggers
+	// redirections
+	"player":     0,
+	"parent":     0,
+	"root":       0,
+	"helper":     0,
+	"target":     0,
+	"partner":    0,
+	"enemy":      0,
+	"enemynear":  0,
+	"playerid":   0,
+	"p2":         0,	
+	"stateowner": 0,
+	// mugen triggers
 	"abs":               1,
 	"acos":              1,
 	"ailevel":           1,
@@ -246,6 +247,8 @@ var triggerMap = map[string]int{
 	"ln":                1,
 	"log":               1,
 	"lose":              1,
+	"loseko":            1,
+	"losetime":          1,
 	"matchno":           1,
 	"matchover":         1,
 	"movecontact":       1,
@@ -287,7 +290,6 @@ var triggerMap = map[string]int{
 	"projhit":           1,
 	"projhittime":       1,
 	"random":            1,
-	"reversaldefattr":   1,
 	"rightedge":         1,
 	"rootdist":          1,
 	"roundno":           1,
@@ -314,20 +316,31 @@ var triggerMap = map[string]int{
 	"var":               1,
 	"vel":               1,
 	"win":               1,
-	//new triggers
+	"winko":             1,
+	"wintime":           1,
+	"winperfect":        1,
+	// expanded triggers
+	"ailevelf":         1,
 	"animelemlength":   1,
 	"animlength":       1,
+	"attack":           1,
+	"bgmlength":        1,
+	"bgmposition":      1,
 	"combocount":       1,
 	"consecutivewins":  1,
 	"jugglepoints":     1,
+	"defence":          1,
 	"dizzy":            1,
 	"dizzypoints":      1,
 	"dizzypointsmax":   1,
+	"drawpalno":        1,
 	"fighttime":        1,
 	"firstattack":      1,
+	"float":            1,
 	"framespercount":   1,
 	"gamemode":         1,
 	"getplayerid":      1,
+	"groundangle":      1,
 	"guardbreak":       1,
 	"guardpoints":      1,
 	"guardpointsmax":   1,
@@ -338,7 +351,9 @@ var triggerMap = map[string]int{
 	"localscale":       1,
 	"majorversion":     1,
 	"map":              1,
+	"max":              1,
 	"memberno":         1,
+	"min":              1,
 	"movecountered":    1,
 	"p5name":           1,
 	"p6name":           1,
@@ -347,15 +362,18 @@ var triggerMap = map[string]int{
 	"pausetime":        1,
 	"physics":          1,
 	"playerno":         1,
+	"prevanim":         1,
 	"ratiolevel":       1,
+	"randomrange":      1,
 	"receivedhits":     1,
 	"receiveddamage":   1,
 	"redlife":          1,
+	"reversaldefattr":  1,
+	"round":            1,
 	"roundtype":        1,
 	"score":            1,
 	"scoretotal":       1,
 	"selfstatenoexist": 1,
-	"selfcommand":      1,
 	"sprpriority":      1,
 	"stagebackedge":    1,
 	"stageconst":       1,
@@ -367,6 +385,8 @@ var triggerMap = map[string]int{
 	"timeelapsed":      1,
 	"timeremaining":    1,
 	"timetotal":        1,
+	"winhyper":         1,
+	"winspecial":       1,
 }
 
 func (c *Compiler) tokenizer(in *string) string {
@@ -502,7 +522,7 @@ func (*Compiler) tokenizerCS(in *string) string {
 		}
 	}
 	if i == 0 {
-		i = strings.IndexAny(*in, kuuhaktokigou)
+		i = strings.IndexAny(*in, specialSymbols)
 		if i < 0 {
 			i = len(*in)
 		}
@@ -541,16 +561,16 @@ func (*Compiler) isOperator(token string) int {
 	return 0
 }
 func (c *Compiler) operator(in *string) error {
-	if len(c.maeOp) > 0 {
-		if opp := c.isOperator(c.token); opp <= c.isOperator(c.maeOp) {
-			if opp < 0 || ((!c.usiroOp || c.token[0] != '(') &&
+	if len(c.previousOperator) > 0 {
+		if opp := c.isOperator(c.token); opp <= c.isOperator(c.previousOperator) {
+			if opp < 0 || ((!c.reverseOrder || c.token[0] != '(') &&
 				(c.token[0] < 'A' || c.token[0] > 'Z') &&
 				(c.token[0] < 'a' || c.token[0] > 'z')) {
-				return Error("Invalid data: " + c.maeOp)
+				return Error("Invalid data: " + c.previousOperator)
 			}
 			*in = c.token + " " + *in
-			c.token = c.maeOp
-			c.maeOp = ""
+			c.token = c.previousOperator
+			c.previousOperator = ""
 			c.norange = true
 		}
 	}
@@ -581,13 +601,13 @@ func (c *Compiler) number(token string) BytecodeValue {
 		return bvNone()
 	}
 	if strings.Contains(token, ".") {
-		c.usiroOp = false
+		c.reverseOrder = false
 		return BytecodeValue{VT_Float, f}
 	}
 	if strings.ContainsAny(token, "Ee") {
 		return bvNone()
 	}
-	c.usiroOp = false
+	c.reverseOrder = false
 	if f > math.MaxInt32 {
 		return BytecodeValue{VT_Int, float64(math.MaxInt32)}
 	}
@@ -688,7 +708,7 @@ func (c *Compiler) attr(text string, hitdef bool) (int32, error) {
 func (c *Compiler) trgAttr(in *string) (int32, error) {
 	flg := int32(0)
 	*in = c.token + *in
-	i := strings.IndexAny(*in, kuuhaktokigou)
+	i := strings.IndexAny(*in, specialSymbols)
 	var att string
 	if i >= 0 {
 		att = (*in)[:i]
@@ -712,7 +732,7 @@ func (c *Compiler) trgAttr(in *string) (int32, error) {
 	for len(*in) > 0 && (*in)[0] == ',' {
 		oldin := *in
 		*in = strings.TrimSpace((*in)[1:])
-		i := strings.IndexAny(*in, kuuhaktokigou)
+		i := strings.IndexAny(*in, specialSymbols)
 		var att string
 		if i >= 0 {
 			att = (*in)[:i]
@@ -759,7 +779,7 @@ func (c *Compiler) trgAttr(in *string) (int32, error) {
 	}
 	return flg, nil
 }
-func (c *Compiler) kakkohiraku(in *string) error {
+func (c *Compiler) checkOpeningBracket(in *string) error {
 	if c.tokenizer(in) != "(" {
 		return Error("Missing '(' after " + c.token)
 	}
@@ -770,7 +790,7 @@ func (c *Compiler) kakkohiraku(in *string) error {
 /*
 TODO: Case sensitive maps
 
-	func (c *Compiler) kakkohirakuCS(in *string) error {
+	func (c *Compiler) checkOpeningBracketCS(in *string) error {
 		if c.tokenizerCS(in) != "(" {
 			return Error("Missing '(' after " + c.token)
 		}
@@ -778,14 +798,14 @@ TODO: Case sensitive maps
 		return nil
 	}
 */
-func (c *Compiler) kakkotojiru() error {
-	c.usiroOp = true
+func (c *Compiler) checkClosingBracket() error {
+	c.reverseOrder = true
 	if c.token != ")" {
 		return Error("Missing ')' before " + c.token)
 	}
 	return nil
 }
-func (c *Compiler) kyuushiki(in *string) (not bool, err error) {
+func (c *Compiler) checkEquality(in *string) (not bool, err error) {
 	for {
 		c.token = c.tokenizer(in)
 		if len(c.token) > 0 {
@@ -876,7 +896,7 @@ func (c *Compiler) intRange(in *string) (minop OpCode, maxop OpCode,
 	c.token = c.tokenizer(in)
 	return
 }
-func (c *Compiler) kyuushikiThroughNeo(_range bool, in *string) {
+func (c *Compiler) compareValues(_range bool, in *string) {
 	if sys.ignoreMostErrors {
 		i := 0
 		for ; i < len(*in); i++ {
@@ -889,27 +909,27 @@ func (c *Compiler) kyuushikiThroughNeo(_range bool, in *string) {
 	}
 	c.token = c.tokenizer(in)
 }
-func (c *Compiler) kyuushikiSuperDX(out *BytecodeExp, in *string,
-	hissu bool) error {
+func (c *Compiler) evaluateComparison(out *BytecodeExp, in *string,
+	required bool) error {
 	comma := c.token == ","
 	if comma {
 		c.token = c.tokenizer(in)
 	}
 	var opc OpCode
-	hikaku := true
+	compare := true
 	switch c.token {
 	case "<":
 		opc = OC_lt
-		c.kyuushikiThroughNeo(false, in)
+		c.compareValues(false, in)
 	case ">":
 		opc = OC_gt
-		c.kyuushikiThroughNeo(false, in)
+		c.compareValues(false, in)
 	case "<=":
 		opc = OC_le
-		c.kyuushikiThroughNeo(false, in)
+		c.compareValues(false, in)
 	case ">=":
 		opc = OC_ge
-		c.kyuushikiThroughNeo(false, in)
+		c.compareValues(false, in)
 	default:
 		opc = OC_eq
 		switch c.token {
@@ -917,14 +937,14 @@ func (c *Compiler) kyuushikiSuperDX(out *BytecodeExp, in *string,
 			opc = OC_ne
 		case "=":
 		default:
-			if hissu && !comma {
+			if required && !comma {
 				return Error("No comparison operator" +
 					"\n[ECID 1]\n")
 			}
-			hikaku = false
+			compare = false
 		}
-		if hikaku {
-			c.kyuushikiThroughNeo(true, in)
+		if compare {
+			c.compareValues(true, in)
 		}
 		if c.token == "[" || c.token == "(" {
 			minop, maxop, min, max, err := c.intRange(in)
@@ -954,25 +974,25 @@ func (c *Compiler) kyuushikiSuperDX(out *BytecodeExp, in *string,
 			} else {
 				out.append(OC_bland)
 			}
-			c.usiroOp = comma || hikaku
+			c.reverseOrder = comma || compare
 			return nil
 		}
 	}
 	ot, oi := c.token, *in
 	n, err := c.integer2(in)
 	if err != nil {
-		if hissu && !hikaku {
+		if required && !compare {
 			return Error("No comparison operator" +
 				"\n[ECID 2]\n")
 		}
-		if hikaku {
+		if compare {
 			return err
 		}
 		n, c.token, *in = 0, ot, oi
 	}
 	out.appendValue(BytecodeInt(n))
 	out.append(opc)
-	c.usiroOp = true
+	c.reverseOrder = true
 	return nil
 }
 func (c *Compiler) oneArg(out *BytecodeExp, in *string,
@@ -992,7 +1012,7 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 		if bv, err = c.expBoolOr(&be, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 	}
@@ -1025,7 +1045,7 @@ func (c *Compiler) mathFunc(out *BytecodeExp, in *string, rd bool,
 }
 func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	rd bool) (BytecodeValue, error) {
-	c.usiroOp, c.norange = true, false
+	c.reverseOrder, c.norange = true, false
 	bv := c.number(c.token)
 	if !bv.IsNone() {
 		c.token = c.tokenizer(in)
@@ -1088,7 +1108,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return nil
 	}
 	eqne := func(f func() error) error {
-		not, err := c.kyuushiki(in)
+		not, err := c.checkEquality(in)
 		if err != nil {
 			return err
 		}
@@ -1101,7 +1121,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return nil
 	}
 	eqne2 := func(f func(not bool) error) error {
-		not, err := c.kyuushiki(in)
+		not, err := c.checkEquality(in)
 		if err != nil {
 			return err
 		}
@@ -1142,7 +1162,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "":
 		return bvNone(), Error("Nothing assigned")
 	case "root", "player", "parent", "helper", "target", "partner",
-		"enemy", "enemynear", "playerid", "p2":
+		"enemy", "enemynear", "playerid", "p2", "stateowner":
 		switch c.token {
 		case "parent":
 			opc = OC_parent
@@ -1152,6 +1172,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			c.token = c.tokenizer(in)
 		case "p2":
 			opc = OC_p2
+			c.token = c.tokenizer(in)
+		case "stateowner":
+			opc = OC_stateowner
 			c.token = c.tokenizer(in)
 		default:
 			switch c.token {
@@ -1176,7 +1199,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if bv1, err = c.expBoolOr(&be1, in); err != nil {
 					return bvNone(), err
 				}
-				if err := c.kakkotojiru(); err != nil {
+				if err := c.checkClosingBracket(); err != nil {
 					return bvNone(), err
 				}
 				c.token = c.tokenizer(in)
@@ -1274,7 +1297,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 			out.append(be1...)
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 	case "var":
@@ -1287,7 +1310,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return bvNone(), _var(true, true)
 	case "ifelse", "cond":
 		cond := c.token == "cond"
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -1307,7 +1330,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
@@ -1405,33 +1428,23 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_camerazoom)
 	case "canrecover":
 		out.append(OC_canrecover)
-	case "command", "selfcommand":
-		switch c.token {
-		case "command":
-			opc = OC_command
-		case "selfcommand":
-			opc = OC_ex_selfcommand
-		}
+	case "command":
 		if err := eqne(func() error {
 			if err := text(); err != nil {
 				return err
 			}
-			i, ok := c.cmdl.Names[c.token]
+			_, ok := c.cmdl.Names[c.token]
 			if !ok {
 				return Error("Command doesn't exist: " + c.token)
 			}
-			if opc == OC_command {
-				i = sys.stringPool[c.playerNo].Add(c.token)
-			} else {
-				out.append(OC_ex_)
-			}
-			out.appendI32Op(opc, int32(i))
+			i := sys.stringPool[c.playerNo].Add(c.token)
+			out.appendI32Op(OC_command, int32(i))
 			return nil
 		}); err != nil {
 			return bvNone(), err
 		}
 	case "const":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_const_)
@@ -1680,7 +1693,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "gamewidth":
 		out.append(OC_gamewidth)
 	case "gethitvar":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		switch c.token {
@@ -1792,7 +1805,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		}
 		c.token = c.tokenizer(in)
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 	case "hitcount":
@@ -1811,7 +1824,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		// return bvNone(), err
 		// }
 		// } else {
-		// if not, err := c.kyuushiki(in); err != nil {
+		// if not, err := c.checkEquality(in); err != nil {
 		// if sys.ignoreMostErrors {
 		// out.appendValue(BytecodeBool(false))
 		// } else {
@@ -2085,12 +2098,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "stagevar":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		svname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		isStr := false
@@ -2235,7 +2248,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "winhyper":
 		out.append(OC_ex_, OC_ex_winhyper)
 	case "animelem":
-		if not, err := c.kyuushiki(in); err != nil {
+		if not, err := c.checkEquality(in); err != nil {
 			return bvNone(), err
 		} else if not && !sys.ignoreMostErrors {
 			return bvNone(), Error("animelem doesn't support '!='")
@@ -2255,14 +2268,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(be1...)
 		out.append(OC_animelemtime)
-		if err = c.kyuushikiSuperDX(&be, in, false); err != nil {
+		if err = c.evaluateComparison(&be, in, false); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_jsf8, OpCode(len(be)))
 		out.append(be...)
 		return bv, nil
 	case "timemod":
-		if not, err := c.kyuushiki(in); err != nil {
+		if not, err := c.checkEquality(in); err != nil {
 			return bvNone(), err
 		} else if not && !sys.ignoreMostErrors {
 			return bvNone(), Error("timemod doesn't support '!='")
@@ -2279,7 +2292,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_time)
 		out.appendValue(BytecodeInt(n))
 		out.append(OC_mod)
-		if err = c.kyuushikiSuperDX(out, in, true); err != nil {
+		if err = c.evaluateComparison(out, in, true); err != nil {
 			return bvNone(), err
 		}
 		return bv, nil
@@ -2348,7 +2361,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "log":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2361,7 +2374,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -2415,7 +2428,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_ex_, OC_ex_float)
 	case "max":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2428,7 +2441,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -2445,7 +2458,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv = bv1
 		}
 	case "min":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2458,7 +2471,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -2474,8 +2487,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.min(&bv1, bv2)
 			bv = bv1
 		}
-	case "rand":
-		if err := c.kakkohiraku(in); err != nil {
+	case "randomrange", "rand": // rand is deprecated, kept for backward compatibility
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2488,7 +2501,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if rd {
@@ -2498,9 +2511,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.appendValue(bv1)
 		out.append(be2...)
 		out.appendValue(bv2)
-		out.append(OC_ex_, OC_ex_rand)
+		out.append(OC_ex_, OC_ex_randomrange)
 	case "round":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2513,7 +2526,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -2535,12 +2548,16 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_animelemlength)
 	case "animlength":
 		out.append(OC_ex_, OC_ex_animlength)
+	case "attack":
+		out.append(OC_ex_, OC_ex_attack)
 	case "combocount":
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
 	case "jugglepoints":
 		out.append(OC_ex_, OC_ex_jugglepoints)
+	case "defence":
+		out.append(OC_ex_, OC_ex_defence)
 	case "dizzy":
 		out.append(OC_ex_, OC_ex_dizzy)
 	case "dizzypoints":
@@ -2581,7 +2598,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "indialogue":
 		out.append(OC_ex_, OC_ex_indialogue)
 	case "isasserted":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
@@ -2636,6 +2653,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_animfreeze))
 		case "postroundinput":
 			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_postroundinput))
+		case "nohitdamage":
+			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nohitdamage))
+		case "noguarddamage":
+			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noguarddamage))
 		case "nodizzypointsdamage":
 			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nodizzypointsdamage))
 		case "noguardpointsdamage":
@@ -2676,7 +2697,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 	case "ishost":
@@ -2686,12 +2707,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "majorversion":
 		out.append(OC_ex_, OC_ex_majorversion)
 	case "map":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		var m string = c.token
 		c.token = c.tokenizer(in)
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
 		c.token = c.tokenizer(in)
@@ -2768,7 +2789,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "stagebackedge":
 		out.append(OC_ex_, OC_ex_stagebackedge)
 	case "stageconst":
-		if err := c.kakkohiraku(in); err != nil {
+		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_const_)
@@ -2791,23 +2812,21 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_teamsize)
 	case "timeelapsed":
 		out.append(OC_ex_, OC_ex_timeelapsed)
-	case "timeremaining":
+	case "timeremaining", "timeleft": // timeleft is deprecated, kept for backward compatibility
 		out.append(OC_ex_, OC_ex_timeremaining)
-	case "timeleft":
-		out.append(OC_ex_, OC_ex_timeremaining) // Only here for backwards compatibility purposes, going to be deprecated once Add004 updates.
 	case "timetotal":
 		out.append(OC_ex_, OC_ex_timetotal)
 	case "drawpalno":
 		out.append(OC_ex_, OC_ex_drawpalno)
 	case "=", "!=", ">", ">=", "<", "<=", "&", "&&", "^", "^^", "|", "||",
 		"+", "*", "**", "/", "%":
-		if !sys.ignoreMostErrors || len(c.maeOp) > 0 {
+		if !sys.ignoreMostErrors || len(c.previousOperator) > 0 {
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
 		if rd {
 			out.append(OC_rdreset)
 		}
-		c.maeOp = c.token
+		c.previousOperator = c.token
 		c.token = c.tokenizer(in)
 		return c.expValue(out, in, false)
 	default:
@@ -2827,7 +2846,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 					opc = OC_projcontacttime
 				}
 			}
-			if not, err := c.kyuushiki(in); err != nil {
+			if not, err := c.checkEquality(in); err != nil {
 				return bvNone(), err
 			} else if not && !sys.ignoreMostErrors {
 				return bvNone(), Error(trname + " doesn't support '!='")
@@ -2848,7 +2867,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_eq)
 			be.append(OC_pop)
 			be.appendValue(BytecodeInt(0))
-			if err = c.kyuushikiSuperDX(&be, in, false); err != nil {
+			if err = c.evaluateComparison(&be, in, false); err != nil {
 				return bvNone(), err
 			}
 			out.append(OC_jz8, OpCode(len(be)))
@@ -2893,7 +2912,7 @@ func (c *Compiler) expPostNot(out *BytecodeExp, in *string) (BytecodeValue,
 	}
 	if sys.ignoreMostErrors {
 		for c.token == "!" {
-			c.usiroOp = true
+			c.reverseOrder = true
 			if bv.IsNone() {
 				out.append(OC_blnot)
 			} else {
@@ -2902,9 +2921,9 @@ func (c *Compiler) expPostNot(out *BytecodeExp, in *string) (BytecodeValue,
 			c.token = c.tokenizer(in)
 		}
 	}
-	if len(c.maeOp) == 0 {
+	if len(c.previousOperator) == 0 {
 		if opp := c.isOperator(c.token); opp == 0 {
-			if !sys.ignoreMostErrors || !c.usiroOp && c.token == "(" {
+			if !sys.ignoreMostErrors || !c.reverseOrder && c.token == "(" {
 				return bvNone(), Error("No comparison operator" +
 					"\n" +
 					"Token = '" + c.token + "' String = '" + *in + "'" +
@@ -2915,7 +2934,7 @@ func (c *Compiler) expPostNot(out *BytecodeExp, in *string) (BytecodeValue,
 			if _, err := c.expValue(&dummyout, in, false); err != nil {
 				return bvNone(), err
 			}
-			if c.usiroOp {
+			if c.reverseOrder {
 				if c.isOperator(c.token) <= 0 {
 					return bvNone(), Error("No comparison operator" +
 						"\n[ECID 4]\n")
@@ -3065,7 +3084,7 @@ func (c *Compiler) expRange(out *BytecodeExp, in *string,
 		if open != "(" {
 			return false, Error("Missing ','")
 		}
-		if err := c.kakkotojiru(); err != nil {
+		if err := c.checkClosingBracket(); err != nil {
 			return false, err
 		}
 		c.token = open
@@ -3279,7 +3298,7 @@ func (c *Compiler) expBoolXor(out *BytecodeExp, in *string) (BytecodeValue,
 }
 func (c *Compiler) expBoolOr(out *BytecodeExp, in *string) (BytecodeValue,
 	error) {
-	defer func(omp string) { c.maeOp = omp }(c.maeOp)
+	defer func(omp string) { c.previousOperator = omp }(c.previousOperator)
 	if c.block != nil {
 		return c.expOneOp(out, in, c.expBoolXor, "||", out.blor, OC_blor)
 	}
@@ -4253,7 +4272,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 	return nil
 }
 
-func (c *Compiler) yokisinaiToken() error {
+func (c *Compiler) wrongClosureToken() error {
 	if c.token == "" {
 		return Error("Missing token")
 	}
@@ -4356,7 +4375,7 @@ func (c *Compiler) readSentence(line *string) (s string, a bool, err error) {
 func (c *Compiler) statementEnd(line *string) error {
 	c.token = c.tokenizer(line)
 	if len(c.token) > 0 && c.token[0] != '#' {
-		return c.yokisinaiToken()
+		return c.wrongClosureToken()
 	}
 	c.token, *line = "", ""
 	return nil
@@ -4365,7 +4384,7 @@ func (c *Compiler) readKeyValue(is IniSection, end string,
 	line *string) error {
 	name := c.scan(line)
 	if name == "" || name == ":" {
-		return c.yokisinaiToken()
+		return c.wrongClosureToken()
 	}
 	if name == end {
 		return nil
@@ -4397,7 +4416,7 @@ func (c *Compiler) varNames(end string, line *string) ([]string, error) {
 	if name != end {
 		for {
 			if name == "" || name == "," || name == end {
-				return nil, c.yokisinaiToken()
+				return nil, c.wrongClosureToken()
 			}
 			if err := c.varNameCheck(name); err != nil {
 				return nil, err
@@ -4433,7 +4452,7 @@ func (c *Compiler) inclNumVars(numVars *int32) error {
 func (c *Compiler) scanI32(line *string) (int32, error) {
 	t := c.scan(line)
 	if t == "" {
-		return 0, c.yokisinaiToken()
+		return 0, c.wrongClosureToken()
 	}
 	if t == "-" && len(*line) > 0 && (*line)[0] >= '0' && (*line)[0] <= '9' {
 		t += c.scan(line)
@@ -4444,7 +4463,7 @@ func (c *Compiler) scanI32(line *string) (int32, error) {
 func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int32, error) {
 	t := c.scan(line)
 	if t == "" {
-		return 0, c.yokisinaiToken()
+		return 0, c.wrongClosureToken()
 	}
 	var err error
 	if t == "const" {
@@ -4479,7 +4498,7 @@ func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateByteco
 		switch c.token {
 		case "ignorehitpause":
 			if bl.ignorehitpause >= -1 {
-				return c.yokisinaiToken()
+				return c.wrongClosureToken()
 			}
 			bl.ignorehitpause, bl.ctrlsIgnorehitpause = -1, true
 			c.scan(line)
@@ -4492,7 +4511,7 @@ func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateByteco
 				return Error("persistent cannot be used in a negative state")
 			}
 			if bl.persistentIndex >= 0 {
-				return c.yokisinaiToken()
+				return c.wrongClosureToken()
 			}
 			c.scan(line)
 			if err := c.needToken("("); err != nil {
@@ -4554,7 +4573,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 			return nil, err
 		}
 	default:
-		return nil, c.yokisinaiToken()
+		return nil, c.wrongClosureToken()
 	}
 	if compileMain {
 		if err := c.stateBlock(line, bl, false,
@@ -4568,7 +4587,7 @@ func (c *Compiler) subBlock(line *string, root bool,
 				if len(c.token) == 0 || c.token[0] == '#' {
 					c.token, *line = "", ""
 				} else {
-					return nil, c.yokisinaiToken()
+					return nil, c.wrongClosureToken()
 				}
 				c.scan(line)
 			}
@@ -4776,7 +4795,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 	cf.ret = ret
 	if !ok {
 		if c.token == "" || c.token == "(" {
-			return c.yokisinaiToken()
+			return c.wrongClosureToken()
 		}
 		return Error("Undefined function: " + c.token)
 	}
@@ -4830,7 +4849,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 		}
 	}
 	if c.token = c.tokenizer(&expr); c.token != "" {
-		return c.yokisinaiToken()
+		return c.wrongClosureToken()
 	}
 	c.token = otk
 	if err := c.needToken(";"); err != nil {
@@ -4920,12 +4939,12 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 		// Break
 		case "", "[":
 			if !root {
-				return c.yokisinaiToken()
+				return c.wrongClosureToken()
 			}
 			return nil
 		case "}", "case", "default":
 			if root {
-				return c.yokisinaiToken()
+				return c.wrongClosureToken()
 			}
 			return nil
 		case "for", "if", "ignorehitpause", "persistent", "switch", "while":
@@ -4972,7 +4991,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				return err
 			}
 			if len(names) == 0 {
-				return c.yokisinaiToken()
+				return c.wrongClosureToken()
 			}
 			if err := c.letAssign(line, root, ctrls, numVars, names, true); err != nil {
 				return err
@@ -5001,7 +5020,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 							return err
 						}
 					default:
-						return c.yokisinaiToken()
+						return c.wrongClosureToken()
 					}
 				}
 				if root {
@@ -5053,7 +5072,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 		}
 		break
 	}
-	return c.yokisinaiToken()
+	return c.wrongClosureToken()
 }
 func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 	filename, src string, constants map[string]float32) error {
@@ -5117,11 +5136,11 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 			}
 		}
 		if c.token != "[" {
-			return errmes(c.yokisinaiToken())
+			return errmes(c.wrongClosureToken())
 		}
 		switch c.scan(&line) {
 		case "":
-			return errmes(c.yokisinaiToken())
+			return errmes(c.wrongClosureToken())
 		case "statedef":
 			var err error
 			if c.stateNo, err = c.scanStateDef(&line, constants); err != nil {
@@ -5140,7 +5159,7 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 						return errmes(err)
 					}
 				default:
-					return errmes(c.yokisinaiToken())
+					return errmes(c.wrongClosureToken())
 				}
 			}
 			sbc := newStateBytecode(c.playerNo)
@@ -5164,7 +5183,7 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 		case "function":
 			name := c.scan(&line)
 			if name == "" || name == "(" || name == "]" {
-				return errmes(c.yokisinaiToken())
+				return errmes(c.wrongClosureToken())
 			}
 			if err := c.varNameCheck(name); err != nil {
 				return errmes(err)

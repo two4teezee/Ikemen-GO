@@ -54,6 +54,8 @@ const (
 	CSF_autoguard
 	CSF_animfreeze
 	CSF_postroundinput
+	CSF_nohitdamage
+	CSF_noguarddamage
 	CSF_nodizzypointsdamage
 	CSF_noguardpointsdamage
 	CSF_noredlifedamage
@@ -79,8 +81,9 @@ const (
 		CSF_nohardcodedkeys | CSF_nogetupfromliedown |
 		CSF_nofastrecoverfromliedown | CSF_nofallcount | CSF_nofalldefenceup |
 		CSF_noturntarget | CSF_noinput | CSF_nopowerbardisplay | CSF_autoguard |
-		CSF_animfreeze | CSF_postroundinput | CSF_nodizzypointsdamage |
-		CSF_noguardpointsdamage | CSF_noredlifedamage | CSF_nomakedust
+		CSF_animfreeze | CSF_postroundinput | CSF_nohitdamage |
+		CSF_noguarddamage | CSF_nodizzypointsdamage | CSF_noguardpointsdamage |
+		CSF_noredlifedamage | CSF_nomakedust
 )
 
 type GlobalSpecialFlag uint32
@@ -221,8 +224,8 @@ func (cd *CharData) init() {
 	cd.guard.sparkno = 40
 	cd.ko.echo = 0
 	cd.volume = 256
-	cd.intpersistindex = 60
-	cd.floatpersistindex = 40
+	cd.intpersistindex = NumVar
+	cd.floatpersistindex = NumFvar
 }
 
 type CharSize struct {
@@ -534,8 +537,10 @@ type HitDef struct {
 	guard_sparkno_ffx          string
 	sparkxy                    [2]float32
 	hitsound                   [2]int32
+	hitsound_channel           int32
 	hitsound_ffx               string
 	guardsound                 [2]int32
+	guardsound_channel         int32
 	guardsound_ffx             string
 	ground_type                HitType
 	air_type                   HitType
@@ -606,23 +611,25 @@ type HitDef struct {
 
 func (hd *HitDef) clear() {
 	*hd = HitDef{
-		hitflag:           int32(ST_S | ST_C | ST_A | ST_F),
-		affectteam:        1,
-		teamside:          -1,
-		animtype:          RA_Light,
-		air_animtype:      RA_Unknown,
-		priority:          4,
-		bothhittype:       AT_Hit,
-		sparkno:           -1,
-		sparkno_ffx:       "f",
-		guard_sparkno:     -1,
-		guard_sparkno_ffx: "f",
-		hitsound:          [...]int32{-1, 0},
-		hitsound_ffx:      "f",
-		guardsound:        [...]int32{-1, 0},
-		guardsound_ffx:    "f",
-		ground_type:       HT_High,
-		air_type:          HT_Unknown,
+		hitflag:            int32(ST_S | ST_C | ST_A | ST_F),
+		affectteam:         1,
+		teamside:           -1,
+		animtype:           RA_Light,
+		air_animtype:       RA_Unknown,
+		priority:           4,
+		bothhittype:        AT_Hit,
+		sparkno:            -1,
+		sparkno_ffx:        "f",
+		guard_sparkno:      -1,
+		guard_sparkno_ffx:  "f",
+		hitsound:           [...]int32{-1, 0},
+		hitsound_channel:   -1,
+		hitsound_ffx:       "f",
+		guardsound:         [...]int32{-1, 0},
+		guardsound_channel: -1,
+		guardsound_ffx:     "f",
+		ground_type:        HT_High,
+		air_type:           HT_Unknown,
 		// Both default to 20, not documented in Mugen docs.
 		air_hittime:  20,
 		down_hittime: 20,
@@ -1152,6 +1159,8 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 				e.pos[1] = c.drawPos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl + e.offset[1]
 			} else {
 				e.bindtime = 0
+				e.setX(e.pos[0])
+				e.setY(e.pos[1])
 			}
 		}
 	} else {
@@ -1736,6 +1745,7 @@ type Char struct {
 	selectNo              int
 	comboExtraFrameWindow int32
 	inheritJuggle         int32
+	inheritChannels       int32
 	mapArray              map[string]float32
 	mapDefault            map[string]float32
 	remapSpr              RemapPreset
@@ -2157,8 +2167,14 @@ func (c *Char) load(def string) error {
 						if is.ReadI32("volumescale", &i32) {
 							gi.data.volume = i32 * 64 / 25
 						}
-						is.ReadI32("intpersistindex", &gi.data.intpersistindex)
-						is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						if _, ok := is["intpersistindex"]; ok {
+							gi.data.intpersistindex = 0
+							is.ReadI32("intpersistindex", &gi.data.intpersistindex)
+						}
+						if _, ok := is["floatpersistindex"]; ok {
+							gi.data.floatpersistindex = 0
+							is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						}
 					}
 				case "size":
 					if size {
@@ -3205,7 +3221,13 @@ func (c *Char) playSound(ffx string, lowpriority, loop bool, g, n, chNo, vol int
 			return
 		}
 	}
-	if ch := c.soundChannels.New(chNo, lowpriority, priority); ch != nil {
+	crun := c
+	if c.inheritChannels == 1 && c.parent() != nil {
+		crun = c.parent()
+	} else if c.inheritChannels == 2 && c.root() != nil {
+		crun = c.root()
+	}
+	if ch := crun.soundChannels.New(chNo, lowpriority, priority); ch != nil {
 		ch.Play(s, loop, freqmul)
 		vol = Clamp(vol, -25600, 25600)
 		//if c.gi().ver[0] == 1 {
@@ -6170,11 +6192,26 @@ func (cl *CharList) action(x float32, cvmin, cvmax,
 		}
 	}
 	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionRun()
+		if cl.runOrder[i].ss.moveType != MT_A && cl.runOrder[i].ss.moveType != MT_I {
+			cl.runOrder[i].actionRun()
+		}
 	}
 	// Finish performing character actions
+	// Process priority based on movetype: A > I > H (or anything else)
 	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionFinish()
+		if cl.runOrder[i].ss.moveType == MT_A {
+			cl.runOrder[i].actionFinish()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType == MT_I {
+			cl.runOrder[i].actionFinish()
+		}
+	}
+	for i := 0; i < len(cl.runOrder); i++ {
+		if cl.runOrder[i].ss.moveType != MT_A && cl.runOrder[i].ss.moveType != MT_I {
+			cl.runOrder[i].actionFinish()
+		}
 	}
 	// Update chars
 	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
@@ -6378,8 +6415,10 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 						ghv.xvel = hd.guard_velocity * (c.localscl / getter.localscl)
 						//ghv.yvel = hd.ground_velocity[1] * c.localscl / getter.localscl
 					}
-					absdamage = hd.guarddamage
-					absredlife = hd.guardredlife
+					if !getter.sf(CSF_noguarddamage) {
+						absdamage = hd.guarddamage
+						absredlife = hd.guardredlife
+					}
 					ghv.hitcount = hc
 				} else {
 					ghv.hitshaketime = Max(0, hd.shaketime)
@@ -6422,8 +6461,10 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					if ghv.hittime < 0 {
 						ghv.hittime = 0
 					}
-					absdamage = hd.hitdamage
-					absredlife = hd.hitredlife
+					if !getter.sf(CSF_nohitdamage) {
+						absdamage = hd.hitdamage
+						absredlife = hd.hitredlife
+					}
 					if cmb {
 						ghv.hitcount = hc + 1
 					} else {
@@ -6498,9 +6539,11 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					getter.setBindTime(0)
 				}
 			} else if hitType == 1 {
-				absdamage = hd.hitdamage
-				absredlife = hd.hitredlife
-			} else {
+				if !getter.sf(CSF_nohitdamage) {
+					absdamage = hd.hitdamage
+					absredlife = hd.hitredlife
+				}
+			} else if !getter.sf(CSF_noguarddamage) {
 				absdamage = hd.guarddamage
 				absredlife = hd.guardredlife
 			}
@@ -6634,7 +6677,7 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 			if hd.hitsound[0] >= 0 {
 				vo := int32(100)
 				c.playSound(hd.hitsound_ffx, false, false, hd.hitsound[0], hd.hitsound[1],
-					-1, vo, 0, 1, getter.localscl, &getter.pos[0], true, 0)
+					hd.hitsound_channel, vo, 0, 1, getter.localscl, &getter.pos[0], true, 0)
 			}
 			if hitType > 0 {
 				c.powerAdd(hd.hitgetpower)
@@ -6683,7 +6726,7 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 			if hd.guardsound[0] >= 0 {
 				vo := int32(100)
 				c.playSound(hd.guardsound_ffx, false, false, hd.guardsound[0], hd.guardsound[1],
-					-1, vo, 0, 1, getter.localscl, &getter.pos[0], true, 0)
+					hd.guardsound_channel, vo, 0, 1, getter.localscl, &getter.pos[0], true, 0)
 			}
 			if hitType > 0 {
 				c.powerAdd(hd.guardgetpower)

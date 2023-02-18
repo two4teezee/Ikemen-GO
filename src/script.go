@@ -619,7 +619,9 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		l.Push(newUserData(l, NewCommandList(NewCommandBuffer())))
+		cl := NewCommandList(NewCommandBuffer())
+		sys.commandLists = append(sys.commandLists, cl)
+		l.Push(newUserData(l, cl))
 		return 1
 	})
 	luaRegister(l, "commonLuaInsert", func(l *lua.LState) int {

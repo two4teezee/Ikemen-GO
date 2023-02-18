@@ -78,7 +78,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 			rs.session.playerNo = 1
 		}
 		s.time = rs.session.netTime
-		s.preFightTime = rs.session.netTime
+		s.preFightTime = s.netInput.preFightTime
 		//if !rs.session.IsConnected() {
 		// for !rs.session.synchronized {
 		// 	rs.session.backend.Idle(0)

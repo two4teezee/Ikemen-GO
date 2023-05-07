@@ -931,6 +931,8 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 						// if we have an input from the players
 						// update the command buffer based on that.
 						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
+					} else if sys.tmode[0] == TM_Tag || sys.tmode[1] == TM_Tag {
+						c.cmd[0].Buffer.InputBits(ib[r.teamside], int32(c.facing))
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
 						c.cmd[0].Input(c.key, int32(c.facing), sys.com[i], c.inputFlag)

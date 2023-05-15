@@ -167,6 +167,7 @@ func newCompiler() *Compiler {
 		"targetscoreadd":       c.targetScoreAdd,
 		"text":                 c.text,
 		"modifystagevar":       c.modifyStageVar,
+		"camera":               c.cameraCtrl,
 	}
 	return c
 }
@@ -182,7 +183,7 @@ var triggerMap = map[string]int{
 	"enemy":      0,
 	"enemynear":  0,
 	"playerid":   0,
-	"p2":         0,	
+	"p2":         0,
 	"stateowner": 0,
 	// mugen triggers
 	"abs":               1,
@@ -321,6 +322,7 @@ var triggerMap = map[string]int{
 	"winperfect":        1,
 	// expanded triggers
 	"ailevelf":         1,
+	"airjumpcount":     1,
 	"animelemlength":   1,
 	"animlength":       1,
 	"attack":           1,
@@ -328,7 +330,6 @@ var triggerMap = map[string]int{
 	"bgmposition":      1,
 	"combocount":       1,
 	"consecutivewins":  1,
-	"jugglepoints":     1,
 	"defence":          1,
 	"dizzy":            1,
 	"dizzypoints":      1,
@@ -363,6 +364,7 @@ var triggerMap = map[string]int{
 	"physics":          1,
 	"playerno":         1,
 	"prevanim":         1,
+	"prevmovetype":     1,
 	"ratiolevel":       1,
 	"randomrange":      1,
 	"receivedhits":     1,
@@ -1461,6 +1463,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_data_attack)
 		case "data.defence":
 			out.append(OC_const_data_defence)
+		case "data.fall.defence_up":
+			out.append(OC_const_data_fall_defence_up)
 		case "data.fall.defence_mul":
 			out.append(OC_const_data_fall_defence_mul)
 		case "data.liedown.time":
@@ -1471,6 +1475,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_data_sparkno)
 		case "data.guard.sparkno":
 			out.append(OC_const_data_guard_sparkno)
+		case "data.hitsound.channel":
+			out.append(OC_const_data_hitsound_channel)
+		case "data.guardsound.channel":
+			out.append(OC_const_data_guardsound_channel)
 		case "data.ko.echo":
 			out.append(OC_const_data_ko_echo)
 		case "data.intpersistindex":
@@ -1778,6 +1786,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				out.append(OC_ex_gethitvar_fall_envshake_ampl)
 			case "fall.envshake.phase":
 				out.append(OC_ex_gethitvar_fall_envshake_phase)
+			case "fall.envshake.mul":
+				out.append(OC_ex_gethitvar_fall_envshake_mul)
 			case "attr":
 				out.append(OC_ex_gethitvar_attr)
 			case "dizzypoints":
@@ -1897,7 +1907,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_movehit)
 	case "movereversed":
 		out.append(OC_movereversed)
-	case "movetype", "p2movetype":
+	case "movetype", "p2movetype", "prevmovetype":
 		trname := c.token
 		if err := eqne2(func(not bool) error {
 			if len(c.token) == 0 {
@@ -1914,10 +1924,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return Error("Invalid value: " + c.token)
 			}
-			if trname == "p2movetype" {
-				out.appendI32Op(OC_p2, 2+Btoi(not))
+			if trname == "prevmovetype" {
+				out.append(OC_ex_, OC_ex_prevmovetype, OpCode(mt>>15))
+			} else {
+				if trname == "p2movetype" {
+					out.appendI32Op(OC_p2, 2+Btoi(not))
+				}
+				out.append(OC_movetype, OpCode(mt>>15))
 			}
-			out.append(OC_movetype, OpCode(mt>>15))
 			if not {
 				out.append(OC_blnot)
 			}
@@ -2544,6 +2558,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 	case "ailevelf":
 		out.append(OC_ex_, OC_ex_ailevelf)
+	case "airjumpcount":
+		out.append(OC_ex_, OC_ex_airjumpcount)
 	case "animelemlength":
 		out.append(OC_ex_, OC_ex_animelemlength)
 	case "animlength":
@@ -2554,8 +2570,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
-	case "jugglepoints":
-		out.append(OC_ex_, OC_ex_jugglepoints)
 	case "defence":
 		out.append(OC_ex_, OC_ex_defence)
 	case "dizzy":
@@ -2604,67 +2618,77 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_)
 		switch c.token {
 		case "nostandguard":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nostandguard))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nostandguard))
 		case "nocrouchguard":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nocrouchguard))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nocrouchguard))
 		case "noairguard":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noairguard))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noairguard))
 		case "noshadow":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noshadow))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noshadow))
 		case "invisible":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_invisible))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_invisible))
 		case "unguardable":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_unguardable))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_unguardable))
 		case "nojugglecheck":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nojugglecheck))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nojugglecheck))
 		case "noautoturn":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noautoturn))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noautoturn))
 		case "nowalk":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nowalk))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nowalk))
 		case "nobrake":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nobrake))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nobrake))
 		case "nocrouch":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nocrouch))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nocrouch))
 		case "nostand":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nostand))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nostand))
 		case "nojump":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nojump))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nojump))
 		case "noairjump":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noairjump))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noairjump))
 		case "nohardcodedkeys":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nohardcodedkeys))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nohardcodedkeys))
 		case "nogetupfromliedown":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nogetupfromliedown))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nogetupfromliedown))
 		case "nofastrecoverfromliedown":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nofastrecoverfromliedown))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nofastrecoverfromliedown))
 		case "nofallcount":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nofallcount))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nofallcount))
 		case "nofalldefenceup":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nofalldefenceup))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nofalldefenceup))
 		case "noturntarget":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noturntarget))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noturntarget))
 		case "noinput":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noinput))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noinput))
 		case "nopowerbardisplay":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nopowerbardisplay))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nopowerbardisplay))
 		case "autoguard":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_autoguard))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_autoguard))
 		case "animfreeze":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_animfreeze))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_animfreeze))
 		case "postroundinput":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_postroundinput))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_postroundinput))
 		case "nohitdamage":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nohitdamage))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nohitdamage))
 		case "noguarddamage":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noguarddamage))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noguarddamage))
 		case "nodizzypointsdamage":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nodizzypointsdamage))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nodizzypointsdamage))
 		case "noguardpointsdamage":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noguardpointsdamage))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noguardpointsdamage))
 		case "noredlifedamage":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_noredlifedamage))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noredlifedamage))
 		case "nomakedust":
-			out.appendI32Op(OC_ex_isassertedchar, int32(CSF_nomakedust))
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nomakedust))
+		case "noko":
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noko))
+		case "noguardko":
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noguardko))
+		case "nokovelocity":
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nokovelocity))
+		case "noailevel":
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_noailevel))
+		case "nointroreset":
+			out.appendI64Op(OC_ex_isassertedchar, int64(CSF_nointroreset))
 		case "intro":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_intro))
 		case "roundnotover":
@@ -2685,10 +2709,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nokosnd))
 		case "nokoslow":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nokoslow))
-		case "noko":
+		case "globalnoko":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_noko))
-		case "nokovelocity":
-			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nokovelocity))
 		case "roundnotskip":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundnotskip))
 		case "roundfreeze":
@@ -3489,6 +3511,7 @@ func (c *Compiler) stateParam(is IniSection, name string,
 	}
 	return nil
 }
+
 // Returns FX prefix from a data string, removes prefix from the data
 func (c *Compiler) getDataPrefix(data *string, ffxDefault bool) (prefix string) {
 	if len(*data) > 1 {
@@ -3874,15 +3897,10 @@ func (c *Compiler) stateDef(is IniSection, sbc *StateBytecode) error {
 			stateDef_facep2, VT_Bool, 1, false); err != nil {
 			return err
 		}
-		b = false
 		if err := c.stateParam(is, "juggle", func(data string) error {
-			b = true
 			return c.scAdd(sc, stateDef_juggle, data, VT_Int, 1)
 		}); err != nil {
 			return err
-		}
-		if !b {
-			sc.add(stateDef_juggle, sc.iToExp(0))
 		}
 		if err := c.paramValue(is, sc, "velset",
 			stateDef_velset, VT_Float, 3, false); err != nil {
@@ -3951,12 +3969,12 @@ func cnsStringArray(arg string) ([]string, error) {
 
 // Compile a state file
 func (c *Compiler) stateCompile(states map[int32]StateBytecode,
-	filename, def string, negoverride bool, constants map[string]float32) error {
+	filename string, dirs []string, negoverride bool, constants map[string]float32) error {
 	var str string
 	zss := HasExtension(filename, ".zss")
 	fnz := filename
 	// Load state file
-	if err := LoadFile(&filename, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+	if err := LoadFile(&filename, dirs, func(filename string) error {
 		var err error
 		// If this is a zss file
 		if zss {
@@ -3974,7 +3992,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 	}); err != nil {
 		// If filename doesn't exist, see if a zss file exists
 		fnz += ".zss"
-		if err := LoadFile(&fnz, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&fnz, dirs, func(filename string) error {
 			b, err := ioutil.ReadFile(filename)
 			if err != nil {
 				return err
@@ -4334,7 +4352,7 @@ func (c *Compiler) readSentenceLine(line *string) (s string, assign bool,
 		case ':', ';', '{', '}':
 			if (*line)[i] == ':' && len(*line) > i+1 && (*line)[i+1] == '=' {
 				assign = true
-				offset = i+1
+				offset = i + 1
 				continue
 			}
 			c.token = (*line)[i : i+1]
@@ -4476,12 +4494,17 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 		}
 		return int32(v), err
 	}
+	if t == "+" && len(*line) == 2 && (*line)[0] == '1' {
+		c.scan(line)
+		return int32(-10), err
+	}
 	if t == "-" && len(*line) > 0 && (*line)[0] >= '0' && (*line)[0] <= '9' {
 		t += c.scan(line)
 	}
 	v := Atoi(t)
 	return v, err
 }
+
 // Sets attributes to a StateBlock, like IgnoreHitPause, Persistent
 func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateBytecode,
 	inheritIhp, nestedInLoop bool) error {
@@ -4646,24 +4669,24 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock,
 	readNextCase = func(def *StateBlock) (*StateBlock, error) {
 		expr := ""
 		switch c.token {
-			case "case":
-			case "default":
-				if def != nil {
-					return nil, Error("Default already defined")
-				}
-				c.scan(line)
-				expr = "1"
-				def = newStateBlock()
-				if err := compileCaseBlock(def, &expr); err != nil {
-					return nil, err
-				}
-				// See if default is the last case defined in this switch statement,
-				// return default block if that's the case
-				if c.token == "}" {
-					return def, nil
-				}
-			default:
-				return nil, Error("Expected case or default")
+		case "case":
+		case "default":
+			if def != nil {
+				return nil, Error("Default already defined")
+			}
+			c.scan(line)
+			expr = "1"
+			def = newStateBlock()
+			if err := compileCaseBlock(def, &expr); err != nil {
+				return nil, err
+			}
+			// See if default is the last case defined in this switch statement,
+			// return default block if that's the case
+			if c.token == "}" {
+				return def, nil
+			}
+		default:
+			return nil, Error("Expected case or default")
 		}
 		// We loop through all possible expressions in this case, separated by ;
 		// Creating an equality/or expression string in the process
@@ -4697,7 +4720,7 @@ func (c *Compiler) switchBlock(line *string, bl *StateBlock,
 			if def != nil {
 				sbl.elseBlock = def
 			}
-		// If not, we have another case to check
+			// If not, we have another case to check
 		} else if sbl.elseBlock, err = readNextCase(def); err != nil {
 			return nil, err
 		}
@@ -4966,10 +4989,10 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 		case "break", "continue":
 			if bl.nestedInLoop {
 				switch c.token {
-					case "break":
-						*ctrls = append(*ctrls, LoopBreak{})
-					case "continue":
-						*ctrls = append(*ctrls, LoopContinue{})
+				case "break":
+					*ctrls = append(*ctrls, LoopBreak{})
+				case "continue":
+					*ctrls = append(*ctrls, LoopContinue{})
 				}
 				c.scan(line)
 				if err := c.needToken(";"); err != nil {
@@ -5148,7 +5171,11 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 			}
 			c.scan(&line)
 			if existInThisFile[c.stateNo] {
-				return errmes(Error(fmt.Sprintf("State %v overloaded", c.stateNo)))
+				if c.stateNo == -10 {
+					return errmes(Error(fmt.Sprintf("State +1 overloaded")))
+				} else {
+					return errmes(Error(fmt.Sprintf("State %v overloaded", c.stateNo)))
+				}
 			}
 			existInThisFile[c.stateNo] = true
 			is := NewIniSection()
@@ -5307,21 +5334,32 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	}
 
 	// Load the command file
+	str = ""
 	if len(cmd) > 0 {
 		if err := LoadFile(&cmd, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			str, err := LoadText(filename)
+			var err error
+			str, err = LoadText(filename)
 			if err != nil {
 				return err
 			}
-			str = str + sys.commonCmd
-			lines, i = SplitAndTrim(str, "\n"), 0
 			return nil
 		}); err != nil {
 			return nil, err
 		}
-	} else {
-		lines, i = SplitAndTrim(sys.commonCmd, "\n"), 0
 	}
+	for _, s := range sys.commonCmd {
+		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			txt, err := LoadText(filename)
+			if err != nil {
+				return err
+			}
+			str += "\n" + txt
+			return nil
+		}); err != nil {
+			return nil, err
+		}
+	}
+	lines, i = SplitAndTrim(str, "\n"), 0
 
 	// Initialize command list data
 	if sys.chars[pn][0].cmd == nil {
@@ -5423,29 +5461,33 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Compile state files
 	for _, s := range st {
 		if len(s) > 0 {
-			if err := c.stateCompile(states, s, def, sys.cgi[pn].ikemenver[0] == 0 &&
-				sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
+			if err := c.stateCompile(states, s, []string{def, "", sys.motifDir, "data/"},
+				sys.cgi[pn].ikemenver[0] == 0 &&
+					sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 				return nil, err
 			}
 		}
 	}
 	// Compile states in command file
 	if len(cmd) > 0 {
-		if err := c.stateCompile(states, cmd, def, sys.cgi[pn].ikemenver[0] == 0 &&
-			sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
+		if err := c.stateCompile(states, cmd, []string{def, "", sys.motifDir, "data/"},
+			sys.cgi[pn].ikemenver[0] == 0 &&
+				sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 			return nil, err
 		}
 	}
-	// Compile states in common state file
+	// Compile states in stcommon state file
 	if len(stcommon) > 0 {
-		if err := c.stateCompile(states, stcommon, def, sys.cgi[pn].ikemenver[0] == 0 &&
-			sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
+		if err := c.stateCompile(states, stcommon, []string{def, "", sys.motifDir, "data/"},
+			sys.cgi[pn].ikemenver[0] == 0 &&
+				sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 			return nil, err
 		}
 	}
-	// Compile common states from config
+	// Compile common states
 	for _, s := range sys.commonStates {
-		if err := c.stateCompile(states, s, def, false, constants); err != nil {
+		if err := c.stateCompile(states, s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"},
+			false, constants); err != nil {
 			return nil, err
 		}
 	}

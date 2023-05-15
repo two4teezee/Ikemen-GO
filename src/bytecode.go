@@ -78,6 +78,7 @@ const (
 	OC_localvar
 	OC_int8
 	OC_int
+	OC_int64
 	OC_float
 	OC_pop
 	OC_dup
@@ -226,11 +227,14 @@ const (
 	OC_const_data_dizzypoints
 	OC_const_data_attack
 	OC_const_data_defence
+	OC_const_data_fall_defence_up
 	OC_const_data_fall_defence_mul
 	OC_const_data_liedown_time
 	OC_const_data_airjuggle
 	OC_const_data_sparkno
 	OC_const_data_guard_sparkno
+	OC_const_data_hitsound_channel
+	OC_const_data_guardsound_channel
 	OC_const_data_ko_echo
 	OC_const_data_intpersistindex
 	OC_const_data_floatpersistindex
@@ -440,6 +444,7 @@ const (
 	OC_ex_gethitvar_fall_envshake_freq
 	OC_ex_gethitvar_fall_envshake_ampl
 	OC_ex_gethitvar_fall_envshake_phase
+	OC_ex_gethitvar_fall_envshake_mul
 	OC_ex_gethitvar_attr
 	OC_ex_gethitvar_dizzypoints
 	OC_ex_gethitvar_guardpoints
@@ -509,11 +514,12 @@ const (
 	OC_ex_timetotal
 	OC_ex_pos_z
 	OC_ex_vel_z
-	OC_ex_jugglepoints
 	OC_ex_prevanim
+	OC_ex_prevmovetype
 	OC_ex_reversaldefattr
 	OC_ex_bgmlength
 	OC_ex_bgmposition
+	OC_ex_airjumpcount
 )
 const (
 	NumVar     = 60
@@ -562,6 +568,12 @@ func (bv BytecodeValue) ToI() int32 {
 	}
 	return int32(bv.v)
 }
+func (bv BytecodeValue) ToI64() int64 {
+	if bv.IsSF() {
+		return 0
+	}
+	return int64(bv.v)
+}
 func (bv BytecodeValue) ToB() bool {
 	if bv.IsSF() || bv.v == 0 {
 		return false
@@ -576,6 +588,9 @@ func (bv *BytecodeValue) SetF(f float32) {
 	}
 }
 func (bv *BytecodeValue) SetI(i int32) {
+	*bv = BytecodeValue{VT_Int, float64(i)}
+}
+func (bv *BytecodeValue) SetI64(i int64) {
 	*bv = BytecodeValue{VT_Int, float64(i)}
 }
 func (bv *BytecodeValue) SetB(b bool) {
@@ -595,6 +610,9 @@ func BytecodeFloat(f float32) BytecodeValue {
 func BytecodeInt(i int32) BytecodeValue {
 	return BytecodeValue{VT_Int, float64(i)}
 }
+func BytecodeInt64(i int64) BytecodeValue {
+	return BytecodeValue{VT_Int, float64(i)}
+}
 func BytecodeBool(b bool) BytecodeValue {
 	return BytecodeValue{VT_Bool, float64(Btoi(b))}
 }
@@ -604,6 +622,7 @@ type BytecodeStack []BytecodeValue
 func (bs *BytecodeStack) Clear()                { *bs = (*bs)[:0] }
 func (bs *BytecodeStack) Push(bv BytecodeValue) { *bs = append(*bs, bv) }
 func (bs *BytecodeStack) PushI(i int32)         { bs.Push(BytecodeInt(i)) }
+func (bs *BytecodeStack) PushI64(i int64)       { bs.Push(BytecodeInt64(i)) }
 func (bs *BytecodeStack) PushF(f float32)       { bs.Push(BytecodeFloat(f)) }
 func (bs *BytecodeStack) PushB(b bool)          { bs.Push(BytecodeBool(b)) }
 func (bs BytecodeStack) Top() *BytecodeValue {
@@ -653,10 +672,14 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 	case VT_Int:
 		if bv.v >= -128 && bv.v <= 127 {
 			be.append(OC_int8, OpCode(bv.v))
-		} else {
+		} else if bv.v >= math.MinInt32 && bv.v <= math.MaxInt32 {
 			be.append(OC_int)
 			i := int32(bv.v)
 			be.append((*(*[4]OpCode)(unsafe.Pointer(&i)))[:]...)
+		} else {
+			be.append(OC_int64)
+			i := int64(bv.v)
+			be.append((*(*[8]OpCode)(unsafe.Pointer(&i)))[:]...)
 		}
 	case VT_Bool:
 		if bv.v != 0 {
@@ -674,6 +697,10 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 func (be *BytecodeExp) appendI32Op(op OpCode, addr int32) {
 	be.append(op)
 	be.append((*(*[4]OpCode)(unsafe.Pointer(&addr)))[:]...)
+}
+func (be *BytecodeExp) appendI64Op(op OpCode, addr int64) {
+	be.append(op)
+	be.append((*(*[8]OpCode)(unsafe.Pointer(&addr)))[:]...)
 }
 func (BytecodeExp) neg(v *BytecodeValue) {
 	if v.t == VT_Float {
@@ -1022,6 +1049,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_int:
 			sys.bcStack.PushI(*(*int32)(unsafe.Pointer(&be[i])))
 			i += 4
+		case OC_int64:
+			sys.bcStack.PushI64(*(*int64)(unsafe.Pointer(&be[i])))
+			i += 8
 		case OC_float:
 			arr := make([]byte, 4)
 			arr[0] = byte(be[i])
@@ -1131,7 +1161,11 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_swap:
 			sys.bcStack.Swap()
 		case OC_ailevel:
-			sys.bcStack.PushI(int32(c.aiLevel()))
+			if !c.sf(CSF_noailevel) {
+				sys.bcStack.PushI(int32(c.aiLevel()))
+			} else {
+				sys.bcStack.PushI(0)
+			}
 		case OC_alive:
 			sys.bcStack.PushB(c.alive())
 		case OC_anim:
@@ -1145,13 +1179,13 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_animtime:
 			sys.bcStack.PushI(c.animTime())
 		case OC_backedge:
-			sys.bcStack.PushF(c.backEdge())
+			sys.bcStack.PushF(c.backEdge() * (c.localscl / oc.localscl))
 		case OC_backedgebodydist:
-			sys.bcStack.PushI(int32(c.backEdgeBodyDist()))
+			sys.bcStack.PushI(int32(c.backEdgeBodyDist() * (c.localscl / oc.localscl)))
 		case OC_backedgedist:
-			sys.bcStack.PushI(int32(c.backEdgeDist()))
+			sys.bcStack.PushI(int32(c.backEdgeDist() * (c.localscl / oc.localscl)))
 		case OC_bottomedge:
-			sys.bcStack.PushF(c.bottomEdge())
+			sys.bcStack.PushF(c.bottomEdge() * (c.localscl / oc.localscl))
 		case OC_camerapos_x:
 			sys.bcStack.PushF(sys.cam.Pos[0] / oc.localscl)
 		case OC_camerapos_y:
@@ -1180,11 +1214,11 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_facing:
 			sys.bcStack.PushI(int32(c.facing))
 		case OC_frontedge:
-			sys.bcStack.PushF(c.frontEdge())
+			sys.bcStack.PushF(c.frontEdge() * (c.localscl / oc.localscl))
 		case OC_frontedgebodydist:
-			sys.bcStack.PushI(int32(c.frontEdgeBodyDist()))
+			sys.bcStack.PushI(int32(c.frontEdgeBodyDist() * (c.localscl / oc.localscl)))
 		case OC_frontedgedist:
-			sys.bcStack.PushI(int32(c.frontEdgeDist()))
+			sys.bcStack.PushI(int32(c.frontEdgeDist() * (c.localscl / oc.localscl)))
 		case OC_gameheight:
 			// Optional exception preventing GameHeight from being affected by stage zoom.
 			if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 0 &&
@@ -1235,7 +1269,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_ishelper:
 			*sys.bcStack.Top() = c.isHelper(*sys.bcStack.Top())
 		case OC_leftedge:
-			sys.bcStack.PushF(c.leftEdge())
+			sys.bcStack.PushF(c.leftEdge() * (c.localscl / oc.localscl))
 		case OC_life:
 			sys.bcStack.PushI(c.life)
 		case OC_lifemax:
@@ -1302,7 +1336,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_random:
 			sys.bcStack.PushI(Rand(0, 999))
 		case OC_rightedge:
-			sys.bcStack.PushF(c.rightEdge())
+			sys.bcStack.PushF(c.rightEdge() * (c.localscl / oc.localscl))
 		case OC_roundstate:
 			sys.bcStack.PushI(c.roundState())
 		case OC_screenheight:
@@ -1332,7 +1366,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_time:
 			sys.bcStack.PushI(c.time())
 		case OC_topedge:
-			sys.bcStack.PushF(c.topEdge())
+			sys.bcStack.PushF(c.topEdge() * (c.localscl / oc.localscl))
 		case OC_uniqhitcount:
 			sys.bcStack.PushI(c.uniqHitCount)
 		case OC_vel_x:
@@ -1409,6 +1443,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.gi().data.attack)
 	case OC_const_data_defence:
 		sys.bcStack.PushI(c.gi().data.defence)
+	case OC_const_data_fall_defence_up:
+		sys.bcStack.PushI(c.gi().data.fall.defence_up)
 	case OC_const_data_fall_defence_mul:
 		sys.bcStack.PushF(1.0 / c.gi().data.fall.defence_mul)
 	case OC_const_data_liedown_time:
@@ -1419,6 +1455,10 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.gi().data.sparkno)
 	case OC_const_data_guard_sparkno:
 		sys.bcStack.PushI(c.gi().data.guard.sparkno)
+	case OC_const_data_hitsound_channel:
+		sys.bcStack.PushI(c.gi().data.hitsound_channel)
+	case OC_const_data_guardsound_channel:
+		sys.bcStack.PushI(c.gi().data.guardsound_channel)
 	case OC_const_data_ko_echo:
 		sys.bcStack.PushI(c.gi().data.ko.echo)
 	case OC_const_data_intpersistindex:
@@ -1799,7 +1839,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_const720p:
 		*sys.bcStack.Top() = c.constp(1280, sys.bcStack.Top().ToF())
 	case OC_ex_gethitvar_animtype:
-		sys.bcStack.PushI(int32(c.gethitAnimtype()))
+		sys.bcStack.PushI(int32(c.ghv.animtype))
 	case OC_ex_gethitvar_air_animtype:
 		sys.bcStack.PushI(int32(c.ghv.airanimtype))
 	case OC_ex_gethitvar_ground_animtype:
@@ -1866,6 +1906,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(float32(c.ghv.fall.envshake_ampl) * (c.localscl / oc.localscl)))
 	case OC_ex_gethitvar_fall_envshake_phase:
 		sys.bcStack.PushF(c.ghv.fall.envshake_phase * (c.localscl / oc.localscl))
+	case OC_ex_gethitvar_fall_envshake_mul:
+		sys.bcStack.PushF(c.ghv.fall.envshake_mul)
 	case OC_ex_gethitvar_attr:
 		sys.bcStack.PushI(c.ghv.attr)
 	case OC_ex_gethitvar_dizzypoints:
@@ -1889,7 +1931,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_gethitvar_guardpower:
 		sys.bcStack.PushI(c.ghv.guardpower)
 	case OC_ex_ailevelf:
-		sys.bcStack.PushF(c.aiLevel())
+		if !c.sf(CSF_noailevel) {
+			sys.bcStack.PushF(c.aiLevel())
+		} else {
+			sys.bcStack.PushI(0)
+		}
 	case OC_ex_animelemlength:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(f.Time)
@@ -1917,7 +1963,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_fighttime:
 		sys.bcStack.PushI(sys.gameTime)
 	case OC_ex_firstattack:
-		sys.bcStack.PushB(c.firstAttack)
+		sys.bcStack.PushB(sys.firstAttack[c.teamside] == c.id)
 	case OC_ex_framespercount:
 		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex_float:
@@ -1949,8 +1995,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_indialogue:
 		sys.bcStack.PushB(sys.dialogueFlg)
 	case OC_ex_isassertedchar:
-		sys.bcStack.PushB(c.sf(CharSpecialFlag((*(*int32)(unsafe.Pointer(&be[*i]))))))
-		*i += 4
+		sys.bcStack.PushB(c.sf(CharSpecialFlag((*(*int64)(unsafe.Pointer(&be[*i]))))))
+		*i += 8
 	case OC_ex_isassertedglobal:
 		sys.bcStack.PushB(sys.sf(GlobalSpecialFlag((*(*int32)(unsafe.Pointer(&be[*i]))))))
 		*i += 4
@@ -2005,9 +2051,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_sprpriority:
 		sys.bcStack.PushI(c.sprPriority)
 	case OC_ex_stagebackedge:
-		sys.bcStack.PushF(c.stageBackEdge())
+		sys.bcStack.PushF(c.stageBackEdge() * (c.localscl / oc.localscl))
 	case OC_ex_stagefrontedge:
-		sys.bcStack.PushF(c.stageFrontEdge())
+		sys.bcStack.PushF(c.stageFrontEdge() * (c.localscl / oc.localscl))
 	case OC_ex_stagetime:
 		sys.bcStack.PushI(sys.stage.stageTime)
 	case OC_ex_standby:
@@ -2026,10 +2072,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.pos[2] * (c.localscl / oc.localscl))
 	case OC_ex_vel_z:
 		sys.bcStack.PushF(c.vel[2] * (c.localscl / oc.localscl))
-	case OC_ex_jugglepoints:
-		sys.bcStack.PushI(c.juggle)
 	case OC_ex_prevanim:
 		sys.bcStack.PushI(c.prevAnimNo)
+	case OC_ex_prevmovetype:
+		sys.bcStack.PushB(c.ss.prevMoveType == MoveType(be[*i])<<15)
+		*i++
 	case OC_ex_reversaldefattr:
 		sys.bcStack.PushB(c.reversalDefAttr(*(*int32)(unsafe.Pointer(&be[*i]))))
 		*i += 4
@@ -2045,6 +2092,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		} else {
 			sys.bcStack.PushI(int32(sys.bgm.streamer.Position()))
 		}
+	case OC_ex_airjumpcount:
+		sys.bcStack.PushI(c.airJumpCount)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -2055,6 +2104,9 @@ func (be BytecodeExp) evalF(c *Char) float32 {
 }
 func (be BytecodeExp) evalI(c *Char) int32 {
 	return be.run(c).ToI()
+}
+func (be BytecodeExp) evalI64(c *Char) int64 {
+	return be.run(c).ToI64()
 }
 func (be BytecodeExp) evalB(c *Char) bool {
 	return be.run(c).ToB()
@@ -2303,17 +2355,14 @@ func newStateControllerBase() *StateControllerBase {
 func (StateControllerBase) beToExp(be ...BytecodeExp) []BytecodeExp {
 	return be
 }
-
-/*
-	func (StateControllerBase) fToExp(f ...float32) (exp []BytecodeExp) {
-		for _, v := range f {
-			var be BytecodeExp
-			be.appendValue(BytecodeFloat(v))
-			exp = append(exp, be)
-		}
-		return
+func (StateControllerBase) fToExp(f ...float32) (exp []BytecodeExp) {
+	for _, v := range f {
+		var be BytecodeExp
+		be.appendValue(BytecodeFloat(v))
+		exp = append(exp, be)
 	}
-*/
+	return
+}
 func (StateControllerBase) iToExp(i ...int32) (exp []BytecodeExp) {
 	for _, v := range i {
 		var be BytecodeExp
@@ -2322,8 +2371,14 @@ func (StateControllerBase) iToExp(i ...int32) (exp []BytecodeExp) {
 	}
 	return
 }
-
-// Converts a bool to a []BytecodeExp
+func (StateControllerBase) i64ToExp(i ...int64) (exp []BytecodeExp) {
+	for _, v := range i {
+		var be BytecodeExp
+		be.appendValue(BytecodeInt64(v))
+		exp = append(exp, be)
+	}
+	return
+}
 func (StateControllerBase) bToExp(i bool) (exp []BytecodeExp) {
 	var be BytecodeExp
 	be.appendValue(BytecodeBool(i))
@@ -2491,6 +2546,7 @@ type assertSpecial StateControllerBase
 const (
 	assertSpecial_flag byte = iota
 	assertSpecial_flag_g
+	assertSpecial_noko
 	assertSpecial_redirectid
 )
 
@@ -2499,9 +2555,15 @@ func (sc assertSpecial) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case assertSpecial_flag:
-			crun.setSF(CharSpecialFlag(exp[0].evalI(c)))
+			crun.setSF(CharSpecialFlag(exp[0].evalI64(c)))
 		case assertSpecial_flag_g:
 			sys.setSF(GlobalSpecialFlag(exp[0].evalI(c)))
+		case assertSpecial_noko:
+			if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
+				crun.setSF(CharSpecialFlag(CSF_noko))
+			} else {
+				sys.setSF(GlobalSpecialFlag(GSF_noko))
+			}
 		case assertSpecial_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -2531,6 +2593,9 @@ const (
 )
 
 func (sc playSnd) Run(c *Char, _ []int32) bool {
+	if sys.noSoundFlg {
+		return false
+	}
 	crun := c
 	f, lw, lp := "", false, false
 	var g, n, ch, vo, pri int32 = -1, 0, -1, 100, 0
@@ -2805,6 +2870,7 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 	}
 	if tagSCF == 1 {
 		crun.setSCF(SCF_standby)
+		sys.charList.p2enemyDelete(crun)
 	}
 	if partnerNo != -1 && crun.partnerV2(partnerNo) != nil {
 		partner := crun.partnerV2(partnerNo)
@@ -2812,6 +2878,7 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 		if partnerStateNo >= 0 {
 			partner.changeState(partnerStateNo, -1, -1, "")
 		}
+		sys.charList.p2enemyDelete(partner)
 	}
 	return false
 }
@@ -2827,6 +2894,7 @@ const (
 func (sc destroySelf) Run(c *Char, _ []int32) bool {
 	crun := c
 	rec, rem := false, false
+	self := true
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case destroySelf_recursive:
@@ -2835,6 +2903,7 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 			rem = exp[0].evalB(c)
 		case destroySelf_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				self = rid.id == c.id
 				crun = rid
 			} else {
 				return false
@@ -2842,7 +2911,7 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	return crun.destroySelf(rec, rem)
+	return crun.destroySelf(rec, rem) && self
 }
 
 type changeAnim StateControllerBase
@@ -3607,6 +3676,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	eid := int32(-1)
 	var expls []*Explod
 	rp := [...]int32{-1, 0}
+	remap := false
 	eachExpl := func(f func(e *Explod)) {
 		for _, e := range expls {
 			f(e)
@@ -3626,6 +3696,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				rp[1] = exp[1].evalI(c)
 			}
+			remap = true
 		case explod_id:
 			eid = exp[0].evalI(c)
 		default:
@@ -3635,7 +3706,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					return false
 				}
 				eachExpl(func(e *Explod) {
-					if e.ownpal {
+					if e.ownpal && remap {
 						crun.remapPal(e.palfx, [...]int32{1, 1}, rp)
 					}
 				})
@@ -3856,6 +3927,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 				}
 				e.id = 0
 			}
+			e.ontop, e.sprpriority, e.ownpal = true, math.MinInt32, true
 		}
 		switch id {
 		case gameMakeAnim_pos:
@@ -3880,7 +3952,6 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	if e == nil {
 		return false
 	}
-	e.ontop, e.sprpriority, e.ownpal = true, math.MinInt32, true
 	e.offset[0] -= float32(crun.size.draw.offset[0])
 	e.offset[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
@@ -3982,17 +4053,19 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage,
 }
 func (sc afterImage) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.aimg.clear()
-	crun.aimg.time = 1
+	doOce := false
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		if id == afterImage_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.aimg.clear()
-				crun.aimg.time = 1
 			} else {
 				return false
 			}
+		}
+		if !doOce {
+			crun.aimg.clear()
+			crun.aimg.time = 1
+			doOce = true
 		}
 		sc.runSub(c, &crun.aimg, id, exp)
 		return true
@@ -4078,7 +4151,9 @@ const (
 	hitDef_fall_recover
 	hitDef_fall_recovertime
 	hitDef_sparkno
+	hitDef_sparkangle
 	hitDef_guard_sparkno
+	hitDef_guard_sparkangle
 	hitDef_sparkxy
 	hitDef_down_hittime
 	hitDef_p1facing
@@ -4117,10 +4192,12 @@ const (
 	hitDef_envshake_ampl
 	hitDef_envshake_phase
 	hitDef_envshake_freq
+	hitDef_envshake_mul
 	hitDef_fall_envshake_time
 	hitDef_fall_envshake_ampl
 	hitDef_fall_envshake_phase
 	hitDef_fall_envshake_freq
+	hitDef_fall_envshake_mul
 	hitDef_dizzypoints
 	hitDef_guardpoints
 	hitDef_redlife
@@ -4241,9 +4318,13 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 	case hitDef_sparkno:
 		hd.sparkno_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		hd.sparkno = exp[1].evalI(c)
+	case hitDef_sparkangle:
+		hd.sparkangle = exp[0].evalF(c)
 	case hitDef_guard_sparkno:
 		hd.guard_sparkno_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		hd.guard_sparkno = exp[1].evalI(c)
+	case hitDef_guard_sparkangle:
+		hd.guard_sparkangle = exp[0].evalF(c)
 	case hitDef_sparkxy:
 		hd.sparkxy[0] = exp[0].evalF(c)
 		if len(exp) > 1 {
@@ -4367,6 +4448,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 		hd.envshake_phase = exp[0].evalF(c)
 	case hitDef_envshake_freq:
 		hd.envshake_freq = MaxF(0, exp[0].evalF(c))
+	case hitDef_envshake_mul:
+		hd.envshake_mul = exp[0].evalF(c)
 	case hitDef_fall_envshake_time:
 		hd.fall.envshake_time = exp[0].evalI(c)
 	case hitDef_fall_envshake_ampl:
@@ -4375,6 +4458,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 		hd.fall.envshake_phase = exp[0].evalF(c)
 	case hitDef_fall_envshake_freq:
 		hd.fall.envshake_freq = MaxF(0, exp[0].evalF(c))
+	case hitDef_fall_envshake_mul:
+		hd.fall.envshake_mul = exp[0].evalF(c)
 	case hitDef_dizzypoints:
 		hd.dizzypoints = Max(IErr+1, exp[0].evalI(c))
 	case hitDef_guardpoints:
@@ -4402,6 +4487,8 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 	crun.hitdef.playerNo = sys.workingState.playerNo
 	crun.hitdef.sparkno = c.gi().data.sparkno
 	crun.hitdef.guard_sparkno = c.gi().data.guard.sparkno
+	crun.hitdef.hitsound_channel = c.gi().data.hitsound_channel
+	crun.hitdef.guardsound_channel = c.gi().data.guardsound_channel
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		if id == hitDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
@@ -5426,6 +5513,7 @@ const (
 	envShake_ampl
 	envShake_phase
 	envShake_freq
+	envShake_mul
 )
 
 func (sc envShake) Run(c *Char, _ []int32) bool {
@@ -5435,11 +5523,13 @@ func (sc envShake) Run(c *Char, _ []int32) bool {
 		case envShake_time:
 			sys.envShake.time = exp[0].evalI(c)
 		case envShake_ampl:
-			sys.envShake.ampl = int32(float32(exp[0].evalI(c)) * c.localscl)
+			sys.envShake.ampl = float32(int32(float32(exp[0].evalI(c)) * c.localscl))
 		case envShake_phase:
 			sys.envShake.phase = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180) * c.localscl
 		case envShake_freq:
 			sys.envShake.freq = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
+		case envShake_mul:
+			sys.envShake.mul = exp[0].evalF(c)
 		}
 		return true
 	})
@@ -5706,6 +5796,7 @@ func (sc stateTypeSet) Run(c *Char, _ []int32) bool {
 		case stateTypeSet_statetype:
 			crun.ss.stateType = StateType(exp[0].evalI(c))
 		case stateTypeSet_movetype:
+			crun.ss.prevMoveType = crun.ss.moveType
 			crun.ss.moveType = MoveType(exp[0].evalI(c))
 		case stateTypeSet_physics:
 			crun.ss.physics = StateType(exp[0].evalI(c))
@@ -6116,8 +6207,9 @@ func (sc fallEnvShake) Run(c *Char, _ []int32) bool {
 		case fallEnvShake_:
 			if crun.ghv.fall.envshake_time > 0 {
 				sys.envShake = EnvShake{time: crun.ghv.fall.envshake_time,
-					freq: crun.ghv.fall.envshake_freq * math.Pi / 180,
-					ampl: crun.ghv.fall.envshake_ampl, phase: crun.ghv.fall.envshake_phase}
+					freq:  crun.ghv.fall.envshake_freq * math.Pi / 180,
+					ampl:  float32(crun.ghv.fall.envshake_ampl),
+					phase: crun.ghv.fall.envshake_phase, mul: crun.ghv.fall.envshake_mul}
 				sys.envShake.setDefPhase()
 				crun.ghv.fall.envshake_time = 0
 			}
@@ -6281,10 +6373,6 @@ func (sc remapPal) Run(c *Char, _ []int32) bool {
 			src[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
 				src[1] = exp[1].evalI(c)
-			}
-			if src[0] == -1 {
-				src[0] = 1
-				src[1] = 1
 			}
 		case remapPal_dest:
 			dst := [...]int32{exp[0].evalI(c), -1}
@@ -6639,15 +6727,17 @@ const (
 
 func (sc offset) Run(c *Char, _ []int32) bool {
 	crun := c
+	var lclscround float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case offset_x:
-			crun.offset[0] = exp[0].evalF(c) * crun.localscl
+			crun.offset[0] = exp[0].evalF(c) * lclscround
 		case offset_y:
-			crun.offset[1] = exp[0].evalF(c) * crun.localscl
+			crun.offset[1] = exp[0].evalF(c) * lclscround
 		case offset_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
+				lclscround = c.localscl / crun.localscl
 			} else {
 				return false
 			}
@@ -7976,6 +8066,7 @@ const (
 	text_layerno
 	text_params
 	text_font
+	text_localcoord
 	text_bank
 	text_align
 	text_text
@@ -7988,10 +8079,9 @@ const (
 func (sc text) Run(c *Char, _ []int32) bool {
 	crun := c
 	params := []interface{}{}
-	var lclscround float32 = 1.0
 	ts := NewTextSprite()
-	var sn int = -1
-	var fflg bool
+	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
+	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -8008,23 +8098,43 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case text_text:
-			sn = int(exp[0].evalI(c))
+			sn := int(exp[0].evalI(c))
+			spl := sys.stringPool[sys.workingState.playerNo].List
+			if sn >= 0 && sn < len(spl) {
+				ts.text = OldSprintf(spl[sn], params...)
+			}
 		case text_font:
 			fnt = int(exp[1].evalI(c))
-			fflg = exp[0].evalB(c)
+			fflg := exp[0].evalB(c)
+			fntList := crun.gi().fnt
+			if fflg {
+				fntList = sys.lifebar.fnt
+			}
+			if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
+				ts.fnt = fntList[fnt]
+				if fflg {
+					ts.SetLocalcoord(float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1]))
+				} else {
+					//ts.SetLocalcoord(crun.stCgi().localcoord[0], crun.stCgi().localcoord[1])
+				}
+			} else {
+				fnt = -1
+			}
+		case text_localcoord:
+			ts.SetLocalcoord(exp[0].evalF(c), exp[1].evalF(c))
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
 			ts.align = exp[0].evalI(c)
 		case text_pos:
-			ts.x = exp[0].evalF(c) * lclscround
+			ts.x = exp[0].evalF(c)/ts.localScale + float32(ts.offsetX)
 			if len(exp) > 1 {
-				ts.y = exp[1].evalF(c) * lclscround
+				ts.y = exp[1].evalF(c) / ts.localScale
 			}
 		case text_scale:
-			ts.xscl = exp[0].evalF(c)
+			xscl = exp[0].evalF(c)
 			if len(exp) > 1 {
-				ts.yscl = exp[1].evalF(c)
+				yscl = exp[1].evalF(c)
 			}
 		case text_color:
 			var r, g, b int32 = exp[0].evalI(c), 255, 255
@@ -8038,29 +8148,21 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				lclscround = c.localscl / crun.localscl
 			} else {
 				return false
 			}
 		}
 		return true
 	})
-	// text assignment
-	spl := sys.stringPool[sys.workingState.playerNo].List
-	if sn >= 0 && sn < len(spl) {
-		ts.text = OldSprintf(spl[sn], params...)
-	} else {
-		ts.text = OldSprintf("%v", params...)
-	}
-	// font assignment
-	fntList := crun.gi().fnt
-	if fflg {
-		fntList = sys.lifebar.fnt
-	}
-	if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
-		ts.fnt = fntList[fnt]
-	} else {
+	ts.xscl = xscl / ts.localScale
+	ts.yscl = yscl / ts.localScale
+	if fnt == -1 {
 		ts.fnt = sys.debugFont.fnt
+		ts.xscl *= sys.debugFont.xscl
+		ts.yscl *= sys.debugFont.yscl
+	}
+	if ts.text == "" {
+		ts.text = OldSprintf("%v", params...)
 	}
 	sys.lifebar.textsprite = append(sys.lifebar.textsprite, ts)
 	return false
@@ -8259,26 +8361,60 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type cameraCtrl StateControllerBase
+
+const (
+	cameraCtrl_view byte = iota
+	cameraCtrl_pos
+	cameraCtrl_followid
+)
+
+func (sc cameraCtrl) Run(c *Char, _ []int32) bool {
+	//crun := c
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case cameraCtrl_view:
+			sys.cam.View = CameraView(exp[0].evalI(c))
+			if sys.cam.View == Follow_View {
+				sys.cam.FollowChar = c
+			}
+		case cameraCtrl_pos:
+			sys.cam.Pos[0] = exp[0].evalF(c)
+			if len(exp) > 1 {
+				sys.cam.Pos[1] = exp[1].evalF(c)
+			}
+		case cameraCtrl_followid:
+			if cid := sys.playerID(exp[0].evalI(c)); cid != nil {
+				sys.cam.FollowChar = cid
+			}
+		}
+		return true
+	})
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
-	stateType StateType
-	moveType  MoveType
-	physics   StateType
-	playerNo  int
-	stateDef  stateDef
-	block     StateBlock
-	ctrlsps   []int32
-	numVars   int32
+	stateType    StateType
+	moveType     MoveType
+	prevMoveType MoveType
+	physics      StateType
+	playerNo     int
+	stateDef     stateDef
+	block        StateBlock
+	ctrlsps      []int32
+	numVars      int32
 }
 
 // StateDef bytecode creation function
 func newStateBytecode(pn int) *StateBytecode {
 	sb := &StateBytecode{
-		stateType: ST_S,
-		moveType:  MT_I,
-		physics:   ST_N,
-		playerNo:  pn,
-		block:     *newStateBlock(),
+		stateType:    ST_S,
+		prevMoveType: MT_I,
+		moveType:     MT_I,
+		physics:      ST_N,
+		playerNo:     pn,
+		block:        *newStateBlock(),
 	}
 	return sb
 }
@@ -8287,6 +8423,7 @@ func (sb *StateBytecode) init(c *Char) {
 		c.ss.stateType = sb.stateType
 	}
 	if sb.moveType != MT_U {
+		c.ss.prevMoveType = c.ss.moveType
 		c.ss.moveType = sb.moveType
 	}
 	if sb.physics != ST_U {

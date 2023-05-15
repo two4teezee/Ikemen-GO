@@ -3,30 +3,30 @@
 # Functions
 #===============================================================================
 # Returns tagged in char id
-
-[Function fTagGetPartnerId(add) partnerId]
-let partnerId = 0;
+[Function TagGetPartnerId(add) partnerId]
+let rootId = getPlayerId(teamSide);
+let partnerCnt = 0;
+let partnerId = id + $add;
 for i = 0; numPartner; 1 {
-	let member = memberNo + $add;
-	if $member > numPartner + 1 {
-		let member = 1;
-	} else if $member < 1 {
-		let member = numPartner + 1;
+	if $partnerId > $rootId + numPartner {
+		let partnerId = $rootId;
+	} else if $partnerId < $rootId {
+		let partnerId = $rootId + numPartner;
 	}
-	if teamSide = 1 {
-		let pn = $member * 2 - 1;
+	if playerId($partnerId),alive = 0 && $partnerCnt < numPartner {
+		let partnerCnt = $partnerCnt + 1;
+		let partnerId = $partnerId + $add;
 	} else {
-		let pn = $member * 2;
-	}	
-	if player($pn),alive {
-		let partnerId = player($pn),id;
 		break;
 	}
+}
+if $partnerCnt >= numPartner {
+	let partnerId = 0;
 }
 
 # Decides if AI switch should happen, returns tagged in char id (function can be overridden locally)
 # TODO: Balance default AI switch scaling.
-[Function fTagAISwitch(nextPartnerId, previousPartnerId) partnerId]
+[Function TagAISwitch(nextPartnerId, previousPartnerId) partnerId]
 let partnerId = 0;
 if const(TagCommandAIChance) >= randomRange(1, 100) {
 	if command = "TagShiftFwd" {
@@ -37,7 +37,7 @@ if const(TagCommandAIChance) >= randomRange(1, 100) {
 }
 
 # tagIn Switch explod
-[Function fTagSwitchExplod()]
+[Function TagSwitchExplod()]
 let anim = const(FxTagSwitchAI);
 if aiLevel = 0 {
 	if gameMode = "versuscoop" {
@@ -93,7 +93,7 @@ if time = 0 {
 	# change active player assignment
 	map(_iksys_tagLastId) := player(teamLeader),id;
 	tagIn{leader: playerNo}
-	call fTagSwitchExplod();
+	call TagSwitchExplod();
 } else {
 	mapAdd{map: "_iksys_tagSwitchDist"; value: -vel x}
 }
@@ -101,7 +101,7 @@ if time = 0 {
 # continue until reaching place where the switch was initiated, but stop in front of enemy
 if backEdgeBodyDist >= 0 && (floor(map(_iksys_tagSwitchDist)) <= 0 || p2BodyDist X < const240p(30)) {
 	velSet{x: 0; y: 0}
-	changeState{value: const(StateStand); ctrl: 1}
+	selfState{value: const(StateStand); ctrl: 1}
 }
 
 #===============================================================================
@@ -123,7 +123,7 @@ if time = 0 {
 velSet{x: min(ifElse(const(velocity.run.fwd.x) != 0, const(velocity.run.fwd.x), const(velocity.walk.fwd.x) * 2), const240p(const(TagInVelX))); y: 0}
 
 if backEdgeDist < -const240p(160) || frontEdgeDist < -const240p(160) {
-	changeState{value: const(StateTagWaitingOutside)}
+	selfState{value: const(StateTagWaitingOutside)}
 }
 
 #===============================================================================
@@ -181,14 +181,18 @@ if time = 0 {
 	if roundState = 2 {
 		map(_iksys_tagLastId) := player(teamLeader),id;
 		tagIn{leader: playerNo}
-		call fTagSwitchExplod();
+		call TagSwitchExplod();
 	}
-	velSet{x: const240p(4); y: -const240p(8.75)}
+	if roundState = 2 {
+		velSet{x: const240p(4); y: -const240p(8.75)}
+	} else {
+		velSet{x: const240p(8.0 - 0.75 * (playerno - teamside)); y: -const240p(8.75)}
+	}
 } else {
 	gravity{}
-	if vel y >= 0 && pos y > 0 {
+	if vel y > 0 && pos y >= 0 {
 		velSet{x: 0; y: 0}
-		changeState{value: const(StateTagLanding)}
+		selfState{value: const(StateTagLanding)}
 	}
 }
 
@@ -206,13 +210,13 @@ if time = 0 {
 }
 
 if animTime >= 0 {
-	changeState{value: const(StateStand); ctrl: 1}
+	selfState{value: const(StateStand); ctrl: 1}
 }
 
 #===============================================================================
-# Global states (executed when in self's state)
+# Global states
 #===============================================================================
-[StateDef -3]
+[StateDef -2]
 
 if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 	# do nothing, global code disabled locally or executed by helper/stage
@@ -228,6 +232,11 @@ if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 	}
 	map(_iksys_tagSwitchCooldown) := 0;
 } else if map(_iksys_tagActive) = 1 {
+	# fix characters escaping state 5030
+	if !alive {
+		ctrlSet{value: 0}
+		assertSpecial{flag: noailevel}
+	}
 	# fix erratic camera during intros
 	if roundState = 1 && playerNo != teamLeader {
 		screenBound{value: 0; movecamera: 0, 0}
@@ -259,12 +268,12 @@ if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 				{
 					# get partner id in case of tag command
 					let partnerId = 0;
-					let nextPartnerId = call fTagGetPartnerId(1);
-					let previousPartnerId = call fTagGetPartnerId(-1);
+					let nextPartnerId = call TagGetPartnerId(1);
+					let previousPartnerId = call TagGetPartnerId(-1);
 					if aiLevel > 0 {
 						# id is remembered by AI player, switch will happen at first frame that meets switch conditions
 						if map(_iksys_tagPartnerId) = 0 {
-							let partnerId = call fTagAISwitch($nextPartnerId, $previousPartnerId);
+							let partnerId = call TagAISwitch($nextPartnerId, $previousPartnerId);
 							map(_iksys_tagPartnerId) := $partnerId;
 						}
 						let partnerId = map(_iksys_tagPartnerId);
@@ -277,7 +286,7 @@ if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 					if ctrl && $partnerId > 0 && playerId($partnerId),stateNo = playerId($partnerId),const(StateTagWaitingOutside) {
 						mapSet{map: "_iksys_tagSwitchCooldown"; value: playerId($partnerId),const(TagSwitchCooldown); redirectid: $partnerId}
 						map(_iksys_tagPartnerId) := 0;
-						lifebarAction{spr: const(MsgPartnerChange), 0}
+						lifebarAction{spr: const(MsgPartnerChange), 0; top: 1}
 						tagOut{}
 						ctrlSet{value: 0}
 						assertSpecial{flag: noHardcodedKeys; flag2: noInput}
@@ -309,10 +318,10 @@ if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 	{
 		map(_iksys_tagActive) := 0;
 		# bring next team member
-		let partnerId = call fTagGetPartnerId(1);
+		let partnerId = call TagGetPartnerId(1);
 		if $partnerId > 0 {
 			mapSet{map: "_iksys_tagSwitchCooldown"; value: playerId($partnerId),const(TagSwitchCooldown); redirectid: $partnerId}
-			lifebarAction{spr: const(MsgPartnerChange), 0}
+			lifebarAction{spr: const(MsgPartnerChange), 0; top: 1}
 			tagOut{}
 			tagIn{stateno: playerId($partnerId),const(StateTagJumpingIn); redirectid: $partnerId}
 		}

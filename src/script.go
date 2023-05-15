@@ -1060,7 +1060,7 @@ func systemScriptInit(l *lua.LState) {
 				l.Push(lua.LNumber(winp))
 				l.Push(tbl)
 				if sys.playBgmFlg {
-					sys.bgm.Open("", 1, 100, 0, 0, 0)
+					sys.bgm = *newBgm()
 					sys.playBgmFlg = false
 				}
 				sys.clearAllSound()
@@ -2698,7 +2698,15 @@ func triggerFunctions(l *lua.LState) {
 	})
 	// vanilla triggers
 	luaRegister(l, "ailevel", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.aiLevel()))
+		if !sys.debugWC.sf(CSF_noailevel) {
+			l.Push(lua.LNumber(sys.debugWC.aiLevel()))
+		} else {
+			l.Push(lua.LNumber(0))
+		}
+		return 1
+	})
+	luaRegister(l, "airjumpcount", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.airJumpCount))
 		return 1
 	})
 	luaRegister(l, "alive", func(*lua.LState) int {
@@ -2799,6 +2807,8 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.gi().data.attack)
 		case "data.defence":
 			ln = lua.LNumber(c.gi().data.defence)
+		case "data.fall.defence_up":
+			ln = lua.LNumber(c.gi().data.fall.defence_up)
 		case "data.fall.defence_mul":
 			ln = lua.LNumber(1.0 / c.gi().data.fall.defence_mul)
 		case "data.liedown.time":
@@ -2809,6 +2819,10 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.gi().data.sparkno)
 		case "data.guard.sparkno":
 			ln = lua.LNumber(c.gi().data.guard.sparkno)
+		case "data.hitsound.channel":
+			ln = lua.LNumber(c.gi().data.hitsound_channel)
+		case "data.guardsound.channel":
+			ln = lua.LNumber(c.gi().data.guardsound_channel)
 		case "data.ko.echo":
 			ln = lua.LNumber(c.gi().data.ko.echo)
 		case "data.intpersistindex":
@@ -3128,6 +3142,8 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.ghv.fall.envshake_ampl)
 		case "fall.envshake.phase":
 			ln = lua.LNumber(c.ghv.fall.envshake_phase)
+		case "fall.envshake.mul":
+			ln = lua.LNumber(c.ghv.fall.envshake_mul)
 		case "attr":
 			ln = lua.LNumber(c.ghv.attr)
 		case "dizzypoints":
@@ -3481,6 +3497,19 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.prevAnimNo))
 		return 1
 	})
+	luaRegister(l, "prevmovetype", func(*lua.LState) int {
+		var s string
+		switch sys.debugWC.ss.prevMoveType {
+		case MT_I:
+			s = "I"
+		case MT_A:
+			s = "A"
+		case MT_H:
+			s = "H"
+		}
+		l.Push(lua.LString(s))
+		return 1
+	})
 	luaRegister(l, "prevstateno", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.ss.prevno))
 		return 1
@@ -3825,7 +3854,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "firstattack", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.firstAttack))
+		l.Push(lua.LBool(sys.firstAttack[sys.debugWC.teamside] == sys.debugWC.id))
 		return 1
 	})
 	luaRegister(l, "framespercount", func(l *lua.LState) int {
@@ -3933,6 +3962,16 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.sf(CSF_noredlifedamage)))
 		case "nomakedust":
 			l.Push(lua.LBool(sys.debugWC.sf(CSF_nomakedust)))
+		case "noko":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_noko)))
+		case "noguardko":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_noguardko)))
+		case "nokovelocity":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_nokovelocity)))
+		case "noailevel":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_noailevel)))
+		case "nointroreset":
+			l.Push(lua.LBool(sys.debugWC.sf(CSF_nointroreset)))
 		// GlobalSpecialFlag
 		case "intro":
 			l.Push(lua.LBool(sys.sf(GSF_intro)))
@@ -3954,10 +3993,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.sf(GSF_nokosnd)))
 		case "nokoslow":
 			l.Push(lua.LBool(sys.sf(GSF_nokoslow)))
-		case "noko":
+		case "globalnoko":
 			l.Push(lua.LBool(sys.sf(GSF_noko)))
-		case "nokovelocity":
-			l.Push(lua.LBool(sys.sf(GSF_nokovelocity)))
 		case "roundnotskip":
 			l.Push(lua.LBool(sys.sf(GSF_roundnotskip)))
 		case "roundfreeze":

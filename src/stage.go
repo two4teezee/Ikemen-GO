@@ -23,13 +23,14 @@ func newStageProps() StageProps {
 type EnvShake struct {
 	time  int32
 	freq  float32
-	ampl  int32
+	ampl  float32
 	phase float32
+	mul   float32
 }
 
 func (es *EnvShake) clear() {
-	*es = EnvShake{freq: float32(math.Pi / 3), ampl: -4,
-		phase: float32(math.NaN())}
+	*es = EnvShake{freq: float32(math.Pi / 3), ampl: -4.0,
+		phase: float32(math.NaN()), mul: 1.0}
 }
 func (es *EnvShake) setDefPhase() {
 	if math.IsNaN(float64(es.phase)) {
@@ -44,11 +45,12 @@ func (es *EnvShake) next() {
 	if es.time > 0 {
 		es.time--
 		es.phase += es.freq
+		es.ampl *= es.mul
 	}
 }
 func (es *EnvShake) getOffset() float32 {
 	if es.time > 0 {
-		return float32(es.ampl) * float32(math.Sin(float64(es.phase)))
+		return es.ampl * float32(math.Sin(float64(es.phase)))
 	}
 	return 0
 }
@@ -394,11 +396,12 @@ func (bg backGround) draw(pos [2]float32, scl, bgscl, lclscl float32,
 	}
 	x := bg.start[0] + bg.xofs - (pos[0]/stgscl[0]+bg.camstartx)*bg.delta[0] +
 		bg.bga.offset[0]
-	yScrollPos := ((pos[1] - (sys.cam.CameraZoomYBound / lclscl)) / stgscl[1]) * bg.delta[1] * bgscl
-	yScrollPos += ((sys.cam.CameraZoomYBound / lclscl) / stgscl[1]) * Pow(bg.zoomdelta[1], 1.4) / bgscl
+	zoomybound := sys.cam.CameraZoomYBound * float32(Btoi(isStage))
+	yScrollPos := ((pos[1] - (zoomybound / lclscl)) / stgscl[1]) * bg.delta[1] * bgscl
+	yScrollPos += ((zoomybound / lclscl) / stgscl[1]) * Pow(bg.zoomdelta[1], 1.4) / bgscl
 	y := bg.start[1] - yScrollPos + bg.bga.offset[1]
-	ys2 := bg.scaledelta[1] * (pos[1] - sys.cam.CameraZoomYBound) * bg.delta[1] * bgscl
-	ys := ((100-(pos[1]-sys.cam.CameraZoomYBound)*bg.yscaledelta)*bgscl/bg.yscalestart)*bg.scalestart[1] + ys2
+	ys2 := bg.scaledelta[1] * (pos[1] - zoomybound) * bg.delta[1] * bgscl
+	ys := ((100-(pos[1]-zoomybound)*bg.yscaledelta)*bgscl/bg.yscalestart)*bg.scalestart[1] + ys2
 	xs := bg.scaledelta[0] * pos[0] * bg.delta[0] * bgscl
 	x *= bgscl
 	y = y*bgscl + ((float32(sys.gameHeight)-shakeY)/scly-240)/stgscl[1]
@@ -835,6 +838,7 @@ func loadStage(def string, main bool) (*Stage, error) {
 		sec[0].ReadF32("verticalfollow", &s.stageCamera.verticalfollow)
 		sec[0].ReadI32("floortension", &s.stageCamera.floortension)
 		sec[0].ReadI32("tension", &s.stageCamera.tension)
+		sec[0].ReadF32("tensionvel", &s.stageCamera.tensionvel)
 		sec[0].ReadI32("overdrawhigh", &s.stageCamera.overdrawhigh) //TODO: not implemented
 		sec[0].ReadI32("overdrawlow", &s.stageCamera.overdrawlow)
 		sec[0].ReadI32("cuthigh", &s.stageCamera.cuthigh) //TODO: not implemented
@@ -849,6 +853,10 @@ func loadStage(def string, main bool) (*Stage, error) {
 			sec[0].ReadF32("zoomout", &s.stageCamera.zoomout)
 		} else {
 			s.stageCamera.zoomout = sys.cam.ZoomMin
+		}
+		anchor, _, _ := sec[0].getText("zoomanchor")
+		if strings.ToLower(anchor) == "bottom" {
+			s.stageCamera.zoomanchor = true
 		}
 		if sec[0].ReadI32("tensionlow", &s.stageCamera.tensionlow) {
 			s.stageCamera.ytensionenable = true

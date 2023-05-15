@@ -373,7 +373,7 @@ func LoadFntSff(f *Fnt, fontfile string, filename string) {
 	}
 }
 
-//CharWidth returns the width that has a specified character
+// CharWidth returns the width that has a specified character
 func (f *Fnt) CharWidth(c rune, bt int32) int32 {
 	if c == ' ' {
 		return int32(f.Size[0])
@@ -385,8 +385,8 @@ func (f *Fnt) CharWidth(c rune, bt int32) int32 {
 	return int32(fci.w)
 }
 
-//TextWidth returns the width that has a specified text.
-//This depends on each char's width and font spacing
+// TextWidth returns the width that has a specified text.
+// This depends on each char's width and font spacing
 func (f *Fnt) TextWidth(txt string, bank int32) (w int32) {
 	if f.BankType != "sprite" {
 		bank = 0
@@ -454,13 +454,13 @@ func (f *Fnt) drawChar(
 	}
 	rp := RenderParams{
 		spr.Tex, f.paltex, spr.Size,
-		-x*sys.widthScale, -y*sys.heightScale, notiling,
-		xscl*sys.widthScale, xscl*sys.widthScale,
-		yscl*sys.heightScale, 1, 0,
+		-x * sys.widthScale, -y * sys.heightScale, notiling,
+		xscl * sys.widthScale, xscl * sys.widthScale,
+		yscl * sys.heightScale, 1, 0,
 		Rotation{},
-		0, sys.brightness*255>>8|1<<9, 0,
+		0, sys.brightness*255>>8 | 1<<9, 0,
 		nil, window, 0, 0,
-		0, 0, -xscl*float32(spr.Offset[0]), -yscl*float32(spr.Offset[1]),
+		0, 0, -xscl * float32(spr.Offset[0]), -yscl * float32(spr.Offset[1]),
 	}
 	RenderSprite(rp)
 	return float32(spr.Size[0]) * xscl
@@ -477,7 +477,7 @@ func (f *Fnt) Print(txt string, x, y, xscl, yscl float32, bank, align int32,
 	}
 }
 
-//DrawText prints on screen a specified text with the current font sprites
+// DrawText prints on screen a specified text with the current font sprites
 func (f *Fnt) DrawText(txt string, x, y, xscl, yscl float32, bank, align int32,
 	window *[4]int32, palfx *PalFX) {
 
@@ -548,6 +548,8 @@ type TextSprite struct {
 	frgba            [4]float32 //ttf fonts
 	removetime       int32      //text sctrl
 	layerno          int16      //text sctrl
+	localScale       float32    //text sctrl
+	offsetX          int32      //text sctrl
 }
 
 func NewTextSprite() *TextSprite {
@@ -561,9 +563,20 @@ func NewTextSprite() *TextSprite {
 		frgba:      [...]float32{1.0, 1.0, 1.0, 1.0},
 		removetime: 1,
 		layerno:    1,
+		localScale: 1,
+		offsetX:    0,
 	}
 	ts.palfx.setColor(255, 255, 255)
 	return ts
+}
+
+func (ts *TextSprite) SetLocalcoord(lx, ly float32) {
+	v := lx
+	if lx*3 > ly*4 {
+		v = ly * 4 / 3
+	}
+	ts.localScale = float32(v / 320)
+	ts.offsetX = -int32(math.Floor(float64(lx)/(float64(v)/320)-320) / 2)
 }
 
 func (ts *TextSprite) SetWindow(x, y, w, h float32) {

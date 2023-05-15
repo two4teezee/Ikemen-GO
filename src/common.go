@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -108,6 +109,10 @@ func Pow(x, y float32) float32 {
 }
 func IsFinite(f float32) bool {
 	return math.Abs(float64(f)) <= math.MaxFloat64
+}
+func IsNumeric(s string) bool {
+	_, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
+	return err == nil
 }
 func Atoi(str string) int32 {
 	var n int64
@@ -261,7 +266,7 @@ func FileExist(filename string) string {
 	return ""
 }
 
-//SearchFile returns full path to specified file
+// SearchFile returns full path to specified file
 func SearchFile(file string, dirs []string) string {
 	file = strings.Replace(file, "\\", "/", -1)
 	for _, v := range dirs {
@@ -368,6 +373,21 @@ func SectionName(sec string) (string, string) {
 func HasExtension(file, ext string) bool {
 	match, _ := regexp.MatchString(ext, filepath.Ext(strings.ToLower(file)))
 	return match
+}
+
+func sliceContains(s []string, str string, lower bool) bool {
+	if lower {
+		strings.ToLower(str)
+	}
+	for _, v := range s {
+		if lower {
+			strings.ToLower(v)
+		}
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 func sliceInsertInt(array []int, value int, index int) []int {
@@ -721,7 +741,7 @@ func (al *AnimLayout) ReadAnimPalfx(pre string, is IniSection) {
 	is.ReadBool(pre+"invertall", &al.palfx.invertall)
 	var n float32
 	if is.ReadF32(pre+"color", &n) {
-		al.palfx.color = n/256
+		al.palfx.color = n / 256
 	}
 }
 

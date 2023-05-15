@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/faiface/beep"
-	"github.com/faiface/beep/speaker"
+	"github.com/samhocevar/beep"
+	"github.com/samhocevar/beep/speaker"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -289,9 +289,9 @@ type System struct {
 	//FLAC_FrameWait          int
 
 	// Common Files
-	commonAir    string
-	commonCmd    string
-	commonConst  string
+	commonAir    []string
+	commonCmd    []string
+	commonConst  []string
 	commonFx     []string
 	commonLua    []string
 	commonStates []string
@@ -349,6 +349,7 @@ type System struct {
 	matchData         *lua.LTable
 	consecutiveWins   [2]int32
 	consecutiveRounds bool
+	firstAttack       [3]int32
 	teamLeader        [2]int
 	gameSpeed         float32
 	maxPowerMode      bool
@@ -673,8 +674,8 @@ func (s *System) roundWinTime() bool {
 	return s.intro < -(s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime + s.lifebar.ro.over_wintime)
 }
 func (s *System) roundOver() bool {
-	return s.intro < -(s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime +
-		s.lifebar.ro.over_time)
+	return s.intro < -(s.lifebar.ro.over_time)
+	// return s.intro < -(s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
 }
 func (s *System) sf(gsf GlobalSpecialFlag) bool {
 	return s.specialFlag&gsf != 0
@@ -800,12 +801,13 @@ func (s *System) nextRound() {
 	s.lifebar.reset()
 	s.saveStateFlag = false
 	s.loadStateFlag = false
+	s.firstAttack = [3]int32{}
 	s.finish = FT_NotYet
 	s.winTeam = -1
 	s.winType = [...]WinType{WT_N, WT_N}
 	s.winTrigger = [...]WinType{WT_N, WT_N}
 	s.lastHitter = [2]int{-1, -1}
-	s.waitdown = s.lifebar.ro.over_hittime*s.lifebar.ro.over_waittime + 900
+	s.waitdown = s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime + 900
 	s.slowtime = s.lifebar.ro.slow_time
 	s.shuttertime = 0
 	s.fadeintime = s.lifebar.ro.fadein_time
@@ -932,22 +934,27 @@ func (s *System) commandUpdate() {
 	for i, p := range s.chars {
 		if len(p) > 0 {
 			r := p[0]
-			if (r.ctrlOver() && !r.sf(CSF_postroundinput)) || r.sf(CSF_noinput) ||
-				(r.aiLevel() > 0 && !r.alive()) {
-				for j := range r.cmd {
-					r.cmd[j].BufReset()
-				}
-				continue
-			}
 			act := true
 			if s.super > 0 {
 				act = r.superMovetime != 0
 			} else if s.pause > 0 && r.pauseMovetime == 0 {
 				act = false
 			}
+			// Having this here makes B and F inputs reverse the same instant the character turns
 			if act && !r.sf(CSF_noautoturn) &&
-				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20) {
+				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
+			}
+			if !r.sf(CSF_postroundinput) &&
+				s.intro <= -(s.lifebar.ro.over_hittime+s.lifebar.ro.over_waittime) &&
+				s.intro > -(s.lifebar.ro.over_hittime+s.lifebar.ro.over_waittime+s.lifebar.ro.over_wintime) {
+				r.setSF(CSF_noinput)
+			}
+			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
+				for j := range r.cmd {
+					r.cmd[j].BufReset()
+				}
+				continue
 			}
 			for _, c := range p {
 				if (c.helperIndex == 0 ||
@@ -1016,7 +1023,7 @@ func (s *System) charUpdate(cvmin, cvmax,
 		s.charList.tick()
 	}
 }
-func (s *System) posReset() {
+func (s *System) posReset() { // unused after nointroreset update
 	for _, p := range s.chars {
 		if len(p) > 0 {
 			p[0].posReset()
@@ -1092,6 +1099,9 @@ func (s *System) action() {
 		s.charUpdate(&cvmin, &cvmax, &highest, &lowest, &leftest, &rightest)
 	}
 	s.lifebar.step()
+	if s.firstAttack[0] != 0 || s.firstAttack[1] != 0 {
+		s.firstAttack[2] = 1
+	}
 
 	// Action camera
 	leftest -= x
@@ -1115,6 +1125,7 @@ func (s *System) action() {
 					for i, p := range s.chars {
 						if len(p) > 0 {
 							s.playerClear(i, false)
+							p[0].posReset()
 							p[0].selfState(0, -1, -1, 0, "")
 						}
 					}
@@ -1199,7 +1210,13 @@ func (s *System) action() {
 			}
 		} else if s.intro > 0 {
 			if s.intro == s.lifebar.ro.ctrl_time {
-				s.posReset()
+				for _, p := range s.chars {
+					if len(p) > 0 {
+						if !p[0].sf(CSF_nointroreset) {
+							p[0].posReset()
+						}
+					}
+				}
 			}
 			s.intro--
 			if s.intro == 0 {
@@ -1207,9 +1224,8 @@ func (s *System) action() {
 					if len(p) > 0 {
 						p[0].unsetSCF(SCF_over)
 						if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
-							if p[0].ss.no == 0 {
-								p[0].setCtrl(true)
-							} else {
+							p[0].setCtrl(true)
+							if p[0].ss.no != 0 && !p[0].sf(CSF_nointroreset) {
 								p[0].selfState(0, -1, -1, 1, "")
 							}
 						}
@@ -1349,30 +1365,40 @@ func (s *System) action() {
 					}
 				}
 			}
+			if !s.sf(GSF_roundnotover) || s.intro != -(s.lifebar.ro.over_time-s.lifebar.ro.fadeout_time-1) {
+				s.intro--
+			}
 			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
 			if s.tickFrame() && s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, -(s.lifebar.ro.over_hittime +
-					s.lifebar.ro.over_waittime + s.lifebar.ro.over_time -
-					s.lifebar.ro.start_waittime))
+				//	s.intro = Min(s.intro, -(s.lifebar.ro.over_hittime +
+				//		s.lifebar.ro.over_waittime + s.lifebar.ro.over_time -
+				//		s.lifebar.ro.start_waittime))
+				s.intro = Min(s.intro, -(s.lifebar.ro.over_time - s.lifebar.ro.start_waittime))
 				s.winskipped = true
 			}
 			rs4t := -(s.lifebar.ro.over_hittime + s.lifebar.ro.over_waittime)
-			if s.winskipped || !s.sf(GSF_roundnotover) ||
-				s.intro >= rs4t-s.lifebar.ro.over_wintime {
-				s.intro--
-				if s.intro == rs4t-1 {
-					if s.waitdown > 0 {
+			if s.winskipped || s.intro >= rs4t-s.lifebar.ro.over_wintime {
+				if s.waitdown > 0 {
+					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
-							if len(p) > 0 && !p[0].over() {
-								s.intro = rs4t
+							if len(p) > 0 {
+								// Disable ctrl (once) and set "ctrl wait" flag
+								if p[0].scf(SCF_ctrl) && !p[0].scf(SCF_ctrlwait) && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L {
+									p[0].setCtrl(false)
+									p[0].setSCF(SCF_ctrlwait)
+								}
+								// Freeze timer if any character is not ready to proceed yet
+								if !p[0].scf(SCF_ctrlwait) && !p[0].scf(SCF_over) {
+									s.intro = rs4t
+								}
 							}
 						}
 					}
 				}
-				if s.waitdown <= 0 || s.intro < rs4t-s.lifebar.ro.over_wintime {
+				if s.waitdown <= 0 || s.intro <= rs4t-s.lifebar.ro.over_wintime {
 					if s.waitdown >= 0 {
 						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 						if !w[0] || !w[1] ||
@@ -1405,12 +1431,13 @@ func (s *System) action() {
 							}
 							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
 								p[0].setSCF(SCF_over)
+								p[0].unsetSCF(SCF_ctrlwait)
 								if p[0].win() {
-									p[0].selfState(180, -1, -1, 1, "")
+									p[0].selfState(180, -1, -1, -1, "")
 								} else if p[0].lose() {
-									p[0].selfState(170, -1, -1, 1, "")
+									p[0].selfState(170, -1, -1, -1, "")
 								} else {
-									p[0].selfState(175, -1, -1, 1, "")
+									p[0].selfState(175, -1, -1, -1, "")
 								}
 							}
 						}
@@ -1531,7 +1558,8 @@ func (s *System) drawTop() {
 	fade := func(rect [4]int32, color uint32, alpha int32) {
 		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
 	}
-	fadeout := sys.intro + sys.lifebar.ro.over_hittime + sys.lifebar.ro.over_waittime + sys.lifebar.ro.over_time
+	// fadeout := sys.intro + sys.lifebar.ro.over_hittime + sys.lifebar.ro.over_waittime + sys.lifebar.ro.over_time
+	fadeout := sys.intro + sys.lifebar.ro.over_time
 	if fadeout == s.fadeouttime-1 && len(sys.commonLua) > 0 && sys.matchOver() && !s.dialogueFlg {
 		for _, p := range sys.chars {
 			if len(p) > 0 {
@@ -1993,9 +2021,7 @@ func (s *System) fight() (reload bool) {
 					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
 					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
 					tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
-					tmp.RawSetString("firstAttack", lua.LBool(p[0].firstAttack))
 					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-					p[0].firstAttack = false
 				}
 			}
 			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)

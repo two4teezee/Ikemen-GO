@@ -265,6 +265,40 @@ func systemScriptInit(l *lua.LState) {
 						a.palfx.sinadd[2] = s[2]
 						a.palfx.cycletime = s[3]
 					}
+				case "sinmul":
+					var s [4]int32
+					switch v := value.(type) {
+					case *lua.LTable:
+						v.ForEach(func(key2, value2 lua.LValue) {
+							s[int(lua.LVAsNumber(key2))-1] = int32(lua.LVAsNumber(value2))
+						})
+					}
+					if s[3] < 0 {
+						a.palfx.sinmul[0] = -s[0]
+						a.palfx.sinmul[1] = -s[1]
+						a.palfx.sinmul[2] = -s[2]
+						a.palfx.cycletimeMul = -s[3]
+					} else {
+						a.palfx.sinmul[0] = s[0]
+						a.palfx.sinmul[1] = s[1]
+						a.palfx.sinmul[2] = s[2]
+						a.palfx.cycletimeMul = s[3]
+					}
+				case "sincolor":
+					var s [2]int32
+					switch v := value.(type) {
+					case *lua.LTable:
+						v.ForEach(func(key2, value2 lua.LValue) {
+							s[int(lua.LVAsNumber(key2))-1] = int32(lua.LVAsNumber(value2))
+						})
+					}
+					if s[1] < 0 {
+						a.palfx.sincolor = (-s[0] / 256)
+						a.palfx.cycletimeColor = -s[1]
+					} else {
+						a.palfx.sincolor = (s[0] / 256)
+						a.palfx.cycletimeColor = s[1]
+					}
 				case "invertall":
 					a.palfx.invertall = lua.LVAsNumber(value) == 1
 				case "color":
@@ -1078,6 +1112,7 @@ func systemScriptInit(l *lua.LState) {
 				sys.cam.CameraZoomYBound = 0
 				sys.consoleText = []string{}
 				sys.stageLoopNo = 0
+				sys.paused = false
 				return 2
 			}
 		}
@@ -2696,6 +2731,17 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
+	luaRegister(l, "helperindex", func(*lua.LState) int {
+		ret, id := false, int32(0)
+		if l.GetTop() >= 1 {
+			id = int32(numArg(l, 1))
+		}
+		if c := sys.debugWC.helperByIndex(id); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
 	// vanilla triggers
 	luaRegister(l, "ailevel", func(*lua.LState) int {
 		if !sys.debugWC.sf(CSF_noailevel) {
@@ -3028,6 +3074,21 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.debugWC.drawgame()))
 		return 1
 	})
+	luaRegister(l, "envshakevar", func(*lua.LState) int {
+		var ln lua.LNumber
+		switch strArg(l, 1) {
+		case "time":
+			ln = lua.LNumber(sys.envShake.time)
+		case "freq":
+			ln = lua.LNumber(sys.envShake.freq / float32(math.Pi) * 180)
+		case "ampl":
+			ln = lua.LNumber(sys.envShake.ampl)
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		l.Push(ln)
+		return 1
+	})
 	luaRegister(l, "facing", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.facing))
 		return 1
@@ -3166,6 +3227,8 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.ghv.hitpower)
 		case "guardpower":
 			ln = lua.LNumber(c.ghv.guardpower)
+		case "kill":
+			ln = lua.LNumber(Btoi(c.ghv.kill))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -3854,7 +3917,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "firstattack", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.firstAttack[sys.debugWC.teamside] == sys.debugWC.id))
+		l.Push(lua.LBool(sys.firstAttack[sys.debugWC.teamside] == sys.debugWC.playerNo))
 		return 1
 	})
 	luaRegister(l, "framespercount", func(l *lua.LState) int {

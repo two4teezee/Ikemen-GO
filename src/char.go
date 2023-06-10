@@ -18,7 +18,7 @@ const (
 	SCF_ctrl
 	SCF_standby
 	SCF_guard
-	SCF_ctrlwait
+	SCF_inputwait
 	SCF_over
 	SCF_ko_round_middle
 	SCF_dizzy
@@ -751,6 +751,7 @@ type GetHitVar struct {
 	hitredlife     int32
 	guardredlife   int32
 	fatal          bool
+	kill           bool
 }
 
 func (ghv *GetHitVar) clear() {
@@ -980,42 +981,43 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool) {
 }
 
 type Explod struct {
-	id             int32
-	bindtime       int32
-	scale          [2]float32
-	time           int32
-	removeongethit bool
-	removetime     int32
-	velocity       [2]float32
-	accel          [2]float32
-	sprpriority    int32
-	postype        PosType
-	space          Space
-	offset         [2]float32
-	relativef      int32
-	pos            [2]float32
-	facing         float32
-	vfacing        float32
-	shadow         [3]int32
-	supermovetime  int32
-	pausemovetime  int32
-	anim           *Animation
-	ontop          bool
-	under          bool
-	alpha          [2]int32
-	ownpal         bool
-	playerId       int32
-	bindId         int32
-	ignorehitpause bool
-	rot            Rotation
-	projection     Projection
-	fLength        float32
-	oldPos         [2]float32
-	newPos         [2]float32
-	palfx          *PalFX
-	palfxdef       PalFXDef
-	window         [4]float32
-	localscl       float32
+	id                  int32
+	bindtime            int32
+	scale               [2]float32
+	time                int32
+	removeongethit      bool
+	removeonchangestate bool
+	removetime          int32
+	velocity            [2]float32
+	accel               [2]float32
+	sprpriority         int32
+	postype             PosType
+	space               Space
+	offset              [2]float32
+	relativef           int32
+	pos                 [2]float32
+	facing              float32
+	vfacing             float32
+	shadow              [3]int32
+	supermovetime       int32
+	pausemovetime       int32
+	anim                *Animation
+	ontop               bool
+	under               bool
+	alpha               [2]int32
+	ownpal              bool
+	playerId            int32
+	bindId              int32
+	ignorehitpause      bool
+	rot                 Rotation
+	projection          Projection
+	fLength             float32
+	oldPos              [2]float32
+	newPos              [2]float32
+	palfx               *PalFX
+	palfxdef            PalFXDef
+	window              [4]float32
+	localscl            float32
 }
 
 func (e *Explod) clear() {
@@ -1037,6 +1039,7 @@ func (e *Explod) setPos(c *Char) {
 		e.offset[0] *= c.facing
 		e.setX(c.pos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl + e.offset[0])
 		e.setY(c.pos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl + e.offset[1])
+		// This seems to have been a temporary fix. Mugen doesn't do this
 		//if e.bindtime == 0 {
 		//	e.bindtime = 1
 		//}
@@ -1044,17 +1047,17 @@ func (e *Explod) setPos(c *Char) {
 	lPos := func() {
 		e.setX(sys.cam.ScreenPos[0]/e.localscl + e.offset[0]/sys.cam.Scale)
 		e.setY(sys.cam.ScreenPos[1]/e.localscl + e.offset[1]/sys.cam.Scale)
-		//if e.bindtime == 0 {
-		//	e.bindtime = 1
-		//}
+		if e.bindtime == 0 {
+			e.bindtime = 1
+		}
 	}
 	rPos := func() {
 		e.setX(sys.cam.ScreenPos[0]/e.localscl +
 			(float32(sys.gameWidth)/e.localscl + e.offset[0]/sys.cam.Scale))
 		e.setY(sys.cam.ScreenPos[1]/e.localscl + e.offset[1]/sys.cam.Scale)
-		//if e.bindtime == 0 {
-		//	e.bindtime = 1
-		//}
+		if e.bindtime == 0 {
+			e.bindtime = 1
+		}
 	}
 	if e.space == Space_stage && e.bindId >= -1 {
 		e.postype = PT_N
@@ -1071,6 +1074,7 @@ func (e *Explod) setPos(c *Char) {
 		case PT_F, PT_B:
 			e.facing = c.facing * float32(e.relativef)
 			// front と back はバインドの都合で left か right になおす
+			// "Due to binding constraints, adjust the front and back to either left or right."
 			if c.facing > 0 && e.postype == PT_F || c.facing < 0 && e.postype == PT_B {
 				if e.postype == PT_B {
 					e.offset[0] *= -1
@@ -1079,9 +1083,12 @@ func (e *Explod) setPos(c *Char) {
 				rPos()
 			} else {
 				// explod の postype = front はキャラの向きで pos が反転しない
+				// "The postype "front" of "explod" does not invert the pos based on the character's orientation"
 				//if e.postype == PT_F && c.gi().ver[0] != 1 {
 				// 旧バージョンだと front は キャラの向きが facing に反映されない
 				// 1.1でも反映されてない模様
+				// "In the previous version, "front" does not reflect the character's orientation in facing."
+				// "It appears that it is still not reflected even in version 1.1."
 				e.facing = float32(e.relativef)
 				//}
 				e.postype = PT_L
@@ -1131,6 +1138,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	if !e.ignorehitpause || e.removeongethit {
 		c = sys.playerID(e.playerId)
 	}
+	// Remove on get hit
 	if sys.tickNextFrame() &&
 		c != nil && e.removeongethit && c.sf(CSF_gethit) {
 		e.id, e.anim = IErr, nil
@@ -2682,6 +2690,15 @@ func (c *Char) helper(id int32) *Char {
 	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper: %v", id))
 	return nil
 }
+func (c *Char) helperByIndex(id int32) *Char {
+	for j, h := range sys.chars[c.playerNo][1:] {
+		if !h.sf(CSF_destroy) && ((id - 1) == int32(j)) {
+			return h
+		}
+	}
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", id))
+	return nil
+}
 func (c *Char) target(id int32) *Char {
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {
@@ -3131,8 +3148,7 @@ func (c *Char) roundState() int32 {
 		return 1
 	case sys.intro >= 0 || sys.finish == FT_NotYet:
 		return 2
-	case sys.intro < -(sys.lifebar.ro.over_hittime +
-		sys.lifebar.ro.over_waittime):
+	case sys.intro < -sys.lifebar.ro.over_waittime:
 		return 4
 	default:
 		return 3
@@ -3377,6 +3393,14 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	}
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
+	}
+	// Remove relevant explods
+	for i := range sys.explods[c.playerNo] {
+		e := sys.explods[c.playerNo]
+		if e[i].playerId == c.id && e[i].removeonchangestate {
+			e[i].id = IErr
+			e[i].anim = nil
+		}
 	}
 	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
 		for c.stchtmp && sys.changeStateNest < 2500 {
@@ -4257,6 +4281,7 @@ func (c *Char) targetLifeAdd(tar []int32, add int32, kill, absolute, dizzy, redl
 					t.dizzyPointsAdd(dmg*float64(c.gi().constants["default.lifetodizzypointsmul"]), true)
 				}
 			}
+			t.ghv.kill = kill
 		}
 	}
 }
@@ -4406,6 +4431,7 @@ func (c *Char) lifeAdd(add float64, kill, absolute bool) {
 			c.fakeComboDmg -= int32(add)
 		}
 		c.lifeSet(c.life + int32(add))
+		c.ghv.kill = kill
 	}
 }
 func (c *Char) lifeSet(life int32) {
@@ -4596,14 +4622,12 @@ func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 	}
 }
 func (c *Char) hitVelSetX() {
-	if c.ss.moveType == MT_H {
-		c.setXV(c.ghv.xvel)
-	}
+	// Movetype H is not required in Mugen
+	c.setXV(c.ghv.xvel)
 }
 func (c *Char) hitVelSetY() {
-	if c.ss.moveType == MT_H {
-		c.setYV(c.ghv.yvel)
-	}
+	// Movetype H is not required in Mugen
+	c.setYV(c.ghv.yvel)
 }
 func (c *Char) getEdge(base float32, actually bool) float32 {
 	if !actually || c.stCgi().ver[0] != 1 {
@@ -5532,7 +5556,7 @@ func (c *Char) actionPrepare() {
 		if !c.hitPause() {
 			if !sys.roundEnd() {
 				if c.alive() && c.life > 0 {
-					c.unsetSCF(SCF_over | SCF_ctrlwait | SCF_ko_round_middle)
+					c.unsetSCF(SCF_over | SCF_ko_round_middle)
 				}
 				if c.ss.no == 5150 || c.scf(SCF_over) {
 					c.setSCF(SCF_ko_round_middle)
@@ -5596,23 +5620,27 @@ func (c *Char) actionRun() {
 	if c.minus != 2 || c.sf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
+	// Run state -4
 	c.minus = -4
 	if sb, ok := c.gi().states[-4]; ok {
 		sb.run(c)
 	}
 	if !c.pauseBool {
+		// Run state -3
 		c.minus = -3
 		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[2]) {
 			if sb, ok := c.gi().states[-3]; ok {
 				sb.run(c)
 			}
 		}
+		// Run state -2
 		c.minus = -2
 		if c.player || c.keyctrl[1] {
 			if sb, ok := c.gi().states[-2]; ok {
 				sb.run(c)
 			}
 		}
+		// Run state -1
 		c.minus = -1
 		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[0]) {
 			if sb, ok := c.gi().states[-1]; ok {
@@ -5620,6 +5648,7 @@ func (c *Char) actionRun() {
 			}
 		}
 		c.stateChange2()
+		// Run current state
 		c.minus = 0
 		c.ss.sb.run(c)
 	}
@@ -5650,6 +5679,7 @@ func (c *Char) actionRun() {
 		}
 	}
 	c.unsetSF(CSF_nostandguard | CSF_nocrouchguard | CSF_noairguard)
+	// Run state +1
 	if sb, ok := c.gi().states[-10]; ok { // still minus 0
 		sb.run(c)
 	}
@@ -5782,6 +5812,12 @@ func (c *Char) update(cvmin, cvmax,
 			}
 		}
 		if c.ss.moveType == MT_H {
+			// Set opposing team's First Attack flag
+			if c.teamside != -1 && sys.firstAttack[1-c.teamside] < 0 && sys.firstAttack[2] == 0 {
+				if c.ghv.guarded == false && c.ghv.playerNo >= 0 {
+					sys.firstAttack[1-c.teamside] = c.ghv.playerNo
+				}
+			}
 			if sys.super <= 0 && sys.pause <= 0 {
 				c.superMovetime, c.pauseMovetime = 0, 0
 			}
@@ -6658,12 +6694,13 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 				getter.stchtmp = false
 			}
 			getter.setSF(CSF_gethit)
-			live, kill := getter.life > 0, hd.kill
+			live := getter.life > 0
+			getter.ghv.kill = hd.kill
 			if hitType == 2 {
-				kill = hd.guard_kill
+				getter.ghv.kill = hd.guard_kill
 			}
 			getter.ghv.damage += getter.computeDamage(
-				float64(absdamage)*float64(hits), kill, false, attackMul, c, true)
+				float64(absdamage)*float64(hits), getter.ghv.kill, false, attackMul, c, true)
 			getter.ghv.hitdamage += getter.computeDamage(
 				float64(hitdamage)*float64(hits), true, false, attackMul, c, false)
 			getter.ghv.guarddamage += getter.computeDamage(
@@ -6687,12 +6724,10 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					float64(hd.guardredlife)*float64(hits), false, false, attackMul, c, true)
 			}
 			if ghvset && getter.ghv.damage >= getter.life {
-				if kill || !live {
+				if getter.ghv.kill || !live {
 					getter.ghv.fatal = true
 					getter.ghv.fallf = true
-					// if getter.ghv.fall.animtype < RA_Back {
-					// getter.ghv.fall.animtype = RA_Back
-					// }
+					getter.ghv.animtype = getter.gethitAnimtype() // Update to fall anim type
 					if getter.kovelocity && !getter.sf(CSF_nokovelocity) {
 						if getter.ss.stateType == ST_A {
 							if getter.ghv.xvel < 0 {
@@ -6787,10 +6822,6 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 				}
 				if getter.ss.moveType == MT_A {
 					c.counterHit = true
-				}
-				if sys.firstAttack[2] == 0 && sys.firstAttack[c.teamside] == 0 && ghvset &&
-					getter.hoIdx < 0 && getter.helperIndex == 0 && c.teamside != -1 {
-					sys.firstAttack[c.teamside] = c.id
 				}
 				if !math.IsNaN(float64(hd.score[0])) {
 					c.scoreAdd(hd.score[0])
@@ -7197,7 +7228,6 @@ func (cl *CharList) clsn(getter *Char, proj bool) {
 					}
 				}
 			}
-
 			if getter.teamside != c.teamside && getter.sf(CSF_playerpush) && !c.scf(SCF_standby) && !getter.scf(SCF_standby) &&
 				c.sf(CSF_playerpush) && (getter.ss.stateType == ST_A ||
 				getter.pos[1]*getter.localscl-c.pos[1]*c.localscl < getter.height()*c.localscl) &&

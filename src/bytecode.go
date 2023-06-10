@@ -213,6 +213,7 @@ const (
 	OC_enemy
 	OC_enemynear
 	OC_playerid
+	OC_helperindex
 	OC_p2
 	OC_stateowner
 	OC_rdreset
@@ -456,6 +457,7 @@ const (
 	OC_ex_gethitvar_guarddamage
 	OC_ex_gethitvar_hitpower
 	OC_ex_gethitvar_guardpower
+	OC_ex_gethitvar_kill
 	OC_ex_ailevelf
 	OC_ex_animelemlength
 	OC_ex_animlength
@@ -520,6 +522,9 @@ const (
 	OC_ex_bgmlength
 	OC_ex_bgmposition
 	OC_ex_airjumpcount
+	OC_ex_envshakevar_time
+	OC_ex_envshakevar_freq
+	OC_ex_envshakevar_ampl
 )
 const (
 	NumVar     = 60
@@ -1027,6 +1032,13 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_stateowner:
 			if c = sys.chars[c.ss.sb.playerNo][0]; c != nil {
+				i += 4
+				continue
+			}
+			sys.bcStack.Push(BytecodeSF())
+			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+		case OC_helperindex:
+			if c = c.helperByIndex(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -1930,6 +1942,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.ghv.hitpower)
 	case OC_ex_gethitvar_guardpower:
 		sys.bcStack.PushI(c.ghv.guardpower)
+	case OC_ex_gethitvar_kill:
+		sys.bcStack.PushB(c.ghv.kill)
 	case OC_ex_ailevelf:
 		if !c.sf(CSF_noailevel) {
 			sys.bcStack.PushF(c.aiLevel())
@@ -1963,7 +1977,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_fighttime:
 		sys.bcStack.PushI(sys.gameTime)
 	case OC_ex_firstattack:
-		sys.bcStack.PushB(sys.firstAttack[c.teamside] == c.id)
+		sys.bcStack.PushB(sys.firstAttack[c.teamside] == c.playerNo)
 	case OC_ex_framespercount:
 		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex_float:
@@ -2094,6 +2108,12 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
+	case OC_ex_envshakevar_time:
+		sys.bcStack.PushI(sys.envShake.time)
+	case OC_ex_envshakevar_freq:
+		sys.bcStack.PushF(sys.envShake.freq / float32(math.Pi) * 180)
+	case OC_ex_envshakevar_ampl:
+		sys.bcStack.PushF(float32(math.Abs(float64(sys.envShake.ampl / oc.localscl))))
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3355,6 +3375,8 @@ const (
 	palFX_add
 	palFX_mul
 	palFX_sinadd
+	palFX_sinmul
+	palFX_sincolor
 	palFX_invertall
 	palFX_last = iota - 1
 	palFX_redirectid
@@ -3388,6 +3410,30 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef,
 		pfd.sinadd[0] = exp[0].evalI(c) * side
 		pfd.sinadd[1] = exp[1].evalI(c) * side
 		pfd.sinadd[2] = exp[2].evalI(c) * side
+	case palFX_sinmul:
+		var side int32 = 1
+		if len(exp) > 3 {
+			if exp[3].evalI(c) < 0 {
+				pfd.cycletimeMul = -exp[3].evalI(c)
+				side = -1
+			} else {
+				pfd.cycletimeMul = exp[3].evalI(c)
+			}
+		}
+		pfd.sinmul[0] = exp[0].evalI(c) * side
+		pfd.sinmul[1] = exp[1].evalI(c) * side
+		pfd.sinmul[2] = exp[2].evalI(c) * side
+	case palFX_sincolor:
+		var side int32 = 1
+		if len(exp) > 1 {
+			if exp[1].evalI(c) < 0 {
+				pfd.cycletimeColor = -exp[1].evalI(c)
+				side = -1
+			} else {
+				pfd.cycletimeColor = exp[1].evalI(c)
+			}
+		}
+		pfd.sincolor = (exp[0].evalI(c) / 256) * side
 	case palFX_invertall:
 		pfd.invertall = exp[0].evalB(c)
 	default:
@@ -3471,6 +3517,7 @@ const (
 	explod_under
 	explod_shadow
 	explod_removeongethit
+	explod_removeonchangestate
 	explod_trans
 	explod_anim
 	explod_angle
@@ -3615,6 +3662,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_removeongethit:
 			e.removeongethit = exp[0].evalB(c)
+		case explod_removeonchangestate:
+			e.removeonchangestate = exp[0].evalB(c)
 		case explod_trans:
 			e.alpha[0] = exp[0].evalI(c)
 			e.alpha[1] = exp[1].evalI(c)
@@ -3745,6 +3794,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				eachExpl(func(e *Explod) {
 					e.postype = pt
 					e.setPos(c)
+					e.relativef = 1 // In Mugen facing is updated by default
 				})
 			case explod_space:
 				if c.stCgi().ikemenver[0] > 0 || c.stCgi().ikemenver[1] > 0 {
@@ -3833,6 +3883,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			case explod_removeongethit:
 				t := exp[0].evalB(c)
 				eachExpl(func(e *Explod) { e.removeongethit = t })
+			case explod_removeonchangestate:
+				t := exp[0].evalB(c)
+				eachExpl(func(e *Explod) { e.removeonchangestate = t })
 			case explod_trans:
 				s, d := exp[0].evalI(c), exp[1].evalI(c)
 				if len(exp) >= 3 {
@@ -4505,6 +4558,8 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	//winmugenでHitdefのattrが投げ属性で自分側pausetimeが1以上の時、毎フレーム実行されなくなる
+	//"In Winmugen, when the attr of Hitdef is set to 'Throw' and the pausetime
+	// on the attacker's side is greater than 1, it no longer executes every frame."
 	if crun.hitdef.attr&int32(AT_AT) != 0 && crun.moveContact() == 1 &&
 		c.gi().ver[0] != 1 && crun.hitdef.pausetime > 0 {
 		crun.hitdef.attr = 0
@@ -7749,6 +7804,8 @@ const (
 	modifyBGCtrl_add
 	modifyBGCtrl_mul
 	modifyBGCtrl_sinadd
+	modifyBGCtrl_sinmul
+	modifyBGCtrl_sincolor
 	modifyBGCtrl_invertall
 	modifyBGCtrl_color
 	modifyBGCtrl_redirectid
@@ -7760,7 +7817,7 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 	t, v := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}
 	x, y := float32(math.NaN()), float32(math.NaN())
 	src, dst := [2]int32{IErr, IErr}, [2]int32{IErr, IErr}
-	add, mul, sinadd := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}, [4]int32{IErr, IErr, IErr, IErr}
+	add, mul, sinadd, sinmul, sincolor := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}, [4]int32{IErr, IErr, IErr, IErr}, [4]int32{IErr, IErr, IErr, IErr}, [2]int32{IErr, IErr}
 	invall, color := IErr, float32(math.NaN())
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -7823,6 +7880,22 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 					}
 				}
 			}
+		case modifyBGCtrl_sinmul:
+			sinmul[0] = exp[0].evalI(c)
+			if len(exp) > 1 {
+				sinmul[1] = exp[1].evalI(c)
+				if len(exp) > 2 {
+					sinmul[2] = exp[2].evalI(c)
+					if len(exp) > 3 {
+						sinmul[3] = exp[3].evalI(c)
+					}
+				}
+			}
+		case modifyBGCtrl_sincolor:
+			sincolor[0] = exp[0].evalI(c)
+			if len(exp) > 1 {
+				sincolor[1] = exp[1].evalI(c)
+			}
 		case modifyBGCtrl_invertall:
 			invall = exp[0].evalI(c)
 		case modifyBGCtrl_color:
@@ -7836,7 +7909,7 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	sys.stage.modifyBGCtrl(cid, t, v, x, y, src, dst, add, mul, sinadd, invall, color)
+	sys.stage.modifyBGCtrl(cid, t, v, x, y, src, dst, add, mul, sinadd, sinmul, sincolor, invall, color)
 	return false
 }
 
@@ -8357,7 +8430,7 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 	})
 	sys.stage.reload = true // Stage will have to be reloaded if it's re-selected
 	sys.cam.stageCamera = s.stageCamera
-	sys.cam.Init()
+	sys.cam.Reset()
 	return false
 }
 

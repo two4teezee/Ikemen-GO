@@ -174,17 +174,18 @@ func newCompiler() *Compiler {
 
 var triggerMap = map[string]int{
 	// redirections
-	"player":     0,
-	"parent":     0,
-	"root":       0,
-	"helper":     0,
-	"target":     0,
-	"partner":    0,
-	"enemy":      0,
-	"enemynear":  0,
-	"playerid":   0,
-	"p2":         0,
-	"stateowner": 0,
+	"player":      0,
+	"parent":      0,
+	"root":        0,
+	"helper":      0,
+	"target":      0,
+	"partner":     0,
+	"enemy":       0,
+	"enemynear":   0,
+	"playerid":    0,
+	"p2":          0,
+	"stateowner":  0,
+	"helperindex": 0,
 	// mugen triggers
 	"abs":               1,
 	"acos":              1,
@@ -335,6 +336,7 @@ var triggerMap = map[string]int{
 	"dizzypoints":      1,
 	"dizzypointsmax":   1,
 	"drawpalno":        1,
+	"envshakevar":      1,
 	"fighttime":        1,
 	"firstattack":      1,
 	"float":            1,
@@ -1164,7 +1166,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "":
 		return bvNone(), Error("Nothing assigned")
 	case "root", "player", "parent", "helper", "target", "partner",
-		"enemy", "enemynear", "playerid", "p2", "stateowner":
+		"enemy", "enemynear", "playerid", "p2", "stateowner", "helperindex":
 		switch c.token {
 		case "parent":
 			opc = OC_parent
@@ -1194,6 +1196,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				opc = OC_enemynear
 			case "playerid":
 				opc = OC_playerid
+			case "helperindex":
+				opc = OC_helperindex
 			}
 			c.token = c.tokenizer(in)
 			if c.token == "(" {
@@ -1810,6 +1814,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				out.append(OC_ex_gethitvar_hitpower)
 			case "guardpower":
 				out.append(OC_ex_gethitvar_guardpower)
+			case "kill":
+				out.append(OC_ex_gethitvar_kill)
 			default:
 				return bvNone(), Error("Invalid data: " + c.token)
 			}
@@ -2578,6 +2584,25 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_dizzypoints)
 	case "dizzypointsmax":
 		out.append(OC_ex_, OC_ex_dizzypointsmax)
+	case "envshakevar":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		out.append(OC_ex_)
+		switch c.token {
+		case "time":
+			out.append(OC_ex_envshakevar_time)
+		case "freq":
+			out.append(OC_ex_envshakevar_freq)
+		case "ampl":
+			out.append(OC_ex_envshakevar_ampl)
+		default:
+			return bvNone(), Error("Invalid data: " + c.token)
+		}
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
 	case "fighttime":
 		out.append(OC_ex_, OC_ex_fighttime)
 	case "firstattack":

@@ -143,7 +143,7 @@ type backGround struct {
 }
 
 func newBackGround(sff *Sff) *backGround {
-	return &backGround{palfx: newPalFX(), anim: *newAnimation(sff), delta: [...]float32{1, 1}, zoomdelta: [...]float32{1, math.MaxFloat32},
+	return &backGround{palfx: newPalFX(), anim: *newAnimation(sff, &sff.palList), delta: [...]float32{1, 1}, zoomdelta: [...]float32{1, math.MaxFloat32},
 		xscale: [...]float32{1, 1}, rasterx: [...]float32{1, 1}, yscalestart: 100, scalestart: [...]float32{1, 1}, xbottomzoomdelta: math.MaxFloat32,
 		zoomscaledelta: [...]float32{math.MaxFloat32, math.MaxFloat32}, actionno: -1, visible: true, active: true, autoresizeparallax: false,
 		startrect: [...]int32{-32768, -32768, 65535, 65535}}
@@ -351,6 +351,7 @@ func (bg *backGround) reset() {
 	bg.bga.sintime = bg.startsint
 	bg.bga.sinlooptime = bg.startsinlt
 	bg.palfx.time = -1
+	bg.palfx.invertblend = -3
 }
 func (bg backGround) draw(pos [2]float32, scl, bgscl, lclscl float32,
 	stgscl [2]float32, shakeY float32, isStage bool) {
@@ -402,7 +403,8 @@ func (bg backGround) draw(pos [2]float32, scl, bgscl, lclscl float32,
 	x := bg.start[0] + bg.xofs - (pos[0]/stgscl[0]+bg.camstartx)*bg.delta[0] +
 		bg.bga.offset[0]
 	zoomybound := sys.cam.CameraZoomYBound * float32(Btoi(isStage))
-	yScrollPos := ((pos[1] - (zoomybound / lclscl)) / stgscl[1]) * bg.delta[1] * bgscl
+	// Hires breaks ydelta scrolling vel, so bgscl was commented from here.
+	yScrollPos := ((pos[1] - (zoomybound / lclscl)) / stgscl[1]) * bg.delta[1] // * bgscl
 	yScrollPos += ((zoomybound / lclscl) / stgscl[1]) * Pow(bg.zoomdelta[1], 1.4) / bgscl
 	y := bg.start[1] - yScrollPos + bg.bga.offset[1]
 	ys2 := bg.scaledelta[1] * (pos[1] - zoomybound) * bg.delta[1] * bgscl
@@ -455,6 +457,7 @@ type bgCtrl struct {
 	sinmul       [4]int32
 	sincolor     [2]int32
 	invall       bool
+	invblend     int32
 	color        float32
 	positionlink bool
 	idx          int
@@ -488,6 +491,7 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 		bgc.sinmul = [4]int32{0, 0, 0, 0}
 		bgc.sincolor = [2]int32{0, 0}
 		bgc.invall = false
+		bgc.invblend = 0
 		bgc.color = 1
 	case "posset":
 		bgc._type = BT_PosSet
@@ -547,6 +551,9 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 		var tmp int32
 		if is.ReadI32("invertall", &tmp) {
 			bgc.invall = tmp != 0
+		}
+		if is.ReadI32("invertblend", &bgc.invblend) {
+			bgc.invblend = bgc.invblend
 		}
 		if is.ReadF32("color", &bgc.color) {
 			bgc.color = bgc.color / 256
@@ -731,7 +738,7 @@ func loadStage(def string, main bool) (*Stage, error) {
 	}
 	s.sff = &Sff{}
 	lines, i := SplitAndTrim(str, "\n"), 0
-	s.at = ReadAnimationTable(s.sff, lines, &i)
+	s.at = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
 	i = 0
 	defmap := make(map[string][]IniSection)
 	for i < len(lines) {
@@ -1113,6 +1120,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 			bgc.bg[i].palfx.sincolor = bgc.sincolor[0] / 256
 			bgc.bg[i].palfx.cycletimeColor = bgc.sincolor[1]
 			bgc.bg[i].palfx.invertall = bgc.invall
+			bgc.bg[i].palfx.invertblend = bgc.invblend
 			bgc.bg[i].palfx.color = bgc.color
 		}
 	case BT_PosSet:
@@ -1252,6 +1260,7 @@ func (s *Stage) action() {
 			b.palfx.eMul = sys.bgPalFX.eMul
 			b.palfx.eColor = sys.bgPalFX.eColor
 			b.palfx.eInvertall = sys.bgPalFX.eInvertall
+			b.palfx.eInvertblend = sys.bgPalFX.eInvertblend
 			b.palfx.eNegType = sys.bgPalFX.eNegType
 		}
 		if b.active && !paused {
@@ -1280,11 +1289,17 @@ func (s *Stage) draw(top bool, x, y, scl float32) {
 	}
 	yofs, pos := sys.envShake.getOffset(), [...]float32{x, y}
 	scl2 := s.localscl * scl
-	if pos[1] <= float32(s.stageCamera.boundlow) && pos[1] < float32(s.stageCamera.boundhigh)-sys.cam.ExtraBoundH {
-		yofs += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
-			sys.cam.ExtraBoundH*scl
-		pos[1] = float32(s.stageCamera.boundhigh) - sys.cam.ExtraBoundH/s.localscl
-	}
+	// This code makes the background scroll faster when surpassing boundhigh with the camera pushed down
+	// through floortension and boundlow. MUGEN 1.1 doesn't look like it does this, so it was commented.
+	// var extraBoundH float32
+	// if sys.cam.zoomout < 1 {
+	// extraBoundH = sys.cam.ExtraBoundH * ((1/scl)-1)/((1/sys.cam.zoomout)-1)
+	// }
+	// if pos[1] <= float32(s.stageCamera.boundlow) && pos[1] < float32(s.stageCamera.boundhigh)-extraBoundH {
+	// yofs += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
+	// extraBoundH*scl
+	// pos[1] = float32(s.stageCamera.boundhigh) - extraBoundH/s.localscl
+	// }
 	if s.stageCamera.verticalfollow > 0 {
 		if yofs < 0 {
 			tmp := (float32(s.stageCamera.boundhigh) - pos[1]) * scl2
@@ -1313,7 +1328,7 @@ func (s *Stage) draw(top bool, x, y, scl float32) {
 			pos[i] = float32(math.Ceil(float64(p - 0.5)))
 		}
 	}
-	yofs3 := (s.stageCamera.drawOffsetY +
+	yofs3 := (float32(s.stageCamera.drawOffsetY)*bgscl +
 		float32(s.stageCamera.localcoord[1]-240)*s.localscl)
 	yofs4 := ((360*float32(s.stageCamera.localcoord[0]) +
 		160*float32(s.stageCamera.localcoord[1])) /
@@ -1342,7 +1357,7 @@ func (s *Stage) reset() {
 }
 
 func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]int32,
-	add, mul [3]int32, sinadd [4]int32, sinmul [4]int32, sincolor [2]int32, invall int32, color float32) {
+	add, mul [3]int32, sinadd [4]int32, sinmul [4]int32, sincolor [2]int32, invall int32, invblend int32, color float32) {
 	for i := range s.bgc {
 		if id == s.bgc[i].sctrlid {
 			if t[0] != IErr {
@@ -1416,9 +1431,11 @@ func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]
 					}
 				}
 			}
-
 			if invall != IErr {
 				s.bgc[i].invall = invall != 0
+			}
+			if invblend != IErr {
+				s.bgc[i].invblend = invblend
 			}
 			if !math.IsNaN(float64(color)) {
 				s.bgc[i].color = color / 256

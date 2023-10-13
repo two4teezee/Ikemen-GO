@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/samhocevar/beep"
-	"github.com/samhocevar/beep/speaker"
+	"github.com/ikemen-engine/beep"
+	"github.com/ikemen-engine/beep/speaker"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -243,6 +243,7 @@ type System struct {
 	shuttertime             int32
 	fadeintime              int32
 	fadeouttime             int32
+	wintime                 int32
 	projs                   [MaxSimul*2 + MaxAttachedChar][]Projectile
 	explods                 [MaxSimul*2 + MaxAttachedChar][]Explod
 	explDrawlist            [MaxSimul*2 + MaxAttachedChar][]int
@@ -671,7 +672,7 @@ func (s *System) roundEnd() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
 func (s *System) roundWinTime() bool {
-	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_wintime)
+	return s.wintime < 0
 }
 func (s *System) roundOver() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
@@ -811,6 +812,7 @@ func (s *System) nextRound() {
 	s.shuttertime = 0
 	s.fadeintime = s.lifebar.ro.fadein_time
 	s.fadeouttime = s.lifebar.ro.fadeout_time
+	s.wintime = s.lifebar.ro.over_wintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.time = s.roundTime
@@ -874,7 +876,7 @@ func (s *System) nextRound() {
 				p[0].cmd[j].BufReset()
 			}
 			if s.roundsExisted[i&1] == 0 {
-				s.cgi[i].sff.palList.ResetRemap()
+				s.cgi[i].palettedata.palList.ResetRemap()
 				if s.cgi[i].sff.header.Ver0 == 1 {
 					p[0].remapPal(p[0].getPalfx(),
 						[...]int32{1, 1}, [...]int32{1, s.cgi[i].drawpalno})
@@ -940,14 +942,11 @@ func (s *System) commandUpdate() {
 				act = false
 			}
 			// Having this here makes B and F inputs reverse the same instant the character turns
-			if act && !r.sf(CSF_noautoturn) &&
+			if act && !r.sf(CSF_noautoturn) && (r.scf(SCF_ctrl) || r.roundState() > 2) &&
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}
-			if !r.sf(CSF_postroundinput) && r.scf(SCF_inputwait) {
-				r.setSF(CSF_noinput)
-			}
-			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
+			if r.inputOver() || r.sf(CSF_noinput) {
 				for j := range r.cmd {
 					r.cmd[j].BufReset()
 				}
@@ -1211,19 +1210,18 @@ func (s *System) action() {
 					}
 				}
 			}
-			if !s.sf(GSF_roundnotover) || s.intro != -(s.lifebar.ro.over_waittime+s.lifebar.ro.over_time-s.lifebar.ro.fadeout_time-1) {
-				s.intro--
-			}
+			rs4t := -s.lifebar.ro.over_waittime
+			s.intro--
 			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
 			if s.roundWinTime() && (s.anyButton() && !s.sf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time - s.lifebar.ro.fadeout_time))
+				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
 				s.winskipped = true
 			}
-			rs4t := -s.lifebar.ro.over_waittime
 			if s.winskipped || !s.roundWinTime() {
+				// Check if game can proceed into roundstate 4
 				if s.waitdown > 0 {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
@@ -1233,7 +1231,7 @@ func (s *System) action() {
 									p[0].setSCF(SCF_inputwait)
 								}
 								// Check if this character is ready to procced to roundstate 4
-								if p[0].scf(SCF_over) || (p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I &&
+								if p[0].scf(SCF_over) || p[0].ss.no == 5150 || (p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I &&
 									p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
 									continue
 								}
@@ -1252,7 +1250,12 @@ func (s *System) action() {
 						}
 					}
 				}
-				if s.waitdown <= 0 || s.intro <= rs4t-s.lifebar.ro.over_wintime {
+				// Start running wintime counter only after getting into roundstate 4
+				if s.intro < rs4t && !s.roundWinTime() {
+					s.wintime--
+				}
+				// Set characters into win/lose poses, update win counters
+				if s.waitdown <= 0 || s.roundWinTime() {
 					if s.waitdown >= 0 {
 						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 						if !w[0] || !w[1] ||
@@ -1299,6 +1302,11 @@ func (s *System) action() {
 					s.waitdown = 0
 				}
 				s.waitdown--
+			}
+			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
+			if !s.winskipped && s.sf(GSF_roundnotover) &&
+				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
+				s.intro++
 			}
 		} else if s.intro < 0 {
 			s.intro = 0
@@ -1568,13 +1576,13 @@ func (s *System) drawTop() {
 	fade := func(rect [4]int32, color uint32, alpha int32) {
 		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
 	}
-	fadeout := sys.intro + sys.lifebar.ro.over_waittime + sys.lifebar.ro.over_time
-	if fadeout == s.fadeouttime-1 && len(sys.commonLua) > 0 && sys.matchOver() && !s.dialogueFlg {
-		for _, p := range sys.chars {
+	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
+	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.commonLua) > 0 && s.matchOver() && !s.dialogueFlg {
+		for _, p := range s.chars {
 			if len(p) > 0 {
 				if len(p[0].dialogue) > 0 {
-					sys.lifebar.ro.cur = 3
-					sys.dialogueFlg = true
+					s.lifebar.ro.cur = 3
+					s.dialogueFlg = true
 					break
 				}
 			}
@@ -1582,10 +1590,14 @@ func (s *System) drawTop() {
 	}
 	if s.fadeintime > 0 {
 		fade(s.scrrect, s.lifebar.ro.fadein_col, 256*s.fadeintime/s.lifebar.ro.fadein_time)
-		s.fadeintime--
-	} else if s.fadeouttime > 0 && fadeout < s.fadeouttime-1 && !s.dialogueFlg {
+		if s.tickFrame() {
+			s.fadeintime--
+		}
+	} else if s.fadeouttime > 0 && fadeout < s.lifebar.ro.fadeout_time-1 && !s.dialogueFlg {
 		fade(s.scrrect, s.lifebar.ro.fadeout_col, 256*(s.lifebar.ro.fadeout_time-s.fadeouttime)/s.lifebar.ro.fadeout_time)
-		s.fadeouttime--
+		if s.tickFrame() {
+			s.fadeouttime--
+		}
 	} else if s.clsnDraw && s.clsnDarken {
 		fade(s.scrrect, 0, 0)
 	}
@@ -1928,7 +1940,7 @@ func (s *System) fight() (reload bool) {
 			} else {
 				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
-			p[0].redLife = 0
+			p[0].redLife = p[0].lifeMax
 			copyVar(i)
 		}
 	}
@@ -2140,7 +2152,11 @@ func (s *System) fight() (reload bool) {
 			}
 			s.draw(dx, dy, dscl)
 		}
-		//Lua code executed before drawing fade, clsns and debug
+		// Render top elements such as fade effects
+		if !s.frameSkip {
+			s.drawTop()
+		}
+		// Lua code is executed after drawing the fade effects, so that the menus are on top of them
 		for _, str := range s.commonLua {
 			if err := s.luaLState.DoString(str); err != nil {
 				s.luaLState.RaiseError(err.Error())
@@ -2148,10 +2164,8 @@ func (s *System) fight() (reload bool) {
 		}
 		// Render debug elements
 		if !s.frameSkip {
-			s.drawTop()
 			s.drawDebug()
 		}
-
 		// Break if finished
 		if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
 			break
@@ -2534,7 +2548,7 @@ func (s *Select) addChar(def string) {
 			return err
 		}
 		lines, i := SplitAndTrim(str, "\n"), 0
-		at := ReadAnimationTable(sff, lines, &i)
+		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
 		for _, v := range s.charAnimPreload {
 			if anim := at.get(v); anim != nil {
 				sc.anims.addAnim(anim, v)
@@ -2662,7 +2676,7 @@ func (s *Select) AddStage(def string) error {
 		sff := newSff()
 		//preload animations
 		i = 0
-		at := ReadAnimationTable(sff, lines, &i)
+		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
 		for _, v := range s.stageAnimPreload {
 			if anim := at.get(v); anim != nil {
 				ss.anims.addAnim(anim, v)
@@ -2799,6 +2813,7 @@ func (l *Loader) loadChar(pn int) int {
 			sys.cgi[pn].sff.sprites = nil
 		}
 		sys.cgi[pn].sff = nil
+		sys.cgi[pn].palettedata = nil
 		if len(sys.chars[pn]) > 0 {
 			p.power = sys.chars[pn][0].power
 			p.guardPoints = sys.chars[pn][0].guardPoints
@@ -2866,6 +2881,7 @@ func (l *Loader) loadAttachedChar(pn int) int {
 	} else {
 		p = newChar(pn, 0)
 		sys.cgi[pn].sff = nil
+		sys.cgi[pn].palettedata = nil
 		if len(sys.chars[pn]) > 0 {
 			p.power = sys.chars[pn][0].power
 			p.guardPoints = sys.chars[pn][0].guardPoints

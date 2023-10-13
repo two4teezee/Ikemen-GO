@@ -44,7 +44,7 @@ jobs:
       buildTime: ${{ env.buildTime }}
       #previousTag: ${{ steps.previousTag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       #- name: Get previous tag
       #  id: previousTag
@@ -92,7 +92,7 @@ jobs:
             target: '10.7'
     runs-on: ${{ matrix.cfg.os }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Setup Golang with cache
         uses: magnetikonline/action-golang-cache@v4
@@ -148,7 +148,7 @@ jobs:
           mkdir deploy
           cp ${{ matrix.cfg.bin }} deploy/
           git clone https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git
-          cp -r data external font Ikemen_GO-Elecbyte-Screenpack/chars Ikemen_GO-Elecbyte-Screenpack/data Ikemen_GO-Elecbyte-Screenpack/font Ikemen_GO-Elecbyte-Screenpack/stages deploy/
+          cp -r data external font Ikemen_GO-Elecbyte-Screenpack/chars Ikemen_GO-Elecbyte-Screenpack/data Ikemen_GO-Elecbyte-Screenpack/font Ikemen_GO-Elecbyte-Screenpack/sound Ikemen_GO-Elecbyte-Screenpack/stages deploy/
           cp License.txt deploy/
           cp Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt deploy/ScreenpackLicense.txt
           echo "Zipping deploy directory"

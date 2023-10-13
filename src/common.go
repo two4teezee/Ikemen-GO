@@ -678,7 +678,7 @@ type AnimLayout struct {
 }
 
 func newAnimLayout(sff *Sff, ln int16) *AnimLayout {
-	return &AnimLayout{anim: *newAnimation(sff), lay: *newLayout(ln), palfx: newPalFX()}
+	return &AnimLayout{anim: *newAnimation(sff, &sff.palList), lay: *newLayout(ln), palfx: newPalFX()}
 }
 func ReadAnimLayout(pre string, is IniSection,
 	sff *Sff, at AnimationTable, ln int16) *AnimLayout {
@@ -762,6 +762,7 @@ func (al *AnimLayout) ReadAnimPalfx(pre string, is IniSection) {
 		}
 	}
 	is.ReadBool(pre+"invertall", &al.palfx.invertall)
+	is.ReadI32(pre+"invertblend", &al.palfx.invertblend)
 	var n float32
 	if is.ReadF32(pre+"color", &n) {
 		al.palfx.color = n / 256

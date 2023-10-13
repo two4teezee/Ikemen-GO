@@ -7,21 +7,21 @@ import (
 	"math"
 	"os"
 
-	"github.com/samhocevar/beep"
-	"github.com/samhocevar/beep/effects"
+	"github.com/ikemen-engine/beep"
+	"github.com/ikemen-engine/beep/effects"
 
-	"github.com/samhocevar/beep/midi"
-	"github.com/samhocevar/beep/mp3"
-	"github.com/samhocevar/beep/speaker"
-	"github.com/samhocevar/beep/vorbis"
-	"github.com/samhocevar/beep/wav"
+	"github.com/ikemen-engine/beep/midi"
+	"github.com/ikemen-engine/beep/mp3"
+	"github.com/ikemen-engine/beep/speaker"
+	"github.com/ikemen-engine/beep/vorbis"
+	"github.com/ikemen-engine/beep/wav"
 )
 
 const (
 	audioOutLen          = 2048
 	audioFrequency       = 48000
 	audioPrecision       = 4
-	audioResampleQuality = 3
+	audioResampleQuality = 1
 	audioSoundFont       = "sound/soundfont.sf2" // default path for MIDI soundfont
 )
 
@@ -238,12 +238,12 @@ func loadSoundFont(filename string) (*midi.SoundFont, error) {
 	return soundfont, nil
 }
 
-func (bgm *Bgm) SetPaused(paused bool) {
-	if bgm.ctrl == nil {
+func (bgm *Bgm) SetPaused(pause bool) {
+	if bgm.ctrl == nil || bgm.ctrl.Paused == pause {
 		return
 	}
 	speaker.Lock()
-	bgm.ctrl.Paused = paused
+	bgm.ctrl.Paused = pause
 	speaker.Unlock()
 }
 
@@ -284,6 +284,18 @@ func readSound(f *os.File, size uint32) (*Sound, error) {
 	s, fmt, err := wav.Decode(bytes.NewReader(wavData))
 	if err != nil {
 		return nil, err
+	}
+	// Check if the file can be fully played
+	var samples [512][2]float64
+	for {
+		sn, _ := s.Stream(samples[:])
+		if sn == 0 {
+			// If sound wasn't able to be fully played, we disable it to avoid engine freezing
+			if s.Position() < s.Len() {
+				return nil, nil
+			}
+			break
+		}
 	}
 	return &Sound{wavData, fmt, s.Len()}, nil
 }
@@ -372,6 +384,10 @@ func LoadSndFiltered(filename string, keepItem func([2]int32) bool, max uint32) 
 						return nil, err
 					}
 				} else {
+					// Sound is corrupted and can't be played, so we export a warning message to the console
+					if tmp == nil {
+						sys.appendToConsole(fmt.Sprintf("WARNING: %v sound %v,%v is corrupted and can't be played, so it was disabled", filename, num[0], num[1]))
+					}
 					s.table[num] = tmp
 					if max > 0 {
 						break
@@ -417,6 +433,8 @@ type SoundEffect struct {
 	ls, p    float32
 	x        *float32
 	priority int32
+	channel  int32
+	loop     int32
 }
 
 func (s *SoundEffect) Stream(samples [][2]float64) (n int, ok bool) {
@@ -468,7 +486,7 @@ func (s *SoundChannel) Play(sound *Sound, loop bool, freqmul float32) {
 		loopCount = -1
 	}
 	looper := beep.Loop(loopCount, s.streamer)
-	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0}
+	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0, channel: -1, loop: int32(loopCount)}
 	srcRate := s.sound.format.SampleRate
 	dstRate := beep.SampleRate(audioFrequency / freqmul)
 	resampler := beep.Resample(audioResampleQuality, srcRate, dstRate, s.sfx)
@@ -503,6 +521,11 @@ func (s *SoundChannel) SetPriority(priority int32) {
 		s.sfx.priority = priority
 	}
 }
+func (s *SoundChannel) SetChannel(channel int32) {
+	if s.ctrl != nil {
+		s.sfx.channel = channel
+	}
+}
 
 // ------------------------------------------------------------------
 // SoundChannels (collection of prioritised sound channels)
@@ -531,18 +554,16 @@ func (s *SoundChannels) count() int32 {
 	return int32(len(s.channels))
 }
 func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundChannel {
-	ch = Min(sys.wavChannels-1, ch)
-	if ch >= 0 {
-		if s.count() > ch && s.channels[ch].IsPlaying() {
-			if (lowpriority && priority <= s.channels[ch].sfx.priority) || priority < s.channels[ch].sfx.priority {
-				return nil
+	if ch >= 0 && ch < sys.wavChannels {
+		for i := s.count() - 1; i >= 0; i-- {
+			if s.channels[i].IsPlaying() && s.channels[i].sfx.channel == ch {
+				if (lowpriority && priority <= s.channels[i].sfx.priority) || priority < s.channels[i].sfx.priority {
+					return nil
+				}
+				s.channels[i].Stop()
+				return &s.channels[i]
 			}
 		}
-		if s.count() < ch+1 {
-			s.SetSize(ch + 1)
-		}
-		s.channels[ch].Stop()
-		return &s.channels[ch]
 	}
 	if s.count() < sys.wavChannels {
 		s.SetSize(sys.wavChannels)
@@ -564,7 +585,12 @@ func (s *SoundChannels) reserveChannel() *SoundChannel {
 }
 func (s *SoundChannels) Get(ch int32) *SoundChannel {
 	if ch >= 0 && ch < s.count() {
-		return &s.channels[ch]
+		for i := range s.channels {
+			if s.channels[i].IsPlaying() && s.channels[i].sfx != nil && s.channels[i].sfx.channel == ch {
+				return &s.channels[i]
+			}
+		}
+		//return &s.channels[ch]
 	}
 	return nil
 }
@@ -606,7 +632,7 @@ func (s *SoundChannels) StopAll() {
 func (s *SoundChannels) Tick() {
 	for i := range s.channels {
 		if s.channels[i].IsPlaying() {
-			if s.channels[i].streamer.Position() >= s.channels[i].sound.length {
+			if s.channels[i].streamer.Position() >= s.channels[i].sound.length && s.channels[i].sfx.loop != -1 {
 				s.channels[i].sound = nil
 			}
 		}

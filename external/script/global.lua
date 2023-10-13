@@ -75,6 +75,7 @@ function kill(p, ...)
 		local n = ...
 		if not n then n = 0 end
 		setLife(n)
+		setRedLife(0)
 		playerid(oldid)
 	end
 end
@@ -96,7 +97,7 @@ function full(p)
 		setPower(powermax())
 		setGuardPoints(guardpointsmax())
 		setDizzyPoints(dizzypointsmax())
-		setRedLife(0)
+		setRedLife(lifemax())
 		removeDizzy()
 		playerid(oldid)
 	end

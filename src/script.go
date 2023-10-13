@@ -301,6 +301,8 @@ func systemScriptInit(l *lua.LState) {
 					}
 				case "invertall":
 					a.palfx.invertall = lua.LVAsNumber(value) == 1
+				case "invertblend":
+					a.palfx.invertblend = int32(lua.LVAsNumber(value))
 				case "color":
 					a.palfx.color = float32(lua.LVAsNumber(value)) / 256
 				default:
@@ -547,13 +549,13 @@ func systemScriptInit(l *lua.LState) {
 				if int(lua.LVAsNumber(key))%2 == 1 {
 					group = int16(lua.LVAsNumber(value))
 				} else {
-					sprite := sys.cgi[pn-1].sff.getOwnPalSprite(group, int16(lua.LVAsNumber(value)))
+					sprite := sys.cgi[pn-1].sff.getOwnPalSprite(group, int16(lua.LVAsNumber(value)), &sys.cgi[pn-1].palettedata.palList)
 					if fspr := sprite; fspr != nil {
 						pfx := sys.chars[pn-1][0].getPalfx()
-						sys.cgi[pn-1].sff.palList.SwapPalMap(&pfx.remap)
+						sys.cgi[pn-1].palettedata.palList.SwapPalMap(&pfx.remap)
 						fspr.Pal = nil
-						fspr.Pal = fspr.GetPal(&sys.cgi[pn-1].sff.palList)
-						sys.cgi[pn-1].sff.palList.SwapPalMap(&pfx.remap)
+						fspr.Pal = fspr.GetPal(&sys.cgi[pn-1].palettedata.palList)
+						sys.cgi[pn-1].palettedata.palList.SwapPalMap(&pfx.remap)
 						x := (float32(numArg(l, 3)) + sys.lifebarOffsetX) * sys.lifebarScale
 						y := float32(numArg(l, 4)) * sys.lifebarScale
 						scale := [...]float32{float32(numArg(l, 5)), float32(numArg(l, 6))}
@@ -990,6 +992,9 @@ func systemScriptInit(l *lua.LState) {
 					// Match is restarting
 					for i, b := range sys.reloadCharSlot {
 						if b {
+							if s := sys.cgi[i].sff; s != nil {
+								removeSFFCache(s.filename)
+							}
 							sys.chars[i] = []*Char{}
 							b = false
 						}
@@ -3129,8 +3134,6 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(0)
 		case "yveladd":
 			ln = lua.LNumber(0)
-		case "type":
-			ln = lua.LNumber(0)
 		case "zoff":
 			ln = lua.LNumber(0)
 		case "fall.envshake.dir":
@@ -3143,6 +3146,8 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.ghv.groundanimtype)
 		case "fall.animtype":
 			ln = lua.LNumber(c.ghv.fall.animtype)
+		case "type":
+			ln = lua.LNumber(c.ghv._type)
 		case "airtype":
 			ln = lua.LNumber(c.ghv.airtype)
 		case "groundtype":
@@ -4159,16 +4164,16 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.sprPriority))
 		return 1
 	})
-	luaRegister(l, "stagebackedge", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.stageBackEdge()))
+	luaRegister(l, "stagebackedgedist", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.stageBackEdgeDist()))
 		return 1
 	})
 	luaRegister(l, "stageconst", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.stage.constants[strArg(l, 1)]))
 		return 1
 	})
-	luaRegister(l, "stagefrontedge", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.stageFrontEdge()))
+	luaRegister(l, "stagefrontedgedist", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.stageFrontEdgeDist()))
 		return 1
 	})
 	luaRegister(l, "stagetime", func(*lua.LState) int {

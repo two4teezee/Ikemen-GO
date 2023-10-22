@@ -259,6 +259,7 @@ type CommandBuffer struct {
 	ab, bb, cb, xb, yb, zb, sb, db, wb, mb int32
 	B, D, F, U                             int8
 	a, b, c, x, y, z, s, d, w, m           int8
+	Boff, Doff, Foff, Uoff                      bool
 }
 
 func NewCommandBuffer() (c *CommandBuffer) {
@@ -271,22 +272,118 @@ func (__ *CommandBuffer) Reset() {
 		a: -1, b: -1, c: -1, x: -1, y: -1, z: -1, s: -1, d: -1, w: -1, m: -1}
 }
 func (__ *CommandBuffer) Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m bool) {
-	if (B && !F) != (__.B > 0) {
+
+	// SOCD for back and forward
+	if B && F {
+		switch sys.inputSOCDresolution {
+		// Type 0 - Allow both directions (no resolution)
+		case 0:
+			__.Boff = false
+			__.Foff = false
+		// Type 1 - Last direction priority
+		case 1:
+			if __.Boff == false && __.Foff == false {
+				// if F was held before B, disable F
+				if (__.F > 0) {
+					__.Boff = false
+					__.Foff = true
+				// else disable B
+				} else {
+					__.Boff = true
+					__.Foff = false
+				}
+			}
+		// Type 2 - Absolute priority (offense over defense)
+		case 2:
+			__.Boff = true
+			__.Foff = false
+		// Type 3 - First direction priority
+		case 3:
+			if __.Boff == false && __.Foff == false {
+				// if F was held before B, disable B
+				if (__.F > 0) {
+					__.Doff = true
+					__.Boff = false
+				// else disable B
+				} else {
+					__.Boff = false
+					__.Foff = true
+				}
+			}
+		// Type 4 - Deny either direction (neutral)
+		case 4:
+			__.Boff = true
+			__.Foff = true
+		}
+	} else {
+		__.Boff = false
+		__.Foff = false
+	}
+
+	// SOCD for down and up
+	if D && U {
+		switch sys.inputSOCDresolution {
+		// Type 0 - Allow both directions (no resolution)
+		case 0:
+			__.Doff = false
+			__.Uoff = false
+		// Type 1 - Last direction priority
+		case 1:
+			if __.Doff == false && __.Uoff == false {
+				// if U was held before D, disable U
+				if (__.U > 0) {
+					__.Doff = false
+					__.Uoff = true
+				// else disable D
+				} else {
+					__.Doff = true
+					__.Uoff = false
+				}
+			}
+		// Type 2 - Absolute priority (offense over defense)
+		case 2:
+			__.Doff = true
+			__.Uoff = false
+		// Type 3 - First direction priority
+		case 3:
+			if __.Doff == false && __.Uoff == false {
+				// if U was held before D, disable D
+				if (__.U > 0) {
+					__.Doff = true
+					__.Uoff = false
+				// else disable D
+				} else {
+					__.Doff = false
+					__.Uoff = true
+				}
+			}
+		// Type 4 - Deny either direction (neutral)
+		case 4:
+			__.Doff = true
+			__.Uoff = true
+		}
+	} else {
+		__.Doff = false
+		__.Uoff = false
+	}
+
+	// Check directions
+	if (B && !__.Boff) != (__.B > 0) {
 		__.Bb = 0
 		__.B *= -1
 	}
 	__.Bb += int32(__.B)
-	if (D && !U) != (__.D > 0) {
+	if (D && !__.Doff) != (__.D > 0) {
 		__.Db = 0
 		__.D *= -1
 	}
 	__.Db += int32(__.D)
-	if (F && !B) != (__.F > 0) {
+	if (F && !__.Foff) != (__.F > 0) {
 		__.Fb = 0
 		__.F *= -1
 	}
 	__.Fb += int32(__.F)
-	if (U && !D) != (__.U > 0) {
+	if (U && !__.Uoff) != (__.U > 0) {
 		__.Ub = 0
 		__.U *= -1
 	}
@@ -991,14 +1088,17 @@ func (ai *AiInput) m() bool {
 
 type cmdElem struct {
 	key                       []CommandKey
-	tametime                  int32
-	slash, greater, direction bool
+	chargetime                int32
+	slash                     bool
+	greater                   bool
+	direction                 bool
 }
 
 func (ce *cmdElem) IsDirection() bool {
 	//ここで~は方向コマンドとして返さない
 	return !ce.slash && len(ce.key) == 1 && ce.key[0] < CK_nBs && (ce.key[0] < CK_nB || ce.key[0] > CK_nUF)
 }
+
 func (ce *cmdElem) IsDToB(next cmdElem) bool {
 	if next.slash {
 		return false
@@ -1032,22 +1132,28 @@ type Command struct {
 	hold                [][]CommandKey
 	held                []bool
 	cmd                 []cmdElem
-	cmdi, tamei         int
-	time, cur           int32
+	cmdi, chargei       int
+	time, curtime       int32
 	buftime, curbuftime int32
 }
 
-func newCommand() *Command { return &Command{tamei: -1, time: 1, buftime: 1} }
+func newCommand() *Command {
+	return &Command{chargei: -1, time: 1, buftime: 1}
+}
+
 func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 	c := newCommand()
 	c.name = name
 	cmd := strings.Split(cmdstr, ",")
+	// ce means command element
+	// cestr means command element string
+	// n prefix in buttons means negative (release)
 	for _, cestr := range cmd {
 		if len(c.cmd) > 0 && c.cmd[len(c.cmd)-1].slash {
 			c.hold = append(c.hold, c.cmd[len(c.cmd)-1].key)
-			c.cmd[len(c.cmd)-1] = cmdElem{tametime: 1}
+			c.cmd[len(c.cmd)-1] = cmdElem{chargetime: 1}
 		} else {
-			c.cmd = append(c.cmd, cmdElem{tametime: 1})
+			c.cmd = append(c.cmd, cmdElem{chargetime: 1})
 		}
 		ce := &c.cmd[len(c.cmd)-1]
 		cestr = strings.TrimSpace(cestr)
@@ -1084,7 +1190,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				n = n*10 + int32(r-'0')
 			}
 			if n > 0 {
-				ce.tametime = n
+				ce.chargetime = n
 			}
 		case '/':
 			ce.slash = true
@@ -1092,66 +1198,6 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 		}
 		for len(cestr) > 0 {
 			switch getChar() {
-			case 'B':
-				if tilde {
-					ce.key = append(ce.key, CK_nB)
-				} else {
-					ce.key = append(ce.key, CK_B)
-				}
-				tilde = false
-			case 'D':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nDB)
-					} else {
-						ce.key = append(ce.key, CK_DB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nDF)
-					} else {
-						ce.key = append(ce.key, CK_DF)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_nD)
-					} else {
-						ce.key = append(ce.key, CK_D)
-					}
-				}
-				tilde = false
-			case 'F':
-				if tilde {
-					ce.key = append(ce.key, CK_nF)
-				} else {
-					ce.key = append(ce.key, CK_F)
-				}
-				tilde = false
-			case 'U':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nUB)
-					} else {
-						ce.key = append(ce.key, CK_UB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nUF)
-					} else {
-						ce.key = append(ce.key, CK_UF)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_nU)
-					} else {
-						ce.key = append(ce.key, CK_U)
-					}
-				}
-				tilde = false
 			case 'a':
 				if tilde {
 					ce.key = append(ce.key, kr.na)
@@ -1220,6 +1266,66 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 					ce.key = append(ce.key, kr.nm)
 				} else {
 					ce.key = append(ce.key, kr.m)
+				}
+				tilde = false
+			case 'B':
+				if tilde {
+					ce.key = append(ce.key, CK_nB)
+				} else {
+					ce.key = append(ce.key, CK_B)
+				}
+				tilde = false
+			case 'D':
+				if len(cestr) > 1 && cestr[1] == 'B' {
+					nextChar()
+					if tilde {
+						ce.key = append(ce.key, CK_nDB)
+					} else {
+						ce.key = append(ce.key, CK_DB)
+					}
+				} else if len(cestr) > 1 && cestr[1] == 'F' {
+					nextChar()
+					if tilde {
+						ce.key = append(ce.key, CK_nDF)
+					} else {
+						ce.key = append(ce.key, CK_DF)
+					}
+				} else {
+					if tilde {
+						ce.key = append(ce.key, CK_nD)
+					} else {
+						ce.key = append(ce.key, CK_D)
+					}
+				}
+				tilde = false
+			case 'F':
+				if tilde {
+					ce.key = append(ce.key, CK_nF)
+				} else {
+					ce.key = append(ce.key, CK_F)
+				}
+				tilde = false
+			case 'U':
+				if len(cestr) > 1 && cestr[1] == 'B' {
+					nextChar()
+					if tilde {
+						ce.key = append(ce.key, CK_nUB)
+					} else {
+						ce.key = append(ce.key, CK_UB)
+					}
+				} else if len(cestr) > 1 && cestr[1] == 'F' {
+					nextChar()
+					if tilde {
+						ce.key = append(ce.key, CK_nUF)
+					} else {
+						ce.key = append(ce.key, CK_UF)
+					}
+				} else {
+					if tilde {
+						ce.key = append(ce.key, CK_nU)
+					} else {
+						ce.key = append(ce.key, CK_U)
+					}
 				}
 				tilde = false
 			case '$':
@@ -1291,6 +1397,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 			case '~':
 				tilde = true
 			case '+':
+				// continue to next character
 			default:
 				// error
 			}
@@ -1308,11 +1415,12 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 	return c, nil
 }
 func (c *Command) Clear() {
-	c.cmdi, c.tamei, c.cur, c.curbuftime = 0, -1, 0, 0
+	c.cmdi, c.chargei, c.curtime, c.curbuftime = 0, -1, 0, 0
 	for i := range c.held {
 		c.held[i] = false
 	}
 }
+
 func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]bool) bool {
 	anyHeld, notHeld := false, 0
 	if len(c.hold) > 0 && !ai {
@@ -1391,8 +1499,8 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 		}
 		return true
 	}
-	if c.tamei != c.cmdi {
-		if c.cmd[c.cmdi].tametime > 1 {
+	if c.chargei != c.cmdi {
+		if c.cmd[c.cmdi].chargetime > 1 {
 			for _, k := range c.cmd[c.cmdi].key {
 				ks := cbuf.State(k)
 				if ks > 0 {
@@ -1400,20 +1508,20 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 				}
 				if func() bool {
 					if ai {
-						return Rand(0, c.cmd[c.cmdi].tametime) != 0
+						return Rand(0, c.cmd[c.cmdi].chargetime) != 0
 					}
-					return -ks < c.cmd[c.cmdi].tametime
+					return -ks < c.cmd[c.cmdi].chargetime
 				}() {
 					return anyHeld || c.cmdi > 0
 				}
 			}
-			c.tamei = c.cmdi
+			c.chargei = c.cmdi
 		} else if c.cmdi > 0 && len(c.cmd[c.cmdi-1].key) == 1 &&
 			len(c.cmd[c.cmdi].key) == 1 && c.cmd[c.cmdi-1].key[0] < CK_Bs &&
 			c.cmd[c.cmdi].key[0] < CK_nB && (c.cmd[c.cmdi-1].key[0]-
 			c.cmd[c.cmdi].key[0])&7 == 0 {
 			if cbuf.B < 0 && cbuf.D < 0 && cbuf.F < 0 && cbuf.U < 0 {
-				c.tamei = c.cmdi
+				c.chargei = c.cmdi
 			} else {
 				return fail()
 			}
@@ -1439,7 +1547,9 @@ func (c *Command) bufTest(cbuf *CommandBuffer, ai bool, holdTemp *[CK_Last + 1]b
 	}
 	return true
 }
+
 func (c *Command) Step(cbuf *CommandBuffer, ai, hitpause bool, buftime int32) {
+	// Hitpause boolean might be obsolete here because of input pause character constant
 	if !hitpause && c.curbuftime > 0 {
 		c.curbuftime--
 	}
@@ -1454,20 +1564,20 @@ func (c *Command) Step(cbuf *CommandBuffer, ai, hitpause bool, buftime int32) {
 	}()
 	var holdTemp *[CK_Last + 1]bool
 	if cbuf == nil || !c.bufTest(cbuf, ai, holdTemp) {
-		foo := c.tamei == 0 && c.cmdi == 0
+		foo := c.chargei == 0 && c.cmdi == 0
 		c.Clear()
 		if foo {
-			c.tamei = 0
+			c.chargei = 0
 		}
 		return
 	}
 	if c.cmdi == 1 && c.cmd[0].slash {
-		c.cur = 0
+		c.curtime = 0
 	} else {
-		c.cur++
+		c.curtime++
 	}
 	complete := c.cmdi == len(c.cmd)
-	if !complete && (ai || c.cur <= c.time) {
+	if !complete && (ai || c.curtime <= c.time) {
 		return
 	}
 	c.Clear()

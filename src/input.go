@@ -165,6 +165,7 @@ func JoystickState(joy, button int) bool {
 		var joyName = input.GetJoystickName(joy)
 
 		// Xbox360コントローラーのLRトリガー判定
+		// "Evaluate LR triggers on the Xbox 360 controller"
 		if (axis == 9 || axis == 11) && (strings.Contains(joyName, "XInput") || strings.Contains(joyName, "X360")) {
 			return val > sys.xinputTriggerSensitivity
 		}
@@ -260,6 +261,9 @@ type CommandBuffer struct {
 	B, D, F, U                             int8
 	a, b, c, x, y, z, s, d, w, m           int8
 	Boff, Doff, Foff, Uoff                      bool
+	buttonAssist                                int32
+	apres, bpres, cpres, xpres, ypres, zpres    bool
+	spres, dpres, wpres, mpres                  bool
 }
 
 func NewCommandBuffer() (c *CommandBuffer) {
@@ -272,7 +276,6 @@ func (__ *CommandBuffer) Reset() {
 		a: -1, b: -1, c: -1, x: -1, y: -1, z: -1, s: -1, d: -1, w: -1, m: -1}
 }
 func (__ *CommandBuffer) Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m bool) {
-
 	// SOCD for back and forward
 	if B && F {
 		switch sys.inputSOCDresolution {
@@ -319,7 +322,6 @@ func (__ *CommandBuffer) Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m bool) {
 		__.Boff = false
 		__.Foff = false
 	}
-
 	// SOCD for down and up
 	if D && U {
 		switch sys.inputSOCDresolution {
@@ -366,7 +368,36 @@ func (__ *CommandBuffer) Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m bool) {
 		__.Doff = false
 		__.Uoff = false
 	}
-
+	// Reset button assist checks
+	if __.buttonAssist <= 0 {
+		if __.buttonAssist == 0 {
+			if !a && !b && !c && !x && !y && !z && !s && !d && !w && !m {
+				__.buttonAssist = -1
+			}
+		}
+		__.apres, __.bpres, __.cpres = false, false, false
+		__.xpres, __.ypres, __.zpres = false, false, false
+		__.spres, __.dpres, __.wpres, __.mpres = false, false, false, false
+	}
+	// Handle timer for button assist
+	if __.buttonAssist < 0 {
+		if a || b || c || x || y || z || s || d || w || m {
+			__.buttonAssist = sys.inputButtonAssistWindow
+		}
+	} else if __.buttonAssist > 0 {
+		__.buttonAssist--
+	}
+	// Check buttons pressed during assist window
+	__.apres = (__.apres || a)
+	__.bpres = (__.bpres || b)
+	__.cpres = (__.cpres || c)
+	__.xpres = (__.xpres || x)
+	__.ypres = (__.ypres || y)
+	__.zpres = (__.zpres || z)
+	__.spres = (__.spres || s)
+	__.dpres = (__.dpres || d)
+	__.wpres = (__.wpres || w)
+	__.mpres = (__.mpres || m)
 	// Check directions
 	if (B && !__.Boff) != (__.B > 0) {
 		__.Bb = 0
@@ -388,56 +419,59 @@ func (__ *CommandBuffer) Input(B, D, F, U, a, b, c, x, y, z, s, d, w, m bool) {
 		__.U *= -1
 	}
 	__.Ub += int32(__.U)
-	if a != (__.a > 0) {
-		__.ab = 0
-		__.a *= -1
+	// Check buttons, but only after the button assist time
+	if __.buttonAssist <= 0 {
+		if __.apres != (__.a > 0) {
+			__.ab = 0
+			__.a *= -1
+		}
+		__.ab += int32(__.a)
+		if __.bpres != (__.b > 0) {
+			__.bb = 0
+			__.b *= -1
+		}
+		__.bb += int32(__.b)
+		if __.cpres != (__.c > 0) {
+			__.cb = 0
+			__.c *= -1
+		}
+		__.cb += int32(__.c)
+		if __.xpres != (__.x > 0) {
+			__.xb = 0
+			__.x *= -1
+		}
+		__.xb += int32(__.x)
+		if __.ypres != (__.y > 0) {
+			__.yb = 0
+			__.y *= -1
+		}
+		__.yb += int32(__.y)
+		if __.zpres != (__.z > 0) {
+			__.zb = 0
+			__.z *= -1
+		}
+		__.zb += int32(__.z)
+		if __.spres != (__.s > 0) {
+			__.sb = 0
+			__.s *= -1
+		}
+		__.sb += int32(__.s)
+		if __.dpres != (__.d > 0) {
+			__.db = 0
+			__.d *= -1
+		}
+		__.db += int32(__.d)
+		if __.wpres != (__.w > 0) {
+			__.wb = 0
+			__.w *= -1
+		}
+		__.wb += int32(__.w)
+		if __.mpres != (__.m > 0) {
+			__.mb = 0
+			__.m *= -1
+		}
+		__.mb += int32(__.m)
 	}
-	__.ab += int32(__.a)
-	if b != (__.b > 0) {
-		__.bb = 0
-		__.b *= -1
-	}
-	__.bb += int32(__.b)
-	if c != (__.c > 0) {
-		__.cb = 0
-		__.c *= -1
-	}
-	__.cb += int32(__.c)
-	if x != (__.x > 0) {
-		__.xb = 0
-		__.x *= -1
-	}
-	__.xb += int32(__.x)
-	if y != (__.y > 0) {
-		__.yb = 0
-		__.y *= -1
-	}
-	__.yb += int32(__.y)
-	if z != (__.z > 0) {
-		__.zb = 0
-		__.z *= -1
-	}
-	__.zb += int32(__.z)
-	if s != (__.s > 0) {
-		__.sb = 0
-		__.s *= -1
-	}
-	__.sb += int32(__.s)
-	if d != (__.d > 0) {
-		__.db = 0
-		__.d *= -1
-	}
-	__.db += int32(__.d)
-	if w != (__.w > 0) {
-		__.wb = 0
-		__.w *= -1
-	}
-	__.wb += int32(__.w)
-	if m != (__.m > 0) {
-		__.mb = 0
-		__.m *= -1
-	}
-	__.mb += int32(__.m)
 }
 func (__ *CommandBuffer) InputBits(ib InputBits, f int32) {
 	var B, F bool
@@ -593,6 +627,7 @@ func (__ *CommandBuffer) State2(ck CommandKey) int32 {
 		}
 		return Min(Abs(__.Ub), Abs(__.Bb), Abs(__.Fb))
 	//MUGENだと斜め入力に$を入れても意味がない
+	// "In MUGEN, putting a "$" in a diagonal input does nothing"
 	//case CK_DBs:
 	//	if s := __.State(CK_DBs); s < 0 {
 	//		return s

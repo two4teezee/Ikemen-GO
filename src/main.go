@@ -217,6 +217,7 @@ type configSettings struct {
 	GameWidth                  int32
 	GameHeight                 int32
 	GameFramerate              float32
+	InputButtonAssistWindow    int32
 	InputSOCDResolution        int32
 	IP                         map[string]string
 	LifeMul                    float32
@@ -360,6 +361,7 @@ func setupConfig() configSettings {
 	sys.gameHeight = tmp.GameHeight
 	sys.gameSpeed = tmp.GameFramerate / float32(tmp.Framerate)
 	sys.helperMax = tmp.MaxHelper
+	sys.inputButtonAssistWindow = Clamp(tmp.InputButtonAssistWindow, 0, 60)
 	sys.inputSOCDresolution = Clamp(tmp.InputSOCDResolution, 0, 4)
 	sys.lifeMul = tmp.LifeMul / 100
 	sys.lifeShare = [...]bool{tmp.TeamLifeShare, tmp.TeamLifeShare}

@@ -293,7 +293,8 @@ type System struct {
 	fullscreenHeight      int32
 
 	// Input variables
-	inputSOCDresolution   int32
+	inputButtonAssistWindow    int32
+	inputSOCDresolution        int32
 
 	controllerStickSensitivity float32
 	xinputTriggerSensitivity   float32

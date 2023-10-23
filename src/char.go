@@ -3809,11 +3809,15 @@ func (c *Char) enemyExplodsRemove(en int) {
 	remove(&sys.underexplDrawlist[en], true)
 }
 func (c *Char) getAnim(n int32, ffx string, log bool) (a *Animation) {
-	if n == -2 {
+	if n == -1 {
 		return &Animation{}
 	}
-	if n < 0 {
-		return nil
+	if n < -1 {
+		// MUGEN 1.1 exports a warning message when attempting to change anim to a negative value, then sets
+		// the character animation to "0". Ikemen GO uses "-1" as a no-sprite/invisible anim, so we make
+		// an exception here
+		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (below -1)"))
+		n = 0
 	}
 	if ffx != "" && ffx != "s" {
 		if sys.ffx[ffx] != nil && sys.ffx[ffx].fat != nil {
@@ -5720,6 +5724,10 @@ func (c *Char) actionPrepare() {
 			c.setSF(flagtemp)
 			c.angleScale = [...]float32{1, 1}
 			c.offset = [2]float32{}
+		}
+		//Trans reset during hitpause if ignorehitpause = 0 fix
+		if c.sf(CSF_trans) && c.hitPause() {
+			c.unsetSF(CSF_trans)
 		}
 	}
 	c.dropTargets()

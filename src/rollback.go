@@ -1260,7 +1260,7 @@ func (f *Fight) initChars() {
 			} else {
 				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
-			p[0].redLife = 0
+			p[0].redLife = p[0].lifeMax
 			f.copyVar(i)
 		}
 	}

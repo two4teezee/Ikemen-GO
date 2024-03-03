@@ -218,6 +218,8 @@ type configSettings struct {
 	GameWidth                  int32
 	GameHeight                 int32
 	GameFramerate              float32
+	InputButtonAssistWindow    int32
+	InputSOCDResolution        int32
 	IP                         map[string]string
 	LifeMul                    float32
 	ListenPort                 string
@@ -351,7 +353,7 @@ func setupConfig() configSettings {
 	sys.explodMax = tmp.MaxExplod
 	sys.externalShaderList = tmp.ExternalShaders
 	sys.fontShaderVer = tmp.FontShaderVer
-	// Resoluion stuff
+	// Resolution stuff
 	sys.fullscreen = tmp.Fullscreen
 	sys.fullscreenRefreshRate = tmp.FullscreenRefreshRate
 	sys.fullscreenWidth = tmp.FullscreenWidth
@@ -361,6 +363,8 @@ func setupConfig() configSettings {
 	sys.gameHeight = tmp.GameHeight
 	sys.gameSpeed = tmp.GameFramerate / float32(tmp.Framerate)
 	sys.helperMax = tmp.MaxHelper
+	sys.inputButtonAssistWindow = Clamp(tmp.InputButtonAssistWindow, 0, 60)
+	sys.inputSOCDresolution = Clamp(tmp.InputSOCDResolution, 0, 4)
 	sys.lifeMul = tmp.LifeMul / 100
 	sys.lifeShare = [...]bool{tmp.TeamLifeShare, tmp.TeamLifeShare}
 	sys.listenPort = tmp.ListenPort

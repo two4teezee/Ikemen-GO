@@ -303,6 +303,10 @@ type System struct {
 	fullscreenWidth       int32
 	fullscreenHeight      int32
 
+	// Input variables
+	inputButtonAssistWindow    int32
+	inputSOCDresolution        int32
+
 	controllerStickSensitivity float32
 	xinputTriggerSensitivity   float32
 

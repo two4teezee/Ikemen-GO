@@ -293,6 +293,7 @@ type GameState struct {
 	loopBreak     bool
 	loopContinue  bool
 	brightnessOld int32
+	wintime       int32
 }
 
 func NewGameState() *GameState {
@@ -547,6 +548,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
 	sys.brightnessOld = gs.brightnessOld
+
+	sys.wintime = gs.wintime
 }
 
 func (gs *GameState) SaveState(stateID int) {
@@ -778,6 +781,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue
 	gs.brightnessOld = sys.brightnessOld
+
+	gs.wintime = sys.wintime
 }
 
 func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {

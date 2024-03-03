@@ -954,10 +954,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}
-			if !r.sf(CSF_postroundinput) && r.scf(SCF_inputwait) {
-				r.setSF(CSF_noinput)
-			}
-			if r.inputOver() || r.sf(CSF_noinput) || (r.aiLevel() > 0 && !r.alive()) {
+			if r.inputOver() || r.sf(CSF_noinput) {
 				for j := range r.cmd {
 					r.cmd[j].BufReset()
 				}

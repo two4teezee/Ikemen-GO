@@ -550,6 +550,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			}
 			rs4t := -s.lifebar.ro.over_waittime
 			if s.winskipped || !s.roundWinTime() {
+				// Check if game can proceed into roundstate 4
 				if s.waitdown > 0 {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
@@ -578,7 +579,12 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 						}
 					}
 				}
-				if s.waitdown <= 0 || s.intro <= rs4t-s.lifebar.ro.over_wintime {
+				// Start running wintime counter only after getting into roundstate 4
+				if s.intro < rs4t && !s.roundWinTime() {
+					s.wintime--
+				}
+				// Set characters into win/lose poses, update win counters
+				if s.waitdown <= 0 || s.roundWinTime() {
 					if s.waitdown >= 0 {
 						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 						if !w[0] || !w[1] ||
@@ -625,6 +631,11 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					s.waitdown = 0
 				}
 				s.waitdown--
+			}
+			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
+			if !s.winskipped && s.sf(GSF_roundnotover) &&
+				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
+				s.intro++
 			}
 		} else if s.intro < 0 {
 			s.intro = 0

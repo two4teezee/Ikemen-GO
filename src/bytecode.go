@@ -2487,7 +2487,7 @@ func (sc stateDef) Run(c *Char) {
 				}
 			}
 		case stateDef_anim:
-			c.changeAnim(exp[1].evalI(c), string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
+			c.changeAnimEx(exp[1].evalI(c), c.playerNo, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
 		case stateDef_ctrl:
 			//in mugen fatal blow ignores statedef ctrl
 			if !c.ghv.fatal {
@@ -2961,7 +2961,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			if r != -1 {
 				pn = r
 			}
-			crun.changeAnimEx(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
+			crun.changeAnim(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 			if setelem {
 				crun.setAnimElem(elem)
 			}
@@ -3471,7 +3471,7 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 			}
 		}
 		//Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-		if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 {
+		if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 && crun.stCgi().ikemenver[1] <= 0 {
 			pf.invertblend = -2
 		}
 		sc.runSub(c, &pf.PalFXDef, id, exp)
@@ -3724,7 +3724,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_window:
 			e.window = [4]float32{exp[0].evalF(c) * lclscround, exp[1].evalF(c) * lclscround, exp[2].evalF(c) * lclscround, exp[3].evalF(c) * lclscround}
 		default:
-			if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 {
+			if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 && crun.stCgi().ikemenver[1] <= 0 {
 				e.palfxdef.invertblend = -2
 			}
 			palFX(sc).runSub(c, &e.palfxdef, id, exp)
@@ -4199,7 +4199,7 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		if !doOce {
 			crun.aimg.clear()
 			//Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-			if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 {
+			if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 && crun.stCgi().ikemenver[1] <= 0 {
 				crun.aimg.palfx[0].invertblend = -2
 			}
 			crun.aimg.time = 1
@@ -4640,7 +4640,7 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 			}
 		}
 		//Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-		if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 {
+		if crun.stCgi().ver[0] == 1 && crun.stCgi().ver[1] == 1 && crun.stCgi().ikemenver[0] <= 0 && crun.stCgi().ikemenver[1] <= 0 {
 			crun.hitdef.palfx.invertblend = -2
 		}
 		sc.runSub(c, &crun.hitdef, id, exp)

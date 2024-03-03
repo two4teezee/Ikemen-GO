@@ -1379,6 +1379,7 @@ type Projectile struct {
 	platformHeight  [2]float32
 	platformAngle   float32
 	platformFence   bool
+	remflag         bool
 }
 
 func newProjectile() *Projectile {
@@ -1413,7 +1414,7 @@ func (p *Projectile) paused(playerNo int) bool {
 }
 func (p *Projectile) update(playerNo int) {
 	if sys.tickFrame() && !p.paused(playerNo) && p.hitpause == 0 {
-		rem := true
+		p.remflag = true
 		if p.anim >= 0 {
 			if p.hits < 0 && p.remove {
 				if p.hits == -1 {
@@ -1437,9 +1438,9 @@ func (p *Projectile) update(playerNo int) {
 					p.ani = sys.chars[playerNo][0].getAnim(p.remanim, p.remanim_ffx, true)
 				}
 			} else {
-				rem = false
+				p.remflag = false
 			}
-			if rem {
+			if p.remflag {
 				if p.ani != nil {
 					p.ani.UpdateSprite()
 				}
@@ -1450,13 +1451,13 @@ func (p *Projectile) update(playerNo int) {
 					p.velocity[0] *= -1
 				}
 				p.accel, p.velmul, p.anim = [2]float32{}, [...]float32{1, 1}, -1
-				// In Mugen, projectiles can hit even after their removetime expires
+				// In Mugen, projectiles can hit even after their removetime expires - https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 				//if p.hits >= 0 {
 				//	p.hits = -1
 				//}
 			}
 		}
-		if rem {
+		if p.remflag {
 			if p.ani != nil && (p.ani.totaltime <= 0 || p.ani.AnimTime() == 0) {
 				p.ani = nil
 			}
@@ -2668,10 +2669,21 @@ func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
 		}
 	}
 }
-func (c *Char) changeAnim(animNo int32, ffx string) {
-	c.changeAnimEx(animNo, c.playerNo, ffx, false)
+func (c *Char) changeAnim(animNo int32, playerNo int, ffx string) {
+	if animNo < 0 && animNo != -2 {
+		// MUGEN 1.1 exports a warning message when attempting to change anim to a negative value through ChangeAnim SCTRL,
+		// then sets the character animation to "0". Ikemen GO uses "-2" as a no-sprite/invisible anim, so we make
+		// an exception here
+		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
+		animNo = 0
+	}
+	c.changeAnimEx(animNo, playerNo, ffx, false)
 }
 func (c *Char) changeAnim2(animNo int32, ffx string) {
+	if animNo < 0 && animNo != -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
+		animNo = 0
+	}
 	c.changeAnimEx(animNo, c.ss.sb.playerNo, ffx, true)
 }
 func (c *Char) setAnimElem(e int32) {
@@ -3091,7 +3103,7 @@ func (c *Char) numPartner() int32 {
 func (c *Char) numProj() int32 {
 	n := int32(0)
 	for _, p := range sys.projs[c.playerNo] {
-		if p.id >= 0 && p.hits >= 0 {
+		if p.id >= 0 && !p.remflag {
 			n++
 		}
 	}
@@ -3106,7 +3118,7 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	}
 	var id, n int32 = Max(0, pid.ToI()), 0
 	for _, p := range sys.projs[c.playerNo] {
-		if p.id == id && p.hits >= 0 {
+		if p.id == id && !p.remflag {
 			n++
 		}
 	}
@@ -3390,11 +3402,11 @@ func (c *Char) turn() {
 			switch c.ss.stateType {
 			case ST_S:
 				if c.animNo != 5 {
-					c.changeAnim(5, "")
+					c.changeAnimEx(5, c.playerNo, "", false)
 				}
 			case ST_C:
 				if c.animNo != 6 {
-					c.changeAnim(6, "")
+					c.changeAnimEx(6, c.playerNo, "", false)
 				}
 			}
 			c.setFacing(-c.facing)
@@ -3473,8 +3485,8 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && !c.sf(CSF_noautoturn) {
 		c.turn()
 	}
-	if anim >= 0 {
-		c.changeAnim(anim, ffx)
+	if anim != -1 {
+		c.changeAnim(anim, c.playerNo, ffx)
 	}
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
@@ -3670,7 +3682,7 @@ func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y float32,
 		}
 	}
 	//Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-	if h.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 1 && h.stCgi().ikemenver[0] <= 0 {
+	if h.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 1 && h.stCgi().ikemenver[0] <= 0 && h.stCgi().ikemenver[1] <= 0 {
 		h.palfx.invertblend = -2
 	}
 	h.changeStateEx(st, c.playerNo, 0, 1, "")
@@ -3812,7 +3824,7 @@ func (c *Char) getAnim(n int32, ffx string, log bool) (a *Animation) {
 	if n == -2 {
 		return &Animation{}
 	}
-	if n < 0 {
+	if n == -1 {
 		return nil
 	}
 	if ffx != "" && ffx != "s" {
@@ -4559,6 +4571,10 @@ func (c *Char) lifeSet(life int32) {
 	if c.teamside != c.ghv.playerNo&1 && c.teamside != -1 && c.ghv.playerNo < MaxSimul*2 { //attacker and receiver from opposite teams
 		sys.lastHitter[^c.playerNo&1] = c.ghv.playerNo
 	}
+	// Disable red life. Placing this here makes it never lag behind life
+	if !sys.lifebar.redlifebar {
+		c.redLife = c.life
+	}
 }
 func (c *Char) setPower(pow int32) {
 	if !sys.roundEnd() {
@@ -4794,7 +4810,7 @@ func (c *Char) getPalfx() *PalFX {
 	}
 	c.palfx = newPalFX()
 	//Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-	if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 1 && c.stCgi().ikemenver[0] <= 0 && c.palfx != nil {
+	if c.stCgi().ver[0] == 1 && c.stCgi().ver[1] == 1 && c.stCgi().ikemenver[0] <= 0 && c.stCgi().ikemenver[1] <= 0 && c.palfx != nil {
 		c.palfx.PalFXDef.invertblend = -2
 	}
 	return c.palfx
@@ -5720,6 +5736,10 @@ func (c *Char) actionPrepare() {
 			c.setSF(flagtemp)
 			c.angleScale = [...]float32{1, 1}
 			c.offset = [2]float32{}
+		}
+		//Trans reset during hitpause if ignorehitpause = 0 fix
+		if c.sf(CSF_trans) && c.hitPause() {
+			c.unsetSF(CSF_trans)
 		}
 	}
 	c.dropTargets()

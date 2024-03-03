@@ -537,18 +537,16 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					}
 				}
 			}
-			if !s.sf(GSF_roundnotover) || s.intro != -(s.lifebar.ro.over_waittime+s.lifebar.ro.over_time-s.lifebar.ro.fadeout_time-1) {
-				s.intro--
-			}
+			rs4t := -s.lifebar.ro.over_waittime
+			s.intro--
 			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
 				inclWinCount()
 			}
 			// Check if player skipped win pose time
 			if s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.sf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time - s.lifebar.ro.fadeout_time))
+				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
 				s.winskipped = true
 			}
-			rs4t := -s.lifebar.ro.over_waittime
 			if s.winskipped || !s.roundWinTime() {
 				// Check if game can proceed into roundstate 4
 				if s.waitdown > 0 {
@@ -952,7 +950,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 				act = false
 			}
 			// Having this here makes B and F inputs reverse the same instant the character turns
-			if act && !r.sf(CSF_noautoturn) &&
+			if act && !r.sf(CSF_noautoturn) && (r.scf(SCF_ctrl) || r.roundState() > 2) &&
 				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
 				r.turn()
 			}

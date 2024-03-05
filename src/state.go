@@ -294,6 +294,8 @@ type GameState struct {
 	loopContinue  bool
 	brightnessOld int32
 	wintime       int32
+
+	netTime int32
 }
 
 func NewGameState() *GameState {
@@ -303,6 +305,7 @@ func NewGameState() *GameState {
 }
 
 func (gs *GameState) LoadState(stateID int) {
+	sys.rollback.session.netTime = gs.netTime
 	sys.arenaLoadMap[stateID] = arena.NewArena()
 	a := sys.arenaLoadMap[stateID]
 	gsp := &sys.loadPool
@@ -553,6 +556,8 @@ func (gs *GameState) LoadState(stateID int) {
 }
 
 func (gs *GameState) SaveState(stateID int) {
+	gs.netTime = sys.rollback.session.netTime
+
 	sys.arenaSaveMap[stateID] = arena.NewArena()
 	a := sys.arenaSaveMap[stateID]
 	gsp := &sys.savePool

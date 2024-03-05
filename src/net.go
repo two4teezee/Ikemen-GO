@@ -7,11 +7,13 @@ import (
 	"log"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 	"unsafe"
 
 	ggpo "github.com/assemblaj/ggpo"
+	"golang.org/x/exp/maps"
 )
 
 type RollbackLogger struct {
@@ -77,29 +79,47 @@ type RollbackSession struct {
 	currentPlayerHandle ggpo.PlayerHandle
 	remotePlayerHandle  ggpo.PlayerHandle
 	loopTimer           LoopTimer
-	inputs              [][MaxSimul*2 + MaxAttachedChar]InputBits
+	inputs              map[int][MaxSimul*2 + MaxAttachedChar]InputBits
 	config              RollbackConfig
 	log                 RollbackLogger
 	timestamp           string
 	netTime             int32
+	replayBuffer        [][MaxSimul*2 + MaxAttachedChar]InputBits
+	lastConfirmedInput  [MaxSimul*2 + MaxAttachedChar]InputBits
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
-	for len(rs.inputs) <= int(time) {
-		rs.inputs = append(rs.inputs, [MaxSimul*2 + MaxAttachedChar]InputBits{})
+	if _, ok := rs.inputs[int(time)]; !ok {
+		rs.inputs[int(time)] = [MaxSimul*2 + MaxAttachedChar]InputBits{}
 	}
-	rs.inputs[time][player] = input
+	inputArr := rs.inputs[int(time)]
+	inputArr[player] = input
+	rs.inputs[int(time)] = inputArr
 }
 
 func (rs *RollbackSession) SaveReplay() {
 	if rs.rep != nil {
-		size := len(rs.inputs) * (MaxSimul*2 + MaxAttachedChar) * 4
+		frames := maps.Keys(rs.inputs)
+		sort.Ints(frames)
+		lastFrame := frames[len(frames)-1]
+
+		size := lastFrame * (MaxSimul*2 + MaxAttachedChar) * 4
 		buf := make([]byte, size)
 		offset := 0
-		for i := range rs.inputs {
-			inputBuf := rs.inputToBytes(i)
-			copy(buf[offset:offset+len(inputBuf)], inputBuf)
-			offset += len(inputBuf)
+
+		for i := 0; i < lastFrame; i++ {
+			if _, ok := rs.inputs[i]; ok {
+				inputBuf := rs.inputToBytes(i)
+				copy(buf[offset:offset+len(inputBuf)], inputBuf)
+				offset += len(inputBuf)
+			} else {
+				inputBuf := []byte{}
+				for i := 0; i < MaxSimul*2+MaxAttachedChar; i++ {
+					inputBuf = append(inputBuf, writeI32(int32(0))...)
+				}
+				copy(buf[offset:offset+len(inputBuf)], inputBuf)
+				offset += len(inputBuf)
+			}
 		}
 		rs.rep.Write(buf)
 	}
@@ -235,12 +255,14 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
 	inputs, result := r.backend.SyncInput(&discconectFlags)
+	input := decodeInputs(inputs)
+	if r.rep != nil {
+		r.SetInput(r.netTime, 0, input[0])
+		r.SetInput(r.netTime, 1, input[1])
+		r.netTime++
+	}
+
 	if result == nil {
-		input := decodeInputs(inputs)
-		if r.rep != nil {
-			r.SetInput(sys.gameTime, 0, input[0])
-			r.SetInput(sys.gameTime, 1, input[1])
-		}
 
 		sys.step = false
 		//sys.rollback.runShortcutScripts(&sys)
@@ -352,6 +374,8 @@ func NewRollbackSesesion(config RollbackConfig) RollbackSession {
 	r.loopTimer = NewLoopTimer(60, 100)
 	r.timestamp = time.Now().Format("2006-01-02_03-04PM-05s")
 	r.log = NewRollbackLogger(r.timestamp)
+	r.replayBuffer = make([][9]InputBits, 0)
+	r.inputs = make(map[int][9]InputBits)
 	return r
 
 }
@@ -405,7 +429,7 @@ func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
 	return crc32.ChecksumIEEE(buf)
 }
 func (rs *RollbackSession) Input(time int32, player int) (input InputBits) {
-	inputs := rs.inputs[time]
+	inputs := rs.inputs[int(time)]
 	input = inputs[player]
 	return
 }

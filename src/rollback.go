@@ -93,7 +93,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		rs.session = &session
 		rs.session.InitSyncTest(2)
 	}
-
+	rs.session.netTime = 0
 	rs.currentFight.reset()
 	// Loop until end of match
 	///fin := false
@@ -170,11 +170,13 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 		disconnectFlags := 0
 		values, result = rs.session.backend.SyncInput(&disconnectFlags)
 		inputs := decodeInputs(values)
+		if rs.session.rep != nil {
+			rs.session.SetInput(rs.session.netTime, 0, inputs[0])
+			rs.session.SetInput(rs.session.netTime, 1, inputs[1])
+			rs.session.netTime++
+		}
+
 		if result == nil {
-			if rs.session.rep != nil {
-				rs.session.SetInput(s.gameTime, 0, inputs[0])
-				rs.session.SetInput(s.gameTime, 1, inputs[1])
-			}
 
 			s.step = false
 			//rs.runShortcutScripts(s)

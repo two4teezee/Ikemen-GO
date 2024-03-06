@@ -98,7 +98,7 @@ func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
 }
 
 func (rs *RollbackSession) SaveReplay() {
-	if rs.rep != nil {
+	if rs.rep != nil && len(rs.inputs) > 0 {
 		frames := maps.Keys(rs.inputs)
 		sort.Ints(frames)
 		lastFrame := frames[len(frames)-1]

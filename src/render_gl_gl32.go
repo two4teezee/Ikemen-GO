@@ -318,6 +318,9 @@ type Renderer_GL32 struct {
 	fbo_shadow              uint32
 	fbo_shadow_cube_texture uint32
 	fbo_env                 uint32
+	// Postprocessing FBOs
+	fbo_pp         []uint32
+	fbo_pp_texture []uint32
 	// Post-processing shaders
 	postVertBuffer   uint32
 	postShaderSelect []*ShaderProgram_GL32
@@ -332,9 +335,6 @@ type Renderer_GL32 struct {
 	stageVertexBuffer       uint32
 	stageIndexBuffer        uint32
 	vao                     uint32
-	// Postprocessing
-	fbo_pp         uint32
-	fbo_pp_texture uint32
 
 	enableModel  bool
 	enableShadow bool
@@ -484,19 +484,45 @@ func (r *Renderer_GL32) Init() {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-	// Shaders might use negative values, so
-	// we specify that we want signed pixels
+	
+	// Don't change this from gl.RGBA.
+	// It breaks mixing between subtractive and additive.
 	if sys.multisampleAntialiasing > 0 {
 		gl.TexImage2DMultisample(
 			gl.TEXTURE_2D_MULTISAMPLE,
 			sys.multisampleAntialiasing,
-			gl.RGBA8_SNORM,
+			gl.RGBA,
 			sys.scrrect[2],
 			sys.scrrect[3],
 			true,
 		)
 	} else {
+		gl.TexImage2D(
+			gl.TEXTURE_2D,
+			0,
+			gl.RGBA,
+			sys.scrrect[2],
+			sys.scrrect[3],
+			0,
+			gl.RGBA,
+			gl.UNSIGNED_BYTE,
+			nil,
+		)
+	}
+	
+	r.fbo_pp = make([]uint32, 2)
+	r.fbo_pp_texture = make([]uint32, 2)
+
+	// Shaders might use negative values, so
+	// we specify that we want signed pixels
+	// r.fbo_pp_texture
+	for i := 0; i < 2; i++ {
+		gl.GenTextures(1, &(r.fbo_pp_texture[i]))
+		gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture[i])
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 		gl.TexImage2D(
 			gl.TEXTURE_2D,
 			0,
@@ -509,25 +535,6 @@ func (r *Renderer_GL32) Init() {
 			nil,
 		)
 	}
-
-	// r.fbo_pp_texture
-	gl.GenTextures(1, &r.fbo_pp_texture)
-	gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	gl.TexImage2D(
-		gl.TEXTURE_2D,
-		0,
-		gl.RGBA8_SNORM,
-		sys.scrrect[2],
-		sys.scrrect[3],
-		0,
-		gl.RGBA,
-		gl.UNSIGNED_BYTE,
-		nil,
-	)
 
 	// done with r.fbo_texture, unbind it
 	gl.BindTexture(gl.TEXTURE_2D, 0)
@@ -572,10 +579,12 @@ func (r *Renderer_GL32) Init() {
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 	}
 
-	// create an FBO for our postprocessing needs
-	gl.GenFramebuffers(1, &r.fbo_pp)
-	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp)
-	gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.fbo_pp_texture, 0)
+	// create our two FBOs for our postprocessing needs
+	for i := 0; i < 2; i++ {
+		gl.GenFramebuffers(1, &(r.fbo_pp[i]))
+		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
+		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, r.fbo_pp_texture[i], 0)
+	}
 
 	// create an FBO for our model stuff
 	if r.enableModel {
@@ -653,14 +662,16 @@ func (r *Renderer_GL32) EndFrame() {
 
 	// set the viewport to the unscaled bounds for post-processing
 	gl.Viewport(x, y, width, height)
-	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp) // our postprocessing FBO is the output
-	gl.Clear(gl.COLOR_BUFFER_BIT)                // clear that FBO
-	gl.ActiveTexture(gl.TEXTURE0)                // later referred to by Texture_GL32
+	// clear both of our post-processing FBOs to make sure
+	// nothing's there. the output is set later
+	for i := 0; i < 2; i++ {
+		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
+		gl.Clear(gl.COLOR_BUFFER_BIT)
+	}
+	gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
-	fbo := r.fbo
 	fbo_texture := r.fbo_texture
 	if sys.multisampleAntialiasing > 0 {
-		fbo = r.fbo_f
 		fbo_texture = r.fbo_f_texture.handle
 	}
 
@@ -673,13 +684,20 @@ func (r *Renderer_GL32) EndFrame() {
 		// this is here because it is undefined
 		// behavior to write to the same FBO
 		if i%2 == 0 {
-			// ping!
-			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp) // our post-processing FBO is the output
-			gl.BindTexture(gl.TEXTURE_2D, fbo_texture)   // the previous texture is our input
+			// ping! our first post-processing FBO is the output
+			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[0])
+			if i == 0 {
+				// first pass, use fbo_texture
+				gl.BindTexture(gl.TEXTURE_2D, fbo_texture)
+			} else {
+				// not the first pass, use the second post-processing FBO
+				gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture[1])
+			}
 		} else {
-			// pong!
-			gl.BindFramebuffer(gl.FRAMEBUFFER, fbo) // the reverse
-			gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture)
+			// pong! our second post-processing FBO is the output
+			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[1])
+			// our first post-processing FBO is the input
+			gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture[0])
 		}
 
 		if i >= len(r.postShaderSelect)-1 {

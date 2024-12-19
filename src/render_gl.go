@@ -497,7 +497,7 @@ func (r *Renderer_GL21) Init() {
 			nil,
 		)
 	}
-	
+
 	r.fbo_pp = make([]uint32, 2)
 	r.fbo_pp_texture = make([]uint32, 2)
 

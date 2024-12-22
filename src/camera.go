@@ -80,9 +80,7 @@ const (
 type Camera struct {
 	stageCamera
 	View                            CameraView
-	ZoomEnable, ZoomActive          bool
-	ZoomDelayEnable                 bool
-	ZoomMin, ZoomMax, ZoomSpeed     float32
+	ZoomEnable                      bool
 	zoomdelay                       float32
 	Pos, ScreenPos, Offset          [2]float32
 	XMin, XMax                      float32
@@ -94,10 +92,10 @@ type Camera struct {
 }
 
 func newCamera() *Camera {
-	return &Camera{View: Fighting_View, ZoomMin: 5.0 / 6, ZoomMax: 15.0 / 14, ZoomSpeed: 12}
+	return &Camera{View: Fighting_View}
 }
 func (c *Camera) Reset() {
-	c.ZoomEnable = c.ZoomActive && (c.stageCamera.zoomin != 1 || c.stageCamera.zoomout != 1)
+	c.ZoomEnable = sys.cfg.Config.ZoomActive && (c.stageCamera.zoomin != 1 || c.stageCamera.zoomout != 1)
 	c.boundL = float32(c.boundleft-c.startx)*c.localscl - ((1-c.zoomout)*100*c.zoomout)*(1/c.zoomout)*(1/c.zoomout)*1.6*(float32(sys.gameWidth)/320)
 	c.boundR = float32(c.boundright-c.startx)*c.localscl + ((1-c.zoomout)*100*c.zoomout)*(1/c.zoomout)*(1/c.zoomout)*1.6*(float32(sys.gameWidth)/320)
 	c.halfWidth = float32(sys.gameWidth) / 2

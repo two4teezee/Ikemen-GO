@@ -425,6 +425,7 @@ const (
 	OC_const_stagevar_reflection_color_r
 	OC_const_stagevar_reflection_color_g
 	OC_const_stagevar_reflection_color_b
+	OC_const_gameoption
 	OC_const_constants
 	OC_const_stage_constants
 )
@@ -738,12 +739,6 @@ const (
 	OC_ex2_bgmvar_position
 	OC_ex2_bgmvar_startposition
 	OC_ex2_bgmvar_volume
-	OC_ex2_gameoption_sound_panningrange
-	OC_ex2_gameoption_sound_wavchannels
-	OC_ex2_gameoption_sound_mastervolume
-	OC_ex2_gameoption_sound_wavvolume
-	OC_ex2_gameoption_sound_bgmvolume
-	OC_ex2_gameoption_sound_maxvolume
 	OC_ex2_clsnvar_left
 	OC_ex2_clsnvar_top
 	OC_ex2_clsnvar_right
@@ -1050,6 +1045,13 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 		return false
 	}
 	return true
+}
+
+// Appends multiple int32 operands to the BytecodeExp
+func (be *BytecodeExp) appendI32s(addrs ...int32) {
+    for _, addr := range addrs {
+        be.append((*(*[4]OpCode)(unsafe.Pointer(&addr)))[:]...)
+    }
 }
 
 // Pushes an OpCode with an int32 operand to the top of the BytecodeExp.
@@ -2326,6 +2328,30 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32((sys.stage.reflection.color & 0xFF00) >> 8))
 	case OC_const_stagevar_reflection_color_b:
 		sys.bcStack.PushI(int32(sys.stage.reflection.color & 0xFF))
+	case OC_const_gameoption:
+		value, err := sys.cfg.GetValue(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
+			unsafe.Pointer(&be[*i]))])
+		if err == nil {
+			switch v := value.(type) {
+			case bool:
+				sys.bcStack.PushB(v)
+			case float32:
+				sys.bcStack.PushF(v)
+			case float64:
+				sys.bcStack.PushF(float32(v))
+			case int:
+				sys.bcStack.PushI(int32(v))
+			case int64:
+				sys.bcStack.PushI(int32(v))
+			case int32:
+				sys.bcStack.PushI(v)
+			default:
+				sys.bcStack.PushB(false)
+			}
+		} else {
+			sys.bcStack.PushB(false)
+		}
+		*i += 4
 	case OC_const_constants:
 		sys.bcStack.PushF(c.gi().constants[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 			unsafe.Pointer(&be[*i]))]])
@@ -2398,7 +2424,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_ishometeam:
 		sys.bcStack.PushB(c.teamside == sys.home)
 	case OC_ex_tickspersecond:
-		sys.bcStack.PushI(int32(float32(FPS) * sys.gameSpeed * sys.accel))
+		sys.bcStack.PushI(int32((60 + sys.cfg.Options.GameSpeed * 5) * sys.accel))
 	case OC_ex_const240p:
 		*sys.bcStack.Top() = c.constp(320, sys.bcStack.Top().ToF())
 	case OC_ex_const480p:
@@ -3170,18 +3196,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
-	case OC_ex2_gameoption_sound_bgmvolume:
-		sys.bcStack.PushI(int32(sys.bgmVolume))
-	case OC_ex2_gameoption_sound_mastervolume:
-		sys.bcStack.PushI(int32(sys.masterVolume))
-	case OC_ex2_gameoption_sound_maxvolume:
-		sys.bcStack.PushI(int32(sys.maxBgmVolume))
-	case OC_ex2_gameoption_sound_panningrange:
-		sys.bcStack.PushI(int32(sys.panningRange))
-	case OC_ex2_gameoption_sound_wavchannels:
-		sys.bcStack.PushI(int32(sys.wavChannels))
-	case OC_ex2_gameoption_sound_wavvolume:
-		sys.bcStack.PushI(int32(sys.wavVolume))
 	case OC_ex2_clsnvar_left:
 		idx := int(sys.bcStack.Pop().ToI())
 		id := int(sys.bcStack.Pop().ToI())
@@ -10833,8 +10847,8 @@ func (sc modifyBgm) Run(c *Char, _ []int32) bool {
 	if sys.bgm.ctrl != nil {
 		// Set values that are different only
 		if volumeSet {
-			volumeScaled := int(float64(volume) / 100.0 * float64(sys.maxBgmVolume))
-			sys.bgm.bgmVolume = int(Min(int32(volumeScaled), int32(sys.maxBgmVolume)))
+			volumeScaled := int(float64(volume) / 100.0 * float64(sys.cfg.Sound.MaxBGMVolume))
+			sys.bgm.bgmVolume = int(Min(int32(volumeScaled), int32(sys.cfg.Sound.MaxBGMVolume)))
 			sys.bgm.UpdateVolume()
 		}
 		if posSet {
@@ -11056,7 +11070,7 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 		case playBgm_volume:
 			volume = int(exp[0].evalI(c))
 			if !b {
-				sys.bgm.bgmVolume = int(Min(int32(volume), int32(sys.maxBgmVolume)))
+				sys.bgm.bgmVolume = int(Min(int32(volume), int32(sys.cfg.Sound.MaxBGMVolume)))
 				sys.bgm.UpdateVolume()
 			}
 		case playBgm_loop:

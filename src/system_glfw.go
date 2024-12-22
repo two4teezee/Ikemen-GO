@@ -30,20 +30,20 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 
 	// "-windowed" overrides the configuration setting but does not change it
 	_, forceWindowed := sys.cmdFlags["-windowed"]
-	fullscreen := s.fullscreen && !forceWindowed
+	fullscreen := s.cfg.Video.Fullscreen && !forceWindowed
 
 	// Calculate window size & offset it
 	var mode = monitor.GetVideoMode()
 	var w2, h2 = w, h
-	if !fullscreen && (sys.windowSize[0] > 0 || sys.windowSize[1] > 0) {
-		w2, h2 = sys.windowSize[0], sys.windowSize[1]
+	if !fullscreen && (sys.cfg.Video.WindowWidth > 0 || sys.cfg.Video.WindowHeight > 0) {
+		w2, h2 = sys.cfg.Video.WindowWidth, sys.cfg.Video.WindowHeight
 	}
 	var x, y = (mode.Width - w2) / 2, (mode.Height - h2) / 2
 
 	glfw.WindowHint(glfw.Resizable, glfw.True)
 
 	// only GL 3.2 needs this
-	if sys.renderer == "OpenGL 3.2" {
+	if sys.cfg.Video.RenderMode == "OpenGL 3.2" {
 		glfw.WindowHint(glfw.ContextVersionMajor, 3)
 		glfw.WindowHint(glfw.ContextVersionMinor, 2)
 		glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
@@ -55,10 +55,10 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 
 	// Create main window.
 	// NOTE: Borderless fullscreen is in reality just a window without borders.
-	if fullscreen && !s.borderless {
-		window, err = glfw.CreateWindow(w, h, s.windowTitle, monitor, nil)
+	if fullscreen && !s.cfg.Video.Borderless {
+		window, err = glfw.CreateWindow(w, h, s.cfg.Config.WindowTitle, monitor, nil)
 	} else {
-		window, err = glfw.CreateWindow(w, h, s.windowTitle, nil, nil)
+		window, err = glfw.CreateWindow(w, h, s.cfg.Config.WindowTitle, nil, nil)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create window: %w", err)
@@ -67,7 +67,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	// Set windows attributes
 	if fullscreen {
 		window.SetPos(0, 0)
-		if s.borderless {
+		if s.cfg.Video.Borderless {
 			window.SetAttrib(glfw.Decorated, 0)
 			window.SetSize(mode.Width, mode.Height)
 		}
@@ -75,7 +75,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	} else {
 		window.SetSize(w2, h2)
 		window.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
-		if s.windowCentered {
+		if s.cfg.Video.WindowCentered {
 			window.SetPos(x, y)
 		}
 	}
@@ -85,11 +85,11 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	window.SetCharModsCallback(charCallback)
 
 	// V-Sync
-	if s.vRetrace >= 0 {
-		glfw.SwapInterval(s.vRetrace)
+	if s.cfg.Video.VRetrace >= 0 {
+		glfw.SwapInterval(s.cfg.Video.VRetrace)
 	}
 
-	ret := &Window{window, s.windowTitle, fullscreen, x, y, w, h}
+	ret := &Window{window, s.cfg.Config.WindowTitle, fullscreen, x, y, w, h}
 	return ret, err
 }
 
@@ -125,7 +125,7 @@ func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
 	var ratio float32
 	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
 
-	if sys.fullscreen || int32(winWidth) == sys.scrrect[2] && int32(winHeight) == sys.scrrect[3] {
+	if sys.cfg.Video.Fullscreen || int32(winWidth) == sys.scrrect[2] && int32(winHeight) == sys.scrrect[3] {
 		return 0, 0, int32(winWidth), int32(winHeight)
 	}
 
@@ -135,7 +135,7 @@ func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
 		ratio = ratioHeight
 	}
 
-	if sys.keepAspect {
+	if sys.cfg.Video.KeepAspect {
 		resizedWidth = int32(float32(sys.gameWidth) * ratio)
 		resizedHeight = int32(float32(sys.gameHeight) * ratio)
 
@@ -164,7 +164,7 @@ func (w *Window) toggleFullscreen() {
 		w.SetInputMode(glfw.CursorMode, glfw.CursorNormal)
 	} else {
 		w.SetAttrib(glfw.Decorated, 0)
-		if sys.borderless {
+		if sys.cfg.Video.Borderless {
 			w.SetSize(mode.Width, mode.Height)
 			w.SetMonitor(&glfw.Monitor{}, 0, 0, mode.Width, mode.Height, mode.RefreshRate)
 		} else {
@@ -173,8 +173,8 @@ func (w *Window) toggleFullscreen() {
 		}
 		w.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 	}
-	if sys.vRetrace != -1 {
-		glfw.SwapInterval(sys.vRetrace)
+	if sys.cfg.Video.VRetrace != -1 {
+		glfw.SwapInterval(sys.cfg.Video.VRetrace)
 	}
 	w.fullscreen = !w.fullscreen
 }

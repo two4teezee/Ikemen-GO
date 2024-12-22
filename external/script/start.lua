@@ -4,7 +4,7 @@ local start = {}
 start.p = {{}, {}}
 --cell data storage
 start.c = {}
-for i = 1, --[[config.Players]]8 do
+for i = 1, --[[gameOption('Config.Players')]]8 do
 	table.insert(start.c, {selX = 0, selY = 0, cell = -1, randCnt = 0, randRef = nil})
 end
 --globally accessible temp data
@@ -158,18 +158,18 @@ end
 start.t_aiRampData = {}
 start.t_aiRampData.arcade = function()
 	if start.p[2].teamMode == 0 then --Single
-		return main.t_selOptions.arcadestart.wins, main.t_selOptions.arcadestart.offset, main.t_selOptions.arcadeend.wins, main.t_selOptions.arcadeend.offset
+		return gameOption('Arcade.arcade.AIramp.start')[1], gameOption('Arcade.arcade.AIramp.start')[2], gameOption('Arcade.arcade.AIramp.end')[1], gameOption('Arcade.arcade.AIramp.end')[2]
 	elseif start.p[2].ratio then --Ratio
-		return main.t_selOptions.ratiostart.wins, main.t_selOptions.ratiostart.offset, main.t_selOptions.ratioend.wins, main.t_selOptions.ratioend.offset
+		return gameOption('Arcade.ratio.AIramp.start')[1], gameOption('Arcade.ratio.AIramp.start')[2], gameOption('Arcade.ratio.AIramp.end')[1], gameOption('Arcade.ratio.AIramp.end')[2]
 	else --Simul / Turns / Tag
-		return main.t_selOptions.teamstart.wins, main.t_selOptions.teamstart.offset, main.t_selOptions.teamend.wins, main.t_selOptions.teamend.offset
+		return gameOption('Arcade.team.AIramp.start')[1], gameOption('Arcade.team.AIramp.start')[2], gameOption('Arcade.team.AIramp.end')[1], gameOption('Arcade.team.AIramp.end')[2]
 	end
 end
 start.t_aiRampData.teamcoop = start.t_aiRampData.arcade
 start.t_aiRampData.netplayteamcoop = start.t_aiRampData.arcade
 start.t_aiRampData.timeattack = start.t_aiRampData.arcade
 start.t_aiRampData.survival = function()
-	return main.t_selOptions.survivalstart.wins, main.t_selOptions.survivalstart.offset, main.t_selOptions.survivalend.wins, main.t_selOptions.survivalend.offset
+	return gameOption('Arcade.survival.AIramp.start')[1], gameOption('Arcade.survival.AIramp.start')[2], gameOption('Arcade.survival.AIramp.end')[1], gameOption('Arcade.survival.AIramp.end')[2]
 end
 start.t_aiRampData.survivalcoop = start.t_aiRampData.survival
 start.t_aiRampData.netplaysurvivalcoop = start.t_aiRampData.survival
@@ -180,13 +180,13 @@ function start.f_aiRamp(currentMatch)
 		panicError("\n" .. gamemode() .. " game mode unrecognized by start.f_aiRamp()\n")
 	end
 	local start_match, start_diff, end_match, end_diff = start.t_aiRampData[gamemode()]()
-	local startAI = config.Difficulty + start_diff
+	local startAI = gameOption('Options.Difficulty') + start_diff
 	if startAI > 8 then
 		startAI = 8
 	elseif startAI < 1 then
 		startAI = 1
 	end
-	local endAI = config.Difficulty + end_diff
+	local endAI = gameOption('Options.Difficulty') + end_diff
 	if endAI > 8 then
 		endAI = 8
 	elseif endAI < 1 then
@@ -220,7 +220,7 @@ function start.f_difficulty(player, offset)
 	if t.ai ~= nil then
 		return t.ai
 	else
-		return config.Difficulty + offset
+		return gameOption('Options.Difficulty') + offset
 	end
 end
 
@@ -228,11 +228,11 @@ end
 function start.f_remapAI(ai)
 	--Offset
 	local offset = 0
-	if config.AIRamping and main.aiRamp then
+	if gameOption('Arcade.AI.Ramping') and main.aiRamp then
 		if t_aiRamp[matchno()] == nil then
 			start.f_aiRamp(matchno())
 		end
-		offset = t_aiRamp[matchno()] - config.Difficulty
+		offset = t_aiRamp[matchno()] - gameOption('Options.Difficulty')
 	end
 	local t_ex = {}
 	for side = 1, 2 do
@@ -486,7 +486,7 @@ function start.f_storeStats()
 			name = start.t_savedData.name or '',
 			chars = f_listCharRefs(start.p[1].t_selected),
 			tmode = start.p[1].teamMode,
-			ailevel = config.Difficulty,
+			ailevel = gameOption('Options.Difficulty'),
 			win = start.t_savedData.win[1],
 			lose = start.t_savedData.lose[1],
 			consecutive = start.t_savedData.consecutive[1],
@@ -652,7 +652,7 @@ function start.f_selectPal(ref, palno)
 			end
 		end
 	-- default palette
-	elseif (not main.rotationChars and not config.AIRandomColor) or (main.rotationChars and not config.AISurvivalColor) then
+	elseif (not main.rotationChars and not gameOption('Arcade.AI.RandomColor')) or (main.rotationChars and not gameOption('Arcade.AI.SurvivalColor')) then
 		for _, v in ipairs(start.f_getCharData(ref).pal_defaults) do
 			if not t_assignedPals[v] then
 				return v
@@ -912,7 +912,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 			end
 			if dir ~= nil then
 				found, selX = start.f_searchEmptyBoxes(selX, selY, side, -1)
-			elseif (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (config.TeamDuplicates or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
+			elseif (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (gameOption('Options.Team.Duplicates') or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
 				break
 			elseif motif.select_info.searchemptyboxesup ~= 0 then
 				found, selX = start.f_searchEmptyBoxes(selX, selY, side, motif.select_info.searchemptyboxesup)
@@ -933,7 +933,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 			end
 			if dir ~= nil then
 				found, selX = start.f_searchEmptyBoxes(selX, selY, side, 1)
-			elseif (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (config.TeamDuplicates or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
+			elseif (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (gameOption('Options.Team.Duplicates') or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
 				break
 			elseif motif.select_info.searchemptyboxesdown ~= 0 then
 				found, selX = start.f_searchEmptyBoxes(selX, selY, side, motif.select_info.searchemptyboxesdown)
@@ -955,7 +955,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 						selX = tmpX
 					end
 				end
-				if (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (config.TeamDuplicates or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
+				if (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (gameOption('Options.Team.Duplicates') or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
 					break
 				end
 			end
@@ -973,7 +973,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 						selX = tmpX
 					end
 				end
-				if (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (config.TeamDuplicates or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
+				if (start.t_grid[selY + 1][selX + 1].char ~= nil or motif.select_info.moveoveremptyboxes == 1) and start.t_grid[selY + 1][selX + 1].skip ~= 1 and (gameOption('Options.Team.Duplicates') or start.t_grid[selY + 1][selX + 1].char == 'randomselect' or not t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref]) and start.t_grid[selY + 1][selX + 1].hidden ~= 2 then
 					break
 				end
 			end
@@ -1181,7 +1181,7 @@ function start.f_randomChar(pn)
 	if #main.t_randomChars == 0 then
 		return nil
 	end
-	if config.TeamDuplicates then
+	if gameOption('Options.Team.Duplicates') then
 		return main.t_randomChars[math.random(1, #main.t_randomChars)]
 	end
 	local t = {}
@@ -1300,11 +1300,11 @@ if main.debugLog then main.f_printTable(start.t_grid, 'debug/t_grid.txt') end
 
 -- return amount of life to recover
 local function f_lifeRecovery(lifeMax, ratioLevel)
-	local bonus = lifeMax * config.TurnsRecoveryBonus / 100
-	local base = lifeMax * config.TurnsRecoveryBase / 100
+	local bonus = lifeMax * gameOption('Options.Turns.Recovery.Bonus') / 100
+	local base = lifeMax * gameOption('Options.Turns.Recovery.Base') / 100
 	if ratioLevel > 0 then
-		bonus = lifeMax * config.RatioRecoveryBonus / 100
-		base = lifeMax * config.RatioRecoveryBase / 100
+		bonus = lifeMax * gameOption('Options.Ratio.Recovery.Bonus') / 100
+		base = lifeMax * gameOption('Options.Ratio.Recovery.Base') / 100
 	end
 	return base + main.f_round(timeremaining() / (timeremaining() + timeelapsed()) * bonus)
 end
@@ -1397,6 +1397,12 @@ end
 function start.f_overrideCharData()
 	for side = 1, 2 do
 		for member, v in ipairs(start.p[side].t_selected) do
+			local lifeRatio = nil
+			local attackRatio = nil
+			if v.ratioLevel then
+				lifeRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Life')
+				attackRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Attack')
+			end
 			overrideCharData(side, member, {
 				['life'] = v.life,
 				['lifeMax'] = v.lifeMax,
@@ -1404,8 +1410,8 @@ function start.f_overrideCharData()
 				['dizzyPoints'] = v.dizzyPoints,
 				['guardPoints'] = v.guardPoints,
 				['ratioLevel'] = v.ratioLevel,
-				['lifeRatio'] = v.lifeRatio or config.RatioLife[v.ratioLevel],
-				['attackRatio'] = v.attackRatio or config.RatioAttack[v.ratioLevel],
+				['lifeRatio'] = v.lifeRatio or lifeRatio,
+				['attackRatio'] = v.attackRatio or attackRatio, 
 				['existed'] = v.existed,
 			})
 		end
@@ -1555,7 +1561,7 @@ function start.f_selectReset(hardReset)
 		stageListNo = 0
 		restoreCursor = false
 		--cursor start cell
-		for i = 1, config.Players do
+		for i = 1, gameOption('Config.Players') do
 			if start.f_getCursorData(i, '_cursor_startcell')[1] < motif.select_info.rows then
 				start.c[i].selY = start.f_getCursorData(i, '_cursor_startcell')[1]
 			else
@@ -1577,17 +1583,17 @@ function start.f_selectReset(hardReset)
 	end
 	for side = 1, 2 do
 		if hardReset then
-			start.p[side].numSimul = math.max(2, config.NumSimul[1])
-			start.p[side].numTag = math.max(2, config.NumTag[1])
-			start.p[side].numTurns = math.max(2, config.NumTurns[1])
+			start.p[side].numSimul = math.max(2, gameOption('Options.Simul.Min'))
+			start.p[side].numTag = math.max(2, gameOption('Options.Tag.Min'))
+			start.p[side].numTurns = math.max(2, gameOption('Options.Turns.Min'))
 			start.p[side].numRatio = 1
 			start.p[side].teamMenu = 1
 			start.p[side].t_cursor = {}
 			start.p[side].teamMode = 0
 		end
-		start.p[side].numSimul = math.min(start.p[side].numSimul, main.numSimul[2])
-		start.p[side].numTag = math.min(start.p[side].numTag, main.numTag[2])
-		start.p[side].numTurns = math.min(start.p[side].numTurns, main.numTurns[2])
+		start.p[side].numSimul = math.min(start.p[side].numSimul, gameOption('Options.Simul.Max'))
+		start.p[side].numTag = math.min(start.p[side].numTag, gameOption('Options.Tag.Max'))
+		start.p[side].numTurns = math.min(start.p[side].numTurns, gameOption('Options.Turns.Max'))
 		start.p[side].numChars = 1
 		start.p[side].teamEnd = main.cpuSide[side] and (side == 2 or not main.cpuSide[1]) and main.forceChar[side] == nil
 		start.p[side].selEnd = not main.selectMenu[side]
@@ -1673,7 +1679,7 @@ function launchFight(data)
 		t.p2teammode = start.p[2].teamMode
 		t.challenger = main.f_arg(data.challenger, false)
 		t.continue = main.f_arg(data.continue, main.continueScreen)
-		t.quickcontinue = (not main.selectMenu[1] and not main.selectMenu[2]) or main.f_arg(data.quickcontinue, main.quickContinue or config.QuickContinue)
+		t.quickcontinue = (not main.selectMenu[1] and not main.selectMenu[2]) or main.f_arg(data.quickcontinue, main.quickContinue or gameOption('Options.QuickContinue'))
 		t.order = data.order or 1
 		t.orderselect = {main.f_arg(data.p1orderselect, main.orderSelect[1]), main.f_arg(data.p2orderselect, main.orderSelect[2])}
 		t.p1char = data.p1char or {}
@@ -1830,8 +1836,8 @@ function launchFight(data)
 			return true --continue lua code execution
 		end
 	end
-	--TODO: fix config.BackgroundLoading setting
-	--if config.BackgroundLoading then
+	--TODO: fix gameOption('Config.BackgroundLoading') setting
+	--if gameOption('Config.BackgroundLoading') then
 	--	selectStart()
 	--else
 		clearSelected()
@@ -2074,7 +2080,7 @@ function start.f_selectScreen()
 					local t = start.t_grid[y + 1][x + 1]
 					--retrieve proper cell coordinates in case of random selection
 					--TODO: doesn't work with slot feature
-					--if (t.char == 'randomselect' or t.hidden == 3) --[[and not config.TeamDuplicates]] then
+					--if (t.char == 'randomselect' or t.hidden == 3) --[[and not gameOption('Options.Team.Duplicates')]] then
 					--	x = start.f_getCharData(v.ref).col - 1
 					--	y = start.f_getCharData(v.ref).row - 1
 					--	t = start.t_grid[y + 1][x + 1]
@@ -2302,7 +2308,7 @@ function start.f_teamMenu(side, t)
 		--Commands
 		local t_cmd = {}
 		if main.coop then
-			for i = 1, config.Players do
+			for i = 1, gameOption('Config.Players') do
 				if not gamemode('versuscoop') or (i - 1) % 2 + 1 == side then
 					table.insert(t_cmd, i)
 				end
@@ -2597,7 +2603,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				if start.p[side].t_cursor[member] ~= nil then
 					local selX = start.p[side].t_cursor[member].x
 					local selY = start.p[side].t_cursor[member].y
-					if config.TeamDuplicates or t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref] == nil then
+					if gameOption('Options.Team.Duplicates') or t_reservedChars[side][start.t_grid[selY + 1][selX + 1].char_ref] == nil then
 						start.c[player].selX = selX
 						start.c[player].selY = selY
 					end
@@ -2689,7 +2695,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				cursor = {start.c[player].selX, start.c[player].selY},
 				ratioLevel = start.f_getRatio(side),
 			}
-			if not config.TeamDuplicates then
+			if not gameOption('Options.Team.Duplicates') then
 				t_reservedChars[side][start.c[player].selRef] = true
 			end
 			start.p[side].t_cursor[member] = {x = start.c[player].selX, y = start.c[player].selY}
@@ -2706,7 +2712,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 				end
 				start.p[side].selEnd = true
-			elseif not config.TeamDuplicates and start.t_grid[start.c[player].selY + 1][start.c[player].selX + 1].char ~= 'randomselect' then
+			elseif not gameOption('Options.Team.Duplicates') and start.t_grid[start.c[player].selY + 1][start.c[player].selX + 1].char ~= 'randomselect' then
 				local t_dirs = {'F', 'B', 'D', 'U'}
 				if start.c[player].selY + 1 >= motif.select_info.rows then --next row not visible on the screen
 					t_dirs = {'F', 'B', 'U', 'D'}
@@ -2837,7 +2843,7 @@ function start.f_selectVersus(active, t_orderSelect)
 							if main.cpuSide[side] and t_orderSelect[side] then
 								main.f_tableShuffle(t_order[side])
 							end
-							-- confirm char selection (starts loading immediately if config.BackgroundLoading is true)
+							-- confirm char selection (starts loading immediately if gameOption('Config.BackgroundLoading') is true)
 							for _, member in ipairs(t_order[side]) do
 								if not start.p[side].t_selected[member].loading then
 									selectChar(side, start.p[side].t_selected[member].ref, start.p[side].t_selected[member].pal)
@@ -2853,7 +2859,7 @@ function start.f_selectVersus(active, t_orderSelect)
 						end
 					elseif motif.vs_screen['p' .. side .. '_member' .. k .. '_key'] ~= nil and main.f_input({side}, main.f_extractKeys(motif.vs_screen['p' .. side .. '_member' .. k .. '_key'])) or (#start.p[side].t_selected == #t_order[side] + 1) then
 						table.insert(t_order[side], k)
-						-- confirm char selection (starts loading immediately if config.BackgroundLoading is true)
+						-- confirm char selection (starts loading immediately if gameOption('Config.BackgroundLoading') is true)
 						selectChar(side, v.ref, v.pal)
 						v.loading = true
 						-- if it's the last unordered team member
@@ -3002,8 +3008,8 @@ function start.f_selectLoading()
 			end
 		end
 	end
-	--TODO: fix config.BackgroundLoading setting
-	--if not config.BackgroundLoading then
+	--TODO: fix gameOption('Config.BackgroundLoading') setting
+	--if not gameOption('Config.BackgroundLoading') then
 		loadStart()
 	--end
 	-- calling refresh() during netplay data loading can lead to synchronization error
@@ -4401,8 +4407,8 @@ function start.f_dialogue()
 			motif.dialogue_info['p' .. side .. '_face_facing'],
 			motif.dialogue_info['p' .. side .. '_face_window'][1],
 			motif.dialogue_info['p' .. side .. '_face_window'][2],
-			motif.dialogue_info['p' .. side .. '_face_window'][3] * config.GameWidth / main.SP_Localcoord[1],
-			motif.dialogue_info['p' .. side .. '_face_window'][4] * config.GameHeight / main.SP_Localcoord[2]
+			motif.dialogue_info['p' .. side .. '_face_window'][3] * gameOption('Video.GameWidth') / main.SP_Localcoord[1],
+			motif.dialogue_info['p' .. side .. '_face_window'][4] * gameOption('Video.GameHeight') / main.SP_Localcoord[2]
 		)
 		--draw names
 		start['txt_dialogue_p' .. side .. '_name']:draw()

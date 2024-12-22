@@ -1507,6 +1507,9 @@
 	menu.valuename.no = "No"
 	menu.valuename.enabled = "Enabled"
 	menu.valuename.disabled = "Disabled"
+	menu.valuename.normal = "Normal"
+	menu.valuename.slow = "Slow %i"
+	menu.valuename.fast = "Fast %i"
 
 	keymenu.p1.pos = 39, 33
 	keymenu.p2.pos = 178, 33

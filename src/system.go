@@ -28,25 +28,18 @@ const (
 	MaxAttachedChar = 1
 )
 
-var FPS = 60
-
 // sys
 // The only instance of a System struct.
 // Do not create more than 1.
 var sys = System{
 	randseed:          int32(time.Now().UnixNano()),
 	scrrect:           [...]int32{0, 0, 320, 240},
-	windowSize:        [...]int{0, 0},
 	gameWidth:         320,
 	gameHeight:        240,
-	keepAspect:        true,
-	windowScaleMode:   true,
 	widthScale:        1,
 	heightScale:       1,
 	brightness:        256,
 	roundTime:         -1,
-	lifeMul:           1,
-	team1VS2Life:      1,
 	turnsRecoveryRate: 1.0 / 300,
 	soundMixer:        &beep.Mixer{},
 	bgm:               *newBgm(),
@@ -58,43 +51,26 @@ var sys = System{
 	sel:               *newSelect(),
 	keyState:          make(map[Key]bool),
 	match:             1,
-	listenPort:        "7500",
 	loader:            *newLoader(),
 	numSimul:          [...]int32{2, 2}, numTurns: [...]int32{2, 2},
-	ignoreMostErrors: true,
-	superpmap:        *newPalFX(),
-	stageList:        make(map[int32]*Stage),
-	wincnt:           wincntMap(make(map[string][]int32)),
-	wincntFileName:   "save/autolevel.save",
-	powerShare:       [...]bool{true, true},
-	oldNextAddTime:   1,
-	commandLine:      make(chan string),
-	cam:              *newCamera(),
-	statusDraw:       true,
-	mainThreadTask:   make(chan func(), 65536),
-	workpal:          make([]uint32, 256),
-	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
-	keyInput:         KeyUnknown,
-	wavChannels:      256,
+	ignoreMostErrors:  true,
+	superpmap:         *newPalFX(),
+	stageList:         make(map[int32]*Stage),
+	wincnt:            wincntMap(make(map[string][]int32)),
+	wincntFileName:    "save/autolevel.save",
+	oldNextAddTime:    1,
+	commandLine:       make(chan string),
+	cam:               *newCamera(),
+	statusDraw:        true,
+	mainThreadTask:    make(chan func(), 65536),
+	workpal:           make([]uint32, 256),
+	errLog:            log.New(NewLogWriter(), "", log.LstdFlags),
+	keyInput:          KeyUnknown,
 	//FLAC_FrameWait:          -1,
 	luaSpriteScale:       1,
 	luaPortraitScale:     1,
 	lifebarScale:         1,
 	lifebarPortraitScale: 1,
-	vRetrace:             1,
-	consoleRows:          15,
-	clipboardRows:        2,
-	pngFilter:            false,
-	clsnDarken:           true,
-	maxBgmVolume:         100,
-	pauseMasterVolume:    0,
-	stereoEffects:        true,
-	panningRange:         30,
-	windowCentered:       true,
-	audioSampleRate:      44100,
-	enableModel:          true,
-	enableModelShadow:    true,
-	renderer:             "OpenGL 2.1",
 }
 
 type TeamMode int32
@@ -113,16 +89,11 @@ type System struct {
 	scrrect                 [4]int32
 	gameWidth, gameHeight   int32
 	widthScale, heightScale float32
-	keepAspect              bool
-	windowScaleMode         bool
 	window                  *Window
 	gameEnd, frameSkip      bool
 	redrawWait              struct{ nextTime, lastDraw time.Time }
 	brightness              int32
 	roundTime               int32
-	language                string
-	lifeMul                 float32
-	team1VS2Life            float32
 	turnsRecoveryRate       float32
 	debugFont               *TextSprite
 	debugDraw               bool
@@ -132,6 +103,7 @@ type System struct {
 	soundChannels           *SoundChannels
 	allPalFX, bgPalFX       PalFX
 	lifebar                 Lifebar
+	cfg                     Config
 	ffx                     map[string]*FightFx
 	ffxRegexp               string
 	sel                     Select
@@ -147,7 +119,6 @@ type System struct {
 	gameTime                int32
 	match                   int32
 	inputRemap              [MaxSimul*2 + MaxAttachedChar]int
-	listenPort              string
 	round                   int32
 	intro                   int32
 	time                    int32
@@ -173,7 +144,6 @@ type System struct {
 	workingChar             *Char
 	workingState            *StateBytecode
 	specialFlag             GlobalSpecialFlag
-	afterImageMax           int32
 	envShake                EnvShake
 	pause                   int32
 	pausetime               int32
@@ -199,11 +169,9 @@ type System struct {
 	stageLoop               bool
 	stageLoopNo             int
 	wireframeDraw           bool
-	helperMax               int32
 	nextCharId              int32
 	wincnt                  wincntMap
 	wincntFileName          string
-	powerShare              [2]bool
 	tickCount               int
 	oldTickCount            int
 	tickCountF              float32
@@ -263,57 +231,20 @@ type System struct {
 	debugc2stb              ClsnRect
 	debugcsize              ClsnRect
 	debugch                 ClsnRect
-	autoguard               [MaxSimul*2 + MaxAttachedChar]bool
 	accel                   float32
 	clsnSpr                 Sprite
 	clsnDraw                bool
 	statusDraw              bool
 	mainThreadTask          chan func()
-	explodMax               int
 	workpal                 []uint32
-	playerProjectileMax     int
 	errLog                  *log.Logger
 	nomusic                 bool
 	workBe                  []BytecodeExp
-	lifeShare               [2]bool
-	loseSimul               bool
-	loseTag                 bool
-	allowDebugKeys          bool
-	allowDebugMode          bool
 	keyInput                Key
 	keyString               string
 	timerCount              []int32
 	cmdFlags                map[string]string
-	wavChannels             int32
-	masterVolume            int
-	wavVolume               int
-	bgmVolume               int
-	audioDucking            bool
-	windowTitle             string
-	screenshotFolder        string
-	audioSampleRate         int32
 	//FLAC_FrameWait          int
-
-	// Common Files
-	commonAir    []string
-	commonCmd    []string
-	commonConst  []string
-	commonFx     []string
-	commonLua    []string
-	commonStates []string
-
-	// Resolution variables
-	fullscreen            bool
-	fullscreenRefreshRate int32
-	fullscreenWidth       int32
-	fullscreenHeight      int32
-	windowSize            [2]int
-
-	// Input variables
-	controllerStickSensitivity float32
-	inputButtonAssist          bool
-	inputSOCDresolution        int32
-	xinputTriggerSensitivity   float32
 
 	// Localcoord sceenpack
 	luaLocalcoord    [2]int32
@@ -327,26 +258,8 @@ type System struct {
 	lifebarPortraitScale float32
 	lifebarLocalcoord    [2]int32
 
-	// Shader Vars
-	multisampleAntialiasing int32
-
-	// External Shader Vars
-	externalShaderList  []string
-	externalShaderNames []string
-	externalShaders     [][]string
-
-	// Icon
-	windowMainIcon         []image.Image
-	windowMainIconLocation []string
-
-	// Rendering
-	renderer          string
-	borderless        bool
-	vRetrace          int
-	pngFilter         bool // Controls the GL_TEXTURE_MAG_FILTER on 32bit sprites
-	enableModel       bool
-	enableModelShadow bool
-
+	externalShaders   [][]string
+	windowMainIcon    []image.Image
 	gameMode          string
 	frameCounter      int32
 	preFightTime      int32
@@ -366,8 +279,6 @@ type System struct {
 	maxPowerMode      bool
 	clsnText          []ClsnText
 	consoleText       []string
-	consoleRows       int
-	clipboardRows     int
 	luaLState         *lua.LState
 	statusLFunc       *lua.LFunction
 	listLFunc         []*lua.LFunction
@@ -381,12 +292,6 @@ type System struct {
 	postMatchFlg      bool
 	playBgmFlg        bool
 	brightnessOld     int32
-	clsnDarken        bool
-	maxBgmVolume      int
-	pauseMasterVolume int
-	stereoEffects     bool
-	panningRange      float32
-	windowCentered    bool
 	loopBreak         bool
 	loopContinue      bool
 
@@ -442,19 +347,16 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	// Loading of external shader data.
 	// We need to do this before the render initialization at "gfx.Init()"
-	if len(s.externalShaderList) > 0 {
+	if len(s.cfg.Video.ExternalShaders) > 0 {
 		// First we initialize arrays.
 		s.externalShaders = make([][]string, 2)
-		s.externalShaderNames = make([]string, len(s.externalShaderList))
-		s.externalShaders[0] = make([]string, len(s.externalShaderList))
-		s.externalShaders[1] = make([]string, len(s.externalShaderList))
+		s.externalShaders[0] = make([]string, len(s.cfg.Video.ExternalShaders))
+		s.externalShaders[1] = make([]string, len(s.cfg.Video.ExternalShaders))
 
 		// Then we load.
-		for i, shaderLocation := range s.externalShaderList {
+		for i, shaderLocation := range s.cfg.Video.ExternalShaders {
 			// Create names.
 			shaderLocation = strings.Replace(shaderLocation, "\\", "/", -1)
-			splitDir := strings.Split(shaderLocation, "/")
-			s.externalShaderNames[i] = splitDir[len(splitDir)-1]
 
 			// Load vert shaders.
 			content, err := os.ReadFile(shaderLocation + ".vert")
@@ -474,7 +376,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	// PS: The "\x00" is what is know as Null Terminator.
 
 	// Now we proceed to init the render.
-	if s.renderer == "OpenGL 2.1" {
+	if s.cfg.Video.RenderMode == "OpenGL 2.1" {
 		gfx = &Renderer_GL21{}
 		gfxFont = &glfont.FontRenderer_GL21{}
 	} else {
@@ -484,7 +386,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	gfx.Init()
 	gfx.BeginFrame(false)
 	// And the audio.
-	speaker.Init(beep.SampleRate(sys.audioSampleRate), audioOutLen)
+	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)
 	speaker.Play(NewNormalizer(s.soundMixer))
 	l := lua.NewState()
 	l.Options.IncludeGoStackTrace = true
@@ -501,12 +403,12 @@ func (s *System) init(w, h int32) *lua.LState {
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
 	// So now that we have a window we add a icon.
-	if len(s.windowMainIconLocation) > 0 {
+	if len(s.cfg.Config.WindowIcon) > 0 {
 		// First we initialize arrays.
-		var f = make([]io.ReadCloser, len(s.windowMainIconLocation))
-		s.windowMainIcon = make([]image.Image, len(s.windowMainIconLocation))
+		var f = make([]io.ReadCloser, len(s.cfg.Config.WindowIcon))
+		s.windowMainIcon = make([]image.Image, len(s.cfg.Config.WindowIcon))
 		// And then we load them.
-		for i, iconLocation := range s.windowMainIconLocation {
+		for i, iconLocation := range s.cfg.Config.WindowIcon {
 			exePath, err := os.Executable()
 			if err != nil {
 				fmt.Println("Error getting executable path:", err)
@@ -626,17 +528,17 @@ func (s *System) update() bool {
 	}
 	if s.fileInput != nil {
 		if s.anyHardButton() {
-			s.await(FPS * 4)
+			s.await(s.cfg.Config.Framerate * 4)
 		} else {
-			s.await(FPS)
+			s.await(s.cfg.Config.Framerate)
 		}
 		return s.fileInput.Update()
 	}
 	if s.netInput != nil {
-		s.await(FPS)
+		s.await(s.cfg.Config.Framerate)
 		return s.netInput.Update()
 	}
-	return s.await(FPS)
+	return s.await(s.cfg.Config.Framerate)
 }
 func (s *System) tickSound() {
 	s.soundChannels.Tick()
@@ -649,12 +551,12 @@ func (s *System) tickSound() {
 	}
 
 	// Always pause if noMusic flag set or pause master volume is 0.
-	s.bgm.SetPaused(s.nomusic || (s.paused && s.pauseMasterVolume == 0))
+	s.bgm.SetPaused(s.nomusic || (s.paused && s.cfg.Sound.PauseMasterVolume == 0))
 
 	// Set BGM volume if paused
 	if s.paused && s.bgm.volRestore == 0 {
 		s.bgm.volRestore = s.bgm.bgmVolume
-		s.bgm.bgmVolume = int(s.pauseMasterVolume * s.bgm.bgmVolume / 100.0)
+		s.bgm.bgmVolume = int(s.cfg.Sound.PauseMasterVolume * s.bgm.bgmVolume / 100.0)
 		s.bgm.UpdateVolume()
 		s.softenAllSound()
 	} else if !s.paused && s.bgm.volRestore > 0 {
@@ -886,8 +788,8 @@ func (s *System) unsetGSF(gsf GlobalSpecialFlag) {
 }
 func (s *System) appendToConsole(str string) {
 	s.consoleText = append(s.consoleText, str)
-	if len(s.consoleText) > s.consoleRows {
-		s.consoleText = s.consoleText[len(s.consoleText)-s.consoleRows:]
+	if len(s.consoleText) > s.cfg.Debug.ConsoleRows {
+		s.consoleText = s.consoleText[len(s.consoleText)-s.cfg.Debug.ConsoleRows:]
 	}
 }
 func (s *System) printToConsole(pn, sn int, a ...interface{}) {
@@ -1053,10 +955,10 @@ func (s *System) softenAllSound() {
 				// Temporarily store the volume so it can be recalled later.
 				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
 					c.soundChannels.volResume[i] = c.soundChannels.channels[i].sfx.volume
-					c.soundChannels.channels[i].SetVolume(float32(c.gi().data.volume * int32(s.pauseMasterVolume) / 100))
+					c.soundChannels.channels[i].SetVolume(float32(c.gi().data.volume * int32(s.cfg.Sound.PauseMasterVolume) / 100))
 
 					// Pause if pause master volume is 0
-					if s.pauseMasterVolume == 0 {
+					if s.cfg.Sound.PauseMasterVolume == 0 {
 						c.soundChannels.channels[i].SetPaused(true)
 					}
 				}
@@ -1136,7 +1038,7 @@ func (s *System) nextRound() {
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.time = s.roundTime
-	s.nextCharId = s.helperMax
+	s.nextCharId = s.cfg.Config.HelperMax
 	if (s.tmode[0] == TM_Turns && s.wins[1] >= s.numTurns[0]-1) ||
 		(s.tmode[0] != TM_Turns && s.wins[1] >= s.lifebar.ro.match_wins[0]-1) {
 		s.roundType[0] = RT_Deciding
@@ -1388,8 +1290,8 @@ func (s *System) action() {
 					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
 						if s.chars[i][0].alive() {
 							ko[ii] = false
-						} else if (s.tmode[i&1] == TM_Simul && s.loseSimul && s.com[i] == 0) ||
-							(s.tmode[i&1] == TM_Tag && s.loseTag) {
+						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.com[i] == 0) ||
+							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
 							ko[ii] = true
 							break
 						}
@@ -1579,7 +1481,7 @@ func (s *System) action() {
 					for _, p := range s.chars {
 						if len(p) > 0 {
 							// Default life recovery. Used only if externalized Lua implementation is disabled
-							if len(sys.commonLua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+							if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
 								p[0].alive() && !s.matchOver() &&
 								(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
 								p[0].life += int32((float32(p[0].lifeMax) *
@@ -1778,7 +1680,7 @@ func (s *System) action() {
 	explUpdate(&s.explodsLayer0, true)
 	explUpdate(&s.explodsLayer1, false)
 	if s.tickNextFrame() {
-		spd := s.gameSpeed * s.accel
+		spd := (60 + s.cfg.Options.GameSpeed * 5) / float32(s.cfg.Config.Framerate) * s.accel
 		if s.postMatchFlg || s.step {
 			spd = 1
 		} else if !s.gsf(GSF_nokoslow) && s.time != 0 && s.intro < 0 && s.slowtime > 0 {
@@ -1929,7 +1831,7 @@ func (s *System) drawTop() {
 		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
 	}
 	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
-	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.commonLua) > 0 && s.matchOver() && !s.dialogueFlg {
+	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.cfg.Common.Lua) > 0 && s.matchOver() && !s.dialogueFlg {
 		for _, p := range s.chars {
 			if len(p) > 0 {
 				if len(p[0].dialogue) > 0 {
@@ -1950,7 +1852,7 @@ func (s *System) drawTop() {
 		if s.tickFrame() {
 			s.fadeouttime--
 		}
-	} else if s.clsnDraw && s.clsnDarken {
+	} else if s.clsnDraw && s.cfg.Debug.ClsnDarken {
 		fade(s.scrrect, 0, 0)
 	}
 	if s.shuttertime > 0 {
@@ -2033,7 +1935,7 @@ func (s *System) drawDebugText() {
 		}
 		// Data
 		y = float32(s.gameHeight) - float32(s.debugFont.fnt.Size[1])*sys.debugFont.yscl/s.heightScale*
-			(float32(len(s.listLFunc))+float32(s.clipboardRows)) - 1*s.heightScale
+			(float32(len(s.listLFunc))+float32(s.cfg.Debug.ClipboardRows)) - 1*s.heightScale
 		pn := s.debugRef[0]
 		hn := s.debugRef[1]
 		if pn >= len(s.chars) || hn >= len(s.chars[pn]) {
@@ -2173,7 +2075,7 @@ func (s *System) fight() (reload bool) {
 		if len(p) > 0 && p[0].teamside != -1 {
 			p[0].clearNextRound()
 			level[i] = s.wincnt.getLevel(i)
-			if s.powerShare[i&1] {
+			if s.cfg.Options.Team.PowerShare {
 				pmax := Max(s.cgi[i&1].data.power, s.cgi[i].data.power)
 				for j := i & 1; j < MaxSimul*2; j += 2 {
 					if len(s.chars[j]) > 0 {
@@ -2207,18 +2109,18 @@ func (s *System) fight() (reload bool) {
 			// Get max life, and adjust based on team mode
 			var lm float32
 			if p[0].ocd().lifeMax != -1 {
-				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * s.lifeMul
+				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
 			} else {
-				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * s.lifeMul
+				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
 			}
 			if p[0].teamside != -1 {
 				switch s.tmode[i&1] {
 				case TM_Single:
 					switch s.tmode[(i+1)&1] {
 					case TM_Simul, TM_Tag:
-						lm *= s.team1VS2Life
+						lm *= s.cfg.Options.Team.DisadvLifeBoost / 100
 					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.lifeShare[i&1] {
+						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.numTurns[(i+1)&1]) /
 								float32(s.matchWins[(i+1)&1])
 						}
@@ -2226,33 +2128,33 @@ func (s *System) fight() (reload bool) {
 				case TM_Simul, TM_Tag:
 					switch s.tmode[(i+1)&1] {
 					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1] < s.numSimul[i&1] && s.lifeShare[i&1] {
+						if s.numSimul[(i+1)&1] < s.numSimul[i&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.numSimul[(i+1)&1]) / float32(s.numSimul[i&1])
 						}
 					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numSimul[i&1]*s.matchWins[(i+1)&1] && s.lifeShare[i&1] {
+						if s.numTurns[(i+1)&1] < s.numSimul[i&1]*s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.numTurns[(i+1)&1]) /
 								float32(s.numSimul[i&1]*s.matchWins[(i+1)&1])
 						}
 					default:
-						if s.lifeShare[i&1] {
+						if s.cfg.Options.Team.LifeShare {
 							lm /= float32(s.numSimul[i&1])
 						}
 					}
 				case TM_Turns:
 					switch s.tmode[(i+1)&1] {
 					case TM_Single:
-						if s.matchWins[i&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
+						if s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.matchWins[i&1]) / float32(s.numTurns[i&1])
 						}
 					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
-							lm = lm * s.team1VS2Life *
+						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
+							lm = lm * s.cfg.Options.Team.DisadvLifeBoost / 100 *
 								float32(s.numSimul[(i+1)&1]*s.matchWins[i&1]) /
 								float32(s.numTurns[i&1])
 						}
 					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numTurns[i&1] && s.lifeShare[i&1] {
+						if s.numTurns[(i+1)&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.numTurns[(i+1)&1]) / float32(s.numTurns[i&1])
 						}
 					}
@@ -2351,7 +2253,7 @@ func (s *System) fight() (reload bool) {
 	didTryLoadBGM := false
 	for !s.endMatch {
 		// default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
-		if s.round == 1 && (s.gameMode == "" || len(sys.commonLua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
 			// Need to search first
 			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
 				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
@@ -2514,7 +2416,7 @@ func (s *System) fight() (reload bool) {
 			s.drawTop()
 		}
 		// Lua code is executed after drawing the fade effects, so that the menus are on top of them
-		for _, str := range s.commonLua {
+		for _, str := range s.cfg.Common.Lua {
 			if err := s.luaLState.DoString(str); err != nil {
 				s.luaLState.RaiseError(err.Error())
 			}
@@ -2524,7 +2426,7 @@ func (s *System) fight() (reload bool) {
 			s.drawDebugText()
 		}
 		// Break if finished
-		if fin && (!s.postMatchFlg || len(sys.commonLua) == 0) {
+		if fin && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
 			break
 		}
 
@@ -2537,7 +2439,7 @@ func (s *System) fight() (reload bool) {
 		if s.endMatch {
 			s.esc = true
 		} else if s.esc {
-			s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
+			s.endMatch = s.netInput != nil || len(sys.cfg.Common.Lua) == 0
 		}
 	}
 
@@ -2853,7 +2755,7 @@ func (s *Select) addChar(def string) {
 					sc.portrait_scale = 320 / float32(sc.localcoord)
 				}
 			}
-		case fmt.Sprintf("%v.info", sys.language):
+		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
 			if lanInfo {
 				info = false
 				lanInfo = false
@@ -2889,7 +2791,7 @@ func (s *Select) addChar(def string) {
 					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
 				}
 			}
-		case fmt.Sprintf("%v.files", sys.language):
+		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
 			if lanFiles {
 				files = false
 				lanFiles = false
@@ -2920,7 +2822,7 @@ func (s *Select) addChar(def string) {
 					}
 				}
 			}
-		case fmt.Sprintf("%v.palette ", sys.language):
+		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
 			if lanKeymap &&
 				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
@@ -2940,7 +2842,7 @@ func (s *Select) addChar(def string) {
 				sc.arcadepath, _, _ = is.getText("arcadepath")
 				sc.ratiopath, _, _ = is.getText("ratiopath")
 			}
-		case fmt.Sprintf("%v.arcade", sys.language):
+		case fmt.Sprintf("%v.arcade", sys.cfg.Config.Language):
 			if lanArcade {
 				arcade = false
 				lanArcade = false
@@ -3092,7 +2994,7 @@ func (s *Select) AddStage(def string) error {
 					return nil
 				}
 			}
-		case fmt.Sprintf("%v.info", sys.language):
+		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
 			if lanInfo {
 				info = false
 				lanInfo = false
@@ -3114,7 +3016,7 @@ func (s *Select) AddStage(def string) error {
 				music = false
 				ss.stagebgm = is
 			}
-		case fmt.Sprintf("%v.music", sys.language):
+		case fmt.Sprintf("%v.music", sys.cfg.Config.Language):
 			if lanMusic {
 				music = false
 				lanMusic = false
@@ -3125,7 +3027,7 @@ func (s *Select) AddStage(def string) error {
 				bgdef = false
 				spr = is["spr"]
 			}
-		case fmt.Sprintf("%v.bgdef", sys.language):
+		case fmt.Sprintf("%v.bgdef", sys.cfg.Config.Language):
 			if lanBgdef {
 				bgdef = false
 				lanBgdef = false
@@ -3140,7 +3042,7 @@ func (s *Select) AddStage(def string) error {
 					ss.portrait_scale = 320 / localcoord
 				}
 			}
-		case fmt.Sprintf("%v.stageinfo", sys.language):
+		case fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language):
 			if lanStageinfo {
 				stageinfo = false
 				lanStageinfo = false

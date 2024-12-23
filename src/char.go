@@ -7226,61 +7226,48 @@ func (c *Char) actionPrepare() {
 	c.prevPauseMovetime = c.pauseMovetime
 	if !c.pauseBool {
 		// Perform basic actions
-		if c.keyctrl[0] && c.cmd != nil {
+		if c.keyctrl[0] && c.cmd != nil && (c.helperIndex == 0 || c.controller >= 0) {
 			// In Mugen, characters can perform basic actions even if they are KO
-			if c.ctrl() && !c.inputWait() && (c.controller >= 0 || c.helperIndex == 0) {
-				if !c.asf(ASF_nohardcodedkeys) {
-					if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
+			if !c.asf(ASF_nohardcodedkeys) {
+				if c.ctrl() && !c.inputWait() {
+					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.B > 0 {
+						c.changeState(120, -1, -1, "") // Start guarding
+					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
 						(!(sys.intro < 0 && sys.intro > -sys.lifebar.ro.over_waittime) || c.asf(ASF_postroundinput)) {
 						if c.ss.no != 40 {
-							c.changeState(40, -1, -1, "")
+							c.changeState(40, -1, -1, "") // Jump
 						}
 					} else if !c.asf(ASF_noairjump) && c.ss.stateType == ST_A && c.cmd[0].Buffer.Ub == 1 &&
 						c.pos[1] <= -float32(c.gi().movement.airjump.height) &&
 						c.airJumpCount < c.gi().movement.airjump.num {
 						if c.ss.no != 45 || c.ss.time > 0 {
 							c.airJumpCount++
-							c.changeState(45, -1, -1, "")
+							c.changeState(45, -1, -1, "") // Air jump
 						}
-					} else {
-						if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.D > 0 {
-							if c.ss.no != 10 {
-								if c.ss.no != 100 {
-									c.vel[0] = 0
-								}
-								c.changeState(10, -1, -1, "")
+					} else if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.D > 0 {
+						if c.ss.no != 10 {
+							if c.ss.no != 100 {
+								c.vel[0] = 0
 							}
-						} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.D < 0 {
-							if c.ss.no != 12 {
-								c.changeState(12, -1, -1, "")
-							}
-						} else if !c.asf(ASF_nowalk) && c.ss.stateType == ST_S &&
-							(c.cmd[0].Buffer.F > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.B > 0)) {
-							if c.ss.no != 20 {
-								c.changeState(20, -1, -1, "")
-							}
-						} else if !c.asf(ASF_nobrake) && c.ss.no == 20 &&
-							(c.cmd[0].Buffer.B > 0) == (c.cmd[0].Buffer.F > 0) {
-							c.changeState(0, -1, -1, "")
+							c.changeState(10, -1, -1, "") // Stand to crouch
 						}
-						if c.inguarddist && c.scf(SCF_guard) && c.cmd[0].Buffer.B > 0 &&
-							!c.inGuardState() {
-							c.changeState(120, -1, -1, "")
+					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.D < 0 {
+						if c.ss.no != 12 {
+							c.changeState(12, -1, -1, "") // Crouch to stand
+						}
+					} else if !c.asf(ASF_nowalk) && c.ss.stateType == ST_S &&
+						(c.cmd[0].Buffer.F > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.B > 0)) {
+						if c.ss.no != 20 {
+							c.changeState(20, -1, -1, "") // Walk
 						}
 					}
 				}
-			} else {
-				switch c.ss.no {
-				case 11:
-					if !c.asf(ASF_nostand) {
-						c.changeState(12, -1, -1, "")
-					}
-				case 20:
-					if !c.asf(ASF_nobrake) && c.cmd[0].Buffer.U < 0 && c.cmd[0].Buffer.D < 0 &&
-						c.cmd[0].Buffer.B < 0 && c.cmd[0].Buffer.F < 0 {
-						c.changeState(0, -1, -1, "")
-					}
+				// Braking is special in that it does not require ctrl
+				if !c.asf(ASF_nobrake) && c.ss.no == 20 &&
+					(c.cmd[0].Buffer.B > 0) == (c.cmd[0].Buffer.F > 0) {
+					c.changeState(0, -1, -1, "")
 				}
+				// At least one character has been found where forcing them to stand up when crouching without ctrl will break them
 			}
 		}
 		if c.ss.stateType != ST_A {

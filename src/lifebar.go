@@ -1011,14 +1011,15 @@ type LifeBarFace struct {
 	teammate_scale    []float32
 	teammate_ko_hide  bool
 	numko             int32
-	old_spr, old_pal  [2]int32
+	old_spr           [2]int32
+	old_pal           [2]int32
 }
 
 func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{face_spr: [2]int32{-1}, teammate_face_spr: [2]int32{-1}, palshare: true}
 }
-func readLifeBarFace(pre string, is IniSection,
-	sff *Sff, at AnimationTable) *LifeBarFace {
+
+func readLifeBarFace(pre string, is IniSection,	sff *Sff, at AnimationTable) *LifeBarFace {
 	fa := newLifeBarFace()
 	is.ReadI32(pre+"pos", &fa.pos[0], &fa.pos[1])
 
@@ -1050,6 +1051,7 @@ func readLifeBarFace(pre string, is IniSection,
 	is.ReadBool(pre+"teammate.ko.hide", &fa.teammate_ko_hide)
 	return fa
 }
+
 func (fa *LifeBarFace) step(ref int, far *LifeBarFace) {
 	group, number := int16(fa.face_spr[0]), int16(fa.face_spr[1])
 	if sys.chars[ref][0] != nil && sys.chars[ref][0].anim != nil {
@@ -1102,6 +1104,7 @@ func (fa *LifeBarFace) bgDraw(layerno int16) {
 	fa.bg1.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
 	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
 }
+
 func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 	if far.face != nil {
 		pfx := newPalFX()
@@ -1124,7 +1127,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		if ref == sys.superplayer {
 			sys.brightness = 256
 		}
-		fa.face_lay.DrawSprite((float32(fa.pos[0])+sys.lifebarOffsetX)*sys.lifebarScale, float32(fa.pos[1])*sys.lifebarScale, layerno,
+		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebarOffsetX)*sys.lifebarScale, float32(fa.pos[1])*sys.lifebarScale, layerno,
 			far.face, pfx, sys.cgi[ref].portraitscale*sys.lifebarPortraitScale, &fa.face_lay.window)
 		if !sys.chars[ref][0].alive() {
 			fa.ko.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
@@ -1148,7 +1151,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 				fa.teammate_bg0.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
 				fa.teammate_bg1.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
 				fa.teammate_bg2.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
-				fa.teammate_face_lay.DrawSprite((x+sys.lifebarOffsetX)*sys.lifebarScale, y*sys.lifebarScale, layerno,
+				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebarOffsetX)*sys.lifebarScale, y*sys.lifebarScale, layerno,
 					far.teammate_face[i], nil, far.teammate_scale[i]*sys.lifebarPortraitScale, &fa.teammate_face_lay.window)
 				if i < fa.numko {
 					fa.teammate_ko.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)

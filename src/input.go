@@ -434,7 +434,7 @@ func NewCommandKeyRemap() *CommandKeyRemap {
 }
 
 type InputReader struct {
-	SocdAllow          [4]bool
+	SocdAllow          [4]bool // Up, down, back, forward
 	SocdFirst          [4]bool
 	ButtonAssist       bool
 	ButtonAssistBuffer [9]bool
@@ -499,147 +499,148 @@ func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, b
 	return U, D, L, R, a, b, c, x, y, z, s, d, w, m
 }
 
-// Resolve Simultaneous Opposing Cardinal Directions
-// Left and Right are solved in CommandList Input
+
+// Resolve U and D conflicts based on SOCD resolution config
+func (ir *InputReader) resolveUpDown(U, D bool) (bool, bool) {
+    // Check first direction held
+    if U || D {
+        if !U {
+            ir.SocdFirst[0] = false
+        }
+        if !D {
+            ir.SocdFirst[1] = false
+        }
+        if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
+            if D {
+                ir.SocdFirst[1] = true
+            } else {
+                ir.SocdFirst[0] = true
+            }
+        }
+    } else {
+        ir.SocdFirst[0] = false
+        ir.SocdFirst[1] = false
+    }
+
+    // Apply SOCD resolution according to config
+    if D && U {
+        switch sys.cfg.Input.SOCDResolution {
+        case 0: // Allow both directions (no resolution)
+            ir.SocdAllow[0] = true
+            ir.SocdAllow[1] = true
+        case 1: // Last direction priority
+            if ir.SocdFirst[0] {
+                ir.SocdAllow[0] = false
+                ir.SocdAllow[1] = true
+            } else {
+                ir.SocdAllow[0] = true
+                ir.SocdAllow[1] = false
+            }
+        case 2: // Absolute priority (offense over defense)
+            ir.SocdAllow[0] = true
+            ir.SocdAllow[1] = false
+        case 3: // First direction priority
+            if ir.SocdFirst[0] {
+                ir.SocdAllow[0] = true
+                ir.SocdAllow[1] = false
+            } else {
+                ir.SocdAllow[0] = false
+                ir.SocdAllow[1] = true
+            }
+        default: // Deny either direction (neutral resolution)
+            ir.SocdAllow[0] = false
+            ir.SocdAllow[1] = false
+        }
+    } else {
+        ir.SocdAllow[0] = true
+        ir.SocdAllow[1] = true
+    }
+
+    return U, D
+}
+
+// Resolve B and F conflicts based on SOCD resolution config
+func (ir *InputReader) resolveBackForward(B, F bool) (bool, bool) {
+    // Check first direction held
+    if B || F {
+        if !B {
+            ir.SocdFirst[2] = false
+        }
+        if !F {
+            ir.SocdFirst[3] = false
+        }
+        if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
+            if B {
+                ir.SocdFirst[2] = true
+            } else {
+                ir.SocdFirst[3] = true
+            }
+        }
+    } else {
+        ir.SocdFirst[2] = false
+        ir.SocdFirst[3] = false
+    }
+
+    // Apply SOCD resolution according to config
+    if B && F {
+        switch sys.cfg.Input.SOCDResolution {
+        case 0: // Allow both directions (no resolution)
+            ir.SocdAllow[2] = true
+            ir.SocdAllow[3] = true
+        case 1: // Last direction priority
+            if ir.SocdFirst[3] {
+                ir.SocdAllow[2] = true
+                ir.SocdAllow[3] = false
+            } else {
+                ir.SocdAllow[2] = false
+                ir.SocdAllow[3] = true
+            }
+        case 2: // Absolute priority (offense over defense)
+            ir.SocdAllow[2] = false
+            ir.SocdAllow[3] = true
+        case 3: // First direction priority
+            if ir.SocdFirst[3] {
+                ir.SocdAllow[2] = false
+                ir.SocdAllow[3] = true
+            } else {
+                ir.SocdAllow[2] = true
+                ir.SocdAllow[3] = false
+            }
+        default: // Deny either direction (neutral resolution)
+            ir.SocdAllow[2] = false
+            ir.SocdAllow[3] = false
+        }
+    } else {
+        ir.SocdAllow[2] = true
+        ir.SocdAllow[3] = true
+    }
+
+    return B, F
+}
+
+// Resolve Simultaneous Opposing Cardinal Directions (SOCD)
+// Left and Right are solved in CommandList Input based on B and F outcome
 func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) {
-	// Absolute priority SOCD resolution is enforced during netplay
-	if sys.netInput != nil || sys.fileInput != nil {
-		if U && D {
-			D = false
-		}
-		if B && F {
-			B = false
-		}
-	} else {
-		// Check first direction held between U and D
-		if U || D {
-			if !U {
-				ir.SocdFirst[0] = false
-			}
-			if !D {
-				ir.SocdFirst[1] = false
-			}
-			if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
-				if D {
-					ir.SocdFirst[1] = true
-				} else {
-					ir.SocdFirst[0] = true
-				}
-			}
-		} else {
-			ir.SocdFirst[0] = false
-			ir.SocdFirst[1] = false
-		}
-		// Check first direction held between B and F
-		if B || F {
-			if !B {
-				ir.SocdFirst[2] = false
-			}
-			if !F {
-				ir.SocdFirst[3] = false
-			}
-			if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
-				if B {
-					ir.SocdFirst[2] = true
-				} else {
-					ir.SocdFirst[3] = true
-				}
-			}
-		} else {
-			ir.SocdFirst[2] = false
-			ir.SocdFirst[3] = false
-		}
-		// SOCD for back and forward
-		if B && F {
-			switch sys.cfg.Input.SOCDResolution {
-			// Type 0 - Allow both directions (no resolution)
-			case 0:
-				ir.SocdAllow[2] = true
-				ir.SocdAllow[3] = true
-			// Type 1 - Last direction priority
-			case 1:
-				// if F was held before B, disable F
-				if ir.SocdFirst[3] {
-					ir.SocdAllow[2] = true
-					ir.SocdAllow[3] = false
-				} else {
-					// else disable B
-					ir.SocdAllow[2] = false
-					ir.SocdAllow[3] = true
-				}
-			// Type 2 - Absolute priority (offense over defense)
-			case 2:
-				ir.SocdAllow[2] = false
-				ir.SocdAllow[3] = true
-			// Type 3 - First direction priority
-			case 3:
-				// if F was held before B, disable B
-				if ir.SocdFirst[3] {
-					ir.SocdAllow[2] = false
-					ir.SocdAllow[3] = true
-				} else {
-					// else disable F
-					ir.SocdAllow[2] = true
-					ir.SocdAllow[3] = false
-				}
-			// Type 4 - Deny either direction (neutral)
-			default:
-				ir.SocdAllow[2] = false
-				ir.SocdAllow[3] = false
-			}
-		} else {
-			ir.SocdAllow[2] = true
-			ir.SocdAllow[3] = true
-		}
-		// SOCD for down and up
-		if D && U {
-			switch sys.cfg.Input.SOCDResolution {
-			// Type 0 - Allow both directions (no resolution)
-			case 0:
-				ir.SocdAllow[0] = true
-				ir.SocdAllow[1] = true
-			// Type 1 - Last direction priority
-			case 1:
-				// if U was held before D, disable U
-				if ir.SocdFirst[0] {
-					ir.SocdAllow[0] = false
-					ir.SocdAllow[1] = true
-				} else {
-					// else disable D
-					ir.SocdAllow[0] = true
-					ir.SocdAllow[1] = false
-				}
-			// Type 2 - Absolute priority (offense over defense)
-			case 2:
-				ir.SocdAllow[0] = true
-				ir.SocdAllow[1] = false
-			// Type 3 - First direction priority
-			case 3:
-				// if U was held before D, disable D
-				if ir.SocdFirst[0] {
-					ir.SocdAllow[0] = true
-					ir.SocdAllow[1] = false
-				} else {
-					// else disable U
-					ir.SocdAllow[0] = false
-					ir.SocdAllow[1] = true
-				}
-			// Type 4 - Deny either direction (neutral)
-			default:
-				ir.SocdAllow[0] = false
-				ir.SocdAllow[1] = false
-			}
-		} else {
-			ir.SocdAllow[1] = true
-			ir.SocdAllow[0] = true
-		}
-		// Apply rules
-		U = U && ir.SocdAllow[0]
-		D = D && ir.SocdAllow[1]
-		B = B && ir.SocdAllow[2]
-		F = F && ir.SocdAllow[3]
-	}
-	return U, D, B, F
+    // Absolute priority SOCD resolution is enforced during netplay
+    if sys.netInput != nil || sys.fileInput != nil {
+        if U && D {
+            D = false
+        }
+        if B && F {
+            B = false
+        }
+    } else {
+        // Resolve up and down
+        U, D = ir.resolveUpDown(U, D)
+        // Resolve back and forward
+        B, F = ir.resolveBackForward(B, F)
+        // Apply resulting resolution
+        U = U && ir.SocdAllow[0]
+        D = D && ir.SocdAllow[1]
+        B = B && ir.SocdAllow[2]
+        F = F && ir.SocdAllow[3]
+    }
+    return U, D, B, F
 }
 
 // Add extra frame of leniency when checking button presses
@@ -687,8 +688,8 @@ func NewCommandBuffer() (c *CommandBuffer) {
 
 func (c *CommandBuffer) Reset() {
 	*c = CommandBuffer{
-		B: -1, D: -1, F: -1, U: -1, L: -1, R: -1,
-		a: -1, b: -1, c: -1, x: -1, y: -1, z: -1, s: -1, d: -1, w: -1, m: -1,
+		B: -1, D: -1, F: -1, U: -1, L: -1, R: -1, // Set directions to released state
+		a: -1, b: -1, c: -1, x: -1, y: -1, z: -1, s: -1, d: -1, w: -1, m: -1, // Set buttons to released state
 		InputReader: NewInputReader(),
 	}
 }
@@ -696,11 +697,11 @@ func (c *CommandBuffer) Reset() {
 // Update command buffer according to received inputs
 func (__ *CommandBuffer) Input(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool) {
 	// SOCD resolution is now handled beforehand, so that it may be easier to port to netplay later
-	if U != (__.U > 0) {
+	if U != (__.U > 0) { // If button state changed, set buffer to 0 and invert the state
 		__.Ub = 0
 		__.U *= -1
 	}
-	__.Ub += int32(__.U)
+	__.Ub += int32(__.U) // Increment buffer time according to button state
 	if D != (__.D > 0) {
 		__.Db = 0
 		__.D *= -1
@@ -2079,51 +2080,60 @@ type CommandList struct {
 }
 
 func NewCommandList(cb *CommandBuffer) *CommandList {
-	return &CommandList{Buffer: cb, Names: make(map[string]int),
-		DefaultTime: 15, DefaultBufferTime: 1}
+	return &CommandList{
+		Buffer: cb,
+		Names: make(map[string]int),
+		DefaultTime: 15,
+		DefaultBufferTime: 1,
+	}
 }
 
 // Read inputs locally
-func (cl *CommandList) Input(i int, facing int32, aiLevel float32, ib InputBits) bool {
+func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ib InputBits) bool {
 	if cl.Buffer == nil {
 		return false
 	}
+	// This check causes 1 frame delay in several places of the code
+	// Such as making players wait one frame after creation to input anything or a continuous NoInput flag only resetting the buffer every two frames
+	// Seems responsible for https://github.com/ikemen-engine/Ikemen-GO/issues/1201 and https://github.com/ikemen-engine/Ikemen-GO/issues/2203
+	// But currently it is necessary so that menu inputs do not "turbo fire", among perhaps other things
 	step := cl.Buffer.Bb != 0
-	if i < 0 && ^i < len(sys.aiInput) {
-		sys.aiInput[^i].Update(aiLevel) // 乱数を使うので同期がずれないようここで / Here we use random numbers so we can not get out of sync
+
+	if controller < 0 && ^controller < len(sys.aiInput) {
+		sys.aiInput[^controller].Update(aiLevel) // 乱数を使うので同期がずれないようここで / Since random numbers are used, we handle it here to avoid desync
 	}
-	_else := i < 0
+	_else := controller < 0
 	if _else {
 		// Do nothing
 	} else if sys.fileInput != nil {
-		sys.fileInput.Input(cl.Buffer, i, facing)
+		sys.fileInput.Input(cl.Buffer, controller, facing)
 	} else if sys.netInput != nil {
-		sys.netInput.Input(cl.Buffer, i, facing)
+		sys.netInput.Input(cl.Buffer, controller, facing)
 	} else {
 		_else = true
 	}
 	if _else {
 		var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
-		if i < 0 {
-			i = ^i
-			if i < len(sys.aiInput) {
-				U = sys.aiInput[i].U() || ib&IB_PU != 0
-				D = sys.aiInput[i].D() || ib&IB_PD != 0
-				L = sys.aiInput[i].L() || ib&IB_PL != 0
-				R = sys.aiInput[i].R() || ib&IB_PR != 0
-				a = sys.aiInput[i].a() || ib&IB_A != 0
-				b = sys.aiInput[i].b() || ib&IB_B != 0
-				c = sys.aiInput[i].c() || ib&IB_C != 0
-				x = sys.aiInput[i].x() || ib&IB_X != 0
-				y = sys.aiInput[i].y() || ib&IB_Y != 0
-				z = sys.aiInput[i].z() || ib&IB_Z != 0
-				s = sys.aiInput[i].s() || ib&IB_S != 0
-				d = sys.aiInput[i].d() || ib&IB_D != 0
-				w = sys.aiInput[i].w() || ib&IB_W != 0
-				m = sys.aiInput[i].m() || ib&IB_M != 0
+		if controller < 0 {
+			controller = ^controller
+			if controller < len(sys.aiInput) {
+				U = sys.aiInput[controller].U() || ib&IB_PU != 0
+				D = sys.aiInput[controller].D() || ib&IB_PD != 0
+				L = sys.aiInput[controller].L() || ib&IB_PL != 0
+				R = sys.aiInput[controller].R() || ib&IB_PR != 0
+				a = sys.aiInput[controller].a() || ib&IB_A != 0
+				b = sys.aiInput[controller].b() || ib&IB_B != 0
+				c = sys.aiInput[controller].c() || ib&IB_C != 0
+				x = sys.aiInput[controller].x() || ib&IB_X != 0
+				y = sys.aiInput[controller].y() || ib&IB_Y != 0
+				z = sys.aiInput[controller].z() || ib&IB_Z != 0
+				s = sys.aiInput[controller].s() || ib&IB_S != 0
+				d = sys.aiInput[controller].d() || ib&IB_D != 0
+				w = sys.aiInput[controller].w() || ib&IB_W != 0
+				m = sys.aiInput[controller].m() || ib&IB_M != 0
 			}
-		} else if i < len(sys.inputRemap) {
-			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[i])
+		} else if controller < len(sys.inputRemap) {
+			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller])
 		}
 		var B, F bool
 		if facing < 0 {
@@ -2222,10 +2232,10 @@ func (cl *CommandList) Step(facing int32, ai, hitpause bool, buftime int32) {
 func (cl *CommandList) BufReset() {
 	if cl.Buffer != nil {
 		cl.Buffer.Reset()
-		for i := range cl.Commands {
-			for j := range cl.Commands[i] {
-				cl.Commands[i][j].Clear(true)
-			}
+	}
+	for i := range cl.Commands {
+		for j := range cl.Commands[i] {
+			cl.Commands[i][j].Clear(true)
 		}
 	}
 }

@@ -6551,6 +6551,7 @@ func (c *Char) posUpdate() {
 				if p[0].trackableByCamera() && p[0].csf(CSF_screenbound) && (npos <= sys.xmin || npos >= sys.xmax) {
 					c.mhv.cornerpush = c.cornerVelOff
 				}
+				// In Mugen cornerpush friction is hardcoded at 0.7
 				// In Ikemen the cornerpush friction is defined by the target instead
 				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 					friction = 0.7
@@ -6564,6 +6565,7 @@ func (c *Char) posUpdate() {
 			}
 		}
 	}
+	// Check if character is bound
 	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[2]))}
@@ -6572,12 +6574,22 @@ func (c *Char) posUpdate() {
 			c.oldPos[i], c.interPos[i] = c.pos[i], c.pos[i]
 		}
 	}
+	// Offset position when character is hit off the ground
+	if c.downHitOffset {
+		if nobind[0] {
+			c.addX(c.gi().movement.down.gethit.offset[0] * (320 / c.localcoord) / c.localscl * c.facing)
+		}
+		if nobind[1] {
+			c.addY(c.gi().movement.down.gethit.offset[1] * (320 / c.localcoord) / c.localscl)
+		}
+		c.downHitOffset = false
+	}
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.mhv.cornerpush)
+			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
-		// Controls speed
+		// Apply velocity
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
 		}
@@ -6587,7 +6599,7 @@ func (c *Char) posUpdate() {
 		if nobind[2] {
 			c.setPosZ(c.oldPos[2] + c.vel[2])
 		}
-
+		// Apply physics types
 		switch c.ss.physics {
 		case ST_S:
 			c.vel[0] *= c.gi().movement.stand.friction
@@ -6608,6 +6620,7 @@ func (c *Char) posUpdate() {
 	}
 	c.bindPosAdd = [...]float32{0, 0, 0}
 }
+
 func (c *Char) addTarget(id int32) {
 	if !c.hasTarget(id) {
 		c.targets = append(c.targets, id)
@@ -7350,12 +7363,8 @@ func (c *Char) actionPrepare() {
 		c.unhittableTime--
 	}
 	c.dropTargets() // TODO: Why do we need both this and exitTarget()?
-	if c.downHitOffset {
-		c.pos[0] += c.gi().movement.down.gethit.offset[0] * (320 / c.localcoord) / c.localscl * c.facing
-		c.pos[1] += c.gi().movement.down.gethit.offset[1] * (320 / c.localcoord) / c.localscl
-		c.downHitOffset = false
-	}
 }
+
 func (c *Char) actionRun() {
 	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return

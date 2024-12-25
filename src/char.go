@@ -6575,6 +6575,7 @@ func (c *Char) posUpdate() {
 		}
 	}
 	// Offset position when character is hit off the ground
+	// This used to be in actionPrepare(), which would be ideal, but that caused https://github.com/ikemen-engine/Ikemen-GO/issues/2188
 	if c.downHitOffset {
 		if nobind[0] {
 			c.addX(c.gi().movement.down.gethit.offset[0] * (320 / c.localcoord) / c.localscl * c.facing)
@@ -8330,10 +8331,9 @@ func (cl *CharList) commandUpdate() {
 	for i, p := range sys.chars {
 		if len(p) > 0 {
 			root := p[0]
-			cheat := int32(-1)
-			// AI cheating
-			// Select a random command to cheat for the AI
+			// Select a random command for AI cheating
 			// The way this only allows one command to be cheated at a time may be the cause of issue #2022
+			cheat := int32(-1)
 			if root.controller < 0 {
 				if sys.roundState() == 2 && RandF32(0, sys.com[i]/2+32) > 32 { // TODO: Balance AI scaling
 					cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
@@ -8390,9 +8390,7 @@ func (cl *CharList) commandUpdate() {
 						cmd.Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
-					if cheat >= 0 {
-						c.cpucmd = cheat
-					}
+					c.cpucmd = cheat
 				}
 			}
 		}

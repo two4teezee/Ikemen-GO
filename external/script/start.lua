@@ -4063,7 +4063,7 @@ function start.f_stageMusic()
 				end
 			end
 			-- final round music assigned
-			if roundNo > 1 and roundtype() == 3 and start.t_music.musicfinal.bgmusic ~= nil then
+			if roundNo > 1 and player(1) and decisiveround() and player(2) and decisiveround() and start.t_music.musicfinal.bgmusic ~= nil then
 				main.f_playBGM(false, start.t_music.musicfinal.bgmusic, 1, start.t_music.musicfinal.bgmvolume, start.t_music.musicfinal.bgmloopstart, start.t_music.musicfinal.bgmloopend)
 				didLoadStageBGM = true
 			-- music exists for this round
@@ -4094,7 +4094,7 @@ function start.f_stageMusic()
 					end
 				end
 				if ok then
-					if start.t_music.bgmtrigger_life == 1 or roundtype() >= 2 then
+					if start.t_music.bgmtrigger_life == 1 or (enemy(0) and decisiveround()) then
 						main.f_playBGM(true, start.t_music.musiclife.bgmusic, 1, start.t_music.musiclife.bgmvolume, start.t_music.musiclife.bgmloopstart, start.t_music.musiclife.bgmloopend)
 						start.bgmstate = 1
 						break
@@ -4105,7 +4105,7 @@ function start.f_stageMusic()
 	-- bgmusic.victory
 	elseif #start.t_music.musicvictory > 0 and start.bgmstate ~= -1 and roundstate() == 3 then
 		for i = 1, 2 do
-			if start.t_music.musicvictory[i] ~= nil and player(i) and win() and (roundtype() == 1 or roundtype() == 3) then --assign sys.debugWC to player i
+			if start.t_music.musicvictory[i] ~= nil and player(i) and win() and decisiveround() then --assign sys.debugWC to player i
 				main.f_playBGM(true, start.t_music.musicvictory[i].bgmusic, 1, start.t_music.musicvictory[i].bgmvolume, start.t_music.musicvictory[i].bgmloopstart, start.t_music.musicvictory[i].bgmloopend)
 				start.bgmstate = -1
 				break

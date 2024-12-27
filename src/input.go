@@ -160,7 +160,7 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 		for k, v := range sys.shortcutScripts {
 			if sys.netInput == nil && (sys.fileInput == nil || !v.DebugKey) &&
 				//(!sys.paused || sys.step || v.Pause) &&
-				(sys.allowDebugKeys || !v.DebugKey) {
+				(sys.cfg.Debug.AllowDebugKeys || !v.DebugKey) {
 				v.Activate = v.Activate || k.Test(key, mk)
 			}
 		}
@@ -195,19 +195,19 @@ func JoystickState(joy, button int) bool {
 				// Prevent OOB errors #2141
 			} else if len(axes) > 0 {
 				if button == sys.joystickConfig[joy].dR {
-					return axes[0] > sys.controllerStickSensitivity
+					return axes[0] > sys.cfg.Input.ControllerStickSensitivity
 				}
 				if button == sys.joystickConfig[joy].dL {
-					return -axes[0] > sys.controllerStickSensitivity
+					return -axes[0] > sys.cfg.Input.ControllerStickSensitivity
 				}
 
 				// Prevent OOB errors #2141
 				if len(axes) > 1 {
 					if button == sys.joystickConfig[joy].dU {
-						return -axes[1] > sys.controllerStickSensitivity
+						return -axes[1] > sys.cfg.Input.ControllerStickSensitivity
 					}
 					if button == sys.joystickConfig[joy].dD {
-						return axes[1] > sys.controllerStickSensitivity
+						return axes[1] > sys.cfg.Input.ControllerStickSensitivity
 					}
 				}
 				return false
@@ -219,12 +219,12 @@ func JoystickState(joy, button int) bool {
 		// override with axes if they exist #2141
 		if len(axes) > 0 {
 			if button == sys.joystickConfig[joy].dR {
-				if axes[0] > sys.controllerStickSensitivity {
+				if axes[0] > sys.cfg.Input.ControllerStickSensitivity {
 					btns[button] = 1
 				}
 			}
 			if button == sys.joystickConfig[joy].dL {
-				if -axes[0] > sys.controllerStickSensitivity {
+				if -axes[0] > sys.cfg.Input.ControllerStickSensitivity {
 					btns[button] = 1
 				}
 			}
@@ -232,12 +232,12 @@ func JoystickState(joy, button int) bool {
 			// prevent OOB errors #2141
 			if len(axes) > 1 {
 				if button == sys.joystickConfig[joy].dU {
-					if -axes[1] > sys.controllerStickSensitivity {
+					if -axes[1] > sys.cfg.Input.ControllerStickSensitivity {
 						btns[button] = 1
 					}
 				}
 				if button == sys.joystickConfig[joy].dD {
-					if axes[1] > sys.controllerStickSensitivity {
+					if axes[1] > sys.cfg.Input.ControllerStickSensitivity {
 						btns[button] = 1
 					}
 				}
@@ -257,12 +257,11 @@ func JoystickState(joy, button int) bool {
 
 		var joyName = input.GetJoystickName(joy)
 
-		// Xbox360コントローラーのLRトリガー判定
-		// "Evaluate LR triggers on the Xbox 360 controller"
+		// Evaluate LR triggers on the Xbox 360 controller
 		if (axis == 9 || axis == 11) && (strings.Contains(joyName, "XInput") || strings.Contains(joyName, "X360") ||
 			strings.Contains(joyName, "Xbox Wireless") || strings.Contains(joyName, "Xbox Elite") || strings.Contains(joyName, "Xbox One") ||
 			strings.Contains(joyName, "Xbox Series") || strings.Contains(joyName, "Xbox Adaptive")) {
-			return val > sys.xinputTriggerSensitivity
+			return val > sys.cfg.Input.XinputTriggerSensitivity
 		}
 
 		// Ignore trigger axis on PS4 (We already have buttons)
@@ -270,7 +269,7 @@ func JoystickState(joy, button int) bool {
 			return false
 		}
 
-		return val > sys.controllerStickSensitivity
+		return val > sys.cfg.Input.ControllerStickSensitivity
 	}
 }
 
@@ -494,7 +493,7 @@ func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, b
 		}
 	}
 	// Button assist is checked locally so that the sent inputs are already processed
-	if sys.inputButtonAssist {
+	if sys.cfg.Input.ButtonAssist {
 		a, b, c, x, y, z, s, d, w = ir.ButtonAssistCheck(a, b, c, x, y, z, s, d, w)
 	}
 	return U, D, L, R, a, b, c, x, y, z, s, d, w, m
@@ -552,7 +551,7 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 		}
 		// SOCD for back and forward
 		if B && F {
-			switch sys.inputSOCDresolution {
+			switch sys.cfg.Input.SOCDResolution {
 			// Type 0 - Allow both directions (no resolution)
 			case 0:
 				ir.SocdAllow[2] = true
@@ -594,7 +593,7 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 		}
 		// SOCD for down and up
 		if D && U {
-			switch sys.inputSOCDresolution {
+			switch sys.cfg.Input.SOCDResolution {
 			// Type 0 - Allow both directions (no resolution)
 			case 0:
 				ir.SocdAllow[0] = true
@@ -1334,7 +1333,7 @@ func (ni *NetInput) Update() bool {
 					ni.delay += 4
 				}
 				if ni.time >= foo {
-					if sys.esc || !sys.await(FPS) || ni.st != NS_Playing {
+					if sys.esc || !sys.await(sys.cfg.Config.Framerate) || ni.st != NS_Playing {
 						break
 					}
 					continue

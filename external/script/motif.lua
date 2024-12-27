@@ -1158,6 +1158,9 @@ local motif =
 		menu_valuename_no = 'No', --Ikemen feature
 		menu_valuename_enabled = 'Enabled', --Ikemen feature
 		menu_valuename_disabled = 'Disabled', --Ikemen feature
+		menu_valuename_normal = 'Normal', --Ikemen feature
+		menu_valuename_slow = 'Slow %i', --Ikemen feature
+		menu_valuename_fast = 'Fast %i', --Ikemen feature
 		keymenu_p1_pos = {39, 33}, --Ikemen feature
 		keymenu_p2_pos = {178, 33}, --Ikemen feature
 		--keymenu_bg_<itemname>_anim = -1, --Ikemen feature
@@ -1218,7 +1221,7 @@ local motif =
 		--menu_itemname_roundtime = 'Time Limit', --Ikemen feature
 		--menu_itemname_lifemul = 'Life', --Ikemen feature
 		--menu_itemname_singlevsteamlife = 'Single VS Team Life', --Ikemen feature
-		--menu_itemname_gamespeed = 'Game FPS', --Ikemen feature
+		--menu_itemname_gamespeed = 'Game Speed', --Ikemen feature
 		--menu_itemname_roundsnumsingle = 'Rounds to Win (Single)', --Ikemen feature
 		--menu_itemname_maxdrawgames = 'Max Draw Games', --Ikemen feature
 		--menu_itemname_credits = 'Credits', --Ikemen feature
@@ -1961,7 +1964,7 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menugame_roundtime = "Time Limit"
 	motif.option_info.menu_itemname_menugame_lifemul = "Life"
 	motif.option_info.menu_itemname_menugame_singlevsteamlife = "Single VS Team Life"
-	motif.option_info.menu_itemname_menugame_gamespeed = "Game FPS"
+	motif.option_info.menu_itemname_menugame_gamespeed = "Game Speed"
 	motif.option_info.menu_itemname_menugame_roundsnumsingle = "Rounds to Win (Single)"
 	motif.option_info.menu_itemname_menugame_maxdrawgames = "Max Draw Games"
 	motif.option_info.menu_itemname_menugame_credits = "Credits"
@@ -2470,7 +2473,7 @@ end
 
 -- merge current language sections, if any
 for group_k, contents in pairs(t) do
-	if string.sub(group_k, 1, 3) == config.Language .. "_" then
+	if string.sub(group_k, 1, 3) == gameOption('Config.Language') .. "_" then
 		local defgroup = string.sub(group_k, 4, -1)
 		if type(t[defgroup]) == "table" then
 			t[defgroup] = main.f_tableMerge(t[defgroup], contents)
@@ -2800,7 +2803,7 @@ function motif.f_start()
 		for subt_k, subt_t in pairs(group_t) do
 			for _, v in ipairs(subt_t) do
 				local real_t = motif[group_k]
-				if string.sub(group_k, 1, 3) == config.Language .. "_" then
+				if string.sub(group_k, 1, 3) == gameOption('Config.Language') .. "_" then
 					real_t = motif[string.sub(group_k, 4, -1)]
 				end
 				if subt_k == 'teammenu' then

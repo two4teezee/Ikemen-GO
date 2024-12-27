@@ -45,10 +45,10 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 	for i := range samples[:s] {
 		lmul := n.l.process(n.mul, &samples[i][0])
 		rmul := n.r.process(n.mul, &samples[i][1])
-		if sys.audioDucking {
+		if sys.cfg.Sound.AudioDucking {
 			n.mul = math.Min(16.0, math.Min(lmul, rmul))
 		} else {
-			n.mul = 0.5 * (float64(sys.wavVolume) * float64(sys.masterVolume) * 0.0001)
+			n.mul = 0.5 * (float64(sys.cfg.Sound.WavVolume) * float64(sys.cfg.Sound.MasterVolume) * 0.0001)
 		}
 	}
 	return s, ok
@@ -63,21 +63,21 @@ type NormalizerLR struct {
 }
 
 func (n *NormalizerLR) process(mul float64, sam *float64) float64 {
-	n.bias += (*sam - n.bias) / (float64(sys.audioSampleRate)/110.0 + 1)
-	n.bias2 += (*sam - n.bias2) / (float64(sys.audioSampleRate)/112640.0 + 1)
+	n.bias += (*sam - n.bias) / (float64(sys.cfg.Sound.SampleRate)/110.0 + 1)
+	n.bias2 += (*sam - n.bias2) / (float64(sys.cfg.Sound.SampleRate)/112640.0 + 1)
 	s := (n.bias2 - n.bias) * mul
 	if math.Abs(s) > 1 {
 		mul *= math.Pow(math.Abs(s), -n.edge)
-		n.edgeDelta += 32 * (1 - n.edge) / float64(sys.audioSampleRate+32)
+		n.edgeDelta += 32 * (1 - n.edge) / float64(sys.cfg.Sound.SampleRate+32)
 		s = math.Copysign(1.0, s)
 	} else {
 		tmp := (1 - math.Pow(1-math.Abs(s), 64)) * math.Pow(0.5-math.Abs(s), 3)
 		mul += mul * (n.edge*(1/32.0-n.average)/n.gain + tmp*n.gain*(1-n.edge)/32) /
-			(float64(sys.audioSampleRate)*2/8.0 + 1)
-		n.edgeDelta -= (0.5 - n.average) * n.edge / (float64(sys.audioSampleRate) * 2)
+			(float64(sys.cfg.Sound.SampleRate)*2/8.0 + 1)
+		n.edgeDelta -= (0.5 - n.average) * n.edge / (float64(sys.cfg.Sound.SampleRate) * 2)
 	}
-	n.gain += (1.0 - n.gain*(math.Abs(s)+1/32.0)) / (float64(sys.audioSampleRate) * 2)
-	n.average += (math.Abs(s) - n.average) / (float64(sys.audioSampleRate) * 2)
+	n.gain += (1.0 - n.gain*(math.Abs(s)+1/32.0)) / (float64(sys.cfg.Sound.SampleRate) * 2)
+	n.average += (math.Abs(s) - n.average) / (float64(sys.cfg.Sound.SampleRate) * 2)
 	n.edge = float64(ClampF(float32(n.edge+n.edgeDelta), 0, 1))
 	*sam = s
 	return mul
@@ -223,7 +223,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 		if soundfont, sferr := loadSoundFont(audioSoundFont); sferr != nil {
 			err = sferr
 		} else {
-			bgm.streamer, format, err = midi.Decode(f, soundfont, beep.SampleRate(int(sys.audioSampleRate)))
+			bgm.streamer, format, err = midi.Decode(f, soundfont, beep.SampleRate(int(sys.cfg.Sound.SampleRate)))
 			bgm.format = "midi"
 		}
 	} else {
@@ -256,7 +256,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	streamer := newStreamLooper(bgm.streamer, lc, bgmLoopStart, bgmLoopEnd)
 	bgm.volctrl = &effects.Volume{Streamer: streamer, Base: 2, Volume: 0, Silent: true}
 	bgm.sampleRate = format.SampleRate
-	dstFreq := beep.SampleRate(float32(sys.audioSampleRate) / bgm.freqmul)
+	dstFreq := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / bgm.freqmul)
 	resampler := beep.Resample(audioResampleQuality, bgm.sampleRate, dstFreq, bgm.volctrl)
 	bgm.ctrl = &beep.Ctrl{Streamer: resampler}
 	bgm.UpdateVolume()
@@ -291,14 +291,14 @@ func (bgm *Bgm) UpdateVolume() {
 		return
 	}
 	// TODO: Throw a debug warning if this triggers
-	if bgm.bgmVolume > sys.maxBgmVolume {
+	if bgm.bgmVolume > sys.cfg.Sound.MaxBGMVolume {
 		sys.errLog.Printf("WARNING: BGM volume set beyond expected range (value: %v). Clamped to MaxBgmVolume", bgm.bgmVolume)
-		bgm.bgmVolume = sys.maxBgmVolume
+		bgm.bgmVolume = sys.cfg.Sound.MaxBGMVolume
 	}
 
 	// NOTE: This is what we're going to do, no matter the complaints, because BGMVolume is handled differently
 	// than WAV volume anyway.  We've had problems changing this in the past so it's best to keep it as-is.
-	volume := -5 + float64(sys.bgmVolume)*0.06*(float64(sys.masterVolume)/100)*(float64(bgm.bgmVolume)/100)
+	volume := -5 + float64(sys.cfg.Sound.BGMVolume)*0.06*(float64(sys.cfg.Sound.MasterVolume)/100)*(float64(bgm.bgmVolume)/100)
 
 	// clamp to 1
 	if volume >= 1 {
@@ -315,7 +315,7 @@ func (bgm *Bgm) SetFreqMul(freqmul float32) {
 	if bgm.freqmul != freqmul {
 		if bgm.ctrl != nil {
 			srcRate := bgm.sampleRate
-			dstRate := beep.SampleRate(float32(sys.audioSampleRate) / freqmul)
+			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := bgm.ctrl.Streamer.(*beep.Resampler); ok {
 				speaker.Lock()
 				resampler.SetRatio(float64(srcRate) / float64(dstRate))
@@ -537,15 +537,15 @@ type SoundEffect struct {
 func (s *SoundEffect) Stream(samples [][2]float64) (n int, ok bool) {
 	// TODO: Test mugen panning in relation to PanningWidth and zoom settings
 	lv, rv := s.volume, s.volume
-	if sys.stereoEffects && (s.x != nil || s.p != 0) {
+	if sys.cfg.Sound.StereoEffects && (s.x != nil || s.p != 0) {
 		var r float32
 		if s.x != nil { // pan
 			r = ((sys.xmax - s.ls**s.x) - s.p) / (sys.xmax - sys.xmin)
 		} else { // abspan
 			r = ((sys.xmax-sys.xmin)/2 - s.p) / (sys.xmax - sys.xmin)
 		}
-		sc := sys.panningRange / 100
-		of := (100 - sys.panningRange) / 200
+		sc := sys.cfg.Sound.PanningRange / 100
+		of := (100 - sys.cfg.Sound.PanningRange) / 200
 		lv = ClampF(s.volume*2*(r*sc+of), 0, 512)
 		rv = ClampF(s.volume*2*((1-r)*sc+of), 0, 512)
 	}
@@ -590,7 +590,7 @@ func (s *SoundChannel) Play(sound *Sound, loop int32, freqmul float32, loopStart
 	looper := newStreamLooper(s.streamer, loopCount, loopStart, loopEnd)
 	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0, channel: -1, loop: int32(loopCount), freqmul: freqmul}
 	srcRate := s.sound.format.SampleRate
-	dstRate := beep.SampleRate(float32(sys.audioSampleRate) / s.sfx.freqmul)
+	dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / s.sfx.freqmul)
 	resampler := beep.Resample(audioResampleQuality, srcRate, dstRate, s.sfx)
 	s.ctrl = &beep.Ctrl{Streamer: resampler}
 	s.streamer.Seek(startPosition)
@@ -641,7 +641,7 @@ func (s *SoundChannel) SetFreqMul(freqmul float32) {
 	if s.ctrl != nil {
 		if s.sound != nil {
 			srcRate := s.sound.format.SampleRate
-			dstRate := beep.SampleRate(float32(sys.audioSampleRate) / freqmul)
+			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := s.ctrl.Streamer.(*beep.Resampler); ok {
 				speaker.Lock()
 				resampler.SetRatio(float64(srcRate) / float64(dstRate))
@@ -705,7 +705,7 @@ func (s *SoundChannels) count() int32 {
 	return int32(len(s.channels))
 }
 func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundChannel {
-	if ch >= 0 && ch < sys.wavChannels {
+	if ch >= 0 && ch < sys.cfg.Sound.WavChannels {
 		for i := s.count() - 1; i >= 0; i-- {
 			if s.channels[i].IsPlaying() && s.channels[i].sfx.channel == ch {
 				if (lowpriority && priority <= s.channels[i].sfx.priority) || priority < s.channels[i].sfx.priority {
@@ -716,10 +716,10 @@ func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundCh
 			}
 		}
 	}
-	if s.count() < sys.wavChannels {
-		s.SetSize(sys.wavChannels)
+	if s.count() < sys.cfg.Sound.WavChannels {
+		s.SetSize(sys.cfg.Sound.WavChannels)
 	}
-	for i := sys.wavChannels - 1; i >= 0; i-- {
+	for i := sys.cfg.Sound.WavChannels - 1; i >= 0; i-- {
 		if !s.channels[i].IsPlaying() {
 			return &s.channels[i]
 		}

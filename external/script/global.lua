@@ -62,7 +62,7 @@ function toggleAI(p)
 		if ailevel() > 0 then
 			setAILevel(0)
 		else
-			setAILevel(config.Difficulty)
+			setAILevel(gameOption('Options.Difficulty'))
 		end
 		playerid(oldid)
 	end
@@ -207,7 +207,7 @@ function boolToInt(bool)
 end
 
 function engineInfo()
-	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.3f', tickcount(), vsync(), gameLogicSpeed(), gamespeed(), gamefps())
+	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.3f', tickcount(), gameOption('Video.VRetrace'), tickspersecond(), gamespeed(), gamefps())
 end
 
 function playerInfo()
@@ -235,7 +235,7 @@ loadDebugInfo({'engineInfo', 'playerInfo', 'actionInfo', 'stateInfo'})
 --;===========================================================
 local endFlag = false
 
---function called during match via config.json CommonLua
+--function called during match via config.ini CommonLua
 function loop()
 	hook.run("loop")
 	if start == nil then --match started via command line without -loadmotif flag
@@ -314,7 +314,7 @@ function loop()
 		main.f_cmdInput()
 		--esc / m
 		if (esc() or (main.f_input(main.t_players, {'m'}) and not network())) and not start.challengerInit then
-			if network() or gamemode('demo') or gamemode('randomtest') or (not config.EscOpensMenu and esc()) then
+			if network() or gamemode('demo') or gamemode('randomtest') or (not gameOption('Config.EscOpensMenu') and esc()) then
 				endMatch()
 			else
 				menu.f_init()

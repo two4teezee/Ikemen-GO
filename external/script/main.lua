@@ -7,7 +7,7 @@ main = {}
 math.randomseed(os.time())
 
 main.flags = getCommandLineFlags()
-if main.flags['-config'] == nil then main.flags['-config'] = 'save/config.json' end
+if main.flags['-config'] == nil then main.flags['-config'] = 'save/config.ini' end
 if main.flags['-stats'] == nil then main.flags['-stats'] = 'save/stats.json' end
 
 --One-time load of the json routines
@@ -43,9 +43,6 @@ function main.f_fileWrite(path, str, mode)
 	file:close()
 end
 
---Data loading from config.json
-config = json.decode(main.f_fileRead(main.flags['-config']))
-
 --Data loading from stats.json
 stats = json.decode(main.f_fileRead(main.flags['-stats']))
 
@@ -61,7 +58,7 @@ function main.f_commandNew()
 end
 
 --prepare players/command tables
-function main.f_setPlayers(num, default)
+function main.f_setPlayers(num)
 	setPlayers(num)
 	main.t_players = {}
 	main.t_remaps = {}
@@ -74,27 +71,9 @@ function main.f_setPlayers(num, default)
 		table.insert(main.t_lastInputs, {})
 		table.insert(main.t_cmd, main.f_commandNew())
 		table.insert(main.t_pIn, i)
-		local new = false
-		if i > #config.KeyConfig then
-			table.insert(config.KeyConfig, {Joystick = -1, Buttons = {'', '', '', '', '', '', '', '', '', '', '', '', '', ''}})
-			new = true
-		end
-		if i > #config.JoystickConfig then
-			table.insert(config.JoystickConfig, {Joystick = i - 1, Buttons = {'', '', '', '', '', '', '', '', '', '', '', '', '', ''}})
-			new = true
-		end
-		if new and default then
-			options.f_keyDefault(i)
-		end
-	end
-	for i = 1, #config.KeyConfig - num do
-		table.remove(config.KeyConfig, #config.KeyConfig)
-	end
-	for i = 1, #config.JoystickConfig - num do
-		table.remove(config.JoystickConfig, #config.JoystickConfig)
 	end
 end
-main.f_setPlayers(config.Players, false)
+main.f_setPlayers(gameOption('Config.Players'))
 
 --add new commands
 function main.f_commandAdd(name, cmd, tim, buf)
@@ -110,7 +89,7 @@ end
 
 --sends inputs to buffer
 function main.f_cmdInput()
-	for i = 1, config.Players do
+	for i = 1, gameOption('Config.Players') do
 		if main.t_pIn[i] > 0 then
 			commandInput(main.t_cmd[i], main.t_pIn[i])
 		end
@@ -125,7 +104,7 @@ function main.f_cmdBufReset(pn)
 		main.f_cmdInput()
 		return
 	end
-	for i = 1, config.Players do
+	for i = 1, gameOption('Config.Players') do
 		commandBufReset(main.t_cmd[i])
 	end
 	main.f_cmdInput()
@@ -311,13 +290,13 @@ end
 
 --command line global flags
 if main.flags['-ailevel'] ~= nil then
-	config.Difficulty = math.max(1, math.min(tonumber(main.flags['-ailevel']), 8))
+	modifyGameOption('Options.Difficulty', math.max(1, math.min(tonumber(main.flags['-ailevel']), 8)))
 end
 if main.flags['-speed'] ~= nil and tonumber(main.flags['-speed']) > 0 then
-	setGameSpeed(tonumber(main.flags['-speed']) * config.Framerate / 100)
+	setGameSpeed(tonumber(main.flags['-speed']) * gameOption('Config.Framerate') / 100)
 end
 if main.flags['-speedtest'] ~= nil then
-	setGameSpeed(100 * config.Framerate)
+	setGameSpeed(100 * gameOption('Config.Framerate'))
 end
 if main.flags['-nosound'] ~= nil then
 	setVolumeMaster(0)
@@ -336,7 +315,7 @@ if main.flags['-setport'] ~= nil then
 end
 
 --motif
-main.motifDef = config.Motif
+main.motifDef = gameOption('Config.Motif')
 if main.flags['-r'] ~= nil or main.flags['-rubric'] ~= nil then
 	local case = main.flags['-r']:lower() or main.flags['-rubric']:lower()
 	if case:match('^data[/\\]') and main.f_fileExists(main.flags['-r']) then
@@ -961,21 +940,21 @@ function main.f_tableClean(t, t_sort)
 	--first we add all entries existing in screenpack file in correct order
 	for i = 1, #t_sort do
 		for j = 1, #t do
-			if t_sort[i] == t[j].itemname and t[j].displayname ~= '' then
+			if t_sort[i] == t[j].itemname:lower() and t[j].displayname ~= '' then
 				table.insert(t_clean, t[j])
-				t_added[t[j].itemname] = 1
+				t_added[t[j].itemname:lower()] = 1
 				break
 			end
 		end
 	end
 	--then we add remaining default entries if not existing yet and not disabled (by default or via screenpack)
 	for i = 1, #t do
-		if t_sort[t[i].itemname] ~= nil and t_added[t[i].itemname] == nil and t[i].displayname ~= '' then
+		if t_sort[t[i].itemname:lower()] ~= nil and t_added[t[i].itemname:lower()] == nil and t[i].displayname ~= '' then
 			table.insert(t_clean, t[i])
 		end
 	end
 	--exception for input menu
-	if t[1].itemname == 'empty' and t[#t].itemname == 'page' then
+	if t[1].itemname:lower() == 'empty' and t[#t].itemname:lower() == 'page' then
 		table.insert(t_clean, 1, t[1])
 		table.insert(t_clean, t[#t])
 	end
@@ -1261,25 +1240,25 @@ main.roundsNumTag = {}
 main.maxDrawGames = {}
 function main.f_updateRoundsNum()
 	for i = 1, 2 do
-		if config.RoundsNumSingle == -1 then
+		if gameOption('Options.Match.Wins') == -1 then
 			main.roundsNumSingle[i] = getMatchWins(i)
 		else
-			main.roundsNumSingle[i] = config.RoundsNumSingle
+			main.roundsNumSingle[i] = gameOption('Options.Match.Wins')
 		end
-		if config.RoundsNumSimul == -1 then
+		if gameOption('Options.Simul.Match.Wins') == -1 then
 			main.roundsNumSimul[i] = getMatchWins(i)
 		else
-			main.roundsNumSimul[i] = config.RoundsNumSimul
+			main.roundsNumSimul[i] = gameOption('Options.Simul.Match.Wins')
 		end
-		if config.RoundsNumTag == -1 then
+		if gameOption('Options.Tag.Match.Wins') == -1 then
 			main.roundsNumTag[i] = getMatchWins(i)
 		else
-			main.roundsNumTag[i] = config.RoundsNumTag
+			main.roundsNumTag[i] = gameOption('Options.Tag.Match.Wins')
 		end
-		if config.MaxDrawGames == -2 then
+		if gameOption('Options.Match.MaxDrawGames') == -2 then
 			main.maxDrawGames[i] = getMatchMaxDrawGames(i)
 		else
-			main.maxDrawGames[i] = config.MaxDrawGames
+			main.maxDrawGames[i] = gameOption('Options.Match.MaxDrawGames')
 		end
 	end
 end
@@ -1314,7 +1293,7 @@ require('external.script.global')
 
 if main.debugLog then main.f_printTable(main.flags, "debug/flags.txt") end
 
-loadDebugFont(config.DebugFont, config.DebugFontScale)
+loadDebugFont(gameOption('Debug.Font'), gameOption('Debug.FontScale'))
 
 --;===========================================================
 --; COMMAND LINE QUICK VS
@@ -1330,11 +1309,11 @@ function main.f_commandLine()
 	local t_teamMode = {0, 0}
 	local t_numChars = {0, 0}
 	local t_matchWins = {single = main.roundsNumSingle, simul = main.roundsNumSimul, tag = main.roundsNumTag, draw = main.maxDrawGames}
-	local roundTime = config.RoundTime
+	local roundTime = gameOption('Options.Time')
 	if main.flags['-loadmotif'] == nil then
 		loadLifebar(main.lifebarDef)
 	end
-	setLifebarElements({guardbar = config.BarGuard, stunbar = config.BarStun, redlifebar = config.BarRedLife})
+	setLifebarElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
 	local frames = fightscreenvar("time.framespercount")
 	main.f_updateRoundsNum()
 	local t = {}
@@ -1422,12 +1401,11 @@ function main.f_commandLine()
 			setMatchWins(i, t_matchWins.single[i])
 		end
 		setMatchMaxDrawGames(i, t_matchWins.draw[i])
-		setAutoguard(i, config.AutoGuard)
 	end
 	frames = frames * math.max(t_framesMul[1], t_framesMul[2])
 	setTimeFramesPerCount(frames)
 	setRoundTime(math.max(-1, roundTime * frames))
-	local stage = config.StartStage
+	local stage = gameOption('Debug.StartStage')
 	if main.flags['-s'] ~= nil then
 		for _, v in ipairs({main.flags['-s'], 'stages/' .. main.flags['-s'], 'stages/' .. main.flags['-s'] .. '.def'}) do
 			if main.f_fileExists(v) then
@@ -2013,13 +1991,13 @@ lanOptions = false
 lanStory = false
 for line in content:gmatch('[^\r\n]+') do
 	local lineCase = line:lower()
-	if lineCase:match('^%s*%[%s*' .. config.Language .. '.characters' .. '%s*%]') then
+	if lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.characters' .. '%s*%]') then
 		lanChars = true
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.extrastages' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.extrastages' .. '%s*%]') then
 		lanStages = true
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.options' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.options' .. '%s*%]') then
 		lanOptions = true
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.storymode' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.storymode' .. '%s*%]') then
 		lanStory = true
 	end
 end
@@ -2031,7 +2009,7 @@ for line in content:gmatch('[^\r\n]+') do
 	if lineCase:match('^%s*%[%s*characters%s*%]') then
 		row = 0
 		section = 1
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.characters' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.characters' .. '%s*%]') then
 		if lanChars then
 			row = 0
 			section = 1
@@ -2041,7 +2019,7 @@ for line in content:gmatch('[^\r\n]+') do
 	elseif lineCase:match('^%s*%[%s*extrastages%s*%]') then
 		row = 0
 		section = 2
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.extrastages' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.extrastages' .. '%s*%]') then
 		if lanStages then
 			row = 0
 			section = 2
@@ -2049,30 +2027,10 @@ for line in content:gmatch('[^\r\n]+') do
 			section = -1
 		end
 	elseif lineCase:match('^%s*%[%s*options%s*%]') then
-		main.t_selOptions = {
-			arcadestart = {wins = 0, offset = 0},
-			arcadeend = {wins = 0, offset = 0},
-			teamstart = {wins = 0, offset = 0},
-			teamend = {wins = 0, offset = 0},
-			survivalstart = {wins = 0, offset = 0},
-			survivalend = {wins = 0, offset = 0},
-			ratiostart = {wins = 0, offset = 0},
-			ratioend = {wins = 0, offset = 0},
-		}
 		row = 0
 		section = 3
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.options' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.options' .. '%s*%]') then
 		if lanOptions then
-			main.t_selOptions = {
-				arcadestart = {wins = 0, offset = 0},
-				arcadeend = {wins = 0, offset = 0},
-				teamstart = {wins = 0, offset = 0},
-				teamend = {wins = 0, offset = 0},
-				survivalstart = {wins = 0, offset = 0},
-				survivalend = {wins = 0, offset = 0},
-				ratiostart = {wins = 0, offset = 0},
-				ratioend = {wins = 0, offset = 0},
-			}
 			row = 0
 			section = 3
 		else
@@ -2081,7 +2039,7 @@ for line in content:gmatch('[^\r\n]+') do
 	elseif lineCase:match('^%s*%[%s*storymode%s*%]') then
 		row = 0
 		section = 4
-	elseif lineCase:match('^%s*%[%s*' .. config.Language .. '.storymode' .. '%s*%]') then
+	elseif lineCase:match('^%s*%[%s*' .. gameOption('Config.Language') .. '.storymode' .. '%s*%]') then
 		if lanStory then
 			row = 0
 			section = 4
@@ -2212,9 +2170,6 @@ for line in content:gmatch('[^\r\n]+') do
 				end
 				table.insert(main.t_selOptions[rowName .. 'ratiomatches'], {rmin = rmin, rmax = rmax, order = order})
 			end
-		elseif lineCase:match('%.airamp%.') then
-			local rowName, rowName2, wins, offset = lineCase:match('^%s*(.-)%.airamp%.(.-)%s*=%s*([%.0-9-]+)%s*,%s*([%.0-9-]+)')
-			main.t_selOptions[rowName .. rowName2] = {wins = tonumber(wins), offset = tonumber(offset)}
 		end
 	elseif section == 4 then --[StoryMode]
 		local param, value = line:match('^%s*(.-)%s*=%s*(.-)%s*$')
@@ -2244,8 +2199,8 @@ for i = 1, #t_addExluded do
 end
 
 --add Training char if defined and not included in select.def
-if config.TrainingChar ~= '' and main.t_charDef[config.TrainingChar:lower()] == nil then
-	main.f_addChar(config.TrainingChar .. ', order = 0, ordersurvival = 0, exclude = 1', false, true)
+if gameOption('Config.TrainingChar') ~= '' and main.t_charDef[gameOption('Config.TrainingChar'):lower()] == nil then
+	main.f_addChar(gameOption('Config.TrainingChar') .. ', order = 0, ordersurvival = 0, exclude = 1', false, true)
 end
 
 --add remaining character parameters
@@ -2280,7 +2235,7 @@ end
 
 --add default starting stage if no stages have been added via select.def
 if #main.t_includeStage[1] == 0 or #main.t_includeStage[2] == 0 then
-	local row = main.f_addStage(config.StartStage)
+	local row = main.f_addStage(gameOption('Debug.StartStage'))
 	table.insert(main.t_includeStage[1], row)
 	table.insert(main.t_includeStage[2], row)
 end
@@ -2375,7 +2330,7 @@ local overlay_infobox = main.f_createOverlay(motif.infobox, 'overlay')
 local overlay_footer = main.f_createOverlay(motif.title_info, 'footer_overlay')
 
 function main.f_default()
-	for i = 1, config.Players do
+	for i = 1, gameOption('Config.Players') do
 		main.t_pIn[i] = i
 		main.t_remaps[i] = i
 	end
@@ -2413,9 +2368,9 @@ function main.f_default()
 		p2score = false,
 		p2winCount = false,
 		timer = false,
-		guardbar = config.BarGuard,
-		stunbar = config.BarStun,
-		redlifebar = config.BarRedLife,
+		guardbar = gameOption('Options.GuardBreak'),
+		stunbar = gameOption('Options.Dizzy'),
+		redlifebar = gameOption('Options.RedLife'),
 		hidebars = motif.dialogue_info.enabled == 1,
 	}
 	main.lifePersistence = false --if life should be maintained after match
@@ -2427,16 +2382,16 @@ function main.f_default()
 		single = main.roundsNumSingle,
 		tag = main.roundsNumTag,
 	}
-	main.numSimul = {config.NumSimul[1], config.NumSimul[2]} --min/max number of simul characters
-	main.numTag = {config.NumTag[1], config.NumTag[2]} --min/max number of tag characters
-	main.numTurns = {config.NumTurns[1], config.NumTurns[2]} --min/max number of turn characters
+	main.numSimul = {gameOption('Options.Simul.Min'), gameOption('Options.Simul.Max')} --min/max number of simul characters
+	main.numTag = {gameOption('Options.Tag.Min'), gameOption('Options.Tag.Max')} --min/max number of tag characters
+	main.numTurns = {gameOption('Options.Turns.Min'), gameOption('Options.Turns.Max')} --min/max number of turn characters
 	main.orderSelect = {false, false} --if versus screen order selection should be active
 	main.quickContinue = false --if by default continuing should skip player selection
 	main.rankingCondition = false --if winning (clearing) whole mode is needed for rankings to be saved
 	main.resetScore = false --if loosing should set score for the next match to lose count
 	main.resultsTable = nil --which motif section should be used for result screen rendering
-	main.rotationChars = false --flags modes where config.AISurvivalColor should be used instead of config.AIRandomColor
-	main.roundTime = config.RoundTime --sets round time
+	main.rotationChars = false --flags modes where gameOption('Arcade.AI.SurvivalColor') should be used instead of gameOption('Arcade.AI.RandomColor')
+	main.roundTime = gameOption('Options.Time') --sets round time
 	main.selectMenu = {true, false} --which team side should be allowed to select players
 	main.stageMenu = false --if manual stage selection is allowed
 	main.stageOrder = false --if select.def stage order param should be used
@@ -2450,8 +2405,6 @@ function main.f_default()
 	main.victoryScreen = false --if victory screen should be shown
 	resetAILevel()
 	resetRemapInput()
-	setAutoguard(1, config.AutoGuard)
-	setAutoguard(2, config.AutoGuard)
 	setAutoLevel(false)
 	setConsecutiveWins(1, 0)
 	setConsecutiveWins(2, 0)
@@ -2602,15 +2555,16 @@ main.t_itemname = {
 			)
 			if address:match('^[0-9%.]+$') then
 				sndPlay(motif.files.snd_data, motif[main.group].cursor_done_snd[1], motif[main.group].cursor_done_snd[2])
-				config.IP[name] = address
+				modifyGameOption('Netplay.IP.' .. name, address)
 				table.insert(t, #t, {data = text:create({}), itemname = 'ip_' .. name, displayname = name})
-				main.f_fileWrite(main.flags['-config'], json.encode(config, {indent = 2}))
+				saveGameOption(main.flags['-config'])
 			else
 				sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])
 			end
 		else
 			sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])
 		end
+		main.f_cmdBufReset()
 		return t
 	end,
 	--NETPLAY SURVIVAL
@@ -2736,7 +2690,7 @@ main.t_itemname = {
 	end,
 	--SERVER CONNECT
 	['serverconnect'] = function(t, item)
-		if main.f_connect(config.IP[t[item].displayname], main.f_extractText(motif.title_info.connecting_join_text, t[item].displayname, config.IP[t[item].displayname])) then
+		if main.f_connect(gameOption('Netplay.IP.' .. t[item].displayname), main.f_extractText(motif.title_info.connecting_join_text, t[item].displayname, gameOption('Netplay.IP.' .. t[item].displayname))) then
 			synchronize()
 			math.randomseed(sszRandom())
 			main.f_cmdBufReset()
@@ -2749,7 +2703,7 @@ main.t_itemname = {
 	end,
 	--SERVER HOST
 	['serverhost'] = function(t, item)
-		if main.f_connect("", main.f_extractText(motif.title_info.connecting_host_text, getListenPort())) then
+		if main.f_connect("", main.f_extractText(motif.title_info.connecting_host_text, gameOption('Netplay.ListenPort'))) then
 			synchronize()
 			math.randomseed(sszRandom())
 			main.f_cmdBufReset()
@@ -2840,8 +2794,8 @@ main.t_itemname = {
 		main.matchWins.simul = {1, 1}
 		main.matchWins.single = {1, 1}
 		main.matchWins.tag = {1, 1}
-		main.numSimul = {2, math.min(4, config.Players)}
-		main.numTag = {2, math.min(4, config.Players)}
+		main.numSimul = {2, math.min(4, gameOption('Config.Players'))}
+		main.numTag = {2, math.min(4, gameOption('Config.Players'))}
 		main.resultsTable = motif.survival_results_screen
 		main.rotationChars = true
 		main.stageMenu = true
@@ -2877,8 +2831,8 @@ main.t_itemname = {
 		--main.lifebar.p1score = true
 		--main.lifebar.p2aiLevel = true
 		main.makeRoster = true
-		main.numSimul = {2, math.min(4, config.Players)}
-		main.numTag = {2, math.min(4, config.Players)}
+		main.numSimul = {2, math.min(4, gameOption('Config.Players'))}
+		main.numTag = {2, math.min(4, gameOption('Config.Players'))}
 		main.resetScore = true
 		main.resultsTable = motif.win_screen
 		main.stageOrder = true
@@ -2953,8 +2907,8 @@ main.t_itemname = {
 		setHomeTeam(1)
 		main.f_playerInput(main.playerInput, 1)
 		main.t_pIn[2] = 1
-		if main.t_charDef[config.TrainingChar:lower()] ~= nil then
-			main.forceChar[2] = {main.t_charDef[config.TrainingChar:lower()]}
+		if main.t_charDef[gameOption('Config.TrainingChar'):lower()] ~= nil then
+			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
 		end
 		--main.lifebar.p1score = true
 		--main.lifebar.p2aiLevel = true
@@ -3025,8 +2979,8 @@ main.t_itemname = {
 		main.cpuSide[2] = false
 		--main.lifebar.p1winCount = true
 		--main.lifebar.p2winCount = true
-		main.numSimul = {2, math.min(4, math.max(2, math.ceil(config.Players / 2)))}
-		main.numTag = {2, math.min(4, math.max(2, math.ceil(config.Players / 2)))}
+		main.numSimul = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
+		main.numTag = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
 		main.selectMenu[2] = true
 		main.stageMenu = true
 		main.teamMenu[1].simul = true
@@ -3076,8 +3030,8 @@ function main.f_deleteIP(item, t)
 	if t[item].itemname:match('^ip_') then
 		sndPlay(motif.files.snd_data, motif.title_info.cancel_snd[1], motif.title_info.cancel_snd[2])
 		resetKey()
-		config.IP[t[item].itemname:gsub('^ip_', '')] = nil
-		main.f_fileWrite(main.flags['-config'], json.encode(config, {indent = 2}))
+		modifyGameOption('Netplay.IP.' .. t[item].itemname:gsub('^ip_', ''), nil)
+		saveGameOption(main.flags['-config'])
 		for i = 1, #t do
 			if t[i].itemname == t[item].itemname then
 				table.remove(t, i)
@@ -3201,9 +3155,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					if not bool_main or esc() then
 						break
 					end
-				elseif bool_f1 and (getKey('F1') or config.FirstRun) then
-					if config.FirstRun then
-						config.FirstRun = false
+				elseif bool_f1 and (getKey('F1') or gameOption('Config.FirstRun')) then
+					if gameOption('Config.FirstRun') then
+						modifyGameOption('Config.FirstRun', false)
 						options.f_saveCfg(false)
 					end
 					main.f_warning(
@@ -3374,7 +3328,7 @@ function main.f_start()
 			end
 			--add IP addresses for serverjoin submenu
 			if suffix:match('_serverjoin_back$') and c == 'serverjoin' then --j == main.f_countSubstring(suffix, '_') then
-				for k, v in pairs(config.IP) do
+				for k, v in pairs(gameOption('Netplay.IP')) do
 					local itemname = 'ip_' .. k
 					table.insert(t_pos.items, {
 						data = text:create({window = t_menuWindow}),
@@ -3735,7 +3689,7 @@ function main.f_setCredits()
 	if motif.attract_mode.enabled == 1 or start.challenger ~= 0 then
 		return
 	end
-	main.credits = config.Credits - 1
+	main.credits = gameOption('Options.Credits') - 1
 end
 
 --demo mode
@@ -3757,10 +3711,6 @@ end
 
 function main.f_demoStart()
 	main.f_default()
-	if motif.demo_mode.debuginfo == 0 and config.DebugKeys then
-		setAllowDebugKeys(false)
-		setAllowDebugMode(false)
-	end
 	main.lifebar.bars = motif.demo_mode.fight_bars_display == 1
 	setGameMode('demo')
 	for i = 1, 2 do
@@ -3778,8 +3728,6 @@ function main.f_demoStart()
 	clearColor(motif[main.background].bgclearcolor[1], motif[main.background].bgclearcolor[2], motif[main.background].bgclearcolor[3])
 	loadStart()
 	game()
-	setAllowDebugKeys(config.DebugKeys)
-	setAllowDebugMode(config.DebugMode)
 	if motif.attract_mode.enabled == 0 then
 		if introWaitCycles >= motif.demo_mode.intro_waitcycles then
 			start.hiscoreInit = false
@@ -4152,7 +4100,7 @@ for _, v in ipairs(getDirectoryFiles('external/mods')) do
 		table.insert(t_modules, v)
 	end
 end
-for _, v in ipairs(config.Modules) do
+for _, v in ipairs(gameOption('Common.Modules')) do
 	table.insert(t_modules, v)
 end
 if motif.files.module ~= '' then table.insert(t_modules, motif.files.module) end
@@ -4203,7 +4151,7 @@ if main.flags['-stresstest'] ~= nil then
 	main.f_default()
 	local frameskip = tonumber(main.flags['-stresstest'])
 	if frameskip >= 1 then
-		setGameSpeed((frameskip + 1) * config.Framerate)
+		setGameSpeed((frameskip + 1) * gameOption('Config.Framerate'))
 	end
 	setGameMode('randomtest')
 	randomtest.run()

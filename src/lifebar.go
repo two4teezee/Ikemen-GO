@@ -2174,7 +2174,7 @@ func (ro *LifeBarRound) act() bool {
 		// Round intro. Consists of round and fight calls
 		if !ro.roundCallOver || !ro.fightCallOver {
 
-			if sys.round == 1 && sys.intro == ro.ctrl_time && len(sys.commonLua) > 0 {
+			if sys.round == 1 && sys.intro == ro.ctrl_time && len(sys.cfg.Common.Lua) > 0 {
 				for _, p := range sys.chars {
 					if len(p) > 0 && len(p[0].dialogue) > 0 {
 						sys.posReset()
@@ -3194,6 +3194,7 @@ func (mo *LifeBarMode) draw(layerno int16, f []*Fnt) {
 }
 
 type Lifebar struct {
+	Def        string
 	name       string
 	nameLow    string
 	author     string
@@ -3232,7 +3233,6 @@ type Lifebar struct {
 	hidebars   bool
 	fnt_scale  float32
 	fx_limit   int
-	def        string
 	textsprite []*TextSprite
 }
 
@@ -3293,7 +3293,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	filesflg := true
 	ffx := newFightFx()
 	// Load Common FX first
-	for _, def := range sys.commonFx {
+	for _, def := range sys.cfg.Common.Fx {
 		if err := loadFightFx(def); err != nil {
 			return nil, err
 		}
@@ -3361,42 +3361,6 @@ func loadLifebar(def string) (*Lifebar, error) {
 				if is.LoadFile("common.snd", []string{def, sys.motifDir, "", "data/"},
 					func(filename string) error {
 						ffx.fsnd, err = LoadSnd(filename)
-						return err
-					}); err != nil {
-					return nil, err
-				}
-				if is.LoadFile("common.air", []string{def, sys.motifDir, "", "data/"},
-					func(filename string) error {
-						if !sliceContains(sys.commonAir, filename, true) {
-							sys.commonAir = append(sys.commonAir, filename)
-						}
-						return err
-					}); err != nil {
-					return nil, err
-				}
-				if is.LoadFile("common.cmd", []string{def, sys.motifDir, "", "data/"},
-					func(filename string) error {
-						if !sliceContains(sys.commonCmd, filename, true) {
-							sys.commonCmd = append(sys.commonCmd, filename)
-						}
-						return err
-					}); err != nil {
-					return nil, err
-				}
-				if is.LoadFile("common.const", []string{def, sys.motifDir, "", "data/"},
-					func(filename string) error {
-						if !sliceContains(sys.commonConst, filename, true) {
-							sys.commonConst = append(sys.commonConst, filename)
-						}
-						return err
-					}); err != nil {
-					return nil, err
-				}
-				if is.LoadFile("common.states", []string{def, sys.motifDir, "", "data/"},
-					func(filename string) error {
-						if !sliceContains(sys.commonStates, filename, true) {
-							sys.commonStates = append(sys.commonStates, filename)
-						}
 						return err
 					}); err != nil {
 					return nil, err
@@ -3879,11 +3843,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 			}
 		}
 	}
-	l.def = def
+	l.Def = def
 	return l, nil
 }
 func (l *Lifebar) reloadLifebar() error {
-	lb, err := loadLifebar(l.def)
+	lb, err := loadLifebar(l.Def)
 	if err != nil {
 		return err
 	}
@@ -4150,7 +4114,7 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti, tm := range sys.tmode {
 				for i := range l.order[ti] {
 					if !sys.chars[i*2+ti][0].asf(ASF_nopowerbardisplay) {
-						if sys.powerShare[ti] && (tm == TM_Simul || tm == TM_Tag) {
+						if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
 							if i == 0 {
 								l.pb[l.ref[ti]][i*2+ti].bgDraw(layerno, i*2+ti)
 							}
@@ -4163,7 +4127,7 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti, tm := range sys.tmode {
 				for i, v := range l.order[ti] {
 					if !sys.chars[i*2+ti][0].asf(ASF_nopowerbardisplay) {
-						if sys.powerShare[ti] && (tm == TM_Simul || tm == TM_Tag) {
+						if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
 							if i == 0 {
 								l.pb[l.ref[ti]][i*2+ti].draw(layerno, i*2+ti, l.pb[l.ref[ti]][i*2+ti], l.fnt[:])
 							}

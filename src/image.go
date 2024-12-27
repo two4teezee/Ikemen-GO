@@ -687,7 +687,7 @@ func (s *Sprite) SetPxl(px []byte) {
 
 func (s *Sprite) SetRaw(data []byte, sprWidth int32, sprHeight int32, sprDepth int32) {
 	sys.mainThreadTask <- func() {
-		s.Tex = gfx.newTexture(sprWidth, sprHeight, sprDepth, sys.pngFilter)
+		s.Tex = gfx.newTexture(sprWidth, sprHeight, sprDepth, sys.cfg.Video.PngSpriteFilter)
 		s.Tex.SetData(data)
 	}
 }
@@ -1549,7 +1549,7 @@ func captureScreen() {
 		img.Pix[j] = pixdata[i]
 	}
 	for i := sys.captureNum; i < 999; i++ {
-		filename := fmt.Sprintf("%sikemen%03d.png", sys.screenshotFolder, i)
+		filename := fmt.Sprintf("%sikemen%03d.png", sys.cfg.Config.ScreenshotFolder, i)
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			file, _ := os.Create(filename)
 			defer file.Close()

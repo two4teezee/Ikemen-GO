@@ -410,13 +410,13 @@ func (r *Renderer_GL32) Init() {
 	// Store current timestamp
 	sys.prevTimestamp = glfw.GetTime()
 
-	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.externalShaderList))
+	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.cfg.Video.ExternalShaders))
 
 	// Data buffers for rendering
 	postVertData := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 
-	r.enableModel = sys.enableModel
-	r.enableShadow = sys.enableModelShadow
+	r.enableModel = sys.cfg.Video.EnableModel
+	r.enableShadow = sys.cfg.Video.EnableModelShadow
 
 	gl.GenVertexArrays(1, &r.vao)
 	gl.BindVertexArray(r.vao)
@@ -446,10 +446,10 @@ func (r *Renderer_GL32) Init() {
 	// Compile postprocessing shaders
 
 	// Calculate total amount of shaders loaded.
-	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.externalShaderList))
+	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.cfg.Video.ExternalShaders))
 
 	// External Shaders
-	for i := 0; i < len(sys.externalShaderList); i++ {
+	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
 		r.postShaderSelect[i], _ = r.newShaderProgram(sys.externalShaders[0][i],
 			sys.externalShaders[1][i], "", fmt.Sprintf("Postprocess Shader #%v", i), true)
 		r.postShaderSelect[i].RegisterAttributes("VertCoord", "TexCoord")
@@ -465,7 +465,7 @@ func (r *Renderer_GL32) Init() {
 	identShader.RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime")
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
 
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		gl.Enable(gl.MULTISAMPLE)
 	}
 
@@ -474,7 +474,7 @@ func (r *Renderer_GL32) Init() {
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
 
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture)
 	} else {
 		gl.BindTexture(gl.TEXTURE_2D, r.fbo_texture)
@@ -487,10 +487,10 @@ func (r *Renderer_GL32) Init() {
 
 	// Don't change this from gl.RGBA.
 	// It breaks mixing between subtractive and additive.
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		gl.TexImage2DMultisample(
 			gl.TEXTURE_2D_MULTISAMPLE,
-			sys.multisampleAntialiasing,
+			sys.cfg.Video.MSAA,
 			gl.RGBA,
 			sys.scrrect[2],
 			sys.scrrect[3],
@@ -543,14 +543,14 @@ func (r *Renderer_GL32) Init() {
 	gl.GenRenderbuffers(1, &r.rbo_depth)
 
 	gl.BindRenderbuffer(gl.RENDERBUFFER, r.rbo_depth)
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		//gl.RenderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, int(sys.scrrect[2]), int(sys.scrrect[3]))
-		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, sys.multisampleAntialiasing, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
+		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, sys.cfg.Video.MSAA, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
 	} else {
 		gl.RenderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
 	}
 	gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		r.fbo_f_texture = r.newTexture(sys.scrrect[2], sys.scrrect[3], 32, false).(*Texture_GL32)
 		r.fbo_f_texture.SetData(nil)
 	} else {
@@ -564,7 +564,7 @@ func (r *Renderer_GL32) Init() {
 	gl.GenFramebuffers(1, &r.fbo)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture, 0)
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 		if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
@@ -647,14 +647,14 @@ func (r *Renderer_GL32) EndFrame() {
 	x, y, width, height := int32(0), int32(0), int32(sys.scrrect[2]), int32(sys.scrrect[3])
 	time := glfw.GetTime() // consistent time across all shaders
 
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, r.fbo_f)
 		gl.BindFramebuffer(gl.READ_FRAMEBUFFER, r.fbo)
 		gl.BlitFramebuffer(x, y, width, height, x, y, width, height, gl.COLOR_BUFFER_BIT, gl.LINEAR)
 	}
 
 	var scaleMode int32 // GL enum
-	if sys.windowScaleMode {
+	if sys.cfg.Video.WindowScaleMode {
 		scaleMode = gl.LINEAR
 	} else {
 		scaleMode = gl.NEAREST
@@ -671,7 +671,7 @@ func (r *Renderer_GL32) EndFrame() {
 	gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
-	if sys.multisampleAntialiasing > 0 {
+	if sys.cfg.Video.MSAA > 0 {
 		fbo_texture = r.fbo_f_texture.handle
 	}
 

@@ -817,7 +817,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	sectionExists := false
 
 	// Info group
-	if sec = defmap[fmt.Sprintf("%v.info", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.info", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["info"]; len(sec) > 0 {
@@ -899,7 +899,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// StageInfo group. Needs to be read before most other groups so that localcoord is known
-	if sec = defmap[fmt.Sprintf("%v.stageinfo", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["stageinfo"]; len(sec) > 0 {
@@ -943,7 +943,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Constants group
-	if sec = defmap[fmt.Sprintf("%v.constants", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.constants", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["constants"]; len(sec) > 0 {
@@ -958,7 +958,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Scaling group
-	if sec = defmap[fmt.Sprintf("%v.scaling", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.scaling", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["scaling"]; len(sec) > 0 {
@@ -976,7 +976,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Bound group
-	if sec = defmap[fmt.Sprintf("%v.bound", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.bound", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["bound"]; len(sec) > 0 {
@@ -990,7 +990,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// PlayerInfo Group
-	if sec = defmap[fmt.Sprintf("%v.playerinfo", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.playerinfo", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["playerinfo"]; len(sec) > 0 {
@@ -1052,15 +1052,15 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].ReadF32("boundhighzoomdelta", &s.stageCamera.boundhighzoomdelta)
 		sec[0].ReadF32("verticalfollowzoomdelta", &s.stageCamera.verticalfollowzoomdelta)
 		sec[0].ReadBool("lowestcap", &s.stageCamera.lowestcap)
-		if sys.cam.ZoomMax == 0 {
+		if sys.cfg.Config.ForceStageZoomin == 0 {
 			sec[0].ReadF32("zoomin", &s.stageCamera.zoomin)
 		} else {
-			s.stageCamera.zoomin = sys.cam.ZoomMax
+			s.stageCamera.zoomin = sys.cfg.Config.ForceStageZoomin
 		}
-		if sys.cam.ZoomMin == 0 {
+		if sys.cfg.Config.ForceStageZoomout == 0 {
 			sec[0].ReadF32("zoomout", &s.stageCamera.zoomout)
 		} else {
-			s.stageCamera.zoomout = sys.cam.ZoomMin
+			s.stageCamera.zoomout = sys.cfg.Config.ForceStageZoomout
 		}
 		anchor, _, _ := sec[0].getText("zoomanchor")
 		if strings.ToLower(anchor) == "bottom" {
@@ -1073,7 +1073,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Music group
-	if sec = defmap[fmt.Sprintf("%v.music", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.music", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["music"]; len(sec) > 0 {
@@ -1094,7 +1094,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// BGDef group
-	if sec = defmap[fmt.Sprintf("%v.bgdef", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.bgdef", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["bgdef"]; len(sec) > 0 {
@@ -1143,7 +1143,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Model group
-	if sec = defmap[fmt.Sprintf("%v.model", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.model", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["model"]; len(sec) > 0 {
@@ -1195,7 +1195,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Shadow group
-	if sec = defmap[fmt.Sprintf("%v.shadow", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.shadow", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["shadow"]; len(sec) > 0 {
@@ -1223,7 +1223,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Reflection group
-	if sec = defmap[fmt.Sprintf("%v.reflection", sys.language)]; len(sec) > 0 {
+	if sec = defmap[fmt.Sprintf("%v.reflection", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
 	} else {
 		if sec = defmap["reflection"]; len(sec) > 0 {

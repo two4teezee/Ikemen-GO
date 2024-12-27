@@ -1002,7 +1002,7 @@ type AfterImage struct {
 }
 
 func newAfterImage() *AfterImage {
-	ai := &AfterImage{palfx: make([]PalFX, sys.afterImageMax)}
+	ai := &AfterImage{palfx: make([]PalFX, sys.cfg.Config.AfterImageMax)}
 	for i := range ai.palfx {
 		ai.palfx[i].enable, ai.palfx[i].negType = true, true
 	}
@@ -1145,7 +1145,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
 		return
 	}
-	end := Min(sys.afterImageMax,
+	end := Min(sys.cfg.Config.AfterImageMax,
 		(Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap)
 	// Decide layering
 	sprs := &sys.spritesLayer0
@@ -2686,7 +2686,7 @@ func (c *Char) load(def string) error {
 					c.mapDefault[key] = float32(Atof(value))
 				}
 			}
-		case fmt.Sprintf("%v.info", sys.language):
+		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
 			if lanInfo {
 				info = false
 				lanInfo = false
@@ -2709,7 +2709,7 @@ func (c *Char) load(def string) error {
 				}
 				is.ReadF32("portraitscale", &gi.portraitscale)
 			}
-		case fmt.Sprintf("%v.files", sys.language):
+		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
 			if lanFiles {
 				files = false
 				lanFiles = false
@@ -2723,7 +2723,7 @@ func (c *Char) load(def string) error {
 					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
 				}
 			}
-		case fmt.Sprintf("%v.palette ", sys.language):
+		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
 			if lanKeymap &&
 				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				lanKeymap = false
@@ -2739,7 +2739,7 @@ func (c *Char) load(def string) error {
 					}
 				}
 			}
-		case fmt.Sprintf("%v.map", sys.language):
+		case fmt.Sprintf("%v.map", sys.cfg.Config.Language):
 			if lanMapArray {
 				mapArray = false
 				lanMapArray = false
@@ -2766,8 +2766,8 @@ func (c *Char) load(def string) error {
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
 
-	for _, s := range sys.commonConst {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+	for _, s := range sys.cfg.Common.Const {
+		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
 			str, err = LoadText(filename)
 			if err != nil {
 				return err
@@ -3077,7 +3077,7 @@ func (c *Char) load(def string) error {
 							}
 						}
 					}
-				case fmt.Sprintf("%v.quotes", sys.language):
+				case fmt.Sprintf("%v.quotes", sys.cfg.Config.Language):
 					if lanQuotes {
 						quotes = false
 						lanQuotes = false
@@ -3156,8 +3156,8 @@ func (c *Char) load(def string) error {
 			return err
 		}
 	}
-	for _, s := range sys.commonAir {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+	for _, s := range sys.cfg.Common.Air {
+		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
 			txt, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -3744,7 +3744,7 @@ func (c *Char) getPlayerID(pn int) int32 {
 	return 0
 }
 func (c *Char) getPower() int32 {
-	if sys.powerShare[c.playerNo&1] && c.teamside != -1 {
+	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
 		return sys.chars[c.playerNo&1][0].power
 	}
 	return sys.chars[c.playerNo][0].power
@@ -4660,7 +4660,7 @@ func (c *Char) newHelper() (h *Char) {
 	}
 	// Otherwise append to the end
 	if int(i) >= len(sys.chars[c.playerNo]) {
-		if i >= sys.helperMax {
+		if i >= sys.cfg.Config.HelperMax {
 			return
 		}
 		h = newChar(c.playerNo, i)
@@ -4795,7 +4795,7 @@ func (c *Char) newExplod() (*Explod, int) {
 	}
 	// Otherwise append it
 	i := len(sys.explods[c.playerNo])
-	if i < sys.explodMax {
+	if i < sys.cfg.Config.ExplodMax {
 		sys.explods[c.playerNo] = append(sys.explods[c.playerNo], Explod{})
 		return explinit(&sys.explods[c.playerNo][i]), i
 	}
@@ -5062,7 +5062,7 @@ func (c *Char) newProj() *Projectile {
 	}
 
 	// If no inactive projectile was found, append a new one within the max limit
-	if p == nil && len(sys.projs[c.playerNo]) < sys.playerProjectileMax {
+	if p == nil && len(sys.projs[c.playerNo]) < sys.cfg.Config.PlayerProjectileMax {
 		sys.projs[c.playerNo] = append(sys.projs[c.playerNo], *newProjectile())
 		p = &sys.projs[c.playerNo][len(sys.projs[c.playerNo])-1]
 	}
@@ -5894,7 +5894,7 @@ func (c *Char) setPower(pow int32) {
 func (c *Char) powerAdd(add int32) {
 	// Safely convert from float64 back to int32 after all calculations are done
 	int := F64toI32(float64(c.getPower()) + math.Round(float64(add)))
-	if sys.powerShare[c.playerNo&1] && c.teamside != -1 {
+	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
 		sys.chars[c.playerNo&1][0].setPower(int)
 	} else {
 		sys.chars[c.playerNo][0].setPower(int)
@@ -5903,7 +5903,7 @@ func (c *Char) powerAdd(add int32) {
 
 // This only for the PowerSet state controller
 func (c *Char) powerSet(pow int32) {
-	if sys.powerShare[c.playerNo&1] && c.teamside != -1 {
+	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
 		sys.chars[c.playerNo&1][0].setPower(pow)
 	} else {
 		sys.chars[c.playerNo][0].setPower(pow)
@@ -6532,8 +6532,8 @@ func (c *Char) appendToClipboard(pn, sn int, a ...interface{}) {
 				c.clipboardText = append(c.clipboardText, str)
 			}
 		}
-		if len(c.clipboardText) > sys.clipboardRows {
-			c.clipboardText = c.clipboardText[len(c.clipboardText)-sys.clipboardRows:]
+		if len(c.clipboardText) > sys.cfg.Debug.ClipboardRows {
+			c.clipboardText = c.clipboardText[len(c.clipboardText)-sys.cfg.Debug.ClipboardRows:]
 		}
 	}
 }
@@ -7418,7 +7418,7 @@ func (c *Char) actionRun() {
 	}
 	// Guarding instructions
 	c.unsetSCF(SCF_guard)
-	if sys.autoguard[c.playerNo] {
+	if sys.cfg.Options.AutoGuard {
 		c.setASF(ASF_autoguard)
 	}
 	if !c.inputWait() &&
@@ -8280,7 +8280,7 @@ type CharList struct {
 
 func (cl *CharList) clear() {
 	*cl = CharList{idMap: make(map[int32]*Char)}
-	sys.nextCharId = sys.helperMax
+	sys.nextCharId = sys.cfg.Config.HelperMax
 }
 func (cl *CharList) add(c *Char) {
 	// Append to run order

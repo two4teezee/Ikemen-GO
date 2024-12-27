@@ -229,7 +229,7 @@ local function f_parse(path)
 								palfx_invertall = 0, --Ikemen feature
 								palfx_color = 256, --Ikemen feature
 								textdelay = 2,
-								textwindow = {0, 0, math.max(config.GameWidth, t.info.localcoord[1]), math.max(config.GameHeight, t.info.localcoord[2])}, --Ikemen feature
+								textwindow = {0, 0, math.max(gameOption('Video.GameWidth'), t.info.localcoord[1]), math.max(gameOption('Video.GameHeight'), t.info.localcoord[2])}, --Ikemen feature
 								offset = {0, 0},
 								vel = {0, 0}, --Ikemen feature
 								spacing = {0, 0}, --Ikemen feature

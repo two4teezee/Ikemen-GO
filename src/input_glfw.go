@@ -255,18 +255,18 @@ func (input *Input) GetJoystickIndices(guid string) []int {
 // From @leonkasovan's branch
 func CheckAxisForDpad(joy int, axes *[]float32, base int) string {
 	var s string = ""
-	if (*axes)[0] > sys.controllerStickSensitivity { // right
+	if (*axes)[0] > sys.cfg.Input.ControllerStickSensitivity { // right
 		s = strconv.Itoa(2 + base)
-	} else if -(*axes)[0] > sys.controllerStickSensitivity { // left
+	} else if -(*axes)[0] > sys.cfg.Input.ControllerStickSensitivity { // left
 		s = strconv.Itoa(1 + base)
 	}
 	// fix OOB error that can happen on erroneous joysticks
 	if len(*axes) < 2 {
 		return s
 	}
-	if (*axes)[1] > sys.controllerStickSensitivity { // down
+	if (*axes)[1] > sys.cfg.Input.ControllerStickSensitivity { // down
 		s = strconv.Itoa(3 + base)
-	} else if -(*axes)[1] > sys.controllerStickSensitivity { // up
+	} else if -(*axes)[1] > sys.cfg.Input.ControllerStickSensitivity { // up
 		s = strconv.Itoa(base)
 	}
 	return s
@@ -276,7 +276,7 @@ func CheckAxisForDpad(joy int, axes *[]float32, base int) string {
 func CheckAxisForTrigger(joy int, axes *[]float32) string {
 	var s string = ""
 	for i := range *axes {
-		if (*axes)[i] < -sys.controllerStickSensitivity {
+		if (*axes)[i] < -sys.cfg.Input.ControllerStickSensitivity {
 			name := input.GetJoystickName(joy)
 			os := runtime.GOOS
 			joyName := name + "." + os + "." + runtime.GOARCH + ".glfw"
@@ -310,7 +310,7 @@ func CheckAxisForTrigger(joy int, axes *[]float32) string {
 				fmt.Printf("[input_glfw.go][checkAxisForTrigger] 1.AXIS joy=%v i=%v s:%v axes[i]=%v, name = %s\n", joy, i, s, (*axes)[i], name)
 				break
 			}
-		} else if (*axes)[i] > sys.controllerStickSensitivity {
+		} else if (*axes)[i] > sys.cfg.Input.ControllerStickSensitivity {
 			s = strconv.Itoa(-i*2 - 2)
 			fmt.Printf("[input_glfw.go][checkAxisForTrigger] 2.AXIS joy=%v i=%v s:%v axes[i]=%v\n", joy, i, s, (*axes)[i])
 			break

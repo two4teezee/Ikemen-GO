@@ -2129,34 +2129,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
-		vname := c.token
-		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
-			return bvNone(), err
+		out.append(OC_const_)
+		out.appendI32Op(OC_const_gameoption, int32(sys.stringPool[c.playerNo].Add(
+			strings.ToLower(c.token))))
+		*in = strings.TrimSpace(*in)
+		if len(*in) == 0 || (!sys.ignoreMostErrors && (*in)[0] != ')') {
+			return bvNone(), Error("Missing ')' before " + c.token)
 		}
-		isStr := false
-		switch vname {
-		case "sound.bgmvolume":
-			opc = OC_ex2_gameoption_sound_bgmvolume
-		case "sound.mastervolume":
-			opc = OC_ex2_gameoption_sound_mastervolume
-		case "sound.maxvolume":
-			opc = OC_ex2_gameoption_sound_maxvolume
-		case "sound.panningrange":
-			opc = OC_ex2_gameoption_sound_panningrange
-		case "sound.wavchannels":
-			opc = OC_ex2_gameoption_sound_wavchannels
-		case "sound.wavvolume":
-			opc = OC_ex2_gameoption_sound_wavvolume
-		}
-		if isStr {
-			if err := nameSub(OC_ex2_, opc); err != nil {
-				return bvNone(), err
-			}
-		} else {
-			out.append(OC_ex2_)
-			out.append(opc)
-		}
+		*in = (*in)[1:]
 	case "gametime":
 		out.append(OC_gametime)
 	case "gamewidth":
@@ -4153,8 +4133,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_receivedhits)
 	case "redlife":
 		out.append(OC_ex_, OC_ex_redlife)
-	case "roundtype":
-		out.append(OC_ex_, OC_ex_roundtype)
 	case "score":
 		out.append(OC_ex_, OC_ex_score)
 	case "scoretotal":
@@ -6772,8 +6750,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			return nil, err
 		}
 	}
-	for _, s := range sys.commonCmd {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+	for _, s := range sys.cfg.Common.Cmd {
+		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
 			txt, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -6910,8 +6888,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		}
 	}
 	// Compile common states
-	for _, s := range sys.commonStates {
-		if err := c.stateCompile(states, s, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"},
+	for _, s := range sys.cfg.Common.States {
+		if err := c.stateCompile(states, s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"},
 			false, constants); err != nil {
 			return nil, err
 		}

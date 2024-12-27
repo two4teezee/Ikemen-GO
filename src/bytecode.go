@@ -571,6 +571,7 @@ const (
 	OC_ex_clsnoverlap
 	OC_ex_combocount
 	OC_ex_consecutivewins
+	OC_ex_decisiveround
 	OC_ex_defence
 	OC_ex_dizzy
 	OC_ex_dizzypoints
@@ -646,7 +647,8 @@ const (
 	OC_ex_receivedhits
 	OC_ex_redlife
 	OC_ex_round
-	OC_ex_roundtype
+	OC_ex_roundrestarted
+	OC_ex_roundtime
 	OC_ex_score
 	OC_ex_scoretotal
 	OC_ex_selfstatenoexist
@@ -2709,6 +2711,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.comboCount())
 	case OC_ex_consecutivewins:
 		sys.bcStack.PushI(c.consecutiveWins())
+	case OC_ex_decisiveround:
+		sys.bcStack.PushB(sys.decisiveRound[^c.playerNo&1])
 	case OC_ex_defence:
 		sys.bcStack.PushF(float32(c.finalDefense * 100))
 	case OC_ex_dizzy:
@@ -2982,8 +2986,10 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_round:
 		v2 := sys.bcStack.Pop()
 		be.round(sys.bcStack.Top(), v2)
-	case OC_ex_roundtype:
-		sys.bcStack.PushI(c.roundType())
+	case OC_ex_roundrestarted:
+		sys.bcStack.PushB(sys.roundResetFlg)
+	case OC_ex_roundtime:
+		sys.bcStack.PushI(int32(sys.tickCount))
 	case OC_ex_score:
 		sys.bcStack.PushF(c.score())
 	case OC_ex_scoretotal:

@@ -6,11 +6,11 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strconv"
 	"strings"
 	"time"
-	"reflect"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -131,7 +131,7 @@ func attrLStr(attr int32) lua.LString {
 
 func toLValue(l *lua.LState, v interface{}) lua.LValue {
 	rv := reflect.ValueOf(v)
-	
+
 	// Handle pointer types
 	if rv.Kind() == reflect.Ptr {
 		if rv.IsNil() {
@@ -2586,7 +2586,7 @@ func systemScriptInit(l *lua.LState) {
 		keyDefaultProps := func(_ int) *KeysProperties {
 			return &KeysProperties{
 				Joystick: -1,
-				Up: "Not used", Down: "Not used", Left: "Not used", Right: "Not used",
+				Up:       "Not used", Down: "Not used", Left: "Not used", Right: "Not used",
 				A: "Not used", B: "Not used", C: "Not used",
 				X: "Not used", Y: "Not used", Z: "Not used",
 				Start: "Not used", D: "Not used", W: "Not used", Menu: "Not used",
@@ -2595,7 +2595,7 @@ func systemScriptInit(l *lua.LState) {
 		joystickDefaultProps := func(index int) *KeysProperties {
 			return &KeysProperties{
 				Joystick: index,
-				Up: "10", Down: "12", Left: "13", Right: "11",
+				Up:       "10", Down: "12", Left: "13", Right: "11",
 				A: "0", B: "1", C: "5",
 				X: "2", Y: "3", Z: "-12",
 				Start: "7", D: "4", W: "-10", Menu: "6",
@@ -4837,7 +4837,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "tickspersecond", func(*lua.LState) int {
-		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed * 5) * sys.accel))
+		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed*5) * sys.accel))
 		return 1
 	})
 	luaRegister(l, "time", func(*lua.LState) int {
@@ -5618,7 +5618,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "gamespeed", func(*lua.LState) int {
-		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed * 5)  / float32(sys.cfg.Config.Framerate) * sys.accel * 100))
+		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed*5) / float32(sys.cfg.Config.Framerate) * sys.accel * 100))
 		return 1
 	})
 	luaRegister(l, "lasthitter", func(*lua.LState) int {

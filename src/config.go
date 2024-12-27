@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	_ "embed" // Support for go:embed resources
-	"strings"
+	"fmt"
 	"strconv"
+	"strings"
 
 	"gopkg.in/ini.v1"
 )
@@ -14,175 +14,175 @@ var defaultConfig []byte
 
 type AIrampProperties struct {
 	Start [2]int32 `ini:"start"`
-	End [2]int32 `ini:"end"`
+	End   [2]int32 `ini:"end"`
 }
 
 type KeysProperties struct {
-	Joystick int `ini:"Joystick"`
-	Up string `ini:"Up"`
-	Down string `ini:"Down"`
-	Left string `ini:"Left"`
-	Right string `ini:"Right"`
-	A string `ini:"A"`
-	B string `ini:"B"`
-	C string `ini:"C"`
-	X string `ini:"X"`
-	Y string `ini:"Y"`
-	Z string `ini:"Z"`
-	Start string `ini:"Start"`
-	D string `ini:"D"`
-	W string `ini:"W"`
-	Menu string `ini:"Menu"`
-	GUID string `ini:"GUID"`
+	Joystick int    `ini:"Joystick"`
+	Up       string `ini:"Up"`
+	Down     string `ini:"Down"`
+	Left     string `ini:"Left"`
+	Right    string `ini:"Right"`
+	A        string `ini:"A"`
+	B        string `ini:"B"`
+	C        string `ini:"C"`
+	X        string `ini:"X"`
+	Y        string `ini:"Y"`
+	Z        string `ini:"Z"`
+	Start    string `ini:"Start"`
+	D        string `ini:"D"`
+	W        string `ini:"W"`
+	Menu     string `ini:"Menu"`
+	GUID     string `ini:"GUID"`
 }
 
 // Motif represents the top-level config structure.
 type Config struct {
-	Def       string
+	Def     string
 	IniFile *ini.File
-	Common struct {
-		Air []string `ini:"Air"`
-		Cmd []string `ini:"Cmd"`
-		Const []string `ini:"Const"`
-		States []string `ini:"States"`
-		Fx []string `ini:"Fx"`
+	Common  struct {
+		Air     []string `ini:"Air"`
+		Cmd     []string `ini:"Cmd"`
+		Const   []string `ini:"Const"`
+		States  []string `ini:"States"`
+		Fx      []string `ini:"Fx"`
 		Modules []string `ini:"Modules"`
-		Lua []string `ini:"Lua"`
+		Lua     []string `ini:"Lua"`
 	} `ini:"Common"`
 	Options struct {
-		Difficulty int `ini:"Difficulty"`
-		Life float32 `ini:"Life"`
-		Time int32 `ini:"Time"`
-		GameSpeed float32 `ini:"GameSpeed"`
-		Match struct {
-			Wins int32 `ini:"Wins"`
+		Difficulty int     `ini:"Difficulty"`
+		Life       float32 `ini:"Life"`
+		Time       int32   `ini:"Time"`
+		GameSpeed  float32 `ini:"GameSpeed"`
+		Match      struct {
+			Wins         int32 `ini:"Wins"`
 			MaxDrawGames int32 `ini:"MaxDrawGames"`
 		} `ini:"Match"`
-		Credits int `ini:"Credits"`
+		Credits       int  `ini:"Credits"`
 		QuickContinue bool `ini:"QuickContinue"`
-		AutoGuard bool `ini:"AutoGuard"`
-		GuardBreak bool `ini:"GuardBreak"`
-		Dizzy bool `ini:"Dizzy"`
-		RedLife bool `ini:"RedLife"`
-		Team struct {
-			Duplicates bool `ini:"Duplicates"`
-			LifeShare bool `ini:"LifeShare"`
-			PowerShare bool `ini:"PowerShare"`
+		AutoGuard     bool `ini:"AutoGuard"`
+		GuardBreak    bool `ini:"GuardBreak"`
+		Dizzy         bool `ini:"Dizzy"`
+		RedLife       bool `ini:"RedLife"`
+		Team          struct {
+			Duplicates      bool    `ini:"Duplicates"`
+			LifeShare       bool    `ini:"LifeShare"`
+			PowerShare      bool    `ini:"PowerShare"`
 			DisadvLifeBoost float32 `ini:"DisadvLifeBoost"`
 		} `ini:"Team"`
 		Simul struct {
-			Min int `ini:"Min"`
-			Max int `ini:"Max"`
+			Min   int `ini:"Min"`
+			Max   int `ini:"Max"`
 			Match struct {
 				Wins int32 `ini:"Wins"`
 			} `ini:"Match"`
 			LoseOnKO bool `ini:"LoseOnKO"`
 		} `ini:"Simul"`
 		Tag struct {
-			Min int `ini:"Min"`
-			Max int `ini:"Max"`
+			Min   int `ini:"Min"`
+			Max   int `ini:"Max"`
 			Match struct {
 				Wins int32 `ini:"Wins"`
 			} `ini:"Match"`
 			LoseOnKO bool `ini:"LoseOnKO"`
 		} `ini:"Tag"`
 		Turns struct {
-			Min int `ini:"Min"`
-			Max int `ini:"Max"`
+			Min      int `ini:"Min"`
+			Max      int `ini:"Max"`
 			Recovery struct {
-				Base float32 `ini:"Base"`
+				Base  float32 `ini:"Base"`
 				Bonus float32 `ini:"Bonus"`
 			} `ini:"Recovery"`
 		} `ini:"Turns"`
 		Ratio struct {
 			Recovery struct {
-				Base float32 `ini:"Base"`
+				Base  float32 `ini:"Base"`
 				Bonus float32 `ini:"Bonus"`
 			} `ini:"Recovery"`
 			Level1 struct {
 				Attack float32 `ini:"Attack"`
-				Life float32 `ini:"Life"`
+				Life   float32 `ini:"Life"`
 			} `ini:"Level1"`
 			Level2 struct {
 				Attack float32 `ini:"Attack"`
-				Life float32 `ini:"Life"`
+				Life   float32 `ini:"Life"`
 			} `ini:"Level2"`
 			Level3 struct {
 				Attack float32 `ini:"Attack"`
-				Life float32 `ini:"Life"`
+				Life   float32 `ini:"Life"`
 			} `ini:"Level3"`
 			Level4 struct {
 				Attack float32 `ini:"Attack"`
-				Life float32 `ini:"Life"`
+				Life   float32 `ini:"Life"`
 			} `ini:"Level4"`
 		} `ini:"Ratio"`
 	} `ini:"Options"`
 	Config struct {
-		Motif string `ini:"Motif"`
-		Players int `ini:"Players"`
-		Framerate int `ini:"Framerate"`
-		Language string `ini:"Language"`
-		AfterImageMax int32 `ini:"AfterImageMax"`
-		ExplodMax int `ini:"ExplodMax"`
-		HelperMax int32 `ini:"HelperMax"`
-		PlayerProjectileMax int `ini:"PlayerProjectileMax"`
-		ZoomActive bool `ini:"ZoomActive"`
-		ForceStageZoomout float32 `ini:"ForceStageZoomout"`
-		ForceStageZoomin float32 `ini:"ForceStageZoomin"`
-		EscOpensMenu bool `ini:"EscOpensMenu"`
-		FirstRun bool `ini:"FirstRun"`
-		WindowTitle string `ini:"WindowTitle"`
-		WindowIcon []string `ini:"WindowIcon"`
-		System string `ini:"System"`
-		ScreenshotFolder string `ini:"ScreenshotFolder"`
-		TrainingChar string `ini:"TrainingChar"`
-		GamepadMappings string `ini:"GamepadMappings"`
+		Motif               string   `ini:"Motif"`
+		Players             int      `ini:"Players"`
+		Framerate           int      `ini:"Framerate"`
+		Language            string   `ini:"Language"`
+		AfterImageMax       int32    `ini:"AfterImageMax"`
+		ExplodMax           int      `ini:"ExplodMax"`
+		HelperMax           int32    `ini:"HelperMax"`
+		PlayerProjectileMax int      `ini:"PlayerProjectileMax"`
+		ZoomActive          bool     `ini:"ZoomActive"`
+		ForceStageZoomout   float32  `ini:"ForceStageZoomout"`
+		ForceStageZoomin    float32  `ini:"ForceStageZoomin"`
+		EscOpensMenu        bool     `ini:"EscOpensMenu"`
+		FirstRun            bool     `ini:"FirstRun"`
+		WindowTitle         string   `ini:"WindowTitle"`
+		WindowIcon          []string `ini:"WindowIcon"`
+		System              string   `ini:"System"`
+		ScreenshotFolder    string   `ini:"ScreenshotFolder"`
+		TrainingChar        string   `ini:"TrainingChar"`
+		GamepadMappings     string   `ini:"GamepadMappings"`
 	} `ini:"Config"`
 	Debug struct {
-		AllowDebugMode bool `ini:"AllowDebugMode"`
-		AllowDebugKeys bool `ini:"AllowDebugKeys"`
-		ClipboardRows int `ini:"ClipboardRows"`
-		ConsoleRows int `ini:"ConsoleRows"`
-		ClsnDarken bool `ini:"ClsnDarken"`
-		Font string `ini:"Font"`
-		FontScale float32 `ini:"FontScale"`
-		StartStage string `ini:"StartStage"`
+		AllowDebugMode bool    `ini:"AllowDebugMode"`
+		AllowDebugKeys bool    `ini:"AllowDebugKeys"`
+		ClipboardRows  int     `ini:"ClipboardRows"`
+		ConsoleRows    int     `ini:"ConsoleRows"`
+		ClsnDarken     bool    `ini:"ClsnDarken"`
+		Font           string  `ini:"Font"`
+		FontScale      float32 `ini:"FontScale"`
+		StartStage     string  `ini:"StartStage"`
 	} `ini:"Debug"`
 	Video struct {
-		RenderMode string `ini:"RenderMode"`
-		GameWidth int32 `ini:"GameWidth"`
-		GameHeight int32 `ini:"GameHeight"`
-		WindowWidth int `ini:"WindowWidth"`
-		WindowHeight int `ini:"WindowHeight"`
-		VRetrace int `ini:"VRetrace"`
-		Fullscreen bool `ini:"Fullscreen"`
-		Borderless bool `ini:"Borderless"`
-		PngSpriteFilter bool `ini:"PngSpriteFilter"`
-		MSAA int32 `ini:"MSAA"`
-		WindowCentered bool `ini:"WindowCentered"`
-		ExternalShaders []string `ini:"ExternalShaders"`
-		WindowScaleMode bool `ini:"WindowScaleMode"`
-		KeepAspect bool `ini:"KeepAspect"`
-		EnableModel bool `ini:"EnableModel"`
-		EnableModelShadow bool `ini:"EnableModelShadow"`
+		RenderMode        string   `ini:"RenderMode"`
+		GameWidth         int32    `ini:"GameWidth"`
+		GameHeight        int32    `ini:"GameHeight"`
+		WindowWidth       int      `ini:"WindowWidth"`
+		WindowHeight      int      `ini:"WindowHeight"`
+		VRetrace          int      `ini:"VRetrace"`
+		Fullscreen        bool     `ini:"Fullscreen"`
+		Borderless        bool     `ini:"Borderless"`
+		PngSpriteFilter   bool     `ini:"PngSpriteFilter"`
+		MSAA              int32    `ini:"MSAA"`
+		WindowCentered    bool     `ini:"WindowCentered"`
+		ExternalShaders   []string `ini:"ExternalShaders"`
+		WindowScaleMode   bool     `ini:"WindowScaleMode"`
+		KeepAspect        bool     `ini:"KeepAspect"`
+		EnableModel       bool     `ini:"EnableModel"`
+		EnableModelShadow bool     `ini:"EnableModelShadow"`
 	} `ini:"Video"`
 	Sound struct {
-		SampleRate int32 `ini:"SampleRate"`
-		StereoEffects bool `ini:"StereoEffects"`
-		PanningRange float32 `ini:"PanningRange"`
-		WavChannels int32 `ini:"WavChannels"`
-		MasterVolume int `ini:"MasterVolume"`
-		PauseMasterVolume int `ini:"PauseMasterVolume"`
-		WavVolume int `ini:"WavVolume"`
-		BGMVolume int `ini:"BGMVolume"`
-		MaxBGMVolume int `ini:"MaxBGMVolume"`
-		AudioDucking bool `ini:"AudioDucking"`
+		SampleRate        int32   `ini:"SampleRate"`
+		StereoEffects     bool    `ini:"StereoEffects"`
+		PanningRange      float32 `ini:"PanningRange"`
+		WavChannels       int32   `ini:"WavChannels"`
+		MasterVolume      int     `ini:"MasterVolume"`
+		PauseMasterVolume int     `ini:"PauseMasterVolume"`
+		WavVolume         int     `ini:"WavVolume"`
+		BGMVolume         int     `ini:"BGMVolume"`
+		MaxBGMVolume      int     `ini:"MaxBGMVolume"`
+		AudioDucking      bool    `ini:"AudioDucking"`
 	} `ini:"Sound"`
 	Arcade struct {
 		AI struct {
-			RandomColor bool `ini:"RandomColor"`
+			RandomColor   bool `ini:"RandomColor"`
 			SurvivalColor bool `ini:"SurvivalColor"`
-			Ramping bool `ini:"Ramping"`
+			Ramping       bool `ini:"Ramping"`
 		} `ini:"AI"`
 		//items map[string]AIrampProperties `ini:"items"`
 		Arcade struct {
@@ -199,16 +199,16 @@ type Config struct {
 		} `ini:"survival"`
 	} `ini:"Arcade"`
 	Netplay struct {
-		ListenPort string `ini:"ListenPort"`
-		IP  map[string]string `ini:"IP"`
+		ListenPort string            `ini:"ListenPort"`
+		IP         map[string]string `ini:"IP"`
 	} `ini:"Netplay"`
 	Input struct {
-		ButtonAssist bool `ini:"ButtonAssist"`
-		SOCDResolution int32 `ini:"SOCDResolution"`
+		ButtonAssist               bool    `ini:"ButtonAssist"`
+		SOCDResolution             int32   `ini:"SOCDResolution"`
 		ControllerStickSensitivity float32 `ini:"ControllerStickSensitivity"`
-		XinputTriggerSensitivity float32 `ini:"XinputTriggerSensitivity"`
+		XinputTriggerSensitivity   float32 `ini:"XinputTriggerSensitivity"`
 	} `ini:"Input"`
-	Keys map[string]*KeysProperties `ini:"Keys"`
+	Keys     map[string]*KeysProperties `ini:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"Joystick"`
 }
 
@@ -220,12 +220,12 @@ func loadConfig(def string) (*Config, error) {
 		Insensitive: false,
 		//InsensitiveSections: true,
 		//InsensitiveKeys: true,
-		IgnoreInlineComment: false,
+		IgnoreInlineComment:     false,
 		SkipUnrecognizableLines: true,
 		//AllowBooleanKeys: true,
 		AllowShadows: false,
 		//AllowNestedValues: true,
-		UnparseableSections: []string{},
+		UnparseableSections:        []string{},
 		AllowPythonMultilineValues: false,
 		//KeyValueDelimiters: "=:",
 		//KeyValueDelimiterOnWrite: "=",
@@ -400,12 +400,12 @@ func (c *Config) sysSet() {
 
 // GetValue retrieves the value based on the query string.
 func (c *Config) GetValue(query string) (interface{}, error) {
-    return GetValue(c, query)
+	return GetValue(c, query)
 }
 
 // SetValueUpdate sets the value based on the query string and updates the IniFile.
 func (c *Config) SetValueUpdate(query string, value interface{}) error {
-    return SetValueUpdate(c, c.IniFile, query, value)
+	return SetValueUpdate(c, c.IniFile, query, value)
 }
 
 // GetIniMappingValue retrieves the INI mapping value based on the query string.
@@ -420,7 +420,7 @@ func (c *Config) PrintIniMappings() {
 
 // PrintValue prints the value based on the query string.
 func (c *Config) PrintValue(query string) {
-    PrintValue(c, query)
+	PrintValue(c, query)
 }
 
 // PrintStruct prints the parsed struct.
@@ -430,5 +430,5 @@ func (c *Config) PrintStruct() {
 
 // Save writes the current IniFile to disk, preserving comments and syntax.
 func (c *Config) Save(file string) error {
-    return SaveINI(c.IniFile, file)
+	return SaveINI(c.IniFile, file)
 }

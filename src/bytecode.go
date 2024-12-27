@@ -1049,9 +1049,9 @@ func (be *BytecodeExp) appendValue(bv BytecodeValue) (ok bool) {
 
 // Appends multiple int32 operands to the BytecodeExp
 func (be *BytecodeExp) appendI32s(addrs ...int32) {
-    for _, addr := range addrs {
-        be.append((*(*[4]OpCode)(unsafe.Pointer(&addr)))[:]...)
-    }
+	for _, addr := range addrs {
+		be.append((*(*[4]OpCode)(unsafe.Pointer(&addr)))[:]...)
+	}
 }
 
 // Pushes an OpCode with an int32 operand to the top of the BytecodeExp.
@@ -2424,7 +2424,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_ishometeam:
 		sys.bcStack.PushB(c.teamside == sys.home)
 	case OC_ex_tickspersecond:
-		sys.bcStack.PushI(int32((60 + sys.cfg.Options.GameSpeed * 5) * sys.accel))
+		sys.bcStack.PushI(int32((60 + sys.cfg.Options.GameSpeed*5) * sys.accel))
 	case OC_ex_const240p:
 		*sys.bcStack.Top() = c.constp(320, sys.bcStack.Top().ToF())
 	case OC_ex_const480p:

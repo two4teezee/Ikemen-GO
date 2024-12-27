@@ -83,7 +83,7 @@ func main() {
 	if _, ok := sys.cmdFlags["-config"]; ok {
 		cfgPath = sys.cmdFlags["-config"]
 	}
-	
+
 	if cfg, err := loadConfig(cfgPath); err != nil {
 		chk(err)
 	} else {

@@ -53,19 +53,19 @@ var sys = System{
 	match:             1,
 	loader:            *newLoader(),
 	numSimul:          [...]int32{2, 2}, numTurns: [...]int32{2, 2},
-	ignoreMostErrors:  true,
-	superpmap:         *newPalFX(),
-	stageList:         make(map[int32]*Stage),
-	wincnt:            wincntMap(make(map[string][]int32)),
-	wincntFileName:    "save/autolevel.save",
-	oldNextAddTime:    1,
-	commandLine:       make(chan string),
-	cam:               *newCamera(),
-	statusDraw:        true,
-	mainThreadTask:    make(chan func(), 65536),
-	workpal:           make([]uint32, 256),
-	errLog:            log.New(NewLogWriter(), "", log.LstdFlags),
-	keyInput:          KeyUnknown,
+	ignoreMostErrors: true,
+	superpmap:        *newPalFX(),
+	stageList:        make(map[int32]*Stage),
+	wincnt:           wincntMap(make(map[string][]int32)),
+	wincntFileName:   "save/autolevel.save",
+	oldNextAddTime:   1,
+	commandLine:      make(chan string),
+	cam:              *newCamera(),
+	statusDraw:       true,
+	mainThreadTask:   make(chan func(), 65536),
+	workpal:          make([]uint32, 256),
+	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
+	keyInput:         KeyUnknown,
 	//FLAC_FrameWait:          -1,
 	luaSpriteScale:       1,
 	luaPortraitScale:     1,
@@ -1680,7 +1680,7 @@ func (s *System) action() {
 	explUpdate(&s.explodsLayer0, true)
 	explUpdate(&s.explodsLayer1, false)
 	if s.tickNextFrame() {
-		spd := (60 + s.cfg.Options.GameSpeed * 5) / float32(s.cfg.Config.Framerate) * s.accel
+		spd := (60 + s.cfg.Options.GameSpeed*5) / float32(s.cfg.Config.Framerate) * s.accel
 		if s.postMatchFlg || s.step {
 			spd = 1
 		} else if !s.gsf(GSF_nokoslow) && s.time != 0 && s.intro < 0 && s.slowtime > 0 {

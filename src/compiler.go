@@ -355,6 +355,7 @@ var triggerMap = map[string]int{
 	"combocount":         1,
 	"consecutivewins":    1,
 	"const1080p":         1,
+	"decisiveround":      1,
 	"defence":            1,
 	"deg":                1,
 	"displayname":        1,
@@ -423,7 +424,8 @@ var triggerMap = map[string]int{
 	"redlife":            1,
 	"reversaldefattr":    1,
 	"round":              1,
-	"roundtype":          1,
+	"roundrestarted":     1,
+	"roundtime":          1,
 	"runorder":           1,
 	"scale":              1,
 	"score":              1,
@@ -3711,6 +3713,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
+	case "decisiveround":
+		out.append(OC_ex_, OC_ex_decisiveround)
 	case "defence":
 		out.append(OC_ex_, OC_ex_defence)
 	case "dizzy":
@@ -4133,6 +4137,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_receivedhits)
 	case "redlife":
 		out.append(OC_ex_, OC_ex_redlife)
+	case "roundrestarted":
+		out.append(OC_ex_, OC_ex_roundrestarted)
+	case "roundtime":
+		out.append(OC_ex_, OC_ex_roundtime)
 	case "score":
 		out.append(OC_ex_, OC_ex_score)
 	case "scoretotal":

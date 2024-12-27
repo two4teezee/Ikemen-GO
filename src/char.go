@@ -4240,16 +4240,6 @@ func (c *Char) roundsExisted() int32 {
 	}
 	return sys.roundsExisted[c.playerNo&1]
 }
-func (c *Char) roundType() int32 {
-	if sys.roundType[0] == RT_Final {
-		return 3
-	} else if sys.roundType[c.playerNo&1] == RT_Deciding {
-		return 2
-	} else if sys.roundType[^c.playerNo&1] == RT_Deciding {
-		return 1
-	}
-	return 0
-}
 
 // TODO: These are supposed to be affected by zoom camera shifting
 // In Mugen 1.1 they don't work properly when zoom scale is actually used

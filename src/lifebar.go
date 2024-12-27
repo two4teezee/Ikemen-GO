@@ -41,14 +41,6 @@ const (
 	WT_PTeammate
 )
 
-type RoundType int32
-
-const (
-	RT_Normal RoundType = iota
-	RT_Deciding
-	RT_Final
-)
-
 func (wt *WinType) SetPerfect() {
 	if *wt >= WT_Normal && *wt < WT_Perfect {
 		*wt += WT_PNormal - WT_Normal
@@ -2141,11 +2133,11 @@ func readLifeBarRound(is IniSection,
 }
 
 func (ro *LifeBarRound) isSingleRound() bool {
-	return !sys.consecutiveRounds && sys.round == 1 && sys.roundType[0] == RT_Final
+	return !sys.consecutiveRounds && sys.round == 1 && sys.decisiveRound[0] && sys.decisiveRound[1]
 }
 
 func (ro *LifeBarRound) isFinalRound() bool {
-	return !sys.consecutiveRounds && sys.round > 1 && sys.roundType[0] == RT_Final &&
+	return !sys.consecutiveRounds && sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] &&
 		(sys.draws >= sys.lifebar.ro.match_maxdrawgames[0] || sys.draws >= sys.lifebar.ro.match_maxdrawgames[1])
 }
 

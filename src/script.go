@@ -5061,6 +5061,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[sys.debugWC.teamside]))
 		return 1
 	})
+	luaRegister(l, "decisiveround", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.decisiveRound[^sys.debugWC.playerNo&1]))
+		return 1
+	})
 	// deg (dedicated functionality already exists in Lua)
 	luaRegister(l, "defence", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.finalDefense * 100))
@@ -5497,8 +5501,12 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.redLife))
 		return 1
 	})
-	luaRegister(l, "roundtype", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.roundType()))
+	luaRegister(l, "roundrestarted", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.roundResetFlg))
+		return 1
+	})
+	luaRegister(l, "roundtime", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.tickCount))
 		return 1
 	})
 	luaRegister(l, "scaleX", func(*lua.LState) int {
@@ -5671,10 +5679,6 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "stateownerplayerno", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.ss.sb.playerNo + 1))
-		return 1
-	})
-	luaRegister(l, "tickcount", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.tickCount))
 		return 1
 	})
 	luaRegister(l, "winnerteam", func(*lua.LState) int {

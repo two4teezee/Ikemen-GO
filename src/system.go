@@ -265,7 +265,7 @@ type System struct {
 	preFightTime      int32
 	motifDir          string
 	captureNum        int
-	roundType         [2]RoundType
+	decisiveRound     [2]bool
 	timerStart        int32
 	timerRounds       []int32
 	scoreStart        [2]float32
@@ -566,13 +566,6 @@ func (s *System) tickSound() {
 		s.bgm.UpdateVolume()
 		s.restoreAllVolume()
 	}
-
-	//if s.FLAC_FrameWait >= 0 {
-	//	if s.FLAC_FrameWait == 0 {
-	//		s.bgm.PlayMemAudio(s.bgm.loop, s.bgm.bgmVolume)
-	//	}
-	//	s.FLAC_FrameWait--
-	//}
 }
 func (s *System) resetRemapInput() {
 	for i := range s.inputRemap {
@@ -580,7 +573,7 @@ func (s *System) resetRemapInput() {
 	}
 }
 func (s *System) loaderReset() {
-	s.round, s.wins, s.roundsExisted, s.roundType = 1, [2]int32{}, [2]int32{}, [2]RoundType{}
+	s.round, s.wins, s.roundsExisted, s.decisiveRound = 1, [2]int32{}, [2]int32{}, [2]bool{}
 	s.loader.reset()
 }
 func (s *System) loadStart() {
@@ -1041,14 +1034,11 @@ func (s *System) nextRound() {
 	s.nextCharId = s.cfg.Config.HelperMax
 	if (s.tmode[0] == TM_Turns && s.wins[1] >= s.numTurns[0]-1) ||
 		(s.tmode[0] != TM_Turns && s.wins[1] >= s.lifebar.ro.match_wins[0]-1) {
-		s.roundType[0] = RT_Deciding
+		s.decisiveRound[0] = true
 	}
 	if (s.tmode[1] == TM_Turns && s.wins[0] >= s.numTurns[1]-1) ||
 		(s.tmode[1] != TM_Turns && s.wins[0] >= s.lifebar.ro.match_wins[1]-1) {
-		s.roundType[1] = RT_Deciding
-	}
-	if s.roundType[0] == RT_Deciding && s.roundType[1] == RT_Deciding {
-		s.roundType = [2]RoundType{RT_Final, RT_Final}
+		s.decisiveRound[1] = true
 	}
 	var roundRef int32
 	if s.round == 1 {

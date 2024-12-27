@@ -207,7 +207,7 @@ function boolToInt(bool)
 end
 
 function engineInfo()
-	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.3f', tickcount(), gameOption('Video.VRetrace'), tickspersecond(), gamespeed(), gamefps())
+	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.3f', roundtime(), gameOption('Video.VRetrace'), tickspersecond(), gamespeed(), gamefps())
 end
 
 function playerInfo()

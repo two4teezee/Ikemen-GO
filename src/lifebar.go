@@ -1019,7 +1019,7 @@ func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{face_spr: [2]int32{-1}, teammate_face_spr: [2]int32{-1}, palshare: true}
 }
 
-func readLifeBarFace(pre string, is IniSection,	sff *Sff, at AnimationTable) *LifeBarFace {
+func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *LifeBarFace {
 	fa := newLifeBarFace()
 	is.ReadI32(pre+"pos", &fa.pos[0], &fa.pos[1])
 

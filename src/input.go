@@ -499,148 +499,147 @@ func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, b
 	return U, D, L, R, a, b, c, x, y, z, s, d, w, m
 }
 
-
 // Resolve U and D conflicts based on SOCD resolution config
 func (ir *InputReader) resolveUpDown(U, D bool) (bool, bool) {
-    // Check first direction held
-    if U || D {
-        if !U {
-            ir.SocdFirst[0] = false
-        }
-        if !D {
-            ir.SocdFirst[1] = false
-        }
-        if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
-            if D {
-                ir.SocdFirst[1] = true
-            } else {
-                ir.SocdFirst[0] = true
-            }
-        }
-    } else {
-        ir.SocdFirst[0] = false
-        ir.SocdFirst[1] = false
-    }
+	// Check first direction held
+	if U || D {
+		if !U {
+			ir.SocdFirst[0] = false
+		}
+		if !D {
+			ir.SocdFirst[1] = false
+		}
+		if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
+			if D {
+				ir.SocdFirst[1] = true
+			} else {
+				ir.SocdFirst[0] = true
+			}
+		}
+	} else {
+		ir.SocdFirst[0] = false
+		ir.SocdFirst[1] = false
+	}
 
-    // Apply SOCD resolution according to config
-    if D && U {
-        switch sys.cfg.Input.SOCDResolution {
-        case 0: // Allow both directions (no resolution)
-            ir.SocdAllow[0] = true
-            ir.SocdAllow[1] = true
-        case 1: // Last direction priority
-            if ir.SocdFirst[0] {
-                ir.SocdAllow[0] = false
-                ir.SocdAllow[1] = true
-            } else {
-                ir.SocdAllow[0] = true
-                ir.SocdAllow[1] = false
-            }
-        case 2: // Absolute priority (offense over defense)
-            ir.SocdAllow[0] = true
-            ir.SocdAllow[1] = false
-        case 3: // First direction priority
-            if ir.SocdFirst[0] {
-                ir.SocdAllow[0] = true
-                ir.SocdAllow[1] = false
-            } else {
-                ir.SocdAllow[0] = false
-                ir.SocdAllow[1] = true
-            }
-        default: // Deny either direction (neutral resolution)
-            ir.SocdAllow[0] = false
-            ir.SocdAllow[1] = false
-        }
-    } else {
-        ir.SocdAllow[0] = true
-        ir.SocdAllow[1] = true
-    }
+	// Apply SOCD resolution according to config
+	if D && U {
+		switch sys.cfg.Input.SOCDResolution {
+		case 0: // Allow both directions (no resolution)
+			ir.SocdAllow[0] = true
+			ir.SocdAllow[1] = true
+		case 1: // Last direction priority
+			if ir.SocdFirst[0] {
+				ir.SocdAllow[0] = false
+				ir.SocdAllow[1] = true
+			} else {
+				ir.SocdAllow[0] = true
+				ir.SocdAllow[1] = false
+			}
+		case 2: // Absolute priority (offense over defense)
+			ir.SocdAllow[0] = true
+			ir.SocdAllow[1] = false
+		case 3: // First direction priority
+			if ir.SocdFirst[0] {
+				ir.SocdAllow[0] = true
+				ir.SocdAllow[1] = false
+			} else {
+				ir.SocdAllow[0] = false
+				ir.SocdAllow[1] = true
+			}
+		default: // Deny either direction (neutral resolution)
+			ir.SocdAllow[0] = false
+			ir.SocdAllow[1] = false
+		}
+	} else {
+		ir.SocdAllow[0] = true
+		ir.SocdAllow[1] = true
+	}
 
-    return U, D
+	return U, D
 }
 
 // Resolve B and F conflicts based on SOCD resolution config
 func (ir *InputReader) resolveBackForward(B, F bool) (bool, bool) {
-    // Check first direction held
-    if B || F {
-        if !B {
-            ir.SocdFirst[2] = false
-        }
-        if !F {
-            ir.SocdFirst[3] = false
-        }
-        if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
-            if B {
-                ir.SocdFirst[2] = true
-            } else {
-                ir.SocdFirst[3] = true
-            }
-        }
-    } else {
-        ir.SocdFirst[2] = false
-        ir.SocdFirst[3] = false
-    }
+	// Check first direction held
+	if B || F {
+		if !B {
+			ir.SocdFirst[2] = false
+		}
+		if !F {
+			ir.SocdFirst[3] = false
+		}
+		if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
+			if B {
+				ir.SocdFirst[2] = true
+			} else {
+				ir.SocdFirst[3] = true
+			}
+		}
+	} else {
+		ir.SocdFirst[2] = false
+		ir.SocdFirst[3] = false
+	}
 
-    // Apply SOCD resolution according to config
-    if B && F {
-        switch sys.cfg.Input.SOCDResolution {
-        case 0: // Allow both directions (no resolution)
-            ir.SocdAllow[2] = true
-            ir.SocdAllow[3] = true
-        case 1: // Last direction priority
-            if ir.SocdFirst[3] {
-                ir.SocdAllow[2] = true
-                ir.SocdAllow[3] = false
-            } else {
-                ir.SocdAllow[2] = false
-                ir.SocdAllow[3] = true
-            }
-        case 2: // Absolute priority (offense over defense)
-            ir.SocdAllow[2] = false
-            ir.SocdAllow[3] = true
-        case 3: // First direction priority
-            if ir.SocdFirst[3] {
-                ir.SocdAllow[2] = false
-                ir.SocdAllow[3] = true
-            } else {
-                ir.SocdAllow[2] = true
-                ir.SocdAllow[3] = false
-            }
-        default: // Deny either direction (neutral resolution)
-            ir.SocdAllow[2] = false
-            ir.SocdAllow[3] = false
-        }
-    } else {
-        ir.SocdAllow[2] = true
-        ir.SocdAllow[3] = true
-    }
+	// Apply SOCD resolution according to config
+	if B && F {
+		switch sys.cfg.Input.SOCDResolution {
+		case 0: // Allow both directions (no resolution)
+			ir.SocdAllow[2] = true
+			ir.SocdAllow[3] = true
+		case 1: // Last direction priority
+			if ir.SocdFirst[3] {
+				ir.SocdAllow[2] = true
+				ir.SocdAllow[3] = false
+			} else {
+				ir.SocdAllow[2] = false
+				ir.SocdAllow[3] = true
+			}
+		case 2: // Absolute priority (offense over defense)
+			ir.SocdAllow[2] = false
+			ir.SocdAllow[3] = true
+		case 3: // First direction priority
+			if ir.SocdFirst[3] {
+				ir.SocdAllow[2] = false
+				ir.SocdAllow[3] = true
+			} else {
+				ir.SocdAllow[2] = true
+				ir.SocdAllow[3] = false
+			}
+		default: // Deny either direction (neutral resolution)
+			ir.SocdAllow[2] = false
+			ir.SocdAllow[3] = false
+		}
+	} else {
+		ir.SocdAllow[2] = true
+		ir.SocdAllow[3] = true
+	}
 
-    return B, F
+	return B, F
 }
 
 // Resolve Simultaneous Opposing Cardinal Directions (SOCD)
 // Left and Right are solved in CommandList Input based on B and F outcome
 func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) {
-    // Absolute priority SOCD resolution is enforced during netplay
-    if sys.netInput != nil || sys.fileInput != nil {
-        if U && D {
-            D = false
-        }
-        if B && F {
-            B = false
-        }
-    } else {
-        // Resolve up and down
-        U, D = ir.resolveUpDown(U, D)
-        // Resolve back and forward
-        B, F = ir.resolveBackForward(B, F)
-        // Apply resulting resolution
-        U = U && ir.SocdAllow[0]
-        D = D && ir.SocdAllow[1]
-        B = B && ir.SocdAllow[2]
-        F = F && ir.SocdAllow[3]
-    }
-    return U, D, B, F
+	// Absolute priority SOCD resolution is enforced during netplay
+	if sys.netInput != nil || sys.fileInput != nil {
+		if U && D {
+			D = false
+		}
+		if B && F {
+			B = false
+		}
+	} else {
+		// Resolve up and down
+		U, D = ir.resolveUpDown(U, D)
+		// Resolve back and forward
+		B, F = ir.resolveBackForward(B, F)
+		// Apply resulting resolution
+		U = U && ir.SocdAllow[0]
+		D = D && ir.SocdAllow[1]
+		B = B && ir.SocdAllow[2]
+		F = F && ir.SocdAllow[3]
+	}
+	return U, D, B, F
 }
 
 // Add extra frame of leniency when checking button presses
@@ -2081,9 +2080,9 @@ type CommandList struct {
 
 func NewCommandList(cb *CommandBuffer) *CommandList {
 	return &CommandList{
-		Buffer: cb,
-		Names: make(map[string]int),
-		DefaultTime: 15,
+		Buffer:            cb,
+		Names:             make(map[string]int),
+		DefaultTime:       15,
 		DefaultBufferTime: 1,
 	}
 }

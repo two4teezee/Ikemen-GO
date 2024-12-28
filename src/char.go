@@ -6551,6 +6551,7 @@ func (c *Char) posUpdate() {
 				if p[0].trackableByCamera() && p[0].csf(CSF_screenbound) && (npos <= sys.xmin || npos >= sys.xmax) {
 					c.mhv.cornerpush = c.cornerVelOff
 				}
+				// In Mugen cornerpush friction is hardcoded at 0.7
 				// In Ikemen the cornerpush friction is defined by the target instead
 				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 					friction = 0.7
@@ -6564,6 +6565,7 @@ func (c *Char) posUpdate() {
 			}
 		}
 	}
+	// Check if character is bound
 	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[2]))}
@@ -6572,12 +6574,23 @@ func (c *Char) posUpdate() {
 			c.oldPos[i], c.interPos[i] = c.pos[i], c.pos[i]
 		}
 	}
+	// Offset position when character is hit off the ground
+	// This used to be in actionPrepare(), which would be ideal, but that caused https://github.com/ikemen-engine/Ikemen-GO/issues/2188
+	if c.downHitOffset {
+		if nobind[0] {
+			c.addX(c.gi().movement.down.gethit.offset[0] * (320 / c.localcoord) / c.localscl * c.facing)
+		}
+		if nobind[1] {
+			c.addY(c.gi().movement.down.gethit.offset[1] * (320 / c.localcoord) / c.localscl)
+		}
+		c.downHitOffset = false
+	}
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.mhv.cornerpush)
+			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
-		// Controls speed
+		// Apply velocity
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
 		}
@@ -6587,7 +6600,7 @@ func (c *Char) posUpdate() {
 		if nobind[2] {
 			c.setPosZ(c.oldPos[2] + c.vel[2])
 		}
-
+		// Apply physics types
 		switch c.ss.physics {
 		case ST_S:
 			c.vel[0] *= c.gi().movement.stand.friction
@@ -6608,6 +6621,7 @@ func (c *Char) posUpdate() {
 	}
 	c.bindPosAdd = [...]float32{0, 0, 0}
 }
+
 func (c *Char) addTarget(id int32) {
 	if !c.hasTarget(id) {
 		c.targets = append(c.targets, id)
@@ -7226,61 +7240,48 @@ func (c *Char) actionPrepare() {
 	c.prevPauseMovetime = c.pauseMovetime
 	if !c.pauseBool {
 		// Perform basic actions
-		if c.keyctrl[0] && c.cmd != nil {
+		if c.keyctrl[0] && c.cmd != nil && (c.helperIndex == 0 || c.controller >= 0) {
 			// In Mugen, characters can perform basic actions even if they are KO
-			if c.ctrl() && !c.inputWait() && (c.controller >= 0 || c.helperIndex == 0) {
-				if !c.asf(ASF_nohardcodedkeys) {
-					if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
+			if !c.asf(ASF_nohardcodedkeys) {
+				if c.ctrl() && !c.inputWait() {
+					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.B > 0 {
+						c.changeState(120, -1, -1, "") // Start guarding
+					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
 						(!(sys.intro < 0 && sys.intro > -sys.lifebar.ro.over_waittime) || c.asf(ASF_postroundinput)) {
 						if c.ss.no != 40 {
-							c.changeState(40, -1, -1, "")
+							c.changeState(40, -1, -1, "") // Jump
 						}
 					} else if !c.asf(ASF_noairjump) && c.ss.stateType == ST_A && c.cmd[0].Buffer.Ub == 1 &&
 						c.pos[1] <= -float32(c.gi().movement.airjump.height) &&
 						c.airJumpCount < c.gi().movement.airjump.num {
 						if c.ss.no != 45 || c.ss.time > 0 {
 							c.airJumpCount++
-							c.changeState(45, -1, -1, "")
+							c.changeState(45, -1, -1, "") // Air jump
 						}
-					} else {
-						if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.D > 0 {
-							if c.ss.no != 10 {
-								if c.ss.no != 100 {
-									c.vel[0] = 0
-								}
-								c.changeState(10, -1, -1, "")
+					} else if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.D > 0 {
+						if c.ss.no != 10 {
+							if c.ss.no != 100 {
+								c.vel[0] = 0
 							}
-						} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.D < 0 {
-							if c.ss.no != 12 {
-								c.changeState(12, -1, -1, "")
-							}
-						} else if !c.asf(ASF_nowalk) && c.ss.stateType == ST_S &&
-							(c.cmd[0].Buffer.F > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.B > 0)) {
-							if c.ss.no != 20 {
-								c.changeState(20, -1, -1, "")
-							}
-						} else if !c.asf(ASF_nobrake) && c.ss.no == 20 &&
-							(c.cmd[0].Buffer.B > 0) == (c.cmd[0].Buffer.F > 0) {
-							c.changeState(0, -1, -1, "")
+							c.changeState(10, -1, -1, "") // Stand to crouch
 						}
-						if c.inguarddist && c.scf(SCF_guard) && c.cmd[0].Buffer.B > 0 &&
-							!c.inGuardState() {
-							c.changeState(120, -1, -1, "")
+					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.D < 0 {
+						if c.ss.no != 12 {
+							c.changeState(12, -1, -1, "") // Crouch to stand
+						}
+					} else if !c.asf(ASF_nowalk) && c.ss.stateType == ST_S &&
+						(c.cmd[0].Buffer.F > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.B > 0)) {
+						if c.ss.no != 20 {
+							c.changeState(20, -1, -1, "") // Walk
 						}
 					}
 				}
-			} else {
-				switch c.ss.no {
-				case 11:
-					if !c.asf(ASF_nostand) {
-						c.changeState(12, -1, -1, "")
-					}
-				case 20:
-					if !c.asf(ASF_nobrake) && c.cmd[0].Buffer.U < 0 && c.cmd[0].Buffer.D < 0 &&
-						c.cmd[0].Buffer.B < 0 && c.cmd[0].Buffer.F < 0 {
-						c.changeState(0, -1, -1, "")
-					}
+				// Braking is special in that it does not require ctrl
+				if !c.asf(ASF_nobrake) && c.ss.no == 20 &&
+					(c.cmd[0].Buffer.B > 0) == (c.cmd[0].Buffer.F > 0) {
+					c.changeState(0, -1, -1, "")
 				}
+				// At least one character has been found where forcing them to stand up when crouching without ctrl will break them
 			}
 		}
 		if c.ss.stateType != ST_A {
@@ -7363,12 +7364,8 @@ func (c *Char) actionPrepare() {
 		c.unhittableTime--
 	}
 	c.dropTargets() // TODO: Why do we need both this and exitTarget()?
-	if c.downHitOffset {
-		c.pos[0] += c.gi().movement.down.gethit.offset[0] * (320 / c.localcoord) / c.localscl * c.facing
-		c.pos[1] += c.gi().movement.down.gethit.offset[1] * (320 / c.localcoord) / c.localscl
-		c.downHitOffset = false
-	}
 }
+
 func (c *Char) actionRun() {
 	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
@@ -8334,10 +8331,9 @@ func (cl *CharList) commandUpdate() {
 	for i, p := range sys.chars {
 		if len(p) > 0 {
 			root := p[0]
-			cheat := int32(-1)
-			// AI cheating
-			// Select a random command to cheat for the AI
+			// Select a random command for AI cheating
 			// The way this only allows one command to be cheated at a time may be the cause of issue #2022
+			cheat := int32(-1)
 			if root.controller < 0 {
 				if sys.roundState() == 2 && RandF32(0, sys.com[i]/2+32) > 32 { // TODO: Balance AI scaling
 					cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
@@ -8394,9 +8390,7 @@ func (cl *CharList) commandUpdate() {
 						cmd.Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
-					if cheat >= 0 {
-						c.cpucmd = cheat
-					}
+					c.cpucmd = cheat
 				}
 			}
 		}

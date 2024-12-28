@@ -757,7 +757,8 @@ func (l *Layout) Read(pre string, is IniSection) {
 		l.window = sys.scrrect
 	}
 }
-func (l *Layout) DrawSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fscale float32, window *[4]int32) {
+
+func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fscale float32, window *[4]int32) {
 	if l.layerno == ln && s != nil {
 		// TODO: test "phantom pixel"
 		if l.facing < 0 {
@@ -774,6 +775,7 @@ func (l *Layout) DrawSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fscale
 			l.angle, fx, window)
 	}
 }
+
 func (l *Layout) DrawAnim(r *[4]int32, x, y, scl float32, ln int16,
 	a *Animation, palfx *PalFX) {
 	if l.layerno == ln {

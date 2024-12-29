@@ -57,15 +57,74 @@ function main.f_commandNew()
 	return c
 end
 
+main.t_defaultKeysMapping = {
+	Up = 'Not used',
+	Down = 'Not used',
+	Left = 'Not used',
+	Right = 'Not used',
+	A = 'Not used',
+	B = 'Not used',
+	C = 'Not used',
+	X = 'Not used',
+	Y = 'Not used',
+	Z = 'Not used',
+	Start = 'Not used',
+	D = 'Not used',
+	W = 'Not used',
+	Menu = 'Not used',
+}
+
+main.t_defaultJoystickMapping = {
+	Up = '10',
+	Down = '12',
+	Left = '13',
+	Right = '11',
+	A = '0',
+	B = '1',
+	C = '5',
+	X = '2',
+	Y = '3',
+	Z = '-12',
+	Start = '7',
+	D = '4',
+	W = '-10',
+	Menu = '6',
+}
+
 --prepare players/command tables
-function main.f_setPlayers(num)
-	setPlayers(num)
+function main.f_setPlayers()
+	local n = gameOption('Config.Players')
+	setPlayers(n)
+	for i = 3, n do
+		if gameOption('Keys_P' .. i .. '.Joystick') == 0 then
+			local c = {Joystick = -1, GUID = ""}
+			for k, v in pairs(main.t_defaultKeysMapping) do
+				c[k] = v
+			end
+			setKeyConfig(i, c.Joystick, {c.Up, c.Down, c.Left, c.Right, c.A, c.B, c.C, c.X, c.Y, c.Z, c.Start, c.D, c.W, c.Menu})
+			for k, v in pairs(c) do
+				modifyGameOption('Keys_P' .. i .. '.' .. k, v)
+			end
+		end
+		if main.flags['-nojoy'] == nil then
+			if gameOption('Joystick_P' .. i .. '.Joystick') == 0 then
+				local c = {Joystick = i - 1, GUID = ""}
+				for k, v in pairs(main.t_defaultJoystickMapping) do
+					c[k] = v
+				end
+				setKeyConfig(i, c.Joystick, {c.Up, c.Down, c.Left, c.Right, c.A, c.B, c.C, c.X, c.Y, c.Z, c.Start, c.D, c.W, c.Menu})
+				for k, v in pairs(c) do
+					modifyGameOption('Joystick_P' .. i .. '.' .. k, v)
+				end
+			end
+		end
+	end
 	main.t_players = {}
 	main.t_remaps = {}
 	main.t_lastInputs = {}
 	main.t_cmd = {}
 	main.t_pIn = {}
-	for i = 1, num do
+	for i = 1, n do
 		table.insert(main.t_players, i)
 		table.insert(main.t_remaps, i)
 		table.insert(main.t_lastInputs, {})
@@ -73,7 +132,7 @@ function main.f_setPlayers(num)
 		table.insert(main.t_pIn, i)
 	end
 end
-main.f_setPlayers(gameOption('Config.Players'))
+main.f_setPlayers()
 
 --add new commands
 function main.f_commandAdd(name, cmd, tim, buf)

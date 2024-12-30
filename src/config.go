@@ -208,8 +208,8 @@ type Config struct {
 		ControllerStickSensitivity float32 `ini:"ControllerStickSensitivity"`
 		XinputTriggerSensitivity   float32 `ini:"XinputTriggerSensitivity"`
 	} `ini:"Input"`
-	Keys     map[string]*KeysProperties `ini:"Keys"`
-	Joystick map[string]*KeysProperties `ini:"Joystick"`
+	Keys map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
+	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`
 }
 
 // Loads and parses the INI file into a Config struct.
@@ -342,6 +342,7 @@ func (c *Config) sysSet() {
 	} else {
 		sys.gameHeight = c.Video.GameHeight
 	}
+	sys.msaa = c.Video.MSAA
 	stoki := func(key string) int {
 		return int(StringToKey(key))
 	}

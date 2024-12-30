@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -36,31 +35,53 @@ func parseQueryPath(query string) []queryPart {
 	return parts
 }
 
-// extractNames extracts the names from a slice of queryPart
-func extractNames(parts []queryPart) []string {
-	names := make([]string, len(parts))
-	for i, part := range parts {
-		names[i] = part.name
-		if part.index != nil {
-			names[i] += "[" + *part.index + "]"
-		}
-	}
-	return names
-}
-
-// roundFloat rounds a float64 to the specified precision
-func roundFloat(val float64, precision int) float64 {
-	factor := math.Pow(10, float64(precision))
-	return math.Round(val*factor) / factor
-}
-
-// normalizeNewlines normalizes newlines in multiline string
-func normalizeNewlines(input string) string {
-	// Replace CRLF (\r\n) with LF (\n)
-	input = strings.ReplaceAll(input, "\r\n", "\n")
-	// Replace any remaining CR (\r) with LF (\n)
-	input = strings.ReplaceAll(input, "\r", "\n")
-	return input
+// getValueFromPatternMap checks if the struct has a map field with ini:"map:REGEX"
+func getValueFromPatternMap(v reflect.Value, partName string) (bool, reflect.Value) {
+    if v.Kind() != reflect.Struct {
+        return false, reflect.Value{}
+    }
+    t := v.Type()
+    for i := 0; i < t.NumField(); i++ {
+        field := t.Field(i)
+        iniTag := field.Tag.Get("ini")
+        if iniTag == "" || field.PkgPath != "" {
+            continue
+        }
+        if strings.HasPrefix(strings.ToLower(iniTag), "map:") {
+            pattern := iniTag[4:]
+            re, err := regexp.Compile(pattern)
+            if err != nil {
+                continue
+            }
+            // Check if partName matches the map regex
+            if re.MatchString(partName) {
+                fieldVal := v.Field(i)
+                if fieldVal.Kind() == reflect.Map && fieldVal.Type().Key().Kind() == reflect.String {
+                    if fieldVal.IsNil() {
+                        fieldVal.Set(reflect.MakeMap(fieldVal.Type()))
+                    }
+                    // Convert to lower or keep original
+                    mapKey := reflect.ValueOf(strings.ToLower(partName))
+                    mapItem := fieldVal.MapIndex(mapKey)
+                    if !mapItem.IsValid() {
+                        // Create a new entry
+                        elemType := fieldVal.Type().Elem()
+                        var newVal reflect.Value
+                        if elemType.Kind() == reflect.Ptr {
+                            newVal = reflect.New(elemType.Elem())
+                        } else {
+                            newVal = reflect.New(elemType).Elem()
+                        }
+                        applyDefaultsToValue(newVal)
+                        fieldVal.SetMapIndex(mapKey, newVal)
+                        mapItem = fieldVal.MapIndex(mapKey)
+                    }
+                    return true, mapItem
+                }
+            }
+        }
+    }
+    return false, reflect.Value{}
 }
 
 // -------------------------------------------------------------------
@@ -423,6 +444,17 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}) er
 		return fmt.Errorf("structPtr must be a non-nil pointer")
 	}
 
+	extractNames := func(parts []queryPart) []string {
+		names := make([]string, len(parts))
+		for i, part := range parts {
+			names[i] = part.name
+			if part.index != nil {
+				names[i] += "[" + *part.index + "]"
+			}
+		}
+		return names
+	}
+
 	assignDirect := func(v reflect.Value, part queryPart, value interface{}) (bool, error) {
 		if v.Kind() == reflect.Struct {
 			fieldVal, found := findFieldByINITag(v, part.name)
@@ -637,22 +669,47 @@ func updateINIFile(obj interface{}, iniFile *ini.File, query string, value strin
 		return fmt.Errorf("invalid query: '%s'", query)
 	}
 
+	getSectionAndKeyForPatternMap := func(v reflect.Value, partName string) bool {
+		if v.Kind() != reflect.Struct {
+			return false
+		}
+		t := v.Type()
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			iniTag := field.Tag.Get("ini")
+			if iniTag == "" || field.PkgPath != "" {
+				continue
+			}
+			if strings.HasPrefix(strings.ToLower(iniTag), "map:") {
+				pattern := iniTag[4:]
+				re, err := regexp.Compile(pattern)
+				if err != nil {
+					continue
+				}
+				if re.MatchString(partName) {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
 	v := reflect.ValueOf(obj)
 	if v.Kind() == reflect.Ptr && !v.IsNil() {
 		v = v.Elem()
 	}
-	t := v.Type()
-
-	var sectionName string
-	var keyNameParts []string
 	currentValue := v
-	currentType := t
-	sectionSet := false
+	currentType := v.Type()
 
+	var sectionName string          // which [section] in the .ini
+	var keyNameParts []string       // the final "Key.SubKey..." part
+	sectionSet := false
 	i := 0
+
 	for i < len(parts) {
 		part := parts[i]
 
+		// unwrap pointers
 		for currentValue.Kind() == reflect.Ptr {
 			if currentValue.IsNil() {
 				currentValue.Set(reflect.New(currentValue.Type().Elem()))
@@ -664,44 +721,41 @@ func updateINIFile(obj interface{}, iniFile *ini.File, query string, value strin
 
 		switch currentValue.Kind() {
 		case reflect.Struct:
+			// First, see if we can find a field with ini:"part.name"
 			fieldVal, found := findFieldByINITag(currentValue, part.name)
 			if found {
+				// We found a direct field. We'll record its iniTag as the "section" or "subKey".
 				var structField reflect.StructField
-				foundField := false
+				fieldFound := false
 				for idx := 0; idx < currentType.NumField(); idx++ {
 					f := currentType.Field(idx)
 					iniTag := f.Tag.Get("ini")
 					if strings.EqualFold(iniTag, part.name) {
 						structField = f
-						foundField = true
+						fieldFound = true
 						break
 					}
-				}
-				if !foundField {
-					for idx := 0; idx < currentType.NumField(); idx++ {
-						f := currentType.Field(idx)
-						if strings.EqualFold(f.Name, part.name) {
-							structField = f
-							foundField = true
-							break
-						}
+					// fallback: check if the field name itself matches
+					if !fieldFound && strings.EqualFold(f.Name, part.name) {
+						structField = f
+						fieldFound = true
 					}
 				}
 
-				if !foundField {
+				if !fieldFound {
 					return fmt.Errorf("field '%s' not found in struct for query '%s'", part.name, query)
 				}
 
-				iniTag := structField.Tag.Get("ini")
-				if iniTag == "" {
-					iniTag = structField.Name
+				tag := structField.Tag.Get("ini")
+				if tag == "" {
+					tag = structField.Name
 				}
 
 				if !sectionSet {
-					sectionName = iniTag
+					sectionName = tag
 					sectionSet = true
 				} else {
-					keyNameParts = append(keyNameParts, iniTag)
+					keyNameParts = append(keyNameParts, tag)
 				}
 
 				currentValue = fieldVal
@@ -719,76 +773,62 @@ func updateINIFile(obj interface{}, iniFile *ini.File, query string, value strin
 						return fmt.Errorf("field '%s' is not an array or slice in query '%s'", part.name, query)
 					}
 				}
-
 				i++
+
 			} else {
-				mapFieldVal, found := findMapFieldWithTag(currentValue, part.name)
-				if found && mapFieldVal.Kind() == reflect.Map {
+				// Not a direct field -> check if it's a direct map field with the same tag
+				mapFieldVal, mapFound := findMapFieldWithTag(currentValue, part.name)
+				if mapFound && mapFieldVal.Kind() == reflect.Map {
 					if i+1 >= len(parts) {
 						return fmt.Errorf("expected map key after '%s'", part.name)
 					}
-					var mapStructField reflect.StructField
-					foundField := false
-					for idx := 0; idx < currentType.NumField(); idx++ {
-						f := currentType.Field(idx)
-						iniTag := f.Tag.Get("ini")
-						if strings.EqualFold(iniTag, part.name) {
-							mapStructField = f
-							foundField = true
-							break
-						}
-					}
-					if !foundField {
-						return fmt.Errorf("field '%s' not found as struct or map field", part.name)
-					}
-					iniTag := mapStructField.Tag.Get("ini")
-					if iniTag == "" {
-						iniTag = mapStructField.Name
-					}
-
 					if !sectionSet {
-						sectionName = iniTag
+						sectionName = part.name
 						sectionSet = true
 					} else {
-						keyNameParts = append(keyNameParts, iniTag)
+						keyNameParts = append(keyNameParts, part.name)
 					}
-
 					i++
 					mapKey := parts[i].name
 					keyNameParts = append(keyNameParts, mapKey)
 					i++
 					goto finalize
+
 				} else {
-					t2 := currentValue.Type()
-					foundPattern := false
-					for idx := 0; idx < t2.NumField(); idx++ {
-						f := t2.Field(idx)
-						iniTag := f.Tag.Get("ini")
-						if strings.HasPrefix(strings.ToLower(iniTag), "map:") {
-							pattern := iniTag[4:]
-							re, err := regexp.Compile(pattern)
-							if err == nil && re.MatchString(part.name) {
-								if !sectionSet {
-									sectionName = iniTag
-									sectionSet = true
-								} else {
-									keyNameParts = append(keyNameParts, part.name)
-								}
-								i++
-								foundPattern = true
-								goto finalize
-							}
-						}
-					}
+					// Now do the pattern-based approach
+					foundPattern := getSectionAndKeyForPatternMap(currentValue, part.name)
 					if !foundPattern {
 						return fmt.Errorf("field '%s' not found as struct or map field", part.name)
 					}
+					if !sectionSet {
+						sectionName = part.name
+						sectionSet = true
+					} else {
+						keyNameParts = append(keyNameParts, part.name)
+					}
+
+					i++
+					// If there's another part after e.g. Up, that is the actual final key
+					if i < len(parts) {
+						// e.g. next part is "Up"
+						keyNameParts = append(keyNameParts, parts[i].name)
+						i++
+					}
+					goto finalize
 				}
 			}
 
 		case reflect.Map:
-			mapKey := part.name
-			keyNameParts = append(keyNameParts, mapKey)
+			// If we've stepped into a map, the next part is the map key
+			if part.name == "" {
+				return fmt.Errorf("expected key for map in query '%s'", query)
+			}
+			if !sectionSet {
+				sectionName = part.name
+				sectionSet = true
+			} else {
+				keyNameParts = append(keyNameParts, part.name)
+			}
 			i++
 
 		default:
@@ -811,7 +851,8 @@ finalize:
 		}
 	}
 
-	if value == "" {
+	// If the value is set to nil, remove the key
+	if value == "nil" {
 		section.DeleteKey(keyName)
 		return nil
 	}
@@ -855,12 +896,21 @@ func GetValue(structPtr interface{}, query string) (interface{}, error) {
 
 		switch current.Kind() {
 		case reflect.Struct:
+			// 1) Try normal ini tag
 			fieldVal, found := findFieldByINITag(current, part.name)
-			if !found {
-				return nil, fmt.Errorf("field '%s' not found in struct for query '%s'", part.name, query)
+			if found {
+				current = fieldVal
+			} else {
+				// 2) Try pattern-based map
+				matched, mapVal := getValueFromPatternMap(current, part.name)
+				if matched {
+					current = mapVal
+				} else {
+					return nil, fmt.Errorf("field '%s' not found in struct or pattern map for query '%s'", part.name, query)
+				}
 			}
-			current = fieldVal
 
+			// if we have an index, check if it's slice/array
 			if part.index != nil {
 				if current.Kind() == reflect.Array || current.Kind() == reflect.Slice {
 					idx, err := strconv.Atoi(*part.index)
@@ -905,7 +955,7 @@ func GetValue(structPtr interface{}, query string) (interface{}, error) {
 	case reflect.Int32, reflect.Int, reflect.Int64:
 		return current.Int(), nil
 	case reflect.Float32, reflect.Float64:
-		return roundFloat(current.Float(), 6), nil
+		return RoundFloat(current.Float(), 6), nil
 	case reflect.String:
 		return current.String(), nil
 	case reflect.Bool:
@@ -931,11 +981,15 @@ func SetValueUpdate(obj interface{}, iniFile *ini.File, query string, value inte
 		return err
 	}
 
+	// Convert slices to comma-separated strings
 	var valStr string
-	if value == nil {
-		valStr = ""
-	} else {
-		valStr = fmt.Sprintf("%v", value)
+	switch v := value.(type) {
+	case nil:
+		valStr = "nil"
+	case []string:
+		valStr = strings.Join(v, ", ")
+	default:
+		valStr = fmt.Sprintf("%v", v)
 	}
 
 	err = updateINIFile(obj, iniFile, query, valStr)
@@ -1036,12 +1090,20 @@ func PrintValue(structPtr interface{}, query string) {
 
 		switch current.Kind() {
 		case reflect.Struct:
+			// 1) Try normal ini tag
 			fieldVal, found := findFieldByINITag(current, part.name)
-			if !found {
-				fmt.Printf("Field '%s' not found in struct for query '%s'\n", part.name, query)
-				return
+			if found {
+				current = fieldVal
+			} else {
+				// 2) Try pattern-based map
+				matched, mapVal := getValueFromPatternMap(current, part.name)
+				if matched {
+					current = mapVal
+				} else {
+					fmt.Printf("Field '%s' not found in struct or pattern map for query '%s'\n", part.name, query)
+					return
+				}
 			}
-			current = fieldVal
 
 			if part.index != nil {
 				if current.Kind() == reflect.Array || current.Kind() == reflect.Slice {
@@ -1146,7 +1208,7 @@ func PrintIniMappings(iniFile *ini.File) {
 		for _, key := range section.Keys() {
 			keyName := key.Name()
 			value := key.Value()
-			fmt.Printf("printValue(\"%s\", \"%s\") = %s\n", sectionName, keyName, value)
+			fmt.Printf("(%s, %s) = %s\n", sectionName, keyName, value)
 		}
 	}
 }

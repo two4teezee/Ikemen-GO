@@ -409,6 +409,13 @@ func (r *Renderer_GL21) Init() {
 	chk(gl.Init())
 	sys.errLog.Printf("Using OpenGL %v (%v)", gl.GetString(gl.VERSION), gl.GetString(gl.RENDERER))
 
+	var maxSamples int32
+	gl.GetIntegerv(gl.MAX_SAMPLES, &maxSamples)
+	if sys.msaa > maxSamples {
+		sys.cfg.SetValueUpdate("Video.MSAA", maxSamples)
+		sys.msaa = maxSamples
+	}	
+
 	// Store current timestamp
 	sys.prevTimestamp = glfw.GetTime()
 
@@ -455,7 +462,7 @@ func (r *Renderer_GL21) Init() {
 		r.postShaderSelect[1+i].RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
 	}
 
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		gl.Enable(gl.MULTISAMPLE)
 	}
 
@@ -464,7 +471,7 @@ func (r *Renderer_GL21) Init() {
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
 
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture)
 	} else {
 		gl.BindTexture(gl.TEXTURE_2D, r.fbo_texture)
@@ -475,10 +482,10 @@ func (r *Renderer_GL21) Init() {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		gl.TexImage2DMultisample(
 			gl.TEXTURE_2D_MULTISAMPLE,
-			sys.cfg.Video.MSAA,
+			sys.msaa,
 			gl.RGBA,
 			sys.scrrect[2],
 			sys.scrrect[3],
@@ -531,14 +538,14 @@ func (r *Renderer_GL21) Init() {
 	gl.GenRenderbuffers(1, &r.rbo_depth)
 
 	gl.BindRenderbuffer(gl.RENDERBUFFER, r.rbo_depth)
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		//gl.RenderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, int(sys.scrrect[2]), int(sys.scrrect[3]))
-		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, sys.cfg.Video.MSAA, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
+		gl.RenderbufferStorageMultisample(gl.RENDERBUFFER, sys.msaa, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
 	} else {
 		gl.RenderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, sys.scrrect[2], sys.scrrect[3])
 	}
 	gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		r.fbo_f_texture = r.newTexture(sys.scrrect[2], sys.scrrect[3], 32, false).(*Texture_GL21)
 		r.fbo_f_texture.SetData(nil)
 	} else {
@@ -552,7 +559,7 @@ func (r *Renderer_GL21) Init() {
 	gl.GenFramebuffers(1, &r.fbo)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture, 0)
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 		if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
@@ -634,7 +641,7 @@ func (r *Renderer_GL21) EndFrame() {
 	x, y, width, height := int32(0), int32(0), int32(sys.scrrect[2]), int32(sys.scrrect[3])
 	time := glfw.GetTime() // consistent time across all shaders
 
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		gl.BindFramebuffer(gl.DRAW_FRAMEBUFFER, r.fbo_f)
 		gl.BindFramebuffer(gl.READ_FRAMEBUFFER, r.fbo)
 		gl.BlitFramebuffer(x, y, width, height, x, y, width, height, gl.COLOR_BUFFER_BIT, gl.LINEAR)
@@ -658,7 +665,7 @@ func (r *Renderer_GL21) EndFrame() {
 	gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
-	if sys.cfg.Video.MSAA > 0 {
+	if sys.msaa > 0 {
 		fbo_texture = r.fbo_f_texture.handle
 	}
 

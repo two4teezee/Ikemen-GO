@@ -366,6 +366,20 @@ func I32ToU16(i32 int32) uint16 {
 	}
 	return uint16(i32)
 }
+
+func RoundFloat(val float64, precision int) float64 {
+	factor := math.Pow(10, float64(precision))
+	return math.Round(val*factor) / factor
+}
+
+func NormalizeNewlines(input string) string {
+	// Replace CRLF (\r\n) with LF (\n)
+	input = strings.ReplaceAll(input, "\r\n", "\n")
+	// Replace any remaining CR (\r) with LF (\n)
+	input = strings.ReplaceAll(input, "\r", "\n")
+	return input
+}
+
 func LoadText(filename string) (string, error) {
 	bytes, err := os.ReadFile(filename)
 	if err != nil {

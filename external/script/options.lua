@@ -122,7 +122,7 @@ options.t_itemname = {
 			modifyGameOption('Options.Time', 99)
 			modifyGameOption('Options.GameSpeed', 0)
 			modifyGameOption('Options.Match.Wins', 2)
-			modifyGameOption('Options.Match.MaxDrawGames', -2) -- -2: match.maxdrawgames; -1: match.wins; >= 0: overriding fight.def parameters
+			modifyGameOption('Options.Match.MaxDrawGames', -2) -- -2: match.maxdrawgames
 			modifyGameOption('Options.Credits', 10)
 			modifyGameOption('Options.QuickContinue', false)
 			modifyGameOption('Options.AutoGuard', false)
@@ -222,7 +222,7 @@ options.t_itemname = {
 			loadLifebar(motif.files.fight)
 			main.timeFramesPerCount = fightscreenvar("time.framespercount")
 			main.f_updateRoundsNum()
-			main.f_setPlayers(gameOption('Config.Players'))
+			main.f_setPlayers()
 			for _, v in ipairs(options.t_vardisplayPointers) do
 				v.vardisplay = options.f_vardisplay(v.itemname)
 			end
@@ -873,7 +873,7 @@ options.t_itemname = {
 	end,
 	--MSAA
 	['msaa'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and gameOption('Video.MSAA') < 16 then
+		if main.f_input(main.t_players, {'$F'}) and gameOption('Video.MSAA') < 32 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			if gameOption('Video.MSAA') == 0 then
 				modifyGameOption('Video.MSAA', 2)
@@ -987,13 +987,13 @@ options.t_itemname = {
 			modifyGameOption('Sound.MasterVolume', gameOption('Sound.MasterVolume') + 1)
 			t.items[item].vardisplay = gameOption('Sound.MasterVolume') .. '%'
 			options.modified = true
-			go.updateVolume()
+			updateVolume()
 		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Sound.MasterVolume') > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			modifyGameOption('Sound.MasterVolume', gameOption('Sound.MasterVolume') - 1)
 			t.items[item].vardisplay = gameOption('Sound.MasterVolume')  .. '%'
 			options.modified = true
-			go.updateVolume()
+			updateVolume()
 		end
 		return true
 	end,
@@ -1004,13 +1004,13 @@ options.t_itemname = {
 			modifyGameOption('Sound.BGMVolume', gameOption('Sound.BGMVolume') + 1)
 			t.items[item].vardisplay = gameOption('Sound.BGMVolume') .. '%'
 			options.modified = true
-			go.updateVolume()
+			updateVolume()
 		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Sound.BGMVolume') > 0 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			modifyGameOption('Sound.BGMVolume', gameOption('Sound.BGMVolume') - 1)
 			t.items[item].vardisplay = gameOption('Sound.BGMVolume') .. '%'
 			options.modified = true
-			go.updateVolume()
+			updateVolume()
 		end
 		return true
 	end,
@@ -1119,13 +1119,13 @@ options.t_itemname = {
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			modifyGameOption('Config.Players', math.min(8, gameOption('Config.Players') + 2))
 			t.items[item].vardisplay = gameOption('Config.Players')
-			main.f_setPlayers(gameOption('Config.Players'))
+			main.f_setPlayers()
 			options.modified = true
 		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Config.Players') > 2 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			modifyGameOption('Config.Players', math.max(2, gameOption('Config.Players') - 2))
 			t.items[item].vardisplay = gameOption('Config.Players')
-			main.f_setPlayers(gameOption('Config.Players'))
+			main.f_setPlayers()
 			options.modified = true
 		end
 		return true
@@ -1786,91 +1786,55 @@ for k, v in ipairs(t_keyCfg) do
 end
 
 function options.f_keyDefault()
-	for key, _ in pairs(gameOption("Keys")) do
-		local keyId = tonumber(key:match('%d+')) or 0
-		if keyId == 1 then
+	for i = 1, gameOption('Config.Players') do
+		local defaultKeys = main.t_defaultKeysMapping
+		if i == 1 then
 			defaultKeys = {
-				up = 'UP',
-				down = 'DOWN',
-				left = 'LEFT',
-				right = 'RIGHT',
-				a = 'z',
-				b = 'x',
-				c = 'c',
-				x = 'a',
-				y = 's',
-				z = 'd',
-				start = 'RETURN',
-				d = 'q',
-				w = 'w',
-				menu = 'Not used',
+				Up = 'UP',
+				Down = 'DOWN',
+				Left = 'LEFT',
+				Right = 'RIGHT',
+				A = 'z',
+				B = 'x',
+				C = 'c',
+				X = 'a',
+				Y = 's',
+				Z = 'd',
+				Start = 'RETURN',
+				D = 'q',
+				W = 'w',
+				Menu = 'Not used',
 			}
-		elseif keyId == 2 then
+		elseif i == 2 then
 			defaultKeys = {
-				up = 'i',
-				down = 'k',
-				left = 'j',
-				right = 'l',
-				a = 'f',
-				b = 'g',
-				c = 'h',
-				x = 'r',
-				y = 't',
-				z = 'y',
-				start = 'RSHIFT',
-				d = 'LEFTBRACKET',
-				w = 'RIGHTBRACKET',
-				menu = 'Not used',
-			}
-		else
-			defaultKeys = {
-				up = 'Not used',
-				down = 'Not used',
-				left = 'Not used',
-				right = 'Not used',
-				a = 'Not used',
-				b = 'Not used',
-				c = 'Not used',
-				x = 'Not used',
-				y = 'Not used',
-				z = 'Not used',
-				start = 'Not used',
-				d = 'Not used',
-				w = 'Not used',
-				menu = 'Not used',
+				Up = 'i',
+				Down = 'k',
+				Left = 'j',
+				Right = 'l',
+				A = 'f',
+				B = 'g',
+				C = 'h',
+				X = 'r',
+				Y = 't',
+				Z = 'y',
+				Start = 'RSHIFT',
+				D = 'LEFTBRACKET',
+				W = 'RIGHTBRACKET',
+				Menu = 'Not used',
 			}
 		end
 		for action, button in pairs(defaultKeys) do
 			if not t_btnEnabled[action] then
-				modifyGameOption('Keys.' .. key, tostring(motif.option_info.menu_valuename_nokey))
+				modifyGameOption('Keys_P' .. i .. '.' .. action, tostring(motif.option_info.menu_valuename_nokey))
 			else
-				modifyGameOption('Keys.' .. key, button)
+				modifyGameOption('Keys_P' .. i .. '.' .. action, button)
 			end
 		end
-	end
-
-	for key, _ in pairs(gameOption("Joystick")) do
-		defaultKeys = {
-			up = '10',
-			down = '12',
-			left = '13',
-			right = '11',
-			a = '0',
-			b = '1',
-			c = '5',
-			x = '2',
-			y = '3',
-			z = '-12',
-			start = '7',
-			d = '4',
-			w = '-10',
-			menu = '6',
-		}
-		for action, button in pairs(defaultKeys) do
+		for action, button in pairs(main.t_defaultJoystickMapping) do
 			if not t_btnEnabled[action] then
-				modifyGameOption('Joystick.' .. key, tostring(motif.option_info.menu_valuename_nokey))
+				modifyGameOption('Joystick_P' .. i .. '.' .. action, tostring(motif.option_info.menu_valuename_nokey))
 			else
-				modifyGameOption('Joystick.' .. key, button)
+				modifyGameOption('Joystick_P' .. i .. '.' .. action, button)
 			end
 		end
 	end
@@ -1884,20 +1848,18 @@ end
 
 function options.f_keyCfgReset(cfgType)
 	t_keyList = {}
-	for k, v in pairs(gameOption(cfgType)) do
-		local pn = tonumber(k:match('%d+')) or 0
-		if pn > 0 then
-			if t_keyList[v.Joystick] == nil then
-				t_keyList[v.Joystick] = {} --creates subtable for each controller (1 for all keyboard configs, new one for each gamepad)
-				t_conflict[v.Joystick] = false --set default conflict flag for each controller
-			end
-			for k2, v2 in ipairs(t_keyCfg) do
-				if t_btnEnabled[v2.itemname] ~= nil then
-					local btn = v[v2.itemname]
-					t_keyCfg[k2]['vardisplay' .. pn] = btn
-					if btn ~= tostring(motif.option_info.menu_valuename_nokey) then --if button is not disabled
-						t_keyList[v.Joystick][btn] = (t_keyList[v.Joystick][btn] or 0) + 1
-					end
+	for i = 1, gameOption('Config.Players') do
+		local c = gameOption(cfgType .. '_P' .. i)
+		if t_keyList[c.Joystick] == nil then
+			t_keyList[c.Joystick] = {} --creates subtable for each controller (1 for all keyboard configs, new one for each gamepad)
+			t_conflict[c.Joystick] = false --set default conflict flag for each controller
+		end
+		for k, v in ipairs(t_keyCfg) do
+			if t_btnEnabled[v.itemname] ~= nil then
+				local btn = c[v.itemname]
+				t_keyCfg[k]['vardisplay' .. i] = btn
+				if btn ~= tostring(motif.option_info.menu_valuename_nokey) then --if button is not disabled
+					t_keyList[c.Joystick][btn] = (t_keyList[c.Joystick][btn] or 0) + 1
 				end
 			end
 		end
@@ -1905,11 +1867,9 @@ function options.f_keyCfgReset(cfgType)
 end
 
 function options.f_setKeyConfig(cfgType)
-	for k, v in pairs(gameOption(cfgType)) do
-		local pn = tonumber(k:match('%d+')) or 0
-		if pn > 0 then		
-			setKeyConfig(pn, v.Joystick, {v.Up, v.Down, v.Left, v.Right, v.A, v.B, v.C, v.X, v.Y, v.Z, v.Start, v.D, v.W, v.Menu})
-		end
+	for i = 1, gameOption('Config.Players') do
+		local c = gameOption(cfgType .. '_P' .. i)
+		setKeyConfig(i, c.Joystick, {c.Up, c.Down, c.Left, c.Right, c.A, c.B, c.C, c.X, c.Y, c.Z, c.Start, c.D, c.W, c.Menu})
 	end
 end
 
@@ -1923,14 +1883,17 @@ function options.f_keyCfgInit(cfgType, title)
 	configall = false
 	key = ''
 	t_conflict = {}
-	t_savedConfig = gameOption(cfgType)
+	t_savedConfig = {}
+	for i = 1, gameOption('Config.Players') do
+		table.insert(t_savedConfig, gameOption(cfgType .. '_P' .. i))
+	end
 	btnReleased = false
 	player = 1
 	side = 1
 	btn = ''
 	options.txt_title:update({text = title})
 	options.f_keyCfgReset(cfgType)
-	joyNum = gameOption(cfgType .. '.P' .. player .. '.Joystick')
+	joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
 end
 
 function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
@@ -1941,25 +1904,24 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 		if esc() --[[or main.f_input(main.t_players, {'m'})]] then
 			sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
 			esc(false)
-			for k, v in pairs(gameOption(cfgType)) do
-				local pn = tonumber(k:match('%d+')) or 0
-				if pn == player then
-					modifyGameOption(cfgType .. '.' .. k .. '.Joystick', t_savedConfig[k].Joystick)
-					modifyGameOption(cfgType .. '.' .. k .. '.Up', t_savedConfig[k].Up)
-					modifyGameOption(cfgType .. '.' .. k .. '.Down', t_savedConfig[k].Down)
-					modifyGameOption(cfgType .. '.' .. k .. '.Left', t_savedConfig[k].Left)
-					modifyGameOption(cfgType .. '.' .. k .. '.Right', t_savedConfig[k].Right)
-					modifyGameOption(cfgType .. '.' .. k .. '.A', t_savedConfig[k].A)
-					modifyGameOption(cfgType .. '.' .. k .. '.B', t_savedConfig[k].B)
-					modifyGameOption(cfgType .. '.' .. k .. '.C', t_savedConfig[k].C)
-					modifyGameOption(cfgType .. '.' .. k .. '.X', t_savedConfig[k].X)
-					modifyGameOption(cfgType .. '.' .. k .. '.Y', t_savedConfig[k].Y)
-					modifyGameOption(cfgType .. '.' .. k .. '.Z', t_savedConfig[k].Z)
-					modifyGameOption(cfgType .. '.' .. k .. '.Start', t_savedConfig[k].Start)
-					modifyGameOption(cfgType .. '.' .. k .. '.D', t_savedConfig[k].D)
-					modifyGameOption(cfgType .. '.' .. k .. '.W', t_savedConfig[k].W)
-					modifyGameOption(cfgType .. '.' .. k .. '.Menu', t_savedConfig[k].Menu)
-					modifyGameOption(cfgType .. '.' .. k .. '.GUID', t_savedConfig[k].GUID)
+			for i = 1, gameOption('Config.Players') do
+				if i == player then
+					modifyGameOption(cfgType .. '_P' .. i .. '.Joystick', t_savedConfig[i].Joystick)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Up', t_savedConfig[i].Up)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Down', t_savedConfig[i].Down)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Left', t_savedConfig[i].Left)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Right', t_savedConfig[i].Right)
+					modifyGameOption(cfgType .. '_P' .. i .. '.A', t_savedConfig[i].A)
+					modifyGameOption(cfgType .. '_P' .. i .. '.B', t_savedConfig[i].B)
+					modifyGameOption(cfgType .. '_P' .. i .. '.C', t_savedConfig[i].C)
+					modifyGameOption(cfgType .. '_P' .. i .. '.X', t_savedConfig[i].X)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Y', t_savedConfig[i].Y)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Z', t_savedConfig[i].Z)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Start', t_savedConfig[i].Start)
+					modifyGameOption(cfgType .. '_P' .. i .. '.D', t_savedConfig[i].D)
+					modifyGameOption(cfgType .. '_P' .. i .. '.W', t_savedConfig[i].W)
+					modifyGameOption(cfgType .. '_P' .. i .. '.Menu', t_savedConfig[i].Menu)
+					modifyGameOption(cfgType .. '_P' .. i .. '.GUID', t_savedConfig[i].GUID)
 				end
 				options.f_setKeyConfig(cfgType)
 			end
@@ -1980,8 +1942,8 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 			local guid = getJoystickGUID(joyNum)
 
 			-- Fix the GUID so that configs are preserved between boots for macOS
-			if gameOption(cfgType .. '.P' .. player .. '.GUID') ~= guid and guid ~= '' then
-				modifyGameOption(cfgType .. '.P' .. player .. '.GUID', guid)
+			if gameOption(cfgType .. '_P' .. player .. '.GUID') ~= guid and guid ~= '' then
+				modifyGameOption(cfgType .. '_P' .. player .. '.GUID', guid)
 				options.modified = true
 			end
 
@@ -2005,7 +1967,7 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 				end
 				--update vardisplay / config data
 				t[item]['vardisplay' .. player] = motif.option_info.menu_valuename_nokey
-				modifyGameOption(cfgType .. '.P' .. player .. '.' .. t[item].itemname, tostring(motif.option_info.menu_valuename_nokey))
+				modifyGameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname, tostring(motif.option_info.menu_valuename_nokey))
 				options.modified = true
 			elseif cfgType == 'Keys' or (cfgType == 'Joystick' and tonumber(key) ~= nil) then
 				sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
@@ -2019,7 +1981,7 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 				for k, v in ipairs(t) do
 					if v['vardisplay' .. player] == key then
 						v['vardisplay' .. player] = tostring(motif.option_info.menu_valuename_nokey)
-						modifyGameOption(cfgType .. '.P' .. player .. '.' .. v.itemname, tostring(motif.option_info.menu_valuename_nokey))
+						modifyGameOption(cfgType .. '_P' .. player .. '.' .. v.itemname, tostring(motif.option_info.menu_valuename_nokey))
 						if t_keyList[joyNum][key] ~= nil and t_keyList[joyNum][key] > 1 then
 							t_keyList[joyNum][key] = t_keyList[joyNum][key] - 1
 						else
@@ -2035,7 +1997,7 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 				end
 				--update vardisplay / config data
 				t[item]['vardisplay' .. player] = key
-				modifyGameOption(cfgType .. '.P' .. player .. '.' .. t[item].itemname, key)
+				modifyGameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname, key)
 				options.modified = true
 			end
 			--move to the next position
@@ -2051,36 +2013,33 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 			key = ''
 		end
 		if t_btnEnabled[t[item].itemname] ~= nil then
-			btn = gameOption(cfgType .. '.P' .. player .. '.' .. t[item].itemname)
+			btn = gameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname)
 		end
 		resetKey()
 	else
 		key = getKey()
 		--back
-		if esc() or main.f_input(main.t_players, {'m'}) or (t[item].itemname == 'page' and (side == 1 or main.f_tableLength(gameOption(cfgType)) <= 2) and main.f_input(main.t_players, {'pal', 's'})) then
+		if esc() or main.f_input(main.t_players, {'m'}) or (t[item].itemname == 'page' and (side == 1 or gameOption('Config.Players') <= 2) and main.f_input(main.t_players, {'pal', 's'})) then
 			if t_conflict[joyNum] then
 				if not main.f_warning(main.f_extractText(motif.warning_info.text_keys_text), motif.optionbgdef) then
 					options.txt_title:update({text = motif.option_info.title_input_text})
-					for k, v in pairs(gameOption(cfgType)) do
-						local pn = tonumber(k:match('%d+')) or 0
-						if pn > 0 then
-							modifyGameOption(cfgType .. '.' .. k .. '.Joystick', t_savedConfig[k].Joystick)
-							modifyGameOption(cfgType .. '.' .. k .. '.Up', t_savedConfig[k].Up)
-							modifyGameOption(cfgType .. '.' .. k .. '.Down', t_savedConfig[k].Down)
-							modifyGameOption(cfgType .. '.' .. k .. '.Left', t_savedConfig[k].Left)
-							modifyGameOption(cfgType .. '.' .. k .. '.Right', t_savedConfig[k].Right)
-							modifyGameOption(cfgType .. '.' .. k .. '.A', t_savedConfig[k].A)
-							modifyGameOption(cfgType .. '.' .. k .. '.B', t_savedConfig[k].B)
-							modifyGameOption(cfgType .. '.' .. k .. '.C', t_savedConfig[k].C)
-							modifyGameOption(cfgType .. '.' .. k .. '.X', t_savedConfig[k].X)
-							modifyGameOption(cfgType .. '.' .. k .. '.Y', t_savedConfig[k].Y)
-							modifyGameOption(cfgType .. '.' .. k .. '.Z', t_savedConfig[k].Z)
-							modifyGameOption(cfgType .. '.' .. k .. '.Start', t_savedConfig[k].Start)
-							modifyGameOption(cfgType .. '.' .. k .. '.D', t_savedConfig[k].D)
-							modifyGameOption(cfgType .. '.' .. k .. '.W', t_savedConfig[k].W)
-							modifyGameOption(cfgType .. '.' .. k .. '.Menu', t_savedConfig[k].Menu)
-							modifyGameOption(cfgType .. '.' .. k .. '.GUID', t_savedConfig[k].GUID)
-						end
+					for i = 1, gameOption('Config.Players') do
+						modifyGameOption(cfgType .. '_P' .. i .. '.Joystick', t_savedConfig[i].Joystick)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Up', t_savedConfig[i].Up)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Down', t_savedConfig[i].Down)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Left', t_savedConfig[i].Left)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Right', t_savedConfig[i].Right)
+						modifyGameOption(cfgType .. '_P' .. i .. '.A', t_savedConfig[i].A)
+						modifyGameOption(cfgType .. '_P' .. i .. '.B', t_savedConfig[i].B)
+						modifyGameOption(cfgType .. '_P' .. i .. '.C', t_savedConfig[i].C)
+						modifyGameOption(cfgType .. '_P' .. i .. '.X', t_savedConfig[i].X)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Y', t_savedConfig[i].Y)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Z', t_savedConfig[i].Z)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Start', t_savedConfig[i].Start)
+						modifyGameOption(cfgType .. '_P' .. i .. '.D', t_savedConfig[i].D)
+						modifyGameOption(cfgType .. '_P' .. i .. '.W', t_savedConfig[i].W)
+						modifyGameOption(cfgType .. '_P' .. i .. '.Menu', t_savedConfig[i].Menu)
+						modifyGameOption(cfgType .. '_P' .. i .. '.GUID', t_savedConfig[i].GUID)
 					end
 					options.f_setKeyConfig(cfgType)
 					menu.itemname = ''
@@ -2094,27 +2053,27 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 				return false
 			end
 		--switch page
-		elseif main.f_tableLength(gameOption(cfgType)) > 2 and ((t[item].itemname == 'page' and side == 2 and main.f_input(main.t_players, {'pal', 's'})) or key == 'TAB') then
+		elseif gameOption('Config.Players') > 2 and ((t[item].itemname == 'page' and side == 2 and main.f_input(main.t_players, {'pal', 's'})) or key == 'TAB') then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			player = player + 2
-			if player > main.f_tableLength(gameOption(cfgType)) then
+			if player > gameOption('Config.Players') then
 				player = side
 			else
 				side = main.f_playerSide(player)
 			end
-			joyNum = gameOption(cfgType .. '.P' .. player .. '.Joystick')
+			joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
 		--move right
-		elseif main.f_input(main.t_players, {'$F'}) and player + 1 <= main.f_tableLength(gameOption(cfgType)) then
+		elseif main.f_input(main.t_players, {'$F'}) and player + 1 <= gameOption('Config.Players') then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			player = player + 1
 			side = main.f_playerSide(player)
-			joyNum = gameOption(cfgType .. '.P' .. player .. '.Joystick')
+			joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
 		--move left
 		elseif main.f_input(main.t_players, {'$B'}) and player - 1 >= 1 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			player = player - 1
 			side = main.f_playerSide(player)
-			joyNum = gameOption(cfgType .. '.P' .. player .. '.Joystick')
+			joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
 		--move up / down
 		elseif main.f_input(main.t_players, {'$U', '$D'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
@@ -2132,12 +2091,12 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 				pn = tonumber(pn)
 				key = ''
 			end
-			if main.f_input(main.t_players, {'pal', 's'}) or (pn ~= nil and pn >= 1 and pn <= main.f_tableLength(gameOption(cfgType))) then
+			if main.f_input(main.t_players, {'pal', 's'}) or (pn ~= nil and pn >= 1 and pn <= gameOption('Config.Players')) then
 				sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
 				if pn ~= nil then
 					player = pn
 					side = main.f_playerSide(player)
-					joyNum = gameOption(cfgType .. '.P' .. player .. '.Joystick')
+					joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
 				end
 				if cfgType == 'Joystick' and getJoystickPresent(joyNum) == false then
 					main.f_warning(main.f_extractText(motif.warning_info.text_pad_text), motif.optionbgdef)
@@ -2208,7 +2167,7 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 					if t[i].itemname == 'configall' then
 						t[i].infodisplay = motif.option_info.menu_valuename_f:gsub('%%i', tostring(j + player - side))
 					elseif t[i].itemname == 'page' then
-						if main.f_tableLength(gameOption(cfgType)) > 2 then
+						if gameOption('Config.Players') > 2 then
 							t[i].displayname = motif.option_info.keymenu_itemname_page
 							t[i].infodisplay = motif.option_info.menu_valuename_page
 						else

@@ -258,6 +258,7 @@ type System struct {
 	lifebarPortraitScale float32
 	lifebarLocalcoord    [2]int32
 
+	msaa              int32
 	externalShaders   [][]string
 	windowMainIcon    []image.Image
 	gameMode          string

@@ -197,7 +197,7 @@ func toLValue(l *lua.LState, v interface{}) lua.LValue {
 		return lua.LNumber(rv.Uint())
 
 	case reflect.Float32, reflect.Float64:
-		return lua.LNumber(roundFloat(rv.Float(), 6))
+		return lua.LNumber(RoundFloat(rv.Float(), 6))
 
 	case reflect.Bool:
 		if rv.Bool() {
@@ -2558,57 +2558,43 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setPlayers", func(l *lua.LState) int {
 		total := int(numArg(l, 1))
-		resizeConfig := func(config *[]KeyConfig, total int) {
-			if len(*config) > total {
-				*config = (*config)[:total]
-			} else {
-				for i := len(*config); i < total; i++ {
-					*config = append(*config, KeyConfig{})
-				}
+
+		// Resize sys.keyConfig
+		if len(sys.keyConfig) > total {
+			sys.keyConfig = sys.keyConfig[:total]
+		} else {
+			for i := len(sys.keyConfig); i < total; i++ {
+				sys.keyConfig = append(sys.keyConfig, KeyConfig{})
 			}
 		}
-		initializeProperties := func(cfgMap map[string]*KeysProperties, total int, defaultProps func(int) *KeysProperties) {
-			for i := 0; i < total; i++ {
-				key := fmt.Sprintf("P%d", i+1)
-				if _, exists := cfgMap[key]; !exists {
-					cfgMap[key] = defaultProps(i)
-				}
+
+		// Cleanup sys.cfg.Keys
+		for key := range sys.cfg.Keys {
+			var num int
+			if _, err := fmt.Sscanf(key, "keys_p%d", &num); err != nil || num > total {
+				delete(sys.cfg.Keys, key)
+				sys.cfg.IniFile.DeleteSection(fmt.Sprintf("Keys_P%d", num))
 			}
 		}
-		cleanupProperties := func(cfgMap map[string]*KeysProperties, total int) {
-			for key := range cfgMap {
-				var num int
-				if _, err := fmt.Sscanf(key, "P%d", &num); err != nil || num > total {
-					delete(cfgMap, key)
-				}
+
+		// Resize sys.joystickConfig
+		if len(sys.joystickConfig) > total {
+			sys.joystickConfig = sys.joystickConfig[:total]
+		} else {
+			for i := len(sys.joystickConfig); i < total; i++ {
+				sys.joystickConfig = append(sys.joystickConfig, KeyConfig{})
 			}
 		}
-		keyDefaultProps := func(_ int) *KeysProperties {
-			return &KeysProperties{
-				Joystick: -1,
-				Up:       "Not used", Down: "Not used", Left: "Not used", Right: "Not used",
-				A: "Not used", B: "Not used", C: "Not used",
-				X: "Not used", Y: "Not used", Z: "Not used",
-				Start: "Not used", D: "Not used", W: "Not used", Menu: "Not used",
+
+		// Cleanup sys.cfg.Joystick
+		for key := range sys.cfg.Joystick {
+			var num int
+			if _, err := fmt.Sscanf(key, "joystick_p%d", &num); err != nil || num > total {
+				delete(sys.cfg.Joystick, key)
+				sys.cfg.IniFile.DeleteSection(fmt.Sprintf("Joystick_P%d", num))
 			}
 		}
-		joystickDefaultProps := func(index int) *KeysProperties {
-			return &KeysProperties{
-				Joystick: index,
-				Up:       "10", Down: "12", Left: "13", Right: "11",
-				A: "0", B: "1", C: "5",
-				X: "2", Y: "3", Z: "-12",
-				Start: "7", D: "4", W: "-10", Menu: "6",
-			}
-		}
-		// Adjust keyConfig and joystickConfig sizes
-		resizeConfig(&sys.keyConfig, total)
-		resizeConfig(&sys.joystickConfig, total)
-		// Initialize missing properties and clean up excess keys
-		initializeProperties(sys.cfg.Keys, total, keyDefaultProps)
-		cleanupProperties(sys.cfg.Keys, total)
-		initializeProperties(sys.cfg.Joystick, total, joystickDefaultProps)
-		cleanupProperties(sys.cfg.Joystick, total)
+
 		return 0
 	})
 	luaRegister(l, "setPower", func(*lua.LState) int {

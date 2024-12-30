@@ -37,51 +37,51 @@ func parseQueryPath(query string) []queryPart {
 
 // getValueFromPatternMap checks if the struct has a map field with ini:"map:REGEX"
 func getValueFromPatternMap(v reflect.Value, partName string) (bool, reflect.Value) {
-    if v.Kind() != reflect.Struct {
-        return false, reflect.Value{}
-    }
-    t := v.Type()
-    for i := 0; i < t.NumField(); i++ {
-        field := t.Field(i)
-        iniTag := field.Tag.Get("ini")
-        if iniTag == "" || field.PkgPath != "" {
-            continue
-        }
-        if strings.HasPrefix(strings.ToLower(iniTag), "map:") {
-            pattern := iniTag[4:]
-            re, err := regexp.Compile(pattern)
-            if err != nil {
-                continue
-            }
-            // Check if partName matches the map regex
-            if re.MatchString(partName) {
-                fieldVal := v.Field(i)
-                if fieldVal.Kind() == reflect.Map && fieldVal.Type().Key().Kind() == reflect.String {
-                    if fieldVal.IsNil() {
-                        fieldVal.Set(reflect.MakeMap(fieldVal.Type()))
-                    }
-                    // Convert to lower or keep original
-                    mapKey := reflect.ValueOf(strings.ToLower(partName))
-                    mapItem := fieldVal.MapIndex(mapKey)
-                    if !mapItem.IsValid() {
-                        // Create a new entry
-                        elemType := fieldVal.Type().Elem()
-                        var newVal reflect.Value
-                        if elemType.Kind() == reflect.Ptr {
-                            newVal = reflect.New(elemType.Elem())
-                        } else {
-                            newVal = reflect.New(elemType).Elem()
-                        }
-                        applyDefaultsToValue(newVal)
-                        fieldVal.SetMapIndex(mapKey, newVal)
-                        mapItem = fieldVal.MapIndex(mapKey)
-                    }
-                    return true, mapItem
-                }
-            }
-        }
-    }
-    return false, reflect.Value{}
+	if v.Kind() != reflect.Struct {
+		return false, reflect.Value{}
+	}
+	t := v.Type()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		iniTag := field.Tag.Get("ini")
+		if iniTag == "" || field.PkgPath != "" {
+			continue
+		}
+		if strings.HasPrefix(strings.ToLower(iniTag), "map:") {
+			pattern := iniTag[4:]
+			re, err := regexp.Compile(pattern)
+			if err != nil {
+				continue
+			}
+			// Check if partName matches the map regex
+			if re.MatchString(partName) {
+				fieldVal := v.Field(i)
+				if fieldVal.Kind() == reflect.Map && fieldVal.Type().Key().Kind() == reflect.String {
+					if fieldVal.IsNil() {
+						fieldVal.Set(reflect.MakeMap(fieldVal.Type()))
+					}
+					// Convert to lower or keep original
+					mapKey := reflect.ValueOf(strings.ToLower(partName))
+					mapItem := fieldVal.MapIndex(mapKey)
+					if !mapItem.IsValid() {
+						// Create a new entry
+						elemType := fieldVal.Type().Elem()
+						var newVal reflect.Value
+						if elemType.Kind() == reflect.Ptr {
+							newVal = reflect.New(elemType.Elem())
+						} else {
+							newVal = reflect.New(elemType).Elem()
+						}
+						applyDefaultsToValue(newVal)
+						fieldVal.SetMapIndex(mapKey, newVal)
+						mapItem = fieldVal.MapIndex(mapKey)
+					}
+					return true, mapItem
+				}
+			}
+		}
+	}
+	return false, reflect.Value{}
 }
 
 // -------------------------------------------------------------------
@@ -701,8 +701,8 @@ func updateINIFile(obj interface{}, iniFile *ini.File, query string, value strin
 	currentValue := v
 	currentType := v.Type()
 
-	var sectionName string          // which [section] in the .ini
-	var keyNameParts []string       // the final "Key.SubKey..." part
+	var sectionName string    // which [section] in the .ini
+	var keyNameParts []string // the final "Key.SubKey..." part
 	sectionSet := false
 	i := 0
 

@@ -414,7 +414,7 @@ func (r *Renderer_GL21) Init() {
 	if sys.msaa > maxSamples {
 		sys.cfg.SetValueUpdate("Video.MSAA", maxSamples)
 		sys.msaa = maxSamples
-	}	
+	}
 
 	// Store current timestamp
 	sys.prevTimestamp = glfw.GetTime()

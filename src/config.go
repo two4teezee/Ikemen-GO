@@ -352,49 +352,54 @@ func (c *Config) sysSet() {
 		}
 		return 999
 	}
-	for _, kc := range c.Keys {
-		newKeyConfig := KeyConfig{
-			Joy:  kc.Joystick,
-			dU:   stoki(kc.Up),
-			dD:   stoki(kc.Down),
-			dL:   stoki(kc.Left),
-			dR:   stoki(kc.Right),
-			kA:   stoki(kc.A),
-			kB:   stoki(kc.B),
-			kC:   stoki(kc.C),
-			kX:   stoki(kc.X),
-			kY:   stoki(kc.Y),
-			kZ:   stoki(kc.Z),
-			kS:   stoki(kc.Start),
-			kD:   stoki(kc.D),
-			kW:   stoki(kc.W),
-			kM:   stoki(kc.Menu),
-			GUID: kc.GUID,
-		}
-		sys.keyConfig = append(sys.keyConfig, newKeyConfig)
-	}
-
-	if _, ok := sys.cmdFlags["-nojoy"]; !ok {
-		for _, kc := range c.Joystick {
+	for i := 1; i <= c.Config.Players; i++ {
+		if kc, ok := c.Keys[fmt.Sprintf("keys_p%d", i)]; ok {
 			newKeyConfig := KeyConfig{
 				Joy:  kc.Joystick,
-				dU:   Atoi(kc.Up),
-				dD:   Atoi(kc.Down),
-				dL:   Atoi(kc.Left),
-				dR:   Atoi(kc.Right),
-				kA:   Atoi(kc.A),
-				kB:   Atoi(kc.B),
-				kC:   Atoi(kc.C),
-				kX:   Atoi(kc.X),
-				kY:   Atoi(kc.Y),
-				kZ:   Atoi(kc.Z),
-				kS:   Atoi(kc.Start),
-				kD:   Atoi(kc.D),
-				kW:   Atoi(kc.W),
-				kM:   Atoi(kc.Menu),
 				GUID: kc.GUID,
+				dU:   stoki(kc.Up),
+				dD:   stoki(kc.Down),
+				dL:   stoki(kc.Left),
+				dR:   stoki(kc.Right),
+				kA:   stoki(kc.A),
+				kB:   stoki(kc.B),
+				kC:   stoki(kc.C),
+				kX:   stoki(kc.X),
+				kY:   stoki(kc.Y),
+				kZ:   stoki(kc.Z),
+				kS:   stoki(kc.Start),
+				kD:   stoki(kc.D),
+				kW:   stoki(kc.W),
+				kM:   stoki(kc.Menu),
 			}
-			sys.joystickConfig = append(sys.joystickConfig, newKeyConfig)
+			sys.keyConfig = append(sys.keyConfig, newKeyConfig)
+		} else {
+			sys.keyConfig = append(sys.keyConfig, KeyConfig{Joy: -1})
+		}
+		if _, ok := sys.cmdFlags["-nojoy"]; !ok {
+			if kc, ok := c.Joystick[fmt.Sprintf("joystick_p%d", i)]; ok {
+				newKeyConfig := KeyConfig{
+					Joy:  kc.Joystick,
+					GUID: kc.GUID,
+					dU:   Atoi(kc.Up),
+					dD:   Atoi(kc.Down),
+					dL:   Atoi(kc.Left),
+					dR:   Atoi(kc.Right),
+					kA:   Atoi(kc.A),
+					kB:   Atoi(kc.B),
+					kC:   Atoi(kc.C),
+					kX:   Atoi(kc.X),
+					kY:   Atoi(kc.Y),
+					kZ:   Atoi(kc.Z),
+					kS:   Atoi(kc.Start),
+					kD:   Atoi(kc.D),
+					kW:   Atoi(kc.W),
+					kM:   Atoi(kc.Menu),
+				}
+				sys.joystickConfig = append(sys.joystickConfig, newKeyConfig)
+			} else {
+				sys.joystickConfig = append(sys.joystickConfig, KeyConfig{Joy: i - 1})
+			}
 		}
 	}
 }

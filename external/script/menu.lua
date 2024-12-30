@@ -173,7 +173,7 @@ menu.t_itemname = {
 	['keyboard'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) --[[or getKey('F1')]] then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			options.f_keyCfgInit('KeyConfig', t.submenu[t.items[item].itemname].title)
+			options.f_keyCfgInit('Keys', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -182,7 +182,7 @@ menu.t_itemname = {
 	['gamepad'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) --[[or getKey('F2')]] then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			options.f_keyCfgInit('JoystickConfig', t.submenu[t.items[item].itemname].title)
+			options.f_keyCfgInit('Joystick', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -509,9 +509,9 @@ function menu.f_run()
 	--Button Config
 	if menu.itemname == 'keyboard' or menu.itemname == 'gamepad' then
 		if menu.itemname == 'keyboard' then
-			options.f_keyCfg('KeyConfig', menu.itemname, bgdef, true)
+			options.f_keyCfg('Keys', menu.itemname, bgdef, true)
 		else
-			options.f_keyCfg('JoystickConfig', menu.itemname, bgdef, true)
+			options.f_keyCfg('Joystick', menu.itemname, bgdef, true)
 		end
 	--Command List
 	elseif menu.itemname == 'commandlist' then

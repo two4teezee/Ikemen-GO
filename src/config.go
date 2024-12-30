@@ -414,26 +414,6 @@ func (c *Config) SetValueUpdate(query string, value interface{}) error {
 	return SetValueUpdate(c, c.IniFile, query, value)
 }
 
-// GetIniMappingValue retrieves the INI mapping value based on the query string.
-func (c *Config) GetIniMappingValue(query string) (string, error) {
-	return GetIniMappingValue(c.IniFile, query)
-}
-
-// PrintIniMappings prints all INI mappings.
-func (c *Config) PrintIniMappings() {
-	PrintIniMappings(c.IniFile)
-}
-
-// PrintValue prints the value based on the query string.
-func (c *Config) PrintValue(query string) {
-	PrintValue(c, query)
-}
-
-// PrintStruct prints the parsed struct.
-func (c *Config) PrintStruct() {
-	PrintStruct(c, "")
-}
-
 // Save writes the current IniFile to disk, preserving comments and syntax.
 func (c *Config) Save(file string) error {
 	return SaveINI(c.IniFile, file)

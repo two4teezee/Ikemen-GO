@@ -507,14 +507,19 @@ type PowerBar struct {
 }
 
 func newPowerBar() *PowerBar {
-	return &PowerBar{
-		level_snd:        [9][2]int32{{-1}, {-1}, {-1}},
+	newBar := &PowerBar{
 		front:            make(map[int32]*AnimLayout),
 		bg0:              make(map[int32]*AnimLayout),
 		counter_rounding: 1000,
 		value_rounding:   1,
 	}
+	// Default power level sounds to -1,-1
+	for i := range newBar.level_snd {
+		newBar.level_snd[i] = [2]int32{-1, -1}
+	}
+	return newBar
 }
+
 func readPowerBar(pre string, is IniSection,
 	sff *Sff, at AnimationTable, f []*Fnt) *PowerBar {
 	pb := newPowerBar()
@@ -548,10 +553,8 @@ func readPowerBar(pre string, is IniSection,
 	}
 	// Level sounds.
 	for i := range pb.level_snd {
-		if !is.ReadI32(fmt.Sprintf("%vlevel%v.snd", pre, i+1), &pb.level_snd[i][0],
-			&pb.level_snd[i][1]) {
-			is.ReadI32(fmt.Sprintf("level%v.snd", i+1), &pb.level_snd[i][0],
-				&pb.level_snd[i][1])
+		if !is.ReadI32(fmt.Sprintf("%vlevel%v.snd", pre, i+1), &pb.level_snd[i][0], &pb.level_snd[i][1]) {
+			is.ReadI32(fmt.Sprintf("level%v.snd", i+1), &pb.level_snd[i][0], &pb.level_snd[i][1])
 		}
 	}
 	is.ReadBool(pre+"levelbars", &pb.levelbars)

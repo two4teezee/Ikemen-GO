@@ -1410,22 +1410,22 @@ function main.f_commandLine()
 				t[#t].override['life'] = tonumber(main.flags['-p' .. num .. '.life'])
 			end
 			if main.flags['-p' .. num .. '.lifeMax'] ~= nil then
-				t[#t].override['lifeMax'] = tonumber(main.flags['-p' .. num .. '.lifeMax'])
+				t[#t].override['lifemax'] = tonumber(main.flags['-p' .. num .. '.lifeMax'])
 			end
 			if main.flags['-p' .. num .. '.power'] ~= nil then
 				t[#t].override['power'] = tonumber(main.flags['-p' .. num .. '.power'])
 			end
 			if main.flags['-p' .. num .. '.dizzyPoints'] ~= nil then
-				t[#t].override['dizzyPoints'] = tonumber(main.flags['-p' .. num .. '.dizzyPoints'])
+				t[#t].override['dizzypoints'] = tonumber(main.flags['-p' .. num .. '.dizzyPoints'])
 			end
 			if main.flags['-p' .. num .. '.guardPoints'] ~= nil then
-				t[#t].override['guardPoints'] = tonumber(main.flags['-p' .. num .. '.guardPoints'])
+				t[#t].override['guardpoints'] = tonumber(main.flags['-p' .. num .. '.guardPoints'])
 			end
 			if main.flags['-p' .. num .. '.lifeRatio'] ~= nil then
-				t[#t].override['lifeRatio'] = tonumber(main.flags['-p' .. num .. '.lifeRatio'])
+				t[#t].override['liferatio'] = tonumber(main.flags['-p' .. num .. '.lifeRatio'])
 			end
 			if main.flags['-p' .. num .. '.attackRatio'] ~= nil then
-				t[#t].override['attackRatio'] = tonumber(main.flags['-p' .. num .. '.attackRatio'])
+				t[#t].override['attackratio'] = tonumber(main.flags['-p' .. num .. '.attackRatio'])
 			end
 			refresh()
 		elseif k:match('^-tmode1$') then
@@ -1894,7 +1894,7 @@ function main.f_addChar(line, playable, loading, slot)
 		--cell data
 		for _, v in pairs({{motif.select_info.portrait_anim, -1}, motif.select_info.portrait_spr}) do
 			if v[1] ~= -1 then
-				main.t_selChars[row].cell_data = animGetPreloadedData('char', main.t_selChars[row].char_ref, v[1], v[2])
+				main.t_selChars[row].cell_data = animGetPreloadedCharData(main.t_selChars[row].char_ref, v[1], v[2])
 				if main.t_selChars[row].cell_data ~= nil then
 					animSetScale(
 						main.t_selChars[row].cell_data,
@@ -1992,7 +1992,7 @@ function main.f_addStage(file, hidden)
 	--anim data
 	for _, v in pairs({{motif.select_info.stage_portrait_anim, -1}, motif.select_info.stage_portrait_spr}) do
 		if #v > 0 and v[1] ~= -1 then
-			main.t_selStages[stageNo].anim_data = animGetPreloadedData('stage', stageNo, v[1], v[2])
+			main.t_selStages[stageNo].anim_data = animGetPreloadedStageData(stageNo, v[1], v[2])
 			if main.t_selStages[stageNo].anim_data ~= nil then
 				animSetScale(
 					main.t_selStages[stageNo].anim_data,
@@ -2420,12 +2420,12 @@ function main.f_default()
 		bars = true,
 		match = false,
 		mode = true,
-		p1aiLevel = false,
+		p1ailevel = false,
 		p1score = false,
-		p1winCount = false,
-		p2aiLevel = false,
+		p1wincount = false,
+		p2ailevel = false,
 		p2score = false,
-		p2winCount = false,
+		p2wincount = false,
 		timer = false,
 		guardbar = gameOption('Options.GuardBreak'),
 		stunbar = gameOption('Options.Dizzy'),
@@ -2501,7 +2501,7 @@ main.t_itemname = {
 		main.exitSelect = true
 		main.hiscoreScreen = true
 		--main.lifebar.p1score = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.makeRoster = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
@@ -2569,7 +2569,7 @@ main.t_itemname = {
 		main.f_playerInput(main.playerInput, 1)
 		main.t_pIn[2] = 1
 		--main.lifebar.p1score = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
 		main.selectMenu[2] = true
@@ -2638,7 +2638,7 @@ main.t_itemname = {
 		main.elimination = true
 		main.exitSelect = true
 		--main.lifebar.match = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.lifePersistence = true
 		main.makeRoster = true
 		main.matchWins.draw = {0, 0}
@@ -2678,7 +2678,7 @@ main.t_itemname = {
 		main.coop = true
 		main.exitSelect = true
 		--main.lifebar.p1score = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.makeRoster = true
 		main.numSimul = {2, 2}
 		main.numTag = {2, 2}
@@ -2709,8 +2709,8 @@ main.t_itemname = {
 	['netplayversus'] = function()
 		setHomeTeam(1)
 		main.cpuSide[2] = false
-		--main.lifebar.p1winCount = true
-		--main.lifebar.p2winCount = true
+		--main.lifebar.p1wincount = true
+		--main.lifebar.p2wincount = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
 		main.selectMenu[2] = true
@@ -2803,7 +2803,7 @@ main.t_itemname = {
 		main.exitSelect = true
 		main.hiscoreScreen = true
 		--main.lifebar.match = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.lifePersistence = true
 		main.makeRoster = true
 		main.matchWins.draw = {0, 0}
@@ -2846,7 +2846,7 @@ main.t_itemname = {
 		main.exitSelect = true
 		main.hiscoreScreen = true
 		--main.lifebar.match = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.lifePersistence = true
 		main.makeRoster = true
 		main.matchWins.draw = {0, 0}
@@ -2888,7 +2888,7 @@ main.t_itemname = {
 		main.exitSelect = true
 		main.hiscoreScreen = true
 		--main.lifebar.p1score = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.makeRoster = true
 		main.numSimul = {2, math.min(4, gameOption('Config.Players'))}
 		main.numTag = {2, math.min(4, gameOption('Config.Players'))}
@@ -2929,7 +2929,7 @@ main.t_itemname = {
 		main.continueScreen = true
 		main.exitSelect = true
 		main.hiscoreScreen = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		--main.lifebar.timer = true
 		main.makeRoster = true
 		main.quickContinue = true
@@ -2970,7 +2970,7 @@ main.t_itemname = {
 			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
 		end
 		--main.lifebar.p1score = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p2ailevel = true
 		main.roundTime = -1
 		main.selectMenu[2] = true
 		main.stageMenu = true
@@ -2999,8 +2999,8 @@ main.t_itemname = {
 			main.t_pIn[2] = start.challenger
 		end
 		main.cpuSide[2] = false
-		--main.lifebar.p1winCount = true
-		--main.lifebar.p2winCount = true
+		--main.lifebar.p1wincount = true
+		--main.lifebar.p2wincount = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
 		main.selectMenu[2] = true
@@ -3036,8 +3036,8 @@ main.t_itemname = {
 		setHomeTeam(1)
 		main.coop = true
 		main.cpuSide[2] = false
-		--main.lifebar.p1winCount = true
-		--main.lifebar.p2winCount = true
+		--main.lifebar.p1wincount = true
+		--main.lifebar.p2wincount = true
 		main.numSimul = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
 		main.numTag = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
 		main.selectMenu[2] = true
@@ -3059,8 +3059,8 @@ main.t_itemname = {
 		main.f_playerInput(main.playerInput, 1)
 		main.t_pIn[2] = 1
 		main.cpuSide[1] = true
-		--main.lifebar.p1aiLevel = true
-		--main.lifebar.p2aiLevel = true
+		--main.lifebar.p1ailevel = true
+		--main.lifebar.p2ailevel = true
 		main.selectMenu[2] = true
 		main.stageMenu = true
 		main.teamMenu[1].ratio = true

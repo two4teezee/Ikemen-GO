@@ -766,7 +766,7 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 		default
 	}) do
 		if v[1] ~= nil and v[1] ~= -1 then
-			local a = animGetPreloadedData('char', ref, v[1], v[2], loop)
+			local a = animGetPreloadedCharData(ref, v[1], v[2], loop)
 			if a ~= nil then
 				local xscale = start.f_getCharData(ref).portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1])
 				local yscale = xscale
@@ -1405,13 +1405,13 @@ function start.f_overrideCharData()
 			end
 			overrideCharData(side, member, {
 				['life'] = v.life,
-				['lifeMax'] = v.lifeMax,
+				['lifemax'] = v.lifeMax,
 				['power'] = v.power,
-				['dizzyPoints'] = v.dizzyPoints,
-				['guardPoints'] = v.guardPoints,
-				['ratioLevel'] = v.ratioLevel,
-				['lifeRatio'] = v.lifeRatio or lifeRatio,
-				['attackRatio'] = v.attackRatio or attackRatio, 
+				['dizzypoints'] = v.dizzyPoints,
+				['guardpoints'] = v.guardPoints,
+				['ratiolevel'] = v.ratioLevel,
+				['liferatio'] = v.lifeRatio or lifeRatio,
+				['attackratio'] = v.attackRatio or attackRatio, 
 				['existed'] = v.existed,
 			})
 		end
@@ -3143,14 +3143,14 @@ function start.f_resultInit()
 	end
 	for i = 1, 2 do
 		for k, v in ipairs(t['p' .. i .. start.t_result.stateType .. '_state']) do
-			if charChangeState(i, v) then
+			if player(i) and changeState(v) then
 				break
 			end
 		end
 		player(i) --assign sys.debugWC to player i
 		for j = 1, numpartner() do
 			for _, v in ipairs(t['p' .. i .. '_teammate' .. start.t_result.stateType .. '_state']) do
-				if charChangeState(j * 2 + i, v) then
+				if player(j * 2 + i) and changeState(v) then
 					break
 				end
 			end
@@ -3332,14 +3332,14 @@ function start.f_victoryInit()
 	end
 	for i = 1, 2 do
 		for k, v in ipairs(motif.victory_screen['p' .. i .. '_state']) do
-			if charChangeState(i, v) then
+			if player(i) and changeState(v) then
 				break
 			end
 		end
 		player(i) --assign sys.debugWC to player i
 		for j = 1, numpartner() do
 			for _, v in ipairs(motif.victory_screen['p' .. i .. '_teammate_state']) do
-				if charChangeState(j * 2 + i, v) then
+				if player(j * 2 + i) and changeState(j * 2 + i, v) then
 					break
 				end
 			end
@@ -3491,14 +3491,14 @@ function start.f_continueInit()
 			v.selectState = 0
 		end
 		for _, v in ipairs(motif.continue_screen['p' .. i .. '_state']) do
-			if charChangeState(i, v) then
+			if player(i) and changeState(v) then
 				break
 			end
 		end
 		player(i) --assign sys.debugWC to player i
 		for j = 1, numpartner() do
 			for _, v in ipairs(motif.continue_screen['p' .. i .. '_teammate_state']) do
-				if charChangeState(j * 2 + i, v) then
+				if player(j * 2 + i) and changeState(v) then
 					break
 				end
 			end
@@ -3525,14 +3525,14 @@ function start.f_continue()
 					sndPlay(motif.files.snd_data, motif.continue_screen.done_snd[1], motif.continue_screen.done_snd[2])
 					for i = 1, 2 do
 						for _, v in ipairs(motif.continue_screen['p' .. i .. '_yes_state']) do
-							if charChangeState(i, v) then
+							if player(i) and changeState(v) then
 								break
 							end
 						end
 						player(i) --assign sys.debugWC to player i
 						for j = 1, numpartner() do
 							for _, v in ipairs(motif.continue_screen['p' .. i .. '_teammate_yes_state']) do
-								if charChangeState(j * 2 + i, v) then
+								if player(j * 2 + i) and changeState(v) then
 									break
 								end
 							end
@@ -3568,14 +3568,14 @@ function start.f_continue()
 				sndPlay(motif.files.snd_data, motif.continue_screen.counter_end_snd[1], motif.continue_screen.counter_end_snd[2])
 				for i = 1, 2 do
 					for _, v in ipairs(motif.continue_screen['p' .. i .. '_no_state']) do
-						if charChangeState(i, v) then
+						if player(i) and changeState(v) then
 							break
 						end
 					end
 					player(i) --assign sys.debugWC to player i
 					for j = 1, numpartner() do
 						for _, v in ipairs(motif.continue_screen['p' .. i .. '_teammate_no_state']) do
-							if charChangeState(j * 2 + i, v) then
+							if player(j * 2 + i) and changeState(v) then
 								break
 							end
 						end
@@ -3606,14 +3606,14 @@ function start.f_continue()
 				sndPlay(motif.files.snd_data, motif.continue_screen.done_snd[1], motif.continue_screen.done_snd[2])
 				for i = 1, 2 do
 					for _, v in ipairs(motif.continue_screen['p' .. i .. '_yes_state']) do
-						if charChangeState(i, v) then
+						if player(i) and changeState(v) then
 							break
 						end
 					end
 					player(i) --assign sys.debugWC to player i
 					for j = 1, numpartner() do
 						for _, v in ipairs(motif.continue_screen['p' .. i .. '_teammate_yes_state']) do
-							if charChangeState(j * 2 + i, v) then
+							if player(j * 2 + i) and changeState(v) then
 								break
 							end
 						end
@@ -3625,14 +3625,14 @@ function start.f_continue()
 				sndPlay(motif.files.snd_data, motif.continue_screen.cancel_snd[1], motif.continue_screen.cancel_snd[2])
 				for i = 1, 2 do
 					for _, v in ipairs(motif.continue_screen['p' .. i .. '_no_state']) do
-						if charChangeState(i, v) then
+						if player(i) and changeState(v) then
 							break
 						end
 					end
 					player(i) --assign sys.debugWC to player i
 					for j = 1, numpartner() do
 						for _, v in ipairs(motif.continue_screen['p' .. i .. '_teammate_no_state']) do
-							if charChangeState(j * 2 + i, v) then
+							if player(j * 2 + i) and changeState(v) then
 								break
 							end
 						end
@@ -3762,7 +3762,7 @@ function start.f_hiscoreInit(gameMode, playMusic, input)
 					motif.hiscore_info.item_face_spr,
 				}) do
 					if v[1] ~= -1 then
-						local a = animGetPreloadedData('char', main.t_charDef[def], v[1], v[2], true)
+						local a = animGetPreloadedCharData(main.t_charDef[def], v[1], v[2], true)
 						if a ~= nil then
 							animSetScale(
 								a,
@@ -4317,16 +4317,20 @@ function start.f_dialogueTokens(key, t)
 				end
 			--play sound
 			elseif v.param == 'sound' then --pn, group_no, sound_no, volumescale
-				charSndPlay(v.pn, v.value[1] or -1, v.value[2] or 0, v.value[3] or 100)
+				player(v.pn)
+				sndPlay(v.value[1] or -1, v.value[2] or 0, v.value[3] or 100)
 			--change anim
 			elseif v.param == 'anim' then --pn, anim_no, anim_elem
-				charChangeAnim(v.pn, v.value[1] or 0, v.value[2] or 0)
+				player(v.pn)
+				changeAnim(v.value[1] or 0, v.value[2] or 0)
 			--change state
 			elseif v.param == 'state' then --pn, state_no
-				charChangeState(v.pn, v.value[1] or 0)
+				player(v.pn)
+				changeState(v.value[1] or 0)
 			--map operation
 			elseif v.param == 'map' then --pn, map_name, value, map_type
-				charMapSet(v.pn, v.value[1] or 'dummy', v.value[2] or 0, v.value[3] or 'set')
+				player(v.pn)
+				mapSet(v.pn, v.value[1] or 'dummy', v.value[2] or 0, v.value[3] or 'set')
 			end
 		end
 	end
@@ -4425,7 +4429,7 @@ function start.f_dialogue()
 		end
 	end
 	if main.f_input(main.t_players, main.f_extractKeys(motif.dialogue_info.skip_key)) then
-		charSndStop()
+		stopAllSound()
 		t.parsed[t.textNum].cnt = 9999
 		t.parsed[t.textNum].tokens = {}
 		t.wait = 0
@@ -4448,7 +4452,7 @@ function start.f_dialogue()
 	local key_cancel = main.f_input(main.t_players, main.f_extractKeys(motif.dialogue_info.cancel_key))
 	if (t.endtime ~= -1 and t.counter > t.endtime) or (t.counter > motif.dialogue_info.skiptime and key_cancel) then
 		if key_cancel then
-			charSndStop()
+			stopAllSound()
 		end
 		dialogueReset()
 		start.dialogueInit = false

@@ -119,8 +119,8 @@ const (
 	GSF_nokodisplay
 	GSF_norounddisplay
 	GSF_nowindisplay
-	GSF_roundnotskip
 	GSF_roundfreeze
+	GSF_roundnotskip
 )
 
 type PosType int32
@@ -4006,18 +4006,26 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.velocity[0] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_vel_y:
 				v = BytecodeFloat(p.velocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_vel_z:
+				v = BytecodeFloat(p.velocity[2] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_velmul_x:
 				v = BytecodeFloat(p.velmul[0])
 			case OC_ex2_projvar_velmul_y:
 				v = BytecodeFloat(p.velmul[1])
+			case OC_ex2_projvar_velmul_z:
+				v = BytecodeFloat(p.velmul[2])
 			case OC_ex2_projvar_remvelocity_x:
 				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_remvelocity_y:
 				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_z:
+				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_accel_x:
 				v = BytecodeFloat(p.accel[0] * p.localscl)
 			case OC_ex2_projvar_accel_y:
 				v = BytecodeFloat(p.accel[1] * p.localscl)
+			case OC_ex2_projvar_accel_z:
+				v = BytecodeFloat(p.accel[2] * p.localscl)
 			case OC_ex2_projvar_projscale_x:
 				v = BytecodeFloat(p.scale[0])
 			case OC_ex2_projvar_projscale_y:

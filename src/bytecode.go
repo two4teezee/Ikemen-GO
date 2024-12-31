@@ -253,6 +253,7 @@ const (
 	OC_const_data_hitsound_channel
 	OC_const_data_guardsound_channel
 	OC_const_data_ko_echo
+	OC_const_data_volume
 	OC_const_data_intpersistindex
 	OC_const_data_floatpersistindex
 	OC_const_size_xscale
@@ -289,6 +290,8 @@ const (
 	OC_const_size_draw_offset_x
 	OC_const_size_draw_offset_y
 	OC_const_size_depth
+	OC_const_size_weight
+	OC_const_size_pushfactor
 	OC_const_velocity_walk_fwd_x
 	OC_const_velocity_walk_back_x
 	OC_const_velocity_walk_up_x
@@ -1942,6 +1945,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.gi().data.guardsound_channel)
 	case OC_const_data_ko_echo:
 		sys.bcStack.PushI(c.gi().data.ko.echo)
+	case OC_const_data_volume:
+		sys.bcStack.PushI(c.gi().data.volume)
 	case OC_const_data_intpersistindex:
 		sys.bcStack.PushI(c.gi().data.intpersistindex)
 	case OC_const_data_floatpersistindex:
@@ -2014,6 +2019,10 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.draw.offset[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_depth:
 		sys.bcStack.PushF(c.size.depth * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_weight:
+		sys.bcStack.PushI(c.size.weight)
+	case OC_const_size_pushfactor:
+		sys.bcStack.PushF(c.size.pushfactor)
 	case OC_const_velocity_walk_fwd_x:
 		sys.bcStack.PushF(c.gi().velocity.walk.fwd * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_walk_back_x:
@@ -2240,6 +2249,12 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.stage.stageCamera.lowestcap)
 	case OC_const_stagevar_camera_tension:
 		sys.bcStack.PushI(int32(float32(sys.stage.stageCamera.tension) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_camera_tensionvel:
+		sys.bcStack.PushF(sys.stage.stageCamera.tensionvel)
+	case OC_const_stagevar_camera_cuthigh:
+		sys.bcStack.PushI(sys.stage.stageCamera.cuthigh)
+	case OC_const_stagevar_camera_cutlow:
+		sys.bcStack.PushI(sys.stage.stageCamera.cutlow)
 	case OC_const_stagevar_camera_tensionhigh:
 		sys.bcStack.PushI(int32(float32(sys.stage.stageCamera.tensionhigh) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_camera_tensionlow:

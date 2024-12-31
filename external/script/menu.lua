@@ -120,7 +120,8 @@ menu.t_itemname = {
 				player(2)
 				setAILevel(menu.ailevel)
 			end
-			charMapSet(2, '_iksys_trainingDummyControl', menu.dummycontrol - 1)
+			player(2)
+			mapSet('_iksys_trainingDummyControl', menu.dummycontrol - 1)
 		end
 		return true
 	end,
@@ -137,35 +138,40 @@ menu.t_itemname = {
 	--Dummy Mode
 	['dummymode'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingDummyMode', menu.dummymode - 1)
+			player(2)
+			mapSet('_iksys_trainingDummyMode', menu.dummymode - 1)
 		end
 		return true
 	end,
 	--Guard Mode
 	['guardmode'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingGuardMode', menu.guardmode - 1)
+			player(2)
+			mapSet('_iksys_trainingGuardMode', menu.guardmode - 1)
 		end
 		return true
 	end,
 	--Fall Recovery
 	['fallrecovery'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingFallRecovery', menu.fallrecovery - 1)
+			player(2)
+			mapSet('_iksys_trainingFallRecovery', menu.fallrecovery - 1)
 		end
 		return true
 	end,
 	--Distance
 	['distance'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingDistance', menu.distance - 1)
+			player(2)
+			mapSet('_iksys_trainingDistance', menu.distance - 1)
 		end
 		return true
 	end,
 	--Button Jam
 	['buttonjam'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingButtonJam', menu.buttonjam - 1)
+			player(2)
+			mapSet('_iksys_trainingButtonJam', menu.buttonjam - 1)
 		end
 		return true
 	end,
@@ -467,12 +473,12 @@ function menu.f_trainingReset()
 	end
 	player(2)
 	setAILevel(0)
-	charMapSet(2, '_iksys_trainingDummyControl', 0)
-	charMapSet(2, '_iksys_trainingDummyMode', 0)
-	charMapSet(2, '_iksys_trainingGuardMode', 0)
-	charMapSet(2, '_iksys_trainingFallRecovery', 0)
-	charMapSet(2, '_iksys_trainingDistance', 0)
-	charMapSet(2, '_iksys_trainingButtonJam', 0)
+	mapSet('_iksys_trainingDummyControl', 0)
+	mapSet('_iksys_trainingDummyMode', 0)
+	mapSet('_iksys_trainingGuardMode', 0)
+	mapSet('_iksys_trainingFallRecovery', 0)
+	mapSet('_iksys_trainingDistance', 0)
+	mapSet('_iksys_trainingButtonJam', 0)
 end
 
 menu.movelistChar = 1

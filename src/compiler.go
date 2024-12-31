@@ -1734,6 +1734,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_data_guardsound_channel)
 		case "data.ko.echo":
 			out.append(OC_const_data_ko_echo)
+		case "data.volume":
+			out.append(OC_const_data_volume)
 		case "data.intpersistindex":
 			out.append(OC_const_data_intpersistindex)
 		case "data.floatpersistindex":
@@ -1806,6 +1808,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_draw_offset_y)
 		case "size.depth":
 			out.append(OC_const_size_depth)
+		case "size.weight":
+			out.append(OC_const_size_weight)
+		case "size.pushfactor":
+			out.append(OC_const_size_pushfactor)
 		case "velocity.walk.fwd.x":
 			out.append(OC_const_velocity_walk_fwd_x)
 		case "velocity.walk.back.x":
@@ -1934,6 +1940,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_movement_down_bounce_yaccel)
 		case "movement.down.bounce.groundlevel":
 			out.append(OC_const_movement_down_bounce_groundlevel)
+		case "movement.down.gethit.offset.x":
+			out.append(OC_const_movement_down_gethit_offset_x)
+		case "movement.down.gethit.offset.y":
+			out.append(OC_const_movement_down_gethit_offset_y)
 		case "movement.down.friction.threshold":
 			out.append(OC_const_movement_down_friction_threshold)
 		default:
@@ -2784,6 +2794,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_projvar_projhits
 		case "projhitsmax":
 			opc = OC_ex2_projvar_projhitsmax
+		case "projlayerno":
+			opc = OC_ex2_projvar_projlayerno
 		case "projpriority":
 			opc = OC_ex2_projvar_projpriority
 		case "projhitanim":
@@ -2888,6 +2900,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_projvar_pausemovetime
 		case "projid":
 			opc = OC_ex2_projvar_projid
+		case "supermovetime":
+			opc = OC_ex2_projvar_supermovetime
 		case "teamside":
 			opc = OC_ex2_projvar_teamside
 		case "guardflag":

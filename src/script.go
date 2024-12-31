@@ -19,6 +19,13 @@ import (
 func luaRegister(l *lua.LState, name string, f func(*lua.LState) int) {
 	l.Register(name, f)
 }
+func nilArg(l *lua.LState, argi int) bool {
+	//if l.GetTop() < argi {
+	//	return true
+	//}
+	lv := l.Get(argi)
+	return lua.LVIsFalse(lv) && lv != lua.LFalse
+}
 func strArg(l *lua.LState, argi int) string {
 	if !lua.LVCanConvToString(l.Get(argi)) {
 		l.RaiseError("\nArgument %v is not a string: %v\n", argi, l.Get(argi))
@@ -285,7 +292,7 @@ func systemScriptInit(l *lua.LState) {
 			pfx.clear()
 			pfx.time = -1
 			a := &Anim{anim: anim, window: sys.scrrect, xscl: 1, yscl: 1, palfx: pfx}
-			if l.GetTop() >= 4 && !boolArg(l, 4) && a.anim.totaltime == a.anim.looptime {
+			if !nilArg(l, 4) && !boolArg(l, 4) && a.anim.totaltime == a.anim.looptime {
 				a.anim.totaltime = -1
 				a.anim.looptime = 0
 			}
@@ -300,7 +307,7 @@ func systemScriptInit(l *lua.LState) {
 			pfx.clear()
 			pfx.time = -1
 			a := &Anim{anim: anim, window: sys.scrrect, xscl: 1, yscl: 1, palfx: pfx}
-			if l.GetTop() >= 4 && !boolArg(l, 4) && a.anim.totaltime == a.anim.looptime {
+			if !nilArg(l, 4) && !boolArg(l, 4) && a.anim.totaltime == a.anim.looptime {
 				a.anim.totaltime = -1
 				a.anim.looptime = 0
 			}
@@ -318,7 +325,7 @@ func systemScriptInit(l *lua.LState) {
 			return 0
 		}
 		var spr *Sprite
-		if l.GetTop() >= 3 {
+		if !nilArg(l, 3) {
 			spr = a.anim.sff.GetSprite(int16(numArg(l, 2)), int16(numArg(l, 3)))
 		} else {
 			spr = a.anim.spr
@@ -511,7 +518,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		if l.GetTop() < 4 || boolArg(l, 4) {
+		if nilArg(l, 4) || boolArg(l, 4) {
 			a.SetScale(float32(numArg(l, 2))/sys.luaSpriteScale, float32(numArg(l, 3))/sys.luaSpriteScale)
 		} else {
 			a.SetScale(float32(numArg(l, 2)), float32(numArg(l, 3)))
@@ -531,9 +538,9 @@ func systemScriptInit(l *lua.LState) {
 			ty = 1
 		}
 		var sx, sy int32
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			sx = int32(numArg(l, 4))
-			if l.GetTop() >= 5 {
+			if !nilArg(l, 5) {
 				sy = int32(numArg(l, 5))
 			} else {
 				sy = sx
@@ -566,20 +573,20 @@ func systemScriptInit(l *lua.LState) {
 		}
 		layer := int32(0)
 		var x, y, scl float32 = 0, 0, 1
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			if numArg(l, 2) == 1 {
 				layer = 1
 			} else {
 				layer = 0
 			}
 		}
-		if l.GetTop() >= 3 {
+		if !nilArg(l, 3) {
 			x = float32(numArg(l, 3))
 		}
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			y = float32(numArg(l, 4))
 		}
-		if l.GetTop() >= 5 {
+		if !nilArg(l, 5) {
 			scl = float32(numArg(l, 5))
 		}
 		bg.draw(layer, x, y, scl)
@@ -611,7 +618,7 @@ func systemScriptInit(l *lua.LState) {
 		c := sys.chars[sys.debugWC.playerNo]
 		if c[0].selfAnimExist(BytecodeInt(an)) == BytecodeBool(true) {
 			ffx := false
-			if l.GetTop() >= 3 {
+			if !nilArg(l, 3) {
 				ffx = boolArg(l, 3)
 			}
 			preffix := ""
@@ -619,7 +626,7 @@ func systemScriptInit(l *lua.LState) {
 				preffix = "f"
 			}
 			c[0].changeAnim(an, c[0].playerNo, preffix)
-			if l.GetTop() >= 2 {
+			if !nilArg(l, 2) {
 				c[0].setAnimElem(int32(numArg(l, 2)))
 			}
 			l.Push(lua.LBool(true))
@@ -656,7 +663,7 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nPlayer not found: %v\n", pn)
 		}
 		window := &sys.scrrect
-		if l.GetTop() >= 11 {
+		if !nilArg(l, 11) {
 			window = &[...]int32{int32(numArg(l, 8)), int32(numArg(l, 9)), int32(numArg(l, 10)), int32(numArg(l, 11))}
 		}
 		var ok bool
@@ -708,7 +715,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "clearColor", func(l *lua.LState) int {
 		a := int32(255)
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			a = int32(numArg(l, 4))
 		}
 		col := uint32(int32(numArg(l, 3))&0xff | int32(numArg(l, 2))&0xff<<8 |
@@ -734,10 +741,10 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError(err.Error())
 		}
 		time, buftime := cl.DefaultTime, cl.DefaultBufferTime
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			time = int32(numArg(l, 4))
 		}
-		if l.GetTop() >= 5 {
+		if !nilArg(l, 5) {
 			buftime = Max(1, int32(numArg(l, 5)))
 		}
 		cm.time = time
@@ -818,7 +825,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "esc", func(l *lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.esc = boolArg(l, 1)
 		}
 		l.Push(lua.LBool(sys.esc))
@@ -865,7 +872,7 @@ func systemScriptInit(l *lua.LState) {
 			a = math.Floor(255 - 255*(frame-1)/length)
 		}
 		a = float64(ClampF(float32(a), 0, 255))
-		if l.GetTop() >= 6 {
+		if !nilArg(l, 6) {
 			r = int32(numArg(l, 4))
 			g = int32(numArg(l, 5))
 			b = int32(numArg(l, 6))
@@ -1112,7 +1119,7 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, fnt)
 		}
 		var bank int32
-		if l.GetTop() >= 3 {
+		if !nilArg(l, 3) {
 			bank = int32(numArg(l, 3))
 		}
 		l.Push(lua.LNumber(fnt.TextWidth(strArg(l, 2), bank)))
@@ -1120,7 +1127,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "fontNew", func(l *lua.LState) int {
 		var height int32 = -1
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			height = int32(numArg(l, 2))
 		}
 		filename := SearchFile(strArg(l, 1), []string{"font/", sys.motifDir, "", "data/"})
@@ -1520,7 +1527,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "getCharDialogue", func(*lua.LState) int {
 		pn := sys.dialogueForce
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			pn = int(numArg(l, 1))
 		}
 		if pn != 0 && (pn < 1 || pn > MaxSimul*2+MaxAttachedChar) {
@@ -1573,7 +1580,7 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nPlayer not found: %v\n", pn)
 		}
 		v := -1
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			v = int(numArg(l, 2))
 		} else {
 			v = int(sys.chars[pn-1][0].winquote)
@@ -1652,7 +1659,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "getJoystickKey", func(*lua.LState) int {
 		var s string
 		var joy, min, max int = 0, 0, input.GetMaxJoystickCount()
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			min = int(Clamp(int32(numArg(l, 1)), 0, int32(max-1)))
 			max = min + 1
 		}
@@ -1692,7 +1699,7 @@ func systemScriptInit(l *lua.LState) {
 		if sys.keyInput != KeyUnknown {
 			s = KeyToString(sys.keyInput)
 		}
-		if l.GetTop() == 0 {
+		if nilArg(l, 1) {
 			l.Push(lua.LString(s))
 			return 1
 		} else if strArg(l, 1) == "" {
@@ -1756,7 +1763,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "getWaveData", func(*lua.LState) int {
 		// path, group, sound, loops before give up searching for group/sound pair (optional)
 		var max uint32
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			max = uint32(numArg(l, 4))
 		}
 		w, err := loadFromSnd(strArg(l, 1), int32(numArg(l, 2)), int32(numArg(l, 3)), max)
@@ -1773,7 +1780,7 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
 		}
 		ts.fnt = f
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			ts.xscl, ts.yscl = float32(numArg(l, 2)), float32(numArg(l, 2))
 		}
 		sys.debugFont = ts
@@ -1791,7 +1798,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "loadGameOption", func(l *lua.LState) int {
 		cfg := sys.cfg
-		if l.GetTop() > 0 {
+		if !nilArg(l, 1) {
 			cfg, err := loadConfig(strArg(l, 1))
 			if err != nil {
 				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
@@ -1859,7 +1866,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "mapSet", func(*lua.LState) int {
 		//map_name, value, map_type
 		var scType int32
-		if l.GetTop() >= 3 && strArg(l, 3) == "add" {
+		if !nilArg(l, 3) && strArg(l, 3) == "add" {
 			scType = 1
 		}
 		sys.debugWC.mapSet(strArg(l, 1), float32(numArg(l, 2)), scType)
@@ -1916,25 +1923,25 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "playBGM", func(l *lua.LState) int {
 		var loop, loopcount, volume, loopstart, loopend, startposition int = 1, -1, 100, 0, 0, 0
 		var freqmul float32 = 1.0
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			loop = int(numArg(l, 2))
 		}
-		if l.GetTop() >= 3 {
+		if !nilArg(l, 3) {
 			volume = int(numArg(l, 3))
 		}
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			loopstart = int(numArg(l, 4))
 		}
-		if l.GetTop() >= 5 && numArg(l, 5) > 1 {
+		if !nilArg(l, 5) && numArg(l, 5) > 1 {
 			loopend = int(numArg(l, 5))
 		}
-		if l.GetTop() >= 6 && numArg(l, 6) > 1 {
+		if !nilArg(l, 6) && numArg(l, 6) > 1 {
 			startposition = int(numArg(l, 6))
 		}
-		if l.GetTop() >= 7 {
+		if !nilArg(l, 7) {
 			freqmul = ClampF(float32(numArg(l, 7)), 0.01, 5.0)
 		}
-		if l.GetTop() >= 8 {
+		if !nilArg(l, 8) {
 			loopcount = int(numArg(l, 8))
 		}
 		sys.bgm.Open(strArg(l, 1), loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
@@ -1948,52 +1955,52 @@ func systemScriptInit(l *lua.LState) {
 		var p, fr float32 = 0, 1
 		x := &sys.debugWC.pos[0]
 		ls := sys.debugWC.localscl
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			g = int32(numArg(l, 1))
 		}
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			n = int32(numArg(l, 2))
 		}
-		if l.GetTop() >= 3 {
+		if !nilArg(l, 3) {
 			vo = int32(numArg(l, 3))
 		}
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			f = boolArg(l, 4)
 		}
-		if l.GetTop() >= 5 {
+		if !nilArg(l, 5) {
 			ch = int32(numArg(l, 5))
 		}
-		if l.GetTop() >= 6 {
+		if !nilArg(l, 6) {
 			lw = boolArg(l, 6)
 		}
-		if l.GetTop() >= 7 {
+		if !nilArg(l, 7) {
 			fr = float32(numArg(l, 7))
 		}
-		if l.GetTop() >= 8 {
+		if !nilArg(l, 8) {
 			lp = boolArg(l, 8)
 		}
-		if l.GetTop() >= 9 {
+		if !nilArg(l, 9) {
 			p = float32(numArg(l, 9))
 		}
-		if l.GetTop() >= 10 {
+		if !nilArg(l, 10) {
 			priority = int32(numArg(l, 10))
 		}
-		if l.GetTop() >= 11 {
+		if !nilArg(l, 11) {
 			loopstart = int(numArg(l, 11))
 		}
-		if l.GetTop() >= 12 {
+		if !nilArg(l, 12) {
 			loopend = int(numArg(l, 12))
 		}
-		if l.GetTop() >= 13 {
+		if !nilArg(l, 13) {
 			startposition = int(numArg(l, 13))
 		}
-		if l.GetTop() >= 14 {
+		if !nilArg(l, 14) {
 			lc = int32(numArg(l, 14))
 		}
-		if l.GetTop() >= 15 { // StopOnGetHit
+		if !nilArg(l, 15) { // StopOnGetHit
 			stopgh = boolArg(l, 15)
 		}
-		if l.GetTop() >= 16 { // StopOnChangeState
+		if !nilArg(l, 16) { // StopOnChangeState
 			stopcs = boolArg(l, 16)
 		}
 		preffix := ""
@@ -2016,7 +2023,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "playerBufReset", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			pn := int(numArg(l, 1))
 			if pn < 1 || pn > len(sys.chars) || len(sys.chars[pn-1]) == 0 {
 				return 0
@@ -2038,7 +2045,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "preloadListChar", func(*lua.LState) int {
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			sys.sel.charSpritePreload[[...]int16{int16(numArg(l, 1)), int16(numArg(l, 2))}] = true
 		} else {
 			sys.sel.charAnimPreload = append(sys.sel.charAnimPreload, int32(numArg(l, 1)))
@@ -2046,7 +2053,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "preloadListStage", func(*lua.LState) int {
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			sys.sel.stageSpritePreload[[...]int16{int16(numArg(l, 1)), int16(numArg(l, 2))}] = true
 		} else {
 			sys.sel.stageAnimPreload = append(sys.sel.stageAnimPreload, int32(numArg(l, 1)))
@@ -2054,7 +2061,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "printConsole", func(l *lua.LState) int {
-		if l.GetTop() >= 2 && boolArg(l, 2) {
+		if !nilArg(l, 2) && boolArg(l, 2) {
 			sys.consoleText[len(sys.consoleText)-1] += strArg(l, 1)
 		} else {
 			sys.appendToConsole(strArg(l, 1))
@@ -2149,7 +2156,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "saveGameOption", func(l *lua.LState) int {
 		path := sys.cfg.Def
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			path = strArg(l, 1)
 		}
 		if err := sys.cfg.Save(path); err != nil {
@@ -2226,16 +2233,16 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "sffNew", func(l *lua.LState) int {
-		if l.GetTop() == 0 {
+		if !nilArg(l, 1) {
+			sff, err := loadSff(strArg(l, 1), false)
+			if err != nil {
+				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
+			}
+			sys.runMainThreadTask()
+			l.Push(newUserData(l, sff))
+		} else {
 			l.Push(newUserData(l, newSff()))
-			return 1
 		}
-		sff, err := loadSff(strArg(l, 1), false)
-		if err != nil {
-			l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
-		}
-		sys.runMainThreadTask()
-		l.Push(newUserData(l, sff))
 		return 1
 	})
 	luaRegister(l, "selfState", func(*lua.LState) int {
@@ -2480,7 +2487,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setLifebarScore", func(*lua.LState) int {
 		sys.scoreStart[0] = float32(numArg(l, 1))
-		if l.GetTop() >= 2 {
+		if !nilArg(l, 2) {
 			sys.scoreStart[1] = float32(numArg(l, 2))
 		}
 		return 0
@@ -2647,21 +2654,21 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, s)
 		}
 		volumescale := int32(100)
-		if l.GetTop() >= 4 {
+		if !nilArg(l, 4) {
 			volumescale = int32(numArg(l, 4))
 		}
 		var pan float32
-		if l.GetTop() >= 5 {
+		if !nilArg(l, 5) {
 			pan = float32(numArg(l, 5))
 		}
 		var loopstart, loopend, startposition int
-		if l.GetTop() >= 6 {
+		if !nilArg(l, 6) {
 			loopstart = int(numArg(l, 6))
 		}
-		if l.GetTop() >= 7 {
+		if !nilArg(l, 7) {
 			loopend = int(numArg(l, 7))
 		}
-		if l.GetTop() >= 8 {
+		if !nilArg(l, 8) {
 			startposition = int(numArg(l, 8))
 		}
 		s.play([...]int32{int32(numArg(l, 2)), int32(numArg(l, 3))}, volumescale, pan, loopstart, loopend, startposition)
@@ -2796,7 +2803,7 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.clsnDraw = boolArg(l, 1)
 		} else {
 			sys.clsnDraw = !sys.clsnDraw
@@ -2807,7 +2814,7 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.debugDraw = !sys.debugDraw
 			return 0
 		}
@@ -2838,7 +2845,7 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.wireframeDraw = boolArg(l, 1)
 		} else {
 			sys.wireframeDraw = !sys.wireframeDraw
@@ -2846,7 +2853,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleDialogueBars", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.dialogueBarsFlg = boolArg(l, 1)
 		} else {
 			sys.dialogueBarsFlg = !sys.dialogueBarsFlg
@@ -2855,7 +2862,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "toggleFullscreen", func(*lua.LState) int {
 		fs := !sys.window.fullscreen
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			fs = boolArg(l, 1)
 		}
 		if fs != sys.window.fullscreen {
@@ -2864,7 +2871,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleMaxPowerMode", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.maxPowerMode = boolArg(l, 1)
 		} else {
 			sys.maxPowerMode = !sys.maxPowerMode
@@ -2879,7 +2886,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleNoSound", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.noSoundFlg = boolArg(l, 1)
 		} else {
 			sys.noSoundFlg = !sys.noSoundFlg
@@ -2887,7 +2894,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "togglePause", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.paused = boolArg(l, 1)
 		} else {
 			sys.paused = !sys.paused
@@ -2909,7 +2916,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "togglePostMatch", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.postMatchFlg = boolArg(l, 1)
 		} else {
 			sys.postMatchFlg = !sys.postMatchFlg
@@ -2917,7 +2924,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleStatusDraw", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.statusDraw = boolArg(l, 1)
 		} else {
 			sys.statusDraw = !sys.statusDraw
@@ -2925,7 +2932,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleVsync", func(*lua.LState) int {
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			sys.cfg.Video.VRetrace = int(numArg(l, 1))
 		} else if sys.cfg.Video.VRetrace == 0 {
 			sys.cfg.Video.VRetrace = 1
@@ -2980,7 +2987,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "helper", func(*lua.LState) int {
 		ret, id := false, int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.helper(id); c != nil {
@@ -2991,7 +2998,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "target", func(*lua.LState) int {
 		ret, id := false, int32(-1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.target(id); c != nil {
@@ -3002,7 +3009,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "partner", func(*lua.LState) int {
 		ret, n := false, int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			n = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.partner(n, true); c != nil {
@@ -3013,7 +3020,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "enemy", func(*lua.LState) int {
 		ret, n := false, int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			n = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.enemy(n); c != nil {
@@ -3024,7 +3031,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "enemynear", func(*lua.LState) int {
 		ret, n := false, int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			n = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.enemyNear(n); c != nil {
@@ -3067,7 +3074,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "helperindex", func(*lua.LState) int {
 		ret, id := false, int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		if c := sys.debugWC.getPlayerHelperIndex(id, false); c != nil {
@@ -4046,7 +4053,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "ishelper", func(*lua.LState) int {
 		id := int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LBool(sys.debugWC.isHelper(BytecodeInt(id)).ToB()))
@@ -4150,7 +4157,7 @@ func triggerFunctions(l *lua.LState) {
 	// name also returns p1name-p8name variants and helpername
 	luaRegister(l, "name", func(*lua.LState) int {
 		n := int32(1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			n = int32(numArg(l, 1))
 		}
 		if n <= 2 {
@@ -4177,7 +4184,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "numexplod", func(*lua.LState) int {
 		id := int32(-1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LNumber(sys.debugWC.numExplod(BytecodeInt(id)).ToI()))
@@ -4185,7 +4192,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "numhelper", func(*lua.LState) int {
 		id := int32(0)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LNumber(sys.debugWC.numHelper(BytecodeInt(id)).ToI()))
@@ -4206,7 +4213,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "numtarget", func(*lua.LState) int {
 		id := int32(-1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LNumber(sys.debugWC.numTarget(BytecodeInt(id)).ToI()))
@@ -4214,7 +4221,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "numtext", func(*lua.LState) int {
 		id := int32(-1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LNumber(sys.debugWC.numText(BytecodeInt(id)).ToI()))
@@ -5145,11 +5152,11 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "gamemode", func(*lua.LState) int {
-		if l.GetTop() == 0 {
+		if !nilArg(l, 1) {
+			l.Push(lua.LBool(sys.gameMode == strArg(l, 1)))
+		} else {
 			l.Push(lua.LString(sys.gameMode))
-			return 1
 		}
-		l.Push(lua.LBool(sys.gameMode == strArg(l, 1)))
 		return 1
 	})
 	luaRegister(l, "guardbreak", func(*lua.LState) int {
@@ -5406,7 +5413,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "jugglepoints", func(*lua.LState) int {
 		id := int32(-1)
-		if l.GetTop() >= 1 {
+		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
 		l.Push(lua.LNumber(sys.debugWC.jugglePoints(BytecodeInt(id)).ToI()))

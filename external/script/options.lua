@@ -190,8 +190,8 @@ options.t_itemname = {
 			--modifyGameOption('Video.WindowHeight', 0)
 			modifyGameOption('Video.Fullscreen', false)
 			--modifyGameOption('Video.Borderless', false)
-			--modifyGameOption('Video.PngSpriteFilter', true)
-			modifyGameOption('Video.VRetrace', 1)
+			--modifyGameOption('Video.RGBSpriteBilinearFilter', true)
+			modifyGameOption('Video.VSync', 1)
 			modifyGameOption('Video.MSAA', 0)
 			--modifyGameOption('Video.WindowCentered', true)
 			modifyGameOption('Video.ExternalShaders', {})
@@ -227,7 +227,7 @@ options.t_itemname = {
 				v.vardisplay = options.f_vardisplay(v.itemname)
 			end
 			toggleFullscreen(gameOption('Video.Fullscreen'))
-			toggleVsync(gameOption('Video.VRetrace'))
+			toggleVSync(gameOption('Video.VSync'))
 			updateVolume()
 			options.modified = true
 			options.needReload = true
@@ -442,7 +442,7 @@ options.t_itemname = {
 		return true
 	end,
 	--Dizzy
-	['stunbar'] = function(t, item, cursorPosY, moveTxt)
+	['dizzy'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			if gameOption('Options.Dizzy') then
@@ -456,7 +456,7 @@ options.t_itemname = {
 		return true
 	end,
 	--Guard Break
-	['guardbar'] = function(t, item, cursorPosY, moveTxt)
+	['guardbreak'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			if gameOption('Options.GuardBreak') then
@@ -470,7 +470,7 @@ options.t_itemname = {
 		return true
 	end,
 	--Red Life
-	['redlifebar'] = function(t, item, cursorPosY, moveTxt)
+	['redlife'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 			if gameOption('Options.RedLife') then
@@ -857,16 +857,16 @@ options.t_itemname = {
 		return true
 	end,
 	--VSync
-	['vretrace'] = function(t, item, cursorPosY, moveTxt)
+	['vsync'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			if gameOption('Video.VRetrace') == 1 then
-				modifyGameOption('Video.VRetrace', 0)
+			if gameOption('Video.VSync') == 1 then
+				modifyGameOption('Video.VSync', 0)
 			else
-				modifyGameOption('Video.VRetrace', 1)
+				modifyGameOption('Video.VSync', 1)
 			end
-			toggleVsync()
-			t.items[item].vardisplay = options.f_definedDisplay(gameOption('Video.VRetrace'), {[1] = motif.option_info.menu_valuename_enabled}, motif.option_info.menu_valuename_disabled)
+			toggleVSync(gameOption('Video.VSync'))
+			t.items[item].vardisplay = options.f_definedDisplay(gameOption('Video.VSync'), {[1] = motif.option_info.menu_valuename_enabled}, motif.option_info.menu_valuename_disabled)
 			options.modified = true
 		end
 		return true
@@ -1057,7 +1057,7 @@ options.t_itemname = {
 		end
 		return true
 	end,
-	--Panning Width
+	--Panning Range
 	['panningrange'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F'}) and gameOption('Sound.PanningRange') < 100 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
@@ -1386,7 +1386,7 @@ options.t_vardisplay = {
 	['gamespeed'] = function()
 		return options.f_boolDisplay(gameOption('Options.GameSpeed') == 0, motif.option_info.menu_valuename_normal, options.f_boolDisplay(gameOption('Options.GameSpeed') < 0, motif.option_info.menu_valuename_slow:gsub('%%i', tostring(0-gameOption('Options.GameSpeed'))), motif.option_info.menu_valuename_fast:gsub('%%i', tostring(gameOption('Options.GameSpeed')))))
 	end,
-	['guardbar'] = function()
+	['guardbreak'] = function()
 		return options.f_boolDisplay(gameOption('Options.GuardBreak'))
 	end,
 	['helpermax'] = function()
@@ -1480,7 +1480,7 @@ options.t_vardisplay = {
 	['ratiorecoverybonus'] = function()
 		return gameOption('Options.Ratio.Recovery.Bonus') .. '%'
 	end,
-	['redlifebar'] = function()
+	['redlife'] = function()
 		return options.f_boolDisplay(gameOption('Options.RedLife'))
 	end,
 	['renderer'] = function()
@@ -1513,7 +1513,7 @@ options.t_vardisplay = {
 	['stereoeffects'] = function()
 		return options.f_boolDisplay(gameOption('Sound.StereoEffects'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
 	end,
-	['stunbar'] = function()
+	['dizzy'] = function()
 		return options.f_boolDisplay(gameOption('Options.Dizzy'))
 	end,
 	['teamduplicates'] = function()
@@ -1531,8 +1531,8 @@ options.t_vardisplay = {
 	['turnsrecoverybonus'] = function()
 		return gameOption('Options.Turns.Recovery.Bonus') .. '%'
 	end,
-	['vretrace'] = function()
-		return options.f_definedDisplay(gameOption('Video.VRetrace'), {[1] = motif.option_info.menu_valuename_enabled}, motif.option_info.menu_valuename_disabled)
+	['vsync'] = function()
+		return options.f_definedDisplay(gameOption('Video.VSync'), {[1] = motif.option_info.menu_valuename_enabled}, motif.option_info.menu_valuename_disabled)
 	end,
 	['windowscalemode'] = function()
 		return options.f_boolDisplay(gameOption('Video.WindowScaleMode'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)

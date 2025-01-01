@@ -3727,6 +3727,31 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
+	case "debug":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		out.append(OC_ex2_)
+		switch c.token {
+		case "accel":
+			out.append(OC_ex2_debug_accel)
+		case "clsndraw":
+			out.append(OC_ex2_debug_clsndraw)
+		case "debugdraw":
+			out.append(OC_ex2_debug_debugdraw)
+		case "statusdraw":
+			out.append(OC_ex2_debug_statusdraw)
+		case "wireframedraw":
+			out.append(OC_ex2_debug_wireframedraw)
+		case "roundrestarted":
+			out.append(OC_ex2_debug_roundrestarted)
+		default:
+			return bvNone(), Error("Invalid data: " + c.token)
+		}
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
 	case "decisiveround":
 		out.append(OC_ex_, OC_ex_decisiveround)
 	case "defence":
@@ -4151,8 +4176,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_receivedhits)
 	case "redlife":
 		out.append(OC_ex_, OC_ex_redlife)
-	case "roundrestarted":
-		out.append(OC_ex_, OC_ex_roundrestarted)
 	case "roundtime":
 		out.append(OC_ex_, OC_ex_roundtime)
 	case "score":

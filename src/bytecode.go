@@ -650,7 +650,6 @@ const (
 	OC_ex_receivedhits
 	OC_ex_redlife
 	OC_ex_round
-	OC_ex_roundrestarted
 	OC_ex_roundtime
 	OC_ex_score
 	OC_ex_scoretotal
@@ -748,6 +747,12 @@ const (
 	OC_ex2_clsnvar_top
 	OC_ex2_clsnvar_right
 	OC_ex2_clsnvar_bottom
+	OC_ex2_debug_accel
+	OC_ex2_debug_clsndraw
+	OC_ex2_debug_debugdraw
+	OC_ex2_debug_statusdraw
+	OC_ex2_debug_wireframedraw
+	OC_ex2_debug_roundrestarted
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
 	OC_ex2_explodvar_pos_x
@@ -3001,8 +3006,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_round:
 		v2 := sys.bcStack.Pop()
 		be.round(sys.bcStack.Top(), v2)
-	case OC_ex_roundrestarted:
-		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex_roundtime:
 		sys.bcStack.PushI(int32(sys.tickCount))
 	case OC_ex_score:
@@ -3293,6 +3296,18 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
+	case OC_ex2_debug_accel:
+		sys.bcStack.PushF(sys.accel)
+	case OC_ex2_debug_clsndraw:
+		sys.bcStack.PushB(sys.clsnDraw)
+	case OC_ex2_debug_debugdraw:
+		sys.bcStack.PushB(sys.debugDraw)
+	case OC_ex2_debug_statusdraw:
+		sys.bcStack.PushB(sys.statusDraw)
+	case OC_ex2_debug_wireframedraw:
+		sys.bcStack.PushB(sys.wireframeDraw)
+	case OC_ex2_debug_roundrestarted:
+		sys.bcStack.PushB(sys.roundResetFlg)
 	// BEGIN FALLTHROUGH (explodvar)
 	case OC_ex2_explodvar_vel_x:
 		correctScale = true

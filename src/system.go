@@ -2291,7 +2291,7 @@ func (s *System) fight() (reload bool) {
 					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
 					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
 					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-					tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+					tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_during_round)))
 					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
 				}
 			}

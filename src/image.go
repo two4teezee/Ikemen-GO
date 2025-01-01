@@ -687,7 +687,7 @@ func (s *Sprite) SetPxl(px []byte) {
 
 func (s *Sprite) SetRaw(data []byte, sprWidth int32, sprHeight int32, sprDepth int32) {
 	sys.mainThreadTask <- func() {
-		s.Tex = gfx.newTexture(sprWidth, sprHeight, sprDepth, sys.cfg.Video.PngSpriteFilter)
+		s.Tex = gfx.newTexture(sprWidth, sprHeight, sprDepth, sys.cfg.Video.RGBSpriteBilinearFilter)
 		s.Tex.SetData(data)
 	}
 }

@@ -149,22 +149,22 @@ type Config struct {
 		StartStage     string  `ini:"StartStage"`
 	} `ini:"Debug"`
 	Video struct {
-		RenderMode        string   `ini:"RenderMode"`
-		GameWidth         int32    `ini:"GameWidth"`
-		GameHeight        int32    `ini:"GameHeight"`
-		WindowWidth       int      `ini:"WindowWidth"`
-		WindowHeight      int      `ini:"WindowHeight"`
-		VRetrace          int      `ini:"VRetrace"`
-		Fullscreen        bool     `ini:"Fullscreen"`
-		Borderless        bool     `ini:"Borderless"`
-		PngSpriteFilter   bool     `ini:"PngSpriteFilter"`
-		MSAA              int32    `ini:"MSAA"`
-		WindowCentered    bool     `ini:"WindowCentered"`
-		ExternalShaders   []string `ini:"ExternalShaders"`
-		WindowScaleMode   bool     `ini:"WindowScaleMode"`
-		KeepAspect        bool     `ini:"KeepAspect"`
-		EnableModel       bool     `ini:"EnableModel"`
-		EnableModelShadow bool     `ini:"EnableModelShadow"`
+		RenderMode              string   `ini:"RenderMode"`
+		GameWidth               int32    `ini:"GameWidth"`
+		GameHeight              int32    `ini:"GameHeight"`
+		WindowWidth             int      `ini:"WindowWidth"`
+		WindowHeight            int      `ini:"WindowHeight"`
+		VSync                   int      `ini:"VSync"`
+		Fullscreen              bool     `ini:"Fullscreen"`
+		Borderless              bool     `ini:"Borderless"`
+		RGBSpriteBilinearFilter bool     `ini:"RGBSpriteBilinearFilter"`
+		MSAA                    int32    `ini:"MSAA"`
+		WindowCentered          bool     `ini:"WindowCentered"`
+		ExternalShaders         []string `ini:"ExternalShaders"`
+		WindowScaleMode         bool     `ini:"WindowScaleMode"`
+		KeepAspect              bool     `ini:"KeepAspect"`
+		EnableModel             bool     `ini:"EnableModel"`
+		EnableModelShadow       bool     `ini:"EnableModelShadow"`
 	} `ini:"Video"`
 	Sound struct {
 		SampleRate        int32   `ini:"SampleRate"`

@@ -85,8 +85,8 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	window.SetCharModsCallback(charCallback)
 
 	// V-Sync
-	if s.cfg.Video.VRetrace >= 0 {
-		glfw.SwapInterval(s.cfg.Video.VRetrace)
+	if s.cfg.Video.VSync >= 0 {
+		glfw.SwapInterval(s.cfg.Video.VSync)
 	}
 
 	ret := &Window{window, s.cfg.Config.WindowTitle, fullscreen, x, y, w, h}
@@ -173,8 +173,8 @@ func (w *Window) toggleFullscreen() {
 		}
 		w.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 	}
-	if sys.cfg.Video.VRetrace != -1 {
-		glfw.SwapInterval(sys.cfg.Video.VRetrace)
+	if sys.cfg.Video.VSync != -1 {
+		glfw.SwapInterval(sys.cfg.Video.VSync)
 	}
 	w.fullscreen = !w.fullscreen
 }

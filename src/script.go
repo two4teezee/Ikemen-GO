@@ -817,7 +817,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "enterReplay", func(*lua.LState) int {
-		if sys.cfg.Video.VRetrace >= 0 {
+		if sys.cfg.Video.VSync >= 0 {
 			sys.window.SetSwapInterval(1) // broken frame skipping when set to 0
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
@@ -839,8 +839,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "exitReplay", func(*lua.LState) int {
-		if sys.cfg.Video.VRetrace >= 0 {
-			sys.window.SetSwapInterval(sys.cfg.Video.VRetrace)
+		if sys.cfg.Video.VSync >= 0 {
+			sys.window.SetSwapInterval(sys.cfg.Video.VSync)
 		}
 		if sys.fileInput != nil {
 			sys.fileInput.Close()
@@ -2931,15 +2931,15 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "toggleVsync", func(*lua.LState) int {
+	luaRegister(l, "toggleVSync", func(*lua.LState) int {
 		if !nilArg(l, 1) {
-			sys.cfg.Video.VRetrace = int(numArg(l, 1))
-		} else if sys.cfg.Video.VRetrace == 0 {
-			sys.cfg.Video.VRetrace = 1
+			sys.cfg.Video.VSync = int(numArg(l, 1))
+		} else if sys.cfg.Video.VSync == 0 {
+			sys.cfg.Video.VSync = 1
 		} else {
-			sys.cfg.Video.VRetrace = 0
+			sys.cfg.Video.VSync = 0
 		}
-		sys.window.SetSwapInterval(sys.cfg.Video.VRetrace)
+		sys.window.SetSwapInterval(sys.cfg.Video.VSync)
 		return 0
 	})
 	luaRegister(l, "updateVolume", func(l *lua.LState) int {

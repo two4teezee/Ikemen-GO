@@ -1586,9 +1586,9 @@
 	menu.itemname.menugame.airamping = "AI Ramping"
 	menu.itemname.menugame.quickcontinue = "Quick Continue"
 	menu.itemname.menugame.autoguard = "Auto-Guard"
-	menu.itemname.menugame.stunbar = "Dizzy"
-	menu.itemname.menugame.guardbar = "Guard Break"
-	menu.itemname.menugame.redlifebar = "Red Life"
+	menu.itemname.menugame.dizzy = "Dizzy"
+	menu.itemname.menugame.guardbreak = "Guard Break"
+	menu.itemname.menugame.redlife = "Red Life"
 	menu.itemname.menugame.teamduplicates = "Team Duplicates"
 	menu.itemname.menugame.teamlifeshare = "Team Life Share"
 	menu.itemname.menugame.teampowershare = "Team Power Share"
@@ -1653,7 +1653,7 @@
 	menu.itemname.menuvideo.fullscreen = "Fullscreen"
 	menu.itemname.menuvideo.keepaspect = "Keep Aspect Ratio"
 	menu.itemname.menuvideo.windowscalemode = "Bilinear Filtering"
-	menu.itemname.menuvideo.vretrace = "VSync"
+	menu.itemname.menuvideo.vsync = "VSync"
 	menu.itemname.menuvideo.msaa = "MSAA"
 	menu.itemname.menuvideo.shaders = "Shaders" ;reserved submenu
 	; This list is populated with shaders existing in 'external/shaders' directory

@@ -1230,9 +1230,9 @@ local motif =
 		--menu_itemname_airamping = 'AI Ramping', --Ikemen feature
 		--menu_itemname_quickcontinue = 'Quick Continue', --Ikemen feature
 		--menu_itemname_autoguard = 'Auto-Guard', --Ikemen feature
-		--menu_itemname_stunbar = 'Dizzy', --Ikemen feature
-		--menu_itemname_guardbar = 'Guard Break', --Ikemen feature
-		--menu_itemname_redlifebar = 'Red Life', --Ikemen feature
+		--menu_itemname_dizzy = 'Dizzy', --Ikemen feature
+		--menu_itemname_guardbreak = 'Guard Break', --Ikemen feature
+		--menu_itemname_redlife = 'Red Life', --Ikemen feature
 		--menu_itemname_teamduplicates = 'Team Duplicates', --Ikemen feature
 		--menu_itemname_teamlifeshare = 'Team Life Share', --Ikemen feature
 		--menu_itemname_teampowershare = 'Team Power Share', --Ikemen feature
@@ -1261,7 +1261,7 @@ local motif =
 		--menu_itemname_resolution = 'Resolution', --Ikemen feature
 		--menu_itemname_customres = 'Custom', --Ikemen feature
 		--menu_itemname_fullscreen = 'Fullscreen', --Ikemen feature
-		--menu_itemname_vretrace = 'VSync', --Ikemen feature
+		--menu_itemname_vsync = 'VSync', --Ikemen feature
 		--menu_itemname_msaa = 'MSAA', --Ikemen feature
 		--menu_itemname_shaders = 'Shaders', --Ikemen feature
 		--menu_itemname_noshader = 'Disable', --Ikemen feature
@@ -1973,9 +1973,9 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menugame_airamping = "AI Ramping"
 	motif.option_info.menu_itemname_menugame_quickcontinue = "Quick Continue"
 	motif.option_info.menu_itemname_menugame_autoguard = "Auto-Guard"
-	motif.option_info.menu_itemname_menugame_stunbar = "Dizzy"
-	motif.option_info.menu_itemname_menugame_guardbar = "Guard Break"
-	motif.option_info.menu_itemname_menugame_redlifebar = "Red Life"
+	motif.option_info.menu_itemname_menugame_dizzy = "Dizzy"
+	motif.option_info.menu_itemname_menugame_guardbreak = "Guard Break"
+	motif.option_info.menu_itemname_menugame_redlife = "Red Life"
 	motif.option_info.menu_itemname_menugame_teamduplicates = "Team Duplicates"
 	motif.option_info.menu_itemname_menugame_teamlifeshare = "Team Life Share"
 	motif.option_info.menu_itemname_menugame_teampowershare = "Team Power Share"
@@ -2038,7 +2038,7 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuvideo_resolution_customres = "Custom"
 	motif.option_info.menu_itemname_menuvideo_resolution_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_fullscreen = "Fullscreen"
-	motif.option_info.menu_itemname_menuvideo_vretrace = "VSync"
+	motif.option_info.menu_itemname_menuvideo_vsync = "VSync"
 	motif.option_info.menu_itemname_menuvideo_keepaspect = "Keep Aspect Ratio"
 	motif.option_info.menu_itemname_menuvideo_windowscalemode = "Bilinear Filtering"
 	motif.option_info.menu_itemname_menuvideo_msaa = "MSAA"
@@ -2109,9 +2109,9 @@ function motif.setBaseOptionInfo()
 		"menugame_airamping",
 		"menugame_quickcontinue",
 		"menugame_autoguard",
-		"menugame_stunbar",
-		"menugame_guardbar",
-		"menugame_redlifebar",
+		"menugame_dizzy",
+		"menugame_guardbreak",
+		"menugame_redlife",
 		"menugame_teamduplicates",
 		"menugame_teamlifeshare",
 		"menugame_teampowershare",
@@ -2172,7 +2172,7 @@ function motif.setBaseOptionInfo()
 		"menuvideo_resolution_customres",
 		"menuvideo_resolution_back",
 		"menuvideo_fullscreen",
-		"menuvideo_vretrace",
+		"menuvideo_vsync",
 		"menuvideo_keepaspect",
 		"menuvideo_windowscalemode",
 		"menuvideo_msaa",

@@ -5395,12 +5395,10 @@ func triggerFunctions(l *lua.LState) {
 		case "roundnotskip":
 			l.Push(lua.LBool(sys.gsf(GSF_roundnotskip)))
 		// SystemCharFlag
-		case "over":
-			l.Push(lua.LBool(sys.debugWC.scf(SCF_over)))
-		case "koroundmiddle":
-			l.Push(lua.LBool(sys.debugWC.scf(SCF_ko_during_round)))
 		case "disabled":
 			l.Push(lua.LBool(sys.debugWC.scf(SCF_disabled)))
+		case "over":
+			l.Push(lua.LBool(sys.debugWC.scf(SCF_over_alive) || sys.debugWC.scf(SCF_over_ko)))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

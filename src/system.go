@@ -1255,7 +1255,7 @@ func (s *System) action() {
 				for _, p := range s.chars {
 					if len(p) > 0 {
 						if p[0].alive() {
-							p[0].unsetSCF(SCF_over)
+							p[0].unsetSCF(SCF_over_alive)
 							if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
 								p[0].setCtrl(true)
 								if p[0].ss.no != 0 && !p[0].asf(ASF_nointroreset) {
@@ -1418,7 +1418,7 @@ func (s *System) action() {
 								// Check if this player is ready to proceed to roundstate 4
 								// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
 								// TODO: This could be manageable from the char's side with an AssertSpecial or such
-								if p[0].scf(SCF_over) || p[0].ss.no == 5150 ||
+								if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
 									(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
 									continue
 								}
@@ -1482,8 +1482,8 @@ func (s *System) action() {
 								}
 							}
 							// TODO: These changestates ought to be unhardcoded
-							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
-								p[0].setSCF(SCF_over)
+							if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
+								p[0].setSCF(SCF_over_alive)
 								if p[0].win() {
 									p[0].selfState(180, -1, -1, -1, "")
 								} else if p[0].lose() {
@@ -2291,7 +2291,7 @@ func (s *System) fight() (reload bool) {
 					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
 					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
 					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-					tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_during_round)))
+					tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
 					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
 				}
 			}

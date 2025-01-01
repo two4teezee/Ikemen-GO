@@ -335,7 +335,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	var life float32 = float32(sys.chars[ref][0].life) / float32(sys.chars[ref][0].lifeMax)
 	//redlife := (float32(sys.chars[ref][0].life) + float32(sys.chars[ref][0].redLife)) / float32(sys.chars[ref][0].lifeMax)
 	var redVal int32 = sys.chars[ref][0].redLife - sys.chars[ref][0].life
-	var getHit bool = (sys.chars[ref][0].receivedHits != 0 || sys.chars[ref][0].ss.moveType == MT_H) && !sys.chars[ref][0].scf(SCF_over)
+	var getHit bool = (sys.chars[ref][0].receivedHits != 0 || sys.chars[ref][0].ss.moveType == MT_H) && !sys.chars[ref][0].scf(SCF_over_alive)
 
 	if hbr.toplife > life {
 		hbr.toplife += (life - hbr.toplife) / 2
@@ -3920,7 +3920,7 @@ func (l *Lifebar) step() {
 	cb, cd, cp, dz := [2]int32{}, [2]int32{}, [2]float32{}, [2]bool{}
 	for i, ch := range sys.chars {
 		for _, c := range ch {
-			if c.alive() || !c.scf(SCF_over) {
+			if c.alive() || !c.scf(SCF_over_alive) {
 				if c.receivedHits > cb[^i&1] {
 					cb[^i&1] = Clamp(cb[^i&1], c.receivedHits, 999)
 					cd[^i&1] = Max(c.receivedDmg, cd[^i&1])

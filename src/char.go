@@ -20,8 +20,8 @@ const (
 	SCF_guard
 	SCF_guardbreak
 	SCF_ko
-	SCF_ko_during_round
-	SCF_over
+	SCF_over_alive // Has reached win or lose poses
+	SCF_over_ko // Has reached state 5150
 	SCF_standby
 )
 
@@ -7657,7 +7657,7 @@ func (c *Char) actionFinish() {
 	}
 	// Over flags (char is finished for the round)
 	if c.alive() && c.life > 0 && !sys.roundEnd() {
-		c.unsetSCF(SCF_over | SCF_ko_during_round)
+		c.unsetSCF(SCF_over_alive | SCF_over_ko)
 	}
 	if c.ss.no == 5150 { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)

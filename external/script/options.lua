@@ -26,14 +26,24 @@ function options.f_precision(v, decimal)
 	return tonumber(string.format(decimal, v))
 end
 
---save configuration
+--- Save the current configuration to the config file and handle common file modifications
+local t_commonFilesOriginal = gameOption('Common')
 function options.f_saveCfg(reload)
-	--Data saving to config.ini
+    -- Restore the original content of the common files
+	local t_commonFiles = gameOption('Common')
+	for k, v in pairs(t_commonFilesOriginal) do
+		modifyGameOption('Common.' .. k, v)
+	end
+    -- Save the current configuration to 'config.ini'
 	saveGameOption(main.flags['-config'])
-	--Reload game if needed
+    -- Reload the game if the reload parameter is true
 	if reload then
 		main.f_warning(main.f_extractText(motif.warning_info.text_reload_text), motif.optionbgdef)
 		os.exit()
+	end
+    -- Reapply modified common file arrays after saving
+	for k, v in pairs(t_commonFiles) do
+		modifyGameOption('Common.' .. k, v)
 	end
 end
 

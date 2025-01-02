@@ -1424,10 +1424,32 @@ function start.f_game(lua)
 	if main.debugLog and start ~= nil then main.f_printTable(start.p, 'debug/t_p.txt') end
 	local p2In = main.t_pIn[2]
 	main.t_pIn[2] = 2
-	if lua ~= '' then commonLuaInsert(lua) end
+	if lua ~= '' then
+		local t = gameOption('Common.Lua')
+		local ok = false
+		for _, v in ipairs(t) do
+			if v == lua then
+				ok = true
+				break
+			end
+		end
+		if not ok then
+			table.insert(t, lua)
+		end
+		modifyGameOption('Common.Lua', t)
+	end
 	local winner, tbl = game()
 	main.f_restoreInput()
-	if lua ~= '' then commonLuaDelete(lua) end
+	if lua ~= '' then
+		local t = gameOption('Common.Lua')
+		for i, v in ipairs(t) do
+			if v == lua then
+				table.remove(t, i)
+				break
+			end
+		end
+		modifyGameOption('Common.Lua', t)
+	end
 	if gameend() then
 		clearColor(0, 0, 0)
 		os.exit()

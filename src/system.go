@@ -1271,87 +1271,74 @@ func (s *System) action() {
 			(s.super <= 0 || !s.superpausebg) && (s.pause <= 0 || !s.pausebg) {
 			s.time--
 		}
+
+		// Check if round ended by KO or time over and set win types
 		fin := func() bool {
+			checkPerfect := func(team int) bool {
+				for i := team; i < MaxSimul*2; i += 2 {
+					if len(s.chars[i]) > 0 &&
+						s.chars[i][0].life < s.chars[i][0].lifeMax {
+						return false
+					}
+				}
+				return true
+			}
 			if s.intro > 0 {
 				return false
 			}
+			// KO
 			ko := [...]bool{true, true}
-			for ii := range ko {
-				for i := ii; i < MaxSimul*2; i += 2 {
+			for loser := range ko {
+				// Check if all players or leader on one side are KO
+				for i := loser; i < MaxSimul*2; i += 2 {
 					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
 						if s.chars[i][0].alive() {
-							ko[ii] = false
+							ko[loser] = false
 						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.com[i] == 0) ||
 							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
-							ko[ii] = true
+							ko[loser] = true
 							break
 						}
 					}
 				}
-				if ko[ii] {
-					i := ii ^ 1
-					for ; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 && s.chars[i][0].life <
-							s.chars[i][0].lifeMax {
-							break
-						}
-					}
-					if i >= MaxSimul*2 {
-						s.winType[ii^1].SetPerfect()
+				if ko[loser] {
+					if checkPerfect(loser^1) {
+						s.winType[loser^1].SetPerfect()
 					}
 				}
 			}
+			// Time over
 			ft := s.finishType
 			if s.time == 0 {
+				s.winType[0], s.winType[1] = WT_Time, WT_Time
 				l := [2]float32{}
-				for i := 0; i < 2; i++ {
+				for i := 0; i < 2; i++ { // Check life percentage of each team
 					for j := i; j < MaxSimul*2; j += 2 {
 						if len(s.chars[j]) > 0 {
 							if s.tmode[i] == TM_Simul || s.tmode[i] == TM_Tag {
-								l[i] += (float32(s.chars[j][0].life) /
-									float32(s.numSimul[i])) /
-									float32(s.chars[j][0].lifeMax)
+								l[i] += (float32(s.chars[j][0].life) / float32(s.numSimul[i])) / float32(s.chars[j][0].lifeMax)
 							} else {
-								l[i] += float32(s.chars[j][0].life) /
-									float32(s.chars[j][0].lifeMax)
+								l[i] += float32(s.chars[j][0].life) / float32(s.chars[j][0].lifeMax)
 							}
 						}
 					}
 				}
-				if l[0] > l[1] {
-					p := true
-					for i := 0; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 &&
-							s.chars[i][0].life < s.chars[i][0].lifeMax {
-							p = false
-							break
-						}
+				// Some other methods were considered to make the winner decision more fair, like a minimum % difference
+				// But ultimately a direct comparison seems to be the fairest method
+				if math.Round(float64(l[0] * 1000)) != math.Round(float64(l[1] * 1000)) && // Convert back to 1000 life points scale then round it to reduce calculation errors
+					((l[0] >= float32(1.0)) != (l[1] >= float32(1.0))) { // But make sure the rounding doesn't turn a perfect into a draw game
+					winner := 0
+					if l[0] < l[1] {
+						winner = 1
 					}
-					if p {
-						s.winType[0].SetPerfect()
-					}
-					s.finishType = FT_TO
-					s.winTeam = 0
-				} else if l[0] < l[1] {
-					p := true
-					for i := 1; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 &&
-							s.chars[i][0].life < s.chars[i][0].lifeMax {
-							p = false
-							break
-						}
-					}
-					if p {
-						s.winType[1].SetPerfect()
+					if checkPerfect(winner) {
+						s.winType[winner].SetPerfect()
 					}
 					s.finishType = FT_TO
-					s.winTeam = 1
-				} else {
+					s.winTeam = winner
+				} else { // Draw game
 					s.finishType = FT_TODraw
 					s.winTeam = -1
-				}
-				if !(ko[0] || ko[1]) {
-					s.winType[0], s.winType[1] = WT_Time, WT_Time
 				}
 			}
 			if s.intro >= -1 && (ko[0] || ko[1]) {
@@ -1363,16 +1350,16 @@ func (s *System) action() {
 					s.winTeam = int(Btoi(ko[0]))
 				}
 			}
+			// Update win triggers if finish type was changed
 			if ft != s.finishType {
-				for i, p := range sys.chars {
+				for i, p := range s.chars {
 					if len(p) > 0 && ko[^i&1] {
 						for _, h := range p {
 							for _, tid := range h.targets {
-								if t := sys.playerID(tid); t != nil {
+								if t := s.playerID(tid); t != nil {
 									if t.ghv.attr&int32(AT_AH) != 0 {
 										s.winTrigger[i&1] = WT_Hyper
-									} else if t.ghv.attr&int32(AT_AS) != 0 &&
-										s.winTrigger[i&1] == WT_Normal {
+									} else if t.ghv.attr&int32(AT_AS) != 0 && s.winTrigger[i&1] == WT_Normal {
 										s.winTrigger[i&1] = WT_Special
 									}
 								}
@@ -1383,6 +1370,8 @@ func (s *System) action() {
 			}
 			return ko[0] || ko[1] || s.time == 0
 		}
+
+		// Post round
 		if s.roundEnd() || fin() {
 			rs4t := -s.lifebar.ro.over_waittime
 			s.intro--

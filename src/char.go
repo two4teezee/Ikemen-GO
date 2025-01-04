@@ -21,7 +21,7 @@ const (
 	SCF_guardbreak
 	SCF_ko
 	SCF_over_alive // Has reached win or lose poses
-	SCF_over_ko // Has reached state 5150
+	SCF_over_ko    // Has reached state 5150
 	SCF_standby
 )
 
@@ -10021,7 +10021,7 @@ func (cl *CharList) p2enemyDelete(c *Char) {
 	}
 }
 
-// Update enemy near or "P2" lists and return specified index 
+// Update enemy near or "P2" lists and return specified index
 // The current approach makes the distance calculation loops only be done when necessary, using cached enemies the rest of the time
 // In Mugen the P2 enemy reference seems to only refresh at the start of each frame instead
 func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
@@ -10071,7 +10071,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 			// Swap enemy places if applicable
 			if AbsF(distNext) < AbsF(distPrev) {
 				(*cache)[i] = e // Next enemy takes previous enemy place
-				e = prevEnemy // Previous enemy is sorted in the next loop iteration
+				e = prevEnemy   // Previous enemy is sorted in the next loop iteration
 			}
 		}
 	}

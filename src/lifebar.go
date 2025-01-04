@@ -335,7 +335,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	var life float32 = float32(sys.chars[ref][0].life) / float32(sys.chars[ref][0].lifeMax)
 	//redlife := (float32(sys.chars[ref][0].life) + float32(sys.chars[ref][0].redLife)) / float32(sys.chars[ref][0].lifeMax)
 	var redVal int32 = sys.chars[ref][0].redLife - sys.chars[ref][0].life
-	var getHit bool = (sys.chars[ref][0].receivedHits != 0 || sys.chars[ref][0].ss.moveType == MT_H) && !sys.chars[ref][0].scf(SCF_over)
+	var getHit bool = (sys.chars[ref][0].receivedHits != 0 || sys.chars[ref][0].ss.moveType == MT_H) && !sys.chars[ref][0].scf(SCF_over_alive)
 
 	if hbr.toplife > life {
 		hbr.toplife += (life - hbr.toplife) / 2
@@ -507,14 +507,19 @@ type PowerBar struct {
 }
 
 func newPowerBar() *PowerBar {
-	return &PowerBar{
-		level_snd:        [9][2]int32{{-1}, {-1}, {-1}},
+	newBar := &PowerBar{
 		front:            make(map[int32]*AnimLayout),
 		bg0:              make(map[int32]*AnimLayout),
 		counter_rounding: 1000,
 		value_rounding:   1,
 	}
+	// Default power level sounds to -1,-1
+	for i := range newBar.level_snd {
+		newBar.level_snd[i] = [2]int32{-1, -1}
+	}
+	return newBar
 }
+
 func readPowerBar(pre string, is IniSection,
 	sff *Sff, at AnimationTable, f []*Fnt) *PowerBar {
 	pb := newPowerBar()
@@ -548,15 +553,14 @@ func readPowerBar(pre string, is IniSection,
 	}
 	// Level sounds.
 	for i := range pb.level_snd {
-		if !is.ReadI32(fmt.Sprintf("%vlevel%v.snd", pre, i+1), &pb.level_snd[i][0],
-			&pb.level_snd[i][1]) {
-			is.ReadI32(fmt.Sprintf("level%v.snd", i+1), &pb.level_snd[i][0],
-				&pb.level_snd[i][1])
+		if !is.ReadI32(fmt.Sprintf("%vlevel%v.snd", pre, i+1), &pb.level_snd[i][0], &pb.level_snd[i][1]) {
+			is.ReadI32(fmt.Sprintf("level%v.snd", i+1), &pb.level_snd[i][0], &pb.level_snd[i][1])
 		}
 	}
 	is.ReadBool(pre+"levelbars", &pb.levelbars)
 	return pb
 }
+
 func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pbval := sys.chars[ref][0].getPower()
 	power := float32(pbval) / float32(sys.chars[ref][0].powerMax)
@@ -578,8 +582,10 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	// Level sounds
 	// TODO: These probably shouldn't play when the powerbar is invisible
 	if level > pbr.prevLevel {
-		i := Min(8, level-1)
-		snd.play(pb.level_snd[i], 100, 0, 0, 0, 0)
+		i := int(level - 1)
+		if i >= 0 && i < len(pb.level_snd) {
+			snd.play(pb.level_snd[i], 100, 0, 0, 0, 0)
+		}
 	}
 	pbr.prevLevel = level
 	var fv1 int32
@@ -602,6 +608,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pb.front[fv2].Action()
 	pb.shift.Action()
 }
+
 func (pb *PowerBar) reset() {
 	for _, v := range pb.bg0 {
 		v.Reset()
@@ -3920,7 +3927,7 @@ func (l *Lifebar) step() {
 	cb, cd, cp, dz := [2]int32{}, [2]int32{}, [2]float32{}, [2]bool{}
 	for i, ch := range sys.chars {
 		for _, c := range ch {
-			if c.alive() || !c.scf(SCF_over) {
+			if c.alive() || !c.scf(SCF_over_alive) {
 				if c.receivedHits > cb[^i&1] {
 					cb[^i&1] = Clamp(cb[^i&1], c.receivedHits, 999)
 					cd[^i&1] = Max(c.receivedDmg, cd[^i&1])
@@ -4096,84 +4103,59 @@ func (l *Lifebar) draw(layerno int16) {
 		if !sys.gsf(GSF_nobardisplay) && l.bars {
 			// HealthBar
 			for ti := range sys.tmode {
-				for i := range l.order[ti] {
-					l.hb[l.ref[ti]][i*2+ti].bgDraw(layerno)
-				}
-			}
-			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					l.hb[l.ref[ti]][i*2+ti].draw(layerno, v, l.hb[l.ref[ti]][v], l.fnt[:])
+					index := i*2 + ti
+					l.hb[l.ref[ti]][index].bgDraw(layerno)
+					l.hb[l.ref[ti]][index].draw(layerno, v, l.hb[l.ref[ti]][v], l.fnt[:])
 				}
 			}
 			// PowerBar
 			for ti, tm := range sys.tmode {
-				for i := range l.order[ti] {
-					if !sys.chars[i*2+ti][0].asf(ASF_nopowerbardisplay) {
-						if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
-							if i == 0 {
-								l.pb[l.ref[ti]][i*2+ti].bgDraw(layerno, i*2+ti)
-							}
-						} else {
-							l.pb[l.ref[ti]][i*2+ti].bgDraw(layerno, i*2+ti)
-						}
-					}
-				}
-			}
-			for ti, tm := range sys.tmode {
 				for i, v := range l.order[ti] {
-					if !sys.chars[i*2+ti][0].asf(ASF_nopowerbardisplay) {
-						if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
-							if i == 0 {
-								l.pb[l.ref[ti]][i*2+ti].draw(layerno, i*2+ti, l.pb[l.ref[ti]][i*2+ti], l.fnt[:])
-							}
-						} else {
-							l.pb[l.ref[ti]][i*2+ti].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt[:])
+					index := i*2 + ti
+					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) { // Draw player 1 or 2 bars
+						if i == 0 && !sys.chars[0][0].asf(ASF_nopowerbardisplay) {
+							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
+							l.pb[l.ref[ti]][index].draw(layerno, index, l.pb[l.ref[ti]][index], l.fnt[:])
+						}
+					} else { // Draw everyone's bars
+						if !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
+							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
+							l.pb[l.ref[ti]][index].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt[:])
 						}
 					}
 				}
 			}
 			// GuardBar
 			for ti := range sys.tmode {
-				for i := range l.order[ti] {
-					l.gb[l.ref[ti]][i*2+ti].bgDraw(layerno)
-				}
-			}
-			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					l.gb[l.ref[ti]][i*2+ti].draw(layerno, v, l.gb[l.ref[ti]][v], l.fnt[:])
+					index := i*2 + ti
+					l.gb[l.ref[ti]][index].bgDraw(layerno)
+					l.gb[l.ref[ti]][index].draw(layerno, v, l.gb[l.ref[ti]][v], l.fnt[:])
 				}
 			}
 			// StunBar
 			for ti := range sys.tmode {
-				for i := range l.order[ti] {
-					l.sb[l.ref[ti]][i*2+ti].bgDraw(layerno)
-				}
-			}
-			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					l.sb[l.ref[ti]][i*2+ti].draw(layerno, v, l.sb[l.ref[ti]][v], l.fnt[:])
+					index := i*2 + ti
+					l.sb[l.ref[ti]][index].bgDraw(layerno)
+					l.sb[l.ref[ti]][index].draw(layerno, v, l.sb[l.ref[ti]][v], l.fnt[:])
 				}
 			}
 			// LifeBarFace
 			for ti := range sys.tmode {
-				for i := range l.order[ti] {
-					l.fa[l.ref[ti]][i*2+ti].bgDraw(layerno)
-				}
-			}
-			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					l.fa[l.ref[ti]][i*2+ti].draw(layerno, v, l.fa[l.ref[ti]][v])
+					index := i*2 + ti
+					l.fa[l.ref[ti]][index].bgDraw(layerno)
+					l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
 				}
 			}
 			// LifeBarName
 			for ti := range sys.tmode {
-				for i := range l.order[ti] {
-					l.nm[l.ref[ti]][i*2+ti].bgDraw(layerno)
-				}
-			}
-			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					l.nm[l.ref[ti]][i*2+ti].draw(layerno, v, l.fnt[:], ti)
+					index := i*2 + ti
+					l.nm[l.ref[ti]][index].bgDraw(layerno)
+					l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt[:], ti)
 				}
 			}
 			// LifeBarTime
@@ -4188,12 +4170,6 @@ func (l *Lifebar) draw(layerno int16) {
 				if tm == TM_Turns {
 					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 {
 						l.ra[ti].bgDraw(layerno)
-					}
-				}
-			}
-			for ti, tm := range sys.tmode {
-				if tm == TM_Turns {
-					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 {
 						l.ra[ti].draw(layerno, rl-1)
 					}
 				}
@@ -4214,15 +4190,11 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarAiLevel
 			for i := range l.ai {
 				l.ai[i].bgDraw(layerno)
-			}
-			for i := range l.ai {
 				l.ai[i].draw(layerno, l.fnt[:], sys.com[sys.chars[i][0].playerNo])
 			}
 			// LifeBarWinCount
 			for i := range l.wc {
 				l.wc[i].bgDraw(layerno)
-			}
-			for i := range l.wc {
 				l.wc[i].draw(layerno, l.fnt[:], i)
 			}
 		}

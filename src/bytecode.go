@@ -1458,7 +1458,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_enemynear:
-			if c = c.enemyNear(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.enemyNearTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -2180,48 +2180,38 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_const_p2name:
 		p2 := c.p2()
-		sys.bcStack.PushB(p2 != nil && p2.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		sys.bcStack.PushB(p2 != nil &&
+			p2.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p3name:
 		p3 := c.partner(0, false)
-		sys.bcStack.PushB(p3 != nil && p3.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		sys.bcStack.PushB(p3 != nil &&
+			p3.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p4name:
-		p4 := sys.charList.enemyNear(c, 1, true, true, false)
-		sys.bcStack.PushB(p4 != nil && !(p4.scf(SCF_ko) && p4.scf(SCF_over)) &&
-			p4.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
+		p4 := sys.charList.enemyNear(c, 1, true, false)
+		sys.bcStack.PushB(p4 != nil &&
+			p4.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p5name:
 		p5 := c.partner(1, false)
-		sys.bcStack.PushB(p5 != nil && p5.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		sys.bcStack.PushB(p5 != nil &&
+			p5.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p6name:
-		p6 := sys.charList.enemyNear(c, 2, true, true, false)
-		sys.bcStack.PushB(p6 != nil && !(p6.scf(SCF_ko) && p6.scf(SCF_over)) &&
-			p6.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
+		p6 := sys.charList.enemyNear(c, 2, true, false)
+		sys.bcStack.PushB(p6 != nil &&
+			p6.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p7name:
 		p7 := c.partner(2, false)
-		sys.bcStack.PushB(p7 != nil && p7.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		sys.bcStack.PushB(p7 != nil &&
+			p7.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_p8name:
-		p8 := sys.charList.enemyNear(c, 3, true, true, false)
-		sys.bcStack.PushB(p8 != nil && !(p8.scf(SCF_ko) && p8.scf(SCF_over)) &&
-			p8.gi().nameLow ==
-				sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-					unsafe.Pointer(&be[*i]))])
+		p8 := sys.charList.enemyNear(c, 3, true, false)
+		sys.bcStack.PushB(p8 != nil &&
+			p8.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_const_stagevar_info_name:
 		sys.bcStack.PushB(sys.stage.nameLow ==

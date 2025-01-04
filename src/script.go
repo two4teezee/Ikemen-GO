@@ -3034,7 +3034,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 1) {
 			n = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.enemyNear(n); c != nil {
+		if c := sys.debugWC.enemyNearTrigger(n); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -4169,8 +4169,7 @@ func triggerFunctions(l *lua.LState) {
 				l.Push(lua.LString(""))
 			}
 		} else {
-			if p := sys.charList.enemyNear(sys.debugWC, n/2-1, true, true, false); p != nil &&
-				!(p.scf(SCF_ko) && p.scf(SCF_over)) {
+			if p := sys.charList.enemyNear(sys.debugWC, n/2-1, true, false); p != nil {
 				l.Push(lua.LString(p.name))
 			} else {
 				l.Push(lua.LString(""))
@@ -5396,12 +5395,10 @@ func triggerFunctions(l *lua.LState) {
 		case "roundnotskip":
 			l.Push(lua.LBool(sys.gsf(GSF_roundnotskip)))
 		// SystemCharFlag
-		case "over":
-			l.Push(lua.LBool(sys.debugWC.scf(SCF_over)))
-		case "koroundmiddle":
-			l.Push(lua.LBool(sys.debugWC.scf(SCF_ko_round_middle)))
 		case "disabled":
 			l.Push(lua.LBool(sys.debugWC.scf(SCF_disabled)))
+		case "over":
+			l.Push(lua.LBool(sys.debugWC.scf(SCF_over_alive) || sys.debugWC.scf(SCF_over_ko)))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

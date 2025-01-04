@@ -20,8 +20,8 @@ const (
 	SCF_guard
 	SCF_guardbreak
 	SCF_ko
-	SCF_ko_round_middle
-	SCF_over
+	SCF_over_alive // Has reached win or lose poses
+	SCF_over_ko // Has reached state 5150
 	SCF_standby
 )
 
@@ -1326,7 +1326,7 @@ func (e *Explod) setPos(c *Char) {
 	case PT_P1:
 		pPos(c)
 	case PT_P2:
-		if p2 := sys.charList.enemyNear(c, 0, true, true, false); p2 != nil {
+		if p2 := sys.charList.enemyNear(c, 0, true, false); p2 != nil {
 			pPos(p2)
 		}
 	case PT_Front, PT_Back:
@@ -2317,8 +2317,8 @@ type Char struct {
 	targets             []int32
 	hitdefTargets       []int32
 	hitdefTargetsBuffer []int32
-	enemynear           [2][]*Char
-	p2enemy             []*Char
+	enemyNearList       []*Char // Enemies retrieved by EnemyNear
+	p2EnemyList         []*Char // Enemies retrieved by P2, P4, P6 and P8
 	pos                 [3]float32
 	interPos            [3]float32 // Interpolated position. For the visuals when game and logic speed are different
 	oldPos              [3]float32
@@ -2496,9 +2496,13 @@ func (c *Char) addChild(ch *Char) {
 	}
 	c.children = append(c.children, ch)
 }
-func (c *Char) enemyNearClear() {
-	c.enemynear[0] = c.enemynear[0][:0]
-	c.enemynear[1] = c.enemynear[1][:0]
+
+// Clear enemy near list. For instance when player positions change
+// A new list will be built the next time the redirect is called
+// In Mugen, EnemyNear is updated instantly when the character uses PosAdd, but "P2" is not
+func (c *Char) enemyNearP2Clear() {
+	c.enemyNearList = c.enemyNearList[:0]
+	c.p2EnemyList = c.p2EnemyList[:0]
 }
 
 // Clear character variables upon a new round or creation of a new helper
@@ -2533,8 +2537,7 @@ func (c *Char) clearNextRound() {
 		}
 	}
 	c.aimg.timegap = -1
-	c.enemyNearClear()
-	c.p2enemy = c.p2enemy[:0]
+	c.enemyNearP2Clear()
 	c.targets = c.targets[:0]
 	c.cpucmd = -1
 }
@@ -3566,16 +3569,17 @@ func (c *Char) enemy(n int32) *Char {
 	//return sys.chars[n*2+int32(^c.playerNo&1)][0]
 	return nil
 }
-func (c *Char) enemyNear(n int32) *Char {
-	return sys.charList.enemyNear(c, n, false, c.gi().constants["default.ignoredefeatedenemies"] > 0, false)
+
+// This is only used to simplify the redirection call
+func (c *Char) enemyNearTrigger(n int32) *Char {
+	return sys.charList.enemyNear(c, n, false, false)
 }
+
+// Get the "P2" enemy reference
 func (c *Char) p2() *Char {
-	p2 := sys.charList.enemyNear(c, 0, true, true, false)
-	if p2 != nil && p2.scf(SCF_ko) && p2.scf(SCF_over) {
-		return nil
-	}
-	return p2
+	return sys.charList.enemyNear(c, 0, true, false)
 }
+
 func (c *Char) aiLevel() float32 {
 	if c.helperIndex != 0 && c.gi().mugenver[0] == 1 {
 		return 0
@@ -4431,7 +4435,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 
 func (c *Char) autoTurn() {
 	if c.helperIndex == 0 {
-		if e := sys.charList.enemyNear(c, 0, true, true, false); c.rdDistX(e, c).ToF() < 0 && !e.asf(ASF_noturntarget) {
+		e := c.p2()
+		if e != nil && c.rdDistX(e, c).ToF() < 0 && !e.asf(ASF_noturntarget) {
 			switch c.ss.stateType {
 			case ST_S:
 				if c.animNo != 5 {
@@ -4446,6 +4451,7 @@ func (c *Char) autoTurn() {
 		}
 	}
 }
+
 func (c *Char) stateChange1(no int32, pn int) bool {
 	if sys.changeStateNest > 2500 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("state machine stuck in loop (stopped after 2500 loops): %v -> %v -> %v", c.ss.prevno, c.ss.no, no))
@@ -4551,6 +4557,10 @@ func (c *Char) stateChange2() bool {
 	return false
 }
 func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
+	// This is a very specific and undocumented Mugen behavior that probably resulted from Elecbyte misinterpreting fighting games
+	// It serves very little purpose while negatively affecting some new Ikemen features like NoTurnTarget
+	// It could be removed in the future
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1755
 	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 &&
 		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && !c.asf(ASF_noautoturn) && sys.stage.autoturn {
 		c.autoTurn()
@@ -4723,7 +4733,7 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 		p[2] = c.pos[2]*(c.localscl/localscl) + pos[2]
 		*dstFacing *= c.facing
 	case PT_P2:
-		if p2 := sys.charList.enemyNear(c, 0, true, true, false); p2 != nil {
+		if p2 := sys.charList.enemyNear(c, 0, true, false); p2 != nil {
 			p[0] = p2.pos[0]*(p2.localscl/localscl) + pos[0]*p2.facing
 			p[1] = p2.pos[1]*(p2.localscl/localscl) + pos[1]
 			p[2] = p2.pos[2]*(p2.localscl/localscl) + pos[2]
@@ -4948,11 +4958,11 @@ func (c *Char) setPosX(x float32) {
 		// We do this because Mugen is very sensitive to enemy position changes
 		// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
 		// "P2" enemy reference is less sensitive than this however
-		c.enemyNearClear()
+		c.enemyNearP2Clear()
 		if c.player {
 			for i := ^c.playerNo & 1; i < len(sys.chars); i += 2 {
 				for j := range sys.chars[i] {
-					sys.chars[i][j].enemyNearClear()
+					sys.chars[i][j].enemyNearP2Clear()
 				}
 			}
 		}
@@ -6215,9 +6225,6 @@ func (c *Char) inputWait() bool {
 	// This is not currently reproduced and may not be necessary
 }
 
-func (c *Char) over() bool {
-	return c.scf(SCF_over) || c.ss.no == 5150
-}
 func (c *Char) makeDust(x, y, z float32) {
 	if c.asf(ASF_nomakedust) {
 		return
@@ -7296,17 +7303,6 @@ func (c *Char) actionPrepare() {
 			c.airJumpCount = 0
 		}
 		if !c.hitPause() {
-			if !sys.roundEnd() {
-				if c.alive() && c.life > 0 {
-					c.unsetSCF(SCF_over | SCF_ko_round_middle)
-				}
-				if c.ss.no == 5150 || c.scf(SCF_over) {
-					c.setSCF(SCF_ko_round_middle)
-				}
-			}
-			if c.ss.no == 5150 && c.life <= 0 {
-				c.setSCF(SCF_over)
-			}
 			c.specialFlag = 0
 			c.inputFlag = 0
 			c.setCSF(CSF_stagebound)
@@ -7644,6 +7640,29 @@ func (c *Char) actionFinish() {
 	// Update Z scale
 	// Must be placed after posUpdate()
 	c.zScale = sys.updateZScale(c.pos[2], c.localscl)
+	if !c.hitPause() && !c.pauseBool {
+		// Set KO flag
+		if c.life <= 0 && !sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) && (!c.ghv.guarded || !c.asf(ASF_noguardko)) {
+			// KO sound
+			if !sys.gsf(GSF_nokosnd) && c.alive() {
+				vo := int32(100)
+				c.playSound("", false, 0, 11, 0, -1, vo, 0, 1, c.localscl, &c.pos[0], false, 0, 0, 0, 0, false, false)
+				if c.gi().data.ko.echo != 0 {
+					c.koEchoTime = 1
+				}
+			}
+			c.setSCF(SCF_ko)
+			c.unsetSCF(SCF_ctrl) // This can be seen in Mugen when you F1 a character
+		}
+	}
+	// Over flags (char is finished for the round)
+	if c.alive() && c.life > 0 && !sys.roundEnd() {
+		c.unsetSCF(SCF_over_alive | SCF_over_ko)
+	}
+	if c.ss.no == 5150 { // Actual KO is not required in Mugen
+		c.setSCF(SCF_over_ko)
+		sys.charList.p2enemyDelete(c) // Every status change that invalidates the P2 reference must run this
+	}
 	c.minus = 1
 }
 func (c *Char) track() {
@@ -7959,22 +7978,6 @@ func (c *Char) tick() {
 			} else if c.ss.no == 5150 && c.ss.time >= 90 && c.alive() {
 				c.selfState(5120, -1, -1, -1, "")
 			}
-		}
-	}
-	if !c.hitPause() && !c.pauseBool {
-		// Set KO flag
-		if c.life <= 0 && !sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) && (!c.ghv.guarded || !c.asf(ASF_noguardko)) {
-			// KO sound
-			if !sys.gsf(GSF_nokosnd) && c.alive() {
-				vo := int32(100)
-				c.playSound("", false, 0, 11, 0, -1, vo, 0, 1, c.localscl, &c.pos[0], false, 0, 0, 0, 0, false, false)
-				if c.gi().data.ko.echo != 0 {
-					c.koEchoTime = 1
-				}
-			}
-			c.setSCF(SCF_ko)
-			c.unsetSCF(SCF_ctrl) // This can be seen in Mugen when you F1 a character
-			sys.charList.p2enemyDelete(c)
 		}
 	}
 	// Reset pushed flag
@@ -9520,7 +9523,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 	if !proj {
 		getter.inguarddist = false
 		getter.unsetCSF(CSF_gethit)
-		getter.enemyNearClear()
+		getter.enemyNearP2Clear()
 		for _, c := range cl.runOrder {
 
 			// Stop current iteration if this char is disabled
@@ -10005,62 +10008,94 @@ func (cl *CharList) getHelperIndex(c *Char, id int32, ex bool) *Char {
 	}
 	return nil
 }
+
+// Remove player from P2 references if it becomes invalid (standby etc)
 func (cl *CharList) p2enemyDelete(c *Char) {
 	for _, e := range cl.runOrder {
-		for i, p2cl := range e.p2enemy {
+		for i, p2cl := range e.p2EnemyList {
 			if p2cl == c {
-				e.p2enemy = e.p2enemy[:i]
+				e.p2EnemyList = append(e.p2EnemyList[:i], e.p2EnemyList[i+1:]...)
 				break
 			}
 		}
 	}
 }
-func (cl *CharList) enemyNear(c *Char, n int32, p2, ignoreDefeatedEnemy, log bool) *Char {
+
+// Update enemy near or "P2" lists and return specified index 
+// The current approach makes the distance calculation loops only be done when necessary, using cached enemies the rest of the time
+// In Mugen the P2 enemy reference seems to only refresh at the start of each frame instead
+func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
+	// Invalid reference
 	if n < 0 {
 		if log {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
 		}
 		return nil
 	}
-	cache := &c.enemynear[Btoi(p2)]
+	// Select EnemyNear or P2 cache
+	var cache *[]*Char
+	if p2list { // List for P2 redirects as well as P4, P6 and P8 triggers
+		cache = &c.p2EnemyList
+	} else {
+		cache = &c.enemyNearList
+	}
+	// If we already have the Nth enemy cached, then return it
 	if int(n) < len(*cache) {
 		return (*cache)[n]
 	}
-	if p2 {
-		cache = &c.p2enemy
-	} else {
-		*cache = (*cache)[:0]
-	}
-	var add func(*Char, int, float32)
-	add = func(e *Char, idx int, adddist float32) {
+	// Else reset the cache and start over
+	*cache = (*cache)[:0]
+	// Sort new enemy into cache, swapping if necessary
+	addEnemy := func(e *Char, idx int) {
 		for i := idx; i <= int(n); i++ {
+			// Just append to the cache if the index is outside of it
 			if i >= len(*cache) {
 				*cache = append(*cache, e)
 				return
 			}
-			if AbsF(c.distX(e, c))+adddist < AbsF(c.distX((*cache)[i], c)) {
-				add((*cache)[i], i+1, adddist)
-				(*cache)[i] = e
-				return
+			// Otherwise compare the distances between the player and the next and previous enemies
+			distNext := c.distX(e, c) * c.facing
+			prevEnemy := (*cache)[i]
+			distPrev := c.distX(prevEnemy, c) * c.facing
+			// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
+			// This makes the player turn less frequently when surrounded
+			// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
+			if p2list {
+				if distNext < 0 {
+					distNext -= 30
+				}
+				if distPrev < 0 {
+					distPrev -= 30
+				}
+			}
+			// Swap enemy places if applicable
+			if AbsF(distNext) < AbsF(distPrev) {
+				(*cache)[i] = e // Next enemy takes previous enemy place
+				e = prevEnemy // Previous enemy is sorted in the next loop iteration
 			}
 		}
 	}
+	// Search valid enemies
 	for _, e := range cl.runOrder {
-		if e.player && e.teamside != c.teamside && !e.scf(SCF_standby) {
-			if p2 && !e.scf(SCF_ko_round_middle) {
-				add(e, 0, 30)
+		if e.player && e.teamside != c.teamside {
+			// P2 checks for alive enemies even if they are player type helpers
+			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
+				addEnemy(e, 0)
 			}
-			if !p2 && e.helperIndex == 0 && (!ignoreDefeatedEnemy || ignoreDefeatedEnemy && (!e.scf(SCF_ko_round_middle) || sys.roundEnd())) {
-				add(e, 0, 0)
+			// EnemyNear checks for dead or alive root players
+			if !p2list && e.helperIndex == 0 {
+				addEnemy(e, 0)
 			}
 		}
 	}
+	// If reference exceeds number of valid enemies
 	if int(n) >= len(*cache) {
 		if log {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
 		}
 		return nil
 	}
+	// Return Nth enemy
 	return (*cache)[n]
 }
 

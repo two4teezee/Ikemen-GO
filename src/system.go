@@ -2098,7 +2098,7 @@ func (s *System) fight() (reload bool) {
 				case TM_Single:
 					switch s.tmode[(i+1)&1] {
 					case TM_Simul, TM_Tag:
-						lm *= s.cfg.Options.Team.DisadvLifeBoost / 100
+						lm *= s.cfg.Options.Team.SingleVsTeamLife / 100
 					case TM_Turns:
 						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
 							lm = lm * float32(s.numTurns[(i+1)&1]) /
@@ -2129,7 +2129,7 @@ func (s *System) fight() (reload bool) {
 						}
 					case TM_Simul, TM_Tag:
 						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * s.cfg.Options.Team.DisadvLifeBoost / 100 *
+							lm = lm * s.cfg.Options.Team.SingleVsTeamLife / 100 *
 								float32(s.numSimul[(i+1)&1]*s.matchWins[i&1]) /
 								float32(s.numTurns[i&1])
 						}

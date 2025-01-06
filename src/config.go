@@ -65,10 +65,10 @@ type Config struct {
 		Dizzy         bool `ini:"Dizzy"`
 		RedLife       bool `ini:"RedLife"`
 		Team          struct {
-			Duplicates      bool    `ini:"Duplicates"`
-			LifeShare       bool    `ini:"LifeShare"`
-			PowerShare      bool    `ini:"PowerShare"`
-			DisadvLifeBoost float32 `ini:"DisadvLifeBoost"`
+			Duplicates       bool    `ini:"Duplicates"`
+			LifeShare        bool    `ini:"LifeShare"`
+			PowerShare       bool    `ini:"PowerShare"`
+			SingleVsTeamLife float32 `ini:"SingleVsTeamLife"`
 		} `ini:"Team"`
 		Simul struct {
 			Min   int `ini:"Min"`

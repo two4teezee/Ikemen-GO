@@ -142,7 +142,7 @@ options.t_itemname = {
 			modifyGameOption('Options.Team.Duplicates', true)
 			modifyGameOption('Options.Team.LifeShare', false)
 			modifyGameOption('Options.Team.PowerShare', true)
-			modifyGameOption('Options.Team.DisadvLifeBoost', 100)
+			modifyGameOption('Options.Team.SingleVsTeamLife', 100)
 			modifyGameOption('Options.Simul.Min', 2)
 			modifyGameOption('Options.Simul.Max', 4)
 			modifyGameOption('Options.Simul.Match.Wins', 2)
@@ -304,15 +304,15 @@ options.t_itemname = {
 	end,
 	--Single VS Team Life
 	['singlevsteamlife'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, {'$F'}) and gameOption('Options.Team.DisadvLifeBoost') < 300 then
+		if main.f_input(main.t_players, {'$F'}) and gameOption('Options.Team.SingleVsTeamLife') < 300 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			modifyGameOption('Options.Team.DisadvLifeBoost', gameOption('Options.Team.DisadvLifeBoost') + 10)
-			t.items[item].vardisplay = gameOption('Options.Team.DisadvLifeBoost') .. '%'
+			modifyGameOption('Options.Team.SingleVsTeamLife', gameOption('Options.Team.SingleVsTeamLife') + 10)
+			t.items[item].vardisplay = gameOption('Options.Team.SingleVsTeamLife') .. '%'
 			options.modified = true
-		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Options.Team.DisadvLifeBoost') > 10 then
+		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Options.Team.SingleVsTeamLife') > 10 then
 			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
-			modifyGameOption('Options.Team.DisadvLifeBoost', gameOption('Options.Team.DisadvLifeBoost') - 10)
-			t.items[item].vardisplay = gameOption('Options.Team.DisadvLifeBoost') .. '%'
+			modifyGameOption('Options.Team.SingleVsTeamLife', gameOption('Options.Team.SingleVsTeamLife') - 10)
+			t.items[item].vardisplay = gameOption('Options.Team.SingleVsTeamLife') .. '%'
 			options.modified = true
 		end
 		return true
@@ -1518,7 +1518,7 @@ options.t_vardisplay = {
 		return options.f_boolDisplay(#gameOption('Video.ExternalShaders') > 0, motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
 	end,
 	['singlevsteamlife'] = function()
-		return gameOption('Options.Team.DisadvLifeBoost') .. '%'
+		return gameOption('Options.Team.SingleVsTeamLife') .. '%'
 	end,
 	['stereoeffects'] = function()
 		return options.f_boolDisplay(gameOption('Sound.StereoEffects'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)

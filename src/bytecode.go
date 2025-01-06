@@ -737,7 +737,10 @@ const (
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
 	OC_ex2_bgmvar_filename
+	OC_ex2_bgmvar_freqmul
 	OC_ex2_bgmvar_length
+	OC_ex2_bgmvar_loop
+	OC_ex2_bgmvar_loopcount
 	OC_ex2_bgmvar_loopend
 	OC_ex2_bgmvar_loopstart
 	OC_ex2_bgmvar_position
@@ -3169,22 +3172,25 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.palfxvar(-2, 2))
 	case OC_ex2_introstate:
 		sys.bcStack.PushI(sys.introState())
+	case OC_ex2_bgmvar_filename:
+		sys.bcStack.PushB(sys.bgm.filename ==
+			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
+				unsafe.Pointer(&be[*i]))])
+		*i += 4
+	case OC_ex2_bgmvar_freqmul:
+		sys.bcStack.PushF(sys.bgm.freqmul)
 	case OC_ex2_bgmvar_length:
 		if sys.bgm.streamer == nil {
 			sys.bcStack.PushI(0)
 		} else {
 			sys.bcStack.PushI(int32(sys.bgm.streamer.Len()))
 		}
-	case OC_ex2_bgmvar_position:
-		if sys.bgm.streamer == nil {
-			sys.bcStack.PushI(0)
-		} else {
-			sys.bcStack.PushI(int32(sys.bgm.streamer.Position()))
-		}
-	case OC_ex2_bgmvar_loopstart:
+	case OC_ex2_bgmvar_loop:
+		sys.bcStack.PushI(int32(sys.bgm.loop))
+	case OC_ex2_bgmvar_loopcount:
 		if sys.bgm.volctrl != nil {
 			if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
-				sys.bcStack.PushI(int32(sl.loopstart))
+				sys.bcStack.PushI(int32(sl.loopcount))
 			} else {
 				sys.bcStack.PushI(0)
 			}
@@ -3201,15 +3207,26 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		} else {
 			sys.bcStack.PushI(0)
 		}
+	case OC_ex2_bgmvar_loopstart:
+		if sys.bgm.volctrl != nil {
+			if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
+				sys.bcStack.PushI(int32(sl.loopstart))
+			} else {
+				sys.bcStack.PushI(0)
+			}
+		} else {
+			sys.bcStack.PushI(0)
+		}
+	case OC_ex2_bgmvar_position:
+		if sys.bgm.streamer == nil {
+			sys.bcStack.PushI(0)
+		} else {
+			sys.bcStack.PushI(int32(sys.bgm.streamer.Position()))
+		}
 	case OC_ex2_bgmvar_startposition:
 		sys.bcStack.PushI(int32(sys.bgm.startPos))
 	case OC_ex2_bgmvar_volume:
 		sys.bcStack.PushI(int32(sys.bgm.bgmVolume))
-	case OC_ex2_bgmvar_filename:
-		sys.bcStack.PushB(sys.bgm.filename ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
-		*i += 4
 	case OC_ex2_clsnvar_left:
 		idx := int(sys.bcStack.Pop().ToI())
 		id := int(sys.bcStack.Pop().ToI())

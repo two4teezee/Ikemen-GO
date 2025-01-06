@@ -3139,9 +3139,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "bgmvar", func(*lua.LState) int {
-
 		arg := strings.ToLower(strArg(l, 1))
-
 		// If the streamer is nil, return nil for strings
 		if arg == "filename" {
 			if sys.bgm.streamer == nil {
@@ -3152,11 +3150,18 @@ func triggerFunctions(l *lua.LState) {
 			// Return a number
 		} else {
 			ln := lua.LNumber(0)
-
 			if sys.bgm.streamer != nil {
 				switch arg {
+				case "freqmul":
+					ln = lua.LNumber(sys.bgm.freqmul)
 				case "length":
 					ln = lua.LNumber(int32(sys.bgm.streamer.Len()))
+				case "loop":
+					ln = lua.LNumber(int32(sys.bgm.loop))
+				case "loopcount":
+					if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
+						ln = lua.LNumber(sl.loopcount)
+					}
 				case "loopend":
 					if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
 						ln = lua.LNumber(sl.loopend)

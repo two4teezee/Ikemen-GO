@@ -291,6 +291,9 @@ type System struct {
 	dialogueBarsFlg   bool
 	noSoundFlg        bool
 	postMatchFlg      bool
+	continueScreenFlg bool
+	victoryScreenFlg  bool
+	winScreenFlg      bool
 	playBgmFlg        bool
 	brightnessOld     int32
 	loopBreak         bool
@@ -725,9 +728,7 @@ func (s *System) roundNoDamage() bool {
 }
 func (s *System) roundState() int32 {
 	switch {
-	case sys.postMatchFlg:
-		return -1
-	case sys.intro > sys.lifebar.ro.ctrl_time+1:
+	case sys.intro > sys.lifebar.ro.ctrl_time+1 || sys.postMatchFlg:
 		return 0
 	case sys.lifebar.ro.current == 0:
 		return 1

@@ -2433,7 +2433,7 @@ func systemScriptInit(l *lua.LState) {
 					sys.lifebar.active = lua.LVAsBool(value)
 				case "bars": // enabled by default
 					sys.lifebar.bars = lua.LVAsBool(value)
-				case "guardbar": // enabled depending on config.json
+				case "guardbar": // enabled depending on config.ini
 					sys.lifebar.guardbar = lua.LVAsBool(value)
 				case "hidebars": // enabled depending on dialogue system.def settings
 					sys.lifebar.hidebars = lua.LVAsBool(value)
@@ -2453,9 +2453,9 @@ func systemScriptInit(l *lua.LState) {
 					sys.lifebar.sc[1].active = lua.LVAsBool(value)
 				case "p2wincount":
 					sys.lifebar.wc[1].active = lua.LVAsBool(value)
-				case "redlifebar": // enabled depending on config.json
+				case "redlifebar": // enabled depending on config.ini
 					sys.lifebar.redlifebar = lua.LVAsBool(value)
-				case "stunbar": // enabled depending on config.json
+				case "stunbar": // enabled depending on config.ini
 					sys.lifebar.stunbar = lua.LVAsBool(value)
 				case "timer":
 					sys.lifebar.tr.active = lua.LVAsBool(value)
@@ -2810,6 +2810,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
+	luaRegister(l, "toggleContinueScreen", func(*lua.LState) int {
+		if !nilArg(l, 1) {
+			sys.continueScreenFlg = boolArg(l, 1)
+		} else {
+			sys.continueScreenFlg = !sys.continueScreenFlg
+		}
+		return 0
+	})
 	luaRegister(l, "toggleDebugDraw", func(*lua.LState) int {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
@@ -2838,17 +2846,6 @@ func systemScriptInit(l *lua.LState) {
 				sys.debugRef[0] = sys.charList.runOrder[idx].playerNo
 				sys.debugRef[1] = int(sys.charList.runOrder[idx].helperIndex)
 			}
-		}
-		return 0
-	})
-	luaRegister(l, "toggleWireframeDraw", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
-			return 0
-		}
-		if !nilArg(l, 1) {
-			sys.wireframeDraw = boolArg(l, 1)
-		} else {
-			sys.wireframeDraw = !sys.wireframeDraw
 		}
 		return 0
 	})
@@ -2931,6 +2928,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
+	luaRegister(l, "toggleVictoryScreen", func(*lua.LState) int {
+		if !nilArg(l, 1) {
+			sys.victoryScreenFlg = boolArg(l, 1)
+		} else {
+			sys.victoryScreenFlg = !sys.victoryScreenFlg
+		}
+		return 0
+	})
 	luaRegister(l, "toggleVSync", func(*lua.LState) int {
 		if !nilArg(l, 1) {
 			sys.cfg.Video.VSync = int(numArg(l, 1))
@@ -2940,6 +2945,25 @@ func systemScriptInit(l *lua.LState) {
 			sys.cfg.Video.VSync = 0
 		}
 		sys.window.SetSwapInterval(sys.cfg.Video.VSync)
+		return 0
+	})
+	luaRegister(l, "toggleWinScreen", func(*lua.LState) int {
+		if !nilArg(l, 1) {
+			sys.winScreenFlg = boolArg(l, 1)
+		} else {
+			sys.winScreenFlg = !sys.winScreenFlg
+		}
+		return 0
+	})
+	luaRegister(l, "toggleWireframeDraw", func(*lua.LState) int {
+		if !sys.cfg.Debug.AllowDebugMode {
+			return 0
+		}
+		if !nilArg(l, 1) {
+			sys.wireframeDraw = boolArg(l, 1)
+		} else {
+			sys.wireframeDraw = !sys.wireframeDraw
+		}
 		return 0
 	})
 	luaRegister(l, "updateVolume", func(l *lua.LState) int {
@@ -5091,6 +5115,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[sys.debugWC.teamside]))
 		return 1
 	})
+	luaRegister(l, "continuescreen", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.continueScreenFlg))
+		return 1
+	})
 	luaRegister(l, "decisiveround", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.decisiveRound[^sys.debugWC.playerNo&1]))
 		return 1
@@ -5624,6 +5652,14 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(timeTotal()))
 		return 1
 	})
+	luaRegister(l, "victoryscreen", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.victoryScreenFlg))
+		return 1
+	})
+	luaRegister(l, "winscreen", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.winScreenFlg))
+		return 1
+	})
 
 	// lua/debug only triggers
 	luaRegister(l, "animelemcount", func(*lua.LState) int {
@@ -5672,6 +5708,10 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.paused && !sys.step))
+		return 1
+	})
+	luaRegister(l, "postmatch", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.postMatchFlg))
 		return 1
 	})
 	luaRegister(l, "roundover", func(*lua.LState) int {

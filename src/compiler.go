@@ -354,6 +354,7 @@ var triggerMap = map[string]int{
 	"clsnvar":            1,
 	"combocount":         1,
 	"consecutivewins":    1,
+	"continuescreen":     1,
 	"const1080p":         1,
 	"decisiveround":      1,
 	"defence":            1,
@@ -444,7 +445,9 @@ var triggerMap = map[string]int{
 	"timeelapsed":        1,
 	"timeremaining":      1,
 	"timetotal":          1,
+	"victoryscreen":      1,
 	"winhyper":           1,
+	"winscreen":          1,
 	"winspecial":         1,
 }
 
@@ -3727,6 +3730,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
+	case "continuescreen":
+		out.append(OC_ex2_, OC_ex2_continuescreen)
 	case "debug":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
@@ -4219,6 +4224,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_timeremaining)
 	case "timetotal":
 		out.append(OC_ex_, OC_ex_timetotal)
+	case "victoryscreen":
+		out.append(OC_ex2_, OC_ex2_victoryscreen)
+	case "winscreen":
+		out.append(OC_ex2_, OC_ex2_winscreen)
 	case "angle":
 		out.append(OC_ex_, OC_ex_angle)
 	case "scale":

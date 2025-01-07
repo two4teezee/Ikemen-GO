@@ -736,6 +736,9 @@ const (
 	OC_ex2_palfxvar_all_invertall
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
+	OC_ex2_continuescreen
+	OC_ex2_victoryscreen
+	OC_ex2_winscreen
 	OC_ex2_bgmvar_filename
 	OC_ex2_bgmvar_freqmul
 	OC_ex2_bgmvar_length
@@ -3172,6 +3175,12 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.palfxvar(-2, 2))
 	case OC_ex2_introstate:
 		sys.bcStack.PushI(sys.introState())
+	case OC_ex2_continuescreen:
+		sys.bcStack.PushB(sys.continueScreenFlg)
+	case OC_ex2_victoryscreen:
+		sys.bcStack.PushB(sys.victoryScreenFlg)
+	case OC_ex2_winscreen:
+		sys.bcStack.PushB(sys.winScreenFlg)
 	case OC_ex2_bgmvar_filename:
 		sys.bcStack.PushB(sys.bgm.filename ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(

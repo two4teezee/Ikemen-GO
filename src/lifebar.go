@@ -1445,9 +1445,9 @@ type LifeBarCombo struct {
 	hidespeed     float32
 	separator     string
 	places        int32
-	cur, old      int32
-	curd, oldd    int32
-	curp, oldp    float32
+	curhit, oldhit int32
+	curdmg, olddmg int32
+	curpct, oldpct float32
 	resttime      int32
 	counterX      float32
 	shaketime     int32
@@ -1494,9 +1494,11 @@ func readLifeBarCombo(pre string, is IniSection,
 	is.ReadI32("format.decimal.places", &co.places)
 	return co
 }
+
 func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool) {
 	co.bg.Action()
 	co.top.Action()
+
 	if combo > 0 {
 		combo = co.combo
 	} else {
@@ -1511,42 +1513,50 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 			co.counterX = co.start_x * 2
 		}
 	}
+
 	if co.shaketime > 0 {
 		co.shaketime--
 	}
+
 	if AbsF(co.counterX) < 1 && !dizzy {
 		co.resttime--
 	}
+
 	if combo >= 2 {
-		if co.old != combo {
-			co.cur = combo
+		if co.oldhit != combo {
+			co.curhit = combo
 			co.resttime = co.displaytime
 			if co.counter_shake {
 				co.shaketime = co.counter_time
 			}
-		}
-		if co.oldd != damage {
-			co.curd, co.oldd = damage, damage
-		}
-		if co.oldp != percentage {
-			co.curp, co.oldp = percentage, percentage
+			if co.olddmg != damage {
+				co.curdmg, co.olddmg = damage, damage // We probably don't need the "old" var in the current state of the code
+			}
+			if co.oldpct != percentage {
+				co.curpct, co.oldpct = percentage, percentage // We probably don't need the "old" var in the current state of the code
+			}
 		}
 	}
-	co.old = combo
+	co.oldhit = combo
 }
+
 func (co *LifeBarCombo) reset() {
 	co.bg.Reset()
 	co.top.Reset()
-	co.cur, co.old, co.curd, co.oldd, co.curp, co.oldp, co.resttime = 0, 0, 0, 0, 0, 0, 0
+	co.curhit, co.oldhit = 0, 0
+	co.curdmg, co.olddmg = 0, 0
+	co.curpct, co.oldpct = 0, 0
+	co.resttime = 0
 	co.combo = 0
 	co.counterX = co.start_x * 2
 	co.shaketime = 0
 }
+
 func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 	if co.resttime <= 0 && co.counterX == co.start_x*2 {
 		return
 	}
-	counter := strings.Replace(co.counter.text, "%i", fmt.Sprintf("%v", co.cur), 1)
+	counter := strings.Replace(co.counter.text, "%i", fmt.Sprintf("%v", co.curhit), 1)
 	x := float32(co.pos[0])
 	if side == 0 {
 		if co.start_x <= 0 {
@@ -1564,10 +1574,10 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 	co.bg.Draw(x+sys.lifebarOffsetX, float32(co.pos[1]), layerno, sys.lifebarScale)
 	var length float32
 	if co.text.font[0] >= 0 && int(co.text.font[0]) < len(f) && f[co.text.font[0]] != nil {
-		text := strings.Replace(co.text.text, "%i", fmt.Sprintf("%v", co.cur), 1)
-		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.curd), 1)
+		text := strings.Replace(co.text.text, "%i", fmt.Sprintf("%v", co.curhit), 1)
+		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.curdmg), 1)
 		// split float value, round to decimal place
-		s := strings.Split(fmt.Sprintf("%.[2]*[1]f", co.curp, co.places), ".")
+		s := strings.Split(fmt.Sprintf("%.[2]*[1]f", co.curpct, co.places), ".")
 		// decimal separator
 		if co.places > 0 {
 			if len(s) > 1 {
@@ -3925,22 +3935,30 @@ func (l *Lifebar) step() {
 	l.ti.step()
 	// LifeBarCombo
 	cb, cd, cp, dz := [2]int32{}, [2]int32{}, [2]float32{}, [2]bool{}
-	for i, ch := range sys.chars {
+	targets := [2]int32{}
+	for _, ch := range sys.chars { // Iterate through all players to see the combo status of each team
 		for _, c := range ch {
-			if c.alive() || !c.scf(SCF_over_ko) { // If alive or not alive but not in state 5150 yet
-				if c.receivedHits > cb[^i&1] {
-					cb[^i&1] = Clamp(cb[^i&1], c.receivedHits, 999)
-					cd[^i&1] = Max(c.receivedDmg, cd[^i&1])
-					cp[^i&1] = float32(cd[^i&1]) / float32(c.lifeMax) * 100
+			if c.receivedHits > 0 && (c.teamside == 0 || c.teamside == 1) && (c.alive() || !c.scf(SCF_over_ko)) { // If alive or not alive but not in state 5150 yet
+				side := 1 - c.teamside
+				cb[side] += c.receivedHits
+				cd[side] += c.receivedDmg
+				if c.helperIndex == 0 { // We don't track percentage for helpers since that won't count towards a victory
+					cp[side] += float32(c.receivedDmg) / float32(c.lifeMax) * 100
+					targets[side]++
 				}
-				if c.receivedHits > 0 && !dz[^i&1] && c.scf(SCF_dizzy) {
-					dz[^i&1] = true
+				if c.scf(SCF_dizzy) {
+					dz[side] = true
 				}
 			}
 		}
 	}
+	for side := 0; side < 2; side++ {
+		if targets[side] > 0 {
+			cp[side] /= float32(targets[side]) // Divide damage percentage by number of valid enemies
+		}
+	}
 	for i := range l.co {
-		l.co[i].step(cb[i], cd[i], cp[i], dz[i]) // Combo, combo damage, combo damage percentage, dizzy
+		l.co[i].step(cb[i], cd[i], cp[i], dz[i]) // Combo hits, combo damage, combo damage percentage, dizzy flag
 	}
 	// LifeBarAction
 	for i := range l.ac {

@@ -2739,6 +2739,10 @@ func loadglTFStage(filepath string) (*Model, error) {
 		if n.Mesh != nil {
 			node.meshIndex = new(uint32)
 			*node.meshIndex = *n.Mesh
+			if len(n.Weights) == 0 {
+				m := mdl.meshes[*n.Mesh]
+				node.morphTargetWeights.restAt(m.morphTargetWeights.getValue())
+			}
 		}
 		node.trans = TransNone
 		node.castShadow = true

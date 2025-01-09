@@ -1000,7 +1000,7 @@ func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
 	// Multiple front elements
 	var mv float32
 	for k := range sb.front {
-		if k > mv && (1-points) >= k/100 {
+		if k > mv && points >= k/100 {
 			mv = k
 		}
 	}
@@ -1067,7 +1067,7 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 	// Multiple front elements
 	var mv float32
 	for k := range sb.front {
-		if k > mv && (1-points) >= k/100 {
+		if k > mv && points >= k/100 {
 			mv = k
 		}
 	}
@@ -1537,10 +1537,19 @@ func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
 			timeval = int32(math.Ceil(float64(sys.time) / float64(ti.framespercount)))
 			time = fmt.Sprintf("%v", timeval)
 		}
+		// Multiple fonts according to time remaining
 		var tv int32
-		for k := range ti.counter {
-			if k > tv && timeval >= k {
-				tv = k
+		if timeval < 0 { // Infinite time. Select the highest group
+			for k := range ti.counter {
+				if k > tv {
+					tv = k
+				}
+			}
+		} else {
+			for k := range ti.counter {
+				if k > tv && timeval >= k {
+					tv = k
+				}
 			}
 		}
 		ti.counter[tv].lay.DrawText(float32(ti.pos[0])+sys.lifebarOffsetX, float32(ti.pos[1]), sys.lifebarScale, layerno,

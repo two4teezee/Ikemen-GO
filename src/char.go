@@ -7464,7 +7464,7 @@ func (c *Char) actionPrepare() {
 		if c.keyctrl[0] && c.cmd != nil && (c.helperIndex == 0 || c.controller >= 0) {
 			// In Mugen, characters can perform basic actions even if they are KO
 			if !c.asf(ASF_nohardcodedkeys) {
-				if c.ctrl() && !c.inputWait() {
+				if c.ctrl() {
 					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.B > 0 {
 						c.changeState(120, -1, -1, "") // Start guarding
 					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
@@ -7618,8 +7618,7 @@ func (c *Char) actionRun() {
 	if sys.cfg.Options.AutoGuard {
 		c.setASF(ASF_autoguard)
 	}
-	if !c.inputWait() &&
-		((c.scf(SCF_ctrl) || c.ss.no == 52) &&
+	if ((c.scf(SCF_ctrl) || c.ss.no == 52) &&
 			c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
 		(c.cmd[0].Buffer.B > 0 || c.asf(ASF_autoguard)) &&
 		(c.ss.stateType == ST_S && !c.asf(ASF_nostandguard) ||
@@ -7629,10 +7628,9 @@ func (c *Char) actionRun() {
 	}
 	if !c.pauseBool {
 		if c.keyctrl[0] && c.cmd != nil {
-			if c.ctrl() && !c.inputWait() && (c.controller >= 0 || c.helperIndex == 0) {
+			if c.ctrl() && (c.controller >= 0 || c.helperIndex == 0) {
 				if !c.asf(ASF_nohardcodedkeys) {
-					if c.inguarddist && c.scf(SCF_guard) && c.cmd[0].Buffer.B > 0 &&
-						!c.inGuardState() {
+					if c.inguarddist && c.scf(SCF_guard) && !c.inGuardState() && c.cmd[0].Buffer.B > 0 {
 						c.changeState(120, -1, -1, "")
 						// In Mugen the characters *can* change to the guarding states during pauses
 						// They can still block in Ikemen despite not changing state here
@@ -8578,7 +8576,7 @@ func (cl *CharList) commandUpdate() {
 					}
 				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].Input(c.controller, int32(c.facing), sys.com[i], c.inputFlag) {
+					c.cmd[0].Input(c.controller, int32(c.facing), sys.com[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based input buffers
 					if c.inputWait() || c.asf(ASF_noinput) {

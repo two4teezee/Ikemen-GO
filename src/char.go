@@ -7619,7 +7619,7 @@ func (c *Char) actionRun() {
 		c.setASF(ASF_autoguard)
 	}
 	if ((c.scf(SCF_ctrl) || c.ss.no == 52) &&
-			c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
+		c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
 		(c.cmd[0].Buffer.B > 0 || c.asf(ASF_autoguard)) &&
 		(c.ss.stateType == ST_S && !c.asf(ASF_nostandguard) ||
 			c.ss.stateType == ST_C && !c.asf(ASF_nocrouchguard) ||

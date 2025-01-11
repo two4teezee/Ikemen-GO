@@ -1560,27 +1560,27 @@ func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
 }
 
 type LifeBarCombo struct {
-	pos           [2]int32
-	start_x       float32
-	counter       LbText
-	counter_shake bool
-	counter_time  int32
-	counter_mult  float32
-	text          LbText
-	bg            AnimLayout
-	top           AnimLayout
-	displaytime   int32
-	showspeed     float32
-	hidespeed     float32
-	separator     string
-	places        int32
+	pos            [2]int32
+	start_x        float32
+	counter        LbText
+	counter_shake  bool
+	counter_time   int32
+	counter_mult   float32
+	text           LbText
+	bg             AnimLayout
+	top            AnimLayout
+	displaytime    int32
+	showspeed      float32
+	hidespeed      float32
+	separator      string
+	places         int32
 	curhit, oldhit int32
 	curdmg, olddmg int32
 	curpct, oldpct float32
-	resttime      int32
-	counterX      float32
-	shaketime     int32
-	combo         int32
+	resttime       int32
+	counterX       float32
+	shaketime      int32
+	combo          int32
 }
 
 func newLifeBarCombo() *LifeBarCombo {

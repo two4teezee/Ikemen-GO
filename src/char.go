@@ -5118,7 +5118,7 @@ func (c *Char) setPosZ(z float32) {
 }
 
 func (c *Char) posReset() {
-	if c.teamside == -1 {
+	if c.teamside == -1 || c.playerNo < 0 || c.playerNo >= len(sys.stage.p) {
 		c.facing = 1
 		c.setX(0)
 		c.setY(0)

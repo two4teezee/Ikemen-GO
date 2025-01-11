@@ -8498,7 +8498,8 @@ func (c *Char) cueDraw() {
 }
 
 type CharList struct {
-	runOrder, drawOrder []*Char
+	runOrder            []*Char
+	drawOrder           []*Char
 	idMap               map[int32]*Char
 }
 
@@ -8558,9 +8559,17 @@ func (cl *CharList) delete(dc *Char) {
 			break
 		}
 	}
+	// You'd expect Mugen to remove the slot from the drawing order, but it does keep it open like this
+	//for i, c := range cl.drawOrder {
+	//	if c == dc {
+	//		cl.drawOrder[i] = nil
+	//		break
+	//	}
+	//}
+	// However removing it creates a more predictable drawing order
 	for i, c := range cl.drawOrder {
 		if c == dc {
-			cl.drawOrder[i] = nil
+			cl.drawOrder = append(cl.drawOrder[:i], cl.drawOrder[i+1:]...)
 			break
 		}
 	}
@@ -10179,9 +10188,21 @@ func (cl *CharList) tick() {
 	}
 }
 
+// Prepare characters for drawing
+// We once again check the movetype to minimize the difference between player sides
 func (cl *CharList) cueDraw() {
 	for _, c := range cl.drawOrder {
-		if c != nil {
+		if c != nil && c.ss.moveType == MT_A {
+			c.cueDraw()
+		}
+	}
+	for _, c := range cl.drawOrder {
+		if c != nil && c.ss.moveType == MT_I {
+			c.cueDraw()
+		}
+	}
+	for _, c := range cl.drawOrder {
+		if c != nil && c.ss.moveType == MT_H {
 			c.cueDraw()
 		}
 	}

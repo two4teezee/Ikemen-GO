@@ -774,7 +774,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0) {
+		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0, true) {
 			cl.Step(1, false, false, 0)
 		}
 		return 0
@@ -1864,12 +1864,13 @@ func systemScriptInit(l *lua.LState) {
 		l.RaiseError("\nmodifyGameOption: %v\n", err.Error())
 		return 0
 	})
-	luaRegister(l, "mapAdd", func(*lua.LState) int {
-		sys.debugWC.mapSet(strArg(l, 1), float32(numArg(l, 2)), 1)
-		return 0
-	})
 	luaRegister(l, "mapSet", func(*lua.LState) int {
-		sys.debugWC.mapSet(strArg(l, 1), float32(numArg(l, 2)), 0)
+		//map_name, value, map_type
+		var scType int32
+		if !nilArg(l, 3) && strArg(l, 3) == "add" {
+			scType = 1
+		}
+		sys.debugWC.mapSet(strArg(l, 1), float32(numArg(l, 2)), scType)
 		return 0
 	})
 	luaRegister(l, "numberToRune", func(l *lua.LState) int {
@@ -3101,7 +3102,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.getPlayerHelperIndex(id, false); c != nil {
+		if c := sys.debugWC.getPlayerHelperIndex(id, true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -5783,6 +5784,7 @@ func deprecatedFunctions(l *lua.LState) {
 				l.Push(lua.LBool(true))
 				return 1
 			}
+		}
 		l.Push(lua.LBool(false))
 		return 1
 	})

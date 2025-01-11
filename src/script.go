@@ -774,7 +774,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0) {
+		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0, true) {
 			cl.Step(1, false, false, 0)
 		}
 		return 0
@@ -3102,7 +3102,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.getPlayerHelperIndex(id, false); c != nil {
+		if c := sys.debugWC.getPlayerHelperIndex(id, true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))

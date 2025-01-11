@@ -2069,6 +2069,7 @@ func (p *Projectile) cueDraw(oldVer bool, playerNo int) {
 	if sys.tickFrame() && p.ani != nil && notpause {
 		p.ani.UpdateSprite()
 	}
+
 	// Projectile Clsn display
 	if sys.clsnDraw && p.ani != nil {
 		if frm := p.ani.drawFrame(); frm != nil {
@@ -2086,6 +2087,7 @@ func (p *Projectile) cueDraw(oldVer bool, playerNo int) {
 			}
 		}
 	}
+
 	if sys.tickNextFrame() && (notpause || !p.paused(playerNo)) {
 		if p.ani != nil && notpause {
 			p.ani.Action()
@@ -8004,6 +8006,10 @@ func (c *Char) update() {
 		c.atktmp = int8(Btoi(c.ss.moveType != MT_I || c.hitdef.reversal_attr > 0))
 		c.hoIdx = -1
 		c.hoKeepState = false
+		// Apply SuperPause p2defmul
+		if sys.supertime < 0 && c.teamside != sys.superplayer&1 {
+			c.superDefenseMul *= sys.superp2defmul
+		}
 		// Update final defense
 		var customDefense float32 = 1
 		if !c.defenseMulDelay || c.ss.moveType == MT_H {
@@ -8011,6 +8017,7 @@ func (c *Char) update() {
 		}
 		c.finalDefense = float64(((float32(c.gi().data.defence) * customDefense * c.superDefenseMul * c.fallDefenseMul) / 100))
 	}
+	// Update position interpolation
 	if c.acttmp > 0 {
 		spd := sys.tickInterpolation()
 		if c.pushed {
@@ -8199,10 +8206,8 @@ func (c *Char) tick() {
 	c.pushed = false
 }
 
-func (c *Char) cueDraw() {
-	if c.helperIndex < 0 || c.scf(SCF_disabled) {
-		return
-	}
+// Prepare collision boxes and debug text for drawing
+func (c *Char) cueDebugDraw() {
 	x := c.pos[0] * c.localscl
 	y := c.pos[1] * c.localscl
 	xoff := x + c.offsetX()*c.localscl
@@ -8377,6 +8382,15 @@ func (c *Char) cueDraw() {
 			}
 		}
 	}
+}
+
+// Prepare character sprites for drawing
+func (c *Char) cueDraw() {
+	if c.helperIndex < 0 || c.scf(SCF_disabled) {
+		return
+	}
+	// Add debug info
+	c.cueDebugDraw()
 	// Add char sprite
 	if c.anim != nil {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
@@ -8407,6 +8421,7 @@ func (c *Char) cueDraw() {
 				agl *= -1
 			}
 		}
+
 		rec := sys.tickNextFrame() && c.acttmp > 0
 
 		//if rec {
@@ -8476,9 +8491,6 @@ func (c *Char) cueDraw() {
 		}
 	}
 	if sys.tickNextFrame() {
-		if sys.supertime < 0 && c.teamside != sys.superplayer&1 {
-			c.superDefenseMul *= sys.superp2defmul
-		}
 		c.minus = 2
 		c.oldPos = c.pos
 		c.dustOldPos = c.pos[0]

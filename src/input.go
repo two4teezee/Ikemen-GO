@@ -2105,7 +2105,7 @@ func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ib I
 	}
 
 	if controller < 0 && ^controller < len(sys.aiInput) {
-		sys.aiInput[^controller].Update(aiLevel) // 乱数を使うので同期がずれないようここで / "Since random numbers are used, we handle it here to avoid desync"
+		sys.aiInput[^controller].Update(aiLevel) // Since random numbers are used, we handle it here to avoid desync
 	}
 	_else := controller < 0
 	if _else {

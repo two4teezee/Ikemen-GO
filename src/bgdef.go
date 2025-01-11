@@ -107,13 +107,13 @@ func loadBGDef(sff *Sff, def string, bgname string) (*BGDef, error) {
 			bgcdef.bg, bgcdef.looptime = nil, -1
 			if ids := is.readI32CsvForStage("ctrlid"); len(ids) > 0 &&
 				(len(ids) > 1 || ids[0] != -1) {
-				kishutu := make(map[int32]bool)
+				uniqueIDs := make(map[int32]bool)
 				for _, id := range ids {
-					if kishutu[id] {
+					if uniqueIDs[id] {
 						continue
 					}
 					bgcdef.bg = append(bgcdef.bg, s.getBg(id)...)
-					kishutu[id] = true
+					uniqueIDs[id] = true
 				}
 			} else {
 				bgcdef.bg = append(bgcdef.bg, s.bg...)
@@ -125,13 +125,13 @@ func loadBGDef(sff *Sff, def string, bgname string) (*BGDef, error) {
 			if ids := is.readI32CsvForStage("ctrlid"); len(ids) > 0 {
 				bgc.bg = nil
 				if len(ids) > 1 || ids[0] != -1 {
-					kishutu := make(map[int32]bool)
+					uniqueIDs := make(map[int32]bool)
 					for _, id := range ids {
-						if kishutu[id] {
+						if uniqueIDs[id] {
 							continue
 						}
 						bgc.bg = append(bgc.bg, s.getBg(id)...)
-						kishutu[id] = true
+						uniqueIDs[id] = true
 					}
 				} else {
 					bgc.bg = append(bgc.bg, s.bg...)

@@ -5192,7 +5192,7 @@ func (c *Char) hitAdd(h int32) {
 			}
 		}
 	} else if c.teamside != -1 {
-		// in mugen HitAdd increases combo count even without targets
+		// In Mugen, HitAdd can increase combo count even without targets
 		for i, p := range sys.chars {
 			if len(p) > 0 && c.teamside == ^i&1 {
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
@@ -10037,12 +10037,13 @@ func (cl *CharList) pushDetection(getter *Char) {
 				}
 
 				// Compare player weights and apply pushing factors
+				// Weight determines which player is pushed more. Factor determines how fast the player overlap is resolved
 				cfactor := float32(getter.size.weight) / float32(c.size.weight+getter.size.weight) * c.size.pushfactor * cpushed
 				gfactor := float32(c.size.weight) / float32(c.size.weight+getter.size.weight) * getter.size.pushfactor * gpushed
 
 				// Determine in which axes to push the players
-				// This needs to check both if the players have velocity or if their positions changed
-				pushx := sys.zmin == sys.zmax ||
+				// This needs to check both if the players have velocity or if their positions have changed
+				pushx := sys.zmin == sys.zmax || c.pos[2] == getter.pos[2] ||
 					getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
 				pushz := sys.zmin != sys.zmax &&
 					(getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2])
@@ -10117,7 +10118,6 @@ func (cl *CharList) pushDetection(getter *Char) {
 					// Clamp Z positions
 					c.zDepthBound()
 					getter.zDepthBound()
-
 				}
 
 				if getter.trackableByCamera() && getter.csf(CSF_screenbound) {

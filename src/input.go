@@ -1497,7 +1497,6 @@ type cmdElem struct {
 
 // Used to detect consecutive directions
 func (ce *cmdElem) IsDirection() bool {
-	//ここで~は方向コマンドとして返さない
 	// Released directions are not taken into account here
 	return !ce.slash && len(ce.key) == 1 && ce.key[0].IsDirectionPress()
 }

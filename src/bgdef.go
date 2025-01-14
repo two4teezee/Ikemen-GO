@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"fmt"
 )
 
 func (bgct *bgcTimeLine) stepBGDef(s *BGDef) {
@@ -43,18 +44,19 @@ func (bgct *bgcTimeLine) stepBGDef(s *BGDef) {
 // BGDef is used on screenpacks lifebars and stages.
 // Also contains the SFF.
 type BGDef struct {
-	def        string
-	localcoord [2]float32
-	sff        *Sff
-	at         AnimationTable
-	bg         []*backGround
-	bgc        []bgCtrl
-	bgct       bgcTimeLine
-	bga        bgAction
-	resetbg    bool
-	localscl   float32
-	scale      [2]float32
-	stageprops StageProps
+	def          string
+	localcoord   [2]float32
+	sff          *Sff
+	at           AnimationTable
+	bg           []*backGround
+	bgc          []bgCtrl
+	bgct         bgcTimeLine
+	bga          bgAction
+	resetbg      bool
+	localscl     float32
+	scale        [2]float32
+	stageprops   StageProps
+	bgclearcolor [3]int32
 }
 
 func newBGDef(def string) *BGDef {
@@ -84,6 +86,9 @@ func loadBGDef(sff *Sff, def string, bgname string) (*BGDef, error) {
 	i = 0
 	if sec := defmap["info"]; len(sec) > 0 {
 		sec[0].readF32ForStage("localcoord", &s.localcoord[0], &s.localcoord[1])
+	}
+	if sec := defmap[fmt.Sprintf("%sdef", bgname)]; len(sec) > 0 {
+		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
 	}
 	s.sff = sff
 	s.at = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)

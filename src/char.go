@@ -6642,7 +6642,7 @@ func (c *Char) appendLifebarAction(text string, snd, spr [2]int32, anim, time in
 	if c.teamside == -1 {
 		return
 	}
-	if _, ok := sys.lifebar.missing["[action]"]; ok {
+	if _, ok := sys.lifebar.missing["[action]"]; ok { //"
 		return
 	}
 

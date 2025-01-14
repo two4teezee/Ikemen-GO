@@ -63,6 +63,12 @@ function options.f_displayRatio(value)
 	return ret .. '%'
 end
 
+motif.languages.languages = {}
+for k, _ in pairs(motif.languages) do
+	if k ~= "languages" then
+		table.insert(motif.languages.languages, k)
+	end
+end
 local function changeLanguageSetting(val)
 	sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
 	languageCounter = 0
@@ -278,12 +284,10 @@ options.t_itemname = {
 	['language'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F'}) then
 			changeLanguageSetting(0)
-			LanguageName = motif.languages[gameOption('Config.Language')]
-			t.items[item].vardisplay = LanguageName or gameOption('Config.Language')
+			t.items[item].vardisplay = motif.languages[gameOption('Config.Language')] or gameOption('Config.Language')
 		elseif main.f_input(main.t_players, {'$B'}) then
 			changeLanguageSetting(-2)
-			LanguageName = motif.languages[gameOption('Config.Language')]
-			t.items[item].vardisplay = LanguageName or gameOption('Config.Language')
+			t.items[item].vardisplay = motif.languages[gameOption('Config.Language')] or gameOption('Config.Language')
 		end
 		return true
 	end,

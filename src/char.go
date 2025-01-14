@@ -2799,20 +2799,22 @@ func (c *Char) load(def string) error {
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
 
-	for _, s := range sys.cfg.Common.Const {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
-			str, err = LoadText(filename)
-			if err != nil {
+	for _, key := range SortedKeys(sys.cfg.Common.Const) {
+		for _, v := range sys.cfg.Common.Const[key] {
+			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+				str, err = LoadText(filename)
+				if err != nil {
+					return err
+				}
+				lines, i = SplitAndTrim(str, "\n"), 0
+				is, _, _ := ReadIniSection(lines, &i)
+				for key, value := range is {
+					gi.constants[key] = float32(Atof(value))
+				}
+				return nil
+			}); err != nil {
 				return err
 			}
-			lines, i = SplitAndTrim(str, "\n"), 0
-			is, _, _ := ReadIniSection(lines, &i)
-			for key, value := range is {
-				gi.constants[key] = float32(Atof(value))
-			}
-			return nil
-		}); err != nil {
-			return err
 		}
 	}
 
@@ -3189,16 +3191,18 @@ func (c *Char) load(def string) error {
 			return err
 		}
 	}
-	for _, s := range sys.cfg.Common.Air {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
-			txt, err := LoadText(filename)
-			if err != nil {
+	for _, key := range SortedKeys(sys.cfg.Common.Air) {
+		for _, v := range sys.cfg.Common.Air[key] {
+			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+				txt, err := LoadText(filename)
+				if err != nil {
+					return err
+				}
+				str += "\n" + txt
+				return nil
+			}); err != nil {
 				return err
 			}
-			str += "\n" + txt
-			return nil
-		}); err != nil {
-			return err
 		}
 	}
 	lines, i = SplitAndTrim(str, "\n"), 0

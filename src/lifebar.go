@@ -3375,7 +3375,7 @@ func (mo *LifeBarMode) draw(layerno int16, f []*Fnt) {
 }
 
 type Lifebar struct {
-	Def        string
+	def        string
 	name       string
 	nameLow    string
 	author     string
@@ -3474,9 +3474,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 	filesflg := true
 	ffx := newFightFx()
 	// Load Common FX first
-	for _, def := range sys.cfg.Common.Fx {
-		if err := loadFightFx(def); err != nil {
-			return nil, err
+	for _, key := range SortedKeys(sys.cfg.Common.Fx) {
+		for _, v := range sys.cfg.Common.Fx[key] {
+			if err := loadFightFx(v); err != nil {
+				return nil, err
+			}
 		}
 	}
 	for i < len(lines) {
@@ -4024,12 +4026,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 			}
 		}
 	}
-	l.Def = def
+	l.def = def
 	return l, nil
 }
 
 func (l *Lifebar) reloadLifebar() error {
-	lb, err := loadLifebar(l.Def)
+	lb, err := loadLifebar(l.def)
 	if err != nil {
 		return err
 	}

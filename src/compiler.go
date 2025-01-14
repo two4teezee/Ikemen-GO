@@ -6804,16 +6804,18 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			return nil, err
 		}
 	}
-	for _, s := range sys.cfg.Common.Cmd {
-		if err := LoadFile(&s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"}, func(filename string) error {
-			txt, err := LoadText(filename)
-			if err != nil {
-				return err
+	for _, key := range SortedKeys(sys.cfg.Common.Cmd) {
+		for _, v := range sys.cfg.Common.Cmd[key] {
+			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+				txt, err := LoadText(filename)
+				if err != nil {
+					return err
+				}
+				str += "\n" + txt
+				return nil
+			}); err != nil {
+				return nil, err
 			}
-			str += "\n" + txt
-			return nil
-		}); err != nil {
-			return nil, err
 		}
 	}
 	lines, i = SplitAndTrim(str, "\n"), 0
@@ -6942,10 +6944,12 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		}
 	}
 	// Compile common states
-	for _, s := range sys.cfg.Common.States {
-		if err := c.stateCompile(states, s, []string{def, sys.motifDir, sys.lifebar.Def, "", "data/"},
-			false, constants); err != nil {
-			return nil, err
+	for _, key := range SortedKeys(sys.cfg.Common.States) {
+		for _, v := range sys.cfg.Common.States[key] {
+			if err := c.stateCompile(states, v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"},
+				false, constants); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return states, nil

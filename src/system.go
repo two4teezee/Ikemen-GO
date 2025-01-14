@@ -2397,9 +2397,11 @@ func (s *System) fight() (reload bool) {
 			s.drawTop()
 		}
 		// Lua code is executed after drawing the fade effects, so that the menus are on top of them
-		for _, str := range s.cfg.Common.Lua {
-			if err := s.luaLState.DoString(str); err != nil {
-				s.luaLState.RaiseError(err.Error())
+		for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+			for _, v := range sys.cfg.Common.Lua[key] {
+				if err := s.luaLState.DoString(v); err != nil {
+					s.luaLState.RaiseError(err.Error())
+				}
 			}
 		}
 		// Render debug elements

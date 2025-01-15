@@ -31,8 +31,8 @@ local t_commonFilesOriginal = gameOption('Common')
 function options.f_saveCfg(reload)
     -- Restore the original content of the common files
 	local t_commonFiles = gameOption('Common')
-	for k, v in pairs(t_commonFilesOriginal) do
-		modifyGameOption('Common.' .. k, v)
+	for _, k in ipairs({'Air', 'Cmd', 'Const', 'States', 'Fx', 'Modules', 'Lua'}) do
+		modifyGameOption('Common.' .. k, t_commonFilesOriginal[k][k:lower()] or {})
 	end
     -- Save the current configuration to 'config.ini'
 	saveGameOption(main.flags['-config'])
@@ -42,8 +42,8 @@ function options.f_saveCfg(reload)
 		os.exit()
 	end
     -- Reapply modified common file arrays after saving
-	for k, v in pairs(t_commonFiles) do
-		modifyGameOption('Common.' .. k, v)
+	for _, k in ipairs({'Air', 'Cmd', 'Const', 'States', 'Fx', 'Modules', 'Lua'}) do
+		modifyGameOption('Common.' .. k, t_commonFiles[k][k:lower()] or {})
 	end
 end
 

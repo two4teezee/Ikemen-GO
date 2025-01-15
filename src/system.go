@@ -1167,8 +1167,14 @@ func (s *System) addFrameTime(t float32) bool {
 	return true
 }
 func (s *System) resetFrameTime() {
-	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
-	s.nextAddTime, s.oldNextAddTime = 1, 1
+	// Without this workaround, for some reason, sys.tickCount (RoundTime trigger) starts with 1 when the round is restarted via F4.
+	if s.roundResetFlg {
+		s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = -1, -2, -1, -1, -1
+		s.nextAddTime, s.oldNextAddTime = 0, 0
+	} else {
+		s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
+		s.nextAddTime, s.oldNextAddTime = 1, 1
+	}
 }
 
 func (s *System) charUpdate() {

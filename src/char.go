@@ -2310,7 +2310,7 @@ type Char struct {
 	playerNo            int
 	teamside            int
 	keyctrl             [4]bool
-	player              bool
+	playerFlag          bool // Root and player type helpers
 	hprojectile         bool // Helper type projectile. Currently unused
 	animPN              int
 	animNo              int32
@@ -2458,11 +2458,11 @@ func (c *Char) init(n int, idx int32) {
 
 	// Set player or helper defaults
 	if idx == 0 {
-		c.player = true
+		c.playerFlag = true
 		c.kovelocity = true
 		c.keyctrl = [4]bool{true, true, true, true}
 	} else {
-		c.player = false
+		c.playerFlag = false
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
 		c.mapArray = make(map[string]float32)
@@ -2532,7 +2532,7 @@ func (c *Char) addChild(ch *Char) {
 	c.children = append(c.children, ch)
 }
 
-// Clear enemy near list. For instance when player positions change
+// Clear EnemyNear and P2 lists. For instance when player positions change
 // A new list will be built the next time the redirect is called
 // In Mugen, EnemyNear is updated instantly when the character uses PosAdd, but "P2" is not
 func (c *Char) enemyNearP2Clear() {
@@ -3486,10 +3486,18 @@ func (c *Char) scf(scf SystemCharFlag) bool {
 
 func (c *Char) setSCF(scf SystemCharFlag) {
 	c.systemFlag |= scf
+	// Clear enemy lists if changing flags that affect them
+	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+		sys.charList.enemyNearChanged = true
+	}
 }
 
 func (c *Char) unsetSCF(scf SystemCharFlag) {
 	c.systemFlag &^= scf
+	// Clear enemy lists if changing flags that affect them
+	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+		sys.charList.enemyNearChanged = true
+	}
 }
 
 func (c *Char) csf(csf CharSpecialFlag) bool {
@@ -3964,7 +3972,6 @@ func (c *Char) numEnemy() int32 {
 func (c *Char) numPlayer() int32 {
 	n := int32(0)
 	for i := 0; i < len(sys.chars)-1; i++ {
-		//&& !sys.chars[i][0].scf(SCF_standby)
 		if len(sys.chars[i]) > 0 && !sys.chars[i][0].scf(SCF_disabled) {
 			n += 1
 		}
@@ -4729,8 +4736,9 @@ func (c *Char) destroy() {
 		c.exitTarget()
 		c.receivedDmg = 0
 		c.receivedHits = 0
-		if c.player {
-			sys.charList.p2enemyDelete(c) // Every status change that invalidates the P2 reference must run this
+		if c.playerFlag {
+			// sys.charList.p2enemyDelete(c)
+			sys.charList.enemyNearChanged = true
 		}
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
@@ -5092,13 +5100,10 @@ func (c *Char) setPosX(x float32) {
 		// We do this because Mugen is very sensitive to enemy position changes
 		// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
 		// "P2" enemy reference is less sensitive than this however
-		c.enemyNearP2Clear()
-		if c.player {
-			for i := ^c.playerNo & 1; i < len(sys.chars); i += 2 {
-				for j := range sys.chars[i] {
-					sys.chars[i][j].enemyNearP2Clear()
-				}
-			}
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
 		}
 	}
 }
@@ -5792,7 +5797,7 @@ func (c *Char) targetLifeAdd(tar []int32, add int32, kill, absolute, dizzy, redl
 
 func (c *Char) targetPowerAdd(tar []int32, power int32) {
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.player {
+		if t := sys.playerID(tid); t != nil && t.playerFlag {
 			t.powerAdd(power)
 		}
 	}
@@ -5824,7 +5829,7 @@ func (c *Char) targetRedLifeAdd(tar []int32, add int32, absolute bool) {
 
 func (c *Char) targetScoreAdd(tar []int32, s float32) {
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.player {
+		if t := sys.playerID(tid); t != nil && t.playerFlag {
 			t.scoreAdd(s)
 		}
 	}
@@ -6025,7 +6030,7 @@ func (c *Char) lifeSet(life int32) {
 	c.life = Clamp(life, 0, c.lifeMax)
 	if c.life == 0 {
 		// Check win type
-		if c.player && c.teamside != -1 {
+		if c.playerFlag && c.teamside != -1 {
 			if c.alive() && c.helperIndex == 0 {
 				if c.ss.moveType != MT_H {
 					if c.playerNo == c.ss.sb.playerNo {
@@ -7517,7 +7522,7 @@ func (c *Char) actionPrepare() {
 			c.specialFlag = 0
 			c.inputFlag = 0
 			c.setCSF(CSF_stagebound)
-			if c.player {
+			if c.playerFlag {
 				if c.alive() || c.ss.no != 5150 || c.numPartner() == 0 {
 					c.setCSF(CSF_screenbound | CSF_movecamera_x | CSF_movecamera_y)
 				}
@@ -7590,21 +7595,21 @@ func (c *Char) actionRun() {
 	if !c.pauseBool {
 		// Run state -3
 		c.minus = -3
-		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[2]) {
+		if c.ss.sb.playerNo == c.playerNo && (c.playerFlag || c.keyctrl[2]) {
 			if sb, ok := c.gi().states[-3]; ok {
 				sb.run(c)
 			}
 		}
 		// Run state -2
 		c.minus = -2
-		if c.player || c.keyctrl[1] {
+		if c.playerFlag || c.keyctrl[1] {
 			if sb, ok := c.gi().states[-2]; ok {
 				sb.run(c)
 			}
 		}
 		// Run state -1
 		c.minus = -1
-		if c.ss.sb.playerNo == c.playerNo && (c.player || c.keyctrl[0]) {
+		if c.ss.sb.playerNo == c.playerNo && (c.playerFlag || c.keyctrl[0]) {
 			if sb, ok := c.gi().states[-1]; ok {
 				sb.run(c)
 			}
@@ -7868,7 +7873,6 @@ func (c *Char) actionFinish() {
 	}
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)
-		sys.charList.p2enemyDelete(c)
 	}
 	c.minus = 1
 }
@@ -8493,6 +8497,7 @@ type CharList struct {
 	runOrder            []*Char
 	drawOrder           []*Char
 	idMap               map[int32]*Char
+	enemyNearChanged    bool
 }
 
 func (cl *CharList) clear() {
@@ -9321,13 +9326,13 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 		if hitType > 0 {
 			if Abs(hitType) == 1 {
 				c.powerAdd(hd.hitgetpower)
-				if getter.player {
+				if getter.playerFlag {
 					getter.powerAdd(hd.hitgivepower)
 					getter.ghv.power += hd.hitgivepower
 				}
 			} else {
 				c.powerAdd(hd.guardgetpower)
-				if getter.player {
+				if getter.playerFlag {
 					getter.powerAdd(hd.guardgivepower)
 					getter.ghv.power += hd.guardgivepower
 				}
@@ -9351,7 +9356,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				c.scoreAdd(hd.score[0])
 				getter.ghv.score = hd.score[0] // TODO: The gethitvar refers to the enemy's score, which is counterintuitive
 			}
-			if getter.player {
+			if getter.playerFlag {
 				if !math.IsNaN(float64(hd.score[1])) {
 					getter.scoreAdd(hd.score[1])
 				}
@@ -10255,16 +10260,18 @@ func (cl *CharList) getHelperIndex(c *Char, id int32, log bool) *Char {
 }
 
 // Remove player from P2 references if it becomes invalid (standby etc)
-func (cl *CharList) p2enemyDelete(c *Char) {
-	for _, e := range cl.runOrder {
-		for i, p2cl := range e.p2EnemyList {
-			if p2cl == c {
-				e.p2EnemyList = append(e.p2EnemyList[:i], e.p2EnemyList[i+1:]...)
-				break
-			}
-		}
-	}
-}
+// This function was added to selectively update every player's "P2 enemy" list instead of just clearing them,
+// But because the lists are already being cleared essentially every frame anyway, the performance gain of doing this is lost
+//func (cl *CharList) p2enemyDelete(c *Char) {
+//	for _, e := range cl.runOrder {
+//		for i, p2cl := range e.p2EnemyList {
+//			if p2cl == c {
+//				e.p2EnemyList = append(e.p2EnemyList[:i], e.p2EnemyList[i+1:]...)
+//				break
+//			}
+//		}
+//	}
+//}
 
 // Update enemy near or "P2" lists and return specified index
 // The current approach makes the distance calculation loops only be done when necessary, using cached enemies the rest of the time
@@ -10276,6 +10283,13 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
 		}
 		return nil
+	}
+	// Clear every player's lists if something changed
+	if cl.enemyNearChanged {
+		for _, c := range cl.runOrder {
+			c.enemyNearP2Clear()
+		}
+		cl.enemyNearChanged = false
 	}
 	// Select EnemyNear or P2 cache
 	var cache *[]*Char
@@ -10322,7 +10336,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 	// Search valid enemies
 	for _, e := range cl.runOrder {
-		if e.player && e.teamside >= 0 && e.teamside != c.teamside && !e.scf(SCF_disabled) {
+		if e.playerFlag && e.teamside >= 0 && e.teamside != c.teamside && !e.scf(SCF_disabled) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				addEnemy(e, 0)

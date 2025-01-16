@@ -3623,15 +3623,15 @@ func (c *Char) enemy(n int32) *Char {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy: %v", n))
 		return nil
 	}
-	if c.teamside == -1 {
-		return sys.chars[n][0]
-	}
-	for i := n*2 + int32(^c.playerNo&1); i < sys.numSimul[^c.playerNo&1]*2; i += 2 {
-		if !sys.chars[i][0].scf(SCF_standby) && !sys.chars[i][0].scf(SCF_disabled) {
-			return sys.chars[i][0]
+	var count int32
+	for _, e := range sys.chars {
+		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
+			if count == n {
+				return e[0]
+			}
+			count++
 		}
 	}
-	//return sys.chars[n*2+int32(^c.playerNo&1)][0]
 	return nil
 }
 
@@ -3953,16 +3953,8 @@ func (c *Char) mugenVersionF() float32 {
 
 func (c *Char) numEnemy() int32 {
 	var n int32
-	if c.teamside == -1 {
-		for i := 0; i < int(sys.numSimul[0]+sys.numSimul[1]); i++ {
-			if len(sys.chars[i]) > 0 && !sys.chars[i][0].scf(SCF_standby) && !sys.chars[i][0].scf(SCF_disabled) {
-				n += 1
-			}
-		}
-		return n
-	}
-	for i := ^c.playerNo & 1; i < int(sys.numSimul[^c.playerNo&1]*2); i += 2 {
-		if len(sys.chars[i]) > 0 && !sys.chars[i][0].scf(SCF_standby) && !sys.chars[i][0].scf(SCF_disabled) {
+	for _, e := range sys.chars {
+		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
 			n += 1
 		}
 	}
@@ -8512,7 +8504,7 @@ func (cl *CharList) add(c *Char) {
 	// Append to run order
 	cl.runOrder = append(cl.runOrder, c)
 	c.index = int32(len(cl.runOrder))
-	// If any entries in the draw order are empty, use that one
+	// If any entry in the draw order is empty, use that one
 	i := 0
 	for ; i < len(cl.drawOrder); i++ {
 		if cl.drawOrder[i] == nil {
@@ -8520,7 +8512,7 @@ func (cl *CharList) add(c *Char) {
 			break
 		}
 	}
-	// Otherwise appends to the end
+	// Otherwise append to the end
 	if i >= len(cl.drawOrder) {
 		cl.drawOrder = append(cl.drawOrder, c)
 	}
@@ -8529,17 +8521,17 @@ func (cl *CharList) add(c *Char) {
 
 func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
 	var ok bool
-	// Replace run order
+	// Replace in run order
 	for i, c := range cl.runOrder {
 		if c.playerNo == pn && c.helperIndex == idx {
-			c.index = int32(i) + 1
 			cl.runOrder[i] = dc
+			c.index = int32(i) + 1
 			ok = true
 			break
 		}
 	}
 	if ok {
-		// Replace draw order
+		// Replace in draw order
 		for i, c := range cl.drawOrder {
 			if c.playerNo == pn && c.helperIndex == idx {
 				cl.drawOrder[i] = dc
@@ -10330,7 +10322,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 	// Search valid enemies
 	for _, e := range cl.runOrder {
-		if e.player && e.teamside != c.teamside {
+		if e.player && e.teamside >= 0 && e.teamside != c.teamside && !e.scf(SCF_disabled) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				addEnemy(e, 0)

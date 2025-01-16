@@ -1791,7 +1791,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_pos_x:
 			sys.bcStack.PushF((c.pos[0]*(c.localscl/oc.localscl) - sys.cam.Pos[0]/oc.localscl))
 		case OC_pos_y:
-			sys.bcStack.PushF((c.pos[1] + c.groundLevel - c.platformPosY) * (c.localscl / oc.localscl))
+			sys.bcStack.PushF((c.pos[1] - c.groundLevel - c.platformPosY) * (c.localscl / oc.localscl))
 		case OC_power:
 			sys.bcStack.PushI(c.getPower())
 		case OC_powermax:

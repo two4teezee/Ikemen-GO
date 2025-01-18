@@ -8494,10 +8494,10 @@ func (c *Char) cueDraw() {
 }
 
 type CharList struct {
-	runOrder            []*Char
-	drawOrder           []*Char
-	idMap               map[int32]*Char
-	enemyNearChanged    bool
+	runOrder         []*Char
+	drawOrder        []*Char
+	idMap            map[int32]*Char
+	enemyNearChanged bool
 }
 
 func (cl *CharList) clear() {

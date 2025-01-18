@@ -1709,7 +1709,7 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 		text := strings.Replace(co.text.text, "%i", fmt.Sprintf("%v", co.curhit), 1)
 		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.curdmg), 1)
 		// Truncate the percentage to avoid rounding to 100% unless the enemy is defeated
-		truncatedPct := math.Floor(float64(co.curpct) * math.Pow10(int(co.places))) / math.Pow10(int(co.places))
+		truncatedPct := math.Floor(float64(co.curpct)*math.Pow10(int(co.places))) / math.Pow10(int(co.places))
 		// Split float value
 		s := strings.Split(fmt.Sprintf("%.[2]*[1]f", truncatedPct, co.places), ".")
 		// Decimal separator

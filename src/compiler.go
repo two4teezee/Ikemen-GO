@@ -6789,7 +6789,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 						st = append(st, is[v])
 					}
 				}
-				
+
 			}
 		}
 	}

@@ -518,6 +518,10 @@ type Sprite struct {
 	PalTex        Texture
 }
 
+func (s *Sprite) isBlank() bool {
+	return s.Tex == nil || s.Group < 0 || s.Number < 0 || s.Size[0] == 0 || s.Size[1] == 0
+}
+
 func newSprite() *Sprite {
 	return &Sprite{palidx: -1}
 }

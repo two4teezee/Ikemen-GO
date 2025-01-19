@@ -8589,10 +8589,13 @@ func (c *Char) cueDraw() {
 				//if sd.oldVer {
 				//	soy *= 1.5
 				//}
+				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
+				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
+				// Ikemen works differently and as you'd expect it to
 				charposz := c.interPos[2] * c.localscl
 				sys.shadows.add(&ShadowSprite{sd, -1, sdwalp,
 					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*charposz + charposz}, // Shadow offset
-					[2]float32{c.reflectOffset[0] * c.localscl, c.reflectOffset[1]*c.localscl + sys.stage.reflection.yscale*charposz + charposz},              // Reflection offset
+					[2]float32{c.reflectOffset[0] * c.localscl, (c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*charposz + charposz}, // Reflection offset
 					c.offsetY()}) // Fade offset
 			}
 		}

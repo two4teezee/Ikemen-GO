@@ -3941,7 +3941,6 @@ const (
 )
 
 func (sc stateDef) Run(c *Char) {
-	e := c.p2()
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case stateDef_hitcountpersist:

@@ -780,7 +780,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		l.Push(newUserData(l, NewCommandList(NewCommandBuffer())))
+		l.Push(newUserData(l, NewCommandList(NewInputBuffer())))
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {

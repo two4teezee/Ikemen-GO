@@ -6919,7 +6919,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Initialize command list data
 	if sys.chars[pn][0].cmd == nil {
 		sys.chars[pn][0].cmd = make([]CommandList, MaxSimul*2+MaxAttachedChar)
-		b := NewCommandBuffer()
+		b := NewInputBuffer()
 		for i := range sys.chars[pn][0].cmd {
 			sys.chars[pn][0].cmd[i] = *NewCommandList(b)
 		}

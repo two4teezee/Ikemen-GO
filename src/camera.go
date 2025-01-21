@@ -25,6 +25,7 @@ type stageCamera struct {
 	zoffset                 int32
 	ztopscale               float32
 	zbotscale               float32
+	depthtoscreen           float32
 	topz                    float32
 	botz                    float32
 	startzoom               float32

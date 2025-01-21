@@ -1541,7 +1541,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		zscale := sys.updateZScale(e.pos[2], e.localscl)
 		drawpos[0] *= zscale
 		drawpos[1] *= zscale
-		drawpos[1] += e.interPos[2] * e.localscl
+		drawpos[1] += sys.posZtoY(e.interPos[2], e.localscl)
 		drawscale[0] *= zscale
 		drawscale[1] *= zscale
 	}
@@ -2109,7 +2109,7 @@ func (p *Projectile) cueDraw(oldVer bool, playerNo int) {
 	if sys.zEnabled() {
 		pos[0] *= p.zScale
 		pos[1] *= p.zScale
-		pos[1] += p.interPos[2] * p.localscl
+		pos[1] += sys.posZtoY(p.interPos[2], p.localscl)
 	}
 
 	sprs := &sys.spritesLayer0
@@ -8518,7 +8518,7 @@ func (c *Char) cueDraw() {
 		if sys.zEnabled() {
 			pos[0] *= c.zScale
 			pos[1] *= c.zScale
-			pos[1] += c.interPos[2] * c.localscl
+			pos[1] += sys.posZtoY(c.interPos[2], c.localscl)
 		}
 		//if sys.zEnabled() {
 		//	ratio := float32(1.618) // Possible stage parameter?
@@ -8600,10 +8600,10 @@ func (c *Char) cueDraw() {
 				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
-				charposz := c.interPos[2] * c.localscl
+				drawZoff := sys.posZtoY(c.interPos[2], c.localscl)
 				sys.shadows.add(&ShadowSprite{sd, -1, sdwalp,
-					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*charposz + charposz}, // Shadow offset
-					[2]float32{c.reflectOffset[0] * c.localscl, (c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*charposz + charposz}, // Reflection offset
+					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff}, // Shadow offset
+					[2]float32{c.reflectOffset[0] * c.localscl, (c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff}, // Reflection offset
 					c.offsetY()}) // Fade offset
 			}
 		}

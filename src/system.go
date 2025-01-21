@@ -828,6 +828,11 @@ func (s *System) zEnabled() bool {
 	return s.zmin != s.zmax
 }
 
+// Convert Z logic position to Y drawing position
+func (s *System) posZtoY(z, localscl float32) float32 {
+	return z * localscl * sys.stage.stageCamera.depthtoscreen
+}
+
 // Z axis check
 // Changed to no longer check z enable constant, depends on stage now
 func (s *System) zAxisOverlap(posz1, front1, back1, localscl1, posz2, front2, back2, localscl2 float32) bool {

@@ -824,10 +824,14 @@ func (s *System) updateZScale(pos, localscale float32) float32 {
 	return scale
 }
 
+func (s *System) zEnabled() bool {
+	return s.zmin != s.zmax
+}
+
 // Z axis check
 // Changed to no longer check z enable constant, depends on stage now
 func (s *System) zAxisOverlap(posz1, front1, back1, localscl1, posz2, front2, back2, localscl2 float32) bool {
-	if sys.stage.topbound != sys.stage.botbound {
+	if s.zEnabled() {
 		if (posz1+front1)*localscl1 < (posz2-back2)*localscl2 ||
 			(posz1-back1)*localscl1 > (posz2+front2)*localscl2 {
 			return false
@@ -1500,9 +1504,9 @@ func (s *System) action() {
 
 	// Run "tick frame"
 	if s.tickFrame() {
+		// X axis player limits
 		s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
-		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
-			float32(s.gameWidth)/s.cam.Scale - s.screenright
+		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +	float32(s.gameWidth)/s.cam.Scale - s.screenright
 		if s.xmin > s.xmax {
 			s.xmin = (s.xmin + s.xmax) / 2
 			s.xmax = s.xmin
@@ -1513,6 +1517,7 @@ func (s *System) action() {
 		if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
 			s.xmin = s.cam.minLeft
 		}
+		// Z axis player limits
 		s.zmin = s.stage.topbound * s.stage.localscl
 		s.zmax = s.stage.botbound * s.stage.localscl
 		s.allPalFX.step()

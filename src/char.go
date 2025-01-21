@@ -1537,7 +1537,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	drawscale := [2]float32{facing * scale[0] * e.localscl, e.vfacing * scale[1] * e.localscl}
 
 	// Apply Z axis perspective
-	if e.space == Space_stage && sys.zmin != sys.zmax {
+	if e.space == Space_stage && sys.zEnabled() {
 		zscale := sys.updateZScale(e.pos[2], e.localscl)
 		drawpos[0] *= zscale
 		drawpos[1] *= zscale
@@ -2106,7 +2106,7 @@ func (p *Projectile) cueDraw(oldVer bool, playerNo int) {
 		p.scale[1] * p.localscl * p.zScale}
 
 	// Apply Z axis perspective
-	if sys.zmin != sys.zmax {
+	if sys.zEnabled() {
 		pos[0] *= p.zScale
 		pos[1] *= p.zScale
 		pos[1] += p.interPos[2] * p.localscl
@@ -5219,12 +5219,20 @@ func (c *Char) setPosX(x float32) {
 	}
 }
 
-func (c *Char) setPosY(y float32) { // These functions mostly exist right now so we don't forget to use setPosX for X
+func (c *Char) setPosY(y float32) { // This function mostly exists right now so we don't forget to use the other two
 	c.pos[1] = y
 }
 
 func (c *Char) setPosZ(z float32) {
 	c.pos[2] = z
+	// Z distance is also factored into enemy near lists
+	if sys.zEnabled() {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+	}
 }
 
 func (c *Char) posReset() {
@@ -8507,12 +8515,12 @@ func (c *Char) cueDraw() {
 			c.size.yscale * c.zScale * (320 / c.localcoord)}
 
 		// Apply Z axis perspective
-		if sys.zmin != sys.zmax {
+		if sys.zEnabled() {
 			pos[0] *= c.zScale
 			pos[1] *= c.zScale
 			pos[1] += c.interPos[2] * c.localscl
 		}
-		//if sys.zmin != sys.zmax {
+		//if sys.zEnabled() {
 		//	ratio := float32(1.618) // Possible stage parameter?
 		//	pos[0] *= 1 + (ratio-1)*(c.zScale-1)
 		//	pos[1] *= 1 + (ratio-1)*(c.zScale-1)
@@ -10154,9 +10162,9 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Determine in which axes to push the players
 				// This needs to check both if the players have velocity or if their positions have changed
-				pushx := sys.zmin == sys.zmax || c.pos[2] == getter.pos[2] ||
+				pushx := !sys.zEnabled() || c.pos[2] == getter.pos[2] ||
 					getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
-				pushz := sys.zmin != sys.zmax &&
+				pushz := sys.zEnabled() &&
 					(getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2])
 
 				if pushx {
@@ -10427,17 +10435,39 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 				return
 			}
 			// Otherwise compare the distances between the player and the next and previous enemies
-			distNext := c.distX(e, c) * c.facing
+			distNextX := c.distX(e, c) * c.facing
 			prevEnemy := (*cache)[i]
-			distPrev := c.distX(prevEnemy, c) * c.facing
+			distPrevX := c.distX(prevEnemy, c) * c.facing
+			// If Z axis is disabled we only use the X component
+			distNext := distNextX
+			distPrev := distPrevX
+			// Otherwise factor in the Z distance
+			if sys.zEnabled() {
+				distNextZ := c.distZ(e, c)
+				distPrevZ := c.distZ(prevEnemy, c)
+				// Calculate the hypotenuse
+				distNext = float32(math.Sqrt(float64(distNext*distNext + distNextZ*distNextZ)))
+				distPrev = float32(math.Sqrt(float64(distPrev*distPrev + distPrevZ*distPrevZ)))
+				// Keep the sign of the most significant component
+				if AbsF(distNextX) >= AbsF(distNextZ) {
+					distNext *= SignF(distNextX)
+				} else {
+					distNext *= SignF(distNextZ)
+				}
+				if AbsF(distPrevX) >= AbsF(distPrevZ) {
+					distPrev *= SignF(distPrevX)
+				} else {
+					distPrev *= SignF(distPrevZ)
+				}
+			}
 			// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
 			// This makes the player turn less frequently when surrounded
 			// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
 			if p2list {
-				if distNext < 0 {
+				if distNextX < 0 {
 					distNext -= 30
 				}
-				if distPrev < 0 {
+				if distPrevX < 0 {
 					distPrev -= 30
 				}
 			}

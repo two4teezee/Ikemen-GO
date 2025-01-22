@@ -86,6 +86,7 @@ type Config struct {
 				Wins int32 `ini:"Wins"`
 			} `ini:"Match"`
 			LoseOnKO bool `ini:"LoseOnKO"`
+			TimeScaling float32 `ini:"TimeScaling"`
 		} `ini:"Tag"`
 		Turns struct {
 			Min      int `ini:"Min"`

@@ -3076,25 +3076,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv1.SetI(idx + 1)
 		}
 
-		// bv3 := BytecodeInt(0)
-		// if isFlag {
-		// 	if err := eqne2(func(not bool) error {
-		// 		if flg, err := flagSub(); err != nil {
-		// 			return err
-		// 		} else {
-		// 			if not {
-		// 				bv3 = BytecodeInt(^flg)
-		// 			} else {
-		// 				bv3 = BytecodeInt(flg)
-		// 			}
-		// 		}
-		// 		return nil
-		// 	}); err != nil {
-		// 		return bvNone(), err
-		// 	}
-		// }
-
-		// be3.appendValue(bv3)
 		be2.appendValue(bv2)
 		be1.appendValue(bv1)
 
@@ -3104,7 +3085,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			be1.append(OC_jz8, OpCode(len(be2)+1))
 		}
 		be1.append(be2...)
-		// be1.append(be3...)
 
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))

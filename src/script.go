@@ -4739,7 +4739,7 @@ func triggerFunctions(l *lua.LState) {
 			ch = sys.debugWC.soundChannels.Get(id)
 		}
 
-		if ch.sfx != nil {
+		if ch != nil && ch.sfx != nil {
 			switch strings.ToLower(vname) {
 			case "group":
 				lv = lua.LNumber(ch.group)

@@ -1153,7 +1153,7 @@ function start.f_playWave(ref, name, g, n, loops)
 		if main.t_selStages[ref][name .. '_wave_data'] == nil then
 			main.t_selStages[ref][name .. '_wave_data'] = getWaveData(a.dir .. a.sound, g, n, loops or -1)
 		end
-		wavePlay(main.t_selStages[ref][name .. '_wave_data'])
+		wavePlay(main.t_selStages[ref][name .. '_wave_data'], g, n)
 	else
 		local sound = start.f_getCharData(ref).sound
 		if sound == nil or sound == '' then
@@ -1162,7 +1162,7 @@ function start.f_playWave(ref, name, g, n, loops)
 		if start.f_getCharData(ref)[name .. '_wave_data'] == nil then
 			start.f_getCharData(ref)[name .. '_wave_data'] = getWaveData(start.f_getCharData(ref).dir .. sound, g, n, loops or -1)
 		end
-		wavePlay(start.f_getCharData(ref)[name .. '_wave_data'])
+		wavePlay(start.f_getCharData(ref)[name .. '_wave_data'], g, n)
 	end
 end
 

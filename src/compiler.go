@@ -1810,8 +1810,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_draw_offset_x)
 		case "size.draw.offset.y":
 			out.append(OC_const_size_draw_offset_y)
-		case "size.depth":
-			out.append(OC_const_size_depth)
+		case "size.depth.front":
+			out.append(OC_const_size_depth_front)
+		case "size.depth.back":
+			out.append(OC_const_size_depth_back)
 		case "size.weight":
 			out.append(OC_const_size_weight)
 		case "size.pushfactor":

@@ -289,7 +289,8 @@ const (
 	OC_const_size_shadowoffset
 	OC_const_size_draw_offset_x
 	OC_const_size_draw_offset_y
-	OC_const_size_depth
+	OC_const_size_depth_front
+	OC_const_size_depth_back
 	OC_const_size_weight
 	OC_const_size_pushfactor
 	OC_const_velocity_walk_fwd_x
@@ -2029,8 +2030,10 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.draw.offset[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_draw_offset_y:
 		sys.bcStack.PushF(c.size.draw.offset[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_depth:
-		sys.bcStack.PushF(c.size.depth * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_depth_front:
+		sys.bcStack.PushF(c.size.depth[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_depth_back:
+		sys.bcStack.PushF(c.size.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_weight:
 		sys.bcStack.PushI(c.size.weight)
 	case OC_const_size_pushfactor:
@@ -4731,7 +4734,10 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_size_shadowoffset:
 			h.size.shadowoffset = exp[0].evalF(c)
 		case helper_size_depth:
-			h.size.depth = exp[0].evalF(c)
+			h.size.depth[0] = exp[0].evalF(c)
+			if len(exp) > 1 {
+				h.size.depth[1] = exp[1].evalF(c)
+			}
 		case helper_size_weight:
 			h.size.weight = exp[0].evalI(c)
 		case helper_size_pushfactor:

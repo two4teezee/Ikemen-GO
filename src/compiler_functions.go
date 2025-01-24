@@ -268,6 +268,31 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "flag4", false, func(data string) error {
+			return foo(data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "flag5", false, func(data string) error {
+			return foo(data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "flag6", false, func(data string) error {
+			return foo(data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "flag7", false, func(data string) error {
+			return foo(data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "flag8", false, func(data string) error {
+			return foo(data)
+		}); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -615,7 +640,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			return err
 		}
 		if err := c.paramValue(is, sc, "size.depth",
-			helper_size_depth, VT_Int, 1, false); err != nil {
+			helper_size_depth, VT_Int, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "size.weight",

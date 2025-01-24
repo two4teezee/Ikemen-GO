@@ -304,7 +304,7 @@ type CharSize struct {
 	draw         struct {
 		offset [2]float32
 	}
-	depth      float32 // Former depth
+	depth      [2]float32 // Former depth
 	weight     int32
 	pushfactor float32
 }
@@ -332,7 +332,7 @@ func (cs *CharSize) init() {
 	cs.mid.pos = [...]float32{-5, -60}
 	cs.shadowoffset = 0
 	cs.draw.offset = [...]float32{0, 0}
-	cs.depth = 3
+	cs.depth = [...]float32{4, 4}
 	cs.attack.depth.front = 4
 	cs.attack.depth.back = 4
 	cs.weight = 100
@@ -2865,7 +2865,8 @@ func (c *Char) load(def string) error {
 		c.size.shadowoffset *= coordRatio
 		c.size.draw.offset[0] *= coordRatio
 		c.size.draw.offset[1] *= coordRatio
-		c.size.depth *= coordRatio
+		c.size.depth[0] *= coordRatio
+		c.size.depth[1] *= coordRatio
 		c.size.attack.depth.front *= coordRatio
 		c.size.attack.depth.back *= coordRatio
 	}
@@ -3005,7 +3006,7 @@ func (c *Char) load(def string) error {
 						is.ReadF32("shadowoffset", &c.size.shadowoffset)
 						is.ReadF32("draw.offset",
 							&c.size.draw.offset[0], &c.size.draw.offset[1])
-						is.ReadF32("depth", &c.size.depth)
+						is.ReadF32("depth", &c.size.depth[0], &c.size.depth[1])
 						is.ReadF32("attack.depth", &c.size.attack.depth.front, &c.size.attack.depth.back)
 						is.ReadI32("weight", &c.size.weight)
 						is.ReadF32("pushfactor", &c.size.pushfactor)
@@ -6370,10 +6371,10 @@ func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
 }
 
 func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
-	ctop := (c.pos[2] - c.size.depth) * c.localscl
-	cbot := (c.pos[2] + c.size.depth) * c.localscl
-	otop := (opp.pos[2] - opp.size.depth) * opp.localscl
-	obot := (opp.pos[2] + opp.size.depth) * opp.localscl
+	cbot := (c.pos[2] + c.size.depth[0]) * c.localscl
+	ctop := (c.pos[2] - c.size.depth[1]) * c.localscl
+	obot := (opp.pos[2] + opp.size.depth[0]) * opp.localscl
+	otop := (opp.pos[2] - opp.size.depth[1]) * opp.localscl
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7519,7 +7520,7 @@ func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj boo
 				getter.attrCheck(hd, c, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
-					getter.pos[2], getter.size.depth, getter.size.depth, getter.localscl)
+					getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl)
 		}
 	}
 
@@ -9834,7 +9835,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 
 					if getter.projClsnCheck(p, p.hitdef.p2clsncheck, 1) &&
 						sys.zAxisOverlap(p.pos[2], p.hitdef.attack.depth[0], p.hitdef.attack.depth[1], p.localscl,
-							getter.pos[2], getter.size.depth, getter.size.depth, getter.localscl) {
+							getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl) {
 
 						if ht := hitTypeGet(c, &p.hitdef, [...]float32{p.pos[0] - c.pos[0]*(c.localscl/p.localscl),
 							p.pos[1] - c.pos[1]*(c.localscl/p.localscl), p.pos[2] - c.pos[2]*(c.localscl/p.localscl)},
@@ -9956,7 +9957,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 							getter.pos[2], getter.hitdef.attack.depth[0], getter.hitdef.attack.depth[1], getter.localscl)
 					} else {
 						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
-							getter.pos[2], getter.size.depth, getter.size.depth, getter.localscl)
+							getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl)
 					}
 
 					// If collision OK then get the hit type and act accordingly
@@ -10108,11 +10109,11 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			czback := c.pos[2]*c.localscl - c.size.depth*c.localscl
-			czfront := c.pos[2]*c.localscl + c.size.depth*c.localscl
-
-			gzback := getter.pos[2]*getter.localscl - getter.size.depth*getter.localscl
-			gzfront := getter.pos[2]*getter.localscl + getter.size.depth*getter.localscl
+			czfront := c.pos[2]*c.localscl + c.size.depth[0]*c.localscl
+			czback := c.pos[2]*c.localscl - c.size.depth[1]*c.localscl
+			
+			gzfront := getter.pos[2]*getter.localscl + getter.size.depth[0]*getter.localscl
+			gzback := getter.pos[2]*getter.localscl - getter.size.depth[1]*getter.localscl
 
 			// Z axis fail
 			if gzback >= czfront || czback >= gzfront {

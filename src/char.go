@@ -1842,17 +1842,18 @@ func (p *Projectile) update(playerNo int) {
 		if p.anim >= 0 {
 			if !p.remflag {
 				remove := true
+				root := sys.chars[playerNo][0]
 				if p.hits < 0 {
 					// Remove behavior
 					if p.hits == -1 && p.remove {
 						if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
-							p.ani = sys.chars[playerNo][0].getAnim(p.hitanim, p.hitanim_ffx, true)
+							p.ani = root.getAnim(p.hitanim, p.hitanim_ffx, true)
 						}
 					}
 					// Cancel behavior
 					if p.hits == -2 {
 						if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
-							p.ani = sys.chars[playerNo][0].getAnim(p.cancelanim, p.cancelanim_ffx, true)
+							p.ani = root.getAnim(p.cancelanim, p.cancelanim_ffx, true)
 						}
 					}
 				} else if p.removetime == 0 ||
@@ -1866,7 +1867,7 @@ func (p *Projectile) update(playerNo int) {
 					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
 					if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
-						p.ani = sys.chars[playerNo][0].getAnim(p.remanim, p.remanim_ffx, true)
+						p.ani = root.getAnim(p.remanim, p.remanim_ffx, true)
 					}
 				} else {
 					remove = false
@@ -1885,7 +1886,8 @@ func (p *Projectile) update(playerNo int) {
 					p.accel = [3]float32{0, 0, 0}
 					p.velmul = [3]float32{1, 1, 1}
 					p.anim = -1
-					// In Mugen, projectiles can hit even after their removetime expires - https://github.com/ikemen-engine/Ikemen-GO/issues/1362
+					// In Mugen, projectiles can hit even after their removetime expires
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 					//if p.hits >= 0 {
 					//	p.hits = -1
 					//}
@@ -3991,7 +3993,8 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = eid.ToI(), 0
-	for _, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			n++
 		}
@@ -4317,7 +4320,8 @@ func (c *Char) numProj() int32 {
 		return 0
 	}
 	n := int32(0)
-	for _, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -4334,7 +4338,8 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 		return BytecodeInt(0)
 	}
 	var id, n int32 = Max(0, pid.ToI()), 0
-	for _, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -5059,9 +5064,10 @@ func (c *Char) newExplod() (*Explod, int) {
 }
 
 func (c *Char) getExplods(id int32) (expls []*Explod) {
-	for i, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
-			expls = append(expls, &sys.explods[c.playerNo][i])
+			expls = append(expls, e)
 		}
 	}
 	return
@@ -5126,7 +5132,8 @@ func (c *Char) insertExplod(i int) {
 }
 
 func (c *Char) explodBindTime(id, time int32) {
-	for i, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			sys.explods[c.playerNo][i].bindtime = time
 		}
@@ -5323,11 +5330,11 @@ func (c *Char) hitAdd(h int32) {
 func (c *Char) newProj() *Projectile {
 	var p *Projectile
 
-	// Loop through the player's projectile slots to find an inactive one
-	for i, old := range sys.projs[c.playerNo] {
-		if old.id < 0 {
+	// Reuse inactive projectile slot if available
+	for i := range sys.projs[c.playerNo] {
+		if sys.projs[c.playerNo][i].id < 0 {
 			p = &sys.projs[c.playerNo][i]
-			p.clear()
+			sys.projs[c.playerNo][i].clear()
 			break
 		}
 	}
@@ -5348,7 +5355,7 @@ func (c *Char) newProj() *Projectile {
 		p.id = 0
 		p.layerno = c.layerNo
 		p.palfx = c.getPalfx()
-		// Initialize projectile Hitdef. Must be placed after localscl is defined
+		// Initialize projectile Hitdef. Must be placed after its localscl is defined
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
 		p.hitdef.clear(p.localscl)
 		p.hitdef.isprojectile = true
@@ -5405,9 +5412,10 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for i, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
-			projs = append(projs, &sys.projs[c.playerNo][i])
+			projs = append(projs, p)
 		}
 	}
 	return
@@ -8728,8 +8736,8 @@ func (cl *CharList) commandUpdate() {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based input buffers
 					if c.inputWait() || c.asf(ASF_noinput) {
-						for _, cmd := range c.cmd {
-							cmd.BufReset()
+						for i := range c.cmd {
+							c.cmd[i].BufReset()
 						}
 						continue
 					}
@@ -8754,8 +8762,8 @@ func (cl *CharList) commandUpdate() {
 						}
 					}
 					// Update commands
-					for _, cmd := range c.cmd {
-						cmd.Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
+					for i := range c.cmd {
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat
@@ -9714,7 +9722,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 	// Projectile hitting player check
 	// TODO: Disable projectiles if player is disabled?
 	if proj {
-		for i, pr := range sys.projs {
+		for i := range sys.projs {
 			if len(sys.projs[i]) == 0 {
 				continue
 			}
@@ -9722,8 +9730,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 			orgatktmp := c.atktmp
 			c.atktmp = -1
 			ap_projhit := false
-			for j := range pr {
-				p := &pr[j]
+			for j := range sys.projs[i] {
+				p := &sys.projs[i][j]
 
 				// Skip if projectile can't hit
 				if p.id < 0 || p.hits <= 0 {

@@ -421,14 +421,14 @@ func (hb *HealthBar) reset() {
 	hb.bg2.Reset()
 	hb.top.Reset()
 	hb.mid.Reset()
-	for _, v := range hb.front {
-		v.Reset()
+	for i := range hb.front {
+		hb.front[i].Reset()
 	}
 	hb.shift.Reset()
 	hb.shift.anim.srcAlpha = 0
 	hb.shift.anim.dstAlpha = 255
-	for _, v := range hb.red {
-		v.Reset()
+	for i := range hb.red {
+		hb.red[i].Reset()
 	}
 	hb.warn.Reset()
 }
@@ -647,15 +647,15 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 }
 
 func (pb *PowerBar) reset() {
-	for _, v := range pb.bg0 {
-		v.Reset()
+	for i := range pb.bg0 {
+		pb.bg0[i].Reset()
 	}
 	pb.bg1.Reset()
 	pb.bg2.Reset()
 	pb.top.Reset()
 	pb.mid.Reset()
-	for _, v := range pb.front {
-		v.Reset()
+	for i := range pb.front {
+		pb.front[i].Reset()
 	}
 	pb.shift.Reset()
 	pb.shift.anim.srcAlpha = 0
@@ -1018,8 +1018,8 @@ func (sb *StunBar) reset() {
 	sb.bg2.Reset()
 	sb.top.Reset()
 	sb.mid.Reset()
-	for _, v := range sb.front {
-		v.Reset()
+	for i := range sb.front {
+		sb.front[i].Reset()
 	}
 	sb.shift.Reset()
 	sb.shift.anim.srcAlpha = 255
@@ -4254,34 +4254,34 @@ func (l *Lifebar) reset() {
 			l.order[ti] = append(l.order[ti], i)
 		}
 	}
-	for _, hb := range l.hb {
-		for i := range hb {
-			hb[i].reset()
+	for i := range l.hb {
+		for j := range l.hb[i] {
+			l.hb[i][j].reset()
 		}
 	}
-	for _, pb := range l.pb {
-		for i := range pb {
-			pb[i].reset()
+	for i := range l.pb {
+		for j := range l.pb[i] {
+			l.pb[i][j].reset()
 		}
 	}
-	for _, gb := range l.gb {
-		for i := range gb {
-			gb[i].reset()
+	for i := range l.gb {
+		for j := range l.gb[i] {
+			l.gb[i][j].reset()
 		}
 	}
-	for _, sb := range l.sb {
-		for i := range sb {
-			sb[i].reset()
+	for i := range l.sb {
+		for j := range l.sb[i] {
+			l.sb[i][j].reset()
 		}
 	}
-	for _, fa := range l.fa {
-		for i := range fa {
-			fa[i].reset()
+	for i := range l.fa {
+		for j := range l.fa[i] {
+			l.fa[i][j].reset()
 		}
 	}
-	for _, nm := range l.nm {
-		for i := range nm {
-			nm[i].reset()
+	for i := range l.nm {
+		for j := range l.nm[i] {
+			l.nm[i][j].reset()
 		}
 	}
 	for i := range l.wi {

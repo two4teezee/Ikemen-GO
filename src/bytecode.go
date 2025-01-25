@@ -3941,6 +3941,7 @@ const (
 )
 
 func (sc stateDef) Run(c *Char) {
+	e := c.p2()
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case stateDef_hitcountpersist:
@@ -3959,7 +3960,7 @@ func (sc stateDef) Run(c *Char) {
 			c.sprPriority = exp[0].evalI(c)
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
-			if exp[0].evalB(c) && c.rdDistX(c.p2(), c).ToF() < 0 {
+			if exp[0].evalB(c) && c.rdDistX(e, c).ToF() < 0 && !e.asf(ASF_noturntarget) {
 				if sys.stage.autoturn && !c.asf(ASF_noautoturn) {
 					c.setFacing(-c.facing)
 				}

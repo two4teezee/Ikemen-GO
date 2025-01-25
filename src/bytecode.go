@@ -3960,7 +3960,7 @@ func (sc stateDef) Run(c *Char) {
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
 			if exp[0].evalB(c) && c.rdDistX(c.p2(), c).ToF() < 0 {
-				if !c.asf(ASF_noautoturn) || !c.asf(ASF_noturntarget) || !sys.stage.autoturn {
+				if sys.stage.autoturn && !c.asf(ASF_noautoturn) && !c.asf(ASF_noturntarget) {
 					c.setFacing(-c.facing)
 				}
 			}

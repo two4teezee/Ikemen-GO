@@ -3959,8 +3959,10 @@ func (sc stateDef) Run(c *Char) {
 			c.sprPriority = exp[0].evalI(c)
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
-			if exp[0].evalB(c) && c.rdDistX(e, c).ToF() < 0 && !e.asf(ASF_noturntarget) {
-				if sys.stage.autoturn && !c.asf(ASF_noautoturn) {
+			if exp[0].evalB(c) {
+				e := c.p2()
+				if e != nil && !e.asf(ASF_noturntarget) && c.rdDistX(e, c).ToF() < 0 &&
+					!c.asf(ASF_noautoturn) && sys.stage.autoturn {
 					c.setFacing(-c.facing)
 				}
 			}
@@ -11868,6 +11870,10 @@ const (
 	modifyPlayer_lifebarname
 	modifyPlayer_helperid
 	modifyPlayer_helpername
+	modifyPlayer_movehit
+	modifyPlayer_moveguarded
+	modifyPlayer_movereversed
+	modifyPlayer_movecountered
 	modifyPlayer_redirectid
 )
 
@@ -11935,6 +11941,17 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 				hn := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 				crun.name = hn
 			}
+		case modifyPlayer_movehit:
+			crun.mctype = MC_Hit
+			crun.mctime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_moveguarded:
+			crun.mctype = MC_Guarded
+			crun.mctime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_movereversed:
+			crun.mctype = MC_Reversed
+			crun.mctime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_movecountered:
+			crun.counterHit = exp[0].evalB(c)
 		case modifyPlayer_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -12178,43 +12195,6 @@ func (sc transformClsn) Run(c *Char, _ []int32) bool {
 		case transformClsn_angle:
 			crun.clsnAngle += exp[0].evalF(c)
 		case transformClsn_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				crun = rid
-			} else {
-				return false
-			}
-		}
-		return true
-	})
-	return false
-}
-
-type moveHitSet StateControllerBase
-
-const (
-	moveHitSet_movehit byte = iota
-	moveHitSet_moveguarded
-	moveHitSet_movereversed
-	moveHitSet_movecountered
-	moveHitSet_redirectid
-)
-
-func (sc moveHitSet) Run(c *Char, _ []int32) bool {
-	crun := c
-	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
-		switch id {
-		case moveHitSet_movehit:
-			crun.mctype = MC_Hit
-			crun.mctime = Max(0, exp[0].evalI(c))
-		case moveHitSet_moveguarded:
-			crun.mctype = MC_Guarded
-			crun.mctime = Max(0, exp[0].evalI(c))
-		case moveHitSet_movereversed:
-			crun.mctype = MC_Reversed
-			crun.mctime = Max(0, exp[0].evalI(c))
-		case moveHitSet_movecountered:
-			crun.counterHit = exp[0].evalB(c)
-		case moveHitSet_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 			} else {

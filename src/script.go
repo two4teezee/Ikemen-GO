@@ -3410,8 +3410,10 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.draw.offset[0])
 		case "size.draw.offset.y":
 			ln = lua.LNumber(c.size.draw.offset[1])
-		case "size.depth":
-			ln = lua.LNumber(c.size.depth)
+		case "size.depth.front":
+			ln = lua.LNumber(c.size.depth[0])
+		case "size.depth.back":
+			ln = lua.LNumber(c.size.depth[1])
 		case "size.weight":
 			ln = lua.LNumber(c.size.weight)
 		case "size.pushfactor":

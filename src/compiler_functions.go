@@ -5372,6 +5372,18 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyPlayer_movecountered, VT_Bool, 1, false); err != nil { // Formerly MoveHitSet
 			return err
 		}
+		if err := c.paramValue(is, sc, "hitpausetime",
+			modifyPlayer_hitpausetime, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "pausemovetime",
+			modifyPlayer_pausemovetime, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "supermovetime",
+			modifyPlayer_supermovetime, VT_Int, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

@@ -11874,6 +11874,9 @@ const (
 	modifyPlayer_moveguarded
 	modifyPlayer_movereversed
 	modifyPlayer_movecountered
+	modifyPlayer_hitpausetime
+	modifyPlayer_pausemovetime
+	modifyPlayer_supermovetime
 	modifyPlayer_redirectid
 )
 
@@ -11952,6 +11955,12 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 			crun.mctime = Max(0, exp[0].evalI(c))
 		case modifyPlayer_movecountered:
 			crun.counterHit = exp[0].evalB(c)
+		case modifyPlayer_hitpausetime:
+			crun.hitPauseTime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_pausemovetime:
+			crun.pauseMovetime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_supermovetime:
+			crun.superMovetime = Max(0, exp[0].evalI(c))
 		case modifyPlayer_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

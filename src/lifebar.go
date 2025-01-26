@@ -1285,7 +1285,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 				// Draw face
 				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebarOffsetX)*sys.lifebarScale, y*sys.lifebarScale, layerno, far.teammate_face[i], nil,
 					far.teammate_scale[i]*sys.lifebarPortraitScale, &fa.teammate_face_lay.window)
-				// Draw KO layer						
+				// Draw KO layer
 				if i < fa.numko {
 					fa.teammate_ko.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
 				}

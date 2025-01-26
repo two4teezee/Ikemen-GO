@@ -10111,7 +10111,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 			czfront := c.pos[2]*c.localscl + c.size.depth[0]*c.localscl
 			czback := c.pos[2]*c.localscl - c.size.depth[1]*c.localscl
-			
+
 			gzfront := getter.pos[2]*getter.localscl + getter.size.depth[0]*getter.localscl
 			gzback := getter.pos[2]*getter.localscl - getter.size.depth[1]*getter.localscl
 

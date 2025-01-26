@@ -410,6 +410,7 @@ func (pl *PaletteList) GetPalMap() []int {
 	copy(pm, pl.paletteMap)
 	return pm
 }
+
 func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 	if len(*palMap) != len(pl.paletteMap) {
 		return false
@@ -516,6 +517,10 @@ type Sprite struct {
 	coldepth      byte
 	paltemp       []uint32
 	PalTex        Texture
+}
+
+func (s *Sprite) isBlank() bool {
+	return s.Tex == nil || s.Group < 0 || s.Number < 0 || s.Size[0] == 0 || s.Size[1] == 0
 }
 
 func newSprite() *Sprite {
@@ -665,6 +670,7 @@ func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 	}
 	return pl.Get(int(s.palidx)) //pl.palettes[pl.paletteMap[int(s.palidx)]]
 }
+
 func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
 	if s.coldepth > 8 {
 		return nil
@@ -1126,8 +1132,8 @@ func (s *Sprite) readV2(f *os.File, offset int64, datasize uint32) error {
 	return nil
 }
 
-// Cache the provided palette data in a sprite. But first check if the
-// previously stored one is still valid.
+// Compare current palette to previous one and reuse if possible
+// This saves a lot of palette operations when the same player has many sprites on screen
 func (s *Sprite) CachePalette(pal []uint32) Texture {
 	hasPalette := true
 	if s.PalTex == nil || len(pal) != len(s.paltemp) {
@@ -1140,10 +1146,10 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 			}
 		}
 	}
-	// If cached texture is invalid, generate a new one
+	// If cached texture is invalid, generate a new one and cache it
 	if !hasPalette {
 		s.PalTex = PaletteToTexture(pal)
-		s.paltemp = append([]uint32{}, pal...)
+		s.paltemp = pal
 	}
 	return s.PalTex
 }

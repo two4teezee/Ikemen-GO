@@ -183,6 +183,10 @@ type Animation struct {
 	start_scale                [2]float32
 }
 
+func (a *Animation) isBlank() bool {
+	return a.scale_x == 0 || a.scale_y == 0 || a.srcAlpha == 0 || a.spr == nil || a.spr.isBlank()
+}
+
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 	return &Animation{sff: sff, palettedata: pal, mask: -1, srcAlpha: -1, newframe: true,
 		remap: make(RemapPreset), start_scale: [...]float32{1, 1}}
@@ -669,10 +673,12 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, old bool, facing float32,
 	isReflection bool, airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32) {
-	// Skip blank sprites
-	if a.spr == nil || a.spr.Tex == nil || xs == 0 || ys == 0 {
+
+	// Skip blank animations
+	if a == nil || a.isBlank() {
 		return
 	}
+
 	h, v, angle := a.drawSub1(rot.angle, facing)
 	if isReflection {
 		angle = -angle
@@ -770,10 +776,12 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 
 func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd float32, rot Rotation,
 	pfx *PalFX, old bool, color uint32, alpha int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32) {
+
 	// Skip blank shadows
-	if a.spr == nil || a.spr.Tex == nil {
+	if a == nil || a.isBlank() {
 		return
 	}
+
 	h, v, angle := a.drawSub1(rot.angle, facing)
 	rot.angle = angle
 	if yscl < 0 && rot.angle != 0 {
@@ -930,10 +938,15 @@ type SprData struct {
 	window       [4]float32
 }
 
+func (sd *SprData) isBlank() bool {
+	return sd.scl[0] == 0 || sd.scl[1] == 0 || sd.alpha[0] == 0 || sd.anim == nil || sd.anim.isBlank()
+}
+
 type DrawList []*SprData
 
 func (dl *DrawList) add(sd *SprData) {
-	if sys.frameSkip || sd.anim == nil || sd.anim.spr == nil {
+	// Ignore if skipping the frame or adding a blank sprite
+	if sys.frameSkip || sd.isBlank() {
 		return
 	}
 	if sd.rot.angle != 0 {
@@ -1021,9 +1034,8 @@ type ShadowSprite struct {
 type ShadowList []*ShadowSprite
 
 func (sl *ShadowList) add(ss *ShadowSprite) {
-
-	// Skip blank shadows
-	if ss.SprData == nil || ss.SprData.anim == nil || ss.SprData.anim.spr == nil {
+	// Ignore if skipping the frame or adding a blank sprite
+	if sys.frameSkip || ss.SprData == nil || ss.SprData.isBlank() {
 		return
 	}
 
@@ -1049,7 +1061,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 	for _, s := range sl {
 
 		// Skip blank shadows
-		if s.anim == nil || s.anim.spr == nil {
+		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue
 		}
 
@@ -1127,8 +1139,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 	for _, s := range sl {
 
 		// Skip blank reflections
-		if s.anim == nil || s.anim.spr == nil {
-			return
+		if s == nil || s.anim == nil || s.anim.isBlank() {
+			continue
 		}
 
 		if s.alpha[0] < 0 {

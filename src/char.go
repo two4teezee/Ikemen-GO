@@ -1537,11 +1537,11 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	drawscale := [2]float32{facing * scale[0] * e.localscl, e.vfacing * scale[1] * e.localscl}
 
 	// Apply Z axis perspective
-	if e.space == Space_stage && sys.zmin != sys.zmax {
+	if e.space == Space_stage && sys.zEnabled() {
 		zscale := sys.updateZScale(e.pos[2], e.localscl)
 		drawpos[0] *= zscale
 		drawpos[1] *= zscale
-		drawpos[1] += e.interPos[2] * e.localscl
+		drawpos[1] += sys.posZtoY(e.interPos[2], e.localscl)
 		drawscale[0] *= zscale
 		drawscale[1] *= zscale
 	}
@@ -1842,17 +1842,18 @@ func (p *Projectile) update(playerNo int) {
 		if p.anim >= 0 {
 			if !p.remflag {
 				remove := true
+				root := sys.chars[playerNo][0]
 				if p.hits < 0 {
 					// Remove behavior
 					if p.hits == -1 && p.remove {
 						if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
-							p.ani = sys.chars[playerNo][0].getAnim(p.hitanim, p.hitanim_ffx, true)
+							p.ani = root.getAnim(p.hitanim, p.hitanim_ffx, true)
 						}
 					}
 					// Cancel behavior
 					if p.hits == -2 {
 						if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
-							p.ani = sys.chars[playerNo][0].getAnim(p.cancelanim, p.cancelanim_ffx, true)
+							p.ani = root.getAnim(p.cancelanim, p.cancelanim_ffx, true)
 						}
 					}
 				} else if p.removetime == 0 ||
@@ -1866,7 +1867,7 @@ func (p *Projectile) update(playerNo int) {
 					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
 					if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
-						p.ani = sys.chars[playerNo][0].getAnim(p.remanim, p.remanim_ffx, true)
+						p.ani = root.getAnim(p.remanim, p.remanim_ffx, true)
 					}
 				} else {
 					remove = false
@@ -1885,7 +1886,8 @@ func (p *Projectile) update(playerNo int) {
 					p.accel = [3]float32{0, 0, 0}
 					p.velmul = [3]float32{1, 1, 1}
 					p.anim = -1
-					// In Mugen, projectiles can hit even after their removetime expires - https://github.com/ikemen-engine/Ikemen-GO/issues/1362
+					// In Mugen, projectiles can hit even after their removetime expires
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 					//if p.hits >= 0 {
 					//	p.hits = -1
 					//}
@@ -2106,10 +2108,10 @@ func (p *Projectile) cueDraw(oldVer bool, playerNo int) {
 		p.scale[1] * p.localscl * p.zScale}
 
 	// Apply Z axis perspective
-	if sys.zmin != sys.zmax {
+	if sys.zEnabled() {
 		pos[0] *= p.zScale
 		pos[1] *= p.zScale
-		pos[1] += p.interPos[2] * p.localscl
+		pos[1] += sys.posZtoY(p.interPos[2], p.localscl)
 	}
 
 	sprs := &sys.spritesLayer0
@@ -3991,7 +3993,8 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = eid.ToI(), 0
-	for _, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			n++
 		}
@@ -4317,7 +4320,8 @@ func (c *Char) numProj() int32 {
 		return 0
 	}
 	n := int32(0)
-	for _, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -4334,7 +4338,8 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 		return BytecodeInt(0)
 	}
 	var id, n int32 = Max(0, pid.ToI()), 0
-	for _, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -5059,9 +5064,10 @@ func (c *Char) newExplod() (*Explod, int) {
 }
 
 func (c *Char) getExplods(id int32) (expls []*Explod) {
-	for i, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
-			expls = append(expls, &sys.explods[c.playerNo][i])
+			expls = append(expls, e)
 		}
 	}
 	return
@@ -5126,7 +5132,8 @@ func (c *Char) insertExplod(i int) {
 }
 
 func (c *Char) explodBindTime(id, time int32) {
-	for i, e := range sys.explods[c.playerNo] {
+	for i := range sys.explods[c.playerNo] {
+		e := &sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			sys.explods[c.playerNo][i].bindtime = time
 		}
@@ -5219,12 +5226,20 @@ func (c *Char) setPosX(x float32) {
 	}
 }
 
-func (c *Char) setPosY(y float32) { // These functions mostly exist right now so we don't forget to use setPosX for X
+func (c *Char) setPosY(y float32) { // This function mostly exists right now so we don't forget to use the other two
 	c.pos[1] = y
 }
 
 func (c *Char) setPosZ(z float32) {
 	c.pos[2] = z
+	// Z distance is also factored into enemy near lists
+	if sys.zEnabled() {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+	}
 }
 
 func (c *Char) posReset() {
@@ -5315,11 +5330,11 @@ func (c *Char) hitAdd(h int32) {
 func (c *Char) newProj() *Projectile {
 	var p *Projectile
 
-	// Loop through the player's projectile slots to find an inactive one
-	for i, old := range sys.projs[c.playerNo] {
-		if old.id < 0 {
+	// Reuse inactive projectile slot if available
+	for i := range sys.projs[c.playerNo] {
+		if sys.projs[c.playerNo][i].id < 0 {
 			p = &sys.projs[c.playerNo][i]
-			p.clear()
+			sys.projs[c.playerNo][i].clear()
 			break
 		}
 	}
@@ -5340,7 +5355,7 @@ func (c *Char) newProj() *Projectile {
 		p.id = 0
 		p.layerno = c.layerNo
 		p.palfx = c.getPalfx()
-		// Initialize projectile Hitdef. Must be placed after localscl is defined
+		// Initialize projectile Hitdef. Must be placed after its localscl is defined
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
 		p.hitdef.clear(p.localscl)
 		p.hitdef.isprojectile = true
@@ -5397,9 +5412,10 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for i, p := range sys.projs[c.playerNo] {
+	for i := range sys.projs[c.playerNo] {
+		p := &sys.projs[c.playerNo][i]
 		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
-			projs = append(projs, &sys.projs[c.playerNo][i])
+			projs = append(projs, p)
 		}
 	}
 	return
@@ -8174,7 +8190,7 @@ func (c *Char) tick() {
 	if c.cmd == nil {
 		if c.keyctrl[0] {
 			c.cmd = make([]CommandList, len(sys.chars))
-			c.cmd[0].Buffer = NewCommandBuffer()
+			c.cmd[0].Buffer = NewInputBuffer()
 			for i := range c.cmd {
 				c.cmd[i].Buffer = c.cmd[0].Buffer
 				c.cmd[i].CopyList(sys.chars[c.playerNo][0].cmd[i])
@@ -8507,12 +8523,12 @@ func (c *Char) cueDraw() {
 			c.size.yscale * c.zScale * (320 / c.localcoord)}
 
 		// Apply Z axis perspective
-		if sys.zmin != sys.zmax {
+		if sys.zEnabled() {
 			pos[0] *= c.zScale
 			pos[1] *= c.zScale
-			pos[1] += c.interPos[2] * c.localscl
+			pos[1] += sys.posZtoY(c.interPos[2], c.localscl)
 		}
-		//if sys.zmin != sys.zmax {
+		//if sys.zEnabled() {
 		//	ratio := float32(1.618) // Possible stage parameter?
 		//	pos[0] *= 1 + (ratio-1)*(c.zScale-1)
 		//	pos[1] *= 1 + (ratio-1)*(c.zScale-1)
@@ -8589,10 +8605,13 @@ func (c *Char) cueDraw() {
 				//if sd.oldVer {
 				//	soy *= 1.5
 				//}
-				charposz := c.interPos[2] * c.localscl
+				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
+				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
+				// Ikemen works differently and as you'd expect it to
+				drawZoff := sys.posZtoY(c.interPos[2], c.localscl)
 				sys.shadows.add(&ShadowSprite{sd, -1, sdwalp,
-					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*charposz + charposz}, // Shadow offset
-					[2]float32{c.reflectOffset[0] * c.localscl, c.reflectOffset[1]*c.localscl + sys.stage.reflection.yscale*charposz + charposz},              // Reflection offset
+					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff}, // Shadow offset
+					[2]float32{c.reflectOffset[0] * c.localscl, (c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff}, // Reflection offset
 					c.offsetY()}) // Fade offset
 			}
 		}
@@ -8717,8 +8736,8 @@ func (cl *CharList) commandUpdate() {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based input buffers
 					if c.inputWait() || c.asf(ASF_noinput) {
-						for _, cmd := range c.cmd {
-							cmd.BufReset()
+						for i := range c.cmd {
+							c.cmd[i].BufReset()
 						}
 						continue
 					}
@@ -8743,8 +8762,8 @@ func (cl *CharList) commandUpdate() {
 						}
 					}
 					// Update commands
-					for _, cmd := range c.cmd {
-						cmd.Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
+					for i := range c.cmd {
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat
@@ -9703,7 +9722,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 	// Projectile hitting player check
 	// TODO: Disable projectiles if player is disabled?
 	if proj {
-		for i, pr := range sys.projs {
+		for i := range sys.projs {
 			if len(sys.projs[i]) == 0 {
 				continue
 			}
@@ -9711,8 +9730,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 			orgatktmp := c.atktmp
 			c.atktmp = -1
 			ap_projhit := false
-			for j := range pr {
-				p := &pr[j]
+			for j := range sys.projs[i] {
+				p := &sys.projs[i][j]
 
 				// Skip if projectile can't hit
 				if p.id < 0 || p.hits <= 0 {
@@ -10151,9 +10170,9 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Determine in which axes to push the players
 				// This needs to check both if the players have velocity or if their positions have changed
-				pushx := sys.zmin == sys.zmax || c.pos[2] == getter.pos[2] ||
+				pushx := !sys.zEnabled() || c.pos[2] == getter.pos[2] ||
 					getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
-				pushz := sys.zmin != sys.zmax &&
+				pushz := sys.zEnabled() &&
 					(getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2])
 
 				if pushx {
@@ -10424,17 +10443,39 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 				return
 			}
 			// Otherwise compare the distances between the player and the next and previous enemies
-			distNext := c.distX(e, c) * c.facing
+			distNextX := c.distX(e, c) * c.facing
 			prevEnemy := (*cache)[i]
-			distPrev := c.distX(prevEnemy, c) * c.facing
+			distPrevX := c.distX(prevEnemy, c) * c.facing
+			// If Z axis is disabled we only use the X component
+			distNext := distNextX
+			distPrev := distPrevX
+			// Otherwise factor in the Z distance
+			if sys.zEnabled() {
+				distNextZ := c.distZ(e, c)
+				distPrevZ := c.distZ(prevEnemy, c)
+				// Calculate the hypotenuse
+				distNext = float32(math.Sqrt(float64(distNext*distNext + distNextZ*distNextZ)))
+				distPrev = float32(math.Sqrt(float64(distPrev*distPrev + distPrevZ*distPrevZ)))
+				// Keep the sign of the most significant component
+				if AbsF(distNextX) >= AbsF(distNextZ) {
+					distNext *= SignF(distNextX)
+				} else {
+					distNext *= SignF(distNextZ)
+				}
+				if AbsF(distPrevX) >= AbsF(distPrevZ) {
+					distPrev *= SignF(distPrevX)
+				} else {
+					distPrev *= SignF(distPrevZ)
+				}
+			}
 			// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
 			// This makes the player turn less frequently when surrounded
 			// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
 			if p2list {
-				if distNext < 0 {
+				if distNextX < 0 {
 					distNext -= 30
 				}
-				if distPrev < 0 {
+				if distPrevX < 0 {
 					distPrev -= 30
 				}
 			}

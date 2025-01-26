@@ -824,10 +824,19 @@ func (s *System) updateZScale(pos, localscale float32) float32 {
 	return scale
 }
 
+func (s *System) zEnabled() bool {
+	return s.zmin != s.zmax
+}
+
+// Convert Z logic position to Y drawing position
+func (s *System) posZtoY(z, localscl float32) float32 {
+	return z * localscl * sys.stage.stageCamera.depthtoscreen
+}
+
 // Z axis check
 // Changed to no longer check z enable constant, depends on stage now
 func (s *System) zAxisOverlap(posz1, front1, back1, localscl1, posz2, front2, back2, localscl2 float32) bool {
-	if sys.stage.topbound != sys.stage.botbound {
+	if s.zEnabled() {
 		if (posz1+front1)*localscl1 < (posz2-back2)*localscl2 ||
 			(posz1-back1)*localscl1 > (posz2+front2)*localscl2 {
 			return false
@@ -1173,9 +1182,12 @@ func (s *System) resetFrameTime() {
 
 func (s *System) charUpdate() {
 	s.charList.update()
-	for i, pr := range s.projs {
-		for j, p := range pr {
-			if p.id >= 0 {
+	// Because sys.projs has actual elements rather than pointers like sys.chars does, it's important to not copy its contents with range
+	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
+	// for i, pr := range s.projs {
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id >= 0 {
 				s.projs[i][j].update(i)
 			}
 		}
@@ -1188,17 +1200,17 @@ func (s *System) charUpdate() {
 
 // Run collision detection for chars and projectiles
 func (s *System) globalCollision() {
-	for i, pr := range s.projs {
-		for j, p := range pr {
-			if p.id >= 0 {
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id >= 0 {
 				s.projs[i][j].tradeDetection(i, j)
 			}
 		}
 	}
 	s.charList.collisionDetection()
-	for i, pr := range s.projs {
-		for j, p := range pr {
-			if p.id != IErr {
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id != IErr {
 				s.projs[i][j].tick(i)
 			}
 		}
@@ -1500,9 +1512,9 @@ func (s *System) action() {
 
 	// Run "tick frame"
 	if s.tickFrame() {
+		// X axis player limits
 		s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
-		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
-			float32(s.gameWidth)/s.cam.Scale - s.screenright
+		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +	float32(s.gameWidth)/s.cam.Scale - s.screenright
 		if s.xmin > s.xmax {
 			s.xmin = (s.xmin + s.xmax) / 2
 			s.xmax = s.xmin
@@ -1513,6 +1525,7 @@ func (s *System) action() {
 		if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
 			s.xmin = s.cam.minLeft
 		}
+		// Z axis player limits
 		s.zmin = s.stage.topbound * s.stage.localscl
 		s.zmax = s.stage.botbound * s.stage.localscl
 		s.allPalFX.step()
@@ -1632,9 +1645,9 @@ func (s *System) action() {
 			s.superanim = nil
 		}
 	}
-	for i, pr := range s.projs {
-		for j, p := range pr {
-			if p.id >= 0 {
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id >= 0 {
 				s.projs[i][j].cueDraw(s.cgi[i].mugenver[0] != 1, i)
 			}
 		}
@@ -1814,12 +1827,10 @@ func (s *System) drawTop() {
 	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
 	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.cfg.Common.Lua) > 0 && s.matchOver() && !s.dialogueFlg {
 		for _, p := range s.chars {
-			if len(p) > 0 {
-				if len(p[0].dialogue) > 0 {
-					s.lifebar.ro.current = 3
-					s.dialogueFlg = true
-					break
-				}
+			if len(p) > 0 && len(p[0].dialogue) > 0 {
+				s.lifebar.ro.current = 3
+				s.dialogueFlg = true
+				break
 			}
 		}
 	}
@@ -2150,10 +2161,10 @@ func (s *System) fight() (reload bool) {
 			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
 
 			if p[0].roundsExisted() > 0 {
-				/* If character already existed for a round, presumably because of turns mode, just update life */
+				// If character already existed for a round, presumably because of turns mode, just update life
 				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
 			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
-				/* If round 1 or a new character in turns mode, initialize values */
+				// If round 1 or a new character in turns mode, initialize values
 				if p[0].ocd().life != -1 {
 					p[0].life = Clamp(p[0].ocd().life, 0, p[0].lifeMax)
 					p[0].redLife = p[0].life
@@ -2170,7 +2181,7 @@ func (s *System) fight() (reload bool) {
 						p[0].power = 0
 					}
 				}
-				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of Turns mode
+				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
 				p[0].dialogue = []string{}
 				p[0].mapArray = make(map[string]float32)
 				for k, v := range p[0].mapDefault {

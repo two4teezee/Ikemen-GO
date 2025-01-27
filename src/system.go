@@ -1217,7 +1217,8 @@ func (s *System) charUpdate() {
 	for i := range s.projs {
 		for j := range s.projs[i] {
 			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].update(i)
+				s.projs[i][j].playerno = i // Safeguard
+				s.projs[i][j].update()
 			}
 		}
 	}
@@ -1240,7 +1241,7 @@ func (s *System) globalCollision() {
 	for i := range s.projs {
 		for j := range s.projs[i] {
 			if s.projs[i][j].id != IErr {
-				s.projs[i][j].tick(i)
+				s.projs[i][j].tick()
 			}
 		}
 	}
@@ -1677,7 +1678,7 @@ func (s *System) action() {
 	for i := range s.projs {
 		for j := range s.projs[i] {
 			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].cueDraw(s.cgi[i].mugenver[0] != 1, i)
+				s.projs[i][j].cueDraw(s.cgi[i].mugenver[0] != 1)
 			}
 		}
 	}

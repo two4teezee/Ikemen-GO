@@ -4394,7 +4394,7 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarWinIcon
 			for i := range l.wi {
 				if !sys.chars[i][0].asf(ASF_nowinicondisplay) {
-						l.wi[i].draw(layerno, l.fnt[:], i)
+					l.wi[i].draw(layerno, l.fnt[:], i)
 				}
 			}
 			// LifeBarRatio

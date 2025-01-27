@@ -5317,6 +5317,9 @@ func (c *Char) shadYOff(yv float32, isReflect bool) {
 }
 
 func (c *Char) hitAdd(h int32) {
+	if h == 0 {
+		return
+	}
 	c.hitCount += h
 	c.uniqHitCount += h
 	if len(c.targets) > 0 {
@@ -5909,6 +5912,9 @@ func (c *Char) bindToTarget(tar []int32, time int32, x, y, z float32, hmf HMF) {
 }
 
 func (c *Char) targetLifeAdd(tar []int32, add int32, kill, absolute, dizzy, redlife bool) {
+	if add == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil {
 			// We flip the sign of "add" so that it operates under the same logic as Hitdef damage
@@ -5938,6 +5944,9 @@ func (c *Char) targetLifeAdd(tar []int32, add int32, kill, absolute, dizzy, redl
 }
 
 func (c *Char) targetPowerAdd(tar []int32, power int32) {
+	if power == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil && t.playerFlag {
 			t.powerAdd(power)
@@ -5946,6 +5955,9 @@ func (c *Char) targetPowerAdd(tar []int32, power int32) {
 }
 
 func (c *Char) targetDizzyPointsAdd(tar []int32, add int32, absolute bool) {
+	if add == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil && !t.scf(SCF_dizzy) && !t.asf(ASF_nodizzypointsdamage) {
 			t.dizzyPointsAdd(float64(t.computeDamage(float64(add), false, absolute, 1, c, false)), true)
@@ -5954,6 +5966,9 @@ func (c *Char) targetDizzyPointsAdd(tar []int32, add int32, absolute bool) {
 }
 
 func (c *Char) targetGuardPointsAdd(tar []int32, add int32, absolute bool) {
+	if add == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil && !t.asf(ASF_noguardpointsdamage) {
 			t.guardPointsAdd(float64(t.computeDamage(float64(add), false, absolute, 1, c, false)), true)
@@ -5962,6 +5977,9 @@ func (c *Char) targetGuardPointsAdd(tar []int32, add int32, absolute bool) {
 }
 
 func (c *Char) targetRedLifeAdd(tar []int32, add int32, absolute bool) {
+	if add == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil && !t.asf(ASF_noredlifedamage) {
 			t.redLifeAdd(float64(t.computeDamage(float64(add), false, absolute, 1, c, true)), true)
@@ -5970,6 +5988,9 @@ func (c *Char) targetRedLifeAdd(tar []int32, add int32, absolute bool) {
 }
 
 func (c *Char) targetScoreAdd(tar []int32, s float32) {
+	if s == 0 {
+		return
+	}
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil && t.playerFlag {
 			t.scoreAdd(s)
@@ -6105,8 +6126,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 
 // Process raw damage into the value that will actually be used
 // Calculations are done in float64 for the sake of precision
-func (c *Char) computeDamage(damage float64, kill, absolute bool,
-	atkmul float32, attacker *Char, bounds bool) int32 {
+func (c *Char) computeDamage(damage float64, kill, absolute bool, atkmul float32, attacker *Char, bounds bool) int32 {
 	// Skip further calculations
 	if damage == 0 || !absolute && atkmul == 0 {
 		return 0
@@ -6224,6 +6244,9 @@ func (c *Char) setPower(pow int32) {
 }
 
 func (c *Char) powerAdd(add int32) {
+	if add == 0 {
+		return
+	}
 	// Safely convert from float64 back to int32 after all calculations are done
 	int := F64toI32(float64(c.getPower()) + math.Round(float64(add)))
 	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
@@ -6306,7 +6329,7 @@ func (c *Char) score() float32 {
 }
 
 func (c *Char) scoreAdd(val float32) {
-	if c.teamside == -1 {
+	if val == 0 || c.teamside == -1 {
 		return
 	}
 	sys.lifebar.sc[c.teamside].scorePoints += val
@@ -7788,10 +7811,6 @@ func (c *Char) actionRun() {
 			}
 		}
 	}
-	// This variable is necessary because NoStandGuard is reset before the walking instructions are checked
-	// https://github.com/ikemen-engine/Ikemen-GO/issues/1966
-	c.prevNoStandGuard = c.asf(ASF_nostandguard)
-	c.unsetASF(ASF_nostandguard | ASF_nocrouchguard | ASF_noairguard)
 	// Run state +1
 	// Uses minus -4 because its properties are similar
 	c.minus = -4
@@ -7991,6 +8010,10 @@ func (c *Char) actionFinish() {
 		c.ghv.frame = false
 		c.mhv.frame = false
 	}
+	// This variable is necessary because NoStandGuard is reset before the walking instructions are checked
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1966
+	c.prevNoStandGuard = c.asf(ASF_nostandguard)
+	c.unsetASF(ASF_nostandguard | ASF_nocrouchguard | ASF_noairguard)
 	// Update Z scale
 	// Must be placed after posUpdate()
 	c.zScale = sys.updateZScale(c.pos[2], c.localscl)

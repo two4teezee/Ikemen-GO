@@ -4412,8 +4412,6 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarScore
 			for i := range l.sc {
 				l.sc[i].bgDraw(layerno)
-			}
-			for i := range l.sc {
 				l.sc[i].draw(layerno, l.fnt[:], i)
 			}
 			// LifeBarMatch

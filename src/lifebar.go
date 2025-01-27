@@ -4392,17 +4392,15 @@ func (l *Lifebar) draw(layerno int16) {
 			l.ti.bgDraw(layerno)
 			l.ti.draw(layerno, l.fnt[:])
 			// LifeBarWinIcon
-			for ti := range sys.tmode {
-				for i, v := range l.order[ti] {
-					if i == 0 && !sys.chars[v][0].asf(ASF_nowinicondisplay) {
-							l.wi[ti].draw(layerno, l.fnt[:], ti)
-					}
+			for i := range l.wi {
+				if !sys.chars[i][0].asf(ASF_nowinicondisplay) {
+						l.wi[i].draw(layerno, l.fnt[:], i)
 				}
 			}
 			// LifeBarRatio
 			for ti, tm := range sys.tmode {
 				if tm == TM_Turns {
-					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 {
+					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 && !sys.chars[ti][0].asf(ASF_nofacedisplay) {
 						l.ra[ti].bgDraw(layerno)
 						l.ra[ti].draw(layerno, rl-1)
 					}

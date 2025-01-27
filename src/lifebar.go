@@ -4332,19 +4332,12 @@ func (l *Lifebar) draw(layerno int16) {
 				}
 			}
 			// PowerBar
-			for ti, tm := range sys.tmode {
+			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
-					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) { // Draw player 1 or 2 bars
-						if i == 0 && !sys.chars[0][0].asf(ASF_nopowerbardisplay) {
-							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
-							l.pb[l.ref[ti]][index].draw(layerno, index, l.pb[l.ref[ti]][index], l.fnt[:])
-						}
-					} else { // Draw everyone's bars
-						if !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
-							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
-							l.pb[l.ref[ti]][index].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt[:])
-						}
+					if !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
+						l.pb[l.ref[ti]][index].bgDraw(layerno, index)
+						l.pb[l.ref[ti]][index].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt[:])
 					}
 				}
 			}

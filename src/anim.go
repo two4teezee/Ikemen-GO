@@ -192,12 +192,12 @@ func (a *Animation) isBlank() bool {
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 	return &Animation{
-		sff: sff,
+		sff:         sff,
 		palettedata: pal,
-		mask: -1,
-		srcAlpha: -1,
-		newframe: true,
-		remap: make(RemapPreset),
+		mask:        -1,
+		srcAlpha:    -1,
+		newframe:    true,
+		remap:       make(RemapPreset),
 		start_scale: [...]float32{1, 1},
 	}
 }

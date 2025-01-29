@@ -742,29 +742,58 @@ func (s *System) roundState() int32 {
 }
 func (s *System) introState() int32 {
 	switch {
-	// Implements discussion #1172
-	case sys.intro > sys.lifebar.ro.ctrl_time+1:
-		// roundstate = 0
+	case s.intro > s.lifebar.ro.ctrl_time+1:
+		// Pre-intro [RoundState = 0]
 		return 1
-	case sys.intro > sys.lifebar.ro.ctrl_time:
-		// characters are doing their intros
+	case (s.dialogueFlg && s.dialogueForce == 0) || s.intro == s.lifebar.ro.ctrl_time+1:
+		// Player intros [RoundState = 1]
 		return 2
-	case sys.lifebar.ro.current == 1 && sys.intro > 0:
-		// fight!
-		return 4
-	case sys.lifebar.ro.current == 0:
-		// dialogueFlg doesn't work here :(
-		for _, p := range sys.chars {
-			if len(p) > 0 && len(p[0].dialogue) > 0 {
-				return 2
+	case s.intro == s.lifebar.ro.ctrl_time:
+		// Dialogue detection (s.dialogueFlg is detectable 1 frame later)
+		if s.dialogueForce == 0 {
+			for _, p := range sys.chars {
+				if len(p) > 0 && len(p[0].dialogue) > 0 {
+					return 2
+				}
 			}
 		}
-		// round <n>
+		// Round announcement
 		return 3
+	case s.lifebar.ro.waitTimer[1] == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time):
+		// Fight called
+		return 4
 	default:
-		// players have gained ctrl, or not applicable
+		// Not applicable
 		return 0
 	}
+}
+func (s *System) outroState() int32 {
+	switch {
+	case s.intro >= 0:
+		// Not applicable
+		return 0
+	case s.roundOver():
+		// Round over
+		return 5
+	case s.roundWinStates():
+		// Player win states
+		return 4
+	case sys.intro < -sys.lifebar.ro.over_waittime || sys.lifebar.ro.over_waittime == 1:
+		// Players lose control, but the round has not yet entered win states
+		return 3
+	case s.intro < -s.lifebar.ro.over_hittime || sys.lifebar.ro.over_hittime == 1:
+		// Players still have control, but the match outcome can no longer be changed
+		return 2
+	case s.intro < 0:
+		// Payers can still act, allowing a possible double KO
+		return 1
+	default:
+		// Fallback case, shouldn't be reached
+		return 0
+	}
+}
+func (s *System) roundWinStates() bool {
+	return s.waitdown <= 0 || s.roundWinTime()
 }
 func (s *System) roundWinTime() bool {
 	return s.wintime < 0
@@ -1444,7 +1473,7 @@ func (s *System) action() {
 					s.wintime--
 				}
 				// Set characters into win/lose poses, update win counters
-				if s.waitdown <= 0 || s.roundWinTime() {
+				if s.roundWinStates() {
 					if s.waitdown >= 0 {
 						winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 						if !winner[0] || !winner[1] ||

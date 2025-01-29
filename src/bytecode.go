@@ -697,6 +697,7 @@ const (
 	OC_ex_fightscreenvar_round_over_wintime
 	OC_ex_fightscreenvar_round_slow_time
 	OC_ex_fightscreenvar_round_start_waittime
+	OC_ex_fightscreenvar_round_callfight_time
 	OC_ex_fightscreenvar_time_framespercount
 	OC_ex_groundlevel
 	OC_ex_layerno
@@ -737,6 +738,7 @@ const (
 	OC_ex2_palfxvar_all_invertall
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
+	OC_ex2_outrostate
 	OC_ex2_continuescreen
 	OC_ex2_victoryscreen
 	OC_ex2_winscreen
@@ -2773,6 +2775,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.lifebar.ro.slow_time)
 	case OC_ex_fightscreenvar_round_start_waittime:
 		sys.bcStack.PushI(sys.lifebar.ro.start_waittime)
+	case OC_ex_fightscreenvar_round_callfight_time:
+		sys.bcStack.PushI(sys.lifebar.ro.callfight_time)
 	case OC_ex_fightscreenvar_time_framespercount:
 		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex_fighttime:
@@ -3179,6 +3183,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.palfxvar(-2, 2))
 	case OC_ex2_introstate:
 		sys.bcStack.PushI(sys.introState())
+	case OC_ex2_outrostate:
+		sys.bcStack.PushI(sys.outroState())
 	case OC_ex2_continuescreen:
 		sys.bcStack.PushB(sys.continueScreenFlg)
 	case OC_ex2_victoryscreen:

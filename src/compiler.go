@@ -401,6 +401,7 @@ var triggerMap = map[string]int{
 	"mugenversion":       1,
 	"numplayer":          1,
 	"offset":             1,
+	"outrostate":         1,
 	"p5name":             1,
 	"p6name":             1,
 	"p7name":             1,
@@ -2999,6 +3000,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_roundstate)
 	case "introstate":
 		out.append(OC_ex2_, OC_ex2_introstate)
+	case "outrostate":
+		out.append(OC_ex2_, OC_ex2_outrostate)
 	case "screenheight":
 		out.append(OC_screenheight)
 	case "screenpos":
@@ -3900,6 +3903,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_fightscreenvar_round_slow_time
 		case "round.start.waittime":
 			opc = OC_ex_fightscreenvar_round_start_waittime
+		case "round.callfight.time":
+			opc = OC_ex_fightscreenvar_round_callfight_time
 		case "time.framespercount":
 			opc = OC_ex_fightscreenvar_time_framespercount
 		default:

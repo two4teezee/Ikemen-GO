@@ -748,6 +748,8 @@ func (r *Renderer_GL21) MapBlendFunction(i BlendFunc) uint32 {
 		BlendZero:             gl.ZERO,
 		BlendSrcAlpha:         gl.SRC_ALPHA,
 		BlendOneMinusSrcAlpha: gl.ONE_MINUS_SRC_ALPHA,
+		BlendOneMinusDstColor: gl.ONE_MINUS_DST_COLOR,
+		BlendDstColor:         gl.DST_COLOR,
 	}
 	return BlendFunctionLUT[i]
 }

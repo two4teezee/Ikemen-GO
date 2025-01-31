@@ -2283,8 +2283,6 @@ type CharSystemVar struct {
 	uniqHitCount      int32
 	pauseMovetime     int32
 	superMovetime     int32
-	prevPauseMovetime int32
-	prevSuperMovetime int32
 	unhittableTime    int32
 	bindTime          int32
 	bindToId          int32
@@ -2313,6 +2311,8 @@ type CharSystemVar struct {
 	defenseMulDelay   bool
 	counterHit        bool
 	prevNoStandGuard  bool
+	prevPauseMovetime int32
+	prevSuperMovetime int32
 }
 
 type Char struct {
@@ -2423,6 +2423,7 @@ type Char struct {
 	reflectOffset   [2]float32
 	ownclsnscale    bool
 	pushPriority    int32
+	prevfallflag      bool
 }
 
 // Add a new char to the game
@@ -4428,7 +4429,7 @@ func (c *Char) palfxvar2(x int32) float32 {
 	return n * 256
 }
 
-func (c *Char) pauseTime() int32 {
+func (c *Char) pauseTimeTrigger() int32 {
 	var p int32
 	if sys.supertime > 0 && c.prevSuperMovetime == 0 {
 		p = sys.supertime
@@ -8014,6 +8015,8 @@ func (c *Char) actionFinish() {
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1966
 	c.prevNoStandGuard = c.asf(ASF_nostandguard)
 	c.unsetASF(ASF_nostandguard | ASF_nocrouchguard | ASF_noairguard)
+	// Save current HitFall value before hit detection
+	c.prevfallflag = c.ghv.fallflag
 	// Update Z scale
 	// Must be placed after posUpdate()
 	c.zScale = sys.updateZScale(c.pos[2], c.localscl)
@@ -9698,7 +9701,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				c.setCtrl(false)
 			}
 			// Juggle points are subtracted if the target was falling either before or after the hit
-			if getter.ghv.fallflag {
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/2287
+			if getter.prevfallflag || getter.ghv.fallflag {
 				if !c.asf(ASF_nojugglecheck) {
 					jug := &getter.ghv.hitBy[len(getter.ghv.hitBy)-1][1]
 					if proj {

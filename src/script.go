@@ -5633,7 +5633,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "pausetime", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.pauseTime()))
+		l.Push(lua.LNumber(sys.debugWC.pauseTimeTrigger()))
 		return 1
 	})
 	luaRegister(l, "physics", func(*lua.LState) int {

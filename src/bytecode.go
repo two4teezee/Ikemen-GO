@@ -2996,7 +2996,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_mugenversion:
 		sys.bcStack.PushF(c.mugenVersionF())
 	case OC_ex_pausetime:
-		sys.bcStack.PushI(c.pauseTime())
+		sys.bcStack.PushI(c.pauseTimeTrigger())
 	case OC_ex_physics:
 		sys.bcStack.PushB(c.ss.physics == StateType(be[*i]))
 		*i++

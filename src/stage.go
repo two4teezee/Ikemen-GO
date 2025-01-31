@@ -1546,8 +1546,8 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 }
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
-	if sys.tickFrame() && (sys.super <= 0 || !sys.superpausebg) &&
-		(sys.pause <= 0 || !sys.pausebg) {
+	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) &&
+		(sys.pausetime <= 0 || !sys.pausebg) {
 		paused = false
 		s.stageTime++
 		s.bgct.step(s)

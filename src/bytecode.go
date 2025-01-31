@@ -865,6 +865,11 @@ const (
 	OC_ex2_fightscreenstate_kodisplay
 	OC_ex2_fightscreenstate_rounddisplay
 	OC_ex2_fightscreenstate_windisplay
+	OC_ex2_systemvar_introtime
+	OC_ex2_systemvar_outrotime
+	OC_ex2_systemvar_pausetime
+	OC_ex2_systemvar_slowtime
+	OC_ex2_systemvar_superpausetime
 )
 
 const (
@@ -3526,6 +3531,25 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.lifebar.ro.triggerRoundDisplay)
 	case OC_ex2_fightscreenstate_windisplay:
 		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
+	// SystemVar
+	case OC_ex2_systemvar_introtime:
+		if sys.intro > 0 {
+			sys.bcStack.PushI(sys.intro)
+		} else {
+			sys.bcStack.PushI(0)
+		}
+	case OC_ex2_systemvar_outrotime:
+		if sys.intro < 0 {
+			sys.bcStack.PushI(-sys.intro)
+		} else {
+			sys.bcStack.PushI(0)
+		}
+	case OC_ex2_systemvar_pausetime:
+		sys.bcStack.PushI(sys.pausetime)
+	case OC_ex2_systemvar_slowtime:
+		sys.bcStack.PushI(sys.slowtimeTrigger)
+	case OC_ex2_systemvar_superpausetime:
+		sys.bcStack.PushI(sys.supertime)
 	// HitDefVar
 	case OC_ex2_hitdefvar_guardflag:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))

@@ -1428,9 +1428,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		return
 	}
 	p := false
-	if sys.super > 0 {
+	if sys.supertime > 0 {
 		p = (e.supermovetime >= 0 && e.time >= e.supermovetime) || e.supermovetime < -2
-	} else if sys.pause > 0 {
+	} else if sys.pausetime > 0 {
 		p = (e.pausemovetime >= 0 && e.time >= e.pausemovetime) || e.pausemovetime < -2
 	}
 	act := !p
@@ -1824,11 +1824,11 @@ func (p *Projectile) setPos(pos [3]float32) {
 
 func (p *Projectile) paused(playerNo int) bool {
 	//if !sys.chars[playerNo][0].pause() {
-	if sys.super > 0 {
+	if sys.supertime > 0 {
 		if p.supermovetime == 0 || p.supermovetime < -1 {
 			return true
 		}
-	} else if sys.pause > 0 {
+	} else if sys.pausetime > 0 {
 		if p.pausemovetime == 0 || p.pausemovetime < -1 {
 			return true
 		}
@@ -4430,11 +4430,11 @@ func (c *Char) palfxvar2(x int32) float32 {
 
 func (c *Char) pauseTime() int32 {
 	var p int32
-	if sys.super > 0 && c.prevSuperMovetime == 0 {
-		p = sys.super
+	if sys.supertime > 0 && c.prevSuperMovetime == 0 {
+		p = sys.supertime
 	}
-	if sys.pause > 0 && c.prevPauseMovetime == 0 && p < sys.pause {
-		p = sys.pause
+	if sys.pausetime > 0 && c.prevPauseMovetime == 0 && p < sys.pausetime {
+		p = sys.pausetime
 	}
 	return p
 }
@@ -6505,9 +6505,9 @@ func (c *Char) p2BodyDistZ(oc *Char) BytecodeValue {
 }
 
 func (c *Char) setPauseTime(pausetime, movetime int32) {
-	if ^pausetime < sys.pausetime || c.playerNo != c.ss.sb.playerNo ||
+	if ^pausetime < sys.pausetimebuffer || c.playerNo != c.ss.sb.playerNo ||
 		sys.pauseplayer == c.playerNo {
-		sys.pausetime = ^pausetime
+		sys.pausetimebuffer = ^pausetime
 		sys.pauseplayer = c.playerNo
 		if sys.pauseendcmdbuftime < 0 || sys.pauseendcmdbuftime > pausetime {
 			sys.pauseendcmdbuftime = 0
@@ -6516,15 +6516,15 @@ func (c *Char) setPauseTime(pausetime, movetime int32) {
 	c.pauseMovetime = Max(0, movetime)
 	if c.pauseMovetime > pausetime {
 		c.pauseMovetime = 0
-	} else if sys.pause > 0 && c.pauseMovetime > 0 {
+	} else if sys.pausetime > 0 && c.pauseMovetime > 0 {
 		c.pauseMovetime--
 	}
 }
 
 func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
-	if ^pausetime < sys.supertime || c.playerNo != c.ss.sb.playerNo ||
+	if ^pausetime < sys.supertimebuffer || c.playerNo != c.ss.sb.playerNo ||
 		sys.superplayer == c.playerNo {
-		sys.supertime = ^pausetime
+		sys.supertimebuffer = ^pausetime
 		sys.superplayer = c.playerNo
 		if sys.superendcmdbuftime < 0 || sys.superendcmdbuftime > pausetime {
 			sys.superendcmdbuftime = 0
@@ -6533,7 +6533,7 @@ func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
 	c.superMovetime = Max(0, movetime)
 	if c.superMovetime > pausetime {
 		c.superMovetime = 0
-	} else if sys.super > 0 && c.superMovetime > 0 {
+	} else if sys.supertime > 0 && c.superMovetime > 0 {
 		c.superMovetime--
 	}
 	if unhittable {
@@ -6930,7 +6930,7 @@ func (c *Char) posUpdate() {
 	// In Ikemen, this threshold is obsolete
 	c.mhv.cornerpush = 0
 	friction := float32(0.7)
-	if c.cornerVelOff != 0 && sys.super == 0 {
+	if c.cornerVelOff != 0 && sys.supertime == 0 {
 		for _, p := range sys.chars {
 			if len(p) > 0 && p[0].ss.moveType == MT_H && p[0].ghv.playerId == c.id {
 				npos := (p[0].pos[0] + p[0].vel[0]*p[0].facing) * p[0].localscl
@@ -6999,7 +6999,7 @@ func (c *Char) posUpdate() {
 			c.gravity()
 		}
 	}
-	if sys.super == 0 {
+	if sys.supertime == 0 {
 		c.cornerVelOff *= friction
 		if AbsF(c.cornerVelOff) < 1 {
 			c.cornerVelOff = 0
@@ -7624,9 +7624,9 @@ func (c *Char) actionPrepare() {
 	}
 	c.pauseBool = false
 	if c.cmd != nil {
-		if sys.super > 0 {
+		if sys.supertime > 0 {
 			c.pauseBool = c.superMovetime == 0
-		} else if sys.pause > 0 && c.pauseMovetime == 0 {
+		} else if sys.pausetime > 0 && c.pauseMovetime == 0 {
 			c.pauseBool = true
 		}
 	}
@@ -7710,11 +7710,11 @@ func (c *Char) actionPrepare() {
 					c.ho[i].time--
 				}
 			}
-			if sys.super > 0 {
+			if sys.supertime > 0 {
 				if c.superMovetime > 0 {
 					c.superMovetime--
 				}
-			} else if sys.pause > 0 && c.pauseMovetime > 0 {
+			} else if sys.pausetime > 0 && c.pauseMovetime > 0 {
 				c.pauseMovetime--
 			}
 		}
@@ -8127,7 +8127,7 @@ func (c *Char) update() {
 				}
 			}
 			// Cancel pause move times
-			if sys.super <= 0 && sys.pause <= 0 {
+			if sys.supertime <= 0 && sys.pausetime <= 0 {
 				c.superMovetime, c.pauseMovetime = 0, 0
 			}
 			// Fall mechanics
@@ -8168,7 +8168,7 @@ func (c *Char) update() {
 		c.hoIdx = -1
 		c.hoKeepState = false
 		// Apply SuperPause p2defmul
-		if sys.supertime < 0 && c.teamside != sys.superplayer&1 {
+		if sys.supertimebuffer < 0 && c.teamside != sys.superplayer&1 {
 			c.superDefenseMul *= sys.superp2defmul
 		}
 		// Update final defense
@@ -8756,9 +8756,9 @@ func (cl *CharList) commandUpdate() {
 			// Iterate root and helpers
 			for _, c := range p {
 				act := true
-				if sys.super > 0 {
+				if sys.supertime > 0 {
 					act = c.superMovetime != 0
-				} else if sys.pause > 0 && c.pauseMovetime == 0 {
+				} else if sys.pausetime > 0 && c.pauseMovetime == 0 {
 					act = false
 				}
 				// Auto turning check for the root
@@ -8790,12 +8790,12 @@ func (cl *CharList) commandUpdate() {
 							winbuf = true
 						}
 					}
-					if sys.super > 0 {
-						if !act && sys.super <= sys.superendcmdbuftime {
+					if sys.supertime > 0 {
+						if !act && sys.supertime <= sys.superendcmdbuftime {
 							buffer = true
 						}
-					} else if sys.pause > 0 {
-						if !act && sys.pause <= sys.pauseendcmdbuftime {
+					} else if sys.pausetime > 0 {
+						if !act && sys.pausetime <= sys.pauseendcmdbuftime {
 							buffer = true
 						}
 					}
@@ -9385,10 +9385,10 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				ghv.airguard_velocity[2] = hd.airguard_velocity[2] * scaleratio
 				ghv.priority = hd.priority
 			}
-			if sys.super > 0 {
+			if sys.supertime > 0 {
 				getter.superMovetime =
 					Max(getter.superMovetime, getter.ghv.hitshaketime)
-			} else if sys.pause > 0 {
+			} else if sys.pausetime > 0 {
 				getter.pauseMovetime =
 					Max(getter.pauseMovetime, getter.ghv.hitshaketime)
 			}

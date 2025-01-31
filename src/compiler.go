@@ -442,6 +442,7 @@ var triggerMap = map[string]int{
 	"stagefrontedgedist": 1,
 	"stagetime":          1,
 	"standby":            1,
+	"systemvar":          1,
 	"teamleader":         1,
 	"teamsize":           1,
 	"timeelapsed":        1,
@@ -4334,6 +4335,31 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_stagetime)
 	case "standby":
 		out.append(OC_ex_, OC_ex_standby)
+	case "systemvar":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		svname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		switch svname {
+		case "introtime":
+			opc = OC_ex2_systemvar_introtime
+		case "outrotime":
+			opc = OC_ex2_systemvar_outrotime
+		case "pausetime":
+			opc = OC_ex2_systemvar_pausetime
+		case "slowtime":
+			opc = OC_ex2_systemvar_slowtime
+		case "superpausetime":
+			opc = OC_ex2_systemvar_superpausetime
+		default:
+			return bvNone(), Error("Invalid data: " + svname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "teamleader":
 		out.append(OC_ex_, OC_ex_teamleader)
 	case "teamsize":

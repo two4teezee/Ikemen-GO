@@ -5240,6 +5240,22 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.dizzyPointsMax))
 		return 1
 	})
+	luaRegister(l, "fightscreenstate", func(*lua.LState) int {
+		switch strings.ToLower(strArg(l, 1)) {
+		case "fightdisplay":
+			l.Push(lua.LBool(sys.lifebar.ro.triggerFightDisplay))
+		case "kodisplay":
+			l.Push(lua.LBool(sys.lifebar.ro.triggerKODisplay))
+		case "rounddisplay":
+			l.Push(lua.LBool(sys.lifebar.ro.triggerFightDisplay))
+		case "windisplay":
+			l.Push(lua.LBool(sys.lifebar.ro.triggerWinDisplay))
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		return 1
+	})
+
 	luaRegister(l, "fightscreenvar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "info.name":

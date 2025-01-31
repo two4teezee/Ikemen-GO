@@ -364,6 +364,7 @@ var triggerMap = map[string]int{
 	"dizzypointsmax":     1,
 	"envshakevar":        1,
 	"explodvar":          1,
+	"fightscreenstate":   1,
 	"fightscreenvar":     1,
 	"fighttime":          1,
 	"firstattack":        1,
@@ -3868,6 +3869,29 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
+	case "fightscreenstate":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		fssname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		switch fssname {
+		case "fightdisplay":
+			opc = OC_ex2_fightscreenstate_fightdisplay
+		case "kodisplay":
+			opc = OC_ex2_fightscreenstate_kodisplay
+		case "rounddisplay":
+			opc = OC_ex2_fightscreenstate_rounddisplay
+		case "windisplay":
+			opc = OC_ex2_fightscreenstate_windisplay
+		default:
+			return bvNone(), Error("Invalid data: " + fssname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "fightscreenvar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err

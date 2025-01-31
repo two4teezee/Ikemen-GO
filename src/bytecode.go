@@ -861,7 +861,12 @@ const (
 	OC_ex2_soundvar_priority
 	OC_ex2_soundvar_startposition
 	OC_ex2_soundvar_volumescale
+	OC_ex2_fightscreenstate_fightdisplay
+	OC_ex2_fightscreenstate_kodisplay
+	OC_ex2_fightscreenstate_rounddisplay
+	OC_ex2_fightscreenstate_windisplay
 )
+
 const (
 	NumVar     = 60
 	NumSysVar  = 5
@@ -3512,6 +3517,16 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		v := c.projVar(id, idx, flg, opc, oc)
 		sys.bcStack.Push(v)
 	// END FALLTHROUGH (projvar)
+	// FightScreenState
+	case OC_ex2_fightscreenstate_fightdisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerFightDisplay)
+	case OC_ex2_fightscreenstate_kodisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerKODisplay)
+	case OC_ex2_fightscreenstate_rounddisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerRoundDisplay)
+	case OC_ex2_fightscreenstate_windisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
+	// HitDefVar
 	case OC_ex2_hitdefvar_guardflag:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))
 		sys.bcStack.PushB(

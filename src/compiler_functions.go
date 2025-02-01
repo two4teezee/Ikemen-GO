@@ -2007,6 +2007,14 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_attack_depth, VT_Float, 2, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "sparkscale",
+		hitDef_sparkscale, VT_Float, 2, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "guard.sparkscale",
+		hitDef_guard_sparkscale, VT_Float, 2, false); err != nil {
+		return err
+	}
 	return nil
 }
 

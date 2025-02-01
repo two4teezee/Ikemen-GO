@@ -6386,6 +6386,8 @@ const (
 	hitDef_down_recover
 	hitDef_down_recovertime
 	hitDef_attack_depth
+	hitDef_sparkscale
+	hitDef_guard_sparkscale
 	hitDef_last = iota + afterImage_last + 1 - 1
 	hitDef_redirectid
 )
@@ -6720,6 +6722,16 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 			hd.attack.depth[1] = exp[1].evalF(c)
 		} else {
 			hd.attack.depth[1] = hd.attack.depth[0]
+		}
+	case hitDef_sparkscale:
+		hd.sparkscale[0] = exp[0].evalF(c)
+		if len(exp) > 1 {
+			hd.sparkscale[1] = exp[1].evalF(c)
+		}
+	case hitDef_guard_sparkscale:
+		hd.guard_sparkscale[0] = exp[0].evalF(c)
+		if len(exp) > 1 {
+			hd.guard_sparkscale[1] = exp[1].evalF(c)
 		}
 	default:
 		if !palFX(sc).runSub(c, &hd.palfx, id, exp) {

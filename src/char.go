@@ -532,9 +532,11 @@ type HitDef struct {
 	sparkno                    int32
 	sparkno_ffx                string
 	sparkangle                 float32
+	sparkscale                 [2]float32
 	guard_sparkno              int32
 	guard_sparkno_ffx          string
 	guard_sparkangle           float32
+	guard_sparkscale           [2]float32
 	sparkxy                    [2]float32
 	hitsound                   [2]int32
 	hitsound_channel           int32
@@ -650,9 +652,11 @@ func (hd *HitDef) clear(localscl float32) {
 		sparkno:            -1,
 		sparkno_ffx:        "f",
 		sparkangle:         0,
+		sparkscale:         [2]float32{1, 1},
 		guard_sparkno:      -1,
 		guard_sparkno_ffx:  "f",
 		guard_sparkangle:   0,
+		guard_sparkscale:   [2]float32{1, 1},
 		hitsound:           [2]int32{-1, 0},
 		hitsound_channel:   -1,
 		hitsound_ffx:       "f",
@@ -9532,7 +9536,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 		}
 		// Hitspark creation function
 		// This used to be called only when a hitspark is actually created, but with the addition of the MoveHitVar trigger it became useful to save the offset at all times
-		hitspark := func(p1, p2 *Char, animNo int32, ffx string, sparkangle float32) {
+		hitspark := func(p1, p2 *Char, animNo int32, ffx string, sparkangle float32, sparkscale [2]float32) {
 			// This is mostly for offset in projectiles
 			off := [3]float32{pos[0], pos[1], pos[2]}
 
@@ -9587,6 +9591,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					}
 					e.setPos(p1)
 					e.anglerot[0] = sparkangle
+					e.scale = sparkscale
 					c.insertExplod(i)
 				}
 			}
@@ -9595,9 +9600,9 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 		if Abs(hitType) == 1 {
 			//if hd.sparkno >= 0 {
 			if hd.reversal_attr > 0 {
-				hitspark(getter, c, hd.sparkno, hd.sparkno_ffx, hd.sparkangle)
+				hitspark(getter, c, hd.sparkno, hd.sparkno_ffx, hd.sparkangle, hd.sparkscale)
 			} else {
-				hitspark(c, getter, hd.sparkno, hd.sparkno_ffx, hd.sparkangle)
+				hitspark(c, getter, hd.sparkno, hd.sparkno_ffx, hd.sparkangle, hd.sparkscale)
 			}
 			//}
 			if hd.hitsound[0] >= 0 && hd.hitsound[1] >= 0 {
@@ -9608,9 +9613,9 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 		} else {
 			//if hd.guard_sparkno >= 0 {
 			if hd.reversal_attr > 0 {
-				hitspark(getter, c, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle)
+				hitspark(getter, c, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle, hd.guard_sparkscale)
 			} else {
-				hitspark(c, getter, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle)
+				hitspark(c, getter, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle, hd.guard_sparkscale)
 			}
 			//}
 			if hd.guardsound[0] >= 0 && hd.guardsound[1] >= 0 {

@@ -11876,6 +11876,36 @@ func (sc height) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type depth StateControllerBase
+
+const (
+	depth_value byte = iota
+	depth_redirectid
+)
+
+func (sc depth) Run(c *Char, _ []int32) bool {
+	crun := c
+	var redirscale float32 = 1.0
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case depth_value:
+			crun.setFDepth(exp[0].evalF(c) * redirscale)
+			if len(exp) > 1 {
+				crun.setBDepth(exp[1].evalF(c) * redirscale)
+			}
+		case depth_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = (320 / c.localcoord) / (320 / crun.localcoord)
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
 type modifyPlayer StateControllerBase
 
 const (

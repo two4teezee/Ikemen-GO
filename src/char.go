@@ -30,10 +30,12 @@ type CharSpecialFlag uint32
 
 const (
 	CSF_angledraw CharSpecialFlag = 1 << iota
+	CSF_backdepth
 	CSF_backedge
 	CSF_backwidth
 	CSF_bottomheight
 	CSF_destroy
+	CSF_frontdepth
 	CSF_frontedge
 	CSF_frontwidth
 	CSF_gethit
@@ -2309,6 +2311,7 @@ type CharSystemVar struct {
 	width             [2]float32
 	edge              [2]float32
 	height            [2]float32
+	depth             [2]float32
 	attackMul         [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul   float32
 	fallDefenseMul    float32
@@ -2577,6 +2580,7 @@ func (c *Char) clearNextRound() {
 		alpha:           [2]int32{255, 0},
 		width:           [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		height:          [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
+		depth:           [2]float32{c.baseDepthFront(), c.baseDepthBack()},
 		attackMul:       [4]float32{atk, atk, atk, atk},
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
@@ -4755,6 +4759,8 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		c.edge[1] *= lsRatio
 		c.height[0] *= lsRatio
 		c.height[1] *= lsRatio
+		c.depth[0] *= lsRatio
+		c.depth[1] *= lsRatio
 		c.widthToSizeBox()
 
 		c.bindPos[0] *= lsRatio
@@ -5607,6 +5613,14 @@ func (c *Char) baseHeightBottom() float32 {
 	}
 }
 
+func (c *Char) baseDepthFront() float32 {
+	return float32(c.size.depth[0])
+}
+
+func (c *Char) baseDepthBack() float32 {
+	return float32(c.size.depth[1])
+}
+
 func (c *Char) setFEdge(fe float32) {
 	c.edge[0] = fe
 	c.setCSF(CSF_frontedge)
@@ -5635,6 +5649,16 @@ func (c *Char) setTHeight(th float32) {
 func (c *Char) setBHeight(bh float32) {
 	c.height[1] = c.baseHeightBottom()*((320/c.localcoord)/c.localscl) + bh
 	c.setCSF(CSF_bottomheight)
+}
+
+func (c *Char) setFDepth(fd float32) {
+	c.depth[0] = c.baseDepthFront()*((320/c.localcoord)/c.localscl) + fd
+	c.setCSF(CSF_frontdepth)
+}
+
+func (c *Char) setBDepth(bd float32) {
+	c.depth[1] = c.baseDepthBack()*((320/c.localcoord)/c.localscl) + bd
+	c.setCSF(CSF_backdepth)
 }
 
 func (c *Char) updateClsnScale() {
@@ -6429,10 +6453,10 @@ func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
 }
 
 func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
-	cbot := (c.pos[2] + c.size.depth[0]) * c.localscl
-	ctop := (c.pos[2] - c.size.depth[1]) * c.localscl
-	obot := (opp.pos[2] + opp.size.depth[0]) * opp.localscl
-	otop := (opp.pos[2] - opp.size.depth[1]) * opp.localscl
+	cbot := (c.pos[2] + c.depth[0]) * c.localscl
+	ctop := (c.pos[2] - c.depth[1]) * c.localscl
+	obot := (opp.pos[2] + opp.depth[0]) * opp.localscl
+	otop := (opp.pos[2] - opp.depth[1]) * opp.localscl
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7578,7 +7602,7 @@ func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj boo
 				getter.attrCheck(hd, c, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
-					getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl)
+					getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 		}
 	}
 
@@ -7848,6 +7872,12 @@ func (c *Char) actionRun() {
 		}
 		if !c.csf(CSF_bottomheight) {
 			c.height[1] = c.baseHeightBottom() * ((320 / c.localcoord) / c.localscl)
+		}
+		if !c.csf(CSF_frontdepth) {
+			c.depth[0] = c.baseDepthFront() * ((320 / c.localcoord) / c.localscl)
+		}
+		if !c.csf(CSF_backdepth) {
+			c.depth[1] = c.baseDepthBack() * ((320 / c.localcoord) / c.localscl)
 		}
 	}
 	// Update size box according to player width and height
@@ -9894,7 +9924,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 
 					if getter.projClsnCheck(p, p.hitdef.p2clsncheck, 1) &&
 						sys.zAxisOverlap(p.pos[2], p.hitdef.attack.depth[0], p.hitdef.attack.depth[1], p.localscl,
-							getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl) {
+							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl) {
 
 						if ht := hitTypeGet(c, &p.hitdef, [...]float32{p.pos[0] - c.pos[0]*(c.localscl/p.localscl),
 							p.pos[1] - c.pos[1]*(c.localscl/p.localscl), p.pos[2] - c.pos[2]*(c.localscl/p.localscl)},
@@ -10016,7 +10046,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 							getter.pos[2], getter.hitdef.attack.depth[0], getter.hitdef.attack.depth[1], getter.localscl)
 					} else {
 						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
-							getter.pos[2], getter.size.depth[0], getter.size.depth[1], getter.localscl)
+							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 					}
 
 					// If collision OK then get the hit type and act accordingly
@@ -10168,11 +10198,11 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			czfront := c.pos[2]*c.localscl + c.size.depth[0]*c.localscl
-			czback := c.pos[2]*c.localscl - c.size.depth[1]*c.localscl
+			czfront := c.pos[2]*c.localscl + c.depth[0]*c.localscl
+			czback := c.pos[2]*c.localscl - c.depth[1]*c.localscl
 
-			gzfront := getter.pos[2]*getter.localscl + getter.size.depth[0]*getter.localscl
-			gzback := getter.pos[2]*getter.localscl - getter.size.depth[1]*getter.localscl
+			gzfront := getter.pos[2]*getter.localscl + getter.depth[0]*getter.localscl
+			gzback := getter.pos[2]*getter.localscl - getter.depth[1]*getter.localscl
 
 			// Z axis fail
 			if gzback >= czfront || czback >= gzfront {

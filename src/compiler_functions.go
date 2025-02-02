@@ -5312,9 +5312,30 @@ func (c *Compiler) depth(is IniSection, sc *StateControllerBase, _ int8) (StateC
 			depth_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "value",
-			depth_value, VT_Float, 2, true); err != nil {
+		b := false
+		if err := c.stateParam(is, "edge", false, func(data string) error {
+			b = true
+			if len(data) == 0 {
+				return nil
+			}
+			return c.scAdd(sc, depth_edge, data, VT_Float, 2)
+		}); err != nil {
 			return err
+		}
+		if err := c.stateParam(is, "player", false, func(data string) error {
+			b = true
+			if len(data) == 0 {
+				return nil
+			}
+			return c.scAdd(sc, depth_player, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if !b {
+			if err := c.paramValue(is, sc, "value",
+				depth_value, VT_Float, 2, true); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

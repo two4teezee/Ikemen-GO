@@ -31,11 +31,13 @@ type CharSpecialFlag uint32
 const (
 	CSF_angledraw CharSpecialFlag = 1 << iota
 	CSF_backdepth
+	CSF_backdepthedge
 	CSF_backedge
 	CSF_backwidth
 	CSF_bottomheight
 	CSF_destroy
 	CSF_frontdepth
+	CSF_frontdepthedge
 	CSF_frontedge
 	CSF_frontwidth
 	CSF_gethit
@@ -2312,6 +2314,7 @@ type CharSystemVar struct {
 	edge              [2]float32
 	height            [2]float32
 	depth             [2]float32
+	depthEdge         [2]float32
 	attackMul         [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul   float32
 	fallDefenseMul    float32
@@ -3759,7 +3762,7 @@ func (c *Char) bottomEdge() float32 {
 }
 
 func (c *Char) botBoundDist() float32 {
-	return sys.zmax/c.localscl - c.pos[2]
+	return -c.depthEdge[0]+sys.zmax/c.localscl - c.pos[2]
 }
 
 func (c *Char) canRecover() bool {
@@ -4601,7 +4604,7 @@ func (c *Char) topEdge() float32 {
 }
 
 func (c *Char) topBoundDist() float32 {
-	return sys.zmin/c.localscl - c.pos[2]
+	return c.depthEdge[1]+sys.zmin/c.localscl - c.pos[2]
 }
 
 func (c *Char) win() bool {
@@ -4761,6 +4764,8 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		c.height[1] *= lsRatio
 		c.depth[0] *= lsRatio
 		c.depth[1] *= lsRatio
+		c.depthEdge[0] *= lsRatio
+		c.depthEdge[1] *= lsRatio
 		c.widthToSizeBox()
 
 		c.bindPos[0] *= lsRatio
@@ -5629,6 +5634,16 @@ func (c *Char) setFEdge(fe float32) {
 func (c *Char) setBEdge(be float32) {
 	c.edge[1] = be
 	c.setCSF(CSF_backedge)
+}
+
+func (c *Char) setFDepthEdge(fde float32) {
+	c.depthEdge[0] = fde
+	c.setCSF(CSF_frontdepthedge)
+}
+
+func (c *Char) setBDepthEdge(bdf float32) {
+	c.depthEdge[1] = bdf
+	c.setCSF(CSF_backdepthedge)
 }
 
 func (c *Char) setFWidth(fw float32) {
@@ -7168,8 +7183,9 @@ func (c *Char) xScreenBound() {
 
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
+	max, min := -c.depthEdge[0], c.depthEdge[1]
 	if c.csf(CSF_stagebound) {
-		posz = ClampF(posz, sys.zmin/c.localscl, sys.zmax/c.localscl)
+		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 	c.setPosZ(posz)
 }
@@ -7878,6 +7894,12 @@ func (c *Char) actionRun() {
 		}
 		if !c.csf(CSF_backdepth) {
 			c.depth[1] = c.baseDepthBack() * ((320 / c.localcoord) / c.localscl)
+		}
+		if !c.csf(CSF_frontdepthedge) {
+			c.depthEdge[0] = 0
+		}
+		if !c.csf(CSF_backdepthedge) {
+			c.depthEdge[1] = 0
 		}
 	}
 	// Update size box according to player width and height

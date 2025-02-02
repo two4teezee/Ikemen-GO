@@ -5641,8 +5641,8 @@ func (c *Char) setFDepthEdge(fde float32) {
 	c.setCSF(CSF_frontdepthedge)
 }
 
-func (c *Char) setBDepthEdge(bdf float32) {
-	c.depthEdge[1] = bdf
+func (c *Char) setBDepthEdge(bde float32) {
+	c.depthEdge[1] = bde
 	c.setCSF(CSF_backdepthedge)
 }
 

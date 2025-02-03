@@ -1625,8 +1625,8 @@ func (s *System) action() {
 				s.shuttertime++
 				// Do the actual skipping in the frame when the "shutter" effect is closed
 				if s.shuttertime == s.lifebar.ro.shutter_time {
-					// NoRoundDisplay and NoFightDisplay flags must be preserved during intro skip frame
-					skipround := (s.specialFlag&GSF_norounddisplay | s.specialFlag&GSF_nofightdisplay)
+					// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
+					skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
 					s.resetGblEffect()
 					s.specialFlag = skipround
 					s.fadeintime = 0

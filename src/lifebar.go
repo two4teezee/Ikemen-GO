@@ -2375,7 +2375,7 @@ func (ro *LifeBarRound) act() bool {
 			//	sys.introSkipped = false
 			//}
 			// Round call
-			if sys.gsf(GSF_norounddisplay) && canSkip(0) { // Skip
+			if sys.gsf(GSF_skiprounddisplay) && canSkip(0) { // Skip
 				ro.roundCallOver = true
 				ro.waitTimer[1] = 0
 			}
@@ -2465,7 +2465,7 @@ func (ro *LifeBarRound) act() bool {
 			}
 			// Skip fight call
 			// Cannot be skipped unless round call is finished or also skipped
-			if ro.roundCallOver && sys.gsf(GSF_nofightdisplay) && canSkip(1) {
+			if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) && canSkip(1) {
 				endFightCall()
 				if sys.intro > 1 {
 					sys.intro = 1 // Skip ctrl waiting time
@@ -2542,7 +2542,7 @@ func (ro *LifeBarRound) act() bool {
 				ro.waitTimer[t]--
 			}
 			// KO screen
-			if !(sys.gsf(GSF_nokodisplay) && canSkip(2)) {
+			if !(sys.gsf(GSF_skipkodisplay) && canSkip(2)) {
 				switch sys.finishType {
 				case FT_KO:
 					ro.ko_top.Action()
@@ -2565,7 +2565,7 @@ func (ro *LifeBarRound) act() bool {
 				}
 			}
 			// Winner announcement
-			if sys.intro < -(ro.over_waittime) && !(sys.gsf(GSF_nowindisplay) && canSkip(3)) {
+			if sys.intro < -(ro.over_waittime) && !(sys.gsf(GSF_skipwindisplay) && canSkip(3)) {
 				wt := sys.winTeam
 				if wt < 0 {
 					wt = 0

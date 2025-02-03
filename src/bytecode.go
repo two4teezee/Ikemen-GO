@@ -739,9 +739,6 @@ const (
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
 	OC_ex2_outrostate
-	OC_ex2_continuescreen
-	OC_ex2_victoryscreen
-	OC_ex2_winscreen
 	OC_ex2_bgmvar_filename
 	OC_ex2_bgmvar_freqmul
 	OC_ex2_bgmvar_length
@@ -865,6 +862,9 @@ const (
 	OC_ex2_fightscreenstate_kodisplay
 	OC_ex2_fightscreenstate_rounddisplay
 	OC_ex2_fightscreenstate_windisplay
+	OC_ex2_motifstate_continuescreen
+	OC_ex2_motifstate_victoryscreen
+	OC_ex2_motifstate_winscreen
 	OC_ex2_systemvar_introtime
 	OC_ex2_systemvar_outrotime
 	OC_ex2_systemvar_pausetime
@@ -3195,12 +3195,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.introState())
 	case OC_ex2_outrostate:
 		sys.bcStack.PushI(sys.outroState())
-	case OC_ex2_continuescreen:
-		sys.bcStack.PushB(sys.continueScreenFlg)
-	case OC_ex2_victoryscreen:
-		sys.bcStack.PushB(sys.victoryScreenFlg)
-	case OC_ex2_winscreen:
-		sys.bcStack.PushB(sys.winScreenFlg)
 	case OC_ex2_bgmvar_filename:
 		sys.bcStack.PushB(sys.bgm.filename ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
@@ -3531,6 +3525,13 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.lifebar.ro.triggerRoundDisplay)
 	case OC_ex2_fightscreenstate_windisplay:
 		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
+	// MotifState
+	case OC_ex2_motifstate_continuescreen:
+		sys.bcStack.PushB(sys.continueScreenFlg)
+	case OC_ex2_motifstate_victoryscreen:
+		sys.bcStack.PushB(sys.victoryScreenFlg)
+	case OC_ex2_motifstate_winscreen:
+		sys.bcStack.PushB(sys.winScreenFlg)
 	// SystemVar
 	case OC_ex2_systemvar_introtime:
 		if sys.intro > 0 {

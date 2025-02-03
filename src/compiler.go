@@ -365,6 +365,7 @@ var triggerMap = map[string]int{
 	"dizzypointsmax":     1,
 	"envshakevar":        1,
 	"explodvar":          1,
+	"fightscreenstate":   1,
 	"fightscreenvar":     1,
 	"fighttime":          1,
 	"firstattack":        1,
@@ -442,6 +443,7 @@ var triggerMap = map[string]int{
 	"stagefrontedgedist": 1,
 	"stagetime":          1,
 	"standby":            1,
+	"systemvar":          1,
 	"teamleader":         1,
 	"teamsize":           1,
 	"timeelapsed":        1,
@@ -3869,6 +3871,29 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
+	case "fightscreenstate":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		fssname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		switch fssname {
+		case "fightdisplay":
+			opc = OC_ex2_fightscreenstate_fightdisplay
+		case "kodisplay":
+			opc = OC_ex2_fightscreenstate_kodisplay
+		case "rounddisplay":
+			opc = OC_ex2_fightscreenstate_rounddisplay
+		case "windisplay":
+			opc = OC_ex2_fightscreenstate_windisplay
+		default:
+			return bvNone(), Error("Invalid data: " + fssname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "fightscreenvar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
@@ -4311,6 +4336,31 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_stagetime)
 	case "standby":
 		out.append(OC_ex_, OC_ex_standby)
+	case "systemvar":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		svname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		switch svname {
+		case "introtime":
+			opc = OC_ex2_systemvar_introtime
+		case "outrotime":
+			opc = OC_ex2_systemvar_outrotime
+		case "pausetime":
+			opc = OC_ex2_systemvar_pausetime
+		case "slowtime":
+			opc = OC_ex2_systemvar_slowtime
+		case "superpausetime":
+			opc = OC_ex2_systemvar_superpausetime
+		default:
+			return bvNone(), Error("Invalid data: " + svname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "teamleader":
 		out.append(OC_ex_, OC_ex_teamleader)
 	case "teamsize":

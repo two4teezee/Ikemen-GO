@@ -861,7 +861,17 @@ const (
 	OC_ex2_soundvar_priority
 	OC_ex2_soundvar_startposition
 	OC_ex2_soundvar_volumescale
+	OC_ex2_fightscreenstate_fightdisplay
+	OC_ex2_fightscreenstate_kodisplay
+	OC_ex2_fightscreenstate_rounddisplay
+	OC_ex2_fightscreenstate_windisplay
+	OC_ex2_systemvar_introtime
+	OC_ex2_systemvar_outrotime
+	OC_ex2_systemvar_pausetime
+	OC_ex2_systemvar_slowtime
+	OC_ex2_systemvar_superpausetime
 )
+
 const (
 	NumVar     = 60
 	NumSysVar  = 5
@@ -2986,7 +2996,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_mugenversion:
 		sys.bcStack.PushF(c.mugenVersionF())
 	case OC_ex_pausetime:
-		sys.bcStack.PushI(c.pauseTime())
+		sys.bcStack.PushI(c.pauseTimeTrigger())
 	case OC_ex_physics:
 		sys.bcStack.PushB(c.ss.physics == StateType(be[*i]))
 		*i++
@@ -3512,6 +3522,35 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		v := c.projVar(id, idx, flg, opc, oc)
 		sys.bcStack.Push(v)
 	// END FALLTHROUGH (projvar)
+	// FightScreenState
+	case OC_ex2_fightscreenstate_fightdisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerFightDisplay)
+	case OC_ex2_fightscreenstate_kodisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerKODisplay)
+	case OC_ex2_fightscreenstate_rounddisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerRoundDisplay)
+	case OC_ex2_fightscreenstate_windisplay:
+		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
+	// SystemVar
+	case OC_ex2_systemvar_introtime:
+		if sys.intro > 0 {
+			sys.bcStack.PushI(sys.intro)
+		} else {
+			sys.bcStack.PushI(0)
+		}
+	case OC_ex2_systemvar_outrotime:
+		if sys.intro < 0 {
+			sys.bcStack.PushI(-sys.intro)
+		} else {
+			sys.bcStack.PushI(0)
+		}
+	case OC_ex2_systemvar_pausetime:
+		sys.bcStack.PushI(sys.pausetime)
+	case OC_ex2_systemvar_slowtime:
+		sys.bcStack.PushI(sys.slowtimeTrigger)
+	case OC_ex2_systemvar_superpausetime:
+		sys.bcStack.PushI(sys.supertime)
+	// HitDefVar
 	case OC_ex2_hitdefvar_guardflag:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))
 		sys.bcStack.PushB(

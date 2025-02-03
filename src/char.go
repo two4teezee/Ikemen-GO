@@ -3762,7 +3762,7 @@ func (c *Char) bottomEdge() float32 {
 }
 
 func (c *Char) botBoundDist() float32 {
-	return -c.depthEdge[0]+sys.zmax/c.localscl - c.pos[2]
+	return -c.depthEdge[0] + sys.zmax/c.localscl - c.pos[2]
 }
 
 func (c *Char) canRecover() bool {
@@ -4604,7 +4604,7 @@ func (c *Char) topEdge() float32 {
 }
 
 func (c *Char) topBoundDist() float32 {
-	return c.depthEdge[1]+sys.zmin/c.localscl - c.pos[2]
+	return c.depthEdge[1] + sys.zmin/c.localscl - c.pos[2]
 }
 
 func (c *Char) win() bool {

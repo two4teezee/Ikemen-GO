@@ -131,6 +131,7 @@ func newCompiler() *Compiler {
 		"assertcommand":        c.assertCommand,
 		"assertinput":          c.assertInput,
 		"camera":               c.cameraCtrl,
+		"depth":                c.depth,
 		"dialogue":             c.dialogue,
 		"dizzypointsadd":       c.dizzyPointsAdd,
 		"dizzypointsset":       c.dizzyPointsSet,

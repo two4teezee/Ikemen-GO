@@ -354,7 +354,6 @@ var triggerMap = map[string]int{
 	"clsnvar":            1,
 	"combocount":         1,
 	"consecutivewins":    1,
-	"continuescreen":     1,
 	"const1080p":         1,
 	"decisiveround":      1,
 	"defence":            1,
@@ -398,6 +397,7 @@ var triggerMap = map[string]int{
 	"max":                1,
 	"memberno":           1,
 	"min":                1,
+	"motifstate":         1,
 	"movecountered":      1,
 	"movehitvar":         1,
 	"mugenversion":       1,
@@ -449,9 +449,7 @@ var triggerMap = map[string]int{
 	"timeelapsed":        1,
 	"timeremaining":      1,
 	"timetotal":          1,
-	"victoryscreen":      1,
 	"winhyper":           1,
-	"winscreen":          1,
 	"winspecial":         1,
 }
 
@@ -3815,8 +3813,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
-	case "continuescreen":
-		out.append(OC_ex2_, OC_ex2_continuescreen)
 	case "debug":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
@@ -4221,6 +4217,27 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return bvNone(), nil
 	case "memberno":
 		out.append(OC_ex_, OC_ex_memberno)
+	case "motifstate":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		msname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		switch msname {
+		case "continuescreen":
+			opc = OC_ex2_motifstate_continuescreen
+		case "victoryscreen":
+			opc = OC_ex2_motifstate_victoryscreen
+		case "winscreen":
+			opc = OC_ex2_motifstate_winscreen
+		default:
+			return bvNone(), Error("Invalid data: " + msname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "movecountered":
 		out.append(OC_ex_, OC_ex_movecountered)
 	case "movehitvar":
@@ -4371,10 +4388,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_timeremaining)
 	case "timetotal":
 		out.append(OC_ex_, OC_ex_timetotal)
-	case "victoryscreen":
-		out.append(OC_ex2_, OC_ex2_victoryscreen)
-	case "winscreen":
-		out.append(OC_ex2_, OC_ex2_winscreen)
 	case "angle":
 		out.append(OC_ex_, OC_ex_angle)
 	case "scale":

@@ -5192,10 +5192,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[sys.debugWC.teamside]))
 		return 1
 	})
-	luaRegister(l, "continuescreen", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.continueScreenFlg))
-		return 1
-	})
 	luaRegister(l, "debug", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "accel":
@@ -5608,6 +5604,19 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.memberNo + 1))
 		return 1
 	})
+	luaRegister(l, "motifstate", func(*lua.LState) int {
+		switch strings.ToLower(strArg(l, 1)) {
+		case "continuescreen":
+			l.Push(lua.LBool(sys.continueScreenFlg))
+		case "victoryscreen":
+			l.Push(lua.LBool(sys.victoryScreenFlg))
+		case "winscreen":
+			l.Push(lua.LBool(sys.winScreenFlg))
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		return 1
+	})
 	luaRegister(l, "movecountered", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.moveCountered()))
 		return 1
@@ -5806,15 +5815,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(timeTotal()))
 		return 1
 	})
-	luaRegister(l, "victoryscreen", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.victoryScreenFlg))
-		return 1
-	})
-	luaRegister(l, "winscreen", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.winScreenFlg))
-		return 1
-	})
-
 	// lua/debug only triggers
 	luaRegister(l, "animelemcount", func(*lua.LState) int {
 		l.Push(lua.LNumber(len(sys.debugWC.anim.frames)))

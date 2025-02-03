@@ -1936,71 +1936,71 @@ func (ac *LifeBarAction) draw(layerno int16, f []*Fnt, side int) {
 }
 
 type LifeBarRound struct {
-	snd                *Snd
-	pos                [2]int32
-	match_wins         [2]int32
-	match_maxdrawgames [2]int32
-	start_waittime     int32
-	round_time         int32
-	round_sndtime      int32
-	round              [9]AnimTextSnd
-	round_default      AnimTextSnd
-	round_default_top  AnimLayout
-	round_default_bg   [32]AnimLayout
-	round_single       AnimTextSnd
-	round_single_top   AnimLayout
-	round_single_bg    [32]AnimLayout
-	round_final        AnimTextSnd
-	round_final_top    AnimLayout
-	round_final_bg     [32]AnimLayout
-	fight_time         int32
-	fight_sndtime      int32
-	fight              AnimTextSnd
-	fight_top          AnimLayout
-	fight_bg           [32]AnimLayout
-	ctrl_time          int32
-	ko_time            int32
-	ko_sndtime         int32
-	ko, dko, to        AnimTextSnd
-	ko_top             AnimLayout
-	ko_bg              [32]AnimLayout
-	dko_top            AnimLayout
-	dko_bg             [32]AnimLayout
-	to_top             AnimLayout
-	to_bg              [32]AnimLayout
-	slow_time          int32
-	slow_fadetime      int32
-	slow_speed         float32
-	over_waittime      int32
-	over_hittime       int32
-	over_wintime       int32
-	over_time          int32
-	win_time           int32
-	win_sndtime        int32
-	win, win2          [2]AnimTextSnd
-	win_top, win2_top  [2]AnimLayout
-	win_bg, win2_bg    [2][32]AnimLayout
-	win3, win4         [2]AnimTextSnd
-	win3_top, win4_top [2]AnimLayout
-	win3_bg, win4_bg   [2][32]AnimLayout
-	drawgame           AnimTextSnd
-	drawgame_top       AnimLayout
-	drawgame_bg        [32]AnimLayout
-	current            int32
-	waitTimer          [4]int32 // 0 round call; 1 fight call; 2 KO screen; 3 winner announcement
-	waitSoundTimer     [4]int32
-	drawTimer          [4]int32
-	roundCallOver      bool
-	fightCallOver      bool
-	timerActive        bool
-	winType            [WT_NumTypes * 2]LbBgTextSnd
-	fadein_time        int32
-	fadein_col         uint32
-	fadeout_time       int32
-	fadeout_col        uint32
-	shutter_time       int32
-	shutter_col        uint32
-	callfight_time     int32
+	snd                 *Snd
+	pos                 [2]int32
+	match_wins          [2]int32
+	match_maxdrawgames  [2]int32
+	start_waittime      int32
+	round_time          int32
+	round_sndtime       int32
+	round               [9]AnimTextSnd
+	round_default       AnimTextSnd
+	round_default_top   AnimLayout
+	round_default_bg    [32]AnimLayout
+	round_single        AnimTextSnd
+	round_single_top    AnimLayout
+	round_single_bg     [32]AnimLayout
+	round_final         AnimTextSnd
+	round_final_top     AnimLayout
+	round_final_bg      [32]AnimLayout
+	fight_time          int32
+	fight_sndtime       int32
+	fight               AnimTextSnd
+	fight_top           AnimLayout
+	fight_bg            [32]AnimLayout
+	ctrl_time           int32
+	ko_time             int32
+	ko_sndtime          int32
+	ko, dko, to         AnimTextSnd
+	ko_top              AnimLayout
+	ko_bg               [32]AnimLayout
+	dko_top             AnimLayout
+	dko_bg              [32]AnimLayout
+	to_top              AnimLayout
+	to_bg               [32]AnimLayout
+	slow_time           int32
+	slow_fadetime       int32
+	slow_speed          float32
+	over_waittime       int32
+	over_hittime        int32
+	over_wintime        int32
+	over_time           int32
+	win_time            int32
+	win_sndtime         int32
+	win, win2           [2]AnimTextSnd
+	win_top, win2_top   [2]AnimLayout
+	win_bg, win2_bg     [2][32]AnimLayout
+	win3, win4          [2]AnimTextSnd
+	win3_top, win4_top  [2]AnimLayout
+	win3_bg, win4_bg    [2][32]AnimLayout
+	drawgame            AnimTextSnd
+	drawgame_top        AnimLayout
+	drawgame_bg         [32]AnimLayout
+	current             int32
+	waitTimer           [4]int32 // 0 round call; 1 fight call; 2 KO screen; 3 winner announcement
+	waitSoundTimer      [4]int32
+	drawTimer           [4]int32
+	roundCallOver       bool
+	fightCallOver       bool
+	timerActive         bool
+	winType             [WT_NumTypes * 2]LbBgTextSnd
+	fadein_time         int32
+	fadein_col          uint32
+	fadeout_time        int32
+	fadeout_col         uint32
+	shutter_time        int32
+	shutter_col         uint32
+	callfight_time      int32
 	triggerRoundDisplay bool // FightScreenState trigger
 	triggerFightDisplay bool
 	triggerKODisplay    bool

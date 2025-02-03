@@ -2433,7 +2433,7 @@ type Char struct {
 	reflectOffset   [2]float32
 	ownclsnscale    bool
 	pushPriority    int32
-	prevfallflag      bool
+	prevfallflag    bool
 }
 
 // Add a new char to the game

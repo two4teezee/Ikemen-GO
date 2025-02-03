@@ -1718,7 +1718,7 @@ func (s *System) action() {
 		}
 		if s.postMatchFlg || s.step {
 			spd = 1
-		} 
+		}
 		s.turbo = spd
 	}
 	s.tickSound()

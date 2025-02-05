@@ -4221,12 +4221,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
-		fssname := c.token
+		msname := c.token
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingBracket(); err != nil {
 			return bvNone(), err
 		}
-		switch fssname {
+		switch msname {
 		case "continuescreen":
 			opc = OC_ex2_motifstate_continuescreen
 		case "victoryscreen":
@@ -4234,7 +4234,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "winscreen":
 			opc = OC_ex2_motifstate_winscreen
 		default:
-			return bvNone(), Error("Invalid data: " + fssname)
+			return bvNone(), Error("Invalid data: " + msname)
 		}
 		out.append(OC_ex2_)
 		out.append(opc)

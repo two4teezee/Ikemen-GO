@@ -151,23 +151,23 @@ var notiling = Tiling{}
 
 // RenderParams holds the common data for all sprite rendering functions
 type RenderParams struct {
-	tex    Texture // Sprite
-	paltex Texture // Palette
-	size     [2]uint16
-	x, y     float32 // Position
-	tile     Tiling
-	xts, xbs float32 // Top and bottom X scale (as in parallax)
-	ys, vs   float32 // Y scale
-	rxadd    float32
-	xas, yas float32
-	rot      Rotation
-	tint  uint32 // Sprite tint for shadows
-	trans int32  // Transparency blending
-	mask  int32  // Mask for transparency
-	pfx   *PalFX
-	window *[4]int32
-	rcx, rcy float32 // Rotation center
-	projectionMode int32 // Perspective projection
+	tex            Texture // Sprite
+	paltex         Texture // Palette
+	size           [2]uint16
+	x, y           float32 // Position
+	tile           Tiling
+	xts, xbs       float32 // Top and bottom X scale (as in parallax)
+	ys, vs         float32 // Y scale
+	rxadd          float32
+	xas, yas       float32
+	rot            Rotation
+	tint           uint32 // Sprite tint for shadows
+	trans          int32  // Transparency blending
+	mask           int32  // Mask for transparency
+	pfx            *PalFX
+	window         *[4]int32
+	rcx, rcy       float32 // Rotation center
+	projectionMode int32   // Perspective projection
 	fLength        float32 // Focal length
 	xOffset        float32
 	yOffset        float32

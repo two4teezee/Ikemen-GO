@@ -1196,10 +1196,24 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
 			step := i/ai.framegap - 1
 			ai.palfx[step].remap = sd.fx.remap
-			sprs.add(&SprData{&img.anim, &ai.palfx[step], img.pos,
-				img.scl, ai.alpha, img.priority - step, // Afterimages decrease in sprpriority over time
-				img.rot, img.ascl, false, sd.bright, sd.oldVer, sd.facing,
-				sd.airOffsetFix, img.projection, img.fLength, sd.window})
+			sprs.add(&SprData{
+				anim:         &img.anim,
+				fx:           &ai.palfx[step],
+				pos:          img.pos,
+				scl:          img.scl,
+				alpha:        ai.alpha,
+				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
+				rot:          img.rot,
+				ascl:         img.ascl,
+				screen:       false,
+				bright:       sd.bright,
+				oldVer:       sd.oldVer,
+				facing:       sd.facing,
+				airOffsetFix: sd.airOffsetFix,
+				projection:   img.projection,
+				fLength:      img.fLength,
+				window:       sd.window,
+			})
 			// Afterimages don't cast shadows or reflections
 		}
 	}
@@ -1564,9 +1578,24 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	}
 
 	// Add sprite to draw list
-	sd := &SprData{e.anim, pfx, drawpos, drawscale,
-		alp, e.sprpriority + int32(e.pos[2]*e.localscl), rot, [...]float32{1, 1},
-		e.space == Space_screen, playerNo == sys.superplayer, oldVer, facing, [2]float32{1, 1}, int32(e.projection), fLength, ewin}
+	sd := &SprData{
+		anim:         e.anim,
+		fx:           pfx,
+		pos:          drawpos,
+		scl:          drawscale,
+		alpha:        alp,
+		priority:     e.sprpriority + int32(e.pos[2]*e.localscl),
+		rot:          rot,
+		ascl:         [...]float32{1, 1},
+		screen:       e.space == Space_screen,
+		bright:       playerNo == sys.superplayer,
+		oldVer:       oldVer,
+		facing:       facing,
+		airOffsetFix: [2]float32{1, 1},
+		projection:   int32(e.projection),
+		fLength:      fLength,
+		window:       ewin,
+	}
 	sprs.add(sd)
 
 	// Add shadow if color is not 0
@@ -1576,7 +1605,14 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		if sdwalp < 0 {
 			sdwalp = 256
 		}
-		sys.shadows.add(&ShadowSprite{sd, sdwclr, sdwalp, [2]float32{0, 0}, [2]float32{0, 0}, 0})
+		sys.shadows.add(&ShadowSprite{
+			SprData:       sd,
+			shadowColor:   sdwclr,
+			shadowAlpha:   sdwalp,
+			shadowOffset:  [2]float32{0, 0},
+			reflectOffset: [2]float32{0, 0},
+			fadeOffset:    0,
+		})
 	}
 	if sys.tickNextFrame() {
 
@@ -2149,15 +2185,37 @@ func (p *Projectile) cueDraw(oldVer bool) {
 
 	if p.ani != nil {
 		// Add sprite to draw list
-		sd := &SprData{p.ani, p.palfx, pos, scl, [2]int32{-1},
-			p.sprpriority + int32(p.pos[2]*p.localscl), Rotation{p.facing * p.angle, 0, 0}, [...]float32{1, 1}, false, p.playerno == sys.superplayer,
-			sys.cgi[p.playerno].mugenver[0] != 1, p.facing, [2]float32{1, 1}, 0, 0, [4]float32{0, 0, 0, 0}}
+		sd := &SprData{
+			anim:         p.ani,
+			fx:           p.palfx,
+			pos:          pos,
+			scl:          scl,
+			alpha:        [2]int32{-1},
+			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
+			rot:          Rotation{p.facing * p.angle, 0, 0},
+			ascl:         [...]float32{1, 1},
+			screen:       false,
+			bright:       p.playerno == sys.superplayer,
+			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
+			facing:       p.facing,
+			airOffsetFix: [2]float32{1, 1},
+			projection:   0,
+			fLength:      0,
+			window:       [4]float32{0, 0, 0, 0},
+		}
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
 		// Add a shadow if color is not 0
 		sdwclr := p.shadow[0]<<16 | p.shadow[1]&255<<8 | p.shadow[2]&255
 		if sdwclr != 0 {
-			sys.shadows.add(&ShadowSprite{sd, sdwclr, 0, [2]float32{0, p.pos[2]}, [2]float32{0, p.pos[2]}, 0})
+			sys.shadows.add(&ShadowSprite{
+				SprData:       sd,
+				shadowColor:   sdwclr,
+				shadowAlpha:   0,
+				shadowOffset:  [2]float32{0, p.pos[2]},
+				reflectOffset: [2]float32{0, p.pos[2]},
+				fadeOffset:    0,
+			})
 		}
 	}
 }
@@ -8678,10 +8736,24 @@ func (c *Char) cueDraw() {
 			}
 		}
 		// Define sprite data
-		sd := &SprData{c.anim, c.getPalfx(), pos,
-			scl, c.alpha, c.sprPriority + int32(c.pos[2]*c.localscl), Rotation{agl, 0, 0}, c.angleScale, false,
-			c.playerNo == sys.superplayer, c.gi().mugenver[0] != 1, c.facing, airOffsetFix,
-			0, 0, [4]float32{0, 0, 0, 0}}
+		sd := &SprData{
+			anim:         c.anim,
+			fx:           c.getPalfx(),
+			pos:          pos,
+			scl:          scl,
+			alpha:        c.alpha,
+			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
+			rot:          Rotation{agl, 0, 0},
+			ascl:         c.angleScale,
+			screen:       false,
+			bright:       c.playerNo == sys.superplayer,
+			oldVer:       c.gi().mugenver[0] != 1,
+			facing:       c.facing,
+			airOffsetFix: airOffsetFix,
+			projection:   0,
+			fLength:      0,
+			window:       [4]float32{0, 0, 0, 0},
+		}
 		if !c.csf(CSF_trans) {
 			sd.alpha[0] = -1
 		}
@@ -8719,10 +8791,20 @@ func (c *Char) cueDraw() {
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoY(c.interPos[2], c.localscl)
-				sys.shadows.add(&ShadowSprite{sd, -1, sdwalp,
-					[2]float32{c.shadowOffset[0] * c.localscl, (c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff},          // Shadow offset
-					[2]float32{c.reflectOffset[0] * c.localscl, (c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff}, // Reflection offset
-					c.offsetY()}) // Fade offset
+				sys.shadows.add(&ShadowSprite{
+					SprData:       sd,
+					shadowColor:   -1,
+					shadowAlpha:   sdwalp,
+					shadowOffset:  [2]float32{
+						c.shadowOffset[0] * c.localscl,
+						(c.size.shadowoffset + c.shadowOffset[1]) * c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
+					},
+					reflectOffset: [2]float32{
+						c.reflectOffset[0] * c.localscl,
+						(c.size.shadowoffset + c.reflectOffset[1]) * c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
+					},
+					fadeOffset:    c.offsetY(),
+				})
 			}
 		}
 	}

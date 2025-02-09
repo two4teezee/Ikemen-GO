@@ -1669,9 +1669,24 @@ func (s *System) action() {
 	s.charList.xScreenBound()
 
 	if s.superanim != nil {
-		s.spritesLayer1.add(&SprData{s.superanim, &s.superpmap, s.superpos,
-			[...]float32{s.superfacing, 1}, [2]int32{-1}, 5, Rotation{}, [2]float32{},
-			false, true, s.cgi[s.superplayer].mugenver[0] != 1, 1, [2]float32{1, 1}, 0, 0, [4]float32{0, 0, 0, 0}})
+		s.spritesLayer1.add(&SprData{
+			anim:         s.superanim,
+			fx:           &s.superpmap,
+			pos:          s.superpos,
+			scl:          [...]float32{s.superfacing, 1},
+			alpha:        [2]int32{-1},
+			priority:     5,
+			rot:          Rotation{},
+			ascl:         [2]float32{},
+			screen:       false,
+			bright:       true,
+			oldVer:       s.cgi[s.superplayer].mugenver[0] != 1,
+			facing:       1,
+			airOffsetFix: [2]float32{1, 1},
+			projection:   0,
+			fLength:      0,
+			window:       [4]float32{0, 0, 0, 0},
+		})
 		if s.superanim.loopend {
 			s.superanim = nil
 		}

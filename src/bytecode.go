@@ -8819,8 +8819,8 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	uh := true
 	animset := false
 	sys.superpmap.remap = nil
-	sys.superpos = [...]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-	sys.superfacing = crun.facing
+	sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
+	sys.superscale = [2]float32{crun.facing, 1}
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
 	sys.superdarken = true
@@ -8875,8 +8875,8 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				sys.superpmap.remap = nil
-				sys.superpos = [...]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-				sys.superfacing = crun.facing
+				sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
+				sys.superscale = [2]float32{crun.facing, 1}
 			} else {
 				return false
 			}
@@ -8889,6 +8889,14 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	if sys.superanim != nil {
 		sys.superanim.start_scale[0] *= crun.localscl
 		sys.superanim.start_scale[1] *= crun.localscl
+		// Apply Z axis perspective
+		if sys.zEnabled() {
+			sys.superpos[0] *= crun.zScale
+			sys.superpos[1] *= crun.zScale
+			sys.superpos[1] += sys.posZtoY(crun.pos[2], crun.localscl)
+			sys.superscale[0] *= crun.zScale
+			sys.superscale[1] *= crun.zScale
+		}
 	}
 	crun.setSuperPauseTime(t, mt, uh)
 	return false

@@ -154,12 +154,12 @@ type System struct {
 	supertimebuffer         int32
 	superpausebg            bool
 	superendcmdbuftime      int32
-	superplayer             int
+	superplayerno           int
 	superdarken             bool
 	superanim               *Animation
 	superpmap               PalFX
 	superpos                [2]float32
-	superfacing             float32
+	superscale              [2]float32
 	superp2defmul           float32
 	envcol                  [3]int32
 	envcol_time             int32
@@ -1667,20 +1667,20 @@ func (s *System) action() {
 		s.xmin = s.cam.minLeft
 	}
 	s.charList.xScreenBound()
-
+	// Superpause effect
 	if s.superanim != nil {
 		s.spritesLayer1.add(&SprData{
 			anim:         s.superanim,
 			fx:           &s.superpmap,
 			pos:          s.superpos,
-			scl:          [...]float32{s.superfacing, 1},
+			scl:          s.superscale,
 			alpha:        [2]int32{-1},
 			priority:     5,
 			rot:          Rotation{},
 			ascl:         [2]float32{},
 			screen:       false,
-			bright:       true,
-			oldVer:       s.cgi[s.superplayer].mugenver[0] != 1,
+			undarken:     true,
+			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,
 			facing:       1,
 			airOffsetFix: [2]float32{1, 1},
 			projection:   0,
@@ -1688,7 +1688,7 @@ func (s *System) action() {
 			window:       [4]float32{0, 0, 0, 0},
 		})
 		if s.superanim.loopend {
-			s.superanim = nil
+			s.superanim = nil // Not allowed to loop
 		}
 	}
 	for i := range s.projs {

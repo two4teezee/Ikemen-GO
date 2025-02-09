@@ -1206,7 +1206,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				rot:          img.rot,
 				ascl:         img.ascl,
 				screen:       false,
-				bright:       sd.bright,
+				undarken:     sd.undarken,
 				oldVer:       sd.oldVer,
 				facing:       sd.facing,
 				airOffsetFix: sd.airOffsetFix,
@@ -1588,7 +1588,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		rot:          rot,
 		ascl:         [...]float32{1, 1},
 		screen:       e.space == Space_screen,
-		bright:       playerNo == sys.superplayer,
+		undarken:     playerNo == sys.superplayerno,
 		oldVer:       oldVer,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
@@ -2196,7 +2196,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			rot:          Rotation{p.facing * p.angle, 0, 0},
 			ascl:         [...]float32{1, 1},
 			screen:       false,
-			bright:       p.playerno == sys.superplayer,
+			undarken:     p.playerno == sys.superplayerno,
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
@@ -6637,10 +6637,9 @@ func (c *Char) setPauseTime(pausetime, movetime int32) {
 }
 
 func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
-	if ^pausetime < sys.supertimebuffer || c.playerNo != c.ss.sb.playerNo ||
-		sys.superplayer == c.playerNo {
+	if ^pausetime < sys.supertimebuffer || c.playerNo != c.ss.sb.playerNo || sys.superplayerno == c.playerNo {
 		sys.supertimebuffer = ^pausetime
-		sys.superplayer = c.playerNo
+		sys.superplayerno = c.playerNo
 		if sys.superendcmdbuftime < 0 || sys.superendcmdbuftime > pausetime {
 			sys.superendcmdbuftime = 0
 		}
@@ -8298,7 +8297,7 @@ func (c *Char) update() {
 		c.hoIdx = -1
 		c.hoKeepState = false
 		// Apply SuperPause p2defmul
-		if sys.supertimebuffer < 0 && c.teamside != sys.superplayer&1 {
+		if sys.supertimebuffer < 0 && c.teamside != sys.superplayerno&1 {
 			c.superDefenseMul *= sys.superp2defmul
 		}
 		// Update final defense
@@ -8748,7 +8747,7 @@ func (c *Char) cueDraw() {
 			rot:          Rotation{agl, 0, 0},
 			ascl:         c.angleScale,
 			screen:       false,
-			bright:       c.playerNo == sys.superplayer,
+			undarken:     c.playerNo == sys.superplayerno,
 			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,

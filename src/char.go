@@ -1605,13 +1605,14 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		if sdwalp < 0 {
 			sdwalp = 256
 		}
+		drawZoff := sys.posZtoY(e.interPos[2], e.localscl)
 		sys.shadows.add(&ShadowSprite{
 			SprData:       sd,
 			shadowColor:   sdwclr,
 			shadowAlpha:   sdwalp,
-			shadowOffset:  [2]float32{0, 0},
-			reflectOffset: [2]float32{0, 0},
-			fadeOffset:    0,
+			shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
+			fadeOffset:    drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -2206,15 +2207,16 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
 		// Add a shadow if color is not 0
-		sdwclr := p.shadow[0]<<16 | p.shadow[1]&255<<8 | p.shadow[2]&255
+		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 		if sdwclr != 0 {
+			drawZoff := sys.posZtoY(p.interPos[2], p.localscl)
 			sys.shadows.add(&ShadowSprite{
 				SprData:       sd,
 				shadowColor:   sdwclr,
-				shadowAlpha:   0,
-				shadowOffset:  [2]float32{0, p.pos[2]},
-				reflectOffset: [2]float32{0, p.pos[2]},
-				fadeOffset:    0,
+				shadowAlpha:   255,
+				shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
+				fadeOffset:    drawZoff,
 			})
 		}
 	}
@@ -8803,7 +8805,7 @@ func (c *Char) cueDraw() {
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset + c.reflectOffset[1]) * c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
 					},
-					fadeOffset:    c.offsetY(),
+					fadeOffset:    c.offsetY() + drawZoff,
 				})
 			}
 		}

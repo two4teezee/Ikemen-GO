@@ -1544,10 +1544,12 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	// Set scale
 	drawscale := [2]float32{facing * scale[0] * e.localscl, e.vfacing * scale[1] * e.localscl}
 
+	centerOffset := (e.interPos[0] - sys.cam.Pos[0])
+
 	// Apply Z axis perspective
 	if e.space == Space_stage && sys.zEnabled() {
 		zscale := sys.updateZScale(e.pos[2], e.localscl)
-		drawpos[0] *= zscale
+		drawpos[0] -= centerOffset * (1 - zscale)
 		drawpos[1] *= zscale
 		drawpos[1] += sys.posZtoY(e.interPos[2], e.localscl)
 		drawscale[0] *= zscale
@@ -2128,10 +2130,12 @@ func (p *Projectile) cueDraw(oldVer bool) {
 
 	scl := [...]float32{p.facing * p.scale[0] * p.localscl * p.zScale,
 		p.scale[1] * p.localscl * p.zScale}
+    
+	centerOffset := (p.interPos[0] - sys.cam.Pos[0])
 
 	// Apply Z axis perspective
 	if sys.zEnabled() {
-		pos[0] *= p.zScale
+		pos[0] -= centerOffset * (1 - p.zScale)
 		pos[1] *= p.zScale
 		pos[1] += sys.posZtoY(p.interPos[2], p.localscl)
 	}
@@ -4508,6 +4512,13 @@ func (c *Char) roundsExisted() int32 {
 		return sys.round - 1
 	}
 	return sys.roundsExisted[c.playerNo&1]
+}
+
+func (c *Char) roundsWon() int32 {
+	if c.teamside == -1 {
+		return 0
+	}
+	return sys.wins[c.playerNo&1]
 }
 
 // TODO: These are supposed to be affected by zoom camera shifting
@@ -8618,10 +8629,12 @@ func (c *Char) cueDraw() {
 
 		scl := [...]float32{c.facing * c.size.xscale * c.zScale * (320 / c.localcoord),
 			c.size.yscale * c.zScale * (320 / c.localcoord)}
+		
+		centerOffset := (c.interPos[0] - sys.cam.Pos[0])
 
 		// Apply Z axis perspective
 		if sys.zEnabled() {
-			pos[0] *= c.zScale
+			pos[0] -= centerOffset * (1 - c.zScale)
 			pos[1] *= c.zScale
 			pos[1] += sys.posZtoY(c.interPos[2], c.localscl)
 		}

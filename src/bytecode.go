@@ -8891,9 +8891,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		sys.superanim.start_scale[1] *= crun.localscl
 		// Apply Z axis perspective
 		if sys.zEnabled() {
-			sys.superpos[0] *= crun.zScale
-			sys.superpos[1] *= crun.zScale
-			sys.superpos[1] += sys.posZtoY(crun.pos[2], crun.localscl)
+			sys.superpos = sys.drawposXYfromZ(sys.superpos, crun.localscl, crun.interPos[2], crun.zScale)
 			sys.superscale[0] *= crun.zScale
 			sys.superscale[1] *= crun.zScale
 		}

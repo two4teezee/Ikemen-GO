@@ -858,9 +858,18 @@ func (s *System) zEnabled() bool {
 	return s.zmin != s.zmax
 }
 
-// Convert Z logic position to Y drawing position
-func (s *System) posZtoY(z, localscl float32) float32 {
-	return z * localscl * sys.stage.stageCamera.depthtoscreen
+// Convert X and Y drawing position to Z perspective
+func (s *System) drawposXYfromZ(inpos [2]float32, localscl, zpos, zscale float32) (outpos [2]float32) {
+	outpos[0] = (inpos[0] - s.cam.Pos[0]) * zscale + s.cam.Pos[0]
+	outpos[1] = inpos[1] * zscale
+	outpos[1] += s.posZtoYoffset(zpos, localscl) // "Z" position
+	return
+}
+
+// Convert Z logic position to Y drawing offset
+// This is separate from the above because shadows only need this part
+func (s *System) posZtoYoffset(zpos, localscl float32) float32 {
+	return zpos * localscl * s.stage.stageCamera.depthtoscreen
 }
 
 // Z axis check
@@ -1487,7 +1496,7 @@ func (s *System) action() {
 									s.lifebar.wi[i].add(s.winType[i])
 									if s.matchOver() {
 										// In a draw game both players go back to 0 wins
-										if winner[0] && winner[1] { // sys.winTeam < 0
+										if winner[0] == winner[1] { // sys.winTeam < 0
 											s.lifebar.wc[0].wins = 0
 											s.lifebar.wc[1].wins = 0
 										} else {

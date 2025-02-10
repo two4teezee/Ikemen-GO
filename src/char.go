@@ -1558,14 +1558,10 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	// Set scale
 	drawscale := [2]float32{facing * scale[0] * e.localscl, e.vfacing * scale[1] * e.localscl}
 
-	centerOffset := (e.interPos[0] - sys.cam.Pos[0])
-
 	// Apply Z axis perspective
 	if e.space == Space_stage && sys.zEnabled() {
 		zscale := sys.updateZScale(e.pos[2], e.localscl)
-		drawpos[0] -= centerOffset * (1 - zscale)
-		drawpos[1] *= zscale
-		drawpos[1] += sys.posZtoY(e.interPos[2], e.localscl)
+		drawpos = sys.drawposXYfromZ(drawpos, e.localscl, e.interPos[2], zscale)
 		drawscale[0] *= zscale
 		drawscale[1] *= zscale
 	}
@@ -1605,7 +1601,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		if sdwalp < 0 {
 			sdwalp = 256
 		}
-		drawZoff := sys.posZtoY(e.interPos[2], e.localscl)
+		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
 		sys.shadows.add(&ShadowSprite{
 			SprData:       sd,
 			shadowColor:   sdwclr,
@@ -2168,13 +2164,9 @@ func (p *Projectile) cueDraw(oldVer bool) {
 	scl := [...]float32{p.facing * p.scale[0] * p.localscl * p.zScale,
 		p.scale[1] * p.localscl * p.zScale}
 
-	centerOffset := (p.interPos[0] - sys.cam.Pos[0])
-
 	// Apply Z axis perspective
 	if sys.zEnabled() {
-		pos[0] -= centerOffset * (1 - p.zScale)
-		pos[1] *= p.zScale
-		pos[1] += sys.posZtoY(p.interPos[2], p.localscl)
+		pos = sys.drawposXYfromZ(pos, p.localscl, p.interPos[2], p.zScale)
 	}
 
 	sprs := &sys.spritesLayer0
@@ -2209,7 +2201,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		// Add a shadow if color is not 0
 		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 		if sdwclr != 0 {
-			drawZoff := sys.posZtoY(p.interPos[2], p.localscl)
+			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
 			sys.shadows.add(&ShadowSprite{
 				SprData:       sd,
 				shadowColor:   sdwclr,
@@ -8689,14 +8681,11 @@ func (c *Char) cueDraw() {
 		scl := [...]float32{c.facing * c.size.xscale * c.zScale * (320 / c.localcoord),
 			c.size.yscale * c.zScale * (320 / c.localcoord)}
 
-		centerOffset := (c.interPos[0] - sys.cam.Pos[0])
-
 		// Apply Z axis perspective
 		if sys.zEnabled() {
-			pos[0] -= centerOffset * (1 - c.zScale)
-			pos[1] *= c.zScale
-			pos[1] += sys.posZtoY(c.interPos[2], c.localscl)
+			pos = sys.drawposXYfromZ(pos, c.localscl, c.interPos[2], c.zScale)
 		}
+
 		//if sys.zEnabled() {
 		//	ratio := float32(1.618) // Possible stage parameter?
 		//	pos[0] *= 1 + (ratio-1)*(c.zScale-1)
@@ -8791,7 +8780,7 @@ func (c *Char) cueDraw() {
 				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
-				drawZoff := sys.posZtoY(c.interPos[2], c.localscl)
+				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
 				sys.shadows.add(&ShadowSprite{
 					SprData:       sd,
 					shadowColor:   -1,

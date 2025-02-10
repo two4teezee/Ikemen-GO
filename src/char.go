@@ -2130,7 +2130,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 
 	scl := [...]float32{p.facing * p.scale[0] * p.localscl * p.zScale,
 		p.scale[1] * p.localscl * p.zScale}
-    
+
 	centerOffset := (p.interPos[0] - sys.cam.Pos[0])
 
 	// Apply Z axis perspective
@@ -8629,7 +8629,7 @@ func (c *Char) cueDraw() {
 
 		scl := [...]float32{c.facing * c.size.xscale * c.zScale * (320 / c.localcoord),
 			c.size.yscale * c.zScale * (320 / c.localcoord)}
-		
+
 		centerOffset := (c.interPos[0] - sys.cam.Pos[0])
 
 		// Apply Z axis perspective

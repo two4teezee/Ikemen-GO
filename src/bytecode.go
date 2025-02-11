@@ -6761,11 +6761,11 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 	case hitDef_down_recovertime:
 		hd.down_recovertime = exp[0].evalI(c)
 	case hitDef_attack_depth:
-		hd.attack.depth[0] = exp[0].evalF(c)
+		hd.attack_depth[0] = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.attack.depth[1] = exp[1].evalF(c)
+			hd.attack_depth[1] = exp[1].evalF(c)
 		} else {
-			hd.attack.depth[1] = hd.attack.depth[0]
+			hd.attack_depth[1] = hd.attack_depth[0]
 		}
 	case hitDef_sparkscale:
 		hd.sparkscale[0] = exp[0].evalF(c)
@@ -7868,11 +7868,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			case hitDef_attack_depth:
 				eachProj(
 					func(p *Projectile) {
-						p.hitdef.attack.depth[0] = exp[0].evalF(c)
+						p.hitdef.attack_depth[0] = exp[0].evalF(c)
 						if len(exp) > 1 {
-							p.hitdef.attack.depth[1] = exp[1].evalF(c)
+							p.hitdef.attack_depth[1] = exp[1].evalF(c)
 						} else {
-							p.hitdef.attack.depth[1] = p.hitdef.attack.depth[0]
+							p.hitdef.attack_depth[1] = p.hitdef.attack_depth[0]
 						}
 					})
 			default:

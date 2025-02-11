@@ -635,9 +635,7 @@ type HitDef struct {
 	score                      [2]float32
 	p2clsncheck                int32
 	p2clsnrequire              int32
-	attack                     struct {
-		depth [2]float32
-	}
+	attack_depth               [2]float32
 }
 
 func (hd *HitDef) clear(localscl float32) {
@@ -735,10 +733,7 @@ func (hd *HitDef) clear(localscl float32) {
 		fall_envshake_ampl:  IErr,
 		fall_envshake_phase: float32(math.NaN()),
 		fall_envshake_mul:   1.0,
-		// Attack depth
-		attack: struct{ depth [2]float32 }{
-			[2]float32{4 / originLs, 4 / originLs},
-		},
+		attack_depth:        [2]float32{float32(math.NaN()), float32(math.NaN())},
 	}
 	// PalFX
 	hd.palfx.mul = [...]int32{255, 255, 255}
@@ -2061,8 +2056,8 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Run Z axis check
-			if !sys.zAxisOverlap(p.pos[2], p.hitdef.attack.depth[0], p.hitdef.attack.depth[1], p.localscl,
-				pr.pos[2], pr.hitdef.attack.depth[0], pr.hitdef.attack.depth[1], pr.localscl) {
+			if !sys.zAxisOverlap(p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl,
+				pr.pos[2], pr.hitdef.attack_depth[0], pr.hitdef.attack_depth[1], pr.localscl) {
 				continue
 			}
 
@@ -5536,13 +5531,13 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 			hd.hitonce = 0
 		}
 	}
-	// Assign a value to a NaN field
+	// Set a parameter if it's Nan
 	ifnanset := func(dst *float32, src float32) {
 		if math.IsNaN(float64(*dst)) {
 			*dst = src
 		}
 	}
-	// Assign a value to an IErr field
+	// Set a parameter if it's IErr
 	ifierrset := func(dst *int32, src int32) bool {
 		if *dst == IErr {
 			*dst = src
@@ -5575,6 +5570,7 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	}
 	ifierrset(&hd.forcestand, Btoi(hd.ground_velocity[1] != 0)) // Having a Y velocity causes ForceStand
 	ifierrset(&hd.forcecrouch, 0)
+	// Cornerpush defaults to same as respective velocities if character has Ikemenversion, instead of Mugen magic numbers
 	if hd.attr&int32(ST_A) != 0 {
 		ifnanset(&hd.ground_cornerpush_veloff, 0)
 	} else {
@@ -5588,6 +5584,9 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	ifnanset(&hd.down_cornerpush_veloff, hd.ground_cornerpush_veloff)
 	ifnanset(&hd.guard_cornerpush_veloff, hd.ground_cornerpush_veloff)
 	ifnanset(&hd.airguard_cornerpush_veloff, hd.ground_cornerpush_veloff)
+	// Attack depth defaults to character constant
+	ifnanset(&hd.attack_depth[0], c.size.attack.depth.front)
+	ifnanset(&hd.attack_depth[1], c.size.attack.depth.back)
 	// Super attack behaviour
 	if hd.attr&int32(AT_AH) != 0 {
 		ifierrset(&hd.hitgetpower,
@@ -6708,8 +6707,8 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 		sys.appendToConsole(c.warn() + "Invalid MakeDust spacing")
 		spacing = 1
 	}
-	if sys.tickCount - c.dustTime >= spacing {
-		c.dustTime = sys.tickCount
+	if c.dustTime >= spacing {
+		c.dustTime = 0
 	} else {
 		return
 	}
@@ -7696,7 +7695,7 @@ func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj boo
 				!getter.hasTargetOfHitdef(c.id) &&
 				getter.attrCheck(hd, c, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
-				sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
+				sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
 					getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 		}
 	}
@@ -8119,6 +8118,7 @@ func (c *Char) actionRun() {
 		if c.helperIndex == 0 && c.gi().pctime >= 0 {
 			c.gi().pctime++
 		}
+		c.dustTime++
 	}
 	c.xScreenBound()
 	c.zDepthBound()
@@ -10028,8 +10028,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					(p.hitdef.teamside-1 != getter.teamside) == (getter.hitdef.affectteam > 0)) &&
 					getter.hitdef.hitflag&int32(HF_P) != 0 &&
 					getter.projClsnCheck(p, 1, 2) &&
-					sys.zAxisOverlap(getter.pos[2], getter.hitdef.attack.depth[0], getter.hitdef.attack.depth[1], getter.localscl,
-						p.pos[2], p.hitdef.attack.depth[0], p.hitdef.attack.depth[1], p.localscl) {
+					sys.zAxisOverlap(getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl,
+						p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl) {
 					if getter.hitdef.p1stateno >= 0 && getter.stateChange1(getter.hitdef.p1stateno, getter.hitdef.playerNo) {
 						getter.setCtrl(false)
 					}
@@ -10050,7 +10050,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					}
 
 					if getter.projClsnCheck(p, p.hitdef.p2clsncheck, 1) &&
-						sys.zAxisOverlap(p.pos[2], p.hitdef.attack.depth[0], p.hitdef.attack.depth[1], p.localscl,
+						sys.zAxisOverlap(p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl,
 							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl) {
 
 						if ht := hitTypeGet(c, &p.hitdef, [...]float32{p.pos[0] - c.pos[0]*(c.localscl/p.localscl),
@@ -10169,10 +10169,10 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					// Reversaldef checks attack depth vs attack depth
 					zok := true
 					if c.hitdef.reversal_attr > 0 {
-						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
-							getter.pos[2], getter.hitdef.attack.depth[0], getter.hitdef.attack.depth[1], getter.localscl)
+						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
+							getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl)
 					} else {
-						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack.depth[0], c.hitdef.attack.depth[1], c.localscl,
+						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
 							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 					}
 

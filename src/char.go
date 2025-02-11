@@ -1560,7 +1560,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 
 	// Apply Z axis perspective
 	if e.space == Space_stage && sys.zEnabled() {
-		zscale := sys.updateZScale(e.pos[2], e.localscl)
+		zscale := sys.updateZScale(e.interPos[2], e.localscl)
 		drawpos = sys.drawposXYfromZ(drawpos, e.localscl, e.interPos[2], zscale)
 		drawscale[0] *= zscale
 		drawscale[1] *= zscale
@@ -6698,8 +6698,15 @@ func (c *Char) inputWait() bool {
 	// This is not currently reproduced and may not be necessary
 }
 
-func (c *Char) makeDust(x, y, z float32) {
+func (c *Char) makeDust(x, y, z float32, spacing int32) {
 	if c.asf(ASF_nomakedust) {
+		return
+	}
+	if spacing < 1 {
+		sys.appendToConsole(c.warn() + "Invalid MakeDust spacing")
+		spacing = 1
+	}
+	if spacing == 0 || c.time()%spacing != 0 {
 		return
 	}
 	if e, i := c.newExplod(); e != nil {
@@ -7099,8 +7106,13 @@ func (c *Char) posUpdate() {
 			if AbsF(c.vel[0]) < 1 {
 				c.vel[0] = 0
 			}
+			c.vel[2] *= c.gi().movement.stand.friction
+			if AbsF(c.vel[2]) < 1 {
+				c.vel[2] = 0
+			}
 		case ST_C:
 			c.vel[0] *= c.gi().movement.crouch.friction
+			c.vel[2] *= c.gi().movement.crouch.friction
 		case ST_A:
 			c.gravity()
 		}
@@ -8236,8 +8248,8 @@ func (c *Char) update() {
 			}
 			// Engine dust effects
 			if ((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) && c.pos[1] == 0 &&
-				AbsF(c.pos[0]-c.dustOldPos) >= 1 && c.ss.time%3 == 0 {
-				c.makeDust(0, 0, 0)
+				AbsF(c.pos[0]-c.dustOldPos) >= 1 {
+				c.makeDust(0, 0, 0, 3) // Default spacing of 3
 			}
 		}
 		if c.ss.moveType == MT_H {

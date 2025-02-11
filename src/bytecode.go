@@ -9243,13 +9243,11 @@ const (
 
 func (sc makeDust) Run(c *Char, _ []int32) bool {
 	crun := c
+	spacing := int32(3) // Default spacing is 3
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case makeDust_spacing:
-			s := Max(1, exp[0].evalI(c))
-			if crun.time()%s != s-1 {
-				return false
-			}
+			spacing = exp[0].evalI(c)
 		case makeDust_pos:
 			x, y, z := exp[0].evalF(c), float32(0), float32(0)
 			if len(exp) > 1 {
@@ -9259,7 +9257,7 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 				}
 			}
 			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z)
+				y-float32(crun.size.draw.offset[1]), z, spacing)
 		case makeDust_pos2:
 			x, y, z := exp[0].evalF(c), float32(0), float32(0)
 			if len(exp) > 1 {
@@ -9269,7 +9267,7 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 				}
 			}
 			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z)
+				y-float32(crun.size.draw.offset[1]), z, spacing)
 		case makeDust_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

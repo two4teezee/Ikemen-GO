@@ -9243,11 +9243,11 @@ const (
 
 func (sc makeDust) Run(c *Char, _ []int32) bool {
 	crun := c
-	spacing := int32(3) // Default spacing is 3
+	spacing := int(3) // Default spacing is 3
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case makeDust_spacing:
-			spacing = exp[0].evalI(c)
+			spacing = int(exp[0].evalI(c))
 		case makeDust_pos:
 			x, y, z := exp[0].evalF(c), float32(0), float32(0)
 			if len(exp) > 1 {

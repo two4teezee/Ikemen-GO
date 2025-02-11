@@ -2441,7 +2441,6 @@ type Char struct {
 	pos                 [3]float32
 	interPos            [3]float32 // Interpolated position. For the visuals when game and logic speed are different
 	oldPos              [3]float32
-	dustOldPos          float32
 	vel                 [3]float32
 	facing              float32
 	ivar                [NumVar + NumSysVar]int32
@@ -2490,6 +2489,8 @@ type Char struct {
 	ownclsnscale    bool
 	pushPriority    int32
 	prevfallflag    bool
+	dustOldPos      [3]float32
+	dustTime        int
 }
 
 // Add a new char to the game
@@ -2581,6 +2582,7 @@ func (c *Char) clearState() {
 	c.counterHit = false
 	c.hitdefContact = false
 	c.fallTime = 0
+	c.dustTime = 0
 }
 
 func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
@@ -6698,7 +6700,7 @@ func (c *Char) inputWait() bool {
 	// This is not currently reproduced and may not be necessary
 }
 
-func (c *Char) makeDust(x, y, z float32, spacing int32) {
+func (c *Char) makeDust(x, y, z float32, spacing int) {
 	if c.asf(ASF_nomakedust) {
 		return
 	}
@@ -6706,7 +6708,9 @@ func (c *Char) makeDust(x, y, z float32, spacing int32) {
 		sys.appendToConsole(c.warn() + "Invalid MakeDust spacing")
 		spacing = 1
 	}
-	if spacing == 0 || c.time()%spacing != 0 {
+	if sys.tickCount - c.dustTime >= spacing {
+		c.dustTime = sys.tickCount
+	} else {
 		return
 	}
 	if e, i := c.newExplod(); e != nil {
@@ -8247,8 +8251,8 @@ func (c *Char) update() {
 				}
 			}
 			// Engine dust effects
-			if ((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) && c.pos[1] == 0 &&
-				AbsF(c.pos[0]-c.dustOldPos) >= 1 {
+			if ((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
+				c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
 				c.makeDust(0, 0, 0, 3) // Default spacing of 3
 			}
 		}
@@ -8813,7 +8817,7 @@ func (c *Char) cueDraw() {
 	if sys.tickNextFrame() {
 		c.minus = 2
 		c.oldPos = c.pos
-		c.dustOldPos = c.pos[0]
+		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}
 }
 

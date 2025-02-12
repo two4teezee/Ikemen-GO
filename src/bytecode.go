@@ -190,9 +190,7 @@ const (
 	OC_leftedge
 	OC_rightedge
 	OC_topedge
-	OC_topbounddist
 	OC_bottomedge
-	OC_botbounddist
 	OC_camerapos_x
 	OC_camerapos_y
 	OC_camerazoom
@@ -871,6 +869,10 @@ const (
 	OC_ex2_systemvar_pausetime
 	OC_ex2_systemvar_slowtime
 	OC_ex2_systemvar_superpausetime
+	OC_ex2_topbounddist
+	OC_ex2_topboundbodydist
+	OC_ex2_botbounddist
+	OC_ex2_botboundbodydist
 )
 
 const (
@@ -1686,8 +1688,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.PushI(int32(c.backEdgeDist() * (c.localscl / oc.localscl)))
 		case OC_bottomedge:
 			sys.bcStack.PushF(c.bottomEdge() * (c.localscl / oc.localscl))
-		case OC_botbounddist:
-			sys.bcStack.PushF(c.botBoundDist() * (c.localscl / oc.localscl))
 		case OC_camerapos_x:
 			sys.bcStack.PushF(sys.cam.Pos[0] / oc.localscl)
 		case OC_camerapos_y:
@@ -1871,8 +1871,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.PushI(c.time())
 		case OC_topedge:
 			sys.bcStack.PushF(c.topEdge() * (c.localscl / oc.localscl))
-		case OC_topbounddist:
-			sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
 		case OC_uniqhitcount:
 			sys.bcStack.PushI(c.uniqHitCount)
 		case OC_vel_x:
@@ -3625,6 +3623,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		// get the channel
 		ch := sys.bcStack.Pop()
 		sys.bcStack.Push(c.soundVar(ch, opc))
+	case OC_ex2_botboundbodydist:
+		sys.bcStack.PushF(c.botBoundBodyDist() * (c.localscl / oc.localscl))
+	case OC_ex2_botbounddist:
+		sys.bcStack.PushF(c.botBoundDist() * (c.localscl / oc.localscl))
+	case OC_ex2_topboundbodydist:
+		sys.bcStack.PushF(c.topBoundBodyDist() * (c.localscl / oc.localscl))
+	case OC_ex2_topbounddist:
+		sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

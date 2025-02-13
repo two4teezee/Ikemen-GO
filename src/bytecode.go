@@ -6198,6 +6198,9 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			e.relativePos[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
 				e.relativePos[1] = exp[1].evalF(c) * redirscale
+				if len(exp) > 2 {
+					e.relativePos[2] = exp[2].evalF(c) * redirscale
+				}
 			}
 		case gameMakeAnim_random:
 			rndx := (exp[0].evalF(c) / 2) * redirscale
@@ -6205,6 +6208,10 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				rndy := (exp[1].evalF(c) / 2) * redirscale
 				e.relativePos[1] += RandF(-rndy, rndy)
+				if len(exp) > 2 {
+					rndz := (exp[2].evalF(c) / 2) * redirscale
+					e.relativePos[2] += RandF(-rndz, rndz)
+				}
 			}
 		case gameMakeAnim_under:
 			if exp[0].evalB(c) {

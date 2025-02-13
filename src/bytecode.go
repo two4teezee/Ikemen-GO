@@ -190,9 +190,7 @@ const (
 	OC_leftedge
 	OC_rightedge
 	OC_topedge
-	OC_topbounddist
 	OC_bottomedge
-	OC_botbounddist
 	OC_camerapos_x
 	OC_camerapos_y
 	OC_camerazoom
@@ -871,6 +869,10 @@ const (
 	OC_ex2_systemvar_pausetime
 	OC_ex2_systemvar_slowtime
 	OC_ex2_systemvar_superpausetime
+	OC_ex2_topbounddist
+	OC_ex2_topboundbodydist
+	OC_ex2_botbounddist
+	OC_ex2_botboundbodydist
 )
 
 const (
@@ -1686,8 +1688,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.PushI(int32(c.backEdgeDist() * (c.localscl / oc.localscl)))
 		case OC_bottomedge:
 			sys.bcStack.PushF(c.bottomEdge() * (c.localscl / oc.localscl))
-		case OC_botbounddist:
-			sys.bcStack.PushF(c.botBoundDist() * (c.localscl / oc.localscl))
 		case OC_camerapos_x:
 			sys.bcStack.PushF(sys.cam.Pos[0] / oc.localscl)
 		case OC_camerapos_y:
@@ -1871,8 +1871,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.PushI(c.time())
 		case OC_topedge:
 			sys.bcStack.PushF(c.topEdge() * (c.localscl / oc.localscl))
-		case OC_topbounddist:
-			sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
 		case OC_uniqhitcount:
 			sys.bcStack.PushI(c.uniqHitCount)
 		case OC_vel_x:
@@ -3625,6 +3623,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		// get the channel
 		ch := sys.bcStack.Pop()
 		sys.bcStack.Push(c.soundVar(ch, opc))
+	case OC_ex2_botboundbodydist:
+		sys.bcStack.PushF(c.botBoundBodyDist() * (c.localscl / oc.localscl))
+	case OC_ex2_botbounddist:
+		sys.bcStack.PushF(c.botBoundDist() * (c.localscl / oc.localscl))
+	case OC_ex2_topboundbodydist:
+		sys.bcStack.PushF(c.topBoundBodyDist() * (c.localscl / oc.localscl))
+	case OC_ex2_topbounddist:
+		sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -6761,11 +6767,11 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 	case hitDef_down_recovertime:
 		hd.down_recovertime = exp[0].evalI(c)
 	case hitDef_attack_depth:
-		hd.attack.depth[0] = exp[0].evalF(c)
+		hd.attack_depth[0] = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.attack.depth[1] = exp[1].evalF(c)
+			hd.attack_depth[1] = exp[1].evalF(c)
 		} else {
-			hd.attack.depth[1] = hd.attack.depth[0]
+			hd.attack_depth[1] = hd.attack_depth[0]
 		}
 	case hitDef_sparkscale:
 		hd.sparkscale[0] = exp[0].evalF(c)
@@ -7868,11 +7874,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			case hitDef_attack_depth:
 				eachProj(
 					func(p *Projectile) {
-						p.hitdef.attack.depth[0] = exp[0].evalF(c)
+						p.hitdef.attack_depth[0] = exp[0].evalF(c)
 						if len(exp) > 1 {
-							p.hitdef.attack.depth[1] = exp[1].evalF(c)
+							p.hitdef.attack_depth[1] = exp[1].evalF(c)
 						} else {
-							p.hitdef.attack.depth[1] = p.hitdef.attack.depth[0]
+							p.hitdef.attack_depth[1] = p.hitdef.attack_depth[0]
 						}
 					})
 			default:
@@ -8819,8 +8825,8 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	uh := true
 	animset := false
 	sys.superpmap.remap = nil
-	sys.superpos = [...]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-	sys.superfacing = crun.facing
+	sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
+	sys.superscale = [2]float32{crun.facing, 1}
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
 	sys.superdarken = true
@@ -8875,8 +8881,8 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				sys.superpmap.remap = nil
-				sys.superpos = [...]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-				sys.superfacing = crun.facing
+				sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
+				sys.superscale = [2]float32{crun.facing, 1}
 			} else {
 				return false
 			}
@@ -8889,6 +8895,12 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	if sys.superanim != nil {
 		sys.superanim.start_scale[0] *= crun.localscl
 		sys.superanim.start_scale[1] *= crun.localscl
+		// Apply Z axis perspective
+		if sys.zEnabled() {
+			sys.superpos = sys.drawposXYfromZ(sys.superpos, crun.localscl, crun.interPos[2], crun.zScale)
+			sys.superscale[0] *= crun.zScale
+			sys.superscale[1] *= crun.zScale
+		}
 	}
 	crun.setSuperPauseTime(t, mt, uh)
 	return false
@@ -9237,13 +9249,11 @@ const (
 
 func (sc makeDust) Run(c *Char, _ []int32) bool {
 	crun := c
+	spacing := int(3) // Default spacing is 3
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case makeDust_spacing:
-			s := Max(1, exp[0].evalI(c))
-			if crun.time()%s != s-1 {
-				return false
-			}
+			spacing = int(exp[0].evalI(c))
 		case makeDust_pos:
 			x, y, z := exp[0].evalF(c), float32(0), float32(0)
 			if len(exp) > 1 {
@@ -9253,7 +9263,7 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 				}
 			}
 			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z)
+				y-float32(crun.size.draw.offset[1]), z, spacing)
 		case makeDust_pos2:
 			x, y, z := exp[0].evalF(c), float32(0), float32(0)
 			if len(exp) > 1 {
@@ -9263,7 +9273,7 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 				}
 			}
 			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z)
+				y-float32(crun.size.draw.offset[1]), z, spacing)
 		case makeDust_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

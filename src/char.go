@@ -638,12 +638,13 @@ type HitDef struct {
 	attack_depth               [2]float32
 }
 
-func (hd *HitDef) clear(localscl float32) {
+func (hd *HitDef) clear(c *Char, localscl float32) {
 	// Convert local scale back to 4:3 in order to keep values consistent in widescreen
 	originLs := localscl * (320 / float32(sys.gameWidth))
 
 	*hd = HitDef{
 		isprojectile:       false,
+		playerNo:           -1,
 		hitflag:            int32(HF_H | HF_L | HF_A | HF_F),
 		affectteam:         1,
 		teamside:           -1,
@@ -711,7 +712,6 @@ func (hd *HitDef) clear(localscl float32) {
 		hitonce:             -1,
 		kill:                true,
 		guard_kill:          true,
-		playerNo:            -1,
 		dizzypoints:         IErr,
 		guardpoints:         IErr,
 		hitredlife:          IErr,
@@ -735,10 +735,18 @@ func (hd *HitDef) clear(localscl float32) {
 		fall_envshake_mul:   1.0,
 		attack_depth:        [2]float32{float32(math.NaN()), float32(math.NaN())},
 	}
+
 	// PalFX
 	hd.palfx.mul = [...]int32{255, 255, 255}
 	hd.palfx.color = 1
 	hd.palfx.hue = 0
+
+	// Set defaults from the player's constants
+	hd.sparkno = c.gi().data.sparkno
+	hd.guard_sparkno = c.gi().data.guard.sparkno
+	hd.hitsound_channel = c.gi().data.hitsound_channel
+	hd.guardsound_channel = c.gi().data.guardsound_channel
+	hd.attack_depth = [2]float32{c.size.attack.depth.front, c.size.attack.depth.back}
 }
 
 // When a Hitdef connects, its statetype attribute will be updated to the character's current type
@@ -2564,7 +2572,7 @@ func (c *Char) init(n int, idx int32) {
 
 func (c *Char) clearState() {
 	c.ss.clear()
-	c.hitdef.clear(c.localscl)
+	c.hitdef.clear(c, c.localscl)
 	c.ghv.clear(c)
 	c.ghv.clearOff()
 	c.mhv.clear()
@@ -3474,7 +3482,7 @@ func (c *Char) clearMoveHit() {
 }
 
 func (c *Char) clearHitDef() {
-	c.hitdef.clear(c.localscl)
+	c.hitdef.clear(c, c.localscl)
 }
 
 func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
@@ -5458,7 +5466,7 @@ func (c *Char) newProj() *Projectile {
 		p.palfx = c.getPalfx()
 		// Initialize projectile Hitdef. Must be placed after its localscl is defined
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
-		p.hitdef.clear(p.localscl)
+		p.hitdef.clear(c, p.localscl)
 		p.hitdef.isprojectile = true
 		p.hitdef.playerNo = sys.workingState.playerNo
 	}
@@ -5591,9 +5599,6 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	ifnanset(&hd.down_cornerpush_veloff, hd.ground_cornerpush_veloff)
 	ifnanset(&hd.guard_cornerpush_veloff, hd.ground_cornerpush_veloff)
 	ifnanset(&hd.airguard_cornerpush_veloff, hd.ground_cornerpush_veloff)
-	// Attack depth defaults to character constant
-	ifnanset(&hd.attack_depth[0], c.size.attack.depth.front)
-	ifnanset(&hd.attack_depth[1], c.size.attack.depth.back)
 	// Super attack behaviour
 	if hd.attr&int32(AT_AH) != 0 {
 		ifierrset(&hd.hitgetpower,

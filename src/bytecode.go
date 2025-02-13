@@ -6854,20 +6854,14 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, id byte, exp []BytecodeExp) bool {
 
 func (sc hitDef) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.hitdef.clear(crun.localscl)
+	crun.hitdef.clear(crun, crun.localscl)
 	crun.hitdef.playerNo = sys.workingState.playerNo
-	crun.hitdef.sparkno = c.gi().data.sparkno
-	crun.hitdef.guard_sparkno = c.gi().data.guard.sparkno
-	crun.hitdef.hitsound_channel = c.gi().data.hitsound_channel
-	crun.hitdef.guardsound_channel = c.gi().data.guardsound_channel
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		if id == hitDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.hitdef.clear(crun.localscl)
+				crun.hitdef.clear(crun, crun.localscl)
 				crun.hitdef.playerNo = sys.workingState.playerNo
-				crun.hitdef.sparkno = c.gi().data.sparkno
-				crun.hitdef.guard_sparkno = c.gi().data.guard.sparkno
 			} else {
 				return false
 			}
@@ -6899,7 +6893,7 @@ const (
 
 func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.hitdef.clear(crun.localscl)
+	crun.hitdef.clear(crun, crun.localscl)
 	crun.hitdef.playerNo = sys.workingState.playerNo
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
@@ -6908,7 +6902,7 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		case reversalDef_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.hitdef.clear(crun.localscl)
+				crun.hitdef.clear(crun, crun.localscl)
 				crun.hitdef.playerNo = sys.workingState.playerNo
 			} else {
 				return false

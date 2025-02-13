@@ -3483,10 +3483,16 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_accel_y:
 		correctScale = true
 		fallthrough
+	case OC_ex2_projvar_accel_z:
+		correctScale = true
+		fallthrough
 	case OC_ex2_projvar_vel_x:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_vel_y:
+		correctScale = true
+		fallthrough
+	case OC_ex2_projvar_vel_z:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_projstagebound:
@@ -3505,6 +3511,9 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_remvelocity_y:
+		correctScale = true
+		fallthrough
+	case OC_ex2_projvar_remvelocity_z:
 		correctScale = true
 		fallthrough
 	case OC_ex2_projvar_projremove:
@@ -3535,6 +3544,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_projvar_velmul_y:
 		fallthrough
+	case OC_ex2_projvar_velmul_z:
+		fallthrough
 	case OC_ex2_projvar_projscale_x:
 		fallthrough
 	case OC_ex2_projvar_projscale_y:
@@ -3560,6 +3571,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_pos_x:
 		fallthrough
 	case OC_ex2_projvar_pos_y:
+		fallthrough
+	case OC_ex2_projvar_pos_z:
 		fallthrough
 	case OC_ex2_projvar_facing:
 		fallthrough

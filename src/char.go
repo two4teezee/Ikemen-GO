@@ -347,34 +347,34 @@ type CharVelocity struct {
 	walk struct {
 		fwd  float32
 		back float32
-		up   float32
-		down float32
+		up   [3]float32
+		down [3]float32
 	}
 	run struct {
 		fwd  [2]float32
 		back [2]float32
-		up   [2]float32
-		down [2]float32
+		up   [3]float32
+		down [3]float32
 	}
 	jump struct {
 		neu  [2]float32
 		back float32
 		fwd  float32
-		up   float32
-		down float32
+		up   [3]float32
+		down [3]float32
 	}
 	runjump struct {
 		back [2]float32
 		fwd  [2]float32
-		up   float32
-		down float32
+		up   [3]float32
+		down [3]float32
 	}
 	airjump struct {
 		neu  [2]float32
 		back float32
 		fwd  float32
-		up   float32
-		down float32
+		up   [3]float32
+		down [3]float32
 	}
 	air struct {
 		gethit struct {
@@ -3145,20 +3145,18 @@ func (c *Char) load(def string) error {
 							&gi.velocity.ground.gethit.ko.add[1])
 						is.ReadF32("ground.gethit.ko.ymin", &gi.velocity.ground.gethit.ko.ymin)
 
-						// Mugen accepts these but they are not documented
-						// Possible leftovers of Z axis implementation
-						is.ReadF32("walk.up", &gi.velocity.walk.up) // Should be "z" but Elecbyte decided on "x"
-						is.ReadF32("walk.down", &gi.velocity.walk.down)
-						is.ReadF32("run.up",
-							&gi.velocity.run.up[0], &gi.velocity.run.up[1])
-						is.ReadF32("run.down",
-							&gi.velocity.run.down[0], &gi.velocity.run.down[1]) // Z and Y?
-						is.ReadF32("jump.up", &gi.velocity.jump.up) // Mugen accepts them with this syntax, but they need "x" when retrieved with const trigger
-						is.ReadF32("jump.down", &gi.velocity.jump.down)
-						is.ReadF32("runjump.up", &gi.velocity.runjump.up)
-						is.ReadF32("runjump.down", &gi.velocity.runjump.down)
-						is.ReadF32("airjump.up", &gi.velocity.airjump.up)
-						is.ReadF32("airjump.down", &gi.velocity.airjump.down)
+						// Mugen accepts these but they are not documented. Possible leftovers of Z axis implementation
+						// In Ikemen we're making them accept 3 values each, for the 3 axes
+						is.ReadF32("walk.up", &gi.velocity.walk.up[0], &gi.velocity.walk.up[1], &gi.velocity.walk.up[2])
+						is.ReadF32("walk.down", &gi.velocity.walk.down[0], &gi.velocity.walk.down[1], &gi.velocity.walk.down[2])
+						is.ReadF32("run.up", &gi.velocity.run.up[0], &gi.velocity.run.up[1], &gi.velocity.run.up[2])
+						is.ReadF32("run.down", &gi.velocity.run.down[0], &gi.velocity.run.down[1], &gi.velocity.run.down[2])
+						is.ReadF32("jump.up", &gi.velocity.jump.up[0], &gi.velocity.jump.up[1], &gi.velocity.jump.up[2])
+						is.ReadF32("jump.down", &gi.velocity.jump.down[0], &gi.velocity.jump.down[1], &gi.velocity.jump.down[2])
+						is.ReadF32("runjump.up", &gi.velocity.runjump.up[0], &gi.velocity.runjump.up[1], &gi.velocity.runjump.up[2])
+						is.ReadF32("runjump.down", &gi.velocity.runjump.down[0], &gi.velocity.runjump.down[1], &gi.velocity.runjump.down[2])
+						is.ReadF32("airjump.up", &gi.velocity.airjump.up[0], &gi.velocity.airjump.up[1], &gi.velocity.airjump.up[2])
+						is.ReadF32("airjump.down", &gi.velocity.airjump.down[0], &gi.velocity.airjump.down[1], &gi.velocity.airjump.down[2])
 					}
 				case "movement":
 					if movement {

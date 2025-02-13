@@ -292,53 +292,71 @@ const (
 	OC_const_size_depth_back
 	OC_const_size_weight
 	OC_const_size_pushfactor
-	OC_const_velocity_walk_fwd_x
-	OC_const_velocity_walk_back_x
-	OC_const_velocity_walk_up_x
-	OC_const_velocity_walk_down_x
-	OC_const_velocity_run_fwd_x
-	OC_const_velocity_run_fwd_y
-	OC_const_velocity_run_back_x
-	OC_const_velocity_run_back_y
-	OC_const_velocity_run_up_x
-	OC_const_velocity_run_up_y
-	OC_const_velocity_run_down_x
-	OC_const_velocity_run_down_y
-	OC_const_velocity_jump_y
-	OC_const_velocity_jump_neu_x
-	OC_const_velocity_jump_back_x
-	OC_const_velocity_jump_fwd_x
-	OC_const_velocity_jump_up_x
-	OC_const_velocity_jump_down_x
-	OC_const_velocity_runjump_back_x
-	OC_const_velocity_runjump_back_y
-	OC_const_velocity_runjump_y
-	OC_const_velocity_runjump_fwd_x
-	OC_const_velocity_runjump_up_x
-	OC_const_velocity_runjump_down_x
-	OC_const_velocity_airjump_y
-	OC_const_velocity_airjump_neu_x
-	OC_const_velocity_airjump_back_x
-	OC_const_velocity_airjump_fwd_x
-	OC_const_velocity_airjump_up_x
-	OC_const_velocity_airjump_down_x
-	OC_const_velocity_air_gethit_groundrecover_x
-	OC_const_velocity_air_gethit_groundrecover_y
-	OC_const_velocity_air_gethit_airrecover_mul_x
-	OC_const_velocity_air_gethit_airrecover_mul_y
 	OC_const_velocity_air_gethit_airrecover_add_x
 	OC_const_velocity_air_gethit_airrecover_add_y
 	OC_const_velocity_air_gethit_airrecover_back
-	OC_const_velocity_air_gethit_airrecover_fwd
-	OC_const_velocity_air_gethit_airrecover_up
 	OC_const_velocity_air_gethit_airrecover_down
+	OC_const_velocity_air_gethit_airrecover_fwd
+	OC_const_velocity_air_gethit_airrecover_mul_x
+	OC_const_velocity_air_gethit_airrecover_mul_y
+	OC_const_velocity_air_gethit_airrecover_up
+	OC_const_velocity_air_gethit_groundrecover_x
+	OC_const_velocity_air_gethit_groundrecover_y
 	OC_const_velocity_air_gethit_ko_add_x
 	OC_const_velocity_air_gethit_ko_add_y
 	OC_const_velocity_air_gethit_ko_ymin
-	OC_const_velocity_ground_gethit_ko_xmul
+	OC_const_velocity_airjump_back_x
+	OC_const_velocity_airjump_down_x
+	OC_const_velocity_airjump_down_y
+	OC_const_velocity_airjump_down_z
+	OC_const_velocity_airjump_fwd_x
+	OC_const_velocity_airjump_neu_x
+	OC_const_velocity_airjump_up_x
+	OC_const_velocity_airjump_up_y
+	OC_const_velocity_airjump_up_z
+	OC_const_velocity_airjump_y
 	OC_const_velocity_ground_gethit_ko_add_x
 	OC_const_velocity_ground_gethit_ko_add_y
+	OC_const_velocity_ground_gethit_ko_xmul
 	OC_const_velocity_ground_gethit_ko_ymin
+	OC_const_velocity_jump_back_x
+	OC_const_velocity_jump_down_x
+	OC_const_velocity_jump_down_y
+	OC_const_velocity_jump_down_z
+	OC_const_velocity_jump_fwd_x
+	OC_const_velocity_jump_neu_x
+	OC_const_velocity_jump_up_x
+	OC_const_velocity_jump_up_y
+	OC_const_velocity_jump_up_z
+	OC_const_velocity_jump_y
+	OC_const_velocity_run_back_x
+	OC_const_velocity_run_back_y
+	OC_const_velocity_run_down_x
+	OC_const_velocity_run_down_y
+	OC_const_velocity_run_down_z
+	OC_const_velocity_run_fwd_x
+	OC_const_velocity_run_fwd_y
+	OC_const_velocity_run_up_x
+	OC_const_velocity_run_up_y
+	OC_const_velocity_run_up_z
+	OC_const_velocity_runjump_back_x
+	OC_const_velocity_runjump_back_y
+	OC_const_velocity_runjump_down_x
+	OC_const_velocity_runjump_down_y
+	OC_const_velocity_runjump_down_z
+	OC_const_velocity_runjump_fwd_x
+	OC_const_velocity_runjump_up_x
+	OC_const_velocity_runjump_up_y
+	OC_const_velocity_runjump_up_z
+	OC_const_velocity_runjump_y
+	OC_const_velocity_walk_back_x
+	OC_const_velocity_walk_down_x
+	OC_const_velocity_walk_down_y
+	OC_const_velocity_walk_down_z
+	OC_const_velocity_walk_fwd_x
+	OC_const_velocity_walk_up_x
+	OC_const_velocity_walk_up_y
+	OC_const_velocity_walk_up_z
 	OC_const_movement_airjump_num
 	OC_const_movement_airjump_height
 	OC_const_movement_yaccel
@@ -2051,100 +2069,136 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.size.weight)
 	case OC_const_size_pushfactor:
 		sys.bcStack.PushF(c.size.pushfactor)
-	case OC_const_velocity_walk_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_back_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_up_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_walk_down_x:
-		sys.bcStack.PushF(c.gi().velocity.walk.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.run.fwd[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_fwd_y:
-		sys.bcStack.PushF(c.gi().velocity.run.fwd[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_back_x:
-		sys.bcStack.PushF(c.gi().velocity.run.back[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_back_y:
-		sys.bcStack.PushF(c.gi().velocity.run.back[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_up_x:
-		sys.bcStack.PushF(c.gi().velocity.run.up[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_up_y:
-		sys.bcStack.PushF(c.gi().velocity.run.up[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_down_x:
-		sys.bcStack.PushF(c.gi().velocity.run.down[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_run_down_y:
-		sys.bcStack.PushF(c.gi().velocity.run.down[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_y:
-		sys.bcStack.PushF(c.gi().velocity.jump.neu[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_neu_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.neu[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_jump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.jump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.back[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_back_y:
-		sys.bcStack.PushF(c.gi().velocity.runjump.back[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_y:
-		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_runjump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.runjump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_y:
-		sys.bcStack.PushF(c.gi().velocity.airjump.neu[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_neu_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.neu[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_back_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_fwd_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_up_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.up * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_airjump_down_x:
-		sys.bcStack.PushF(c.gi().velocity.airjump.down * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_groundrecover_x:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_groundrecover_y:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_mul_x:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[0])
-	case OC_const_velocity_air_gethit_airrecover_mul_y:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[1])
 	case OC_const_velocity_air_gethit_airrecover_add_x:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_add_y:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.add[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_back:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.back * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_fwd:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.fwd * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_air_gethit_airrecover_up:
-		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.up * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_airrecover_down:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.down * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_airrecover_fwd:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_airrecover_mul_x:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[0])
+	case OC_const_velocity_air_gethit_airrecover_mul_y:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.mul[1])
+	case OC_const_velocity_air_gethit_airrecover_up:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.airrecover.up * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_groundrecover_x:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_air_gethit_groundrecover_y:
+		sys.bcStack.PushF(c.gi().velocity.air.gethit.groundrecover[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_add_x:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_add_y:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_air_gethit_ko_ymin:
 		sys.bcStack.PushF(c.gi().velocity.air.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_velocity_ground_gethit_ko_xmul:
-		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.xmul)
+	case OC_const_velocity_airjump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.airjump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_neu_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.neu[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.airjump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_airjump_y:
+		sys.bcStack.PushF(c.gi().velocity.airjump.neu[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_ground_gethit_ko_add_x:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_velocity_ground_gethit_ko_add_y:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.add[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_ground_gethit_ko_xmul:
+		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.xmul)
 	case OC_const_velocity_ground_gethit_ko_ymin:
 		sys.bcStack.PushF(c.gi().velocity.ground.gethit.ko.ymin * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.jump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_neu_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.neu[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.jump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_jump_y:
+		sys.bcStack.PushF(c.gi().velocity.jump.neu[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_back_x:
+		sys.bcStack.PushF(c.gi().velocity.run.back[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_back_y:
+		sys.bcStack.PushF(c.gi().velocity.run.back[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_x:
+		sys.bcStack.PushF(c.gi().velocity.run.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_y:
+		sys.bcStack.PushF(c.gi().velocity.run.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_down_z:
+		sys.bcStack.PushF(c.gi().velocity.run.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.run.fwd[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_fwd_y:
+		sys.bcStack.PushF(c.gi().velocity.run.fwd[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_x:
+		sys.bcStack.PushF(c.gi().velocity.run.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_y:
+		sys.bcStack.PushF(c.gi().velocity.run.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_run_up_z:
+		sys.bcStack.PushF(c.gi().velocity.run.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_back_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.back[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_back_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.back[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_down_z:
+		sys.bcStack.PushF(c.gi().velocity.runjump.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_x:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_up_z:
+		sys.bcStack.PushF(c.gi().velocity.runjump.up[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_runjump_y:
+		sys.bcStack.PushF(c.gi().velocity.runjump.fwd[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_back_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_y:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_down_z:
+		sys.bcStack.PushF(c.gi().velocity.walk.down[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_fwd_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.fwd * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_x:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_y:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[1] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_velocity_walk_up_z:
+		sys.bcStack.PushF(c.gi().velocity.walk.up[2] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_movement_airjump_num:
 		sys.bcStack.PushI(c.gi().movement.airjump.num)
 	case OC_const_movement_airjump_height:

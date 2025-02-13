@@ -860,7 +860,7 @@ func (s *System) zEnabled() bool {
 
 // Convert X and Y drawing position to Z perspective
 func (s *System) drawposXYfromZ(inpos [2]float32, localscl, zpos, zscale float32) (outpos [2]float32) {
-	outpos[0] = (inpos[0] - s.cam.Pos[0]) * zscale + s.cam.Pos[0]
+	outpos[0] = (inpos[0]-s.cam.Pos[0])*zscale + s.cam.Pos[0]
 	outpos[1] = inpos[1] * zscale
 	outpos[1] += s.posZtoYoffset(zpos, localscl) // "Z" position
 	return

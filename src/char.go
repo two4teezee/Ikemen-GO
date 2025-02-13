@@ -8806,18 +8806,18 @@ func (c *Char) cueDraw() {
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
 				sys.shadows.add(&ShadowSprite{
-					SprData:       sd,
-					shadowColor:   -1,
-					shadowAlpha:   sdwalp,
-					shadowOffset:  [2]float32{
+					SprData:     sd,
+					shadowColor: -1,
+					shadowAlpha: sdwalp,
+					shadowOffset: [2]float32{
 						c.shadowOffset[0] * c.localscl,
-						(c.size.shadowoffset + c.shadowOffset[1]) * c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
 					},
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
-						(c.size.shadowoffset + c.reflectOffset[1]) * c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
 					},
-					fadeOffset:    c.offsetY() + drawZoff,
+					fadeOffset: c.offsetY() + drawZoff,
 				})
 			}
 		}

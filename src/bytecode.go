@@ -7976,25 +7976,28 @@ func (sc width) Run(c *Char, _ []int32) bool {
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
-		case width_edge:
-			crun.setFEdge(exp[0].evalF(c) * redirscale)
-			if len(exp) > 1 {
-				crun.setBEdge(exp[1].evalF(c) * redirscale)
-			}
 		case width_player:
-			crun.setFWidth(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBWidth(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setWidth(v1 * redirscale, v2 * redirscale)
+		case width_edge:
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
+			if len(exp) > 1 {
+				v2 = exp[1].evalF(c)
+			}
+			crun.setWidthEdge(v1 * redirscale, v2 * redirscale)
 		case width_value:
-			v1 := exp[0].evalF(c) * redirscale
-			crun.setFEdge(v1)
-			crun.setFWidth(v1)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				v2 := exp[1].evalF(c) * redirscale
-				crun.setBEdge(v2)
-				crun.setBWidth(v2)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setWidth(v1 * redirscale, v2 * redirscale)
+			crun.setWidthEdge(v1 * redirscale, v2 * redirscale)
 		case width_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -11981,10 +11984,12 @@ func (sc height) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
 		case height_value:
-			crun.setTHeight(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBHeight(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setHeight(v1 * redirscale, v2 * redirscale)
 		case height_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -12012,25 +12017,28 @@ func (sc depth) Run(c *Char, _ []int32) bool {
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
 		switch id {
-		case depth_edge:
-			crun.setFDepthEdge(exp[0].evalF(c) * redirscale)
-			if len(exp) > 1 {
-				crun.setBDepthEdge(exp[1].evalF(c) * redirscale)
-			}
 		case depth_player:
-			crun.setFDepth(exp[0].evalF(c) * redirscale)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.setBDepth(exp[1].evalF(c) * redirscale)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setDepth(v1 * redirscale, v2 * redirscale)
+		case depth_edge:
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
+			if len(exp) > 1 {
+				v2 = exp[1].evalF(c)
+			}
+			crun.setDepthEdge(v1 * redirscale, v2 * redirscale)
 		case depth_value:
-			v1 := exp[0].evalF(c) * redirscale
-			crun.setFDepthEdge(v1)
-			crun.setFDepth(v1)
+			var v1, v2 float32
+			v1 = exp[0].evalF(c)
 			if len(exp) > 1 {
-				v2 := exp[1].evalF(c) * redirscale
-				crun.setBDepthEdge(v2)
-				crun.setBDepth(v2)
+				v2 = exp[1].evalF(c)
 			}
+			crun.setDepth(v1 * redirscale, v2 * redirscale)
+			crun.setDepthEdge(v1 * redirscale, v2 * redirscale)
 		case depth_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

@@ -5698,54 +5698,37 @@ func (c *Char) baseDepthBack() float32 {
 	return float32(c.size.depth[1])
 }
 
-func (c *Char) setFEdge(fe float32) {
-	c.widthEdge[0] = fe
+func (c *Char) setWidth(fw, bw float32) {
+	coordRatio := (320/c.localcoord)/c.localscl
+	c.width[0] = c.baseWidthFront()*coordRatio + fw
+	c.width[1] = c.baseWidthBack()*coordRatio + bw
+	c.setCSF(CSF_width)
+}
+
+func (c *Char) setHeight(th, bh float32) {
+	coordRatio := (320/c.localcoord)/c.localscl
+	c.height[0] = c.baseHeightTop()*coordRatio + th
+	c.height[1] = c.baseHeightBottom()*coordRatio + bh
+	c.setCSF(CSF_height)
+}
+
+func (c *Char) setDepth(fd, bd float32) {
+	coordRatio := (320/c.localcoord)/c.localscl
+	c.depth[0] = c.baseDepthFront()*coordRatio + fd
+	c.depth[1] = c.baseDepthBack()*coordRatio + bd
+	c.setCSF(CSF_depth)
+}
+
+func (c *Char) setWidthEdge(fe, be float32) {
+	// TODO: confirm if these don't need "coordRatio"
+	c.widthEdge = [2]float32{fe, be}
 	c.setCSF(CSF_widthedge)
 }
 
-func (c *Char) setBEdge(be float32) {
-	c.widthEdge[1] = be
-	c.setCSF(CSF_widthedge)
-}
-
-func (c *Char) setFDepthEdge(fde float32) {
+func (c *Char) setDepthEdge(fde, bde float32) {
 	c.depthEdge[0] = fde
-	c.setCSF(CSF_depthedge)
-}
-
-func (c *Char) setBDepthEdge(bde float32) {
 	c.depthEdge[1] = bde
 	c.setCSF(CSF_depthedge)
-}
-
-func (c *Char) setFWidth(fw float32) {
-	c.width[0] = c.baseWidthFront()*((320/c.localcoord)/c.localscl) + fw
-	c.setCSF(CSF_width)
-}
-
-func (c *Char) setBWidth(bw float32) {
-	c.width[1] = c.baseWidthBack()*((320/c.localcoord)/c.localscl) + bw
-	c.setCSF(CSF_width)
-}
-
-func (c *Char) setTHeight(th float32) {
-	c.height[0] = c.baseHeightTop()*((320/c.localcoord)/c.localscl) + th
-	c.setCSF(CSF_height)
-}
-
-func (c *Char) setBHeight(bh float32) {
-	c.height[1] = c.baseHeightBottom()*((320/c.localcoord)/c.localscl) + bh
-	c.setCSF(CSF_height)
-}
-
-func (c *Char) setFDepth(fd float32) {
-	c.depth[0] = c.baseDepthFront()*((320/c.localcoord)/c.localscl) + fd
-	c.setCSF(CSF_depth)
-}
-
-func (c *Char) setBDepth(bd float32) {
-	c.depth[1] = c.baseDepthBack()*((320/c.localcoord)/c.localscl) + bd
-	c.setCSF(CSF_depth)
 }
 
 func (c *Char) updateClsnScale() {

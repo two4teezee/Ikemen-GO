@@ -10359,10 +10359,29 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Determine in which axes to push the players
 				// This needs to check both if the players have velocity or if their positions have changed
-				pushx := !sys.zEnabled() || c.pos[2] == getter.pos[2] ||
-					getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
-				pushz := sys.zEnabled() &&
-					(getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2])
+				var pushx, pushz bool
+				if sys.zEnabled() && getter.pos[2] != c.pos[2] { // If tied on Z axis we fall back to X pushing
+					pushx = getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
+					pushz = getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2]
+				} else {
+					pushx = true
+					pushz = false
+				}
+
+				// Ensure the players always push each other in some way
+				if !pushx && !pushz {
+					if sys.zEnabled() {
+						distx := AbsF(getter.pos[0] - c.pos[0])
+						distz := AbsF(getter.pos[2] - c.pos[2])
+						if distx <= distz {
+							pushx = true
+						} else {
+							pushz = true
+						}
+					} else {
+						pushx = true
+					}
+				}
 
 				if pushx {
 					tmp := getter.distX(c, getter)
@@ -10415,20 +10434,25 @@ func (cl *CharList) pushDetection(getter *Char) {
 				}
 
 				// TODO: Z axis push might need some decision for who stays in the corner, like X axis
+				// TODO: Because typical Z depth is much smaller than X width, multiplying the values by cfactor and gfactor currently does more harm than good
 				if pushz {
 					if getter.pos[2] >= c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] -= ((czfront - gzback) * gfactor) / getter.localscl
+							//getter.pos[2] -= ((czfront - gzback) * gfactor) / getter.localscl
+							getter.pos[2] -= ((czfront - gzback)) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] += ((czfront - gzback) * cfactor) / c.localscl
+							//c.pos[2] += ((czfront - gzback) * cfactor) / c.localscl
+							c.pos[2] += ((czfront - gzback)) / c.localscl
 						}
-					} else {
+					} else if getter.pos[2] < c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] -= ((gzfront - czback) * gfactor) / getter.localscl
+							//getter.pos[2] -= ((gzfront - czback) * gfactor) / getter.localscl
+							getter.pos[2] -= ((gzfront - czback)) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] += ((gzfront - czback) * cfactor) / c.localscl
+							//c.pos[2] += ((gzfront - czback) * cfactor) / c.localscl
+							c.pos[2] += ((gzfront - czback)) / c.localscl
 						}
 					}
 					// Clamp Z positions

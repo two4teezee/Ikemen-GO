@@ -30,25 +30,20 @@ type CharSpecialFlag uint32
 
 const (
 	CSF_angledraw CharSpecialFlag = 1 << iota
-	CSF_backdepth
-	CSF_backdepthedge
-	CSF_backedge
-	CSF_backwidth
-	CSF_bottomheight
+	CSF_depth
+	CSF_depthedge
 	CSF_destroy
-	CSF_frontdepth
-	CSF_frontdepthedge
-	CSF_frontedge
-	CSF_frontwidth
 	CSF_gethit
+	CSF_height
 	CSF_movecamera_x
 	CSF_movecamera_y
 	CSF_playerpush
 	CSF_posfreeze
 	CSF_screenbound
 	CSF_stagebound
-	CSF_topheight
 	CSF_trans
+	CSF_width
+	CSF_widthedge
 )
 
 // Flags set by AssertSpecial. They are reset together every frame
@@ -2368,7 +2363,7 @@ type CharSystemVar struct {
 	receivedHits      int32
 	cornerVelOff      float32
 	width             [2]float32
-	edge              [2]float32
+	widthEdge         [2]float32
 	height            [2]float32
 	depth             [2]float32
 	depthEdge         [2]float32
@@ -3807,7 +3802,7 @@ func (c *Char) backEdgeBodyDist() float32 {
 			offset = 1.0 / c.localscl
 		}
 	}
-	return c.backEdgeDist() - c.edge[1] - offset
+	return c.backEdgeDist() - c.widthEdge[1] - offset
 }
 
 func (c *Char) backEdgeDist() float32 {
@@ -3912,7 +3907,7 @@ func (c *Char) frontEdgeBodyDist() float32 {
 			offset = 1.0 / c.localscl
 		}
 	}
-	return c.frontEdgeDist() - c.edge[0] - offset
+	return c.frontEdgeDist() - c.widthEdge[0] - offset
 }
 
 func (c *Char) frontEdgeDist() float32 {
@@ -4833,8 +4828,8 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 
 		c.width[0] *= lsRatio
 		c.width[1] *= lsRatio
-		c.edge[0] *= lsRatio
-		c.edge[1] *= lsRatio
+		c.widthEdge[0] *= lsRatio
+		c.widthEdge[1] *= lsRatio
 		c.height[0] *= lsRatio
 		c.height[1] *= lsRatio
 		c.depth[0] *= lsRatio
@@ -5704,53 +5699,53 @@ func (c *Char) baseDepthBack() float32 {
 }
 
 func (c *Char) setFEdge(fe float32) {
-	c.edge[0] = fe
-	c.setCSF(CSF_frontedge)
+	c.widthEdge[0] = fe
+	c.setCSF(CSF_widthedge)
 }
 
 func (c *Char) setBEdge(be float32) {
-	c.edge[1] = be
-	c.setCSF(CSF_backedge)
+	c.widthEdge[1] = be
+	c.setCSF(CSF_widthedge)
 }
 
 func (c *Char) setFDepthEdge(fde float32) {
 	c.depthEdge[0] = fde
-	c.setCSF(CSF_frontdepthedge)
+	c.setCSF(CSF_depthedge)
 }
 
 func (c *Char) setBDepthEdge(bde float32) {
 	c.depthEdge[1] = bde
-	c.setCSF(CSF_backdepthedge)
+	c.setCSF(CSF_depthedge)
 }
 
 func (c *Char) setFWidth(fw float32) {
 	c.width[0] = c.baseWidthFront()*((320/c.localcoord)/c.localscl) + fw
-	c.setCSF(CSF_frontwidth)
+	c.setCSF(CSF_width)
 }
 
 func (c *Char) setBWidth(bw float32) {
 	c.width[1] = c.baseWidthBack()*((320/c.localcoord)/c.localscl) + bw
-	c.setCSF(CSF_backwidth)
+	c.setCSF(CSF_width)
 }
 
 func (c *Char) setTHeight(th float32) {
 	c.height[0] = c.baseHeightTop()*((320/c.localcoord)/c.localscl) + th
-	c.setCSF(CSF_topheight)
+	c.setCSF(CSF_height)
 }
 
 func (c *Char) setBHeight(bh float32) {
 	c.height[1] = c.baseHeightBottom()*((320/c.localcoord)/c.localscl) + bh
-	c.setCSF(CSF_bottomheight)
+	c.setCSF(CSF_height)
 }
 
 func (c *Char) setFDepth(fd float32) {
 	c.depth[0] = c.baseDepthFront()*((320/c.localcoord)/c.localscl) + fd
-	c.setCSF(CSF_frontdepth)
+	c.setCSF(CSF_depth)
 }
 
 func (c *Char) setBDepth(bd float32) {
 	c.depth[1] = c.baseDepthBack()*((320/c.localcoord)/c.localscl) + bd
-	c.setCSF(CSF_backdepth)
+	c.setCSF(CSF_depth)
 }
 
 func (c *Char) updateClsnScale() {
@@ -7267,7 +7262,7 @@ func (c *Char) trackableByCamera() bool {
 func (c *Char) xScreenBound() {
 	x := c.pos[0]
 	if !sys.cam.roundstart && c.trackableByCamera() && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-		min, max := c.edge[0], -c.edge[1]
+		min, max := c.widthEdge[0], -c.widthEdge[1]
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
@@ -7291,7 +7286,7 @@ func (c *Char) zDepthBound() {
 func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 	x := c.pos[0]
 	if c.ss.stateType != ST_A {
-		min, max := c.edge[0], -c.edge[1]
+		min, max := c.widthEdge[0], -c.widthEdge[1]
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
@@ -7969,35 +7964,21 @@ func (c *Char) actionRun() {
 	// Reset char width and height values
 	// TODO: Some of this code could probably be integrated with the new size box
 	if !c.hitPause() {
-		if !c.csf(CSF_frontwidth) {
-			c.width[0] = c.baseWidthFront() * ((320 / c.localcoord) / c.localscl)
+		coordRatio := ((320 / c.localcoord) / c.localscl)
+		if !c.csf(CSF_width) {
+			c.width = [2]float32{c.baseWidthFront() * coordRatio, c.baseWidthBack() * coordRatio}
 		}
-		if !c.csf(CSF_backwidth) {
-			c.width[1] = c.baseWidthBack() * ((320 / c.localcoord) / c.localscl)
+		if !c.csf(CSF_widthedge) {
+			c.widthEdge = [2]float32{0, 0}
 		}
-		if !c.csf(CSF_frontedge) {
-			c.edge[0] = 0
+		if !c.csf(CSF_height) {
+			c.height = [2]float32{c.baseHeightTop() * coordRatio, c.baseHeightBottom() * coordRatio}
 		}
-		if !c.csf(CSF_backedge) {
-			c.edge[1] = 0
+		if !c.csf(CSF_depth) {
+			c.depth = [2]float32{c.baseDepthFront() * coordRatio, c.baseDepthBack() * coordRatio}
 		}
-		if !c.csf(CSF_topheight) {
-			c.height[0] = c.baseHeightTop() * ((320 / c.localcoord) / c.localscl)
-		}
-		if !c.csf(CSF_bottomheight) {
-			c.height[1] = c.baseHeightBottom() * ((320 / c.localcoord) / c.localscl)
-		}
-		if !c.csf(CSF_frontdepth) {
-			c.depth[0] = c.baseDepthFront() * ((320 / c.localcoord) / c.localscl)
-		}
-		if !c.csf(CSF_backdepth) {
-			c.depth[1] = c.baseDepthBack() * ((320 / c.localcoord) / c.localscl)
-		}
-		if !c.csf(CSF_frontdepthedge) {
-			c.depthEdge[0] = 0
-		}
-		if !c.csf(CSF_backdepthedge) {
-			c.depthEdge[1] = 0
+		if !c.csf(CSF_depthedge) {
+			c.depthEdge = [2]float32{0, 0}
 		}
 	}
 	// Update size box according to player width and height
@@ -8201,7 +8182,7 @@ func (c *Char) actionFinish() {
 
 func (c *Char) track() {
 	if c.trackableByCamera() {
-		min, max := c.edge[0], -c.edge[1]
+		min, max := c.widthEdge[0], -c.widthEdge[1]
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
@@ -10369,8 +10350,8 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				getter.pushed, c.pushed = true, true
 
-				gxmin = getter.edge[0]
-				gxmax = -getter.edge[1]
+				gxmin = getter.widthEdge[0]
+				gxmax = -getter.widthEdge[1]
 				if getter.facing > 0 {
 					gxmin, gxmax = -gxmax, -gxmin
 				}
@@ -10476,7 +10457,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 					getter.pos[0] = ClampF(getter.pos[0], gxmin, gxmax)
 				}
 				if c.trackableByCamera() && c.csf(CSF_screenbound) {
-					l, r := c.edge[0], -c.edge[1]
+					l, r := c.widthEdge[0], -c.widthEdge[1]
 					if c.facing > 0 {
 						l, r = -r, -l
 					}

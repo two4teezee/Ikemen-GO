@@ -670,7 +670,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			return err
 		}
 		if err := c.paramValue(is, sc, "pos",
-			helper_pos, VT_Float, 2, false); err != nil {
+			helper_pos, VT_Float, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "facing",
@@ -5323,8 +5323,8 @@ func (c *Compiler) depth(is IniSection, sc *StateControllerBase, _ int8) (StateC
 		}
 		if !b {
 			if err := c.paramValue(is, sc, "value",
-				depth_value, VT_Float, 2, true); err != nil {
-				return err
+			depth_value, VT_Float, 2, true); err != nil {
+			return err
 			}
 		}
 		return nil

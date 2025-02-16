@@ -8363,10 +8363,18 @@ func (c *Char) tick() {
 		if c.isBound() {
 			if bt := sys.playerID(c.bindToId); bt != nil && !bt.pause() {
 				c.bindTime -= 1
+				// Fixes Binds of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
+				if c.bindTime <= 0 {
+					c.bindToId = -1
+				}
 			}
 		} else {
 			if !c.pause() {
 				c.bindTime -= 1
+				// Fixes Binds of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
+				if c.bindTime <= 0 {
+					c.bindToId = -1
+				}
 			}
 		}
 	}

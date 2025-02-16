@@ -5323,8 +5323,8 @@ func (c *Compiler) depth(is IniSection, sc *StateControllerBase, _ int8) (StateC
 		}
 		if !b {
 			if err := c.paramValue(is, sc, "value",
-			depth_value, VT_Float, 2, true); err != nil {
-			return err
+				depth_value, VT_Float, 2, true); err != nil {
+				return err
 			}
 		}
 		return nil

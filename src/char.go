@@ -5106,7 +5106,7 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 			p[0] -= pos[0]
 		}
 		p[1] = pos[1]
-		p[2] = c.pos[2]
+		p[2] = pos[2]
 		*dstFacing *= c.facing
 	case PT_Left:
 		p[0] = c.leftEdge()*(c.localscl/localscl) + pos[0]
@@ -5114,15 +5114,16 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 		if isProj {
 			*dstFacing *= c.facing
 		}
+		p[2] = pos[2]
 	case PT_Right:
 		p[0] = c.rightEdge()*(c.localscl/localscl) + pos[0]
 		p[1] = pos[1]
 		if isProj {
 			*dstFacing *= c.facing
 		}
-		p[2] = c.pos[2]
+		p[2] = pos[2]
 	case PT_None:
-		p = [3]float32{pos[0], pos[1], c.pos[2]}
+		p = [3]float32{pos[0], pos[1], pos[2]}
 		if isProj {
 			*dstFacing *= c.facing
 		}

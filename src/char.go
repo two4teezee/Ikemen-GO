@@ -8129,6 +8129,9 @@ func (c *Char) actionFinish() {
 		c.ghv.frame = false
 		c.mhv.frame = false
 	}
+	// Reset inguarddist flag before running hit detection (where it will be updated)
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2328
+	c.inguarddist = false
 	// This variable is necessary because NoStandGuard is reset before the walking instructions are checked
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1966
 	c.prevNoStandGuard = c.asf(ASF_nostandguard)
@@ -9944,42 +9947,48 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					continue
 				}
 
-				// Projectile guard distance
+				// Projectile guard distance check
 				distX := (getter.pos[0]*getter.localscl - (p.pos[0])*p.localscl) * p.facing
 				distY := (getter.pos[1]*getter.localscl - (p.pos[1])*p.localscl)
 				distZ := (getter.pos[2]*getter.localscl - (p.pos[2])*p.localscl)
 
 				if !p.platform && p.hitdef.attr > 0 { // https://github.com/ikemen-engine/Ikemen-GO/issues/1445
+					var inguardx, inguardy, inguardz bool
+
+					// Check X distance
 					if p.hitdef.guard_dist_x[0] >= 0 {
-						if distX <= float32(p.hitdef.guard_dist_x[0])*p.localscl &&
-							distX >= -float32(p.hitdef.guard_dist_x[1])*p.localscl {
-							getter.inguarddist = true
-						}
+						inguardx = distX <= float32(p.hitdef.guard_dist_x[0])*p.localscl &&
+							distX >= -float32(p.hitdef.guard_dist_x[1])*p.localscl
 					} else { // Default Width
-						if distX <= float32(c.size.proj.attack.dist.width[0])*c.localscl &&
-							distX >= -float32(c.size.proj.attack.dist.width[1])*c.localscl {
-							getter.inguarddist = true
-						}
+						inguardx = distX <= float32(c.size.proj.attack.dist.width[0])*c.localscl &&
+							distX >= -float32(c.size.proj.attack.dist.width[1])*c.localscl
 					}
-					if p.hitdef.guard_dist_y[0] >= 0 {
-						if distY != 0 && (distY > float32(p.hitdef.guard_dist_y[0])*p.localscl || distY < -float32(p.hitdef.guard_dist_y[1])*p.localscl) {
-							getter.inguarddist = false
-						}
+
+					// Check Y distance
+					if distY == 0 { // Compatibility safeguard
+						inguardy = true
+					} else if p.hitdef.guard_dist_y[0] >= 0 {
+						inguardy = distY <= float32(p.hitdef.guard_dist_y[0])*p.localscl &&
+							distY >= -float32(p.hitdef.guard_dist_y[1])*p.localscl
 					} else { // Default Height
-						if distY != 0 && (distY > float32(c.size.proj.attack.dist.height[0])*c.localscl ||
-							distY < -float32(c.size.proj.attack.dist.height[1])*c.localscl) {
-							getter.inguarddist = false
-						}
+						inguardy = distY <= float32(c.size.proj.attack.dist.height[0])*c.localscl &&
+							distY >= -float32(c.size.proj.attack.dist.height[1])*c.localscl
 					}
-					if p.hitdef.guard_dist_z[0] >= 0 {
-						if distZ != 0 && (distZ > float32(p.hitdef.guard_dist_z[0])*p.localscl || distZ < -float32(p.hitdef.guard_dist_z[1])*p.localscl) {
-							getter.inguarddist = false
-						}
+
+					// Check Z distance
+					if distZ == 0 { // Compatibility safeguard
+						inguardz = true
+					} else if p.hitdef.guard_dist_z[0] >= 0 {
+						inguardz = distZ <= float32(p.hitdef.guard_dist_z[0])*p.localscl &&
+							distZ >= -float32(p.hitdef.guard_dist_z[1])*p.localscl
 					} else { // Default Depth
-						if distZ != 0 && (distZ > float32(c.size.proj.attack.dist.depth[0])*c.localscl ||
-							distZ < -float32(c.size.proj.attack.dist.depth[1])*c.localscl) {
-							getter.inguarddist = false
-						}
+						inguardz = distZ <= float32(c.size.proj.attack.dist.depth[0])*c.localscl &&
+							distZ >= -float32(c.size.proj.attack.dist.depth[1])*c.localscl
+					}
+
+					// Set flag
+					if inguardx && inguardy && inguardz {
+						getter.inguarddist = true
 					}
 				}
 
@@ -10075,7 +10084,6 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 
 	// Player check
 	if !proj {
-		getter.inguarddist = false
 		getter.unsetCSF(CSF_gethit)
 		getter.enemyNearP2Clear()
 		for _, c := range cl.runOrder {
@@ -10089,46 +10097,45 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				((getter.teamside != c.hitdef.teamside-1) == (c.hitdef.affectteam > 0) && c.hitdef.teamside >= 0) ||
 				((getter.teamside != c.teamside) == (c.hitdef.affectteam > 0) && c.hitdef.teamside < 0)) {
 
-				// Guard distance
+				// Guard distance check
 				// Mugen uses >= checks so that 0 does not trigger proximity guard at 0 distance
 				// Localcoord conversion is already built into the dist functions, so it will be skipped ahead
 				if c.ss.moveType == MT_A {
-					getter.inguarddist = true
+					var inguardx, inguardy, inguardz bool
+
 					// Get distances
 					distX := c.distX(getter, c) * c.facing
 					distY := c.distY(getter, c)
 					distZ := c.distZ(getter, c)
-					// Check Hitdef distance if available. Otherwise normal attack distance
+
+					// Check X distance
 					if c.hitdef.guard_dist_x[0] >= 0 {
-						if distX >= float32(c.hitdef.guard_dist_x[0]) || distX <= -float32(c.hitdef.guard_dist_x[1]) {
-							getter.inguarddist = false
-						}
+						inguardx = distX < float32(c.hitdef.guard_dist_x[0]) && distX > -float32(c.hitdef.guard_dist_x[1])
 					} else {
-						if distX >= c.attackDistX[0] || distX <= -c.attackDistX[1] {
-							getter.inguarddist = false
-						}
+						inguardx = distX < c.attackDistX[0] && distX > -c.attackDistX[1]
 					}
-					if distY != 0 { // Compatibility safeguard
-						if c.hitdef.guard_dist_y[0] >= 0 {
-							if distY >= float32(c.hitdef.guard_dist_y[0]) || distY <= -float32(c.hitdef.guard_dist_y[1]) {
-								getter.inguarddist = false
-							}
-						} else {
-							if distY >= c.attackDistY[0] || distY <= -c.attackDistY[1] {
-								getter.inguarddist = false
-							}
-						}
+
+					// Check Y distance
+					if distY == 0 { // Compatibility safeguard
+						inguardy = true
+					} else if c.hitdef.guard_dist_y[0] >= 0 {
+						inguardy = distY < float32(c.hitdef.guard_dist_y[0]) && distY > -float32(c.hitdef.guard_dist_y[1])
+					} else {
+						inguardy = distY < c.attackDistY[0] && distY > -c.attackDistY[1]
 					}
-					if distZ != 0 { // Compatibility safeguard
-						if c.hitdef.guard_dist_z[0] >= 0 {
-							if distZ >= float32(c.hitdef.guard_dist_z[0]) || distZ <= -float32(c.hitdef.guard_dist_z[1]) {
-								getter.inguarddist = false
-							}
-						} else {
-							if distZ > c.attackDistZ[0] || distZ < -c.attackDistZ[1] {
-								getter.inguarddist = false
-							}
-						}
+
+					// Check Z distance
+					if distZ == 0 { // Compatibility safeguard
+						inguardz = true
+					} else if c.hitdef.guard_dist_z[0] >= 0 {
+						inguardz = distZ < float32(c.hitdef.guard_dist_z[0]) && distZ > -float32(c.hitdef.guard_dist_z[1])
+					} else {
+						inguardz = distZ < c.attackDistZ[0] && distZ > -c.attackDistZ[1]
+					}
+
+					// Set flag
+					if inguardx && inguardy && inguardz {
+						getter.inguarddist = true
 					}
 				}
 

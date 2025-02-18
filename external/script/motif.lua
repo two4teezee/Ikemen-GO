@@ -93,6 +93,11 @@ local motif =
 		hiscore_bgm_loopstart = 0, --Ikemen feature
 		hiscore_bgm_loopend = 0, --Ikemen feature
 	},
+	languages =
+	{
+		languages = {"en"},
+		en = "English",
+	},
 	title_info =
 	{
 		fadein_time = 10,
@@ -355,7 +360,7 @@ local motif =
 		p1_face_anim = -1, --Ikemen feature
 		p1_face_spr = {9000, 1},
 		p1_face_done_anim = -1, --Ikemen feature
-		p1_face_done_spr = {9000, 1}, --Ikemen feature
+		p1_face_done_spr = {}, --Ikemen feature
 		p1_face_offset = {0, 0},
 		p1_face_facing = 1,
 		p1_face_scale = {1.0, 1.0},
@@ -366,7 +371,7 @@ local motif =
 		p2_face_num = 1, --Ikemen feature
 		p2_face_anim = -1, --Ikemen feature
 		p2_face_done_anim = -1, --Ikemen feature
-		p2_face_done_spr = {9000, 1}, --Ikemen feature
+		p2_face_done_spr = {}, --Ikemen feature
 		p2_face_spr = {9000, 1},
 		p2_face_offset = {0, 0},
 		p2_face_facing = -1,
@@ -377,7 +382,7 @@ local motif =
 		--p<pn>_member<num>_face_anim = -1, --Ikemen feature
 		--p<pn>_member<num>_face_spr = {9000, 1}, --Ikemen feature
 		--p<pn>_member<num>_face_done_anim = -1, --Ikemen feature
-		--p<pn>_member<num>_face_done_spr = {9000, 1}, --Ikemen feature
+		--p<pn>_member<num>_face_done_spr = {}, --Ikemen feature
 		--p<pn>_member<num>_face_offset = {0, 0}, --Ikemen feature
 		--p<pn>_member<num>_face_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_speed = {0, 0}, --Ikemen feature
@@ -1153,6 +1158,9 @@ local motif =
 		menu_valuename_no = 'No', --Ikemen feature
 		menu_valuename_enabled = 'Enabled', --Ikemen feature
 		menu_valuename_disabled = 'Disabled', --Ikemen feature
+		menu_valuename_normal = 'Normal', --Ikemen feature
+		menu_valuename_slow = 'Slow %i', --Ikemen feature
+		menu_valuename_fast = 'Fast %i', --Ikemen feature
 		keymenu_p1_pos = {39, 33}, --Ikemen feature
 		keymenu_p2_pos = {178, 33}, --Ikemen feature
 		--keymenu_bg_<itemname>_anim = -1, --Ikemen feature
@@ -1213,7 +1221,7 @@ local motif =
 		--menu_itemname_roundtime = 'Time Limit', --Ikemen feature
 		--menu_itemname_lifemul = 'Life', --Ikemen feature
 		--menu_itemname_singlevsteamlife = 'Single VS Team Life', --Ikemen feature
-		--menu_itemname_gamespeed = 'Game FPS', --Ikemen feature
+		--menu_itemname_gamespeed = 'Game Speed', --Ikemen feature
 		--menu_itemname_roundsnumsingle = 'Rounds to Win (Single)', --Ikemen feature
 		--menu_itemname_maxdrawgames = 'Max Draw Games', --Ikemen feature
 		--menu_itemname_credits = 'Credits', --Ikemen feature
@@ -1222,9 +1230,9 @@ local motif =
 		--menu_itemname_airamping = 'AI Ramping', --Ikemen feature
 		--menu_itemname_quickcontinue = 'Quick Continue', --Ikemen feature
 		--menu_itemname_autoguard = 'Auto-Guard', --Ikemen feature
-		--menu_itemname_stunbar = 'Dizzy', --Ikemen feature
-		--menu_itemname_guardbar = 'Guard Break', --Ikemen feature
-		--menu_itemname_redlifebar = 'Red Life', --Ikemen feature
+		--menu_itemname_dizzy = 'Dizzy', --Ikemen feature
+		--menu_itemname_guardbreak = 'Guard Break', --Ikemen feature
+		--menu_itemname_redlife = 'Red Life', --Ikemen feature
 		--menu_itemname_teamduplicates = 'Team Duplicates', --Ikemen feature
 		--menu_itemname_teamlifeshare = 'Team Life Share', --Ikemen feature
 		--menu_itemname_teampowershare = 'Team Power Share', --Ikemen feature
@@ -1253,7 +1261,7 @@ local motif =
 		--menu_itemname_resolution = 'Resolution', --Ikemen feature
 		--menu_itemname_customres = 'Custom', --Ikemen feature
 		--menu_itemname_fullscreen = 'Fullscreen', --Ikemen feature
-		--menu_itemname_vretrace = 'VSync', --Ikemen feature
+		--menu_itemname_vsync = 'VSync', --Ikemen feature
 		--menu_itemname_msaa = 'MSAA', --Ikemen feature
 		--menu_itemname_shaders = 'Shaders', --Ikemen feature
 		--menu_itemname_noshader = 'Disable', --Ikemen feature
@@ -1905,6 +1913,15 @@ local motif =
 		['_)'] = {129, 0}, --Close
 		['_('] = {130, 0}, --Away
 		['_`'] = {135, 0}, --Small Dot
+		['_CHARGE'] = {136,0}, --Charge
+		['_HOLD'] = {137,0}, --Hold
+		['_RELEASE'] = {138,0}, --Release
+		['_MASH'] = {139,0}, --Mash
+		['_CLOSE'] = {140,0}, --Close
+		['_FAR'] = {141,0}, --Far
+		['_AIROK'] = {142,0}, --AIR OK
+		['_THROW'] = {143,0}, --Throw
+		['_COUNTER'] = {144,0}, --Counter
 	},
 	anim = {},
 }
@@ -1942,11 +1959,12 @@ end
 
 function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menugame = "Game Settings"
+	motif.option_info.menu_itemname_menugame_language = "Language"
 	motif.option_info.menu_itemname_menugame_difficulty = "Difficulty Level"
 	motif.option_info.menu_itemname_menugame_roundtime = "Time Limit"
 	motif.option_info.menu_itemname_menugame_lifemul = "Life"
 	motif.option_info.menu_itemname_menugame_singlevsteamlife = "Single VS Team Life"
-	motif.option_info.menu_itemname_menugame_gamespeed = "Game FPS"
+	motif.option_info.menu_itemname_menugame_gamespeed = "Game Speed"
 	motif.option_info.menu_itemname_menugame_roundsnumsingle = "Rounds to Win (Single)"
 	motif.option_info.menu_itemname_menugame_maxdrawgames = "Max Draw Games"
 	motif.option_info.menu_itemname_menugame_credits = "Credits"
@@ -1955,9 +1973,9 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menugame_airamping = "AI Ramping"
 	motif.option_info.menu_itemname_menugame_quickcontinue = "Quick Continue"
 	motif.option_info.menu_itemname_menugame_autoguard = "Auto-Guard"
-	motif.option_info.menu_itemname_menugame_stunbar = "Dizzy"
-	motif.option_info.menu_itemname_menugame_guardbar = "Guard Break"
-	motif.option_info.menu_itemname_menugame_redlifebar = "Red Life"
+	motif.option_info.menu_itemname_menugame_dizzy = "Dizzy"
+	motif.option_info.menu_itemname_menugame_guardbreak = "Guard Break"
+	motif.option_info.menu_itemname_menugame_redlife = "Red Life"
 	motif.option_info.menu_itemname_menugame_teamduplicates = "Team Duplicates"
 	motif.option_info.menu_itemname_menugame_teamlifeshare = "Team Life Share"
 	motif.option_info.menu_itemname_menugame_teampowershare = "Team Power Share"
@@ -2003,6 +2021,11 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menugame_back = "Back"
 
 	motif.option_info.menu_itemname_menuvideo = "Video Settings"
+	motif.option_info.menu_itemname_menuvideo_renderer = "Renderer" --reserved submenu
+	motif.option_info.menu_itemname_menuvideo_renderer_gl32 = "OpenGL 3.2"
+	motif.option_info.menu_itemname_menuvideo_renderer_gl21 = "OpenGL 2.1"
+	motif.option_info.menu_itemname_menuvideo_renderer_empty = ""
+	motif.option_info.menu_itemname_menuvideo_renderer_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_resolution = "Resolution" --reserved submenu
 	-- Resolution is assigned based on values used in itemname suffix (e.g. 320x240)
 	motif.option_info.menu_itemname_menuvideo_resolution_320x240 = "320x240    (4:3 QVGA)"
@@ -2015,13 +2038,20 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuvideo_resolution_customres = "Custom"
 	motif.option_info.menu_itemname_menuvideo_resolution_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_fullscreen = "Fullscreen"
-	motif.option_info.menu_itemname_menuvideo_vretrace = "VSync"
+	motif.option_info.menu_itemname_menuvideo_vsync = "VSync"
+	motif.option_info.menu_itemname_menuvideo_keepaspect = "Keep Aspect Ratio"
+	motif.option_info.menu_itemname_menuvideo_windowscalemode = "Bilinear Filtering"
 	motif.option_info.menu_itemname_menuvideo_msaa = "MSAA"
 	motif.option_info.menu_itemname_menuvideo_shaders = "Shaders" --reserved submenu
 	-- This list is populated with shaders existing in 'external/shaders' directory
 	motif.option_info.menu_itemname_menuvideo_shaders_empty = ""
 	motif.option_info.menu_itemname_menuvideo_shaders_noshader = "Disable"
 	motif.option_info.menu_itemname_menuvideo_shaders_back = "Back"
+	motif.option_info.menu_itemname_menuvideo_model = "3D Model Settings"
+	motif.option_info.menu_itemname_menuvideo_model_enablemodel = "3D Model"
+	motif.option_info.menu_itemname_menuvideo_model_enablemodelshadow = "Shadow"
+	motif.option_info.menu_itemname_menuvideo_model_empty = ""
+	motif.option_info.menu_itemname_menuvideo_model_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_empty = ""
 	motif.option_info.menu_itemname_menuvideo_back = "Back"
 
@@ -2079,9 +2109,9 @@ function motif.setBaseOptionInfo()
 		"menugame_airamping",
 		"menugame_quickcontinue",
 		"menugame_autoguard",
-		"menugame_stunbar",
-		"menugame_guardbar",
-		"menugame_redlifebar",
+		"menugame_dizzy",
+		"menugame_guardbreak",
+		"menugame_redlife",
 		"menugame_teamduplicates",
 		"menugame_teamlifeshare",
 		"menugame_teampowershare",
@@ -2126,6 +2156,11 @@ function motif.setBaseOptionInfo()
 		"menugame_menuratio_back",
 		"menugame_back",
 		"menuvideo",
+		"menuvideo_renderer",
+		"menuvideo_renderer_gl32",
+		"menuvideo_renderer_gl21",
+		"menuvideo_renderer_empty",
+		"menuvideo_renderer_back",
 		"menuvideo_resolution",
 		"menuvideo_resolution_320x240",
 		"menuvideo_resolution_640x480",
@@ -2137,12 +2172,19 @@ function motif.setBaseOptionInfo()
 		"menuvideo_resolution_customres",
 		"menuvideo_resolution_back",
 		"menuvideo_fullscreen",
-		"menuvideo_vretrace",
+		"menuvideo_vsync",
+		"menuvideo_keepaspect",
+		"menuvideo_windowscalemode",
 		"menuvideo_msaa",
 		"menuvideo_shaders",
 		"menuvideo_shaders_empty",
 		"menuvideo_shaders_noshader",
 		"menuvideo_shaders_back",
+		"menuvideo_model",
+		"menuvideo_model_enablemodel",
+		"menuvideo_model_enablemodelshadow",
+		"menuvideo_model_empty",
+		"menuvideo_model_back",
 		"menuvideo_empty",
 		"menuvideo_back",
 		"menuaudio",
@@ -2361,13 +2403,15 @@ for line in main.motifData:gmatch('([^\n]*)\n?') do
 							if subt == 'teammenu' then
 								prefix = 'p' .. i .. '_'
 							end
-							for _, v in ipairs({'_bg_', '_bg_active_'}) do
-								local bg = param:gsub('_itemname_', v)
-								def_pos[prefix .. bg .. '_anim'] = -1
-								def_pos[prefix .. bg .. '_spr'] = {-1, 0}
-								def_pos[prefix .. bg .. '_offset'] = {0, 0}
-								def_pos[prefix .. bg .. '_facing'] = 1
-								def_pos[prefix .. bg .. '_scale'] = {1.0, 1.0}
+							if prefix == not nil then 
+								for _, v in ipairs({'_bg_', '_bg_active_'}) do
+									local bg = param:gsub('_itemname_', v)
+									def_pos[prefix .. bg .. '_anim'] = -1
+									def_pos[prefix .. bg .. '_spr'] = {-1, 0}
+									def_pos[prefix .. bg .. '_offset'] = {0, 0}
+									def_pos[prefix .. bg .. '_facing'] = 1
+									def_pos[prefix .. bg .. '_scale'] = {1.0, 1.0}
+								end
 							end
 						end
 					end
@@ -2426,6 +2470,19 @@ for line in main.motifData:gmatch('([^\n]*)\n?') do
 	end
 	main.f_loadingRefresh()
 end
+
+-- merge current language sections, if any
+for group_k, contents in pairs(t) do
+	if string.sub(group_k, 1, 3) == gameOption('Config.Language') .. "_" then
+		local defgroup = string.sub(group_k, 4, -1)
+		if type(t[defgroup]) == "table" then
+			t[defgroup] = main.f_tableMerge(t[defgroup], contents)
+		elseif t[defgroup] ~= nil then -- infobox & others
+			t[defgroup] = contents
+		end
+	end
+end
+
 --file:close()
 
 if main.debugLog then main.f_printTable(main.t_sort, 'debug/t_sort.txt') end
@@ -2745,14 +2802,40 @@ function motif.f_start()
 	for group_k, group_t in pairs(main.t_sort) do
 		for subt_k, subt_t in pairs(group_t) do
 			for _, v in ipairs(subt_t) do
+				local real_t = motif[group_k]
+				if string.sub(group_k, 1, 3) == gameOption('Config.Language') .. "_" then
+					real_t = motif[string.sub(group_k, 4, -1)]
+				end
 				if subt_k == 'teammenu' then
 					for i = 1, 2 do
-						motif.f_loadSprData(motif[group_k], {s = 'p' .. i .. '_' .. subt_k .. '_bg_' .. v .. '_', x = motif[group_k]['p' .. i .. '_teammenu_pos'][1], y = motif[group_k]['p' .. i .. '_teammenu_pos'][2]})
-						motif.f_loadSprData(motif[group_k], {s = 'p' .. i .. '_' .. subt_k .. '_bg_active_' .. v .. '_', x = motif[group_k]['p' .. i .. '_teammenu_pos'][1], y = motif[group_k]['p' .. i .. '_teammenu_pos'][2]})
+						local teammenu_pos = real_t['p' .. i .. '_teammenu_pos']
+						if teammenu_pos ~= nil then
+							motif.f_loadSprData(real_t, {
+								s = 'p' .. i .. '_' .. subt_k .. '_bg_' .. v .. '_',
+								x = teammenu_pos[1],
+								y = teammenu_pos[2]
+							})
+							motif.f_loadSprData(real_t, {
+								s = 'p' .. i .. '_' .. subt_k .. '_bg_active_' .. v .. '_',
+								x = teammenu_pos[1],
+								y = teammenu_pos[2]
+							})
+						end
 					end
 				else--if subt_k == 'menu' or subt_k == 'keymenu' then
-					motif.f_loadSprData(motif[group_k], {s = subt_k .. '_bg_' .. v .. '_', x = motif[group_k].menu_pos[1], y = motif[group_k].menu_pos[2]})
-					motif.f_loadSprData(motif[group_k], {s = subt_k .. '_bg_active_' .. v .. '_', x = motif[group_k].menu_pos[1], y = motif[group_k].menu_pos[2]})
+					local menu_pos = real_t.menu_pos
+					if menu_pos ~= nil then
+						motif.f_loadSprData(real_t, {
+							s = subt_k .. '_bg_' .. v .. '_',
+							x = menu_pos[1],
+							y = menu_pos[2]
+						})
+						motif.f_loadSprData(real_t, {
+							s = subt_k .. '_bg_active_' .. v .. '_',
+							x = menu_pos[1],
+							y = menu_pos[2]
+						})
+					end
 				end
 			end
 		end

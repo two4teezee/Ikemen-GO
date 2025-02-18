@@ -34,7 +34,7 @@ type Fnt struct {
 	colors    int32
 	offset    [2]int32
 	ttf       TtfFont
-	paltex    *Texture
+	paltex    Texture
 }
 
 func newFnt() *Fnt {
@@ -64,16 +64,16 @@ func loadFntV1(filename string) (*Fnt, error) {
 
 	defer func() { chk(fp.Close()) }()
 
-	//Read header
+	// Read header
 	buf := make([]byte, 12)
 	n, err := fp.Read(buf)
 
-	//Error reading file
+	// Error reading file
 	if err != nil {
 		return nil, err
 	}
 
-	//Error is not a valid fnt file
+	// Error is not a valid fnt file
 	if string(buf[:n]) != "ElecbyteFnt\x00" {
 		return nil, Error("Unrecognized FNT file: " + string(buf[:n]))
 	}
@@ -124,7 +124,11 @@ func loadFntV1(filename string) (*Fnt, error) {
 		if err := read(rgb[:]); err != nil {
 			return nil, err
 		}
-		spr.Pal[i] = uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+		var alpha byte = 255
+		if i == 0 {
+			alpha = 0
+		}
+		spr.Pal[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 	}
 
 	px = spr.RlePcxDecode(px)
@@ -320,7 +324,7 @@ func LoadFntSff(f *Fnt, fontfile string, filename string) {
 		panic(err)
 	}
 
-	//Load sprites
+	// Load sprites
 	var pal_default []uint32
 	for k, sprite := range sff.sprites {
 		s := sff.getOwnPalSprite(sprite.Group, sprite.Number, &sff.palList)
@@ -344,7 +348,7 @@ func LoadFntSff(f *Fnt, fontfile string, filename string) {
 		}
 	}
 
-	//Load palettes
+	// Load palettes
 	f.palettes = make([][256]uint32, sff.header.NumberOfPalettes)
 	f.coldepth = make([]byte, sff.header.NumberOfPalettes)
 	var idef int
@@ -427,8 +431,7 @@ func (f *Fnt) drawChar(
 	xscl, yscl float32,
 	bank, bt int32,
 	c rune, pal []uint32,
-	window *[4]int32,
-	palfx *PalFX,
+	rp RenderParams,
 ) float32 {
 	if c == ' ' {
 		return float32(f.Size[0]) * xscl
@@ -439,12 +442,12 @@ func (f *Fnt) drawChar(
 		return 0
 	}
 
-	// in case of mismatched color depth between bank palette and
-	// sprite own palette, mugen 1.1 uses the latter, ignoring bank
+	// In case of mismatched color depth between bank palette and the sprite's own palette,
+	// Mugen 1.1 uses the latter, ignoring the bank
 	if len(f.palettes) != 0 && len(f.coldepth) > int(bank) &&
 		f.images[bt][c].img[0].coldepth != 32 &&
 		f.coldepth[bank] != f.images[bt][c].img[0].coldepth {
-		pal = palfx.getFxPal(f.images[bt][c].img[0].Pal[:], false)
+		pal = f.images[bt][c].img[0].Pal[:] //palfx.getFxPal(f.images[bt][c].img[0].Pal[:], false)
 	}
 
 	x -= xscl * float32(spr.Offset[0])
@@ -452,16 +455,14 @@ func (f *Fnt) drawChar(
 	if spr.coldepth <= 8 && f.paltex == nil {
 		f.paltex = spr.CachePalette(pal)
 	}
-	rp := RenderParams{
-		spr.Tex, f.paltex, spr.Size,
-		-x * sys.widthScale, -y * sys.heightScale, notiling,
-		xscl * sys.widthScale, xscl * sys.widthScale,
-		yscl * sys.heightScale, 1, 0,
-		Rotation{},
-		0, sys.brightness*255>>8 | 1<<9, 0,
-		nil, window, 0, 0,
-		0, 0, -xscl * float32(spr.Offset[0]), -yscl * float32(spr.Offset[1]),
-	}
+
+	// Update only the render parameters that change between each character
+	rp.tex = spr.Tex
+	rp.paltex = f.paltex
+	rp.size = spr.Size
+	rp.x = -x * sys.widthScale
+	rp.y = -y * sys.heightScale
+
 	RenderSprite(rp)
 	return float32(spr.Size[0]) * xscl
 }
@@ -478,10 +479,9 @@ func (f *Fnt) Print(txt string, x, y, xscl, yscl float32, bank, align int32,
 }
 
 // DrawText prints on screen a specified text with the current font sprites
-func (f *Fnt) DrawText(txt string, x, y, xscl, yscl float32, bank, align int32,
-	window *[4]int32, palfx *PalFX) {
+func (f *Fnt) DrawText(txt string, x, y, xscl, yscl float32, bank, align int32, window *[4]int32, palfx *PalFX) {
 
-	if len(txt) == 0 {
+	if len(txt) == 0 || xscl == 0 || yscl == 0 {
 		return
 	}
 
@@ -493,7 +493,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl float32, bank, align int32,
 		bank = 0
 	}
 
-	//not existing characters treated as space
+	// not existing characters treated as space
 	for i, c := range txt {
 		if c != ' ' && f.images[bt][c] == nil {
 			//txt = strings.Replace(txt, string(c), " ", -1)
@@ -512,12 +512,42 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl float32, bank, align int32,
 
 	var pal []uint32
 	if len(f.palettes) != 0 {
-		pal = palfx.getFxPal(f.palettes[bank][:], false)
+		pal = f.palettes[bank][:] //palfx.getFxPal(f.palettes[bank][:], false)
 	}
 
 	f.paltex = nil
+
+	// Initialize common render parameters
+	rp := RenderParams{
+		tex:            nil,
+		paltex:         nil,
+		size:           [2]uint16{0, 0},
+		x:              0,
+		y:              0,
+		tile:           notiling,
+		xts:            xscl * sys.widthScale,
+		xbs:            xscl * sys.widthScale,
+		ys:             yscl * sys.heightScale,
+		vs:             1,
+		rxadd:          0,
+		xas:            1,
+		yas:            1,
+		rot:            Rotation{},
+		tint:           0,
+		trans:          sys.brightness*255>>8 | 1<<9,
+		mask:           0,
+		pfx:            palfx,
+		window:         window,
+		rcx:            0,
+		rcy:            0,
+		projectionMode: 0,
+		fLength:        0,
+		xOffset:        0,
+		yOffset:        0,
+	}
+
 	for _, c := range txt {
-		x += f.drawChar(x, y, xscl, yscl, bank, bt, c, pal, window, palfx) + xscl*float32(f.Spacing[0])
+		x += f.drawChar(x, y, xscl, yscl, bank, bt, c, pal, rp) + xscl*float32(f.Spacing[0])
 	}
 }
 
@@ -539,32 +569,46 @@ func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
 }
 
 type TextSprite struct {
+	ownerid          int32
+	id               int32
 	text             string
 	fnt              *Fnt
 	bank, align      int32
 	x, y, xscl, yscl float32
 	window           [4]int32
 	palfx            *PalFX
-	frgba            [4]float32 //ttf fonts
-	removetime       int32      //text sctrl
-	layerno          int16      //text sctrl
-	localScale       float32    //text sctrl
-	offsetX          int32      //text sctrl
+	frgba            [4]float32 // ttf fonts
+	removetime       int32      // text sctrl
+	layerno          int16      // text sctrl
+	localScale       float32    // text sctrl
+	offsetX          int32      // text sctrl
+	lineSpacing      float32
+	elapsedTicks     float32
+	textDelay        float32
+	velocity         [2]float32
+	friction         [2]float32
+	accel            [2]float32
 }
 
 func NewTextSprite() *TextSprite {
 	ts := &TextSprite{
-		align:      1,
-		x:          sys.luaSpriteOffsetX,
-		xscl:       1,
-		yscl:       1,
-		window:     sys.scrrect,
-		palfx:      newPalFX(),
-		frgba:      [...]float32{1.0, 1.0, 1.0, 1.0},
-		removetime: 1,
-		layerno:    1,
-		localScale: 1,
-		offsetX:    0,
+		id:          -1,
+		align:       1,
+		x:           sys.luaSpriteOffsetX,
+		xscl:        1,
+		yscl:        1,
+		window:      sys.scrrect,
+		palfx:       newPalFX(),
+		frgba:       [...]float32{1.0, 1.0, 1.0, 1.0},
+		removetime:  1,
+		layerno:     1,
+		localScale:  1,
+		offsetX:     0,
+		lineSpacing: 10,
+		textDelay:   0,
+		velocity:    [2]float32{0.0, 0.0},
+		friction:    [2]float32{1.0, 1.0},
+		accel:       [2]float32{0.0, 0.0},
 	}
 	ts.palfx.setColor(255, 255, 255)
 	return ts
@@ -592,12 +636,56 @@ func (ts *TextSprite) SetColor(r, g, b int32) {
 		float32(b) / 255, 1.0}
 }
 
+func (ts *TextSprite) SetTextVel() {
+	ts.x += ts.velocity[0]
+	ts.y += ts.velocity[1]
+	for i := range ts.velocity {
+		ts.velocity[i] *= ts.friction[i]
+		ts.velocity[i] += ts.accel[i]
+		if math.Abs(float64(ts.velocity[i])) < 0.1 && math.Abs(float64(ts.friction[i])) < 1 {
+			ts.velocity[i] = 0
+		}
+	}
+}
+
 func (ts *TextSprite) Draw() {
 	if !sys.frameSkip && ts.fnt != nil {
-		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(ts.text, ts.x, ts.y, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
-		} else {
-			ts.fnt.DrawText(ts.text, ts.x, ts.y, ts.xscl, ts.yscl, ts.bank, ts.align, &ts.window, ts.palfx)
+		tabSize := 4
+		tabSpaces := strings.Repeat(" ", tabSize)
+
+		if sys.tickFrame() {
+			if ts.textDelay > 0 { // If textDelay is greater than 0, it controls the maximum number of characters
+				ts.elapsedTicks++
+			}
+			ts.SetTextVel()
+		}
+
+		maxChars := int32(ts.elapsedTicks / ts.textDelay)
+		totalCharsShown := 0 // Control of total displayed characters
+
+		lines := strings.Split(ts.text, "\n")
+		for i, line := range lines {
+			line = strings.ReplaceAll(line, "\t", tabSpaces)
+			newY := ts.y + float32(i)*ts.yscl*ts.lineSpacing
+			lineLength := len(line)
+
+			// Shows the characters progressively
+			charsToShow := lineLength // Default to show the entire line
+			if ts.textDelay > 0 {
+				charsToShow = int(Min(int32(lineLength), maxChars-int32(totalCharsShown)))
+				totalCharsShown += charsToShow
+			}
+
+			// Draws the visible line
+			if ts.fnt.Type == "truetype" {
+				ts.fnt.DrawTtf(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
+			} else {
+				ts.fnt.DrawText(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.bank, ts.align, &ts.window, ts.palfx)
+			}
+
+			if ts.textDelay > 0 && totalCharsShown >= int(maxChars) {
+				break
+			}
 		}
 	}
 }

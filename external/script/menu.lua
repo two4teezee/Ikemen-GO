@@ -120,7 +120,8 @@ menu.t_itemname = {
 				player(2)
 				setAILevel(menu.ailevel)
 			end
-			charMapSet(2, '_iksys_trainingDummyControl', menu.dummycontrol - 1)
+			player(2)
+			mapSet('_iksys_trainingDummyControl', menu.dummycontrol - 1)
 		end
 		return true
 	end,
@@ -137,35 +138,40 @@ menu.t_itemname = {
 	--Dummy Mode
 	['dummymode'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingDummyMode', menu.dummymode - 1)
+			player(2)
+			mapSet('_iksys_trainingDummyMode', menu.dummymode - 1)
 		end
 		return true
 	end,
 	--Guard Mode
 	['guardmode'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingGuardMode', menu.guardmode - 1)
+			player(2)
+			mapSet('_iksys_trainingGuardMode', menu.guardmode - 1)
 		end
 		return true
 	end,
 	--Fall Recovery
 	['fallrecovery'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingFallRecovery', menu.fallrecovery - 1)
+			player(2)
+			mapSet('_iksys_trainingFallRecovery', menu.fallrecovery - 1)
 		end
 		return true
 	end,
 	--Distance
 	['distance'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingDistance', menu.distance - 1)
+			player(2)
+			mapSet('_iksys_trainingDistance', menu.distance - 1)
 		end
 		return true
 	end,
 	--Button Jam
 	['buttonjam'] = function(t, item, cursorPosY, moveTxt, section)
 		if menu.f_valueChanged(t.items[item], motif[section]) then
-			charMapSet(2, '_iksys_trainingButtonJam', menu.buttonjam - 1)
+			player(2)
+			mapSet('_iksys_trainingButtonJam', menu.buttonjam - 1)
 		end
 		return true
 	end,
@@ -173,7 +179,7 @@ menu.t_itemname = {
 	['keyboard'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) --[[or getKey('F1')]] then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			options.f_keyCfgInit('KeyConfig', t.submenu[t.items[item].itemname].title)
+			options.f_keyCfgInit('Keys', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -182,7 +188,7 @@ menu.t_itemname = {
 	['gamepad'] = function(t, item, cursorPosY, moveTxt, section)
 		if main.f_input(main.t_players, {'pal', 's'}) --[[or getKey('F2')]] then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
-			options.f_keyCfgInit('JoystickConfig', t.submenu[t.items[item].itemname].title)
+			options.f_keyCfgInit('Joystick', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
 		end
 		return true
@@ -192,13 +198,9 @@ menu.t_itemname = {
 		if main.f_input(main.t_players, {'pal', 's'}) then
 			sndPlay(motif.files.snd_data, motif[section].cursor_done_snd[1], motif[section].cursor_done_snd[2])
 			options.f_keyDefault()
-			for pn = 1, #config.KeyConfig do
-				setKeyConfig(pn, config.KeyConfig[pn].Joystick, config.KeyConfig[pn].Buttons)
-			end
+			options.f_setKeyConfig('Keys')
 			if main.flags['-nojoy'] == nil then
-				for pn = 1, #config.JoystickConfig do
-					setKeyConfig(pn, config.JoystickConfig[pn].Joystick, config.JoystickConfig[pn].Buttons)
-				end
+				options.f_setKeyConfig('Joystick')
 			end
 			options.f_saveCfg(false)
 		end
@@ -314,7 +316,7 @@ menu.t_vardisplay = {
 		return menu.t_valuename.dummycontrol[menu.dummycontrol or 1].displayname
 	end,
 	['ailevel'] = function()
-		return menu.t_valuename.ailevel[menu.ailevel or config.Difficulty].displayname
+		return menu.t_valuename.ailevel[menu.ailevel or gameOption('Options.Difficulty')].displayname
 	end,
 	['dummymode'] = function()
 		return menu.t_valuename.dummymode[menu.dummymode or 1].displayname
@@ -465,18 +467,18 @@ function menu.f_trainingReset()
 	for k, _ in pairs(menu.t_valuename) do
 		menu[k] = 1
 	end
-	menu.ailevel = config.Difficulty
+	menu.ailevel = gameOption('Options.Difficulty')
 	for _, v in ipairs(menu.t_vardisplayPointers) do
 		v.vardisplay = menu.f_vardisplay(v.itemname)
 	end
 	player(2)
 	setAILevel(0)
-	charMapSet(2, '_iksys_trainingDummyControl', 0)
-	charMapSet(2, '_iksys_trainingDummyMode', 0)
-	charMapSet(2, '_iksys_trainingGuardMode', 0)
-	charMapSet(2, '_iksys_trainingFallRecovery', 0)
-	charMapSet(2, '_iksys_trainingDistance', 0)
-	charMapSet(2, '_iksys_trainingButtonJam', 0)
+	mapSet('_iksys_trainingDummyControl', 0)
+	mapSet('_iksys_trainingDummyMode', 0)
+	mapSet('_iksys_trainingGuardMode', 0)
+	mapSet('_iksys_trainingFallRecovery', 0)
+	mapSet('_iksys_trainingDistance', 0)
+	mapSet('_iksys_trainingButtonJam', 0)
 end
 
 menu.movelistChar = 1
@@ -513,9 +515,9 @@ function menu.f_run()
 	--Button Config
 	if menu.itemname == 'keyboard' or menu.itemname == 'gamepad' then
 		if menu.itemname == 'keyboard' then
-			options.f_keyCfg('KeyConfig', menu.itemname, bgdef, true)
+			options.f_keyCfg('Keys', menu.itemname, bgdef, true)
 		else
-			options.f_keyCfg('JoystickConfig', menu.itemname, bgdef, true)
+			options.f_keyCfg('Joystick', menu.itemname, bgdef, true)
 		end
 	--Command List
 	elseif menu.itemname == 'commandlist' then

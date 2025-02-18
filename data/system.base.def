@@ -76,8 +76,12 @@
 	; https://github.com/ikemen-engine/Ikemen-GO/wiki/Miscellaneous-info#external-modules
 	module = ""
 
+[Languages] ; Ikemen feature, use to declare languages to show in the options menu.
+	languages = en
+	en = "English"
+	
 ;[ja.Files]
-	; Not used in Ikemen
+	
 
 [Music]
 	title.bgm = ""
@@ -634,7 +638,7 @@
 	p1.face.anim = -1
 	; Done variants replace spr/anim once character is selected
 	p1.face.done.anim = -1
-	p1.face.done.spr = 9000, 1
+	p1.face.done.spr = 
 	; Spacing between portraits.
 	p1.face.spacing = 0, 0
 	; Set to 1 to enable automatic spacing adjustment based on team size
@@ -645,7 +649,7 @@
 	p2.face.num = 1
 	p2.face.anim = -1
 	p2.face.done.anim = -1
-	p2.face.done.spr = 9000, 1
+	p2.face.done.spr = 
 	p2.face.spacing = 0, 0
 	p2.face.padding = 0
 
@@ -654,7 +658,7 @@
 	;p<pn>.member<num>.face.anim = -1
 	;p<pn>.member<num>.face.spr = 9000, 1
 	;p<pn>.member<num>.face.done.anim = -1
-	;p<pn>.member<num>.face.done.spr = 9000, 1
+	;p<pn>.member<num>.face.done.spr = 
 	;p<pn>.member<num>.face.offset = 0, 0
 	;p<pn>.member<num>.face.scale = 1.0, 1.0
 
@@ -1503,6 +1507,9 @@
 	menu.valuename.no = "No"
 	menu.valuename.enabled = "Enabled"
 	menu.valuename.disabled = "Disabled"
+	menu.valuename.normal = "Normal"
+	menu.valuename.slow = "Slow %i"
+	menu.valuename.fast = "Fast %i"
 
 	keymenu.p1.pos = 39, 33
 	keymenu.p2.pos = 178, 33
@@ -1565,6 +1572,7 @@
 	; https://github.com/ikemen-engine/Ikemen-GO/wiki/Screenpack-features#submenus
 	; If custom menu is not declared, following menu is loaded by default:
 	menu.itemname.menugame = "Game Settings"
+	menu.itemname.menugame.language = "Language"
 	menu.itemname.menugame.difficulty = "Difficulty Level"
 	menu.itemname.menugame.roundtime = "Time Limit"
 	menu.itemname.menugame.lifemul = "Life"
@@ -1578,9 +1586,9 @@
 	menu.itemname.menugame.airamping = "AI Ramping"
 	menu.itemname.menugame.quickcontinue = "Quick Continue"
 	menu.itemname.menugame.autoguard = "Auto-Guard"
-	menu.itemname.menugame.stunbar = "Dizzy"
-	menu.itemname.menugame.guardbar = "Guard Break"
-	menu.itemname.menugame.redlifebar = "Red Life"
+	menu.itemname.menugame.dizzy = "Dizzy"
+	menu.itemname.menugame.guardbreak = "Guard Break"
+	menu.itemname.menugame.redlife = "Red Life"
 	menu.itemname.menugame.teamduplicates = "Team Duplicates"
 	menu.itemname.menugame.teamlifeshare = "Team Life Share"
 	menu.itemname.menugame.teampowershare = "Team Power Share"
@@ -1626,6 +1634,11 @@
 	menu.itemname.menugame.back = "Back"
 
 	menu.itemname.menuvideo = "Video Settings"
+	menu.itemname.menuvideo.renderer = "Renderer"
+	menu.itemname.menuvideo.renderer.gl32 = "OpenGL 3.2"
+	menu.itemname.menuvideo.renderer.gl21 = "OpenGL 2.1"
+	menu.itemname.menuvideo.renderer.empty = ""
+	menu.itemname.menuvideo.renderer.back = "Back"
 	menu.itemname.menuvideo.resolution = "Resolution" ;reserved submenu
 	; Resolution is assigned based on values used in itemname suffix (e.g. 320x240)
 	menu.itemname.menuvideo.resolution.320x240 = "320x240    (4:3 QVGA)"
@@ -1638,13 +1651,20 @@
 	menu.itemname.menuvideo.resolution.customres = "Custom"
 	menu.itemname.menuvideo.resolution.back = "Back"
 	menu.itemname.menuvideo.fullscreen = "Fullscreen"
-	menu.itemname.menuvideo.vretrace = "VSync"
+	menu.itemname.menuvideo.keepaspect = "Keep Aspect Ratio"
+	menu.itemname.menuvideo.windowscalemode = "Bilinear Filtering"
+	menu.itemname.menuvideo.vsync = "VSync"
 	menu.itemname.menuvideo.msaa = "MSAA"
 	menu.itemname.menuvideo.shaders = "Shaders" ;reserved submenu
 	; This list is populated with shaders existing in 'external/shaders' directory
 	menu.itemname.menuvideo.shaders.empty = ""
 	menu.itemname.menuvideo.shaders.noshader = "Disable"
 	menu.itemname.menuvideo.shaders.back = "Back"
+	menu.itemname.menuvideo.model = "3D Model Settings"
+	menu.itemname.menuvideo.model.enablemodel = "3D Model"
+	menu.itemname.menuvideo.model.enablemodelshadow = "Shadow"
+	menu.itemname.menuvideo.model.empty = ""
+	menu.itemname.menuvideo.model.back = "Back"
 	menu.itemname.menuvideo.empty = ""
 	menu.itemname.menuvideo.back = "Back"
 

@@ -43,6 +43,7 @@ font/*
 !font/default-3x5.sff
 stages/*
 sound/*
+debug/*
 
 # Temp
 src/lua_triggers.go

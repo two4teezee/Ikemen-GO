@@ -102,7 +102,7 @@ func (t *Texture) SetData(data []byte) {
 }
 
 func (t *Texture) IsValid() bool {
-	return true
+	return t.width != 0 && t.height != 0
 }
 
 // ------------------------------------------------------------------
@@ -222,7 +222,7 @@ func (r *Renderer) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
 		p.u = make(map[string]C.kinc_g4_constant_location_t)
 		p.t = make(map[string]C.kinc_g4_texture_unit_t)
 		p.RegisterUniforms("modelview", "projection", "x1x2x4x3",
-			"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez")
+			"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue")
 		p.RegisterTextures("pal", "tex")
 
 		r.pipelineCache[params] = p

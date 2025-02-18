@@ -62,11 +62,11 @@ local function f_play(t, attract)
 				clearColor(scene.clearcolor[1], scene.clearcolor[2], scene.clearcolor[3])
 				--draw layerno = 0 backgrounds
 				if scene.bg_name ~= '' then
-					bgDraw(scene.bg, false)
+					bgDraw(scene.bg, 0)
 				end
 				--loop through layers in order
 				for _, layer in main.f_sortKeys(scene.layer) do
-					if i >= layer.starttime and i <= layer.endtime then
+					if i >= layer.starttime and i < layer.endtime then
 						--layer anim
 						if layer.anim_data ~= nil then
 							animDraw(layer.anim_data)
@@ -98,7 +98,7 @@ local function f_play(t, attract)
 				end
 				--draw layerno = 1 backgrounds
 				if scene.bg_name ~= '' then
-					bgDraw(scene.bg, true)
+					bgDraw(scene.bg, 1)
 				end
 				--draw fadein / fadeout
 				if i == scene.end_time - scene.fadeout_time then
@@ -229,12 +229,12 @@ local function f_parse(path)
 								palfx_invertall = 0, --Ikemen feature
 								palfx_color = 256, --Ikemen feature
 								textdelay = 2,
-								textwindow = {0, 0, math.max(config.GameWidth, t.info.localcoord[1]), math.max(config.GameHeight, t.info.localcoord[2])}, --Ikemen feature
+								textwindow = {0, 0, math.max(gameOption('Video.GameWidth'), t.info.localcoord[1]), math.max(gameOption('Video.GameHeight'), t.info.localcoord[2])}, --Ikemen feature
 								offset = {0, 0},
 								vel = {0, 0}, --Ikemen feature
 								spacing = {0, 0}, --Ikemen feature
 								starttime = 0,
-								--endtime = 0,
+								endtime = nil,
 							}
 						end
 						pos_val = pos.layer[num]
@@ -415,7 +415,7 @@ local function f_parse(path)
 				})
 			end
 			--endtime
-			if layer.endtime == nil then
+			if layer.endtime == nil or layer.endtime < layer.starttime then
 				layer.endtime = scene.end_time
 			end
 		end

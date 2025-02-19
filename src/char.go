@@ -5990,7 +5990,7 @@ func (c *Char) targetFacing(tar []int32, f int32) {
 func (c *Char) targetBind(tar []int32, time int32, x, y, z float32) {
 	for _, tid := range tar {
 		if t := sys.playerID(tid); t != nil {
-			t.setBindToId(c)
+			t.setBindToId(c, true)
 			t.setBindTime(time)
 			t.bindFacing = 0
 			x *= c.localscl / t.localscl
@@ -6482,6 +6482,7 @@ func (c *Char) distX(opp *Char, oc *Char) float32 {
 		if c.bindToId > 0 && !math.IsNaN(float64(c.bindPos[0])) {
 			if bt := sys.playerID(c.bindToId); bt != nil {
 				f := bt.facing
+				// We only need to correct for target binds (and snaps)
 				if AbsF(c.bindFacing) == 2 {
 					f = c.bindFacing / 2
 				}
@@ -7171,11 +7172,17 @@ func (c *Char) setBindTime(time int32) {
 	}
 }
 
-func (c *Char) setBindToId(to *Char) {
+func (c *Char) setBindToId(to *Char, isTargetBind bool) {
 	if c.bindToId != to.id {
 		c.bindToId = to.id
 	}
-	if c.bindFacing == 0 {
+	// Target binds are all we need to correct with this logic.
+	// By the time this gets to the bind() method, it's going to
+	// default to setting the facing to the same as the "bindTo"
+	// facing at that point. So as weird as it may be to default
+	// to 0 here, this behavior does seem to be what MUGEN
+	// actually does for helpers.
+	if c.bindFacing == 0 && isTargetBind {
 		c.bindFacing = to.facing * 2
 	}
 	if to.bindToId == c.id {
@@ -7216,6 +7223,7 @@ func (c *Char) bind() {
 		}
 		if !math.IsNaN(float64(c.bindPos[0])) {
 			f := bt.facing
+			// We only need to correct for target binds (and snaps)
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
@@ -9523,7 +9531,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				}
 				// Snap time
 				if hd.snaptime != 0 && getter.hoIdx < 0 {
-					getter.setBindToId(c)
+					getter.setBindToId(c, true)
 					getter.setBindTime(hd.snaptime + Btoi(hd.snaptime > 0 && !c.pause()))
 					getter.bindFacing = 0
 					if !math.IsNaN(float64(snap[0])) {

@@ -811,7 +811,7 @@ func systemScriptInit(l *lua.LState) {
 		rs := NewRollbackSesesion(sys.rollbackConfig)
 		sys.rollback.session = &rs
 		if host := strArg(l, 1); host != "" {
-			sys.rollback.session.host = sys.cfg.Netplay.ListenPort
+			sys.rollback.session.host = host
 			sys.netInput.Connect(host, sys.cfg.Netplay.ListenPort)
 		} else {
 			if err := sys.netInput.Accept(sys.cfg.Netplay.ListenPort); err != nil {

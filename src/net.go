@@ -80,7 +80,7 @@ type RollbackSession struct {
 	remotePlayerHandle  ggpo.PlayerHandle
 	loopTimer           LoopTimer
 	inputs              map[int][MaxSimul*2 + MaxAttachedChar]InputBits
-	config              RollbackConfig
+	config              RollbackProperties
 	log                 RollbackLogger
 	timestamp           string
 	netTime             int32
@@ -245,13 +245,6 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 
 func (r *RollbackSession) AdvanceFrame(flags int) {
 	var discconectFlags int
-	//Lua code executed before drawing fade, clsns and debug
-	for _, str := range sys.commonLua {
-		if err := sys.luaLState.DoString(str); err != nil {
-			sys.luaLState.RaiseError(err.Error())
-		}
-	}
-
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
 	inputs, result := r.backend.SyncInput(&discconectFlags)
@@ -275,13 +268,6 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		sys.bgPalFX.step()
 		sys.stage.action()
 
-		//sys.rollback.updateStage(&sys)
-
-		// update lua
-		for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
-			sys.commandLists[i].Buffer.InputBits(input[i], 1)
-			sys.commandLists[i].Step(1, false, false, 0)
-		}
 		sys.rollback.action(&sys, input)
 
 		// if sys.rollback.handleFlags(&sys) {
@@ -292,7 +278,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			return
 		}
 
-		if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.commonLua) == 0) {
+		if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
 			return
 		}
 
@@ -300,7 +286,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			sys.esc = true
 			return
 		} else if sys.esc {
-			sys.endMatch = sys.netInput != nil || len(sys.commonLua) == 0
+			sys.endMatch = sys.netInput != nil || len(sys.cfg.Common.Lua) == 0
 			return
 		}
 
@@ -365,7 +351,7 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 	}
 }
 
-func NewRollbackSesesion(config RollbackConfig) RollbackSession {
+func NewRollbackSesesion(config RollbackProperties) RollbackSession {
 	r := RollbackSession{}
 	r.saveStates = make(map[int]*GameState)
 	r.players = make([]ggpo.Player, 9)

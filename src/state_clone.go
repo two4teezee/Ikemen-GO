@@ -112,10 +112,10 @@ func (a *Animation) Clone(ar *arena.Arena, gsp *GameStatePool) (result *Animatio
 func (af *AnimFrame) Clone(a *arena.Arena) (result *AnimFrame) {
 	result = arena.New[AnimFrame](a)
 	*result = *af
-	result.Ex = arena.MakeSlice[[]float32](a, len(af.Ex), len(af.Ex))
-	for i := 0; i < len(af.Ex); i++ {
-		result.Ex[i] = arena.MakeSlice[float32](a, len(af.Ex[i]), len(af.Ex[i]))
-		copy(result.Ex[i], af.Ex[i])
+	result.Clsn = arena.MakeSlice[[]float32](a, len(af.Clsn), len(af.Clsn))
+	for i := 0; i < len(af.Clsn); i++ {
+		result.Clsn[i] = arena.MakeSlice[float32](a, len(af.Clsn[i]), len(af.Clsn[i]))
+		copy(result.Clsn[i], af.Clsn[i])
 	}
 	return
 }
@@ -217,9 +217,9 @@ func (ss *StateState) Clone(a *arena.Arena) (result StateState) {
 	result = *ss
 	result.ps = arena.MakeSlice[int32](a, len(ss.ps), len(ss.ps))
 	copy(result.ps, ss.ps)
-	for i := 0; i < len(ss.wakegawakaranai); i++ {
-		result.wakegawakaranai[i] = arena.MakeSlice[bool](a, len(ss.wakegawakaranai[i]), len(ss.wakegawakaranai[i]))
-		copy(result.wakegawakaranai[i], ss.wakegawakaranai[i])
+	for i := 0; i < len(ss.hitPauseExecutionToggleFlags); i++ {
+		result.hitPauseExecutionToggleFlags[i] = arena.MakeSlice[bool](a, len(ss.hitPauseExecutionToggleFlags[i]), len(ss.hitPauseExecutionToggleFlags[i]))
+		copy(result.hitPauseExecutionToggleFlags[i], ss.hitPauseExecutionToggleFlags[i])
 	}
 	result.sb = ss.sb.Clone(a)
 	return result
@@ -230,32 +230,6 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result = *c
 
 	result.aimg = c.aimg.Clone(a)
-
-	result.nextHitScale = *gsp.Get(c.nextHitScale).(*map[int32][3]*HitScale)
-	maps.Clear(result.nextHitScale)
-	for i, v := range c.nextHitScale {
-		hitScale := [3]*HitScale{}
-		for i := 0; i < len(v); i++ {
-			if v[i] != nil {
-				*hitScale[i] = *v[i]
-			}
-		}
-		result.nextHitScale[i] = hitScale
-	}
-
-	result.activeHitScale = *gsp.Get(c.activeHitScale).(*map[int32][3]*HitScale)
-	maps.Clear(result.activeHitScale)
-	for i, v := range c.activeHitScale {
-		hitScale := [3]*HitScale{}
-		for i := 0; i < len(v); i++ {
-			if v[i] != nil {
-				// *hitScale[i] = *v[i] causes bugs
-				hitScale[i] = v[i]
-				*hitScale[i] = *v[i]
-			}
-		}
-		result.activeHitScale[i] = hitScale
-	}
 
 	// todo, find the curFrame index and set result.curFrame as the pointer at
 	// that index
@@ -276,16 +250,14 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result.targets = arena.MakeSlice[int32](a, len(c.targets), len(c.targets))
 	copy(result.targets, c.targets)
 
-	result.targetsOfHitdef = arena.MakeSlice[int32](a, len(c.targetsOfHitdef), len(c.targetsOfHitdef))
-	copy(result.targetsOfHitdef, c.targetsOfHitdef)
+	result.hitdefTargetsBuffer = arena.MakeSlice[int32](a, len(c.hitdefTargetsBuffer), len(c.hitdefTargetsBuffer))
+	copy(result.hitdefTargetsBuffer, c.hitdefTargetsBuffer)
 
-	for i := range c.enemynear {
-		result.enemynear[i] = arena.MakeSlice[*Char](a, len(c.enemynear[i]), len(c.enemynear[i]))
-		copy(result.enemynear[i], c.enemynear[i])
-	}
+	result.enemyNearList = arena.MakeSlice[*Char](a, len(c.enemyNearList), len(c.enemyNearList))
+	copy(result.enemyNearList, c.enemyNearList)
 
-	result.p2enemy = arena.MakeSlice[*Char](a, len(c.p2enemy), len(c.p2enemy))
-	copy(result.p2enemy, c.p2enemy)
+	result.p2EnemyList = arena.MakeSlice[*Char](a, len(c.p2EnemyList), len(c.p2EnemyList))
+	copy(result.p2EnemyList, c.p2EnemyList)
 
 	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
@@ -368,7 +340,7 @@ func (c *Command) clone(a *arena.Arena) (result Command) {
 func (cl *CommandList) Clone(a *arena.Arena) (result CommandList) {
 	result = *cl
 
-	result.Buffer = arena.New[CommandBuffer](a)
+	result.Buffer = arena.New[InputBuffer](a)
 	*result.Buffer = *cl.Buffer
 
 	result.Commands = arena.MakeSlice[[]Command](a, len(cl.Commands), len(cl.Commands))

@@ -433,7 +433,6 @@ func NewCommandKeyRemap() *CommandKeyRemap {
 		CK_ra, CK_rb, CK_rc, CK_rx, CK_ry, CK_rz, CK_rs, CK_rd, CK_rw, CK_rm}
 }
 
-
 type InputReader struct {
 	SocdAllow          [4]bool // Up, down, back, forward
 	SocdFirst          [4]bool
@@ -733,6 +732,52 @@ func (__ *InputBuffer) Input(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool
 		__.ab = 0
 		__.a *= -1
 	}
+	__.ab += int32(__.a)
+	if b != (__.b > 0) {
+		__.bb = 0
+		__.b *= -1
+	}
+	__.bb += int32(__.b)
+	if c != (__.c > 0) {
+		__.cb = 0
+		__.c *= -1
+	}
+	__.cb += int32(__.c)
+	if x != (__.x > 0) {
+		__.xb = 0
+		__.x *= -1
+	}
+	__.xb += int32(__.x)
+	if y != (__.y > 0) {
+		__.yb = 0
+		__.y *= -1
+	}
+	__.yb += int32(__.y)
+	if z != (__.z > 0) {
+		__.zb = 0
+		__.z *= -1
+	}
+	__.zb += int32(__.z)
+	if s != (__.s > 0) {
+		__.sb = 0
+		__.s *= -1
+	}
+	__.sb += int32(__.s)
+	if d != (__.d > 0) {
+		__.db = 0
+		__.d *= -1
+	}
+	__.db += int32(__.d)
+	if w != (__.w > 0) {
+		__.wb = 0
+		__.w *= -1
+	}
+	__.wb += int32(__.w)
+	if m != (__.m > 0) {
+		__.mb = 0
+		__.m *= -1
+	}
+	__.mb += int32(__.m)
 }
 
 // Check buffer state of each key
@@ -1748,66 +1793,6 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 					ce.key = append(ce.key, kr.m)
 				}
 				tilde = false
-			case 'B':
-				if tilde {
-					ce.key = append(ce.key, CK_nB)
-				} else {
-					ce.key = append(ce.key, CK_B)
-				}
-				tilde = false
-			case 'D':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nDB)
-					} else {
-						ce.key = append(ce.key, CK_DB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nDF)
-					} else {
-						ce.key = append(ce.key, CK_DF)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_nD)
-					} else {
-						ce.key = append(ce.key, CK_D)
-					}
-				}
-				tilde = false
-			case 'F':
-				if tilde {
-					ce.key = append(ce.key, CK_nF)
-				} else {
-					ce.key = append(ce.key, CK_F)
-				}
-				tilde = false
-			case 'U':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nUB)
-					} else {
-						ce.key = append(ce.key, CK_UB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_nUF)
-					} else {
-						ce.key = append(ce.key, CK_UF)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_nU)
-					} else {
-						ce.key = append(ce.key, CK_U)
-					}
-				}
-				tilde = false
 			case '$':
 				switch nextChar() {
 				case 'B':
@@ -2051,7 +2036,6 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]boo
 	}
 	return true
 }
-
 
 // Update an individual command
 func (c *Command) Step(ibuf *InputBuffer, ai, hitpause bool, buftime int32) {

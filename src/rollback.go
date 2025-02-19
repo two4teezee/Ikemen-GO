@@ -15,17 +15,18 @@ type RollbackSystem struct {
 	netInput     *NetInput
 }
 
-type RollbackConfig struct {
-	FrameDelay            int  `json:"frameDelay"`
-	DisconnectNotifyStart int  `json:"disconnectNotifyStart"`
-	DisconnectTimeout     int  `json:"disconnectTimeout"`
-	LogsEnabled           bool `json:"logsEnabled"`
-	DesyncTest            bool `json:"desyncTest"`
-	DesyncTestFrames      int  `json:"desyncTestFrames"`
-	DesyncTestAI          bool `jaon:"desyncTestAI"`
+type RollbackProperties struct {
+	FrameDelay            int  `ini:"frameDelay"`
+	DisconnectNotifyStart int  `ini:"disconnectNotifyStart"`
+	DisconnectTimeout     int  `ini:"disconnectTimeout"`
+	LogsEnabled           bool `ini:"logsEnabled"`
+	DesyncTest            bool `ini:"desyncTest"`
+	DesyncTestFrames      int  `ini:"desyncTestFrames"`
+	DesyncTestAI          bool `ini:"desyncTestAI"`
 }
 
 func (rs *RollbackSystem) fight(s *System) bool {
+
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
@@ -60,9 +61,16 @@ func (rs *RollbackSystem) fight(s *System) bool {
 
 	rs.currentFight.initChars()
 
-	//default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
-	if s.round == 1 && (s.gameMode == "" || len(sys.commonLua) == 0) {
-		s.bgm.Open(s.stage.bgmusic, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), 0)
+	var didTryLoadBGM bool
+
+	// default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
+	if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+		// Need to search first
+		LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
+			s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
+			didTryLoadBGM = true
+			return nil
+		})
 	}
 
 	rs.currentFight.oldWins, rs.currentFight.oldDraws = s.wins, s.draws
@@ -107,7 +115,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 
 		running = rs.runFrame(s)
 
-		if rs.currentFight.fin && (!s.postMatchFlg || len(s.commonLua) == 0) {
+		if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
 			break
 		}
 
@@ -150,9 +158,9 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 	var result error
 	if rs.session.syncTest && rs.session.netTime == 0 {
 		if !rs.session.config.DesyncTestAI {
-			buffer = getInputs(0)
+			buffer = rs.getInputs(0)
 			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
-			buffer = getInputs(1)
+			buffer = rs.getInputs(1)
 			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 		} else {
 			buffer = getAIInputs(0)
@@ -161,7 +169,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 		}
 	} else {
-		buffer = getInputs(0)
+		buffer = rs.getInputs(0)
 		result = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
 	}
 
@@ -192,12 +200,6 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			// If frame is ready to tick and not paused
 			//rs.updateStage(s)
 
-			// update lua
-			for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
-				sys.commandLists[i].Buffer.InputBits(inputs[i], 1)
-				sys.commandLists[i].Step(1, false, false, 0)
-			}
-
 			// Update game state
 			rs.action(s, inputs)
 
@@ -210,7 +212,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			}
 
 			// Break if finished
-			if rs.currentFight.fin && (!s.postMatchFlg || len(s.commonLua) == 0) {
+			if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
 				return false
 			}
 
@@ -224,7 +226,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.esc = true
 				return false
 			} else if s.esc {
-				s.endMatch = s.netInput != nil || len(sys.commonLua) == 0
+				s.endMatch = s.netInput != nil || len(s.cfg.Common.Lua) == 0
 				return false
 			}
 
@@ -279,17 +281,17 @@ func (rs *RollbackSystem) runNextRound(s *System) bool {
 				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
 				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
 				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
-				tmp.RawSetString("palno", lua.LNumber(p[0].palno()))
+				tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
 				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
 				tmp.RawSetString("win", lua.LBool(p[0].win()))
 				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
 				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
 				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_S)))
-				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_H)))
+				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
+				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
 				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
 				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-				tmp.RawSetString("ko_round_middle", lua.LBool(p[0].scf(SCF_ko_round_middle)))
+				tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
 				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
 			}
 		}
@@ -343,50 +345,50 @@ func (rs *RollbackSystem) runNextRound(s *System) bool {
 			rs.currentFight.fin = true
 		}
 	}
+
 	return true
 
 }
 
 func (rs *RollbackSystem) updateStage(s *System) {
-	if s.tickFrame() && (s.super <= 0 || !s.superpausebg) &&
-		(s.pause <= 0 || !s.pausebg) {
-		// Update stage
-		s.stage.action()
-	}
+	// Update stage
+	s.stage.action()
 }
 
 func (rs *RollbackSystem) action(s *System, input []InputBits) {
-	s.sprites = s.sprites[:0]
-	s.topSprites = s.topSprites[:0]
-	s.bottomSprites = s.bottomSprites[:0]
+	// Clear sprite data
+	s.spritesLayerN1 = s.spritesLayerN1[:0]
+	s.spritesLayerU = s.spritesLayerU[:0]
+	s.spritesLayer0 = s.spritesLayer0[:0]
+	s.spritesLayer1 = s.spritesLayer1[:0]
 	s.shadows = s.shadows[:0]
-	s.drawc1 = s.drawc1[:0]
-	s.drawc2 = s.drawc2[:0]
-	s.drawc2sp = s.drawc2sp[:0]
-	s.drawc2mtk = s.drawc2mtk[:0]
-	s.drawwh = s.drawwh[:0]
+	s.debugc1hit = s.debugc1hit[:0]
+	s.debugc1rev = s.debugc1rev[:0]
+	s.debugc1not = s.debugc1not[:0]
+	s.debugc2 = s.debugc2[:0]
+	s.debugc2hb = s.debugc2hb[:0]
+	s.debugc2mtk = s.debugc2mtk[:0]
+	s.debugc2grd = s.debugc2grd[:0]
+	s.debugc2stb = s.debugc2stb[:0]
+	s.debugcsize = s.debugcsize[:0]
+	s.debugch = s.debugch[:0]
 	s.clsnText = nil
-	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
-	var cvmin, cvmax, highest, lowest, leftest, rightest float32 = 0, 0, 0, 0, 0, 0
-	leftest, rightest = x, x
-	if s.cam.ytensionenable {
-		if y < 0 {
-			lowest = (y - s.cam.CameraZoomYBound)
-		}
-	}
 
-	// Run lifebar
+	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
+	s.cam.ResetTracking()
+
+	// Run fight screen
 	if s.lifebar.ro.act() {
 		if s.intro > s.lifebar.ro.ctrl_time {
 			s.intro--
-			if s.sf(GSF_intro) && s.intro <= s.lifebar.ro.ctrl_time {
+			if s.gsf(GSF_intro) && s.intro <= s.lifebar.ro.ctrl_time {
 				s.intro = s.lifebar.ro.ctrl_time + 1
 			}
 		} else if s.intro > 0 {
 			if s.intro == s.lifebar.ro.ctrl_time {
 				for _, p := range s.chars {
 					if len(p) > 0 {
-						if !p[0].sf(CSF_nointroreset) {
+						if !p[0].asf(ASF_nointroreset) {
 							p[0].posReset()
 						}
 					}
@@ -396,122 +398,113 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			if s.intro == 0 {
 				for _, p := range s.chars {
 					if len(p) > 0 {
-						p[0].unsetSCF(SCF_over)
-						if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
-							p[0].setCtrl(true)
-							if p[0].ss.no != 0 && !p[0].sf(CSF_nointroreset) {
-								p[0].selfState(0, -1, -1, 1, "")
+						if p[0].alive() {
+							p[0].unsetSCF(SCF_over_alive)
+							if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
+								p[0].setCtrl(true)
+								if p[0].ss.no != 0 && !p[0].asf(ASF_nointroreset) {
+									p[0].selfState(0, -1, -1, 1, "")
+								}
 							}
 						}
 					}
 				}
 			}
 		}
-		if s.intro == 0 && s.time > 0 && !s.sf(GSF_timerfreeze) &&
-			(s.super <= 0 || !s.superpausebg) && (s.pause <= 0 || !s.pausebg) {
+		if s.intro == 0 && s.time > 0 && !s.gsf(GSF_timerfreeze) &&
+			(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
 			s.time--
 		}
+
+		// Check if round ended by KO or time over and set win types
 		fin := func() bool {
+			checkPerfect := func(team int) bool {
+				for i := team; i < MaxSimul*2; i += 2 {
+					if len(s.chars[i]) > 0 &&
+						s.chars[i][0].life < s.chars[i][0].lifeMax {
+						return false
+					}
+				}
+				return true
+			}
 			if s.intro > 0 {
 				return false
 			}
+			// KO
 			ko := [...]bool{true, true}
-			for ii := range ko {
-				for i := ii; i < MaxSimul*2; i += 2 {
+			for loser := range ko {
+				// Check if all players or leader on one side are KO
+				for i := loser; i < MaxSimul*2; i += 2 {
 					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
 						if s.chars[i][0].alive() {
-							ko[ii] = false
-						} else if (s.tmode[i&1] == TM_Simul && s.loseSimul && s.com[i] == 0) ||
-							(s.tmode[i&1] == TM_Tag && s.loseTag) {
-							ko[ii] = true
+							ko[loser] = false
+						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.com[i] == 0) ||
+							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
+							ko[loser] = true
 							break
 						}
 					}
 				}
-				if ko[ii] {
-					i := ii ^ 1
-					for ; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 && s.chars[i][0].life <
-							s.chars[i][0].lifeMax {
-							break
-						}
-					}
-					if i >= MaxSimul*2 {
-						s.winType[ii^1].SetPerfect()
+				if ko[loser] {
+					if checkPerfect(loser ^ 1) {
+						s.winType[loser^1].SetPerfect()
 					}
 				}
 			}
-			ft := s.finish
+			// Time over
+			ft := s.finishType
 			if s.time == 0 {
+				s.winType[0], s.winType[1] = WT_Time, WT_Time
 				l := [2]float32{}
-				for i := 0; i < 2; i++ {
+				for i := 0; i < 2; i++ { // Check life percentage of each team
 					for j := i; j < MaxSimul*2; j += 2 {
 						if len(s.chars[j]) > 0 {
 							if s.tmode[i] == TM_Simul || s.tmode[i] == TM_Tag {
-								l[i] += (float32(s.chars[j][0].life) /
-									float32(s.numSimul[i])) /
-									float32(s.chars[j][0].lifeMax)
+								l[i] += (float32(s.chars[j][0].life) / float32(s.numSimul[i])) / float32(s.chars[j][0].lifeMax)
 							} else {
-								l[i] += float32(s.chars[j][0].life) /
-									float32(s.chars[j][0].lifeMax)
+								l[i] += float32(s.chars[j][0].life) / float32(s.chars[j][0].lifeMax)
 							}
 						}
 					}
 				}
-				if l[0] > l[1] {
-					p := true
-					for i := 0; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 &&
-							s.chars[i][0].life < s.chars[i][0].lifeMax {
-							p = false
-							break
-						}
+				// Some other methods were considered to make the winner decision more fair, like a minimum % difference
+				// But ultimately a direct comparison seems to be the fairest method
+				if math.Round(float64(l[0]*1000)) != math.Round(float64(l[1]*1000)) || // Convert back to 1000 life points scale then round it to reduce calculation errors
+					((l[0] >= float32(1.0)) != (l[1] >= float32(1.0))) { // But make sure the rounding doesn't turn a perfect into a draw game
+					winner := 0
+					if l[0] < l[1] {
+						winner = 1
 					}
-					if p {
-						s.winType[0].SetPerfect()
+					if checkPerfect(winner) {
+						s.winType[winner].SetPerfect()
 					}
-					s.finish = FT_TO
-					s.winTeam = 0
-				} else if l[0] < l[1] {
-					p := true
-					for i := 1; i < MaxSimul*2; i += 2 {
-						if len(s.chars[i]) > 0 &&
-							s.chars[i][0].life < s.chars[i][0].lifeMax {
-							p = false
-							break
-						}
-					}
-					if p {
-						s.winType[1].SetPerfect()
-					}
-					s.finish = FT_TO
-					s.winTeam = 1
-				} else {
-					s.finish = FT_TODraw
+					s.finishType = FT_TO
+					s.winTeam = winner
+				} else { // Draw game
+					s.finishType = FT_TODraw
 					s.winTeam = -1
-				}
-				if !(ko[0] || ko[1]) {
-					s.winType[0], s.winType[1] = WT_T, WT_T
 				}
 			}
 			if s.intro >= -1 && (ko[0] || ko[1]) {
 				if ko[0] && ko[1] {
-					s.finish, s.winTeam = FT_DKO, -1
+					s.finishType = FT_DKO
+					s.winTeam = -1
 				} else {
-					s.finish, s.winTeam = FT_KO, int(Btoi(ko[0]))
+					s.finishType = FT_KO
+					s.winTeam = int(Btoi(ko[0]))
 				}
 			}
-			if ft != s.finish {
-				for i, p := range sys.chars {
+			// Update win triggers if finish type was changed
+			if ft != s.finishType {
+				for i, p := range s.chars {
 					if len(p) > 0 && ko[^i&1] {
 						for _, h := range p {
 							for _, tid := range h.targets {
-								if t := sys.playerID(tid); t != nil {
+								if t := s.playerID(tid); t != nil {
 									if t.ghv.attr&int32(AT_AH) != 0 {
-										s.winTrigger[i&1] = WT_H
-									} else if t.ghv.attr&int32(AT_AS) != 0 &&
-										s.winTrigger[i&1] == WT_N {
-										s.winTrigger[i&1] = WT_S
+										s.winTrigger[i&1] = WT_Hyper
+									} else if t.ghv.attr&int32(AT_AS) != 0 && s.winTrigger[i&1] == WT_Normal {
+										s.winTrigger[i&1] = WT_Special
 									}
 								}
 							}
@@ -521,14 +514,19 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			}
 			return ko[0] || ko[1] || s.time == 0
 		}
+
+		// Post round
 		if s.roundEnd() || fin() {
-			inclWinCount := func() {
-				w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-				if !w[0] || !w[1] ||
+			rs4t := -s.lifebar.ro.over_waittime
+			s.intro--
+			if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
+				// Consecutive wins counter
+				winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+				if !winner[0] || !winner[1] ||
 					s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
 					s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
 					s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-					for i, win := range w {
+					for i, win := range winner {
 						if win {
 							s.wins[i]++
 							if s.matchOver() && s.wins[^i&1] == 0 {
@@ -539,13 +537,8 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					}
 				}
 			}
-			rs4t := -s.lifebar.ro.over_waittime
-			s.intro--
-			if s.intro == -s.lifebar.ro.over_hittime && s.finish != FT_NotYet {
-				inclWinCount()
-			}
 			// Check if player skipped win pose time
-			if s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.sf(GSF_roundnotskip)) {
+			if s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.gsf(GSF_roundnotskip)) {
 				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
 				s.winskipped = true
 			}
@@ -555,16 +548,14 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					if s.intro == rs4t-1 {
 						for _, p := range s.chars {
 							if len(p) > 0 {
-								// Set inputwait flag to stop inputs until win pose time
-								if !p[0].scf(SCF_inputwait) {
-									p[0].setSCF(SCF_inputwait)
-								}
-								// Check if this character is ready to procced to roundstate 4
-								if p[0].scf(SCF_over) || (p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I &&
-									p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
+								// Check if this player is ready to proceed to roundstate 4
+								// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
+								// TODO: This could be manageable from the char's side with an AssertSpecial or such
+								if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
+									(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
 									continue
 								}
-								// Freeze timer if any character is not ready to proceed yet
+								// Freeze timer if any player is not ready to proceed yet
 								s.intro = rs4t
 								break
 							}
@@ -584,18 +575,26 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					s.wintime--
 				}
 				// Set characters into win/lose poses, update win counters
-				if s.waitdown <= 0 || s.roundWinTime() {
+				if s.roundWinStates() {
 					if s.waitdown >= 0 {
-						w := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-						if !w[0] || !w[1] ||
+						winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+						if !winner[0] || !winner[1] ||
 							s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
 							s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
 							s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-							for i, win := range w {
+							for i, win := range winner {
 								if win {
 									s.lifebar.wi[i].add(s.winType[i])
-									if s.matchOver() && s.wins[i] >= s.matchWins[i] {
-										s.lifebar.wc[i].wins += 1
+									if s.matchOver() {
+										// In a draw game both players go back to 0 wins
+										if winner[0] == winner[1] { // sys.winTeam < 0
+											s.lifebar.wc[0].wins = 0
+											s.lifebar.wc[1].wins = 0
+										} else {
+											if s.wins[i] >= s.matchWins[i] {
+												s.lifebar.wc[i].wins += 1
+											}
+										}
 									}
 								}
 							}
@@ -605,8 +604,8 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					}
 					for _, p := range s.chars {
 						if len(p) > 0 {
-							//default life recovery, used only if externalized Lua implementaion is disabled
-							if len(sys.commonLua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+							// Default life recovery. Used only if externalized Lua implementation is disabled
+							if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
 								p[0].alive() && !s.matchOver() &&
 								(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
 								p[0].life += int32((float32(p[0].lifeMax) *
@@ -615,9 +614,9 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 									p[0].life = p[0].lifeMax
 								}
 							}
-							if !p[0].scf(SCF_over) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
-								p[0].setSCF(SCF_over)
-								p[0].unsetSCF(SCF_inputwait)
+							// TODO: These changestates ought to be unhardcoded
+							if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
+								p[0].setSCF(SCF_over_alive)
 								if p[0].win() {
 									p[0].selfState(180, -1, -1, -1, "")
 								} else if p[0].lose() {
@@ -633,7 +632,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 				s.waitdown--
 			}
 			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
-			if !s.winskipped && s.sf(GSF_roundnotover) &&
+			if !s.winskipped && s.gsf(GSF_roundnotover) &&
 				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
 				s.intro++
 			}
@@ -642,15 +641,24 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		}
 	}
 
-	// Run tick frame
+	// Run "tick frame"
 	if s.tickFrame() {
+		// X axis player limits
 		s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
-		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
-			float32(s.gameWidth)/s.cam.Scale - s.screenright
+		s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] + float32(s.gameWidth)/s.cam.Scale - s.screenright
 		if s.xmin > s.xmax {
 			s.xmin = (s.xmin + s.xmax) / 2
 			s.xmax = s.xmin
 		}
+		if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+			s.xmax = s.cam.maxRight
+		}
+		if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+			s.xmin = s.cam.minLeft
+		}
+		// Z axis player limits
+		s.zmin = s.stage.topbound * s.stage.localscl
+		s.zmax = s.stage.botbound * s.stage.localscl
 		s.allPalFX.step()
 		//s.bgPalFX.step()
 		s.envShake.next()
@@ -663,77 +671,73 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			s.zoomCameraBound = true
 			s.zoomStageBound = true
 		}
-		if s.super > 0 {
-			s.super--
-		} else if s.pause > 0 {
-			s.pause--
+		if s.supertime > 0 {
+			s.supertime--
+		} else if s.pausetime > 0 {
+			s.pausetime--
 		}
-		if s.supertime < 0 {
-			s.supertime = ^s.supertime
-			s.super = s.supertime
+		if s.supertimebuffer < 0 {
+			s.supertimebuffer = ^s.supertimebuffer
+			s.supertime = s.supertimebuffer
 		}
-		if s.pausetime < 0 {
-			s.pausetime = ^s.pausetime
-			s.pause = s.pausetime
+		if s.pausetimebuffer < 0 {
+			s.pausetimebuffer = ^s.pausetimebuffer
+			s.pausetime = s.pausetimebuffer
 		}
-		// in mugen 1.1 most global assertspecial flags are reset during pause
-		// TODO: test if roundnotover should reset (keep intro and noko active)
-		if s.super <= 0 && s.pause <= 0 {
+		// In Mugen 1.1, few global AssertSpecial flags persist during pauses. Seemingly only TimerFreeze
+		if s.supertime <= 0 && s.pausetime <= 0 {
 			s.specialFlag = 0
 		} else {
-			s.unsetSF(GSF_assertspecialpause)
+			// These flags persist even during pauses
+			// "Intro" seems to have been deliberately added. Does not persist in Mugen 1.1
+			// "NoKOSlow" added to facilitate custom slowdown. In Mugen that flag only needs to be asserted in first frame of KO slowdown
+			s.specialFlag = (s.specialFlag&GSF_intro | s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
 		}
 		if s.superanim != nil {
 			s.superanim.Action()
 		}
-		rs.rollbackAction(s, &s.charList, input, x, &cvmin, &cvmax,
-			&highest, &lowest, &leftest, &rightest)
-		s.nomusic = s.sf(GSF_nomusic) && !sys.postMatchFlg
-	} else {
-		s.charUpdate(&cvmin, &cvmax, &highest, &lowest, &leftest, &rightest)
+		rs.rollbackAction(s, &s.charList, input)
+		s.nomusic = s.gsf(GSF_nomusic) && !sys.postMatchFlg
 	}
-	s.lifebar.step()
 
-	// Set global First Attack flag if either team got it
-	if s.firstAttack[0] >= 0 || s.firstAttack[1] >= 0 {
-		s.firstAttack[2] = 1
+	// This function runs every tick
+	// It should be placed between "tick frame" and "tick next frame"
+	s.charUpdate()
+
+	// Update lifebars
+	// This must happen before hit detection for accurate display
+	// Allows a combo to still end if a character is hit in the same frame where it exits movetype H
+	s.lifebar.step()
+	if s.tickNextFrame() {
+		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing
+		s.charList.tick()
 	}
 
 	// Run camera
-	leftest -= x
-	rightest -= x
-	var newx, newy float32 = x, y
-	var sclMul float32
-	sclMul = s.cam.action(&newx, &newy, leftest, rightest, lowest, highest,
-		cvmin, cvmax, s.super > 0 || s.pause > 0)
+	x, y, scl = s.cam.action(x, y, scl, s.supertime > 0 || s.pausetime > 0)
 
-	// Update camera
-	introSkip := false
+	// Skip character intros on button press and play the shutter effect
 	if s.tickNextFrame() {
-		if s.lifebar.ro.cur < 1 && !s.introSkipped {
+		if s.lifebar.ro.current < 1 && !s.introSkipped {
 			if s.shuttertime > 0 ||
-				rs.session.AnyButtonIB(input) && !s.sf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				// Checking the intro flag prevents skipping intros when they don't exist
+				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
 				s.shuttertime++
+				// Do the actual skipping in the frame when the "shutter" effect is closed
 				if s.shuttertime == s.lifebar.ro.shutter_time {
-					s.fadeintime = 0
+					// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
+					skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
 					s.resetGblEffect()
+					s.specialFlag = skipround
+					s.fadeintime = 0
 					s.intro = s.lifebar.ro.ctrl_time
 					for i, p := range s.chars {
 						if len(p) > 0 {
-							s.playerClear(i, false)
+							s.clearPlayerAssets(i, false)
 							p[0].posReset()
 							p[0].selfState(0, -1, -1, 0, "")
 						}
 					}
-					ox := newx
-					newx = 0
-					leftest = MaxF(float32(Min(s.stage.p[0].startx,
-						s.stage.p[1].startx))*s.stage.localscl,
-						-(float32(s.gameWidth)/2)/s.cam.BaseScale()+s.screenleft) - ox
-					rightest = MinF(float32(Max(s.stage.p[0].startx,
-						s.stage.p[1].startx))*s.stage.localscl,
-						(float32(s.gameWidth)/2)/s.cam.BaseScale()-s.screenright) - ox
-					introSkip = true
 					s.introSkipped = true
 				}
 			}
@@ -743,36 +747,54 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			}
 		}
 	}
-	if introSkip {
-		sclMul = 1 / scl
-	}
-	leftest = (leftest - s.screenleft) * s.cam.BaseScale()
-	rightest = (rightest + s.screenright) * s.cam.BaseScale()
-	scl = s.cam.ScaleBound(scl, sclMul)
-	tmp := (float32(s.gameWidth) / 2) / scl
-	if AbsF((leftest+rightest)-(newx-x)*2) >= tmp/2 {
-		tmp = MaxF(0, MinF(tmp, MaxF((newx-x)-leftest, rightest-(newx-x))))
-	}
-	x = s.cam.XBound(scl, MinF(x+leftest+tmp, MaxF(x+rightest-tmp, newx)))
+
 	if !s.cam.ZoomEnable {
-		// Pos X の誤差が出ないように精度を落とす
+		// Lower the precision to prevent errors in Pos X.
 		x = float32(math.Ceil(float64(x)*4-0.5) / 4)
 	}
-	y = s.cam.YBound(scl, newy)
 	s.cam.Update(scl, x, y)
-
+	s.xmin = s.cam.ScreenPos[0] + s.cam.Offset[0] + s.screenleft
+	s.xmax = s.cam.ScreenPos[0] + s.cam.Offset[0] +
+		float32(s.gameWidth)/s.cam.Scale - s.screenright
+	if s.xmin > s.xmax {
+		s.xmin = (s.xmin + s.xmax) / 2
+		s.xmax = s.xmin
+	}
+	if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+		s.xmax = s.cam.maxRight
+	}
+	if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+		s.xmin = s.cam.minLeft
+	}
+	s.charList.xScreenBound()
+	// Superpause effect
 	if s.superanim != nil {
-		s.topSprites.add(&SprData{s.superanim, &s.superpmap, s.superpos,
-			[...]float32{s.superfacing, 1}, [2]int32{-1}, 5, Rotation{}, [2]float32{},
-			false, true, s.cgi[s.superplayer].ver[0] != 1, 1, 1, 0, 0, [4]float32{0, 0, 0, 0}}, 0, 0, 0, 0)
+		s.spritesLayer1.add(&SprData{
+			anim:         s.superanim,
+			fx:           &s.superpmap,
+			pos:          s.superpos,
+			scl:          s.superscale,
+			alpha:        [2]int32{-1},
+			priority:     5,
+			rot:          Rotation{},
+			ascl:         [2]float32{},
+			screen:       false,
+			undarken:     true,
+			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,
+			facing:       1,
+			airOffsetFix: [2]float32{1, 1},
+			projection:   0,
+			fLength:      0,
+			window:       [4]float32{0, 0, 0, 0},
+		})
 		if s.superanim.loopend {
-			s.superanim = nil
+			s.superanim = nil // Not allowed to loop
 		}
 	}
-	for i, pr := range s.projs {
-		for j, p := range pr {
-			if p.id >= 0 {
-				s.projs[i][j].cueDraw(s.cgi[i].ver[0] != 1, i)
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id >= 0 {
+				s.projs[i][j].cueDraw(s.cgi[i].mugenver[0] != 1)
 			}
 		}
 	}
@@ -781,7 +803,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		for i, el := range *edl {
 			for j := len(el) - 1; j >= 0; j-- {
 				if el[j] >= 0 {
-					s.explods[i][el[j]].update(s.cgi[i].ver[0] != 1, i)
+					s.explods[i][el[j]].update(s.cgi[i].mugenver[0] != 1, i)
 					if s.explods[i][el[j]].id == IErr {
 						if drop {
 							el = append(el[:j], el[j+1:]...)
@@ -794,20 +816,27 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			}
 		}
 	}
-	explUpdate(&s.explDrawlist, true)
-	explUpdate(&s.topexplDrawlist, false)
-	explUpdate(&s.underexplDrawlist, true)
-
+	explUpdate(&s.explodsLayerN1, true)
+	explUpdate(&s.explodsLayer0, true)
+	explUpdate(&s.explodsLayer1, false)
+	// Adjust game speed
 	if s.tickNextFrame() {
-		spd := s.gameSpeed * s.accel
-		if s.postMatchFlg {
-			spd = 1
-		} else if !s.sf(GSF_nokoslow) && s.time != 0 && s.intro < 0 && s.slowtime > 0 {
-			spd *= s.lifebar.ro.slow_speed
-			if s.slowtime < s.lifebar.ro.slow_fadetime {
-				spd += (float32(1) - s.lifebar.ro.slow_speed) * float32(s.lifebar.ro.slow_fadetime-s.slowtime) / float32(s.lifebar.ro.slow_fadetime)
+		spd := (60 + s.cfg.Options.GameSpeed*5) / float32(s.cfg.Config.Framerate) * s.accel
+		// KO slowdown
+		s.slowtimeTrigger = 0
+		if s.intro < 0 && s.time != 0 && s.slowtime > 0 {
+			if !s.gsf(GSF_nokoslow) {
+				spd *= s.lifebar.ro.slow_speed
+				if s.slowtime < s.lifebar.ro.slow_fadetime {
+					spd += (float32(1) - s.lifebar.ro.slow_speed) * float32(s.lifebar.ro.slow_fadetime-s.slowtime) / float32(s.lifebar.ro.slow_fadetime)
+				}
 			}
+			s.slowtimeTrigger = s.slowtime
 			s.slowtime--
+		}
+		// Outside match or while frame stepping
+		if s.postMatchFlg || s.step {
+			spd = 1
 		}
 		s.turbo = spd
 	}
@@ -891,16 +920,17 @@ func (rs *RollbackSystem) render(s *System) {
 		}
 		s.draw(dx, dy, dscl)
 	}
-	//Lua code executed before drawing fade, clsns and debug
-	for _, str := range s.commonLua {
-		if err := s.luaLState.DoString(str); err != nil {
-			s.luaLState.RaiseError(err.Error())
-		}
-	}
-	// Render debug elements
+	// Render top elements such as fade effects
 	if !s.frameSkip {
 		s.drawTop()
-		s.drawDebug()
+	}
+	// Lua code is executed after drawing the fade effects, so that the menus are on top of them
+	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+		for _, v := range sys.cfg.Common.Lua[key] {
+			if err := s.luaLState.DoString(v); err != nil {
+				s.luaLState.RaiseError(err.Error())
+			}
+		}
 	}
 }
 
@@ -942,108 +972,121 @@ func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
 }
 
 func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
+	// Iterate players
 	for i, p := range sys.chars {
 		if len(p) > 0 {
-			r := p[0]
-			act := true
-			if sys.super > 0 {
-				act = r.superMovetime != 0
-			} else if sys.pause > 0 && r.pauseMovetime == 0 {
-				act = false
-			}
-			// Having this here makes B and F inputs reverse the same instant the character turns
-			if act && !r.sf(CSF_noautoturn) && (r.scf(SCF_ctrl) || r.roundState() > 2) &&
-				(r.ss.no == 0 || r.ss.no == 11 || r.ss.no == 20 || r.ss.no == 52) {
-				r.turn()
-			}
-			if r.inputOver() || r.sf(CSF_noinput) {
-				for j := range r.cmd {
-					r.cmd[j].BufReset()
+			root := p[0]
+			// Select a random command for AI cheating
+			// The way this only allows one command to be cheated at a time may be the cause of issue #2022
+			cheat := int32(-1)
+			if root.controller < 0 {
+				if sys.roundState() == 2 && RandF32(0, sys.com[i]/2+32) > 32 { // TODO: Balance AI scaling
+					cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
 				}
-				continue
 			}
-
+			// Iterate root and helpers
 			for _, c := range p {
-				if c.helperIndex == 0 ||
-					c.helperIndex > 0 && &c.cmd[0] != &r.cmd[0] {
+				act := true
+				if sys.supertime > 0 {
+					act = c.superMovetime != 0
+				} else if sys.pausetime > 0 && c.pauseMovetime == 0 {
+					act = false
+				}
+				// Auto turning check for the root
+				// Having this here makes B and F inputs reverse the same instant the character turns
+				if act && c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn {
+					if (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
+						(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
+						c.autoTurn()
+					}
+				}
+				if c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0] {
+
 					if i < len(ib) {
-						if sys.gameMode == "watch" && (c.key < 0 && ^c.key < len(sys.aiInput)) {
-							sys.aiInput[^c.key].Update(sys.com[i])
+						if sys.gameMode == "watch" && (c.controller < 0 && ^c.controller < len(sys.aiInput)) {
+							sys.aiInput[^c.controller].Update(sys.com[i])
 						}
 						// if we have an input from the players
 						// update the command buffer based on that.
-						c.cmd[0].Buffer.InputBits(ib[i], int32(c.facing))
-					} else if (sys.tmode[0] == TM_Tag || sys.tmode[1] == TM_Tag) && (r.teamside != -1) {
-						c.cmd[0].Buffer.InputBits(ib[r.teamside], int32(c.facing))
+						ib[i].BitsToKeys(c.cmd[0].Buffer, int32(c.facing))
+					} else if (sys.tmode[0] == TM_Tag || sys.tmode[1] == TM_Tag) && (c.teamside != -1) {
+						ib[c.teamside].BitsToKeys(c.cmd[0].Buffer, int32(c.facing))
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
-						c.cmd[0].Input(c.key, int32(c.facing), sys.com[i], c.inputFlag)
+						c.cmd[0].Input(c.controller, int32(c.facing), sys.com[i], c.inputFlag, false)
 					}
-					hp := c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0
-					buftime := Btoi(hp && c.gi().ver[0] != 1)
-					if sys.super > 0 {
-						if !act && sys.super <= sys.superendcmdbuftime {
-							hp = true
+					// Clear input buffers and skip the rest of the loop
+					// This used to apply only to the root, but that caused some issues with helper-based input buffers
+					if c.inputWait() || c.asf(ASF_noinput) {
+						for i := range c.cmd {
+							c.cmd[i].BufReset()
 						}
-					} else if sys.pause > 0 {
-						if !act && sys.pause <= sys.pauseendcmdbuftime {
-							hp = true
+						continue
+					}
+					// Check for buffering during hitpause, Superpause and Pause
+					buffer := false
+					winbuf := false
+					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 {
+						buffer = true
+						// Winmugen chars buffer one frame longer on hitpause
+						// This is true in Winmugen itself but not Mugen 1.0+
+						if c.gi().mugenver[0] != 1 {
+							winbuf = true
 						}
 					}
-					for j := range c.cmd {
-						c.cmd[j].Step(int32(c.facing), c.key < 0, hp, buftime+Btoi(hp))
+					if sys.supertime > 0 {
+						if !act && sys.supertime <= sys.superendcmdbuftime {
+							buffer = true
+						}
+					} else if sys.pausetime > 0 {
+						if !act && sys.pausetime <= sys.pauseendcmdbuftime {
+							buffer = true
+						}
 					}
+					// Update commands
+					for i := range c.cmd {
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
+					}
+					// Enable AI cheated command
+					c.cpucmd = cheat
 				}
 			}
 		}
 	}
 }
 
-func (rs *RollbackSystem) rollbackAction(sys *System, cl *CharList, ib []InputBits,
-	x float32, cvmin, cvmax, highest, lowest, leftest, rightest *float32) {
+func (rs *RollbackSystem) rollbackAction(sys *System, cl *CharList, ib []InputBits) {
+	// Update commands for all chars
 	rs.commandUpdate(ib, sys)
+
 	// Prepare characters before performing their actions
 	for i := 0; i < len(cl.runOrder); i++ {
 		cl.runOrder[i].actionPrepare()
 	}
-	// Run character state controllers
-	// Process priority based on movetype and player type
-	// Run actions for attacking players and helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].ss.moveType == MT_A {
-			cl.runOrder[i].actionRun()
+
+	// Run actions for each character in the sorted list
+	// Sorting the characters first makes new helpers wait for their turn and allows RunOrder trigger accuracy
+	sortedOrder := cl.sortActionRunOrder()
+	for i := 0; i < len(sortedOrder); i++ {
+		if sortedOrder[i] < len(cl.runOrder) {
+			cl.runOrder[sortedOrder[i]].actionRun()
 		}
 	}
-	// Run actions for idle players
+
+	// Run actions for anyone missed (new helpers)
+	extra := len(sortedOrder) + 1
 	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].helperIndex == 0 && cl.runOrder[i].ss.moveType == MT_I {
+		if cl.runOrder[i].runorder < 0 {
+			cl.runOrder[i].runorder = int32(extra)
 			cl.runOrder[i].actionRun()
+			extra++
 		}
 	}
-	// Run actions for remaining players
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].helperIndex == 0 {
-			cl.runOrder[i].actionRun()
-		}
-	}
-	// Run actions for idle helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].helperIndex != 0 && cl.runOrder[i].ss.moveType == MT_I {
-			cl.runOrder[i].actionRun()
-		}
-	}
-	// Run actions for remaining helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].helperIndex != 0 {
-			cl.runOrder[i].actionRun()
-		}
-	}
+
 	// Finish performing character actions
 	for i := 0; i < len(cl.runOrder); i++ {
 		cl.runOrder[i].actionFinish()
 	}
-	// Update chars
-	sys.charUpdate(cvmin, cvmax, highest, lowest, leftest, rightest)
 }
 
 func getAIInputs(player int) []byte {
@@ -1070,27 +1113,35 @@ func (ib *InputBits) SetInputAI(in int) {
 }
 
 type Fight struct {
-	fin                          bool
-	oldTeamLeader                [2]int
-	oldWins                      [2]int32
-	oldDraws                     int32
-	oldStageVars                 Stage
-	level                        []int32
-	lvmul                        float64
-	life, pow, gpow, spow, rlife []int32
-	ivar                         [][]int32
-	fvar                         [][]float32
-	dialogue                     [][]string
-	mapArray                     []map[string]float32
-	remapSpr                     []RemapPreset
+	fin                                                               bool
+	oldTeamLeader                                                     [2]int
+	oldWins                                                           [2]int32
+	oldDraws                                                          int32
+	oldStageVars                                                      Stage
+	level                                                             []int32
+	lvmul                                                             float64
+	life, pow, gpow, spow, rlife                                      []int32
+	ivar                                                              [][]int32
+	fvar                                                              [][]float32
+	dialogue                                                          [][]string
+	mapArray                                                          []map[string]float32
+	remapSpr                                                          []RemapPreset
+	lifeMax, power, powerMax                                          []int32
+	guardPoints, guardPointsMax, dizzyPoints, dizzyPointsMax, redLife []int32
+	teamside                                                          []int
 }
 
 func (f *Fight) copyVar(pn int) {
 	f.life[pn] = sys.chars[pn][0].life
-	f.pow[pn] = sys.chars[pn][0].power
-	f.gpow[pn] = sys.chars[pn][0].guardPoints
-	f.spow[pn] = sys.chars[pn][0].dizzyPoints
-	f.rlife[pn] = sys.chars[pn][0].redLife
+	f.lifeMax[pn] = sys.chars[pn][0].lifeMax
+	f.power[pn] = sys.chars[pn][0].power
+	f.powerMax[pn] = sys.chars[pn][0].powerMax
+	f.guardPoints[pn] = sys.chars[pn][0].guardPoints
+	f.guardPointsMax[pn] = sys.chars[pn][0].guardPointsMax
+	f.dizzyPoints[pn] = sys.chars[pn][0].dizzyPoints
+	f.dizzyPointsMax[pn] = sys.chars[pn][0].dizzyPointsMax
+	f.redLife[pn] = sys.chars[pn][0].redLife
+	f.teamside[pn] = sys.chars[pn][0].teamside
 	if len(f.ivar[pn]) < len(sys.chars[pn][0].ivar) {
 		f.ivar[pn] = make([]int32, len(sys.chars[pn][0].ivar))
 	}
@@ -1108,10 +1159,6 @@ func (f *Fight) copyVar(pn int) {
 	for k, v := range sys.chars[pn][0].remapSpr {
 		f.remapSpr[pn][k] = v
 	}
-	// Reset hitScale.
-	sys.chars[pn][0].defaultHitScale = newHitScaleArray()
-	sys.chars[pn][0].activeHitScale = make(map[int32][3]*HitScale)
-	sys.chars[pn][0].nextHitScale = make(map[int32][3]*HitScale)
 
 }
 
@@ -1121,10 +1168,15 @@ func (f *Fight) reset() {
 	for i, p := range sys.chars {
 		if len(p) > 0 {
 			p[0].life = f.life[i]
-			p[0].power = f.pow[i]
-			p[0].guardPoints = f.gpow[i]
-			p[0].dizzyPoints = f.spow[i]
-			p[0].redLife = f.rlife[i]
+			p[0].lifeMax = f.lifeMax[i]
+			p[0].power = f.power[i]
+			p[0].powerMax = f.powerMax[i]
+			p[0].guardPoints = f.guardPoints[i]
+			p[0].guardPointsMax = f.guardPointsMax[i]
+			p[0].dizzyPoints = f.dizzyPoints[i]
+			p[0].dizzyPointsMax = f.dizzyPointsMax[i]
+			p[0].redLife = f.redLife[i]
+			p[0].teamside = f.teamside[i]
 			copy(p[0].ivar[:], f.ivar[i])
 			copy(p[0].fvar[:], f.fvar[i])
 			copy(p[0].dialogue[:], f.dialogue[i])
@@ -1136,11 +1188,6 @@ func (f *Fight) reset() {
 			for k, v := range f.remapSpr[i] {
 				p[0].remapSpr[k] = v
 			}
-
-			// Reset hitScale
-			p[0].defaultHitScale = newHitScaleArray()
-			p[0].activeHitScale = make(map[int32][3]*HitScale)
-			p[0].nextHitScale = make(map[int32][3]*HitScale)
 		}
 	}
 	sys.stage.copyStageVars(&f.oldStageVars)
@@ -1148,7 +1195,8 @@ func (f *Fight) reset() {
 	sys.nextRound()
 	sys.roundResetFlg, sys.introSkipped = false, false
 	sys.reloadFlg, sys.reloadStageFlg, sys.reloadLifebarFlg = false, false, false
-	sys.cam.Update(sys.cam.startzoom, 0, 0)
+	sys.runMainThreadTask()
+	gfx.Await()
 }
 
 func (f *Fight) endFight() {
@@ -1158,7 +1206,7 @@ func (f *Fight) endFight() {
 	sys.allPalFX.enable = false
 	for i, p := range sys.chars {
 		if len(p) > 0 {
-			sys.playerClear(i, sys.matchOver() || (sys.tmode[i&1] == TM_Turns && p[0].life <= 0))
+			sys.clearPlayerAssets(i, sys.matchOver() || (sys.tmode[i&1] == TM_Turns && p[0].life <= 0))
 		}
 	}
 	sys.wincnt.update()
@@ -1166,24 +1214,24 @@ func (f *Fight) endFight() {
 
 func (f *Fight) initChars() {
 	// Initialize each character
-	f.lvmul = math.Pow(2, 1.0/12)
+	lvmul := math.Pow(2, 1.0/12)
 	for i, p := range sys.chars {
 		if len(p) > 0 {
 			// Get max life, and adjust based on team mode
 			var lm float32
 			if p[0].ocd().lifeMax != -1 {
-				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * sys.lifeMul
+				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * sys.cfg.Options.Life / 100
 			} else {
-				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * sys.lifeMul
+				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * sys.cfg.Options.Life / 100
 			}
 			if p[0].teamside != -1 {
 				switch sys.tmode[i&1] {
 				case TM_Single:
 					switch sys.tmode[(i+1)&1] {
 					case TM_Simul, TM_Tag:
-						lm *= sys.team1VS2Life
+						lm *= sys.cfg.Options.Team.SingleVsTeamLife / 100
 					case TM_Turns:
-						if sys.numTurns[(i+1)&1] < sys.matchWins[(i+1)&1] && sys.lifeShare[i&1] {
+						if sys.numTurns[(i+1)&1] < sys.matchWins[(i+1)&1] && sys.cfg.Options.Team.LifeShare {
 							lm = lm * float32(sys.numTurns[(i+1)&1]) /
 								float32(sys.matchWins[(i+1)&1])
 						}
@@ -1191,50 +1239,52 @@ func (f *Fight) initChars() {
 				case TM_Simul, TM_Tag:
 					switch sys.tmode[(i+1)&1] {
 					case TM_Simul, TM_Tag:
-						if sys.numSimul[(i+1)&1] < sys.numSimul[i&1] && sys.lifeShare[i&1] {
+						if sys.numSimul[(i+1)&1] < sys.numSimul[i&1] && sys.cfg.Options.Team.LifeShare {
 							lm = lm * float32(sys.numSimul[(i+1)&1]) / float32(sys.numSimul[i&1])
 						}
 					case TM_Turns:
-						if sys.numTurns[(i+1)&1] < sys.numSimul[i&1]*sys.matchWins[(i+1)&1] && sys.lifeShare[i&1] {
+						if sys.numTurns[(i+1)&1] < sys.numSimul[i&1]*sys.matchWins[(i+1)&1] && sys.cfg.Options.Team.LifeShare {
 							lm = lm * float32(sys.numTurns[(i+1)&1]) /
 								float32(sys.numSimul[i&1]*sys.matchWins[(i+1)&1])
 						}
 					default:
-						if sys.lifeShare[i&1] {
+						if sys.cfg.Options.Team.LifeShare {
 							lm /= float32(sys.numSimul[i&1])
 						}
 					}
 				case TM_Turns:
 					switch sys.tmode[(i+1)&1] {
 					case TM_Single:
-						if sys.matchWins[i&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
+						if sys.matchWins[i&1] < sys.numTurns[i&1] && sys.cfg.Options.Team.LifeShare {
 							lm = lm * float32(sys.matchWins[i&1]) / float32(sys.numTurns[i&1])
 						}
 					case TM_Simul, TM_Tag:
-						if sys.numSimul[(i+1)&1]*sys.matchWins[i&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
-							lm = lm * sys.team1VS2Life *
+						if sys.numSimul[(i+1)&1]*sys.matchWins[i&1] < sys.numTurns[i&1] && sys.cfg.Options.Team.LifeShare {
+							lm = lm * sys.cfg.Options.Team.SingleVsTeamLife / 100 *
 								float32(sys.numSimul[(i+1)&1]*sys.matchWins[i&1]) /
 								float32(sys.numTurns[i&1])
 						}
 					case TM_Turns:
-						if sys.numTurns[(i+1)&1] < sys.numTurns[i&1] && sys.lifeShare[i&1] {
+						if sys.numTurns[(i+1)&1] < sys.numTurns[i&1] && sys.cfg.Options.Team.LifeShare {
 							lm = lm * float32(sys.numTurns[(i+1)&1]) / float32(sys.numTurns[i&1])
 						}
 					}
 				}
 			}
-			foo := math.Pow(f.lvmul, float64(-f.level[i]))
+			foo := math.Pow(lvmul, float64(-f.level[i]))
 			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
 
 			if p[0].roundsExisted() > 0 {
-				/* If character already existed for a round, presumably because of turns mode, just update life */
+				// If character already existed for a round, presumably because of turns mode, just update life
 				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
 			} else if sys.round == 1 || sys.tmode[i&1] == TM_Turns {
-				/* If round 1 or a new character in turns mode, initialize values */
+				// If round 1 or a new character in turns mode, initialize values
 				if p[0].ocd().life != -1 {
 					p[0].life = Clamp(p[0].ocd().life, 0, p[0].lifeMax)
+					p[0].redLife = p[0].life
 				} else {
 					p[0].life = p[0].lifeMax
+					p[0].redLife = p[0].lifeMax
 				}
 				if sys.round == 1 {
 					if sys.maxPowerMode {
@@ -1245,17 +1295,13 @@ func (f *Fight) initChars() {
 						p[0].power = 0
 					}
 				}
+				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
 				p[0].dialogue = []string{}
 				p[0].mapArray = make(map[string]float32)
 				for k, v := range p[0].mapDefault {
 					p[0].mapArray[k] = v
 				}
 				p[0].remapSpr = make(RemapPreset)
-
-				// Reset hitScale
-				p[0].defaultHitScale = newHitScaleArray()
-				p[0].activeHitScale = make(map[int32][3]*HitScale)
-				p[0].nextHitScale = make(map[int32][3]*HitScale)
 			}
 
 			if p[0].ocd().guardPoints != -1 {
@@ -1268,17 +1314,17 @@ func (f *Fight) initChars() {
 			} else {
 				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
-			p[0].redLife = p[0].lifeMax
 			f.copyVar(i)
 		}
 	}
 }
+
 func (f *Fight) initSuperMeter() {
 	for i, p := range sys.chars {
-		if len(p) > 0 {
-			p[0].clear2()
+		if len(p) > 0 && p[0].teamside != -1 {
+			p[0].clearNextRound()
 			f.level[i] = sys.wincnt.getLevel(i)
-			if sys.powerShare[i&1] && p[0].teamside != -1 {
+			if sys.cfg.Options.Team.PowerShare {
 				pmax := Max(sys.cgi[i&1].data.power, sys.cgi[i].data.power)
 				for j := i & 1; j < MaxSimul*2; j += 2 {
 					if len(sys.chars[j]) > 0 {
@@ -1312,12 +1358,21 @@ func NewFight() Fight {
 	f := Fight{}
 	f.oldStageVars.copyStageVars(sys.stage)
 	f.life = make([]int32, len(sys.chars))
+	f.lifeMax = make([]int32, len(sys.chars))
 	f.pow = make([]int32, len(sys.chars))
 	f.gpow = make([]int32, len(sys.chars))
 	f.spow = make([]int32, len(sys.chars))
 	f.rlife = make([]int32, len(sys.chars))
 	f.ivar = make([][]int32, len(sys.chars))
 	f.fvar = make([][]float32, len(sys.chars))
+	f.power = make([]int32, len(sys.chars))
+	f.powerMax = make([]int32, len(sys.chars))
+	f.guardPoints = make([]int32, len(sys.chars))
+	f.guardPointsMax = make([]int32, len(sys.chars))
+	f.dizzyPoints = make([]int32, len(sys.chars))
+	f.dizzyPointsMax = make([]int32, len(sys.chars))
+	f.redLife = make([]int32, len(sys.chars))
+	f.teamside = make([]int, len(sys.chars))
 	f.dialogue = make([][]string, len(sys.chars))
 	f.mapArray = make([]map[string]float32, len(sys.chars))
 	f.remapSpr = make([]RemapPreset, len(sys.chars))
@@ -1352,9 +1407,9 @@ func writeI32(i32 int32) []byte {
 	return b
 }
 
-func getInputs(player int) []byte {
+func (rs *RollbackSystem) getInputs(player int) []byte {
 	var ib InputBits
-	ib.SetInput(player)
+	ib.KeysToBits(rs.netInput.buf[player].InputReader.LocalInput(player))
 	return writeI32(int32(ib))
 }
 
@@ -1364,9 +1419,9 @@ func (rs *RollbackSystem) roundState(s *System) int32 {
 		return -1
 	case s.intro > s.lifebar.ro.ctrl_time+1:
 		return 0
-	case s.lifebar.ro.cur == 0:
+	case s.lifebar.ro.current == 0:
 		return 1
-	case s.intro >= 0 || s.finish == FT_NotYet:
+	case s.intro >= 0 || s.finishType == FT_NotYet:
 		return 2
 	case s.intro < -s.lifebar.ro.over_waittime:
 		return 4

@@ -310,22 +310,21 @@ type System struct {
 	loopBreak         bool
 	loopContinue      bool
 
-	statePool         GameStatePool
-	luaStringVars     map[string]string
-	luaNumVars        map[string]float32
-	luaTables         []*lua.LTable
-	commandLists      []*CommandList
-	arenaSaveMap      map[int]*arena.Arena
-	arenaLoadMap      map[int]*arena.Arena
-	rollbackStateID   int
-	savePool          GameStatePool
-	loadPool          GameStatePool
-	rollback          RollbackSystem
-	rollbackConfig    RollbackConfig
-	saveState         *GameState
-	stateAlloc        *StateAllocator
-	saveStateFlag     bool
-	loadStateFlag     bool
+	statePool       GameStatePool
+	luaStringVars   map[string]string
+	luaNumVars      map[string]float32
+	luaTables       []*lua.LTable
+	commandLists    []*CommandList
+	arenaSaveMap    map[int]*arena.Arena
+	arenaLoadMap    map[int]*arena.Arena
+	rollbackStateID int
+	savePool        GameStatePool
+	loadPool        GameStatePool
+	rollback        RollbackSystem
+	rollbackConfig  RollbackProperties
+	saveState       *GameState
+	saveStateFlag   bool
+	loadStateFlag   bool
 
 	// for avg. FPS calculations
 	gameFPS       float32

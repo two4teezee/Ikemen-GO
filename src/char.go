@@ -8371,19 +8371,11 @@ func (c *Char) tick() {
 	if c.bindTime > 0 {
 		if c.isBound() {
 			if bt := sys.playerID(c.bindToId); bt != nil && !bt.pause() {
-				c.bindTime -= 1
-				// Fixes Binds of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
-				if c.bindTime <= 0 {
-					c.bindToId = -1
-				}
+				c.decrementBindTime()
 			}
 		} else {
 			if !c.pause() {
-				c.bindTime -= 1
-				// Fixes Binds of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
-				if c.bindTime <= 0 {
-					c.bindToId = -1
-				}
+				c.decrementBindTime()
 			}
 		}
 	}
@@ -8527,6 +8519,25 @@ func (c *Char) tick() {
 	// Reset pushed flag
 	// This flag is apparently used to prevent position interpolation when chars push each other
 	c.pushed = false
+}
+
+func (c *Char) decrementBindTime() {
+	c.bindTime -= 1
+	// Fixes BindToRoot/BindToParent of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
+	// This must not run for target binds so that they end the same time as MUGEN's do.
+	if c.bindToId > 0 {
+		if c.helperIndex >= 0 {
+			if r := c.root(); r != nil {
+				if c.bindToId == r.id {
+					c.setBindTime(c.bindTime)
+				}
+			} else if p := c.parent(); p != nil {
+				if c.bindToId == p.id {
+					c.setBindTime(c.bindTime)
+				}
+			}
+		}
+	}
 }
 
 // Prepare collision boxes and debug text for drawing

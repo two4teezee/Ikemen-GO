@@ -5699,21 +5699,21 @@ func (c *Char) baseDepthBack() float32 {
 }
 
 func (c *Char) setWidth(fw, bw float32) {
-	coordRatio := (320/c.localcoord)/c.localscl
+	coordRatio := (320 / c.localcoord) / c.localscl
 	c.width[0] = c.baseWidthFront()*coordRatio + fw
 	c.width[1] = c.baseWidthBack()*coordRatio + bw
 	c.setCSF(CSF_width)
 }
 
 func (c *Char) setHeight(th, bh float32) {
-	coordRatio := (320/c.localcoord)/c.localscl
+	coordRatio := (320 / c.localcoord) / c.localscl
 	c.height[0] = c.baseHeightTop()*coordRatio + th
 	c.height[1] = c.baseHeightBottom()*coordRatio + bh
 	c.setCSF(CSF_height)
 }
 
 func (c *Char) setDepth(fd, bd float32) {
-	coordRatio := (320/c.localcoord)/c.localscl
+	coordRatio := (320 / c.localcoord) / c.localscl
 	c.depth[0] = c.baseDepthFront()*coordRatio + fd
 	c.depth[1] = c.baseDepthBack()*coordRatio + bd
 	c.setCSF(CSF_depth)
@@ -10457,20 +10457,20 @@ func (cl *CharList) pushDetection(getter *Char) {
 					if getter.pos[2] >= c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
 							//getter.pos[2] -= ((czfront - gzback) * gfactor) / getter.localscl
-							getter.pos[2] -= ((czfront - gzback)) / getter.localscl
+							getter.pos[2] -= (czfront - gzback) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
 							//c.pos[2] += ((czfront - gzback) * cfactor) / c.localscl
-							c.pos[2] += ((czfront - gzback)) / c.localscl
+							c.pos[2] += (czfront - gzback) / c.localscl
 						}
 					} else if getter.pos[2] < c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
 							//getter.pos[2] -= ((gzfront - czback) * gfactor) / getter.localscl
-							getter.pos[2] -= ((gzfront - czback)) / getter.localscl
+							getter.pos[2] -= (gzfront - czback) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
 							//c.pos[2] += ((gzfront - czback) * cfactor) / c.localscl
-							c.pos[2] += ((gzfront - czback)) / c.localscl
+							c.pos[2] += (gzfront - czback) / c.localscl
 						}
 					}
 					// Clamp Z positions

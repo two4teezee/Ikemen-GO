@@ -4990,7 +4990,11 @@ func (sc posSet) Run(c *Char, _ []int32) bool {
 				crun.bindPosAdd[1] = y
 			}
 		case posSet_z:
-			crun.setZ(exp[0].evalF(c) * redirscale)
+			z := exp[0].evalF(c) * redirscale
+			crun.setZ(z)
+			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[2])) && sys.playerID(crun.bindToId) != nil {
+				crun.bindPosAdd[2] = z
+			}
 		case posSet_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

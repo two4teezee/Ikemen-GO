@@ -5088,9 +5088,9 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "animframe", func(*lua.LState) int {
+	luaRegister(l, "animelemvar", func(*lua.LState) int {
 		// Because the char's animation steps at the end of each frame, before the scripts run,
-		// AnimFrame Lua version uses curFrame instead of anim.CurrentFrame()
+		// AnimElemVar Lua version uses curFrame instead of anim.CurrentFrame()
 		c := sys.debugWC
 		switch strings.ToLower(strArg(l, 1)) {
 		case "alphadest":

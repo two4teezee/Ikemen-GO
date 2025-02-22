@@ -2479,7 +2479,7 @@ type Char struct {
 	inputFlag       InputBits
 	pauseBool       bool
 	downHitOffset   bool
-	koEchoTime      int32
+	koEchoTimer     int32
 	groundLevel     float32
 	sizeBox         []float32
 	shadowOffset    [2]float32
@@ -8141,19 +8141,24 @@ func (c *Char) actionFinish() {
 	// Update Z scale
 	// Must be placed after posUpdate()
 	c.zScale = sys.updateZScale(c.pos[2], c.localscl)
+	// KO behavior
 	if !c.hitPause() && !c.pauseBool {
-		// Set KO flag
-		if c.life <= 0 && !sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) && (!c.ghv.guarded || !c.asf(ASF_noguardko)) {
+		if c.alive() && c.life <= 0 && !sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) && (!c.ghv.guarded || !c.asf(ASF_noguardko)) {
 			// KO sound
-			if !sys.gsf(GSF_nokosnd) && c.alive() {
-				vo := int32(100)
-				c.playSound("", false, 0, 11, 0, -1, vo, 0, 1, c.localscl, &c.pos[0], false, 0, 0, 0, 0, false, false)
+			if !sys.gsf(GSF_nokosnd) {
+				c.playSound("", false, 0, 11, 0, -1, 100, 0, 1, c.localscl, &c.pos[0], false, 0, 0, 0, 0, false, false)
 				if c.gi().data.ko.echo != 0 {
-					c.koEchoTime = 1
+					c.koEchoTimer = 1
 				}
 			}
+			// Set KO flag and force KO states if necessary
 			c.setSCF(SCF_ko)
-			c.unsetSCF(SCF_ctrl) // This can be seen in Mugen when you F1 a character
+			c.unsetSCF(SCF_ctrl) // This can be seen in Mugen when you F1 a character with ctrl && movetype = H
+			if !c.stchtmp && c.helperIndex == 0 && c.ss.moveType != MT_H {
+				c.ghv.fallflag = true
+				c.selfState(5030, -1, -1, 0, "")
+				c.ss.time = 1
+			}
 		}
 	}
 	// Over flags (char is finished for the round)
@@ -8315,15 +8320,15 @@ func (c *Char) update() {
 		}
 	}
 	// KO sound echo
-	if c.koEchoTime > 0 {
+	if c.koEchoTimer > 0 {
 		if !c.scf(SCF_ko) || sys.gsf(GSF_nokosnd) {
-			c.koEchoTime = 0
+			c.koEchoTimer = 0
 		} else {
-			if c.koEchoTime == 60 || c.koEchoTime == 120 {
-				vo := int32(100 * (240 - (c.koEchoTime + 60)) / 240)
+			if c.koEchoTimer == 60 || c.koEchoTimer == 120 {
+				vo := int32(100 * (240 - (c.koEchoTimer + 60)) / 240)
 				c.playSound("", false, 0, 11, 0, -1, vo, 0, 1, c.localscl, &c.pos[0], false, 0, 0, 0, 0, false, false)
 			}
-			c.koEchoTime++
+			c.koEchoTimer++
 		}
 	}
 }
@@ -8479,16 +8484,6 @@ func (c *Char) tick() {
 				c.cmd[0].Buffer.sb == 1 || c.cmd[0].Buffer.db == 1 ||
 				c.cmd[0].Buffer.wb == 1) { // Menu button not included
 			c.ghv.down_recovertime -= RandI(1, (c.ghv.down_recovertime+1)/2)
-		}
-		if !c.stchtmp {
-			if c.helperIndex == 0 && (c.alive() || c.ss.no == 0) && c.life <= 0 && c.ss.moveType != MT_H &&
-				!sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) && (!c.ghv.guarded || !c.asf(ASF_noguardko)) {
-				c.ghv.fallflag = true
-				c.selfState(5030, -1, -1, 0, "") // Mugen sets control to 0 here
-				c.ss.time = 1
-			} else if c.ss.no == 5150 && c.ss.time >= 90 && c.alive() {
-				c.selfState(5120, -1, -1, -1, "")
-			}
 		}
 	}
 	// Reset pushed flag

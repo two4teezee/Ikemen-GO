@@ -346,7 +346,7 @@ var triggerMap = map[string]int{
 	"airjumpcount":       1,
 	"alpha":              1,
 	"angle":              1,
-	"animframe":          1,
+	"animelemvar":        1,
 	"animlength":         1,
 	"animplayerno":       1,
 	"atan2":              1,
@@ -3807,40 +3807,40 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_ailevelf)
 	case "airjumpcount":
 		out.append(OC_ex_, OC_ex_airjumpcount)
-	case "animframe":
+	case "animelemvar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
 		switch c.token {
 		case "alphadest":
-			out.append(OC_ex_animframe_alphadest)
+			out.append(OC_ex_animelemvar_alphadest)
 		case "angle":
-			out.append(OC_ex_animframe_angle)
+			out.append(OC_ex_animelemvar_angle)
 		case "alphasource":
-			out.append(OC_ex_animframe_alphasource)
+			out.append(OC_ex_animelemvar_alphasource)
 		case "group":
-			out.append(OC_ex_animframe_group)
+			out.append(OC_ex_animelemvar_group)
 		case "hflip":
-			out.append(OC_ex_animframe_hflip)
+			out.append(OC_ex_animelemvar_hflip)
 		case "image":
-			out.append(OC_ex_animframe_image)
+			out.append(OC_ex_animelemvar_image)
 		case "time":
-			out.append(OC_ex_animframe_time)
+			out.append(OC_ex_animelemvar_time)
 		case "vflip":
-			out.append(OC_ex_animframe_vflip)
+			out.append(OC_ex_animelemvar_vflip)
 		case "xoffset":
-			out.append(OC_ex_animframe_xoffset)
+			out.append(OC_ex_animelemvar_xoffset)
 		case "xscale":
-			out.append(OC_ex_animframe_xscale)
+			out.append(OC_ex_animelemvar_xscale)
 		case "yoffset":
-			out.append(OC_ex_animframe_yoffset)
+			out.append(OC_ex_animelemvar_yoffset)
 		case "yscale":
-			out.append(OC_ex_animframe_yscale)
+			out.append(OC_ex_animelemvar_yscale)
 		case "numclsn1":
-			out.append(OC_ex_animframe_numclsn1)
+			out.append(OC_ex_animelemvar_numclsn1)
 		case "numclsn2":
-			out.append(OC_ex_animframe_numclsn2)
+			out.append(OC_ex_animelemvar_numclsn2)
 		default:
 			return bvNone(), Error("Invalid data: " + c.token)
 		}

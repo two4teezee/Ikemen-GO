@@ -572,20 +572,20 @@ const (
 	OC_ex_gethitvar_down_recovertime
 	OC_ex_gethitvar_guardflag
 	OC_ex_ailevelf
-	OC_ex_animframe_alphadest
-	OC_ex_animframe_angle
-	OC_ex_animframe_alphasource
-	OC_ex_animframe_group
-	OC_ex_animframe_hflip
-	OC_ex_animframe_image
-	OC_ex_animframe_time
-	OC_ex_animframe_vflip
-	OC_ex_animframe_xoffset
-	OC_ex_animframe_xscale
-	OC_ex_animframe_yoffset
-	OC_ex_animframe_yscale
-	OC_ex_animframe_numclsn1
-	OC_ex_animframe_numclsn2
+	OC_ex_animelemvar_alphadest
+	OC_ex_animelemvar_angle
+	OC_ex_animelemvar_alphasource
+	OC_ex_animelemvar_group
+	OC_ex_animelemvar_hflip
+	OC_ex_animelemvar_image
+	OC_ex_animelemvar_time
+	OC_ex_animelemvar_vflip
+	OC_ex_animelemvar_xoffset
+	OC_ex_animelemvar_xscale
+	OC_ex_animelemvar_yoffset
+	OC_ex_animelemvar_yscale
+	OC_ex_animelemvar_numclsn1
+	OC_ex_animelemvar_numclsn2
 	OC_ex_animlength
 	OC_ex_animplayerno
 	OC_ex_attack
@@ -2700,85 +2700,85 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
-	case OC_ex_animframe_alphadest:
+	case OC_ex_animelemvar_alphadest:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.DstAlpha))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_angle:
+	case OC_ex_animelemvar_angle:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Angle)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_alphasource:
+	case OC_ex_animelemvar_alphasource:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.SrcAlpha))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_group:
+	case OC_ex_animelemvar_group:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Group))
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_hflip:
+	case OC_ex_animelemvar_hflip:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushB(f.Hscale < 0)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_image:
+	case OC_ex_animelemvar_image:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Number))
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_time:
+	case OC_ex_animelemvar_time:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(f.Time)
 		} else {
 			sys.bcStack.PushI(-1)
 		}
-	case OC_ex_animframe_vflip:
+	case OC_ex_animelemvar_vflip:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushB(f.Vscale < 0)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_xoffset:
+	case OC_ex_animelemvar_xoffset:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Xoffset))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_xscale:
+	case OC_ex_animelemvar_xscale:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Xscale)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_yoffset:
+	case OC_ex_animelemvar_yoffset:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(f.Yoffset))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_yscale:
+	case OC_ex_animelemvar_yscale:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushF(f.Yscale)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_numclsn1:
+	case OC_ex_animelemvar_numclsn1:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(len(f.Clsn1()) / 4))
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex_animframe_numclsn2:
+	case OC_ex_animelemvar_numclsn2:
 		if f := c.anim.CurrentFrame(); f != nil {
 			sys.bcStack.PushI(int32(len(f.Clsn2()) / 4))
 		} else {

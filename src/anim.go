@@ -1141,7 +1141,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += -s.pos[1]*xshear*SignF(sys.stage.sdw.yscale)
+			offsetX += -s.pos[1] * xshear * SignF(sys.stage.sdw.yscale)
 		}
 
 		drawwindow := &sys.scrrect
@@ -1158,7 +1158,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 				w[1], w[3] = w[3], w[1]
 			}
 
-			window[0] = int32((sys.cam.Offset[0] - ((x-s.pos[0]-offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[0] = int32((sys.cam.Offset[0] - ((x - s.pos[0] - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y - (s.pos[1]*sys.stage.sdw.yscale-s.shadowOffset[1])*scl + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.sdw.yscale)
@@ -1227,7 +1227,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += -s.pos[1]*xshear*SignF(sys.stage.reflection.yscale)
+			offsetX += -s.pos[1] * xshear * SignF(sys.stage.reflection.yscale)
 		}
 
 		drawwindow := &sys.scrrect

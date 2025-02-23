@@ -663,8 +663,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		guardsound_ffx:     "f",
 		ground_type:        HT_High,
 		air_type:           HT_Unknown,
-		// Both default to 20, not documented in Mugen docs.
-		air_hittime:  20,
+		air_hittime:  20, // Both default to 20. Not documented in Mugen docs
 		down_hittime: 20,
 
 		ground_velocity:            [3]float32{0, 0, 0},
@@ -7589,7 +7588,7 @@ func (c *Char) hitByPlayerIdCheck(getterid int32) bool {
 }
 
 // Check if Hitdef attributes can hit a player
-func (c *Char) attrCheck(ghd *HitDef, getter *Char, gstyp StateType) bool {
+func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// Invalid attributes
 	if ghd.attr <= 0 && ghd.reversal_attr <= 0 {
@@ -7667,22 +7666,25 @@ func (c *Char) attrCheck(ghd *HitDef, getter *Char, gstyp StateType) bool {
 	return true
 }
 
-// Check if the enemy (c) Hitdef should lose to the current one, if applicable
-func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj bool) bool {
+// Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
+func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
 
-	// Enemy can't be hit by Hitdef attributes at all
-	// No more checks needed
-	if !c.attrCheck(ghd, getter, gst) {
+	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
+	if !c.attrCheck(getter, ghd, gst) {
 		return false
 	}
 
-	// Enemy's Hitdef already hit the original char
-	// Can skip priority checking
+	// Enemy (c) always loses if their HitDef already hit the player (getter)
 	if c.hasTargetOfHitdef(getter.id) {
 		return true
 	}
 
-	// Check if the enemy (c) can also hit the player
+	// Enemy (c) always loses if they have an invalid HitDef or ReversalDef
+	if c.atktmp == 0 || (c.hitdef.attr <= 0 || c.ss.stateType == ST_L) && c.hitdef.reversal_attr <= 0 {
+		return true
+	}
+
+	// Check if the enemy (c) can also hit the player (getter)
 	// Used to check for instance if a lower priority exchanges with a higher priority but the higher priority Clsn1 misses
 	// This could probably be a function that both players access instead of being handled like this
 	countercheck := func(hd *HitDef) bool {
@@ -7691,50 +7693,61 @@ func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj boo
 		} else {
 			return (getter.atktmp >= 0 || !c.hasTarget(getter.id)) &&
 				!getter.hasTargetOfHitdef(c.id) &&
-				getter.attrCheck(hd, c, c.ss.stateType) &&
+				getter.attrCheck(c, hd, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
 					getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 		}
 	}
 
-	// Hitdef priority check
-	if c.atktmp != 0 && (c.hitdef.attr > 0 && c.ss.stateType != ST_L || c.hitdef.reversal_attr > 0) {
-		switch {
-		case c.hitdef.reversal_attr > 0:
-			if ghd.reversal_attr > 0 { // Reversaldef vs Reversaldef
-				if countercheck(&c.hitdef) {
-					c.atktmp = -1
-					return getter.atktmp < 0
-				}
-				return true
+	// Enemy (c) ReversalDef check
+	if c.hitdef.reversal_attr > 0 {
+		if ghd.reversal_attr > 0 { // ReversalDef vs ReversalDef
+			if countercheck(&c.hitdef) {
+				c.atktmp = -1
+				return getter.atktmp < 0
 			}
-		case ghd.reversal_attr > 0:
-			return true
-		case ghd.priority < c.hitdef.priority:
-			// Run countercheck
-		case ghd.priority == c.hitdef.priority:
-			switch {
-			case c.hitdef.prioritytype == TT_Dodge:
-				// Run countercheck
-			case ghd.prioritytype == TT_Dodge:
-				// Run countercheck
-			case ghd.prioritytype == TT_Miss:
-				// Run countercheck
-			case c.hitdef.prioritytype == TT_Hit:
-				if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
-					c.atktmp = -1
-					return getter.atktmp < 0 || Rand(0, 1) == 1
-				}
-				return true
-			default:
-				return true
-			}
-		default:
 			return true
 		}
 		return !countercheck(&c.hitdef)
 	}
+
+	// Enemy (c) loses if player (getter) has ReversalDef
+	if ghd.reversal_attr > 0 {
+		return true
+	}
+
+	// Enemy (c) loses if their HitDef has lower priority
+	if c.hitdef.priority < ghd.priority {
+		return true
+	}
+
+	// Enemy (c) HitDef has higher priority. Run counter check
+	if c.hitdef.priority > ghd.priority  {
+		return !countercheck(&c.hitdef)
+	}
+
+	// Both HitDefs have same priority. Check trade types
+	if ghd.priority == c.hitdef.priority {
+		switch {
+		case c.hitdef.prioritytype == TT_Dodge:
+			return !countercheck(&c.hitdef)
+		case ghd.prioritytype == TT_Dodge:
+			return !countercheck(&c.hitdef)
+		case ghd.prioritytype == TT_Miss:
+			return !countercheck(&c.hitdef)
+		case c.hitdef.prioritytype == TT_Hit:
+			if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
+				c.atktmp = -1
+				return getter.atktmp < 0 || Rand(0, 1) == 1
+			}
+			return true
+		default:
+			return true
+		}
+	}
+
+	// Other cases
 	return true
 }
 
@@ -10036,7 +10049,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					(c.asf(ASF_nojugglecheck) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= p.hitdef.air_juggle) &&
 					(!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
 					(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
-					getter.hittableByChar(&p.hitdef, c, ST_N, true) {
+					getter.hittableByChar(c, &p.hitdef, ST_N, true) {
 					orghittmp := getter.hittmp
 					if getter.csf(CSF_gethit) {
 						getter.hittmp = int8(Btoi(getter.ghv.fallflag)) + 1
@@ -10154,7 +10167,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				if c.hitdef.hitonce >= 0 && !c.hasTargetOfHitdef(getter.id) &&
 					(c.hitdef.reversal_attr <= 0 || !getter.hasTargetOfHitdef(c.id)) &&
 					(getter.hittmp < 2 || c.asf(ASF_nojugglecheck) || !c.hasTarget(getter.id) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= c.juggle) &&
-					getter.hittableByChar(&c.hitdef, c, c.ss.stateType, false) {
+					getter.hittableByChar(c, &c.hitdef, c.ss.stateType, false) {
 
 					// Z axis check
 					// Reversaldef checks attack depth vs attack depth

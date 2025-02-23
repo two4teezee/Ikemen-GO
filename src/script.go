@@ -3751,6 +3751,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(c.hitdef.priority))
 		case "id":
 			l.Push(lua.LNumber(c.hitdef.id))
+		case "sparkno":
+			l.Push(lua.LNumber(c.hitdef.sparkno))
+		case "guard.sparkno":
+			l.Push(lua.LNumber(c.hitdef.guard_sparkno))
 		case "sparkx":
 			l.Push(lua.LNumber(c.hitdef.sparkxy[0]))
 		case "sparky":
@@ -3763,6 +3767,14 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(c.hitdef.shaketime))
 		case "guard.shaketime":
 			l.Push(lua.LNumber(c.hitdef.guard_shaketime))
+		case "hitsound.group":
+			l.Push(lua.LNumber(c.hitdef.hitsound[0]))
+		case "hitsound.number":
+			l.Push(lua.LNumber(c.hitdef.hitsound[1]))
+		case "guardsound.group":
+			l.Push(lua.LNumber(c.hitdef.guardsound[0]))
+		case "guardsound.number":
+			l.Push(lua.LNumber(c.hitdef.guardsound[1]))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

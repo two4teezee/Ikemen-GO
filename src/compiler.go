@@ -2495,6 +2495,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_hitdefvar_priority
 		case "id":
 			opc = OC_ex2_hitdefvar_id
+		case "sparkno":
+			opc = OC_ex2_hitdefvar_sparkno
+		case "guard.sparkno":
+			opc = OC_ex2_hitdefvar_guard_sparkno
 		case "sparkx":
 			opc = OC_ex2_hitdefvar_sparkx
 		case "sparky":
@@ -2507,6 +2511,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_hitdefvar_shaketime
 		case "guard.shaketime":
 			opc = OC_ex2_hitdefvar_guard_shaketime
+		case "hitsound.group":
+			opc = OC_ex2_hitdefvar_hitsound_group
+		case "hitsound.number":
+			opc = OC_ex2_hitdefvar_hitsound_number
+		case "guardsound.group":
+			opc = OC_ex2_hitdefvar_guardsound_group
+		case "guardsound.number":
+			opc = OC_ex2_hitdefvar_guardsound_number
 		default:
 			return bvNone(), Error("Invalid data: " + c.token)
 		}

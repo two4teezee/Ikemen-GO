@@ -847,20 +847,26 @@ const (
 	OC_ex2_projvar_velmul_x
 	OC_ex2_projvar_velmul_y
 	OC_ex2_projvar_velmul_z
-	OC_ex2_hitdefvar_guardflag
-	OC_ex2_hitdefvar_hitflag
+	OC_ex2_hitdefvar_guard_pausetime
+	OC_ex2_hitdefvar_guard_shaketime
+	OC_ex2_hitdefvar_guard_sparkno
 	OC_ex2_hitdefvar_guarddamage
+	OC_ex2_hitdefvar_guardflag
+	OC_ex2_hitdefvar_guardsound_group
+	OC_ex2_hitdefvar_guardsound_number
 	OC_ex2_hitdefvar_hitdamage
+	OC_ex2_hitdefvar_hitflag
+	OC_ex2_hitdefvar_hitsound_group
+	OC_ex2_hitdefvar_hitsound_number
+	OC_ex2_hitdefvar_id
 	OC_ex2_hitdefvar_p1stateno
 	OC_ex2_hitdefvar_p2stateno
+	OC_ex2_hitdefvar_pausetime
 	OC_ex2_hitdefvar_priority
-	OC_ex2_hitdefvar_id
+	OC_ex2_hitdefvar_shaketime
+	OC_ex2_hitdefvar_sparkno
 	OC_ex2_hitdefvar_sparkx
 	OC_ex2_hitdefvar_sparky
-	OC_ex2_hitdefvar_pausetime
-	OC_ex2_hitdefvar_guard_pausetime
-	OC_ex2_hitdefvar_shaketime
-	OC_ex2_hitdefvar_guard_shaketime
 	OC_ex2_hitbyattr
 	OC_ex2_soundvar_group
 	OC_ex2_soundvar_number
@@ -3645,6 +3651,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.hitdef.priority)
 	case OC_ex2_hitdefvar_id:
 		sys.bcStack.PushI(c.hitdef.id)
+	case OC_ex2_hitdefvar_sparkno:
+		sys.bcStack.PushI(c.hitdef.sparkno)
+	case OC_ex2_hitdefvar_guard_sparkno:
+		sys.bcStack.PushI(c.hitdef.guard_sparkno)
 	case OC_ex2_hitdefvar_sparkx:
 		sys.bcStack.PushF(c.hitdef.sparkxy[0] * (c.localscl / oc.localscl))
 	case OC_ex2_hitdefvar_sparky:
@@ -3657,6 +3667,15 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.hitdef.shaketime)
 	case OC_ex2_hitdefvar_guard_shaketime:
 		sys.bcStack.PushI(c.hitdef.guard_shaketime)
+	case OC_ex2_hitdefvar_hitsound_group:
+		sys.bcStack.PushI(c.hitdef.hitsound[0])
+	case OC_ex2_hitdefvar_hitsound_number:
+		sys.bcStack.PushI(c.hitdef.hitsound[1])
+	case OC_ex2_hitdefvar_guardsound_group:
+		sys.bcStack.PushI(c.hitdef.guardsound[0])
+	case OC_ex2_hitdefvar_guardsound_number:
+		sys.bcStack.PushI(c.hitdef.guardsound[1])
+	// HitByAttr
 	case OC_ex2_hitbyattr:
 		sys.bcStack.PushB(c.hitByAttrTrigger(*(*int32)(unsafe.Pointer(&be[*i]))))
 		*i += 4

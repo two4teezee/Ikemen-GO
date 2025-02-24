@@ -1577,7 +1577,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		pos:          drawpos,
 		scl:          drawscale,
 		alpha:        alp,
-		priority:     e.sprpriority + int32(e.pos[2]*e.localscl),
+		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
 		ascl:         [...]float32{1, 1},
 		screen:       e.space == Space_screen,

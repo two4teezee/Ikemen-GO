@@ -3014,12 +3014,18 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-	luaRegister(l, "helper", func(*lua.LState) int {
-		ret, id := false, int32(0)
+	luaRegister(l, "helper", func(l *lua.LState) int {
+		ret := false
+		id, index := int32(-1), 0
+		// Check if ID is provided
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.helper(id); c != nil {
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		if c := sys.debugWC.helperTrigger(id, index); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))

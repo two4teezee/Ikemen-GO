@@ -1281,12 +1281,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(be2...)
 		return bvNone(), nil
 	// Redirections with 1 argument
-	case "helper", "partner", "enemy", "enemynear", "playerid", "player", "playerindex", "helperindex":
+	case "partner", "enemy", "enemynear", "playerid", "player", "playerindex", "helperindex":
 		switch c.token {
 		case "player":
 			opc = OC_player
-		case "helper":
-			opc = OC_helper
 		case "partner":
 			opc = OC_partner
 		case "enemy":
@@ -1313,8 +1311,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			be1.appendValue(bv1)
 		} else {
 			switch opc {
-			case OC_helper:
-				be1.appendValue(BytecodeInt(-1))
 			case OC_partner, OC_enemy, OC_enemynear:
 				be1.appendValue(BytecodeInt(0))
 			case OC_player:
@@ -1343,8 +1339,13 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(be2...)
 		return bvNone(), nil
 	// Redirections with 2 arguments
-	case "target":
-		opc = OC_target
+	case "helper", "target":
+		switch c.token {
+		case "helper":
+			opc = OC_helper
+		case "target":
+			opc = OC_target
+		}
 		c.token = c.tokenizer(in)
 		if c.token == "(" {
 			c.token = c.tokenizer(in)
@@ -1361,7 +1362,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				}
 				be1.appendValue(bv2)
 			} else {
-				// If not then default index to 0
+				// If not, default index to 0
 				be1.appendValue(BytecodeInt(0))
 			}
 			if err := c.checkClosingBracket(); err != nil {

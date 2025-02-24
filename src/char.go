@@ -3634,13 +3634,27 @@ func (c *Char) root() *Char {
 	return sys.chars[c.playerNo][0]
 }
 
-func (c *Char) helper(id int32) *Char {
+func (c *Char) helperTrigger(id int32, idx int) *Char {
+	// Invalid index
+	if idx < 0 {
+		sys.appendToConsole(c.warn() + "helper redirection index cannot be negative")
+		return nil
+	}
+
+	// Filter helpers with the specified ID
+	var filteredHelpers []*Char
 	for _, h := range sys.chars[c.playerNo][1:] {
 		if !h.csf(CSF_destroy) && (id <= 0 || id == h.helperId) {
-			return h
+			filteredHelpers = append(filteredHelpers, h)
+			// Helper found at requested index
+			if idx >= 0 && len(filteredHelpers) == idx+1 {
+				return filteredHelpers[idx]
+			}
 		}
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper: %v", id))
+
+	// No valid helper found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with ID %v and index %v", id, idx))
 	return nil
 }
 
@@ -3662,11 +3676,11 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 func (c *Char) targetTrigger(id int32, idx int) *Char {
 	// Invalid index
 	if idx < 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("invalid target index: %v", idx))
+		sys.appendToConsole(c.warn() + "target redirection index cannot be negative")
 		return nil
 	}
 
-	// Filter targets with provided ID
+	// Filter targets with the specified ID
 	var filteredTargets []*Char
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {

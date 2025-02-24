@@ -3658,15 +3658,22 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
 }
 
-func (c *Char) target(id int32) *Char {
+func (c *Char) target(id int32, idx int) *Char {
+	// Filter targets with provided ID
+	var filteredTargets []*Char
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {
-			return t
+			filteredTargets = append(filteredTargets, t)
 		}
 	}
-	if id != -1 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no target: %v", id))
+
+	// Index must be within bounds
+	if idx >= 0 && idx < len(filteredTargets) {
+		return filteredTargets[idx]
 	}
+
+	// No valid target found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no target with hit ID %v and index %v", id, idx))
 	return nil
 }
 

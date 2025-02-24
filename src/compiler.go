@@ -1256,74 +1256,127 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	switch c.token {
 	case "":
 		return bvNone(), Error("Nothing assigned")
-	case "root", "player", "parent", "helper", "target", "partner",
-		"enemy", "enemynear", "playerid", "playerindex", "p2", "stateowner", "helperindex":
+	// Redirections without arguments
+	case "root", "parent", "p2", "stateowner":
 		switch c.token {
-		case "parent":
-			opc = OC_parent
-			c.token = c.tokenizer(in)
 		case "root":
 			opc = OC_root
-			c.token = c.tokenizer(in)
+		case "parent":
+			opc = OC_parent
 		case "p2":
 			opc = OC_p2
-			c.token = c.tokenizer(in)
 		case "stateowner":
 			opc = OC_stateowner
-			c.token = c.tokenizer(in)
-		default:
-			switch c.token {
-			case "player":
-				opc = OC_player
-			case "helper":
-				opc = OC_helper
-			case "target":
-				opc = OC_target
-			case "partner":
-				opc = OC_partner
-			case "enemy":
-				opc = OC_enemy
-			case "enemynear":
-				opc = OC_enemynear
-			case "playerid":
-				opc = OC_playerid
-			case "playerindex":
-				opc = OC_playerindex
-			case "helperindex":
-				opc = OC_helperindex
-			}
-			c.token = c.tokenizer(in)
-			if c.token == "(" {
-				c.token = c.tokenizer(in)
-				if bv1, err = c.expBoolOr(&be1, in); err != nil {
-					return bvNone(), err
-				}
-				if err := c.checkClosingBracket(); err != nil {
-					return bvNone(), err
-				}
-				c.token = c.tokenizer(in)
-				be1.appendValue(bv1)
-			} else {
-				switch opc {
-				case OC_helper, OC_target:
-					be1.appendValue(BytecodeInt(-1))
-				case OC_partner, OC_enemy, OC_enemynear:
-					be1.appendValue(BytecodeInt(0))
-				case OC_player:
-					return bvNone(), Error("Missing '(' after player")
-				case OC_playerid:
-					return bvNone(), Error("Missing '(' after playerid")
-				case OC_playerindex:
-					return bvNone(), Error("Missing '(' after playerindex")
-				case OC_helperindex:
-					return bvNone(), Error("Missing '(' after helperindex")
-				}
-			}
-			if rd {
-				out.appendI32Op(OC_nordrun, int32(len(be1)))
-			}
-			out.append(be1...)
 		}
+		c.token = c.tokenizer(in)
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expValue(&be2, in, true); err != nil {
+			return bvNone(), err
+		}
+		be2.appendValue(bv2)
+		out.appendI32Op(opc, int32(len(be2)))
+		out.append(be2...)
+		return bvNone(), nil
+	// Redirections with 1 argument
+	case "helper", "partner", "enemy", "enemynear", "playerid", "player", "playerindex", "helperindex":
+		switch c.token {
+		case "player":
+			opc = OC_player
+		case "helper":
+			opc = OC_helper
+		case "partner":
+			opc = OC_partner
+		case "enemy":
+			opc = OC_enemy
+		case "enemynear":
+			opc = OC_enemynear
+		case "playerid":
+			opc = OC_playerid
+		case "playerindex":
+			opc = OC_playerindex
+		case "helperindex":
+			opc = OC_helperindex
+		}
+		c.token = c.tokenizer(in)
+		if c.token == "(" {
+			c.token = c.tokenizer(in)
+			if bv1, err = c.expBoolOr(&be1, in); err != nil {
+				return bvNone(), err
+			}
+			if err := c.checkClosingBracket(); err != nil {
+				return bvNone(), err
+			}
+			c.token = c.tokenizer(in)
+			be1.appendValue(bv1)
+		} else {
+			switch opc {
+			case OC_helper:
+				be1.appendValue(BytecodeInt(-1))
+			case OC_partner, OC_enemy, OC_enemynear:
+				be1.appendValue(BytecodeInt(0))
+			case OC_player:
+				return bvNone(), Error("Missing '(' after player")
+			case OC_playerid:
+				return bvNone(), Error("Missing '(' after playerid")
+			case OC_playerindex:
+				return bvNone(), Error("Missing '(' after playerindex")
+			case OC_helperindex:
+				return bvNone(), Error("Missing '(' after helperindex")
+			}
+		}
+		if rd {
+			out.appendI32Op(OC_nordrun, int32(len(be1)))
+		}
+		out.append(be1...)
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expValue(&be2, in, true); err != nil {
+			return bvNone(), err
+		}
+		be2.appendValue(bv2)
+		out.appendI32Op(opc, int32(len(be2)))
+		out.append(be2...)
+		return bvNone(), nil
+	// Redirections with 2 arguments
+	case "target":
+		opc = OC_target
+		c.token = c.tokenizer(in)
+		if c.token == "(" {
+			c.token = c.tokenizer(in)
+			// Read the first argument (ID)
+			if bv1, err = c.expBoolOr(&be1, in); err != nil {
+				return bvNone(), err
+			}
+			be1.appendValue(bv1)
+			// Check if there's a second argument
+			if c.token == "," {
+				c.token = c.tokenizer(in)
+				if bv2, err = c.expBoolOr(&be1, in); err != nil {
+					return bvNone(), err
+				}
+				be1.appendValue(bv2)
+			} else {
+				// If not then default index to 0
+				be1.appendValue(BytecodeInt(0))
+			}
+			if err := c.checkClosingBracket(); err != nil {
+				return bvNone(), err
+			}
+			c.token = c.tokenizer(in)
+		} else {
+			// Default to ID -1 and index 0 if no arguments are provided
+			be1.appendValue(BytecodeInt(-1))
+			be1.appendValue(BytecodeInt(0))
+		}
+		if rd {
+			out.appendI32Op(OC_nordrun, int32(len(be1)))
+		}
+		out.append(be1...)
 		if c.token != "," {
 			return bvNone(), Error("Missing ','")
 		}

@@ -1496,7 +1496,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_target:
-			if c = c.target(sys.bcStack.Pop().ToI()); c != nil {
+			v2 := sys.bcStack.Pop().ToI()
+			v1 := sys.bcStack.Pop().ToI()
+			if c = c.target(v1, int(v2)); c != nil {
 				i += 4
 				continue
 			}

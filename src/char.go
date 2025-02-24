@@ -3658,18 +3658,24 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
 }
 
+// Target redirection
 func (c *Char) targetTrigger(id int32, idx int) *Char {
+	// Invalid index
+	if idx < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("invalid target index: %v", idx))
+		return nil
+	}
+
 	// Filter targets with provided ID
 	var filteredTargets []*Char
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {
 			filteredTargets = append(filteredTargets, t)
+			// Target found at requested index
+			if idx >= 0 && len(filteredTargets) == idx+1 {
+				return filteredTargets[idx]
+			}
 		}
-	}
-
-	// Return target at index specified
-	if idx >= 0 && idx < len(filteredTargets) {
-		return filteredTargets[idx]
 	}
 
 	// No valid target found
@@ -5946,6 +5952,7 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
+// Get list of targets for the Target state controllers
 func (c *Char) getTarget(id int32, idx int) []int32 {
 	// If ID and index are negative, just return all targets
 	// In Mugen the ID must be specifically -1
@@ -5959,16 +5966,15 @@ func (c *Char) getTarget(id int32, idx int) []int32 {
 		if t := sys.playerID(tid); t != nil && (id < 0 || t.ghv.hitid == id) {
 			filteredTargets = append(filteredTargets, tid)
 		}
+		// Target found at requested index
+		if idx >= 0 && len(filteredTargets) == idx+1 {
+			return []int32{filteredTargets[idx]}
+		}
 	}
 
 	// If index is negative, return all targets with specified ID
 	if idx < 0 {
 		return filteredTargets
-	}
-
-	// Return target with given ID at given index
-	if idx >= 0 && idx < len(filteredTargets) {
-		return []int32{filteredTargets[idx]}
 	}
 
 	// No valid target found

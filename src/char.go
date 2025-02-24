@@ -3658,7 +3658,7 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
 }
 
-func (c *Char) target(id int32, idx int) *Char {
+func (c *Char) targetTrigger(id int32, idx int) *Char {
 	// Filter targets with provided ID
 	var filteredTargets []*Char
 	for _, tid := range c.targets {
@@ -3667,7 +3667,7 @@ func (c *Char) target(id int32, idx int) *Char {
 		}
 	}
 
-	// Index must be within bounds
+	// Return target at index specified
 	if idx >= 0 && idx < len(filteredTargets) {
 		return filteredTargets[idx]
 	}
@@ -3706,7 +3706,7 @@ func (c *Char) partner(n int32, log bool) *Char {
 	return nil
 }
 
-func (c *Char) partnerV2(n int32) *Char {
+func (c *Char) partnerTag(n int32) *Char {
 	n = Max(0, n)
 	if int(n) > len(sys.chars)/2-2 {
 		return nil
@@ -5946,22 +5946,39 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
-func (c *Char) getTarget(id int32) []int32 {
-	if id < 0 { // In Mugen the ID must be specifically -1
+func (c *Char) getTarget(id int32, idx int) []int32 {
+	// If ID and index are negative, just return all targets
+	// In Mugen the ID must be specifically -1
+	if id < 0 && idx < 0 {
 		return c.targets
 	}
-	var tg []int32
+
+	// Filter targets with the specified ID
+	var filteredTargets []int32
 	for _, tid := range c.targets {
-		if t := sys.playerID(tid); t != nil {
-			if t.ghv.hitid == id {
-				tg = append(tg, tid)
-			}
+		if t := sys.playerID(tid); t != nil && (id < 0 || t.ghv.hitid == id) {
+			filteredTargets = append(filteredTargets, tid)
 		}
 	}
-	return tg
+
+	// If index is negative, return all targets with specified ID
+	if idx < 0 {
+		return filteredTargets
+	}
+
+	// Return target with given ID at given index
+	if idx >= 0 && idx < len(filteredTargets) {
+		return []int32{filteredTargets[idx]}
+	}
+
+	// No valid target found
+	return nil
 }
 
 func (c *Char) targetFacing(tar []int32, f int32) {
+	if f == 0 {
+		return
+	}
 	tf := c.facing
 	if f < 0 {
 		tf *= -1
@@ -6103,7 +6120,7 @@ func (c *Char) targetScoreAdd(tar []int32, s float32) {
 }
 
 func (c *Char) targetState(tar []int32, state int32) {
-	if state >= 0 {
+	if len(tar) > 0 && state >= 0 {
 		pn := c.ss.sb.playerNo
 		if c.minus == -2 || c.minus == -4 {
 			pn = c.playerNo

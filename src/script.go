@@ -3036,7 +3036,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 2) {
 			index = int(numArg(l, 2))
 		}
-		if c := sys.debugWC.target(id, index); c != nil {
+		if c := sys.debugWC.targetTrigger(id, index); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))

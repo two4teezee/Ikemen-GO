@@ -182,6 +182,7 @@ func newCompiler() *Compiler {
 		"teammapset":           c.teamMapSet,
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
+		"modifystagebg":        c.modifyStageBG,
 	}
 	return c
 }
@@ -3274,8 +3275,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		vname := c.token
 		var opc OpCode
 		switch vname {
-		case "anim":
-			opc = OC_ex2_stagebgvar_anim
+		case "actionno":
+			opc = OC_ex2_stagebgvar_actionno
 		case "delta":
 			c.token = c.tokenizer(in)
 			switch c.token {

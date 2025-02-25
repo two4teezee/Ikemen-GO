@@ -897,7 +897,7 @@ const (
 	OC_ex2_topboundbodydist
 	OC_ex2_botbounddist
 	OC_ex2_botboundbodydist
-	OC_ex2_stagebgvar_anim
+	OC_ex2_stagebgvar_actionno
 	OC_ex2_stagebgvar_delta_x
 	OC_ex2_stagebgvar_delta_y
 	OC_ex2_stagebgvar_id
@@ -3644,7 +3644,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_topbounddist:
 		sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
 	// StageBGVar
-	case OC_ex2_stagebgvar_anim,
+	case OC_ex2_stagebgvar_actionno,
 		OC_ex2_stagebgvar_delta_x, OC_ex2_stagebgvar_delta_y,
 		OC_ex2_stagebgvar_id, OC_ex2_stagebgvar_layerno,
 		OC_ex2_stagebgvar_pos_x, OC_ex2_stagebgvar_pos_y,
@@ -3658,7 +3658,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		// Handle output
 		if bg != nil {
 			switch opc {
-			case OC_ex2_stagebgvar_anim:
+			case OC_ex2_stagebgvar_actionno:
 				sys.bcStack.PushI(bg.actionno)
 			case OC_ex2_stagebgvar_delta_x:
 				sys.bcStack.PushF(bg.delta[0])
@@ -3669,6 +3669,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			case OC_ex2_stagebgvar_layerno:
 				sys.bcStack.PushI(bg.layerno)
 			case OC_ex2_stagebgvar_pos_x:
+				bg.bga.pos[0]++
 				sys.bcStack.PushF(bg.bga.pos[0] * sys.stage.localscl / oc.localscl)
 				//v = BytecodeFloat((bg.bga.pos[0]*slscl - sys.cam.Pos[0] * sys.cam.Scale) / c.localscl)
 			case OC_ex2_stagebgvar_pos_y:
@@ -12373,6 +12374,165 @@ func (sc transformClsn) Run(c *Char, _ []int32) bool {
 				crun = rid
 			} else {
 				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
+type modifyStageBG StateControllerBase
+
+const (
+	modifyStageBG_id byte = iota
+	modifyStageBG_index
+	modifyStageBG_actionno
+	modifyStageBG_alpha
+	modifyStageBG_delta_x
+	modifyStageBG_delta_y
+	modifyStageBG_layerno
+	modifyStageBG_pos_x
+	modifyStageBG_pos_y
+	modifyStageBG_spriteno
+	modifyStageBG_start_x
+	modifyStageBG_start_y
+	modifyStageBG_trans
+	modifyStageBG_vel_x
+	modifyStageBG_vel_y
+)
+
+func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
+	bgid := int32(-1)
+	bgidx := int(-1)
+	var backgrounds []*backGround
+
+	// Helper function to modify each BG
+	eachBg := func(f func(bg *backGround)) {
+		for _, bg := range backgrounds {
+			f(bg)
+		}
+	}
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case modifyStageBG_id:
+			bgid = exp[0].evalI(c)
+		case modifyStageBG_index:
+			bgidx = int(exp[0].evalI(c))
+		default:
+			// Get BG's to modify
+			if len(backgrounds) == 0 {
+				backgrounds = c.getMultipleStageBg(bgid, bgidx, false)
+				if len(backgrounds) == 0 {
+					return false
+				}
+			}
+			// Start modifying
+			switch paramID {
+			case modifyStageBG_actionno:
+				val := exp[0].evalI(c)
+				a := sys.stage.at.get(val) // Check if stage has that animation
+				if a != nil {
+					eachBg(func(bg *backGround) {
+						if bg._type == BG_Anim {
+							bg.changeAnim(val, a)
+							bg.anim.Action() // This step is necessary because stages update before characters
+						}
+					})
+				}
+			case modifyStageBG_alpha:
+				v1 := int16(exp[0].evalI(c))
+				v2 := int16(exp[1].evalI(c))
+				eachBg(func(bg *backGround) {
+					bg.anim.mask = 0
+					bg.anim.srcAlpha = v1
+					bg.anim.dstAlpha = v2
+					if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 { // Sub fix
+						bg.anim.srcAlpha = 0
+					}
+				})
+			case modifyStageBG_delta_x:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.delta[0] = val
+				})
+			case modifyStageBG_delta_y:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.delta[1] = val
+				})
+			case modifyStageBG_layerno:
+				val := exp[0].evalI(c)
+				eachBg(func(bg *backGround) {
+					bg.layerno = val
+				})
+			case modifyStageBG_pos_x:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.bga.pos[0] = val
+				})
+			case modifyStageBG_pos_y:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.bga.pos[1] = val
+				})
+			case modifyStageBG_spriteno:
+				gr := exp[0].evalI(c)
+				im := exp[1].evalI(c)
+				eachBg(func(bg *backGround) {
+					if bg._type == BG_Normal {
+						bg.anim.frames = []AnimFrame{*newAnimFrame()}
+						bg.anim.frames[0].Group = I32ToI16(gr)
+						bg.anim.frames[0].Number = I32ToI16(im)
+					}
+				})
+			case modifyStageBG_start_x:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.start[0] = val
+				})
+			case modifyStageBG_start_y:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.start[1] = val
+				})
+			case modifyStageBG_trans:
+				val := exp[0].evalI(c)
+				if val == 0 || val == 1 || val == 2 || val == 3 || val == 4 {
+					eachBg(func(bg *backGround) {
+						switch val {
+						case 0: // None
+							bg.anim.srcAlpha = -1
+							bg.anim.dstAlpha = 0
+						case 1: // Add
+							bg.anim.mask = 0
+							bg.anim.srcAlpha = 255
+							bg.anim.dstAlpha = 255
+						case 2: // Add1
+							bg.anim.mask = 0
+							bg.anim.srcAlpha = 255
+							bg.anim.dstAlpha = 128
+						case 3: // Addalpha
+							bg.anim.mask = 0
+							bg.anim.srcAlpha = 255 // Default to Add first
+							bg.anim.dstAlpha = 255
+						case 4: // Sub
+							bg.anim.mask = 0
+							bg.anim.srcAlpha = 1 // That old hack that needs refactoring
+							bg.anim.dstAlpha = 255
+						}
+					})
+				}
+			case modifyStageBG_vel_x:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.bga.vel[0] = val
+				})
+			case modifyStageBG_vel_y:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.bga.vel[1] = val
+				})
 			}
 		}
 		return true

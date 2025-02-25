@@ -5823,6 +5823,126 @@ func (c *Compiler) transformClsn(is IniSection, sc *StateControllerBase, _ int8)
 	return *ret, err
 }
 
+func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyStageBG)(sc), c.stateSec(is, func() error {
+		//if err := c.paramValue(is, sc, "redirectid",
+		//	modifyStageBG_redirectid, VT_Int, 1, false); err != nil {
+		//	return err
+		//}
+		if err := c.paramValue(is, sc, "id",
+			modifyStageBG_id, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "index",
+			modifyStageBG_index, VT_Int, 1, false); err != nil {
+			return err
+		}
+		any := false
+		if err := c.stateParam(is, "actionno", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_actionno, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "delta.x", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_delta_x, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "delta.y", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_delta_y, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "layerno", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_layerno, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "pos.x", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_pos_x, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "pos.y", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_pos_y, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "spriteno", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_spriteno, data, VT_Int, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "start.x", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_start_x, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "start.y", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_start_y, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "trans", false, func(data string) error {
+			if len(data) == 0 {
+				return Error("Trans type not specified")
+			}
+			any = true
+			var blend int32
+			switch strings.ToLower(data) {
+			case "none":
+				blend = 0
+			case "add":
+				blend = 1
+			case "add1":
+				blend = 2
+			case "addalpha":
+				blend = 3
+			case "sub":
+				blend = 4
+			default:
+				return Error("Invalid trans type: " + data)
+			}
+			sc.add(modifyStageBG_trans, sc.iToExp(blend))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "alpha", false, func(data string) error { // Best if placed after trans
+			any = true
+			return c.scAdd(sc, modifyStageBG_alpha, data, VT_Int, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "vel.x", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_vel_x, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "vel.y", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_vel_y, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if !any {
+			return Error("Must specify at least one ModifyStageBG parameter")
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 // It's just a Null... Has no effect whatsoever.
 func (c *Compiler) null(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	return nullStateController, nil

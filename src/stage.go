@@ -350,6 +350,22 @@ func (bg *backGround) reset() {
 	bg.palfx.invertblend = -3
 }
 
+// Changes BG animation without changing surrounding parameters
+func (bg *backGround) changeAnim(val int32, a *Animation) {
+	// Save old
+	masktemp := bg.anim.mask
+	srcAlphatemp := bg.anim.srcAlpha
+	dstAlphatemp := bg.anim.dstAlpha
+	tiletmp := bg.anim.tile
+	// Change anim and restore old
+	bg.actionno = val
+	bg.anim = *a
+	bg.anim.tile = tiletmp
+	bg.anim.dstAlpha = dstAlphatemp
+	bg.anim.srcAlpha = srcAlphatemp
+	bg.anim.mask = masktemp
+}
+
 func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	stgscl [2]float32, shakeY float32, isStage bool) {
 
@@ -1461,22 +1477,11 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 	bgc.currenttime++
 	switch bgc._type {
 	case BT_Anim:
-		a := s.at.get(bgc.v[0])
-		if a != nil {
+		if a := s.at.get(bgc.v[0]); a != nil {
 			for i := range bgc.bg {
-				masktemp := bgc.bg[i].anim.mask
-				srcAlphatemp := bgc.bg[i].anim.srcAlpha
-				dstAlphatemp := bgc.bg[i].anim.dstAlpha
-				tiletmp := bgc.bg[i].anim.tile
-				bgc.bg[i].actionno = bgc.v[0]
-				bgc.bg[i].anim = *a
-				bgc.bg[i].anim.tile = tiletmp
-				bgc.bg[i].anim.dstAlpha = dstAlphatemp
-				bgc.bg[i].anim.srcAlpha = srcAlphatemp
-				bgc.bg[i].anim.mask = masktemp
+				bgc.bg[i].changeAnim(bgc.v[0], a)
 			}
 		}
-
 		for i := range bgc.anim {
 			bgc.anim[i].toggle(bgc.v[0] != 0)
 		}

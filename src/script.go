@@ -4862,6 +4862,49 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LString(s))
 		return 1
 	})
+	luaRegister(l, "stagebgvar", func(l *lua.LState) int {
+		ln := lua.LNumber(math.NaN())
+		id := int32(numArg(l, 1))
+		idx := int(numArg(l, 2))
+		vname := strArg(l, 3)
+		// Get stage background element
+		bg := sys.debugWC.getStageBg(id, idx, false)
+		// Handle returns
+		if bg != nil {
+			switch strings.ToLower(vname) {
+			case "anim":
+				ln = lua.LNumber(bg.actionno)
+			case "delta x":
+				ln = lua.LNumber(bg.delta[0])
+			case "delta y":
+				ln = lua.LNumber(bg.delta[1])
+			case "id":
+				ln = lua.LNumber(bg.id)
+			case "layerno":
+				ln = lua.LNumber(bg.layerno)
+			case "pos x":
+				ln = lua.LNumber(bg.bga.pos[0])
+			case "pos y":
+				ln = lua.LNumber(bg.bga.pos[1])
+			case "start x":
+				ln = lua.LNumber(bg.start[0])
+			case "start y":
+				ln = lua.LNumber(bg.start[1])
+			case "tile x":
+				ln = lua.LNumber(bg.anim.tile.xflag)
+			case "tile y":
+				ln = lua.LNumber(bg.anim.tile.yflag)
+			case "vel x":
+				ln = lua.LNumber(bg.bga.vel[0])
+			case "vel y":
+				ln = lua.LNumber(bg.bga.vel[1])
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
+			}
+		}
+		l.Push(ln)
+		return 1
+	})
 	luaRegister(l, "stagevar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "info.name":

@@ -5966,6 +5966,35 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
+// Get stage BG elements for StageBGVar trigger
+func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "background element index cannot be negative")
+		}
+		return nil
+	}
+
+	// Filter background elements with the specified ID
+	var filteredBg []*backGround
+	for _, bg := range sys.stage.bg {
+		if id < 0 || id == bg.id {
+			filteredBg = append(filteredBg, bg)
+			// Background element found at requested index
+			if idx >= 0 && len(filteredBg) == idx+1 {
+				return filteredBg[idx]
+			}
+		}
+	}
+
+	// No valid background element found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
 // Get list of targets for the Target state controllers
 func (c *Char) getTarget(id int32, idx int) []int32 {
 	// If ID and index are negative, just return all targets

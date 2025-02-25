@@ -320,6 +320,7 @@ var triggerMap = map[string]int{
 	"screenwidth":       1,
 	"selfanimexist":     1,
 	"sin":               1,
+	"stagebgvar":        1,
 	"stagevar":          1,
 	"stateno":           1,
 	"statetype":         1,
@@ -3247,6 +3248,106 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}); err != nil {
 			return bvNone(), err
 		}
+	case "stagebgvar":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		// First argument
+		bv1, err := c.expBoolOr(&be1, in)
+		if err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		// Second argument
+		c.token = c.tokenizer(in)
+		bv2, err := c.expBoolOr(&be2, in)
+		if err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		// Third argument
+		c.token = c.tokenizer(in)
+		vname := c.token
+		var opc OpCode
+		switch vname {
+		case "anim":
+			opc = OC_ex2_stagebgvar_anim
+		case "delta":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_delta_x
+			case "y":
+				opc = OC_ex2_stagebgvar_delta_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar delta argument: " + c.token)
+			}
+		case "id":
+			opc = OC_ex2_stagebgvar_id
+		case "layerno":
+			opc = OC_ex2_stagebgvar_layerno
+		case "pos":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_pos_x
+			case "y":
+				opc = OC_ex2_stagebgvar_pos_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar pos argument: " + c.token)
+			}
+		case "start":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_start_x
+			case "y":
+				opc = OC_ex2_stagebgvar_start_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar start argument: " + c.token)
+			}
+		case "tile":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_tile_x
+			case "y":
+				opc = OC_ex2_stagebgvar_tile_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar tile argument: " + c.token)
+			}
+		case "vel":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_vel_x
+			case "y":
+				opc = OC_ex2_stagebgvar_vel_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar vel argument: " + c.token)
+			}
+		default:
+			return bvNone(), Error("Invalid StageBGVar string argument: " + vname)
+		}
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		// Output
+		be2.appendValue(bv2)
+		be1.appendValue(bv1)
+		if len(be2) > int(math.MaxUint8-1) {
+			be1.appendI32Op(OC_jz, int32(len(be2)+1))
+		} else {
+			be1.append(OC_jz8, OpCode(len(be2)+1))
+		}
+		be1.append(be2...)
+		be1.append(OC_ex2_, opc)
+		out.append(be1...)
 	case "stagevar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err

@@ -897,6 +897,19 @@ const (
 	OC_ex2_topboundbodydist
 	OC_ex2_botbounddist
 	OC_ex2_botboundbodydist
+	OC_ex2_stagebgvar_anim
+	OC_ex2_stagebgvar_delta_x
+	OC_ex2_stagebgvar_delta_y
+	OC_ex2_stagebgvar_id
+	OC_ex2_stagebgvar_layerno
+	OC_ex2_stagebgvar_pos_x
+	OC_ex2_stagebgvar_pos_y
+	OC_ex2_stagebgvar_start_x
+	OC_ex2_stagebgvar_start_y
+	OC_ex2_stagebgvar_tile_x
+	OC_ex2_stagebgvar_tile_y
+	OC_ex2_stagebgvar_vel_x
+	OC_ex2_stagebgvar_vel_y
 )
 
 const (
@@ -1934,7 +1947,8 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 
 func (be BytecodeExp) run_st(c *Char, i *int) {
 	(*i)++
-	switch be[*i-1] {
+	opc := be[*i-1]
+	switch opc {
 	case OC_st_var:
 		v := sys.bcStack.Pop().ToI()
 		*sys.bcStack.Top() = c.varSet(sys.bcStack.Top().ToI(), v)
@@ -1968,7 +1982,8 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 
 func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	(*i)++
-	switch be[*i-1] {
+	opc := be[*i-1]
+	switch opc {
 	case OC_const_data_life:
 		sys.bcStack.PushI(c.gi().data.life)
 	case OC_const_data_power:
@@ -2468,7 +2483,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 
 func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	(*i)++
-	switch be[*i-1] {
+	opc := be[*i-1]
+	switch opc {
 	case OC_ex_p2dist_x:
 		sys.bcStack.Push(c.rdDistX(c.p2(), oc))
 	case OC_ex_p2dist_y:
@@ -3721,6 +3737,53 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.topBoundBodyDist() * (c.localscl / oc.localscl))
 	case OC_ex2_topbounddist:
 		sys.bcStack.PushF(c.topBoundDist() * (c.localscl / oc.localscl))
+	// StageBGVar
+	case OC_ex2_stagebgvar_anim,
+		OC_ex2_stagebgvar_delta_x, OC_ex2_stagebgvar_delta_y,
+		OC_ex2_stagebgvar_id, OC_ex2_stagebgvar_layerno,
+		OC_ex2_stagebgvar_pos_x, OC_ex2_stagebgvar_pos_y,
+		OC_ex2_stagebgvar_start_x, OC_ex2_stagebgvar_start_y,
+		OC_ex2_stagebgvar_tile_x, OC_ex2_stagebgvar_tile_y,
+		OC_ex2_stagebgvar_vel_x, OC_ex2_stagebgvar_vel_y:
+		// Common inputs
+		idx := int(sys.bcStack.Pop().ToI())
+		id := sys.bcStack.Pop().ToI()
+		bg := oc.getStageBg(id, idx, true)
+		// Handle output
+		if bg != nil {
+			switch opc {
+			case OC_ex2_stagebgvar_anim:
+				sys.bcStack.PushI(bg.actionno)
+			case OC_ex2_stagebgvar_delta_x:
+				sys.bcStack.PushF(bg.delta[0])
+			case OC_ex2_stagebgvar_delta_y:
+				sys.bcStack.PushF(bg.delta[1])
+			case OC_ex2_stagebgvar_id:
+				sys.bcStack.PushI(bg.id)
+			case OC_ex2_stagebgvar_layerno:
+				sys.bcStack.PushI(bg.layerno)
+			case OC_ex2_stagebgvar_pos_x:
+				sys.bcStack.PushF(bg.bga.pos[0] * sys.stage.localscl / oc.localscl)
+				//v = BytecodeFloat((bg.bga.pos[0]*slscl - sys.cam.Pos[0] * sys.cam.Scale) / c.localscl)
+			case OC_ex2_stagebgvar_pos_y:
+				sys.bcStack.PushF(bg.bga.pos[1] * sys.stage.localscl / oc.localscl)
+				//v = BytecodeFloat((bg.bga.pos[1]*sscale - sys.cam.GroundLevel()) / cscale)
+			case OC_ex2_stagebgvar_start_x:
+				sys.bcStack.PushF(bg.start[0] * sys.stage.localscl / oc.localscl)
+			case OC_ex2_stagebgvar_start_y:
+				sys.bcStack.PushF(bg.start[1] * sys.stage.localscl / oc.localscl)
+			case OC_ex2_stagebgvar_tile_x:
+				sys.bcStack.PushI(bg.anim.tile.xflag)
+			case OC_ex2_stagebgvar_tile_y:
+				sys.bcStack.PushI(bg.anim.tile.yflag)
+			case OC_ex2_stagebgvar_vel_x:
+				sys.bcStack.PushF(bg.bga.vel[0] * sys.stage.localscl / oc.localscl)
+			case OC_ex2_stagebgvar_vel_y:
+				sys.bcStack.PushF(bg.bga.vel[1] * sys.stage.localscl / oc.localscl)
+			}
+		} else {
+			sys.bcStack.Push(BytecodeSF())
+		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

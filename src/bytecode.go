@@ -2726,89 +2726,48 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
-	case OC_ex_animelemvar_alphadest:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.DstAlpha))
+	// AnimelemVar
+	case OC_ex_animelemvar_alphadest, OC_ex_animelemvar_alphasource, OC_ex_animelemvar_angle,
+		OC_ex_animelemvar_group, OC_ex_animelemvar_hflip, OC_ex_animelemvar_image,
+		OC_ex_animelemvar_time, OC_ex_animelemvar_vflip, OC_ex_animelemvar_xoffset,
+		OC_ex_animelemvar_xscale, OC_ex_animelemvar_yoffset, OC_ex_animelemvar_yscale,
+		OC_ex_animelemvar_numclsn1, OC_ex_animelemvar_numclsn2:
+		// Check for valid animation frame
+		f := c.anim.CurrentFrame()
+		// Handle output
+		if f != nil {
+			switch opc {
+			case OC_ex_animelemvar_alphadest:
+				sys.bcStack.PushI(int32(f.DstAlpha))
+			case OC_ex_animelemvar_alphasource:
+				sys.bcStack.PushI(int32(f.SrcAlpha))
+			case OC_ex_animelemvar_angle:
+				sys.bcStack.PushF(f.Angle)
+			case OC_ex_animelemvar_group:
+				sys.bcStack.PushI(int32(f.Group))
+			case OC_ex_animelemvar_hflip:
+				sys.bcStack.PushB(f.Hscale < 0)
+			case OC_ex_animelemvar_image:
+				sys.bcStack.PushI(int32(f.Number))
+			case OC_ex_animelemvar_time:
+				sys.bcStack.PushI(f.Time)
+			case OC_ex_animelemvar_vflip:
+				sys.bcStack.PushB(f.Vscale < 0)
+			case OC_ex_animelemvar_xoffset:
+				sys.bcStack.PushI(int32(f.Xoffset))
+			case OC_ex_animelemvar_xscale:
+				sys.bcStack.PushF(f.Xscale)
+			case OC_ex_animelemvar_yoffset:
+				sys.bcStack.PushI(int32(f.Yoffset))
+			case OC_ex_animelemvar_yscale:
+				sys.bcStack.PushF(f.Yscale)
+			case OC_ex_animelemvar_numclsn1:
+				sys.bcStack.PushI(int32(len(f.Clsn1()) / 4))
+			case OC_ex_animelemvar_numclsn2:
+				sys.bcStack.PushI(int32(len(f.Clsn2()) / 4))
+			}
 		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_angle:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushF(f.Angle)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_alphasource:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.SrcAlpha))
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_group:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.Group))
-		} else {
-			sys.bcStack.PushI(-1)
-		}
-	case OC_ex_animelemvar_hflip:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushB(f.Hscale < 0)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_image:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.Number))
-		} else {
-			sys.bcStack.PushI(-1)
-		}
-	case OC_ex_animelemvar_time:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(f.Time)
-		} else {
-			sys.bcStack.PushI(-1)
-		}
-	case OC_ex_animelemvar_vflip:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushB(f.Vscale < 0)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_xoffset:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.Xoffset))
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_xscale:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushF(f.Xscale)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_yoffset:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(f.Yoffset))
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_yscale:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushF(f.Yscale)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_numclsn1:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(len(f.Clsn1()) / 4))
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_animelemvar_numclsn2:
-		if f := c.anim.CurrentFrame(); f != nil {
-			sys.bcStack.PushI(int32(len(f.Clsn2()) / 4))
-		} else {
-			sys.bcStack.PushI(0)
+			sys.bcStack.Push(BytecodeSF())
 		}
 	case OC_ex_animlength:
 		sys.bcStack.PushI(c.anim.totaltime)
@@ -2913,101 +2872,48 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.ss.sb.playerNo != c.playerNo)
 	case OC_ex_indialogue:
 		sys.bcStack.PushB(sys.dialogueFlg)
-	case OC_ex_inputtime_B:
+	// InputTime
+	case OC_ex_inputtime_B, OC_ex_inputtime_D, OC_ex_inputtime_F, OC_ex_inputtime_U, OC_ex_inputtime_L, OC_ex_inputtime_R,
+		OC_ex_inputtime_a, OC_ex_inputtime_b, OC_ex_inputtime_c, OC_ex_inputtime_x, OC_ex_inputtime_y, OC_ex_inputtime_z,
+		OC_ex_inputtime_s, OC_ex_inputtime_d, OC_ex_inputtime_w, OC_ex_inputtime_m:
+		// Check for valid inputs
 		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Bb)
+			switch opc {
+			case OC_ex_inputtime_B:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Bb)
+			case OC_ex_inputtime_D:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Db)
+			case OC_ex_inputtime_F:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Fb)
+			case OC_ex_inputtime_U:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Ub)
+			case OC_ex_inputtime_L:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Lb)
+			case OC_ex_inputtime_R:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Rb)
+			case OC_ex_inputtime_a:
+				sys.bcStack.PushI(c.cmd[0].Buffer.ab)
+			case OC_ex_inputtime_b:
+				sys.bcStack.PushI(c.cmd[0].Buffer.bb)
+			case OC_ex_inputtime_c:
+				sys.bcStack.PushI(c.cmd[0].Buffer.cb)
+			case OC_ex_inputtime_x:
+				sys.bcStack.PushI(c.cmd[0].Buffer.xb)
+			case OC_ex_inputtime_y:
+				sys.bcStack.PushI(c.cmd[0].Buffer.yb)
+			case OC_ex_inputtime_z:
+				sys.bcStack.PushI(c.cmd[0].Buffer.zb)
+			case OC_ex_inputtime_s:
+				sys.bcStack.PushI(c.cmd[0].Buffer.sb)
+			case OC_ex_inputtime_d:
+				sys.bcStack.PushI(c.cmd[0].Buffer.db)
+			case OC_ex_inputtime_w:
+				sys.bcStack.PushI(c.cmd[0].Buffer.wb)
+			case OC_ex_inputtime_m:
+				sys.bcStack.PushI(c.cmd[0].Buffer.mb)
+			}
 		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_D:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Db)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_F:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Fb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_U:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Ub)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_L:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Lb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_R:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.Rb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_a:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.ab)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_b:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.bb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_c:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.cb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_x:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.xb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_y:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.yb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_z:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.zb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_s:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.sb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_d:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.db)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_w:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.wb)
-		} else {
-			sys.bcStack.PushI(0)
-		}
-	case OC_ex_inputtime_m:
-		if c.keyctrl[0] && c.cmd != nil {
-			sys.bcStack.PushI(c.cmd[0].Buffer.mb)
-		} else {
-			sys.bcStack.PushI(0)
+			sys.bcStack.Push(BytecodeSF())
 		}
 	case OC_ex_isassertedchar:
 		sys.bcStack.PushB(c.asf(AssertSpecialFlag((*(*int64)(unsafe.Pointer(&be[*i]))))))

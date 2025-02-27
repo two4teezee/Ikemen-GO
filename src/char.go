@@ -5166,7 +5166,7 @@ func (c *Char) newExplod() (*Explod, int) {
 		expl.playerId = c.id
 		expl.layerno = c.layerNo
 		expl.palfx = c.getPalfx()
-		expl.palfxdef = PalFXDef{color: 1, hue: 0, mul: [...]int32{256, 256, 256}}
+		expl.palfxdef = *newPalFXDef()
 		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 			expl.projection = Projection_Perspective
 		} else {

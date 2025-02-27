@@ -1301,7 +1301,18 @@ func (c *Compiler) allPalFX(is IniSection, sc *StateControllerBase, _ int8) (Sta
 
 func (c *Compiler) bgPalFX(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*bgPalFX)(sc), c.stateSec(is, func() error {
-		return c.palFXSub(is, sc, "")
+		if err := c.paramValue(is, sc, "id",
+			bgPalFX_id, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "index",
+			bgPalFX_index, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.palFXSub(is, sc, ""); err != nil {
+			return err
+		}
+		return nil
 	})
 	return *ret, err
 }

@@ -5287,15 +5287,49 @@ func (sc allPalFX) Run(c *Char, _ []int32) bool {
 
 type bgPalFX palFX
 
+const (
+	bgPalFX_id byte = iota + palFX_last + 1
+	bgPalFX_index
+)
+
 func (sc bgPalFX) Run(c *Char, _ []int32) bool {
-	sys.bgPalFX.clear()
-	// Forcing 1.1 behavior
-	sys.bgPalFX.invertblend = -2
+	bgid := int32(-1)
+	bgidx := int(-1)
+	var backgrounds []*backGround
+
+	pfx := *newPalFXDef()
+	pfx.invertblend = -2 // Forcing 1.1 behavior
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
-		palFX(sc).runSub(c, &sys.bgPalFX.PalFXDef, paramID, exp)
-		sys.bgPalFX.invertblend = -3
+		switch paramID {
+		case bgPalFX_id:
+			bgid = exp[0].evalI(c)
+		case bgPalFX_index:
+			bgidx = int(exp[0].evalI(c))
+		default:
+			// Parse PalFX parameters
+			palFX(sc).runSub(c, &pfx, paramID, exp)
+		}
 		return true
 	})
+	// Apply BGPalFX
+	if bgid < 0 && bgidx < 0 {
+		// Apply to stage itself
+		sys.bgPalFX.clear()
+		sys.bgPalFX.PalFXDef = pfx
+		sys.bgPalFX.invertblend = -3
+	} else {
+		// Apply to specific elements
+		backgrounds = c.getMultipleStageBg(bgid, bgidx, false)
+		if len(backgrounds) == 0 {
+			return false
+		}
+		for _, bg := range backgrounds {
+			bg.palfx.clear()
+			bg.palfx.PalFXDef = pfx
+			bg.palfx.invertblend = -3
+		}
+	}
 	return false
 }
 

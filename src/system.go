@@ -1116,8 +1116,8 @@ func (s *System) nextRound() {
 		}
 		if s.stage.model != nil {
 			sys.mainThreadTask <- func() {
-				gfx.SetStageVertexData(s.stage.model.vertexBuffer)
-				gfx.SetStageIndexData(s.stage.model.elementBuffer...)
+				gfx.SetModelVertexData(0, s.stage.model.vertexBuffer)
+				gfx.SetModelIndexData(0, s.stage.model.elementBuffer...)
 			}
 		}
 	}

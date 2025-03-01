@@ -31,10 +31,10 @@ type Renderer interface {
 	BlendReset()
 	SetPipeline(eq BlendEquation, src, dst BlendFunc)
 	ReleasePipeline()
-	prepareShadowMapPipeline()
+	prepareShadowMapPipeline(bufferIndex uint32)
 	setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
 	ReleaseShadowPipeline()
-	prepareModelPipeline(env *Environment)
+	prepareModelPipeline(bufferIndex uint32, env *Environment)
 	SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
 	ReleaseModelPipeline()
 
@@ -66,8 +66,8 @@ type Renderer interface {
 	SetShadowFrameTexture(i uint32)
 	SetShadowFrameCubeTexture(i uint32)
 	SetVertexData(values ...float32)
-	SetStageVertexData(values []byte)
-	SetStageIndexData(values ...uint32)
+	SetModelVertexData(bufferIndex uint32, values []byte)
+	SetModelIndexData(bufferIndex uint32, values ...uint32)
 
 	RenderQuad()
 	RenderElements(mode PrimitiveMode, count, offset int)

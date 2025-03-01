@@ -598,9 +598,10 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, s)
 		}
-		bg, err := loadBGDef(s, strArg(l, 2), strArg(l, 3))
+		model, ok := toUserData(l, 2).(*Model)
+		bg, err := loadBGDef(s, model, strArg(l, 3), strArg(l, 4))
 		if err != nil {
-			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 3), strArg(l, 2), err.Error())
+			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 4), strArg(l, 3), err.Error())
 		}
 		l.Push(newUserData(l, bg))
 		return 1
@@ -2240,6 +2241,21 @@ func systemScriptInit(l *lua.LState) {
 			l.Push(newUserData(l, sff))
 		} else {
 			l.Push(newUserData(l, newSff()))
+		}
+		return 1
+	})
+	luaRegister(l, "modelNew", func(l *lua.LState) int {
+		if !nilArg(l, 1) {
+			mdl, err := loadglTFModel(strArg(l, 1))
+			if err != nil {
+				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
+			}
+			sys.mainThreadTask <- func() {
+				gfx.SetModelVertexData(1, mdl.vertexBuffer)
+				gfx.SetModelIndexData(1, mdl.elementBuffer...)
+			}
+			sys.runMainThreadTask()
+			l.Push(newUserData(l, mdl))
 		}
 		return 1
 	})

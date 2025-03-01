@@ -2,7 +2,10 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strings"
+
+	mgl "github.com/go-gl/mathgl/mgl32"
 )
 
 func (bgct *bgcTimeLine) stepBGDef(s *BGDef) {
@@ -57,6 +60,13 @@ type BGDef struct {
 	scale        [2]float32
 	stageprops   StageProps
 	bgclearcolor [3]int32
+	model        *Model
+	sceneNumber  int32
+	fov          float32
+	near         float32
+	far          float32
+	modelOffset  [3]float32
+	modelScale   [3]float32
 }
 
 func newBGDef(def string) *BGDef {
@@ -65,7 +75,7 @@ func newBGDef(def string) *BGDef {
 	return s
 }
 
-func loadBGDef(sff *Sff, def string, bgname string) (*BGDef, error) {
+func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error) {
 	s := newBGDef(def)
 	str, err := LoadText(def)
 	if err != nil {
@@ -89,8 +99,20 @@ func loadBGDef(sff *Sff, def string, bgname string) (*BGDef, error) {
 	}
 	if sec := defmap[fmt.Sprintf("%sdef", bgname)]; len(sec) > 0 {
 		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
+		s.sceneNumber = -1
+		sec[0].readI32ForStage("scenenumber", &s.sceneNumber)
+		sec[0].readF32ForStage("fov", &s.fov)
+		sec[0].readF32ForStage("near", &s.near)
+		sec[0].readF32ForStage("far", &s.far)
+		if offset := sec[0].readF32CsvForStage("modeloffset"); len(offset) == 3 {
+			s.modelOffset = [3]float32{offset[0], offset[1], offset[2]}
+		}
+		if scale := sec[0].readF32CsvForStage("modelscale"); len(scale) == 3 {
+			s.modelScale = [3]float32{scale[0], scale[1], scale[2]}
+		}
 	}
 	s.sff = sff
+	s.model = model
 	s.at = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
 	var bglink *backGround
 	for _, bgsec := range defmap[bgname] {
@@ -271,6 +293,9 @@ func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 func (s *BGDef) action() {
 	s.bgct.stepBGDef(s)
 	s.bga.action()
+	if s.model != nil {
+		s.model.step(1)
+	}
 	link := 0
 	for i, b := range s.bg {
 		s.bg[i].bga.action()
@@ -291,6 +316,16 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 	// TODO: Doing this in layer 0 is currently necessary for it to work in screenpacks, but it might be introducing a frame of delay in layer -1
 	if layer == 0 {
 		s.action()
+	}
+	if s.model != nil && s.sceneNumber >= 0 {
+		if layer == 0 {
+			s.model.calculateTextureTransform()
+		}
+		drawFOV := s.fov * math.Pi / 180
+		proj := mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.near, s.far)
+		view := mgl.Translate3D(s.modelOffset[0], s.modelOffset[1], s.modelOffset[2])
+		view = view.Mul4(mgl.Scale3D(s.modelScale[0], s.modelScale[1], s.modelScale[2]))
+		s.model.draw(1, int(s.sceneNumber), int(layer), 0, s.modelOffset, proj, view)
 	}
 	//x, y = x/s.localscl, y/s.localscl
 	for _, b := range s.bg {

@@ -3857,7 +3857,7 @@ func triggerFunctions(l *lua.LState) {
 		case "guarded":
 			ln = lua.LNumber(Btoi(c.ghv.guarded))
 		case "isbound":
-			ln = lua.LNumber(Btoi(c.isBound()))
+			ln = lua.LNumber(Btoi(c.isTargetBound()))
 		case "fall":
 			ln = lua.LNumber(Btoi(c.ghv.fallflag))
 		case "fall.damage":

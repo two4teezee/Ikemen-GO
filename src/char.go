@@ -4977,21 +4977,13 @@ func (c *Char) destroy() {
 		c.exitTarget()
 		c.receivedDmg = 0
 		c.receivedHits = 0
-		if c.playerFlag {
-			// sys.charList.p2enemyDelete(c)
-			sys.charList.enemyNearChanged = true
-		}
+		// Remove ID from target's GetHitVars
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
-				if t.bindToId == c.id {
-					if t.ss.moveType == MT_H {
-						t.selfState(5050, -1, -1, -1, "")
-					}
-				}
-				t.gethitBindClear()
 				t.ghv.dropId(c.id)
 			}
 		}
+		// Remove ID from parent's children list
 		if c.parentIndex >= 0 {
 			if p := c.parent(); p != nil {
 				for i, ch := range p.children {
@@ -5001,12 +4993,17 @@ func (c *Char) destroy() {
 				}
 			}
 		}
+		// Remove ID from children
 		for _, ch := range c.children {
 			if ch != nil {
 				ch.parentIndex *= -1
 			}
 		}
 		c.children = c.children[:0]
+		if c.playerFlag {
+			// sys.charList.p2enemyDelete(c)
+			sys.charList.enemyNearChanged = true
+		}
 		sys.charList.delete(c)
 		c.helperIndex = -1
 		c.setCSF(CSF_destroy)
@@ -5817,7 +5814,7 @@ func (c *Char) gethitAnimtype() Reaction {
 	}
 }
 
-func (c *Char) isBound() bool {
+func (c *Char) isTargetBound() bool {
 	return c.ghv.idMatch(c.bindToId)
 }
 
@@ -6306,7 +6303,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 			if i == r {
 				c.targets = append(c.targets, tid)
 			} else if t := sys.playerID(tid); t != nil {
-				if t.isBound() {
+				if t.isTargetBound() {
 					if c.csf(CSF_gethit) {
 						t.selfState(5050, -1, -1, -1, "")
 					}
@@ -7378,11 +7375,12 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 }
 
 func (c *Char) gethitBindClear() {
-	if c.isBound() {
+	if c.isTargetBound() {
 		c.setBindTime(0)
 	}
 }
 
+// Drop targets that no longer fit the requirements
 func (c *Char) dropTargets() {
 	if c.hitdef.reversal_attr == 0 || c.hitdef.reversal_attr == -1<<31 {
 		i := 0
@@ -7416,6 +7414,7 @@ func (c *Char) removeTarget(pid int32) {
 	}
 }
 
+// Remove self from the target lists of other players
 func (c *Char) exitTarget() {
 	if c.hittmp >= 0 {
 		for _, hb := range c.ghv.hitBy {
@@ -7977,7 +7976,7 @@ func (c *Char) actionPrepare() {
 	if c.unhittableTime > 0 {
 		c.unhittableTime--
 	}
-	c.dropTargets() // TODO: Why do we need both this and exitTarget()?
+	c.dropTargets()
 }
 
 func (c *Char) actionRun() {
@@ -8330,7 +8329,7 @@ func (c *Char) update() {
 			c.destroy()
 			return
 		}
-		if !c.pause() && !c.isBound() {
+		if !c.pause() && !c.isTargetBound() {
 			c.bind()
 		}
 		if c.acttmp > 0 {
@@ -8456,8 +8455,14 @@ func (c *Char) tick() {
 		}
 	}
 	if c.bindTime > 0 {
-		if c.isBound() {
-			if bt := sys.playerID(c.bindToId); bt != nil && !bt.pause() {
+		if c.isTargetBound() {
+			bt := sys.playerID(c.bindToId)
+			if bt == nil || bt.csf(CSF_gethit) || bt.csf(CSF_destroy) {
+				// SelfState if binder gets hit or destroys self
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2347
+				c.selfState(5050, -1, -1, -1, "")
+				c.gethitBindClear()
+			} else if !bt.pause() {
 				c.bindTime -= 1
 			}
 		} else {

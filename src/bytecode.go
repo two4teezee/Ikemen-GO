@@ -2608,7 +2608,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_gethitvar_guarded:
 		sys.bcStack.PushB(c.ghv.guarded)
 	case OC_ex_gethitvar_isbound:
-		sys.bcStack.PushB(c.isBound())
+		sys.bcStack.PushB(c.isTargetBound())
 	case OC_ex_gethitvar_fall:
 		sys.bcStack.PushB(c.ghv.fallflag)
 	case OC_ex_gethitvar_fall_damage:

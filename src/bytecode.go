@@ -8210,12 +8210,12 @@ func (sc targetBind) Run(c *Char, _ []int32) bool {
 type bindToTarget StateControllerBase
 
 const (
-        bindToTarget_id byte = iota
-        bindToTarget_index
-        bindToTarget_time
-        bindToTarget_pos
-        bindToTarget_posz
-        bindToTarget_redirectid
+	bindToTarget_id byte = iota
+	bindToTarget_index
+	bindToTarget_time
+	bindToTarget_pos
+	bindToTarget_posz
+	bindToTarget_redirectid
 )
 
 func (sc bindToTarget) Run(c *Char, _ []int32) bool {
@@ -8240,7 +8240,7 @@ func (sc bindToTarget) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case bindToTarget_posz:
-				z = exp[0].evalF(c) * redirscale
+			z = exp[0].evalF(c) * redirscale
 		case bindToTarget_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -8261,14 +8261,14 @@ func (sc bindToTarget) Run(c *Char, _ []int32) bool {
 type targetLifeAdd StateControllerBase
 
 const (
-        targetLifeAdd_id byte = iota
-        targetLifeAdd_index
-        targetLifeAdd_absolute
-        targetLifeAdd_kill
-        targetLifeAdd_dizzy
-        targetLifeAdd_redlife
-        targetLifeAdd_value
-        targetLifeAdd_redirectid
+	targetLifeAdd_id byte = iota
+	targetLifeAdd_index
+	targetLifeAdd_absolute
+	targetLifeAdd_kill
+	targetLifeAdd_dizzy
+	targetLifeAdd_redlife
+	targetLifeAdd_value
+	targetLifeAdd_redirectid
 )
 
 func (sc targetLifeAdd) Run(c *Char, _ []int32) bool {
@@ -11425,9 +11425,9 @@ func (sc targetGuardPointsAdd) Run(c *Char, _ []int32) bool {
 			vl = exp[0].evalI(c)
 		case targetGuardPointsAdd_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-					crun = rid
+				crun = rid
 			} else {
-					return false
+				return false
 			}
 		}
 		return true

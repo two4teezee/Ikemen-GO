@@ -131,21 +131,21 @@ type backGround struct {
 
 func newBackGround(sff *Sff) *backGround {
 	return &backGround{
-		palfx: newPalFX(),
-		anim: *newAnimation(sff, &sff.palList),
-		delta: [...]float32{1, 1},
-		zoomdelta: [...]float32{1, math.MaxFloat32},
-		xscale: [...]float32{1, 1},
-		rasterx: [...]float32{1, 1},
-		yscalestart: 100,
-		scalestart: [...]float32{1, 1},
-		xbottomzoomdelta: math.MaxFloat32,
-		zoomscaledelta: [...]float32{math.MaxFloat32, math.MaxFloat32},
-		actionno: -1,
-		visible: true,
-		active: true,
+		palfx:              newPalFX(),
+		anim:               *newAnimation(sff, &sff.palList),
+		delta:              [...]float32{1, 1},
+		zoomdelta:          [...]float32{1, math.MaxFloat32},
+		xscale:             [...]float32{1, 1},
+		rasterx:            [...]float32{1, 1},
+		yscalestart:        100,
+		scalestart:         [...]float32{1, 1},
+		xbottomzoomdelta:   math.MaxFloat32,
+		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
+		actionno:           -1,
+		visible:            true,
+		active:             true,
 		autoresizeparallax: false,
-		startrect: [...]int32{-32768, -32768, 65535, 65535},
+		startrect:          [...]int32{-32768, -32768, 65535, 65535},
 	}
 }
 
@@ -527,8 +527,8 @@ type bgCtrl struct {
 func newBgCtrl() *bgCtrl {
 	return &bgCtrl{
 		looptime: -1,
-		x: float32(math.NaN()),
-		y: float32(math.NaN()),
+		x:        float32(math.NaN()),
+		y:        float32(math.NaN()),
 	}
 }
 

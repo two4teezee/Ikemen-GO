@@ -46,11 +46,11 @@ type PalFXDef struct {
 }
 
 func newPalFXDef() *PalFXDef {
-    return &PalFXDef{
-		color: 1,
+	return &PalFXDef{
+		color:  1,
 		icolor: [...]float32{1, 1},
-		mul: [...]int32{256, 256, 256},
-		imul: [...]int32{256, 256, 256, 256, 256, 256},
+		mul:    [...]int32{256, 256, 256},
+		imul:   [...]int32{256, 256, 256, 256, 256, 256},
 	}
 }
 

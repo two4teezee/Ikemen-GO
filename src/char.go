@@ -663,8 +663,8 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		guardsound_ffx:     "f",
 		ground_type:        HT_High,
 		air_type:           HT_Unknown,
-		air_hittime:  20, // Both default to 20. Not documented in Mugen docs
-		down_hittime: 20,
+		air_hittime:        20, // Both default to 20. Not documented in Mugen docs
+		down_hittime:       20,
 
 		ground_velocity:            [3]float32{0, 0, 0},
 		air_velocity:               [3]float32{0, 0, 0},
@@ -5997,28 +5997,28 @@ func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
 
 // Get multiple stage BG elements for ModifyStageBG sctrl
 func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
-    // Filter background elements with the specified ID
-    var filteredBg []*backGround
-    for _, bg := range sys.stage.bg {
-        if id < 0 || id == bg.id {
-            filteredBg = append(filteredBg, bg)
-            // If idx is valid and we've reached the requested index, return the single element
-            if idx >= 0 && len(filteredBg) == idx+1 {
-                return []*backGround{filteredBg[idx]}
-            }
-        }
-    }
+	// Filter background elements with the specified ID
+	var filteredBg []*backGround
+	for _, bg := range sys.stage.bg {
+		if id < 0 || id == bg.id {
+			filteredBg = append(filteredBg, bg)
+			// If idx is valid and we've reached the requested index, return the single element
+			if idx >= 0 && len(filteredBg) == idx+1 {
+				return []*backGround{filteredBg[idx]}
+			}
+		}
+	}
 
-    // Return multiple instances if idx is negative
-    if idx < 0 {
-        return filteredBg
-    }
+	// Return multiple instances if idx is negative
+	if idx < 0 {
+		return filteredBg
+	}
 
-    // No valid background element found
-    if log {
-        sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
-    }
-    return nil
+	// No valid background element found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+	}
+	return nil
 }
 
 // Get list of targets for the Target state controllers
@@ -7822,7 +7822,7 @@ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj boo
 	}
 
 	// Enemy (c) HitDef has higher priority. Run counter check
-	if c.hitdef.priority > ghd.priority  {
+	if c.hitdef.priority > ghd.priority {
 		return !countercheck(&c.hitdef)
 	}
 

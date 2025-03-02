@@ -1818,7 +1818,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_air_back)
 		case "size.air.front":
 			out.append(OC_const_size_air_front)
-		case "size.height", "size.height.stand": // Latter is also accepted for consistency's sake
+		case "size.height", "size.height.stand": // Optional new syntax for consistency
 			out.append(OC_const_size_height_stand)
 		case "size.height.crouch":
 			out.append(OC_const_size_height_crouch)
@@ -1828,7 +1828,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_height_air_bottom)
 		case "size.height.down":
 			out.append(OC_const_size_height_down)
-		case "size.attack.dist", "size.attack.dist.width.front":
+		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			out.append(OC_const_size_attack_dist_width_front)
 		case "size.attack.dist.width.back":
 			out.append(OC_const_size_attack_dist_width_back)
@@ -1836,15 +1836,15 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_attack_dist_height_top)
 		case "size.attack.dist.height.bottom":
 			out.append(OC_const_size_attack_dist_height_bottom)
-		case "size.attack.dist.depth.front":
-			out.append(OC_const_size_attack_dist_depth_front)
-		case "size.attack.dist.depth.back":
-			out.append(OC_const_size_attack_dist_depth_back)
-		case "size.attack.depth.front":
-			out.append(OC_const_size_attack_depth_front)
-		case "size.attack.depth.back":
-			out.append(OC_const_size_attack_depth_back)
-		case "size.proj.attack.dist", "size.proj.attack.dist.width.front":
+		case "size.attack.dist.depth.top":
+			out.append(OC_const_size_attack_dist_depth_top)
+		case "size.attack.dist.depth.bottom":
+			out.append(OC_const_size_attack_dist_depth_bottom)
+		case "size.attack.depth.top":
+			out.append(OC_const_size_attack_depth_top)
+		case "size.attack.depth.bottom":
+			out.append(OC_const_size_attack_depth_bottom)
+		case "size.proj.attack.dist", "size.proj.attack.dist.width.front": // Optional new syntax for consistency
 			out.append(OC_const_size_proj_attack_dist_width_front)
 		case "size.proj.attack.dist.width.back":
 			out.append(OC_const_size_proj_attack_dist_width_back)
@@ -1852,10 +1852,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_proj_attack_dist_height_top)
 		case "size.proj.attack.dist.height.bottom":
 			out.append(OC_const_size_proj_attack_dist_height_bottom)
-		case "size.proj.attack.dist.depth.front":
-			out.append(OC_const_size_proj_attack_dist_depth_front)
-		case "size.proj.attack.dist.depth.back":
-			out.append(OC_const_size_proj_attack_dist_depth_back)
+		case "size.proj.attack.dist.depth.top":
+			out.append(OC_const_size_proj_attack_dist_depth_top)
+		case "size.proj.attack.dist.depth.bottom":
+			out.append(OC_const_size_proj_attack_dist_depth_bottom)
 		case "size.proj.doscale":
 			out.append(OC_const_size_proj_doscale)
 		case "size.head.pos.x":
@@ -1872,10 +1872,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_draw_offset_x)
 		case "size.draw.offset.y":
 			out.append(OC_const_size_draw_offset_y)
-		case "size.depth.front":
-			out.append(OC_const_size_depth_front)
-		case "size.depth.back":
-			out.append(OC_const_size_depth_back)
+		case "size.depth.top":
+			out.append(OC_const_size_depth_top)
+		case "size.depth.bottom":
+			out.append(OC_const_size_depth_bottom)
 		case "size.weight":
 			out.append(OC_const_size_weight)
 		case "size.pushfactor":

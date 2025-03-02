@@ -270,16 +270,16 @@ const (
 	OC_const_size_attack_dist_width_back
 	OC_const_size_attack_dist_height_top
 	OC_const_size_attack_dist_height_bottom
-	OC_const_size_attack_dist_depth_front
-	OC_const_size_attack_dist_depth_back
-	OC_const_size_attack_depth_front
-	OC_const_size_attack_depth_back
+	OC_const_size_attack_dist_depth_top
+	OC_const_size_attack_dist_depth_bottom
+	OC_const_size_attack_depth_top
+	OC_const_size_attack_depth_bottom
 	OC_const_size_proj_attack_dist_width_front
 	OC_const_size_proj_attack_dist_width_back
 	OC_const_size_proj_attack_dist_height_top
 	OC_const_size_proj_attack_dist_height_bottom
-	OC_const_size_proj_attack_dist_depth_front
-	OC_const_size_proj_attack_dist_depth_back
+	OC_const_size_proj_attack_dist_depth_top
+	OC_const_size_proj_attack_dist_depth_bottom
 	OC_const_size_proj_doscale
 	OC_const_size_head_pos_x
 	OC_const_size_head_pos_y
@@ -288,8 +288,8 @@ const (
 	OC_const_size_shadowoffset
 	OC_const_size_draw_offset_x
 	OC_const_size_draw_offset_y
-	OC_const_size_depth_front
-	OC_const_size_depth_back
+	OC_const_size_depth_top
+	OC_const_size_depth_bottom
 	OC_const_size_weight
 	OC_const_size_pushfactor
 	OC_const_velocity_air_gethit_airrecover_add_x
@@ -2050,14 +2050,14 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.attack.dist.height[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_height_bottom:
 		sys.bcStack.PushF(c.size.attack.dist.height[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_dist_depth_front:
+	case OC_const_size_attack_dist_depth_top:
 		sys.bcStack.PushF(c.size.attack.dist.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_dist_depth_back:
+	case OC_const_size_attack_dist_depth_bottom:
 		sys.bcStack.PushF(c.size.attack.dist.depth[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_depth_front:
-		sys.bcStack.PushF(c.size.attack.depth.front * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_depth_back:
-		sys.bcStack.PushF(c.size.attack.depth.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_attack_depth_top:
+		sys.bcStack.PushF(c.size.attack.depth[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_attack_depth_bottom:
+		sys.bcStack.PushF(c.size.attack.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_width_front:
 		sys.bcStack.PushF(c.size.proj.attack.dist.width[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_width_back:
@@ -2066,9 +2066,9 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.proj.attack.dist.height[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_height_bottom:
 		sys.bcStack.PushF(c.size.proj.attack.dist.height[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_proj_attack_dist_depth_front:
+	case OC_const_size_proj_attack_dist_depth_top:
 		sys.bcStack.PushF(c.size.proj.attack.dist.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_proj_attack_dist_depth_back:
+	case OC_const_size_proj_attack_dist_depth_bottom:
 		sys.bcStack.PushF(c.size.proj.attack.dist.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_doscale:
 		sys.bcStack.PushI(c.size.proj.doscale)
@@ -2086,9 +2086,9 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.draw.offset[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_draw_offset_y:
 		sys.bcStack.PushF(c.size.draw.offset[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_depth_front:
+	case OC_const_size_depth_top:
 		sys.bcStack.PushF(c.size.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_depth_back:
+	case OC_const_size_depth_bottom:
 		sys.bcStack.PushF(c.size.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_weight:
 		sys.bcStack.PushI(c.size.weight)

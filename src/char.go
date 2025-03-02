@@ -278,10 +278,7 @@ type CharSize struct {
 			height [2]float32
 			depth  [2]float32
 		}
-		depth struct {
-			front float32
-			back  float32
-		}
+		depth [2]float32
 	}
 	proj struct {
 		attack struct {
@@ -332,8 +329,7 @@ func (cs *CharSize) init() {
 	cs.shadowoffset = 0
 	cs.draw.offset = [...]float32{0, 0}
 	cs.depth = [...]float32{3, 3}
-	cs.attack.depth.front = 4
-	cs.attack.depth.back = 4
+	cs.attack.depth = [...]float32{4, 4}
 	cs.weight = 100
 	cs.pushfactor = 1
 }
@@ -740,7 +736,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 	hd.guard_sparkno = c.gi().data.guard.sparkno
 	hd.hitsound_channel = c.gi().data.hitsound_channel
 	hd.guardsound_channel = c.gi().data.guardsound_channel
-	hd.attack_depth = [2]float32{c.size.attack.depth.front, c.size.attack.depth.back}
+	hd.attack_depth = [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]}
 }
 
 // When a Hitdef connects, its statetype attribute will be updated to the character's current type
@@ -2639,7 +2635,7 @@ func (c *Char) clearNextRound() {
 		alpha:           [2]int32{255, 0},
 		width:           [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		height:          [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
-		depth:           [2]float32{c.baseDepthFront(), c.baseDepthBack()},
+		depth:           [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
 		attackMul:       [4]float32{atk, atk, atk, atk},
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
@@ -2950,8 +2946,8 @@ func (c *Char) load(def string) error {
 		c.size.draw.offset[1] *= coordRatio
 		c.size.depth[0] *= coordRatio
 		c.size.depth[1] *= coordRatio
-		c.size.attack.depth.front *= coordRatio
-		c.size.attack.depth.back *= coordRatio
+		c.size.attack.depth[0] *= coordRatio
+		c.size.attack.depth[1] *= coordRatio
 	}
 
 	gi.velocity.init()
@@ -3090,7 +3086,7 @@ func (c *Char) load(def string) error {
 						is.ReadF32("draw.offset",
 							&c.size.draw.offset[0], &c.size.draw.offset[1])
 						is.ReadF32("depth", &c.size.depth[0], &c.size.depth[1])
-						is.ReadF32("attack.depth", &c.size.attack.depth.front, &c.size.attack.depth.back)
+						is.ReadF32("attack.depth", &c.size.attack.depth[0], &c.size.attack.depth[1])
 						is.ReadI32("weight", &c.size.weight)
 						is.ReadF32("pushfactor", &c.size.pushfactor)
 					}
@@ -3843,7 +3839,7 @@ func (c *Char) bottomEdge() float32 {
 }
 
 func (c *Char) botBoundBodyDist() float32 {
-	return c.botBoundDist() - c.depthEdge[0]
+	return c.botBoundDist() - c.depthEdge[1]
 }
 
 func (c *Char) botBoundDist() float32 {
@@ -4696,7 +4692,7 @@ func (c *Char) topEdge() float32 {
 }
 
 func (c *Char) topBoundBodyDist() float32 {
-	return c.topBoundDist() - c.depthEdge[1]
+	return c.topBoundDist() - c.depthEdge[0]
 }
 
 func (c *Char) topBoundDist() float32 {
@@ -5713,11 +5709,11 @@ func (c *Char) baseHeightBottom() float32 {
 	}
 }
 
-func (c *Char) baseDepthFront() float32 {
+func (c *Char) baseDepthTop() float32 {
 	return float32(c.size.depth[0])
 }
 
-func (c *Char) baseDepthBack() float32 {
+func (c *Char) baseDepthBottom() float32 {
 	return float32(c.size.depth[1])
 }
 
@@ -5735,10 +5731,10 @@ func (c *Char) setHeight(th, bh float32) {
 	c.setCSF(CSF_height)
 }
 
-func (c *Char) setDepth(fd, bd float32) {
+func (c *Char) setDepth(td, bd float32) {
 	coordRatio := (320 / c.localcoord) / c.localscl
-	c.depth[0] = c.baseDepthFront()*coordRatio + fd
-	c.depth[1] = c.baseDepthBack()*coordRatio + bd
+	c.depth[0] = c.baseDepthTop()*coordRatio + td
+	c.depth[1] = c.baseDepthBottom()*coordRatio + bd
 	c.setCSF(CSF_depth)
 }
 
@@ -5748,8 +5744,8 @@ func (c *Char) setWidthEdge(fe, be float32) {
 	c.setCSF(CSF_widthedge)
 }
 
-func (c *Char) setDepthEdge(fde, bde float32) {
-	c.depthEdge[0] = fde
+func (c *Char) setDepthEdge(tde, bde float32) {
+	c.depthEdge[0] = tde
 	c.depthEdge[1] = bde
 	c.setCSF(CSF_depthedge)
 }
@@ -6619,10 +6615,10 @@ func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
 }
 
 func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
-	cbot := (c.pos[2] + c.depth[0]) * c.localscl
-	ctop := (c.pos[2] - c.depth[1]) * c.localscl
-	obot := (opp.pos[2] + opp.depth[0]) * opp.localscl
-	otop := (opp.pos[2] - opp.depth[1]) * opp.localscl
+	ctop := (c.pos[2] - c.depth[0]) * c.localscl
+	cbot := (c.pos[2] + c.depth[1]) * c.localscl
+	otop := (opp.pos[2] - opp.depth[0]) * opp.localscl
+	obot := (opp.pos[2] + opp.depth[1]) * opp.localscl
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7354,8 +7350,9 @@ func (c *Char) xScreenBound() {
 
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
-	max, min := -c.depthEdge[0], c.depthEdge[1]
 	if c.csf(CSF_stagebound) {
+		min := c.depthEdge[0]
+		max := -c.depthEdge[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 	c.setPosZ(posz)
@@ -8069,7 +8066,7 @@ func (c *Char) actionRun() {
 			c.height = [2]float32{c.baseHeightTop() * coordRatio, c.baseHeightBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depth) {
-			c.depth = [2]float32{c.baseDepthFront() * coordRatio, c.baseDepthBack() * coordRatio}
+			c.depth = [2]float32{c.baseDepthTop() * coordRatio, c.baseDepthBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depthedge) {
 			c.depthEdge = [2]float32{0, 0}
@@ -10433,14 +10430,14 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			czfront := c.pos[2]*c.localscl + c.depth[0]*c.localscl
-			czback := c.pos[2]*c.localscl - c.depth[1]*c.localscl
+			cztop := c.pos[2]*c.localscl - c.depth[0]*c.localscl
+			czbot := c.pos[2]*c.localscl + c.depth[1]*c.localscl
 
-			gzfront := getter.pos[2]*getter.localscl + getter.depth[0]*getter.localscl
-			gzback := getter.pos[2]*getter.localscl - getter.depth[1]*getter.localscl
+			gztop := getter.pos[2]*getter.localscl - getter.depth[0]*getter.localscl
+			gzbot := getter.pos[2]*getter.localscl + getter.depth[1]*getter.localscl
 
 			// Z axis fail
-			if gzback >= czfront || czback >= gzfront {
+			if gztop >= czbot || cztop >= gzbot {
 				continue
 			}
 
@@ -10554,21 +10551,21 @@ func (cl *CharList) pushDetection(getter *Char) {
 				if pushz {
 					if getter.pos[2] >= c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((czfront - gzback) * gfactor) / getter.localscl
-							getter.pos[2] -= (czfront - gzback) / getter.localscl
+							//getter.pos[2] -= ((czbot - gztop) * gfactor) / getter.localscl
+							getter.pos[2] -= (czbot - gztop) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((czfront - gzback) * cfactor) / c.localscl
-							c.pos[2] += (czfront - gzback) / c.localscl
+							//c.pos[2] += ((czbot - gztop) * cfactor) / c.localscl
+							c.pos[2] += (czbot - gztop) / c.localscl
 						}
 					} else if getter.pos[2] < c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((gzfront - czback) * gfactor) / getter.localscl
-							getter.pos[2] -= (gzfront - czback) / getter.localscl
+							//getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
+							getter.pos[2] -= (gzbot - cztop) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((gzfront - czback) * cfactor) / c.localscl
-							c.pos[2] += (gzfront - czback) / c.localscl
+							//c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
+							c.pos[2] += (gzbot - cztop) / c.localscl
 						}
 					}
 					// Clamp Z positions

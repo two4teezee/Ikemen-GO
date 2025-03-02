@@ -182,6 +182,7 @@ func newCompiler() *Compiler {
 		"teammapset":           c.teamMapSet,
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
+		"modifystagebg":        c.modifyStageBG,
 	}
 	return c
 }
@@ -320,6 +321,7 @@ var triggerMap = map[string]int{
 	"screenwidth":       1,
 	"selfanimexist":     1,
 	"sin":               1,
+	"stagebgvar":        1,
 	"stagevar":          1,
 	"stateno":           1,
 	"statetype":         1,
@@ -1256,74 +1258,128 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	switch c.token {
 	case "":
 		return bvNone(), Error("Nothing assigned")
-	case "root", "player", "parent", "helper", "target", "partner",
-		"enemy", "enemynear", "playerid", "playerindex", "p2", "stateowner", "helperindex":
+	// Redirections without arguments
+	case "root", "parent", "p2", "stateowner":
 		switch c.token {
-		case "parent":
-			opc = OC_parent
-			c.token = c.tokenizer(in)
 		case "root":
 			opc = OC_root
-			c.token = c.tokenizer(in)
+		case "parent":
+			opc = OC_parent
 		case "p2":
 			opc = OC_p2
-			c.token = c.tokenizer(in)
 		case "stateowner":
 			opc = OC_stateowner
-			c.token = c.tokenizer(in)
-		default:
-			switch c.token {
-			case "player":
-				opc = OC_player
-			case "helper":
-				opc = OC_helper
-			case "target":
-				opc = OC_target
-			case "partner":
-				opc = OC_partner
-			case "enemy":
-				opc = OC_enemy
-			case "enemynear":
-				opc = OC_enemynear
-			case "playerid":
-				opc = OC_playerid
-			case "playerindex":
-				opc = OC_playerindex
-			case "helperindex":
-				opc = OC_helperindex
-			}
-			c.token = c.tokenizer(in)
-			if c.token == "(" {
-				c.token = c.tokenizer(in)
-				if bv1, err = c.expBoolOr(&be1, in); err != nil {
-					return bvNone(), err
-				}
-				if err := c.checkClosingBracket(); err != nil {
-					return bvNone(), err
-				}
-				c.token = c.tokenizer(in)
-				be1.appendValue(bv1)
-			} else {
-				switch opc {
-				case OC_helper, OC_target:
-					be1.appendValue(BytecodeInt(-1))
-				case OC_partner, OC_enemy, OC_enemynear:
-					be1.appendValue(BytecodeInt(0))
-				case OC_player:
-					return bvNone(), Error("Missing '(' after player")
-				case OC_playerid:
-					return bvNone(), Error("Missing '(' after playerid")
-				case OC_playerindex:
-					return bvNone(), Error("Missing '(' after playerindex")
-				case OC_helperindex:
-					return bvNone(), Error("Missing '(' after helperindex")
-				}
-			}
-			if rd {
-				out.appendI32Op(OC_nordrun, int32(len(be1)))
-			}
-			out.append(be1...)
 		}
+		c.token = c.tokenizer(in)
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expValue(&be2, in, true); err != nil {
+			return bvNone(), err
+		}
+		be2.appendValue(bv2)
+		out.appendI32Op(opc, int32(len(be2)))
+		out.append(be2...)
+		return bvNone(), nil
+	// Redirections with 1 argument
+	case "partner", "enemy", "enemynear", "playerid", "player", "playerindex", "helperindex":
+		switch c.token {
+		case "player":
+			opc = OC_player
+		case "partner":
+			opc = OC_partner
+		case "enemy":
+			opc = OC_enemy
+		case "enemynear":
+			opc = OC_enemynear
+		case "playerid":
+			opc = OC_playerid
+		case "playerindex":
+			opc = OC_playerindex
+		case "helperindex":
+			opc = OC_helperindex
+		}
+		c.token = c.tokenizer(in)
+		if c.token == "(" {
+			c.token = c.tokenizer(in)
+			if bv1, err = c.expBoolOr(&be1, in); err != nil {
+				return bvNone(), err
+			}
+			if err := c.checkClosingBracket(); err != nil {
+				return bvNone(), err
+			}
+			c.token = c.tokenizer(in)
+			be1.appendValue(bv1)
+		} else {
+			switch opc {
+			case OC_partner, OC_enemy, OC_enemynear:
+				be1.appendValue(BytecodeInt(0))
+			case OC_player:
+				return bvNone(), Error("Missing '(' after player")
+			case OC_playerid:
+				return bvNone(), Error("Missing '(' after playerid")
+			case OC_playerindex:
+				return bvNone(), Error("Missing '(' after playerindex")
+			case OC_helperindex:
+				return bvNone(), Error("Missing '(' after helperindex")
+			}
+		}
+		if rd {
+			out.appendI32Op(OC_nordrun, int32(len(be1)))
+		}
+		out.append(be1...)
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expValue(&be2, in, true); err != nil {
+			return bvNone(), err
+		}
+		be2.appendValue(bv2)
+		out.appendI32Op(opc, int32(len(be2)))
+		out.append(be2...)
+		return bvNone(), nil
+	// Redirections with 2 arguments
+	case "helper", "target":
+		switch c.token {
+		case "helper":
+			opc = OC_helper
+		case "target":
+			opc = OC_target
+		}
+		c.token = c.tokenizer(in)
+		if c.token == "(" {
+			c.token = c.tokenizer(in)
+			// Read the first argument (ID)
+			if bv1, err = c.expBoolOr(&be1, in); err != nil {
+				return bvNone(), err
+			}
+			be1.appendValue(bv1)
+			// Check if there's a second argument
+			if c.token == "," {
+				c.token = c.tokenizer(in)
+				if bv2, err = c.expBoolOr(&be1, in); err != nil {
+					return bvNone(), err
+				}
+				be1.appendValue(bv2)
+			} else {
+				// If not, default index to 0
+				be1.appendValue(BytecodeInt(0))
+			}
+			if err := c.checkClosingBracket(); err != nil {
+				return bvNone(), err
+			}
+			c.token = c.tokenizer(in)
+		} else {
+			// Default to ID -1 and index 0 if no arguments are provided
+			be1.appendValue(BytecodeInt(-1))
+			be1.appendValue(BytecodeInt(0))
+		}
+		if rd {
+			out.appendI32Op(OC_nordrun, int32(len(be1)))
+		}
+		out.append(be1...)
 		if c.token != "," {
 			return bvNone(), Error("Missing ','")
 		}
@@ -2495,6 +2551,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_hitdefvar_priority
 		case "id":
 			opc = OC_ex2_hitdefvar_id
+		case "sparkno":
+			opc = OC_ex2_hitdefvar_sparkno
+		case "guard.sparkno":
+			opc = OC_ex2_hitdefvar_guard_sparkno
 		case "sparkx":
 			opc = OC_ex2_hitdefvar_sparkx
 		case "sparky":
@@ -2507,6 +2567,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_hitdefvar_shaketime
 		case "guard.shaketime":
 			opc = OC_ex2_hitdefvar_guard_shaketime
+		case "hitsound.group":
+			opc = OC_ex2_hitdefvar_hitsound_group
+		case "hitsound.number":
+			opc = OC_ex2_hitdefvar_hitsound_number
+		case "guardsound.group":
+			opc = OC_ex2_hitdefvar_guardsound_group
+		case "guardsound.number":
+			opc = OC_ex2_hitdefvar_guardsound_number
 		default:
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
@@ -3181,6 +3249,106 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}); err != nil {
 			return bvNone(), err
 		}
+	case "stagebgvar":
+		if err := c.checkOpeningBracket(in); err != nil {
+			return bvNone(), err
+		}
+		// First argument
+		bv1, err := c.expBoolOr(&be1, in)
+		if err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		// Second argument
+		c.token = c.tokenizer(in)
+		bv2, err := c.expBoolOr(&be2, in)
+		if err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ','")
+		}
+		// Third argument
+		c.token = c.tokenizer(in)
+		vname := c.token
+		var opc OpCode
+		switch vname {
+		case "actionno":
+			opc = OC_ex2_stagebgvar_actionno
+		case "delta":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_delta_x
+			case "y":
+				opc = OC_ex2_stagebgvar_delta_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar delta argument: " + c.token)
+			}
+		case "id":
+			opc = OC_ex2_stagebgvar_id
+		case "layerno":
+			opc = OC_ex2_stagebgvar_layerno
+		case "pos":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_pos_x
+			case "y":
+				opc = OC_ex2_stagebgvar_pos_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar pos argument: " + c.token)
+			}
+		case "start":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_start_x
+			case "y":
+				opc = OC_ex2_stagebgvar_start_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar start argument: " + c.token)
+			}
+		case "tile":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_tile_x
+			case "y":
+				opc = OC_ex2_stagebgvar_tile_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar tile argument: " + c.token)
+			}
+		case "vel":
+			c.token = c.tokenizer(in)
+			switch c.token {
+			case "x":
+				opc = OC_ex2_stagebgvar_vel_x
+			case "y":
+				opc = OC_ex2_stagebgvar_vel_y
+			default:
+				return bvNone(), Error("Invalid StageBGVar vel argument: " + c.token)
+			}
+		default:
+			return bvNone(), Error("Invalid StageBGVar string argument: " + vname)
+		}
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingBracket(); err != nil {
+			return bvNone(), err
+		}
+		// Output
+		be2.appendValue(bv2)
+		be1.appendValue(bv1)
+		if len(be2) > int(math.MaxUint8-1) {
+			be1.appendI32Op(OC_jz, int32(len(be2)+1))
+		} else {
+			be1.append(OC_jz8, OpCode(len(be2)+1))
+		}
+		be1.append(be2...)
+		be1.append(OC_ex2_, opc)
+		out.append(be1...)
 	case "stagevar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err

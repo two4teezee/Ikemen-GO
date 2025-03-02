@@ -67,6 +67,7 @@ type bgAction struct {
 func (bga *bgAction) clear() {
 	*bga = bgAction{}
 }
+
 func (bga *bgAction) action() {
 	for i := 0; i < 2; i++ {
 		bga.pos[i] += bga.vel[i]
@@ -129,11 +130,25 @@ type backGround struct {
 }
 
 func newBackGround(sff *Sff) *backGround {
-	return &backGround{palfx: newPalFX(), anim: *newAnimation(sff, &sff.palList), delta: [...]float32{1, 1}, zoomdelta: [...]float32{1, math.MaxFloat32},
-		xscale: [...]float32{1, 1}, rasterx: [...]float32{1, 1}, yscalestart: 100, scalestart: [...]float32{1, 1}, xbottomzoomdelta: math.MaxFloat32,
-		zoomscaledelta: [...]float32{math.MaxFloat32, math.MaxFloat32}, actionno: -1, visible: true, active: true, autoresizeparallax: false,
-		startrect: [...]int32{-32768, -32768, 65535, 65535}}
+	return &backGround{
+		palfx: newPalFX(),
+		anim: *newAnimation(sff, &sff.palList),
+		delta: [...]float32{1, 1},
+		zoomdelta: [...]float32{1, math.MaxFloat32},
+		xscale: [...]float32{1, 1},
+		rasterx: [...]float32{1, 1},
+		yscalestart: 100,
+		scalestart: [...]float32{1, 1},
+		xbottomzoomdelta: math.MaxFloat32,
+		zoomscaledelta: [...]float32{math.MaxFloat32, math.MaxFloat32},
+		actionno: -1,
+		visible: true,
+		active: true,
+		autoresizeparallax: false,
+		startrect: [...]int32{-32768, -32768, 65535, 65535},
+	}
 }
+
 func readBackGround(is IniSection, link *backGround,
 	sff *Sff, at AnimationTable, sProps StageProps) *backGround {
 	bg := newBackGround(sff)
@@ -322,6 +337,7 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	return bg
 }
+
 func (bg *backGround) reset() {
 	bg.palfx.clear()
 	bg.anim.Reset()
@@ -332,6 +348,22 @@ func (bg *backGround) reset() {
 	bg.bga.sinlooptime = bg.startsinlt
 	bg.palfx.time = -1
 	bg.palfx.invertblend = -3
+}
+
+// Changes BG animation without changing surrounding parameters
+func (bg *backGround) changeAnim(val int32, a *Animation) {
+	// Save old
+	masktemp := bg.anim.mask
+	srcAlphatemp := bg.anim.srcAlpha
+	dstAlphatemp := bg.anim.dstAlpha
+	tiletmp := bg.anim.tile
+	// Change anim and restore old
+	bg.actionno = val
+	bg.anim = *a
+	bg.anim.tile = tiletmp
+	bg.anim.dstAlpha = dstAlphatemp
+	bg.anim.srcAlpha = srcAlphatemp
+	bg.anim.mask = masktemp
 }
 
 func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
@@ -493,8 +525,13 @@ type bgCtrl struct {
 }
 
 func newBgCtrl() *bgCtrl {
-	return &bgCtrl{looptime: -1, x: float32(math.NaN()), y: float32(math.NaN())}
+	return &bgCtrl{
+		looptime: -1,
+		x: float32(math.NaN()),
+		y: float32(math.NaN()),
+	}
 }
+
 func (bgc *bgCtrl) read(is IniSection, idx int) {
 	bgc.idx = idx
 	xy := false
@@ -601,9 +638,11 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 	}
 	is.ReadI32("sctrlid", &bgc.sctrlid)
 }
+
 func (bgc *bgCtrl) xEnable() bool {
 	return !math.IsNaN(float64(bgc.x))
 }
+
 func (bgc *bgCtrl) yEnable() bool {
 	return !math.IsNaN(float64(bgc.y))
 }
@@ -620,6 +659,7 @@ type bgcTimeLine struct {
 func (bgct *bgcTimeLine) clear() {
 	*bgct = bgcTimeLine{}
 }
+
 func (bgct *bgcTimeLine) add(bgc *bgCtrl) {
 	if bgc.looptime >= 0 && bgc.endtime > bgc.looptime {
 		bgc.endtime = bgc.looptime
@@ -662,6 +702,7 @@ func (bgct *bgcTimeLine) add(bgc *bgCtrl) {
 		bgct.line[i] = bgctNode{bgc: []*bgCtrl{bgc}, waitTime: wtime}
 	}
 }
+
 func (bgct *bgcTimeLine) step(s *Stage) {
 	if len(bgct.line) > 0 && bgct.line[0].waitTime <= 0 {
 		for _, b := range bgct.line[0].bgc {
@@ -1357,6 +1398,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	s.mainstage = maindef
 	return s, nil
 }
+
 func (s *Stage) copyStageVars(src *Stage) {
 	s.stageCamera.boundleft = src.stageCamera.boundleft
 	s.stageCamera.boundright = src.stageCamera.boundright
@@ -1397,6 +1439,7 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.reflection.xshear = src.reflection.xshear
 	s.reflection.yscale = src.reflection.yscale
 }
+
 func (s *Stage) getBg(id int32) (bg []*backGround) {
 	if id >= 0 {
 		for _, b := range s.bg {
@@ -1407,6 +1450,7 @@ func (s *Stage) getBg(id int32) (bg []*backGround) {
 	}
 	return
 }
+
 func (s *Stage) get3DBg(id uint32) (nodes []*Node) {
 	if id >= 0 {
 		for _, n := range s.model.nodes {
@@ -1417,6 +1461,7 @@ func (s *Stage) get3DBg(id uint32) (nodes []*Node) {
 	}
 	return
 }
+
 func (s *Stage) get3DAnim(id uint32) (anims []*GLTFAnimation) {
 	if id >= 0 {
 		for _, a := range s.model.animations {
@@ -1427,26 +1472,16 @@ func (s *Stage) get3DAnim(id uint32) (anims []*GLTFAnimation) {
 	}
 	return
 }
+
 func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 	bgc.currenttime++
 	switch bgc._type {
 	case BT_Anim:
-		a := s.at.get(bgc.v[0])
-		if a != nil {
+		if a := s.at.get(bgc.v[0]); a != nil {
 			for i := range bgc.bg {
-				masktemp := bgc.bg[i].anim.mask
-				srcAlphatemp := bgc.bg[i].anim.srcAlpha
-				dstAlphatemp := bgc.bg[i].anim.dstAlpha
-				tiletmp := bgc.bg[i].anim.tile
-				bgc.bg[i].actionno = bgc.v[0]
-				bgc.bg[i].anim = *a
-				bgc.bg[i].anim.tile = tiletmp
-				bgc.bg[i].anim.dstAlpha = dstAlphatemp
-				bgc.bg[i].anim.srcAlpha = srcAlphatemp
-				bgc.bg[i].anim.mask = masktemp
+				bgc.bg[i].changeAnim(bgc.v[0], a)
 			}
 		}
-
 		for i := range bgc.anim {
 			bgc.anim[i].toggle(bgc.v[0] != 0)
 		}
@@ -1594,6 +1629,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 		}
 	}
 }
+
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
 	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) &&
@@ -1963,10 +1999,12 @@ func (p *GLTFAnimatableProperty) rest() {
 func (p *GLTFAnimatableProperty) restAt(v interface{}) {
 	p.restValue = v
 }
+
 func (p *GLTFAnimatableProperty) animate(v interface{}) {
 	p.isAnimated = true
 	p.animatedValue = v
 }
+
 func (p *GLTFAnimatableProperty) getValue() interface{} {
 	if p.isAnimated {
 		return p.animatedValue
@@ -2195,6 +2233,7 @@ func loadEnvironment(filepath string) (*Environment, error) {
 	}
 	return env, nil
 }
+
 func loadglTFStage(filepath string) (*Model, error) {
 	mdl := &Model{offset: [3]float32{0, 0, 0}, rotation: [3]float32{0, 0, 0}, scale: [3]float32{1, 1, 1}}
 	doc, err := gltf.Open(filepath)
@@ -3157,6 +3196,7 @@ func loadglTFStage(filepath string) (*Model, error) {
 	}
 	return mdl, nil
 }
+
 func (s *Scene) getSceneLight(n uint32, nodes []*Node) {
 	node := nodes[n]
 	for _, c := range node.childrenIndex {
@@ -3166,6 +3206,7 @@ func (s *Scene) getSceneLight(n uint32, nodes []*Node) {
 		s.lightNodes = append(s.lightNodes, n)
 	}
 }
+
 func (n *Node) getLocalTransform() (mat mgl.Mat4) {
 	mat = mgl.Ident4()
 	if n.transformChanged {
@@ -3182,6 +3223,7 @@ func (n *Node) getLocalTransform() (mat mgl.Mat4) {
 	}
 	return
 }
+
 func (n *Node) calculateWorldTransform(parentTransorm mgl.Mat4, nodes []*Node) {
 	mat := n.getLocalTransform()
 	n.worldTransform = parentTransorm.Mul4(mat)
@@ -3205,6 +3247,7 @@ func (n *Node) calculateWorldTransform(parentTransorm mgl.Mat4, nodes []*Node) {
 	}
 	return
 }
+
 func (mdl *Model) calculateTextureTransform() {
 	for _, m := range mdl.materials {
 		if index := m.textureIndex; index != nil {
@@ -3254,6 +3297,7 @@ func (mdl *Model) calculateTextureTransform() {
 		}
 	}
 }
+
 func calculateAnimationData(mdl *Model, n *Node) {
 	for _, index := range n.childrenIndex {
 		calculateAnimationData(mdl, mdl.nodes[index])
@@ -3353,6 +3397,7 @@ func calculateAnimationData(mdl *Model, n *Node) {
 		}
 	}
 }
+
 func drawNode(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, unlit bool) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
@@ -3495,6 +3540,7 @@ func drawNode(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlend
 		gfx.ReleaseModelPipeline()
 	}
 }
+
 func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, lightIndex int, numLights int) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
@@ -3564,6 +3610,7 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 	}
 }
+
 func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber int) {
 	if s.model == nil || len(s.model.scenes) <= sceneNumber || !gfx.IsModelEnabled() {
 		return
@@ -3836,6 +3883,7 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber
 		drawNode(s.model, scene, s.model.nodes[index], offset, true, unlit)
 	}
 }
+
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {
 	channel.nodeIndex = nil
 	components := strings.Split(pointer, "/")
@@ -4053,6 +4101,7 @@ func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer str
 	}
 	return nil
 }
+
 func (model *Model) calculateAnimInterpolation(interpolation GLTFAnimationInterpolation, sampler *GLTFAnimationSampler, animTime float32, prevIndex int, length int) []float32 {
 	if interpolation == InterpolationStep || prevIndex == -1 || len(model.animationTimeStamps[sampler.inputIndex]) == 1 {
 		if prevIndex == -1 {
@@ -4137,6 +4186,7 @@ func (model *Model) calculateAnimQuatInterpolation(interpolation GLTFAnimationIn
 		return newVals
 	}
 }
+
 func (anim *GLTFAnimation) toggle(enabled bool) {
 	if enabled {
 		anim.enabled = enabled
@@ -4148,6 +4198,7 @@ func (anim *GLTFAnimation) toggle(enabled bool) {
 		}
 	}
 }
+
 func (model *Model) step() {
 	for _, anim := range model.animations {
 		if anim.enabled == false {
@@ -4220,6 +4271,7 @@ func (model *Model) step() {
 		}
 	}
 }
+
 func (skin *Skin) calculateSkinMatrices(inverseGlobalTransform mgl.Mat4, nodes []*Node) {
 	matrices := make([]float32, len(skin.joints)*12*2)
 	for i, joint := range skin.joints {
@@ -4241,6 +4293,7 @@ func (skin *Skin) calculateSkinMatrices(inverseGlobalTransform mgl.Mat4, nodes [
 	}
 	skin.texture.tex.SetPixelData(matrices)
 }
+
 func (model *Model) reset() {
 	for _, anim := range model.animations {
 		anim.time = 0

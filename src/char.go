@@ -663,8 +663,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		guardsound_ffx:     "f",
 		ground_type:        HT_High,
 		air_type:           HT_Unknown,
-		// Both default to 20, not documented in Mugen docs.
-		air_hittime:  20,
+		air_hittime:  20, // Both default to 20. Not documented in Mugen docs
 		down_hittime: 20,
 
 		ground_velocity:            [3]float32{0, 0, 0},
@@ -1578,7 +1577,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		pos:          drawpos,
 		scl:          drawscale,
 		alpha:        alp,
-		priority:     e.sprpriority + int32(e.pos[2]*e.localscl),
+		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
 		ascl:         [...]float32{1, 1},
 		screen:       e.space == Space_screen,
@@ -3635,13 +3634,27 @@ func (c *Char) root() *Char {
 	return sys.chars[c.playerNo][0]
 }
 
-func (c *Char) helper(id int32) *Char {
+func (c *Char) helperTrigger(id int32, idx int) *Char {
+	// Invalid index
+	if idx < 0 {
+		sys.appendToConsole(c.warn() + "helper redirection index cannot be negative")
+		return nil
+	}
+
+	// Filter helpers with the specified ID
+	var filteredHelpers []*Char
 	for _, h := range sys.chars[c.playerNo][1:] {
 		if !h.csf(CSF_destroy) && (id <= 0 || id == h.helperId) {
-			return h
+			filteredHelpers = append(filteredHelpers, h)
+			// Helper found at requested index
+			if idx >= 0 && len(filteredHelpers) == idx+1 {
+				return filteredHelpers[idx]
+			}
 		}
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper: %v", id))
+
+	// No valid helper found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with ID %v and index %v", id, idx))
 	return nil
 }
 
@@ -3659,15 +3672,28 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
 }
 
-func (c *Char) target(id int32) *Char {
+// Target redirection
+func (c *Char) targetTrigger(id int32, idx int) *Char {
+	// Invalid index
+	if idx < 0 {
+		sys.appendToConsole(c.warn() + "target redirection index cannot be negative")
+		return nil
+	}
+
+	// Filter targets with the specified ID
+	var filteredTargets []*Char
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {
-			return t
+			filteredTargets = append(filteredTargets, t)
+			// Target found at requested index
+			if idx >= 0 && len(filteredTargets) == idx+1 {
+				return filteredTargets[idx]
+			}
 		}
 	}
-	if id != -1 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no target: %v", id))
-	}
+
+	// No valid target found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no target with hit ID %v and index %v", id, idx))
 	return nil
 }
 
@@ -3700,7 +3726,7 @@ func (c *Char) partner(n int32, log bool) *Char {
 	return nil
 }
 
-func (c *Char) partnerV2(n int32) *Char {
+func (c *Char) partnerTag(n int32) *Char {
 	n = Max(0, n)
 	if int(n) > len(sys.chars)/2-2 {
 		return nil
@@ -5140,7 +5166,7 @@ func (c *Char) newExplod() (*Explod, int) {
 		expl.playerId = c.id
 		expl.layerno = c.layerNo
 		expl.palfx = c.getPalfx()
-		expl.palfxdef = PalFXDef{color: 1, hue: 0, mul: [...]int32{256, 256, 256}}
+		expl.palfxdef = *newPalFXDef()
 		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 			expl.projection = Projection_Perspective
 		} else {
@@ -5940,22 +5966,94 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
-func (c *Char) getTarget(id int32) []int32 {
-	if id < 0 { // In Mugen the ID must be specifically -1
-		return c.targets
+// Get stage BG elements for StageBGVar trigger
+func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "background element index cannot be negative")
+		}
+		return nil
 	}
-	var tg []int32
-	for _, tid := range c.targets {
-		if t := sys.playerID(tid); t != nil {
-			if t.ghv.hitid == id {
-				tg = append(tg, tid)
+
+	// Filter background elements with the specified ID
+	var filteredBg []*backGround
+	for _, bg := range sys.stage.bg {
+		if id < 0 || id == bg.id {
+			filteredBg = append(filteredBg, bg)
+			// Background element found at requested index
+			if idx >= 0 && len(filteredBg) == idx+1 {
+				return filteredBg[idx]
 			}
 		}
 	}
-	return tg
+
+	// No valid background element found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
+// Get multiple stage BG elements for ModifyStageBG sctrl
+func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
+    // Filter background elements with the specified ID
+    var filteredBg []*backGround
+    for _, bg := range sys.stage.bg {
+        if id < 0 || id == bg.id {
+            filteredBg = append(filteredBg, bg)
+            // If idx is valid and we've reached the requested index, return the single element
+            if idx >= 0 && len(filteredBg) == idx+1 {
+                return []*backGround{filteredBg[idx]}
+            }
+        }
+    }
+
+    // Return multiple instances if idx is negative
+    if idx < 0 {
+        return filteredBg
+    }
+
+    // No valid background element found
+    if log {
+        sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+    }
+    return nil
+}
+
+// Get list of targets for the Target state controllers
+func (c *Char) getTarget(id int32, idx int) []int32 {
+	// If ID and index are negative, just return all targets
+	// In Mugen the ID must be specifically -1
+	if id < 0 && idx < 0 {
+		return c.targets
+	}
+
+	// Filter targets with the specified ID
+	var filteredTargets []int32
+	for _, tid := range c.targets {
+		if t := sys.playerID(tid); t != nil && (id < 0 || t.ghv.hitid == id) {
+			filteredTargets = append(filteredTargets, tid)
+		}
+		// Target found at requested index
+		if idx >= 0 && len(filteredTargets) == idx+1 {
+			return []int32{filteredTargets[idx]}
+		}
+	}
+
+	// If index is negative, return all targets with specified ID
+	if idx < 0 {
+		return filteredTargets
+	}
+
+	// No valid target found
+	return nil
 }
 
 func (c *Char) targetFacing(tar []int32, f int32) {
+	if f == 0 {
+		return
+	}
 	tf := c.facing
 	if f < 0 {
 		tf *= -1
@@ -6097,7 +6195,7 @@ func (c *Char) targetScoreAdd(tar []int32, s float32) {
 }
 
 func (c *Char) targetState(tar []int32, state int32) {
-	if state >= 0 {
+	if len(tar) > 0 && state >= 0 {
 		pn := c.ss.sb.playerNo
 		if c.minus == -2 || c.minus == -4 {
 			pn = c.playerNo
@@ -7589,7 +7687,7 @@ func (c *Char) hitByPlayerIdCheck(getterid int32) bool {
 }
 
 // Check if Hitdef attributes can hit a player
-func (c *Char) attrCheck(ghd *HitDef, getter *Char, gstyp StateType) bool {
+func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// Invalid attributes
 	if ghd.attr <= 0 && ghd.reversal_attr <= 0 {
@@ -7667,22 +7765,25 @@ func (c *Char) attrCheck(ghd *HitDef, getter *Char, gstyp StateType) bool {
 	return true
 }
 
-// Check if the enemy (c) Hitdef should lose to the current one, if applicable
-func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj bool) bool {
+// Check if the enemy's (c) HitDef should lose to the player's (getter), if applicable
+func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj bool) bool {
 
-	// Enemy can't be hit by Hitdef attributes at all
-	// No more checks needed
-	if !c.attrCheck(ghd, getter, gst) {
+	// Enemy (c) always wins if they can't be hit by the player's (getter) HitDef attributes at all
+	if !c.attrCheck(getter, ghd, gst) {
 		return false
 	}
 
-	// Enemy's Hitdef already hit the original char
-	// Can skip priority checking
+	// Enemy (c) always loses if their HitDef already hit the player (getter)
 	if c.hasTargetOfHitdef(getter.id) {
 		return true
 	}
 
-	// Check if the enemy (c) can also hit the player
+	// Enemy (c) always loses if they have an invalid HitDef or ReversalDef
+	if c.atktmp == 0 || (c.hitdef.attr <= 0 || c.ss.stateType == ST_L) && c.hitdef.reversal_attr <= 0 {
+		return true
+	}
+
+	// Check if the enemy (c) can also hit the player (getter)
 	// Used to check for instance if a lower priority exchanges with a higher priority but the higher priority Clsn1 misses
 	// This could probably be a function that both players access instead of being handled like this
 	countercheck := func(hd *HitDef) bool {
@@ -7691,50 +7792,61 @@ func (c *Char) hittableByChar(ghd *HitDef, getter *Char, gst StateType, proj boo
 		} else {
 			return (getter.atktmp >= 0 || !c.hasTarget(getter.id)) &&
 				!getter.hasTargetOfHitdef(c.id) &&
-				getter.attrCheck(hd, c, c.ss.stateType) &&
+				getter.attrCheck(c, hd, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
 					getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
 		}
 	}
 
-	// Hitdef priority check
-	if c.atktmp != 0 && (c.hitdef.attr > 0 && c.ss.stateType != ST_L || c.hitdef.reversal_attr > 0) {
-		switch {
-		case c.hitdef.reversal_attr > 0:
-			if ghd.reversal_attr > 0 { // Reversaldef vs Reversaldef
-				if countercheck(&c.hitdef) {
-					c.atktmp = -1
-					return getter.atktmp < 0
-				}
-				return true
+	// Enemy (c) ReversalDef check
+	if c.hitdef.reversal_attr > 0 {
+		if ghd.reversal_attr > 0 { // ReversalDef vs ReversalDef
+			if countercheck(&c.hitdef) {
+				c.atktmp = -1
+				return getter.atktmp < 0
 			}
-		case ghd.reversal_attr > 0:
-			return true
-		case ghd.priority < c.hitdef.priority:
-			// Run countercheck
-		case ghd.priority == c.hitdef.priority:
-			switch {
-			case c.hitdef.prioritytype == TT_Dodge:
-				// Run countercheck
-			case ghd.prioritytype == TT_Dodge:
-				// Run countercheck
-			case ghd.prioritytype == TT_Miss:
-				// Run countercheck
-			case c.hitdef.prioritytype == TT_Hit:
-				if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
-					c.atktmp = -1
-					return getter.atktmp < 0 || Rand(0, 1) == 1
-				}
-				return true
-			default:
-				return true
-			}
-		default:
 			return true
 		}
 		return !countercheck(&c.hitdef)
 	}
+
+	// Enemy (c) loses if player (getter) has ReversalDef
+	if ghd.reversal_attr > 0 {
+		return true
+	}
+
+	// Enemy (c) loses if their HitDef has lower priority
+	if c.hitdef.priority < ghd.priority {
+		return true
+	}
+
+	// Enemy (c) HitDef has higher priority. Run counter check
+	if c.hitdef.priority > ghd.priority  {
+		return !countercheck(&c.hitdef)
+	}
+
+	// Both HitDefs have same priority. Check trade types
+	if ghd.priority == c.hitdef.priority {
+		switch {
+		case c.hitdef.prioritytype == TT_Dodge:
+			return !countercheck(&c.hitdef)
+		case ghd.prioritytype == TT_Dodge:
+			return !countercheck(&c.hitdef)
+		case ghd.prioritytype == TT_Miss:
+			return !countercheck(&c.hitdef)
+		case c.hitdef.prioritytype == TT_Hit:
+			if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
+				c.atktmp = -1
+				return getter.atktmp < 0 || Rand(0, 1) == 1
+			}
+			return true
+		default:
+			return true
+		}
+	}
+
+	// Other cases
 	return true
 }
 
@@ -10036,7 +10148,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					(c.asf(ASF_nojugglecheck) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= p.hitdef.air_juggle) &&
 					(!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
 					(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
-					getter.hittableByChar(&p.hitdef, c, ST_N, true) {
+					getter.hittableByChar(c, &p.hitdef, ST_N, true) {
 					orghittmp := getter.hittmp
 					if getter.csf(CSF_gethit) {
 						getter.hittmp = int8(Btoi(getter.ghv.fallflag)) + 1
@@ -10154,7 +10266,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				if c.hitdef.hitonce >= 0 && !c.hasTargetOfHitdef(getter.id) &&
 					(c.hitdef.reversal_attr <= 0 || !getter.hasTargetOfHitdef(c.id)) &&
 					(getter.hittmp < 2 || c.asf(ASF_nojugglecheck) || !c.hasTarget(getter.id) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= c.juggle) &&
-					getter.hittableByChar(&c.hitdef, c, c.ss.stateType, false) {
+					getter.hittableByChar(c, &c.hitdef, c.ss.stateType, false) {
 
 					// Z axis check
 					// Reversaldef checks attack depth vs attack depth

@@ -7686,7 +7686,7 @@ func (c *Char) hitByPlayerIdCheck(getterid int32) bool {
 	return hit
 }
 
-// Check if Hitdef attributes can hit a player
+// Check if HitDef attributes can hit a player
 func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// Invalid attributes
@@ -7743,8 +7743,8 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	attrsca := ghd.attr & int32(ST_MASK)
 	// Note: In Mugen, invincibility is checked against the enemy's actual statetype instead of the Hitdef's SCA attribute
 	// Exception for projectiles, where it respects the SCA attribute
-	// Ikemen characters work as documented. Invincibility only cares about the Hitdef's SCA attribute
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+	// Ikemen characters work as documented. Invincibility only cares about the HitDef's SCA attribute
+	if getter.stWgi().ikemenver[0] == 0 && getter.stWgi().ikemenver[1] == 0 {
 		if gstyp == ST_N { // Projectiles mostly
 			attrsca = ghd.attr & int32(ST_MASK)
 		} else {

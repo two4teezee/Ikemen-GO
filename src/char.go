@@ -865,6 +865,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	down_recovertime := ghv.down_recovertime
 	fallcount := ghv.fallcount
 	fallflag := ghv.fallflag
+	frame := ghv.frame
 	guardcount := ghv.guardcount
 	guarddamage := ghv.guarddamage
 	guardpoints := ghv.guardpoints
@@ -885,6 +886,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	ghv.down_recovertime = down_recovertime
 	ghv.fallcount = fallcount
 	ghv.fallflag = fallflag
+	ghv.frame = frame
 	ghv.guardcount = guardcount
 	ghv.guarddamage = guarddamage
 	ghv.guardpoints = guardpoints
@@ -9647,15 +9649,14 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				ghv.priority = hd.priority
 			}
 			if sys.supertime > 0 {
-				getter.superMovetime =
-					Max(getter.superMovetime, getter.ghv.hitshaketime)
+				getter.superMovetime = Max(getter.superMovetime, getter.ghv.hitshaketime)
 			} else if sys.pausetime > 0 {
-				getter.pauseMovetime =
-					Max(getter.pauseMovetime, getter.ghv.hitshaketime)
+				getter.pauseMovetime = Max(getter.pauseMovetime, getter.ghv.hitshaketime)
 			}
 			if !p2s && !getter.csf(CSF_gethit) {
 				getter.stchtmp = false
 			}
+			// Flag enemy as getting hit
 			getter.setCSF(CSF_gethit)
 			getter.ghv.frame = true
 			// In Mugen, having any HitOverride active allows GetHitVar Damage to exceed the remaining life
@@ -9702,8 +9703,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 			getter.ghv.guardpower += hd.guardgivepower
 			getter.ghv.hitdamage += getter.computeDamage(float64(hd.hitdamage), true, false, attackMul[0], c, false)
 			getter.ghv.guarddamage += getter.computeDamage(float64(hd.guarddamage), true, false, attackMul[0], c, false)
-			getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, bnd)
-			getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, bnd)
+			getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, false)
+			getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, false)
 
 			// Hit behavior on KO
 			if ghvset && getter.ghv.damage >= getter.life {

@@ -4874,29 +4874,29 @@ func triggerFunctions(l *lua.LState) {
 			switch strings.ToLower(vname) {
 			case "anim":
 				ln = lua.LNumber(bg.actionno)
-			case "delta x":
+			case "delta.x":
 				ln = lua.LNumber(bg.delta[0])
-			case "delta y":
+			case "delta.y":
 				ln = lua.LNumber(bg.delta[1])
 			case "id":
 				ln = lua.LNumber(bg.id)
 			case "layerno":
 				ln = lua.LNumber(bg.layerno)
-			case "pos x":
+			case "pos.x":
 				ln = lua.LNumber(bg.bga.pos[0])
-			case "pos y":
+			case "pos.y":
 				ln = lua.LNumber(bg.bga.pos[1])
-			case "start x":
+			case "start.x":
 				ln = lua.LNumber(bg.start[0])
-			case "start y":
+			case "start.y":
 				ln = lua.LNumber(bg.start[1])
-			case "tile x":
+			case "tile.x":
 				ln = lua.LNumber(bg.anim.tile.xflag)
-			case "tile y":
+			case "tile.y":
 				ln = lua.LNumber(bg.anim.tile.yflag)
-			case "vel x":
+			case "velocity.x":
 				ln = lua.LNumber(bg.bga.vel[0])
-			case "vel y":
+			case "velocity.y":
 				ln = lua.LNumber(bg.bga.vel[1])
 			default:
 				l.RaiseError("\nInvalid argument: %v\n", vname)

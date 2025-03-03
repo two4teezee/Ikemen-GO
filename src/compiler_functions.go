@@ -5934,15 +5934,15 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "vel.x", false, func(data string) error {
+		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
-			return c.scAdd(sc, modifyStageBG_vel_x, data, VT_Float, 2)
+			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
 		}); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "vel.y", false, func(data string) error {
+		if err := c.stateParam(is, "velocity.y", false, func(data string) error {
 			any = true
-			return c.scAdd(sc, modifyStageBG_vel_y, data, VT_Float, 1)
+			return c.scAdd(sc, modifyStageBG_velocity_y, data, VT_Float, 1)
 		}); err != nil {
 			return err
 		}

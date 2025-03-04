@@ -370,9 +370,9 @@ local function f_parse(path)
 				if t.spr_data[t[spr_def].spr] == nil then --sff data not created yet
 					t.spr_data[t[spr_def].spr] = sffNew(t[spr_def].spr)
 				end
-				scene.bg = bgNew(t.spr_data[t[spr_def].spr], t.def, scene.bg_name:lower())
+				scene.bg = bgNew(t.spr_data[t[spr_def].spr],nil, t.def, scene.bg_name:lower())
 			else
-				scene.bg = bgNew(t.spr_data[t.scenedef.spr], t.def, scene.bg_name:lower())
+				scene.bg = bgNew(t.spr_data[t.scenedef.spr],nil, t.def, scene.bg_name:lower())
 			end
 			bgReset(scene.bg)
 		end

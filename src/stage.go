@@ -1163,7 +1163,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			return nil, err
 		}
 		if err = sec[0].LoadFile("model", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			model, err := loadglTFStage(filename)
+			model, err := loadglTFModel(filename)
 			if err != nil {
 				return err
 			}
@@ -1639,7 +1639,7 @@ func (s *Stage) action() {
 		s.bgct.step(s)
 		s.bga.action()
 		if s.model != nil {
-			s.model.step()
+			s.model.step(sys.turbo)
 		}
 	}
 	for i, b := range s.bg {
@@ -1745,11 +1745,7 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 			pos[i] = float32(math.Ceil(float64(p - 0.5)))
 		}
 	}
-	if layer == 0 {
-		s.drawModel(pos, yofs, scl, 0)
-	} else if layer == 1 {
-		s.drawModel(pos, yofs, scl, 1)
-	}
+	s.drawModel(pos, yofs, scl, layer)
 	for _, b := range s.bg {
 		if b.layerno == layer && b.visible && b.anim.spr != nil {
 			b.draw(pos, scl, bgscl, s.localscl, s.scale, yofs, true)
@@ -2094,6 +2090,7 @@ type Node struct {
 	shadowMapBias      GLTFAnimatableProperty // float32
 	skin               *uint32
 	morphTargetWeights GLTFAnimatableProperty // []float32
+	layerNumber        *int
 }
 
 type Skin struct {
@@ -2233,8 +2230,7 @@ func loadEnvironment(filepath string) (*Environment, error) {
 	}
 	return env, nil
 }
-
-func loadglTFStage(filepath string) (*Model, error) {
+func loadglTFModel(filepath string) (*Model, error) {
 	mdl := &Model{offset: [3]float32{0, 0, 0}, rotation: [3]float32{0, 0, 0}, scale: [3]float32{1, 1, 1}}
 	doc, err := gltf.Open(filepath)
 	if err != nil {
@@ -3038,6 +3034,10 @@ func loadglTFStage(filepath string) (*Model, error) {
 				if v["id"] != nil {
 					node.id = uint32(v["id"].(float64))
 				}
+				if v["layerNumber"] != nil {
+					node.layerNumber = new(int)
+					*node.layerNumber = int(v["layerNumber"].(float64))
+				}
 			}
 		}
 		node.transformChanged = true
@@ -3397,14 +3397,17 @@ func calculateAnimationData(mdl *Model, n *Node) {
 		}
 	}
 }
-
-func drawNode(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, unlit bool) {
+func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNode(mdl, scene, mdl.nodes[index], camOffset, drawBlended, unlit)
+		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit)
 	}
-	if n.meshIndex == nil || !n.visible {
+	nodeLayerNumber := defaultLayerNumber
+	if n.layerNumber != nil {
+		nodeLayerNumber = *n.layerNumber
+	}
+	if n.meshIndex == nil || !n.visible || (nodeLayerNumber != layerNumber) {
 		return
 	}
 	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, -int(n.trans))
@@ -3610,40 +3613,17 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 	}
 }
-
-func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber int) {
-	if s.model == nil || len(s.model.scenes) <= sceneNumber || !gfx.IsModelEnabled() {
+func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view mgl.Mat4) {
+	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
 	}
-	drawFOV := s.stageCamera.fov * math.Pi / 180
-
-	var syo float32
-	scaleCorrection := float32(sys.cam.localcoord[1]) * sys.cam.localscl / float32(sys.gameHeight)
-	posMul := float32(math.Tan(float64(drawFOV)/2)) * -s.model.offset[2] / (float32(sys.cam.localcoord[1]) / 2)
-	aspectCorrection := (float32(sys.cam.zoffset)/float32(sys.cam.localcoord[1]) - (float32(sys.cam.zoffset)*s.localscl-sys.cam.aspectcorrection)/float32(sys.gameHeight)) * 2
-	syo = -(float32(s.stageCamera.zoffset) - float32(sys.cam.localcoord[1])/2) * (1 - scl) / scl
-	syo2 := -(float32(s.stageCamera.zoffset) - float32(sys.cam.localcoord[1])/2) * (1 - scaleCorrection) / float32(sys.cam.localcoord[1]) * 2
-	offset := [3]float32{(pos[0]*-posMul + s.model.offset[0]/scl), (((pos[1])/scl+syo)*posMul + s.model.offset[1]), s.model.offset[2] / scl}
-	rotation := [3]float32{s.model.rotation[0], s.model.rotation[1], s.model.rotation[2]}
-	scale := [3]float32{s.model.scale[0], s.model.scale[1], s.model.scale[2]}
-	proj := mgl.Translate3D(0, (sys.cam.zoomanchorcorrection+yofs)/float32(sys.gameHeight)*2+syo2+aspectCorrection, 0)
-	proj = proj.Mul4(mgl.Scale3D(scaleCorrection, scaleCorrection, 1))
-	proj = proj.Mul4(mgl.Translate3D(0, (sys.cam.yshift * scl), 0))
-	proj = proj.Mul4(mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.stageCamera.near, s.stageCamera.far))
-	view := mgl.Ident4()
-	view = view.Mul4(mgl.Translate3D(offset[0], offset[1], offset[2]))
-	view = view.Mul4(mgl.HomogRotate3DX(rotation[0]))
-	view = view.Mul4(mgl.HomogRotate3DY(rotation[1]))
-	view = view.Mul4(mgl.HomogRotate3DZ(rotation[2]))
-	view = view.Mul4(mgl.Scale3D(scale[0], scale[1], scale[2]))
-	scene := s.model.scenes[sceneNumber]
-	s.model.calculateTextureTransform()
+	scene := model.scenes[sceneNumber]
 	for _, index := range scene.nodes {
-		s.model.nodes[index].calculateWorldTransform(mgl.Ident4(), s.model.nodes)
-		calculateAnimationData(s.model, s.model.nodes[index])
+		model.nodes[index].calculateWorldTransform(mgl.Ident4(), model.nodes)
+		calculateAnimationData(model, model.nodes[index])
 	}
-	if len(scene.lightNodes) > 0 && sceneNumber == 0 && gfx.IsShadowEnabled() {
-		gfx.prepareShadowMapPipeline()
+	if len(scene.lightNodes) > 0 && layerNumber == -1 && gfx.IsShadowEnabled() {
+		gfx.prepareShadowMapPipeline(bufferIndex)
 		numLights := 0
 		for i := 0; i < 4; i++ {
 			if i >= len(scene.lightNodes) {
@@ -3651,8 +3631,8 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber
 				continue
 			}
 			numLights += 1
-			lightNode := s.model.nodes[scene.lightNodes[i]]
-			light := s.model.lights[*lightNode.lightIndex]
+			lightNode := model.nodes[scene.lightNodes[i]]
+			light := model.lights[*lightNode.lightIndex]
 			shadowMapNear := float32(0.1)
 			if light.lightType == DirectionalLight {
 				shadowMapNear = -20
@@ -3741,43 +3721,43 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber
 					gfx.SetShadowFrameTexture(uint32(i))
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(s.model, scene, s.model.nodes[index], offset, false, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1)
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(s.model, scene, s.model.nodes[index], offset, true, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1)
 				}
-				if len(s.model.scenes) > 1 {
+				if len(model.scenes) > 1 {
 					for _, index := range scene.nodes {
-						drawNodeShadow(s.model, s.model.scenes[1], s.model.nodes[index], offset, false, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1)
 					}
 					for _, index := range scene.nodes {
-						drawNodeShadow(s.model, s.model.scenes[1], s.model.nodes[index], offset, true, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1)
 					}
 				}
 			}
 		}
 		if gfx.GetName() == "OpenGL 3.2" {
 			for _, index := range scene.nodes {
-				drawNodeShadow(s.model, scene, s.model.nodes[index], offset, false, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights)
 			}
 			for _, index := range scene.nodes {
-				drawNodeShadow(s.model, scene, s.model.nodes[index], offset, true, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights)
 			}
-			if len(s.model.scenes) > 1 {
+			if len(model.scenes) > 1 {
 				for _, index := range scene.nodes {
-					drawNodeShadow(s.model, s.model.scenes[1], s.model.nodes[index], offset, false, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights)
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(s.model, s.model.scenes[1], s.model.nodes[index], offset, true, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights)
 				}
 			}
 		}
 		gfx.ReleaseShadowPipeline()
 	}
-	if s.model.environment != nil {
-		gfx.prepareModelPipeline(s.model.environment)
+	if model.environment != nil {
+		gfx.prepareModelPipeline(bufferIndex, model.environment)
 	} else {
-		gfx.prepareModelPipeline(nil)
+		gfx.prepareModelPipeline(bufferIndex, nil)
 	}
 	gfx.SetModelUniformMatrix("projection", proj[:])
 	gfx.SetModelUniformMatrix("view", view[:])
@@ -3790,8 +3770,8 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber
 	}
 	if len(scene.lightNodes) > 0 {
 		for idx := 0; idx < len(scene.lightNodes); idx++ {
-			lightNode := s.model.nodes[scene.lightNodes[idx]]
-			light := s.model.lights[*lightNode.lightIndex]
+			lightNode := model.nodes[scene.lightNodes[idx]]
+			light := model.lights[*lightNode.lightIndex]
 			shadowMapNear := float32(0.1)
 			shadowMapFar := float32(50)
 			shadowMapBottom := float32(-20)
@@ -3873,17 +3853,51 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, sceneNumber
 				gfx.SetModelUniformMatrix("lightMatrices["+strconv.Itoa(idx)+"]", ident[:])
 			}
 		}
-	} else if s.model.environment == nil {
+	} else if model.environment == nil {
 		unlit = true
 	}
 	for _, index := range scene.nodes {
-		drawNode(s.model, scene, s.model.nodes[index], offset, false, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit)
 	}
 	for _, index := range scene.nodes {
-		drawNode(s.model, scene, s.model.nodes[index], offset, true, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit)
 	}
 }
+func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber int32) {
+	if s.model == nil || !gfx.IsModelEnabled() {
+		return
+	}
+	drawFOV := s.stageCamera.fov * math.Pi / 180
 
+	var syo float32
+	scaleCorrection := float32(sys.cam.localcoord[1]) * sys.cam.localscl / float32(sys.gameHeight)
+	posMul := float32(math.Tan(float64(drawFOV)/2)) * -s.model.offset[2] / (float32(sys.cam.localcoord[1]) / 2)
+	aspectCorrection := (float32(sys.cam.zoffset)/float32(sys.cam.localcoord[1]) - (float32(sys.cam.zoffset)*s.localscl-sys.cam.aspectcorrection)/float32(sys.gameHeight)) * 2
+	syo = -(float32(s.stageCamera.zoffset) - float32(sys.cam.localcoord[1])/2) * (1 - scl) / scl
+	syo2 := -(float32(s.stageCamera.zoffset) - float32(sys.cam.localcoord[1])/2) * (1 - scaleCorrection) / float32(sys.cam.localcoord[1]) * 2
+	offset := [3]float32{(pos[0]*-posMul + s.model.offset[0]/scl), (((pos[1])/scl+syo)*posMul + s.model.offset[1]), s.model.offset[2] / scl}
+	rotation := [3]float32{s.model.rotation[0], s.model.rotation[1], s.model.rotation[2]}
+	scale := [3]float32{s.model.scale[0], s.model.scale[1], s.model.scale[2]}
+	proj := mgl.Translate3D(0, (sys.cam.zoomanchorcorrection+yofs)/float32(sys.gameHeight)*2+syo2+aspectCorrection, 0)
+	proj = proj.Mul4(mgl.Scale3D(scaleCorrection, scaleCorrection, 1))
+	proj = proj.Mul4(mgl.Translate3D(0, (sys.cam.yshift * scl), 0))
+	proj = proj.Mul4(mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.stageCamera.near, s.stageCamera.far))
+	view := mgl.Ident4()
+	view = view.Mul4(mgl.Translate3D(offset[0], offset[1], offset[2]))
+	view = view.Mul4(mgl.HomogRotate3DX(rotation[0]))
+	view = view.Mul4(mgl.HomogRotate3DY(rotation[1]))
+	view = view.Mul4(mgl.HomogRotate3DZ(rotation[2]))
+	view = view.Mul4(mgl.Scale3D(scale[0], scale[1], scale[2]))
+	if layerNumber == -1 {
+		s.model.calculateTextureTransform()
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+	} else if layerNumber == 0 {
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+	} else if layerNumber == 1 {
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+		s.model.draw(0, 1, int(layerNumber), 1, offset, proj, view)
+	}
+}
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {
 	channel.nodeIndex = nil
 	components := strings.Split(pointer, "/")
@@ -4198,13 +4212,12 @@ func (anim *GLTFAnimation) toggle(enabled bool) {
 		}
 	}
 }
-
-func (model *Model) step() {
+func (model *Model) step(turbo float32) {
 	for _, anim := range model.animations {
 		if anim.enabled == false {
 			continue
 		}
-		anim.time += sys.turbo / 60
+		anim.time += turbo / 60
 		for anim.time >= anim.duration && anim.duration > 0 && (anim.loopCount < 0 || anim.loop < anim.loopCount) {
 			anim.time -= anim.duration
 			anim.loop += 1

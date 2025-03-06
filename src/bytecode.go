@@ -270,16 +270,16 @@ const (
 	OC_const_size_attack_dist_width_back
 	OC_const_size_attack_dist_height_top
 	OC_const_size_attack_dist_height_bottom
-	OC_const_size_attack_dist_depth_front
-	OC_const_size_attack_dist_depth_back
-	OC_const_size_attack_depth_front
-	OC_const_size_attack_depth_back
+	OC_const_size_attack_dist_depth_top
+	OC_const_size_attack_dist_depth_bottom
+	OC_const_size_attack_depth_top
+	OC_const_size_attack_depth_bottom
 	OC_const_size_proj_attack_dist_width_front
 	OC_const_size_proj_attack_dist_width_back
 	OC_const_size_proj_attack_dist_height_top
 	OC_const_size_proj_attack_dist_height_bottom
-	OC_const_size_proj_attack_dist_depth_front
-	OC_const_size_proj_attack_dist_depth_back
+	OC_const_size_proj_attack_dist_depth_top
+	OC_const_size_proj_attack_dist_depth_bottom
 	OC_const_size_proj_doscale
 	OC_const_size_head_pos_x
 	OC_const_size_head_pos_y
@@ -288,8 +288,8 @@ const (
 	OC_const_size_shadowoffset
 	OC_const_size_draw_offset_x
 	OC_const_size_draw_offset_y
-	OC_const_size_depth_front
-	OC_const_size_depth_back
+	OC_const_size_depth_top
+	OC_const_size_depth_bottom
 	OC_const_size_weight
 	OC_const_size_pushfactor
 	OC_const_velocity_air_gethit_airrecover_add_x
@@ -908,8 +908,8 @@ const (
 	OC_ex2_stagebgvar_start_y
 	OC_ex2_stagebgvar_tile_x
 	OC_ex2_stagebgvar_tile_y
-	OC_ex2_stagebgvar_vel_x
-	OC_ex2_stagebgvar_vel_y
+	OC_ex2_stagebgvar_velocity_x
+	OC_ex2_stagebgvar_velocity_y
 )
 
 const (
@@ -2050,14 +2050,14 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.attack.dist.height[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_height_bottom:
 		sys.bcStack.PushF(c.size.attack.dist.height[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_dist_depth_front:
+	case OC_const_size_attack_dist_depth_top:
 		sys.bcStack.PushF(c.size.attack.dist.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_dist_depth_back:
+	case OC_const_size_attack_dist_depth_bottom:
 		sys.bcStack.PushF(c.size.attack.dist.depth[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_depth_front:
-		sys.bcStack.PushF(c.size.attack.depth.front * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_attack_depth_back:
-		sys.bcStack.PushF(c.size.attack.depth.back * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_attack_depth_top:
+		sys.bcStack.PushF(c.size.attack.depth[0] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_attack_depth_bottom:
+		sys.bcStack.PushF(c.size.attack.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_width_front:
 		sys.bcStack.PushF(c.size.proj.attack.dist.width[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_width_back:
@@ -2066,9 +2066,9 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.proj.attack.dist.height[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_attack_dist_height_bottom:
 		sys.bcStack.PushF(c.size.proj.attack.dist.height[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_proj_attack_dist_depth_front:
+	case OC_const_size_proj_attack_dist_depth_top:
 		sys.bcStack.PushF(c.size.proj.attack.dist.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_proj_attack_dist_depth_back:
+	case OC_const_size_proj_attack_dist_depth_bottom:
 		sys.bcStack.PushF(c.size.proj.attack.dist.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_proj_doscale:
 		sys.bcStack.PushI(c.size.proj.doscale)
@@ -2086,9 +2086,9 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.size.draw.offset[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_draw_offset_y:
 		sys.bcStack.PushF(c.size.draw.offset[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_depth_front:
+	case OC_const_size_depth_top:
 		sys.bcStack.PushF(c.size.depth[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_depth_back:
+	case OC_const_size_depth_bottom:
 		sys.bcStack.PushF(c.size.depth[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_weight:
 		sys.bcStack.PushI(c.size.weight)
@@ -2608,7 +2608,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_gethitvar_guarded:
 		sys.bcStack.PushB(c.ghv.guarded)
 	case OC_ex_gethitvar_isbound:
-		sys.bcStack.PushB(c.isBound())
+		sys.bcStack.PushB(c.isTargetBound())
 	case OC_ex_gethitvar_fall:
 		sys.bcStack.PushB(c.ghv.fallflag)
 	case OC_ex_gethitvar_fall_damage:
@@ -3650,7 +3650,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		OC_ex2_stagebgvar_pos_x, OC_ex2_stagebgvar_pos_y,
 		OC_ex2_stagebgvar_start_x, OC_ex2_stagebgvar_start_y,
 		OC_ex2_stagebgvar_tile_x, OC_ex2_stagebgvar_tile_y,
-		OC_ex2_stagebgvar_vel_x, OC_ex2_stagebgvar_vel_y:
+		OC_ex2_stagebgvar_velocity_x, OC_ex2_stagebgvar_velocity_y:
 		// Common inputs
 		idx := int(sys.bcStack.Pop().ToI())
 		id := sys.bcStack.Pop().ToI()
@@ -3669,12 +3669,9 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			case OC_ex2_stagebgvar_layerno:
 				sys.bcStack.PushI(bg.layerno)
 			case OC_ex2_stagebgvar_pos_x:
-				bg.bga.pos[0]++
 				sys.bcStack.PushF(bg.bga.pos[0] * sys.stage.localscl / oc.localscl)
-				//v = BytecodeFloat((bg.bga.pos[0]*slscl - sys.cam.Pos[0] * sys.cam.Scale) / c.localscl)
 			case OC_ex2_stagebgvar_pos_y:
 				sys.bcStack.PushF(bg.bga.pos[1] * sys.stage.localscl / oc.localscl)
-				//v = BytecodeFloat((bg.bga.pos[1]*sscale - sys.cam.GroundLevel()) / cscale)
 			case OC_ex2_stagebgvar_start_x:
 				sys.bcStack.PushF(bg.start[0] * sys.stage.localscl / oc.localscl)
 			case OC_ex2_stagebgvar_start_y:
@@ -3683,9 +3680,9 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 				sys.bcStack.PushI(bg.anim.tile.xflag)
 			case OC_ex2_stagebgvar_tile_y:
 				sys.bcStack.PushI(bg.anim.tile.yflag)
-			case OC_ex2_stagebgvar_vel_x:
+			case OC_ex2_stagebgvar_velocity_x:
 				sys.bcStack.PushF(bg.bga.vel[0] * sys.stage.localscl / oc.localscl)
-			case OC_ex2_stagebgvar_vel_y:
+			case OC_ex2_stagebgvar_velocity_y:
 				sys.bcStack.PushF(bg.bga.vel[1] * sys.stage.localscl / oc.localscl)
 			}
 		} else {
@@ -8221,7 +8218,7 @@ const (
 func (sc bindToTarget) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	tid, tidx := int32(-1), int(-1)
+	tid, tidx := int32(-1), int(0)
 	time, x, y, z, hmf := int32(1), float32(0), float32(math.NaN()), float32(math.NaN()), HMF_F
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -12431,8 +12428,8 @@ const (
 	modifyStageBG_start_x
 	modifyStageBG_start_y
 	modifyStageBG_trans
-	modifyStageBG_vel_x
-	modifyStageBG_vel_y
+	modifyStageBG_velocity_x
+	modifyStageBG_velocity_y
 )
 
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
@@ -12557,12 +12554,12 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 						}
 					})
 				}
-			case modifyStageBG_vel_x:
+			case modifyStageBG_velocity_x:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
 					bg.bga.vel[0] = val
 				})
-			case modifyStageBG_vel_y:
+			case modifyStageBG_velocity_y:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
 					bg.bga.vel[1] = val

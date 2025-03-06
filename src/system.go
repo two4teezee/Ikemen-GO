@@ -874,10 +874,10 @@ func (s *System) posZtoYoffset(zpos, localscl float32) float32 {
 
 // Z axis check
 // Changed to no longer check z enable constant, depends on stage now
-func (s *System) zAxisOverlap(posz1, front1, back1, localscl1, posz2, front2, back2, localscl2 float32) bool {
+func (s *System) zAxisOverlap(posz1, top1, bot1, localscl1, posz2, top2, bot2, localscl2 float32) bool {
 	if s.zEnabled() {
-		if (posz1+front1)*localscl1 < (posz2-back2)*localscl2 ||
-			(posz1-back1)*localscl1 > (posz2+front2)*localscl2 {
+		if (posz1+bot1)*localscl1 < (posz2-top2)*localscl2 ||
+			(posz1-top1)*localscl1 > (posz2+bot2)*localscl2 {
 			return false
 		}
 	}

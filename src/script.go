@@ -3388,7 +3388,7 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.air.back)
 		case "size.air.front":
 			ln = lua.LNumber(c.size.air.front)
-		case "size.height", "size.height.stand":
+		case "size.height", "size.height.stand": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.height.stand)
 		case "size.height.crouch":
 			ln = lua.LNumber(c.size.height.crouch)
@@ -3398,7 +3398,7 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.height.air[1])
 		case "size.height.down":
 			ln = lua.LNumber(c.size.height.down)
-		case "size.attack.dist", "size.attack.dist.width.front":
+		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.attack.dist.width[0])
 		case "size.attack.dist.width.back":
 			ln = lua.LNumber(c.size.attack.dist.width[1])
@@ -3406,15 +3406,15 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.attack.dist.height[0])
 		case "size.attack.dist.height.bottom":
 			ln = lua.LNumber(c.size.attack.dist.height[1])
-		case "size.attack.dist.depth.front":
+		case "size.attack.dist.depth.top":
 			ln = lua.LNumber(c.size.attack.dist.depth[0])
-		case "size.attack.dist.depth.back":
+		case "size.attack.dist.depth.bottom":
 			ln = lua.LNumber(c.size.attack.dist.depth[1])
-		case "size.attack.depth.front":
-			ln = lua.LNumber(c.size.attack.depth.front)
-		case "size.attack.depth.back":
-			ln = lua.LNumber(c.size.attack.depth.back)
-		case "size.proj.attack.dist", "size.proj.attack.dist.width.front":
+		case "size.attack.depth.top":
+			ln = lua.LNumber(c.size.attack.depth[0])
+		case "size.attack.depth.bottom":
+			ln = lua.LNumber(c.size.attack.depth[1])
+		case "size.proj.attack.dist", "size.proj.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.proj.attack.dist.width[0])
 		case "size.proj.attack.dist.width.back":
 			ln = lua.LNumber(c.size.proj.attack.dist.width[1])
@@ -3422,9 +3422,9 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.proj.attack.dist.height[0])
 		case "size.proj.attack.dist.height.bottom":
 			ln = lua.LNumber(c.size.proj.attack.dist.height[1])
-		case "size.proj.attack.dist.depth.front":
+		case "size.proj.attack.dist.depth.top":
 			ln = lua.LNumber(c.size.proj.attack.dist.depth[0])
-		case "size.proj.attack.dist.depth.back":
+		case "size.proj.attack.dist.depth.bottom":
 			ln = lua.LNumber(c.size.proj.attack.dist.depth[1])
 		case "size.proj.doscale":
 			ln = lua.LNumber(c.size.proj.doscale)
@@ -3442,9 +3442,9 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.draw.offset[0])
 		case "size.draw.offset.y":
 			ln = lua.LNumber(c.size.draw.offset[1])
-		case "size.depth.front":
+		case "size.depth.top":
 			ln = lua.LNumber(c.size.depth[0])
-		case "size.depth.back":
+		case "size.depth.bottom":
 			ln = lua.LNumber(c.size.depth[1])
 		case "size.weight":
 			ln = lua.LNumber(c.size.weight)
@@ -3873,7 +3873,7 @@ func triggerFunctions(l *lua.LState) {
 		case "guarded":
 			ln = lua.LNumber(Btoi(c.ghv.guarded))
 		case "isbound":
-			ln = lua.LNumber(Btoi(c.isBound()))
+			ln = lua.LNumber(Btoi(c.isTargetBound()))
 		case "fall":
 			ln = lua.LNumber(Btoi(c.ghv.fallflag))
 		case "fall.damage":
@@ -4890,29 +4890,29 @@ func triggerFunctions(l *lua.LState) {
 			switch strings.ToLower(vname) {
 			case "anim":
 				ln = lua.LNumber(bg.actionno)
-			case "delta x":
+			case "delta.x":
 				ln = lua.LNumber(bg.delta[0])
-			case "delta y":
+			case "delta.y":
 				ln = lua.LNumber(bg.delta[1])
 			case "id":
 				ln = lua.LNumber(bg.id)
 			case "layerno":
 				ln = lua.LNumber(bg.layerno)
-			case "pos x":
+			case "pos.x":
 				ln = lua.LNumber(bg.bga.pos[0])
-			case "pos y":
+			case "pos.y":
 				ln = lua.LNumber(bg.bga.pos[1])
-			case "start x":
+			case "start.x":
 				ln = lua.LNumber(bg.start[0])
-			case "start y":
+			case "start.y":
 				ln = lua.LNumber(bg.start[1])
-			case "tile x":
+			case "tile.x":
 				ln = lua.LNumber(bg.anim.tile.xflag)
-			case "tile y":
+			case "tile.y":
 				ln = lua.LNumber(bg.anim.tile.yflag)
-			case "vel x":
+			case "velocity.x":
 				ln = lua.LNumber(bg.bga.vel[0])
-			case "vel y":
+			case "velocity.y":
 				ln = lua.LNumber(bg.bga.vel[1])
 			default:
 				l.RaiseError("\nInvalid argument: %v\n", vname)

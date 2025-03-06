@@ -278,10 +278,7 @@ type CharSize struct {
 			height [2]float32
 			depth  [2]float32
 		}
-		depth struct {
-			front float32
-			back  float32
-		}
+		depth [2]float32
 	}
 	proj struct {
 		attack struct {
@@ -332,8 +329,7 @@ func (cs *CharSize) init() {
 	cs.shadowoffset = 0
 	cs.draw.offset = [...]float32{0, 0}
 	cs.depth = [...]float32{3, 3}
-	cs.attack.depth.front = 4
-	cs.attack.depth.back = 4
+	cs.attack.depth = [...]float32{4, 4}
 	cs.weight = 100
 	cs.pushfactor = 1
 }
@@ -740,7 +736,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 	hd.guard_sparkno = c.gi().data.guard.sparkno
 	hd.hitsound_channel = c.gi().data.hitsound_channel
 	hd.guardsound_channel = c.gi().data.guardsound_channel
-	hd.attack_depth = [2]float32{c.size.attack.depth.front, c.size.attack.depth.back}
+	hd.attack_depth = [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]}
 }
 
 // When a Hitdef connects, its statetype attribute will be updated to the character's current type
@@ -869,6 +865,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	down_recovertime := ghv.down_recovertime
 	fallcount := ghv.fallcount
 	fallflag := ghv.fallflag
+	frame := ghv.frame
 	guardcount := ghv.guardcount
 	guarddamage := ghv.guarddamage
 	guardpoints := ghv.guardpoints
@@ -889,6 +886,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	ghv.down_recovertime = down_recovertime
 	ghv.fallcount = fallcount
 	ghv.fallflag = fallflag
+	ghv.frame = frame
 	ghv.guardcount = guardcount
 	ghv.guarddamage = guarddamage
 	ghv.guardpoints = guardpoints
@@ -2639,7 +2637,7 @@ func (c *Char) clearNextRound() {
 		alpha:           [2]int32{255, 0},
 		width:           [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		height:          [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
-		depth:           [2]float32{c.baseDepthFront(), c.baseDepthBack()},
+		depth:           [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
 		attackMul:       [4]float32{atk, atk, atk, atk},
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
@@ -2950,8 +2948,8 @@ func (c *Char) load(def string) error {
 		c.size.draw.offset[1] *= coordRatio
 		c.size.depth[0] *= coordRatio
 		c.size.depth[1] *= coordRatio
-		c.size.attack.depth.front *= coordRatio
-		c.size.attack.depth.back *= coordRatio
+		c.size.attack.depth[0] *= coordRatio
+		c.size.attack.depth[1] *= coordRatio
 	}
 
 	gi.velocity.init()
@@ -3090,7 +3088,7 @@ func (c *Char) load(def string) error {
 						is.ReadF32("draw.offset",
 							&c.size.draw.offset[0], &c.size.draw.offset[1])
 						is.ReadF32("depth", &c.size.depth[0], &c.size.depth[1])
-						is.ReadF32("attack.depth", &c.size.attack.depth.front, &c.size.attack.depth.back)
+						is.ReadF32("attack.depth", &c.size.attack.depth[0], &c.size.attack.depth[1])
 						is.ReadI32("weight", &c.size.weight)
 						is.ReadF32("pushfactor", &c.size.pushfactor)
 					}
@@ -3843,7 +3841,7 @@ func (c *Char) bottomEdge() float32 {
 }
 
 func (c *Char) botBoundBodyDist() float32 {
-	return c.botBoundDist() - c.depthEdge[0]
+	return c.botBoundDist() - c.depthEdge[1]
 }
 
 func (c *Char) botBoundDist() float32 {
@@ -4696,7 +4694,7 @@ func (c *Char) topEdge() float32 {
 }
 
 func (c *Char) topBoundBodyDist() float32 {
-	return c.topBoundDist() - c.depthEdge[1]
+	return c.topBoundDist() - c.depthEdge[0]
 }
 
 func (c *Char) topBoundDist() float32 {
@@ -4977,21 +4975,13 @@ func (c *Char) destroy() {
 		c.exitTarget()
 		c.receivedDmg = 0
 		c.receivedHits = 0
-		if c.playerFlag {
-			// sys.charList.p2enemyDelete(c)
-			sys.charList.enemyNearChanged = true
-		}
+		// Remove ID from target's GetHitVars
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
-				if t.bindToId == c.id {
-					if t.ss.moveType == MT_H {
-						t.selfState(5050, -1, -1, -1, "")
-					}
-				}
-				t.gethitBindClear()
 				t.ghv.dropId(c.id)
 			}
 		}
+		// Remove ID from parent's children list
 		if c.parentIndex >= 0 {
 			if p := c.parent(); p != nil {
 				for i, ch := range p.children {
@@ -5001,12 +4991,17 @@ func (c *Char) destroy() {
 				}
 			}
 		}
+		// Remove ID from children
 		for _, ch := range c.children {
 			if ch != nil {
 				ch.parentIndex *= -1
 			}
 		}
 		c.children = c.children[:0]
+		if c.playerFlag {
+			// sys.charList.p2enemyDelete(c)
+			sys.charList.enemyNearChanged = true
+		}
 		sys.charList.delete(c)
 		c.helperIndex = -1
 		c.setCSF(CSF_destroy)
@@ -5716,11 +5711,11 @@ func (c *Char) baseHeightBottom() float32 {
 	}
 }
 
-func (c *Char) baseDepthFront() float32 {
+func (c *Char) baseDepthTop() float32 {
 	return float32(c.size.depth[0])
 }
 
-func (c *Char) baseDepthBack() float32 {
+func (c *Char) baseDepthBottom() float32 {
 	return float32(c.size.depth[1])
 }
 
@@ -5738,10 +5733,10 @@ func (c *Char) setHeight(th, bh float32) {
 	c.setCSF(CSF_height)
 }
 
-func (c *Char) setDepth(fd, bd float32) {
+func (c *Char) setDepth(td, bd float32) {
 	coordRatio := (320 / c.localcoord) / c.localscl
-	c.depth[0] = c.baseDepthFront()*coordRatio + fd
-	c.depth[1] = c.baseDepthBack()*coordRatio + bd
+	c.depth[0] = c.baseDepthTop()*coordRatio + td
+	c.depth[1] = c.baseDepthBottom()*coordRatio + bd
 	c.setCSF(CSF_depth)
 }
 
@@ -5751,8 +5746,8 @@ func (c *Char) setWidthEdge(fe, be float32) {
 	c.setCSF(CSF_widthedge)
 }
 
-func (c *Char) setDepthEdge(fde, bde float32) {
-	c.depthEdge[0] = fde
+func (c *Char) setDepthEdge(tde, bde float32) {
+	c.depthEdge[0] = tde
 	c.depthEdge[1] = bde
 	c.setCSF(CSF_depthedge)
 }
@@ -5817,7 +5812,7 @@ func (c *Char) gethitAnimtype() Reaction {
 	}
 }
 
-func (c *Char) isBound() bool {
+func (c *Char) isTargetBound() bool {
 	return c.ghv.idMatch(c.bindToId)
 }
 
@@ -6306,7 +6301,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 			if i == r {
 				c.targets = append(c.targets, tid)
 			} else if t := sys.playerID(tid); t != nil {
-				if t.isBound() {
+				if t.isTargetBound() {
 					if c.csf(CSF_gethit) {
 						t.selfState(5050, -1, -1, -1, "")
 					}
@@ -6622,10 +6617,10 @@ func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
 }
 
 func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
-	cbot := (c.pos[2] + c.depth[0]) * c.localscl
-	ctop := (c.pos[2] - c.depth[1]) * c.localscl
-	obot := (opp.pos[2] + opp.depth[0]) * opp.localscl
-	otop := (opp.pos[2] - opp.depth[1]) * opp.localscl
+	ctop := (c.pos[2] - c.depth[0]) * c.localscl
+	cbot := (c.pos[2] + c.depth[1]) * c.localscl
+	otop := (opp.pos[2] - opp.depth[0]) * opp.localscl
+	obot := (opp.pos[2] + opp.depth[1]) * opp.localscl
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7357,8 +7352,9 @@ func (c *Char) xScreenBound() {
 
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
-	max, min := -c.depthEdge[0], c.depthEdge[1]
 	if c.csf(CSF_stagebound) {
+		min := c.depthEdge[0]
+		max := -c.depthEdge[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 	c.setPosZ(posz)
@@ -7378,11 +7374,12 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 }
 
 func (c *Char) gethitBindClear() {
-	if c.isBound() {
+	if c.isTargetBound() {
 		c.setBindTime(0)
 	}
 }
 
+// Drop targets that no longer fit the requirements
 func (c *Char) dropTargets() {
 	if c.hitdef.reversal_attr == 0 || c.hitdef.reversal_attr == -1<<31 {
 		i := 0
@@ -7416,6 +7413,7 @@ func (c *Char) removeTarget(pid int32) {
 	}
 }
 
+// Remove self from the target lists of other players
 func (c *Char) exitTarget() {
 	if c.hittmp >= 0 {
 		for _, hb := range c.ghv.hitBy {
@@ -7686,7 +7684,7 @@ func (c *Char) hitByPlayerIdCheck(getterid int32) bool {
 	return hit
 }
 
-// Check if Hitdef attributes can hit a player
+// Check if HitDef attributes can hit a player
 func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// Invalid attributes
@@ -7743,8 +7741,8 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	attrsca := ghd.attr & int32(ST_MASK)
 	// Note: In Mugen, invincibility is checked against the enemy's actual statetype instead of the Hitdef's SCA attribute
 	// Exception for projectiles, where it respects the SCA attribute
-	// Ikemen characters work as documented. Invincibility only cares about the Hitdef's SCA attribute
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+	// Ikemen characters work as documented. Invincibility only cares about the HitDef's SCA attribute
+	if getter.stWgi().ikemenver[0] == 0 && getter.stWgi().ikemenver[1] == 0 {
 		if gstyp == ST_N { // Projectiles mostly
 			attrsca = ghd.attr & int32(ST_MASK)
 		} else {
@@ -7977,7 +7975,7 @@ func (c *Char) actionPrepare() {
 	if c.unhittableTime > 0 {
 		c.unhittableTime--
 	}
-	c.dropTargets() // TODO: Why do we need both this and exitTarget()?
+	c.dropTargets()
 }
 
 func (c *Char) actionRun() {
@@ -8070,7 +8068,7 @@ func (c *Char) actionRun() {
 			c.height = [2]float32{c.baseHeightTop() * coordRatio, c.baseHeightBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depth) {
-			c.depth = [2]float32{c.baseDepthFront() * coordRatio, c.baseDepthBack() * coordRatio}
+			c.depth = [2]float32{c.baseDepthTop() * coordRatio, c.baseDepthBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depthedge) {
 			c.depthEdge = [2]float32{0, 0}
@@ -8330,7 +8328,7 @@ func (c *Char) update() {
 			c.destroy()
 			return
 		}
-		if !c.pause() && !c.isBound() {
+		if !c.pause() && !c.isTargetBound() {
 			c.bind()
 		}
 		if c.acttmp > 0 {
@@ -8456,8 +8454,14 @@ func (c *Char) tick() {
 		}
 	}
 	if c.bindTime > 0 {
-		if c.isBound() {
-			if bt := sys.playerID(c.bindToId); bt != nil && !bt.pause() {
+		if c.isTargetBound() {
+			bt := sys.playerID(c.bindToId)
+			if bt == nil || bt.csf(CSF_gethit) || bt.csf(CSF_destroy) {
+				// SelfState if binder gets hit or destroys self
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2347
+				c.selfState(5050, -1, -1, -1, "")
+				c.gethitBindClear()
+			} else if !bt.pause() {
 				c.bindTime -= 1
 			}
 		} else {
@@ -9645,15 +9649,14 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				ghv.priority = hd.priority
 			}
 			if sys.supertime > 0 {
-				getter.superMovetime =
-					Max(getter.superMovetime, getter.ghv.hitshaketime)
+				getter.superMovetime = Max(getter.superMovetime, getter.ghv.hitshaketime)
 			} else if sys.pausetime > 0 {
-				getter.pauseMovetime =
-					Max(getter.pauseMovetime, getter.ghv.hitshaketime)
+				getter.pauseMovetime = Max(getter.pauseMovetime, getter.ghv.hitshaketime)
 			}
 			if !p2s && !getter.csf(CSF_gethit) {
 				getter.stchtmp = false
 			}
+			// Flag enemy as getting hit
 			getter.setCSF(CSF_gethit)
 			getter.ghv.frame = true
 			// In Mugen, having any HitOverride active allows GetHitVar Damage to exceed the remaining life
@@ -9700,8 +9703,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 			getter.ghv.guardpower += hd.guardgivepower
 			getter.ghv.hitdamage += getter.computeDamage(float64(hd.hitdamage), true, false, attackMul[0], c, false)
 			getter.ghv.guarddamage += getter.computeDamage(float64(hd.guarddamage), true, false, attackMul[0], c, false)
-			getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, bnd)
-			getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, bnd)
+			getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, false)
+			getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, false)
 
 			// Hit behavior on KO
 			if ghvset && getter.ghv.damage >= getter.life {
@@ -10428,14 +10431,14 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			czfront := c.pos[2]*c.localscl + c.depth[0]*c.localscl
-			czback := c.pos[2]*c.localscl - c.depth[1]*c.localscl
+			cztop := c.pos[2]*c.localscl - c.depth[0]*c.localscl
+			czbot := c.pos[2]*c.localscl + c.depth[1]*c.localscl
 
-			gzfront := getter.pos[2]*getter.localscl + getter.depth[0]*getter.localscl
-			gzback := getter.pos[2]*getter.localscl - getter.depth[1]*getter.localscl
+			gztop := getter.pos[2]*getter.localscl - getter.depth[0]*getter.localscl
+			gzbot := getter.pos[2]*getter.localscl + getter.depth[1]*getter.localscl
 
 			// Z axis fail
-			if gzback >= czfront || czback >= gzfront {
+			if gztop >= czbot || cztop >= gzbot {
 				continue
 			}
 
@@ -10549,21 +10552,21 @@ func (cl *CharList) pushDetection(getter *Char) {
 				if pushz {
 					if getter.pos[2] >= c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((czfront - gzback) * gfactor) / getter.localscl
-							getter.pos[2] -= (czfront - gzback) / getter.localscl
+							//getter.pos[2] -= ((czbot - gztop) * gfactor) / getter.localscl
+							getter.pos[2] -= (czbot - gztop) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((czfront - gzback) * cfactor) / c.localscl
-							c.pos[2] += (czfront - gzback) / c.localscl
+							//c.pos[2] += ((czbot - gztop) * cfactor) / c.localscl
+							c.pos[2] += (czbot - gztop) / c.localscl
 						}
 					} else if getter.pos[2] < c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((gzfront - czback) * gfactor) / getter.localscl
-							getter.pos[2] -= (gzfront - czback) / getter.localscl
+							//getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
+							getter.pos[2] -= (gzbot - cztop) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((gzfront - czback) * cfactor) / c.localscl
-							c.pos[2] += (gzfront - czback) / c.localscl
+							//c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
+							c.pos[2] += (gzbot - cztop) / c.localscl
 						}
 					}
 					// Clamp Z positions

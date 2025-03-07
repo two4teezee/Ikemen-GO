@@ -10488,11 +10488,11 @@ func (cl *CharList) pushDetection(getter *Char) {
 						distx := AbsF(getter.pos[0] - c.pos[0])
 						distz := AbsF(getter.pos[2] - c.pos[2])
 						// Check how much each axis should weigh on the decision
-						xtotal := AbsF(gxleft - gxright) + AbsF(cxleft - cxright)
-						ztotal := AbsF(gztop - gzbot) + AbsF(cztop - czbot)
+						xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
+						ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
 						ratio := xtotal / ztotal
 						// Tie break
-						if distx >= ratio * distz { 
+						if distx >= ratio*distz {
 							pushx = true
 						} else {
 							pushz = true

@@ -5757,7 +5757,6 @@ func (c *Char) updateClsnScale() {
 	if c.ownclsnscale && c.animPN == c.playerNo {
 		// Helper parameter. Use own scale instead of animation owner's
 		c.clsnBaseScale = [...]float32{c.size.xscale, c.size.yscale}
-		return
 	} else if c.animPN >= 0 && c.animPN < len(sys.chars) && len(sys.chars[c.animPN]) > 0 {
 		// Index range checks. Prevents crashing if chars don't have animations
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1982
@@ -10398,12 +10397,12 @@ func (cl *CharList) pushDetection(getter *Char) {
 		}
 
 		// Pushbox vertical size and coordinates
-		ctop := (c.pos[1] + c.sizeBox[1]) * c.localscl
-		cbot := (c.pos[1] + c.sizeBox[3]) * c.localscl
-		gtop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
-		gbot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
+		cytop := (c.pos[1] + c.sizeBox[1]) * c.localscl
+		cybot := (c.pos[1] + c.sizeBox[3]) * c.localscl
+		gytop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
+		gybot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
 
-		if cbot >= gtop && ctop <= gbot { // Pushbox vertical overlap
+		if cybot >= gytop && cytop <= gybot { // Pushbox vertical overlap
 
 			// We skip the zAxisCheck function because we'll need to calculate the overlap again anyway
 
@@ -10485,9 +10484,15 @@ func (cl *CharList) pushDetection(getter *Char) {
 				// Ensure the players always push each other in some way
 				if !pushx && !pushz {
 					if sys.zEnabled() {
+						// Get distances in both axes
 						distx := AbsF(getter.pos[0] - c.pos[0])
 						distz := AbsF(getter.pos[2] - c.pos[2])
-						if distx <= distz {
+						// Check how much each axis should weigh on the decision
+						xtotal := AbsF(gxleft - gxright) + AbsF(cxleft - cxright)
+						ztotal := AbsF(gztop - gzbot) + AbsF(cztop - czbot)
+						ratio := xtotal / ztotal
+						// Tie break
+						if distx >= ratio * distz { 
 							pushx = true
 						} else {
 							pushz = true
@@ -10548,25 +10553,20 @@ func (cl *CharList) pushDetection(getter *Char) {
 				}
 
 				// TODO: Z axis push might need some decision for who stays in the corner, like X axis
-				// TODO: Because typical Z depth is much smaller than X width, multiplying the values by cfactor and gfactor currently does more harm than good
 				if pushz {
-					if getter.pos[2] >= c.pos[2] {
+					if getter.pos[2] < c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((czbot - gztop) * gfactor) / getter.localscl
-							getter.pos[2] -= (czbot - gztop) / getter.localscl
+							getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((czbot - gztop) * cfactor) / c.localscl
-							c.pos[2] += (czbot - gztop) / c.localscl
+							c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
 						}
-					} else if getter.pos[2] < c.pos[2] {
+					} else if getter.pos[2] > c.pos[2] {
 						if c.pushPriority >= getter.pushPriority {
-							//getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
-							getter.pos[2] -= (gzbot - cztop) / getter.localscl
+							getter.pos[2] += ((czbot - gztop) * gfactor) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
-							//c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
-							c.pos[2] += (gzbot - cztop) / c.localscl
+							c.pos[2] -= ((czbot - gztop) * cfactor) / c.localscl
 						}
 					}
 					// Clamp Z positions

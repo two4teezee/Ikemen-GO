@@ -11813,53 +11813,76 @@ const (
 func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 	//crun := c RedirectID is pointless when modifying a stage
 	s := sys.stage
+	shouldResetCamera := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		// Camera group
 		case modifyStageVar_camera_autocenter:
 			s.stageCamera.autocenter = exp[0].evalB(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_boundleft:
 			s.stageCamera.boundleft = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_boundright:
 			s.stageCamera.boundright = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_boundhigh:
 			s.stageCamera.boundhigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_boundlow:
 			s.stageCamera.boundlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_verticalfollow:
 			s.stageCamera.verticalfollow = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_floortension:
 			s.stageCamera.floortension = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_lowestcap:
 			s.stageCamera.lowestcap = exp[0].evalB(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_tensionhigh:
 			s.stageCamera.tensionhigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_tensionlow:
 			s.stageCamera.tensionlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_tension:
 			s.stageCamera.tension = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_tensionvel:
 			s.stageCamera.tensionvel = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_cuthigh:
 			s.stageCamera.cuthigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_cutlow:
 			s.stageCamera.cutlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			shouldResetCamera = true
 		case modifyStageVar_camera_startzoom:
 			s.stageCamera.startzoom = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_zoomout:
 			s.stageCamera.zoomout = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_zoomin:
 			s.stageCamera.zoomin = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_zoomindelay:
 			s.stageCamera.zoomindelay = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_zoominspeed:
 			s.stageCamera.zoominspeed = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_zoomoutspeed:
 			s.stageCamera.zoomoutspeed = exp[0].evalF(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_ytension_enable:
 			s.stageCamera.ytensionenable = exp[0].evalB(c)
+			shouldResetCamera = true
 		case modifyStageVar_camera_yscrollspeed:
 			s.stageCamera.yscrollspeed = exp[0].evalF(c)
+			shouldResetCamera = true
 		// PlayerInfo group
 		case modifyStageVar_playerinfo_leftbound:
 			s.leftbound = exp[0].evalF(c) * c.localscl / s.localscl
@@ -11873,27 +11896,34 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_scaling_topz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz
 				s.stageCamera.topz = exp[0].evalF(c)
+				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_botz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botz
 				s.stageCamera.botz = exp[0].evalF(c)
+				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_topscale:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topscale
 				s.stageCamera.ztopscale = exp[0].evalF(c)
+				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_botscale:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botscale
 				s.stageCamera.zbotscale = exp[0].evalF(c)
+				shouldResetCamera = true
 			}
 		// Bound group
 		case modifyStageVar_bound_screenleft:
 			s.screenleft = exp[0].evalI(c)
+			shouldResetCamera = true
 		case modifyStageVar_bound_screenright:
 			s.screenright = exp[0].evalI(c)
+			shouldResetCamera = true
 		// StageInfo group
 		case modifyStageVar_stageinfo_zoffset:
 			s.stageCamera.zoffset = exp[0].evalI(c)
+			shouldResetCamera = true
 		case modifyStageVar_stageinfo_zoffsetlink:
 			s.zoffsetlink = exp[0].evalI(c)
 		case modifyStageVar_stageinfo_xscale:
@@ -11937,8 +11967,10 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	s.reload = true // Stage will have to be reloaded if it's re-selected
-	sys.cam.stageCamera = s.stageCamera
-	sys.cam.Reset() // TODO: Resetting the camera makes the zoom jitter
+	if shouldResetCamera {
+		sys.cam.stageCamera = s.stageCamera
+		sys.cam.Reset() // TODO: Resetting the camera makes the zoom jitter
+	}
 	return false
 }
 

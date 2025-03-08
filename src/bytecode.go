@@ -4067,6 +4067,10 @@ func (sc stateDef) Run(c *Char) {
 		case stateDef_hitdefpersist:
 			if !exp[0].evalB(c) {
 				c.clearHitDef()
+				// Reset AttackDist
+				c.hitdef.guard_dist_x = [2]float32{c.size.attack.dist.width[0], c.size.attack.dist.width[1]}
+				c.hitdef.guard_dist_y = [2]float32{c.size.attack.dist.height[0], c.size.attack.dist.height[1]}
+				c.hitdef.guard_dist_z = [2]float32{c.size.attack.dist.depth[0], c.size.attack.dist.depth[1]}
 			}
 		case stateDef_sprpriority:
 			c.sprPriority = exp[0].evalI(c)
@@ -6720,20 +6724,41 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.guard_hittime = hd.ground_hittime
 	case hitDef_guard_hittime:
 		hd.guard_hittime = exp[0].evalI(c)
-	case hitDef_guard_dist_x:
-		hd.guard_dist_x[0] = exp[0].evalI(c)
+	case hitDef_guard_dist_x: // Mugen ignores these if they're negative, rather than clamping them
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_x[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		if v1 >= 0 {
+			hd.guard_dist_x[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_x[1] = v2
 		}
 	case hitDef_guard_dist_y:
-		hd.guard_dist_y[0] = exp[0].evalI(c)
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_y[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		if v1 >= 0 {
+			hd.guard_dist_y[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_y[1] = v2
 		}
 	case hitDef_guard_dist_z:
-		hd.guard_dist_z[0] = exp[0].evalI(c)
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_z[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		if v1 >= 0 {
+			hd.guard_dist_z[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_z[1] = v2
 		}
 	case hitDef_pausetime:
 		hd.pausetime = exp[0].evalI(c)
@@ -7924,8 +7949,10 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = exp[1].evalF(c)
 				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_x[0] = v1
-					if len(exp) > 1 {
+					if v1 >= 0 {
+						p.hitdef.guard_dist_x[0] = v1
+					}
+					if v2 >= 0 {
 						p.hitdef.guard_dist_x[1] = v2
 					}
 				})
@@ -7936,8 +7963,10 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = exp[1].evalF(c)
 				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_y[0] = v1
-					if len(exp) > 1 {
+					if v1 >= 0 {
+						p.hitdef.guard_dist_y[0] = v1
+					}
+					if v2 >= 0 {
 						p.hitdef.guard_dist_y[1] = v2
 					}
 				})
@@ -7948,8 +7977,10 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = exp[1].evalF(c)
 				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_z[0] = v1
-					if len(exp) > 1 {
+					if v1 >= 0 {
+						p.hitdef.guard_dist_z[0] = v1
+					}
+					if v2 >= 0 {
 						p.hitdef.guard_dist_z[1] = v2
 					}
 				})
@@ -9596,19 +9627,22 @@ func (sc attackDist) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case attackDist_x:
-			crun.attackDistX[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_x[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistX[1] = exp[1].evalF(c) * redirscale
+				crun.hitdef.guard_dist_x[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
+			// It used to be that Ikemen AttackDist used a separate variable
+			// However it was found that Mugen AttackDist modifies the HitDef directly just like this
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/2358
 		case attackDist_y:
-			crun.attackDistY[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_y[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistY[1] = exp[0].evalF(c) * redirscale
+				crun.hitdef.guard_dist_y[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
 		case attackDist_z:
-			crun.attackDistZ[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_z[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistZ[1] = exp[0].evalF(c) * redirscale
+				crun.hitdef.guard_dist_z[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
 		case attackDist_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

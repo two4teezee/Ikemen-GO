@@ -475,8 +475,13 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		startrect0 += float32(sys.gameWidth-320) / 2 * sys.widthScale
 	}
 
-	// TODO: Zoom doesn't work correctly here. Especially in different localcoords
-	startrect1 := float32(rect[1]) - pos[1]*bg.windowdelta[1] + (float32(sys.gameHeight) - 240*scly)
+	startrect1 := float32(rect[1]) - pos[1]/drawscl/stgscl[1]*bg.windowdelta[1]
+	if isStage {
+		zoff := float32(sys.cam.zoffset) * stglscl
+		startrect1 += (zoff-shakeY)/scly - zoff/stglscl/stgscl[1]
+		startrect1 -= sys.cam.aspectcorrection / scly
+		startrect1 -= sys.cam.zoomanchorcorrection / scly
+	}
 	startrect1 *= sys.heightScale * wscl[1]
 	startrect1 -= shakeY
 

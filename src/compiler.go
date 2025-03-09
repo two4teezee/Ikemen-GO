@@ -149,6 +149,7 @@ func newCompiler() *Compiler {
 		"mapset":               c.mapSet,
 		"matchrestart":         c.matchRestart,
 		"modifybgctrl":         c.modifyBGCtrl,
+		"modifybgctrl3d":       c.modifyBGCtrl3d,
 		"modifybgm":            c.modifyBgm,
 		"modifyhitdef":         c.modifyHitDef,
 		"modifyplayer":         c.modifyPlayer,

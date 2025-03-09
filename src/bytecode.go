@@ -11048,6 +11048,53 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type modifyBGCtrl3d StateControllerBase
+
+const (
+	modifyBGCtrl3d_ctrlid byte = iota
+	modifyBGCtrl3d_time
+	modifyBGCtrl3d_value
+	modifyBGCtrl3d_redirectid
+)
+
+func (sc modifyBGCtrl3d) Run(c *Char, _ []int32) bool {
+	//crun := c
+
+	var cid int32
+	t, v := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case modifyBGCtrl3d_ctrlid:
+			cid = exp[0].evalI(c)
+		case modifyBGCtrl3d_time:
+			t[0] = exp[0].evalI(c)
+			if len(exp) > 1 {
+				t[1] = exp[1].evalI(c)
+				if len(exp) > 2 {
+					t[2] = exp[2].evalI(c)
+				}
+			}
+		case modifyBGCtrl3d_value:
+			v[0] = exp[0].evalI(c)
+			if len(exp) > 1 {
+				v[1] = exp[1].evalI(c)
+				if len(exp) > 2 {
+					v[2] = exp[2].evalI(c)
+				}
+			}
+		case modifyBGCtrl3d_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				//crun = rid
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	sys.stage.modifyBGCtrl3d(uint32(cid), t, v)
+	return false
+}
+
 type modifyBgm StateControllerBase
 
 const (
@@ -11896,22 +11943,18 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_scaling_topz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz
 				s.stageCamera.topz = exp[0].evalF(c)
-				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_botz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botz
 				s.stageCamera.botz = exp[0].evalF(c)
-				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_topscale:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topscale
 				s.stageCamera.ztopscale = exp[0].evalF(c)
-				shouldResetCamera = true
 			}
 		case modifyStageVar_scaling_botscale:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botscale
 				s.stageCamera.zbotscale = exp[0].evalF(c)
-				shouldResetCamera = true
 			}
 		// Bound group
 		case modifyStageVar_bound_screenleft:

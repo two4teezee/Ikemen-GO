@@ -6721,15 +6721,16 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.down_cornerpush_veloff = exp[0].evalF(c)
 	case hitDef_ground_hittime:
 		hd.ground_hittime = exp[0].evalI(c)
-		hd.guard_hittime = hd.ground_hittime
 	case hitDef_guard_hittime:
 		hd.guard_hittime = exp[0].evalI(c)
-	case hitDef_guard_dist_x: // Mugen ignores these if they're negative, rather than clamping them
+	case hitDef_guard_dist_x:
 		var v1, v2 float32
 		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
 			v2 = exp[1].evalF(c)
 		}
+		// Mugen ignores these if they're negative, rather than clamping them
+		// Maybe that's what it does for all positive only parameters
 		if v1 >= 0 {
 			hd.guard_dist_x[0] = v1
 		}
@@ -6762,10 +6763,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		}
 	case hitDef_pausetime:
 		hd.pausetime = exp[0].evalI(c)
-		hd.guard_pausetime = hd.pausetime
 		if len(exp) > 1 {
 			hd.shaketime = exp[1].evalI(c)
-			hd.guard_shaketime = hd.shaketime
 		}
 	case hitDef_guard_pausetime:
 		hd.guard_pausetime = exp[0].evalI(c)
@@ -6790,16 +6789,10 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		}
 	case hitDef_ground_slidetime:
 		hd.ground_slidetime = exp[0].evalI(c)
-		hd.guard_slidetime = hd.ground_slidetime
-		hd.guard_ctrltime = hd.ground_slidetime
-		hd.airguard_ctrltime = hd.ground_slidetime
 	case hitDef_guard_slidetime:
 		hd.guard_slidetime = exp[0].evalI(c)
-		hd.guard_ctrltime = hd.guard_slidetime
-		hd.airguard_ctrltime = hd.guard_slidetime
 	case hitDef_guard_ctrltime:
 		hd.guard_ctrltime = exp[0].evalI(c)
-		hd.airguard_ctrltime = hd.guard_ctrltime
 	case hitDef_airguard_ctrltime:
 		hd.airguard_ctrltime = exp[0].evalI(c)
 	case hitDef_ground_velocity_x:

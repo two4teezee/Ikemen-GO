@@ -662,6 +662,13 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		air_hittime:        20, // Both default to 20. Not documented in Mugen docs
 		down_hittime:       20,
 
+		guard_pausetime:   IErr,
+		guard_shaketime:   IErr,
+		guard_hittime:     IErr,
+		guard_slidetime:   IErr,
+		guard_ctrltime:    IErr,
+		airguard_ctrltime: IErr,
+
 		ground_velocity:            [3]float32{0, 0, 0},
 		air_velocity:               [3]float32{0, 0, 0},
 		down_velocity:              [3]float32{float32(math.NaN()), float32(math.NaN()), float32(math.NaN())},
@@ -5565,6 +5572,13 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 		}
 		return false
 	}
+
+	ifierrset(&hd.guard_pausetime, hd.pausetime)
+	ifierrset(&hd.guard_shaketime, hd.shaketime)
+	ifierrset(&hd.guard_hittime, hd.ground_hittime)
+	ifierrset(&hd.guard_slidetime, hd.guard_hittime)
+	ifierrset(&hd.guard_ctrltime, hd.guard_slidetime)
+	ifierrset(&hd.airguard_ctrltime, hd.guard_ctrltime)
 	ifnanset(&hd.guard_velocity[0], hd.ground_velocity[0])
 	ifnanset(&hd.guard_velocity[2], hd.ground_velocity[2])
 	ifnanset(&hd.airguard_velocity[0], hd.air_velocity[0]*1.5)

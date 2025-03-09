@@ -1875,6 +1875,39 @@ func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]
 	}
 }
 
+func (s *Stage) modifyBGCtrl3d(id uint32, t, v [3]int32) {
+	for i := range s.bgc {
+		for j := range s.bgc[i].node {
+			if s.bgc[i].node[j].id == id {
+				if t[0] != IErr {
+					s.bgc[i].starttime = t[0]
+				}
+				if t[1] != IErr {
+					s.bgc[i].endtime = t[1]
+				}
+				if t[2] != IErr {
+					s.bgc[i].looptime = t[2]
+				}
+
+				for k := 0; k < 3; k++ {
+					if v[k] != IErr {
+						s.bgc[i].v[k] = v[k]
+					}
+				}
+				s.reload = true
+			}
+		}
+		for j := range s.bgc[i].anim {
+			if s.bgc[i].anim[j].id == id {
+				for k := 0; k < len(s.bgc[i].anim); k++ {
+					s.bgc[i].anim[k].toggle(v[0] != 0)
+				}
+				s.reload = true
+			}
+		}
+	}
+}
+
 // 3D Stage Related
 // TODO: Refactor and move this to a new file?
 type Model struct {

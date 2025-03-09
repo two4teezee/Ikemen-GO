@@ -4713,6 +4713,29 @@ func (c *Compiler) modifyBGCtrl(is IniSection, sc *StateControllerBase, _ int8) 
 	return *ret, err
 }
 
+func (c *Compiler) modifyBGCtrl3d(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyBGCtrl3d)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			modifyBGCtrl3d_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "id",
+			modifyBGCtrl3d_ctrlid, VT_Int, 1, true); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "time",
+			modifyBGCtrl3d_time, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "value",
+			modifyBGCtrl3d_value, VT_Int, 3, false); err != nil {
+			return err
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) modifySnd(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifySnd)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",

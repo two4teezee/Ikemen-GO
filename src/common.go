@@ -700,6 +700,19 @@ func (is IniSection) readI32CsvForStage(name string) (ary []int32) {
 	}
 	return
 }
+func (is IniSection) readF32CsvForStage(name string) (ary []float32) {
+	if str := is[name]; len(str) > 0 {
+		for _, s := range strings.Split(str, ",") {
+			if s = strings.TrimLeftFunc(s, unicode.IsSpace); len(s) > 0 {
+				ary = append(ary, float32(Atof(s)))
+			}
+			if strings.IndexFunc(s, unicode.IsSpace) >= 0 {
+				break
+			}
+		}
+	}
+	return
+}
 func (is IniSection) getText(name string) (str string, ok bool, err error) {
 	str, ok = is[name]
 	if !ok {

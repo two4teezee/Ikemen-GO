@@ -903,10 +903,10 @@ func (s *System) posZtoYoffset(zpos, localscl float32) float32 {
 
 // Z axis check
 // Changed to no longer check z enable constant, depends on stage now
-func (s *System) zAxisOverlap(posz1, front1, back1, localscl1, posz2, front2, back2, localscl2 float32) bool {
+func (s *System) zAxisOverlap(posz1, top1, bot1, localscl1, posz2, top2, bot2, localscl2 float32) bool {
 	if s.zEnabled() {
-		if (posz1+front1)*localscl1 < (posz2-back2)*localscl2 ||
-			(posz1-back1)*localscl1 > (posz2+front2)*localscl2 {
+		if (posz1+bot1)*localscl1 < (posz2-top2)*localscl2 ||
+			(posz1-top1)*localscl1 > (posz2+bot2)*localscl2 {
 			return false
 		}
 	}
@@ -1147,8 +1147,8 @@ func (s *System) nextRound() {
 		}
 		if s.stage.model != nil {
 			sys.mainThreadTask <- func() {
-				gfx.SetStageVertexData(s.stage.model.vertexBuffer)
-				gfx.SetStageIndexData(s.stage.model.elementBuffer...)
+				gfx.SetModelVertexData(0, s.stage.model.vertexBuffer)
+				gfx.SetModelIndexData(0, s.stage.model.elementBuffer...)
 			}
 		}
 	}

@@ -332,8 +332,8 @@ type Renderer_GL32 struct {
 	modelShader             *ShaderProgram_GL32
 	panoramaToCubeMapShader *ShaderProgram_GL32
 	cubemapFilteringShader  *ShaderProgram_GL32
-	stageVertexBuffer       uint32
-	stageIndexBuffer        uint32
+	modelVertexBuffer       [2]uint32
+	modelIndexBuffer        [2]uint32
 	vao                     uint32
 
 	enableModel  bool
@@ -434,8 +434,8 @@ func (r *Renderer_GL32) Init() {
 	gl.BufferData(gl.ARRAY_BUFFER, len(postVertData), unsafe.Pointer(&postVertData[0]), gl.STATIC_DRAW)
 
 	gl.GenBuffers(1, &r.vertexBuffer)
-	gl.GenBuffers(1, &r.stageVertexBuffer)
-	gl.GenBuffers(1, &r.stageIndexBuffer)
+	gl.GenBuffers(2, &r.modelVertexBuffer[0])
+	gl.GenBuffers(2, &r.modelIndexBuffer[0])
 
 	// Sprite shader
 	r.spriteShader, _ = r.newShaderProgram(vertShader, fragShader, "", "Main Shader", true)
@@ -805,7 +805,7 @@ func (r *Renderer_GL32) ReleasePipeline() {
 	gl.Disable(gl.BLEND)
 }
 
-func (r *Renderer_GL32) prepareShadowMapPipeline() {
+func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.UseProgram(r.shadowMapShader.program)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
 	gl.Viewport(0, 0, 1024, 1024)
@@ -818,8 +818,8 @@ func (r *Renderer_GL32) prepareShadowMapPipeline() {
 	gl.BlendEquation(gl.FUNC_ADD)
 	gl.BlendFunc(gl.ONE, gl.ZERO)
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.stageVertexBuffer)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.stageIndexBuffer)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
@@ -937,7 +937,7 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
 }
-func (r *Renderer_GL32) prepareModelPipeline(env *Environment) {
+func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environment) {
 	gl.UseProgram(r.modelShader.program)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])
@@ -945,8 +945,8 @@ func (r *Renderer_GL32) prepareModelPipeline(env *Environment) {
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Enable(gl.TEXTURE_CUBE_MAP)
 	gl.Enable(gl.BLEND)
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.stageVertexBuffer)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.stageIndexBuffer)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 	if r.enableShadow {
 		loc, unit := r.modelShader.u["shadowCubeMap"], r.modelShader.t["shadowCubeMap"]
 		gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
@@ -1285,15 +1285,15 @@ func (r *Renderer_GL32) SetVertexData(values ...float32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
 }
-func (r *Renderer_GL32) SetStageVertexData(values []byte) {
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.stageVertexBuffer)
+func (r *Renderer_GL32) SetModelVertexData(bufferIndex uint32, values []byte) {
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BufferData(gl.ARRAY_BUFFER, len(values), unsafe.Pointer(&values[0]), gl.STATIC_DRAW)
 }
-func (r *Renderer_GL32) SetStageIndexData(values ...uint32) {
+func (r *Renderer_GL32) SetModelIndexData(bufferIndex uint32, values ...uint32) {
 	data := new(bytes.Buffer)
 	binary.Write(data, binary.LittleEndian, values)
 
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.stageIndexBuffer)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(values)*4, unsafe.Pointer(&data.Bytes()[0]), gl.STATIC_DRAW)
 }
 

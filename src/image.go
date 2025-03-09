@@ -44,6 +44,16 @@ type PalFXDef struct {
 	ihue        [2]float32
 	itime       int32
 }
+
+func newPalFXDef() *PalFXDef {
+	return &PalFXDef{
+		color:  1,
+		icolor: [...]float32{1, 1},
+		mul:    [...]int32{256, 256, 256},
+		imul:   [...]int32{256, 256, 256, 256, 256, 256},
+	}
+}
+
 type PalFX struct {
 	PalFXDef
 	remap        []int
@@ -65,17 +75,22 @@ type PalFX struct {
 	eiTime       int32
 }
 
-func newPalFX() *PalFX { return &PalFX{} }
+func newPalFX() *PalFX {
+	return &PalFX{}
+}
+
 func (pf *PalFX) clear2(nt bool) {
-	pf.PalFXDef = PalFXDef{color: 1, icolor: [...]float32{1, 1}, mul: [...]int32{256, 256, 256}, imul: [...]int32{256, 256, 256, 256, 256, 256}}
+	pf.PalFXDef = *newPalFXDef()
 	pf.negType = nt
 	for i := 0; i < len(pf.sintime); i++ {
 		pf.sintime[i] = 0
 	}
 }
+
 func (pf *PalFX) clear() {
 	pf.clear2(false)
 }
+
 func (pf *PalFX) getSynFx(blending int) *PalFX {
 	if pf == nil || !pf.enable {
 		if blending == -2 && sys.allPalFX.enable {
@@ -99,6 +114,7 @@ func (pf *PalFX) getSynFx(blending int) *PalFX {
 	synth.synthesize(sys.allPalFX, blending)
 	return &synth
 }
+
 func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
 	p := pf.getSynFx(0)
 	if !p.enable {
@@ -150,6 +166,7 @@ func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
 	}
 	return sys.workpal
 }
+
 func (pf *PalFX) getFcPalFx(transNeg bool, blending int) (neg bool, grayscale float32,
 	add, mul [3]float32, invblend int32, hue float32) {
 	p := pf.getSynFx(blending)
@@ -182,6 +199,7 @@ func (pf *PalFX) getFcPalFx(transNeg bool, blending int) (neg bool, grayscale fl
 	}
 	return
 }
+
 func (pf *PalFX) sinAdd(color *[3]int32) {
 	if pf.cycletime[0] > 1 {
 		st := 2 * math.Pi * float64(pf.sintime[0])
@@ -194,6 +212,7 @@ func (pf *PalFX) sinAdd(color *[3]int32) {
 		}
 	}
 }
+
 func (pf *PalFX) sinMul(color *[3]int32) {
 	if pf.cycletime[1] > 1 {
 		st := 2 * math.Pi * float64(pf.sintime[1])
@@ -206,6 +225,7 @@ func (pf *PalFX) sinMul(color *[3]int32) {
 		}
 	}
 }
+
 func (pf *PalFX) sinColor(color *float32) {
 	if pf.cycletime[2] > 1 {
 		st := 2 * math.Pi * float64(pf.sintime[2])
@@ -218,6 +238,7 @@ func (pf *PalFX) sinColor(color *float32) {
 
 	}
 }
+
 func (pf *PalFX) sinHueshift(color *float32) {
 	if pf.cycletime[3] > 1 {
 		st := 2 * math.Pi * float64(pf.sintime[3])
@@ -230,6 +251,7 @@ func (pf *PalFX) sinHueshift(color *float32) {
 
 	}
 }
+
 func (pf *PalFX) interpolationUpdate() {
 	if pf.eiTime < pf.itime {
 		pf.eiTime++
@@ -246,6 +268,7 @@ func (pf *PalFX) interpolationUpdate() {
 	pf.eiHue = Lerp(pf.ihue[1], pf.ihue[0], t)
 	pf.eHue = pf.eiHue + pf.hue
 }
+
 func (pf *PalFX) step() {
 	pf.enable = pf.time != 0
 	if pf.enable {
@@ -281,6 +304,7 @@ func (pf *PalFX) step() {
 		}
 	}
 }
+
 func (pf *PalFX) synthesize(pfx PalFX, blending int) {
 	if blending == -2 {
 		for i, a := range pfx.eAdd {
@@ -370,6 +394,7 @@ func (pl *PaletteList) init() {
 	pl.numcols = make(map[[2]int16]int)
 	pl.PalTex = nil
 }
+
 func (pl *PaletteList) SetSource(i int, p []uint32) {
 	if i < len(pl.paletteMap) {
 		pl.paletteMap[i] = i
@@ -389,22 +414,27 @@ func (pl *PaletteList) SetSource(i int, p []uint32) {
 		pl.PalTex = append(pl.PalTex, nil)
 	}
 }
+
 func (pl *PaletteList) NewPal() (i int, p []uint32) {
 	i, p = len(pl.palettes), make([]uint32, 256)
 	pl.SetSource(i, p)
 	return
 }
+
 func (pl *PaletteList) Get(i int) []uint32 {
 	return pl.palettes[pl.paletteMap[i]]
 }
+
 func (pl *PaletteList) Remap(source int, destination int) {
 	pl.paletteMap[source] = destination
 }
+
 func (pl *PaletteList) ResetRemap() {
 	for i := range pl.paletteMap {
 		pl.paletteMap[i] = i
 	}
 }
+
 func (pl *PaletteList) GetPalMap() []int {
 	pm := make([]int, len(pl.paletteMap))
 	copy(pm, pl.paletteMap)
@@ -673,6 +703,7 @@ func (s *Sprite) shareCopy(src *Sprite) {
 	//s.paltemp = src.paltemp
 	//s.PalTex = src.PalTex
 }
+
 func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 	if len(s.Pal) > 0 || s.coldepth > 8 {
 		return s.Pal
@@ -769,6 +800,7 @@ func (s *Sprite) readPcxHeader(f *os.File, offset int64) error {
 	}
 	return nil
 }
+
 func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 	if len(rle) == 0 || s.rle <= 0 {
 		return rle
@@ -802,6 +834,7 @@ func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 	s.rle = 0
 	return
 }
+
 func (s *Sprite) read(f *os.File, sh *SffHeader, offset int64, datasize uint32,
 	nextSubheader uint32, prev *Sprite, pl *PaletteList, c00 bool) error {
 	if int64(nextSubheader) > offset {
@@ -861,6 +894,7 @@ func (s *Sprite) read(f *os.File, sh *SffHeader, offset int64, datasize uint32,
 	s.SetPxl(s.RlePcxDecode(px))
 	return nil
 }
+
 func (s *Sprite) readHeaderV2(r io.Reader, ofs *uint32, size *uint32,
 	lofs uint32, tofs uint32, link *uint16) error {
 	read := func(x interface{}) error {
@@ -910,6 +944,7 @@ func (s *Sprite) readHeaderV2(r io.Reader, ofs *uint32, size *uint32,
 	}
 	return nil
 }
+
 func (s *Sprite) Rle8Decode(rle []byte) (p []byte) {
 	if len(rle) == 0 {
 		return rle
@@ -937,6 +972,7 @@ func (s *Sprite) Rle8Decode(rle []byte) (p []byte) {
 	}
 	return
 }
+
 func (s *Sprite) Rle5Decode(rle []byte) (p []byte) {
 	if len(rle) == 0 {
 		return rle
@@ -980,6 +1016,7 @@ func (s *Sprite) Rle5Decode(rle []byte) (p []byte) {
 	}
 	return
 }
+
 func (s *Sprite) Lz5Decode(rle []byte) (p []byte) {
 	if len(rle) == 0 {
 		return rle
@@ -1056,6 +1093,7 @@ func (s *Sprite) Lz5Decode(rle []byte) (p []byte) {
 	}
 	return
 }
+
 func (s *Sprite) readV2(f *os.File, offset int64, datasize uint32) error {
 	var px []byte
 	var isRaw bool = false
@@ -1201,6 +1239,7 @@ func newSff() (s *Sff) {
 	}
 	return
 }
+
 func newPaldata() (p *Palette) {
 	p = &Palette{}
 	p.palList.init()
@@ -1223,6 +1262,7 @@ func removeSFFCache(filename string) {
 		delete(SffCache, filename)
 	}
 }
+
 func loadSff(filename string, char bool) (*Sff, error) {
 	// If this SFF is already in the cache, just return a copy
 	if cached, ok := SffCache[filename]; ok {
@@ -1374,6 +1414,7 @@ func loadSff(filename string, char bool) (*Sff, error) {
 	})
 	return s, nil
 }
+
 func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff, []int32, error) {
 	sff := newSff()
 	f, err := os.Open(filename)
@@ -1531,12 +1572,14 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	}
 	return sff, selPal, nil
 }
+
 func (s *Sff) GetSprite(g, n int16) *Sprite {
 	if g == -1 {
 		return nil
 	}
 	return s.sprites[[...]int16{g, n}]
 }
+
 func (s *Sff) getOwnPalSprite(g, n int16, pl *PaletteList) *Sprite {
 	sys.runMainThreadTask() // Generate texture
 	sp := s.GetSprite(g, n)
@@ -1548,6 +1591,7 @@ func (s *Sff) getOwnPalSprite(g, n int16, pl *PaletteList) *Sprite {
 	copy(osp.Pal, pal)
 	return &osp
 }
+
 func captureScreen() {
 	width, height := sys.window.GetSize()
 	pixdata := make([]uint8, 4*width*height)

@@ -33,6 +33,7 @@ local motif =
 		font_height = {},
 		glyphs = 'data/glyphs.sff', --Ikemen feature
 		module = '', --Ikemen feature
+		model = '', --Ikemen feature
 	},
 	ja_files = {}, --not used in Ikemen
 	music =
@@ -2574,6 +2575,7 @@ for _, v in ipairs({
 	{group = 'files', param = 'fight', dirs = {motif.fileDir, '', 'data/'}},
 	{group = 'files', param = 'glyphs', dirs = {motif.fileDir, '', 'data/'}},
 	{group = 'files', param = 'module', dirs = {motif.fileDir, '', 'data/'}},
+	{group = 'files', param = 'model', dirs = {motif.fileDir, '', 'data/'}},
 	{group = 'music', param = 'title_bgm', dirs = {motif.fileDir, '', 'data/', 'sound/'}},
 	{group = 'music', param = 'select_bgm', dirs = {motif.fileDir, '', 'data/', 'sound/'}},
 	{group = 'music', param = 'vs_bgm', dirs = {motif.fileDir, '', 'data/', 'sound/'}},
@@ -2598,6 +2600,10 @@ motif.files.spr_data = sffNew(motif.files.spr)
 main.f_loadingRefresh()
 motif.files.snd_data = sndNew(motif.files.snd)
 main.f_loadingRefresh()
+if main.f_fileExists(motif.files.model) then
+	motif.files.model_data = modelNew(motif.files.model)
+	main.f_loadingRefresh()
+end
 
 if main.f_fileExists(motif.files.glyphs) then
 	motif.files.glyphs_data = sffNew(motif.files.glyphs)
@@ -2619,7 +2625,7 @@ for k, _ in pairs(motif) do
 			motif[k].spr_data = motif.files.spr_data
 		end
 		--backgrounds
-		motif[k].bg = bgNew(motif[k].spr_data, motif.def, k:match('^(.+)def$'))
+		motif[k].bg = bgNew(motif[k].spr_data,motif.files.model_data, motif.def, k:match('^(.+)def$'))
 		main.f_loadingRefresh()
 	end
 end

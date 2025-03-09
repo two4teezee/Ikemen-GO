@@ -598,9 +598,10 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, s)
 		}
-		bg, err := loadBGDef(s, strArg(l, 2), strArg(l, 3))
+		model, ok := toUserData(l, 2).(*Model)
+		bg, err := loadBGDef(s, model, strArg(l, 3), strArg(l, 4))
 		if err != nil {
-			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 3), strArg(l, 2), err.Error())
+			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 4), strArg(l, 3), err.Error())
 		}
 		l.Push(newUserData(l, bg))
 		return 1
@@ -2259,6 +2260,21 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "modelNew", func(l *lua.LState) int {
+		if !nilArg(l, 1) {
+			mdl, err := loadglTFModel(strArg(l, 1))
+			if err != nil {
+				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
+			}
+			sys.mainThreadTask <- func() {
+				gfx.SetModelVertexData(1, mdl.vertexBuffer)
+				gfx.SetModelIndexData(1, mdl.elementBuffer...)
+			}
+			sys.runMainThreadTask()
+			l.Push(newUserData(l, mdl))
+		}
+		return 1
+	})
 	luaRegister(l, "selfState", func(*lua.LState) int {
 		sys.debugWC.selfState(int32(numArg(l, 1)), -1, -1, 1, "")
 		return 0
@@ -3030,23 +3046,35 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-	luaRegister(l, "helper", func(*lua.LState) int {
-		ret, id := false, int32(0)
+	luaRegister(l, "helper", func(l *lua.LState) int {
+		ret := false
+		id, index := int32(-1), 0
+		// Check if ID is provided
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.helper(id); c != nil {
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		if c := sys.debugWC.helperTrigger(id, index); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-	luaRegister(l, "target", func(*lua.LState) int {
-		ret, id := false, int32(-1)
+	luaRegister(l, "target", func(l *lua.LState) int {
+		ret := false
+		id, index := int32(-1), 0
+		// Check if ID is provided
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.target(id); c != nil {
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		if c := sys.debugWC.targetTrigger(id, index); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3376,7 +3404,7 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.air.back)
 		case "size.air.front":
 			ln = lua.LNumber(c.size.air.front)
-		case "size.height", "size.height.stand":
+		case "size.height", "size.height.stand": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.height.stand)
 		case "size.height.crouch":
 			ln = lua.LNumber(c.size.height.crouch)
@@ -3386,7 +3414,7 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.height.air[1])
 		case "size.height.down":
 			ln = lua.LNumber(c.size.height.down)
-		case "size.attack.dist", "size.attack.dist.width.front":
+		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.attack.dist.width[0])
 		case "size.attack.dist.width.back":
 			ln = lua.LNumber(c.size.attack.dist.width[1])
@@ -3394,15 +3422,15 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.attack.dist.height[0])
 		case "size.attack.dist.height.bottom":
 			ln = lua.LNumber(c.size.attack.dist.height[1])
-		case "size.attack.dist.depth.front":
+		case "size.attack.dist.depth.top":
 			ln = lua.LNumber(c.size.attack.dist.depth[0])
-		case "size.attack.dist.depth.back":
+		case "size.attack.dist.depth.bottom":
 			ln = lua.LNumber(c.size.attack.dist.depth[1])
-		case "size.attack.depth.front":
-			ln = lua.LNumber(c.size.attack.depth.front)
-		case "size.attack.depth.back":
-			ln = lua.LNumber(c.size.attack.depth.back)
-		case "size.proj.attack.dist", "size.proj.attack.dist.width.front":
+		case "size.attack.depth.top":
+			ln = lua.LNumber(c.size.attack.depth[0])
+		case "size.attack.depth.bottom":
+			ln = lua.LNumber(c.size.attack.depth[1])
+		case "size.proj.attack.dist", "size.proj.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.proj.attack.dist.width[0])
 		case "size.proj.attack.dist.width.back":
 			ln = lua.LNumber(c.size.proj.attack.dist.width[1])
@@ -3410,9 +3438,9 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.proj.attack.dist.height[0])
 		case "size.proj.attack.dist.height.bottom":
 			ln = lua.LNumber(c.size.proj.attack.dist.height[1])
-		case "size.proj.attack.dist.depth.front":
+		case "size.proj.attack.dist.depth.top":
 			ln = lua.LNumber(c.size.proj.attack.dist.depth[0])
-		case "size.proj.attack.dist.depth.back":
+		case "size.proj.attack.dist.depth.bottom":
 			ln = lua.LNumber(c.size.proj.attack.dist.depth[1])
 		case "size.proj.doscale":
 			ln = lua.LNumber(c.size.proj.doscale)
@@ -3430,9 +3458,9 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.size.draw.offset[0])
 		case "size.draw.offset.y":
 			ln = lua.LNumber(c.size.draw.offset[1])
-		case "size.depth.front":
+		case "size.depth.top":
 			ln = lua.LNumber(c.size.depth[0])
-		case "size.depth.back":
+		case "size.depth.bottom":
 			ln = lua.LNumber(c.size.depth[1])
 		case "size.weight":
 			ln = lua.LNumber(c.size.weight)
@@ -3767,6 +3795,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(c.hitdef.priority))
 		case "id":
 			l.Push(lua.LNumber(c.hitdef.id))
+		case "sparkno":
+			l.Push(lua.LNumber(c.hitdef.sparkno))
+		case "guard.sparkno":
+			l.Push(lua.LNumber(c.hitdef.guard_sparkno))
 		case "sparkx":
 			l.Push(lua.LNumber(c.hitdef.sparkxy[0]))
 		case "sparky":
@@ -3779,6 +3811,14 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(c.hitdef.shaketime))
 		case "guard.shaketime":
 			l.Push(lua.LNumber(c.hitdef.guard_shaketime))
+		case "hitsound.group":
+			l.Push(lua.LNumber(c.hitdef.hitsound[0]))
+		case "hitsound.number":
+			l.Push(lua.LNumber(c.hitdef.hitsound[1]))
+		case "guardsound.group":
+			l.Push(lua.LNumber(c.hitdef.guardsound[0]))
+		case "guardsound.number":
+			l.Push(lua.LNumber(c.hitdef.guardsound[1]))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -3849,7 +3889,7 @@ func triggerFunctions(l *lua.LState) {
 		case "guarded":
 			ln = lua.LNumber(Btoi(c.ghv.guarded))
 		case "isbound":
-			ln = lua.LNumber(Btoi(c.isBound()))
+			ln = lua.LNumber(Btoi(c.isTargetBound()))
 		case "fall":
 			ln = lua.LNumber(Btoi(c.ghv.fallflag))
 		case "fall.damage":
@@ -4854,6 +4894,49 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LString(s))
 		return 1
 	})
+	luaRegister(l, "stagebgvar", func(l *lua.LState) int {
+		id := int32(numArg(l, 1))
+		idx := int(numArg(l, 2))
+		vname := strArg(l, 3)
+		var ln lua.LNumber
+		// Get stage background element
+		bg := sys.debugWC.getStageBg(id, idx, false)
+		// Handle returns
+		if bg != nil {
+			switch strings.ToLower(vname) {
+			case "anim":
+				ln = lua.LNumber(bg.actionno)
+			case "delta.x":
+				ln = lua.LNumber(bg.delta[0])
+			case "delta.y":
+				ln = lua.LNumber(bg.delta[1])
+			case "id":
+				ln = lua.LNumber(bg.id)
+			case "layerno":
+				ln = lua.LNumber(bg.layerno)
+			case "pos.x":
+				ln = lua.LNumber(bg.bga.pos[0])
+			case "pos.y":
+				ln = lua.LNumber(bg.bga.pos[1])
+			case "start.x":
+				ln = lua.LNumber(bg.start[0])
+			case "start.y":
+				ln = lua.LNumber(bg.start[1])
+			case "tile.x":
+				ln = lua.LNumber(bg.anim.tile.xflag)
+			case "tile.y":
+				ln = lua.LNumber(bg.anim.tile.yflag)
+			case "velocity.x":
+				ln = lua.LNumber(bg.bga.vel[0])
+			case "velocity.y":
+				ln = lua.LNumber(bg.bga.vel[1])
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
+			}
+		}
+		l.Push(ln)
+		return 1
+	})
 	luaRegister(l, "stagevar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "info.name":
@@ -5104,113 +5187,48 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "animelemvar", func(*lua.LState) int {
+	luaRegister(l, "animelemvar", func(l *lua.LState) int {
+		vname := strings.ToLower(strArg(l, 1))
+		var ln lua.LNumber
 		// Because the char's animation steps at the end of each frame, before the scripts run,
 		// AnimElemVar Lua version uses curFrame instead of anim.CurrentFrame()
-		c := sys.debugWC
-		switch strings.ToLower(strArg(l, 1)) {
-		case "alphadest":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.DstAlpha))
-			} else {
-				l.Push(lua.LNumber(0))
+		f := sys.debugWC.curFrame
+		if f != nil {
+			switch vname {
+			case "alphadest":
+				ln = lua.LNumber(f.DstAlpha)
+			case "alphasource":
+				ln = lua.LNumber(f.SrcAlpha)
+			case "angle":
+				ln = lua.LNumber(f.Angle)
+			case "group":
+				ln = lua.LNumber(f.Group)
+			case "hflip":
+				ln = lua.LNumber(Btoi(f.Hscale < 0))
+			case "image":
+				ln = lua.LNumber(f.Number)
+			case "numclsn1":
+				ln = lua.LNumber(len(f.Clsn1()) / 4)
+			case "numclsn2":
+				ln = lua.LNumber(len(f.Clsn2()) / 4)
+			case "time":
+				ln = lua.LNumber(f.Time)
+			case "vflip":
+				ln = lua.LNumber(Btoi(f.Vscale < 0))
+			case "xoffset":
+				ln = lua.LNumber(f.Xoffset)
+			case "xscale":
+				ln = lua.LNumber(f.Xscale)
+			case "yoffset":
+				ln = lua.LNumber(f.Yoffset)
+			case "yscale":
+				ln = lua.LNumber(f.Yscale)
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
 			}
-			return 1
-		case "alphasource":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.SrcAlpha))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "angle":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Angle))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "group":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Group))
-			} else {
-				l.Push(lua.LNumber(-1))
-			}
-			return 1
-		case "hflip":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LBool(f.Hscale < 0))
-			} else {
-				l.Push(lua.LBool(false))
-			}
-			return 1
-		case "image":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Number))
-			} else {
-				l.Push(lua.LNumber(-1))
-			}
-			return 1
-		case "numclsn1":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(len(f.Clsn1()) / 4))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "numclsn2":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(len(f.Clsn2()) / 4))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "time":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Time))
-			} else {
-				l.Push(lua.LNumber(-1))
-			}
-			return 1
-		case "vflip":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LBool(f.Vscale < 0))
-			} else {
-				l.Push(lua.LBool(false))
-			}
-			return 1
-		case "xoffset":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Xoffset))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "xscale":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Xscale))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "yoffset":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Yoffset))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		case "yscale":
-			if f := c.curFrame; f != nil {
-				l.Push(lua.LNumber(f.Yscale))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-			return 1
-		default:
-			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
-			return 1
 		}
+		l.Push(ln)
+		return 1
 	})
 	luaRegister(l, "animlength", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.anim.totaltime))
@@ -5383,75 +5401,50 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.dialogueFlg))
 		return 1
 	})
-	luaRegister(l, "inputtime", func(*lua.LState) int {
-		switch strArg(l, 1) {
-		case "B":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Bb))
+	luaRegister(l, "inputtime", func(l *lua.LState) int {
+		key := strArg(l, 1)
+		var ln lua.LNumber
+		// Check if keyctrl and cmd are valid
+		if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
+			switch key {
+			case "B":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Bb)
+			case "D":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Db)
+			case "F":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Fb)
+			case "U":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Ub)
+			case "L":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Lb)
+			case "R":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.Rb)
+			case "a":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.ab)
+			case "b":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.bb)
+			case "c":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.cb)
+			case "x":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.xb)
+			case "y":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.yb)
+			case "z":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.zb)
+			case "s":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.sb)
+			case "d":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.db)
+			case "w":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.wb)
+			case "m":
+				ln = lua.LNumber(sys.debugWC.cmd[0].Buffer.mb)
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", key)
+				return 1
 			}
-		case "D":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Db))
-			}
-		case "F":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Fb))
-			}
-		case "U":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Ub))
-			}
-		case "L":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Lb))
-			}
-		case "R":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.Rb))
-			}
-		case "a":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.ab))
-			}
-		case "b":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.bb))
-			}
-		case "c":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.cb))
-			}
-		case "x":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.xb))
-			}
-		case "y":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.yb))
-			}
-		case "z":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.zb))
-			}
-		case "s":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.sb))
-			}
-		case "d":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.db))
-			}
-		case "w":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.wb))
-			}
-		case "m":
-			if sys.debugWC.keyctrl[0] && sys.debugWC.cmd != nil {
-				l.Push(lua.LNumber(sys.debugWC.cmd[0].Buffer.mb))
-			}
-		default:
-			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
+		l.Push(lua.LNumber(ln))
 		return 1
 	})
 	luaRegister(l, "introstate", func(*lua.LState) int {

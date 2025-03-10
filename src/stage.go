@@ -1904,9 +1904,9 @@ func (s *Stage) modifyBGCtrl3d(id uint32, t, v [3]int32) {
 		}
 		for j := range s.bgc[i].anim {
 			if s.bgc[i].anim[j].id == id {
-				for k := 0; k < len(s.bgc[i].anim); k++ {
-					s.bgc[i].anim[k].toggle(v[0] != 0)
-				}
+				s.bgc[i].anim[j].time = 0
+				s.bgc[i].anim[j].enabled = v[0] != 0
+				s.bgc[i].anim[j].loop = 0
 				s.reload = true
 			}
 		}

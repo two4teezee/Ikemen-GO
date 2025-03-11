@@ -220,12 +220,11 @@ func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width fl
 			}
 		} else if topdist <= -0.01 {
 			if x1 > x2 {
-				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
-				right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
-			} else {
 				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
 				right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
-
+			} else {
+				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
+				right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
 			}
 		}
 		if rp.tile.xflag != 1 {

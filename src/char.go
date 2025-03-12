@@ -9243,7 +9243,9 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 		}
 
 		// Check if the enemy can guard this attack
-		canguard := (proj || !c.asf(ASF_unguardable)) && getter.scf(SCF_guard) &&
+		// Unguardable flag also affects projectiles
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2367
+		canguard := !c.asf(ASF_unguardable) && getter.scf(SCF_guard) &&
 			(!getter.csf(CSF_gethit) || getter.ghv.guarded)
 
 		// Automatically choose high or low in case of auto guard

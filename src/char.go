@@ -10459,32 +10459,31 @@ func (cl *CharList) pushDetection(getter *Char) {
 				// This needs to check both if the players have velocity or if their positions have changed
 				var pushx, pushz bool
 				if sys.zEnabled() && getter.pos[2] != c.pos[2] { // If tied on Z axis we fall back to X pushing
-					pushx = getter.vel[0] != 0 || c.vel[0] != 0 || getter.pos[0] != getter.oldPos[0] || c.pos[0] != c.oldPos[0]
-					pushz = getter.vel[2] != 0 || c.vel[2] != 0 || getter.pos[2] != getter.oldPos[2] || c.pos[2] != c.oldPos[2]
+					// Get distances in both axes
+					distx := AbsF(getter.pos[0] - c.pos[0])
+					distz := AbsF(getter.pos[2] - c.pos[2])
+
+					// Check how much each axis should weigh on the decision
+					// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
+					xtotal := AbsF(gxleft - gxright) + AbsF(cxleft - cxright)
+					ztotal := AbsF(gztop - gzbot) + AbsF(cztop - czbot)
+					distzadj := distz
+					if ztotal != 0 {
+						distzadj = (xtotal / ztotal) * distz
+					}
+
+					// Push farthest axis or both if distances are similar
+					similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
+					if distzadj != 0 && AbsF(distx / distzadj) > similar && AbsF(distx / distzadj) < (1 / similar) {
+						pushx = true
+						pushz = true
+					} else if distx >= distzadj {
+						pushx = true
+					} else {
+						pushz = true
+					}
 				} else {
 					pushx = true
-					pushz = false
-				}
-
-				// Ensure the players always push each other in some way
-				if !pushx && !pushz {
-					if sys.zEnabled() {
-						// Get distances in both axes
-						distx := AbsF(getter.pos[0] - c.pos[0])
-						distz := AbsF(getter.pos[2] - c.pos[2])
-						// Check how much each axis should weigh on the decision
-						xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
-						ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
-						ratio := xtotal / ztotal
-						// Tie break
-						if distx >= ratio*distz {
-							pushx = true
-						} else {
-							pushz = true
-						}
-					} else {
-						pushx = true
-					}
 				}
 
 				if pushx {

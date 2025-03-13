@@ -10066,23 +10066,23 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					var inguardx, inguardy, inguardz bool
 
 					// Check X distance
-					inguardx = distX <= p.hitdef.guard_dist_x[0]*p.localscl &&
-						distX >= -p.hitdef.guard_dist_x[1]*p.localscl
+					inguardx = distX < p.hitdef.guard_dist_x[0]*p.localscl &&
+						distX > -p.hitdef.guard_dist_x[1]*p.localscl
 
 					// Check Y distance
 					if distY == 0 { // Compatibility safeguard
 						inguardy = true
 					} else {
-						inguardy = distY <= p.hitdef.guard_dist_y[0]*p.localscl &&
-							distY >= -p.hitdef.guard_dist_y[1]*p.localscl
+						inguardy = distY > -p.hitdef.guard_dist_y[0]*p.localscl &&
+							distY < p.hitdef.guard_dist_y[1]*p.localscl
 					}
 
 					// Check Z distance
 					if distZ == 0 { // Compatibility safeguard
 						inguardz = true
 					} else {
-						inguardz = distZ <= p.hitdef.guard_dist_z[0]*p.localscl &&
-							distZ >= -p.hitdef.guard_dist_z[1]*p.localscl
+						inguardz = distZ > -p.hitdef.guard_dist_z[0]*p.localscl &&
+							distZ < p.hitdef.guard_dist_z[1]*p.localscl
 					}
 
 					// Set flag
@@ -10197,8 +10197,8 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 				((getter.teamside != c.teamside) == (c.hitdef.affectteam > 0) && c.hitdef.teamside < 0)) {
 
 				// Guard distance check
-				// Mugen uses >= checks so that 0 does not trigger proximity guard at 0 distance
-				// Localcoord conversion is already built into the dist functions, so it will be skipped ahead
+				// Mugen uses < checks so that 0 does not trigger proximity guard at 0 distance
+				// Localcoord conversion is already built into the dist functions, so it will be skipped
 				if c.ss.moveType == MT_A {
 					var inguardx, inguardy, inguardz bool
 
@@ -10214,14 +10214,14 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					if distY == 0 { // Compatibility safeguard
 						inguardy = true
 					} else {
-						inguardy = distY < c.hitdef.guard_dist_y[0] && distY > -c.hitdef.guard_dist_y[1]
+						inguardy = distY > -c.hitdef.guard_dist_y[0] && distY < c.hitdef.guard_dist_y[1]
 					}
 
 					// Check Z distance
 					if distZ == 0 { // Compatibility safeguard
 						inguardz = true
 					} else {
-						inguardz = distZ < c.hitdef.guard_dist_z[0] && distZ > -c.hitdef.guard_dist_z[1]
+						inguardz =  distZ > -c.hitdef.guard_dist_z[0] && distZ < c.hitdef.guard_dist_z[1]
 					}
 
 					// Set flag

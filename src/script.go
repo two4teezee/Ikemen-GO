@@ -853,7 +853,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "fade", func(l *lua.LState) int {
 		rect := [4]int32{int32(numArg(l, 1)), int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4))}
 		alpha := int32(numArg(l, 5))
-		FillRect(rect, 0, alpha>>uint(Btoi(sys.clsnDraw))+Btoi(sys.clsnDraw)*128)
+		FillRect(rect, 0, alpha>>uint(Btoi(sys.clsnDisplay))+Btoi(sys.clsnDisplay)*128)
 		return 0
 	})
 	luaRegister(l, "fadeColor", func(l *lua.LState) int {
@@ -911,14 +911,14 @@ func systemScriptInit(l *lua.LState) {
 		// Don't let these loops fool you, this is still iterating
 		// over n entities.
 		for i := pnStart; i < len(sys.chars) && !found; i++ {
-			if !sys.debugDraw {
+			if !sys.debugDisplay {
 				for j := 0; j < len(sys.chars[i]) && !found; j++ {
 					if sys.chars[i][j] != nil && (j == 0 || !sys.chars[i][j].csf(CSF_destroy)) {
 						if sys.chars[i][j].id == pid {
 							sys.debugRef[0] = i
 							sys.debugRef[1] = j
 							found = true
-							sys.debugDraw = true
+							sys.debugDisplay = true
 							break
 						}
 					}
@@ -977,7 +977,7 @@ func systemScriptInit(l *lua.LState) {
 		// Don't let these loops fool you, this is still iterating
 		// over n entities.
 		for i := pnStart; i < len(sys.chars) && !found; i++ {
-			if !sys.debugDraw {
+			if !sys.debugDisplay {
 				for j := 0; j < len(sys.chars[i]) && !found; j++ {
 					if sys.chars[i][j] != nil && (j == 0 || !sys.chars[i][j].csf(CSF_destroy)) {
 						nameLower = strings.ToLower(sys.chars[i][j].name)
@@ -985,7 +985,7 @@ func systemScriptInit(l *lua.LState) {
 							sys.debugRef[0] = i
 							sys.debugRef[1] = j
 							found = true
-							sys.debugDraw = true
+							sys.debugDisplay = true
 							break
 						}
 					}
@@ -1042,17 +1042,16 @@ func systemScriptInit(l *lua.LState) {
 
 		found := false
 
-		// Don't let these loops fool you, this is still iterating
-		// over n entities.
+		// Don't let these loops fool you, this is still iterating over n entities.
 		for i := pnStart; i < len(sys.chars) && !found; i++ {
-			if !sys.debugDraw {
+			if !sys.debugDisplay {
 				for j := 1; j < len(sys.chars[i]) && !found; j++ {
 					if sys.chars[i][j] != nil && (j == 0 || !sys.chars[i][j].csf(CSF_destroy)) {
 						if sys.chars[i][j].helperId == hid {
 							sys.debugRef[0] = i
 							sys.debugRef[1] = j
 							found = true
-							sys.debugDraw = true
+							sys.debugDisplay = true
 							break
 						}
 					}
@@ -2813,14 +2812,14 @@ func systemScriptInit(l *lua.LState) {
 			float32(numArg(l, 4))/sys.luaSpriteScale, float32(numArg(l, 5))/sys.luaSpriteScale)
 		return 0
 	})
-	luaRegister(l, "toggleClsnDraw", func(*lua.LState) int {
+	luaRegister(l, "toggleClsnDisplay", func(*lua.LState) int {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
 		if !nilArg(l, 1) {
-			sys.clsnDraw = boolArg(l, 1)
+			sys.clsnDisplay = boolArg(l, 1)
 		} else {
-			sys.clsnDraw = !sys.clsnDraw
+			sys.clsnDisplay = !sys.clsnDisplay
 		}
 		return 0
 	})
@@ -2832,16 +2831,16 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "toggleDebugDraw", func(*lua.LState) int {
+	luaRegister(l, "toggleDebugDisplay", func(*lua.LState) int {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
 		if !nilArg(l, 1) {
-			sys.debugDraw = !sys.debugDraw
+			sys.debugDisplay = !sys.debugDisplay
 			return 0
 		}
-		if !sys.debugDraw {
-			sys.debugDraw = true
+		if !sys.debugDisplay {
+			sys.debugDisplay = true
 		} else {
 			idx := 0
 			// Find index of current debug player
@@ -2855,7 +2854,7 @@ func systemScriptInit(l *lua.LState) {
 			if idx == 0 || idx >= len(sys.charList.runOrder) {
 				sys.debugRef[0] = 0
 				sys.debugRef[1] = 0
-				sys.debugDraw = false
+				sys.debugDisplay = false
 			} else {
 				sys.debugRef[0] = sys.charList.runOrder[idx].playerNo
 				sys.debugRef[1] = int(sys.charList.runOrder[idx].helperIndex)
@@ -2878,6 +2877,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		if fs != sys.window.fullscreen {
 			sys.window.toggleFullscreen()
+		}
+		return 0
+	})
+	luaRegister(l, "toggleLifebarDisplay", func(*lua.LState) int {
+		if !nilArg(l, 1) {
+			sys.lifebarDisplay = boolArg(l, 1)
+		} else {
+			sys.lifebarDisplay = !sys.lifebarDisplay
 		}
 		return 0
 	})
@@ -2934,14 +2941,6 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "toggleStatusDraw", func(*lua.LState) int {
-		if !nilArg(l, 1) {
-			sys.statusDraw = boolArg(l, 1)
-		} else {
-			sys.statusDraw = !sys.statusDraw
-		}
-		return 0
-	})
 	luaRegister(l, "toggleVictoryScreen", func(*lua.LState) int {
 		if !nilArg(l, 1) {
 			sys.victoryScreenFlg = boolArg(l, 1)
@@ -2969,14 +2968,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "toggleWireframeDraw", func(*lua.LState) int {
+	luaRegister(l, "toggleWireframeDisplay", func(*lua.LState) int {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0
 		}
 		if !nilArg(l, 1) {
-			sys.wireframeDraw = boolArg(l, 1)
+			sys.wireframeDisplay = boolArg(l, 1)
 		} else {
-			sys.wireframeDraw = !sys.wireframeDraw
+			sys.wireframeDisplay = !sys.wireframeDisplay
 		}
 		return 0
 	})
@@ -5244,14 +5243,14 @@ func triggerFunctions(l *lua.LState) {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "accel":
 			l.Push(lua.LNumber(sys.accel))
-		case "clsndraw":
-			l.Push(lua.LBool(sys.clsnDraw))
-		case "debugdraw":
-			l.Push(lua.LBool(sys.debugDraw))
-		case "statusdraw":
-			l.Push(lua.LBool(sys.statusDraw))
-		case "wireframedraw":
-			l.Push(lua.LBool(sys.wireframeDraw))
+		case "clsndisplay":
+			l.Push(lua.LBool(sys.clsnDisplay))
+		case "debugdisplay":
+			l.Push(lua.LBool(sys.debugDisplay))
+		case "lifebardisplay":
+			l.Push(lua.LBool(sys.lifebarDisplay))
+		case "wireframedisplay":
+			l.Push(lua.LBool(sys.wireframeDisplay))
 		case "roundrestarted":
 			l.Push(lua.LBool(sys.roundResetFlg))
 		default:

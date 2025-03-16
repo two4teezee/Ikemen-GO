@@ -3494,7 +3494,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			gfx.SetModelUniformFv("morphTargetWeight", make([]float32, 8))
 		}
 		mode := p.mode
-		if sys.wireframeDraw {
+		if sys.wireframeDisplay {
 			mode = 1 // Set mesh render mode to "lines"
 		}
 		gfx.SetModelUniformI("unlit", int(Btoi(unlit || mat.unlit)))

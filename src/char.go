@@ -2131,7 +2131,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 	}
 
 	// Projectile Clsn display
-	if sys.clsnDraw && p.ani != nil {
+	if sys.clsnDisplay && p.ani != nil {
 		if frm := p.ani.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1(); len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
@@ -8619,7 +8619,7 @@ func (c *Char) cueDebugDraw() {
 	angle := c.clsnAngle * c.facing
 	nhbtxt := ""
 	// Debug Clsn display
-	if sys.clsnDraw {
+	if sys.clsnDisplay {
 		if c.curFrame != nil {
 			// Add Clsn1
 			if clsn := c.curFrame.Clsn1(); len(clsn) > 0 {
@@ -8763,7 +8763,7 @@ func (c *Char) cueDebugDraw() {
 		sys.debugch.Add([]float32{-1, -1, 1, 1}, x, y, 1, 1, 0)
 	}
 	// Prepare information for debug text
-	if sys.debugDraw {
+	if sys.debugDisplay {
 		// Add debug clsnText
 		x = (x-sys.cam.Pos[0])*sys.cam.Scale + ((320-float32(sys.gameWidth))/2 + 1) + float32(sys.gameWidth)/2
 		y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel() + 1 // "1" is just for spacing

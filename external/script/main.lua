@@ -361,13 +361,13 @@ if main.flags['-nosound'] ~= nil then
 	setVolumeMaster(0)
 end
 if main.flags['-togglelifebars'] ~= nil then
-	toggleStatusDraw()
+	toggleLifebarDisplay()
 end
 if main.flags['-maxpowermode'] ~= nil then
 	toggleMaxPowerMode()
 end
 if main.flags['-debug'] ~= nil then
-	toggleDebugDraw()
+	toggleDebugDisplay()
 end
 if main.flags['-setport'] ~= nil then
 	setListenPort(main.flags['-setport'])

@@ -61,7 +61,7 @@ var sys = System{
 	oldNextAddTime:   1,
 	commandLine:      make(chan string),
 	cam:              *newCamera(),
-	statusDraw:       true,
+	lifebarDisplay:   true,
 	mainThreadTask:   make(chan func(), 65536),
 	workpal:          make([]uint32, 256),
 	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
@@ -96,7 +96,7 @@ type System struct {
 	roundTime               int32
 	turnsRecoveryRate       float32
 	debugFont               *TextSprite
-	debugDraw               bool
+	debugDisplay            bool
 	debugRef                [2]int // player number, helper index
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
@@ -168,7 +168,7 @@ type System struct {
 	stageList               map[int32]*Stage
 	stageLoop               bool
 	stageLoopNo             int
-	wireframeDraw           bool
+	wireframeDisplay        bool
 	nextCharId              int32
 	wincnt                  wincntMap
 	wincntFileName          string
@@ -234,8 +234,8 @@ type System struct {
 	debugch                 ClsnRect
 	accel                   float32
 	clsnSpr                 Sprite
-	clsnDraw                bool
-	statusDraw              bool
+	clsnDisplay             bool
+	lifebarDisplay          bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
 	errLog                  *log.Logger
@@ -1760,7 +1760,7 @@ func (s *System) draw(x, y, scl float32) {
 	s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
-	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
+	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
 	//}
 	if s.envcol_time == 0 {
 		c := uint32(0)
@@ -1885,7 +1885,7 @@ func (s *System) draw(x, y, scl float32) {
 func (s *System) drawTop() {
 	BlendReset()
 	fade := func(rect [4]int32, color uint32, alpha int32) {
-		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDraw))+Btoi(s.clsnDraw)*128)
+		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
 	}
 	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
 	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.cfg.Common.Lua) > 0 && s.matchOver() && !s.dialogueFlg {
@@ -1907,7 +1907,7 @@ func (s *System) drawTop() {
 		if s.tickFrame() {
 			s.fadeouttime--
 		}
-	} else if s.clsnDraw && s.cfg.Debug.ClsnDarken {
+	} else if s.clsnDisplay && s.cfg.Debug.ClsnDarken {
 		fade(s.scrrect, 0, 0)
 	}
 	if s.shuttertime > 0 {
@@ -1919,7 +1919,7 @@ func (s *System) drawTop() {
 	}
 	s.brightness = s.brightnessOld
 	// Draw Clsn boxes
-	if s.clsnDraw {
+	if s.clsnDisplay {
 		s.clsnSpr.Pal[0] = 0xff0000ff
 		s.debugc1hit.draw(0x3feff)
 		s.clsnSpr.Pal[0] = 0xff0040c0
@@ -1962,7 +1962,7 @@ func (s *System) drawDebugText() {
 				s.debugFont.palfx, s.debugFont.frgba)
 		}
 	}
-	if s.debugDraw {
+	if s.debugDisplay {
 		// Player Info on top of screen
 		x := (320-float32(s.gameWidth))/2 + 1
 		y := 240 - float32(s.gameHeight)
@@ -2031,7 +2031,7 @@ func (s *System) drawDebugText() {
 	}
 	// Draw Clsn text
 	// Unlike Mugen, this is drawn separately from the Clsn boxes themselves, making debug more flexible
-	//if s.clsnDraw {
+	//if s.clsnDisplay {
 	for _, t := range s.clsnText {
 		s.debugFont.SetColor(t.r, t.g, t.b)
 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/s.widthScale,
@@ -2049,9 +2049,9 @@ func (s *System) fight() (reload bool) {
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	if sys.netInput != nil {
-		s.clsnDraw = false
-		s.debugDraw = false
-		s.statusDraw = false
+		s.clsnDisplay = false
+		s.debugDisplay = false
+		s.lifebarDisplay = true
 	}
 	// Defer resetting variables on return
 	defer func() {
@@ -2485,7 +2485,7 @@ func (s *System) fight() (reload bool) {
 			}
 		}
 		// Render debug elements
-		if !s.frameSkip && s.debugDraw {
+		if !s.frameSkip && s.debugDisplay {
 			s.drawDebugText()
 		}
 		// Break if finished

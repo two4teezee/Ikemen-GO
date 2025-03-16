@@ -771,10 +771,10 @@ const (
 	OC_ex2_clsnvar_right
 	OC_ex2_clsnvar_bottom
 	OC_ex2_debug_accel
-	OC_ex2_debug_clsndraw
-	OC_ex2_debug_debugdraw
-	OC_ex2_debug_statusdraw
-	OC_ex2_debug_wireframedraw
+	OC_ex2_debug_clsndisplay
+	OC_ex2_debug_debugdisplay
+	OC_ex2_debug_lifebardisplay
+	OC_ex2_debug_wireframedisplay
 	OC_ex2_debug_roundrestarted
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
@@ -3316,14 +3316,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
 	case OC_ex2_debug_accel:
 		sys.bcStack.PushF(sys.accel)
-	case OC_ex2_debug_clsndraw:
-		sys.bcStack.PushB(sys.clsnDraw)
-	case OC_ex2_debug_debugdraw:
-		sys.bcStack.PushB(sys.debugDraw)
-	case OC_ex2_debug_statusdraw:
-		sys.bcStack.PushB(sys.statusDraw)
-	case OC_ex2_debug_wireframedraw:
-		sys.bcStack.PushB(sys.wireframeDraw)
+	case OC_ex2_debug_clsndisplay:
+		sys.bcStack.PushB(sys.clsnDisplay)
+	case OC_ex2_debug_debugdisplay:
+		sys.bcStack.PushB(sys.debugDisplay)
+	case OC_ex2_debug_lifebardisplay:
+		sys.bcStack.PushB(sys.lifebarDisplay)
+	case OC_ex2_debug_wireframedisplay:
+		sys.bcStack.PushB(sys.wireframeDisplay)
 	case OC_ex2_debug_roundrestarted:
 		sys.bcStack.PushB(sys.roundResetFlg)
 	// BEGIN FALLTHROUGH (explodvar)
@@ -4067,6 +4067,10 @@ func (sc stateDef) Run(c *Char) {
 		case stateDef_hitdefpersist:
 			if !exp[0].evalB(c) {
 				c.clearHitDef()
+				// Reset AttackDist
+				c.hitdef.guard_dist_x = [2]float32{c.size.attack.dist.width[0], c.size.attack.dist.width[1]}
+				c.hitdef.guard_dist_y = [2]float32{c.size.attack.dist.height[0], c.size.attack.dist.height[1]}
+				c.hitdef.guard_dist_z = [2]float32{c.size.attack.dist.depth[0], c.size.attack.dist.depth[1]}
 			}
 		case stateDef_sprpriority:
 			c.sprPriority = exp[0].evalI(c)
@@ -5786,7 +5790,6 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						e.setZ(e.offset[2])
 						e.relativePos = [3]float32{0, 0, 0}
 						e.velocity = [3]float32{0, 0, 0}
-						e.friction = [3]float32{1, 1, 1}
 						e.accel = [3]float32{0, 0, 0}
 						e.bindId = -2
 						if e.bindtime == 0 {
@@ -5895,28 +5898,19 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case explod_friction:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
-					friction := exp[0].evalF(c)
-					eachExpl(func(e *Explod) {
-						e.friction[0] = friction
-					})
-				}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
 				if len(exp) > 1 {
-					if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
-						friction := exp[1].evalF(c)
-						eachExpl(func(e *Explod) {
-							e.friction[1] = friction
-						})
-					}
+					v2 = exp[1].evalF(c)
 					if len(exp) > 2 {
-						if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
-							friction := exp[2].evalF(c)
-							eachExpl(func(e *Explod) {
-								e.friction[2] = friction
-							})
-						}
+						v3 = exp[2].evalF(c)
 					}
 				}
+				eachExpl(func(e *Explod) {
+					e.friction[0] = v1
+					e.friction[1] = v2
+					e.friction[2] = v3
+				})
 			case explod_accel:
 				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
 					accel := exp[0].evalF(c) * redirscale
@@ -6727,30 +6721,50 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.down_cornerpush_veloff = exp[0].evalF(c)
 	case hitDef_ground_hittime:
 		hd.ground_hittime = exp[0].evalI(c)
-		hd.guard_hittime = hd.ground_hittime
 	case hitDef_guard_hittime:
 		hd.guard_hittime = exp[0].evalI(c)
 	case hitDef_guard_dist_x:
-		hd.guard_dist_x[0] = exp[0].evalI(c)
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_x[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		// Mugen ignores these if they're negative, rather than clamping them
+		// Maybe that's what it does for all positive only parameters
+		if v1 >= 0 {
+			hd.guard_dist_x[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_x[1] = v2
 		}
 	case hitDef_guard_dist_y:
-		hd.guard_dist_y[0] = exp[0].evalI(c)
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_y[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		if v1 >= 0 {
+			hd.guard_dist_y[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_y[1] = v2
 		}
 	case hitDef_guard_dist_z:
-		hd.guard_dist_z[0] = exp[0].evalI(c)
+		var v1, v2 float32
+		v1 = exp[0].evalF(c)
 		if len(exp) > 1 {
-			hd.guard_dist_z[1] = exp[1].evalI(c)
+			v2 = exp[1].evalF(c)
+		}
+		if v1 >= 0 {
+			hd.guard_dist_z[0] = v1
+		}
+		if v2 >= 0 {
+			hd.guard_dist_z[1] = v2
 		}
 	case hitDef_pausetime:
 		hd.pausetime = exp[0].evalI(c)
-		hd.guard_pausetime = hd.pausetime
 		if len(exp) > 1 {
 			hd.shaketime = exp[1].evalI(c)
-			hd.guard_shaketime = hd.shaketime
 		}
 	case hitDef_guard_pausetime:
 		hd.guard_pausetime = exp[0].evalI(c)
@@ -6775,16 +6789,10 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		}
 	case hitDef_ground_slidetime:
 		hd.ground_slidetime = exp[0].evalI(c)
-		hd.guard_slidetime = hd.ground_slidetime
-		hd.guard_ctrltime = hd.ground_slidetime
-		hd.airguard_ctrltime = hd.ground_slidetime
 	case hitDef_guard_slidetime:
 		hd.guard_slidetime = exp[0].evalI(c)
-		hd.guard_ctrltime = hd.guard_slidetime
-		hd.airguard_ctrltime = hd.guard_slidetime
 	case hitDef_guard_ctrltime:
 		hd.guard_ctrltime = exp[0].evalI(c)
-		hd.airguard_ctrltime = hd.guard_ctrltime
 	case hitDef_airguard_ctrltime:
 		hd.airguard_ctrltime = exp[0].evalI(c)
 	case hitDef_ground_velocity_x:
@@ -7303,148 +7311,204 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			}
 			switch paramID {
 			case projectile_projremove:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.remove = exp[0].evalB(c)
+					p.remove = v1
 				})
 			case projectile_projremovetime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.removetime = exp[0].evalI(c)
+					p.removetime = v1
 				})
 			//case projectile_projshadow:
 			case projectile_projmisstime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.misstime = exp[0].evalI(c)
+					p.misstime = v1
 				})
 			case projectile_projhits:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hits = exp[0].evalI(c)
+					p.hits = v1
 				})
 			case projectile_projpriority:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.priority = exp[0].evalI(c)
+					p.priority = v1
 					p.priorityPoints = p.priority
 				})
 			case projectile_projhitanim:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitanim = exp[1].evalI(c)
-					p.hitanim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+					p.hitanim_ffx = v1
+					p.hitanim = v2
 				})
 			case projectile_projremanim:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = Max(-1, exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					p.remanim = Max(-1, exp[1].evalI(c))
-					p.remanim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+					p.remanim_ffx = v1
+					p.remanim = v2
 				})
 			case projectile_projcancelanim:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = Max(-1, exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					p.cancelanim = Max(-1, exp[1].evalI(c))
-					p.cancelanim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+					p.cancelanim_ffx = v1
+					p.cancelanim = v2
 				})
 			case projectile_velocity:
-				eachProj(func(p *Projectile) {
-					p.velocity[0] = exp[0].evalF(c) * redirscale
-					if len(exp) > 1 {
-						p.velocity[1] = exp[1].evalF(c) * redirscale
-						if len(exp) > 2 {
-							p.velocity[2] = exp[2].evalF(c) * redirscale
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.velocity[0] = v1 * redirscale
+					p.velocity[1] = v2 * redirscale
+					p.velocity[2] = v3 * redirscale
 				})
 			case projectile_velmul:
-				eachProj(func(p *Projectile) {
-					p.velmul[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.velmul[1] = exp[1].evalF(c)
-						if len(exp) > 2 {
-							p.velmul[2] = exp[2].evalF(c)
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.velmul[0] = v1
+					p.velmul[1] = v2
+					p.velmul[2] = v3
 				})
 			case projectile_remvelocity:
-				eachProj(func(p *Projectile) {
-					p.remvelocity[0] = exp[0].evalF(c) * redirscale
-					if len(exp) > 1 {
-						p.remvelocity[1] = exp[1].evalF(c) * redirscale
-						if len(exp) > 2 {
-							p.remvelocity[2] = exp[2].evalF(c) * redirscale
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.remvelocity[0] = v1 * redirscale
+					p.remvelocity[1] = v2 * redirscale
+					p.remvelocity[2] = v3 * redirscale
 				})
 			case projectile_accel:
-				eachProj(func(p *Projectile) {
-					p.accel[0] = exp[0].evalF(c) * redirscale
-					if len(exp) > 1 {
-						p.accel[1] = exp[1].evalF(c) * redirscale
-						if len(exp) > 2 {
-							p.accel[2] = exp[2].evalF(c) * redirscale
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.accel[0] = v1 * redirscale
+					p.accel[1] = v2 * redirscale
+					p.accel[2] = v3 * redirscale
 				})
 			case projectile_projscale:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.scale[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.scale[1] = exp[1].evalF(c)
-					}
+					p.scale[0] = v1
+					p.scale[1] = v2
 				})
 			case projectile_projangle:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.angle = exp[0].evalF(c)
+					p.angle = v1
 				})
 			//case projectile_offset: // Pointless because it's only used when the projectile is created
 			case projectile_projsprpriority:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.sprpriority = exp[0].evalI(c)
+					p.sprpriority = v1
 				})
 			case projectile_projlayerno:
-				l := exp[0].evalI(c)
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					if l > 0 {
+					if v1 > 0 {
 						p.layerno = 1
-					} else if l < 0 {
+					} else if v1 < 0 {
 						p.layerno = -1
 					} else {
 						p.layerno = 0
 					}
 				})
 			case projectile_projstagebound:
+				v1 := int32(float32(exp[0].evalI(c)) * redirscale)
 				eachProj(func(p *Projectile) {
-					p.stagebound = int32(float32(exp[0].evalI(c)) * redirscale)
+					p.stagebound = v1
 				})
 			case projectile_projedgebound:
+				v1 := int32(float32(exp[0].evalI(c)) * redirscale)
 				eachProj(func(p *Projectile) {
-					p.edgebound = int32(float32(exp[0].evalI(c)) * redirscale)
+					p.edgebound = v1
 				})
 			case projectile_projheightbound:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.heightbound[0] = int32(float32(exp[0].evalI(c)) * redirscale)
-					if len(exp) > 1 {
-						p.heightbound[1] = int32(float32(exp[1].evalI(c)) * redirscale)
-					}
+					p.heightbound[0] = int32(v1 * redirscale)
+					p.heightbound[1] = int32(v2 * redirscale)
 				})
 			case projectile_projdepthbound:
+				v1 := int32(float32(exp[0].evalI(c)) * redirscale)
 				eachProj(func(p *Projectile) {
-					p.depthbound = int32(float32(exp[0].evalI(c)) * redirscale)
+					p.depthbound = v1
 				})
 			case projectile_projanim:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = Max(-1, exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					tmp := exp[1].evalI(c)
-					ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-					if p.anim != tmp || p.anim_ffx != ffx {
-						p.anim = tmp
-						p.anim_ffx = ffx
+					if p.anim != v2 || p.anim_ffx != v1 {
+						p.anim_ffx = v1
+						p.anim = v2
 						p.ani = c.getAnim(p.anim, p.anim_ffx, true) // need to change anim ref too
 					}
 				})
 			case projectile_supermovetime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.supermovetime = exp[0].evalI(c)
+					p.supermovetime = v1
 					if p.supermovetime >= 0 {
 						p.supermovetime = Max(p.supermovetime, p.supermovetime+1)
 					}
 				})
 			case projectile_pausemovetime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.pausemovetime = exp[0].evalI(c)
+					p.pausemovetime = v1
 					if p.pausemovetime >= 0 {
 						p.pausemovetime = Max(p.pausemovetime, p.pausemovetime+1)
 					}
@@ -7452,411 +7516,563 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			//case projectile_ownpal: // TODO: Test these later. May cause issues
 			//case projectile_remappal:
 			case projectile_projclsnscale:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.clsnScale[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.clsnScale[1] = exp[1].evalF(c)
-					} else {
-						p.clsnScale[1] = 1.0 // Default
-					}
+					p.clsnScale[0] = v1
+					p.clsnScale[1] = v2
 				})
 			case projectile_projclsnangle:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.clsnAngle = exp[0].evalF(c)
+					p.clsnAngle = v1
 				})
 			case hitDef_attr:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.attr = exp[0].evalI(c)
+					p.hitdef.attr = v1
 				})
 			case hitDef_guardflag:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guardflag = exp[0].evalI(c)
+					p.hitdef.guardflag = v1
 				})
 			case hitDef_hitflag:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitflag = exp[0].evalI(c)
+					p.hitdef.hitflag = v1
 				})
 			case hitDef_ground_type:
+				v1 := HitType(exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_type = HitType(exp[0].evalI(c))
+					p.hitdef.ground_type = v1
 				})
 			case hitDef_air_type:
+				v1 := HitType(exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_type = HitType(exp[0].evalI(c))
+					p.hitdef.air_type = v1
 				})
 			case hitDef_animtype:
+				v1 := Reaction(exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.animtype = Reaction(exp[0].evalI(c))
+					p.hitdef.animtype = v1
 				})
 			case hitDef_air_animtype:
+				v1 := Reaction(exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_animtype = Reaction(exp[0].evalI(c))
+					p.hitdef.air_animtype = v1
 				})
 			case hitDef_fall_animtype:
+				v1 := Reaction(exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_animtype = Reaction(exp[0].evalI(c))
+					p.hitdef.fall_animtype = v1
 				})
 			case hitDef_affectteam:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.affectteam = exp[0].evalI(c)
+					p.hitdef.affectteam = v1
 				})
 			case hitDef_teamside:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					n := exp[0].evalI(c)
-					if n > 2 {
+					if v1 > 2 {
 						p.hitdef.teamside = 2
-					} else if n < 0 {
+					} else if v1 < 0 {
 						p.hitdef.teamside = 0
 					} else {
-						p.hitdef.teamside = int(n)
+						p.hitdef.teamside = int(v1)
 					}
 				})
 			case hitDef_id:
+				v1 := Max(0, exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.id = Max(0, exp[0].evalI(c))
+					p.hitdef.id = v1
 				})
 			case hitDef_chainid:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.chainid = exp[0].evalI(c)
+					p.hitdef.chainid = v1
 				})
 			case hitDef_nochainid:
+				val := make([]int32, int(math.Min(8, float64(len(exp)))))
+				for i := 0; i < len(val); i++ {
+					val[i] = exp[i].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					for i := 0; i < int(math.Min(8, float64(len(exp)))); i++ {
-						p.hitdef.nochainid[i] = exp[i].evalI(c)
+					for i := 0; i < len(val); i++ {
+						p.hitdef.nochainid[i] = val[i]
 					}
 				})
 			case hitDef_kill:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.kill = exp[0].evalB(c)
+					p.hitdef.kill = v1
 				})
 			case hitDef_guard_kill:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_kill = exp[0].evalB(c)
+					p.hitdef.guard_kill = v1
 				})
 			case hitDef_fall_kill:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_kill = exp[0].evalB(c)
+					p.hitdef.fall_kill = v1
 				})
 			case hitDef_hitonce:
+				v1 := Btoi(exp[0].evalB(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitonce = Btoi(exp[0].evalB(c))
+					p.hitdef.hitonce = v1
 				})
 			case hitDef_air_juggle:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_juggle = exp[0].evalI(c)
+					p.hitdef.air_juggle = v1
 				})
 			case hitDef_getpower:
+				var v1, v2 int32
+				v1 = Max(IErr+1, exp[0].evalI(c))
+				if len(exp) > 1 {
+					v2 = Max(IErr+1, exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitgetpower = Max(IErr+1, exp[0].evalI(c))
-					if len(exp) > 1 {
-						p.hitdef.guardgetpower = Max(IErr+1, exp[1].evalI(c))
-					}
+					p.hitdef.hitgetpower = v1
+					p.hitdef.guardgetpower = v2
 				})
 			case hitDef_damage:
+				var v1, v2 int32
+				v1 = exp[0].evalI(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitdamage = exp[0].evalI(c)
-					if len(exp) > 1 {
-						p.hitdef.guarddamage = exp[1].evalI(c)
-					}
+					p.hitdef.hitdamage = v1
+					p.hitdef.guarddamage = v2
 				})
 			case hitDef_givepower:
+				var v1, v2 int32
+				v1 = Max(IErr+1, exp[0].evalI(c))
+				if len(exp) > 1 {
+					v2 = Max(IErr+1, exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitgivepower = Max(IErr+1, exp[0].evalI(c))
-					if len(exp) > 1 {
-						p.hitdef.guardgivepower = Max(IErr+1, exp[1].evalI(c))
-					}
+					p.hitdef.hitgivepower = v1
+					p.hitdef.guardgivepower = v2
 				})
 			case hitDef_numhits:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.numhits = exp[0].evalI(c)
+					p.hitdef.numhits = v1
 				})
 			case hitDef_hitsound:
-				eachProj(func(p *Projectile) {
-					p.hitdef.hitsound_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-					p.hitdef.hitsound[0] = exp[1].evalI(c)
+				var v1 string
+				var v2, v3 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
 					if len(exp) > 2 {
-						p.hitdef.hitsound[1] = exp[2].evalI(c)
+						v3 = exp[2].evalI(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.hitsound_ffx = v1
+					p.hitdef.hitsound[0] = v2
+					p.hitdef.hitsound[1] = v3
 				})
 			case hitDef_hitsound_channel:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitsound_channel = exp[0].evalI(c)
+					p.hitdef.hitsound_channel = v1
 				})
 			case hitDef_guardsound:
-				eachProj(func(p *Projectile) {
-					p.hitdef.guardsound_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-					p.hitdef.guardsound[0] = exp[1].evalI(c)
+				var v1 string
+				var v2, v3 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
 					if len(exp) > 2 {
-						p.hitdef.guardsound[1] = exp[2].evalI(c)
+						v3 = exp[2].evalI(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.guardsound_ffx = v1
+					p.hitdef.guardsound[0] = v2
+					p.hitdef.guardsound[1] = v3
 				})
 			case hitDef_guardsound_channel:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guardsound_channel = exp[0].evalI(c)
+					p.hitdef.guardsound_channel = v1
 				})
 			case hitDef_priority:
+				var v1 int32
+				var v2 TradeType
+				v1 = exp[0].evalI(c)
+				if len(exp) > 1 {
+					v2 = TradeType(exp[1].evalI(c))
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.priority = exp[0].evalI(c)
-					p.hitdef.prioritytype = TradeType(exp[1].evalI(c))
+					p.hitdef.priority = v1
+					p.hitdef.prioritytype = v2
 				})
 			case hitDef_p1stateno:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.p1stateno = exp[0].evalI(c)
+					p.hitdef.p1stateno = v1
 				})
 			case hitDef_p2stateno:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.p2stateno = exp[0].evalI(c)
+					p.hitdef.p2stateno = v1
 					p.hitdef.p2getp1state = true
 				})
 			case hitDef_p2getp1state:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.p2getp1state = exp[0].evalB(c)
+					p.hitdef.p2getp1state = v1
 				})
 			//case hitDef_p1sprpriority:
 			//	p.hitdef.p1sprpriority = exp[0].evalI(c)
 			case hitDef_p2sprpriority:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.p2sprpriority = exp[0].evalI(c)
+					p.hitdef.p2sprpriority = v1
 				})
 			case hitDef_forcestand:
+				v1 := Btoi(exp[0].evalB(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.forcestand = Btoi(exp[0].evalB(c))
+					p.hitdef.forcestand = v1
 				})
 			case hitDef_forcecrouch:
+				v1 := Btoi(exp[0].evalB(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.forcecrouch = Btoi(exp[0].evalB(c))
+					p.hitdef.forcecrouch = v1
 				})
 			case hitDef_forcenofall:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.forcenofall = exp[0].evalB(c)
+					p.hitdef.forcenofall = v1
 				})
 			case hitDef_fall_damage:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_damage = exp[0].evalI(c)
+					p.hitdef.fall_damage = v1
 				})
 			case hitDef_fall_xvelocity:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_xvelocity = exp[0].evalF(c)
+					p.hitdef.fall_xvelocity = v1
 				})
 			case hitDef_fall_yvelocity:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_yvelocity = exp[0].evalF(c)
+					p.hitdef.fall_yvelocity = v1
 				})
 			case hitDef_fall_zvelocity:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_zvelocity = exp[0].evalF(c)
+					p.hitdef.fall_zvelocity = v1
 				})
 			case hitDef_fall_recover:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_recover = exp[0].evalB(c)
+					p.hitdef.fall_recover = v1
 				})
 			case hitDef_fall_recovertime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_recovertime = exp[0].evalI(c)
+					p.hitdef.fall_recovertime = v1
 				})
 			case hitDef_sparkno:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.sparkno_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-					p.hitdef.sparkno = exp[1].evalI(c)
+					p.hitdef.sparkno_ffx = v1
+					p.hitdef.sparkno = v2
 				})
 			case hitDef_sparkangle:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.sparkangle = exp[0].evalF(c)
+					p.hitdef.sparkangle = v1
 				})
 			case hitDef_guard_sparkno:
+				var v1 string
+				var v2 int32
+				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_sparkno_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-					p.hitdef.guard_sparkno = exp[1].evalI(c)
+					p.hitdef.guard_sparkno_ffx = v1
+					p.hitdef.guard_sparkno = v2
 				})
 			case hitDef_guard_sparkangle:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_sparkangle = exp[0].evalF(c)
+					p.hitdef.guard_sparkangle = v1
 				})
 			case hitDef_sparkxy:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.sparkxy[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.sparkxy[1] = exp[1].evalF(c)
-					}
+					p.hitdef.sparkxy[0] = v1
+					p.hitdef.sparkxy[1] = v2
 				})
 			case hitDef_down_hittime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.down_hittime = exp[0].evalI(c)
+					p.hitdef.down_hittime = v1
 				})
 			//case hitDef_p1facing: // Doesn't work for projectiles
 			//	p.hitdef.p1facing = exp[0].evalI(c)
 			//case hitDef_p1getp2facing: // Doesn't work for projectiles
 			case hitDef_mindist:
-				eachProj(func(p *Projectile) {
-					p.hitdef.mindist[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.mindist[1] = exp[1].evalF(c)
-						if len(exp) > 2 {
-							p.hitdef.mindist[2] = exp[2].evalF(c)
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.mindist[0] = v1
+					p.hitdef.mindist[1] = v2
+					p.hitdef.mindist[2] = v3
 				})
 			case hitDef_maxdist:
-				eachProj(func(p *Projectile) {
-					p.hitdef.maxdist[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.maxdist[1] = exp[1].evalF(c)
-						if len(exp) > 2 {
-							p.hitdef.maxdist[2] = exp[2].evalF(c)
-						}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.maxdist[0] = v1
+					p.hitdef.maxdist[1] = v2
+					p.hitdef.maxdist[2] = v3
 				})
 			case hitDef_snap:
-				eachProj(func(p *Projectile) {
-					p.hitdef.snap[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.snap[1] = exp[1].evalF(c)
-						if len(exp) > 2 {
-							p.hitdef.snap[2] = exp[2].evalF(c)
-							if len(exp) > 3 {
-								p.hitdef.snaptime = exp[3].evalI(c)
-							}
+				var v1, v2, v3 float32
+				var v4 int32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+					if len(exp) > 2 {
+						v3 = exp[2].evalF(c)
+						if len(exp) > 3 {
+							v4 = exp[2].evalI(c)
 						}
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.snap[0] = v1
+					p.hitdef.snap[1] = v2
+					p.hitdef.snap[2] = v3
+					p.hitdef.snaptime = v4
 				})
 			case hitDef_p2facing:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.p2facing = exp[0].evalI(c)
+					p.hitdef.p2facing = v1
 				})
 			case hitDef_air_hittime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_hittime = exp[0].evalI(c)
+					p.hitdef.air_hittime = v1
 				})
 			case hitDef_fall:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_fall = exp[0].evalB(c)
-					p.hitdef.air_fall = p.hitdef.ground_fall
+					p.hitdef.ground_fall = v1
 				})
 			case hitDef_air_fall:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_fall = exp[0].evalB(c)
+					p.hitdef.air_fall = v1
 				})
 			//case hitDef_air_cornerpush_veloff:
 			//	p.hitdef.air_cornerpush_veloff = exp[0].evalF(c)
 			case hitDef_down_bounce:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.down_bounce = exp[0].evalB(c)
+					p.hitdef.down_bounce = v1
 				})
 			case hitDef_down_velocity:
-				eachProj(func(p *Projectile) {
-					p.hitdef.down_velocity[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.down_velocity[1] = exp[1].evalF(c)
-					}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
 					if len(exp) > 2 {
-						p.hitdef.down_velocity[2] = exp[2].evalF(c)
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.down_velocity[0] = v1
+					p.hitdef.down_velocity[1] = v2
+					p.hitdef.down_velocity[2] = v3
 				})
 			//case hitDef_down_cornerpush_veloff:
 			//	p.hitdef.down_cornerpush_veloff = exp[0].evalF(c)
 			case hitDef_ground_hittime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_hittime = exp[0].evalI(c)
-					p.hitdef.guard_hittime = p.hitdef.ground_hittime
+					p.hitdef.ground_hittime = v1
 				})
 			case hitDef_guard_hittime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_hittime = exp[0].evalI(c)
+					p.hitdef.guard_hittime = v1
 				})
 			case hitDef_guard_dist_x:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_x[0] = exp[0].evalI(c)
-					if len(exp) > 1 {
-						p.hitdef.guard_dist_x[1] = exp[1].evalI(c)
+					if v1 >= 0 {
+						p.hitdef.guard_dist_x[0] = v1
+					}
+					if v2 >= 0 {
+						p.hitdef.guard_dist_x[1] = v2
 					}
 				})
 			case hitDef_guard_dist_y:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_y[0] = exp[0].evalI(c)
-					if len(exp) > 1 {
-						p.hitdef.guard_dist_y[1] = exp[1].evalI(c)
+					if v1 >= 0 {
+						p.hitdef.guard_dist_y[0] = v1
+					}
+					if v2 >= 0 {
+						p.hitdef.guard_dist_y[1] = v2
 					}
 				})
 			case hitDef_guard_dist_z:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_dist_z[0] = exp[0].evalI(c)
-					if len(exp) > 1 {
-						p.hitdef.guard_dist_z[1] = exp[1].evalI(c)
+					if v1 >= 0 {
+						p.hitdef.guard_dist_z[0] = v1
+					}
+					if v2 >= 0 {
+						p.hitdef.guard_dist_z[1] = v2
 					}
 				})
 			case hitDef_pausetime:
+				var v1, v2 int32
+				v1 = exp[0].evalI(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.pausetime = exp[0].evalI(c)
-					p.hitdef.guard_pausetime = p.hitdef.pausetime
-					if len(exp) > 1 {
-						p.hitdef.shaketime = exp[1].evalI(c)
-						p.hitdef.guard_shaketime = p.hitdef.shaketime
-					}
+					p.hitdef.pausetime = v1
+					p.hitdef.shaketime = v2
 				})
 			case hitDef_guard_pausetime:
+				var v1, v2 int32
+				v1 = exp[0].evalI(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_pausetime = exp[0].evalI(c)
-					if len(exp) > 1 {
-						p.hitdef.guard_shaketime = exp[1].evalI(c)
-					}
+					p.hitdef.guard_pausetime = v1
+					p.hitdef.guard_shaketime = v2
 				})
 			case hitDef_air_velocity:
-				eachProj(func(p *Projectile) {
-					p.hitdef.air_velocity[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.air_velocity[1] = exp[1].evalF(c)
-					}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
 					if len(exp) > 2 {
-						p.hitdef.air_velocity[2] = exp[2].evalF(c)
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.air_velocity[0] = v1
+					p.hitdef.air_velocity[1] = v2
+					p.hitdef.air_velocity[2] = v3
 				})
 			case hitDef_airguard_velocity:
-				eachProj(func(p *Projectile) {
-					p.hitdef.airguard_velocity[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.airguard_velocity[1] = exp[1].evalF(c)
-					}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
 					if len(exp) > 2 {
-						p.hitdef.airguard_velocity[2] = exp[2].evalF(c)
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.airguard_velocity[0] = v1
+					p.hitdef.airguard_velocity[1] = v2
+					p.hitdef.airguard_velocity[2] = v3
 				})
 			case hitDef_ground_slidetime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_slidetime = exp[0].evalI(c)
+					p.hitdef.ground_slidetime = v1
 				})
 			case hitDef_guard_slidetime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_slidetime = exp[0].evalI(c)
+					p.hitdef.guard_slidetime = v1
 				})
 			case hitDef_guard_ctrltime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_ctrltime = exp[0].evalI(c)
+					p.hitdef.guard_ctrltime = v1
 				})
 			case hitDef_airguard_ctrltime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.airguard_ctrltime = exp[0].evalI(c)
+					p.hitdef.airguard_ctrltime = v1
 				})
 			case hitDef_ground_velocity_x:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_velocity[0] = exp[0].evalF(c)
+					p.hitdef.ground_velocity[0] = v1
 				})
 			case hitDef_ground_velocity_y:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_velocity[1] = exp[0].evalF(c)
+					p.hitdef.ground_velocity[1] = v1
 				})
 			case hitDef_ground_velocity_z:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.ground_velocity[2] = exp[0].evalF(c)
+					p.hitdef.ground_velocity[2] = v1
 				})
 			case hitDef_guard_velocity:
-				eachProj(func(p *Projectile) {
-					p.hitdef.guard_velocity[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.guard_velocity[1] = exp[0].evalF(c)
-					}
+				var v1, v2, v3 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
 					if len(exp) > 2 {
-						p.hitdef.guard_velocity[2] = exp[0].evalF(c)
+						v3 = exp[2].evalF(c)
 					}
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.guard_velocity[0] = v1
+					p.hitdef.guard_velocity[1] = v2
+					p.hitdef.guard_velocity[2] = v3
 				})
 			//case hitDef_ground_cornerpush_veloff:
 			//	p.hitdef.ground_cornerpush_veloff = exp[0].evalF(c)
@@ -7865,115 +8081,138 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			//case hitDef_airguard_cornerpush_veloff:
 			//	p.hitdef.airguard_cornerpush_veloff = exp[0].evalF(c)
 			case hitDef_xaccel:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.xaccel = exp[0].evalF(c)
+					p.hitdef.xaccel = v1
 				})
 			case hitDef_yaccel:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.yaccel = exp[0].evalF(c)
+					p.hitdef.yaccel = v1
 				})
 			case hitDef_zaccel:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.zaccel = exp[0].evalF(c)
+					p.hitdef.zaccel = v1
 				})
 			case hitDef_envshake_time:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.envshake_time = exp[0].evalI(c)
+					p.hitdef.envshake_time = v1
 				})
 			case hitDef_envshake_ampl:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.envshake_ampl = exp[0].evalI(c)
+					p.hitdef.envshake_ampl = v1
 				})
 			case hitDef_envshake_freq:
+				v1 := MaxF(0, exp[0].evalF(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.envshake_freq = MaxF(0, exp[0].evalF(c))
+					p.hitdef.envshake_freq = v1
 				})
 			case hitDef_envshake_phase:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.envshake_phase = exp[0].evalF(c)
+					p.hitdef.envshake_phase = v1
 				})
 			case hitDef_envshake_mul:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.envshake_mul = exp[0].evalF(c)
+					p.hitdef.envshake_mul = v1
 				})
 			case hitDef_fall_envshake_time:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_envshake_time = exp[0].evalI(c)
+					p.hitdef.fall_envshake_time = v1
 				})
 			case hitDef_fall_envshake_ampl:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_envshake_ampl = exp[0].evalI(c)
+					p.hitdef.fall_envshake_ampl = v1
 				})
 			case hitDef_fall_envshake_freq:
+				v1 := MaxF(0, exp[0].evalF(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_envshake_freq = MaxF(0, exp[0].evalF(c))
+					p.hitdef.fall_envshake_freq = v1
 				})
 			case hitDef_fall_envshake_phase:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_envshake_phase = exp[0].evalF(c)
+					p.hitdef.fall_envshake_phase = v1
 				})
 			case hitDef_fall_envshake_mul:
+				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.fall_envshake_mul = exp[0].evalF(c)
+					p.hitdef.fall_envshake_mul = v1
 				})
 			case hitDef_dizzypoints:
+				v1 := Max(IErr+1, exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.dizzypoints = Max(IErr+1, exp[0].evalI(c))
+					p.hitdef.dizzypoints = v1
 				})
 			case hitDef_guardpoints:
+				v1 := Max(IErr+1, exp[0].evalI(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.guardpoints = Max(IErr+1, exp[0].evalI(c))
+					p.hitdef.guardpoints = v1
 				})
 			case hitDef_redlife:
+				var v1, v2 int32
+				v1 = Max(IErr+1, exp[0].evalI(c))
+				if len(exp) > 1 {
+					v2 = exp[1].evalI(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.hitredlife = Max(IErr+1, exp[0].evalI(c))
-					if len(exp) > 1 {
-						p.hitdef.guardredlife = exp[1].evalI(c)
-					}
+					p.hitdef.hitredlife = v1
+					p.hitdef.guardredlife = v2
 				})
 			case hitDef_score:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.score[0] = exp[0].evalF(c)
-					if len(exp) > 1 {
-						p.hitdef.score[1] = exp[1].evalF(c)
-					}
+					p.hitdef.score[0] = v1
+					p.hitdef.score[1] = v2
 				})
 			case hitDef_p2clsncheck:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					v := exp[0].evalI(c)
-					if v == 0 || v == 1 || v == 2 || v == 3 {
-						p.hitdef.p2clsncheck = v
+					if v1 == 0 || v1 == 1 || v1 == 2 || v1 == 3 {
+						p.hitdef.p2clsncheck = v1
 					} else {
 						p.hitdef.p2clsncheck = -1
 					}
 				})
 			case hitDef_p2clsnrequire:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					v := exp[0].evalI(c)
-					if v == 1 || v == 2 || v == 3 {
-						p.hitdef.p2clsnrequire = v
+					if v1 == 1 || v1 == 2 || v1 == 3 {
+						p.hitdef.p2clsnrequire = v1
 					} else {
 						p.hitdef.p2clsnrequire = 0
 					}
 				})
 			case hitDef_down_recover:
+				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.down_recover = exp[0].evalB(c)
+					p.hitdef.down_recover = v1
 				})
 			case hitDef_down_recovertime:
+				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.down_recovertime = exp[0].evalI(c)
+					p.hitdef.down_recovertime = v1
 				})
 			case hitDef_attack_depth:
-				eachProj(
-					func(p *Projectile) {
-						p.hitdef.attack_depth[0] = exp[0].evalF(c)
-						if len(exp) > 1 {
-							p.hitdef.attack_depth[1] = exp[1].evalF(c)
-						} else {
-							p.hitdef.attack_depth[1] = p.hitdef.attack_depth[0]
-						}
-					})
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
+				eachProj(func(p *Projectile) {
+					p.hitdef.attack_depth[0] = v1
+					p.hitdef.attack_depth[1] = v2
+				})
 			default:
 				eachProj(func(p *Projectile) {
 					if !hitDef(sc).runSub(c, &p.hitdef, paramID, exp) {
@@ -9381,19 +9620,22 @@ func (sc attackDist) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case attackDist_x:
-			crun.attackDistX[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_x[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistX[1] = exp[1].evalF(c) * redirscale
+				crun.hitdef.guard_dist_x[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
+			// It used to be that Ikemen AttackDist used a separate variable
+			// However it was found that Mugen AttackDist modifies the HitDef directly just like this
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/2358
 		case attackDist_y:
-			crun.attackDistY[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_y[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistY[1] = exp[1].evalF(c) * redirscale
+				crun.hitdef.guard_dist_y[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
 		case attackDist_z:
-			crun.attackDistZ[0] = exp[0].evalF(c) * redirscale
+			crun.hitdef.guard_dist_z[0] = MaxF(0, exp[0].evalF(c) * redirscale)
 			if len(exp) > 1 {
-				crun.attackDistZ[1] = exp[1].evalF(c) * redirscale
+				crun.hitdef.guard_dist_z[1] = MaxF(0, exp[1].evalF(c) * redirscale)
 			}
 		case attackDist_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

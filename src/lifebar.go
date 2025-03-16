@@ -4346,7 +4346,7 @@ func (l *Lifebar) draw(layerno int16) {
 	if sys.postMatchFlg || sys.dialogueBarsFlg {
 		return
 	}
-	if sys.statusDraw && l.active {
+	if sys.lifebarDisplay && l.active {
 		if !sys.gsf(GSF_nobardisplay) && l.bars {
 			// HealthBar
 			for ti := range sys.tmode {

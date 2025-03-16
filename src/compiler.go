@@ -4018,14 +4018,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		switch c.token {
 		case "accel":
 			out.append(OC_ex2_debug_accel)
-		case "clsndraw":
-			out.append(OC_ex2_debug_clsndraw)
-		case "debugdraw":
-			out.append(OC_ex2_debug_debugdraw)
-		case "statusdraw":
-			out.append(OC_ex2_debug_statusdraw)
-		case "wireframedraw":
-			out.append(OC_ex2_debug_wireframedraw)
+		case "clsndisplay":
+			out.append(OC_ex2_debug_clsndisplay)
+		case "debugdisplay":
+			out.append(OC_ex2_debug_debugdisplay)
+		case "lifebardisplay":
+			out.append(OC_ex2_debug_lifebardisplay)
+		case "wireframedisplay":
+			out.append(OC_ex2_debug_wireframedisplay)
 		case "roundrestarted":
 			out.append(OC_ex2_debug_roundrestarted)
 		default:

@@ -9620,22 +9620,22 @@ func (sc attackDist) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case attackDist_x:
-			crun.hitdef.guard_dist_x[0] = MaxF(0, exp[0].evalF(c) * redirscale)
+			crun.hitdef.guard_dist_x[0] = MaxF(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_x[1] = MaxF(0, exp[1].evalF(c) * redirscale)
+				crun.hitdef.guard_dist_x[1] = MaxF(0, exp[1].evalF(c)*redirscale)
 			}
 			// It used to be that Ikemen AttackDist used a separate variable
 			// However it was found that Mugen AttackDist modifies the HitDef directly just like this
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/2358
 		case attackDist_y:
-			crun.hitdef.guard_dist_y[0] = MaxF(0, exp[0].evalF(c) * redirscale)
+			crun.hitdef.guard_dist_y[0] = MaxF(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_y[1] = MaxF(0, exp[1].evalF(c) * redirscale)
+				crun.hitdef.guard_dist_y[1] = MaxF(0, exp[1].evalF(c)*redirscale)
 			}
 		case attackDist_z:
-			crun.hitdef.guard_dist_z[0] = MaxF(0, exp[0].evalF(c) * redirscale)
+			crun.hitdef.guard_dist_z[0] = MaxF(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_z[1] = MaxF(0, exp[1].evalF(c) * redirscale)
+				crun.hitdef.guard_dist_z[1] = MaxF(0, exp[1].evalF(c)*redirscale)
 			}
 		case attackDist_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

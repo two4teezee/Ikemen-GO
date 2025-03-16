@@ -10221,7 +10221,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					if distZ == 0 { // Compatibility safeguard
 						inguardz = true
 					} else {
-						inguardz =  distZ > -c.hitdef.guard_dist_z[0] && distZ < c.hitdef.guard_dist_z[1]
+						inguardz = distZ > -c.hitdef.guard_dist_z[0] && distZ < c.hitdef.guard_dist_z[1]
 					}
 
 					// Set flag
@@ -10465,8 +10465,8 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 					// Check how much each axis should weigh on the decision
 					// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
-					xtotal := AbsF(gxleft - gxright) + AbsF(cxleft - cxright)
-					ztotal := AbsF(gztop - gzbot) + AbsF(cztop - czbot)
+					xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
+					ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
 					distzadj := distz
 					if ztotal != 0 {
 						distzadj = (xtotal / ztotal) * distz
@@ -10474,7 +10474,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 					// Push farthest axis or both if distances are similar
 					similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
-					if distzadj != 0 && AbsF(distx / distzadj) > similar && AbsF(distx / distzadj) < (1 / similar) {
+					if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
 						pushx = true
 						pushz = true
 					} else if distx >= distzadj {

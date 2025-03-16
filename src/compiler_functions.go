@@ -47,7 +47,7 @@ func (c *Compiler) hitBySub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if attr == -1 {
-		return Error("Attributes not specified")
+		return Error("attributes not specified")
 	}
 	if err = c.paramValue(is, sc, "slot",
 		hitBy_slot, VT_Int, 1, false); err != nil {
@@ -246,7 +246,7 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			case "skipwindisplay":
 				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_skipwindisplay)))
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid AssertSpecial flag: " + data)
 			}
 			return nil
 		}
@@ -258,7 +258,7 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			return err
 		}
 		if !f {
-			return Error("AssertSpecial flags not specified")
+			return Error("AssertSpecial flag not specified")
 		}
 		if err := c.stateParam(is, "flag2", false, func(data string) error {
 			return foo(data)
@@ -562,7 +562,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		if err := c.stateParam(is, "helpertype", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("helpertype not specified")
 			}
 			var ht int32
 			switch strings.ToLower(data) {
@@ -573,7 +573,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			case "projectile":
 				ht = 2
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid helpertype: " + data)
 			}
 			sc.add(helper_helpertype, sc.iToExp(ht))
 			return nil
@@ -582,7 +582,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		if err := c.stateParam(is, "name", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Helper name not enclosed in \"")
 			}
 			sc.add(helper_name, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -1472,7 +1472,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	htyp := func(id byte, data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("hit type not specified")
 		}
 		var ht HitType
 		switch data[0] {
@@ -1485,7 +1485,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'N', 'n':
 			ht = HT_None
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid hit type: " + data)
 		}
 		sc.add(id, sc.iToExp(int32(ht)))
 		return nil
@@ -1502,7 +1502,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	reac := func(id byte, data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("animtype not specified")
 		}
 		var ra Reaction
 		switch data[0] {
@@ -1519,7 +1519,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'D', 'd':
 			ra = RA_Diagup
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid animtype: " + data)
 		}
 		sc.add(id, sc.iToExp(int32(ra)))
 		return nil
@@ -1541,7 +1541,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "affectteam", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("affectteam not specified")
 		}
 		var at int32
 		switch data[0] {
@@ -1552,7 +1552,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'F', 'f':
 			at = -1
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid affectteam: " + data)
 		}
 		sc.add(hitDef_affectteam, sc.iToExp(at))
 		return nil
@@ -1649,7 +1649,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			case 'D', 'd':
 				at = TT_Dodge
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid priority type: " + data)
 			}
 		}
 		sc.add(hitDef_priority, append(sc.beToExp(be), sc.iToExp(int32(at))...))
@@ -1838,7 +1838,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if err := c.paramValue(is, sc, "air.velocity",
-		hitDef_air_velocity, VT_Float, 3, false); err != nil {
+		hitDef_air_velocity, VT_Float, 3, false); err != nil { // This one also accepts "n" in Mugen, like ground.velocity
 		return err
 	}
 	if err := c.paramValue(is, sc, "airguard.velocity",
@@ -1863,9 +1863,14 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "ground.velocity", false, func(data string) error {
 		in := data
+		// This parameter accepts "n" as a value in Mugen. Documented in WinMugen updates.txt
+		// In Mugen, supposedly every velocity parameter should accept "n", but that makes most of them crash
+		// It's also not in the HitDef documentation, so it seems to have been dropped halfway through its implementation
+		// "n" is supposed to not change the enemy's velocity. In Ikemen it just sets velocity to 0, 0, 0
+		// TODO: Should we implement this feature anyway? Few or no characters seem to use it
 		if c.token = c.tokenizer(&in); c.token == "n" {
 			if c.token = c.tokenizer(&in); len(c.token) > 0 && c.token != "," {
-				return Error("Invalid data: " + c.token)
+				return Error("Invalid ground.velocity value: " + c.token)
 			}
 		} else {
 			in = data
@@ -1879,7 +1884,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			oldin := in
 			if c.token = c.tokenizer(&in); c.token == "n" {
 				if c.token = c.tokenizer(&in); len(c.token) > 0 {
-					return Error("Invalid data: " + c.token)
+					return Error("Invalid ground.velocity value: " + c.token)
 				}
 			} else {
 				in = oldin
@@ -1894,7 +1899,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			oldin := in
 			if c.token = c.tokenizer(&in); c.token == "n" {
 				if c.token = c.tokenizer(&in); len(c.token) > 0 {
-					return Error("Invalid data: " + c.token)
+					return Error("Invalid ground.velocity: " + c.token)
 				}
 			} else {
 				in = oldin
@@ -1998,7 +2003,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "p2clsncheck", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("p2clsncheck not specified")
 		}
 		var box int32
 		switch strings.ToLower(data) {
@@ -2011,7 +2016,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case "size":
 			box = 3
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid p2clsncheck type: " + data)
 		}
 		sc.add(hitDef_p2clsncheck, sc.iToExp(box))
 		return nil
@@ -2020,7 +2025,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "p2clsnrequire", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("p2clsnrequire not specified")
 		}
 		var box int32
 		switch strings.ToLower(data) {
@@ -2033,7 +2038,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case "size":
 			box = 3
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid p2clsnrequire type: " + data)
 		}
 		sc.add(hitDef_p2clsnrequire, sc.iToExp(box))
 		return nil
@@ -2741,7 +2746,7 @@ func (c *Compiler) bindToTarget(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'F', 'f':
 				hmf = HMF_F
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid BindToTarget position type: " + data)
 			}
 			sc.add(bindToTarget_pos, append(exp, sc.iToExp(int32(hmf))...))
 			return nil
@@ -3261,7 +3266,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		statetype := func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("statetype not specified")
 			}
 			var st StateType
 			switch strings.ToLower(data)[0] {
@@ -3274,7 +3279,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'l':
 				st = ST_L
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid statetype: " + data)
 			}
 			sc.add(stateTypeSet_statetype, sc.iToExp(int32(st)))
 			return nil
@@ -3295,7 +3300,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "movetype", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("movetype not specified")
 			}
 			var mt MoveType
 			switch strings.ToLower(data)[0] {
@@ -3306,7 +3311,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'h':
 				mt = MT_H
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid movetype: " + data)
 			}
 			sc.add(stateTypeSet_movetype, sc.iToExp(int32(mt)))
 			return nil
@@ -3315,7 +3320,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "physics", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("physics not specified")
 			}
 			var st StateType
 			switch strings.ToLower(data)[0] {
@@ -3328,7 +3333,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'n':
 				st = ST_N
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid physics type: " + data)
 			}
 			sc.add(stateTypeSet_physics, sc.iToExp(int32(st)))
 			return nil
@@ -3412,7 +3417,7 @@ func (c *Compiler) envColor(is IniSection, sc *StateControllerBase, _ int8) (Sta
 				return err
 			}
 			if len(bes) < 3 {
-				return Error("Value - not enough arguments")
+				return Error("Not enough arguments in EnvColor value")
 			}
 			sc.add(envColor_value, bes)
 			return nil
@@ -3462,7 +3467,7 @@ func (c *Compiler) displayToClipboardSub(is IniSection,
 			_else = true
 		}
 		if _else {
-			return Error("Not enclosed in \"")
+			return Error("Text not enclosed in \"")
 		}
 		sc.add(displayToClipboard_text,
 			sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
@@ -3743,7 +3748,7 @@ func (c *Compiler) varRangeSet(is IniSection, sc *StateControllerBase, _ int8) (
 				return err
 			}
 			if !b {
-				return Error("Value parameter not specified")
+				return Error("VarRangeSet value parameter not specified")
 			}
 		}
 		return nil
@@ -4028,7 +4033,7 @@ func (c *Compiler) forceFeedback(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "waveform", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("waveform not specified")
 			}
 			if data[0] == '"' {
 				data = data[1 : len(data)-1]
@@ -4044,7 +4049,7 @@ func (c *Compiler) forceFeedback(is IniSection, sc *StateControllerBase, _ int8)
 			case "off":
 				wf = -1
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid waveform: " + data)
 			}
 			sc.add(forceFeedback_waveform, sc.iToExp(wf))
 			return nil
@@ -4109,7 +4114,7 @@ func (c *Compiler) assertInput(is IniSection, sc *StateControllerBase, _ int8) (
 			case "m":
 				sc.add(assertInput_flag, sc.iToExp(int32(IB_M)))
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid AssertInput flag: " + data)
 			}
 			return nil
 		}
@@ -4294,7 +4299,7 @@ func (c *Compiler) lifebarAction(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "text", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Text not enclosed in \"")
 			}
 			sc.add(lifebarAction_text, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4314,7 +4319,7 @@ func (c *Compiler) loadFile(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.stateParam(is, "path", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Path not enclosed in \"")
 			}
 			sc.add(loadFile_path, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4502,7 +4507,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "stagedef", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Stagedef not enclosed in \"")
 			}
 			sc.add(matchRestart_stagedef, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4511,7 +4516,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p1def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P1def not enclosed in \"")
 			}
 			sc.add(matchRestart_p1def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4520,7 +4525,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p2def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P2def not enclosed in \"")
 			}
 			sc.add(matchRestart_p2def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4529,7 +4534,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p3def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P3def not enclosed in \"")
 			}
 			sc.add(matchRestart_p3def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4538,7 +4543,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p4def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P4def not enclosed in \"")
 			}
 			sc.add(matchRestart_p4def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4547,7 +4552,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p5def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P5def not enclosed in \"")
 			}
 			sc.add(matchRestart_p5def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4556,7 +4561,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p6def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P6def not enclosed in \"")
 			}
 			sc.add(matchRestart_p6def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4565,7 +4570,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p7def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P7def not enclosed in \"")
 			}
 			sc.add(matchRestart_p7def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4574,7 +4579,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p8def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P8def not enclosed in \"")
 			}
 			sc.add(matchRestart_p8def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4594,7 +4599,7 @@ func (c *Compiler) playBgm(is IniSection, sc *StateControllerBase, _ int8) (Stat
 		}
 		if err := c.stateParam(is, "bgm", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("BGM not enclosed in \"")
 			}
 			sc.add(playBgm_bgm, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4883,7 +4888,7 @@ func (c *Compiler) remapSprite(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if err := c.stateParam(is, "preset", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Preset not enclosed in \"")
 			}
 			sc.add(remapSprite_preset, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4937,7 +4942,7 @@ func (c *Compiler) saveFile(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.stateParam(is, "path", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Path not enclosed in \"")
 			}
 			sc.add(saveFile_path, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5095,7 +5100,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 				_else = true
 			}
 			if _else {
-				return Error("Not enclosed in \"")
+				return Error("Text not enclosed in \"")
 			}
 			sc.add(text_text, sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
 			return nil
@@ -5468,7 +5473,7 @@ func (c *Compiler) cameraCtrl(is IniSection, sc *StateControllerBase, _ int8) (S
 			case "free":
 				sc.add(cameraCtrl_view, sc.iToExp(int32(Free_View)))
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid view type: " + data)
 			}
 			return nil
 		}); err != nil {
@@ -5562,7 +5567,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "displayname", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Displayname not enclosed in \"")
 			}
 			sc.add(modifyPlayer_displayname, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5571,7 +5576,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "lifebarname", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Lifebarname not enclosed in \"")
 			}
 			sc.add(modifyPlayer_lifebarname, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5584,7 +5589,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "helpername", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Helpername not enclosed in \"")
 			}
 			sc.add(modifyPlayer_helpername, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5633,7 +5638,7 @@ func (c *Compiler) assertCommand(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "name", true, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Command name not enclosed in \"")
 			}
 			sc.add(assertCommand_name, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5928,7 +5933,7 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "trans", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Trans type not specified")
+				return Error("trans type not specified")
 			}
 			any = true
 			var blend int32

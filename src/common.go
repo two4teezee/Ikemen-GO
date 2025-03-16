@@ -721,7 +721,7 @@ func (is IniSection) getText(name string) (str string, ok bool, err error) {
 	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
 		str = str[1 : len(str)-1]
 	} else {
-		err = Error("Not enclosed in \"")
+		err = Error("String not enclosed in \"")
 	}
 	return
 }

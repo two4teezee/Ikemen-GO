@@ -4094,12 +4094,8 @@ func (sc stateDef) Run(c *Char) {
 			c.sprPriority = exp[0].evalI(c)
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
-			if exp[0].evalB(c) {
-				e := c.p2()
-				if e != nil && !e.asf(ASF_noturntarget) && c.rdDistX(e, c).ToF() < 0 &&
-					!c.asf(ASF_noautoturn) && sys.stage.autoturn {
-					c.setFacing(-c.facing)
-				}
+			if exp[0].evalB(c) && c.shouldFaceP2() {
+				c.setFacing(-c.facing)
 			}
 		case stateDef_juggle:
 			c.juggle = exp[0].evalI(c)

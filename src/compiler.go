@@ -434,7 +434,6 @@ var triggerMap = map[string]int{
 	"redlife":            1,
 	"reversaldefattr":    1,
 	"round":              1,
-	"roundrestarted":     1,
 	"roundtime":          1,
 	"runorder":           1,
 	"scale":              1,
@@ -4103,8 +4102,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_ex2_debug_lifebardisplay)
 		case "wireframedisplay":
 			out.append(OC_ex2_debug_wireframedisplay)
-		case "roundrestarted":
-			out.append(OC_ex2_debug_roundrestarted)
+		case "roundreset":
+			out.append(OC_ex2_debug_roundreset)
 		default:
 			return bvNone(), Error("Invalid Debug trigger argument: " + c.token)
 		}
@@ -6048,7 +6047,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 				return errmes(Error("Missing trigger1"))
 			}
 
-			/* Create trigger bytecode */
+			// Create trigger bytecode
 			var texp BytecodeExp
 			for _, e := range triggerall {
 				texp.append(e...)
@@ -7175,7 +7174,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	c.playerNo = pn
 	states := make(map[int32]StateBytecode)
 
-	/* Load initial data from definition file */
+	// Load initial data from definition file
 	str, err := LoadText(def)
 	if err != nil {
 		return nil, err
@@ -7382,7 +7381,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		c.cmdl.Add(*cm)
 	}
 
-	/* Compile states */
+	// Compile states
 	sys.stringPool[pn].Clear()
 	sys.cgi[pn].hitPauseToggleFlagCount = 0
 	c.funcUsed = make(map[string]bool)

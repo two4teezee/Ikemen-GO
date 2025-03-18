@@ -774,8 +774,8 @@ const (
 	OC_ex2_debug_clsndisplay
 	OC_ex2_debug_debugdisplay
 	OC_ex2_debug_lifebardisplay
+	OC_ex2_debug_roundreset
 	OC_ex2_debug_wireframedisplay
-	OC_ex2_debug_roundrestarted
 	OC_ex2_drawpal_group
 	OC_ex2_drawpal_index
 	OC_ex2_explodvar_anim
@@ -3333,10 +3333,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.debugDisplay)
 	case OC_ex2_debug_lifebardisplay:
 		sys.bcStack.PushB(sys.lifebarDisplay)
+	case OC_ex2_debug_roundreset:
+		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex2_debug_wireframedisplay:
 		sys.bcStack.PushB(sys.wireframeDisplay)
-	case OC_ex2_debug_roundrestarted:
-		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex2_drawpal_group:
 		sys.bcStack.PushI(c.drawPal()[0])
 	case OC_ex2_drawpal_index:

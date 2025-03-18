@@ -5270,10 +5270,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugDisplay))
 		case "lifebardisplay":
 			l.Push(lua.LBool(sys.lifebarDisplay))
+		case "roundreset":
+			l.Push(lua.LBool(sys.roundResetFlg))
 		case "wireframedisplay":
 			l.Push(lua.LBool(sys.wireframeDisplay))
-		case "roundrestarted":
-			l.Push(lua.LBool(sys.roundResetFlg))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

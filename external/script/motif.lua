@@ -2625,7 +2625,7 @@ for k, _ in pairs(motif) do
 			motif[k].spr_data = motif.files.spr_data
 		end
 		--backgrounds
-		motif[k].bg = bgNew(motif[k].spr_data,motif.files.model_data, motif.def, k:match('^(.+)def$'))
+		motif[k].bg = bgNew(motif[k].spr_data, motif.def, k:match('^(.+)def$'),motif.files.model_data)
 		main.f_loadingRefresh()
 	end
 end

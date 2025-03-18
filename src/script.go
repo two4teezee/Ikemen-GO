@@ -598,10 +598,10 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, s)
 		}
-		model, ok := toUserData(l, 2).(*Model)
-		bg, err := loadBGDef(s, model, strArg(l, 3), strArg(l, 4))
+		model, ok := toUserData(l, 4).(*Model)
+		bg, err := loadBGDef(s, model, strArg(l, 2), strArg(l, 3))
 		if err != nil {
-			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 4), strArg(l, 3), err.Error())
+			l.RaiseError("\nCan't load %v (%v): %v\n", strArg(l, 3), strArg(l, 2), err.Error())
 		}
 		l.Push(newUserData(l, bg))
 		return 1

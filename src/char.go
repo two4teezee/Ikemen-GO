@@ -5549,9 +5549,9 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 
 func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 	if len(p.palfx.remap) == 0 {
-			return [2]int32{0, 0}
-		}
-		return c.getDrawPal(p.palfx.remap[0])
+		return [2]int32{0, 0}
+	}
+	return c.getDrawPal(p.palfx.remap[0])
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {

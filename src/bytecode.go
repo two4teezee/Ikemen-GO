@@ -1206,11 +1206,15 @@ func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
-	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
-		v1.SetF(v1.ToF() / v2.ToF())
-	} else if v2.ToI() == 0 {
+	if v2.ToF() == 0 {
+		// Division by 0
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Division by 0")
+	} else if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
+		// Float division
+		v1.SetF(v1.ToF() / v2.ToF())
 	} else {
+		// Int division
 		v1.SetI(v1.ToI() / v2.ToI())
 	}
 }
@@ -1218,6 +1222,7 @@ func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
 func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
 	if v2.ToI() == 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Modulus by 0")
 	} else {
 		v1.SetI(v1.ToI() % v2.ToI())
 	}
@@ -3918,7 +3923,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 			// Safety check. Prevents a bad loop from freezing Ikemen
 			loopCount++
 			if loopCount >= 2500 {
-				sys.appendToConsole(sys.workingChar.warn() + "loop automatically stopped after 2500 iterations")
+				sys.printBytecodeError("loop automatically stopped after 2500 iterations")
 				break
 			}
 		}

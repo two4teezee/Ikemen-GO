@@ -407,7 +407,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	s.clsnSpr.SetPxl([]byte{0})
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
-	// So now that we have a window we add a icon.
+	// So now that we have a window we add an icon.
 	if len(s.cfg.Config.WindowIcon) > 0 {
 		// First we initialize arrays.
 		var f = make([]io.ReadCloser, len(s.cfg.Config.WindowIcon))
@@ -450,6 +450,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	}()
 	return l
 }
+
 func (s *System) shutdown() {
 	if !sys.gameEnd {
 		sys.gameEnd = true
@@ -458,6 +459,7 @@ func (s *System) shutdown() {
 	s.window.Close()
 	speaker.Close()
 }
+
 func (s *System) setWindowSize(w, h int32) {
 	s.scrrect[2], s.scrrect[3] = w, h
 	if s.scrrect[2]*3 > s.scrrect[3]*4 {
@@ -468,6 +470,7 @@ func (s *System) setWindowSize(w, h int32) {
 	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
+
 func (s *System) eventUpdate() bool {
 	s.esc = false
 	for _, v := range s.shortcutScripts {
@@ -477,6 +480,7 @@ func (s *System) eventUpdate() bool {
 	s.gameEnd = s.window.shouldClose()
 	return !s.gameEnd
 }
+
 func (s *System) runMainThreadTask() {
 	for {
 		select {
@@ -545,6 +549,7 @@ func (s *System) update() bool {
 	}
 	return s.await(s.cfg.Config.Framerate)
 }
+
 func (s *System) tickSound() {
 	s.soundChannels.Tick()
 	if !s.noSoundFlg {
@@ -572,19 +577,23 @@ func (s *System) tickSound() {
 		s.restoreAllVolume()
 	}
 }
+
 func (s *System) resetRemapInput() {
 	for i := range s.inputRemap {
 		s.inputRemap[i] = i
 	}
 }
+
 func (s *System) loaderReset() {
 	s.round, s.wins, s.roundsExisted, s.decisiveRound = 1, [2]int32{}, [2]int32{}, [2]bool{}
 	s.loader.reset()
 }
+
 func (s *System) loadStart() {
 	s.loaderReset()
 	s.loader.runTread()
 }
+
 func (s *System) synchronize() error {
 	if s.fileInput != nil {
 		s.fileInput.Synchronize()
@@ -593,6 +602,7 @@ func (s *System) synchronize() error {
 	}
 	return nil
 }
+
 func (s *System) anyHardButton() bool {
 	for _, kc := range s.keyConfig {
 		if kc.a() || kc.b() || kc.c() || kc.x() || kc.y() || kc.z() {
@@ -606,6 +616,7 @@ func (s *System) anyHardButton() bool {
 	}
 	return false
 }
+
 func (s *System) anyButton() bool {
 	if s.fileInput != nil {
 		return s.fileInput.AnyButton()
@@ -615,9 +626,11 @@ func (s *System) anyButton() bool {
 	}
 	return s.anyHardButton()
 }
+
 func (s *System) playerID(id int32) *Char {
 	return s.charList.get(id)
 }
+
 func (s *System) playerIndex(id int32) *Char {
 	return s.charList.getIndex(id)
 }
@@ -657,6 +670,7 @@ func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
 func (s *System) playercount() int32 {
 	return int32(len(s.charList.runOrder))
 }
+
 func (s *System) palfxvar(x int32, y int32) int32 {
 	n := int32(0)
 	if x >= 4 {
@@ -692,6 +706,7 @@ func (s *System) palfxvar(x int32, y int32) int32 {
 	}
 	return n
 }
+
 func (s *System) palfxvar2(x int32, y int32) float32 {
 	n := float32(1)
 	if x > 1 {
@@ -713,12 +728,15 @@ func (s *System) palfxvar2(x int32, y int32) float32 {
 	}
 	return n * 256
 }
+
 func (s *System) screenHeight() float32 {
 	return 240
 }
+
 func (s *System) screenWidth() float32 {
 	return float32(s.gameWidth)
 }
+
 func (s *System) roundEnd() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
@@ -727,6 +745,7 @@ func (s *System) roundEnd() bool {
 func (s *System) roundNoDamage() bool {
 	return sys.intro < 0 && sys.intro <= -sys.lifebar.ro.over_hittime && sys.intro >= -sys.lifebar.ro.over_waittime
 }
+
 func (s *System) roundState() int32 {
 	switch {
 	case sys.intro > sys.lifebar.ro.ctrl_time+1 || sys.postMatchFlg:
@@ -741,6 +760,7 @@ func (s *System) roundState() int32 {
 		return 3
 	}
 }
+
 func (s *System) introState() int32 {
 	switch {
 	case s.intro > s.lifebar.ro.ctrl_time+1:
@@ -768,6 +788,7 @@ func (s *System) introState() int32 {
 		return 0
 	}
 }
+
 func (s *System) outroState() int32 {
 	switch {
 	case s.intro >= 0:
@@ -793,30 +814,38 @@ func (s *System) outroState() int32 {
 		return 0
 	}
 }
+
 func (s *System) roundWinStates() bool {
 	return s.waitdown <= 0 || s.roundWinTime()
 }
+
 func (s *System) roundWinTime() bool {
 	return s.wintime < 0
 }
+
 func (s *System) roundOver() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
 }
+
 func (s *System) gsf(gsf GlobalSpecialFlag) bool {
 	return s.specialFlag&gsf != 0
 }
+
 func (s *System) setGSF(gsf GlobalSpecialFlag) {
 	s.specialFlag |= gsf
 }
+
 func (s *System) unsetGSF(gsf GlobalSpecialFlag) {
 	s.specialFlag &^= gsf
 }
+
 func (s *System) appendToConsole(str string) {
 	s.consoleText = append(s.consoleText, str)
 	if len(s.consoleText) > s.cfg.Debug.ConsoleRows {
 		s.consoleText = s.consoleText[len(s.consoleText)-s.cfg.Debug.ConsoleRows:]
 	}
 }
+
 func (s *System) printToConsole(pn, sn int, a ...interface{}) {
 	spl := s.stringPool[pn].List
 	if sn >= 0 && sn < len(spl) {
@@ -826,6 +855,19 @@ func (s *System) printToConsole(pn, sn int, a ...interface{}) {
 		}
 	}
 }
+
+// Print an error directly from bytecode.go
+// Printing from char.go is preferable, but not always possible
+func (s *System) printBytecodeError(str string) {
+	if s.loader.state == LS_Complete && s.workingChar != nil {
+		// Print during matches
+		s.appendToConsole(sys.workingChar.warn() + str)
+	} else if !sys.ignoreMostErrors {
+		// Print outside matches (compiling)
+		sys.errLog.Println(str)
+	}
+}
+
 func (s *System) loadTime(start time.Time, str string, shell, console bool) {
 	elapsed := time.Since(start)
 	str = fmt.Sprintf("%v; Load time: %v", str, elapsed)
@@ -984,6 +1026,7 @@ func (s *System) resetGblEffect() {
 	s.envcol_time = 0
 	s.specialFlag = 0
 }
+
 func (s *System) stopAllSound() {
 	for _, p := range s.chars {
 		for _, c := range p {
@@ -991,6 +1034,7 @@ func (s *System) stopAllSound() {
 		}
 	}
 }
+
 func (s *System) softenAllSound() {
 	for _, p := range s.chars {
 		for _, c := range p {
@@ -1010,6 +1054,7 @@ func (s *System) softenAllSound() {
 	}
 	// Don't pause motif sounds
 }
+
 func (s *System) restoreAllVolume() {
 	for _, p := range s.chars {
 		for _, c := range p {
@@ -1027,6 +1072,7 @@ func (s *System) restoreAllVolume() {
 		}
 	}
 }
+
 func (s *System) clearAllSound() {
 	s.soundChannels.StopAll()
 	s.stopAllSound()
@@ -1170,6 +1216,7 @@ func (s *System) nextRound() {
 		}
 	}
 }
+
 func (s *System) debugPaused() bool {
 	return s.paused && !s.step && s.oldTickCount < s.tickCount
 }
@@ -1214,6 +1261,7 @@ func (s *System) addFrameTime(t float32) bool {
 	s.nextAddTime = t
 	return true
 }
+
 func (s *System) resetFrameTime() {
 	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
 	s.nextAddTime, s.oldNextAddTime = 1, 1
@@ -1264,6 +1312,7 @@ func (s *System) posReset() {
 		}
 	}
 }
+
 func (s *System) action() {
 	// Clear sprite data
 	s.spritesLayerN1 = s.spritesLayerN1[:0]
@@ -1942,6 +1991,7 @@ func (s *System) drawTop() {
 		s.debugch.draw(0x3feff)
 	}
 }
+
 func (s *System) drawDebugText() {
 	put := func(x, y *float32, txt string) {
 		for txt != "" {
@@ -2720,6 +2770,7 @@ func newSelect() *Select {
 			[...]int16{9000, 1}: true}, stageSpritePreload: make(map[[2]int16]bool),
 		cdefOverwrite: make(map[int]string)}
 }
+
 func (s *Select) GetCharNo(i int) int {
 	n := i
 	if len(s.charlist) > 0 {
@@ -2730,6 +2781,7 @@ func (s *Select) GetCharNo(i int) int {
 	}
 	return n
 }
+
 func (s *Select) GetChar(i int) *SelectChar {
 	if len(s.charlist) == 0 {
 		return nil
@@ -2737,7 +2789,9 @@ func (s *Select) GetChar(i int) *SelectChar {
 	n := s.GetCharNo(i)
 	return &s.charlist[n]
 }
+
 func (s *Select) SelectStage(n int) { s.selectedStageNo = n }
+
 func (s *Select) GetStage(n int) *SelectStage {
 	if len(s.stagelist) == 0 {
 		return nil
@@ -2748,6 +2802,7 @@ func (s *Select) GetStage(n int) *SelectStage {
 	}
 	return &s.stagelist[n-1]
 }
+
 func (s *Select) addChar(def string) {
 	var tstr string
 	tnow := time.Now()
@@ -3014,6 +3069,7 @@ func (s *Select) addChar(def string) {
 		}
 	}
 }
+
 func (s *Select) AddStage(def string) error {
 	var tstr string
 	tnow := time.Now()
@@ -3150,6 +3206,7 @@ func (s *Select) AddStage(def string) error {
 	}
 	return nil
 }
+
 func (s *Select) AddSelectedChar(tn, cn, pl int) bool {
 	m, n := 0, s.GetCharNo(cn)
 	if len(s.charlist) == 0 || len(s.charlist[n].def) == 0 {
@@ -3169,6 +3226,7 @@ func (s *Select) AddSelectedChar(tn, cn, pl int) bool {
 	sys.loadMutex.Unlock()
 	return true
 }
+
 func (s *Select) ClearSelected() {
 	sys.loadMutex.Lock()
 	s.selected = [2][][2]int{}
@@ -3276,6 +3334,8 @@ func (l *Loader) loadChar(pn int) int {
 
 	// Reuse character or create a new one
 	var p *Char
+	sys.workingChar = p // This should help compiler and bytecode stay consistent
+
 	if len(sys.chars[pn]) > 0 && cdef == sys.cgi[pn].def {
 		p = sys.chars[pn][0]
 		p.controller = pn
@@ -3451,9 +3511,15 @@ func (l *Loader) loadStage() bool {
 	}
 	return l.err == nil
 }
+
 func (l *Loader) load() {
-	defer func() { l.loadExit <- l.state }()
+	defer func() {
+		l.loadExit <- l.state
+	}()
+
 	charDone, stageDone := make([]bool, len(sys.chars)), false
+
+	// Check if all chars are loaded
 	allCharDone := func() bool {
 		for _, b := range charDone {
 			if !b {
@@ -3462,7 +3528,9 @@ func (l *Loader) load() {
 		}
 		return true
 	}
+
 	for !stageDone || !allCharDone() {
+		// Load stage
 		if !stageDone && sys.sel.selectedStageNo >= 0 {
 			if !l.loadStage() {
 				l.state = LS_Error
@@ -3470,6 +3538,7 @@ func (l *Loader) load() {
 			}
 			stageDone = true
 		}
+		// Load characters that aren't already loaded
 		for i, b := range charDone {
 			if !b {
 				result := -1
@@ -3492,8 +3561,10 @@ func (l *Loader) load() {
 				sys.tmode[i] != TM_Simul && sys.tmode[i] != TM_Tag {
 				for j := i + 2; j < len(sys.chars); j += 2 {
 					if !charDone[j] {
-						sys.chars[j], sys.cgi[j].states, charDone[j] = nil, nil, true
+						sys.chars[j] = nil
+						sys.cgi[j].states = nil
 						sys.cgi[j].hitPauseToggleFlagCount = 0
+						charDone[j] = true
 					}
 				}
 			}
@@ -3506,6 +3577,8 @@ func (l *Loader) load() {
 			return
 		}
 	}
+
+	// Flag loading state as complete
 	l.state = LS_Complete
 }
 

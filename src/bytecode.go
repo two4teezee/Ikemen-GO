@@ -208,6 +208,8 @@ const (
 	OC_numpartner
 	OC_ailevel
 	OC_palno
+	OC_drawpal_group
+	OC_drawpal_index
 	OC_hitcount
 	OC_uniqhitcount
 	OC_hitpausetime
@@ -778,6 +780,8 @@ const (
 	OC_ex2_debug_roundrestarted
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
+	OC_ex2_explodvar_drawpal_group
+	OC_ex2_explodvar_drawpal_index
 	OC_ex2_explodvar_pos_x
 	OC_ex2_explodvar_pos_y
 	OC_ex2_explodvar_pos_z
@@ -806,6 +810,8 @@ const (
 	OC_ex2_projvar_accel_y
 	OC_ex2_projvar_accel_z
 	OC_ex2_projvar_animelem
+	OC_ex2_projvar_drawpal_group
+	OC_ex2_projvar_drawpal_index
 	OC_ex2_projvar_facing
 	OC_ex2_projvar_guardflag
 	OC_ex2_projvar_highbound
@@ -1856,6 +1862,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.PushI(c.gi().palno)
 			// In Winmugen a helper's PalNo is always 1
 			// That behavior has no apparent benefits and even Mugen 1.0 compatibility mode does not keep it
+		case OC_drawpal_group:
+			sys.bcStack.PushI(c.drawPal()[0])
+		case OC_drawpal_index:
+			sys.bcStack.PushI(c.drawPal()[1])
 		case OC_pos_x:
 			sys.bcStack.PushF((c.pos[0]*(c.localscl/oc.localscl) - sys.cam.Pos[0]/oc.localscl))
 		case OC_pos_y:
@@ -3349,6 +3359,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_explodvar_animelem:
 		fallthrough
+	case OC_ex2_explodvar_drawpal_group:
+		fallthrough
+	case OC_ex2_explodvar_drawpal_index:
+		fallthrough
 	case OC_ex2_explodvar_removetime:
 		fallthrough
 	case OC_ex2_explodvar_pausemovetime:
@@ -3491,6 +3505,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_projanim:
 		fallthrough
 	case OC_ex2_projvar_animelem:
+		fallthrough
+	case OC_ex2_projvar_drawpal_group:
+		fallthrough
+	case OC_ex2_projvar_drawpal_index:
 		fallthrough
 	case OC_ex2_projvar_supermovetime:
 		fallthrough

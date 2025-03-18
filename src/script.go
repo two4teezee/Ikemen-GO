@@ -3709,9 +3709,9 @@ func triggerFunctions(l *lua.LState) {
 				case "facing":
 					ln = lua.LNumber(e.facing)
 				case "drawpal group":
-					ln = lua.LNumber(sys.debugWC.explodDrawPal(id)[0])
+					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[0])
 				case "drawpal index":
-					ln = lua.LNumber(sys.debugWC.explodDrawPal(id)[1])
+					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
 				default:
 					l.RaiseError("\nInvalid argument: %v\n", vname)
 				}
@@ -4688,9 +4688,9 @@ func triggerFunctions(l *lua.LState) {
 				case "facing":
 					lv = lua.LNumber(p.facing)
 				case "drawpal group":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(id)[0])
+					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
 				case "drawpal index":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(id)[1])
+					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[1])
 				default:
 					l.RaiseError("\nInvalid argument: %v\n", vname)
 				}

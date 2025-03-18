@@ -4168,9 +4168,9 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 			case OC_ex2_explodvar_facing:
 				v = BytecodeInt(int32(e.facing))
 			case OC_ex2_explodvar_drawpal_group:
-				v = BytecodeInt(c.explodDrawPal(id)[0])
+				v = BytecodeInt(c.explodDrawPal(e)[0])
 			case OC_ex2_explodvar_drawpal_index:
-				v = BytecodeInt(c.explodDrawPal(id)[1])
+				v = BytecodeInt(c.explodDrawPal(e)[1])
 			}
 			break
 		}
@@ -4290,9 +4290,9 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 			case OC_ex2_projvar_facing:
 				v = BytecodeFloat(p.facing)
 			case OC_ex2_projvar_drawpal_group:
-				v = BytecodeInt(c.projDrawPal(id)[0])
+				v = BytecodeInt(c.projDrawPal(p)[0])
 			case OC_ex2_projvar_drawpal_index:
-				v = BytecodeInt(c.projDrawPal(id)[1])
+				v = BytecodeInt(c.projDrawPal(p)[1])
 			}
 			break
 		}
@@ -5195,15 +5195,11 @@ func (c *Char) getExplods(id int32) (expls []*Explod) {
 	return
 }
 
-func (c *Char) explodDrawPal(id int32) [2]int32 {
-	explods := c.getExplods(id)
-	for _, e := range explods {
-		if len(e.palfx.remap) == 0 {
-			continue
-		}
-		return c.getDrawPal(e.palfx.remap[0])
+func (c *Char) explodDrawPal(e *Explod) [2]int32 {
+	if len(e.palfx.remap) == 0 {
+		return [2]int32{0, 0}
 	}
-	return [2]int32{0, 0}
+	return c.getDrawPal(e.palfx.remap[0])
 }
 
 func (c *Char) insertExplodEx(i int, rp [2]int32) {
@@ -5551,15 +5547,11 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 	}
 }
 
-func (c *Char) projDrawPal(id int32) [2]int32 {
-	projs := c.getProjs(id)
-	for _, p := range projs {
-		if len(p.palfx.remap) == 0 {
-			continue
+func (c *Char) projDrawPal(p *Projectile) [2]int32 {
+	if len(p.palfx.remap) == 0 {
+			return [2]int32{0, 0}
 		}
 		return c.getDrawPal(p.palfx.remap[0])
-	}
-	return [2]int32{0, 0}
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {

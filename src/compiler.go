@@ -2102,6 +2102,16 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 	case "drawgame":
 		out.append(OC_ex_, OC_ex_drawgame)
+	case "drawpal":
+		c.token = c.tokenizer(in)
+		switch c.token {
+		case "group":
+			out.append(OC_ex2_, OC_ex2_drawpal_group)
+		case "index":
+			out.append(OC_ex2_, OC_ex2_drawpal_index)
+		default:
+			return bvNone(), Error(fmt.Sprint("Invalid argument: %s", c.token))
+		}
 	case "explodvar":
 		if err := c.checkOpeningBracket(in); err != nil {
 			return bvNone(), err
@@ -2844,16 +2854,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_numtext)
 	case "palno":
 		out.append(OC_palno)
-	case "drawpal":
-		c.token = c.tokenizer(in)
-		switch c.token {
-		case "group":
-			out.append(OC_drawpal_group)
-		case "index":
-			out.append(OC_drawpal_index)
-		default:
-			return bvNone(), Error(fmt.Sprint("Invalid argument: %s", c.token))
-		}
 	case "pos":
 		c.token = c.tokenizer(in)
 		switch c.token {

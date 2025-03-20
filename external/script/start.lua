@@ -4079,7 +4079,7 @@ function start.f_stageMusic()
 		return
 	end
 	-- Reset
-	if roundstart() then
+	if roundstart() and (roundno() == 1 or start.bgmstate == 1) then
 		didLoadStageBGM = false
 	end
 	-- bgmusic / bgmusic.roundX / bgmusic.final

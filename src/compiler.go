@@ -2110,7 +2110,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "index":
 			out.append(OC_ex2_, OC_ex2_drawpal_index)
 		default:
-			return bvNone(), Error(fmt.Sprint("Invalid argument: %s", c.token))
+			return bvNone(), Error("Invalid data: " + c.token)
 		}
 	case "explodvar":
 		if err := c.checkOpeningBracket(in); err != nil {
@@ -2147,7 +2147,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case "index":
 				opc = OC_ex2_explodvar_drawpal_index
 			default:
-				return bvNone(), Error(fmt.Sprint("Invalid argument: %s", c.token))
+				return bvNone(), Error("Invalid data: " + c.token)
 			}
 		case "removetime":
 			opc = OC_ex2_explodvar_removetime
@@ -3056,7 +3056,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case "index":
 				opc = OC_ex2_projvar_drawpal_index
 			default:
-				return bvNone(), Error(fmt.Sprint("Invalid argument: %s", c.token))
+				return bvNone(), Error("Invalid data: " + c.token)
 			}
 		case "pausemovetime":
 			opc = OC_ex2_projvar_pausemovetime

@@ -1171,11 +1171,17 @@ func (BytecodeExp) blnot(v *BytecodeValue) {
 }
 
 func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
-	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
-		v1.SetF(Pow(v1.ToF(), v2.ToF()))
-	} else if v2.ToF() < 0 {
+	// This one's interesting in Mugen because 0**-1 is not treated the same as 1/0
+	// In Mugen 1.1 it's considered infinity
+	// In WinMugen it's considered infinity if it's called as a float, but result alternates between 0 and 2**31 if called as an int
+	// These bugs are not reproduced in Ikemen
+	// TODO: Perhaps Ikemen characters should treat 0**-1 the same as 1/0
+
+	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float || v2.ToF() < 0 {
+		// Float power
 		v1.SetF(Pow(v1.ToF(), v2.ToF()))
 	} else {
+		// Int power
 		i1, i2, hb := v1.ToI(), v2.ToI(), int32(-1)
 		for uint32(i2)>>uint(hb+1) != 0 {
 			hb++
@@ -1194,6 +1200,12 @@ func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
 			tmp *= tmp
 		}
 		v1.SetI(i)
+	}
+
+	// Print error for invalid operations
+	result := float64(v1.ToF())
+	if math.IsNaN(result) || math.IsInf(result, 0) {
+		sys.printBytecodeError("Invalid exponentiation")
 	}
 }
 
@@ -1331,6 +1343,7 @@ func (BytecodeExp) exp(v1 *BytecodeValue) {
 func (BytecodeExp) ln(v1 *BytecodeValue) {
 	if v1.value <= 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Invalid logarithm")
 	} else {
 		v1.SetF(float32(math.Log(v1.value)))
 	}
@@ -1339,6 +1352,7 @@ func (BytecodeExp) ln(v1 *BytecodeValue) {
 func (BytecodeExp) log(v1 *BytecodeValue, v2 BytecodeValue) {
 	if v1.value <= 0 || v2.value <= 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Invalid logarithm")
 	} else {
 		v1.SetF(float32(math.Log(v2.value) / math.Log(v1.value)))
 	}

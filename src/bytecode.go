@@ -74,7 +74,7 @@ const (
 	VT_Float
 	VT_Int
 	VT_Bool
-	VT_SFalse
+	VT_SFalse // Undefined
 )
 
 type OpCode byte
@@ -104,9 +104,9 @@ const (
 	OC_eq
 	OC_ne
 	OC_gt
-	OC_le
-	OC_lt
 	OC_ge
+	OC_lt
+	OC_le
 	OC_neg
 	OC_blnot
 	OC_bland
@@ -1061,11 +1061,23 @@ func (bs *BytecodeStack) PushB(b bool) {
 }
 
 func (bs BytecodeStack) Top() *BytecodeValue {
+	// This should only happen during development
+	if len(bs) == 0 {
+		panic(Error("Attempted to access the top of an empty ByteCode stack.\n"))
+	}
+
 	return &bs[len(bs)-1]
 }
 
 func (bs *BytecodeStack) Pop() (bv BytecodeValue) {
+	// This should only happen during development
+	if len(*bs) == 0 {
+		panic(Error("Attempted to pop from an empty ByteCode stack.\n"))
+	}
+
+	// Set value to what's at the top of stack. Shift stack
 	bv, *bs = *bs.Top(), (*bs)[:len(*bs)-1]
+
 	return
 }
 

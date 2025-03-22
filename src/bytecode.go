@@ -916,6 +916,7 @@ const (
 	OC_ex2_stagebgvar_tile_y
 	OC_ex2_stagebgvar_velocity_x
 	OC_ex2_stagebgvar_velocity_y
+	OC_ex2_numstagebg
 )
 
 const (
@@ -3737,6 +3738,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		} else {
 			sys.bcStack.Push(BytecodeSF())
 		}
+	case OC_ex2_numstagebg:
+		*sys.bcStack.Top() = c.numStageBG(*sys.bcStack.Top())
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

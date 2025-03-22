@@ -6062,6 +6062,25 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
 	return nil
 }
 
+// For NumStageBG trigger
+func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
+	if id.IsSF() {
+		return BytecodeSF()
+	}
+
+	bid := id.ToI()
+	n := 0
+
+	// We do this instead of getMultipleStageBg because that one returns actual BG pointers
+	for _, bg := range sys.stage.bg {
+		if bid < 0 || bid == bg.id {
+			n++
+		}
+	}
+
+	return BytecodeInt(int32(n))
+}
+
 // Get list of targets for the Target state controllers
 func (c *Char) getTarget(id int32, idx int) []int32 {
 	// If ID and index are negative, just return all targets

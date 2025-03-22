@@ -4311,6 +4311,14 @@ func triggerFunctions(l *lua.LState) {
 			BytecodeInt(int32(numArg(l, 1)))).ToI()))
 		return 1
 	})
+	luaRegister(l, "numstagebg", func(*lua.LState) int {
+		id := int32(-1)
+		if !nilArg(l, 1) {
+			id = int32(numArg(l, 1))
+		}
+		l.Push(lua.LNumber(sys.debugWC.numStageBG(BytecodeInt(id)).ToI()))
+		return 1
+	})
 	luaRegister(l, "numtarget", func(*lua.LState) int {
 		id := int32(-1)
 		if !nilArg(l, 1) {

@@ -284,6 +284,7 @@ var triggerMap = map[string]int{
 	"numpartner":        1,
 	"numproj":           1,
 	"numprojid":         1,
+	"numstagebg":        1,
 	"numtarget":         1,
 	"numtext":           1,
 	"p1name":            1,
@@ -2886,6 +2887,11 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		out.append(OC_numprojid)
+	case "numstagebg":
+		if _, err := c.oneArg(out, in, rd, true, BytecodeInt(-1)); err != nil {
+			return bvNone(), err
+		}
+		out.append(OC_ex2_, OC_ex2_numstagebg)
 	case "numtarget":
 		if _, err := c.oneArg(out, in, rd, true, BytecodeInt(-1)); err != nil {
 			return bvNone(), err

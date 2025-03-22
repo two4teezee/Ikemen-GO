@@ -4799,22 +4799,46 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 }
 
 func (c *Char) autoTurn() {
-	if c.helperIndex == 0 {
-		e := c.p2()
-		if e != nil && c.rdDistX(e, c).ToF() < 0 && !e.asf(ASF_noturntarget) {
-			switch c.ss.stateType {
-			case ST_S:
-				if c.animNo != 5 {
-					c.changeAnimEx(5, c.playerNo, "", false)
-				}
-			case ST_C:
-				if c.animNo != 6 {
-					c.changeAnimEx(6, c.playerNo, "", false)
-				}
+	if c.helperIndex == 0 && (c.ss.stateType == ST_S || c.ss.stateType == ST_C) && c.shouldFaceP2() {
+		switch c.ss.stateType {
+		case ST_S:
+			if c.animNo != 5 {
+				c.changeAnimEx(5, c.playerNo, "", false)
 			}
-			c.setFacing(-c.facing)
+		case ST_C:
+			if c.animNo != 6 {
+				c.changeAnimEx(6, c.playerNo, "", false)
+			}
+		}
+		c.setFacing(-c.facing)
+	}
+}
+
+// Check if P2 enemy is behind the player and the player is allowed to face them
+func (c *Char) shouldFaceP2() bool {
+	// Turning disabled
+	if c.asf(ASF_noautoturn) || !sys.stage.autoturn {
+		return false
+	}
+
+	// Check if P2 enemy is behind the player
+	e := c.p2()
+	if e != nil && !e.asf(ASF_noturntarget) {
+		distX := c.rdDistX(e, c).ToF()
+		if sys.zEnabled() {
+			// Use a z position tie breaker when the x positions are the same
+			if distX < 0 ||
+				distX == 0 && (c.rdDistZ(e, c).ToF() < 0) == (c.pos[0] * c.facing > 0) {
+				return true
+			}
+		} else {
+			if distX < 0 {
+				return true
+			}
 		}
 	}
+
+	return false
 }
 
 func (c *Char) stateChange1(no int32, pn int) bool {
@@ -4935,8 +4959,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	// It serves very little purpose while negatively affecting some new Ikemen features like NoTurnTarget
 	// It could be removed in the future
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1755
-	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 &&
-		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && !c.asf(ASF_noautoturn) && sys.stage.autoturn {
+	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
 		c.autoTurn()
 	}
 	if anim != -1 {
@@ -6037,6 +6060,25 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
 	}
 	return nil
+}
+
+// For NumStageBG trigger
+func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
+	if id.IsSF() {
+		return BytecodeSF()
+	}
+
+	bid := id.ToI()
+	n := 0
+
+	// We do this instead of getMultipleStageBg because that one returns actual BG pointers
+	for _, bg := range sys.stage.bg {
+		if bid < 0 || bid == bg.id {
+			n++
+		}
+	}
+
+	return BytecodeInt(int32(n))
 }
 
 // Get list of targets for the Target state controllers
@@ -8350,10 +8392,12 @@ func (c *Char) track() {
 				}
 			}
 		}
-		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) {
+		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
 			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
 			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)
 			sys.cam.Pos[1] = 0
+			// Mugen ignores characters that have infinite position
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/1917
 		}
 	}
 }
@@ -8393,7 +8437,8 @@ func (c *Char) update() {
 				}
 			}
 			// Engine dust effects
-			if ((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
+			if sys.supertime == 0 && sys.pausetime == 0 &&
+				((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
 				c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
 				c.makeDust(0, 0, 0, 3) // Default spacing of 3
 			}
@@ -9066,11 +9111,9 @@ func (cl *CharList) commandUpdate() {
 				}
 				// Auto turning check for the root
 				// Having this here makes B and F inputs reverse the same instant the character turns
-				if act && c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn {
-					if (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
-						(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
-						c.autoTurn()
-					}
+				if act && c.helperIndex == 0 && (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
+					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
+					c.autoTurn()
 				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
 					c.cmd[0].Input(c.controller, int32(c.facing), sys.com[i], c.inputFlag, false) {

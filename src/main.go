@@ -12,7 +12,7 @@ import (
 )
 
 var Version = "development"
-var BuildTime = ""
+var BuildTime = "" // Set automatically by GitHub Actions
 
 func init() {
 	runtime.LockOSThread()
@@ -114,7 +114,13 @@ func main() {
 		// Display error logs.
 		errorLog := createLog("Ikemen.log")
 		defer closeLog(errorLog)
+
+		// Write version and build time at the top
+		fmt.Fprintf(errorLog, "Version: %s\nBuild Time: %s\n\nError log:\n", Version, BuildTime)
+
+		// Write the rest of the log
 		fmt.Fprintln(errorLog, err)
+
 		switch err.(type) {
 		case *lua.ApiError:
 			errstr := strings.Split(err.Error(), "\n")[0]

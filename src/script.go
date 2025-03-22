@@ -4311,6 +4311,14 @@ func triggerFunctions(l *lua.LState) {
 			BytecodeInt(int32(numArg(l, 1)))).ToI()))
 		return 1
 	})
+	luaRegister(l, "numstagebg", func(*lua.LState) int {
+		id := int32(-1)
+		if !nilArg(l, 1) {
+			id = int32(numArg(l, 1))
+		}
+		l.Push(lua.LNumber(sys.debugWC.numStageBG(BytecodeInt(id)).ToI()))
+		return 1
+	})
 	luaRegister(l, "numtarget", func(*lua.LState) int {
 		id := int32(-1)
 		if !nilArg(l, 1) {
@@ -5270,10 +5278,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugDisplay))
 		case "lifebardisplay":
 			l.Push(lua.LBool(sys.lifebarDisplay))
+		case "roundreset":
+			l.Push(lua.LBool(sys.roundResetFlg))
 		case "wireframedisplay":
 			l.Push(lua.LBool(sys.wireframeDisplay))
-		case "roundrestarted":
-			l.Push(lua.LBool(sys.roundResetFlg))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

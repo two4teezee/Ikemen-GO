@@ -74,7 +74,7 @@ const (
 	VT_Float
 	VT_Int
 	VT_Bool
-	VT_SFalse
+	VT_SFalse // Undefined
 )
 
 type OpCode byte
@@ -104,9 +104,9 @@ const (
 	OC_eq
 	OC_ne
 	OC_gt
-	OC_le
-	OC_lt
 	OC_ge
+	OC_lt
+	OC_le
 	OC_neg
 	OC_blnot
 	OC_bland
@@ -774,8 +774,8 @@ const (
 	OC_ex2_debug_clsndisplay
 	OC_ex2_debug_debugdisplay
 	OC_ex2_debug_lifebardisplay
+	OC_ex2_debug_roundreset
 	OC_ex2_debug_wireframedisplay
-	OC_ex2_debug_roundrestarted
 	OC_ex2_drawpal_group
 	OC_ex2_drawpal_index
 	OC_ex2_explodvar_anim
@@ -916,6 +916,7 @@ const (
 	OC_ex2_stagebgvar_tile_y
 	OC_ex2_stagebgvar_velocity_x
 	OC_ex2_stagebgvar_velocity_y
+	OC_ex2_numstagebg
 )
 
 const (
@@ -1061,11 +1062,23 @@ func (bs *BytecodeStack) PushB(b bool) {
 }
 
 func (bs BytecodeStack) Top() *BytecodeValue {
+	// This should only happen during development
+	if len(bs) == 0 {
+		panic(Error("Attempted to access the top of an empty ByteCode stack.\n"))
+	}
+
 	return &bs[len(bs)-1]
 }
 
 func (bs *BytecodeStack) Pop() (bv BytecodeValue) {
+	// This should only happen during development
+	if len(*bs) == 0 {
+		panic(Error("Attempted to pop from an empty ByteCode stack.\n"))
+	}
+
+	// Set value to what's at the top of stack. Shift stack
 	bv, *bs = *bs.Top(), (*bs)[:len(*bs)-1]
+
 	return
 }
 
@@ -1171,11 +1184,17 @@ func (BytecodeExp) blnot(v *BytecodeValue) {
 }
 
 func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
-	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
-		v1.SetF(Pow(v1.ToF(), v2.ToF()))
-	} else if v2.ToF() < 0 {
+	// This one's interesting in Mugen because 0**-1 is not treated the same as 1/0
+	// In Mugen 1.1 it's considered infinity
+	// In WinMugen it's considered infinity if it's called as a float, but result alternates between 0 and 2**31 if called as an int
+	// These bugs are not reproduced in Ikemen
+	// TODO: Perhaps Ikemen characters should treat 0**-1 the same as 1/0
+
+	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float || v2.ToF() < 0 {
+		// Float power
 		v1.SetF(Pow(v1.ToF(), v2.ToF()))
 	} else {
+		// Int power
 		i1, i2, hb := v1.ToI(), v2.ToI(), int32(-1)
 		for uint32(i2)>>uint(hb+1) != 0 {
 			hb++
@@ -1195,6 +1214,12 @@ func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
 		}
 		v1.SetI(i)
 	}
+
+	// Print error for invalid operations
+	result := float64(v1.ToF())
+	if math.IsNaN(result) || math.IsInf(result, 0) {
+		sys.printBytecodeError("Invalid exponentiation")
+	}
 }
 
 func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
@@ -1206,11 +1231,15 @@ func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
-	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
-		v1.SetF(v1.ToF() / v2.ToF())
-	} else if v2.ToI() == 0 {
+	if v2.ToF() == 0 {
+		// Division by 0
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Division by 0")
+	} else if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
+		// Float division
+		v1.SetF(v1.ToF() / v2.ToF())
 	} else {
+		// Int division
 		v1.SetI(v1.ToI() / v2.ToI())
 	}
 }
@@ -1218,6 +1247,7 @@ func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
 func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
 	if v2.ToI() == 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Modulus by 0")
 	} else {
 		v1.SetI(v1.ToI() % v2.ToI())
 	}
@@ -1326,6 +1356,7 @@ func (BytecodeExp) exp(v1 *BytecodeValue) {
 func (BytecodeExp) ln(v1 *BytecodeValue) {
 	if v1.value <= 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Invalid logarithm")
 	} else {
 		v1.SetF(float32(math.Log(v1.value)))
 	}
@@ -1334,6 +1365,7 @@ func (BytecodeExp) ln(v1 *BytecodeValue) {
 func (BytecodeExp) log(v1 *BytecodeValue, v2 BytecodeValue) {
 	if v1.value <= 0 || v2.value <= 0 {
 		*v1 = BytecodeSF()
+		sys.printBytecodeError("Invalid logarithm")
 	} else {
 		v1.SetF(float32(math.Log(v2.value) / math.Log(v1.value)))
 	}
@@ -3328,10 +3360,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.debugDisplay)
 	case OC_ex2_debug_lifebardisplay:
 		sys.bcStack.PushB(sys.lifebarDisplay)
+	case OC_ex2_debug_roundreset:
+		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex2_debug_wireframedisplay:
 		sys.bcStack.PushB(sys.wireframeDisplay)
-	case OC_ex2_debug_roundrestarted:
-		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex2_drawpal_group:
 		sys.bcStack.PushI(c.drawPal()[0])
 	case OC_ex2_drawpal_index:
@@ -3706,6 +3738,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		} else {
 			sys.bcStack.Push(BytecodeSF())
 		}
+	case OC_ex2_numstagebg:
+		*sys.bcStack.Top() = c.numStageBG(*sys.bcStack.Top())
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3918,7 +3952,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 			// Safety check. Prevents a bad loop from freezing Ikemen
 			loopCount++
 			if loopCount >= 2500 {
-				sys.appendToConsole(sys.workingChar.warn() + "loop automatically stopped after 2500 iterations")
+				sys.printBytecodeError("loop automatically stopped after 2500 iterations")
 				break
 			}
 		}
@@ -4094,12 +4128,8 @@ func (sc stateDef) Run(c *Char) {
 			c.sprPriority = exp[0].evalI(c)
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
-			if exp[0].evalB(c) {
-				e := c.p2()
-				if e != nil && !e.asf(ASF_noturntarget) && c.rdDistX(e, c).ToF() < 0 &&
-					!c.asf(ASF_noautoturn) && sys.stage.autoturn {
-					c.setFacing(-c.facing)
-				}
+			if exp[0].evalB(c) && c.shouldFaceP2() {
+				c.setFacing(-c.facing)
 			}
 		case stateDef_juggle:
 			c.juggle = exp[0].evalI(c)

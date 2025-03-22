@@ -1103,6 +1103,10 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.modelShader.a["normalIn"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.modelShader.a["tangentIn"]
+	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["joints_0"]

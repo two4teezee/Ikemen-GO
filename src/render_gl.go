@@ -904,6 +904,10 @@ func (r *Renderer_GL21) ReleaseShadowPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.modelShader.a["normalIn"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.modelShader.a["tangentIn"]
+	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["joints_0"]

@@ -4828,7 +4828,7 @@ func (c *Char) shouldFaceP2() bool {
 		if sys.zEnabled() {
 			// Use a z position tie breaker when the x positions are the same
 			if distX < 0 ||
-				distX == 0 && (c.rdDistZ(e, c).ToF() < 0) == (c.pos[0] * c.facing > 0) {
+				distX == 0 && (c.rdDistZ(e, c).ToF() < 0) == (c.pos[0]*c.facing > 0) {
 				return true
 			}
 		} else {

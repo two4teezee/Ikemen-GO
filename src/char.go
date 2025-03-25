@@ -8388,33 +8388,42 @@ func (c *Char) actionFinish() {
 
 func (c *Char) track() {
 	if c.trackableByCamera() {
-		min, max := c.widthEdge[0], -c.widthEdge[1]
-		if c.facing > 0 {
-			min, max = -max, -min
-		}
-		if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-			c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
-		}
+
+		// This doesn't seem necessary currently. Handled by xScreenBound()
+		//if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
+		//	c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		//}
+
+		// X axis
 		if c.csf(CSF_movecamera_x) && !c.scf(SCF_standby) {
-			if c.interPos[0]*c.localscl-min*c.localscl < sys.cam.leftest {
-				sys.cam.leftest = MinF(c.interPos[0]*c.localscl-min*c.localscl, sys.cam.leftest)
-				if c.acttmp > 0 && !c.csf(CSF_posfreeze) &&
-					(c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0]))) {
+			edgeleft, edgeright := -c.widthEdge[1], c.widthEdge[0]
+			if c.facing < 0 {
+				edgeleft, edgeright = -edgeright, -edgeleft
+			}
+
+			charleft := c.interPos[0]*c.localscl + edgeleft*c.localscl
+			charright := c.interPos[0]*c.localscl + edgeright*c.localscl
+			canmove := c.acttmp > 0 && !c.csf(CSF_posfreeze) && (c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])))
+
+			if charleft < sys.cam.leftest {
+				sys.cam.leftest = charleft
+				if canmove {
 					sys.cam.leftestvel = c.vel[0] * c.localscl * c.facing
 				} else {
 					sys.cam.leftestvel = 0
 				}
 			}
-			if c.interPos[0]*c.localscl-max*c.localscl > sys.cam.rightest {
-				sys.cam.rightest = MaxF(c.interPos[0]*c.localscl-max*c.localscl, sys.cam.rightest)
-				if c.acttmp > 0 && !c.csf(CSF_posfreeze) &&
-					(c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0]))) {
+			if charright > sys.cam.rightest {
+				sys.cam.rightest = charright
+				if canmove {
 					sys.cam.rightestvel = c.vel[0] * c.localscl * c.facing
 				} else {
 					sys.cam.rightestvel = 0
 				}
 			}
 		}
+
+		// Y axis
 		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
 			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
 			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)

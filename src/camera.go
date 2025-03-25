@@ -49,9 +49,13 @@ type stageCamera struct {
 	zoomanchorcorrection    float32
 	ywithoutbound           float32
 	highest                 float32
+	prevHighest             float32
 	lowest                  float32
+	prevLowest              float32
 	leftest                 float32
+	prevLeftest             float32
 	rightest                float32
+	prevRightest            float32
 	leftestvel              float32
 	rightestvel             float32
 	roundstart              bool
@@ -96,6 +100,7 @@ type Camera struct {
 func newCamera() *Camera {
 	return &Camera{View: Fighting_View}
 }
+
 func (c *Camera) Reset() {
 	c.ZoomEnable = sys.cfg.Config.ZoomActive && (c.stageCamera.zoomin != 1 || c.stageCamera.zoomout != 1)
 	c.boundL = float32(c.boundleft-c.startx)*c.localscl - ((1-c.zoomout)*100*c.zoomout)*(1/c.zoomout)*(1/c.zoomout)*1.6*(float32(sys.gameWidth)/320)
@@ -139,6 +144,7 @@ func (c *Camera) Reset() {
 	c.maxRight = float32(c.boundright)*c.localscl + c.halfWidth/c.zoomout
 	c.minLeft = float32(c.boundleft)*c.localscl - c.halfWidth/c.zoomout
 }
+
 func (c *Camera) Init() {
 	c.Reset()
 	c.View = Fighting_View
@@ -147,6 +153,7 @@ func (c *Camera) Init() {
 	c.Pos[0], c.Pos[1], c.ywithoutbound = float32(c.startx)*c.localscl, float32(c.starty)*c.localscl, float32(c.starty)*c.localscl
 	c.zoomindelaytime = c.zoomindelay
 }
+
 func (c *Camera) ResetTracking() {
 	c.leftest = math.MaxFloat32
 	c.rightest = -math.MaxFloat32
@@ -155,6 +162,35 @@ func (c *Camera) ResetTracking() {
 	c.leftestvel = 0
 	c.rightestvel = 0
 }
+
+// Use last known good positions if the current ones are invalid
+// Mugen does not do this. Instead, if either axis is not updated (if no character has movecamera) the camera does not move at all
+func (c *Camera) SaveRestoreTracking() {
+	if c.highest == math.MaxFloat32 {
+		c.highest = c.prevHighest
+	} else {
+		c.prevHighest = c.highest
+	}
+	
+	if c.lowest == -math.MaxFloat32 {
+		c.lowest = c.prevLowest
+	} else {
+		c.prevLowest = c.lowest
+	}
+	
+	if c.leftest == math.MaxFloat32 {
+		c.leftest = c.prevLeftest
+	} else {
+		c.prevLeftest = c.leftest
+	}
+	
+	if c.rightest == -math.MaxFloat32 {
+		c.rightest = c.prevRightest
+	} else {
+		c.prevRightest = c.rightest
+	}
+}
+
 func (c *Camera) Update(scl, x, y float32) {
 	c.Scale = c.BaseScale() * scl
 	c.zoff = float32(c.zoffset) * c.localscl
@@ -170,6 +206,7 @@ func (c *Camera) Update(scl, x, y float32) {
 	c.Pos[0] = x
 	c.Pos[1] = y
 }
+
 func (c *Camera) ScaleBound(scl, sclmul float32) float32 {
 	if c.ZoomEnable {
 		if sys.debugPaused() {
@@ -181,20 +218,25 @@ func (c *Camera) ScaleBound(scl, sclmul float32) float32 {
 	}
 	return 1
 }
+
 func (c *Camera) XBound(scl, x float32) float32 {
 	return ClampF(x,
 		c.boundL-c.halfWidth+c.halfWidth/scl,
 		c.boundR+c.halfWidth-c.halfWidth/scl)
 }
+
 func (c *Camera) BaseScale() float32 {
 	return c.ztopscale
 }
+
 func (c *Camera) GroundLevel() float32 {
 	return c.zoff - c.aspectcorrection - c.zoomanchorcorrection
 }
+
 func (c *Camera) ResetZoomdelay() {
 	c.zoomdelay = 0
 }
+
 func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale float32) {
 	newX = x
 	newY = y
@@ -203,192 +245,193 @@ func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale f
 		newY = y / scale
 		switch c.View {
 		case Fighting_View:
-			if c.highest != math.MaxFloat32 && c.lowest != -math.MaxFloat32 && c.leftest != math.MaxFloat32 && c.rightest != -math.MaxFloat32 {
-				if c.lowestcap {
-					c.lowest = MaxF(c.lowest, float32(c.boundhigh)*c.localscl-(float32(sys.gameHeight)-c.GroundLevel()-float32(c.tensionlow))/c.zoomout)
-				}
-				tension := MaxF(0, float32(c.tension)*c.localscl)
-				oldLeft, oldRight := x-c.halfWidth/scale, x+c.halfWidth/scale
-				targetLeft, targetRight := oldLeft, oldRight
-				if c.autocenter {
-					targetLeft = MinF(MaxF((c.leftest+c.rightest)/2-c.halfWidth/scale, c.minLeft), c.maxRight-2*c.halfWidth/scale)
-					targetRight = targetLeft + 2*c.halfWidth/scale
-				}
 
-				if c.leftest < targetLeft+tension {
-					diff := targetLeft - MaxF(c.leftest-tension, c.minLeft)
-					targetLeft = MaxF(c.leftest-tension, c.minLeft)
-					targetRight = MaxF(oldRight-diff, MinF(c.rightest+tension, c.maxRight))
-				} else if c.rightest > targetRight-tension {
-					diff := targetRight - MinF(c.rightest+tension, c.maxRight)
-					targetRight = MinF(c.rightest+tension, c.maxRight)
-					targetLeft = MinF(oldLeft-diff, MaxF(c.leftest-tension, c.minLeft))
-				}
-				if c.halfWidth*2/(targetRight-targetLeft) < c.zoomout {
-					rLeft, rRight := MaxF(targetLeft+tension-c.leftest, 0), MaxF(c.rightest-(targetRight-tension), 0)
-					diff := 2 * ((targetRight-targetLeft)/2 - c.halfWidth/c.zoomout)
-					if rLeft > rRight {
-						diff2 := rLeft - rRight
-						targetRight -= MinF(diff2, diff)
-						diff -= MinF(diff2, diff)
-					} else if rRight > rLeft {
-						diff2 := rRight - rLeft
-						targetLeft += MinF(diff2, diff)
-						diff -= MinF(diff2, diff)
-					}
-					targetLeft += diff / 2
-					targetRight -= diff / 2
-					if c.leftest-targetLeft < float32(sys.stage.screenleft)*c.localscl {
-						diff := MinF(float32(sys.stage.screenleft)*c.localscl-(c.leftest-targetLeft), targetLeft-c.minLeft)
-						if targetRight-c.rightest < float32(sys.stage.screenright)*c.localscl {
-							diff2 := MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)
-							//diff = diff + (MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)-diff)/2
-							diff = diff - diff2
-						}
-						targetLeft -= diff
-						targetRight -= diff
-					} else if targetRight-c.rightest < float32(sys.stage.screenright)*c.localscl {
-						diff := MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)
-						targetLeft += diff
-						targetRight += diff
-					}
-				}
-				maxScale := c.zoomin
-				if c.ytensionenable {
-					maxScale = MinF(MaxF(float32(sys.gameHeight)/((c.lowest+float32(c.tensionlow)*c.localscl)-(c.highest-float32(c.tensionhigh)*c.localscl)), c.zoomout), maxScale)
-				}
-				if c.halfWidth*2/(targetRight-targetLeft) < maxScale {
-					if c.zoomindelaytime > 0 {
-						c.zoomindelaytime -= 1
-					} else {
-						diffLeft := MaxF(c.leftest-tension-targetLeft, 0)
-						if diffLeft < 0 {
-							diffLeft = 0
-						}
-						diffRight := MinF(c.rightest+tension-targetRight, 0)
-						if diffRight > 0 {
-							diffRight = 0
-						}
-						if c.halfWidth*2/((targetRight+diffRight)-(targetLeft+diffLeft)) > maxScale {
-							tmp, tmp2 := diffLeft/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale), diffRight/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale)
-							diffLeft += tmp
-							diffRight += tmp2
-						}
-						if c.halfWidth*2/((targetRight+diffRight)-(targetLeft+diffLeft)) > scale {
-							targetLeft += diffLeft
-							targetRight += diffRight
-						} else {
-							c.zoomindelaytime = c.zoomindelay
-						}
-					}
-				} else {
-					c.zoomindelaytime = c.zoomindelay
-				}
+			c.SaveRestoreTracking()
 
-				targetX := (targetLeft + targetRight) / 2
-				targetScale := MinF(c.halfWidth*2/(targetRight-targetLeft), maxScale)
-
-				if !c.ytensionenable {
-					//newY = c.ywithoutbound
-					ywithoutbound := c.ywithoutbound
-					verticalfollow := MaxF(c.verticalfollow, 0.0) + (targetScale-c.zoomout)*MaxF(c.verticalfollowzoomdelta, 0.0)
-					targetY := (c.highest + float32(c.floortension)*c.localscl) * verticalfollow
-					if !c.roundstart {
-						for i := 0; i < 3; i++ {
-							ywithoutbound = ywithoutbound*.85 + targetY*.15
-							if AbsF(targetY-ywithoutbound)*sys.heightScale < 1 {
-								ywithoutbound = targetY
-							}
-							if AbsF(newY-ywithoutbound) < float32(sys.gameWidth)/320*5.5 {
-								newY = ywithoutbound
-							} else {
-								if newY > ywithoutbound {
-									newY -= float32(sys.gameWidth) / 320 * 0.5
-									newY -= (newY - ywithoutbound) * verticalfollow / 10
-								} else {
-									newY += float32(sys.gameWidth) / 320 * 0.5
-									newY += (ywithoutbound - newY) * verticalfollow / 10
-								}
-							}
-						}
-					} else {
-						ywithoutbound = targetY
-						newY = ywithoutbound
-					}
-					c.ywithoutbound = ywithoutbound
-				} else {
-					targetScale = MinF(MinF(MaxF(float32(sys.gameHeight)/((c.lowest+float32(c.tensionlow)*c.localscl)-(c.highest-float32(c.tensionhigh)*c.localscl)), c.zoomout), c.zoomin), targetScale)
-					targetX = MinF(MaxF(targetX, float32(c.boundleft)*c.localscl-c.halfWidth*(1/c.zoomout-1/targetScale)), float32(c.boundright)*c.localscl+c.halfWidth*(1/c.zoomout-1/targetScale))
-					targetLeft = targetX - c.halfWidth/targetScale
-					targetRight = targetX + c.halfWidth/targetScale
-
-					newY = c.ywithoutbound
-					targetY := c.GroundLevel()/targetScale + (c.highest - float32(c.tensionhigh)*c.localscl)
-					if !c.roundstart {
-						diff := float32(sys.gameWidth) / 320 * 2.5
-						for i := 0; i < 3; i++ {
-							newY = (newY + targetY) * .5
-							if AbsF(targetY-newY) < diff {
-								newY = targetY
-								break
-							} else if targetY-newY > diff {
-								newY = newY + diff
-							} else {
-								newY = newY - diff
-							}
-						}
-					} else {
-						newY = targetY
-					}
-					c.ywithoutbound = newY
-				}
-
-				newLeft, newRight := oldLeft, oldRight
-				if !c.roundstart {
-					diff := float32(sys.gameWidth) / 3200
-					for i := 0; i < 3; i++ {
-						newLeft, newRight = newLeft+(targetLeft-newLeft)*0.05*sys.turbo*c.tensionvel, newRight+(targetRight-newRight)*0.05*sys.turbo*c.tensionvel
-						diffLeft := targetLeft - newLeft
-						diffRight := targetRight - newRight
-						if AbsF(diffLeft) <= diff*sys.turbo*c.tensionvel {
-							newLeft = targetLeft
-						} else if diffLeft > 0 {
-							newLeft += diff * sys.turbo * c.tensionvel
-						} else {
-							newLeft -= diff * sys.turbo * c.tensionvel
-						}
-						if newLeft-oldLeft > 0 && newLeft-oldLeft < c.rightestvel {
-							newLeft = MinF(oldLeft+c.rightestvel, targetLeft)
-						} else if newLeft-oldLeft < 0 && newLeft-oldLeft > c.leftestvel {
-							newLeft = MaxF(oldLeft+c.leftestvel, targetLeft)
-						}
-
-						if AbsF(diffRight) <= diff*sys.turbo*c.tensionvel {
-							newRight = targetRight
-						} else if diffRight > 0 {
-							newRight += diff * sys.turbo * c.tensionvel
-						} else {
-							newRight -= diff * sys.turbo * c.tensionvel
-						}
-						if newRight-oldRight > 0 && newRight-oldRight < c.rightestvel {
-							newRight = MinF(oldRight+c.rightestvel, targetRight)
-						} else if newRight-oldRight < 0 && newRight-oldRight > c.leftestvel {
-							newRight = MaxF(oldRight+c.leftestvel, targetRight)
-						}
-					}
-				} else {
-					newLeft, newRight = targetLeft, targetRight
-				}
-				newScale = MinF(c.halfWidth*2/(newRight-newLeft), c.zoomin)
-				newLeft, newRight, newScale = c.reduceZoomSpeed(newLeft, newRight, newScale, oldLeft, oldRight, scale)
-				newX = (newLeft + newRight) / 2
-				newY = c.reduceYScrollSpeed(newY, y)
-				newY = c.boundY(newY, newScale)
-			} else {
-				newScale = MinF(MaxF(newScale, c.zoomout), c.zoomin)
-				newX = MinF(MaxF(newX, c.minLeft+c.halfWidth/newScale), c.maxRight-c.halfWidth/newScale)
-				newY = c.boundY(newY, newScale)
+			if c.lowestcap {
+				c.lowest = MaxF(c.lowest, float32(c.boundhigh)*c.localscl-(float32(sys.gameHeight)-c.GroundLevel()-float32(c.tensionlow))/c.zoomout)
 			}
+			tension := MaxF(0, float32(c.tension)*c.localscl)
+			oldLeft, oldRight := x-c.halfWidth/scale, x+c.halfWidth/scale
+			targetLeft, targetRight := oldLeft, oldRight
+			if c.autocenter {
+				targetLeft = MinF(MaxF((c.leftest+c.rightest)/2-c.halfWidth/scale, c.minLeft), c.maxRight-2*c.halfWidth/scale)
+				targetRight = targetLeft + 2*c.halfWidth/scale
+			}
+
+			if c.leftest < targetLeft+tension {
+				diff := targetLeft - MaxF(c.leftest-tension, c.minLeft)
+				targetLeft = MaxF(c.leftest-tension, c.minLeft)
+				targetRight = MaxF(oldRight-diff, MinF(c.rightest+tension, c.maxRight))
+			} else if c.rightest > targetRight-tension {
+				diff := targetRight - MinF(c.rightest+tension, c.maxRight)
+				targetRight = MinF(c.rightest+tension, c.maxRight)
+				targetLeft = MinF(oldLeft-diff, MaxF(c.leftest-tension, c.minLeft))
+			}
+			if c.halfWidth*2/(targetRight-targetLeft) < c.zoomout {
+				rLeft := MaxF(targetLeft+tension-c.leftest, 0)
+				rRight := MaxF(c.rightest-(targetRight-tension), 0)
+				diff := 2 * ((targetRight-targetLeft)/2 - c.halfWidth/c.zoomout)
+				if rLeft > rRight {
+					diff2 := rLeft - rRight
+					targetRight -= MinF(diff2, diff)
+					diff -= MinF(diff2, diff)
+				} else if rRight > rLeft {
+					diff2 := rRight - rLeft
+					targetLeft += MinF(diff2, diff)
+					diff -= MinF(diff2, diff)
+				}
+				targetLeft += diff / 2
+				targetRight -= diff / 2
+				if c.leftest-targetLeft < float32(sys.stage.screenleft)*c.localscl {
+					diff := MinF(float32(sys.stage.screenleft)*c.localscl-(c.leftest-targetLeft), targetLeft-c.minLeft)
+					if targetRight-c.rightest < float32(sys.stage.screenright)*c.localscl {
+						diff2 := MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)
+						//diff = diff + (MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)-diff)/2
+						diff = diff - diff2
+					}
+					targetLeft -= diff
+					targetRight -= diff
+				} else if targetRight-c.rightest < float32(sys.stage.screenright)*c.localscl {
+					diff := MinF(float32(sys.stage.screenright)*c.localscl-(targetRight-c.rightest), c.maxRight-targetRight)
+					targetLeft += diff
+					targetRight += diff
+				}
+			}
+			maxScale := c.zoomin
+			if c.ytensionenable {
+				maxScale = MinF(MaxF(float32(sys.gameHeight)/((c.lowest+float32(c.tensionlow)*c.localscl)-(c.highest-float32(c.tensionhigh)*c.localscl)), c.zoomout), maxScale)
+			}
+			if c.halfWidth*2/(targetRight-targetLeft) < maxScale {
+				if c.zoomindelaytime > 0 {
+					c.zoomindelaytime -= 1
+				} else {
+					diffLeft := MaxF(c.leftest-tension-targetLeft, 0)
+					if diffLeft < 0 {
+						diffLeft = 0
+					}
+					diffRight := MinF(c.rightest+tension-targetRight, 0)
+					if diffRight > 0 {
+						diffRight = 0
+					}
+					if c.halfWidth*2/((targetRight+diffRight)-(targetLeft+diffLeft)) > maxScale {
+						tmp := diffLeft/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale)
+						tmp2 := diffRight/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale)
+						diffLeft += tmp
+						diffRight += tmp2
+					}
+					if c.halfWidth*2/((targetRight+diffRight)-(targetLeft+diffLeft)) > scale {
+						targetLeft += diffLeft
+						targetRight += diffRight
+					} else {
+						c.zoomindelaytime = c.zoomindelay
+					}
+				}
+			} else {
+				c.zoomindelaytime = c.zoomindelay
+			}
+
+			targetX := (targetLeft + targetRight) / 2
+			targetScale := MinF(c.halfWidth*2/(targetRight-targetLeft), maxScale)
+
+			if !c.ytensionenable {
+				//newY = c.ywithoutbound
+				ywithoutbound := c.ywithoutbound
+				verticalfollow := MaxF(c.verticalfollow, 0.0) + (targetScale-c.zoomout)*MaxF(c.verticalfollowzoomdelta, 0.0)
+				targetY := (c.highest + float32(c.floortension)*c.localscl) * verticalfollow
+				if !c.roundstart {
+					for i := 0; i < 3; i++ {
+						ywithoutbound = ywithoutbound*.85 + targetY*.15
+						if AbsF(targetY-ywithoutbound)*sys.heightScale < 1 {
+							ywithoutbound = targetY
+						}
+						if AbsF(newY-ywithoutbound) < float32(sys.gameWidth)/320*5.5 {
+							newY = ywithoutbound
+						} else {
+							if newY > ywithoutbound {
+								newY -= float32(sys.gameWidth) / 320 * 0.5
+								newY -= (newY - ywithoutbound) * verticalfollow / 10
+							} else {
+								newY += float32(sys.gameWidth) / 320 * 0.5
+								newY += (ywithoutbound - newY) * verticalfollow / 10
+							}
+						}
+					}
+				} else {
+					ywithoutbound = targetY
+					newY = ywithoutbound
+				}
+				c.ywithoutbound = ywithoutbound
+			} else {
+				targetScale = MinF(MinF(MaxF(float32(sys.gameHeight)/((c.lowest+float32(c.tensionlow)*c.localscl)-(c.highest-float32(c.tensionhigh)*c.localscl)), c.zoomout), c.zoomin), targetScale)
+				targetX = MinF(MaxF(targetX, float32(c.boundleft)*c.localscl-c.halfWidth*(1/c.zoomout-1/targetScale)), float32(c.boundright)*c.localscl+c.halfWidth*(1/c.zoomout-1/targetScale))
+				targetLeft = targetX - c.halfWidth/targetScale
+				targetRight = targetX + c.halfWidth/targetScale
+
+				newY = c.ywithoutbound
+				targetY := c.GroundLevel()/targetScale + (c.highest - float32(c.tensionhigh)*c.localscl)
+				if !c.roundstart {
+					diff := float32(sys.gameWidth) / 320 * 2.5
+					for i := 0; i < 3; i++ {
+						newY = (newY + targetY) * .5
+						if AbsF(targetY-newY) < diff {
+							newY = targetY
+							break
+						} else if targetY-newY > diff {
+							newY = newY + diff
+						} else {
+							newY = newY - diff
+						}
+					}
+				} else {
+					newY = targetY
+				}
+				c.ywithoutbound = newY
+			}
+
+			newLeft, newRight := oldLeft, oldRight
+			if !c.roundstart {
+				diff := float32(sys.gameWidth) / 3200
+				for i := 0; i < 3; i++ {
+					newLeft = newLeft+(targetLeft-newLeft)*0.05*sys.turbo*c.tensionvel
+					newRight = newRight+(targetRight-newRight)*0.05*sys.turbo*c.tensionvel
+					diffLeft := targetLeft - newLeft
+					diffRight := targetRight - newRight
+
+					if AbsF(diffLeft) <= diff*sys.turbo*c.tensionvel {
+						newLeft = targetLeft
+					} else if diffLeft > 0 {
+						newLeft += diff * sys.turbo * c.tensionvel
+					} else {
+						newLeft -= diff * sys.turbo * c.tensionvel
+					}
+					if newLeft-oldLeft > 0 && newLeft-oldLeft < c.rightestvel {
+						newLeft = MinF(oldLeft+c.rightestvel, targetLeft)
+					} else if newLeft-oldLeft < 0 && newLeft-oldLeft > c.leftestvel {
+						newLeft = MaxF(oldLeft+c.leftestvel, targetLeft)
+					}
+
+					if AbsF(diffRight) <= diff*sys.turbo*c.tensionvel {
+						newRight = targetRight
+					} else if diffRight > 0 {
+						newRight += diff * sys.turbo * c.tensionvel
+					} else {
+						newRight -= diff * sys.turbo * c.tensionvel
+					}
+					if newRight-oldRight > 0 && newRight-oldRight < c.rightestvel {
+						newRight = MinF(oldRight+c.rightestvel, targetRight)
+					} else if newRight-oldRight < 0 && newRight-oldRight > c.leftestvel {
+						newRight = MaxF(oldRight+c.leftestvel, targetRight)
+					}
+				}
+			} else {
+				newLeft, newRight = targetLeft, targetRight
+			}
+			newScale = MinF(c.halfWidth*2/(newRight-newLeft), c.zoomin)
+			newLeft, newRight, newScale = c.reduceZoomSpeed(newLeft, newRight, newScale, oldLeft, oldRight, scale)
+			newX = (newLeft + newRight) / 2
+			newY = c.reduceYScrollSpeed(newY, y)
+			newY = c.boundY(newY, newScale)
 
 		case Follow_View:
 			newX = c.FollowChar.pos[0]

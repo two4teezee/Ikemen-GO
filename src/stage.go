@@ -752,6 +752,7 @@ type stageShadow struct {
 	fadebgn   int32
 	xshear    float32
 	offset    [2]float32
+	window    [4]float32
 }
 type stagePlayer struct {
 	startx, starty, startz, facing int32
@@ -1269,6 +1270,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
 		sec[0].ReadF32("xshear", &s.sdw.xshear)
 		sec[0].readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
+		sec[0].readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
 	}
 
 	// Reflection group
@@ -1287,6 +1289,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		var tmp int32
 		var tmp2 float32
 		var tmp3 [2]float32
+		var tmp4 [4]float32
 		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
 		if sec[0].ReadI32("intensity", &tmp) {
 			s.reflection.intensity = Clamp(tmp, 0, 255)
@@ -1307,6 +1310,12 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if sec[0].readF32ForStage("offset", &tmp3[0], &tmp3[1]) {
 			s.reflection.offset[0] = tmp3[0]
 			s.reflection.offset[1] = tmp3[1]
+		}
+		if sec[0].readF32ForStage("window", &tmp4[0], &tmp4[1], &tmp4[2], &tmp4[3]) {
+			s.reflection.window[0] = tmp4[0]
+			s.reflection.window[1] = tmp4[1]
+			s.reflection.window[2] = tmp4[2]
+			s.reflection.window[3] = tmp4[3]
 		}
 	}
 
@@ -1438,11 +1447,19 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.sdw.xshear = src.sdw.xshear
 	s.sdw.offset[0] = src.sdw.offset[0]
 	s.sdw.offset[1] = src.sdw.offset[1]
+	s.sdw.window[0] = src.sdw.window[0]
+ 	s.sdw.window[1] = src.sdw.window[1]
+ 	s.sdw.window[2] = src.sdw.window[2]
+ 	s.sdw.window[3] = src.sdw.window[3]
 	s.reflection.intensity = src.reflection.intensity
 	s.reflection.offset[0] = src.reflection.offset[0]
 	s.reflection.offset[1] = src.reflection.offset[1]
 	s.reflection.xshear = src.reflection.xshear
 	s.reflection.yscale = src.reflection.yscale
+	s.reflection.window[0] = src.reflection.window[0]
+	s.reflection.window[1] = src.reflection.window[1]
+	s.reflection.window[2] = src.reflection.window[2]
+	s.reflection.window[3] = src.reflection.window[3]
 }
 
 func (s *Stage) getBg(id int32) (bg []*backGround) {

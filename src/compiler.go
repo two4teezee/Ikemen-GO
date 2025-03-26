@@ -185,6 +185,7 @@ func newCompiler() *Compiler {
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
 		"modifystagebg":        c.modifyStageBG,
+		"window":               c.window,
 	}
 	return c
 }

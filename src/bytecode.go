@@ -12948,6 +12948,33 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type window StateControllerBase
+ 
+ const (
+ 	window_ byte = iota
+ 	window_redirectid
+ )
+ 
+ func (sc window) Run(c *Char, _ []int32) bool {
+ 	crun := c
+ 	var redirscale float32 = 1.0
+ 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+ 		switch paramID {
+ 		case window_:
+ 			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+ 		case window_redirectid:
+ 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+ 				crun = rid
+ 				redirscale = c.localscl / crun.localscl
+ 			} else {
+ 				return false
+ 			}
+ 		}
+ 		return true
+ 	})
+ 	return false
+ }
+ 
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

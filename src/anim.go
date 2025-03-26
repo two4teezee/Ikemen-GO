@@ -1022,7 +1022,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		}
 
 		drawwindow := &sys.scrrect
-
+		// Char Window
 		if s.window != [4]float32{0, 0, 0, 0} {
 			w := s.window
 			var window [4]int32
@@ -1145,7 +1145,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		drawwindow := &sys.scrrect
-
+		// TODO: If the char has an active window sctrl, shadows should also be affected, in addition to the stage window
 		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} {
 			w := sys.stage.sdw.window
 			var window [4]int32
@@ -1231,7 +1231,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		}
 
 		drawwindow := &sys.scrrect
-
+		// TODO: If the char has an active window sctrl, reflections should also be affected, in addition to the stage window
 		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} {
 			w := sys.stage.reflection.window
 			var window [4]int32

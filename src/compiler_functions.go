@@ -5990,6 +5990,22 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 	return *ret, err
 }
 
+
+func (c *Compiler) window(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*window)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			window_redirectid, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "value",
+			window_, VT_Float, 4, true); err != nil {
+			return err
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 // It's just a Null... Has no effect whatsoever.
 func (c *Compiler) null(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	return nullStateController, nil

@@ -12140,11 +12140,13 @@ const (
 	modifyStageVar_shadow_fade_range
 	modifyStageVar_shadow_xshear
 	modifyStageVar_shadow_offset
+	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
+	modifyStageVar_reflection_window
 )
 
 func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
@@ -12281,6 +12283,11 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_shadow_offset:
 			s.sdw.offset[0] = exp[0].evalF(c)
 			s.sdw.offset[1] = exp[1].evalF(c)
+		case modifyStageVar_shadow_window:
+			s.sdw.window[0] = exp[0].evalF(c)
+			s.sdw.window[1] = exp[1].evalF(c)
+			s.sdw.window[2] = exp[2].evalF(c)
+			s.sdw.window[3] = exp[3].evalF(c)
 		// Reflection group
 		case modifyStageVar_reflection_intensity:
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -12295,7 +12302,12 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_reflection_offset:
 			s.reflection.offset[0] = exp[0].evalF(c)
-			s.reflection.offset[1] = exp[1].evalF(c)
+			s.reflection.offset[1] = exp[1].evalF(c)	
+		case modifyStageVar_reflection_window:
+			s.reflection.window[0] = exp[0].evalF(c)
+			s.reflection.window[1] = exp[1].evalF(c)
+			s.reflection.window[2] = exp[2].evalF(c)
+			s.reflection.window[3] = exp[3].evalF(c)
 		}
 		return true
 	})

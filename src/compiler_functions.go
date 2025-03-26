@@ -5430,6 +5430,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.window",
+			modifyStageVar_shadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "reflection.intensity",
 			modifyStageVar_reflection_intensity, VT_Int, 1, false); err != nil {
 			return err
@@ -5449,6 +5453,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		if err := c.paramValue(is, sc, "reflection.offset",
 			modifyStageVar_reflection_offset, VT_Float, 2, false); err != nil {
 			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.window",
+			modifyStageVar_reflection_window, VT_Float, 4, false); err != nil {
+		return err
 		}
 		return nil
 	})

@@ -7044,6 +7044,7 @@ const (
 	projectile_pausemovetime
 	projectile_ownpal
 	projectile_remappal
+	projectile_window
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7209,6 +7210,8 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			}
 		case projectile_projclsnangle:
 			p.clsnAngle = exp[0].evalF(c)
+		case projectile_window:
+			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7577,6 +7580,14 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
 					p.clsnAngle = v1
+				})
+			case projectile_window:
+				v1 := exp[0].evalF(c) * redirscale
+				v2 := exp[1].evalF(c) * redirscale
+				v3 := exp[2].evalF(c) * redirscale
+				v4 := exp[3].evalF(c) * redirscale
+				eachProj(func(p *Projectile) {
+					p.window = [4]float32{v1, v2, v3, v4}
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)

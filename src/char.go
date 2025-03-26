@@ -1810,6 +1810,7 @@ type Projectile struct {
 	newPos          [3]float32
 	aimg            AfterImage
 	palfx           *PalFX
+	window          [4]float32
 	localscl        float32
 	parentAttackmul [4]float32
 	platform        bool
@@ -2171,6 +2172,13 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		sprs = &sys.spritesLayerN1
 	}
 
+	var pwin = [4]float32{
+		p.window[0] * scl[0],
+		p.window[1] * scl[1],
+		p.window[2] * scl[0],
+		p.window[3] * scl[1],
+	}
+
 	if p.ani != nil {
 		// Add sprite to draw list
 		sd := &SprData{
@@ -2189,7 +2197,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			airOffsetFix: [2]float32{1, 1},
 			projection:   0,
 			fLength:      0,
-			window:       [4]float32{0, 0, 0, 0},
+			window:       pwin,
 		}
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)

@@ -1170,7 +1170,7 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			return err
 		}
 		if err := c.paramValue(is, sc, "offset",
-			modifyShadow_offset, VT_Float, 3, false); err != nil {
+			modifyShadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",
@@ -1189,7 +1189,7 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 			return err
 		}
 		if err := c.paramValue(is, sc, "offset",
-			modifyReflection_offset, VT_Float, 3, false); err != nil {
+			modifyReflection_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",

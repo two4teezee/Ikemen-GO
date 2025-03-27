@@ -1562,10 +1562,10 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	}
 
 	var ewin = [4]float32{
-		e.window[0] * e.localscl * facing,
-		e.window[1] * e.localscl * e.vfacing,
-		e.window[2] * e.localscl * facing,
-		e.window[3] * e.localscl * e.vfacing,
+		e.window[0] * drawscale[0],
+ 		e.window[1] * drawscale[1],
+ 		e.window[2] * drawscale[0],
+ 		e.window[3] * drawscale[1],
 	}
 
 	// Add sprite to draw list
@@ -1810,6 +1810,7 @@ type Projectile struct {
 	newPos          [3]float32
 	aimg            AfterImage
 	palfx           *PalFX
+	window          [4]float32
 	localscl        float32
 	parentAttackmul [4]float32
 	platform        bool
@@ -2171,6 +2172,13 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		sprs = &sys.spritesLayerN1
 	}
 
+	var pwin = [4]float32{
+		p.window[0] * scl[0],
+		p.window[1] * scl[1],
+		p.window[2] * scl[0],
+		p.window[3] * scl[1],
+	}
+
 	if p.ani != nil {
 		// Add sprite to draw list
 		sd := &SprData{
@@ -2189,7 +2197,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			airOffsetFix: [2]float32{1, 1},
 			projection:   0,
 			fLength:      0,
-			window:       [4]float32{0, 0, 0, 0},
+			window:       pwin,
 		}
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
@@ -2438,6 +2446,7 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
+	window              [4]float32
 	ivar                [NumVar + NumSysVar]int32
 	fvar                [NumFvar + NumSysFvar]float32
 	CharSystemVar
@@ -2477,7 +2486,9 @@ type Char struct {
 	groundLevel     float32
 	sizeBox         []float32
 	shadowOffset    [2]float32
+	shadowWindow    [4]float32
 	reflectOffset   [2]float32
+	reflectWindow   [4]float32
 	ownclsnscale    bool
 	pushPriority    int32
 	prevfallflag    bool
@@ -5454,6 +5465,14 @@ func (c *Char) shadYOff(yv float32, isReflect bool) {
 	}
 }
 
+func (c *Char) shadWin(win [4]float32, isReflect bool) {
+	if !isReflect {
+		c.shadowWindow = win
+	} else {
+		c.reflectWindow = win
+	}
+}
+
 func (c *Char) hitAdd(h int32) {
 	if h == 0 {
 		return
@@ -8049,6 +8068,10 @@ func (c *Char) actionPrepare() {
 		// Reset shadow offsets
 		c.shadowOffset = [2]float32{}
 		c.reflectOffset = [2]float32{}
+		// Reset window
+		c.window = [4]float32{}
+		c.shadowWindow = [4]float32{}
+		c.reflectWindow = [4]float32{}
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -8929,6 +8952,14 @@ func (c *Char) cueDraw() {
 				(sys.chars[c.playerNo][0].localcoord / sys.chars[c.animPN][0].localcoord) / (sys.chars[c.playerNo][0].size.yscale / sys.chars[c.animPN][0].size.yscale),
 			}
 		}
+
+		var cwin = [4]float32{
+			c.window[0] * scl[0],
+			c.window[1] * scl[1],
+			c.window[2] * scl[0],
+			c.window[3] * scl[1],
+		}
+
 		// Define sprite data
 		sd := &SprData{
 			anim:         c.anim,
@@ -8946,7 +8977,7 @@ func (c *Char) cueDraw() {
 			airOffsetFix: airOffsetFix,
 			projection:   0,
 			fLength:      0,
-			window:       [4]float32{0, 0, 0, 0},
+			window:       cwin,
 		}
 		if !c.csf(CSF_trans) {
 			sd.alpha[0] = -1
@@ -8993,10 +9024,12 @@ func (c *Char) cueDraw() {
 						c.shadowOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
 					},
+					shadowWindow: c.shadowWindow,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
 					},
+					reflectWindow: c.reflectWindow,
 					fadeOffset: c.offsetY() + drawZoff,
 				})
 			}

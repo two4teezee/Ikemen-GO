@@ -172,7 +172,8 @@ func newCompiler() *Compiler {
 		"roundtimeset":         c.roundTimeSet,
 		"savefile":             c.saveFile,
 		"scoreadd":             c.scoreAdd,
-		"shadowoffset":         c.shadowOffset,
+		"modifyshadow":         c.modifyShadow,
+		"modifyreflection":     c.modifyReflection,
 		"tagin":                c.tagIn,
 		"tagout":               c.tagOut,
 		"targetadd":            c.targetAdd,
@@ -185,6 +186,7 @@ func newCompiler() *Compiler {
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
 		"modifystagebg":        c.modifyStageBG,
+		"window":               c.window,
 	}
 	return c
 }

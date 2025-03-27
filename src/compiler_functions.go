@@ -1163,14 +1163,37 @@ func (c *Compiler) velMul(is IniSection, sc *StateControllerBase, _ int8) (State
 	return *ret, err
 }
 
-func (c *Compiler) shadowOffset(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*shadowOffset)(sc), c.stateSec(is, func() error {
+func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyShadow)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			posSet_redirectid, VT_Int, 1, false); err != nil {
+			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "reflection",
-			shadowoffset_reflection, VT_Bool, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "offset",
+			modifyShadow_offset, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyShadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		return c.posSetSub(is, sc)
+	})
+	return *ret, err
+}
+
+func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyReflection)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "offset",
+			modifyReflection_offset, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyReflection_window, VT_Float, 4, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -2222,6 +2245,10 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 	}
 	if err := c.paramValue(is, sc, "projclsnangle",
 		projectile_projclsnangle, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "window",
+		projectile_window, VT_Float, 4, false); err != nil {
 		return err
 	}
 	// HitDef section
@@ -5430,6 +5457,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.window",
+			modifyStageVar_shadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "reflection.intensity",
 			modifyStageVar_reflection_intensity, VT_Int, 1, false); err != nil {
 			return err
@@ -5449,6 +5480,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		if err := c.paramValue(is, sc, "reflection.offset",
 			modifyStageVar_reflection_offset, VT_Float, 2, false); err != nil {
 			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.window",
+			modifyStageVar_reflection_window, VT_Float, 4, false); err != nil {
+		return err
 		}
 		return nil
 	})
@@ -5976,6 +6011,22 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")
+		}
+		return nil
+	})
+	return *ret, err
+}
+
+
+func (c *Compiler) window(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*window)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			window_redirectid, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "value",
+			window_, VT_Float, 4, true); err != nil {
+			return err
 		}
 		return nil
 	})

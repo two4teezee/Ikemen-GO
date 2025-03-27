@@ -5164,29 +5164,65 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 	return false
 }
 
-type shadowOffset posSet
+type modifyShadow StateControllerBase
 
 const (
-	shadowoffset_reflection = iota + posSet_redirectid + 1
+	modifyShadow_offset byte = iota
+	modifyShadow_window
+	modifyShadow_redirectid
 )
 
-func (sc shadowOffset) Run(c *Char, _ []int32) bool {
+func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	crun := c
 	isReflect := false
+	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case shadowoffset_reflection:
-			isReflect = exp[0].evalB(c)
-		case posSet_x:
-			crun.shadXOff(exp[0].evalF(c), isReflect)
-		case posSet_y:
-			crun.shadYOff(exp[0].evalF(c), isReflect)
-		case posSet_z:
-			// the Y offset is all that's needed
-			exp[0].run(c)
-		case posSet_redirectid:
+		case modifyShadow_offset:
+			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			if len(exp) > 1 {
+				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+			}
+		case modifyShadow_window:
+			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
+				redirscale = c.localscl / crun.localscl
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
+type modifyReflection StateControllerBase
+
+const (
+	modifyReflection_offset byte = iota
+	modifyReflection_window
+	modifyReflection_redirectid
+)
+
+func (sc modifyReflection) Run(c *Char, _ []int32) bool {
+	crun := c
+	isReflect := true
+	var redirscale float32 = 1.0
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case modifyReflection_offset:
+			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			if len(exp) > 1 {
+				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+			}
+		case modifyReflection_window:
+			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+		case modifyReflection_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = c.localscl / crun.localscl
 			} else {
 				return false
 			}
@@ -7044,6 +7080,7 @@ const (
 	projectile_pausemovetime
 	projectile_ownpal
 	projectile_remappal
+	projectile_window
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7209,6 +7246,8 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			}
 		case projectile_projclsnangle:
 			p.clsnAngle = exp[0].evalF(c)
+		case projectile_window:
+			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7577,6 +7616,14 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
 					p.clsnAngle = v1
+				})
+			case projectile_window:
+				v1 := exp[0].evalF(c) * redirscale
+				v2 := exp[1].evalF(c) * redirscale
+				v3 := exp[2].evalF(c) * redirscale
+				v4 := exp[3].evalF(c) * redirscale
+				eachProj(func(p *Projectile) {
+					p.window = [4]float32{v1, v2, v3, v4}
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)
@@ -12140,11 +12187,13 @@ const (
 	modifyStageVar_shadow_fade_range
 	modifyStageVar_shadow_xshear
 	modifyStageVar_shadow_offset
+	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
+	modifyStageVar_reflection_window
 )
 
 func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
@@ -12281,6 +12330,11 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_shadow_offset:
 			s.sdw.offset[0] = exp[0].evalF(c)
 			s.sdw.offset[1] = exp[1].evalF(c)
+		case modifyStageVar_shadow_window:
+			s.sdw.window[0] = exp[0].evalF(c)
+			s.sdw.window[1] = exp[1].evalF(c)
+			s.sdw.window[2] = exp[2].evalF(c)
+			s.sdw.window[3] = exp[3].evalF(c)
 		// Reflection group
 		case modifyStageVar_reflection_intensity:
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -12295,7 +12349,12 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_reflection_offset:
 			s.reflection.offset[0] = exp[0].evalF(c)
-			s.reflection.offset[1] = exp[1].evalF(c)
+			s.reflection.offset[1] = exp[1].evalF(c)	
+		case modifyStageVar_reflection_window:
+			s.reflection.window[0] = exp[0].evalF(c)
+			s.reflection.window[1] = exp[1].evalF(c)
+			s.reflection.window[2] = exp[2].evalF(c)
+			s.reflection.window[3] = exp[3].evalF(c)
 		}
 		return true
 	})
@@ -12936,6 +12995,33 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type window StateControllerBase
+ 
+ const (
+ 	window_ byte = iota
+ 	window_redirectid
+ )
+ 
+ func (sc window) Run(c *Char, _ []int32) bool {
+ 	crun := c
+ 	var redirscale float32 = 1.0
+ 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+ 		switch paramID {
+ 		case window_:
+ 			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+ 		case window_redirectid:
+ 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+ 				crun = rid
+ 				redirscale = c.localscl / crun.localscl
+ 			} else {
+ 				return false
+ 			}
+ 		}
+ 		return true
+ 	})
+ 	return false
+ }
+ 
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

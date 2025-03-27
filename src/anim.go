@@ -1022,8 +1022,8 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		}
 
 		drawwindow := &sys.scrrect
-
-		if s.window[0] != 0 || s.window[1] != 0 || s.window[2] != 0 || s.window[3] != 0 {
+		// Sprite window, which can be from the Char, Explod, or Projectile
+		if s.window != [4]float32{0, 0, 0, 0} {
 			w := s.window
 			var window [4]int32
 
@@ -1056,7 +1056,9 @@ type ShadowSprite struct {
 	shadowColor   int32
 	shadowAlpha   int32
 	shadowOffset  [2]float32
+	shadowWindow  [4]float32
 	reflectOffset [2]float32
+	reflectWindow [4]float32
 	fadeOffset    float32
 }
 
@@ -1139,16 +1141,22 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			offsetX += xrotoff
 		}
 
-		// With a shearing effect, the Y position should also affect the X position
-		if xshear != 0 && s.pos[1] != 0 {
+		// With a shearing effect, the Y position should also affect the X position when not grounded
+		if xshear != 0 && s.pos[1] != s.fadeOffset {
 			offsetX += -s.pos[1] * xshear * SignF(sys.stage.sdw.yscale)
 		}
 
 		drawwindow := &sys.scrrect
-
-		if s.window[0] != 0 || s.window[1] != 0 || s.window[2] != 0 || s.window[3] != 0 {
-			w := s.window
+		// TODO: If the char has an active window sctrl, shadows should also be affected, in addition to the stage window
+		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} || s.shadowWindow != [4]float32 {0, 0, 0, 0} {
+			var w [4]float32
 			var window [4]int32
+		
+			if s.shadowWindow != [4]float32{0, 0, 0, 0} {
+				w = s.shadowWindow
+			} else {
+				w = sys.stage.sdw.window
+			}
 
 			w[1], w[3] = -w[1], -w[3]
 			if w[0] > w[2] {
@@ -1158,8 +1166,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 				w[1], w[3] = w[3], w[1]
 			}
 
-			window[0] = int32((sys.cam.Offset[0] - ((x - s.pos[0] - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y - (s.pos[1]*sys.stage.sdw.yscale-s.shadowOffset[1])*scl + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
+			window[0] = int32((sys.cam.Offset[0] - ((x - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+ 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.sdw.yscale)
 
@@ -1216,7 +1224,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		offsetY := s.reflectOffset[1] + sys.stage.reflection.offset[1]
 
 		// Rotation offset
-		xrotoff := xshear * sys.stage.reflection.yscale * (float32(s.anim.spr.Size[1]) * s.scl[1])
+		xrotoff := xshear * sys.stage.reflection.yscale * (float32(s.anim.spr.Size[1]) * s.scl[1] * scl)
 
 		if s.rot.angle != 0 {
 			xshear = -xshear
@@ -1225,41 +1233,45 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 			offsetX += xrotoff
 		}
 
-		// With a shearing effect, the Y position should also affect the X position
-		if xshear != 0 && s.pos[1] != 0 {
+		// With a shearing effect, the Y position should also affect the X position when not grounded
+		if xshear != 0 && s.pos[1] != s.fadeOffset {
 			offsetX += -s.pos[1] * xshear * SignF(sys.stage.reflection.yscale)
 		}
 
 		drawwindow := &sys.scrrect
-
-		if s.window[0] != 0 || s.window[1] != 0 || s.window[2] != 0 || s.window[3] != 0 {
-			w := s.window
+		// TODO: If the char has an active window sctrl, reflections should also be affected, in addition to the stage window
+		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} || s.reflectWindow != [4]float32{0, 0, 0, 0} {
+			var w [4]float32
 			var window [4]int32
+		
+			if s.reflectWindow != [4]float32{0, 0, 0, 0} {
+				w = s.reflectWindow
+			} else {
+				w = sys.stage.reflection.window
+			}
 
 			w[1], w[3] = -w[1], -w[3]
 			if w[0] > w[2] {
 				w[0], w[2] = w[2], w[0]
 			}
-			if w[1] > w[3] {
+			if (w[1] > w[3] && sys.stage.reflection.yscale > 0) || (w[1] < w[3] && sys.stage.reflection.yscale < 0) {
 				w[1], w[3] = w[3], w[1]
 			}
 
-			window[0] = int32((scl*(sys.cam.Offset[0]/scl-(x-s.pos[0])+float32(w[0])) + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32(scl * ((sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset()-y)/scl - (s.pos[1] - s.shadowOffset[1]) + float32(w[1])) * sys.heightScale)
+			window[0] = int32((sys.cam.Offset[0] - ((x - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+ 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.reflection.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
-			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale)
+			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.reflection.yscale)
 
 			drawwindow = &window
 		}
 
 		s.anim.Draw(drawwindow,
 			sys.cam.Offset[0]/scl-(x-s.pos[0]-offsetX),
-			(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/scl-y/scl-
-				(s.pos[1]*sys.stage.reflection.yscale-offsetY),
+			(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/scl-y/scl-(s.pos[1]*sys.stage.reflection.yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*sys.stage.reflection.yscale, xshear, s.rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, s.airOffsetFix,
-			s.projection, s.fLength, color, true)
+			s.fx, s.oldVer, s.facing, s.airOffsetFix, s.projection, s.fLength, color, true)
 	}
 }
 

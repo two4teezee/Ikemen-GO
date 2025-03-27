@@ -1148,10 +1148,10 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		drawwindow := &sys.scrrect
 		// TODO: If the char has an active window sctrl, shadows should also be affected, in addition to the stage window
-		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} || s.shadowWindow != [4]float32 {0, 0, 0, 0} {
+		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} || s.shadowWindow != [4]float32{0, 0, 0, 0} {
 			var w [4]float32
 			var window [4]int32
-		
+
 			if s.shadowWindow != [4]float32{0, 0, 0, 0} {
 				w = s.shadowWindow
 			} else {
@@ -1167,7 +1167,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			}
 
 			window[0] = int32((sys.cam.Offset[0] - ((x - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
- 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
+			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.sdw.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.sdw.yscale)
 
@@ -1243,7 +1243,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} || s.reflectWindow != [4]float32{0, 0, 0, 0} {
 			var w [4]float32
 			var window [4]int32
-		
+
 			if s.reflectWindow != [4]float32{0, 0, 0, 0} {
 				w = s.reflectWindow
 			} else {
@@ -1259,7 +1259,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 			}
 
 			window[0] = int32((sys.cam.Offset[0] - ((x - offsetX) * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
- 			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.reflection.yscale*scl) * sys.heightScale)
+			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*sys.stage.reflection.yscale*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * sys.stage.reflection.yscale)
 

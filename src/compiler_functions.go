@@ -5483,7 +5483,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramValue(is, sc, "reflection.window",
 			modifyStageVar_reflection_window, VT_Float, 4, false); err != nil {
-		return err
+			return err
 		}
 		return nil
 	})
@@ -6016,7 +6016,6 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 	})
 	return *ret, err
 }
-
 
 func (c *Compiler) window(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*window)(sc), c.stateSec(is, func() error {

@@ -1563,9 +1563,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 
 	var ewin = [4]float32{
 		e.window[0] * drawscale[0],
- 		e.window[1] * drawscale[1],
- 		e.window[2] * drawscale[0],
- 		e.window[3] * drawscale[1],
+		e.window[1] * drawscale[1],
+		e.window[2] * drawscale[0],
+		e.window[3] * drawscale[1],
 	}
 
 	// Add sprite to draw list
@@ -9030,7 +9030,7 @@ func (c *Char) cueDraw() {
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
 					},
 					reflectWindow: c.reflectWindow,
-					fadeOffset: c.offsetY() + drawZoff,
+					fadeOffset:    c.offsetY() + drawZoff,
 				})
 			}
 		}

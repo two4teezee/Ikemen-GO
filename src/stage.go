@@ -1448,9 +1448,9 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.sdw.offset[0] = src.sdw.offset[0]
 	s.sdw.offset[1] = src.sdw.offset[1]
 	s.sdw.window[0] = src.sdw.window[0]
- 	s.sdw.window[1] = src.sdw.window[1]
- 	s.sdw.window[2] = src.sdw.window[2]
- 	s.sdw.window[3] = src.sdw.window[3]
+	s.sdw.window[1] = src.sdw.window[1]
+	s.sdw.window[2] = src.sdw.window[2]
+	s.sdw.window[3] = src.sdw.window[3]
 	s.reflection.intensity = src.reflection.intensity
 	s.reflection.offset[0] = src.reflection.offset[0]
 	s.reflection.offset[1] = src.reflection.offset[1]

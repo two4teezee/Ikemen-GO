@@ -5179,9 +5179,9 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyShadow_offset:
-			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
 			}
 		case modifyShadow_window:
 			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
@@ -5213,9 +5213,9 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyReflection_offset:
-			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
 			}
 		case modifyReflection_window:
 			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
@@ -12349,7 +12349,7 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_reflection_offset:
 			s.reflection.offset[0] = exp[0].evalF(c)
-			s.reflection.offset[1] = exp[1].evalF(c)	
+			s.reflection.offset[1] = exp[1].evalF(c)
 		case modifyStageVar_reflection_window:
 			s.reflection.window[0] = exp[0].evalF(c)
 			s.reflection.window[1] = exp[1].evalF(c)
@@ -12996,32 +12996,32 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 }
 
 type window StateControllerBase
- 
- const (
- 	window_ byte = iota
- 	window_redirectid
- )
- 
- func (sc window) Run(c *Char, _ []int32) bool {
- 	crun := c
- 	var redirscale float32 = 1.0
- 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
- 		switch paramID {
- 		case window_:
- 			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
- 		case window_redirectid:
- 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
- 				crun = rid
- 				redirscale = c.localscl / crun.localscl
- 			} else {
- 				return false
- 			}
- 		}
- 		return true
- 	})
- 	return false
- }
- 
+
+const (
+	window_ byte = iota
+	window_redirectid
+)
+
+func (sc window) Run(c *Char, _ []int32) bool {
+	crun := c
+	var redirscale float32 = 1.0
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case window_:
+			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+		case window_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = c.localscl / crun.localscl
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

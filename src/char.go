@@ -4810,7 +4810,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 }
 
 func (c *Char) autoTurn() {
-	if c.helperIndex == 0 && (c.ss.stateType == ST_S || c.ss.stateType == ST_C) && c.shouldFaceP2() {
+	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn &&
+		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && c.shouldFaceP2() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
@@ -4827,12 +4828,6 @@ func (c *Char) autoTurn() {
 
 // Check if P2 enemy is behind the player and the player is allowed to face them
 func (c *Char) shouldFaceP2() bool {
-	// Turning disabled
-	if c.asf(ASF_noautoturn) || !sys.stage.autoturn {
-		return false
-	}
-
-	// Check if P2 enemy is behind the player
 	e := c.p2()
 	if e != nil && !e.asf(ASF_noturntarget) {
 		distX := c.rdDistX(e, c).ToF()
@@ -4848,7 +4843,6 @@ func (c *Char) shouldFaceP2() bool {
 			}
 		}
 	}
-
 	return false
 }
 

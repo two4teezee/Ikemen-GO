@@ -2486,7 +2486,9 @@ type Char struct {
 	groundLevel     float32
 	sizeBox         []float32
 	shadowOffset    [2]float32
+	shadowWindow    [4]float32
 	reflectOffset   [2]float32
+	reflectWindow   [4]float32
 	ownclsnscale    bool
 	pushPriority    int32
 	prevfallflag    bool
@@ -5463,6 +5465,14 @@ func (c *Char) shadYOff(yv float32, isReflect bool) {
 	}
 }
 
+func (c *Char) shadWin(win [4]float32, isReflect bool) {
+	if !isReflect {
+		c.shadowWindow = win
+	} else {
+		c.reflectWindow = win
+	}
+}
+
 func (c *Char) hitAdd(h int32) {
 	if h == 0 {
 		return
@@ -8060,6 +8070,8 @@ func (c *Char) actionPrepare() {
 		c.reflectOffset = [2]float32{}
 		// Reset window
 		c.window = [4]float32{}
+		c.shadowWindow = [4]float32{}
+		c.reflectWindow = [4]float32{}
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -9012,10 +9024,12 @@ func (c *Char) cueDraw() {
 						c.shadowOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
 					},
+					shadowWindow: c.shadowWindow,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
 					},
+					reflectWindow: c.reflectWindow,
 					fadeOffset: c.offsetY() + drawZoff,
 				})
 			}

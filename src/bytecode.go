@@ -5164,29 +5164,65 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 	return false
 }
 
-type shadowOffset posSet
+type modifyShadow StateControllerBase
 
 const (
-	shadowoffset_reflection = iota + posSet_redirectid + 1
+	modifyShadow_offset byte = iota
+	modifyShadow_window
+	modifyShadow_redirectid
 )
 
-func (sc shadowOffset) Run(c *Char, _ []int32) bool {
+func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	crun := c
 	isReflect := false
+	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case shadowoffset_reflection:
-			isReflect = exp[0].evalB(c)
-		case posSet_x:
-			crun.shadXOff(exp[0].evalF(c), isReflect)
-		case posSet_y:
-			crun.shadYOff(exp[0].evalF(c), isReflect)
-		case posSet_z:
-			// the Y offset is all that's needed
-			exp[0].run(c)
-		case posSet_redirectid:
+		case modifyShadow_offset:
+			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			if len(exp) > 1 {
+				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+			}
+		case modifyShadow_window:
+			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
+				redirscale = c.localscl / crun.localscl
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
+type modifyReflection StateControllerBase
+
+const (
+	modifyReflection_offset byte = iota
+	modifyReflection_window
+	modifyReflection_redirectid
+)
+
+func (sc modifyReflection) Run(c *Char, _ []int32) bool {
+	crun := c
+	isReflect := true
+	var redirscale float32 = 1.0
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case modifyReflection_offset:
+			crun.shadXOff(exp[0].evalF(c) * redirscale, isReflect)
+			if len(exp) > 1 {
+				crun.shadYOff(exp[1].evalF(c) * redirscale, isReflect)
+			}
+		case modifyReflection_window:
+			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+		case modifyReflection_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = c.localscl / crun.localscl
 			} else {
 				return false
 			}

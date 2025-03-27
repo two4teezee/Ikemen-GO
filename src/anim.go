@@ -1022,7 +1022,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		}
 
 		drawwindow := &sys.scrrect
-		// Char Window
+		// Sprite window, which can be from the Char, Explod, or Projectile
 		if s.window != [4]float32{0, 0, 0, 0} {
 			w := s.window
 			var window [4]int32
@@ -1056,7 +1056,9 @@ type ShadowSprite struct {
 	shadowColor   int32
 	shadowAlpha   int32
 	shadowOffset  [2]float32
+	shadowWindow  [4]float32
 	reflectOffset [2]float32
+	reflectWindow [4]float32
 	fadeOffset    float32
 }
 
@@ -1146,9 +1148,15 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		drawwindow := &sys.scrrect
 		// TODO: If the char has an active window sctrl, shadows should also be affected, in addition to the stage window
-		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} {
-			w := sys.stage.sdw.window
+		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} || s.shadowWindow != [4]float32 {0, 0, 0, 0} {
+			var w [4]float32
 			var window [4]int32
+		
+			if s.shadowWindow != [4]float32{0, 0, 0, 0} {
+				w = s.shadowWindow
+			} else {
+				w = sys.stage.sdw.window
+			}
 
 			w[1], w[3] = -w[1], -w[3]
 			if w[0] > w[2] {
@@ -1232,9 +1240,15 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 
 		drawwindow := &sys.scrrect
 		// TODO: If the char has an active window sctrl, reflections should also be affected, in addition to the stage window
-		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} {
-			w := sys.stage.reflection.window
+		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} || s.reflectWindow != [4]float32{0, 0, 0, 0} {
+			var w [4]float32
 			var window [4]int32
+		
+			if s.reflectWindow != [4]float32{0, 0, 0, 0} {
+				w = s.reflectWindow
+			} else {
+				w = sys.stage.reflection.window
+			}
 
 			w[1], w[3] = -w[1], -w[3]
 			if w[0] > w[2] {

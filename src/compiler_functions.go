@@ -1163,14 +1163,37 @@ func (c *Compiler) velMul(is IniSection, sc *StateControllerBase, _ int8) (State
 	return *ret, err
 }
 
-func (c *Compiler) shadowOffset(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*shadowOffset)(sc), c.stateSec(is, func() error {
+func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyShadow)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			posSet_redirectid, VT_Int, 1, false); err != nil {
+			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "reflection",
-			shadowoffset_reflection, VT_Bool, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "offset",
+			modifyShadow_offset, VT_Float, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyShadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		return c.posSetSub(is, sc)
+	})
+	return *ret, err
+}
+
+func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyReflection)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "offset",
+			modifyReflection_offset, VT_Float, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyReflection_window, VT_Float, 4, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)

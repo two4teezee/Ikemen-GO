@@ -171,19 +171,19 @@ func (c *Camera) SaveRestoreTracking() {
 	} else {
 		c.prevHighest = c.highest
 	}
-	
+
 	if c.lowest == -math.MaxFloat32 {
 		c.lowest = c.prevLowest
 	} else {
 		c.prevLowest = c.lowest
 	}
-	
+
 	if c.leftest == math.MaxFloat32 {
 		c.leftest = c.prevLeftest
 	} else {
 		c.prevLeftest = c.leftest
 	}
-	
+
 	if c.rightest == -math.MaxFloat32 {
 		c.rightest = c.prevRightest
 	} else {
@@ -315,8 +315,8 @@ func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale f
 						diffRight = 0
 					}
 					if c.halfWidth*2/((targetRight+diffRight)-(targetLeft+diffLeft)) > maxScale {
-						tmp := diffLeft/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale)
-						tmp2 := diffRight/(diffLeft-diffRight)*((targetRight+diffRight)-(targetLeft+diffLeft)-c.halfWidth*2/maxScale)
+						tmp := diffLeft / (diffLeft - diffRight) * ((targetRight + diffRight) - (targetLeft + diffLeft) - c.halfWidth*2/maxScale)
+						tmp2 := diffRight / (diffLeft - diffRight) * ((targetRight + diffRight) - (targetLeft + diffLeft) - c.halfWidth*2/maxScale)
 						diffLeft += tmp
 						diffRight += tmp2
 					}
@@ -393,8 +393,8 @@ func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale f
 			if !c.roundstart {
 				diff := float32(sys.gameWidth) / 3200
 				for i := 0; i < 3; i++ {
-					newLeft = newLeft+(targetLeft-newLeft)*0.05*sys.turbo*c.tensionvel
-					newRight = newRight+(targetRight-newRight)*0.05*sys.turbo*c.tensionvel
+					newLeft = newLeft + (targetLeft-newLeft)*0.05*sys.turbo*c.tensionvel
+					newRight = newRight + (targetRight-newRight)*0.05*sys.turbo*c.tensionvel
 					diffLeft := targetLeft - newLeft
 					diffRight := targetRight - newRight
 

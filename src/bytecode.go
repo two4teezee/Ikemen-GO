@@ -7013,8 +7013,8 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 			return false
 		}
 		// WinMugen P1 hitpause was off by 1
-		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime - 1)
-		crun.hitdef.guard_pausetime = Clamp(crun.hitdef.guard_pausetime, 0, crun.hitdef.guard_pausetime - 1)
+		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime-1)
+		crun.hitdef.guard_pausetime = Clamp(crun.hitdef.guard_pausetime, 0, crun.hitdef.guard_pausetime-1)
 	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
@@ -7051,8 +7051,8 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	// WinMugen compatibility
 	if c.gi().ikemenver[0] == 0 && c.gi().ikemenver[0] == 0 && c.gi().mugenver[0] != 1 { // Not crun
 		// WinMugen hitpause was off by 1
-		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime - 1)
-		crun.hitdef.shaketime = Clamp(crun.hitdef.shaketime, 0, crun.hitdef.shaketime - 1)
+		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime-1)
+		crun.hitdef.shaketime = Clamp(crun.hitdef.shaketime, 0, crun.hitdef.shaketime-1)
 	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false

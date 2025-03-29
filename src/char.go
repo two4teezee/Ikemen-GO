@@ -3516,7 +3516,7 @@ func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
 		// Clsn scale depends on the animation owner's scale, so it must be updated
 		c.updateClsnScale()
 		// Update reference frame
-		c.curFrame = a.CurrentFrame()
+		c.updateCurFrame()
 	}
 }
 
@@ -3542,7 +3542,7 @@ func (c *Char) changeAnim2(animNo int32, playerNo int, ffx string) {
 func (c *Char) setAnimElem(e int32) {
 	if c.anim != nil {
 		c.anim.SetAnimElem(e)
-		c.curFrame = c.anim.CurrentFrame()
+		c.updateCurFrame()
 		if int(e) < 0 {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to negative animelem"))
 		} else if int(e) > len(c.anim.frames) {
@@ -3821,6 +3821,15 @@ func (c *Char) animTime() int32 {
 		return c.anim.AnimTime()
 	}
 	return 0
+}
+
+// Update reference animation frame
+func (c *Char) updateCurFrame() {
+	if c.anim != nil {
+		c.curFrame = c.anim.CurrentFrame()
+	} else {
+		c.curFrame = nil
+	}
 }
 
 func (c *Char) backEdge() float32 {
@@ -7630,6 +7639,10 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 }
 
 func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
+	// Safety checks
+	if c == nil || getter == nil || c.anim == nil || getter.anim == nil {
+		return false
+	}
 
 	// What this does is normally check the Clsn in the currently displayed frame
 	// But in the ClsnOverlap trigger, we must check the frame that *will* be displayed instead
@@ -7640,7 +7653,7 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 		getterframe = getter.anim.CurrentFrame()
 	}
 
-	// Nil anim & standby check.
+	// Nil anim & standby check
 	if charframe == nil || getterframe == nil ||
 		c.scf(SCF_standby) || getter.scf(SCF_standby) ||
 		c.scf(SCF_disabled) || getter.scf(SCF_disabled) {
@@ -8332,11 +8345,7 @@ func (c *Char) actionRun() {
 	}
 	// Commit current animation frame to memory
 	// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
-	if c.anim != nil {
-		c.curFrame = c.anim.CurrentFrame()
-	} else {
-		c.curFrame = nil
-	}
+	c.updateCurFrame()
 	c.xScreenBound()
 	c.zDepthBound()
 	if !c.pauseBool {
@@ -8585,14 +8594,17 @@ func (c *Char) tick() {
 	}
 	// Step animation
 	if c.acttmp > 0 || !c.pauseBool && (!c.hitPause() || c.asf(ASF_animatehitpause)) {
+		// Update reference frame first
+		c.updateCurFrame()
+		// Animate
 		if c.anim != nil && !c.asf(ASF_animfreeze) {
 			c.anim.Action()
 		}
-		c.animBackup = c.anim
 		// Save last valid drawing frame
 		// This step prevents the char from disappearing when changing animation during hitpause
 		// Because the whole c.anim is used for rendering, saving just the sprite is not enough
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1550
+		c.animBackup = c.anim
 	}
 	if c.bindTime > 0 {
 		if c.isTargetBound() {

@@ -3305,12 +3305,12 @@ func triggerFunctions(l *lua.LState) {
 			case "size":
 				v = lua.LNumber(sys.debugWC.sizeBox[offset])
 			case "clsn1":
-				clsn := sys.debugWC.anim.CurrentFrame().Clsn1()
+				clsn := sys.debugWC.curFrame.Clsn1()
 				if idx >= 0 && idx < len(clsn)/4 {
 					v = lua.LNumber(clsn[idx*4+offset])
 				}
 			case "clsn2":
-				clsn := sys.debugWC.anim.CurrentFrame().Clsn2()
+				clsn := sys.debugWC.curFrame.Clsn2()
 				if idx >= 0 && idx < len(clsn)/4 {
 					v = lua.LNumber(clsn[idx*4+offset])
 				}

@@ -2771,7 +2771,10 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		OC_ex_animelemvar_xscale, OC_ex_animelemvar_yoffset, OC_ex_animelemvar_yscale,
 		OC_ex_animelemvar_numclsn1, OC_ex_animelemvar_numclsn2:
 		// Check for valid animation frame
-		f := c.anim.CurrentFrame()
+		var f *AnimFrame
+		if c.anim != nil {
+			f = c.anim.CurrentFrame()
+		}
 		// Handle output
 		if f != nil {
 			switch opc {

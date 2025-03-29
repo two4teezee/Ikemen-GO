@@ -10436,6 +10436,12 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) {
 						if ht := hitTypeGet(c, &c.hitdef, [3]float32{}, 0, c.attackMul); ht != 0 {
 							mvc := ht > 0 || c.hitdef.reversal_attr > 0
+
+							// Attacker hitpauses were off by 1 frame in WinMugen. Mugen 1.0 fixed it
+							// The way this should actually happen is that WinMugen chars have 1 subtracted from their hitpause in bytecode.go
+							// But because of the order that events happen in in Ikemen, it must be fixed the other way around
+							hpfix := c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0 || c.gi().mugenver[0] == 1
+
 							if Abs(ht) == 1 {
 								if mvc {
 									c.mctype = MC_Hit
@@ -10504,12 +10510,12 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 										getter.hittmp = -1
 									}
 									if !getter.csf(CSF_gethit) {
-										getter.hitPauseTime = Max(0, c.hitdef.shaketime)
+										getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(hpfix))
 									}
 								}
 								if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 									getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-									c.hitPauseTime = Max(0, c.hitdef.pausetime)
+									c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(hpfix))
 									// In Mugen the hitpause only actually takes effect in the next frame
 								}
 								c.uniqHitCount++
@@ -10519,7 +10525,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 									c.mctime = -1
 								}
 								if !c.csf(CSF_gethit) {
-									c.hitPauseTime = Max(0, c.hitdef.guard_pausetime)
+									c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(hpfix))
 								}
 							}
 							if c.hitdef.hitonce > 0 {

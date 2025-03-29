@@ -7004,17 +7004,12 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		sc.runSub(c, &crun.hitdef, paramID, exp)
 		return true
 	})
-	// WinMugen compatibility
-	if c.gi().ikemenver[0] == 0 && c.gi().ikemenver[0] == 0 && c.gi().mugenver[0] != 1 { // Not crun
-		// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
-		// on the attacker's side is greater than 1, it no longer executes every frame.
-		if crun.hitdef.attr&int32(AT_AT) != 0 && crun.moveContact() == 1 && crun.hitdef.pausetime > 0 {
-			crun.hitdef.attr = 0
-			return false
-		}
-		// WinMugen P1 hitpause was off by 1
-		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime-1)
-		crun.hitdef.guard_pausetime = Clamp(crun.hitdef.guard_pausetime, 0, crun.hitdef.guard_pausetime-1)
+	// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
+	// on the attacker's side is greater than 1, it no longer executes every frame
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 // Not crun
+		crun.hitdef.attr&int32(AT_AT) != 0 && crun.moveContact() == 1 && crun.hitdef.pausetime > 0 { // crun
+		crun.hitdef.attr = 0
+		return false
 	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
@@ -7048,12 +7043,6 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	// WinMugen compatibility
-	if c.gi().ikemenver[0] == 0 && c.gi().ikemenver[0] == 0 && c.gi().mugenver[0] != 1 { // Not crun
-		// WinMugen hitpause was off by 1
-		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime-1)
-		crun.hitdef.shaketime = Clamp(crun.hitdef.shaketime, 0, crun.hitdef.shaketime-1)
-	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
 }

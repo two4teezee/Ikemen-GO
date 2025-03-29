@@ -1373,7 +1373,7 @@ func (e *Explod) setPos(c *Char) {
 	case PT_P1:
 		pPos(c)
 	case PT_P2:
-		if p2 := sys.charList.enemyNear(c, 0, true, false); p2 != nil {
+		if p2 := c.p2(); p2 != nil {
 			pPos(p2)
 		}
 	case PT_Front, PT_Back:
@@ -2388,6 +2388,7 @@ type Char struct {
 	name                string
 	palfx               *PalFX
 	anim                *Animation
+	animBackup          *Animation
 	curFrame            *AnimFrame
 	cmd                 []CommandList
 	ss                  StateState
@@ -2441,6 +2442,7 @@ type Char struct {
 	hitdefTargetsBuffer []int32
 	enemyNearList       []*Char // Enemies retrieved by EnemyNear
 	p2EnemyList         []*Char // Enemies retrieved by P2, P4, P6 and P8
+	p2EnemyBackup       *Char   // Backup of last valid P2 enemy
 	pos                 [3]float32
 	interPos            [3]float32 // Interpolated position. For the visuals when game and logic speed are different
 	oldPos              [3]float32
@@ -2672,6 +2674,7 @@ func (c *Char) clearNextRound() {
 // Clear data when loading a new instance of the same character
 func (c *Char) clearCachedData() {
 	c.anim = nil
+	c.animBackup = nil
 	c.curFrame = nil
 	c.hoIdx = -1
 	c.mctype, c.mctime = MC_Hit, 0
@@ -3489,13 +3492,14 @@ func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
 		c.animPN = c.playerNo
 		c.prevAnimNo = c.animNo
 		c.animNo = animNo
+
 		// If using ChangeAnim2, the animation is changed but the sff is kept
 		if alt {
 			c.animPN = playerNo
 			a.sff = sys.cgi[c.playerNo].sff
 			a.palettedata = &sys.cgi[c.playerNo].palettedata.palList
-			// Fix palette if anim doesn't belong to char and sff header version is 1.x
 		} else if c.playerNo != playerNo && c.anim.sff.header.Ver0 == 1 {
+			// Fix palette if anim doesn't belong to char and sff header version is 1.x
 			di := c.anim.palettedata.PalTable[[...]int16{1, 1}]
 			spr := c.anim.sff.GetSprite(0, 0)
 			if spr != nil {
@@ -3506,13 +3510,13 @@ func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
 				c.anim.palettedata.Remap(spr.palidx, di)
 			}
 		}
+
 		// Update animation local scale
 		c.animlocalscl = 320 / sys.chars[c.animPN][0].localcoord
 		// Clsn scale depends on the animation owner's scale, so it must be updated
 		c.updateClsnScale()
-		if c.hitPause() {
-			c.curFrame = a.CurrentFrame()
-		}
+		// Update reference frame
+		c.updateCurFrame()
 	}
 }
 
@@ -3538,7 +3542,7 @@ func (c *Char) changeAnim2(animNo int32, playerNo int, ffx string) {
 func (c *Char) setAnimElem(e int32) {
 	if c.anim != nil {
 		c.anim.SetAnimElem(e)
-		c.curFrame = c.anim.CurrentFrame()
+		c.updateCurFrame()
 		if int(e) < 0 {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to negative animelem"))
 		} else if int(e) > len(c.anim.frames) {
@@ -3768,7 +3772,13 @@ func (c *Char) enemyNearTrigger(n int32) *Char {
 
 // Get the "P2" enemy reference
 func (c *Char) p2() *Char {
-	return sys.charList.enemyNear(c, 0, true, false)
+	p := sys.charList.enemyNear(c, 0, true, false)
+	// Cache last valid P2 enemy
+	// Mugen seems to do this for the sake of auto turning before win poses
+	if p != nil {
+		c.p2EnemyBackup = p
+	}
+	return p
 }
 
 func (c *Char) aiLevel() float32 {
@@ -3811,6 +3821,15 @@ func (c *Char) animTime() int32 {
 		return c.anim.AnimTime()
 	}
 	return 0
+}
+
+// Update reference animation frame
+func (c *Char) updateCurFrame() {
+	if c.anim != nil {
+		c.curFrame = c.anim.CurrentFrame()
+	} else {
+		c.curFrame = nil
+	}
 }
 
 func (c *Char) backEdge() float32 {
@@ -4810,7 +4829,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 }
 
 func (c *Char) autoTurn() {
-	if c.helperIndex == 0 && (c.ss.stateType == ST_S || c.ss.stateType == ST_C) && c.shouldFaceP2() {
+	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn &&
+		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && c.shouldFaceP2() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
@@ -4827,13 +4847,15 @@ func (c *Char) autoTurn() {
 
 // Check if P2 enemy is behind the player and the player is allowed to face them
 func (c *Char) shouldFaceP2() bool {
-	// Turning disabled
-	if c.asf(ASF_noautoturn) || !sys.stage.autoturn {
-		return false
+	// Face P2 normally
+	e := c.p2()
+
+	// If P2 was not found, fall back to the last valid one
+	// Maybe this should only happen during win poses?
+	if e == nil {
+		e = c.p2EnemyBackup
 	}
 
-	// Check if P2 enemy is behind the player
-	e := c.p2()
 	if e != nil && !e.asf(ASF_noturntarget) {
 		distX := c.rdDistX(e, c).ToF()
 		if sys.zEnabled() {
@@ -4848,7 +4870,6 @@ func (c *Char) shouldFaceP2() bool {
 			}
 		}
 	}
-
 	return false
 }
 
@@ -5141,7 +5162,7 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 		p[2] = c.pos[2]*(c.localscl/localscl) + pos[2]
 		*dstFacing *= c.facing
 	case PT_P2:
-		if p2 := sys.charList.enemyNear(c, 0, true, false); p2 != nil {
+		if p2 := c.p2(); p2 != nil {
 			p[0] = p2.pos[0]*(p2.localscl/localscl) + pos[0]*p2.facing
 			p[1] = p2.pos[1]*(p2.localscl/localscl) + pos[1]
 			p[2] = p2.pos[2]*(p2.localscl/localscl) + pos[2]
@@ -7543,8 +7564,12 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 	if p.ani == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
+
+	// Get projectile animation frame
 	frm := p.ani.CurrentFrame()
-	if frm == nil {
+
+	// Check if animation frames are valid
+	if frm == nil || c.curFrame == nil {
 		return false
 	}
 
@@ -7577,7 +7602,9 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 			}
 		} else if cbox == 3 {
 			clsn2 = c.sizeBox
-			// Size box always exists
+			if clsn2 == nil && p.hitdef.p2clsnrequire == 3 {
+				return false // Size box should alway exist, but...
+			}
 		} else {
 			clsn2 = c.curFrame.Clsn2()
 			if clsn2 == nil && p.hitdef.p2clsnrequire == 2 {
@@ -7612,6 +7639,10 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 }
 
 func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
+	// Safety checks
+	if c == nil || getter == nil || c.anim == nil || getter.anim == nil {
+		return false
+	}
 
 	// What this does is normally check the Clsn in the currently displayed frame
 	// But in the ClsnOverlap trigger, we must check the frame that *will* be displayed instead
@@ -7622,7 +7653,7 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 		getterframe = getter.anim.CurrentFrame()
 	}
 
-	// Nil anim & standby check.
+	// Nil anim & standby check
 	if charframe == nil || getterframe == nil ||
 		c.scf(SCF_standby) || getter.scf(SCF_standby) ||
 		c.scf(SCF_disabled) || getter.scf(SCF_disabled) {
@@ -8208,13 +8239,6 @@ func (c *Char) actionRun() {
 			if c.mctime > 0 {
 				c.mctime++
 			}
-			// Commit current animation frame to memory
-			// This frame will be used for drawing, hit detection and as reference for Lua scripts
-			if c.anim != nil {
-				c.curFrame = c.anim.CurrentFrame()
-			} else {
-				c.curFrame = nil
-			}
 		}
 		if c.ghv.damage != 0 {
 			// HitOverride KeepState flag still allows damage to get through
@@ -8319,6 +8343,9 @@ func (c *Char) actionRun() {
 		}
 		c.dustTime++
 	}
+	// Commit current animation frame to memory
+	// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
+	c.updateCurFrame()
 	c.xScreenBound()
 	c.zDepthBound()
 	if !c.pauseBool {
@@ -8388,33 +8415,42 @@ func (c *Char) actionFinish() {
 
 func (c *Char) track() {
 	if c.trackableByCamera() {
-		min, max := c.widthEdge[0], -c.widthEdge[1]
-		if c.facing > 0 {
-			min, max = -max, -min
-		}
-		if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-			c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
-		}
+
+		// This doesn't seem necessary currently. Handled by xScreenBound()
+		//if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
+		//	c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		//}
+
+		// X axis
 		if c.csf(CSF_movecamera_x) && !c.scf(SCF_standby) {
-			if c.interPos[0]*c.localscl-min*c.localscl < sys.cam.leftest {
-				sys.cam.leftest = MinF(c.interPos[0]*c.localscl-min*c.localscl, sys.cam.leftest)
-				if c.acttmp > 0 && !c.csf(CSF_posfreeze) &&
-					(c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0]))) {
+			edgeleft, edgeright := -c.widthEdge[1], c.widthEdge[0]
+			if c.facing < 0 {
+				edgeleft, edgeright = -edgeright, -edgeleft
+			}
+
+			charleft := c.interPos[0]*c.localscl + edgeleft*c.localscl
+			charright := c.interPos[0]*c.localscl + edgeright*c.localscl
+			canmove := c.acttmp > 0 && !c.csf(CSF_posfreeze) && (c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])))
+
+			if charleft < sys.cam.leftest {
+				sys.cam.leftest = charleft
+				if canmove {
 					sys.cam.leftestvel = c.vel[0] * c.localscl * c.facing
 				} else {
 					sys.cam.leftestvel = 0
 				}
 			}
-			if c.interPos[0]*c.localscl-max*c.localscl > sys.cam.rightest {
-				sys.cam.rightest = MaxF(c.interPos[0]*c.localscl-max*c.localscl, sys.cam.rightest)
-				if c.acttmp > 0 && !c.csf(CSF_posfreeze) &&
-					(c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0]))) {
+			if charright > sys.cam.rightest {
+				sys.cam.rightest = charright
+				if canmove {
 					sys.cam.rightestvel = c.vel[0] * c.localscl * c.facing
 				} else {
 					sys.cam.rightestvel = 0
 				}
 			}
 		}
+
+		// Y axis
 		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
 			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
 			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)
@@ -8556,10 +8592,19 @@ func (c *Char) tick() {
 	if c.scf(SCF_disabled) {
 		return
 	}
-	if c.acttmp > 0 || (!c.pauseBool && c.hitPause() && c.asf(ASF_animatehitpause)) {
+	// Step animation
+	if c.acttmp > 0 || !c.pauseBool && (!c.hitPause() || c.asf(ASF_animatehitpause)) {
+		// Update reference frame first
+		c.updateCurFrame()
+		// Animate
 		if c.anim != nil && !c.asf(ASF_animfreeze) {
 			c.anim.Action()
 		}
+		// Save last valid drawing frame
+		// This step prevents the char from disappearing when changing animation during hitpause
+		// Because the whole c.anim is used for rendering, saving just the sprite is not enough
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/1550
+		c.animBackup = c.anim
 	}
 	if c.bindTime > 0 {
 		if c.isTargetBound() {
@@ -8960,9 +9005,15 @@ func (c *Char) cueDraw() {
 			c.window[3] * scl[1],
 		}
 
+		// Use animation backup if char used ChangeAnim during hitpause
+		anim := c.anim
+		if c.animNo >= 0 && c.anim.spr == nil && c.animBackup != nil {
+			anim = c.animBackup
+		}
+
 		// Define sprite data
 		sd := &SprData{
-			anim:         c.anim,
+			anim:         anim,
 			fx:           c.getPalfx(),
 			pos:          pos,
 			scl:          scl,
@@ -10453,13 +10504,13 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 										getter.hittmp = -1
 									}
 									if !getter.csf(CSF_gethit) {
-										getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(c.gi().mugenver[0] == 1))
+										getter.hitPauseTime = Max(0, c.hitdef.shaketime)
 									}
 								}
 								if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 									getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-									c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(c.gi().mugenver[0] == 1))
-									// Attacker hitpauses were off by 1 frame in Winmugen. Mugen 1.0 fixed it by compensating
+									c.hitPauseTime = Max(0, c.hitdef.pausetime)
+									// In Mugen the hitpause only actually takes effect in the next frame
 								}
 								c.uniqHitCount++
 							} else {
@@ -10468,7 +10519,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 									c.mctime = -1
 								}
 								if !c.csf(CSF_gethit) {
-									c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(c.gi().mugenver[0] == 1))
+									c.hitPauseTime = Max(0, c.hitdef.guard_pausetime)
 								}
 							}
 							if c.hitdef.hitonce > 0 {

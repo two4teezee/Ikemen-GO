@@ -2771,7 +2771,10 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		OC_ex_animelemvar_xscale, OC_ex_animelemvar_yoffset, OC_ex_animelemvar_yscale,
 		OC_ex_animelemvar_numclsn1, OC_ex_animelemvar_numclsn2:
 		// Check for valid animation frame
-		f := c.anim.CurrentFrame()
+		var f *AnimFrame
+		if c.anim != nil {
+			f = c.anim.CurrentFrame()
+		}
 		// Handle output
 		if f != nil {
 			switch opc {
@@ -5811,6 +5814,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	rp := [...]int32{-1, 0}
 	remap := false
 	ptexists := false
+
+	// Mugen chars can only modify some parameters after defining PosType
+	// Ikemen chars don't have this restriction
+	paramlock := func() bool {
+		return c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && !ptexists
+	}
+
 	eachExpl := func(f func(e *Explod)) {
 		if idx < 0 {
 			for _, e := range expls {
@@ -5822,6 +5832,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			f(expls[idx])
 		}
 	}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_redirectid:
@@ -5855,15 +5866,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			}
 			switch paramID {
 			case explod_postype:
-				ptexists = true // In Mugen you can only update some parameters if postype is specified
-				pt := PosType(exp[0].evalI(c))
-				eachExpl(func(e *Explod) {
-					e.postype = pt
-				})
 				// In Mugen many explod parameters are defaulted when not being modified
-				// What possibly happens in Mugen is that all parameters are read first then only applied if postype is defined
-				// Ikemen chars instead can more freely update individual parameters without affecting others
-				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+				// What possibly happens in Mugen is that all parameters are read first then only applied if PosType is defined
+				if paramlock() {
 					eachExpl(func(e *Explod) {
 						if e.facing*e.relativef >= 0 { // See below
 							e.relativef = 1
@@ -5879,27 +5884,39 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						if e.bindtime == 0 {
 							e.bindtime = 1
 						}
+						e.space = Space_none
 					})
 				}
-			case explod_space:
-				sp := Space(exp[0].evalI(c))
+				// Flag PosType as found
+				// From this point onward, Mugen chars can modify more parameters (Ikemen chars always could)
+				ptexists = true
+				// Update actual PosType
+				pt := PosType(exp[0].evalI(c))
 				eachExpl(func(e *Explod) {
-					e.space = sp
+					e.postype = pt
 				})
+			case explod_space:
+				// For some reason Mugen also requires a PosType declaration to be able to modify space
+				if !paramlock() {
+					spc := Space(exp[0].evalI(c))
+					eachExpl(func(e *Explod) {
+						e.space = spc
+					})
+				}
 			case explod_facing:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					rf := exp[0].evalF(c)
 					eachExpl(func(e *Explod) {
 						// There's a bug in Mugen 1.1 where an explod that is facing left can't be flipped
 						// https://github.com/ikemen-engine/Ikemen-GO/issues/1252
 						// Ikemen chars just work as supposed to
-						if e.facing*e.relativef >= 0 || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+						if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || e.facing*e.relativef >= 0 {
 							e.relativef = rf
 						}
 					})
 				}
 			case explod_vfacing:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					vf := exp[0].evalF(c)
 					eachExpl(func(e *Explod) {
 						// There's a bug in Mugen 1.1 where an explod that is upside down can't be flipped
@@ -5910,21 +5927,17 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case explod_pos:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					pos := exp[0].evalF(c) * redirscale
 					eachExpl(func(e *Explod) {
 						e.relativePos[0] = pos
 					})
-				}
-				if len(exp) > 1 {
-					if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+					if len(exp) > 1 {
 						pos := exp[1].evalF(c) * redirscale
 						eachExpl(func(e *Explod) {
 							e.relativePos[1] = pos
 						})
-					}
-					if len(exp) > 2 {
-						if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+						if len(exp) > 2 {
 							pos := exp[2].evalF(c) * redirscale
 							eachExpl(func(e *Explod) {
 								e.relativePos[2] = pos
@@ -5933,23 +5946,19 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case explod_random:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					rndx := (exp[0].evalF(c) / 2) * redirscale
 					rndx = RandF(-rndx, rndx)
 					eachExpl(func(e *Explod) {
 						e.relativePos[0] += rndx
 					})
-				}
-				if len(exp) > 1 {
-					if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+					if len(exp) > 1 {
 						rndy := (exp[1].evalF(c) / 2) * redirscale
 						rndy = RandF(-rndy, rndy)
 						eachExpl(func(e *Explod) {
 							e.relativePos[1] += rndy
 						})
-					}
-					if len(exp) > 2 {
-						if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+						if len(exp) > 2 {
 							rndz := (exp[2].evalF(c) / 2) * redirscale
 							rndz = RandF(-rndz, rndz)
 							eachExpl(func(e *Explod) {
@@ -5959,21 +5968,17 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case explod_velocity:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					vel := exp[0].evalF(c) * redirscale
 					eachExpl(func(e *Explod) {
 						e.velocity[0] = vel
 					})
-				}
-				if len(exp) > 1 {
-					if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+					if len(exp) > 1 {
 						vel := exp[1].evalF(c) * redirscale
 						eachExpl(func(e *Explod) {
 							e.velocity[1] = vel
 						})
-					}
-					if len(exp) > 2 {
-						if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+						if len(exp) > 2 {
 							vel := exp[2].evalF(c) * redirscale
 							eachExpl(func(e *Explod) {
 								e.velocity[2] = vel
@@ -5996,21 +6001,17 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					e.friction[2] = v3
 				})
 			case explod_accel:
-				if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+				if !paramlock() {
 					accel := exp[0].evalF(c) * redirscale
 					eachExpl(func(e *Explod) {
 						e.accel[0] = accel
 					})
-				}
-				if len(exp) > 1 {
-					if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+					if len(exp) > 1 {
 						accel := exp[1].evalF(c) * redirscale
 						eachExpl(func(e *Explod) {
 							e.accel[1] = accel
 						})
-					}
-					if len(exp) > 2 {
-						if ptexists || c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
+						if len(exp) > 2 {
 							accel := exp[2].evalF(c) * redirscale
 							eachExpl(func(e *Explod) {
 								e.accel[2] = accel
@@ -7003,12 +7004,17 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		sc.runSub(c, &crun.hitdef, paramID, exp)
 		return true
 	})
-	// In Winmugen, when the attr of Hitdef is set to 'Throw' and the pausetime
-	// on the attacker's side is greater than 1, it no longer executes every frame.
-	if crun.hitdef.attr&int32(AT_AT) != 0 && crun.moveContact() == 1 &&
-		c.gi().mugenver[0] != 1 && crun.hitdef.pausetime > 0 {
-		crun.hitdef.attr = 0
-		return false
+	// WinMugen compatibility
+	if c.gi().ikemenver[0] == 0 && c.gi().ikemenver[0] == 0 && c.gi().mugenver[0] != 1 { // Not crun
+		// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
+		// on the attacker's side is greater than 1, it no longer executes every frame.
+		if crun.hitdef.attr&int32(AT_AT) != 0 && crun.moveContact() == 1 && crun.hitdef.pausetime > 0 {
+			crun.hitdef.attr = 0
+			return false
+		}
+		// WinMugen P1 hitpause was off by 1
+		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime - 1)
+		crun.hitdef.guard_pausetime = Clamp(crun.hitdef.guard_pausetime, 0, crun.hitdef.guard_pausetime - 1)
 	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
@@ -7042,6 +7048,12 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+	// WinMugen compatibility
+	if c.gi().ikemenver[0] == 0 && c.gi().ikemenver[0] == 0 && c.gi().mugenver[0] != 1 { // Not crun
+		// WinMugen hitpause was off by 1
+		crun.hitdef.pausetime = Clamp(crun.hitdef.pausetime, 0, crun.hitdef.pausetime - 1)
+		crun.hitdef.shaketime = Clamp(crun.hitdef.shaketime, 0, crun.hitdef.shaketime - 1)
+	}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
 }

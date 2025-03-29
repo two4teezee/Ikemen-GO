@@ -5454,8 +5454,7 @@ func (c *Compiler) paramValue(is IniSection, sc *StateControllerBase,
 	return nil
 }
 
-func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase,
-	id byte) error {
+func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase, id byte) error {
 	return c.stateParam(is, "postype", false, func(data string) error {
 		if len(data) == 0 {
 			return Error("postype not specified")
@@ -5486,27 +5485,26 @@ func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase,
 	})
 }
 
-func (c *Compiler) paramSpace(is IniSection, sc *StateControllerBase,
-	id byte) error {
+func (c *Compiler) paramSpace(is IniSection, sc *StateControllerBase, id byte) error {
 	return c.stateParam(is, "space", false, func(data string) error {
-		if len(data) <= 1 {
+		if len(data) == 0 {
 			return Error("space not specified")
 		}
-		var sp Space
-		if len(data) >= 2 {
-			if strings.ToLower(data[:2]) == "stage" {
-				sp = Space_stage
-			} else if strings.ToLower(data[:2]) == "screen" {
-				sp = Space_screen
-			}
+		var spc Space
+		switch strings.ToLower(data) {
+		case "stage":
+			spc = Space_stage
+		case "screen":
+			spc = Space_screen
+		default:
+			return Error("Invalid space type: " + data)
 		}
-		sc.add(id, sc.iToExp(int32(sp)))
+		sc.add(id, sc.iToExp(int32(spc)))
 		return nil
 	})
 }
 
-func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase,
-	id byte) error {
+func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase, id byte) error {
 	return c.stateParam(is, "projection", false, func(data string) error {
 		if len(data) <= 1 {
 			return Error("projection not specified")
@@ -5529,8 +5527,7 @@ func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase,
 	})
 }
 
-func (c *Compiler) paramSaveData(is IniSection, sc *StateControllerBase,
-	id byte) error {
+func (c *Compiler) paramSaveData(is IniSection, sc *StateControllerBase, id byte) error {
 	return c.stateParam(is, "savedata", false, func(data string) error {
 		if len(data) <= 1 {
 			return Error("savedata not specified")

@@ -10492,13 +10492,12 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 										getter.hittmp = -1
 									}
 									if !getter.csf(CSF_gethit) {
-										getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(c.gi().mugenver[0] == 1))
+										getter.hitPauseTime = Max(0, c.hitdef.shaketime)
 									}
 								}
 								if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 									getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-									c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(c.gi().mugenver[0] == 1))
-									// Attacker hitpauses were off by 1 frame in Winmugen. Mugen 1.0 fixed it by compensating
+									c.hitPauseTime = Max(0, c.hitdef.pausetime)
 									// In Mugen the hitpause only actually takes effect in the next frame
 								}
 								c.uniqHitCount++
@@ -10508,7 +10507,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 									c.mctime = -1
 								}
 								if !c.csf(CSF_gethit) {
-									c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(c.gi().mugenver[0] == 1))
+									c.hitPauseTime = Max(0, c.hitdef.guard_pausetime)
 								}
 							}
 							if c.hitdef.hitonce > 0 {

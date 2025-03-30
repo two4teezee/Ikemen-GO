@@ -977,6 +977,10 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_xangle, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "focallength",
 			explod_focallength, VT_Float, 1, false); err != nil {
 			return err
@@ -1031,6 +1035,10 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "xangle",
 			explod_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "focallength",

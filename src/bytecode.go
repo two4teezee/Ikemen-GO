@@ -799,6 +799,7 @@ const (
 	OC_ex2_explodvar_angle
 	OC_ex2_explodvar_angle_x
 	OC_ex2_explodvar_angle_y
+	OC_ex2_explodvar_xshear
 	OC_ex2_explodvar_removetime
 	OC_ex2_explodvar_pausemovetime
 	OC_ex2_explodvar_sprpriority
@@ -3423,6 +3424,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_explodvar_angle_y:
 		camCorrected = true // gotta do this
 		fallthrough
+	case OC_ex2_explodvar_xshear:
+		fallthrough
 		// END FALLTHROUGH (explodvar)
 	case OC_ex2_explodvar_pos_x:
 		if !camCorrected {
@@ -5456,6 +5459,7 @@ const (
 	explod_angle
 	explod_yangle
 	explod_xangle
+	explod_xshear
 	explod_projection
 	explod_focallength
 	explod_ignorehitpause
@@ -5686,6 +5690,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.anglerot[2] = exp[0].evalF(c)
 		case explod_xangle:
 			e.anglerot[1] = exp[0].evalF(c)
+		case explod_xshear:
+			e.xshear = exp[0].evalF(c)
 		case explod_focallength:
 			e.fLength = exp[0].evalF(c)
 		case explod_ignorehitpause:
@@ -6209,6 +6215,11 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				xa := exp[0].evalF(c)
 				eachExpl(func(e *Explod) {
 					e.anglerot[1] = xa
+				})
+			case explod_xshear:
+				xs := exp[0].evalF(c)
+				eachExpl(func(e *Explod) {
+					e.xshear = xs
 				})
 			case explod_projection:
 				eachExpl(func(e *Explod) {

@@ -965,6 +965,7 @@ type SprData struct {
 	projection   int32
 	fLength      float32
 	window       [4]float32
+	xshear       float32
 }
 
 func (sd *SprData) isBlank() bool {
@@ -1041,9 +1042,11 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 			drawwindow = &window
 		}
+		xshear := -s.xshear
+		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)
 
-		s.anim.Draw(drawwindow, pos[0], pos[1], cs, cs, s.scl[0], s.scl[0],
-			s.scl[1], 0, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
+		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
+			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
 			s.airOffsetFix, s.projection, s.fLength, 0, false)
 
 		sys.brightness = ob
@@ -1124,7 +1127,14 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		color = color&0xff*alpha<<8&0xff0000 |
 			color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
 
-		xshear := sys.stage.sdw.xshear
+		var xshear float32
+		
+		if s.xshear != 0 {
+			xshear = -s.xshear
+		} else {
+			xshear = sys.stage.sdw.xshear
+		}
+
 		if sys.stage.sdw.yscale > 0 {
 			xshear = -xshear // Invert if sprite is flipped
 		}
@@ -1215,7 +1225,14 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 			color |= uint32(ref << 24)
 		}
 
-		xshear := sys.stage.reflection.xshear
+		var xshear float32
+		
+		if s.xshear != 0 {
+			xshear = -s.xshear
+		} else {
+			xshear = sys.stage.reflection.xshear
+		}
+
 		if sys.stage.reflection.yscale > 0 {
 			xshear = -xshear // Invert if sprite is flipped
 		}

@@ -2286,6 +2286,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", c.token))
 			}
+		case "xshear":
+			opc = OC_ex2_explodvar_xshear
 		default:
 			return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", vname))
 		}

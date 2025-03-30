@@ -1253,6 +1253,7 @@ type Explod struct {
 	ignorehitpause bool
 	rot            Rotation
 	anglerot       [3]float32
+	xshear         float32
 	projection     Projection
 	fLength        float32
 	oldPos         [3]float32
@@ -1582,6 +1583,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		undarken:     playerNo == sys.superplayerno,
 		oldVer:       oldVer,
 		facing:       facing,
+		xshear:       e.xshear,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
 		fLength:      fLength,
@@ -4177,6 +4179,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
 			case OC_ex2_explodvar_angle_y:
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
+			case OC_ex2_explodvar_xshear:
+				v = BytecodeFloat(e.xshear)
 			case OC_ex2_explodvar_vel_x:
 				v = BytecodeFloat(e.velocity[0])
 			case OC_ex2_explodvar_vel_y:

@@ -8240,6 +8240,11 @@ func (c *Char) actionRun() {
 				c.mctime++
 			}
 		}
+		// Commit current animation frame to memory
+		// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
+		if !c.hitPause() || c.asf(ASF_animatehitpause) {
+			c.updateCurFrame()
+		}
 		if c.ghv.damage != 0 {
 			// HitOverride KeepState flag still allows damage to get through
 			if c.ss.moveType == MT_H || c.hoKeepState {
@@ -8343,9 +8348,6 @@ func (c *Char) actionRun() {
 		}
 		c.dustTime++
 	}
-	// Commit current animation frame to memory
-	// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
-	c.updateCurFrame()
 	c.xScreenBound()
 	c.zDepthBound()
 	if !c.pauseBool {

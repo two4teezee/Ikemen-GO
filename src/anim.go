@@ -17,7 +17,8 @@ type AnimFrame struct {
 	Xscale        float32
 	Yscale        float32
 	Angle         float32
-	Clsn          [][]float32
+	Clsn1         [][4]float32
+	Clsn2         [][4]float32
 }
 
 func newAnimFrame() *AnimFrame {
@@ -137,20 +138,6 @@ func ReadAnimFrame(line string) *AnimFrame {
 	return af
 }
 
-func (af *AnimFrame) Clsn1() []float32 {
-	if len(af.Clsn) > 0 {
-		return af.Clsn[0]
-	}
-	return nil
-}
-
-func (af *AnimFrame) Clsn2() []float32 {
-	if len(af.Clsn) > 1 {
-		return af.Clsn[1]
-	}
-	return nil
-}
-
 type Animation struct {
 	sff                *Sff
 	palettedata        *PaletteList
@@ -169,7 +156,7 @@ type Animation struct {
 	sumtime                    int32
 	totaltime                  int32
 	looptime                   int32
-	nazotime                   int32
+	prelooptime                int32
 	mask                       int16
 	srcAlpha                   int16
 	dstAlpha                   int16
@@ -207,7 +194,7 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 
 	a.mask = 0
 	ols := int32(0)
-	var clsn1, clsn1d, clsn2, clsn2d []float32
+	var clsn1, clsn1d, clsn2, clsn2d [][4]float32
 	def1, def2 := true, true
 	for ; *i < len(lines); (*i)++ {
 		if len(lines[*i]) > 0 && lines[*i][0] == '[' {
@@ -225,13 +212,9 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 			if def2 {
 				clsn2 = clsn2d
 			}
-			if len(clsn1) > 0 || len(clsn2) > 0 {
-				if len(af.Clsn) < 2 {
-					af.Clsn = make([][]float32, 2)
-				}
-				af.Clsn[0] = clsn1
-				af.Clsn[1] = clsn2
-			}
+			af.Clsn1 = clsn1
+			af.Clsn2 = clsn2
+
 			a.frames = append(a.frames, *af)
 			def1, def2 = true, true
 		case len(line) >= 9 && line[:9] == "loopstart":
@@ -253,16 +236,16 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 			if size < 0 {
 				break
 			}
-			var clsn []float32
+			var clsn [][4]float32
 			if line[4] == '1' {
-				clsn1 = make([]float32, size*4)
+				clsn1 = make([][4]float32, size)
 				clsn = clsn1
 				if len(line) >= 12 && line[5:12] == "default" {
 					clsn1d = clsn1
 				}
 				def1 = false
 			} else if line[4] == '2' {
-				clsn2 = make([]float32, size*4)
+				clsn2 = make([][4]float32, size)
 				clsn = clsn2
 				if len(line) >= 12 && line[5:12] == "default" {
 					clsn2d = clsn2
@@ -299,7 +282,7 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 				if t > b {
 					t, b = b, t
 				}
-				clsn[n*4], clsn[n*4+1], clsn[n*4+2], clsn[n*4+3] =
+				clsn[n][0], clsn[n][1], clsn[n][2], clsn[n][3] =
 					float32(l), float32(t), float32(r), float32(b)
 				(*i)++
 			}
@@ -318,18 +301,18 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 			if f.Time == -1 {
 				a.totaltime = 0
 				a.looptime = -tmp
-				a.nazotime = 0
+				a.prelooptime = 0
 			}
 			a.totaltime += f.Time
 			if i < int(a.loopstart) {
-				a.nazotime += f.Time
+				a.prelooptime += f.Time
 				tmp += f.Time
 			} else {
 				a.looptime += f.Time
 			}
 		}
 		if a.totaltime == -1 {
-			a.nazotime = 0
+			a.prelooptime = 0
 		}
 	}
 	return a
@@ -504,9 +487,9 @@ func (a *Animation) UpdateSprite() {
 			a.time, a.newframe, a.current = 0, true, a.loopstart
 		}
 		a.animSeek(a.current)
-		if a.nazotime < 0 && a.sumtime >= a.totaltime+a.nazotime &&
+		if a.prelooptime < 0 && a.sumtime >= a.totaltime+a.prelooptime &&
 			a.sumtime >= a.totaltime-a.looptime &&
-			(a.sumtime == a.totaltime+a.nazotime ||
+			(a.sumtime == a.totaltime+a.prelooptime ||
 				a.sumtime == a.totaltime-a.looptime) {
 			a.time, a.newframe, a.current = 0, true, 0
 		}

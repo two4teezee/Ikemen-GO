@@ -934,8 +934,8 @@ func (s *System) getYscale(char, stage float32) float32 {
 	return stage
 }
 
-func (s *System) clsnOverlap(clsn1 []float32, scl1, pos1 [2]float32, facing1 float32, angle1 float32,
-	clsn2 []float32, scl2, pos2 [2]float32, facing2 float32, angle2 float32) bool {
+func (s *System) clsnOverlap(clsn1 [][4]float32, scl1, pos1 [2]float32, facing1 float32, angle1 float32,
+	clsn2 [][4]float32, scl2, pos2 [2]float32, facing2 float32, angle2 float32) bool {
 
 	// Skip function if any boxes are missing
 	if clsn1 == nil || clsn2 == nil {
@@ -953,31 +953,32 @@ func (s *System) clsnOverlap(clsn1 []float32, scl1, pos1 [2]float32, facing1 flo
 		facing2 *= -1
 		scl2[0] *= -1
 	}
+
 	// Loop through first set of boxes
-	for i := 0; i+3 < len(clsn1); i += 4 {
+	for i := 0; i < len(clsn1); i++ {
 		// Calculate positions
-		l1 := clsn1[i]
-		r1 := clsn1[i+2]
+		l1 := clsn1[i][0]
+		r1 := clsn1[i][2]
 		if facing1 < 0 {
 			l1, r1 = -r1, -l1
 		}
 		left1 := l1 * scl1[0]
 		right1 := r1 * scl1[0]
-		top1 := clsn1[i+1] * scl1[1]
-		bottom1 := clsn1[i+3] * scl1[1]
+		top1 := clsn1[i][1] * scl1[1]
+		bottom1 := clsn1[i][3] * scl1[1]
 
 		// Loop through second set of boxes
-		for j := 0; j+3 < len(clsn2); j += 4 {
+		for j := 0; j < len(clsn2); j++ {
 			// Calculate positions
-			l2 := clsn2[j]
-			r2 := clsn2[j+2]
+			l2 := clsn2[j][0]
+			r2 := clsn2[j][2]
 			if facing2 < 0 {
 				l2, r2 = -r2, -l2
 			}
 			left2 := l2 * scl2[0]
 			right2 := r2 * scl2[0]
-			top2 := clsn2[j+1] * scl2[1]
-			bottom2 := clsn2[j+3] * scl2[1]
+			top2 := clsn2[j][1] * scl2[1]
+			bottom2 := clsn2[j][3] * scl2[1]
 
 			// Check for overlap
 			if angle1 != 0 || angle2 != 0 {
@@ -994,9 +995,9 @@ func (s *System) clsnOverlap(clsn1 []float32, scl1, pos1 [2]float32, facing1 flo
 					return true
 				}
 			}
-
 		}
 	}
+
 	return false
 }
 

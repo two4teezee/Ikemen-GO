@@ -172,19 +172,19 @@ type ClsnText struct {
 
 type ClsnRect [][7]float32
 
-func (cr *ClsnRect) Add(clsn []float32, x, y, xs, ys, angle float32) {
+func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	x = (x - sys.cam.Pos[0]) * sys.cam.Scale
 	y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel()
 	xs *= sys.cam.Scale
 	ys *= sys.cam.Scale
 	sw := float32(sys.gameWidth)
 	sh := float32(0) //float32(sys.gameHeight)
-	for i := 0; i+3 < len(clsn); i += 4 {
+	for i := 0; i < len(clsn); i++ {
 		offx := sw / 2
 		offy := sh
 		rect := [...]float32{
-			AbsF(xs) * clsn[i], AbsF(ys) * clsn[i+1],
-			xs * (clsn[i+2] - clsn[i]), ys * (clsn[i+3] - clsn[i+1]),
+			AbsF(xs) * clsn[i][0], AbsF(ys) * clsn[i][1],
+			xs * (clsn[i][2] - clsn[i][0]), ys * (clsn[i][3] - clsn[i][1]),
 			(x + offx) * sys.widthScale, (y + offy) * sys.heightScale, angle}
 		*cr = append(*cr, rect)
 	}
@@ -201,7 +201,6 @@ func (cr ClsnRect) draw(trans int32) {
 		}
 		RenderSprite(params)
 	}
-
 }
 
 type CharData struct {
@@ -2019,7 +2018,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 	}
 
 	// Skip if this projectile can't run a collision check at all
-	if p.ani == nil || len(p.ani.frames) == 0 || p.ani.CurrentFrame().Clsn2() == nil {
+	if p.ani == nil || len(p.ani.frames) == 0 || p.ani.CurrentFrame().Clsn2 == nil {
 		return
 	}
 
@@ -2047,7 +2046,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Skip if other projectile can't run collision check
-			if pr.ani == nil || len(pr.ani.frames) == 0 || pr.ani.CurrentFrame().Clsn2() == nil {
+			if pr.ani == nil || len(pr.ani.frames) == 0 || pr.ani.CurrentFrame().Clsn2 == nil {
 				continue
 			}
 
@@ -2067,8 +2066,8 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Run Clsn check
-			clsn1 := p.ani.CurrentFrame().Clsn2() // Projectiles trade with their Clsn2 only
-			clsn2 := pr.ani.CurrentFrame().Clsn2()
+			clsn1 := p.ani.CurrentFrame().Clsn2 // Projectiles trade with their Clsn2 only
+			clsn2 := pr.ani.CurrentFrame().Clsn2
 			if clsn1 != nil && clsn2 != nil {
 				if sys.clsnOverlap(clsn1,
 					[...]float32{p.clsnScale[0] * p.localscl, p.clsnScale[1] * p.localscl},
@@ -2138,13 +2137,13 @@ func (p *Projectile) cueDraw(oldVer bool) {
 	// Projectile Clsn display
 	if sys.clsnDisplay && p.ani != nil {
 		if frm := p.ani.drawFrame(); frm != nil {
-			if clsn := frm.Clsn1(); len(clsn) > 0 {
+			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
 					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
 					p.clsnScale[1]*p.localscl*p.zScale,
 					p.clsnAngle*p.facing)
 			}
-			if clsn := frm.Clsn2(); len(clsn) > 0 {
+			if clsn := frm.Clsn2; clsn != nil && len(clsn) > 0 {
 				sys.debugc2hb.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
 					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
 					p.clsnScale[1]*p.localscl*p.zScale,
@@ -2492,7 +2491,7 @@ type Char struct {
 	downHitOffset    bool
 	koEchoTimer      int32
 	groundLevel      float32
-	sizeBox          []float32
+	sizeBox          [4]float32
 	shadowColor      [3]int32
 	shadowIntensity  int32
 	shadowOffset     [2]float32
@@ -5859,7 +5858,7 @@ func (c *Char) updateClsnScale() {
 
 func (c *Char) widthToSizeBox() {
 	if len(c.width) < 2 || len(c.height) < 2 {
-		c.sizeBox = []float32{0, 0, 0, 0}
+		c.sizeBox = [4]float32{0, 0, 0, 0}
 	} else {
 		// Correct left/right and top/bottom
 		// Same behavior as Clsn boxes
@@ -5874,8 +5873,13 @@ func (c *Char) widthToSizeBox() {
 		if top > bottom { // Negative sign
 			top, bottom = bottom, top
 		}
-		c.sizeBox = []float32{back, top, front, bottom}
+		c.sizeBox = [4]float32{back, top, front, bottom}
 	}
+}
+
+// Returns the size box in the same format as Clsn boxes
+func (c *Char) sizeBoxToClsn() [][4]float32 {
+    return [][4]float32{c.sizeBox}
 }
 
 func (c *Char) gethitAnimtype() Reaction {
@@ -7573,34 +7577,34 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 	}
 
 	// Required boxes not found
-	if p.hitdef.p2clsnrequire == 1 && c.curFrame.Clsn1() == nil ||
-		p.hitdef.p2clsnrequire == 2 && c.curFrame.Clsn2() == nil {
+	if p.hitdef.p2clsnrequire == 1 && c.curFrame.Clsn1 == nil ||
+		p.hitdef.p2clsnrequire == 2 && c.curFrame.Clsn2 == nil {
 		return false
 	}
 
 	// Decide which box types should collide
-	var clsn1, clsn2 []float32
+	var clsn1, clsn2 [][4]float32
 	if c.asf(ASF_projtypecollision) { // Projectiles trade with their Clsn2 only
-		clsn1 = frm.Clsn2()
-		clsn2 = c.curFrame.Clsn2()
+		clsn1 = frm.Clsn2
+		clsn2 = c.curFrame.Clsn2
 	} else {
 		if pbox == 2 {
-			clsn1 = frm.Clsn2()
+			clsn1 = frm.Clsn2
 		} else {
-			clsn1 = frm.Clsn1()
+			clsn1 = frm.Clsn1
 		}
 		if cbox == 1 {
-			clsn2 = c.curFrame.Clsn1()
+			clsn2 = c.curFrame.Clsn1
 			if clsn2 == nil && p.hitdef.p2clsnrequire == 1 {
 				return false
 			}
 		} else if cbox == 3 {
-			clsn2 = c.sizeBox
+			clsn2 = c.sizeBoxToClsn()
 			if clsn2 == nil && p.hitdef.p2clsnrequire == 3 {
 				return false // Size box should alway exist, but...
 			}
 		} else {
-			clsn2 = c.curFrame.Clsn2()
+			clsn2 = c.curFrame.Clsn2
 			if clsn2 == nil && p.hitdef.p2clsnrequire == 2 {
 				return false
 			}
@@ -7665,31 +7669,31 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 	// Required boxes not found
 	// Only Hitdef and Reversaldef do this check
 	if reqcheck {
-		if c.hitdef.p2clsnrequire == 1 && getterframe.Clsn1() == nil ||
-			c.hitdef.p2clsnrequire == 2 && getterframe.Clsn2() == nil {
+		if c.hitdef.p2clsnrequire == 1 && getterframe.Clsn1 == nil ||
+			c.hitdef.p2clsnrequire == 2 && getterframe.Clsn2 == nil {
 			return false
 		}
 	}
 
 	// Decide which box types should collide
-	var clsn1, clsn2 []float32
+	var clsn1, clsn2 [][4]float32
 	if c.asf(ASF_projtypecollision) && getter.asf(ASF_projtypecollision) { // Projectiles trade with their Clsn2 only
-		clsn1 = charframe.Clsn2()
-		clsn2 = getterframe.Clsn2()
+		clsn1 = charframe.Clsn2
+		clsn2 = getterframe.Clsn2
 	} else {
 		if charbox == 1 {
-			clsn1 = charframe.Clsn1()
+			clsn1 = charframe.Clsn1
 		} else if charbox == 3 {
-			clsn1 = c.sizeBox
+			clsn1 = c.sizeBoxToClsn()
 		} else {
-			clsn1 = charframe.Clsn2()
+			clsn1 = charframe.Clsn2
 		}
 		if getterbox == 1 {
-			clsn2 = getterframe.Clsn1()
+			clsn2 = getterframe.Clsn1
 		} else if getterbox == 3 {
-			clsn2 = getter.sizeBox
+			clsn2 = [][4]float32{getter.sizeBox}
 		} else {
-			clsn2 = getterframe.Clsn2()
+			clsn2 = getterframe.Clsn2
 		}
 	}
 
@@ -8244,11 +8248,6 @@ func (c *Char) actionRun() {
 				c.mctime++
 			}
 		}
-		// Commit current animation frame to memory
-		// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
-		if !c.hitPause() || c.asf(ASF_animatehitpause) {
-			c.updateCurFrame()
-		}
 		if c.ghv.damage != 0 {
 			// HitOverride KeepState flag still allows damage to get through
 			if c.ss.moveType == MT_H || c.hoKeepState {
@@ -8352,6 +8351,9 @@ func (c *Char) actionRun() {
 		}
 		c.dustTime++
 	}
+	// Commit current animation frame to memory
+	// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
+	c.updateCurFrame()
 	c.xScreenBound()
 	c.zDepthBound()
 	if !c.pauseBool {
@@ -8780,7 +8782,7 @@ func (c *Char) cueDebugDraw() {
 	if sys.clsnDisplay {
 		if c.curFrame != nil {
 			// Add Clsn1
-			if clsn := c.curFrame.Clsn1(); len(clsn) > 0 {
+			if clsn := c.curFrame.Clsn1; len(clsn) > 0 {
 				if c.scf(SCF_standby) {
 					// Add nothing
 				} else if c.atktmp != 0 && c.hitdef.reversal_attr > 0 {
@@ -8793,7 +8795,7 @@ func (c *Char) cueDebugDraw() {
 			}
 			// Check invincibility to decide box colors
 			flags := int32(ST_SCA) | int32(AT_ALL)
-			if clsn := c.curFrame.Clsn2(); len(clsn) > 0 {
+			if clsn := c.curFrame.Clsn2; len(clsn) > 0 {
 				hb, mtk := false, false
 				if c.unhittableTime > 0 {
 					mtk = true
@@ -8914,11 +8916,11 @@ func (c *Char) cueDebugDraw() {
 			}
 			// Add size box (width * height)
 			if c.csf(CSF_playerpush) {
-				sys.debugcsize.Add(c.sizeBox, x, y, c.facing*c.localscl, c.localscl, 0)
+				sys.debugcsize.Add(c.sizeBoxToClsn(), x, y, c.facing*c.localscl, c.localscl, 0)
 			}
 		}
 		// Add crosshair
-		sys.debugch.Add([]float32{-1, -1, 1, 1}, x, y, 1, 1, 0)
+		sys.debugch.Add([][4]float32{{-1, -1, 1, 1}}, x, y, 1, 1, 0)
 	}
 	// Prepare information for debug text
 	if sys.debugDisplay {
@@ -10455,12 +10457,6 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 					if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) {
 						if ht := hitTypeGet(c, &c.hitdef, [3]float32{}, 0, c.attackMul); ht != 0 {
 							mvc := ht > 0 || c.hitdef.reversal_attr > 0
-
-							// Attacker hitpauses were off by 1 frame in WinMugen. Mugen 1.0 fixed it
-							// The way this should actually happen is that WinMugen chars have 1 subtracted from their hitpause in bytecode.go
-							// But because of the order that events happen in in Ikemen, it must be fixed the other way around
-							hpfix := c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0 || c.gi().mugenver[0] == 1
-
 							if Abs(ht) == 1 {
 								if mvc {
 									c.mctype = MC_Hit
@@ -10529,12 +10525,12 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 										getter.hittmp = -1
 									}
 									if !getter.csf(CSF_gethit) {
-										getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(hpfix))
+										getter.hitPauseTime = Max(0, c.hitdef.shaketime)
 									}
 								}
 								if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 									getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-									c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(hpfix))
+									c.hitPauseTime = Max(0, c.hitdef.pausetime)
 									// In Mugen the hitpause only actually takes effect in the next frame
 								}
 								c.uniqHitCount++
@@ -10544,7 +10540,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 									c.mctime = -1
 								}
 								if !c.csf(CSF_gethit) {
-									c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(hpfix))
+									c.hitPauseTime = Max(0, c.hitdef.guard_pausetime)
 								}
 							}
 							if c.hitdef.hitonce > 0 {

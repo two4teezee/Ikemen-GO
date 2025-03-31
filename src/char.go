@@ -636,6 +636,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		isprojectile:       false,
 		playerNo:           -1,
 		hitflag:            int32(HF_H | HF_L | HF_A | HF_F),
+		guardflag:          0,
 		affectteam:         1,
 		teamside:           -1,
 		animtype:           RA_Light,
@@ -2371,11 +2372,12 @@ type CharSystemVar struct {
 	receivedDmg       int32
 	receivedHits      int32
 	cornerVelOff      float32
-	width             [2]float32
-	widthEdge         [2]float32
-	height            [2]float32
-	depth             [2]float32
-	depthEdge         [2]float32
+	sizeWidth         [2]float32
+	edgeWidth         [2]float32
+	sizeHeight        [2]float32
+	sizeDepth         [2]float32
+	edgeDepth         [2]float32
+	sizeBox           [4]float32
 	attackMul         [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul   float32
 	fallDefenseMul    float32
@@ -2655,16 +2657,16 @@ func (c *Char) clearNextRound() {
 		bindToId:        -1,
 		angleScale:      [2]float32{1, 1},
 		alpha:           [2]int32{255, 0},
-		width:           [2]float32{c.baseWidthFront(), c.baseWidthBack()},
-		height:          [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
-		depth:           [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
+		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
+		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
+		sizeDepth:       [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
 		attackMul:       [4]float32{atk, atk, atk, atk},
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
 		customDefense:   1,
 		finalDefense:    1.0,
 	}
-	c.widthToSizeBox()
+	c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
 	if c.helperIndex == 0 && c.teamside != -1 {
 		if sys.roundsExisted[c.playerNo&1] > 0 {
@@ -3106,8 +3108,7 @@ func (c *Char) load(def string) error {
 						is.ReadF32("head.pos", &c.size.head.pos[0], &c.size.head.pos[1])
 						is.ReadF32("mid.pos", &c.size.mid.pos[0], &c.size.mid.pos[1])
 						is.ReadF32("shadowoffset", &c.size.shadowoffset)
-						is.ReadF32("draw.offset",
-							&c.size.draw.offset[0], &c.size.draw.offset[1])
+						is.ReadF32("draw.offset", &c.size.draw.offset[0], &c.size.draw.offset[1])
 						is.ReadF32("depth", &c.size.depth[0], &c.size.depth[1])
 						is.ReadF32("attack.depth", &c.size.attack.depth[0], &c.size.attack.depth[1])
 						is.ReadI32("weight", &c.size.weight)
@@ -3863,7 +3864,7 @@ func (c *Char) backEdgeBodyDist() float32 {
 			offset = 1.0 / c.localscl
 		}
 	}
-	return c.backEdgeDist() - c.widthEdge[1] - offset
+	return c.backEdgeDist() - c.edgeWidth[1] - offset
 }
 
 func (c *Char) backEdgeDist() float32 {
@@ -3878,7 +3879,7 @@ func (c *Char) bottomEdge() float32 {
 }
 
 func (c *Char) botBoundBodyDist() float32 {
-	return c.botBoundDist() - c.depthEdge[1]
+	return c.botBoundDist() - c.edgeDepth[1]
 }
 
 func (c *Char) botBoundDist() float32 {
@@ -3968,7 +3969,7 @@ func (c *Char) frontEdgeBodyDist() float32 {
 			offset = 1.0 / c.localscl
 		}
 	}
-	return c.frontEdgeDist() - c.widthEdge[0] - offset
+	return c.frontEdgeDist() - c.edgeWidth[0] - offset
 }
 
 func (c *Char) frontEdgeDist() float32 {
@@ -4743,7 +4744,7 @@ func (c *Char) topEdge() float32 {
 }
 
 func (c *Char) topBoundBodyDist() float32 {
-	return c.topBoundDist() - c.depthEdge[0]
+	return c.topBoundDist() - c.edgeDepth[0]
 }
 
 func (c *Char) topBoundDist() float32 {
@@ -4924,17 +4925,19 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		c.ghv.yaccel *= lsRatio
 		c.ghv.zaccel *= lsRatio
 
-		c.width[0] *= lsRatio
-		c.width[1] *= lsRatio
-		c.widthEdge[0] *= lsRatio
-		c.widthEdge[1] *= lsRatio
-		c.height[0] *= lsRatio
-		c.height[1] *= lsRatio
-		c.depth[0] *= lsRatio
-		c.depth[1] *= lsRatio
-		c.depthEdge[0] *= lsRatio
-		c.depthEdge[1] *= lsRatio
-		c.widthToSizeBox()
+		c.sizeWidth[0] *= lsRatio
+		c.sizeWidth[1] *= lsRatio
+		c.sizeHeight[0] *= lsRatio
+		c.sizeHeight[1] *= lsRatio
+		c.updateSizeBox()
+
+		c.sizeDepth[0] *= lsRatio
+		c.sizeDepth[1] *= lsRatio
+
+		c.edgeWidth[0] *= lsRatio
+		c.edgeWidth[1] *= lsRatio
+		c.edgeDepth[0] *= lsRatio
+		c.edgeDepth[1] *= lsRatio
 
 		c.bindPos[0] *= lsRatio
 		c.bindPos[1] *= lsRatio
@@ -5801,34 +5804,42 @@ func (c *Char) baseDepthBottom() float32 {
 
 func (c *Char) setWidth(fw, bw float32) {
 	coordRatio := (320 / c.localcoord) / c.localscl
-	c.width[0] = c.baseWidthFront()*coordRatio + fw
-	c.width[1] = c.baseWidthBack()*coordRatio + bw
+
+	c.sizeWidth[0] = c.baseWidthFront()*coordRatio + fw
+	c.sizeWidth[1] = c.baseWidthBack()*coordRatio + bw
+
+	c.updateSizeBox()
 	c.setCSF(CSF_width)
 }
 
 func (c *Char) setHeight(th, bh float32) {
 	coordRatio := (320 / c.localcoord) / c.localscl
-	c.height[0] = c.baseHeightTop()*coordRatio + th
-	c.height[1] = c.baseHeightBottom()*coordRatio + bh
+
+	c.sizeHeight[0] = c.baseHeightTop()*coordRatio + th
+	c.sizeHeight[1] = c.baseHeightBottom()*coordRatio + bh
+
+	c.updateSizeBox()
 	c.setCSF(CSF_height)
 }
 
 func (c *Char) setDepth(td, bd float32) {
 	coordRatio := (320 / c.localcoord) / c.localscl
-	c.depth[0] = c.baseDepthTop()*coordRatio + td
-	c.depth[1] = c.baseDepthBottom()*coordRatio + bd
+
+	c.sizeDepth[0] = c.baseDepthTop()*coordRatio + td
+	c.sizeDepth[1] = c.baseDepthBottom()*coordRatio + bd
+
 	c.setCSF(CSF_depth)
 }
 
 func (c *Char) setWidthEdge(fe, be float32) {
 	// TODO: confirm if these don't need "coordRatio"
-	c.widthEdge = [2]float32{fe, be}
+	c.edgeWidth = [2]float32{fe, be}
 	c.setCSF(CSF_widthedge)
 }
 
 func (c *Char) setDepthEdge(tde, bde float32) {
-	c.depthEdge[0] = tde
-	c.depthEdge[1] = bde
+	c.edgeDepth[0] = tde
+	c.edgeDepth[1] = bde
 	c.setCSF(CSF_depthedge)
 }
 
@@ -5856,25 +5867,23 @@ func (c *Char) updateClsnScale() {
 		c.clsnBaseScale[1] * c.clsnScaleMul[1] * c.animlocalscl}
 }
 
-func (c *Char) widthToSizeBox() {
-	if len(c.width) < 2 || len(c.height) < 2 {
-		c.sizeBox = [4]float32{0, 0, 0, 0}
-	} else {
-		// Correct left/right and top/bottom
-		// Same behavior as Clsn boxes
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2008
-		back := -c.width[1]
-		front := c.width[0]
-		top := -c.height[0]
-		bottom := c.height[1]
-		if back > front {
-			back, front = front, back
-		}
-		if top > bottom { // Negative sign
-			top, bottom = bottom, top
-		}
-		c.sizeBox = [4]float32{back, top, front, bottom}
+// Convert size variables to a Clsn-like box
+// This box will replace width and height values in some other parts of the code
+func (c *Char) updateSizeBox() {
+	// Correct left/right and top/bottom
+	// Same behavior as Clsn boxes
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2008
+	back := -c.sizeWidth[1]
+	front := c.sizeWidth[0]
+	if back > front {
+		back, front = front, back
 	}
+	top := -c.sizeHeight[0]
+	bottom := c.sizeHeight[1]
+	if top > bottom { // Negative sign
+		top, bottom = bottom, top
+	}
+	c.sizeBox = [4]float32{back, top, front, bottom}
 }
 
 // Returns the size box in the same format as Clsn boxes
@@ -6720,10 +6729,10 @@ func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
 }
 
 func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
-	ctop := (c.pos[2] - c.depth[0]) * c.localscl
-	cbot := (c.pos[2] + c.depth[1]) * c.localscl
-	otop := (opp.pos[2] - opp.depth[0]) * opp.localscl
-	obot := (opp.pos[2] + opp.depth[1]) * opp.localscl
+	ctop := (c.pos[2] - c.sizeDepth[0]) * c.localscl
+	cbot := (c.pos[2] + c.sizeDepth[1]) * c.localscl
+	otop := (opp.pos[2] - opp.sizeDepth[0]) * opp.localscl
+	obot := (opp.pos[2] + opp.sizeDepth[1]) * opp.localscl
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7458,7 +7467,7 @@ func (c *Char) trackableByCamera() bool {
 func (c *Char) xScreenBound() {
 	x := c.pos[0]
 	if !sys.cam.roundstart && c.trackableByCamera() && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-		min, max := c.widthEdge[0], -c.widthEdge[1]
+		min, max := c.edgeWidth[0], -c.edgeWidth[1]
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
@@ -7473,8 +7482,8 @@ func (c *Char) xScreenBound() {
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
 	if c.csf(CSF_stagebound) {
-		min := c.depthEdge[0]
-		max := -c.depthEdge[1]
+		min := c.edgeDepth[0]
+		max := -c.edgeDepth[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 	c.setPosZ(posz)
@@ -7483,7 +7492,7 @@ func (c *Char) zDepthBound() {
 func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 	x := c.pos[0]
 	if c.ss.stateType != ST_A {
-		min, max := c.widthEdge[0], -c.widthEdge[1]
+		min, max := c.edgeWidth[0], -c.edgeWidth[1]
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
@@ -7923,7 +7932,7 @@ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj boo
 				getter.attrCheck(c, hd, c.ss.stateType) &&
 				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
-					getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
+					getter.pos[2], getter.sizeDepth[0], getter.sizeDepth[1], getter.localscl)
 		}
 	}
 
@@ -8203,25 +8212,22 @@ func (c *Char) actionRun() {
 	if !c.hitPause() {
 		coordRatio := ((320 / c.localcoord) / c.localscl)
 		if !c.csf(CSF_width) {
-			c.width = [2]float32{c.baseWidthFront() * coordRatio, c.baseWidthBack() * coordRatio}
+			c.sizeWidth = [2]float32{c.baseWidthFront() * coordRatio, c.baseWidthBack() * coordRatio}
 		}
 		if !c.csf(CSF_widthedge) {
-			c.widthEdge = [2]float32{0, 0}
+			c.edgeWidth = [2]float32{0, 0}
 		}
 		if !c.csf(CSF_height) {
-			c.height = [2]float32{c.baseHeightTop() * coordRatio, c.baseHeightBottom() * coordRatio}
+			c.sizeHeight = [2]float32{c.baseHeightTop() * coordRatio, c.baseHeightBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depth) {
-			c.depth = [2]float32{c.baseDepthTop() * coordRatio, c.baseDepthBottom() * coordRatio}
+			c.sizeDepth = [2]float32{c.baseDepthTop() * coordRatio, c.baseDepthBottom() * coordRatio}
 		}
 		if !c.csf(CSF_depthedge) {
-			c.depthEdge = [2]float32{0, 0}
+			c.edgeDepth = [2]float32{0, 0}
 		}
 	}
-	// Update size box according to player width and height
-	// This box will replace width and height values in some other parts of the code
-	// TODO: More refactoring so the box can replace width and height entirely
-	c.widthToSizeBox()
+	c.updateSizeBox()
 	if !c.pauseBool {
 		if !c.hitPause() {
 			if c.ss.no == 5110 && c.ghv.down_recovertime <= 0 && c.alive() && !c.asf(ASF_nogetupfromliedown) {
@@ -8431,7 +8437,7 @@ func (c *Char) track() {
 
 		// X axis
 		if c.csf(CSF_movecamera_x) && !c.scf(SCF_standby) {
-			edgeleft, edgeright := -c.widthEdge[1], c.widthEdge[0]
+			edgeleft, edgeright := -c.edgeWidth[1], c.edgeWidth[0]
 			if c.facing < 0 {
 				edgeleft, edgeright = -edgeright, -edgeleft
 			}
@@ -9992,9 +9998,9 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 			if !proj {
 				off[0] = p2.pos[0]*p2.localscl - p1.pos[0]*p1.localscl
 				if (p1.facing < 0) != (p2.facing < 0) {
-					off[0] += p2.facing * p2.width[0] * p2.localscl
+					off[0] += p2.facing * p2.sizeWidth[0] * p2.localscl
 				} else {
-					off[0] -= p2.facing * p2.width[1] * p2.localscl
+					off[0] -= p2.facing * p2.sizeWidth[1] * p2.localscl
 				}
 				off[2] = p2.pos[2]*p2.localscl - p1.pos[2]*p1.localscl
 			}
@@ -10338,7 +10344,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 
 					if getter.projClsnCheck(p, p.hitdef.p2clsncheck, 1) &&
 						sys.zAxisOverlap(p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl,
-							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl) {
+							getter.pos[2], getter.sizeDepth[0], getter.sizeDepth[1], getter.localscl) {
 
 						if ht := hitTypeGet(c, &p.hitdef, [...]float32{p.pos[0] - c.pos[0]*(c.localscl/p.localscl),
 							p.pos[1] - c.pos[1]*(c.localscl/p.localscl), p.pos[2] - c.pos[2]*(c.localscl/p.localscl)},
@@ -10450,7 +10456,7 @@ func (cl *CharList) hitDetection(getter *Char, proj bool) {
 							getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl)
 					} else {
 						zok = sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
-							getter.pos[2], getter.depth[0], getter.depth[1], getter.localscl)
+							getter.pos[2], getter.sizeDepth[0], getter.sizeDepth[1], getter.localscl)
 					}
 
 					// If collision OK then get the hit type and act accordingly
@@ -10602,11 +10608,11 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			cztop := c.pos[2]*c.localscl - c.depth[0]*c.localscl
-			czbot := c.pos[2]*c.localscl + c.depth[1]*c.localscl
+			cztop := c.pos[2]*c.localscl - c.sizeDepth[0]*c.localscl
+			czbot := c.pos[2]*c.localscl + c.sizeDepth[1]*c.localscl
 
-			gztop := getter.pos[2]*getter.localscl - getter.depth[0]*getter.localscl
-			gzbot := getter.pos[2]*getter.localscl + getter.depth[1]*getter.localscl
+			gztop := getter.pos[2]*getter.localscl - getter.sizeDepth[0]*getter.localscl
+			gzbot := getter.pos[2]*getter.localscl + getter.sizeDepth[1]*getter.localscl
 
 			// Z axis fail
 			if gztop >= czbot || cztop >= gzbot {
@@ -10618,8 +10624,8 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				getter.pushed, c.pushed = true, true
 
-				gxmin = getter.widthEdge[0]
-				gxmax = -getter.widthEdge[1]
+				gxmin = getter.edgeWidth[0]
+				gxmax = -getter.edgeWidth[1]
 				if getter.facing > 0 {
 					gxmin, gxmax = -gxmax, -gxmin
 				}
@@ -10749,7 +10755,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 					getter.pos[0] = ClampF(getter.pos[0], gxmin, gxmax)
 				}
 				if c.trackableByCamera() && c.csf(CSF_screenbound) {
-					l, r := c.widthEdge[0], -c.widthEdge[1]
+					l, r := c.edgeWidth[0], -c.edgeWidth[1]
 					if c.facing > 0 {
 						l, r = -r, -l
 					}

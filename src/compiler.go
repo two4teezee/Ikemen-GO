@@ -185,8 +185,8 @@ func newCompiler() *Compiler {
 		"teammapset":           c.teamMapSet,
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
+		"transformsprite":      c.transformSprite,
 		"modifystagebg":        c.modifyStageBG,
-		"window":               c.window,
 	}
 	return c
 }

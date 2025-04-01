@@ -1208,6 +1208,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				projection:   img.projection,
 				fLength:      img.fLength,
 				window:       sd.window,
+				xshear:       sd.xshear,
 			})
 			// Afterimages don't cast shadows or reflections
 		}
@@ -1583,11 +1584,11 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		undarken:     playerNo == sys.superplayerno,
 		oldVer:       oldVer,
 		facing:       facing,
-		xshear:       e.xshear,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
 		fLength:      fLength,
 		window:       ewin,
+		xshear:       e.xshear,
 	}
 	sprs.add(sd)
 
@@ -2451,6 +2452,7 @@ type Char struct {
 	vel                 [3]float32
 	facing              float32
 	window              [4]float32
+	xshear              float32
 	ivar                [NumVar + NumSysVar]int32
 	fvar                [NumFvar + NumSysFvar]float32
 	CharSystemVar
@@ -8098,8 +8100,9 @@ func (c *Char) actionPrepare() {
 		c.reflectWindow = [4]float32{}
 		c.reflectXshear = 0
 		c.reflectYscale = 0
-		// Reset Window
+		// Reset TransformSprite
 		c.window = [4]float32{}
+		c.xshear = 0
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -9027,6 +9030,7 @@ func (c *Char) cueDraw() {
 			airOffsetFix: airOffsetFix,
 			projection:   0,
 			fLength:      0,
+			xshear:       c.xshear,
 			window:       cwin,
 		}
 		if !c.csf(CSF_trans) {

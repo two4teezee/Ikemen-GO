@@ -5937,6 +5937,33 @@ func (c *Compiler) transformClsn(is IniSection, sc *StateControllerBase, _ int8)
 	return *ret, err
 }
 
+func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*transformSprite)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			transformSprite_redirectid, VT_Float, 1, false); err != nil {
+			return err
+		}
+		any := false
+		if err := c.stateParam(is, "window", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_window, data, VT_Float, 4)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_xshear, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if !any {
+			return Error("Must specify at least one TransformSprite parameter")
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyStageBG)(sc), c.stateSec(is, func() error {
 		//if err := c.paramValue(is, sc, "redirectid",
@@ -6051,21 +6078,6 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")
-		}
-		return nil
-	})
-	return *ret, err
-}
-
-func (c *Compiler) window(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*window)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			window_redirectid, VT_Float, 1, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "value",
-			window_, VT_Float, 4, true); err != nil {
-			return err
 		}
 		return nil
 	})

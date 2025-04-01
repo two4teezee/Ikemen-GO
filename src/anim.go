@@ -1022,6 +1022,9 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 					(cameraY/cs - s.pos[1])}
 		}
 
+		xshear := -s.xshear
+		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)
+
 		drawwindow := &sys.scrrect
 		// Sprite window, which can be from the Char, Explod, or Projectile
 		if s.window != [4]float32{0, 0, 0, 0} {
@@ -1042,8 +1045,6 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 			drawwindow = &window
 		}
-		xshear := -s.xshear
-		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)
 
 		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
 			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,

@@ -2489,10 +2489,18 @@ type Char struct {
 	koEchoTimer     int32
 	groundLevel     float32
 	sizeBox         []float32
+	shadowColor     [3]int32
+	shadowIntensity int32
 	shadowOffset    [2]float32
 	shadowWindow    [4]float32
+	shadowXshear    float32
+	shadowYscale    float32
+	reflectColor    [3]int32
+	reflectIntensity int32
 	reflectOffset   [2]float32
 	reflectWindow   [4]float32
+	reflectXshear   float32
+	reflectYscale   float32
 	ownclsnscale    bool
 	pushPriority    int32
 	prevfallflag    bool
@@ -5474,30 +5482,6 @@ func (c *Char) addZ(z float32) {
 	c.setZ(c.pos[2] + z)
 }
 
-func (c *Char) shadXOff(xv float32, isReflect bool) {
-	if !isReflect {
-		c.shadowOffset[0] = xv
-	} else {
-		c.reflectOffset[0] = xv
-	}
-}
-
-func (c *Char) shadYOff(yv float32, isReflect bool) {
-	if !isReflect {
-		c.shadowOffset[1] = yv
-	} else {
-		c.reflectOffset[1] = yv
-	}
-}
-
-func (c *Char) shadWin(win [4]float32, isReflect bool) {
-	if !isReflect {
-		c.shadowWindow = win
-	} else {
-		c.reflectWindow = win
-	}
-}
-
 func (c *Char) hitAdd(h int32) {
 	if h == 0 {
 		return
@@ -8100,13 +8084,22 @@ func (c *Char) actionPrepare() {
 		// Reset Clsn modifiers
 		c.clsnScaleMul = [...]float32{1.0, 1.0}
 		c.clsnAngle = 0
-		// Reset shadow offsets
+		// Reset modifyShadow
+		c.shadowColor = [3]int32{-1, -1, -1}
+		c.shadowIntensity = -1
 		c.shadowOffset = [2]float32{}
-		c.reflectOffset = [2]float32{}
-		// Reset window
-		c.window = [4]float32{}
 		c.shadowWindow = [4]float32{}
+		c.shadowXshear = 0
+		c.shadowYscale = 0
+		// Reset modifyReflection
+		c.reflectColor = [3]int32{-1, -1, -1}
+		c.reflectIntensity = -1
+		c.reflectOffset = [2]float32{}
 		c.reflectWindow = [4]float32{}
+		c.reflectXshear = 0
+		c.reflectYscale = 0
+		// Reset Window
+		c.window = [4]float32{}
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -9059,6 +9052,8 @@ func (c *Char) cueDraw() {
 			if c.csf(CSF_trans) {
 				sdwalp = 255 - c.alpha[1]
 			}
+			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 			// Add sprite to draw list
 			sprs.add(sd)
 			// Add shadow
@@ -9073,21 +9068,31 @@ func (c *Char) cueDraw() {
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
+				sdwYscale := sys.getYscale(c.shadowYscale, sys.stage.sdw.yscale)
+				refYscale := sys.getYscale(c.reflectYscale, sys.stage.reflection.yscale)
+
 				sys.shadows.add(&ShadowSprite{
 					SprData:     sd,
-					shadowColor: -1,
+					shadowColor: sdwclr,
 					shadowAlpha: sdwalp,
+					shadowIntensity: c.shadowIntensity,
 					shadowOffset: [2]float32{
 						c.shadowOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 					},
 					shadowWindow: c.shadowWindow,
+					shadowXshear: c.shadowXshear,
+					shadowYscale: c.shadowYscale,
+					reflectColor: reflectclr,
+					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
 					},
 					reflectWindow: c.reflectWindow,
-					fadeOffset:    c.offsetY() + drawZoff,
+					reflectXshear: c.reflectXshear,
+					reflectYscale: c.reflectYscale,
+					fadeOffset: c.offsetY() + drawZoff,
 				})
 			}
 		}

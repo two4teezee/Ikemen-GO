@@ -5173,24 +5173,38 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_offset byte = iota
+	modifyShadow_color byte = iota
+	modifyShadow_intensity
+	modifyShadow_offset
 	modifyShadow_window
+	modifyShadow_xshear
+	modifyShadow_yscale
 	modifyShadow_redirectid
 )
 
 func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	crun := c
-	isReflect := false
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_color:
+			r := Clamp(exp[0].evalI(c), 0, 255)
+			g := Clamp(exp[1].evalI(c), 0, 255)
+			b := Clamp(exp[2].evalI(c), 0, 255)
+			crun.shadowColor = [3]int32{r, g, b}
+		case modifyShadow_intensity:
+			crun.shadowIntensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyShadow_offset:
-			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
+			crun.shadowOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
+				crun.shadowOffset[1] = exp[1].evalF(c) * redirscale
 			}
 		case modifyShadow_window:
-			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+			crun.shadowWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyShadow_xshear:
+			crun.shadowXshear = exp[0].evalF(c)	
+		case modifyShadow_yscale:
+			crun.shadowYscale = exp[0].evalF(c)
 		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5207,24 +5221,38 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 type modifyReflection StateControllerBase
 
 const (
-	modifyReflection_offset byte = iota
+	modifyReflection_color byte = iota
+	modifyReflection_intensity
+	modifyReflection_offset
 	modifyReflection_window
+	modifyReflection_xshear
+	modifyReflection_yscale
 	modifyReflection_redirectid
 )
 
 func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	crun := c
-	isReflect := true
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_color:
+			r := Clamp(exp[0].evalI(c), 0, 255)
+			g := Clamp(exp[1].evalI(c), 0, 255)
+			b := Clamp(exp[2].evalI(c), 0, 255)
+			crun.reflectColor = [3]int32{r, g, b}
+		case modifyReflection_intensity:
+			crun.reflectIntensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyReflection_offset:
-			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
+			crun.reflectOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
+				crun.reflectOffset[1] = exp[1].evalF(c) * redirscale
 			}
 		case modifyReflection_window:
-			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+			crun.reflectWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyReflection_xshear:
+			crun.reflectXshear = exp[0].evalF(c)
+		case modifyReflection_yscale:
+			crun.reflectYscale = exp[0].evalF(c)
 		case modifyReflection_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

@@ -1177,12 +1177,28 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "color",
+			modifyShadow_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyShadow_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "offset",
 			modifyShadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",
 			modifyShadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyShadow_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyShadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -1196,12 +1212,28 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "color",
+			modifyReflection_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyReflection_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "offset",
 			modifyReflection_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",
 			modifyReflection_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyReflection_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyReflection_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)

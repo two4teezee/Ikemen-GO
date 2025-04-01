@@ -3074,6 +3074,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		case "angle":
 			opc = OC_ex2_projvar_projangle
+		case "xshear":
+			opc = OC_ex2_projvar_projxshear
 		case "pos":
 			c.token = c.tokenizer(in)
 

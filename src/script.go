@@ -4661,6 +4661,8 @@ func triggerFunctions(l *lua.LState) {
 					lv = lua.LNumber(p.scale[1])
 				case "angle":
 					lv = lua.LNumber(p.angle)
+				case "xshear":
+					lv = lua.LNumber(p.xshear)
 				case "pos x":
 					lv = lua.LNumber(p.pos[0])
 				case "pos y":

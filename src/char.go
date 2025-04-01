@@ -1814,6 +1814,7 @@ type Projectile struct {
 	aimg            AfterImage
 	palfx           *PalFX
 	window          [4]float32
+	xshear          float32
 	localscl        float32
 	parentAttackmul [4]float32
 	platform        bool
@@ -2201,6 +2202,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			projection:   0,
 			fLength:      0,
 			window:       pwin,
+			xshear:       p.xshear,
 		}
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
@@ -4297,6 +4299,8 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.scale[1])
 			case OC_ex2_projvar_projangle:
 				v = BytecodeFloat(p.angle)
+			case OC_ex2_projvar_projxshear:
+				v = BytecodeFloat(p.xshear)
 			case OC_ex2_projvar_pos_x:
 				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
 			case OC_ex2_projvar_pos_y:

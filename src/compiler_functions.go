@@ -2287,8 +2287,12 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projclsnangle, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "window",
-		projectile_window, VT_Float, 4, false); err != nil {
+	if err := c.paramValue(is, sc, "projwindow",
+		projectile_projwindow, VT_Float, 4, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projxshear",
+		projectile_projxshear, VT_Float, 1, false); err != nil {
 		return err
 	}
 	// HitDef section

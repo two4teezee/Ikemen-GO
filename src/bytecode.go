@@ -823,6 +823,7 @@ const (
 	OC_ex2_projvar_pos_y
 	OC_ex2_projvar_pos_z
 	OC_ex2_projvar_projangle
+	OC_ex2_projvar_projxshear
 	OC_ex2_projvar_projanim
 	OC_ex2_projvar_projcancelanim
 	OC_ex2_projvar_projedgebound
@@ -3535,6 +3536,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_projscale_y:
 		fallthrough
 	case OC_ex2_projvar_projangle:
+		fallthrough
+	case OC_ex2_projvar_projxshear:
 		fallthrough
 	case OC_ex2_projvar_projsprpriority:
 		fallthrough
@@ -7120,7 +7123,8 @@ const (
 	projectile_pausemovetime
 	projectile_ownpal
 	projectile_remappal
-	projectile_window
+	projectile_projwindow
+	projectile_projxshear
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7286,8 +7290,10 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			}
 		case projectile_projclsnangle:
 			p.clsnAngle = exp[0].evalF(c)
-		case projectile_window:
+		case projectile_projwindow:
 			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+		case projectile_projxshear:
+			p.xshear = exp[0].evalF(c)
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7657,13 +7663,18 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				eachProj(func(p *Projectile) {
 					p.clsnAngle = v1
 				})
-			case projectile_window:
+			case projectile_projwindow:
 				v1 := exp[0].evalF(c) * redirscale
 				v2 := exp[1].evalF(c) * redirscale
 				v3 := exp[2].evalF(c) * redirscale
 				v4 := exp[3].evalF(c) * redirscale
 				eachProj(func(p *Projectile) {
 					p.window = [4]float32{v1, v2, v3, v4}
+				})
+			case projectile_projxshear:
+				v1 := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.xshear = v1
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)

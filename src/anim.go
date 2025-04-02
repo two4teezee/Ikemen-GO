@@ -1021,7 +1021,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 				(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/cs -
 					(cameraY/cs - s.pos[1])}
 		}
-
+		// Xshear offset correction
 		xshear := -s.xshear
 		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)
 

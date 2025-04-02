@@ -6037,6 +6037,12 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "scalestart", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_scalestart, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "trans", false, func(data string) error {
 			if len(data) == 0 {
 				return Error("trans type not specified")
@@ -6068,6 +6074,12 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "angle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_angle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
@@ -6077,6 +6089,12 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		if err := c.stateParam(is, "velocity.y", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_y, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xshear, data, VT_Float, 1)
 		}); err != nil {
 			return err
 		}

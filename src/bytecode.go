@@ -12924,6 +12924,7 @@ const (
 	modifyStageBG_index
 	modifyStageBG_actionno
 	modifyStageBG_alpha
+	modifyStageBG_angle
 	modifyStageBG_delta_x
 	modifyStageBG_delta_y
 	modifyStageBG_layerno
@@ -12932,9 +12933,11 @@ const (
 	modifyStageBG_spriteno
 	modifyStageBG_start_x
 	modifyStageBG_start_y
+	modifyStageBG_scalestart
 	modifyStageBG_trans
 	modifyStageBG_velocity_x
 	modifyStageBG_velocity_y
+	modifyStageBG_xshear
 )
 
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
@@ -12987,6 +12990,11 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 						bg.anim.srcAlpha = 0
 					}
 				})
+			case modifyStageBG_angle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.angle = val
+				})
 			case modifyStageBG_delta_x:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
@@ -13032,6 +13040,13 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				eachBg(func(bg *backGround) {
 					bg.start[1] = val
 				})
+			case modifyStageBG_scalestart:
+				sclx := exp[0].evalF(c)
+				scly := exp[1].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.scalestart[0] = sclx
+					bg.scalestart[1] = scly
+				})
 			case modifyStageBG_trans:
 				val := exp[0].evalI(c)
 				if val == 0 || val == 1 || val == 2 || val == 3 || val == 4 {
@@ -13068,6 +13083,11 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
 					bg.bga.vel[1] = val
+				})
+			case modifyStageBG_xshear:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.xshear = val
 				})
 			}
 		}

@@ -127,6 +127,8 @@ type backGround struct {
 	zoomscaledelta     [2]float32
 	xbottomzoomdelta   float32
 	roundpos           bool
+	angle              float32
+	xshear             float32
 }
 
 func newBackGround(sff *Sff) *backGround {
@@ -139,6 +141,8 @@ func newBackGround(sff *Sff) *backGround {
 		rasterx:            [...]float32{1, 1},
 		yscalestart:        100,
 		scalestart:         [...]float32{1, 1},
+		angle:              0,
+		xshear:             0,
 		xbottomzoomdelta:   math.MaxFloat32,
 		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
 		actionno:           -1,
@@ -211,6 +215,8 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	is.readF32ForStage("scalestart", &bg.scalestart[0], &bg.scalestart[1])
 	is.readF32ForStage("scaledelta", &bg.scaledelta[0], &bg.scaledelta[1])
+	is.readF32ForStage("angle", &bg.angle)
+	is.readF32ForStage("xshear", &bg.xshear)
 	is.readF32ForStage("xbottomzoomdelta", &bg.xbottomzoomdelta)
 	is.readF32ForStage("zoomscaledelta", &bg.zoomscaledelta[0], &bg.zoomscaledelta[1])
 	is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1])
@@ -454,6 +460,13 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	sclx *= lscl[0]
 	scly *= stglscl * stgscl[1]
 
+	// Xshear offset correction
+	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Size[1]) * scly)
+
+	if bg.angle != 0 {
+		xsoffset /= bg.angle
+	}
+	
 	// Calculate window scale
 	var wscl [2]float32
 	for i := range wscl {
@@ -493,11 +506,11 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 
 	// Render background if it's within the screen area
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
-		bg.anim.Draw(&rect, x, y, sclx, scly,
+		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
 			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
 			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
-			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1],
-			Rotation{}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			ys*ys3,xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+			Rotation{bg.angle,0,0}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

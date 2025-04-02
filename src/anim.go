@@ -1057,20 +1057,20 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 type ShadowSprite struct {
 	*SprData
-	shadowColor   int32
-	shadowAlpha   int32
-	shadowIntensity int32
-	shadowOffset  [2]float32
-	shadowXshear  float32
-	shadowYscale  float32
-	shadowWindow  [4]float32
-	reflectColor  int32
+	shadowColor      int32
+	shadowAlpha      int32
+	shadowIntensity  int32
+	shadowOffset     [2]float32
+	shadowXshear     float32
+	shadowYscale     float32
+	shadowWindow     [4]float32
+	reflectColor     int32
 	reflectIntensity int32
-	reflectOffset [2]float32
-	reflectWindow [4]float32
-	reflectXshear float32
-	reflectYscale float32
-	fadeOffset    float32
+	reflectOffset    [2]float32
+	reflectWindow    [4]float32
+	reflectXshear    float32
+	reflectYscale    float32
+	fadeOffset       float32
 }
 
 type ShadowList []*ShadowSprite
@@ -1144,7 +1144,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if s.xshear != 0 {
 			xshear = -s.xshear
 		} else if s.shadowXshear != 0 {
-			xshear = s.shadowXshear 
+			xshear = s.shadowXshear
 		} else {
 			xshear = sys.stage.sdw.xshear
 		}
@@ -1172,7 +1172,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1]+s.fadeOffset) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
 		}
 
 		drawwindow := &sys.scrrect
@@ -1200,7 +1200,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			}
 
 			window[0] = int32((sys.cam.Offset[0] - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1] * SignF(yscale) * scl) * sys.heightScale)
+			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
 
@@ -1294,7 +1294,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1]+s.fadeOffset) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
 		}
 
 		drawwindow := &sys.scrrect

@@ -466,7 +466,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	if bg.angle != 0 {
 		xsoffset /= bg.angle
 	}
-	
+
 	// Calculate window scale
 	var wscl [2]float32
 	for i := range wscl {
@@ -509,8 +509,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
 			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
 			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
-			ys*ys3,xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			Rotation{bg.angle,0,0}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+			Rotation{bg.angle, 0, 0}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

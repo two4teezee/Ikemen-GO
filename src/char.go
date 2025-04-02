@@ -2458,58 +2458,58 @@ type Char struct {
 	ivar                [NumVar + NumSysVar]int32
 	fvar                [NumFvar + NumSysFvar]float32
 	CharSystemVar
-	aimg            AfterImage
-	soundChannels   SoundChannels
-	p1facing        float32
-	cpucmd          int32
-	offset          [2]float32
-	stchtmp         bool
-	inguarddist     bool
-	pushed          bool
-	hitdefContact   bool
-	atktmp          int8 // 1 hitdef can hit, 0 cannot hit, -1 other
-	hittmp          int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
-	acttmp          int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus           int8 // current negative state
-	platformPosY    float32
-	groundAngle     float32
-	ownpal          bool
-	winquote        int32
-	memberNo        int
-	selectNo        int
-	inheritJuggle   int32
-	inheritChannels int32
-	mapArray        map[string]float32
-	mapDefault      map[string]float32
-	remapSpr        RemapPreset
-	clipboardText   []string
-	dialogue        []string
-	immortal        bool
-	kovelocity      bool
-	preserve        int32
-	inputFlag       InputBits
-	pauseBool       bool
-	downHitOffset   bool
-	koEchoTimer     int32
-	groundLevel     float32
-	sizeBox         []float32
-	shadowColor     [3]int32
-	shadowIntensity int32
-	shadowOffset    [2]float32
-	shadowWindow    [4]float32
-	shadowXshear    float32
-	shadowYscale    float32
-	reflectColor    [3]int32
+	aimg             AfterImage
+	soundChannels    SoundChannels
+	p1facing         float32
+	cpucmd           int32
+	offset           [2]float32
+	stchtmp          bool
+	inguarddist      bool
+	pushed           bool
+	hitdefContact    bool
+	atktmp           int8 // 1 hitdef can hit, 0 cannot hit, -1 other
+	hittmp           int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
+	acttmp           int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
+	minus            int8 // current negative state
+	platformPosY     float32
+	groundAngle      float32
+	ownpal           bool
+	winquote         int32
+	memberNo         int
+	selectNo         int
+	inheritJuggle    int32
+	inheritChannels  int32
+	mapArray         map[string]float32
+	mapDefault       map[string]float32
+	remapSpr         RemapPreset
+	clipboardText    []string
+	dialogue         []string
+	immortal         bool
+	kovelocity       bool
+	preserve         int32
+	inputFlag        InputBits
+	pauseBool        bool
+	downHitOffset    bool
+	koEchoTimer      int32
+	groundLevel      float32
+	sizeBox          []float32
+	shadowColor      [3]int32
+	shadowIntensity  int32
+	shadowOffset     [2]float32
+	shadowWindow     [4]float32
+	shadowXshear     float32
+	shadowYscale     float32
+	reflectColor     [3]int32
 	reflectIntensity int32
-	reflectOffset   [2]float32
-	reflectWindow   [4]float32
-	reflectXshear   float32
-	reflectYscale   float32
-	ownclsnscale    bool
-	pushPriority    int32
-	prevfallflag    bool
-	dustOldPos      [3]float32
-	dustTime        int
+	reflectOffset    [2]float32
+	reflectWindow    [4]float32
+	reflectXshear    float32
+	reflectYscale    float32
+	ownclsnscale     bool
+	pushPriority     int32
+	prevfallflag     bool
+	dustOldPos       [3]float32
+	dustTime         int
 }
 
 // Add a new char to the game
@@ -9080,18 +9080,18 @@ func (c *Char) cueDraw() {
 				refYscale := sys.getYscale(c.reflectYscale, sys.stage.reflection.yscale)
 
 				sys.shadows.add(&ShadowSprite{
-					SprData:     sd,
-					shadowColor: sdwclr,
-					shadowAlpha: sdwalp,
+					SprData:         sd,
+					shadowColor:     sdwclr,
+					shadowAlpha:     sdwalp,
 					shadowIntensity: c.shadowIntensity,
 					shadowOffset: [2]float32{
 						c.shadowOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 					},
-					shadowWindow: c.shadowWindow,
-					shadowXshear: c.shadowXshear,
-					shadowYscale: c.shadowYscale,
-					reflectColor: reflectclr,
+					shadowWindow:     c.shadowWindow,
+					shadowXshear:     c.shadowXshear,
+					shadowYscale:     c.shadowYscale,
+					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
@@ -9100,7 +9100,7 @@ func (c *Char) cueDraw() {
 					reflectWindow: c.reflectWindow,
 					reflectXshear: c.reflectXshear,
 					reflectYscale: c.reflectYscale,
-					fadeOffset: c.offsetY() + drawZoff,
+					fadeOffset:    c.offsetY() + drawZoff,
 				})
 			}
 		}

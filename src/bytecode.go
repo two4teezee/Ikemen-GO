@@ -5205,7 +5205,7 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 		case modifyShadow_window:
 			crun.shadowWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
 		case modifyShadow_xshear:
-			crun.shadowXshear = exp[0].evalF(c)	
+			crun.shadowXshear = exp[0].evalF(c)
 		case modifyShadow_yscale:
 			crun.shadowYscale = exp[0].evalF(c)
 		case modifyShadow_redirectid:

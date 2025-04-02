@@ -1208,6 +1208,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				projection:   img.projection,
 				fLength:      img.fLength,
 				window:       sd.window,
+				xshear:       sd.xshear,
 			})
 			// Afterimages don't cast shadows or reflections
 		}
@@ -1253,6 +1254,7 @@ type Explod struct {
 	ignorehitpause bool
 	rot            Rotation
 	anglerot       [3]float32
+	xshear         float32
 	projection     Projection
 	fLength        float32
 	oldPos         [3]float32
@@ -1586,6 +1588,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		projection:   int32(e.projection),
 		fLength:      fLength,
 		window:       ewin,
+		xshear:       e.xshear,
 	}
 	sprs.add(sd)
 
@@ -1811,6 +1814,7 @@ type Projectile struct {
 	aimg            AfterImage
 	palfx           *PalFX
 	window          [4]float32
+	xshear          float32
 	localscl        float32
 	parentAttackmul [4]float32
 	platform        bool
@@ -2198,6 +2202,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			projection:   0,
 			fLength:      0,
 			window:       pwin,
+			xshear:       p.xshear,
 		}
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
@@ -2449,6 +2454,7 @@ type Char struct {
 	vel                 [3]float32
 	facing              float32
 	window              [4]float32
+	xshear              float32
 	ivar                [NumVar + NumSysVar]int32
 	fvar                [NumFvar + NumSysFvar]float32
 	CharSystemVar
@@ -2487,10 +2493,18 @@ type Char struct {
 	koEchoTimer     int32
 	groundLevel     float32
 	sizeBox         []float32
+	shadowColor     [3]int32
+	shadowIntensity int32
 	shadowOffset    [2]float32
 	shadowWindow    [4]float32
+	shadowXshear    float32
+	shadowYscale    float32
+	reflectColor    [3]int32
+	reflectIntensity int32
 	reflectOffset   [2]float32
 	reflectWindow   [4]float32
+	reflectXshear   float32
+	reflectYscale   float32
 	ownclsnscale    bool
 	pushPriority    int32
 	prevfallflag    bool
@@ -4177,6 +4191,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
 			case OC_ex2_explodvar_angle_y:
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
+			case OC_ex2_explodvar_xshear:
+				v = BytecodeFloat(e.xshear)
 			case OC_ex2_explodvar_vel_x:
 				v = BytecodeFloat(e.velocity[0])
 			case OC_ex2_explodvar_vel_y:
@@ -4283,6 +4299,8 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.scale[1])
 			case OC_ex2_projvar_projangle:
 				v = BytecodeFloat(p.angle)
+			case OC_ex2_projvar_projxshear:
+				v = BytecodeFloat(p.xshear)
 			case OC_ex2_projvar_pos_x:
 				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
 			case OC_ex2_projvar_pos_y:
@@ -5468,30 +5486,6 @@ func (c *Char) addY(y float32) {
 
 func (c *Char) addZ(z float32) {
 	c.setZ(c.pos[2] + z)
-}
-
-func (c *Char) shadXOff(xv float32, isReflect bool) {
-	if !isReflect {
-		c.shadowOffset[0] = xv
-	} else {
-		c.reflectOffset[0] = xv
-	}
-}
-
-func (c *Char) shadYOff(yv float32, isReflect bool) {
-	if !isReflect {
-		c.shadowOffset[1] = yv
-	} else {
-		c.reflectOffset[1] = yv
-	}
-}
-
-func (c *Char) shadWin(win [4]float32, isReflect bool) {
-	if !isReflect {
-		c.shadowWindow = win
-	} else {
-		c.reflectWindow = win
-	}
 }
 
 func (c *Char) hitAdd(h int32) {
@@ -8096,13 +8090,23 @@ func (c *Char) actionPrepare() {
 		// Reset Clsn modifiers
 		c.clsnScaleMul = [...]float32{1.0, 1.0}
 		c.clsnAngle = 0
-		// Reset shadow offsets
+		// Reset modifyShadow
+		c.shadowColor = [3]int32{-1, -1, -1}
+		c.shadowIntensity = -1
 		c.shadowOffset = [2]float32{}
-		c.reflectOffset = [2]float32{}
-		// Reset window
-		c.window = [4]float32{}
 		c.shadowWindow = [4]float32{}
+		c.shadowXshear = 0
+		c.shadowYscale = 0
+		// Reset modifyReflection
+		c.reflectColor = [3]int32{-1, -1, -1}
+		c.reflectIntensity = -1
+		c.reflectOffset = [2]float32{}
 		c.reflectWindow = [4]float32{}
+		c.reflectXshear = 0
+		c.reflectYscale = 0
+		// Reset TransformSprite
+		c.window = [4]float32{}
+		c.xshear = 0
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -9030,6 +9034,7 @@ func (c *Char) cueDraw() {
 			airOffsetFix: airOffsetFix,
 			projection:   0,
 			fLength:      0,
+			xshear:       c.xshear,
 			window:       cwin,
 		}
 		if !c.csf(CSF_trans) {
@@ -9055,6 +9060,8 @@ func (c *Char) cueDraw() {
 			if c.csf(CSF_trans) {
 				sdwalp = 255 - c.alpha[1]
 			}
+			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 			// Add sprite to draw list
 			sprs.add(sd)
 			// Add shadow
@@ -9069,21 +9076,31 @@ func (c *Char) cueDraw() {
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
+				sdwYscale := sys.getYscale(c.shadowYscale, sys.stage.sdw.yscale)
+				refYscale := sys.getYscale(c.reflectYscale, sys.stage.reflection.yscale)
+
 				sys.shadows.add(&ShadowSprite{
 					SprData:     sd,
-					shadowColor: -1,
+					shadowColor: sdwclr,
 					shadowAlpha: sdwalp,
+					shadowIntensity: c.shadowIntensity,
 					shadowOffset: [2]float32{
 						c.shadowOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sys.stage.sdw.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 					},
 					shadowWindow: c.shadowWindow,
+					shadowXshear: c.shadowXshear,
+					shadowYscale: c.shadowYscale,
+					reflectColor: reflectclr,
+					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + sys.stage.reflection.yscale*drawZoff + drawZoff,
+						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
 					},
 					reflectWindow: c.reflectWindow,
-					fadeOffset:    c.offsetY() + drawZoff,
+					reflectXshear: c.reflectXshear,
+					reflectYscale: c.reflectYscale,
+					fadeOffset: c.offsetY() + drawZoff,
 				})
 			}
 		}

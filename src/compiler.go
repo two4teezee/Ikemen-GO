@@ -185,8 +185,8 @@ func newCompiler() *Compiler {
 		"teammapset":           c.teamMapSet,
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
+		"transformsprite":      c.transformSprite,
 		"modifystagebg":        c.modifyStageBG,
-		"window":               c.window,
 	}
 	return c
 }
@@ -2286,6 +2286,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", c.token))
 			}
+		case "xshear":
+			opc = OC_ex2_explodvar_xshear
 		default:
 			return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", vname))
 		}
@@ -3072,6 +3074,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		case "angle":
 			opc = OC_ex2_projvar_projangle
+		case "xshear":
+			opc = OC_ex2_projvar_projxshear
 		case "pos":
 			c.token = c.tokenizer(in)
 

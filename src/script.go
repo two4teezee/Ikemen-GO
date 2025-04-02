@@ -3694,6 +3694,8 @@ func triggerFunctions(l *lua.LState) {
 					ln = lua.LNumber(e.anglerot[1] + e.interpolate_angle[1])
 				case "angle y":
 					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
+				case "xshear":
+					ln = lua.LNumber(e.xshear)
 				case "removetime":
 					ln = lua.LNumber(e.removetime)
 				case "pausemovetime":
@@ -4659,6 +4661,8 @@ func triggerFunctions(l *lua.LState) {
 					lv = lua.LNumber(p.scale[1])
 				case "angle":
 					lv = lua.LNumber(p.angle)
+				case "xshear":
+					lv = lua.LNumber(p.xshear)
 				case "pos x":
 					lv = lua.LNumber(p.pos[0])
 				case "pos y":

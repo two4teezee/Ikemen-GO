@@ -977,6 +977,10 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_xangle, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "focallength",
 			explod_focallength, VT_Float, 1, false); err != nil {
 			return err
@@ -1031,6 +1035,10 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "xangle",
 			explod_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "focallength",
@@ -1169,12 +1177,28 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "color",
+			modifyShadow_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyShadow_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "offset",
 			modifyShadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",
 			modifyShadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyShadow_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyShadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -1188,12 +1212,28 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "color",
+			modifyReflection_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyReflection_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "offset",
 			modifyReflection_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "window",
 			modifyReflection_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyReflection_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyReflection_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -2247,8 +2287,12 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projclsnangle, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "window",
-		projectile_window, VT_Float, 4, false); err != nil {
+	if err := c.paramValue(is, sc, "projwindow",
+		projectile_projwindow, VT_Float, 4, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projxshear",
+		projectile_projxshear, VT_Float, 1, false); err != nil {
 		return err
 	}
 	// HitDef section
@@ -5897,6 +5941,33 @@ func (c *Compiler) transformClsn(is IniSection, sc *StateControllerBase, _ int8)
 	return *ret, err
 }
 
+func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*transformSprite)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			transformSprite_redirectid, VT_Float, 1, false); err != nil {
+			return err
+		}
+		any := false
+		if err := c.stateParam(is, "window", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_window, data, VT_Float, 4)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_xshear, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if !any {
+			return Error("Must specify at least one TransformSprite parameter")
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyStageBG)(sc), c.stateSec(is, func() error {
 		//if err := c.paramValue(is, sc, "redirectid",
@@ -5966,6 +6037,12 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "scalestart", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_scalestart, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "trans", false, func(data string) error {
 			if len(data) == 0 {
 				return Error("trans type not specified")
@@ -5997,6 +6074,12 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "angle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_angle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
@@ -6009,23 +6092,14 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xshear, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")
-		}
-		return nil
-	})
-	return *ret, err
-}
-
-func (c *Compiler) window(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*window)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			window_redirectid, VT_Float, 1, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "value",
-			window_, VT_Float, 4, true); err != nil {
-			return err
 		}
 		return nil
 	})

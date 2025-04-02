@@ -799,6 +799,7 @@ const (
 	OC_ex2_explodvar_angle
 	OC_ex2_explodvar_angle_x
 	OC_ex2_explodvar_angle_y
+	OC_ex2_explodvar_xshear
 	OC_ex2_explodvar_removetime
 	OC_ex2_explodvar_pausemovetime
 	OC_ex2_explodvar_sprpriority
@@ -822,6 +823,7 @@ const (
 	OC_ex2_projvar_pos_y
 	OC_ex2_projvar_pos_z
 	OC_ex2_projvar_projangle
+	OC_ex2_projvar_projxshear
 	OC_ex2_projvar_projanim
 	OC_ex2_projvar_projcancelanim
 	OC_ex2_projvar_projedgebound
@@ -3423,6 +3425,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_explodvar_angle_y:
 		camCorrected = true // gotta do this
 		fallthrough
+	case OC_ex2_explodvar_xshear:
+		fallthrough
 		// END FALLTHROUGH (explodvar)
 	case OC_ex2_explodvar_pos_x:
 		if !camCorrected {
@@ -3532,6 +3536,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_projscale_y:
 		fallthrough
 	case OC_ex2_projvar_projangle:
+		fallthrough
+	case OC_ex2_projvar_projxshear:
 		fallthrough
 	case OC_ex2_projvar_projsprpriority:
 		fallthrough
@@ -5170,24 +5176,38 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_offset byte = iota
+	modifyShadow_color byte = iota
+	modifyShadow_intensity
+	modifyShadow_offset
 	modifyShadow_window
+	modifyShadow_xshear
+	modifyShadow_yscale
 	modifyShadow_redirectid
 )
 
 func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	crun := c
-	isReflect := false
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_color:
+			r := Clamp(exp[0].evalI(c), 0, 255)
+			g := Clamp(exp[1].evalI(c), 0, 255)
+			b := Clamp(exp[2].evalI(c), 0, 255)
+			crun.shadowColor = [3]int32{r, g, b}
+		case modifyShadow_intensity:
+			crun.shadowIntensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyShadow_offset:
-			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
+			crun.shadowOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
+				crun.shadowOffset[1] = exp[1].evalF(c) * redirscale
 			}
 		case modifyShadow_window:
-			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+			crun.shadowWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyShadow_xshear:
+			crun.shadowXshear = exp[0].evalF(c)	
+		case modifyShadow_yscale:
+			crun.shadowYscale = exp[0].evalF(c)
 		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5204,24 +5224,38 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 type modifyReflection StateControllerBase
 
 const (
-	modifyReflection_offset byte = iota
+	modifyReflection_color byte = iota
+	modifyReflection_intensity
+	modifyReflection_offset
 	modifyReflection_window
+	modifyReflection_xshear
+	modifyReflection_yscale
 	modifyReflection_redirectid
 )
 
 func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	crun := c
-	isReflect := true
 	var redirscale float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_color:
+			r := Clamp(exp[0].evalI(c), 0, 255)
+			g := Clamp(exp[1].evalI(c), 0, 255)
+			b := Clamp(exp[2].evalI(c), 0, 255)
+			crun.reflectColor = [3]int32{r, g, b}
+		case modifyReflection_intensity:
+			crun.reflectIntensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyReflection_offset:
-			crun.shadXOff(exp[0].evalF(c)*redirscale, isReflect)
+			crun.reflectOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
-				crun.shadYOff(exp[1].evalF(c)*redirscale, isReflect)
+				crun.reflectOffset[1] = exp[1].evalF(c) * redirscale
 			}
 		case modifyReflection_window:
-			crun.shadWin([4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}, isReflect)
+			crun.reflectWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyReflection_xshear:
+			crun.reflectXshear = exp[0].evalF(c)
+		case modifyReflection_yscale:
+			crun.reflectYscale = exp[0].evalF(c)
 		case modifyReflection_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5456,6 +5490,7 @@ const (
 	explod_angle
 	explod_yangle
 	explod_xangle
+	explod_xshear
 	explod_projection
 	explod_focallength
 	explod_ignorehitpause
@@ -5686,6 +5721,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.anglerot[2] = exp[0].evalF(c)
 		case explod_xangle:
 			e.anglerot[1] = exp[0].evalF(c)
+		case explod_xshear:
+			e.xshear = exp[0].evalF(c)
 		case explod_focallength:
 			e.fLength = exp[0].evalF(c)
 		case explod_ignorehitpause:
@@ -6209,6 +6246,11 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				xa := exp[0].evalF(c)
 				eachExpl(func(e *Explod) {
 					e.anglerot[1] = xa
+				})
+			case explod_xshear:
+				xs := exp[0].evalF(c)
+				eachExpl(func(e *Explod) {
+					e.xshear = xs
 				})
 			case explod_projection:
 				eachExpl(func(e *Explod) {
@@ -7081,7 +7123,8 @@ const (
 	projectile_pausemovetime
 	projectile_ownpal
 	projectile_remappal
-	projectile_window
+	projectile_projwindow
+	projectile_projxshear
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7247,8 +7290,10 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			}
 		case projectile_projclsnangle:
 			p.clsnAngle = exp[0].evalF(c)
-		case projectile_window:
+		case projectile_projwindow:
 			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+		case projectile_projxshear:
+			p.xshear = exp[0].evalF(c)
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7618,13 +7663,18 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				eachProj(func(p *Projectile) {
 					p.clsnAngle = v1
 				})
-			case projectile_window:
+			case projectile_projwindow:
 				v1 := exp[0].evalF(c) * redirscale
 				v2 := exp[1].evalF(c) * redirscale
 				v3 := exp[2].evalF(c) * redirscale
 				v4 := exp[3].evalF(c) * redirscale
 				eachProj(func(p *Projectile) {
 					p.window = [4]float32{v1, v2, v3, v4}
+				})
+			case projectile_projxshear:
+				v1 := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.xshear = v1
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)
@@ -12837,6 +12887,36 @@ func (sc transformClsn) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type transformSprite StateControllerBase
+
+const (
+	transformSprite_window byte = iota
+	transformSprite_xshear
+	transformSprite_redirectid
+)
+
+func (sc transformSprite) Run(c *Char, _ []int32) bool {
+	crun := c
+	var redirscale float32 = 1.0
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case transformSprite_window:
+			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
+		case transformSprite_xshear:
+			crun.xshear = exp[0].evalF(c)
+		case transformSprite_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = c.localscl / crun.localscl
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+	return false
+}
+
 type modifyStageBG StateControllerBase
 
 const (
@@ -12844,6 +12924,7 @@ const (
 	modifyStageBG_index
 	modifyStageBG_actionno
 	modifyStageBG_alpha
+	modifyStageBG_angle
 	modifyStageBG_delta_x
 	modifyStageBG_delta_y
 	modifyStageBG_layerno
@@ -12852,9 +12933,11 @@ const (
 	modifyStageBG_spriteno
 	modifyStageBG_start_x
 	modifyStageBG_start_y
+	modifyStageBG_scalestart
 	modifyStageBG_trans
 	modifyStageBG_velocity_x
 	modifyStageBG_velocity_y
+	modifyStageBG_xshear
 )
 
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
@@ -12907,6 +12990,11 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 						bg.anim.srcAlpha = 0
 					}
 				})
+			case modifyStageBG_angle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.angle = val
+				})
 			case modifyStageBG_delta_x:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
@@ -12952,6 +13040,13 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				eachBg(func(bg *backGround) {
 					bg.start[1] = val
 				})
+			case modifyStageBG_scalestart:
+				sclx := exp[0].evalF(c)
+				scly := exp[1].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.scalestart[0] = sclx
+					bg.scalestart[1] = scly
+				})
 			case modifyStageBG_trans:
 				val := exp[0].evalI(c)
 				if val == 0 || val == 1 || val == 2 || val == 3 || val == 4 {
@@ -12989,33 +13084,11 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				eachBg(func(bg *backGround) {
 					bg.bga.vel[1] = val
 				})
-			}
-		}
-		return true
-	})
-	return false
-}
-
-type window StateControllerBase
-
-const (
-	window_ byte = iota
-	window_redirectid
-)
-
-func (sc window) Run(c *Char, _ []int32) bool {
-	crun := c
-	var redirscale float32 = 1.0
-	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
-		switch paramID {
-		case window_:
-			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
-		case window_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				crun = rid
-				redirscale = c.localscl / crun.localscl
-			} else {
-				return false
+			case modifyStageBG_xshear:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.xshear = val
+				})
 			}
 		}
 		return true

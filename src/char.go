@@ -9908,8 +9908,15 @@ func (c *Char) cueDraw() {
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
-				sdwYscale := sys.getYscale(c.shadowYscale, sys.stage.sdw.yscale)
-				refYscale := sys.getYscale(c.reflectYscale, sys.stage.reflection.yscale)
+				// Gets the Yscale defined by ModifyShadow/Reflection or keeps the one from the stage
+				getYscale := func(char, stage float32) float32 {
+					if char != 0 {
+						return char
+					}
+					return stage
+				}
+				sdwYscale := getYscale(c.shadowYscale, sys.stage.sdw.yscale)
+				refYscale := getYscale(c.reflectYscale, sys.stage.reflection.yscale)
 
 				sys.shadows.add(&ShadowSprite{
 					SprData:         sd,

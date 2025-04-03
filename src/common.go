@@ -1025,6 +1025,11 @@ func compareNatural(a, b string) bool {
 	aMatches := re.FindStringSubmatch(a)
 	bMatches := re.FindStringSubmatch(b)
 
+	// Index range check
+	if len(aMatches) < 3 || len(bMatches) < 3 {
+		return false
+	}
+
 	// Extract prefix and numeric part
 	aPrefix, aNumStr := aMatches[1], aMatches[2]
 	bPrefix, bNumStr := bMatches[1], bMatches[2]

@@ -2202,6 +2202,12 @@ type Primitive struct {
 	morphTargetCount    uint32
 	morphTargetOffset   [4]float32
 	morphTargetWeight   [8]float32
+	boundingBox         BoundingBox
+}
+
+type BoundingBox struct {
+	min [3]float32
+	max [3]float32
 }
 
 var gltfPrimitiveModeMap = map[gltf.PrimitiveMode]PrimitiveMode{
@@ -2663,6 +2669,8 @@ func loadglTFModel(filepath string) (*Model, error) {
 		mesh.morphTargetWeights = GLTFAnimatableProperty{isAnimated: false, restValue: m.Weights}
 		for _, p := range m.Primitives {
 			var primitive = &Primitive{}
+			primitive.boundingBox.min = [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+			primitive.boundingBox.max = [3]float32{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
 			primitive.vertexBufferOffset = uint32(len(vertexBuffer))
 			primitive.elementBufferOffset = uint32(4 * len(elementBuffer))
 			var posBuffer [][3]float32
@@ -2677,6 +2685,14 @@ func loadglTFModel(filepath string) (*Model, error) {
 			}
 
 			for _, pos := range positions {
+				for posIdx, _ := range pos {
+					if primitive.boundingBox.min[posIdx] > pos[posIdx] {
+						primitive.boundingBox.min[posIdx] = pos[posIdx]
+					}
+					if primitive.boundingBox.max[posIdx] < pos[posIdx] {
+						primitive.boundingBox.max[posIdx] = pos[posIdx]
+					}
+				}
 				vertexBuffer = append(vertexBuffer, f32.Bytes(binary.LittleEndian, pos[:]...)...)
 			}
 			if idx, ok := p.Attributes[gltf.TEXCOORD_0]; ok {
@@ -3452,11 +3468,110 @@ func calculateAnimationData(mdl *Model, n *Node) {
 		}
 	}
 }
-func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool) {
+
+type Plane struct {
+	Normal [3]float32
+	D      float32 // Distance from the origin
+}
+
+// Extract planes from the Model-View-Projection (MVP) matrix
+func ExtractFrustumPlanes(MVPMatrix mgl.Mat4) [6]Plane {
+	var planes [6]Plane
+	// Left plane
+	planes[0] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[0], MVPMatrix[3+4] + MVPMatrix[1], MVPMatrix[3+8] + MVPMatrix[2]},
+		D:      MVPMatrix[3+12] + MVPMatrix[3],
+	}
+	// Right plane
+	planes[1] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[0], MVPMatrix[3+4] - MVPMatrix[1], MVPMatrix[3+8] - MVPMatrix[2]},
+		D:      MVPMatrix[3+12] - MVPMatrix[3],
+	}
+	// Bottom plane
+	planes[2] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[1+0], MVPMatrix[3+4] + MVPMatrix[1+4], MVPMatrix[3+8] + MVPMatrix[1+8]},
+		D:      MVPMatrix[3+12] + MVPMatrix[1+12],
+	}
+	// Top plane
+	planes[3] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[1+0], MVPMatrix[3+4] - MVPMatrix[1+4], MVPMatrix[3+8] - MVPMatrix[1+8]},
+		D:      MVPMatrix[3+12] - MVPMatrix[1+12],
+	}
+	// Near plane
+	planes[4] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[2+0], MVPMatrix[3+4] + MVPMatrix[2+4], MVPMatrix[3+8] + MVPMatrix[2+8]},
+		D:      MVPMatrix[3+12] + MVPMatrix[2+12],
+	}
+	// Far plane
+	planes[5] = Plane{
+		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[2+0], MVPMatrix[3+4] - MVPMatrix[2+4], MVPMatrix[3+8] - MVPMatrix[2+8]},
+		D:      MVPMatrix[3+12] - MVPMatrix[2+12],
+	}
+
+	// Normalize the planes
+	for i := 0; i < 6; i++ {
+		length := float32(math.Sqrt(float64(planes[i].Normal[0]*planes[i].Normal[0] + planes[i].Normal[1]*planes[i].Normal[1] + planes[i].Normal[2]*planes[i].Normal[2])))
+		planes[i].Normal[0] /= length
+		planes[i].Normal[1] /= length
+		planes[i].Normal[2] /= length
+		planes[i].D /= length
+	}
+
+	return planes
+}
+func isCulled(MVPMatrix mgl.Mat4, box BoundingBox) bool {
+	points := [8][3]float32{
+		{box.min[0], box.min[1], box.min[2]},
+		{box.min[0], box.min[1], box.max[2]},
+		{box.min[0], box.max[1], box.min[2]},
+		{box.min[0], box.max[1], box.max[2]},
+		{box.max[0], box.min[1], box.min[2]},
+		{box.max[0], box.min[1], box.max[2]},
+		{box.max[0], box.max[1], box.min[2]},
+		{box.max[0], box.max[1], box.max[2]},
+	}
+
+	for _, point := range points {
+		clipSpace := MVPMatrix.Mul4x1(mgl.Vec4{point[0], point[1], point[2], 1})
+		// Check if the point is within the normalized device coordinates
+		if clipSpace[0] >= -clipSpace[3] && clipSpace[0] <= clipSpace[3] &&
+			clipSpace[1] >= -clipSpace[3] && clipSpace[1] <= clipSpace[3] &&
+			clipSpace[2] >= -clipSpace[3] && clipSpace[2] <= clipSpace[3] {
+			return false // At least one point is within the frustum
+		}
+	}
+	planes := ExtractFrustumPlanes(MVPMatrix)
+	for _, plane := range planes {
+		// Find the positive vertex
+		var positive [3]float32
+		if plane.Normal[0] >= 0 {
+			positive[0] = box.max[0]
+		} else {
+			positive[0] = box.min[0]
+		}
+		if plane.Normal[1] >= 0 {
+			positive[1] = box.max[1]
+		} else {
+			positive[1] = box.min[1]
+		}
+		if plane.Normal[2] >= 0 {
+			positive[2] = box.max[2]
+		} else {
+			positive[2] = box.min[2]
+		}
+		// Check if the positive vertex is outside the plane
+		if plane.Normal[0]*positive[0]+plane.Normal[1]*positive[1]+plane.Normal[2]*positive[2]+plane.D < 0 {
+			return true // Entire bounding box is outside the frustum
+		}
+	}
+
+	return false
+}
+func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool, viewProjMatrix mgl.Mat4) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit)
+		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit, viewProjMatrix)
 	}
 	nodeLayerNumber := defaultLayerNumber
 	if n.layerNumber != nil {
@@ -3512,6 +3627,10 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		if p.materialIndex == nil {
 			continue
 		}
+		if n.skin == nil && p.morphTargetCount == 0 && isCulled(viewProjMatrix.Mul4(n.worldTransform), p.boundingBox) {
+			continue
+		}
+
 		mat := mdl.materials[*p.materialIndex]
 		if ((mat.alphaMode != AlphaModeBlend && n.trans == TransNone) && drawBlended) ||
 			((mat.alphaMode == AlphaModeBlend || n.trans != TransNone) && !drawBlended) {
@@ -3599,11 +3718,11 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 	}
 }
 
-func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, lightIndex int, numLights int) {
+func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, lightIndex int, numLights int, viewProjMatrices []mgl.Mat4, lightTypes []LightType) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNodeShadow(mdl, scene, mdl.nodes[index], camOffset, drawBlended, lightIndex, numLights)
+		drawNodeShadow(mdl, scene, mdl.nodes[index], camOffset, drawBlended, lightIndex, numLights, viewProjMatrices, lightTypes)
 	}
 	if n.meshIndex == nil || !n.visible {
 		return
@@ -3662,13 +3781,30 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 		gfx.SetModelUniformMatrix3("texTransform", mat.textureTransform[:])
 		for i := 0; i < numLights; i++ {
-			gfx.SetShadowMapUniformI("layerOffset", i*6)
-			gfx.SetShadowMapUniformI("lightIndex", i+lightIndex)
-			gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+			culled := false
+			if n.skin == nil && p.morphTargetCount == 0 {
+				if lightTypes[i] == PointLight {
+					for j := 0; j < 6; j++ {
+						if isCulled(viewProjMatrices[i*6+j].Mul4(n.worldTransform), p.boundingBox) {
+							culled = true
+							break
+						}
+					}
+				} else {
+					if isCulled(viewProjMatrices[i*6].Mul4(n.worldTransform), p.boundingBox) {
+						continue
+					}
+				}
+			}
+			if culled == false {
+				gfx.SetShadowMapUniformI("layerOffset", i*6)
+				gfx.SetShadowMapUniformI("lightIndex", i+lightIndex)
+				gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+			}
 		}
 	}
 }
-func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view mgl.Mat4) {
+func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
 	}
@@ -3680,6 +3816,8 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	if len(scene.lightNodes) > 0 && layerNumber == -1 && gfx.IsShadowEnabled() {
 		gfx.prepareShadowMapPipeline(bufferIndex)
 		numLights := 0
+		var lightMatrices [32]mgl.Mat4
+		var lightTypes [4]LightType
 		for i := 0; i < 4; i++ {
 			if i >= len(scene.lightNodes) {
 				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0)
@@ -3744,23 +3882,24 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 			} else if light.lightType == SpotLight {
 				lightProj = mgl.Perspective(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
 			}
+			lightTypes[i] = light.lightType
 			if light.lightType == PointLight {
-				var lightMatrices [8]mgl.Mat4
-				lightMatrices[0] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
-				lightMatrices[3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
-				lightMatrices[4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
-				lightMatrices[5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
+				//var lightMatrices [6]mgl.Mat4
+				lightMatrices[i*6] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
+				lightMatrices[i*6+3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
+				lightMatrices[i*6+4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
 				for j := 0; j < 6; j++ {
-					gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[j][:])
+					gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[i*6+j][:])
 				}
 				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 2)
 
 			} else {
 				lightView := mgl.LookAtV([3]float32{lightNode.localTransform[12], lightNode.localTransform[13], lightNode.localTransform[14]}, [3]float32{lightNode.localTransform[12] + lightNode.lightDirection[0], lightNode.localTransform[13] + lightNode.lightDirection[1], lightNode.localTransform[14] + lightNode.lightDirection[2]}, [3]float32{0, 1, 0})
-				lightMatrix := lightProj.Mul4(lightView)
-				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrix[:])
+				lightMatrices[i*6] = lightProj.Mul4(lightView)
+				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrices[i*6][:])
 				if light.lightType == DirectionalLight {
 					gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 1)
 				} else {
@@ -3776,34 +3915,34 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 					gfx.SetShadowFrameTexture(uint32(i))
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
 				}
 				if len(model.scenes) > 1 {
 					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
 					}
 					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
 					}
 				}
 			}
 		}
 		if gfx.GetName() == "OpenGL 3.2" {
 			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
 			}
 			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
 			}
 			if len(model.scenes) > 1 {
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
 				}
 			}
 		}
@@ -3912,10 +4051,10 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		unlit = true
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit, viewProjMatrix)
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit, viewProjMatrix)
 	}
 }
 func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber int32) {
@@ -3945,12 +4084,12 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 	view = view.Mul4(mgl.Scale3D(scale[0], scale[1], scale[2]))
 	if layerNumber == -1 {
 		s.model.calculateTextureTransform()
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
 	} else if layerNumber == 0 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
 	} else if layerNumber == 1 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
-		s.model.draw(0, 1, int(layerNumber), 1, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
+		s.model.draw(0, 1, int(layerNumber), 1, offset, proj, view, proj.Mul4(view))
 	}
 }
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {

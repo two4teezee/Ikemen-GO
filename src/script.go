@@ -3305,14 +3305,14 @@ func triggerFunctions(l *lua.LState) {
 			case "size":
 				v = lua.LNumber(sys.debugWC.sizeBox[offset])
 			case "clsn1":
-				clsn := sys.debugWC.curFrame.Clsn1()
-				if idx >= 0 && idx < len(clsn)/4 {
-					v = lua.LNumber(clsn[idx*4+offset])
+				clsn := sys.debugWC.curFrame.Clsn1
+				if clsn != nil && idx >= 0 && idx < len(clsn) {
+					v = lua.LNumber(clsn[idx][offset])
 				}
 			case "clsn2":
-				clsn := sys.debugWC.curFrame.Clsn2()
-				if idx >= 0 && idx < len(clsn)/4 {
-					v = lua.LNumber(clsn[idx*4+offset])
+				clsn := sys.debugWC.curFrame.Clsn2
+				if clsn != nil && idx >= 0 && idx < len(clsn) {
+					v = lua.LNumber(clsn[idx][offset])
 				}
 			}
 		}
@@ -5224,9 +5224,9 @@ func triggerFunctions(l *lua.LState) {
 			case "image":
 				ln = lua.LNumber(f.Number)
 			case "numclsn1":
-				ln = lua.LNumber(len(f.Clsn1()) / 4)
+				ln = lua.LNumber(len(f.Clsn1))
 			case "numclsn2":
-				ln = lua.LNumber(len(f.Clsn2()) / 4)
+				ln = lua.LNumber(len(f.Clsn2))
 			case "time":
 				ln = lua.LNumber(f.Time)
 			case "vflip":

@@ -2805,9 +2805,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 			case OC_ex_animelemvar_yscale:
 				sys.bcStack.PushF(f.Yscale)
 			case OC_ex_animelemvar_numclsn1:
-				sys.bcStack.PushI(int32(len(f.Clsn1()) / 4))
+				sys.bcStack.PushI(int32(len(f.Clsn1)))
 			case OC_ex_animelemvar_numclsn2:
-				sys.bcStack.PushI(int32(len(f.Clsn2()) / 4))
+				sys.bcStack.PushI(int32(len(f.Clsn2)))
 			}
 		} else {
 			sys.bcStack.Push(BytecodeSF())
@@ -3289,14 +3289,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 			v = c.sizeBox[0]
 		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1()
-			if idx >= 0 && idx < len(cf1)/4 {
-				v = cf1[idx*4]
+			cf1 := c.anim.CurrentFrame().Clsn1
+			if cf1 != nil && idx >= 0 && idx < len(cf1) {
+				v = cf1[idx][0]
 			}
 		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2()
-			if idx >= 0 && idx < len(cf2)/4 {
-				v = cf2[idx*4]
+			cf2 := c.anim.CurrentFrame().Clsn2
+			if cf2 != nil && idx >= 0 && idx < len(cf2) {
+				v = cf2[idx][0]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
@@ -3308,14 +3308,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 			v = c.sizeBox[1]
 		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1()
-			if idx >= 0 && idx < len(cf1)/4 {
-				v = cf1[idx*4+1]
+			cf1 := c.anim.CurrentFrame().Clsn1
+			if cf1 != nil && idx >= 0 && idx < len(cf1) {
+				v = cf1[idx][1]
 			}
 		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2()
-			if idx >= 0 && idx < len(cf2)/4 {
-				v = cf2[idx*4+1]
+			cf2 := c.anim.CurrentFrame().Clsn2
+			if cf2 != nil && idx >= 0 && idx < len(cf2) {
+				v = cf2[idx][1]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
@@ -3327,14 +3327,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 			v = c.sizeBox[2]
 		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1()
-			if idx >= 0 && idx < len(cf1)/4 {
-				v = cf1[idx*4+2]
+			cf1 := c.anim.CurrentFrame().Clsn1
+			if cf1 != nil && idx >= 0 && idx < len(cf1) {
+				v = cf1[idx][2]
 			}
 		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2()
-			if idx >= 0 && idx < len(cf2)/4 {
-				v = cf2[idx*4+2]
+			cf2 := c.anim.CurrentFrame().Clsn2
+			if cf2 != nil && idx >= 0 && idx < len(cf2) {
+				v = cf2[idx][2]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
@@ -3346,14 +3346,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 			v = c.sizeBox[3]
 		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1()
-			if idx >= 0 && idx < len(cf1)/4 {
-				v = cf1[idx*4+3]
+			cf1 := c.anim.CurrentFrame().Clsn1
+			if cf1 != nil && idx >= 0 && idx < len(cf1) {
+				v = cf1[idx][3]
 			}
 		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2()
-			if idx >= 0 && idx < len(cf2)/4 {
-				v = cf2[idx*4+3]
+			cf2 := c.anim.CurrentFrame().Clsn2
+			if cf2 != nil && idx >= 0 && idx < len(cf2) {
+				v = cf2[idx][3]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))

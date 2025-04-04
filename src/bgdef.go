@@ -325,7 +325,7 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 		proj := mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.near, s.far)
 		view := mgl.Translate3D(s.modelOffset[0], s.modelOffset[1], s.modelOffset[2])
 		view = view.Mul4(mgl.Scale3D(s.modelScale[0], s.modelScale[1], s.modelScale[2]))
-		s.model.draw(1, int(s.sceneNumber), int(layer), 0, s.modelOffset, proj, view)
+		s.model.draw(1, int(s.sceneNumber), int(layer), 0, s.modelOffset, proj, view, proj.Mul4(view))
 	}
 	//x, y = x/s.localscl, y/s.localscl
 	for _, b := range s.bg {

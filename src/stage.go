@@ -2698,7 +2698,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 			}
 
 			for _, pos := range positions {
-				for posIdx, _ := range pos {
+				for posIdx := range pos {
 					if primitive.boundingBox.min[posIdx] > pos[posIdx] {
 						primitive.boundingBox.min[posIdx] = pos[posIdx]
 					}

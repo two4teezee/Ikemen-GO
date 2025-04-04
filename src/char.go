@@ -5888,7 +5888,7 @@ func (c *Char) updateSizeBox() {
 
 // Returns the size box in the same format as Clsn boxes
 func (c *Char) sizeBoxToClsn() [][4]float32 {
-    return [][4]float32{c.sizeBox}
+	return [][4]float32{c.sizeBox}
 }
 
 func (c *Char) gethitAnimtype() Reaction {
@@ -10225,9 +10225,9 @@ func (cl *CharList) update() {
 func (cl *CharList) hitDetectionPlayer(getter *Char) {
 
 	// Stop outer loop if enemy is disabled
-    if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
-        return
-    }
+	if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
+		return
+	}
 
 	getter.unsetCSF(CSF_gethit)
 	getter.enemyNearP2Clear()
@@ -10421,9 +10421,9 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 func (cl *CharList) hitDetectionProjectile(getter *Char) {
 
 	// Stop outer loop if enemy is disabled
-    if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
-        return
-    }
+	if getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
+		return
+	}
 
 	for i := range sys.projs {
 		// Skip if this player number has no projectiles

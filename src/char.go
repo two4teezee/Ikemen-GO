@@ -6078,7 +6078,7 @@ func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
 
 	// No valid background element found
 	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no stage BG element with ID %v and index %v", id, idx))
 	}
 	return nil
 }
@@ -6104,7 +6104,7 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
 
 	// No valid background element found
 	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no background element with ID %v and index %v", id, idx))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no stage BG element with ID %v and index %v", id, idx))
 	}
 	return nil
 }
@@ -9076,6 +9076,11 @@ func (c *Char) actionRun() {
 				c.mctime++
 			}
 		}
+		// Commit current animation frame to memory
+ 		// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
+ 		if !c.hitPause() || c.asf(ASF_animatehitpause) {
+ 			c.updateCurFrame()
+ 		}
 		if c.ghv.damage != 0 {
 			// HitOverride KeepState flag still allows damage to get through
 			if c.ss.moveType == MT_H || c.hoKeepState {
@@ -9179,9 +9184,6 @@ func (c *Char) actionRun() {
 		}
 		c.dustTime++
 	}
-	// Commit current animation frame to memory
-	// This frame will be used for hit detection and as reference for Lua scripts (including debug info)
-	c.updateCurFrame()
 	c.xScreenBound()
 	c.zDepthBound()
 	if !c.pauseBool {
@@ -10317,6 +10319,12 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 				if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) {
 					if hitResult := c.hitResultCheck(getter, nil); hitResult != 0 {
 						mvc := hitResult > 0 || c.hitdef.reversal_attr > 0
+
+						// Attacker hitpauses were off by 1 frame in WinMugen. Mugen 1.0 fixed it
+						// The way this should actually happen is that WinMugen chars have 1 subtracted from their hitpause in bytecode.go
+						// But because of the order that events happen in in Ikemen, it must be fixed the other way around
+						hpfix := c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0 || c.gi().mugenver[0] == 1
+
 						if Abs(hitResult) == 1 {
 							if mvc {
 								c.mctype = MC_Hit
@@ -10385,12 +10393,12 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 									getter.hittmp = -1
 								}
 								if !getter.csf(CSF_gethit) {
-									getter.hitPauseTime = Max(0, c.hitdef.shaketime)
+									getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(hpfix))
 								}
 							}
 							if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 								getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-								c.hitPauseTime = Max(0, c.hitdef.pausetime)
+								c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(hpfix))
 								// In Mugen the hitpause only actually takes effect in the next frame
 							}
 							c.uniqHitCount++
@@ -10400,7 +10408,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								c.mctime = -1
 							}
 							if !c.csf(CSF_gethit) {
-								c.hitPauseTime = Max(0, c.hitdef.guard_pausetime)
+								c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(hpfix))
 							}
 						}
 						if c.hitdef.hitonce > 0 {
@@ -10432,9 +10440,11 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 		}
 
 		c := sys.chars[i][0]
+		ap_projhit := false
+
+		// Save root's atktmp var so we can temporarily modify it
 		orgatktmp := c.atktmp
 		c.atktmp = -1
-		ap_projhit := false
 
 		for j := range sys.projs[i] {
 			p := &sys.projs[i][j]
@@ -10546,6 +10556,8 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				(!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
 				(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
 				getter.hittableByChar(c, &p.hitdef, ST_N, true) {
+
+				// Save enemy's atktmp var so we can temporarily modify it
 				orghittmp := getter.hittmp
 				if getter.csf(CSF_gethit) {
 					getter.hittmp = int8(Btoi(getter.ghv.fallflag)) + 1
@@ -10574,9 +10586,12 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 						ap_projhit = true
 					}
 				}
+				// Restore enemy's hittmp var
 				getter.hittmp = orghittmp
 			}
 		}
+
+		// Restore root's atktmp var
 		c.atktmp = orgatktmp
 	}
 }

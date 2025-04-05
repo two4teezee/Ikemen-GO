@@ -2121,10 +2121,10 @@ func (s *System) fight() (reload bool) {
 	var life, lifeMax, power, powerMax [len(s.chars)]int32
 	var guardPoints, guardPointsMax, dizzyPoints, dizzyPointsMax, redLife [len(s.chars)]int32
 	var teamside [len(s.chars)]int
-	var ivar [len(s.chars)][]int32
-	var fvar [len(s.chars)][]float32
-	var dialogue [len(s.chars)][]string
+	var cnsvar [len(s.chars)]map[int32]int32
+	var cnsfvar [len(s.chars)]map[int32]float32
 	var mapArray [len(s.chars)]map[string]float32
+	var dialogue [len(s.chars)][]string
 	var remapSpr [len(s.chars)]RemapPreset
 	// Anonymous function to assign initial character values
 	// ModifyChar parameters should ideally also be reset here
@@ -2139,19 +2139,19 @@ func (s *System) fight() (reload bool) {
 		dizzyPointsMax[pn] = s.chars[pn][0].dizzyPointsMax
 		redLife[pn] = s.chars[pn][0].redLife
 		teamside[pn] = s.chars[pn][0].teamside
-		if len(ivar[pn]) < len(s.chars[pn][0].ivar) {
-			ivar[pn] = make([]int32, len(s.chars[pn][0].ivar))
+		cnsvar[pn] = make(map[int32]int32)
+		for k, v := range s.chars[pn][0].cnsvar {
+			cnsvar[pn][k] = v
 		}
-		copy(ivar[pn], s.chars[pn][0].ivar[:])
-		if len(fvar[pn]) < len(s.chars[pn][0].fvar) {
-			fvar[pn] = make([]float32, len(s.chars[pn][0].fvar))
+		cnsfvar[pn] = make(map[int32]float32)
+		for k, v := range s.chars[pn][0].cnsfvar {
+			cnsfvar[pn][k] = v
 		}
-		copy(fvar[pn], s.chars[pn][0].fvar[:])
-		copy(dialogue[pn], s.chars[pn][0].dialogue[:])
 		mapArray[pn] = make(map[string]float32)
 		for k, v := range s.chars[pn][0].mapArray {
 			mapArray[pn][k] = v
 		}
+		copy(dialogue[pn], s.chars[pn][0].dialogue[:])
 		remapSpr[pn] = make(RemapPreset)
 		for k, v := range s.chars[pn][0].remapSpr {
 			remapSpr[pn][k] = v
@@ -2277,7 +2277,7 @@ func (s *System) fight() (reload bool) {
 				// If character already existed for a round, presumably because of turns mode, just update life
 				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
 			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
-				// If round 1 or a new character in turns mode, initialize values
+				// If round 1 or a new character in Turns mode, initialize values
 				if p[0].ocd().life != -1 {
 					p[0].life = Clamp(p[0].ocd().life, 0, p[0].lifeMax)
 					p[0].redLife = p[0].life
@@ -2295,11 +2295,11 @@ func (s *System) fight() (reload bool) {
 					}
 				}
 				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
-				p[0].dialogue = []string{}
 				p[0].mapArray = make(map[string]float32)
 				for k, v := range p[0].mapDefault {
 					p[0].mapArray[k] = v
 				}
+				p[0].dialogue = []string{}
 				p[0].remapSpr = make(RemapPreset)
 			}
 
@@ -2335,13 +2335,21 @@ func (s *System) fight() (reload bool) {
 				p[0].dizzyPointsMax = dizzyPointsMax[i]
 				p[0].redLife = redLife[i]
 				p[0].teamside = teamside[i]
-				copy(p[0].ivar[:], ivar[i])
-				copy(p[0].fvar[:], fvar[i])
-				copy(p[0].dialogue[:], dialogue[i])
+				p[0].cnsvar = make(map[int32]int32)
+				for k, v := range cnsvar[i] {
+					p[0].cnsvar[k] = v
+				}
+				p[0].cnsfvar = make(map[int32]float32)
+				for k, v := range cnsfvar[i] {
+					p[0].cnsfvar[k] = v
+				}
+				p[0].cnssysvar = make(map[int32]int32) // SysVars never persist
+				p[0].cnssysfvar = make(map[int32]float32)
 				p[0].mapArray = make(map[string]float32)
 				for k, v := range mapArray[i] {
 					p[0].mapArray[k] = v
 				}
+				copy(p[0].dialogue[:], dialogue[i])
 				p[0].remapSpr = make(RemapPreset)
 				for k, v := range remapSpr[i] {
 					p[0].remapSpr[k] = v
@@ -3362,10 +3370,10 @@ func (l *Loader) loadChar(pn int) int {
 	p.selectNo = sys.sel.selected[pn&1][memberNo][0]
 	p.teamside = p.playerNo & 1
 	if !p.ocd().existed {
-		p.varRangeSet(0, int32(NumVar)-1, 0)
-		p.fvarRangeSet(0, int32(NumFvar)-1, 0)
+		p.initCnsVar()
 		p.ocd().existed = true
 	}
+
 	sys.chars[pn] = make([]*Char, 1)
 	sys.chars[pn][0] = p
 
@@ -3436,11 +3444,6 @@ func (l *Loader) loadAttachedChar(pn int) int {
 	p.memberNo = -atcpn
 	p.selectNo = -atcpn
 	p.teamside = -1
-	if !p.ocd().existed {
-		p.varRangeSet(0, int32(NumVar)-1, 0)
-		p.fvarRangeSet(0, int32(NumFvar)-1, 0)
-		p.ocd().existed = true
-	}
 	sys.com[pn] = 8
 	sys.chars[pn] = make([]*Char, 1)
 	sys.chars[pn][0] = p
@@ -3459,6 +3462,10 @@ func (l *Loader) loadAttachedChar(pn int) int {
 		tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
 	} else {
 		tstr = fmt.Sprintf("Cached attached char loaded: %v", cdef)
+	}
+	if !p.ocd().existed {
+		p.initCnsVar()
+		p.ocd().existed = true
 	}
 	sys.cgi[pn].palno = 1
 	return 1

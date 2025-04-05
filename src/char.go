@@ -250,8 +250,8 @@ func (cd *CharData) init() {
 	cd.guardsound_channel = -1
 	cd.ko.echo = 0
 	cd.volume = 256
-	cd.intpersistindex = NumVar
-	cd.floatpersistindex = NumFvar
+	cd.intpersistindex = int32(math.MaxInt32)
+	cd.floatpersistindex = int32(math.MaxInt32)
 }
 
 type CharSize struct {
@@ -2451,8 +2451,10 @@ type Char struct {
 	facing              float32
 	window              [4]float32
 	xshear              float32
-	ivar                [NumVar + NumSysVar]int32
-	fvar                [NumFvar + NumSysFvar]float32
+	cnsvar              map[int32]int32
+	cnsfvar             map[int32]float32
+	cnssysvar           map[int32]int32
+	cnssysfvar          map[int32]float32
 	CharSystemVar
 	aimg             AfterImage
 	soundChannels    SoundChannels
@@ -2567,6 +2569,8 @@ func (c *Char) init(n int, idx int32) {
 		c.playerFlag = false
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
+		// These are handled elsewhere for root players
+		c.initCnsVar()
 		c.mapArray = make(map[string]float32)
 		c.remapSpr = make(RemapPreset)
 	}
@@ -2645,8 +2649,8 @@ func (c *Char) enemyNearP2Clear() {
 
 // Clear character variables upon a new round or creation of a new helper
 func (c *Char) clearNextRound() {
-	c.sysVarRangeSet(0, int32(NumSysVar)-1, 0)
-	c.sysFvarRangeSet(0, int32(NumSysFvar)-1, 0)
+	c.sysVarRangeSet(0, math.MaxInt32, 0)
+	c.sysFvarRangeSet(0, math.MaxInt32, 0)
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
 		bindToId:        -1,
@@ -3048,30 +3052,23 @@ func (c *Char) load(def string) error {
 						is.ReadI32("defence", &gi.data.defence)
 						is.ReadI32("fall.defence_up", &gi.data.fall.defence_up)
 						gi.data.fall.defence_mul = (float32(gi.data.fall.defence_up) + 100) / 100
-						var i32 int32
-						if is.ReadI32("liedown.time", &i32) {
-							gi.data.liedown.time = Max(1, i32)
-						}
+						is.ReadI32("liedown.time", &gi.data.liedown.time)
+						gi.data.liedown.time = Max(1, gi.data.liedown.time)
 						is.ReadI32("airjuggle", &gi.data.airjuggle)
 						is.ReadI32("sparkno", &gi.data.sparkno)
 						is.ReadI32("guard.sparkno", &gi.data.guard.sparkno)
 						is.ReadI32("hitsound.channel", &gi.data.hitsound_channel)
 						is.ReadI32("guardsound.channel", &gi.data.guardsound_channel)
 						is.ReadI32("ko.echo", &gi.data.ko.echo)
+						var i32 int32
 						if is.ReadI32("volume", &i32) {
 							gi.data.volume = i32/2 + 256
 						}
 						if is.ReadI32("volumescale", &i32) {
 							gi.data.volume = i32 * 64 / 25
 						}
-						if _, ok := is["intpersistindex"]; ok {
-							gi.data.intpersistindex = 0
-							is.ReadI32("intpersistindex", &gi.data.intpersistindex)
-						}
-						if _, ok := is["floatpersistindex"]; ok {
-							gi.data.floatpersistindex = 0
-							is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
-						}
+						is.ReadI32("intpersistindex", &gi.data.intpersistindex)
+						is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
 					}
 				case "size":
 					if size {
@@ -3261,6 +3258,7 @@ func (c *Char) load(def string) error {
 			return err
 		}
 	}
+
 	if len(sprite) > 0 {
 		if LoadFile(&sprite, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
 			var err error
@@ -5904,138 +5902,233 @@ func (c *Char) isTargetBound() bool {
 	return c.ghv.idMatch(c.bindToId)
 }
 
+func (c *Char) initCnsVar() {
+	c.cnsvar = make(map[int32]int32)
+	c.cnsfvar = make(map[int32]float32)
+	c.cnssysvar = make(map[int32]int32)
+	c.cnssysfvar = make(map[int32]float32)
+}
+
 func (c *Char) varGet(i int32) BytecodeValue {
-	if i >= 0 && i < int32(NumVar) {
-		return BytecodeInt(c.ivar[i])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v out of range", i))
-	return BytecodeSF()
+	// Check var (map)
+	val, ok := c.cnsvar[i]
+	// If key found
+	if ok {
+		return BytecodeInt(val)
+	}
+	// If var not set yet
+	return BytecodeInt(0)
 }
 
 func (c *Char) fvarGet(i int32) BytecodeValue {
-	if i >= 0 && i < int32(NumFvar) {
-		return BytecodeFloat(c.fvar[i])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v out of range", i))
-	return BytecodeSF()
+
+	val, ok := c.cnsfvar[i]
+	if ok {
+		return BytecodeFloat(val)
+	}
+	return BytecodeFloat(0)
 }
 
 func (c *Char) sysVarGet(i int32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysVar) {
-		return BytecodeInt(c.ivar[i+int32(NumVar)])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v out of range", i))
-	return BytecodeSF()
+
+	val, ok := c.cnssysvar[i]
+	if ok {
+		return BytecodeInt(val)
+	}
+	return BytecodeInt(0)
 }
 
 func (c *Char) sysFvarGet(i int32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysFvar) {
-		return BytecodeFloat(c.fvar[i+int32(NumFvar)])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v out of range", i))
-	return BytecodeSF()
+
+	val, ok := c.cnssysfvar[i]
+	if ok {
+		return BytecodeFloat(val)
+	}
+	return BytecodeFloat(0)
 }
 
 func (c *Char) varSet(i, v int32) BytecodeValue {
-	if i >= 0 && i < int32(NumVar) {
-		c.ivar[i] = v
-		return BytecodeInt(v)
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v out of range", i))
-	return BytecodeSF()
+
+	c.cnsvar[i] = v // Create or update the key
+	return BytecodeInt(v)
 }
 
 func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
-	if i >= 0 && i < int32(NumFvar) {
-		c.fvar[i] = v
-		return BytecodeFloat(v)
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v out of range", i))
-	return BytecodeSF()
+
+	c.cnsfvar[i] = v
+	return BytecodeFloat(v)
 }
 
 func (c *Char) sysVarSet(i, v int32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysVar) {
-		c.ivar[i+int32(NumVar)] = v
-		return BytecodeInt(v)
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v out of range", i))
-	return BytecodeSF()
+
+	c.cnssysvar[i] = v
+	return BytecodeInt(v)
 }
 
 func (c *Char) sysFvarSet(i int32, v float32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysFvar) {
-		c.fvar[i+int32(NumFvar)] = v
-		return BytecodeFloat(v)
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v out of range", i))
-	return BytecodeSF()
+
+	c.cnssysfvar[i] = v
+	return BytecodeFloat(v)
 }
 
 func (c *Char) varAdd(i, v int32) BytecodeValue {
-	if i >= 0 && i < int32(NumVar) {
-		c.ivar[i] += v
-		return BytecodeInt(c.ivar[i])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v out of range", i))
-	return BytecodeSF()
+
+	if _, ok := c.cnsvar[i]; ok {
+		c.cnsvar[i] += v
+	} else {
+		c.cnsvar[i] = v
+	}
+	return BytecodeInt(c.cnsvar[i])
 }
 
 func (c *Char) fvarAdd(i int32, v float32) BytecodeValue {
-	if i >= 0 && i < int32(NumFvar) {
-		c.fvar[i] += v
-		return BytecodeFloat(c.fvar[i])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v out of range", i))
-	return BytecodeSF()
+
+	if _, ok := c.cnsfvar[i]; ok {
+		c.cnsfvar[i] += v
+	} else {
+		c.cnsfvar[i] = v
+	}
+	return BytecodeFloat(c.cnsfvar[i])
 }
 
 func (c *Char) sysVarAdd(i, v int32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysVar) {
-		c.ivar[i+int32(NumVar)] += v
-		return BytecodeInt(c.ivar[i+int32(NumVar)])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v out of range", i))
-	return BytecodeSF()
+
+	if _, ok := c.cnssysvar[i]; ok {
+		c.cnssysvar[i] += v
+	} else {
+		c.cnssysvar[i] = v
+	}
+	return BytecodeInt(c.cnssysvar[i])
 }
 
 func (c *Char) sysFvarAdd(i int32, v float32) BytecodeValue {
-	if i >= 0 && i < int32(NumSysFvar) {
-		c.fvar[i+int32(NumFvar)] += v
-		return BytecodeFloat(c.fvar[i+int32(NumFvar)])
+	if i < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
+		return BytecodeSF()
 	}
-	sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v out of range", i))
-	return BytecodeSF()
+
+	if _, ok := c.cnssysfvar[i]; ok {
+		c.cnssysfvar[i] += v
+	} else {
+		c.cnssysfvar[i] = v
+	}
+	return BytecodeFloat(c.cnssysfvar[i])
 }
 
-func (c *Char) varRangeSet(s, e, v int32) {
-	if s >= 0 {
-		for i := s; i <= e && i < int32(NumVar); i++ {
-			c.ivar[i] = v
+func (c *Char) varRangeSet(first, last, val int32) {
+	if first < 0 || first > last {
+		return
+	}
+
+	if val == 0 {
+		// Delete existing maps within range. Don't make new ones
+		for k := range c.cnsvar {
+			if k >= first && k <= last {
+				delete(c.cnsvar, k)
+			}
+		}
+	} else {
+		// Set entire map range to value
+		for i := first; i <= last; i++ {
+			c.cnsvar[i] = val
 		}
 	}
 }
 
-func (c *Char) fvarRangeSet(s, e int32, v float32) {
-	if s >= 0 {
-		for i := s; i <= e && i < int32(NumFvar); i++ {
-			c.fvar[i] = v
+func (c *Char) fvarRangeSet(first, last int32, val float32) {
+	if first < 0 || first > last {
+		return
+	}
+
+	if val == 0 {
+		for k := range c.cnsfvar {
+			if k >= first && k <= last {
+				delete(c.cnsfvar, k)
+			}
+		}
+	} else {
+		for i := first; i <= last; i++ {
+			c.cnsfvar[i] = val
 		}
 	}
 }
 
-func (c *Char) sysVarRangeSet(s, e, v int32) {
-	if s >= 0 {
-		for i := s; i <= e && i < int32(NumSysVar); i++ {
-			c.ivar[i+int32(NumVar)] = v
+func (c *Char) sysVarRangeSet(first, last, val int32) {
+	if first < 0 || first > last {
+		return
+	}
+
+	if val == 0 {
+		for k := range c.cnssysvar {
+			if k >= first && k <= last {
+				delete(c.cnssysvar, k)
+			}
+		}
+	} else {
+		for i := first; i <= last; i++ {
+			c.cnssysvar[i] = val
 		}
 	}
 }
 
-func (c *Char) sysFvarRangeSet(s, e int32, v float32) {
-	if s >= 0 {
-		for i := s; i <= e && i < int32(NumSysFvar); i++ {
-			c.fvar[i+int32(NumFvar)] = v
+func (c *Char) sysFvarRangeSet(first, last int32, val float32) {
+	if first < 0 || first > last {
+		return
+	}
+
+	if val == 0 {
+		for k := range c.cnssysfvar {
+			if k >= first && k <= last {
+				delete(c.cnssysfvar, k)
+			}
+		}
+	} else {
+		for i := first; i <= last; i++ {
+			c.cnssysfvar[i] = val
 		}
 	}
 }

@@ -926,14 +926,6 @@ func (s *System) zAxisOverlap(posz1, top1, bot1, localscl1, posz2, top2, bot2, l
 	return true
 }
 
-// Gets the Yscale defined by ModifyShadow/Reflection or keeps the one from the stage
-func (s *System) getYscale(char, stage float32) float32 {
-	if char != 0 {
-		return char
-	}
-	return stage
-}
-
 func (s *System) clsnOverlap(clsn1 [][4]float32, scl1, pos1 [2]float32, facing1 float32, angle1 float32,
 	clsn2 [][4]float32, scl2, pos2 [2]float32, facing2 float32, angle2 float32) bool {
 
@@ -1744,7 +1736,6 @@ func (s *System) action() {
 			alpha:        [2]int32{-1},
 			priority:     5,
 			rot:          Rotation{},
-			ascl:         [2]float32{},
 			screen:       false,
 			undarken:     true,
 			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,

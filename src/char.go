@@ -2569,10 +2569,6 @@ func (c *Char) init(n int, idx int32) {
 		c.playerFlag = false
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
-		// These are handled elsewhere for root players
-		c.initCnsVar()
-		c.mapArray = make(map[string]float32)
-		c.remapSpr = make(RemapPreset)
 	}
 
 	// Set controller to CPU if applicable
@@ -2610,25 +2606,6 @@ func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
 	return c.clsnCheck(getter, box1, box2, false, true)
 }
 
-func (c *Char) copyParent(p *Char) {
-	c.name = p.name + "'s helper"
-	c.parentIndex = p.helperIndex
-	c.controller = p.controller
-	c.teamside = p.teamside
-	c.size = p.size
-	c.life, c.lifeMax = p.lifeMax, p.lifeMax
-	c.powerMax = p.powerMax
-	if sys.maxPowerMode {
-		c.power = c.powerMax
-	} else {
-		c.power = 0
-	}
-	c.dizzyPoints, c.dizzyPointsMax = p.dizzyPointsMax, p.dizzyPointsMax
-	c.guardPoints, c.guardPointsMax = p.guardPointsMax, p.guardPointsMax
-	c.redLife = c.lifeMax
-	c.clearNextRound()
-}
-
 func (c *Char) addChild(ch *Char) {
 	for i, chi := range c.children {
 		if chi == nil {
@@ -2648,7 +2625,7 @@ func (c *Char) enemyNearP2Clear() {
 }
 
 // Clear character variables upon a new round or creation of a new helper
-func (c *Char) clearNextRound() {
+func (c *Char) prepareNextRound() {
 	c.sysVarRangeSet(0, math.MaxInt32, 0)
 	c.sysFvarRangeSet(0, math.MaxInt32, 0)
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
@@ -3474,7 +3451,7 @@ func (c *Char) loadPalette() {
 			break // Exit the loop after handling fallback
 		}
 	}
-	gi.remappedpal = [...]int32{1, gi.palno}
+	gi.remappedpal = [2]int32{1, gi.palno}
 }
 
 func (c *Char) clearHitCount() {
@@ -4885,11 +4862,12 @@ func (c *Char) shouldFaceP2() bool {
 }
 
 func (c *Char) stateChange1(no int32, pn int) bool {
-	if sys.changeStateNest > 2500 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("state machine stuck in loop (stopped after 2500 loops): %v -> %v -> %v", c.ss.prevno, c.ss.no, no))
-		sys.errLog.Printf("2500 loops: %v, %v -> %v -> %v\n", c.name, c.ss.prevno, c.ss.no, no)
+	if sys.changeStateNest >= MaxLoop {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("state machine stuck in loop (stopped after %v loops): %v -> %v -> %v", sys.changeStateNest, c.ss.prevno, c.ss.no, no))
+		sys.errLog.Printf("Maximum ChangeState loops: %v, %v, %v -> %v -> %v\n", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
 		return false
 	}
+
 	c.ss.prevno = c.ss.no
 	c.ss.no = Max(0, no)
 	c.ss.time = 0
@@ -5014,7 +4992,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 		c.setCtrl(ctrl != 0)
 	}
 	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
-		for c.stchtmp && sys.changeStateNest < 2500 {
+		for c.stchtmp && sys.changeStateNest < MaxLoop {
 			c.stateChange2()
 			sys.changeStateNest++
 			if !c.ss.sb.run(c) {
@@ -5098,8 +5076,9 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	return true
 }
 
+// Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
-	// If any existing helper entries are valid for overwriting, use that one
+	// If any existing helper entry is valid for overwriting, use that one
 	i := int32(0)
 	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
 		if sys.chars[c.playerNo][i].helperIndex < 0 {
@@ -5116,15 +5095,40 @@ func (c *Char) newHelper() (h *Char) {
 		h = newChar(c.playerNo, i)
 		sys.chars[c.playerNo] = append(sys.chars[c.playerNo], h)
 	}
+
+	// Init default helper parameters
+	h.name = c.name + "'s helper"
 	h.id = sys.newCharId()
 	h.helperId = 0
 	h.ownpal = false
-	h.copyParent(c)
+	h.initCnsVar()
+	h.mapArray = make(map[string]float32)
+	h.remapSpr = make(RemapPreset)
+
+	// Copy some parent parameters
+	h.parentIndex = c.helperIndex
+	h.controller = c.controller
+	h.teamside = c.teamside
+	h.size = c.size
+	h.life, h.lifeMax = c.lifeMax, c.lifeMax
+	h.powerMax = c.powerMax
+	if sys.maxPowerMode {
+		h.power = h.powerMax
+	} else {
+		h.power = 0
+	}
+	h.dizzyPoints, h.dizzyPointsMax = c.dizzyPointsMax, c.dizzyPointsMax
+	h.guardPoints, h.guardPointsMax = c.guardPointsMax, c.guardPointsMax
+	h.redLife = h.lifeMax
+	h.prepareNextRound()
+
+	// Add to player lists
 	c.addChild(h)
 	sys.charList.add(h)
 	return
 }
 
+// Init helper after reading the bytecode parameters
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	facing int32, rp [2]int32, extmap bool) {
 	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
@@ -6064,17 +6068,28 @@ func (c *Char) varRangeSet(first, last, val int32) {
 		return
 	}
 
+	loopCount := 0
 	if val == 0 {
 		// Delete existing maps within range. Don't make new ones
 		for k := range c.cnsvar {
 			if k >= first && k <= last {
 				delete(c.cnsvar, k)
+				loopCount++
+				if loopCount >= MaxLoop {
+					sys.printBytecodeError(fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+					break
+				}
 			}
 		}
 	} else {
 		// Set entire map range to value
 		for i := first; i <= last; i++ {
 			c.cnsvar[i] = val
+			loopCount++
+			if loopCount >= MaxLoop {
+				sys.printBytecodeError(fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+				break
+			}
 		}
 	}
 }
@@ -7046,20 +7061,24 @@ func (c *Char) hitFallSet(f int32, xv, yv, zv float32) {
 }
 
 func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
-
 	// Clear all remaps
 	if src[0] == -1 && dst[0] == -1 {
 		pfx.remap = nil
 		return
 	}
+
 	// Reset specified source
 	if dst[0] == -1 {
 		dst = src
 	}
+
+	// Force remap on all palettes
 	if src[0] == -1 {
 		c.forceRemapPal(pfx, dst)
 		return
 	}
+
+	// Invalid inputs
 	if src[0] < 0 || src[1] < 0 || dst[0] < 0 || dst[1] < 0 {
 		return
 	}
@@ -7078,10 +7097,12 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 		return
 	}
 
-	// Perform palette remap if needed
+	// Init palette remap if needed
 	if pfx.remap == nil {
 		pfx.remap = plist.GetPalMap()
 	}
+
+	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
 		plist.Remap(si, di)
 
@@ -7094,10 +7115,32 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 				plist.Remap(spr.palidx, di)
 			}
 		}
+
 		plist.SwapPalMap(&pfx.remap)
 	}
 
-	c.gi().remappedpal = [...]int32{dst[0], dst[1]}
+	c.gi().remappedpal = [2]int32{dst[0], dst[1]}
+}
+
+func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
+	// Do not remap. Usually because RemapPal parameter was not used
+	if dst[0] < 0 || dst[1] < 0 {
+		return
+	}
+
+	// Get new palette
+	di, ok := c.gi().palettedata.palList.PalTable[[...]int16{int16(dst[0]), int16(dst[1])}]
+	if !ok || di < 0 {
+		return
+	}
+
+	// Clear previous remaps
+	pfx.remap = make([]int, len(c.gi().palettedata.palList.paletteMap))
+
+	// Apply the new remap
+	for i := range pfx.remap {
+		pfx.remap[i] = di
+	}
 }
 
 func (c *Char) getDrawPal(palIndex int) [2]int32 {
@@ -7115,23 +7158,6 @@ func (c *Char) drawPal() [2]int32 {
 		return [2]int32{0, 0}
 	}
 	return c.getDrawPal(palMap[0])
-}
-
-func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
-	if dst[0] < 0 || dst[1] < 0 {
-		return
-	}
-	di, ok := c.gi().palettedata.palList.PalTable[[...]int16{int16(dst[0]),
-		int16(dst[1])}]
-	if !ok || di < 0 {
-		return
-	}
-	if pfx.remap == nil {
-		pfx.remap = c.gi().palettedata.palList.GetPalMap()
-	}
-	for i := range pfx.remap {
-		pfx.remap[i] = di
-	}
 }
 
 type RemapTable map[int16][2]int16

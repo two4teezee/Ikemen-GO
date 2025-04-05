@@ -1183,7 +1183,7 @@ func (s *System) nextRound() {
 			p[0].posReset()
 			p[0].setCtrl(false)
 			p[0].clearState()
-			p[0].clearNextRound()
+			p[0].prepareNextRound()
 			p[0].varRangeSet(0, s.cgi[i].data.intpersistindex-1, 0)
 			p[0].fvarRangeSet(0, s.cgi[i].data.floatpersistindex-1, 0)
 			for j := range p[0].cmd {
@@ -2103,6 +2103,7 @@ func (s *System) fight() (reload bool) {
 		s.debugDisplay = false
 		s.lifebarDisplay = true
 	}
+
 	// Defer resetting variables on return
 	defer func() {
 		s.oldNextAddTime = 1
@@ -2116,8 +2117,11 @@ func (s *System) fight() (reload bool) {
 		}
 		s.wincnt.update()
 	}()
+
 	var oldStageVars Stage
 	oldStageVars.copyStageVars(s.stage) // NOTE: This save and restore of stage variables makes ModifyStageVar not persist. Maybe that should not be the case?
+
+	// Vars to use in copyVar backup
 	var life, lifeMax, power, powerMax [len(s.chars)]int32
 	var guardPoints, guardPointsMax, dizzyPoints, dizzyPointsMax, redLife [len(s.chars)]int32
 	var teamside [len(s.chars)]int
@@ -2126,8 +2130,9 @@ func (s *System) fight() (reload bool) {
 	var mapArray [len(s.chars)]map[string]float32
 	var dialogue [len(s.chars)][]string
 	var remapSpr [len(s.chars)]RemapPreset
+
 	// Anonymous function to assign initial character values
-	// ModifyChar parameters should ideally also be reset here
+	// ModifyPlayer parameters should ideally also be reset here
 	copyVar := func(pn int) {
 		life[pn] = s.chars[pn][0].life
 		lifeMax[pn] = s.chars[pn][0].lifeMax
@@ -2183,7 +2188,7 @@ func (s *System) fight() (reload bool) {
 	var level [len(s.chars)]int32
 	for i, p := range s.chars {
 		if len(p) > 0 && p[0].teamside != -1 {
-			p[0].clearNextRound()
+			p[0].prepareNextRound()
 			level[i] = s.wincnt.getLevel(i)
 			if s.cfg.Options.Team.PowerShare {
 				pmax := Max(s.cgi[i&1].data.power, s.cgi[i].data.power)
@@ -2319,6 +2324,7 @@ func (s *System) fight() (reload bool) {
 
 	oldWins, oldDraws := s.wins, s.draws
 	oldTeamLeader := s.teamLeader
+
 	// Anonymous function to reset values, called at the start of each round
 	reset := func() {
 		s.wins, s.draws = oldWins, oldDraws
@@ -2428,7 +2434,7 @@ func (s *System) fight() (reload bool) {
 
 			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
 				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-				/* Prepare for the next round */
+				// Prepare for the next round
 				for i, p := range s.chars {
 					if len(p) > 0 {
 						if s.tmode[i&1] != TM_Turns || !p[0].win() {
@@ -2436,7 +2442,7 @@ func (s *System) fight() (reload bool) {
 						} else if p[0].life <= 0 {
 							p[0].life = 1
 						}
-						p[0].redLife = 0
+						p[0].redLife = p[0].life // TODO: This doesn't truly need to be hardcoded
 						copyVar(i)
 					}
 				}
@@ -2444,7 +2450,7 @@ func (s *System) fight() (reload bool) {
 				oldStageVars.copyStageVars(s.stage)
 				reset()
 			} else {
-				/* End match, or prepare for a new character in turns mode */
+				// End match, or prepare for a new character in turns mode
 				for i, tm := range s.tmode {
 					if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
 						for j := i; j < len(s.chars); j += 2 {
@@ -2457,8 +2463,6 @@ func (s *System) fight() (reload bool) {
 								}
 							}
 						}
-						//} else {
-						//	s.chars[i][0].life = 0
 					}
 				}
 				// If match isn't over, presumably this is turns mode,

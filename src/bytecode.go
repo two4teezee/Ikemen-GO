@@ -3,11 +3,16 @@ package main
 import (
 	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"unsafe"
+)
+
+const (
+	MaxLoop = 2500
 )
 
 type StateType int32
@@ -3953,8 +3958,8 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 			}
 			// Safety check. Prevents a bad loop from freezing Ikemen
 			loopCount++
-			if loopCount >= 2500 {
-				sys.printBytecodeError("loop automatically stopped after 2500 iterations")
+			if loopCount >= MaxLoop {
+				sys.printBytecodeError(fmt.Sprintf("loop automatically stopped after %v iterations", loopCount))
 				break
 			}
 		}

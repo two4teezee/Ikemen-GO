@@ -4425,12 +4425,12 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 		}
 		if len(mapParam) > 0 {
 			if assign {
-				if err := c.checkOpeningBracket(&mapParam); err != nil {
+				if err := c.checkOpeningParenthesis(&mapParam); err != nil {
 					return err
 				}
 				mapName = c.token
 				c.token = c.tokenizer(&mapParam)
-				if err := c.checkClosingBracket(); err != nil {
+				if err := c.checkClosingParenthesis(); err != nil {
 					return err
 				}
 				c.token = c.tokenizer(&mapParam)

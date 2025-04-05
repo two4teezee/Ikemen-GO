@@ -1120,7 +1120,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if s.xshear != 0 {
 			xshear = -s.xshear
 		} else {
-			xshear = sys.stage.sdw.xshear + s.shadowXshear 
+			xshear = sys.stage.sdw.xshear + s.shadowXshear
 		}
 
 		var yscale float32
@@ -1129,7 +1129,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		} else {
 			yscale = sys.stage.sdw.yscale
 		}
-		
+
 		if yscale > 0 {
 			xshear = -xshear // Invert if sprite is flipped
 		}

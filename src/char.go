@@ -2650,7 +2650,7 @@ func (c *Char) clearNextRound() {
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
 		bindToId:        -1,
-		scale:			 [2]float32{1, 1},
+		scale:           [2]float32{1, 1},
 		alpha:           [2]int32{255, 0},
 		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},

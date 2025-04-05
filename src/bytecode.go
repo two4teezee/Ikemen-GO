@@ -3104,13 +3104,13 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_scale_x:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.angleScale[0])
+			sys.bcStack.PushF(c.scale[0])
 		} else {
 			sys.bcStack.PushF(1)
 		}
 	case OC_ex_scale_y:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.angleScale[1])
+			sys.bcStack.PushF(c.scale[1])
 		} else {
 			sys.bcStack.PushF(1)
 		}
@@ -9487,9 +9487,9 @@ func (sc angleDraw) Run(c *Char, _ []int32) bool {
 		case angleDraw_value:
 			crun.angleSet(exp[0].evalF(c))
 		case angleDraw_scale:
-			crun.angleScale[0] *= exp[0].evalF(c)
+			crun.scale[0] *= exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.angleScale[1] *= exp[1].evalF(c)
+				crun.scale[1] *= exp[1].evalF(c)
 			}
 		case angleDraw_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

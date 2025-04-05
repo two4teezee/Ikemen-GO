@@ -989,7 +989,6 @@ type aimgImage struct {
 	anim       Animation
 	pos        [2]float32
 	scl        [2]float32
-	ascl       [2]float32
 	priority   int32
 	rot        Rotation
 	projection int32
@@ -1155,7 +1154,6 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		img.rot = sd.rot
 		img.projection = sd.projection
 		img.fLength = sd.fLength
-		img.ascl = sd.ascl
 		img.oldVer = sd.oldVer
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 		ai.imgidx = (ai.imgidx + 1) & 63
@@ -1199,7 +1197,6 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				alpha:        ai.alpha,
 				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
 				rot:          img.rot,
-				ascl:         img.ascl,
 				screen:       false,
 				undarken:     sd.undarken,
 				oldVer:       sd.oldVer,
@@ -1579,7 +1576,6 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		alpha:        alp,
 		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
-		ascl:         [...]float32{1, 1},
 		screen:       e.space == Space_screen,
 		undarken:     playerNo == sys.superplayerno,
 		oldVer:       oldVer,
@@ -2193,7 +2189,6 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			alpha:        [2]int32{-1},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          Rotation{p.facing * p.angle, 0, 0},
-			ascl:         [...]float32{1, 1},
 			screen:       false,
 			undarken:     p.playerno == sys.superplayerno,
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
@@ -2363,7 +2358,7 @@ type CharSystemVar struct {
 	bindFacing        float32
 	hitPauseTime      int32
 	angle             float32
-	angleScale        [2]float32
+	scale             [2]float32
 	alpha             [2]int32
 	systemFlag        SystemCharFlag
 	specialFlag       CharSpecialFlag
@@ -2655,7 +2650,7 @@ func (c *Char) clearNextRound() {
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
 		bindToId:        -1,
-		angleScale:      [2]float32{1, 1},
+		scale:			 [2]float32{1, 1},
 		alpha:           [2]int32{255, 0},
 		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
@@ -8915,7 +8910,7 @@ func (c *Char) actionPrepare() {
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
 			c.unsetCSF(CSF_angledraw | CSF_trans)
-			c.angleScale = [...]float32{1, 1}
+			c.scale = [...]float32{1, 1}
 			c.offset = [2]float32{}
 			// Reset all AssertSpecial flags except the following, which are reset elsewhere in the code
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
@@ -9788,8 +9783,8 @@ func (c *Char) cueDraw() {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
 			c.interPos[1]*c.localscl + c.offsetY()*c.localscl}
 
-		scl := [...]float32{c.facing * c.size.xscale * c.zScale * (320 / c.localcoord),
-			c.size.yscale * c.zScale * (320 / c.localcoord)}
+		scl := [...]float32{c.facing * (c.size.xscale * c.scale[0]) * c.zScale * (320 / c.localcoord),
+			(c.size.yscale * c.scale[1]) * c.zScale * (320 / c.localcoord)}
 
 		// Apply Z axis perspective
 		if sys.zEnabled() {
@@ -9806,9 +9801,10 @@ func (c *Char) cueDraw() {
 		agl := float32(0)
 		if c.csf(CSF_angledraw) {
 			agl = c.angle
-			if agl == 0 {
-				agl = 360
-			} else if c.facing < 0 {
+			// if agl == 0 {
+			// 	agl = 360 // Is it really necessary for the initial angle to be 360?
+			// } else if c.facing < 0 {
+			if c.facing < 0 {
 				agl *= -1
 			}
 		}
@@ -9858,7 +9854,6 @@ func (c *Char) cueDraw() {
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
 			rot:          Rotation{agl, 0, 0},
-			ascl:         c.angleScale,
 			screen:       false,
 			undarken:     c.playerNo == sys.superplayerno,
 			oldVer:       c.gi().mugenver[0] != 1,

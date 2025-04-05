@@ -939,7 +939,6 @@ type SprData struct {
 	alpha        [2]int32
 	priority     int32
 	rot          Rotation
-	ascl         [2]float32
 	screen       bool
 	undarken     bool // Ignore SuperPause "darken"
 	oldVer       bool
@@ -961,12 +960,6 @@ func (dl *DrawList) add(sd *SprData) {
 	// Ignore if skipping the frame or adding a blank sprite
 	if sys.frameSkip || sd.isBlank() {
 		return
-	}
-	if sd.rot.angle != 0 {
-		for i, as := range sd.ascl {
-			sd.scl[i] *= as
-		}
-		sd.ascl = [...]float32{1, 1}
 	}
 	i, start := 0, 0
 	for l := len(*dl); l > 0; {

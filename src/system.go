@@ -1736,7 +1736,6 @@ func (s *System) action() {
 			alpha:        [2]int32{-1},
 			priority:     5,
 			rot:          Rotation{},
-			ascl:         [2]float32{},
 			screen:       false,
 			undarken:     true,
 			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,

@@ -3983,12 +3983,40 @@ func (c *Char) hitShakeOver() bool {
 	return c.ghv.hitshaketime <= 0
 }
 
-func (c *Char) isHelper(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
+func (c *Char) isHelper(id int32, idx int) bool {
+	// Not a helper at all
+	if c.helperIndex == 0 {
+		return false
 	}
-	id := hid.ToI()
-	return BytecodeBool(c.helperIndex != 0 && (id == math.MinInt32 || c.helperId == id))
+	// Any helper
+	if id < 0 && idx < 0 {
+		return true
+	}
+	// Check ID only
+	if id >= 0 && idx < 0 {
+		return c.helperId == id
+	}
+	// Check specific ID or index
+	count := 0
+	for _, h := range sys.chars[c.playerNo][1:] {
+		// Check specific ID
+		if id >= 0 && h.helperId != id {
+			continue
+		}
+		// Check any index
+		if idx < 0 {
+			if h == c {
+				return true
+			}
+			continue
+		}
+		// Check specific index
+		if count == idx {
+			return h == c
+		}
+		count++
+	}
+	return false
 }
 
 func (c *Char) isHost() bool {

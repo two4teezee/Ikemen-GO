@@ -1856,7 +1856,9 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_inguarddist:
 			sys.bcStack.PushB(c.inguarddist)
 		case OC_ishelper:
-			*sys.bcStack.Top() = c.isHelper(*sys.bcStack.Top())
+			index := sys.bcStack.Pop().ToI()
+			id := sys.bcStack.Pop().ToI()
+			sys.bcStack.PushB(c.isHelper(id, int(index)))
 		case OC_leftedge:
 			sys.bcStack.PushF(c.leftEdge() * (c.localscl / oc.localscl))
 		case OC_life:

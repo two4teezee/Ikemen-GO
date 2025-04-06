@@ -1521,7 +1521,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 			if bv.IsNone() {
 				if rd {
-					out.append(OC_rdreset)
+					//out.append(OC_rdreset)
+					return bvNone(), Error("'-' operator cannot be used within a trigger redirection")
 				}
 				out.append(be1...)
 				out.append(OC_neg)
@@ -1537,7 +1538,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				return bvNone(), Error("'~' operator cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 			out.append(OC_not)
@@ -1552,7 +1554,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				// Ikemen used to allow operators in the middle of a redirection and make them just cancel the redirection
+				// Mugen's compiler crashes instead. This seems safer because of user error
+				return bvNone(), Error("'!' operator cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 			out.append(OC_blnot)
@@ -1567,7 +1572,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				return bvNone(), Error("Parentheses cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 		}
@@ -4775,7 +4781,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
 		if rd {
-			out.append(OC_rdreset)
+			//out.append(OC_rdreset)
+			return bvNone(), Error("'" + c.token + "' operator cannot be used within a trigger redirection")
 		}
 		c.previousOperator = c.token
 		c.token = c.tokenizer(in)

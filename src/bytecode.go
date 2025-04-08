@@ -1744,7 +1744,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Swap()
 		case OC_ailevel:
 			if !c.asf(ASF_noailevel) {
-				sys.bcStack.PushI(int32(c.aiLevel()))
+				sys.bcStack.PushI(int32(c.getAILevel()))
 			} else {
 				sys.bcStack.PushI(0)
 			}
@@ -2761,7 +2761,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_ailevelf:
 		if !c.asf(ASF_noailevel) {
-			sys.bcStack.PushF(c.aiLevel())
+			sys.bcStack.PushF(c.getAILevel())
 		} else {
 			sys.bcStack.PushI(0)
 		}

@@ -4564,7 +4564,7 @@ func (c *Compiler) teamMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*matchRestart)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "reload",
-			matchRestart_reload, VT_Bool, MaxSimul*2+MaxAttachedChar, false); err != nil {
+			matchRestart_reload, VT_Bool, MaxPlayerNo, false); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "stagedef", false, func(data string) error {

@@ -4447,7 +4447,7 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarAiLevel
 			for i := range l.ai {
 				l.ai[i].bgDraw(layerno)
-				l.ai[i].draw(layerno, l.fnt[:], sys.com[sys.chars[i][0].playerNo])
+				l.ai[i].draw(layerno, l.fnt[:], sys.aiLevel[sys.chars[i][0].playerNo])
 			}
 			// LifeBarWinCount
 			for i := range l.wc {

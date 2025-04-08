@@ -1414,6 +1414,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), Error("Missing '(' after PlayerIndex")
 			case OC_helperindex:
 				return bvNone(), Error("Missing '(' after HelperIndex")
+			default:
+				return bvNone(), Error("Missing '('")
 			}
 		}
 		if rd {
@@ -1431,11 +1433,11 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case OC_player:
 				return bvNone(), Error("Missing ',' after Player")
 			case OC_playerid:
-				return bvNone(), Error("Missing '(' after PlayerID")
+				return bvNone(), Error("Missing ',' after PlayerID")
 			case OC_playerindex:
-				return bvNone(), Error("Missing '(' after PlayerIndex")
+				return bvNone(), Error("Missing ',' after PlayerIndex")
 			case OC_helperindex:
-				return bvNone(), Error("Missing '(' after HelperIndex")
+				return bvNone(), Error("Missing ',' after HelperIndex")
 			default:
 				return bvNone(), Error("Missing ','")
 			}
@@ -7367,7 +7369,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 
 	// Initialize command list data
 	if sys.chars[pn][0].cmd == nil {
-		sys.chars[pn][0].cmd = make([]CommandList, MaxSimul*2+MaxAttachedChar)
+		sys.chars[pn][0].cmd = make([]CommandList, MaxPlayerNo)
 		b := NewInputBuffer()
 		for i := range sys.chars[pn][0].cmd {
 			sys.chars[pn][0].cmd[i] = *NewCommandList(b)

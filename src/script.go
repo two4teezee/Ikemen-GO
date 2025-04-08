@@ -775,7 +775,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0, true) {
+		if cl.InputUpdate(int(numArg(l, 2))-1, 1, 0, 0, true) {
 			cl.Step(1, false, false, 0)
 		}
 		return 0
@@ -1212,7 +1212,7 @@ func systemScriptInit(l *lua.LState) {
 						nextId++
 					}
 				}
-				for i := MaxSimul * 2; i < MaxSimul*2+MaxAttachedChar; i += 1 {
+				for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 					if len(sys.chars[i]) > 0 {
 						if sys.round == 1 {
 							sys.chars[i][0].id = sys.newCharId()
@@ -1531,7 +1531,7 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 1) {
 			pn = int(numArg(l, 1))
 		}
-		if pn != 0 && (pn < 1 || pn > MaxSimul*2+MaxAttachedChar) {
+		if pn != 0 && (pn < 1 || pn > MaxPlayerNo) {
 			l.RaiseError("\nInvalid player number: %v\n", pn)
 		}
 		tbl := l.NewTable()
@@ -2119,8 +2119,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "resetAILevel", func(l *lua.LState) int {
-		for i := range sys.com {
-			sys.com[i] = 0
+		for i := range sys.aiLevel {
+			sys.aiLevel[i] = 0
 		}
 		return 0
 	})
@@ -2268,7 +2268,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setAILevel", func(*lua.LState) int {
 		level := float32(numArg(l, 1))
-		sys.com[sys.debugWC.playerNo] = level
+		sys.aiLevel[sys.debugWC.playerNo] = level
 		for _, c := range sys.chars[sys.debugWC.playerNo] {
 			if level == 0 {
 				c.controller = sys.debugWC.playerNo
@@ -2285,13 +2285,13 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "setCom", func(*lua.LState) int {
 		pn := int(numArg(l, 1))
 		ailv := float32(numArg(l, 2))
-		if pn < 1 || pn > MaxSimul*2+MaxAttachedChar {
+		if pn < 1 || pn > MaxPlayerNo {
 			l.RaiseError("\nInvalid player number: %v\n", pn)
 		}
 		if ailv > 0 {
-			sys.com[pn-1] = ailv
+			sys.aiLevel[pn-1] = ailv
 		} else {
-			sys.com[pn-1] = 0
+			sys.aiLevel[pn-1] = 0
 		}
 		return 0
 	})
@@ -3142,7 +3142,7 @@ func triggerFunctions(l *lua.LState) {
 	// vanilla triggers
 	luaRegister(l, "ailevel", func(*lua.LState) int {
 		if !sys.debugWC.asf(ASF_noailevel) {
-			l.Push(lua.LNumber(sys.debugWC.aiLevel()))
+			l.Push(lua.LNumber(sys.debugWC.getAILevel()))
 		} else {
 			l.Push(lua.LNumber(0))
 		}

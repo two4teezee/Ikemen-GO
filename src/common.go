@@ -25,8 +25,14 @@ func Random() int32 {
 	}
 	return sys.randseed
 }
-func Srand(s int32)             { sys.randseed = s }
-func Rand(min, max int32) int32 { return min + Random()/(IMax/(max-min+1)+1) }
+
+func Srand(s int32) {
+	sys.randseed = s
+}
+
+func Rand(min, max int32) int32 {
+	return min + Random()/(IMax/(max-min+1)+1)
+}
 
 func RandF32(min, max float32) float32 {
 	return min + float32(Random())/(float32(IMax)/(max-min+1.0)+1.0)
@@ -44,6 +50,7 @@ func RandI(x, y int32) int32 {
 	}
 	return Rand(x, y)
 }
+
 func RandF(x, y float32) float32 {
 	return x + float32(Random())*(y-x)/float32(IMax)
 }
@@ -125,6 +132,7 @@ func Cos(f float32) float32 {
 func Sin(f float32) float32 {
 	return float32(math.Sin(float64(f)))
 }
+
 func Sign(i int32) int32 {
 	if i < 0 {
 		return -1
@@ -144,38 +152,47 @@ func SignF(f float32) float32 {
 		return 0
 	}
 }
+
 func Abs(i int32) int32 {
 	if i < 0 {
 		return -i
 	}
 	return i
 }
+
 func AbsF(f float32) float32 {
 	if f < 0 {
 		return -f
 	}
 	return f
 }
+
 func Pow(x, y float32) float32 {
 	return float32(math.Pow(float64(x), float64(y)))
 }
+
 func Lerp(x, y, a float32) float32 {
 	//return float32(x + (y - x) * ClampF(a, 0, 1))
 	return float32((1-a)*x + a*y)
 }
+
 func Ceil(x float32) int32 {
 	return int32(math.Ceil(float64(x)))
 }
+
 func Floor(x float32) int32 {
 	return int32(math.Floor(float64(x)))
 }
+
 func IsFinite(f float32) bool {
 	return math.Abs(float64(f)) <= math.MaxFloat64
 }
+
 func IsNumeric(s string) bool {
 	_, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	return err == nil
 }
+
 func Atoi(str string) int32 {
 	var n int64
 	str = strings.TrimSpace(str)
@@ -206,6 +223,7 @@ func Atoi(str string) int32 {
 	}
 	return int32(n)
 }
+
 func Atof(str string) float64 {
 	f := 0.0
 	str = strings.TrimSpace(str)
@@ -257,6 +275,7 @@ func Atof(str string) float64 {
 	}
 	return f
 }
+
 func RectRotate(x, y, w, h, cx, cy, angle float32) [][2]float32 {
 	rp := make([][2]float32, 4)
 	corners := [][2]float32{
@@ -343,12 +362,14 @@ func readDigit(d string) (int32, bool) {
 	}
 	return int32(Atof(d)), true
 }
+
 func Btoi(b bool) int32 {
 	if b {
 		return 1
 	}
 	return 0
 }
+
 func I32ToI16(i32 int32) int16 {
 	if i32 < ^int32(^uint16(0)>>1) {
 		return ^int16(^uint16(0) >> 1)
@@ -358,6 +379,7 @@ func I32ToI16(i32 int32) int16 {
 	}
 	return int16(i32)
 }
+
 func I32ToU16(i32 int32) uint16 {
 	if i32 < 0 {
 		return 0
@@ -447,6 +469,7 @@ func SplitAndTrim(str, sep string) (ss []string) {
 	}
 	return
 }
+
 func OldSprintf(f string, a ...interface{}) (s string) {
 	iIdx, lIdx, numVerbs := []int{}, []int{}, 0
 	for i := 0; i < len(f); i++ {
@@ -501,6 +524,7 @@ func OldSprintf(f string, a ...interface{}) (s string) {
 	}
 	return fmt.Sprintf(f, a...)
 }
+
 func SectionName(sec string) (string, string) {
 	if len(sec) == 0 || sec[0] != '[' {
 		return "", ""
@@ -521,6 +545,7 @@ func SectionName(sec string) (string, string) {
 	}
 	return strings.ToLower(name), sec
 }
+
 func HasExtension(file, ext string) bool {
 	match, _ := regexp.MatchString(ext, filepath.Ext(strings.ToLower(file)))
 	return match
@@ -556,11 +581,16 @@ func sliceMoveInt(array []int, srcIndex int, dstIndex int) []int {
 
 type Error string
 
-func (e Error) Error() string { return string(e) }
+func (e Error) Error() string {
+	return string(e)
+}
 
 type IniSection map[string]string
 
-func NewIniSection() IniSection { return IniSection(make(map[string]string)) }
+func NewIniSection() IniSection {
+	return IniSection(make(map[string]string))
+}
+
 func ReadIniSection(lines []string, i *int) (
 	is IniSection, name string, subname string) {
 	for ; *i < len(lines); (*i)++ {
@@ -577,6 +607,7 @@ func ReadIniSection(lines []string, i *int) (
 	is.Parse(lines, i)
 	return
 }
+
 func (is IniSection) Parse(lines []string, i *int) {
 	for ; *i < len(lines); (*i)++ {
 		if len(lines[*i]) > 0 && lines[*i][0] == '[' {
@@ -598,6 +629,7 @@ func (is IniSection) Parse(lines []string, i *int) {
 		}
 	}
 }
+
 func (is IniSection) LoadFile(name string, dirs []string,
 	load func(string) error) error {
 	str := is[name]
@@ -606,6 +638,7 @@ func (is IniSection) LoadFile(name string, dirs []string,
 	}
 	return LoadFile(&str, dirs, load)
 }
+
 func (is IniSection) ReadI32(name string, out ...*int32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -621,6 +654,7 @@ func (is IniSection) ReadI32(name string, out ...*int32) bool {
 	}
 	return true
 }
+
 func (is IniSection) ReadF32(name string, out ...*float32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -636,6 +670,7 @@ func (is IniSection) ReadF32(name string, out ...*float32) bool {
 	}
 	return true
 }
+
 func (is IniSection) ReadBool(name string, out ...*bool) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -651,6 +686,7 @@ func (is IniSection) ReadBool(name string, out ...*bool) bool {
 	}
 	return true
 }
+
 func (is IniSection) readI32ForStage(name string, out ...*int32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -669,6 +705,7 @@ func (is IniSection) readI32ForStage(name string, out ...*int32) bool {
 	}
 	return true
 }
+
 func (is IniSection) readF32ForStage(name string, out ...*float32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -687,6 +724,7 @@ func (is IniSection) readF32ForStage(name string, out ...*float32) bool {
 	}
 	return true
 }
+
 func (is IniSection) readI32CsvForStage(name string) (ary []int32) {
 	if str := is[name]; len(str) > 0 {
 		for _, s := range strings.Split(str, ",") {
@@ -700,6 +738,7 @@ func (is IniSection) readI32CsvForStage(name string) (ary []int32) {
 	}
 	return
 }
+
 func (is IniSection) readF32CsvForStage(name string) (ary []float32) {
 	if str := is[name]; len(str) > 0 {
 		for _, s := range strings.Split(str, ",") {
@@ -713,6 +752,7 @@ func (is IniSection) readF32CsvForStage(name string) (ary []float32) {
 	}
 	return
 }
+
 func (is IniSection) getText(name string) (str string, ok bool, err error) {
 	str, ok = is[name]
 	if !ok {
@@ -739,11 +779,13 @@ type Layout struct {
 func newLayout(ln int16) *Layout {
 	return &Layout{facing: 1, vfacing: 1, layerno: ln, scale: [...]float32{1, 1}}
 }
+
 func ReadLayout(pre string, is IniSection, ln int16) *Layout {
 	l := newLayout(ln)
 	l.Read(pre, is)
 	return l
 }
+
 func (l *Layout) Read(pre string, is IniSection) {
 	is.ReadF32(pre+"offset", &l.offset[0], &l.offset[1])
 	if str := is[pre+"facing"]; len(str) > 0 {
@@ -850,12 +892,14 @@ type AnimLayout struct {
 func newAnimLayout(sff *Sff, ln int16) *AnimLayout {
 	return &AnimLayout{anim: *newAnimation(sff, &sff.palList), lay: *newLayout(ln), palfx: newPalFX()}
 }
+
 func ReadAnimLayout(pre string, is IniSection,
 	sff *Sff, at AnimationTable, ln int16) *AnimLayout {
 	al := newAnimLayout(sff, ln)
 	al.Read(pre, is, at, ln)
 	return al
 }
+
 func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 	ln int16) {
 	var g, n int32
@@ -875,15 +919,18 @@ func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 	al.ReadAnimPalfx(pre+"palfx.", is)
 	al.lay.Read(pre, is)
 }
+
 func (al *AnimLayout) Reset() {
 	al.anim.Reset()
 }
+
 func (al *AnimLayout) Action() {
 	if al.palfx != nil {
 		al.palfx.step()
 	}
 	al.anim.Action()
 }
+
 func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {
 	al.lay.DrawAnim(&al.lay.window, x, y, scale, layerno, &al.anim, al.palfx)
 }
@@ -963,12 +1010,14 @@ func newAnimTextSnd(sff *Sff, ln int16) *AnimTextSnd {
 	return &AnimTextSnd{snd: [2]int32{-1},
 		anim: *newAnimLayout(sff, ln), displaytime: -2}
 }
+
 func ReadAnimTextSnd(pre string, is IniSection,
 	sff *Sff, at AnimationTable, ln int16, f []*Fnt) *AnimTextSnd {
 	ats := newAnimTextSnd(sff, ln)
 	ats.Read(pre, is, at, ln, f)
 	return ats
 }
+
 func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 	ln int16, f []*Fnt) {
 	is.ReadI32(pre+"snd", &ats.snd[0], &ats.snd[1])
@@ -977,14 +1026,17 @@ func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 	ats.anim.Read(pre, is, at, ln)
 	is.ReadI32(pre+"displaytime", &ats.displaytime)
 }
+
 func (ats *AnimTextSnd) Reset() {
 	ats.anim.Reset()
 	ats.cnt = 0
 }
+
 func (ats *AnimTextSnd) Action() {
 	ats.anim.Action()
 	ats.cnt++
 }
+
 func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {
 	if ats.displaytime > 0 && ats.cnt > ats.displaytime {
 		return
@@ -1003,11 +1055,18 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float3
 	}
 }
 
-func (ats *AnimTextSnd) NoSound() bool { return ats.snd[0] < 0 }
+func (ats *AnimTextSnd) NoSound() bool {
+	return ats.snd[0] < 0
+}
+
 func (ats *AnimTextSnd) NoDisplay() bool {
 	return len(ats.anim.anim.frames) == 0 &&
 		(ats.text.font[0] < 0 || len(ats.text.text) == 0)
 }
+
+// In Mugen this returns true if the animation ends before "displaytime" is over
+// It seems like the current Ikemen behavior makes more sense however
+// https://github.com/ikemen-engine/Ikemen-GO/issues/1150
 func (ats *AnimTextSnd) End(dt int32, inf bool) bool {
 	if ats.displaytime < 0 {
 		return len(ats.anim.anim.frames) == 0 || ats.anim.anim.loopend ||

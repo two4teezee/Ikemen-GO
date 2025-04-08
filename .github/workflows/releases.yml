@@ -77,7 +77,7 @@ jobs:
             glibc: ''
             target: ''
           - runner_os: linux
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             goos: linux
             goarch: amd64
             bin: Ikemen_GO_Linux

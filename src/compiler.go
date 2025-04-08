@@ -6303,7 +6303,7 @@ func (c *Compiler) readSentenceLine(line *string) (s string, assign bool,
 			c.token = (*line)[i : i+1]
 			s, *line = (*line)[:i], (*line)[i+1:]
 		case '#':
-			s, *line = (*line)[:i], ""
+			s, *line = (*line)[:i], "" // Ignore the rest as a comment
 		case '"':
 			tmp := (*line)[i+1:]
 			if _, err := c.readString(&tmp); err != nil {
@@ -6437,6 +6437,7 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 		return 0, c.wrongClosureToken()
 	}
 	var err error
+	// StateDef using constants
 	if t == "const" {
 		c.scan(line)
 		k := c.scan(line)
@@ -6447,10 +6448,15 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 		}
 		return int32(v), err
 	}
-	if t == "+" && len(*line) == 2 && (*line)[0] == '1' {
-		c.scan(line)
-		return int32(-10), err
+	// Special +1 case
+	if t == "+" {
+		nextToken := c.scan(line)
+		if nextToken == "1" {
+			return int32(-10), nil
+		}
+		t += nextToken
 	}
+	// Negative states
 	if t == "-" && len(*line) > 0 && (*line)[0] >= '0' && (*line)[0] <= '9' {
 		t += c.scan(line)
 	}
@@ -7066,6 +7072,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	return c.wrongClosureToken()
 }
 
+// Compile a ZSS state
 func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 	filename, src string, constants map[string]float32) error {
 	defer func(oime bool) {

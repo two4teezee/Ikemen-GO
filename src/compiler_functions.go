@@ -3791,19 +3791,13 @@ func (c *Compiler) varRangeSet(is IniSection, sc *StateControllerBase, _ int8) (
 			varRangeSet_first, VT_Int, 1, false); err != nil {
 			return err
 		}
-		last := false
-		if err := c.stateParam(is, "last", false, func(data string) error {
-			last = true
-			return c.scAdd(sc, varRangeSet_last, data, VT_Int, 1)
-		}); err != nil {
+		if err := c.paramValue(is, sc, "last",
+			varRangeSet_last, VT_Int, 1, false); err != nil {
 			return err
 		}
 		b := false
 		if err := c.stateParam(is, "value", false, func(data string) error {
 			b = true
-			if !last {
-				sc.add(varRangeSet_last, sc.iToExp(int32(NumVar-1)))
-			}
 			return c.scAdd(sc, varRangeSet_value, data, VT_Int, 1)
 		}); err != nil {
 			return err
@@ -3811,9 +3805,6 @@ func (c *Compiler) varRangeSet(is IniSection, sc *StateControllerBase, _ int8) (
 		if !b {
 			if err := c.stateParam(is, "fvalue", false, func(data string) error {
 				b = true
-				if !last {
-					sc.add(varRangeSet_last, sc.iToExp(int32(NumFvar-1)))
-				}
 				return c.scAdd(sc, varRangeSet_fvalue, data, VT_Float, 1)
 			}); err != nil {
 				return err
@@ -4434,12 +4425,12 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 		}
 		if len(mapParam) > 0 {
 			if assign {
-				if err := c.checkOpeningBracket(&mapParam); err != nil {
+				if err := c.checkOpeningParenthesis(&mapParam); err != nil {
 					return err
 				}
 				mapName = c.token
 				c.token = c.tokenizer(&mapParam)
-				if err := c.checkClosingBracket(); err != nil {
+				if err := c.checkClosingParenthesis(); err != nil {
 					return err
 				}
 				c.token = c.tokenizer(&mapParam)

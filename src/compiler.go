@@ -466,6 +466,7 @@ func (c *Compiler) tokenizer(in *string) string {
 	return strings.ToLower(c.tokenizerCS(in))
 }
 
+// Same but case-sensitive
 func (*Compiler) tokenizerCS(in *string) string {
 	*in = strings.TrimSpace(*in)
 	if len(*in) == 0 {
@@ -859,7 +860,7 @@ func (c *Compiler) trgAttr(in *string) (int32, error) {
 	return flg, nil
 }
 
-func (c *Compiler) checkOpeningBracket(in *string) error {
+func (c *Compiler) checkOpeningParenthesis(in *string) error {
 	if c.tokenizer(in) != "(" {
 		return Error("Missing '(' after " + c.token)
 	}
@@ -867,7 +868,8 @@ func (c *Compiler) checkOpeningBracket(in *string) error {
 	return nil
 }
 
-func (c *Compiler) checkOpeningBracketCS(in *string) error {
+// Same but case-sensitive
+func (c *Compiler) checkOpeningParenthesisCS(in *string) error {
 	if c.tokenizerCS(in) != "(" {
 		return Error("Missing '(' after " + c.token)
 	}
@@ -875,7 +877,7 @@ func (c *Compiler) checkOpeningBracketCS(in *string) error {
 	return nil
 }
 
-func (c *Compiler) checkClosingBracket() error {
+func (c *Compiler) checkClosingParenthesis() error {
 	c.reverseOrder = true
 	if c.token != ")" {
 		return Error("Missing ')' before " + c.token)
@@ -1094,7 +1096,7 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 		if bv, err = c.expBoolOr(&be, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	}
@@ -1107,6 +1109,66 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 	}
 	out.append(be...)
 	return bv, nil
+}
+
+// Read with two optional arguments
+// Currently only for IsHelper
+func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
+	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
+	
+	var be BytecodeExp
+	var bv1, bv2 BytecodeValue
+	mae := c.token
+
+	// Check for opening parenthesis
+	if c.token = c.tokenizer(in); c.token != "(" {
+		// Put token back where it was and use default values
+		*in = c.token + " " + *in
+		if len(defval) == 2 && !defval[0].IsNone() && !defval[1].IsNone() {
+			bv1 = defval[0]
+			bv2 = defval[1]
+			if appendVal {
+				be.appendValue(bv1)
+				be.appendValue(bv2)
+				out.append(be...)
+			}
+			return bv1, bv2, nil
+		} else {
+			return BytecodeInt(0), BytecodeInt(0), Error("Missing arguments for " + mae)
+		}
+	}
+
+	// Parse first argument
+	c.token = c.tokenizer(in)
+	var err error
+	if bv1, err = c.expBoolOr(&be, in); err != nil {
+		return BytecodeInt(0), BytecodeInt(0), err
+	}
+
+	// Check for second argument
+	if c.token == "," {
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expBoolOr(&be, in); err != nil {
+			return BytecodeInt(0), BytecodeInt(0), err
+		}
+	} else if len(defval) >= 2 {
+		bv2 = defval[1]
+	} else {
+		return BytecodeInt(0), BytecodeInt(0), Error("Missing second argument for " + mae)
+	}
+
+	// Check for closing parenthesis
+	if c.token != ")" {
+		return BytecodeInt(0), BytecodeInt(0), Error("Missing closing ')' for " + mae)
+	}
+
+	if appendVal {
+		be.appendValue(bv1)
+		be.appendValue(bv2)
+		out.append(be...)
+	}
+
+	return bv1, bv2, nil
 }
 
 func (c *Compiler) mathFunc(out *BytecodeExp, in *string, rd bool,
@@ -1335,7 +1397,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			if bv1, err = c.expBoolOr(&be1, in); err != nil {
 				return bvNone(), err
 			}
-			if err := c.checkClosingBracket(); err != nil {
+			if err := c.checkClosingParenthesis(); err != nil {
 				return bvNone(), err
 			}
 			c.token = c.tokenizer(in)
@@ -1413,7 +1475,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				// If not, default index to 0
 				be1.appendValue(BytecodeInt(0))
 			}
-			if err := c.checkClosingBracket(); err != nil {
+			if err := c.checkClosingParenthesis(); err != nil {
 				return bvNone(), err
 			}
 			c.token = c.tokenizer(in)
@@ -1459,7 +1521,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 			if bv.IsNone() {
 				if rd {
-					out.append(OC_rdreset)
+					//out.append(OC_rdreset)
+					return bvNone(), Error("'-' operator cannot be used within a trigger redirection")
 				}
 				out.append(be1...)
 				out.append(OC_neg)
@@ -1475,7 +1538,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				return bvNone(), Error("'~' operator cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 			out.append(OC_not)
@@ -1490,7 +1554,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				// Ikemen used to allow operators in the middle of a redirection and make them just cancel the redirection
+				// Mugen's compiler crashes instead. This seems safer because of user error
+				return bvNone(), Error("'!' operator cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 			out.append(OC_blnot)
@@ -1505,11 +1572,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		if bv.IsNone() {
 			if rd {
-				out.append(OC_rdreset)
+				//out.append(OC_rdreset)
+				return bvNone(), Error("Parentheses cannot be used within a trigger redirection")
 			}
 			out.append(be1...)
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "var":
@@ -1522,7 +1590,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return bvNone(), _var(true, true)
 	case "ifelse", "cond":
 		cond := c.token == "cond"
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -1550,7 +1618,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
@@ -1629,13 +1697,13 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "backedgedist":
 		out.append(OC_backedgedist)
 	case "bgmvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		vname := c.token
 		c.token = c.tokenizer(in)
 		opct := OC_ex_
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		isStr := false
@@ -1692,7 +1760,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "canrecover":
 		out.append(OC_canrecover)
 	case "clsnoverlap":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		c1type := c.token
@@ -1730,7 +1798,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid collision box type: " + c2type)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		be2.appendValue(bv2)
@@ -1748,7 +1816,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(be1...)
 		out.append(OC_ex_, OC_ex_clsnoverlap)
 	case "clsnvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		ctype := c.token
@@ -1787,7 +1855,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		c.token = c.tokenizer(in)
 
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		be2.appendValue(bv2)
@@ -1826,7 +1894,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "const":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_const_)
@@ -2160,7 +2228,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
 	case "explodvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -2294,7 +2362,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if opc != OC_ex2_explodvar_angle {
 			c.token = c.tokenizer(in)
 
-			if err := c.checkClosingBracket(); err != nil {
+			if err := c.checkClosingParenthesis(); err != nil {
 				return bvNone(), err
 			}
 		}
@@ -2326,7 +2394,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "gameheight":
 		out.append(OC_gameheight)
 	case "gameoption":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_const_)
@@ -2342,7 +2410,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "gamewidth":
 		out.append(OC_gamewidth)
 	case "gethitvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		isFlag := -1
@@ -2515,7 +2583,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		switch isFlag {
@@ -2564,7 +2632,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "hitcount":
 		out.append(OC_hitcount)
 	case "hitbyattr":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if attr, err := c.trgAttr(in); err != nil {
@@ -2574,7 +2642,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI32Op(OC_ex2_hitbyattr, attr)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "hitdefattr":
@@ -2607,12 +2675,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "hitdefvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		param := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		isFlag := false
@@ -2703,7 +2771,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "inguarddist":
 		out.append(OC_inguarddist)
 	case "ishelper":
-		if _, err := c.oneArg(out, in, rd, true, BytecodeInt(math.MinInt32)); err != nil {
+		if _, _, err := c.twoOptArg(out, in, rd, true, BytecodeInt(-1), BytecodeInt(-1)); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ishelper)
@@ -2773,7 +2841,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "palfxvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex2_)
@@ -2846,7 +2914,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid PalFXVar argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "name", "p1name", "p2name", "p3name", "p4name", "p5name", "p6name", "p7name", "p8name":
@@ -2954,7 +3022,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_projhittime)
 	case "projvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3135,7 +3203,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 
@@ -3236,7 +3304,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_selfanimexist)
 	case "soundvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3282,7 +3350,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 
@@ -3352,7 +3420,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "stagebgvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		// First argument
@@ -3407,7 +3475,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid StageBGVar argument: " + vname)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		// Output
@@ -3422,12 +3490,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		be1.append(OC_ex2_, opc)
 		out.append(be1...)
 	case "stagevar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		svname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		isStr := false
@@ -3739,7 +3807,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 	case "log":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3752,7 +3820,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -3806,7 +3874,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_ex_, OC_ex_float)
 	case "max":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3819,7 +3887,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -3836,7 +3904,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv = bv1
 		}
 	case "min":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3849,7 +3917,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -3866,7 +3934,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv = bv1
 		}
 	case "randomrange":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3879,7 +3947,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if rd {
@@ -3891,7 +3959,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.appendValue(bv2)
 		out.append(OC_ex_, OC_ex_randomrange)
 	case "round":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3904,7 +3972,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -3921,7 +3989,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv = bv1
 		}
 	case "clamp":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3941,7 +4009,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
@@ -3960,7 +4028,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			bv = bv1
 		}
 	case "atan2":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -3973,7 +4041,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() {
@@ -4005,7 +4073,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_ex_, OC_ex_deg)
 	case "lerp":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		if bv1, err = c.expBoolOr(&be1, in); err != nil {
@@ -4025,7 +4093,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
 			return bvNone(), err
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
@@ -4048,7 +4116,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "airjumpcount":
 		out.append(OC_ex_, OC_ex_airjumpcount)
 	case "animelemvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
@@ -4085,7 +4153,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid AnimElemVar argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "animlength":
@@ -4099,7 +4167,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
 	case "debug":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex2_)
@@ -4120,7 +4188,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid Debug trigger argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "decisiveround":
@@ -4134,7 +4202,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "dizzypointsmax":
 		out.append(OC_ex_, OC_ex_dizzypointsmax)
 	case "envshakevar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
@@ -4149,16 +4217,16 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "fightscreenstate":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		fssname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		switch fssname {
@@ -4176,12 +4244,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex2_)
 		out.append(opc)
 	case "fightscreenvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		fsvname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		isStr := false
@@ -4258,12 +4326,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "indialogue":
 		out.append(OC_ex_, OC_ex_indialogue)
 	case "inputtime":
-		if err := c.checkOpeningBracketCS(in); err != nil {
+		if err := c.checkOpeningParenthesisCS(in); err != nil {
 			return bvNone(), err
 		}
 		key := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		switch key {
@@ -4303,7 +4371,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid InputTime argument: " + key)
 		}
 	case "isasserted":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
@@ -4450,7 +4518,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid AssertSpecial flag: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "ishost":
@@ -4473,12 +4541,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid LocalCoord argument: " + c.token)
 		}
 	case "map":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		var m string = c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		c.token = c.tokenizer(in)
@@ -4503,12 +4571,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "memberno":
 		out.append(OC_ex_, OC_ex_memberno)
 	case "motifstate":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		msname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		switch msname {
@@ -4526,7 +4594,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "movecountered":
 		out.append(OC_ex_, OC_ex_movecountered)
 	case "movehitvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex_)
@@ -4551,7 +4619,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid MoveHitVar argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 	case "mugenversion":
@@ -4621,7 +4689,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "stagebackedgedist", "stagebackedge": // Latter is deprecated
 		out.append(OC_ex_, OC_ex_stagebackedgedist)
 	case "stageconst":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_const_)
@@ -4639,12 +4707,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "standby":
 		out.append(OC_ex_, OC_ex_standby)
 	case "systemvar":
-		if err := c.checkOpeningBracket(in); err != nil {
+		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		svname := c.token
 		c.token = c.tokenizer(in)
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
 		switch svname {
@@ -4713,7 +4781,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), Error("Invalid data: " + c.token)
 		}
 		if rd {
-			out.append(OC_rdreset)
+			//out.append(OC_rdreset)
+			return bvNone(), Error("'" + c.token + "' operator cannot be used within a trigger redirection")
 		}
 		c.previousOperator = c.token
 		c.token = c.tokenizer(in)
@@ -4975,7 +5044,7 @@ func (c *Compiler) expRange(out *BytecodeExp, in *string,
 		if open != "(" {
 			return false, Error("Missing ','")
 		}
-		if err := c.checkClosingBracket(); err != nil {
+		if err := c.checkClosingParenthesis(); err != nil {
 			return false, err
 		}
 		c.token = open

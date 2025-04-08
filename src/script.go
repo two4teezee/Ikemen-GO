@@ -4154,12 +4154,17 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.debugWC.inguarddist))
 		return 1
 	})
-	luaRegister(l, "ishelper", func(*lua.LState) int {
-		id := int32(0)
+	luaRegister(l, "ishelper", func(l *lua.LState) int {
+		id, index := int32(-1), -1
+		// Check if ID is provided
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		l.Push(lua.LBool(sys.debugWC.isHelper(BytecodeInt(id)).ToB()))
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		l.Push(lua.LBool(sys.debugWC.isHelper(id, index)))
 		return 1
 	})
 	luaRegister(l, "ishometeam", func(*lua.LState) int {

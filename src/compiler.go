@@ -1115,7 +1115,7 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 // Currently only for IsHelper
 func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
-	
+
 	var be BytecodeExp
 	var bv1, bv2 BytecodeValue
 	mae := c.token

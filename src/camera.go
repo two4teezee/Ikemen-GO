@@ -192,6 +192,9 @@ func (c *Camera) SaveRestoreTracking() {
 }
 
 func (c *Camera) Update(scl, x, y float32) {
+	if sys.gsf(GSF_camerafreeze) {
+		return
+	}
 	c.Scale = c.BaseScale() * scl
 	c.zoff = float32(c.zoffset) * c.localscl
 	if sys.stage.stageCamera.zoomanchor {

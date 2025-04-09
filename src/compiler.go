@@ -4494,6 +4494,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "nofallhitflag":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofallhitflag))
 		// Ikemen global flags
+		case "camerafreeze":
+			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_camerafreeze))
 		case "globalnoko":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_globalnoko))
 		case "roundnotskip":

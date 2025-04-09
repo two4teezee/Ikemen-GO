@@ -5600,6 +5600,8 @@ func triggerFunctions(l *lua.LState) {
 		case "timerfreeze":
 			l.Push(lua.LBool(sys.gsf(GSF_timerfreeze)))
 		// GlobalSpecialFlag (Ikemen)
+		case "camerafreeze":
+			l.Push(lua.LBool(sys.gsf(GSF_camerafreeze)))
 		case "roundfreeze":
 			l.Push(lua.LBool(sys.gsf(GSF_roundfreeze)))
 		case "roundnotskip":

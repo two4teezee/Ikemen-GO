@@ -231,6 +231,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			case "sizepushonly":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_sizepushonly)))
 			// Ikemen global flags
+			case "camerafreeze":
+				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_camerafreeze)))
 			case "globalnoko":
 				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_globalnoko)))
 			case "roundnotskip":

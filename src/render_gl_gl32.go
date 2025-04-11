@@ -338,6 +338,22 @@ type Renderer_GL32 struct {
 
 	enableModel  bool
 	enableShadow bool
+	GL32State
+}
+type GL32State struct {
+	depthTest       bool
+	depthMask       bool
+	invertFrontFace bool
+	doubleSided     bool
+	blendEquation   BlendEquation
+	blendSrc        BlendFunc
+	blendDst        BlendFunc
+	useUV           bool
+	useNormal       bool
+	useTangent      bool
+	useVertColor    bool
+	useJoint0       bool
+	useJoint1       bool
 }
 
 func (r *Renderer_GL32) GetName() string {
@@ -779,6 +795,58 @@ func (r *Renderer_GL32) MapPrimitiveMode(i PrimitiveMode) uint32 {
 	return PrimitiveModeLUT[i]
 }
 
+func (r *Renderer_GL32) SetDepthTest(depthTest bool) {
+	if depthTest != r.depthTest {
+		r.depthTest = depthTest
+		if depthTest {
+			gl.Enable(gl.DEPTH_TEST)
+			gl.DepthFunc(gl.LESS)
+		} else {
+			gl.Disable(gl.DEPTH_TEST)
+		}
+	}
+}
+
+func (r *Renderer_GL32) SetDepthMask(depthMask bool) {
+	if depthMask != r.depthMask {
+		r.depthMask = depthMask
+		gl.DepthMask(depthMask)
+	}
+}
+
+func (r *Renderer_GL32) SetFrontFace(invertFrontFace bool) {
+	if invertFrontFace != r.invertFrontFace {
+		r.invertFrontFace = invertFrontFace
+		if invertFrontFace {
+			gl.FrontFace(gl.CW)
+		} else {
+			gl.FrontFace(gl.CCW)
+		}
+	}
+}
+func (r *Renderer_GL32) SetCullFace(doubleSided bool) {
+	if doubleSided != r.doubleSided {
+		r.doubleSided = doubleSided
+		if !doubleSided {
+			gl.Enable(gl.CULL_FACE)
+			gl.CullFace(gl.BACK)
+		} else {
+			gl.Disable(gl.CULL_FACE)
+		}
+	}
+}
+func (r *Renderer_GL32) SetBlending(eq BlendEquation, src, dst BlendFunc) {
+	if eq != r.blendEquation {
+		r.blendEquation = eq
+		gl.BlendEquation(r.MapBlendEquation(eq))
+	}
+	if src != r.blendSrc || dst != r.blendDst {
+		r.blendSrc = src
+		r.blendDst = dst
+		gl.BlendFunc(r.MapBlendFunction(src), r.MapBlendFunction(dst))
+	}
+}
+
 func (r *Renderer_GL32) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
 	gl.BindVertexArray(r.vao)
 	gl.UseProgram(r.spriteShader.program)
@@ -812,11 +880,26 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Disable(gl.BLEND)
 	gl.Enable(gl.DEPTH_TEST)
-	//gl.DepthFunc(gl.LESS)
-	//gl.DepthMask(true)
-
+	gl.DepthFunc(gl.LESS)
+	gl.DepthMask(true)
 	gl.BlendEquation(gl.FUNC_ADD)
 	gl.BlendFunc(gl.ONE, gl.ZERO)
+	if r.invertFrontFace {
+		gl.FrontFace(gl.CW)
+	} else {
+		gl.FrontFace(gl.CCW)
+	}
+	if !r.doubleSided {
+		gl.Enable(gl.CULL_FACE)
+		gl.CullFace(gl.BACK)
+	} else {
+		gl.Disable(gl.CULL_FACE)
+	}
+	r.depthTest = true
+	r.depthMask = true
+	r.blendEquation = BlendAdd
+	r.blendSrc = BlendOne
+	r.blendDst = BlendZero
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
@@ -825,17 +908,8 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 }
 func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
-	if invertFrontFace {
-		gl.FrontFace(gl.CW)
-	} else {
-		gl.FrontFace(gl.CCW)
-	}
-	if !doubleSided {
-		gl.Enable(gl.CULL_FACE)
-		gl.CullFace(gl.BACK)
-	} else {
-		gl.Disable(gl.CULL_FACE)
-	}
+	r.SetFrontFace(invertFrontFace)
+	r.SetCullFace(doubleSided)
 
 	loc := r.shadowMapShader.a["vertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
@@ -847,13 +921,14 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
 	if useUV {
-		loc = r.shadowMapShader.a["uv"]
+		r.useUV = true
+		loc = r.modelShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else {
-		loc = r.shadowMapShader.a["uv"]
-		gl.DisableVertexAttribArray(uint32(loc))
+	} else if r.useUV {
+		r.useUV = false
+		loc = r.modelShader.a["uv"]
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
 	if useNormal {
@@ -873,43 +948,42 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 		gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
 	}
 	if useJoint0 {
-		loc = r.shadowMapShader.a["joints_0"]
+		r.useJoint0 = true
+		loc = r.modelShader.a["joints_0"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
-		loc = r.shadowMapShader.a["weights_0"]
+		loc = r.modelShader.a["weights_0"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
 		if useJoint1 {
-			loc = r.shadowMapShader.a["joints_1"]
+			r.useJoint1 = true
+			loc = r.modelShader.a["joints_1"]
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 			offset += 16 * numVertices
-			loc = r.shadowMapShader.a["weights_1"]
+			loc = r.modelShader.a["weights_1"]
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 			offset += 16 * numVertices
-		} else {
-			loc = r.shadowMapShader.a["joints_1"]
-			gl.DisableVertexAttribArray(uint32(loc))
+		} else if r.useJoint1 {
+			r.useJoint1 = false
+			loc = r.modelShader.a["joints_1"]
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-			loc = r.shadowMapShader.a["weights_1"]
-			gl.DisableVertexAttribArray(uint32(loc))
+			loc = r.modelShader.a["weights_1"]
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		}
-	} else {
-		loc = r.shadowMapShader.a["joints_0"]
-		gl.DisableVertexAttribArray(uint32(loc))
+	} else if r.useJoint0 {
+		r.useJoint0 = false
+		r.useJoint1 = false
+		loc = r.modelShader.a["joints_0"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.shadowMapShader.a["weights_0"]
-		gl.DisableVertexAttribArray(uint32(loc))
+		loc = r.modelShader.a["weights_0"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.shadowMapShader.a["joints_1"]
-		gl.DisableVertexAttribArray(uint32(loc))
+		loc = r.modelShader.a["joints_1"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.shadowMapShader.a["weights_1"]
-		gl.DisableVertexAttribArray(uint32(loc))
+		loc = r.modelShader.a["weights_1"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 }
@@ -921,21 +995,30 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib2f(uint32(loc), 0, 0)
 	loc = r.modelShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
 	loc = r.modelShader.a["joints_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["weights_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["joints_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
 	gl.DepthMask(true)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
+	r.useUV = false
+	r.useJoint0 = false
+	r.useJoint1 = false
 }
 func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environment) {
 	gl.UseProgram(r.modelShader.program)
@@ -945,6 +1028,28 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Enable(gl.TEXTURE_CUBE_MAP)
 	gl.Enable(gl.BLEND)
+
+	if r.depthTest {
+		gl.Enable(gl.DEPTH_TEST)
+		gl.DepthFunc(gl.LESS)
+	} else {
+		gl.Disable(gl.DEPTH_TEST)
+	}
+	gl.DepthMask(r.depthMask)
+	if r.invertFrontFace {
+		gl.FrontFace(gl.CW)
+	} else {
+		gl.FrontFace(gl.CCW)
+	}
+	if !r.doubleSided {
+		gl.Enable(gl.CULL_FACE)
+		gl.CullFace(gl.BACK)
+	} else {
+		gl.Disable(gl.CULL_FACE)
+	}
+	gl.BlendEquation(r.MapBlendEquation(r.blendEquation))
+	gl.BlendFunc(r.MapBlendFunction(r.blendSrc), r.MapBlendFunction(r.blendDst))
+
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 	if r.enableShadow {
@@ -994,27 +1099,11 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	}
 }
 func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
-	if depthTest {
-		gl.Enable(gl.DEPTH_TEST)
-		gl.DepthFunc(gl.LESS)
-	} else {
-		gl.Disable(gl.DEPTH_TEST)
-	}
-	gl.DepthMask(depthMask)
-	if invertFrontFace {
-		gl.FrontFace(gl.CW)
-	} else {
-		gl.FrontFace(gl.CCW)
-	}
-	if !doubleSided {
-		gl.Enable(gl.CULL_FACE)
-		gl.CullFace(gl.BACK)
-	} else {
-		gl.Disable(gl.CULL_FACE)
-	}
-
-	gl.BlendEquation(r.MapBlendEquation(eq))
-	gl.BlendFunc(r.MapBlendFunction(src), r.MapBlendFunction(dst))
+	r.SetDepthTest(depthTest)
+	r.SetDepthMask(depthMask)
+	r.SetFrontFace(invertFrontFace)
+	r.SetCullFace(doubleSided)
+	r.SetBlending(eq, src, dst)
 
 	loc := r.modelShader.a["vertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
@@ -1026,42 +1115,51 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
 	if useUV {
+		r.useUV = true
 		loc = r.modelShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else {
+	} else if r.useUV {
+		r.useUV = false
 		loc = r.modelShader.a["uv"]
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
 	if useNormal {
+		r.useNormal = true
 		loc = r.modelShader.a["normalIn"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 12 * numVertices
-	} else {
+	} else if r.useNormal {
+		r.useNormal = false
 		loc = r.modelShader.a["normalIn"]
 		gl.VertexAttrib3f(uint32(loc), 0, 0, 0)
 	}
 	if useTangent {
+		r.useTangent = true
 		loc = r.modelShader.a["tangentIn"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
-	} else {
+	} else if r.useTangent {
+		r.useTangent = false
 		loc = r.modelShader.a["tangentIn"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 	if useVertColor {
+		r.useVertColor = true
 		loc = r.modelShader.a["vertColor"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
-	} else {
+	} else if r.useVertColor {
+		r.useVertColor = false
 		loc = r.modelShader.a["vertColor"]
 		gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
 	}
 	if useJoint0 {
+		r.useJoint0 = true
 		loc = r.modelShader.a["joints_0"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
@@ -1071,6 +1169,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
 		if useJoint1 {
+			r.useJoint1 = true
 			loc = r.modelShader.a["joints_1"]
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
@@ -1079,13 +1178,16 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 			offset += 16 * numVertices
-		} else {
+		} else if r.useJoint1 {
+			r.useJoint1 = false
 			loc = r.modelShader.a["joints_1"]
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 			loc = r.modelShader.a["weights_1"]
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		}
-	} else {
+	} else if r.useJoint0 {
+		r.useJoint0 = false
+		r.useJoint1 = false
 		loc = r.modelShader.a["joints_0"]
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["weights_0"]
@@ -1103,24 +1205,38 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib2f(uint32(loc), 0, 0)
 	loc = r.modelShader.a["normalIn"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib3f(uint32(loc), 0, 0, 0)
 	loc = r.modelShader.a["tangentIn"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
 	loc = r.modelShader.a["joints_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["weights_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["joints_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	loc = r.modelShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
 	gl.DepthMask(true)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Disable(gl.CULL_FACE)
+	r.useUV = false
+	r.useNormal = false
+	r.useTangent = false
+	r.useVertColor = false
+	r.useJoint0 = false
+	r.useJoint1 = false
 }
 
 func (r *Renderer_GL32) ReadPixels(data []uint8, width, height int) {

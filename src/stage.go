@@ -2145,6 +2145,7 @@ type Node struct {
 	shadowMapBias      GLTFAnimatableProperty // float32
 	skin               *uint32
 	morphTargetWeights GLTFAnimatableProperty // []float32
+	activeMorphTargets []uint32
 	layerNumber        *int
 }
 
@@ -3388,13 +3389,31 @@ func calculateAnimationData(mdl *Model, n *Node) {
 	if len(weights) == 0 {
 		weights = m.morphTargetWeights.getValue().([]float32)
 	}
+	activeMorphTargetChanged := false
 	if len(weights) > 0 {
+		activeMorphTargets := make([]uint32, 0, len(weights))
+		morphTargetWeights = make([]struct {
+			index  uint32
+			weight float32
+		}, 0, len(weights))
 		for idx, w := range weights {
 			if w != 0 {
 				morphTargetWeights = append(morphTargetWeights, struct {
 					index  uint32
 					weight float32
 				}{uint32(idx), w})
+				activeMorphTargets = append(activeMorphTargets, uint32(idx))
+			}
+		}
+		if len(activeMorphTargets) != len(n.activeMorphTargets) {
+			activeMorphTargetChanged = true
+			n.activeMorphTargets = activeMorphTargets
+		} else {
+			for i := range activeMorphTargets {
+				if activeMorphTargets[i] != n.activeMorphTargets[i] {
+					activeMorphTargetChanged = true
+					n.activeMorphTargets = activeMorphTargets
+				}
 			}
 		}
 	}
@@ -3403,64 +3422,109 @@ func calculateAnimationData(mdl *Model, n *Node) {
 			continue
 		}
 		if len(morphTargetWeights) > 0 && len(p.morphTargets) >= len(morphTargetWeights) {
+			if activeMorphTargetChanged {
+				width := p.morphTargetTexture.tex.GetWidth()
+				targetBuffer := make([]float32, 4*width*width)
+				count := 0
+				offset := 0
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.positionBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.positionBuffer)], morphTarget.positionBuffer)
+						offset += len(morphTarget.positionBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[0] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.normalBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.normalBuffer)], morphTarget.normalBuffer)
+						offset += len(morphTarget.normalBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[1] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.tangentBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.tangentBuffer)], morphTarget.tangentBuffer)
+						offset += len(morphTarget.tangentBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[2] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.uvBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.uvBuffer)], morphTarget.uvBuffer)
+						offset += len(morphTarget.uvBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[3] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.colorBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.colorBuffer)], morphTarget.colorBuffer)
+						offset += len(morphTarget.colorBuffer)
+						targetBuffer = append(targetBuffer, morphTarget.colorBuffer...)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetCount = uint32(count)
+				if len(targetBuffer) > int(4*width*width) {
+					targetBuffer = targetBuffer[:4*width*width]
+				}
+				p.morphTargetTexture.tex.SetPixelData(targetBuffer)
+			} else {
+				count := 0
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.positionBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[0] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.normalBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[1] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.tangentBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[2] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.uvBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[3] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.colorBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
 
-			//var targetIndices [8]uint32
-			targetBuffer := make([]float32, 0, 32*p.numVertices)
-			count := 0
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.positionBuffer) > 0 {
-					//targetIndices[targetCount] = *morphTarget.positionIndex
-					targetBuffer = append(targetBuffer, morphTarget.positionBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
 			}
-			p.morphTargetOffset[0] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.normalBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.normalBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[1] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.tangentBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.tangentBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[2] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.uvBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.uvBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[3] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.colorBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.colorBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetCount = uint32(count)
-			if len(targetBuffer) > int(8*4*p.numVertices) {
-				targetBuffer = targetBuffer[:8*4*p.numVertices]
-			}
-			width := p.morphTargetTexture.tex.GetWidth()
-			if len(targetBuffer) < int(4*width*width) {
-				targetBuffer = append(targetBuffer, make([]float32, int(4*width*width)-len(targetBuffer))...)
-			}
-			p.morphTargetTexture.tex.SetPixelData(targetBuffer)
 		} else {
 			p.morphTargetCount = 0
 			p.morphTargetOffset = [4]float32{0, 0, 0, 0}
@@ -3479,33 +3543,33 @@ func ExtractFrustumPlanes(MVPMatrix mgl.Mat4) [6]Plane {
 	var planes [6]Plane
 	// Left plane
 	planes[0] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[0], MVPMatrix[3+4] + MVPMatrix[1], MVPMatrix[3+8] + MVPMatrix[2]},
-		D:      MVPMatrix[3+12] + MVPMatrix[3],
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(0, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(0, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(0, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(0, 3),
 	}
 	// Right plane
 	planes[1] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[0], MVPMatrix[3+4] - MVPMatrix[1], MVPMatrix[3+8] - MVPMatrix[2]},
-		D:      MVPMatrix[3+12] - MVPMatrix[3],
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(0, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(0, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(0, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(0, 3),
 	}
 	// Bottom plane
 	planes[2] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[1+0], MVPMatrix[3+4] + MVPMatrix[1+4], MVPMatrix[3+8] + MVPMatrix[1+8]},
-		D:      MVPMatrix[3+12] + MVPMatrix[1+12],
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(1, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(1, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(1, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(1, 3),
 	}
 	// Top plane
 	planes[3] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[1+0], MVPMatrix[3+4] - MVPMatrix[1+4], MVPMatrix[3+8] - MVPMatrix[1+8]},
-		D:      MVPMatrix[3+12] - MVPMatrix[1+12],
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(1, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(1, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(1, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(1, 3),
 	}
 	// Near plane
 	planes[4] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] + MVPMatrix[2+0], MVPMatrix[3+4] + MVPMatrix[2+4], MVPMatrix[3+8] + MVPMatrix[2+8]},
-		D:      MVPMatrix[3+12] + MVPMatrix[2+12],
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(2, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(2, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(2, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(2, 3),
 	}
 	// Far plane
 	planes[5] = Plane{
-		Normal: [3]float32{MVPMatrix[3+0] - MVPMatrix[2+0], MVPMatrix[3+4] - MVPMatrix[2+4], MVPMatrix[3+8] - MVPMatrix[2+8]},
-		D:      MVPMatrix[3+12] - MVPMatrix[2+12],
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(2, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(2, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(2, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(2, 3),
 	}
 
 	// Normalize the planes
@@ -3714,7 +3778,6 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		}
 		gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
 
-		gfx.ReleaseModelPipeline()
 	}
 }
 
@@ -3781,12 +3844,12 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 		gfx.SetModelUniformMatrix3("texTransform", mat.textureTransform[:])
 		for i := 0; i < numLights; i++ {
-			culled := false
+			culled := true
 			if n.skin == nil && p.morphTargetCount == 0 {
 				if lightTypes[i] == PointLight {
 					for j := 0; j < 6; j++ {
-						if isCulled(viewProjMatrices[i*6+j].Mul4(n.worldTransform), p.boundingBox) {
-							culled = true
+						if !isCulled(viewProjMatrices[i*6+j].Mul4(n.worldTransform), p.boundingBox) {
+							culled = false
 							break
 						}
 					}
@@ -4056,6 +4119,7 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	for _, index := range scene.nodes {
 		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit, viewProjMatrix)
 	}
+	gfx.ReleaseModelPipeline()
 }
 func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber int32) {
 	if s.model == nil || !gfx.IsModelEnabled() {

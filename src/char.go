@@ -9742,7 +9742,13 @@ func (c *Char) tick() {
 			case ST_S:
 				c.changeStateEx(5000, pn, -1, 0, "")
 			case ST_C:
-				c.changeStateEx(5010, pn, -1, 0, "")
+				// Go to standing on KO
+				// Mugen does this, but does it really need to be hardcoded?
+				if c.ghv.damage >= c.life && !sys.gsf(GSF_globalnoko) && !c.asf(ASF_noko) {
+					c.changeStateEx(5000, pn, -1, 0, "")
+				} else {
+					c.changeStateEx(5010, pn, -1, 0, "")
+				}
 			default:
 				c.changeStateEx(5020, pn, -1, 0, "")
 			}

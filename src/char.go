@@ -4025,7 +4025,7 @@ func (c *Char) isHelper(id int32, idx int) bool {
 }
 
 func (c *Char) isHost() bool {
-	return sys.netInput != nil && sys.netInput.host
+	return sys.netConnection != nil && sys.netConnection.host
 }
 
 func (c *Char) jugglePoints(hid BytecodeValue) BytecodeValue {

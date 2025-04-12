@@ -504,7 +504,7 @@ func (s *System) await(fps int) bool {
 		}
 		// Begin the next frame after events have been processed. Do not clear
 		// the screen if network input is present.
-		defer gfx.BeginFrame(sys.netInput == nil)
+		defer gfx.BeginFrame(sys.netConnection == nil)
 	}
 	s.runMainThreadTask()
 	now := time.Now()
@@ -536,17 +536,17 @@ func (s *System) update() bool {
 	if s.gameTime == 0 {
 		s.preFightTime = s.frameCounter
 	}
-	if s.fileInput != nil {
+	if s.replayFile != nil {
 		if s.anyHardButton() {
 			s.await(s.cfg.Config.Framerate * 4)
 		} else {
 			s.await(s.cfg.Config.Framerate)
 		}
-		return s.fileInput.Update()
+		return s.replayFile.Update()
 	}
-	if s.netInput != nil {
+	if s.netConnection != nil {
 		s.await(s.cfg.Config.Framerate)
-		return s.netInput.Update()
+		return s.netConnection.Update()
 	}
 	return s.await(s.cfg.Config.Framerate)
 }
@@ -596,10 +596,10 @@ func (s *System) loadStart() {
 }
 
 func (s *System) synchronize() error {
-	if s.fileInput != nil {
-		s.fileInput.Synchronize()
-	} else if s.netInput != nil {
-		return s.netInput.Synchronize()
+	if s.replayFile != nil {
+		s.replayFile.Synchronize()
+	} else if s.netConnection != nil {
+		return s.netConnection.Synchronize()
 	}
 	return nil
 }
@@ -619,11 +619,11 @@ func (s *System) anyHardButton() bool {
 }
 
 func (s *System) anyButton() bool {
-	if s.fileInput != nil {
-		return s.fileInput.AnyButton()
+	if s.replayFile != nil {
+		return s.replayFile.AnyButton()
 	}
-	if s.netInput != nil {
-		return s.netInput.AnyButton()
+	if s.netConnection != nil {
+		return s.netConnection.AnyButton()
 	}
 	return s.anyHardButton()
 }
@@ -2099,7 +2099,7 @@ func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
-	if sys.netInput != nil {
+	if sys.netConnection != nil {
 		s.clsnDisplay = false
 		s.debugDisplay = false
 		s.lifebarDisplay = true
@@ -2180,8 +2180,8 @@ func (s *System) fight() (reload bool) {
 		s.errLog.Println(err.Error())
 		s.esc = true
 	}
-	if s.netInput != nil {
-		defer s.netInput.Stop()
+	if s.netConnection != nil {
+		defer s.netConnection.Stop()
 	}
 	s.wincnt.init()
 
@@ -2565,7 +2565,7 @@ func (s *System) fight() (reload bool) {
 		if s.endMatch {
 			s.esc = true
 		} else if s.esc {
-			s.endMatch = s.netInput != nil || len(sys.cfg.Common.Lua) == 0
+			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
 		}
 	}
 

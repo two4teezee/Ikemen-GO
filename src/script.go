@@ -785,7 +785,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput.IsConnected()))
+		l.Push(lua.LBool(sys.netConnection.IsConnected()))
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -804,15 +804,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "enterNetPlay", func(*lua.LState) int {
-		if sys.netInput != nil {
+		if sys.netConnection != nil {
 			l.RaiseError("\nConnection already established.\n")
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
-		sys.netInput = NewNetInput()
+		sys.netConnection = NewNetConnection()
 		if host := strArg(l, 1); host != "" {
-			sys.netInput.Connect(host, sys.cfg.Netplay.ListenPort)
+			sys.netConnection.Connect(host, sys.cfg.Netplay.ListenPort)
 		} else {
-			if err := sys.netInput.Accept(sys.cfg.Netplay.ListenPort); err != nil {
+			if err := sys.netConnection.Accept(sys.cfg.Netplay.ListenPort); err != nil {
 				l.RaiseError(err.Error())
 			}
 		}
@@ -823,7 +823,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.window.SetSwapInterval(1) // broken frame skipping when set to 0
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
-		sys.fileInput = OpenFileInput(strArg(l, 1))
+		sys.replayFile = OpenReplayFile(strArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "esc", func(l *lua.LState) int {
@@ -834,9 +834,9 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "exitNetPlay", func(*lua.LState) int {
-		if sys.netInput != nil {
-			sys.netInput.Close()
-			sys.netInput = nil
+		if sys.netConnection != nil {
+			sys.netConnection.Close()
+			sys.netConnection = nil
 		}
 		return 0
 	})
@@ -844,9 +844,9 @@ func systemScriptInit(l *lua.LState) {
 		if sys.cfg.Video.VSync >= 0 {
 			sys.window.SetSwapInterval(sys.cfg.Video.VSync)
 		}
-		if sys.fileInput != nil {
-			sys.fileInput.Close()
-			sys.fileInput = nil
+		if sys.replayFile != nil {
+			sys.replayFile.Close()
+			sys.replayFile = nil
 		}
 		return 0
 	})
@@ -1305,8 +1305,8 @@ func systemScriptInit(l *lua.LState) {
 			}
 
 			// Reset net inputs
-			if sys.netInput != nil {
-				sys.netInput.Stop()
+			if sys.netConnection != nil {
+				sys.netConnection.Stop()
 			}
 
 			// Defer synchronizing with external inputs on return
@@ -2101,15 +2101,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
-		if sys.netInput != nil {
-			sys.netInput.rep, _ = os.Create(strArg(l, 1))
+		if sys.netConnection != nil {
+			sys.netConnection.rep, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netInput != nil && sys.netInput.rep != nil {
-			sys.netInput.rep.Close()
-			sys.netInput.rep = nil
+		if sys.netConnection != nil && sys.netConnection.rep != nil {
+			sys.netConnection.rep.Close()
+			sys.netConnection.rep = nil
 		}
 		return 0
 	})
@@ -5919,7 +5919,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput != nil || sys.fileInput != nil))
+		l.Push(lua.LBool(sys.netConnection != nil || sys.replayFile != nil))
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {

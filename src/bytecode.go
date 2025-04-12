@@ -1816,10 +1816,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			}
 		case OC_gametime:
 			var pfTime int32
-			if sys.netInput != nil {
-				pfTime = sys.netInput.preFightTime
-			} else if sys.fileInput != nil {
-				pfTime = sys.fileInput.pfTime
+			if sys.netConnection != nil {
+				pfTime = sys.netConnection.preFightTime
+			} else if sys.replayFile != nil {
+				pfTime = sys.replayFile.pfTime
 			} else {
 				pfTime = sys.preFightTime
 			}
@@ -11043,7 +11043,7 @@ func (sc matchRestart) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if sys.netInput == nil && sys.fileInput == nil {
+	if sys.netConnection == nil && sys.replayFile == nil {
 		if reloadFlag {
 			sys.reloadFlg = true
 		} else {

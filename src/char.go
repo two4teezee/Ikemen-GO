@@ -8186,6 +8186,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		return 0
 	}
 
+	// If using p2stateno but the enemy is already changing states
 	if getter.stchtmp && getter.ss.sb.playerNo != hd.playerNo {
 		if getter.csf(CSF_gethit) {
 			if hd.p2stateno >= 0 {
@@ -8731,6 +8732,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 	}
+
 	// Power management
 	if hitResult > 0 {
 		if Abs(hitResult) == 1 {
@@ -8747,10 +8749,12 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 	}
+
 	// Counter hit flag
 	if hitResult == 1 {
 		c.counterHit = getter.ss.moveType == MT_A
 	}
+
 	// Score and combo counters
 	// ReversalDef can also add to them
 	if Abs(hitResult) == 1 {
@@ -8771,6 +8775,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 	}
+
 	// Hitspark creation function
 	// This used to be called only when a hitspark is actually created, but with the addition of the MoveHitVar trigger it became useful to save the offset at all times
 	hitspark := func(p1, p2 *Char, animNo int32, ffx string, sparkangle float32, sparkscale [2]float32) {
@@ -8833,6 +8838,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 	}
+
 	// Play hit sounds and sparks
 	if Abs(hitResult) == 1 {
 		//if hd.sparkno >= 0 {
@@ -9686,6 +9692,7 @@ func (c *Char) tick() {
 			c.guardCount += c.hitdef.numhits
 		}
 	}
+	// Change to get hit states
 	if c.csf(CSF_gethit) && !c.hoKeepState {
 		// This flag prevents prevMoveType from being changed twice
 		c.ss.storeMoveType = true
@@ -9703,8 +9710,10 @@ func (c *Char) tick() {
 			pn = c.ghv.playerNo
 		}
 		if c.stchtmp {
-			// For Mugen compatibility, PrevStateNo returns these if the character is hit into a custom state (see GitHub #765)
-			// This could be disabled if the state owner is an Ikemen character
+			// For Mugen compatibility, PrevStateNo returns these values if the character is hit into a custom state
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/765
+			// This could maybe be disabled if the state owner is an Ikemen character
+			// Maybe what actually happens in Mugen is P2StateNo is handled later like HitOverride
 			if c.ss.stateType == ST_L && c.pos[1] == 0 {
 				c.ss.prevno = 5080
 			} else if c.ghv._type == HT_Trip {
@@ -9757,10 +9766,12 @@ func (c *Char) tick() {
 		if c.ss.stateType == ST_L && c.pos[1] == 0 && c.ghv.yvel != 0 {
 			c.downHitOffset = true
 		}
-		// Change to HitOverride state
-		if c.hoIdx >= 0 {
-			c.stateChange1(c.ho[c.hoIdx].stateno, c.ho[c.hoIdx].playerNo)
-		}
+	}
+	// Change to HitOverride state
+	// This doesn't actually require getting hit
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2262
+	if c.hoIdx >= 0 && c.hoIdx < len(c.ho) && !c.hoKeepState {
+		c.stateChange1(c.ho[c.hoIdx].stateno, c.ho[c.hoIdx].playerNo)
 	}
 	if !c.pause() {
 		if c.hitPauseTime > 0 {
@@ -10515,7 +10526,9 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 				// If collision OK then get the hit type and act accordingly
 				if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) {
 					if hitResult := c.hitResultCheck(getter, nil); hitResult != 0 {
-						mvc := hitResult > 0 || c.hitdef.reversal_attr > 0
+						// Check if MoveContact should be updated
+						// Hit type None should also set MoveHit here
+						mvc := hitResult >= -1 || c.hitdef.reversal_attr > 0
 
 						// Attacker hitpauses were off by 1 frame in WinMugen. Mugen 1.0 fixed it
 						// The way this should actually happen is that WinMugen chars have 1 subtracted from their hitpause in bytecode.go

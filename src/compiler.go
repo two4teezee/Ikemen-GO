@@ -2276,6 +2276,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_explodvar_id
 		case "bindtime":
 			opc = OC_ex2_explodvar_bindtime
+		case "time":
+			opc = OC_ex2_explodvar_time
 		case "facing":
 			opc = OC_ex2_explodvar_facing
 		case "pos":
@@ -3316,8 +3318,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 
 		vname := c.token
-		// isFlag := false
-
 		switch vname {
 		case "group":
 			opc = OC_ex2_soundvar_group
@@ -3352,14 +3352,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
-		}
-
-		// If bv1 is ever 0 Ikemen crashes.
-		// I do not know why this happens.
-		// It happened with clsnVar.
-		idx := bv1.ToI()
-		if idx >= 0 {
-			bv1.SetI(idx + 1)
 		}
 
 		be2.appendValue(bv2)

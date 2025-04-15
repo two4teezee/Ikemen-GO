@@ -4209,6 +4209,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeInt(e.id)
 			case OC_ex2_explodvar_bindtime:
 				v = BytecodeInt(e.bindtime)
+			case OC_ex2_explodvar_time:
+				v = BytecodeInt(e.time)
 			case OC_ex2_explodvar_facing:
 				v = BytecodeInt(int32(e.facing))
 			case OC_ex2_explodvar_drawpal_group:
@@ -4351,21 +4353,21 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeSF()
 	}
 
-	// See compiler.go:SoundVar
 	var id = chid.ToI()
-	if id > 0 {
-		id--
-	}
-
 	var ch *SoundChannel
 
 	// First, grab a channel.
 	if id >= 0 {
 		ch = c.soundChannels.Get(id)
 	} else {
-		for _, *ch = range c.soundChannels.channels {
-			if ch.sfx != nil {
-				break
+		if c != nil && c.soundChannels.channels != nil {
+			for i := 0; i < int(c.soundChannels.count()); i++ {
+				if c.soundChannels.channels[i].sfx != nil {
+					if c.soundChannels.channels[i].IsPlaying() {
+						ch = &c.soundChannels.channels[i]
+						break
+					}
+				}
 			}
 		}
 	}

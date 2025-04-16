@@ -231,6 +231,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			case "sizepushonly":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_sizepushonly)))
 			// Ikemen global flags
+			case "camerafreeze":
+				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_camerafreeze)))
 			case "globalnoko":
 				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_globalnoko)))
 			case "roundnotskip":
@@ -4564,7 +4566,7 @@ func (c *Compiler) teamMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*matchRestart)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "reload",
-			matchRestart_reload, VT_Bool, MaxSimul*2+MaxAttachedChar, false); err != nil {
+			matchRestart_reload, VT_Bool, MaxPlayerNo, false); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "stagedef", false, func(data string) error {

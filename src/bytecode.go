@@ -1744,7 +1744,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Swap()
 		case OC_ailevel:
 			if !c.asf(ASF_noailevel) {
-				sys.bcStack.PushI(int32(c.aiLevel()))
+				sys.bcStack.PushI(int32(c.getAILevel()))
 			} else {
 				sys.bcStack.PushI(0)
 			}
@@ -1816,10 +1816,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			}
 		case OC_gametime:
 			var pfTime int32
-			if sys.netInput != nil {
-				pfTime = sys.netInput.preFightTime
-			} else if sys.fileInput != nil {
-				pfTime = sys.fileInput.pfTime
+			if sys.netConnection != nil {
+				pfTime = sys.netConnection.preFightTime
+			} else if sys.replayFile != nil {
+				pfTime = sys.replayFile.pfTime
 			} else {
 				pfTime = sys.preFightTime
 			}
@@ -2761,7 +2761,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_ailevelf:
 		if !c.asf(ASF_noailevel) {
-			sys.bcStack.PushF(c.aiLevel())
+			sys.bcStack.PushF(c.getAILevel())
 		} else {
 			sys.bcStack.PushI(0)
 		}
@@ -11043,7 +11043,7 @@ func (sc matchRestart) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if sys.netInput == nil && sys.fileInput == nil {
+	if sys.netConnection == nil && sys.replayFile == nil {
 		if reloadFlag {
 			sys.reloadFlg = true
 		} else {

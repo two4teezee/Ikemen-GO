@@ -158,7 +158,7 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 		sys.esc = sys.esc ||
 			key == KeyEscape && (mk&ModCtrlAlt) == 0
 		for k, v := range sys.shortcutScripts {
-			if sys.netInput == nil && (sys.fileInput == nil || !v.DebugKey) &&
+			if sys.netConnection == nil && (sys.replayFile == nil || !v.DebugKey) &&
 				//(!sys.paused || sys.step || v.Pause) &&
 				(sys.cfg.Debug.AllowDebugKeys || !v.DebugKey) {
 				v.Activate = v.Activate || k.Test(key, mk)
@@ -421,7 +421,7 @@ func (ibit InputBits) BitsToKeys(cb *InputBuffer, facing int32) {
 			L = false
 		}
 	}
-	cb.Input(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
+	cb.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 }
 
 type CommandKeyRemap struct {
@@ -621,7 +621,7 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 
 	// Neutral resolution is enforced during netplay
 	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
-	if sys.netInput != nil || sys.fileInput != nil {
+	if sys.netConnection != nil || sys.replayFile != nil {
 		if U && D {
 			U = false
 			D = false
@@ -695,8 +695,8 @@ func (c *InputBuffer) Reset() {
 	}
 }
 
-// Update input buffer according to received inputs
-func (__ *InputBuffer) Input(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool) {
+// Updates how long ago a char pressed or released a button
+func (__ *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool) {
 	// SOCD resolution is now handled beforehand, so that it may be easier to port to netplay later
 	if U != (__.U > 0) { // If button state changed, set buffer to 0 and invert the state
 		__.Ub = 0
@@ -1040,6 +1040,7 @@ func (__ *InputBuffer) LastChangeTime() int32 {
 		Abs(__.mb))
 }
 
+// NetBuffer holds the inputs that are sent between players
 type NetBuffer struct {
 	buf              [32]InputBits
 	curT, inpT, senT int32
@@ -1051,28 +1052,29 @@ func (nb *NetBuffer) reset(time int32) {
 	nb.InputReader = NewInputReader()
 }
 
-// Check local inputs
-func (nb *NetBuffer) localUpdate(in int) {
+// Convert local player's key inputs into input bits for sending
+func (nb *NetBuffer) writeNetBuffer(in int) {
 	if nb.inpT-nb.curT < 32 {
 		nb.buf[nb.inpT&31].KeysToBits(nb.InputReader.LocalInput(in))
 		nb.inpT++
 	}
 }
 
-// Convert bits to keys
-func (nb *NetBuffer) input(cb *InputBuffer, facing int32) {
+// Read input bits from the net buffer
+func (nb *NetBuffer) readNetBuffer(cb *InputBuffer, facing int32) {
 	if nb.curT < nb.inpT {
 		nb.buf[nb.curT&31].BitsToKeys(cb, facing)
 	}
 }
 
-type NetInput struct {
+// NetConnection manages the communication between players
+type NetConnection struct {
 	ln           *net.TCPListener
 	conn         *net.TCPConn
 	st           NetState
 	sendEnd      chan bool
 	recvEnd      chan bool
-	buf          [MaxSimul*2 + MaxAttachedChar]NetBuffer
+	buf          [MaxPlayerNo]NetBuffer
 	locIn        int
 	remIn        int
 	time         int32
@@ -1083,15 +1085,15 @@ type NetInput struct {
 	preFightTime int32
 }
 
-func NewNetInput() *NetInput {
-	ni := &NetInput{st: NS_Stop,
+func NewNetConnection() *NetConnection {
+	ni := &NetConnection{st: NS_Stop,
 		sendEnd: make(chan bool, 1), recvEnd: make(chan bool, 1)}
 	ni.sendEnd <- true
 	ni.recvEnd <- true
 	return ni
 }
 
-func (ni *NetInput) Close() {
+func (ni *NetConnection) Close() {
 	if ni.ln != nil {
 		ni.ln.Close()
 		ni.ln = nil
@@ -1112,9 +1114,9 @@ func (ni *NetInput) Close() {
 	ni.conn = nil
 }
 
-func (ni *NetInput) GetHostGuestRemap() (host, guest int) {
+func (ni *NetConnection) GetHostGuestRemap() (host, guest int) {
 	host, guest = -1, -1
-	for i, c := range sys.com {
+	for i, c := range sys.aiLevel {
 		if c == 0 {
 			if host < 0 {
 				host = i
@@ -1132,7 +1134,7 @@ func (ni *NetInput) GetHostGuestRemap() (host, guest int) {
 	return
 }
 
-func (ni *NetInput) Accept(port string) error {
+func (ni *NetConnection) Accept(port string) error {
 	if ln, err := net.Listen("tcp", ":"+port); err != nil {
 		return err
 	} else {
@@ -1150,7 +1152,7 @@ func (ni *NetInput) Accept(port string) error {
 	return nil
 }
 
-func (ni *NetInput) Connect(server, port string) {
+func (ni *NetConnection) Connect(server, port string) {
 	ni.host = false
 	ni.remIn, ni.locIn = ni.GetHostGuestRemap()
 	go func() {
@@ -1160,17 +1162,17 @@ func (ni *NetInput) Connect(server, port string) {
 	}()
 }
 
-func (ni *NetInput) IsConnected() bool {
+func (ni *NetConnection) IsConnected() bool {
 	return ni != nil && ni.conn != nil
 }
 
-func (ni *NetInput) Input(cb *InputBuffer, i int, facing int32) {
+func (ni *NetConnection) readNetInput(cb *InputBuffer, i int, facing int32) {
 	if i >= 0 && i < len(ni.buf) {
-		ni.buf[sys.inputRemap[i]].input(cb, facing)
+		ni.buf[sys.inputRemap[i]].readNetBuffer(cb, facing)
 	}
 }
 
-func (ni *NetInput) AnyButton() bool {
+func (ni *NetConnection) AnyButton() bool {
 	for _, nb := range ni.buf {
 		if nb.buf[nb.curT&31]&IB_anybutton != 0 {
 			return true
@@ -1179,7 +1181,7 @@ func (ni *NetInput) AnyButton() bool {
 	return false
 }
 
-func (ni *NetInput) Stop() {
+func (ni *NetConnection) Stop() {
 	if sys.esc {
 		ni.end()
 	} else {
@@ -1193,14 +1195,14 @@ func (ni *NetInput) Stop() {
 	}
 }
 
-func (ni *NetInput) end() {
+func (ni *NetConnection) end() {
 	if ni.st != NS_Error {
 		ni.st = NS_End
 	}
 	ni.Close()
 }
 
-func (ni *NetInput) readI32() (int32, error) {
+func (ni *NetConnection) readI32() (int32, error) {
 	b := [4]byte{}
 	if _, err := ni.conn.Read(b[:]); err != nil {
 		return 0, err
@@ -1208,7 +1210,7 @@ func (ni *NetInput) readI32() (int32, error) {
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24, nil
 }
 
-func (ni *NetInput) writeI32(i32 int32) error {
+func (ni *NetConnection) writeI32(i32 int32) error {
 	b := [...]byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
 	if _, err := ni.conn.Write(b[:]); err != nil {
 		return err
@@ -1216,7 +1218,7 @@ func (ni *NetInput) writeI32(i32 int32) error {
 	return nil
 }
 
-func (ni *NetInput) Synchronize() error {
+func (ni *NetConnection) Synchronize() error {
 	if !ni.IsConnected() || ni.st == NS_Error {
 		return Error("Can not connect to the other player")
 	}
@@ -1309,7 +1311,7 @@ func (ni *NetInput) Synchronize() error {
 	return nil
 }
 
-func (ni *NetInput) Update() bool {
+func (ni *NetConnection) Update() bool {
 	if ni.st != NS_Stopped {
 		ni.stoppedcnt = 0
 	}
@@ -1327,7 +1329,7 @@ func (ni *NetInput) Update() bool {
 				foo := Min(ni.buf[ni.locIn].senT, ni.buf[ni.remIn].senT)
 				tmp := ni.buf[ni.remIn].inpT + ni.delay>>3 - ni.buf[ni.locIn].inpT
 				if tmp >= 0 {
-					ni.buf[ni.locIn].localUpdate(0)
+					ni.buf[ni.locIn].writeNetBuffer(0)
 					if ni.delay > 0 {
 						ni.delay--
 					}
@@ -1349,7 +1351,7 @@ func (ni *NetInput) Update() bool {
 				}
 				ni.time++
 				if ni.time >= foo {
-					ni.buf[ni.locIn].localUpdate(0)
+					ni.buf[ni.locIn].writeNetBuffer(0)
 				}
 				break
 			}
@@ -1363,33 +1365,33 @@ func (ni *NetInput) Update() bool {
 	return !sys.gameEnd
 }
 
-type FileInput struct {
+type ReplayFile struct {
 	f      *os.File
-	ibit   [MaxSimul*2 + MaxAttachedChar]InputBits
+	ibit   [MaxPlayerNo]InputBits
 	pfTime int32
 }
 
-func OpenFileInput(filename string) *FileInput {
-	fi := &FileInput{}
+func OpenReplayFile(filename string) *ReplayFile {
+	fi := &ReplayFile{}
 	fi.f, _ = os.Open(filename)
 	return fi
 }
 
-func (fi *FileInput) Close() {
+func (fi *ReplayFile) Close() {
 	if fi.f != nil {
 		fi.f.Close()
 		fi.f = nil
 	}
 }
 
-// Convert bits to keys
-func (fi *FileInput) Input(cb *InputBuffer, i int, facing int32) {
+// Read input bits from replay input
+func (fi *ReplayFile) readReplayFile(cb *InputBuffer, i int, facing int32) {
 	if i >= 0 && i < len(fi.ibit) {
 		fi.ibit[sys.inputRemap[i]].BitsToKeys(cb, facing)
 	}
 }
 
-func (fi *FileInput) AnyButton() bool {
+func (fi *ReplayFile) AnyButton() bool {
 	for _, b := range fi.ibit {
 		if b&IB_anybutton != 0 {
 			return true
@@ -1398,7 +1400,7 @@ func (fi *FileInput) AnyButton() bool {
 	return false
 }
 
-func (fi *FileInput) Synchronize() {
+func (fi *ReplayFile) Synchronize() {
 	if fi.f != nil {
 		var seed int32
 		if binary.Read(fi.f, binary.LittleEndian, &seed) == nil {
@@ -1412,7 +1414,7 @@ func (fi *FileInput) Synchronize() {
 	}
 }
 
-func (fi *FileInput) Update() bool {
+func (fi *ReplayFile) Update() bool {
 	if fi.f == nil {
 		sys.esc = true
 	} else {
@@ -2088,8 +2090,8 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 	}
 }
 
-// Read inputs locally
-func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ibit InputBits, script bool) bool {
+// Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
+func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32, ibit InputBits, script bool) bool {
 	if cl.Buffer == nil {
 		return false
 	}
@@ -2103,20 +2105,25 @@ func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ibit
 		step = cl.Buffer.Bb != 0
 	}
 
-	if controller < 0 && ^controller < len(sys.aiInput) {
-		sys.aiInput[^controller].Update(aiLevel) // Since random numbers are used, we handle it here to avoid desync
+	isLocal := false
+	isAI := controller < 0
+
+	if isAI {
+		idx := ^controller
+		if idx >= 0 && idx < len(sys.aiInput) {
+			sys.aiInput[idx].Update(aiLevel) // Since AI inputs use random numbers, we handle them locally to avoid desync
+		}
 	}
-	_else := controller < 0
-	if _else {
-		// Do nothing
-	} else if sys.fileInput != nil {
-		sys.fileInput.Input(cl.Buffer, controller, facing)
-	} else if sys.netInput != nil {
-		sys.netInput.Input(cl.Buffer, controller, facing)
+
+	if sys.replayFile != nil {
+		sys.replayFile.readReplayFile(cl.Buffer, controller, facing)
+	} else if sys.netConnection != nil {
+		sys.netConnection.readNetInput(cl.Buffer, controller, facing)
 	} else {
-		_else = true
+		isLocal = true
 	}
-	if _else {
+
+	if isLocal {
 		var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
 		if controller < 0 {
 			controller = ^controller
@@ -2139,12 +2146,15 @@ func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ibit
 		} else if controller < len(sys.inputRemap) {
 			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller])
 		}
+
+		// Absolute to relative directions
 		var B, F bool
 		if facing < 0 {
 			B, F = R, L
 		} else {
 			B, F = L, R
 		}
+
 		// Resolve SOCD conflicts
 		U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
 
@@ -2162,12 +2172,14 @@ func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ibit
 		if ibit > 0 {
 			U = U || ibit&IB_PU != 0 // Does not override actual inputs
 			D = D || ibit&IB_PD != 0
+			L = L || ibit&IB_PL != 0
+			R = R || ibit&IB_PR != 0
 			if facing > 0 {
-				B = B || ibit&IB_PL != 0
-				F = F || ibit&IB_PR != 0
+				B = B || L
+				F = F || R
 			} else {
-				B = B || ibit&IB_PR != 0
-				F = F || ibit&IB_PL != 0
+				B = B || R
+				F = F || L
 			}
 			a = a || ibit&IB_A != 0
 			b = b || ibit&IB_B != 0
@@ -2180,8 +2192,9 @@ func (cl *CommandList) Input(controller int, facing int32, aiLevel float32, ibit
 			w = w || ibit&IB_W != 0
 			m = m || ibit&IB_M != 0
 		}
+
 		// Send inputs to buffer
-		cl.Buffer.Input(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
+		cl.Buffer.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 	}
 	return step
 }

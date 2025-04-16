@@ -775,7 +775,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.Input(int(numArg(l, 2))-1, 1, 0, 0, true) {
+		if cl.InputUpdate(int(numArg(l, 2))-1, 1, 0, 0, true) {
 			cl.Step(1, false, false, 0)
 		}
 		return 0
@@ -785,7 +785,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput.IsConnected()))
+		l.Push(lua.LBool(sys.netConnection.IsConnected()))
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -804,15 +804,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "enterNetPlay", func(*lua.LState) int {
-		if sys.netInput != nil {
+		if sys.netConnection != nil {
 			l.RaiseError("\nConnection already established.\n")
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
-		sys.netInput = NewNetInput()
+		sys.netConnection = NewNetConnection()
 		if host := strArg(l, 1); host != "" {
-			sys.netInput.Connect(host, sys.cfg.Netplay.ListenPort)
+			sys.netConnection.Connect(host, sys.cfg.Netplay.ListenPort)
 		} else {
-			if err := sys.netInput.Accept(sys.cfg.Netplay.ListenPort); err != nil {
+			if err := sys.netConnection.Accept(sys.cfg.Netplay.ListenPort); err != nil {
 				l.RaiseError(err.Error())
 			}
 		}
@@ -823,7 +823,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.window.SetSwapInterval(1) // broken frame skipping when set to 0
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
-		sys.fileInput = OpenFileInput(strArg(l, 1))
+		sys.replayFile = OpenReplayFile(strArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "esc", func(l *lua.LState) int {
@@ -834,9 +834,9 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "exitNetPlay", func(*lua.LState) int {
-		if sys.netInput != nil {
-			sys.netInput.Close()
-			sys.netInput = nil
+		if sys.netConnection != nil {
+			sys.netConnection.Close()
+			sys.netConnection = nil
 		}
 		return 0
 	})
@@ -844,9 +844,9 @@ func systemScriptInit(l *lua.LState) {
 		if sys.cfg.Video.VSync >= 0 {
 			sys.window.SetSwapInterval(sys.cfg.Video.VSync)
 		}
-		if sys.fileInput != nil {
-			sys.fileInput.Close()
-			sys.fileInput = nil
+		if sys.replayFile != nil {
+			sys.replayFile.Close()
+			sys.replayFile = nil
 		}
 		return 0
 	})
@@ -1212,7 +1212,7 @@ func systemScriptInit(l *lua.LState) {
 						nextId++
 					}
 				}
-				for i := MaxSimul * 2; i < MaxSimul*2+MaxAttachedChar; i += 1 {
+				for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 					if len(sys.chars[i]) > 0 {
 						if sys.round == 1 {
 							sys.chars[i][0].id = sys.newCharId()
@@ -1305,8 +1305,8 @@ func systemScriptInit(l *lua.LState) {
 			}
 
 			// Reset net inputs
-			if sys.netInput != nil {
-				sys.netInput.Stop()
+			if sys.netConnection != nil {
+				sys.netConnection.Stop()
 			}
 
 			// Defer synchronizing with external inputs on return
@@ -1531,7 +1531,7 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 1) {
 			pn = int(numArg(l, 1))
 		}
-		if pn != 0 && (pn < 1 || pn > MaxSimul*2+MaxAttachedChar) {
+		if pn != 0 && (pn < 1 || pn > MaxPlayerNo) {
 			l.RaiseError("\nInvalid player number: %v\n", pn)
 		}
 		tbl := l.NewTable()
@@ -2101,15 +2101,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
-		if sys.netInput != nil {
-			sys.netInput.rep, _ = os.Create(strArg(l, 1))
+		if sys.netConnection != nil {
+			sys.netConnection.rep, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netInput != nil && sys.netInput.rep != nil {
-			sys.netInput.rep.Close()
-			sys.netInput.rep = nil
+		if sys.netConnection != nil && sys.netConnection.rep != nil {
+			sys.netConnection.rep.Close()
+			sys.netConnection.rep = nil
 		}
 		return 0
 	})
@@ -2119,8 +2119,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "resetAILevel", func(l *lua.LState) int {
-		for i := range sys.com {
-			sys.com[i] = 0
+		for i := range sys.aiLevel {
+			sys.aiLevel[i] = 0
 		}
 		return 0
 	})
@@ -2268,7 +2268,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setAILevel", func(*lua.LState) int {
 		level := float32(numArg(l, 1))
-		sys.com[sys.debugWC.playerNo] = level
+		sys.aiLevel[sys.debugWC.playerNo] = level
 		for _, c := range sys.chars[sys.debugWC.playerNo] {
 			if level == 0 {
 				c.controller = sys.debugWC.playerNo
@@ -2285,13 +2285,13 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "setCom", func(*lua.LState) int {
 		pn := int(numArg(l, 1))
 		ailv := float32(numArg(l, 2))
-		if pn < 1 || pn > MaxSimul*2+MaxAttachedChar {
+		if pn < 1 || pn > MaxPlayerNo {
 			l.RaiseError("\nInvalid player number: %v\n", pn)
 		}
 		if ailv > 0 {
-			sys.com[pn-1] = ailv
+			sys.aiLevel[pn-1] = ailv
 		} else {
-			sys.com[pn-1] = 0
+			sys.aiLevel[pn-1] = 0
 		}
 		return 0
 	})
@@ -3142,7 +3142,7 @@ func triggerFunctions(l *lua.LState) {
 	// vanilla triggers
 	luaRegister(l, "ailevel", func(*lua.LState) int {
 		if !sys.debugWC.asf(ASF_noailevel) {
-			l.Push(lua.LNumber(sys.debugWC.aiLevel()))
+			l.Push(lua.LNumber(sys.debugWC.getAILevel()))
 		} else {
 			l.Push(lua.LNumber(0))
 		}
@@ -5600,6 +5600,8 @@ func triggerFunctions(l *lua.LState) {
 		case "timerfreeze":
 			l.Push(lua.LBool(sys.gsf(GSF_timerfreeze)))
 		// GlobalSpecialFlag (Ikemen)
+		case "camerafreeze":
+			l.Push(lua.LBool(sys.gsf(GSF_camerafreeze)))
 		case "roundfreeze":
 			l.Push(lua.LBool(sys.gsf(GSF_roundfreeze)))
 		case "roundnotskip":
@@ -5917,7 +5919,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput != nil || sys.fileInput != nil))
+		l.Push(lua.LBool(sys.netConnection != nil || sys.replayFile != nil))
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {

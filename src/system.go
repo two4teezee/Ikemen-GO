@@ -26,6 +26,7 @@ import (
 const (
 	MaxSimul        = 4
 	MaxAttachedChar = 1
+	MaxPlayerNo     = MaxSimul*2 + MaxAttachedChar
 )
 
 // sys
@@ -108,17 +109,17 @@ type System struct {
 	ffxRegexp               string
 	sel                     Select
 	keyState                map[Key]bool
-	netInput                *NetInput
-	fileInput               *FileInput
-	aiInput                 [MaxSimul*2 + MaxAttachedChar]AiInput
+	netConnection           *NetConnection
+	replayFile              *ReplayFile
+	aiInput                 [MaxPlayerNo]AiInput
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
-	com                     [MaxSimul*2 + MaxAttachedChar]float32
+	aiLevel                 [MaxPlayerNo]float32
 	autolevel               bool
 	home                    int
 	gameTime                int32
 	match                   int32
-	inputRemap              [MaxSimul*2 + MaxAttachedChar]int
+	inputRemap              [MaxPlayerNo]int
 	round                   int32
 	intro                   int32
 	time                    int32
@@ -130,15 +131,15 @@ type System struct {
 	roundsExisted           [2]int32
 	draws                   int32
 	loader                  Loader
-	chars                   [MaxSimul*2 + MaxAttachedChar][]*Char
+	chars                   [MaxPlayerNo][]*Char
 	charList                CharList
-	cgi                     [MaxSimul*2 + MaxAttachedChar]CharGlobalInfo
+	cgi                     [MaxPlayerNo]CharGlobalInfo
 	tmode                   [2]TeamMode
 	numSimul, numTurns      [2]int32
 	esc                     bool
 	loadMutex               sync.Mutex
 	ignoreMostErrors        bool
-	stringPool              [MaxSimul*2 + MaxAttachedChar]StringPool
+	stringPool              [MaxPlayerNo]StringPool
 	bcStack, bcVarStack     BytecodeStack
 	bcVar                   []BytecodeValue
 	workingChar             *Char
@@ -188,7 +189,7 @@ type System struct {
 	reloadFlg               bool
 	reloadStageFlg          bool
 	reloadLifebarFlg        bool
-	reloadCharSlot          [MaxSimul*2 + MaxAttachedChar]bool
+	reloadCharSlot          [MaxPlayerNo]bool
 	shortcutScripts         map[ShortcutKey]*ShortcutScript
 	turbo                   float32
 	commandLine             chan string
@@ -211,11 +212,11 @@ type System struct {
 	fadeintime              int32
 	fadeouttime             int32
 	wintime                 int32
-	projs                   [MaxSimul*2 + MaxAttachedChar][]Projectile
-	explods                 [MaxSimul*2 + MaxAttachedChar][]Explod
-	explodsLayerN1          [MaxSimul*2 + MaxAttachedChar][]int
-	explodsLayer0           [MaxSimul*2 + MaxAttachedChar][]int
-	explodsLayer1           [MaxSimul*2 + MaxAttachedChar][]int
+	projs                   [MaxPlayerNo][]Projectile
+	explods                 [MaxPlayerNo][]Explod
+	explodsLayerN1          [MaxPlayerNo][]int
+	explodsLayer0           [MaxPlayerNo][]int
+	explodsLayer1           [MaxPlayerNo][]int
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -503,7 +504,7 @@ func (s *System) await(fps int) bool {
 		}
 		// Begin the next frame after events have been processed. Do not clear
 		// the screen if network input is present.
-		defer gfx.BeginFrame(sys.netInput == nil)
+		defer gfx.BeginFrame(sys.netConnection == nil)
 	}
 	s.runMainThreadTask()
 	now := time.Now()
@@ -535,17 +536,17 @@ func (s *System) update() bool {
 	if s.gameTime == 0 {
 		s.preFightTime = s.frameCounter
 	}
-	if s.fileInput != nil {
+	if s.replayFile != nil {
 		if s.anyHardButton() {
 			s.await(s.cfg.Config.Framerate * 4)
 		} else {
 			s.await(s.cfg.Config.Framerate)
 		}
-		return s.fileInput.Update()
+		return s.replayFile.Update()
 	}
-	if s.netInput != nil {
+	if s.netConnection != nil {
 		s.await(s.cfg.Config.Framerate)
-		return s.netInput.Update()
+		return s.netConnection.Update()
 	}
 	return s.await(s.cfg.Config.Framerate)
 }
@@ -595,10 +596,10 @@ func (s *System) loadStart() {
 }
 
 func (s *System) synchronize() error {
-	if s.fileInput != nil {
-		s.fileInput.Synchronize()
-	} else if s.netInput != nil {
-		return s.netInput.Synchronize()
+	if s.replayFile != nil {
+		s.replayFile.Synchronize()
+	} else if s.netConnection != nil {
+		return s.netConnection.Synchronize()
 	}
 	return nil
 }
@@ -618,11 +619,11 @@ func (s *System) anyHardButton() bool {
 }
 
 func (s *System) anyButton() bool {
-	if s.fileInput != nil {
-		return s.fileInput.AnyButton()
+	if s.replayFile != nil {
+		return s.replayFile.AnyButton()
 	}
-	if s.netInput != nil {
-		return s.netInput.AnyButton()
+	if s.netConnection != nil {
+		return s.netConnection.AnyButton()
 	}
 	return s.anyHardButton()
 }
@@ -1397,7 +1398,7 @@ func (s *System) action() {
 					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
 						if s.chars[i][0].alive() {
 							ko[loser] = false
-						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.com[i] == 0) ||
+						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.aiLevel[i] == 0) ||
 							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
 							ko[loser] = true
 							break
@@ -2098,7 +2099,7 @@ func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
-	if sys.netInput != nil {
+	if sys.netConnection != nil {
 		s.clsnDisplay = false
 		s.debugDisplay = false
 		s.lifebarDisplay = true
@@ -2179,8 +2180,8 @@ func (s *System) fight() (reload bool) {
 		s.errLog.Println(err.Error())
 		s.esc = true
 	}
-	if s.netInput != nil {
-		defer s.netInput.Stop()
+	if s.netConnection != nil {
+		defer s.netConnection.Stop()
 	}
 	s.wincnt.init()
 
@@ -2413,7 +2414,7 @@ func (s *System) fight() (reload bool) {
 					tmp.RawSetString("life", lua.LNumber(p[0].life))
 					tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
 					tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-					tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+					tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
 					tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
 					tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
 					tmp.RawSetString("win", lua.LBool(p[0].win()))
@@ -2564,7 +2565,7 @@ func (s *System) fight() (reload bool) {
 		if s.endMatch {
 			s.esc = true
 		} else if s.esc {
-			s.endMatch = s.netInput != nil || len(sys.cfg.Common.Lua) == 0
+			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
 		}
 	}
 
@@ -3366,7 +3367,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		p = sys.chars[pn][0]
 		if !attached {
 			p.controller = pn
-			if sys.com[pn] != 0 {
+			if sys.aiLevel[pn] != 0 {
 				p.controller ^= -1
 			}
 		}
@@ -3388,7 +3389,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		p.memberNo = -atcpn
 		p.selectNo = -atcpn
 		p.teamside = -1
-		sys.com[pn] = 8
+		sys.aiLevel[pn] = float32(sys.cfg.Options.Difficulty)
 	} else {
 		p.memberNo = memberNo
 		p.selectNo = sys.sel.selected[pn&1][memberNo][0]

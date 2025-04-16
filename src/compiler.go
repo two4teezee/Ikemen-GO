@@ -1113,6 +1113,8 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 
 // Read with two optional arguments
 // Currently only for IsHelper
+// Read with two optional arguments
+// Currently only for IsHelper
 func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
 
@@ -1120,54 +1122,54 @@ func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	var bv1, bv2 BytecodeValue
 	mae := c.token
 
+	// Validate default compiler values
+	if len(defval) < 2 || defval[0].IsNone() || defval[1].IsNone() {
+		return bvNone(), bvNone(), Error("Missing default arguments for " + mae)
+	}
+
 	// Check for opening parenthesis
 	if c.token = c.tokenizer(in); c.token != "(" {
 		// Put token back where it was and use default values
 		*in = c.token + " " + *in
-		if len(defval) == 2 && !defval[0].IsNone() && !defval[1].IsNone() {
-			bv1 = defval[0]
-			bv2 = defval[1]
-			if appendVal {
-				be.appendValue(bv1)
-				be.appendValue(bv2)
-				out.append(be...)
-			}
-			return bv1, bv2, nil
-		} else {
-			return BytecodeInt(0), BytecodeInt(0), Error("Missing arguments for " + mae)
-		}
-	}
-
-	// Parse first argument
-	c.token = c.tokenizer(in)
-	var err error
-	if bv1, err = c.expBoolOr(&be, in); err != nil {
-		return BytecodeInt(0), BytecodeInt(0), err
-	}
-
-	// Check for second argument
-	if c.token == "," {
-		c.token = c.tokenizer(in)
-		if bv2, err = c.expBoolOr(&be, in); err != nil {
-			return BytecodeInt(0), BytecodeInt(0), err
-		}
-	} else if len(defval) >= 2 {
+		bv1 = defval[0]
 		bv2 = defval[1]
 	} else {
-		return BytecodeInt(0), BytecodeInt(0), Error("Missing second argument for " + mae)
-	}
+		// Parse first argument
+		c.token = c.tokenizer(in)
+		var err error
+		if bv1, err = c.expBoolOr(&be, in); err != nil {
+			return bvNone(), bvNone(), err
+		}
 
-	// Check for closing parenthesis
-	if c.token != ")" {
-		return BytecodeInt(0), BytecodeInt(0), Error("Missing closing ')' for " + mae)
+		// Check for second argument
+		if c.token == "," {
+			c.token = c.tokenizer(in)
+			if bv2, err = c.expBoolOr(&be, in); err != nil {
+				return bvNone(), bvNone(), err
+			}
+		} else {
+			// Use default for second argument only
+			bv2 = defval[1]
+		}
+
+		// Check for closing parenthesis
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), bvNone(), err
+		}
 	}
 
 	if appendVal {
 		be.appendValue(bv1)
 		be.appendValue(bv2)
-		out.append(be...)
+		bv1 = bvNone()
+		bv2 = bvNone()
 	}
 
+	if rd && len(be) > 0 {
+		out.appendI32Op(OC_nordrun, int32(len(be)))
+	}
+
+	out.append(be...)
 	return bv1, bv2, nil
 }
 
@@ -1414,6 +1416,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), Error("Missing '(' after PlayerIndex")
 			case OC_helperindex:
 				return bvNone(), Error("Missing '(' after HelperIndex")
+			default:
+				return bvNone(), Error("Missing '('")
 			}
 		}
 		if rd {
@@ -1431,11 +1435,11 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case OC_player:
 				return bvNone(), Error("Missing ',' after Player")
 			case OC_playerid:
-				return bvNone(), Error("Missing '(' after PlayerID")
+				return bvNone(), Error("Missing ',' after PlayerID")
 			case OC_playerindex:
-				return bvNone(), Error("Missing '(' after PlayerIndex")
+				return bvNone(), Error("Missing ',' after PlayerIndex")
 			case OC_helperindex:
-				return bvNone(), Error("Missing '(' after HelperIndex")
+				return bvNone(), Error("Missing ',' after HelperIndex")
 			default:
 				return bvNone(), Error("Missing ','")
 			}
@@ -2773,7 +2777,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "inguarddist":
 		out.append(OC_inguarddist)
 	case "ishelper":
-		if _, _, err := c.twoOptArg(out, in, rd, true, BytecodeInt(-1), BytecodeInt(-1)); err != nil {
+		if _, _, err := c.twoOptArg(out, in, rd, true, BytecodeInt(math.MinInt32), BytecodeInt(math.MinInt32)); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ishelper)
@@ -4492,6 +4496,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "nofallhitflag":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofallhitflag))
 		// Ikemen global flags
+		case "camerafreeze":
+			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_camerafreeze))
 		case "globalnoko":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_globalnoko))
 		case "roundnotskip":
@@ -6303,7 +6309,7 @@ func (c *Compiler) readSentenceLine(line *string) (s string, assign bool,
 			c.token = (*line)[i : i+1]
 			s, *line = (*line)[:i], (*line)[i+1:]
 		case '#':
-			s, *line = (*line)[:i], ""
+			s, *line = (*line)[:i], "" // Ignore the rest as a comment
 		case '"':
 			tmp := (*line)[i+1:]
 			if _, err := c.readString(&tmp); err != nil {
@@ -6437,6 +6443,7 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 		return 0, c.wrongClosureToken()
 	}
 	var err error
+	// StateDef using constants
 	if t == "const" {
 		c.scan(line)
 		k := c.scan(line)
@@ -6447,10 +6454,15 @@ func (c *Compiler) scanStateDef(line *string, constants map[string]float32) (int
 		}
 		return int32(v), err
 	}
-	if t == "+" && len(*line) == 2 && (*line)[0] == '1' {
-		c.scan(line)
-		return int32(-10), err
+	// Special +1 case
+	if t == "+" {
+		nextToken := c.scan(line)
+		if nextToken == "1" {
+			return int32(-10), nil
+		}
+		t += nextToken
 	}
+	// Negative states
 	if t == "-" && len(*line) > 0 && (*line)[0] >= '0' && (*line)[0] <= '9' {
 		t += c.scan(line)
 	}
@@ -7066,6 +7078,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	return c.wrongClosureToken()
 }
 
+// Compile a ZSS state
 func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 	filename, src string, constants map[string]float32) error {
 	defer func(oime bool) {
@@ -7360,7 +7373,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 
 	// Initialize command list data
 	if sys.chars[pn][0].cmd == nil {
-		sys.chars[pn][0].cmd = make([]CommandList, MaxSimul*2+MaxAttachedChar)
+		sys.chars[pn][0].cmd = make([]CommandList, MaxPlayerNo)
 		b := NewInputBuffer()
 		for i := range sys.chars[pn][0].cmd {
 			sys.chars[pn][0].cmd[i] = *NewCommandList(b)

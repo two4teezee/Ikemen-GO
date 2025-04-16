@@ -3993,6 +3993,15 @@ func (c *Char) isHelper(id int32, idx int) bool {
 	if c.helperIndex == 0 {
 		return false
 	}
+	// Backward compatibility
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		// Some Mugen characters used "isHelper(-1)" even though it was meaningless there
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2415
+		if id < 0 && id != math.MinInt32 && idx == math.MinInt32 {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("invalid IsHelper ID for char engine version: %v", id))
+			return false
+		}
+	}
 	// Any helper
 	if id < 0 && idx < 0 {
 		return true

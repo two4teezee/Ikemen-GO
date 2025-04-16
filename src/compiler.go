@@ -1113,6 +1113,8 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 
 // Read with two optional arguments
 // Currently only for IsHelper
+// Read with two optional arguments
+// Currently only for IsHelper
 func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
 
@@ -1120,54 +1122,54 @@ func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	var bv1, bv2 BytecodeValue
 	mae := c.token
 
+	// Validate default compiler values
+	if len(defval) < 2 || defval[0].IsNone() || defval[1].IsNone() {
+		return bvNone(), bvNone(), Error("Missing default arguments for " + mae)
+	}
+
 	// Check for opening parenthesis
 	if c.token = c.tokenizer(in); c.token != "(" {
 		// Put token back where it was and use default values
 		*in = c.token + " " + *in
-		if len(defval) == 2 && !defval[0].IsNone() && !defval[1].IsNone() {
-			bv1 = defval[0]
-			bv2 = defval[1]
-			if appendVal {
-				be.appendValue(bv1)
-				be.appendValue(bv2)
-				out.append(be...)
-			}
-			return bv1, bv2, nil
-		} else {
-			return BytecodeInt(0), BytecodeInt(0), Error("Missing arguments for " + mae)
-		}
-	}
-
-	// Parse first argument
-	c.token = c.tokenizer(in)
-	var err error
-	if bv1, err = c.expBoolOr(&be, in); err != nil {
-		return BytecodeInt(0), BytecodeInt(0), err
-	}
-
-	// Check for second argument
-	if c.token == "," {
-		c.token = c.tokenizer(in)
-		if bv2, err = c.expBoolOr(&be, in); err != nil {
-			return BytecodeInt(0), BytecodeInt(0), err
-		}
-	} else if len(defval) >= 2 {
+		bv1 = defval[0]
 		bv2 = defval[1]
 	} else {
-		return BytecodeInt(0), BytecodeInt(0), Error("Missing second argument for " + mae)
-	}
+		// Parse first argument
+		c.token = c.tokenizer(in)
+		var err error
+		if bv1, err = c.expBoolOr(&be, in); err != nil {
+			return bvNone(), bvNone(), err
+		}
 
-	// Check for closing parenthesis
-	if c.token != ")" {
-		return BytecodeInt(0), BytecodeInt(0), Error("Missing closing ')' for " + mae)
+		// Check for second argument
+		if c.token == "," {
+			c.token = c.tokenizer(in)
+			if bv2, err = c.expBoolOr(&be, in); err != nil {
+				return bvNone(), bvNone(), err
+			}
+		} else {
+			// Use default for second argument only
+			bv2 = defval[1]
+		}
+
+		// Check for closing parenthesis
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), bvNone(), err
+		}
 	}
 
 	if appendVal {
 		be.appendValue(bv1)
 		be.appendValue(bv2)
-		out.append(be...)
+		bv1 = bvNone()
+		bv2 = bvNone()
 	}
 
+	if rd && len(be) > 0 {
+		out.appendI32Op(OC_nordrun, int32(len(be)))
+	}
+
+	out.append(be...)
 	return bv1, bv2, nil
 }
 
@@ -2775,7 +2777,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "inguarddist":
 		out.append(OC_inguarddist)
 	case "ishelper":
-		if _, _, err := c.twoOptArg(out, in, rd, true, BytecodeInt(-1), BytecodeInt(-1)); err != nil {
+		if _, _, err := c.twoOptArg(out, in, rd, true, BytecodeInt(math.MinInt32), BytecodeInt(math.MinInt32)); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ishelper)

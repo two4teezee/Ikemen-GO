@@ -1086,35 +1086,35 @@ type NetConnection struct {
 }
 
 func NewNetConnection() *NetConnection {
-	ni := &NetConnection{st: NS_Stop,
+	nc := &NetConnection{st: NS_Stop,
 		sendEnd: make(chan bool, 1), recvEnd: make(chan bool, 1)}
-	ni.sendEnd <- true
-	ni.recvEnd <- true
-	return ni
+	nc.sendEnd <- true
+	nc.recvEnd <- true
+	return nc
 }
 
-func (ni *NetConnection) Close() {
-	if ni.ln != nil {
-		ni.ln.Close()
-		ni.ln = nil
+func (nc *NetConnection) Close() {
+	if nc.ln != nil {
+		nc.ln.Close()
+		nc.ln = nil
 	}
-	if ni.conn != nil {
-		ni.conn.Close()
+	if nc.conn != nil {
+		nc.conn.Close()
 	}
-	if ni.sendEnd != nil {
-		<-ni.sendEnd
-		close(ni.sendEnd)
-		ni.sendEnd = nil
+	if nc.sendEnd != nil {
+		<-nc.sendEnd
+		close(nc.sendEnd)
+		nc.sendEnd = nil
 	}
-	if ni.recvEnd != nil {
-		<-ni.recvEnd
-		close(ni.recvEnd)
-		ni.recvEnd = nil
+	if nc.recvEnd != nil {
+		<-nc.recvEnd
+		close(nc.recvEnd)
+		nc.recvEnd = nil
 	}
-	ni.conn = nil
+	nc.conn = nil
 }
 
-func (ni *NetConnection) GetHostGuestRemap() (host, guest int) {
+func (nc *NetConnection) GetHostGuestRemap() (host, guest int) {
 	host, guest = -1, -1
 	for i, c := range sys.aiLevel {
 		if c == 0 {
@@ -1129,22 +1129,22 @@ func (ni *NetConnection) GetHostGuestRemap() (host, guest int) {
 		host = 0
 	}
 	if guest < 0 {
-		guest = (host + 1) % len(ni.buf)
+		guest = (host + 1) % len(nc.buf)
 	}
 	return
 }
 
-func (ni *NetConnection) Accept(port string) error {
+func (nc *NetConnection) Accept(port string) error {
 	if ln, err := net.Listen("tcp", ":"+port); err != nil {
 		return err
 	} else {
-		ni.ln = ln.(*net.TCPListener)
-		ni.host = true
-		ni.locIn, ni.remIn = ni.GetHostGuestRemap()
+		nc.ln = ln.(*net.TCPListener)
+		nc.host = true
+		nc.locIn, nc.remIn = nc.GetHostGuestRemap()
 		go func() {
-			ln := ni.ln
+			ln := nc.ln
 			if conn, err := ln.AcceptTCP(); err == nil {
-				ni.conn = conn
+				nc.conn = conn
 			}
 			ln.Close()
 		}()
@@ -1152,28 +1152,28 @@ func (ni *NetConnection) Accept(port string) error {
 	return nil
 }
 
-func (ni *NetConnection) Connect(server, port string) {
-	ni.host = false
-	ni.remIn, ni.locIn = ni.GetHostGuestRemap()
+func (nc *NetConnection) Connect(server, port string) {
+	nc.host = false
+	nc.remIn, nc.locIn = nc.GetHostGuestRemap()
 	go func() {
 		if conn, err := net.Dial("tcp", server+":"+port); err == nil {
-			ni.conn = conn.(*net.TCPConn)
+			nc.conn = conn.(*net.TCPConn)
 		}
 	}()
 }
 
-func (ni *NetConnection) IsConnected() bool {
-	return ni != nil && ni.conn != nil
+func (nc *NetConnection) IsConnected() bool {
+	return nc != nil && nc.conn != nil
 }
 
-func (ni *NetConnection) readNetInput(cb *InputBuffer, i int, facing int32) {
-	if i >= 0 && i < len(ni.buf) {
-		ni.buf[sys.inputRemap[i]].readNetBuffer(cb, facing)
+func (nc *NetConnection) readNetInput(cb *InputBuffer, i int, facing int32) {
+	if i >= 0 && i < len(nc.buf) {
+		nc.buf[sys.inputRemap[i]].readNetBuffer(cb, facing)
 	}
 }
 
-func (ni *NetConnection) AnyButton() bool {
-	for _, nb := range ni.buf {
+func (nc *NetConnection) AnyButton() bool {
+	for _, nb := range nc.buf {
 		if nb.buf[nb.curT&31]&IB_anybutton != 0 {
 			return true
 		}
@@ -1181,116 +1181,116 @@ func (ni *NetConnection) AnyButton() bool {
 	return false
 }
 
-func (ni *NetConnection) Stop() {
+func (nc *NetConnection) Stop() {
 	if sys.esc {
-		ni.end()
+		nc.end()
 	} else {
-		if ni.st != NS_End && ni.st != NS_Error {
-			ni.st = NS_Stop
+		if nc.st != NS_End && nc.st != NS_Error {
+			nc.st = NS_Stop
 		}
-		<-ni.sendEnd
-		ni.sendEnd <- true
-		<-ni.recvEnd
-		ni.recvEnd <- true
+		<-nc.sendEnd
+		nc.sendEnd <- true
+		<-nc.recvEnd
+		nc.recvEnd <- true
 	}
 }
 
-func (ni *NetConnection) end() {
-	if ni.st != NS_Error {
-		ni.st = NS_End
+func (nc *NetConnection) end() {
+	if nc.st != NS_Error {
+		nc.st = NS_End
 	}
-	ni.Close()
+	nc.Close()
 }
 
-func (ni *NetConnection) readI32() (int32, error) {
+func (nc *NetConnection) readI32() (int32, error) {
 	b := [4]byte{}
-	if _, err := ni.conn.Read(b[:]); err != nil {
+	if _, err := nc.conn.Read(b[:]); err != nil {
 		return 0, err
 	}
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24, nil
 }
 
-func (ni *NetConnection) writeI32(i32 int32) error {
+func (nc *NetConnection) writeI32(i32 int32) error {
 	b := [...]byte{byte(i32), byte(i32 >> 8), byte(i32 >> 16), byte(i32 >> 24)}
-	if _, err := ni.conn.Write(b[:]); err != nil {
+	if _, err := nc.conn.Write(b[:]); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (ni *NetConnection) Synchronize() error {
-	if !ni.IsConnected() || ni.st == NS_Error {
+func (nc *NetConnection) Synchronize() error {
+	if !nc.IsConnected() || nc.st == NS_Error {
 		return Error("Can not connect to the other player")
 	}
-	ni.Stop()
+	nc.Stop()
 	var seed int32
-	if ni.host {
+	if nc.host {
 		seed = Random()
-		if err := ni.writeI32(seed); err != nil {
+		if err := nc.writeI32(seed); err != nil {
 			return err
 		}
 	} else {
 		var err error
-		if seed, err = ni.readI32(); err != nil {
+		if seed, err = nc.readI32(); err != nil {
 			return err
 		}
 	}
 	Srand(seed)
 	var pfTime int32
-	if ni.host {
+	if nc.host {
 		pfTime = sys.preFightTime
-		if err := ni.writeI32(pfTime); err != nil {
+		if err := nc.writeI32(pfTime); err != nil {
 			return err
 		}
 	} else {
 		var err error
-		if pfTime, err = ni.readI32(); err != nil {
+		if pfTime, err = nc.readI32(); err != nil {
 			return err
 		}
 	}
-	ni.preFightTime = pfTime
-	if ni.rep != nil {
-		binary.Write(ni.rep, binary.LittleEndian, &seed)
-		binary.Write(ni.rep, binary.LittleEndian, &pfTime)
+	nc.preFightTime = pfTime
+	if nc.rep != nil {
+		binary.Write(nc.rep, binary.LittleEndian, &seed)
+		binary.Write(nc.rep, binary.LittleEndian, &pfTime)
 	}
-	if err := ni.writeI32(ni.time); err != nil {
+	if err := nc.writeI32(nc.time); err != nil {
 		return err
 	}
-	if tmp, err := ni.readI32(); err != nil {
+	if tmp, err := nc.readI32(); err != nil {
 		return err
-	} else if tmp != ni.time {
+	} else if tmp != nc.time {
 		return Error("Synchronization error")
 	}
-	ni.buf[ni.locIn].reset(ni.time)
-	ni.buf[ni.remIn].reset(ni.time)
-	ni.st = NS_Playing
-	<-ni.sendEnd
+	nc.buf[nc.locIn].reset(nc.time)
+	nc.buf[nc.remIn].reset(nc.time)
+	nc.st = NS_Playing
+	<-nc.sendEnd
 	go func(nb *NetBuffer) {
-		defer func() { ni.sendEnd <- true }()
-		for ni.st == NS_Playing {
+		defer func() { nc.sendEnd <- true }()
+		for nc.st == NS_Playing {
 			if nb.senT < nb.inpT {
-				if err := ni.writeI32(int32(nb.buf[nb.senT&31])); err != nil {
-					ni.st = NS_Error
+				if err := nc.writeI32(int32(nb.buf[nb.senT&31])); err != nil {
+					nc.st = NS_Error
 					return
 				}
 				nb.senT++
 			}
 			time.Sleep(time.Millisecond)
 		}
-		ni.writeI32(-1)
-	}(&ni.buf[ni.locIn])
-	<-ni.recvEnd
+		nc.writeI32(-1)
+	}(&nc.buf[nc.locIn])
+	<-nc.recvEnd
 	go func(nb *NetBuffer) {
-		defer func() { ni.recvEnd <- true }()
-		for ni.st == NS_Playing {
+		defer func() { nc.recvEnd <- true }()
+		for nc.st == NS_Playing {
 			if nb.inpT-nb.curT < 32 {
-				if tmp, err := ni.readI32(); err != nil {
-					ni.st = NS_Error
+				if tmp, err := nc.readI32(); err != nil {
+					nc.st = NS_Error
 					return
 				} else {
 					nb.buf[nb.inpT&31] = InputBits(tmp)
 					if tmp < 0 {
-						ni.st = NS_Stopped
+						nc.st = NS_Stopped
 						return
 					} else {
 						nb.inpT++
@@ -1302,56 +1302,56 @@ func (ni *NetConnection) Synchronize() error {
 		}
 		for tmp := int32(0); tmp != -1; {
 			var err error
-			if tmp, err = ni.readI32(); err != nil {
+			if tmp, err = nc.readI32(); err != nil {
 				break
 			}
 		}
-	}(&ni.buf[ni.remIn])
-	ni.Update()
+	}(&nc.buf[nc.remIn])
+	nc.Update()
 	return nil
 }
 
-func (ni *NetConnection) Update() bool {
-	if ni.st != NS_Stopped {
-		ni.stoppedcnt = 0
+func (nc *NetConnection) Update() bool {
+	if nc.st != NS_Stopped {
+		nc.stoppedcnt = 0
 	}
 	if !sys.gameEnd {
-		switch ni.st {
+		switch nc.st {
 		case NS_Stopped:
-			ni.stoppedcnt++
-			if ni.stoppedcnt > 60 {
-				ni.st = NS_End
+			nc.stoppedcnt++
+			if nc.stoppedcnt > 60 {
+				nc.st = NS_End
 				break
 			}
 			fallthrough
 		case NS_Playing:
 			for {
-				foo := Min(ni.buf[ni.locIn].senT, ni.buf[ni.remIn].senT)
-				tmp := ni.buf[ni.remIn].inpT + ni.delay>>3 - ni.buf[ni.locIn].inpT
+				foo := Min(nc.buf[nc.locIn].senT, nc.buf[nc.remIn].senT)
+				tmp := nc.buf[nc.remIn].inpT + nc.delay>>3 - nc.buf[nc.locIn].inpT
 				if tmp >= 0 {
-					ni.buf[ni.locIn].writeNetBuffer(0)
-					if ni.delay > 0 {
-						ni.delay--
+					nc.buf[nc.locIn].writeNetBuffer(0)
+					if nc.delay > 0 {
+						nc.delay--
 					}
 				} else if tmp < -1 {
-					ni.delay += 4
+					nc.delay += 4
 				}
-				if ni.time >= foo {
-					if sys.esc || !sys.await(sys.cfg.Config.Framerate) || ni.st != NS_Playing {
+				if nc.time >= foo {
+					if sys.esc || !sys.await(sys.cfg.Config.Framerate) || nc.st != NS_Playing {
 						break
 					}
 					continue
 				}
-				ni.buf[ni.locIn].curT = ni.time
-				ni.buf[ni.remIn].curT = ni.time
-				if ni.rep != nil {
-					for _, nb := range ni.buf {
-						binary.Write(ni.rep, binary.LittleEndian, &nb.buf[ni.time&31])
+				nc.buf[nc.locIn].curT = nc.time
+				nc.buf[nc.remIn].curT = nc.time
+				if nc.rep != nil {
+					for _, nb := range nc.buf {
+						binary.Write(nc.rep, binary.LittleEndian, &nb.buf[nc.time&31])
 					}
 				}
-				ni.time++
-				if ni.time >= foo {
-					ni.buf[ni.locIn].writeNetBuffer(0)
+				nc.time++
+				if nc.time >= foo {
+					nc.buf[nc.locIn].writeNetBuffer(0)
 				}
 				break
 			}
@@ -1360,7 +1360,7 @@ func (ni *NetConnection) Update() bool {
 		}
 	}
 	if sys.esc {
-		ni.end()
+		nc.end()
 	}
 	return !sys.gameEnd
 }
@@ -1372,27 +1372,27 @@ type ReplayFile struct {
 }
 
 func OpenReplayFile(filename string) *ReplayFile {
-	fi := &ReplayFile{}
-	fi.f, _ = os.Open(filename)
-	return fi
+	rf := &ReplayFile{}
+	rf.f, _ = os.Open(filename)
+	return rf
 }
 
-func (fi *ReplayFile) Close() {
-	if fi.f != nil {
-		fi.f.Close()
-		fi.f = nil
+func (rf *ReplayFile) Close() {
+	if rf.f != nil {
+		rf.f.Close()
+		rf.f = nil
 	}
 }
 
 // Read input bits from replay input
-func (fi *ReplayFile) readReplayFile(cb *InputBuffer, i int, facing int32) {
-	if i >= 0 && i < len(fi.ibit) {
-		fi.ibit[sys.inputRemap[i]].BitsToKeys(cb, facing)
+func (rf *ReplayFile) readReplayFile(cb *InputBuffer, i int, facing int32) {
+	if i >= 0 && i < len(rf.ibit) {
+		rf.ibit[sys.inputRemap[i]].BitsToKeys(cb, facing)
 	}
 }
 
-func (fi *ReplayFile) AnyButton() bool {
-	for _, b := range fi.ibit {
+func (rf *ReplayFile) AnyButton() bool {
+	for _, b := range rf.ibit {
 		if b&IB_anybutton != 0 {
 			return true
 		}
@@ -1400,30 +1400,30 @@ func (fi *ReplayFile) AnyButton() bool {
 	return false
 }
 
-func (fi *ReplayFile) Synchronize() {
-	if fi.f != nil {
+func (rf *ReplayFile) Synchronize() {
+	if rf.f != nil {
 		var seed int32
-		if binary.Read(fi.f, binary.LittleEndian, &seed) == nil {
+		if binary.Read(rf.f, binary.LittleEndian, &seed) == nil {
 			Srand(seed)
 		}
 		var pfTime int32
-		if binary.Read(fi.f, binary.LittleEndian, &pfTime) == nil {
-			fi.pfTime = pfTime
-			fi.Update()
+		if binary.Read(rf.f, binary.LittleEndian, &pfTime) == nil {
+			rf.pfTime = pfTime
+			rf.Update()
 		}
 	}
 }
 
-func (fi *ReplayFile) Update() bool {
-	if fi.f == nil {
+func (rf *ReplayFile) Update() bool {
+	if rf.f == nil {
 		sys.esc = true
 	} else {
 		if sys.oldNextAddTime > 0 &&
-			binary.Read(fi.f, binary.LittleEndian, fi.ibit[:]) != nil {
+			binary.Read(rf.f, binary.LittleEndian, rf.ibit[:]) != nil {
 			sys.esc = true
 		}
 		if sys.esc {
-			fi.Close()
+			rf.Close()
 		}
 	}
 	return !sys.gameEnd
@@ -2109,21 +2109,21 @@ func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32
 	isAI := controller < 0
 
 	if isAI {
+		// Since AI inputs use random numbers, we handle them locally to avoid desync
 		idx := ^controller
 		if idx >= 0 && idx < len(sys.aiInput) {
-			sys.aiInput[idx].Update(aiLevel) // Since AI inputs use random numbers, we handle them locally to avoid desync
+			sys.aiInput[idx].Update(aiLevel)
 		}
-	}
-
-	if sys.replayFile != nil {
+	} else if sys.replayFile != nil {
 		sys.replayFile.readReplayFile(cl.Buffer, controller, facing)
 	} else if sys.netConnection != nil {
 		sys.netConnection.readNetInput(cl.Buffer, controller, facing)
 	} else {
+		// If not AI, replay, or network, then it's a local human player
 		isLocal = true
 	}
 
-	if isLocal {
+	if isLocal || isAI {
 		var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
 		if controller < 0 {
 			controller = ^controller
@@ -2196,6 +2196,7 @@ func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32
 		// Send inputs to buffer
 		cl.Buffer.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 	}
+
 	return step
 }
 

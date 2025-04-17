@@ -634,7 +634,9 @@ func (a *Animation) alpha() int32 {
 		return -2
 	}
 	sa = byte(int32(sa) * sys.brightness >> 8)
-	if sa < 5 && da == 255 {
+	// Mugen sprites disappear a bit earlier than this
+	// However that makes subtle interpolated blending noticeably jump
+	if sa < 1 && da == 255 {
 		return 0
 	}
 	if sa == 255 && da == 255 {

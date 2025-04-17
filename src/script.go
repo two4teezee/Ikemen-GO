@@ -5764,7 +5764,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "scaleX", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
-			l.Push(lua.LNumber(sys.debugWC.scale[0]))
+			l.Push(lua.LNumber(sys.debugWC.angleDrawScale[0]))
 		} else {
 			l.Push(lua.LNumber(1))
 		}
@@ -5772,7 +5772,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "scaleY", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
-			l.Push(lua.LNumber(sys.debugWC.scale[1]))
+			l.Push(lua.LNumber(sys.debugWC.angleDrawScale[1]))
 		} else {
 			l.Push(lua.LNumber(1))
 		}

@@ -2359,7 +2359,7 @@ type CharSystemVar struct {
 	bindFacing        float32
 	hitPauseTime      int32
 	angle             float32
-	scale             [2]float32
+	angleDrawScale    [2]float32
 	alpha             [2]int32
 	systemFlag        SystemCharFlag
 	specialFlag       CharSpecialFlag
@@ -2469,7 +2469,7 @@ type Char struct {
 	atktmp           int8 // 1 hitdef can hit, 0 cannot hit, -1 other
 	hittmp           int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
 	acttmp           int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus            int8 // current negative state
+	minus            int8 // Essentially the current negative state
 	platformPosY     float32
 	groundAngle      float32
 	ownpal           bool
@@ -2546,7 +2546,7 @@ func (c *Char) init(n int, idx int32) {
 		mctype:        MC_Hit,
 		ownpal:        true,
 		facing:        1,
-		minus:         2,
+		minus:         3,
 		winquote:      -1,
 		clsnBaseScale: [2]float32{1, 1},
 		clsnScaleMul:  [2]float32{1, 1},
@@ -2632,7 +2632,7 @@ func (c *Char) prepareNextRound() {
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
 		bindToId:        -1,
-		scale:           [2]float32{1, 1},
+		angleDrawScale:  [2]float32{1, 1},
 		alpha:           [2]int32{255, 0},
 		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
@@ -2684,7 +2684,7 @@ func (c *Char) clearCachedData() {
 	c.inguarddist = false
 	c.p1facing = 0
 	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
+	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
 	c.winquote = -1
 	c.mapArray = make(map[string]float32)
 	c.remapSpr = make(RemapPreset)
@@ -5035,7 +5035,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
 	}
-	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
+	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && (c.minus == 0 || c.minus == 1) {
 		for c.stchtmp && sys.changeStateNest < MaxLoop {
 			c.stateChange2()
 			sys.changeStateNest++
@@ -9009,7 +9009,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 }
 
 func (c *Char) actionPrepare() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	c.pauseBool = false
@@ -9114,7 +9114,7 @@ func (c *Char) actionPrepare() {
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
 			c.unsetCSF(CSF_angledraw | CSF_trans)
-			c.scale = [...]float32{1, 1}
+			c.angleDrawScale = [2]float32{1, 1}
 			c.offset = [2]float32{}
 			// Reset all AssertSpecial flags except the following, which are reset elsewhere in the code
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
@@ -9122,7 +9122,7 @@ func (c *Char) actionPrepare() {
 		}
 		// The flags below also reset during hitpause, but are new to Ikemen and don't need the exception above
 		// Reset Clsn modifiers
-		c.clsnScaleMul = [...]float32{1.0, 1.0}
+		c.clsnScaleMul = [2]float32{1.0, 1.0}
 		c.clsnAngle = 0
 		// Reset modifyShadow
 		c.shadowColor = [3]int32{-1, -1, -1}
@@ -9153,7 +9153,7 @@ func (c *Char) actionPrepare() {
 }
 
 func (c *Char) actionRun() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	// Run state -4
@@ -9216,13 +9216,10 @@ func (c *Char) actionRun() {
 		}
 	}
 	// Run state +1
-	// Uses minus -4 because its properties are similar
-	c.minus = -4
+	c.minus = 1
 	if sb, ok := c.gi().states[-10]; ok {
 		sb.run(c)
 	}
-	// Set minus back to normal
-	c.minus = 0
 	// If State +1 changed the current state, run the next one as well
 	if !c.pauseBool && c.stchtmp {
 		c.stateChange2()
@@ -9392,12 +9389,12 @@ func (c *Char) actionRun() {
 			}
 		}
 	}
-	c.minus = 1
+	c.minus = 2
 	c.acttmp += int8(Btoi(!c.pause() && !c.hitPause())) - int8(Btoi(c.hitPause()))
 }
 
 func (c *Char) actionFinish() {
-	if c.minus < 1 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus < 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	if !c.pauseBool {
@@ -9447,7 +9444,7 @@ func (c *Char) actionFinish() {
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)
 	}
-	c.minus = 1
+	c.minus = 2
 }
 
 func (c *Char) track() {
@@ -9998,8 +9995,8 @@ func (c *Char) cueDraw() {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
 			c.interPos[1]*c.localscl + c.offsetY()*c.localscl}
 
-		scl := [...]float32{c.facing * (c.size.xscale * c.scale[0]) * c.zScale * (320 / c.localcoord),
-			(c.size.yscale * c.scale[1]) * c.zScale * (320 / c.localcoord)}
+		scl := [2]float32{c.facing * c.size.xscale * c.angleDrawScale[0] * c.zScale * (320 / c.localcoord),
+			c.size.yscale * c.angleDrawScale[1] * c.zScale * (320 / c.localcoord)}
 
 		// Apply Z axis perspective
 		if sys.zEnabled() {
@@ -10155,7 +10152,7 @@ func (c *Char) cueDraw() {
 		}
 	}
 	if sys.tickNextFrame() {
-		c.minus = 2
+		c.minus = 3
 		c.oldPos = c.pos
 		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}

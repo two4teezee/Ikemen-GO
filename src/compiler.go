@@ -1113,8 +1113,6 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 
 // Read with two optional arguments
 // Currently only for IsHelper
-// Read with two optional arguments
-// Currently only for IsHelper
 func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
 

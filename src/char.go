@@ -1822,6 +1822,7 @@ type Projectile struct {
 	remflag         bool
 	freezeflag      bool
 	contactflag     bool
+	time            int32
 }
 
 func newProjectile() *Projectile {
@@ -2106,6 +2107,7 @@ func (p *Projectile) tick() {
 	}
 	if !p.paused(p.playerno) {
 		if p.hitpause <= 0 {
+			p.time++ // Only used in ProjVar currently
 			if p.removetime > 0 {
 				p.removetime--
 			}
@@ -4185,52 +4187,52 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 			switch vtype {
 			case OC_ex2_explodvar_anim:
 				v = BytecodeInt(e.animNo)
-			case OC_ex2_explodvar_animelem:
-				v = BytecodeInt(e.anim.current + 1)
-			case OC_ex2_explodvar_pos_x:
-				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-			case OC_ex2_explodvar_pos_y:
-				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-			case OC_ex2_explodvar_pos_z:
-				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-			case OC_ex2_explodvar_scale_x:
-				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
-			case OC_ex2_explodvar_scale_y:
-				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
 			case OC_ex2_explodvar_angle:
 				v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
 			case OC_ex2_explodvar_angle_x:
 				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
 			case OC_ex2_explodvar_angle_y:
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
-			case OC_ex2_explodvar_xshear:
-				v = BytecodeFloat(e.xshear)
+			case OC_ex2_explodvar_animelem:
+				v = BytecodeInt(e.anim.current + 1)
+			case OC_ex2_explodvar_bindtime:
+				v = BytecodeInt(e.bindtime)
+			case OC_ex2_explodvar_drawpal_group:
+				v = BytecodeInt(c.explodDrawPal(e)[0])
+			case OC_ex2_explodvar_drawpal_index:
+				v = BytecodeInt(c.explodDrawPal(e)[1])
+			case OC_ex2_explodvar_facing:
+				v = BytecodeInt(int32(e.facing))
+			case OC_ex2_explodvar_id:
+				v = BytecodeInt(e.id)
+			case OC_ex2_explodvar_layerno:
+				v = BytecodeInt(e.layerno)
+			case OC_ex2_explodvar_pausemovetime:
+				v = BytecodeInt(e.pausemovetime)
+			case OC_ex2_explodvar_pos_x:
+				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+			case OC_ex2_explodvar_pos_y:
+				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+			case OC_ex2_explodvar_pos_z:
+				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+			case OC_ex2_explodvar_removetime:
+				v = BytecodeInt(e.removetime)
+			case OC_ex2_explodvar_scale_x:
+				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
+			case OC_ex2_explodvar_scale_y:
+				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
+			case OC_ex2_explodvar_sprpriority:
+				v = BytecodeInt(e.sprpriority)
+			case OC_ex2_explodvar_time:
+				v = BytecodeInt(e.time)
 			case OC_ex2_explodvar_vel_x:
 				v = BytecodeFloat(e.velocity[0])
 			case OC_ex2_explodvar_vel_y:
 				v = BytecodeFloat(e.velocity[1])
 			case OC_ex2_explodvar_vel_z:
 				v = BytecodeFloat(e.velocity[2])
-			case OC_ex2_explodvar_removetime:
-				v = BytecodeInt(e.removetime)
-			case OC_ex2_explodvar_pausemovetime:
-				v = BytecodeInt(e.pausemovetime)
-			case OC_ex2_explodvar_sprpriority:
-				v = BytecodeInt(e.sprpriority)
-			case OC_ex2_explodvar_layerno:
-				v = BytecodeInt(e.layerno)
-			case OC_ex2_explodvar_id:
-				v = BytecodeInt(e.id)
-			case OC_ex2_explodvar_bindtime:
-				v = BytecodeInt(e.bindtime)
-			case OC_ex2_explodvar_time:
-				v = BytecodeInt(e.time)
-			case OC_ex2_explodvar_facing:
-				v = BytecodeInt(int32(e.facing))
-			case OC_ex2_explodvar_drawpal_group:
-				v = BytecodeInt(c.explodDrawPal(e)[0])
-			case OC_ex2_explodvar_drawpal_index:
-				v = BytecodeInt(c.explodDrawPal(e)[1])
+			case OC_ex2_explodvar_xshear:
+				v = BytecodeFloat(e.xshear)
 			}
 			break
 		}
@@ -4259,30 +4261,92 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 	for n, p := range projs {
 		if i == int32(n) {
 			switch vtype {
-			case OC_ex2_projvar_projremove:
-				v = BytecodeBool(p.remove)
-			case OC_ex2_projvar_projremovetime:
-				v = BytecodeInt(p.removetime)
-			case OC_ex2_projvar_projshadow_r:
-				v = BytecodeInt(p.shadow[0])
-			case OC_ex2_projvar_projshadow_g:
-				v = BytecodeInt(p.shadow[1])
-			case OC_ex2_projvar_projshadow_b:
-				v = BytecodeInt(p.shadow[2])
-			case OC_ex2_projvar_projmisstime:
-				v = BytecodeInt(p.curmisstime)
+			case OC_ex2_projvar_accel_x:
+				v = BytecodeFloat(p.accel[0] * p.localscl)
+			case OC_ex2_projvar_accel_y:
+				v = BytecodeFloat(p.accel[1] * p.localscl)
+			case OC_ex2_projvar_accel_z:
+				v = BytecodeFloat(p.accel[2] * p.localscl)
+			case OC_ex2_projvar_animelem:
+				v = BytecodeInt(p.ani.current + 1)
+			case OC_ex2_projvar_drawpal_group:
+				v = BytecodeInt(c.projDrawPal(p)[0])
+			case OC_ex2_projvar_drawpal_index:
+				v = BytecodeInt(c.projDrawPal(p)[1])
+			case OC_ex2_projvar_facing:
+				v = BytecodeFloat(p.facing)
+			case OC_ex2_projvar_guardflag:
+				v = BytecodeBool(p.hitdef.guardflag&fl != 0)
+			case OC_ex2_projvar_highbound:
+				v = BytecodeInt(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_hitflag:
+				v = BytecodeBool(p.hitdef.hitflag&fl != 0)
+			case OC_ex2_projvar_lowbound:
+				v = BytecodeInt(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_pausemovetime:
+				v = BytecodeInt(p.pausemovetime)
+			case OC_ex2_projvar_pos_x:
+				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
+			case OC_ex2_projvar_pos_y:
+				v = BytecodeFloat(p.pos[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_pos_z:
+				v = BytecodeFloat(p.pos[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_projanim:
+				v = BytecodeInt(p.anim)
+			case OC_ex2_projvar_projangle:
+				v = BytecodeFloat(p.angle)
+			case OC_ex2_projvar_projcancelanim:
+				v = BytecodeInt(p.cancelanim)
+			case OC_ex2_projvar_projedgebound:
+				v = BytecodeInt(int32(float32(p.edgebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projhitanim:
+				v = BytecodeInt(p.hitanim)
 			case OC_ex2_projvar_projhits:
 				v = BytecodeInt(p.hits)
 			case OC_ex2_projvar_projhitsmax:
 				v = BytecodeInt(p.totalhits)
+			case OC_ex2_projvar_projid:
+				v = BytecodeInt(int32(p.id))
+			case OC_ex2_projvar_projlayerno:
+				v = BytecodeInt(p.layerno)
+			case OC_ex2_projvar_projmisstime:
+				v = BytecodeInt(p.curmisstime)
 			case OC_ex2_projvar_projpriority:
 				v = BytecodeInt(p.priority)
-			case OC_ex2_projvar_projhitanim:
-				v = BytecodeInt(p.hitanim)
+			case OC_ex2_projvar_projremove:
+				v = BytecodeBool(p.remove)
 			case OC_ex2_projvar_projremanim:
 				v = BytecodeInt(p.remanim)
-			case OC_ex2_projvar_projcancelanim:
-				v = BytecodeInt(p.cancelanim)
+			case OC_ex2_projvar_projremovetime:
+				v = BytecodeInt(p.removetime)
+			case OC_ex2_projvar_projscale_x:
+				v = BytecodeFloat(p.scale[0])
+			case OC_ex2_projvar_projscale_y:
+				v = BytecodeFloat(p.scale[1])
+			case OC_ex2_projvar_projshadow_b:
+				v = BytecodeInt(p.shadow[2])
+			case OC_ex2_projvar_projshadow_g:
+				v = BytecodeInt(p.shadow[1])
+			case OC_ex2_projvar_projshadow_r:
+				v = BytecodeInt(p.shadow[0])
+			case OC_ex2_projvar_projsprpriority:
+				v = BytecodeInt(p.sprpriority)
+			case OC_ex2_projvar_projstagebound:
+				v = BytecodeInt(int32(float32(p.stagebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projxshear:
+				v = BytecodeFloat(p.xshear)
+			case OC_ex2_projvar_remvelocity_x:
+				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_y:
+				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_z:
+				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_supermovetime:
+				v = BytecodeInt(p.supermovetime)
+			case OC_ex2_projvar_teamside:
+				v = BytecodeInt(int32(p.hitdef.teamside))
+			case OC_ex2_projvar_time:
+				v = BytecodeInt(p.time)
 			case OC_ex2_projvar_vel_x:
 				v = BytecodeFloat(p.velocity[0] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_vel_y:
@@ -4295,66 +4359,6 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.velmul[1])
 			case OC_ex2_projvar_velmul_z:
 				v = BytecodeFloat(p.velmul[2])
-			case OC_ex2_projvar_remvelocity_x:
-				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_y:
-				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_z:
-				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_accel_x:
-				v = BytecodeFloat(p.accel[0] * p.localscl)
-			case OC_ex2_projvar_accel_y:
-				v = BytecodeFloat(p.accel[1] * p.localscl)
-			case OC_ex2_projvar_accel_z:
-				v = BytecodeFloat(p.accel[2] * p.localscl)
-			case OC_ex2_projvar_projscale_x:
-				v = BytecodeFloat(p.scale[0])
-			case OC_ex2_projvar_projscale_y:
-				v = BytecodeFloat(p.scale[1])
-			case OC_ex2_projvar_projangle:
-				v = BytecodeFloat(p.angle)
-			case OC_ex2_projvar_projxshear:
-				v = BytecodeFloat(p.xshear)
-			case OC_ex2_projvar_pos_x:
-				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
-			case OC_ex2_projvar_pos_y:
-				v = BytecodeFloat(p.pos[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_pos_z:
-				v = BytecodeFloat(p.pos[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_projsprpriority:
-				v = BytecodeInt(p.sprpriority)
-			case OC_ex2_projvar_projlayerno:
-				v = BytecodeInt(p.layerno)
-			case OC_ex2_projvar_projstagebound:
-				v = BytecodeInt(int32(float32(p.stagebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projedgebound:
-				v = BytecodeInt(int32(float32(p.edgebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_lowbound:
-				v = BytecodeInt(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_highbound:
-				v = BytecodeInt(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projanim:
-				v = BytecodeInt(p.anim)
-			case OC_ex2_projvar_animelem:
-				v = BytecodeInt(p.ani.current + 1)
-			case OC_ex2_projvar_supermovetime:
-				v = BytecodeInt(p.supermovetime)
-			case OC_ex2_projvar_pausemovetime:
-				v = BytecodeInt(p.pausemovetime)
-			case OC_ex2_projvar_projid:
-				v = BytecodeInt(int32(p.id))
-			case OC_ex2_projvar_teamside:
-				v = BytecodeInt(int32(p.hitdef.teamside))
-			case OC_ex2_projvar_guardflag:
-				v = BytecodeBool(p.hitdef.guardflag&fl != 0)
-			case OC_ex2_projvar_hitflag:
-				v = BytecodeBool(p.hitdef.hitflag&fl != 0)
-			case OC_ex2_projvar_facing:
-				v = BytecodeFloat(p.facing)
-			case OC_ex2_projvar_drawpal_group:
-				v = BytecodeInt(c.projDrawPal(p)[0])
-			case OC_ex2_projvar_drawpal_index:
-				v = BytecodeInt(c.projDrawPal(p)[1])
 			}
 			break
 		}

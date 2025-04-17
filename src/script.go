@@ -3656,64 +3656,66 @@ func triggerFunctions(l *lua.LState) {
 		for i, e := range sys.debugWC.getExplods(id) {
 			if i == idx {
 				switch strings.ToLower(vname) {
-				case "anim":
-					ln = lua.LNumber(e.animNo)
-				case "animelem":
-					ln = lua.LNumber(e.anim.current + 1)
-				case "pos x":
-					ln = lua.LNumber(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-				case "pos y":
-					ln = lua.LNumber(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-				case "pos z":
-					ln = lua.LNumber(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-				case "vel x":
-					ln = lua.LNumber(e.velocity[0])
-				case "vel y":
-					ln = lua.LNumber(e.velocity[1])
-				case "vel z":
-					ln = lua.LNumber(e.velocity[2])
 				case "accel x":
 					ln = lua.LNumber(e.accel[0])
 				case "accel y":
 					ln = lua.LNumber(e.accel[1])
 				case "accel z":
 					ln = lua.LNumber(e.accel[2])
-				case "friction x":
-					ln = lua.LNumber(e.friction[0])
-				case "friction y":
-					ln = lua.LNumber(e.friction[1])
-				case "friction z":
-					ln = lua.LNumber(e.friction[2])
-				case "scale x":
-					ln = lua.LNumber(e.scale[0] * e.interpolate_scale[0])
-				case "scale y":
-					ln = lua.LNumber(e.scale[1] * e.interpolate_scale[1])
+				case "anim":
+					ln = lua.LNumber(e.animNo)
 				case "angle":
 					ln = lua.LNumber(e.anglerot[0] + e.interpolate_angle[0])
 				case "angle x":
 					ln = lua.LNumber(e.anglerot[1] + e.interpolate_angle[1])
 				case "angle y":
 					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
-				case "xshear":
-					ln = lua.LNumber(e.xshear)
-				case "removetime":
-					ln = lua.LNumber(e.removetime)
-				case "pausemovetime":
-					ln = lua.LNumber(e.pausemovetime)
-				case "sprpriority":
-					ln = lua.LNumber(e.sprpriority)
-				case "layerno":
-					ln = lua.LNumber(e.layerno)
-				case "id":
-					ln = lua.LNumber(e.id)
+				case "animelem":
+					ln = lua.LNumber(e.anim.current + 1)
 				case "bindtime":
 					ln = lua.LNumber(e.bindtime)
-				case "facing":
-					ln = lua.LNumber(e.facing)
 				case "drawpal group":
 					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[0])
 				case "drawpal index":
 					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
+				case "facing":
+					ln = lua.LNumber(e.facing)
+				case "friction x":
+					ln = lua.LNumber(e.friction[0])
+				case "friction y":
+					ln = lua.LNumber(e.friction[1])
+				case "friction z":
+					ln = lua.LNumber(e.friction[2])
+				case "id":
+					ln = lua.LNumber(e.id)
+				case "layerno":
+					ln = lua.LNumber(e.layerno)
+				case "pausemovetime":
+					ln = lua.LNumber(e.pausemovetime)
+				case "pos x":
+					ln = lua.LNumber(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+				case "pos y":
+					ln = lua.LNumber(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+				case "pos z":
+					ln = lua.LNumber(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+				case "removetime":
+					ln = lua.LNumber(e.removetime)
+				case "scale x":
+					ln = lua.LNumber(e.scale[0] * e.interpolate_scale[0])
+				case "scale y":
+					ln = lua.LNumber(e.scale[1] * e.interpolate_scale[1])
+				case "sprpriority":
+					ln = lua.LNumber(e.sprpriority)
+				case "time":
+					ln = lua.LNumber(e.time)
+				case "vel x":
+					ln = lua.LNumber(e.velocity[0])
+				case "vel y":
+					ln = lua.LNumber(e.velocity[1])
+				case "vel z":
+					ln = lua.LNumber(e.velocity[2])
+				case "xshear":
+					ln = lua.LNumber(e.xshear)
 				default:
 					l.RaiseError("\nInvalid argument: %v\n", vname)
 				}
@@ -4612,30 +4614,86 @@ func triggerFunctions(l *lua.LState) {
 		for i, p := range sys.debugWC.getProjs(id) {
 			if i == idx {
 				switch strings.ToLower(vname) {
-				case "projremove":
-					lv = lua.LBool(p.remove)
-				case "projremovetime":
-					lv = lua.LNumber(p.removetime)
-				case "shadow r":
-					lv = lua.LNumber(p.shadow[0])
-				case "shadow g":
-					lv = lua.LNumber(p.shadow[0])
-				case "shadow b":
-					lv = lua.LNumber(p.shadow[0])
-				case "projmisstime":
-					lv = lua.LNumber(p.curmisstime)
+				case "accel x":
+					lv = lua.LNumber(p.accel[0])
+				case "accel y":
+					lv = lua.LNumber(p.accel[1])
+				case "accel z":
+					lv = lua.LNumber(p.accel[2])
+				case "anim":
+					lv = lua.LNumber(p.anim)
+				case "animelem":
+					lv = lua.LNumber(p.ani.current + 1)
+				case "angle":
+					lv = lua.LNumber(p.angle)
+				case "drawpal group":
+					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
+				case "drawpal index":
+					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[1])
+				case "facing":
+					lv = lua.LNumber(p.facing)
+				case "highbound":
+					lv = lua.LNumber(p.heightbound[1])
+				case "lowbound":
+					lv = lua.LNumber(p.heightbound[0])
+				case "pausemovetime":
+					lv = lua.LNumber(p.pausemovetime)
+				case "pos x":
+					lv = lua.LNumber(p.pos[0])
+				case "pos y":
+					lv = lua.LNumber(p.pos[1])
+				case "pos z":
+					lv = lua.LNumber(p.pos[2])
+				case "projcancelanim":
+					lv = lua.LNumber(p.cancelanim)
+				case "projedgebound":
+					lv = lua.LNumber(p.edgebound)
+				case "projhitanim":
+					lv = lua.LNumber(p.hitanim)
 				case "projhits":
 					lv = lua.LNumber(p.hits)
 				case "projhitsmax":
 					lv = lua.LNumber(p.totalhits)
+				case "projid":
+					lv = lua.LNumber(p.id)
+				case "projlayerno":
+					lv = lua.LNumber(p.layerno)
+				case "projmisstime":
+					lv = lua.LNumber(p.curmisstime)
 				case "projpriority":
 					lv = lua.LNumber(p.priority)
-				case "projhitanim":
-					lv = lua.LNumber(p.hitanim)
+				case "projremove":
+					lv = lua.LBool(p.remove)
 				case "projremanim":
 					lv = lua.LNumber(p.remanim)
-				case "projcancelanim":
-					lv = lua.LNumber(p.cancelanim)
+				case "projremovetime":
+					lv = lua.LNumber(p.removetime)
+				case "projsprpriority":
+					lv = lua.LNumber(p.sprpriority)
+				case "projstagebound":
+					lv = lua.LNumber(p.stagebound)
+				case "remvelocity x":
+					lv = lua.LNumber(p.remvelocity[0])
+				case "remvelocity y":
+					lv = lua.LNumber(p.remvelocity[1])
+				case "remvelocity z":
+					lv = lua.LNumber(p.remvelocity[2])
+				case "scale x":
+					lv = lua.LNumber(p.scale[0])
+				case "scale y":
+					lv = lua.LNumber(p.scale[1])
+				case "shadow b":
+					lv = lua.LNumber(p.shadow[0])
+				case "shadow g":
+					lv = lua.LNumber(p.shadow[0])
+				case "shadow r":
+					lv = lua.LNumber(p.shadow[0])
+				case "supermovetime":
+					lv = lua.LNumber(p.supermovetime)
+				case "teamside":
+					lv = lua.LNumber(p.hitdef.teamside)
+				case "time":
+					lv = lua.LNumber(p.time)
 				case "vel x":
 					lv = lua.LNumber(p.velocity[0])
 				case "vel y":
@@ -4648,66 +4706,12 @@ func triggerFunctions(l *lua.LState) {
 					lv = lua.LNumber(p.velmul[1])
 				case "velmul z":
 					lv = lua.LNumber(p.velmul[2])
-				case "remvelocity x":
-					lv = lua.LNumber(p.remvelocity[0])
-				case "remvelocity y":
-					lv = lua.LNumber(p.remvelocity[1])
-				case "remvelocity z":
-					lv = lua.LNumber(p.remvelocity[2])
-				case "accel x":
-					lv = lua.LNumber(p.accel[0])
-				case "accel y":
-					lv = lua.LNumber(p.accel[1])
-				case "accel z":
-					lv = lua.LNumber(p.accel[2])
-				case "scale x":
-					lv = lua.LNumber(p.scale[0])
-				case "scale y":
-					lv = lua.LNumber(p.scale[1])
-				case "angle":
-					lv = lua.LNumber(p.angle)
 				case "xshear":
 					lv = lua.LNumber(p.xshear)
-				case "pos x":
-					lv = lua.LNumber(p.pos[0])
-				case "pos y":
-					lv = lua.LNumber(p.pos[1])
-				case "pos z":
-					lv = lua.LNumber(p.pos[2])
-				case "projsprpriority":
-					lv = lua.LNumber(p.sprpriority)
-				case "projlayerno":
-					lv = lua.LNumber(p.layerno)
-				case "projstagebound":
-					lv = lua.LNumber(p.stagebound)
-				case "projedgebound":
-					lv = lua.LNumber(p.edgebound)
-				case "lowbound":
-					lv = lua.LNumber(p.heightbound[0])
-				case "highbound":
-					lv = lua.LNumber(p.heightbound[1])
-				case "anim":
-					lv = lua.LNumber(p.anim)
-				case "animelem":
-					lv = lua.LNumber(p.ani.current + 1)
-				case "supermovetime":
-					lv = lua.LNumber(p.supermovetime)
-				case "pausemovetime":
-					lv = lua.LNumber(p.pausemovetime)
-				case "projid":
-					lv = lua.LNumber(p.id)
-				case "teamside":
-					lv = lua.LNumber(p.hitdef.teamside)
 				//case "guardflag":
 				//	lv = lua.LBool(p.hitdef.guardflag&fl != 0)
 				//case "hitflag":
 				//	lv = lua.LNumber(p.hitdef.hitflag&fl != 0)
-				case "facing":
-					lv = lua.LNumber(p.facing)
-				case "drawpal group":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
-				case "drawpal index":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[1])
 				default:
 					l.RaiseError("\nInvalid argument: %v\n", vname)
 				}

@@ -257,6 +257,7 @@ type System struct {
 	// Localcoord lifebar
 	lifebarScale         float32
 	lifebarOffsetX       float32
+	lifebarOffsetY       float32
 	lifebarPortraitScale float32
 	lifebarLocalcoord    [2]int32
 

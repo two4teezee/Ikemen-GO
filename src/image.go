@@ -1201,7 +1201,7 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 	return s.PalTex
 }
 
-func (s *Sprite) Draw(x, y, xscale, yscale, angle float32, fx *PalFX, window *[4]int32) {
+func (s *Sprite) Draw(x, y, xscale, yscale, angle, xshear float32, fx *PalFX, window *[4]int32) {
 	x += float32(sys.gameWidth-320)/2 - xscale*float32(s.Offset[0])
 	y += float32(sys.gameHeight-240) - yscale*float32(s.Offset[1])
 	if xscale < 0 {
@@ -1213,7 +1213,7 @@ func (s *Sprite) Draw(x, y, xscale, yscale, angle float32, fx *PalFX, window *[4
 	rp := RenderParams{
 		s.Tex, s.PalTex, s.Size,
 		-x * sys.widthScale, -y * sys.heightScale, notiling,
-		xscale * sys.widthScale, xscale * sys.widthScale, yscale * sys.heightScale, 1, 0, 1, 1,
+		xscale * sys.widthScale, xscale * sys.widthScale, yscale * sys.heightScale, 1, xshear, 1, 1,
 		Rotation{angle, 0, 0}, 0, sys.brightness*255>>8 | 1<<9, 0, fx, window, 0, 0, 0, 0,
 		-xscale * float32(s.Offset[0]), -yscale * float32(s.Offset[1]),
 	}

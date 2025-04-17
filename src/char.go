@@ -2878,6 +2878,8 @@ func (c *Char) load(def string) error {
 	}
 
 	gi.constants = make(map[string]float32)
+
+	// Init default values to ensure we have these maps
 	gi.constants["default.attack.lifetopowermul"] = 0.7
 	gi.constants["super.attack.lifetopowermul"] = 0
 	gi.constants["default.gethit.lifetopowermul"] = 0.6
@@ -3736,19 +3738,24 @@ func (c *Char) partnerTag(n int32) *Char {
 }
 
 func (c *Char) enemy(n int32) *Char {
-	if n < 0 || n >= c.numEnemy() {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy: %v", n))
+	if n < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy with index %v", n))
 		return nil
 	}
+
+	// Iterate until nth enemy
 	var count int32
 	for _, e := range sys.chars {
-		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
+		if len(e) > 0 && e[0] != nil && c.isEnemyOf(e[0]) {
 			if count == n {
 				return e[0]
 			}
 			count++
 		}
 	}
+
+	// No enemy found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy with index %v", n))
 	return nil
 }
 
@@ -3766,6 +3773,27 @@ func (c *Char) p2() *Char {
 		c.p2EnemyBackup = p
 	}
 	return p
+}
+
+func (c *Char) isEnemyOf(e *Char) bool {
+	// Disabled players
+	if c.scf(SCF_disabled) || e.scf(SCF_disabled) {
+		return false
+	}
+	// Neutral players or partners
+	if c.teamside < 0 || e.teamside < 0 || c.teamside == e.teamside {
+		return false
+	}
+	// Standby enemies
+	if e.scf(SCF_standby) {
+		return false
+	}
+	// KO special ignore flag
+	//if sys.roundState() == 2 && !e.alive() && c.gi().constants["default.ignoredefeatedenemies"] != 0 {
+	//	return false
+	//}
+	// Else a valid enemy
+	return true
 }
 
 // Returns AI level as a float. Is truncated for AIlevel trigger, or not for AIlevelF
@@ -4130,8 +4158,9 @@ func (c *Char) mugenVersionF() float32 {
 
 func (c *Char) numEnemy() int32 {
 	var n int32
+
 	for _, e := range sys.chars {
-		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
+		if len(e) > 0 && e[0] != nil && c.isEnemyOf(e[0]) {
 			n += 1
 		}
 	}
@@ -5026,13 +5055,13 @@ func (c *Char) stateChange2() bool {
 }
 
 func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
-	// This is a very specific and undocumented Mugen behavior that probably resulted from Elecbyte misinterpreting fighting games
+	// This is a very specific and undocumented Mugen behavior that was probably superseded by "facep2"
 	// It serves very little purpose while negatively affecting some new Ikemen features like NoTurnTarget
 	// It could be removed in the future
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1755
-	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
-		c.autoTurn()
-	}
+	//if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
+	//	c.autoTurn()
+	//}
 	if anim != -1 {
 		c.changeAnim(anim, c.playerNo, ffx)
 	}
@@ -11248,7 +11277,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 	// Search valid enemies
 	for _, e := range cl.runOrder {
-		if e.playerFlag && e.teamside >= 0 && e.teamside != c.teamside && !e.scf(SCF_disabled) {
+		if e.playerFlag && c.isEnemyOf(e) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				addEnemy(e, 0)

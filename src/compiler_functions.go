@@ -168,6 +168,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noairjump)))
 			case "nobrake":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nobrake)))
+			case "nocombodisplay":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocombodisplay)))
 			case "nocrouch":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocrouch)))
 			case "nodizzypointsdamage":
@@ -206,6 +208,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokofall)))
 			case "nokovelocity":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokovelocity)))
+			case "nolifebaraction":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebaraction)))
 			case "nolifebardisplay":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebardisplay)))
 			case "nomakedust":

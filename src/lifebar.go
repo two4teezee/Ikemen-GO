@@ -4607,11 +4607,15 @@ func (l *Lifebar) draw(layerno int16) {
 		}
 		// LifeBarCombo
 		for i := range l.co {
-			l.co[i].draw(layerno, l.fnt[:], i)
+			if !sys.chars[i][0].asf(ASF_nocombodisplay) {
+				l.co[i].draw(layerno, l.fnt[:], i)
+			}
 		}
 		// LifeBarAction
 		for i := range l.ac {
-			l.ac[i].draw(layerno, l.fnt[:], i)
+			if !sys.chars[i][0].asf(ASF_nolifebaraction) {
+				l.ac[i].draw(layerno, l.fnt[:], i)
+			}
 		}
 		// LifeBarMode
 		if _, ok := l.mo[sys.gameMode]; ok {

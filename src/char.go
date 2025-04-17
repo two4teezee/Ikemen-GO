@@ -69,6 +69,7 @@ const (
 	ASF_noailevel
 	ASF_noairjump
 	ASF_nobrake
+	ASF_nocombodisplay
 	ASF_nocrouch
 	ASF_nodizzypointsdamage
 	ASF_nofacedisplay
@@ -88,6 +89,7 @@ const (
 	ASF_nojump
 	ASF_nokofall // In Mugen this seems hardcoded into Training mode
 	ASF_nokovelocity
+	ASF_nolifebaraction
 	ASF_nolifebardisplay
 	ASF_nomakedust
 	ASF_nonamedisplay

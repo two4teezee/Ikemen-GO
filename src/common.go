@@ -640,10 +640,29 @@ func (is IniSection) LoadFile(name string, dirs []string,
 }
 
 func (is IniSection) ReadI32(name string, out ...*int32) bool {
-	str := is[name]
-	if len(str) == 0 {
+	str, ok := is[name]
+
+	// Key not found
+	if !ok {
 		return false
 	}
+
+	// Key found but value is empty
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2422
+	if str == "" {
+		for _, o := range out {
+			if o != nil {
+				*o = 0
+			}
+		}
+		sys.appendToConsole(fmt.Sprintf("'%s' found but has an empty value. Defaulting to 0", name))
+		if !sys.ignoreMostErrors {
+			sys.errLog.Printf(fmt.Sprintf("'%s' found but has an empty value. Defaulting to 0", name))
+		}
+		return true
+	}
+
+	// Key found with valid values
 	for i, s := range strings.Split(str, ",") {
 		if i >= len(out) {
 			break
@@ -652,6 +671,7 @@ func (is IniSection) ReadI32(name string, out ...*int32) bool {
 			*out[i] = Atoi(s)
 		}
 	}
+
 	return true
 }
 

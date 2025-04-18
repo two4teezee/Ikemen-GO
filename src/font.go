@@ -588,6 +588,7 @@ type TextSprite struct {
 	velocity         [2]float32
 	friction         [2]float32
 	accel            [2]float32
+	forcecolor       bool
 }
 
 func NewTextSprite() *TextSprite {
@@ -631,6 +632,7 @@ func (ts *TextSprite) SetWindow(x, y, w, h float32) {
 }
 
 func (ts *TextSprite) SetColor(r, g, b int32) {
+	ts.forcecolor = true
 	ts.palfx.setColor(r, g, b)
 	ts.frgba = [...]float32{float32(r) / 255, float32(g) / 255,
 		float32(b) / 255, 1.0}
@@ -658,6 +660,9 @@ func (ts *TextSprite) Draw() {
 				ts.elapsedTicks++
 			}
 			ts.SetTextVel()
+			if ts.palfx != nil && !ts.forcecolor {
+				ts.palfx.step()
+			}
 		}
 
 		maxChars := int32(ts.elapsedTicks / ts.textDelay)

@@ -5227,6 +5227,9 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.palFXSub(is, sc, "palfx."); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			text_color, VT_Int, 3, false); err != nil {
 			return err

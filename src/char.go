@@ -7494,6 +7494,7 @@ func (c *Char) posUpdate() {
 			}
 		}
 	}
+
 	// Check if character is bound
 	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
@@ -7503,6 +7504,7 @@ func (c *Char) posUpdate() {
 			c.oldPos[i], c.interPos[i] = c.pos[i], c.pos[i]
 		}
 	}
+
 	// Offset position when character is hit off the ground
 	// This used to be in actionPrepare(), which would be ideal, but that caused https://github.com/ikemen-engine/Ikemen-GO/issues/2188
 	if c.downHitOffset {
@@ -7514,12 +7516,13 @@ func (c *Char) posUpdate() {
 		}
 		c.downHitOffset = false
 	}
+
+	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
-		// Apply velocity
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
 		}
@@ -7529,30 +7532,34 @@ func (c *Char) posUpdate() {
 		if nobind[2] {
 			c.setPosZ(c.oldPos[2] + c.vel[2])
 		}
-		// Apply physics types
-		switch c.ss.physics {
-		case ST_S:
-			c.vel[0] *= c.gi().movement.stand.friction
-			if AbsF(c.vel[0]) < 1 {
-				c.vel[0] = 0
-			}
-			c.vel[2] *= c.gi().movement.stand.friction
-			if AbsF(c.vel[2]) < 1 {
-				c.vel[2] = 0
-			}
-		case ST_C:
-			c.vel[0] *= c.gi().movement.crouch.friction
-			c.vel[2] *= c.gi().movement.crouch.friction
-		case ST_A:
-			c.gravity()
-		}
 	}
+
+	// Apply physics types
+	switch c.ss.physics {
+	case ST_S:
+		c.vel[0] *= c.gi().movement.stand.friction
+		if AbsF(c.vel[0]) < 1 {
+			c.vel[0] = 0
+		}
+		c.vel[2] *= c.gi().movement.stand.friction
+		if AbsF(c.vel[2]) < 1 {
+			c.vel[2] = 0
+		}
+	case ST_C:
+		c.vel[0] *= c.gi().movement.crouch.friction
+		c.vel[2] *= c.gi().movement.crouch.friction
+	case ST_A:
+		c.gravity()
+	}
+
+	// Apply friction to corner push
 	if sys.supertime == 0 {
 		c.cornerVelOff *= friction
 		if AbsF(c.cornerVelOff) < 1 {
 			c.cornerVelOff = 0
 		}
 	}
+
 	c.bindPosAdd = [...]float32{0, 0, 0}
 }
 

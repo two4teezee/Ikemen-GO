@@ -938,7 +938,7 @@ func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 			al.lay = *newLayout(ln)
 		}
 	}
-	al.ReadAnimPalfx(pre+"palfx.", is)
+	ReadPalFX(pre+"palfx.", is, al.palfx)
 	al.lay.Read(pre, is)
 }
 
@@ -957,67 +957,71 @@ func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {
 	al.lay.DrawAnim(&al.lay.window, x, y, scale, 1, 1, layerno, &al.anim, al.palfx)
 }
 
-func (al *AnimLayout) ReadAnimPalfx(pre string, is IniSection) {
-	al.palfx.clear()
-	al.palfx.time = -1
-	is.ReadI32(pre+"time", &al.palfx.time)
-	is.ReadI32(pre+"add", &al.palfx.add[0], &al.palfx.add[1], &al.palfx.add[2])
-	is.ReadI32(pre+"mul", &al.palfx.mul[0], &al.palfx.mul[1], &al.palfx.mul[2])
+func ReadPalFX(pre string, is IniSection, pfx *PalFX) int32 {
+	pfx.clear()
+	pfx.time = -1
+	tInit := int32(-1)
+	if is.ReadI32(pre+"time", &pfx.time) {
+		tInit = pfx.time
+	}
+	is.ReadI32(pre+"add", &pfx.add[0], &pfx.add[1], &pfx.add[2])
+	is.ReadI32(pre+"mul", &pfx.mul[0], &pfx.mul[1], &pfx.mul[2])
 	var s [4]int32
 	if is.ReadI32(pre+"sinadd", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinadd[0] = -s[0]
-			al.palfx.sinadd[1] = -s[1]
-			al.palfx.sinadd[2] = -s[2]
-			al.palfx.cycletime[0] = -s[3]
+			pfx.sinadd[0] = -s[0]
+			pfx.sinadd[1] = -s[1]
+			pfx.sinadd[2] = -s[2]
+			pfx.cycletime[0] = -s[3]
 		} else {
-			al.palfx.sinadd[0] = s[0]
-			al.palfx.sinadd[1] = s[1]
-			al.palfx.sinadd[2] = s[2]
-			al.palfx.cycletime[0] = s[3]
+			pfx.sinadd[0] = s[0]
+			pfx.sinadd[1] = s[1]
+			pfx.sinadd[2] = s[2]
+			pfx.cycletime[0] = s[3]
 		}
 	}
 	if is.ReadI32(pre+"sinmul", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinmul[0] = -s[0]
-			al.palfx.sinmul[1] = -s[1]
-			al.palfx.sinmul[2] = -s[2]
-			al.palfx.cycletime[1] = -s[3]
+			pfx.sinmul[0] = -s[0]
+			pfx.sinmul[1] = -s[1]
+			pfx.sinmul[2] = -s[2]
+			pfx.cycletime[1] = -s[3]
 		} else {
-			al.palfx.sinmul[0] = s[0]
-			al.palfx.sinmul[1] = s[1]
-			al.palfx.sinmul[2] = s[2]
-			al.palfx.cycletime[1] = s[3]
+			pfx.sinmul[0] = s[0]
+			pfx.sinmul[1] = s[1]
+			pfx.sinmul[2] = s[2]
+			pfx.cycletime[1] = s[3]
 		}
 	}
 	var s2 [2]int32
 	if is.ReadI32(pre+"sincolor", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sincolor = -s2[0]
-			al.palfx.cycletime[2] = -s2[1]
+			pfx.sincolor = -s2[0]
+			pfx.cycletime[2] = -s2[1]
 		} else {
-			al.palfx.sincolor = s2[0]
-			al.palfx.cycletime[2] = s2[1]
+			pfx.sincolor = s2[0]
+			pfx.cycletime[2] = s2[1]
 		}
 	}
 	if is.ReadI32(pre+"sinhue", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sinhue = -s2[0]
-			al.palfx.cycletime[3] = -s2[1]
+			pfx.sinhue = -s2[0]
+			pfx.cycletime[3] = -s2[1]
 		} else {
-			al.palfx.sinhue = s2[0]
-			al.palfx.cycletime[3] = s2[1]
+			pfx.sinhue = s2[0]
+			pfx.cycletime[3] = s2[1]
 		}
 	}
-	is.ReadBool(pre+"invertall", &al.palfx.invertall)
-	is.ReadI32(pre+"invertblend", &al.palfx.invertblend)
+	is.ReadBool(pre+"invertall", &pfx.invertall)
+	is.ReadI32(pre+"invertblend", &pfx.invertblend)
 	var n float32
 	if is.ReadF32(pre+"color", &n) {
-		al.palfx.color = n / 256
+		pfx.color = n / 256
 	}
 	if is.ReadF32(pre+"hue", &n) {
-		al.palfx.hue = n / 256
+		pfx.hue = n / 256
 	}
+	return tInit
 }
 
 type AnimTextSnd struct {
@@ -1052,11 +1056,13 @@ func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 func (ats *AnimTextSnd) Reset() {
 	ats.anim.Reset()
 	ats.cnt = 0
+	ats.text.resetTxtPfx()
 }
 
 func (ats *AnimTextSnd) Action() {
 	ats.anim.Action()
 	ats.cnt++
+	ats.text.step()
 }
 
 func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {

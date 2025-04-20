@@ -144,20 +144,25 @@ func loadFightFx(def string) error {
 }
 
 type LbText struct {
-	font  [6]int32
-	text  string
-	lay   Layout
-	palfx *PalFX
-	frgba [4]float32 // ttf fonts
+	font       [6]int32
+	text       string
+	lay        Layout
+	palfx      *PalFX
+	frgba      [4]float32 // ttf fonts
+	forcecolor bool
+	pfxinit    int32
 }
 
 func newLbText(align int32) *LbText {
-	return &LbText{font: [...]int32{-1, 0, align, 255, 255, 255},
-		palfx: newPalFX(), frgba: [...]float32{1.0, 1.0, 1.0, 1.0}}
+	return &LbText{
+		font: [...]int32{-1, 0, align, 255, 255, 255},
+		palfx: newPalFX(), 
+		frgba: [...]float32{1.0, 1.0, 1.0, 1.0}}
 }
 
 func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align int32) *LbText {
 	txt := newLbText(align)
+	txt.font[3], txt.font[4], txt.font[5] = -1, -1, -1
 	is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
 		&txt.font[3], &txt.font[4], &txt.font[5])
 	if txt.font[0] >= 0 && int(txt.font[0]) < len(f) && f[txt.font[0]] == nil {
@@ -170,8 +175,26 @@ func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align
 		txt.text = str
 	}
 	txt.lay = *ReadLayout(pre, is, ln)
-	txt.palfx.setColor(txt.font[3], txt.font[4], txt.font[5])
+	if txt.font[3] >= 0 && txt.font[4] >= 0 && txt.font[5] >= 0 {
+		txt.SetColor(txt.font[3], txt.font[4], txt.font[5])
+	}
+	txt.pfxinit = ReadPalFX(pre+"palfx.", is, txt.palfx)
 	return txt
+}
+
+func (txt *LbText) SetColor(r, g, b int32) {
+	txt.forcecolor = true
+	txt.palfx.setColor(r, g, b)
+}
+
+func (txt *LbText) step() {
+	if txt.palfx != nil && !txt.forcecolor {
+		txt.palfx.step()
+	}
+}
+
+func (txt *LbText) resetTxtPfx() {
+	txt.palfx.time = txt.pfxinit
 }
 
 type LbBgTextSnd struct {
@@ -211,11 +234,13 @@ func (bts *LbBgTextSnd) step(snd *Snd) {
 		bts.bg.Action()
 	}
 	bts.timer++
+	bts.text.step()
 }
 
 func (bts *LbBgTextSnd) reset() {
 	bts.timer = 0
 	bts.bg.Reset()
+	bts.text.resetTxtPfx()
 }
 
 func (bts *LbBgTextSnd) bgDraw(layerno int16) {
@@ -1670,7 +1695,10 @@ type LifeBarTime struct {
 }
 
 func newLifeBarTime() *LifeBarTime {
-	return &LifeBarTime{counter: make(map[int32]*LbText), framespercount: 60}
+	return &LifeBarTime{
+		counter: make(map[int32]*LbText), 
+		framespercount: 60,
+	}
 }
 
 func readLifeBarTime(is IniSection,
@@ -1700,6 +1728,7 @@ func readLifeBarTime(is IniSection,
 func (ti *LifeBarTime) step() {
 	ti.bg.Action()
 	ti.top.Action()
+	ti.counter[0].step()
 }
 
 func (ti *LifeBarTime) reset() {
@@ -1843,6 +1872,8 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 			co.curdmg = damage
 			co.curpct = percentage
 			co.resttime = co.displaytime
+			co.counter.resetTxtPfx()
+			co.text.resetTxtPfx()
 			if co.counter_shake && co.oldhit != combo {
 				co.shaketime = co.counter_time
 			}
@@ -1851,6 +1882,14 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 	co.oldhit = combo
 	co.olddmg = damage
 	co.oldpct = percentage
+
+	if co.counterX != co.start_x * 2 {
+		co.counter.step()
+		co.text.step()
+	} else {
+		co.counter.resetTxtPfx()
+		co.text.resetTxtPfx()
+	}
 }
 
 func (co *LifeBarCombo) reset() {
@@ -3173,6 +3212,7 @@ func readLifeBarTimer(is IniSection,
 func (tr *LifeBarTimer) step() {
 	tr.bg.Action()
 	tr.top.Action()
+	tr.text.step()
 }
 
 func (tr *LifeBarTimer) reset() {
@@ -3371,6 +3411,7 @@ func readLifeBarMatch(is IniSection,
 func (ma *LifeBarMatch) step() {
 	ma.bg.Action()
 	ma.top.Action()
+	ma.text.step()
 }
 
 func (ma *LifeBarMatch) reset() {
@@ -3433,6 +3474,7 @@ func readLifeBarAiLevel(pre string, is IniSection,
 func (ai *LifeBarAiLevel) step() {
 	ai.bg.Action()
 	ai.top.Action()
+	ai.text.step()
 }
 
 func (ai *LifeBarAiLevel) reset() {
@@ -3507,6 +3549,7 @@ func readLifeBarWinCount(pre string, is IniSection,
 func (wc *LifeBarWinCount) step() {
 	wc.bg.Action()
 	wc.top.Action()
+	wc.text.step()
 }
 
 func (wc *LifeBarWinCount) reset() {
@@ -3560,6 +3603,7 @@ func readLifeBarMode(is IniSection,
 func (mo *LifeBarMode) step() {
 	mo.bg.Action()
 	mo.top.Action()
+	mo.text.step()
 }
 
 func (mo *LifeBarMode) reset() {
@@ -4294,16 +4338,22 @@ func (l *Lifebar) step() {
 		for i, v := range l.order[ti] {
 			// HealthBar
 			l.hb[l.ref[ti]][i*2+ti].step(v, l.hb[l.ref[ti]][v])
+			l.hb[l.ref[ti]][i*2+ti].value.step()
 			// PowerBar
 			l.pb[l.ref[ti]][i*2+ti].step(v, l.pb[l.ref[ti]][v], l.snd)
+			l.pb[l.ref[ti]][i*2+ti].counter.step()
+			l.pb[l.ref[ti]][i*2+ti].value.step()
 			// GuardBar
 			l.gb[l.ref[ti]][i*2+ti].step(v, l.gb[l.ref[ti]][v], l.snd)
+			l.gb[l.ref[ti]][i*2+ti].value.step()
 			// StunBar
 			l.sb[l.ref[ti]][i*2+ti].step(v, l.sb[l.ref[ti]][v], l.snd)
+			l.sb[l.ref[ti]][i*2+ti].value.step()
 			// LifeBarFace
 			l.fa[l.ref[ti]][i*2+ti].step(v, l.fa[l.ref[ti]][v])
 			// LifeBarName
 			l.nm[l.ref[ti]][i*2+ti].step()
+			l.nm[l.ref[ti]][i*2+ti].name.step()
 		}
 	}
 	// LifeBarWinIcon
@@ -4341,6 +4391,7 @@ func (l *Lifebar) step() {
 	// LifeBarAction
 	for i := range l.ac {
 		l.ac[i].step(l.order[i][0])
+		l.ac[i].text.step()
 	}
 	// LifeBarRatio
 	for ti, tm := range sys.tmode {
@@ -4356,6 +4407,7 @@ func (l *Lifebar) step() {
 	// LifeBarScore
 	for i := range l.sc {
 		l.sc[i].step()
+		l.sc[i].text.step()
 	}
 	// LifeBarMatch
 	l.ma.step()

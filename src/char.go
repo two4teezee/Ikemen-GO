@@ -6905,16 +6905,26 @@ func (c *Char) distZ(opp *Char, oc *Char) float32 {
 	return (opos - cpos) / oc.localscl
 }
 
+// In Mugen, P2BodyDist X does not account for changes in Width like Ikemen does here
 func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
-	// In Mugen P2BodyDist X does not account for changes in Width like Ikemen does here
+	var cw, oppw float32
 	dist := c.distX(opp, oc)
-	var oppw float32
-	if dist == 0 || (dist < 0) != (opp.facing < 0) {
-		oppw = opp.facing * opp.sizeBox[2] * (opp.localscl / oc.localscl)
+
+	// Char reference
+	// The player reference is always the front width but the enemy reference varies
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2432
+	cw = c.sizeBox[2] * c.facing * (c.localscl / oc.localscl)
+
+	// Enemy reference
+	if ((dist * c.facing) >= 0) == (c.facing != opp.facing) {
+		// Use front width
+		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl/oc.localscl)
 	} else {
-		oppw = -opp.facing * opp.sizeBox[0] * (opp.localscl / oc.localscl)
+		// Use back width
+		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl/oc.localscl)
 	}
-	return dist + oppw - c.facing*c.sizeBox[2]*(c.localscl/oc.localscl)
+
+	return dist - cw + oppw
 }
 
 func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {

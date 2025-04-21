@@ -12099,7 +12099,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				return false
 			}
 		default:
-			if applyPalFXToText(ts, paramID, exp, c) {
+			if applyTextPalFX(ts, paramID, exp, c) {
 				break
 			}
 		}
@@ -12119,10 +12119,10 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	return false
 }
 
-func applyPalFXToText(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
+func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
 	switch paramID {
 		case palFX_time:
-			ts.palfx.time = exp[0].evalI(c)
+			ts.palfx.time = exp[0].evalI(c) * 2
 		case palFX_color:
 			ts.palfx.color = exp[0].evalF(c) / 256
 		case palFX_hue:
@@ -12139,10 +12139,10 @@ func applyPalFXToText(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) 
 			var side int32 = 1
 			if len(exp) > 3 {
 				if exp[3].evalI(c) < 0 {
-					ts.palfx.cycletime[0] = -exp[3].evalI(c)
+					ts.palfx.cycletime[0] = -exp[3].evalI(c) * 2
 					side = -1
 				} else {
-					ts.palfx.cycletime[0] = exp[3].evalI(c)
+					ts.palfx.cycletime[0] = exp[3].evalI(c) * 2
 				}
 			}
 			ts.palfx.sinadd[0] = exp[0].evalI(c) * side
@@ -12152,10 +12152,10 @@ func applyPalFXToText(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) 
 			var side int32 = 1
 			if len(exp) > 3 {
 				if exp[3].evalI(c) < 0 {
-					ts.palfx.cycletime[1] = -exp[3].evalI(c)
+					ts.palfx.cycletime[1] = -exp[3].evalI(c) * 2
 					side = -1
 				} else {
-					ts.palfx.cycletime[1] = exp[3].evalI(c)
+					ts.palfx.cycletime[1] = exp[3].evalI(c) * 2
 				}
 			}
 			ts.palfx.sinmul[0] = exp[0].evalI(c) * side
@@ -12165,10 +12165,10 @@ func applyPalFXToText(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) 
 			var side int32 = 1
 			if len(exp) > 1 {
 				if exp[1].evalI(c) < 0 {
-					ts.palfx.cycletime[2] = -exp[1].evalI(c)
+					ts.palfx.cycletime[2] = -exp[1].evalI(c) * 2
 					side = -1
 				} else {
-					ts.palfx.cycletime[2] = exp[1].evalI(c)
+					ts.palfx.cycletime[2] = exp[1].evalI(c) * 2
 				}
 			}
 			ts.palfx.sincolor = exp[0].evalI(c) * side
@@ -12176,10 +12176,10 @@ func applyPalFXToText(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) 
 			var side int32 = 1
 			if len(exp) > 1 {
 				if exp[1].evalI(c) < 0 {
-					ts.palfx.cycletime[3] = -exp[1].evalI(c)
+					ts.palfx.cycletime[3] = -exp[1].evalI(c) * 2
 					side = -1
 				} else {
-					ts.palfx.cycletime[3] = exp[1].evalI(c)
+					ts.palfx.cycletime[3] = exp[1].evalI(c) * 2
 				}
 			}
 			ts.palfx.sinhue = exp[0].evalI(c) * side

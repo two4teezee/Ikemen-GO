@@ -1904,7 +1904,6 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 	// Update team combo tracker
 	if combo > 0 {
 		combo = co.combo
-		co.tracker = co.combo
 	} else {
 		co.combo = 0
 	}
@@ -1929,10 +1928,14 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 	// Update if number of hits or total damage change
 	if combo >= 2 {
 		if co.oldhit != combo || co.olddmg != damage {
+			for i := range co.counter {
+				co.counter[i].resetTxtPfx()
+			}
 			co.curhit = combo
 			co.curdmg = damage
 			co.curpct = percentage
 			co.resttime = co.displaytime
+			co.tracker = co.combo
 			if co.counter_shake && co.oldhit != combo {
 				co.shaketime = co.counter_time
 			}
@@ -1954,9 +1957,6 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 		co.counter[cv].step()
 		co.text.step()
 	} else {
-		for i := range co.counter {
-			co.counter[i].resetTxtPfx()
-		}
 		co.text.resetTxtPfx()
 	}
 }

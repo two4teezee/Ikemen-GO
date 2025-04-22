@@ -6924,10 +6924,10 @@ func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
 	// Enemy reference
 	if ((dist * c.facing) >= 0) == (c.facing != opp.facing) {
 		// Use front width
-		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl/oc.localscl)
+		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl / oc.localscl)
 	} else {
 		// Use back width
-		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl/oc.localscl)
+		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl / oc.localscl)
 	}
 
 	return dist - cw + oppw

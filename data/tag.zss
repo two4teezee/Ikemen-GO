@@ -78,7 +78,6 @@ explod{
 ]
 
 screenBound{value: 0; movecamera: 1, 1; stagebound: 0}
-assertSpecial{flag: noTurnTarget}
 
 if time = 0 {
 	if facing != player(teamLeader),facing {
@@ -116,6 +115,7 @@ if backEdgeDist >= 0 && (floor(map(_iksys_tagSwitchDist)) <= 0 || p2BodyDist X <
 ]
 
 screenBound{value: 0; movecamera: 0, 0; stagebound: 0}
+assertSpecial{flag: noTurnTarget}
 
 if time = 0 {
 	turn{}
@@ -137,7 +137,7 @@ if backEdgeDist < -const240p(160) || frontEdgeDist < -const240p(160) {
 ]
 
 screenBound{value: 0; movecamera: 0, 0; stagebound: 0}
-assertSpecial{flag: invisible; flag2: noAutoTurn}
+assertSpecial{flag: invisible; flag2: noTurnTarget}
 
 # Face towards center of screen
 if pos x * facing > 0 {
@@ -166,7 +166,6 @@ if roundState = 3 {
 	playerPush{value: 0}
 } else {
 	screenBound{value: 0; movecamera: 1, 1; stagebound: 0}
-	assertSpecial{flag: noTurnTarget}
 }
 
 # the character cannot be hit until he has fully entered the stage
@@ -193,12 +192,12 @@ if time = 0 {
 		call TagSwitchExplod();
 	}
 	if roundState = 2 {
-		velSet{x: const240p(4); y: -const240p(8.75)}
+		velSet{x: const240p(4.0); y: -const240p(10.0)}
 	} else {
-		velSet{x: const240p(8.0 - 0.75 * (playerno - teamside)); y: -const240p(8.75)}
+		velSet{x: const240p(8.0 - 0.75 * (playerno - teamside)); y: -const240p(10.0)}
 	}
 } else {
-	gravity{}
+	velAdd{y: const240p(0.5)}
 	if vel y > 0 && pos y >= 0 {
 		velSet{x: 0; y: 0}
 		selfState{value: const(StateTagLanding)}
@@ -223,13 +222,38 @@ if animTime >= 0 {
 }
 
 #===============================================================================
+# Global states (not halted by Pause/SuperPause, no helper limitations)
+#===============================================================================
+[StateDef -4]
+
+# Make players (any mode) only turn towards enemy Tag team leader
+# This benefits assist systems more than it does this native Tag code
+ignoreHitPause if roundState = 2 && !isHelper {
+	# Disable turning for player
+	if p2, teamMode = Tag && p2, playerNo != p2, teamLeader ||
+		p2, time <= 0 && p2, prevStateNo = p2, const(StateTagWaitingOutside) { # Run order fix
+		assertSpecial{flag: noAutoTurn}
+	}
+	# Disable turning towards enemy
+	# We use redirections here so that the flags are asserted as soon as possible
+	if numEnemy > 0 && enemy, teamMode = Tag {
+		for i = 0; numEnemy - 1; 1 {
+			if enemy($i), playerNo != enemy($i), teamLeader ||
+				enemy($i), time <= 0 && enemy($i), prevStateNo = enemy($i), const(StateTagWaitingOutside) { # Run order fix
+				assertSpecial{flag: noTurnTarget; redirectID: enemy($i), ID}
+			}
+		}
+	}
+}
+
+#===============================================================================
 # Global states
 #===============================================================================
 [StateDef -2]
 
 if !const(Default.Enable.Tag) || isHelper || teamSide = 0 {
 	# do nothing, global code disabled locally or executed by helper/stage
-} else if roundTime = 0 && teamMode = Tag {
+} else if roundState = 0 && teamMode = Tag {
 	map(_iksys_tagActive) := 1;
 	map(_iksys_tagLastId) := 0;
 	map(_iksys_tagPartnerId) := 0;

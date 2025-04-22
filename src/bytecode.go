@@ -783,36 +783,36 @@ const (
 	OC_ex2_debug_wireframedisplay
 	OC_ex2_drawpal_group
 	OC_ex2_drawpal_index
-	OC_ex2_explodvar_anim
-	OC_ex2_explodvar_animelem
-	OC_ex2_explodvar_drawpal_group
-	OC_ex2_explodvar_drawpal_index
-	OC_ex2_explodvar_pos_x
-	OC_ex2_explodvar_pos_y
-	OC_ex2_explodvar_pos_z
-	OC_ex2_explodvar_scale_x
-	OC_ex2_explodvar_scale_y
-	OC_ex2_explodvar_vel_x
-	OC_ex2_explodvar_vel_y
-	OC_ex2_explodvar_vel_z
 	OC_ex2_explodvar_accel_x
 	OC_ex2_explodvar_accel_y
 	OC_ex2_explodvar_accel_z
-	OC_ex2_explodvar_friction_x
-	OC_ex2_explodvar_friction_y
-	OC_ex2_explodvar_friction_z
 	OC_ex2_explodvar_angle
 	OC_ex2_explodvar_angle_x
 	OC_ex2_explodvar_angle_y
-	OC_ex2_explodvar_xshear
-	OC_ex2_explodvar_removetime
+	OC_ex2_explodvar_anim
+	OC_ex2_explodvar_animelem
+	OC_ex2_explodvar_bindtime
+	OC_ex2_explodvar_drawpal_group
+	OC_ex2_explodvar_drawpal_index
+	OC_ex2_explodvar_facing
+	OC_ex2_explodvar_friction_x
+	OC_ex2_explodvar_friction_y
+	OC_ex2_explodvar_friction_z
+	OC_ex2_explodvar_id
+	OC_ex2_explodvar_layerno
 	OC_ex2_explodvar_pausemovetime
+	OC_ex2_explodvar_pos_x
+	OC_ex2_explodvar_pos_y
+	OC_ex2_explodvar_pos_z
+	OC_ex2_explodvar_removetime
+	OC_ex2_explodvar_scale_x
+	OC_ex2_explodvar_scale_y
 	OC_ex2_explodvar_sprpriority
 	OC_ex2_explodvar_time
-	OC_ex2_explodvar_layerno
-	OC_ex2_explodvar_id
-	OC_ex2_explodvar_bindtime
-	OC_ex2_explodvar_facing
+	OC_ex2_explodvar_vel_x
+	OC_ex2_explodvar_vel_y
+	OC_ex2_explodvar_vel_z
+	OC_ex2_explodvar_xshear
 	OC_ex2_projvar_accel_x
 	OC_ex2_projvar_accel_y
 	OC_ex2_projvar_accel_z
@@ -829,7 +829,6 @@ const (
 	OC_ex2_projvar_pos_y
 	OC_ex2_projvar_pos_z
 	OC_ex2_projvar_projangle
-	OC_ex2_projvar_projxshear
 	OC_ex2_projvar_projanim
 	OC_ex2_projvar_projcancelanim
 	OC_ex2_projvar_projedgebound
@@ -850,11 +849,13 @@ const (
 	OC_ex2_projvar_projshadow_r
 	OC_ex2_projvar_projsprpriority
 	OC_ex2_projvar_projstagebound
+	OC_ex2_projvar_projxshear
 	OC_ex2_projvar_remvelocity_x
 	OC_ex2_projvar_remvelocity_y
 	OC_ex2_projvar_remvelocity_z
 	OC_ex2_projvar_supermovetime
 	OC_ex2_projvar_teamside
+	OC_ex2_projvar_time
 	OC_ex2_projvar_vel_x
 	OC_ex2_projvar_vel_y
 	OC_ex2_projvar_vel_z
@@ -3105,13 +3106,13 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex_scale_x:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.scale[0])
+			sys.bcStack.PushF(c.angleDrawScale[0])
 		} else {
 			sys.bcStack.PushF(1)
 		}
 	case OC_ex_scale_y:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.scale[1])
+			sys.bcStack.PushF(c.angleDrawScale[1])
 		} else {
 			sys.bcStack.PushF(1)
 		}
@@ -3569,6 +3570,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_pos_z:
 		fallthrough
 	case OC_ex2_projvar_facing:
+		fallthrough
+	case OC_ex2_projvar_time:
 		fallthrough
 	case OC_ex2_projvar_guardflag:
 		fallthrough
@@ -9490,9 +9493,9 @@ func (sc angleDraw) Run(c *Char, _ []int32) bool {
 		case angleDraw_value:
 			crun.angleSet(exp[0].evalF(c))
 		case angleDraw_scale:
-			crun.scale[0] *= exp[0].evalF(c)
+			crun.angleDrawScale[0] *= exp[0].evalF(c)
 			if len(exp) > 1 {
-				crun.scale[1] *= exp[1].evalF(c)
+				crun.angleDrawScale[1] *= exp[1].evalF(c)
 			}
 		case angleDraw_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

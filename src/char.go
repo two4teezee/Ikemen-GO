@@ -1822,6 +1822,7 @@ type Projectile struct {
 	remflag         bool
 	freezeflag      bool
 	contactflag     bool
+	time            int32
 }
 
 func newProjectile() *Projectile {
@@ -2106,6 +2107,7 @@ func (p *Projectile) tick() {
 	}
 	if !p.paused(p.playerno) {
 		if p.hitpause <= 0 {
+			p.time++ // Only used in ProjVar currently
 			if p.removetime > 0 {
 				p.removetime--
 			}
@@ -2359,7 +2361,7 @@ type CharSystemVar struct {
 	bindFacing        float32
 	hitPauseTime      int32
 	angle             float32
-	scale             [2]float32
+	angleDrawScale    [2]float32
 	alpha             [2]int32
 	systemFlag        SystemCharFlag
 	specialFlag       CharSpecialFlag
@@ -2469,7 +2471,7 @@ type Char struct {
 	atktmp           int8 // 1 hitdef can hit, 0 cannot hit, -1 other
 	hittmp           int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
 	acttmp           int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus            int8 // current negative state
+	minus            int8 // Essentially the current negative state
 	platformPosY     float32
 	groundAngle      float32
 	ownpal           bool
@@ -2546,7 +2548,7 @@ func (c *Char) init(n int, idx int32) {
 		mctype:        MC_Hit,
 		ownpal:        true,
 		facing:        1,
-		minus:         2,
+		minus:         3,
 		winquote:      -1,
 		clsnBaseScale: [2]float32{1, 1},
 		clsnScaleMul:  [2]float32{1, 1},
@@ -2632,7 +2634,7 @@ func (c *Char) prepareNextRound() {
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
 		bindToId:        -1,
-		scale:           [2]float32{1, 1},
+		angleDrawScale:  [2]float32{1, 1},
 		alpha:           [2]int32{255, 0},
 		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
@@ -2684,7 +2686,7 @@ func (c *Char) clearCachedData() {
 	c.inguarddist = false
 	c.p1facing = 0
 	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
+	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
 	c.winquote = -1
 	c.mapArray = make(map[string]float32)
 	c.remapSpr = make(RemapPreset)
@@ -2876,6 +2878,8 @@ func (c *Char) load(def string) error {
 	}
 
 	gi.constants = make(map[string]float32)
+
+	// Init default values to ensure we have these maps
 	gi.constants["default.attack.lifetopowermul"] = 0.7
 	gi.constants["super.attack.lifetopowermul"] = 0
 	gi.constants["default.gethit.lifetopowermul"] = 0.6
@@ -3734,19 +3738,24 @@ func (c *Char) partnerTag(n int32) *Char {
 }
 
 func (c *Char) enemy(n int32) *Char {
-	if n < 0 || n >= c.numEnemy() {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy: %v", n))
+	if n < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy with index %v", n))
 		return nil
 	}
+
+	// Iterate until nth enemy
 	var count int32
 	for _, e := range sys.chars {
-		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
+		if len(e) > 0 && e[0] != nil && c.isEnemyOf(e[0]) {
 			if count == n {
 				return e[0]
 			}
 			count++
 		}
 	}
+
+	// No enemy found
+	sys.appendToConsole(c.warn() + fmt.Sprintf("has no enemy with index %v", n))
 	return nil
 }
 
@@ -3764,6 +3773,27 @@ func (c *Char) p2() *Char {
 		c.p2EnemyBackup = p
 	}
 	return p
+}
+
+func (c *Char) isEnemyOf(e *Char) bool {
+	// Disabled players
+	if c.scf(SCF_disabled) || e.scf(SCF_disabled) {
+		return false
+	}
+	// Neutral players or partners
+	if c.teamside < 0 || e.teamside < 0 || c.teamside == e.teamside {
+		return false
+	}
+	// Standby enemies
+	if e.scf(SCF_standby) {
+		return false
+	}
+	// KO special ignore flag
+	//if sys.roundState() == 2 && !e.alive() && c.gi().constants["default.ignoredefeatedenemies"] != 0 {
+	//	return false
+	//}
+	// Else a valid enemy
+	return true
 }
 
 // Returns AI level as a float. Is truncated for AIlevel trigger, or not for AIlevelF
@@ -4128,8 +4158,9 @@ func (c *Char) mugenVersionF() float32 {
 
 func (c *Char) numEnemy() int32 {
 	var n int32
+
 	for _, e := range sys.chars {
-		if len(e) > 0 && e[0] != nil && e[0].teamside >= 0 && e[0].teamside != c.teamside && !e[0].scf(SCF_disabled) {
+		if len(e) > 0 && e[0] != nil && c.isEnemyOf(e[0]) {
 			n += 1
 		}
 	}
@@ -4185,52 +4216,52 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 			switch vtype {
 			case OC_ex2_explodvar_anim:
 				v = BytecodeInt(e.animNo)
-			case OC_ex2_explodvar_animelem:
-				v = BytecodeInt(e.anim.current + 1)
-			case OC_ex2_explodvar_pos_x:
-				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-			case OC_ex2_explodvar_pos_y:
-				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-			case OC_ex2_explodvar_pos_z:
-				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-			case OC_ex2_explodvar_scale_x:
-				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
-			case OC_ex2_explodvar_scale_y:
-				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
 			case OC_ex2_explodvar_angle:
 				v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
 			case OC_ex2_explodvar_angle_x:
 				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
 			case OC_ex2_explodvar_angle_y:
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
-			case OC_ex2_explodvar_xshear:
-				v = BytecodeFloat(e.xshear)
+			case OC_ex2_explodvar_animelem:
+				v = BytecodeInt(e.anim.current + 1)
+			case OC_ex2_explodvar_bindtime:
+				v = BytecodeInt(e.bindtime)
+			case OC_ex2_explodvar_drawpal_group:
+				v = BytecodeInt(c.explodDrawPal(e)[0])
+			case OC_ex2_explodvar_drawpal_index:
+				v = BytecodeInt(c.explodDrawPal(e)[1])
+			case OC_ex2_explodvar_facing:
+				v = BytecodeInt(int32(e.facing))
+			case OC_ex2_explodvar_id:
+				v = BytecodeInt(e.id)
+			case OC_ex2_explodvar_layerno:
+				v = BytecodeInt(e.layerno)
+			case OC_ex2_explodvar_pausemovetime:
+				v = BytecodeInt(e.pausemovetime)
+			case OC_ex2_explodvar_pos_x:
+				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+			case OC_ex2_explodvar_pos_y:
+				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+			case OC_ex2_explodvar_pos_z:
+				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+			case OC_ex2_explodvar_removetime:
+				v = BytecodeInt(e.removetime)
+			case OC_ex2_explodvar_scale_x:
+				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
+			case OC_ex2_explodvar_scale_y:
+				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
+			case OC_ex2_explodvar_sprpriority:
+				v = BytecodeInt(e.sprpriority)
+			case OC_ex2_explodvar_time:
+				v = BytecodeInt(e.time)
 			case OC_ex2_explodvar_vel_x:
 				v = BytecodeFloat(e.velocity[0])
 			case OC_ex2_explodvar_vel_y:
 				v = BytecodeFloat(e.velocity[1])
 			case OC_ex2_explodvar_vel_z:
 				v = BytecodeFloat(e.velocity[2])
-			case OC_ex2_explodvar_removetime:
-				v = BytecodeInt(e.removetime)
-			case OC_ex2_explodvar_pausemovetime:
-				v = BytecodeInt(e.pausemovetime)
-			case OC_ex2_explodvar_sprpriority:
-				v = BytecodeInt(e.sprpriority)
-			case OC_ex2_explodvar_layerno:
-				v = BytecodeInt(e.layerno)
-			case OC_ex2_explodvar_id:
-				v = BytecodeInt(e.id)
-			case OC_ex2_explodvar_bindtime:
-				v = BytecodeInt(e.bindtime)
-			case OC_ex2_explodvar_time:
-				v = BytecodeInt(e.time)
-			case OC_ex2_explodvar_facing:
-				v = BytecodeInt(int32(e.facing))
-			case OC_ex2_explodvar_drawpal_group:
-				v = BytecodeInt(c.explodDrawPal(e)[0])
-			case OC_ex2_explodvar_drawpal_index:
-				v = BytecodeInt(c.explodDrawPal(e)[1])
+			case OC_ex2_explodvar_xshear:
+				v = BytecodeFloat(e.xshear)
 			}
 			break
 		}
@@ -4259,30 +4290,92 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 	for n, p := range projs {
 		if i == int32(n) {
 			switch vtype {
-			case OC_ex2_projvar_projremove:
-				v = BytecodeBool(p.remove)
-			case OC_ex2_projvar_projremovetime:
-				v = BytecodeInt(p.removetime)
-			case OC_ex2_projvar_projshadow_r:
-				v = BytecodeInt(p.shadow[0])
-			case OC_ex2_projvar_projshadow_g:
-				v = BytecodeInt(p.shadow[1])
-			case OC_ex2_projvar_projshadow_b:
-				v = BytecodeInt(p.shadow[2])
-			case OC_ex2_projvar_projmisstime:
-				v = BytecodeInt(p.curmisstime)
+			case OC_ex2_projvar_accel_x:
+				v = BytecodeFloat(p.accel[0] * p.localscl)
+			case OC_ex2_projvar_accel_y:
+				v = BytecodeFloat(p.accel[1] * p.localscl)
+			case OC_ex2_projvar_accel_z:
+				v = BytecodeFloat(p.accel[2] * p.localscl)
+			case OC_ex2_projvar_animelem:
+				v = BytecodeInt(p.ani.current + 1)
+			case OC_ex2_projvar_drawpal_group:
+				v = BytecodeInt(c.projDrawPal(p)[0])
+			case OC_ex2_projvar_drawpal_index:
+				v = BytecodeInt(c.projDrawPal(p)[1])
+			case OC_ex2_projvar_facing:
+				v = BytecodeFloat(p.facing)
+			case OC_ex2_projvar_guardflag:
+				v = BytecodeBool(p.hitdef.guardflag&fl != 0)
+			case OC_ex2_projvar_highbound:
+				v = BytecodeInt(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_hitflag:
+				v = BytecodeBool(p.hitdef.hitflag&fl != 0)
+			case OC_ex2_projvar_lowbound:
+				v = BytecodeInt(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_pausemovetime:
+				v = BytecodeInt(p.pausemovetime)
+			case OC_ex2_projvar_pos_x:
+				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
+			case OC_ex2_projvar_pos_y:
+				v = BytecodeFloat(p.pos[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_pos_z:
+				v = BytecodeFloat(p.pos[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_projanim:
+				v = BytecodeInt(p.anim)
+			case OC_ex2_projvar_projangle:
+				v = BytecodeFloat(p.angle)
+			case OC_ex2_projvar_projcancelanim:
+				v = BytecodeInt(p.cancelanim)
+			case OC_ex2_projvar_projedgebound:
+				v = BytecodeInt(int32(float32(p.edgebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projhitanim:
+				v = BytecodeInt(p.hitanim)
 			case OC_ex2_projvar_projhits:
 				v = BytecodeInt(p.hits)
 			case OC_ex2_projvar_projhitsmax:
 				v = BytecodeInt(p.totalhits)
+			case OC_ex2_projvar_projid:
+				v = BytecodeInt(int32(p.id))
+			case OC_ex2_projvar_projlayerno:
+				v = BytecodeInt(p.layerno)
+			case OC_ex2_projvar_projmisstime:
+				v = BytecodeInt(p.curmisstime)
 			case OC_ex2_projvar_projpriority:
 				v = BytecodeInt(p.priority)
-			case OC_ex2_projvar_projhitanim:
-				v = BytecodeInt(p.hitanim)
+			case OC_ex2_projvar_projremove:
+				v = BytecodeBool(p.remove)
 			case OC_ex2_projvar_projremanim:
 				v = BytecodeInt(p.remanim)
-			case OC_ex2_projvar_projcancelanim:
-				v = BytecodeInt(p.cancelanim)
+			case OC_ex2_projvar_projremovetime:
+				v = BytecodeInt(p.removetime)
+			case OC_ex2_projvar_projscale_x:
+				v = BytecodeFloat(p.scale[0])
+			case OC_ex2_projvar_projscale_y:
+				v = BytecodeFloat(p.scale[1])
+			case OC_ex2_projvar_projshadow_b:
+				v = BytecodeInt(p.shadow[2])
+			case OC_ex2_projvar_projshadow_g:
+				v = BytecodeInt(p.shadow[1])
+			case OC_ex2_projvar_projshadow_r:
+				v = BytecodeInt(p.shadow[0])
+			case OC_ex2_projvar_projsprpriority:
+				v = BytecodeInt(p.sprpriority)
+			case OC_ex2_projvar_projstagebound:
+				v = BytecodeInt(int32(float32(p.stagebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projxshear:
+				v = BytecodeFloat(p.xshear)
+			case OC_ex2_projvar_remvelocity_x:
+				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_y:
+				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_z:
+				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_supermovetime:
+				v = BytecodeInt(p.supermovetime)
+			case OC_ex2_projvar_teamside:
+				v = BytecodeInt(int32(p.hitdef.teamside))
+			case OC_ex2_projvar_time:
+				v = BytecodeInt(p.time)
 			case OC_ex2_projvar_vel_x:
 				v = BytecodeFloat(p.velocity[0] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_vel_y:
@@ -4295,66 +4388,6 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.velmul[1])
 			case OC_ex2_projvar_velmul_z:
 				v = BytecodeFloat(p.velmul[2])
-			case OC_ex2_projvar_remvelocity_x:
-				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_y:
-				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_z:
-				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_accel_x:
-				v = BytecodeFloat(p.accel[0] * p.localscl)
-			case OC_ex2_projvar_accel_y:
-				v = BytecodeFloat(p.accel[1] * p.localscl)
-			case OC_ex2_projvar_accel_z:
-				v = BytecodeFloat(p.accel[2] * p.localscl)
-			case OC_ex2_projvar_projscale_x:
-				v = BytecodeFloat(p.scale[0])
-			case OC_ex2_projvar_projscale_y:
-				v = BytecodeFloat(p.scale[1])
-			case OC_ex2_projvar_projangle:
-				v = BytecodeFloat(p.angle)
-			case OC_ex2_projvar_projxshear:
-				v = BytecodeFloat(p.xshear)
-			case OC_ex2_projvar_pos_x:
-				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
-			case OC_ex2_projvar_pos_y:
-				v = BytecodeFloat(p.pos[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_pos_z:
-				v = BytecodeFloat(p.pos[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_projsprpriority:
-				v = BytecodeInt(p.sprpriority)
-			case OC_ex2_projvar_projlayerno:
-				v = BytecodeInt(p.layerno)
-			case OC_ex2_projvar_projstagebound:
-				v = BytecodeInt(int32(float32(p.stagebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projedgebound:
-				v = BytecodeInt(int32(float32(p.edgebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_lowbound:
-				v = BytecodeInt(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_highbound:
-				v = BytecodeInt(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projanim:
-				v = BytecodeInt(p.anim)
-			case OC_ex2_projvar_animelem:
-				v = BytecodeInt(p.ani.current + 1)
-			case OC_ex2_projvar_supermovetime:
-				v = BytecodeInt(p.supermovetime)
-			case OC_ex2_projvar_pausemovetime:
-				v = BytecodeInt(p.pausemovetime)
-			case OC_ex2_projvar_projid:
-				v = BytecodeInt(int32(p.id))
-			case OC_ex2_projvar_teamside:
-				v = BytecodeInt(int32(p.hitdef.teamside))
-			case OC_ex2_projvar_guardflag:
-				v = BytecodeBool(p.hitdef.guardflag&fl != 0)
-			case OC_ex2_projvar_hitflag:
-				v = BytecodeBool(p.hitdef.hitflag&fl != 0)
-			case OC_ex2_projvar_facing:
-				v = BytecodeFloat(p.facing)
-			case OC_ex2_projvar_drawpal_group:
-				v = BytecodeInt(c.projDrawPal(p)[0])
-			case OC_ex2_projvar_drawpal_index:
-				v = BytecodeInt(c.projDrawPal(p)[1])
 			}
 			break
 		}
@@ -5022,20 +5055,20 @@ func (c *Char) stateChange2() bool {
 }
 
 func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
-	// This is a very specific and undocumented Mugen behavior that probably resulted from Elecbyte misinterpreting fighting games
+	// This is a very specific and undocumented Mugen behavior that was probably superseded by "facep2"
 	// It serves very little purpose while negatively affecting some new Ikemen features like NoTurnTarget
 	// It could be removed in the future
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1755
-	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
-		c.autoTurn()
-	}
+	//if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
+	//	c.autoTurn()
+	//}
 	if anim != -1 {
 		c.changeAnim(anim, c.playerNo, ffx)
 	}
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
 	}
-	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
+	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && (c.minus == 0 || c.minus == 1) {
 		for c.stchtmp && sys.changeStateNest < MaxLoop {
 			c.stateChange2()
 			sys.changeStateNest++
@@ -7461,6 +7494,7 @@ func (c *Char) posUpdate() {
 			}
 		}
 	}
+
 	// Check if character is bound
 	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
@@ -7470,6 +7504,7 @@ func (c *Char) posUpdate() {
 			c.oldPos[i], c.interPos[i] = c.pos[i], c.pos[i]
 		}
 	}
+
 	// Offset position when character is hit off the ground
 	// This used to be in actionPrepare(), which would be ideal, but that caused https://github.com/ikemen-engine/Ikemen-GO/issues/2188
 	if c.downHitOffset {
@@ -7481,12 +7516,13 @@ func (c *Char) posUpdate() {
 		}
 		c.downHitOffset = false
 	}
+
+	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
-		// Apply velocity
 		if nobind[0] {
 			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
 		}
@@ -7496,30 +7532,34 @@ func (c *Char) posUpdate() {
 		if nobind[2] {
 			c.setPosZ(c.oldPos[2] + c.vel[2])
 		}
-		// Apply physics types
-		switch c.ss.physics {
-		case ST_S:
-			c.vel[0] *= c.gi().movement.stand.friction
-			if AbsF(c.vel[0]) < 1 {
-				c.vel[0] = 0
-			}
-			c.vel[2] *= c.gi().movement.stand.friction
-			if AbsF(c.vel[2]) < 1 {
-				c.vel[2] = 0
-			}
-		case ST_C:
-			c.vel[0] *= c.gi().movement.crouch.friction
-			c.vel[2] *= c.gi().movement.crouch.friction
-		case ST_A:
-			c.gravity()
-		}
 	}
+
+	// Apply physics types
+	switch c.ss.physics {
+	case ST_S:
+		c.vel[0] *= c.gi().movement.stand.friction
+		if AbsF(c.vel[0]) < 1 {
+			c.vel[0] = 0
+		}
+		c.vel[2] *= c.gi().movement.stand.friction
+		if AbsF(c.vel[2]) < 1 {
+			c.vel[2] = 0
+		}
+	case ST_C:
+		c.vel[0] *= c.gi().movement.crouch.friction
+		c.vel[2] *= c.gi().movement.crouch.friction
+	case ST_A:
+		c.gravity()
+	}
+
+	// Apply friction to corner push
 	if sys.supertime == 0 {
 		c.cornerVelOff *= friction
 		if AbsF(c.cornerVelOff) < 1 {
 			c.cornerVelOff = 0
 		}
 	}
+
 	c.bindPosAdd = [...]float32{0, 0, 0}
 }
 
@@ -9009,7 +9049,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 }
 
 func (c *Char) actionPrepare() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	c.pauseBool = false
@@ -9114,7 +9154,7 @@ func (c *Char) actionPrepare() {
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
 			c.unsetCSF(CSF_angledraw | CSF_trans)
-			c.scale = [...]float32{1, 1}
+			c.angleDrawScale = [2]float32{1, 1}
 			c.offset = [2]float32{}
 			// Reset all AssertSpecial flags except the following, which are reset elsewhere in the code
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
@@ -9122,7 +9162,7 @@ func (c *Char) actionPrepare() {
 		}
 		// The flags below also reset during hitpause, but are new to Ikemen and don't need the exception above
 		// Reset Clsn modifiers
-		c.clsnScaleMul = [...]float32{1.0, 1.0}
+		c.clsnScaleMul = [2]float32{1.0, 1.0}
 		c.clsnAngle = 0
 		// Reset modifyShadow
 		c.shadowColor = [3]int32{-1, -1, -1}
@@ -9153,7 +9193,7 @@ func (c *Char) actionPrepare() {
 }
 
 func (c *Char) actionRun() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	// Run state -4
@@ -9216,13 +9256,10 @@ func (c *Char) actionRun() {
 		}
 	}
 	// Run state +1
-	// Uses minus -4 because its properties are similar
-	c.minus = -4
+	c.minus = 1
 	if sb, ok := c.gi().states[-10]; ok {
 		sb.run(c)
 	}
-	// Set minus back to normal
-	c.minus = 0
 	// If State +1 changed the current state, run the next one as well
 	if !c.pauseBool && c.stchtmp {
 		c.stateChange2()
@@ -9392,12 +9429,12 @@ func (c *Char) actionRun() {
 			}
 		}
 	}
-	c.minus = 1
+	c.minus = 2
 	c.acttmp += int8(Btoi(!c.pause() && !c.hitPause())) - int8(Btoi(c.hitPause()))
 }
 
 func (c *Char) actionFinish() {
-	if c.minus < 1 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus < 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	if !c.pauseBool {
@@ -9447,7 +9484,7 @@ func (c *Char) actionFinish() {
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)
 	}
-	c.minus = 1
+	c.minus = 2
 }
 
 func (c *Char) track() {
@@ -9998,8 +10035,8 @@ func (c *Char) cueDraw() {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
 			c.interPos[1]*c.localscl + c.offsetY()*c.localscl}
 
-		scl := [...]float32{c.facing * (c.size.xscale * c.scale[0]) * c.zScale * (320 / c.localcoord),
-			(c.size.yscale * c.scale[1]) * c.zScale * (320 / c.localcoord)}
+		scl := [2]float32{c.facing * c.size.xscale * c.angleDrawScale[0] * c.zScale * (320 / c.localcoord),
+			c.size.yscale * c.angleDrawScale[1] * c.zScale * (320 / c.localcoord)}
 
 		// Apply Z axis perspective
 		if sys.zEnabled() {
@@ -10155,7 +10192,7 @@ func (c *Char) cueDraw() {
 		}
 	}
 	if sys.tickNextFrame() {
-		c.minus = 2
+		c.minus = 3
 		c.oldPos = c.pos
 		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}
@@ -11247,7 +11284,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 	// Search valid enemies
 	for _, e := range cl.runOrder {
-		if e.playerFlag && e.teamside >= 0 && e.teamside != c.teamside && !e.scf(SCF_disabled) {
+		if e.playerFlag && c.isEnemyOf(e) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				addEnemy(e, 0)

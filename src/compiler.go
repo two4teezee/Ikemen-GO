@@ -1113,8 +1113,6 @@ func (c *Compiler) oneArg(out *BytecodeExp, in *string,
 
 // Read with two optional arguments
 // Currently only for IsHelper
-// Read with two optional arguments
-// Currently only for IsHelper
 func (c *Compiler) twoOptArg(out *BytecodeExp, in *string,
 	rd, appendVal bool, defval ...BytecodeValue) (BytecodeValue, BytecodeValue, error) {
 
@@ -2253,63 +2251,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		vname := c.token
 
 		switch vname {
-		case "anim":
-			opc = OC_ex2_explodvar_anim
-		case "animelem":
-			opc = OC_ex2_explodvar_animelem
-		case "drawpal":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "group":
-				opc = OC_ex2_explodvar_drawpal_group
-			case "index":
-				opc = OC_ex2_explodvar_drawpal_index
-			default:
-				return bvNone(), Error("Invalid data: " + c.token)
-			}
-		case "removetime":
-			opc = OC_ex2_explodvar_removetime
-		case "pausemovetime":
-			opc = OC_ex2_explodvar_pausemovetime
-		case "sprpriority":
-			opc = OC_ex2_explodvar_sprpriority
-		case "layerno":
-			opc = OC_ex2_explodvar_layerno
-		case "id":
-			opc = OC_ex2_explodvar_id
-		case "bindtime":
-			opc = OC_ex2_explodvar_bindtime
-		case "time":
-			opc = OC_ex2_explodvar_time
-		case "facing":
-			opc = OC_ex2_explodvar_facing
-		case "pos":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_explodvar_pos_x
-			case "y":
-				opc = OC_ex2_explodvar_pos_y
-			case "z":
-				opc = OC_ex2_explodvar_pos_z
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar pos argument: %s", c.token))
-			}
-		case "vel":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_explodvar_vel_x
-			case "y":
-				opc = OC_ex2_explodvar_vel_y
-			case "z":
-				opc = OC_ex2_explodvar_vel_z
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar vel argument: %s", c.token))
-			}
 		case "accel":
 			c.token = c.tokenizer(in)
 
@@ -2323,6 +2264,38 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar accel argument: %s", c.token))
 			}
+		case "angle":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_explodvar_angle_x
+			case "y":
+				opc = OC_ex2_explodvar_angle_y
+			case ")":
+				opc = OC_ex2_explodvar_angle
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", c.token))
+			}
+		case "anim":
+			opc = OC_ex2_explodvar_anim
+		case "animelem":
+			opc = OC_ex2_explodvar_animelem
+		case "bindtime":
+			opc = OC_ex2_explodvar_bindtime
+		case "drawpal":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "group":
+				opc = OC_ex2_explodvar_drawpal_group
+			case "index":
+				opc = OC_ex2_explodvar_drawpal_index
+			default:
+				return bvNone(), Error("Invalid data: " + c.token)
+			}
+		case "facing":
+			opc = OC_ex2_explodvar_facing
 		case "friction":
 			c.token = c.tokenizer(in)
 
@@ -2336,6 +2309,27 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar friction argument: %s", c.token))
 			}
+		case "id":
+			opc = OC_ex2_explodvar_id
+		case "layerno":
+			opc = OC_ex2_explodvar_layerno
+		case "pausemovetime":
+			opc = OC_ex2_explodvar_pausemovetime
+		case "pos":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_explodvar_pos_x
+			case "y":
+				opc = OC_ex2_explodvar_pos_y
+			case "z":
+				opc = OC_ex2_explodvar_pos_z
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar pos argument: %s", c.token))
+			}
+		case "removetime":
+			opc = OC_ex2_explodvar_removetime
 		case "scale":
 			c.token = c.tokenizer(in)
 
@@ -2347,18 +2341,22 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar scale argument: %s", c.token))
 			}
-		case "angle":
+		case "sprpriority":
+			opc = OC_ex2_explodvar_sprpriority
+		case "time":
+			opc = OC_ex2_explodvar_time
+		case "vel":
 			c.token = c.tokenizer(in)
 
 			switch c.token {
 			case "x":
-				opc = OC_ex2_explodvar_angle_x
+				opc = OC_ex2_explodvar_vel_x
 			case "y":
-				opc = OC_ex2_explodvar_angle_y
-			case ")":
-				opc = OC_ex2_explodvar_angle
+				opc = OC_ex2_explodvar_vel_y
+			case "z":
+				opc = OC_ex2_explodvar_vel_z
 			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar angle argument: %s", c.token))
+				return bvNone(), Error(fmt.Sprint("Invalid ExplodVar vel argument: %s", c.token))
 			}
 		case "xshear":
 			opc = OC_ex2_explodvar_xshear
@@ -3050,10 +3048,115 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		isFlag := false
 
 		switch vname {
+		case "accel":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_accel_x
+			case "y":
+				opc = OC_ex2_projvar_accel_y
+			case "z":
+				opc = OC_ex2_projvar_accel_z
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar accel argument: %s", c.token))
+			}
+		case "angle":
+			opc = OC_ex2_projvar_projangle
+		case "anim":
+			opc = OC_ex2_projvar_projanim
+		case "animelem":
+			opc = OC_ex2_projvar_animelem
+		case "drawpal":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "group":
+				opc = OC_ex2_projvar_drawpal_group
+			case "index":
+				opc = OC_ex2_projvar_drawpal_index
+			default:
+				return bvNone(), Error("Invalid data: " + c.token)
+			}
+		case "facing":
+			opc = OC_ex2_projvar_facing
+		case "guardflag":
+			opc = OC_ex2_projvar_guardflag
+			isFlag = true
+		case "highbound":
+			opc = OC_ex2_projvar_highbound
+		case "hitflag":
+			opc = OC_ex2_projvar_hitflag
+			isFlag = true
+		case "lowbound":
+			opc = OC_ex2_projvar_lowbound
+		case "pausemovetime":
+			opc = OC_ex2_projvar_pausemovetime
+		case "pos":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_pos_x
+			case "y":
+				opc = OC_ex2_projvar_pos_y
+			case "z":
+				opc = OC_ex2_projvar_pos_z
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
+			}
+		case "projcancelanim":
+			opc = OC_ex2_projvar_projcancelanim
+		case "projedgebound":
+			opc = OC_ex2_projvar_projedgebound
+		case "projhitanim":
+			opc = OC_ex2_projvar_projhitanim
+		case "projhits":
+			opc = OC_ex2_projvar_projhits
+		case "projhitsmax":
+			opc = OC_ex2_projvar_projhitsmax
+		case "projid":
+			opc = OC_ex2_projvar_projid
+		case "projlayerno":
+			opc = OC_ex2_projvar_projlayerno
+		case "projmisstime":
+			opc = OC_ex2_projvar_projmisstime
+		case "projpriority":
+			opc = OC_ex2_projvar_projpriority
+		case "projremanim":
+			opc = OC_ex2_projvar_projremanim
 		case "projremove":
 			opc = OC_ex2_projvar_projremove
 		case "projremovetime":
 			opc = OC_ex2_projvar_projremovetime
+		case "projsprpriority":
+			opc = OC_ex2_projvar_projsprpriority
+		case "projstagebound":
+			opc = OC_ex2_projvar_projstagebound
+		case "remvelocity":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_remvelocity_x
+			case "y":
+				opc = OC_ex2_projvar_remvelocity_y
+			case "z":
+				opc = OC_ex2_projvar_remvelocity_z
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar remvelocity argument: %s", c.token))
+			}
+		case "scale":
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_projscale_x
+			case "y":
+				opc = OC_ex2_projvar_projscale_y
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar scale argument: %s", c.token))
+			}
 		case "shadow":
 			c.token = c.tokenizer(in)
 
@@ -3067,22 +3170,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ProjVar shadow argument: %s", c.token))
 			}
-		case "projmisstime":
-			opc = OC_ex2_projvar_projmisstime
-		case "projhits":
-			opc = OC_ex2_projvar_projhits
-		case "projhitsmax":
-			opc = OC_ex2_projvar_projhitsmax
-		case "projlayerno":
-			opc = OC_ex2_projvar_projlayerno
-		case "projpriority":
-			opc = OC_ex2_projvar_projpriority
-		case "projhitanim":
-			opc = OC_ex2_projvar_projhitanim
-		case "projremanim":
-			opc = OC_ex2_projvar_projremanim
-		case "projcancelanim":
-			opc = OC_ex2_projvar_projcancelanim
+		case "supermovetime":
+			opc = OC_ex2_projvar_supermovetime
+		case "teamside":
+			opc = OC_ex2_projvar_teamside
+		case "time":
+			opc = OC_ex2_projvar_time
 		case "vel":
 			c.token = c.tokenizer(in)
 
@@ -3109,101 +3202,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			default:
 				return bvNone(), Error(fmt.Sprint("Invalid ProjVar velmul argument: %s", c.token))
 			}
-		case "remvelocity":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_projvar_remvelocity_x
-			case "y":
-				opc = OC_ex2_projvar_remvelocity_y
-			case "z":
-				opc = OC_ex2_projvar_remvelocity_z
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar remvelocity argument: %s", c.token))
-			}
-		case "accel":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_projvar_accel_x
-			case "y":
-				opc = OC_ex2_projvar_accel_y
-			case "z":
-				opc = OC_ex2_projvar_accel_z
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar accel argument: %s", c.token))
-			}
-		case "scale":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_projvar_projscale_x
-			case "y":
-				opc = OC_ex2_projvar_projscale_y
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar scale argument: %s", c.token))
-			}
-		case "angle":
-			opc = OC_ex2_projvar_projangle
 		case "xshear":
 			opc = OC_ex2_projvar_projxshear
-		case "pos":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "x":
-				opc = OC_ex2_projvar_pos_x
-			case "y":
-				opc = OC_ex2_projvar_pos_y
-			case "z":
-				opc = OC_ex2_projvar_pos_z
-			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
-			}
-		case "projsprpriority":
-			opc = OC_ex2_projvar_projsprpriority
-		case "projstagebound":
-			opc = OC_ex2_projvar_projstagebound
-		case "projedgebound":
-			opc = OC_ex2_projvar_projedgebound
-		case "lowbound":
-			opc = OC_ex2_projvar_lowbound
-		case "highbound":
-			opc = OC_ex2_projvar_highbound
-		case "anim":
-			opc = OC_ex2_projvar_projanim
-		case "animelem":
-			opc = OC_ex2_projvar_animelem
-		case "drawpal":
-			c.token = c.tokenizer(in)
-
-			switch c.token {
-			case "group":
-				opc = OC_ex2_projvar_drawpal_group
-			case "index":
-				opc = OC_ex2_projvar_drawpal_index
-			default:
-				return bvNone(), Error("Invalid data: " + c.token)
-			}
-		case "pausemovetime":
-			opc = OC_ex2_projvar_pausemovetime
-		case "projid":
-			opc = OC_ex2_projvar_projid
-		case "supermovetime":
-			opc = OC_ex2_projvar_supermovetime
-		case "teamside":
-			opc = OC_ex2_projvar_teamside
-		case "guardflag":
-			opc = OC_ex2_projvar_guardflag
-			isFlag = true
-		case "hitflag":
-			opc = OC_ex2_projvar_hitflag
-			isFlag = true
-		case "facing":
-			opc = OC_ex2_projvar_facing
 		default:
 			return bvNone(), Error(fmt.Sprint("Invalid ProjVar argument: %s", vname))
 		}

@@ -224,9 +224,9 @@ ignoreHitPause{
 #===============================================================================
 [StateDef -4]
 
-if teamSide = 0 {
+ignoreHitPause if teamSide = 0 {
 	# Do nothing, global code executed by stage
-} else if roundTime = 0 {
+} else if roundState = 0 {
 	map(_iksys_firstAttackFlag) := 0;
 	map(_iksys_counterHitFlag) := 0;
 	map(_iksys_technicalFlag) := 0;
@@ -249,7 +249,7 @@ if teamSide = 0 {
 	map(_iksys_receivedDamageFlag) := 0;
 	map(_iksys_receivedDamageCurr) := 0;
 	map(_iksys_receivedDamageRet) := 0;
-} else ignoreHitPause if roundState >= 2 {
+} else if roundState >= 2 {
 	call IkSys_FirstAttack();
 	call IkSys_CounterHit();
 	call IkSys_Technical();

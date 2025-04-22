@@ -3,9 +3,9 @@
 #===============================================================================
 [StateDef -4]
 
-if !const(Default.Enable.Action) || isHelper || teamSide = 0 {
+ignoreHitPause if !const(Default.Enable.Action) || isHelper || teamSide = 0 {
 	# Do nothing, global code disabled locally or executed by helper or stage
-} else ignoreHitPause if roundState >= 2 {
+} else if roundState >= 2 {
 	# First Attack
 	let ret = call IkSys_FirstAttack();
 	if $ret {

@@ -14,7 +14,7 @@
 
 ignoreHitPause if gameMode = "training" {
 	# Round start reset
-	if roundTime = 0 {
+	if roundState = 0 {
 		powerSet{value: powerMax}
 		map(_iksys_trainingLifeTimer) := 0;
 		map(_iksys_trainingPowerTimer) := 0;
@@ -59,7 +59,7 @@ ignoreHitPause if gameMode = "training" {
 	}
 	# Dummy code
 	if teamSide = 2 && !isHelper {
-		if roundTime = 0 {
+		if roundState = 0 {
 			# Round start reset
 			map(_iksys_trainingAirJumpNum) := 0;
 			map(_iksys_trainingButtonJam) := 0;

@@ -1109,13 +1109,16 @@ func (ai *AfterImage) setPalContrastB(mulb int32) {
 	}
 }
 
+// Set up every frame's PalFX in advance
 func (ai *AfterImage) setupPalFX() {
 	pb := ai.postbright
+
 	if ai.palfx[0].invertblend <= -2 && ai.palfx[0].eInvertall {
 		ai.palfx[0].eInvertblend = 3
 	} else {
 		ai.palfx[0].eInvertblend = ai.palfx[0].invertblend
 	}
+
 	for i := 1; i < len(ai.palfx); i++ {
 		ai.palfx[i].eColor = ai.palfx[i-1].eColor
 		ai.palfx[i].eHue = ai.palfx[i-1].eHue
@@ -1173,8 +1176,10 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
 		return
 	}
+
 	end := Min(sys.cfg.Config.AfterImageMax,
 		(Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap)
+
 	// Decide layering
 	sprs := &sys.spritesLayer0
 	if layer > 0 {
@@ -1182,6 +1187,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 	} else if layer < 0 {
 		sprs = &sys.spritesLayerN1
 	}
+
 	for i := ai.framegap; i <= end; i += ai.framegap {
 		img := &ai.imgs[(ai.imgidx-i)&63]
 		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
@@ -2548,7 +2554,7 @@ func (c *Char) init(n int, idx int32) {
 		mctype:        MC_Hit,
 		ownpal:        true,
 		facing:        1,
-		minus:         3,
+		minus:         2,
 		winquote:      -1,
 		clsnBaseScale: [2]float32{1, 1},
 		clsnScaleMul:  [2]float32{1, 1},
@@ -2686,7 +2692,7 @@ func (c *Char) clearCachedData() {
 	c.inguarddist = false
 	c.p1facing = 0
 	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
+	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
 	c.winquote = -1
 	c.mapArray = make(map[string]float32)
 	c.remapSpr = make(RemapPreset)
@@ -5068,7 +5074,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
 	}
-	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && (c.minus == 0 || c.minus == 1) {
+	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
 		for c.stchtmp && sys.changeStateNest < MaxLoop {
 			c.stateChange2()
 			sys.changeStateNest++
@@ -6905,16 +6911,26 @@ func (c *Char) distZ(opp *Char, oc *Char) float32 {
 	return (opos - cpos) / oc.localscl
 }
 
+// In Mugen, P2BodyDist X does not account for changes in Width like Ikemen does here
 func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
-	// In Mugen P2BodyDist X does not account for changes in Width like Ikemen does here
+	var cw, oppw float32
 	dist := c.distX(opp, oc)
-	var oppw float32
-	if dist == 0 || (dist < 0) != (opp.facing < 0) {
-		oppw = opp.facing * opp.sizeBox[2] * (opp.localscl / oc.localscl)
+
+	// Char reference
+	// The player reference is always the front width but the enemy reference varies
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2432
+	cw = c.sizeBox[2] * c.facing * (c.localscl / oc.localscl)
+
+	// Enemy reference
+	if ((dist * c.facing) >= 0) == (c.facing != opp.facing) {
+		// Use front width
+		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl/oc.localscl)
 	} else {
-		oppw = -opp.facing * opp.sizeBox[0] * (opp.localscl / oc.localscl)
+		// Use back width
+		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl/oc.localscl)
 	}
-	return dist + oppw - c.facing*c.sizeBox[2]*(c.localscl/oc.localscl)
+
+	return dist - cw + oppw
 }
 
 func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
@@ -9049,7 +9065,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 }
 
 func (c *Char) actionPrepare() {
-	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	c.pauseBool = false
@@ -9193,7 +9209,7 @@ func (c *Char) actionPrepare() {
 }
 
 func (c *Char) actionRun() {
-	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	// Run state -4
@@ -9256,10 +9272,13 @@ func (c *Char) actionRun() {
 		}
 	}
 	// Run state +1
-	c.minus = 1
+	// Uses minus -4 because its properties are similar
+	c.minus = -4
 	if sb, ok := c.gi().states[-10]; ok {
 		sb.run(c)
 	}
+	// Set minus back to normal
+	c.minus = 0
 	// If State +1 changed the current state, run the next one as well
 	if !c.pauseBool && c.stchtmp {
 		c.stateChange2()
@@ -9429,12 +9448,12 @@ func (c *Char) actionRun() {
 			}
 		}
 	}
-	c.minus = 2
+	c.minus = 1
 	c.acttmp += int8(Btoi(!c.pause() && !c.hitPause())) - int8(Btoi(c.hitPause()))
 }
 
 func (c *Char) actionFinish() {
-	if c.minus < 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus < 1 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	if !c.pauseBool {
@@ -9484,7 +9503,7 @@ func (c *Char) actionFinish() {
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)
 	}
-	c.minus = 2
+	c.minus = 1
 }
 
 func (c *Char) track() {
@@ -10192,7 +10211,7 @@ func (c *Char) cueDraw() {
 		}
 	}
 	if sys.tickNextFrame() {
-		c.minus = 3
+		c.minus = 2
 		c.oldPos = c.pos
 		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}

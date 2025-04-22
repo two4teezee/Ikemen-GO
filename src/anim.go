@@ -960,9 +960,10 @@ type DrawList []*SprData
 
 func (dl *DrawList) add(sd *SprData) {
 	// Ignore if skipping the frame or adding a blank sprite
-	if sys.frameSkip || sd.isBlank() {
+	if sys.frameSkip || sd == nil || sd.isBlank() {
 		return
 	}
+
 	i, start := 0, 0
 	for l := len(*dl); l > 0; {
 		i = start + l>>1
@@ -983,22 +984,31 @@ func (dl *DrawList) add(sd *SprData) {
 
 func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 	for _, s := range dl {
+		// Skip blank SprData
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433
+		if s.isBlank() {
+			continue
+		}
+
 		s.anim.srcAlpha = int16(s.alpha[0])
 		s.anim.dstAlpha = int16(s.alpha[1])
+
 		ob := sys.brightness
 		if s.undarken {
 			sys.brightness = 256
 		}
+
 		var pos [2]float32
 		cs := cameraScl
 		if s.screen {
-			pos = [...]float32{s.pos[0], s.pos[1] + float32(sys.gameHeight-240)}
+			pos = [2]float32{s.pos[0], s.pos[1] + float32(sys.gameHeight-240)}
 			cs = 1
 		} else {
-			pos = [...]float32{sys.cam.Offset[0]/cs - (cameraX - s.pos[0]),
+			pos = [2]float32{sys.cam.Offset[0]/cs - (cameraX - s.pos[0]),
 				(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/cs -
 					(cameraY/cs - s.pos[1])}
 		}
+
 		// Xshear offset correction
 		xshear := -s.xshear
 		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)

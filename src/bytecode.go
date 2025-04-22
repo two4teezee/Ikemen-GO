@@ -4303,23 +4303,45 @@ const (
 	assertSpecial_flag byte = iota
 	assertSpecial_flag_g
 	assertSpecial_noko
+	assertSpecial_enabled
 	assertSpecial_redirectid
 )
 
 func (sc assertSpecial) Run(c *Char, _ []int32) bool {
 	crun := c
+	enable := true
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case assertSpecial_enabled:
+			enable = exp[0].evalB(c)
 		case assertSpecial_flag:
-			crun.setASF(AssertSpecialFlag(exp[0].evalI64(c)))
+			flag := AssertSpecialFlag(exp[0].evalI64(c))
+			if enable {
+				crun.setASF(flag)
+			} else {
+				crun.unsetASF(flag)
+			}
 		case assertSpecial_flag_g:
-			sys.setGSF(GlobalSpecialFlag(exp[0].evalI(c)))
+			flag := GlobalSpecialFlag(exp[0].evalI64(c))
+			if enable {
+				sys.setGSF(flag)
+			} else {
+				sys.unsetGSF(flag)
+			}
 		case assertSpecial_noko:
 			// NoKO affects all characters in Mugen, so legacy chars do so as well
 			if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-				sys.setGSF(GlobalSpecialFlag(GSF_globalnoko))
+				if enable {
+					sys.setGSF(GlobalSpecialFlag(GSF_globalnoko))
+				} else {
+					sys.unsetGSF(GlobalSpecialFlag(GSF_globalnoko))
+				}
 			} else {
-				crun.setASF(AssertSpecialFlag(ASF_noko))
+				if enable {
+					crun.setASF(AssertSpecialFlag(ASF_noko))
+				} else {
+					crun.unsetASF(AssertSpecialFlag(ASF_noko))
+				}
 			}
 		case assertSpecial_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {

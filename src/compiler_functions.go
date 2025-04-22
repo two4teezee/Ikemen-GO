@@ -105,6 +105,10 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			assertSpecial_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "enabled",
+			assertSpecial_enabled, VT_Bool, 1, false); err != nil {
+			return err
+		}
 		foo := func(data string) error {
 			switch strings.ToLower(data) {
 			// Mugen char flags

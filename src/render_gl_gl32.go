@@ -929,6 +929,7 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	} else if r.useUV {
 		r.useUV = false
 		loc = r.modelShader.a["uv"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
 	if useNormal {
@@ -970,20 +971,26 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 		} else if r.useJoint1 {
 			r.useJoint1 = false
 			loc = r.modelShader.a["joints_1"]
+			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 			loc = r.modelShader.a["weights_1"]
+			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		}
 	} else if r.useJoint0 {
 		r.useJoint0 = false
 		r.useJoint1 = false
 		loc = r.modelShader.a["joints_0"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["weights_0"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["joints_1"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["weights_1"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 }
@@ -1123,6 +1130,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	} else if r.useUV {
 		r.useUV = false
 		loc = r.modelShader.a["uv"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
 	if useNormal {
@@ -1134,6 +1142,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	} else if r.useNormal {
 		r.useNormal = false
 		loc = r.modelShader.a["normalIn"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib3f(uint32(loc), 0, 0, 0)
 	}
 	if useTangent {
@@ -1145,6 +1154,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	} else if r.useTangent {
 		r.useTangent = false
 		loc = r.modelShader.a["tangentIn"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 	if useVertColor {
@@ -1156,6 +1166,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	} else if r.useVertColor {
 		r.useVertColor = false
 		loc = r.modelShader.a["vertColor"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
 	}
 	if useJoint0 {
@@ -1181,20 +1192,26 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 		} else if r.useJoint1 {
 			r.useJoint1 = false
 			loc = r.modelShader.a["joints_1"]
+			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 			loc = r.modelShader.a["weights_1"]
+			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		}
 	} else if r.useJoint0 {
 		r.useJoint0 = false
 		r.useJoint1 = false
 		loc = r.modelShader.a["joints_0"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["weights_0"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["joints_1"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		loc = r.modelShader.a["weights_1"]
+		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 }

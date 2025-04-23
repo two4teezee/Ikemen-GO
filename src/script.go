@@ -3641,6 +3641,8 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(sys.envShake.freq / float32(math.Pi) * 180)
 		case "ampl":
 			ln = lua.LNumber(sys.envShake.ampl)
+		case "dir":
+			ln = lua.LNumber(sys.envShake.dir / float32(math.Pi) * 180)
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -3820,7 +3822,7 @@ func triggerFunctions(l *lua.LState) {
 		var ln lua.LNumber
 		switch strings.ToLower(strArg(l, 1)) {
 		case "fall.envshake.dir":
-			ln = lua.LNumber(0)
+			ln = lua.LNumber(c.ghv.fall_envshake_dir)
 		case "animtype":
 			ln = lua.LNumber(c.gethitAnimtype())
 		case "air.animtype":

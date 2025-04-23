@@ -6995,7 +6995,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 	case hitDef_envshake_mul:
 		hd.envshake_mul = exp[0].evalF(c)
 	case hitDef_envshake_dir:
-		hd.envshake_dir = float32(exp[0].evalF(c) * (math.Pi/180))
+		hd.envshake_dir = exp[0].evalF(c)
 	case hitDef_fall_envshake_time:
 		hd.fall_envshake_time = exp[0].evalI(c)
 	case hitDef_fall_envshake_ampl:
@@ -7007,7 +7007,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 	case hitDef_fall_envshake_mul:
 		hd.fall_envshake_mul = exp[0].evalF(c)
 	case hitDef_fall_envshake_dir:
-		hd.fall_envshake_dir = float32(exp[0].evalF(c) * (math.Pi/180))
+		hd.fall_envshake_dir = exp[0].evalF(c)
 	case hitDef_dizzypoints:
 		hd.dizzypoints = Max(IErr+1, exp[0].evalI(c))
 	case hitDef_guardpoints:
@@ -12766,7 +12766,7 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 		case getHitVarSet_fall_envshake_mul:
 			crun.ghv.fall_envshake_mul = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_dir:
-			crun.ghv.fall_envshake_dir = float32(exp[0].evalF(c) * (math.Pi/180))
+			crun.ghv.fall_envshake_dir = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_phase:
 			crun.ghv.fall_envshake_phase = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_time:

@@ -3760,7 +3760,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_envshakevar_dir:
 		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex2_gethitvar_fall_envshake_dir:
-		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
+		sys.bcStack.PushF(c.ghv.fall_envshake_dir / float32(math.Pi) * 180)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

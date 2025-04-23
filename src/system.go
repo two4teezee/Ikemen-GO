@@ -3642,12 +3642,9 @@ func (es *EnvShake) next() {
 
 func (es *EnvShake) getOffset() [2]float32 {
 	if es.time > 0 {
-		offset := (es.ampl * float32(math.Sin(float64(es.phase))))
-		// I could have put the correction in EnvShake's bytecode,
-		// but I would have to edit HitDef and FallEnvShake and char...
-		dir := es.dir - (math.Pi/2)
-		return [2]float32{offset * float32(math.Cos(float64(dir))),
-			offset * float32(math.Sin(float64(dir)))}
+		offset := -(es.ampl * float32(math.Sin(float64(es.phase))))
+		return [2]float32{offset * float32(math.Sin(float64(-es.dir))),
+			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
 }

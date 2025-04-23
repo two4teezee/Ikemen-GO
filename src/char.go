@@ -3055,8 +3055,16 @@ func (c *Char) load(def string) error {
 						if is.ReadI32("volumescale", &i32) {
 							gi.data.volume = i32 * 64 / 25
 						}
-						is.ReadI32("intpersistindex", &gi.data.intpersistindex)
-						is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						if _, ok := is["intpersistindex"]; ok {
+							// We set these to 0 first in case the value turns out to be empty
+							// https://github.com/ikemen-engine/Ikemen-GO/issues/2422
+							gi.data.intpersistindex = 0
+							is.ReadI32("intpersistindex", &gi.data.intpersistindex)
+						}
+						if _, ok := is["floatpersistindex"]; ok {
+							gi.data.floatpersistindex = 0
+							is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						}
 					}
 				case "size":
 					if size {

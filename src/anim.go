@@ -1004,8 +1004,9 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			pos = [2]float32{s.pos[0], s.pos[1] + float32(sys.gameHeight-240)}
 			cs = 1
 		} else {
-			pos = [2]float32{sys.cam.Offset[0]/cs - (cameraX - s.pos[0]),
-				(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/cs -
+			es := sys.envShake.getOffset()
+			pos = [2]float32{(sys.cam.Offset[0]-es[0])/cs - (cameraX - s.pos[0]),
+				(sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]))/cs -
 					(cameraY/cs - s.pos[1])}
 		}
 
@@ -1164,6 +1165,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		drawwindow := &sys.scrrect
+		es := sys.envShake.getOffset()
 		// TODO: If the char has an active window sctrl, shadows should also be affected, in addition to the stage window
 		if sys.stage.sdw.window != [4]float32{0, 0, 0, 0} || s.shadowWindow != [4]float32{0, 0, 0, 0} {
 			var w [4]float32
@@ -1187,8 +1189,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 				w[i] *= sys.stage.localscl
 			}
 
-			window[0] = int32((sys.cam.Offset[0] - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[0] = int32(((sys.cam.Offset[0]-es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
 
@@ -1196,8 +1198,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		s.anim.ShadowDraw(drawwindow,
-			sys.cam.Offset[0]-((x-s.pos[0]-offsetX)*scl),
-			sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset()-y-(s.pos[1]*yscale-offsetY)*scl,
+			(sys.cam.Offset[0]-es[0])-((x-s.pos[0]-offsetX)*scl),
+			sys.cam.GroundLevel()+(sys.cam.Offset[1]-es[1])-y-(s.pos[1]*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			yscale, xshear, s.rot,
 			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, s.projection, s.fLength)
@@ -1284,6 +1286,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		}
 
 		drawwindow := &sys.scrrect
+		es := sys.envShake.getOffset()
 		// TODO: If the char has an active window sctrl, reflections should also be affected, in addition to the stage window
 		if sys.stage.reflection.window != [4]float32{0, 0, 0, 0} || s.reflectWindow != [4]float32{0, 0, 0, 0} {
 			var w [4]float32
@@ -1307,8 +1310,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 				w[i] *= sys.stage.localscl
 			}
 
-			window[0] = int32((sys.cam.Offset[0] - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + sys.cam.Offset[1] - sys.envShake.getOffset() - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[0] = int32(((sys.cam.Offset[0]-es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
 
@@ -1316,8 +1319,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		}
 
 		s.anim.Draw(drawwindow,
-			sys.cam.Offset[0]/scl-(x-s.pos[0]-offsetX),
-			(sys.cam.GroundLevel()+sys.cam.Offset[1]-sys.envShake.getOffset())/scl-y/scl-(s.pos[1]*yscale-offsetY),
+			(sys.cam.Offset[0]-es[0])/scl-(x-s.pos[0]-offsetX),
+			(sys.cam.GroundLevel()+sys.cam.Offset[1]-es[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*yscale, xshear, s.rot, float32(sys.gameWidth)/2,
 			s.fx, s.oldVer, s.facing, s.airOffsetFix, s.projection, s.fLength, color, true)

@@ -1739,7 +1739,8 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	if s.hires {
 		bgscl = 0.5
 	}
-	yofs, pos := sys.envShake.getOffset(), [...]float32{x, y}
+	ofs := sys.envShake.getOffset()
+	pos := [...]float32{x, y}
 	scl2 := s.localscl * scl
 	// This code makes the background scroll faster when surpassing boundhigh with the camera pushed down
 	// through floortension and boundlow. MUGEN 1.1 doesn't look like it does this, so it was commented.
@@ -1748,12 +1749,12 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	// extraBoundH = sys.cam.ExtraBoundH * ((1/scl)-1)/((1/sys.cam.zoomout)-1)
 	// }
 	// if pos[1] <= float32(s.stageCamera.boundlow) && pos[1] < float32(s.stageCamera.boundhigh)-extraBoundH {
-	// yofs += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
+	// ofs[1] += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
 	// extraBoundH*scl
 	// pos[1] = float32(s.stageCamera.boundhigh) - extraBoundH/s.localscl
 	// }
-	if yofs != 0 && s.stageCamera.verticalfollow > 0 {
-		if yofs < 0 {
+	if ofs[1] != 0 && s.stageCamera.verticalfollow > 0 {
+		if ofs[1] < 0 {
 			tmp := (float32(s.stageCamera.boundhigh) - pos[1]) * scl2
 			if scl > 1 {
 				tmp += (sys.cam.GroundLevel() + float32(sys.gameHeight-240)) * (1/scl - 1)
@@ -1761,29 +1762,30 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 				tmp += float32(sys.gameHeight) * (1/scl - 1)
 			}
 			if tmp >= 0 {
-			} else if yofs < tmp {
-				yofs -= tmp
+			} else if ofs[1] < tmp {
+				ofs[1] -= tmp
 				pos[1] += tmp / scl2
 			} else {
-				pos[1] += yofs / scl2
-				yofs = 0
+				pos[1] += ofs[1] / scl2
+				ofs[1] = 0
 			}
 		} else {
-			if -yofs >= pos[1]*scl2 {
-				pos[1] += yofs / scl2
-				yofs = 0
+			if -ofs[1] >= pos[1]*scl2 {
+				pos[1] += ofs[1] / scl2
+				ofs[1] = 0
 			}
 		}
 	}
+	pos[0] += ofs[0] / scl2
 	if !sys.cam.ZoomEnable {
 		for i, p := range pos {
 			pos[i] = float32(math.Ceil(float64(p - 0.5)))
 		}
 	}
-	s.drawModel(pos, yofs, scl, layer)
+	s.drawModel(pos, ofs[1], scl, layer)
 	for _, b := range s.bg {
 		if b.layerno == layer && b.visible && b.anim.spr != nil {
-			b.draw(pos, scl, bgscl, s.localscl, s.scale, yofs, true)
+			b.draw(pos, scl, bgscl, s.localscl, s.scale, ofs[1], true)
 		}
 	}
 	BlendReset()

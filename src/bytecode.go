@@ -926,6 +926,8 @@ const (
 	OC_ex2_stagebgvar_velocity_x
 	OC_ex2_stagebgvar_velocity_y
 	OC_ex2_numstagebg
+	OC_ex2_envshakevar_dir
+	OC_ex2_gethitvar_fall_envshake_dir
 )
 
 type StringPool struct {
@@ -3755,6 +3757,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex2_numstagebg:
 		*sys.bcStack.Top() = c.numStageBG(*sys.bcStack.Top())
+	case OC_ex2_envshakevar_dir:
+		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
+	case OC_ex2_gethitvar_fall_envshake_dir:
+		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -6670,11 +6676,13 @@ const (
 	hitDef_envshake_phase
 	hitDef_envshake_freq
 	hitDef_envshake_mul
+	hitDef_envshake_dir
 	hitDef_fall_envshake_time
 	hitDef_fall_envshake_ampl
 	hitDef_fall_envshake_phase
 	hitDef_fall_envshake_freq
 	hitDef_fall_envshake_mul
+	hitDef_fall_envshake_dir
 	hitDef_dizzypoints
 	hitDef_guardpoints
 	hitDef_redlife
@@ -6986,6 +6994,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.envshake_phase = exp[0].evalF(c)
 	case hitDef_envshake_mul:
 		hd.envshake_mul = exp[0].evalF(c)
+	case hitDef_envshake_dir:
+		hd.envshake_dir = exp[0].evalF(c)
 	case hitDef_fall_envshake_time:
 		hd.fall_envshake_time = exp[0].evalI(c)
 	case hitDef_fall_envshake_ampl:
@@ -6996,6 +7006,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.fall_envshake_phase = exp[0].evalF(c)
 	case hitDef_fall_envshake_mul:
 		hd.fall_envshake_mul = exp[0].evalF(c)
+	case hitDef_fall_envshake_dir:
+		hd.fall_envshake_dir = exp[0].evalF(c)
 	case hitDef_dizzypoints:
 		hd.dizzypoints = Max(IErr+1, exp[0].evalI(c))
 	case hitDef_guardpoints:
@@ -8294,6 +8306,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				eachProj(func(p *Projectile) {
 					p.hitdef.envshake_mul = v1
 				})
+			case hitDef_envshake_dir:
+				v1 := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.hitdef.envshake_dir = v1
+				})
 			case hitDef_fall_envshake_time:
 				v1 := exp[0].evalI(c)
 				eachProj(func(p *Projectile) {
@@ -8318,6 +8335,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
 					p.hitdef.fall_envshake_mul = v1
+				})
+			case hitDef_fall_envshake_dir:
+				v1 := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.hitdef.fall_envshake_dir = v1
 				})
 			case hitDef_dizzypoints:
 				v1 := Max(IErr+1, exp[0].evalI(c))
@@ -9177,6 +9199,7 @@ const (
 	envShake_freq
 	envShake_mul
 	envShake_phase
+	envShake_dir
 )
 
 func (sc envShake) Run(c *Char, _ []int32) bool {
@@ -9195,6 +9218,8 @@ func (sc envShake) Run(c *Char, _ []int32) bool {
 			sys.envShake.phase = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		case envShake_mul:
 			sys.envShake.mul = exp[0].evalF(c)
+		case envShake_dir:
+			sys.envShake.dir = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		}
 		return true
 	})
@@ -9935,7 +9960,8 @@ func (sc fallEnvShake) Run(c *Char, _ []int32) bool {
 					freq:  crun.ghv.fall_envshake_freq * math.Pi / 180,
 					ampl:  float32(crun.ghv.fall_envshake_ampl) * c.localscl,
 					phase: crun.ghv.fall_envshake_phase,
-					mul:   crun.ghv.fall_envshake_mul}
+					mul:   crun.ghv.fall_envshake_mul,
+					dir:   crun.ghv.fall_envshake_dir}
 				sys.envShake.setDefaultPhase()
 				crun.ghv.fall_envshake_time = 0
 			}
@@ -12684,6 +12710,7 @@ const (
 	getHitVarSet_fall_envshake_mul
 	getHitVarSet_fall_envshake_phase
 	getHitVarSet_fall_envshake_time
+	getHitVarSet_fall_envshake_dir
 	getHitVarSet_fall_kill
 	getHitVarSet_fall_recover
 	getHitVarSet_fall_recovertime
@@ -12738,6 +12765,8 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.fall_envshake_freq = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_mul:
 			crun.ghv.fall_envshake_mul = exp[0].evalF(c)
+		case getHitVarSet_fall_envshake_dir:
+			crun.ghv.fall_envshake_dir = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_phase:
 			crun.ghv.fall_envshake_phase = exp[0].evalF(c)
 		case getHitVarSet_fall_envshake_time:

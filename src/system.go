@@ -3605,11 +3605,16 @@ type EnvShake struct {
 	ampl  float32
 	phase float32
 	mul   float32
+	dir   float32 // rad, for ampl=-4:  0: down first, 90: left first, 180: up first, 270: right first
 }
 
 func (es *EnvShake) clear() {
-	*es = EnvShake{freq: float32(math.Pi / 3), ampl: -4.0,
-		phase: float32(math.NaN()), mul: 1.0}
+	*es = EnvShake{
+		freq: float32(math.Pi / 3),
+		ampl: -4.0,
+		phase: float32(math.NaN()),
+		mul: 1.0,
+		dir: 0.0}
 }
 
 func (es *EnvShake) setDefaultPhase() {
@@ -3635,9 +3640,14 @@ func (es *EnvShake) next() {
 	}
 }
 
-func (es *EnvShake) getOffset() float32 {
+func (es *EnvShake) getOffset() [2]float32 {
 	if es.time > 0 {
-		return es.ampl * float32(math.Sin(float64(es.phase)))
+		offset := (es.ampl * float32(math.Sin(float64(es.phase))))
+		// I could have put the correction in EnvShake's bytecode,
+		// but I would have to edit HitDef and FallEnvShake and char...
+		dir := es.dir - (math.Pi/2)
+		return [2]float32{offset * float32(math.Cos(float64(dir))),
+			offset * float32(math.Sin(float64(dir)))}
 	}
-	return 0
+	return [2]float32{0, 0}
 }

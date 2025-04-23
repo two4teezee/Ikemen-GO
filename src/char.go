@@ -596,6 +596,7 @@ type HitDef struct {
 	envshake_ampl              int32
 	envshake_phase             float32
 	envshake_mul               float32
+	envshake_dir               float32
 	mindist                    [3]float32
 	maxdist                    [3]float32
 	snap                       [3]float32
@@ -613,6 +614,7 @@ type HitDef struct {
 	fall_envshake_ampl         int32
 	fall_envshake_phase        float32
 	fall_envshake_mul          float32
+	fall_envshake_dir          float32
 	playerNo                   int
 	kill                       bool
 	guard_kill                 bool
@@ -704,6 +706,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		envshake_ampl:       -4,
 		envshake_phase:      float32(math.NaN()),
 		envshake_mul:        1.0,
+		envshake_dir:        0.0,
 		mindist:             [...]float32{float32(math.NaN()), float32(math.NaN()), float32(math.NaN())},
 		maxdist:             [...]float32{float32(math.NaN()), float32(math.NaN()), float32(math.NaN())},
 		snap:                [...]float32{float32(math.NaN()), float32(math.NaN()), float32(math.NaN())},
@@ -731,6 +734,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		fall_envshake_ampl:  IErr,
 		fall_envshake_phase: float32(math.NaN()),
 		fall_envshake_mul:   1.0,
+		fall_envshake_dir:   0.0,
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
 	}
 
@@ -803,6 +807,7 @@ type GetHitVar struct {
 	fall_envshake_ampl  int32
 	fall_envshake_phase float32
 	fall_envshake_mul   float32
+	fall_envshake_dir   float32
 	playerId            int32
 	playerNo            int
 	fallflag            bool
@@ -8508,6 +8513,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.fall_envshake_ampl = int32(float32(hd.fall_envshake_ampl) * scaleratio)
 				ghv.fall_envshake_phase = hd.fall_envshake_phase
 				ghv.fall_envshake_mul = hd.fall_envshake_mul
+				ghv.fall_envshake_dir = hd.fall_envshake_dir
 
 				if getter.ss.stateType == ST_A {
 					ghv.hittime = hd.air_hittime
@@ -9035,6 +9041,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			sys.envShake.ampl = float32(int32(float32(hd.envshake_ampl) * c.localscl))
 			sys.envShake.phase = hd.envshake_phase
 			sys.envShake.mul = hd.envshake_mul
+			sys.envShake.dir = hd.envshake_dir
 			sys.envShake.setDefaultPhase()
 		}
 		// Cornerpush on hit
@@ -10655,6 +10662,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								getter.ghv.fall_envshake_ampl = int32(float32(c.hitdef.fall_envshake_ampl) * scaleratio)
 								getter.ghv.fall_envshake_phase = c.hitdef.fall_envshake_phase
 								getter.ghv.fall_envshake_mul = c.hitdef.fall_envshake_mul
+								getter.ghv.fall_envshake_dir = c.hitdef.fall_envshake_dir
 
 								getter.ghv.down_recover = c.hitdef.down_recover
 								if c.hitdef.down_recovertime < 0 {

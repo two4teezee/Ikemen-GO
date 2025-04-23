@@ -3760,7 +3760,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_envshakevar_dir:
 		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex2_gethitvar_fall_envshake_dir:
-		sys.bcStack.PushF(c.ghv.fall_envshake_dir / float32(math.Pi) * 180)
+		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -9961,7 +9961,7 @@ func (sc fallEnvShake) Run(c *Char, _ []int32) bool {
 					ampl:  float32(crun.ghv.fall_envshake_ampl) * c.localscl,
 					phase: crun.ghv.fall_envshake_phase,
 					mul:   crun.ghv.fall_envshake_mul,
-					dir:   crun.ghv.fall_envshake_dir}
+					dir:   crun.ghv.fall_envshake_dir * float32(math.Pi) / 180}
 				sys.envShake.setDefaultPhase()
 				crun.ghv.fall_envshake_time = 0
 			}

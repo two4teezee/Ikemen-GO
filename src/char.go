@@ -8513,7 +8513,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.fall_envshake_ampl = int32(float32(hd.fall_envshake_ampl) * scaleratio)
 				ghv.fall_envshake_phase = hd.fall_envshake_phase
 				ghv.fall_envshake_mul = hd.fall_envshake_mul
-				ghv.fall_envshake_dir = hd.fall_envshake_dir * float32(math.Pi) / 180
+				ghv.fall_envshake_dir = hd.fall_envshake_dir
 
 				if getter.ss.stateType == ST_A {
 					ghv.hittime = hd.air_hittime
@@ -10662,7 +10662,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								getter.ghv.fall_envshake_ampl = int32(float32(c.hitdef.fall_envshake_ampl) * scaleratio)
 								getter.ghv.fall_envshake_phase = c.hitdef.fall_envshake_phase
 								getter.ghv.fall_envshake_mul = c.hitdef.fall_envshake_mul
-								getter.ghv.fall_envshake_dir = c.hitdef.fall_envshake_dir * float32(math.Pi) / 180
+								getter.ghv.fall_envshake_dir = c.hitdef.fall_envshake_dir
 
 								getter.ghv.down_recover = c.hitdef.down_recover
 								if c.hitdef.down_recovertime < 0 {

@@ -475,7 +475,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	hb.bg2.Action()
 	hb.top.Action()
 	hb.mid.Action()
-
+	hb.value.step()
 	// Multiple front elements - red life
 	if sys.lifebar.redlifebar {
 		var rv int32
@@ -759,7 +759,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pb.bg2.Action()
 	pb.top.Action()
 	pb.mid.Action()
-
+	pb.value.step()
 	// Multiple front elements
 	var fv2 int32
 	for k := range pb.front {
@@ -1202,7 +1202,7 @@ func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
 	sb.bg2.Action()
 	sb.top.Action()
 	sb.mid.Action()
-
+	sb.value.step()
 	// Multiple front elements
 	var mv float32
 	for k := range sb.front {
@@ -1575,6 +1575,8 @@ func (nm *LifeBarName) step() {
 	nm.bg.Action()
 	nm.teammate_bg.Action()
 	nm.top.Action()
+	nm.name.step()
+	nm.teammate_name.step()
 }
 
 func (nm *LifeBarName) reset() {
@@ -1828,7 +1830,7 @@ type LifeBarCombo struct {
 	counter_shake  bool
 	counter_time   int32
 	counter_mult   float32
-	text           LbText
+	text           map[int32]*LbText
 	bg             AnimLayout
 	top            AnimLayout
 	displaytime    int32
@@ -1844,6 +1846,7 @@ type LifeBarCombo struct {
 	shaketime      int32
 	combo          int32
 	tracker        int32
+	autoalign      bool
 }
 
 func newLifeBarCombo() *LifeBarCombo {
@@ -1854,6 +1857,8 @@ func newLifeBarCombo() *LifeBarCombo {
 		counter:      make(map[int32]*LbText),
 		counter_time: 7, 
 		counter_mult: 1.0 / 20,
+		text:         make(map[int32]*LbText),
+		autoalign:    true,
 	}
 }
 
@@ -1885,7 +1890,10 @@ func readLifeBarCombo(pre string, is IniSection,
 	is.ReadBool(pre+"counter.shake", &co.counter_shake)
 	is.ReadI32(pre+"counter.time", &co.counter_time)
 	is.ReadF32(pre+"counter.mult", &co.counter_mult)
-	co.text = *readLbText(pre+"text.", is, "", 2, f, align)
+	co.text[0] = readLbText(pre+"text.", is, "", 2, f, align)
+	for k, v := range readMultipleLbText(pre, "text", is, "", f, align) {
+		co.text[k] = v
+	}
 	co.bg = *ReadAnimLayout(pre+"bg0.", is, sff, at, 0)
 	co.top = *ReadAnimLayout(pre+"top.", is, sff, at, 0)
 	is.ReadI32(pre+"displaytime", &co.displaytime)
@@ -1894,6 +1902,7 @@ func readLifeBarCombo(pre string, is IniSection,
 	is.ReadF32(pre+"hidespeed", &co.hidespeed)
 	co.separator, _, _ = is.getText("format.decimal.separator")
 	is.ReadI32("format.decimal.places", &co.places)
+	is.ReadBool(pre+"autoalign", &co.autoalign)
 	return co
 }
 
@@ -1931,6 +1940,9 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 			for i := range co.counter {
 				co.counter[i].resetTxtPfx()
 			}
+			for i := range co.text {
+				co.text[i].resetTxtPfx()
+			}
 			co.curhit = combo
 			co.curdmg = damage
 			co.curpct = percentage
@@ -1953,11 +1965,17 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 		}
 	}
 
+	// Multiple text fonts
+	var tv int32
+	for k := range co.text {
+		if k > tv && co.tracker >= k {
+			tv = k
+		}
+	}
+	
 	if co.counterX != co.start_x * 2 {
 		co.counter[cv].step()
-		co.text.step()
-	} else {
-		co.text.resetTxtPfx()
+		co.text[tv].step()
 	}
 }
 
@@ -1977,15 +1995,32 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 	if co.resttime <= 0 && co.counterX == co.start_x*2 {
 		return
 	}
-	counter := strings.Replace(co.counter[0].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
+
+	// Multiple counter fonts according to combo hits
+	var cv int32
+	for k := range co.counter {
+		if k > cv && co.tracker >= k {
+			cv = k
+		}
+	}
+
+	// Multiple text fonts according to combo hits
+	var tv int32
+	for k := range co.text {
+		if k > tv && co.tracker >= k {
+			tv = k
+		}
+	}
+
+	counter := strings.Replace(co.counter[cv].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
 	x := float32(co.pos[0])
 	if side == 0 {
 		if co.start_x <= 0 {
 			x += co.counterX
 		}
-		if co.counter[0].font[0] >= 0 && int(co.counter[0].font[0]) < len(f) && f[co.counter[0].font[0]] != nil {
-			x += float32(f[co.counter[0].font[0]].TextWidth(counter, co.counter[0].font[1])) *
-				co.counter[0].lay.scale[0] * sys.lifebar.fnt_scale
+		if co.counter[cv].font[0] >= 0 && int(co.counter[cv].font[0]) < len(f) && f[co.counter[cv].font[0]] != nil && co.autoalign {
+			x += float32(f[co.counter[cv].font[0]].TextWidth(counter, co.counter[cv].font[1])) *
+				co.counter[cv].lay.scale[0] * sys.lifebar.fnt_scale
 		}
 	} else {
 		if co.start_x <= 0 {
@@ -1994,8 +2029,8 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 	}
 	co.bg.Draw(x+sys.lifebarOffsetX, float32(co.pos[1]), layerno, sys.lifebarScale)
 	var length float32
-	if co.text.font[0] >= 0 && int(co.text.font[0]) < len(f) && f[co.text.font[0]] != nil {
-		text := strings.Replace(co.text.text, "%i", fmt.Sprintf("%v", co.curhit), 1)
+	if co.text[tv].font[0] >= 0 && int(co.text[tv].font[0]) < len(f) && f[co.text[tv].font[0]] != nil {
+		text := strings.Replace(co.text[tv].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
 		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.curdmg), 1)
 		// Truncate the percentage to avoid rounding to 100% unless the enemy is defeated
 		truncatedPct := math.Floor(float64(co.curpct)*math.Pow10(int(co.places))) / math.Pow10(int(co.places))
@@ -2011,28 +2046,21 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 		text = strings.Replace(text, "%p", s[0], 1)
 		// Split on new line
 		for k, v := range strings.Split(text, "\\n") {
-			if side == 1 {
-				if lt := float32(f[co.text.font[0]].TextWidth(v, co.text.font[1])) * co.text.lay.scale[0] * sys.lifebar.fnt_scale; lt > length {
+			if side == 1 && co.autoalign {
+				if lt := float32(f[co.text[tv].font[0]].TextWidth(v, co.text[tv].font[1])) * co.text[tv].lay.scale[0] * sys.lifebar.fnt_scale; lt > length {
 					length = lt
 				}
 			}
-			co.text.lay.DrawText(x+sys.lifebarOffsetX, float32(co.pos[1])+
-				float32(k)*(float32(f[co.text.font[0]].Size[1])*co.text.lay.scale[1]*sys.lifebar.fnt_scale+
-					float32(f[co.text.font[0]].Spacing[1])*co.text.lay.scale[1]*sys.lifebar.fnt_scale),
-				sys.lifebarScale, layerno, v, f[co.text.font[0]], co.text.font[1], co.text.font[2],
-				co.text.palfx, co.text.frgba)
+			co.text[tv].lay.DrawText(x+sys.lifebarOffsetX, float32(co.pos[1])+
+				float32(k)*(float32(f[co.text[tv].font[0]].Size[1])*co.text[tv].lay.scale[1]*sys.lifebar.fnt_scale+
+					float32(f[co.text[tv].font[0]].Spacing[1])*co.text[tv].lay.scale[1]*sys.lifebar.fnt_scale),
+				sys.lifebarScale, layerno, v, f[co.text[tv].font[0]], co.text[tv].font[1], co.text[tv].font[2],
+				co.text[tv].palfx, co.text[tv].frgba)
 		}
 	}
-	if co.counter[0].font[0] >= 0 && int(co.counter[0].font[0]) < len(f) && f[co.counter[0].font[0]] != nil {
-		if side == 0 {
-			length = float32(f[co.counter[0].font[0]].TextWidth(counter, co.counter[0].font[1])) * co.counter[0].lay.scale[0] * sys.lifebar.fnt_scale
-		}
-		// Multiple counter fonts according to combo hits
-		var cv int32
-		for k := range co.counter {
-			if k > cv && co.tracker >= k {
-				cv = k
-			}
+	if co.counter[cv].font[0] >= 0 && int(co.counter[cv].font[0]) < len(f) && f[co.counter[cv].font[0]] != nil {
+		if side == 0 && co.autoalign {
+			length = float32(f[co.counter[cv].font[0]].TextWidth(counter, co.counter[cv].font[1])) * co.counter[cv].lay.scale[0] * sys.lifebar.fnt_scale
 		}
 
 		z := 1 + float32(co.shaketime)*co.counter_mult*float32(math.Sin(float64(co.shaketime)*(math.Pi/2.5)))
@@ -2162,6 +2190,7 @@ func (ac *LifeBarAction) step(leader int) {
 	if len(ac.messages) > 0 && ac.messages[len(ac.messages)-1].del {
 		ac.messages = removeLbMsg(ac.messages, len(ac.messages)-1)
 	}
+	ac.text.step()
 }
 
 func (ac *LifeBarAction) reset(leader int) {
@@ -2845,7 +2874,7 @@ func (ro *LifeBarRound) act() bool {
 					}
 				default:
 					ro.to_top.Action()
-					steptimers(&ro.to, 2, 15, "ko")
+					steptimers(&ro.to, 2, 0, "ko") // In Mugen there's no delay between the time over text and the sound
 					for i := len(ro.to_bg) - 1; i >= 0; i-- {
 						ro.to_bg[i].Action()
 					}
@@ -3416,6 +3445,7 @@ func readLifeBarScore(pre string, is IniSection,
 func (sc *LifeBarScore) step() {
 	sc.bg.Action()
 	sc.top.Action()
+	sc.text.step()
 }
 
 func (sc *LifeBarScore) reset() {
@@ -4431,20 +4461,16 @@ func (l *Lifebar) step() {
 		for i, v := range l.order[ti] {
 			// HealthBar
 			l.hb[l.ref[ti]][i*2+ti].step(v, l.hb[l.ref[ti]][v])
-			l.hb[l.ref[ti]][i*2+ti].value.step()
 			// PowerBar
 			l.pb[l.ref[ti]][i*2+ti].step(v, l.pb[l.ref[ti]][v], l.snd)
 			// GuardBar
 			l.gb[l.ref[ti]][i*2+ti].step(v, l.gb[l.ref[ti]][v], l.snd)
-			l.gb[l.ref[ti]][i*2+ti].value.step()
 			// StunBar
 			l.sb[l.ref[ti]][i*2+ti].step(v, l.sb[l.ref[ti]][v], l.snd)
-			l.sb[l.ref[ti]][i*2+ti].value.step()
 			// LifeBarFace
 			l.fa[l.ref[ti]][i*2+ti].step(v, l.fa[l.ref[ti]][v])
 			// LifeBarName
 			l.nm[l.ref[ti]][i*2+ti].step()
-			l.nm[l.ref[ti]][i*2+ti].name.step()
 		}
 	}
 	// LifeBarWinIcon
@@ -4482,7 +4508,6 @@ func (l *Lifebar) step() {
 	// LifeBarAction
 	for i := range l.ac {
 		l.ac[i].step(l.order[i][0])
-		l.ac[i].text.step()
 	}
 	// LifeBarRatio
 	for ti, tm := range sys.tmode {
@@ -4498,7 +4523,6 @@ func (l *Lifebar) step() {
 	// LifeBarScore
 	for i := range l.sc {
 		l.sc[i].step()
-		l.sc[i].text.step()
 	}
 	// LifeBarMatch
 	l.ma.step()

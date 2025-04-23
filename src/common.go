@@ -900,7 +900,7 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 		}
 		f.Print(text, (x+l.offset[0])*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, b, a,
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, -l.xshear, b, a,
 			&l.window, palfx, frgba)
 	}
 }

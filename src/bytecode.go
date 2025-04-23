@@ -11994,6 +11994,7 @@ const (
 	text_accel
 	text_scale
 	text_color
+	text_xshear
 	text_id
 	text_redirectid
 	text_last = iota + palFX_last + 1 - 1
@@ -12089,6 +12090,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				}
 			}
 			ts.SetColor(r, g, b)
+		case text_xshear:
+			ts.xshear = exp[0].evalF(c)
 		case text_id:
 			ts.id = exp[0].evalI(c)
 		case text_redirectid:

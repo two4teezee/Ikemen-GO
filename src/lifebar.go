@@ -1754,6 +1754,7 @@ type LifeBarTime struct {
 	bg             AnimLayout
 	top            AnimLayout
 	framespercount int32
+	activeIdx      int32
 }
 
 func newLifeBarTime() *LifeBarTime {
@@ -1780,7 +1781,7 @@ func readLifeBarTime(is IniSection,
 func (ti *LifeBarTime) step() {
 	ti.bg.Action()
 	ti.top.Action()
-	ti.counter[0].step()
+	ti.counter[ti.activeIdx].step()
 }
 
 func (ti *LifeBarTime) reset() {
@@ -1816,6 +1817,7 @@ func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
 				}
 			}
 		}
+		ti.activeIdx = tv
 		ti.counter[tv].lay.DrawText(float32(ti.pos[0])+sys.lifebarOffsetX, float32(ti.pos[1]), sys.lifebarScale, layerno,
 			time, f[ti.counter[tv].font[0]], ti.counter[tv].font[1], ti.counter[tv].font[2], ti.counter[tv].palfx,
 			ti.counter[tv].frgba)

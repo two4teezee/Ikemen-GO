@@ -683,14 +683,14 @@ func systemScriptInit(l *lua.LState) {
 						fspr.Pal = fspr.GetPal(&sys.cgi[pn-1].palettedata.palList)
 						sys.cgi[pn-1].palettedata.palList.SwapPalMap(&pfx.remap)
 						x := (float32(numArg(l, 3)) + sys.lifebarOffsetX) * sys.lifebarScale
-						y := float32(numArg(l, 4)) * sys.lifebarScale
+						y := (float32(numArg(l, 4)) + sys.lifebarOffsetY) * sys.lifebarScale
 						scale := [...]float32{float32(numArg(l, 5)), float32(numArg(l, 6))}
 						facing := int8(numArg(l, 7))
 						fscale := sys.chars[pn-1][0].localscl
 						if sprite.coldepth <= 8 && sprite.PalTex == nil {
 							sprite.CachePalette(sprite.Pal)
 						}
-						sprite.Draw(x, y, scale[0]*float32(facing)*fscale, scale[1]*fscale,
+						sprite.Draw(x, y, scale[0]*float32(facing)*fscale, scale[1]*fscale, 0,
 							0, pfx, window)
 						ok = true
 					}
@@ -2488,6 +2488,10 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setLifebarOffsetX", func(l *lua.LState) int {
 		sys.lifebarOffsetX = float32(numArg(l, 1))
+		return 0
+	})
+	luaRegister(l, "setLifebarOffsetY", func(l *lua.LState) int {
+		sys.lifebarOffsetY = float32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setLifebarScale", func(l *lua.LState) int {
@@ -5516,6 +5520,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_noairjump)))
 		case "nobrake":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nobrake)))
+		case "nocombodisplay":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocombodisplay)))
 		case "nocrouch":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocrouch)))
 		case "nodizzypointsdamage":
@@ -5552,6 +5558,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nokovelocity)))
 		case "nomakedust":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nomakedust)))
+		case "nolifebaraction":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nolifebaraction)))
 		case "nolifebardisplay":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nolifebardisplay)))
 		case "nopowerbardisplay":

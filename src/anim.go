@@ -1012,7 +1012,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 		// Xshear offset correction
 		xshear := -s.xshear
-		xsoffset := xshear * (float32(s.anim.spr.Size[1]) * s.scl[1] * cs)
+		xsoffset := xshear * (float32(s.anim.spr.Offset[1]) * s.scl[1] * cs)
 
 		drawwindow := &sys.scrrect
 		// Sprite window, which can be from the Char, Explod, or Projectile
@@ -1151,7 +1151,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		offsetY := s.shadowOffset[1] + sys.stage.sdw.offset[1]
 
 		// Rotation offset. Only shadow scale sign
-		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Size[1]) * s.scl[1])
+		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
 
 		if s.rot.angle != 0 {
 			offsetX -= xrotoff
@@ -1271,7 +1271,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		offsetY := s.reflectOffset[1] + sys.stage.reflection.offset[1]
 
 		// Rotation offset
-		xrotoff := xshear * yscale * (float32(s.anim.spr.Size[1]) * s.scl[1] * scl)
+		xrotoff := xshear * yscale * (float32(s.anim.spr.Offset[1]) * s.scl[1] * scl)
 
 		if s.rot.angle != 0 {
 			xshear = -xshear

@@ -461,7 +461,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	scly *= stglscl * stgscl[1]
 
 	// Xshear offset correction
-	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Size[1]) * scly)
+	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
 
 	if bg.angle != 0 {
 		xsoffset /= bg.angle

@@ -4417,6 +4417,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		// Ikemen char flags
 		case "nobrake":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nobrake))
+		case "nocombodisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocombodisplay))
 		case "nocrouch":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouch))
 		case "nostand":
@@ -4439,6 +4441,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noturntarget))
 		case "noinput":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noinput))
+		case "nolifebaraction":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebaraction))
 		case "nolifebardisplay":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebardisplay))
 		case "nopowerbardisplay":

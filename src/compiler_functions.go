@@ -168,6 +168,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noairjump)))
 			case "nobrake":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nobrake)))
+			case "nocombodisplay":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocombodisplay)))
 			case "nocrouch":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocrouch)))
 			case "nodizzypointsdamage":
@@ -206,6 +208,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokofall)))
 			case "nokovelocity":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokovelocity)))
+			case "nolifebaraction":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebaraction)))
 			case "nolifebardisplay":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebardisplay)))
 			case "nomakedust":
@@ -5235,8 +5239,15 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.palFXSub(is, sc, "palfx."); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			text_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			text_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil

@@ -793,6 +793,7 @@ type Layout struct {
 	layerno int16
 	scale   [2]float32
 	angle   float32
+	xshear  float32
 	window  [4]int32
 }
 
@@ -827,6 +828,7 @@ func (l *Layout) Read(pre string, is IniSection) {
 	l.layerno = I32ToI16(Min(2, ln))
 	is.ReadF32(pre+"scale", &l.scale[0], &l.scale[1])
 	is.ReadF32(pre+"angle", &l.angle)
+	is.ReadF32(pre+"xshear", &l.xshear)
 	if is.ReadI32(pre+"window", &l.window[0], &l.window[1], &l.window[2], &l.window[3]) {
 		l.window[0] = int32(float32(l.window[0]) * float32(sys.scrrect[2]) / float32(sys.lifebarLocalcoord[0]))
 		l.window[1] = int32(float32(l.window[1]) * float32(sys.scrrect[3]) / float32(sys.lifebarLocalcoord[1]))
@@ -862,11 +864,11 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 		}
 		s.Draw(x+l.offset[0]*sys.lifebarScale, y+l.offset[1]*sys.lifebarScale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
-			l.angle, fx, window)
+			l.angle, -l.xshear, fx, window)
 	}
 }
 
-func (l *Layout) DrawAnim(r *[4]int32, x, y, scl float32, ln int16, a *Animation, palfx *PalFX) {
+func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, a *Animation, palfx *PalFX) {
 	// Skip blank animations
 	if a == nil || a.isBlank() {
 		return
@@ -880,8 +882,8 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl float32, ln int16, a *Animation
 			y += sys.lifebar.fnt_scale
 		}
 		a.Draw(r, x+l.offset[0], y+l.offset[1]+float32(sys.gameHeight-240),
-			scl, scl, l.scale[0]*float32(l.facing), l.scale[0]*float32(l.facing),
-			l.scale[1]*float32(l.vfacing), 0, Rotation{l.angle, 0, 0},
+			scl, scl, (l.scale[0]*xscl)*float32(l.facing), (l.scale[0]*xscl)*float32(l.facing),
+			(l.scale[1]*yscl)*float32(l.vfacing), -l.xshear, Rotation{l.angle, 0, 0},
 			float32(sys.gameWidth-320)/2, palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
@@ -898,7 +900,7 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 		}
 		f.Print(text, (x+l.offset[0])*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, b, a,
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, -l.xshear, b, a,
 			&l.window, palfx, frgba)
 	}
 }
@@ -936,7 +938,7 @@ func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 			al.lay = *newLayout(ln)
 		}
 	}
-	al.ReadAnimPalfx(pre+"palfx.", is)
+	ReadPalFX(pre+"palfx.", is, al.palfx)
 	al.lay.Read(pre, is)
 }
 
@@ -952,70 +954,74 @@ func (al *AnimLayout) Action() {
 }
 
 func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {
-	al.lay.DrawAnim(&al.lay.window, x, y, scale, layerno, &al.anim, al.palfx)
+	al.lay.DrawAnim(&al.lay.window, x, y, scale, 1, 1, layerno, &al.anim, al.palfx)
 }
 
-func (al *AnimLayout) ReadAnimPalfx(pre string, is IniSection) {
-	al.palfx.clear()
-	al.palfx.time = -1
-	is.ReadI32(pre+"time", &al.palfx.time)
-	is.ReadI32(pre+"add", &al.palfx.add[0], &al.palfx.add[1], &al.palfx.add[2])
-	is.ReadI32(pre+"mul", &al.palfx.mul[0], &al.palfx.mul[1], &al.palfx.mul[2])
+func ReadPalFX(pre string, is IniSection, pfx *PalFX) int32 {
+	pfx.clear()
+	pfx.time = -1
+	tInit := int32(-1)
+	if is.ReadI32(pre+"time", &pfx.time) {
+		tInit = pfx.time
+	}
+	is.ReadI32(pre+"add", &pfx.add[0], &pfx.add[1], &pfx.add[2])
+	is.ReadI32(pre+"mul", &pfx.mul[0], &pfx.mul[1], &pfx.mul[2])
 	var s [4]int32
 	if is.ReadI32(pre+"sinadd", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinadd[0] = -s[0]
-			al.palfx.sinadd[1] = -s[1]
-			al.palfx.sinadd[2] = -s[2]
-			al.palfx.cycletime[0] = -s[3]
+			pfx.sinadd[0] = -s[0]
+			pfx.sinadd[1] = -s[1]
+			pfx.sinadd[2] = -s[2]
+			pfx.cycletime[0] = -s[3]
 		} else {
-			al.palfx.sinadd[0] = s[0]
-			al.palfx.sinadd[1] = s[1]
-			al.palfx.sinadd[2] = s[2]
-			al.palfx.cycletime[0] = s[3]
+			pfx.sinadd[0] = s[0]
+			pfx.sinadd[1] = s[1]
+			pfx.sinadd[2] = s[2]
+			pfx.cycletime[0] = s[3]
 		}
 	}
 	if is.ReadI32(pre+"sinmul", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinmul[0] = -s[0]
-			al.palfx.sinmul[1] = -s[1]
-			al.palfx.sinmul[2] = -s[2]
-			al.palfx.cycletime[1] = -s[3]
+			pfx.sinmul[0] = -s[0]
+			pfx.sinmul[1] = -s[1]
+			pfx.sinmul[2] = -s[2]
+			pfx.cycletime[1] = -s[3]
 		} else {
-			al.palfx.sinmul[0] = s[0]
-			al.palfx.sinmul[1] = s[1]
-			al.palfx.sinmul[2] = s[2]
-			al.palfx.cycletime[1] = s[3]
+			pfx.sinmul[0] = s[0]
+			pfx.sinmul[1] = s[1]
+			pfx.sinmul[2] = s[2]
+			pfx.cycletime[1] = s[3]
 		}
 	}
 	var s2 [2]int32
 	if is.ReadI32(pre+"sincolor", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sincolor = -s2[0]
-			al.palfx.cycletime[2] = -s2[1]
+			pfx.sincolor = -s2[0]
+			pfx.cycletime[2] = -s2[1]
 		} else {
-			al.palfx.sincolor = s2[0]
-			al.palfx.cycletime[2] = s2[1]
+			pfx.sincolor = s2[0]
+			pfx.cycletime[2] = s2[1]
 		}
 	}
 	if is.ReadI32(pre+"sinhue", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sinhue = -s2[0]
-			al.palfx.cycletime[3] = -s2[1]
+			pfx.sinhue = -s2[0]
+			pfx.cycletime[3] = -s2[1]
 		} else {
-			al.palfx.sinhue = s2[0]
-			al.palfx.cycletime[3] = s2[1]
+			pfx.sinhue = s2[0]
+			pfx.cycletime[3] = s2[1]
 		}
 	}
-	is.ReadBool(pre+"invertall", &al.palfx.invertall)
-	is.ReadI32(pre+"invertblend", &al.palfx.invertblend)
+	is.ReadBool(pre+"invertall", &pfx.invertall)
+	is.ReadI32(pre+"invertblend", &pfx.invertblend)
 	var n float32
 	if is.ReadF32(pre+"color", &n) {
-		al.palfx.color = n / 256
+		pfx.color = n / 256
 	}
 	if is.ReadF32(pre+"hue", &n) {
-		al.palfx.hue = n / 256
+		pfx.hue = n / 256
 	}
+	return tInit
 }
 
 type AnimTextSnd struct {
@@ -1050,11 +1056,13 @@ func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 func (ats *AnimTextSnd) Reset() {
 	ats.anim.Reset()
 	ats.cnt = 0
+	ats.text.resetTxtPfx()
 }
 
 func (ats *AnimTextSnd) Action() {
 	ats.anim.Action()
 	ats.cnt++
+	ats.text.step()
 }
 
 func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {

@@ -2417,15 +2417,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
-		isFlag := -1
+		opct := OC_ex_
+		isFlag := 0
 		switch c.token {
-		// no-op triggers
-		case "fall.envshake.dir":
-			bv.SetI(0)
-		default:
-			// triggers that do things
-			isFlag = 0
-			switch c.token {
 			case "animtype":
 				opc = OC_ex_gethitvar_animtype
 			case "air.animtype":
@@ -2514,6 +2508,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				opc = OC_ex_gethitvar_fall_envshake_phase
 			case "fall.envshake.mul":
 				opc = OC_ex_gethitvar_fall_envshake_mul
+			case "fall.envshake.dir":
+				opct = OC_ex2_
+				opc = OC_ex2_gethitvar_fall_envshake_dir
 			case "attr":
 				opc = OC_ex_gethitvar_attr
 				isFlag = 1
@@ -2584,7 +2581,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				isFlag = 2
 			default:
 				return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
-			}
 		}
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingParenthesis(); err != nil {
@@ -2597,7 +2593,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if attr, err := c.trgAttr(in); err != nil {
 					return err
 				} else {
-					out.append(OC_ex_)
+					out.append(opct)
 					out.appendI32Op(opc, attr)
 				}
 				return nil
@@ -2611,7 +2607,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if flg, err := flagSub(); err != nil {
 					return err
 				} else {
-					out.append(OC_ex_)
+					out.append(opct)
 					out.appendI32Op(opc, flg)
 					return nil
 				}
@@ -2621,7 +2617,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		case 0:
 			// no flag
-			out.append(OC_ex_, opc)
+			out.append(opct, opc)
 		}
 		// no-op (for y/xveladd and fall.envshake.dir)
 	case "groundlevel":
@@ -4201,17 +4197,21 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
-		out.append(OC_ex_)
+		opct := OC_ex_
 		switch c.token {
-		case "time":
-			out.append(OC_ex_envshakevar_time)
-		case "freq":
-			out.append(OC_ex_envshakevar_freq)
-		case "ampl":
-			out.append(OC_ex_envshakevar_ampl)
-		default:
-			return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
+			case "time":
+				opc = OC_ex_envshakevar_time
+			case "freq":
+				opc = OC_ex_envshakevar_freq
+			case "ampl":
+				opc = OC_ex_envshakevar_ampl
+			case "dir":
+				opct = OC_ex2_
+				opc = OC_ex2_envshakevar_dir
+			default:
+				return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
 		}
+		out.append(opct, opc)
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err

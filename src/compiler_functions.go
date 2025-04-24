@@ -2034,6 +2034,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_envshake_mul, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "envshake.dir",
+		hitDef_envshake_dir, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "fall.envshake.time",
 		hitDef_fall_envshake_time, VT_Int, 1, false); err != nil {
 		return err
@@ -2052,6 +2056,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.paramValue(is, sc, "fall.envshake.mul",
 		hitDef_fall_envshake_mul, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "fall.envshake.dir",
+		hitDef_fall_envshake_dir, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "dizzypoints",
@@ -3161,6 +3169,10 @@ func (c *Compiler) envShake(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.paramValue(is, sc, "mul",
 			envShake_mul, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "dir",
+			envShake_dir, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil
@@ -5790,6 +5802,10 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.paramValue(is, sc, "fall.envshake.time",
 			getHitVarSet_fall_envshake_time, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "fall.envshake.dir",
+			getHitVarSet_fall_envshake_dir, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "fall.kill",

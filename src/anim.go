@@ -1006,7 +1006,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		} else {
 			es := sys.envShake.getOffset()
 			pos = [2]float32{(sys.cam.Offset[0]-es[0])/cs - (cameraX - s.pos[0]),
-				(sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]))/cs -
+				(sys.cam.GroundLevel()+(sys.cam.Offset[1]-es[1]))/cs -
 					(cameraY/cs - s.pos[1])}
 		}
 
@@ -1189,8 +1189,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 				w[i] *= sys.stage.localscl
 			}
 
-			window[0] = int32(((sys.cam.Offset[0]-es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[0] = int32(((sys.cam.Offset[0] - es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
 
@@ -1310,8 +1310,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 				w[i] *= sys.stage.localscl
 			}
 
-			window[0] = int32(((sys.cam.Offset[0]-es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1]-es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[0] = int32(((sys.cam.Offset[0] - es[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - es[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
 			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
 

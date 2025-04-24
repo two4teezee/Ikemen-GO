@@ -2420,167 +2420,167 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		opct := OC_ex_
 		isFlag := 0
 		switch c.token {
-			case "animtype":
-				opc = OC_ex_gethitvar_animtype
-			case "air.animtype":
-				opc = OC_ex_gethitvar_air_animtype
-			case "ground.animtype":
-				opc = OC_ex_gethitvar_ground_animtype
-			case "fall.animtype":
-				opc = OC_ex_gethitvar_fall_animtype
-			case "type":
-				opc = OC_ex_gethitvar_type
-			case "airtype":
-				opc = OC_ex_gethitvar_airtype
-			case "groundtype":
-				opc = OC_ex_gethitvar_groundtype
-			case "damage":
-				opc = OC_ex_gethitvar_damage
-			case "guardcount":
-				opc = OC_ex_gethitvar_guardcount
-			case "hitcount":
-				opc = OC_ex_gethitvar_hitcount
-			case "fallcount":
-				opc = OC_ex_gethitvar_fallcount
-			case "hitshaketime":
-				opc = OC_ex_gethitvar_hitshaketime
-			case "hittime":
-				opc = OC_ex_gethitvar_hittime
-			case "slidetime":
-				opc = OC_ex_gethitvar_slidetime
-			case "ctrltime":
-				opc = OC_ex_gethitvar_ctrltime
-			case "recovertime", "down.recovertime": // Added second term for consistency
-				opc = OC_ex_gethitvar_down_recovertime
-			case "xoff":
-				opc = OC_ex_gethitvar_xoff
-			case "yoff":
-				opc = OC_ex_gethitvar_yoff
-			case "zoff":
-				opc = OC_ex_gethitvar_zoff
-			case "xvel":
-				opc = OC_ex_gethitvar_xvel
-			case "yvel":
-				opc = OC_ex_gethitvar_yvel
-			case "zvel":
-				opc = OC_ex_gethitvar_zvel
-			case "xaccel":
-				opc = OC_ex_gethitvar_xaccel
-			case "yaccel":
-				opc = OC_ex_gethitvar_yaccel
-			case "zaccel":
-				opc = OC_ex_gethitvar_zaccel
-			case "xveladd":
-				opc = OC_ex_gethitvar_xveladd
-			case "yveladd":
-				opc = OC_ex_gethitvar_yveladd
-			case "hitid", "chainid":
-				opc = OC_ex_gethitvar_chainid
-			case "guarded":
-				opc = OC_ex_gethitvar_guarded
-			case "isbound":
-				opc = OC_ex_gethitvar_isbound
-			case "fall":
-				opc = OC_ex_gethitvar_fall
-			case "fall.damage":
-				opc = OC_ex_gethitvar_fall_damage
-			case "fall.xvel":
-				opc = OC_ex_gethitvar_fall_xvel
-			case "fall.yvel":
-				opc = OC_ex_gethitvar_fall_yvel
-			case "fall.zvel":
-				opc = OC_ex_gethitvar_fall_zvel
-			case "fall.recover":
-				opc = OC_ex_gethitvar_fall_recover
-			case "fall.time":
-				opc = OC_ex_gethitvar_fall_time
-			case "fall.recovertime":
-				opc = OC_ex_gethitvar_fall_recovertime
-			case "fall.kill":
-				opc = OC_ex_gethitvar_fall_kill
-			case "fall.envshake.time":
-				opc = OC_ex_gethitvar_fall_envshake_time
-			case "fall.envshake.freq":
-				opc = OC_ex_gethitvar_fall_envshake_freq
-			case "fall.envshake.ampl":
-				opc = OC_ex_gethitvar_fall_envshake_ampl
-			case "fall.envshake.phase":
-				opc = OC_ex_gethitvar_fall_envshake_phase
-			case "fall.envshake.mul":
-				opc = OC_ex_gethitvar_fall_envshake_mul
-			case "fall.envshake.dir":
-				opct = OC_ex2_
-				opc = OC_ex2_gethitvar_fall_envshake_dir
-			case "attr":
-				opc = OC_ex_gethitvar_attr
-				isFlag = 1
-			case "dizzypoints":
-				opc = OC_ex_gethitvar_dizzypoints
-			case "guardpoints":
-				opc = OC_ex_gethitvar_guardpoints
-			case "id":
-				opc = OC_ex_gethitvar_id
-			case "playerno":
-				opc = OC_ex_gethitvar_playerno
-			case "redlife":
-				opc = OC_ex_gethitvar_redlife
-			case "score":
-				opc = OC_ex_gethitvar_score
-			case "hitdamage":
-				opc = OC_ex_gethitvar_hitdamage
-			case "guarddamage":
-				opc = OC_ex_gethitvar_guarddamage
-			case "power":
-				opc = OC_ex_gethitvar_power
-			case "hitpower":
-				opc = OC_ex_gethitvar_hitpower
-			case "guardpower":
-				opc = OC_ex_gethitvar_guardpower
-			case "kill":
-				opc = OC_ex_gethitvar_kill
-			case "priority":
-				opc = OC_ex_gethitvar_priority
-			case "facing":
-				opc = OC_ex_gethitvar_facing
-			case "ground.velocity.x":
-				opc = OC_ex_gethitvar_ground_velocity_x
-			case "ground.velocity.y":
-				opc = OC_ex_gethitvar_ground_velocity_y
-			case "ground.velocity.z":
-				opc = OC_ex_gethitvar_ground_velocity_z
-			case "air.velocity.x":
-				opc = OC_ex_gethitvar_air_velocity_x
-			case "air.velocity.y":
-				opc = OC_ex_gethitvar_air_velocity_y
-			case "air.velocity.z":
-				opc = OC_ex_gethitvar_air_velocity_z
-			case "down.velocity.x":
-				opc = OC_ex_gethitvar_down_velocity_x
-			case "down.velocity.y":
-				opc = OC_ex_gethitvar_down_velocity_y
-			case "down.velocity.z":
-				opc = OC_ex_gethitvar_down_velocity_z
-			case "guard.velocity.x":
-				opc = OC_ex_gethitvar_guard_velocity_x
-			case "guard.velocity.y":
-				opc = OC_ex_gethitvar_guard_velocity_y
-			case "guard.velocity.z":
-				opc = OC_ex_gethitvar_guard_velocity_z
-			case "airguard.velocity.x":
-				opc = OC_ex_gethitvar_airguard_velocity_x
-			case "airguard.velocity.y":
-				opc = OC_ex_gethitvar_airguard_velocity_y
-			case "airguard.velocity.z":
-				opc = OC_ex_gethitvar_airguard_velocity_z
-			case "frame":
-				opc = OC_ex_gethitvar_frame
-			case "down.recover":
-				opc = OC_ex_gethitvar_down_recover
-			case "guardflag":
-				opc = OC_ex_gethitvar_guardflag
-				isFlag = 2
-			default:
-				return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
+		case "animtype":
+			opc = OC_ex_gethitvar_animtype
+		case "air.animtype":
+			opc = OC_ex_gethitvar_air_animtype
+		case "ground.animtype":
+			opc = OC_ex_gethitvar_ground_animtype
+		case "fall.animtype":
+			opc = OC_ex_gethitvar_fall_animtype
+		case "type":
+			opc = OC_ex_gethitvar_type
+		case "airtype":
+			opc = OC_ex_gethitvar_airtype
+		case "groundtype":
+			opc = OC_ex_gethitvar_groundtype
+		case "damage":
+			opc = OC_ex_gethitvar_damage
+		case "guardcount":
+			opc = OC_ex_gethitvar_guardcount
+		case "hitcount":
+			opc = OC_ex_gethitvar_hitcount
+		case "fallcount":
+			opc = OC_ex_gethitvar_fallcount
+		case "hitshaketime":
+			opc = OC_ex_gethitvar_hitshaketime
+		case "hittime":
+			opc = OC_ex_gethitvar_hittime
+		case "slidetime":
+			opc = OC_ex_gethitvar_slidetime
+		case "ctrltime":
+			opc = OC_ex_gethitvar_ctrltime
+		case "recovertime", "down.recovertime": // Added second term for consistency
+			opc = OC_ex_gethitvar_down_recovertime
+		case "xoff":
+			opc = OC_ex_gethitvar_xoff
+		case "yoff":
+			opc = OC_ex_gethitvar_yoff
+		case "zoff":
+			opc = OC_ex_gethitvar_zoff
+		case "xvel":
+			opc = OC_ex_gethitvar_xvel
+		case "yvel":
+			opc = OC_ex_gethitvar_yvel
+		case "zvel":
+			opc = OC_ex_gethitvar_zvel
+		case "xaccel":
+			opc = OC_ex_gethitvar_xaccel
+		case "yaccel":
+			opc = OC_ex_gethitvar_yaccel
+		case "zaccel":
+			opc = OC_ex_gethitvar_zaccel
+		case "xveladd":
+			opc = OC_ex_gethitvar_xveladd
+		case "yveladd":
+			opc = OC_ex_gethitvar_yveladd
+		case "hitid", "chainid":
+			opc = OC_ex_gethitvar_chainid
+		case "guarded":
+			opc = OC_ex_gethitvar_guarded
+		case "isbound":
+			opc = OC_ex_gethitvar_isbound
+		case "fall":
+			opc = OC_ex_gethitvar_fall
+		case "fall.damage":
+			opc = OC_ex_gethitvar_fall_damage
+		case "fall.xvel":
+			opc = OC_ex_gethitvar_fall_xvel
+		case "fall.yvel":
+			opc = OC_ex_gethitvar_fall_yvel
+		case "fall.zvel":
+			opc = OC_ex_gethitvar_fall_zvel
+		case "fall.recover":
+			opc = OC_ex_gethitvar_fall_recover
+		case "fall.time":
+			opc = OC_ex_gethitvar_fall_time
+		case "fall.recovertime":
+			opc = OC_ex_gethitvar_fall_recovertime
+		case "fall.kill":
+			opc = OC_ex_gethitvar_fall_kill
+		case "fall.envshake.time":
+			opc = OC_ex_gethitvar_fall_envshake_time
+		case "fall.envshake.freq":
+			opc = OC_ex_gethitvar_fall_envshake_freq
+		case "fall.envshake.ampl":
+			opc = OC_ex_gethitvar_fall_envshake_ampl
+		case "fall.envshake.phase":
+			opc = OC_ex_gethitvar_fall_envshake_phase
+		case "fall.envshake.mul":
+			opc = OC_ex_gethitvar_fall_envshake_mul
+		case "fall.envshake.dir":
+			opct = OC_ex2_
+			opc = OC_ex2_gethitvar_fall_envshake_dir
+		case "attr":
+			opc = OC_ex_gethitvar_attr
+			isFlag = 1
+		case "dizzypoints":
+			opc = OC_ex_gethitvar_dizzypoints
+		case "guardpoints":
+			opc = OC_ex_gethitvar_guardpoints
+		case "id":
+			opc = OC_ex_gethitvar_id
+		case "playerno":
+			opc = OC_ex_gethitvar_playerno
+		case "redlife":
+			opc = OC_ex_gethitvar_redlife
+		case "score":
+			opc = OC_ex_gethitvar_score
+		case "hitdamage":
+			opc = OC_ex_gethitvar_hitdamage
+		case "guarddamage":
+			opc = OC_ex_gethitvar_guarddamage
+		case "power":
+			opc = OC_ex_gethitvar_power
+		case "hitpower":
+			opc = OC_ex_gethitvar_hitpower
+		case "guardpower":
+			opc = OC_ex_gethitvar_guardpower
+		case "kill":
+			opc = OC_ex_gethitvar_kill
+		case "priority":
+			opc = OC_ex_gethitvar_priority
+		case "facing":
+			opc = OC_ex_gethitvar_facing
+		case "ground.velocity.x":
+			opc = OC_ex_gethitvar_ground_velocity_x
+		case "ground.velocity.y":
+			opc = OC_ex_gethitvar_ground_velocity_y
+		case "ground.velocity.z":
+			opc = OC_ex_gethitvar_ground_velocity_z
+		case "air.velocity.x":
+			opc = OC_ex_gethitvar_air_velocity_x
+		case "air.velocity.y":
+			opc = OC_ex_gethitvar_air_velocity_y
+		case "air.velocity.z":
+			opc = OC_ex_gethitvar_air_velocity_z
+		case "down.velocity.x":
+			opc = OC_ex_gethitvar_down_velocity_x
+		case "down.velocity.y":
+			opc = OC_ex_gethitvar_down_velocity_y
+		case "down.velocity.z":
+			opc = OC_ex_gethitvar_down_velocity_z
+		case "guard.velocity.x":
+			opc = OC_ex_gethitvar_guard_velocity_x
+		case "guard.velocity.y":
+			opc = OC_ex_gethitvar_guard_velocity_y
+		case "guard.velocity.z":
+			opc = OC_ex_gethitvar_guard_velocity_z
+		case "airguard.velocity.x":
+			opc = OC_ex_gethitvar_airguard_velocity_x
+		case "airguard.velocity.y":
+			opc = OC_ex_gethitvar_airguard_velocity_y
+		case "airguard.velocity.z":
+			opc = OC_ex_gethitvar_airguard_velocity_z
+		case "frame":
+			opc = OC_ex_gethitvar_frame
+		case "down.recover":
+			opc = OC_ex_gethitvar_down_recover
+		case "guardflag":
+			opc = OC_ex_gethitvar_guardflag
+			isFlag = 2
+		default:
+			return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
 		}
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingParenthesis(); err != nil {
@@ -4199,17 +4199,17 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		opct := OC_ex_
 		switch c.token {
-			case "time":
-				opc = OC_ex_envshakevar_time
-			case "freq":
-				opc = OC_ex_envshakevar_freq
-			case "ampl":
-				opc = OC_ex_envshakevar_ampl
-			case "dir":
-				opct = OC_ex2_
-				opc = OC_ex2_envshakevar_dir
-			default:
-				return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
+		case "time":
+			opc = OC_ex_envshakevar_time
+		case "freq":
+			opc = OC_ex_envshakevar_freq
+		case "ampl":
+			opc = OC_ex_envshakevar_ampl
+		case "dir":
+			opct = OC_ex2_
+			opc = OC_ex2_envshakevar_dir
+		default:
+			return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
 		}
 		out.append(opct, opc)
 		c.token = c.tokenizer(in)

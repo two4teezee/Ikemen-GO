@@ -3610,11 +3610,11 @@ type EnvShake struct {
 
 func (es *EnvShake) clear() {
 	*es = EnvShake{
-		freq: float32(math.Pi / 3),
-		ampl: -4.0,
+		freq:  float32(math.Pi / 3),
+		ampl:  -4.0,
 		phase: float32(math.NaN()),
-		mul: 1.0,
-		dir: 0.0}
+		mul:   1.0,
+		dir:   0.0}
 }
 
 func (es *EnvShake) setDefaultPhase() {

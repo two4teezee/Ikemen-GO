@@ -683,11 +683,15 @@ func (ts *TextSprite) Draw() {
 				totalCharsShown += charsToShow
 			}
 
+			// Xshear offset correction
+			xshear := -ts.xshear
+			xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
+
 			// Draws the visible line
 			if ts.fnt.Type == "truetype" {
 				ts.fnt.DrawTtf(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
 			} else {
-				ts.fnt.DrawText(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, -ts.xshear, ts.bank, ts.align, &ts.window, ts.palfx)
+				ts.fnt.DrawText(line[:charsToShow], ts.x-xsoffset, newY, ts.xscl, ts.yscl, xshear, ts.bank, ts.align, &ts.window, ts.palfx)
 			}
 
 			if ts.textDelay > 0 && totalCharsShown >= int(maxChars) {

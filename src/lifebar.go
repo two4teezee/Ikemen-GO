@@ -334,7 +334,7 @@ func calcBarFillRect(pos int32, range_ [2]int32, offset, scale, screenScale, mid
 	}
 
 	fillLength := float32(r1 - r0 + 1)
-	start = int32(((base * scale + midPos) * screenScale) + 0.5) - size
+	start = int32(((base*scale+midPos)*screenScale)+0.5) - size
 	size = int32((((fillLength * scale * fill) - (offset * scale)) * screenScale) + 0.5)
 
 	if isDescending {
@@ -377,11 +377,11 @@ func newHealthBar() *HealthBar {
 		oldlife:    1,
 		midlife:    1,
 		midlifeMin: 1,
-		red:        make(map[int32]*AnimLayout), 
+		red:        make(map[int32]*AnimLayout),
 		front:      make(map[float32]*AnimLayout),
-		mid_freeze: true, 
-		mid_delay:  30, 
-		mid_mult:   1.0, 
+		mid_freeze: true,
+		mid_delay:  30,
+		mid_mult:   1.0,
 		mid_steps:  8.0,
 	}
 }
@@ -554,7 +554,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 
 	// Draw the three rectangles: top, mid, and red
 	lr, mr, rr := getBarClipRect(hbr.toplife), getBarClipRect(hbr.midlife), getBarClipRect(redlife)
-	
+
 	var (
 		lxs, mxs, rxs float32 = 1.0, 1.0, 1.0
 		lys, mys, rys float32 = 1.0, 1.0, 1.0
@@ -1270,7 +1270,7 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 	}
 
 	pr, mr := getBarClipRect(points), getBarClipRect(sbr.midpower)
-	
+
 	var (
 		pxs, mxs float32 = 1.0, 1.0
 		pys, mys float32 = 1.0, 1.0
@@ -1358,8 +1358,8 @@ type LifeBarFace struct {
 
 func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{
-		face_spr:          [2]int32{-1}, 
-		teammate_face_spr: [2]int32{-1}, 
+		face_spr:          [2]int32{-1},
+		teammate_face_spr: [2]int32{-1},
 		palshare:          true,
 	}
 }
@@ -1853,11 +1853,11 @@ type LifeBarCombo struct {
 
 func newLifeBarCombo() *LifeBarCombo {
 	return &LifeBarCombo{
-		displaytime:  90, 
-		showspeed:    8, 
+		displaytime:  90,
+		showspeed:    8,
 		hidespeed:    4,
 		counter:      make(map[int32]*LbText),
-		counter_time: 7, 
+		counter_time: 7,
 		counter_mult: 1.0 / 20,
 		text:         make(map[int32]*LbText),
 		autoalign:    true,
@@ -1974,8 +1974,8 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 			tv = k
 		}
 	}
-	
-	if co.counterX != co.start_x * 2 {
+
+	if co.counterX != co.start_x*2 {
 		co.counter[cv].step()
 		co.text[tv].step()
 	}
@@ -2084,8 +2084,8 @@ type LbMsg struct {
 
 func newLbMsg(text string, time int32, side int) *LbMsg {
 	return &LbMsg{
-		resttime: time, 
-		counterX: sys.lifebar.ac[side].start_x * 2, 
+		resttime: time,
+		counterX: sys.lifebar.ac[side].start_x * 2,
 		text:     text,
 	}
 }
@@ -2314,9 +2314,9 @@ type LifeBarRound struct {
 
 func newLifeBarRound(snd *Snd) *LifeBarRound {
 	return &LifeBarRound{
-		snd:                snd, 
+		snd:                snd,
 		match_wins:         [...]int32{2, 2},
-		match_maxdrawgames: [...]int32{1, 1}, 
+		match_maxdrawgames: [...]int32{1, 1},
 		start_waittime:     30,
 		ctrl_time:          30,
 		slow_time:          60,

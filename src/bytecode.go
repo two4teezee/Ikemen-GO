@@ -12150,75 +12150,75 @@ func (sc text) Run(c *Char, _ []int32) bool {
 
 func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
 	switch paramID {
-		case palFX_time:
-			ts.palfx.time = exp[0].evalI(c) * 2
-		case palFX_color:
-			ts.palfx.color = exp[0].evalF(c) / 256
-		case palFX_hue:
-			ts.palfx.hue = exp[0].evalF(c) / 256
-		case palFX_add:
-			ts.palfx.add[0] = exp[0].evalI(c)
-			ts.palfx.add[1] = exp[1].evalI(c)
-			ts.palfx.add[2] = exp[2].evalI(c)
-		case palFX_mul:
-			ts.palfx.mul[0] = exp[0].evalI(c)
-			ts.palfx.mul[1] = exp[1].evalI(c)
-			ts.palfx.mul[2] = exp[2].evalI(c)
-		case palFX_sinadd:
-			var side int32 = 1
-			if len(exp) > 3 {
-				if exp[3].evalI(c) < 0 {
-					ts.palfx.cycletime[0] = -exp[3].evalI(c) * 2
-					side = -1
-				} else {
-					ts.palfx.cycletime[0] = exp[3].evalI(c) * 2
-				}
+	case palFX_time:
+		ts.palfx.time = exp[0].evalI(c) * 2
+	case palFX_color:
+		ts.palfx.color = exp[0].evalF(c) / 256
+	case palFX_hue:
+		ts.palfx.hue = exp[0].evalF(c) / 256
+	case palFX_add:
+		ts.palfx.add[0] = exp[0].evalI(c)
+		ts.palfx.add[1] = exp[1].evalI(c)
+		ts.palfx.add[2] = exp[2].evalI(c)
+	case palFX_mul:
+		ts.palfx.mul[0] = exp[0].evalI(c)
+		ts.palfx.mul[1] = exp[1].evalI(c)
+		ts.palfx.mul[2] = exp[2].evalI(c)
+	case palFX_sinadd:
+		var side int32 = 1
+		if len(exp) > 3 {
+			if exp[3].evalI(c) < 0 {
+				ts.palfx.cycletime[0] = -exp[3].evalI(c) * 2
+				side = -1
+			} else {
+				ts.palfx.cycletime[0] = exp[3].evalI(c) * 2
 			}
-			ts.palfx.sinadd[0] = exp[0].evalI(c) * side
-			ts.palfx.sinadd[1] = exp[1].evalI(c) * side
-			ts.palfx.sinadd[2] = exp[2].evalI(c) * side
-		case palFX_sinmul:
-			var side int32 = 1
-			if len(exp) > 3 {
-				if exp[3].evalI(c) < 0 {
-					ts.palfx.cycletime[1] = -exp[3].evalI(c) * 2
-					side = -1
-				} else {
-					ts.palfx.cycletime[1] = exp[3].evalI(c) * 2
-				}
-			}
-			ts.palfx.sinmul[0] = exp[0].evalI(c) * side
-			ts.palfx.sinmul[1] = exp[1].evalI(c) * side
-			ts.palfx.sinmul[2] = exp[2].evalI(c) * side
-		case palFX_sincolor:
-			var side int32 = 1
-			if len(exp) > 1 {
-				if exp[1].evalI(c) < 0 {
-					ts.palfx.cycletime[2] = -exp[1].evalI(c) * 2
-					side = -1
-				} else {
-					ts.palfx.cycletime[2] = exp[1].evalI(c) * 2
-				}
-			}
-			ts.palfx.sincolor = exp[0].evalI(c) * side
-		case palFX_sinhue:
-			var side int32 = 1
-			if len(exp) > 1 {
-				if exp[1].evalI(c) < 0 {
-					ts.palfx.cycletime[3] = -exp[1].evalI(c) * 2
-					side = -1
-				} else {
-					ts.palfx.cycletime[3] = exp[1].evalI(c) * 2
-				}
-			}
-			ts.palfx.sinhue = exp[0].evalI(c) * side
-		case palFX_invertall:
-			ts.palfx.invertall = exp[0].evalB(c)
-		case palFX_invertblend:
-			ts.palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
-		default:
-			return false
 		}
+		ts.palfx.sinadd[0] = exp[0].evalI(c) * side
+		ts.palfx.sinadd[1] = exp[1].evalI(c) * side
+		ts.palfx.sinadd[2] = exp[2].evalI(c) * side
+	case palFX_sinmul:
+		var side int32 = 1
+		if len(exp) > 3 {
+			if exp[3].evalI(c) < 0 {
+				ts.palfx.cycletime[1] = -exp[3].evalI(c) * 2
+				side = -1
+			} else {
+				ts.palfx.cycletime[1] = exp[3].evalI(c) * 2
+			}
+		}
+		ts.palfx.sinmul[0] = exp[0].evalI(c) * side
+		ts.palfx.sinmul[1] = exp[1].evalI(c) * side
+		ts.palfx.sinmul[2] = exp[2].evalI(c) * side
+	case palFX_sincolor:
+		var side int32 = 1
+		if len(exp) > 1 {
+			if exp[1].evalI(c) < 0 {
+				ts.palfx.cycletime[2] = -exp[1].evalI(c) * 2
+				side = -1
+			} else {
+				ts.palfx.cycletime[2] = exp[1].evalI(c) * 2
+			}
+		}
+		ts.palfx.sincolor = exp[0].evalI(c) * side
+	case palFX_sinhue:
+		var side int32 = 1
+		if len(exp) > 1 {
+			if exp[1].evalI(c) < 0 {
+				ts.palfx.cycletime[3] = -exp[1].evalI(c) * 2
+				side = -1
+			} else {
+				ts.palfx.cycletime[3] = exp[1].evalI(c) * 2
+			}
+		}
+		ts.palfx.sinhue = exp[0].evalI(c) * side
+	case palFX_invertall:
+		ts.palfx.invertall = exp[0].evalB(c)
+	case palFX_invertblend:
+		ts.palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
+	default:
+		return false
+	}
 	return false
 }
 

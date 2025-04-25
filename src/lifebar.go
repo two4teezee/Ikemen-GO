@@ -323,22 +323,21 @@ func readMultipleLbText(pre string, name string, is IniSection, fmtstr string, l
 func calcBarFillRect(pos int32, range_ [2]int32, offset, scale, screenScale, midPos float32, fill float32) (start, size int32) {
 	isDescending := range_[0] > range_[1]
 	var r0, r1 int32
-	var base float32
-
+	
 	if isDescending {
 		r0, r1 = range_[1], range_[0]
-		base = float32(pos + r1 + 1)
 	} else {
 		r0, r1 = range_[0], range_[1]
-		base = float32(pos + r0)
 	}
 
 	fillLength := float32(r1 - r0 + 1)
-	start = int32(((base*scale+midPos)*screenScale)+0.5) - size
-	size = int32((((fillLength * scale * fill) - (offset * scale)) * screenScale) + 0.5)
+	size = int32((fillLength * scale * fill * screenScale) + 0.5)
+
+	base := float32(pos + r0)
+	start = int32(((base + offset) * scale + midPos) * screenScale + 0.5)
 
 	if isDescending {
-		start -= size
+		start = int32(((float32(pos + r1 + 1) + offset) * scale + midPos) * screenScale + 0.5) - size
 	}
 	return
 }

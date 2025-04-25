@@ -881,9 +881,13 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, 
 		if l.vfacing < 0 {
 			y += sys.lifebar.fnt_scale
 		}
-		a.Draw(r, x+l.offset[0], y+l.offset[1]+float32(sys.gameHeight-240),
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(a.spr.Offset[1]) * l.scale[1] * scl)
+
+		a.Draw(r, x+l.offset[0]-xsoffset, y+l.offset[1]+float32(sys.gameHeight-240),
 			scl, scl, (l.scale[0]*xscl)*float32(l.facing), (l.scale[0]*xscl)*float32(l.facing),
-			(l.scale[1]*yscl)*float32(l.vfacing), -l.xshear, Rotation{l.angle, 0, 0},
+			(l.scale[1]*yscl)*float32(l.vfacing), xshear, Rotation{l.angle, 0, 0},
 			float32(sys.gameWidth-320)/2, palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
@@ -898,9 +902,13 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 		if l.vfacing < 0 {
 			y += sys.lifebar.fnt_scale
 		}
-		f.Print(text, (x+l.offset[0])*scl, (y+l.offset[1])*scl,
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(f.offset[1]) * l.scale[1] * scl)
+
+		f.Print(text, (x+l.offset[0]-xsoffset)*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, -l.xshear, b, a,
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, b, a,
 			&l.window, palfx, frgba)
 	}
 }

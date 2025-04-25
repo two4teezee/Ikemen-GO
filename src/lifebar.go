@@ -301,7 +301,7 @@ func readMultipleValuesF(pre string, name string, is IniSection, sff *Sff, at An
 }
 
 // Text version of readMultipleValues
-func readMultipleLbText(pre string, name string, is IniSection, fmtstr string, f []*Fnt, align int32) map[int32]*LbText {
+func readMultipleLbText(pre string, name string, is IniSection, fmtstr string, ln int16, f []*Fnt, align int32) map[int32]*LbText {
 	result := make(map[int32]*LbText)
 	r, _ := regexp.Compile(pre + name + "[0-9]+\\.")
 	for k := range is {
@@ -311,7 +311,7 @@ func readMultipleLbText(pre string, name string, is IniSection, fmtstr string, f
 			if len(submatchall) >= 1 {
 				v := Atoi(submatchall[len(submatchall)-1])
 				if _, ok := result[v]; !ok {
-					result[v] = readLbText(pre+name+fmt.Sprintf("%v", v)+".", is, fmtstr, 2, f, align)
+					result[v] = readLbText(pre+name+fmt.Sprintf("%v", v)+".", is, fmtstr, ln, f, align)
 				}
 			}
 		}
@@ -323,22 +323,21 @@ func readMultipleLbText(pre string, name string, is IniSection, fmtstr string, f
 func calcBarFillRect(pos int32, range_ [2]int32, offset, scale, screenScale, midPos float32, fill float32) (start, size int32) {
 	isDescending := range_[0] > range_[1]
 	var r0, r1 int32
-	var base float32
-
+	
 	if isDescending {
 		r0, r1 = range_[1], range_[0]
-		base = float32(pos + r1 + 1)
 	} else {
 		r0, r1 = range_[0], range_[1]
-		base = float32(pos + r0)
 	}
 
 	fillLength := float32(r1 - r0 + 1)
-	start = int32(((base*scale+midPos)*screenScale)+0.5) - size
-	size = int32((((fillLength * scale * fill) - (offset * scale)) * screenScale) + 0.5)
+	size = int32((fillLength * scale * fill * screenScale) + 0.5)
+
+	base := float32(pos + r0)
+	start = int32(((base + offset) * scale + midPos) * screenScale + 0.5)
 
 	if isDescending {
-		start -= size
+		start = int32(((float32(pos + r1 + 1) + offset) * scale + midPos) * screenScale + 0.5) - size
 	}
 	return
 }
@@ -686,7 +685,7 @@ func readPowerBar(pre string, is IniSection,
 	// Lifebar power counter.
 	pb.shift = *ReadAnimLayout(pre+"shift.", is, sff, at, 0)
 	pb.counter[0] = readLbText(pre+"counter.", is, "%i", 0, f, 0)
-	for k, v := range readMultipleLbText(pre, "counter", is, "%i", f, 0) {
+	for k, v := range readMultipleLbText(pre, "counter", is, "%i", 0, f, 0) {
 		pb.counter[k] = v
 	}
 	pb.value = *readLbText(pre+"value.", is, "", 0, f, 0)
@@ -1769,7 +1768,7 @@ func readLifeBarTime(is IniSection,
 	ti := newLifeBarTime()
 	is.ReadI32("pos", &ti.pos[0], &ti.pos[1])
 	ti.counter[0] = readLbText("counter.", is, "", 0, f, 0)
-	for k, v := range readMultipleLbText("", "counter", is, "", f, 0) {
+	for k, v := range readMultipleLbText("", "counter", is, "", 0, f, 0) {
 		ti.counter[k] = v
 	}
 	ti.bg = *ReadAnimLayout("bg.", is, sff, at, 0)
@@ -1886,18 +1885,18 @@ func readLifeBarCombo(pre string, is IniSection,
 		}
 	}
 	co.counter[0] = readLbText(pre+"counter.", is, "%i", 2, f, align)
-	for k, v := range readMultipleLbText(pre, "counter", is, "%i", f, align) {
+	for k, v := range readMultipleLbText(pre, "counter", is, "%i", 2, f, align) {
 		co.counter[k] = v
 	}
 	is.ReadBool(pre+"counter.shake", &co.counter_shake)
 	is.ReadI32(pre+"counter.time", &co.counter_time)
 	is.ReadF32(pre+"counter.mult", &co.counter_mult)
 	co.text[0] = readLbText(pre+"text.", is, "", 2, f, align)
-	for k, v := range readMultipleLbText(pre, "text", is, "", f, align) {
+	for k, v := range readMultipleLbText(pre, "text", is, "", 2, f, align) {
 		co.text[k] = v
 	}
-	co.bg = *ReadAnimLayout(pre+"bg0.", is, sff, at, 0)
-	co.top = *ReadAnimLayout(pre+"top.", is, sff, at, 0)
+	co.bg = *ReadAnimLayout(pre+"bg0.", is, sff, at, 2)
+	co.top = *ReadAnimLayout(pre+"top.", is, sff, at, 2)
 	is.ReadI32(pre+"displaytime", &co.displaytime)
 	is.ReadF32(pre+"showspeed", &co.showspeed)
 	co.showspeed = MaxF(1, co.showspeed)

@@ -3062,8 +3062,16 @@ func (c *Char) load(def string) error {
 						if is.ReadI32("volumescale", &i32) {
 							gi.data.volume = i32 * 64 / 25
 						}
-						is.ReadI32("intpersistindex", &gi.data.intpersistindex)
-						is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						if _, ok := is["intpersistindex"]; ok {
+							// We set these to 0 first in case the value turns out to be empty
+							// https://github.com/ikemen-engine/Ikemen-GO/issues/2422
+							gi.data.intpersistindex = 0
+							is.ReadI32("intpersistindex", &gi.data.intpersistindex)
+						}
+						if _, ok := is["floatpersistindex"]; ok {
+							gi.data.floatpersistindex = 0
+							is.ReadI32("floatpersistindex", &gi.data.floatpersistindex)
+						}
 					}
 				case "size":
 					if size {
@@ -3788,13 +3796,14 @@ func (c *Char) p2() *Char {
 	return p
 }
 
+// Checks if a player should be considered an enemy at all for the "Enemy" and "P2" triggers, before filtering them further
 func (c *Char) isEnemyOf(e *Char) bool {
 	// Disabled players
-	if c.scf(SCF_disabled) || e.scf(SCF_disabled) {
+	if e.scf(SCF_disabled) {
 		return false
 	}
 	// Neutral players or partners
-	if c.teamside < 0 || e.teamside < 0 || c.teamside == e.teamside {
+	if e.teamside < 0 || e.teamside == c.teamside {
 		return false
 	}
 	// Standby enemies
@@ -3802,7 +3811,8 @@ func (c *Char) isEnemyOf(e *Char) bool {
 		return false
 	}
 	// KO special ignore flag
-	//if sys.roundState() == 2 && !e.alive() && c.gi().constants["default.ignoredefeatedenemies"] != 0 {
+	// TODO: This flag is obsolete in Tag. For Simul, we could either re-enable it or tag out KO players via ZSS
+	//if sys.roundState() == 2 && e.scf(SCF_over_ko) && c.gi().constants["default.ignoredefeatedenemies"] != 0 {
 	//	return false
 	//}
 	// Else a valid enemy
@@ -4172,6 +4182,7 @@ func (c *Char) mugenVersionF() float32 {
 func (c *Char) numEnemy() int32 {
 	var n int32
 
+	// Same as enemy() loop
 	for _, e := range sys.chars {
 		if len(e) > 0 && e[0] != nil && c.isEnemyOf(e[0]) {
 			n += 1

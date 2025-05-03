@@ -1205,23 +1205,52 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 	return s.PalTex
 }
 
-func (s *Sprite) Draw(x, y, xscale, yscale, angle, xshear float32, fx *PalFX, window *[4]int32) {
-	x += float32(sys.gameWidth-320)/2 - xscale*float32(s.Offset[0])
-	y += float32(sys.gameHeight-240) - yscale*float32(s.Offset[1])
-	if xscale < 0 {
-		x *= -1
-	}
-	if yscale < 0 {
-		y *= -1
-	}
-	rp := RenderParams{
-		s.Tex, s.PalTex, s.Size,
-		-x * sys.widthScale, -y * sys.heightScale, notiling,
-		xscale * sys.widthScale, xscale * sys.widthScale, yscale * sys.heightScale, 1, xshear, 1, 1,
-		Rotation{angle, 0, 0}, 0, sys.brightness*255>>8 | 1<<9, 0, fx, window, 0, 0, 0, 0,
-		-xscale * float32(s.Offset[0]), -yscale * float32(s.Offset[1]),
-	}
-	RenderSprite(rp)
+func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, fx *PalFX, window *[4]int32) {
+    x += float32(sys.gameWidth-320)/2 - xscale*float32(s.Offset[0])
+    y += float32(sys.gameHeight-240) - yscale*float32(s.Offset[1])
+    var rcx, rcy float32
+
+    if rot.IsZero() {
+		if xscale < 0 {
+			x *= -1
+		}
+		if yscale < 0 {
+			y *= -1
+		}
+		rcx, rcy = rcx*sys.widthScale, 0
+    } else {
+        rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
+		x, y = AbsF(xscale)*float32(s.Offset[0]), AbsF(yscale)*float32(s.Offset[1])
+    }
+
+    rp := RenderParams{
+        tex:            s.Tex,
+        paltex:         s.PalTex,
+        size:           s.Size,
+        x:              -x * sys.widthScale,
+        y:              -y * sys.heightScale,
+        tile:           notiling,
+        xts:            xscale * sys.widthScale,
+        xbs:            xscale * sys.widthScale,
+        ys:             yscale * sys.heightScale,
+        vs:             1,
+        rxadd:          rxadd,
+        xas:            1,
+        yas:            1,
+        rot:            rot,
+        tint:           0,
+        trans:          sys.brightness*255>>8 | 1<<9,
+        mask:           0,
+        pfx:            fx,
+        window:         window,
+        rcx:            rcx,
+        rcy:            rcy,
+        projectionMode: 0,
+        fLength:        0,
+        xOffset:        -xscale * float32(s.Offset[0]),
+        yOffset:        -yscale * float32(s.Offset[1]),
+    }
+    RenderSprite(rp)
 }
 
 type Sff struct {

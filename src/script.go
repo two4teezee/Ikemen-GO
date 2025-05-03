@@ -691,7 +691,7 @@ func systemScriptInit(l *lua.LState) {
 							sprite.CachePalette(sprite.Pal)
 						}
 						sprite.Draw(x, y, scale[0]*float32(facing)*fscale, scale[1]*fscale, 0,
-							0, pfx, window)
+							Rotation{0, 0, 0}, pfx, window)
 						ok = true
 					}
 				}

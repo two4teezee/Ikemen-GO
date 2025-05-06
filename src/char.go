@@ -1642,7 +1642,10 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		//}
 
 		if e.bindtime > 0 {
-			e.bindtime--
+			c := sys.playerID(e.playerId)
+			if e.ignorehitpause || c == nil || (!c.pause() && !c.hitPause()) {
+				e.bindtime--
+			}
 		}
 		if act {
 			if e.palfx != nil && e.ownpal {

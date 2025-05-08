@@ -4424,7 +4424,11 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeSF()
 	}
 
+	// See compiler.go:SoundVar
 	var id = chid.ToI()
+	if id > 0 {
+		id--
+	}
 	var ch *SoundChannel
 
 	// First, grab a channel.

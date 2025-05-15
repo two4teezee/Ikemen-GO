@@ -341,19 +341,20 @@ type Renderer_GL32 struct {
 	GL32State
 }
 type GL32State struct {
-	depthTest       bool
-	depthMask       bool
-	invertFrontFace bool
-	doubleSided     bool
-	blendEquation   BlendEquation
-	blendSrc        BlendFunc
-	blendDst        BlendFunc
-	useUV           bool
-	useNormal       bool
-	useTangent      bool
-	useVertColor    bool
-	useJoint0       bool
-	useJoint1       bool
+	depthTest           bool
+	depthMask           bool
+	invertFrontFace     bool
+	doubleSided         bool
+	blendEquation       BlendEquation
+	blendSrc            BlendFunc
+	blendDst            BlendFunc
+	useUV               bool
+	useNormal           bool
+	useTangent          bool
+	useVertColor        bool
+	useJoint0           bool
+	useJoint1           bool
+	useOutlineAttribute bool
 }
 
 func (r *Renderer_GL32) GetName() string {
@@ -371,10 +372,10 @@ func (r *Renderer_GL32) InitModelShader() error {
 	if err != nil {
 		return err
 	}
-	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1")
+	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttribute")
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
-		"metallicRoughness", "ambientOcclusionStrength", "emission", "environmentIntensity", "mipCount",
+		"metallicRoughness", "ambientOcclusionStrength", "emission", "environmentIntensity", "mipCount", "meshOutline",
 		"cameraPosition", "environmentRotation", "texTransform", "normalMapTransform", "metallicRoughnessMapTransform", "ambientOcclusionMapTransform", "emissionMapTransform",
 		"lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]",
 		"lights[0].direction", "lights[0].range", "lights[0].color", "lights[0].intensity", "lights[0].position", "lights[0].innerConeCos", "lights[0].outerConeCos", "lights[0].type", "lights[0].shadowBias", "lights[0].shadowMapFar",
@@ -396,7 +397,8 @@ func (r *Renderer_GL32) InitModelShader() error {
 			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
 			"lightMatrices[18]", "lightMatrices[19]", "lightMatrices[20]", "lightMatrices[21]", "lightMatrices[22]", "lightMatrices[23]",
 			"lightType[0]", "lightType[1]", "lightType[2]", "lightType[3]", "lightPos[0]", "lightPos[1]", "lightPos[2]", "lightPos[3]",
-			"farPlane[0]", "farPlane[1]", "farPlane[2]", "farPlane[3]", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices", "enableAlpha", "alphaThreshold", "baseColorFactor", "useTexture", "texTransform", "layerOffset", "lightIndex")
+			"farPlane[0]", "farPlane[1]", "farPlane[2]", "farPlane[3]", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension",
+			"numTargets", "numVertices", "enableAlpha", "alphaThreshold", "baseColorFactor", "useTexture", "texTransform", "layerOffset", "lightIndex")
 		r.shadowMapShader.RegisterTextures("morphTargetValues", "jointMatrices", "tex")
 	}
 	r.panoramaToCubeMapShader, err = r.newShaderProgram(identVertShader, panoramaToCubeMapFragShader, "", "Panorama To Cubemap Shader", false)
@@ -1105,7 +1107,7 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 		gl.Uniform1f(loc, 0)
 	}
 }
-func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
+func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1, useOutlineAttribute bool, numVertices, vertAttrOffset uint32) {
 	r.SetDepthTest(depthTest)
 	r.SetDepthMask(depthMask)
 	r.SetFrontFace(invertFrontFace)
@@ -1214,6 +1216,26 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
+	if useOutlineAttribute {
+		r.useOutlineAttribute = true
+		loc = r.modelShader.a["outlineAttribute"]
+		gl.EnableVertexAttribArray(uint32(loc))
+		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
+		offset += 16 * numVertices
+	} else if r.useOutlineAttribute {
+		r.useOutlineAttribute = false
+		loc = r.modelShader.a["outlineAttribute"]
+		gl.DisableVertexAttribArray(uint32(loc))
+		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
+	}
+}
+func (r *Renderer_GL32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32) {
+	r.SetFrontFace(invertFrontFace)
+	r.SetDepthTest(true)
+	r.SetDepthMask(true)
+
+	loc := r.modelShader.u["meshOutline"]
+	gl.Uniform1f(loc, meshOutline)
 }
 func (r *Renderer_GL32) ReleaseModelPipeline() {
 	loc := r.modelShader.a["vertexId"]
@@ -1244,6 +1266,9 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	loc = r.modelShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
+	loc = r.modelShader.a["outlineAttribute"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
 	gl.DepthMask(true)
 	gl.Disable(gl.DEPTH_TEST)
@@ -1254,6 +1279,7 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	r.useVertColor = false
 	r.useJoint0 = false
 	r.useJoint1 = false
+	r.useOutlineAttribute = false
 }
 
 func (r *Renderer_GL32) ReadPixels(data []uint8, width, height int) {

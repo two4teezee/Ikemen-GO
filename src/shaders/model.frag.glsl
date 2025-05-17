@@ -79,6 +79,7 @@ uniform bool useEmissionMap;
 uniform bool neg;
 uniform bool enableAlpha;
 uniform float alphaThreshold;
+uniform float meshOutline;
 
 COMPAT_VARYING vec2 texcoord;
 COMPAT_VARYING vec4 vColor;
@@ -410,7 +411,9 @@ void main(void) {
 	}
     FragColor *= baseColorFactor;
 	FragColor *= vColor;
-    if(!unlit){
+    if(meshOutline > 0) {
+        FragColor.rgb = vec3(0,0,0);
+    }else if(!unlit){
         vec3 normalF = normal;
         if(useNormalMap){
             normalF = getNormal();

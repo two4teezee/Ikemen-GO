@@ -2162,6 +2162,7 @@ type Node struct {
 	morphTargetWeights GLTFAnimatableProperty // []float32
 	activeMorphTargets []uint32
 	layerNumber        *int
+	meshOutline        GLTFAnimatableProperty // float32
 }
 
 type Skin struct {
@@ -2212,6 +2213,7 @@ type Primitive struct {
 	useVertexColor      bool
 	useJoint0           bool
 	useJoint1           bool
+	useOutlineAttribute bool
 	mode                PrimitiveMode
 	morphTargets        []*MorphTarget
 	morphTargetTexture  *GLTFTexture
@@ -2895,6 +2897,20 @@ func loadglTFModel(filepath string) (*Model, error) {
 			} else {
 				primitive.useJoint0 = false
 			}
+
+			if idx, ok := p.Attributes["_OUTLINE_ATTRIBUTE"]; ok {
+				primitive.useOutlineAttribute = true
+				var outlineAttributeBuffer [][4]uint16
+				atttributes, err := modeler.ReadAccessor(doc, doc.Accessors[idx], outlineAttributeBuffer)
+				if err != nil {
+					return nil, err
+				}
+				for _, attribute := range atttributes.([][4]float32) {
+					vertexBuffer = append(vertexBuffer, f32.Bytes(binary.LittleEndian, attribute[:]...)...)
+				}
+			} else {
+				primitive.useOutlineAttribute = false
+			}
 			if len(p.Targets) > 0 {
 				numAttributes := 0
 				for _, t := range p.Targets {
@@ -3056,6 +3072,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 		node.castShadow = true
 		node.zTest = true
 		node.zWrite = true
+		node.meshOutline = GLTFAnimatableProperty{isAnimated: false, restValue: float32(0.0)}
 		if n.Extensions != nil {
 			if l, ok := n.Extensions["KHR_lights_punctual"]; ok {
 				var ext interface{}
@@ -3124,6 +3141,9 @@ func loadglTFModel(filepath string) (*Model, error) {
 				if v["layerNumber"] != nil {
 					node.layerNumber = new(int)
 					*node.layerNumber = int(v["layerNumber"].(float64))
+				}
+				if v["meshOutline"] != nil {
+					node.meshOutline.restAt((float32)(v["meshOutline"].(float64)))
 				}
 			}
 		}
@@ -3646,11 +3666,11 @@ func isCulled(MVPMatrix mgl.Mat4, box BoundingBox) bool {
 
 	return false
 }
-func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool, viewProjMatrix mgl.Mat4) {
+func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit, viewProjMatrix)
+		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit, viewProjMatrix, outlineConst)
 	}
 	nodeLayerNumber := defaultLayerNumber
 	if n.layerNumber != nil {
@@ -3716,7 +3736,8 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			return
 		}
 		color := mdl.materials[*p.materialIndex].baseColorFactor.getValue().([4]float32)
-		gfx.SetModelPipeline(blendEq, src, dst, n.zTest, n.zWrite, mdl.materials[*p.materialIndex].doubleSided, reverseCull, p.useUV, p.useNormal, p.useTangent, p.useVertexColor, p.useJoint0, p.useJoint1, p.numVertices, p.vertexBufferOffset)
+		meshOutline := n.meshOutline.getValue().(float32)
+		gfx.SetModelPipeline(blendEq, src, dst, n.zTest, n.zWrite, mdl.materials[*p.materialIndex].doubleSided, reverseCull, p.useUV, p.useNormal, p.useTangent, p.useVertexColor, p.useJoint0, p.useJoint1, p.useOutlineAttribute, p.numVertices, p.vertexBufferOffset)
 
 		gfx.SetModelUniformMatrix("model", n.worldTransform[:])
 		gfx.SetModelUniformMatrix("normalMatrix", n.normalMatrix[:])
@@ -3791,7 +3812,12 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		} else {
 			gfx.SetModelUniformI("useEmissionMap", 0)
 		}
+		gfx.SetModelUniformF("meshOutline", 0)
 		gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+		if meshOutline > 0 {
+			gfx.SetMeshOulinePipeline(!reverseCull, meshOutline*outlineConst)
+			gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+		}
 
 	}
 }
@@ -3882,7 +3908,7 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 	}
 }
-func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4) {
+func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
 	}
@@ -4129,10 +4155,10 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		unlit = true
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit, viewProjMatrix)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit, viewProjMatrix, outlineConst)
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit, viewProjMatrix)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit, viewProjMatrix, outlineConst)
 	}
 	gfx.ReleaseModelPipeline()
 }
@@ -4141,7 +4167,7 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 		return
 	}
 	drawFOV := s.stageCamera.fov * math.Pi / 180
-
+	outlineConst := float32(0.003 * math.Tan(float64(drawFOV)))
 	var syo float32
 	scaleCorrection := float32(sys.cam.localcoord[1]) * sys.cam.localscl / float32(sys.gameHeight)
 	posMul := float32(math.Tan(float64(drawFOV)/2)) * -s.model.offset[2] / (float32(sys.cam.localcoord[1]) / 2)
@@ -4163,12 +4189,12 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 	view = view.Mul4(mgl.Scale3D(scale[0], scale[1], scale[2]))
 	if layerNumber == -1 {
 		s.model.calculateTextureTransform()
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	} else if layerNumber == 0 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	} else if layerNumber == 1 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view, proj.Mul4(view))
-		s.model.draw(0, 1, int(layerNumber), 1, offset, proj, view, proj.Mul4(view))
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
+		s.model.draw(0, 1, int(layerNumber), 1, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	}
 }
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {

@@ -73,6 +73,7 @@ const (
 	ASF_nocrouch
 	ASF_nodizzypointsdamage
 	ASF_nofacedisplay
+	ASF_nofacep2
 	ASF_nofallcount
 	ASF_nofalldefenceup
 	ASF_nofallhitflag

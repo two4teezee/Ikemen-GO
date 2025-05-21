@@ -5526,6 +5526,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocrouch)))
 		case "nodizzypointsdamage":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nodizzypointsdamage)))
+		case "nofacep2":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nofacep2)))
 		case "nofallcount":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nofallcount)))
 		case "nofalldefenceup":

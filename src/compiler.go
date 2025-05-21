@@ -4381,33 +4381,31 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_)
 		switch c.token {
 		// Mugen char flags
-		case "nostandguard":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostandguard))
-		case "nocrouchguard":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouchguard))
-		case "noairguard":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noairguard))
-		case "noshadow":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noshadow))
 		case "invisible":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_invisible))
-		case "unguardable":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_unguardable))
-		case "nojugglecheck":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nojugglecheck))
+		case "noairguard":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noairguard))
 		case "noautoturn":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noautoturn))
-		case "nowalk":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nowalk))
+		case "nocrouchguard":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouchguard))
+		case "nojugglecheck":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nojugglecheck))
 		case "noko":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noko))
+		case "noshadow":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noshadow))
+		case "nostandguard":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostandguard))
+		case "nowalk":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nowalk))
+		case "unguardable":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_unguardable))
 		// Mugen global flags
 		case "globalnoshadow":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_globalnoshadow))
 		case "intro":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_intro))
-		case "roundnotover":
-			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundnotover))
 		case "nobardisplay":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nobardisplay))
 		case "nobg":
@@ -4420,102 +4418,106 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nokosnd))
 		case "nomusic":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_nomusic))
+		case "roundnotover":
+			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundnotover))
 		case "timerfreeze":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_timerfreeze))
 		// Ikemen char flags
+		case "animatehitpause":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_animatehitpause))
+		case "animfreeze":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_animfreeze))
+		case "autoguard":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_autoguard))
+		case "drawunder":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_drawunder))
+		case "noailevel":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noailevel))
+		case "noairjump":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noairjump))
 		case "nobrake":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nobrake))
 		case "nocombodisplay":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocombodisplay))
 		case "nocrouch":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouch))
-		case "nostand":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostand))
-		case "nojump":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nojump))
-		case "noairjump":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noairjump))
-		case "nohardcodedkeys":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nohardcodedkeys))
-		case "nogetupfromliedown":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nogetupfromliedown))
-		case "nofastrecoverfromliedown":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofastrecoverfromliedown))
+		case "nodizzypointsdamage":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nodizzypointsdamage))
+		case "nofacedisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofacedisplay))
+		case "nofacep2":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofacep2))
 		case "nofallcount":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofallcount))
 		case "nofalldefenceup":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofalldefenceup))
-		case "noturntarget":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noturntarget))
-		case "noinput":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noinput))
-		case "nolifebaraction":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebaraction))
-		case "nolifebardisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebardisplay))
-		case "nopowerbardisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nopowerbardisplay))
+		case "nofallhitflag":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofallhitflag))
+		case "nofastrecoverfromliedown":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofastrecoverfromliedown))
+		case "nogetupfromliedown":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nogetupfromliedown))
 		case "noguardbardisplay":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noguardbardisplay))
-		case "nostunbardisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostunbardisplay))
-		case "nofacedisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofacedisplay))
-		case "nonamedisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nonamedisplay))
-		case "nowinicondisplay":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nowinicondisplay))
-		case "autoguard":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_autoguard))
-		case "animatehitpause":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_animatehitpause))
-		case "animfreeze":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_animfreeze))
-		case "postroundinput":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_postroundinput))
-		case "nohitdamage":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nohitdamage))
 		case "noguarddamage":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noguarddamage))
-		case "nodizzypointsdamage":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nodizzypointsdamage))
-		case "noguardpointsdamage":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noguardpointsdamage))
-		case "noredlifedamage":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noredlifedamage))
-		case "nomakedust":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nomakedust))
 		case "noguardko":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noguardko))
+		case "noguardpointsdamage":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noguardpointsdamage))
+		case "nohardcodedkeys":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nohardcodedkeys))
+		case "nohitdamage":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nohitdamage))
+		case "noinput":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noinput))
+		case "nointroreset":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nointroreset))
+		case "nojump":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nojump))
 		case "nokofall":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nokofall))
 		case "nokovelocity":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nokovelocity))
-		case "noailevel":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noailevel))
-		case "nointroreset":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nointroreset))
-		case "sizepushonly":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_sizepushonly))
-		case "drawunder":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_drawunder))
+		case "nolifebaraction":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebaraction))
+		case "nolifebardisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nolifebardisplay))
+		case "nomakedust":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nomakedust))
+		case "nonamedisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nonamedisplay))
+		case "nopowerbardisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nopowerbardisplay))
+		case "noredlifedamage":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noredlifedamage))
+		case "nostand":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostand))
+		case "nostunbardisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostunbardisplay))
+		case "noturntarget":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noturntarget))
+		case "nowinicondisplay":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nowinicondisplay))
+		case "postroundinput":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_postroundinput))
+		case "projtypecollision":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_projtypecollision))
 		case "runfirst":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_runfirst))
 		case "runlast":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_runlast))
-		case "projtypecollision":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_projtypecollision))
-		case "nofallhitflag":
-			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nofallhitflag))
+		case "sizepushonly":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_sizepushonly))
 		// Ikemen global flags
 		case "camerafreeze":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_camerafreeze))
 		case "globalnoko":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_globalnoko))
-		case "roundnotskip":
-			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundnotskip))
 		case "roundfreeze":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundfreeze))
+		case "roundnotskip":
+			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_roundnotskip))
 		case "skipfightdisplay":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_skipfightdisplay))
 		case "skipkodisplay":

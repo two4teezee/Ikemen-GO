@@ -3048,7 +3048,7 @@ func (c *Char) load(def string) error {
 						is.ReadI32("fall.defence_up", &gi.data.fall.defence_up)
 						gi.data.fall.defence_mul = (float32(gi.data.fall.defence_up) + 100) / 100
 						is.ReadI32("liedown.time", &gi.data.liedown.time)
-						gi.data.liedown.time = Max(1, gi.data.liedown.time)
+						//gi.data.liedown.time = Max(1, gi.data.liedown.time) // Mugen doesn't actually handle it like this
 						is.ReadI32("airjuggle", &gi.data.airjuggle)
 						is.ReadI32("sparkno", &gi.data.sparkno)
 						is.ReadI32("guard.sparkno", &gi.data.guard.sparkno)
@@ -9331,7 +9331,8 @@ func (c *Char) actionRun() {
 	c.updateSizeBox()
 	if !c.pauseBool {
 		if !c.hitPause() {
-			if c.ss.no == 5110 && c.ghv.down_recovertime <= 0 && c.alive() && !c.asf(ASF_nogetupfromliedown) {
+			// In Mugen chars are forced to stay in state 5110 at least one frame before getting up
+			if c.ss.no == 5110 && c.ss.time >= 1 && c.ghv.down_recovertime <= 0 && c.alive() && !c.asf(ASF_nogetupfromliedown) {
 				c.changeState(5120, -1, -1, "")
 			}
 			for c.ss.no == 140 && (c.anim == nil || len(c.anim.frames) == 0 ||
@@ -9347,7 +9348,7 @@ func (c *Char) actionRun() {
 					c.changeState(52, -1, -1, "")
 				}
 			}
-			c.groundLevel = 0 // Only after position is updated
+			c.groundLevel = 0 // Reset only after position has been updated
 			c.setFacing(c.p1facing)
 			c.p1facing = 0
 			c.ss.time++

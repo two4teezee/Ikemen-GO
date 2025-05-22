@@ -1748,7 +1748,11 @@ func systemScriptInit(l *lua.LState) {
 		tbl.RawSetString("name", lua.LString(c.name))
 		tbl.RawSetString("def", lua.LString(c.def))
 		tbl.RawSetString("portrait_scale", lua.LNumber(c.portrait_scale))
-		tbl.RawSetString("attachedchardef", lua.LString(c.attachedchardef))
+		acTable := l.NewTable()
+		for _, v := range c.attachedchardef {
+			acTable.Append(lua.LString(v))
+		}
+		tbl.RawSetString("attachedchardef", acTable)
 		subt := l.NewTable()
 		for k, v := range c.stagebgm {
 			subt.RawSetString(k, lua.LString(v))

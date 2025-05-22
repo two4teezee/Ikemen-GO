@@ -931,11 +931,31 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if s.ikemenver[0] == 0 && s.ikemenver[1] == 0 && s.mugenver[0] != 1 {
 			s.stageprops.roundpos = true
 		}
-		if sec[0].LoadFile("attachedchar", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			s.attachedchardef = append(s.attachedchardef, filename)
-			return nil
-		}); err != nil {
-			return nil, err
+		// AttachedChars
+		ac := 0
+		for i := range sec[0] {
+			if !strings.HasPrefix(i, "attachedchar") {
+				continue
+			}
+			if suffix := strings.TrimPrefix(i, "attachedchar"); suffix != "" {
+				if _, err := strconv.Atoi(suffix); err != nil {
+					continue
+				}
+			}
+			if ac >= MaxAttachedChar {
+				sys.appendToConsole(fmt.Sprintf("Warning: You can define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
+				continue
+			}
+			if err := sec[0].LoadFile(i, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+				// Ensure slice has correct length
+				for len(s.attachedchardef) <= ac {
+					s.attachedchardef = append(s.attachedchardef, "")
+				}
+				s.attachedchardef[ac] = filename
+				return nil
+			}); err == nil {
+				ac++
+			}
 		}
 		// RoundXdef
 		if maindef {

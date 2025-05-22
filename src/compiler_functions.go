@@ -3454,6 +3454,14 @@ func (c *Compiler) angleDraw(is IniSection, sc *StateControllerBase, _ int8) (St
 			angleDraw_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleDraw_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleDraw_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "scale",
 			angleDraw_scale, VT_Float, 2, false); err != nil {
 			return err
@@ -3473,6 +3481,14 @@ func (c *Compiler) angleSet(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleSet_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleSet_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleSet_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3488,6 +3504,14 @@ func (c *Compiler) angleAdd(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleAdd_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleAdd_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleAdd_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3501,6 +3525,14 @@ func (c *Compiler) angleMul(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.paramValue(is, sc, "value",
 			angleMul_value, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleMul_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleMul_y, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil

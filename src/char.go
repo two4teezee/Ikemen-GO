@@ -2384,7 +2384,8 @@ type CharSystemVar struct {
 	bindPosAdd        [3]float32
 	bindFacing        float32
 	hitPauseTime      int32
-	angle             float32
+	rot               Rotation
+	anglerot          [3]float32
 	angleDrawScale    [2]float32
 	alpha             [2]int32
 	systemFlag        SystemCharFlag
@@ -7171,7 +7172,15 @@ func (c *Char) hitPause() bool {
 }
 
 func (c *Char) angleSet(a float32) {
-	c.angle = a
+	c.anglerot[0] = a
+}
+
+func (c *Char) XangleSet(xa float32) {
+	c.anglerot[1] = xa
+}
+
+func (c *Char) YangleSet(ya float32) {
+	c.anglerot[2] = ya
 }
 
 func (c *Char) inputWait() bool {
@@ -10142,14 +10151,19 @@ func (c *Char) cueDraw() {
 		//	pos[1] += c.interPos[2] * c.localscl
 		//}
 
-		agl := float32(0)
+		anglerot := c.anglerot
+		rot := c.rot
+
 		if c.csf(CSF_angledraw) {
-			agl = c.angle
+			rot.angle = anglerot[0]
+			rot.xangle = anglerot[1]
+			rot.yangle = anglerot[2]
 			// if agl == 0 {
 			// 	agl = 360 // Is it really necessary for the initial angle to be 360?
 			// } else if c.facing < 0 {
 			if c.facing < 0 {
-				agl *= -1
+				anglerot[0] *= -1
+				anglerot[2] *= -1
 			}
 		}
 
@@ -10197,7 +10211,7 @@ func (c *Char) cueDraw() {
 			scl:          scl,
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
-			rot:          Rotation{agl, 0, 0},
+			rot:          rot,
 			screen:       false,
 			undarken:     c.playerNo == sys.superplayerno,
 			oldVer:       c.gi().mugenver[0] != 1,

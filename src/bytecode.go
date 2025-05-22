@@ -761,6 +761,8 @@ const (
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
 	OC_ex2_outrostate
+	OC_ex2_angle_x
+	OC_ex2_angle_y
 	OC_ex2_bgmvar_filename
 	OC_ex2_bgmvar_freqmul
 	OC_ex2_bgmvar_length
@@ -3102,7 +3104,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_angle:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.angle)
+			sys.bcStack.PushF(c.anglerot[0])
 		} else {
 			sys.bcStack.PushF(0)
 		}
@@ -3230,6 +3232,18 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.introState())
 	case OC_ex2_outrostate:
 		sys.bcStack.PushI(sys.outroState())
+	case OC_ex2_angle_x:
+		if c.csf(CSF_angledraw) {
+			sys.bcStack.PushF(c.anglerot[1])
+		} else {
+			sys.bcStack.PushF(0)
+		}
+	case OC_ex2_angle_y:
+		if c.csf(CSF_angledraw) {
+			sys.bcStack.PushF(c.anglerot[2])
+		} else {
+			sys.bcStack.PushF(0)
+		}
 	case OC_ex2_bgmvar_filename:
 		sys.bcStack.PushB(sys.bgm.filename ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
@@ -9532,6 +9546,8 @@ type angleDraw StateControllerBase
 
 const (
 	angleDraw_value byte = iota
+	angleDraw_x
+	angleDraw_y
 	angleDraw_scale
 	angleDraw_redirectid
 )
@@ -9542,6 +9558,10 @@ func (sc angleDraw) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case angleDraw_value:
 			crun.angleSet(exp[0].evalF(c))
+		case angleDraw_x:
+			crun.XangleSet(exp[0].evalF(c))
+		case angleDraw_y:
+			crun.YangleSet(exp[0].evalF(c))
 		case angleDraw_scale:
 			crun.angleDrawScale[0] *= exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -9564,16 +9584,24 @@ type angleSet StateControllerBase
 
 const (
 	angleSet_value byte = iota
+	angleSet_x
+	angleSet_y
 	angleSet_redirectid
 )
 
 func (sc angleSet) Run(c *Char, _ []int32) bool {
 	crun := c
-	v := float32(0) // Mugen uses 0 if no value is set at all
+	v1 := float32(0) // Mugen uses 0 if no value is set at all
+	v2 := float32(0)
+	v3 := float32(0)
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleSet_value:
-			v = exp[0].evalF(c)
+			v1 = exp[0].evalF(c)
+		case angleSet_x:
+			v2 = exp[0].evalF(c)
+		case angleSet_y:
+			v3 = exp[0].evalF(c)
 		case angleSet_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9583,7 +9611,9 @@ func (sc angleSet) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	crun.angleSet(v)
+	crun.angleSet(v1)
+	crun.XangleSet(v2)
+	crun.YangleSet(v3)
 	return false
 }
 
@@ -9591,6 +9621,8 @@ type angleAdd StateControllerBase
 
 const (
 	angleAdd_value byte = iota
+	angleAdd_x
+	angleAdd_y
 	angleAdd_redirectid
 )
 
@@ -9599,7 +9631,11 @@ func (sc angleAdd) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleAdd_value:
-			crun.angleSet(crun.angle + exp[0].evalF(c))
+			crun.angleSet(crun.anglerot[0] + exp[0].evalF(c))
+		case angleAdd_x:
+			crun.XangleSet(crun.anglerot[1] + exp[0].evalF(c))
+		case angleAdd_y:
+			crun.YangleSet(crun.anglerot[2] + exp[0].evalF(c))
 		case angleAdd_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9616,16 +9652,24 @@ type angleMul StateControllerBase
 
 const (
 	angleMul_value byte = iota
+	angleMul_x
+	angleMul_y
 	angleMul_redirectid
 )
 
 func (sc angleMul) Run(c *Char, _ []int32) bool {
 	crun := c
-	v := float32(0) // Mugen uses 0 if no value is set at all
+	v1 := float32(0) // Mugen uses 0 if no value is set at all
+	v2 := float32(0)
+	v3 := float32(0)
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleMul_value:
-			v = exp[0].evalF(c)
+			v1 = exp[0].evalF(c)
+		case angleMul_x:
+			v2 = exp[0].evalF(c)
+		case angleMul_y:
+			v3 = exp[0].evalF(c)
 		case angleMul_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9635,7 +9679,9 @@ func (sc angleMul) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	crun.angleSet(crun.angle * v)
+	crun.angleSet(crun.anglerot[0] * v1)
+	crun.XangleSet(crun.anglerot[1] * v2)
+	crun.YangleSet(crun.anglerot[2] * v3)
 	return false
 }
 

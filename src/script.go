@@ -5197,7 +5197,23 @@ func triggerFunctions(l *lua.LState) {
 	// atan2 (dedicated functionality already exists in Lua)
 	luaRegister(l, "angle", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
-			l.Push(lua.LNumber(sys.debugWC.angle))
+			l.Push(lua.LNumber(sys.debugWC.anglerot[0]))
+		} else {
+			l.Push(lua.LNumber(0))
+		}
+		return 1
+	})
+	luaRegister(l, "angle x", func(*lua.LState) int {
+		if sys.debugWC.csf(CSF_angledraw) {
+			l.Push(lua.LNumber(sys.debugWC.anglerot[1]))
+		} else {
+			l.Push(lua.LNumber(0))
+		}
+		return 1
+	})
+	luaRegister(l, "angle y", func(*lua.LState) int {
+		if sys.debugWC.csf(CSF_angledraw) {
+			l.Push(lua.LNumber(sys.debugWC.anglerot[2]))
 		} else {
 			l.Push(lua.LNumber(0))
 		}

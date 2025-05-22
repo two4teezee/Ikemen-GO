@@ -4753,7 +4753,17 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "timetotal":
 		out.append(OC_ex_, OC_ex_timetotal)
 	case "angle":
-		out.append(OC_ex_, OC_ex_angle)
+		c.token = c.tokenizer(in)
+		switch c.token {
+		case "x":
+			out.append(OC_ex2_, OC_ex2_angle_x)
+		case "y":
+			out.append(OC_ex2_, OC_ex2_angle_y)
+		case "":
+			out.append(OC_ex_, OC_ex_angle)
+		default:
+			return bvNone(), Error("Invalid Angle trigger argument: " + c.token)
+		}
 	case "scale":
 		c.token = c.tokenizer(in)
 		switch c.token {

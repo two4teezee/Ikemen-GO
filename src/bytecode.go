@@ -831,6 +831,8 @@ const (
 	OC_ex2_projvar_pos_y
 	OC_ex2_projvar_pos_z
 	OC_ex2_projvar_projangle
+	OC_ex2_projvar_projyangle
+	OC_ex2_projvar_projxangle
 	OC_ex2_projvar_projanim
 	OC_ex2_projvar_projcancelanim
 	OC_ex2_projvar_projedgebound
@@ -3556,6 +3558,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_projscale_y:
 		fallthrough
 	case OC_ex2_projvar_projangle:
+		fallthrough
+	case OC_ex2_projvar_projyangle:
+		fallthrough
+	case OC_ex2_projvar_projxangle:
 		fallthrough
 	case OC_ex2_projvar_projxshear:
 		fallthrough
@@ -7166,6 +7172,8 @@ const (
 	projectile_accel
 	projectile_projscale
 	projectile_projangle
+	projectile_projxangle
+	projectile_projyangle
 	projectile_projclsnscale
 	projectile_projclsnangle
 	projectile_offset
@@ -7286,7 +7294,11 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 				p.scale[1] = exp[1].evalF(c)
 			}
 		case projectile_projangle:
-			p.angle = exp[0].evalF(c)
+			p.anglerot[0] = exp[0].evalF(c)
+		case projectile_projyangle:
+			p.anglerot[2] = exp[0].evalF(c)
+		case projectile_projxangle:
+			p.anglerot[1] = exp[0].evalF(c)
 		case projectile_offset:
 			x = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
@@ -7627,9 +7639,19 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.scale[1] = v2
 				})
 			case projectile_projangle:
-				v1 := exp[0].evalF(c)
+				a := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.angle = v1
+					p.anglerot[0] = a
+				})
+			case projectile_projyangle:
+				ya := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.anglerot[2] = ya
+				})
+			case projectile_projxangle:
+				xa := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.anglerot[1] = xa
 				})
 			//case projectile_offset: // Pointless because it's only used when the projectile is created
 			case projectile_projsprpriority:

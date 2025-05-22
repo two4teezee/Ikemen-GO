@@ -4635,7 +4635,11 @@ func triggerFunctions(l *lua.LState) {
 				case "animelem":
 					lv = lua.LNumber(p.ani.current + 1)
 				case "angle":
-					lv = lua.LNumber(p.angle)
+					lv = lua.LNumber(p.anglerot[0])
+				case "angle x":
+					lv = lua.LNumber(p.anglerot[1])
+				case "angle y":
+					lv = lua.LNumber(p.anglerot[2])
 				case "drawpal group":
 					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
 				case "drawpal index":

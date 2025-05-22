@@ -2303,6 +2303,14 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projangle, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "projxangle",
+		projectile_projxangle, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projyangle",
+		projectile_projyangle, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "projclsnscale",
 		projectile_projclsnscale, VT_Float, 2, false); err != nil {
 		return err

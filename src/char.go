@@ -1799,7 +1799,8 @@ type Projectile struct {
 	cancelanim      int32
 	cancelanim_ffx  string
 	scale           [2]float32
-	angle           float32
+	anglerot        [3]float32
+	rot             Rotation
 	clsnScale       [2]float32
 	clsnAngle       float32
 	zScale          float32
@@ -2192,6 +2193,16 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		pos = sys.drawposXYfromZ(pos, p.localscl, p.interPos[2], p.zScale)
 	}
 
+	anglerot := p.anglerot
+	if p.facing < 0 {
+		anglerot[0] *= -1
+		anglerot[2] *= -1
+	}
+	rot := p.rot
+	rot.angle = anglerot[0]
+	rot.xangle = anglerot[1]
+	rot.yangle = anglerot[2]
+
 	sprs := &sys.spritesLayer0
 	if p.layerno > 0 {
 		sprs = &sys.spritesLayer1
@@ -2215,7 +2226,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			scl:          scl,
 			alpha:        [2]int32{-1},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
-			rot:          Rotation{p.facing * p.angle, 0, 0},
+			rot:          rot,
 			screen:       false,
 			undarken:     p.playerno == sys.superplayerno,
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
@@ -4404,7 +4415,11 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 			case OC_ex2_projvar_projanim:
 				v = BytecodeInt(p.anim)
 			case OC_ex2_projvar_projangle:
-				v = BytecodeFloat(p.angle)
+				v = BytecodeFloat(p.anglerot[0])
+			case OC_ex2_projvar_projyangle:
+				v = BytecodeFloat(p.anglerot[2])
+			case OC_ex2_projvar_projxangle:
+				v = BytecodeFloat(p.anglerot[1])
 			case OC_ex2_projvar_projcancelanim:
 				v = BytecodeInt(p.cancelanim)
 			case OC_ex2_projvar_projedgebound:
@@ -10152,19 +10167,17 @@ func (c *Char) cueDraw() {
 		//}
 
 		anglerot := c.anglerot
+
+		if c.facing < 0 {
+			anglerot[0] *= -1
+			anglerot[2] *= -1
+		}
 		rot := c.rot
 
 		if c.csf(CSF_angledraw) {
 			rot.angle = anglerot[0]
 			rot.xangle = anglerot[1]
 			rot.yangle = anglerot[2]
-			// if agl == 0 {
-			// 	agl = 360 // Is it really necessary for the initial angle to be 360?
-			// } else if c.facing < 0 {
-			if c.facing < 0 {
-				anglerot[0] *= -1
-				anglerot[2] *= -1
-			}
 		}
 
 		rec := sys.tickNextFrame() && c.acttmp > 0

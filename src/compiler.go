@@ -3057,7 +3057,18 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), Error(fmt.Sprint("Invalid ProjVar accel argument: %s", c.token))
 			}
 		case "angle":
-			opc = OC_ex2_projvar_projangle
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_projxangle
+			case "y":
+				opc = OC_ex2_projvar_projyangle
+			case ")":
+				opc = OC_ex2_projvar_projangle
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
+			}
 		case "anim":
 			opc = OC_ex2_projvar_projanim
 		case "animelem":
@@ -3202,10 +3213,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		default:
 			return bvNone(), Error(fmt.Sprint("Invalid ProjVar argument: %s", vname))
 		}
+		if opc != OC_ex2_projvar_projangle {
+			c.token = c.tokenizer(in)
 
-		c.token = c.tokenizer(in)
-		if err := c.checkClosingParenthesis(); err != nil {
-			return bvNone(), err
+			if err := c.checkClosingParenthesis(); err != nil {
+				return bvNone(), err
+			}
 		}
 
 		// If bv1 is ever 0 Ikemen crashes.

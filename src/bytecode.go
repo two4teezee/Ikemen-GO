@@ -5538,6 +5538,7 @@ const (
 	explod_interpolate_angle
 	explod_interpolate_alpha
 	explod_interpolate_focallength
+	explod_interpolate_xshear
 	explod_interpolate_pfx_mul
 	explod_interpolate_pfx_add
 	explod_interpolate_pfx_color
@@ -5844,6 +5845,8 @@ func (sc explod) setInterpolation(c *Char, e *Explod, paramID byte, exp []Byteco
 		}
 	case explod_interpolate_focallength:
 		e.interpolate_fLength[1] = exp[0].evalF(c)
+	case explod_interpolate_xshear:
+		e.interpolate_xshear[1] = exp[0].evalF(c)
 	case explod_interpolate_pfx_mul:
 		pfd.imul[0] = exp[0].evalI(c)
 		if len(exp) > 1 {

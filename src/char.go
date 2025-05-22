@@ -1283,6 +1283,7 @@ type Explod struct {
 	start_rot            [3]float32
 	start_alpha          [2]int32
 	start_fLength        float32
+	start_xshear         float32
 	interpolate          bool
 	interpolate_time     [2]int32
 	interpolate_animelem [3]int32
@@ -1291,6 +1292,7 @@ type Explod struct {
 	interpolate_pos      [6]float32
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
+	interpolate_xshear   [2]float32
 	animNo               int32
 	interPos             [3]float32
 }
@@ -1531,8 +1533,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	anglerot := e.anglerot
 	fLength := e.fLength
 	scale := e.scale
+	xshear := e.xshear
 	if e.interpolate {
-		e.Interpolate(act, &scale, &alp, &anglerot, &fLength)
+		e.Interpolate(act, &scale, &alp, &anglerot, &fLength, &xshear)
 	}
 	if alp[0] < 0 {
 		alp[0] = -1
@@ -1599,7 +1602,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		projection:   int32(e.projection),
 		fLength:      fLength,
 		window:       ewin,
-		xshear:       e.xshear,
+		xshear:       xshear,
 	}
 	sprs.add(sd)
 
@@ -1677,10 +1680,11 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	}
 }
 
-func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, anglerot *[3]float32, fLength *float32) {
+func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, anglerot *[3]float32, fLength *float32, xshear *float32) {
 	if sys.tickNextFrame() && act {
 		t := float32(e.interpolate_time[1]) / float32(e.interpolate_time[0])
 		e.interpolate_fLength[0] = Lerp(e.interpolate_fLength[1], e.start_fLength, t)
+		e.interpolate_xshear[0] = Lerp(e.interpolate_xshear[1], e.start_xshear, t)
 		if e.interpolate_animelem[1] >= 0 {
 			elem := Ceil(Lerp(float32(e.interpolate_animelem[0]-1), float32(e.interpolate_animelem[1]), 1-t))
 
@@ -1718,11 +1722,13 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
 	}
 	*fLength = e.interpolate_fLength[0] + e.fLength
+	*xshear = e.interpolate_xshear[0]
 }
 
 func (e *Explod) setStartParams(pfd *PalFXDef) {
 	e.start_animelem = e.animelem
 	e.start_fLength = e.fLength
+	e.start_xshear = e.xshear
 	for i := 0; i < 3; i++ {
 		if i < 2 {
 			e.start_scale[i] = e.scale[i]
@@ -1776,6 +1782,7 @@ func (e *Explod) resetInterpolation(pfd *PalFXDef) {
 	for i := 0; i < 2; i++ {
 		e.interpolate_animelem[i] = -1
 		e.interpolate_fLength[i] = e.fLength
+		e.interpolate_xshear[i] = e.xshear
 	}
 }
 

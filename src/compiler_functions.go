@@ -929,6 +929,10 @@ func (c *Compiler) explodInterpolate(is IniSection,
 		explod_interpolate_focallength, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "interpolation.xshear",
+		explod_interpolate_xshear, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.mul",
 		explod_interpolate_pfx_mul, VT_Int, 3, false); err != nil {
 		return err

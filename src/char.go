@@ -3630,17 +3630,32 @@ func (c *Char) unsetASF(asf AssertSpecialFlag) {
 	c.assertFlag &^= asf
 }
 
-func (c *Char) parent() *Char {
+func (c *Char) parent(log bool) *Char {
 	if c.parentIndex == IErr {
-		sys.appendToConsole(c.warn() + "has no parent")
+		if log {
+			sys.appendToConsole(c.warn() + "has no parent")
+		}
 		return nil
 	}
-	if c.parentIndex < 0 {
+
+	if log && c.parentIndex < 0 {
 		sys.appendToConsole(c.warn() + "parent has already been destroyed")
 		if !sys.ignoreMostErrors {
 			sys.errLog.Println(c.name + " parent has already been destroyed")
 		}
 	}
+
+	// Bounds check just in case
+	if int(Abs(c.parentIndex)) >= len(sys.chars[c.playerNo]) {
+		if log {
+			sys.appendToConsole(c.warn() + "invalid parent player number")
+			if !sys.ignoreMostErrors {
+				sys.errLog.Println(c.name + " invalid parent player number")
+			}
+		}
+		return nil
+	}
+
 	return sys.chars[c.playerNo][Abs(c.parentIndex)]
 }
 
@@ -3649,6 +3664,12 @@ func (c *Char) root() *Char {
 		sys.appendToConsole(c.warn() + "has no root")
 		return nil
 	}
+
+	// Bounds check just in case
+	if int(c.playerNo) < 0 || int(c.playerNo) >= len(sys.chars) {
+		return nil
+	}
+
 	return sys.chars[c.playerNo][0]
 }
 
@@ -3676,7 +3697,7 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	return nil
 }
 
-func (c *Char) getPlayerHelperIndex(n int32, log bool) *Char {
+func (c *Char) helperIndexTrigger(n int32, log bool) *Char {
 	if n <= 0 {
 		return c
 	}
@@ -3687,7 +3708,7 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
+	return BytecodeBool(c.helperIndexTrigger(id.ToI(), false) != nil)
 }
 
 // Target redirection
@@ -4889,8 +4910,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		}
 	}
 	crun := c
-	if c.inheritChannels == 1 && c.parent() != nil {
-		crun = c.parent()
+	if c.inheritChannels == 1 && c.parent(true) != nil {
+		crun = c.parent(true)
 	} else if c.inheritChannels == 2 && c.root() != nil {
 		crun = c.root()
 	}
@@ -5136,7 +5157,7 @@ func (c *Char) destroy() {
 		}
 		// Remove ID from parent's children list
 		if c.parentIndex >= 0 {
-			if p := c.parent(); p != nil {
+			if p := c.parent(true); p != nil {
 				for i, ch := range p.children {
 					if ch == c {
 						p.children[i] = nil
@@ -7091,7 +7112,7 @@ func (c *Char) getPalfx() *PalFX {
 		return c.palfx
 	}
 	if c.parentIndex >= 0 {
-		if p := c.parent(); p != nil {
+		if p := c.parent(true); p != nil {
 			return p.getPalfx()
 		}
 	}
@@ -7336,14 +7357,14 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	case 1:
 		c.mapArray[key] += Value
 	case 2:
-		if c.parent() != nil {
-			c.parent().mapArray[key] = Value
+		if c.parent(true) != nil {
+			c.parent(true).mapArray[key] = Value
 		} else {
 			c.mapArray[key] = Value
 		}
 	case 3:
-		if c.parent() != nil {
-			c.parent().mapArray[key] += Value
+		if c.parent(true) != nil {
+			c.parent(true).mapArray[key] += Value
 		} else {
 			c.mapArray[key] += Value
 		}
@@ -9005,8 +9026,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			getter.ghv.dropId(origin.id)
 			getter.ghv.hitBy = append(getter.ghv.hitBy, [...]int32{origin.id, jg - c.juggle})
 		}
-		if c.inheritJuggle == 1 && c.parent() != nil {
-			sendJuggle(c.parent())
+		if c.inheritJuggle == 1 && c.parent(true) != nil {
+			sendJuggle(c.parent(true))
 		} else if c.inheritJuggle == 2 && c.root() != nil {
 			sendJuggle(c.root())
 		}
@@ -10580,9 +10601,9 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 
 			if c.helperIndex != 0 {
 				// Inherit parent's or root's juggle points
-				if c.inheritJuggle == 1 && c.parent() != nil {
+				if c.inheritJuggle == 1 && c.parent(true) != nil {
 					for _, v := range getter.ghv.hitBy {
-						if v[0] == c.parent().id {
+						if v[0] == c.parent(true).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}
@@ -11193,41 +11214,64 @@ func (cl *CharList) getIndex(id int32) *Char {
 	return nil
 }
 
-func (cl *CharList) getHelperIndex(c *Char, id int32, log bool) *Char {
+func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
 	var t []int32
-	parent := func(c *Char) *Char {
-		if c.parentIndex == IErr {
-			return nil
-		}
-		return sys.chars[c.playerNo][Abs(c.parentIndex)]
-	}
+
+	// Find all helpers in parent-child chain
 	for j, h := range cl.runOrder {
+		// Check only the relevant player number
+		if h.playerNo != c.playerNo {
+			continue
+		}
 		if c.id != h.id {
 			if c.helperIndex == 0 {
+				// Helpers created by the root. Direct check
 				hr := sys.chars[h.playerNo][0]
 				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
 					t = append(t, int32(j))
 				}
 			} else {
-				hp := parent(h)
+				// Helpers created by other helpers
+				hp := h.parent(false)
+
+				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
+				checked := make(map[*Char]bool)
+
+				// Iterate until reaching the root or some error
 				for hp != nil {
+					if checked[hp] {
+						if log {
+							sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
+						}
+						break
+						// TODO: Preventing a crash is good, but maybe this shouldn't ever happen in the first place
+					}
+					checked[hp] = true
+					// Original player found to be this helper's (grand)parent. Add helper to list
 					if hp.id == c.id {
 						t = append(t, int32(j))
+						break
 					}
-					hp = parent(hp)
+					// Search further up the parent chain for a relation to the original player
+					hp = hp.parent(false)
 				}
 			}
 		}
 	}
+
+	// Return the Nth helper we found
 	for i := 0; i < len(t); i++ {
 		ch := cl.runOrder[int32(t[i])]
-		if (id-1) == int32(i) && ch != nil {
+		if (idx-1) == int32(i) && ch != nil {
 			return ch
 		}
 	}
+
 	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", id))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
 	}
+
 	return nil
 }
 

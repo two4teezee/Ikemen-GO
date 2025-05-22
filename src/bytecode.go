@@ -1530,7 +1530,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_parent:
-			if c = c.parent(); c != nil {
+			if c = c.parent(true); c != nil {
 				i += 4
 				continue
 			}
@@ -1611,7 +1611,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_helperindex:
-			if c = c.getPlayerHelperIndex(sys.bcStack.Pop().ToI(), true); c != nil {
+			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}
@@ -2542,11 +2542,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_p2bodydist_z:
 		sys.bcStack.Push(c.p2BodyDistZ(oc))
 	case OC_ex_parentdist_x:
-		sys.bcStack.Push(c.rdDistX(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistX(c.parent(true), oc))
 	case OC_ex_parentdist_y:
-		sys.bcStack.Push(c.rdDistY(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistY(c.parent(true), oc))
 	case OC_ex_parentdist_z:
-		sys.bcStack.Push(c.rdDistZ(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistZ(c.parent(true), oc))
 	case OC_ex_rootdist_x:
 		sys.bcStack.Push(c.rdDistX(c.root(), oc))
 	case OC_ex_rootdist_y:
@@ -10279,7 +10279,7 @@ const (
 func (sc bindToParent) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	p := crun.parent()
+	p := crun.parent(true)
 	var x, y, z float32 = 0, 0, 0
 	var time int32 = 1
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -10304,7 +10304,7 @@ func (sc bindToParent) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				redirscale = c.localscl / crun.localscl
-				p = crun.parent()
+				p = crun.parent(true)
 			} else {
 				return false
 			}

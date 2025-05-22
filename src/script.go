@@ -3027,7 +3027,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "root", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.root(); c != nil {
+		if c := sys.debugWC.root(true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -4784,15 +4784,15 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "rootdistX", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "rootdistY", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "rootdistZ", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "roundno", func(*lua.LState) int {

@@ -3659,14 +3659,22 @@ func (c *Char) parent(log bool) *Char {
 	return sys.chars[c.playerNo][Abs(c.parentIndex)]
 }
 
-func (c *Char) root() *Char {
+func (c *Char) root(log bool) *Char {
 	if c.helperIndex == 0 {
-		sys.appendToConsole(c.warn() + "has no root")
+		if log {
+			sys.appendToConsole(c.warn() + "has no root")
+		}
 		return nil
 	}
 
 	// Bounds check just in case
 	if int(c.playerNo) < 0 || int(c.playerNo) >= len(sys.chars) {
+		if log {
+			sys.appendToConsole(c.warn() + "invalid root player number")
+			if !sys.ignoreMostErrors {
+				sys.errLog.Println(c.name + " invalid root player number")
+			}
+		}
 		return nil
 	}
 
@@ -4910,10 +4918,10 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		}
 	}
 	crun := c
-	if c.inheritChannels == 1 && c.parent(true) != nil {
-		crun = c.parent(true)
-	} else if c.inheritChannels == 2 && c.root() != nil {
-		crun = c.root()
+	if c.inheritChannels == 1 && c.parent(false) != nil {
+		crun = c.parent(false)
+	} else if c.inheritChannels == 2 && c.root(false) != nil {
+		crun = c.root(false)
 	}
 	if ch := crun.soundChannels.New(chNo, lowpriority, priority); ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
@@ -5157,7 +5165,7 @@ func (c *Char) destroy() {
 		}
 		// Remove ID from parent's children list
 		if c.parentIndex >= 0 {
-			if p := c.parent(true); p != nil {
+			if p := c.parent(false); p != nil {
 				for i, ch := range p.children {
 					if ch == c {
 						p.children[i] = nil
@@ -7112,7 +7120,7 @@ func (c *Char) getPalfx() *PalFX {
 		return c.palfx
 	}
 	if c.parentIndex >= 0 {
-		if p := c.parent(true); p != nil {
+		if p := c.parent(false); p != nil {
 			return p.getPalfx()
 		}
 	}
@@ -7369,14 +7377,14 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 			c.mapArray[key] += Value
 		}
 	case 4:
-		if c.root() != nil {
-			c.root().mapArray[key] = Value
+		if c.root(true) != nil {
+			c.root(true).mapArray[key] = Value
 		} else {
 			c.mapArray[key] = Value
 		}
 	case 5:
-		if c.root() != nil {
-			c.root().mapArray[key] += Value
+		if c.root(true) != nil {
+			c.root(true).mapArray[key] += Value
 		} else {
 			c.mapArray[key] += Value
 		}
@@ -9026,10 +9034,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			getter.ghv.dropId(origin.id)
 			getter.ghv.hitBy = append(getter.ghv.hitBy, [...]int32{origin.id, jg - c.juggle})
 		}
-		if c.inheritJuggle == 1 && c.parent(true) != nil {
-			sendJuggle(c.parent(true))
-		} else if c.inheritJuggle == 2 && c.root() != nil {
-			sendJuggle(c.root())
+		if c.inheritJuggle == 1 && c.parent(false) != nil {
+			sendJuggle(c.parent(false))
+		} else if c.inheritJuggle == 2 && c.root(false) != nil {
+			sendJuggle(c.root(false))
 		}
 	}
 
@@ -10601,16 +10609,16 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 
 			if c.helperIndex != 0 {
 				// Inherit parent's or root's juggle points
-				if c.inheritJuggle == 1 && c.parent(true) != nil {
+				if c.inheritJuggle == 1 && c.parent(false) != nil {
 					for _, v := range getter.ghv.hitBy {
-						if v[0] == c.parent(true).id {
+						if v[0] == c.parent(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}
 					}
-				} else if c.inheritJuggle == 2 && c.root() != nil {
+				} else if c.inheritJuggle == 2 && c.root(false) != nil {
 					for _, v := range getter.ghv.hitBy {
-						if v[0] == c.root().id {
+						if v[0] == c.root(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}

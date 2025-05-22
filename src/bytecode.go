@@ -1537,7 +1537,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_root:
-			if c = c.root(); c != nil {
+			if c = c.root(true); c != nil {
 				i += 4
 				continue
 			}
@@ -2548,11 +2548,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_parentdist_z:
 		sys.bcStack.Push(c.rdDistZ(c.parent(true), oc))
 	case OC_ex_rootdist_x:
-		sys.bcStack.Push(c.rdDistX(c.root(), oc))
+		sys.bcStack.Push(c.rdDistX(c.root(true), oc))
 	case OC_ex_rootdist_y:
-		sys.bcStack.Push(c.rdDistY(c.root(), oc))
+		sys.bcStack.Push(c.rdDistY(c.root(true), oc))
 	case OC_ex_rootdist_z:
-		sys.bcStack.Push(c.rdDistZ(c.root(), oc))
+		sys.bcStack.Push(c.rdDistZ(c.root(true), oc))
 	case OC_ex_win:
 		sys.bcStack.PushB(c.win())
 	case OC_ex_winko:
@@ -10279,9 +10279,9 @@ const (
 func (sc bindToParent) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	p := crun.parent(true)
 	var x, y, z float32 = 0, 0, 0
 	var time int32 = 1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case bindToParent_time:
@@ -10304,16 +10304,18 @@ func (sc bindToParent) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				redirscale = c.localscl / crun.localscl
-				p = crun.parent(true)
 			} else {
 				return false
 			}
 		}
 		return true
 	})
+
+	p := crun.parent(true)
 	if p == nil {
 		return false
 	}
+
 	crun.bindPos[0] = x
 	crun.bindPos[1] = y
 	crun.bindPos[2] = z
@@ -10327,9 +10329,9 @@ type bindToRoot bindToParent
 func (sc bindToRoot) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	r := crun.root()
 	var x, y, z float32 = 0, 0, 0
 	var time int32 = 1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case bindToParent_time:
@@ -10352,16 +10354,18 @@ func (sc bindToRoot) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				redirscale = c.localscl / crun.localscl
-				r = crun.root()
 			} else {
 				return false
 			}
 		}
 		return true
 	})
+
+	r := crun.root(true)
 	if r == nil {
 		return false
 	}
+
 	crun.bindPos[0] = x
 	crun.bindPos[1] = y
 	crun.bindPos[2] = z

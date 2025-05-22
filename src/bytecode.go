@@ -11199,6 +11199,7 @@ const (
 func (sc remapSprite) Run(c *Char, _ []int32) bool {
 	crun := c
 	src := [...]int16{-1, -1}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case remapSprite_reset:
@@ -11227,7 +11228,16 @@ func (sc remapSprite) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	crun.anim.remap = crun.remapSpr
+
+	// Update sprite in case current sprite was remapped
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2456
+	if crun.anim != nil {
+		crun.anim.newframe = true
+		crun.anim.UpdateSprite()
+	}
+
 	return false
 }
 

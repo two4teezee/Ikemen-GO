@@ -3638,42 +3638,25 @@ func (c *Char) parent(log bool) *Char {
 		return nil
 	}
 
-	if log && c.parentIndex < 0 {
-		sys.appendToConsole(c.warn() + "parent has already been destroyed")
-		if !sys.ignoreMostErrors {
-			sys.errLog.Println(c.name + " parent has already been destroyed")
-		}
-	}
-
-	// Bounds check just in case
-	if int(Abs(c.parentIndex)) >= len(sys.chars[c.playerNo]) {
+	// In Mugen, after the original parent has been destroyed, "parent" can still be valid if a new helper ends up occupying the same slot
+	// That is undesirable behavior however, and is probably only used by exploit characters, which already don't work correctly anyway
+	if c.parentIndex < 0 {
 		if log {
-			sys.appendToConsole(c.warn() + "invalid parent player number")
+			sys.appendToConsole(c.warn() + "parent has already been destroyed")
 			if !sys.ignoreMostErrors {
-				sys.errLog.Println(c.name + " invalid parent player number")
+				sys.errLog.Println(c.name + " parent has already been destroyed")
 			}
 		}
 		return nil
 	}
 
-	return sys.chars[c.playerNo][Abs(c.parentIndex)]
+	return sys.chars[c.playerNo][c.parentIndex]
 }
 
 func (c *Char) root(log bool) *Char {
 	if c.helperIndex == 0 {
 		if log {
 			sys.appendToConsole(c.warn() + "has no root")
-		}
-		return nil
-	}
-
-	// Bounds check just in case
-	if int(c.playerNo) < 0 || int(c.playerNo) >= len(sys.chars) {
-		if log {
-			sys.appendToConsole(c.warn() + "invalid root player number")
-			if !sys.ignoreMostErrors {
-				sys.errLog.Println(c.name + " invalid root player number")
-			}
 		}
 		return nil
 	}
@@ -11226,7 +11209,7 @@ func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
 		if c.id != h.id {
 			if c.helperIndex == 0 {
 				// Helpers created by the root. Direct check
-				hr := sys.chars[h.playerNo][0]
+				hr := h.root(false)
 				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
 					t = append(t, int32(j))
 				}
@@ -11236,18 +11219,19 @@ func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
 
 				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
 				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
-				checked := make(map[*Char]bool)
+				// This should no longer be necessary now that destroyed helpers are no longer valid parents
+				//checked := make(map[*Char]bool)
 
 				// Iterate until reaching the root or some error
 				for hp != nil {
-					if checked[hp] {
-						if log {
-							sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
-						}
-						break
-						// TODO: Preventing a crash is good, but maybe this shouldn't ever happen in the first place
-					}
-					checked[hp] = true
+					//if checked[hp] {
+					//	if log {
+					//		sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
+					//	}
+					//	break
+					//}
+					//checked[hp] = true
+
 					// Original player found to be this helper's (grand)parent. Add helper to list
 					if hp.id == c.id {
 						t = append(t, int32(j))

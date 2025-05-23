@@ -7360,35 +7360,27 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	}
 	key := strings.ToLower(s)
 	switch scType {
-	case 0:
+	case 0: // MapSet
 		c.mapArray[key] = Value
-	case 1:
+	case 1: // MapAdd
 		c.mapArray[key] += Value
-	case 2:
-		if c.parent(true) != nil {
-			c.parent(true).mapArray[key] = Value
-		} else {
-			c.mapArray[key] = Value
+	case 2: // ParentMapSet
+		if p := c.parent(true); p != nil {
+			p.mapArray[key] = Value
 		}
-	case 3:
-		if c.parent(true) != nil {
-			c.parent(true).mapArray[key] += Value
-		} else {
-			c.mapArray[key] += Value
+	case 3: // ParentMapAdd
+		if p := c.parent(true); p != nil {
+			p.mapArray[key] += Value
 		}
-	case 4:
-		if c.root(true) != nil {
-			c.root(true).mapArray[key] = Value
-		} else {
-			c.mapArray[key] = Value
+	case 4: // RootMapSet
+		if r := c.root(true); r != nil {
+			r.mapArray[key] = Value
 		}
-	case 5:
-		if c.root(true) != nil {
-			c.root(true).mapArray[key] += Value
-		} else {
-			c.mapArray[key] += Value
+	case 5: // RootMapAdd
+		if r := c.root(true); r != nil {
+			r.mapArray[key] += Value
 		}
-	case 6:
+	case 6: // TeamMapSet
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 				if len(sys.chars[i]) > 0 {
@@ -7402,7 +7394,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 				}
 			}
 		}
-	case 7:
+	case 7: // TeamMapAdd
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 				if len(sys.chars[i]) > 0 {

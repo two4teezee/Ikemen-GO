@@ -3680,7 +3680,6 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		return
 	}
 	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, -int(n.trans))
-
 	blendEq := BlendAdd
 	src := BlendOne
 	dst := BlendOneMinusSrcAlpha
@@ -3691,6 +3690,11 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			dst = BlendOne
 			blendEq = BlendReverseSubtract
 			neg = false
+			if invblend >= 1 {
+				padd[0] = -padd[0]
+				padd[1] = -padd[1]
+				padd[2] = -padd[2]
+			}
 		} else {
 			src = BlendOne
 			dst = BlendOne
@@ -3700,6 +3704,11 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			src = BlendOne
 			dst = BlendOne
 			neg = false
+			if invblend >= 1 {
+				padd[0] = -padd[0]
+				padd[1] = -padd[1]
+				padd[2] = -padd[2]
+			}
 		} else {
 			src = BlendOne
 			dst = BlendOne

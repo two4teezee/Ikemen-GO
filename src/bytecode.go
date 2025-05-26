@@ -7190,6 +7190,8 @@ const (
 	projectile_remappal
 	projectile_projwindow
 	projectile_projxshear
+	projectile_projprojection
+	projectile_projfocallength
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7363,6 +7365,10 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		case projectile_projxshear:
 			p.xshear = exp[0].evalF(c)
+		case projectile_projfocallength:
+			p.fLength = exp[0].evalF(c)
+		case projectile_projprojection:
+			p.projection = Projection(exp[0].evalI(c))
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7754,6 +7760,14 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
 					p.xshear = v1
+				})
+			case projectile_projprojection:
+				eachProj(func(p *Projectile) {
+					p.projection = Projection(exp[0].evalI(c))
+				})
+			case projectile_projfocallength:
+				eachProj(func(p *Projectile) {
+					p.fLength = exp[0].evalF(c)
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)
@@ -13109,6 +13123,8 @@ type transformSprite StateControllerBase
 
 const (
 	transformSprite_window byte = iota
+	transformSprite_focallength
+	transformSprite_projection
 	transformSprite_xshear
 	transformSprite_redirectid
 )
@@ -13122,6 +13138,10 @@ func (sc transformSprite) Run(c *Char, _ []int32) bool {
 			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		case transformSprite_xshear:
 			crun.xshear = exp[0].evalF(c)
+		case transformSprite_focallength:
+			c.fLength = exp[0].evalF(c)
+		case transformSprite_projection:
+			c.projection = Projection(exp[0].evalI(c))
 		case transformSprite_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

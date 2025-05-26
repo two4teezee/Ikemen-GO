@@ -2327,6 +2327,13 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projxshear, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramProjection(is, sc, projectile_projprojection); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "focallength",
+		projectile_projfocallength, VT_Float, 1, false); err != nil {
+		return err
+	}
 	// HitDef section
 	if err := c.hitDefSub(is, sc); err != nil {
 		return err
@@ -6029,6 +6036,18 @@ func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int
 			return c.scAdd(sc, transformSprite_xshear, data, VT_Float, 1)
 		}); err != nil {
 			return err
+		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, transformSprite_projection); err != nil {
+				return err
+			}
 		}
 		if !any {
 			return Error("Must specify at least one TransformSprite parameter")

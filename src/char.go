@@ -1801,6 +1801,8 @@ type Projectile struct {
 	scale           [2]float32
 	anglerot        [3]float32
 	rot             Rotation
+	projection      Projection
+	fLength         float32
 	clsnScale       [2]float32
 	clsnAngle       float32
 	zScale          float32
@@ -1867,6 +1869,7 @@ func (p *Projectile) clear() {
 		clsnAngle:      0,
 		remove:         true,
 		localscl:       1,
+		projection:     Projection_Orthographic,
 		removetime:     -1,
 		velmul:         [...]float32{1, 1, 1},
 		hits:           1,
@@ -2194,10 +2197,17 @@ func (p *Projectile) cueDraw(oldVer bool) {
 	}
 
 	anglerot := p.anglerot
+	fLength := p.fLength
+
+	if fLength <= 0 {
+		fLength = 2048
+	}
+
 	if p.facing < 0 {
 		anglerot[0] *= -1
 		anglerot[2] *= -1
 	}
+	fLength = fLength * p.localscl
 	rot := p.rot
 	rot.angle = anglerot[0]
 	rot.xangle = anglerot[1]
@@ -2232,8 +2242,8 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
-			projection:   0,
-			fLength:      0,
+			projection:   int32(p.projection),
+			fLength:      fLength,
 			window:       pwin,
 			xshear:       p.xshear,
 		}
@@ -2397,8 +2407,12 @@ type CharSystemVar struct {
 	hitPauseTime      int32
 	rot               Rotation
 	anglerot          [3]float32
+	xshear            float32
+	projection        Projection
+	fLength           float32
 	angleDrawScale    [2]float32
 	alpha             [2]int32
+	window            [4]float32
 	systemFlag        SystemCharFlag
 	specialFlag       CharSpecialFlag
 	sprPriority       int32
@@ -2488,8 +2502,6 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
-	window              [4]float32
-	xshear              float32
 	cnsvar              map[int32]int32
 	cnsfvar             map[int32]float32
 	cnssysvar           map[int32]int32
@@ -2596,6 +2608,7 @@ func (c *Char) init(n int, idx int32) {
 			fallDefenseMul:  1.0,
 			customDefense:   1.0,
 			finalDefense:    1.0,
+			projection:      Projection_Orthographic,
 		},
 	}
 
@@ -2608,6 +2621,12 @@ func (c *Char) init(n int, idx int32) {
 		c.playerFlag = false
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
+	}
+
+	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		c.projection = Projection_Perspective
+	} else {
+		c.projection = Projection_Orthographic
 	}
 
 	// Set controller to CPU if applicable
@@ -5719,6 +5738,13 @@ func (c *Char) newProj() *Projectile {
 		} else {
 			p.localscl = c.localscl
 		}
+
+		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			p.projection = Projection_Perspective
+		} else {
+			p.projection = Projection_Orthographic
+		}
+
 		p.layerno = c.layerNo
 		p.palfx = c.getPalfx()
 		// Initialize projectile Hitdef. Must be placed after its localscl is defined
@@ -9293,6 +9319,12 @@ func (c *Char) actionPrepare() {
 		// Reset TransformSprite
 		c.window = [4]float32{}
 		c.xshear = 0
+		c.fLength = 2048
+		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			c.projection = Projection_Perspective
+		} else {
+			c.projection = Projection_Orthographic
+		}
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -10167,11 +10199,17 @@ func (c *Char) cueDraw() {
 		//}
 
 		anglerot := c.anglerot
+		fLength := c.fLength
+
+		if fLength <= 0 {
+			fLength = 2048
+		}
 
 		if c.facing < 0 {
 			anglerot[0] *= -1
 			anglerot[2] *= -1
 		}
+		fLength = fLength * c.localscl
 		rot := c.rot
 
 		if c.csf(CSF_angledraw) {
@@ -10230,8 +10268,8 @@ func (c *Char) cueDraw() {
 			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,
-			projection:   0,
-			fLength:      0,
+			projection:   int32(c.projection),
+			fLength:      fLength,
 			xshear:       c.xshear,
 			window:       cwin,
 		}

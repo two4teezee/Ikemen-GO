@@ -5207,7 +5207,7 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "angle x", func(*lua.LState) int {
+	luaRegister(l, "xangle", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
 			l.Push(lua.LNumber(sys.debugWC.anglerot[1]))
 		} else {
@@ -5215,7 +5215,7 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "angle y", func(*lua.LState) int {
+	luaRegister(l, "yangle", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
 			l.Push(lua.LNumber(sys.debugWC.anglerot[2]))
 		} else {

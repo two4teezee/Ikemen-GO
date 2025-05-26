@@ -3019,7 +3019,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "parent", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.parent(); c != nil {
+		if c := sys.debugWC.parent(true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3027,7 +3027,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "root", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.root(); c != nil {
+		if c := sys.debugWC.root(true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3137,7 +3137,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.getPlayerHelperIndex(id, true); c != nil {
+		if c := sys.debugWC.helperIndexTrigger(id, true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -4516,15 +4516,15 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "parentdistX", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.parent(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.parent(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "parentdistY", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.parent(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.parent(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "parentdistZ", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.parent(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.parent(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "posX", func(*lua.LState) int {
@@ -4784,15 +4784,15 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "rootdistX", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistX(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "rootdistY", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistY(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "rootdistZ", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.root(), sys.debugWC).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.root(true), sys.debugWC).ToI()))
 		return 1
 	})
 	luaRegister(l, "roundno", func(*lua.LState) int {
@@ -5526,6 +5526,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocrouch)))
 		case "nodizzypointsdamage":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nodizzypointsdamage)))
+		case "nofacep2":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nofacep2)))
 		case "nofallcount":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nofallcount)))
 		case "nofalldefenceup":

@@ -73,6 +73,7 @@ const (
 	ASF_nocrouch
 	ASF_nodizzypointsdamage
 	ASF_nofacedisplay
+	ASF_nofacep2
 	ASF_nofallcount
 	ASF_nofalldefenceup
 	ASF_nofallhitflag
@@ -3048,7 +3049,7 @@ func (c *Char) load(def string) error {
 						is.ReadI32("fall.defence_up", &gi.data.fall.defence_up)
 						gi.data.fall.defence_mul = (float32(gi.data.fall.defence_up) + 100) / 100
 						is.ReadI32("liedown.time", &gi.data.liedown.time)
-						gi.data.liedown.time = Max(1, gi.data.liedown.time)
+						//gi.data.liedown.time = Max(1, gi.data.liedown.time) // Mugen doesn't actually handle it like this
 						is.ReadI32("airjuggle", &gi.data.airjuggle)
 						is.ReadI32("sparkno", &gi.data.sparkno)
 						is.ReadI32("guard.sparkno", &gi.data.guard.sparkno)
@@ -3629,25 +3630,37 @@ func (c *Char) unsetASF(asf AssertSpecialFlag) {
 	c.assertFlag &^= asf
 }
 
-func (c *Char) parent() *Char {
+func (c *Char) parent(log bool) *Char {
 	if c.parentIndex == IErr {
-		sys.appendToConsole(c.warn() + "has no parent")
+		if log {
+			sys.appendToConsole(c.warn() + "has no parent")
+		}
 		return nil
 	}
+
+	// In Mugen, after the original parent has been destroyed, "parent" can still be valid if a new helper ends up occupying the same slot
+	// That is undesirable behavior however, and is probably only used by exploit characters, which already don't work correctly anyway
 	if c.parentIndex < 0 {
-		sys.appendToConsole(c.warn() + "parent has already been destroyed")
-		if !sys.ignoreMostErrors {
-			sys.errLog.Println(c.name + " parent has already been destroyed")
+		if log {
+			sys.appendToConsole(c.warn() + "parent has already been destroyed")
+			if !sys.ignoreMostErrors {
+				sys.errLog.Println(c.name + " parent has already been destroyed")
+			}
 		}
+		return nil
 	}
-	return sys.chars[c.playerNo][Abs(c.parentIndex)]
+
+	return sys.chars[c.playerNo][c.parentIndex]
 }
 
-func (c *Char) root() *Char {
+func (c *Char) root(log bool) *Char {
 	if c.helperIndex == 0 {
-		sys.appendToConsole(c.warn() + "has no root")
+		if log {
+			sys.appendToConsole(c.warn() + "has no root")
+		}
 		return nil
 	}
+
 	return sys.chars[c.playerNo][0]
 }
 
@@ -3675,7 +3688,7 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	return nil
 }
 
-func (c *Char) getPlayerHelperIndex(n int32, log bool) *Char {
+func (c *Char) helperIndexTrigger(n int32, log bool) *Char {
 	if n <= 0 {
 		return c
 	}
@@ -3686,7 +3699,7 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.getPlayerHelperIndex(id.ToI(), false) != nil)
+	return BytecodeBool(c.helperIndexTrigger(id.ToI(), false) != nil)
 }
 
 // Target redirection
@@ -4888,10 +4901,10 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		}
 	}
 	crun := c
-	if c.inheritChannels == 1 && c.parent() != nil {
-		crun = c.parent()
-	} else if c.inheritChannels == 2 && c.root() != nil {
-		crun = c.root()
+	if c.inheritChannels == 1 && c.parent(false) != nil {
+		crun = c.parent(false)
+	} else if c.inheritChannels == 2 && c.root(false) != nil {
+		crun = c.root(false)
 	}
 	if ch := crun.soundChannels.New(chNo, lowpriority, priority); ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
@@ -5135,7 +5148,7 @@ func (c *Char) destroy() {
 		}
 		// Remove ID from parent's children list
 		if c.parentIndex >= 0 {
-			if p := c.parent(); p != nil {
+			if p := c.parent(false); p != nil {
 				for i, ch := range p.children {
 					if ch == c {
 						p.children[i] = nil
@@ -7090,7 +7103,7 @@ func (c *Char) getPalfx() *PalFX {
 		return c.palfx
 	}
 	if c.parentIndex >= 0 {
-		if p := c.parent(); p != nil {
+		if p := c.parent(false); p != nil {
 			return p.getPalfx()
 		}
 	}
@@ -7330,35 +7343,27 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	}
 	key := strings.ToLower(s)
 	switch scType {
-	case 0:
+	case 0: // MapSet
 		c.mapArray[key] = Value
-	case 1:
+	case 1: // MapAdd
 		c.mapArray[key] += Value
-	case 2:
-		if c.parent() != nil {
-			c.parent().mapArray[key] = Value
-		} else {
-			c.mapArray[key] = Value
+	case 2: // ParentMapSet
+		if p := c.parent(true); p != nil {
+			p.mapArray[key] = Value
 		}
-	case 3:
-		if c.parent() != nil {
-			c.parent().mapArray[key] += Value
-		} else {
-			c.mapArray[key] += Value
+	case 3: // ParentMapAdd
+		if p := c.parent(true); p != nil {
+			p.mapArray[key] += Value
 		}
-	case 4:
-		if c.root() != nil {
-			c.root().mapArray[key] = Value
-		} else {
-			c.mapArray[key] = Value
+	case 4: // RootMapSet
+		if r := c.root(true); r != nil {
+			r.mapArray[key] = Value
 		}
-	case 5:
-		if c.root() != nil {
-			c.root().mapArray[key] += Value
-		} else {
-			c.mapArray[key] += Value
+	case 5: // RootMapAdd
+		if r := c.root(true); r != nil {
+			r.mapArray[key] += Value
 		}
-	case 6:
+	case 6: // TeamMapSet
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 				if len(sys.chars[i]) > 0 {
@@ -7372,7 +7377,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 				}
 			}
 		}
-	case 7:
+	case 7: // TeamMapAdd
 		if c.teamside == -1 {
 			for i := MaxSimul * 2; i < MaxPlayerNo; i += 1 {
 				if len(sys.chars[i]) > 0 {
@@ -9004,10 +9009,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			getter.ghv.dropId(origin.id)
 			getter.ghv.hitBy = append(getter.ghv.hitBy, [...]int32{origin.id, jg - c.juggle})
 		}
-		if c.inheritJuggle == 1 && c.parent() != nil {
-			sendJuggle(c.parent())
-		} else if c.inheritJuggle == 2 && c.root() != nil {
-			sendJuggle(c.root())
+		if c.inheritJuggle == 1 && c.parent(false) != nil {
+			sendJuggle(c.parent(false))
+		} else if c.inheritJuggle == 2 && c.root(false) != nil {
+			sendJuggle(c.root(false))
 		}
 	}
 
@@ -9331,7 +9336,8 @@ func (c *Char) actionRun() {
 	c.updateSizeBox()
 	if !c.pauseBool {
 		if !c.hitPause() {
-			if c.ss.no == 5110 && c.ghv.down_recovertime <= 0 && c.alive() && !c.asf(ASF_nogetupfromliedown) {
+			// In Mugen chars are forced to stay in state 5110 at least one frame before getting up
+			if c.ss.no == 5110 && c.ss.time >= 1 && c.ghv.down_recovertime <= 0 && c.alive() && !c.asf(ASF_nogetupfromliedown) {
 				c.changeState(5120, -1, -1, "")
 			}
 			for c.ss.no == 140 && (c.anim == nil || len(c.anim.frames) == 0 ||
@@ -9347,7 +9353,7 @@ func (c *Char) actionRun() {
 					c.changeState(52, -1, -1, "")
 				}
 			}
-			c.groundLevel = 0 // Only after position is updated
+			c.groundLevel = 0 // Reset only after position has been updated
 			c.setFacing(c.p1facing)
 			c.p1facing = 0
 			c.ss.time++
@@ -10578,16 +10584,16 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 
 			if c.helperIndex != 0 {
 				// Inherit parent's or root's juggle points
-				if c.inheritJuggle == 1 && c.parent() != nil {
+				if c.inheritJuggle == 1 && c.parent(false) != nil {
 					for _, v := range getter.ghv.hitBy {
-						if v[0] == c.parent().id {
+						if v[0] == c.parent(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}
 					}
-				} else if c.inheritJuggle == 2 && c.root() != nil {
+				} else if c.inheritJuggle == 2 && c.root(false) != nil {
 					for _, v := range getter.ghv.hitBy {
-						if v[0] == c.root().id {
+						if v[0] == c.root(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}
@@ -11191,41 +11197,65 @@ func (cl *CharList) getIndex(id int32) *Char {
 	return nil
 }
 
-func (cl *CharList) getHelperIndex(c *Char, id int32, log bool) *Char {
+func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
 	var t []int32
-	parent := func(c *Char) *Char {
-		if c.parentIndex == IErr {
-			return nil
-		}
-		return sys.chars[c.playerNo][Abs(c.parentIndex)]
-	}
+
+	// Find all helpers in parent-child chain
 	for j, h := range cl.runOrder {
+		// Check only the relevant player number
+		if h.playerNo != c.playerNo {
+			continue
+		}
 		if c.id != h.id {
 			if c.helperIndex == 0 {
-				hr := sys.chars[h.playerNo][0]
+				// Helpers created by the root. Direct check
+				hr := h.root(false)
 				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
 					t = append(t, int32(j))
 				}
 			} else {
-				hp := parent(h)
+				// Helpers created by other helpers
+				hp := h.parent(false)
+
+				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
+				// This should no longer be necessary now that destroyed helpers are no longer valid parents
+				//checked := make(map[*Char]bool)
+
+				// Iterate until reaching the root or some error
 				for hp != nil {
+					//if checked[hp] {
+					//	if log {
+					//		sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
+					//	}
+					//	break
+					//}
+					//checked[hp] = true
+
+					// Original player found to be this helper's (grand)parent. Add helper to list
 					if hp.id == c.id {
 						t = append(t, int32(j))
+						break
 					}
-					hp = parent(hp)
+					// Search further up the parent chain for a relation to the original player
+					hp = hp.parent(false)
 				}
 			}
 		}
 	}
+
+	// Return the Nth helper we found
 	for i := 0; i < len(t); i++ {
 		ch := cl.runOrder[int32(t[i])]
-		if (id-1) == int32(i) && ch != nil {
+		if (idx-1) == int32(i) && ch != nil {
 			return ch
 		}
 	}
+
 	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", id))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
 	}
+
 	return nil
 }
 

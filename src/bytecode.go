@@ -1530,14 +1530,14 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_parent:
-			if c = c.parent(); c != nil {
+			if c = c.parent(true); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_root:
-			if c = c.root(); c != nil {
+			if c = c.root(true); c != nil {
 				i += 4
 				continue
 			}
@@ -1611,7 +1611,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_helperindex:
-			if c = c.getPlayerHelperIndex(sys.bcStack.Pop().ToI(), true); c != nil {
+			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}
@@ -2542,17 +2542,17 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_p2bodydist_z:
 		sys.bcStack.Push(c.p2BodyDistZ(oc))
 	case OC_ex_parentdist_x:
-		sys.bcStack.Push(c.rdDistX(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistX(c.parent(true), oc))
 	case OC_ex_parentdist_y:
-		sys.bcStack.Push(c.rdDistY(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistY(c.parent(true), oc))
 	case OC_ex_parentdist_z:
-		sys.bcStack.Push(c.rdDistZ(c.parent(), oc))
+		sys.bcStack.Push(c.rdDistZ(c.parent(true), oc))
 	case OC_ex_rootdist_x:
-		sys.bcStack.Push(c.rdDistX(c.root(), oc))
+		sys.bcStack.Push(c.rdDistX(c.root(true), oc))
 	case OC_ex_rootdist_y:
-		sys.bcStack.Push(c.rdDistY(c.root(), oc))
+		sys.bcStack.Push(c.rdDistY(c.root(true), oc))
 	case OC_ex_rootdist_z:
-		sys.bcStack.Push(c.rdDistZ(c.root(), oc))
+		sys.bcStack.Push(c.rdDistZ(c.root(true), oc))
 	case OC_ex_win:
 		sys.bcStack.PushB(c.win())
 	case OC_ex_winko:
@@ -4149,7 +4149,7 @@ func (sc stateDef) Run(c *Char) {
 			c.sprPriority = exp[0].evalI(c)
 			c.layerNo = 0 // Prevent char from being forgotten in a different layer
 		case stateDef_facep2:
-			if exp[0].evalB(c) && c.shouldFaceP2() {
+			if exp[0].evalB(c) && !c.asf(ASF_nofacep2) && c.shouldFaceP2() {
 				c.setFacing(-c.facing)
 			}
 		case stateDef_juggle:
@@ -10279,9 +10279,9 @@ const (
 func (sc bindToParent) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	p := crun.parent()
 	var x, y, z float32 = 0, 0, 0
 	var time int32 = 1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case bindToParent_time:
@@ -10304,16 +10304,18 @@ func (sc bindToParent) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				redirscale = c.localscl / crun.localscl
-				p = crun.parent()
 			} else {
 				return false
 			}
 		}
 		return true
 	})
+
+	p := crun.parent(true)
 	if p == nil {
 		return false
 	}
+
 	crun.bindPos[0] = x
 	crun.bindPos[1] = y
 	crun.bindPos[2] = z
@@ -10327,9 +10329,9 @@ type bindToRoot bindToParent
 func (sc bindToRoot) Run(c *Char, _ []int32) bool {
 	crun := c
 	var redirscale float32 = 1.0
-	r := crun.root()
 	var x, y, z float32 = 0, 0, 0
 	var time int32 = 1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case bindToParent_time:
@@ -10352,16 +10354,18 @@ func (sc bindToRoot) Run(c *Char, _ []int32) bool {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
 				redirscale = c.localscl / crun.localscl
-				r = crun.root()
 			} else {
 				return false
 			}
 		}
 		return true
 	})
+
+	r := crun.root(true)
 	if r == nil {
 		return false
 	}
+
 	crun.bindPos[0] = x
 	crun.bindPos[1] = y
 	crun.bindPos[2] = z
@@ -11199,6 +11203,7 @@ const (
 func (sc remapSprite) Run(c *Char, _ []int32) bool {
 	crun := c
 	src := [...]int16{-1, -1}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case remapSprite_reset:
@@ -11227,7 +11232,16 @@ func (sc remapSprite) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	crun.anim.remap = crun.remapSpr
+
+	// Update sprite in case current sprite was remapped
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2456
+	if crun.anim != nil {
+		crun.anim.newframe = true
+		crun.anim.UpdateSprite()
+	}
+
 	return false
 }
 

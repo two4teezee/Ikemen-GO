@@ -229,20 +229,12 @@ if animTime >= 0 {
 # Make players (any mode) only turn towards enemy Tag team leader
 # This benefits assist systems more than it does this native Tag code
 ignoreHitPause if roundState = 2 && !isHelper {
-	# Disable turning for player
 	if p2, teamMode = Tag && p2, playerNo != p2, teamLeader ||
 		p2, time <= 0 && p2, prevStateNo = p2, const(StateTagWaitingOutside) { # Run order fix
-		assertSpecial{flag: noAutoTurn}
-	}
-	# Disable turning towards enemy
-	# We use redirections here so that the flags are asserted as soon as possible
-	if numEnemy > 0 && enemy, teamMode = Tag {
-		for i = 0; numEnemy - 1; 1 {
-			if enemy($i), playerNo != enemy($i), teamLeader ||
-				enemy($i), time <= 0 && enemy($i), prevStateNo = enemy($i), const(StateTagWaitingOutside) { # Run order fix
-				assertSpecial{flag: noTurnTarget; redirectID: enemy($i), ID}
-			}
-		}
+		assertSpecial{flag: noAutoTurn; flag2: noFaceP2}
+		# Run order fix is necessary because when tagging in a player that was already processed in the current frame, they won't be repositioned immediately
+		# This makes enemies recognize that player as the new leader and turn towards them before the screen side where they should enter from has been decided
+		# TODO: This fix could be replaced with a function where the previous leader tags out while the next one is simultaneously repositioned
 	}
 }
 

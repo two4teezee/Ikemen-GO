@@ -2507,58 +2507,64 @@ type Char struct {
 	cnssysvar           map[int32]int32
 	cnssysfvar          map[int32]float32
 	CharSystemVar
-	aimg             AfterImage
-	soundChannels    SoundChannels
-	p1facing         float32
-	cpucmd           int32
-	offset           [2]float32
-	stchtmp          bool
-	inguarddist      bool
-	pushed           bool
-	hitdefContact    bool
-	atktmp           int8 // 1 hitdef can hit, 0 cannot hit, -1 other
-	hittmp           int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
-	acttmp           int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus            int8 // Essentially the current negative state
-	platformPosY     float32
-	groundAngle      float32
-	ownpal           bool
-	winquote         int32
-	memberNo         int
-	selectNo         int
-	inheritJuggle    int32
-	inheritChannels  int32
-	mapArray         map[string]float32
-	mapDefault       map[string]float32
-	remapSpr         RemapPreset
-	clipboardText    []string
-	dialogue         []string
-	immortal         bool
-	kovelocity       bool
-	preserve         int32
-	inputFlag        InputBits
-	pauseBool        bool
-	downHitOffset    bool
-	koEchoTimer      int32
-	groundLevel      float32
-	sizeBox          [4]float32
-	shadowColor      [3]int32
-	shadowIntensity  int32
-	shadowOffset     [2]float32
-	shadowWindow     [4]float32
-	shadowXshear     float32
-	shadowYscale     float32
-	reflectColor     [3]int32
-	reflectIntensity int32
-	reflectOffset    [2]float32
-	reflectWindow    [4]float32
-	reflectXshear    float32
-	reflectYscale    float32
-	ownclsnscale     bool
-	pushPriority     int32
-	prevfallflag     bool
-	dustOldPos       [3]float32
-	dustTime         int
+	aimg              AfterImage
+	soundChannels     SoundChannels
+	p1facing          float32
+	cpucmd            int32
+	offset            [2]float32
+	stchtmp           bool
+	inguarddist       bool
+	pushed            bool
+	hitdefContact     bool
+	atktmp            int8 // 1 hitdef can hit, 0 cannot hit, -1 other
+	hittmp            int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
+	acttmp            int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
+	minus             int8 // Essentially the current negative state
+	platformPosY      float32
+	groundAngle       float32
+	ownpal            bool
+	winquote          int32
+	memberNo          int
+	selectNo          int
+	inheritJuggle     int32
+	inheritChannels   int32
+	mapArray          map[string]float32
+	mapDefault        map[string]float32
+	remapSpr          RemapPreset
+	clipboardText     []string
+	dialogue          []string
+	immortal          bool
+	kovelocity        bool
+	preserve          int32
+	inputFlag         InputBits
+	pauseBool         bool
+	downHitOffset     bool
+	koEchoTimer       int32
+	groundLevel       float32
+	sizeBox           [4]float32
+	shadowColor       [3]int32
+	shadowIntensity   int32
+	shadowOffset      [2]float32
+	shadowWindow      [4]float32
+	shadowXshear      float32
+	shadowYscale      float32
+	shadowRot         Rotation
+    shadowProjection  Projection
+	shadowfLength     float32
+	reflectColor      [3]int32
+	reflectIntensity  int32
+	reflectOffset     [2]float32
+	reflectWindow     [4]float32
+	reflectXshear     float32
+	reflectYscale     float32
+	reflectRot        Rotation
+	reflectProjection Projection
+	reflectfLength    float32
+	ownclsnscale      bool
+	pushPriority      int32
+	prevfallflag      bool
+	dustOldPos        [3]float32
+	dustTime          int
 }
 
 // Add a new char to the game
@@ -9309,6 +9315,9 @@ func (c *Char) actionPrepare() {
 		c.shadowWindow = [4]float32{}
 		c.shadowXshear = 0
 		c.shadowYscale = 0
+		c.shadowRot = Rotation{0, 0, 0}
+		c.shadowProjection = -1
+	    c.shadowfLength = 0
 		// Reset modifyReflection
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
@@ -9316,6 +9325,9 @@ func (c *Char) actionPrepare() {
 		c.reflectWindow = [4]float32{}
 		c.reflectXshear = 0
 		c.reflectYscale = 0
+		c.reflectRot = Rotation{0, 0, 0}
+		c.reflectProjection = -1
+	    c.reflectfLength = 0
 		// Reset TransformSprite
 		c.window = [4]float32{}
 		c.xshear = 0
@@ -10334,16 +10346,22 @@ func (c *Char) cueDraw() {
 					shadowWindow:     c.shadowWindow,
 					shadowXshear:     c.shadowXshear,
 					shadowYscale:     c.shadowYscale,
+					shadowRot:        c.shadowRot,
+					shadowProjection: int32(c.shadowProjection),
+					shadowfLength:    c.shadowfLength,
 					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
 					},
-					reflectWindow: c.reflectWindow,
-					reflectXshear: c.reflectXshear,
-					reflectYscale: c.reflectYscale,
-					fadeOffset:    c.offsetY() + drawZoff,
+					reflectWindow:     c.reflectWindow,
+					reflectXshear:     c.reflectXshear,
+					reflectYscale:     c.reflectYscale,
+					reflectRot:        c.reflectRot,
+					reflectProjection: int32(c.reflectProjection),
+					reflectfLength:    c.reflectfLength,
+					fadeOffset:        c.offsetY() + drawZoff,
 				})
 			}
 		}

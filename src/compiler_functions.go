@@ -1217,6 +1217,25 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyShadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyShadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyShadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyShadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, modifyShadow_projection); err != nil {
+			return err
+		}
 		return c.posSetSub(is, sc)
 	})
 	return *ret, err
@@ -1250,6 +1269,25 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 		}
 		if err := c.paramValue(is, sc, "yscale",
 			modifyReflection_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyReflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyReflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyReflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyReflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, modifyReflection_projection); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -2327,11 +2365,11 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projxshear, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, projectile_projprojection); err != nil {
-		return err
-	}
 	if err := c.paramValue(is, sc, "focallength",
 		projectile_projfocallength, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramProjection(is, sc, projectile_projprojection); err != nil {
 		return err
 	}
 	// HitDef section

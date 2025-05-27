@@ -5236,6 +5236,11 @@ const (
 	modifyShadow_window
 	modifyShadow_xshear
 	modifyShadow_yscale
+	modifyShadow_angle
+	modifyShadow_xangle
+	modifyShadow_yangle
+	modifyShadow_focallength
+	modifyShadow_projection
 	modifyShadow_redirectid
 )
 
@@ -5262,6 +5267,16 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 			crun.shadowXshear = exp[0].evalF(c)
 		case modifyShadow_yscale:
 			crun.shadowYscale = exp[0].evalF(c)
+		case modifyShadow_angle:
+			crun.shadowRot.angle = exp[0].evalF(c)
+		case modifyShadow_xangle:
+			crun.shadowRot.xangle = exp[0].evalF(c)
+		case modifyShadow_yangle:
+			crun.shadowRot.yangle = exp[0].evalF(c)
+		case modifyShadow_focallength:
+			crun.shadowfLength = exp[0].evalF(c)
+		case modifyShadow_projection:
+			crun.shadowProjection = Projection(exp[0].evalI(c))
 		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5284,6 +5299,11 @@ const (
 	modifyReflection_window
 	modifyReflection_xshear
 	modifyReflection_yscale
+	modifyReflection_angle
+	modifyReflection_xangle
+	modifyReflection_yangle
+	modifyReflection_focallength
+	modifyReflection_projection
 	modifyReflection_redirectid
 )
 
@@ -5310,6 +5330,16 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 			crun.reflectXshear = exp[0].evalF(c)
 		case modifyReflection_yscale:
 			crun.reflectYscale = exp[0].evalF(c)
+		case modifyReflection_angle:
+			crun.reflectRot.angle = exp[0].evalF(c)
+		case modifyReflection_xangle:
+			crun.reflectRot.xangle = exp[0].evalF(c)
+		case modifyReflection_yangle:
+			crun.reflectRot.yangle = exp[0].evalF(c)
+		case modifyReflection_focallength:
+			crun.reflectfLength = exp[0].evalF(c)
+		case modifyReflection_projection:
+			crun.reflectProjection = Projection(exp[0].evalI(c))
 		case modifyReflection_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

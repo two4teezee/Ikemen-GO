@@ -12494,12 +12494,22 @@ const (
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
+	modifyStageVar_shadow_angle
+	modifyStageVar_shadow_xangle
+	modifyStageVar_shadow_yangle
+	modifyStageVar_shadow_focallength
+	modifyStageVar_shadow_projection
 	modifyStageVar_shadow_fade_range
 	modifyStageVar_shadow_xshear
 	modifyStageVar_shadow_offset
 	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
+	modifyStageVar_reflection_angle
+	modifyStageVar_reflection_xangle
+	modifyStageVar_reflection_yangle
+	modifyStageVar_reflection_focallength
+	modifyStageVar_reflection_projection
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
@@ -12632,6 +12642,16 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.sdw.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_shadow_yscale:
 			s.sdw.yscale = exp[0].evalF(c)
+		case modifyStageVar_shadow_angle:
+			s.sdw.rot.angle = exp[0].evalF(c)
+		case modifyStageVar_shadow_xangle:
+			s.sdw.rot.xangle = exp[0].evalF(c)
+		case modifyStageVar_shadow_yangle:
+			s.sdw.rot.yangle = exp[0].evalF(c)
+		case modifyStageVar_shadow_focallength:
+			s.sdw.fLength = exp[0].evalF(c)
+		case modifyStageVar_shadow_projection:
+			s.sdw.projection = Projection(exp[0].evalI(c))
 		case modifyStageVar_shadow_fade_range:
 			s.sdw.fadeend = exp[0].evalI(c)
 			s.sdw.fadebgn = exp[1].evalI(c)
@@ -12650,6 +12670,16 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyStageVar_reflection_yscale:
 			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_angle:
+			s.reflection.rot.angle = exp[0].evalF(c)
+		case modifyStageVar_reflection_xangle:
+			s.reflection.rot.xangle = exp[0].evalF(c)
+		case modifyStageVar_reflection_yangle:
+			s.reflection.rot.yangle = exp[0].evalF(c)
+		case modifyStageVar_reflection_focallength:
+			s.reflection.fLength = exp[0].evalF(c)
+		case modifyStageVar_reflection_projection:
+			s.reflection.projection = Projection(exp[0].evalI(c))
 		case modifyStageVar_reflection_xshear:
 			s.reflection.xshear = exp[0].evalF(c)
 		case modifyStageVar_reflection_color:

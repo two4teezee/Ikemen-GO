@@ -5607,8 +5607,8 @@ func (c *Compiler) paramSpace(is IniSection, sc *StateControllerBase, id byte) e
 	})
 }
 
-func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase, id byte) error {
-	return c.stateParam(is, "projection", false, func(data string) error {
+func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase, key string, id byte) error {
+	return c.stateParam(is, key, false, func(data string) error {
 		if len(data) <= 1 {
 			return Error("projection not specified")
 		}

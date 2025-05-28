@@ -816,7 +816,8 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_accel, VT_Float, 3, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, explod_projection); err != nil {
+	if err := c.paramProjection(is, sc, "projection", 
+		explod_projection); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "scale",
@@ -1233,7 +1234,8 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramProjection(is, sc, modifyShadow_projection); err != nil {
+		if err := c.paramProjection(is, sc, "projection", 
+			modifyShadow_projection); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -1287,7 +1289,8 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 			modifyReflection_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramProjection(is, sc, modifyReflection_projection); err != nil {
+		if err := c.paramProjection(is, sc, "projection",
+			modifyReflection_projection); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -2365,11 +2368,12 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projxshear, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "focallength",
+	if err := c.paramValue(is, sc, "projfocallength",
 		projectile_projfocallength, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, projectile_projprojection); err != nil {
+	if err := c.paramProjection(is, sc, "projprojection",
+		projectile_projprojection); err != nil {
 		return err
 	}
 	// HitDef section
@@ -5600,6 +5604,26 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.angle",
+			modifyStageVar_shadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.xangle",
+			modifyStageVar_shadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.yangle",
+			modifyStageVar_shadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.focallength",
+			modifyStageVar_shadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "shadow.projection", 
+			modifyStageVar_shadow_projection); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "shadow.fade.range",
 			modifyStageVar_shadow_fade_range, VT_Int, 2, false); err != nil {
 			return err
@@ -5622,6 +5646,26 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramValue(is, sc, "reflection.yscale",
 			modifyStageVar_reflection_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.angle",
+			modifyStageVar_reflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.xangle",
+			modifyStageVar_reflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.yangle",
+			modifyStageVar_reflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.focallength",
+			modifyStageVar_reflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "reflection.projection", 
+			modifyStageVar_reflection_projection); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.xshear",
@@ -6083,7 +6127,8 @@ func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int
 		}
 		if _, ok := is["projection"]; ok {
 			any = true
-			if err := c.paramProjection(is, sc, transformSprite_projection); err != nil {
+			if err := c.paramProjection(is, sc, "projection",
+				transformSprite_projection); err != nil {
 				return err
 			}
 		}

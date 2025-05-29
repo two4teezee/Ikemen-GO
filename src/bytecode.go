@@ -12150,6 +12150,7 @@ const (
 	text_velocity
 	text_friction
 	text_accel
+	text_angle
 	text_scale
 	text_color
 	text_xshear
@@ -12234,6 +12235,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				ts.accel[1] = exp[1].evalF(c) / ts.localScale
 			}
+		case text_angle:
+			ts.angle = exp[0].evalF(c)
 		case text_scale:
 			xscl = exp[0].evalF(c)
 			if len(exp) > 1 {

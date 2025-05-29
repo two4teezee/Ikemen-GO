@@ -2010,7 +2010,7 @@ func (s *System) drawDebugText() {
 			}
 			*y += float32(s.debugFont.fnt.Size[1]) * s.debugFont.yscl / s.heightScale
 			s.debugFont.fnt.Print(drawTxt, *x, *y, s.debugFont.xscl/s.widthScale,
-				s.debugFont.yscl/s.heightScale, 0, 0, 1, &s.scrrect,
+				s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 1, &s.scrrect,
 				s.debugFont.palfx, s.debugFont.frgba)
 		}
 	}
@@ -2087,7 +2087,7 @@ func (s *System) drawDebugText() {
 	for _, t := range s.clsnText {
 		s.debugFont.SetColor(t.r, t.g, t.b)
 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/s.widthScale,
-			s.debugFont.yscl/s.heightScale, 0, 0, 0, &s.scrrect,
+			s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 0, &s.scrrect,
 			s.debugFont.palfx, s.debugFont.frgba)
 	}
 	//}

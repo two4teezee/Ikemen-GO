@@ -5334,6 +5334,10 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "angle",
+			text_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.palFXSub(is, sc, "palfx."); err != nil {
 			return err
 		}

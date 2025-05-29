@@ -932,6 +932,7 @@ const (
 	OC_ex2_numstagebg
 	OC_ex2_envshakevar_dir
 	OC_ex2_gethitvar_fall_envshake_dir
+	OC_ex2_xshear
 )
 
 type StringPool struct {
@@ -3781,6 +3782,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex2_gethitvar_fall_envshake_dir:
 		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
+	case OC_ex2_xshear:
+		sys.bcStack.PushF(c.xshear)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()

@@ -5242,6 +5242,10 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "xshear", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.xshear))
+		return 1
+	})
 	luaRegister(l, "animelemvar", func(l *lua.LState) int {
 		vname := strings.ToLower(strArg(l, 1))
 		var ln lua.LNumber

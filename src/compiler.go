@@ -461,6 +461,7 @@ var triggerMap = map[string]int{
 	"timetotal":          1,
 	"winhyper":           1,
 	"winspecial":         1,
+	"xshear":             1,
 }
 
 func (c *Compiler) tokenizer(in *string) string {
@@ -4805,6 +4806,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		default:
 			return bvNone(), Error("Invalid Alpha trigger argument: " + c.token)
 		}
+	case "xshear":
+		out.append(OC_ex2_, OC_ex2_xshear)
 	case "=", "!=", ">", ">=", "<", "<=", "&", "&&", "^", "^^", "|", "||",
 		"+", "*", "**", "/", "%":
 		if !sys.ignoreMostErrors || len(c.previousOperator) > 0 {

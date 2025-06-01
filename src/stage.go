@@ -127,7 +127,9 @@ type backGround struct {
 	zoomscaledelta     [2]float32
 	xbottomzoomdelta   float32
 	roundpos           bool
-	angle              float32
+	rot                Rotation
+	fLength            float32
+	projection         Projection
 	xshear             float32
 }
 
@@ -141,8 +143,10 @@ func newBackGround(sff *Sff) *backGround {
 		rasterx:            [...]float32{1, 1},
 		yscalestart:        100,
 		scalestart:         [...]float32{1, 1},
-		angle:              0,
+		rot:                Rotation{0, 0, 0},
 		xshear:             0,
+		fLength:            2048,
+		projection:         Projection_Orthographic,
 		xbottomzoomdelta:   math.MaxFloat32,
 		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
 		actionno:           -1,
@@ -215,8 +219,21 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	is.readF32ForStage("scalestart", &bg.scalestart[0], &bg.scalestart[1])
 	is.readF32ForStage("scaledelta", &bg.scaledelta[0], &bg.scaledelta[1])
-	is.readF32ForStage("angle", &bg.angle)
 	is.readF32ForStage("xshear", &bg.xshear)
+	is.readF32ForStage("angle", &bg.rot.angle)
+	is.readF32ForStage("xangle", &bg.rot.xangle)
+	is.readF32ForStage("yangle", &bg.rot.yangle)
+	is.readF32ForStage("focallength", &bg.fLength)
+	if str, ok := is["projection"]; ok {
+		switch strings.ToLower(strings.TrimSpace(str)) {
+		case "orthographic", "or":
+			bg.projection = Projection_Orthographic
+		case "perspective", "pe":
+			bg.projection = Projection_Perspective
+		case "perspective2", "pe2":
+			bg.projection = Projection_Perspective2
+		}
+	}
 	is.readF32ForStage("xbottomzoomdelta", &bg.xbottomzoomdelta)
 	is.readF32ForStage("zoomscaledelta", &bg.zoomscaledelta[0], &bg.zoomscaledelta[1])
 	is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1])
@@ -463,8 +480,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Xshear offset correction
 	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
 
-	if bg.angle != 0 {
-		xsoffset /= bg.angle
+	if bg.rot.angle != 0 {
+		xsoffset /= bg.rot.angle
 	}
 
 	// Calculate window scale
@@ -510,7 +527,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
 			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			Rotation{bg.angle, 0, 0}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 

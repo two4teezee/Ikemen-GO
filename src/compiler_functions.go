@@ -6256,6 +6256,18 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "xangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "yangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_yangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
@@ -6273,6 +6285,19 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 			return c.scAdd(sc, modifyStageBG_xshear, data, VT_Float, 1)
 		}); err != nil {
 			return err
+		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, "projection",
+				modifyStageBG_projection); err != nil {
+				return err
+			}
 		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")

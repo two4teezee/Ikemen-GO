@@ -13229,6 +13229,8 @@ const (
 	modifyStageBG_actionno
 	modifyStageBG_alpha
 	modifyStageBG_angle
+	modifyStageBG_xangle
+	modifyStageBG_yangle
 	modifyStageBG_delta_x
 	modifyStageBG_delta_y
 	modifyStageBG_layerno
@@ -13242,6 +13244,8 @@ const (
 	modifyStageBG_velocity_x
 	modifyStageBG_velocity_y
 	modifyStageBG_xshear
+	modifyStageBG_focallength
+	modifyStageBG_projection
 )
 
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
@@ -13297,7 +13301,17 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 			case modifyStageBG_angle:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
-					bg.angle = val
+					bg.rot.angle = val
+				})
+			case modifyStageBG_xangle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.rot.xangle = val
+				})
+			case modifyStageBG_yangle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.rot.yangle = val
 				})
 			case modifyStageBG_delta_x:
 				val := exp[0].evalF(c)
@@ -13392,6 +13406,16 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
 					bg.xshear = val
+				})
+			case modifyStageBG_focallength:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.fLength = val
+				})
+			case modifyStageBG_projection:
+				val := Projection(exp[0].evalI(c))
+				eachBg(func(bg *backGround) {
+					bg.projection = val
 				})
 			}
 		}

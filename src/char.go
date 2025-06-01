@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -2755,6 +2755,32 @@ func (c *Char) load(def string) error {
 		gi.palkeymap[i] = int32(i)
 	}
 	c.mapDefault = make(map[string]float32)
+	// Helper to resolve paths relative to the .def file's logical location
+	resolvePathRelativeToDef := func(pathInDefFile string) string {
+		isZipDef, zipArchiveOfDef, defSubPathInZip := IsZipPath(gi.def)
+		pathInDefFile = filepath.ToSlash(pathInDefFile)
+
+		if filepath.IsAbs(pathInDefFile) {
+			return pathInDefFile
+		}
+		isEngineRootRelative := strings.HasPrefix(pathInDefFile, "data/") ||
+			strings.HasPrefix(pathInDefFile, "font/") ||
+			strings.HasPrefix(pathInDefFile, "stages/")
+
+		if isZipDef {
+			if isEngineRootRelative {
+				// Example: kfm.zip/kfm.def, and kfm.def has `sound = data/common.snd`
+				// This should form kfm.zip/data/common.snd for SearchFile
+				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+			}
+			baseDirWithinZip := filepath.ToSlash(filepath.Dir(defSubPathInZip))
+			if baseDirWithinZip == "." || baseDirWithinZip == "" {
+				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+			}
+			return filepath.ToSlash(filepath.Join(zipArchiveOfDef, baseDirWithinZip, pathInDefFile))
+		}
+		return filepath.ToSlash(filepath.Join(filepath.Dir(gi.def), pathInDefFile))
+	}
 	str, err := LoadText(def)
 	if err != nil {
 		return err
@@ -3022,7 +3048,8 @@ func (c *Char) load(def string) error {
 	data, size, velocity, movement, quotes, lanQuotes, constants := true, true, true, true, true, true, true
 
 	if len(cns) > 0 {
-		if err := LoadFile(&cns, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		cns_resolved := resolvePathRelativeToDef(cns)
+		if err := LoadFile(&cns_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
 			str, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -3264,10 +3291,11 @@ func (c *Char) load(def string) error {
 	}
 
 	if len(sprite) > 0 {
-		if LoadFile(&sprite, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			var err error
-			gi.sff, err = loadSff(filename, true)
-			return err
+		sprite_resolved := resolvePathRelativeToDef(sprite)
+		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motifDir, "data/"}, func(filename string) error {
+			var err_sff error
+			gi.sff, err_sff = loadSff(filename, true) // loadSff uses OpenFile
+			return err_sff
 		}); err != nil {
 			return err
 		}
@@ -3290,11 +3318,12 @@ func (c *Char) load(def string) error {
 	}
 	str = ""
 	if len(anim) > 0 {
-		if LoadFile(&anim, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			var err error
-			str, err = LoadText(filename)
-			if err != nil {
-				return err
+		anim_resolved := resolvePathRelativeToDef(anim)
+		if LoadFile(&anim_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+			var err_air error
+			str, err_air = LoadText(filename)
+			if err_air != nil {
+				return err_air
 			}
 			return nil
 		}); err != nil {
@@ -3318,7 +3347,8 @@ func (c *Char) load(def string) error {
 	lines, i = SplitAndTrim(str, "\n"), 0
 	gi.anim = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
 	if len(sound) > 0 {
-		if LoadFile(&sound, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		sound_resolved := resolvePathRelativeToDef(sound)
+		if LoadFile(&sound_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
 			var err error
 			gi.snd, err = LoadSnd(filename)
 			return err
@@ -3335,7 +3365,8 @@ func (c *Char) load(def string) error {
 		// Load fonts for AttachedChar
 		for i, f := range fnt {
 			if len(f[0]) > 0 {
-				LoadFile(&f[0], []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
+				fnt_path_resolved := resolvePathRelativeToDef(f[0])
+				LoadFile(&fnt_path_resolved, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
 					var err error
 					var height int32 = -1
 					if len(f[1]) > 0 {
@@ -3359,10 +3390,10 @@ func (c *Char) loadPalette() {
 		tmp := 0
 		for i := 0; i < MaxPalNo; i++ {
 			pl := gi.palettedata.palList.Get(i)
-			var f *os.File
+			var f io.ReadSeekCloser
 			var err error
 			if LoadFile(&gi.pal[i], []string{gi.def, "", sys.motifDir, "data/"}, func(file string) error {
-				f, err = os.Open(file)
+				f, err = OpenFile(file)
 				return err
 			}) == nil {
 				for i := 255; i >= 0; i-- {
@@ -3386,6 +3417,8 @@ func (c *Char) loadPalette() {
 					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
 					tmp = i + 1
 				}
+			} else if f != nil {
+				chk(f.Close())
 			}
 			if err != nil {
 				gi.palExist[i] = false

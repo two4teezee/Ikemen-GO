@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"os"
 
@@ -369,7 +370,7 @@ type Sound struct {
 	length  int
 }
 
-func readSound(f *os.File, size uint32) (*Sound, error) {
+func readSound(f io.ReadSeekCloser, size uint32) (*Sound, error) {
 	if size < 128 {
 		return nil, fmt.Errorf("wav size is too small")
 	}
@@ -423,7 +424,7 @@ func LoadSnd(filename string) (*Snd, error) {
 // If max > 0, the function returns immediately when a matching entry is found. It also gives up after "max" non-matching entries.
 func LoadSndFiltered(filename string, keepItem func([2]int32) bool, max uint32) (*Snd, error) {
 	s := newSnd()
-	f, err := os.Open(filename)
+	f, err := OpenFile(filename)
 	if err != nil {
 		return nil, err
 	}

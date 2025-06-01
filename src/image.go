@@ -763,32 +763,36 @@ func (s *Sprite) readHeader(r io.Reader, ofs, size *uint32, link *uint16) error 
 	return nil
 }
 
-func (s *Sprite) readPcxHeader(f *os.File, offset int64) error {
-	f.Seek(offset, 0)
-	read := func(x interface{}) error {
-		return binary.Read(f, binary.LittleEndian, x)
+func (s *Sprite) readPcxHeader(r io.ReadSeeker, offset int64) error {
+	if _, err := r.Seek(offset, io.SeekStart); err != nil {
+		return fmt.Errorf("readPcxHeader seek error: %w", err)
+	}
+	read := func(rd io.Reader, x interface{}) error { // Helper takes io.Reader
+		return binary.Read(rd, binary.LittleEndian, x)
 	}
 	var dummy uint16
-	if err := read(&dummy); err != nil {
+	if err := read(r, &dummy); err != nil {
 		return err
 	}
 	var encoding, bpp byte
-	if err := read(&encoding); err != nil {
+	if err := read(r, &encoding); err != nil {
 		return err
 	}
-	if err := read(&bpp); err != nil {
+	if err := read(r, &bpp); err != nil {
 		return err
 	}
 	if bpp != 8 {
 		return Error(fmt.Sprintf("Invalid PCX color depth: expected 8-bit, got %v", bpp))
 	}
 	var rect [4]uint16
-	if err := read(rect[:]); err != nil {
+	if err := read(r, rect[:]); err != nil {
 		return err
 	}
-	f.Seek(offset+66, 0)
+	if _, err := r.Seek(offset+66, io.SeekStart); err != nil { // Use r.Seek
+		return fmt.Errorf("readPcxHeader seek to bpl error: %w", err)
+	}
 	var bpl uint16
-	if err := read(&bpl); err != nil {
+	if err := read(r, &bpl); err != nil {
 		return err
 	}
 	s.Size[0] = rect[2] - rect[0] + 1
@@ -835,7 +839,7 @@ func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 	return
 }
 
-func (s *Sprite) read(f *os.File, sh *SffHeader, offset int64, datasize uint32,
+func (s *Sprite) read(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uint32,
 	nextSubheader uint32, prev *Sprite, pl *PaletteList, c00 bool) error {
 	if int64(nextSubheader) > offset {
 		// Ignore datasize except last
@@ -1094,7 +1098,7 @@ func (s *Sprite) Lz5Decode(rle []byte) (p []byte) {
 	return
 }
 
-func (s *Sprite) readV2(f *os.File, offset int64, datasize uint32) error {
+func (s *Sprite) readV2(f io.ReadSeeker, offset int64, datasize uint32) error {
 	var px []byte
 	var isRaw bool = false
 
@@ -1272,7 +1276,7 @@ func loadSff(filename string, char bool) (*Sff, error) {
 	}
 	s := newSff()
 	s.filename = filename
-	f, err := os.Open(filename)
+	f, err := OpenFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -1417,7 +1421,7 @@ func loadSff(filename string, char bool) (*Sff, error) {
 
 func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff, []int32, error) {
 	sff := newSff()
-	f, err := os.Open(filename)
+	f, err := OpenFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}

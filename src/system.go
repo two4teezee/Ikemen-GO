@@ -2817,73 +2817,165 @@ func (s *Select) GetStage(n int) *SelectStage {
 	return &s.stagelist[n-1]
 }
 
-func (s *Select) addChar(def string) {
-	var tstr string
+func getDefaultDefPathInZip(zipFilePathOnDisk string) (path1 string, path2 string) {
+	zipBaseName := LowercaseNoExtension(filepath.Base(zipFilePathOnDisk))
+	path1 = zipBaseName + ".def"
+	path2 = filepath.ToSlash(filepath.Join(zipBaseName, zipBaseName+".def"))
+	return path1, path2
+}
+
+func (s *Select) addChar(defLine string) {
 	tnow := time.Now()
+	s.charlist = append(s.charlist, *newSelectChar())
+	sc := &s.charlist[len(s.charlist)-1]
+
+	parts := strings.Split(defLine, ",")
+	defPathFromSelect := strings.TrimSpace(parts[0])
+	defPathFromSelect = filepath.ToSlash(defPathFromSelect)
+
+	tstr := fmt.Sprintf("Char: %v", defPathFromSelect)
 	defer func() {
 		sys.loadTime(tnow, tstr, false, false)
 	}()
-	s.charlist = append(s.charlist, *newSelectChar())
-	sc := &s.charlist[len(s.charlist)-1]
-	def = strings.Replace(strings.TrimSpace(strings.Split(def, ",")[0]),
-		"\\", "/", -1)
-	tstr = fmt.Sprintf("Char added: %v", def)
-	if strings.ToLower(def) == "dummyslot" {
-		sc.name = "dummyslot"
-		return
-	}
-	if strings.ToLower(def) == "randomselect" {
+
+	if strings.ToLower(defPathFromSelect) == "randomselect" {
 		sc.def, sc.name = "randomselect", "Random"
 		return
 	}
-	idx := strings.Index(def, "/")
-	if len(def) >= 4 && strings.ToLower(def[len(def)-4:]) == ".def" {
-		if idx < 0 {
-			sc.name = "dummyslot"
-			return
-		}
-	} else if idx < 0 {
-		def += "/" + def + ".def"
-	} else {
-		def += ".def"
-	}
-	if chk := FileExist(def); len(chk) != 0 {
-		def = chk
-	} else {
-		if strings.ToLower(def[0:6]) != "chars/" && strings.ToLower(def[1:3]) != ":/" && (def[0] != '/' || idx > 0 && !strings.Contains(def[:idx], ":")) {
-			def = "chars/" + def
-		}
-		if def = FileExist(def); len(def) == 0 {
-			sc.name = "dummyslot"
-			return
-		}
-	}
-	str, err := LoadText(def)
-	if err != nil {
+	if strings.ToLower(defPathFromSelect) == "dummyslot" {
 		sc.name = "dummyslot"
 		return
 	}
-	sc.def = def
-	lines, i, info, files, keymap, arcade, lanInfo, lanFiles, lanKeymap, lanArcade := SplitAndTrim(str, "\n"), 0, true, true, true, true, true, true, true, true
-	var cns, sprite, anim, movelist string
-	var fnt [10][2]string
+
+	var finalDefPath string
+	isZipChar := strings.HasSuffix(strings.ToLower(defPathFromSelect), ".zip")
+
+	if isZipChar {
+		zipSearchDirs := []string{"chars/", "data/", ""}
+		var actualZipPathOnDisk string
+
+		if filepath.IsAbs(defPathFromSelect) {
+			if foundPath := FileExist(defPathFromSelect); foundPath != "" && strings.HasSuffix(strings.ToLower(foundPath), ".zip") {
+				actualZipPathOnDisk = foundPath
+			}
+		} else {
+			for _, dir := range zipSearchDirs {
+				candidateZipPath := filepath.ToSlash(filepath.Join(dir, defPathFromSelect))
+				if foundPath := FileExist(candidateZipPath); foundPath != "" && strings.HasSuffix(strings.ToLower(foundPath), ".zip") {
+					actualZipPathOnDisk = foundPath
+					break
+				}
+			}
+		}
+
+		if actualZipPathOnDisk == "" {
+			sc.name = "dummyslot"
+			tstr = fmt.Sprintf("Char: %v (ZIP NOT FOUND)", defPathFromSelect)
+			return
+		}
+
+		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
+
+		// Construct logical paths for FileExist to check *inside* the zip
+		candidateLogicalPath1 := filepath.ToSlash(actualZipPathOnDisk + "/" + defInZip1)
+		if FileExist(candidateLogicalPath1) != "" { // FileExist checks inside the zip now
+			finalDefPath = candidateLogicalPath1
+		} else {
+			candidateLogicalPath2 := filepath.ToSlash(actualZipPathOnDisk + "/" + defInZip2)
+			if FileExist(candidateLogicalPath2) != "" {
+				finalDefPath = candidateLogicalPath2
+			} else {
+				sc.name = "dummyslot"
+				tstr = fmt.Sprintf("Char: %v (DEF IN ZIP MISSING: %s or %s)", defPathFromSelect, defInZip1, defInZip2)
+				return
+			}
+		}
+	} else {
+		charDefPathGuess := defPathFromSelect
+		if !strings.HasSuffix(strings.ToLower(charDefPathGuess), ".def") {
+			baseName := filepath.Base(charDefPathGuess)
+			if strings.Contains(charDefPathGuess, "/") {
+				charDefPathGuess = filepath.ToSlash(filepath.Join(charDefPathGuess, baseName+".def"))
+			} else {
+				charDefPathGuess = filepath.ToSlash(filepath.Join("chars", charDefPathGuess, baseName+".def"))
+			}
+		}
+
+		foundDiskPath := SearchFile(charDefPathGuess, []string{"chars/", "data/", ""})
+		if foundDiskPath == "" || !strings.HasSuffix(strings.ToLower(foundDiskPath), ".def") {
+			sc.name = "dummyslot"
+			tstr = fmt.Sprintf("Char: %v (DEF NOT FOUND)", defPathFromSelect)
+			return
+		}
+		finalDefPath = foundDiskPath
+	}
+
+	sc.def = finalDefPath
+	if sc.def == "" {
+		sc.name = "dummyslot"
+		return
+	}
+
+	charDefContent, err := LoadText(sc.def)
+	if err != nil {
+		sc.name = "dummyslot"
+		tstr = fmt.Sprintf("Char: %v (DEF READ ERROR: %s)", defPathFromSelect, err.Error())
+		return
+	}
+
+	resolvePathRelativeToDef := func(pathInDefFile string) string {
+		isZipDef, zipArchiveOfDef, defSubPathInZip := IsZipPath(sc.def)
+		pathInDefFile = filepath.ToSlash(pathInDefFile)
+
+		if filepath.IsAbs(pathInDefFile) {
+			return pathInDefFile
+		}
+
+		// Check if pathInDefFile itself looks like a zip-internal path.
+		if isZipRel, _, _ := IsZipPath(pathInDefFile); isZipRel {
+			return pathInDefFile // Assume it's a correct logical path
+		}
+
+		isEngineRootRelative := strings.HasPrefix(pathInDefFile, "data/") ||
+			strings.HasPrefix(pathInDefFile, "font/") ||
+			strings.HasPrefix(pathInDefFile, "stages/")
+
+		if isZipDef {
+			if isEngineRootRelative {
+				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+			}
+			baseDirWithinZip := filepath.ToSlash(filepath.Dir(defSubPathInZip))
+			if baseDirWithinZip == "." || baseDirWithinZip == "" { // .def is at zip root
+				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+			}
+			return filepath.ToSlash(filepath.Join(zipArchiveOfDef, baseDirWithinZip, pathInDefFile))
+		}
+
+		return filepath.ToSlash(filepath.Join(filepath.Dir(sc.def), pathInDefFile))
+	}
+
+	var cns_orig, sprite_orig, anim_orig, movelist_orig string
+	var fnt_orig [10][2]string
+
+	lines, i, info, files, keymap, arcade, lanInfo, lanFiles, lanKeymap, lanArcade := SplitAndTrim(charDefContent, "\n"), 0, true, true, true, true, true, true, true, true
+
 	for i < len(lines) {
-		is, name, subname := ReadIniSection(lines, &i)
+		isec, name, subname := ReadIniSection(lines, &i)
 		switch name {
 		case "info":
 			if info {
 				info = false
 				var ok bool
-				if sc.name, ok, _ = is.getText("displayname"); !ok {
-					sc.name, _, _ = is.getText("name")
+				if sc.name, ok, _ = isec.getText("displayname"); !ok {
+					sc.name, _, _ = isec.getText("name")
 				}
-				if sc.lifebarname, ok, _ = is.getText("lifebarname"); !ok {
+				if sc.lifebarname, ok, _ = isec.getText("lifebarname"); !ok {
 					sc.lifebarname = sc.name
 				}
-				sc.author, _, _ = is.getText("author")
-				sc.pal_defaults = is.readI32CsvForStage("pal.defaults")
-				is.ReadI32("localcoord", &sc.localcoord)
-				if ok = is.ReadF32("portraitscale", &sc.portrait_scale); !ok {
+				sc.author, _, _ = isec.getText("author")
+				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
+				isec.ReadI32("localcoord", &sc.localcoord)
+				if ok = isec.ReadF32("portraitscale", &sc.portrait_scale); !ok {
 					sc.portrait_scale = 320 / float32(sc.localcoord)
 				}
 			}
@@ -2892,64 +2984,63 @@ func (s *Select) addChar(def string) {
 				info = false
 				lanInfo = false
 				var ok bool
-				if sc.name, ok, _ = is.getText("displayname"); !ok {
-					sc.name, _, _ = is.getText("name")
+				if sc.name, ok, _ = isec.getText("displayname"); !ok {
+					sc.name, _, _ = isec.getText("name")
 				}
-				if sc.lifebarname, ok, _ = is.getText("lifebarname"); !ok {
+				if sc.lifebarname, ok, _ = isec.getText("lifebarname"); !ok {
 					sc.lifebarname = sc.name
 				}
-				sc.author, _, _ = is.getText("author")
-				sc.pal_defaults = is.readI32CsvForStage("pal.defaults")
-				is.ReadI32("localcoord", &sc.localcoord)
-				if ok = is.ReadF32("portraitscale", &sc.portrait_scale); !ok {
+				sc.author, _, _ = isec.getText("author")
+				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
+				isec.ReadI32("localcoord", &sc.localcoord)
+				if ok = isec.ReadF32("portraitscale", &sc.portrait_scale); !ok {
 					sc.portrait_scale = 320 / float32(sc.localcoord)
 				}
 			}
 		case "files":
 			if files {
 				files = false
-				cns = is["cns"]
-				sprite = is["sprite"]
-				anim = is["anim"]
-				sc.sound = is["sound"]
+				cns_orig = isec["cns"]
+				sprite_orig = isec["sprite"]
+				anim_orig = isec["anim"]
+				sc.sound = isec["sound"]
 				for i := 1; i <= MaxPalNo; i++ {
-					if is[fmt.Sprintf("pal%v", i)] != "" {
+					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 					}
 				}
-				movelist = is["movelist"]
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
+				movelist_orig = isec["movelist"]
+				for i_fnt := range fnt_orig {
+					fnt_orig[i_fnt][0] = isec[fmt.Sprintf("font%v", i_fnt)]
+					fnt_orig[i_fnt][1] = isec[fmt.Sprintf("fnt_height%v", i_fnt)]
 				}
 			}
 		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
 			if lanFiles {
 				files = false
 				lanFiles = false
-				cns = is["cns"]
-				sprite = is["sprite"]
-				anim = is["anim"]
-				sc.sound = is["sound"]
+				cns_orig = isec["cns"]
+				sprite_orig = isec["sprite"]
+				anim_orig = isec["anim"]
+				sc.sound = isec["sound"]
 				for i := 1; i <= MaxPalNo; i++ {
-					if is[fmt.Sprintf("pal%v", i)] != "" {
+					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 					}
 				}
-				movelist = is["movelist"]
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
+				movelist_orig = isec["movelist"]
+				for i := range fnt_orig {
+					fnt_orig[i][0] = isec[fmt.Sprintf("font%v", i)]
+					fnt_orig[i][1] = isec[fmt.Sprintf("fnt_height%v", i)]
 				}
 			}
-		case "palette ":
-			if keymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
+		case "palette ": // Note space
+			if keymap && len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
 				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
-					if is.ReadI32(v, &i32) {
+					if isec.ReadI32(v, &i32) {
 						sc.pal_keymap = append(sc.pal_keymap, i32)
 					}
 				}
@@ -2961,7 +3052,7 @@ func (s *Select) addChar(def string) {
 				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
-					if is.ReadI32(v, &i32) {
+					if isec.ReadI32(v, &i32) {
 						sc.pal_keymap = append(sc.pal_keymap, i32)
 					}
 				}
@@ -2969,29 +3060,29 @@ func (s *Select) addChar(def string) {
 		case "arcade":
 			if arcade {
 				arcade = false
-				sc.intro, _, _ = is.getText("intro.storyboard")
-				sc.ending, _, _ = is.getText("ending.storyboard")
-				sc.arcadepath, _, _ = is.getText("arcadepath")
-				sc.ratiopath, _, _ = is.getText("ratiopath")
+				sc.intro, _, _ = isec.getText("intro.storyboard")
+				sc.ending, _, _ = isec.getText("ending.storyboard")
+				sc.arcadepath, _, _ = isec.getText("arcadepath")
+				sc.ratiopath, _, _ = isec.getText("ratiopath")
 			}
 		case fmt.Sprintf("%v.arcade", sys.cfg.Config.Language):
 			if lanArcade {
 				arcade = false
 				lanArcade = false
-				sc.intro, _, _ = is.getText("intro.storyboard")
-				sc.ending, _, _ = is.getText("ending.storyboard")
-				sc.arcadepath, _, _ = is.getText("arcadepath")
-				sc.ratiopath, _, _ = is.getText("ratiopath")
+				sc.intro, _, _ = isec.getText("intro.storyboard")
+				sc.ending, _, _ = isec.getText("ending.storyboard")
+				sc.arcadepath, _, _ = isec.getText("arcadepath")
+				sc.ratiopath, _, _ = isec.getText("ratiopath")
 			}
 		}
 	}
 	listSpr := make(map[[2]int16]bool)
 	for k := range s.charSpritePreload {
-		listSpr[[...]int16{k[0], k[1]}] = true
+		listSpr[k] = true
 	}
-	sff := newSff()
-	// read size values
-	LoadFile(&cns, []string{def, "", "data/"}, func(filename string) error {
+
+	tempSff := newSff()
+	LoadFile(&cns_orig, []string{sc.def, "", "data/"}, func(filename string) error {
 		str, err := LoadText(filename)
 		if err != nil {
 			return err
@@ -3013,39 +3104,43 @@ func (s *Select) addChar(def string) {
 		return nil
 	})
 	// preload animations
-	LoadFile(&anim, []string{def, "", "data/"}, func(filename string) error {
-		str, err := LoadText(filename)
-		if err != nil {
-			return err
-		}
-		lines, i := SplitAndTrim(str, "\n"), 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
-		for _, v := range s.charAnimPreload {
-			if anim := at.get(v); anim != nil {
-				sc.anims.addAnim(anim, v)
-				for _, fr := range anim.frames {
-					listSpr[[...]int16{fr.Group, fr.Number}] = true
+	if len(anim_orig) > 0 {
+		resolvedAnimPath := resolvePathRelativeToDef(anim_orig)
+		LoadFile(&resolvedAnimPath, []string{sc.def}, func(filename string) error {
+			str, err := LoadText(filename) // LoadText is zip-aware
+			if err != nil {
+				return err
+			}
+			lines, i := SplitAndTrim(str, "\n"), 0
+			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &i) // SFF here is temporary
+			for _, v_anim := range s.charAnimPreload {
+				if animation := at.get(v_anim); animation != nil {
+					sc.anims.addAnim(animation, v_anim)
+					for _, fr := range animation.frames {
+						listSpr[[2]int16{fr.Group, fr.Number}] = true
+					}
 				}
 			}
-		}
-		return nil
-	})
+			return nil
+		})
+	}
 	// preload portion of sff file
-	fp := fmt.Sprintf("%v_preload.sff", strings.TrimSuffix(def, filepath.Ext(def)))
+	fp := fmt.Sprintf("%v_preload.sff", strings.TrimSuffix(sc.def, filepath.Ext(sc.def)))
 	if fp = FileExist(fp); len(fp) == 0 {
-		fp = sprite
+		fp = sprite_orig
 	}
 	if len(fp) > 0 {
-		LoadFile(&fp, []string{def, "", "data/"}, func(file string) error {
+		resolvedSpritePath := resolvePathRelativeToDef(fp)
+		LoadFile(&resolvedSpritePath, []string{sc.def, "", "data/"}, func(file string) error {
 			var selPal []int32
-			var err error
-			sc.sff, selPal, err = preloadSff(file, true, listSpr)
-			if err != nil {
-				panic(fmt.Errorf("failed to load %v: %v\nerror preloading %v", file, err, def))
+			var err_sff error
+			sc.sff, selPal, err_sff = preloadSff(file, true, listSpr)
+			if err_sff != nil {
+				return fmt.Errorf("failed to preload SFF %s for %s: %w", file, sc.def, err_sff)
 			}
 			sc.anims.updateSff(sc.sff)
-			for k := range s.charSpritePreload {
-				sc.anims.addSprite(sc.sff, k[0], k[1])
+			for k_spr := range s.charSpritePreload {
+				sc.anims.addSprite(sc.sff, k_spr[0], k_spr[1])
 			}
 			if len(sc.pal) == 0 {
 				sc.pal = selPal
@@ -3060,23 +3155,26 @@ func (s *Select) addChar(def string) {
 		}
 	}
 	// read movelist
-	if len(movelist) > 0 {
-		LoadFile(&movelist, []string{def, "", "data/"}, func(file string) error {
-			sc.movelist, _ = LoadText(file)
+	if len(movelist_orig) > 0 {
+		resolvedMovelistPath := resolvePathRelativeToDef(movelist_orig)
+		// Movelist is text, can be loaded now
+		LoadFile(&resolvedMovelistPath, []string{sc.def, "", "data/"}, func(filename string) error {
+			sc.movelist, _ = LoadText(filename)
 			return nil
 		})
 	}
 	// preload fonts
-	for i, f := range fnt {
-		if len(f[0]) > 0 {
-			LoadFile(&f[0], []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
-				var err error
+	for i_fnt, f_fnt_pair := range fnt_orig {
+		if len(f_fnt_pair[0]) > 0 {
+			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
+			LoadFile(&resolvedFntPath, []string{sc.def, "font/", sys.motifDir, "", "data/"}, func(filename string) error {
+				var err_fnt error
 				var height int32 = -1
-				if len(f[1]) > 0 {
-					height = Atoi(f[1])
+				if len(f_fnt_pair[1]) > 0 {
+					height = Atoi(f_fnt_pair[1])
 				}
-				if sc.fnt[i], err = loadFnt(filename, height); err != nil {
-					sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+				if sc.fnt[i_fnt], err_fnt = loadFnt(filename, height); err_fnt != nil {
+					sys.errLog.Printf("failed to load %v (char font %v): %v", filename, i_fnt, err_fnt)
 				}
 				return nil
 			})

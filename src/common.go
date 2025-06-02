@@ -1,7 +1,10 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -404,49 +407,161 @@ func NormalizeNewlines(input string) string {
 }
 
 func LoadText(filename string) (string, error) {
-	bytes, err := os.ReadFile(filename)
+	rc, err := OpenFile(filename)
+	if err != nil {
+		return "", err
+	}
+	defer rc.Close()
+
+	bytes, err := io.ReadAll(rc)
 	if err != nil {
 		return "", err
 	}
 	if len(bytes) >= 3 &&
-		bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf {
+		bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf { // UTF-8 BOM
 		bytes = bytes[3:]
 	}
 	return string(bytes), nil
 }
 
 func FileExist(filename string) string {
+	filename = filepath.ToSlash(filename)
+	isZip, zipFilePath, pathInZip := IsZipPath(filename)
+	if isZip {
+		var actualZipFilePathOnDisk string
+		info, err := os.Stat(zipFilePath)
+		if err == nil && !info.IsDir() {
+
+			actualZipFilePathOnDisk = zipFilePath
+		} else if os.IsNotExist(err) || (info != nil && info.IsDir()) {
+			var pattern string
+			tempPattern := ""
+			for _, r := range zipFilePath {
+				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+					tempPattern += "[" + string(unicode.ToLower(r)) + string(unicode.ToUpper(r)) + "]"
+				} else {
+					tempPattern += string(r)
+				}
+			}
+			pattern = tempPattern
+
+			matches, _ := filepath.Glob(pattern)
+			if len(matches) > 0 {
+				// Ensure the found match is not a directory
+				infoMatch, errMatch := os.Stat(matches[0])
+				if errMatch == nil && !infoMatch.IsDir() {
+					actualZipFilePathOnDisk = matches[0]
+				} else {
+					return ""
+				}
+			} else {
+				return "" // Zip file not found by direct stat or glob
+			}
+		} else if err != nil {
+			return "" // Some other error stating the zip file
+		}
+		// At this point, actualZipFilePathOnDisk should be the correct path to the zip file.
+		// Now check if pathInZip is empty (meaning we only check for the zip file itself)
+		if pathInZip == "" {
+			return filepath.ToSlash(actualZipFilePathOnDisk)
+		}
+
+		// If pathInZip is specified, check for its existence within the archive
+		zr, err := zip.OpenReader(actualZipFilePathOnDisk)
+		if err != nil {
+			return "" // Cannot open zip
+		}
+		defer zr.Close()
+		pathInZipLower := strings.ToLower(pathInZip)
+		foundInZip := false
+		for _, f := range zr.File {
+			if strings.ToLower(filepath.ToSlash(f.Name)) == pathInZipLower {
+				foundInZip = true
+				break
+			}
+		}
+		if foundInZip {
+			// Return the logical path (original filename) if the file exists in the zip
+			return filename
+		}
+		return "" // File not found in zip
+	}
 	if info, err := os.Stat(filename); !os.IsNotExist(err) {
 		if info == nil || info.IsDir() {
 			return ""
 		}
-		return filename
+		return filepath.ToSlash(filename)
 	}
 	var pattern string
 	for _, r := range filename {
 		if r >= 'A' && r <= 'Z' || r >= 'a' && r <= 'z' {
 			pattern += "[" + string(unicode.ToLower(r)) +
-				string(unicode.ToLower(r)+'A'-'a') + "]"
+				string(unicode.ToUpper(r)) + "]"
 		} else if r == '*' || r == '?' || r == '[' {
-			pattern += "\\" + string(r)
+			pattern += `\` + string(r)
 		} else {
 			pattern += string(r)
 		}
 	}
 	if m, _ := filepath.Glob(pattern); len(m) > 0 {
-		return m[0]
+		info, _ := os.Stat(m[0])
+		if info != nil && !info.IsDir() {
+			return filepath.ToSlash(m[0])
+		}
 	}
 	return ""
 }
 
-// SearchFile returns full path to specified file
+// SearchFile searches for 'file' in 'dirs'.
+// 'dirs' elements can be plain directory paths or logical paths to .def files (which might be inside zips).
+// 'file' is the filename to search (e.g., "kfm.sff").
 func SearchFile(file string, dirs []string) string {
-	file = strings.Replace(file, "\\", "/", -1)
-	for _, v := range dirs {
-		defdir := filepath.Dir(strings.Replace(v, "\\", "/", -1))
-		if fp := FileExist(defdir + "/" + file); len(fp) > 0 {
-			return fp
+	file = filepath.ToSlash(file)
+
+	if isZipFull, _, _ := IsZipPath(file); isZipFull {
+		if found := FileExist(file); found != "" {
+			return found
 		}
+	}
+
+	if filepath.IsAbs(file) {
+		if found := FileExist(file); found != "" {
+			return found
+		}
+	}
+
+	for _, dirCtx := range dirs {
+		dirCtx = filepath.ToSlash(dirCtx)
+		isZipCtx, zipFileCtx, pathInZipCtx := IsZipPath(dirCtx)
+
+		var candidate string
+		if isZipCtx {
+			baseDirInZip := filepath.Dir(pathInZipCtx)
+			if baseDirInZip == "." {
+				baseDirInZip = ""
+			}
+			isRootRelative := strings.HasPrefix(file, "data/") || strings.HasPrefix(file, "font/") || strings.HasPrefix(file, "stages/")
+			if isRootRelative {
+			} else {
+				candidate = filepath.ToSlash(filepath.Join(zipFileCtx, baseDirInZip, file))
+				if found := FileExist(candidate); found != "" {
+					return found
+				}
+			}
+		} else {
+			candidate = filepath.ToSlash(filepath.Join(filepath.Dir(dirCtx), file))
+			if found := FileExist(candidate); found != "" {
+				return found
+			}
+			candidate2 := filepath.ToSlash(filepath.Join(dirCtx, file))
+			if found := FileExist(candidate2); found != "" {
+				return found
+			}
+		}
+	}
+
+	if found := FileExist(file); found != "" {
+		return found
 	}
 	return file
 }
@@ -1132,4 +1247,119 @@ func SortedKeys[V any](m map[string]V) []string {
 	})
 
 	return keys
+}
+
+func IsZipPath(path string) (isZip bool, zipFilePath string, pathInZip string) {
+	path = filepath.ToSlash(path) // Normalize to forward slashes
+
+	// Try to find ".zip/" as a separator.
+	// This handles cases like "C:/path/to/archive.zip/internal/file.txt"
+	// or "chars/archive.zip/internal/file.txt"
+	idx := strings.Index(strings.ToLower(path), ".zip/")
+	if idx != -1 {
+		potentialZipPath := path[:idx+4]
+		zipFilePath = potentialZipPath
+		pathInZip = path[idx+5:]
+		isZip = true
+		return
+	}
+
+	// If no ".zip/" separator, check if the path itself ends with .zip
+	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		isZip = true
+		zipFilePath = path
+		pathInZip = ""
+		return
+	}
+
+	return false, "", ""
+}
+
+type zipMemFileReader struct {
+	reader     *bytes.Reader   // Reader for the in-memory content of the file in zip
+	zipArchive *zip.ReadCloser // The main zip archive reader
+}
+
+func (zmfr *zipMemFileReader) Read(p []byte) (n int, err error) {
+	return zmfr.reader.Read(p)
+}
+
+func (zmfr *zipMemFileReader) Seek(offset int64, whence int) (int64, error) {
+	return zmfr.reader.Seek(offset, whence)
+}
+
+func (zmfr *zipMemFileReader) Close() error {
+	// The bytes.Reader itself doesn't need closing, but we must close the main zip archive.
+	return zmfr.zipArchive.Close()
+}
+
+// OpenFile opens a regular file or a file within a zip archive.
+// For zip files, it reads the entire entry into memory to ensure full io.Seeker compatibility.
+// It returns an io.ReadSeekCloser that must be closed by the caller.
+func OpenFile(filename string) (io.ReadSeekCloser, error) {
+	filename = filepath.ToSlash(filename)
+	isZip, zipFilePath, pathInZip := IsZipPath(filename)
+	if isZip {
+		zr, err := zip.OpenReader(zipFilePath)
+		if err != nil {
+			return nil, fmt.Errorf("opening zip archive %s: %w", zipFilePath, err)
+		}
+
+		if pathInZip == "" {
+			zr.Close() // Close the main archive if we're not reading a specific file from it.
+			return nil, fmt.Errorf("path inside zip archive not specified for %s", filename)
+		}
+
+		var targetFile *zip.File
+		pathInZipLower := strings.ToLower(pathInZip)
+		for _, f := range zr.File {
+			if strings.ToLower(filepath.ToSlash(f.Name)) == pathInZipLower {
+				targetFile = f
+				break
+			}
+		}
+
+		if targetFile == nil {
+			zr.Close()
+			return nil, fmt.Errorf("file '%s' not found in zip archive '%s'", pathInZip, zipFilePath)
+		}
+
+		rc, err := targetFile.Open()
+		if err != nil {
+			zr.Close()
+			return nil, fmt.Errorf("opening file '%s' in zip archive '%s': %w", pathInZip, zipFilePath, err)
+		}
+
+		// Read the entire content of the zip file entry into memory
+		fileData, err := io.ReadAll(rc)
+		rc.Close() // Close the individual file reader from the zip entry
+		if err != nil {
+			zr.Close() // Close the main zip archive on error
+			return nil, fmt.Errorf("reading file '%s' from zip archive '%s': %w", pathInZip, zipFilePath, err)
+		}
+
+		// Create a bytes.Reader from the in-memory data
+		// *bytes.Reader implements io.ReadSeeker
+		bytesReader := bytes.NewReader(fileData)
+
+		// Return our custom wrapper that closes the main zip archive
+		return &zipMemFileReader{reader: bytesReader, zipArchive: zr}, nil
+	}
+
+	// Not a zip path, open as a normal file
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil // *os.File implements io.ReadSeekCloser
+}
+
+func LowercaseNoExtension(filename string) string {
+	basename := filepath.Base(filename)
+	ext := filepath.Ext(basename)
+	nameOnly := basename
+	if len(ext) > 0 {
+		nameOnly = basename[0 : len(basename)-len(ext)]
+	}
+	return strings.ToLower(nameOnly)
 }

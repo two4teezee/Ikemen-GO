@@ -1644,12 +1644,6 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		//	}
 		//}
 
-		if e.bindtime > 0 {
-			c := sys.playerID(e.playerId)
-			if e.ignorehitpause || c == nil || (!c.pause() && !c.hitPause()) {
-				e.bindtime--
-			}
-		}
 		if act {
 			if e.palfx != nil && e.ownpal {
 				e.palfx.step()
@@ -1672,6 +1666,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 				e.anim.Action()
 			}
 			e.time++
+			if e.bindtime > 0 {
+				e.bindtime--
+			}
 		} else {
 			e.setX(e.pos[0])
 			e.setY(e.pos[1])
@@ -2627,12 +2624,6 @@ func (c *Char) init(n int, idx int32) {
 		c.playerFlag = false
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
-	}
-
-	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-		c.projection = Projection_Perspective
-	} else {
-		c.projection = Projection_Orthographic
 	}
 
 	// Set controller to CPU if applicable
@@ -5743,12 +5734,6 @@ func (c *Char) newProj() *Projectile {
 			p.localscl = (320 / c.localcoord)
 		} else {
 			p.localscl = c.localscl
-		}
-
-		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			p.projection = Projection_Perspective
-		} else {
-			p.projection = Projection_Orthographic
 		}
 
 		p.layerno = c.layerNo
@@ -9332,11 +9317,7 @@ func (c *Char) actionPrepare() {
 		c.window = [4]float32{}
 		c.xshear = 0
 		c.fLength = 2048
-		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			c.projection = Projection_Perspective
-		} else {
-			c.projection = Projection_Orthographic
-		}
+		c.projection = Projection_Orthographic
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that

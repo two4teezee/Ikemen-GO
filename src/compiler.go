@@ -352,6 +352,8 @@ var triggerMap = map[string]int{
 	"airjumpcount":       1,
 	"alpha":              1,
 	"angle":              1,
+	"xangle":             1,
+	"yangle":             1,
 	"animelemvar":        1,
 	"animlength":         1,
 	"animplayerno":       1,
@@ -459,6 +461,7 @@ var triggerMap = map[string]int{
 	"timetotal":          1,
 	"winhyper":           1,
 	"winspecial":         1,
+	"xshear":             1,
 }
 
 func (c *Compiler) tokenizer(in *string) string {
@@ -3057,7 +3060,18 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), Error(fmt.Sprint("Invalid ProjVar accel argument: %s", c.token))
 			}
 		case "angle":
-			opc = OC_ex2_projvar_projangle
+			c.token = c.tokenizer(in)
+
+			switch c.token {
+			case "x":
+				opc = OC_ex2_projvar_projxangle
+			case "y":
+				opc = OC_ex2_projvar_projyangle
+			case ")":
+				opc = OC_ex2_projvar_projangle
+			default:
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
+			}
 		case "anim":
 			opc = OC_ex2_projvar_projanim
 		case "animelem":
@@ -3202,10 +3216,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		default:
 			return bvNone(), Error(fmt.Sprint("Invalid ProjVar argument: %s", vname))
 		}
+		if opc != OC_ex2_projvar_projangle {
+			c.token = c.tokenizer(in)
 
-		c.token = c.tokenizer(in)
-		if err := c.checkClosingParenthesis(); err != nil {
-			return bvNone(), err
+			if err := c.checkClosingParenthesis(); err != nil {
+				return bvNone(), err
+			}
 		}
 
 		// If bv1 is ever 0 Ikemen crashes.
@@ -4754,6 +4770,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_timetotal)
 	case "angle":
 		out.append(OC_ex_, OC_ex_angle)
+	case "XAngle":
+		out.append(OC_ex2_, OC_ex2_angle_x)
+	case "YAngle":
+		out.append(OC_ex2_, OC_ex2_angle_y)
 	case "scale":
 		c.token = c.tokenizer(in)
 		switch c.token {
@@ -4786,6 +4806,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		default:
 			return bvNone(), Error("Invalid Alpha trigger argument: " + c.token)
 		}
+	case "xshear":
+		out.append(OC_ex2_, OC_ex2_xshear)
 	case "=", "!=", ">", ">=", "<", "<=", "&", "&&", "^", "^^", "|", "||",
 		"+", "*", "**", "/", "%":
 		if !sys.ignoreMostErrors || len(c.previousOperator) > 0 {
@@ -5588,8 +5610,8 @@ func (c *Compiler) paramSpace(is IniSection, sc *StateControllerBase, id byte) e
 	})
 }
 
-func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase, id byte) error {
-	return c.stateParam(is, "projection", false, func(data string) error {
+func (c *Compiler) paramProjection(is IniSection, sc *StateControllerBase, key string, id byte) error {
+	return c.stateParam(is, key, false, func(data string) error {
 		if len(data) <= 1 {
 			return Error("projection not specified")
 		}

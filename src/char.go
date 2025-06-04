@@ -1283,6 +1283,7 @@ type Explod struct {
 	start_rot            [3]float32
 	start_alpha          [2]int32
 	start_fLength        float32
+	start_xshear         float32
 	interpolate          bool
 	interpolate_time     [2]int32
 	interpolate_animelem [3]int32
@@ -1291,6 +1292,7 @@ type Explod struct {
 	interpolate_pos      [6]float32
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
+	interpolate_xshear   [2]float32
 	animNo               int32
 	interPos             [3]float32
 }
@@ -1531,8 +1533,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	anglerot := e.anglerot
 	fLength := e.fLength
 	scale := e.scale
+	xshear := e.xshear
 	if e.interpolate {
-		e.Interpolate(act, &scale, &alp, &anglerot, &fLength)
+		e.Interpolate(act, &scale, &alp, &anglerot, &fLength, &xshear)
 	}
 	if alp[0] < 0 {
 		alp[0] = -1
@@ -1599,7 +1602,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		projection:   int32(e.projection),
 		fLength:      fLength,
 		window:       ewin,
-		xshear:       e.xshear,
+		xshear:       xshear,
 	}
 	sprs.add(sd)
 
@@ -1641,9 +1644,6 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		//	}
 		//}
 
-		if e.bindtime > 0 {
-			e.bindtime--
-		}
 		if act {
 			if e.palfx != nil && e.ownpal {
 				e.palfx.step()
@@ -1666,6 +1666,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 				e.anim.Action()
 			}
 			e.time++
+			if e.bindtime > 0 {
+				e.bindtime--
+			}
 		} else {
 			e.setX(e.pos[0])
 			e.setY(e.pos[1])
@@ -1674,10 +1677,11 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	}
 }
 
-func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, anglerot *[3]float32, fLength *float32) {
+func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, anglerot *[3]float32, fLength *float32, xshear *float32) {
 	if sys.tickNextFrame() && act {
 		t := float32(e.interpolate_time[1]) / float32(e.interpolate_time[0])
 		e.interpolate_fLength[0] = Lerp(e.interpolate_fLength[1], e.start_fLength, t)
+		e.interpolate_xshear[0] = Lerp(e.interpolate_xshear[1], e.start_xshear, t)
 		if e.interpolate_animelem[1] >= 0 {
 			elem := Ceil(Lerp(float32(e.interpolate_animelem[0]-1), float32(e.interpolate_animelem[1]), 1-t))
 
@@ -1715,11 +1719,13 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
 	}
 	*fLength = e.interpolate_fLength[0] + e.fLength
+	*xshear = e.interpolate_xshear[0]
 }
 
 func (e *Explod) setStartParams(pfd *PalFXDef) {
 	e.start_animelem = e.animelem
 	e.start_fLength = e.fLength
+	e.start_xshear = e.xshear
 	for i := 0; i < 3; i++ {
 		if i < 2 {
 			e.start_scale[i] = e.scale[i]
@@ -1773,6 +1779,7 @@ func (e *Explod) resetInterpolation(pfd *PalFXDef) {
 	for i := 0; i < 2; i++ {
 		e.interpolate_animelem[i] = -1
 		e.interpolate_fLength[i] = e.fLength
+		e.interpolate_xshear[i] = e.xshear
 	}
 }
 
@@ -1789,7 +1796,10 @@ type Projectile struct {
 	cancelanim      int32
 	cancelanim_ffx  string
 	scale           [2]float32
-	angle           float32
+	anglerot        [3]float32
+	rot             Rotation
+	projection      Projection
+	fLength         float32
 	clsnScale       [2]float32
 	clsnAngle       float32
 	zScale          float32
@@ -1856,6 +1866,7 @@ func (p *Projectile) clear() {
 		clsnAngle:      0,
 		remove:         true,
 		localscl:       1,
+		projection:     Projection_Orthographic,
 		removetime:     -1,
 		velmul:         [...]float32{1, 1, 1},
 		hits:           1,
@@ -2182,6 +2193,23 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		pos = sys.drawposXYfromZ(pos, p.localscl, p.interPos[2], p.zScale)
 	}
 
+	anglerot := p.anglerot
+	fLength := p.fLength
+
+	if fLength <= 0 {
+		fLength = 2048
+	}
+
+	if p.facing < 0 {
+		anglerot[0] *= -1
+		anglerot[2] *= -1
+	}
+	fLength = fLength * p.localscl
+	rot := p.rot
+	rot.angle = anglerot[0]
+	rot.xangle = anglerot[1]
+	rot.yangle = anglerot[2]
+
 	sprs := &sys.spritesLayer0
 	if p.layerno > 0 {
 		sprs = &sys.spritesLayer1
@@ -2205,14 +2233,14 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			scl:          scl,
 			alpha:        [2]int32{-1},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
-			rot:          Rotation{p.facing * p.angle, 0, 0},
+			rot:          rot,
 			screen:       false,
 			undarken:     p.playerno == sys.superplayerno,
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
-			projection:   0,
-			fLength:      0,
+			projection:   int32(p.projection),
+			fLength:      fLength,
 			window:       pwin,
 			xshear:       p.xshear,
 		}
@@ -2374,9 +2402,14 @@ type CharSystemVar struct {
 	bindPosAdd        [3]float32
 	bindFacing        float32
 	hitPauseTime      int32
-	angle             float32
+	rot               Rotation
+	anglerot          [3]float32
+	xshear            float32
+	projection        Projection
+	fLength           float32
 	angleDrawScale    [2]float32
 	alpha             [2]int32
+	window            [4]float32
 	systemFlag        SystemCharFlag
 	specialFlag       CharSpecialFlag
 	sprPriority       int32
@@ -2466,65 +2499,69 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
-	window              [4]float32
-	xshear              float32
 	cnsvar              map[int32]int32
 	cnsfvar             map[int32]float32
 	cnssysvar           map[int32]int32
 	cnssysfvar          map[int32]float32
 	CharSystemVar
-	aimg             AfterImage
-	soundChannels    SoundChannels
-	p1facing         float32
-	cpucmd           int32
-	offset           [2]float32
-	stchtmp          bool
-	inguarddist      bool
-	pushed           bool
-	hitdefContact    bool
-	atktmp           int8 // 1 hitdef can hit, 0 cannot hit, -1 other
-	hittmp           int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
-	acttmp           int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus            int8 // Essentially the current negative state
-	platformPosY     float32
-	groundAngle      float32
-	ownpal           bool
-	winquote         int32
-	memberNo         int
-	selectNo         int
-	inheritJuggle    int32
-	inheritChannels  int32
-	mapArray         map[string]float32
-	mapDefault       map[string]float32
-	remapSpr         RemapPreset
-	clipboardText    []string
-	dialogue         []string
-	immortal         bool
-	kovelocity       bool
-	preserve         int32
-	inputFlag        InputBits
-	pauseBool        bool
-	downHitOffset    bool
-	koEchoTimer      int32
-	groundLevel      float32
-	sizeBox          [4]float32
-	shadowColor      [3]int32
-	shadowIntensity  int32
-	shadowOffset     [2]float32
-	shadowWindow     [4]float32
-	shadowXshear     float32
-	shadowYscale     float32
-	reflectColor     [3]int32
-	reflectIntensity int32
-	reflectOffset    [2]float32
-	reflectWindow    [4]float32
-	reflectXshear    float32
-	reflectYscale    float32
-	ownclsnscale     bool
-	pushPriority     int32
-	prevfallflag     bool
-	dustOldPos       [3]float32
-	dustTime         int
+	aimg              AfterImage
+	soundChannels     SoundChannels
+	p1facing          float32
+	cpucmd            int32
+	offset            [2]float32
+	stchtmp           bool
+	inguarddist       bool
+	pushed            bool
+	hitdefContact     bool
+	atktmp            int8 // 1 hitdef can hit, 0 cannot hit, -1 other
+	hittmp            int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
+	acttmp            int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
+	minus             int8 // Essentially the current negative state
+	platformPosY      float32
+	groundAngle       float32
+	ownpal            bool
+	winquote          int32
+	memberNo          int
+	selectNo          int
+	inheritJuggle     int32
+	inheritChannels   int32
+	mapArray          map[string]float32
+	mapDefault        map[string]float32
+	remapSpr          RemapPreset
+	clipboardText     []string
+	dialogue          []string
+	immortal          bool
+	kovelocity        bool
+	preserve          int32
+	inputFlag         InputBits
+	pauseBool         bool
+	downHitOffset     bool
+	koEchoTimer       int32
+	groundLevel       float32
+	sizeBox           [4]float32
+	shadowColor       [3]int32
+	shadowIntensity   int32
+	shadowOffset      [2]float32
+	shadowWindow      [4]float32
+	shadowXshear      float32
+	shadowYscale      float32
+	shadowRot         Rotation
+    shadowProjection  Projection
+	shadowfLength     float32
+	reflectColor      [3]int32
+	reflectIntensity  int32
+	reflectOffset     [2]float32
+	reflectWindow     [4]float32
+	reflectXshear     float32
+	reflectYscale     float32
+	reflectRot        Rotation
+	reflectProjection Projection
+	reflectfLength    float32
+	ownclsnscale      bool
+	pushPriority      int32
+	prevfallflag      bool
+	dustOldPos        [3]float32
+	dustTime          int
 }
 
 // Add a new char to the game
@@ -2574,6 +2611,7 @@ func (c *Char) init(n int, idx int32) {
 			fallDefenseMul:  1.0,
 			customDefense:   1.0,
 			finalDefense:    1.0,
+			projection:      Projection_Orthographic,
 		},
 	}
 
@@ -4393,7 +4431,11 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 			case OC_ex2_projvar_projanim:
 				v = BytecodeInt(p.anim)
 			case OC_ex2_projvar_projangle:
-				v = BytecodeFloat(p.angle)
+				v = BytecodeFloat(p.anglerot[0])
+			case OC_ex2_projvar_projyangle:
+				v = BytecodeFloat(p.anglerot[2])
+			case OC_ex2_projvar_projxangle:
+				v = BytecodeFloat(p.anglerot[1])
 			case OC_ex2_projvar_projcancelanim:
 				v = BytecodeInt(p.cancelanim)
 			case OC_ex2_projvar_projedgebound:
@@ -5693,6 +5735,7 @@ func (c *Char) newProj() *Projectile {
 		} else {
 			p.localscl = c.localscl
 		}
+
 		p.layerno = c.layerNo
 		p.palfx = c.getPalfx()
 		// Initialize projectile Hitdef. Must be placed after its localscl is defined
@@ -7161,7 +7204,15 @@ func (c *Char) hitPause() bool {
 }
 
 func (c *Char) angleSet(a float32) {
-	c.angle = a
+	c.anglerot[0] = a
+}
+
+func (c *Char) XangleSet(xa float32) {
+	c.anglerot[1] = xa
+}
+
+func (c *Char) YangleSet(ya float32) {
+	c.anglerot[2] = ya
 }
 
 func (c *Char) inputWait() bool {
@@ -9249,6 +9300,9 @@ func (c *Char) actionPrepare() {
 		c.shadowWindow = [4]float32{}
 		c.shadowXshear = 0
 		c.shadowYscale = 0
+		c.shadowRot = Rotation{0, 0, 0}
+		c.shadowProjection = -1
+	    c.shadowfLength = 0
 		// Reset modifyReflection
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
@@ -9256,9 +9310,14 @@ func (c *Char) actionPrepare() {
 		c.reflectWindow = [4]float32{}
 		c.reflectXshear = 0
 		c.reflectYscale = 0
+		c.reflectRot = Rotation{0, 0, 0}
+		c.reflectProjection = -1
+	    c.reflectfLength = 0
 		// Reset TransformSprite
 		c.window = [4]float32{}
 		c.xshear = 0
+		c.fLength = 2048
+		c.projection = Projection_Orthographic
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
@@ -10132,15 +10191,24 @@ func (c *Char) cueDraw() {
 		//	pos[1] += c.interPos[2] * c.localscl
 		//}
 
-		agl := float32(0)
+		anglerot := c.anglerot
+		fLength := c.fLength
+
+		if fLength <= 0 {
+			fLength = 2048
+		}
+
+		if c.facing < 0 {
+			anglerot[0] *= -1
+			anglerot[2] *= -1
+		}
+		fLength = fLength * c.localscl
+		rot := c.rot
+
 		if c.csf(CSF_angledraw) {
-			agl = c.angle
-			// if agl == 0 {
-			// 	agl = 360 // Is it really necessary for the initial angle to be 360?
-			// } else if c.facing < 0 {
-			if c.facing < 0 {
-				agl *= -1
-			}
+			rot.angle = anglerot[0]
+			rot.xangle = anglerot[1]
+			rot.yangle = anglerot[2]
 		}
 
 		rec := sys.tickNextFrame() && c.acttmp > 0
@@ -10187,14 +10255,14 @@ func (c *Char) cueDraw() {
 			scl:          scl,
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
-			rot:          Rotation{agl, 0, 0},
+			rot:          rot,
 			screen:       false,
 			undarken:     c.playerNo == sys.superplayerno,
 			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,
-			projection:   0,
-			fLength:      0,
+			projection:   int32(c.projection),
+			fLength:      fLength,
 			xshear:       c.xshear,
 			window:       cwin,
 		}
@@ -10259,16 +10327,22 @@ func (c *Char) cueDraw() {
 					shadowWindow:     c.shadowWindow,
 					shadowXshear:     c.shadowXshear,
 					shadowYscale:     c.shadowYscale,
+					shadowRot:        c.shadowRot,
+					shadowProjection: int32(c.shadowProjection),
+					shadowfLength:    c.shadowfLength,
 					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
 					},
-					reflectWindow: c.reflectWindow,
-					reflectXshear: c.reflectXshear,
-					reflectYscale: c.reflectYscale,
-					fadeOffset:    c.offsetY() + drawZoff,
+					reflectWindow:     c.reflectWindow,
+					reflectXshear:     c.reflectXshear,
+					reflectYscale:     c.reflectYscale,
+					reflectRot:        c.reflectRot,
+					reflectProjection: int32(c.reflectProjection),
+					reflectfLength:    c.reflectfLength,
+					fadeOffset:        c.offsetY() + drawZoff,
 				})
 			}
 		}

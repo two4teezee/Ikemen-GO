@@ -816,7 +816,8 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_accel, VT_Float, 3, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, explod_projection); err != nil {
+	if err := c.paramProjection(is, sc, "projection", 
+		explod_projection); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "scale",
@@ -927,6 +928,10 @@ func (c *Compiler) explodInterpolate(is IniSection,
 	}
 	if err := c.paramValue(is, sc, "interpolation.focallength",
 		explod_interpolate_focallength, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "interpolation.xshear",
+		explod_interpolate_xshear, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.mul",
@@ -1213,6 +1218,26 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyShadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyShadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyShadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyShadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection", 
+			modifyShadow_projection); err != nil {
+			return err
+		}
 		return c.posSetSub(is, sc)
 	})
 	return *ret, err
@@ -1246,6 +1271,26 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 		}
 		if err := c.paramValue(is, sc, "yscale",
 			modifyReflection_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyReflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyReflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyReflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyReflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection",
+			modifyReflection_projection); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -2299,6 +2344,14 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projangle, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "projxangle",
+		projectile_projxangle, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projyangle",
+		projectile_projyangle, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "projclsnscale",
 		projectile_projclsnscale, VT_Float, 2, false); err != nil {
 		return err
@@ -2313,6 +2366,14 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 	}
 	if err := c.paramValue(is, sc, "projxshear",
 		projectile_projxshear, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projfocallength",
+		projectile_projfocallength, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramProjection(is, sc, "projprojection",
+		projectile_projprojection); err != nil {
 		return err
 	}
 	// HitDef section
@@ -3450,6 +3511,14 @@ func (c *Compiler) angleDraw(is IniSection, sc *StateControllerBase, _ int8) (St
 			angleDraw_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleDraw_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleDraw_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "scale",
 			angleDraw_scale, VT_Float, 2, false); err != nil {
 			return err
@@ -3469,6 +3538,14 @@ func (c *Compiler) angleSet(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleSet_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleSet_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleSet_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3484,6 +3561,14 @@ func (c *Compiler) angleAdd(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleAdd_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleAdd_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleAdd_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3497,6 +3582,14 @@ func (c *Compiler) angleMul(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.paramValue(is, sc, "value",
 			angleMul_value, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleMul_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleMul_y, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil
@@ -5241,6 +5334,10 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "angle",
+			text_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.palFXSub(is, sc, "palfx."); err != nil {
 			return err
 		}
@@ -5511,6 +5608,26 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.angle",
+			modifyStageVar_shadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.xangle",
+			modifyStageVar_shadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.yangle",
+			modifyStageVar_shadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.focallength",
+			modifyStageVar_shadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "shadow.projection", 
+			modifyStageVar_shadow_projection); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "shadow.fade.range",
 			modifyStageVar_shadow_fade_range, VT_Int, 2, false); err != nil {
 			return err
@@ -5533,6 +5650,26 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramValue(is, sc, "reflection.yscale",
 			modifyStageVar_reflection_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.angle",
+			modifyStageVar_reflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.xangle",
+			modifyStageVar_reflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.yangle",
+			modifyStageVar_reflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.focallength",
+			modifyStageVar_reflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "reflection.projection", 
+			modifyStageVar_reflection_projection); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.xshear",
@@ -5986,6 +6123,19 @@ func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, "projection",
+				transformSprite_projection); err != nil {
+				return err
+			}
+		}
 		if !any {
 			return Error("Must specify at least one TransformSprite parameter")
 		}
@@ -6106,6 +6256,18 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "xangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "yangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_yangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
@@ -6123,6 +6285,19 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 			return c.scAdd(sc, modifyStageBG_xshear, data, VT_Float, 1)
 		}); err != nil {
 			return err
+		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, "projection",
+				modifyStageBG_projection); err != nil {
+				return err
+			}
 		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")

@@ -127,7 +127,9 @@ type backGround struct {
 	zoomscaledelta     [2]float32
 	xbottomzoomdelta   float32
 	roundpos           bool
-	angle              float32
+	rot                Rotation
+	fLength            float32
+	projection         Projection
 	xshear             float32
 }
 
@@ -141,8 +143,10 @@ func newBackGround(sff *Sff) *backGround {
 		rasterx:            [...]float32{1, 1},
 		yscalestart:        100,
 		scalestart:         [...]float32{1, 1},
-		angle:              0,
+		rot:                Rotation{0, 0, 0},
 		xshear:             0,
+		fLength:            2048,
+		projection:         Projection_Orthographic,
 		xbottomzoomdelta:   math.MaxFloat32,
 		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
 		actionno:           -1,
@@ -215,8 +219,21 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	is.readF32ForStage("scalestart", &bg.scalestart[0], &bg.scalestart[1])
 	is.readF32ForStage("scaledelta", &bg.scaledelta[0], &bg.scaledelta[1])
-	is.readF32ForStage("angle", &bg.angle)
 	is.readF32ForStage("xshear", &bg.xshear)
+	is.readF32ForStage("angle", &bg.rot.angle)
+	is.readF32ForStage("xangle", &bg.rot.xangle)
+	is.readF32ForStage("yangle", &bg.rot.yangle)
+	is.readF32ForStage("focallength", &bg.fLength)
+	if str, ok := is["projection"]; ok {
+		switch strings.ToLower(strings.TrimSpace(str)) {
+		case "orthographic", "or":
+			bg.projection = Projection_Orthographic
+		case "perspective", "pe":
+			bg.projection = Projection_Perspective
+		case "perspective2", "pe2":
+			bg.projection = Projection_Perspective2
+		}
+	}
 	is.readF32ForStage("xbottomzoomdelta", &bg.xbottomzoomdelta)
 	is.readF32ForStage("zoomscaledelta", &bg.zoomscaledelta[0], &bg.zoomscaledelta[1])
 	is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1])
@@ -463,8 +480,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Xshear offset correction
 	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
 
-	if bg.angle != 0 {
-		xsoffset /= bg.angle
+	if bg.rot.angle != 0 {
+		xsoffset /= bg.rot.angle
 	}
 
 	// Calculate window scale
@@ -510,7 +527,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
 			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			Rotation{bg.angle, 0, 0}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 
@@ -758,14 +775,17 @@ func (bgct *bgcTimeLine) step(s *Stage) {
 }
 
 type stageShadow struct {
-	intensity int32
-	color     uint32
-	yscale    float32
-	fadeend   int32
-	fadebgn   int32
-	xshear    float32
-	offset    [2]float32
-	window    [4]float32
+	intensity   int32
+	color       uint32
+	yscale      float32
+	fadeend     int32
+	fadebgn     int32
+	xshear      float32
+	rot         Rotation
+	fLength     float32
+	projection  Projection
+	offset      [2]float32
+	window      [4]float32
 }
 type stagePlayer struct {
 	startx, starty, startz, facing int32
@@ -931,11 +951,31 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if s.ikemenver[0] == 0 && s.ikemenver[1] == 0 && s.mugenver[0] != 1 {
 			s.stageprops.roundpos = true
 		}
-		if sec[0].LoadFile("attachedchar", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			s.attachedchardef = append(s.attachedchardef, filename)
-			return nil
-		}); err != nil {
-			return nil, err
+		// AttachedChars
+		ac := 0
+		for i := range sec[0] {
+			if !strings.HasPrefix(i, "attachedchar") {
+				continue
+			}
+			if suffix := strings.TrimPrefix(i, "attachedchar"); suffix != "" {
+				if _, err := strconv.Atoi(suffix); err != nil {
+					continue
+				}
+			}
+			if ac >= MaxAttachedChar {
+				sys.appendToConsole(fmt.Sprintf("Warning: You can define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
+				continue
+			}
+			if err := sec[0].LoadFile(i, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+				// Ensure slice has correct length
+				for len(s.attachedchardef) <= ac {
+					s.attachedchardef = append(s.attachedchardef, "")
+				}
+				s.attachedchardef[ac] = filename
+				return nil
+			}); err == nil {
+				ac++
+			}
 		}
 		// RoundXdef
 		if maindef {
@@ -1282,6 +1322,20 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].ReadF32("yscale", &s.sdw.yscale)
 		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
 		sec[0].ReadF32("xshear", &s.sdw.xshear)
+		sec[0].ReadF32("angle", &s.sdw.rot.angle)
+		sec[0].ReadF32("xangle", &s.sdw.rot.xangle)
+		sec[0].ReadF32("yangle", &s.sdw.rot.yangle)
+		sec[0].ReadF32("focallength", &s.sdw.fLength)
+		if str, ok := sec[0]["projection"]; ok {
+			switch strings.ToLower(strings.TrimSpace(str)) {
+			case "orthographic", "or":
+				s.sdw.projection = Projection_Orthographic
+			case "perspective", "pe":
+				s.sdw.projection = Projection_Perspective
+			case "perspective2", "pe2":
+				s.sdw.projection = Projection_Perspective2
+			}
+		}
 		sec[0].readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
 		sec[0].readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
 	}
@@ -1319,6 +1373,28 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		if sec[0].ReadF32("xshear", &tmp2) {
 			s.reflection.xshear = tmp2
+		}
+		if sec[0].ReadF32("angle", &tmp2) {
+			s.reflection.rot.angle = tmp2
+		}
+		if sec[0].ReadF32("xangle", &tmp2) {
+			s.reflection.rot.xangle = tmp2
+		}
+		if sec[0].ReadF32("yangle", &tmp2) {
+			s.reflection.rot.yangle = tmp2
+		}
+		if sec[0].ReadF32("focallength", &tmp2) {
+			s.reflection.fLength = tmp2
+		}
+		if str, ok := sec[0]["projection"]; ok {
+			switch strings.ToLower(strings.TrimSpace(str)) {
+			case "orthographic", "or":
+				s.reflection.projection = Projection_Orthographic
+			case "perspective", "pe":
+				s.reflection.projection = Projection_Perspective
+			case "perspective2", "pe2":
+				s.reflection.projection = Projection_Perspective2
+			}
 		}
 		if sec[0].readF32ForStage("offset", &tmp3[0], &tmp3[1]) {
 			s.reflection.offset[0] = tmp3[0]
@@ -1458,6 +1534,11 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.sdw.fadeend = src.sdw.fadeend
 	s.sdw.fadebgn = src.sdw.fadebgn
 	s.sdw.xshear = src.sdw.xshear
+	s.sdw.rot.angle = src.sdw.rot.angle
+	s.sdw.rot.xangle = src.sdw.rot.xangle
+	s.sdw.rot.yangle = src.sdw.rot.yangle
+	s.sdw.fLength = src.sdw.fLength
+	s.sdw.projection = src.sdw.projection
 	s.sdw.offset[0] = src.sdw.offset[0]
 	s.sdw.offset[1] = src.sdw.offset[1]
 	s.sdw.window[0] = src.sdw.window[0]
@@ -1469,6 +1550,11 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.reflection.offset[1] = src.reflection.offset[1]
 	s.reflection.xshear = src.reflection.xshear
 	s.reflection.yscale = src.reflection.yscale
+	s.reflection.rot.angle = src.reflection.rot.angle
+	s.reflection.rot.xangle = src.reflection.rot.xangle
+	s.reflection.rot.yangle = src.reflection.rot.yangle
+	s.reflection.fLength = src.reflection.fLength
+	s.reflection.projection = src.reflection.projection
 	s.reflection.window[0] = src.reflection.window[0]
 	s.reflection.window[1] = src.reflection.window[1]
 	s.reflection.window[2] = src.reflection.window[2]

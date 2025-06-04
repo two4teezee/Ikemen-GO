@@ -356,7 +356,8 @@ type HealthBar struct {
 	shift      AnimLayout
 	warn       AnimLayout
 	warn_range [2]int32
-	value      LbText
+	value      map[int32]*LbText
+	red_value  map[int32]*LbText
 	toplife    float32
 	oldlife    float32
 	midlife    float32
@@ -378,6 +379,8 @@ func newHealthBar() *HealthBar {
 		midlifeMin: 1,
 		red:        make(map[int32]*AnimLayout),
 		front:      make(map[float32]*AnimLayout),
+		value:      make(map[int32]*LbText),
+		red_value:  make(map[int32]*LbText),
 		mid_freeze: true,
 		mid_delay:  30,
 		mid_mult:   1.0,
@@ -405,7 +408,14 @@ func readHealthBar(pre string, is IniSection,
 	for k, v := range readMultipleValues(pre, "red", is, sff, at) {
 		hb.red[k] = v
 	}
-	hb.value = *readLbText(pre+"value.", is, "%d", 0, f, 0)
+	hb.value[0] = readLbText(pre+"value.", is, "%d", 0, f, 0)
+	for k, v := range readMultipleLbText(pre, "value", is, "%d", 0, f, 0) {
+		hb.value[k] = v
+	}
+	hb.red_value[0] = readLbText(pre+"red.value.", is, "%d", 0, f, 0)
+	for k, v := range readMultipleLbText(pre, "red.value", is, "%d", 0, f, 0) {
+		hb.red_value[k] = v
+	}
 	is.ReadBool("mid.shift", &hb.mid_shift)
 	is.ReadBool("mid.freeze", &hb.mid_freeze)
 	is.ReadI32("mid.delay", &hb.mid_delay)
@@ -474,7 +484,6 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	hb.bg2.Action()
 	hb.top.Action()
 	hb.mid.Action()
-	hb.value.step()
 	// Multiple front elements - red life
 	if sys.lifebar.redlifebar {
 		var rv int32
@@ -484,6 +493,15 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 			}
 		}
 		hb.red[rv].Action()
+
+		// Multiple red_value fonts - life
+		var rv2 int32
+		for k := range hb.red_value {
+			if k > rv2 && redVal >= k {
+				rv2 = k
+			}
+		}
+		hb.red_value[rv2].step()
 	}
 
 	// Multiple front elements - life
@@ -497,6 +515,15 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 
 	hb.shift.Action()
 	hb.warn.Action()
+
+	// Multiple value fonts - life
+	var fv2 int32
+	for k := range hb.value {
+		if k > fv2 && life >= float32(k)/100 {
+			fv2 = k
+		}
+	}
+	hb.value[fv2].step()
 }
 
 func (hb *HealthBar) reset() {
@@ -589,6 +616,29 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		}
 		hb.red[rv].lay.DrawAnim(&rr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, rxs, rys,
 			layerno, &hb.red[rv].anim, hb.red[rv].palfx)
+
+			if hb.red_value[0].font[0] >= 0 && int(hb.red_value[0].font[0]) < len(f) && f[hb.red_value[0].font[0]] != nil {
+			// Multiple red_value fonts according to redval
+			var rv2 int32
+			for k := range hb.red_value {
+				if k > rv2 && redval >= k {
+					rv2 = k
+				}
+			}
+			text := strings.Replace(hb.red_value[rv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].redLife), 1)
+			text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(redlife)*100)), 1)
+			hb.red_value[rv2].lay.DrawText(
+				float32(hb.pos[0])+sys.lifebarOffsetX,
+				float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
+				layerno,
+				text,
+				f[hb.red_value[rv2].font[0]],
+				hb.red_value[rv2].font[1],
+				hb.red_value[rv2].font[2],
+				hb.red_value[rv2].palfx,
+				hb.red_value[rv2].frgba,
+			)
+		}
 	}
 
 	hb.mid.lay.DrawAnim(&mr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
@@ -612,11 +662,27 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 	hb.shift.lay.DrawAnim(&lr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, lxs, lys,
 		layerno, &hb.shift.anim, hb.shift.palfx)
 
-	if hb.value.font[0] >= 0 && int(hb.value.font[0]) < len(f) && f[hb.value.font[0]] != nil {
-		text := strings.Replace(hb.value.text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].life), 1)
+	if hb.value[0].font[0] >= 0 && int(hb.value[0].font[0]) < len(f) && f[hb.value[0].font[0]] != nil {
+		// Multiple value fonts according to life value
+		var fv2 int32
+		for k := range hb.value {
+			if k > fv2 && life >= float32(k)/100 {
+				fv2 = k
+			}
+		}
+		text := strings.Replace(hb.value[fv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].life), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(life)*100)), 1)
-		hb.value.lay.DrawText(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
-			layerno, text, f[hb.value.font[0]], hb.value.font[1], hb.value.font[2], hb.value.palfx, hb.value.frgba)
+		hb.value[fv2].lay.DrawText(
+			float32(hb.pos[0])+sys.lifebarOffsetX,
+			float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
+			layerno,
+			text,
+			f[hb.value[fv2].font[0]],
+			hb.value[fv2].font[1],
+			hb.value[fv2].font[2],
+			hb.value[fv2].palfx,
+			hb.value[fv2].frgba,
+		)
 	}
 
 	hb.top.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
@@ -639,7 +705,7 @@ type PowerBar struct {
 	shift            AnimLayout
 	counter          map[int32]*LbText
 	counter_rounding int32
-	value            LbText
+	value            map[int32]*LbText
 	value_rounding   int32
 	level_snd        [9][2]int32
 	midpower         float32
@@ -655,6 +721,7 @@ func newPowerBar() *PowerBar {
 		bg0:              make(map[int32]*AnimLayout),
 		counter:          make(map[int32]*LbText),
 		counter_rounding: 1000,
+		value:            make(map[int32]*LbText),
 		value_rounding:   1,
 	}
 	// Default power level sounds to -1,-1
@@ -688,7 +755,10 @@ func readPowerBar(pre string, is IniSection,
 	for k, v := range readMultipleLbText(pre, "counter", is, "%i", 0, f, 0) {
 		pb.counter[k] = v
 	}
-	pb.value = *readLbText(pre+"value.", is, "", 0, f, 0)
+	pb.value[0] = readLbText(pre+"value.", is, "%d", 0, f, 0)
+	for k, v := range readMultipleLbText(pre, "value", is, "%d", 0, f, 0) {
+		pb.value[k] = v
+	}
 	// Format options.
 	is.ReadI32(pre+"counter.format.rounding", &pb.counter_rounding)
 	is.ReadI32(pre+"value.format.power.rounding", &pb.value_rounding)
@@ -742,6 +812,9 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 		for i := range pb.counter {
 			pb.counter[i].resetTxtPfx()
 		}
+		for i := range pb.value {
+			pb.value[i].resetTxtPfx()
+		}
 	}
 	pbr.prevLevel = level
 
@@ -758,7 +831,6 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pb.bg2.Action()
 	pb.top.Action()
 	pb.mid.Action()
-	pb.value.step()
 	// Multiple front elements
 	var fv2 int32
 	for k := range pb.front {
@@ -778,7 +850,14 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 		}
 	}
 	pb.counter[cv].step()
-	pb.value.step()
+	// Multiple value fonts
+	var cv2 int32
+	for k := range pb.value {
+		if k > cv2 && pbval >= k {
+			cv2 = k
+		}
+	}
+	pb.value[cv2].step()
 }
 
 func (pb *PowerBar) reset() {
@@ -904,21 +983,28 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 	}
 
 	// Per-level powerbar text.
-	if pb.value.font[0] >= 0 && int(pb.value.font[0]) < len(f) && f[pb.value.font[0]] != nil {
-		text := strings.Replace(pb.value.text, "%d", fmt.Sprintf("%v", pbval/pb.value_rounding), 1)
+	if pb.value[0].font[0] >= 0 && int(pb.value[0].font[0]) < len(f) && f[pb.value[0].font[0]] != nil {
+		// Multiple value fonts according to powerbar level
+		var cv2 int32
+		for k := range pb.value {
+			if k > cv2 && pbval >= k {
+				cv2 = k
+			}
+		}
+		text := strings.Replace(pb.value[cv2].text, "%d", fmt.Sprintf("%v", pbval/pb.value_rounding), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(power)*100)), 1)
 
-		pb.value.lay.DrawText(
+		pb.value[cv2].lay.DrawText(
 			float32(pb.pos[0])+sys.lifebarOffsetX,
 			float32(pb.pos[1])+sys.lifebarOffsetY,
 			sys.lifebarScale,
 			layerno,
 			text,
-			f[pb.value.font[0]],
-			pb.value.font[1],
-			pb.value.font[2],
-			pb.value.palfx,
-			pb.value.frgba,
+			f[pb.value[cv2].font[0]],
+			pb.value[cv2].font[1],
+			pb.value[cv2].font[2],
+			pb.value[cv2].palfx,
+			pb.value[cv2].frgba,
 		)
 	}
 	pb.top.Draw(float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
@@ -935,7 +1021,7 @@ type GuardBar struct {
 	mid         AnimLayout
 	warn        AnimLayout
 	warn_range  [2]int32
-	value       LbText
+	value       map[int32]*LbText
 	front       map[float32]*AnimLayout
 	shift       AnimLayout
 	midpower    float32
@@ -945,7 +1031,10 @@ type GuardBar struct {
 }
 
 func newGuardBar() (gb *GuardBar) {
-	gb = &GuardBar{front: make(map[float32]*AnimLayout)}
+	gb = &GuardBar{
+		front: make(map[float32]*AnimLayout),
+		value: make(map[int32]*LbText),
+	}
 	return
 }
 
@@ -965,7 +1054,10 @@ func readGuardBar(pre string, is IniSection,
 		gb.front[k] = v
 	}
 	gb.shift = *ReadAnimLayout(pre+"shift.", is, sff, at, 0)
-	gb.value = *readLbText(pre+"value.", is, "%d", 0, f, 0)
+	gb.value[0] = readLbText(pre+"value.", is, "%d", 0, f, 0)
+	for k, v := range readMultipleLbText(pre, "value", is, "%d", 0, f, 0) {
+		gb.value[k] = v
+	}
 	is.ReadI32(pre+"warn.range", &gb.warn_range[0], &gb.warn_range[1])
 	gb.warn = *ReadAnimLayout(pre+"warn.", is, sff, at, 0)
 	is.ReadBool(pre+"invertfill", &gb.invertfill)
@@ -1010,6 +1102,15 @@ func (gb *GuardBar) step(ref int, gbr *GuardBar, snd *Snd) {
 		}
 	}
 	gb.front[mv].Action()
+
+	// Multiple value fonts
+	var mv2 int32
+	for k := range gb.value {
+		if k > mv2 && points >= float32(k)/100 {
+			mv2 = k
+		}
+	}
+	gb.value[mv2].step()
 
 	gb.shift.Action()
 	gb.warn.Action()
@@ -1110,11 +1211,28 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 	gb.shift.lay.DrawAnim(&pr, float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
 		layerno, &gb.shift.anim, gb.shift.palfx)
 
-	if gb.value.font[0] >= 0 && int(gb.value.font[0]) < len(f) && f[gb.value.font[0]] != nil {
-		text := strings.Replace(gb.value.text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].guardPoints), 1)
+	if gb.value[0].font[0] >= 0 && int(gb.value[0].font[0]) < len(f) && f[gb.value[0].font[0]] != nil {
+		// Multiple value fonts according to guardbar points
+		var mv2 int32
+		for k := range gb.value {
+			if k > mv2 && points >= float32(k)/100 {
+				mv2 = k
+			}
+		}
+		text := strings.Replace(gb.value[mv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].guardPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
-		gb.value.lay.DrawText(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
-			layerno, text, f[gb.value.font[0]], gb.value.font[1], gb.value.font[2], gb.value.palfx, gb.value.frgba)
+		gb.value[mv2].lay.DrawText(
+			float32(gb.pos[0])+sys.lifebarOffsetX,
+			float32(gb.pos[1])+sys.lifebarOffsetY,
+			sys.lifebarScale,
+			layerno,
+			text,
+			f[gb.value[mv2].font[0]],
+			gb.value[mv2].font[1],
+			gb.value[mv2].font[2],
+			gb.value[mv2].palfx,
+			gb.value[mv2].frgba,
+		)
 	}
 
 	if points <= float32(gb.warn_range[0])/100 && points >= float32(gb.warn_range[1])/100 {
@@ -1135,7 +1253,7 @@ type StunBar struct {
 	mid         AnimLayout
 	warn_range  [2]int32
 	warn        AnimLayout
-	value       LbText
+	value       map[int32]*LbText
 	front       map[float32]*AnimLayout
 	shift       AnimLayout
 	midpower    float32
@@ -1145,7 +1263,10 @@ type StunBar struct {
 }
 
 func newStunBar() (sb *StunBar) {
-	sb = &StunBar{front: make(map[float32]*AnimLayout)}
+	sb = &StunBar{
+		front: make(map[float32]*AnimLayout),
+		value: make(map[int32]*LbText),
+	}
 	return
 }
 
@@ -1165,7 +1286,10 @@ func readStunBar(pre string, is IniSection,
 		sb.front[k] = v
 	}
 	sb.shift = *ReadAnimLayout(pre+"shift.", is, sff, at, 0)
-	sb.value = *readLbText(pre+"value.", is, "%d", 0, f, 0)
+	sb.value[0] = readLbText(pre+"value.", is, "%d", 0, f, 0)
+	for k, v := range readMultipleLbText(pre, "value", is, "%d", 0, f, 0) {
+		sb.value[k] = v
+	}
 	is.ReadI32(pre+"warn.range", &sb.warn_range[0], &sb.warn_range[1])
 	sb.warn = *ReadAnimLayout(pre+"warn.", is, sff, at, 0)
 	is.ReadBool(pre+"invertfill", &sb.invertfill)
@@ -1201,7 +1325,6 @@ func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
 	sb.bg2.Action()
 	sb.top.Action()
 	sb.mid.Action()
-	sb.value.step()
 	// Multiple front elements
 	var mv float32
 	for k := range sb.front {
@@ -1210,6 +1333,14 @@ func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
 		}
 	}
 	sb.front[mv].Action()
+	// Multiple value fonts
+	var mv2 int32
+	for k := range sb.value {
+		if k > mv2 && points >= float32(k)/100 {
+			mv2 = k
+		}
+	}
+	sb.value[mv2].step()
 
 	sb.shift.Action()
 	sb.warn.Action()
@@ -1310,11 +1441,27 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 	sb.shift.lay.DrawAnim(&pr, float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
 		layerno, &sb.shift.anim, sb.shift.palfx)
 
-	if sb.value.font[0] >= 0 && int(sb.value.font[0]) < len(f) && f[sb.value.font[0]] != nil {
-		text := strings.Replace(sb.value.text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].dizzyPoints), 1)
+	if sb.value[0].font[0] >= 0 && int(sb.value[0].font[0]) < len(f) && f[sb.value[0].font[0]] != nil {
+		// Multiple value fonts according to stunbar points
+		var mv2 int32
+		for k := range sb.value {
+			if k > mv2 && points >= float32(k)/100 {
+				mv2 = k
+			}
+		}
+		text := strings.Replace(sb.value[mv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].dizzyPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
-		sb.value.lay.DrawText(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
-			layerno, text, f[sb.value.font[0]], sb.value.font[1], sb.value.font[2], sb.value.palfx, sb.value.frgba)
+		sb.value[mv2].lay.DrawText(
+			float32(sb.pos[0])+sys.lifebarOffsetX, 
+			float32(sb.pos[1])+sys.lifebarOffsetY,
+			sys.lifebarScale,
+			layerno,
+			text, f[sb.value[mv2].font[0]],
+			sb.value[mv2].font[1],
+			sb.value[mv2].font[2],
+			sb.value[mv2].palfx,
+			sb.value[mv2].frgba,
+		)
 	}
 
 	if points >= float32(sb.warn_range[0])/100 && points <= float32(sb.warn_range[1])/100 {

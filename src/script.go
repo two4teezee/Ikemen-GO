@@ -691,7 +691,7 @@ func systemScriptInit(l *lua.LState) {
 							sprite.CachePalette(sprite.Pal)
 						}
 						sprite.Draw(x, y, scale[0]*float32(facing)*fscale, scale[1]*fscale, 0,
-							0, pfx, window)
+							Rotation{0, 0, 0}, pfx, window)
 						ok = true
 					}
 				}
@@ -1748,7 +1748,11 @@ func systemScriptInit(l *lua.LState) {
 		tbl.RawSetString("name", lua.LString(c.name))
 		tbl.RawSetString("def", lua.LString(c.def))
 		tbl.RawSetString("portrait_scale", lua.LNumber(c.portrait_scale))
-		tbl.RawSetString("attachedchardef", lua.LString(c.attachedchardef))
+		acTable := l.NewTable()
+		for _, v := range c.attachedchardef {
+			acTable.Append(lua.LString(v))
+		}
+		tbl.RawSetString("attachedchardef", acTable)
 		subt := l.NewTable()
 		for k, v := range c.stagebgm {
 			subt.RawSetString(k, lua.LString(v))
@@ -4631,7 +4635,11 @@ func triggerFunctions(l *lua.LState) {
 				case "animelem":
 					lv = lua.LNumber(p.ani.current + 1)
 				case "angle":
-					lv = lua.LNumber(p.angle)
+					lv = lua.LNumber(p.anglerot[0])
+				case "angle x":
+					lv = lua.LNumber(p.anglerot[1])
+				case "angle y":
+					lv = lua.LNumber(p.anglerot[2])
 				case "drawpal group":
 					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
 				case "drawpal index":
@@ -5193,7 +5201,23 @@ func triggerFunctions(l *lua.LState) {
 	// atan2 (dedicated functionality already exists in Lua)
 	luaRegister(l, "angle", func(*lua.LState) int {
 		if sys.debugWC.csf(CSF_angledraw) {
-			l.Push(lua.LNumber(sys.debugWC.angle))
+			l.Push(lua.LNumber(sys.debugWC.anglerot[0]))
+		} else {
+			l.Push(lua.LNumber(0))
+		}
+		return 1
+	})
+	luaRegister(l, "xangle", func(*lua.LState) int {
+		if sys.debugWC.csf(CSF_angledraw) {
+			l.Push(lua.LNumber(sys.debugWC.anglerot[1]))
+		} else {
+			l.Push(lua.LNumber(0))
+		}
+		return 1
+	})
+	luaRegister(l, "yangle", func(*lua.LState) int {
+		if sys.debugWC.csf(CSF_angledraw) {
+			l.Push(lua.LNumber(sys.debugWC.anglerot[2]))
 		} else {
 			l.Push(lua.LNumber(0))
 		}
@@ -5216,6 +5240,10 @@ func triggerFunctions(l *lua.LState) {
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
+		return 1
+	})
+	luaRegister(l, "xshear", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.xshear))
 		return 1
 	})
 	luaRegister(l, "animelemvar", func(l *lua.LState) int {

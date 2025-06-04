@@ -957,9 +957,33 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 		if s.coldepth <= 8 && s.PalTex == nil {
 			s.CachePalette(s.Pal)
 		}
-		s.Draw(x+l.offset[0]*sys.lifebarScale, y+l.offset[1]*sys.lifebarScale,
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(s.Offset[1]) * l.scale[1] * fscale)
+
+		drawwindow := window
+
+		if *window != sys.scrrect {
+			w := window
+			if w[0] > w[2] {
+				w[0], w[2] = w[2], w[0]
+			}
+			if w[1] > w[3] {
+				w[1], w[3] = w[3], w[1]
+			}
+
+			var fwin [4]int32
+			fwin[0] = int32(float32(w[0]) * l.scale[0] * fscale)
+			fwin[1] = int32(float32(w[1]) * l.scale[1] * fscale)
+			fwin[2] = int32(float32(w[2]-w[0]) * l.scale[0] * fscale)
+			fwin[3] = int32(float32(w[3]-w[1]) * l.scale[1] * fscale)
+
+			drawwindow = &fwin
+		}
+
+		s.Draw(x+l.offset[0]-xsoffset*sys.lifebarScale, y+l.offset[1]*sys.lifebarScale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
-			l.angle, -l.xshear, fx, window)
+			xshear, Rotation{l.angle, 0, 0}, fx, drawwindow)
 	}
 }
 
@@ -1003,8 +1027,8 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 
 		f.Print(text, (x+l.offset[0]-xsoffset)*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, b, a,
-			&l.window, palfx, frgba)
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, Rotation{l.angle, 0, 0}, 
+			b, a, &l.window, palfx, frgba)
 	}
 }
 

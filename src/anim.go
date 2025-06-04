@@ -1046,20 +1046,26 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 type ShadowSprite struct {
 	*SprData
-	shadowColor      int32
-	shadowAlpha      int32
-	shadowIntensity  int32
-	shadowOffset     [2]float32
-	shadowXshear     float32
-	shadowYscale     float32
-	shadowWindow     [4]float32
-	reflectColor     int32
-	reflectIntensity int32
-	reflectOffset    [2]float32
-	reflectWindow    [4]float32
-	reflectXshear    float32
-	reflectYscale    float32
-	fadeOffset       float32
+	shadowColor       int32
+	shadowAlpha       int32
+	shadowIntensity   int32
+	shadowOffset      [2]float32
+	shadowWindow      [4]float32
+	shadowXshear      float32
+	shadowYscale      float32
+	shadowRot         Rotation
+	shadowProjection  int32
+	shadowfLength     float32
+	reflectColor      int32
+	reflectIntensity  int32
+	reflectOffset     [2]float32
+	reflectWindow     [4]float32
+	reflectXshear     float32
+	reflectYscale     float32
+	reflectRot        Rotation
+	reflectProjection int32
+	reflectfLength    float32
+	fadeOffset        float32
 }
 
 type ShadowList []*ShadowSprite
@@ -1153,7 +1159,22 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		// Rotation offset. Only shadow scale sign
 		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
 
-		if s.rot.angle != 0 {
+		rotVal := func(vals ...float32) float32 {
+			for _, v := range vals {
+				if v != 0 {
+					return v
+				}
+			}
+			return 0
+		}
+
+		rot := Rotation {
+			angle:  rotVal(s.shadowRot.angle, sys.stage.sdw.rot.angle, s.rot.angle),
+			xangle: rotVal(s.shadowRot.xangle, sys.stage.sdw.rot.xangle, s.rot.xangle),
+			yangle: rotVal(s.shadowRot.yangle, sys.stage.sdw.rot.yangle, s.rot.yangle),
+		}
+
+		if rot.angle != 0 {
 			offsetX -= xrotoff
 		} else {
 			offsetX += xrotoff
@@ -1162,6 +1183,24 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
 			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
+		}
+
+		var projection int32
+		if s.shadowProjection != -1 {
+			projection = int32(s.shadowProjection)
+		} else if sys.stage.sdw.projection != 0 {
+			projection = int32(sys.stage.sdw.projection)
+		} else {
+			projection = int32(s.projection)
+		}
+
+		var fLength float32
+		if s.shadowfLength != 0 {
+			fLength = s.shadowfLength
+		} else if sys.stage.sdw.fLength != 0 {
+			fLength = sys.stage.sdw.fLength
+		} else {
+			fLength = s.fLength
 		}
 
 		drawwindow := &sys.scrrect
@@ -1201,8 +1240,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			(sys.cam.Offset[0]-es[0])-((x-s.pos[0]-offsetX)*scl),
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-es[1])-y-(s.pos[1]*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
-			yscale, xshear, s.rot,
-			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, s.projection, s.fLength)
+			yscale, xshear, rot,
+			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}
 }
 
@@ -1273,7 +1312,22 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		// Rotation offset
 		xrotoff := xshear * yscale * (float32(s.anim.spr.Offset[1]) * s.scl[1] * scl)
 
-		if s.rot.angle != 0 {
+		rotVal := func(vals ...float32) float32 {
+			for _, v := range vals {
+				if v != 0 {
+					return v
+				}
+			}
+			return 0
+		}
+
+		rot := Rotation {
+			angle:  rotVal(s.reflectRot.angle, sys.stage.reflection.rot.angle, s.rot.angle),
+			xangle: rotVal(s.reflectRot.xangle, sys.stage.reflection.rot.xangle, s.rot.xangle),
+			yangle: rotVal(s.reflectRot.yangle, sys.stage.reflection.rot.yangle, s.rot.yangle),
+		}
+
+		if rot.angle != 0 {
 			xshear = -xshear
 			offsetX -= xrotoff
 		} else {
@@ -1283,6 +1337,24 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
 			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
+		}
+
+		var projection int32
+		if s.reflectProjection != -1 {
+			projection = int32(s.reflectProjection)
+		} else if sys.stage.reflection.projection != 0 {
+			projection = int32(sys.stage.reflection.projection)
+		} else {
+			projection = int32(s.projection)
+		}
+
+		var fLength float32
+		if s.reflectfLength != 0 {
+			fLength = s.reflectfLength
+		} else if sys.stage.reflection.fLength != 0 {
+			fLength = sys.stage.reflection.fLength
+		} else {
+			fLength = s.fLength
 		}
 
 		drawwindow := &sys.scrrect
@@ -1322,8 +1394,8 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 			(sys.cam.Offset[0]-es[0])/scl-(x-s.pos[0]-offsetX),
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-es[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
-			-s.scl[1]*yscale, xshear, s.rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, s.airOffsetFix, s.projection, s.fLength, color, true)
+			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
+			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true)
 	}
 }
 

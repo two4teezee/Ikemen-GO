@@ -467,19 +467,19 @@ func (f *Fnt) drawChar(
 	return float32(spr.Size[0]) * xscl
 }
 
-func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, bank, align int32,
+func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, bank, align int32,
 	window *[4]int32, palfx *PalFX, frgba [4]float32) {
 	if !sys.frameSkip {
 		if f.Type == "truetype" {
 			f.DrawTtf(txt, x, y, xscl, yscl, align, true, window, frgba)
 		} else {
-			f.DrawText(txt, x, y, xscl, yscl, rxadd, bank, align, window, palfx)
+			f.DrawText(txt, x, y, xscl, yscl, rxadd, rot, bank, align, window, palfx)
 		}
 	}
 }
 
 // DrawText prints on screen a specified text with the current font sprites
-func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, bank, align int32, window *[4]int32, palfx *PalFX) {
+func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, bank, align int32, window *[4]int32, palfx *PalFX) {
 
 	if len(txt) == 0 || xscl == 0 || yscl == 0 {
 		return
@@ -503,6 +503,21 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, bank, align 
 
 	x += float32(f.offset[0])*xscl + float32(sys.gameWidth-320)/2
 	y += float32(f.offset[1]-int32(f.Size[1])+1)*yscl + float32(sys.gameHeight-240)
+
+	var rcx, rcy float32
+
+    if rot.IsZero() {
+		if xscl < 0 {
+			x *= -1
+		}
+		if yscl < 0 {
+			y *= -1
+		}
+		rcx, rcy = rcx*sys.widthScale, 0
+    } else {
+        rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
+		x, y = AbsF(xscl)*float32(f.offset[0]), AbsF(yscl)*float32(f.offset[1])
+    }
 
 	if align == 0 {
 		x -= float32(f.TextWidth(txt, bank)) * xscl * 0.5
@@ -532,14 +547,14 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, bank, align 
 		rxadd:          rxadd,
 		xas:            1,
 		yas:            1,
-		rot:            Rotation{},
+		rot:            rot,
 		tint:           0,
 		trans:          sys.brightness*255>>8 | 1<<9,
 		mask:           0,
 		pfx:            palfx,
 		window:         window,
-		rcx:            0,
-		rcy:            0,
+        rcx:            rcx,
+        rcy:            rcy,
 		projectionMode: 0,
 		fLength:        0,
 		xOffset:        0,
@@ -590,6 +605,7 @@ type TextSprite struct {
 	accel            [2]float32
 	forcecolor       bool
 	xshear           float32
+	angle            float32
 }
 
 func NewTextSprite() *TextSprite {
@@ -612,6 +628,7 @@ func NewTextSprite() *TextSprite {
 		friction:    [2]float32{1.0, 1.0},
 		accel:       [2]float32{0.0, 0.0},
 		xshear:      0,
+		angle:       0,
 	}
 	ts.palfx.setColor(255, 255, 255)
 	return ts
@@ -691,7 +708,7 @@ func (ts *TextSprite) Draw() {
 			if ts.fnt.Type == "truetype" {
 				ts.fnt.DrawTtf(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
 			} else {
-				ts.fnt.DrawText(line[:charsToShow], ts.x-xsoffset, newY, ts.xscl, ts.yscl, xshear, ts.bank, ts.align, &ts.window, ts.palfx)
+				ts.fnt.DrawText(line[:charsToShow], ts.x-xsoffset, newY, ts.xscl, ts.yscl, xshear, Rotation{ts.angle, 0, 0}, ts.bank, ts.align, &ts.window, ts.palfx)
 			}
 
 			if ts.textDelay > 0 && totalCharsShown >= int(maxChars) {

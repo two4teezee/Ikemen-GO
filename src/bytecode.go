@@ -761,6 +761,8 @@ const (
 	OC_ex2_palfxvar_all_invertblend
 	OC_ex2_introstate
 	OC_ex2_outrostate
+	OC_ex2_angle_x
+	OC_ex2_angle_y
 	OC_ex2_bgmvar_filename
 	OC_ex2_bgmvar_freqmul
 	OC_ex2_bgmvar_length
@@ -829,6 +831,8 @@ const (
 	OC_ex2_projvar_pos_y
 	OC_ex2_projvar_pos_z
 	OC_ex2_projvar_projangle
+	OC_ex2_projvar_projyangle
+	OC_ex2_projvar_projxangle
 	OC_ex2_projvar_projanim
 	OC_ex2_projvar_projcancelanim
 	OC_ex2_projvar_projedgebound
@@ -928,6 +932,7 @@ const (
 	OC_ex2_numstagebg
 	OC_ex2_envshakevar_dir
 	OC_ex2_gethitvar_fall_envshake_dir
+	OC_ex2_xshear
 )
 
 type StringPool struct {
@@ -3102,7 +3107,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_angle:
 		if c.csf(CSF_angledraw) {
-			sys.bcStack.PushF(c.angle)
+			sys.bcStack.PushF(c.anglerot[0])
 		} else {
 			sys.bcStack.PushF(0)
 		}
@@ -3230,6 +3235,18 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.introState())
 	case OC_ex2_outrostate:
 		sys.bcStack.PushI(sys.outroState())
+	case OC_ex2_angle_x:
+		if c.csf(CSF_angledraw) {
+			sys.bcStack.PushF(c.anglerot[1])
+		} else {
+			sys.bcStack.PushF(0)
+		}
+	case OC_ex2_angle_y:
+		if c.csf(CSF_angledraw) {
+			sys.bcStack.PushF(c.anglerot[2])
+		} else {
+			sys.bcStack.PushF(0)
+		}
 	case OC_ex2_bgmvar_filename:
 		sys.bcStack.PushB(sys.bgm.filename ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
@@ -3543,6 +3560,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_projvar_projangle:
 		fallthrough
+	case OC_ex2_projvar_projyangle:
+		fallthrough
+	case OC_ex2_projvar_projxangle:
+		fallthrough
 	case OC_ex2_projvar_projxshear:
 		fallthrough
 	case OC_ex2_projvar_projsprpriority:
@@ -3761,6 +3782,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex2_gethitvar_fall_envshake_dir:
 		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
+	case OC_ex2_xshear:
+		sys.bcStack.PushF(c.xshear)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -5216,6 +5239,11 @@ const (
 	modifyShadow_window
 	modifyShadow_xshear
 	modifyShadow_yscale
+	modifyShadow_angle
+	modifyShadow_xangle
+	modifyShadow_yangle
+	modifyShadow_focallength
+	modifyShadow_projection
 	modifyShadow_redirectid
 )
 
@@ -5242,6 +5270,16 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 			crun.shadowXshear = exp[0].evalF(c)
 		case modifyShadow_yscale:
 			crun.shadowYscale = exp[0].evalF(c)
+		case modifyShadow_angle:
+			crun.shadowRot.angle = exp[0].evalF(c)
+		case modifyShadow_xangle:
+			crun.shadowRot.xangle = exp[0].evalF(c)
+		case modifyShadow_yangle:
+			crun.shadowRot.yangle = exp[0].evalF(c)
+		case modifyShadow_focallength:
+			crun.shadowfLength = exp[0].evalF(c)
+		case modifyShadow_projection:
+			crun.shadowProjection = Projection(exp[0].evalI(c))
 		case modifyShadow_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5264,6 +5302,11 @@ const (
 	modifyReflection_window
 	modifyReflection_xshear
 	modifyReflection_yscale
+	modifyReflection_angle
+	modifyReflection_xangle
+	modifyReflection_yangle
+	modifyReflection_focallength
+	modifyReflection_projection
 	modifyReflection_redirectid
 )
 
@@ -5290,6 +5333,16 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 			crun.reflectXshear = exp[0].evalF(c)
 		case modifyReflection_yscale:
 			crun.reflectYscale = exp[0].evalF(c)
+		case modifyReflection_angle:
+			crun.reflectRot.angle = exp[0].evalF(c)
+		case modifyReflection_xangle:
+			crun.reflectRot.xangle = exp[0].evalF(c)
+		case modifyReflection_yangle:
+			crun.reflectRot.yangle = exp[0].evalF(c)
+		case modifyReflection_focallength:
+			crun.reflectfLength = exp[0].evalF(c)
+		case modifyReflection_projection:
+			crun.reflectProjection = Projection(exp[0].evalI(c))
 		case modifyReflection_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -5538,6 +5591,7 @@ const (
 	explod_interpolate_angle
 	explod_interpolate_alpha
 	explod_interpolate_focallength
+	explod_interpolate_xshear
 	explod_interpolate_pfx_mul
 	explod_interpolate_pfx_add
 	explod_interpolate_pfx_color
@@ -5844,6 +5898,8 @@ func (sc explod) setInterpolation(c *Char, e *Explod, paramID byte, exp []Byteco
 		}
 	case explod_interpolate_focallength:
 		e.interpolate_fLength[1] = exp[0].evalF(c)
+	case explod_interpolate_xshear:
+		e.interpolate_xshear[1] = exp[0].evalF(c)
 	case explod_interpolate_pfx_mul:
 		pfd.imul[0] = exp[0].evalI(c)
 		if len(exp) > 1 {
@@ -7149,6 +7205,8 @@ const (
 	projectile_accel
 	projectile_projscale
 	projectile_projangle
+	projectile_projxangle
+	projectile_projyangle
 	projectile_projclsnscale
 	projectile_projclsnangle
 	projectile_offset
@@ -7165,6 +7223,8 @@ const (
 	projectile_remappal
 	projectile_projwindow
 	projectile_projxshear
+	projectile_projprojection
+	projectile_projfocallength
 	// projectile_platform
 	// projectile_platformwidth
 	// projectile_platformheight
@@ -7269,7 +7329,11 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 				p.scale[1] = exp[1].evalF(c)
 			}
 		case projectile_projangle:
-			p.angle = exp[0].evalF(c)
+			p.anglerot[0] = exp[0].evalF(c)
+		case projectile_projyangle:
+			p.anglerot[2] = exp[0].evalF(c)
+		case projectile_projxangle:
+			p.anglerot[1] = exp[0].evalF(c)
 		case projectile_offset:
 			x = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
@@ -7334,6 +7398,10 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			p.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		case projectile_projxshear:
 			p.xshear = exp[0].evalF(c)
+		case projectile_projfocallength:
+			p.fLength = exp[0].evalF(c)
+		case projectile_projprojection:
+			p.projection = Projection(exp[0].evalI(c))
 		// case projectile_platform:
 		// 	p.platform = exp[0].evalB(c)
 		// case projectile_platformwidth:
@@ -7610,9 +7678,19 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.scale[1] = v2
 				})
 			case projectile_projangle:
-				v1 := exp[0].evalF(c)
+				a := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
-					p.angle = v1
+					p.anglerot[0] = a
+				})
+			case projectile_projyangle:
+				ya := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.anglerot[2] = ya
+				})
+			case projectile_projxangle:
+				xa := exp[0].evalF(c)
+				eachProj(func(p *Projectile) {
+					p.anglerot[1] = xa
 				})
 			//case projectile_offset: // Pointless because it's only used when the projectile is created
 			case projectile_projsprpriority:
@@ -7715,6 +7793,14 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				v1 := exp[0].evalF(c)
 				eachProj(func(p *Projectile) {
 					p.xshear = v1
+				})
+			case projectile_projprojection:
+				eachProj(func(p *Projectile) {
+					p.projection = Projection(exp[0].evalI(c))
+				})
+			case projectile_projfocallength:
+				eachProj(func(p *Projectile) {
+					p.fLength = exp[0].evalF(c)
 				})
 			case hitDef_attr:
 				v1 := exp[0].evalI(c)
@@ -9529,6 +9615,8 @@ type angleDraw StateControllerBase
 
 const (
 	angleDraw_value byte = iota
+	angleDraw_x
+	angleDraw_y
 	angleDraw_scale
 	angleDraw_redirectid
 )
@@ -9539,6 +9627,10 @@ func (sc angleDraw) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case angleDraw_value:
 			crun.angleSet(exp[0].evalF(c))
+		case angleDraw_x:
+			crun.XangleSet(exp[0].evalF(c))
+		case angleDraw_y:
+			crun.YangleSet(exp[0].evalF(c))
 		case angleDraw_scale:
 			crun.angleDrawScale[0] *= exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -9561,16 +9653,24 @@ type angleSet StateControllerBase
 
 const (
 	angleSet_value byte = iota
+	angleSet_x
+	angleSet_y
 	angleSet_redirectid
 )
 
 func (sc angleSet) Run(c *Char, _ []int32) bool {
 	crun := c
-	v := float32(0) // Mugen uses 0 if no value is set at all
+	v1 := float32(0) // Mugen uses 0 if no value is set at all
+	v2 := float32(0)
+	v3 := float32(0)
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleSet_value:
-			v = exp[0].evalF(c)
+			v1 = exp[0].evalF(c)
+		case angleSet_x:
+			v2 = exp[0].evalF(c)
+		case angleSet_y:
+			v3 = exp[0].evalF(c)
 		case angleSet_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9580,7 +9680,9 @@ func (sc angleSet) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	crun.angleSet(v)
+	crun.angleSet(v1)
+	crun.XangleSet(v2)
+	crun.YangleSet(v3)
 	return false
 }
 
@@ -9588,6 +9690,8 @@ type angleAdd StateControllerBase
 
 const (
 	angleAdd_value byte = iota
+	angleAdd_x
+	angleAdd_y
 	angleAdd_redirectid
 )
 
@@ -9596,7 +9700,11 @@ func (sc angleAdd) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleAdd_value:
-			crun.angleSet(crun.angle + exp[0].evalF(c))
+			crun.angleSet(crun.anglerot[0] + exp[0].evalF(c))
+		case angleAdd_x:
+			crun.XangleSet(crun.anglerot[1] + exp[0].evalF(c))
+		case angleAdd_y:
+			crun.YangleSet(crun.anglerot[2] + exp[0].evalF(c))
 		case angleAdd_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9613,16 +9721,24 @@ type angleMul StateControllerBase
 
 const (
 	angleMul_value byte = iota
+	angleMul_x
+	angleMul_y
 	angleMul_redirectid
 )
 
 func (sc angleMul) Run(c *Char, _ []int32) bool {
 	crun := c
-	v := float32(0) // Mugen uses 0 if no value is set at all
+	v1 := float32(0) // Mugen uses 0 if no value is set at all
+	v2 := float32(0)
+	v3 := float32(0)
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case angleMul_value:
-			v = exp[0].evalF(c)
+			v1 = exp[0].evalF(c)
+		case angleMul_x:
+			v2 = exp[0].evalF(c)
+		case angleMul_y:
+			v3 = exp[0].evalF(c)
 		case angleMul_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9632,7 +9748,9 @@ func (sc angleMul) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	crun.angleSet(crun.angle * v)
+	crun.angleSet(crun.anglerot[0] * v1)
+	crun.XangleSet(crun.anglerot[1] * v2)
+	crun.YangleSet(crun.anglerot[2] * v3)
 	return false
 }
 
@@ -12032,6 +12150,7 @@ const (
 	text_velocity
 	text_friction
 	text_accel
+	text_angle
 	text_scale
 	text_color
 	text_xshear
@@ -12116,6 +12235,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				ts.accel[1] = exp[1].evalF(c) / ts.localScale
 			}
+		case text_angle:
+			ts.angle = exp[0].evalF(c)
 		case text_scale:
 			xscl = exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -12379,12 +12500,22 @@ const (
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
+	modifyStageVar_shadow_angle
+	modifyStageVar_shadow_xangle
+	modifyStageVar_shadow_yangle
+	modifyStageVar_shadow_focallength
+	modifyStageVar_shadow_projection
 	modifyStageVar_shadow_fade_range
 	modifyStageVar_shadow_xshear
 	modifyStageVar_shadow_offset
 	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
+	modifyStageVar_reflection_angle
+	modifyStageVar_reflection_xangle
+	modifyStageVar_reflection_yangle
+	modifyStageVar_reflection_focallength
+	modifyStageVar_reflection_projection
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
@@ -12517,6 +12648,16 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.sdw.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_shadow_yscale:
 			s.sdw.yscale = exp[0].evalF(c)
+		case modifyStageVar_shadow_angle:
+			s.sdw.rot.angle = exp[0].evalF(c)
+		case modifyStageVar_shadow_xangle:
+			s.sdw.rot.xangle = exp[0].evalF(c)
+		case modifyStageVar_shadow_yangle:
+			s.sdw.rot.yangle = exp[0].evalF(c)
+		case modifyStageVar_shadow_focallength:
+			s.sdw.fLength = exp[0].evalF(c)
+		case modifyStageVar_shadow_projection:
+			s.sdw.projection = Projection(exp[0].evalI(c))
 		case modifyStageVar_shadow_fade_range:
 			s.sdw.fadeend = exp[0].evalI(c)
 			s.sdw.fadebgn = exp[1].evalI(c)
@@ -12535,6 +12676,16 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyStageVar_reflection_yscale:
 			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_angle:
+			s.reflection.rot.angle = exp[0].evalF(c)
+		case modifyStageVar_reflection_xangle:
+			s.reflection.rot.xangle = exp[0].evalF(c)
+		case modifyStageVar_reflection_yangle:
+			s.reflection.rot.yangle = exp[0].evalF(c)
+		case modifyStageVar_reflection_focallength:
+			s.reflection.fLength = exp[0].evalF(c)
+		case modifyStageVar_reflection_projection:
+			s.reflection.projection = Projection(exp[0].evalI(c))
 		case modifyStageVar_reflection_xshear:
 			s.reflection.xshear = exp[0].evalF(c)
 		case modifyStageVar_reflection_color:
@@ -13038,6 +13189,8 @@ type transformSprite StateControllerBase
 
 const (
 	transformSprite_window byte = iota
+	transformSprite_focallength
+	transformSprite_projection
 	transformSprite_xshear
 	transformSprite_redirectid
 )
@@ -13051,6 +13204,10 @@ func (sc transformSprite) Run(c *Char, _ []int32) bool {
 			crun.window = [4]float32{exp[0].evalF(c) * redirscale, exp[1].evalF(c) * redirscale, exp[2].evalF(c) * redirscale, exp[3].evalF(c) * redirscale}
 		case transformSprite_xshear:
 			crun.xshear = exp[0].evalF(c)
+		case transformSprite_focallength:
+			c.fLength = exp[0].evalF(c)
+		case transformSprite_projection:
+			c.projection = Projection(exp[0].evalI(c))
 		case transformSprite_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -13072,6 +13229,8 @@ const (
 	modifyStageBG_actionno
 	modifyStageBG_alpha
 	modifyStageBG_angle
+	modifyStageBG_xangle
+	modifyStageBG_yangle
 	modifyStageBG_delta_x
 	modifyStageBG_delta_y
 	modifyStageBG_layerno
@@ -13085,6 +13244,8 @@ const (
 	modifyStageBG_velocity_x
 	modifyStageBG_velocity_y
 	modifyStageBG_xshear
+	modifyStageBG_focallength
+	modifyStageBG_projection
 )
 
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
@@ -13140,7 +13301,17 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 			case modifyStageBG_angle:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
-					bg.angle = val
+					bg.rot.angle = val
+				})
+			case modifyStageBG_xangle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.rot.xangle = val
+				})
+			case modifyStageBG_yangle:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.rot.yangle = val
 				})
 			case modifyStageBG_delta_x:
 				val := exp[0].evalF(c)
@@ -13235,6 +13406,16 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
 					bg.xshear = val
+				})
+			case modifyStageBG_focallength:
+				val := exp[0].evalF(c)
+				eachBg(func(bg *backGround) {
+					bg.fLength = val
+				})
+			case modifyStageBG_projection:
+				val := Projection(exp[0].evalI(c))
+				eachBg(func(bg *backGround) {
+					bg.projection = val
 				})
 			}
 		}

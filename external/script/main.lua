@@ -1954,9 +1954,17 @@ function main.f_addStage(file, hidden)
 	})
 	--attachedchar
 	if t_info.attachedchardef ~= '' then
-		main.t_selStages[stageNo].attachedChar = getCharAttachedInfo(t_info.attachedchardef)
-		if main.t_selStages[stageNo].attachedChar ~= nil then
-			main.t_selStages[stageNo].attachedChar.dir = main.t_selStages[stageNo].attachedChar.def:gsub('[^/]+%.def$', '')
+		local attachedList = t_info.attachedchardef
+		if type(attachedList) ~= 'table' then
+			attachedList = {attachedList} -- Convert string to list
+		end
+		main.t_selStages[stageNo].attachedChar = {}
+		for i = 1, #attachedList do
+			local acInfo = getCharAttachedInfo(attachedList[i])
+			if acInfo ~= nil then
+				acInfo.dir = acInfo.def:gsub('[^/]+%.def$', '')
+				table.insert(main.t_selStages[stageNo].attachedChar, acInfo)
+			end
 		end
 	end
 	--music

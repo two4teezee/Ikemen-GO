@@ -25,7 +25,7 @@ import (
 
 const (
 	MaxSimul        = 4
-	MaxAttachedChar = 1
+	MaxAttachedChar = 4
 	MaxPlayerNo     = MaxSimul*2 + MaxAttachedChar
 )
 
@@ -2010,7 +2010,7 @@ func (s *System) drawDebugText() {
 			}
 			*y += float32(s.debugFont.fnt.Size[1]) * s.debugFont.yscl / s.heightScale
 			s.debugFont.fnt.Print(drawTxt, *x, *y, s.debugFont.xscl/s.widthScale,
-				s.debugFont.yscl/s.heightScale, 0, 0, 1, &s.scrrect,
+				s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 1, &s.scrrect,
 				s.debugFont.palfx, s.debugFont.frgba)
 		}
 	}
@@ -2087,7 +2087,7 @@ func (s *System) drawDebugText() {
 	for _, t := range s.clsnText {
 		s.debugFont.SetColor(t.r, t.g, t.b)
 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/s.widthScale,
-			s.debugFont.yscl/s.heightScale, 0, 0, 0, &s.scrrect,
+			s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 0, &s.scrrect,
 			s.debugFont.palfx, s.debugFont.frgba)
 	}
 	//}
@@ -2736,7 +2736,7 @@ func newSelectChar() *SelectChar {
 type SelectStage struct {
 	def             string
 	name            string
-	attachedchardef string
+	attachedchardef []string
 	stagebgm        IniSection
 	portrait_scale  float32
 	anims           PreloadedAnims
@@ -3218,11 +3218,21 @@ func (s *Select) AddStage(def string) error {
 						ss.name = def
 					}
 				}
-				if err := is.LoadFile("attachedchar", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-					ss.attachedchardef = filename
-					return nil
-				}); err != nil {
-					return nil
+				for i := 0; i < MaxAttachedChar; i++ {
+					key := "attachedchar"
+					if i > 0 {
+						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
+					}
+					if err := is.LoadFile(key, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+						// Ensure slice has correct length
+						for len(ss.attachedchardef) <= i {
+							ss.attachedchardef = append(ss.attachedchardef, "")
+						}
+						ss.attachedchardef[i] = filename
+						return nil
+					}); err != nil {
+						continue
+					}
 				}
 			}
 		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
@@ -3235,11 +3245,21 @@ func (s *Select) AddStage(def string) error {
 						ss.name = def
 					}
 				}
-				if err := is.LoadFile("attachedchar", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-					ss.attachedchardef = filename
-					return nil
-				}); err != nil {
-					return nil
+				for i := 0; i < MaxAttachedChar; i++ {
+					key := "attachedchar"
+					if i > 0 {
+						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
+					}
+					if err := is.LoadFile(key, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+						// Ensure slice has correct length (fill gaps)
+						for len(ss.attachedchardef) <= i {
+							ss.attachedchardef = append(ss.attachedchardef, "")
+						}
+						ss.attachedchardef[i] = filename
+						return nil
+					}); err != nil {
+						continue
+					}
 				}
 			}
 		case "music":
@@ -3485,7 +3505,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	// Set new character parameters
 	if attached {
 		atcpn := pn - MaxSimul*2
-		p.memberNo = -atcpn
+		p.memberNo = atcpn
 		p.selectNo = -atcpn
 		p.teamside = -1
 		sys.aiLevel[pn] = float32(sys.cfg.Options.Difficulty)

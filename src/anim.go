@@ -1168,7 +1168,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			return 0
 		}
 
-		rot := Rotation {
+		rot := Rotation{
 			angle:  rotVal(s.shadowRot.angle, sys.stage.sdw.rot.angle, s.rot.angle),
 			xangle: rotVal(s.shadowRot.xangle, sys.stage.sdw.rot.xangle, s.rot.xangle),
 			yangle: rotVal(s.shadowRot.yangle, sys.stage.sdw.rot.yangle, s.rot.yangle),
@@ -1321,7 +1321,7 @@ func (sl ShadowList) drawReflection(x, y, scl float32) {
 			return 0
 		}
 
-		rot := Rotation {
+		rot := Rotation{
 			angle:  rotVal(s.reflectRot.angle, sys.stage.reflection.rot.angle, s.rot.angle),
 			xangle: rotVal(s.reflectRot.xangle, sys.stage.reflection.rot.xangle, s.rot.xangle),
 			yangle: rotVal(s.reflectRot.yangle, sys.stage.reflection.rot.yangle, s.rot.yangle),

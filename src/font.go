@@ -506,7 +506,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation
 
 	var rcx, rcy float32
 
-    if rot.IsZero() {
+	if rot.IsZero() {
 		if xscl < 0 {
 			x *= -1
 		}
@@ -514,10 +514,10 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation
 			y *= -1
 		}
 		rcx, rcy = rcx*sys.widthScale, 0
-    } else {
-        rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
+	} else {
+		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
 		x, y = AbsF(xscl)*float32(f.offset[0]), AbsF(yscl)*float32(f.offset[1])
-    }
+	}
 
 	if align == 0 {
 		x -= float32(f.TextWidth(txt, bank)) * xscl * 0.5
@@ -553,8 +553,8 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation
 		mask:           0,
 		pfx:            palfx,
 		window:         window,
-        rcx:            rcx,
-        rcy:            rcy,
+		rcx:            rcx,
+		rcy:            rcy,
 		projectionMode: 0,
 		fLength:        0,
 		xOffset:        0,

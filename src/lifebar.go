@@ -617,7 +617,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		hb.red[rv].lay.DrawAnim(&rr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, rxs, rys,
 			layerno, &hb.red[rv].anim, hb.red[rv].palfx)
 
-			if hb.red_value[0].font[0] >= 0 && int(hb.red_value[0].font[0]) < len(f) && f[hb.red_value[0].font[0]] != nil {
+		if hb.red_value[0].font[0] >= 0 && int(hb.red_value[0].font[0]) < len(f) && f[hb.red_value[0].font[0]] != nil {
 			// Multiple red_value fonts according to redval
 			var rv2 int32
 			for k := range hb.red_value {
@@ -1452,7 +1452,7 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 		text := strings.Replace(sb.value[mv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].dizzyPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
 		sb.value[mv2].lay.DrawText(
-			float32(sb.pos[0])+sys.lifebarOffsetX, 
+			float32(sb.pos[0])+sys.lifebarOffsetX,
 			float32(sb.pos[1])+sys.lifebarOffsetY,
 			sys.lifebarScale,
 			layerno,

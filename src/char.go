@@ -2546,7 +2546,7 @@ type Char struct {
 	shadowXshear      float32
 	shadowYscale      float32
 	shadowRot         Rotation
-    shadowProjection  Projection
+	shadowProjection  Projection
 	shadowfLength     float32
 	reflectColor      [3]int32
 	reflectIntensity  int32
@@ -9302,7 +9302,7 @@ func (c *Char) actionPrepare() {
 		c.shadowYscale = 0
 		c.shadowRot = Rotation{0, 0, 0}
 		c.shadowProjection = -1
-	    c.shadowfLength = 0
+		c.shadowfLength = 0
 		// Reset modifyReflection
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
@@ -9312,7 +9312,7 @@ func (c *Char) actionPrepare() {
 		c.reflectYscale = 0
 		c.reflectRot = Rotation{0, 0, 0}
 		c.reflectProjection = -1
-	    c.reflectfLength = 0
+		c.reflectfLength = 0
 		// Reset TransformSprite
 		c.window = [4]float32{}
 		c.xshear = 0

@@ -816,7 +816,7 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_accel, VT_Float, 3, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, "projection", 
+	if err := c.paramProjection(is, sc, "projection",
 		explod_projection); err != nil {
 		return err
 	}
@@ -1234,7 +1234,7 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramProjection(is, sc, "projection", 
+		if err := c.paramProjection(is, sc, "projection",
 			modifyShadow_projection); err != nil {
 			return err
 		}
@@ -5624,7 +5624,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramProjection(is, sc, "shadow.projection", 
+		if err := c.paramProjection(is, sc, "shadow.projection",
 			modifyStageVar_shadow_projection); err != nil {
 			return err
 		}
@@ -5668,7 +5668,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_reflection_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramProjection(is, sc, "reflection.projection", 
+		if err := c.paramProjection(is, sc, "reflection.projection",
 			modifyStageVar_reflection_projection); err != nil {
 			return err
 		}

@@ -775,17 +775,17 @@ func (bgct *bgcTimeLine) step(s *Stage) {
 }
 
 type stageShadow struct {
-	intensity   int32
-	color       uint32
-	yscale      float32
-	fadeend     int32
-	fadebgn     int32
-	xshear      float32
-	rot         Rotation
-	fLength     float32
-	projection  Projection
-	offset      [2]float32
-	window      [4]float32
+	intensity  int32
+	color      uint32
+	yscale     float32
+	fadeend    int32
+	fadebgn    int32
+	xshear     float32
+	rot        Rotation
+	fLength    float32
+	projection Projection
+	offset     [2]float32
+	window     [4]float32
 }
 type stagePlayer struct {
 	startx, starty, startz, facing int32

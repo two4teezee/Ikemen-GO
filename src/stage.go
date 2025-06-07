@@ -497,7 +497,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Calculate window top left corner position
 	rect := bg.startrect
 
-	startrect0 := float32(rect[0]) - (pos[0])*bg.windowdelta[0] +
+	startrect0 := float32(rect[0]) - (pos[0])/stgscl[0]*bg.windowdelta[0] +
 		(float32(sys.gameWidth)/2/sclx - float32(bg.notmaskwindow)*(float32(sys.gameWidth)/2)*(1/lscl[0]))
 	startrect0 *= sys.widthScale * wscl[0]
 	if !isStage && wscl[0] == 1 {

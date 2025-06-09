@@ -226,11 +226,11 @@ func readBackGround(is IniSection, link *backGround,
 	is.readF32ForStage("focallength", &bg.fLength)
 	if str, ok := is["projection"]; ok {
 		switch strings.ToLower(strings.TrimSpace(str)) {
-		case "orthographic", "or":
+		case "orthographic":
 			bg.projection = Projection_Orthographic
-		case "perspective", "pe":
+		case "perspective":
 			bg.projection = Projection_Perspective
-		case "perspective2", "pe2":
+		case "perspective2":
 			bg.projection = Projection_Perspective2
 		}
 	}
@@ -1328,11 +1328,11 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].ReadF32("focallength", &s.sdw.fLength)
 		if str, ok := sec[0]["projection"]; ok {
 			switch strings.ToLower(strings.TrimSpace(str)) {
-			case "orthographic", "or":
+			case "orthographic":
 				s.sdw.projection = Projection_Orthographic
-			case "perspective", "pe":
+			case "perspective":
 				s.sdw.projection = Projection_Perspective
-			case "perspective2", "pe2":
+			case "perspective2":
 				s.sdw.projection = Projection_Perspective2
 			}
 		}
@@ -1388,11 +1388,11 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		if str, ok := sec[0]["projection"]; ok {
 			switch strings.ToLower(strings.TrimSpace(str)) {
-			case "orthographic", "or":
+			case "orthographic":
 				s.reflection.projection = Projection_Orthographic
-			case "perspective", "pe":
+			case "perspective":
 				s.reflection.projection = Projection_Perspective
-			case "perspective2", "pe2":
+			case "perspective2":
 				s.reflection.projection = Projection_Perspective2
 			}
 		}

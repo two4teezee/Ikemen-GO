@@ -1189,17 +1189,17 @@ function main.f_textRender(data, str, counter, x, y, spacingX, spacingY, font_de
 	local subEnd = math.floor(main.f_utf8len(str) - (main.f_utf8len(str) - counter / delay))
 	
 	for i = 1, #t do
-        -- 文字列全体の文字数と比較
+	-- Compare with the total number of characters in the string
 		if subEnd < main.f_utf8len(str) then
-            -- 各行の文字数を取得
+			-- Get the number of characters in each line
 			local length = main.f_utf8len(t[i])
 			if i > 1 and i <= #t then
-				length = length + 1 -- 改行文字分を考慮
+				length = length + 1 -- Account for newline character
 			end
-            -- 文字数を累積
+			-- Accumulate the total character count
 			lengthCnt = lengthCnt + length
 			if subEnd < lengthCnt then
-                -- 表示すべき文字数を計算し、main.f_runeSubに渡す
+				-- Calculate the number of characters to render and pass to main.f_runeSub
 				local charsToRender = subEnd - (lengthCnt - main.f_utf8len(t[i]))
 				t[i] = main.f_runeSub(t[i], charsToRender)
 			end
@@ -1220,7 +1220,7 @@ function main.f_textRender(data, str, counter, x, y, spacingX, spacingY, font_de
 			y = y + (main.f_round((font_def.Size[2] + font_def.Spacing[2]) * data.scaleY) + spacingY) * (i - 1),
 		})
 		data:draw()
-        -- 実際に描画された文字数を返す
+		-- Return the number of characters actually rendered
 		retLength = retLength + main.f_utf8len(t[i])
 	end
 	return retDone, retLength

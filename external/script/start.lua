@@ -4079,7 +4079,7 @@ function start.f_stageMusic()
 		return
 	end
 	-- Reset
-	if roundstart() and (roundno() == 1 or start.bgmstate == 1) then
+	if roundstart() then
 		didLoadStageBGM = false
 	end
 	-- bgmusic / bgmusic.roundX / bgmusic.final
@@ -4113,8 +4113,9 @@ function start.f_stageMusic()
 			end
 		end
 		start.bgmstate = 0
+	end
 	-- bgmusic.life
-	elseif start.t_music.musiclife.bgmusic ~= nil and start.bgmstate == 0 and roundstate() == 2 then
+	if start.t_music.musiclife.bgmusic ~= nil and start.bgmstate == 0 and roundstate() == 2 then
 		for i = 1, 2 do
 			player(i) --assign sys.debugWC to player i
 			-- continue only if p1/p2 life meets life ratio criteria
@@ -4137,8 +4138,9 @@ function start.f_stageMusic()
 				end
 			end
 		end
+	end
 	-- bgmusic.victory
-	elseif #start.t_music.musicvictory > 0 and start.bgmstate ~= -1 and roundstate() == 3 then
+	if #start.t_music.musicvictory > 0 and start.bgmstate ~= -1 and roundstate() == 3 then
 		for i = 1, 2 do
 			if start.t_music.musicvictory[i] ~= nil and player(i) and win() and decisiveround() then --assign sys.debugWC to player i
 				main.f_playBGM(true, start.t_music.musicvictory[i].bgmusic, 1, start.t_music.musicvictory[i].bgmvolume, start.t_music.musicvictory[i].bgmloopstart, start.t_music.musicvictory[i].bgmloopend)

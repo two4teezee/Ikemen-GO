@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
@@ -246,6 +247,7 @@ type System struct {
 	keyString               string
 	timerCount              []int32
 	cmdFlags                map[string]string
+	whitePalTex             Texture
 	//FLAC_FrameWait          int
 
 	// Localcoord sceenpack
@@ -407,6 +409,14 @@ func (s *System) init(w, h int32) *lua.LState {
 	s.clsnSpr = *newSprite()
 	s.clsnSpr.Size, s.clsnSpr.Pal = [...]uint16{1, 1}, make([]uint32, 256)
 	s.clsnSpr.SetPxl([]byte{0})
+	// Create a reusable white palette texture for shadows
+	whitepal := make([]uint32, 256)
+	for i := 1; i < 256; i++ {
+		whitepal[i] = 0xffffffff // White (and full alpha)
+	}
+	s.whitePalTex = gfx.newTexture(256, 1, 32, false)
+	s.whitePalTex.SetData(pal32ToBytes(whitepal))
+
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
 	// So now that we have a window we add an icon.
@@ -3766,4 +3776,8 @@ func (es *EnvShake) getOffset() [2]float32 {
 			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
+}
+
+func pal32ToBytes(pal []uint32) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
 }

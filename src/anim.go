@@ -861,20 +861,13 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	if a.spr.coldepth <= 8 && (color != 0 || alpha > 0) {
 		if a.sff.header.Ver0 == 2 && a.sff.header.Ver2 == 1 {
 			trans := a.alpha()
-			pal, paltex := a.pal(pfx, trans == -2)
-			if paltex == nil {
-				rp.paltex = a.spr.CachePalette(pal)
+			pal, _ := a.pal(pfx, trans == -2)
+			if a.spr.PalTex == nil {
+				a.spr.PalTex = a.spr.CachePalette(pal)
 			}
+			rp.paltex = a.spr.PalTex
 		} else {
-			paltemp := a.spr.paltemp
-			if len(paltemp) == 0 {
-				if a.palettedata != nil {
-					paltemp = a.spr.GetPal(a.palettedata)
-				} else {
-					paltemp = a.spr.GetPal(&a.sff.palList)
-				}
-			}
-			rp.paltex = PaletteToTexture(paltemp[:])
+			rp.paltex = sys.whitePalTex
 		}
 	}
 

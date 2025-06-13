@@ -3473,6 +3473,18 @@ func (c *Char) loadPalette() {
 			_, gi.palExist[i] =
 				gi.palettedata.palList.PalTable[[...]int16{1, int16(i + 1)}]
 		}
+		if gi.sff.header.NumberOfPalettes > 0 {
+			numPals := int(gi.sff.header.NumberOfPalettes)
+			if len(gi.palettedata.palList.PalTex) < numPals {
+				gi.palettedata.palList.PalTex = make([]Texture, numPals)
+			}
+			for i := 0; i < numPals; i++ {
+				pal := gi.sff.palList.Get(i)
+				if pal != nil {
+					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pal)
+				}
+			}
+		}
 	}
 	for i := range gi.palSelectable {
 		gi.palSelectable[i] = false

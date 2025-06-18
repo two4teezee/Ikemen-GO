@@ -12954,6 +12954,8 @@ const (
 	getHitVarSet_attr
 	getHitVarSet_chainid
 	getHitVarSet_ctrltime
+	getHitVarSet_damage
+	getHitVarSet_dizzypoints
 	getHitVarSet_down_recover
 	getHitVarSet_down_recovertime
 	getHitVarSet_fall
@@ -12973,12 +12975,15 @@ const (
 	getHitVarSet_fallcount
 	getHitVarSet_ground_animtype
 	getHitVarSet_groundtype
+	getHitVarSet_guardcount
 	getHitVarSet_guarded
+	getHitVarSet_guardpoints
+	getHitVarSet_hitcount
 	getHitVarSet_hitshaketime
 	getHitVarSet_hittime
 	getHitVarSet_id
 	getHitVarSet_playerno
-	getHitVarSet_recovertime
+	getHitVarSet_redlife
 	getHitVarSet_slidetime
 	getHitVarSet_xvel
 	getHitVarSet_yvel
@@ -13004,6 +13009,10 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.hitid = exp[0].evalI(c)
 		case getHitVarSet_ctrltime:
 			crun.ghv.ctrltime = exp[0].evalI(c)
+		case getHitVarSet_damage:
+			crun.ghv.damage = exp[0].evalI(c)
+		case getHitVarSet_dizzypoints:
+			crun.ghv.dizzypoints = exp[0].evalI(c)
 		case getHitVarSet_down_recover:
 			crun.ghv.down_recover = exp[0].evalB(c)
 		case getHitVarSet_down_recovertime:
@@ -13040,8 +13049,14 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.fallcount = exp[0].evalI(c)
 		case getHitVarSet_groundtype:
 			crun.ghv.groundtype = HitType(exp[0].evalI(c))
+		case getHitVarSet_guardcount:
+			crun.ghv.guardcount = exp[0].evalI(c)
 		case getHitVarSet_guarded:
 			crun.ghv.guarded = exp[0].evalB(c)
+		case getHitVarSet_guardpoints:
+			crun.ghv.guardpoints = exp[0].evalI(c)
+		case getHitVarSet_hitcount:
+			crun.ghv.hitcount = exp[0].evalI(c)
 		case getHitVarSet_hittime:
 			crun.ghv.hittime = exp[0].evalI(c)
 		case getHitVarSet_hitshaketime:
@@ -13050,6 +13065,8 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.playerId = exp[0].evalI(c)
 		case getHitVarSet_playerno:
 			crun.ghv.playerNo = int(exp[0].evalI(c))
+		case getHitVarSet_redlife:
+			crun.ghv.redlife = exp[0].evalI(c)
 		case getHitVarSet_slidetime:
 			crun.ghv.slidetime = exp[0].evalI(c)
 		case getHitVarSet_xvel:

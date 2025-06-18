@@ -620,6 +620,7 @@ const (
 	OC_ex_inputtime_U
 	OC_ex_inputtime_L
 	OC_ex_inputtime_R
+	OC_ex_inputtime_N
 	OC_ex_inputtime_a
 	OC_ex_inputtime_b
 	OC_ex_inputtime_c
@@ -721,11 +722,11 @@ const (
 	OC_ex_fightscreenvar_round_start_waittime
 	OC_ex_fightscreenvar_round_callfight_time
 	OC_ex_fightscreenvar_time_framespercount
-	OC_ex_groundlevel
-	OC_ex_layerno
 )
 const (
 	OC_ex2_index OpCode = iota
+	OC_ex2_groundlevel
+	OC_ex2_layerno
 	OC_ex2_runorder
 	OC_ex2_palfxvar_time
 	OC_ex2_palfxvar_addr
@@ -2895,8 +2896,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_groundangle:
 		sys.bcStack.PushF(c.groundAngle)
-	case OC_ex_groundlevel:
-		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex_guardbreak:
 		sys.bcStack.PushB(c.scf(SCF_guardbreak))
 	case OC_ex_guardcount:
@@ -2925,7 +2924,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_indialogue:
 		sys.bcStack.PushB(sys.dialogueFlg)
 	// InputTime
-	case OC_ex_inputtime_B, OC_ex_inputtime_D, OC_ex_inputtime_F, OC_ex_inputtime_U, OC_ex_inputtime_L, OC_ex_inputtime_R,
+	case OC_ex_inputtime_B, OC_ex_inputtime_D, OC_ex_inputtime_F, OC_ex_inputtime_U, OC_ex_inputtime_L, OC_ex_inputtime_R, OC_ex_inputtime_N,
 		OC_ex_inputtime_a, OC_ex_inputtime_b, OC_ex_inputtime_c, OC_ex_inputtime_x, OC_ex_inputtime_y, OC_ex_inputtime_z,
 		OC_ex_inputtime_s, OC_ex_inputtime_d, OC_ex_inputtime_w, OC_ex_inputtime_m:
 		// Check for valid inputs
@@ -2943,6 +2942,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 				sys.bcStack.PushI(c.cmd[0].Buffer.Lb)
 			case OC_ex_inputtime_R:
 				sys.bcStack.PushI(c.cmd[0].Buffer.Rb)
+			case OC_ex_inputtime_N:
+				sys.bcStack.PushI(c.cmd[0].Buffer.Nb)
 			case OC_ex_inputtime_a:
 				sys.bcStack.PushI(c.cmd[0].Buffer.ab)
 			case OC_ex_inputtime_b:
@@ -2977,8 +2978,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.isHost())
 	case OC_ex_jugglepoints:
 		*sys.bcStack.Top() = c.jugglePoints(*sys.bcStack.Top())
-	case OC_ex_layerno:
-		sys.bcStack.PushI(c.layerNo)
 	case OC_ex_localcoord_x:
 		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[0])
 	case OC_ex_localcoord_y:
@@ -3163,6 +3162,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	camOff := float32(0)
 	camCorrected := false
 	switch opc {
+	case OC_ex2_groundlevel:
+		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
+	case OC_ex2_layerno:
+		sys.bcStack.PushI(c.layerNo)
 	case OC_ex2_index:
 		sys.bcStack.PushI(c.index)
 	case OC_ex2_runorder:

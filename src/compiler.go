@@ -2623,7 +2623,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		// no-op (for y/xveladd and fall.envshake.dir)
 	case "groundlevel":
-		out.append(OC_ex_, OC_ex_groundlevel)
+		out.append(OC_ex2_, OC_ex2_groundlevel)
 	case "guardcount":
 		out.append(OC_ex_, OC_ex_guardcount)
 	case "helperindexexist":
@@ -2782,7 +2782,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "index":
 		out.append(OC_ex2_, OC_ex2_index)
 	case "layerno":
-		out.append(OC_ex_, OC_ex_layerno)
+		out.append(OC_ex2_, OC_ex2_layerno)
 	case "leftedge":
 		out.append(OC_leftedge)
 	case "life", "p2life":
@@ -4366,6 +4366,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_ex_, OC_ex_inputtime_L)
 		case "R":
 			out.append(OC_ex_, OC_ex_inputtime_R)
+		case "N":
+			out.append(OC_ex_, OC_ex_inputtime_N)
 		case "a":
 			out.append(OC_ex_, OC_ex_inputtime_a)
 		case "b":

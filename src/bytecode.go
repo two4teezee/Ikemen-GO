@@ -7230,6 +7230,7 @@ const (
 	// projectile_platformheight
 	// projectile_platformfence
 	// projectile_platformangle
+	projectile_last = iota + hitDef_last + 1 - 1
 	projectile_redirectid
 )
 
@@ -7504,10 +7505,10 @@ func (sc modifyReversalDef) Run(c *Char, _ []int32) bool {
 	return false
 }
 
-type modifyProjectile hitDef
+type modifyProjectile projectile
 
 const (
-	modifyProjectile_redirectid = iota + hitDef_last + 1
+	modifyProjectile_redirectid = iota + projectile_last + 1
 	modifyProjectile_id
 	modifyProjectile_index
 )
@@ -7551,6 +7552,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				}
 			}
 			switch paramID {
+			case projectile_projid:
+				v1 := exp[0].evalI(c)
+				eachProj(func(p *Projectile) {
+					p.id = v1
+				})
 			case projectile_projremove:
 				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {

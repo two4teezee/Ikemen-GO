@@ -758,13 +758,17 @@ func (s *System) roundNoDamage() bool {
 	return sys.intro < 0 && sys.intro <= -sys.lifebar.ro.over_hittime && sys.intro >= -sys.lifebar.ro.over_waittime
 }
 
+// In Mugen, RoundState 2 begins as soon as the "Fight" screen appears, before players have control
+// That causes more harm than good and is not clearly stated in the documentation, so Ikemen changes it
 func (s *System) roundState() int32 {
 	switch {
 	case sys.intro > sys.lifebar.ro.ctrl_time+1 || sys.postMatchFlg:
 		return 0
-	case sys.lifebar.ro.current == 0:
+	//case sys.lifebar.ro.current == 0:
+	case sys.intro > 0:
 		return 1
-	case sys.intro >= 0 || sys.finishType == FT_NotYet:
+	//case sys.intro >= 0 || sys.finishType == FT_NotYet:
+	case sys.intro == 0 || sys.finishType == FT_NotYet:
 		return 2
 	case sys.intro < -sys.lifebar.ro.over_waittime:
 		return 4

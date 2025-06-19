@@ -8495,6 +8495,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					pn = hd.playerNo
 				}
 				if getter.stateChange1(hd.p2stateno, pn) {
+					// In Mugen, using p2stateno forces movetype to H
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/2466
+					getter.ss.changeMoveType(MT_H)
 					getter.setCtrl(false)
 					p2s = true
 					getter.hoIdx = -1

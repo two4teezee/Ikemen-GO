@@ -7634,7 +7634,7 @@ func (c *Char) posUpdate() {
 	}
 
 	// Check if character is bound
-	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
+	nobind := [3]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[2]))}
 	for i := range nobind {
@@ -9844,16 +9844,19 @@ func (c *Char) tick() {
 				c.selfState(5050, -1, -1, -1, "")
 				c.gethitBindClear()
 			} else if !bt.pause() {
-				c.bindTime -= 1
+				// c.bindTime -= 1
+				c.setBindTime(c.bindTime - 1)
 			}
 		} else {
 			if !c.pause() {
-				c.bindTime -= 1
+				// c.bindTime -= 1
+				c.setBindTime(c.bindTime - 1)
+				// The fix below was necessary before because bindTime should not be decremented directly but rather via setBindTime
 				// Fixes BindToRoot/BindToParent of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
 				// This must not run for target binds so that they end the same time as MUGEN's do.
-				if c.bindToId > 0 {
-					c.setBindTime(c.bindTime)
-				}
+				//if c.bindToId > 0 {
+				//	c.setBindTime(c.bindTime)
+				//}
 			}
 		}
 	}

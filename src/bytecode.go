@@ -3169,11 +3169,11 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	camOff := float32(0)
 	camCorrected := false
 	switch opc {
-  case OC_ex2_index:
-		sys.bcStack.PushI(c.index)   
+	case OC_ex2_index:
+		sys.bcStack.PushI(c.index)
 	case OC_ex2_isclsnproxy:
 		sys.bcStack.PushB(c.isclsnproxy)
-  case OC_ex2_groundlevel:
+	case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
 		sys.bcStack.PushI(c.layerNo)

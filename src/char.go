@@ -8040,11 +8040,11 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32, clsnproxycheck boo
 		return false
 	}
 	// Clsnproxies do not hit nor get hit themselves, they act as an extension of their parent's clsn boxes.
-	if (c.isclsnproxy && !clsnproxycheck) {
+	if c.isclsnproxy && !clsnproxycheck {
 		return false
 	}
 	// Recursively check clsnproxy children, god I hope this works and doesn't ruin performance. A child being the parent of its parent isn't something that can happen, right...?
-	if (cbox != 3 || !clsnproxycheck) {
+	if cbox != 3 || !clsnproxycheck {
 		for _, chi := range c.children {
 			if chi != nil && chi.isclsnproxy && chi.projClsnCheck(p, cbox, pbox, true) {
 				return true

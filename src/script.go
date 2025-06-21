@@ -4166,6 +4166,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.debugWC.inguarddist))
 		return 1
 	})
+	luaRegister(l, "isclsnproxy", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.debugWC.isclsnproxy))
+		return 1
+	})
 	luaRegister(l, "ishelper", func(l *lua.LState) int {
 		id, index := int32(-1), -1
 		// Check if ID is provided

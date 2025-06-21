@@ -399,6 +399,7 @@ var triggerMap = map[string]int{
 	"inputtime":          1,
 	"introstate":         1,
 	"isasserted":         1,
+	"isclsnproxy":        1,
 	"ishost":             1,
 	"lastplayerid":       1,
 	"layerno":            1,
@@ -2791,6 +2792,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ishelper)
 	case "ishometeam":
 		out.append(OC_ex_, OC_ex_ishometeam)
+	case "isclsnproxy":
+		out.append(OC_ex2_, OC_ex2_index)
 	case "index":
 		out.append(OC_ex2_, OC_ex2_index)
 	case "layerno":

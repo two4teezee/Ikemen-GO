@@ -778,6 +778,7 @@ const (
 	OC_ex2_clsnvar_top
 	OC_ex2_clsnvar_right
 	OC_ex2_clsnvar_bottom
+	OC_ex2_isclsnproxy
 	OC_ex2_debug_accel
 	OC_ex2_debug_clsndisplay
 	OC_ex2_debug_debugdisplay
@@ -3168,12 +3169,14 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	camOff := float32(0)
 	camCorrected := false
 	switch opc {
-	case OC_ex2_groundlevel:
+  case OC_ex2_index:
+		sys.bcStack.PushI(c.index)   
+	case OC_ex2_isclsnproxy:
+		sys.bcStack.PushB(c.isclsnproxy)
+  case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
 		sys.bcStack.PushI(c.layerNo)
-	case OC_ex2_index:
-		sys.bcStack.PushI(c.index)
 	case OC_ex2_runorder:
 		sys.bcStack.PushI(c.runorder)
 	case OC_ex2_palfxvar_time:
@@ -4872,6 +4875,7 @@ type helper StateControllerBase
 
 const (
 	helper_helpertype byte = iota
+	helper_clsnproxy
 	helper_name
 	helper_postype
 	helper_ownpal
@@ -4948,6 +4952,8 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 			}
 		case helper_name:
 			h.name = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+		case helper_clsnproxy:
+			h.isclsnproxy = exp[0].evalB(c)
 		case helper_postype:
 			pt = PosType(exp[0].evalI(c))
 		case helper_ownpal:

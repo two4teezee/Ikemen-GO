@@ -592,6 +592,10 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "clsnproxy",
+			helper_clsnproxy, VT_Bool, 1, false); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "name", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 				return Error("Helper name not enclosed in \"")

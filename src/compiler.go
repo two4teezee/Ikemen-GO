@@ -2687,48 +2687,60 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		isFlag := false
 		switch param {
+		case "guard.dist.depth.bottom":
+			opc = OC_ex2_hitdefvar_guard_dist_depth_bottom
+		case "guard.dist.depth.top":
+			opc = OC_ex2_hitdefvar_guard_dist_depth_top
+		case "guard.dist.height.bottom":
+			opc = OC_ex2_hitdefvar_guard_dist_height_bottom
+		case "guard.dist.height.top":
+			opc = OC_ex2_hitdefvar_guard_dist_height_top
+		case "guard.dist.width.back":
+			opc = OC_ex2_hitdefvar_guard_dist_width_back
+		case "guard.dist.width.front":
+			opc = OC_ex2_hitdefvar_guard_dist_width_front
+		case "guard.pausetime":
+			opc = OC_ex2_hitdefvar_guard_pausetime
+		case "guard.shaketime":
+			opc = OC_ex2_hitdefvar_guard_shaketime
+		case "guard.sparkno":
+			opc = OC_ex2_hitdefvar_guard_sparkno
+		case "guarddamage":
+			opc = OC_ex2_hitdefvar_guarddamage
 		case "guardflag":
 			opc = OC_ex2_hitdefvar_guardflag
 			isFlag = true
-		case "hitflag":
-			opc = OC_ex2_hitdefvar_hitflag
-			isFlag = true
-		case "hitdamage":
-			opc = OC_ex2_hitdefvar_hitdamage
-		case "guarddamage":
-			opc = OC_ex2_hitdefvar_guarddamage
-		case "p1stateno":
-			opc = OC_ex2_hitdefvar_p1stateno
-		case "p2stateno":
-			opc = OC_ex2_hitdefvar_p2stateno
-		case "priority":
-			opc = OC_ex2_hitdefvar_priority
-		case "id":
-			opc = OC_ex2_hitdefvar_id
-		case "sparkno":
-			opc = OC_ex2_hitdefvar_sparkno
-		case "guard.sparkno":
-			opc = OC_ex2_hitdefvar_guard_sparkno
-		case "sparkx":
-			opc = OC_ex2_hitdefvar_sparkx
-		case "sparky":
-			opc = OC_ex2_hitdefvar_sparky
-		case "pausetime":
-			opc = OC_ex2_hitdefvar_pausetime
-		case "guard.pausetime":
-			opc = OC_ex2_hitdefvar_guard_pausetime
-		case "shaketime":
-			opc = OC_ex2_hitdefvar_shaketime
-		case "guard.shaketime":
-			opc = OC_ex2_hitdefvar_guard_shaketime
-		case "hitsound.group":
-			opc = OC_ex2_hitdefvar_hitsound_group
-		case "hitsound.number":
-			opc = OC_ex2_hitdefvar_hitsound_number
 		case "guardsound.group":
 			opc = OC_ex2_hitdefvar_guardsound_group
 		case "guardsound.number":
 			opc = OC_ex2_hitdefvar_guardsound_number
+		case "hitdamage":
+			opc = OC_ex2_hitdefvar_hitdamage
+		case "hitflag":
+			opc = OC_ex2_hitdefvar_hitflag
+			isFlag = true
+		case "hitsound.group":
+			opc = OC_ex2_hitdefvar_hitsound_group
+		case "hitsound.number":
+			opc = OC_ex2_hitdefvar_hitsound_number
+		case "id":
+			opc = OC_ex2_hitdefvar_id
+		case "p1stateno":
+			opc = OC_ex2_hitdefvar_p1stateno
+		case "p2stateno":
+			opc = OC_ex2_hitdefvar_p2stateno
+		case "pausetime":
+			opc = OC_ex2_hitdefvar_pausetime
+		case "priority":
+			opc = OC_ex2_hitdefvar_priority
+		case "shaketime":
+			opc = OC_ex2_hitdefvar_shaketime
+		case "sparkno":
+			opc = OC_ex2_hitdefvar_sparkno
+		case "sparkx":
+			opc = OC_ex2_hitdefvar_sparkx
+		case "sparky":
+			opc = OC_ex2_hitdefvar_sparky
 		default:
 			return bvNone(), Error("Invalid HitDefVar argument: " + c.token)
 		}

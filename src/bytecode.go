@@ -867,6 +867,12 @@ const (
 	OC_ex2_projvar_velmul_x
 	OC_ex2_projvar_velmul_y
 	OC_ex2_projvar_velmul_z
+	OC_ex2_hitdefvar_guard_dist_depth_bottom
+	OC_ex2_hitdefvar_guard_dist_depth_top
+	OC_ex2_hitdefvar_guard_dist_height_bottom
+	OC_ex2_hitdefvar_guard_dist_height_top
+	OC_ex2_hitdefvar_guard_dist_width_back
+	OC_ex2_hitdefvar_guard_dist_width_front
 	OC_ex2_hitdefvar_guard_pausetime
 	OC_ex2_hitdefvar_guard_shaketime
 	OC_ex2_hitdefvar_guard_sparkno
@@ -3644,54 +3650,66 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_systemvar_superpausetime:
 		sys.bcStack.PushI(sys.supertime)
 	// HitDefVar
+	case OC_ex2_hitdefvar_guard_dist_width_back:
+		sys.bcStack.PushF(c.hitdef.guard_dist_x[1] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_dist_width_front:
+		sys.bcStack.PushF(c.hitdef.guard_dist_x[0] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_dist_height_bottom:
+		sys.bcStack.PushF(c.hitdef.guard_dist_y[1] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_dist_height_top:
+		sys.bcStack.PushF(c.hitdef.guard_dist_y[0] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_dist_depth_bottom:
+		sys.bcStack.PushF(c.hitdef.guard_dist_z[1] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_dist_depth_top:
+		sys.bcStack.PushF(c.hitdef.guard_dist_z[0] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_guard_pausetime:
+		sys.bcStack.PushI(c.hitdef.guard_pausetime)
+	case OC_ex2_hitdefvar_guard_shaketime:
+		sys.bcStack.PushI(c.hitdef.guard_shaketime)
+	case OC_ex2_hitdefvar_guard_sparkno:
+		sys.bcStack.PushI(c.hitdef.guard_sparkno)
+	case OC_ex2_hitdefvar_guarddamage:
+		sys.bcStack.PushI(c.hitdef.guarddamage)
 	case OC_ex2_hitdefvar_guardflag:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))
 		sys.bcStack.PushB(
 			c.hitdef.guardflag&attr != 0,
 		)
 		*i += 4
+	case OC_ex2_hitdefvar_guardsound_group:
+		sys.bcStack.PushI(c.hitdef.guardsound[0])
+	case OC_ex2_hitdefvar_guardsound_number:
+		sys.bcStack.PushI(c.hitdef.guardsound[1])
+	case OC_ex2_hitdefvar_hitdamage:
+		sys.bcStack.PushI(c.hitdef.hitdamage)
 	case OC_ex2_hitdefvar_hitflag:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))
 		sys.bcStack.PushB(
 			c.hitdef.hitflag&attr != 0,
 		)
 		*i += 4
-	case OC_ex2_hitdefvar_hitdamage:
-		sys.bcStack.PushI(c.hitdef.hitdamage)
-	case OC_ex2_hitdefvar_guarddamage:
-		sys.bcStack.PushI(c.hitdef.guarddamage)
-	case OC_ex2_hitdefvar_p1stateno:
-		sys.bcStack.PushI(c.hitdef.p1stateno)
-	case OC_ex2_hitdefvar_p2stateno:
-		sys.bcStack.PushI(c.hitdef.p2stateno)
-	case OC_ex2_hitdefvar_priority:
-		sys.bcStack.PushI(c.hitdef.priority)
-	case OC_ex2_hitdefvar_id:
-		sys.bcStack.PushI(c.hitdef.id)
-	case OC_ex2_hitdefvar_sparkno:
-		sys.bcStack.PushI(c.hitdef.sparkno)
-	case OC_ex2_hitdefvar_guard_sparkno:
-		sys.bcStack.PushI(c.hitdef.guard_sparkno)
-	case OC_ex2_hitdefvar_sparkx:
-		sys.bcStack.PushF(c.hitdef.sparkxy[0] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_sparky:
-		sys.bcStack.PushF(c.hitdef.sparkxy[1] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_pausetime:
-		sys.bcStack.PushI(c.hitdef.pausetime)
-	case OC_ex2_hitdefvar_guard_pausetime:
-		sys.bcStack.PushI(c.hitdef.guard_pausetime)
-	case OC_ex2_hitdefvar_shaketime:
-		sys.bcStack.PushI(c.hitdef.shaketime)
-	case OC_ex2_hitdefvar_guard_shaketime:
-		sys.bcStack.PushI(c.hitdef.guard_shaketime)
 	case OC_ex2_hitdefvar_hitsound_group:
 		sys.bcStack.PushI(c.hitdef.hitsound[0])
 	case OC_ex2_hitdefvar_hitsound_number:
 		sys.bcStack.PushI(c.hitdef.hitsound[1])
-	case OC_ex2_hitdefvar_guardsound_group:
-		sys.bcStack.PushI(c.hitdef.guardsound[0])
-	case OC_ex2_hitdefvar_guardsound_number:
-		sys.bcStack.PushI(c.hitdef.guardsound[1])
+	case OC_ex2_hitdefvar_id:
+		sys.bcStack.PushI(c.hitdef.id)
+	case OC_ex2_hitdefvar_p1stateno:
+		sys.bcStack.PushI(c.hitdef.p1stateno)
+	case OC_ex2_hitdefvar_p2stateno:
+		sys.bcStack.PushI(c.hitdef.p2stateno)
+	case OC_ex2_hitdefvar_pausetime:
+		sys.bcStack.PushI(c.hitdef.pausetime)
+	case OC_ex2_hitdefvar_priority:
+		sys.bcStack.PushI(c.hitdef.priority)
+	case OC_ex2_hitdefvar_shaketime:
+		sys.bcStack.PushI(c.hitdef.shaketime)
+	case OC_ex2_hitdefvar_sparkno:
+		sys.bcStack.PushI(c.hitdef.sparkno)
+	case OC_ex2_hitdefvar_sparkx:
+		sys.bcStack.PushF(c.hitdef.sparkxy[0] * (c.localscl / oc.localscl))
+	case OC_ex2_hitdefvar_sparky:
+		sys.bcStack.PushF(c.hitdef.sparkxy[1] * (c.localscl / oc.localscl))
 	// HitByAttr
 	case OC_ex2_hitbyattr:
 		sys.bcStack.PushB(c.hitByAttrTrigger(*(*int32)(unsafe.Pointer(&be[*i]))))

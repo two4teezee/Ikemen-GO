@@ -4219,11 +4219,19 @@ func (c *Char) getPlayerID(pn int) int32 {
 	return 0
 }
 
-func (c *Char) getPower() int32 {
-	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
-		return sys.chars[c.playerNo&1][0].power
+// Handle power sharing
+// Neutral players (attached characters) have no apparent reasons to share power
+func (c *Char) powerOwner() *Char {
+	if sys.cfg.Options.Team.PowerShare && (c.teamside == 0 || c.teamside == 1) {
+		return sys.chars[c.teamside][0]
+		// TODO: If we ever expand on teamside switching, this could loop over sys.chars and return the first one on the player's side
+		// But currently this method is just slightly more efficient
 	}
-	return sys.chars[c.playerNo][0].power
+	return sys.chars[c.playerNo][0]
+}
+
+func (c *Char) getPower() int32 {
+	return c.powerOwner().power
 }
 
 func (c *Char) hitDefAttr(attr int32) bool {
@@ -5423,11 +5431,6 @@ func (c *Char) newHelper() (h *Char) {
 	h.size = c.size
 	h.life, h.lifeMax = c.lifeMax, c.lifeMax
 	h.powerMax = c.powerMax
-	if sys.maxPowerMode {
-		h.power = h.powerMax
-	} else {
-		h.power = 0
-	}
 	h.dizzyPoints, h.dizzyPointsMax = c.dizzyPointsMax, c.dizzyPointsMax
 	h.guardPoints, h.guardPointsMax = c.guardPointsMax, c.guardPointsMax
 	h.redLife = h.lifeMax
@@ -6996,20 +6999,12 @@ func (c *Char) powerAdd(add int32) {
 	}
 	// Safely convert from float64 back to int32 after all calculations are done
 	int := F64toI32(float64(c.getPower()) + math.Round(float64(add)))
-	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
-		sys.chars[c.playerNo&1][0].setPower(int)
-	} else {
-		sys.chars[c.playerNo][0].setPower(int)
-	}
+	c.powerOwner().setPower(int)
 }
 
-// This only for the PowerSet state controller
+// This is only for the PowerSet state controller
 func (c *Char) powerSet(pow int32) {
-	if sys.cfg.Options.Team.PowerShare && c.teamside != -1 {
-		sys.chars[c.playerNo&1][0].setPower(pow)
-	} else {
-		sys.chars[c.playerNo][0].setPower(pow)
-	}
+	c.powerOwner().setPower(pow)
 }
 
 func (c *Char) dizzyPointsAdd(add float64, absolute bool) {
@@ -7747,7 +7742,7 @@ func (c *Char) posUpdate() {
 	}
 
 	// Check if character is bound
-	nobind := [...]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
+	nobind := [3]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[1])),
 		c.bindTime == 0 || math.IsNaN(float64(c.bindPos[2]))}
 	for i := range nobind {
@@ -8608,6 +8603,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					pn = hd.playerNo
 				}
 				if getter.stateChange1(hd.p2stateno, pn) {
+					// In Mugen, using p2stateno forces movetype to H
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/2466
+					getter.ss.changeMoveType(MT_H)
 					getter.setCtrl(false)
 					p2s = true
 					getter.hoIdx = -1
@@ -9953,16 +9951,19 @@ func (c *Char) tick() {
 				c.selfState(5050, -1, -1, -1, "")
 				c.gethitBindClear()
 			} else if !bt.pause() {
-				c.bindTime -= 1
+				// c.bindTime -= 1
+				c.setBindTime(c.bindTime - 1)
 			}
 		} else {
 			if !c.pause() {
-				c.bindTime -= 1
+				// c.bindTime -= 1
+				c.setBindTime(c.bindTime - 1)
+				// The fix below was necessary before because bindTime should not be decremented directly but rather via setBindTime
 				// Fixes BindToRoot/BindToParent of 1 immediately after PosSets (MUGEN 1.0/1.1 behavior)
 				// This must not run for target binds so that they end the same time as MUGEN's do.
-				if c.bindToId > 0 {
-					c.setBindTime(c.bindTime)
-				}
+				//if c.bindToId > 0 {
+				//	c.setBindTime(c.bindTime)
+				//}
 			}
 		}
 	}

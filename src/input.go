@@ -29,6 +29,7 @@ const (
 	CK_UR
 	CK_DL
 	CK_DR
+	CK_N
 	CK_rU // r stands for release (~)
 	CK_rD
 	CK_rB
@@ -43,6 +44,7 @@ const (
 	CK_rUR
 	CK_rDL
 	CK_rDR
+	CK_rN
 	CK_Us // s stands for sign ($)
 	CK_Ds
 	CK_Bs
@@ -57,6 +59,7 @@ const (
 	CK_URs
 	CK_DLs
 	CK_DRs
+	CK_Ns
 	CK_rUs // ~ and $ together
 	CK_rDs
 	CK_rBs
@@ -71,6 +74,7 @@ const (
 	CK_rURs
 	CK_rDLs
 	CK_rDRs
+	CK_rNs
 	CK_a
 	CK_b
 	CK_c
@@ -673,9 +677,9 @@ func (ir *InputReader) ButtonAssistCheck(a, b, c, x, y, z, s, d, w bool) (bool, 
 }
 
 type InputBuffer struct {
-	Bb, Db, Fb, Ub, Lb, Rb                 int32
+	Bb, Db, Fb, Ub, Lb, Rb, Nb             int32
 	ab, bb, cb, xb, yb, zb, sb, db, wb, mb int32
-	B, D, F, U, L, R                       int8
+	B, D, F, U, L, R, N                    int8
 	a, b, c, x, y, z, s, d, w, m           int8
 	InputReader                            *InputReader
 }
@@ -689,7 +693,7 @@ func NewInputBuffer() (c *InputBuffer) {
 
 func (c *InputBuffer) Reset() {
 	*c = InputBuffer{
-		B: -1, D: -1, F: -1, U: -1, L: -1, R: -1, // Set directions to released state
+		B: -1, D: -1, F: -1, U: -1, L: -1, R: -1, N: 1, // Set directions to released state
 		a: -1, b: -1, c: -1, x: -1, y: -1, z: -1, s: -1, d: -1, w: -1, m: -1, // Set buttons to released state
 		InputReader: NewInputReader(),
 	}
@@ -728,6 +732,13 @@ func (__ *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 		__.F *= -1
 	}
 	__.Fb += int32(__.F)
+	// Neutral
+	if (!U && !D && !F && !B) != (__.N > 0) {
+		__.Nb = 0
+		__.N *= -1
+	}
+	__.Nb += int32(__.N)
+	// Buttons
 	if a != (__.a > 0) {
 		__.ab = 0
 		__.a *= -1
@@ -811,6 +822,8 @@ func (__ *InputBuffer) State(ck CommandKey) int32 {
 		return Min(__.Db, __.Lb)
 	case CK_DR:
 		return Min(__.Db, __.Rb)
+	case CK_N, CK_Ns:
+		return __.Nb
 	case CK_Us:
 		return __.Ub
 	case CK_Ds:
@@ -915,6 +928,8 @@ func (__ *InputBuffer) State(ck CommandKey) int32 {
 		return -Min(__.Db, __.Lb)
 	case CK_rDRs:
 		return -Min(__.Db, __.Rb)
+	case CK_rN, CK_rNs:
+		return -__.Nb
 	case CK_ra:
 		return -__.ab
 	case CK_rb:
@@ -1024,6 +1039,10 @@ func (__ *InputBuffer) State2(ck CommandKey) int32 {
 		//	return f(__.State(CK_DF), __.State(CK_D), __.State(CK_F))
 		//case CK_rUFs:
 		//	return f(__.State(CK_UF), __.State(CK_U), __.State(CK_F))
+	case CK_N, CK_Ns:
+		return __.State(CK_N)
+	case CK_rN, CK_rNs:
+		return __.State(CK_rN)
 	}
 	return __.State(ck)
 }
@@ -1220,7 +1239,7 @@ func (nc *NetConnection) writeI32(i32 int32) error {
 
 func (nc *NetConnection) Synchronize() error {
 	if !nc.IsConnected() || nc.st == NS_Error {
-		return Error("Can not connect to the other player")
+		return Error("Cannot connect to the other player")
 	}
 	nc.Stop()
 	var seed int32
@@ -1718,6 +1737,13 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 					ce.key = append(ce.key, CK_R)
 				}
 				tilde = false
+			case 'N':
+				if tilde {
+					ce.key = append(ce.key, CK_rN)
+				} else {
+					ce.key = append(ce.key, CK_N)
+				}
+				tilde = false
 			case 'a':
 				if tilde {
 					ce.key = append(ce.key, kr.na)
@@ -1864,6 +1890,13 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 						ce.key = append(ce.key, CK_Rs)
 					}
 					tilde = false
+				case 'N': // TODO: We probably don't need these but input.go currently expects them to exist (15 directions of each sign type)
+					if tilde {
+						ce.key = append(ce.key, CK_rNs)
+					} else {
+						ce.key = append(ce.key, CK_Ns)
+					}
+					tilde = false
 				default:
 					// error
 					continue
@@ -1961,7 +1994,7 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]boo
 		return true
 	}
 	fail := func() bool {
-		// Fist input requires something to be pressed/held
+		// First input requires something to be pressed/held
 		if c.cmdidx == 0 {
 			return anyHeld
 		}
@@ -1999,7 +2032,7 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]boo
 			// Not sure what this is reproducing yet
 		} else if c.cmdidx > 0 && len(c.cmd[c.cmdidx-1].key) == 1 && len(c.cmd[c.cmdidx].key) == 1 && // If elements are single key
 			c.cmd[c.cmdidx-1].key[0] < CK_Us && c.cmd[c.cmdidx].key[0] < CK_rU && // "Not sign" then "not sign not release" (simple direction)
-			(c.cmd[c.cmdidx-1].key[0]%14 == c.cmd[c.cmdidx].key[0]%14) { // Same direction, regardless of symbol. There are 14 directions
+			(c.cmd[c.cmdidx-1].key[0]%15 == c.cmd[c.cmdidx].key[0]%15) { // Same direction, regardless of symbol. There are 15 directions
 			if ibuf.B < 0 && ibuf.D < 0 && ibuf.F < 0 && ibuf.U < 0 { // If no direction held
 				c.chargeidx = c.cmdidx
 			} else {

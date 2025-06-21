@@ -758,13 +758,17 @@ func (s *System) roundNoDamage() bool {
 	return sys.intro < 0 && sys.intro <= -sys.lifebar.ro.over_hittime && sys.intro >= -sys.lifebar.ro.over_waittime
 }
 
+// In Mugen, RoundState 2 begins as soon as the "Fight" screen appears, before players have control
+// That causes more harm than good and is not clearly stated in the documentation, so Ikemen changes it
 func (s *System) roundState() int32 {
 	switch {
 	case sys.intro > sys.lifebar.ro.ctrl_time+1 || sys.postMatchFlg:
 		return 0
-	case sys.lifebar.ro.current == 0:
+	//case sys.lifebar.ro.current == 0:
+	case sys.intro > 0:
 		return 1
-	case sys.intro >= 0 || sys.finishType == FT_NotYet:
+	//case sys.intro >= 0 || sys.finishType == FT_NotYet:
+	case sys.intro == 0 || sys.finishType == FT_NotYet:
 		return 2
 	case sys.intro < -sys.lifebar.ro.over_waittime:
 		return 4
@@ -2196,11 +2200,17 @@ func (s *System) fight() (reload bool) {
 	}
 	s.wincnt.init()
 
-	// Initialize super meter values, and max power for teams sharing meter
+	// Prepare next round for all players
+	for _, p := range s.chars {
+		if len(p) > 0 {
+			p[0].prepareNextRound()
+		}
+	}
+
+	// Initialize super meter values and max power for teams sharing meter
 	var level [len(s.chars)]int32
 	for i, p := range s.chars {
 		if len(p) > 0 && p[0].teamside != -1 {
-			p[0].prepareNextRound()
 			level[i] = s.wincnt.getLevel(i)
 			if s.cfg.Options.Team.PowerShare {
 				pmax := Max(s.cgi[i&1].data.power, s.cgi[i].data.power)
@@ -2212,6 +2222,7 @@ func (s *System) fight() (reload bool) {
 			}
 		}
 	}
+
 	minlv, maxlv := level[0], level[0]
 	for i, lv := range level[1:] {
 		if len(s.chars[i+1]) > 0 {
@@ -2291,7 +2302,7 @@ func (s *System) fight() (reload bool) {
 			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
 
 			if p[0].roundsExisted() > 0 {
-				// If character already existed for a round, presumably because of turns mode, just update life
+				// If character already existed for a round, presumably because of Turns mode, just update life
 				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
 			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
 				// If round 1 or a new character in Turns mode, initialize values

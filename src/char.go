@@ -3515,58 +3515,23 @@ func (c *Char) loadPalette() {
 			}
 		}
 	}
-	// Check if the current palette exists and is not already being used
-	// Palette conflicts are first checked in the select screen script according to the character slot
-	// That doesn't avoid cases like the same character being picked from different select screen slots, so we check duplicates again here
-	starti := gi.palno - 1
-	if !gi.palExist[starti] {
-		starti %= 6
-	}
-	i := starti
-	for {
-		if gi.palExist[i] {
-			// Check for palette conflicts with other instances of the same character
-			conflict := false
-			for j := 0; j < len(sys.chars); j++ {
-				if j != c.playerNo && len(sys.chars[j]) > 0 &&
-					sys.cgi[j].def == gi.def && sys.cgi[j].palno == i+1 {
-					conflict = true
-					break
-				}
-			}
-			// If no conflict is found, assign this palette to palno
-			if !conflict {
-				gi.palno = i + 1
-				break // Palette assigned successfully
+	palIdx := gi.palno - 1
+	if palIdx < 0 || palIdx >= int32(len(gi.palExist)) || !gi.palExist[palIdx] {
+		found := false
+		for i := 0; i < len(gi.palExist); i++ {
+			if gi.palExist[i] {
+				gi.palno = int32(i + 1)
+				found = true
+				break
 			}
 		}
-		// Try the next palette index
-		i++
-		// Wrap around if the index exceeds the maximum number of palettes
-		if i >= MaxPalNo {
-			i = 0
-		}
-		// If we've looped back to the starting index, handle fallback
-		if i == starti {
-			// If the original desired palette does not exist
-			if !gi.palExist[gi.palno-1] {
-				i := 0
-				// Search for the first available palette
-				for ; i < len(gi.palExist); i++ {
-					if gi.palExist[i] {
-						gi.palno = int32(i + 1)
-						break
-					}
-				}
-				// If no palettes are available, default to the first palette
-				if i >= len(gi.palExist) {
-					gi.palno, gi.palExist[0] = 1, true
-					gi.palSelectable[0] = true
-				}
-			}
-			break // Exit the loop after handling fallback
+		if !found {
+			gi.palno = 1
+			gi.palExist[0] = true
+			gi.palSelectable[0] = true
 		}
 	}
+
 	gi.remappedpal = [2]int32{1, gi.palno}
 }
 func (c *Char) loadFx(def string) error {

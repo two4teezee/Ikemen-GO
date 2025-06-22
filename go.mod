@@ -18,7 +18,10 @@ require (
 	golang.org/x/mobile v0.0.0-20221110043201-43a038452099
 )
 
-require gopkg.in/ini.v1 v1.67.0 // indirect
+require (
+	golang.org/x/text v0.26.0 // indirect
+	gopkg.in/ini.v1 v1.67.0 // indirect
+)
 
 require (
 	//github.com/Eiton/glfont v0.0.0-20241204103952-50dc7762af2b // indirect

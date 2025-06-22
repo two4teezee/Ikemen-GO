@@ -13,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 const (
@@ -417,11 +421,22 @@ func LoadText(filename string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(bytes) >= 3 &&
-		bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf { // UTF-8 BOM
-		bytes = bytes[3:]
+
+	if len(bytes) >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf { // UTF-8 BOM
+		return string(bytes[3:]), nil
 	}
-	return string(bytes), nil
+
+	if utf8.Valid(bytes) {
+		return string(bytes), nil
+	}
+
+	// If it's not UTF-8, try to decode it as Shift-JIS.
+	decodedBytes, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), bytes)
+	if err != nil {
+		return string(bytes), nil
+	}
+
+	return string(decodedBytes), nil
 }
 
 func FileExist(filename string) string {
@@ -517,7 +532,9 @@ func FileExist(filename string) string {
 // 'file' is the filename to search (e.g., "kfm.sff").
 func SearchFile(file string, dirs []string) string {
 	file = strings.Replace(file, "\\", "/", -1)
-
+	if file == "" {
+		return ""
+	}
 	if isZipFull, _, _ := IsZipPath(file); isZipFull {
 		if found := FileExist(file); found != "" {
 			return found

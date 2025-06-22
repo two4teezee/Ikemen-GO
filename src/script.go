@@ -1501,14 +1501,6 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		}
-		if len(c.pal) > 0 {
-			for _, v := range c.pal {
-				if !pals[v] {
-					n++
-					subt.RawSetInt(n, lua.LNumber(v))
-				}
-			}
-		}
 		if n == 0 {
 			subt.RawSetInt(1, lua.LNumber(1))
 		}

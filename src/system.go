@@ -2914,11 +2914,11 @@ func (s *Select) addChar(defLine string) {
 	} else {
 		charDefPathGuess := defPathFromSelect
 		if !strings.HasSuffix(strings.ToLower(charDefPathGuess), ".def") {
-			baseName := filepath.Base(charDefPathGuess)
-			if strings.Contains(charDefPathGuess, "/") {
+			if !strings.Contains(charDefPathGuess, "/") {
+				baseName := filepath.Base(charDefPathGuess)
 				charDefPathGuess = filepath.ToSlash(filepath.Join(charDefPathGuess, baseName+".def"))
 			} else {
-				charDefPathGuess = filepath.ToSlash(filepath.Join("chars", charDefPathGuess, baseName+".def"))
+				charDefPathGuess += ".def"
 			}
 		}
 
@@ -3256,6 +3256,9 @@ func (s *Select) AddStage(def string) error {
 			}
 		}
 	} else {
+		if !strings.HasSuffix(strings.ToLower(def), ".def") {
+			def += ".def"
+		}
 		if err := LoadFile(&def, []string{"stages/", "data/", ""}, func(file string) error {
 			finalDefPath = file
 			return nil

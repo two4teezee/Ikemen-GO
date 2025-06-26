@@ -2963,7 +2963,7 @@ func (s *Select) addChar(defLine string) {
 
 		if isZipDef {
 			if isEngineRootRelative {
-				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+				return pathInDefFile
 			}
 			baseDirWithinZip := filepath.ToSlash(filepath.Dir(defSubPathInZip))
 			if baseDirWithinZip == "." || baseDirWithinZip == "" { // .def is at zip root
@@ -2972,7 +2972,7 @@ func (s *Select) addChar(defLine string) {
 			return filepath.ToSlash(filepath.Join(zipArchiveOfDef, baseDirWithinZip, pathInDefFile))
 		}
 
-		return filepath.ToSlash(filepath.Join(filepath.Dir(sc.def), pathInDefFile))
+		return pathInDefFile
 	}
 
 	var cns_orig, sprite_orig, anim_orig, movelist_orig string

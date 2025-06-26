@@ -2810,9 +2810,7 @@ func (c *Char) load(def string) error {
 
 		if isZipDef {
 			if isEngineRootRelative {
-				// Example: kfm.zip/kfm.def, and kfm.def has `sound = data/common.snd`
-				// This should form kfm.zip/data/common.snd for SearchFile
-				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+				return pathInDefFile
 			}
 			baseDirWithinZip := filepath.ToSlash(filepath.Dir(defSubPathInZip))
 			if baseDirWithinZip == "." || baseDirWithinZip == "" {
@@ -2820,7 +2818,7 @@ func (c *Char) load(def string) error {
 			}
 			return filepath.ToSlash(filepath.Join(zipArchiveOfDef, baseDirWithinZip, pathInDefFile))
 		}
-		return filepath.ToSlash(filepath.Join(filepath.Dir(gi.def), pathInDefFile))
+		return pathInDefFile
 	}
 	if err := c.loadFx(def); err != nil {
 		sys.errLog.Printf("Error loading FX for %s: %v", def, err)
@@ -3407,17 +3405,24 @@ func (c *Char) load(def string) error {
 		gi.fnt = sys.sel.GetChar(c.selectNo).fnt
 	} else {
 		// Load fonts for AttachedChar
-		for i, f := range fnt {
-			if len(f[0]) > 0 {
-				fnt_path_resolved := resolvePathRelativeToDef(f[0])
-				LoadFile(&fnt_path_resolved, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
-					var err error
-					var height int32 = -1
-					if len(f[1]) > 0 {
-						height = Atoi(f[1])
-					}
-					if gi.fnt[i], err = loadFnt(filename, height); err != nil {
-						sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+		for i_fnt, f_fnt_pair := range fnt {
+			if len(f_fnt_pair[0]) > 0 {
+				resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
+				i := i_fnt
+				f_pair := f_fnt_pair
+				LoadFile(&resolvedFntPath, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
+					// Defer the font loading to the main thread
+					sys.mainThreadTask <- func() {
+						var err error
+						var height int32 = -1
+						if len(f_pair[1]) > 0 {
+							height = Atoi(f_pair[1])
+						}
+						if gi.fnt[i], err = loadFnt(filename, height); err != nil {
+							sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+							// Assign a new empty font on failure to prevent nil pointer panics
+							gi.fnt[i] = newFnt()
+						}
 					}
 					return nil
 				})
@@ -3556,7 +3561,7 @@ func (c *Char) loadFx(def string) error {
 		isEngineRootRelative := strings.HasPrefix(pathInDefFile, "data/") || strings.HasPrefix(pathInDefFile, "font/") || strings.HasPrefix(pathInDefFile, "stages/")
 		if isZipDef {
 			if isEngineRootRelative {
-				return filepath.ToSlash(filepath.Join(zipArchiveOfDef, pathInDefFile))
+				return pathInDefFile
 			}
 			baseDirWithinZip := filepath.ToSlash(filepath.Dir(defSubPathInZip))
 			if baseDirWithinZip == "." || baseDirWithinZip == "" {
@@ -3564,7 +3569,7 @@ func (c *Char) loadFx(def string) error {
 			}
 			return filepath.ToSlash(filepath.Join(zipArchiveOfDef, baseDirWithinZip, pathInDefFile))
 		}
-		return filepath.ToSlash(filepath.Join(filepath.Dir(def), pathInDefFile))
+		return pathInDefFile
 	}
 
 	lines, i := SplitAndTrim(charDefContent, "\n"), 0

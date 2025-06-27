@@ -75,6 +75,7 @@ type Renderer interface {
 	RenderCubeMap(envTexture Texture, cubeTexture Texture)
 	RenderFilteredCubeMap(distribution int32, cubeTexture Texture, filteredTexture Texture, mipmapLevel, sampleCount int32, roughness float32)
 	RenderLUT(distribution int32, cubeTexture Texture, lutTexture Texture, sampleCount int32)
+	Resize(width, height int32)
 }
 
 //go:embed shaders/sprite.vert.glsl

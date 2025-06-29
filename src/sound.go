@@ -11,6 +11,7 @@ import (
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/effects"
 
+	"github.com/gopxl/beep/v2/flac"
 	"github.com/gopxl/beep/v2/midi"
 	"github.com/gopxl/beep/v2/mp3"
 	"github.com/gopxl/beep/v2/speaker"
@@ -83,6 +84,46 @@ func (n *NormalizerLR) process(mul float64, sam *float64) float64 {
 	*sam = s
 	return mul
 }
+
+// ------------------------------------------------------------------
+// BufferSeeker ‒ wraps *beep.Buffer and gives an in-memory
+// StreamSeeker
+type BufferSeeker struct {
+	buf *beep.Buffer  // the decoded audio buffer
+	pos int           // absolute position in samples
+	str beep.Streamer // current streamer
+}
+
+func newBufferSeeker(buf *beep.Buffer) *BufferSeeker {
+	return &BufferSeeker{
+		buf: buf,
+		str: buf.Streamer(0, buf.Len()),
+	}
+}
+
+func (b *BufferSeeker) Stream(out [][2]float64) (n int, ok bool) {
+	// Pull samples from the current streamer
+	n, ok = b.str.Stream(out)
+	b.pos += n
+	return n, ok
+}
+
+func (b *BufferSeeker) Seek(p int) error {
+	// Clamp p so we don’t panic on bogus values
+	if p < 0 {
+		p = 0
+	} else if p > b.buf.Len() {
+		p = b.buf.Len()
+	}
+	b.pos = p
+	// Reset streamer so the next Stream() call starts at p
+	b.str = b.buf.Streamer(p, b.buf.Len())
+	return nil
+}
+
+func (b *BufferSeeker) Position() int { return b.pos }
+func (b *BufferSeeker) Len() int      { return b.buf.Len() }
+func (b *BufferSeeker) Err() error    { return nil }
 
 // ------------------------------------------------------------------
 // Loop Streamer
@@ -216,10 +257,9 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	} else if HasExtension(bgm.filename, ".wav") {
 		bgm.streamer, format, err = wav.Decode(f)
 		bgm.format = "wav"
-		// TODO: Reactivate FLAC support. Check that seeking/looping works correctly.
-		//} else if HasExtension(bgm.filename, ".flac") {
-		//	bgm.streamer, format, err = flac.Decode(f)
-		//	bgm.format = "flac"
+	} else if HasExtension(bgm.filename, ".flac") {
+		bgm.streamer, format, err = flac.Decode(f)
+		bgm.format = "flac"
 	} else if HasExtension(bgm.filename, ".mid") || HasExtension(bgm.filename, ".midi") {
 		if soundfont, sferr := loadSoundFont(audioSoundFont); sferr != nil {
 			err = sferr
@@ -254,6 +294,10 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	bgm.startPos = startPosition
 	// we're going to continue to use our own modified streamLooper because beep doesn't allow
 	// direct access to loop2 for dynamic modifications to loopstart, loopend, etc.
+	buf := beep.NewBuffer(format)
+	buf.Append(bgm.streamer)
+	// Re-assign the streamer to the bufferSeeker
+	bgm.streamer = newBufferSeeker(buf)
 	streamer := newStreamLooper(bgm.streamer, lc, bgmLoopStart, bgmLoopEnd)
 	bgm.volctrl = &effects.Volume{Streamer: streamer, Base: 2, Volume: 0, Silent: true}
 	bgm.sampleRate = format.SampleRate

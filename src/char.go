@@ -2863,10 +2863,12 @@ func (c *Char) load(def string) error {
 		case "files":
 			if files {
 				files = false
-				cns, sprite = is["cns"], is["sprite"]
-				anim, sound = is["anim"], is["sound"]
+				cns = decodeShiftJIS(is["cns"])
+				sprite = decodeShiftJIS(is["sprite"])
+				anim = decodeShiftJIS(is["anim"])
+				sound = decodeShiftJIS(is["sound"])
 				for i := range gi.pal {
-					gi.pal[i] = is[fmt.Sprintf("pal%v", i+1)]
+					gi.pal[i] = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 				}
 				for i := range fnt {
 					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
@@ -2922,10 +2924,12 @@ func (c *Char) load(def string) error {
 			if lanFiles {
 				files = false
 				lanFiles = false
-				cns, sprite = is["cns"], is["sprite"]
-				anim, sound = is["anim"], is["sound"]
+				cns = decodeShiftJIS(is["cns"])
+				sprite = decodeShiftJIS(is["sprite"])
+				anim = decodeShiftJIS(is["anim"])
+				sound = decodeShiftJIS(is["sound"])
 				for i := range gi.pal {
-					gi.pal[i] = is[fmt.Sprintf("pal%v", i+1)]
+					gi.pal[i] = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 				}
 				for i := range fnt {
 					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
@@ -3286,7 +3290,8 @@ func (c *Char) load(def string) error {
 						quotes = false
 						for i := range gi.quotes {
 							if is[fmt.Sprintf("victory%v", i)] != "" {
-								gi.quotes[i], _, _ = is.getText(fmt.Sprintf("victory%v", i))
+								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
+								gi.quotes[i] = decodeShiftJIS(victoryQuotes)
 							}
 						}
 					}
@@ -3296,7 +3301,8 @@ func (c *Char) load(def string) error {
 						lanQuotes = false
 						for i := range gi.quotes {
 							if is[fmt.Sprintf("victory%v", i)] != "" {
-								gi.quotes[i], _, _ = is.getText(fmt.Sprintf("victory%v", i))
+								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
+								gi.quotes[i] = decodeShiftJIS(victoryQuotes)
 							}
 						}
 					}
@@ -3400,33 +3406,28 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.snd = newSnd()
 	}
-	if c.teamside != -1 {
-		// Get fonts from preloaded data
-		gi.fnt = sys.sel.GetChar(c.selectNo).fnt
-	} else {
-		// Load fonts for AttachedChar
-		for i_fnt, f_fnt_pair := range fnt {
-			if len(f_fnt_pair[0]) > 0 {
-				resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
-				i := i_fnt
-				f_pair := f_fnt_pair
-				LoadFile(&resolvedFntPath, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
-					// Defer the font loading to the main thread
-					sys.mainThreadTask <- func() {
-						var err error
-						var height int32 = -1
-						if len(f_pair[1]) > 0 {
-							height = Atoi(f_pair[1])
-						}
-						if gi.fnt[i], err = loadFnt(filename, height); err != nil {
-							sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
-							// Assign a new empty font on failure to prevent nil pointer panics
-							gi.fnt[i] = newFnt()
-						}
+	// Load fonts
+	for i_fnt, f_fnt_pair := range fnt {
+		if len(f_fnt_pair[0]) > 0 {
+			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
+			i := i_fnt
+			f_pair := f_fnt_pair
+			LoadFile(&resolvedFntPath, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
+				// Defer the font loading to the main thread
+				sys.mainThreadTask <- func() {
+					var err error
+					var height int32 = -1
+					if len(f_pair[1]) > 0 {
+						height = Atoi(f_pair[1])
 					}
-					return nil
-				})
-			}
+					if gi.fnt[i], err = loadFnt(filename, height); err != nil {
+						sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+						// Assign a new empty font on failure to prevent nil pointer panics
+						gi.fnt[i] = newFnt()
+					}
+				}
+				return nil
+			})
 		}
 	}
 	return nil
@@ -8581,6 +8582,18 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					continue
 				}
 			}
+			if ho.forceair && !ho.keepState {
+				if hitResult > 0 && hd.air_type == HT_None || hitResult < 0 && hd.ground_type == HT_None && hd.air_type != HT_None {
+					hitResult *= -1
+				}
+				if Abs(hitResult) == 1 {
+					getter.ss.changeStateType(ST_A)
+				}
+				if ho.stateno < 0 {
+					getter.hoIdx = i
+					break
+				}
+			}
 			// Miss if using p2stateno and HitOverride together
 			if !isProjectile && Abs(hitResult) == 1 &&
 				(hd.p2stateno >= 0 || hd.p1stateno >= 0) {
@@ -8742,7 +8755,6 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.fall_envshake_phase = hd.fall_envshake_phase
 				ghv.fall_envshake_mul = hd.fall_envshake_mul
 				ghv.fall_envshake_dir = hd.fall_envshake_dir
-
 				if getter.ss.stateType == ST_A {
 					ghv.hittime = hd.air_hittime
 					// Note: ctrl time is not affected on hit in Mugen
@@ -10013,9 +10025,6 @@ func (c *Char) tick() {
 		}
 		c.hitPauseTime = 0
 		//c.targetDrop(-1, false) // GitHub #1148
-		if c.hoIdx >= 0 && c.ho[c.hoIdx].forceair {
-			c.ss.changeStateType(ST_A)
-		}
 		pn := c.playerNo
 		if c.ghv.p2getp1state && !c.ghv.guarded {
 			pn = c.ghv.playerNo
@@ -10082,7 +10091,9 @@ func (c *Char) tick() {
 	// This doesn't actually require getting hit
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2262
 	if c.hoIdx >= 0 && c.hoIdx < len(c.ho) && !c.hoKeepState {
-		c.stateChange1(c.ho[c.hoIdx].stateno, c.ho[c.hoIdx].playerNo)
+		if c.ho[c.hoIdx].stateno >= 0 {
+			c.stateChange1(c.ho[c.hoIdx].stateno, c.ho[c.hoIdx].playerNo)
+		}
 	}
 	if !c.pause() {
 		if c.hitPauseTime > 0 {

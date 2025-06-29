@@ -9394,7 +9394,7 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if st < 0 && !ks {
+	if st < 0 && !ks && !f {
 		t = 0
 	}
 	pn := crun.playerNo

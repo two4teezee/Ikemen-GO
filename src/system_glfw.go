@@ -83,6 +83,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	window.MakeContextCurrent()
 	window.SetKeyCallback(keyCallback)
 	window.SetCharModsCallback(charCallback)
+	window.SetFramebufferSizeCallback(framebufferSizeCallback)
 
 	// V-Sync
 	if s.cfg.Video.VSync >= 0 {

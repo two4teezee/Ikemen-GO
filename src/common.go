@@ -426,17 +426,22 @@ func LoadText(filename string) (string, error) {
 		return string(bytes[3:]), nil
 	}
 
+	return string(bytes), nil
+}
+
+func decodeShiftJIS(input string) string {
+	bytes := []byte(input)
+
 	if utf8.Valid(bytes) {
-		return string(bytes), nil
+		return input
 	}
 
-	// If it's not UTF-8, try to decode it as Shift-JIS.
 	decodedBytes, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), bytes)
 	if err != nil {
-		return string(bytes), nil
+		sys.errLog.Printf("Warning: Failed to decode string as Shift_JIS, falling back to original. String: %s, Error: %v\n", input, err)
+		return input
 	}
-
-	return string(decodedBytes), nil
+	return string(decodedBytes)
 }
 
 func FileExist(filename string) string {

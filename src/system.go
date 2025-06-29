@@ -2742,7 +2742,6 @@ type SelectChar struct {
 	cns_scale      [2]float32
 	anims          PreloadedAnims
 	sff            *Sff
-	fnt            [10]*Fnt
 }
 
 func newSelectChar() *SelectChar {
@@ -3021,16 +3020,16 @@ func (s *Select) addChar(defLine string) {
 		case "files":
 			if files {
 				files = false
-				cns_orig = isec["cns"]
-				sprite_orig = isec["sprite"]
-				anim_orig = isec["anim"]
-				sc.sound = isec["sound"]
+				cns_orig = decodeShiftJIS(isec["cns"])
+				sprite_orig = decodeShiftJIS(isec["sprite"])
+				anim_orig = decodeShiftJIS(isec["anim"])
+				sc.sound = decodeShiftJIS(isec["sound"])
 				for i := 1; i <= MaxPalNo; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 					}
 				}
-				movelist_orig = isec["movelist"]
+				movelist_orig = decodeShiftJIS(isec["movelist"])
 				for i_fnt := range fnt_orig {
 					fnt_orig[i_fnt][0] = isec[fmt.Sprintf("font%v", i_fnt)]
 					fnt_orig[i_fnt][1] = isec[fmt.Sprintf("fnt_height%v", i_fnt)]
@@ -3040,16 +3039,16 @@ func (s *Select) addChar(defLine string) {
 			if lanFiles {
 				files = false
 				lanFiles = false
-				cns_orig = isec["cns"]
-				sprite_orig = isec["sprite"]
-				anim_orig = isec["anim"]
-				sc.sound = isec["sound"]
+				cns_orig = decodeShiftJIS(isec["cns"])
+				sprite_orig = decodeShiftJIS(isec["sprite"])
+				anim_orig = decodeShiftJIS(isec["anim"])
+				sc.sound = decodeShiftJIS(isec["sound"])
 				for i := 1; i <= MaxPalNo; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 					}
 				}
-				movelist_orig = isec["movelist"]
+				movelist_orig = decodeShiftJIS(isec["movelist"])
 				for i := range fnt_orig {
 					fnt_orig[i][0] = isec[fmt.Sprintf("font%v", i)]
 					fnt_orig[i][1] = isec[fmt.Sprintf("fnt_height%v", i)]
@@ -3183,23 +3182,6 @@ func (s *Select) addChar(defLine string) {
 			sc.movelist, _ = LoadText(filename)
 			return nil
 		})
-	}
-	// preload fonts
-	for i_fnt, f_fnt_pair := range fnt_orig {
-		if len(f_fnt_pair[0]) > 0 {
-			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
-			LoadFile(&resolvedFntPath, []string{sc.def, "font/", sys.motifDir, "", "data/"}, func(filename string) error {
-				var err_fnt error
-				var height int32 = -1
-				if len(f_fnt_pair[1]) > 0 {
-					height = Atoi(f_fnt_pair[1])
-				}
-				if sc.fnt[i_fnt], err_fnt = loadFnt(filename, height); err_fnt != nil {
-					sys.errLog.Printf("failed to load %v (char font %v): %v", filename, i_fnt, err_fnt)
-				}
-				return nil
-			})
-		}
 	}
 }
 

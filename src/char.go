@@ -8582,12 +8582,17 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					continue
 				}
 			}
-			if ho.stateno < 0 && ho.forceair && !ho.keepState {
-				getter.hoIdx = i
-				if hitResult > 0 && hd.air_type == HT_None {
+			if ho.forceair && !ho.keepState {
+				if hitResult > 0 && hd.air_type == HT_None || hitResult < 0 && hd.ground_type == HT_None && hd.air_type != HT_None {
 					hitResult *= -1
 				}
-				break
+				if Abs(hitResult) == 1 {
+					getter.ss.changeStateType(ST_A)
+				}
+				if ho.stateno < 0 {
+					getter.hoIdx = i
+					break
+				}
 			}
 			// Miss if using p2stateno and HitOverride together
 			if !isProjectile && Abs(hitResult) == 1 &&
@@ -8750,7 +8755,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.fall_envshake_phase = hd.fall_envshake_phase
 				ghv.fall_envshake_mul = hd.fall_envshake_mul
 				ghv.fall_envshake_dir = hd.fall_envshake_dir
-				if getter.ss.stateType == ST_A || (getter.hoIdx >= 0 && getter.ho[getter.hoIdx].forceair) {
+				if getter.ss.stateType == ST_A {
 					ghv.hittime = hd.air_hittime
 					// Note: ctrl time is not affected on hit in Mugen
 					// This is further proof that gethitvars don't need to be reset above
@@ -10020,9 +10025,6 @@ func (c *Char) tick() {
 		}
 		c.hitPauseTime = 0
 		//c.targetDrop(-1, false) // GitHub #1148
-		if c.hoIdx >= 0 && c.ho[c.hoIdx].forceair {
-			c.ss.changeStateType(ST_A)
-		}
 		pn := c.playerNo
 		if c.ghv.p2getp1state && !c.ghv.guarded {
 			pn = c.ghv.playerNo

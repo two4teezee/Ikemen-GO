@@ -11710,6 +11710,11 @@ const (
 func (sc modifyBgm) Run(c *Char, _ []int32) bool {
 	var volumeSet, loopStartSet, loopEndSet, posSet, freqSet = false, false, false, false, false
 	var volume, loopstart, loopend, position int = 100, 0, 0, 0
+	// Safety default sets
+	if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
+		loopstart = sl.loopstart
+		loopend = sl.loopend
+	}
 	var freqmul float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {

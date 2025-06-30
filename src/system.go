@@ -572,8 +572,8 @@ func (s *System) tickSound() {
 		}
 	}
 
-	// Always pause if noMusic flag set or pause master volume is 0.
-	s.bgm.SetPaused(s.nomusic || (s.paused && s.cfg.Sound.PauseMasterVolume == 0))
+	// Always pause if noMusic flag set, pause master volume is 0, or freqmul is 0.
+	s.bgm.SetPaused(s.nomusic || (s.paused && s.cfg.Sound.PauseMasterVolume == 0) || (s.bgm.freqmul == 0))
 
 	// Set BGM volume if paused
 	if s.paused && s.bgm.volRestore == 0 {
@@ -1080,8 +1080,8 @@ func (s *System) restoreAllVolume() {
 				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
 					c.soundChannels.channels[i].SetVolume(c.soundChannels.volResume[i])
 
-					// Unpause
-					if c.soundChannels.channels[i].ctrl.Paused {
+					// Unpause only those whose freqmul > 0
+					if c.soundChannels.channels[i].ctrl.Paused && c.soundChannels.channels[i].sfx.freqmul > 0 {
 						c.soundChannels.channels[i].SetPaused(false)
 					}
 				}

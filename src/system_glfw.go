@@ -83,7 +83,6 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	window.MakeContextCurrent()
 	window.SetKeyCallback(keyCallback)
 	window.SetCharModsCallback(charCallback)
-	window.SetFramebufferSizeCallback(framebufferSizeCallback)
 
 	// V-Sync
 	if s.cfg.Video.VSync >= 0 {
@@ -203,11 +202,4 @@ func keyCallback(_ *glfw.Window, key Key, _ int, action glfw.Action, mk Modifier
 
 func charCallback(_ *glfw.Window, char rune, mk ModifierKey) {
 	OnTextEntered(string(char))
-}
-
-func framebufferSizeCallback(_ *glfw.Window, width int, height int) {
-	sys.setWindowSize(int32(width), int32(height))
-	if gfx != nil {
-		gfx.Resize(int32(width), int32(height))
-	}
 }

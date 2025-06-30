@@ -83,6 +83,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	window.MakeContextCurrent()
 	window.SetKeyCallback(keyCallback)
 	window.SetCharModsCallback(charCallback)
+	window.SetRefreshCallback(refreshCallback)
 
 	// V-Sync
 	if s.cfg.Video.VSync >= 0 {
@@ -189,6 +190,11 @@ func (w *Window) shouldClose() bool {
 
 func (w *Window) Close() {
 	glfw.Terminate()
+}
+
+func refreshCallback(w *glfw.Window) {
+	gfx.EndFrame()
+	w.SwapBuffers()
 }
 
 func keyCallback(_ *glfw.Window, key Key, _ int, action glfw.Action, mk ModifierKey) {

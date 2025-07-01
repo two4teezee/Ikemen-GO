@@ -337,12 +337,12 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 		bgm.streamer, format, err = flac.Decode(f)
 		bgm.format = "flac"
 	} else if HasExtension(bgm.filename, ".mid") || HasExtension(bgm.filename, ".midi") {
-		sf, sferr := loadSoundFont(audioSoundFont)
-		if sferr != nil {
+		if sf, sferr := loadSoundFont(audioSoundFont); sferr != nil {
 			err = sferr
+		} else {
+			bgm.streamer, format, err = midi.Decode(f, sf, beep.SampleRate(int(sys.cfg.Sound.SampleRate)))
+			bgm.format = "midi"
 		}
-		bgm.streamer, format, err = midi.Decode(f, sf, beep.SampleRate(int(sys.cfg.Sound.SampleRate)))
-		bgm.format = "midi"
 	} else {
 		err = Error(fmt.Sprintf("unsupported file extension: %v", bgm.filename))
 	}

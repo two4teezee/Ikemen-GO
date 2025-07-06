@@ -5071,8 +5071,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 				str += fmt.Sprintf("P%v:", c.playerNo+1)
 			}
 			sys.errLog.Printf("%v%v,%v\n", str, g, n)
-			return
 		}
+		return
 	}
 	crun := c
 	if c.inheritChannels == 1 && c.parent(false) != nil {
@@ -6879,7 +6879,6 @@ func (c *Char) computeDamage(damage float64, kill, absolute bool, atkmul float32
 	return int
 }
 
-// A lot of this logic seems the same as computeDamage. Maybe LifeAdd is supposed to use that function as well
 func (c *Char) lifeAdd(add float64, kill, absolute bool) {
 	if add == 0 {
 		return
@@ -6891,18 +6890,31 @@ func (c *Char) lifeAdd(add float64, kill, absolute bool) {
 	if add > -1 && add < 0 {
 		add = -1
 	}
+
+	add_i64 := int64(math.Round(add))
+	prev_life := c.life
+	new_life_i64 := int64(prev_life) + add_i64
+	new_life_i32 := int32(new_life_i64)
+
+	// MUGEN Overflow/Underflow damage compatibility
+	// For healing (positive add), if it overflows and becomes negative, it's a KO.
+	// For damage (negative add), if it underflows and becomes positive, it's also a KO.
+	if (add_i64 > 0 && new_life_i32 < prev_life) || (add_i64 < 0 && new_life_i32 > prev_life) {
+		new_life_i32 = 0 // Overflow/Underflow results in KO.
+	}
+
 	// Limit value if kill is false
-	if !kill && add <= float64(-c.life) {
-		if c.life > 0 || c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 { // See computeDamage
-			add = float64(1 - c.life)
+	if !kill && new_life_i32 <= 0 {
+		if c.life > 0 || (c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0) {
+			new_life_i32 = 1
+		} else {
+			new_life_i32 = 0
 		}
 	}
-	if add < 0 {
-		c.receivedDmg += Min(c.life, F64toI32(-add))
+	if add_i64 < 0 {
+		c.receivedDmg += Min(c.life, int32(-add_i64))
 	}
-	// Safely convert from float64 back to int32 after all calculations are done
-	int := F64toI32(float64(c.life) + math.Round(add))
-	c.lifeSet(int)
+	c.lifeSet(new_life_i32)
 	// Using LifeAdd currently does not touch the red life value
 	// This could be expanded in the future, as with TargetLifeAdd
 }
@@ -10627,7 +10639,7 @@ func (cl *CharList) commandUpdate() {
 					}
 					// Update commands
 					for i := range c.cmd {
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, c.helperIndex != 0, buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat

@@ -1574,10 +1574,11 @@ type Command struct {
 	time, curtime       int32
 	buftime, curbuftime int32
 	completeflag        bool
+	hasSlash            bool
 }
 
 func newCommand() *Command {
-	return &Command{chargeidx: -1, time: 1, buftime: 1}
+	return &Command{chargeidx: -1, time: 1, buftime: 1, hasSlash: false}
 }
 
 // This is used to first compile the commands
@@ -1613,6 +1614,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 			r := nextChar()
 			if r == '/' {
 				ce.slash = true
+				c.hasSlash = true
 				nextChar()
 				break
 			} else if r == '~' {
@@ -1631,6 +1633,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 			}
 		case '/':
 			ce.slash = true
+			c.hasSlash = true
 			nextChar()
 		}
 		for len(cestr) > 0 {
@@ -1937,7 +1940,11 @@ func (c *Command) Clear(bufreset bool) {
 }
 
 // Check if inputs match the command elements
-func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]bool) bool {
+func (c *Command) bufTest(ibuf *InputBuffer, ai bool, isHelper bool, holdTemp *[CK_Last + 1]bool) bool {
+	if ai && isHelper && !c.hasSlash {
+		// MUGEN's internal AI can't use commands without the "/" symbol on helpers.
+		return false
+	}
 	anyHeld, notHeld := false, 0
 	if len(c.hold) > 0 && !ai {
 		if holdTemp == nil {
@@ -2007,7 +2014,7 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]boo
 				}
 			}
 			c.Clear(false)
-			return c.bufTest(ibuf, ai, holdTemp)
+			return c.bufTest(ibuf, ai, isHelper, holdTemp)
 		}
 		return true
 	}
@@ -2060,13 +2067,13 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, holdTemp *[CK_Last + 1]boo
 	c.cmdidx++
 	// Both elements in a direction to button transition are checked in same the frame
 	if c.cmdidx < len(c.cmd) && c.cmd[c.cmdidx-1].IsDirToButton(c.cmd[c.cmdidx]) {
-		return c.bufTest(ibuf, ai, holdTemp)
+		return c.bufTest(ibuf, ai, isHelper, holdTemp)
 	}
 	return true
 }
 
 // Update an individual command
-func (c *Command) Step(ibuf *InputBuffer, ai, hitpause bool, buftime int32) {
+func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hitpause bool, buftime int32) {
 	if !hitpause && c.curbuftime > 0 {
 		c.curbuftime--
 	}
@@ -2080,7 +2087,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, hitpause bool, buftime int32) {
 		}
 	}()
 	var holdTemp *[CK_Last + 1]bool
-	if ibuf == nil || !c.bufTest(ibuf, ai, holdTemp) {
+	if ibuf == nil || !c.bufTest(ibuf, ai, isHelper, holdTemp) {
 		foo := c.chargeidx == 0 && c.cmdidx == 0
 		c.Clear(false)
 		if foo {
@@ -2259,11 +2266,11 @@ func (cl *CommandList) ClearName(name string) {
 }
 
 // Used when updating commands in each frame
-func (cl *CommandList) Step(facing int32, ai, hitpause bool, buftime int32) {
+func (cl *CommandList) Step(facing int32, ai, isHelper, hitpause bool, buftime int32) {
 	if cl.Buffer != nil {
 		for i := range cl.Commands {
 			for j := range cl.Commands[i] {
-				cl.Commands[i][j].Step(cl.Buffer, ai, hitpause, buftime)
+				cl.Commands[i][j].Step(cl.Buffer, ai, isHelper, hitpause, buftime)
 			}
 		}
 		// Find completed commands and reset all duplicate instances

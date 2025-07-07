@@ -10639,7 +10639,8 @@ func (cl *CharList) commandUpdate() {
 					}
 					// Update commands
 					for i := range c.cmd {
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, c.helperIndex != 0, buffer, Btoi(buffer)+Btoi(winbuf))
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0,
+							buffer, Btoi(buffer)+Btoi(winbuf))
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat

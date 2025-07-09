@@ -795,33 +795,33 @@ func (__ *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 func (__ *InputBuffer) State(ck CommandKey) int32 {
 	switch ck {
 	case CK_U:
-		return Min(-Max(__.Bb, __.Fb), __.Ub)
+		return Min(-Max(__.Bb, Max(__.Db, __.Fb)), __.Ub)
 	case CK_D:
-		return Min(-Max(__.Bb, __.Fb), __.Db)
+		return Min(-Max(__.Bb, Max(__.Ub, __.Fb)), __.Db)
 	case CK_B:
-		return Min(-Max(__.Db, __.Ub), __.Bb)
+		return Min(-Max(__.Db, Max(__.Ub, __.Fb)), __.Bb)
 	case CK_F:
-		return Min(-Max(__.Db, __.Ub), __.Fb)
+		return Min(-Max(__.Db, Max(__.Ub, __.Bb)), __.Fb)
 	case CK_L:
-		return Min(-Max(__.Db, __.Ub), __.Lb)
+		return Min(-Max(__.Db, Max(__.Ub, __.Rb)), __.Lb)
 	case CK_R:
-		return Min(-Max(__.Db, __.Ub), __.Rb)
+		return Min(-Max(__.Db, Max(__.Ub, __.Lb)), __.Rb)
 	case CK_UF:
-		return Min(__.Ub, __.Fb)
+		return Min(Min(-__.Db, __.Ub), Min(-__.Bb, __.Fb))
 	case CK_UB:
-		return Min(__.Ub, __.Bb)
+		return Min(Min(-__.Db, __.Ub), Min(-__.Fb, __.Bb))
 	case CK_DF:
-		return Min(__.Db, __.Fb)
+		return Min(Min(-__.Ub, __.Db), Min(-__.Bb, __.Fb))
 	case CK_DB:
-		return Min(__.Db, __.Bb)
+		return Min(Min(-__.Ub, __.Db), Min(-__.Fb, __.Bb))
 	case CK_UL:
-		return Min(__.Ub, __.Lb)
+		return Min(Min(-__.Db, __.Ub), Min(-__.Rb, __.Lb))
 	case CK_UR:
-		return Min(__.Ub, __.Rb)
+		return Min(Min(-__.Db, __.Ub), Min(-__.Lb, __.Rb))
 	case CK_DL:
-		return Min(__.Db, __.Lb)
+		return Min(Min(-__.Ub, __.Db), Min(-__.Rb, __.Lb))
 	case CK_DR:
-		return Min(__.Db, __.Rb)
+		return Min(Min(-__.Ub, __.Db), Min(-__.Lb, __.Rb))
 	case CK_N, CK_Ns:
 		return __.Nb
 	case CK_Us:
@@ -873,33 +873,33 @@ func (__ *InputBuffer) State(ck CommandKey) int32 {
 	case CK_m:
 		return __.mb
 	case CK_rU:
-		return -Min(-Max(__.Bb, __.Fb), __.Ub)
+		return -Min(-Max(__.Bb, Max(__.Db, __.Fb)), __.Ub)
 	case CK_rD:
-		return -Min(-Max(__.Bb, __.Fb), __.Db)
+		return -Min(-Max(__.Bb, Max(__.Ub, __.Fb)), __.Db)
 	case CK_rB:
-		return -Min(-Max(__.Db, __.Ub), __.Bb)
+		return -Min(-Max(__.Db, Max(__.Ub, __.Fb)), __.Bb)
 	case CK_rF:
-		return -Min(-Max(__.Db, __.Ub), __.Fb)
+		return -Min(-Max(__.Db, Max(__.Ub, __.Bb)), __.Fb)
 	case CK_rL:
-		return -Min(-Max(__.Db, __.Ub), __.Lb)
+		return -Min(-Max(__.Db, Max(__.Ub, __.Rb)), __.Lb)
 	case CK_rR:
-		return -Min(-Max(__.Db, __.Ub), __.Rb)
-	case CK_rUB:
-		return -Min(__.Ub, __.Bb)
+		return -Min(-Max(__.Db, Max(__.Ub, __.Lb)), __.Rb)
 	case CK_rUF:
-		return -Min(__.Ub, __.Fb)
-	case CK_rDB:
-		return -Min(__.Db, __.Bb)
+		return -Min(Min(-__.Db, __.Ub), Min(-__.Bb, __.Fb))
+	case CK_rUB:
+		return -Min(Min(-__.Db, __.Ub), Min(-__.Fb, __.Bb))
 	case CK_rDF:
-		return -Min(__.Db, __.Fb)
+		return -Min(Min(-__.Ub, __.Db), Min(-__.Bb, __.Fb))
+	case CK_rDB:
+		return -Min(Min(-__.Ub, __.Db), Min(-__.Fb, __.Bb))
 	case CK_rUL:
-		return -Min(__.Ub, __.Lb)
+		return -Min(Min(-__.Db, __.Ub), Min(-__.Rb, __.Lb))
 	case CK_rUR:
-		return -Min(__.Ub, __.Rb)
+		return -Min(Min(-__.Db, __.Ub), Min(-__.Lb, __.Rb))
 	case CK_rDL:
-		return -Min(__.Db, __.Lb)
+		return -Min(Min(-__.Ub, __.Db), Min(-__.Rb, __.Lb))
 	case CK_rDR:
-		return -Min(__.Db, __.Rb)
+		return -Min(Min(-__.Ub, __.Db), Min(-__.Lb, __.Rb))
 	case CK_rUs:
 		return -__.Ub
 	case CK_rDs:

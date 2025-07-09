@@ -816,7 +816,7 @@ func (s *System) outroState() int32 {
 	case s.roundWinStates():
 		// Player win states
 		return 4
-	case sys.intro < -sys.lifebar.ro.over_waittime || sys.lifebar.ro.over_waittime == 1:
+	case sys.intro <= -sys.lifebar.ro.over_waittime && sys.wintime >= 0:
 		// Players lose control, but the round has not yet entered win states
 		return 3
 	case s.intro < -s.lifebar.ro.over_hittime || sys.lifebar.ro.over_hittime == 1:

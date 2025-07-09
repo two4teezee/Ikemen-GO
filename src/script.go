@@ -743,14 +743,19 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError(err.Error())
 		}
 		time, buftime := cl.DefaultTime, cl.DefaultBufferTime
+		pausebuffer := cl.DefaultPauseBuffer
 		if !nilArg(l, 4) {
 			time = int32(numArg(l, 4))
 		}
 		if !nilArg(l, 5) {
 			buftime = Max(1, int32(numArg(l, 5)))
 		}
+		if !nilArg(l, 6) {
+			pausebuffer = boolArg(l, 6)
+		}
 		cm.time = time
 		cm.buftime = buftime
+		cm.pausebuffer = pausebuffer
 		cl.Add(*cm)
 		return 0
 	})

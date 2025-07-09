@@ -1575,6 +1575,7 @@ type Command struct {
 	buftime, curbuftime int32
 	completeflag        bool
 	hasSlash            bool
+	pausebuffer         bool
 }
 
 func newCommand() *Command {
@@ -2074,6 +2075,10 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, isHelper bool, holdTemp *[
 
 // Update an individual command
 func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hitpause bool, buftime int32) {
+	if !c.pausebuffer {
+		hitpause = false
+		buftime = 0
+	}
 	if !hitpause && c.curbuftime > 0 {
 		c.curbuftime--
 	}
@@ -2119,6 +2124,7 @@ type CommandList struct {
 	Commands          [][]Command
 	DefaultTime       int32
 	DefaultBufferTime int32
+	DefaultPauseBuffer bool
 }
 
 func NewCommandList(cb *InputBuffer) *CommandList {
@@ -2127,6 +2133,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 		Names:             make(map[string]int),
 		DefaultTime:       15,
 		DefaultBufferTime: 1,
+		DefaultPauseBuffer: true,
 	}
 }
 

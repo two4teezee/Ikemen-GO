@@ -575,6 +575,7 @@ type HitDef struct {
 	p1stateno                  int32
 	p2stateno                  int32
 	p2getp1state               bool
+	missonoverride             int32
 	forcestand                 int32
 	forcecrouch                int32
 	ground_fall                bool
@@ -693,6 +694,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		p1sprpriority:       1,
 		p1stateno:           -1,
 		p2stateno:           -1,
+		missonoverride:      -1,
 		forcestand:          IErr,
 		forcecrouch:         IErr,
 		guard_dist_x:        hd.guard_dist_x, // These default to no change
@@ -8607,8 +8609,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				}
 			}
 			// Miss if using p2stateno and HitOverride together
-			if !isProjectile && Abs(hitResult) == 1 &&
-				(hd.p2stateno >= 0 || hd.p1stateno >= 0) {
+			if hd.missonoverride == 1 || (hd.missonoverride == -1 && !isProjectile && Abs(hitResult) == 1 &&
+				(hd.p2stateno >= 0 || hd.p1stateno >= 0)) {
 				return 0
 			}
 			if ho.stateno >= 0 || ho.keepState {

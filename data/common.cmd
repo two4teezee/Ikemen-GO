@@ -1,4 +1,11 @@
 [Command]
+name = "recovery"
+command = 
+time = 1
+buffer.time = 1
+pausebuffer = 1
+
+[Command]
 name = "TagShiftBack"
 command = d
 time = 1

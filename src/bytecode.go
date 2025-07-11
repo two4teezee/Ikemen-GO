@@ -6701,6 +6701,7 @@ const (
 	hitDef_p1stateno
 	hitDef_p2stateno
 	hitDef_p2getp1state
+	hitDef_missonoverride
 	hitDef_p1sprpriority
 	hitDef_p2sprpriority
 	hitDef_forcestand
@@ -6872,6 +6873,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.p2getp1state = true
 	case hitDef_p2getp1state:
 		hd.p2getp1state = exp[0].evalB(c)
+	case hitDef_missonoverride:
+		hd.missonoverride = Btoi(exp[0].evalB(c))
 	case hitDef_p1sprpriority:
 		hd.p1sprpriority = exp[0].evalI(c)
 	case hitDef_p2sprpriority:

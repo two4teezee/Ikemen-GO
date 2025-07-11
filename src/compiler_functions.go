@@ -1793,6 +1793,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_p2getp1state, VT_Bool, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "missonoverride",
+		hitDef_missonoverride, VT_Bool, 1, false); err != nil {
+		return err
+	}
 	b := false
 	if err := c.stateParam(is, "p1sprpriority", false, func(data string) error {
 		b = true

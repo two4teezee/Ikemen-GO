@@ -2119,20 +2119,20 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hitpause bool, buftime i
 // Command List refers to the entire set of a character's commands
 // Each player has multiple lists: one with its own commands, and a copy of each other player's lists
 type CommandList struct {
-	Buffer            *InputBuffer
-	Names             map[string]int
-	Commands          [][]Command
-	DefaultTime       int32
-	DefaultBufferTime int32
+	Buffer             *InputBuffer
+	Names              map[string]int
+	Commands           [][]Command
+	DefaultTime        int32
+	DefaultBufferTime  int32
 	DefaultPauseBuffer bool
 }
 
 func NewCommandList(cb *InputBuffer) *CommandList {
 	return &CommandList{
-		Buffer:            cb,
-		Names:             make(map[string]int),
-		DefaultTime:       15,
-		DefaultBufferTime: 1,
+		Buffer:             cb,
+		Names:              make(map[string]int),
+		DefaultTime:        15,
+		DefaultBufferTime:  1,
 		DefaultPauseBuffer: true,
 	}
 }

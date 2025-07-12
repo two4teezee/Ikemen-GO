@@ -1,3 +1,6 @@
+; Common Commands
+; The commands defined in this file will be appended to every character's command list
+
 [Command]
 name = "recovery"
 command = 

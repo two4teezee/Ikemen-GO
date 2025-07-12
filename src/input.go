@@ -99,15 +99,15 @@ const (
 )
 
 func (ck CommandKey) IsDirectionPress() bool {
-	return ck >= CK_U && ck <= CK_DR || ck >= CK_Us && ck <= CK_DRs
+	return ck >= CK_U && ck < CK_rU || ck >= CK_Us && ck < CK_rUs
 }
 
 func (ck CommandKey) IsDirectionRelease() bool {
-	return ck >= CK_rU && ck <= CK_rDR || ck >= CK_rUs && ck <= CK_rDRs
+	return ck >= CK_rU && ck < CK_Us || ck >= CK_rUs && ck < CK_a
 }
 
 func (ck CommandKey) IsButtonPress() bool {
-	return ck >= CK_a && ck <= CK_m
+	return ck >= CK_a && ck < CK_ra
 }
 
 func (ck CommandKey) IsButtonRelease() bool {
@@ -1573,6 +1573,7 @@ type Command struct {
 	cmdidx, chargeidx   int
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
+	maxkeytime, curkeytime int32
 	buffer_hitpause     bool
 	buffer_pauseend     bool
 	completeframe       bool
@@ -1580,7 +1581,7 @@ type Command struct {
 }
 
 func newCommand() *Command {
-	return &Command{chargeidx: -1, time: 1, buftime: 1, hasSlash: false}
+	return &Command{chargeidx: -1, maxtime: 1, maxbuftime: 1, hasSlash: false}
 }
 
 // This is used to first compile the commands
@@ -1933,6 +1934,7 @@ func (c *Command) Clear(bufreset bool) {
 	c.cmdidx = 0
 	c.chargeidx = -1
 	c.curtime = 0
+	c.curkeytime = 0
 	if bufreset {
 		c.curbuftime = 0
 	}
@@ -2000,6 +2002,7 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, isHelper bool, holdTemp *[
 			}
 		}
 		c.cmdidx++
+		c.curkeytime = 0
 		return true
 	}
 	fail := func() bool {
@@ -2067,6 +2070,7 @@ func (c *Command) bufTest(ibuf *InputBuffer, ai bool, isHelper bool, holdTemp *[
 	}
 	// Conditions met. Go to next element
 	c.cmdidx++
+	c.curkeytime = 0
 	// Both elements in a direction to button transition are checked in same the frame
 	if c.cmdidx < len(c.cmd) && c.cmd[c.cmdidx-1].IsDirToButton(c.cmd[c.cmdidx]) {
 		return c.bufTest(ibuf, ai, isHelper, holdTemp)
@@ -2081,18 +2085,31 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		hpbuf = false
 		extratime = 0
 	}
-	if !hitpause && c.curbuftime > 0 {
+
+	// Skip Pause/SuperPause buffering
+	if !c.buffer_pauseend {
+		pausebuf = false
+		extratime = 0
+	}
+
+	// Decrease current buffer timer if not paused
+	if c.curbuftime > 0 && !hpbuf && !pausebuf {
 		c.curbuftime--
 	}
+
+	// Skip blank input commands
 	if len(c.cmd) == 0 {
 		return
 	}
+
+	// Make sure current buffer timer doesn't accidentally decrease
 	ocbt := c.curbuftime
 	defer func() {
 		if c.curbuftime < ocbt {
 			c.curbuftime = ocbt
 		}
 	}()
+
 	var holdTemp *[CK_Last + 1]bool
 	if ibuf == nil || !c.bufTest(ibuf, ai, isHelper, holdTemp) {
 		foo := c.chargeidx == 0 && c.cmdidx == 0
@@ -2102,10 +2119,14 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 		return
 	}
+
+	// Handle command timers. Freeze at first input if it starts with a hold
 	if c.cmdidx == 1 && c.cmd[0].slash {
 		c.curtime = 0
+		c.curkeytime = 0
 	} else {
 		c.curtime++
+		c.curkeytime++
 	}
 
 	// Check if command input was completed in this frame
@@ -2117,14 +2138,17 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 			return
 		}
 		// Keep command going if timers allows it
-		if c.curtime <= c.maxtime {
+		if c.curtime <= c.maxtime && (c.maxkeytime < 0 || c.curkeytime <= c.maxkeytime) {
 			return
 		}
 	}
+
+	// Clear command if complete or if timers expired
 	c.Clear(false)
-	if c.completeflag {
+
+	if c.completeframe {
 		// Update buffer time only if it's lower. Mugen doesn't do this but it seems like the right thing to do
-		c.curbuftime = Max(c.curbuftime, c.buftime+buftime)
+		c.curbuftime = Max(c.curbuftime, c.maxbuftime+extratime)
 	}
 }
 
@@ -2135,6 +2159,7 @@ type CommandList struct {
 	Names              map[string]int
 	Commands           [][]Command
 	DefaultTime        int32
+	DefaultKeyTime     int32
 	DefaultBufferTime  int32
 	DefaultBufferHitpause bool
 	DefaultBufferPauseEnd    bool
@@ -2145,6 +2170,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 		Buffer:             cb,
 		Names:              make(map[string]int),
 		DefaultTime:        15,
+		DefaultKeyTime:     -1,
 		DefaultBufferTime:  1,
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
@@ -2275,11 +2301,12 @@ func (cl *CommandList) Assert(name string, time int32) bool {
 	return has
 }
 
-// Reset commands with a given name
+// Reset command when another command with the same name is completed
+// This prevents "piano inputs" from triggering the same special move with each button. TODO: This should be optional
 func (cl *CommandList) ClearName(name string) {
 	for i := range cl.Commands {
 		for j := range cl.Commands[i] {
-			if !cl.Commands[i][j].completeflag && cl.Commands[i][j].name == name {
+			if !cl.Commands[i][j].completeframe && cl.Commands[i][j].name == name {
 				cl.Commands[i][j].Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
 			}
 		}
@@ -2296,12 +2323,11 @@ func (cl *CommandList) Step(facing int32, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 		// Find completed commands and reset all duplicate instances
 		// This loop must be run separately from the previous one
-		// TODO: This could be controlled by a command parameter that decides if its buffer should be shared with other commands of same name
 		for i := range cl.Commands {
 			for j := range cl.Commands[i] {
-				if cl.Commands[i][j].completeflag {
+				if cl.Commands[i][j].completeframe {
 					cl.ClearName(cl.Commands[i][j].name)
-					cl.Commands[i][j].completeflag = false
+					cl.Commands[i][j].completeframe = false
 				}
 			}
 		}

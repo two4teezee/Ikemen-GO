@@ -7476,10 +7476,11 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				rm("m", &ckr.m, &ckr.nm)
 			}
 		case "defaults":
-			// Read default command time and buffer time
+			// Read default command parameters
 			if defaults {
 				defaults = false
 				is.ReadI32("command.time", &c.cmdl.DefaultTime)
+				is.ReadI32("command.key.time", &c.cmdl.DefaultKeyTime)
 				var i32 int32
 				if is.ReadI32("command.buffer.time", &i32) {
 					c.cmdl.DefaultBufferTime = Max(1, i32)
@@ -7488,7 +7489,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				is.ReadBool("command.buffer.pauseend", &c.cmdl.DefaultBufferPauseEnd)
 			}
 		default:
-			// Read input commands
+			// Read command inputs
 			if len(name) >= 7 && name[:7] == "command" {
 				cmds = append(cmds, is)
 			}
@@ -7509,13 +7510,15 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		// Default parameters
 		cm.maxtime = c.cmdl.DefaultTime
 		cm.maxbuftime = c.cmdl.DefaultBufferTime
+		cm.maxkeytime = c.cmdl.DefaultKeyTime
 		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
 		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
 		// Read specific parameters
 		is.ReadI32("time", &cm.maxtime)
+		is.ReadI32("key.time", &cm.maxkeytime)
 		var i32 int32
 		if is.ReadI32("buffer.time", &i32) {
-			cm.buftime = Max(1, i32)
+			cm.maxbuftime = Max(1, i32)
 		}
 		is.ReadBool("buffer.hitpause", &cm.buffer_hitpause)
 		is.ReadBool("buffer.pauseend", &cm.buffer_pauseend)

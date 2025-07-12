@@ -7484,7 +7484,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				if is.ReadI32("command.buffer.time", &i32) {
 					c.cmdl.DefaultBufferTime = Max(1, i32)
 				}
-				is.ReadBool("command.pausebuffer", &c.cmdl.DefaultPauseBuffer)
+				is.ReadBool("command.buffer.hitpause", &c.cmdl.DefaultBufferHitpause)
+				is.ReadBool("command.buffer.pauseend", &c.cmdl.DefaultBufferPauseEnd)
 			}
 		default:
 			// Read input commands
@@ -7505,14 +7506,19 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			return nil, Error(cmd + ":\nname = " + is["name"] +
 				"\ncommand = " + is["command"] + "\n" + err.Error())
 		}
-		cm.time, cm.buftime = c.cmdl.DefaultTime, c.cmdl.DefaultBufferTime
-		cm.pausebuffer = c.cmdl.DefaultPauseBuffer
-		is.ReadI32("time", &cm.time)
+		// Default parameters
+		cm.maxtime = c.cmdl.DefaultTime
+		cm.maxbuftime = c.cmdl.DefaultBufferTime
+		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
+		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
+		// Read specific parameters
+		is.ReadI32("time", &cm.maxtime)
 		var i32 int32
 		if is.ReadI32("buffer.time", &i32) {
 			cm.buftime = Max(1, i32)
 		}
-		is.ReadBool("pausebuffer", &cm.pausebuffer)
+		is.ReadBool("buffer.hitpause", &cm.buffer_hitpause)
+		is.ReadBool("buffer.pauseend", &cm.buffer_pauseend)
 		c.cmdl.Add(*cm)
 	}
 

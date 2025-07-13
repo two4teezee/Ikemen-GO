@@ -9468,12 +9468,16 @@ func (c *Char) actionPrepare() {
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
-	// This used to be CharGlobalInfo, but that made root and helpers share the same timer
+	// This also used to be CharGlobalInfo, but that made root and helpers share the same timer
 	// In Mugen this timer won't decrease unless the char has a Clsn box (of any type)
 	if c.unhittableTime > 0 {
 		c.unhittableTime--
 	}
 	c.dropTargets()
+	// Enable autoguard. This placement gives it similar properties to other AssertSpecial flags
+	if sys.cfg.Options.AutoGuard {
+		c.setASF(ASF_autoguard)
+	}
 }
 
 func (c *Char) actionRun() {
@@ -9515,9 +9519,6 @@ func (c *Char) actionRun() {
 	}
 	// Guarding instructions
 	c.unsetSCF(SCF_guard)
-	if sys.cfg.Options.AutoGuard {
-		c.setASF(ASF_autoguard)
-	}
 	if ((c.scf(SCF_ctrl) || c.ss.no == 52) &&
 		c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
 		(c.cmd[0].Buffer.B > 0 || c.asf(ASF_autoguard)) &&
@@ -10612,37 +10613,40 @@ func (cl *CharList) commandUpdate() {
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
 					c.cmd[0].InputUpdate(c.controller, int32(c.facing), sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
-					// This used to apply only to the root, but that caused some issues with helper-based input buffers
+					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {
 						for i := range c.cmd {
 							c.cmd[i].BufReset()
 						}
 						continue
 					}
-					// Check for buffering during hitpause, Superpause and Pause
-					buffer := false
+					hpbuf := false
+					pausebuf := false
 					winbuf := false
-					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 {
-						buffer = true
-						// Winmugen chars buffer one frame longer on hitpause
-						// This is true in Winmugen itself but not Mugen 1.0+
-						if c.gi().mugenver[0] != 1 {
+					// Buffer during hitpause
+					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 { // TODO: Deprecated constant
+						hpbuf = true
+						// In Winmugen, commands were buffered for one extra frame after hitpause (but not after Pause/SuperPause)
+						// This was fixed in Mugen 1.0
+						if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 {
 							winbuf = true
 						}
 					}
+					// Buffer during Pause and SuperPause
 					if sys.supertime > 0 {
 						if !act && sys.supertime <= sys.superendcmdbuftime {
-							buffer = true
+							pausebuf = true
 						}
 					} else if sys.pausetime > 0 {
 						if !act && sys.pausetime <= sys.pauseendcmdbuftime {
-							buffer = true
+							pausebuf = true
 						}
 					}
 					// Update commands
 					for i := range c.cmd {
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0,
-							buffer, Btoi(buffer)+Btoi(winbuf))
+						extratime := Btoi(hpbuf || pausebuf)+Btoi(winbuf)
+						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
+						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat

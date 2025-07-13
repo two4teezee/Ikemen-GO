@@ -6066,8 +6066,8 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			sc := newStateControllerBase()
 			var scf scFunc
 			var triggerall []BytecodeExp
-			// Flag if this trigger can never be true
-			allUtikiri := false
+			// Flag if following triggers can never be true because of triggerall = 0
+			allTerminated := false
 			var trigger [][]BytecodeExp
 			var trexist []int8
 			// Parse each line of the sctrl to get triggers and settings
@@ -6104,9 +6104,9 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 					// If triggerall = 0 is encountered, flag it
 					if len(be) == 2 && be[0] == OC_int8 {
 						if be[1] == 0 {
-							allUtikiri = true
+							allTerminated = true
 						}
-					} else if !allUtikiri {
+					} else if !allTerminated {
 						triggerall = append(triggerall, be)
 					}
 				default:
@@ -6153,7 +6153,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 						} else if trexist[tn] == 0 {
 							trexist[tn] = 1
 						}
-					} else if !allUtikiri && trexist[tn] >= 0 {
+					} else if !allTerminated && trexist[tn] >= 0 {
 						trigger[tn] = append(trigger[tn], be)
 						trexist[tn] = 1
 					}
@@ -6168,7 +6168,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			if scf == nil {
 				return errmes(Error("State controller type not specified"))
 			}
-			if len(trexist) == 0 || (!allUtikiri && trexist[0] == 0) {
+			if len(trexist) == 0 || (!allTerminated && trexist[0] == 0) {
 				return errmes(Error("Missing trigger1"))
 			}
 
@@ -6179,7 +6179,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 				texp.append(OC_jz8, 0)
 				texp.append(OC_pop)
 			}
-			if allUtikiri {
+			if allTerminated {
 				if len(texp) > 0 {
 					texp.appendValue(BytecodeBool(false))
 				}
@@ -6247,7 +6247,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			appending := true
 			if len(c.block.trigger) == 0 {
 				appending = false
-				if !allUtikiri {
+				if !allTerminated {
 					for _, te := range trexist {
 						if te >= 0 {
 							if te > 0 {
@@ -7476,18 +7476,20 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				rm("m", &ckr.m, &ckr.nm)
 			}
 		case "defaults":
-			// Read default command time and buffer time
+			// Read default command parameters
 			if defaults {
 				defaults = false
 				is.ReadI32("command.time", &c.cmdl.DefaultTime)
+				is.ReadI32("command.key.time", &c.cmdl.DefaultKeyTime)
 				var i32 int32
 				if is.ReadI32("command.buffer.time", &i32) {
 					c.cmdl.DefaultBufferTime = Max(1, i32)
 				}
-				is.ReadBool("command.pausebuffer", &c.cmdl.DefaultPauseBuffer)
+				is.ReadBool("command.buffer.hitpause", &c.cmdl.DefaultBufferHitpause)
+				is.ReadBool("command.buffer.pauseend", &c.cmdl.DefaultBufferPauseEnd)
 			}
 		default:
-			// Read input commands
+			// Read command inputs
 			if len(name) >= 7 && name[:7] == "command" {
 				cmds = append(cmds, is)
 			}
@@ -7505,14 +7507,21 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			return nil, Error(cmd + ":\nname = " + is["name"] +
 				"\ncommand = " + is["command"] + "\n" + err.Error())
 		}
-		cm.time, cm.buftime = c.cmdl.DefaultTime, c.cmdl.DefaultBufferTime
-		cm.pausebuffer = c.cmdl.DefaultPauseBuffer
-		is.ReadI32("time", &cm.time)
+		// Default parameters
+		cm.maxtime = c.cmdl.DefaultTime
+		cm.maxbuftime = c.cmdl.DefaultBufferTime
+		cm.maxkeytime = c.cmdl.DefaultKeyTime
+		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
+		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
+		// Read specific parameters
+		is.ReadI32("time", &cm.maxtime)
+		is.ReadI32("key.time", &cm.maxkeytime)
 		var i32 int32
 		if is.ReadI32("buffer.time", &i32) {
-			cm.buftime = Max(1, i32)
+			cm.maxbuftime = Max(1, i32)
 		}
-		is.ReadBool("pausebuffer", &cm.pausebuffer)
+		is.ReadBool("buffer.hitpause", &cm.buffer_hitpause)
+		is.ReadBool("buffer.pauseend", &cm.buffer_pauseend)
 		c.cmdl.Add(*cm)
 	}
 

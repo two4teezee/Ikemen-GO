@@ -1566,18 +1566,18 @@ func (ce *cmdElem) IsDirToButton(next cmdElem) bool {
 
 // Command refers to each individual command from the CMD file
 type Command struct {
-	name                string
-	hold                [][]CommandKey
-	held                []bool
-	cmd                 []cmdElem
-	cmdidx, chargeidx   int
+	name                   string
+	hold                   [][]CommandKey
+	held                   []bool
+	cmd                    []cmdElem
+	cmdidx, chargeidx      int
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
 	maxkeytime, curkeytime int32
-	buffer_hitpause     bool
-	buffer_pauseend     bool
-	completeframe       bool
-	hasSlash            bool
+	buffer_hitpause        bool
+	buffer_pauseend        bool
+	completeframe          bool
+	hasSlash               bool
 }
 
 func newCommand() *Command {
@@ -2155,23 +2155,23 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 // Command List refers to the entire set of a character's commands
 // Each player has multiple lists: one with its own commands, and a copy of each other player's lists
 type CommandList struct {
-	Buffer             *InputBuffer
-	Names              map[string]int
-	Commands           [][]Command
-	DefaultTime        int32
-	DefaultKeyTime     int32
-	DefaultBufferTime  int32
+	Buffer                *InputBuffer
+	Names                 map[string]int
+	Commands              [][]Command
+	DefaultTime           int32
+	DefaultKeyTime        int32
+	DefaultBufferTime     int32
 	DefaultBufferHitpause bool
-	DefaultBufferPauseEnd    bool
+	DefaultBufferPauseEnd bool
 }
 
 func NewCommandList(cb *InputBuffer) *CommandList {
 	return &CommandList{
-		Buffer:             cb,
-		Names:              make(map[string]int),
-		DefaultTime:        15,
-		DefaultKeyTime:     -1,
-		DefaultBufferTime:  1,
+		Buffer:                cb,
+		Names:                 make(map[string]int),
+		DefaultTime:           15,
+		DefaultKeyTime:        -1,
+		DefaultBufferTime:     1,
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
 	}

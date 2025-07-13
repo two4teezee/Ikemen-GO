@@ -10644,7 +10644,7 @@ func (cl *CharList) commandUpdate() {
 					}
 					// Update commands
 					for i := range c.cmd {
-						extratime := Btoi(hpbuf || pausebuf)+Btoi(winbuf)
+						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
 						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
 						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}

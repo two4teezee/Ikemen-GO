@@ -6066,8 +6066,8 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			sc := newStateControllerBase()
 			var scf scFunc
 			var triggerall []BytecodeExp
-			// Flag if this trigger can never be true
-			allUtikiri := false
+			// Flag if following triggers can never be true because of triggerall = 0
+			allTerminated := false
 			var trigger [][]BytecodeExp
 			var trexist []int8
 			// Parse each line of the sctrl to get triggers and settings
@@ -6104,9 +6104,9 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 					// If triggerall = 0 is encountered, flag it
 					if len(be) == 2 && be[0] == OC_int8 {
 						if be[1] == 0 {
-							allUtikiri = true
+							allTerminated = true
 						}
-					} else if !allUtikiri {
+					} else if !allTerminated {
 						triggerall = append(triggerall, be)
 					}
 				default:
@@ -6153,7 +6153,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 						} else if trexist[tn] == 0 {
 							trexist[tn] = 1
 						}
-					} else if !allUtikiri && trexist[tn] >= 0 {
+					} else if !allTerminated && trexist[tn] >= 0 {
 						trigger[tn] = append(trigger[tn], be)
 						trexist[tn] = 1
 					}
@@ -6168,7 +6168,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			if scf == nil {
 				return errmes(Error("State controller type not specified"))
 			}
-			if len(trexist) == 0 || (!allUtikiri && trexist[0] == 0) {
+			if len(trexist) == 0 || (!allTerminated && trexist[0] == 0) {
 				return errmes(Error("Missing trigger1"))
 			}
 
@@ -6179,7 +6179,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 				texp.append(OC_jz8, 0)
 				texp.append(OC_pop)
 			}
-			if allUtikiri {
+			if allTerminated {
 				if len(texp) > 0 {
 					texp.appendValue(BytecodeBool(false))
 				}
@@ -6247,7 +6247,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			appending := true
 			if len(c.block.trigger) == 0 {
 				appending = false
-				if !allUtikiri {
+				if !allTerminated {
 					for _, te := range trexist {
 						if te >= 0 {
 							if te > 0 {

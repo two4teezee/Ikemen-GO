@@ -9468,12 +9468,16 @@ func (c *Char) actionPrepare() {
 	}
 	// Decrease unhittable timer
 	// This used to be in tick(), but Mugen Clsn display suggests it happens sooner than that
-	// This used to be CharGlobalInfo, but that made root and helpers share the same timer
+	// This also used to be CharGlobalInfo, but that made root and helpers share the same timer
 	// In Mugen this timer won't decrease unless the char has a Clsn box (of any type)
 	if c.unhittableTime > 0 {
 		c.unhittableTime--
 	}
 	c.dropTargets()
+	// Enable autoguard. This placement gives it similar properties to other AssertSpecial flags
+	if sys.cfg.Options.AutoGuard {
+		c.setASF(ASF_autoguard)
+	}
 }
 
 func (c *Char) actionRun() {
@@ -9515,9 +9519,6 @@ func (c *Char) actionRun() {
 	}
 	// Guarding instructions
 	c.unsetSCF(SCF_guard)
-	if sys.cfg.Options.AutoGuard {
-		c.setASF(ASF_autoguard)
-	}
 	if ((c.scf(SCF_ctrl) || c.ss.no == 52) &&
 		c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
 		(c.cmd[0].Buffer.B > 0 || c.asf(ASF_autoguard)) &&

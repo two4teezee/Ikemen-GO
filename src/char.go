@@ -7129,54 +7129,54 @@ func (c *Char) consecutiveWins() int32 {
 func (c *Char) dizzyEnabled() bool {
 	return sys.lifebar.stunbar
 	/*
-	   switch sys.tmode[c.playerNo&1] {
-	   case TM_Single:
-	       return sys.cfg.Options.Single.Dizzy
-	   case TM_Simul:
-	       return sys.cfg.Options.Simul.Dizzy
-	   case TM_Tag:
-	       return sys.cfg.Options.Tag.Dizzy
-	   case TM_Turns:
-	       return sys.cfg.Options.Turns.Dizzy
-	   default:
-	       return false
-	   }
+	switch sys.tmode[c.playerNo&1] {
+	case TM_Single:
+		return sys.cfg.Options.Single.Dizzy
+	case TM_Simul:
+		return sys.cfg.Options.Simul.Dizzy
+	case TM_Tag:
+		return sys.cfg.Options.Tag.Dizzy
+	case TM_Turns:
+		return sys.cfg.Options.Turns.Dizzy
+	default:
+		return false
+	}
 	*/
 }
 
 func (c *Char) guardBreakEnabled() bool {
 	return sys.lifebar.guardbar
 	/*
-	   switch sys.tmode[c.playerNo&1] {
-	   case TM_Single:
-	       return sys.cfg.Options.Single.GuardBreak
-	   case TM_Simul:
-	       return sys.cfg.Options.Simul.GuardBreak
-	   case TM_Tag:
-	       return sys.cfg.Options.Tag.GuardBreak
-	   case TM_Turns:
-	       return sys.cfg.Options.Turns.GuardBreak
-	   default:
-	       return false
-	   }
+	switch sys.tmode[c.playerNo&1] {
+	case TM_Single:
+		return sys.cfg.Options.Single.GuardBreak
+	case TM_Simul:
+		return sys.cfg.Options.Simul.GuardBreak
+	case TM_Tag:
+		return sys.cfg.Options.Tag.GuardBreak
+	case TM_Turns:
+		return sys.cfg.Options.Turns.GuardBreak
+	default:
+		return false
+	}
 	*/
 }
 
 func (c *Char) redLifeEnabled() bool {
 	return sys.lifebar.redlifebar
 	/*
-			switch sys.tmode[c.playerNo&1] {
-		    case TM_Single:
-		        return sys.cfg.Options.Single.RedLife
-		    case TM_Simul:
-		        return sys.cfg.Options.Simul.RedLife
-		    case TM_Tag:
-		        return sys.cfg.Options.Tag.RedLife
-		    case TM_Turns:
-		        return sys.cfg.Options.Turns.RedLife
-		    default:
-		        return false
-		    }
+	switch sys.tmode[c.playerNo&1] {
+	case TM_Single:
+		return sys.cfg.Options.Single.RedLife
+	case TM_Simul:
+		return sys.cfg.Options.Simul.RedLife
+	case TM_Tag:
+		return sys.cfg.Options.Tag.RedLife
+	case TM_Turns:
+		return sys.cfg.Options.Turns.RedLife
+	default:
+		return false
+    }
 	*/
 }
 

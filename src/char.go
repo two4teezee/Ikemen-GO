@@ -1260,6 +1260,7 @@ type Explod struct {
 	pausemovetime       int32
 	anim                *Animation
 	animelem            int32
+	animelemtime        int32
 	animfreeze          bool
 	//ontop                bool
 	under          bool
@@ -1314,6 +1315,7 @@ func (e *Explod) clear() {
 		projection:        Projection_Orthographic,
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
+		animelemtime:      0,
 		blendmode:         0,
 		alpha:             [...]int32{-1, 0},
 		playerId:          -1,
@@ -1431,8 +1433,17 @@ func (e *Explod) matchId(eid, pid int32) bool {
 }
 
 func (e *Explod) setAnimElem() {
-	if e.anim != nil && e.animelem >= 1 {
-		e.anim.SetAnimElem(Clamp(e.animelem, 1, int32(len(e.anim.frames))), 0)
+	if e.anim != nil {
+		// Validate animelem just in case
+		if e.animelem < 1 || int(e.animelem) > len(e.anim.frames) {
+			e.animelem = 1
+		}
+		// Validate animelemtime just in case
+		if e.animelemtime < 0 || e.animelemtime >= e.anim.frames[e.animelem-1].Time {
+			e.animelemtime = 0
+		}
+		// Set them
+		e.anim.SetAnimElem(e.animelem, e.animelemtime)
 	}
 }
 
@@ -4010,15 +4021,15 @@ func (c *Char) alive() bool {
 }
 
 func (c *Char) animElemNo(time int32) BytecodeValue {
-	if c.anim != nil && time >= -c.anim.sumtime {
+	if c.anim != nil && time >= -c.anim.curtime {
 		return BytecodeInt(c.anim.AnimElemNo(time))
 	}
 	return BytecodeSF()
 }
 
-func (c *Char) animElemTime(e int32) BytecodeValue {
-	if e >= 1 && c.anim != nil && int(e) <= len(c.anim.frames) {
-		return BytecodeInt(c.anim.AnimElemTime(e))
+func (c *Char) animElemTime(elem int32) BytecodeValue {
+	if elem >= 1 && c.anim != nil && int(elem) <= len(c.anim.frames) {
+		return BytecodeInt(c.anim.AnimElemTime(elem))
 	}
 	return BytecodeSF()
 }
@@ -4430,7 +4441,9 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 			case OC_ex2_explodvar_angle_y:
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
 			case OC_ex2_explodvar_animelem:
-				v = BytecodeInt(e.anim.current + 1)
+				v = BytecodeInt(e.anim.curelem + 1)
+			case OC_ex2_explodvar_animelemtime: // TODO: Is it worth using the same methods as the char here?
+				v = BytecodeInt(e.anim.curelemtime)
 			case OC_ex2_explodvar_bindtime:
 				v = BytecodeInt(e.bindtime)
 			case OC_ex2_explodvar_drawpal_group:
@@ -4504,7 +4517,7 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 			case OC_ex2_projvar_accel_z:
 				v = BytecodeFloat(p.accel[2] * p.localscl)
 			case OC_ex2_projvar_animelem:
-				v = BytecodeInt(p.ani.current + 1)
+				v = BytecodeInt(p.ani.curelem + 1)
 			case OC_ex2_projvar_drawpal_group:
 				v = BytecodeInt(c.projDrawPal(p)[0])
 			case OC_ex2_projvar_drawpal_index:

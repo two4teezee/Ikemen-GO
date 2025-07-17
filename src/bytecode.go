@@ -795,6 +795,7 @@ const (
 	OC_ex2_explodvar_angle_y
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
+	OC_ex2_explodvar_animelemtime
 	OC_ex2_explodvar_bindtime
 	OC_ex2_explodvar_drawpal_group
 	OC_ex2_explodvar_drawpal_index
@@ -3429,6 +3430,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_explodvar_animelem:
 		fallthrough
+	case OC_ex2_explodvar_animelemtime:
+		fallthrough
 	case OC_ex2_explodvar_drawpal_group:
 		fallthrough
 	case OC_ex2_explodvar_drawpal_index:
@@ -5607,6 +5610,7 @@ const (
 	explod_removeonchangestate
 	explod_trans
 	explod_animelem
+	explod_animelemtime
 	explod_animfreeze
 	explod_angle
 	explod_yangle
@@ -5676,6 +5680,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 			e.animNo = exp[1].evalI(c)
 			e.anim = crun.getAnim(e.animNo, ffx, true)
+			e.animelem = 1
+			e.animelemtime = 0
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5829,11 +5835,13 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case explod_animelem:
-			animelem := exp[0].evalI(c)
-			e.animelem = animelem
+			e.animelem = exp[0].evalI(c)
 			if e.anim != nil {
 				e.anim.Action() // This being in this place can cause a nil animation crash
 			}
+			e.setAnimElem()
+		case explod_animelemtime:
+			e.animelemtime = exp[0].evalI(c)
 			e.setAnimElem()
 		case explod_animfreeze:
 			e.animfreeze = exp[0].evalB(c)
@@ -6339,6 +6347,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					eachExpl(func(e *Explod) {
 						e.anim = anim
 						e.animNo = animNo
+						e.animelem = 1
+						e.animelemtime = 0
 					})
 				}
 			case explod_animelem:
@@ -6349,6 +6359,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					if e.anim != nil {
 						e.anim.Action() // This being in this place can cause a nil animation crash
 					}
+					e.setAnimElem()
+				})
+			case explod_animelemtime:
+				animelemtime := exp[0].evalI(c)
+				eachExpl(func(e *Explod) {
+					//e.interpolate_animelem[1] = -1 // TODO: Check animelemtime and interpolation interaction
+					e.animelemtime = animelemtime
 					e.setAnimElem()
 				})
 			case explod_animfreeze:

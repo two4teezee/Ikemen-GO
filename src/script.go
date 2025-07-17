@@ -3689,7 +3689,7 @@ func triggerFunctions(l *lua.LState) {
 				case "angle y":
 					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
 				case "animelem":
-					ln = lua.LNumber(e.anim.current + 1)
+					ln = lua.LNumber(e.anim.curelem + 1)
 				case "bindtime":
 					ln = lua.LNumber(e.bindtime)
 				case "drawpal group":
@@ -4645,7 +4645,7 @@ func triggerFunctions(l *lua.LState) {
 				case "anim":
 					lv = lua.LNumber(p.anim)
 				case "animelem":
-					lv = lua.LNumber(p.ani.current + 1)
+					lv = lua.LNumber(p.ani.curelem + 1)
 				case "angle":
 					lv = lua.LNumber(p.anglerot[0])
 				case "angle x":
@@ -5939,7 +5939,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "animtimesum", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.anim.sumtime))
+		l.Push(lua.LNumber(sys.debugWC.anim.curtime))
 		return 1
 	})
 	luaRegister(l, "continue", func(*lua.LState) int {

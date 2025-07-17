@@ -152,7 +152,7 @@ type Animation struct {
 	// Current frame
 	current                    int32
 	drawidx                    int32
-	time                       int32
+	elemtime                   int32
 	sumtime                    int32
 	totaltime                  int32
 	looptime                   int32
@@ -342,7 +342,7 @@ func ReadAction(sff *Sff, pal *PaletteList, lines []string, i *int) (no int32, a
 
 func (a *Animation) Reset() {
 	a.current, a.drawidx = 0, 0
-	a.time, a.sumtime = 0, 0
+	a.elemtime, a.sumtime = 0, 0
 	a.newframe, a.loopend = true, false
 	a.spr = nil
 }
@@ -370,7 +370,7 @@ func (a *Animation) AnimElemNo(time int32) int32 {
 	if len(a.frames) > 0 {
 		i, oldt := a.current, int32(0)
 		if time <= 0 {
-			time += a.time
+			time += a.elemtime
 			loop := false
 			for {
 				if time >= 0 {
@@ -391,7 +391,7 @@ func (a *Animation) AnimElemNo(time int32) int32 {
 				}
 			}
 		} else {
-			time += a.time
+			time += a.elemtime
 			for {
 				time -= Max(0, a.frames[i].Time)
 				if time < 0 || i == int32(len(a.frames))-1 && a.frames[i].Time == -1 {
@@ -429,7 +429,7 @@ func (a *Animation) drawFrame() *AnimFrame {
 	return &a.frames[a.drawidx]
 }
 
-func (a *Animation) SetAnimElem(elem int32) {
+func (a *Animation) SetAnimElem(elem, elemtime int32) {
 	a.current = Max(0, elem-1)
 	// If trying to set an element higher than the last one in the animation
 	if int(a.current) >= len(a.frames) {
@@ -442,11 +442,13 @@ func (a *Animation) SetAnimElem(elem int32) {
 		// Mugen merely sets the element to 1
 		a.current = 0
 	}
-	a.drawidx, a.time, a.newframe = a.current, 0, true
+	a.drawidx = a.current
+	a.elemtime = Clamp(elemtime, 0, Max(0, a.curFrame().Time-1))
+	a.newframe = true
 	a.UpdateSprite()
 	a.loopend = false
 	a.sumtime = 0 // Used within AnimElemTime
-	a.sumtime = -a.AnimElemTime(a.current + 1)
+	a.sumtime = -a.AnimElemTime(a.current + 1) + a.elemtime
 }
 
 func (a *Animation) animSeek(elem int32) {
@@ -484,14 +486,14 @@ func (a *Animation) UpdateSprite() {
 	}
 	if a.totaltime > 0 {
 		if a.sumtime >= a.totaltime {
-			a.time, a.newframe, a.current = 0, true, a.loopstart
+			a.elemtime, a.newframe, a.current = 0, true, a.loopstart
 		}
 		a.animSeek(a.current)
 		if a.prelooptime < 0 && a.sumtime >= a.totaltime+a.prelooptime &&
 			a.sumtime >= a.totaltime-a.looptime &&
 			(a.sumtime == a.totaltime+a.prelooptime ||
 				a.sumtime == a.totaltime-a.looptime) {
-			a.time, a.newframe, a.current = 0, true, 0
+			a.elemtime, a.newframe, a.current = 0, true, 0
 		}
 	}
 	if a.newframe && a.sff != nil && a.frames[a.current].Time != 0 {
@@ -520,8 +522,8 @@ func (a *Animation) UpdateSprite() {
 	}
 	for _, i := range a.interpolate_offset {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.time)
-			a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) / float32(a.curFrame().Time) * float32(a.time)
+			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.elemtime)
+			a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) / float32(a.curFrame().Time) * float32(a.elemtime)
 			break
 		}
 	}
@@ -535,8 +537,8 @@ func (a *Animation) UpdateSprite() {
 			nextframe_scale_x = a.frames[nextDrawidx].Xscale
 			nextframe_scale_y = a.frames[nextDrawidx].Yscale
 
-			a.scale_x += (nextframe_scale_x - drawframe_scale_x) / float32(a.curFrame().Time) * float32(a.time)
-			a.scale_y += (nextframe_scale_y - drawframe_scale_y) / float32(a.curFrame().Time) * float32(a.time)
+			a.scale_x += (nextframe_scale_x - drawframe_scale_x) / float32(a.curFrame().Time) * float32(a.elemtime)
+			a.scale_y += (nextframe_scale_y - drawframe_scale_y) / float32(a.curFrame().Time) * float32(a.elemtime)
 			break
 		}
 	}
@@ -549,7 +551,7 @@ func (a *Animation) UpdateSprite() {
 			drawframe_angle = a.frames[a.drawidx].Angle
 			nextframe_angle = a.frames[nextDrawidx].Angle
 
-			a.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.time)
+			a.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.elemtime)
 			break
 		}
 	}
@@ -557,8 +559,8 @@ func (a *Animation) UpdateSprite() {
 		byte(a.interpolate_blend_dstalpha) != 255 {
 		for _, i := range a.interpolate_blend {
 			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.time)
-				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.time)
+				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.elemtime)
+				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.elemtime)
 				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 255 {
 					a.interpolate_blend_srcalpha = 0
 				}
@@ -580,7 +582,7 @@ func (a *Animation) Action() {
 	a.UpdateSprite()
 	next := func() {
 		if a.totaltime != -1 || int(a.current) < len(a.frames)-1 {
-			a.time = 0
+			a.elemtime = 0
 			a.newframe = true
 			for {
 				a.current++
@@ -595,8 +597,8 @@ func (a *Animation) Action() {
 		next()
 	}
 	if int(a.current) < len(a.frames) {
-		a.time++
-		if a.time >= a.curFrame().Time {
+		a.elemtime++
+		if a.elemtime >= a.curFrame().Time {
 			next()
 			if int(a.current) >= len(a.frames) {
 				a.current = a.loopstart

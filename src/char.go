@@ -1432,7 +1432,7 @@ func (e *Explod) matchId(eid, pid int32) bool {
 
 func (e *Explod) setAnimElem() {
 	if e.anim != nil && e.animelem >= 1 {
-		e.anim.SetAnimElem(Clamp(e.animelem, 1, int32(len(e.anim.frames))))
+		e.anim.SetAnimElem(Clamp(e.animelem, 1, int32(len(e.anim.frames))), 0)
 	}
 }
 
@@ -3708,17 +3708,21 @@ func (c *Char) changeAnim2(animNo int32, playerNo int, ffx string) {
 	c.changeAnimEx(animNo, playerNo, ffx, true)
 }
 
-func (c *Char) setAnimElem(e int32) {
+func (c *Char) setAnimElem(elem, elemtime int32) {
 	if c.anim != nil {
-		c.anim.SetAnimElem(e)
-		c.updateCurFrame()
-		if int(e) < 0 {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to negative animelem"))
-		} else if int(e) > len(c.anim.frames) {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid animelem %v within action %v", e, c.animNo))
+		if elem < 1 || int(elem) > len(c.anim.frames) {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid animelem %v within action %v", elem, c.animNo))
+			return
 		}
+		if elemtime < 0 || elemtime >= c.anim.frames[elem-1].Time {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid time %v in animelem %v", elemtime, elem))
+			return
+		}
+		c.anim.SetAnimElem(elem, elemtime)
+		c.updateCurFrame()
 	}
 }
+
 
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {
@@ -5864,7 +5868,7 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 	if p.ani == nil && c.anim != nil {
 		p.ani = &Animation{}
 		*p.ani = *c.anim
-		p.ani.SetAnimElem(1)
+		p.ani.SetAnimElem(1, 0)
 		p.anim = c.animNo
 	}
 	if p.ani != nil {
@@ -6961,7 +6965,7 @@ func (c *Char) lifeSet(life int32) {
 		sys.lastHitter[^c.playerNo&1] = c.ghv.playerNo
 	}
 	// Disable red life. Placing this here makes it never lag behind life
-	if !sys.lifebar.redlifebar {
+	if !c.redLifeEnabled() {
 		c.redLife = c.life
 	}
 }
@@ -7006,7 +7010,7 @@ func (c *Char) dizzyPointsAdd(add float64, absolute bool) {
 }
 
 func (c *Char) dizzyPointsSet(set int32) {
-	if sys.lifebar.stunbar && !sys.roundNoDamage() {
+	if c.dizzyEnabled() && !sys.roundNoDamage() {
 		c.dizzyPoints = Clamp(set, 0, c.dizzyPointsMax)
 	}
 }
@@ -7024,7 +7028,7 @@ func (c *Char) guardPointsAdd(add float64, absolute bool) {
 }
 
 func (c *Char) guardPointsSet(set int32) {
-	if sys.lifebar.guardbar && !sys.roundNoDamage() {
+	if c.guardBreakEnabled() && !sys.roundNoDamage() {
 		c.guardPoints = Clamp(set, 0, c.guardPointsMax)
 	}
 }
@@ -7044,7 +7048,7 @@ func (c *Char) redLifeAdd(add float64, absolute bool) {
 func (c *Char) redLifeSet(set int32) {
 	if !c.alive() {
 		c.redLife = 0
-	} else if sys.lifebar.redlifebar && !sys.roundNoDamage() {
+	} else if c.redLifeEnabled() && !sys.roundNoDamage() {
 		c.redLife = Clamp(set, c.life, c.lifeMax)
 	}
 }
@@ -7082,6 +7086,60 @@ func (c *Char) consecutiveWins() int32 {
 		return 0
 	}
 	return sys.consecutiveWins[c.teamside]
+}
+
+func (c *Char) dizzyEnabled() bool {
+	return sys.lifebar.stunbar
+    /*
+    switch sys.tmode[c.playerNo&1] {
+    case TM_Single:
+        return sys.cfg.Options.Single.Dizzy
+    case TM_Simul:
+        return sys.cfg.Options.Simul.Dizzy
+    case TM_Tag:
+        return sys.cfg.Options.Tag.Dizzy
+    case TM_Turns:
+        return sys.cfg.Options.Turns.Dizzy
+    default:
+        return false
+    }
+	*/
+}
+
+func (c *Char) guardBreakEnabled() bool {
+	return sys.lifebar.guardbar
+    /*
+    switch sys.tmode[c.playerNo&1] {
+    case TM_Single:
+        return sys.cfg.Options.Single.GuardBreak
+    case TM_Simul:
+        return sys.cfg.Options.Simul.GuardBreak
+    case TM_Tag:
+        return sys.cfg.Options.Tag.GuardBreak
+    case TM_Turns:
+        return sys.cfg.Options.Turns.GuardBreak
+    default:
+        return false
+    }
+	*/
+}
+
+func (c *Char) redLifeEnabled() bool {
+	return sys.lifebar.redlifebar
+    /*
+	switch sys.tmode[c.playerNo&1] {
+    case TM_Single:
+        return sys.cfg.Options.Single.RedLife
+    case TM_Simul:
+        return sys.cfg.Options.Simul.RedLife
+    case TM_Tag:
+        return sys.cfg.Options.Tag.RedLife
+    case TM_Turns:
+        return sys.cfg.Options.Turns.RedLife
+    default:
+        return false
+    }
+	*/
 }
 
 func (c *Char) distX(opp *Char, oc *Char) float32 {
@@ -10644,7 +10702,7 @@ func (cl *CharList) commandUpdate() {
 					}
 					// Update commands
 					for i := range c.cmd {
-						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
+						extratime := Btoi(hpbuf || pausebuf)+Btoi(winbuf)
 						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
 						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}

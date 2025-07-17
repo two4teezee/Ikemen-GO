@@ -542,6 +542,10 @@ func (c *Compiler) changeAnimSub(is IniSection,
 		changeAnim_elem, VT_Int, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "elemtime",
+		changeAnim_elemtime, VT_Int, 1, false); err != nil {
+		return err
+	}
 	if err := c.stateParam(is, "value", true, func(data string) error {
 		prefix := c.getDataPrefix(&data, false)
 		return c.scAdd(sc, changeAnim_value, data, VT_Int, 1,

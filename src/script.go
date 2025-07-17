@@ -629,7 +629,7 @@ func systemScriptInit(l *lua.LState) {
 			}
 			c[0].changeAnim(an, c[0].playerNo, preffix)
 			if !nilArg(l, 2) {
-				c[0].setAnimElem(int32(numArg(l, 2)))
+				c[0].setAnimElem(int32(numArg(l, 2)), 0)
 			}
 			l.Push(lua.LBool(true))
 			return 1
@@ -6050,7 +6050,7 @@ func deprecatedFunctions(l *lua.LState) {
 				}
 				c[0].changeAnim(an, c[0].playerNo, preffix)
 				if l.GetTop() >= 3 {
-					c[0].setAnimElem(int32(numArg(l, 3)))
+					c[0].setAnimElem(int32(numArg(l, 3)), 0)
 				}
 				l.Push(lua.LBool(true))
 				return 1

@@ -4790,6 +4790,7 @@ type changeAnim StateControllerBase
 
 const (
 	changeAnim_elem byte = iota
+	changeAnim_elemtime
 	changeAnim_value
 	changeAnim_readplayerid
 	changeAnim_redirectid
@@ -4797,13 +4798,16 @@ const (
 
 func (sc changeAnim) Run(c *Char, _ []int32) bool {
 	crun := c
-	var elem int32
+	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
 			elem = exp[0].evalI(c)
+			setelem = true
+		case changeAnim_elemtime:
+			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
 			pn := crun.playerNo // Default to own player number
@@ -4812,7 +4816,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			}
 			crun.changeAnim(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 			if setelem {
-				crun.setAnimElem(elem)
+				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
@@ -4836,13 +4840,16 @@ type changeAnim2 changeAnim
 
 func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	crun := c
-	var elem int32
+	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
-			elem = exp[0].evalI(c)
+			elemtime = exp[0].evalI(c)
+			setelem = true
+		case changeAnim_elemtime:
+			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
 			pn := crun.ss.sb.playerNo // Default to state owner player number
@@ -4851,7 +4858,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 			}
 			crun.changeAnim2(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 			if setelem {
-				crun.setAnimElem(elem)
+				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {

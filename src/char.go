@@ -9888,7 +9888,7 @@ func (c *Char) track() {
 		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
 			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
 			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)
-			sys.cam.Pos[1] = 0
+			//sys.cam.Pos[1] = 0 // This doesn't seem necessary in the current state of the code
 			// Mugen ignores characters that have infinite position
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/1917
 		}

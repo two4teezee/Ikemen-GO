@@ -3720,18 +3720,29 @@ func (c *Char) changeAnim2(animNo int32, playerNo int, ffx string) {
 }
 
 func (c *Char) setAnimElem(elem, elemtime int32) {
-	if c.anim != nil {
-		if elem < 1 || int(elem) > len(c.anim.frames) {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid animelem %v within action %v", elem, c.animNo))
-			return
-		}
-		if elemtime < 0 || elemtime >= c.anim.frames[elem-1].Time {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid time %v in animelem %v", elemtime, elem))
-			return
-		}
-		c.anim.SetAnimElem(elem, elemtime)
-		c.updateCurFrame()
+	if c.anim == nil {
+		return
 	}
+
+	// These parameters are already validated in anim.SetAnimElem,
+	// but since we must check for error messages we might as well validate them here too
+
+	// Validate elem
+	if elem < 1 || int(elem) > len(c.anim.frames) {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid animelem %v within action %v", elem, c.animNo))
+		elem = 1
+		elemtime = 0
+	} else {
+		// Validate elemtime only if elem is valid
+		if elemtime < 0 || elemtime >= c.anim.frames[elem-1].Time {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid elemtime %v in animelem %v", elemtime, elem))
+			elemtime = 0
+		}
+	}
+
+	// Set them
+	c.anim.SetAnimElem(elem, elemtime)
+	c.updateCurFrame()
 }
 
 
@@ -4442,7 +4453,7 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
 			case OC_ex2_explodvar_animelem:
 				v = BytecodeInt(e.anim.curelem + 1)
-			case OC_ex2_explodvar_animelemtime: // TODO: Is it worth using the same methods as the char here?
+			case OC_ex2_explodvar_animelemtime:
 				v = BytecodeInt(e.anim.curelemtime)
 			case OC_ex2_explodvar_bindtime:
 				v = BytecodeInt(e.bindtime)

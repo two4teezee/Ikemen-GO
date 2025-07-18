@@ -442,11 +442,20 @@ func (a *Animation) SetAnimElem(elem, elemtime int32) {
 		a.curelem = 0
 	}
 	a.drawidx = a.curelem
-	a.curelemtime = Clamp(elemtime, 0, Max(0, a.curFrame().Time-1))
+
+	// Shortcut the most common elemtime
+	// Out of range elemtime is also set to 0, as with elem
+	if elemtime <= 0 || elemtime > a.frames[a.curelem].Time-1 {
+		a.curelemtime = 0
+	} else {
+		a.curelemtime = elemtime
+	}
+
 	a.newframe = true
-	a.UpdateSprite()
 	a.loopend = false
-	a.curtime = 0 // Used within AnimElemTime
+	a.UpdateSprite()
+
+	a.curtime = 0 // Used within AnimElemTime, so must be set to 0 first
 	a.curtime = -a.AnimElemTime(a.curelem + 1) + a.curelemtime
 }
 

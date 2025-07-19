@@ -771,9 +771,7 @@ func (hd *HitDef) testReversalAttr(attr int32) bool {
 }
 
 type GetHitVar struct {
-	hitBy [][2]int32
-	//hit1           [2]int32
-	//hit2           [2]int32
+	targetedBy          [][2]int32 // ID, current juggle
 	attr                int32
 	_type               HitType
 	animtype            Reaction
@@ -883,7 +881,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	guarddamage := ghv.guarddamage
 	guardpoints := ghv.guardpoints
 	guardpower := ghv.guardpower
-	hitBy := ghv.hitBy
+	targetedBy := ghv.targetedBy
 	hitcount := ghv.hitcount
 	hitdamage := ghv.hitdamage
 	hitpower := ghv.hitpower
@@ -904,7 +902,7 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	ghv.guarddamage = guarddamage
 	ghv.guardpoints = guardpoints
 	ghv.guardpower = guardpower
-	ghv.hitBy = hitBy
+	ghv.targetedBy = targetedBy
 	ghv.hitcount = hitcount
 	ghv.hitdamage = hitdamage
 	ghv.hitpower = hitpower
@@ -924,7 +922,7 @@ func (ghv GetHitVar) chainId() int32 {
 }
 
 func (ghv GetHitVar) idMatch(id int32) bool {
-	for _, v := range ghv.hitBy {
+	for _, v := range ghv.targetedBy {
 		if v[0] == id || v[0] == -id {
 			return true
 		}
@@ -933,7 +931,7 @@ func (ghv GetHitVar) idMatch(id int32) bool {
 }
 
 func (ghv GetHitVar) getJuggle(id, defaultJuggle int32) int32 {
-	for _, v := range ghv.hitBy {
+	for _, v := range ghv.targetedBy {
 		if v[0] == id {
 			return v[1]
 		}
@@ -942,9 +940,9 @@ func (ghv GetHitVar) getJuggle(id, defaultJuggle int32) int32 {
 }
 
 func (ghv *GetHitVar) dropId(id int32) {
-	for i, v := range ghv.hitBy {
+	for i, v := range ghv.targetedBy {
 		if v[0] == id {
-			ghv.hitBy = append(ghv.hitBy[:i], ghv.hitBy[i+1:]...)
+			ghv.targetedBy = append(ghv.targetedBy[:i], ghv.targetedBy[i+1:]...)
 			break
 		}
 	}
@@ -953,7 +951,7 @@ func (ghv *GetHitVar) dropId(id int32) {
 func (ghv *GetHitVar) addId(id, juggle int32) {
 	juggle = ghv.getJuggle(id, juggle)
 	ghv.dropId(id)
-	ghv.hitBy = append(ghv.hitBy, [...]int32{id, juggle})
+	ghv.targetedBy = append(ghv.targetedBy, [...]int32{id, juggle})
 }
 
 // Same as testAttr from HitDef
@@ -6110,13 +6108,9 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	// In Mugen, only projectiles can use air.juggle
 	// Ikemen characters can use it to update their StateDef juggle points
 	if hd.air_juggle == IErr {
-		if hd.isprojectile {
-			hd.air_juggle = 0
-		}
-	} else {
-		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
-			c.juggle = hd.air_juggle
-		}
+		hd.air_juggle = 0
+	} else if !hd.isprojectile && (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) {
+		c.juggle = hd.air_juggle
 	}
 }
 
@@ -8097,7 +8091,7 @@ func (c *Char) removeTarget(pid int32) {
 // Remove self from the target lists of other players
 func (c *Char) exitTarget() {
 	if c.hittmp >= 0 {
-		for _, hb := range c.ghv.hitBy {
+		for _, hb := range c.ghv.targetedBy {
 			if e := sys.playerID(hb[0]); e != nil {
 				if e.hitdef.reversal_attr == 0 || e.hitdef.reversal_attr == -1<<31 {
 					e.removeTarget(c.id)
@@ -8108,7 +8102,7 @@ func (c *Char) exitTarget() {
 		}
 		c.gethitBindClear()
 	}
-	c.ghv.hitBy = c.ghv.hitBy[:0]
+	c.ghv.targetedBy = c.ghv.targetedBy[:0]
 }
 
 func (c *Char) offsetX() float32 {
@@ -8416,7 +8410,7 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	if c.unhittableTime > 0 || ghd.chainid >= 0 && c.ghv.hitid != ghd.chainid && ghd.nochainid[0] == -1 {
 		return false
 	}
-	if (len(c.ghv.hitBy) > 0 && c.ghv.hitBy[len(c.ghv.hitBy)-1][0] == getter.id) || c.ghv.hitshaketime > 0 { // https://github.com/ikemen-engine/Ikemen-GO/issues/320
+	if (len(c.ghv.targetedBy) > 0 && c.ghv.targetedBy[len(c.ghv.targetedBy)-1][0] == getter.id) || c.ghv.hitshaketime > 0 { // https://github.com/ikemen-engine/Ikemen-GO/issues/320
 		for _, nci := range ghd.nochainid {
 			if nci >= 0 && c.ghv.hitid == nci && c.ghv.playerId == ghd.attackerID {
 				return false
@@ -9337,13 +9331,13 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		sendJuggle := func(origin *Char) {
 			origin.addTarget(getter.id)
 			jg := origin.gi().data.airjuggle
-			for _, v := range getter.ghv.hitBy {
+			for _, v := range getter.ghv.targetedBy {
 				if len(v) >= 2 && (v[0] == origin.id || v[0] == c.id) && v[1] < jg {
 					jg = v[1]
 				}
 			}
 			getter.ghv.dropId(origin.id)
-			getter.ghv.hitBy = append(getter.ghv.hitBy, [...]int32{origin.id, jg - c.juggle})
+			getter.ghv.targetedBy = append(getter.ghv.targetedBy, [...]int32{origin.id, jg - c.juggle})
 		}
 		if c.inheritJuggle == 1 && c.parent(false) != nil {
 			sendJuggle(c.parent(false))
@@ -9378,7 +9372,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2287
 		if getter.prevfallflag || getter.ghv.fallflag {
 			if !c.asf(ASF_nojugglecheck) {
-				jug := &getter.ghv.hitBy[len(getter.ghv.hitBy)-1][1]
+				jug := &getter.ghv.targetedBy[len(getter.ghv.targetedBy)-1][1]
 				if isProjectile {
 					*jug -= hd.air_juggle
 				} else {
@@ -9387,7 +9381,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 			// Juggle cost is reset regardless of NoJuggleCheck
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/1905
-			c.juggle = 0
+			if !isProjectile {
+				c.juggle = 0
+			}
 		}
 		if hd.palfx.time > 0 && getter.palfx != nil {
 			getter.palfx.clear2(true)
@@ -10951,14 +10947,14 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 			if c.helperIndex != 0 {
 				// Inherit parent's or root's juggle points
 				if c.inheritJuggle == 1 && c.parent(false) != nil {
-					for _, v := range getter.ghv.hitBy {
+					for _, v := range getter.ghv.targetedBy {
 						if v[0] == c.parent(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break
 						}
 					}
 				} else if c.inheritJuggle == 2 && c.root(false) != nil {
-					for _, v := range getter.ghv.hitBy {
+					for _, v := range getter.ghv.targetedBy {
 						if v[0] == c.root(false).id {
 							getter.ghv.addId(c.id, v[1])
 							break

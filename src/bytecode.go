@@ -10228,7 +10228,7 @@ func (sc hitFallSet) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case hitFallSet_value:
 			f = exp[0].evalI(c)
-			if len(crun.ghv.hitBy) == 0 {
+			if len(crun.ghv.targetedBy) == 0 {
 				return false
 			}
 		case hitFallSet_xvel:
@@ -13222,14 +13222,14 @@ func (sc targetAdd) Run(c *Char, _ []int32) bool {
 						// Add char to target's "hit by" list
 						// Keep juggle points if target already exists
 						jug := crun.gi().data.airjuggle
-						for _, v := range sys.chars[i][j].ghv.hitBy {
+						for _, v := range sys.chars[i][j].ghv.targetedBy {
 							if v[0] == crun.id {
 								jug = v[1]
 							}
 						}
 						// Remove then readd char to the list with the new juggle points
 						sys.chars[i][j].ghv.dropId(crun.id)
-						sys.chars[i][j].ghv.hitBy = append(sys.chars[i][j].ghv.hitBy, [...]int32{crun.id, jug})
+						sys.chars[i][j].ghv.targetedBy = append(sys.chars[i][j].ghv.targetedBy, [...]int32{crun.id, jug})
 						done = true
 						break
 					}
@@ -13540,19 +13540,32 @@ func newStateBytecode(pn int) *StateBytecode {
 }
 
 func (sb *StateBytecode) init(c *Char) {
+	// StateType
 	if sb.stateType != ST_U {
 		c.ss.changeStateType(sb.stateType)
 	}
+
+	// MoveType
 	if sb.moveType != MT_U {
 		if !c.ss.storeMoveType {
 			c.ss.prevMoveType = c.ss.moveType
 		}
 		c.ss.moveType = sb.moveType
 	}
+	c.ss.storeMoveType = false
+
+	// Physics
 	if sb.physics != ST_U {
 		c.ss.physics = sb.physics
 	}
-	c.ss.storeMoveType = false
+
+	// Reset juggle points
+	// Mugen doesn't do this, but since most people forget it the engine should handle it
+	if c.ss.moveType != MT_A {
+		c.juggle = 0
+	}
+
+	// Rest of StateDef
 	sys.workingState = sb
 	sb.stateDef.Run(c)
 }

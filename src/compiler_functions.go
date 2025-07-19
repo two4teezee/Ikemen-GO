@@ -2213,6 +2213,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_guard_sparkscale, VT_Float, 2, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "unhittabletime",
+		hitDef_unhittabletime, VT_Int, 2, false); err != nil {
+		return err
+	}
 	return nil
 }
 

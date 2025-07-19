@@ -633,6 +633,7 @@ type HitDef struct {
 	p2clsncheck                int32
 	p2clsnrequire              int32
 	attack_depth               [2]float32
+	unhittabletime             [2]int32
 }
 
 func (hd *HitDef) clear(c *Char, localscl float32) {
@@ -741,6 +742,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		fall_envshake_mul:   1.0,
 		fall_envshake_dir:   0.0,
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
+		unhittabletime:      [2]int32{IErr, IErr},
 	}
 
 	// PalFX
@@ -6090,8 +6092,23 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 		}
 	}
 
+	if hd.unhittabletime[0] == IErr || hd.unhittabletime[1] == IErr {
+		// In Mugen, Reversaldef makes the target invincible for 1 frame (but not the attacker)
+		if hd.reversal_attr != 0 {
+			hd.unhittabletime[1] = 1
+		}
+		// In Mugen, a throw attribute sets this to 1 for both p1 and p2
+		if hd.attr&int32(AT_AT) != 0 {
+			hd.unhittabletime[0] = 1
+			hd.unhittabletime[1] = 1
+		}
+		// Defaults
+		ifierrset(&hd.unhittabletime[0], 0)
+		ifierrset(&hd.unhittabletime[1], 0)
+	}
+
 	// In Mugen, only projectiles can use air.juggle
-	// Ikemen characters can use it to update their juggle points
+	// Ikemen characters can use it to update their StateDef juggle points
 	if hd.air_juggle == IErr {
 		if hd.isprojectile {
 			hd.air_juggle = 0
@@ -8537,7 +8554,9 @@ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj boo
 		case ghd.prioritytype == TT_Miss:
 			return !countercheck(&c.hitdef)
 		case c.hitdef.prioritytype == TT_Hit:
-			if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
+			// if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
+			// Since the unhittabletime is what's behind needing to randomize throws, we will check it instead
+			if (c.hitdef.unhittabletime[0] != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
 				c.atktmp = -1
 				return getter.atktmp < 0 || Rand(0, 1) == 1
 			}
@@ -8836,6 +8855,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.forcestand = hd.forcestand != 0
 				ghv.forcecrouch = hd.forcecrouch != 0
 				getter.fallTime = 0
+
+				if hd.unhittabletime[1] >= 0 {
+					getter.unhittableTime = hd.unhittabletime[1]
+				}
 
 				// Fall group
 				ghv.fall_xvelocity = hd.fall_xvelocity * scaleratio
@@ -10980,10 +11003,12 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 							}
 							// Successful ReversalDef
 							if c.hitdef.reversal_attr > 0 {
+								c.powerAdd(c.hitdef.hitgetpower)
+
 								// Precompute localcoord conversion factor
 								scaleratio := c.localscl / getter.localscl
+
 								// ReversalDef seems to set an arbitrary collection of get hit variables in Mugen
-								c.powerAdd(c.hitdef.hitgetpower)
 								getter.hitdef.hitflag = 0
 								getter.mctype = MC_Reversed
 								getter.mctime = -1
@@ -10992,7 +11017,10 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								getter.mhv.playerId = c.id
 								getter.mhv.playerNo = c.playerNo
 								getter.hitdef.hitonce = -1 // Neutralize Hitdef
-								getter.unhittableTime = 1  // Reversaldef makes the target invincible for 1 frame (but not the attacker)
+
+								if c.hitdef.unhittabletime[1] >= 0 {
+									getter.unhittableTime = c.hitdef.unhittabletime[1] // 1
+								}
 
 								// Clear GetHitVars while stacking those that need it
 								getter.ghv.selectiveClear(getter)
@@ -11067,6 +11095,9 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 						c.mhv.frame = true
 						c.mhv.playerId = getter.id
 						c.mhv.playerNo = getter.playerNo
+						if c.hitdef.unhittabletime[0] >= 0 {
+							c.unhittableTime = c.hitdef.unhittabletime[0]
+						}
 					}
 				}
 			}
@@ -11092,8 +11123,9 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 		ap_projhit := false
 
 		// Save root's atktmp var so we can temporarily modify it
-		orgatktmp := c.atktmp
-		c.atktmp = -1
+		// Maybe this is no longer necessary
+		//orgatktmp := c.atktmp
+		//c.atktmp = -1
 
 		for j := range sys.projs[i] {
 			p := &sys.projs[i][j]
@@ -11206,11 +11238,12 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
 				getter.hittableByChar(c, &p.hitdef, ST_N, true) {
 
-				// Save enemy's atktmp var so we can temporarily modify it
-				orghittmp := getter.hittmp
-				if getter.csf(CSF_gethit) {
-					getter.hittmp = int8(Btoi(getter.ghv.fallflag)) + 1
-				}
+				// Save enemy's hittmp var so we can temporarily modify it
+				// Maybe this is no longer necessary
+				//orghittmp := getter.hittmp
+				//if getter.csf(CSF_gethit) {
+				//	getter.hittmp = int8(Btoi(getter.ghv.fallflag)) + 1
+				//}
 
 				if getter.projClsnCheck(p, p.hitdef.p2clsncheck, 1, false) &&
 					sys.zAxisOverlap(p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl,
@@ -11236,12 +11269,12 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 					}
 				}
 				// Restore enemy's hittmp var
-				getter.hittmp = orghittmp
+				//getter.hittmp = orghittmp
 			}
 		}
 
 		// Restore root's atktmp var
-		c.atktmp = orgatktmp
+		//c.atktmp = orgatktmp
 	}
 }
 

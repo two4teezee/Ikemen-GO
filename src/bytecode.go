@@ -6802,6 +6802,7 @@ const (
 	hitDef_attack_depth
 	hitDef_sparkscale
 	hitDef_guard_sparkscale
+	hitDef_unhittabletime
 	hitDef_last = iota + afterImage_last + 1 - 1
 	hitDef_redirectid
 )
@@ -7166,6 +7167,11 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.guard_sparkscale[0] = exp[0].evalF(c)
 		if len(exp) > 1 {
 			hd.guard_sparkscale[1] = exp[1].evalF(c)
+		}
+	case hitDef_unhittabletime:
+		hd.unhittabletime[0] = exp[0].evalI(c)
+		if len(exp) > 1 {
+			hd.unhittabletime[1] = exp[1].evalI(c)
 		}
 	default:
 		if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {

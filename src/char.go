@@ -10967,10 +10967,20 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 				}
 			}
 
+			// In Mugen, you can no longer hit a standing target if you don't have enough points
+			// In Mugen, you can juggle any enemy if they're not your target yet
+			// If IkemenVersion, the rules are a little more consistent
+			canjuggle := false
+			if c.asf(ASF_nojugglecheck) ||
+				c.juggle <= getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) ||
+				(c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0) && getter.hittmp < 2 ||
+				(c.gi().ikemenver[0] == 0 && c.gi().ikemenver[1] == 0 && !c.hasTarget(getter.id)) {
+				canjuggle = true
+			}
+
 			// If getter can be hit by this Hitdef
-			if c.hitdef.hitonce >= 0 && !c.hasTargetOfHitdef(getter.id) &&
+			if canjuggle && c.hitdef.hitonce >= 0 && !c.hasTargetOfHitdef(getter.id) &&
 				(c.hitdef.reversal_attr <= 0 || !getter.hasTargetOfHitdef(c.id)) &&
-				(getter.hittmp < 2 || c.asf(ASF_nojugglecheck) || !c.hasTarget(getter.id) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= c.juggle) &&
 				getter.hittableByChar(c, &c.hitdef, c.ss.stateType, false) {
 
 				// Z axis check
@@ -11231,9 +11241,17 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				continue
 			}
 
-			if !(getter.stchtmp && (getter.csf(CSF_gethit) || getter.acttmp > 0)) &&
-				// Projectiles always check juggle points even if the enemy is not already a target
-				(c.asf(ASF_nojugglecheck) || getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) >= p.hitdef.air_juggle) &&
+			// Projectile juggling is a little different from player juggling
+			// In Mugen, they check juggle points even if the enemy is not yet a target or even falling at all
+			// IkemenVersion once again makes the logic more consistent
+			canjuggle := false
+			if c.asf(ASF_nojugglecheck) ||
+				(c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0) && getter.hittmp < 2 ||
+				p.hitdef.air_juggle <= getter.ghv.getJuggle(c.id, c.gi().data.airjuggle) {
+				canjuggle = true
+			}
+
+			if canjuggle && !(getter.stchtmp && (getter.csf(CSF_gethit) || getter.acttmp > 0)) && 
 				(!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
 				(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
 				getter.hittableByChar(c, &p.hitdef, ST_N, true) {

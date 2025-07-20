@@ -9978,6 +9978,7 @@ func (c *Char) tick() {
 				c.selfState(5050, -1, -1, -1, "")
 				c.gethitBindClear()
 			} else if !bt.pause() {
+				//setBindTime is not used here because the CSF_destroy flag may be enabled in a frame with BindTime=0. If bindTime becomes 0, the setBindTime processing will be performed later
 				c.bindTime -= 1
 				//c.setBindTime(c.bindTime - 1)
 			}

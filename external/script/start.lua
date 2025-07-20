@@ -4146,7 +4146,7 @@ function start.f_stageMusic()
 		didLoadStageBGM = false
 	end
 	-- bgmusic / bgmusic.roundX / bgmusic.final
-	if (stagetime() > 0 and not didLoadStageBGM) then
+	if (stagetime() > 0 and not didLoadStageBGM and roundstate() <= 2) then
 		-- only if the round is not restarted
 		if start.bgmround ~= roundno() then
 			start.bgmround = roundno()

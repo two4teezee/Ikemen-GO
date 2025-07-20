@@ -9978,8 +9978,8 @@ func (c *Char) tick() {
 				c.selfState(5050, -1, -1, -1, "")
 				c.gethitBindClear()
 			} else if !bt.pause() {
-				// c.bindTime -= 1
-				c.setBindTime(c.bindTime - 1)
+				c.bindTime -= 1
+				//c.setBindTime(c.bindTime - 1)
 			}
 		} else {
 			if !c.pause() {

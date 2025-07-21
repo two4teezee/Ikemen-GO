@@ -1364,8 +1364,8 @@ func (nc *NetConnection) Update() bool {
 				nc.buf[nc.locIn].curT = nc.time
 				nc.buf[nc.remIn].curT = nc.time
 				if nc.rep != nil {
-					for _, nb := range nc.buf {
-						binary.Write(nc.rep, binary.LittleEndian, &nb.buf[nc.time&31])
+					for i := 0; i < MaxSimul*2; i++ {
+						binary.Write(nc.rep, binary.LittleEndian, &nc.buf[i].buf[nc.time&31])
 					}
 				}
 				nc.time++
@@ -1437,9 +1437,14 @@ func (rf *ReplayFile) Update() bool {
 	if rf.f == nil {
 		sys.esc = true
 	} else {
-		if sys.oldNextAddTime > 0 &&
-			binary.Read(rf.f, binary.LittleEndian, rf.ibit[:]) != nil {
-			sys.esc = true
+		if sys.oldNextAddTime > 0 {
+			for i := range rf.ibit {
+				rf.ibit[i] = 0
+			}
+			err := binary.Read(rf.f, binary.LittleEndian, rf.ibit[:MaxSimul*2])
+			if err != nil {
+				sys.esc = true
+			}
 		}
 		if sys.esc {
 			rf.Close()

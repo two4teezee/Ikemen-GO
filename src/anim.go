@@ -149,11 +149,10 @@ type Animation struct {
 	interpolate_scale  []int32
 	interpolate_angle  []int32
 	interpolate_blend  []int32
-	// Current frame
-	current                    int32
+	curtime                    int32
+	curelem                    int32
+	curelemtime                int32
 	drawidx                    int32
-	time                       int32
-	sumtime                    int32
 	totaltime                  int32
 	looptime                   int32
 	prelooptime                int32
@@ -341,14 +340,14 @@ func ReadAction(sff *Sff, pal *PaletteList, lines []string, i *int) (no int32, a
 }
 
 func (a *Animation) Reset() {
-	a.current, a.drawidx = 0, 0
-	a.time, a.sumtime = 0, 0
+	a.curelem, a.drawidx = 0, 0
+	a.curelemtime, a.curtime = 0, 0
 	a.newframe, a.loopend = true, false
 	a.spr = nil
 }
 
 func (a *Animation) AnimTime() int32 {
-	return a.sumtime - a.totaltime
+	return a.curtime - a.totaltime
 }
 
 func (a *Animation) AnimElemTime(elem int32) int32 {
@@ -359,7 +358,7 @@ func (a *Animation) AnimElemTime(elem int32) int32 {
 		}
 		return t
 	}
-	e, t := Max(0, elem)-1, a.sumtime
+	e, t := Max(0, elem)-1, a.curtime
 	for i := int32(0); i < e; i++ {
 		t -= Max(0, a.frames[i].Time)
 	}
@@ -368,16 +367,16 @@ func (a *Animation) AnimElemTime(elem int32) int32 {
 
 func (a *Animation) AnimElemNo(time int32) int32 {
 	if len(a.frames) > 0 {
-		i, oldt := a.current, int32(0)
+		i, oldt := a.curelem, int32(0)
 		if time <= 0 {
-			time += a.time
+			time += a.curelemtime
 			loop := false
 			for {
 				if time >= 0 {
 					return i + 1
 				}
 				i--
-				if i < 0 || a.current >= a.loopstart && i < a.loopstart {
+				if i < 0 || a.curelem >= a.loopstart && i < a.loopstart {
 					if time == oldt {
 						break
 					}
@@ -391,7 +390,7 @@ func (a *Animation) AnimElemNo(time int32) int32 {
 				}
 			}
 		} else {
-			time += a.time
+			time += a.curelemtime
 			for {
 				time -= Max(0, a.frames[i].Time)
 				if time < 0 || i == int32(len(a.frames))-1 && a.frames[i].Time == -1 {
@@ -412,7 +411,7 @@ func (a *Animation) AnimElemNo(time int32) int32 {
 }
 
 func (a *Animation) curFrame() *AnimFrame {
-	return &a.frames[a.current]
+	return &a.frames[a.curelem]
 }
 
 func (a *Animation) CurrentFrame() *AnimFrame {
@@ -429,10 +428,10 @@ func (a *Animation) drawFrame() *AnimFrame {
 	return &a.frames[a.drawidx]
 }
 
-func (a *Animation) SetAnimElem(elem int32) {
-	a.current = Max(0, elem-1)
+func (a *Animation) SetAnimElem(elem, elemtime int32) {
+	a.curelem = Max(0, elem-1)
 	// If trying to set an element higher than the last one in the animation
-	if int(a.current) >= len(a.frames) {
+	if int(a.curelem) >= len(a.frames) {
 		//if a.totaltime == -1 {
 		//	a.current = int32(len(a.frames)) - 1
 		//} else if int32(len(a.frames))-a.loopstart > 0 { // Prevent division by zero crash
@@ -440,13 +439,24 @@ func (a *Animation) SetAnimElem(elem int32) {
 		//		(a.current-a.loopstart)%(int32(len(a.frames))-a.loopstart)
 		//}
 		// Mugen merely sets the element to 1
-		a.current = 0
+		a.curelem = 0
 	}
-	a.drawidx, a.time, a.newframe = a.current, 0, true
-	a.UpdateSprite()
+	a.drawidx = a.curelem
+
+	// Shortcut the most common elemtime
+	// Out of range elemtime is also set to 0, as with elem
+	if elemtime <= 0 || elemtime > a.frames[a.curelem].Time-1 {
+		a.curelemtime = 0
+	} else {
+		a.curelemtime = elemtime
+	}
+
+	a.newframe = true
 	a.loopend = false
-	a.sumtime = 0 // Used within AnimElemTime
-	a.sumtime = -a.AnimElemTime(a.current + 1)
+	a.UpdateSprite()
+
+	a.curtime = 0 // Used within AnimElemTime, so must be set to 0 first
+	a.curtime = -a.AnimElemTime(a.curelem + 1) + a.curelemtime
 }
 
 func (a *Animation) animSeek(elem int32) {
@@ -455,26 +465,26 @@ func (a *Animation) animSeek(elem int32) {
 	}
 	foo := true
 	for {
-		a.current = elem
-		for int(a.current) < len(a.frames) && a.curFrame().Time <= 0 {
-			if int(a.current) == len(a.frames)-1 && a.curFrame().Time == -1 {
+		a.curelem = elem
+		for int(a.curelem) < len(a.frames) && a.curFrame().Time <= 0 {
+			if int(a.curelem) == len(a.frames)-1 && a.curFrame().Time == -1 {
 				break
 			}
-			a.current++
+			a.curelem++
 		}
-		if int(a.current) < len(a.frames) {
+		if int(a.curelem) < len(a.frames) {
 			break
 		}
 		foo = !foo
 		if foo {
-			a.current = int32(len(a.frames) - 1)
+			a.curelem = int32(len(a.frames) - 1)
 			break
 		}
 	}
-	if a.current < 0 {
-		a.current = 0
-	} else if int(a.current) >= len(a.frames) {
-		a.current = int32(len(a.frames) - 1)
+	if a.curelem < 0 {
+		a.curelem = 0
+	} else if int(a.curelem) >= len(a.frames) {
+		a.curelem = int32(len(a.frames) - 1)
 	}
 }
 
@@ -483,18 +493,20 @@ func (a *Animation) UpdateSprite() {
 		return
 	}
 	if a.totaltime > 0 {
-		if a.sumtime >= a.totaltime {
-			a.time, a.newframe, a.current = 0, true, a.loopstart
+		if a.curtime >= a.totaltime {
+			a.curelemtime, a.newframe, a.curelem = 0, true, a.loopstart
 		}
-		a.animSeek(a.current)
-		if a.prelooptime < 0 && a.sumtime >= a.totaltime+a.prelooptime &&
-			a.sumtime >= a.totaltime-a.looptime &&
-			(a.sumtime == a.totaltime+a.prelooptime ||
-				a.sumtime == a.totaltime-a.looptime) {
-			a.time, a.newframe, a.current = 0, true, 0
+		a.animSeek(a.curelem)
+		if a.prelooptime < 0 && a.curtime >= a.totaltime+a.prelooptime &&
+			a.curtime >= a.totaltime-a.looptime &&
+			(a.curtime == a.totaltime+a.prelooptime ||
+				a.curtime == a.totaltime-a.looptime) {
+			a.curelemtime = 0
+			a.newframe = true
+			a.curelem = 0
 		}
 	}
-	if a.newframe && a.sff != nil && a.frames[a.current].Time != 0 {
+	if a.newframe && a.sff != nil && a.frames[a.curelem].Time != 0 {
 		group, number := a.curFrame().Group, a.curFrame().Number
 		if mg, ok := a.remap[group]; ok {
 			if mn, ok := mg[number]; ok {
@@ -503,7 +515,7 @@ func (a *Animation) UpdateSprite() {
 		}
 		a.spr = a.sff.GetSprite(group, number)
 	}
-	a.newframe, a.drawidx = false, a.current
+	a.newframe, a.drawidx = false, a.curelem
 
 	a.scale_x = a.frames[a.drawidx].Xscale
 	a.scale_y = a.frames[a.drawidx].Yscale
@@ -520,8 +532,8 @@ func (a *Animation) UpdateSprite() {
 	}
 	for _, i := range a.interpolate_offset {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.time)
-			a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) / float32(a.curFrame().Time) * float32(a.time)
+			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
 			break
 		}
 	}
@@ -535,8 +547,8 @@ func (a *Animation) UpdateSprite() {
 			nextframe_scale_x = a.frames[nextDrawidx].Xscale
 			nextframe_scale_y = a.frames[nextDrawidx].Yscale
 
-			a.scale_x += (nextframe_scale_x - drawframe_scale_x) / float32(a.curFrame().Time) * float32(a.time)
-			a.scale_y += (nextframe_scale_y - drawframe_scale_y) / float32(a.curFrame().Time) * float32(a.time)
+			a.scale_x += (nextframe_scale_x - drawframe_scale_x) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			a.scale_y += (nextframe_scale_y - drawframe_scale_y) / float32(a.curFrame().Time) * float32(a.curelemtime)
 			break
 		}
 	}
@@ -549,7 +561,7 @@ func (a *Animation) UpdateSprite() {
 			drawframe_angle = a.frames[a.drawidx].Angle
 			nextframe_angle = a.frames[nextDrawidx].Angle
 
-			a.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.time)
+			a.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.curelemtime)
 			break
 		}
 	}
@@ -557,8 +569,8 @@ func (a *Animation) UpdateSprite() {
 		byte(a.interpolate_blend_dstalpha) != 255 {
 		for _, i := range a.interpolate_blend {
 			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.time)
-				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.time)
+				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
+				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
 				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 255 {
 					a.interpolate_blend_srcalpha = 0
 				}
@@ -579,13 +591,13 @@ func (a *Animation) Action() {
 	}
 	a.UpdateSprite()
 	next := func() {
-		if a.totaltime != -1 || int(a.current) < len(a.frames)-1 {
-			a.time = 0
+		if a.totaltime != -1 || int(a.curelem) < len(a.frames)-1 {
+			a.curelemtime = 0
 			a.newframe = true
 			for {
-				a.current++
-				if a.totaltime == -1 && int(a.current) == len(a.frames)-1 ||
-					int(a.current) >= len(a.frames) || a.curFrame().Time > 0 {
+				a.curelem++
+				if a.totaltime == -1 && int(a.curelem) == len(a.frames)-1 ||
+					int(a.curelem) >= len(a.frames) || a.curFrame().Time > 0 {
 					break
 				}
 			}
@@ -594,22 +606,22 @@ func (a *Animation) Action() {
 	if a.curFrame().Time <= 0 {
 		next()
 	}
-	if int(a.current) < len(a.frames) {
-		a.time++
-		if a.time >= a.curFrame().Time {
+	if int(a.curelem) < len(a.frames) {
+		a.curelemtime++
+		if a.curelemtime >= a.curFrame().Time {
 			next()
-			if int(a.current) >= len(a.frames) {
-				a.current = a.loopstart
+			if int(a.curelem) >= len(a.frames) {
+				a.curelem = a.loopstart
 			}
 		}
 	} else {
-		a.current = a.loopstart
+		a.curelem = a.loopstart
 	}
-	if a.totaltime != -1 && a.sumtime >= a.totaltime {
-		a.sumtime = a.totaltime - a.looptime
+	if a.totaltime != -1 && a.curtime >= a.totaltime {
+		a.curtime = a.totaltime - a.looptime
 	}
-	a.sumtime++
-	if a.totaltime != -1 && a.sumtime >= a.totaltime {
+	a.curtime++
+	if a.totaltime != -1 && a.curtime >= a.totaltime {
 		a.loopend = true
 	}
 }

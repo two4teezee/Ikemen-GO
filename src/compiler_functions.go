@@ -542,6 +542,10 @@ func (c *Compiler) changeAnimSub(is IniSection,
 		changeAnim_elem, VT_Int, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "elemtime",
+		changeAnim_elemtime, VT_Int, 1, false); err != nil {
+		return err
+	}
 	if err := c.stateParam(is, "value", true, func(data string) error {
 		prefix := c.getDataPrefix(&data, false)
 		return c.scAdd(sc, changeAnim_value, data, VT_Int, 1,
@@ -982,6 +986,10 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_animelem, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animelemtime",
+			explod_animelemtime, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "animfreeze",
 			explod_animfreeze, VT_Bool, 1, false); err != nil {
 			return err
@@ -1040,6 +1048,10 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "animelem",
 			explod_animelem, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "animelemtime",
+			explod_animelemtime, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "animfreeze",
@@ -2199,6 +2211,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.paramValue(is, sc, "guard.sparkscale",
 		hitDef_guard_sparkscale, VT_Float, 2, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "unhittabletime",
+		hitDef_unhittabletime, VT_Int, 2, false); err != nil {
 		return err
 	}
 	return nil
@@ -5869,6 +5885,10 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.paramValue(is, sc, "supermovetime",
 			modifyPlayer_supermovetime, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "unhittabletime",
+			modifyPlayer_unhittabletime, VT_Int, 1, false); err != nil {
 			return err
 		}
 		return nil

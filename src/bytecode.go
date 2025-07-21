@@ -795,6 +795,7 @@ const (
 	OC_ex2_explodvar_angle_y
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
+	OC_ex2_explodvar_animelemtime
 	OC_ex2_explodvar_bindtime
 	OC_ex2_explodvar_drawpal_group
 	OC_ex2_explodvar_drawpal_index
@@ -3429,6 +3430,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_explodvar_animelem:
 		fallthrough
+	case OC_ex2_explodvar_animelemtime:
+		fallthrough
 	case OC_ex2_explodvar_drawpal_group:
 		fallthrough
 	case OC_ex2_explodvar_drawpal_index:
@@ -4790,6 +4793,7 @@ type changeAnim StateControllerBase
 
 const (
 	changeAnim_elem byte = iota
+	changeAnim_elemtime
 	changeAnim_value
 	changeAnim_readplayerid
 	changeAnim_redirectid
@@ -4797,13 +4801,16 @@ const (
 
 func (sc changeAnim) Run(c *Char, _ []int32) bool {
 	crun := c
-	var elem int32
+	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
 			elem = exp[0].evalI(c)
+			setelem = true
+		case changeAnim_elemtime:
+			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
 			pn := crun.playerNo // Default to own player number
@@ -4812,7 +4819,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			}
 			crun.changeAnim(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 			if setelem {
-				crun.setAnimElem(elem)
+				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
@@ -4836,13 +4843,16 @@ type changeAnim2 changeAnim
 
 func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	crun := c
-	var elem int32
+	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
-			elem = exp[0].evalI(c)
+			elemtime = exp[0].evalI(c)
+			setelem = true
+		case changeAnim_elemtime:
+			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
 			pn := crun.ss.sb.playerNo // Default to state owner player number
@@ -4851,7 +4861,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 			}
 			crun.changeAnim2(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 			if setelem {
-				crun.setAnimElem(elem)
+				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
@@ -5600,6 +5610,7 @@ const (
 	explod_removeonchangestate
 	explod_trans
 	explod_animelem
+	explod_animelemtime
 	explod_animfreeze
 	explod_angle
 	explod_yangle
@@ -5669,6 +5680,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 			e.animNo = exp[1].evalI(c)
 			e.anim = crun.getAnim(e.animNo, ffx, true)
+			e.animelem = 1
+			e.animelemtime = 0
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5822,11 +5835,13 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case explod_animelem:
-			animelem := exp[0].evalI(c)
-			e.animelem = animelem
+			e.animelem = exp[0].evalI(c)
 			if e.anim != nil {
 				e.anim.Action() // This being in this place can cause a nil animation crash
 			}
+			e.setAnimElem()
+		case explod_animelemtime:
+			e.animelemtime = exp[0].evalI(c)
 			e.setAnimElem()
 		case explod_animfreeze:
 			e.animfreeze = exp[0].evalB(c)
@@ -6332,6 +6347,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					eachExpl(func(e *Explod) {
 						e.anim = anim
 						e.animNo = animNo
+						e.animelem = 1
+						e.animelemtime = 0
 					})
 				}
 			case explod_animelem:
@@ -6342,6 +6359,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					if e.anim != nil {
 						e.anim.Action() // This being in this place can cause a nil animation crash
 					}
+					e.setAnimElem()
+				})
+			case explod_animelemtime:
+				animelemtime := exp[0].evalI(c)
+				eachExpl(func(e *Explod) {
+					//e.interpolate_animelem[1] = -1 // TODO: Check animelemtime and interpolation interaction
+					e.animelemtime = animelemtime
 					e.setAnimElem()
 				})
 			case explod_animfreeze:
@@ -6778,6 +6802,7 @@ const (
 	hitDef_attack_depth
 	hitDef_sparkscale
 	hitDef_guard_sparkscale
+	hitDef_unhittabletime
 	hitDef_last = iota + afterImage_last + 1 - 1
 	hitDef_redirectid
 )
@@ -7142,6 +7167,11 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.guard_sparkscale[0] = exp[0].evalF(c)
 		if len(exp) > 1 {
 			hd.guard_sparkscale[1] = exp[1].evalF(c)
+		}
+	case hitDef_unhittabletime:
+		hd.unhittabletime[0] = exp[0].evalI(c)
+		if len(exp) > 1 {
+			hd.unhittabletime[1] = exp[1].evalI(c)
 		}
 	default:
 		if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {
@@ -10198,7 +10228,7 @@ func (sc hitFallSet) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case hitFallSet_value:
 			f = exp[0].evalI(c)
-			if len(crun.ghv.hitBy) == 0 {
+			if len(crun.ghv.targetedBy) == 0 {
 				return false
 			}
 		case hitFallSet_xvel:
@@ -12885,6 +12915,7 @@ const (
 	modifyPlayer_hitpausetime
 	modifyPlayer_pausemovetime
 	modifyPlayer_supermovetime
+	modifyPlayer_unhittabletime
 	modifyPlayer_redirectid
 )
 
@@ -12969,6 +13000,8 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 			crun.pauseMovetime = Max(0, exp[0].evalI(c))
 		case modifyPlayer_supermovetime:
 			crun.superMovetime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_unhittabletime:
+			crun.unhittableTime = Max(0, exp[0].evalI(c))
 		case modifyPlayer_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -13189,14 +13222,14 @@ func (sc targetAdd) Run(c *Char, _ []int32) bool {
 						// Add char to target's "hit by" list
 						// Keep juggle points if target already exists
 						jug := crun.gi().data.airjuggle
-						for _, v := range sys.chars[i][j].ghv.hitBy {
+						for _, v := range sys.chars[i][j].ghv.targetedBy {
 							if v[0] == crun.id {
 								jug = v[1]
 							}
 						}
 						// Remove then readd char to the list with the new juggle points
 						sys.chars[i][j].ghv.dropId(crun.id)
-						sys.chars[i][j].ghv.hitBy = append(sys.chars[i][j].ghv.hitBy, [...]int32{crun.id, jug})
+						sys.chars[i][j].ghv.targetedBy = append(sys.chars[i][j].ghv.targetedBy, [...]int32{crun.id, jug})
 						done = true
 						break
 					}
@@ -13507,19 +13540,32 @@ func newStateBytecode(pn int) *StateBytecode {
 }
 
 func (sb *StateBytecode) init(c *Char) {
+	// StateType
 	if sb.stateType != ST_U {
 		c.ss.changeStateType(sb.stateType)
 	}
+
+	// MoveType
 	if sb.moveType != MT_U {
 		if !c.ss.storeMoveType {
 			c.ss.prevMoveType = c.ss.moveType
 		}
 		c.ss.moveType = sb.moveType
 	}
+	c.ss.storeMoveType = false
+
+	// Physics
 	if sb.physics != ST_U {
 		c.ss.physics = sb.physics
 	}
-	c.ss.storeMoveType = false
+
+	// Reset juggle points
+	// Mugen doesn't do this, but since most people forget it the engine should handle it
+	if c.ss.moveType != MT_A {
+		c.juggle = 0
+	}
+
+	// Rest of StateDef
 	sys.workingState = sb
 	sb.stateDef.Run(c)
 }

@@ -139,16 +139,16 @@ func ReadAnimFrame(line string) *AnimFrame {
 }
 
 type Animation struct {
-	sff                *Sff
-	palettedata        *PaletteList
-	spr                *Sprite
-	frames             []AnimFrame
-	tile               Tiling
-	loopstart          int32
-	interpolate_offset []int32
-	interpolate_scale  []int32
-	interpolate_angle  []int32
-	interpolate_blend  []int32
+	sff                        *Sff
+	palettedata                *PaletteList
+	spr                        *Sprite
+	frames                     []AnimFrame
+	tile                       Tiling
+	loopstart                  int32
+	interpolate_offset         []int32
+	interpolate_scale          []int32
+	interpolate_angle          []int32
+	interpolate_blend          []int32
 	curtime                    int32
 	curelem                    int32
 	curelemtime                int32
@@ -456,7 +456,7 @@ func (a *Animation) SetAnimElem(elem, elemtime int32) {
 	a.UpdateSprite()
 
 	a.curtime = 0 // Used within AnimElemTime, so must be set to 0 first
-	a.curtime = -a.AnimElemTime(a.curelem + 1) + a.curelemtime
+	a.curtime = -a.AnimElemTime(a.curelem+1) + a.curelemtime
 }
 
 func (a *Animation) animSeek(elem int32) {

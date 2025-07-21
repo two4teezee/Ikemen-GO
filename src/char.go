@@ -3745,7 +3745,6 @@ func (c *Char) setAnimElem(elem, elemtime int32) {
 	c.updateCurFrame()
 }
 
-
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {
 		c.setSCF(SCF_ctrl)
@@ -7125,55 +7124,55 @@ func (c *Char) consecutiveWins() int32 {
 
 func (c *Char) dizzyEnabled() bool {
 	return sys.lifebar.stunbar
-    /*
-    switch sys.tmode[c.playerNo&1] {
-    case TM_Single:
-        return sys.cfg.Options.Single.Dizzy
-    case TM_Simul:
-        return sys.cfg.Options.Simul.Dizzy
-    case TM_Tag:
-        return sys.cfg.Options.Tag.Dizzy
-    case TM_Turns:
-        return sys.cfg.Options.Turns.Dizzy
-    default:
-        return false
-    }
+	/*
+	   switch sys.tmode[c.playerNo&1] {
+	   case TM_Single:
+	       return sys.cfg.Options.Single.Dizzy
+	   case TM_Simul:
+	       return sys.cfg.Options.Simul.Dizzy
+	   case TM_Tag:
+	       return sys.cfg.Options.Tag.Dizzy
+	   case TM_Turns:
+	       return sys.cfg.Options.Turns.Dizzy
+	   default:
+	       return false
+	   }
 	*/
 }
 
 func (c *Char) guardBreakEnabled() bool {
 	return sys.lifebar.guardbar
-    /*
-    switch sys.tmode[c.playerNo&1] {
-    case TM_Single:
-        return sys.cfg.Options.Single.GuardBreak
-    case TM_Simul:
-        return sys.cfg.Options.Simul.GuardBreak
-    case TM_Tag:
-        return sys.cfg.Options.Tag.GuardBreak
-    case TM_Turns:
-        return sys.cfg.Options.Turns.GuardBreak
-    default:
-        return false
-    }
+	/*
+	   switch sys.tmode[c.playerNo&1] {
+	   case TM_Single:
+	       return sys.cfg.Options.Single.GuardBreak
+	   case TM_Simul:
+	       return sys.cfg.Options.Simul.GuardBreak
+	   case TM_Tag:
+	       return sys.cfg.Options.Tag.GuardBreak
+	   case TM_Turns:
+	       return sys.cfg.Options.Turns.GuardBreak
+	   default:
+	       return false
+	   }
 	*/
 }
 
 func (c *Char) redLifeEnabled() bool {
 	return sys.lifebar.redlifebar
-    /*
-	switch sys.tmode[c.playerNo&1] {
-    case TM_Single:
-        return sys.cfg.Options.Single.RedLife
-    case TM_Simul:
-        return sys.cfg.Options.Simul.RedLife
-    case TM_Tag:
-        return sys.cfg.Options.Tag.RedLife
-    case TM_Turns:
-        return sys.cfg.Options.Turns.RedLife
-    default:
-        return false
-    }
+	/*
+		switch sys.tmode[c.playerNo&1] {
+	    case TM_Single:
+	        return sys.cfg.Options.Single.RedLife
+	    case TM_Simul:
+	        return sys.cfg.Options.Simul.RedLife
+	    case TM_Tag:
+	        return sys.cfg.Options.Tag.RedLife
+	    case TM_Turns:
+	        return sys.cfg.Options.Turns.RedLife
+	    default:
+	        return false
+	    }
 	*/
 }
 
@@ -10746,7 +10745,7 @@ func (cl *CharList) commandUpdate() {
 					}
 					// Update commands
 					for i := range c.cmd {
-						extratime := Btoi(hpbuf || pausebuf)+Btoi(winbuf)
+						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
 						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
 						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}
@@ -11248,7 +11247,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				canjuggle = true
 			}
 
-			if canjuggle && !(getter.stchtmp && (getter.csf(CSF_gethit) || getter.acttmp > 0)) && 
+			if canjuggle && !(getter.stchtmp && (getter.csf(CSF_gethit) || getter.acttmp > 0)) &&
 				(!ap_projhit || p.hitdef.attr&int32(AT_AP) == 0) &&
 				(p.hitpause <= 0 || p.contactflag) && p.curmisstime <= 0 && p.hitdef.hitonce >= 0 &&
 				getter.hittableByChar(c, &p.hitdef, ST_N, true) {

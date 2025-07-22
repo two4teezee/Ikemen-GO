@@ -5701,7 +5701,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.color",
-			modifyStageVar_reflection_xshear, VT_Int, 3, false); err != nil {
+			modifyStageVar_reflection_color, VT_Int, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.offset",

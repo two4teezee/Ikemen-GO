@@ -7202,13 +7202,15 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		sc.runSub(c, &crun.hitdef, paramID, exp)
 		return true
 	})
+	// The fix below seems to be a misunderstanding of some property interactions
+	// What happens is throws have hitonce = 1 and unhittabletime > 0 by default
 	// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
 	// on the attacker's side is greater than 1, it no longer executes every frame
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 && // Not crun
-		crun.hitdef.attr&int32(AT_AT) != 0 && crun.hitdef.pausetime > 0 && crun.moveContact() == 1 { // crun
-		crun.hitdef.attr = 0
-		return false
-	}
+	//if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 && // Not crun
+	//	crun.hitdef.attr&int32(AT_AT) != 0 && crun.hitdef.pausetime > 0 && crun.moveContact() == 1 { // crun
+	//	crun.hitdef.attr = 0
+	//	return false
+	//}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
 }

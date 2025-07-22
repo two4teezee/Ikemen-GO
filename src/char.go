@@ -6090,18 +6090,19 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	}
 
 	if hd.unhittabletime[0] == IErr || hd.unhittabletime[1] == IErr {
+		extra := hd.pausetime + 1
 		// In Mugen, Reversaldef makes the target invincible for 1 frame (but not the attacker)
 		if hd.reversal_attr != 0 {
-			hd.unhittabletime[1] = 1
+			hd.unhittabletime[1] = extra
 		}
 		// In Mugen, a throw attribute sets this to 1 for both p1 and p2
 		if hd.attr&int32(AT_AT) != 0 {
-			hd.unhittabletime[0] = 1
-			hd.unhittabletime[1] = 1
+			hd.unhittabletime[0] = extra
+			hd.unhittabletime[1] = extra
 		}
 		// Defaults
-		ifierrset(&hd.unhittabletime[0], 0)
-		ifierrset(&hd.unhittabletime[1], 0)
+		ifierrset(&hd.unhittabletime[0], -1)
+		ifierrset(&hd.unhittabletime[1], -1)
 	}
 
 	// In Mugen, only projectiles can use air.juggle
@@ -8549,7 +8550,7 @@ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj boo
 		case c.hitdef.prioritytype == TT_Hit:
 			// if (c.hitdef.p1stateno >= 0 || c.hitdef.attr&int32(AT_AT) != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
 			// Since the unhittabletime is what's behind needing to randomize throws, we will check it instead
-			if (c.hitdef.unhittabletime[0] != 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
+			if (c.hitdef.unhittabletime[0] > 0 && ghd.hitonce != 0) && countercheck(&c.hitdef) {
 				c.atktmp = -1
 				return getter.atktmp < 0 || Rand(0, 1) == 1
 			}

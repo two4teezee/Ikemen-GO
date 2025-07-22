@@ -579,7 +579,7 @@ type HitDef struct {
 	forcestand                 int32
 	forcecrouch                int32
 	ground_fall                bool
-	air_fall                   bool
+	air_fall                   int32 // Technically a bool but it needs an undefined state for "ifierrset"
 	down_velocity              [3]float32
 	down_hittime               int32
 	down_bounce                bool
@@ -698,6 +698,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		missonoverride:      -1,
 		forcestand:          IErr,
 		forcecrouch:         IErr,
+		air_fall:            IErr,
 		guard_dist_x:        hd.guard_dist_x, // These default to no change
 		guard_dist_y:        hd.guard_dist_y, // They are reset when hitdefpersist = 0
 		guard_dist_z:        hd.guard_dist_z,
@@ -6020,6 +6021,8 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	ifierrset(&hd.forcestand, Btoi(hd.ground_velocity[1] != 0)) // Having a Y velocity causes ForceStand
 	ifierrset(&hd.forcecrouch, 0)
 
+	ifierrset(&hd.air_fall, Btoi(hd.ground_fall))
+
 	// Cornerpush defaults to same as respective velocities if character has Ikemenversion, instead of Mugen magic numbers
 	if hd.attr&int32(ST_A) != 0 {
 		ifnanset(&hd.ground_cornerpush_veloff, 0)
@@ -8677,7 +8680,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		// Check HitOverride
 		c.mhv.overridden = false
 		for i, ho := range getter.ho {
-			// Check attack attributes
+			// Check timer and attack attributes
 			if ho.time == 0 || ho.attr&hd.attr&^int32(ST_MASK) == 0 {
 				continue
 			}
@@ -8691,6 +8694,14 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					continue
 				}
 			}
+			// Miss if using p1stateno or p2stateno and HitOverride together
+			if hd.missonoverride == 1 || (hd.missonoverride == -1 && !isProjectile && Abs(hitResult) == 1 &&
+				(hd.p1stateno >= 0 || hd.p2stateno >= 0)) {
+				return 0
+			}
+			// Forceair behavior
+			// Must be placed after the 0 returns
+			// TODO: There's a minor bug here where if the char has multiple HitOverrides active then the forceair parameter may be activated in the wrong one(s)
 			if ho.forceair && !ho.keepState {
 				if hitResult > 0 && hd.air_type == HT_None || hitResult < 0 && hd.ground_type == HT_None && hd.air_type != HT_None {
 					hitResult *= -1
@@ -8703,11 +8714,6 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					break
 				}
 			}
-			// Miss if using p2stateno and HitOverride together
-			if hd.missonoverride == 1 || (hd.missonoverride == -1 && !isProjectile && Abs(hitResult) == 1 &&
-				(hd.p2stateno >= 0 || hd.p1stateno >= 0)) {
-				return 0
-			}
 			if ho.stateno >= 0 || ho.keepState {
 				getter.hoIdx = i
 				if ho.keepState {
@@ -8715,6 +8721,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				}
 				c.mhv.overridden = true
 				break
+				// In Mugen, the loop is broken even if stateno < 0
+				// This means Ikemen can apply the HitOverride effects of multiple slots if they don't have a stateno
+				// TODO: Perhaps this needs to be fixed
 			}
 		}
 		// Apply P2StateNo
@@ -8876,7 +8885,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					ghv.xvel = hd.air_velocity[0] * scaleratio * -byf
 					ghv.yvel = hd.air_velocity[1] * scaleratio
 					ghv.zvel = hd.air_velocity[2] * scaleratio
-					ghv.fallflag = ghv.fallflag || hd.air_fall
+					ghv.fallflag = ghv.fallflag || hd.air_fall != 0
 				} else if getter.ss.stateType == ST_L {
 					ghv.hittime = hd.down_hittime
 					ghv.ctrltime = hd.down_hittime
@@ -11043,7 +11052,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 									getter.ghv.fallflag = false
 								} else if !getter.ghv.fallflag {
 									if getter.ss.stateType == ST_A {
-										getter.ghv.fallflag = c.hitdef.air_fall
+										getter.ghv.fallflag = c.hitdef.air_fall != 0
 									} else {
 										getter.ghv.fallflag = c.hitdef.ground_fall
 									}
@@ -11083,7 +11092,9 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 							if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 								getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
 								c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(hpfix))
-								// In Mugen the hitpause only actually takes effect in the next frame
+								// In Mugen, the hitpause only actually takes effect in the next frame
+								// In Mugen, despite hit type None being supposed to apply hitpause, that doesn't happen
+								// Curiously, if a HitOverride is used the hitpause will be restored
 							}
 							c.uniqHitCount++
 						} else {

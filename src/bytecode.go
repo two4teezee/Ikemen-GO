@@ -4849,7 +4849,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
-			elemtime = exp[0].evalI(c)
+			elem = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_elemtime:
 			elemtime = exp[0].evalI(c)
@@ -5353,9 +5353,14 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyReflection_color:
-			r := Clamp(exp[0].evalI(c), 0, 255)
-			g := Clamp(exp[1].evalI(c), 0, 255)
-			b := Clamp(exp[2].evalI(c), 0, 255)
+			var r, g, b int32
+			r = Clamp(exp[0].evalI(c), 0, 255)
+			if len(exp) > 1 {
+				g = Clamp(exp[1].evalI(c), 0, 255)
+			}
+			if len(exp) > 2 {
+				b = Clamp(exp[2].evalI(c), 0, 255)
+			}
 			crun.reflectColor = [3]int32{r, g, b}
 		case modifyReflection_intensity:
 			crun.reflectIntensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -6891,6 +6896,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 	case hitDef_priority:
 		hd.priority = exp[0].evalI(c)
 		hd.prioritytype = TradeType(exp[1].evalI(c))
+		// In Mugen, the range of priority is not 1-7 as documented, but rather 0-MaxInt32
+		// There's no apparent benefit to restricting negative values, so at the moment Ikemen does not do it
 	case hitDef_p1stateno:
 		hd.p1stateno = exp[0].evalI(c)
 	case hitDef_p2stateno:
@@ -6976,9 +6983,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.air_hittime = exp[0].evalI(c)
 	case hitDef_fall:
 		hd.ground_fall = exp[0].evalB(c)
-		hd.air_fall = hd.ground_fall
 	case hitDef_air_fall:
-		hd.air_fall = exp[0].evalB(c)
+		hd.air_fall = Btoi(exp[0].evalB(c)) // Read as bool but write as int
 	case hitDef_air_cornerpush_veloff:
 		hd.air_cornerpush_veloff = exp[0].evalF(c)
 	case hitDef_down_bounce:
@@ -8240,7 +8246,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			case hitDef_air_fall:
 				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_fall = v1
+					p.hitdef.air_fall = Btoi(v1)
 				})
 			//case hitDef_air_cornerpush_veloff:
 			//	p.hitdef.air_cornerpush_veloff = exp[0].evalF(c)
@@ -11568,7 +11574,6 @@ const (
 	modifyBGCtrl_invertblend
 	modifyBGCtrl_color
 	modifyBGCtrl_hue
-	modifyBGCtrl_redirectid
 )
 
 func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
@@ -11671,12 +11676,6 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 			color = exp[0].evalF(c)
 		case modifyBGCtrl_hue:
 			hue = exp[0].evalF(c)
-		case modifyBGCtrl_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				//crun = rid
-			} else {
-				return false
-			}
 		}
 		return true
 	})

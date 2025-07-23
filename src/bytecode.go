@@ -4849,7 +4849,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
-			elemtime = exp[0].evalI(c)
+			elem = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_elemtime:
 			elemtime = exp[0].evalI(c)
@@ -5353,9 +5353,14 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyReflection_color:
-			r := Clamp(exp[0].evalI(c), 0, 255)
-			g := Clamp(exp[1].evalI(c), 0, 255)
-			b := Clamp(exp[2].evalI(c), 0, 255)
+			var r, g, b int32
+			r = Clamp(exp[0].evalI(c), 0, 255)
+			if len(exp) > 1 {
+				g = Clamp(exp[1].evalI(c), 0, 255)
+			}
+			if len(exp) > 2 {
+				b = Clamp(exp[2].evalI(c), 0, 255)
+			}
 			crun.reflectColor = [3]int32{r, g, b}
 		case modifyReflection_intensity:
 			crun.reflectIntensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -6891,6 +6896,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 	case hitDef_priority:
 		hd.priority = exp[0].evalI(c)
 		hd.prioritytype = TradeType(exp[1].evalI(c))
+		// In Mugen, the range of priority is not 1-7 as documented, but rather 0-MaxInt32
+		// There's no apparent benefit to restricting negative values, so at the moment Ikemen does not do it
 	case hitDef_p1stateno:
 		hd.p1stateno = exp[0].evalI(c)
 	case hitDef_p2stateno:
@@ -6976,9 +6983,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		hd.air_hittime = exp[0].evalI(c)
 	case hitDef_fall:
 		hd.ground_fall = exp[0].evalB(c)
-		hd.air_fall = hd.ground_fall
 	case hitDef_air_fall:
-		hd.air_fall = exp[0].evalB(c)
+		hd.air_fall = Btoi(exp[0].evalB(c)) // Read as bool but write as int
 	case hitDef_air_cornerpush_veloff:
 		hd.air_cornerpush_veloff = exp[0].evalF(c)
 	case hitDef_down_bounce:
@@ -7202,13 +7208,15 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		sc.runSub(c, &crun.hitdef, paramID, exp)
 		return true
 	})
+	// The fix below seems to be a misunderstanding of some property interactions
+	// What happens is throws have hitonce = 1 and unhittabletime > 0 by default
 	// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
 	// on the attacker's side is greater than 1, it no longer executes every frame
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 && // Not crun
-		crun.hitdef.attr&int32(AT_AT) != 0 && crun.hitdef.pausetime > 0 && crun.moveContact() == 1 { // crun
-		crun.hitdef.attr = 0
-		return false
-	}
+	//if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 && // Not crun
+	//	crun.hitdef.attr&int32(AT_AT) != 0 && crun.hitdef.pausetime > 0 && crun.moveContact() == 1 { // crun
+	//	crun.hitdef.attr = 0
+	//	return false
+	//}
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
 }
@@ -8238,7 +8246,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			case hitDef_air_fall:
 				v1 := exp[0].evalB(c)
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_fall = v1
+					p.hitdef.air_fall = Btoi(v1)
 				})
 			//case hitDef_air_cornerpush_veloff:
 			//	p.hitdef.air_cornerpush_veloff = exp[0].evalF(c)
@@ -11566,7 +11574,6 @@ const (
 	modifyBGCtrl_invertblend
 	modifyBGCtrl_color
 	modifyBGCtrl_hue
-	modifyBGCtrl_redirectid
 )
 
 func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
@@ -11669,12 +11676,6 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 			color = exp[0].evalF(c)
 		case modifyBGCtrl_hue:
 			hue = exp[0].evalF(c)
-		case modifyBGCtrl_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				//crun = rid
-			} else {
-				return false
-			}
 		}
 		return true
 	})
@@ -12597,6 +12598,8 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 	//crun := c RedirectID is pointless when modifying a stage
 	s := sys.stage
 	shouldResetCamera := false
+	scaleratio := c.localscl / s.localscl
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		// Camera group
@@ -12604,43 +12607,43 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.stageCamera.autocenter = exp[0].evalB(c)
 			shouldResetCamera = true
 		case modifyStageVar_camera_boundleft:
-			s.stageCamera.boundleft = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.boundleft = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_boundright:
-			s.stageCamera.boundright = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.boundright = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_boundhigh:
-			s.stageCamera.boundhigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.boundhigh = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_boundlow:
-			s.stageCamera.boundlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.boundlow = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_verticalfollow:
 			s.stageCamera.verticalfollow = exp[0].evalF(c)
 			shouldResetCamera = true
 		case modifyStageVar_camera_floortension:
-			s.stageCamera.floortension = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.floortension = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_lowestcap:
 			s.stageCamera.lowestcap = exp[0].evalB(c)
 			shouldResetCamera = true
 		case modifyStageVar_camera_tensionhigh:
-			s.stageCamera.tensionhigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.tensionhigh = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_tensionlow:
-			s.stageCamera.tensionlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.tensionlow = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_tension:
-			s.stageCamera.tension = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.tension = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_tensionvel:
 			s.stageCamera.tensionvel = exp[0].evalF(c)
 			shouldResetCamera = true
 		case modifyStageVar_camera_cuthigh:
-			s.stageCamera.cuthigh = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.cuthigh = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_cutlow:
-			s.stageCamera.cutlow = int32(exp[0].evalF(c) * c.localscl / s.localscl)
+			s.stageCamera.cutlow = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_camera_startzoom:
 			s.stageCamera.startzoom = exp[0].evalF(c)
@@ -12668,13 +12671,13 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			shouldResetCamera = true
 		// PlayerInfo group
 		case modifyStageVar_playerinfo_leftbound:
-			s.leftbound = exp[0].evalF(c) * c.localscl / s.localscl
+			s.leftbound = exp[0].evalF(c) * scaleratio
 		case modifyStageVar_playerinfo_rightbound:
-			s.rightbound = exp[0].evalF(c) * c.localscl / s.localscl
+			s.rightbound = exp[0].evalF(c) * scaleratio
 		case modifyStageVar_playerinfo_topbound:
-			s.topbound = exp[0].evalF(c) * c.localscl / s.localscl
+			s.topbound = exp[0].evalF(c) * scaleratio
 		case modifyStageVar_playerinfo_botbound:
-			s.botbound = exp[0].evalF(c) * c.localscl / s.localscl
+			s.botbound = exp[0].evalF(c) * scaleratio
 		// Scaling group
 		case modifyStageVar_scaling_topz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz
@@ -12694,14 +12697,14 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			}
 		// Bound group
 		case modifyStageVar_bound_screenleft:
-			s.screenleft = exp[0].evalI(c)
+			s.screenleft = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_bound_screenright:
-			s.screenright = exp[0].evalI(c)
+			s.screenright = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		// StageInfo group
 		case modifyStageVar_stageinfo_zoffset:
-			s.stageCamera.zoffset = exp[0].evalI(c)
+			s.stageCamera.zoffset = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_stageinfo_zoffsetlink:
 			s.zoffsetlink = exp[0].evalI(c)
@@ -12730,18 +12733,28 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_shadow_projection:
 			s.sdw.projection = Projection(exp[0].evalI(c))
 		case modifyStageVar_shadow_fade_range:
-			s.sdw.fadeend = exp[0].evalI(c)
-			s.sdw.fadebgn = exp[1].evalI(c)
+			s.sdw.fadeend = int32(exp[0].evalF(c) * scaleratio)
+			if len(exp) > 1 {
+				s.sdw.fadebgn = int32(exp[1].evalF(c) * scaleratio)
+			}
 		case modifyStageVar_shadow_xshear:
 			s.sdw.xshear = exp[0].evalF(c)
 		case modifyStageVar_shadow_offset:
-			s.sdw.offset[0] = exp[0].evalF(c)
-			s.sdw.offset[1] = exp[1].evalF(c)
+			s.sdw.offset[0] = exp[0].evalF(c) * scaleratio
+			if len(exp) > 1 {
+				s.sdw.offset[1] = exp[1].evalF(c) * scaleratio
+			}
 		case modifyStageVar_shadow_window:
-			s.sdw.window[0] = exp[0].evalF(c)
-			s.sdw.window[1] = exp[1].evalF(c)
-			s.sdw.window[2] = exp[2].evalF(c)
-			s.sdw.window[3] = exp[3].evalF(c)
+			s.sdw.window[0] = exp[0].evalF(c) * scaleratio
+			if len(exp) > 1 {
+				s.sdw.window[1] = exp[1].evalF(c) * scaleratio
+			}
+			if len(exp) > 2 {
+				s.sdw.window[2] = exp[2].evalF(c) * scaleratio
+			}
+			if len(exp) > 3 {
+				s.sdw.window[3] = exp[3].evalF(c) * scaleratio
+			}
 		// Reflection group
 		case modifyStageVar_reflection_intensity:
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -12760,18 +12773,31 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_reflection_xshear:
 			s.reflection.xshear = exp[0].evalF(c)
 		case modifyStageVar_reflection_color:
-			r := Clamp(exp[0].evalI(c), 0, 255)
-			g := Clamp(exp[1].evalI(c), 0, 255)
-			b := Clamp(exp[2].evalI(c), 0, 255)
+			var r, g, b int32
+			r = Clamp(exp[0].evalI(c), 0, 255)
+			if len(exp) > 1 {
+				g = Clamp(exp[1].evalI(c), 0, 255)
+			}
+			if len(exp) > 2 {
+				b = Clamp(exp[2].evalI(c), 0, 255)
+			}
 			s.reflection.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_reflection_offset:
 			s.reflection.offset[0] = exp[0].evalF(c)
-			s.reflection.offset[1] = exp[1].evalF(c)
+			if len(exp) > 1 {
+				s.reflection.offset[1] = exp[1].evalF(c) * scaleratio
+			}
 		case modifyStageVar_reflection_window:
-			s.reflection.window[0] = exp[0].evalF(c)
-			s.reflection.window[1] = exp[1].evalF(c)
-			s.reflection.window[2] = exp[2].evalF(c)
-			s.reflection.window[3] = exp[3].evalF(c)
+			s.reflection.window[0] = exp[0].evalF(c) * scaleratio
+			if len(exp) > 1 {
+				s.reflection.window[1] = exp[1].evalF(c) * scaleratio
+			}
+			if len(exp) > 2 {
+				s.reflection.window[2] = exp[2].evalF(c) * scaleratio
+			}
+			if len(exp) > 3 {
+				s.reflection.window[3] = exp[3].evalF(c) * scaleratio
+			}
 		}
 		return true
 	})

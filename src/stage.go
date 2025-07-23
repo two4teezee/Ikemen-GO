@@ -571,12 +571,13 @@ func newBgCtrl() *bgCtrl {
 	}
 }
 
-func (bgc *bgCtrl) read(is IniSection, idx int) {
+func (bgc *bgCtrl) read(is IniSection, idx int) error {
 	bgc.idx = idx
 	xy := false
 	srcdst := false
 	palfx := false
-	switch strings.ToLower(is["type"]) {
+	data := strings.ToLower(is["type"])
+	switch data {
 	case "anim":
 		bgc._type = BT_Anim
 	case "visible":
@@ -621,6 +622,8 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 	case "veladd":
 		bgc._type = BT_VelAdd
 		xy = true
+	default:
+		return Error("Invalid BGCtrl type: " + data)
 	}
 	is.ReadI32("time", &bgc.starttime)
 	bgc.endtime = bgc.starttime
@@ -676,6 +679,7 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 		is.readI32ForStage("value", &bgc.v[0], &bgc.v[1], &bgc.v[2])
 	}
 	is.ReadI32("sctrlid", &bgc.sctrlid)
+	return nil
 }
 
 func (bgc *bgCtrl) xEnable() bool {
@@ -1463,7 +1467,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 					bgc.bg = append(bgc.bg, s.bg...)
 				}
 			}
-			bgc.read(is, len(s.bgc))
+			if err := bgc.read(is, len(s.bgc)); err != nil {
+				return nil, err
+			}
 			s.bgc = append(s.bgc, *bgc)
 		case "bgctrl3d":
 			bgc := newBgCtrl()
@@ -1471,7 +1477,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			bgc.bg = nil
 			bgc.node = []*Node{}
 			bgc.anim = []*GLTFAnimation{}
-			bgc.read(is, len(s.bgc))
+			if err := bgc.read(is, len(s.bgc)); err != nil {
+				return nil, err
+			}
 			if ids := is.readI32CsvForStage("ctrlid"); len(ids) > 0 {
 				if len(ids) > 1 || ids[0] != -1 {
 					uniqueIDs := make(map[int32]bool)

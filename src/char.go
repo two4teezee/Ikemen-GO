@@ -985,7 +985,7 @@ type HitOverride struct {
 }
 
 func (ho *HitOverride) clear() {
-	*ho = HitOverride{stateno: -1, keepState: false, playerNo: -1}
+	*ho = HitOverride{stateno: -1, playerNo: -1}
 }
 
 type MoveHitVar struct {
@@ -2662,7 +2662,9 @@ func (c *Char) clearState() {
 	c.ghv.clear(c)
 	c.ghv.clearOff()
 	c.mhv.clear()
-	c.hitby = [8]HitBy{}
+	for i := range c.hitby {
+		c.hitby[i].clear()
+	}
 	for i := range c.hover {
 		c.hover[i].clear()
 	}
@@ -9719,26 +9721,25 @@ func (c *Char) actionRun() {
 			c.updateCurFrame()
 		}
 		if c.ghv.damage != 0 {
-			// HitOverride KeepState flag still allows damage to get through
-			if c.ss.moveType == MT_H || c.hoverKeepState {
+			if c.ss.moveType == MT_H {
 				c.lifeAdd(-float64(c.ghv.damage), true, true)
 			}
 			c.ghv.damage = 0
 		}
 		if c.ghv.redlife != 0 {
-			if c.ss.moveType == MT_H || c.hoverKeepState {
+			if c.ss.moveType == MT_H {
 				c.redLifeAdd(-float64(c.ghv.redlife), true)
 			}
 			c.ghv.redlife = 0
 		}
 		if c.ghv.dizzypoints != 0 {
-			if c.ss.moveType == MT_H || c.hoverKeepState {
+			if c.ss.moveType == MT_H {
 				c.dizzyPointsAdd(-float64(c.ghv.dizzypoints), true)
 			}
 			c.ghv.dizzypoints = 0
 		}
 		if c.ghv.guardpoints != 0 {
-			if c.ss.moveType == MT_H || c.hoverKeepState {
+			if c.ss.moveType == MT_H {
 				c.guardPointsAdd(-float64(c.ghv.guardpoints), true)
 			}
 			c.ghv.guardpoints = 0
@@ -9768,14 +9769,13 @@ func (c *Char) actionRun() {
 					c.hittmp = 0
 				}
 				if !c.scf(SCF_dizzy) {
-					// HitOverride KeepState preserves some GetHitVars for 1 frame so they can be accessed by the char
-					if !c.hoverKeepState {
-						c.ghv.hitshaketime = 0
-						c.ghv.attr = 0
-						c.ghv.guardflag = 0
-						c.ghv.playerId = 0
-						c.ghv.playerNo = -1
-					}
+					// HitOverride KeepState used to freeze some GetHitVars around here to keep them from resetting instantly,
+					// but that no longer seems necessary with this being placed in actionRun()
+					c.ghv.hitshaketime = 0
+					c.ghv.attr = 0
+					c.ghv.guardflag = 0
+					c.ghv.playerId = 0
+					c.ghv.playerNo = -1
 					c.superDefenseMul = 1
 					c.fallDefenseMul = 1
 					c.ghv.fallflag = false

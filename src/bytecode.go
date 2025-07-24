@@ -9426,9 +9426,7 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 		case hitOverride_forceguard:
 			fg = exp[0].evalB(c)
 		case hitOverride_keepstate:
-			if st == -1 { // StateNo disables KeepState
-				ks = exp[0].evalB(c)
-			}
+			ks = exp[0].evalB(c) // Shouldn't be used together with StateNo but no need to block it either
 		case hitOverride_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid

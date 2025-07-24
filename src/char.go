@@ -8661,7 +8661,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if !getter.stchtmp || !getter.csf(CSF_gethit) {
 		// Check HitOverride
 		c.mhv.overridden = false
-		for i, ho := range getter.ho {
+		for i := 0; i < len(getter.ho); i++ {
+			ho := &getter.ho[i]
 			// Check timer and attack attributes
 			if ho.time == 0 || ho.attr&hd.attr&^int32(ST_MASK) == 0 {
 				continue
@@ -8681,33 +8682,31 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				(hd.p1stateno >= 0 || hd.p2stateno >= 0)) {
 				return 0
 			}
+			// Set flags
+			c.mhv.overridden = true
+			if ho.keepState {
+				getter.hoKeepState = true
+			}
+			// Select this HitOverride slot
+			getter.hoIdx = i
+			break
+		}
+
+		// Apply HitOverride properties
+		if c.mhv.overridden && getter.hoIdx >= 0 {
+			ho := &getter.ho[getter.hoIdx]
+
 			// Forceair behavior
-			// Must be placed after the 0 returns
-			// TODO: There's a minor bug here where if the char has multiple HitOverrides active then the forceair parameter may be activated in the wrong one(s)
-			if ho.forceair && !ho.keepState {
+			if ho.forceair {
 				if hitResult > 0 && hd.air_type == HT_None || hitResult < 0 && hd.ground_type == HT_None && hd.air_type != HT_None {
 					hitResult *= -1
 				}
 				if Abs(hitResult) == 1 {
 					getter.ss.changeStateType(ST_A)
 				}
-				if ho.stateno < 0 {
-					getter.hoIdx = i
-					break
-				}
-			}
-			if ho.stateno >= 0 || ho.keepState {
-				getter.hoIdx = i
-				if ho.keepState {
-					getter.hoKeepState = true
-				}
-				c.mhv.overridden = true
-				break
-				// In Mugen, the loop is broken even if stateno < 0
-				// This means Ikemen can apply the HitOverride effects of multiple slots if they don't have a stateno
-				// TODO: Perhaps this needs to be fixed
 			}
 		}
+
 		// Apply P2StateNo
 		if !c.mhv.overridden {
 			if Abs(hitResult) == 1 && hd.p2stateno >= 0 {

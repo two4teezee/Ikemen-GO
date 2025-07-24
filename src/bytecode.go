@@ -9402,7 +9402,7 @@ const (
 func (sc hitOverride) Run(c *Char, _ []int32) bool {
 	crun := c
 	var a, s, st, t int32 = 0, 0, -1, 1
-	f := false
+	fa := false
 	ks := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -9421,7 +9421,7 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 				t = 1
 			}
 		case hitOverride_forceair:
-			f = exp[0].evalB(c)
+			fa = exp[0].evalB(c)
 		case hitOverride_keepstate:
 			if st == -1 { // StateNo disables KeepState
 				ks = exp[0].evalB(c)
@@ -9435,11 +9435,19 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if st < 0 && !ks && !f {
-		t = 0
-	}
+	// In Mugen, using an undefined state number is still a valid HitOverride
+	//if st < 0 && !ks && !f {
+	//	t = 0
+	//}
 	pn := crun.playerNo
-	crun.ho[s] = HitOverride{attr: a, stateno: st, time: t, forceair: f, keepState: ks, playerNo: pn}
+	crun.ho[s] = HitOverride{
+		attr: a
+		stateno: st,
+		time: t,
+		forceair: fa,
+		keepState: ks,
+		playerNo: pn, // This seems to be unused currently
+	}
 	return false
 }
 

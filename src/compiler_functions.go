@@ -3307,6 +3307,10 @@ func (c *Compiler) hitOverride(is IniSection, sc *StateControllerBase, _ int8) (
 			hitOverride_keepstate, VT_Bool, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "forceguard",
+			hitOverride_forceguard, VT_Bool, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

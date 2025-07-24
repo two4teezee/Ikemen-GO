@@ -970,11 +970,16 @@ type HitBy struct {
 	stack    bool
 }
 
+func (hb *HitBy) clear() {
+	*hb = HitBy{}
+}
+
 type HitOverride struct {
 	attr      int32
 	stateno   int32
 	time      int32
 	forceair  bool
+	forceguard bool
 	keepState bool
 	playerNo  int
 }
@@ -2498,9 +2503,9 @@ type Char struct {
 	ghv                 GetHitVar
 	mhv                 MoveHitVar
 	hitby               [8]HitBy
-	ho                  [8]HitOverride
-	hoIdx               int
-	hoKeepState         bool
+	hover               [8]HitOverride
+	hoverIdx            int
+	hoverKeepState      bool
 	mctype              MoveContact
 	mctime              int32
 	children            []*Char
@@ -2612,7 +2617,7 @@ func (c *Char) init(n int, idx int32) {
 		index:         -1,
 		runorder:      -1,
 		parentIndex:   IErr,
-		hoIdx:         -1,
+		hoverIdx:      -1,
 		mctype:        MC_Hit,
 		ownpal:        true,
 		facing:        1,
@@ -2658,8 +2663,8 @@ func (c *Char) clearState() {
 	c.ghv.clearOff()
 	c.mhv.clear()
 	c.hitby = [8]HitBy{}
-	for i := range c.ho {
-		c.ho[i].clear()
+	for i := range c.hover {
+		c.hover[i].clear()
 	}
 	c.mctype = MC_Hit
 	c.mctime = 0
@@ -2739,7 +2744,7 @@ func (c *Char) clearCachedData() {
 	c.anim = nil
 	c.animBackup = nil
 	c.curFrame = nil
-	c.hoIdx = -1
+	c.hoverIdx = -1
 	c.mctype, c.mctime = MC_Hit, 0
 	c.counterHit = false
 	c.fallTime = 0
@@ -8661,8 +8666,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if !getter.stchtmp || !getter.csf(CSF_gethit) {
 		// Check HitOverride
 		c.mhv.overridden = false
-		for i := 0; i < len(getter.ho); i++ {
-			ho := &getter.ho[i]
+		for i := 0; i < len(getter.hover); i++ {
+			ho := &getter.hover[i]
 			// Check timer and attack attributes
 			if ho.time == 0 || ho.attr&hd.attr&^int32(ST_MASK) == 0 {
 				continue
@@ -8678,24 +8683,24 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				}
 			}
 			// Miss if using p1stateno or p2stateno and HitOverride together
-			if hd.missonoverride == 1 || (hd.missonoverride == -1 && !isProjectile && Abs(hitResult) == 1 &&
-				(hd.p1stateno >= 0 || hd.p2stateno >= 0)) {
+			// In Mugen, it misses even if the enemy guards // && Abs(hitResult) == 1
+			if hd.missonoverride == 1 ||
+				(hd.missonoverride == -1 && !isProjectile && (hd.p1stateno >= 0 || hd.p2stateno >= 0)) {
 				return 0
 			}
 			// Set flags
 			c.mhv.overridden = true
 			if ho.keepState {
-				getter.hoKeepState = true
+				getter.hoverKeepState = true
 			}
 			// Select this HitOverride slot
-			getter.hoIdx = i
+			getter.hoverIdx = i
 			break
 		}
 
 		// Apply HitOverride properties
-		if c.mhv.overridden && getter.hoIdx >= 0 {
-			ho := &getter.ho[getter.hoIdx]
-
+		if c.mhv.overridden && getter.hoverIdx >= 0 {
+			ho := &getter.hover[getter.hoverIdx]
 			// Forceair behavior
 			if ho.forceair {
 				if hitResult > 0 && hd.air_type == HT_None || hitResult < 0 && hd.ground_type == HT_None && hd.air_type != HT_None {
@@ -8705,9 +8710,18 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					getter.ss.changeStateType(ST_A)
 				}
 			}
+			// Force behavior to hit, unless ForceGuard is used
+			if hitResult > 0 {
+				if ho.forceguard { 
+					hitResult = 2
+				} else {
+					hitResult = 1
+				}
+			}
 		}
 
 		// Apply P2StateNo
+		// In Mugen, an undefined HitOverride stateno still invalidates P2StateNo
 		if !c.mhv.overridden {
 			if Abs(hitResult) == 1 && hd.p2stateno >= 0 {
 				pn := getter.playerNo
@@ -8720,7 +8734,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					getter.ss.changeMoveType(MT_H)
 					getter.setCtrl(false)
 					p2s = true
-					getter.hoIdx = -1
+					getter.hoverIdx = -1
 				}
 			}
 		}
@@ -9001,7 +9015,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.zoff = snap[2]*scaleratio - getter.pos[2]
 			}
 			// Snap time
-			if hd.snaptime != 0 && getter.hoIdx < 0 {
+			if hd.snaptime != 0 && getter.hoverIdx < 0 {
 				getter.setBindToId(c, true)
 				getter.setBindTime(hd.snaptime + Btoi(hd.snaptime > 0 && !c.pause()))
 				getter.bindFacing = 0
@@ -9055,7 +9069,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		getter.ghv.frame = true
 		// In Mugen, having any HitOverride active allows GetHitVar Damage to exceed the remaining life
 		bnd := true
-		for _, ho := range getter.ho {
+		for _, ho := range getter.hover {
 			if ho.time != 0 {
 				bnd = false
 				break
@@ -9172,7 +9186,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	// Score and combo counters
 	// ReversalDef can also add to them
 	if Abs(hitResult) == 1 {
-		if (ghvset || getter.csf(CSF_gethit)) && getter.hoIdx < 0 &&
+		if (ghvset || getter.csf(CSF_gethit)) && getter.hoverIdx < 0 &&
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
 			if c.teamside != -1 {
@@ -9305,7 +9319,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 	}
-	if getter.hoIdx >= 0 {
+	if getter.hoverIdx >= 0 {
 		invertXvel(byf)
 		return
 	}
@@ -9492,19 +9506,26 @@ func (c *Char) actionPrepare() {
 					c.setCSF(CSF_playerpush)
 				}
 			}
-			c.pushPriority = 0 // Reset player pushing priority
+			// Reset player pushing priority
+			c.pushPriority = 0
 			// HitBy timers
 			// In Mugen this seems to happen at the end of each frame instead
-			for i, hb := range c.hitby {
-				if hb.time > 0 {
+			for i := range c.hitby {
+				if c.hitby[i].time > 0 {
 					c.hitby[i].time--
+					if c.hitby[i].time == 0 {
+						c.hitby[i].clear()
+					}
 				}
 			}
 			// HitOverride timers
 			// In Mugen they decrease even during hitpause. However no issues have arised from not doing that yet
-			for i, ho := range c.ho {
-				if ho.time > 0 {
-					c.ho[i].time--
+			for i := range c.hover {
+				if c.hover[i].time > 0 {
+					c.hover[i].time--
+					if c.hover[i].time == 0 {
+						c.hover[i].clear()
+					}
 				}
 			}
 			if sys.supertime > 0 {
@@ -9699,25 +9720,25 @@ func (c *Char) actionRun() {
 		}
 		if c.ghv.damage != 0 {
 			// HitOverride KeepState flag still allows damage to get through
-			if c.ss.moveType == MT_H || c.hoKeepState {
+			if c.ss.moveType == MT_H || c.hoverKeepState {
 				c.lifeAdd(-float64(c.ghv.damage), true, true)
 			}
 			c.ghv.damage = 0
 		}
 		if c.ghv.redlife != 0 {
-			if c.ss.moveType == MT_H || c.hoKeepState {
+			if c.ss.moveType == MT_H || c.hoverKeepState {
 				c.redLifeAdd(-float64(c.ghv.redlife), true)
 			}
 			c.ghv.redlife = 0
 		}
 		if c.ghv.dizzypoints != 0 {
-			if c.ss.moveType == MT_H || c.hoKeepState {
+			if c.ss.moveType == MT_H || c.hoverKeepState {
 				c.dizzyPointsAdd(-float64(c.ghv.dizzypoints), true)
 			}
 			c.ghv.dizzypoints = 0
 		}
 		if c.ghv.guardpoints != 0 {
-			if c.ss.moveType == MT_H || c.hoKeepState {
+			if c.ss.moveType == MT_H || c.hoverKeepState {
 				c.guardPointsAdd(-float64(c.ghv.guardpoints), true)
 			}
 			c.ghv.guardpoints = 0
@@ -9748,7 +9769,7 @@ func (c *Char) actionRun() {
 				}
 				if !c.scf(SCF_dizzy) {
 					// HitOverride KeepState preserves some GetHitVars for 1 frame so they can be accessed by the char
-					if !c.hoKeepState {
+					if !c.hoverKeepState {
 						c.ghv.hitshaketime = 0
 						c.ghv.attr = 0
 						c.ghv.guardflag = 0
@@ -10002,8 +10023,8 @@ func (c *Char) update() {
 		// Hit detection should happen even during hitpause
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1660
 		c.atktmp = int8(Btoi(c.ss.moveType != MT_I || c.hitdef.reversal_attr > 0))
-		c.hoIdx = -1
-		c.hoKeepState = false
+		c.hoverIdx = -1
+		c.hoverKeepState = false
 		// Apply SuperPause p2defmul
 		if sys.supertimebuffer < 0 && c.teamside != sys.superplayerno&1 {
 			c.superDefenseMul *= sys.superp2defmul
@@ -10123,7 +10144,7 @@ func (c *Char) tick() {
 		}
 	}
 	// Change to get hit states
-	if c.csf(CSF_gethit) && !c.hoKeepState {
+	if c.csf(CSF_gethit) && !c.hoverKeepState {
 		// This flag prevents prevMoveType from being changed twice
 		c.ss.storeMoveType = true
 		c.ss.changeMoveType(MT_H)
@@ -10197,9 +10218,9 @@ func (c *Char) tick() {
 	// Change to HitOverride state
 	// This doesn't actually require getting hit
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2262
-	if c.hoIdx >= 0 && c.hoIdx < len(c.ho) && !c.hoKeepState {
-		if c.ho[c.hoIdx].stateno >= 0 {
-			c.stateChange1(c.ho[c.hoIdx].stateno, c.ho[c.hoIdx].playerNo)
+	if c.hoverIdx >= 0 && c.hoverIdx < len(c.hover) && !c.hoverKeepState {
+		if c.hover[c.hoverIdx].stateno >= 0 {
+			c.stateChange1(c.hover[c.hoverIdx].stateno, c.hover[c.hoverIdx].playerNo)
 		}
 	}
 	if !c.pause() {

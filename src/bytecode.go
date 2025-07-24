@@ -2922,7 +2922,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_helperindexexist:
 		*sys.bcStack.Top() = c.helperByIndexExist(*sys.bcStack.Top())
 	case OC_ex_hitoverridden:
-		sys.bcStack.PushB(c.hoIdx >= 0)
+		sys.bcStack.PushB(c.hoverIdx >= 0)
 	case OC_ex_ikemenversion:
 		sys.bcStack.PushF(c.gi().ikemenverF)
 	case OC_ex_incustomanim:
@@ -9395,23 +9395,24 @@ const (
 	hitOverride_stateno
 	hitOverride_time
 	hitOverride_forceair
+	hitOverride_forceguard
 	hitOverride_keepstate
 	hitOverride_redirectid
 )
 
 func (sc hitOverride) Run(c *Char, _ []int32) bool {
 	crun := c
-	var a, s, st, t int32 = 0, 0, -1, 1
-	fa := false
-	ks := false
+	var at, sl, st, t int32 = 0, 0, -1, 1
+	var fa, fg, ks bool
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case hitOverride_attr:
-			a = exp[0].evalI(c)
+			at = exp[0].evalI(c)
 		case hitOverride_slot:
-			s = Max(0, exp[0].evalI(c))
-			if s > 7 {
-				s = 0
+			sl = Max(0, exp[0].evalI(c))
+			if sl > 7 {
+				sl = 0
 			}
 		case hitOverride_stateno:
 			st = exp[0].evalI(c)
@@ -9422,6 +9423,8 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 			}
 		case hitOverride_forceair:
 			fa = exp[0].evalB(c)
+		case hitOverride_forceguard:
+			fg = exp[0].evalB(c)
 		case hitOverride_keepstate:
 			if st == -1 { // StateNo disables KeepState
 				ks = exp[0].evalB(c)
@@ -9435,16 +9438,18 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	// In Mugen, using an undefined state number is still a valid HitOverride
 	//if st < 0 && !ks && !f {
 	//	t = 0
 	//}
 	pn := crun.playerNo
-	crun.ho[s] = HitOverride{
-		attr: a
+	crun.hover[sl] = HitOverride{
+		attr: at,
 		stateno: st,
 		time: t,
 		forceair: fa,
+		forceguard: fg,
 		keepState: ks,
 		playerNo: pn, // This seems to be unused currently
 	}

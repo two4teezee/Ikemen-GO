@@ -5453,7 +5453,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "hitoverridden", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.hoIdx >= 0))
+		l.Push(lua.LBool(sys.debugWC.hoverIdx >= 0))
 		return 1
 	})
 	luaRegister(l, "ikemenversion", func(*lua.LState) int {

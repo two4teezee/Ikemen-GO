@@ -523,10 +523,8 @@ type HitDef struct {
 	prioritytype               TradeType
 	hitdamage                  int32
 	guarddamage                int32
-	pausetime                  int32
-	shaketime                  int32
-	guard_pausetime            int32
-	guard_shaketime            int32
+	pausetime                  [2]int32
+	guard_pausetime            [2]int32
 	sparkno                    int32
 	sparkno_ffx                string
 	sparkangle                 float32
@@ -670,8 +668,7 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		air_hittime:        20,
 		down_hittime:       20, // Not documented in Mugen docs
 
-		guard_pausetime:   IErr,
-		guard_shaketime:   IErr,
+		guard_pausetime:   [2]int32{IErr, IErr},
 		guard_hittime:     IErr,
 		guard_slidetime:   IErr,
 		guard_ctrltime:    IErr,
@@ -2052,7 +2049,7 @@ func (p *Projectile) cancelHits(opp *Projectile) {
 	}
 	// Set hitpause
 	if p.hits > 0 {
-		p.hitpause = Max(0, p.hitdef.pausetime) // -Btoi(c.gi().mugenver[0] == 0))
+		p.hitpause = Max(0, p.hitdef.pausetime[0]) // -Btoi(c.gi().mugenver[0] == 0))
 	} else {
 		p.hitpause = 0
 	}
@@ -6006,8 +6003,8 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 		return false
 	}
 
-	ifierrset(&hd.guard_pausetime, hd.pausetime)
-	ifierrset(&hd.guard_shaketime, hd.shaketime)
+	ifierrset(&hd.guard_pausetime[0], hd.pausetime[0])
+	ifierrset(&hd.guard_pausetime[1], hd.pausetime[1])
 
 	// In Mugen this one acts diferent from the documentation
 	// Ikemen characters follow the documentation since it makes more sense
@@ -6120,7 +6117,7 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	}
 
 	if hd.unhittabletime[0] == IErr || hd.unhittabletime[1] == IErr {
-		extra := hd.pausetime + 1
+		extra := hd.pausetime[0] + 1
 		// In Mugen, Reversaldef makes the target invincible for 1 frame (but not the attacker)
 		if hd.reversal_attr != 0 {
 			hd.unhittabletime[1] = extra
@@ -8853,7 +8850,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			// If attack is guarded
 			if hitResult == 2 {
 				ghv.guarded = true
-				ghv.hitshaketime = Max(0, hd.guard_shaketime)
+				ghv.hitshaketime = Max(0, hd.guard_pausetime[1])
 				ghv.hittime = Max(0, hd.guard_hittime)
 				ghv.slidetime = hd.guard_slidetime
 				if getter.ss.stateType == ST_A {
@@ -8873,7 +8870,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.guardcount++
 			} else {
 				ghv.guarded = false
-				ghv.hitshaketime = Max(0, hd.shaketime)
+				ghv.hitshaketime = Max(0, hd.pausetime[1])
 				ghv.slidetime = hd.ground_slidetime
 				ghv.p2getp1state = hd.p2getp1state
 				ghv.forcestand = hd.forcestand != 0
@@ -9082,6 +9079,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			ghv.airguard_velocity[2] = hd.airguard_velocity[2] * scaleratio
 			ghv.priority = hd.priority
 		}
+		// Hitting the enemy allows them to briefly move during a pause
 		if sys.supertime > 0 {
 			getter.superMovetime = Max(getter.superMovetime, getter.ghv.hitshaketime)
 		} else if sys.pausetime > 0 {
@@ -9294,26 +9292,22 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 	// Play hit sounds and sparks
 	if Abs(hitResult) == 1 {
-		//if hd.sparkno >= 0 {
 		if hd.reversal_attr > 0 {
 			hitspark(getter, c, hd.sparkno, hd.sparkno_ffx, hd.sparkangle, hd.sparkscale)
 		} else {
 			hitspark(c, getter, hd.sparkno, hd.sparkno_ffx, hd.sparkangle, hd.sparkscale)
 		}
-		//}
 		if hd.hitsound[0] >= 0 && hd.hitsound[1] >= 0 {
 			vo := int32(100)
 			c.playSound(hd.hitsound_ffx, false, 0, hd.hitsound[0], hd.hitsound[1],
 				hd.hitsound_channel, vo, 0, 1, getter.localscl, &getter.pos[0], true, 0, 0, 0, 0, false, false)
 		}
 	} else {
-		//if hd.guard_sparkno >= 0 {
 		if hd.reversal_attr > 0 {
 			hitspark(getter, c, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle, hd.guard_sparkscale)
 		} else {
 			hitspark(c, getter, hd.guard_sparkno, hd.guard_sparkno_ffx, hd.guard_sparkangle, hd.guard_sparkscale)
 		}
-		//}
 		if hd.guardsound[0] >= 0 && hd.guardsound[1] >= 0 {
 			vo := int32(100)
 			c.playSound(hd.guardsound_ffx, false, 0, hd.guardsound[0], hd.guardsound[1],
@@ -9321,7 +9315,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		}
 	}
 
-	// If no hit happens we skip the rest
+	// If not setting GetHitVars then the rest is skipped
 	if !ghvset {
 		return
 	}
@@ -11112,12 +11106,12 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 									getter.hittmp = -1
 								}
 								if !getter.csf(CSF_gethit) {
-									getter.hitPauseTime = Max(1, c.hitdef.shaketime+Btoi(hpfix))
+									getter.hitPauseTime = Max(1, c.hitdef.pausetime[1]+Btoi(hpfix))
 								}
 							}
 							if !c.csf(CSF_gethit) && (getter.ss.stateType == ST_A && c.hitdef.air_type != HT_None ||
 								getter.ss.stateType != ST_A && c.hitdef.ground_type != HT_None) {
-								c.hitPauseTime = Max(1, c.hitdef.pausetime+Btoi(hpfix))
+								c.hitPauseTime = Max(1, c.hitdef.pausetime[0]+Btoi(hpfix))
 								// In Mugen, the hitpause only actually takes effect in the next frame
 								// In Mugen, despite hit type None being supposed to apply hitpause, that doesn't happen
 								// Curiously, if a HitOverride is used the hitpause will be restored
@@ -11129,7 +11123,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								c.mctime = -1
 							}
 							if !c.csf(CSF_gethit) {
-								c.hitPauseTime = Max(1, c.hitdef.guard_pausetime+Btoi(hpfix))
+								c.hitPauseTime = Max(1, c.hitdef.guard_pausetime[0]+Btoi(hpfix))
 							}
 						}
 						if c.hitdef.hitonce > 0 {
@@ -11306,10 +11300,10 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 						p.contactflag = true
 						if Abs(hitResult) == 1 {
 							sys.cgi[i].pctype = PC_Hit
-							p.hitpause = Max(0, p.hitdef.pausetime-Btoi(c.gi().mugenver[0] == 0)) // Winmugen projectiles are 1 frame short on hitpauses
+							p.hitpause = Max(0, p.hitdef.pausetime[0]-Btoi(c.gi().mugenver[0] == 0)) // Winmugen projectiles are 1 frame short on hitpauses
 						} else {
 							sys.cgi[i].pctype = PC_Guarded
-							p.hitpause = Max(0, p.hitdef.guard_pausetime-Btoi(c.gi().mugenver[0] == 0))
+							p.hitpause = Max(0, p.hitdef.guard_pausetime[0]-Btoi(c.gi().mugenver[0] == 0))
 						}
 						sys.cgi[i].pctime = 0
 						sys.cgi[i].pcid = p.id

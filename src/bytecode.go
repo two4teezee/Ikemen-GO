@@ -3669,9 +3669,9 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_hitdefvar_guard_dist_depth_top:
 		sys.bcStack.PushF(c.hitdef.guard_dist_z[0] * (c.localscl / oc.localscl))
 	case OC_ex2_hitdefvar_guard_pausetime:
-		sys.bcStack.PushI(c.hitdef.guard_pausetime)
+		sys.bcStack.PushI(c.hitdef.guard_pausetime[0])
 	case OC_ex2_hitdefvar_guard_shaketime:
-		sys.bcStack.PushI(c.hitdef.guard_shaketime)
+		sys.bcStack.PushI(c.hitdef.guard_pausetime[1])
 	case OC_ex2_hitdefvar_guard_sparkno:
 		sys.bcStack.PushI(c.hitdef.guard_sparkno)
 	case OC_ex2_hitdefvar_guarddamage:
@@ -3705,11 +3705,11 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_hitdefvar_p2stateno:
 		sys.bcStack.PushI(c.hitdef.p2stateno)
 	case OC_ex2_hitdefvar_pausetime:
-		sys.bcStack.PushI(c.hitdef.pausetime)
+		sys.bcStack.PushI(c.hitdef.pausetime[0])
 	case OC_ex2_hitdefvar_priority:
 		sys.bcStack.PushI(c.hitdef.priority)
 	case OC_ex2_hitdefvar_shaketime:
-		sys.bcStack.PushI(c.hitdef.shaketime)
+		sys.bcStack.PushI(c.hitdef.pausetime[1])
 	case OC_ex2_hitdefvar_sparkno:
 		sys.bcStack.PushI(c.hitdef.sparkno)
 	case OC_ex2_hitdefvar_sparkx:
@@ -7058,14 +7058,14 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 			hd.guard_dist_z[1] = v2
 		}
 	case hitDef_pausetime:
-		hd.pausetime = exp[0].evalI(c)
+		hd.pausetime[0] = exp[0].evalI(c)
 		if len(exp) > 1 {
-			hd.shaketime = exp[1].evalI(c)
+			hd.pausetime[1] = exp[1].evalI(c)
 		}
 	case hitDef_guard_pausetime:
-		hd.guard_pausetime = exp[0].evalI(c)
+		hd.guard_pausetime[0] = exp[0].evalI(c)
 		if len(exp) > 1 {
-			hd.guard_shaketime = exp[1].evalI(c)
+			hd.guard_pausetime[1] = exp[1].evalI(c)
 		}
 	case hitDef_air_velocity:
 		hd.air_velocity[0] = exp[0].evalF(c)
@@ -8261,9 +8261,9 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.hitdef.ground_fall = v1
 				})
 			case hitDef_air_fall:
-				v1 := exp[0].evalB(c)
+				v1 := Btoi(exp[0].evalB(c))
 				eachProj(func(p *Projectile) {
-					p.hitdef.air_fall = Btoi(v1)
+					p.hitdef.air_fall = v1
 				})
 			//case hitDef_air_cornerpush_veloff:
 			//	p.hitdef.air_cornerpush_veloff = exp[0].evalF(c)
@@ -8347,8 +8347,8 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = exp[1].evalI(c)
 				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.pausetime = v1
-					p.hitdef.shaketime = v2
+					p.hitdef.pausetime[0] = v1
+					p.hitdef.pausetime[1] = v2
 				})
 			case hitDef_guard_pausetime:
 				var v1, v2 int32
@@ -8357,8 +8357,8 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = exp[1].evalI(c)
 				}
 				eachProj(func(p *Projectile) {
-					p.hitdef.guard_pausetime = v1
-					p.hitdef.guard_shaketime = v2
+					p.hitdef.guard_pausetime[0] = v1
+					p.hitdef.guard_pausetime[1] = v2
 				})
 			case hitDef_air_velocity:
 				var v1, v2, v3 float32

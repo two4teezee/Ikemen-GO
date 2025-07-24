@@ -7800,7 +7800,7 @@ func (c *Char) posUpdate() {
 	// In Mugen 1.0 and 1.1 this threshold is bugged, varying with game resolution
 	// In Ikemen, this threshold is obsolete
 	c.mhv.cornerpush = 0
-	friction := float32(0.7)
+	pushmul := float32(0.7)
 	if c.cornerVelOff != 0 && sys.supertime == 0 {
 		for _, p := range sys.chars {
 			if len(p) > 0 && p[0].ss.moveType == MT_H && p[0].ghv.playerId == c.id {
@@ -7811,12 +7811,12 @@ func (c *Char) posUpdate() {
 				// In Mugen cornerpush friction is hardcoded at 0.7
 				// In Ikemen the cornerpush friction is defined by the target instead
 				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-					friction = 0.7
+					pushmul = 0.7
 				} else {
 					if p[0].ss.stateType == ST_C || p[0].ss.stateType == ST_L {
-						friction = p[0].gi().movement.crouch.friction
+						pushmul = p[0].gi().movement.crouch.friction
 					} else {
-						friction = p[0].gi().movement.stand.friction
+						pushmul = p[0].gi().movement.stand.friction
 					}
 				}
 			}
@@ -7862,15 +7862,17 @@ func (c *Char) posUpdate() {
 		}
 	}
 
+	originLs := c.localscl * (320 / float32(sys.gameWidth))
+
 	// Apply physics types
 	switch c.ss.physics {
 	case ST_S:
 		c.vel[0] *= c.gi().movement.stand.friction
-		if AbsF(c.vel[0]) < 1 {
+		if AbsF(c.vel[0]) < 1 / originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
 		c.vel[2] *= c.gi().movement.stand.friction
-		if AbsF(c.vel[2]) < 1 {
+		if AbsF(c.vel[2]) < 1 / originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
@@ -7882,8 +7884,8 @@ func (c *Char) posUpdate() {
 
 	// Apply friction to corner push
 	if sys.supertime == 0 {
-		c.cornerVelOff *= friction
-		if AbsF(c.cornerVelOff) < 1 {
+		c.cornerVelOff *= pushmul
+		if AbsF(c.cornerVelOff) < 1 / originLs {
 			c.cornerVelOff = 0
 		}
 	}

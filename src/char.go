@@ -8338,7 +8338,9 @@ func (c *Char) hitByAttrTrigger(attr int32) bool {
 func (c *Char) isVulnerableInSlot(hb HitBy, getter *Char, ghd *HitDef, attrsca int32) bool {
 	if (hb.playerno >= 0 && hb.playerno != getter.playerNo) ||
 		(hb.playerid >= 0 && hb.playerid != getter.id) {
-		return true
+		if !hb.not {
+			return false
+		}
 	}
 
 	if hb.flag&attrsca == 0 || hb.flag&ghd.attr&^int32(ST_MASK) == 0 {

@@ -980,6 +980,7 @@ type HitOverride struct {
 	time      int32
 	forceair  bool
 	forceguard bool
+	guardflag  int32
 	keepState bool
 	playerNo  int
 }
@@ -8683,6 +8684,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				if ho.attr&int32(c.ss.stateType) == 0 {
 					continue
 				}
+			}
+			// Check guardflag
+			if ho.guardflag&hd.guardflag == 0 || c.asf(ASF_unguardable) {
+				continue
 			}
 			// Miss if using p1stateno or p2stateno and HitOverride together
 			// In Mugen, it misses even if the enemy guards // && Abs(hitResult) == 1

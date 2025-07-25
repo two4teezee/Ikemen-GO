@@ -1558,6 +1558,34 @@ func (c *Compiler) afterImageTime(is IniSection, sc *StateControllerBase, _ int8
 	return *ret, err
 }
 
+func (c *Compiler) parseHitFlag(sc *StateControllerBase, id byte, data string) error {
+	var flg int32
+	for _, c := range data {
+		switch c {
+		case 'H', 'h':
+			flg |= int32(HF_H)
+		case 'L', 'l':
+			flg |= int32(HF_L)
+		case 'M', 'm':
+			flg |= int32(HF_H | HF_L)
+		case 'A', 'a':
+			flg |= int32(HF_A)
+		case 'F', 'f':
+			flg |= int32(HF_F)
+		case 'D', 'd':
+			flg |= int32(HF_D)
+		case 'P', 'p':
+			flg |= int32(HF_P)
+		case '-':
+			flg |= int32(HF_MNS)
+		case '+':
+			flg |= int32(HF_PLS)
+		}
+	}
+	sc.add(id, sc.iToExp(flg))
+	return nil
+}
+
 func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	if err := c.stateParam(is, "attr", false, func(data string) error {
 		attr, err := c.attr(data, true)
@@ -1569,40 +1597,13 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}); err != nil {
 		return err
 	}
-	hflg := func(id byte, data string) error {
-		var flg int32
-		for _, c := range data {
-			switch c {
-			case 'H', 'h':
-				flg |= int32(HF_H)
-			case 'L', 'l':
-				flg |= int32(HF_L)
-			case 'M', 'm':
-				flg |= int32(HF_H | HF_L)
-			case 'A', 'a':
-				flg |= int32(HF_A)
-			case 'F', 'f':
-				flg |= int32(HF_F)
-			case 'D', 'd':
-				flg |= int32(HF_D)
-			case 'P', 'p':
-				flg |= int32(HF_P)
-			case '-':
-				flg |= int32(HF_MNS)
-			case '+':
-				flg |= int32(HF_PLS)
-			}
-		}
-		sc.add(id, sc.iToExp(flg))
-		return nil
-	}
 	if err := c.stateParam(is, "guardflag", false, func(data string) error {
-		return hflg(hitDef_guardflag, data)
+		return c.parseHitFlag(sc, hitDef_guardflag, data)
 	}); err != nil {
 		return err
 	}
 	if err := c.stateParam(is, "hitflag", false, func(data string) error {
-		return hflg(hitDef_hitflag, data)
+		return c.parseHitFlag(sc, hitDef_hitflag, data)
 	}); err != nil {
 		return err
 	}
@@ -3309,6 +3310,11 @@ func (c *Compiler) hitOverride(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if err := c.paramValue(is, sc, "forceguard",
 			hitOverride_forceguard, VT_Bool, 1, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, hitOverride_guardflag, data)
+		}); err != nil {
 			return err
 		}
 		return nil

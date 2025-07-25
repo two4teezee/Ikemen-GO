@@ -8324,20 +8324,19 @@ func (c *Char) hitByAttrTrigger(attr int32) bool {
 	}
 	// Create a dummy HitDef based on the provided attribute.
 	dummyHitDef := HitDef{attr: attr}
-	dummyGetter := Char{}
 	// Get state type (SCA) from among the attributes
 	attrsca := attr & int32(ST_MASK)
 
 	// checkHitByInvincibility returns 'true' if the character is INVULNERABLE.
 	// For HitByAttr, we need to know if the character IS VULNERABLE, so we return the opposite.
-	isInvulnerable := c.checkHitByInvincibility(&dummyGetter, &dummyHitDef, attrsca)
+	isInvulnerable := c.checkHitByInvincibility(-1, -1, &dummyHitDef, attrsca)
 
 	return !isInvulnerable
 }
 
-func (c *Char) isVulnerableInSlot(hb HitBy, getter *Char, ghd *HitDef, attrsca int32) bool {
-	if (hb.playerno >= 0 && hb.playerno != getter.playerNo) ||
-		(hb.playerid >= 0 && hb.playerid != getter.id) {
+func (c *Char) isVulnerableInSlot(hb HitBy, getterno int, getterid int32, ghd *HitDef, attrsca int32) bool {
+	if (hb.playerno >= 0 && hb.playerno != getterno) ||
+		(hb.playerid >= 0 && hb.playerid != getterid) {
 		if !hb.not {
 			return false
 		}
@@ -8352,7 +8351,7 @@ func (c *Char) isVulnerableInSlot(hb HitBy, getter *Char, ghd *HitDef, attrsca i
 
 // checkHitByInvincibility evaluates all of the character's HitBy/NotHitBy slots
 // to determine invincibility against the current attack.
-func (c *Char) checkHitByInvincibility(getter *Char, ghd *HitDef, attrsca int32) bool {
+func (c *Char) checkHitByInvincibility(getterno int, getterid int32, ghd *HitDef, attrsca int32) bool {
 	// check if there is a slot with stack=1
 	hasStack1Slot := false
 	for _, hb := range c.hitby {
@@ -8367,7 +8366,7 @@ func (c *Char) checkHitByInvincibility(getter *Char, ghd *HitDef, attrsca int32)
 		canBeHit := false
 		for _, hb := range c.hitby {
 			if hb.time != 0 && hb.stack {
-				if c.isVulnerableInSlot(hb, getter, ghd, attrsca) {
+				if c.isVulnerableInSlot(hb, getterno, getterid, ghd, attrsca) {
 					canBeHit = true
 					break
 				}
@@ -8380,7 +8379,7 @@ func (c *Char) checkHitByInvincibility(getter *Char, ghd *HitDef, attrsca int32)
 	for _, hb := range c.hitby {
 		if hb.time != 0 {
 			// If there is even one slot that makes the character invincible, the invincibility is confirmed.
-			if !c.isVulnerableInSlot(hb, getter, ghd, attrsca) {
+			if !c.isVulnerableInSlot(hb, getterno, getterid, ghd, attrsca) {
 				return true
 			}
 		}
@@ -8456,7 +8455,7 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	}
 
 	// HitBy and NotHitBy checks
-	if c.checkHitByInvincibility(getter, ghd, attrsca) {
+	if c.checkHitByInvincibility(getter.playerNo, getter.id, ghd, attrsca) {
 		return false
 	}
 	return true

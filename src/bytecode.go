@@ -5492,34 +5492,43 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) 
 
 func (sc palFX) Run(c *Char, _ []int32) bool {
 	crun := c
-	doOnce := false
-	pf := newPalFX()
+
+	// Get redirection first because we need to know which char is running this
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == palFX_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
 		}
-		if !doOnce {
-			if !crun.ownpal {
-				return false
-			}
-			pf = crun.palfx
-			if pf == nil {
-				pf = newPalFX()
-			}
-			pf.clear2(true)
-			// Mugen 1.1 behavior if invertblend param is omitted (Only if char mugenversion = 1.1)
-			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-				pf.invertblend = -2
-			}
-			doOnce = true
+		return true
+	})
+
+	if !crun.ownpal {
+		return false
+	}
+
+	// Initialize PalFX
+	pf := crun.palfx
+	if pf == nil {
+		pf = newPalFX()
+	}
+	pf.clear2(true)
+
+	// Mugen 1.1 invertblend fallback
+	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 &&
+		c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		pf.invertblend = -2
+	}
+
+	// Get other parameters
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		if paramID == palFX_redirectid {
+			return true // Already handled
 		}
 		sc.runSub(c, &pf.PalFXDef, paramID, exp)
 		return true
 	})
+
 	return false
 }
 
@@ -6638,27 +6647,34 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []Bytecod
 
 func (sc afterImage) Run(c *Char, _ []int32) bool {
 	crun := c
-	doOnce := false
+
+	// Get redirection first because we need to know which char is running this
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == afterImage_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
+			return false
 		}
-		if !doOnce {
-			crun.aimg.clear()
-			// Mugen 1.1 behavior if invertblend param is omitted (Only if char mugenversion = 1.1)
-			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-				crun.aimg.palfx[0].invertblend = -2
-			}
-			crun.aimg.time = 1
-			doOnce = true
-		}
-		sc.runSub(c, &crun.aimg, paramID, exp)
 		return true
 	})
+
+	// Initialize AfterImage
+	crun.aimg.clear()
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
+		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
+		crun.aimg.palfx[0].invertblend = -2
+	}
+	crun.aimg.time = 1
+
+	// Get other parameters
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		if paramID != afterImage_redirectid {
+			sc.runSub(c, &crun.aimg, paramID, exp)
+		}
+		return true
+	})
+
 	crun.aimg.setupPalFX()
 	return false
 }

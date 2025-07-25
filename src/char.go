@@ -8341,6 +8341,7 @@ func (c *Char) isVulnerableInSlot(hb HitBy, getter *Char, ghd *HitDef, attrsca i
 		if !hb.not {
 			return false
 		}
+		return true
 	}
 
 	if hb.flag&attrsca == 0 || hb.flag&ghd.attr&^int32(ST_MASK) == 0 {

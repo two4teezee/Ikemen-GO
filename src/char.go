@@ -516,6 +516,7 @@ type HitDef struct {
 	hitflag                    int32
 	guardflag                  int32
 	reversal_guardflag         int32
+	reversal_guardflag_not     int32
 	affectteam                 int32 // -1F, 0B, 1E
 	teamside                   int
 	animtype                   Reaction
@@ -743,7 +744,8 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
 		unhittabletime:      [2]int32{IErr, IErr},
 
-		reversal_guardflag:  IErr,
+		reversal_guardflag:     IErr,
+		reversal_guardflag_not: IErr,
 	}
 
 	// PalFX
@@ -8442,20 +8444,25 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// ReversalDef vs HitDef attributes check
 	if ghd.reversal_attr > 0 && c.hitdef.attr > 0 && c.atktmp != 0 {
-		var attrok, gfok bool
-
-		// Attribute check
-		if (c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) != 0 &&
-			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) != 0 {
-			attrok = true
+		// Check attributes
+		if (c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) == 0 ||
+			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) == 0 {
+			return false
 		}
 
-		// Guardflag check
-		if ghd.reversal_guardflag == IErr || (ghd.reversal_guardflag&c.hitdef.guardflag) != 0 {
-			gfok = true
+		// Check guardflag
+		if ghd.reversal_guardflag != IErr &&
+			(ghd.reversal_guardflag&c.hitdef.guardflag == 0 || c.asf(ASF_unguardable)) {
+			return false
 		}
 
-		return attrok && gfok
+		// Check guardflag.not
+		if ghd.reversal_guardflag_not != IErr &&
+			(ghd.reversal_guardflag_not&c.hitdef.guardflag != 0 && !c.asf(ASF_unguardable)) {
+			return false
+		}
+
+		return true
 	}
 
 	// Main hitflag checks

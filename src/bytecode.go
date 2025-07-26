@@ -5493,7 +5493,8 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) 
 func (sc palFX) Run(c *Char, _ []int32) bool {
 	crun := c
 
-	// Get redirection first because we need to know which char is running this
+	// Get redirection
+	// Every sctrl where we must do preliminary operations on crun needs redirection to be determined first
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == palFX_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
@@ -7259,6 +7260,7 @@ type reversalDef hitDef
 const (
 	reversalDef_reversal_attr = iota + hitDef_last + 1
 	reversalDef_reversal_guardflag
+	reversalDef_reversal_guardflag_not
 	reversalDef_redirectid
 )
 
@@ -7287,6 +7289,8 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 			crun.hitdef.reversal_attr = exp[0].evalI(c)
 		case reversalDef_reversal_guardflag:
 			crun.hitdef.reversal_guardflag = exp[0].evalI(c)
+		case reversalDef_reversal_guardflag_not:
+			crun.hitdef.reversal_guardflag_not = exp[0].evalI(c)
 		case reversalDef_redirectid:
 			return true // Already handled
 		default:

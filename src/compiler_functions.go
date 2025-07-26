@@ -2267,6 +2267,11 @@ func (c *Compiler) reversalDef(is IniSection, sc *StateControllerBase, _ int8) (
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "reversal.guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, reversalDef_reversal_guardflag_not, data)
+		}); err != nil {
+			return err
+		}
 		return c.hitDefSub(is, sc)
 	})
 	return *ret, err

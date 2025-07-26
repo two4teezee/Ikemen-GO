@@ -515,6 +515,7 @@ type HitDef struct {
 	reversal_attr              int32
 	hitflag                    int32
 	guardflag                  int32
+	reversal_guardflag         int32
 	affectteam                 int32 // -1F, 0B, 1E
 	teamside                   int
 	animtype                   Reaction
@@ -741,6 +742,8 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		fall_envshake_dir:   0.0,
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
 		unhittabletime:      [2]int32{IErr, IErr},
+
+		reversal_guardflag:  IErr,
 	}
 
 	// PalFX
@@ -8437,11 +8440,22 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/308
 	//if ghd.chainid < 0 {
 
-	// Reversaldef vs Hitdef attributes check
-	if ghd.reversal_attr > 0 {
-		return c.atktmp != 0 && c.hitdef.attr > 0 &&
-			(c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) != 0 &&
-			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) != 0
+	// ReversalDef vs HitDef attributes check
+	if ghd.reversal_attr > 0 && c.hitdef.attr > 0 && c.atktmp != 0 {
+		var attrok, gfok bool
+
+		// Attribute check
+		if (c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) != 0 &&
+			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) != 0 {
+			attrok = true
+		}
+
+		// Guardflag check
+		if ghd.reversal_guardflag == IErr || (ghd.reversal_guardflag&c.hitdef.guardflag) != 0 {
+			gfok = true
+		}
+
+		return attrok && gfok
 	}
 
 	// Main hitflag checks

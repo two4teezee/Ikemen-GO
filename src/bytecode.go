@@ -5498,6 +5498,8 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 		if paramID == palFX_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
+			} else {
+				return false
 			}
 		}
 		return true
@@ -6653,8 +6655,9 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		if paramID == afterImage_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
+			} else {
+				return false
 			}
-			return false
 		}
 		return true
 	})
@@ -6669,9 +6672,10 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 
 	// Get other parameters
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
-		if paramID != afterImage_redirectid {
-			sc.runSub(c, &crun.aimg, paramID, exp)
+		if paramID == afterImage_redirectid {
+			return true // Already handled
 		}
+		sc.runSub(c, &crun.aimg, paramID, exp)
 		return true
 	})
 
@@ -7205,25 +7209,37 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 
 func (sc hitDef) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.hitdef.clear(crun, crun.localscl)
-	crun.hitdef.playerNo = sys.workingState.playerNo
+
+	// Get redirection
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == hitDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-				crun.hitdef.clear(crun, crun.localscl)
-				crun.hitdef.playerNo = sys.workingState.playerNo
 			} else {
 				return false
 			}
 		}
-		// Mugen 1.1 behavior if invertblend param is omitted (Only if char mugenversion = 1.1)
-		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			crun.hitdef.palfx.invertblend = -2
+		return true
+	})
+
+	// Clear HitDef
+	crun.hitdef.clear(crun, crun.localscl)
+	crun.hitdef.playerNo = sys.workingState.playerNo
+
+	// Mugen 1.1 behavior if invertblend param is omitted
+	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		crun.hitdef.palfx.invertblend = -2
+	}
+
+	// Read other parameters
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		if paramID == hitDef_redirectid {
+			return true // Already handled
 		}
 		sc.runSub(c, &crun.hitdef, paramID, exp)
 		return true
 	})
+
 	// The fix below seems to be a misunderstanding of some property interactions
 	// What happens is throws have hitonce = 1 and unhittabletime > 0 by default
 	// In WinMugen, when the attr of Hitdef is set to 'Throw' and the pausetime
@@ -7233,6 +7249,7 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 	//	crun.hitdef.attr = 0
 	//	return false
 	//}
+
 	crun.setHitdefDefault(&crun.hitdef)
 	return false
 }
@@ -7241,31 +7258,45 @@ type reversalDef hitDef
 
 const (
 	reversalDef_reversal_attr = iota + hitDef_last + 1
+	reversalDef_reversal_guardflag
 	reversalDef_redirectid
 )
 
 func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	crun := c
+
+	// Get redirection
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		if paramID == reversalDef_redirectid {
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+			} else {
+				return false
+			}
+		}
+		return true
+	})
+
 	crun.hitdef.clear(crun, crun.localscl)
 	crun.hitdef.playerNo = sys.workingState.playerNo
+
+	// Get other parameters
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case reversalDef_reversal_attr:
 			crun.hitdef.reversal_attr = exp[0].evalI(c)
+		case reversalDef_reversal_guardflag:
+			crun.hitdef.reversal_guardflag = exp[0].evalI(c)
 		case reversalDef_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				crun = rid
-				crun.hitdef.clear(crun, crun.localscl)
-				crun.hitdef.playerNo = sys.workingState.playerNo
-			} else {
-				return false
-			}
+			return true // Already handled
 		default:
 			hitDef(sc).runSub(c, &crun.hitdef, paramID, exp)
 		}
 		return true
 	})
+
 	crun.setHitdefDefault(&crun.hitdef)
+
 	return false
 }
 

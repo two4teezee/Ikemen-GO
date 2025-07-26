@@ -2259,8 +2259,14 @@ func (c *Compiler) reversalDef(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if attr == -1 {
 			return Error("ReversalDef reversal.attr not specified")
+		} else {
+			sc.add(reversalDef_reversal_attr, sc.iToExp(attr))
 		}
-		sc.add(reversalDef_reversal_attr, sc.iToExp(attr))
+		if err := c.stateParam(is, "reversal.guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, reversalDef_reversal_guardflag, data)
+		}); err != nil {
+			return err
+		}
 		return c.hitDefSub(is, sc)
 	})
 	return *ret, err

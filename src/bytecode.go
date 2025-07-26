@@ -9414,6 +9414,7 @@ const (
 	hitOverride_forceair
 	hitOverride_forceguard
 	hitOverride_guardflag
+	hitOverride_guardflag_not
 	hitOverride_keepstate
 	hitOverride_redirectid
 )
@@ -9422,7 +9423,8 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 	crun := c
 	var at, sl, st, t int32 = 0, 0, -1, 1
 	var fa, fg, ks bool
-	gf := ^int32(0) // Default to all flags // int32(HF_H | HF_L | HF_A)
+	gf := IErr
+	gfn := IErr
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -9448,6 +9450,8 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 			ks = exp[0].evalB(c) // Shouldn't be used together with StateNo but no need to block it either
 		case hitOverride_guardflag:
 			gf = exp[0].evalI(c)
+		case hitOverride_guardflag_not:
+			gfn = exp[0].evalI(c)
 		case hitOverride_redirectid:
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
@@ -9471,6 +9475,7 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 		forceguard: fg,
 		keepState: ks,
 		guardflag: gf,
+		guardflag_not: gfn,
 		playerNo: pn, // This seems to be unused currently
 	}
 	return false

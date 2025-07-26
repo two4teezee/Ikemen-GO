@@ -978,6 +978,7 @@ type HitOverride struct {
 	forceair  bool
 	forceguard bool
 	guardflag  int32
+	guardflag_not int32
 	keepState bool
 	playerNo  int
 }
@@ -8702,7 +8703,11 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				}
 			}
 			// Check guardflag
-			if ho.guardflag&hd.guardflag == 0 || c.asf(ASF_unguardable) {
+			if ho.guardflag != IErr && (ho.guardflag&hd.guardflag == 0 || c.asf(ASF_unguardable)) {
+				continue
+			}
+			// Check guardflag.not
+			if ho.guardflag_not != IErr && (ho.guardflag_not&hd.guardflag != 0 && !c.asf(ASF_unguardable)) {
 				continue
 			}
 			// Miss if using p1stateno or p2stateno and HitOverride together

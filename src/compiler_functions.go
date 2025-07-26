@@ -3317,6 +3317,11 @@ func (c *Compiler) hitOverride(is IniSection, sc *StateControllerBase, _ int8) (
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, hitOverride_guardflag_not, data)
+		}); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

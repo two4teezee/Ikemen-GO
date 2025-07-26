@@ -1333,15 +1333,15 @@ func (e *Explod) clear() {
 	}
 }
 
-func (e *Explod) setX(x float32) {
+func (e *Explod) setAllPosX(x float32) {
 	e.pos[0], e.oldPos[0], e.newPos[0] = x, x, x
 }
 
-func (e *Explod) setY(y float32) {
+func (e *Explod) setAllPosY(y float32) {
 	e.pos[1], e.oldPos[1], e.newPos[1] = y, y, y
 }
 
-func (e *Explod) setZ(z float32) {
+func (e *Explod) setAllPosZ(z float32) {
 	e.pos[2], e.oldPos[2], e.newPos[2] = z, z, z
 }
 
@@ -1368,9 +1368,9 @@ func (e *Explod) setPos(c *Char) {
 			e.offset[1] = sys.cam.GroundLevel()*e.localscl + posY
 			e.offset[2] = ClampF(posZ, sys.stage.stageCamera.topz, sys.stage.stageCamera.botz)
 		} else {
-			e.setX(posX)
-			e.setY(posY)
-			e.setZ(posZ)
+			e.setAllPosX(posX)
+			e.setAllPosY(posY)
+			e.setAllPosZ(posZ)
 		}
 	}
 	lPos := func() {
@@ -1507,8 +1507,8 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 			// Doesn't seem necessary to do this, since MUGEN 1.1 seems to carry bindtime even if
 			// you change bindId to something that doesn't point to any character
 			// e.bindtime = 0
-			// e.setX(e.pos[0])
-			// e.setY(e.pos[1])
+			// e.setAllPosX(e.pos[0])
+			// e.setAllPosY(e.pos[1])
 		}
 	} else {
 		// Explod position interpolation
@@ -1690,9 +1690,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 				e.bindtime--
 			}
 		} else {
-			e.setX(e.pos[0])
-			e.setY(e.pos[1])
-			e.setZ(e.pos[2])
+			e.setAllPosX(e.pos[0])
+			e.setAllPosY(e.pos[1])
+			e.setAllPosZ(e.pos[2])
 		}
 	}
 }
@@ -1904,8 +1904,11 @@ func (p *Projectile) clear() {
 	}
 }
 
-func (p *Projectile) setPos(pos [3]float32) {
-	p.pos, p.oldPos, p.newPos = pos, pos, pos
+func (p *Projectile) setAllPos(pos [3]float32) {
+	p.pos = pos
+	p.oldPos = pos
+	p.newPos = pos
+	p.interPos = pos
 }
 
 func (p *Projectile) paused(playerNo int) bool {
@@ -1991,7 +1994,7 @@ func (p *Projectile) update() {
 		}
 	}
 	if p.paused(p.playerno) || p.hitpause > 0 || p.freezeflag {
-		p.setPos(p.pos)
+		p.setAllPos(p.pos)
 		// There's a minor issue here where a projectile will lag behind one frame relative to Mugen if created during a pause
 	} else {
 		if sys.tickFrame() {
@@ -5456,9 +5459,9 @@ func (c *Char) newHelper() (h *Char) {
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	facing int32, rp [2]int32, extmap bool) {
 	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
-	h.setX(p[0])
-	h.setY(p[1])
-	h.setZ(p[2])
+	h.setAllPosX(p[0])
+	h.setAllPosY(p[1])
+	h.setAllPosZ(p[2])
 	h.vel = [3]float32{}
 	if h.ownpal {
 		h.palfx = newPalFX()
@@ -5776,45 +5779,45 @@ func (c *Char) setPosZ(z float32) {
 func (c *Char) posReset() {
 	if c.teamside == -1 || c.playerNo < 0 || c.playerNo >= len(sys.stage.p) {
 		c.facing = 1
-		c.setX(0)
-		c.setY(0)
-		c.setZ(0)
+		c.setAllPosX(0)
+		c.setAllPosY(0)
+		c.setAllPosZ(0)
 	} else {
 		c.facing = float32(sys.stage.p[c.playerNo].facing)
-		c.setX((float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl) / c.localscl)
-		c.setY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl)
-		c.setZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl)
+		c.setAllPosX((float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl) / c.localscl)
+		c.setAllPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl)
+		c.setAllPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl)
 	}
 	c.vel[0] = 0
 	c.vel[1] = 0
 	c.vel[2] = 0
 }
 
-func (c *Char) setX(x float32) {
+func (c *Char) setAllPosX(x float32) {
 	c.oldPos[0], c.interPos[0] = x, x
 	c.setPosX(x)
 }
 
-func (c *Char) setY(y float32) {
+func (c *Char) setAllPosY(y float32) {
 	c.oldPos[1], c.interPos[1] = y, y
 	c.setPosY(y)
 }
 
-func (c *Char) setZ(z float32) {
+func (c *Char) setAllPosZ(z float32) {
 	c.oldPos[2], c.interPos[2] = z, z
 	c.setPosZ(z)
 }
 
 func (c *Char) addX(x float32) {
-	c.setX(c.pos[0] + c.facing*x)
+	c.setAllPosX(c.pos[0] + c.facing*x)
 }
 
 func (c *Char) addY(y float32) {
-	c.setY(c.pos[1] + y)
+	c.setAllPosY(c.pos[1] + y)
 }
 
 func (c *Char) addZ(z float32) {
-	c.setZ(c.pos[2] + z)
+	c.setAllPosZ(c.pos[2] + z)
 }
 
 func (c *Char) hitAdd(h int32) {
@@ -5888,11 +5891,15 @@ func (c *Char) newProj() *Projectile {
 	return p
 }
 
-func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
+func (c *Char) projInit(p *Projectile, pt PosType, offx, offy, offz float32,
 	op bool, rpg, rpn int32, clsnscale bool) {
-	pos := c.helperPos(pt, [...]float32{x, y, z}, 1, &p.facing, p.localscl, true)
-	p.setPos([...]float32{pos[0], pos[1], pos[2]})
+	// Set starting position
+	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
+	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
+
+	// Projectile attackmul is decided upon its creation only
 	p.parentAttackMul = c.attackMul
+
 	if p.anim < -1 {
 		p.anim = 0
 	}
@@ -5906,7 +5913,10 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 	if p.ani != nil {
 		p.ani.UpdateSprite()
 	}
-	p.totalhits = p.hits // Save total hits for later use
+
+	// Save total hits for later use
+	p.totalhits = p.hits
+
 	if c.size.proj.doscale != 0 {
 		p.scale[0] *= c.size.xscale
 		p.scale[1] *= c.size.yscale
@@ -5915,16 +5925,21 @@ func (c *Char) projInit(p *Projectile, pt PosType, x, y, z float32,
 	if !clsnscale {
 		p.clsnScale = c.clsnBaseScale
 	}
+
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 		p.hitdef.chainid = -1
 		p.hitdef.nochainid = [8]int32{-1, -1, -1, -1, -1, -1, -1, -1}
 	}
+
 	p.removefacing = c.facing
+
 	if p.velocity[0] < 0 {
 		p.facing *= -1
 		p.velocity[0] *= -1
 		p.accel[0] *= -1
 	}
+
+	// Ownpal
 	if op {
 		remap := make([]int, len(p.palfx.remap))
 		copy(remap, p.palfx.remap)
@@ -6669,13 +6684,13 @@ func (c *Char) bindToTarget(tar []int32, time int32, x, y, z float32, hmf HMF) {
 				y += t.size.head.pos[1] * ((320 / t.localcoord) / c.localscl)
 			}
 			if !math.IsNaN(float64(x)) {
-				c.setX(t.pos[0]*(t.localscl/c.localscl) + t.facing*x)
+				c.setAllPosX(t.pos[0]*(t.localscl/c.localscl) + t.facing*x)
 			}
 			if !math.IsNaN(float64(y)) {
-				c.setY(t.pos[1]*(t.localscl/c.localscl) + y)
+				c.setAllPosY(t.pos[1]*(t.localscl/c.localscl) + y)
 			}
 			if !math.IsNaN(float64(z)) {
-				c.setZ(t.pos[2]*(t.localscl/c.localscl) + z)
+				c.setAllPosZ(t.pos[2]*(t.localscl/c.localscl) + z)
 			}
 			c.targetBind(tar[:1], time,
 				c.facing*c.distX(t, c),
@@ -7988,20 +8003,20 @@ func (c *Char) bind() {
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
-			c.setX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]))
+			c.setAllPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]))
 			c.interPos[0] += bt.interPos[0] - bt.pos[0]
 			c.oldPos[0] += bt.oldPos[0] - bt.pos[0]
 			c.pushed = c.pushed || bt.pushed
 			c.ghv.xoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[1])) {
-			c.setY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]))
+			c.setAllPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]))
 			c.interPos[1] += bt.interPos[1] - bt.pos[1]
 			c.oldPos[1] += bt.oldPos[1] - bt.pos[1]
 			c.ghv.yoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[2])) {
-			c.setZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]))
+			c.setAllPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]))
 			c.interPos[2] += bt.interPos[2] - bt.pos[2]
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
@@ -8057,7 +8072,7 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 		}
 		x = ClampF(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
 	}
-	c.setX(x)
+	c.setAllPosX(x)
 	c.xScreenBound()
 }
 

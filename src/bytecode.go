@@ -5124,19 +5124,19 @@ func (sc posSet) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case posSet_x:
 			x := sys.cam.Pos[0]/crun.localscl + exp[0].evalF(c)*redirscale
-			crun.setX(x)
+			crun.setAllPosX(x)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[0])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[0] = x
 			}
 		case posSet_y:
 			y := exp[0].evalF(c)*redirscale + crun.groundLevel + crun.platformPosY
-			crun.setY(y)
+			crun.setAllPosY(y)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[1])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[1] = y
 			}
 		case posSet_z:
 			z := exp[0].evalF(c) * redirscale
-			crun.setZ(z)
+			crun.setAllPosZ(z)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[2])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[2] = z
 			}
@@ -6057,9 +6057,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 							e.relativef = 1
 						}
 						e.offset = [3]float32{0, 0, 0}
-						e.setX(e.offset[0])
-						e.setY(e.offset[1])
-						e.setZ(e.offset[2])
+						e.setAllPosX(e.offset[0])
+						e.setAllPosY(e.offset[1])
+						e.setAllPosZ(e.offset[2])
 						e.relativePos = [3]float32{0, 0, 0}
 						e.velocity = [3]float32{0, 0, 0}
 						e.accel = [3]float32{0, 0, 0}
@@ -6221,9 +6221,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					if (crun.stWgi().ikemenver[0] != 0 || crun.stWgi().ikemenver[1] != 0) && t > 0 {
 						e.bindtime = e.time + t
 					}
-					e.setX(e.pos[0])
-					e.setY(e.pos[1])
-					e.setZ(e.pos[2])
+					e.setAllPosX(e.pos[0])
+					e.setAllPosY(e.pos[1])
+					e.setAllPosZ(e.pos[2])
 				})
 			case explod_removetime:
 				t := exp[0].evalI(c)
@@ -7324,10 +7324,11 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	var redirscale float32 = 1.0
 	var p *Projectile
 	pt := PT_P1
-	var x, y, z float32 = 0, 0, 0
+	var offx, offy, offz float32 = 0, 0, 0
 	op := false
 	clsnscale := false
 	rp := [...]int32{-1, 0}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if p == nil {
 			if paramID == projectile_redirectid {
@@ -7420,11 +7421,11 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		case projectile_projxangle:
 			p.anglerot[1] = exp[0].evalF(c)
 		case projectile_offset:
-			x = exp[0].evalF(c) * redirscale
+			offx = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
-				y = exp[1].evalF(c) * redirscale
+				offy = exp[1].evalF(c) * redirscale
 				if len(exp) > 2 {
-					z = exp[2].evalF(c) * redirscale
+					offz = exp[2].evalF(c) * redirscale
 				}
 			}
 		case projectile_projsprpriority:
@@ -7528,7 +7529,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	if p.aimg.time != 0 {
 		p.aimg.setupPalFX()
 	}
-	crun.projInit(p, pt, x, y, z, op, rp[0], rp[1], clsnscale)
+	crun.projInit(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
 	return false
 }
 

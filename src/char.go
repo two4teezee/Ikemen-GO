@@ -1446,8 +1446,11 @@ func (e *Explod) setAnimElem() {
 			e.animelem = 1
 		}
 		// Validate animelemtime just in case
-		if e.animelemtime < 0 || e.animelemtime >= e.anim.frames[e.animelem-1].Time {
-			e.animelemtime = 0
+		if e.animelemtime != 0 {
+			frametime := e.anim.frames[e.animelem-1].Time
+			if e.animelemtime < 0 || (frametime != -1 && e.animelemtime >= frametime) {
+				e.animelemtime = 0
+			}
 		}
 		// Set them
 		e.anim.SetAnimElem(e.animelem, e.animelemtime)
@@ -3744,9 +3747,10 @@ func (c *Char) setAnimElem(elem, elemtime int32) {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid animelem %v within action %v", elem, c.animNo))
 		elem = 1
 		elemtime = 0
-	} else {
-		// Validate elemtime only if elem is valid
-		if elemtime < 0 || elemtime >= c.anim.frames[elem-1].Time {
+	} else if elemtime != 0 {
+		// Validate elemtime only if it's unusual and elem is valid
+		frametime := c.anim.frames[elem-1].Time
+		if elemtime < 0 || (frametime != -1 && elemtime >= frametime) {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid elemtime %v in animelem %v", elemtime, elem))
 			elemtime = 0
 		}

@@ -8317,88 +8317,74 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 		getterangle)
 }
 
-func (c *Char) hitByAttrCheck(attr, attrsca int32) bool {
-	hit := true
-	for _, hb := range c.hitby {
-		if hb.time != 0 {
-			if hb.flag&attrsca == 0 || hb.flag&attr&^int32(ST_MASK) == 0 {
-				hit = false
-				if hb.stack { // Stack parameter makes the hit happen if any HitBy slot would allow it
-					continue
-				} else {
-					break
-				}
-			}
-			if hb.stack {
-				hit = true
-				break
-			}
-		}
-	}
-	return hit
-}
-
 func (c *Char) hitByAttrTrigger(attr int32) bool {
 	// Unhittable timer invalidates all hits
 	if c.unhittableTime > 0 {
 		return false
 	}
+	// Create a dummy HitDef based on the provided attribute.
 	// Get state type (SCA) from among the attributes
 	attrsca := attr & int32(ST_MASK)
 
-	return c.hitByAttrCheck(attr, attrsca)
+	// checkHitByInvincibility returns 'true' if the character is INVULNERABLE.
+	// For HitByAttr, we need to know if the character IS VULNERABLE, so we return the opposite.
+	isInvulnerable := c.checkHitByInvincibility(-1, -1, attr, attrsca)
+
+	return !isInvulnerable
 }
 
-func (c *Char) hitByPlayerNoCheck(getterno int) bool {
-	hit := true
+func (c *Char) isVulnerableInSlot(hb HitBy, getterno int, getterid int32, ghdattr int32, attrsca int32) bool {
+	if (hb.playerno >= 0 && hb.playerno != getterno) ||
+		(hb.playerid >= 0 && hb.playerid != getterid) {
+		if !hb.not {
+			return false
+		}
+		return true
+	}
+
+	if hb.flag&attrsca == 0 || hb.flag&ghdattr&^int32(ST_MASK) == 0 {
+		return false
+	}
+	return true
+}
+
+// checkHitByInvincibility evaluates all of the character's HitBy/NotHitBy slots
+// to determine invincibility against the current attack.
+func (c *Char) checkHitByInvincibility(getterno int, getterid int32, ghdattr int32, attrsca int32) bool {
+	// check if there is a slot with stack=1
+	hasStack1Slot := false
 	for _, hb := range c.hitby {
-		if hb.time != 0 {
-			if hb.playerno >= 0 && hb.playerno != getterno {
-				if hb.not {
-					hit = true
-					if hb.stack {
-						continue
-					} else {
-						break
-					}
-				} else {
-					hit = false
-					if hb.stack {
-						continue
-					} else {
-						break
-					}
+		if hb.time != 0 && hb.stack {
+			hasStack1Slot = true
+			break
+		}
+	}
+
+	if hasStack1Slot {
+		// OR logic: If vulnerable in any of the stack=1 slots (hit is possible), the attack will hit.
+		canBeHit := false
+		for _, hb := range c.hitby {
+			if hb.time != 0 && hb.stack {
+				if c.isVulnerableInSlot(hb, getterno, getterid, ghdattr, attrsca) {
+					canBeHit = true
+					break
 				}
 			}
 		}
+		return !canBeHit // If canBeHit is true, it is not invincible (returns false).
 	}
-	return hit
-}
 
-func (c *Char) hitByPlayerIdCheck(getterid int32) bool {
-	hit := true
+	// AND logic: Must be vulnerable in all active slots.
 	for _, hb := range c.hitby {
 		if hb.time != 0 {
-			if hb.playerid >= 0 && hb.playerid != getterid {
-				if hb.not {
-					hit = true
-					if hb.stack {
-						continue
-					} else {
-						break
-					}
-				} else {
-					hit = false
-					if hb.stack {
-						continue
-					} else {
-						break
-					}
-				}
+			// If there is even one slot that makes the character invincible, the invincibility is confirmed.
+			if !c.isVulnerableInSlot(hb, getterno, getterid, ghdattr, attrsca) {
+				return true
 			}
 		}
 	}
-	return hit
+
+	return false // Was vulnerable in all slots (not invincible).
 }
 
 // Check if HitDef attributes can hit a player
@@ -8468,13 +8454,7 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	}
 
 	// HitBy and NotHitBy checks
-	if !c.hitByAttrCheck(ghd.attr, attrsca) {
-		return false
-	}
-	if !c.hitByPlayerNoCheck(getter.playerNo) {
-		return false
-	}
-	if !c.hitByPlayerIdCheck(getter.id) {
+	if c.checkHitByInvincibility(getter.playerNo, getter.id, ghd.attr, attrsca) {
 		return false
 	}
 	return true

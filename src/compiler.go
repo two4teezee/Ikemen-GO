@@ -2795,7 +2795,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "ishometeam":
 		out.append(OC_ex_, OC_ex_ishometeam)
 	case "isclsnproxy":
-		out.append(OC_ex2_, OC_ex2_index)
+		out.append(OC_ex2_, OC_ex2_isclsnproxy)
 	case "index":
 		out.append(OC_ex2_, OC_ex2_index)
 	case "layerno":

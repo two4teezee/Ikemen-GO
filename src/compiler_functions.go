@@ -1029,7 +1029,7 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 	ihp int8) (StateController, error) {
 	ret, err := (*modifyExplod)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			explod_redirectid, VT_Int, 1, false); err != nil {
+			modifyexplod_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "index",
@@ -4945,10 +4945,6 @@ func (c *Compiler) modifyBGCtrl(is IniSection, sc *StateControllerBase, _ int8) 
 
 func (c *Compiler) modifyBGCtrl3d(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyBGCtrl3d)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			modifyBGCtrl3d_redirectid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.paramValue(is, sc, "id",
 			modifyBGCtrl3d_ctrlid, VT_Int, 1, true); err != nil {
 			return err
@@ -5035,10 +5031,6 @@ func (c *Compiler) modifySnd(is IniSection, sc *StateControllerBase, _ int8) (St
 
 func (c *Compiler) modifyBgm(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyBgm)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			modifyBgm_redirectid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.paramValue(is, sc, "volume",
 			modifyBgm_volume, VT_Int, 1, false); err != nil {
 			return err

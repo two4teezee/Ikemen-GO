@@ -4137,8 +4137,7 @@ func (scb *StateControllerBase) add(paramID byte, exp []BytecodeExp) {
 	}
 }
 
-func (scb StateControllerBase) run(c *Char,
-	f func(byte, []BytecodeExp) bool) {
+func (scb StateControllerBase) run(c *Char, f func(byte, []BytecodeExp) bool) {
 	for i := 0; i < len(scb); {
 		id := scb[i]
 		i++
@@ -5499,11 +5498,10 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 		if paramID == palFX_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
+			return false // Found. Stop scanning
 		}
-		return true
+		return true // Keep scanning
 	})
 
 	if !crun.ownpal {
@@ -6651,14 +6649,13 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []Bytecod
 func (sc afterImage) Run(c *Char, _ []int32) bool {
 	crun := c
 
-	// Get redirection first because we need to know which char is running this
+	// Get redirection
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == afterImage_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
+			return false
 		}
 		return true
 	})
@@ -7216,9 +7213,8 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		if paramID == hitDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
+			return false
 		}
 		return true
 	})
@@ -7272,9 +7268,8 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		if paramID == reversalDef_redirectid {
 			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
 				crun = rid
-			} else {
-				return false
 			}
+			return false
 		}
 		return true
 	})
@@ -9183,8 +9178,8 @@ const (
 )
 
 func (sc lifeAdd) Run(c *Char, _ []int32) bool {
-	abs, kill := false, true
 	crun := c
+	abs, kill := false, true
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case lifeAdd_absolute:
@@ -9666,7 +9661,9 @@ const (
 
 func (sc trans) Run(c *Char, _ []int32) bool {
 	crun := c
-	crun.alpha[1] = 255
+	// Mugen 1.1 doesn't seem to do this. Leftover code?
+	//crun.alpha[1] = 255
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case trans_trans:
@@ -11011,8 +11008,8 @@ const (
 )
 
 func (sc dizzyPointsAdd) Run(c *Char, _ []int32) bool {
-	abs := false
 	crun := c
+	abs := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case dizzyPointsAdd_absolute:
@@ -11115,8 +11112,8 @@ const (
 )
 
 func (sc guardPointsAdd) Run(c *Char, _ []int32) bool {
-	abs := false
 	crun := c
+	abs := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case guardPointsAdd_absolute:
@@ -11410,8 +11407,8 @@ const (
 )
 
 func (sc redLifeAdd) Run(c *Char, _ []int32) bool {
-	abs := false
 	crun := c
+	abs := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case redLifeAdd_absolute:
@@ -11659,6 +11656,7 @@ func (sc modifyBGCtrl) Run(c *Char, _ []int32) bool {
 	sinadd, sinmul := [4]int32{IErr, IErr, IErr, IErr}, [4]int32{IErr, IErr, IErr, IErr}
 	sincolor, sinhue := [2]int32{IErr, IErr}, [2]int32{IErr, IErr}
 	invall, invblend, color, hue := IErr, IErr, float32(math.NaN()), float32(math.NaN())
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyBGCtrl_id:
@@ -11767,9 +11765,9 @@ const (
 
 func (sc modifyBGCtrl3d) Run(c *Char, _ []int32) bool {
 	//crun := c
-
 	var cid int32
 	t, v := [3]int32{IErr, IErr, IErr}, [3]int32{IErr, IErr, IErr}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyBGCtrl3d_ctrlid:

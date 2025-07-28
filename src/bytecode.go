@@ -7369,6 +7369,8 @@ type modifyReversalDef hitDef
 
 const (
 	modifyReversalDef_reversal_attr = iota + hitDef_last + 1
+	modifyReversalDef_reversal_guardflag
+	modifyReversalDef_reversal_guardflag_not
 	modifyReversalDef_redirectid
 )
 
@@ -7387,6 +7389,10 @@ func (sc modifyReversalDef) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case modifyReversalDef_reversal_attr:
 			crun.hitdef.reversal_attr = exp[0].evalI(c)
+		case modifyReversalDef_reversal_guardflag:
+			crun.hitdef.reversal_guardflag = exp[0].evalI(c)
+		case modifyReversalDef_reversal_guardflag_not:
+			crun.hitdef.reversal_guardflag_not = exp[0].evalI(c)
 		case modifyReversalDef_redirectid:
 			return true // Already handled. Avoid default
 		default:

@@ -2279,20 +2279,30 @@ func (c *Compiler) reversalDef(is IniSection, sc *StateControllerBase, _ int8) (
 
 func (c *Compiler) modifyReversalDef(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyReversalDef)(sc), c.stateSec(is, func() error {
-		attr := int32(-1)
 		var err error
 		if err = c.paramValue(is, sc, "redirectid",
 			modifyReversalDef_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err = c.stateParam(is, "reversal.attr", false, func(data string) error {
-			attr, err = c.attr(data, false)
-			return err
+			attr, err := c.attr(data, true)
+			if err != nil {
+				return err
+			}
+			sc.add(modifyReversalDef_reversal_attr, sc.iToExp(attr))
+			return nil
 		}); err != nil {
 			return err
 		}
-		if attr != -1 {
-			sc.add(modifyReversalDef_reversal_attr, sc.iToExp(attr))
+		if err := c.stateParam(is, "reversal.guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, modifyReversalDef_reversal_guardflag, data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "reversal.guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, modifyReversalDef_reversal_guardflag_not, data)
+		}); err != nil {
+			return err
 		}
 		return c.hitDefSub(is, sc)
 	})

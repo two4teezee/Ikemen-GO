@@ -445,11 +445,13 @@ func (a *Animation) SetAnimElem(elem, elemtime int32) {
 
 	// Shortcut the most common elemtime
 	// Out of range elemtime is also set to 0, as with elem
-	if elemtime <= 0 || elemtime > a.frames[a.curelem].Time-1 {
-		a.curelemtime = 0
-	} else {
-		a.curelemtime = elemtime
+	if elemtime != 0 {
+		frametime := a.frames[a.curelem].Time
+		if elemtime < 0 || (frametime != -1 && elemtime >= frametime) {
+			elemtime = 0
+		}
 	}
+	a.curelemtime = elemtime
 
 	a.newframe = true
 	a.loopend = false

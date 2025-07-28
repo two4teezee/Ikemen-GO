@@ -504,7 +504,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	hb.top.Action()
 	hb.mid.Action()
 	// Multiple front elements - red life
-	if sys.lifebar.redlifebar {
+	if sys.chars[ref][0].redLifeEnabled() {
 		var rv int32
 		for k := range hb.red {
 			if k > rv && redVal >= k {
@@ -626,7 +626,9 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 			//rr[2] -= Min(rr[2], lr[2])
 		}
 	}
-	if sys.lifebar.redlifebar {
+
+	// Draw red life
+	if sys.chars[ref][0].redLifeEnabled() {
 		var rv int32
 		for k := range hb.red {
 			if k > rv && redval >= k {
@@ -1085,7 +1087,7 @@ func readGuardBar(pre string, is IniSection,
 }
 
 func (gb *GuardBar) step(ref int, gbr *GuardBar, snd *Snd) {
-	if !sys.lifebar.guardbar {
+	if !sys.chars[ref][0].guardBreakEnabled() {
 		return
 	}
 
@@ -1151,18 +1153,21 @@ func (gb *GuardBar) reset() {
 }
 
 func (gb *GuardBar) bgDraw(layerno int16) {
-	if !sys.lifebar.guardbar {
-		return
-	}
+	// Handled in outer loop
+	//if !sys.lifebar.guardbar {
+	//	return
+	//}
+
 	gb.bg0.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 	gb.bg1.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 	gb.bg2.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 }
 
 func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
-	if !sys.lifebar.guardbar {
-		return
-	}
+	// Handled in outer loop
+	//if !sys.lifebar.guardbar {
+	//	return
+	//}
 
 	points := float32(sys.chars[ref][0].guardPoints) / float32(sys.chars[ref][0].guardPointsMax)
 	if gb.invertfill {
@@ -1317,7 +1322,7 @@ func readStunBar(pre string, is IniSection,
 }
 
 func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
-	if !sys.lifebar.stunbar {
+	if !sys.chars[ref][0].dizzyEnabled() {
 		return
 	}
 
@@ -1381,18 +1386,21 @@ func (sb *StunBar) reset() {
 }
 
 func (sb *StunBar) bgDraw(layerno int16) {
-	if !sys.lifebar.stunbar {
-		return
-	}
+	// Handled in outer loop
+	//if !sys.lifebar.stunbar {
+	//	return
+	//}
+
 	sb.bg0.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 	sb.bg1.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 	sb.bg2.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
 }
 
 func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
-	if !sys.lifebar.stunbar {
-		return
-	}
+	// Handled in outer loop
+	//if !sys.lifebar.stunbar {
+	//	return
+	//}
 
 	points := float32(sys.chars[ref][0].dizzyPoints) / float32(sys.chars[ref][0].dizzyPointsMax)
 	if sb.invertfill {
@@ -4866,7 +4874,7 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
-					if !sys.chars[v][0].asf(ASF_noguardbardisplay) {
+					if sys.chars[v][0].guardBreakEnabled() && !sys.chars[v][0].asf(ASF_noguardbardisplay) {
 						l.gb[l.ref[ti]][index].bgDraw(layerno)
 						l.gb[l.ref[ti]][index].draw(layerno, v, l.gb[l.ref[ti]][v], l.fnt[:])
 					}
@@ -4876,7 +4884,7 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
-					if !sys.chars[v][0].asf(ASF_nostunbardisplay) {
+					if sys.chars[v][0].dizzyEnabled() && !sys.chars[v][0].asf(ASF_nostunbardisplay) {
 						l.sb[l.ref[ti]][index].bgDraw(layerno)
 						l.sb[l.ref[ti]][index].draw(layerno, v, l.sb[l.ref[ti]][v], l.fnt[:])
 					}

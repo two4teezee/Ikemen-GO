@@ -3813,13 +3813,13 @@ func triggerFunctions(l *lua.LState) {
 		case "sparky":
 			l.Push(lua.LNumber(c.hitdef.sparkxy[1]))
 		case "pausetime":
-			l.Push(lua.LNumber(c.hitdef.pausetime))
+			l.Push(lua.LNumber(c.hitdef.pausetime[0]))
 		case "guard.pausetime":
-			l.Push(lua.LNumber(c.hitdef.guard_pausetime))
+			l.Push(lua.LNumber(c.hitdef.guard_pausetime[0]))
 		case "shaketime":
-			l.Push(lua.LNumber(c.hitdef.shaketime))
+			l.Push(lua.LNumber(c.hitdef.pausetime[1]))
 		case "guard.shaketime":
-			l.Push(lua.LNumber(c.hitdef.guard_shaketime))
+			l.Push(lua.LNumber(c.hitdef.guard_pausetime[1]))
 		case "hitsound.group":
 			l.Push(lua.LNumber(c.hitdef.hitsound[0]))
 		case "hitsound.number":
@@ -5453,7 +5453,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "hitoverridden", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.hoIdx >= 0))
+		l.Push(lua.LBool(sys.debugWC.hoverIdx >= 0))
 		return 1
 	})
 	luaRegister(l, "ikemenversion", func(*lua.LState) int {

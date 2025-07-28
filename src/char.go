@@ -977,15 +977,15 @@ func (hb *HitBy) clear() {
 }
 
 type HitOverride struct {
-	attr      int32
-	stateno   int32
-	time      int32
-	forceair  bool
-	forceguard bool
-	guardflag  int32
+	attr          int32
+	stateno       int32
+	time          int32
+	forceair      bool
+	forceguard    bool
+	guardflag     int32
 	guardflag_not int32
-	keepState bool
-	playerNo  int
+	keepState     bool
+	playerNo      int
 }
 
 func (ho *HitOverride) clear() {
@@ -7159,54 +7159,54 @@ func (c *Char) consecutiveWins() int32 {
 func (c *Char) dizzyEnabled() bool {
 	return sys.lifebar.stunbar
 	/*
-	switch sys.tmode[c.playerNo&1] {
-	case TM_Single:
-		return sys.cfg.Options.Single.Dizzy
-	case TM_Simul:
-		return sys.cfg.Options.Simul.Dizzy
-	case TM_Tag:
-		return sys.cfg.Options.Tag.Dizzy
-	case TM_Turns:
-		return sys.cfg.Options.Turns.Dizzy
-	default:
-		return false
-	}
+		switch sys.tmode[c.playerNo&1] {
+		case TM_Single:
+			return sys.cfg.Options.Single.Dizzy
+		case TM_Simul:
+			return sys.cfg.Options.Simul.Dizzy
+		case TM_Tag:
+			return sys.cfg.Options.Tag.Dizzy
+		case TM_Turns:
+			return sys.cfg.Options.Turns.Dizzy
+		default:
+			return false
+		}
 	*/
 }
 
 func (c *Char) guardBreakEnabled() bool {
 	return sys.lifebar.guardbar
 	/*
-	switch sys.tmode[c.playerNo&1] {
-	case TM_Single:
-		return sys.cfg.Options.Single.GuardBreak
-	case TM_Simul:
-		return sys.cfg.Options.Simul.GuardBreak
-	case TM_Tag:
-		return sys.cfg.Options.Tag.GuardBreak
-	case TM_Turns:
-		return sys.cfg.Options.Turns.GuardBreak
-	default:
-		return false
-	}
+		switch sys.tmode[c.playerNo&1] {
+		case TM_Single:
+			return sys.cfg.Options.Single.GuardBreak
+		case TM_Simul:
+			return sys.cfg.Options.Simul.GuardBreak
+		case TM_Tag:
+			return sys.cfg.Options.Tag.GuardBreak
+		case TM_Turns:
+			return sys.cfg.Options.Turns.GuardBreak
+		default:
+			return false
+		}
 	*/
 }
 
 func (c *Char) redLifeEnabled() bool {
 	return sys.lifebar.redlifebar
 	/*
-	switch sys.tmode[c.playerNo&1] {
-	case TM_Single:
-		return sys.cfg.Options.Single.RedLife
-	case TM_Simul:
-		return sys.cfg.Options.Simul.RedLife
-	case TM_Tag:
-		return sys.cfg.Options.Tag.RedLife
-	case TM_Turns:
-		return sys.cfg.Options.Turns.RedLife
-	default:
-		return false
-    }
+		switch sys.tmode[c.playerNo&1] {
+		case TM_Single:
+			return sys.cfg.Options.Single.RedLife
+		case TM_Simul:
+			return sys.cfg.Options.Simul.RedLife
+		case TM_Tag:
+			return sys.cfg.Options.Tag.RedLife
+		case TM_Turns:
+			return sys.cfg.Options.Turns.RedLife
+		default:
+			return false
+	    }
 	*/
 }
 
@@ -7898,11 +7898,11 @@ func (c *Char) posUpdate() {
 	switch c.ss.physics {
 	case ST_S:
 		c.vel[0] *= c.gi().movement.stand.friction
-		if AbsF(c.vel[0]) < 1 / originLs { // TODO: These probably shouldn't be hardcoded
+		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
 		c.vel[2] *= c.gi().movement.stand.friction
-		if AbsF(c.vel[2]) < 1 / originLs {
+		if AbsF(c.vel[2]) < 1/originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
@@ -7915,7 +7915,7 @@ func (c *Char) posUpdate() {
 	// Apply friction to corner push
 	if sys.supertime == 0 {
 		c.cornerVelOff *= pushmul
-		if AbsF(c.cornerVelOff) < 1 / originLs {
+		if AbsF(c.cornerVelOff) < 1/originLs {
 			c.cornerVelOff = 0
 		}
 	}
@@ -8761,7 +8761,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 			// Force behavior to hit, unless ForceGuard is used
 			if hitResult > 0 {
-				if ho.forceguard { 
+				if ho.forceguard {
 					hitResult = 2
 				} else {
 					hitResult = 1

@@ -6469,7 +6469,6 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 	}
 	crun.aimg.time = 1
 
-
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		if paramID == afterImage_redirectid {
 			return true // Already handled. Avoid runSub
@@ -7416,7 +7415,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
-	
+
 	redirscale := c.localscl / crun.localscl
 	mpid := int32(-1)
 	mpidx := int32(-1)
@@ -9241,15 +9240,15 @@ func (sc hitOverride) Run(c *Char, _ []int32) bool {
 	//}
 	pn := crun.playerNo
 	crun.hover[sl] = HitOverride{
-		attr: at,
-		stateno: st,
-		time: t,
-		forceair: fa,
-		forceguard: fg,
-		keepState: ks,
-		guardflag: gf,
+		attr:          at,
+		stateno:       st,
+		time:          t,
+		forceair:      fa,
+		forceguard:    fg,
+		keepState:     ks,
+		guardflag:     gf,
 		guardflag_not: gfn,
-		playerNo: pn, // This seems to be unused currently
+		playerNo:      pn, // This seems to be unused currently
 	}
 	return false
 }

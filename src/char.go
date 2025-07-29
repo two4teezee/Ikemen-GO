@@ -5820,16 +5820,18 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 
 // Position functions
 func (c *Char) setPosX(x float32) {
-	if c.pos[0] != x {
-		c.pos[0] = x
-		// We do this because Mugen is very sensitive to enemy position changes
-		// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
-		// "P2" enemy reference is less sensitive than this however
-		if c.playerFlag {
-			sys.charList.enemyNearChanged = true
-		} else {
-			c.enemyNearP2Clear()
-		}
+	if c.pos[0] == x {
+		return
+	}
+
+	c.pos[0] = x
+	// We do this because Mugen is very sensitive to enemy position changes
+	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
+	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
+	if c.playerFlag {
+		sys.charList.enemyNearChanged = true
+	} else {
+		c.enemyNearP2Clear()
 	}
 }
 
@@ -5838,6 +5840,10 @@ func (c *Char) setPosY(y float32) { // This function mostly exists right now so 
 }
 
 func (c *Char) setPosZ(z float32) {
+	if c.pos[2] == z {
+		return
+	}
+
 	c.pos[2] = z
 	// Z distance is also factored into enemy near lists
 	if sys.zEnabled() {
@@ -11019,7 +11025,10 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 	}
 
 	getter.unsetCSF(CSF_gethit)
-	getter.enemyNearP2Clear()
+
+	// This forces an enemy list cache reset every frame
+	// Has a perfomance impact and is probably not necessary in the current state of the code
+	//getter.enemyNearP2Clear()
 
 	for _, c := range cl.runOrder {
 

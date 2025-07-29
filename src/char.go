@@ -10892,77 +10892,48 @@ func (cl *CharList) commandUpdate() {
 
 // Sort all characters into a list based on their processing order
 func (cl *CharList) sortActionRunOrder() []int {
+	// Temp sorting list
+	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
 
-	sortedOrder := []int{}
-
-	// Reset all run order values
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].runorder = -1
+	// Decide priority of each player
+	for i, c := range cl.runOrder {
+		var pr int // Fallback priority of 0
+		if c.asf(ASF_runfirst) && !c.asf(ASF_runlast) { // Any character with runfirst flag
+			pr = 100
+		} else if c.asf(ASF_runlast) && !c.asf(ASF_runfirst) { // Any character with runlast flag
+			pr = -100
+		} else if c.ss.moveType == MT_A { // Attacking players and helpers
+			pr = 5
+		} else if c.helperIndex == 0 {
+			if c.ss.moveType == MT_I { // Idle players
+				pr = 4
+			} else { // Remaining players
+				pr = 3
+			}
+		} else {
+			if c.ss.moveType == MT_I { // Idle helpers
+				pr = 2
+			} else { // Remaining helpers
+				pr = 1
+			}
+		}
+		sorting[i] = [2]int{i, pr}
 	}
 
-	// Sort characters with priority flag
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && cl.runOrder[i].asf(ASF_runfirst) {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
+	// Sort by priority
+	sort.Slice(sorting, func(i, j int) bool {
+		return sorting[i][1] > sorting[j][1]
+	})
 
-	// Sort attacking players and helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].ss.moveType == MT_A {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort idle players
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex == 0 && cl.runOrder[i].ss.moveType == MT_I {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort remaining players
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex == 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort idle helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex != 0 && cl.runOrder[i].ss.moveType == MT_I {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort remaining helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex != 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort anyone missed (RunLast flag)
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
+	// Create new sorted list and update each char's runOrder
+	sortedOrder := make([]int, len(sorting))
+	for i := 0; i < len(sorting); i++ {
+		sortedOrder[i] = sorting[i][0]
+		cl.runOrder[sorting[i][0]].runorder = int32(i + 1)
 	}
 
 	// Reset priority flags as they are only needed during this function
-	for i := 0; i < len(cl.runOrder); i++ {
+	for i := range cl.runOrder {
 		cl.runOrder[i].unsetASF(ASF_runfirst | ASF_runlast)
 	}
 
@@ -11640,43 +11611,48 @@ func (cl *CharList) pushDetection(getter *Char) {
 }
 
 func (cl *CharList) collisionDetection() {
+	// Temp sorting list
+	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
 
-	sortedOrder := []int{}
-	sortingDone := make([]bool, len(cl.runOrder))
+	// Decide priority of each player
+	// TODO: Maybe this could also be affected by runfirst/runlast
+	for i, c := range cl.runOrder {
+		var pr int
+		if c.hitdef.reversal_attr > 0 { // ReversalDef first
+			pr = 2
+		} else if c.hitdef.attr > 0 { // Then HitDef
+			pr = 1
+		} else { // Everyone else
+			pr = 0
+		}
+		sorting[i] = [2]int{i, pr}
+	}
 
-	// Check ReversalDefs first
-	for i, c := range cl.runOrder {
-		if c.hitdef.reversal_attr > 0 && !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-			sortingDone[i] = true
-		}
-	}
-	// Check Hitdefs second
-	for i, c := range cl.runOrder {
-		if c.hitdef.attr > 0 && !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-			sortingDone[i] = true
-		}
-	}
-	// Append remaining characters
-	for i := range cl.runOrder {
-		if !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-		}
+	// Sort by priority
+	sort.Slice(sorting, func(i, j int) bool {
+		return sorting[i][1] > sorting[j][1]
+	})
+
+	// Create the new sorted list
+	sortedOrder := make([]int, len(sorting))
+	for i := 0; i < len(sorting); i++ {
+		sortedOrder[i] = sorting[i][0]
 	}
 
 	// Push detection for players
 	// This must happen before hit detection
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1941
 	// An attempt was made to skip redundant player pair checks, but that makes chars push each other too slowly in screen corners
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.pushDetection(cl.runOrder[sortedOrder[i]])
+	for _, idx := range sortedOrder {
+		cl.pushDetection(cl.runOrder[idx])
 	}
 
-	// Player and projectile hit detection
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.hitDetectionPlayer(cl.runOrder[sortedOrder[i]])
+	// Player hit detection
+	for _, idx := range sortedOrder {
+		cl.hitDetectionPlayer(cl.runOrder[idx])
 	}
+
+	// Projectile hit detection
 	for _, c := range cl.runOrder {
 		cl.hitDetectionProjectile(c)
 	}

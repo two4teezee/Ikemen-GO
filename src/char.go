@@ -5446,7 +5446,7 @@ func (c *Char) destroy() {
 		}
 		// Remove ID from children
 		for _, ch := range c.children {
-			if ch != nil {
+			if ch != nil && ch.parentIndex > 0 {
 				ch.parentIndex *= -1
 			}
 		}
@@ -5767,6 +5767,10 @@ func (c *Char) removeExplod(id, idx int32) {
 	remove(&sys.explodsLayerN1[c.playerNo], true)
 	remove(&sys.explodsLayer0[c.playerNo], true)
 	remove(&sys.explodsLayer1[c.playerNo], false)
+
+	// Ontop/layer 1 explod indexes are not removed (drop = false) to preserve Mugen drawing order
+	// TODO: This is obsolete with our current logic and may not be working correctly in the first place
+	// The same also happens in system.go
 }
 
 func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
@@ -7488,8 +7492,8 @@ func (c *Char) getPalfx() *PalFX {
 		}
 	}
 	c.palfx = newPalFX()
-	// Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.palfx != nil {
+	// Mugen 1.1 behavior if invertblend param is omitted (only if char mugenversion = 1.1)
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.palfx != nil {
 		c.palfx.PalFXDef.invertblend = -2
 	}
 	return c.palfx

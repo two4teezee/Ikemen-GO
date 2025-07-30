@@ -990,6 +990,14 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_animelemtime, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animplayerno",
+			explod_animplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "spriteplayerno",
+			explod_spriteplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "animfreeze",
 			explod_animfreeze, VT_Bool, 1, false); err != nil {
 			return err
@@ -1052,6 +1060,14 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "animelemtime",
 			explod_animelemtime, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "animplayerno",
+			explod_animplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "spriteplayerno",
+			explod_spriteplayerno, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "animfreeze",

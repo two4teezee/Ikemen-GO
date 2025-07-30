@@ -3690,6 +3690,12 @@ func triggerFunctions(l *lua.LState) {
 					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
 				case "animelem":
 					ln = lua.LNumber(e.anim.curelem + 1)
+				case "animelemtime":
+					ln = lua.LNumber(e.anim.curelemtime)
+				case "animplayerno":
+					ln = lua.LNumber(e.animPN + 1)
+				case "spriteplayerno":
+					ln = lua.LNumber(e.spritePN + 1)
 				case "bindtime":
 					ln = lua.LNumber(e.bindtime)
 				case "drawpal group":

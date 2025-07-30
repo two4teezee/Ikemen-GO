@@ -796,6 +796,8 @@ const (
 	OC_ex2_explodvar_anim
 	OC_ex2_explodvar_animelem
 	OC_ex2_explodvar_animelemtime
+	OC_ex2_explodvar_animplayerno
+	OC_ex2_explodvar_spriteplayerno
 	OC_ex2_explodvar_bindtime
 	OC_ex2_explodvar_drawpal_group
 	OC_ex2_explodvar_drawpal_index
@@ -3432,6 +3434,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		fallthrough
 	case OC_ex2_explodvar_animelemtime:
 		fallthrough
+	case OC_ex2_explodvar_animplayerno:
+		fallthrough
+	case OC_ex2_explodvar_spriteplayerno:
+		fallthrough
 	case OC_ex2_explodvar_drawpal_group:
 		fallthrough
 	case OC_ex2_explodvar_drawpal_index:
@@ -5489,6 +5495,8 @@ const (
 	explod_interpolate_pfx_hue
 	explod_interpolation
 	explod_redirectid
+	explod_animplayerno
+	explod_spriteplayerno
 	explod_last = iota + palFX_last + 1 - 1
 )
 
@@ -5500,7 +5508,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 	rp := [...]int32{-1, 0}
-
+	animPN := -1
+	spritePN := -1
 	e, i := crun.newExplod()
 	if e == nil {
 		return false
@@ -5515,14 +5524,34 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_anim:
+			apn := crun.playerNo
+				if animPN != -1 {
+				apn = animPN
+			}
+			spn := crun.playerNo
+				if spritePN != -1 {
+				spn = spritePN
+			}
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			if ffx != "" && ffx != "s" {
 				e.ownpal = true
 			}
 			e.animNo = exp[1].evalI(c)
-			e.anim = crun.getAnim(e.animNo, ffx, true)
 			e.animelem = 1
 			e.animelemtime = 0
+			e.setAnim(e.animNo, apn, spn, ffx)
+		case explod_animplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			animPN = pn
+		case explod_spriteplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			spritePN = pn
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5828,7 +5857,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	rp := [...]int32{-1, 0}
 	remap := false
 	ptexists := false
-
+	animPN := -1
+	spritePN := -1
 	// Mugen chars can only modify some parameters after defining PosType
 	// Ikemen chars don't have this restriction
 	paramlock := func() bool {
@@ -5849,6 +5879,25 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case explod_redirectid:
+			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
+				crun = rid
+				redirscale = c.localscl / crun.localscl
+			} else {
+				return false
+			}
+		case explod_animplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			animPN = pn
+		case explod_spriteplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			spritePN = pn
 		case explod_remappal:
 			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
@@ -6182,13 +6231,21 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				})
 			case explod_anim:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
+					apn := crun.playerNo
+					if animPN != -1 {
+						apn = animPN
+					}
+					spn := crun.playerNo
+						if spritePN != -1 {
+						spn = spritePN
+					}
 					animNo := exp[1].evalI(c)
-					anim := crun.getAnim(animNo, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), true)
+					ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+
 					eachExpl(func(e *Explod) {
-						e.anim = anim
-						e.animNo = animNo
 						e.animelem = 1
 						e.animelemtime = 0
+						e.setAnim(animNo, apn, spn, ffx)
 					})
 				}
 			case explod_animelem:

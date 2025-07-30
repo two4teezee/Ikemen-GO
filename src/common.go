@@ -998,10 +998,10 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 			}
 
 			var fwin [4]int32
-			fwin[0] = int32(float32(w[0]) * l.scale[0] * fscale)
-			fwin[1] = int32(float32(w[1]) * l.scale[1] * fscale)
-			fwin[2] = int32(float32(w[2]-w[0]) * l.scale[0] * fscale)
-			fwin[3] = int32(float32(w[3]-w[1]) * l.scale[1] * fscale)
+			fwin[0] = int32(float32(w[0]))
+			fwin[1] = int32(float32(w[1]) * fscale)
+			fwin[2] = int32(float32(w[2]))
+			fwin[3] = int32(float32(w[3]) * fscale)
 
 			drawwindow = &fwin
 		}

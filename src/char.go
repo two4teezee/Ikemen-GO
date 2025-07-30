@@ -1308,6 +1308,8 @@ type Explod struct {
 	interpolate_xshear   [2]float32
 	animNo               int32
 	interPos             [3]float32
+	animPN               int
+	spritePN             int
 }
 
 func (e *Explod) clear() {
@@ -1326,6 +1328,8 @@ func (e *Explod) clear() {
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
 		animelemtime:      0,
+		animPN:            -1,
+		spritePN:          -1,
 		blendmode:         0,
 		alpha:             [...]int32{-1, 0},
 		playerId:          -1,
@@ -1440,6 +1444,41 @@ func (e *Explod) setPos(c *Char) {
 
 func (e *Explod) matchId(eid, pid int32) bool {
 	return e.id >= 0 && e.playerId == pid && (eid < 0 || e.id == eid)
+}
+
+func (e *Explod) setAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
+	c := sys.playerID(e.playerId)
+	if c == nil {
+		return
+	}
+
+	if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
+		e.anim = a
+		e.animPN = animPlayerNo
+		e.spritePN = spritePlayerNo
+		
+		if e.spritePN < 0 {
+			e.spritePN = c.playerNo
+		}
+		if ffx == "" {
+			a.sff = sys.cgi[e.spritePN].sff
+			a.palettedata = &sys.cgi[e.spritePN].palettedata.palList
+			if c.playerNo != e.spritePN && !e.ownpal {
+				ownerChar := sys.chars[e.spritePN][0]
+				ownerPal := ownerChar.drawPal()
+				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
+
+				if di, ok := a.palettedata.PalTable[key]; ok {
+					for _, id := range [...]int32{0, 9000} {
+						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+							a.palettedata.Remap(spr.palidx, di)
+						}
+					}
+				}
+			}
+		}
+		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
+	}
 }
 
 func (e *Explod) setAnimElem() {
@@ -4473,6 +4512,10 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeInt(e.anim.curelem + 1)
 			case OC_ex2_explodvar_animelemtime:
 				v = BytecodeInt(e.anim.curelemtime)
+			case OC_ex2_explodvar_animplayerno:
+				v = BytecodeInt(int32(e.animPN) + 1)
+			case OC_ex2_explodvar_spriteplayerno:
+				v = BytecodeInt(int32(e.spritePN) + 1)
 			case OC_ex2_explodvar_bindtime:
 				v = BytecodeInt(e.bindtime)
 			case OC_ex2_explodvar_drawpal_group:

@@ -2286,6 +2286,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_explodvar_animelem
 		case "animelemtime":
 			opc = OC_ex2_explodvar_animelemtime
+		case "animplayerno":
+			opc = OC_ex2_explodvar_animplayerno
+		case "spriteplayerno":
+			opc = OC_ex2_explodvar_spriteplayerno
 		case "bindtime":
 			opc = OC_ex2_explodvar_bindtime
 		case "drawpal":

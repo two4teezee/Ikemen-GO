@@ -8520,7 +8520,12 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	//if ghd.chainid < 0 {
 
 	// ReversalDef vs HitDef attributes check
-	if ghd.reversal_attr > 0 && c.hitdef.attr > 0 && c.atktmp != 0 {
+	if ghd.reversal_attr > 0 {
+		// Check HitDef validity
+		if c.hitdef.attr <= 0 || c.atktmp == 0 {
+			return false
+		}
+
 		// Check attributes
 		if (c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) == 0 ||
 			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) == 0 {

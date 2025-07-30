@@ -5551,11 +5551,11 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_anim:
-			apn := crun.playerNo
+			apn := crun.playerNo // Default to own player number
+			spn := crun.playerNo
 				if animPN != -1 {
 				apn = animPN
 			}
-			spn := crun.playerNo
 				if spritePN != -1 {
 				spn = spritePN
 			}
@@ -6258,12 +6258,12 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				})
 			case explod_anim:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
-					apn := crun.playerNo
+					apn := crun.playerNo // Default to own player number
+					spn := crun.playerNo
 					if animPN != -1 {
 						apn = animPN
 					}
-					spn := crun.playerNo
-						if spritePN != -1 {
+					if spritePN != -1 {
 						spn = spritePN
 					}
 					animNo := exp[1].evalI(c)

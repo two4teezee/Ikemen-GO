@@ -3725,7 +3725,7 @@ func (c *Char) clearHitDef() {
 }
 
 func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string, alt bool) {
-if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
+	if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
 		c.anim = a
 		c.anim.remap = c.remapSpr
 		c.animPN = animPlayerNo

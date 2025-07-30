@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sort"
 	"strings"
 )
 
@@ -971,6 +972,9 @@ func (dl *DrawList) add(sd *SprData) {
 		return
 	}
 
+	// Before: sort every time we add a sprite
+	// After: add all sprites first then sort before drawing
+	/*
 	i, start := 0, 0
 	for l := len(*dl); l > 0; {
 		i = start + l>>1
@@ -987,9 +991,24 @@ func (dl *DrawList) add(sd *SprData) {
 	*dl = append(*dl, nil)
 	copy((*dl)[i+1:], (*dl)[i:])
 	(*dl)[i] = sd
+	*/
+
+	// Just append. We will sort everything later in one go
+	*dl = append(*dl, sd)
 }
 
 func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
+	// Sort drawing order
+	sort.Slice(dl, func(i, j int) bool {
+		// If different priority, draw lower priority first
+		if dl[i].priority != dl[j].priority {
+			return dl[i].priority < dl[j].priority
+		}
+		// Else draw newer sprite first
+		return i > j
+	})
+
+	// Draw the entire list
 	for _, s := range dl {
 		// Skip blank SprData
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433
@@ -1083,6 +1102,7 @@ func (sl *ShadowList) add(ss *ShadowSprite) {
 		return
 	}
 
+	/*
 	i, start := 0, 0
 	for l := len(*sl); l > 0; {
 		i = start + l>>1
@@ -1099,11 +1119,23 @@ func (sl *ShadowList) add(ss *ShadowSprite) {
 	*sl = append(*sl, nil)
 	copy((*sl)[i+1:], (*sl)[i:])
 	(*sl)[i] = ss
+	*/
+
+	// Just append. We will sort everything later in one go
+	*sl = append(*sl, ss)
 }
 
 func (sl ShadowList) draw(x, y, scl float32) {
-	for _, s := range sl {
+	// Sort drawing order
+	sort.Slice(sl, func(i, j int) bool {
+		if sl[i].priority != sl[j].priority {
+			return sl[i].priority < sl[j].priority
+		}
+		return i > j
+	})
 
+	// Draw the entire list
+	for _, s := range sl {
 		// Skip blank shadows
 		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue

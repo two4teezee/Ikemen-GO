@@ -593,6 +593,7 @@ const (
 	OC_ex_animelemvar_numclsn2
 	OC_ex_animlength
 	OC_ex_animplayerno
+	OC_ex_spriteplayerno
 	OC_ex_attack
 	OC_ex_clsnoverlap
 	OC_ex_combocount
@@ -2836,6 +2837,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.anim.totaltime)
 	case OC_ex_animplayerno:
 		sys.bcStack.PushI(int32(c.animPN) + 1)
+	case OC_ex_spriteplayerno:
+		sys.bcStack.PushI(int32(c.spritePN) + 1)
 	case OC_ex_attack:
 		sys.bcStack.PushF(c.attackMul[0] * 100)
 	case OC_ex_clsnoverlap:
@@ -4236,7 +4239,7 @@ func (sc stateDef) Run(c *Char) {
 				}
 			}
 		case stateDef_anim:
-			c.changeAnimEx(exp[1].evalI(c), c.playerNo, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
+			c.changeAnimEx(exp[1].evalI(c), c.playerNo, -1, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
 		case stateDef_ctrl:
 			c.setCtrl(exp[0].evalB(c))
 		case stateDef_poweradd:
@@ -4804,6 +4807,8 @@ const (
 	changeAnim_elem byte = iota
 	changeAnim_elemtime
 	changeAnim_value
+	changeAnim_animplayerno
+	changeAnim_spriteplayerno
 	changeAnim_readplayerid
 	changeAnim_redirectid
 )
@@ -4816,6 +4821,8 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 
 	var elem, elemtime int32
 	var rpid int = -1
+	animPN := -1
+	spritePN := -1
 	setelem := false
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -4826,14 +4833,34 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
-			pn := crun.playerNo // Default to own player number
-			if rpid != -1 {
-				pn = rpid
+			apn := crun.playerNo // Default to own player number
+			spn := crun.playerNo
+			if animPN != -1 {
+				apn = animPN
 			}
-			crun.changeAnim(exp[1].evalI(c), pn, string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
+			if spritePN != -1 {
+				spn = spritePN
+			}
+			if rpid != -1 {
+				apn, spn = rpid, rpid
+			}
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			crun.changeAnim(exp[1].evalI(c), apn, spn, ffx)
 			if setelem {
 				crun.setAnimElem(elem, elemtime)
 			}
+		case changeAnim_animplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			animPN = pn
+		case changeAnim_spriteplayerno:
+			pn := int(exp[0].evalI(c)) -1
+			if pn < 0 || sys.chars[pn][0] == nil {
+				return false
+			}
+			spritePN = pn
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
 				rpid = read.playerNo
@@ -13283,9 +13310,14 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyShadow_color:
-			r := Clamp(exp[0].evalI(c), 0, 255)
-			g := Clamp(exp[1].evalI(c), 0, 255)
-			b := Clamp(exp[2].evalI(c), 0, 255)
+			var r, g, b int32
+			r = Clamp(exp[0].evalI(c), 0, 255)
+			if len(exp) > 1 {
+				g = Clamp(exp[1].evalI(c), 0, 255)
+			}
+			if len(exp) > 2 {
+				b = Clamp(exp[2].evalI(c), 0, 255)
+			}
 			crun.shadowColor = [3]int32{r, g, b}
 		case modifyShadow_intensity:
 			crun.shadowIntensity = Clamp(exp[0].evalI(c), 0, 255)

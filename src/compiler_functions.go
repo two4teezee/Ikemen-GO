@@ -534,6 +534,14 @@ func (c *Compiler) changeAnimSub(is IniSection,
 		changeAnim_redirectid, VT_Int, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "animplayerno",
+		changeAnim_animplayerno, VT_Int, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "spriteplayerno",
+		changeAnim_spriteplayerno, VT_Int, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "readplayerid",
 		changeAnim_readplayerid, VT_Int, 1, false); err != nil {
 		return err

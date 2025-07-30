@@ -2526,6 +2526,7 @@ type Char struct {
 	playerFlag          bool // Root and player type helpers
 	hprojectile         bool // Helper type projectile. Currently unused
 	animPN              int
+	spritePN            int
 	animNo              int32
 	prevAnimNo          int32
 	life                int32
@@ -2805,6 +2806,7 @@ func (c *Char) clearCachedData() {
 	c.defenseMulDelay = false
 	c.ownpal = true
 	c.animPN = -1
+	c.spritePN = -1
 	c.animNo = 0
 	c.prevAnimNo = 0
 	c.stchtmp = false
@@ -3722,29 +3724,40 @@ func (c *Char) clearHitDef() {
 	c.hitdef.clear(c, c.localscl)
 }
 
-func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
-	if a := sys.chars[playerNo][0].getAnim(animNo, ffx, false); a != nil {
+func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string, alt bool) {
+if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
 		c.anim = a
 		c.anim.remap = c.remapSpr
-		c.animPN = c.playerNo
+		c.animPN = animPlayerNo
+		c.spritePN = spritePlayerNo
 		c.prevAnimNo = c.animNo
 		c.animNo = animNo
 
 		// If using ChangeAnim2, the animation is changed but the sff is kept
 		if alt {
-			c.animPN = playerNo
-			a.sff = sys.cgi[c.playerNo].sff
-			a.palettedata = &sys.cgi[c.playerNo].palettedata.palList
-		} else if c.playerNo != playerNo && c.anim.sff.header.Ver0 == 1 {
-			// Fix palette if anim doesn't belong to char and sff header version is 1.x
-			di := c.anim.palettedata.PalTable[[...]int16{1, 1}]
-			spr := c.anim.sff.GetSprite(0, 0)
-			if spr != nil {
-				c.anim.palettedata.Remap(spr.palidx, di)
+			c.spritePN = c.playerNo
+		} else {
+			if c.spritePN < 0 {
+				c.spritePN = c.playerNo
+			} else {
+				c.spritePN = spritePlayerNo
 			}
-			spr = c.anim.sff.GetSprite(9000, 0)
-			if spr != nil {
-				c.anim.palettedata.Remap(spr.palidx, di)
+		}
+
+		a.sff = sys.cgi[c.spritePN].sff
+		a.palettedata = &sys.cgi[c.spritePN].palettedata.palList
+
+		if c.playerNo != c.spritePN {
+			ownerChar := sys.chars[c.spritePN][0]
+			ownerPal := ownerChar.drawPal()
+			key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
+
+			if di, ok := a.palettedata.PalTable[key]; ok {
+				for _, id := range [...]int32{0, 9000} {
+					if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+						a.palettedata.Remap(spr.palidx, di)
+					}
+				}
 			}
 		}
 
@@ -3757,7 +3770,7 @@ func (c *Char) changeAnimEx(animNo int32, playerNo int, ffx string, alt bool) {
 	}
 }
 
-func (c *Char) changeAnim(animNo int32, playerNo int, ffx string) {
+func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
 	if animNo < 0 && animNo != -2 {
 		// MUGEN 1.1 exports a warning message when attempting to change anim to a negative value through ChangeAnim SCTRL,
 		// then sets the character animation to "0". Ikemen GO uses "-2" as a no-sprite/invisible anim, so we make
@@ -3765,15 +3778,15 @@ func (c *Char) changeAnim(animNo int32, playerNo int, ffx string) {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
 		animNo = 0
 	}
-	c.changeAnimEx(animNo, playerNo, ffx, false)
+	c.changeAnimEx(animNo, animPlayerNo, spritePlayerNo, ffx, false)
 }
 
-func (c *Char) changeAnim2(animNo int32, playerNo int, ffx string) {
+func (c *Char) changeAnim2(animNo int32, animPlayerNo int, ffx string) {
 	if animNo < 0 && animNo != -2 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
 		animNo = 0
 	}
-	c.changeAnimEx(animNo, playerNo, ffx, true)
+	c.changeAnimEx(animNo, animPlayerNo, -1, ffx, true)
 }
 
 func (c *Char) setAnimElem(elem, elemtime int32) {
@@ -5204,11 +5217,11 @@ func (c *Char) autoTurn() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
-				c.changeAnimEx(5, c.playerNo, "", false)
+				c.changeAnimEx(5, c.playerNo, -1, "", false)
 			}
 		case ST_C:
 			if c.animNo != 6 {
-				c.changeAnimEx(6, c.playerNo, "", false)
+				c.changeAnimEx(6, c.playerNo, -1, "", false)
 			}
 		}
 		c.setFacing(-c.facing)
@@ -5368,7 +5381,7 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	//	c.autoTurn()
 	//}
 	if anim != -1 {
-		c.changeAnim(anim, c.playerNo, ffx)
+		c.changeAnim(anim, c.playerNo, -1, ffx)
 	}
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)

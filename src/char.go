@@ -1456,7 +1456,7 @@ func (e *Explod) setAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx
 		e.anim = a
 		e.animPN = animPlayerNo
 		e.spritePN = spritePlayerNo
-		
+
 		if e.spritePN < 0 {
 			e.spritePN = c.playerNo
 		}
@@ -7251,18 +7251,18 @@ func (c *Char) guardBreakEnabled() bool {
 func (c *Char) redLifeEnabled() bool {
 	return sys.lifebar.redlifebar
 	/*
-		switch sys.tmode[c.playerNo&1] {
-		case TM_Single:
-			return sys.cfg.Options.Single.RedLife
-		case TM_Simul:
-			return sys.cfg.Options.Simul.RedLife
-		case TM_Tag:
-			return sys.cfg.Options.Tag.RedLife
-		case TM_Turns:
-			return sys.cfg.Options.Turns.RedLife
-		default:
-			return false
-	    }
+			switch sys.tmode[c.playerNo&1] {
+			case TM_Single:
+				return sys.cfg.Options.Single.RedLife
+			case TM_Simul:
+				return sys.cfg.Options.Simul.RedLife
+			case TM_Tag:
+				return sys.cfg.Options.Tag.RedLife
+			case TM_Turns:
+				return sys.cfg.Options.Turns.RedLife
+			default:
+				return false
+		    }
 	*/
 }
 

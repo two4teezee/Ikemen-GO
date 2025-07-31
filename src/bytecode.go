@@ -4850,13 +4850,13 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_animplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}
 			animPN = pn
 		case changeAnim_spriteplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}
@@ -5553,10 +5553,10 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_anim:
 			apn := crun.playerNo // Default to own player number
 			spn := crun.playerNo
-				if animPN != -1 {
+			if animPN != -1 {
 				apn = animPN
 			}
-				if spritePN != -1 {
+			if spritePN != -1 {
 				spn = spritePN
 			}
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
@@ -5568,13 +5568,13 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.animelemtime = 0
 			e.setAnim(e.animNo, apn, spn, ffx)
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}
 			animPN = pn
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}
@@ -5914,13 +5914,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				return false
 			}
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}
 			animPN = pn
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) -1
+			pn := int(exp[0].evalI(c)) - 1
 			if pn < 0 || sys.chars[pn][0] == nil {
 				return false
 			}

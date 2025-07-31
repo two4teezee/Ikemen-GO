@@ -627,7 +627,7 @@ func systemScriptInit(l *lua.LState) {
 			if ffx {
 				preffix = "f"
 			}
-			c[0].changeAnim(an, c[0].playerNo, preffix)
+			c[0].changeAnim(an, c[0].playerNo, -1, preffix)
 			if !nilArg(l, 2) {
 				c[0].setAnimElem(int32(numArg(l, 2)), 0)
 			}
@@ -3690,6 +3690,12 @@ func triggerFunctions(l *lua.LState) {
 					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
 				case "animelem":
 					ln = lua.LNumber(e.anim.curelem + 1)
+				case "animelemtime":
+					ln = lua.LNumber(e.anim.curelemtime)
+				case "animplayerno":
+					ln = lua.LNumber(e.animPN + 1)
+				case "spriteplayerno":
+					ln = lua.LNumber(e.spritePN + 1)
 				case "bindtime":
 					ln = lua.LNumber(e.bindtime)
 				case "drawpal group":
@@ -6048,7 +6054,7 @@ func deprecatedFunctions(l *lua.LState) {
 				if ffx {
 					preffix = "f"
 				}
-				c[0].changeAnim(an, c[0].playerNo, preffix)
+				c[0].changeAnim(an, c[0].playerNo, -1, preffix)
 				if l.GetTop() >= 3 {
 					c[0].setAnimElem(int32(numArg(l, 3)), 0)
 				}

@@ -357,6 +357,7 @@ var triggerMap = map[string]int{
 	"animelemvar":        1,
 	"animlength":         1,
 	"animplayerno":       1,
+	"spriteplayerno":     1,
 	"atan2":              1,
 	"attack":             1,
 	"bgmvar":             1,
@@ -2286,6 +2287,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_explodvar_animelem
 		case "animelemtime":
 			opc = OC_ex2_explodvar_animelemtime
+		case "animplayerno":
+			opc = OC_ex2_explodvar_animplayerno
+		case "spriteplayerno":
+			opc = OC_ex2_explodvar_spriteplayerno
 		case "bindtime":
 			opc = OC_ex2_explodvar_bindtime
 		case "drawpal":
@@ -4192,6 +4197,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_animlength)
 	case "animplayerno":
 		out.append(OC_ex_, OC_ex_animplayerno)
+	case "spriteplayerno":
+		out.append(OC_ex_, OC_ex_spriteplayerno)
 	case "attack":
 		out.append(OC_ex_, OC_ex_attack)
 	case "combocount":

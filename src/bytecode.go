@@ -4187,6 +4187,18 @@ func getRedirectedChar(c *Char, sc StateControllerBase, redirectID byte, scname 
 	return crun
 }
 
+func validatePlayerNo(c *Char, pn int, pname, scname string) bool {
+	valid := pn >= 0 &&
+	         pn < len(sys.chars) &&
+	         len(sys.chars[pn]) > 0 &&
+	         sys.chars[pn][0] != nil
+	if !valid {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s for %s: %v", pname, scname, pn+1))
+		return false
+	}
+	return true
+}
+
 type stateDef StateControllerBase
 
 const (
@@ -4851,16 +4863,14 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			}
 		case changeAnim_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "animPlayerNo", "changeAnim") {
+				animPN = pn
 			}
-			animPN = pn
 		case changeAnim_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "spritePlayerNo", "changeAnim") {
+				spritePN = pn
 			}
-			spritePN = pn
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
 				rpid = read.playerNo
@@ -5569,16 +5579,14 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.setAnim(e.animNo, apn, spn, ffx)
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "animPlayerNo", "Explod") {
+				animPN = pn
 			}
-			animPN = pn
 		case explod_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "spritePlayerNo", "Explod") {
+				spritePN = pn
 			}
-			spritePN = pn
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5915,16 +5923,14 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "animPlayerNo", "modifyExplod") {
+				animPN = pn
 			}
-			animPN = pn
 		case explod_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if pn < 0 || sys.chars[pn][0] == nil {
-				return false
+			if validatePlayerNo(c, pn, "spritePlayerNo", "modifyExplod") {
+				spritePN = pn
 			}
-			spritePN = pn
 		case explod_remappal:
 			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {

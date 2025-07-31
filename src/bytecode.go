@@ -4189,9 +4189,9 @@ func getRedirectedChar(c *Char, sc StateControllerBase, redirectID byte, scname 
 
 func validatePlayerNo(c *Char, pn int, pname, scname string) bool {
 	valid := pn >= 0 &&
-	         pn < len(sys.chars) &&
-	         len(sys.chars[pn]) > 0 &&
-	         sys.chars[pn][0] != nil
+		pn < len(sys.chars) &&
+		len(sys.chars[pn]) > 0 &&
+		sys.chars[pn][0] != nil
 	if !valid {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s for %s: %v", pname, scname, pn+1))
 		return false

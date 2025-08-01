@@ -407,6 +407,11 @@ func rmInitSub(rp *RenderParams) {
 		rp.y *= -1
 	}
 	rp.y += rp.rcy
+
+	if sys.cfg.Video.XyTruncate {
+		rp.x = float32(int(rp.x))
+		rp.y = float32(int(rp.y))
+	}
 }
 
 func BlendReset() {

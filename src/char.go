@@ -8024,6 +8024,23 @@ func (c *Char) hasTargetOfHitdef(id int32) bool {
 	return false
 }
 
+func (c *Char) targetAddSctrl(id int32) {
+	// Check if ID exists
+	t := sys.playerID(id)
+	if t == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid player ID for TargetAdd: %v", id))
+		return
+	}
+
+	// Add target to char's "target" list
+	// These two functions already prevent duplicating players
+	c.addTarget(id)
+
+	// Add original char to target's "targeted by" list
+	t.ghv.addId(c.id, c.gi().data.airjuggle)
+}
+
+
 func (c *Char) setBindTime(time int32) {
 	c.bindTime = time
 	if time == 0 {

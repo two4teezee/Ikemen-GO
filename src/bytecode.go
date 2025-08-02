@@ -12981,30 +12981,7 @@ func (sc targetAdd) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	// Check if ID exists
-	if pid > 0 {
-		for i := range sys.chars {
-			for j := range sys.chars[i] {
-				if sys.chars[i][j].id == pid {
-					// Add target to char's "target" list
-					// This function already prevents duplicating targets
-					crun.addTarget(pid)
-					// Add char to target's "targeted by" list
-					// Keep juggle points if target already exists
-					jug := crun.gi().data.airjuggle
-					for _, v := range sys.chars[i][j].ghv.targetedBy {
-						if v[0] == crun.id {
-							jug = v[1]
-						}
-					}
-					// Remove then readd char to the list with the new juggle points
-					sys.chars[i][j].ghv.dropId(crun.id)
-					sys.chars[i][j].ghv.targetedBy = append(sys.chars[i][j].ghv.targetedBy, [...]int32{crun.id, jug})
-					break
-				}
-			}
-		}
-	}
+	crun.targetAddSctrl(pid)
 
 	return false
 }

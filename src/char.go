@@ -4376,22 +4376,19 @@ func (c *Char) isHost() bool {
 	return sys.netConnection != nil && sys.netConnection.host
 }
 
-func (c *Char) jugglePoints(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
-	}
-	tid := hid.ToI()
+func (c *Char) jugglePoints(id int32) int32 {
 	max := c.gi().data.airjuggle
-	jp := max // If no target is found it returns the char's maximum juggle points
+
+	// Check if ID is already a target
 	for _, ct := range c.targets {
-		if ct >= 0 {
-			t := sys.playerID(ct)
-			if t != nil && t.id == tid {
-				jp = t.ghv.getJuggle(c.id, max)
-			}
+		t := sys.playerID(ct)
+		if t != nil && t.id == id {
+			return t.ghv.getJuggle(c.id, max)
 		}
 	}
-	return BytecodeInt(jp)
+
+	// If no target is found we just return the char's maximum juggle points
+	return max
 }
 
 func (c *Char) leftEdge() float32 {

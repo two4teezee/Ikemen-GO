@@ -5695,7 +5695,7 @@ func triggerFunctions(l *lua.LState) {
 		if !nilArg(l, 1) {
 			id = int32(numArg(l, 1))
 		}
-		l.Push(lua.LNumber(sys.debugWC.jugglePoints(BytecodeInt(id)).ToI()))
+		l.Push(lua.LNumber(sys.debugWC.jugglePoints(id)))
 		return 1
 	})
 	luaRegister(l, "lastplayerid", func(*lua.LState) int {

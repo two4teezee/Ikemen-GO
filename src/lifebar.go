@@ -89,8 +89,18 @@ func loadFightFx(def string, isGlobal bool) error {
 					return Error("A prefix must be declared")
 				}
 				prefix = strings.ToLower(prefix)
-				if prefix == "f" || prefix == "s" {
-					return Error(fmt.Sprintf("%v prefix is reserved for the system and cannot be used", strings.ToUpper(prefix)))
+				//if prefix == "f" || prefix == "s" {
+				//	return Error(fmt.Sprintf("%v prefix is reserved for the system and cannot be used", strings.ToUpper(prefix)))
+				//}
+				// Check if prefix overlaps a reserved one
+				for _, reserved := range sys.ffxReserved {
+					if prefix == reserved {
+						return Error(fmt.Sprintf("The %v prefix is already reserved for the system and cannot be used", strings.ToUpper(prefix)))
+					}
+				}
+				// Check if prefix conflicts with trigger names
+				if _, ok := triggerMap[prefix]; ok {
+					return Error(fmt.Sprintf("The %v prefix conflicts with an existing trigger name and cannot be used", strings.ToUpper(prefix)))
 				}
 				if ffx, ok := sys.ffx[prefix]; ok {
 					// グローバルFXは常に有効。キャラクターFXはカウントを増やす
@@ -153,7 +163,9 @@ func loadFightFx(def string, isGlobal bool) error {
 		a.start_scale = [...]float32{ffx.fx_scale, ffx.fx_scale}
 	}
 	if sys.ffx[prefix] == nil {
-		sys.ffxRegexp += "|^(" + prefix + ")"
+		// Add prefix to reserved list
+		//sys.ffxRegexp += "|^(" + prefix + ")"
+		sys.ffxReserved = append(sys.ffxReserved, prefix)
 	}
 	ffx.fileName = def
 	ffx.isGlobal = isGlobal

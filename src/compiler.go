@@ -5517,24 +5517,45 @@ func (c *Compiler) stateParam(is IniSection, name string, mandatory bool, f func
 	return nil
 }
 
-// Returns FX prefix from a data string, removes prefix from the data
+// Returns FX prefix from a data string while removing prefix from the data
 func (c *Compiler) getDataPrefix(data *string, ffxDefault bool) (prefix string) {
 	if len(*data) > 1 {
-		// Check prefix
-		re := regexp.MustCompile(sys.ffxRegexp)
-		prefix = re.FindString(strings.ToLower(*data))
-		if prefix != "" {
-			// Remove prefix from data string
-			re = regexp.MustCompile("[^a-z]")
-			m := re.Split(strings.ToLower(*data)[len(prefix):], -1)
-			if _, ok := triggerMap[m[0]]; ok || m[0] == "" {
-				*data = (*data)[len(prefix):]
+		str := strings.ToLower(*data)
+
+		// Find the longest matching reserved prefix at the start of the string
+		// This allows "FFF" to be used even though "F" is reserved
+		longestMatch := ""
+		for _, p := range sys.ffxReserved {
+			if strings.HasPrefix(str, p) && len(p) > len(longestMatch) {
+				longestMatch = p
+			}
+		}
+
+		if longestMatch != "" {
+			// Get the substring after the matched prefix
+			rest := str[len(longestMatch):]
+
+			// Split by any sequence of non-letter characters to isolate tokens
+			re := regexp.MustCompile("[^a-z]+")
+			tokens := re.Split(rest, -1)
+
+			nextToken := ""
+			if len(tokens) > 0 {
+				nextToken = tokens[0]
+			}
+
+			// Remove prefix only if next token is empty or a known trigger
+			if nextToken == "" || triggerMap[nextToken] != 0 {
+				prefix = longestMatch
+				*data = (*data)[len(longestMatch):]
 			}
 		}
 	}
+
 	if ffxDefault && prefix == "" {
 		prefix = "f"
 	}
+
 	return
 }
 

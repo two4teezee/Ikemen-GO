@@ -4187,18 +4187,6 @@ func getRedirectedChar(c *Char, sc StateControllerBase, redirectID byte, scname 
 	return crun
 }
 
-func validatePlayerNo(c *Char, pn int, pname, scname string) bool {
-	valid := pn >= 0 &&
-		pn < len(sys.chars) &&
-		len(sys.chars[pn]) > 0 &&
-		sys.chars[pn][0] != nil
-	if !valid {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s for %s: %v", pname, scname, pn+1))
-		return false
-	}
-	return true
-}
-
 type stateDef StateControllerBase
 
 const (
@@ -4863,12 +4851,12 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			}
 		case changeAnim_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "animPlayerNo", "changeAnim") {
+			if crun.validatePlayerNo(pn, "animPlayerNo", "changeAnim") {
 				animPN = pn
 			}
 		case changeAnim_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "spritePlayerNo", "changeAnim") {
+			if crun.validatePlayerNo(pn, "spritePlayerNo", "changeAnim") {
 				spritePN = pn
 			}
 		case changeAnim_readplayerid:
@@ -5579,12 +5567,12 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.setAnim(e.animNo, apn, spn, ffx)
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "animPlayerNo", "Explod") {
+			if crun.validatePlayerNo(pn, "animPlayerNo", "Explod") {
 				animPN = pn
 			}
 		case explod_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "spritePlayerNo", "Explod") {
+			if crun.validatePlayerNo(pn, "spritePlayerNo", "Explod") {
 				spritePN = pn
 			}
 		case explod_ownpal:
@@ -5923,12 +5911,12 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "animPlayerNo", "modifyExplod") {
+			if crun.validatePlayerNo(pn, "animPlayerNo", "modifyExplod") {
 				animPN = pn
 			}
 		case explod_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
-			if validatePlayerNo(c, pn, "spritePlayerNo", "modifyExplod") {
+			if crun.validatePlayerNo(pn, "spritePlayerNo", "modifyExplod") {
 				spritePN = pn
 			}
 		case explod_remappal:

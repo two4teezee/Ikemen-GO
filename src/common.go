@@ -990,12 +990,6 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 
 		if *window != sys.scrrect {
 			w := window
-			if w[0] > w[2] {
-				w[0], w[2] = w[2], w[0]
-			}
-			if w[1] > w[3] {
-				w[1], w[3] = w[3], w[1]
-			}
 
 			var fwin [4]int32
 			fwin[0] = int32(float32(w[0]))

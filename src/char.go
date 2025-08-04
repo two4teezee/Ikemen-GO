@@ -3744,23 +3744,23 @@ func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, 
 			}
 		}
 
-		a.sff = sys.cgi[c.spritePN].sff
-		a.palettedata = &sys.cgi[c.spritePN].palettedata.palList
+		if ffx == "" {
+			a.sff = sys.cgi[c.spritePN].sff
+			a.palettedata = &sys.cgi[c.spritePN].palettedata.palList
+			if c.playerNo != c.spritePN {
+				ownerChar := sys.chars[c.spritePN][0]
+				ownerPal := ownerChar.drawPal()
+				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
 
-		if c.playerNo != c.spritePN {
-			ownerChar := sys.chars[c.spritePN][0]
-			ownerPal := ownerChar.drawPal()
-			key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
-
-			if di, ok := a.palettedata.PalTable[key]; ok {
-				for _, id := range [...]int32{0, 9000} {
-					if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
-						a.palettedata.Remap(spr.palidx, di)
+				if di, ok := a.palettedata.PalTable[key]; ok {
+					for _, id := range [...]int32{0, 9000} {
+						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+							a.palettedata.Remap(spr.palidx, di)
+						}
 					}
 				}
 			}
 		}
-
 		// Update animation local scale
 		c.animlocalscl = 320 / sys.chars[c.animPN][0].localcoord
 		// Clsn scale depends on the animation owner's scale, so it must be updated
@@ -3814,6 +3814,16 @@ func (c *Char) setAnimElem(elem, elemtime int32) {
 	// Set them
 	c.anim.SetAnimElem(elem, elemtime)
 	c.updateCurFrame()
+}
+
+func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
+	valid := pn >= 0 && pn < len(sys.chars) &&
+		len(sys.chars[pn]) > 0 && sys.chars[pn][0] != nil
+	if !valid {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s for %s: %v", pname, scname, pn+1))
+		return false
+	}
+	return true
 }
 
 func (c *Char) setCtrl(ctrl bool) {

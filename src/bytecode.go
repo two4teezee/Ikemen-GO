@@ -6273,20 +6273,21 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case explod_animelem:
-				animelem := exp[0].evalI(c)
+				v1 := exp[0].evalI(c)
 				eachExpl(func(e *Explod) {
+					e.animelem = v1
+					e.animelemtime = 0
 					e.interpolate_animelem[1] = -1
-					e.animelem = animelem
 					if e.anim != nil {
 						e.anim.Action() // This being in this place can cause a nil animation crash
 					}
 					e.setAnimElem()
 				})
 			case explod_animelemtime:
-				animelemtime := exp[0].evalI(c)
+				v1 := exp[0].evalI(c)
 				eachExpl(func(e *Explod) {
 					//e.interpolate_animelem[1] = -1 // TODO: Check animelemtime and interpolation interaction
-					e.animelemtime = animelemtime
+					e.animelemtime = v1
 					e.setAnimElem()
 				})
 			case explod_animfreeze:

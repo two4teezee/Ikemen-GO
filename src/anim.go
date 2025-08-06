@@ -1002,21 +1002,21 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		return
 	}
 
-	// Sort drawing order
+	// Sort by descending sprpriority
 	sort.SliceStable(dl, func(i, j int) bool {
-		// If different priority, draw lower priority first
 		if dl[i].priority != dl[j].priority {
-			return dl[i].priority < dl[j].priority
+			return dl[i].priority > dl[j].priority
 		}
-		// Else draw newer sprite first
-		return i > j
+		return false
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	// Draw the entire list
-	for _, s := range dl {
+	// Draw the entire list in reverse
+	for i := len(dl) - 1; i >= 0; i-- {
+		s := dl[i]
+
 		// Skip blank SprData
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433
 		if s.isBlank() {
@@ -1088,15 +1088,6 @@ type ShadowSprite struct {
 	shadowRot         Rotation
 	shadowProjection  int32
 	shadowfLength     float32
-	reflectColor      int32
-	reflectIntensity  int32
-	reflectOffset     [2]float32
-	reflectWindow     [4]float32
-	reflectXshear     float32
-	reflectYscale     float32
-	reflectRot        Rotation
-	reflectProjection int32
-	reflectfLength    float32
 	fadeOffset        float32
 }
 
@@ -1132,19 +1123,25 @@ func (sl *ShadowList) add(ss *ShadowSprite) {
 }
 
 func (sl ShadowList) draw(x, y, scl float32) {
-	// Sort drawing order
+	if len(sl) == 0 {
+		return
+	}
+
+	// Sort by descending sprpriority
 	sort.SliceStable(sl, func(i, j int) bool {
 		if sl[i].priority != sl[j].priority {
-			return sl[i].priority < sl[j].priority
+			return sl[i].priority > sl[j].priority
 		}
-		return i > j
+		return false
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	// Draw the entire list
-	for _, s := range sl {
+	// Draw the entire list in reverse
+	for i := len(sl) - 1; i >= 0; i-- {
+		s := sl[i]
+
 		// Skip blank shadows
 		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue
@@ -1293,23 +1290,57 @@ func (sl ShadowList) draw(x, y, scl float32) {
 	}
 }
 
-func (sl ShadowList) drawReflection(x, y, scl float32) {
-	if len(sl) == 0 {
+type ReflectionSprite struct {
+	*SprData
+	reflectColor      int32
+	reflectIntensity  int32
+	reflectOffset     [2]float32
+	reflectWindow     [4]float32
+	reflectXshear     float32
+	reflectYscale     float32
+	reflectRot        Rotation
+	reflectProjection int32
+	reflectfLength    float32
+	fadeOffset        float32
+}
+
+type ReflectionList []*ReflectionSprite
+
+func (rl *ReflectionList) add(rs *ReflectionSprite) {
+	if sys.frameSkip || rs.SprData == nil || rs.SprData.isBlank() {
 		return
 	}
 
-	// Sort drawing order
-	sort.SliceStable(sl, func(i, j int) bool {
-		if sl[i].priority != sl[j].priority {
-			return sl[i].priority < sl[j].priority
+	// Stage without reflections
+	// TODO: Maybe ModifyReflection should be able to bypass this
+	if sys.stage.reflection.intensity == 0 {
+		return
+	}
+
+	*rl = append(*rl, rs)
+}
+
+
+func (rl ReflectionList) draw(x, y, scl float32) {
+	if len(rl) == 0 {
+		return
+	}
+
+	// Sort by descending sprpriority
+	sort.SliceStable(rl, func(i, j int) bool {
+		if rl[i].priority != rl[j].priority {
+			return rl[i].priority > rl[j].priority
 		}
-		return i > j
+		return false
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	for _, s := range sl {
+	// Draw the entire list in reverse
+	for i := len(rl) - 1; i >= 0; i-- {
+		s := rl[i]
+
 		// Skip blank reflections
 		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue

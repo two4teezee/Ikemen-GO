@@ -1680,13 +1680,19 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 			sdwalp = 256
 		}
 		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
+		// Add shadow sprite
 		sys.shadows.add(&ShadowSprite{
-			SprData:       sd,
-			shadowColor:   sdwclr,
-			shadowAlpha:   sdwalp,
-			shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			fadeOffset:    drawZoff,
+			SprData:      sd,
+			shadowColor:  sdwclr,
+			shadowAlpha:  sdwalp,
+			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+			fadeOffset:   drawZoff,
+		})
+		// Add reflection sprite
+		sys.reflections.add(&ReflectionSprite{
+			SprData:        sd,
+			reflectOffset:  [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
+			fadeOffset:     drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -2319,11 +2325,17 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 		if sdwclr != 0 {
 			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
+			// Add shadow
 			sys.shadows.add(&ShadowSprite{
+				SprData:      sd,
+				shadowColor:  sdwclr,
+				shadowAlpha:  255,
+				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+				fadeOffset:   drawZoff,
+			})
+			// Add reflection
+			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
-				shadowColor:   sdwclr,
-				shadowAlpha:   255,
-				shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
 				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
 				fadeOffset:    drawZoff,
 			})
@@ -10701,6 +10713,7 @@ func (c *Char) cueDraw() {
 				sdwYscale := getYscale(c.shadowYscale, sys.stage.sdw.yscale)
 				refYscale := getYscale(c.reflectYscale, sys.stage.reflection.yscale)
 
+				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
 					SprData:         sd,
 					shadowColor:     sdwclr,
@@ -10716,7 +10729,12 @@ func (c *Char) cueDraw() {
 					shadowRot:        c.shadowRot,
 					shadowProjection: int32(c.shadowProjection),
 					shadowfLength:    c.shadowfLength,
-					reflectColor:     reflectclr,
+					fadeOffset:       c.offsetY() + drawZoff,
+				})
+				// Add reflection to reflection list
+				sys.reflections.add(&ReflectionSprite{
+					SprData:         sd,
+					reflectColor:    reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,

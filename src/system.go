@@ -223,6 +223,7 @@ type System struct {
 	spritesLayer0           DrawList
 	spritesLayer1           DrawList
 	shadows                 ShadowList
+	reflections             ReflectionList
 	debugc1hit              ClsnRect
 	debugc1rev              ClsnRect
 	debugc1not              ClsnRect
@@ -1336,6 +1337,7 @@ func (s *System) action() {
 	s.spritesLayer0 = s.spritesLayer0[:0]
 	s.spritesLayer1 = s.spritesLayer1[:0]
 	s.shadows = s.shadows[:0]
+	s.reflections = s.reflections[:0]
 	s.debugc1hit = s.debugc1hit[:0]
 	s.debugc1rev = s.debugc1rev[:0]
 	s.debugc1not = s.debugc1not[:0]
@@ -1859,8 +1861,8 @@ func (s *System) draw(x, y, scl float32) {
 
 		// Draw reflections on layer -1
 		if !s.gsf(GSF_globalnoshadow) {
-			if s.stage.reflection.intensity > 0 && s.stage.reflectionlayerno < 0 {
-				s.shadows.drawReflection(x, y, scl*s.cam.BaseScale())
+			if s.stage.reflectionlayerno < 0 {
+				s.reflections.draw(x, y, scl*s.cam.BaseScale())
 			}
 		}
 
@@ -1879,8 +1881,8 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw reflections on layer 0
 		// TODO: Make shadows render in same layers as their sources?
 		if !s.gsf(GSF_globalnoshadow) {
-			if s.stage.reflection.intensity > 0 && s.stage.reflectionlayerno >= 0 {
-				s.shadows.drawReflection(x, y, scl*s.cam.BaseScale())
+			if s.stage.reflectionlayerno >= 0 {
+				s.reflections.draw(x, y, scl*s.cam.BaseScale())
 			}
 			s.shadows.draw(x, y, scl*s.cam.BaseScale())
 		}

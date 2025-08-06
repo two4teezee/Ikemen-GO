@@ -394,6 +394,8 @@ const (
 	OC_const_displayname
 	OC_const_stagevar_info_author
 	OC_const_stagevar_info_displayname
+	OC_const_stagevar_info_ikemenversion
+	OC_const_stagevar_info_mugenversion
 	OC_const_stagevar_info_name
 	OC_const_stagevar_camera_boundleft
 	OC_const_stagevar_camera_boundright
@@ -2377,8 +2379,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 			p8.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	// StageVar
-	case OC_const_stagevar_info_name:
-		sys.bcStack.PushB(sys.stage.nameLow ==
+	case OC_const_stagevar_info_author:
+		sys.bcStack.PushB(sys.stage.authorLow ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
@@ -2387,8 +2389,12 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
-	case OC_const_stagevar_info_author:
-		sys.bcStack.PushB(sys.stage.authorLow ==
+	case OC_const_stagevar_info_ikemenversion:
+		sys.bcStack.PushF(sys.stage.ikemenverF)
+	case OC_const_stagevar_info_mugenversion:
+		sys.bcStack.PushF(sys.stage.mugenverF)
+	case OC_const_stagevar_info_name:
+		sys.bcStack.PushB(sys.stage.nameLow ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
@@ -3047,7 +3053,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_movecountered:
 		sys.bcStack.PushI(c.moveCountered())
 	case OC_ex_mugenversion:
-		sys.bcStack.PushF(c.mugenVersionF())
+		sys.bcStack.PushF(c.gi().mugenverF)
+		// Here the version is always checked directly in the character instead of the working state
+		// This is because in a custom state this trigger will be used to know the enemy's version rather than our own
 	case OC_ex_pausetime:
 		sys.bcStack.PushI(c.pauseTimeTrigger())
 	case OC_ex_physics:

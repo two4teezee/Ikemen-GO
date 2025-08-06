@@ -846,6 +846,7 @@ type Stage struct {
 	ikemenver         [3]uint16
 	ikemenverF        float32
 	mugenver          [2]uint16
+	mugenverF         float32
 	reload            bool
 	stageprops        StageProps
 	model             *Model
@@ -932,8 +933,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		s.authorLow = strings.ToLower(s.author)
 		// Clear then read MugenVersion
 		s.mugenver = [2]uint16{}
+		s.mugenverF = 0
 		if str, ok := sec[0]["mugenversion"]; ok {
-			s.mugenver = parseMugenVersion(str)
+			s.mugenver, s.mugenverF = parseMugenVersion(str)
 		}
 		// Clear then read IkemenVersion
 		s.ikemenver = [3]uint16{}

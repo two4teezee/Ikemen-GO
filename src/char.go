@@ -2367,6 +2367,7 @@ type CharGlobalInfo struct {
 	ikemenver               [3]uint16
 	ikemenverF              float32
 	mugenver                [2]uint16
+	mugenverF               float32
 	data                    CharData
 	velocity                CharVelocity
 	movement                CharMovement
@@ -4443,23 +4444,6 @@ func (c *Char) moveReversed() int32 {
 		return Abs(c.mctime)
 	}
 	return 0
-}
-
-// Mugen version trigger
-func (c *Char) mugenVersionF() float32 {
-	// Here the version is always checked directly in the character instead of the working state
-	// This is because in a custom state this trigger will be used to know the enemy's version rather than our own
-	if c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0 {
-		return 1.1
-	} else if c.gi().mugenver[0] == 1 && c.gi().mugenver[1] == 1 {
-		return 1.1
-	} else if c.gi().mugenver[0] == 1 && c.gi().mugenver[1] == 0 {
-		return 1.0
-	} else if c.gi().mugenver[0] != 1 {
-		return 0.5 // Arbitrary value
-	} else {
-		return 0
-	}
 }
 
 func (c *Char) numEnemy() int32 {
@@ -11660,6 +11644,7 @@ func (cl *CharList) collisionDetection() {
 	// Push detection for players
 	// This must happen before hit detection
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1941
+	// It doesn't need to run in "sortedOrder", but it should be harmless
 	// An attempt was made to skip redundant player pair checks, but that makes chars push each other too slowly in screen corners
 	for _, idx := range sortedOrder {
 		cl.pushDetection(cl.runOrder[idx])

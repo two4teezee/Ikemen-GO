@@ -4996,12 +4996,16 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "stagevar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
-		case "info.name":
-			l.Push(lua.LString(sys.stage.name))
-		case "info.displayname":
-			l.Push(lua.LString(sys.stage.displayname))
 		case "info.author":
 			l.Push(lua.LString(sys.stage.author))
+		case "info.displayname":
+			l.Push(lua.LString(sys.stage.displayname))
+		case "info.ikemenversion":
+			l.Push(lua.LNumber(sys.stage.ikemenverF))
+		case "info.mugenversion":
+			l.Push(lua.LNumber(sys.stage.mugenverF))
+		case "info.name":
+			l.Push(lua.LString(sys.stage.name))
 		case "camera.boundleft":
 			l.Push(lua.LNumber(sys.stage.stageCamera.boundleft))
 		case "camera.boundright":
@@ -5746,7 +5750,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "mugenversion", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.mugenVersionF()))
+		l.Push(lua.LNumber(sys.debugWC.gi().mugenverF))
 		return 1
 	})
 	luaRegister(l, "numplayer", func(*lua.LState) int {

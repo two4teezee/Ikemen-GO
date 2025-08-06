@@ -3537,14 +3537,18 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		isStr := false
 		switch svname {
-		case "info.name":
-			opc = OC_const_stagevar_info_name
+		case "info.author":
+			opc = OC_const_stagevar_info_author
 			isStr = true
 		case "info.displayname":
 			opc = OC_const_stagevar_info_displayname
 			isStr = true
-		case "info.author":
-			opc = OC_const_stagevar_info_author
+		case "info.ikemenversion":
+			opc = OC_const_stagevar_info_ikemenversion
+		case "info.mugenversion":
+			opc = OC_const_stagevar_info_mugenversion
+		case "info.name":
+			opc = OC_const_stagevar_info_name
 			isStr = true
 		case "camera.boundleft":
 			opc = OC_const_stagevar_camera_boundleft
@@ -7364,8 +7368,9 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				var str string
 				// Clear then read MugenVersion
 				sys.cgi[pn].mugenver = [2]uint16{}
+				sys.cgi[pn].mugenverF = 0
 				if str, ok = is["mugenversion"]; ok {
-					sys.cgi[pn].mugenver = parseMugenVersion(str)
+					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = parseMugenVersion(str)
 				}
 				// Clear then read IkemenVersion
 				sys.cgi[pn].ikemenver = [3]uint16{}

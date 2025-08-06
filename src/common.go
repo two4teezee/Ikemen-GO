@@ -719,6 +719,7 @@ func sliceMoveInt(array []int, srcIndex int, dstIndex int) []int {
 	return sliceInsertInt(sliceRemoveInt(array, srcIndex), value, dstIndex)
 }
 
+// We save an array for precise checking, and a float for triggers
 func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
 	var ver [3]uint16
 	parts := SplitAndTrim(versionStr, ".")
@@ -749,8 +750,11 @@ func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
 	return ver, verF
 }
 
-func parseMugenVersion(versionStr string) [2]uint16 {
+func parseMugenVersion(versionStr string) ([2]uint16, float32) {
 	var ver [2]uint16
+	var verF float32
+
+	// Parse the string into the array
 	parts := SplitAndTrim(versionStr, ".")
 	for i, s := range parts {
 		if i >= len(ver) {
@@ -763,7 +767,17 @@ func parseMugenVersion(versionStr string) [2]uint16 {
 			break
 		}
 	}
-	return ver
+	
+	// Turn the array into the versions we know
+	if ver[0] == 1 && ver[1] == 1 {
+		verF = 1.1
+	} else if ver[0] == 1 && ver[1] == 0 {
+		verF = 1.0
+	} else if ver[0] != 0 {
+		verF = 0.5 // Arbitrary value
+	}
+
+	return ver, verF
 }
 
 type Error string

@@ -89,21 +89,24 @@ func loadFightFx(def string, isGlobal bool) error {
 					return Error("A prefix must be declared")
 				}
 				prefix = strings.ToLower(prefix)
-				//if prefix == "f" || prefix == "s" {
-				//	return Error(fmt.Sprintf("%v prefix is reserved for the system and cannot be used", strings.ToUpper(prefix)))
-				//}
 				// Check if prefix overlaps a reserved one
-				for _, reserved := range sys.ffxReserved {
-					if prefix == reserved {
-						return Error(fmt.Sprintf("The %v prefix is already reserved for the system and cannot be used", strings.ToUpper(prefix)))
-					}
+				if prefix == "f" || prefix == "s" {
+					return Error(fmt.Sprintf("The %s prefix is reserved for the system and cannot be used", strings.ToUpper(prefix)))
 				}
 				// Check if prefix conflicts with trigger names
 				if _, ok := triggerMap[prefix]; ok {
-					return Error(fmt.Sprintf("The %v prefix conflicts with an existing trigger name and cannot be used", strings.ToUpper(prefix)))
+					return Error(fmt.Sprintf("The %s prefix conflicts with an existing trigger name and cannot be used", strings.ToUpper(prefix)))
+				}
+				// Check if prefix is valid but already in use
+				// TODO: This shouldn't print a warning when just reloading everything
+				for used := range sys.ffx {
+					if prefix == used {
+						sys.appendToConsole(fmt.Sprintf("Duplicate common FX prefix found or reloaded: %s in %s", strings.ToUpper(prefix), def))
+					}
 				}
 				if ffx, ok := sys.ffx[prefix]; ok {
 					// グローバルFXは常に有効。キャラクターFXはカウントを増やす
+					// "Global FX are always enabled. Character FX increase the count"
 					if !isGlobal {
 						if ffx.refCount < 8 {
 							ffx.refCount += 1 + int((sys.numSimul[0]+sys.numSimul[1])/2)
@@ -162,11 +165,12 @@ func loadFightFx(def string, isGlobal bool) error {
 	for _, a := range ffx.fat {
 		a.start_scale = [...]float32{ffx.fx_scale, ffx.fx_scale}
 	}
-	if sys.ffx[prefix] == nil {
-		// Add prefix to reserved list
-		//sys.ffxRegexp += "|^(" + prefix + ")"
-		sys.ffxReserved = append(sys.ffxReserved, prefix)
-	}
+	// Adding used prefixes to a list is no longer necessary
+	// We will check if they're being used in the ffx map directly
+	//if sys.ffx[prefix] == nil {
+	//	sys.ffxRegexp += "|^(" + prefix + ")"
+	//	sys.ffxPrefixes = append(sys.ffxPrefixes, prefix)
+	//}
 	ffx.fileName = def
 	ffx.isGlobal = isGlobal
 	if isGlobal {

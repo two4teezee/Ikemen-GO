@@ -5522,10 +5522,18 @@ func (c *Compiler) getDataPrefix(data *string, ffxDefault bool) (prefix string) 
 	if len(*data) > 1 {
 		str := strings.ToLower(*data)
 
-		// Find the longest matching reserved prefix at the start of the string
-		// This allows "FFF" to be used even though "F" is reserved
+		// Find the longest matching valid prefix at the start of the string
+		// The length check allows "FFF" to be used even though "F" is reserved
 		longestMatch := ""
-		for _, p := range sys.ffxReserved {
+		// Check "F" and "S" reserved prefixes
+		if strings.HasPrefix(str, "f") {
+			longestMatch = "f"
+		}
+		if strings.HasPrefix(str, "s") {
+			longestMatch = "s"
+		}
+		// Check common FX prefixes currently in use
+		for p := range sys.ffx {
 			if strings.HasPrefix(str, p) && len(p) > len(longestMatch) {
 				longestMatch = p
 			}

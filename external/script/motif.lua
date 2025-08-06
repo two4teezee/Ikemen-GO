@@ -2041,7 +2041,7 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuvideo_fullscreen = "Fullscreen"
 	motif.option_info.menu_itemname_menuvideo_vsync = "VSync"
 	motif.option_info.menu_itemname_menuvideo_keepaspect = "Keep Aspect Ratio"
-	motif.option_info.menu_itemname_menuvideo_xytruncate = "X/Y Rounding"
+	motif.option_info.menu_itemname_menuvideo_xytruncate = "X/Y Truncate"
 	motif.option_info.menu_itemname_menuvideo_windowscalemode = "Bilinear Filtering"
 	motif.option_info.menu_itemname_menuvideo_msaa = "MSAA"
 	motif.option_info.menu_itemname_menuvideo_shaders = "Shaders" --reserved submenu

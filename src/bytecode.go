@@ -6260,7 +6260,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					eachExpl(func(e *Explod) {
 						e.animelem = 1
 						e.animelemtime = 0
-						e.setAnim(animNo, apn, spn, ffx)
+						e.animNo = animNo
+						e.setAnim(e.animNo, apn, spn, ffx)
 					})
 				}
 			case explod_animelem:

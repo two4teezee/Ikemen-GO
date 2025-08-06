@@ -719,6 +719,53 @@ func sliceMoveInt(array []int, srcIndex int, dstIndex int) []int {
 	return sliceInsertInt(sliceRemoveInt(array, srcIndex), value, dstIndex)
 }
 
+func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
+	var ver [3]uint16
+	parts := SplitAndTrim(versionStr, ".")
+	for i, s := range parts {
+		if i >= len(ver) {
+			break
+		}
+		if v, err := strconv.ParseUint(s, 10, 16); err == nil {
+			ver[i] = uint16(v)
+		} else {
+			break
+		}
+	}
+
+	// Convert into a float for triggers
+	re := regexp.MustCompile(`[^0-9.]`)
+	cleanStr := re.ReplaceAllString(versionStr, "")
+	// Keep only the first decimal point
+	strParts := strings.Split(cleanStr, ".")
+	if len(strParts) > 1 {
+		cleanStr = strParts[0] + "." + strings.Join(strParts[1:], "")
+	}
+	var verF float32
+	if result, err := strconv.ParseFloat(cleanStr, 32); err == nil {
+		verF = float32(result)
+	}
+
+	return ver, verF
+}
+
+func parseMugenVersion(versionStr string) [2]uint16 {
+	var ver [2]uint16
+	parts := SplitAndTrim(versionStr, ".")
+	for i, s := range parts {
+		if i >= len(ver) {
+			break
+		}
+		if v, err := strconv.ParseUint(s, 10, 16); err == nil {
+			ver[i] = uint16(v)
+		} else {
+			ver = [2]uint16{}
+			break
+		}
+	}
+	return ver
+}
+
 type Error string
 
 func (e Error) Error() string {

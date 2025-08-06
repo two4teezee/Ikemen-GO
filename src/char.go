@@ -8037,7 +8037,6 @@ func (c *Char) targetAddSctrl(id int32) {
 	t.ghv.addId(c.id, c.gi().data.airjuggle)
 }
 
-
 func (c *Char) setBindTime(time int32) {
 	c.bindTime = time
 	if time == 0 {
@@ -10916,7 +10915,7 @@ func (cl *CharList) sortActionRunOrder() []int {
 
 	// Decide priority of each player
 	for i, c := range cl.runOrder {
-		var pr int // Fallback priority of 0
+		var pr int                                      // Fallback priority of 0
 		if c.asf(ASF_runfirst) && !c.asf(ASF_runlast) { // Any character with runfirst flag
 			pr = 100
 		} else if c.asf(ASF_runlast) && !c.asf(ASF_runfirst) { // Any character with runlast flag

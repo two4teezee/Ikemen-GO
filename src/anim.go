@@ -975,22 +975,22 @@ func (dl *DrawList) add(sd *SprData) {
 	// Before: sort every time we add a sprite
 	// After: add all sprites first then sort before drawing
 	/*
-	i, start := 0, 0
-	for l := len(*dl); l > 0; {
-		i = start + l>>1
-		if sd.priority <= (*dl)[i].priority {
-			l = i - start
-		} else if i == start {
-			i++
-			l = 0
-		} else {
-			l -= i - start
-			start = i
+		i, start := 0, 0
+		for l := len(*dl); l > 0; {
+			i = start + l>>1
+			if sd.priority <= (*dl)[i].priority {
+				l = i - start
+			} else if i == start {
+				i++
+				l = 0
+			} else {
+				l -= i - start
+				start = i
+			}
 		}
-	}
-	*dl = append(*dl, nil)
-	copy((*dl)[i+1:], (*dl)[i:])
-	(*dl)[i] = sd
+		*dl = append(*dl, nil)
+		copy((*dl)[i+1:], (*dl)[i:])
+		(*dl)[i] = sd
 	*/
 
 	// Just append. We will sort everything later in one go
@@ -1103,22 +1103,22 @@ func (sl *ShadowList) add(ss *ShadowSprite) {
 	}
 
 	/*
-	i, start := 0, 0
-	for l := len(*sl); l > 0; {
-		i = start + l>>1
-		if ss.priority <= (*sl)[i].priority {
-			l = i - start
-		} else if i == start {
-			i++
-			l = 0
-		} else {
-			l -= i - start
-			start = i
+		i, start := 0, 0
+		for l := len(*sl); l > 0; {
+			i = start + l>>1
+			if ss.priority <= (*sl)[i].priority {
+				l = i - start
+			} else if i == start {
+				i++
+				l = 0
+			} else {
+				l -= i - start
+				start = i
+			}
 		}
-	}
-	*sl = append(*sl, nil)
-	copy((*sl)[i+1:], (*sl)[i:])
-	(*sl)[i] = ss
+		*sl = append(*sl, nil)
+		copy((*sl)[i+1:], (*sl)[i:])
+		(*sl)[i] = ss
 	*/
 
 	// Just append. We will sort everything later in one go

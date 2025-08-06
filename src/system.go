@@ -49,7 +49,7 @@ var sys = System{
 	allPalFX:          *newPalFX(),
 	bgPalFX:           *newPalFX(),
 	ffx:               make(map[string]*FightFx),
-	ffxRegexp:         "^(f)|^(s)|^(go)",
+	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
 	sel:               *newSelect(),
 	keyState:          make(map[Key]bool),
 	match:             1,
@@ -107,7 +107,6 @@ type System struct {
 	lifebar                 Lifebar
 	cfg                     Config
 	ffx                     map[string]*FightFx
-	ffxRegexp               string
 	sel                     Select
 	keyState                map[Key]bool
 	netConnection           *NetConnection

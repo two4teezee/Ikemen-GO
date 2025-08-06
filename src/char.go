@@ -5,6 +5,7 @@ import (
 	"io"
 	"math"
 	"path/filepath"
+	"sort"
 	"strings"
 )
 
@@ -4375,22 +4376,19 @@ func (c *Char) isHost() bool {
 	return sys.netConnection != nil && sys.netConnection.host
 }
 
-func (c *Char) jugglePoints(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
-	}
-	tid := hid.ToI()
+func (c *Char) jugglePoints(id int32) int32 {
 	max := c.gi().data.airjuggle
-	jp := max // If no target is found it returns the char's maximum juggle points
+
+	// Check if ID is already a target
 	for _, ct := range c.targets {
-		if ct >= 0 {
-			t := sys.playerID(ct)
-			if t != nil && t.id == tid {
-				jp = t.ghv.getJuggle(c.id, max)
-			}
+		t := sys.playerID(ct)
+		if t != nil && t.id == id {
+			return t.ghv.getJuggle(c.id, max)
 		}
 	}
-	return BytecodeInt(jp)
+
+	// If no target is found we just return the char's maximum juggle points
+	return max
 }
 
 func (c *Char) leftEdge() float32 {
@@ -5445,7 +5443,7 @@ func (c *Char) destroy() {
 		}
 		// Remove ID from children
 		for _, ch := range c.children {
-			if ch != nil {
+			if ch != nil && ch.parentIndex > 0 {
 				ch.parentIndex *= -1
 			}
 		}
@@ -5766,6 +5764,10 @@ func (c *Char) removeExplod(id, idx int32) {
 	remove(&sys.explodsLayerN1[c.playerNo], true)
 	remove(&sys.explodsLayer0[c.playerNo], true)
 	remove(&sys.explodsLayer1[c.playerNo], false)
+
+	// Ontop/layer 1 explod indexes are not removed (drop = false) to preserve Mugen drawing order
+	// TODO: This is obsolete with our current logic and may not be working correctly in the first place
+	// The same also happens in system.go
 }
 
 func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
@@ -5820,16 +5822,18 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 
 // Position functions
 func (c *Char) setPosX(x float32) {
-	if c.pos[0] != x {
-		c.pos[0] = x
-		// We do this because Mugen is very sensitive to enemy position changes
-		// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
-		// "P2" enemy reference is less sensitive than this however
-		if c.playerFlag {
-			sys.charList.enemyNearChanged = true
-		} else {
-			c.enemyNearP2Clear()
-		}
+	if c.pos[0] == x {
+		return
+	}
+
+	c.pos[0] = x
+	// We do this because Mugen is very sensitive to enemy position changes
+	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
+	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
+	if c.playerFlag {
+		sys.charList.enemyNearChanged = true
+	} else {
+		c.enemyNearP2Clear()
 	}
 }
 
@@ -5838,6 +5842,10 @@ func (c *Char) setPosY(y float32) { // This function mostly exists right now so 
 }
 
 func (c *Char) setPosZ(z float32) {
+	if c.pos[2] == z {
+		return
+	}
+
 	c.pos[2] = z
 	// Z distance is also factored into enemy near lists
 	if sys.zEnabled() {
@@ -7481,8 +7489,8 @@ func (c *Char) getPalfx() *PalFX {
 		}
 	}
 	c.palfx = newPalFX()
-	// Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
-	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.palfx != nil {
+	// Mugen 1.1 behavior if invertblend param is omitted (only if char mugenversion = 1.1)
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.palfx != nil {
 		c.palfx.PalFXDef.invertblend = -2
 	}
 	return c.palfx
@@ -8013,6 +8021,23 @@ func (c *Char) hasTargetOfHitdef(id int32) bool {
 	return false
 }
 
+func (c *Char) targetAddSctrl(id int32) {
+	// Check if ID exists
+	t := sys.playerID(id)
+	if t == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid player ID for TargetAdd: %v", id))
+		return
+	}
+
+	// Add target to char's "target" list
+	// These two functions already prevent duplicating players
+	c.addTarget(id)
+
+	// Add original char to target's "targeted by" list
+	t.ghv.addId(c.id, c.gi().data.airjuggle)
+}
+
+
 func (c *Char) setBindTime(time int32) {
 	c.bindTime = time
 	if time == 0 {
@@ -8509,7 +8534,12 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	//if ghd.chainid < 0 {
 
 	// ReversalDef vs HitDef attributes check
-	if ghd.reversal_attr > 0 && c.hitdef.attr > 0 && c.atktmp != 0 {
+	if ghd.reversal_attr > 0 {
+		// Check HitDef validity
+		if c.hitdef.attr <= 0 || c.atktmp == 0 {
+			return false
+		}
+
 		// Check attributes
 		if (c.hitdef.attr&ghd.reversal_attr&int32(ST_MASK)) == 0 ||
 			(c.hitdef.attr&ghd.reversal_attr&^int32(ST_MASK)) == 0 {
@@ -10881,77 +10911,48 @@ func (cl *CharList) commandUpdate() {
 
 // Sort all characters into a list based on their processing order
 func (cl *CharList) sortActionRunOrder() []int {
+	// Temp sorting list
+	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
 
-	sortedOrder := []int{}
-
-	// Reset all run order values
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].runorder = -1
+	// Decide priority of each player
+	for i, c := range cl.runOrder {
+		var pr int // Fallback priority of 0
+		if c.asf(ASF_runfirst) && !c.asf(ASF_runlast) { // Any character with runfirst flag
+			pr = 100
+		} else if c.asf(ASF_runlast) && !c.asf(ASF_runfirst) { // Any character with runlast flag
+			pr = -100
+		} else if c.ss.moveType == MT_A { // Attacking players and helpers
+			pr = 5
+		} else if c.helperIndex == 0 {
+			if c.ss.moveType == MT_I { // Idle players
+				pr = 4
+			} else { // Remaining players
+				pr = 3
+			}
+		} else {
+			if c.ss.moveType == MT_I { // Idle helpers
+				pr = 2
+			} else { // Remaining helpers
+				pr = 1
+			}
+		}
+		sorting[i] = [2]int{i, pr}
 	}
 
-	// Sort characters with priority flag
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && cl.runOrder[i].asf(ASF_runfirst) {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
+	// Sort by priority
+	sort.Slice(sorting, func(i, j int) bool {
+		return sorting[i][1] > sorting[j][1]
+	})
 
-	// Sort attacking players and helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].ss.moveType == MT_A {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort idle players
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex == 0 && cl.runOrder[i].ss.moveType == MT_I {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort remaining players
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex == 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort idle helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex != 0 && cl.runOrder[i].ss.moveType == MT_I {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort remaining helpers
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 && !cl.runOrder[i].asf(ASF_runlast) &&
-			cl.runOrder[i].helperIndex != 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
-	}
-
-	// Sort anyone missed (RunLast flag)
-	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 {
-			sortedOrder = append(sortedOrder, i)
-			cl.runOrder[i].runorder = int32(len(sortedOrder))
-		}
+	// Create new sorted list and update each char's runOrder
+	sortedOrder := make([]int, len(sorting))
+	for i := 0; i < len(sorting); i++ {
+		sortedOrder[i] = sorting[i][0]
+		cl.runOrder[sorting[i][0]].runorder = int32(i + 1)
 	}
 
 	// Reset priority flags as they are only needed during this function
-	for i := 0; i < len(cl.runOrder); i++ {
+	for i := range cl.runOrder {
 		cl.runOrder[i].unsetASF(ASF_runfirst | ASF_runlast)
 	}
 
@@ -11019,7 +11020,10 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 	}
 
 	getter.unsetCSF(CSF_gethit)
-	getter.enemyNearP2Clear()
+
+	// This forces an enemy list cache reset every frame
+	// Has a perfomance impact and is probably not necessary in the current state of the code
+	//getter.enemyNearP2Clear()
 
 	for _, c := range cl.runOrder {
 
@@ -11626,43 +11630,48 @@ func (cl *CharList) pushDetection(getter *Char) {
 }
 
 func (cl *CharList) collisionDetection() {
+	// Temp sorting list
+	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
 
-	sortedOrder := []int{}
-	sortingDone := make([]bool, len(cl.runOrder))
+	// Decide priority of each player
+	// TODO: Maybe this could also be affected by runfirst/runlast
+	for i, c := range cl.runOrder {
+		var pr int
+		if c.hitdef.reversal_attr > 0 { // ReversalDef first
+			pr = 2
+		} else if c.hitdef.attr > 0 { // Then HitDef
+			pr = 1
+		} else { // Everyone else
+			pr = 0
+		}
+		sorting[i] = [2]int{i, pr}
+	}
 
-	// Check ReversalDefs first
-	for i, c := range cl.runOrder {
-		if c.hitdef.reversal_attr > 0 && !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-			sortingDone[i] = true
-		}
-	}
-	// Check Hitdefs second
-	for i, c := range cl.runOrder {
-		if c.hitdef.attr > 0 && !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-			sortingDone[i] = true
-		}
-	}
-	// Append remaining characters
-	for i := range cl.runOrder {
-		if !sortingDone[i] {
-			sortedOrder = append(sortedOrder, i)
-		}
+	// Sort by priority
+	sort.Slice(sorting, func(i, j int) bool {
+		return sorting[i][1] > sorting[j][1]
+	})
+
+	// Create the new sorted list
+	sortedOrder := make([]int, len(sorting))
+	for i := 0; i < len(sorting); i++ {
+		sortedOrder[i] = sorting[i][0]
 	}
 
 	// Push detection for players
 	// This must happen before hit detection
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1941
 	// An attempt was made to skip redundant player pair checks, but that makes chars push each other too slowly in screen corners
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.pushDetection(cl.runOrder[sortedOrder[i]])
+	for _, idx := range sortedOrder {
+		cl.pushDetection(cl.runOrder[idx])
 	}
 
-	// Player and projectile hit detection
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.hitDetectionPlayer(cl.runOrder[sortedOrder[i]])
+	// Player hit detection
+	for _, idx := range sortedOrder {
+		cl.hitDetectionPlayer(cl.runOrder[idx])
 	}
+
+	// Projectile hit detection
 	for _, c := range cl.runOrder {
 		cl.hitDetectionProjectile(c)
 	}
@@ -11798,6 +11807,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 		}
 		return nil
 	}
+
 	// Clear every player's lists if something changed
 	if cl.enemyNearChanged {
 		for _, c := range cl.runOrder {
@@ -11805,6 +11815,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 		}
 		cl.enemyNearChanged = false
 	}
+
 	// Select EnemyNear or P2 cache
 	var cache *[]*Char
 	if p2list { // List for P2 redirects as well as P4, P6 and P8 triggers
@@ -11812,77 +11823,74 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	} else {
 		cache = &c.enemyNearList
 	}
+
 	// If we already have the Nth enemy cached, then return it
 	if int(n) < len(*cache) {
 		return (*cache)[n]
 	}
+
 	// Else reset the cache and start over
 	*cache = (*cache)[:0]
-	// Sort new enemy into cache, swapping if necessary
-	addEnemy := func(e *Char, idx int) {
-		for i := idx; i <= int(n); i++ {
-			// Just append to the cache if the index is outside of it
-			if i >= len(*cache) {
-				*cache = append(*cache, e)
-				return
-			}
-			// Otherwise compare the distances between the player and the next and previous enemies
-			distNextX := c.distX(e, c) * c.facing
-			prevEnemy := (*cache)[i]
-			distPrevX := c.distX(prevEnemy, c) * c.facing
-			// If Z axis is disabled we only use the X component
-			distNext := distNextX
-			distPrev := distPrevX
-			// Otherwise factor in the Z distance
-			if sys.zEnabled() {
-				distNextZ := c.distZ(e, c)
-				distPrevZ := c.distZ(prevEnemy, c)
-				// Calculate the hypotenuse
-				distNext = float32(math.Sqrt(float64(distNext*distNext + distNextZ*distNextZ)))
-				distPrev = float32(math.Sqrt(float64(distPrev*distPrev + distPrevZ*distPrevZ)))
-				// Keep the sign of the most significant component
-				if AbsF(distNextX) >= AbsF(distNextZ) {
-					distNext *= SignF(distNextX)
-				} else {
-					distNext *= SignF(distNextZ)
-				}
-				if AbsF(distPrevX) >= AbsF(distPrevZ) {
-					distPrev *= SignF(distPrevX)
-				} else {
-					distPrev *= SignF(distPrevZ)
-				}
-			}
-			// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
-			// This makes the player turn less frequently when surrounded
-			// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
-			if p2list {
-				if distNextX < 0 {
-					distNext -= 30
-				}
-				if distPrevX < 0 {
-					distPrev -= 30
-				}
-			}
-			// Swap enemy places if applicable
-			if AbsF(distNext) < AbsF(distPrev) {
-				(*cache)[i] = e // Next enemy takes previous enemy place
-				e = prevEnemy   // Previous enemy is sorted in the next loop iteration
-			}
-		}
-	}
-	// Search valid enemies
+
+	// Gather all valid enemies
+	var enemies []*Char
 	for _, e := range cl.runOrder {
 		if e.playerFlag && c.isEnemyOf(e) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
-				addEnemy(e, 0)
+				enemies = append(enemies, e)
 			}
 			// EnemyNear checks for dead or alive root players
 			if !p2list && e.helperIndex == 0 {
-				addEnemy(e, 0)
+				enemies = append(enemies, e)
 			}
 		}
 	}
+
+	// Calculate distances between all valid enemies and the player
+	type enemyDist struct {
+		enemy *Char
+		dist  float32
+	}
+	pairs := make([]enemyDist, 0, len(enemies))
+
+	for _, e := range enemies {
+		// Factor x distance first
+		distX := c.distX(e, c) * c.facing
+		dist := distX
+		// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
+		// This makes the player turn less frequently when surrounded
+		// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
+		if p2list && distX < 0 {
+			dist -= 30.0
+		}
+		// Factor z distance if applicable
+		if sys.zEnabled() {
+			distZ := c.distZ(e, c) * 4.0
+			if p2list {
+				// We'll arbitrarily give more weight to the z axis, so that the player doesn't turn as easily to enemies on a different plane
+				// 4.0 is a magic number, roughly based on default x and z size ratio
+				// TODO: Calculate z weight like in distzadj in player pushing, or add a global var for x/z ratio
+				distZ *= 4.0
+			}
+			// Calculate the hypotenuse between both
+			dist = float32(math.Hypot(float64(distX), float64(distZ)))
+		}
+		// Append this enemy and their distance
+		pairs = append(pairs, enemyDist{enemy: e, dist: dist})
+	}
+
+	// Sort enemies by shortest absolute distance
+	sort.Slice(pairs, func(i, j int) bool {
+		return AbsF(pairs[i].dist) < AbsF(pairs[j].dist)
+	})
+
+	// Rebuild cache
+	*cache = make([]*Char, len(pairs))
+	for i, pair := range pairs {
+		(*cache)[i] = pair.enemy
+	}
+
 	// If reference exceeds number of valid enemies
 	if int(n) >= len(*cache) {
 		if log {
@@ -11890,6 +11898,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 		}
 		return nil
 	}
+
 	// Return Nth enemy
 	return (*cache)[n]
 }

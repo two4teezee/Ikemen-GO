@@ -440,7 +440,6 @@ func NewCommandKeyRemap() *CommandKeyRemap {
 type InputReader struct {
 	SocdAllow          [4]bool // Up, down, back, forward
 	SocdFirst          [4]bool
-	ButtonAssist       bool
 	ButtonAssistBuffer [9]bool
 }
 
@@ -448,14 +447,14 @@ func NewInputReader() *InputReader {
 	return &InputReader{
 		SocdAllow:          [4]bool{},
 		SocdFirst:          [4]bool{},
-		ButtonAssist:       false,
 		ButtonAssistBuffer: [9]bool{},
 	}
 }
 
 // Reads controllers and converts inputs to letters for later processing
-func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
+func (ir *InputReader) LocalInput(in int, script bool) (bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
 	var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
+
 	// Keyboard
 	if in < len(sys.keyConfig) {
 		joy := sys.keyConfig[in].Joy
@@ -476,6 +475,7 @@ func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, b
 			m = sys.keyConfig[in].m()
 		}
 	}
+
 	// Joystick
 	if in < len(sys.joystickConfig) {
 		joyS := sys.joystickConfig[in].Joy
@@ -496,10 +496,19 @@ func (ir *InputReader) LocalInput(in int) (bool, bool, bool, bool, bool, bool, b
 			m = m || sys.joystickConfig[in].m()
 		}
 	}
+
 	// Button assist is checked locally so that the sent inputs are already processed
 	if sys.cfg.Input.ButtonAssist {
-		a, b, c, x, y, z, s, d, w = ir.ButtonAssistCheck(a, b, c, x, y, z, s, d, w)
+		// If used during menus/scripts
+		// TODO: These exceptions show script inputs need to be refactored
+		if script {
+			ir.ButtonAssistBuffer = [9]bool{}
+		} else {
+			result := ir.ButtonAssistCheck([9]bool{a, b, c, x, y, z, s, d, w})
+			a, b, c, x, y, z, s, d, w = result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7], result[8]
+		}
 	}
+
 	return U, D, L, R, a, b, c, x, y, z, s, d, w, m
 }
 
@@ -649,31 +658,28 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 }
 
 // Add extra frame of leniency when checking button presses
-func (ir *InputReader) ButtonAssistCheck(a, b, c, x, y, z, s, d, w bool) (bool, bool, bool, bool, bool, bool, bool, bool, bool) {
-	// Set buttons to buffered state then clear buffer
-	a = a || ir.ButtonAssistBuffer[0]
-	b = b || ir.ButtonAssistBuffer[1]
-	c = c || ir.ButtonAssistBuffer[2]
-	x = x || ir.ButtonAssistBuffer[3]
-	y = y || ir.ButtonAssistBuffer[4]
-	z = z || ir.ButtonAssistBuffer[5]
-	s = s || ir.ButtonAssistBuffer[6]
-	d = d || ir.ButtonAssistBuffer[7]
-	w = w || ir.ButtonAssistBuffer[8]
-	ir.ButtonAssistBuffer = [9]bool{}
-	// Reenable assist when no buttons are being held
-	if !a && !b && !c && !x && !y && !z && !s && !d && !w {
-		ir.ButtonAssist = true
-	}
-	// Disable and then buffer buttons if assist is enabled. This deliberately creates one frame of lag
-	if ir.ButtonAssist == true {
-		if a || b || c || x || y || z || s || d || w {
-			ir.ButtonAssist = false
-			ir.ButtonAssistBuffer = [9]bool{a, b, c, x, y, z, s, d, w}
-			a, b, c, x, y, z, s, d, w = false, false, false, false, false, false, false, false, false
+func (ir *InputReader) ButtonAssistCheck(curr [9]bool) [9]bool {
+	var result [9]bool
+
+	// Check if any button was pressed in the previous frame
+	prev := false
+	for i := range ir.ButtonAssistBuffer {
+		if ir.ButtonAssistBuffer[i] {
+			prev = true
+			break
 		}
 	}
-	return a, b, c, x, y, z, s, d, w
+
+	// Check both current and previous frame if any button was pressed in the previous frame
+	// Otherwise just use the previous frame's buttons
+	for i := range ir.ButtonAssistBuffer {
+		result[i] = ir.ButtonAssistBuffer[i] || (curr[i] && prev)
+	}
+
+	// Save current frame's buttons to be checked in the next frame
+	ir.ButtonAssistBuffer = curr
+
+	return result
 }
 
 type InputBuffer struct {
@@ -1074,7 +1080,7 @@ func (nb *NetBuffer) reset(time int32) {
 // Convert local player's key inputs into input bits for sending
 func (nb *NetBuffer) writeNetBuffer(in int) {
 	if nb.inpT-nb.curT < 32 {
-		nb.buf[nb.inpT&31].KeysToBits(nb.InputReader.LocalInput(in))
+		nb.buf[nb.inpT&31].KeysToBits(nb.InputReader.LocalInput(in, false))
 		nb.inpT++
 	}
 }
@@ -2236,7 +2242,7 @@ func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32
 				m = sys.aiInput[controller].m() || ibit&IB_M != 0
 			}
 		} else if controller < len(sys.inputRemap) {
-			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller])
+			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
 		}
 
 		// Absolute to relative directions

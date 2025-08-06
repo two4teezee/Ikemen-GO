@@ -2990,7 +2990,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_ishost:
 		sys.bcStack.PushB(c.isHost())
 	case OC_ex_jugglepoints:
-		*sys.bcStack.Top() = c.jugglePoints(*sys.bcStack.Top())
+		v1 := sys.bcStack.Pop()
+		sys.bcStack.PushI(c.jugglePoints(v1.ToI()))
 	case OC_ex_localcoord_x:
 		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[0])
 	case OC_ex_localcoord_y:
@@ -5519,10 +5520,10 @@ const (
 	explod_interpolate_pfx_color
 	explod_interpolate_pfx_hue
 	explod_interpolation
-	explod_redirectid
 	explod_animplayerno
 	explod_spriteplayerno
 	explod_last = iota + palFX_last + 1 - 1
+	explod_redirectid
 )
 
 func (sc explod) Run(c *Char, _ []int32) bool {
@@ -5902,13 +5903,6 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case explod_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				crun = rid
-				redirscale = c.localscl / crun.localscl
-			} else {
-				return false
-			}
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
 			if crun.validatePlayerNo(pn, "animPlayerNo", "modifyExplod") {
@@ -11602,12 +11596,11 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 
 	x := &crun.pos[0]
 	ls := crun.localscl
+	var snd *SoundChannel
 	var ch, pri int32 = -1, 0
+	var stopgh, stopcs int32 = -1, -1 // Undefined bools
 	var vo, fr float32 = 100, 1.0
-	snd := crun.soundChannels.Get(-1)
-	stopgh, stopcs := false, false
 	freqMulSet, volumeSet, prioritySet, panSet, loopStartSet, loopEndSet, posSet, lcSet, loopSet := false, false, false, false, false, false, false, false, false
-	stopghSet, stopcsSet := false, false
 	var loopstart, loopend, position, lc int = 0, 0, 0, 0
 	var p float32 = 0
 
@@ -11662,12 +11655,13 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 			}
 			lcSet = true
 		case modifySnd_stopongethit:
-			stopgh = exp[0].evalB(c)
+			stopgh = Btoi(exp[0].evalB(c))
 		case modifySnd_stoponchangestate:
-			stopcs = exp[0].evalB(c)
+			stopcs = Btoi(exp[0].evalB(c))
 		}
 		return true
 	})
+
 	// Grab the correct sound channel now
 	channelCount := 1
 	if ch < 0 {
@@ -11724,11 +11718,11 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 				snd.SetVolume(vo)
 			}
 			// These flags can be updated regardless since there are no calculations involved
-			if stopghSet {
-				snd.stopOnGetHit = stopgh
+			if stopgh >= 0 {
+				snd.stopOnGetHit = stopgh != 0
 			}
-			if stopcsSet {
-				snd.stopOnChangeState = stopcs
+			if stopcs >= 0 {
+				snd.stopOnChangeState = stopgh != 0
 			}
 		}
 	}
@@ -11986,8 +11980,8 @@ const (
 	text_color
 	text_xshear
 	text_id
-	text_redirectid
 	text_last = iota + palFX_last + 1 - 1
+	text_redirectid
 )
 
 func (sc text) Run(c *Char, _ []int32) bool {
@@ -12041,7 +12035,14 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				fnt = -1
 			}
 		case text_localcoord:
-			ts.SetLocalcoord(exp[0].evalF(c), exp[1].evalF(c))
+			var x, y float32
+			x = exp[0].evalF(c)
+			if len(exp) > 1 {
+				y = exp[1].evalF(c)
+			}
+			if x > 0 && y > 0 { // TODO: Maybe this safeguard could be in SetLocalcoord instead
+				ts.SetLocalcoord(x, y)
+			}
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -12981,30 +12982,7 @@ func (sc targetAdd) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	// Check if ID exists
-	if pid > 0 {
-		for i := range sys.chars {
-			for j := range sys.chars[i] {
-				if sys.chars[i][j].id == pid {
-					// Add target to char's "target" list
-					// This function already prevents duplicating targets
-					crun.addTarget(pid)
-					// Add char to target's "targeted by" list
-					// Keep juggle points if target already exists
-					jug := crun.gi().data.airjuggle
-					for _, v := range sys.chars[i][j].ghv.targetedBy {
-						if v[0] == crun.id {
-							jug = v[1]
-						}
-					}
-					// Remove then readd char to the list with the new juggle points
-					sys.chars[i][j].ghv.dropId(crun.id)
-					sys.chars[i][j].ghv.targetedBy = append(sys.chars[i][j].ghv.targetedBy, [...]int32{crun.id, jug})
-					break
-				}
-			}
-		}
-	}
+	crun.targetAddSctrl(pid)
 
 	return false
 }

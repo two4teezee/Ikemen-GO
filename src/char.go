@@ -10939,7 +10939,7 @@ func (cl *CharList) sortActionRunOrder() []int {
 	}
 
 	// Sort by priority
-	sort.Slice(sorting, func(i, j int) bool {
+	sort.SliceStable(sorting, func(i, j int) bool {
 		return sorting[i][1] > sorting[j][1]
 	})
 
@@ -11647,7 +11647,7 @@ func (cl *CharList) collisionDetection() {
 	}
 
 	// Sort by priority
-	sort.Slice(sorting, func(i, j int) bool {
+	sort.SliceStable(sorting, func(i, j int) bool {
 		return sorting[i][1] > sorting[j][1]
 	})
 
@@ -11880,7 +11880,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 
 	// Sort enemies by shortest absolute distance
-	sort.Slice(pairs, func(i, j int) bool {
+	sort.SliceStable(pairs, func(i, j int) bool {
 		return AbsF(pairs[i].dist) < AbsF(pairs[j].dist)
 	})
 

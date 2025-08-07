@@ -1842,6 +1842,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if !b {
+		// DOS Mugen used "sprpriority" instead of "p1sprpriority". Later versions seemingly kept both syntaxes
 		if err := c.paramValue(is, sc, "sprpriority",
 			hitDef_p1sprpriority, VT_Int, 1, false); err != nil {
 			return err
@@ -4376,30 +4377,35 @@ func (c *Compiler) assertInput(is IniSection, sc *StateControllerBase, _ int8) (
 				sc.add(assertInput_flag, sc.iToExp(int32(IB_W)))
 			case "m":
 				sc.add(assertInput_flag, sc.iToExp(int32(IB_M)))
+			case "B":
+				sc.add(assertInput_flag_B, nil)
+			case "F":
+				sc.add(assertInput_flag_F, nil)
 			default:
 				return Error("Invalid AssertInput flag: " + data)
 			}
 			return nil
 		}
-		f := false
+		// Flag
+		flagSet := false
 		if err := c.stateParam(is, "flag", false, func(data string) error {
-			f = true
+			flagSet = true
 			return foo(data)
 		}); err != nil {
 			return err
 		}
-		if !f {
-			return Error("No AssertInput flags specified")
+		// Flag2-8
+		for i := 2; i <= 8; i++ {
+			key := fmt.Sprintf("flag%d", i)
+			if err := c.stateParam(is, key, false, func(data string) error {
+				flagSet = true
+				return foo(data)
+			}); err != nil {
+				return err
+			}
 		}
-		if err := c.stateParam(is, "flag2", false, func(data string) error {
-			return foo(data)
-		}); err != nil {
-			return err
-		}
-		if err := c.stateParam(is, "flag3", false, func(data string) error {
-			return foo(data)
-		}); err != nil {
-			return err
+		if !flagSet {
+			return Error("Must specify at least one AssertInput flag")
 		}
 		return nil
 	})

@@ -10691,6 +10691,8 @@ type assertInput StateControllerBase
 
 const (
 	assertInput_flag byte = iota
+	assertInput_flag_B
+	assertInput_flag_F
 	assertInput_redirectid
 )
 
@@ -10704,6 +10706,18 @@ func (sc assertInput) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case assertInput_flag:
 			crun.inputFlag |= InputBits(exp[0].evalI(c))
+		case assertInput_flag_B:
+			if crun.facing >= 0 {
+				crun.inputFlag |= IB_PL
+			} else {
+				crun.inputFlag |= IB_PR
+			}
+		case assertInput_flag_F:
+			if crun.facing >= 0 {
+				crun.inputFlag |= IB_PR
+			} else {
+				crun.inputFlag |= IB_PL
+			}
 		}
 		return true
 	})

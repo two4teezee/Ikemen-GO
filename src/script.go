@@ -792,7 +792,7 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, cl)
 		}
 		if cl.InputUpdate(int(numArg(l, 2))-1, 1, 0, 0, true) {
-			cl.Step(1, false, false, false, false, 0)
+			cl.Step(false, false, false, false, 0)
 		}
 		return 0
 	})
@@ -2114,14 +2114,14 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
 		if sys.netConnection != nil {
-			sys.netConnection.rep, _ = os.Create(strArg(l, 1))
+			sys.netConnection.recording, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netConnection != nil && sys.netConnection.rep != nil {
-			sys.netConnection.rep.Close()
-			sys.netConnection.rep = nil
+		if sys.netConnection != nil && sys.netConnection.recording != nil {
+			sys.netConnection.recording.Close()
+			sys.netConnection.recording = nil
 		}
 		return 0
 	})

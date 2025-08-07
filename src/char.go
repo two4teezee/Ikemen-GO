@@ -10865,7 +10865,7 @@ func (cl *CharList) commandUpdate() {
 					c.autoTurn()
 				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, int32(c.facing), sys.aiLevel[i], c.inputFlag, false) {
+					c.cmd[0].InputUpdate(c.controller, c.facing, sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {
@@ -10900,7 +10900,7 @@ func (cl *CharList) commandUpdate() {
 					for i := range c.cmd {
 						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
 						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
+						c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat

@@ -1543,8 +1543,10 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 			return
 		}
 	}
-	if e.bindtime != 0 && (e.space == Space_stage ||
-		(e.space == Space_screen && e.postype <= PT_P2)) {
+	// Bind explod to parent
+	// In Mugen this only happens if the explod is not paused, hence "act"
+	if act && e.bindtime != 0 &&
+		(e.space == Space_stage || (e.space == Space_screen && e.postype <= PT_P2)) {
 		if c := sys.playerID(e.bindId); c != nil {
 			e.pos[0] = c.interPos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl
 			e.pos[1] = c.interPos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl

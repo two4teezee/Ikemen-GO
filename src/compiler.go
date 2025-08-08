@@ -1736,6 +1736,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "volume":
 			opct = OC_ex2_
 			opc = OC_ex2_bgmvar_volume
+		default:
+			return bvNone(), Error("Invalid BGMVar argument: " + vname)
 		}
 		if isStr {
 			if err := nameSub(opct, opc); err != nil {

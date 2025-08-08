@@ -1736,6 +1736,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "volume":
 			opct = OC_ex2_
 			opc = OC_ex2_bgmvar_volume
+		default:
+			return bvNone(), Error("Invalid BGMVar argument: " + vname)
 		}
 		if isStr {
 			if err := nameSub(opct, opc); err != nil {
@@ -3537,14 +3539,18 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		isStr := false
 		switch svname {
-		case "info.name":
-			opc = OC_const_stagevar_info_name
+		case "info.author":
+			opc = OC_const_stagevar_info_author
 			isStr = true
 		case "info.displayname":
 			opc = OC_const_stagevar_info_displayname
 			isStr = true
-		case "info.author":
-			opc = OC_const_stagevar_info_author
+		case "info.ikemenversion":
+			opc = OC_const_stagevar_info_ikemenversion
+		case "info.mugenversion":
+			opc = OC_const_stagevar_info_mugenversion
+		case "info.name":
+			opc = OC_const_stagevar_info_name
 			isStr = true
 		case "camera.boundleft":
 			opc = OC_const_stagevar_camera_boundleft
@@ -7362,48 +7368,17 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				info = false
 				var ok bool
 				var str string
+				// Clear then read MugenVersion
 				sys.cgi[pn].mugenver = [2]uint16{}
+				sys.cgi[pn].mugenverF = 0
 				if str, ok = is["mugenversion"]; ok {
-					for i, s := range SplitAndTrim(str, ".") {
-						if i >= len(sys.cgi[pn].mugenver) {
-							break
-						}
-						if v, err := strconv.ParseUint(s, 10, 16); err == nil {
-							sys.cgi[pn].mugenver[i] = uint16(v)
-						} else {
-							sys.cgi[pn].mugenver[0] = 0
-							sys.cgi[pn].mugenver[1] = 0
-							break
-						}
-					}
+					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = parseMugenVersion(str)
 				}
-				// Clear previous character's version
+				// Clear then read IkemenVersion
 				sys.cgi[pn].ikemenver = [3]uint16{}
 				sys.cgi[pn].ikemenverF = 0
 				if str, ok = is["ikemenversion"]; ok {
-					for i, s := range SplitAndTrim(str, ".") {
-						if i >= len(sys.cgi[pn].ikemenver) {
-							break
-						}
-						if v, err := strconv.ParseUint(s, 10, 16); err == nil {
-							sys.cgi[pn].ikemenver[i] = uint16(v)
-						} else {
-							break
-						}
-					}
-					// Convert into a float for triggers
-					// TODO: Same thing for stages etc
-					re := regexp.MustCompile(`[^0-9.]`)
-					str = re.ReplaceAllString(str, "")
-					// Keep only the first decimal point
-					parts := strings.Split(str, ".")
-					if len(parts) > 1 {
-						str = parts[0] + "." + strings.Join(parts[1:], "")
-					}
-					// Convert clean string to float
-					if result, err := strconv.ParseFloat(str, 32); err == nil {
-						sys.cgi[pn].ikemenverF = float32(result)
-					}
+					sys.cgi[pn].ikemenver, sys.cgi[pn].ikemenverF = parseIkemenVersion(str)
 				}
 				// Ikemen characters adopt Mugen 1.1 version as a safeguard
 				if sys.cgi[pn].ikemenver[0] != 0 || sys.cgi[pn].ikemenver[1] != 0 {

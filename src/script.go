@@ -792,7 +792,7 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, cl)
 		}
 		if cl.InputUpdate(int(numArg(l, 2))-1, 1, 0, 0, true) {
-			cl.Step(1, false, false, false, false, 0)
+			cl.Step(false, false, false, false, 0)
 		}
 		return 0
 	})
@@ -2114,14 +2114,14 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "replayRecord", func(*lua.LState) int {
 		if sys.netConnection != nil {
-			sys.netConnection.rep, _ = os.Create(strArg(l, 1))
+			sys.netConnection.recording, _ = os.Create(strArg(l, 1))
 		}
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.netConnection != nil && sys.netConnection.rep != nil {
-			sys.netConnection.rep.Close()
-			sys.netConnection.rep = nil
+		if sys.netConnection != nil && sys.netConnection.recording != nil {
+			sys.netConnection.recording.Close()
+			sys.netConnection.recording = nil
 		}
 		return 0
 	})
@@ -4996,12 +4996,16 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "stagevar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
-		case "info.name":
-			l.Push(lua.LString(sys.stage.name))
-		case "info.displayname":
-			l.Push(lua.LString(sys.stage.displayname))
 		case "info.author":
 			l.Push(lua.LString(sys.stage.author))
+		case "info.displayname":
+			l.Push(lua.LString(sys.stage.displayname))
+		case "info.ikemenversion":
+			l.Push(lua.LNumber(sys.stage.ikemenverF))
+		case "info.mugenversion":
+			l.Push(lua.LNumber(sys.stage.mugenverF))
+		case "info.name":
+			l.Push(lua.LString(sys.stage.name))
 		case "camera.boundleft":
 			l.Push(lua.LNumber(sys.stage.stageCamera.boundleft))
 		case "camera.boundright":
@@ -5746,7 +5750,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "mugenversion", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.mugenVersionF()))
+		l.Push(lua.LNumber(sys.debugWC.gi().mugenverF))
 		return 1
 	})
 	luaRegister(l, "numplayer", func(*lua.LState) int {

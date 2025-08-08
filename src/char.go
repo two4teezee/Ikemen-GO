@@ -1543,8 +1543,10 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 			return
 		}
 	}
-	if e.bindtime != 0 && (e.space == Space_stage ||
-		(e.space == Space_screen && e.postype <= PT_P2)) {
+	// Bind explod to parent
+	// In Mugen this only happens if the explod is not paused, hence "act"
+	if act && e.bindtime != 0 &&
+		(e.space == Space_stage || (e.space == Space_screen && e.postype <= PT_P2)) {
 		if c := sys.playerID(e.bindId); c != nil {
 			e.pos[0] = c.interPos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl
 			e.pos[1] = c.interPos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl
@@ -1680,13 +1682,19 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 			sdwalp = 256
 		}
 		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
+		// Add shadow sprite
 		sys.shadows.add(&ShadowSprite{
-			SprData:       sd,
-			shadowColor:   sdwclr,
-			shadowAlpha:   sdwalp,
-			shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			fadeOffset:    drawZoff,
+			SprData:      sd,
+			shadowColor:  sdwclr,
+			shadowAlpha:  sdwalp,
+			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+			fadeOffset:   drawZoff,
+		})
+		// Add reflection sprite
+		sys.reflections.add(&ReflectionSprite{
+			SprData:        sd,
+			reflectOffset:  [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
+			fadeOffset:     drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -2319,11 +2327,17 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 		if sdwclr != 0 {
 			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
+			// Add shadow
 			sys.shadows.add(&ShadowSprite{
+				SprData:      sd,
+				shadowColor:  sdwclr,
+				shadowAlpha:  255,
+				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
+				fadeOffset:   drawZoff,
+			})
+			// Add reflection
+			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
-				shadowColor:   sdwclr,
-				shadowAlpha:   255,
-				shadowOffset:  [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
 				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
 				fadeOffset:    drawZoff,
 			})
@@ -2367,6 +2381,7 @@ type CharGlobalInfo struct {
 	ikemenver               [3]uint16
 	ikemenverF              float32
 	mugenver                [2]uint16
+	mugenverF               float32
 	data                    CharData
 	velocity                CharVelocity
 	movement                CharMovement
@@ -4443,23 +4458,6 @@ func (c *Char) moveReversed() int32 {
 		return Abs(c.mctime)
 	}
 	return 0
-}
-
-// Mugen version trigger
-func (c *Char) mugenVersionF() float32 {
-	// Here the version is always checked directly in the character instead of the working state
-	// This is because in a custom state this trigger will be used to know the enemy's version rather than our own
-	if c.gi().ikemenver[0] != 0 || c.gi().ikemenver[1] != 0 {
-		return 1.1
-	} else if c.gi().mugenver[0] == 1 && c.gi().mugenver[1] == 1 {
-		return 1.1
-	} else if c.gi().mugenver[0] == 1 && c.gi().mugenver[1] == 0 {
-		return 1.0
-	} else if c.gi().mugenver[0] != 1 {
-		return 0.5 // Arbitrary value
-	} else {
-		return 0
-	}
 }
 
 func (c *Char) numEnemy() int32 {
@@ -10717,6 +10715,7 @@ func (c *Char) cueDraw() {
 				sdwYscale := getYscale(c.shadowYscale, sys.stage.sdw.yscale)
 				refYscale := getYscale(c.reflectYscale, sys.stage.reflection.yscale)
 
+				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
 					SprData:         sd,
 					shadowColor:     sdwclr,
@@ -10732,7 +10731,12 @@ func (c *Char) cueDraw() {
 					shadowRot:        c.shadowRot,
 					shadowProjection: int32(c.shadowProjection),
 					shadowfLength:    c.shadowfLength,
-					reflectColor:     reflectclr,
+					fadeOffset:       c.offsetY() + drawZoff,
+				})
+				// Add reflection to reflection list
+				sys.reflections.add(&ReflectionSprite{
+					SprData:         sd,
+					reflectColor:    reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
@@ -10863,7 +10867,7 @@ func (cl *CharList) commandUpdate() {
 					c.autoTurn()
 				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, int32(c.facing), sys.aiLevel[i], c.inputFlag, false) {
+					c.cmd[0].InputUpdate(c.controller, c.facing, sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {
@@ -10898,7 +10902,7 @@ func (cl *CharList) commandUpdate() {
 					for i := range c.cmd {
 						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
 						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
+						c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat
@@ -10939,7 +10943,7 @@ func (cl *CharList) sortActionRunOrder() []int {
 	}
 
 	// Sort by priority
-	sort.Slice(sorting, func(i, j int) bool {
+	sort.SliceStable(sorting, func(i, j int) bool {
 		return sorting[i][1] > sorting[j][1]
 	})
 
@@ -11647,7 +11651,7 @@ func (cl *CharList) collisionDetection() {
 	}
 
 	// Sort by priority
-	sort.Slice(sorting, func(i, j int) bool {
+	sort.SliceStable(sorting, func(i, j int) bool {
 		return sorting[i][1] > sorting[j][1]
 	})
 
@@ -11660,6 +11664,7 @@ func (cl *CharList) collisionDetection() {
 	// Push detection for players
 	// This must happen before hit detection
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1941
+	// It doesn't need to run in "sortedOrder", but it should be harmless
 	// An attempt was made to skip redundant player pair checks, but that makes chars push each other too slowly in screen corners
 	for _, idx := range sortedOrder {
 		cl.pushDetection(cl.runOrder[idx])
@@ -11880,7 +11885,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 
 	// Sort enemies by shortest absolute distance
-	sort.Slice(pairs, func(i, j int) bool {
+	sort.SliceStable(pairs, func(i, j int) bool {
 		return AbsF(pairs[i].dist) < AbsF(pairs[j].dist)
 	})
 

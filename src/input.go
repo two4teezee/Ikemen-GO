@@ -372,36 +372,32 @@ const (
 )
 
 // Save local inputs as input bits to send or record
-func (ibit *InputBits) KeysToBits(U, D, L, R, a, b, c, x, y, z, s, d, w, m bool) {
-	*ibit = InputBits(Btoi(U) |
-		Btoi(D)<<1 |
-		Btoi(L)<<2 |
-		Btoi(R)<<3 |
-		Btoi(a)<<4 |
-		Btoi(b)<<5 |
-		Btoi(c)<<6 |
-		Btoi(x)<<7 |
-		Btoi(y)<<8 |
-		Btoi(z)<<9 |
-		Btoi(s)<<10 |
-		Btoi(d)<<11 |
-		Btoi(w)<<12 |
-		Btoi(m)<<13)
+func (ibit *InputBits) KeysToBits(buttons [14]bool) {
+	*ibit = InputBits(Btoi(buttons[0]) |
+		Btoi(buttons[1])<<1 |
+		Btoi(buttons[2])<<2 |
+		Btoi(buttons[3])<<3 |
+		Btoi(buttons[4])<<4 |
+		Btoi(buttons[5])<<5 |
+		Btoi(buttons[6])<<6 |
+		Btoi(buttons[7])<<7 |
+		Btoi(buttons[8])<<8 |
+		Btoi(buttons[9])<<9 |
+		Btoi(buttons[10])<<10 |
+		Btoi(buttons[11])<<11 |
+		Btoi(buttons[12])<<12 |
+		Btoi(buttons[13])<<13)
 }
 
 // Convert received input bits back into keys
-func (ibit InputBits) BitsToKeys(cb *InputBuffer, facing int32) {
-	var U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool
+func (ibit InputBits) BitsToKeys() [14]bool {
+	var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
+
 	// Convert bits to logical symbols
 	U = ibit&IB_PU != 0
 	D = ibit&IB_PD != 0
 	L = ibit&IB_PL != 0
 	R = ibit&IB_PR != 0
-	if facing < 0 {
-		B, F = ibit&IB_PR != 0, ibit&IB_PL != 0
-	} else {
-		B, F = ibit&IB_PL != 0, ibit&IB_PR != 0
-	}
 	a = ibit&IB_A != 0
 	b = ibit&IB_B != 0
 	c = ibit&IB_C != 0
@@ -412,20 +408,8 @@ func (ibit InputBits) BitsToKeys(cb *InputBuffer, facing int32) {
 	d = ibit&IB_D != 0
 	w = ibit&IB_W != 0
 	m = ibit&IB_M != 0
-	// Absolute priority SOCD resolution is enforced during netplay
-	// TODO: Port the other options as well
-	if U && D {
-		D = false
-	}
-	if B && F {
-		B = false
-		if facing < 0 {
-			R = false
-		} else {
-			L = false
-		}
-	}
-	cb.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
+
+	return [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
 }
 
 type CommandKeyRemap struct {
@@ -451,8 +435,7 @@ func NewInputReader() *InputReader {
 	}
 }
 
-// Reads controllers and converts inputs to letters for later processing
-func (ir *InputReader) LocalInput(in int, script bool) (bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool, bool) {
+func (ir *InputReader) LocalInput(in int, script bool) [14]bool {
 	var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
 
 	// Keyboard
@@ -499,8 +482,6 @@ func (ir *InputReader) LocalInput(in int, script bool) (bool, bool, bool, bool, 
 
 	// Button assist is checked locally so that the sent inputs are already processed
 	if sys.cfg.Input.ButtonAssist {
-		// If used during menus/scripts
-		// TODO: These exceptions show script inputs need to be refactored
 		if script {
 			ir.ButtonAssistBuffer = [9]bool{}
 		} else {
@@ -509,37 +490,46 @@ func (ir *InputReader) LocalInput(in int, script bool) (bool, bool, bool, bool, 
 		}
 	}
 
-	return U, D, L, R, a, b, c, x, y, z, s, d, w, m
+	return [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
 }
 
 // Resolve Simultaneous Opposing Cardinal Directions (SOCD)
 // Left and Right are solved in CommandList Input based on B and F outcome
 func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) {
+	method := sys.cfg.Input.SOCDResolution
+
+	// Neutral resolution is enforced during netplay
+	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
+	if sys.netConnection != nil || sys.replayFile != nil {
+		method = 4
+	}
 
 	// Resolve U and D conflicts based on SOCD resolution config
 	resolveUD := func(U, D bool) (bool, bool) {
 		// Check first direction held
-		if U || D {
-			if !U {
+		if method == 1 || method == 3 {
+			if U || D {
+				if !U {
+					ir.SocdFirst[0] = false
+				}
+				if !D {
+					ir.SocdFirst[1] = false
+				}
+				if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
+					if D {
+						ir.SocdFirst[1] = true
+					} else {
+						ir.SocdFirst[0] = true
+					}
+				}
+			} else {
 				ir.SocdFirst[0] = false
-			}
-			if !D {
 				ir.SocdFirst[1] = false
 			}
-			if !ir.SocdFirst[0] && !ir.SocdFirst[1] {
-				if D {
-					ir.SocdFirst[1] = true
-				} else {
-					ir.SocdFirst[0] = true
-				}
-			}
-		} else {
-			ir.SocdFirst[0] = false
-			ir.SocdFirst[1] = false
 		}
 		// Apply SOCD resolution according to config
 		if D && U {
-			switch sys.cfg.Input.SOCDResolution {
+			switch method {
 			case 0: // Allow both directions (no resolution)
 				ir.SocdAllow[0] = true
 				ir.SocdAllow[1] = true
@@ -577,27 +567,29 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 	// Resolve B and F conflicts based on SOCD resolution config
 	resolveBF := func(B, F bool) (bool, bool) {
 		// Check first direction held
-		if B || F {
-			if !B {
+		if method == 1 || method == 3 {
+			if B || F {
+				if !B {
+					ir.SocdFirst[2] = false
+				}
+				if !F {
+					ir.SocdFirst[3] = false
+				}
+				if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
+					if B {
+						ir.SocdFirst[2] = true
+					} else {
+						ir.SocdFirst[3] = true
+					}
+				}
+			} else {
 				ir.SocdFirst[2] = false
-			}
-			if !F {
 				ir.SocdFirst[3] = false
 			}
-			if !ir.SocdFirst[2] && !ir.SocdFirst[3] {
-				if B {
-					ir.SocdFirst[2] = true
-				} else {
-					ir.SocdFirst[3] = true
-				}
-			}
-		} else {
-			ir.SocdFirst[2] = false
-			ir.SocdFirst[3] = false
 		}
 		// Apply SOCD resolution according to config
 		if B && F {
-			switch sys.cfg.Input.SOCDResolution {
+			switch method {
 			case 0: // Allow both directions (no resolution)
 				ir.SocdAllow[2] = true
 				ir.SocdAllow[3] = true
@@ -632,28 +624,16 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 		return B, F
 	}
 
-	// Neutral resolution is enforced during netplay
-	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
-	if sys.netConnection != nil || sys.replayFile != nil {
-		if U && D {
-			U = false
-			D = false
-		}
-		if B && F {
-			B = false
-			F = false
-		}
-	} else {
-		// Resolve up and down
-		U, D = resolveUD(U, D)
-		// Resolve back and forward
-		B, F = resolveBF(B, F)
-		// Apply resulting resolution
-		U = U && ir.SocdAllow[0]
-		D = D && ir.SocdAllow[1]
-		B = B && ir.SocdAllow[2]
-		F = F && ir.SocdAllow[3]
-	}
+	// Resolve up and down
+	U, D = resolveUD(U, D)
+	// Resolve back and forward
+	B, F = resolveBF(B, F)
+	// Apply resulting resolution
+	U = U && ir.SocdAllow[0]
+	D = D && ir.SocdAllow[1]
+	B = B && ir.SocdAllow[2]
+	F = F && ir.SocdAllow[3]
+
 	return U, D, B, F
 }
 
@@ -1086,10 +1066,11 @@ func (nb *NetBuffer) writeNetBuffer(in int) {
 }
 
 // Read input bits from the net buffer
-func (nb *NetBuffer) readNetBuffer(cb *InputBuffer, facing int32) {
+func (nb *NetBuffer) readNetBuffer() [14]bool {
 	if nb.curT < nb.inpT {
-		nb.buf[nb.curT&31].BitsToKeys(cb, facing)
+		return nb.buf[nb.curT&31].BitsToKeys()
 	}
+	return [14]bool{}
 }
 
 // NetConnection manages the communication between players
@@ -1105,7 +1086,7 @@ type NetConnection struct {
 	time         int32
 	stoppedcnt   int32
 	delay        int32
-	rep          *os.File
+	recording    *os.File
 	host         bool
 	preFightTime int32
 }
@@ -1191,10 +1172,11 @@ func (nc *NetConnection) IsConnected() bool {
 	return nc != nil && nc.conn != nil
 }
 
-func (nc *NetConnection) readNetInput(cb *InputBuffer, i int, facing int32) {
+func (nc *NetConnection) readNetInput(i int) [14]bool {
 	if i >= 0 && i < len(nc.buf) {
-		nc.buf[sys.inputRemap[i]].readNetBuffer(cb, facing)
+		return nc.buf[sys.inputRemap[i]].readNetBuffer()
 	}
+	return [14]bool{}
 }
 
 func (nc *NetConnection) AnyButton() bool {
@@ -1274,9 +1256,9 @@ func (nc *NetConnection) Synchronize() error {
 		}
 	}
 	nc.preFightTime = pfTime
-	if nc.rep != nil {
-		binary.Write(nc.rep, binary.LittleEndian, &seed)
-		binary.Write(nc.rep, binary.LittleEndian, &pfTime)
+	if nc.recording != nil {
+		binary.Write(nc.recording, binary.LittleEndian, &seed)
+		binary.Write(nc.recording, binary.LittleEndian, &pfTime)
 	}
 	if err := nc.writeI32(nc.time); err != nil {
 		return err
@@ -1369,9 +1351,9 @@ func (nc *NetConnection) Update() bool {
 				}
 				nc.buf[nc.locIn].curT = nc.time
 				nc.buf[nc.remIn].curT = nc.time
-				if nc.rep != nil {
+				if nc.recording != nil {
 					for i := 0; i < MaxSimul*2; i++ {
-						binary.Write(nc.rep, binary.LittleEndian, &nc.buf[i].buf[nc.time&31])
+						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].buf[nc.time&31])
 					}
 				}
 				nc.time++
@@ -1409,11 +1391,12 @@ func (rf *ReplayFile) Close() {
 	}
 }
 
-// Read input bits from replay input
-func (rf *ReplayFile) readReplayFile(cb *InputBuffer, i int, facing int32) {
+// Read input buttons from replay input
+func (rf *ReplayFile) readReplayFile(i int) [14]bool {
 	if i >= 0 && i < len(rf.ibit) {
-		rf.ibit[sys.inputRemap[i]].BitsToKeys(cb, facing)
+		return rf.ibit[sys.inputRemap[i]].BitsToKeys()
 	}
+	return [14]bool{}
 }
 
 func (rf *ReplayFile) AnyButton() bool {
@@ -1461,6 +1444,15 @@ func (rf *ReplayFile) Update() bool {
 
 type AiInput struct {
 	dir, dirt, at, bt, ct, xt, yt, zt, st, dt, wt, mt int32
+}
+
+func (ai *AiInput) Buttons() [14]bool {
+	return [14]bool{
+		ai.U(), ai.D(), ai.L(), ai.R(),
+		ai.a(), ai.b(), ai.c(),
+		ai.x(), ai.y(), ai.z(),
+		ai.s(), ai.d(), ai.w(), ai.m(),
+	}
 }
 
 // AI button jamming
@@ -2189,7 +2181,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
-func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32, ibit InputBits, script bool) bool {
+func (cl *CommandList) InputUpdate(controller int, facing, aiLevel float32, ibit InputBits, script bool) bool {
 	if cl.Buffer == nil {
 		return false
 	}
@@ -2203,97 +2195,73 @@ func (cl *CommandList) InputUpdate(controller int, facing int32, aiLevel float32
 		step = cl.Buffer.Bb != 0
 	}
 
-	isLocal := false
 	isAI := controller < 0
+
+	var buttons [14]bool
 
 	if isAI {
 		// Since AI inputs use random numbers, we handle them locally to avoid desync
 		idx := ^controller
 		if idx >= 0 && idx < len(sys.aiInput) {
 			sys.aiInput[idx].Update(aiLevel)
+			buttons = sys.aiInput[idx].Buttons()
 		}
 	} else if sys.replayFile != nil {
-		sys.replayFile.readReplayFile(cl.Buffer, controller, facing)
+		buttons = sys.replayFile.readReplayFile(controller)
 	} else if sys.netConnection != nil {
-		sys.netConnection.readNetInput(cl.Buffer, controller, facing)
+		buttons = sys.netConnection.readNetInput(controller)
 	} else {
 		// If not AI, replay, or network, then it's a local human player
-		isLocal = true
+		if controller < len(sys.inputRemap) {
+			buttons = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
+		}
 	}
 
-	if isLocal || isAI {
-		var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
-		if controller < 0 {
-			controller = ^controller
-			if controller < len(sys.aiInput) {
-				U = sys.aiInput[controller].U() || ibit&IB_PU != 0
-				D = sys.aiInput[controller].D() || ibit&IB_PD != 0
-				L = sys.aiInput[controller].L() || ibit&IB_PL != 0
-				R = sys.aiInput[controller].R() || ibit&IB_PR != 0
-				a = sys.aiInput[controller].a() || ibit&IB_A != 0
-				b = sys.aiInput[controller].b() || ibit&IB_B != 0
-				c = sys.aiInput[controller].c() || ibit&IB_C != 0
-				x = sys.aiInput[controller].x() || ibit&IB_X != 0
-				y = sys.aiInput[controller].y() || ibit&IB_Y != 0
-				z = sys.aiInput[controller].z() || ibit&IB_Z != 0
-				s = sys.aiInput[controller].s() || ibit&IB_S != 0
-				d = sys.aiInput[controller].d() || ibit&IB_D != 0
-				w = sys.aiInput[controller].w() || ibit&IB_W != 0
-				m = sys.aiInput[controller].m() || ibit&IB_M != 0
-			}
-		} else if controller < len(sys.inputRemap) {
-			U, D, L, R, a, b, c, x, y, z, s, d, w, m = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
-		}
+	// Convert bool slice to named inputs
+	U, D, L, R := buttons[0], buttons[1], buttons[2], buttons[3]
+	a, b, c := buttons[4], buttons[5], buttons[6]
+	x, y, z := buttons[7], buttons[8], buttons[9]
+	s, d, w, m := buttons[10], buttons[11], buttons[12], buttons[13]
 
-		// Absolute to relative directions
-		var B, F bool
-		if facing < 0 {
-			B, F = R, L
-		} else {
-			B, F = L, R
-		}
-
-		// Resolve SOCD conflicts
-		U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
-
-		// Resolve L/R SOCD conflicts based on the final B/F resolution
-		if L && R {
-			if facing < 0 {
-				R, L = B, F
-			} else {
-				L, R = B, F
-			}
-		}
-
-		// AssertInput Flags (no assists, can override SOCD)
-		// Does not currently work over netplay because flags are stored at the character level rather than system level
-		if ibit > 0 {
-			U = U || ibit&IB_PU != 0 // Does not override actual inputs
-			D = D || ibit&IB_PD != 0
-			L = L || ibit&IB_PL != 0
-			R = R || ibit&IB_PR != 0
-			if facing > 0 {
-				B = B || L
-				F = F || R
-			} else {
-				B = B || R
-				F = F || L
-			}
-			a = a || ibit&IB_A != 0
-			b = b || ibit&IB_B != 0
-			c = c || ibit&IB_C != 0
-			x = x || ibit&IB_X != 0
-			y = y || ibit&IB_Y != 0
-			z = z || ibit&IB_Z != 0
-			s = s || ibit&IB_S != 0
-			d = d || ibit&IB_D != 0
-			w = w || ibit&IB_W != 0
-			m = m || ibit&IB_M != 0
-		}
-
-		// Send inputs to buffer
-		cl.Buffer.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
+	// AssertInput flags
+	// Skips button assist. Respects SOCD
+	if ibit > 0 {
+		U = U || ibit&IB_PU != 0
+		D = D || ibit&IB_PD != 0
+		L = L || ibit&IB_PL != 0
+		R = R || ibit&IB_PR != 0
+		a = a || ibit&IB_A != 0
+		b = b || ibit&IB_B != 0
+		c = c || ibit&IB_C != 0
+		x = x || ibit&IB_X != 0
+		y = y || ibit&IB_Y != 0
+		z = z || ibit&IB_Z != 0
+		s = s || ibit&IB_S != 0
+		d = d || ibit&IB_D != 0
+		w = w || ibit&IB_W != 0
+		m = m || ibit&IB_M != 0
 	}
+
+	// Get B and F from L and R for SOCD resolution
+	var B, F bool
+	if facing < 0 {
+		B, F = R, L
+	} else {
+		B, F = L, R
+	}
+
+	// Resolve SOCD for U/D and B/F
+	U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
+
+	// Get L and R back from B and F
+	if facing < 0 {
+		L, R = F, B
+	} else {
+		L, R = B, F
+	}
+
+	// Send final inputs to buffer
+	cl.Buffer.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 
 	return step
 }
@@ -2325,7 +2293,7 @@ func (cl *CommandList) ClearName(name string) {
 }
 
 // Used when updating commands in each frame
-func (cl *CommandList) Step(facing int32, ai, isHelper, hpbuf, pausebuf bool, extratime int32) {
+func (cl *CommandList) Step(ai, isHelper, hpbuf, pausebuf bool, extratime int32) {
 	if cl.Buffer != nil {
 		for i := range cl.Commands {
 			for j := range cl.Commands[i] {

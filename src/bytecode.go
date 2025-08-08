@@ -11538,14 +11538,22 @@ const (
 )
 
 func (sc modifyBgm) Run(c *Char, _ []int32) bool {
+	// No BGM to modify
+	// TODO: Maybe it'd be safer to init the system with a dummy BGM?
+	if sys.bgm.ctrl == nil {
+		return false
+	}
+
 	var volumeSet, loopStartSet, loopEndSet, posSet, freqSet = false, false, false, false, false
 	var volume, loopstart, loopend, position int = 100, 0, 0, 0
+	var freqmul float32 = 1.0
+
 	// Safety default sets
 	if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
 		loopstart = sl.loopstart
 		loopend = sl.loopend
 	}
-	var freqmul float32 = 1.0
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case modifyBgm_volume:
@@ -11566,25 +11574,25 @@ func (sc modifyBgm) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if sys.bgm.ctrl != nil {
-		// Set values that are different only
-		if volumeSet {
-			volumeScaled := int(float64(volume) / 100.0 * float64(sys.cfg.Sound.MaxBGMVolume))
-			sys.bgm.bgmVolume = int(Min(int32(volumeScaled), int32(sys.cfg.Sound.MaxBGMVolume)))
-			sys.bgm.UpdateVolume()
-		}
-		if posSet {
-			sys.bgm.Seek(position)
-		}
-		if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
-			if (loopStartSet && sl.loopstart != loopstart) || (loopEndSet && sl.loopend != loopend) {
-				sys.bgm.SetLoopPoints(loopstart, loopend)
-			}
-		}
-		if freqSet && sys.bgm.freqmul != freqmul {
-			sys.bgm.SetFreqMul(freqmul)
+
+	// Set values that are different only
+	if volumeSet {
+		volumeScaled := int(float64(volume) / 100.0 * float64(sys.cfg.Sound.MaxBGMVolume))
+		sys.bgm.bgmVolume = int(Min(int32(volumeScaled), int32(sys.cfg.Sound.MaxBGMVolume)))
+		sys.bgm.UpdateVolume()
+	}
+	if posSet {
+		sys.bgm.Seek(position)
+	}
+	if sl, ok := sys.bgm.volctrl.Streamer.(*StreamLooper); ok {
+		if (loopStartSet && sl.loopstart != loopstart) || (loopEndSet && sl.loopend != loopend) {
+			sys.bgm.SetLoopPoints(loopstart, loopend)
 		}
 	}
+	if freqSet && sys.bgm.freqmul != freqmul {
+		sys.bgm.SetFreqMul(freqmul)
+	}
+
 	return false
 }
 

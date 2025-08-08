@@ -567,6 +567,43 @@ func systemScriptInit(l *lua.LState) {
 		a.Update()
 		return 0
 	})
+	luaRegister(l, "batchDraw", func(*lua.LState) int {
+		tbl := l.ToTable(1)
+		if tbl == nil {
+			l.RaiseError("batchDraw requires a table as its first argument")
+			return 0
+		}
+
+		tbl.ForEach(func(_, val lua.LValue) {
+			item, ok := val.(*lua.LTable)
+			if !ok {
+				// l.RaiseError("batchDraw expects a table of tables")
+				return
+			}
+
+			luaAnim := item.RawGetString("anim")
+
+			ud, ok := luaAnim.(*lua.LUserData)
+			if !ok {
+				return
+			}
+
+			anim, ok := ud.Value.(*Anim)
+			if !ok {
+				return
+			}
+
+			x := float32(lua.LVAsNumber(item.RawGetString("x")))
+			y := float32(lua.LVAsNumber(item.RawGetString("y")))
+
+			facing := float32(lua.LVAsNumber(item.RawGetString("facing")))
+
+			anim.SetPos(x/sys.luaSpriteScale+sys.luaSpriteOffsetX, y/sys.luaSpriteScale)
+			anim.SetFacing(facing)
+			anim.Draw()
+		})
+		return 0
+	})
 	luaRegister(l, "bgDraw", func(*lua.LState) int {
 		bg, ok := toUserData(l, 1).(*BGDef)
 		if !ok {

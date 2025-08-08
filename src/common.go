@@ -562,13 +562,9 @@ func SearchFile(file string, dirs []string) string {
 			if baseDirInZip == "." {
 				baseDirInZip = ""
 			}
-			isRootRelative := strings.HasPrefix(file, "data/") || strings.HasPrefix(file, "font/") || strings.HasPrefix(file, "stages/")
-			if isRootRelative {
-			} else {
-				candidate = filepath.ToSlash(filepath.Join(zipFileCtx, baseDirInZip, file))
-				if found := FileExist(candidate); found != "" {
-					return found
-				}
+			candidate = filepath.ToSlash(filepath.Join(zipFileCtx, baseDirInZip, file))
+			if found := FileExist(candidate); found != "" {
+				return found
 			}
 		} else {
 			candidate = filepath.ToSlash(filepath.Join(filepath.Dir(dirCtx), file))
@@ -1345,7 +1341,11 @@ func OpenFile(filename string) (io.ReadSeekCloser, error) {
 	if isZip {
 		zr, err := zip.OpenReader(zipFilePath)
 		if err != nil {
-			return nil, fmt.Errorf("opening zip archive %s: %w", zipFilePath, err)
+			f, err2 := os.Open(filename)
+			if err2 != nil {
+				return nil, fmt.Errorf("opening zip archive %s: %w", zipFilePath, err)
+			}
+			return f, nil
 		}
 
 		if pathInZip == "" {

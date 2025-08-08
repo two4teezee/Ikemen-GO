@@ -1078,17 +1078,17 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 type ShadowSprite struct {
 	*SprData
-	shadowColor       int32
-	shadowAlpha       int32
-	shadowIntensity   int32
-	shadowOffset      [2]float32
-	shadowWindow      [4]float32
-	shadowXshear      float32
-	shadowYscale      float32
-	shadowRot         Rotation
-	shadowProjection  int32
-	shadowfLength     float32
-	fadeOffset        float32
+	shadowColor      int32
+	shadowAlpha      int32
+	shadowIntensity  int32
+	shadowOffset     [2]float32
+	shadowWindow     [4]float32
+	shadowXshear     float32
+	shadowYscale     float32
+	shadowRot        Rotation
+	shadowProjection int32
+	shadowfLength    float32
+	fadeOffset       float32
 }
 
 type ShadowList []*ShadowSprite
@@ -1319,7 +1319,6 @@ func (rl *ReflectionList) add(rs *ReflectionSprite) {
 
 	*rl = append(*rl, rs)
 }
-
 
 func (rl ReflectionList) draw(x, y, scl float32) {
 	if len(rl) == 0 {

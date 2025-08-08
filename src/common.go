@@ -767,7 +767,7 @@ func parseMugenVersion(versionStr string) ([2]uint16, float32) {
 			break
 		}
 	}
-	
+
 	// Turn the array into the versions we know
 	if ver[0] == 1 && ver[1] == 1 {
 		verF = 1.1

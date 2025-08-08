@@ -1692,9 +1692,9 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		})
 		// Add reflection sprite
 		sys.reflections.add(&ReflectionSprite{
-			SprData:        sd,
-			reflectOffset:  [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			fadeOffset:     drawZoff,
+			SprData:       sd,
+			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
+			fadeOffset:    drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -10735,8 +10735,8 @@ func (c *Char) cueDraw() {
 				})
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
-					SprData:         sd,
-					reflectColor:    reflectclr,
+					SprData:          sd,
+					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,

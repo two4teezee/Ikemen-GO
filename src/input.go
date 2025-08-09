@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"net"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -2333,6 +2334,11 @@ func (cl *CommandList) Add(c Command) {
 	}
 	cl.Commands[i] = append(cl.Commands[i], c)
 	cl.Names[c.name] = i
+
+	generatedCmd := autoGenerateExtendedCommand(&c)
+	if generatedCmd != nil {
+		cl.Commands[i] = append(cl.Commands[i], *generatedCmd)
+	}
 }
 
 // Used for command trigger
@@ -2374,4 +2380,106 @@ func (cl *CommandList) CopyList(src CommandList) {
 			cl.Commands[i][j].held = make([]bool, len(c.held))
 		}
 	}
+}
+
+func withoutTilde(keys []CommandKey) []CommandKey {
+	if len(keys) == 0 {
+		return keys
+	}
+	newKeys := make([]CommandKey, len(keys))
+	copy(newKeys, keys)
+	for i, k := range newKeys {
+		if k >= CK_rU && k <= CK_rN {
+			newKeys[i] = k - (CK_rU - CK_U)
+		} else if k >= CK_rUs && k <= CK_rNs {
+			newKeys[i] = k - (CK_rUs - CK_Us)
+		} else if k >= CK_ra && k <= CK_rm {
+			newKeys[i] = k - (CK_ra - CK_a)
+		}
+	}
+	return newKeys
+}
+
+func autoGenerateExtendedCommand(originalCmd *Command) *Command {
+	// 対象コマンドか判定
+	// タメコマンド(/)や短すぎるコマンドは対象外
+	if len(originalCmd.cmd) < 2 {
+		return nil
+	}
+	for _, ce := range originalCmd.cmd {
+		if ce.slash {
+			return nil
+		}
+	}
+
+	// 繰り返しパターンを抽出
+	firstInput := originalCmd.cmd[0].key
+	var repeatPattern []cmdElem
+	repeatPos := -1
+
+	// 最初の方向キー入力を探す
+	isFirstDirection := false
+	for _, k := range firstInput {
+		if k.IsDirectionPress() || k.IsDirectionRelease() {
+			isFirstDirection = true
+			break
+		}
+	}
+	if !isFirstDirection {
+		return nil
+	}
+
+	for i := 1; i < len(originalCmd.cmd); i++ {
+		// `~` や `$` を無視して純粋なキーが同じか比較
+		if reflect.DeepEqual(withoutTilde(originalCmd.cmd[i].key), withoutTilde(firstInput)) {
+			repeatPos = i
+			// 最初の入力から、それが再度現れる直前までをパターンとする
+			repeatPattern = originalCmd.cmd[0:repeatPos]
+			break
+		}
+	}
+
+	if repeatPos == -1 {
+		return nil
+	}
+
+	// `~` (リリース) をパターンから取り除く
+	if len(repeatPattern) > 0 {
+		// Deep copy is important here
+		newPattern := make([]cmdElem, len(repeatPattern))
+		for i, ce := range repeatPattern {
+			newKeys := make([]CommandKey, len(ce.key))
+			copy(newKeys, ce.key)
+			newPattern[i] = ce
+			newPattern[i].key = newKeys
+		}
+
+		// 最初の要素の `~` を除去
+		firstElemKeys := newPattern[0].key
+		for i, k := range firstElemKeys {
+			if k >= CK_rU && k <= CK_rN {
+				firstElemKeys[i] = k - (CK_rU - CK_U)
+			} else if k >= CK_rUs && k <= CK_rNs {
+				firstElemKeys[i] = k - (CK_rUs - CK_Us)
+			}
+		}
+		repeatPattern = newPattern
+	}
+
+	// 自動生成コマンドを作成
+	newCmdSlice := make([]cmdElem, 0, len(originalCmd.cmd)+len(repeatPattern))
+	newCmdSlice = append(newCmdSlice, originalCmd.cmd[:repeatPos]...)
+	newCmdSlice = append(newCmdSlice, repeatPattern...)
+	newCmdSlice = append(newCmdSlice, originalCmd.cmd[repeatPos:]...)
+
+	// 新規Command構造体を生成
+	generatedCmd := *originalCmd
+	generatedCmd.cmd = newCmdSlice
+	generatedCmd.held = make([]bool, len(generatedCmd.hold))
+
+	// 繰り返しパターンの入力数に応じて猶予フレーム数 を加算する
+	timeExtension := int32(len(repeatPattern)) * 4
+	generatedCmd.maxtime += timeExtension
+
+	return &generatedCmd
 }

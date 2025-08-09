@@ -2118,32 +2118,34 @@ function start.f_selectScreen()
 	for row = 1, motif.select_info.rows do
 		for col = 1, motif.select_info.columns do
 			local t = start.t_grid[row][col]
-			--draw cell background
-			if (t.char ~= nil and (t.hidden == 0 or t.hidden == 3)) or motif.select_info.showemptyboxes == 1 then
-				table.insert(drawList, {
-					anim = motif.select_info.cell_bg_data,
-					x = motif.select_info.pos[1] + t.x,
-					y = motif.select_info.pos[2] + t.y,
-					facing = cellfacing
-				})
-			end
-			--draw random cell
-			if t.char == 'randomselect' or t.hidden == 3 then
-				table.insert(drawList, {
-					anim = motif.select_info.cell_random_data,
-					x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
-					y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-					facing = randomfacing
-				})
-			end
-			--draw face cell
-			if t.char_ref ~= nil and t.hidden == 0 then
-				table.insert(drawList, {
-					anim = start.f_getCharData(t.char_ref).cell_data,
-					x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
-					y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-					facing = charfacing
-				})
+			if t.skip ~= 1 then
+				--draw cell background
+				if (t.char ~= nil and (t.hidden == 0 or t.hidden == 3)) or motif.select_info.showemptyboxes == 1 then
+					table.insert(drawList, {
+						anim = motif.select_info.cell_bg_data,
+						x = motif.select_info.pos[1] + t.x,
+						y = motif.select_info.pos[2] + t.y,
+						facing = cellfacing
+					})
+				end
+				--draw random cell
+				if t.char == 'randomselect' or t.hidden == 3 then
+					table.insert(drawList, {
+						anim = motif.select_info.cell_random_data,
+						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
+						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
+						facing = randomfacing
+					})
+				end
+				--draw face cell
+				if t.char_ref ~= nil and t.hidden == 0 then
+					table.insert(drawList, {
+						anim = start.f_getCharData(t.char_ref).cell_data,
+						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
+						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
+						facing = charfacing
+					})
+				end
 			end
 		end
 	end

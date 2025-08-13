@@ -3689,12 +3689,23 @@ func (c *Char) loadFx(def string) error {
 						if fx_path == "" {
 							continue
 						}
-						resolved_fx_path := resolvePathRelativeToDef(fx_path)
-						if resolved_fx_path != "" {
-							if err := loadFightFx(resolved_fx_path, false); err != nil {
-								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", resolved_fx_path, def, err)
+						resolved_path := resolvePathRelativeToDef(fx_path)
+
+						if found_path := FileExist(resolved_path); found_path != "" {
+							if err := loadFightFx(found_path, false); err != nil {
+								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path, def, err)
 							} else {
-								gi.fxPath = append(gi.fxPath, resolved_fx_path)
+								gi.fxPath = append(gi.fxPath, found_path)
+							}
+						} else {
+							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motifDir, "data/"}); found_path_fallback != "" {
+								if err := loadFightFx(found_path_fallback, false); err != nil {
+									sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path_fallback, def, err)
+								} else {
+									gi.fxPath = append(gi.fxPath, found_path_fallback)
+								}
+							} else {
+								sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
 							}
 						}
 					}

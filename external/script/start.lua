@@ -2111,9 +2111,6 @@ function start.f_selectScreen()
 
 	--cell drawList
 	local drawList = {}
-	local charfacing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.portrait_facing
-	local randomfacing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_random_facing
-	local cellfacing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_bg_facing
 
 	for row = 1, motif.select_info.rows do
 		for col = 1, motif.select_info.columns do
@@ -2125,7 +2122,7 @@ function start.f_selectScreen()
 						anim = motif.select_info.cell_bg_data,
 						x = motif.select_info.pos[1] + t.x,
 						y = motif.select_info.pos[2] + t.y,
-						facing = cellfacing
+						facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_bg_facing
 					})
 				end
 				--draw random cell
@@ -2134,7 +2131,7 @@ function start.f_selectScreen()
 						anim = motif.select_info.cell_random_data,
 						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
 						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-						facing = randomfacing
+						facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_random_facing
 					})
 				end
 				--draw face cell
@@ -2143,7 +2140,7 @@ function start.f_selectScreen()
 						anim = start.f_getCharData(t.char_ref).cell_data,
 						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
 						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-						facing = charfacing
+						facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.portrait_facing
 					})
 				end
 			end

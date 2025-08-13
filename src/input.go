@@ -1026,10 +1026,12 @@ func (__ *InputBuffer) State2(ck CommandKey) int32 {
 		//	return f(__.State(CK_DF), __.State(CK_D), __.State(CK_F))
 		//case CK_rUFs:
 		//	return f(__.State(CK_UF), __.State(CK_U), __.State(CK_F))
-	case CK_N, CK_Ns:
+	case CK_N:
 		return __.State(CK_N)
 	case CK_rN, CK_rNs:
 		return __.State(CK_rN)
+	case CK_Ns:
+		return Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.wb), Abs(__.db))
 	}
 	return __.State(ck)
 }
@@ -2403,7 +2405,7 @@ func withoutTilde(keys []CommandKey) []CommandKey {
 func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 	// 対象コマンドか判定
 	// タメコマンド(/)や短すぎるコマンドは対象外
-	if len(originalCmd.cmd) < 2 {
+	if len(originalCmd.cmd) < 3 {
 		return nil
 	}
 	for _, ce := range originalCmd.cmd {
@@ -2443,34 +2445,37 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 		return nil
 	}
 
-	// `~` (リリース) をパターンから取り除く
-	if len(repeatPattern) > 0 {
-		// Deep copy is important here
-		newPattern := make([]cmdElem, len(repeatPattern))
-		for i, ce := range repeatPattern {
-			newKeys := make([]CommandKey, len(ce.key))
-			copy(newKeys, ce.key)
-			newPattern[i] = ce
-			newPattern[i].key = newKeys
-		}
+	modifiedPattern := make([]cmdElem, len(repeatPattern))
+	for i, ce := range repeatPattern {
+		newKeys := make([]CommandKey, len(ce.key))
+		copy(newKeys, ce.key)
+		modifiedPattern[i] = ce
+		modifiedPattern[i].key = newKeys
+	}
 
-		// 最初の要素の `~` を除去
-		firstElemKeys := newPattern[0].key
-		for i, k := range firstElemKeys {
-			if k >= CK_rU && k <= CK_rN {
-				firstElemKeys[i] = k - (CK_rU - CK_U)
-			} else if k >= CK_rUs && k <= CK_rNs {
-				firstElemKeys[i] = k - (CK_rUs - CK_Us)
+	// 2番目以降の方向キー入力を$Nに置き換える
+	if len(modifiedPattern) > 1 {
+		for i := 1; i < len(modifiedPattern); i++ {
+			elem := &modifiedPattern[i]
+			isDirection := false
+			for _, k := range elem.key {
+				// IsDirectionPress()とIsDirectionRelease()で方向キーかどうかを判定
+				if k.IsDirectionPress() || k.IsDirectionRelease() {
+					isDirection = true
+					break
+				}
+			}
+			// 方向キー入力であれば、$N (CK_Ns) に置き換える
+			if isDirection {
+				elem.key = []CommandKey{CK_Ns}
 			}
 		}
-		repeatPattern = newPattern
 	}
 
 	// 自動生成コマンドを作成
-	newCmdSlice := make([]cmdElem, 0, len(originalCmd.cmd)+len(repeatPattern))
-	newCmdSlice = append(newCmdSlice, originalCmd.cmd[:repeatPos]...)
-	newCmdSlice = append(newCmdSlice, repeatPattern...)
-	newCmdSlice = append(newCmdSlice, originalCmd.cmd[repeatPos:]...)
+	newCmdSlice := make([]cmdElem, 0, len(originalCmd.cmd)+len(modifiedPattern))
+	newCmdSlice = append(newCmdSlice, modifiedPattern...)
+	newCmdSlice = append(newCmdSlice, originalCmd.cmd...)
 
 	// 新規Command構造体を生成
 	generatedCmd := *originalCmd
@@ -2478,7 +2483,7 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 	generatedCmd.held = make([]bool, len(generatedCmd.hold))
 
 	// 繰り返しパターンの入力数に応じて猶予フレーム数 を加算する
-	timeExtension := int32(len(repeatPattern)) * 4
+	timeExtension := int32(len(modifiedPattern)) * 4
 	generatedCmd.maxtime += timeExtension
 
 	return &generatedCmd

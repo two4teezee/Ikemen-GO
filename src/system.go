@@ -1093,6 +1093,7 @@ func (s *System) restoreAllVolume() {
 func (s *System) clearAllSound() {
 	s.soundChannels.StopAll()
 	s.stopAllSound()
+	s.soundMixer.Clear()
 }
 
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds

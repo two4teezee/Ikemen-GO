@@ -2094,6 +2094,7 @@ function start.updateDrawList()
     return drawList
 end
 
+start.needUpdateDrawList = false
 function start.f_selectScreen()
 	if (not main.selectMenu[1] and not main.selectMenu[2]) or selScreenEnd then
 		return true
@@ -2154,7 +2155,7 @@ function start.f_selectScreen()
 	end
 
 	local staticDrawList = start.updateDrawList()
-	local needUpdateDrawList = false
+	start.needUpdateDrawList = false
 
 	while not selScreenEnd do
 		counter = counter + 1
@@ -2181,9 +2182,9 @@ function start.f_selectScreen()
 
 
 
-    if needUpdateDrawList then
+    if start.needUpdateDrawList then
         staticDrawList = start.updateDrawList()
-        needUpdateDrawList = false 
+        start.needUpdateDrawList = false 
     end
 	batchDraw(staticDrawList)
 		--draw done cursors
@@ -2225,7 +2226,7 @@ function start.f_selectScreen()
 						member = k
 					end
 					--member selection
-					v.selectState, needUpdateDrawList = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
+					v.selectState, start.needUpdateDrawList = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
 					--draw active cursor
 					if side == 2 and motif.select_info.p2_cursor_blink == 1 then
 						local sameCell = false

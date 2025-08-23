@@ -1846,6 +1846,15 @@ func systemScriptInit(l *lua.LState) {
 		sys.statusLFunc, _ = sys.luaLState.GetGlobal(strArg(l, 1)).(*lua.LFunction)
 		return 0
 	})
+	luaRegister(l, "loadTextFile", func(l *lua.LState) int {
+		fullPath := strArg(l, 1)
+		str, err := LoadText(fullPath)
+		if err != nil {
+			l.RaiseError("\nCan't load %v: %v\n", fullPath, err.Error())
+		}
+		l.Push(lua.LString(str))
+		return 1
+	})
 	luaRegister(l, "loadGameOption", func(l *lua.LState) int {
 		cfg := sys.cfg
 		if !nilArg(l, 1) {

@@ -123,7 +123,7 @@ local function f_play(t, attract)
 end
 
 local function f_parse(path)
-	local content = LoadText(path)
+	local content = loadText(path)
 	if content == nil then
 		return nil
 	end

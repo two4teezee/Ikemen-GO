@@ -1890,7 +1890,7 @@ func systemScriptInit(l *lua.LState) {
 		sys.loadStart()
 		return 0
 	})
-	luaRegister(l, "LoadText", func(l *lua.LState) int {
+	luaRegister(l, "loadText", func(l *lua.LState) int {
 		path := strArg(l, 1)
 		content, err := LoadText(path)
 		if err != nil {

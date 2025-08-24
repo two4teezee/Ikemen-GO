@@ -3147,9 +3147,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_scale_z:
 		sys.bcStack.PushF(c.zScale)
 	case OC_ex_offset_x:
-		sys.bcStack.PushF(c.offset[0]) // Already in local scale
+		sys.bcStack.PushF(c.offset[0] / oc.localscl) // Already in c.localscl so we only divide by oc.localscl
 	case OC_ex_offset_y:
-		sys.bcStack.PushF(c.offset[1])
+		sys.bcStack.PushF(c.offset[1] / oc.localscl)
 	case OC_ex_alpha_s:
 		if c.csf(CSF_trans) {
 			sys.bcStack.PushI(c.alpha[0])

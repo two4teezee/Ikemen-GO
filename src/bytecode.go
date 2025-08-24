@@ -7258,7 +7258,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 			p.hitanim = exp[1].evalI(c)
 			p.hitanim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		case projectile_projremanim:
-			p.remanim = Max(-1, exp[1].evalI(c))
+			p.remanim = Max(-2, exp[1].evalI(c))
 			p.remanim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		case projectile_projcancelanim:
 			p.cancelanim = Max(-1, exp[1].evalI(c))
@@ -7579,7 +7579,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				var v2 int32
 				v1 = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 				if len(exp) > 1 {
-					v2 = Max(-1, exp[1].evalI(c))
+					v2 = Max(-2, exp[1].evalI(c))
 				}
 				eachProj(func(p *Projectile) {
 					p.remanim_ffx = v1

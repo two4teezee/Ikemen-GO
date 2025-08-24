@@ -1316,8 +1316,8 @@ type Explod struct {
 func (e *Explod) clear() {
 	*e = Explod{
 		id:                IErr,
-		bindtime:          1,
-		scale:             [...]float32{1, 1},
+		bindtime:          1, // Not documented but confirmed
+		scale:             [2]float32{1, 1},
 		removetime:        -2,
 		postype:           PT_P1,
 		space:             Space_none,
@@ -1983,62 +1983,79 @@ func (p *Projectile) paused(playerNo int) bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused(p.playerno) && p.hitpause == 0 {
-		if p.anim >= 0 {
-			if !p.remflag {
-				remove := true
-				root := sys.chars[p.playerno][0]
-				if p.hits < 0 {
-					// Remove behavior
-					if p.hits == -1 && p.remove {
-						if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
-							p.ani = root.getAnim(p.hitanim, p.hitanim_ffx, true)
+		if p.anim >= 0 && !p.remflag {
+			remove := true
+			root := sys.chars[p.playerno][0]
+			if p.hits < 0 {
+				// Remove behavior
+				if p.hits == -1 && p.remove {
+					if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
+						if p.hitanim == -1 {
+							p.ani = nil
+						} else if ani := root.getAnim(p.hitanim, p.hitanim_ffx, true); ani != nil {
+							p.ani = ani
 						}
 					}
-					// Cancel behavior
-					if p.hits == -2 {
-						if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
-							p.ani = root.getAnim(p.cancelanim, p.cancelanim_ffx, true)
+				}
+				// Cancel behavior
+				if p.hits == -2 {
+					if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
+						if p.cancelanim == -1 {
+							p.ani = nil
+						} else if ani := root.getAnim(p.cancelanim, p.cancelanim_ffx, true); ani != nil {
+							p.ani = ani
 						}
 					}
-				} else if p.removetime == 0 ||
-					p.removetime <= -2 && (p.ani == nil || p.ani.loopend) ||
-					p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
-					p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
-					p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
-					p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
-					p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
-					p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
-					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
-					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-					if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
-						p.ani = root.getAnim(p.remanim, p.remanim_ffx, true)
+				}
+			} else if p.removetime == 0 ||
+				p.removetime <= -2 && (p.ani == nil || p.ani.loopend) ||
+				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
+				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
+				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
+				p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
+				p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
+				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
+				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
+				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
+				if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
+					if p.remanim != -2 {
+						if p.remanim == -1 {
+							p.ani = nil
+						} else if ani := root.getAnim(p.remanim, p.remanim_ffx, true); ani != nil {
+							p.ani = ani
+							// In Mugen, if remanim is invalid the projectile will keep the current one
+							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+						}
 					}
+				}
+				remove = true
+			} else {
+				remove = false
+			}
+			// Active to removing transition
+			if remove {
+				p.remflag = true
+				if p.ani != nil {
+					p.ani.UpdateSprite()
+				}
+				p.velocity = p.remvelocity
+				if p.facing == p.removefacing {
+					p.facing = p.removefacing
 				} else {
-					remove = false
+					p.velocity[0] *= -1
 				}
-				if remove {
-					p.remflag = true
-					if p.ani != nil {
-						p.ani.UpdateSprite()
-					}
-					p.velocity = p.remvelocity
-					if p.facing == p.removefacing {
-						p.facing = p.removefacing
-					} else {
-						p.velocity[0] *= -1
-					}
-					p.accel = [3]float32{0, 0, 0}
-					p.velmul = [3]float32{1, 1, 1}
-					p.anim = -1
-					// In Mugen, projectiles can hit even after their removetime expires
-					// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
-					//if p.hits >= 0 {
-					//	p.hits = -1
-					//}
-				}
+				p.accel = [3]float32{0, 0, 0}
+				p.velmul = [3]float32{1, 1, 1}
+				p.anim = -1
+				// In Mugen, projectiles can hit even after their removetime expires
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
+				//if p.hits >= 0 {
+				//	p.hits = -1
+				//}
 			}
 		}
-		if p.remflag {
+		// Remove projectile
+		if p.remflag  {
 			if p.ani != nil && (p.ani.totaltime <= 0 || p.ani.AnimTime() == 0) {
 				p.ani = nil
 			}

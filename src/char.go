@@ -8244,7 +8244,7 @@ func (c *Char) removeTarget(pid int32) {
 
 // Remove self from the target lists of other players
 func (c *Char) exitTarget() {
-	if c.hittmp >= 0 {
+	if c.hittmp >= 0 { // If not being hit by ReversalDef
 		for _, hb := range c.ghv.targetedBy {
 			if e := sys.playerID(hb[0]); e != nil {
 				if e.hitdef.reversal_attr == 0 || e.hitdef.reversal_attr == -1<<31 {
@@ -8255,8 +8255,10 @@ func (c *Char) exitTarget() {
 			}
 		}
 		c.gethitBindClear()
+		// This line used to be outside the "c.hittmp >= 0" condition, but this happened
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2581
+		c.ghv.targetedBy = c.ghv.targetedBy[:0]
 	}
-	c.ghv.targetedBy = c.ghv.targetedBy[:0]
 }
 
 func (c *Char) offsetX() float32 {

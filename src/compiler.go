@@ -4211,8 +4211,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_ex2_debug_clsndisplay)
 		case "debugdisplay":
 			out.append(OC_ex2_debug_debugdisplay)
-		case "lifebardisplay":
-			out.append(OC_ex2_debug_lifebardisplay)
+		case "lifebarhide":
+			out.append(OC_ex2_debug_lifebarhide)
 		case "wireframedisplay":
 			out.append(OC_ex2_debug_wireframedisplay)
 		case "roundreset":

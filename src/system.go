@@ -63,7 +63,6 @@ var sys = System{
 	oldNextAddTime:   1,
 	commandLine:      make(chan string),
 	cam:              *newCamera(),
-	lifebarDisplay:   true,
 	mainThreadTask:   make(chan func(), 65536),
 	workpal:          make([]uint32, 256),
 	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
@@ -237,7 +236,7 @@ type System struct {
 	accel                   float32
 	clsnSpr                 Sprite
 	clsnDisplay             bool
-	lifebarDisplay          bool
+	lifebarHide             bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
 	errLog                  *log.Logger
@@ -2119,7 +2118,7 @@ func (s *System) fight() (reload bool) {
 	if sys.netConnection != nil {
 		s.clsnDisplay = false
 		s.debugDisplay = false
-		s.lifebarDisplay = true
+		s.lifebarHide = false
 	}
 
 	// Defer resetting variables on return

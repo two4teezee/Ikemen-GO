@@ -785,7 +785,7 @@ const (
 	OC_ex2_debug_accel
 	OC_ex2_debug_clsndisplay
 	OC_ex2_debug_debugdisplay
-	OC_ex2_debug_lifebardisplay
+	OC_ex2_debug_lifebarhide
 	OC_ex2_debug_roundreset
 	OC_ex2_debug_wireframedisplay
 	OC_ex2_drawpal_group
@@ -3411,8 +3411,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.clsnDisplay)
 	case OC_ex2_debug_debugdisplay:
 		sys.bcStack.PushB(sys.debugDisplay)
-	case OC_ex2_debug_lifebardisplay:
-		sys.bcStack.PushB(sys.lifebarDisplay)
+	case OC_ex2_debug_lifebarhide:
+		sys.bcStack.PushB(sys.lifebarHide)
 	case OC_ex2_debug_roundreset:
 		sys.bcStack.PushB(sys.roundResetFlg)
 	case OC_ex2_debug_wireframedisplay:
@@ -6266,9 +6266,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 
 					eachExpl(func(e *Explod) {
+						e.animNo = animNo
 						e.animelem = 1
 						e.animelemtime = 0
-						e.animNo = animNo
 						e.setAnim(e.animNo, apn, spn, ffx)
 					})
 				}

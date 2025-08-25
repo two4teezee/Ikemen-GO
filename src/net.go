@@ -151,11 +151,20 @@ func NewLoopTimer(fps uint32, framesToSpread uint32) LoopTimer {
 }
 
 func (lt *LoopTimer) OnGGPOTimeSyncEvent(framesAhead float32) {
-	lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
-	lt.lastAdvantage = float32(time.Second/60) * framesAhead
-	lt.lastAdvantage = lt.lastAdvantage / 4
-	lt.timeWait = time.Duration(lt.lastAdvantage) / time.Duration(lt.framesToSpreadWait)
-	lt.waitCount = time.Duration(lt.framesToSpreadWait)
+	if sys.intro > 0 && sys.time == 0 {
+		lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
+		lt.lastAdvantage = float32(time.Second/60) * framesAhead
+		if lt.lastAdvantage < float32(0) {
+			lt.timeWait = time.Duration(lt.lastAdvantage) / time.Duration(lt.framesToSpreadWait)
+			lt.waitCount = time.Duration(lt.framesToSpreadWait)
+		}
+	} else {
+		lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
+		lt.lastAdvantage = float32(time.Second/60) * framesAhead
+		lt.lastAdvantage = lt.lastAdvantage / 4
+		lt.timeWait = time.Duration(lt.lastAdvantage) / time.Duration(lt.framesToSpreadWait)
+		lt.waitCount = time.Duration(lt.framesToSpreadWait)
+	}
 }
 
 func (lt *LoopTimer) usToWaitThisLoop() time.Duration {

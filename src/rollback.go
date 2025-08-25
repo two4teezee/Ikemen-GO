@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -103,6 +104,24 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	}
 	rs.session.netTime = 0
 	rs.currentFight.reset()
+
+	for i := 0; i < 120; i++ {
+		err := rs.session.backend.Idle(
+			int(math.Max(0, float64(120))))
+		fmt.Printf("difference: %d\n", rs.session.next-rs.session.now-1)
+		if err != nil {
+			panic(err)
+		}
+
+		rs.render(s)
+		frameTime := rs.session.loopTimer.usToWaitThisLoop()
+		running = rs.update(s, frameTime)
+
+		if !running {
+			break
+		}
+	}
+
 	// Loop until end of match
 	///fin := false
 	for !s.endMatch {
@@ -199,6 +218,12 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 
 			// If frame is ready to tick and not paused
 			//rs.updateStage(s)
+
+			//for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
+			//	myChar := sys.chars[rs.session.currentPlayerHandle][0]
+			//	sys.commandLists[i].Input(myChar.controller, int32(myChar.facing), 0, inputs[i], false)
+			//	sys.commandLists[i].Step(int32(myChar.facing), false, false, 0)
+			//}
 
 			// Update game state
 			rs.action(s, inputs)
@@ -721,7 +746,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		if s.lifebar.ro.current < 1 && !s.introSkipped {
 			if s.shuttertime > 0 ||
 				// Checking the intro flag prevents skipping intros when they don't exist
-				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				rs.session.AnyButtonIB(input) && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
 				s.shuttertime++
 				// Do the actual skipping in the frame when the "shutter" effect is closed
 				if s.shuttertime == s.lifebar.ro.shutter_time {

@@ -739,11 +739,10 @@ func (ib *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 }
 
 // Check buffer state of each key
-// Resolves conflicts
-func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
+func (__ *InputBuffer) State(ck CommandKey) int32 {
 	switch ck {
 
-	// Held cardinal directions
+	// Hold cardinal directions
 	case CK_U:
 		conflict := -Max(__.Bb, Max(__.Db, __.Fb))
 		intended := __.Ub
@@ -774,7 +773,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 		intended := __.Rb
 		return Min(conflict, intended)
 
-	// Held diagonals
+	// Hold diagonals
 	case CK_UF:
 		conflict := -Max(__.Db, __.Bb)
 		intended := Min(__.Ub, __.Fb)
@@ -815,10 +814,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 		intended := Min(__.Db, __.Rb)
 		return Min(conflict, intended)
 
-	// Held sign directions
-	case CK_N, CK_Ns:
-		return __.Nb
-
+	// Hold sign cardinal directions
 	case CK_Us:
 		return __.Ub
 
@@ -837,6 +833,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 	case CK_Rs:
 		return __.Rb
 
+	// Hold sign diagonals
 	case CK_UBs:
 		return Min(__.Ub, __.Bb)
 
@@ -861,38 +858,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 	case CK_DRs:
 		return Min(__.Db, __.Rb)
 
-	// Held buttons
-	case CK_a:
-		return __.ab
-
-	case CK_b:
-		return __.bb
-
-	case CK_c:
-		return __.cb
-
-	case CK_x:
-		return __.xb
-
-	case CK_y:
-		return __.yb
-
-	case CK_z:
-		return __.zb
-
-	case CK_s:
-		return __.sb
-
-	case CK_d:
-		return __.db
-
-	case CK_w:
-		return __.wb
-
-	case CK_m:
-		return __.mb
-
-	// Released cardinal directions
+	// Release cardinal directions
 	case CK_rU:
 		conflict := -Max(__.Bb, Max(__.Db, __.Fb))
 		intended := __.Ub
@@ -923,7 +889,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 		intended := __.Rb
 		return -Min(conflict, intended)
 
-	// Released diagonals
+	// Release diagonals
 	case CK_rUF:
 		conflict := -Max(__.Db, __.Bb)
 		intended := Min(__.Ub, __.Fb)
@@ -964,153 +930,7 @@ func (__ *InputBuffer) StateStrict(ck CommandKey) int32 {
 		intended := Min(__.Db, __.Rb)
 		return -Min(conflict, intended)
 
-	// Released sign directions
-	case CK_rUs:
-		return -__.Ub
-
-	case CK_rDs:
-		return -__.Db
-
-	case CK_rBs:
-		return -__.Bb
-
-	case CK_rFs:
-		return -__.Fb
-
-	case CK_rLs:
-		return -__.Lb
-
-	case CK_rRs:
-		return -__.Rb
-
-	case CK_rUBs:
-		return -Min(__.Ub, __.Bb)
-
-	case CK_rUFs:
-		return -Min(__.Ub, __.Fb)
-
-	case CK_rDBs:
-		return -Min(__.Db, __.Bb)
-
-	case CK_rDFs:
-		return -Min(__.Db, __.Fb)
-
-	case CK_rULs:
-		return -Min(__.Ub, __.Lb)
-
-	case CK_rURs:
-		return -Min(__.Ub, __.Rb)
-
-	case CK_rDLs:
-		return -Min(__.Db, __.Lb)
-
-	case CK_rDRs:
-		return -Min(__.Db, __.Rb)
-
-	case CK_rN, CK_rNs:
-		return -__.Nb
-
-	// Released buttons
-	case CK_ra:
-		return -__.ab
-
-	case CK_rb:
-		return -__.bb
-
-	case CK_rc:
-		return -__.cb
-
-	case CK_rx:
-		return -__.xb
-
-	case CK_ry:
-		return -__.yb
-
-	case CK_rz:
-		return -__.zb
-
-	case CK_rs:
-		return -__.sb
-
-	case CK_rd:
-		return -__.db
-
-	case CK_rw:
-		return -__.wb
-
-	case CK_rm:
-		return -__.mb
-	}
-
-	return 0
-}
-
-// Check buffer state of each key
-// Does not resolve conflicts. So, essentially, "sign directions"
-func (__ *InputBuffer) StateLenient(ck CommandKey) int32 {
-	/*lastRelease := func(a, b, c int32) int32 {
-		switch {
-		case a > 0:
-			return -Max(b, c)
-		case b > 0:
-			return -Max(a, c)
-		case c > 0:
-			return -Max(a, b)
-		}
-		return -Max(a, b, c)
-	}*/
-
-	switch ck {
-
-	// Hold sign cardinal directions
-	case CK_Us:
-		return __.Ub
-
-	case CK_Ds:
-		return __.Db
-
-	case CK_Bs:
-		return __.Bb
-
-	case CK_Fs:
-		return __.Fb
-
-	case CK_Ls:
-		return __.Lb
-
-	case CK_Rs:
-		return __.Rb
-
-	// In MUGEN, adding '$' to diagonal inputs doesn't have any meaning.
-	// Update: It does actually. For instance, $DB is true even if you also press U or F, but DB isn't
-
-	// Hold sign diagonals
-	case CK_DBs:
-		return Min(__.Db, __.Bb)
-
-	case CK_UBs:
-		return Min(__.Ub, __.Bb)
-
-	case CK_DFs:
-		return Min(__.Db, __.Fb)
-
-	case CK_UFs:
-		return Min(__.Ub, __.Fb)
-
-	case CK_DLs:
-		return Min(__.Db, __.Lb)
-
-	case CK_DRs:
-		return Min(__.Db, __.Rb)
-
-	case CK_ULs:
-		return Min(__.Ub, __.Lb)
-
-	case CK_URs:
-		return Min(__.Ub, __.Rb)
-
-
-	// Released sign cardinal directions
+	// Release sign cardinal directions
 	case CK_rUs:
 		return -__.Ub
 
@@ -1154,18 +974,84 @@ func (__ *InputBuffer) StateLenient(ck CommandKey) int32 {
 	case CK_rDRs:
 		return -Min(__.Db, __.Rb)
 
+	// In MUGEN, adding '$' to diagonal inputs doesn't have any meaning.
+	// Update: It does actually. For instance, $DB is true even if you also press U or F, but DB isn't
+
+	// Hold buttons
+	case CK_a:
+		return __.ab
+
+	case CK_b:
+		return __.bb
+
+	case CK_c:
+		return __.cb
+
+	case CK_x:
+		return __.xb
+
+	case CK_y:
+		return __.yb
+
+	case CK_z:
+		return __.zb
+
+	case CK_s:
+		return __.sb
+
+	case CK_d:
+		return __.db
+
+	case CK_w:
+		return __.wb
+
+	case CK_m:
+		return __.mb
+
+	// Release buttons
+	case CK_ra:
+		return -__.ab
+
+	case CK_rb:
+		return -__.bb
+
+	case CK_rc:
+		return -__.cb
+
+	case CK_rx:
+		return -__.xb
+
+	case CK_ry:
+		return -__.yb
+
+	case CK_rz:
+		return -__.zb
+
+	case CK_rs:
+		return -__.sb
+
+	case CK_rd:
+		return -__.db
+
+	case CK_rw:
+		return -__.wb
+
+	case CK_rm:
+		return -__.mb
+
 	// Neutral
 	case CK_N:
-		return __.StateStrict(CK_N)
+		return __.Nb
 
-	case CK_rN, CK_rNs:
-		return __.StateStrict(CK_rN)
+	case CK_rN:
+		return -__.Nb
 
-	case CK_Ns:
+	case CK_Ns, CK_rNs:
 		return Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.wb), Abs(__.db), Abs(__.sb))
+		// This one somehow returns "any change" in Mugen. Since "any neutral" is useless anyway we'll just add support for that
 	}
 
-	return __.StateStrict(ck)
+	return 0
 }
 
 // Return charge time of a key
@@ -1471,6 +1357,7 @@ func (ib *InputBuffer) StateCharge(ck CommandKey) int32 {
 	return 0
 }
 
+/*
 // Time since last press of a key. Used for ">" type commands
 func (__ *InputBuffer) LastPressTime() int32 {
 	dir := Max(__.Bb, __.Db, __.Fb, __.Ub, __.Lb, __.Rb)
@@ -1486,6 +1373,15 @@ func (__ *InputBuffer) LastReleaseTime() int32 {
 
 	// Invert since we want a timer and release times are negative
 	return -Min(dir, btn)
+}
+*/
+
+// Time since last change of a key. Used for ">" type commands
+func (__ *InputBuffer) LastChangeTime() int32 {
+	dir := Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.Lb), Abs(__.Rb))
+	btn := Min(Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.sb), Abs(__.db), Abs(__.wb), Abs(__.mb))
+
+	return Min(dir, btn)
 }
 
 // NetBuffer holds the inputs that are sent between players
@@ -2044,6 +1940,8 @@ func newCommand() *Command {
 }
 
 // This is used to first compile the commands
+// At one point this expanded consecutive directions as documented in Kung Fu Man's command file (F, F -> F, >~F, >F)
+// However the added extra steps might make the new step.time parameter less predictable
 func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 	c := newCommand()
 	c.name = name
@@ -2416,7 +2314,6 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 		}
 	}
 
-
 	return c, nil
 }
 
@@ -2438,10 +2335,7 @@ func (c *Command) Clear(bufreset bool) {
 	}
 }
 
-// Check if incorrect keys were entered before the ">" step.
-// For press -> press (e.g. F, >F) only an incorrect press invalidates
-// For release -> release (e.g. ~F, >~F): only an incorrect release invalidates
-// Mugen seems to only account for presses here, so this is a bit experimental
+// Check if incorrect keys were entered before the ">" step
 func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
 	if idx <= 0 || idx >= len(c.cmd) || !c.cmd[idx].greater {
 		return false
@@ -2453,9 +2347,21 @@ func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
 	}
 
 	prevKeys := c.cmd[idx-1].key
-	nextKeys := c.cmd[idx].key
+	//nextKeys := c.cmd[idx].key
 
-	// If all keys are release, treat as a release step
+	// Check if the key responsible for the last change is present in the previous step
+	for _, pk := range prevKeys {
+		if Abs(ibuf.State(pk)) == ibuf.LastChangeTime() {
+			return false // Don't fail
+		}
+	}
+
+	// Implementations like below break with "B, ~B, >B" and such mixed commands. TODO: Maybe revisit this idea
+	// For press -> press (e.g. F, >F) only an incorrect press invalidates
+	// For release -> release (e.g. ~F, >~F): only an incorrect release invalidates
+	// Mugen treats everything the same here, so this is a bit experimental
+	/*
+	// Determine edge based on nextKeys
 	expectRelease := true
 	for _, k := range nextKeys {
 		if !(k.IsDirectionRelease() || k.IsButtonRelease()) {
@@ -2464,28 +2370,27 @@ func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
 		}
 	}
 
-	// Negative edge
 	if expectRelease {
 		// Check if the freshest key release can be found in the previous step
 		for _, pk := range prevKeys {
-			if ibuf.StateLenient(pk) == ibuf.LastReleaseTime() {
-				return false // Don't fail
+			if ibuf.State(pk) == ibuf.LastReleaseTime() {
+				return false
 			}
 		}
-		return true
-	}
-
-	// Positive edge
-	for _, pk := range prevKeys {
-		// Check if the freshest key press can be found in the previous step
-		if ibuf.StateLenient(pk) == ibuf.LastPressTime() {
-			return false // Don't fail
+	} else {
+		// Press or mixed edge: check freshest presses in previous step
+		for _, pk := range prevKeys {
+			if ibuf.State(pk) == ibuf.LastPressTime() {
+				return false
+			}
 		}
 	}
+	*/
 
-	// Freshest press is foreign to current step
+	// Freshest input is foreign to current step
 	return true
 }
+
 
 // Update an individual command
 func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, extratime int32) {
@@ -2582,7 +2487,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// That's accurate to Mugen so let's keep it for now
 		inputMatched := false
 		for _, k := range c.cmd[i].key {
-			t := ibuf.StateLenient(k)
+			t := ibuf.State(k)
 			if c.cmd[i].slash {
 				inputMatched = inputMatched || t > 0 // Hold can be any positive number
 			} else if t == 1 { // t >= 1 && t <= 7 { // Old input code had this leniency for some reason (Mugen input delay?)
@@ -2598,7 +2503,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// It's also inaccuurate to Mugen. Commenting out for now
 		/*inputMatched := true
 		for _, k := range c.cmd[i].key {
-			t := ibuf.StateLenient(k)
+			t := ibuf.State(k)
 			if c.cmd[i].slash {
 				// Hold requirement: must be currently down (t > 0)
 				if t <= 0 {
@@ -2901,6 +2806,7 @@ func (cl *CommandList) CopyList(src CommandList) {
 	}
 }
 
+/*
 func withoutTildeKey(k CommandKey) CommandKey {
 	if k >= CK_rU && k <= CK_rN {
 		return k - (CK_rU - CK_U)
@@ -2913,6 +2819,7 @@ func withoutTildeKey(k CommandKey) CommandKey {
 	}
 	return k
 }
+*/
 
 /*
 func autoGenerateExtendedCommand(originalCmd *Command) *Command {

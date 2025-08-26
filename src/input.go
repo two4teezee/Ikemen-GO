@@ -13,6 +13,14 @@ var ModAlt = NewModifierKey(false, true, false)
 var ModCtrlAlt = NewModifierKey(true, true, false)
 var ModCtrlAltShift = NewModifierKey(true, true, true)
 
+// CommandList > Command > CommandStep > CommandStepKey
+type CommandStepKey struct {
+	key    CommandKey
+	tilde  bool
+	dollar bool
+	// TODO: Maybe we could move slash here as well
+}
+
 type CommandKey byte
 
 const (
@@ -31,51 +39,6 @@ const (
 	CK_DL
 	CK_DR
 	CK_N
-	CK_rU // r stands for release (~)
-	CK_rD
-	CK_rB
-	CK_rF
-	CK_rL
-	CK_rR
-	CK_rUB
-	CK_rUF
-	CK_rDB
-	CK_rDF
-	CK_rUL
-	CK_rUR
-	CK_rDL
-	CK_rDR
-	CK_rN
-	CK_Us // s stands for sign ($)
-	CK_Ds
-	CK_Bs
-	CK_Fs
-	CK_Ls
-	CK_Rs
-	CK_UBs
-	CK_UFs
-	CK_DBs
-	CK_DFs
-	CK_ULs
-	CK_URs
-	CK_DLs
-	CK_DRs
-	CK_Ns
-	CK_rUs // ~ and $ together
-	CK_rDs
-	CK_rBs
-	CK_rFs
-	CK_rLs
-	CK_rRs
-	CK_rUBs
-	CK_rUFs
-	CK_rDBs
-	CK_rDFs
-	CK_rULs
-	CK_rURs
-	CK_rDLs
-	CK_rDRs
-	CK_rNs
 	CK_a
 	CK_b
 	CK_c
@@ -86,33 +49,22 @@ const (
 	CK_d
 	CK_w
 	CK_m
-	CK_ra
-	CK_rb
-	CK_rc
-	CK_rx
-	CK_ry
-	CK_rz
-	CK_rs
-	CK_rd
-	CK_rw
-	CK_rm
-	CK_Last = CK_rm
 )
 
-func (ck CommandKey) IsDirectionPress() bool {
-	return ck >= CK_U && ck < CK_rU || ck >= CK_Us && ck < CK_rUs
+func (ck CommandStepKey) IsDirectionPress() bool {
+	return !ck.tilde && ck.key >= CK_U && ck.key <= CK_N
 }
 
-func (ck CommandKey) IsDirectionRelease() bool {
-	return ck >= CK_rU && ck < CK_Us || ck >= CK_rUs && ck < CK_a
+func (ck CommandStepKey) IsDirectionRelease() bool {
+	return ck.tilde && ck.key >= CK_U && ck.key <= CK_N
 }
 
-func (ck CommandKey) IsButtonPress() bool {
-	return ck >= CK_a && ck < CK_ra
+func (ck CommandStepKey) IsButtonPress() bool {
+	return !ck.tilde && ck.key >= CK_a && ck.key <= CK_m
 }
 
-func (ck CommandKey) IsButtonRelease() bool {
-	return ck >= CK_ra && ck <= CK_rm
+func (ck CommandStepKey) IsButtonRelease() bool {
+	return ck.tilde && ck.key >= CK_a && ck.key <= CK_m
 }
 
 type NetState int
@@ -414,12 +366,11 @@ func (ibit InputBits) BitsToKeys() [14]bool {
 }
 
 type CommandKeyRemap struct {
-	a, b, c, x, y, z, s, d, w, m, na, nb, nc, nx, ny, nz, ns, nd, nw, nm CommandKey
+	a, b, c, x, y, z, s, d, w, m CommandKey
 }
 
 func NewCommandKeyRemap() *CommandKeyRemap {
-	return &CommandKeyRemap{CK_a, CK_b, CK_c, CK_x, CK_y, CK_z, CK_s, CK_d, CK_w, CK_m,
-		CK_ra, CK_rb, CK_rc, CK_rx, CK_ry, CK_rz, CK_rs, CK_rd, CK_rw, CK_rm}
+	return &CommandKeyRemap{CK_a, CK_b, CK_c, CK_x, CK_y, CK_z, CK_s, CK_d, CK_w, CK_m}
 }
 
 type InputReader struct {
@@ -738,324 +689,354 @@ func (ib *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 	update(m, &ib.mb, &ib.mc)
 }
 
-// Check buffer state of each key
-func (__ *InputBuffer) State(ck CommandKey) int32 {
-	switch ck {
+// Check the buffer state of each key
+func (__ *InputBuffer) State(ck CommandStepKey) int32 {
 
-	// Hold cardinal directions
-	case CK_U:
-		conflict := -Max(__.Bb, Max(__.Db, __.Fb))
-		intended := __.Ub
-		return Min(conflict, intended)
+	// Hold simple directions
+	if !ck.tilde && !ck.dollar {
+		switch ck.key {
 
-	case CK_D:
-		conflict := -Max(__.Bb, Max(__.Ub, __.Fb))
-		intended := __.Db
-		return Min(conflict, intended)
+		case CK_U:
+			conflict := -Max(__.Bb, Max(__.Db, __.Fb))
+			intended := __.Ub
+			return Min(conflict, intended)
 
-	case CK_B:
-		conflict := -Max(__.Db, Max(__.Ub, __.Fb))
-		intended := __.Bb
-		return Min(conflict, intended)
+		case CK_D:
+			conflict := -Max(__.Bb, Max(__.Ub, __.Fb))
+			intended := __.Db
+			return Min(conflict, intended)
 
-	case CK_F:
-		conflict := -Max(__.Db, Max(__.Ub, __.Bb))
-		intended := __.Fb
-		return Min(conflict, intended)
+		case CK_B:
+			conflict := -Max(__.Db, Max(__.Ub, __.Fb))
+			intended := __.Bb
+			return Min(conflict, intended)
 
-	case CK_L:
-		conflict := -Max(__.Db, Max(__.Ub, __.Rb))
-		intended := __.Lb
-		return Min(conflict, intended)
+		case CK_F:
+			conflict := -Max(__.Db, Max(__.Ub, __.Bb))
+			intended := __.Fb
+			return Min(conflict, intended)
 
-	case CK_R:
-		conflict := -Max(__.Db, Max(__.Ub, __.Lb))
-		intended := __.Rb
-		return Min(conflict, intended)
+		case CK_L:
+			conflict := -Max(__.Db, Max(__.Ub, __.Rb))
+			intended := __.Lb
+			return Min(conflict, intended)
 
-	// Hold diagonals
-	case CK_UF:
-		conflict := -Max(__.Db, __.Bb)
-		intended := Min(__.Ub, __.Fb)
-		return Min(conflict, intended)
+		case CK_R:
+			conflict := -Max(__.Db, Max(__.Ub, __.Lb))
+			intended := __.Rb
+			return Min(conflict, intended)
 
-	case CK_UB:
-		conflict := -Max(__.Db, __.Fb)
-		intended := Min(__.Ub, __.Bb)
-		return Min(conflict, intended)
+		case CK_UF:
+			conflict := -Max(__.Db, __.Bb)
+			intended := Min(__.Ub, __.Fb)
+			return Min(conflict, intended)
 
-	case CK_DF:
-		conflict := -Max(__.Ub, __.Bb)
-		intended := Min(__.Db, __.Fb)
-		return Min(conflict, intended)
+		case CK_UB:
+			conflict := -Max(__.Db, __.Fb)
+			intended := Min(__.Ub, __.Bb)
+			return Min(conflict, intended)
 
-	case CK_DB:
-		conflict := -Max(__.Ub, __.Fb)
-		intended := Min(__.Db, __.Bb)
-		return Min(conflict, intended)
+		case CK_DF:
+			conflict := -Max(__.Ub, __.Bb)
+			intended := Min(__.Db, __.Fb)
+			return Min(conflict, intended)
 
-	case CK_UL:
-		conflict := -Max(__.Db, __.Rb)
-		intended := Min(__.Ub, __.Lb)
-		return Min(conflict, intended)
+		case CK_DB:
+			conflict := -Max(__.Ub, __.Fb)
+			intended := Min(__.Db, __.Bb)
+			return Min(conflict, intended)
 
-	case CK_UR:
-		conflict := -Max(__.Db, __.Lb)
-		intended := Min(__.Ub, __.Rb)
-		return Min(conflict, intended)
+		case CK_UL:
+			conflict := -Max(__.Db, __.Rb)
+			intended := Min(__.Ub, __.Lb)
+			return Min(conflict, intended)
 
-	case CK_DL:
-		conflict := -Max(__.Ub, __.Rb)
-		intended := Min(__.Db, __.Lb)
-		return Min(conflict, intended)
+		case CK_UR:
+			conflict := -Max(__.Db, __.Lb)
+			intended := Min(__.Ub, __.Rb)
+			return Min(conflict, intended)
 
-	case CK_DR:
-		conflict := -Max(__.Ub, __.Lb)
-		intended := Min(__.Db, __.Rb)
-		return Min(conflict, intended)
+		case CK_DL:
+			conflict := -Max(__.Ub, __.Rb)
+			intended := Min(__.Db, __.Lb)
+			return Min(conflict, intended)
 
-	// Hold sign cardinal directions
-	case CK_Us:
-		return __.Ub
+		case CK_DR:
+			conflict := -Max(__.Ub, __.Lb)
+			intended := Min(__.Db, __.Rb)
+			return Min(conflict, intended)
 
-	case CK_Ds:
-		return __.Db
+		case CK_N:
+			return __.Nb
 
-	case CK_Bs:
-		return __.Bb
+		}
+	}
 
-	case CK_Fs:
-		return __.Fb
+	// Hold dollar directions
+	if !ck.tilde && ck.dollar {
+		switch ck.key {
 
-	case CK_Ls:
-		return __.Lb
+		case CK_U:
+			return __.Ub
 
-	case CK_Rs:
-		return __.Rb
+		case CK_D:
+			return __.Db
 
-	// Hold sign diagonals
-	case CK_UBs:
-		return Min(__.Ub, __.Bb)
+		case CK_B:
+			return __.Bb
 
-	case CK_UFs:
-		return Min(__.Ub, __.Fb)
+		case CK_F:
+			return __.Fb
 
-	case CK_DBs:
-		return Min(__.Db, __.Bb)
+		case CK_L:
+			return __.Lb
 
-	case CK_DFs:
-		return Min(__.Db, __.Fb)
+		case CK_R:
+			return __.Rb
 
-	case CK_ULs:
-		return Min(__.Ub, __.Lb)
+		// In MUGEN, adding '$' to diagonal inputs doesn't have any meaning.
+		// Update: It does actually. For instance, $DB is true even if you also press U or F, but DB isn't
+		case CK_UB:
+			return Min(__.Ub, __.Bb)
 
-	case CK_URs:
-		return Min(__.Ub, __.Rb)
+		case CK_UF:
+			return Min(__.Ub, __.Fb)
 
-	case CK_DLs:
-		return Min(__.Db, __.Lb)
+		case CK_DB:
+			return Min(__.Db, __.Bb)
 
-	case CK_DRs:
-		return Min(__.Db, __.Rb)
+		case CK_DF:
+			return Min(__.Db, __.Fb)
 
-	// Release cardinal directions
-	case CK_rU:
-		conflict := -Max(__.Bb, Max(__.Db, __.Fb))
-		intended := __.Ub
-		return -Min(conflict, intended)
+		case CK_UL:
+			return Min(__.Ub, __.Lb)
 
-	case CK_rD:
-		conflict := -Max(__.Bb, Max(__.Ub, __.Fb))
-		intended := __.Db
-		return -Min(conflict, intended)
+		case CK_UR:
+			return Min(__.Ub, __.Rb)
 
-	case CK_rB:
-		conflict := -Max(__.Db, Max(__.Ub, __.Fb))
-		intended := __.Bb
-		return -Min(conflict, intended)
+		case CK_DL:
+			return Min(__.Db, __.Lb)
 
-	case CK_rF:
-		conflict := -Max(__.Db, Max(__.Ub, __.Bb))
-		intended := __.Fb
-		return -Min(conflict, intended)
+		case CK_DR:
+			return Min(__.Db, __.Rb)
 
-	case CK_rL:
-		conflict := -Max(__.Db, Max(__.Ub, __.Rb))
-		intended := __.Lb
-		return -Min(conflict, intended)
+		}
+	}
 
-	case CK_rR:
-		conflict := -Max(__.Db, Max(__.Ub, __.Lb))
-		intended := __.Rb
-		return -Min(conflict, intended)
+	// Release simple directions
+	if ck.tilde && !ck.dollar {
+		switch ck.key {
 
-	// Release diagonals
-	case CK_rUF:
-		conflict := -Max(__.Db, __.Bb)
-		intended := Min(__.Ub, __.Fb)
-		return -Min(conflict, intended)
+		case CK_U:
+			conflict := -Max(__.Bb, Max(__.Db, __.Fb))
+			intended := __.Ub
+			return -Min(conflict, intended)
 
-	case CK_rUB:
-		conflict := -Max(__.Db, __.Fb)
-		intended := Min(__.Ub, __.Bb)
-		return -Min(conflict, intended)
+		case CK_D:
+			conflict := -Max(__.Bb, Max(__.Ub, __.Fb))
+			intended := __.Db
+			return -Min(conflict, intended)
 
-	case CK_rDF:
-		conflict := -Max(__.Ub, __.Bb)
-		intended := Min(__.Db, __.Fb)
-		return -Min(conflict, intended)
+		case CK_B:
+			conflict := -Max(__.Db, Max(__.Ub, __.Fb))
+			intended := __.Bb
+			return -Min(conflict, intended)
 
-	case CK_rDB:
-		conflict := -Max(__.Ub, __.Fb)
-		intended := Min(__.Db, __.Bb)
-		return -Min(conflict, intended)
+		case CK_F:
+			conflict := -Max(__.Db, Max(__.Ub, __.Bb))
+			intended := __.Fb
+			return -Min(conflict, intended)
 
-	case CK_rUL:
-		conflict := -Max(__.Db, __.Rb)
-		intended := Min(__.Ub, __.Lb)
-		return -Min(conflict, intended)
+		case CK_L:
+			conflict := -Max(__.Db, Max(__.Ub, __.Rb))
+			intended := __.Lb
+			return -Min(conflict, intended)
 
-	case CK_rUR:
-		conflict := -Max(__.Db, __.Lb)
-		intended := Min(__.Ub, __.Rb)
-		return -Min(conflict, intended)
+		case CK_R:
+			conflict := -Max(__.Db, Max(__.Ub, __.Lb))
+			intended := __.Rb
+			return -Min(conflict, intended)
 
-	case CK_rDL:
-		conflict := -Max(__.Ub, __.Rb)
-		intended := Min(__.Db, __.Lb)
-		return -Min(conflict, intended)
+		case CK_UF:
+			conflict := -Max(__.Db, __.Bb)
+			intended := Min(__.Ub, __.Fb)
+			return -Min(conflict, intended)
 
-	case CK_rDR:
-		conflict := -Max(__.Ub, __.Lb)
-		intended := Min(__.Db, __.Rb)
-		return -Min(conflict, intended)
+		case CK_UB:
+			conflict := -Max(__.Db, __.Fb)
+			intended := Min(__.Ub, __.Bb)
+			return -Min(conflict, intended)
 
-	// Release sign cardinal directions
-	case CK_rUs:
-		return -__.Ub
+		case CK_DF:
+			conflict := -Max(__.Ub, __.Bb)
+			intended := Min(__.Db, __.Fb)
+			return -Min(conflict, intended)
 
-	case CK_rDs:
-		return -__.Db
+		case CK_DB:
+			conflict := -Max(__.Ub, __.Fb)
+			intended := Min(__.Db, __.Bb)
+			return -Min(conflict, intended)
 
-	case CK_rBs:
-		return -__.Bb
+		case CK_UL:
+			conflict := -Max(__.Db, __.Rb)
+			intended := Min(__.Ub, __.Lb)
+			return -Min(conflict, intended)
 
-	case CK_rFs:
-		return -__.Fb
+		case CK_UR:
+			conflict := -Max(__.Db, __.Lb)
+			intended := Min(__.Ub, __.Rb)
+			return -Min(conflict, intended)
 
-	case CK_rLs:
-		return -__.Lb
+		case CK_DL:
+			conflict := -Max(__.Ub, __.Rb)
+			intended := Min(__.Db, __.Lb)
+			return -Min(conflict, intended)
 
-	case CK_rRs:
-		return -__.Rb
+		case CK_DR:
+			conflict := -Max(__.Ub, __.Lb)
+			intended := Min(__.Db, __.Rb)
+			return -Min(conflict, intended)
 
-	// Released sign diagonals
-	case CK_rUBs:
-		return -Min(__.Ub, __.Bb)
+		case CK_N:
+			return -__.Nb
 
-	case CK_rUFs:
-		return -Min(__.Ub, __.Fb)
+		}
+	}
 
-	case CK_rDBs:
-		return -Min(__.Db, __.Bb)
+	// Release dollar directions
+	if ck.tilde && ck.dollar {
+		switch ck.key {
 
-	case CK_rDFs:
-		return -Min(__.Db, __.Fb)
+		case CK_U:
+			return -__.Ub
 
-	case CK_rULs:
-		return -Min(__.Ub, __.Lb)
+		case CK_D:
+			return -__.Db
 
-	case CK_rURs:
-		return -Min(__.Ub, __.Rb)
+		case CK_B:
+			return -__.Bb
 
-	case CK_rDLs:
-		return -Min(__.Db, __.Lb)
+		case CK_F:
+			return -__.Fb
 
-	case CK_rDRs:
-		return -Min(__.Db, __.Rb)
+		case CK_L:
+			return -__.Lb
 
-	// In MUGEN, adding '$' to diagonal inputs doesn't have any meaning.
-	// Update: It does actually. For instance, $DB is true even if you also press U or F, but DB isn't
+		case CK_R:
+			return -__.Rb
+
+		case CK_UB:
+			return -Min(__.Ub, __.Bb)
+
+		case CK_UF:
+			return -Min(__.Ub, __.Fb)
+
+		case CK_DB:
+			return -Min(__.Db, __.Bb)
+
+		case CK_DF:
+			return -Min(__.Db, __.Fb)
+
+		case CK_UL:
+			return -Min(__.Ub, __.Lb)
+
+		case CK_UR:
+			return -Min(__.Ub, __.Rb)
+
+		case CK_DL:
+			return -Min(__.Db, __.Lb)
+
+		case CK_DR:
+			return -Min(__.Db, __.Rb)
+
+		}
+	}
 
 	// Hold buttons
-	case CK_a:
-		return __.ab
+	if !ck.tilde {
+		switch ck.key {
 
-	case CK_b:
-		return __.bb
+		case CK_a:
+			return __.ab
 
-	case CK_c:
-		return __.cb
+		case CK_b:
+			return __.bb
 
-	case CK_x:
-		return __.xb
+		case CK_c:
+			return __.cb
 
-	case CK_y:
-		return __.yb
+		case CK_x:
+			return __.xb
 
-	case CK_z:
-		return __.zb
+		case CK_y:
+			return __.yb
 
-	case CK_s:
-		return __.sb
+		case CK_z:
+			return __.zb
 
-	case CK_d:
-		return __.db
+		case CK_s:
+			return __.sb
 
-	case CK_w:
-		return __.wb
+		case CK_d:
+			return __.db
 
-	case CK_m:
-		return __.mb
+		case CK_w:
+			return __.wb
+
+		case CK_m:
+			return __.mb
+
+		}
+	}
 
 	// Release buttons
-	case CK_ra:
-		return -__.ab
+	if ck.tilde {
+		switch ck.key {
 
-	case CK_rb:
-		return -__.bb
+		case CK_a:
+			return -__.ab
 
-	case CK_rc:
-		return -__.cb
+		case CK_b:
+			return -__.bb
 
-	case CK_rx:
-		return -__.xb
+		case CK_c:
+			return -__.cb
 
-	case CK_ry:
-		return -__.yb
+		case CK_x:
+			return -__.xb
 
-	case CK_rz:
-		return -__.zb
+		case CK_y:
+			return -__.yb
 
-	case CK_rs:
-		return -__.sb
+		case CK_z:
+			return -__.zb
 
-	case CK_rd:
-		return -__.db
+		case CK_s:
+			return -__.sb
 
-	case CK_rw:
-		return -__.wb
+		case CK_d:
+			return -__.db
 
-	case CK_rm:
-		return -__.mb
+		case CK_w:
+			return -__.wb
 
-	// Neutral
-	case CK_N:
-		return __.Nb
+		case CK_m:
+			return -__.mb
 
-	case CK_rN:
-		return -__.Nb
+		}
+	}
 
-	case CK_Ns, CK_rNs:
-		return Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.wb), Abs(__.db), Abs(__.sb))
-		// This one somehow returns "any change" in Mugen. Since "any neutral" is useless anyway we'll just add support for that
+	// Special $N (and ~$N) case
+	// This one somehow returns "any change" in Mugen. Since "any neutral" is useless anyway we'll just add support for that
+	if ck.dollar && ck.key == CK_N {
+		return Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.sb), Abs(__.db), Abs(__.wb))
 	}
 
 	return 0
 }
 
 // Return charge time of a key
-func (ib *InputBuffer) StateCharge(ck CommandKey) int32 {
+func (ib *InputBuffer) StateCharge(ck CommandStepKey) int32 {
 	// Ignore a direction that was just pressed
 	// Fixes an issue where charge for a strict direction release (e.g. ~B) will be overridden if you press a different direction in the next frame
 	// This is a consequence of imagining charge as "release" like Elecbyte did. Of course, Mugen has that same issue
@@ -1066,291 +1047,316 @@ func (ib *InputBuffer) StateCharge(ck CommandKey) int32 {
 		return buf
 	}
 
-	switch ck {
-
-	// Sign directions
+	// Hold or release dollar directions
 	// The proper way to do charge most of the time
-	case CK_Us, CK_rUs:
-		return ib.Uc
+	if ck.dollar {
+		switch ck.key {
 
-	case CK_Ds, CK_rDs:
-		return ib.Dc
+		case CK_U:
+			return ib.Uc
 
-	case CK_Bs, CK_rBs:
-		return ib.Bc
+		case CK_D:
+			return ib.Dc
 
-	case CK_Fs, CK_rFs:
-		return ib.Fc
+		case CK_B:
+			return ib.Bc
 
-	case CK_Ls, CK_rLs:
-		return ib.Lc
+		case CK_F:
+			return ib.Fc
 
-	case CK_Rs, CK_rRs:
-		return ib.Rc
+		case CK_L:
+			return ib.Lc
 
-	// Hold strict cardinal directions
+		case CK_R:
+			return ib.Rc
+
+		}
+	}
+
+	// Hold simple directions
 	// Mugen doesn't use "hold charge" but we could in the future
-	case CK_U:
-		conflict := -Max(ib.Db, Max(ib.Bb, ib.Fb))
-		strict := Min(conflict, ib.Uc)
-		return Max(0, strict)
+	if !ck.tilde && !ck.dollar {
+		switch ck.key {
 
-	case CK_D:
-		conflict := -Max(ib.Ub, Max(ib.Bb, ib.Fb))
-		strict := Min(conflict, ib.Dc)
-		return Max(0, strict)
+		case CK_U:
+			conflict := -Max(ib.Db, Max(ib.Bb, ib.Fb))
+			strict := Min(conflict, ib.Uc)
+			return Max(0, strict)
 
-	case CK_B:
-		conflict := -Max(ib.Ub, Max(ib.Db, ib.Fb))
-		strict := Min(conflict, ib.Bc)
-		return Max(0, strict)
+		case CK_D:
+			conflict := -Max(ib.Ub, Max(ib.Bb, ib.Fb))
+			strict := Min(conflict, ib.Dc)
+			return Max(0, strict)
 
-	case CK_F:
-		conflict := -Max(ib.Ub, Max(ib.Db, ib.Bb))
-		strict := Min(conflict, ib.Fc)
-		return Max(0, strict)
+		case CK_B:
+			conflict := -Max(ib.Ub, Max(ib.Db, ib.Fb))
+			strict := Min(conflict, ib.Bc)
+			return Max(0, strict)
 
-	case CK_L:
-		conflict := -Max(ib.Ub, Max(ib.Db, ib.Rb))
-		strict := Min(conflict, ib.Lc)
-		return Max(0, strict)
+		case CK_F:
+			conflict := -Max(ib.Ub, Max(ib.Db, ib.Bb))
+			strict := Min(conflict, ib.Fc)
+			return Max(0, strict)
 
-	case CK_R:
-		conflict := -Max(ib.Ub, Max(ib.Db, ib.Lb))
-		strict := Min(conflict, ib.Rc)
-		return Max(0, strict)
+		case CK_L:
+			conflict := -Max(ib.Ub, Max(ib.Db, ib.Rb))
+			strict := Min(conflict, ib.Lc)
+			return Max(0, strict)
 
-	// Release strict cardinal directions
-	case CK_rU:
-		B := ignoreRecent(ib.Bb)
-		D := ignoreRecent(ib.Db)
-		F := ignoreRecent(ib.Fb)
-		conflict := -Max(B, Max(D, F))
-		strict := Min(conflict, ib.Uc)
-		return Max(0, strict)
+		case CK_R:
+			conflict := -Max(ib.Ub, Max(ib.Db, ib.Lb))
+			strict := Min(conflict, ib.Rc)
+			return Max(0, strict)
 
-	case CK_rD:
-		U := ignoreRecent(ib.Ub)
-		B := ignoreRecent(ib.Bb)
-		F := ignoreRecent(ib.Fb)
-		conflict := -Max(U, Max(B, F))
-		strict := Min(conflict, ib.Dc)
-		return Max(0, strict)
+		case CK_UF:
+			conflict := -Max(ib.Db, ib.Bb) // Just in case of SOCD funny business
+			strict := Min(conflict, Min(ib.Uc, ib.Fc))
+			return Max(0, strict)
 
-	case CK_rB:
-		U := ignoreRecent(ib.Ub)
-		D := ignoreRecent(ib.Db)
-		F := ignoreRecent(ib.Fb)
-		conflict := -Max(U, Max(D, F))
-		strict := Min(conflict, ib.Bc)
-		return Max(0, strict)
+		case CK_UB:
+			conflict := -Max(ib.Db, ib.Fb)
+			strict := Min(conflict, Min(ib.Uc, ib.Bc))
+			return Max(0, strict)
 
-	case CK_rF:
-		U := ignoreRecent(ib.Ub)
-		D := ignoreRecent(ib.Db)
-		B := ignoreRecent(ib.Bb)
-		conflict := -Max(U, Max(D, B))
-		strict := Min(conflict, ib.Fc)
-		return Max(0, strict)
+		case CK_DF:
+			conflict := -Max(ib.Ub, ib.Bb)
+			strict := Min(conflict, Min(ib.Dc, ib.Fc))
+			return Max(0, strict)
 
-	case CK_rL:
-		U := ignoreRecent(ib.Ub)
-		D := ignoreRecent(ib.Db)
-		R := ignoreRecent(ib.Rb)
-		conflict := -Max(U, Max(D, R))
-		strict := Min(conflict, ib.Lc)
-		return Max(0, strict)
+		case CK_DB:
+			conflict := -Max(ib.Ub, ib.Fb)
+			strict := Min(conflict, Min(ib.Dc, ib.Bc))
+			return Max(0, strict)
 
-	case CK_rR:
-		U := ignoreRecent(ib.Ub)
-		D := ignoreRecent(ib.Db)
-		L := ignoreRecent(ib.Lb)
-		conflict := -Max(U, Max(D, L))
-		strict := Min(conflict, ib.Rc)
-		return Max(0, strict)
+		case CK_UL:
+			conflict := -Max(ib.Db, ib.Rb)
+			strict := Min(conflict, Min(ib.Uc, ib.Lc))
+			return Max(0, strict)
 
-	// Hold diagonals
-	case CK_UF:
-		conflict := -Max(ib.Db, ib.Bb) // Just in case of SOCD funny business
-		strict := Min(conflict, Min(ib.Uc, ib.Fc))
-		return Max(0, strict)
+		case CK_UR:
+			conflict := -Max(ib.Db, ib.Lb)
+			strict := Min(conflict, Min(ib.Uc, ib.Rc))
+			return Max(0, strict)
 
-	case CK_UB:
-		conflict := -Max(ib.Db, ib.Fb)
-		strict := Min(conflict, Min(ib.Uc, ib.Bc))
-		return Max(0, strict)
+		case CK_DL:
+			conflict := -Max(ib.Ub, ib.Rb)
+			strict := Min(conflict, Min(ib.Dc, ib.Lc))
+			return Max(0, strict)
 
-	case CK_DF:
-		conflict := -Max(ib.Ub, ib.Bb)
-		strict := Min(conflict, Min(ib.Dc, ib.Fc))
-		return Max(0, strict)
+		case CK_DR:
+			conflict := -Max(ib.Ub, ib.Lb)
+			strict := Min(conflict, Min(ib.Dc, ib.Rc))
+			return Max(0, strict)
 
-	case CK_DB:
-		conflict := -Max(ib.Ub, ib.Fb)
-		strict := Min(conflict, Min(ib.Dc, ib.Bc))
-		return Max(0, strict)
+		// Neutral
+		case CK_N: // CK_Ns, CK_N: // TODO: Mugen's bugged $N
+			return ib.Nc
+		}
+	}
 
-	case CK_UL:
-		conflict := -Max(ib.Db, ib.Rb)
-		strict := Min(conflict, Min(ib.Uc, ib.Lc))
-		return Max(0, strict)
+	// Release simple directions
+	if ck.tilde && !ck.dollar {
+		switch ck.key {
 
-	case CK_UR:
-		conflict := -Max(ib.Db, ib.Lb)
-		strict := Min(conflict, Min(ib.Uc, ib.Rc))
-		return Max(0, strict)
+		case CK_U:
+			B := ignoreRecent(ib.Bb)
+			D := ignoreRecent(ib.Db)
+			F := ignoreRecent(ib.Fb)
+			conflict := -Max(B, Max(D, F))
+			strict := Min(conflict, ib.Uc)
+			return Max(0, strict)
 
-	case CK_DL:
-		conflict := -Max(ib.Ub, ib.Rb)
-		strict := Min(conflict, Min(ib.Dc, ib.Lc))
-		return Max(0, strict)
+		case CK_D:
+			U := ignoreRecent(ib.Ub)
+			B := ignoreRecent(ib.Bb)
+			F := ignoreRecent(ib.Fb)
+			conflict := -Max(U, Max(B, F))
+			strict := Min(conflict, ib.Dc)
+			return Max(0, strict)
 
-	case CK_DR:
-		conflict := -Max(ib.Ub, ib.Lb)
-		strict := Min(conflict, Min(ib.Dc, ib.Rc))
-		return Max(0, strict)
+		case CK_B:
+			U := ignoreRecent(ib.Ub)
+			D := ignoreRecent(ib.Db)
+			F := ignoreRecent(ib.Fb)
+			conflict := -Max(U, Max(D, F))
+			strict := Min(conflict, ib.Bc)
+			return Max(0, strict)
+
+		case CK_F:
+			U := ignoreRecent(ib.Ub)
+			D := ignoreRecent(ib.Db)
+			B := ignoreRecent(ib.Bb)
+			conflict := -Max(U, Max(D, B))
+			strict := Min(conflict, ib.Fc)
+			return Max(0, strict)
+
+		case CK_L:
+			U := ignoreRecent(ib.Ub)
+			D := ignoreRecent(ib.Db)
+			R := ignoreRecent(ib.Rb)
+			conflict := -Max(U, Max(D, R))
+			strict := Min(conflict, ib.Lc)
+			return Max(0, strict)
+
+		case CK_R:
+			U := ignoreRecent(ib.Ub)
+			D := ignoreRecent(ib.Db)
+			L := ignoreRecent(ib.Lb)
+			conflict := -Max(U, Max(D, L))
+			strict := Min(conflict, ib.Rc)
+			return Max(0, strict)
+
+		case CK_UF:
+			D := ignoreRecent(ib.Db)
+			B := ignoreRecent(ib.Bb)
+			conflict := -Max(D, B)
+			strict := Min(conflict, Min(ib.Uc, ib.Fc))
+			return Max(0, strict)
+
+		case CK_UB:
+			D := ignoreRecent(ib.Db)
+			F := ignoreRecent(ib.Fb)
+			conflict := -Max(D, F)
+			strict := Min(conflict, Min(ib.Uc, ib.Bc))
+			return Max(0, strict)
+
+		case CK_DB:
+			U := ignoreRecent(ib.Ub)
+			F := ignoreRecent(ib.Fb)
+			conflict := -Max(U, F)
+			strict := Min(conflict, Min(ib.Dc, ib.Bc))
+			return Max(0, strict)
+
+		case CK_DF:
+			U := ignoreRecent(ib.Ub)
+			B := ignoreRecent(ib.Bb)
+			conflict := -Max(U, B)
+			strict := Min(conflict, Min(ib.Dc, ib.Fc))
+			return Max(0, strict)
+
+		case CK_UL:
+			D := ignoreRecent(ib.Db)
+			R := ignoreRecent(ib.Rb)
+			conflict := -Max(D, R)
+			strict := Min(conflict, Min(ib.Uc, ib.Lc))
+			return Max(0, strict)
+
+		case CK_UR:
+			D := ignoreRecent(ib.Db)
+			L := ignoreRecent(ib.Lb)
+			conflict := -Max(D, L)
+			strict := Min(conflict, Min(ib.Uc, ib.Rc))
+			return Max(0, strict)
+
+		case CK_DL:
+			U := ignoreRecent(ib.Ub)
+			R := ignoreRecent(ib.Rb)
+			conflict := -Max(U, R)
+			strict := Min(conflict, Min(ib.Dc, ib.Lc))
+			return Max(0, strict)
+
+		case CK_DR:
+			U := ignoreRecent(ib.Ub)
+			L := ignoreRecent(ib.Lb)
+			conflict := -Max(U, L)
+			strict := Min(conflict, Min(ib.Dc, ib.Rc))
+			return Max(0, strict)
+
+		}
+	}
 
 	// Hold sign diagonals
 	// These allow conflicts. Not very useful but is consistent with Mugen's "$" symbol
-	case CK_UFs:
-		return Min(ib.Uc, ib.Fc)
+	if !ck.tilde && ck.dollar {
+		switch ck.key {
 
-	case CK_UBs:
-		return Min(ib.Uc, ib.Bc)
+		case CK_UF:
+			return Min(ib.Uc, ib.Fc)
 
-	case CK_DFs:
-		return Min(ib.Dc, ib.Fc)
+		case CK_UB:
+			return Min(ib.Uc, ib.Bc)
 
-	case CK_DBs:
-		return Min(ib.Dc, ib.Bc)
+		case CK_DF:
+			return Min(ib.Dc, ib.Fc)
 
-	case CK_ULs:
-		return Min(ib.Uc, ib.Lc)
+		case CK_DB:
+			return Min(ib.Dc, ib.Bc)
 
-	case CK_URs:
-		return Min(ib.Uc, ib.Rc)
+		case CK_UL:
+			return Min(ib.Uc, ib.Lc)
 
-	case CK_DLs:
-		return Min(ib.Dc, ib.Lc)
+		case CK_UR:
+			return Min(ib.Uc, ib.Rc)
 
-	case CK_DRs:
-		return Min(ib.Dc, ib.Rc)
+		case CK_DL:
+			return Min(ib.Dc, ib.Lc)
 
-	// Release diagonals
-	case CK_rUF:
-		D := ignoreRecent(ib.Db)
-		B := ignoreRecent(ib.Bb)
-		conflict := -Max(D, B)
-		strict := Min(conflict, Min(ib.Uc, ib.Fc))
-		return Max(0, strict)
-
-	case CK_rUB:
-		D := ignoreRecent(ib.Db)
-		F := ignoreRecent(ib.Fb)
-		conflict := -Max(D, F)
-		strict := Min(conflict, Min(ib.Uc, ib.Bc))
-		return Max(0, strict)
-
-	case CK_rDB:
-		U := ignoreRecent(ib.Ub)
-		F := ignoreRecent(ib.Fb)
-		conflict := -Max(U, F)
-		strict := Min(conflict, Min(ib.Dc, ib.Bc))
-		return Max(0, strict)
-
-	case CK_rDF:
-		U := ignoreRecent(ib.Ub)
-		B := ignoreRecent(ib.Bb)
-		conflict := -Max(U, B)
-		strict := Min(conflict, Min(ib.Dc, ib.Fc))
-		return Max(0, strict)
-
-	case CK_rUL:
-		D := ignoreRecent(ib.Db)
-		R := ignoreRecent(ib.Rb)
-		conflict := -Max(D, R)
-		strict := Min(conflict, Min(ib.Uc, ib.Lc))
-		return Max(0, strict)
-
-	case CK_rUR:
-		D := ignoreRecent(ib.Db)
-		L := ignoreRecent(ib.Lb)
-		conflict := -Max(D, L)
-		strict := Min(conflict, Min(ib.Uc, ib.Rc))
-		return Max(0, strict)
-
-	case CK_rDL:
-		U := ignoreRecent(ib.Ub)
-		R := ignoreRecent(ib.Rb)
-		conflict := -Max(U, R)
-		strict := Min(conflict, Min(ib.Dc, ib.Lc))
-		return Max(0, strict)
-
-	case CK_rDR:
-		U := ignoreRecent(ib.Ub)
-		L := ignoreRecent(ib.Lb)
-		conflict := -Max(U, L)
-		strict := Min(conflict, Min(ib.Dc, ib.Rc))
-		return Max(0, strict)
+		case CK_DR:
+			return Min(ib.Dc, ib.Rc)
+		}
+	}
 
 	// Release sign diagonals
-	case CK_rUFs:
-		return Min(ib.Uc, ib.Fc)
+	if ck.tilde && ck.dollar {
+		switch ck.key {
 
-	case CK_rUBs:
-		return Min(ib.Uc, ib.Bc)
+		case CK_UF:
+			return Min(ib.Uc, ib.Fc)
 
-	case CK_rDFs:
-		return Min(ib.Dc, ib.Fc)
+		case CK_UB:
+			return Min(ib.Uc, ib.Bc)
 
-	case CK_rDBs:
-		return Min(ib.Dc, ib.Bc)
+		case CK_DF:
+			return Min(ib.Dc, ib.Fc)
 
-	case CK_rULs:
-		return Min(ib.Uc, ib.Lc)
+		case CK_DB:
+			return Min(ib.Dc, ib.Bc)
 
-	case CK_rURs:
-		return Min(ib.Uc, ib.Rc)
+		case CK_UL:
+			return Min(ib.Uc, ib.Lc)
 
-	case CK_rDLs:
-		return Min(ib.Dc, ib.Lc)
+		case CK_UR:
+			return Min(ib.Uc, ib.Rc)
 
-	case CK_rDRs:
-		return Min(ib.Dc, ib.Rc)
+		case CK_DL:
+			return Min(ib.Dc, ib.Lc)
 
-	// Neutral
-	case CK_N, CK_rN: // CK_Ns, CK_rNs: // TODO: Mugen's bugged $N
-		return ib.Nc
+		case CK_DR:
+			return Min(ib.Dc, ib.Rc)
+		}
+	}
 
 	// Buttons
-	case CK_a, CK_ra:
+	// Symbols are irrelevant
+	switch ck.key {
+	case CK_a:
 		return ib.ac
 
-	case CK_b, CK_rb:
+	case CK_b:
 		return ib.bc
 
-	case CK_c, CK_rc:
+	case CK_c:
 		return ib.cc
 
-	case CK_x, CK_rx:
+	case CK_x:
 		return ib.xc
 
-	case CK_y, CK_ry:
+	case CK_y:
 		return ib.yc
 
-	case CK_z, CK_rz:
+	case CK_z:
 		return ib.zc
 
-	case CK_s, CK_rs:
+	case CK_s:
 		return ib.sc
 
-	case CK_d, CK_rd:
+	case CK_d:
 		return ib.dc
 
-	case CK_w, CK_rw:
+	case CK_w:
 		return ib.wc
 
-	case CK_m, CK_rm:
+	case CK_m:
 		return ib.mc
 	}
 
@@ -1861,35 +1867,36 @@ func (ai *AiInput) d() bool { return ai.dt != 0 }
 func (ai *AiInput) w() bool { return ai.wt != 0 }
 func (ai *AiInput) m() bool { return ai.mt != 0 }
 
-// cmdElem refers to each of the inputs required to complete a command
-type cmdElem struct {
-	key        []CommandKey
+// CommandStep refers to each of the steps required to complete a command
+// Each step can have multiple keys
+type CommandStep struct {
+	key        []CommandStepKey
 	chargetime int32
 	slash      bool
 	greater    bool
 }
 
 // Used to detect consecutive directions
-func (ce *cmdElem) IsDirection() bool {
+func (cs *CommandStep)IsDirection() bool {
 	// Released directions are not taken into account here
-	return !ce.slash && len(ce.key) == 1 && ce.key[0].IsDirectionPress()
+	return !cs.slash && len(cs.key) == 1 && cs.key[0].IsDirectionPress()
 }
 
 // Check if two command elements can be checked in the same frame
 // This logic seems more complex in Mugen because of variable input delay
-func (ce *cmdElem) IsDirToButton(next cmdElem) bool {
+func (cs *CommandStep)IsDirToButton(next CommandStep) bool {
 	// Not if second element must be held
 	if next.slash {
 		return false
 	}
 	// Not if first element includes button press or release
-	for _, k := range ce.key {
+	for _, k := range cs.key {
 		if k.IsButtonPress() || k.IsButtonRelease() {
 			return false
 		}
 	}
 	// Not if both elements share keys
-	for _, k := range ce.key {
+	for _, k := range cs.key {
 		for _, n := range next.key {
 			if k == n {
 				return false
@@ -1897,7 +1904,7 @@ func (ce *cmdElem) IsDirToButton(next cmdElem) bool {
 		}
 	}
 	// Yes if second element includes a button press
-	for range ce.key {
+	for range cs.key {
 		for _, n := range next.key {
 			if n.IsButtonPress() {
 				return true
@@ -1905,7 +1912,7 @@ func (ce *cmdElem) IsDirToButton(next cmdElem) bool {
 		}
 	}
 	// Yes if release direction then not release direction (includes buttons)
-	for _, k := range ce.key {
+	for _, k := range cs.key {
 		if k.IsDirectionRelease() {
 			for _, n := range next.key {
 				if !n.IsDirectionRelease() {
@@ -1922,7 +1929,7 @@ type Command struct {
 	name                   string
 	//hold                   [][]CommandKey // These should be obsolete in new input logic
 	//held                   []bool
-	cmd                    []cmdElem
+	cmd                    []CommandStep
 	cmdidx                 int
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
@@ -1931,7 +1938,7 @@ type Command struct {
 	buffer_pauseend        bool
 	completeframe          bool
 	completed              []bool
-	stepTimers              []int32
+	stepTimers             []int32
 	loopOrder              []int
 }
 
@@ -1946,38 +1953,34 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 	c := newCommand()
 	c.name = name
 	cmd := strings.Split(cmdstr, ",")
-	for _, cestr := range cmd {
-		//if len(c.cmd) > 0 && c.cmd[len(c.cmd)-1].slash {
-		//	c.hold = append(c.hold, c.cmd[len(c.cmd)-1].key)
-		//	c.cmd[len(c.cmd)-1] = cmdElem{chargetime: 1}
-		//} else {
-		//	c.cmd = append(c.cmd, cmdElem{chargetime: 1})
-		//}
-
+	for _, csstr := range cmd {
 		// Add new element
-		c.cmd = append(c.cmd, cmdElem{chargetime: 1})
+		c.cmd = append(c.cmd, CommandStep{chargetime: 1})
 		// Set working element to last one
-		ce := &c.cmd[len(c.cmd)-1]
-		cestr = strings.TrimSpace(cestr)
+		cs := &c.cmd[len(c.cmd)-1]
+		csstr = strings.TrimSpace(csstr)
+
 		getChar := func() rune {
-			if len(cestr) > 0 {
-				return rune(cestr[0])
+			if len(csstr) > 0 {
+				return rune(csstr[0])
 			}
 			return rune(-1)
 		}
 		nextChar := func() rune {
-			if len(cestr) > 0 {
-				cestr = strings.TrimSpace(cestr[1:])
+			if len(csstr) > 0 {
+				csstr = strings.TrimSpace(csstr[1:])
 			}
 			return getChar()
 		}
+
 		tilde := false
+		dollar := false
 		switch getChar() {
 		case '>':
-			ce.greater = true
+			cs.greater = true
 			r := nextChar()
 			if r == '/' {
-				ce.slash = true
+				cs.slash = true
 				nextChar()
 				break
 			} else if r == '~' {
@@ -1992,281 +1995,85 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				n = n*10 + int32(r-'0')
 			}
 			if n > 0 {
-				ce.chargetime = n
+				cs.chargetime = n
 			}
 		case '/':
-			ce.slash = true
+			cs.slash = true
 			nextChar()
 		}
-		for len(cestr) > 0 {
-			switch getChar() {
-			case 'B':
-				if tilde {
-					ce.key = append(ce.key, CK_rB)
-				} else {
-					ce.key = append(ce.key, CK_B)
+
+		for len(csstr) > 0 {
+			c0 := getChar()
+			switch c0 {
+			case 'B', 'D', 'F', 'L', 'R', 'U', 'N':
+				var k CommandKey
+				switch c0 {
+				case 'B': k = CK_B
+				case 'D': k = CK_D
+				case 'F': k = CK_F
+				case 'L': k = CK_L
+				case 'R': k = CK_R
+				case 'U': k = CK_U
+				case 'N': k = CK_N
 				}
-				tilde = false
-			case 'D':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rDB)
-					} else {
-						ce.key = append(ce.key, CK_DB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rDF)
-					} else {
-						ce.key = append(ce.key, CK_DF)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'L' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rDL)
-					} else {
-						ce.key = append(ce.key, CK_DL)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'R' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rDR)
-					} else {
-						ce.key = append(ce.key, CK_DR)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_rD)
-					} else {
-						ce.key = append(ce.key, CK_D)
-					}
-				}
-				tilde = false
-			case 'F':
-				if tilde {
-					ce.key = append(ce.key, CK_rF)
-				} else {
-					ce.key = append(ce.key, CK_F)
-				}
-				tilde = false
-			case 'U':
-				if len(cestr) > 1 && cestr[1] == 'B' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rUB)
-					} else {
-						ce.key = append(ce.key, CK_UB)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'F' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rUF)
-					} else {
-						ce.key = append(ce.key, CK_UF)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'L' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rUL)
-					} else {
-						ce.key = append(ce.key, CK_UL)
-					}
-				} else if len(cestr) > 1 && cestr[1] == 'R' {
-					nextChar()
-					if tilde {
-						ce.key = append(ce.key, CK_rUR)
-					} else {
-						ce.key = append(ce.key, CK_UR)
-					}
-				} else {
-					if tilde {
-						ce.key = append(ce.key, CK_rU)
-					} else {
-						ce.key = append(ce.key, CK_U)
+				// Handle double-letter diagonals (like UB, DF, etc.)
+				if len(csstr) > 1 {
+					c1 := csstr[1]
+					if (c0 == 'U' || c0 == 'D') && (c1 == 'B' || c1 == 'F' || c1 == 'L' || c1 == 'R') {
+						// UB, UF, UL, UR, DB, DF, DL, DR
+						switch c1 {
+						case 'B':
+							if c0 == 'U' {
+								k = CK_UB
+							} else if c0 == 'D' {
+								k = CK_DB
+							}
+						case 'F':
+							if c0 == 'U' {
+								k = CK_UF
+							} else if c0 == 'D' {
+								k = CK_DF
+							}
+						case 'L':
+							if c0 == 'U' {
+								k = CK_UL
+							} else if c0 == 'D' {
+								k = CK_DL
+							}
+						case 'R':
+							if c0 == 'U' {
+								k = CK_UR
+							} else if c0 == 'D' {
+								k = CK_DR
+							}
+						}
+						nextChar()
 					}
 				}
-				tilde = false
-			case 'L':
-				if tilde {
-					ce.key = append(ce.key, CK_rL)
-				} else {
-					ce.key = append(ce.key, CK_L)
+				cs.key = append(cs.key, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
+				tilde, dollar = false, false
+			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
+				// Use remap
+				var k CommandKey
+				switch c0 {
+				case 'a': k = kr.a
+				case 'b': k = kr.b
+				case 'c': k = kr.c
+				case 'x': k = kr.x
+				case 'y': k = kr.y
+				case 'z': k = kr.z
+				case 's': k = kr.s
+				case 'd': k = kr.d
+				case 'w': k = kr.w
+				case 'm': k = kr.m
 				}
-				tilde = false
-			case 'R':
-				if tilde {
-					ce.key = append(ce.key, CK_rR)
-				} else {
-					ce.key = append(ce.key, CK_R)
-				}
-				tilde = false
-			case 'N':
-				if tilde {
-					ce.key = append(ce.key, CK_rN)
-				} else {
-					ce.key = append(ce.key, CK_N)
-				}
-				tilde = false
-			case 'a':
-				if tilde {
-					ce.key = append(ce.key, kr.na)
-				} else {
-					ce.key = append(ce.key, kr.a)
-				}
-				tilde = false
-			case 'b':
-				if tilde {
-					ce.key = append(ce.key, kr.nb)
-				} else {
-					ce.key = append(ce.key, kr.b)
-				}
-				tilde = false
-			case 'c':
-				if tilde {
-					ce.key = append(ce.key, kr.nc)
-				} else {
-					ce.key = append(ce.key, kr.c)
-				}
-				tilde = false
-			case 'x':
-				if tilde {
-					ce.key = append(ce.key, kr.nx)
-				} else {
-					ce.key = append(ce.key, kr.x)
-				}
-				tilde = false
-			case 'y':
-				if tilde {
-					ce.key = append(ce.key, kr.ny)
-				} else {
-					ce.key = append(ce.key, kr.y)
-				}
-				tilde = false
-			case 'z':
-				if tilde {
-					ce.key = append(ce.key, kr.nz)
-				} else {
-					ce.key = append(ce.key, kr.z)
-				}
-				tilde = false
-			case 's':
-				if tilde {
-					ce.key = append(ce.key, kr.ns)
-				} else {
-					ce.key = append(ce.key, kr.s)
-				}
-				tilde = false
-			case 'd':
-				if tilde {
-					ce.key = append(ce.key, kr.nd)
-				} else {
-					ce.key = append(ce.key, kr.d)
-				}
-				tilde = false
-			case 'w':
-				if tilde {
-					ce.key = append(ce.key, kr.nw)
-				} else {
-					ce.key = append(ce.key, kr.w)
-				}
-				tilde = false
-			case 'm':
-				if tilde {
-					ce.key = append(ce.key, kr.nm)
-				} else {
-					ce.key = append(ce.key, kr.m)
-				}
-				tilde = false
+				cs.key = append(cs.key, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
+				tilde, dollar = false, false
 			case '$':
-				switch nextChar() {
-				case 'B':
-					if tilde {
-						ce.key = append(ce.key, CK_rBs)
-					} else {
-						ce.key = append(ce.key, CK_Bs)
-					}
-					tilde = false
-				case 'D':
-					if len(cestr) > 1 && cestr[1] == 'B' {
-						nextChar()
-						if tilde {
-							ce.key = append(ce.key, CK_rDBs)
-						} else {
-							ce.key = append(ce.key, CK_DBs)
-						}
-					} else if len(cestr) > 1 && cestr[1] == 'F' {
-						nextChar()
-						if tilde {
-							ce.key = append(ce.key, CK_rDFs)
-						} else {
-							ce.key = append(ce.key, CK_DFs)
-						}
-					} else {
-						if tilde {
-							ce.key = append(ce.key, CK_rDs)
-						} else {
-							ce.key = append(ce.key, CK_Ds)
-						}
-					}
-					tilde = false
-				case 'F':
-					if tilde {
-						ce.key = append(ce.key, CK_rFs)
-					} else {
-						ce.key = append(ce.key, CK_Fs)
-					}
-					tilde = false
-				case 'U':
-					if len(cestr) > 1 && cestr[1] == 'B' {
-						nextChar()
-						if tilde {
-							ce.key = append(ce.key, CK_rUBs)
-						} else {
-							ce.key = append(ce.key, CK_UBs)
-						}
-					} else if len(cestr) > 1 && cestr[1] == 'F' {
-						nextChar()
-						if tilde {
-							ce.key = append(ce.key, CK_rUFs)
-						} else {
-							ce.key = append(ce.key, CK_UFs)
-						}
-					} else {
-						if tilde {
-							ce.key = append(ce.key, CK_rUs)
-						} else {
-							ce.key = append(ce.key, CK_Us)
-						}
-					}
-					tilde = false
-				case 'L':
-					if tilde {
-						ce.key = append(ce.key, CK_rLs)
-					} else {
-						ce.key = append(ce.key, CK_Ls)
-					}
-					tilde = false
-				case 'R':
-					if tilde {
-						ce.key = append(ce.key, CK_rRs)
-					} else {
-						ce.key = append(ce.key, CK_Rs)
-					}
-					tilde = false
-				case 'N': // TODO: We probably don't need these but input.go currently expects them to exist (15 directions of each sign type)
-					if tilde {
-						ce.key = append(ce.key, CK_rNs)
-					} else {
-						ce.key = append(ce.key, CK_Ns)
-					}
-					tilde = false
-				default:
-					// error
-					continue
-				}
+				// Next key gets the dollar flag
+				dollar = true
 			case '~':
+				// Next key gets the tilde flag
 				tilde = true
 			case '+':
 				// do nothing
@@ -2275,10 +2082,13 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 			}
 			nextChar()
 		}
+
 		// Two consecutive identical directions are considered ">"
-		if len(c.cmd) >= 2 && ce.IsDirection() && c.cmd[len(c.cmd)-2].IsDirection() {
-			if ce.key[0] == c.cmd[len(c.cmd)-2].key[0] {
-				ce.greater = true
+		if len(c.cmd) >= 2 && cs.IsDirection() && c.cmd[len(c.cmd)-2].IsDirection() {
+			if cs.key[0].key == c.cmd[len(c.cmd)-2].key[0].key &&
+				cs.key[0].tilde == c.cmd[len(c.cmd)-2].key[0].tilde &&
+				cs.key[0].dollar == c.cmd[len(c.cmd)-2].key[0].dollar {
+				cs.greater = true
 			}
 		}
 	}
@@ -2390,7 +2200,6 @@ func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
 	// Freshest input is foreign to current step
 	return true
 }
-
 
 // Update an individual command
 func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, extratime int32) {

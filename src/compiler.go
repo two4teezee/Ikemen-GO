@@ -7448,43 +7448,43 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		is, name, _ := ReadIniSection(lines, &i)
 		switch name {
 		case "remap":
-			// Read controller remap
+			// Read button remapping
 			if remap {
 				remap = false
-				rm := func(name string, k, nk *CommandKey) {
+				rm := func(name string, k *CommandKey) {
 					switch strings.ToLower(is[name]) {
 					case "x":
-						*k, *nk = CK_x, CK_rx
+						*k = CK_x
 					case "y":
-						*k, *nk = CK_y, CK_ry
+						*k = CK_y
 					case "z":
-						*k, *nk = CK_z, CK_rz
+						*k = CK_z
 					case "a":
-						*k, *nk = CK_a, CK_ra
+						*k = CK_a
 					case "b":
-						*k, *nk = CK_b, CK_rb
+						*k = CK_b
 					case "c":
-						*k, *nk = CK_c, CK_rc
+						*k = CK_c
 					case "s":
-						*k, *nk = CK_s, CK_rs
+						*k = CK_s
 					case "d":
-						*k, *nk = CK_d, CK_rd
+						*k = CK_d
 					case "w":
-						*k, *nk = CK_w, CK_rw
+						*k = CK_w
 					case "m":
-						*k, *nk = CK_m, CK_rm
+						*k = CK_m
 					}
 				}
-				rm("x", &ckr.x, &ckr.nx)
-				rm("y", &ckr.y, &ckr.ny)
-				rm("z", &ckr.z, &ckr.nz)
-				rm("a", &ckr.a, &ckr.na)
-				rm("b", &ckr.b, &ckr.nb)
-				rm("c", &ckr.c, &ckr.nc)
-				rm("s", &ckr.s, &ckr.ns)
-				rm("d", &ckr.d, &ckr.nd)
-				rm("w", &ckr.w, &ckr.nw)
-				rm("m", &ckr.m, &ckr.nm)
+				rm("x", &ckr.x)
+				rm("y", &ckr.y)
+				rm("z", &ckr.z)
+				rm("a", &ckr.a)
+				rm("b", &ckr.b)
+				rm("c", &ckr.c)
+				rm("s", &ckr.s)
+				rm("d", &ckr.d)
+				rm("w", &ckr.w)
+				rm("m", &ckr.m)
 			}
 		case "defaults":
 			// Read default command parameters

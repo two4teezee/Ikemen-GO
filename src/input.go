@@ -616,9 +616,9 @@ func (ir *InputReader) ButtonAssistCheck(curr [9]bool) [9]bool {
 
 // This used to hold button state variables (e.g. U), but that didn't have any info we can't derive from the *b (e.g. Ub) vars
 type InputBuffer struct {
-	Bb, Db, Fb, Ub, Lb, Rb, Nb             int32 // Buffer (hold/release time)
+	Bb, Db, Fb, Ub, Lb, Rb, Nb             int32 // Buffer
 	ab, bb, cb, xb, yb, zb, sb, db, wb, mb int32
-	Bc, Dc, Fc, Uc, Lc, Rc, Nc             int32 // Charge (last hold time)
+	Bc, Dc, Fc, Uc, Lc, Rc, Nc             int32 // Charge
 	ac, bc, cc, xc, yc, zc, sc, dc, wc, mc int32
 	InputReader                            *InputReader
 }
@@ -1364,7 +1364,7 @@ func (ib *InputBuffer) StateCharge(ck CommandStepKey) int32 {
 }
 
 /*
-// Time since last press of a key. Used for ">" type commands
+// Time since last press of any key. Used for ">" type commands
 func (__ *InputBuffer) LastPressTime() int32 {
 	dir := Max(__.Bb, __.Db, __.Fb, __.Ub, __.Lb, __.Rb)
 	btn := Max(__.ab, __.bb, __.cb, __.xb, __.yb, __.zb, __.sb, __.db, __.wb, __.mb)
@@ -1372,7 +1372,7 @@ func (__ *InputBuffer) LastPressTime() int32 {
 	return Max(dir, btn)
 }
 
-// Time since last release of a key. Used for ">" type commands
+// Time since last release of any key. Used for ">" type commands
 func (__ *InputBuffer) LastReleaseTime() int32 {
 	dir := Min(__.Bb, __.Db, __.Fb, __.Ub, __.Lb, __.Rb)
 	btn := Min(__.ab, __.bb, __.cb, __.xb, __.yb, __.zb, __.sb, __.db, __.wb, __.mb)
@@ -1382,7 +1382,7 @@ func (__ *InputBuffer) LastReleaseTime() int32 {
 }
 */
 
-// Time since last change of a key. Used for ">" type commands
+// Time since last change of any key. Used for ">" type commands
 func (__ *InputBuffer) LastChangeTime() int32 {
 	dir := Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.Lb), Abs(__.Rb))
 	btn := Min(Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.sb), Abs(__.db), Abs(__.wb), Abs(__.mb))
@@ -1870,7 +1870,7 @@ func (ai *AiInput) m() bool { return ai.mt != 0 }
 // CommandStep refers to each of the steps required to complete a command
 // Each step can have multiple keys
 type CommandStep struct {
-	key        []CommandStepKey
+	keys       []CommandStepKey
 	chargetime int32
 	slash      bool
 	greater    bool
@@ -1879,7 +1879,7 @@ type CommandStep struct {
 // Used to detect consecutive directions
 func (cs *CommandStep)IsDirection() bool {
 	// Released directions are not taken into account here
-	return !cs.slash && len(cs.key) == 1 && cs.key[0].IsDirectionPress()
+	return !cs.slash && len(cs.keys) == 1 && cs.keys[0].IsDirectionPress()
 }
 
 // Check if two command elements can be checked in the same frame
@@ -1890,31 +1890,31 @@ func (cs *CommandStep)IsDirToButton(next CommandStep) bool {
 		return false
 	}
 	// Not if first element includes button press or release
-	for _, k := range cs.key {
+	for _, k := range cs.keys {
 		if k.IsButtonPress() || k.IsButtonRelease() {
 			return false
 		}
 	}
 	// Not if both elements share keys
-	for _, k := range cs.key {
-		for _, n := range next.key {
+	for _, k := range cs.keys {
+		for _, n := range next.keys {
 			if k == n {
 				return false
 			}
 		}
 	}
 	// Yes if second element includes a button press
-	for range cs.key {
-		for _, n := range next.key {
+	for range cs.keys {
+		for _, n := range next.keys {
 			if n.IsButtonPress() {
 				return true
 			}
 		}
 	}
 	// Yes if release direction then not release direction (includes buttons)
-	for _, k := range cs.key {
+	for _, k := range cs.keys {
 		if k.IsDirectionRelease() {
-			for _, n := range next.key {
+			for _, n := range next.keys {
 				if !n.IsDirectionRelease() {
 					return true
 				}
@@ -1927,15 +1927,13 @@ func (cs *CommandStep)IsDirToButton(next CommandStep) bool {
 // Command refers to each individual command from the CMD file
 type Command struct {
 	name                   string
-	//hold                   [][]CommandKey // These should be obsolete in new input logic
-	//held                   []bool
 	cmd                    []CommandStep
-	cmdidx                 int
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
 	maxsteptime, cursteptime int32
 	buffer_hitpause        bool
 	buffer_pauseend        bool
+	autogreater            bool
 	completeframe          bool
 	completed              []bool
 	stepTimers             []int32
@@ -2050,7 +2048,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 						nextChar()
 					}
 				}
-				cs.key = append(cs.key, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
+				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
 				tilde, dollar = false, false
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
 				// Use remap
@@ -2067,7 +2065,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				case 'w': k = kr.w
 				case 'm': k = kr.m
 				}
-				cs.key = append(cs.key, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
+				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
 				tilde, dollar = false, false
 			case '$':
 				// Next key gets the dollar flag
@@ -2084,10 +2082,10 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 		}
 
 		// Two consecutive identical directions are considered ">"
-		if len(c.cmd) >= 2 && cs.IsDirection() && c.cmd[len(c.cmd)-2].IsDirection() {
-			if cs.key[0].key == c.cmd[len(c.cmd)-2].key[0].key &&
-				cs.key[0].tilde == c.cmd[len(c.cmd)-2].key[0].tilde &&
-				cs.key[0].dollar == c.cmd[len(c.cmd)-2].key[0].dollar {
+		if c.autogreater && len(c.cmd) >= 2 && cs.IsDirection() && c.cmd[len(c.cmd)-2].IsDirection() {
+			if cs.keys[0].key == c.cmd[len(c.cmd)-2].keys[0].key &&
+				cs.keys[0].tilde == c.cmd[len(c.cmd)-2].keys[0].tilde &&
+				cs.keys[0].dollar == c.cmd[len(c.cmd)-2].keys[0].dollar {
 				cs.greater = true
 			}
 		}
@@ -2095,11 +2093,6 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 
 	c.completed = make([]bool, len(c.cmd))
 	c.stepTimers = make([]int32, len(c.cmd))
-
-	//if c.cmd[len(c.cmd)-1].slash {
-	//	c.hold = append(c.hold, c.cmd[len(c.cmd)-1].key)
-	//}
-	//c.held = make([]bool, len(c.hold))
 
 	// Determine order in which command steps will be evaluated later
 	// Using a reverse order prevents one input from completing two consecutive steps
@@ -2128,15 +2121,11 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 }
 
 func (c *Command) Clear(bufreset bool) {
-	c.cmdidx = 0
 	c.curtime = 0
 	c.cursteptime = 0
 	if bufreset {
 		c.curbuftime = 0
 	}
-	//for i := range c.held {
-	//	c.held[i] = false
-	//}
 	for i := range c.completed {
 		c.completed[i] = false
 	}
@@ -2156,8 +2145,15 @@ func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
 		return false
 	}
 
-	prevKeys := c.cmd[idx-1].key
-	//nextKeys := c.cmd[idx].key
+	prevKeys := c.cmd[idx-1].keys
+	//nextKeys := c.cmd[idx].keys
+
+	// TODO: There's a bug here if both keys are the same and command is performed without neutral frames
+	// e.g. F,B,F can trigger F, F
+	// Maybe because LastChangeTime treats presses and releases the same, so release F and press B get the same value
+	// This was fixed a couple times before but refactoring other things makes it show up again
+	// The old input code has a similar issue where using the same direction in > inputs makes them act like "LastChangeTime" of each other
+	// e.g. [command = F, ~F, >B, ~B, >F] can be performed with F, B, B, B, etc, F
 
 	// Check if the key responsible for the last change is present in the previous step
 	for _, pk := range prevKeys {
@@ -2275,7 +2271,6 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 
 		// ">" check
-		// Mugen is weird here because "~F, F" for instance tolerates "~F, B, F". We do the same at the moment
 		if !c.completed[i] && c.cmd[i].greater && c.greaterCheckFail(ibuf, i) {
 			c.Clear(false)
 			return
@@ -2295,7 +2290,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// i.e. /B+a is completed by just holding B
 		// That's accurate to Mugen so let's keep it for now
 		inputMatched := false
-		for _, k := range c.cmd[i].key {
+		for _, k := range c.cmd[i].keys {
 			t := ibuf.State(k)
 			if c.cmd[i].slash {
 				inputMatched = inputMatched || t > 0 // Hold can be any positive number
@@ -2311,7 +2306,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// This doesn't work quite right because a step can only have one "/" operator
 		// It's also inaccuurate to Mugen. Commenting out for now
 		/*inputMatched := true
-		for _, k := range c.cmd[i].key {
+		for _, k := range c.cmd[i].keys {
 			t := ibuf.State(k)
 			if c.cmd[i].slash {
 				// Hold requirement: must be currently down (t > 0)
@@ -2330,7 +2325,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// Charge check
 		// This would be a lot easier if Mugen didn't start charge inputs with a release
 		if inputMatched && c.cmd[i].chargetime > 1 {
-			for _, k := range c.cmd[i].key {
+			for _, k := range c.cmd[i].keys {
 				// Check if enough charge
 				if ibuf.StateCharge(k) < c.cmd[i].chargetime {
 					inputMatched = false
@@ -2387,6 +2382,7 @@ type CommandList struct {
 	DefaultBufferTime     int32
 	DefaultBufferHitpause bool
 	DefaultBufferPauseEnd bool
+	DefaultAutoGreater    bool
 }
 
 func NewCommandList(cb *InputBuffer) *CommandList {
@@ -2398,6 +2394,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 		DefaultBufferTime:     1,
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
+		DefaultAutoGreater:    true,
 	}
 }
 
@@ -2608,7 +2605,6 @@ func (cl *CommandList) CopyList(src CommandList) {
 		copy(cl.Commands[i], ca)
 		// These need individual copies or else the slices will point to the original player
 		for j, c := range ca {
-		//	cl.Commands[i][j].held = make([]bool, len(c.held))
 			cl.Commands[i][j].completed = make([]bool, len(c.completed))
 			cl.Commands[i][j].stepTimers = make([]int32, len(c.stepTimers))
 		}

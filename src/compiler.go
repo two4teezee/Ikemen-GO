@@ -7491,7 +7491,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			if defaults {
 				defaults = false
 				is.ReadI32("command.time", &c.cmdl.DefaultTime)
-				is.ReadI32("command.step.time", &c.cmdl.DefaultStepTime)
+				is.ReadI32("command.steptime", &c.cmdl.DefaultStepTime)
+				is.ReadBool("command.autogreater", &c.cmdl.DefaultAutoGreater)
 				var i32 int32
 				if is.ReadI32("command.buffer.time", &i32) {
 					c.cmdl.DefaultBufferTime = Max(1, i32)
@@ -7522,15 +7523,17 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		cm.maxtime = c.cmdl.DefaultTime
 		cm.maxbuftime = c.cmdl.DefaultBufferTime
 		cm.maxsteptime = c.cmdl.DefaultStepTime
+		cm.autogreater = c.cmdl.DefaultAutoGreater
 		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
 		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
 		// Read specific parameters
 		is.ReadI32("time", &cm.maxtime)
-		is.ReadI32("step.time", &cm.maxsteptime)
-		// Default step.time to overall time
+		is.ReadI32("steptime", &cm.maxsteptime)
+		// Default steptime to overall time
 		if cm.maxsteptime <= 0 {
 			cm.maxsteptime = cm.maxtime
 		}
+		is.ReadBool("autogreater", &cm.autogreater)
 		var i32 int32
 		if is.ReadI32("buffer.time", &i32) {
 			cm.maxbuftime = Max(1, i32)

@@ -4260,7 +4260,7 @@ func (c *Char) command(pn, i int) bool {
 	// AI cheating for commands longer than 1 button
 	// Maybe it could just cheat all of them and skip these checks
 	if c.controller < 0 && len(cl) > 0 {
-		if c.helperIndex != 0 || len(cl[0].cmd) > 1 || len(cl[0].cmd[0].key) > 1 { // || int(Btoi(cl[0].cmd[0].slash)) != len(cl[0].hold) {
+		if c.helperIndex != 0 || len(cl[0].cmd) > 1 || len(cl[0].cmd[0].keys) > 1 { // || int(Btoi(cl[0].cmd[0].slash)) != len(cl[0].hold) {
 			if i == int(c.cpucmd) {
 				return true
 			}

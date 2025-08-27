@@ -7501,24 +7501,24 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				is.ReadBool("command.buffer.pauseend", &c.cmdl.DefaultBufferPauseEnd)
 			}
 		default:
-			// Read command inputs
+			// Get command sections
 			if len(name) >= 7 && name[:7] == "command" {
 				cmds = append(cmds, is)
 			}
 		}
 	}
-	// Parse input commands
+	// Parse commands
 	for _, is := range cmds {
+		cm := newCommand()
+
+		// Get name
 		name, _, err := is.getText("name")
 		if err != nil {
 			return nil, Error(fmt.Sprintf("%v:\nname: %v\n%v",
 				cmd, name, err.Error()))
 		}
-		cm, err := ReadCommand(name, is["command"], ckr)
-		if err != nil {
-			return nil, Error(cmd + ":\nname = " + is["name"] +
-				"\ncommand = " + is["command"] + "\n" + err.Error())
-		}
+		cm.name = name
+
 		// Default parameters
 		cm.maxtime = c.cmdl.DefaultTime
 		cm.maxbuftime = c.cmdl.DefaultBufferTime
@@ -7526,12 +7526,12 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		cm.autogreater = c.cmdl.DefaultAutoGreater
 		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
 		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
+
 		// Read specific parameters
 		is.ReadI32("time", &cm.maxtime)
 		is.ReadI32("steptime", &cm.maxsteptime)
-		// Default steptime to overall time
 		if cm.maxsteptime <= 0 {
-			cm.maxsteptime = cm.maxtime
+			cm.maxsteptime = cm.maxtime // Default steptime to overall time
 		}
 		is.ReadBool("autogreater", &cm.autogreater)
 		var i32 int32
@@ -7540,6 +7540,13 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		}
 		is.ReadBool("buffer.hitpause", &cm.buffer_hitpause)
 		is.ReadBool("buffer.pauseend", &cm.buffer_pauseend)
+
+		// Parse the command string and populate steps
+		err = cm.ReadCommandSymbols(is["command"], ckr)
+		if err != nil {
+			return nil, fmt.Errorf("command %s parse error: %v", name, err)
+		}
+
 		c.cmdl.Add(*cm)
 	}
 

@@ -1363,25 +1363,6 @@ func (ib *InputBuffer) StateCharge(ck CommandStepKey) int32 {
 	return 0
 }
 
-/*
-// Time since last press of any key. Used for ">" type commands
-func (__ *InputBuffer) LastPressTime() int32 {
-	dir := Max(__.Bb, __.Db, __.Fb, __.Ub, __.Lb, __.Rb)
-	btn := Max(__.ab, __.bb, __.cb, __.xb, __.yb, __.zb, __.sb, __.db, __.wb, __.mb)
-
-	return Max(dir, btn)
-}
-
-// Time since last release of any key. Used for ">" type commands
-func (__ *InputBuffer) LastReleaseTime() int32 {
-	dir := Min(__.Bb, __.Db, __.Fb, __.Ub, __.Lb, __.Rb)
-	btn := Min(__.ab, __.bb, __.cb, __.xb, __.yb, __.zb, __.sb, __.db, __.wb, __.mb)
-
-	// Invert since we want a timer and release times are negative
-	return -Min(dir, btn)
-}
-*/
-
 // Time since last change of any key. Used for ">" type commands
 func (__ *InputBuffer) LastChangeTime() int32 {
 	dir := Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.Lb), Abs(__.Rb))
@@ -1877,14 +1858,18 @@ type CommandStep struct {
 }
 
 // Used to detect consecutive directions
-func (cs *CommandStep)IsDirection() bool {
+func (cs *CommandStep) IsDirection() bool {
 	// Released directions are not taken into account here
 	return !cs.slash && len(cs.keys) == 1 && cs.keys[0].IsDirectionPress()
 }
 
 // Check if two command elements can be checked in the same frame
 // This logic seems more complex in Mugen because of variable input delay
-func (cs *CommandStep)IsDirToButton(next CommandStep) bool {
+func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
+	// Not if second element is "greater"
+	if next.greater {
+		return false
+	}
 	// Not if second element must be held
 	if next.slash {
 		return false
@@ -1924,10 +1909,26 @@ func (cs *CommandStep)IsDirToButton(next CommandStep) bool {
 	return false
 }
 
+// Check if two steps are idential. For ">" expansion
+func (cs CommandStep) EqualSteps(n CommandStep) bool {
+	if cs.chargetime != n.chargetime || cs.slash != n.slash || cs.greater != n.greater {
+		return false
+	}
+	if len(cs.keys) != len(n.keys) {
+		return false
+	}
+	for i := range cs.keys {
+		if cs.keys[i] != n.keys[i] {
+			return false
+		}
+	}
+	return true
+}
+
 // Command refers to each individual command from the CMD file
 type Command struct {
 	name                   string
-	cmd                    []CommandStep
+	steps                  []CommandStep
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
 	maxsteptime, cursteptime int32
@@ -1945,17 +1946,13 @@ func newCommand() *Command {
 }
 
 // This is used to first compile the commands
-// At one point this expanded consecutive directions as documented in Kung Fu Man's command file (F, F -> F, >~F, >F)
-// However the added extra steps might make the new step.time parameter less predictable
-func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
-	c := newCommand()
-	c.name = name
+func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error) {
 	cmd := strings.Split(cmdstr, ",")
 	for _, csstr := range cmd {
-		// Add new element
-		c.cmd = append(c.cmd, CommandStep{chargetime: 1})
-		// Set working element to last one
-		cs := &c.cmd[len(c.cmd)-1]
+		// Add new step
+		c.steps = append(c.steps, CommandStep{chargetime: 1})
+		// Set working step to last one
+		cs := &c.steps[len(c.steps)-1]
 		csstr = strings.TrimSpace(csstr)
 
 		getChar := func() rune {
@@ -1964,6 +1961,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 			}
 			return rune(-1)
 		}
+
 		nextChar := func() rune {
 			if len(csstr) > 0 {
 				csstr = strings.TrimSpace(csstr[1:])
@@ -1973,6 +1971,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 
 		tilde := false
 		dollar := false
+
 		switch getChar() {
 		case '>':
 			cs.greater = true
@@ -1982,6 +1981,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				nextChar()
 				break
 			} else if r == '~' {
+				// Do nothing
 			} else {
 				break
 			}
@@ -2014,7 +2014,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				case 'U': k = CK_U
 				case 'N': k = CK_N
 				}
-				// Handle double-letter diagonals (like UB, DF, etc.)
+				// Handle diagonals
 				if len(csstr) > 1 {
 					c1 := csstr[1]
 					if (c0 == 'U' || c0 == 'D') && (c1 == 'B' || c1 == 'F' || c1 == 'L' || c1 == 'R') {
@@ -2051,7 +2051,7 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
 				tilde, dollar = false, false
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
-				// Use remap
+				// Compile buttons according to remaps
 				var k CommandKey
 				switch c0 {
 				case 'a': k = kr.a
@@ -2068,42 +2068,36 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
 				tilde, dollar = false, false
 			case '$':
-				// Next key gets the dollar flag
 				dollar = true
 			case '~':
-				// Next key gets the tilde flag
 				tilde = true
 			case '+':
-				// do nothing
+				// Technically just a separator, so keep going
 			default:
-				// error
+				// Do nothing. Mugen apparently ignores unknown characters
+				// TODO: Ikemen characters maybe ought to crash on bad syntax
 			}
 			nextChar()
 		}
-
-		// Two consecutive identical directions are considered ">"
-		if c.autogreater && len(c.cmd) >= 2 && cs.IsDirection() && c.cmd[len(c.cmd)-2].IsDirection() {
-			if cs.keys[0].key == c.cmd[len(c.cmd)-2].keys[0].key &&
-				cs.keys[0].tilde == c.cmd[len(c.cmd)-2].keys[0].tilde &&
-				cs.keys[0].dollar == c.cmd[len(c.cmd)-2].keys[0].dollar {
-				cs.greater = true
-			}
-		}
 	}
 
-	c.completed = make([]bool, len(c.cmd))
-	c.stepTimers = make([]int32, len(c.cmd))
+	// Expand duplicate directions if applicable
+	c.AutoGreaterExpand()
+
+	// Prepare step completion trackers
+	c.completed = make([]bool, len(c.steps))
+	c.stepTimers = make([]int32, len(c.steps))
 
 	// Determine order in which command steps will be evaluated later
 	// Using a reverse order prevents one input from completing two consecutive steps
 	// The exception is "IsDirToButton" steps, which are checked forwards precisely so they can be checked in the same frame
 	c.loopOrder = c.loopOrder[:0] // Clear just in case
-	for i := len(c.cmd) - 1; i >= 0; {
-		if i > 0 && c.cmd[i-1].IsDirToButton(c.cmd[i]) {
+	for i := len(c.steps) - 1; i >= 0; {
+		if i > 0 && c.steps[i-1].IsDirToButton(c.steps[i]) {
 			// Forward order for an entire "IsDirToButton" sequence
 			start := i - 1
 			end := i
-			for start > 0 && c.cmd[start-1].IsDirToButton(c.cmd[start]) {
+			for start > 0 && c.steps[start-1].IsDirToButton(c.steps[start]) {
 				start--
 			}
 			for j := start; j <= end; j++ {
@@ -2117,7 +2111,56 @@ func ReadCommand(name, cmdstr string, kr *CommandKeyRemap) (*Command, error) {
 		}
 	}
 
-	return c, nil
+	return nil
+}
+
+// Expand consecutive identical directions into "X, >~X, >X"
+// This was implemented to try fixing a bug with ">" inputs
+// The fix didn't work but maybe this is still worth keeping since Mugen's documentation explicitly mentions doing this
+func (c *Command) AutoGreaterExpand() {
+	if !c.autogreater || len(c.steps) < 2 {
+		return
+	}
+
+	// Check if expansion is needed
+	needExpansion := false
+	for i := 1; i < len(c.steps); i++ {
+		prev := c.steps[i-1]
+		curr := c.steps[i]
+		if prev.IsDirection() && curr.IsDirection() && prev.EqualSteps(curr) {
+			needExpansion = true
+			break
+		}
+	}
+
+	// Replace command with new expanded command
+	if needExpansion {
+		var newCmd []CommandStep
+		for i := 0; i < len(c.steps); i++ {
+			if i+1 < len(c.steps) &&
+				c.steps[i].IsDirection() &&
+				c.steps[i+1].IsDirection() &&
+				c.steps[i].EqualSteps(c.steps[i+1]) {
+
+				// Mark next step as ">X"
+				c.steps[i+1].greater = true
+
+				// Insert ">~X" step between i and i+1
+				newStep := CommandStep{
+					greater: true,
+					keys: []CommandStepKey{{
+						key:    c.steps[i+1].keys[0].key,
+						tilde:  !c.steps[i+1].keys[0].tilde,
+						dollar: c.steps[i+1].keys[0].dollar,
+					}},
+				}
+				newCmd = append(newCmd, c.steps[i], newStep)
+			} else {
+				newCmd = append(newCmd, c.steps[i])
+			}
+		}
+		c.steps = newCmd
+	}
 }
 
 func (c *Command) Clear(bufreset bool) {
@@ -2132,69 +2175,6 @@ func (c *Command) Clear(bufreset bool) {
 	for i := range c.stepTimers {
 		c.stepTimers[i] = 0
 	}
-}
-
-// Check if incorrect keys were entered before the ">" step
-func (c *Command) greaterCheckFail(ibuf *InputBuffer, idx int) bool {
-	if idx <= 0 || idx >= len(c.cmd) || !c.cmd[idx].greater {
-		return false
-	}
-
-	// Must be waiting with the current greater step incomplete and previous complete
-	if c.completed[idx] || !c.completed[idx-1] {
-		return false
-	}
-
-	prevKeys := c.cmd[idx-1].keys
-	//nextKeys := c.cmd[idx].keys
-
-	// TODO: There's a bug here if both keys are the same and command is performed without neutral frames
-	// e.g. F,B,F can trigger F, F
-	// Maybe because LastChangeTime treats presses and releases the same, so release F and press B get the same value
-	// This was fixed a couple times before but refactoring other things makes it show up again
-	// The old input code has a similar issue where using the same direction in > inputs makes them act like "LastChangeTime" of each other
-	// e.g. [command = F, ~F, >B, ~B, >F] can be performed with F, B, B, B, etc, F
-
-	// Check if the key responsible for the last change is present in the previous step
-	for _, pk := range prevKeys {
-		if Abs(ibuf.State(pk)) == ibuf.LastChangeTime() {
-			return false // Don't fail
-		}
-	}
-
-	// Implementations like below break with "B, ~B, >B" and such mixed commands. TODO: Maybe revisit this idea
-	// For press -> press (e.g. F, >F) only an incorrect press invalidates
-	// For release -> release (e.g. ~F, >~F): only an incorrect release invalidates
-	// Mugen treats everything the same here, so this is a bit experimental
-	/*
-	// Determine edge based on nextKeys
-	expectRelease := true
-	for _, k := range nextKeys {
-		if !(k.IsDirectionRelease() || k.IsButtonRelease()) {
-			expectRelease = false
-			break
-		}
-	}
-
-	if expectRelease {
-		// Check if the freshest key release can be found in the previous step
-		for _, pk := range prevKeys {
-			if ibuf.State(pk) == ibuf.LastReleaseTime() {
-				return false
-			}
-		}
-	} else {
-		// Press or mixed edge: check freshest presses in previous step
-		for _, pk := range prevKeys {
-			if ibuf.State(pk) == ibuf.LastPressTime() {
-				return false
-			}
-		}
-	}
-	*/
-
-	// Freshest input is foreign to current step
-	return true
 }
 
 // Update an individual command
@@ -2217,7 +2197,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 	}
 
 	// Skip blank input commands
-	if len(c.cmd) == 0 {
+	if len(c.steps) == 0 {
 		return
 	}
 
@@ -2238,7 +2218,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 
 	// Update timers and reset expired completed steps
 	anydone := false
-	for i := range c.cmd {
+	for i := range c.steps {
 		if c.completed[i] {
 			c.stepTimers[i]++
 			if c.maxsteptime > 0 && c.stepTimers[i] > c.maxsteptime {
@@ -2266,22 +2246,8 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 
 		// MUGEN's internal AI can't use commands without the "/" symbol on helpers
-		if ai && isHelper && !c.cmd[i].slash {
+		if ai && isHelper && !c.steps[i].slash {
 			continue
-		}
-
-		// ">" check
-		if !c.completed[i] && c.cmd[i].greater && c.greaterCheckFail(ibuf, i) {
-			c.Clear(false)
-			return
-			// Clear previous steps only
-			// This kind of makes sense but is not intuitive
-			//for j := i; j >= 0; j-- {
-			//	if c.cmd[j].greater {
-			//		c.completed[j] = false
-			//		c.stepTimers[j] = 0
-			//	}
-			//}
 		}
 
 		// Match current inputs to each key of the current command step
@@ -2290,11 +2256,11 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// i.e. /B+a is completed by just holding B
 		// That's accurate to Mugen so let's keep it for now
 		inputMatched := false
-		for _, k := range c.cmd[i].keys {
+		for _, k := range c.steps[i].keys {
 			t := ibuf.State(k)
-			if c.cmd[i].slash {
+			if c.steps[i].slash {
 				inputMatched = inputMatched || t > 0 // Hold can be any positive number
-			} else if t == 1 { // t >= 1 && t <= 7 { // Old input code had this leniency for some reason (Mugen input delay?)
+			} else if t == 1 { // t >= 1 && t <= 7 { // Old input code had this leniency for some reason (Mugen input delay? ">" check fix?)
 				inputMatched = inputMatched || t == 1
 			} else {
 				inputMatched = false
@@ -2306,9 +2272,9 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// This doesn't work quite right because a step can only have one "/" operator
 		// It's also inaccuurate to Mugen. Commenting out for now
 		/*inputMatched := true
-		for _, k := range c.cmd[i].keys {
+		for _, k := range c.steps[i].keys {
 			t := ibuf.State(k)
-			if c.cmd[i].slash {
+			if c.steps[i].slash {
 				// Hold requirement: must be currently down (t > 0)
 				if t <= 0 {
 					inputMatched = false
@@ -2324,14 +2290,27 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 
 		// Charge check
 		// This would be a lot easier if Mugen didn't start charge inputs with a release
-		if inputMatched && c.cmd[i].chargetime > 1 {
-			for _, k := range c.cmd[i].keys {
+		if inputMatched && c.steps[i].chargetime > 1 {
+			for _, k := range c.steps[i].keys {
 				// Check if enough charge
-				if ibuf.StateCharge(k) < c.cmd[i].chargetime {
+				if ibuf.StateCharge(k) < c.steps[i].chargetime {
 					inputMatched = false
 					break
 				}
 			}
+		}
+
+		// ">" check
+		// There's a stubborn bug here where, for instance, inputting F, B, F without passing neutral will trigger the "F, F" command
+		// Mostly because press and release timers work the same way
+		// Should be harmless because at least that's very hard for a human to perform
+		// Mugen seems to have a similar issue but it's harder to test reliably
+		if !inputMatched && i > 0 && c.steps[i].greater &&
+			len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] && ibuf.LastChangeTime() == 1 {
+			// && ibuf.State(c.steps[i-1].keys[0]) != ibuf.LastChangeTime() { // More work for same result as above
+
+			c.Clear(false)
+			return
 		}
 
 		if inputMatched {
@@ -2340,15 +2319,13 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 			c.stepTimers[i] = 0
 
 			// Reset global timer when first step completes (start the window)
-			// TODO: This probably causes curtime to be extendable indefinitely as long as the first input is repeated
-			// TODO: Meaning we probably need to use a max key time by default
 			if i == 0 {
 				c.curtime = 0
 			}
 		}
 	}
 
-	// Command complete if last step is completed
+	// Command is complete if last step is completed
 	c.completeframe = len(c.completed) > 0 && c.completed[len(c.completed)-1]
 
 	if !c.completeframe {

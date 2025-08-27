@@ -1500,7 +1500,7 @@ func (e *Explod) setAnimElem() {
 	}
 }
 
-func (e *Explod) update(oldVer bool, playerNo int) {
+func (e *Explod) update(mugenverF float32, playerNo int) {
 	if e.anim == nil {
 		e.id = IErr
 	}
@@ -1546,7 +1546,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 	// Bind explod to parent
 	// In Mugen this only happens if the explod is not paused, hence "act"
 	if act && e.bindtime != 0 &&
-		(e.space == Space_stage || (e.space == Space_screen && e.postype <= PT_P2)) {
+		(e.space == Space_stage || (e.space == Space_screen && (e.postype <= PT_P2 || mugenverF < 1.1))) {
 		if c := sys.playerID(e.bindId); c != nil {
 			e.pos[0] = c.interPos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl
 			e.pos[1] = c.interPos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl
@@ -1664,7 +1664,7 @@ func (e *Explod) update(oldVer bool, playerNo int) {
 		rot:          rot,
 		screen:       e.space == Space_screen,
 		undarken:     playerNo == sys.superplayerno,
-		oldVer:       oldVer,
+		oldVer:       mugenverF < 1.0,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
@@ -2789,17 +2789,17 @@ func (c *Char) prepareNextRound() {
 	}
 	c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
-	if c.helperIndex == 0 && c.teamside != -1 {
+	if c.helperIndex == 0 {
 		if sys.roundsExisted[c.playerNo&1] > 0 {
 			c.palfx.clear()
 		} else {
 			c.palfx = newPalFX()
 		}
-	} else {
-		c.palfx = nil
 		if c.teamside == -1 {
 			c.setSCF(SCF_standby)
 		}
+	} else {
+		c.palfx = nil
 	}
 	c.aimg.timegap = -1
 	c.enemyNearP2Clear()
@@ -4261,6 +4261,26 @@ func (c *Char) commandByName(name string) bool {
 }
 
 func (c *Char) assertCommand(name string, time int32) {
+	// If no command name is provided, select one randomly.
+	if name == "" {
+		cmdList := &c.cmd[c.playerNo]
+		if len(cmdList.Commands) == 0 {
+			return
+		}
+		randomIndex := Rand(0, int32(len(cmdList.Commands)-1))
+		cmdInstances := cmdList.Commands[randomIndex]
+		if len(cmdInstances) == 0 {
+			return
+		}
+		name = cmdInstances[0].name
+		if time <= 0 {
+			time = cmdInstances[0].maxbuftime
+			if time <= 0 {
+				time = 1
+			}
+		}
+	}
+
 	ok := false
 	// Assert the command in every command list
 	for i := range c.cmd {

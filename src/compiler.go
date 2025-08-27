@@ -768,10 +768,11 @@ func (c *Compiler) attr(text string, hitdef bool) (int32, error) {
 		case "h", "a":
 			flg |= int32(AT_HA | AT_HT | AT_HP)
 		default:
-			if sys.ignoreMostErrors && sys.cgi[c.playerNo].mugenver[0] == 1 {
+			if sys.ignoreMostErrors {
 				//if hitdef {
 				//	flg = hitdefflg
 				//}
+				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Invalid attr value: "+a+" in state %v ", c.stateNo))
 				return flg, nil
 			}
 			return 0, Error("Invalid attr value: " + a)
@@ -7380,6 +7381,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				if sys.cgi[pn].ikemenver[0] != 0 || sys.cgi[pn].ikemenver[1] != 0 {
 					sys.cgi[pn].mugenver[0] = 1
 					sys.cgi[pn].mugenver[1] = 1
+					sys.cgi[pn].mugenverF = 1.1
 				}
 			}
 		case "files":

@@ -9,7 +9,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"regexp"
 	"runtime"
+	"strings"
 	"unsafe"
 )
 
@@ -1640,8 +1642,18 @@ func captureScreen() {
 		}
 		img.Pix[j] = pixdata[i]
 	}
+
+	// Sanitize WindowTitle for use in filenames
+	re := regexp.MustCompile(`[<>:"/\\|?*]`)
+	safeTitle := re.ReplaceAllString(sys.cfg.Config.WindowTitle, "_")
+	safeTitle = strings.TrimSpace(safeTitle)
+	safeTitle = strings.ReplaceAll(safeTitle, " ", "_")
+	if safeTitle == "" {
+		safeTitle = "ikemen"
+	}
+
 	for i := sys.captureNum; i < 999; i++ {
-		filename := fmt.Sprintf("%sikemen%03d.png", sys.cfg.Config.ScreenshotFolder, i)
+		filename := fmt.Sprintf("%s%s%03d.png", sys.cfg.Config.ScreenshotFolder, safeTitle, i)
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			file, _ := os.Create(filename)
 			defer file.Close()

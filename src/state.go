@@ -309,7 +309,13 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.bcVar = arena.MakeSlice[BytecodeValue](a, len(gs.bcVar), len(gs.bcVar))
 	copy(sys.bcVar, gs.bcVar)
 
-	sys.stage = gs.stage.Clone(a, gsp)
+	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
+		if sys.cfg.Netplay.Rollback.SaveStageData {
+			sys.stage = gs.stage.Clone(a, gsp)
+		}
+	} else {
+		sys.stage = gs.stage.Clone(a, gsp)
+	}
 
 	sys.aiInput = gs.aiInput
 	sys.inputRemap = gs.inputRemap
@@ -533,7 +539,13 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.bcVar = arena.MakeSlice[BytecodeValue](a, len(sys.bcVar), len(sys.bcVar))
 	copy(gs.bcVar, sys.bcVar)
 
-	gs.stage = sys.stage.Clone(a, gsp)
+	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
+		if sys.cfg.Netplay.Rollback.SaveStageData {
+			gs.stage = sys.stage.Clone(a, gsp)
+		}
+	} else {
+		gs.stage = sys.stage.Clone(a, gsp)
+	}
 
 	gs.aiInput = sys.aiInput
 	gs.inputRemap = sys.inputRemap

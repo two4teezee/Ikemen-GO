@@ -86,6 +86,7 @@ type RollbackSession struct {
 	netTime             int32
 	replayBuffer        [][MaxSimul*2 + MaxAttachedChar]InputBits
 	lastConfirmedInput  [MaxSimul*2 + MaxAttachedChar]InputBits
+	inputBits           []InputBits
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
@@ -253,67 +254,53 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 }
 
 func (r *RollbackSession) AdvanceFrame(flags int) {
-	var discconectFlags int
-	// Make sure we fetch the inputs from GGPO and use these to update
-	// the game state instead of reading from the keyboard.
-	inputs, result := r.backend.SyncInput(&discconectFlags)
-	input := decodeInputs(inputs)
-	if r.rep != nil {
-		r.SetInput(r.netTime, 0, input[0])
-		r.SetInput(r.netTime, 1, input[1])
-		r.netTime++
+	sys.step = false
+	//sys.rollback.runShortcutScripts(&sys)
+
+	// If next round
+	if !sys.rollback.runNextRound(&sys) {
+		return
 	}
 
-	if result == nil {
+	sys.bgPalFX.step()
+	sys.stage.action()
 
-		sys.step = false
-		//sys.rollback.runShortcutScripts(&sys)
+	sys.rollback.action(&sys, r.inputBits)
 
-		// If next round
-		if !sys.rollback.runNextRound(&sys) {
-			return
-		}
+	// if sys.rollback.handleFlags(&sys) {
+	// 	return
+	// }
 
-		sys.bgPalFX.step()
-		sys.stage.action()
+	if !sys.rollback.updateEvents(&sys) {
+		return
+	}
 
-		sys.rollback.action(&sys, input)
+	if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
+		return
+	}
 
-		// if sys.rollback.handleFlags(&sys) {
-		// 	return
-		// }
+	if sys.endMatch {
+		sys.esc = true
+		return
+	} else if sys.esc {
+		sys.endMatch = sys.netInput != nil || len(sys.cfg.Common.Lua) == 0
+		return
+	}
 
-		if !sys.rollback.updateEvents(&sys) {
-			return
-		}
-
-		if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
-			return
-		}
-
-		if sys.endMatch {
-			sys.esc = true
-			return
-		} else if sys.esc {
-			sys.endMatch = sys.netInput != nil || len(sys.cfg.Common.Lua) == 0
-			return
-		}
-
-		//sys.rollback.updateCamera(&sys)
-		defer func() {
-			if re := recover(); re != nil {
-				if r.config.DesyncTest {
-					r.log.updateLogs()
-					r.log.saveLogs()
-					panic("RaiseDesyncError")
-				}
+	//sys.rollback.updateCamera(&sys)
+	defer func() {
+		if re := recover(); re != nil {
+			if r.config.DesyncTest {
+				r.log.updateLogs()
+				r.log.saveLogs()
+				panic("RaiseDesyncError")
 			}
-		}()
-
-		err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
-		if err != nil {
-			panic(err)
 		}
+	}()
+
+	err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
+	if err != nil {
+		panic(err)
 	}
 }
 

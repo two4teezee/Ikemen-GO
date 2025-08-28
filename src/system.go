@@ -2076,7 +2076,7 @@ func (s *System) drawDebugText() {
 // Called to start each match, on hard reset with shift+F4, and
 // at the start of any round where a new character tags in for turns mode
 func (s *System) fight() (reload bool) {
-	if s.rollback.session != nil || s.rollbackConfig.DesyncTestFrames > 0 {
+	if s.rollback.session != nil || s.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
 		return s.rollback.fight(s)
 	}
 

@@ -17,13 +17,14 @@ type RollbackSystem struct {
 }
 
 type RollbackProperties struct {
-	FrameDelay            int  `ini:"frameDelay"`
-	DisconnectNotifyStart int  `ini:"disconnectNotifyStart"`
-	DisconnectTimeout     int  `ini:"disconnectTimeout"`
-	LogsEnabled           bool `ini:"logsEnabled"`
-	DesyncTest            bool `ini:"desyncTest"`
-	DesyncTestFrames      int  `ini:"desyncTestFrames"`
-	DesyncTestAI          bool `ini:"desyncTestAI"`
+	FrameDelay            int  `ini:"FrameDelay"`
+	DisconnectNotifyStart int  `ini:"DisconnectNotifyStart"`
+	DisconnectTimeout     int  `ini:"DisconnectTimeout"`
+	LogsEnabled           bool `ini:"LogsEnabled"`
+	SaveStageData         bool `ini:"SaveStageData"`
+	DesyncTest            bool `ini:"DesyncTest"`
+	DesyncTestFrames      int  `ini:"DesyncTestFrames"`
+	DesyncTestAI          bool `ini:"DesyncTestAI"`
 }
 
 func (rs *RollbackSystem) fight(s *System) bool {
@@ -98,7 +99,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		rs.netInput = s.netInput
 		s.netInput = nil
 	} else if s.netInput == nil && rs.session == nil {
-		session := NewRollbackSesesion(s.rollbackConfig)
+		session := NewRollbackSesesion(s.cfg.Netplay.Rollback)
 		rs.session = &session
 		rs.session.InitSyncTest(2)
 	}
@@ -159,7 +160,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 
 	// Prep for the next match.
 	if s.netInput != nil {
-		newSession := NewRollbackSesesion(sys.rollbackConfig)
+		newSession := NewRollbackSesesion(s.cfg.Netplay.Rollback)
 		host := rs.session.host
 		remoteIp := rs.session.remoteIp
 

@@ -2055,7 +2055,7 @@ func (p *Projectile) update() {
 			}
 		}
 		// Remove projectile
-		if p.remflag  {
+		if p.remflag {
 			if p.ani != nil && (p.ani.totaltime <= 0 || p.ani.AnimTime() == 0) {
 				p.ani = nil
 			}

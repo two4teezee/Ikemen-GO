@@ -2492,7 +2492,7 @@ type LifeBarRound struct {
 	winType             [WT_NumTypes * 2]LbBgTextSnd
 	callfight_time      int32
 	rt                  *LifeBarRoundTransition // TODO: Decide whether to just make this part of [Round] or not
-	triggerRoundDisplay bool // FightScreenState trigger
+	triggerRoundDisplay bool                    // FightScreenState trigger
 	triggerFightDisplay bool
 	triggerKODisplay    bool
 	triggerWinDisplay   bool
@@ -3457,23 +3457,23 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 }
 
 type LifeBarRoundTransition struct {
-	fadein_time      int32
-	fadein_col       uint32
-	fadeout_time     int32
-	fadeout_col      uint32
-	shutter_time     int32
-	shutter_col      uint32
-	fadeinTimer      int32
-	fadeoutTimer     int32
-	shutterTimer     int32
+	fadein_time  int32
+	fadein_col   uint32
+	fadeout_time int32
+	fadeout_col  uint32
+	shutter_time int32
+	shutter_col  uint32
+	fadeinTimer  int32
+	fadeoutTimer int32
+	shutterTimer int32
 	// Add anim layouts etc for round transitions here
 }
 
 func newLifeBarRoundTransition() *LifeBarRoundTransition {
 	return &LifeBarRoundTransition{
-		fadein_time:        30,
-		fadeout_time:       30,
-		shutter_time:       15,
+		fadein_time:  30,
+		fadeout_time: 30,
+		shutter_time: 15,
 	}
 }
 
@@ -3491,7 +3491,7 @@ func (rt *LifeBarRoundTransition) Step() {
 		rt.fadeoutTimer--
 	}
 	if rt.shutterTimer > 0 {
-	     rt.shutterTimer--
+		rt.shutterTimer--
 	}
 }
 

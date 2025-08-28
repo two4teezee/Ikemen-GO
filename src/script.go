@@ -5389,7 +5389,7 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[sys.debugWC.teamside]))
 		return 1
 	})
-	luaRegister(l, "debug", func(*lua.LState) int {
+	luaRegister(l, "debugmode", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "accel":
 			l.Push(lua.LNumber(sys.accel))

@@ -782,12 +782,12 @@ const (
 	OC_ex2_clsnvar_right
 	OC_ex2_clsnvar_bottom
 	OC_ex2_isclsnproxy
-	OC_ex2_debug_accel
-	OC_ex2_debug_clsndisplay
-	OC_ex2_debug_debugdisplay
-	OC_ex2_debug_lifebarhide
-	OC_ex2_debug_roundreset
-	OC_ex2_debug_wireframedisplay
+	OC_ex2_debugmode_accel
+	OC_ex2_debugmode_clsndisplay
+	OC_ex2_debugmode_debugdisplay
+	OC_ex2_debugmode_lifebarhide
+	OC_ex2_debugmode_roundreset
+	OC_ex2_debugmode_wireframedisplay
 	OC_ex2_drawpal_group
 	OC_ex2_drawpal_index
 	OC_ex2_explodvar_accel_x
@@ -3405,17 +3405,17 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_debug_accel:
+	case OC_ex2_debugmode_accel:
 		sys.bcStack.PushF(sys.accel)
-	case OC_ex2_debug_clsndisplay:
+	case OC_ex2_debugmode_clsndisplay:
 		sys.bcStack.PushB(sys.clsnDisplay)
-	case OC_ex2_debug_debugdisplay:
+	case OC_ex2_debugmode_debugdisplay:
 		sys.bcStack.PushB(sys.debugDisplay)
-	case OC_ex2_debug_lifebarhide:
+	case OC_ex2_debugmode_lifebarhide:
 		sys.bcStack.PushB(sys.lifebarHide)
-	case OC_ex2_debug_roundreset:
+	case OC_ex2_debugmode_roundreset:
 		sys.bcStack.PushB(sys.roundResetFlg)
-	case OC_ex2_debug_wireframedisplay:
+	case OC_ex2_debugmode_wireframedisplay:
 		sys.bcStack.PushB(sys.wireframeDisplay)
 	case OC_ex2_drawpal_group:
 		sys.bcStack.PushI(c.drawPal()[0])

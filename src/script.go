@@ -660,11 +660,11 @@ func systemScriptInit(l *lua.LState) {
 			if !nilArg(l, 3) {
 				ffx = boolArg(l, 3)
 			}
-			preffix := ""
+			prefix := ""
 			if ffx {
-				preffix = "f"
+				prefix = "f"
 			}
-			c[0].changeAnim(an, c[0].playerNo, -1, preffix)
+			c[0].changeAnim(an, c[0].playerNo, -1, prefix)
 			if !nilArg(l, 2) {
 				c[0].setAnimElem(int32(numArg(l, 2)), 0)
 			}
@@ -2950,9 +2950,9 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "toggleLifebarDisplay", func(*lua.LState) int {
 		if !nilArg(l, 1) {
-			sys.lifebarDisplay = boolArg(l, 1)
+			sys.lifebarHide = boolArg(l, 1)
 		} else {
-			sys.lifebarDisplay = !sys.lifebarDisplay
+			sys.lifebarHide = !sys.lifebarHide
 		}
 		return 0
 	})
@@ -5389,7 +5389,7 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[sys.debugWC.teamside]))
 		return 1
 	})
-	luaRegister(l, "debug", func(*lua.LState) int {
+	luaRegister(l, "debugmode", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "accel":
 			l.Push(lua.LNumber(sys.accel))
@@ -5397,8 +5397,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.clsnDisplay))
 		case "debugdisplay":
 			l.Push(lua.LBool(sys.debugDisplay))
-		case "lifebardisplay":
-			l.Push(lua.LBool(sys.lifebarDisplay))
+		case "lifebarhide":
+			l.Push(lua.LBool(sys.lifebarHide))
 		case "roundreset":
 			l.Push(lua.LBool(sys.roundResetFlg))
 		case "wireframedisplay":
@@ -6106,11 +6106,11 @@ func deprecatedFunctions(l *lua.LState) {
 				if l.GetTop() >= 4 {
 					ffx = boolArg(l, 4)
 				}
-				preffix := ""
+				prefix := ""
 				if ffx {
-					preffix = "f"
+					prefix = "f"
 				}
-				c[0].changeAnim(an, c[0].playerNo, -1, preffix)
+				c[0].changeAnim(an, c[0].playerNo, -1, prefix)
 				if l.GetTop() >= 3 {
 					c[0].setAnimElem(int32(numArg(l, 3)), 0)
 				}
@@ -6220,22 +6220,22 @@ func deprecatedFunctions(l *lua.LState) {
 		if l.GetTop() >= 16 { // StopOnChangeState
 			stopcs = boolArg(l, 17)
 		}
-		preffix := ""
+		prefix := ""
 		if f {
-			preffix = "f"
+			prefix = "f"
 		}
 
 		// If the loopcount is 0, then read the loop parameter
 		if lc == 0 {
 			if lp {
-				sys.chars[pn-1][0].playSound(preffix, lw, -1, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+				sys.chars[pn-1][0].playSound(prefix, lw, -1, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
 			} else {
-				sys.chars[pn-1][0].playSound(preffix, lw, 0, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+				sys.chars[pn-1][0].playSound(prefix, lw, 0, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
 			}
 
 			// Otherwise, read the loopcount parameter directly
 		} else {
-			sys.chars[pn-1][0].playSound(preffix, lw, lc, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+			sys.chars[pn-1][0].playSound(prefix, lw, lc, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
 		}
 		return 0
 	})

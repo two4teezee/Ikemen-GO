@@ -63,7 +63,6 @@ var sys = System{
 	oldNextAddTime:   1,
 	commandLine:      make(chan string),
 	cam:              *newCamera(),
-	lifebarDisplay:   true,
 	mainThreadTask:   make(chan func(), 65536),
 	workpal:          make([]uint32, 256),
 	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
@@ -208,9 +207,6 @@ type System struct {
 	waitdown                int32
 	slowtime                int32
 	slowtimeTrigger         int32
-	shuttertime             int32
-	fadeintime              int32
-	fadeouttime             int32
 	wintime                 int32
 	projs                   [MaxPlayerNo][]Projectile
 	explods                 [MaxPlayerNo][]Explod
@@ -237,7 +233,7 @@ type System struct {
 	accel                   float32
 	clsnSpr                 Sprite
 	clsnDisplay             bool
-	lifebarDisplay          bool
+	lifebarHide             bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
 	errLog                  *log.Logger
@@ -1138,9 +1134,6 @@ func (s *System) nextRound() {
 	s.lastHitter = [2]int{-1, -1}
 	s.waitdown = s.lifebar.ro.over_waittime + 900
 	s.slowtime = s.lifebar.ro.slow_time
-	s.shuttertime = 0
-	s.fadeintime = s.lifebar.ro.fadein_time
-	s.fadeouttime = s.lifebar.ro.fadeout_time
 	s.wintime = s.lifebar.ro.over_wintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
@@ -1495,6 +1488,7 @@ func (s *System) action() {
 		// Post round
 		if s.roundEnd() || fin() {
 			rs4t := -s.lifebar.ro.over_waittime
+			fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
 			s.intro--
 			if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
 				// Consecutive wins counter
@@ -1515,8 +1509,8 @@ func (s *System) action() {
 				}
 			}
 			// Check if player skipped win pose time
-			if s.roundWinTime() && (s.anyButton() && !s.gsf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
+			if s.intro > fadeoutStart && s.roundWinTime() && (s.anyButton() && !s.gsf(GSF_roundnotskip)) {
+				s.intro = fadeoutStart
 				s.winskipped = true
 			}
 			if s.winskipped || !s.roundWinTime() {
@@ -1610,8 +1604,12 @@ func (s *System) action() {
 			}
 			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
 			if !s.winskipped && s.gsf(GSF_roundnotover) &&
-				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
+				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.rt.fadeout_time {
 				s.intro++
+			}
+			// Start fadeout effect
+			if s.intro == fadeoutStart {
+				s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
 			}
 		} else if s.intro < 0 {
 			s.intro = 0
@@ -1696,31 +1694,27 @@ func (s *System) action() {
 	// Skip character intros on button press and play the shutter effect
 	if s.tickNextFrame() {
 		if s.lifebar.ro.current < 1 && !s.introSkipped {
-			if s.shuttertime > 0 ||
-				// Checking the intro flag prevents skipping intros when they don't exist
+			// Checking the intro flag prevents skipping intros when they don't exist
+			if s.lifebar.ro.rt.shutterTimer == 0 &&
 				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
-				s.shuttertime++
-				// Do the actual skipping in the frame when the "shutter" effect is closed
-				if s.shuttertime == s.lifebar.ro.shutter_time {
-					// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
-					skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
-					s.resetGblEffect()
-					s.specialFlag = skipround
-					s.fadeintime = 0
-					s.intro = s.lifebar.ro.ctrl_time
-					for i, p := range s.chars {
-						if len(p) > 0 {
-							s.clearPlayerAssets(i, false)
-							p[0].posReset()
-							p[0].selfState(0, -1, -1, 0, "")
-						}
-					}
-					s.introSkipped = true
-				}
+				// Start shutter effect
+				s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
 			}
-		} else {
-			if s.shuttertime > 0 {
-				s.shuttertime--
+			// Do the actual skipping halfway into the shutter animation, when it's closed
+			if s.lifebar.ro.rt.shutterTimer == s.lifebar.ro.rt.shutter_time {
+				// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
+				skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
+				s.resetGblEffect()
+				s.specialFlag = skipround
+				s.intro = s.lifebar.ro.ctrl_time
+				for i, p := range s.chars {
+					if len(p) > 0 {
+						s.clearPlayerAssets(i, false)
+						p[0].posReset()
+						p[0].selfState(0, -1, -1, 0, "")
+					}
+				}
+				s.introSkipped = true
 			}
 		}
 	}
@@ -1951,39 +1945,7 @@ func (s *System) draw(x, y, scl float32) {
 
 func (s *System) drawTop() {
 	BlendReset()
-	fade := func(rect [4]int32, color uint32, alpha int32) {
-		FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
-	}
-	fadeout := s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
-	if fadeout == s.lifebar.ro.fadeout_time-1 && len(s.cfg.Common.Lua) > 0 && s.matchOver() && !s.dialogueFlg {
-		for _, p := range s.chars {
-			if len(p) > 0 && len(p[0].dialogue) > 0 {
-				s.lifebar.ro.current = 3
-				s.dialogueFlg = true
-				break
-			}
-		}
-	}
-	if s.fadeintime > 0 {
-		fade(s.scrrect, s.lifebar.ro.fadein_col, 256*s.fadeintime/s.lifebar.ro.fadein_time)
-		if s.tickFrame() {
-			s.fadeintime--
-		}
-	} else if s.fadeouttime > 0 && fadeout < s.lifebar.ro.fadeout_time-1 && !s.dialogueFlg {
-		fade(s.scrrect, s.lifebar.ro.fadeout_col, 256*(s.lifebar.ro.fadeout_time-s.fadeouttime)/s.lifebar.ro.fadeout_time)
-		if s.tickFrame() {
-			s.fadeouttime--
-		}
-	} else if s.clsnDisplay && s.cfg.Debug.ClsnDarken {
-		fade(s.scrrect, 0, 0)
-	}
-	if s.shuttertime > 0 {
-		rect := s.scrrect
-		rect[3] = s.shuttertime * ((s.scrrect[3] + 1) >> 1) / s.lifebar.ro.shutter_time
-		fade(rect, s.lifebar.ro.shutter_col, 255)
-		rect[1] = s.scrrect[3] - rect[3]
-		fade(rect, s.lifebar.ro.shutter_col, 255)
-	}
+	// Screen fading was here
 	s.brightness = s.brightnessOld
 	// Draw Clsn boxes
 	if s.clsnDisplay {
@@ -2119,7 +2081,7 @@ func (s *System) fight() (reload bool) {
 	if sys.netConnection != nil {
 		s.clsnDisplay = false
 		s.debugDisplay = false
-		s.lifebarDisplay = true
+		s.lifebarHide = false
 	}
 
 	// Defer resetting variables on return

@@ -4199,24 +4199,24 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
 		out.append(OC_ex_, OC_ex_consecutivewins)
-	case "debug":
+	case "debugmode":
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
 		out.append(OC_ex2_)
 		switch c.token {
 		case "accel":
-			out.append(OC_ex2_debug_accel)
+			out.append(OC_ex2_debugmode_accel)
 		case "clsndisplay":
-			out.append(OC_ex2_debug_clsndisplay)
+			out.append(OC_ex2_debugmode_clsndisplay)
 		case "debugdisplay":
-			out.append(OC_ex2_debug_debugdisplay)
-		case "lifebardisplay":
-			out.append(OC_ex2_debug_lifebardisplay)
+			out.append(OC_ex2_debugmode_debugdisplay)
+		case "lifebarhide":
+			out.append(OC_ex2_debugmode_lifebarhide)
 		case "wireframedisplay":
-			out.append(OC_ex2_debug_wireframedisplay)
+			out.append(OC_ex2_debugmode_wireframedisplay)
 		case "roundreset":
-			out.append(OC_ex2_debug_roundreset)
+			out.append(OC_ex2_debugmode_roundreset)
 		default:
 			return bvNone(), Error("Invalid Debug trigger argument: " + c.token)
 		}

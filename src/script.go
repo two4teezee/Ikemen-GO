@@ -809,7 +809,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
 		sys.netInput = NewNetInput()
-		rs := NewRollbackSesesion(sys.rollbackConfig)
+		rs := NewRollbackSesesion(sys.cfg.Netplay.Rollback)
 		sys.rollback.session = &rs
 		if host := strArg(l, 1); host != "" {
 			sys.rollback.session.host = host

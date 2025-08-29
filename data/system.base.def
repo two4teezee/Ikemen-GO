@@ -582,8 +582,8 @@
 	cursortween = 1
 	; cursor tween x and y speed
 	cursortween.speed = 4, 4
-	; cursor speed when wrapping
-	cursortween.wrap.speed = 8, 8
+	; cursor speed when wrapping, defaults to a multiple of cursortween.speed if it's 0 or not specified
+	cursortween.wrap.speed = 0, 0
 
 	; cursor parameters defaults to p1 and p2 values, if not specified
 	;p<pn>.cursor.startcell = 0, 0

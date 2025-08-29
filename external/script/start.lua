@@ -1131,7 +1131,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 			cd.slideOffset[i]= 0
 		end
 		cd.init, cd.snap = true, false
-	-- new cell selected: recalc tween
+	-- new cell selected: recalculate tween
 	elseif cd.targetPos[1] ~= baseX or cd.targetPos[2] ~= baseY then
 		cd.startPos[1], cd.startPos[2] = cd.currentPos[1], cd.currentPos[2]
 		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
@@ -1150,10 +1150,18 @@ function start.f_drawCursor(pn, x, y, param, done)
 			local dx = cd.targetPos[1] - cd.startPos[1]
 			local dy = cd.targetPos[2] - cd.startPos[2]
 			if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) then
-				t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+				if motif.select_info.cursortween_wrap_speed[1] == 0 then 
+					t_speed[1] = t_speed[1] * motif.select_info.columns
+				else
+					t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+				end
 			end
 			if math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
-				t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+				if motif.select_info.cursortween_wrap_speed[2] == 0 then 
+					t_speed[2] = t_speed[2] * motif.select_info.rows
+				else
+					t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+				end
 			end
 		end
         f_slideDistCalc(cd.slideOffset, {0, 0}, t_speed)

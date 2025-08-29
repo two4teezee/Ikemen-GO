@@ -16,6 +16,7 @@ var ModCtrlAltShift = NewModifierKey(true, true, true)
 // CommandList > Command > CommandStep > CommandStepKey
 type CommandStepKey struct {
 	key    CommandKey
+	slash  bool
 	tilde  bool
 	dollar bool
 	// TODO: Maybe we could move slash here as well
@@ -1853,34 +1854,35 @@ func (ai *AiInput) m() bool { return ai.mt != 0 }
 type CommandStep struct {
 	keys       []CommandStepKey
 	chargetime int32
-	slash      bool
 	greater    bool
 }
 
 // Used to detect consecutive directions
-func (cs *CommandStep) IsDirection() bool {
+func (cs *CommandStep) IsSingleDirection() bool {
 	// Released directions are not taken into account here
-	return !cs.slash && len(cs.keys) == 1 && cs.keys[0].IsDirectionPress()
+	return len(cs.keys) == 1 && (cs.keys[0].IsDirectionPress() || cs.keys[0].IsDirectionRelease())
 }
 
 // Check if two command elements can be checked in the same frame
 // This logic seems more complex in Mugen because of variable input delay
 func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
-	// Not if second element is "greater"
+	// Not if second step is "greater"
 	if next.greater {
 		return false
 	}
-	// Not if second element must be held
-	if next.slash {
-		return false
+	// Not if second step must be held
+	for _, k := range next.keys {
+		if k.slash {
+			return false
+		}
 	}
-	// Not if first element includes button press or release
+	// Not if first step includes button press or release
 	for _, k := range cs.keys {
 		if k.IsButtonPress() || k.IsButtonRelease() {
 			return false
 		}
 	}
-	// Not if both elements share keys
+	// Not if both steps share keys
 	for _, k := range cs.keys {
 		for _, n := range next.keys {
 			if k == n {
@@ -1888,7 +1890,7 @@ func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
 			}
 		}
 	}
-	// Yes if second element includes a button press
+	// Yes if second step includes a button press
 	for range cs.keys {
 		for _, n := range next.keys {
 			if n.IsButtonPress() {
@@ -1911,7 +1913,7 @@ func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
 
 // Check if two steps are idential. For ">" expansion
 func (cs CommandStep) EqualSteps(n CommandStep) bool {
-	if cs.chargetime != n.chargetime || cs.slash != n.slash || cs.greater != n.greater {
+	if cs.chargetime != n.chargetime || cs.greater != n.greater {
 		return false
 	}
 	if len(cs.keys) != len(n.keys) {
@@ -1969,38 +1971,53 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 			return getChar()
 		}
 
-		tilde := false
-		dollar := false
-
-		switch getChar() {
-		case '>':
-			cs.greater = true
-			r := nextChar()
-			if r == '/' {
-				cs.slash = true
-				nextChar()
-				break
-			} else if r == '~' {
-				// Do nothing
-			} else {
-				break
-			}
-			fallthrough
-		case '~':
-			tilde = true
-			n := int32(0)
-			for r := nextChar(); '0' <= r && r <= '9'; r = nextChar() {
-				n = n*10 + int32(r-'0')
-			}
-			if n > 0 {
-				cs.chargetime = n
-			}
-		case '/':
-			cs.slash = true
-			nextChar()
-		}
-
+		// Parse characters in the current step
 		for len(csstr) > 0 {
+			getPrefix := true
+			slash, tilde, dollar := false, false, false
+
+			// Get prefix symbols first
+			// Mugen does not allow all of these combinations and only allows one of each prefix per step
+			// Mugen crashes with "~/" and makes "/~" act the same as "/"
+			for getPrefix && len(csstr) > 0 {
+				switch getChar() {
+				case '>':
+					if cs.greater {
+						// TODO: Some error
+					} else {
+						cs.greater = true // Save to whole step
+						nextChar()
+					}
+				case '~':
+					tilde = true
+					nextChar()
+					// Parse charge time digits after ~
+					n := int32(0)
+					for {
+						r := getChar()
+						if r >= '0' && r <= '9' {
+							n = n*10 + int32(r-'0')
+							nextChar()
+						} else {
+							break
+						}
+					}
+					if n > 0 {
+						cs.chargetime = n // Save to whole step
+						// TODO: Charget time per individual key?
+					}
+				case '/':
+					slash = true
+					nextChar()
+				case '$':
+					dollar = true
+					nextChar()
+				default:
+					getPrefix = false
+				}
+			}
+
+			// Get keys
 			c0 := getChar()
 			switch c0 {
 			case 'B', 'D', 'F', 'L', 'R', 'U', 'N':
@@ -2018,7 +2035,6 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 				if len(csstr) > 1 {
 					c1 := csstr[1]
 					if (c0 == 'U' || c0 == 'D') && (c1 == 'B' || c1 == 'F' || c1 == 'L' || c1 == 'R') {
-						// UB, UF, UL, UR, DB, DF, DL, DR
 						switch c1 {
 						case 'B':
 							if c0 == 'U' {
@@ -2048,8 +2064,8 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 						nextChar()
 					}
 				}
-				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
-				tilde, dollar = false, false
+				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
+				nextChar()
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
 				// Compile buttons according to remaps
 				var k CommandKey
@@ -2065,19 +2081,18 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 				case 'w': k = kr.w
 				case 'm': k = kr.m
 				}
-				cs.keys = append(cs.keys, CommandStepKey{key: k, tilde: tilde, dollar: dollar})
-				tilde, dollar = false, false
-			case '$':
-				dollar = true
-			case '~':
-				tilde = true
+				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
+				nextChar()
 			case '+':
 				// Technically just a separator, so keep going
+				nextChar()
+			case -1:
+				// String over safety check
+				break
 			default:
-				// Do nothing. Mugen apparently ignores unknown characters
-				// TODO: Ikemen characters maybe ought to crash on bad syntax
+				nextChar()
+				// TODO: Some error
 			}
-			nextChar()
 		}
 	}
 
@@ -2111,6 +2126,8 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 		}
 	}
 
+	// TODO: Return error unless ikemenversion is 0
+
 	return nil
 }
 
@@ -2127,7 +2144,7 @@ func (c *Command) AutoGreaterExpand() {
 	for i := 1; i < len(c.steps); i++ {
 		prev := c.steps[i-1]
 		curr := c.steps[i]
-		if prev.IsDirection() && curr.IsDirection() && prev.EqualSteps(curr) {
+		if prev.IsSingleDirection() && curr.IsSingleDirection() && prev.EqualSteps(curr) {
 			needExpansion = true
 			break
 		}
@@ -2138,8 +2155,8 @@ func (c *Command) AutoGreaterExpand() {
 		var newCmd []CommandStep
 		for i := 0; i < len(c.steps); i++ {
 			if i+1 < len(c.steps) &&
-				c.steps[i].IsDirection() &&
-				c.steps[i+1].IsDirection() &&
+				c.steps[i].IsSingleDirection() &&
+				c.steps[i+1].IsSingleDirection() &&
 				c.steps[i].EqualSteps(c.steps[i+1]) {
 
 				// Mark next step as ">X"
@@ -2245,37 +2262,19 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 			continue
 		}
 
-		// MUGEN's internal AI can't use commands without the "/" symbol on helpers
-		if ai && isHelper && !c.steps[i].slash {
-			continue
-		}
-
 		// Match current inputs to each key of the current command step
-
-		// This version makes a hold input complete an element with "+"
-		// i.e. /B+a is completed by just holding B
-		// That's accurate to Mugen so let's keep it for now
-		inputMatched := false
+		// Ikemen's parser makes /B+a mean "press a while holding B" which seems consistent
+		// This does not work in Mugen. For instance "/B+a" and "/a+B" can both be completed by just holding B
+		inputMatched := true
 		for _, k := range c.steps[i].keys {
-			t := ibuf.State(k)
-			if c.steps[i].slash {
-				inputMatched = inputMatched || t > 0 // Hold can be any positive number
-			} else if t == 1 { // t >= 1 && t <= 7 { // Old input code had this leniency for some reason (Mugen input delay? ">" check fix?)
-				inputMatched = inputMatched || t == 1
-			} else {
+			// MUGEN's internal AI can't use commands without the "/" symbol on helpers
+			if ai && isHelper && !k.slash {
 				inputMatched = false
 				break
 			}
-		}
-
-		// This version makes /B+a mean "press a while holding B" which seems more consistent
-		// This doesn't work quite right because a step can only have one "/" operator
-		// It's also inaccuurate to Mugen. Commenting out for now
-		/*inputMatched := true
-		for _, k := range c.steps[i].keys {
+			// Normal behavior
 			t := ibuf.State(k)
-			if c.steps[i].slash {
-				// Hold requirement: must be currently down (t > 0)
+			if k.slash {
 				if t <= 0 {
 					inputMatched = false
 					break
@@ -2286,7 +2285,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 					break
 				}
 			}
-		}*/
+		}
 
 		// Charge check
 		// This would be a lot easier if Mugen didn't start charge inputs with a release

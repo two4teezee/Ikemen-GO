@@ -7544,7 +7544,12 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		// Parse the command string and populate steps
 		err = cm.ReadCommandSymbols(is["command"], ckr)
 		if err != nil {
-			return nil, fmt.Errorf("command %s parse error: %v", name, err)
+			if sys.ignoreMostErrors && sys.cgi[pn].ikemenver[0] == 0 && sys.cgi[pn].ikemenver[1] == 0 {
+				// Mugen characters ignore command definition errors
+			} else {
+				return nil, Error(cmd + ":\nname = " + is["name"] +
+					"\ncommand = " + is["command"] + "\n" + err.Error())
+			}
 		}
 
 		c.cmdl.Add(*cm)

@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math"
 	"net"
 	"os"
@@ -1948,9 +1949,18 @@ func newCommand() *Command {
 }
 
 // This is used to first compile the commands
-func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error) {
-	cmd := strings.Split(cmdstr, ",")
-	for _, csstr := range cmd {
+func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err error) {
+	// Empty steps case
+	// Previously, blank commands were compiled as one index with nothing in it
+	// This could trick the input matching code because "no input = nothing". So we just make all the steps nil now
+	if strings.TrimSpace(cmdstr) == "" {
+		c.steps = nil
+		return
+	}
+
+	steps := strings.Split(cmdstr, ",")
+
+	for i, csstr := range steps {
 		// Add new step
 		c.steps = append(c.steps, CommandStep{chargetime: 1})
 		// Set working step to last one
@@ -1971,6 +1981,12 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 			return getChar()
 		}
 
+		// If nothing in this step
+		// Note: The first step is allowed to be blank so that blank commands can be defined
+		if i > 0 && len(csstr) == 0 {
+			err = Error(fmt.Sprintf("Empty command step found"))
+		}
+
 		// Parse characters in the current step
 		for len(csstr) > 0 {
 			getPrefix := true
@@ -1983,12 +1999,14 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 				switch getChar() {
 				case '>':
 					if cs.greater {
-						// TODO: Some error
-					} else {
-						cs.greater = true // Save to whole step
-						nextChar()
+						err = Error("Duplicate '>' symbol found")
 					}
+					cs.greater = true // Save to whole step
+					nextChar()
 				case '~':
+					if tilde {
+						err = Error("Duplicate '~' symbol found")
+					}
 					tilde = true
 					nextChar()
 					// Parse charge time digits after ~
@@ -2003,13 +2021,22 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 						}
 					}
 					if n > 0 {
+						if cs.chargetime > 1 {
+							err = Error("Charge time already defined. Per key time not currently supported")
+						}
 						cs.chargetime = n // Save to whole step
 						// TODO: Charget time per individual key?
 					}
 				case '/':
+					if slash {
+						err = Error("Duplicate '/' symbol found")
+					}
 					slash = true
 					nextChar()
 				case '$':
+					if dollar {
+						err = Error("Duplicate '$' symbol found")
+					}
 					dollar = true
 					nextChar()
 				default:
@@ -2067,6 +2094,9 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
 				nextChar()
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
+				if dollar {
+					err = Error("'$' symbol not supported for buttons")
+				}
 				// Compile buttons according to remaps
 				var k CommandKey
 				switch c0 {
@@ -2081,17 +2111,33 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 				case 'w': k = kr.w
 				case 'm': k = kr.m
 				}
-				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
+				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: false})
 				nextChar()
 			case '+':
-				// Technically just a separator, so keep going
+				// If there are any operators left, print error
+				if slash || tilde || dollar {
+					var badPrefixes []string
+					if slash  {
+						badPrefixes = append(badPrefixes, "'/'")
+					}
+					if tilde  {
+						badPrefixes = append(badPrefixes, "'~'")
+					}
+					if dollar {
+						badPrefixes = append(badPrefixes, "'$'")
+					}
+					err = Error(fmt.Sprintf("%s operator(s) found attached to no key before '+'", strings.Join(badPrefixes, ", ")))
+					slash, tilde, dollar = false, false, false
+				}
+				// Technically "+" is just a separator, so keep going
 				nextChar()
-			case -1:
-				// String over safety check
-				break
+				// If nothing after
+				if len(csstr) == 0 {
+					err = Error(fmt.Sprintf("Unexpected '+' at end of command step"))
+				}
 			default:
+				err = Error(fmt.Sprintf("Invalid symbol '%c' found", c0))
 				nextChar()
-				// TODO: Some error
 			}
 		}
 	}
@@ -2126,9 +2172,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (error)
 		}
 	}
 
-	// TODO: Return error unless ikemenversion is 0
-
-	return nil
+	return err
 }
 
 // Expand consecutive identical directions into "X, >~X, >X"
@@ -2218,21 +2262,6 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		return
 	}
 
-	/*
-	// Make sure current buffer timer doesn't accidentally decrease
-	ocbt := c.curbuftime
-	defer func() {
-		if c.curbuftime < ocbt {
-			c.curbuftime = ocbt
-		}
-	}()
-
-	if ibuf == nil {
-		c.Clear(false)
-		return
-	}
-	*/
-
 	// Update timers and reset expired completed steps
 	anydone := false
 	for i := range c.steps {
@@ -2288,7 +2317,6 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 
 		// Charge check
-		// This would be a lot easier if Mugen didn't start charge inputs with a release
 		if inputMatched && c.steps[i].chargetime > 1 {
 			for _, k := range c.steps[i].keys {
 				// Check if enough charge

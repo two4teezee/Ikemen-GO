@@ -4298,12 +4298,13 @@ func (c *Char) assertCommand(name string, time int32) {
 		}
 	}
 
-	ok := false
 	// Assert the command in every command list
+	found := false
 	for i := range c.cmd {
-		ok = c.cmd[i].Assert(name, time) || ok
+		found = c.cmd[i].Assert(name, time) || found
 	}
-	if !ok {
+
+	if !found {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to assert an invalid command: %s", name))
 	}
 }

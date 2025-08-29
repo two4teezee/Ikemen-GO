@@ -2378,9 +2378,9 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 // Command List refers to the entire set of a character's commands
 // Each player has multiple lists: one with its own commands, and a copy of each other player's lists
 type CommandList struct {
-	Buffer                *InputBuffer
+	Buffer                *InputBuffer // TODO: This should exist higher up in the character. Is probably here because of current menu implementation
 	Names                 map[string]int
-	Commands              [][]Command
+	Commands              [][]Command // [name][commands]
 	DefaultTime           int32
 	DefaultStepTime       int32
 	DefaultBufferTime     int32
@@ -2492,28 +2492,35 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 
 // Assert commands with a given name for a given time
 func (cl *CommandList) Assert(name string, time int32) bool {
-	has := false
-	for i := range cl.Commands {
-		for j := range cl.Commands[i] {
-			if cl.Commands[i][j].name == name {
-				cl.Commands[i][j].curbuftime = time
-				has = true
-			}
+	i, ok := cl.Names[name]
+	if !ok {
+		return false
+	}
+
+	found := false
+	for j := range cl.Commands[i] {
+		if cl.Commands[i][j].name == name { // Redundant, but safer
+			cl.Commands[i][j].curbuftime = time
+			found = true
 		}
 	}
-	return has
+
+	return found
 }
 
 // Reset command when another command with the same name is completed
 // This prevents "piano inputs" from triggering the same special move with each button. TODO: This should be optional
 func (cl *CommandList) ClearName(name string) {
-	for i := range cl.Commands {
-		for j := range cl.Commands[i] {
-			if !cl.Commands[i][j].completeframe && cl.Commands[i][j].name == name {
-				cl.Commands[i][j].Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
-			}
+	i, ok := cl.Names[name]
+	if !ok {
+		return
+	}
+	for j := range cl.Commands[i] {
+		if !cl.Commands[i][j].completeframe && cl.Commands[i][j].name == name { // Name check should be redundant but works as safeguard
+			cl.Commands[i][j].Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
 		}
 	}
+	// TODO: Same loop optimization in Assert()
 }
 
 // Used when updating commands in each frame
@@ -2522,22 +2529,23 @@ func (cl *CommandList) Step(ai, isHelper, hpbuf, pausebuf bool, extratime int32)
 		return
 	}
 
-	// Step all commands in every list
+	var completed [][2]int
+
+	// Step all commands in this list
 	for i := range cl.Commands {
 		for j := range cl.Commands[i] {
 			cl.Commands[i][j].Step(cl.Buffer, ai, isHelper, hpbuf, pausebuf, extratime)
+			// Identify those just completed in the current frame
+			if cl.Commands[i][j].completeframe {
+				completed = append(completed, [2]int{i, j})
+			}
 		}
 	}
 
-	// Find completed commands and reset all duplicate instances
-	// This loop must be run separately from the previous one
-	for i := range cl.Commands {
-		for j := range cl.Commands[i] {
-			if cl.Commands[i][j].completeframe {
-				cl.ClearName(cl.Commands[i][j].name)
-				cl.Commands[i][j].completeframe = false
-			}
-		}
+	// Clear duplicates of completed ones
+	for _, idx := range completed {
+		cl.ClearName(cl.Commands[idx[0]][idx[1]].name)
+		cl.Commands[idx[0]][idx[1]].completeframe = false
 	}
 }
 

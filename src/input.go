@@ -2054,10 +2054,6 @@ func (cs *CommandStep) IsSingleDirection() bool {
 // Check if two command elements can be checked in the same frame
 // This logic seems more complex in Mugen because of variable input delay
 func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
-	// Not if second step is "greater"
-	if next.greater {
-		return false
-	}
 	// Not if second step must be held
 	for _, k := range next.keys {
 		if k.slash {
@@ -2073,7 +2069,7 @@ func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
 	// Not if both steps share keys
 	for _, k := range cs.keys {
 		for _, n := range next.keys {
-			if k == n {
+			if k.key == n.key {
 				return false
 			}
 		}
@@ -2138,8 +2134,6 @@ func newCommand() *Command {
 // This is used to first compile the commands
 func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err error) {
 	// Empty steps case
-	// Previously, blank commands were compiled as one index with nothing in it
-	// This could trick the input matching code because "no input = nothing". So we just make all the steps nil now
 	if strings.TrimSpace(cmdstr) == "" {
 		c.steps = nil
 		return
@@ -2150,39 +2144,87 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 	for i, csstr := range steps {
 		// Add new step
 		c.steps = append(c.steps, CommandStep{chargetime: 1})
-		// Set working step to last one
 		cs := &c.steps[len(c.steps)-1]
 		csstr = strings.TrimSpace(csstr)
 
-		getChar := func() rune {
-			if len(csstr) > 0 {
-				return rune(csstr[0])
-			}
-			return rune(-1)
-		}
-
-		nextChar := func() rune {
-			if len(csstr) > 0 {
-				csstr = strings.TrimSpace(csstr[1:])
-			}
-			return getChar()
-		}
-
-		// If nothing in this step
-		// Note: The first step is allowed to be blank so that blank commands can be defined
+		// The first step is allowed to be blank so that blank commands can be defined
 		if i > 0 && len(csstr) == 0 {
 			err = Error(fmt.Sprintf("Empty command step found"))
+			continue
 		}
 
-		// Parse characters in the current step
-		for len(csstr) > 0 {
-			getPrefix := true
+		// Split by + and treat each segment as a simultaneous key
+		keyParts := strings.Split(csstr, "+")
+		for _, part := range keyParts {
+			part = strings.TrimSpace(part)
+			if len(part) == 0 {
+				err = Error("Unexpected '+' with no key")
+				continue
+			}
+
+			// Check if there's exactly 1 key in each "+" section
+			keyCount := 0
+			i := 0
+			for i < len(part) {
+				c0 := part[i]
+				// Handle diagonals as a single key
+				if (c0 == 'U' || c0 == 'D') && i+1 < len(part) {
+					c1 := part[i+1]
+					if c1 == 'B' || c1 == 'F' || c1 == 'L' || c1 == 'R' {
+						keyCount++
+						i += 2
+						continue
+					}
+				}
+				// Regular direction or button
+				if c0 == 'U' || c0 == 'D' || c0 == 'B' || c0 == 'F' ||
+					c0 == 'L' || c0 == 'R' || c0 == 'N' ||
+					c0 == 'a' || c0 == 'b' || c0 == 'c' ||
+					c0 == 'x' || c0 == 'y' || c0 == 'z' ||
+					c0 == 's' || c0 == 'd' || c0 == 'w' || c0 == 'm' {
+					keyCount++
+				}
+				i++
+			}
+			if keyCount < 1 {
+				err = Error("No keys found in command step")
+			} else if keyCount > 1 {
+				err = Error("Multiple keys found without '+' separator")
+			}
+
+			// Parse prefix symbols
 			slash, tilde, dollar := false, false, false
 
+			getChar := func() rune {
+				if len(part) > 0 {
+					return rune(part[0])
+				}
+				return rune(-1)
+			}
+
+			nextChar := func() rune {
+				if len(part) > 0 {
+					part = strings.TrimSpace(part[1:])
+				}
+				return getChar()
+			}
+
+			parseChargeTime := func() int32 {
+				n := int32(0)
+				for {
+					r := getChar()
+					if r >= '0' && r <= '9' {
+						n = n*10 + int32(r-'0')
+						nextChar()
+					} else {
+						break
+					}
+				}
+				return n
+			}
+
 			// Get prefix symbols first
-			// Mugen does not allow all of these combinations and only allows one of each prefix per step
-			// Mugen crashes with "~/" and makes "/~" act the same as "/"
-			for getPrefix && len(csstr) > 0 {
+			for len(part) > 0 {
 				switch getChar() {
 				case '>':
 					if cs.greater {
@@ -2196,23 +2238,12 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 					}
 					tilde = true
 					nextChar()
-					// Parse charge time digits after ~
-					n := int32(0)
-					for {
-						r := getChar()
-						if r >= '0' && r <= '9' {
-							n = n*10 + int32(r-'0')
-							nextChar()
-						} else {
-							break
-						}
-					}
+					n := parseChargeTime()
 					if n > 0 {
 						if cs.chargetime > 1 {
 							err = Error("Charge time already defined. Per key time not currently supported")
 						}
 						cs.chargetime = n // Save to whole step
-						// TODO: Charget time per individual key?
 					}
 				case '/':
 					if slash {
@@ -2220,6 +2251,13 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 					}
 					slash = true
 					nextChar()
+					n := parseChargeTime()
+					if n > 0 {
+						if cs.chargetime > 1 {
+							err = Error("Charge time already defined. Per key time not currently supported")
+						}
+						cs.chargetime = n
+					}
 				case '$':
 					if dollar {
 						err = Error("Duplicate '$' symbol found")
@@ -2227,27 +2265,35 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 					dollar = true
 					nextChar()
 				default:
-					getPrefix = false
+					goto ParseKey // Break out of prefix loop
 				}
 			}
 
+		ParseKey:
 			// Get keys
 			c0 := getChar()
 			switch c0 {
 			case 'B', 'D', 'F', 'L', 'R', 'U', 'N':
 				var k CommandKey
 				switch c0 {
-				case 'B': k = CK_B
-				case 'D': k = CK_D
-				case 'F': k = CK_F
-				case 'L': k = CK_L
-				case 'R': k = CK_R
-				case 'U': k = CK_U
-				case 'N': k = CK_N
+				case 'U':
+					k = CK_U
+				case 'D':
+					k = CK_D
+				case 'B':
+					k = CK_B
+				case 'F':
+					k = CK_F
+				case 'L':
+					k = CK_L
+				case 'R':
+					k = CK_R
+				case 'N':
+					k = CK_N
 				}
 				// Handle diagonals
-				if len(csstr) > 1 {
-					c1 := csstr[1]
+				if len(part) > 1 {
+					c1 := part[1]
 					if (c0 == 'U' || c0 == 'D') && (c1 == 'B' || c1 == 'F' || c1 == 'L' || c1 == 'R') {
 						switch c1 {
 						case 'B':
@@ -2281,9 +2327,10 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
 				nextChar()
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
-				if dollar {
-					err = Error("'$' symbol not supported for buttons")
-				}
+				// Maybe too restrictive. Will make people blame poor module code on IkemenVersion characters
+				//if dollar {
+				//	err = Error("'$' symbol not supported for buttons")
+				//}
 				// Compile buttons according to remaps
 				var k CommandKey
 				switch c0 {
@@ -2300,28 +2347,6 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 				}
 				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: false})
 				nextChar()
-			case '+':
-				// If there are any operators left, print error
-				if slash || tilde || dollar {
-					var badPrefixes []string
-					if slash  {
-						badPrefixes = append(badPrefixes, "'/'")
-					}
-					if tilde  {
-						badPrefixes = append(badPrefixes, "'~'")
-					}
-					if dollar {
-						badPrefixes = append(badPrefixes, "'$'")
-					}
-					err = Error(fmt.Sprintf("%s operator(s) found attached to no key before '+'", strings.Join(badPrefixes, ", ")))
-					slash, tilde, dollar = false, false, false
-				}
-				// Technically "+" is just a separator, so keep going
-				nextChar()
-				// If nothing after
-				if len(csstr) == 0 {
-					err = Error(fmt.Sprintf("Unexpected '+' at end of command step"))
-				}
 			default:
 				err = Error(fmt.Sprintf("Invalid symbol '%c' found", c0))
 				nextChar()
@@ -2337,8 +2362,6 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 	c.stepTimers = make([]int32, len(c.steps))
 
 	// Determine order in which command steps will be evaluated later
-	// Using a reverse order prevents one input from completing two consecutive steps
-	// The exception is "IsDirToButton" steps, which are checked forwards precisely so they can be checked in the same frame
 	c.loopOrder = c.loopOrder[:0] // Clear just in case
 	for i := len(c.steps) - 1; i >= 0; {
 		if i > 0 && c.steps[i-1].IsDirToButton(c.steps[i]) {

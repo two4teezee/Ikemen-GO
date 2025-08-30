@@ -428,10 +428,18 @@ func (rs *RollbackSession) Input(time int32, player int) (input InputBits) {
 	input = inputs[player]
 	return
 }
-func (rs *RollbackSession) AnyButton() bool {
-	for i := 0; i < len(rs.inputs[len(rs.inputs)-1]); i++ {
-		if rs.Input(sys.gameTime, i)&IB_anybutton != 0 {
-			return true
+func (rs *RollbackSession) AnyButton(s *System, ib []InputBits) bool {
+	if s.gameTime == 0 {
+		for i := 0; i < len(rs.inputs[len(rs.inputs)-1]); i++ {
+			if rs.Input(sys.gameTime, i)&IB_anybutton != 0 {
+				return true
+			}
+		}
+	} else {
+		for i := 0; i < len(ib); i++ {
+			if ib[i]&IB_anybutton != 0 {
+				return true
+			}
 		}
 	}
 	return false

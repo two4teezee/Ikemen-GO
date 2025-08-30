@@ -20,7 +20,7 @@ type CommandStepKey struct {
 	slash  bool
 	tilde  bool
 	dollar bool
-	// TODO: Maybe we could move slash here as well
+	chargetime int32
 }
 
 type CommandKey byte
@@ -2041,7 +2041,6 @@ func (ai *AiInput) m() bool { return ai.mt != 0 }
 // Each step can have multiple keys
 type CommandStep struct {
 	keys       []CommandStepKey
-	chargetime int32
 	greater    bool
 }
 
@@ -2097,7 +2096,7 @@ func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
 
 // Check if two steps are idential. For ">" expansion
 func (cs CommandStep) EqualSteps(n CommandStep) bool {
-	if cs.chargetime != n.chargetime || cs.greater != n.greater {
+	if cs.greater != n.greater {
 		return false
 	}
 	if len(cs.keys) != len(n.keys) {
@@ -2143,7 +2142,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 
 	for i, csstr := range steps {
 		// Add new step
-		c.steps = append(c.steps, CommandStep{chargetime: 1})
+		c.steps = append(c.steps, CommandStep{})
 		cs := &c.steps[len(c.steps)-1]
 		csstr = strings.TrimSpace(csstr)
 
@@ -2193,7 +2192,8 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 			}
 
 			// Parse prefix symbols
-			slash, tilde, dollar := false, false, false
+			var slash, tilde, dollar bool
+			var chargetime int32
 
 			getChar := func() rune {
 				if len(part) > 0 {
@@ -2240,10 +2240,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 					nextChar()
 					n := parseChargeTime()
 					if n > 0 {
-						if cs.chargetime > 1 {
-							err = Error("Charge time already defined. Per key time not currently supported")
-						}
-						cs.chargetime = n // Save to whole step
+						chargetime = n
 					}
 				case '/':
 					if slash {
@@ -2253,10 +2250,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 					nextChar()
 					n := parseChargeTime()
 					if n > 0 {
-						if cs.chargetime > 1 {
-							err = Error("Charge time already defined. Per key time not currently supported")
-						}
-						cs.chargetime = n
+						chargetime = n
 					}
 				case '$':
 					if dollar {
@@ -2324,7 +2318,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 						nextChar()
 					}
 				}
-				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar})
+				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: dollar, chargetime: chargetime})
 				nextChar()
 			case 'a', 'b', 'c', 'x', 'y', 'z', 's', 'd', 'w', 'm':
 				// Maybe too restrictive. Will make people blame poor module code on IkemenVersion characters
@@ -2345,7 +2339,7 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 				case 'w': k = kr.w
 				case 'm': k = kr.m
 				}
-				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: false})
+				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: false, chargetime: chargetime})
 				nextChar()
 			default:
 				err = Error(fmt.Sprintf("Invalid symbol '%c' found", c0))
@@ -2527,12 +2521,14 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 
 		// Charge check
-		if inputMatched && c.steps[i].chargetime > 1 {
+		if inputMatched {
 			for _, k := range c.steps[i].keys {
-				// Check if enough charge
-				if ibuf.StateCharge(k) < c.steps[i].chargetime {
-					inputMatched = false
-					break
+				// Check if charge is defined and enough charge is stored
+				if k.chargetime > 1 {
+					if ibuf.StateCharge(k) < k.chargetime {
+						inputMatched = false
+						break
+					}
 				}
 			}
 		}
@@ -2730,7 +2726,6 @@ func (cl *CommandList) ClearName(name string) {
 			cl.Commands[i][j].Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
 		}
 	}
-	// TODO: Same loop optimization in Assert()
 }
 
 // Used when updating commands in each frame

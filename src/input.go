@@ -2042,6 +2042,7 @@ func (ai *AiInput) m() bool { return ai.mt != 0 }
 type CommandStep struct {
 	keys       []CommandStepKey
 	greater    bool
+	orLogic    bool
 }
 
 // Used to detect consecutive directions
@@ -2140,20 +2141,33 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 
 	steps := strings.Split(cmdstr, ",")
 
-	for i, csstr := range steps {
+	for i, stepkeys := range steps {
 		// Add new step
 		c.steps = append(c.steps, CommandStep{})
 		cs := &c.steps[len(c.steps)-1]
-		csstr = strings.TrimSpace(csstr)
+		stepkeys = strings.TrimSpace(stepkeys)
 
 		// The first step is allowed to be blank so that blank commands can be defined
-		if i > 0 && len(csstr) == 0 {
+		if i > 0 && len(stepkeys) == 0 {
 			err = Error(fmt.Sprintf("Empty command step found"))
 			continue
 		}
 
-		// Split by + and treat each segment as a simultaneous key
-		keyParts := strings.Split(csstr, "+")
+		// Check if using AND or OR logic then split accordingly
+		var keyParts []string
+
+		if strings.Contains(stepkeys, "+") && strings.Contains(stepkeys, "|") {
+			err = Error("Cannot use both '+' and '|' in the same command step")
+			continue
+		} else if strings.Contains(stepkeys, "|") {
+			cs.orLogic = true
+			keyParts = strings.Split(stepkeys, "|")
+		} else {
+			cs.orLogic = false
+			keyParts = strings.Split(stepkeys, "+")
+		}
+
+		// Process each of the parts
 		for _, part := range keyParts {
 			part = strings.TrimSpace(part)
 			if len(part) == 0 {
@@ -2488,6 +2502,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		c.Clear(false)
 	}
 
+	// Match inputs to command steps
 	// Process steps in the predetermined iteration order
 	for _, i := range c.loopOrder {
 		// Skip if previous step is not complete or was completed later
@@ -2495,49 +2510,71 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 			continue
 		}
 
-		// Match current inputs to each key of the current command step
-		// Ikemen's parser makes /B+a mean "press a while holding B" which seems consistent
-		// This does not work in Mugen. For instance "/B+a" and "/a+B" can both be completed by just holding B
-		inputMatched := true
-		for _, k := range c.steps[i].keys {
-			// MUGEN's internal AI can't use commands without the "/" symbol on helpers
-			if ai && isHelper && !k.slash {
-				inputMatched = false
-				break
-			}
-			// Normal behavior
-			t := ibuf.State(k)
-			if k.slash {
-				if t <= 0 {
-					inputMatched = false
-					break
-				}
-			} else {
-				if t != 1 {
+		var inputMatched bool
+
+		// MUGEN's internal AI can't use commands without the "/" symbol on helpers
+		if ai && isHelper {
+			for _, k := range c.steps[i].keys {
+				if !k.slash {
 					inputMatched = false
 					break
 				}
 			}
 		}
 
-		// Charge check
-		if inputMatched {
+		// Match current inputs to each key of the current command step
+		// Ikemen's parser makes /B+a mean "press a while holding B" which seems consistent
+		// This does not work in Mugen. For instance "/B+a" and "/a+B" can both be completed by just holding B
+		if c.steps[i].orLogic {
+			// OR logic: any key + charge matches
+			inputMatched = false
 			for _, k := range c.steps[i].keys {
+				t := ibuf.State(k)
+				keyOk := false
+				if k.slash {
+					keyOk = t > 0
+				} else {
+					keyOk = t == 1
+				}
 				// Check if charge is defined and enough charge is stored
-				if k.chargetime > 1 {
+				if keyOk && k.chargetime > 1 {
 					if ibuf.StateCharge(k) < k.chargetime {
-						inputMatched = false
-						break
+						keyOk = false
 					}
+				}
+				if keyOk {
+					inputMatched = true
+					break
+				}
+			}
+		} else {
+			// AND logic: all keys + charge must match
+			inputMatched = true
+			for _, k := range c.steps[i].keys {
+				t := ibuf.State(k)
+				keyOk := false
+				if k.slash {
+					keyOk = t > 0
+				} else {
+					keyOk = t == 1
+				}
+				// Charge check
+				if keyOk && k.chargetime > 1 {
+					if ibuf.StateCharge(k) < k.chargetime {
+						keyOk = false
+					}
+				}
+				if !keyOk {
+					inputMatched = false
+					break
 				}
 			}
 		}
 
 		// ">" check
-		// There's a stubborn bug here where, for instance, inputting F, B, F without passing neutral will trigger the "F, F" command
-		// Mostly because press and release timers work the same way
+		// This approach has a quirk in that foreign inputs are accepted if they're entered the same frame that the intended input matched
 		// Should be harmless because at least that's very hard for a human to perform
-		// Mugen seems to have a similar issue but it's harder to test reliably
+		// Out of the methods tried, this one has the best results for the least work
 		if !inputMatched && i > 0 && c.steps[i].greater &&
 			len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] && ibuf.LastChangeTime() == 1 {
 			// && ibuf.State(c.steps[i-1].keys[0]) != ibuf.LastChangeTime() { // More work for same result as above

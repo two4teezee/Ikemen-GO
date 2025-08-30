@@ -842,9 +842,9 @@ func (ib *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 
 		// Advance buffer timer
 		if held {
-			*buffer++
+			*buffer += 1
 		} else {
-			*buffer--
+			*buffer -= 1
 		}
 
 		// Save charge time
@@ -2075,11 +2075,9 @@ func (cs *CommandStep) IsDirToButton(next CommandStep) bool {
 		}
 	}
 	// Yes if second step includes a button press
-	for range cs.keys {
-		for _, n := range next.keys {
-			if n.IsButtonPress() {
-				return true
-			}
+	for _, n := range next.keys {
+		if n.IsButtonPress() {
+			return true
 		}
 	}
 	// Yes if release direction then not release direction (includes buttons)
@@ -2118,9 +2116,10 @@ type Command struct {
 	maxtime, curtime       int32
 	maxbuftime, curbuftime int32
 	maxsteptime, cursteptime int32
+	autogreater            bool
 	buffer_hitpause        bool
 	buffer_pauseend        bool
-	autogreater            bool
+	buffer_shared          bool
 	completeframe          bool
 	completed              []bool
 	stepTimers             []int32
@@ -2626,10 +2625,11 @@ type CommandList struct {
 	Commands              [][]Command // [name][commands]
 	DefaultTime           int32
 	DefaultStepTime       int32
+	DefaultAutoGreater    bool
 	DefaultBufferTime     int32
 	DefaultBufferHitpause bool
 	DefaultBufferPauseEnd bool
-	DefaultAutoGreater    bool
+	DefaultBufferShared   bool
 }
 
 func NewCommandList(cb *InputBuffer) *CommandList {
@@ -2638,10 +2638,11 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 		Names:                 make(map[string]int),
 		DefaultTime:           15,
 		DefaultStepTime:       -1, // Undefined. Later defaults to same as time
+		DefaultAutoGreater:    true,
 		DefaultBufferTime:     1,
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
-		DefaultAutoGreater:    true,
+		DefaultBufferShared:   true,
 	}
 }
 
@@ -2752,15 +2753,16 @@ func (cl *CommandList) Assert(name string, time int32) bool {
 }
 
 // Reset command when another command with the same name is completed
-// This prevents "piano inputs" from triggering the same special move with each button. TODO: This should be optional
+// This prevents "piano inputs" from triggering the same special move with each button
 func (cl *CommandList) ClearName(name string) {
 	i, ok := cl.Names[name]
 	if !ok {
 		return
 	}
 	for j := range cl.Commands[i] {
-		if !cl.Commands[i][j].completeframe && cl.Commands[i][j].name == name { // Name check should be redundant but works as safeguard
-			cl.Commands[i][j].Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
+		cmd := &cl.Commands[i][j]
+		if !cmd.completeframe && cmd.buffer_shared && cmd.name == name { // Name check should be redundant but works as safeguard
+			cmd.Clear(false) // Keep their buffer time. Mugen doesn't do this but it seems like the right thing to do
 		}
 	}
 }
@@ -2771,23 +2773,22 @@ func (cl *CommandList) Step(ai, isHelper, hpbuf, pausebuf bool, extratime int32)
 		return
 	}
 
-	var completed [][2]int
+	completed := make(map[string]bool)
 
-	// Step all commands in this list
 	for i := range cl.Commands {
 		for j := range cl.Commands[i] {
 			cl.Commands[i][j].Step(cl.Buffer, ai, isHelper, hpbuf, pausebuf, extratime)
-			// Identify those just completed in the current frame
 			if cl.Commands[i][j].completeframe {
-				completed = append(completed, [2]int{i, j})
+				cl.Commands[i][j].Clear(false) // Clear this specific command
+				completed[cl.Commands[i][j].name] = true // Track completed names
+				cl.Commands[i][j].completeframe = false
 			}
 		}
 	}
 
 	// Clear duplicates of completed ones
-	for _, idx := range completed {
-		cl.ClearName(cl.Commands[idx[0]][idx[1]].name)
-		cl.Commands[idx[0]][idx[1]].completeframe = false
+	for name := range completed {
+		cl.ClearName(name)
 	}
 }
 

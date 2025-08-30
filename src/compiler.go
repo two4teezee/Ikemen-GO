@@ -7499,6 +7499,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				}
 				is.ReadBool("command.buffer.hitpause", &c.cmdl.DefaultBufferHitpause)
 				is.ReadBool("command.buffer.pauseend", &c.cmdl.DefaultBufferPauseEnd)
+				is.ReadBool("command.buffer.shared", &c.cmdl.DefaultBufferShared)
 			}
 		default:
 			// Get command sections
@@ -7526,6 +7527,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		cm.autogreater = c.cmdl.DefaultAutoGreater
 		cm.buffer_hitpause = c.cmdl.DefaultBufferHitpause
 		cm.buffer_pauseend = c.cmdl.DefaultBufferPauseEnd
+		cm.buffer_shared = c.cmdl.DefaultBufferShared
 
 		// Read specific parameters
 		is.ReadI32("time", &cm.maxtime)
@@ -7540,6 +7542,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		}
 		is.ReadBool("buffer.hitpause", &cm.buffer_hitpause)
 		is.ReadBool("buffer.pauseend", &cm.buffer_pauseend)
+		is.ReadBool("buffer.shared", &cm.buffer_shared)
 
 		// Parse the command string and populate steps
 		err = cm.ReadCommandSymbols(is["command"], ckr)

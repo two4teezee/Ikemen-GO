@@ -2281,7 +2281,7 @@ function start.f_selectScreen()
 					--end
 					--render only if cell is not hidden
 					if t.hidden ~= 1 and t.hidden ~= 2 then
-						start.f_drawCursor(v.pn, x, y, '_cursor_done')
+						start.f_drawCursor(v.pn, x, y, '_cursor_done', true)
 					end
 				end
 			end
@@ -2321,7 +2321,7 @@ function start.f_selectScreen()
 						end
 					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
-						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active')
+						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active', false)
 					end
 				end
 			end

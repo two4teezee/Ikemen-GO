@@ -21,7 +21,8 @@ local t_gameStats = {}
 local t_recordText = {}
 local t_reservedChars = {{}, {}}
 local timerSelect = 0
-
+local cursorActive = {}
+local cursorDone = {}
 --;===========================================================
 --; COMMON FUNCTIONS
 --;===========================================================
@@ -865,20 +866,17 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 	return nil
 end
 
---calculate portraits slide.dist offset
+--calculate portraits slide.dist and cursor tween offset
 local function f_slideDistCalc(slide_dist, t_dist, t_speed)
-	if t_dist == nil or t_speed == nil then
-		return
+	if t_dist == nil or t_speed == nil then 
+		return 
 	end
 	for i = 1, 2 do
-		if (t_dist[i] or 0) > 0 then
-			if slide_dist[i] < (t_dist[i] or 0) then
-				slide_dist[i] = math.min(slide_dist[i] + (t_speed[i] or 0), t_dist[i] or 0)
-			end
-		elseif (t_dist[i] or 0) < 0 then
-			if slide_dist[i] > (t_dist[i] or 0) then
-				slide_dist[i] = math.max(slide_dist[i] - (t_speed[i] or 0), t_dist[i] or 0)
-			end
+		local target = t_dist[i] or 0
+		if slide_dist[i] < target then
+			slide_dist[i] = math.min(slide_dist[i] + (t_speed[i] or 0), target)
+		elseif slide_dist[i] > target then
+			slide_dist[i] = math.max(slide_dist[i] - (t_speed[i] or 0), target)
 		end
 	end
 end
@@ -1089,7 +1087,7 @@ function start.f_getCursorData(pn, suffix)
 end
 
 --draw cursor
-function start.f_drawCursor(pn, x, y, param)
+function start.f_drawCursor(pn, x, y, param, done)
 	-- in non-coop modes only p1 and p2 cursors are used
 	if not main.coop then
 		pn = (pn - 1) % 2 + 1
@@ -1105,14 +1103,93 @@ function start.f_drawCursor(pn, x, y, param)
 		end
 		motif.f_loadSprData(motif.select_info, {s = prefix .. '_'})
 	end
-	-- draw
+
+	-- choose cursor storage table (active vs done)
+	local store = done and cursorDone or cursorActive
+	if store[pn] == nil then
+		store[pn] = {
+			currentPos = {0, 0},
+			targetPos  = {0, 0},
+			startPos   = {0, 0},
+			slideOffset= {0, 0},
+			init       = false,
+			snap       = false -- only used by active cursors
+		}
+	end
+	local cd = store[pn]
+
+	-- calculate target cell coordinates
+	local baseX = motif.select_info.pos[1] + x * (motif.select_info.cell_size[1] + motif.select_info.cell_spacing[1]) + start.f_faceOffset(x + 1, y + 1, 1)
+    local baseY = motif.select_info.pos[2] + y * (motif.select_info.cell_size[2] + motif.select_info.cell_spacing[2]) + start.f_faceOffset(x + 1, y + 1, 2)
+
+	-- first initialization or reset (snap cursor directly)
+	if not cd.init or done or cd.snap then
+		for i = 1, 2 do
+			cd.currentPos[i] = (i == 1) and baseX or baseY
+			cd.targetPos[i]  = cd.currentPos[i]
+			cd.startPos[i]   = cd.currentPos[i]
+			cd.slideOffset[i]= 0
+		end
+		cd.init, cd.snap = true, false
+	-- new cell selected: recalculate tween
+	elseif cd.targetPos[1] ~= baseX or cd.targetPos[2] ~= baseY then
+		cd.startPos[1], cd.startPos[2] = cd.currentPos[1], cd.currentPos[2]
+		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
+		cd.slideOffset[1] = cd.startPos[1] - baseX
+		cd.slideOffset[2] = cd.startPos[2] - baseY
+	end
+
+	-- tween movement
+	if not done and motif.select_info.cursortween == 1 then
+		local t_speed = {
+			motif.select_info.cursortween_speed[1],
+			motif.select_info.cursortween_speed[2]
+		}
+		-- tween wrapping speed
+		if motif.select_info.wrapping == 1 then
+			local dx = cd.targetPos[1] - cd.startPos[1]
+			local dy = cd.targetPos[2] - cd.startPos[2]
+			if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) then
+				if motif.select_info.cursortween_wrap_speed[1] == 0 then 
+					t_speed[1] = t_speed[1] * motif.select_info.columns
+				else
+					t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+				end
+			end
+			if math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
+				if motif.select_info.cursortween_wrap_speed[2] == 0 then 
+					t_speed[2] = t_speed[2] * motif.select_info.rows
+				else
+					t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+				end
+			end
+		end
+        f_slideDistCalc(cd.slideOffset, {0, 0}, t_speed)
+		-- apply offset to get final interpolated position
+		cd.currentPos[1] = cd.targetPos[1] + cd.slideOffset[1]
+		cd.currentPos[2] = cd.targetPos[2] + cd.slideOffset[2]
+    else
+		-- no tween
+		cd.currentPos[1], cd.currentPos[2] = baseX, baseY
+		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
+		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
+    end
+	-- draw 
 	main.f_animPosDraw(
 		motif.select_info[prefix .. '_data'],
-		motif.select_info.pos[1] + x * (motif.select_info.cell_size[1] + motif.select_info.cell_spacing[1]) + start.f_faceOffset(x + 1, y + 1, 1),
-		motif.select_info.pos[2] + y * (motif.select_info.cell_size[2] + motif.select_info.cell_spacing[2]) + start.f_faceOffset(x + 1, y + 1, 2),
+		cd.currentPos[1],
+		cd.currentPos[2],
 		(motif.select_info['cell_' .. x + 1 .. '_' .. y + 1 .. '_facing'] or motif.select_info['p' .. pn .. param .. '_facing'])
 	)
 end
+
+-- snaps the cursor instantly to its target cell
+local function f_snapCursor()
+    for k, v in pairs(cursorActive) do
+        v.snap = true
+    end
+end
+
 --returns t_selChars table out of cell number
 function start.f_selGrid(cell, slot)
 	if main.t_selGrid[cell] == nil or #main.t_selGrid[cell].chars == 0 then
@@ -2102,6 +2179,7 @@ function start.f_selectScreen()
 	main.f_fadeReset('fadein', motif.select_info)
 	main.f_playBGM(false, motif.music.select_bgm, motif.music.select_bgm_loop, motif.music.select_bgm_volume, motif.music.select_bgm_loopstart, motif.music.select_bgm_loopend)
 	start.f_resetTempData(motif.select_info, '_face')
+	f_snapCursor()
 	local stageActiveCount = 0
 	local stageActiveType = 'stage_active'
 	timerSelect = 0
@@ -2203,7 +2281,7 @@ function start.f_selectScreen()
 					--end
 					--render only if cell is not hidden
 					if t.hidden ~= 1 and t.hidden ~= 2 then
-						start.f_drawCursor(v.pn, x, y, '_cursor_done')
+						start.f_drawCursor(v.pn, x, y, '_cursor_done', true)
 					end
 				end
 			end
@@ -2243,7 +2321,7 @@ function start.f_selectScreen()
 						end
 					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
-						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active')
+						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active', false)
 					end
 				end
 			end

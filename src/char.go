@@ -2604,6 +2604,7 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
+	fbFlip              bool
 	cnsvar              map[int32]int32
 	cnsfvar             map[int32]float32
 	cnssysvar           map[int32]int32
@@ -3085,6 +3086,7 @@ func (c *Char) load(def string) error {
 	gi.constants["default.legacygamedistancespec"] = 0
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
+	gi.constants["input.fbflipdistance"] = -1
 
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
@@ -5280,6 +5282,31 @@ func (c *Char) autoTurn() {
 			}
 		}
 		c.setFacing(-c.facing)
+	}
+}
+
+// Flag if B and F directions should reverse, i.e. respectively use R and L
+// In Mugen this is hardcoded to be based on facing
+func (c *Char) updateFBFlip() {
+	threshold := c.gi().constants["input.fbflipdistance"]
+
+	if threshold >= 0 {
+		// See shouldFaceP2()
+		e := c.p2()
+		if e == nil {
+			e = c.p2EnemyBackup
+		}
+		if e != nil {
+			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+
+			if c.facing > 0 {
+				c.fbFlip = distX < -threshold
+			} else {
+				c.fbFlip = distX > -threshold
+			}
+		}
+	} else {
+		c.fbFlip = (c.facing < 0)
 	}
 }
 
@@ -10917,8 +10944,12 @@ func (cl *CharList) commandUpdate() {
 					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
 					c.autoTurn()
 				}
+
+				// Update Forward/Back flipping flag
+				c.updateFBFlip()
+
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, c.facing < 0, sys.aiLevel[i], c.inputFlag, false) {
+					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {

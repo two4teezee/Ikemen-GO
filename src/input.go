@@ -16,10 +16,10 @@ var ModCtrlAltShift = NewModifierKey(true, true, true)
 
 // CommandList > Command > CommandStep > CommandStepKey
 type CommandStepKey struct {
-	key    CommandKey
-	slash  bool
-	tilde  bool
-	dollar bool
+	key        CommandKey
+	slash      bool
+	tilde      bool
+	dollar     bool
 	chargetime int32
 }
 
@@ -319,12 +319,12 @@ func ControllerState(kc KeyConfig) [14]bool {
 	out[3] = getDir(0, +1, kc.dR)
 
 	// Buttons
-	out[4]  = getBtn(kc.kA)
-	out[5]  = getBtn(kc.kB)
-	out[6]  = getBtn(kc.kC)
-	out[7]  = getBtn(kc.kX)
-	out[8]  = getBtn(kc.kY)
-	out[9]  = getBtn(kc.kZ)
+	out[4] = getBtn(kc.kA)
+	out[5] = getBtn(kc.kB)
+	out[6] = getBtn(kc.kC)
+	out[7] = getBtn(kc.kX)
+	out[8] = getBtn(kc.kY)
+	out[9] = getBtn(kc.kZ)
 	out[10] = getBtn(kc.kS)
 	out[11] = getBtn(kc.kD)
 	out[12] = getBtn(kc.kW)
@@ -599,27 +599,27 @@ func (ir *InputReader) LocalInput(in int, script bool) [14]bool {
 		}
 	}
 
-/*
-	if in < len(sys.joystickConfig) {
-		joyS := sys.joystickConfig[in].Joy
-		if joyS >= 0 {
-			U = U || sys.joystickConfig[in].U() // Does not override keyboard
-			D = D || sys.joystickConfig[in].D()
-			L = L || sys.joystickConfig[in].L()
-			R = R || sys.joystickConfig[in].R()
-			a = a || sys.joystickConfig[in].a()
-			b = b || sys.joystickConfig[in].b()
-			c = c || sys.joystickConfig[in].c()
-			x = x || sys.joystickConfig[in].x()
-			y = y || sys.joystickConfig[in].y()
-			z = z || sys.joystickConfig[in].z()
-			s = s || sys.joystickConfig[in].s()
-			d = d || sys.joystickConfig[in].d()
-			w = w || sys.joystickConfig[in].w()
-			m = m || sys.joystickConfig[in].m()
+	/*
+		if in < len(sys.joystickConfig) {
+			joyS := sys.joystickConfig[in].Joy
+			if joyS >= 0 {
+				U = U || sys.joystickConfig[in].U() // Does not override keyboard
+				D = D || sys.joystickConfig[in].D()
+				L = L || sys.joystickConfig[in].L()
+				R = R || sys.joystickConfig[in].R()
+				a = a || sys.joystickConfig[in].a()
+				b = b || sys.joystickConfig[in].b()
+				c = c || sys.joystickConfig[in].c()
+				x = x || sys.joystickConfig[in].x()
+				y = y || sys.joystickConfig[in].y()
+				z = z || sys.joystickConfig[in].z()
+				s = s || sys.joystickConfig[in].s()
+				d = d || sys.joystickConfig[in].d()
+				w = w || sys.joystickConfig[in].w()
+				m = m || sys.joystickConfig[in].m()
+			}
 		}
-	}
-*/
+	*/
 
 	// Button assist is checked locally so that the sent inputs are already processed
 	if sys.cfg.Input.ButtonAssist {
@@ -2040,9 +2040,9 @@ func (ai *AiInput) m() bool { return ai.mt != 0 }
 // CommandStep refers to each of the steps required to complete a command
 // Each step can have multiple keys
 type CommandStep struct {
-	keys       []CommandStepKey
-	greater    bool
-	orLogic    bool
+	keys    []CommandStepKey
+	greater bool
+	orLogic bool
 }
 
 // Used to detect consecutive directions
@@ -2111,19 +2111,19 @@ func (cs CommandStep) EqualSteps(n CommandStep) bool {
 
 // Command refers to each individual command from the CMD file
 type Command struct {
-	name                   string
-	steps                  []CommandStep
-	maxtime, curtime       int32
-	maxbuftime, curbuftime int32
+	name                     string
+	steps                    []CommandStep
+	maxtime, curtime         int32
+	maxbuftime, curbuftime   int32
 	maxsteptime, cursteptime int32
-	autogreater            bool
-	buffer_hitpause        bool
-	buffer_pauseend        bool
-	buffer_shared          bool
-	completeframe          bool
-	completed              []bool
-	stepTimers             []int32
-	loopOrder              []int
+	autogreater              bool
+	buffer_hitpause          bool
+	buffer_pauseend          bool
+	buffer_shared            bool
+	completeframe            bool
+	completed                []bool
+	stepTimers               []int32
+	loopOrder                []int
 }
 
 func newCommand() *Command {
@@ -2341,16 +2341,26 @@ func (c *Command) ReadCommandSymbols(cmdstr string, kr *CommandKeyRemap) (err er
 				// Compile buttons according to remaps
 				var k CommandKey
 				switch c0 {
-				case 'a': k = kr.a
-				case 'b': k = kr.b
-				case 'c': k = kr.c
-				case 'x': k = kr.x
-				case 'y': k = kr.y
-				case 'z': k = kr.z
-				case 's': k = kr.s
-				case 'd': k = kr.d
-				case 'w': k = kr.w
-				case 'm': k = kr.m
+				case 'a':
+					k = kr.a
+				case 'b':
+					k = kr.b
+				case 'c':
+					k = kr.c
+				case 'x':
+					k = kr.x
+				case 'y':
+					k = kr.y
+				case 'z':
+					k = kr.z
+				case 's':
+					k = kr.s
+				case 'd':
+					k = kr.d
+				case 'w':
+					k = kr.w
+				case 'm':
+					k = kr.m
 				}
 				cs.keys = append(cs.keys, CommandStepKey{key: k, slash: slash, tilde: tilde, dollar: false, chargetime: chargetime})
 				nextChar()
@@ -2779,7 +2789,7 @@ func (cl *CommandList) Step(ai, isHelper, hpbuf, pausebuf bool, extratime int32)
 		for j := range cl.Commands[i] {
 			cl.Commands[i][j].Step(cl.Buffer, ai, isHelper, hpbuf, pausebuf, extratime)
 			if cl.Commands[i][j].completeframe {
-				cl.Commands[i][j].Clear(false) // Clear this specific command
+				cl.Commands[i][j].Clear(false)           // Clear this specific command
 				completed[cl.Commands[i][j].name] = true // Track completed names
 				cl.Commands[i][j].completeframe = false
 			}
@@ -2815,10 +2825,10 @@ func (cl *CommandList) Add(c Command) {
 
 	// We won't be needing this fix if the input refactor works out
 	/*
-	generatedCmd := autoGenerateExtendedCommand(&c)
-	if generatedCmd != nil {
-		cl.Commands[i] = append(cl.Commands[i], *generatedCmd)
-	}
+		generatedCmd := autoGenerateExtendedCommand(&c)
+		if generatedCmd != nil {
+			cl.Commands[i] = append(cl.Commands[i], *generatedCmd)
+		}
 	*/
 
 }

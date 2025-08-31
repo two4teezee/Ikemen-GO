@@ -2138,6 +2138,11 @@ func (s *System) fight() (reload bool) {
 		return s.rollback.fight(s)
 	}
 
+	if sys.netInput != nil {
+		s.clsnDraw = false
+		s.debugDraw = false
+	}
+
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}

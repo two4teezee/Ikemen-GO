@@ -507,6 +507,8 @@ function text:create(t)
 	t.window[2] = t.window[2] or 0
 	t.window[3] = t.window[3] or motif.info.localcoord[1]
 	t.window[4] = t.window[4] or motif.info.localcoord[2]
+	t.xshear = t.xshear or 0
+	t.angle = t.angle or 0
 	t.defsc = t.defsc or false
 	t.ti = textImgNew()
 	setmetatable(t, self)
@@ -530,6 +532,8 @@ function text:create(t)
 	textImgSetPos(t.ti, t.x + main.f_alignOffset(t.align), t.y)
 	textImgSetScale(t.ti, t.scaleX, t.scaleY)
 	textImgSetWindow(t.ti, t.window[1], t.window[2], t.window[3] - t.window[1], t.window[4] - t.window[2])
+	textImgSetXShear(t.ti, t.xshear)
+	textImgSetAngle(t.ti, t.angle)
 	if t.defsc then main.f_setLuaScale() end
 	return t
 end
@@ -581,6 +585,8 @@ function text:update(t)
 		textImgSetPos(self.ti, self.x + main.f_alignOffset(self.align), self.y)
 		textImgSetScale(self.ti, self.scaleX, self.scaleY)
 		textImgSetWindow(self.ti, self.window[1], self.window[2], self.window[3] - self.window[1], self.window[4] - self.window[2])
+		textImgSetXShear(self.ti, self.xshear)
+		textImgSetAngle(self.ti, self.angle)
 		if self.defsc then main.f_setLuaScale() end
 	else
 		self.text = t
@@ -722,6 +728,8 @@ function main.f_createTextImg(t, prefix, mod)
 		g =      t[prefix .. '_font'][5],
 		b =      t[prefix .. '_font'][6],
 		height = t[prefix .. '_font'][7],
+		xshear = t[prefix .. '_xshear'] or 0,
+		angle  = t[prefix .. '_angle'] or 0,
 		window = t[prefix .. '_window'],
 		defsc = mod.defsc or false,
 	})
@@ -3965,6 +3973,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_selected_active_font[5],
 						b =      motif[section].menu_item_selected_active_font[6],
 						height = motif[section].menu_item_selected_active_font[7],
+						xshear = motif[section].menu_item_selected_active_xshear,
+						angle  = motif[section].menu_item_selected_active_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -3982,6 +3992,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_active_font[5],
 						b =      motif[section].menu_item_active_font[6],
 						height = motif[section].menu_item_active_font[7],
+						xshear = motif[section].menu_item_active_xshear,
+						angle  = motif[section].menu_item_active_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -4000,6 +4012,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_value_active_font[5],
 						b =      motif[section].menu_item_value_active_font[6],
 						height = motif[section].menu_item_value_active_font[7],
+						xshear = motif[section].menu_item_value_active_xshear,
+						angle  = motif[section].menu_item_value_active_angle,
 						defsc =  defsc,
 					})
 					t[i].vardata:draw()
@@ -4025,6 +4039,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_selected_font[5],
 						b =      motif[section].menu_item_selected_font[6],
 						height = motif[section].menu_item_selected_font[7],
+						xshear = motif[section].menu_item_selected_xshear,
+						angle  = motif[section].menu_item_selected_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -4042,6 +4058,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_font[5],
 						b =      motif[section].menu_item_font[6],
 						height = motif[section].menu_item_font[7],
+						xshear = motif[section].menu_item_xshear,
+						angle  = motif[section].menu_item_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -4060,6 +4078,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_value_font[5],
 						b =      motif[section].menu_item_value_font[6],
 						height = motif[section].menu_item_value_font[7],
+						xshear = motif[section].menu_item_value_xshear,
+						angle  = motif[section].menu_item_value_angle,
 						defsc =  defsc,
 					})
 					t[i].vardata:draw()

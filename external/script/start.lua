@@ -2363,6 +2363,8 @@ function start.f_selectScreen()
 							g =      motif.select_info['p' .. side .. '_name_font'][5],
 							b =      motif.select_info['p' .. side .. '_name_font'][6],
 							height = motif.select_info['p' .. side .. '_name_font'][7],
+							xshear = motif.select_info['p' .. side .. '_name_xshear'],
+							angle  = motif.select_info['p' .. side .. '_name_angle'],
 						})
 						t_txt_name[side]:draw()
 					end
@@ -2434,6 +2436,8 @@ function start.f_selectScreen()
 						g =      motif.select_info[stageActiveType .. '_font'][5],
 						b =      motif.select_info[stageActiveType .. '_font'][6],
 						height = motif.select_info[stageActiveType .. '_font'][7],
+						xshear = motif.select_info[stageActiveType .. '_xshear'],
+						angle  = motif.select_info[stageActiveType .. '_angle'],
 					})
 					txt_selStage:draw()
 				end
@@ -2630,6 +2634,8 @@ function start.f_teamMenu(side, t)
 					g =      motif.select_info[t_teamActiveType[side] .. '_font'][5],
 					b =      motif.select_info[t_teamActiveType[side] .. '_font'][6],
 					height = motif.select_info[t_teamActiveType[side] .. '_font'][7],
+					xshear = motif.select_info[t_teamActiveType[side] .. '_xshear'],
+					angle  = motif.select_info[t_teamActiveType[side] .. '_angle'],
 				})
 				t[i].data:draw()
 			else
@@ -2649,6 +2655,8 @@ function start.f_teamMenu(side, t)
 					g =      motif.select_info['p' .. side .. '_teammenu_item_font'][5],
 					b =      motif.select_info['p' .. side .. '_teammenu_item_font'][6],
 					height = motif.select_info['p' .. side .. '_teammenu_item_font'][7],
+					xshear = motif.select_info['p' .. side .. '_teammenu_item_xshear'],
+					angle  = motif.select_info['p' .. side .. '_teammenu_item_angle'],
 				})
 				t[i].data:draw()
 			end
@@ -3142,6 +3150,8 @@ function start.f_selectVersus(active, t_orderSelect)
 						g =      motif.vs_screen['p' .. side .. '_name_font'][5],
 						b =      motif.vs_screen['p' .. side .. '_name_font'][6],
 						height = motif.vs_screen['p' .. side .. '_name_font'][7],
+						xshear = motif.vs_screen['p' .. side .. '_name_xshear'],
+						angle  = motif.vs_screen['p' .. side .. '_name_angle'],
 					})
 					t_txt_nameVS[side]:draw()
 				end
@@ -3875,6 +3885,8 @@ function start.f_continue()
 				g =      motif.continue_screen[var .. '_font'][5],
 				b =      motif.continue_screen[var .. '_font'][6],
 				height = motif.continue_screen[var .. '_font'][7],
+				xshear = motif.continue_screen[var .. '_xshear'],
+				angle  = motif.continue_screen[var .. '_angle'],
 			})
 			txt:draw()
 		end

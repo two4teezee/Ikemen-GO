@@ -2889,6 +2889,22 @@ func systemScriptInit(l *lua.LState) {
 			float32(numArg(l, 4))/sys.luaSpriteScale, float32(numArg(l, 5))/sys.luaSpriteScale)
 		return 0
 	})
+	luaRegister(l, "textImgSetXShear", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.xshear = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "textImgSetAngle", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.angle = float32(numArg(l, 2))
+		return 0
+	})
 	luaRegister(l, "toggleClsnDisplay", func(*lua.LState) int {
 		if !sys.cfg.Debug.AllowDebugMode {
 			return 0

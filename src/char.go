@@ -2604,6 +2604,7 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
+	fbFlip              bool
 	cnsvar              map[int32]int32
 	cnsfvar             map[int32]float32
 	cnssysvar           map[int32]int32
@@ -3085,6 +3086,7 @@ func (c *Char) load(def string) error {
 	gi.constants["default.legacygamedistancespec"] = 0
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
+	gi.constants["input.fbflipdistance"] = -1
 
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
@@ -4258,9 +4260,9 @@ func (c *Char) command(pn, i int) bool {
 		}
 	}
 	// AI cheating for commands longer than 1 button
+	// Maybe it could just cheat all of them and skip these checks
 	if c.controller < 0 && len(cl) > 0 {
-		if c.helperIndex != 0 || len(cl[0].cmd) > 1 || len(cl[0].cmd[0].key) > 1 ||
-			int(Btoi(cl[0].cmd[0].slash)) != len(cl[0].hold) {
+		if c.helperIndex != 0 || len(cl[0].steps) > 1 || len(cl[0].steps[0].keys) > 1 { // || int(Btoi(cl[0].cmd[0].slash)) != len(cl[0].hold) {
 			if i == int(c.cpucmd) {
 				return true
 			}
@@ -4298,12 +4300,13 @@ func (c *Char) assertCommand(name string, time int32) {
 		}
 	}
 
-	ok := false
 	// Assert the command in every command list
+	found := false
 	for i := range c.cmd {
-		ok = c.cmd[i].Assert(name, time) || ok
+		found = c.cmd[i].Assert(name, time) || found
 	}
-	if !ok {
+
+	if !found {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to assert an invalid command: %s", name))
 	}
 }
@@ -5279,6 +5282,31 @@ func (c *Char) autoTurn() {
 			}
 		}
 		c.setFacing(-c.facing)
+	}
+}
+
+// Flag if B and F directions should reverse, i.e. respectively use R and L
+// In Mugen this is hardcoded to be based on facing
+func (c *Char) updateFBFlip() {
+	threshold := c.gi().constants["input.fbflipdistance"]
+
+	if threshold >= 0 {
+		// See shouldFaceP2()
+		e := c.p2()
+		if e == nil {
+			e = c.p2EnemyBackup
+		}
+		if e != nil {
+			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+
+			if c.facing > 0 {
+				c.fbFlip = distX < -threshold
+			} else {
+				c.fbFlip = distX > -threshold
+			}
+		}
+	} else {
+		c.fbFlip = (c.facing < 0)
 	}
 }
 
@@ -9640,9 +9668,9 @@ func (c *Char) actionPrepare() {
 			// In Mugen, characters can perform basic actions even if they are KO
 			if !c.asf(ASF_nohardcodedkeys) {
 				if c.ctrl() {
-					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.B > 0 {
+					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "") // Start guarding
-					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.U > 0 &&
+					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.Ub > 0 &&
 						(!(sys.intro < 0 && sys.intro > -sys.lifebar.ro.over_waittime) || c.asf(ASF_postroundinput)) {
 						if c.ss.no != 40 {
 							c.changeState(40, -1, -1, "") // Jump
@@ -9654,19 +9682,19 @@ func (c *Char) actionPrepare() {
 							c.airJumpCount++
 							c.changeState(45, -1, -1, "") // Air jump
 						}
-					} else if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.D > 0 {
+					} else if !c.asf(ASF_nocrouch) && c.ss.stateType == ST_S && c.cmd[0].Buffer.Db > 0 {
 						if c.ss.no != 10 {
 							if c.ss.no != 100 {
 								c.vel[0] = 0
 							}
 							c.changeState(10, -1, -1, "") // Stand to crouch
 						}
-					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.D < 0 {
+					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.Db < 0 {
 						if c.ss.no != 12 {
 							c.changeState(12, -1, -1, "") // Crouch to stand
 						}
 					} else if !c.asf(ASF_nowalk) && c.ss.stateType == ST_S &&
-						(c.cmd[0].Buffer.F > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.B > 0)) {
+						(c.cmd[0].Buffer.Fb > 0 != ((!c.inguarddist || c.prevNoStandGuard) && c.cmd[0].Buffer.Bb > 0)) {
 						if c.ss.no != 20 {
 							c.changeState(20, -1, -1, "") // Walk
 						}
@@ -9674,7 +9702,7 @@ func (c *Char) actionPrepare() {
 				}
 				// Braking is special in that it does not require ctrl
 				if !c.asf(ASF_nobrake) && c.ss.no == 20 &&
-					(c.cmd[0].Buffer.B > 0) == (c.cmd[0].Buffer.F > 0) {
+					(c.cmd[0].Buffer.Bb > 0) == (c.cmd[0].Buffer.Fb > 0) {
 					c.changeState(0, -1, -1, "")
 				}
 				// At least one character has been found where forcing them to stand up when crouching without ctrl will break them
@@ -9822,7 +9850,7 @@ func (c *Char) actionRun() {
 	c.unsetSCF(SCF_guard)
 	if ((c.scf(SCF_ctrl) || c.ss.no == 52) &&
 		c.ss.moveType == MT_I || c.inGuardState()) && c.cmd != nil &&
-		(c.cmd[0].Buffer.B > 0 || c.asf(ASF_autoguard)) &&
+		(c.cmd[0].Buffer.Bb > 0 || c.asf(ASF_autoguard)) &&
 		(c.ss.stateType == ST_S && !c.asf(ASF_nostandguard) ||
 			c.ss.stateType == ST_C && !c.asf(ASF_nocrouchguard) ||
 			c.ss.stateType == ST_A && !c.asf(ASF_noairguard)) {
@@ -9832,7 +9860,7 @@ func (c *Char) actionRun() {
 		if c.keyctrl[0] && c.cmd != nil {
 			if c.ctrl() && (c.controller >= 0 || c.helperIndex == 0) {
 				if !c.asf(ASF_nohardcodedkeys) {
-					if c.inguarddist && c.scf(SCF_guard) && !c.inGuardState() && c.cmd[0].Buffer.B > 0 {
+					if c.inguarddist && c.scf(SCF_guard) && !c.inGuardState() && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "")
 						// In Mugen the characters *can* change to the guarding states during pauses
 						// They can still block in Ikemen despite not changing state here
@@ -10916,8 +10944,12 @@ func (cl *CharList) commandUpdate() {
 					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
 					c.autoTurn()
 				}
+
+				// Update Forward/Back flipping flag
+				c.updateFBFlip()
+
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, c.facing, sys.aiLevel[i], c.inputFlag, false) {
+					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {

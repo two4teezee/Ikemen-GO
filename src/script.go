@@ -775,15 +775,22 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		cm, err := ReadCommand(strArg(l, 2), strArg(l, 3), NewCommandKeyRemap())
-		if err != nil {
+
+		name := strArg(l, 2)
+		cmdstr := strArg(l, 3)
+
+		cm := newCommand()
+		cm.name = name
+		if err := cm.ReadCommandSymbols(cmdstr, NewCommandKeyRemap()); err != nil {
 			l.RaiseError(err.Error())
 		}
+
 		time := cl.DefaultTime
 		buftime := cl.DefaultBufferTime
 		buffer_hitpause := cl.DefaultBufferHitpause
 		buffer_pauseend := cl.DefaultBufferPauseEnd
-		keytime := cl.DefaultKeyTime
+		steptime := cl.DefaultStepTime
+
 		if !nilArg(l, 4) {
 			time = int32(numArg(l, 4))
 		}
@@ -797,13 +804,15 @@ func systemScriptInit(l *lua.LState) {
 			buffer_pauseend = boolArg(l, 7)
 		}
 		if !nilArg(l, 8) {
-			keytime = int32(numArg(l, 8))
+			steptime = int32(numArg(l, 8))
 		}
+
 		cm.maxtime = time
 		cm.maxbuftime = buftime
 		cm.buffer_hitpause = buffer_hitpause
 		cm.buffer_pauseend = buffer_pauseend
-		cm.maxkeytime = keytime
+		cm.maxsteptime = steptime
+
 		cl.Add(*cm)
 		return 0
 	})
@@ -828,7 +837,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.InputUpdate(int(numArg(l, 2))-1, 1, 0, 0, true) {
+		if cl.InputUpdate(int(numArg(l, 2))-1, false, 0, 0, true) {
 			cl.Step(false, false, false, false, 0)
 		}
 		return 0

@@ -611,6 +611,7 @@ func (s *System) synchronize() error {
 	return nil
 }
 
+/*
 func (s *System) anyHardButton() bool {
 	for _, kc := range s.keyConfig {
 		if kc.a() || kc.b() || kc.c() || kc.x() || kc.y() || kc.z() {
@@ -622,6 +623,35 @@ func (s *System) anyHardButton() bool {
 			return true
 		}
 	}
+	return false
+}
+*/
+
+// Joysticks were already refactored to be polled less times, but having these functions still makes them be polled twice as often during intros/outros
+// We're already polling them about 10 times less so that should be enough anyway
+// In Mugen, intro/outro skipping only happens on button press, not button hold
+func (s *System) anyHardButton() bool {
+	// Button indices for a, b, c, x, y, z
+	hardButtonIdx := []int{4, 5, 6, 7, 8, 9}
+
+	for _, kc := range s.keyConfig {
+		buttons := ControllerState(kc)
+		for _, idx := range hardButtonIdx {
+			if buttons[idx] {
+				return true
+			}
+		}
+	}
+
+	for _, kc := range s.joystickConfig {
+		buttons := ControllerState(kc)
+		for _, idx := range hardButtonIdx {
+			if buttons[idx] {
+				return true
+			}
+		}
+	}
+
 	return false
 }
 

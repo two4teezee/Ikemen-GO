@@ -785,7 +785,11 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netInput.IsConnected() || sys.rollback.session.IsConnected()))
+		if sys.cfg.Netplay.RollbackNetcode {
+			l.Push(lua.LBool(sys.netInput.IsConnected() || sys.rollback.session.IsConnected()))
+		} else {
+			l.Push(lua.LBool(sys.netInput.IsConnected()))
+		}
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -809,10 +813,19 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.chars = [len(sys.chars)][]*Char{}
 		sys.netInput = NewNetInput()
-		rs := NewRollbackSesesion(sys.cfg.Netplay.Rollback)
-		sys.rollback.session = &rs
+
+		//Rollback only
+		if sys.cfg.Netplay.RollbackNetcode {
+			rs := NewRollbackSesesion(sys.cfg.Netplay.Rollback)
+			sys.rollback.session = &rs
+		}
+
 		if host := strArg(l, 1); host != "" {
-			sys.rollback.session.host = host
+			//Rollback only
+			if sys.cfg.Netplay.RollbackNetcode {
+				sys.rollback.session.host = host
+			}
+
 			sys.netInput.Connect(host, sys.cfg.Netplay.ListenPort)
 		} else {
 			if err := sys.netInput.Accept(sys.cfg.Netplay.ListenPort); err != nil {
@@ -838,9 +851,11 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "exitNetPlay", func(*lua.LState) int {
-		if sys.rollback.session != nil {
-			sys.rollback.session.Close()
-			sys.rollback.session = nil
+		if sys.cfg.Netplay.RollbackNetcode {
+			if sys.rollback.session != nil {
+				sys.rollback.session.Close()
+				sys.rollback.session = nil
+			}
 		}
 		if sys.netInput != nil {
 			sys.netInput.Close()
@@ -2120,9 +2135,16 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
-		if sys.rollback.session != nil && sys.rollback.session.rep != nil {
-			sys.rollback.session.rep.Close()
-			sys.rollback.session.rep = nil
+		if sys.cfg.Netplay.RollbackNetcode {
+			if sys.rollback.session != nil && sys.rollback.session.rep != nil {
+				sys.rollback.session.rep.Close()
+				sys.rollback.session.rep = nil
+			}
+		} else {
+			if sys.netInput != nil && sys.netInput.rep != nil {
+				sys.netInput.rep.Close()
+				sys.netInput.rep = nil
+			}
 		}
 		return 0
 	})

@@ -641,6 +641,7 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 
 	// Neutral resolution is enforced during netplay
 	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
+	// TODO: Figure out how to make local options work online
 	if sys.netConnection != nil || sys.replayFile != nil {
 		method = 4
 	}
@@ -2657,7 +2658,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
-func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32, ibit InputBits, script bool) bool {
+func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32, ibit InputBits, shifting [][2]int, script bool) bool {
 	if cl.Buffer == nil {
 		return false
 	}
@@ -2716,6 +2717,41 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 		d = d || ibit&IB_D != 0
 		w = w || ibit&IB_W != 0
 		m = m || ibit&IB_M != 0
+	}
+
+	// Apply ShiftInput
+	if shifting != nil {
+		// Collect current input states and prepare remap states
+		inputs := []bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
+		output := make([]bool, len(inputs))
+
+		// Use a map for fast lookup
+		swapMap := make(map[int]int)
+		for _, pair := range shifting {
+			src, dst := pair[0], pair[1]
+			swapMap[src] = dst
+		}
+
+		// Apply remapping logic to active keys
+		for i, active := range inputs {
+			if !active {
+				continue
+			}
+			// If current key has a remap, use it
+			if dst, ok := swapMap[i]; ok {
+				if dst >= 0 && dst < len(output) {
+					output[dst] = true // Apply remap to output
+				}
+				// Negative dest disables input, so do nothing
+			} else {
+				output[i] = true // No remap, retain original input
+			}
+		}
+
+		// Assign back to input variables
+		U, D, L, R = output[0], output[1], output[2], output[3]
+		a, b, c, x, y, z = output[4], output[5], output[6], output[7], output[8], output[9]
+		s, d, w, m = output[10], output[11], output[12], output[13]
 	}
 
 	// Get B and F from L and R for SOCD resolution

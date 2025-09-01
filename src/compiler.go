@@ -153,8 +153,11 @@ func newCompiler() *Compiler {
 		"modifyhitdef":         c.modifyHitDef,
 		"modifyplayer":         c.modifyPlayer,
 		"modifyprojectile":     c.modifyProjectile,
+		"modifyreflection":     c.modifyReflection,
 		"modifyreversaldef":    c.modifyReversalDef,
+		"modifyshadow":         c.modifyShadow,
 		"modifysnd":            c.modifySnd,
+		"modifystagebg":        c.modifyStageBG,
 		"modifystagevar":       c.modifyStageVar,
 		"parentmapadd":         c.parentMapAdd,
 		"parentmapset":         c.parentMapSet,
@@ -171,8 +174,7 @@ func newCompiler() *Compiler {
 		"roundtimeset":         c.roundTimeSet,
 		"savefile":             c.saveFile,
 		"scoreadd":             c.scoreAdd,
-		"modifyshadow":         c.modifyShadow,
-		"modifyreflection":     c.modifyReflection,
+		"shiftinput":           c.shiftInput,
 		"tagin":                c.tagIn,
 		"tagout":               c.tagOut,
 		"targetadd":            c.targetAdd,
@@ -185,7 +187,6 @@ func newCompiler() *Compiler {
 		"text":                 c.text,
 		"transformclsn":        c.transformClsn,
 		"transformsprite":      c.transformSprite,
-		"modifystagebg":        c.modifyStageBG,
 	}
 	return c
 }

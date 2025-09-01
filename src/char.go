@@ -2640,6 +2640,7 @@ type Char struct {
 	kovelocity        bool
 	preserve          int32
 	inputFlag         InputBits
+	inputShift        [][2]int
 	pauseBool         bool
 	downHitOffset     bool
 	koEchoTimer       int32
@@ -3086,7 +3087,7 @@ func (c *Char) load(def string) error {
 	gi.constants["default.legacygamedistancespec"] = 0
 	gi.constants["default.ignoredefeatedenemies"] = 1
 	gi.constants["input.pauseonhitpause"] = 1
-	gi.constants["input.fbflipdistance"] = -1
+	gi.constants["input.fbflipenemydistance"] = -1
 
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
@@ -5288,9 +5289,9 @@ func (c *Char) autoTurn() {
 // Flag if B and F directions should reverse, i.e. respectively use R and L
 // In Mugen this is hardcoded to be based on facing
 func (c *Char) updateFBFlip() {
-	threshold := c.gi().constants["input.fbflipdistance"]
+	setting := c.gi().constants["input.fbflipenemydistance"]
 
-	if threshold >= 0 {
+	if setting >= 0 {
 		// See shouldFaceP2()
 		e := c.p2()
 		if e == nil {
@@ -5300,9 +5301,9 @@ func (c *Char) updateFBFlip() {
 			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
 
 			if c.facing > 0 {
-				c.fbFlip = distX < -threshold
+				c.fbFlip = distX < -setting
 			} else {
-				c.fbFlip = distX > -threshold
+				c.fbFlip = distX > -setting
 			}
 		}
 	} else {
@@ -9713,7 +9714,6 @@ func (c *Char) actionPrepare() {
 		}
 		if !c.hitPause() {
 			c.specialFlag = 0
-			c.inputFlag = 0
 			c.setCSF(CSF_stagebound)
 			if c.playerFlag {
 				if c.alive() || c.ss.no != 5150 || c.numPartner() == 0 {
@@ -9753,6 +9753,9 @@ func (c *Char) actionPrepare() {
 				c.pauseMovetime--
 			}
 		}
+		// Reset input modifiers
+		c.inputFlag = 0
+		c.inputShift = c.inputShift[:0]
 		// This AssertSpecial flag is special in that it must always reset regardless of hitpause
 		c.unsetASF(ASF_animatehitpause)
 		// The flags in this block are to be reset even during hitpause
@@ -10949,7 +10952,7 @@ func (cl *CharList) commandUpdate() {
 				c.updateFBFlip()
 
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false) {
+					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, c.inputShift, false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {

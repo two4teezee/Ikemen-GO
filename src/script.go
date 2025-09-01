@@ -837,7 +837,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.InputUpdate(int(numArg(l, 2))-1, false, 0, 0, true) {
+		if cl.InputUpdate(int(numArg(l, 2))-1, false, 0, 0, nil, true) {
 			cl.Step(false, false, false, false, 0)
 		}
 		return 0

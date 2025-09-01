@@ -613,7 +613,7 @@ func (s *System) render() {
 		}
 	}
 	// Render debug elements
-	if !s.frameSkip && s.debugDraw {
+	if !s.frameSkip && s.debugDisplay {
 		s.drawDebugText()
 	}
 }

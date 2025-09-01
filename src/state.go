@@ -58,7 +58,7 @@ func (cs Char) String() string {
 		cs.localscl, cs.pos, cs.interPos, cs.oldPos, cs.vel, cs.facing,
 		cs.id, cs.helperId, cs.helperIndex, cs.parentIndex, cs.playerNo,
 		cs.teamside, cs.animPN, cs.animNo, cs.lifeMax, cs.powerMax, cs.dizzyPoints,
-		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoIdx, cs.mctime, cs.targets, cs.hitdefTargetsBuffer,
+		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargetsBuffer,
 		cs.atktmp, cs.hittmp, cs.acttmp, cs.minus, cs.groundAngle, cs.inheritJuggle,
 		cs.preserve, cs.ivar, cs.fvar, cs.offset)
 	return str
@@ -296,7 +296,7 @@ func (gs *GameState) LoadState(stateID int) {
 	gs.loadSuperData(a, gsp)
 	gs.loadPalFX(a)
 	gs.loadProjectileData(a, gsp)
-	sys.com = gs.com
+	sys.aiLevel = gs.com
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
 	sys.specialFlag = gs.specialFlag
@@ -334,12 +334,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.waitdown = gs.waitdown
 	sys.slowtime = gs.slowtime
 
-	// This causes flicking when rolled back during desync testing.
-	if sys.rollback.session != nil && !sys.rollback.session.config.DesyncTest {
-		sys.fadeintime = gs.fadeintime
-		sys.fadeouttime = gs.fadeouttime
-	}
-	sys.shuttertime = gs.shuttertime
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
@@ -360,7 +354,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.changeStateNest = gs.changeStateNest
 
 	sys.accel = gs.accel
-	sys.clsnDraw = gs.clsnDraw
+	sys.clsnDisplay = gs.clsnDraw
 
 	// Things that directly or indirectly get put into CGO can't go into arenas
 	sys.workpal = make([]uint32, len(gs.workpal)) //arena.MakeSlice[uint32](a, len(gs.workpal), len(gs.workpal))
@@ -526,7 +520,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.savePalFX(a)
 	gs.saveProjectileData(a, gsp)
 
-	gs.com = sys.com
+	gs.com = sys.aiLevel
 	gs.envShake = sys.envShake
 	gs.envcol_time = sys.envcol_time
 	gs.specialFlag = sys.specialFlag
@@ -562,9 +556,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.lastHitter = sys.lastHitter
 	gs.waitdown = sys.waitdown
 	gs.slowtime = sys.slowtime
-	gs.shuttertime = sys.shuttertime
-	gs.fadeintime = sys.fadeintime
-	gs.fadeouttime = sys.fadeouttime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
 	gs.Time = sys.time
@@ -584,8 +575,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.changeStateNest = sys.changeStateNest
 
 	gs.accel = sys.accel
-	gs.clsnDraw = sys.clsnDraw
-	gs.statusDraw = sys.statusDraw
+	gs.clsnDraw = sys.clsnDisplay
+	gs.statusDraw = sys.debugDisplay
 
 	// Things that directly or indirectly get put into CGO can't go into arenas
 	gs.workpal = make([]uint32, len(sys.workpal)) //arena.MakeSlice[uint32](a, len(sys.workpal), len(sys.workpal))

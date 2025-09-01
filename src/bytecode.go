@@ -949,6 +949,13 @@ const (
 	OC_ex2_xshear
 )
 
+const (
+	NumVar     = 60
+	NumSysVar  = 5
+	NumFvar    = 40
+	NumSysFvar = 5
+)
+
 type StringPool struct {
 	List []string
 	Map  map[string]int

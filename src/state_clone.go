@@ -112,11 +112,10 @@ func (a *Animation) Clone(ar *arena.Arena, gsp *GameStatePool) (result *Animatio
 func (af *AnimFrame) Clone(a *arena.Arena) (result *AnimFrame) {
 	result = arena.New[AnimFrame](a)
 	*result = *af
-	result.Clsn = arena.MakeSlice[[]float32](a, len(af.Clsn), len(af.Clsn))
-	for i := 0; i < len(af.Clsn); i++ {
-		result.Clsn[i] = arena.MakeSlice[float32](a, len(af.Clsn[i]), len(af.Clsn[i]))
-		copy(result.Clsn[i], af.Clsn[i])
-	}
+	result.Clsn1 = arena.MakeSlice[[4]float32](a, len(af.Clsn1), len(af.Clsn1))
+	copy(result.Clsn1, af.Clsn1)
+	result.Clsn2 = arena.MakeSlice[[4]float32](a, len(af.Clsn2), len(af.Clsn2))
+	copy(result.Clsn2, af.Clsn2)
 	return
 }
 
@@ -172,8 +171,8 @@ func (ghv *GetHitVar) Clone(a *arena.Arena) (result *GetHitVar) {
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
-	result.hitBy = arena.MakeSlice[[2]int32](a, len(ghv.hitBy), len(ghv.hitBy))
-	copy(result.hitBy, ghv.hitBy)
+	result.targetedBy = arena.MakeSlice[[2]int32](a, len(ghv.targetedBy), len(ghv.targetedBy))
+	copy(result.targetedBy, ghv.targetedBy)
 
 	return
 }
@@ -308,7 +307,7 @@ func (pf PalFX) Clone(a *arena.Arena) (result PalFX) {
 	return
 }
 
-func (ce *cmdElem) Clone(a *arena.Arena) (result cmdElem) {
+func (ce *CommandStep) Clone(a *arena.Arena) (result CommandStep) {
 	result = *ce
 	result.key = arena.MakeSlice[CommandKey](a, len(ce.key), len(ce.key))
 	copy(result.key, ce.key)
@@ -318,9 +317,9 @@ func (ce *cmdElem) Clone(a *arena.Arena) (result cmdElem) {
 func (c *Command) clone(a *arena.Arena) (result Command) {
 	result = *c
 
-	result.cmd = arena.MakeSlice[cmdElem](a, len(c.cmd), len(c.cmd))
-	for i := 0; i < len(c.cmd); i++ {
-		result.cmd[i] = c.cmd[i].Clone(a)
+	result.steps = arena.MakeSlice[CommandStep](a, len(c.steps), len(c.steps))
+	for i := 0; i < len(c.steps); i++ {
+		result.steps[i] = c.steps[i].Clone(a)
 	}
 
 	result.held = arena.MakeSlice[bool](a, len(c.held), len(c.held))

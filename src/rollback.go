@@ -14,7 +14,6 @@ type RollbackSystem struct {
 	currentFight Fight
 	active       bool
 	netInput     *NetInput
-	inputs       []InputBits
 }
 
 type RollbackProperties struct {
@@ -116,7 +115,8 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		}
 
 		s.render()
-		running = s.update()
+		frameTime := rs.session.loopTimer.usToWaitThisLoop()
+		running = rs.update(s, frameTime)
 
 		if !running {
 			break
@@ -144,8 +144,9 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		if !running {
 			break
 		}
-		s.render()
-		running = s.update()
+		rs.render(s)
+		frameTime := rs.session.loopTimer.usToWaitThisLoop()
+		running = rs.update(s, frameTime)
 
 		if !running {
 			break
@@ -173,82 +174,6 @@ func (rs *RollbackSystem) fight(s *System) bool {
 }
 
 func (rs *RollbackSystem) runFrame(s *System) bool {
-	result := rs.synchronizeInputs()
-
-	if result {
-
-		s.step = false
-		//rs.runShortcutScripts(s)
-
-		// If next round
-		if !rs.runNextRound(s) {
-			return false
-		}
-
-		s.bgPalFX.step()
-		s.stage.action()
-
-		// If frame is ready to tick and not paused
-		//rs.updateStage(s)
-
-		//for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
-		//	myChar := sys.chars[rs.session.currentPlayerHandle][0]
-		//	sys.commandLists[i].Input(myChar.controller, int32(myChar.facing), 0, inputs[i], false)
-		//	sys.commandLists[i].Step(int32(myChar.facing), false, false, 0)
-		//}
-
-		// Update game state
-		s.action()
-
-		// if rs.handleFlags(s) {
-		// 	return true
-		// }
-
-		if !rs.updateEvents(s) {
-			return false
-		}
-
-		// Break if finished
-		if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
-			return false
-		}
-
-		// Update system; break if update returns false (game ended)
-		//if !s.update() {
-		//	return false
-		//}
-
-		// If end match selected from menu/end of attract mode match/etc
-		if s.endMatch {
-			s.esc = true
-			return false
-		} else if s.esc {
-			s.endMatch = s.netInput != nil || len(s.cfg.Common.Lua) == 0
-			return false
-		}
-
-		defer func() {
-			if re := recover(); re != nil {
-				if rs.session.config.DesyncTest {
-					rs.session.log.updateLogs()
-					rs.session.log.saveLogs()
-					panic("RaiseDesyncError")
-				}
-			}
-		}()
-
-		err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
-		if err != nil {
-			panic(err)
-		}
-
-	}
-
-	return true
-
-}
-
-func (rs *RollbackSystem) synchronizeInputs() bool {
 	var buffer []byte
 	var result error
 	if rs.session.syncTest && rs.session.netTime == 0 {
@@ -276,13 +201,80 @@ func (rs *RollbackSystem) synchronizeInputs() bool {
 		if rs.session.rep != nil {
 			rs.session.SetInput(rs.session.netTime, 0, inputs[0])
 			rs.session.SetInput(rs.session.netTime, 1, inputs[1])
-			rs.inputs = inputs
 			rs.session.netTime++
 		}
-		return result == nil
-	} else {
-		return false
+
+		if result == nil {
+
+			s.step = false
+			//rs.runShortcutScripts(s)
+
+			// If next round
+			if !rs.runNextRound(s) {
+				return false
+			}
+
+			s.bgPalFX.step()
+			s.stage.action()
+
+			// If frame is ready to tick and not paused
+			//rs.updateStage(s)
+
+			//for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
+			//	myChar := sys.chars[rs.session.currentPlayerHandle][0]
+			//	sys.commandLists[i].Input(myChar.controller, int32(myChar.facing), 0, inputs[i], false)
+			//	sys.commandLists[i].Step(int32(myChar.facing), false, false, 0)
+			//}
+
+			// Update game state
+			rs.action(s, inputs)
+
+			// if rs.handleFlags(s) {
+			// 	return true
+			// }
+
+			if !rs.updateEvents(s) {
+				return false
+			}
+
+			// Break if finished
+			if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
+				return false
+			}
+
+			// Update system; break if update returns false (game ended)
+			//if !s.update() {
+			//	return false
+			//}
+
+			// If end match selected from menu/end of attract mode match/etc
+			if s.endMatch {
+				s.esc = true
+				return false
+			} else if s.esc {
+				s.endMatch = s.netInput != nil || len(s.cfg.Common.Lua) == 0
+				return false
+			}
+
+			defer func() {
+				if re := recover(); re != nil {
+					if rs.session.config.DesyncTest {
+						rs.session.log.updateLogs()
+						rs.session.log.saveLogs()
+						panic("RaiseDesyncError")
+					}
+				}
+			}()
+
+			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
+			if err != nil {
+				panic(err)
+			}
+
+		}
 	}
+	return true
+
 }
 
 func (rs *RollbackSystem) runShortcutScripts(s *System) {

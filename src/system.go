@@ -690,9 +690,6 @@ func (s *System) anyButton() bool {
 	if s.fileInput != nil {
 		return s.fileInput.AnyButton()
 	}
-	if s.rollback.session != nil || s.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		return s.rollback.session.AnyButton(s, s.rollback.inputs)
-	}
 	if s.netInput != nil {
 		return s.netInput.AnyButton()
 	}
@@ -1690,11 +1687,7 @@ func (s *System) action() {
 		if s.superanim != nil {
 			s.superanim.Action()
 		}
-		if s.rollback.session != nil || s.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-			s.rollback.rollbackAction(s, &s.charList, s.rollback.inputs)
-		} else {
-			s.charList.action()
-		}
+		s.charList.action()
 		s.nomusic = s.gsf(GSF_nomusic) && !sys.postMatchFlg
 	}
 
@@ -2138,14 +2131,13 @@ func (s *System) fight() (reload bool) {
 		return s.rollback.fight(s)
 	}
 
+	// Reset variables
+	s.gameTime, s.paused, s.accel = 0, false, 1
+	s.aiInput = [len(s.aiInput)]AiInput{}
 	if sys.netInput != nil {
 		s.clsnDraw = false
 		s.debugDraw = false
 	}
-
-	// Reset variables
-	s.gameTime, s.paused, s.accel = 0, false, 1
-	s.aiInput = [len(s.aiInput)]AiInput{}
 	// Defer resetting variables on return
 	defer func() {
 		s.oldNextAddTime = 1

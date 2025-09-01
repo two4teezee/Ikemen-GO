@@ -2604,8 +2604,6 @@ type Char struct {
 	oldPos              [3]float32
 	vel                 [3]float32
 	facing              float32
-	ivar                [NumVar + NumSysVar]int32
-	fvar                [NumFvar + NumSysFvar]float32
 	fbFlip              bool
 	cnsvar              map[int32]int32
 	cnsfvar             map[int32]float32

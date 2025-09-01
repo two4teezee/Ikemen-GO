@@ -51,16 +51,16 @@ func (cs Char) String() string {
 	ComboExtraFrameWindow :%d
 	InheritJuggle         :%d
 	Preserve              :%d
-	Ivar            :%v
-	Fvar            :%v
-	Offset          :%v`,
+	Cnsvar              :%v
+	Cnsfvar             :%v
+	Offset              :%v`,
 		cs.name, cs.redLife, cs.juggle, cs.life, cs.controller, cs.localcoord,
 		cs.localscl, cs.pos, cs.interPos, cs.oldPos, cs.vel, cs.facing,
 		cs.id, cs.helperId, cs.helperIndex, cs.parentIndex, cs.playerNo,
 		cs.teamside, cs.animPN, cs.animNo, cs.lifeMax, cs.powerMax, cs.dizzyPoints,
 		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargetsBuffer,
 		cs.atktmp, cs.hittmp, cs.acttmp, cs.minus, cs.groundAngle, cs.inheritJuggle,
-		cs.preserve, cs.ivar, cs.fvar, cs.offset)
+		cs.preserve, cs.cnsvar, cs.cnsfvar, cs.offset)
 	return str
 }
 

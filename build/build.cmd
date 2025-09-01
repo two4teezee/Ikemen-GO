@@ -17,6 +17,6 @@ if not exist bin (
 echo Building Ikemen GO...
 echo. 
 
-go build  -ldflags "-s -w -H=windowsgui"  -trimpath -v  -o ./bin/Ikemen-GGPO.exe ./src
+go build -trimpath -v -ldflags -H=windowsgui -o ./bin/Ikemen_GO.exe ./src
 
 pause

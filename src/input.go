@@ -1698,7 +1698,7 @@ func (nc *NetConnection) IsConnected() bool {
 	return nc != nil && nc.conn != nil
 }
 
-func (nc *NetConnection) readNetConnection(i int) [14]bool {
+func (nc *NetConnection) readNetInput(i int) [14]bool {
 	if i >= 0 && i < len(nc.buf) {
 		return nc.buf[sys.inputRemap[i]].readNetBuffer()
 	}
@@ -2688,7 +2688,7 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 	} else if sys.replayFile != nil {
 		buttons = sys.replayFile.readReplayFile(controller)
 	} else if sys.netConnection != nil {
-		buttons = sys.netConnection.readNetConnection(controller)
+		buttons = sys.netConnection.readNetInput(controller)
 	} else {
 		// If not AI, replay, or network, then it's a local human player
 		if controller < len(sys.inputRemap) {

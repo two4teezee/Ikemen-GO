@@ -949,13 +949,6 @@ const (
 	OC_ex2_xshear
 )
 
-const (
-	NumVar     = 60
-	NumSysVar  = 5
-	NumFvar    = 40
-	NumSysFvar = 5
-)
-
 type StringPool struct {
 	List []string
 	Map  map[string]int
@@ -11022,7 +11015,6 @@ type loadState StateControllerBase
 
 const (
 	loadState_ byte = iota
-	loadState_redirectid
 )
 
 func (sc loadState) Run(c *Char, _ []int32) bool {
@@ -11031,12 +11023,6 @@ func (sc loadState) Run(c *Char, _ []int32) bool {
 		switch id {
 		case loadState_:
 			sys.loadStateFlag = true
-		case loadState_redirectid:
-			//if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-			//	crun = rid
-			//} else {
-			//	return false
-			//}
 		}
 		return true
 	})
@@ -11370,7 +11356,6 @@ type saveState StateControllerBase
 
 const (
 	saveState_ byte = iota
-	saveState_redirectid
 )
 
 func (sc saveState) Run(c *Char, _ []int32) bool {
@@ -11379,12 +11364,6 @@ func (sc saveState) Run(c *Char, _ []int32) bool {
 		switch id {
 		case saveState_:
 			sys.saveStateFlag = true
-		case saveState_redirectid:
-			//if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-			//	crun = rid
-			//} else {
-			//	return false
-			//}
 		}
 		return true
 	})

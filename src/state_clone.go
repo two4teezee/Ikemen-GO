@@ -567,16 +567,20 @@ func (f Fight) Clone(a *arena.Arena, gsp *GameStatePool) (result Fight) {
 	result.rlife = arena.MakeSlice[int32](a, len(f.rlife), len(f.rlife))
 	copy(result.rlife, f.rlife)
 
-	result.ivar = arena.MakeSlice[[]int32](a, len(f.ivar), len(f.ivar))
-	for i := 0; i < len(f.ivar); i++ {
-		result.ivar[i] = arena.MakeSlice[int32](a, len(f.ivar[i]), len(f.ivar[i]))
-		copy(result.ivar[i], f.ivar[i])
+	result.cnsvar = arena.MakeSlice[map[int32]int32](a, len(f.cnsvar), len(f.cnsvar))
+	for i := 0; i < len(f.cnsvar); i++ {
+		result.cnsvar[i] = make(map[int32]int32, len(f.cnsvar[i]))
+		for k, v := range f.cnsvar[i] {
+			result.cnsvar[i][k] = v
+		}
 	}
 
-	result.fvar = arena.MakeSlice[[]float32](a, len(f.fvar), len(f.fvar))
-	for i := 0; i < len(f.ivar); i++ {
-		result.fvar[i] = arena.MakeSlice[float32](a, len(f.fvar[i]), len(f.fvar[i]))
-		copy(result.fvar[i], f.fvar[i])
+	result.cnsfvar = arena.MakeSlice[map[int32]float32](a, len(f.cnsfvar), len(f.cnsfvar))
+	for i := 0; i < len(f.cnsfvar); i++ {
+		result.cnsfvar[i] = make(map[int32]float32, len(f.cnsfvar[i]))
+		for k, v := range f.cnsfvar[i] {
+			result.cnsfvar[i][k] = v
+		}
 	}
 
 	result.dialogue = arena.MakeSlice[[]string](a, len(f.dialogue), len(f.dialogue))

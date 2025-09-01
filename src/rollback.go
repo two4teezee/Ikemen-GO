@@ -1159,8 +1159,8 @@ type Fight struct {
 	level                                                             []int32
 	lvmul                                                             float64
 	life, pow, gpow, spow, rlife                                      []int32
-	ivar                                                              [][]int32
-	fvar                                                              [][]float32
+	cnsvar                                                            []map[int32]int32
+	cnsfvar                                                           []map[int32]float32
 	dialogue                                                          [][]string
 	mapArray                                                          []map[string]float32
 	remapSpr                                                          []RemapPreset
@@ -1180,24 +1180,28 @@ func (f *Fight) copyVar(pn int) {
 	f.dizzyPointsMax[pn] = sys.chars[pn][0].dizzyPointsMax
 	f.redLife[pn] = sys.chars[pn][0].redLife
 	f.teamside[pn] = sys.chars[pn][0].teamside
-	if len(f.ivar[pn]) < len(sys.chars[pn][0].ivar) {
-		f.ivar[pn] = make([]int32, len(sys.chars[pn][0].ivar))
+
+	f.cnsvar[pn] = make(map[int32]int32)
+	for k, v := range sys.chars[pn][0].cnsvar {
+		f.cnsvar[pn][k] = v
 	}
-	copy(f.ivar[pn], sys.chars[pn][0].ivar[:])
-	if len(f.fvar[pn]) < len(sys.chars[pn][0].fvar) {
-		f.fvar[pn] = make([]float32, len(sys.chars[pn][0].fvar))
+
+	f.cnsfvar[pn] = make(map[int32]float32)
+	for k, v := range sys.chars[pn][0].cnsfvar {
+		f.cnsfvar[pn][k] = v
 	}
-	copy(f.fvar[pn], sys.chars[pn][0].fvar[:])
-	copy(f.dialogue[pn], sys.chars[pn][0].dialogue[:])
+
 	f.mapArray[pn] = make(map[string]float32)
 	for k, v := range sys.chars[pn][0].mapArray {
 		f.mapArray[pn][k] = v
 	}
+
+	copy(f.dialogue[pn], sys.chars[pn][0].dialogue[:])
+
 	f.remapSpr[pn] = make(RemapPreset)
 	for k, v := range sys.chars[pn][0].remapSpr {
 		f.remapSpr[pn][k] = v
 	}
-
 }
 
 func (f *Fight) reset() {
@@ -1215,8 +1219,14 @@ func (f *Fight) reset() {
 			p[0].dizzyPointsMax = f.dizzyPointsMax[i]
 			p[0].redLife = f.redLife[i]
 			p[0].teamside = f.teamside[i]
-			copy(p[0].ivar[:], f.ivar[i])
-			copy(p[0].fvar[:], f.fvar[i])
+			p[0].cnsvar = make(map[int32]int32)
+			for k, v := range f.cnsvar[i] {
+				p[0].cnsvar[k] = v
+			}
+			p[0].cnsfvar = make(map[int32]float32)
+			for k, v := range f.cnsfvar[i] {
+				p[0].cnsfvar[k] = v
+			}
 			copy(p[0].dialogue[:], f.dialogue[i])
 			p[0].mapArray = make(map[string]float32)
 			for k, v := range f.mapArray[i] {
@@ -1407,8 +1417,8 @@ func NewFight() Fight {
 	f.gpow = make([]int32, len(sys.chars))
 	f.spow = make([]int32, len(sys.chars))
 	f.rlife = make([]int32, len(sys.chars))
-	f.ivar = make([][]int32, len(sys.chars))
-	f.fvar = make([][]float32, len(sys.chars))
+	f.cnsvar = make([]map[int32]int32, len(sys.chars))
+	f.cnsfvar = make([]map[int32]float32, len(sys.chars))
 	f.power = make([]int32, len(sys.chars))
 	f.powerMax = make([]int32, len(sys.chars))
 	f.guardPoints = make([]int32, len(sys.chars))

@@ -1698,7 +1698,7 @@ func (nc *NetConnection) IsConnected() bool {
 	return nc != nil && nc.conn != nil
 }
 
-func (nc *NetConnection) readNetInput(i int) [14]bool {
+func (nc *NetConnection) readNetConnection(i int) [14]bool {
 	if i >= 0 && i < len(nc.buf) {
 		return nc.buf[sys.inputRemap[i]].readNetBuffer()
 	}
@@ -1795,12 +1795,12 @@ func (nc *NetConnection) Synchronize() error {
 		return Error("Synchronization error")
 	}
 	if sys.rollback.session != nil {
-		sys.rollback.session.netTime = ni.time
+		sys.rollback.session.netTime = nc.time
 	}
-	ni.buf[ni.locIn].reset(ni.time)
-	ni.buf[ni.remIn].reset(ni.time)
-	ni.st = NS_Playing
-	<-ni.sendEnd
+	nc.buf[nc.locIn].reset(nc.time)
+	nc.buf[nc.remIn].reset(nc.time)
+	nc.st = NS_Playing
+	<-nc.sendEnd
 	go func(nb *NetBuffer) {
 		defer func() { nc.sendEnd <- true }()
 		for nc.st == NS_Playing {
@@ -2688,7 +2688,7 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 	} else if sys.replayFile != nil {
 		buttons = sys.replayFile.readReplayFile(controller)
 	} else if sys.netConnection != nil {
-		buttons = sys.netConnection.readNetInput(controller)
+		buttons = sys.netConnection.readNetConnection(controller)
 	} else {
 		// If not AI, replay, or network, then it's a local human player
 		if controller < len(sys.inputRemap) {

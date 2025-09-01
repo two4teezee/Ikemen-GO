@@ -66,7 +66,7 @@ type RollbackSession struct {
 	next                int64
 	players             []ggpo.Player
 	handles             []ggpo.PlayerHandle
-	rep                 *os.File
+	recording           *os.File
 	connected           bool
 	host                string
 	playerNo            int
@@ -79,19 +79,19 @@ type RollbackSession struct {
 	currentPlayerHandle ggpo.PlayerHandle
 	remotePlayerHandle  ggpo.PlayerHandle
 	loopTimer           LoopTimer
-	inputs              map[int][MaxSimul*2 + MaxAttachedChar]InputBits
+	inputs              map[int][MaxPlayerNo]InputBits
 	config              RollbackProperties
 	log                 RollbackLogger
 	timestamp           string
 	netTime             int32
-	replayBuffer        [][MaxSimul*2 + MaxAttachedChar]InputBits
-	lastConfirmedInput  [MaxSimul*2 + MaxAttachedChar]InputBits
+	replayBuffer        [][MaxPlayerNo]InputBits
+	lastConfirmedInput  [MaxPlayerNo]InputBits
 	inputBits           []InputBits
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
 	if _, ok := rs.inputs[int(time)]; !ok {
-		rs.inputs[int(time)] = [MaxSimul*2 + MaxAttachedChar]InputBits{}
+		rs.inputs[int(time)] = [MaxPlayerNo]InputBits{}
 	}
 	inputArr := rs.inputs[int(time)]
 	inputArr[player] = input
@@ -99,12 +99,12 @@ func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
 }
 
 func (rs *RollbackSession) SaveReplay() {
-	if rs.rep != nil && len(rs.inputs) > 0 {
+	if rs.recording != nil && len(rs.inputs) > 0 {
 		frames := maps.Keys(rs.inputs)
 		sort.Ints(frames)
 		lastFrame := frames[len(frames)-1]
 
-		size := lastFrame * (MaxSimul*2 + MaxAttachedChar) * 4
+		size := lastFrame * (MaxPlayerNo) * 4
 		buf := make([]byte, size)
 		offset := 0
 
@@ -122,7 +122,7 @@ func (rs *RollbackSession) SaveReplay() {
 				offset += len(inputBuf)
 			}
 		}
-		rs.rep.Write(buf)
+		rs.recording.Write(buf)
 	}
 }
 
@@ -259,7 +259,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	// the game state instead of reading from the keyboard.
 	inputs, result := r.backend.SyncInput(&discconectFlags)
 	input := decodeInputs(inputs)
-	if r.rep != nil {
+	if r.recording != nil {
 		r.SetInput(r.netTime, 0, input[0])
 		r.SetInput(r.netTime, 1, input[1])
 		r.netTime++
@@ -295,7 +295,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			sys.esc = true
 			return
 		} else if sys.esc {
-			sys.endMatch = sys.netInput != nil || len(sys.cfg.Common.Lua) == 0
+			sys.endMatch = sys.netConnection != nil || len(sys.cfg.Common.Lua) == 0
 			return
 		}
 
@@ -369,8 +369,8 @@ func NewRollbackSesesion(config RollbackProperties) RollbackSession {
 	r.loopTimer = NewLoopTimer(60, 100)
 	r.timestamp = time.Now().Format("2006-01-02_03-04PM-05s")
 	r.log = NewRollbackLogger(r.timestamp)
-	r.replayBuffer = make([][9]InputBits, 0)
-	r.inputs = make(map[int][9]InputBits)
+	r.replayBuffer = make([][MaxPlayerNo]InputBits, 0)
+	r.inputs = make(map[int][MaxPlayerNo]InputBits)
 	return r
 
 }

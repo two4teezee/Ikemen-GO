@@ -309,8 +309,8 @@ func (pf PalFX) Clone(a *arena.Arena) (result PalFX) {
 
 func (ce *CommandStep) Clone(a *arena.Arena) (result CommandStep) {
 	result = *ce
-	result.key = arena.MakeSlice[CommandKey](a, len(ce.key), len(ce.key))
-	copy(result.key, ce.key)
+	result.keys = arena.MakeSlice[CommandStepKey](a, len(ce.keys), len(ce.keys))
+	copy(result.keys, ce.keys)
 	return
 }
 
@@ -322,6 +322,8 @@ func (c *Command) clone(a *arena.Arena) (result Command) {
 		result.steps[i] = c.steps[i].Clone(a)
 	}
 
+	// New input code does not use these
+	/*
 	result.held = arena.MakeSlice[bool](a, len(c.held), len(c.held))
 	copy(result.held, c.held)
 
@@ -332,6 +334,7 @@ func (c *Command) clone(a *arena.Arena) (result Command) {
 			result.hold[i][j] = c.hold[i][j]
 		}
 	}
+	*/
 
 	return
 }

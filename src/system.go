@@ -489,7 +489,7 @@ func (s *System) shutdown() {
 	if !sys.gameEnd {
 		sys.gameEnd = true
 	}
-	if sys.rollback.session != nil && sys.rollback.session.rep != nil {
+	if sys.rollback.session != nil && sys.rollback.session.recording != nil {
 		sys.rollback.session.SaveReplay()
 	}
 	gfx.Close()

@@ -13,7 +13,7 @@ type RollbackSystem struct {
 	session      *RollbackSession
 	currentFight Fight
 	active       bool
-	netInput     *NetInput
+	netConnection     *NetConnection
 }
 
 type RollbackProperties struct {
@@ -52,11 +52,12 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		s.errLog.Println(err.Error())
 		s.esc = true
 	}
-	if s.netInput != nil {
-		defer s.netInput.Stop()
+	if s.netConnection != nil {
+		defer s.netConnection.Stop()
 	}
 	s.wincnt.init()
 
+	// These look like a good refactor. We could do the same to current system.go
 	// Initialize super meter values, and max power for teams sharing meter
 	rs.currentFight.initSuperMeter()
 	rs.currentFight.initTeamsLevels()
@@ -79,7 +80,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.currentFight.oldTeamLeader = s.teamLeader
 
 	var running bool
-	if rs.session != nil && s.netInput != nil {
+	if rs.session != nil && s.netConnection != nil {
 		if rs.session.host != "" {
 			rs.session.InitP2(2, 7550, 7600, rs.session.host)
 			rs.session.playerNo = 2
@@ -88,17 +89,17 @@ func (rs *RollbackSystem) fight(s *System) bool {
 			rs.session.playerNo = 1
 		}
 		s.time = rs.session.netTime
-		s.preFightTime = s.netInput.preFightTime
+		s.preFightTime = s.netConnection.preFightTime
 		//if !rs.session.IsConnected() {
 		// for !rs.session.synchronized {
 		// 	rs.session.backend.Idle(0)
 		// }
 		//}
-		// s.netInput.Close()
-		rs.session.rep = s.netInput.rep
-		rs.netInput = s.netInput
-		s.netInput = nil
-	} else if s.netInput == nil && rs.session == nil {
+		// s.netConnection.Close()
+		rs.session.recording = s.netConnection.recording
+		rs.netConnection = s.netConnection
+		s.netConnection = nil
+	} else if s.netConnection == nil && rs.session == nil {
 		session := NewRollbackSesesion(s.cfg.Netplay.Rollback)
 		rs.session = &session
 		rs.session.InitSyncTest(2)
@@ -155,11 +156,11 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.session.SaveReplay()
 	// sys.esc = true
 	//sys.rollback.currentFight.fin = true
-	s.netInput = rs.netInput
+	s.netConnection = rs.netConnection
 	rs.session.backend.Close()
 
 	// Prep for the next match.
-	if s.netInput != nil {
+	if s.netConnection != nil {
 		newSession := NewRollbackSesesion(s.cfg.Netplay.Rollback)
 		host := rs.session.host
 		remoteIp := rs.session.remoteIp
@@ -198,7 +199,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 		disconnectFlags := 0
 		values, result = rs.session.backend.SyncInput(&disconnectFlags)
 		inputs := decodeInputs(values)
-		if rs.session.rep != nil {
+		if rs.session.recording != nil {
 			rs.session.SetInput(rs.session.netTime, 0, inputs[0])
 			rs.session.SetInput(rs.session.netTime, 1, inputs[1])
 			rs.session.netTime++
@@ -252,7 +253,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				s.esc = true
 				return false
 			} else if s.esc {
-				s.endMatch = s.netInput != nil || len(s.cfg.Common.Lua) == 0
+				s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
 				return false
 			}
 
@@ -306,7 +307,7 @@ func (rs *RollbackSystem) runNextRound(s *System) bool {
 				tmp.RawSetString("life", lua.LNumber(p[0].life))
 				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
 				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-				tmp.RawSetString("aiLevel", lua.LNumber(p[0].aiLevel()))
+				tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
 				tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
 				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
 				tmp.RawSetString("win", lua.LBool(p[0].win()))
@@ -464,7 +465,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
 						if s.chars[i][0].alive() {
 							ko[loser] = false
-						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.com[i] == 0) ||
+						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.aiLevel[i] == 0) ||
 							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
 							ko[loser] = true
 							break
@@ -544,6 +545,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		// Post round
 		if s.roundEnd() || fin() {
 			rs4t := -s.lifebar.ro.over_waittime
+			fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
 			s.intro--
 			if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
 				// Consecutive wins counter
@@ -564,8 +566,8 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 				}
 			}
 			// Check if player skipped win pose time
-			if s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.gsf(GSF_roundnotskip)) {
-				s.intro = Min(s.intro, rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time)
+			if s.intro > fadeoutStart && s.roundWinTime() && (s.anyButton() && !s.gsf(GSF_roundnotskip)) {
+				s.intro = fadeoutStart
 				s.winskipped = true
 			}
 			if s.winskipped || !s.roundWinTime() {
@@ -659,8 +661,12 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			}
 			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
 			if !s.winskipped && s.gsf(GSF_roundnotover) &&
-				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.fadeout_time {
+				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.rt.fadeout_time {
 				s.intro++
+			}
+			// Start fadeout effect
+			if s.intro == fadeoutStart {
+				s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
 			}
 		} else if s.intro < 0 {
 			s.intro = 0
@@ -745,31 +751,27 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 	// Skip character intros on button press and play the shutter effect
 	if s.tickNextFrame() {
 		if s.lifebar.ro.current < 1 && !s.introSkipped {
-			if s.shuttertime > 0 ||
-				// Checking the intro flag prevents skipping intros when they don't exist
-				rs.session.AnyButtonIB(input) && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
-				s.shuttertime++
-				// Do the actual skipping in the frame when the "shutter" effect is closed
-				if s.shuttertime == s.lifebar.ro.shutter_time {
-					// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
-					skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
-					s.resetGblEffect()
-					s.specialFlag = skipround
-					s.fadeintime = 0
-					s.intro = s.lifebar.ro.ctrl_time
-					for i, p := range s.chars {
-						if len(p) > 0 {
-							s.clearPlayerAssets(i, false)
-							p[0].posReset()
-							p[0].selfState(0, -1, -1, 0, "")
-						}
-					}
-					s.introSkipped = true
-				}
+			// Checking the intro flag prevents skipping intros when they don't exist
+			if s.lifebar.ro.rt.shutterTimer == 0 &&
+				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				// Start shutter effect
+				s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
 			}
-		} else {
-			if s.shuttertime > 0 {
-				s.shuttertime--
+			// Do the actual skipping halfway into the shutter animation, when it's closed
+			if s.lifebar.ro.rt.shutterTimer == s.lifebar.ro.rt.shutter_time {
+				// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
+				skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
+				s.resetGblEffect()
+				s.specialFlag = skipround
+				s.intro = s.lifebar.ro.ctrl_time
+				for i, p := range s.chars {
+					if len(p) > 0 {
+						s.clearPlayerAssets(i, false)
+						p[0].posReset()
+						p[0].selfState(0, -1, -1, 0, "")
+					}
+				}
+				s.introSkipped = true
 			}
 		}
 	}
@@ -803,7 +805,6 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 			alpha:        [2]int32{-1},
 			priority:     5,
 			rot:          Rotation{},
-			ascl:         [2]float32{},
 			screen:       false,
 			undarken:     true,
 			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,
@@ -829,7 +830,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		for i, el := range *edl {
 			for j := len(el) - 1; j >= 0; j-- {
 				if el[j] >= 0 {
-					s.explods[i][el[j]].update(s.cgi[i].mugenver[0] != 1, i)
+					s.explods[i][el[j]].update(s.cgi[i].mugenverF, i)
 					if s.explods[i][el[j]].id == IErr {
 						if drop {
 							el = append(el[:j], el[j+1:]...)
@@ -972,7 +973,7 @@ func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
 		s.window.SwapBuffers()
 		// Begin the next frame after events have been processed. Do not clear
 		// the screen if network input is present.
-		defer gfx.BeginFrame(sys.netInput == nil)
+		defer gfx.BeginFrame(sys.netConnection == nil)
 	}
 	s.runMainThreadTask()
 	now := time.Now()
@@ -1006,7 +1007,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 			// The way this only allows one command to be cheated at a time may be the cause of issue #2022
 			cheat := int32(-1)
 			if root.controller < 0 {
-				if sys.roundState() == 2 && RandF32(0, sys.com[i]/2+32) > 32 { // TODO: Balance AI scaling
+				if sys.roundState() == 2 && RandF32(0, sys.aiLevel[i]/2+32) > 32 { // TODO: Balance AI scaling
 					cheat = Rand(0, int32(len(root.cmd[root.ss.sb.playerNo].Commands))-1)
 				}
 			}
@@ -1020,17 +1021,20 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 				}
 				// Auto turning check for the root
 				// Having this here makes B and F inputs reverse the same instant the character turns
-				if act && c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn {
-					if (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
-						(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
-						c.autoTurn()
-					}
+				if act && c.helperIndex == 0 && (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
+					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
+					c.autoTurn()
 				}
+
+				// Update Forward/Back flipping flag
+				c.updateFBFlip()
+				
+				// Rollback part
 				if c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0] {
 
 					if i < len(ib) {
 						if sys.gameMode == "watch" && (c.controller < 0 && ^c.controller < len(sys.aiInput)) {
-							sys.aiInput[^c.controller].Update(sys.com[i])
+							sys.aiInput[^c.controller].Update(sys.aiLevel[i])
 						}
 						// if we have an input from the players
 						// update the command buffer based on that.
@@ -1039,39 +1043,47 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 						ib[c.teamside].BitsToKeys(c.cmd[0].Buffer, int32(c.facing))
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
-						c.cmd[0].Input(c.controller, int32(c.facing), sys.com[i], c.inputFlag, false)
+						c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false)
 					}
+				}
+
+				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
+					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false) {
 					// Clear input buffers and skip the rest of the loop
-					// This used to apply only to the root, but that caused some issues with helper-based input buffers
+					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {
 						for i := range c.cmd {
 							c.cmd[i].BufReset()
 						}
 						continue
 					}
-					// Check for buffering during hitpause, Superpause and Pause
-					buffer := false
+					hpbuf := false
+					pausebuf := false
 					winbuf := false
-					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 {
-						buffer = true
-						// Winmugen chars buffer one frame longer on hitpause
-						// This is true in Winmugen itself but not Mugen 1.0+
-						if c.gi().mugenver[0] != 1 {
+					// Buffer during hitpause
+					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 { // TODO: Deprecated constant
+						hpbuf = true
+						// In Winmugen, commands were buffered for one extra frame after hitpause (but not after Pause/SuperPause)
+						// This was fixed in Mugen 1.0
+						if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 {
 							winbuf = true
 						}
 					}
+					// Buffer during Pause and SuperPause
 					if sys.supertime > 0 {
 						if !act && sys.supertime <= sys.superendcmdbuftime {
-							buffer = true
+							pausebuf = true
 						}
 					} else if sys.pausetime > 0 {
 						if !act && sys.pausetime <= sys.pauseendcmdbuftime {
-							buffer = true
+							pausebuf = true
 						}
 					}
 					// Update commands
 					for i := range c.cmd {
-						c.cmd[i].Step(int32(c.facing), c.controller < 0, buffer, Btoi(buffer)+Btoi(winbuf))
+						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
+						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
+						c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
 					}
 					// Enable AI cheated command
 					c.cpucmd = cheat
@@ -1346,9 +1358,15 @@ func (f *Fight) initChars() {
 }
 
 func (f *Fight) initSuperMeter() {
+	// Prepare next round for all players
+	for _, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].prepareNextRound()
+		}
+	}
+
 	for i, p := range sys.chars {
 		if len(p) > 0 && p[0].teamside != -1 {
-			p[0].clearNextRound()
 			f.level[i] = sys.wincnt.getLevel(i)
 			if sys.cfg.Options.Team.PowerShare {
 				pmax := Max(sys.cgi[i&1].data.power, sys.cgi[i].data.power)
@@ -1435,7 +1453,7 @@ func writeI32(i32 int32) []byte {
 
 func (rs *RollbackSystem) getInputs(player int) []byte {
 	var ib InputBits
-	ib.KeysToBits(rs.netInput.buf[player].InputReader.LocalInput(player))
+	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(player))
 	return writeI32(int32(ib))
 }
 

@@ -2838,6 +2838,12 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].cell = start.c[player].cell
 					start.p[side].t_selTemp[member].anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_anim'] or motif.select_info['p' .. side .. '_face_anim']
 					start.p[side].t_selTemp[member].slide_dist = {0, 0}
+					if motif.select_info['p' .. player .. '_cursor_reset'] == 1 then
+						local cursorData = start.f_getCursorData(player, '_cursor_active' .. '_' .. start.c[player].selX + 1 .. '_' .. start.c[player].selY + 1 .. '_data')
+						if cursorData ~= nil then
+							animReset(cursorData)
+						end
+					end
 					updateAnim = true
 				end
 				-- cursor at randomselect cell

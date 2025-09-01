@@ -107,18 +107,18 @@ type GameState struct {
 	randseed       int32
 	Time           int32
 	GameTime       int32
-	projs          [MaxSimul*2 + MaxAttachedChar][]Projectile
-	chars          [MaxSimul*2 + MaxAttachedChar][]*Char
-	charData       [MaxSimul*2 + MaxAttachedChar][]Char
-	explods        [MaxSimul*2 + MaxAttachedChar][]Explod
-	explodsLayer0  [MaxSimul*2 + MaxAttachedChar][]int
-	explodsLayer1  [MaxSimul*2 + MaxAttachedChar][]int
-	explodsLayerN1 [MaxSimul*2 + MaxAttachedChar][]int
-	aiInput        [MaxSimul*2 + MaxAttachedChar]AiInput
-	inputRemap     [MaxSimul*2 + MaxAttachedChar]int
+	projs          [MaxPlayerNo][]Projectile
+	chars          [MaxPlayerNo][]*Char
+	charData       [MaxPlayerNo][]Char
+	explods        [MaxPlayerNo][]Explod
+	explodsLayer0  [MaxPlayerNo][]int
+	explodsLayer1  [MaxPlayerNo][]int
+	explodsLayerN1 [MaxPlayerNo][]int
+	aiInput        [MaxPlayerNo]AiInput
+	inputRemap     [MaxPlayerNo]int
 	charList       CharList
 
-	com                [MaxSimul*2 + MaxAttachedChar]float32 // UIT
+	aiLevel            [MaxPlayerNo]float32 // UIT
 	cam                Camera
 	allPalFX           PalFX
 	bgPalFX            PalFX
@@ -189,7 +189,7 @@ type GameState struct {
 	reloadFlg               bool
 	reloadStageFlg          bool
 	reloadLifebarFlg        bool
-	reloadCharSlot          [MaxSimul*2 + MaxAttachedChar]bool
+	reloadCharSlot          [MaxPlayerNo]bool
 	turbo                   float32
 	drawScale               float32
 	zoomlag                 float32
@@ -215,7 +215,7 @@ type GameState struct {
 	joystickConfig          []KeyConfig
 	lifebar                 Lifebar
 	redrawWait              struct{ nextTime, lastDraw time.Time }
-	cgi                     [MaxSimul*2 + MaxAttachedChar]CharGlobalInfo
+	cgi                     [MaxPlayerNo]CharGlobalInfo
 
 	// New 11/04/2022 all UIT
 	timerStart      int32
@@ -227,7 +227,7 @@ type GameState struct {
 	scoreRounds     [][2]float32
 	decisiveRound   [2]bool
 	sel             Select
-	stringPool      [MaxSimul*2 + MaxAttachedChar]StringPool
+	stringPool      [MaxPlayerNo]StringPool
 	dialogueFlg     bool
 	gameMode        string
 	consecutiveWins [2]int32
@@ -296,7 +296,7 @@ func (gs *GameState) LoadState(stateID int) {
 	gs.loadSuperData(a, gsp)
 	gs.loadPalFX(a)
 	gs.loadProjectileData(a, gsp)
-	sys.aiLevel = gs.com
+	sys.aiLevel = gs.aiLevel
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
 	sys.specialFlag = gs.specialFlag
@@ -520,7 +520,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.savePalFX(a)
 	gs.saveProjectileData(a, gsp)
 
-	gs.com = sys.aiLevel
+	gs.aiLevel = sys.aiLevel
 	gs.envShake = sys.envShake
 	gs.envcol_time = sys.envcol_time
 	gs.specialFlag = sys.specialFlag

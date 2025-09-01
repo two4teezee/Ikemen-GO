@@ -2208,9 +2208,9 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "replayStop", func(*lua.LState) int {
 		if sys.cfg.Netplay.RollbackNetcode {
-			if sys.rollback.session != nil && sys.rollback.session.rep != nil {
-				sys.rollback.session.rep.Close()
-				sys.rollback.session.rep = nil
+			if sys.rollback.session != nil && sys.rollback.session.recording != nil {
+				sys.rollback.session.recording.Close()
+				sys.rollback.session.recording = nil
 			}
 		} else {
 			if sys.netConnection != nil && sys.netConnection.recording != nil {

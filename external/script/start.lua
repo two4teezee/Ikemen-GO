@@ -21,7 +21,8 @@ local t_gameStats = {}
 local t_recordText = {}
 local t_reservedChars = {{}, {}}
 local timerSelect = 0
-
+local cursorActive = {}
+local cursorDone = {}
 --;===========================================================
 --; COMMON FUNCTIONS
 --;===========================================================
@@ -625,59 +626,122 @@ function start.f_setAssignedPal(ref, t_assignedPals)
 end
 
 --remaps palette based on button press and character's keymap settings
-function start.f_keyPalMap(ref, num, t_assignedPals)
-    local t_assignedPals = {}
-	start.f_setAssignedPal(ref, t_assignedPals)
-    local mappedPal = start.f_getCharData(ref).pal_keymap[num] or num
-    local totalPals = #start.f_getCharData(ref).pal
-	-- loop through the palette indices starting from mappedPal
-    for i = 0, totalPals - 1 do
-        -- calculate the current palette index, wrapping around if it exceeds totalPals
-        local currentPal = (mappedPal + i - 1) % totalPals + 1
-        -- check if the current palette is not already assigned
-        if not t_assignedPals[currentPal] then
-            return currentPal
-        end
-    end
-    -- if all palettes are assigned, return the mapped palette
-    return mappedPal
+function start.f_keyPalMap(ref, num)
+	return start.f_getCharData(ref).pal_keymap[num] or num
 end
 
 -- returns palette number
 function start.f_selectPal(ref, palno)
+    -- generate table with palette entries already used by this char ref
     local t_assignedPals = {}
     start.f_setAssignedPal(ref, t_assignedPals)
-	-- selected palette
-	if palno ~= nil and palno > 0 then
-		if not t_assignedPals[start.f_keyPalMap(ref, palno)] then
-			return start.f_keyPalMap(ref, palno)
-		else
-			for _, v in ipairs(start.f_getCharData(ref).pal) do
-				if not t_assignedPals[start.f_keyPalMap(ref, v)] then
-					return start.f_keyPalMap(ref, v)
-				end
-			end
-		end
-	-- default palette
-	elseif (not main.rotationChars and not gameOption('Arcade.AI.RandomColor')) or (main.rotationChars and not gameOption('Arcade.AI.SurvivalColor')) then
-		for _, v in ipairs(start.f_getCharData(ref).pal_defaults) do
-			if not t_assignedPals[v] then
-				return v
-			end
-		end
-	end
-	-- random palette
-	t = main.f_tableCopy(start.f_getCharData(ref).pal)
-	if #t_assignedPals >= #t then -- not enough palettes for unique selection
-		return t[math.random(1, #t)]
-	end
-	main.f_tableShuffle(t)
-	for k, v in ipairs(t) do
-		if not t_assignedPals[v] then
-			return v
-		end
-	end
-	panicError("\n" .. start.f_getCharData(ref).name .. " palette was not selected\n")
+    
+    local charData = start.f_getCharData(ref)
+    local availablePals = charData.pal
+
+    -- selected palette by player input
+    if palno ~= nil and palno > 0 then
+        local mappedPal = start.f_keyPalMap(ref, palno)
+
+        -- Check if the mapped palette is defined and not already used.
+        local isDefined = false
+        for _, p in ipairs(availablePals) do
+            if p == mappedPal then
+                isDefined = true
+                break
+            end
+        end
+
+        if isDefined and not t_assignedPals[mappedPal] then
+            return mappedPal
+        end
+        
+        -- If the desired palette is not available, find the next available one.
+        
+        -- 1. Dynamically build the list of palettes to cycle through
+        local cycleList = {1, 2, 3, 4, 5, 6}
+        local customDefaults = false
+
+        if charData.pal_defaults then
+            local defaultsSet = {}
+            for _, p_val in ipairs(charData.pal_defaults) do
+                if p_val > 6 then
+                    -- To avoid duplicates in cycleList
+                    if not defaultsSet[p_val] then
+                        table.insert(cycleList, p_val)
+                        defaultsSet[p_val] = true
+                        customDefaults = true
+                    end
+                end
+            end
+            if customDefaults then
+                table.sort(cycleList) -- Ensure a consistent cycle order
+            end
+        end
+		
+        -- Exception: If a palette from 7 to 12 was chosen directly, cycle through all 12
+        if mappedPal > 6 and not customDefaults then
+            cycleList = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12}
+        end
+        
+        -- 2. Find the starting index for our search in the cycleList
+        local startIndex = 1
+        for i, p_val in ipairs(cycleList) do
+            if p_val == mappedPal then
+                startIndex = i
+                break
+            end
+        end
+
+        -- 3. Search for the next available palette in a circular manner
+        for i = 1, #cycleList do
+            -- Get the index for the next palette in the cycle
+            local nextIndex = (startIndex - 1 + i) % #cycleList + 1
+            local nextPal = cycleList[nextIndex]
+            
+            -- Check if this next palette is defined for the character
+            local isNextDefined = false
+            for _, p in ipairs(availablePals) do
+                if p == nextPal then
+                    isNextDefined = true
+                    break
+                end
+            end
+
+            -- If it's defined and not used, assign it.
+            if isNextDefined and not t_assignedPals[nextPal] then
+                return nextPal
+            end
+        end
+
+        -- If all palettes in the cycle list are taken, return the originally mapped one as a fallback.
+        return mappedPal
+
+    -- default palette for AI or no-input selection
+    elseif (not main.rotationChars and not gameOption('Arcade.AI.RandomColor')) or (main.rotationChars and not gameOption('Arcade.AI.SurvivalColor')) then
+        for _, v in ipairs(charData.pal_defaults) do
+            if not t_assignedPals[v] then
+                return v
+            end
+        end
+    end
+
+    -- random palette
+    local t = main.f_tableCopy(availablePals)
+    if #t_assignedPals >= #t then -- not enough palettes for unique selection
+        if #t > 0 then
+            return t[math.random(1, #t)]
+        else
+            return 1
+        end
+    end
+    main.f_tableShuffle(t)
+    for _, v in ipairs(t) do
+        if not t_assignedPals[v] then
+            return v
+        end
+    end
+    panicError("\n" .. charData.name .. " palette was not selected\n")
 end
 
 --returns ratio level
@@ -802,20 +866,17 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 	return nil
 end
 
---calculate portraits slide.dist offset
+--calculate portraits slide.dist and cursor tween offset
 local function f_slideDistCalc(slide_dist, t_dist, t_speed)
-	if t_dist == nil or t_speed == nil then
-		return
+	if t_dist == nil or t_speed == nil then 
+		return 
 	end
 	for i = 1, 2 do
-		if (t_dist[i] or 0) > 0 then
-			if slide_dist[i] < (t_dist[i] or 0) then
-				slide_dist[i] = math.min(slide_dist[i] + (t_speed[i] or 0), t_dist[i] or 0)
-			end
-		elseif (t_dist[i] or 0) < 0 then
-			if slide_dist[i] > (t_dist[i] or 0) then
-				slide_dist[i] = math.max(slide_dist[i] - (t_speed[i] or 0), t_dist[i] or 0)
-			end
+		local target = t_dist[i] or 0
+		if slide_dist[i] < target then
+			slide_dist[i] = math.min(slide_dist[i] + (t_speed[i] or 0), target)
+		elseif slide_dist[i] > target then
+			slide_dist[i] = math.max(slide_dist[i] - (t_speed[i] or 0), target)
 		end
 	end
 end
@@ -1026,7 +1087,7 @@ function start.f_getCursorData(pn, suffix)
 end
 
 --draw cursor
-function start.f_drawCursor(pn, x, y, param)
+function start.f_drawCursor(pn, x, y, param, done)
 	-- in non-coop modes only p1 and p2 cursors are used
 	if not main.coop then
 		pn = (pn - 1) % 2 + 1
@@ -1042,14 +1103,93 @@ function start.f_drawCursor(pn, x, y, param)
 		end
 		motif.f_loadSprData(motif.select_info, {s = prefix .. '_'})
 	end
-	-- draw
+
+	-- choose cursor storage table (active vs done)
+	local store = done and cursorDone or cursorActive
+	if store[pn] == nil then
+		store[pn] = {
+			currentPos = {0, 0},
+			targetPos  = {0, 0},
+			startPos   = {0, 0},
+			slideOffset= {0, 0},
+			init       = false,
+			snap       = false -- only used by active cursors
+		}
+	end
+	local cd = store[pn]
+
+	-- calculate target cell coordinates
+	local baseX = motif.select_info.pos[1] + x * (motif.select_info.cell_size[1] + motif.select_info.cell_spacing[1]) + start.f_faceOffset(x + 1, y + 1, 1)
+    local baseY = motif.select_info.pos[2] + y * (motif.select_info.cell_size[2] + motif.select_info.cell_spacing[2]) + start.f_faceOffset(x + 1, y + 1, 2)
+
+	-- first initialization or reset (snap cursor directly)
+	if not cd.init or done or cd.snap then
+		for i = 1, 2 do
+			cd.currentPos[i] = (i == 1) and baseX or baseY
+			cd.targetPos[i]  = cd.currentPos[i]
+			cd.startPos[i]   = cd.currentPos[i]
+			cd.slideOffset[i]= 0
+		end
+		cd.init, cd.snap = true, false
+	-- new cell selected: recalculate tween
+	elseif cd.targetPos[1] ~= baseX or cd.targetPos[2] ~= baseY then
+		cd.startPos[1], cd.startPos[2] = cd.currentPos[1], cd.currentPos[2]
+		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
+		cd.slideOffset[1] = cd.startPos[1] - baseX
+		cd.slideOffset[2] = cd.startPos[2] - baseY
+	end
+
+	-- tween movement
+	if not done and motif.select_info.cursortween == 1 then
+		local t_speed = {
+			motif.select_info.cursortween_speed[1],
+			motif.select_info.cursortween_speed[2]
+		}
+		-- tween wrapping speed
+		if motif.select_info.wrapping == 1 then
+			local dx = cd.targetPos[1] - cd.startPos[1]
+			local dy = cd.targetPos[2] - cd.startPos[2]
+			if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) then
+				if motif.select_info.cursortween_wrap_speed[1] == 0 then 
+					t_speed[1] = t_speed[1] * motif.select_info.columns
+				else
+					t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+				end
+			end
+			if math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
+				if motif.select_info.cursortween_wrap_speed[2] == 0 then 
+					t_speed[2] = t_speed[2] * motif.select_info.rows
+				else
+					t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+				end
+			end
+		end
+        f_slideDistCalc(cd.slideOffset, {0, 0}, t_speed)
+		-- apply offset to get final interpolated position
+		cd.currentPos[1] = cd.targetPos[1] + cd.slideOffset[1]
+		cd.currentPos[2] = cd.targetPos[2] + cd.slideOffset[2]
+    else
+		-- no tween
+		cd.currentPos[1], cd.currentPos[2] = baseX, baseY
+		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
+		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
+    end
+	-- draw 
 	main.f_animPosDraw(
 		motif.select_info[prefix .. '_data'],
-		motif.select_info.pos[1] + x * (motif.select_info.cell_size[1] + motif.select_info.cell_spacing[1]) + start.f_faceOffset(x + 1, y + 1, 1),
-		motif.select_info.pos[2] + y * (motif.select_info.cell_size[2] + motif.select_info.cell_spacing[2]) + start.f_faceOffset(x + 1, y + 1, 2),
+		cd.currentPos[1],
+		cd.currentPos[2],
 		(motif.select_info['cell_' .. x + 1 .. '_' .. y + 1 .. '_facing'] or motif.select_info['p' .. pn .. param .. '_facing'])
 	)
 end
+
+-- snaps the cursor instantly to its target cell
+local function f_snapCursor()
+    for k, v in pairs(cursorActive) do
+        v.snap = true
+    end
+end
+
 --returns t_selChars table out of cell number
 function start.f_selGrid(cell, slot)
 	if main.t_selGrid[cell] == nil or #main.t_selGrid[cell].chars == 0 then
@@ -1206,7 +1346,7 @@ end
 --return true if slot is selected, update start.t_grid
 function start.f_slotSelected(cell, side, cmd, player, x, y)
 	if cmd == nil then
-		return false
+		return false, false
 	end
 	if #main.t_selGrid[cell].chars > 0 then
 		-- select.def 'slot' parameter special keys detection
@@ -1264,14 +1404,14 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 						start.t_grid[y + 1][x + 1].char_ref = start.f_selGrid(cell).char_ref
 						start.t_grid[y + 1][x + 1].hidden = start.f_selGrid(cell).hidden
 						start.t_grid[y + 1][x + 1].skip = start.f_selGrid(cell).skip
-						return cmdType == 'select'
+						return cmdType == 'select', (main.t_selGrid[cell].slot ~= original_slot)
 					end
 				end
 			end
 		end
 	end
 	-- returns true on pressed key if current slot is not blocked by TeamDuplicates feature
-	return main.f_btnPalNo(cmd) > 0 and (not t_reservedChars[side][start.t_grid[y + 1][x + 1].char_ref] or start.t_grid[start.c[player].selY + 1][start.c[player].selX + 1].char == 'randomselect')
+	return main.f_btnPalNo(cmd) > 0 and (not t_reservedChars[side][start.t_grid[y + 1][x + 1].char_ref] or start.t_grid[start.c[player].selY + 1][start.c[player].selX + 1].char == 'randomselect'),false
 end
 
 --generate start.t_grid table, assign row and cell to main.t_selChars
@@ -1955,11 +2095,10 @@ function launchFight(data)
 end
 
 function launchStoryboard(path)
-	if path == nil or not main.f_fileExists(path) then
+	if path == nil or path == '' then
 		return false
 	end
-	storyboard.f_storyboard(path)
-	return true
+	return storyboard.f_storyboard(path)
 end
 
 function codeInput(name)
@@ -1987,6 +2126,51 @@ if main.t_sort.select_info.teammenu == nil then
 	main.t_sort.select_info.teammenu = {'single', 'simul', 'turns'}
 end
 
+function start.updateDrawList()
+    local drawList = {}
+
+    for row = 1, motif.select_info.rows do
+        for col = 1, motif.select_info.columns do
+            local cellIndex = (row - 1) * motif.select_info.columns + col
+            local t = start.t_grid[row][col]
+
+            if t.skip ~= 1 then
+                local charData = start.f_selGrid(cellIndex)
+
+                if (charData and charData.char ~= nil and (charData.hidden == 0 or charData.hidden == 3)) or motif.select_info.showemptyboxes == 1 then
+                    table.insert(drawList, {
+                        anim = motif.select_info.cell_bg_data,
+                        x = motif.select_info.pos[1] + t.x,
+                        y = motif.select_info.pos[2] + t.y,
+                        facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_bg_facing or 1
+                    })
+                end
+
+                if charData and (charData.char == 'randomselect' or charData.hidden == 3) then
+                    table.insert(drawList, {
+                        anim = motif.select_info.cell_random_data,
+                        x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
+                        y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
+                        facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_random_facing or 1
+                    })
+                end
+                
+                if charData and charData.char_ref ~= nil and charData.hidden == 0 then
+                    table.insert(drawList, {
+                        anim = charData.cell_data,
+                        x = motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
+                        y = motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
+                        facing = motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.portrait_facing or 1
+                    })
+                end
+            end
+        end
+    end
+
+    return drawList
+end
+
+start.needUpdateDrawList = false
 function start.f_selectScreen()
 	if (not main.selectMenu[1] and not main.selectMenu[2]) or selScreenEnd then
 		return true
@@ -1995,6 +2179,7 @@ function start.f_selectScreen()
 	main.f_fadeReset('fadein', motif.select_info)
 	main.f_playBGM(false, motif.music.select_bgm, motif.music.select_bgm_loop, motif.music.select_bgm_volume, motif.music.select_bgm_loopstart, motif.music.select_bgm_loopend)
 	start.f_resetTempData(motif.select_info, '_face')
+	f_snapCursor()
 	local stageActiveCount = 0
 	local stageActiveType = 'stage_active'
 	timerSelect = 0
@@ -2045,6 +2230,10 @@ function start.f_selectScreen()
 			end
 		end
 	end
+
+	local staticDrawList = start.updateDrawList()
+	start.needUpdateDrawList = false
+
 	while not selScreenEnd do
 		counter = counter + 1
 		--credits
@@ -2053,6 +2242,7 @@ function start.f_selectScreen()
 			main.credits = main.credits + 1
 			resetKey()
 		end
+
 		--draw clearcolor
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
@@ -2066,39 +2256,14 @@ function start.f_selectScreen()
 			end
 		end
 		--draw cell art
-		for row = 1, motif.select_info.rows do
-			for col = 1, motif.select_info.columns do
-				local t = start.t_grid[row][col]
-				if t.skip ~= 1 then
-					--draw cell background
-					if (t.char ~= nil and (t.hidden == 0 or t.hidden == 3)) or motif.select_info.showemptyboxes == 1 then
-						main.f_animPosDraw(
-							motif.select_info.cell_bg_data,
-							motif.select_info.pos[1] + t.x,
-							motif.select_info.pos[2] + t.y,
-							(motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_bg_facing)
-						)
-					end
-					--draw random cell
-					if t.char == 'randomselect' or t.hidden == 3 then
-						main.f_animPosDraw(
-							motif.select_info.cell_random_data,
-							motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
-							motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-							(motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.cell_random_facing)
-						)
-					--draw face cell
-					elseif t.char ~= nil and t.hidden == 0 then
-						main.f_animPosDraw(
-							start.f_getCharData(t.char_ref).cell_data,
-							motif.select_info.pos[1] + t.x + motif.select_info.portrait_offset[1],
-							motif.select_info.pos[2] + t.y + motif.select_info.portrait_offset[2],
-							(motif.select_info['cell_' .. col .. '_' .. row .. '_facing'] or motif.select_info.portrait_facing)
-						)
-					end
-				end
-			end
-		end
+
+
+
+    if start.needUpdateDrawList then
+        staticDrawList = start.updateDrawList()
+        start.needUpdateDrawList = false 
+    end
+	batchDraw(staticDrawList)
 		--draw done cursors
 		for side = 1, 2 do
 			for _, v in pairs(start.p[side].t_selected) do
@@ -2116,7 +2281,7 @@ function start.f_selectScreen()
 					--end
 					--render only if cell is not hidden
 					if t.hidden ~= 1 and t.hidden ~= 2 then
-						start.f_drawCursor(v.pn, x, y, '_cursor_done')
+						start.f_drawCursor(v.pn, x, y, '_cursor_done', true)
 					end
 				end
 			end
@@ -2138,7 +2303,7 @@ function start.f_selectScreen()
 						member = k
 					end
 					--member selection
-					v.selectState = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
+					v.selectState, start.needUpdateDrawList = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
 					--draw active cursor
 					if side == 2 and motif.select_info.p2_cursor_blink == 1 then
 						local sameCell = false
@@ -2156,7 +2321,7 @@ function start.f_selectScreen()
 						end
 					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
-						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active')
+						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active', false)
 					end
 				end
 			end
@@ -2198,6 +2363,8 @@ function start.f_selectScreen()
 							g =      motif.select_info['p' .. side .. '_name_font'][5],
 							b =      motif.select_info['p' .. side .. '_name_font'][6],
 							height = motif.select_info['p' .. side .. '_name_font'][7],
+							xshear = motif.select_info['p' .. side .. '_name_xshear'],
+							angle  = motif.select_info['p' .. side .. '_name_angle'],
 						})
 						t_txt_name[side]:draw()
 					end
@@ -2269,6 +2436,8 @@ function start.f_selectScreen()
 						g =      motif.select_info[stageActiveType .. '_font'][5],
 						b =      motif.select_info[stageActiveType .. '_font'][6],
 						height = motif.select_info[stageActiveType .. '_font'][7],
+						xshear = motif.select_info[stageActiveType .. '_xshear'],
+						angle  = motif.select_info[stageActiveType .. '_angle'],
 					})
 					txt_selStage:draw()
 				end
@@ -2465,6 +2634,8 @@ function start.f_teamMenu(side, t)
 					g =      motif.select_info[t_teamActiveType[side] .. '_font'][5],
 					b =      motif.select_info[t_teamActiveType[side] .. '_font'][6],
 					height = motif.select_info[t_teamActiveType[side] .. '_font'][7],
+					xshear = motif.select_info[t_teamActiveType[side] .. '_xshear'],
+					angle  = motif.select_info[t_teamActiveType[side] .. '_angle'],
 				})
 				t[i].data:draw()
 			else
@@ -2484,6 +2655,8 @@ function start.f_teamMenu(side, t)
 					g =      motif.select_info['p' .. side .. '_teammenu_item_font'][5],
 					b =      motif.select_info['p' .. side .. '_teammenu_item_font'][6],
 					height = motif.select_info['p' .. side .. '_teammenu_item_font'][7],
+					xshear = motif.select_info['p' .. side .. '_teammenu_item_xshear'],
+					angle  = motif.select_info['p' .. side .. '_teammenu_item_angle'],
 				})
 				t[i].data:draw()
 			end
@@ -2599,6 +2772,7 @@ end
 --; SELECT MENU
 --;===========================================================
 function start.f_selectMenu(side, cmd, player, member, selectState)
+	local needUpdateDrawList = false
 	--predefined selection
 	if main.forceChar[side] ~= nil then
 		local t = {}
@@ -2655,7 +2829,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				})
 			else
 				local updateAnim = false
-				local slotSelected = start.f_slotSelected(start.c[player].cell + 1, side, cmd, player, start.c[player].selX, start.c[player].selY)
+				local slotSelected,slotChanged = start.f_slotSelected(start.c[player].cell + 1, side, cmd, player, start.c[player].selX, start.c[player].selY)
+				needUpdateDrawList = slotChanged
 				-- cursor changed position or character change within current slot
 				if start.p[side].t_selTemp[member].cell ~= start.c[player].cell or start.p[side].t_selTemp[member].ref ~= start.c[player].selRef then
 					--start.p[side].t_selTemp[member].pal = 1
@@ -2764,7 +2939,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			end
 		end
 	end
-	return selectState
+	return selectState, needUpdateDrawList
 end
 
 --;===========================================================
@@ -2975,6 +3150,8 @@ function start.f_selectVersus(active, t_orderSelect)
 						g =      motif.vs_screen['p' .. side .. '_name_font'][5],
 						b =      motif.vs_screen['p' .. side .. '_name_font'][6],
 						height = motif.vs_screen['p' .. side .. '_name_font'][7],
+						xshear = motif.vs_screen['p' .. side .. '_name_xshear'],
+						angle  = motif.vs_screen['p' .. side .. '_name_angle'],
 					})
 					t_txt_nameVS[side]:draw()
 				end
@@ -3708,6 +3885,8 @@ function start.f_continue()
 				g =      motif.continue_screen[var .. '_font'][5],
 				b =      motif.continue_screen[var .. '_font'][6],
 				height = motif.continue_screen[var .. '_font'][7],
+				xshear = motif.continue_screen[var .. '_xshear'],
+				angle  = motif.continue_screen[var .. '_angle'],
 			})
 			txt:draw()
 		end
@@ -4083,7 +4262,7 @@ function start.f_stageMusic()
 		didLoadStageBGM = false
 	end
 	-- bgmusic / bgmusic.roundX / bgmusic.final
-	if (stagetime() > 0 and not didLoadStageBGM) then
+	if (stagetime() > 0 and not didLoadStageBGM and roundstate() <= 2) then
 		-- only if the round is not restarted
 		if start.bgmround ~= roundno() then
 			start.bgmround = roundno()
@@ -4113,8 +4292,9 @@ function start.f_stageMusic()
 			end
 		end
 		start.bgmstate = 0
+	end
 	-- bgmusic.life
-	elseif start.t_music.musiclife.bgmusic ~= nil and start.bgmstate == 0 and roundstate() == 2 then
+	if start.t_music.musiclife.bgmusic ~= nil and start.bgmstate == 0 and roundstate() == 2 then
 		for i = 1, 2 do
 			player(i) --assign sys.debugWC to player i
 			-- continue only if p1/p2 life meets life ratio criteria
@@ -4137,8 +4317,9 @@ function start.f_stageMusic()
 				end
 			end
 		end
+	end
 	-- bgmusic.victory
-	elseif #start.t_music.musicvictory > 0 and start.bgmstate ~= -1 and roundstate() == 3 then
+	if #start.t_music.musicvictory > 0 and start.bgmstate ~= -1 and roundstate() == 3 then
 		for i = 1, 2 do
 			if start.t_music.musicvictory[i] ~= nil and player(i) and win() and decisiveround() then --assign sys.debugWC to player i
 				main.f_playBGM(true, start.t_music.musicvictory[i].bgmusic, 1, start.t_music.musicvictory[i].bgmvolume, start.t_music.musicvictory[i].bgmloopstart, start.t_music.musicvictory[i].bgmloopend)

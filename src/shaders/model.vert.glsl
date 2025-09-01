@@ -11,6 +11,7 @@
 
 uniform mat4 model, view, projection;
 uniform mat4 normalMatrix;
+uniform mat4 outlineMatrix;
 uniform mat4 lightMatrices[4];
 uniform sampler2D jointMatrices;
 //uniform highp sampler2D morphTargetValues;
@@ -21,6 +22,8 @@ uniform int morphTargetTextureDimension;
 uniform vec4 morphTargetWeight[2];
 uniform vec4 morphTargetOffset;
 uniform int numVertices;
+uniform float meshOutline;
+uniform vec3 cameraPosition;
 //gl_VertexID is not available in 1.2
 COMPAT_ATTRIBUTE float vertexId;
 COMPAT_ATTRIBUTE vec3 position;
@@ -32,6 +35,7 @@ COMPAT_ATTRIBUTE vec4 joints_0;
 COMPAT_ATTRIBUTE vec4 joints_1;
 COMPAT_ATTRIBUTE vec4 weights_0;
 COMPAT_ATTRIBUTE vec4 weights_1;
+COMPAT_ATTRIBUTE vec4 outlineAttribute;
 COMPAT_VARYING vec3 normal;
 COMPAT_VARYING vec3 tangent;
 COMPAT_VARYING vec3 bitangent;
@@ -115,26 +119,42 @@ void main(void) {
 		
 		mat4 jointMatrix = getJointMatrix();
 		mat3 jointNormalMatrix = getJointNormalMatrix();
-		vec4 tmp2 = model * jointMatrix * pos;
-		gl_Position = projection * view * tmp2;
-		worldSpacePos = vec3(tmp2);
-		for(int i = 0;i < 4;i++){
-			lightSpacePos[i] = lightMatrices[i] * tmp2;
-		}
 		normal = mat3(normalMatrix) * jointNormalMatrix * normal;
-	}else{
-		vec4 tmp2 = model * pos;
+		vec4 tmp2 = model * jointMatrix * pos;
+		
+		if(outlineAttribute.w > 0){
+			vec3 p = normalize(mat3(normalMatrix) * outlineAttribute.xyz)*outlineAttribute.w*meshOutline*length(cameraPosition-tmp2.xyz);
+			tmp2.xyz += p;
+		}else{
+			vec3 p = normal*meshOutline*length(cameraPosition-tmp2.xyz);
+			tmp2.xyz += p;
+		}
+
 		gl_Position = projection * view * tmp2;
 		worldSpacePos = vec3(tmp2);
 		for(int i = 0;i < 4;i++){
 			lightSpacePos[i] = lightMatrices[i] * tmp2;
 		}
-		if(normal.x+normal.y+normal.z != 0){
-			normal = normalize(mat3(normalMatrix) * normal);
-			if(tangent.x+tangent.y+tangent.z != 0){
-				tangent = normalize(vec3(model * vec4(tangent,0)));
-				bitangent = cross(normal, tangent) * tangentIn.w;
-			}
+	}else{
+		normal = normalize(mat3(normalMatrix) * normal);
+		if(tangent.x+tangent.y+tangent.z != 0){
+			tangent = normalize(vec3(model * vec4(tangent,0)));
+			bitangent = cross(normal, tangent) * tangentIn.w;
+		}
+		vec4 tmp2 = model * pos;
+
+		if(outlineAttribute.w > 0){
+			vec3 p = normalize(mat3(normalMatrix) * outlineAttribute.xyz)*outlineAttribute.w*meshOutline*length(cameraPosition-tmp2.xyz);
+			tmp2.xyz += p;
+		}else{
+			vec3 p = normal*meshOutline*length(cameraPosition-tmp2.xyz);
+			tmp2.xyz += p;
+		}
+
+		gl_Position = projection * view * tmp2;
+		worldSpacePos = vec3(tmp2);
+		for(int i = 0;i < 4;i++){
+			lightSpacePos[i] = lightMatrices[i] * tmp2;
 		}
 	}
 }

@@ -1,7 +1,10 @@
 package main
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -10,6 +13,10 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/japanese"
+	"golang.org/x/text/transform"
 )
 
 const (
@@ -25,8 +32,14 @@ func Random() int32 {
 	}
 	return sys.randseed
 }
-func Srand(s int32)             { sys.randseed = s }
-func Rand(min, max int32) int32 { return min + Random()/(IMax/(max-min+1)+1) }
+
+func Srand(s int32) {
+	sys.randseed = s
+}
+
+func Rand(min, max int32) int32 {
+	return min + Random()/(IMax/(max-min+1)+1)
+}
 
 func RandF32(min, max float32) float32 {
 	return min + float32(Random())/(float32(IMax)/(max-min+1.0)+1.0)
@@ -44,6 +57,7 @@ func RandI(x, y int32) int32 {
 	}
 	return Rand(x, y)
 }
+
 func RandF(x, y float32) float32 {
 	return x + float32(Random())*(y-x)/float32(IMax)
 }
@@ -125,6 +139,7 @@ func Cos(f float32) float32 {
 func Sin(f float32) float32 {
 	return float32(math.Sin(float64(f)))
 }
+
 func Sign(i int32) int32 {
 	if i < 0 {
 		return -1
@@ -144,38 +159,47 @@ func SignF(f float32) float32 {
 		return 0
 	}
 }
+
 func Abs(i int32) int32 {
 	if i < 0 {
 		return -i
 	}
 	return i
 }
+
 func AbsF(f float32) float32 {
 	if f < 0 {
 		return -f
 	}
 	return f
 }
+
 func Pow(x, y float32) float32 {
 	return float32(math.Pow(float64(x), float64(y)))
 }
+
 func Lerp(x, y, a float32) float32 {
 	//return float32(x + (y - x) * ClampF(a, 0, 1))
 	return float32((1-a)*x + a*y)
 }
+
 func Ceil(x float32) int32 {
 	return int32(math.Ceil(float64(x)))
 }
+
 func Floor(x float32) int32 {
 	return int32(math.Floor(float64(x)))
 }
+
 func IsFinite(f float32) bool {
 	return math.Abs(float64(f)) <= math.MaxFloat64
 }
+
 func IsNumeric(s string) bool {
 	_, err := strconv.ParseFloat(strings.TrimSpace(s), 64)
 	return err == nil
 }
+
 func Atoi(str string) int32 {
 	var n int64
 	str = strings.TrimSpace(str)
@@ -206,6 +230,7 @@ func Atoi(str string) int32 {
 	}
 	return int32(n)
 }
+
 func Atof(str string) float64 {
 	f := 0.0
 	str = strings.TrimSpace(str)
@@ -257,6 +282,7 @@ func Atof(str string) float64 {
 	}
 	return f
 }
+
 func RectRotate(x, y, w, h, cx, cy, angle float32) [][2]float32 {
 	rp := make([][2]float32, 4)
 	corners := [][2]float32{
@@ -343,12 +369,14 @@ func readDigit(d string) (int32, bool) {
 	}
 	return int32(Atof(d)), true
 }
+
 func Btoi(b bool) int32 {
 	if b {
 		return 1
 	}
 	return 0
 }
+
 func I32ToI16(i32 int32) int16 {
 	if i32 < ^int32(^uint16(0)>>1) {
 		return ^int16(^uint16(0) >> 1)
@@ -358,6 +386,7 @@ func I32ToI16(i32 int32) int16 {
 	}
 	return int16(i32)
 }
+
 func I32ToU16(i32 int32) uint16 {
 	if i32 < 0 {
 		return 0
@@ -382,23 +411,106 @@ func NormalizeNewlines(input string) string {
 }
 
 func LoadText(filename string) (string, error) {
-	bytes, err := os.ReadFile(filename)
+	rc, err := OpenFile(filename)
 	if err != nil {
 		return "", err
 	}
-	if len(bytes) >= 3 &&
-		bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf {
-		bytes = bytes[3:]
+	defer rc.Close()
+
+	bytes, err := io.ReadAll(rc)
+	if err != nil {
+		return "", err
 	}
+
+	if len(bytes) >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf { // UTF-8 BOM
+		return string(bytes[3:]), nil
+	}
+
 	return string(bytes), nil
 }
 
+func decodeShiftJIS(input string) string {
+	bytes := []byte(input)
+
+	if utf8.Valid(bytes) {
+		return input
+	}
+
+	decodedBytes, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), bytes)
+	if err != nil {
+		sys.errLog.Printf("Warning: Failed to decode string as Shift_JIS, falling back to original. String: %s, Error: %v\n", input, err)
+		return input
+	}
+	return string(decodedBytes)
+}
+
 func FileExist(filename string) string {
+	filename = filepath.ToSlash(filename)
+	isZip, zipFilePath, pathInZip := IsZipPath(filename)
+	if isZip {
+		var actualZipFilePathOnDisk string
+		info, err := os.Stat(zipFilePath)
+		if err == nil && !info.IsDir() {
+
+			actualZipFilePathOnDisk = zipFilePath
+		} else if os.IsNotExist(err) || (info != nil && info.IsDir()) {
+			var pattern string
+			tempPattern := ""
+			for _, r := range zipFilePath {
+				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') {
+					tempPattern += "[" + string(unicode.ToLower(r)) + string(unicode.ToUpper(r)) + "]"
+				} else {
+					tempPattern += string(r)
+				}
+			}
+			pattern = tempPattern
+
+			matches, _ := filepath.Glob(pattern)
+			if len(matches) > 0 {
+				// Ensure the found match is not a directory
+				infoMatch, errMatch := os.Stat(matches[0])
+				if errMatch == nil && !infoMatch.IsDir() {
+					actualZipFilePathOnDisk = matches[0]
+				} else {
+					return ""
+				}
+			} else {
+				return "" // Zip file not found by direct stat or glob
+			}
+		} else if err != nil {
+			return "" // Some other error stating the zip file
+		}
+		// At this point, actualZipFilePathOnDisk should be the correct path to the zip file.
+		// Now check if pathInZip is empty (meaning we only check for the zip file itself)
+		if pathInZip == "" {
+			return filepath.ToSlash(actualZipFilePathOnDisk)
+		}
+
+		// If pathInZip is specified, check for its existence within the archive
+		zr, err := zip.OpenReader(actualZipFilePathOnDisk)
+		if err != nil {
+			return "" // Cannot open zip
+		}
+		defer zr.Close()
+		pathInZipLower := strings.ToLower(pathInZip)
+		foundInZip := false
+		for _, f := range zr.File {
+			if strings.ToLower(filepath.ToSlash(f.Name)) == pathInZipLower {
+				foundInZip = true
+				break
+			}
+		}
+		if foundInZip {
+			// Return the logical path (original filename) if the file exists in the zip
+			return filename
+		}
+		return "" // File not found in zip
+	}
 	if info, err := os.Stat(filename); !os.IsNotExist(err) {
 		if info == nil || info.IsDir() {
 			return ""
 		}
-		return filename
+		return filepath.ToSlash(filename)
 	}
 	var pattern string
 	for _, r := range filename {
@@ -412,19 +524,62 @@ func FileExist(filename string) string {
 		}
 	}
 	if m, _ := filepath.Glob(pattern); len(m) > 0 {
-		return m[0]
+		info, _ := os.Stat(m[0])
+		if info != nil && !info.IsDir() {
+			return filepath.ToSlash(m[0])
+		}
 	}
 	return ""
 }
 
-// SearchFile returns full path to specified file
+// SearchFile searches for 'file' in 'dirs'.
+// 'dirs' elements can be plain directory paths or logical paths to .def files (which might be inside zips).
+// 'file' is the filename to search (e.g., "kfm.sff").
 func SearchFile(file string, dirs []string) string {
 	file = strings.Replace(file, "\\", "/", -1)
-	for _, v := range dirs {
-		defdir := filepath.Dir(strings.Replace(v, "\\", "/", -1))
-		if fp := FileExist(defdir + "/" + file); len(fp) > 0 {
-			return fp
+	if file == "" {
+		return ""
+	}
+	if isZipFull, _, _ := IsZipPath(file); isZipFull {
+		if found := FileExist(file); found != "" {
+			return found
 		}
+	}
+
+	if filepath.IsAbs(file) {
+		if found := FileExist(file); found != "" {
+			return found
+		}
+	}
+
+	for _, dirCtx := range dirs {
+		dirCtx = filepath.ToSlash(dirCtx)
+		isZipCtx, zipFileCtx, pathInZipCtx := IsZipPath(dirCtx)
+
+		var candidate string
+		if isZipCtx {
+			baseDirInZip := filepath.Dir(pathInZipCtx)
+			if baseDirInZip == "." {
+				baseDirInZip = ""
+			}
+			candidate = filepath.ToSlash(filepath.Join(zipFileCtx, baseDirInZip, file))
+			if found := FileExist(candidate); found != "" {
+				return found
+			}
+		} else {
+			candidate = filepath.ToSlash(filepath.Join(filepath.Dir(dirCtx), file))
+			if found := FileExist(candidate); found != "" {
+				return found
+			}
+			candidate2 := filepath.ToSlash(filepath.Join(dirCtx, file))
+			if found := FileExist(candidate2); found != "" {
+				return found
+			}
+		}
+	}
+
+	if found := FileExist(file); found != "" {
+		return found
 	}
 	return file
 }
@@ -432,7 +587,10 @@ func SearchFile(file string, dirs []string) string {
 func LoadFile(file *string, dirs []string, load func(string) error) error {
 	fp := SearchFile(*file, dirs)
 	if err := load(fp); err != nil {
-		return Error(dirs[0] + ":\n" + fp + "\n" + err.Error())
+		if len(dirs) > 0 {
+			return Error(dirs[0] + ":\n" + fp + "\n" + err.Error())
+		}
+		return Error(fp + "\n" + err.Error())
 	}
 	*file = fp
 	return nil
@@ -447,6 +605,7 @@ func SplitAndTrim(str, sep string) (ss []string) {
 	}
 	return
 }
+
 func OldSprintf(f string, a ...interface{}) (s string) {
 	iIdx, lIdx, numVerbs := []int{}, []int{}, 0
 	for i := 0; i < len(f); i++ {
@@ -501,6 +660,7 @@ func OldSprintf(f string, a ...interface{}) (s string) {
 	}
 	return fmt.Sprintf(f, a...)
 }
+
 func SectionName(sec string) (string, string) {
 	if len(sec) == 0 || sec[0] != '[' {
 		return "", ""
@@ -521,6 +681,7 @@ func SectionName(sec string) (string, string) {
 	}
 	return strings.ToLower(name), sec
 }
+
 func HasExtension(file, ext string) bool {
 	match, _ := regexp.MatchString(ext, filepath.Ext(strings.ToLower(file)))
 	return match
@@ -554,13 +715,79 @@ func sliceMoveInt(array []int, srcIndex int, dstIndex int) []int {
 	return sliceInsertInt(sliceRemoveInt(array, srcIndex), value, dstIndex)
 }
 
+// We save an array for precise checking, and a float for triggers
+func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
+	var ver [3]uint16
+	parts := SplitAndTrim(versionStr, ".")
+	for i, s := range parts {
+		if i >= len(ver) {
+			break
+		}
+		if v, err := strconv.ParseUint(s, 10, 16); err == nil {
+			ver[i] = uint16(v)
+		} else {
+			break
+		}
+	}
+
+	// Convert into a float for triggers
+	re := regexp.MustCompile(`[^0-9.]`)
+	cleanStr := re.ReplaceAllString(versionStr, "")
+	// Keep only the first decimal point
+	strParts := strings.Split(cleanStr, ".")
+	if len(strParts) > 1 {
+		cleanStr = strParts[0] + "." + strings.Join(strParts[1:], "")
+	}
+	var verF float32
+	if result, err := strconv.ParseFloat(cleanStr, 32); err == nil {
+		verF = float32(result)
+	}
+
+	return ver, verF
+}
+
+func parseMugenVersion(versionStr string) ([2]uint16, float32) {
+	var ver [2]uint16
+	var verF float32
+
+	// Parse the string into the array
+	parts := SplitAndTrim(versionStr, ".")
+	for i, s := range parts {
+		if i >= len(ver) {
+			break
+		}
+		if v, err := strconv.ParseUint(s, 10, 16); err == nil {
+			ver[i] = uint16(v)
+		} else {
+			ver = [2]uint16{}
+			break
+		}
+	}
+
+	// Turn the array into the versions we know
+	if ver[0] == 1 && ver[1] == 1 {
+		verF = 1.1
+	} else if ver[0] == 1 && ver[1] == 0 {
+		verF = 1.0
+	} else if ver[0] != 0 {
+		verF = 0.5 // Arbitrary value
+	}
+
+	return ver, verF
+}
+
 type Error string
 
-func (e Error) Error() string { return string(e) }
+func (e Error) Error() string {
+	return string(e)
+}
 
 type IniSection map[string]string
 
-func NewIniSection() IniSection { return IniSection(make(map[string]string)) }
+func NewIniSection() IniSection {
+	return IniSection(make(map[string]string))
+}
+
 func ReadIniSection(lines []string, i *int) (
 	is IniSection, name string, subname string) {
 	for ; *i < len(lines); (*i)++ {
@@ -577,6 +804,7 @@ func ReadIniSection(lines []string, i *int) (
 	is.Parse(lines, i)
 	return
 }
+
 func (is IniSection) Parse(lines []string, i *int) {
 	for ; *i < len(lines); (*i)++ {
 		if len(lines[*i]) > 0 && lines[*i][0] == '[' {
@@ -598,6 +826,7 @@ func (is IniSection) Parse(lines []string, i *int) {
 		}
 	}
 }
+
 func (is IniSection) LoadFile(name string, dirs []string,
 	load func(string) error) error {
 	str := is[name]
@@ -606,6 +835,7 @@ func (is IniSection) LoadFile(name string, dirs []string,
 	}
 	return LoadFile(&str, dirs, load)
 }
+
 func (is IniSection) ReadI32(name string, out ...*int32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -621,6 +851,7 @@ func (is IniSection) ReadI32(name string, out ...*int32) bool {
 	}
 	return true
 }
+
 func (is IniSection) ReadF32(name string, out ...*float32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -636,6 +867,7 @@ func (is IniSection) ReadF32(name string, out ...*float32) bool {
 	}
 	return true
 }
+
 func (is IniSection) ReadBool(name string, out ...*bool) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -651,6 +883,7 @@ func (is IniSection) ReadBool(name string, out ...*bool) bool {
 	}
 	return true
 }
+
 func (is IniSection) readI32ForStage(name string, out ...*int32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -669,6 +902,7 @@ func (is IniSection) readI32ForStage(name string, out ...*int32) bool {
 	}
 	return true
 }
+
 func (is IniSection) readF32ForStage(name string, out ...*float32) bool {
 	str := is[name]
 	if len(str) == 0 {
@@ -687,6 +921,7 @@ func (is IniSection) readF32ForStage(name string, out ...*float32) bool {
 	}
 	return true
 }
+
 func (is IniSection) readI32CsvForStage(name string) (ary []int32) {
 	if str := is[name]; len(str) > 0 {
 		for _, s := range strings.Split(str, ",") {
@@ -700,6 +935,7 @@ func (is IniSection) readI32CsvForStage(name string) (ary []int32) {
 	}
 	return
 }
+
 func (is IniSection) readF32CsvForStage(name string) (ary []float32) {
 	if str := is[name]; len(str) > 0 {
 		for _, s := range strings.Split(str, ",") {
@@ -713,6 +949,7 @@ func (is IniSection) readF32CsvForStage(name string) (ary []float32) {
 	}
 	return
 }
+
 func (is IniSection) getText(name string) (str string, ok bool, err error) {
 	str, ok = is[name]
 	if !ok {
@@ -721,7 +958,7 @@ func (is IniSection) getText(name string) (str string, ok bool, err error) {
 	if len(str) >= 2 && str[0] == '"' && str[len(str)-1] == '"' {
 		str = str[1 : len(str)-1]
 	} else {
-		err = Error("Not enclosed in \"")
+		err = Error("String not enclosed in \"")
 	}
 	return
 }
@@ -733,17 +970,20 @@ type Layout struct {
 	layerno int16
 	scale   [2]float32
 	angle   float32
+	xshear  float32
 	window  [4]int32
 }
 
 func newLayout(ln int16) *Layout {
 	return &Layout{facing: 1, vfacing: 1, layerno: ln, scale: [...]float32{1, 1}}
 }
+
 func ReadLayout(pre string, is IniSection, ln int16) *Layout {
 	l := newLayout(ln)
 	l.Read(pre, is)
 	return l
 }
+
 func (l *Layout) Read(pre string, is IniSection) {
 	is.ReadF32(pre+"offset", &l.offset[0], &l.offset[1])
 	if str := is[pre+"facing"]; len(str) > 0 {
@@ -765,6 +1005,7 @@ func (l *Layout) Read(pre string, is IniSection) {
 	l.layerno = I32ToI16(Min(2, ln))
 	is.ReadF32(pre+"scale", &l.scale[0], &l.scale[1])
 	is.ReadF32(pre+"angle", &l.angle)
+	is.ReadF32(pre+"xshear", &l.xshear)
 	if is.ReadI32(pre+"window", &l.window[0], &l.window[1], &l.window[2], &l.window[3]) {
 		l.window[0] = int32(float32(l.window[0]) * float32(sys.scrrect[2]) / float32(sys.lifebarLocalcoord[0]))
 		l.window[1] = int32(float32(l.window[1]) * float32(sys.scrrect[3]) / float32(sys.lifebarLocalcoord[1]))
@@ -796,15 +1037,33 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 			y += sys.lifebar.fnt_scale * sys.lifebarScale
 		}
 		if s.coldepth <= 8 && s.PalTex == nil {
-			s.CachePalette(s.Pal)
+			s.PalTex = s.CachePalette(s.Pal)
 		}
-		s.Draw(x+l.offset[0]*sys.lifebarScale, y+l.offset[1]*sys.lifebarScale,
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(s.Offset[1]) * l.scale[1] * fscale)
+
+		drawwindow := window
+
+		if *window != sys.scrrect {
+			w := window
+
+			var fwin [4]int32
+			fwin[0] = int32(float32(w[0]))
+			fwin[1] = int32(float32(w[1]) * fscale)
+			fwin[2] = int32(float32(w[2]))
+			fwin[3] = int32(float32(w[3]) * fscale)
+
+			drawwindow = &fwin
+		}
+
+		s.Draw(x+l.offset[0]*sys.lifebarScale-xsoffset, y+l.offset[1]*sys.lifebarScale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
-			l.angle, fx, window)
+			xshear, Rotation{l.angle, 0, 0}, fx, drawwindow)
 	}
 }
 
-func (l *Layout) DrawAnim(r *[4]int32, x, y, scl float32, ln int16, a *Animation, palfx *PalFX) {
+func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, a *Animation, palfx *PalFX) {
 	// Skip blank animations
 	if a == nil || a.isBlank() {
 		return
@@ -817,9 +1076,13 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl float32, ln int16, a *Animation
 		if l.vfacing < 0 {
 			y += sys.lifebar.fnt_scale
 		}
-		a.Draw(r, x+l.offset[0], y+l.offset[1]+float32(sys.gameHeight-240),
-			scl, scl, l.scale[0]*float32(l.facing), l.scale[0]*float32(l.facing),
-			l.scale[1]*float32(l.vfacing), 0, Rotation{l.angle, 0, 0},
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(a.spr.Offset[1]) * l.scale[1] * scl)
+
+		a.Draw(r, x+l.offset[0]-xsoffset, y+l.offset[1]+float32(sys.gameHeight-240),
+			scl, scl, (l.scale[0]*xscl)*float32(l.facing), (l.scale[0]*xscl)*float32(l.facing),
+			(l.scale[1]*yscl)*float32(l.vfacing), xshear, Rotation{l.angle, 0, 0},
 			float32(sys.gameWidth-320)/2, palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
@@ -834,10 +1097,14 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 		if l.vfacing < 0 {
 			y += sys.lifebar.fnt_scale
 		}
-		f.Print(text, (x+l.offset[0])*scl, (y+l.offset[1])*scl,
+		// Xshear offset correction
+		xshear := -l.xshear
+		xsoffset := xshear * (float32(f.offset[1]) * l.scale[1] * scl)
+
+		f.Print(text, (x+l.offset[0]-xsoffset)*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, b, a,
-			&l.window, palfx, frgba)
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, Rotation{l.angle, 0, 0},
+			b, a, &l.window, palfx, frgba)
 	}
 }
 
@@ -850,12 +1117,14 @@ type AnimLayout struct {
 func newAnimLayout(sff *Sff, ln int16) *AnimLayout {
 	return &AnimLayout{anim: *newAnimation(sff, &sff.palList), lay: *newLayout(ln), palfx: newPalFX()}
 }
+
 func ReadAnimLayout(pre string, is IniSection,
 	sff *Sff, at AnimationTable, ln int16) *AnimLayout {
 	al := newAnimLayout(sff, ln)
 	al.Read(pre, is, at, ln)
 	return al
 }
+
 func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 	ln int16) {
 	var g, n int32
@@ -872,83 +1141,90 @@ func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable,
 			al.lay = *newLayout(ln)
 		}
 	}
-	al.ReadAnimPalfx(pre+"palfx.", is)
+	ReadPalFX(pre+"palfx.", is, al.palfx)
 	al.lay.Read(pre, is)
 }
+
 func (al *AnimLayout) Reset() {
 	al.anim.Reset()
 }
+
 func (al *AnimLayout) Action() {
 	if al.palfx != nil {
 		al.palfx.step()
 	}
 	al.anim.Action()
 }
+
 func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {
-	al.lay.DrawAnim(&al.lay.window, x, y, scale, layerno, &al.anim, al.palfx)
+	al.lay.DrawAnim(&al.lay.window, x, y, scale, 1, 1, layerno, &al.anim, al.palfx)
 }
 
-func (al *AnimLayout) ReadAnimPalfx(pre string, is IniSection) {
-	al.palfx.clear()
-	al.palfx.time = -1
-	is.ReadI32(pre+"time", &al.palfx.time)
-	is.ReadI32(pre+"add", &al.palfx.add[0], &al.palfx.add[1], &al.palfx.add[2])
-	is.ReadI32(pre+"mul", &al.palfx.mul[0], &al.palfx.mul[1], &al.palfx.mul[2])
+func ReadPalFX(pre string, is IniSection, pfx *PalFX) int32 {
+	pfx.clear()
+	pfx.time = -1
+	tInit := int32(-1)
+	if is.ReadI32(pre+"time", &pfx.time) {
+		tInit = pfx.time
+	}
+	is.ReadI32(pre+"add", &pfx.add[0], &pfx.add[1], &pfx.add[2])
+	is.ReadI32(pre+"mul", &pfx.mul[0], &pfx.mul[1], &pfx.mul[2])
 	var s [4]int32
 	if is.ReadI32(pre+"sinadd", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinadd[0] = -s[0]
-			al.palfx.sinadd[1] = -s[1]
-			al.palfx.sinadd[2] = -s[2]
-			al.palfx.cycletime[0] = -s[3]
+			pfx.sinadd[0] = -s[0]
+			pfx.sinadd[1] = -s[1]
+			pfx.sinadd[2] = -s[2]
+			pfx.cycletime[0] = -s[3]
 		} else {
-			al.palfx.sinadd[0] = s[0]
-			al.palfx.sinadd[1] = s[1]
-			al.palfx.sinadd[2] = s[2]
-			al.palfx.cycletime[0] = s[3]
+			pfx.sinadd[0] = s[0]
+			pfx.sinadd[1] = s[1]
+			pfx.sinadd[2] = s[2]
+			pfx.cycletime[0] = s[3]
 		}
 	}
 	if is.ReadI32(pre+"sinmul", &s[0], &s[1], &s[2], &s[3]) {
 		if s[3] < 0 {
-			al.palfx.sinmul[0] = -s[0]
-			al.palfx.sinmul[1] = -s[1]
-			al.palfx.sinmul[2] = -s[2]
-			al.palfx.cycletime[1] = -s[3]
+			pfx.sinmul[0] = -s[0]
+			pfx.sinmul[1] = -s[1]
+			pfx.sinmul[2] = -s[2]
+			pfx.cycletime[1] = -s[3]
 		} else {
-			al.palfx.sinmul[0] = s[0]
-			al.palfx.sinmul[1] = s[1]
-			al.palfx.sinmul[2] = s[2]
-			al.palfx.cycletime[1] = s[3]
+			pfx.sinmul[0] = s[0]
+			pfx.sinmul[1] = s[1]
+			pfx.sinmul[2] = s[2]
+			pfx.cycletime[1] = s[3]
 		}
 	}
 	var s2 [2]int32
 	if is.ReadI32(pre+"sincolor", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sincolor = -s2[0]
-			al.palfx.cycletime[2] = -s2[1]
+			pfx.sincolor = -s2[0]
+			pfx.cycletime[2] = -s2[1]
 		} else {
-			al.palfx.sincolor = s2[0]
-			al.palfx.cycletime[2] = s2[1]
+			pfx.sincolor = s2[0]
+			pfx.cycletime[2] = s2[1]
 		}
 	}
 	if is.ReadI32(pre+"sinhue", &s2[0], &s2[1]) {
 		if s2[1] < 0 {
-			al.palfx.sinhue = -s2[0]
-			al.palfx.cycletime[3] = -s2[1]
+			pfx.sinhue = -s2[0]
+			pfx.cycletime[3] = -s2[1]
 		} else {
-			al.palfx.sinhue = s2[0]
-			al.palfx.cycletime[3] = s2[1]
+			pfx.sinhue = s2[0]
+			pfx.cycletime[3] = s2[1]
 		}
 	}
-	is.ReadBool(pre+"invertall", &al.palfx.invertall)
-	is.ReadI32(pre+"invertblend", &al.palfx.invertblend)
+	is.ReadBool(pre+"invertall", &pfx.invertall)
+	is.ReadI32(pre+"invertblend", &pfx.invertblend)
 	var n float32
 	if is.ReadF32(pre+"color", &n) {
-		al.palfx.color = n / 256
+		pfx.color = n / 256
 	}
 	if is.ReadF32(pre+"hue", &n) {
-		al.palfx.hue = n / 256
+		pfx.hue = n / 256
 	}
+	return tInit
 }
 
 type AnimTextSnd struct {
@@ -963,12 +1239,14 @@ func newAnimTextSnd(sff *Sff, ln int16) *AnimTextSnd {
 	return &AnimTextSnd{snd: [2]int32{-1},
 		anim: *newAnimLayout(sff, ln), displaytime: -2}
 }
+
 func ReadAnimTextSnd(pre string, is IniSection,
 	sff *Sff, at AnimationTable, ln int16, f []*Fnt) *AnimTextSnd {
 	ats := newAnimTextSnd(sff, ln)
 	ats.Read(pre, is, at, ln, f)
 	return ats
 }
+
 func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 	ln int16, f []*Fnt) {
 	is.ReadI32(pre+"snd", &ats.snd[0], &ats.snd[1])
@@ -977,14 +1255,19 @@ func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 	ats.anim.Read(pre, is, at, ln)
 	is.ReadI32(pre+"displaytime", &ats.displaytime)
 }
+
 func (ats *AnimTextSnd) Reset() {
 	ats.anim.Reset()
 	ats.cnt = 0
+	ats.text.resetTxtPfx()
 }
+
 func (ats *AnimTextSnd) Action() {
 	ats.anim.Action()
 	ats.cnt++
+	ats.text.step()
 }
+
 func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {
 	if ats.displaytime > 0 && ats.cnt > ats.displaytime {
 		return
@@ -1003,16 +1286,23 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float3
 	}
 }
 
-func (ats *AnimTextSnd) NoSound() bool { return ats.snd[0] < 0 }
+func (ats *AnimTextSnd) NoSound() bool {
+	return ats.snd[0] < 0
+}
+
 func (ats *AnimTextSnd) NoDisplay() bool {
 	return len(ats.anim.anim.frames) == 0 &&
 		(ats.text.font[0] < 0 || len(ats.text.text) == 0)
 }
+
+// In Mugen this returns true if the animation ends before "displaytime" is over
+// It seems like the current Ikemen behavior makes more sense however
+// https://github.com/ikemen-engine/Ikemen-GO/issues/1150
 func (ats *AnimTextSnd) End(dt int32, inf bool) bool {
 	if ats.displaytime < 0 {
 		return len(ats.anim.anim.frames) == 0 || ats.anim.anim.loopend ||
-			(inf && ats.anim.anim.frames[ats.anim.anim.current].Time == -1 &&
-				ats.anim.anim.current == int32(len(ats.anim.anim.frames)-1))
+			(inf && ats.anim.anim.frames[ats.anim.anim.curelem].Time == -1 &&
+				ats.anim.anim.curelem == int32(len(ats.anim.anim.frames)-1))
 	}
 	return dt >= ats.displaytime
 }
@@ -1024,6 +1314,11 @@ func compareNatural(a, b string) bool {
 	// Extract prefix and numeric parts for both strings
 	aMatches := re.FindStringSubmatch(a)
 	bMatches := re.FindStringSubmatch(b)
+
+	// Index range check
+	if len(aMatches) < 3 || len(bMatches) < 3 {
+		return false
+	}
 
 	// Extract prefix and numeric part
 	aPrefix, aNumStr := aMatches[1], aMatches[2]
@@ -1052,4 +1347,123 @@ func SortedKeys[V any](m map[string]V) []string {
 	})
 
 	return keys
+}
+
+func IsZipPath(path string) (isZip bool, zipFilePath string, pathInZip string) {
+	path = filepath.ToSlash(path) // Normalize to forward slashes
+
+	// Try to find ".zip/" as a separator.
+	// This handles cases like "C:/path/to/archive.zip/internal/file.txt"
+	// or "chars/archive.zip/internal/file.txt"
+	idx := strings.Index(strings.ToLower(path), ".zip/")
+	if idx != -1 {
+		potentialZipPath := path[:idx+4]
+		zipFilePath = potentialZipPath
+		pathInZip = path[idx+5:]
+		isZip = true
+		return
+	}
+
+	// If no ".zip/" separator, check if the path itself ends with .zip
+	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		isZip = true
+		zipFilePath = path
+		pathInZip = ""
+		return
+	}
+
+	return false, "", ""
+}
+
+type zipMemFileReader struct {
+	reader     *bytes.Reader   // Reader for the in-memory content of the file in zip
+	zipArchive *zip.ReadCloser // The main zip archive reader
+}
+
+func (zmfr *zipMemFileReader) Read(p []byte) (n int, err error) {
+	return zmfr.reader.Read(p)
+}
+
+func (zmfr *zipMemFileReader) Seek(offset int64, whence int) (int64, error) {
+	return zmfr.reader.Seek(offset, whence)
+}
+
+func (zmfr *zipMemFileReader) Close() error {
+	// The bytes.Reader itself doesn't need closing, but we must close the main zip archive.
+	return zmfr.zipArchive.Close()
+}
+
+// OpenFile opens a regular file or a file within a zip archive.
+// For zip files, it reads the entire entry into memory to ensure full io.Seeker compatibility.
+// It returns an io.ReadSeekCloser that must be closed by the caller.
+func OpenFile(filename string) (io.ReadSeekCloser, error) {
+	filename = filepath.ToSlash(filename)
+	isZip, zipFilePath, pathInZip := IsZipPath(filename)
+	if isZip {
+		zr, err := zip.OpenReader(zipFilePath)
+		if err != nil {
+			f, err2 := os.Open(filename)
+			if err2 != nil {
+				return nil, fmt.Errorf("opening zip archive %s: %w", zipFilePath, err)
+			}
+			return f, nil
+		}
+
+		if pathInZip == "" {
+			zr.Close() // Close the main archive if we're not reading a specific file from it.
+			return nil, fmt.Errorf("path inside zip archive not specified for %s", filename)
+		}
+
+		var targetFile *zip.File
+		pathInZipLower := strings.ToLower(pathInZip)
+		for _, f := range zr.File {
+			if strings.ToLower(filepath.ToSlash(f.Name)) == pathInZipLower {
+				targetFile = f
+				break
+			}
+		}
+
+		if targetFile == nil {
+			zr.Close()
+			return nil, fmt.Errorf("file '%s' not found in zip archive '%s'", pathInZip, zipFilePath)
+		}
+
+		rc, err := targetFile.Open()
+		if err != nil {
+			zr.Close()
+			return nil, fmt.Errorf("opening file '%s' in zip archive '%s': %w", pathInZip, zipFilePath, err)
+		}
+
+		// Read the entire content of the zip file entry into memory
+		fileData, err := io.ReadAll(rc)
+		rc.Close() // Close the individual file reader from the zip entry
+		if err != nil {
+			zr.Close() // Close the main zip archive on error
+			return nil, fmt.Errorf("reading file '%s' from zip archive '%s': %w", pathInZip, zipFilePath, err)
+		}
+
+		// Create a bytes.Reader from the in-memory data
+		// *bytes.Reader implements io.ReadSeeker
+		bytesReader := bytes.NewReader(fileData)
+
+		// Return our custom wrapper that closes the main zip archive
+		return &zipMemFileReader{reader: bytesReader, zipArchive: zr}, nil
+	}
+
+	// Not a zip path, open as a normal file
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil // *os.File implements io.ReadSeekCloser
+}
+
+func LowercaseNoExtension(filename string) string {
+	basename := filepath.Base(filename)
+	ext := filepath.Ext(basename)
+	nameOnly := basename
+	if len(ext) > 0 {
+		nameOnly = basename[0 : len(basename)-len(ext)]
+	}
+	return strings.ToLower(nameOnly)
 }

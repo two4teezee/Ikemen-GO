@@ -258,12 +258,7 @@ function main.f_fileExists(file)
 	if file == '' then
 		return false
 	end
-	local f = io.open(file,'r')
-	if f ~= nil then
-		io.close(f)
-		return true
-	end
-	return false
+	return fileExists(file)
 end
 
 --prints "t" table content into "toFile" file
@@ -358,19 +353,31 @@ if main.flags['-speedtest'] ~= nil then
 	setGameSpeed(100 * gameOption('Config.Framerate'))
 end
 if main.flags['-nosound'] ~= nil then
-	setVolumeMaster(0)
+	modifyGameOption('Sound.MasterVolume', 0)
 end
 if main.flags['-togglelifebars'] ~= nil then
-	toggleStatusDraw()
+	toggleLifebarDisplay()
 end
 if main.flags['-maxpowermode'] ~= nil then
 	toggleMaxPowerMode()
 end
 if main.flags['-debug'] ~= nil then
-	toggleDebugDraw()
+	toggleDebugDisplay()
 end
 if main.flags['-setport'] ~= nil then
 	setListenPort(main.flags['-setport'])
+end
+if main.flags['-setvolume'] ~= nil and main.flags['-nosound'] == nil then
+	modifyGameOption('Sound.MasterVolume', main.flags['-setvolume'])
+end
+if main.flags['-windowed'] ~= nil then
+	modifyGameOption('Video.Fullscreen', false)
+end
+if main.flags['-width'] then
+	modifyGameOption('Video.GameWidth', main.flags['-width'])
+end
+if main.flags['-height'] then 
+	modifyGameOption('Video.GameHeight', main.flags['-height'])
 end
 
 --motif
@@ -500,6 +507,8 @@ function text:create(t)
 	t.window[2] = t.window[2] or 0
 	t.window[3] = t.window[3] or motif.info.localcoord[1]
 	t.window[4] = t.window[4] or motif.info.localcoord[2]
+	t.xshear = t.xshear or 0
+	t.angle = t.angle or 0
 	t.defsc = t.defsc or false
 	t.ti = textImgNew()
 	setmetatable(t, self)
@@ -523,6 +532,8 @@ function text:create(t)
 	textImgSetPos(t.ti, t.x + main.f_alignOffset(t.align), t.y)
 	textImgSetScale(t.ti, t.scaleX, t.scaleY)
 	textImgSetWindow(t.ti, t.window[1], t.window[2], t.window[3] - t.window[1], t.window[4] - t.window[2])
+	textImgSetXShear(t.ti, t.xshear)
+	textImgSetAngle(t.ti, t.angle)
 	if t.defsc then main.f_setLuaScale() end
 	return t
 end
@@ -574,6 +585,8 @@ function text:update(t)
 		textImgSetPos(self.ti, self.x + main.f_alignOffset(self.align), self.y)
 		textImgSetScale(self.ti, self.scaleX, self.scaleY)
 		textImgSetWindow(self.ti, self.window[1], self.window[2], self.window[3] - self.window[1], self.window[4] - self.window[2])
+		textImgSetXShear(self.ti, self.xshear)
+		textImgSetAngle(self.ti, self.angle)
 		if self.defsc then main.f_setLuaScale() end
 	else
 		self.text = t
@@ -715,6 +728,8 @@ function main.f_createTextImg(t, prefix, mod)
 		g =      t[prefix .. '_font'][5],
 		b =      t[prefix .. '_font'][6],
 		height = t[prefix .. '_font'][7],
+		xshear = t[prefix .. '_xshear'] or 0,
+		angle  = t[prefix .. '_angle'] or 0,
 		window = t[prefix .. '_window'],
 		defsc = mod.defsc or false,
 	})
@@ -1186,16 +1201,22 @@ function main.f_textRender(data, str, counter, x, y, spacingX, spacingY, font_de
 	local retDone = false
 	local retLength = 0
 	local lengthCnt = 0
-	local subEnd = math.floor(#text - (#text - counter / delay))
+	local subEnd = math.floor(main.f_utf8len(str) - (main.f_utf8len(str) - counter / delay))
+	
 	for i = 1, #t do
-		if subEnd < #str then
-			local length = #t[i]
+	-- Compare with the total number of characters in the string
+		if subEnd < main.f_utf8len(str) then
+			-- Get the number of characters in each line
+			local length = main.f_utf8len(t[i])
 			if i > 1 and i <= #t then
-				length = length + 1
+				length = length + 1 -- Account for newline character
 			end
+			-- Accumulate the total character count
 			lengthCnt = lengthCnt + length
 			if subEnd < lengthCnt then
-				t[i] = t[i]:sub(0, subEnd - lengthCnt)
+				-- Calculate the number of characters to render and pass to main.f_runeSub
+				local charsToRender = subEnd - (lengthCnt - main.f_utf8len(t[i]))
+				t[i] = main.f_runeSub(t[i], charsToRender)
 			end
 		elseif i == #t then
 			retDone = true
@@ -1214,7 +1235,8 @@ function main.f_textRender(data, str, counter, x, y, spacingX, spacingY, font_de
 			y = y + (main.f_round((font_def.Size[2] + font_def.Spacing[2]) * data.scaleY) + spacingY) * (i - 1),
 		})
 		data:draw()
-		retLength = retLength + string.len(t[i])
+		-- Return the number of characters actually rendered
+		retLength = retLength + main.f_utf8len(t[i])
 	end
 	return retDone, retLength
 end
@@ -1954,9 +1976,17 @@ function main.f_addStage(file, hidden)
 	})
 	--attachedchar
 	if t_info.attachedchardef ~= '' then
-		main.t_selStages[stageNo].attachedChar = getCharAttachedInfo(t_info.attachedchardef)
-		if main.t_selStages[stageNo].attachedChar ~= nil then
-			main.t_selStages[stageNo].attachedChar.dir = main.t_selStages[stageNo].attachedChar.def:gsub('[^/]+%.def$', '')
+		local attachedList = t_info.attachedchardef
+		if type(attachedList) ~= 'table' then
+			attachedList = {attachedList} -- Convert string to list
+		end
+		main.t_selStages[stageNo].attachedChar = {}
+		for i = 1, #attachedList do
+			local acInfo = getCharAttachedInfo(attachedList[i])
+			if acInfo ~= nil then
+				acInfo.dir = acInfo.def:gsub('[^/]+%.def$', '')
+				table.insert(main.t_selStages[stageNo].attachedChar, acInfo)
+			end
 		end
 	end
 	--music
@@ -3943,6 +3973,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_selected_active_font[5],
 						b =      motif[section].menu_item_selected_active_font[6],
 						height = motif[section].menu_item_selected_active_font[7],
+						xshear = motif[section].menu_item_selected_active_xshear,
+						angle  = motif[section].menu_item_selected_active_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -3960,6 +3992,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_active_font[5],
 						b =      motif[section].menu_item_active_font[6],
 						height = motif[section].menu_item_active_font[7],
+						xshear = motif[section].menu_item_active_xshear,
+						angle  = motif[section].menu_item_active_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -3978,6 +4012,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_value_active_font[5],
 						b =      motif[section].menu_item_value_active_font[6],
 						height = motif[section].menu_item_value_active_font[7],
+						xshear = motif[section].menu_item_value_active_xshear,
+						angle  = motif[section].menu_item_value_active_angle,
 						defsc =  defsc,
 					})
 					t[i].vardata:draw()
@@ -4003,6 +4039,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_selected_font[5],
 						b =      motif[section].menu_item_selected_font[6],
 						height = motif[section].menu_item_selected_font[7],
+						xshear = motif[section].menu_item_selected_xshear,
+						angle  = motif[section].menu_item_selected_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -4020,6 +4058,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_font[5],
 						b =      motif[section].menu_item_font[6],
 						height = motif[section].menu_item_font[7],
+						xshear = motif[section].menu_item_xshear,
+						angle  = motif[section].menu_item_angle,
 						defsc =  defsc,
 					})
 					t[i].data:draw()
@@ -4038,6 +4078,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						g =      motif[section].menu_item_value_font[5],
 						b =      motif[section].menu_item_value_font[6],
 						height = motif[section].menu_item_value_font[7],
+						xshear = motif[section].menu_item_value_xshear,
+						angle  = motif[section].menu_item_value_angle,
 						defsc =  defsc,
 					})
 					t[i].vardata:draw()
@@ -4150,6 +4192,83 @@ function main.f_fadeReset(fadeType, fadeGroup)
 	end
 end
 
+-- Returns a substring of a UTF-8 string, based on character count.
+function main.f_runeSub(str, numChars)
+    if numChars <= 0 then return "" end
+    
+    -- utf8.offset gets the byte position of the n-th character.
+    -- The third argument to utf8.offset is the starting byte position.
+    local byteEnd = main.f_utf8offset(str, numChars + 1)
+    
+    if byteEnd then
+        -- The offset is the start of the next character, so we subtract 1
+        -- to get the end of the character we want.
+        return str:sub(1, byteEnd - 1)
+    else
+        -- If offset is nil, it means numChars is >= the number of characters in the string.
+        -- In this case, we return the whole string.
+        return str
+    end
+end
+
+-- Counts the number of UTF-8 characters in a string without using the utf8 library.
+function main.f_utf8len(str)
+    if str == nil or str == '' then
+        return 0
+    end
+    
+    local len = 0
+    local i = 1
+    while i <= #str do
+        local byte = string.byte(str, i)
+        if byte < 0x80 then -- 1-byte character (ASCII)
+            i = i + 1
+        elseif byte < 0xE0 then -- 2-byte character
+            i = i + 2
+        elseif byte < 0xF0 then -- 3-byte character
+            i = i + 3
+        else -- 4-byte character
+            i = i + 4
+        end
+        len = len + 1
+    end
+    return len
+end
+
+-- Finds the byte offset of the n-th character in a UTF-8 string without using the utf8 library.
+function main.f_utf8offset(str, n)
+    if n <= 0 then return nil end
+    if n == 1 then return 1 end
+    
+    local bytePos = 1
+    local charCount = 0
+    
+    while bytePos <= #str do
+        charCount = charCount + 1
+        if charCount == n then
+            return bytePos
+        end
+        
+        local byte = string.byte(str, bytePos)
+        if byte < 0x80 then
+            bytePos = bytePos + 1
+        elseif byte < 0xE0 then
+            bytePos = bytePos + 2
+        elseif byte < 0xF0 then
+            bytePos = bytePos + 3
+        else
+            bytePos = bytePos + 4
+        end
+    end
+    
+    -- If n is exactly one more than the number of characters, return the position after the last character.
+    if charCount == n - 1 then
+        return #str + 1
+    end
+
+    -- n is out of bounds
+    return nil
+end
 --;===========================================================
 --; EXTERNAL LUA CODE
 --;===========================================================

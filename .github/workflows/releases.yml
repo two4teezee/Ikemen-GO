@@ -44,7 +44,7 @@ jobs:
       buildTime: ${{ env.buildTime }}
       #previousTag: ${{ steps.previousTag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       #- name: Get previous tag
       #  id: previousTag
@@ -77,7 +77,7 @@ jobs:
             glibc: ''
             target: ''
           - runner_os: linux
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             goos: linux
             goarch: amd64
             bin: Ikemen_GO_Linux
@@ -92,7 +92,7 @@ jobs:
             target: '10.7'
     runs-on: ${{ matrix.cfg.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Setup Golang with cache
         uses: magnetikonline/action-golang-cache@v5

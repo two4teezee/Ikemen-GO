@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/base64"
 	"encoding/binary"
@@ -10,8 +11,11 @@ import (
 	"image"
 	"image/draw"
 	_ "image/jpeg"
+	"io"
+	"io/fs"
 	"math"
 	"os"
+	"path"
 	"regexp"
 	"strconv"
 	"strings"
@@ -127,6 +131,10 @@ type backGround struct {
 	zoomscaledelta     [2]float32
 	xbottomzoomdelta   float32
 	roundpos           bool
+	rot                Rotation
+	fLength            float32
+	projection         Projection
+	xshear             float32
 }
 
 func newBackGround(sff *Sff) *backGround {
@@ -139,6 +147,10 @@ func newBackGround(sff *Sff) *backGround {
 		rasterx:            [...]float32{1, 1},
 		yscalestart:        100,
 		scalestart:         [...]float32{1, 1},
+		rot:                Rotation{0, 0, 0},
+		xshear:             0,
+		fLength:            2048,
+		projection:         Projection_Orthographic,
 		xbottomzoomdelta:   math.MaxFloat32,
 		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
 		actionno:           -1,
@@ -211,6 +223,21 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	is.readF32ForStage("scalestart", &bg.scalestart[0], &bg.scalestart[1])
 	is.readF32ForStage("scaledelta", &bg.scaledelta[0], &bg.scaledelta[1])
+	is.readF32ForStage("xshear", &bg.xshear)
+	is.readF32ForStage("angle", &bg.rot.angle)
+	is.readF32ForStage("xangle", &bg.rot.xangle)
+	is.readF32ForStage("yangle", &bg.rot.yangle)
+	is.readF32ForStage("focallength", &bg.fLength)
+	if str, ok := is["projection"]; ok {
+		switch strings.ToLower(strings.TrimSpace(str)) {
+		case "orthographic":
+			bg.projection = Projection_Orthographic
+		case "perspective":
+			bg.projection = Projection_Perspective
+		case "perspective2":
+			bg.projection = Projection_Perspective2
+		}
+	}
 	is.readF32ForStage("xbottomzoomdelta", &bg.xbottomzoomdelta)
 	is.readF32ForStage("zoomscaledelta", &bg.zoomscaledelta[0], &bg.zoomscaledelta[1])
 	is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1])
@@ -435,9 +462,9 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	y := bg.start[1] - yScrollPos + bg.bga.offset[1]
 
 	// Calculate Y scaling based on vertical scroll position and delta
-	ys2 := bg.scaledelta[1] * pos[1] * bg.delta[1] * bgscl / drawscl
+	ys2 := bg.scaledelta[1] * pos[1] * bg.delta[1] * bgscl / drawscl / stgscl[1]
 	ys := ((100-(pos[1])*bg.yscaledelta)*bgscl/bg.yscalestart)*bg.scalestart[1] + ys2
-	xs := bg.scaledelta[0] * pos[0] * bg.delta[0] * bgscl
+	xs := bg.scaledelta[0] * pos[0] * bg.delta[0] * bgscl / stgscl[0]
 	x *= bgscl
 
 	// Apply stage logic if BG is part of a stage
@@ -454,6 +481,13 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	sclx *= lscl[0]
 	scly *= stglscl * stgscl[1]
 
+	// Xshear offset correction
+	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
+
+	if bg.rot.angle != 0 {
+		xsoffset /= bg.rot.angle
+	}
+
 	// Calculate window scale
 	var wscl [2]float32
 	for i := range wscl {
@@ -467,7 +501,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Calculate window top left corner position
 	rect := bg.startrect
 
-	startrect0 := float32(rect[0]) - (pos[0])*bg.windowdelta[0] +
+	startrect0 := float32(rect[0]) - (pos[0])/stgscl[0]*bg.windowdelta[0] +
 		(float32(sys.gameWidth)/2/sclx - float32(bg.notmaskwindow)*(float32(sys.gameWidth)/2)*(1/lscl[0]))
 	startrect0 *= sys.widthScale * wscl[0]
 	if !isStage && wscl[0] == 1 {
@@ -493,11 +527,11 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 
 	// Render background if it's within the screen area
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
-		bg.anim.Draw(&rect, x, y, sclx, scly,
+		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
 			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
 			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
-			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1],
-			Rotation{}, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+			bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 
@@ -537,12 +571,13 @@ func newBgCtrl() *bgCtrl {
 	}
 }
 
-func (bgc *bgCtrl) read(is IniSection, idx int) {
+func (bgc *bgCtrl) read(is IniSection, idx int) error {
 	bgc.idx = idx
 	xy := false
 	srcdst := false
 	palfx := false
-	switch strings.ToLower(is["type"]) {
+	data := strings.ToLower(is["type"])
+	switch data {
 	case "anim":
 		bgc._type = BT_Anim
 	case "visible":
@@ -587,6 +622,8 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 	case "veladd":
 		bgc._type = BT_VelAdd
 		xy = true
+	default:
+		return Error("Invalid BGCtrl type: " + data)
 	}
 	is.ReadI32("time", &bgc.starttime)
 	bgc.endtime = bgc.starttime
@@ -642,6 +679,7 @@ func (bgc *bgCtrl) read(is IniSection, idx int) {
 		is.readI32ForStage("value", &bgc.v[0], &bgc.v[1], &bgc.v[2])
 	}
 	is.ReadI32("sctrlid", &bgc.sctrlid)
+	return nil
 }
 
 func (bgc *bgCtrl) xEnable() bool {
@@ -745,13 +783,17 @@ func (bgct *bgcTimeLine) step(s *Stage) {
 }
 
 type stageShadow struct {
-	intensity int32
-	color     uint32
-	yscale    float32
-	fadeend   int32
-	fadebgn   int32
-	xshear    float32
-	offset    [2]float32
+	intensity  int32
+	color      uint32
+	yscale     float32
+	fadeend    int32
+	fadebgn    int32
+	xshear     float32
+	rot        Rotation
+	fLength    float32
+	projection Projection
+	offset     [2]float32
+	window     [4]float32
 }
 type stagePlayer struct {
 	startx, starty, startz, facing int32
@@ -773,7 +815,7 @@ type Stage struct {
 	bgct              bgcTimeLine
 	bga               bgAction
 	sdw               stageShadow
-	p                 [MaxSimul*2 + MaxAttachedChar]stagePlayer
+	p                 [MaxPlayerNo]stagePlayer
 	leftbound         float32
 	rightbound        float32
 	screenleft        int32
@@ -801,11 +843,13 @@ type Stage struct {
 	stageTime         int32
 	constants         map[string]float32
 	partnerspacing    int32
+	ikemenver         [3]uint16
+	ikemenverF        float32
 	mugenver          [2]uint16
+	mugenverF         float32
 	reload            bool
 	stageprops        StageProps
 	model             *Model
-	ikemenver         [3]uint16
 	topbound          float32
 	botbound          float32
 }
@@ -887,41 +931,46 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		s.nameLow = strings.ToLower(s.name)
 		s.displaynameLow = strings.ToLower(s.displayname)
 		s.authorLow = strings.ToLower(s.author)
+		// Clear then read MugenVersion
 		s.mugenver = [2]uint16{}
+		s.mugenverF = 0
 		if str, ok := sec[0]["mugenversion"]; ok {
-			for k, v := range SplitAndTrim(str, ".") {
-				if k >= len(s.mugenver) {
-					break
-				}
-				if v, err := strconv.ParseUint(v, 10, 16); err == nil {
-					s.mugenver[k] = uint16(v)
-				} else {
-					break
-				}
-			}
+			s.mugenver, s.mugenverF = parseMugenVersion(str)
 		}
+		// Clear then read IkemenVersion
 		s.ikemenver = [3]uint16{}
 		if str, ok := sec[0]["ikemenversion"]; ok {
-			for k, v := range SplitAndTrim(str, ".") {
-				if k >= len(s.ikemenver) {
-					break
-				}
-				if v, err := strconv.ParseUint(v, 10, 16); err == nil {
-					s.ikemenver[k] = uint16(v)
-				} else {
-					break
-				}
-			}
+			s.ikemenver, s.ikemenverF = parseIkemenVersion(str)
 		}
 		// If the MUGEN version is lower than 1.0, default to camera pixel rounding (floor)
 		if s.ikemenver[0] == 0 && s.ikemenver[1] == 0 && s.mugenver[0] != 1 {
 			s.stageprops.roundpos = true
 		}
-		if sec[0].LoadFile("attachedchar", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
-			s.attachedchardef = append(s.attachedchardef, filename)
-			return nil
-		}); err != nil {
-			return nil, err
+		// AttachedChars
+		ac := 0
+		for i := range sec[0] {
+			if !strings.HasPrefix(i, "attachedchar") {
+				continue
+			}
+			if suffix := strings.TrimPrefix(i, "attachedchar"); suffix != "" {
+				if _, err := strconv.Atoi(suffix); err != nil {
+					continue
+				}
+			}
+			if ac >= MaxAttachedChar {
+				sys.appendToConsole(fmt.Sprintf("Warning: You can only define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
+				continue
+			}
+			if err := sec[0].LoadFile(i, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+				// Ensure slice has correct length
+				for len(s.attachedchardef) <= ac {
+					s.attachedchardef = append(s.attachedchardef, "")
+				}
+				s.attachedchardef[ac] = filename
+				return nil
+			}); err == nil {
+				ac++
+			}
 		}
 		// RoundXdef
 		if maindef {
@@ -1119,6 +1168,11 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			s.stageCamera.ytensionenable = true
 			sec[0].ReadI32("tensionhigh", &s.stageCamera.tensionhigh)
 		}
+		// Camera group warnings
+		// Warn when camera boundaries are smaller than player boundaries
+		if int32(s.leftbound) > s.stageCamera.boundleft || int32(s.rightbound) < s.stageCamera.boundright {
+			sys.appendToConsole("Warning: Stage player boundaries defined incorrectly")
+		}
 	}
 
 	// Music group
@@ -1268,7 +1322,26 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].ReadF32("yscale", &s.sdw.yscale)
 		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
 		sec[0].ReadF32("xshear", &s.sdw.xshear)
+		sec[0].ReadF32("angle", &s.sdw.rot.angle)
+		sec[0].ReadF32("xangle", &s.sdw.rot.xangle)
+		sec[0].ReadF32("yangle", &s.sdw.rot.yangle)
+		sec[0].ReadF32("focallength", &s.sdw.fLength)
+		if str, ok := sec[0]["projection"]; ok {
+			switch strings.ToLower(strings.TrimSpace(str)) {
+			case "orthographic":
+				s.sdw.projection = Projection_Orthographic
+			case "perspective":
+				s.sdw.projection = Projection_Perspective
+			case "perspective2":
+				s.sdw.projection = Projection_Perspective2
+			}
+		}
 		sec[0].readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
+		sec[0].readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
+		// Shadow group warnings
+		if s.sdw.fadeend > s.sdw.fadebgn {
+			sys.appendToConsole("Warning: Stage shadow fade.range defined incorrectly")
+		}
 	}
 
 	// Reflection group
@@ -1287,6 +1360,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		var tmp int32
 		var tmp2 float32
 		var tmp3 [2]float32
+		var tmp4 [4]float32
 		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
 		if sec[0].ReadI32("intensity", &tmp) {
 			s.reflection.intensity = Clamp(tmp, 0, 255)
@@ -1304,9 +1378,37 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if sec[0].ReadF32("xshear", &tmp2) {
 			s.reflection.xshear = tmp2
 		}
+		if sec[0].ReadF32("angle", &tmp2) {
+			s.reflection.rot.angle = tmp2
+		}
+		if sec[0].ReadF32("xangle", &tmp2) {
+			s.reflection.rot.xangle = tmp2
+		}
+		if sec[0].ReadF32("yangle", &tmp2) {
+			s.reflection.rot.yangle = tmp2
+		}
+		if sec[0].ReadF32("focallength", &tmp2) {
+			s.reflection.fLength = tmp2
+		}
+		if str, ok := sec[0]["projection"]; ok {
+			switch strings.ToLower(strings.TrimSpace(str)) {
+			case "orthographic":
+				s.reflection.projection = Projection_Orthographic
+			case "perspective":
+				s.reflection.projection = Projection_Perspective
+			case "perspective2":
+				s.reflection.projection = Projection_Perspective2
+			}
+		}
 		if sec[0].readF32ForStage("offset", &tmp3[0], &tmp3[1]) {
 			s.reflection.offset[0] = tmp3[0]
 			s.reflection.offset[1] = tmp3[1]
+		}
+		if sec[0].readF32ForStage("window", &tmp4[0], &tmp4[1], &tmp4[2], &tmp4[3]) {
+			s.reflection.window[0] = tmp4[0]
+			s.reflection.window[1] = tmp4[1]
+			s.reflection.window[2] = tmp4[2]
+			s.reflection.window[3] = tmp4[3]
 		}
 	}
 
@@ -1361,7 +1463,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 					bgc.bg = append(bgc.bg, s.bg...)
 				}
 			}
-			bgc.read(is, len(s.bgc))
+			if err := bgc.read(is, len(s.bgc)); err != nil {
+				return nil, err
+			}
 			s.bgc = append(s.bgc, *bgc)
 		case "bgctrl3d":
 			bgc := newBgCtrl()
@@ -1369,7 +1473,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			bgc.bg = nil
 			bgc.node = []*Node{}
 			bgc.anim = []*GLTFAnimation{}
-			bgc.read(is, len(s.bgc))
+			if err := bgc.read(is, len(s.bgc)); err != nil {
+				return nil, err
+			}
 			if ids := is.readI32CsvForStage("ctrlid"); len(ids) > 0 {
 				if len(ids) > 1 || ids[0] != -1 {
 					uniqueIDs := make(map[int32]bool)
@@ -1436,13 +1542,31 @@ func (s *Stage) copyStageVars(src *Stage) {
 	s.sdw.fadeend = src.sdw.fadeend
 	s.sdw.fadebgn = src.sdw.fadebgn
 	s.sdw.xshear = src.sdw.xshear
+	s.sdw.rot.angle = src.sdw.rot.angle
+	s.sdw.rot.xangle = src.sdw.rot.xangle
+	s.sdw.rot.yangle = src.sdw.rot.yangle
+	s.sdw.fLength = src.sdw.fLength
+	s.sdw.projection = src.sdw.projection
 	s.sdw.offset[0] = src.sdw.offset[0]
 	s.sdw.offset[1] = src.sdw.offset[1]
+	s.sdw.window[0] = src.sdw.window[0]
+	s.sdw.window[1] = src.sdw.window[1]
+	s.sdw.window[2] = src.sdw.window[2]
+	s.sdw.window[3] = src.sdw.window[3]
 	s.reflection.intensity = src.reflection.intensity
 	s.reflection.offset[0] = src.reflection.offset[0]
 	s.reflection.offset[1] = src.reflection.offset[1]
 	s.reflection.xshear = src.reflection.xshear
 	s.reflection.yscale = src.reflection.yscale
+	s.reflection.rot.angle = src.reflection.rot.angle
+	s.reflection.rot.xangle = src.reflection.rot.xangle
+	s.reflection.rot.yangle = src.reflection.rot.yangle
+	s.reflection.fLength = src.reflection.fLength
+	s.reflection.projection = src.reflection.projection
+	s.reflection.window[0] = src.reflection.window[0]
+	s.reflection.window[1] = src.reflection.window[1]
+	s.reflection.window[2] = src.reflection.window[2]
+	s.reflection.window[3] = src.reflection.window[3]
 }
 
 func (s *Stage) getBg(id int32) (bg []*backGround) {
@@ -1709,7 +1833,8 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	if s.hires {
 		bgscl = 0.5
 	}
-	yofs, pos := sys.envShake.getOffset(), [...]float32{x, y}
+	ofs := sys.envShake.getOffset()
+	pos := [...]float32{x, y}
 	scl2 := s.localscl * scl
 	// This code makes the background scroll faster when surpassing boundhigh with the camera pushed down
 	// through floortension and boundlow. MUGEN 1.1 doesn't look like it does this, so it was commented.
@@ -1718,12 +1843,12 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	// extraBoundH = sys.cam.ExtraBoundH * ((1/scl)-1)/((1/sys.cam.zoomout)-1)
 	// }
 	// if pos[1] <= float32(s.stageCamera.boundlow) && pos[1] < float32(s.stageCamera.boundhigh)-extraBoundH {
-	// yofs += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
+	// ofs[1] += (pos[1]-float32(s.stageCamera.boundhigh))*scl2 +
 	// extraBoundH*scl
 	// pos[1] = float32(s.stageCamera.boundhigh) - extraBoundH/s.localscl
 	// }
-	if yofs != 0 && s.stageCamera.verticalfollow > 0 {
-		if yofs < 0 {
+	if ofs[1] != 0 && s.stageCamera.verticalfollow > 0 {
+		if ofs[1] < 0 {
 			tmp := (float32(s.stageCamera.boundhigh) - pos[1]) * scl2
 			if scl > 1 {
 				tmp += (sys.cam.GroundLevel() + float32(sys.gameHeight-240)) * (1/scl - 1)
@@ -1731,29 +1856,30 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 				tmp += float32(sys.gameHeight) * (1/scl - 1)
 			}
 			if tmp >= 0 {
-			} else if yofs < tmp {
-				yofs -= tmp
+			} else if ofs[1] < tmp {
+				ofs[1] -= tmp
 				pos[1] += tmp / scl2
 			} else {
-				pos[1] += yofs / scl2
-				yofs = 0
+				pos[1] += ofs[1] / scl2
+				ofs[1] = 0
 			}
 		} else {
-			if -yofs >= pos[1]*scl2 {
-				pos[1] += yofs / scl2
-				yofs = 0
+			if -ofs[1] >= pos[1]*scl2 {
+				pos[1] += ofs[1] / scl2
+				ofs[1] = 0
 			}
 		}
 	}
+	pos[0] += ofs[0] / scl2
 	if !sys.cam.ZoomEnable {
 		for i, p := range pos {
 			pos[i] = float32(math.Ceil(float64(p - 0.5)))
 		}
 	}
-	s.drawModel(pos, yofs, scl, layer)
+	s.drawModel(pos, ofs[1], scl, layer)
 	for _, b := range s.bg {
 		if b.layerno == layer && b.visible && b.anim.spr != nil {
-			b.draw(pos, scl, bgscl, s.localscl, s.scale, yofs, true)
+			b.draw(pos, scl, bgscl, s.localscl, s.scale, ofs[1], true)
 		}
 	}
 	BlendReset()
@@ -1904,9 +2030,9 @@ func (s *Stage) modifyBGCtrl3d(id uint32, t, v [3]int32) {
 		}
 		for j := range s.bgc[i].anim {
 			if s.bgc[i].anim[j].id == id {
-				for k := 0; k < len(s.bgc[i].anim); k++ {
-					s.bgc[i].anim[k].toggle(v[0] != 0)
-				}
+				s.bgc[i].anim[j].time = 0
+				s.bgc[i].anim[j].enabled = v[0] != 0
+				s.bgc[i].anim[j].loop = 0
 				s.reload = true
 			}
 		}
@@ -2128,7 +2254,9 @@ type Node struct {
 	shadowMapBias      GLTFAnimatableProperty // float32
 	skin               *uint32
 	morphTargetWeights GLTFAnimatableProperty // []float32
+	activeMorphTargets []uint32
 	layerNumber        *int
+	meshOutline        GLTFAnimatableProperty // float32
 }
 
 type Skin struct {
@@ -2179,12 +2307,19 @@ type Primitive struct {
 	useVertexColor      bool
 	useJoint0           bool
 	useJoint1           bool
+	useOutlineAttribute bool
 	mode                PrimitiveMode
 	morphTargets        []*MorphTarget
 	morphTargetTexture  *GLTFTexture
 	morphTargetCount    uint32
 	morphTargetOffset   [4]float32
 	morphTargetWeight   [8]float32
+	boundingBox         BoundingBox
+}
+
+type BoundingBox struct {
+	min [3]float32
+	max [3]float32
 }
 
 var gltfPrimitiveModeMap = map[gltf.PrimitiveMode]PrimitiveMode{
@@ -2216,7 +2351,7 @@ func loadEnvironment(filepath string) (*Environment, error) {
 	env.GGXSampleCount = 1024
 	env.GGXLUTSampleCount = 512
 	env.environmentIntensity = 1
-	file, err := os.Open(filepath)
+	file, err := OpenFile(filepath)
 	if err != nil {
 		return nil, err
 	}
@@ -2270,10 +2405,56 @@ func loadEnvironment(filepath string) (*Environment, error) {
 }
 func loadglTFModel(filepath string) (*Model, error) {
 	mdl := &Model{offset: [3]float32{0, 0, 0}, rotation: [3]float32{0, 0, 0}, scale: [3]float32{1, 1, 1}}
-	doc, err := gltf.Open(filepath)
-	if err != nil {
-		return nil, err
+
+	isZip, zipPath, pathInZip := IsZipPath(filepath)
+
+	var doc *gltf.Document
+	var err error
+
+	if isZip {
+		// Handle resources within a ZIP file
+		zipReader, errOpen := zip.OpenReader(zipPath)
+		if errOpen != nil {
+			return nil, fmt.Errorf("failed to open zip archive '%s': %w", zipPath, errOpen)
+		}
+		defer zipReader.Close()
+
+		var fsys fs.FS = &zipReader.Reader // The zip.Reader implements fs.FS for resource resolution within the archive
+
+		// Open the GLB/glTF file from within the zip
+		glbFile, errOpen := fsys.Open(pathInZip)
+		if errOpen != nil {
+			return nil, fmt.Errorf("failed to open glb file '%s' in zip '%s': %w", pathInZip, zipPath, errOpen)
+		}
+		defer glbFile.Close()
+
+		// Create a new decoder with the file stream and the zip archive as the file system
+		decoder := gltf.NewDecoderFS(glbFile, fsys)
+		doc = new(gltf.Document)
+		if err = decoder.Decode(doc); err != nil {
+			return nil, fmt.Errorf("failed to decode gltf from zip '%s': %w", filepath, err)
+		}
+	} else {
+		// Handle resources from the standard file system
+		f, errOpen := OpenFile(filepath) // Use IKEMEN GO's file abstraction to handle case-insensitivity etc.
+		if errOpen != nil {
+			return nil, errOpen
+		}
+		defer f.Close()
+
+		// Use the directory of the file as the file system for resolving relative resources
+		fsm := os.DirFS(path.Dir(filepath))
+		decoder := gltf.NewDecoderFS(f, fsm)
+		doc = new(gltf.Document)
+		if err = decoder.Decode(doc); err != nil {
+			return nil, fmt.Errorf("failed to decode gltf from file '%s': %w", filepath, err)
+		}
 	}
+
+	if doc == nil {
+		return nil, fmt.Errorf("gltf document is nil after decoding for path: %s", filepath)
+	}
+
 	var images = make([]image.Image, 0, len(doc.Images))
 	for _, img := range doc.Images {
 		var buffer *bytes.Buffer
@@ -2294,7 +2475,13 @@ func loadglTFModel(filepath string) (*Model, error) {
 				}
 			} else {
 				if err := LoadFile(&img.URI, []string{filepath, "", sys.motifDir, "data/"}, func(filename string) error {
-					data, err := os.ReadFile(filename)
+					// Use OpenFile which respects the virtual file system (zip)
+					f, err := OpenFile(filename)
+					if err != nil {
+						return err
+					}
+					defer f.Close()
+					data, err := io.ReadAll(f)
 					if err != nil {
 						return err
 					}
@@ -2646,6 +2833,8 @@ func loadglTFModel(filepath string) (*Model, error) {
 		mesh.morphTargetWeights = GLTFAnimatableProperty{isAnimated: false, restValue: m.Weights}
 		for _, p := range m.Primitives {
 			var primitive = &Primitive{}
+			primitive.boundingBox.min = [3]float32{math.MaxFloat32, math.MaxFloat32, math.MaxFloat32}
+			primitive.boundingBox.max = [3]float32{-math.MaxFloat32, -math.MaxFloat32, -math.MaxFloat32}
 			primitive.vertexBufferOffset = uint32(len(vertexBuffer))
 			primitive.elementBufferOffset = uint32(4 * len(elementBuffer))
 			var posBuffer [][3]float32
@@ -2660,6 +2849,14 @@ func loadglTFModel(filepath string) (*Model, error) {
 			}
 
 			for _, pos := range positions {
+				for posIdx := range pos {
+					if primitive.boundingBox.min[posIdx] > pos[posIdx] {
+						primitive.boundingBox.min[posIdx] = pos[posIdx]
+					}
+					if primitive.boundingBox.max[posIdx] < pos[posIdx] {
+						primitive.boundingBox.max[posIdx] = pos[posIdx]
+					}
+				}
 				vertexBuffer = append(vertexBuffer, f32.Bytes(binary.LittleEndian, pos[:]...)...)
 			}
 			if idx, ok := p.Attributes[gltf.TEXCOORD_0]; ok {
@@ -2846,6 +3043,20 @@ func loadglTFModel(filepath string) (*Model, error) {
 			} else {
 				primitive.useJoint0 = false
 			}
+
+			if idx, ok := p.Attributes["_OUTLINE_ATTRIBUTE"]; ok {
+				primitive.useOutlineAttribute = true
+				var outlineAttributeBuffer [][4]uint16
+				atttributes, err := modeler.ReadAccessor(doc, doc.Accessors[idx], outlineAttributeBuffer)
+				if err != nil {
+					return nil, err
+				}
+				for _, attribute := range atttributes.([][4]float32) {
+					vertexBuffer = append(vertexBuffer, f32.Bytes(binary.LittleEndian, attribute[:]...)...)
+				}
+			} else {
+				primitive.useOutlineAttribute = false
+			}
 			if len(p.Targets) > 0 {
 				numAttributes := 0
 				for _, t := range p.Targets {
@@ -3007,6 +3218,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 		node.castShadow = true
 		node.zTest = true
 		node.zWrite = true
+		node.meshOutline = GLTFAnimatableProperty{isAnimated: false, restValue: float32(0.0)}
 		if n.Extensions != nil {
 			if l, ok := n.Extensions["KHR_lights_punctual"]; ok {
 				var ext interface{}
@@ -3075,6 +3287,9 @@ func loadglTFModel(filepath string) (*Model, error) {
 				if v["layerNumber"] != nil {
 					node.layerNumber = new(int)
 					*node.layerNumber = int(v["layerNumber"].(float64))
+				}
+				if v["meshOutline"] != nil {
+					node.meshOutline.restAt((float32)(v["meshOutline"].(float64)))
 				}
 			}
 		}
@@ -3355,13 +3570,31 @@ func calculateAnimationData(mdl *Model, n *Node) {
 	if len(weights) == 0 {
 		weights = m.morphTargetWeights.getValue().([]float32)
 	}
+	activeMorphTargetChanged := false
 	if len(weights) > 0 {
+		activeMorphTargets := make([]uint32, 0, len(weights))
+		morphTargetWeights = make([]struct {
+			index  uint32
+			weight float32
+		}, 0, len(weights))
 		for idx, w := range weights {
 			if w != 0 {
 				morphTargetWeights = append(morphTargetWeights, struct {
 					index  uint32
 					weight float32
 				}{uint32(idx), w})
+				activeMorphTargets = append(activeMorphTargets, uint32(idx))
+			}
+		}
+		if len(activeMorphTargets) != len(n.activeMorphTargets) {
+			activeMorphTargetChanged = true
+			n.activeMorphTargets = activeMorphTargets
+		} else {
+			for i := range activeMorphTargets {
+				if activeMorphTargets[i] != n.activeMorphTargets[i] {
+					activeMorphTargetChanged = true
+					n.activeMorphTargets = activeMorphTargets
+				}
 			}
 		}
 	}
@@ -3370,64 +3603,109 @@ func calculateAnimationData(mdl *Model, n *Node) {
 			continue
 		}
 		if len(morphTargetWeights) > 0 && len(p.morphTargets) >= len(morphTargetWeights) {
+			if activeMorphTargetChanged {
+				width := p.morphTargetTexture.tex.GetWidth()
+				targetBuffer := make([]float32, 4*width*width)
+				count := 0
+				offset := 0
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.positionBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.positionBuffer)], morphTarget.positionBuffer)
+						offset += len(morphTarget.positionBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[0] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.normalBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.normalBuffer)], morphTarget.normalBuffer)
+						offset += len(morphTarget.normalBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[1] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.tangentBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.tangentBuffer)], morphTarget.tangentBuffer)
+						offset += len(morphTarget.tangentBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[2] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.uvBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.uvBuffer)], morphTarget.uvBuffer)
+						offset += len(morphTarget.uvBuffer)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[3] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.colorBuffer) > 0 {
+						copy(targetBuffer[offset:offset+len(morphTarget.colorBuffer)], morphTarget.colorBuffer)
+						offset += len(morphTarget.colorBuffer)
+						targetBuffer = append(targetBuffer, morphTarget.colorBuffer...)
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetCount = uint32(count)
+				if len(targetBuffer) > int(4*width*width) {
+					targetBuffer = targetBuffer[:4*width*width]
+				}
+				p.morphTargetTexture.tex.SetPixelData(targetBuffer)
+			} else {
+				count := 0
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.positionBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[0] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.normalBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[1] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.tangentBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[2] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.uvBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
+				p.morphTargetOffset[3] = float32(count)
+				for _, t := range morphTargetWeights {
+					morphTarget := p.morphTargets[t.index]
+					if len(morphTarget.colorBuffer) > 0 {
+						p.morphTargetWeight[count] = t.weight
+						count += 1
+					}
+				}
 
-			//var targetIndices [8]uint32
-			targetBuffer := make([]float32, 0, 32*p.numVertices)
-			count := 0
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.positionBuffer) > 0 {
-					//targetIndices[targetCount] = *morphTarget.positionIndex
-					targetBuffer = append(targetBuffer, morphTarget.positionBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
 			}
-			p.morphTargetOffset[0] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.normalBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.normalBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[1] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.tangentBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.tangentBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[2] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.uvBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.uvBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetOffset[3] = float32(count)
-			for _, t := range morphTargetWeights {
-				morphTarget := p.morphTargets[t.index]
-				if len(morphTarget.colorBuffer) > 0 {
-					targetBuffer = append(targetBuffer, morphTarget.colorBuffer...)
-					p.morphTargetWeight[count] = t.weight
-					count += 1
-				}
-			}
-			p.morphTargetCount = uint32(count)
-			if len(targetBuffer) > int(8*4*p.numVertices) {
-				targetBuffer = targetBuffer[:8*4*p.numVertices]
-			}
-			width := p.morphTargetTexture.tex.GetWidth()
-			if len(targetBuffer) < int(4*width*width) {
-				targetBuffer = append(targetBuffer, make([]float32, int(4*width*width)-len(targetBuffer))...)
-			}
-			p.morphTargetTexture.tex.SetPixelData(targetBuffer)
 		} else {
 			p.morphTargetCount = 0
 			p.morphTargetOffset = [4]float32{0, 0, 0, 0}
@@ -3435,11 +3713,110 @@ func calculateAnimationData(mdl *Model, n *Node) {
 		}
 	}
 }
-func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool) {
+
+type Plane struct {
+	Normal [3]float32
+	D      float32 // Distance from the origin
+}
+
+// Extract planes from the Model-View-Projection (MVP) matrix
+func ExtractFrustumPlanes(MVPMatrix mgl.Mat4) [6]Plane {
+	var planes [6]Plane
+	// Left plane
+	planes[0] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(0, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(0, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(0, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(0, 3),
+	}
+	// Right plane
+	planes[1] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(0, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(0, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(0, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(0, 3),
+	}
+	// Bottom plane
+	planes[2] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(1, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(1, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(1, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(1, 3),
+	}
+	// Top plane
+	planes[3] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(1, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(1, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(1, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(1, 3),
+	}
+	// Near plane
+	planes[4] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) + MVPMatrix.At(2, 0), MVPMatrix.At(3, 1) + MVPMatrix.At(2, 1), MVPMatrix.At(3, 2) + MVPMatrix.At(2, 2)},
+		D:      MVPMatrix.At(3, 3) + MVPMatrix.At(2, 3),
+	}
+	// Far plane
+	planes[5] = Plane{
+		Normal: [3]float32{MVPMatrix.At(3, 0) - MVPMatrix.At(2, 0), MVPMatrix.At(3, 1) - MVPMatrix.At(2, 1), MVPMatrix.At(3, 2) - MVPMatrix.At(2, 2)},
+		D:      MVPMatrix.At(3, 3) - MVPMatrix.At(2, 3),
+	}
+
+	// Normalize the planes
+	for i := 0; i < 6; i++ {
+		length := float32(math.Sqrt(float64(planes[i].Normal[0]*planes[i].Normal[0] + planes[i].Normal[1]*planes[i].Normal[1] + planes[i].Normal[2]*planes[i].Normal[2])))
+		planes[i].Normal[0] /= length
+		planes[i].Normal[1] /= length
+		planes[i].Normal[2] /= length
+		planes[i].D /= length
+	}
+
+	return planes
+}
+func isCulled(MVPMatrix mgl.Mat4, box BoundingBox) bool {
+	points := [8][3]float32{
+		{box.min[0], box.min[1], box.min[2]},
+		{box.min[0], box.min[1], box.max[2]},
+		{box.min[0], box.max[1], box.min[2]},
+		{box.min[0], box.max[1], box.max[2]},
+		{box.max[0], box.min[1], box.min[2]},
+		{box.max[0], box.min[1], box.max[2]},
+		{box.max[0], box.max[1], box.min[2]},
+		{box.max[0], box.max[1], box.max[2]},
+	}
+
+	for _, point := range points {
+		clipSpace := MVPMatrix.Mul4x1(mgl.Vec4{point[0], point[1], point[2], 1})
+		// Check if the point is within the normalized device coordinates
+		if clipSpace[0] >= -clipSpace[3] && clipSpace[0] <= clipSpace[3] &&
+			clipSpace[1] >= -clipSpace[3] && clipSpace[1] <= clipSpace[3] &&
+			clipSpace[2] >= -clipSpace[3] && clipSpace[2] <= clipSpace[3] {
+			return false // At least one point is within the frustum
+		}
+	}
+	planes := ExtractFrustumPlanes(MVPMatrix)
+	for _, plane := range planes {
+		// Find the positive vertex
+		var positive [3]float32
+		if plane.Normal[0] >= 0 {
+			positive[0] = box.max[0]
+		} else {
+			positive[0] = box.min[0]
+		}
+		if plane.Normal[1] >= 0 {
+			positive[1] = box.max[1]
+		} else {
+			positive[1] = box.min[1]
+		}
+		if plane.Normal[2] >= 0 {
+			positive[2] = box.max[2]
+		} else {
+			positive[2] = box.min[2]
+		}
+		// Check if the positive vertex is outside the plane
+		if plane.Normal[0]*positive[0]+plane.Normal[1]*positive[1]+plane.Normal[2]*positive[2]+plane.D < 0 {
+			return true // Entire bounding box is outside the frustum
+		}
+	}
+
+	return false
+}
+func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit)
+		drawNode(mdl, scene, layerNumber, defaultLayerNumber, mdl.nodes[index], camOffset, drawBlended, unlit, viewProjMatrix, outlineConst)
 	}
 	nodeLayerNumber := defaultLayerNumber
 	if n.layerNumber != nil {
@@ -3449,7 +3826,6 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		return
 	}
 	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, -int(n.trans))
-
 	blendEq := BlendAdd
 	src := BlendOne
 	dst := BlendOneMinusSrcAlpha
@@ -3460,6 +3836,11 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			dst = BlendOne
 			blendEq = BlendReverseSubtract
 			neg = false
+			if invblend >= 1 {
+				padd[0] = -padd[0]
+				padd[1] = -padd[1]
+				padd[2] = -padd[2]
+			}
 		} else {
 			src = BlendOne
 			dst = BlendOne
@@ -3469,6 +3850,11 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			src = BlendOne
 			dst = BlendOne
 			neg = false
+			if invblend >= 1 {
+				padd[0] = -padd[0]
+				padd[1] = -padd[1]
+				padd[2] = -padd[2]
+			}
 		} else {
 			src = BlendOne
 			dst = BlendOne
@@ -3495,13 +3881,18 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		if p.materialIndex == nil {
 			continue
 		}
+		if n.skin == nil && p.morphTargetCount == 0 && isCulled(viewProjMatrix.Mul4(n.worldTransform), p.boundingBox) {
+			continue
+		}
+
 		mat := mdl.materials[*p.materialIndex]
 		if ((mat.alphaMode != AlphaModeBlend && n.trans == TransNone) && drawBlended) ||
 			((mat.alphaMode == AlphaModeBlend || n.trans != TransNone) && !drawBlended) {
 			return
 		}
 		color := mdl.materials[*p.materialIndex].baseColorFactor.getValue().([4]float32)
-		gfx.SetModelPipeline(blendEq, src, dst, n.zTest, n.zWrite, mdl.materials[*p.materialIndex].doubleSided, reverseCull, p.useUV, p.useNormal, p.useTangent, p.useVertexColor, p.useJoint0, p.useJoint1, p.numVertices, p.vertexBufferOffset)
+		meshOutline := n.meshOutline.getValue().(float32)
+		gfx.SetModelPipeline(blendEq, src, dst, n.zTest, n.zWrite, mdl.materials[*p.materialIndex].doubleSided, reverseCull, p.useUV, p.useNormal, p.useTangent, p.useVertexColor, p.useJoint0, p.useJoint1, p.useOutlineAttribute, p.numVertices, p.vertexBufferOffset)
 
 		gfx.SetModelUniformMatrix("model", n.worldTransform[:])
 		gfx.SetModelUniformMatrix("normalMatrix", n.normalMatrix[:])
@@ -3532,7 +3923,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 			gfx.SetModelUniformFv("morphTargetWeight", make([]float32, 8))
 		}
 		mode := p.mode
-		if sys.wireframeDraw {
+		if sys.wireframeDisplay {
 			mode = 1 // Set mesh render mode to "lines"
 		}
 		gfx.SetModelUniformI("unlit", int(Btoi(unlit || mat.unlit)))
@@ -3576,17 +3967,21 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		} else {
 			gfx.SetModelUniformI("useEmissionMap", 0)
 		}
+		gfx.SetModelUniformF("meshOutline", 0)
 		gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+		if meshOutline > 0 {
+			gfx.SetMeshOulinePipeline(!reverseCull, meshOutline*outlineConst)
+			gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+		}
 
-		gfx.ReleaseModelPipeline()
 	}
 }
 
-func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, lightIndex int, numLights int) {
+func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, drawBlended bool, lightIndex int, numLights int, viewProjMatrices []mgl.Mat4, lightTypes []LightType) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
 	for _, index := range n.childrenIndex {
-		drawNodeShadow(mdl, scene, mdl.nodes[index], camOffset, drawBlended, lightIndex, numLights)
+		drawNodeShadow(mdl, scene, mdl.nodes[index], camOffset, drawBlended, lightIndex, numLights, viewProjMatrices, lightTypes)
 	}
 	if n.meshIndex == nil || !n.visible {
 		return
@@ -3645,13 +4040,30 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 		gfx.SetModelUniformMatrix3("texTransform", mat.textureTransform[:])
 		for i := 0; i < numLights; i++ {
-			gfx.SetShadowMapUniformI("layerOffset", i*6)
-			gfx.SetShadowMapUniformI("lightIndex", i+lightIndex)
-			gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+			culled := true
+			if n.skin == nil && p.morphTargetCount == 0 {
+				if lightTypes[i] == PointLight {
+					for j := 0; j < 6; j++ {
+						if !isCulled(viewProjMatrices[i*6+j].Mul4(n.worldTransform), p.boundingBox) {
+							culled = false
+							break
+						}
+					}
+				} else {
+					if isCulled(viewProjMatrices[i*6].Mul4(n.worldTransform), p.boundingBox) {
+						continue
+					}
+				}
+			}
+			if culled == false {
+				gfx.SetShadowMapUniformI("layerOffset", i*6)
+				gfx.SetShadowMapUniformI("lightIndex", i+lightIndex)
+				gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+			}
 		}
 	}
 }
-func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view mgl.Mat4) {
+func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
 	}
@@ -3663,6 +4075,8 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	if len(scene.lightNodes) > 0 && layerNumber == -1 && gfx.IsShadowEnabled() {
 		gfx.prepareShadowMapPipeline(bufferIndex)
 		numLights := 0
+		var lightMatrices [32]mgl.Mat4
+		var lightTypes [4]LightType
 		for i := 0; i < 4; i++ {
 			if i >= len(scene.lightNodes) {
 				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0)
@@ -3727,23 +4141,24 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 			} else if light.lightType == SpotLight {
 				lightProj = mgl.Perspective(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
 			}
+			lightTypes[i] = light.lightType
 			if light.lightType == PointLight {
-				var lightMatrices [8]mgl.Mat4
-				lightMatrices[0] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
-				lightMatrices[3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
-				lightMatrices[4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
-				lightMatrices[5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
+				//var lightMatrices [6]mgl.Mat4
+				lightMatrices[i*6] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
+				lightMatrices[i*6+3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
+				lightMatrices[i*6+4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
+				lightMatrices[i*6+5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
 				for j := 0; j < 6; j++ {
-					gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[j][:])
+					gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[i*6+j][:])
 				}
 				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 2)
 
 			} else {
 				lightView := mgl.LookAtV([3]float32{lightNode.localTransform[12], lightNode.localTransform[13], lightNode.localTransform[14]}, [3]float32{lightNode.localTransform[12] + lightNode.lightDirection[0], lightNode.localTransform[13] + lightNode.lightDirection[1], lightNode.localTransform[14] + lightNode.lightDirection[2]}, [3]float32{0, 1, 0})
-				lightMatrix := lightProj.Mul4(lightView)
-				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrix[:])
+				lightMatrices[i*6] = lightProj.Mul4(lightView)
+				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrices[i*6][:])
 				if light.lightType == DirectionalLight {
 					gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 1)
 				} else {
@@ -3759,34 +4174,34 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 					gfx.SetShadowFrameTexture(uint32(i))
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1)
+					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
 				}
 				if len(model.scenes) > 1 {
 					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
 					}
 					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1)
+						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
 					}
 				}
 			}
 		}
 		if gfx.GetName() == "OpenGL 3.2" {
 			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
 			}
 			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights)
+				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
 			}
 			if len(model.scenes) > 1 {
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
 				}
 				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights)
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
 				}
 			}
 		}
@@ -3895,18 +4310,19 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		unlit = true
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, false, unlit, viewProjMatrix, outlineConst)
 	}
 	for _, index := range scene.nodes {
-		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit)
+		drawNode(model, scene, layerNumber, defaultLayerNumber, model.nodes[index], offset, true, unlit, viewProjMatrix, outlineConst)
 	}
+	gfx.ReleaseModelPipeline()
 }
 func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber int32) {
 	if s.model == nil || !gfx.IsModelEnabled() {
 		return
 	}
 	drawFOV := s.stageCamera.fov * math.Pi / 180
-
+	outlineConst := float32(0.003 * math.Tan(float64(drawFOV)))
 	var syo float32
 	scaleCorrection := float32(sys.cam.localcoord[1]) * sys.cam.localscl / float32(sys.gameHeight)
 	posMul := float32(math.Tan(float64(drawFOV)/2)) * -s.model.offset[2] / (float32(sys.cam.localcoord[1]) / 2)
@@ -3928,12 +4344,12 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 	view = view.Mul4(mgl.Scale3D(scale[0], scale[1], scale[2]))
 	if layerNumber == -1 {
 		s.model.calculateTextureTransform()
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	} else if layerNumber == 0 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	} else if layerNumber == 1 {
-		s.model.draw(0, 0, int(layerNumber), 0, offset, proj, view)
-		s.model.draw(0, 1, int(layerNumber), 1, offset, proj, view)
+		s.model.draw(0, 0, int(layerNumber), 0, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
+		s.model.draw(0, 1, int(layerNumber), 1, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	}
 }
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {

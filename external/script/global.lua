@@ -2,14 +2,14 @@
 --; DEBUG HOTKEYS
 --;===========================================================
 --key, ctrl, alt, shift, pause, debug key, function
-addHotkey('c', true, false, false, true, false, 'toggleClsnDraw()')
-addHotkey('d', true, false, false, true, false, 'toggleDebugDraw()')
-addHotkey('d', false, false, true, true, false, 'toggleDebugDraw(true)')
-addHotkey('w', true, false, false, true, false, 'toggleWireframeDraw()')
+addHotkey('c', true, false, false, true, false, 'toggleClsnDisplay()')
+addHotkey('d', true, false, false, true, false, 'toggleDebugDisplay()')
+addHotkey('d', false, false, true, true, false, 'toggleDebugDisplay(true)')
+addHotkey('w', true, false, false, true, false, 'toggleWireframeDisplay()')
 addHotkey('s', true, false, false, true, true, 'changeSpeed()')
 addHotkey('KP_PLUS', true, false, false, true, true, 'changeSpeed(1)')
 addHotkey('KP_MINUS', true, false, false, true, true, 'changeSpeed(-1)')
-addHotkey('l', true, false, false, true, true, 'toggleStatusDraw()')
+addHotkey('l', true, false, false, true, true, 'toggleLifebarDisplay()')
 addHotkey('v', true, false, false, true, true, 'toggleVSync()')
 addHotkey('1', true, false, false, true, true, 'toggleAI(1)')
 addHotkey('1', true, true, false, true, true, 'togglePlayer(1)')

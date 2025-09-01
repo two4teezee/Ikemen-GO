@@ -35,7 +35,8 @@ type Renderer interface {
 	setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
 	ReleaseShadowPipeline()
 	prepareModelPipeline(bufferIndex uint32, env *Environment)
-	SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
+	SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1, useOutlineAttribute bool, numVertices, vertAttrOffset uint32)
+	SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32)
 	ReleaseModelPipeline()
 
 	newTexture(width, height, depth int32, filter bool) (t Texture)
@@ -220,12 +221,11 @@ func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width fl
 			}
 		} else if topdist <= -0.01 {
 			if x1 > x2 {
-				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
-				right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
-			} else {
 				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
 				right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
-
+			} else {
+				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
+				right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
 			}
 		}
 		if rp.tile.xflag != 1 {
@@ -440,8 +440,7 @@ func RenderSprite(rp RenderParams) {
 
 	gfx.Scissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
 
-	renderWithBlending(func(eq BlendEquation, src, dst BlendFunc, a float32) {
-
+	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		gfx.SetPipeline(eq, src, dst)
 
 		gfx.SetUniformMatrix("projection", proj[:])
@@ -467,7 +466,9 @@ func RenderSprite(rp RenderParams) {
 		rmTileSub(modelview, rp)
 
 		gfx.ReleasePipeline()
-	}, rp.trans, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
+	}
+
+	renderWithBlending(render, rp.trans, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
 	gfx.DisableScissor()
 }
 
@@ -483,7 +484,7 @@ func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a floa
 		BlendI = BlendAdd
 	}
 	switch {
-	// Add blend mode(255,255)
+	// Add (255, 255)
 	case trans == -1:
 		if invblend >= 1 && acolor != nil {
 			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
@@ -492,7 +493,8 @@ func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a floa
 			*neg = false
 		}
 		render(Blend, blendSourceFactor, BlendOne, 1)
-	// Sub blend mode
+
+	// Sub
 	case trans == -2:
 		if invblend >= 1 && acolor != nil {
 			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
@@ -501,8 +503,11 @@ func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a floa
 			*neg = false
 		}
 		render(BlendI, blendSourceFactor, BlendOne, 1)
+
+	// Fully transparent (do not render)
 	case trans <= 0:
-	// Add1(128,128)
+
+	// Add1 (255, 128)
 	case trans < 255:
 		Blend = BlendAdd
 		if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil {
@@ -517,9 +522,11 @@ func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a floa
 		} else {
 			render(Blend, blendSourceFactor, BlendOneMinusSrcAlpha, float32(trans)/255)
 		}
+
 	// None
 	case trans < 512:
 		render(BlendAdd, blendSourceFactor, BlendOneMinusSrcAlpha, 1)
+
 	// AddAlpha
 	default:
 		src, dst := trans&0xff, trans>>10&0xff

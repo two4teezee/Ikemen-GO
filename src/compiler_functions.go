@@ -47,7 +47,7 @@ func (c *Compiler) hitBySub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if attr == -1 {
-		return Error("Attributes not specified")
+		return Error("attributes not specified")
 	}
 	if err = c.paramValue(is, sc, "slot",
 		hitBy_slot, VT_Int, 1, false); err != nil {
@@ -103,6 +103,10 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 	ret, err := (*assertSpecial)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
 			assertSpecial_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "enabled",
+			assertSpecial_enabled, VT_Bool, 1, false); err != nil {
 			return err
 		}
 		foo := func(data string) error {
@@ -164,12 +168,16 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noairjump)))
 			case "nobrake":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nobrake)))
+			case "nocombodisplay":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocombodisplay)))
 			case "nocrouch":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nocrouch)))
 			case "nodizzypointsdamage":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nodizzypointsdamage)))
 			case "nofacedisplay":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nofacedisplay)))
+			case "nofacep2":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nofacep2)))
 			case "nofallcount":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nofallcount)))
 			case "nofalldefenceup":
@@ -202,6 +210,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokofall)))
 			case "nokovelocity":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nokovelocity)))
+			case "nolifebaraction":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebaraction)))
 			case "nolifebardisplay":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nolifebardisplay)))
 			case "nomakedust":
@@ -231,6 +241,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			case "sizepushonly":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_sizepushonly)))
 			// Ikemen global flags
+			case "camerafreeze":
+				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_camerafreeze)))
 			case "globalnoko":
 				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_globalnoko)))
 			case "roundnotskip":
@@ -246,7 +258,7 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			case "skipwindisplay":
 				sc.add(assertSpecial_flag_g, sc.i64ToExp(int64(GSF_skipwindisplay)))
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid AssertSpecial flag: " + data)
 			}
 			return nil
 		}
@@ -258,7 +270,7 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 			return err
 		}
 		if !f {
-			return Error("AssertSpecial flags not specified")
+			return Error("AssertSpecial flag not specified")
 		}
 		if err := c.stateParam(is, "flag2", false, func(data string) error {
 			return foo(data)
@@ -522,12 +534,24 @@ func (c *Compiler) changeAnimSub(is IniSection,
 		changeAnim_redirectid, VT_Int, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "animplayerno",
+		changeAnim_animplayerno, VT_Int, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "spriteplayerno",
+		changeAnim_spriteplayerno, VT_Int, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "readplayerid",
 		changeAnim_readplayerid, VT_Int, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "elem",
 		changeAnim_elem, VT_Int, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "elemtime",
+		changeAnim_elemtime, VT_Int, 1, false); err != nil {
 		return err
 	}
 	if err := c.stateParam(is, "value", true, func(data string) error {
@@ -562,7 +586,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		if err := c.stateParam(is, "helpertype", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("helpertype not specified")
 			}
 			var ht int32
 			switch strings.ToLower(data) {
@@ -573,16 +597,20 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			case "projectile":
 				ht = 2
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid helpertype: " + data)
 			}
 			sc.add(helper_helpertype, sc.iToExp(ht))
 			return nil
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "clsnproxy",
+			helper_clsnproxy, VT_Bool, 1, false); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "name", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Helper name not enclosed in \"")
 			}
 			sc.add(helper_name, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -804,7 +832,8 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_accel, VT_Float, 3, false); err != nil {
 		return err
 	}
-	if err := c.paramProjection(is, sc, explod_projection); err != nil {
+	if err := c.paramProjection(is, sc, "projection",
+		explod_projection); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "scale",
@@ -917,6 +946,10 @@ func (c *Compiler) explodInterpolate(is IniSection,
 		explod_interpolate_focallength, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "interpolation.xshear",
+		explod_interpolate_xshear, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.mul",
 		explod_interpolate_pfx_mul, VT_Int, 3, false); err != nil {
 		return err
@@ -943,6 +976,14 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animplayerno",
+			explod_animplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "spriteplayerno",
+			explod_spriteplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "anim", false, func(data string) error {
 			prefix := c.getDataPrefix(&data, false)
 			return c.scAdd(sc, explod_anim, data, VT_Int, 1,
@@ -961,6 +1002,10 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_animelem, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animelemtime",
+			explod_animelemtime, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "animfreeze",
 			explod_animfreeze, VT_Bool, 1, false); err != nil {
 			return err
@@ -975,6 +1020,10 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "xangle",
 			explod_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "focallength",
@@ -996,7 +1045,7 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 	ihp int8) (StateController, error) {
 	ret, err := (*modifyExplod)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			explod_redirectid, VT_Int, 1, false); err != nil {
+			modifyexplod_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "index",
@@ -1004,6 +1053,14 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 			return err
 		}
 		if err := c.explodSub(is, sc); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "animplayerno",
+			explod_animplayerno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "spriteplayerno",
+			explod_spriteplayerno, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "anim", false, func(data string) error {
@@ -1015,6 +1072,10 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "animelem",
 			explod_animelem, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "animelemtime",
+			explod_animelemtime, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "animfreeze",
@@ -1031,6 +1092,10 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 		}
 		if err := c.paramValue(is, sc, "xangle",
 			explod_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			explod_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "focallength",
@@ -1163,14 +1228,109 @@ func (c *Compiler) velMul(is IniSection, sc *StateControllerBase, _ int8) (State
 	return *ret, err
 }
 
-func (c *Compiler) shadowOffset(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*shadowOffset)(sc), c.stateSec(is, func() error {
+func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyShadow)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			posSet_redirectid, VT_Int, 1, false); err != nil {
+			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "reflection",
-			shadowoffset_reflection, VT_Bool, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "color",
+			modifyShadow_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyShadow_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "offset",
+			modifyShadow_offset, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyShadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyShadow_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyShadow_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyShadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyShadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyShadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyShadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection",
+			modifyShadow_projection); err != nil {
+			return err
+		}
+		return c.posSetSub(is, sc)
+	})
+	return *ret, err
+}
+
+func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyReflection)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "color",
+			modifyReflection_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "intensity",
+			modifyReflection_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "offset",
+			modifyReflection_offset, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "window",
+			modifyReflection_window, VT_Float, 4, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			modifyReflection_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yscale",
+			modifyReflection_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "angle",
+			modifyReflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			modifyReflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			modifyReflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			modifyReflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection",
+			modifyReflection_projection); err != nil {
 			return err
 		}
 		return c.posSetSub(is, sc)
@@ -1422,6 +1582,34 @@ func (c *Compiler) afterImageTime(is IniSection, sc *StateControllerBase, _ int8
 	return *ret, err
 }
 
+func (c *Compiler) parseHitFlag(sc *StateControllerBase, id byte, data string) error {
+	var flg int32
+	for _, c := range data {
+		switch c {
+		case 'H', 'h':
+			flg |= int32(HF_H)
+		case 'L', 'l':
+			flg |= int32(HF_L)
+		case 'M', 'm':
+			flg |= int32(HF_H | HF_L)
+		case 'A', 'a':
+			flg |= int32(HF_A)
+		case 'F', 'f':
+			flg |= int32(HF_F)
+		case 'D', 'd':
+			flg |= int32(HF_D)
+		case 'P', 'p':
+			flg |= int32(HF_P)
+		case '-':
+			flg |= int32(HF_MNS)
+		case '+':
+			flg |= int32(HF_PLS)
+		}
+	}
+	sc.add(id, sc.iToExp(flg))
+	return nil
+}
+
 func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	if err := c.stateParam(is, "attr", false, func(data string) error {
 		attr, err := c.attr(data, true)
@@ -1433,46 +1621,19 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}); err != nil {
 		return err
 	}
-	hflg := func(id byte, data string) error {
-		var flg int32
-		for _, c := range data {
-			switch c {
-			case 'H', 'h':
-				flg |= int32(HF_H)
-			case 'L', 'l':
-				flg |= int32(HF_L)
-			case 'M', 'm':
-				flg |= int32(HF_H | HF_L)
-			case 'A', 'a':
-				flg |= int32(HF_A)
-			case 'F', 'f':
-				flg |= int32(HF_F)
-			case 'D', 'd':
-				flg |= int32(HF_D)
-			case 'P', 'p':
-				flg |= int32(HF_P)
-			case '-':
-				flg |= int32(HF_MNS)
-			case '+':
-				flg |= int32(HF_PLS)
-			}
-		}
-		sc.add(id, sc.iToExp(flg))
-		return nil
-	}
 	if err := c.stateParam(is, "guardflag", false, func(data string) error {
-		return hflg(hitDef_guardflag, data)
+		return c.parseHitFlag(sc, hitDef_guardflag, data)
 	}); err != nil {
 		return err
 	}
 	if err := c.stateParam(is, "hitflag", false, func(data string) error {
-		return hflg(hitDef_hitflag, data)
+		return c.parseHitFlag(sc, hitDef_hitflag, data)
 	}); err != nil {
 		return err
 	}
 	htyp := func(id byte, data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("hit type not specified")
 		}
 		var ht HitType
 		switch data[0] {
@@ -1485,7 +1646,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'N', 'n':
 			ht = HT_None
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid hit type: " + data)
 		}
 		sc.add(id, sc.iToExp(int32(ht)))
 		return nil
@@ -1502,7 +1663,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	reac := func(id byte, data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("animtype not specified")
 		}
 		var ra Reaction
 		switch data[0] {
@@ -1519,7 +1680,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'D', 'd':
 			ra = RA_Diagup
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid animtype: " + data)
 		}
 		sc.add(id, sc.iToExp(int32(ra)))
 		return nil
@@ -1541,7 +1702,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "affectteam", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("affectteam not specified")
 		}
 		var at int32
 		switch data[0] {
@@ -1552,7 +1713,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case 'F', 'f':
 			at = -1
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid affectteam: " + data)
 		}
 		sc.add(hitDef_affectteam, sc.iToExp(at))
 		return nil
@@ -1649,7 +1810,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			case 'D', 'd':
 				at = TT_Dodge
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid priority type: " + data)
 			}
 		}
 		sc.add(hitDef_priority, append(sc.beToExp(be), sc.iToExp(int32(at))...))
@@ -1669,6 +1830,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_p2getp1state, VT_Bool, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "missonoverride",
+		hitDef_missonoverride, VT_Bool, 1, false); err != nil {
+		return err
+	}
 	b := false
 	if err := c.stateParam(is, "p1sprpriority", false, func(data string) error {
 		b = true
@@ -1677,6 +1842,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if !b {
+		// DOS Mugen used "sprpriority" instead of "p1sprpriority". Later versions seemingly kept both syntaxes
 		if err := c.paramValue(is, sc, "sprpriority",
 			hitDef_p1sprpriority, VT_Int, 1, false); err != nil {
 			return err
@@ -1838,7 +2004,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		return err
 	}
 	if err := c.paramValue(is, sc, "air.velocity",
-		hitDef_air_velocity, VT_Float, 3, false); err != nil {
+		hitDef_air_velocity, VT_Float, 3, false); err != nil { // This one also accepts "n" in Mugen, like ground.velocity
 		return err
 	}
 	if err := c.paramValue(is, sc, "airguard.velocity",
@@ -1863,9 +2029,14 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "ground.velocity", false, func(data string) error {
 		in := data
+		// This parameter accepts "n" as a value in Mugen. Documented in WinMugen updates.txt
+		// In Mugen, supposedly every velocity parameter should accept "n", but that makes most of them crash
+		// It's also not in the HitDef documentation, so it seems to have been dropped halfway through its implementation
+		// "n" is supposed to not change the enemy's velocity. In Ikemen it just sets velocity to 0, 0, 0
+		// TODO: Should we implement this feature anyway? Few or no characters seem to use it
 		if c.token = c.tokenizer(&in); c.token == "n" {
 			if c.token = c.tokenizer(&in); len(c.token) > 0 && c.token != "," {
-				return Error("Invalid data: " + c.token)
+				return Error("Invalid ground.velocity value: " + c.token)
 			}
 		} else {
 			in = data
@@ -1879,7 +2050,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			oldin := in
 			if c.token = c.tokenizer(&in); c.token == "n" {
 				if c.token = c.tokenizer(&in); len(c.token) > 0 {
-					return Error("Invalid data: " + c.token)
+					return Error("Invalid ground.velocity value: " + c.token)
 				}
 			} else {
 				in = oldin
@@ -1894,7 +2065,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 			oldin := in
 			if c.token = c.tokenizer(&in); c.token == "n" {
 				if c.token = c.tokenizer(&in); len(c.token) > 0 {
-					return Error("Invalid data: " + c.token)
+					return Error("Invalid ground.velocity: " + c.token)
 				}
 			} else {
 				in = oldin
@@ -1960,6 +2131,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_envshake_mul, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "envshake.dir",
+		hitDef_envshake_dir, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "fall.envshake.time",
 		hitDef_fall_envshake_time, VT_Int, 1, false); err != nil {
 		return err
@@ -1980,6 +2155,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_fall_envshake_mul, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "fall.envshake.dir",
+		hitDef_fall_envshake_dir, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "dizzypoints",
 		hitDef_dizzypoints, VT_Int, 1, false); err != nil {
 		return err
@@ -1998,7 +2177,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "p2clsncheck", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("p2clsncheck not specified")
 		}
 		var box int32
 		switch strings.ToLower(data) {
@@ -2011,7 +2190,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case "size":
 			box = 3
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid p2clsncheck type: " + data)
 		}
 		sc.add(hitDef_p2clsncheck, sc.iToExp(box))
 		return nil
@@ -2020,7 +2199,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.stateParam(is, "p2clsnrequire", false, func(data string) error {
 		if len(data) == 0 {
-			return Error("Value not specified")
+			return Error("p2clsnrequire not specified")
 		}
 		var box int32
 		switch strings.ToLower(data) {
@@ -2033,7 +2212,7 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		case "size":
 			box = 3
 		default:
-			return Error("Invalid value: " + data)
+			return Error("Invalid p2clsnrequire type: " + data)
 		}
 		sc.add(hitDef_p2clsnrequire, sc.iToExp(box))
 		return nil
@@ -2058,6 +2237,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 	}
 	if err := c.paramValue(is, sc, "guard.sparkscale",
 		hitDef_guard_sparkscale, VT_Float, 2, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "unhittabletime",
+		hitDef_unhittabletime, VT_Int, 2, false); err != nil {
 		return err
 	}
 	return nil
@@ -2101,8 +2284,19 @@ func (c *Compiler) reversalDef(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if attr == -1 {
 			return Error("ReversalDef reversal.attr not specified")
+		} else {
+			sc.add(reversalDef_reversal_attr, sc.iToExp(attr))
 		}
-		sc.add(reversalDef_reversal_attr, sc.iToExp(attr))
+		if err := c.stateParam(is, "reversal.guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, reversalDef_reversal_guardflag, data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "reversal.guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, reversalDef_reversal_guardflag_not, data)
+		}); err != nil {
+			return err
+		}
 		return c.hitDefSub(is, sc)
 	})
 	return *ret, err
@@ -2110,20 +2304,30 @@ func (c *Compiler) reversalDef(is IniSection, sc *StateControllerBase, _ int8) (
 
 func (c *Compiler) modifyReversalDef(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyReversalDef)(sc), c.stateSec(is, func() error {
-		attr := int32(-1)
 		var err error
 		if err = c.paramValue(is, sc, "redirectid",
 			modifyReversalDef_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err = c.stateParam(is, "reversal.attr", false, func(data string) error {
-			attr, err = c.attr(data, false)
-			return err
+			attr, err := c.attr(data, true)
+			if err != nil {
+				return err
+			}
+			sc.add(modifyReversalDef_reversal_attr, sc.iToExp(attr))
+			return nil
 		}); err != nil {
 			return err
 		}
-		if attr != -1 {
-			sc.add(modifyReversalDef_reversal_attr, sc.iToExp(attr))
+		if err := c.stateParam(is, "reversal.guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, modifyReversalDef_reversal_guardflag, data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "reversal.guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, modifyReversalDef_reversal_guardflag_not, data)
+		}); err != nil {
+			return err
 		}
 		return c.hitDefSub(is, sc)
 	})
@@ -2211,12 +2415,36 @@ func (c *Compiler) projectileSub(is IniSection, sc *StateControllerBase, ihp int
 		projectile_projangle, VT_Float, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "projxangle",
+		projectile_projxangle, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projyangle",
+		projectile_projyangle, VT_Float, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "projclsnscale",
 		projectile_projclsnscale, VT_Float, 2, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "projclsnangle",
 		projectile_projclsnangle, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projwindow",
+		projectile_projwindow, VT_Float, 4, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projxshear",
+		projectile_projxshear, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "projfocallength",
+		projectile_projfocallength, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramProjection(is, sc, "projprojection",
+		projectile_projprojection); err != nil {
 		return err
 	}
 	// HitDef section
@@ -2741,7 +2969,7 @@ func (c *Compiler) bindToTarget(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'F', 'f':
 				hmf = HMF_F
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid BindToTarget position type: " + data)
 			}
 			sc.add(bindToTarget_pos, append(exp, sc.iToExp(int32(hmf))...))
 			return nil
@@ -3081,6 +3309,10 @@ func (c *Compiler) envShake(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			envShake_mul, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "dir",
+			envShake_dir, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3120,6 +3352,20 @@ func (c *Compiler) hitOverride(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if err := c.paramValue(is, sc, "keepstate",
 			hitOverride_keepstate, VT_Bool, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "forceguard",
+			hitOverride_forceguard, VT_Bool, 1, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "guardflag", false, func(data string) error {
+			return c.parseHitFlag(sc, hitOverride_guardflag, data)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "guardflag.not", false, func(data string) error {
+			return c.parseHitFlag(sc, hitOverride_guardflag_not, data)
+		}); err != nil {
 			return err
 		}
 		return nil
@@ -3261,7 +3507,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		statetype := func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("statetype not specified")
 			}
 			var st StateType
 			switch strings.ToLower(data)[0] {
@@ -3274,7 +3520,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'l':
 				st = ST_L
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid statetype: " + data)
 			}
 			sc.add(stateTypeSet_statetype, sc.iToExp(int32(st)))
 			return nil
@@ -3295,7 +3541,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "movetype", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("movetype not specified")
 			}
 			var mt MoveType
 			switch strings.ToLower(data)[0] {
@@ -3306,7 +3552,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'h':
 				mt = MT_H
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid movetype: " + data)
 			}
 			sc.add(stateTypeSet_movetype, sc.iToExp(int32(mt)))
 			return nil
@@ -3315,7 +3561,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "physics", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("physics not specified")
 			}
 			var st StateType
 			switch strings.ToLower(data)[0] {
@@ -3328,7 +3574,7 @@ func (c *Compiler) stateTypeSet(is IniSection, sc *StateControllerBase, _ int8) 
 			case 'n':
 				st = ST_N
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid physics type: " + data)
 			}
 			sc.add(stateTypeSet_physics, sc.iToExp(int32(st)))
 			return nil
@@ -3350,6 +3596,14 @@ func (c *Compiler) angleDraw(is IniSection, sc *StateControllerBase, _ int8) (St
 			angleDraw_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleDraw_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleDraw_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "scale",
 			angleDraw_scale, VT_Float, 2, false); err != nil {
 			return err
@@ -3369,6 +3623,14 @@ func (c *Compiler) angleSet(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleSet_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleSet_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleSet_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3382,6 +3644,14 @@ func (c *Compiler) angleAdd(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.paramValue(is, sc, "value",
 			angleAdd_value, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleAdd_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleAdd_y, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil
@@ -3399,6 +3669,14 @@ func (c *Compiler) angleMul(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			angleMul_value, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			angleMul_x, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			angleMul_y, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -3412,7 +3690,7 @@ func (c *Compiler) envColor(is IniSection, sc *StateControllerBase, _ int8) (Sta
 				return err
 			}
 			if len(bes) < 3 {
-				return Error("Value - not enough arguments")
+				return Error("Not enough arguments in EnvColor value")
 			}
 			sc.add(envColor_value, bes)
 			return nil
@@ -3462,7 +3740,7 @@ func (c *Compiler) displayToClipboardSub(is IniSection,
 			_else = true
 		}
 		if _else {
-			return Error("Not enclosed in \"")
+			return Error("Text not enclosed in \"")
 		}
 		sc.add(displayToClipboard_text,
 			sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
@@ -3715,19 +3993,13 @@ func (c *Compiler) varRangeSet(is IniSection, sc *StateControllerBase, _ int8) (
 			varRangeSet_first, VT_Int, 1, false); err != nil {
 			return err
 		}
-		last := false
-		if err := c.stateParam(is, "last", false, func(data string) error {
-			last = true
-			return c.scAdd(sc, varRangeSet_last, data, VT_Int, 1)
-		}); err != nil {
+		if err := c.paramValue(is, sc, "last",
+			varRangeSet_last, VT_Int, 1, false); err != nil {
 			return err
 		}
 		b := false
 		if err := c.stateParam(is, "value", false, func(data string) error {
 			b = true
-			if !last {
-				sc.add(varRangeSet_last, sc.iToExp(int32(NumVar-1)))
-			}
 			return c.scAdd(sc, varRangeSet_value, data, VT_Int, 1)
 		}); err != nil {
 			return err
@@ -3735,15 +4007,12 @@ func (c *Compiler) varRangeSet(is IniSection, sc *StateControllerBase, _ int8) (
 		if !b {
 			if err := c.stateParam(is, "fvalue", false, func(data string) error {
 				b = true
-				if !last {
-					sc.add(varRangeSet_last, sc.iToExp(int32(NumFvar-1)))
-				}
 				return c.scAdd(sc, varRangeSet_fvalue, data, VT_Float, 1)
 			}); err != nil {
 				return err
 			}
 			if !b {
-				return Error("Value parameter not specified")
+				return Error("VarRangeSet value parameter not specified")
 			}
 		}
 		return nil
@@ -4028,7 +4297,7 @@ func (c *Compiler) forceFeedback(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "waveform", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Value not specified")
+				return Error("waveform not specified")
 			}
 			if data[0] == '"' {
 				data = data[1 : len(data)-1]
@@ -4044,7 +4313,7 @@ func (c *Compiler) forceFeedback(is IniSection, sc *StateControllerBase, _ int8)
 			case "off":
 				wf = -1
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid waveform: " + data)
 			}
 			sc.add(forceFeedback_waveform, sc.iToExp(wf))
 			return nil
@@ -4108,30 +4377,35 @@ func (c *Compiler) assertInput(is IniSection, sc *StateControllerBase, _ int8) (
 				sc.add(assertInput_flag, sc.iToExp(int32(IB_W)))
 			case "m":
 				sc.add(assertInput_flag, sc.iToExp(int32(IB_M)))
+			case "B":
+				sc.add(assertInput_flag_B, nil)
+			case "F":
+				sc.add(assertInput_flag_F, nil)
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid AssertInput flag: " + data)
 			}
 			return nil
 		}
-		f := false
+		// Flag
+		flagSet := false
 		if err := c.stateParam(is, "flag", false, func(data string) error {
-			f = true
+			flagSet = true
 			return foo(data)
 		}); err != nil {
 			return err
 		}
-		if !f {
-			return Error("No AssertInput flags specified")
+		// Flag2-8
+		for i := 2; i <= 8; i++ {
+			key := fmt.Sprintf("flag%d", i)
+			if err := c.stateParam(is, key, false, func(data string) error {
+				flagSet = true
+				return foo(data)
+			}); err != nil {
+				return err
+			}
 		}
-		if err := c.stateParam(is, "flag2", false, func(data string) error {
-			return foo(data)
-		}); err != nil {
-			return err
-		}
-		if err := c.stateParam(is, "flag3", false, func(data string) error {
-			return foo(data)
-		}); err != nil {
-			return err
+		if !flagSet {
+			return Error("Must specify at least one AssertInput flag")
 		}
 		return nil
 	})
@@ -4294,7 +4568,7 @@ func (c *Compiler) lifebarAction(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "text", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Text not enclosed in \"")
 			}
 			sc.add(lifebarAction_text, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4314,7 +4588,7 @@ func (c *Compiler) loadFile(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.stateParam(is, "path", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Path not enclosed in \"")
 			}
 			sc.add(loadFile_path, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4369,12 +4643,12 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 		}
 		if len(mapParam) > 0 {
 			if assign {
-				if err := c.checkOpeningBracket(&mapParam); err != nil {
+				if err := c.checkOpeningParenthesis(&mapParam); err != nil {
 					return err
 				}
 				mapName = c.token
 				c.token = c.tokenizer(&mapParam)
-				if err := c.checkClosingBracket(); err != nil {
+				if err := c.checkClosingParenthesis(); err != nil {
 					return err
 				}
 				c.token = c.tokenizer(&mapParam)
@@ -4508,12 +4782,12 @@ func (c *Compiler) teamMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*matchRestart)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "reload",
-			matchRestart_reload, VT_Bool, MaxSimul*2+MaxAttachedChar, false); err != nil {
+			matchRestart_reload, VT_Bool, MaxPlayerNo, false); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "stagedef", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Stagedef not enclosed in \"")
 			}
 			sc.add(matchRestart_stagedef, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4522,7 +4796,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p1def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P1def not enclosed in \"")
 			}
 			sc.add(matchRestart_p1def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4531,7 +4805,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p2def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P2def not enclosed in \"")
 			}
 			sc.add(matchRestart_p2def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4540,7 +4814,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p3def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P3def not enclosed in \"")
 			}
 			sc.add(matchRestart_p3def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4549,7 +4823,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p4def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P4def not enclosed in \"")
 			}
 			sc.add(matchRestart_p4def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4558,7 +4832,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p5def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P5def not enclosed in \"")
 			}
 			sc.add(matchRestart_p5def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4567,7 +4841,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p6def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P6def not enclosed in \"")
 			}
 			sc.add(matchRestart_p6def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4576,7 +4850,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p7def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P7def not enclosed in \"")
 			}
 			sc.add(matchRestart_p7def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4585,7 +4859,7 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "p8def", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("P8def not enclosed in \"")
 			}
 			sc.add(matchRestart_p8def, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4605,7 +4879,7 @@ func (c *Compiler) playBgm(is IniSection, sc *StateControllerBase, _ int8) (Stat
 		}
 		if err := c.stateParam(is, "bgm", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("BGM not enclosed in \"")
 			}
 			sc.add(playBgm_bgm, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4647,10 +4921,6 @@ func (c *Compiler) playBgm(is IniSection, sc *StateControllerBase, _ int8) (Stat
 
 func (c *Compiler) modifyBGCtrl(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyBGCtrl)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			modifyBGCtrl_redirectid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.paramValue(is, sc, "id",
 			modifyBGCtrl_id, VT_Int, 1, true); err != nil {
 			return err
@@ -4726,10 +4996,6 @@ func (c *Compiler) modifyBGCtrl(is IniSection, sc *StateControllerBase, _ int8) 
 
 func (c *Compiler) modifyBGCtrl3d(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyBGCtrl3d)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			modifyBGCtrl3d_redirectid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.paramValue(is, sc, "id",
 			modifyBGCtrl3d_ctrlid, VT_Int, 1, true); err != nil {
 			return err
@@ -4816,10 +5082,6 @@ func (c *Compiler) modifySnd(is IniSection, sc *StateControllerBase, _ int8) (St
 
 func (c *Compiler) modifyBgm(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyBgm)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid",
-			modifyBgm_redirectid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.paramValue(is, sc, "volume",
 			modifyBgm_volume, VT_Int, 1, false); err != nil {
 			return err
@@ -4894,7 +5156,7 @@ func (c *Compiler) remapSprite(is IniSection, sc *StateControllerBase, _ int8) (
 		}
 		if err := c.stateParam(is, "preset", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Preset not enclosed in \"")
 			}
 			sc.add(remapSprite_preset, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -4948,7 +5210,7 @@ func (c *Compiler) saveFile(is IniSection, sc *StateControllerBase, _ int8) (Sta
 		}
 		if err := c.stateParam(is, "path", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Path not enclosed in \"")
 			}
 			sc.add(saveFile_path, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5118,7 +5380,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 				_else = true
 			}
 			if _else {
-				return Error("Not enclosed in \"")
+				return Error("Text not enclosed in \"")
 			}
 			sc.add(text_text, sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
 			return nil
@@ -5173,8 +5435,19 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "angle",
+			text_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.palFXSub(is, sc, "palfx."); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			text_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear",
+			text_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil
@@ -5436,6 +5709,26 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.angle",
+			modifyStageVar_shadow_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.xangle",
+			modifyStageVar_shadow_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.yangle",
+			modifyStageVar_shadow_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "shadow.focallength",
+			modifyStageVar_shadow_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "shadow.projection",
+			modifyStageVar_shadow_projection); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "shadow.fade.range",
 			modifyStageVar_shadow_fade_range, VT_Int, 2, false); err != nil {
 			return err
@@ -5448,6 +5741,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_offset, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.window",
+			modifyStageVar_shadow_window, VT_Float, 4, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "reflection.intensity",
 			modifyStageVar_reflection_intensity, VT_Int, 1, false); err != nil {
 			return err
@@ -5456,16 +5753,40 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_reflection_yscale, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "reflection.angle",
+			modifyStageVar_reflection_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.xangle",
+			modifyStageVar_reflection_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.yangle",
+			modifyStageVar_reflection_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.focallength",
+			modifyStageVar_reflection_focallength, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "reflection.projection",
+			modifyStageVar_reflection_projection); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "reflection.xshear",
 			modifyStageVar_reflection_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.color",
-			modifyStageVar_reflection_xshear, VT_Int, 3, false); err != nil {
+			modifyStageVar_reflection_color, VT_Int, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.offset",
 			modifyStageVar_reflection_offset, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.window",
+			modifyStageVar_reflection_window, VT_Float, 4, false); err != nil {
 			return err
 		}
 		return nil
@@ -5491,7 +5812,7 @@ func (c *Compiler) cameraCtrl(is IniSection, sc *StateControllerBase, _ int8) (S
 			case "free":
 				sc.add(cameraCtrl_view, sc.iToExp(int32(Free_View)))
 			default:
-				return Error("Invalid value: " + data)
+				return Error("Invalid view type: " + data)
 			}
 			return nil
 		}); err != nil {
@@ -5585,7 +5906,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "displayname", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Displayname not enclosed in \"")
 			}
 			sc.add(modifyPlayer_displayname, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5594,7 +5915,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "lifebarname", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Lifebarname not enclosed in \"")
 			}
 			sc.add(modifyPlayer_lifebarname, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5607,7 +5928,7 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.stateParam(is, "helpername", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Helpername not enclosed in \"")
 			}
 			sc.add(modifyPlayer_helpername, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5643,6 +5964,10 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyPlayer_supermovetime, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "unhittabletime",
+			modifyPlayer_unhittabletime, VT_Int, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err
@@ -5656,7 +5981,7 @@ func (c *Compiler) assertCommand(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		if err := c.stateParam(is, "name", true, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Not enclosed in \"")
+				return Error("Command name not enclosed in \"")
 			}
 			sc.add(assertCommand_name, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -5698,6 +6023,14 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_ctrltime, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "damage",
+			getHitVarSet_damage, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "dizzypoints",
+			getHitVarSet_dizzypoints, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "down.recover",
 			getHitVarSet_down_recover, VT_Bool, 1, false); err != nil {
 			return err
@@ -5734,6 +6067,10 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_fall_envshake_time, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "fall.envshake.dir",
+			getHitVarSet_fall_envshake_dir, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "fall.kill",
 			getHitVarSet_fall_kill, VT_Bool, 1, false); err != nil {
 			return err
@@ -5766,8 +6103,20 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_groundtype, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "guardcount",
+			getHitVarSet_guardcount, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "guarded",
 			getHitVarSet_guarded, VT_Bool, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "guardpoints",
+			getHitVarSet_guardpoints, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "hitcount",
+			getHitVarSet_hittime, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "hitshaketime",
@@ -5786,8 +6135,8 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_playerno, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "recovertime",
-			getHitVarSet_recovertime, VT_Int, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "redlife",
+			getHitVarSet_redlife, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "slidetime",
@@ -5880,6 +6229,46 @@ func (c *Compiler) transformClsn(is IniSection, sc *StateControllerBase, _ int8)
 	return *ret, err
 }
 
+func (c *Compiler) transformSprite(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*transformSprite)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			transformSprite_redirectid, VT_Float, 1, false); err != nil {
+			return err
+		}
+		any := false
+		if err := c.stateParam(is, "window", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_window, data, VT_Float, 4)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_xshear, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, transformSprite_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, "projection",
+				transformSprite_projection); err != nil {
+				return err
+			}
+		}
+		if !any {
+			return Error("Must specify at least one TransformSprite parameter")
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyStageBG)(sc), c.stateSec(is, func() error {
 		//if err := c.paramValue(is, sc, "redirectid",
@@ -5949,9 +6338,15 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "scalestart", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_scalestart, data, VT_Float, 2)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "trans", false, func(data string) error {
 			if len(data) == 0 {
-				return Error("Trans type not specified")
+				return Error("trans type not specified")
 			}
 			any = true
 			var blend int32
@@ -5980,6 +6375,24 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "angle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_angle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "xangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "yangle", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_yangle, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "velocity.x", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, modifyStageBG_velocity_x, data, VT_Float, 2)
@@ -5991,6 +6404,25 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 			return c.scAdd(sc, modifyStageBG_velocity_y, data, VT_Float, 1)
 		}); err != nil {
 			return err
+		}
+		if err := c.stateParam(is, "xshear", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_xshear, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "focallength", false, func(data string) error {
+			any = true
+			return c.scAdd(sc, modifyStageBG_focallength, data, VT_Float, 1)
+		}); err != nil {
+			return err
+		}
+		if _, ok := is["projection"]; ok {
+			any = true
+			if err := c.paramProjection(is, sc, "projection",
+				modifyStageBG_projection); err != nil {
+				return err
+			}
 		}
 		if !any {
 			return Error("Must specify at least one ModifyStageBG parameter")

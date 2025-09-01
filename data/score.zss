@@ -3,9 +3,9 @@
 #===============================================================================
 [StateDef -4]
 
-if !const(Default.Enable.Score) || teamSide = 0 {
+ignoreHitPause if !const(Default.Enable.Score) || teamSide = 0 {
 	# do nothing, global code disabled locally or executed by stage
-} else if roundTime = 0 {
+} else if roundState = 0 {
 	map(_iksys_scoreTimeVitalFlag) := 0;
 } else if roundState = 4 && !isHelper {
 	# score: time vital bonus
@@ -43,7 +43,7 @@ if !const(Default.Enable.Score) || teamSide = 0 {
 			map(_iksys_scoreTimeVitalFlag) := 1;
 		}
 	}
-} else ignoreHitPause if roundState >= 2 {
+} else if roundState >= 2 {
 	# score: first attack bonus
 	if !isHelper {
 		let ret = call IkSys_FirstAttack();

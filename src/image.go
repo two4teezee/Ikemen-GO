@@ -9,7 +9,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"regexp"
 	"runtime"
+	"strings"
 	"unsafe"
 )
 
@@ -763,32 +765,36 @@ func (s *Sprite) readHeader(r io.Reader, ofs, size *uint32, link *uint16) error 
 	return nil
 }
 
-func (s *Sprite) readPcxHeader(f *os.File, offset int64) error {
-	f.Seek(offset, 0)
-	read := func(x interface{}) error {
-		return binary.Read(f, binary.LittleEndian, x)
+func (s *Sprite) readPcxHeader(r io.ReadSeeker, offset int64) error {
+	if _, err := r.Seek(offset, io.SeekStart); err != nil {
+		return fmt.Errorf("readPcxHeader seek error: %w", err)
+	}
+	read := func(rd io.Reader, x interface{}) error { // Helper takes io.Reader
+		return binary.Read(rd, binary.LittleEndian, x)
 	}
 	var dummy uint16
-	if err := read(&dummy); err != nil {
+	if err := read(r, &dummy); err != nil {
 		return err
 	}
 	var encoding, bpp byte
-	if err := read(&encoding); err != nil {
+	if err := read(r, &encoding); err != nil {
 		return err
 	}
-	if err := read(&bpp); err != nil {
+	if err := read(r, &bpp); err != nil {
 		return err
 	}
 	if bpp != 8 {
 		return Error(fmt.Sprintf("Invalid PCX color depth: expected 8-bit, got %v", bpp))
 	}
 	var rect [4]uint16
-	if err := read(rect[:]); err != nil {
+	if err := read(r, rect[:]); err != nil {
 		return err
 	}
-	f.Seek(offset+66, 0)
+	if _, err := r.Seek(offset+66, io.SeekStart); err != nil { // Use r.Seek
+		return fmt.Errorf("readPcxHeader seek to bpl error: %w", err)
+	}
 	var bpl uint16
-	if err := read(&bpl); err != nil {
+	if err := read(r, &bpl); err != nil {
 		return err
 	}
 	s.Size[0] = rect[2] - rect[0] + 1
@@ -835,7 +841,7 @@ func (s *Sprite) RlePcxDecode(rle []byte) (p []byte) {
 	return
 }
 
-func (s *Sprite) read(f *os.File, sh *SffHeader, offset int64, datasize uint32,
+func (s *Sprite) read(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uint32,
 	nextSubheader uint32, prev *Sprite, pl *PaletteList, c00 bool) error {
 	if int64(nextSubheader) > offset {
 		// Ignore datasize except last
@@ -1094,7 +1100,7 @@ func (s *Sprite) Lz5Decode(rle []byte) (p []byte) {
 	return
 }
 
-func (s *Sprite) readV2(f *os.File, offset int64, datasize uint32) error {
+func (s *Sprite) readV2(f io.ReadSeeker, offset int64, datasize uint32) error {
 	var px []byte
 	var isRaw bool = false
 
@@ -1201,21 +1207,50 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 	return s.PalTex
 }
 
-func (s *Sprite) Draw(x, y, xscale, yscale, angle float32, fx *PalFX, window *[4]int32) {
+func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, fx *PalFX, window *[4]int32) {
 	x += float32(sys.gameWidth-320)/2 - xscale*float32(s.Offset[0])
 	y += float32(sys.gameHeight-240) - yscale*float32(s.Offset[1])
-	if xscale < 0 {
-		x *= -1
+	var rcx, rcy float32
+
+	if rot.IsZero() {
+		if xscale < 0 {
+			x *= -1
+		}
+		if yscale < 0 {
+			y *= -1
+		}
+		rcx, rcy = rcx*sys.widthScale, 0
+	} else {
+		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
+		x, y = AbsF(xscale)*float32(s.Offset[0]), AbsF(yscale)*float32(s.Offset[1])
 	}
-	if yscale < 0 {
-		y *= -1
-	}
+
 	rp := RenderParams{
-		s.Tex, s.PalTex, s.Size,
-		-x * sys.widthScale, -y * sys.heightScale, notiling,
-		xscale * sys.widthScale, xscale * sys.widthScale, yscale * sys.heightScale, 1, 0, 1, 1,
-		Rotation{angle, 0, 0}, 0, sys.brightness*255>>8 | 1<<9, 0, fx, window, 0, 0, 0, 0,
-		-xscale * float32(s.Offset[0]), -yscale * float32(s.Offset[1]),
+		tex:            s.Tex,
+		paltex:         s.PalTex,
+		size:           s.Size,
+		x:              -x * sys.widthScale,
+		y:              -y * sys.heightScale,
+		tile:           notiling,
+		xts:            xscale * sys.widthScale,
+		xbs:            xscale * sys.widthScale,
+		ys:             yscale * sys.heightScale,
+		vs:             1,
+		rxadd:          rxadd,
+		xas:            1,
+		yas:            1,
+		rot:            rot,
+		tint:           0,
+		trans:          sys.brightness*255>>8 | 1<<9,
+		mask:           0,
+		pfx:            fx,
+		window:         window,
+		rcx:            rcx,
+		rcy:            rcy,
+		projectionMode: 0,
+		fLength:        0,
+		xOffset:        -xscale * float32(s.Offset[0]),
+		yOffset:        -yscale * float32(s.Offset[1]),
 	}
 	RenderSprite(rp)
 }
@@ -1272,7 +1307,7 @@ func loadSff(filename string, char bool) (*Sff, error) {
 	}
 	s := newSff()
 	s.filename = filename
-	f, err := os.Open(filename)
+	f, err := OpenFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -1417,7 +1452,7 @@ func loadSff(filename string, char bool) (*Sff, error) {
 
 func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff, []int32, error) {
 	sff := newSff()
-	f, err := os.Open(filename)
+	f, err := OpenFile(filename)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1607,8 +1642,18 @@ func captureScreen() {
 		}
 		img.Pix[j] = pixdata[i]
 	}
+
+	// Sanitize WindowTitle for use in filenames
+	re := regexp.MustCompile(`[<>:"/\\|?*]`)
+	safeTitle := re.ReplaceAllString(sys.cfg.Config.WindowTitle, "_")
+	safeTitle = strings.TrimSpace(safeTitle)
+	safeTitle = strings.ReplaceAll(safeTitle, " ", "_")
+	if safeTitle == "" {
+		safeTitle = "ikemen"
+	}
+
 	for i := sys.captureNum; i < 999; i++ {
-		filename := fmt.Sprintf("%sikemen%03d.png", sys.cfg.Config.ScreenshotFolder, i)
+		filename := fmt.Sprintf("%s%s%03d.png", sys.cfg.Config.ScreenshotFolder, safeTitle, i)
 		if _, err := os.Stat(filename); os.IsNotExist(err) {
 			file, _ := os.Create(filename)
 			defer file.Close()

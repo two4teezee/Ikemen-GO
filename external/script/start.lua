@@ -1140,27 +1140,27 @@ function start.f_drawCursor(pn, x, y, param, done)
 	end
 
 	-- tween movement
-	if not done and motif.select_info.cursortween == 1 then
+	if not done and motif.select_info['p' .. pn .. '_cursor_tween'] == 1 then
 		local t_speed = {
-			motif.select_info.cursortween_speed[1],
-			motif.select_info.cursortween_speed[2]
+			motif.select_info['p' .. pn .. '_cursor_tween_speed'][1],
+			motif.select_info['p' .. pn .. '_cursor_tween_speed'][2]
 		}
 		-- tween wrapping speed
 		if motif.select_info.wrapping == 1 then
 			local dx = cd.targetPos[1] - cd.startPos[1]
 			local dy = cd.targetPos[2] - cd.startPos[2]
 			if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) then
-				if motif.select_info.cursortween_wrap_speed[1] == 0 then 
+				if motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][1] == 0 then
 					t_speed[1] = t_speed[1] * motif.select_info.columns
 				else
-					t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+					t_speed[1] = motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][1]
 				end
 			end
 			if math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
-				if motif.select_info.cursortween_wrap_speed[2] == 0 then 
+				if motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][2] == 0 then 
 					t_speed[2] = t_speed[2] * motif.select_info.rows
 				else
-					t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+					t_speed[2] = motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][2]
 				end
 			end
 		end
@@ -1174,7 +1174,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
     end
-	-- draw 
+	-- draw
 	main.f_animPosDraw(
 		motif.select_info[prefix .. '_data'],
 		cd.currentPos[1],

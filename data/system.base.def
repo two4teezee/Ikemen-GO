@@ -579,11 +579,15 @@
 	p2.cursor.switchtime = 3
 
 	; enables the Mugen 1.1 cursor tween and allows adjusting its parameters
-	cursortween = 1
+	p1.cursor.tween = 1
 	; cursor tween x and y speed
-	cursortween.speed = 4, 4
+	p1.cursor.tween.speed = 4, 4
 	; cursor speed when wrapping, defaults to a multiple of cursortween.speed if it's 0 or not specified
-	cursortween.wrap.speed = 0, 0
+	p1.cursor.tween.wrap.speed = 0, 0
+
+	p2.cursor.tween = 1
+	p2.cursor.tween.speed = 4, 4
+	p2.cursor.tween.wrap.speed = 0, 0
 
 	; cursor parameters defaults to p1 and p2 values, if not specified
 	;p<pn>.cursor.startcell = 0, 0

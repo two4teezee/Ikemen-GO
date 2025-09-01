@@ -1677,6 +1677,9 @@ func (nc *NetConnection) Accept(port string) error {
 			ln := nc.ln
 			if conn, err := ln.AcceptTCP(); err == nil {
 				nc.conn = conn
+				if sys.cfg.Netplay.RollbackNetcode {
+					sys.rollback.session.remoteIp = conn.RemoteAddr().(*net.TCPAddr).IP.String()
+				}
 			}
 			ln.Close()
 		}()

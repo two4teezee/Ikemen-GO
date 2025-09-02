@@ -4440,7 +4440,31 @@ func (c *Char) isHelper(id int32, idx int) bool {
 }
 
 func (c *Char) isHost() bool {
-	return sys.netConnection != nil && sys.netConnection.host
+	// Local play has no host
+	if sys.netConnection == nil && sys.replayFile == nil {
+		return false
+	}
+
+	// Find first human player like in GetHostGuestRemap()
+	// This doesn't seem ideal somehow, but it's better than not having it
+	// When you think about it, it's almost the same as just returning true for player 1
+	var host int
+	for i, v := range sys.aiLevel {
+		if v == 0 {
+			host = i
+			break
+		}
+	}
+
+	// "host" already defaults to 0 so player 1 is the fallback host
+	return c.playerNo == host
+
+	// TODO: For Tag mode, this should probably return true for all characters controlled by the player
+
+	// For the host, this returned true for any player
+	// For the guest, it returned false for any player
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2523
+	//return sys.netConnection != nil && sys.netConnection.host
 }
 
 func (c *Char) jugglePoints(id int32) int32 {

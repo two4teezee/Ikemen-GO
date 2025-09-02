@@ -10,10 +10,10 @@ import (
 )
 
 type RollbackSystem struct {
-	session      *RollbackSession
-	currentFight Fight
-	active       bool
-	netConnection     *NetConnection
+	session       *RollbackSession
+	currentFight  Fight
+	active        bool
+	netConnection *NetConnection
 }
 
 type RollbackProperties struct {
@@ -1028,7 +1028,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 
 				// Update Forward/Back flipping flag
 				c.updateFBFlip()
-				
+
 				// Rollback part
 				if c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0] {
 
@@ -1038,56 +1038,53 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 						}
 						// if we have an input from the players
 						// update the command buffer based on that.
-						ib[i].BitsToKeys(c.cmd[0].Buffer, int32(c.facing))
+						ib[i].RollbackBitsToKeys(c.cmd[0].Buffer, int32(c.facing))
 					} else if (sys.tmode[0] == TM_Tag || sys.tmode[1] == TM_Tag) && (c.teamside != -1) {
-						ib[c.teamside].BitsToKeys(c.cmd[0].Buffer, int32(c.facing))
+						ib[c.teamside].RollbackBitsToKeys(c.cmd[0].Buffer, int32(c.facing))
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
 						c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false)
 					}
 				}
 
-				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false) {
-					// Clear input buffers and skip the rest of the loop
-					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
-					if c.inputWait() || c.asf(ASF_noinput) {
-						for i := range c.cmd {
-							c.cmd[i].BufReset()
-						}
-						continue
-					}
-					hpbuf := false
-					pausebuf := false
-					winbuf := false
-					// Buffer during hitpause
-					if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 { // TODO: Deprecated constant
-						hpbuf = true
-						// In Winmugen, commands were buffered for one extra frame after hitpause (but not after Pause/SuperPause)
-						// This was fixed in Mugen 1.0
-						if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 {
-							winbuf = true
-						}
-					}
-					// Buffer during Pause and SuperPause
-					if sys.supertime > 0 {
-						if !act && sys.supertime <= sys.superendcmdbuftime {
-							pausebuf = true
-						}
-					} else if sys.pausetime > 0 {
-						if !act && sys.pausetime <= sys.pauseendcmdbuftime {
-							pausebuf = true
-						}
-					}
-					// Update commands
+				// Clear input buffers and skip the rest of the loop
+				// This used to apply only to the root, but that caused some issues with helper-based custom input systems
+				if c.inputWait() || c.asf(ASF_noinput) {
 					for i := range c.cmd {
-						extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
-						helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
-						c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
+						c.cmd[i].BufReset()
 					}
-					// Enable AI cheated command
-					c.cpucmd = cheat
+					continue
 				}
+				hpbuf := false
+				pausebuf := false
+				winbuf := false
+				// Buffer during hitpause
+				if c.hitPause() && c.gi().constants["input.pauseonhitpause"] != 0 { // TODO: Deprecated constant
+					hpbuf = true
+					// In Winmugen, commands were buffered for one extra frame after hitpause (but not after Pause/SuperPause)
+					// This was fixed in Mugen 1.0
+					if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] != 1 {
+						winbuf = true
+					}
+				}
+				// Buffer during Pause and SuperPause
+				if sys.supertime > 0 {
+					if !act && sys.supertime <= sys.superendcmdbuftime {
+						pausebuf = true
+					}
+				} else if sys.pausetime > 0 {
+					if !act && sys.pausetime <= sys.pauseendcmdbuftime {
+						pausebuf = true
+					}
+				}
+				// Update commands
+				for i := range c.cmd {
+					extratime := Btoi(hpbuf || pausebuf) + Btoi(winbuf)
+					helperbug := c.helperIndex != 0 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0
+					c.cmd[i].Step(c.controller < 0, helperbug, hpbuf, pausebuf, extratime)
+				}
+				// Enable AI cheated command
+				c.cpucmd = cheat
 			}
 		}
 	}
@@ -1463,7 +1460,7 @@ func writeI32(i32 int32) []byte {
 
 func (rs *RollbackSystem) getInputs(player int) []byte {
 	var ib InputBits
-	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(player))
+	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(player, false))
 	return writeI32(int32(ib))
 }
 

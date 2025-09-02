@@ -3225,6 +3225,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					introWaitCycles = 0
 				end
 				if esc() or main.f_input(main.t_players, {'m'}) then
+					if motif[main.group].menu_item_active_bg_data ~= nil then
+						animReset(motif[main.group].menu_item_active_bg_data)
+					end
 					if not bool_main then
 						sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then

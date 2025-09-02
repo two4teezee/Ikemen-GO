@@ -641,6 +641,7 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 
 	// Neutral resolution is enforced during netplay
 	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
+	// TODO: Figure out how to make local options work online
 	if sys.netConnection != nil || sys.replayFile != nil {
 		method = 4
 	}
@@ -2410,45 +2411,50 @@ func (c *Command) AutoGreaterExpand() {
 		return
 	}
 
-	// Check if expansion is needed
+	// Check if expansion is needed before doing all the work
 	needExpansion := false
 	for i := 1; i < len(c.steps); i++ {
-		prev := c.steps[i-1]
-		curr := c.steps[i]
-		if prev.IsSingleDirection() && curr.IsSingleDirection() && prev.EqualSteps(curr) {
+		if c.steps[i-1].IsSingleDirection() && c.steps[i].IsSingleDirection() && c.steps[i-1].EqualSteps(c.steps[i]) {
 			needExpansion = true
 			break
 		}
 	}
+	if !needExpansion {
+		return
+	}
 
 	// Replace command with new expanded command
-	if needExpansion {
-		var newCmd []CommandStep
-		for i := 0; i < len(c.steps); i++ {
-			if i+1 < len(c.steps) &&
-				c.steps[i].IsSingleDirection() &&
-				c.steps[i+1].IsSingleDirection() &&
-				c.steps[i].EqualSteps(c.steps[i+1]) {
+	// Keep the first step, expand each additional identical step into ">~X, >X"
+	newCmd := make([]CommandStep, 0, len(c.steps)*2) // Overestimate new capacity
+	newCmd = append(newCmd, c.steps[0])
 
-				// Mark next step as ">X"
-				c.steps[i+1].greater = true
+	for i := 1; i < len(c.steps); i++ {
+		prev := c.steps[i-1]
+		curr := c.steps[i]
 
-				// Insert ">~X" step between i and i+1
-				newStep := CommandStep{
+		if prev.IsSingleDirection() && curr.IsSingleDirection() && prev.EqualSteps(curr) {
+			// Expand repeat into ">~X, >X"
+			newCmd = append(newCmd,
+				CommandStep{
 					greater: true,
 					keys: []CommandStepKey{{
-						key:    c.steps[i+1].keys[0].key,
-						tilde:  !c.steps[i+1].keys[0].tilde,
-						dollar: c.steps[i+1].keys[0].dollar,
+						key:    curr.keys[0].key,
+						tilde:  !curr.keys[0].tilde,
+						dollar: curr.keys[0].dollar,
 					}},
-				}
-				newCmd = append(newCmd, c.steps[i], newStep)
-			} else {
-				newCmd = append(newCmd, c.steps[i])
-			}
+				},
+				CommandStep{
+					greater: true,
+					keys:    curr.keys,
+				},
+			)
+		} else {
+			// No expansion, just copy
+			newCmd = append(newCmd, curr)
 		}
-		c.steps = newCmd
 	}
+
+	c.steps = newCmd
 }
 
 func (c *Command) Clear(bufreset bool) {
@@ -2584,12 +2590,15 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// This approach has a quirk in that foreign inputs are accepted if they're entered the same frame that the intended input matched
 		// Should be harmless because at least that's very hard for a human to perform
 		// Out of the methods tried, this one has the best results for the least work
-		if !inputMatched && i > 0 && c.steps[i].greater &&
-			len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] && ibuf.LastChangeTime() == 1 {
-			// && ibuf.State(c.steps[i-1].keys[0]) != ibuf.LastChangeTime() { // More work for same result as above
-
-			c.Clear(false)
-			return
+		if !inputMatched &&
+			i > 0 && c.steps[i].greater && len(c.steps) >= 2 &&
+			c.completed[i-1] && !c.completed[i] && ibuf.State(c.steps[i-1].keys[0]) != ibuf.LastChangeTime() {
+			// Ikemen used to do a c.Clear(false) here
+			// But Mugen seems to do something like this instead. Or it's more like a ">" failure just prevents "inputMatched"
+			// This makes mashing some commands like "D, D, D" easier to do
+			// Clear previous step only
+			c.completed[i-1] = false
+			c.stepTimers[i-1] = 0
 		}
 
 		if inputMatched {
@@ -2657,7 +2666,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
-func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32, ibit InputBits, script bool) bool {
+func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32, ibit InputBits, shifting [][2]int, script bool) bool {
 	if cl.Buffer == nil {
 		return false
 	}
@@ -2716,6 +2725,41 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 		d = d || ibit&IB_D != 0
 		w = w || ibit&IB_W != 0
 		m = m || ibit&IB_M != 0
+	}
+
+	// Apply ShiftInput
+	if shifting != nil {
+		// Collect current input states and prepare remap states
+		inputs := []bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
+		output := make([]bool, len(inputs))
+
+		// Use a map for fast lookup
+		swapMap := make(map[int]int)
+		for _, pair := range shifting {
+			src, dst := pair[0], pair[1]
+			swapMap[src] = dst
+		}
+
+		// Apply remapping logic to active keys
+		for i, active := range inputs {
+			if !active {
+				continue
+			}
+			// If current key has a remap, use it
+			if dst, ok := swapMap[i]; ok {
+				if dst >= 0 && dst < len(output) {
+					output[dst] = true // Apply remap to output
+				}
+				// Negative dest disables input, so do nothing
+			} else {
+				output[i] = true // No remap, retain original input
+			}
+		}
+
+		// Assign back to input variables
+		U, D, L, R = output[0], output[1], output[2], output[3]
+		a, b, c, x, y, z = output[4], output[5], output[6], output[7], output[8], output[9]
+		s, d, w, m = output[10], output[11], output[12], output[13]
 	}
 
 	// Get B and F from L and R for SOCD resolution

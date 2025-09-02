@@ -12,7 +12,7 @@ Default.Enable.Score = 1
 Default.Enable.Tag = 1
 
 ; Input toggles
-Input.FBFlipDistance = -1           ; Positive value inverts B and F inputs when an enemy is behind the player by that distance
+Input.FBFlipEnemyDistance = -1      ; Positive value inverts B and F inputs when an enemy is behind the player by that distance
 Input.PauseOnHitPause = 1           ; 1 makes commands be buffered during hit pause. Deprecated. See command parameters
 
 ; Backward compatibility toggles

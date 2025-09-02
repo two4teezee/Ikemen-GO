@@ -13418,6 +13418,54 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type shiftInput StateControllerBase
+
+const (
+	shiftInput_input byte = iota
+	shiftInput_output
+	shiftInput_redirectid
+)
+
+func (sc shiftInput) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), shiftInput_redirectid, "ShiftInput")
+	if crun == nil {
+		return false
+	}
+
+	var src, dst int = -1, -1
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case shiftInput_input:
+			src = int(exp[0].evalI(c))
+		case shiftInput_output:
+			dst = int(exp[0].evalI(c))
+		}
+		return true
+	})
+
+	// Reset all mappings if both are none. Or do nothing if only source is none
+	if src < 0 {
+		if dst < 0 {
+			c.inputShift = nil
+		}
+		return false
+	}
+
+	// Reuse mapping if source already exists
+	for i := range c.inputShift {
+		if c.inputShift[i][0] == src {
+			c.inputShift[i][1] = dst
+			return false
+		}
+	}
+
+	// Otherise add new mapping
+	c.inputShift = append(c.inputShift, [2]int{src, dst})
+
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

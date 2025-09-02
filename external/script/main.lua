@@ -3274,6 +3274,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 				elseif main.f_input(main.t_players, main.f_extractKeys(motif[main.group].menu_accept_key)) then
 					demoFrameCounter = 0
+					if motif[main.group].menu_item_active_bg_data ~= nil then
+						animReset(motif[main.group].menu_item_active_bg_data)
+					end
 					local f = t[item].itemname
 					if f == 'back' then
 						sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])

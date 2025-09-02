@@ -566,7 +566,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 				}
 			}
 			// Check if player skipped win pose time
-			if s.intro > fadeoutStart && s.roundWinTime() && (s.anyButton() && !s.gsf(GSF_roundnotskip)) {
+			if s.intro > fadeoutStart && s.roundWinTime() && (rs.session.AnyButtonIB(input) && !s.gsf(GSF_roundnotskip)) {
 				s.intro = fadeoutStart
 				s.winskipped = true
 			}
@@ -753,7 +753,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 		if s.lifebar.ro.current < 1 && !s.introSkipped {
 			// Checking the intro flag prevents skipping intros when they don't exist
 			if s.lifebar.ro.rt.shutterTimer == 0 &&
-				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
+				rs.session.AnyButtonIB(input) && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
 				// Start shutter effect
 				s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
 			}

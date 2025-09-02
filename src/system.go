@@ -2494,7 +2494,7 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 			// Set lifemax
 			if sys.autolevel {
 				foo := math.Pow(autolvmul, float64(-autolevels[i]))
-				p[0].lifeMax = Max(1, int32(math.Floor(foo * float64(lm))))
+				p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
 			} else {
 				p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
 			}
@@ -2564,7 +2564,7 @@ type RoundStartBackup struct {
 	oldDraws      int32
 	oldTeamLeader [2]int
 	// Stage
-	stageVars   Stage
+	stageVars Stage
 }
 
 func (bk *RoundStartBackup) Save() {

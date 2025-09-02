@@ -2108,9 +2108,11 @@ func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
+
+	// Disable debug during netplay (but not during replays)
 	if sys.netConnection != nil {
-		s.clsnDisplay = false
 		s.debugDisplay = false
+		s.clsnDisplay = false
 		s.lifebarHide = false
 	}
 
@@ -2128,51 +2130,34 @@ func (s *System) fight() (reload bool) {
 		s.wincnt.update()
 	}()
 
-	var oldStageVars Stage
-	oldStageVars.copyStageVars(s.stage) // NOTE: This save and restore of stage variables makes ModifyStageVar not persist. Maybe that should not be the case?
-
-	// Vars to use in copyVar backup
-	var life, lifeMax, power, powerMax [len(s.chars)]int32
-	var guardPoints, guardPointsMax, dizzyPoints, dizzyPointsMax, redLife [len(s.chars)]int32
-	var teamside [len(s.chars)]int
-	var cnsvar [len(s.chars)]map[int32]int32
-	var cnsfvar [len(s.chars)]map[int32]float32
-	var mapArray [len(s.chars)]map[string]float32
-	var dialogue [len(s.chars)][]string
-	var remapSpr [len(s.chars)]RemapPreset
-
-	// Anonymous function to assign initial character values
-	// ModifyPlayer parameters should ideally also be reset here
-	copyVar := func(pn int) {
-		life[pn] = s.chars[pn][0].life
-		lifeMax[pn] = s.chars[pn][0].lifeMax
-		power[pn] = s.chars[pn][0].power
-		powerMax[pn] = s.chars[pn][0].powerMax
-		guardPoints[pn] = s.chars[pn][0].guardPoints
-		guardPointsMax[pn] = s.chars[pn][0].guardPointsMax
-		dizzyPoints[pn] = s.chars[pn][0].dizzyPoints
-		dizzyPointsMax[pn] = s.chars[pn][0].dizzyPointsMax
-		redLife[pn] = s.chars[pn][0].redLife
-		teamside[pn] = s.chars[pn][0].teamside
-		cnsvar[pn] = make(map[int32]int32)
-		for k, v := range s.chars[pn][0].cnsvar {
-			cnsvar[pn][k] = v
-		}
-		cnsfvar[pn] = make(map[int32]float32)
-		for k, v := range s.chars[pn][0].cnsfvar {
-			cnsfvar[pn][k] = v
-		}
-		mapArray[pn] = make(map[string]float32)
-		for k, v := range s.chars[pn][0].mapArray {
-			mapArray[pn][k] = v
-		}
-		copy(dialogue[pn], s.chars[pn][0].dialogue[:])
-		remapSpr[pn] = make(RemapPreset)
-		for k, v := range s.chars[pn][0].remapSpr {
-			remapSpr[pn][k] = v
-		}
+	// Synchronize with external inputs (netplay, replays, etc)
+	if err := s.synchronize(); err != nil {
+		s.errLog.Println(err.Error())
+		s.esc = true
+	}
+	if s.netConnection != nil {
+		defer s.netConnection.Stop()
 	}
 
+	// Struct to save char values at start of the round
+	// Rolback branch makes a similar backup in System instead of letting it be local. Maybe we'll need the same
+	var roundBackup RoundStartBackup
+
+	// Init wins counter
+	s.wincnt.init()
+
+	// Handicap levels for Random Test mode
+	// What this does is make characters weaker as they accumulate wins
+	autolvmul := math.Pow(2, 1.0/12)
+	var autolevels [MaxPlayerNo]int32
+
+	// Setup characters
+	s.SetupCharRoundStart(autolvmul, autolevels)
+
+	// Make a new backup once everything is initialized
+	roundBackup.Save()
+
+	// Default debug/scripts to player 1
 	s.debugWC = sys.chars[0][0]
 	debugInput := func() {
 		select {
@@ -2184,16 +2169,223 @@ func (s *System) fight() (reload bool) {
 		}
 	}
 
-	// Synchronize with external inputs (netplay, replays, etc)
-	if err := s.synchronize(); err != nil {
-		s.errLog.Println(err.Error())
-		s.esc = true
+	// Anonymous function to reset values. Called at the start of each round
+	reset := func() {
+		roundBackup.Restore()
+		s.resetFrameTime()
+		s.nextRound()
+		s.roundResetFlg, s.introSkipped = false, false
+		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
+		s.runMainThreadTask()
+		gfx.Await()
 	}
-	if s.netConnection != nil {
-		defer s.netConnection.Stop()
-	}
-	s.wincnt.init()
 
+	reset()
+
+	// Loop until end of match
+	fin := false
+	didTryLoadBGM := false
+	for !s.endMatch {
+		// Default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
+		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+			// Need to search first
+			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
+				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
+				didTryLoadBGM = true
+				return nil
+			})
+		}
+		s.step = false
+		for _, v := range s.shortcutScripts {
+			if v.Activate {
+				if err := s.luaLState.DoString(v.Script); err != nil {
+					s.errLog.Println(err.Error())
+				}
+			}
+		}
+
+		// If next round
+		if s.roundOver() && !fin {
+			s.round++
+			for i := range s.roundsExisted {
+				s.roundsExisted[i]++
+			}
+			s.clearAllSound()
+			tbl_roundNo := s.luaLState.NewTable()
+			for _, p := range s.chars {
+				if len(p) > 0 && p[0].teamside != -1 {
+					tmp := s.luaLState.NewTable()
+					tmp.RawSetString("name", lua.LString(p[0].name))
+					tmp.RawSetString("id", lua.LNumber(p[0].id))
+					tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+					tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+					tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+					tmp.RawSetString("life", lua.LNumber(p[0].life))
+					tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+					tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+					tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
+					tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
+					tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+					tmp.RawSetString("win", lua.LBool(p[0].win()))
+					tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+					tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+					tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+					tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
+					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
+					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+					tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
+					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+				}
+			}
+			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+			s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+
+			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+				// Prepare for the next round
+				for i, p := range s.chars {
+					if len(p) > 0 {
+						if s.tmode[i&1] != TM_Turns || !p[0].win() {
+							p[0].life = p[0].lifeMax
+						} else if p[0].life <= 0 {
+							p[0].life = 1
+						}
+						p[0].redLife = p[0].life // TODO: This doesn't truly need to be hardcoded
+					}
+				}
+				roundBackup.Save()
+				reset()
+			} else {
+				// End match, or prepare for a new character in turns mode
+				for i, tm := range s.tmode {
+					if s.chars[i][0].win() || (!s.chars[i][0].lose() && tm != TM_Turns) {
+						for j := i; j < len(s.chars); j += 2 {
+							if len(s.chars[j]) > 0 {
+								if s.chars[j][0].win() {
+									if sys.autolevel {
+										s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(autolvmul,
+											float64(autolevels[i]))*float64(s.chars[j][0].life))))
+									}
+								} else {
+									s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+								}
+							}
+						}
+					}
+				}
+				// If match isn't over, presumably this is turns mode,
+				// so break to restart fight for the next character
+				if !s.matchOver() {
+					break
+				}
+
+				// Otherwise match is over
+				s.postMatchFlg = true
+				fin = true
+			}
+		}
+
+		s.bgPalFX.step()
+		s.stage.action()
+
+		// Update game state
+		s.action()
+
+		debugInput()
+		if !s.addFrameTime(s.turbo) {
+			if !s.eventUpdate() {
+				return false
+			}
+			continue
+		}
+
+		// F4 pressed to restart round
+		if s.roundResetFlg && !s.postMatchFlg {
+			sys.paused = false
+			reset()
+		}
+
+		// Shift+F4 pressed to restart match
+		if s.reloadFlg {
+			return true
+		}
+
+		// Render frame
+		if !s.frameSkip {
+			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
+			dx, dy, dscl := x, y, scl
+			if s.enableZoomtime > 0 {
+				if !s.debugPaused() {
+					s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+					s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+					s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+				}
+				if s.zoomStageBound {
+					dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+					if s.zoomCameraBound {
+						dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
+					} else {
+						dx = x + s.zoomPosXLag/scl
+					}
+					dx = s.cam.XBound(dscl, dx)
+				} else {
+					dscl = s.drawScale / s.cam.BaseScale()
+					dx = x + s.zoomPosXLag/scl
+				}
+				dy = y + s.zoomPosYLag/scl
+			} else {
+				s.zoomlag = 0
+				s.zoomPosXLag = 0
+				s.zoomPosYLag = 0
+				s.zoomScale = 1
+				s.zoomPos = [2]float32{0, 0}
+				s.drawScale = s.cam.Scale
+			}
+			s.draw(dx, dy, dscl)
+		}
+
+		// Render top elements such as fade effects
+		if !s.frameSkip {
+			s.drawTop()
+		}
+
+		// Lua code is executed after drawing the fade effects, so that the menus are on top of them
+		for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+			for _, v := range sys.cfg.Common.Lua[key] {
+				if err := s.luaLState.DoString(v); err != nil {
+					s.luaLState.RaiseError(err.Error())
+				}
+			}
+		}
+
+		// Render debug elements
+		if !s.frameSkip && s.debugDisplay {
+			s.drawDebugText()
+		}
+
+		// Break if finished
+		if fin && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
+			break
+		}
+
+		// Update system; break if update returns false (game ended)
+		if !s.update() {
+			break
+		}
+
+		// If end match selected from menu/end of attract mode match/etc
+		if s.endMatch {
+			s.esc = true
+		} else if s.esc {
+			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
+		}
+	}
+
+	return false
+}
+
+func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]int32) {
 	// Prepare next round for all players
 	for _, p := range s.chars {
 		if len(p) > 0 {
@@ -2201,12 +2393,36 @@ func (s *System) fight() (reload bool) {
 		}
 	}
 
-	// Initialize super meter values and max power for teams sharing meter
-	var level [len(s.chars)]int32
+	// Update handicap for each character
 	for i, p := range s.chars {
 		if len(p) > 0 && p[0].teamside != -1 {
-			level[i] = s.wincnt.getLevel(i)
-			if s.cfg.Options.Team.PowerShare {
+			autolevels[i] = s.wincnt.getLevel(i)
+		}
+	}
+
+	// Normalize autolevels so that the lowest one (or highest if all negative) is zero
+	// This ensures autolevel-based scaling is always relative, with at least one player at baseline (0)
+	minlv, maxlv := autolevels[0], autolevels[0]
+	for i, lv := range autolevels[1:] {
+		if len(s.chars[i+1]) > 0 {
+			minlv = Min(minlv, lv)
+			maxlv = Max(maxlv, lv)
+		}
+	}
+	if minlv > 0 {
+		for i := range autolevels {
+			autolevels[i] -= minlv
+		}
+	} else if maxlv < 0 {
+		for i := range autolevels {
+			autolevels[i] -= maxlv
+		}
+	}
+
+	// Set max power for teams sharing meter
+	if s.cfg.Options.Team.PowerShare {
+		for i, p := range s.chars {
+			if len(p) > 0 && p[0].teamside != -1 {
 				pmax := Max(s.cgi[i&1].data.power, s.cgi[i].data.power)
 				for j := i & 1; j < MaxSimul*2; j += 2 {
 					if len(s.chars[j]) > 0 {
@@ -2217,25 +2433,7 @@ func (s *System) fight() (reload bool) {
 		}
 	}
 
-	minlv, maxlv := level[0], level[0]
-	for i, lv := range level[1:] {
-		if len(s.chars[i+1]) > 0 {
-			minlv = Min(minlv, lv)
-			maxlv = Max(maxlv, lv)
-		}
-	}
-	if minlv > 0 {
-		for i := range level {
-			level[i] -= minlv
-		}
-	} else if maxlv < 0 {
-		for i := range level {
-			level[i] -= maxlv
-		}
-	}
-
 	// Initialize each character
-	lvmul := math.Pow(2, 1.0/12)
 	for i, p := range s.chars {
 		if len(p) > 0 {
 			// Get max life, and adjust based on team mode
@@ -2292,12 +2490,21 @@ func (s *System) fight() (reload bool) {
 					}
 				}
 			}
-			foo := math.Pow(lvmul, float64(-level[i]))
-			p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
+
+			// Set lifemax
+			if sys.autolevel {
+				foo := math.Pow(autolvmul, float64(-autolevels[i]))
+				p[0].lifeMax = Max(1, int32(math.Floor(foo * float64(lm))))
+			} else {
+				p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
+			}
 
 			if p[0].roundsExisted() > 0 {
-				// If character already existed for a round, presumably because of Turns mode, just update life
-				p[0].life = Min(p[0].lifeMax, int32(math.Ceil(foo*float64(p[0].life))))
+				// If character already existed for a round, presumably because of Turns mode, just update Random Test handicap
+				if sys.autolevel {
+					foo := math.Pow(autolvmul, float64(-autolevels[i]))
+					p[0].life = int32(math.Ceil(foo * float64(p[0].life)))
+				}
 			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
 				// If round 1 or a new character in Turns mode, initialize values
 				if p[0].ocd().life != -1 {
@@ -2335,257 +2542,112 @@ func (s *System) fight() (reload bool) {
 			} else {
 				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
-			copyVar(i)
+		}
+	}
+}
+
+type RoundStartBackup struct {
+	// Char
+	life, lifeMax               [MaxPlayerNo]int32
+	power, powerMax             [MaxPlayerNo]int32
+	guardPoints, guardPointsMax [MaxPlayerNo]int32
+	dizzyPoints, dizzyPointsMax [MaxPlayerNo]int32
+	redLife                     [MaxPlayerNo]int32
+	teamside                    [MaxPlayerNo]int
+	cnsvar                      [MaxPlayerNo]map[int32]int32
+	cnsfvar                     [MaxPlayerNo]map[int32]float32
+	mapArray                    [MaxPlayerNo]map[string]float32
+	dialogue                    [MaxPlayerNo][]string
+	remapSpr                    [MaxPlayerNo]RemapPreset
+	// Fight
+	oldWins       [2]int32
+	oldDraws      int32
+	oldTeamLeader [2]int
+	// Stage
+	stageVars   Stage
+}
+
+func (bk *RoundStartBackup) Save() {
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			bk.life[i] = p[0].life
+			bk.lifeMax[i] = p[0].lifeMax
+			bk.power[i] = p[0].power
+			bk.powerMax[i] = p[0].powerMax
+			bk.guardPoints[i] = p[0].guardPoints
+			bk.guardPointsMax[i] = p[0].guardPointsMax
+			bk.dizzyPoints[i] = p[0].dizzyPoints
+			bk.dizzyPointsMax[i] = p[0].dizzyPointsMax
+			bk.redLife[i] = p[0].redLife
+			bk.teamside[i] = p[0].teamside
+
+			bk.cnsvar[i] = make(map[int32]int32)
+			for k, v := range p[0].cnsvar {
+				bk.cnsvar[i][k] = v
+			}
+			bk.cnsfvar[i] = make(map[int32]float32)
+			for k, v := range p[0].cnsfvar {
+				bk.cnsfvar[i][k] = v
+			}
+			bk.mapArray[i] = make(map[string]float32)
+			for k, v := range p[0].mapArray {
+				bk.mapArray[i][k] = v
+			}
+			bk.dialogue[i] = append([]string{}, p[0].dialogue...)
+			bk.remapSpr[i] = make(RemapPreset)
+			for k, v := range p[0].remapSpr {
+				bk.remapSpr[i][k] = v
+			}
+		}
+	}
+	bk.oldWins = sys.wins
+	bk.oldDraws = sys.draws
+	bk.oldTeamLeader = sys.teamLeader
+	bk.stageVars.copyStageVars(sys.stage)
+}
+
+func (bk *RoundStartBackup) Restore() {
+	sys.wins = bk.oldWins
+	sys.draws = bk.oldDraws
+	sys.teamLeader = bk.oldTeamLeader
+
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].life = bk.life[i]
+			p[0].lifeMax = bk.lifeMax[i]
+			p[0].power = bk.power[i]
+			p[0].powerMax = bk.powerMax[i]
+			p[0].guardPoints = bk.guardPoints[i]
+			p[0].guardPointsMax = bk.guardPointsMax[i]
+			p[0].dizzyPoints = bk.dizzyPoints[i]
+			p[0].dizzyPointsMax = bk.dizzyPointsMax[i]
+			p[0].redLife = bk.redLife[i]
+			p[0].teamside = bk.teamside[i]
+
+			p[0].cnsvar = make(map[int32]int32)
+			for k, v := range bk.cnsvar[i] {
+				p[0].cnsvar[k] = v
+			}
+			p[0].cnsfvar = make(map[int32]float32)
+			for k, v := range bk.cnsfvar[i] {
+				p[0].cnsfvar[k] = v
+			}
+			p[0].cnssysvar = make(map[int32]int32)
+			p[0].cnssysfvar = make(map[int32]float32)
+			p[0].mapArray = make(map[string]float32)
+			for k, v := range bk.mapArray[i] {
+				p[0].mapArray[k] = v
+			}
+			copy(p[0].dialogue[:], bk.dialogue[i])
+			p[0].remapSpr = make(RemapPreset)
+			for k, v := range bk.remapSpr[i] {
+				p[0].remapSpr[k] = v
+			}
 		}
 	}
 
-	oldWins, oldDraws := s.wins, s.draws
-	oldTeamLeader := s.teamLeader
-
-	// Anonymous function to reset values, called at the start of each round
-	reset := func() {
-		s.wins, s.draws = oldWins, oldDraws
-		s.teamLeader = oldTeamLeader
-		for i, p := range s.chars {
-			if len(p) > 0 {
-				p[0].life = life[i]
-				p[0].lifeMax = lifeMax[i]
-				p[0].power = power[i]
-				p[0].powerMax = powerMax[i]
-				p[0].guardPoints = guardPoints[i]
-				p[0].guardPointsMax = guardPointsMax[i]
-				p[0].dizzyPoints = dizzyPoints[i]
-				p[0].dizzyPointsMax = dizzyPointsMax[i]
-				p[0].redLife = redLife[i]
-				p[0].teamside = teamside[i]
-				p[0].cnsvar = make(map[int32]int32)
-				for k, v := range cnsvar[i] {
-					p[0].cnsvar[k] = v
-				}
-				p[0].cnsfvar = make(map[int32]float32)
-				for k, v := range cnsfvar[i] {
-					p[0].cnsfvar[k] = v
-				}
-				p[0].cnssysvar = make(map[int32]int32) // SysVars never persist
-				p[0].cnssysfvar = make(map[int32]float32)
-				p[0].mapArray = make(map[string]float32)
-				for k, v := range mapArray[i] {
-					p[0].mapArray[k] = v
-				}
-				copy(p[0].dialogue[:], dialogue[i])
-				p[0].remapSpr = make(RemapPreset)
-				for k, v := range remapSpr[i] {
-					p[0].remapSpr[k] = v
-				}
-			}
-		}
-		s.stage.copyStageVars(&oldStageVars)
-		s.resetFrameTime()
-		s.nextRound()
-		s.roundResetFlg, s.introSkipped = false, false
-		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
-		s.runMainThreadTask()
-		gfx.Await()
-	}
-	reset()
-
-	// Loop until end of match
-	fin := false
-	didTryLoadBGM := false
-	for !s.endMatch {
-		// default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
-		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
-			// Need to search first
-			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
-				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
-				didTryLoadBGM = true
-				return nil
-			})
-		}
-		s.step = false
-		for _, v := range s.shortcutScripts {
-			if v.Activate {
-				if err := s.luaLState.DoString(v.Script); err != nil {
-					s.errLog.Println(err.Error())
-				}
-			}
-		}
-
-		// If next round
-		if s.roundOver() && !fin {
-			s.round++
-			for i := range s.roundsExisted {
-				s.roundsExisted[i]++
-			}
-			s.clearAllSound()
-			tbl_roundNo := s.luaLState.NewTable()
-			for _, p := range s.chars {
-				if len(p) > 0 && p[0].teamside != -1 {
-					tmp := s.luaLState.NewTable()
-					tmp.RawSetString("name", lua.LString(p[0].name))
-					tmp.RawSetString("id", lua.LNumber(p[0].id))
-					tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-					tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-					tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-					tmp.RawSetString("life", lua.LNumber(p[0].life))
-					tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-					tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-					tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
-					tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
-					tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-					tmp.RawSetString("win", lua.LBool(p[0].win()))
-					tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-					tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-					tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-					tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
-					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
-					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-					tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
-					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-				}
-			}
-			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
-			s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
-			oldTeamLeader = s.teamLeader
-
-			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-				// Prepare for the next round
-				for i, p := range s.chars {
-					if len(p) > 0 {
-						if s.tmode[i&1] != TM_Turns || !p[0].win() {
-							p[0].life = p[0].lifeMax
-						} else if p[0].life <= 0 {
-							p[0].life = 1
-						}
-						p[0].redLife = p[0].life // TODO: This doesn't truly need to be hardcoded
-						copyVar(i)
-					}
-				}
-				oldWins, oldDraws = s.wins, s.draws
-				oldStageVars.copyStageVars(s.stage)
-				reset()
-			} else {
-				// End match, or prepare for a new character in turns mode
-				for i, tm := range s.tmode {
-					if s.chars[i][0].win() || !s.chars[i][0].lose() && tm != TM_Turns {
-						for j := i; j < len(s.chars); j += 2 {
-							if len(s.chars[j]) > 0 {
-								if s.chars[j][0].win() {
-									s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(lvmul,
-										float64(level[i]))*float64(s.chars[j][0].life))))
-								} else {
-									s.chars[j][0].life = Max(1, s.cgi[j].data.life)
-								}
-							}
-						}
-					}
-				}
-				// If match isn't over, presumably this is turns mode,
-				// so break to restart fight for the next character
-				if !s.matchOver() {
-					break
-				}
-
-				// Otherwise match is over
-				s.postMatchFlg = true
-				fin = true
-			}
-		}
-
-		s.bgPalFX.step()
-		s.stage.action()
-
-		// Update game state
-		s.action()
-
-		debugInput()
-		if !s.addFrameTime(s.turbo) {
-			if !s.eventUpdate() {
-				return false
-			}
-			continue
-		}
-
-		// F4 pressed to restart round
-		if s.roundResetFlg && !s.postMatchFlg {
-			sys.paused = false
-			reset()
-		}
-		// Shift+F4 pressed to restart match
-		if s.reloadFlg {
-			return true
-		}
-
-		// Render frame
-		if !s.frameSkip {
-			x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
-			dx, dy, dscl := x, y, scl
-			if s.enableZoomtime > 0 {
-				if !s.debugPaused() {
-					s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
-					s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
-					s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
-				}
-				if s.zoomStageBound {
-					dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-					if s.zoomCameraBound {
-						dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
-					} else {
-						dx = x + s.zoomPosXLag/scl
-					}
-					dx = s.cam.XBound(dscl, dx)
-				} else {
-					dscl = s.drawScale / s.cam.BaseScale()
-					dx = x + s.zoomPosXLag/scl
-				}
-				dy = y + s.zoomPosYLag/scl
-			} else {
-				s.zoomlag = 0
-				s.zoomPosXLag = 0
-				s.zoomPosYLag = 0
-				s.zoomScale = 1
-				s.zoomPos = [2]float32{0, 0}
-				s.drawScale = s.cam.Scale
-			}
-			s.draw(dx, dy, dscl)
-		}
-		// Render top elements such as fade effects
-		if !s.frameSkip {
-			s.drawTop()
-		}
-		// Lua code is executed after drawing the fade effects, so that the menus are on top of them
-		for _, key := range SortedKeys(sys.cfg.Common.Lua) {
-			for _, v := range sys.cfg.Common.Lua[key] {
-				if err := s.luaLState.DoString(v); err != nil {
-					s.luaLState.RaiseError(err.Error())
-				}
-			}
-		}
-		// Render debug elements
-		if !s.frameSkip && s.debugDisplay {
-			s.drawDebugText()
-		}
-		// Break if finished
-		if fin && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
-			break
-		}
-
-		// Update system; break if update returns false (game ended)
-		if !s.update() {
-			break
-		}
-
-		// If end match selected from menu/end of attract mode match/etc
-		if s.endMatch {
-			s.esc = true
-		} else if s.esc {
-			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
-		}
-	}
-
-	return false
+	// NOTE: This save and restore of stage variables makes ModifyStageVar not persist. Maybe that should not be the case?
+	sys.stage.copyStageVars(&bk.stageVars)
 }
 
 // Code responsible for updating the 'autolevel.save' file.

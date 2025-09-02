@@ -4253,22 +4253,31 @@ func (c *Char) command(pn, i int) bool {
 	if !c.keyctrl[0] || c.cmd == nil {
 		return false
 	}
+
+	// Get all commands with the specified first index (name)
 	cl := c.cmd[pn].At(i)
-	// Check if any command with that name is buffered
+
+	// Check if any of them are buffered
 	for _, c := range cl {
 		if c.curbuftime > 0 {
 			return true
 		}
 	}
+
 	// AI cheating for commands longer than 1 button
 	// Maybe it could just cheat all of them and skip these checks
 	if c.controller < 0 && len(cl) > 0 {
-		if c.helperIndex != 0 || len(cl[0].steps) > 1 || len(cl[0].steps[0].keys) > 1 { // || int(Btoi(cl[0].cmd[0].slash)) != len(cl[0].hold) {
+		steps := cl[0].steps
+		multiStep := len(steps) > 1
+		multiKey := len(steps) > 0 && len(steps[0].keys) > 1
+
+		if c.helperIndex != 0 || multiStep || multiKey {
 			if i == int(c.cpucmd) {
 				return true
 			}
 		}
 	}
+
 	return false
 }
 

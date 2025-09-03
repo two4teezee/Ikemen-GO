@@ -145,7 +145,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		if !running {
 			break
 		}
-		rs.render(s)
+		s.render()
 		frameTime := rs.session.loopTimer.usToWaitThisLoop()
 		running = rs.update(s, frameTime)
 
@@ -177,22 +177,12 @@ func (rs *RollbackSystem) fight(s *System) bool {
 func (rs *RollbackSystem) runFrame(s *System) bool {
 	var buffer []byte
 	var result error
-	if rs.session.syncTest && rs.session.netTime == 0 {
-		if !rs.session.config.DesyncTestAI {
-			buffer = rs.getInputs(0)
-			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
-			buffer = rs.getInputs(1)
-			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
-		} else {
-			buffer = getAIInputs(0)
-			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
-			buffer = getAIInputs(1)
-			result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
-		}
-	} else {
-		buffer = rs.getInputs(0)
-		result = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
+	if sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
+		buffer = getAIInputs(1)
+		result = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
 	}
+	buffer = rs.getTestInputs(0)
+	result = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
 
 	if result == nil {
 		var values [][]byte
@@ -389,6 +379,7 @@ func (rs *RollbackSystem) action(s *System, input []InputBits) {
 	s.spritesLayer0 = s.spritesLayer0[:0]
 	s.spritesLayer1 = s.spritesLayer1[:0]
 	s.shadows = s.shadows[:0]
+	s.reflections = s.reflections[:0]
 	s.debugc1hit = s.debugc1hit[:0]
 	s.debugc1rev = s.debugc1rev[:0]
 	s.debugc1not = s.debugc1not[:0]
@@ -1461,6 +1452,12 @@ func writeI32(i32 int32) []byte {
 func (rs *RollbackSystem) getInputs(player int) []byte {
 	var ib InputBits
 	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(player, false))
+	return writeI32(int32(ib))
+}
+
+func (rs *RollbackSystem) getTestInputs(player int) []byte {
+	var ib InputBits
+	ib.KeysToBits(sys.chars[0][0].cmd[0].Buffer.InputReader.LocalInput(player, false))
 	return writeI32(int32(ib))
 }
 

@@ -300,15 +300,15 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		}
 
 		//sys.rollback.updateCamera(&sys)
-		defer func() {
-			if re := recover(); re != nil {
-				if r.config.DesyncTest {
-					r.log.updateLogs()
-					r.log.saveLogs()
-					panic("RaiseDesyncError")
-				}
-			}
-		}()
+		//defer func() {
+		//	if re := recover(); re != nil {
+		//		if r.config.DesyncTest {
+		//			r.log.updateLogs()
+		//			r.log.saveLogs()
+		//			panic("RaiseDesyncError")
+		//		}
+		//	}
+		//}()
 
 		err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
 		if err != nil {

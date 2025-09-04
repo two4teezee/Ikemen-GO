@@ -273,6 +273,28 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 
 	result.ss = c.ss.Clone(a)
 
+	result.cnsvar = *gsp.Get(c.cnsvar).(*map[int32]int32)
+	maps.Clear(result.cnsvar)
+	for k, v := range c.cnsvar {
+		result.cnsvar[k] = v
+	}
+	result.cnssysvar = *gsp.Get(c.cnssysvar).(*map[int32]int32)
+	maps.Clear(result.cnssysvar)
+	for k, v := range c.cnssysvar {
+		result.cnssysvar[k] = v
+	}
+
+	result.cnsfvar = *gsp.Get(c.cnsfvar).(*map[int32]float32)
+	maps.Clear(result.cnsfvar)
+	for k, v := range c.cnsfvar {
+		result.cnsfvar[k] = v
+	}
+	result.cnssysfvar = *gsp.Get(c.cnssysfvar).(*map[int32]float32)
+	maps.Clear(result.cnssysfvar)
+	for k, v := range c.cnssysfvar {
+		result.cnssysfvar[k] = v
+	}
+
 	result.mapArray = *gsp.Get(c.mapArray).(*map[string]float32)
 	maps.Clear(result.mapArray)
 	for k, v := range c.mapArray {
@@ -324,16 +346,16 @@ func (c *Command) clone(a *arena.Arena) (result Command) {
 
 	// New input code does not use these
 	/*
-	result.held = arena.MakeSlice[bool](a, len(c.held), len(c.held))
-	copy(result.held, c.held)
+		result.held = arena.MakeSlice[bool](a, len(c.held), len(c.held))
+		copy(result.held, c.held)
 
-	result.hold = arena.MakeSlice[[]CommandKey](a, len(c.hold), len(c.hold))
-	for i := 0; i < len(c.hold); i++ {
-		result.hold[i] = arena.MakeSlice[CommandKey](a, len(c.hold[i]), len(c.hold[i]))
-		for j := 0; j < len(c.hold[i]); j++ {
-			result.hold[i][j] = c.hold[i][j]
+		result.hold = arena.MakeSlice[[]CommandKey](a, len(c.hold), len(c.hold))
+		for i := 0; i < len(c.hold); i++ {
+			result.hold[i] = arena.MakeSlice[CommandKey](a, len(c.hold[i]), len(c.hold[i]))
+			for j := 0; j < len(c.hold[i]); j++ {
+				result.hold[i][j] = c.hold[i][j]
+			}
 		}
-	}
 	*/
 
 	return

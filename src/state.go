@@ -48,7 +48,6 @@ func (cs Char) String() string {
 	Acttmp              :%d
 	Minus               :%d
 	GroundAngle          :%f
-	ComboExtraFrameWindow :%d
 	InheritJuggle         :%d
 	Preserve              :%d
 	Cnsvar              :%v
@@ -281,7 +280,9 @@ func NewGameState() *GameState {
 }
 
 func (gs *GameState) LoadState(stateID int) {
-	sys.rollback.session.netTime = gs.netTime
+	if sys.rollback.session != nil {
+		sys.rollback.session.netTime = gs.netTime
+	}
 	sys.arenaLoadMap[stateID] = arena.NewArena()
 	a := sys.arenaLoadMap[stateID]
 	gsp := &sys.loadPool
@@ -499,7 +500,9 @@ func (gs *GameState) LoadState(stateID int) {
 }
 
 func (gs *GameState) SaveState(stateID int) {
-	gs.netTime = sys.rollback.session.netTime
+	if sys.rollback.session != nil {
+		gs.netTime = sys.rollback.session.netTime
+	}
 
 	sys.arenaSaveMap[stateID] = arena.NewArena()
 	a := sys.arenaSaveMap[stateID]
@@ -931,6 +934,12 @@ func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {
 	case ([]AnimFrame):
 		objs = append(objs, gsp.animFrameSlicePool.Get())
 		return objs[len(objs)-1]
+	case (map[int32]int32):
+		objs = append(objs, gsp.int32int32MapPool.Get())
+		return objs[len(objs)-1]
+	case (map[int32]float32):
+		objs = append(objs, gsp.int32float32MapPool.Get())
+		return objs[len(objs)-1]
 	default:
 		return nil
 	}
@@ -948,6 +957,10 @@ func (gsp *GameStatePool) Put(item interface{}) {
 		gsp.int32CharPointerMapPool.Put(item)
 	case (*[]AnimFrame):
 		gsp.animFrameSlicePool.Put(item)
+	case (*map[int32]int32):
+		gsp.int32int32MapPool.Put(item)
+	case (*map[int32]float32):
+		gsp.int32float32MapPool.Put(item)
 	default:
 	}
 }
@@ -999,6 +1012,18 @@ func NewGameStatePool() GameStatePool {
 				return &af
 			},
 		},
+		int32int32MapPool: sync.Pool{
+			New: func() interface{} {
+				ii := make(map[int32]int32)
+				return &ii
+			},
+		},
+		int32float32MapPool: sync.Pool{
+			New: func() interface{} {
+				if3 := make(map[int32]float32)
+				return &if3
+			},
+		},
 		poolObjs: make(map[int][]interface{}),
 	}
 }
@@ -1011,6 +1036,8 @@ type GameStatePool struct {
 	animationTablePool      sync.Pool
 	mapArraySlicePool       sync.Pool
 	int32CharPointerMapPool sync.Pool
+	int32int32MapPool       sync.Pool
+	int32float32MapPool     sync.Pool
 
 	animFrameSlicePool sync.Pool
 	poolObjs           map[int][]interface{}

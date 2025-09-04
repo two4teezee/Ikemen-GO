@@ -350,6 +350,17 @@ func (s *System) init(w, h int32) *lua.LState {
 		}
 	}
 
+	exePath, err := os.Executable()
+	if err != nil {
+		fmt.Println("Error getting executable path:", err)
+	} else {
+		// Change the context for Darwin if we're in an app bundle
+		if isRunningInsideAppBundle(exePath) {
+			os.Chdir(path.Dir(exePath))
+			os.Chdir("../../../")
+		}
+	}
+
 	// Loading of external shader data.
 	// We need to do this before the render initialization at "gfx.Init()"
 	if len(s.cfg.Video.ExternalShaders) > 0 {
@@ -422,16 +433,6 @@ func (s *System) init(w, h int32) *lua.LState {
 		s.windowMainIcon = make([]image.Image, len(s.cfg.Config.WindowIcon))
 		// And then we load them.
 		for i, iconLocation := range s.cfg.Config.WindowIcon {
-			exePath, err := os.Executable()
-			if err != nil {
-				fmt.Println("Error getting executable path:", err)
-			} else {
-				// Change the context for Darwin if we're in an app bundle
-				if isRunningInsideAppBundle(exePath) {
-					os.Chdir(path.Dir(exePath))
-					os.Chdir("../../../")
-				}
-			}
 			f[i], err = os.Open(iconLocation)
 			if err != nil {
 				var dErr = "Icon file can not be found.\nPanic: " + err.Error()

@@ -3225,6 +3225,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					introWaitCycles = 0
 				end
 				if esc() or main.f_input(main.t_players, {'m'}) then
+					if motif[main.group].menu_item_active_bg_data ~= nil then
+						animReset(motif[main.group].menu_item_active_bg_data)
+					end
 					if not bool_main then
 						sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then
@@ -3274,6 +3277,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 				elseif main.f_input(main.t_players, main.f_extractKeys(motif[main.group].menu_accept_key)) then
 					demoFrameCounter = 0
+					if motif[main.group].menu_item_active_bg_data ~= nil then
+						animReset(motif[main.group].menu_item_active_bg_data)
+					end
 					local f = t[item].itemname
 					if f == 'back' then
 						sndPlay(motif.files.snd_data, motif[main.group].cancel_snd[1], motif[main.group].cancel_snd[2])
@@ -3431,6 +3437,10 @@ function main.f_start()
 			end
 		end
 	end
+	motif.f_loadSprData(motif[main.group], {s = 'menu_item_bg_', x = 0, y = 0})
+	motif.f_loadSprData(motif[main.group], {s = 'menu_item_active_bg_', x = 0, y = 0})
+	animSetWindow(motif[main.group].menu_item_bg_data, t_menuWindow[1], t_menuWindow[2], t_menuWindow[3] - t_menuWindow[1], t_menuWindow[4] - t_menuWindow[2])
+	animSetWindow(motif[main.group].menu_item_active_bg_data, t_menuWindow[1], t_menuWindow[2], t_menuWindow[3] - t_menuWindow[1], t_menuWindow[4] - t_menuWindow[2])
 	if main.debugLog then main.f_printTable(main.menu, 'debug/t_mainMenu.txt') end
 end
 
@@ -3849,6 +3859,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 		startItem = startItem + 1
 	end
 	if main.f_input(main.t_players, keyNext) then
+		if motif[section].menu_item_active_bg_data ~= nil then
+			animReset(motif[section].menu_item_active_bg_data)
+		end
 		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
 		while true do
 			item = item + 1
@@ -3860,6 +3873,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 			end
 		end
 	elseif main.f_input(main.t_players, keyPrev) then
+		if motif[section].menu_item_active_bg_data ~= nil then
+			animReset(motif[section].menu_item_active_bg_data)
+		end
 		sndPlay(motif.files.snd_data, motif[section].cursor_move_snd[1], motif[section].cursor_move_snd[2])
 		while true do
 			item = item - 1
@@ -3954,6 +3970,14 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 		if i > item - cursorPosY then
 			if i == item then
 				--Draw active item background
+				if motif[section].menu_item_active_bg_data ~= nil then
+					animSetPos(motif[section].menu_item_active_bg_data,
+						motif[section].menu_pos[1] + motif[section].menu_item_active_bg_offset[1] + (i - 1) * motif[section].menu_item_spacing[1],
+						motif[section].menu_pos[2] + motif[section].menu_item_active_bg_offset[2] + (i - 1) * motif[section].menu_item_spacing[2] - moveTxt
+					)
+					animUpdate(motif[section].menu_item_active_bg_data)
+					animDraw(motif[section].menu_item_active_bg_data)
+				end
 				if t[i].paramname ~= nil then
 					animDraw(motif[section][t[i].paramname:gsub('menu_itemname_', 'menu_bg_active_') .. '_data'])
 					animUpdate(motif[section][t[i].paramname:gsub('menu_itemname_', 'menu_bg_active_') .. '_data'])
@@ -4020,6 +4044,14 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 				end
 			else
 				--Draw not active item background
+				if motif[section].menu_item_bg_data ~= nil then
+					animSetPos(motif[section].menu_item_bg_data,
+						motif[section].menu_pos[1] + motif[section].menu_item_bg_offset[1] + (i - 1) * motif[section].menu_item_spacing[1],
+						motif[section].menu_pos[2] + motif[section].menu_item_bg_offset[2] + (i - 1) * motif[section].menu_item_spacing[2] - moveTxt
+					)
+					animUpdate(motif[section].menu_item_bg_data)
+					animDraw(motif[section].menu_item_bg_data)
+				end
 				if t[i].paramname ~= nil then
 					animDraw(motif[section][t[i].paramname:gsub('menu_itemname_', 'menu_bg_') .. '_data'])
 					animUpdate(motif[section][t[i].paramname:gsub('menu_itemname_', 'menu_bg_') .. '_data'])

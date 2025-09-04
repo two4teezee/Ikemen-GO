@@ -1140,27 +1140,27 @@ function start.f_drawCursor(pn, x, y, param, done)
 	end
 
 	-- tween movement
-	if not done and motif.select_info.cursortween == 1 then
+	if not done and motif.select_info['p' .. pn .. '_cursor_tween'] == 1 then
 		local t_speed = {
-			motif.select_info.cursortween_speed[1],
-			motif.select_info.cursortween_speed[2]
+			motif.select_info['p' .. pn .. '_cursor_tween_speed'][1],
+			motif.select_info['p' .. pn .. '_cursor_tween_speed'][2]
 		}
 		-- tween wrapping speed
 		if motif.select_info.wrapping == 1 then
 			local dx = cd.targetPos[1] - cd.startPos[1]
 			local dy = cd.targetPos[2] - cd.startPos[2]
 			if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) then
-				if motif.select_info.cursortween_wrap_speed[1] == 0 then 
+				if motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][1] == 0 then
 					t_speed[1] = t_speed[1] * motif.select_info.columns
 				else
-					t_speed[1] = motif.select_info.cursortween_wrap_speed[1]
+					t_speed[1] = motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][1]
 				end
 			end
 			if math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
-				if motif.select_info.cursortween_wrap_speed[2] == 0 then 
+				if motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][2] == 0 then 
 					t_speed[2] = t_speed[2] * motif.select_info.rows
 				else
-					t_speed[2] = motif.select_info.cursortween_wrap_speed[2]
+					t_speed[2] = motif.select_info['p' .. pn .. '_cursor_tween_wrap_speed'][2]
 				end
 			end
 		end
@@ -1174,7 +1174,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.targetPos[1], cd.targetPos[2] = baseX, baseY
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
     end
-	-- draw 
+	-- draw
 	main.f_animPosDraw(
 		motif.select_info[prefix .. '_data'],
 		cd.currentPos[1],
@@ -2838,6 +2838,12 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].cell = start.c[player].cell
 					start.p[side].t_selTemp[member].anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_anim'] or motif.select_info['p' .. side .. '_face_anim']
 					start.p[side].t_selTemp[member].slide_dist = {0, 0}
+					if motif.select_info['p' .. player .. '_cursor_reset'] == 1 then
+						local cursorData = start.f_getCursorData(player, '_cursor_active' .. '_' .. start.c[player].selX + 1 .. '_' .. start.c[player].selY + 1 .. '_data')
+						if cursorData ~= nil then
+							animReset(cursorData)
+						end
+					end
 					updateAnim = true
 				end
 				-- cursor at randomselect cell

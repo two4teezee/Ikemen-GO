@@ -1034,7 +1034,7 @@ func (rs *RollbackSystem) commandUpdate(ib []InputBits, sys *System) {
 						ib[c.teamside].RollbackBitsToKeys(c.cmd[0].Buffer, int32(c.facing))
 					} else {
 						// Otherwise, this will ostensibly update the buffers based on AIInput
-						c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, false)
+						c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, c.inputShift, false)
 					}
 				}
 

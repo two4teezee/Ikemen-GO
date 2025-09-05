@@ -570,56 +570,56 @@ func (s *System) await(fps int) bool {
 
 func (s *System) render() {
 	if !s.frameSkip {
-    x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
-    dx, dy, dscl := x, y, scl
-    if s.enableZoomtime > 0 {
-      if !s.debugPaused() {
-        s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
-        s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
-        s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
-      }
-      if s.zoomStageBound {
-        dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-        if s.zoomCameraBound {
-          dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
-        } else {
-          dx = x + s.zoomPosXLag/scl
-        }
-        dx = s.cam.XBound(dscl, dx)
-      } else {
-        dscl = s.drawScale / s.cam.BaseScale()
-        dx = x + s.zoomPosXLag/scl
-      }
-      dy = y + s.zoomPosYLag/scl
-    } else {
-      s.zoomlag = 0
-      s.zoomPosXLag = 0
-      s.zoomPosYLag = 0
-      s.zoomScale = 1
-      s.zoomPos = [2]float32{0, 0}
-      s.drawScale = s.cam.Scale
-    }
-    s.draw(dx, dy, dscl)
-  }
+		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
+		dx, dy, dscl := x, y, scl
+		if s.enableZoomtime > 0 {
+			if !s.debugPaused() {
+				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
+				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+			}
+			if s.zoomStageBound {
+				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+				if s.zoomCameraBound {
+					dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
+				} else {
+					dx = x + s.zoomPosXLag/scl
+				}
+				dx = s.cam.XBound(dscl, dx)
+			} else {
+				dscl = s.drawScale / s.cam.BaseScale()
+				dx = x + s.zoomPosXLag/scl
+			}
+			dy = y + s.zoomPosYLag/scl
+		} else {
+			s.zoomlag = 0
+			s.zoomPosXLag = 0
+			s.zoomPosYLag = 0
+			s.zoomScale = 1
+			s.zoomPos = [2]float32{0, 0}
+			s.drawScale = s.cam.Scale
+		}
+		s.draw(dx, dy, dscl)
+	}
 
-  // Render top elements such as fade effects
-  if !s.frameSkip {
-    s.drawTop()
-  }
+	// Render top elements such as fade effects
+	if !s.frameSkip {
+		s.drawTop()
+	}
 
-  // Lua code is executed after drawing the fade effects, so that the menus are on top of them
-  for _, key := range SortedKeys(sys.cfg.Common.Lua) {
-    for _, v := range sys.cfg.Common.Lua[key] {
-      if err := s.luaLState.DoString(v); err != nil {
-        s.luaLState.RaiseError(err.Error())
-      }
-    }
-  }
+	// Lua code is executed after drawing the fade effects, so that the menus are on top of them
+	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+		for _, v := range sys.cfg.Common.Lua[key] {
+			if err := s.luaLState.DoString(v); err != nil {
+				s.luaLState.RaiseError(err.Error())
+			}
+		}
+	}
 
-  // Render debug elements
-  if !s.frameSkip && s.debugDisplay {
-    s.drawDebugText()
-  }
+	// Render debug elements
+	if !s.frameSkip && s.debugDisplay {
+		s.drawDebugText()
+	}
 }
 
 func (s *System) update() bool {

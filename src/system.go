@@ -1605,7 +1605,9 @@ func (s *System) action() {
 		if s.roundEnd() || fin() {
 			rs4t := -s.lifebar.ro.over_waittime
 			fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
+
 			s.intro--
+
 			if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
 				// Consecutive wins counter
 				winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
@@ -1624,11 +1626,24 @@ func (s *System) action() {
 					}
 				}
 			}
+
 			// Check if player skipped win pose time
-			if s.intro > fadeoutStart && s.roundWinTime() && (s.anyButton() && !s.gsf(GSF_roundnotskip)) {
-				s.intro = fadeoutStart
+			if !s.winskipped && s.roundWinTime() && s.anyButton() && !s.gsf(GSF_roundnotskip) {
+				s.intro = Min(s.intro, fadeoutStart)
 				s.winskipped = true
 			}
+
+			// Start fadeout effect
+			if s.intro == fadeoutStart {
+				if s.gsf(GSF_roundnotover) && !s.winskipped {
+					// roundnotover prevents fadeoutStart from being reached
+					s.intro++
+				} else if s.lifebar.ro.rt.fadeoutTimer == 0 {
+					// Trigger fadeout only once
+					s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
+				}
+			}
+
 			if s.winskipped || !s.roundWinTime() {
 				// Check if game can proceed into roundstate 4
 				if s.waitdown > 0 {
@@ -1649,6 +1664,7 @@ func (s *System) action() {
 						}
 					}
 				}
+
 				// Disable ctrl (once) at the first frame of roundstate 4
 				if s.intro == rs4t-1 {
 					for _, p := range s.chars {
@@ -1657,10 +1673,12 @@ func (s *System) action() {
 						}
 					}
 				}
+
 				// Start running wintime counter only after getting into roundstate 4
 				if s.intro < rs4t && !s.roundWinTime() {
 					s.wintime--
 				}
+
 				// Set characters into win/lose poses, update win counters
 				if s.roundWinStates() {
 					if s.waitdown >= 0 {
@@ -1679,7 +1697,7 @@ func (s *System) action() {
 											s.lifebar.wc[1].wins = 0
 										} else {
 											if s.wins[i] >= s.matchWins[i] {
-												s.lifebar.wc[i].wins += 1
+												s.lifebar.wc[i].wins++
 											}
 										}
 									}
@@ -1689,6 +1707,7 @@ func (s *System) action() {
 							s.draws++
 						}
 					}
+
 					for _, p := range s.chars {
 						if len(p) > 0 {
 							// Default life recovery. Used only if externalized Lua implementation is disabled
@@ -1714,18 +1733,11 @@ func (s *System) action() {
 							}
 						}
 					}
+
 					s.waitdown = 0
 				}
+
 				s.waitdown--
-			}
-			// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
-			if !s.winskipped && s.gsf(GSF_roundnotover) &&
-				s.intro == rs4t-2-s.lifebar.ro.over_time+s.lifebar.ro.rt.fadeout_time {
-				s.intro++
-			}
-			// Start fadeout effect
-			if s.intro == fadeoutStart {
-				s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
 			}
 		} else if s.intro < 0 {
 			s.intro = 0

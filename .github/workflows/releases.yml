@@ -114,6 +114,7 @@ jobs:
           export GOOS="${{ matrix.cfg.goos }}"
           export GOARCH="${{ matrix.cfg.goarch }}"
           export CGO_ENABLED=1
+          export GOEXPERIMENT=arenas
           if [ "${{ matrix.cfg.glibc }}" != "" ]; then
             wget https://raw.githubusercontent.com/wheybags/glibc_version_header/master/version_headers/x64/force_link_glibc_${{ matrix.cfg.glibc }}.h -O $PWD/force_link_glibc.h
             export CGO_CFLAGS="$CGO_CFLAGS -include $PWD/force_link_glibc.h"

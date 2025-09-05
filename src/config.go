@@ -201,8 +201,10 @@ type Config struct {
 		} `ini:"survival"`
 	} `ini:"Arcade"`
 	Netplay struct {
-		ListenPort string            `ini:"ListenPort"`
-		IP         map[string]string `ini:"IP"`
+		ListenPort      string             `ini:"ListenPort"`
+		RollbackNetcode bool               `ini:"RollbackNetcode"`
+		IP              map[string]string  `ini:"IP"`
+		Rollback        RollbackProperties `ini:"Rollback"`
 	} `ini:"Netplay"`
 	Input struct {
 		ButtonAssist               bool    `ini:"ButtonAssist"`

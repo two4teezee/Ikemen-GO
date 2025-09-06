@@ -567,7 +567,7 @@ func (s *System) await(fps int) bool {
 	return !s.gameEnd
 }
 
-func (s *System) render() {
+func (s *System) renderFrame() {
 	if !s.frameSkip {
 		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
 		dx, dy, dscl := x, y, scl
@@ -2422,7 +2422,7 @@ func (s *System) fight() (reload bool) {
 		}
 
 		// Render frame
-		s.render()
+		s.renderFrame()
 
 		// Break if finished
 		if fin && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {

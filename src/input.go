@@ -3116,6 +3116,8 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 		buttons = sys.replayFile.readReplayFile(controller)
 	} else if sys.netConnection != nil {
 		buttons = sys.netConnection.readNetInput(controller)
+	} else if sys.rollback.session != nil {
+		buttons = sys.rollback.readRollbackInput(controller)
 	} else {
 		// If not AI, replay, or network, then it's a local human player
 		if controller < len(sys.inputRemap) {

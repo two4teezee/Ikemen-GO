@@ -254,18 +254,21 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 }
 
 func (r *RollbackSession) AdvanceFrame(flags int) {
-	var discconectFlags int
+	var disconnectFlags int
+
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
-	inputs, result := r.backend.SyncInput(&discconectFlags)
-	input := decodeInputs(inputs)
+	// These are the confirmed inputs
+	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
+	sys.rollback.currentInputs = decodeInputs(inputs)
+
 	if r.recording != nil {
-		r.SetInput(r.netTime, 0, input[0])
-		r.SetInput(r.netTime, 1, input[1])
+		r.SetInput(r.netTime, 0, sys.rollback.currentInputs[0])
+		r.SetInput(r.netTime, 1, sys.rollback.currentInputs[1])
 		r.netTime++
 	}
 
-	if result == nil {
+	if ggpoerr == nil {
 		sys.step = false
 		//sys.rollback.runShortcutScripts(&sys)
 
@@ -277,7 +280,8 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		sys.bgPalFX.step()
 		sys.stage.action()
 
-		sys.rollback.action(&sys, input)
+		// Update game state
+		sys.action()
 
 		// if sys.rollback.handleFlags(&sys) {
 		// 	return
@@ -437,14 +441,6 @@ func (rs *RollbackSession) AnyButton() bool {
 	return false
 }
 
-func (rs *RollbackSession) AnyButtonIB(ib []InputBits) bool {
-	for i := 0; i < len(ib); i++ {
-		if ib[i]&IB_anybutton != 0 {
-			return true
-		}
-	}
-	return false
-}
 
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if rs.config.LogsEnabled {

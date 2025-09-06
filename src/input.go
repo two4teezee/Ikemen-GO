@@ -1017,57 +1017,57 @@ func (__ *InputBuffer) State(ck CommandStepKey) int32 {
 	// This would be the proper way to do it but it breaks some legacy characters
 	// TODO: Add new symbol with this behavior
 	/*
-	// Hold dollar directions
-	if !ck.tilde && ck.dollar {
-		switch ck.key {
+		// Hold dollar directions
+		if !ck.tilde && ck.dollar {
+			switch ck.key {
 
-		case CK_U:
-			return __.Ub
+			case CK_U:
+				return __.Ub
 
-		case CK_D:
-			return __.Db
+			case CK_D:
+				return __.Db
 
-		case CK_B:
-			return __.Bb
+			case CK_B:
+				return __.Bb
 
-		case CK_F:
-			return __.Fb
+			case CK_F:
+				return __.Fb
 
-		case CK_L:
-			return __.Lb
+			case CK_L:
+				return __.Lb
 
-		case CK_R:
-			return __.Rb
+			case CK_R:
+				return __.Rb
 
-		// What '$' seems to do in Mugen is ignore conflicting directions
-		// So it also works on diagonals. For instance, $DB is true even if you also press U or F, but DB isn't
-		case CK_UB:
-			return Min(__.Ub, __.Bb)
+			// What '$' seems to do in Mugen is ignore conflicting directions
+			// So it also works on diagonals. For instance, $DB is true even if you also press U or F, but DB isn't
+			case CK_UB:
+				return Min(__.Ub, __.Bb)
 
-		case CK_UF:
-			return Min(__.Ub, __.Fb)
+			case CK_UF:
+				return Min(__.Ub, __.Fb)
 
-		case CK_DB:
-			return Min(__.Db, __.Bb)
+			case CK_DB:
+				return Min(__.Db, __.Bb)
 
-		case CK_DF:
-			return Min(__.Db, __.Fb)
+			case CK_DF:
+				return Min(__.Db, __.Fb)
 
-		case CK_UL:
-			return Min(__.Ub, __.Lb)
+			case CK_UL:
+				return Min(__.Ub, __.Lb)
 
-		case CK_UR:
-			return Min(__.Ub, __.Rb)
+			case CK_UR:
+				return Min(__.Ub, __.Rb)
 
-		case CK_DL:
-			return Min(__.Db, __.Lb)
+			case CK_DL:
+				return Min(__.Db, __.Lb)
 
-		case CK_DR:
-			return Min(__.Db, __.Rb)
+			case CK_DR:
+				return Min(__.Db, __.Rb)
 
+			}
 		}
-	}
-*/
+	*/
 
 	// Hold dollar directions
 	// The backward compatible way
@@ -1261,80 +1261,80 @@ func (__ *InputBuffer) State(ck CommandStepKey) int32 {
 	// This would be the proper way to do it but it breaks some legacy characters
 	// TODO: Add new symbol with this behavior
 	/*
-	// Release dollar directions
-	if ck.tilde && ck.dollar {
-		switch ck.key {
-		case CK_U:
-			if __.Ub < 0 || __.Up > 0 {
-				return -__.Ub
-			}
+		// Release dollar directions
+		if ck.tilde && ck.dollar {
+			switch ck.key {
+			case CK_U:
+				if __.Ub < 0 || __.Up > 0 {
+					return -__.Ub
+				}
 
-		case CK_D:
-			if __.Db < 0 || __.Dp > 0 {
-				return -__.Db
-			}
+			case CK_D:
+				if __.Db < 0 || __.Dp > 0 {
+					return -__.Db
+				}
 
-		case CK_B:
-			if __.Bb < 0 || __.Bp > 0 {
-				return -__.Bb
-			}
+			case CK_B:
+				if __.Bb < 0 || __.Bp > 0 {
+					return -__.Bb
+				}
 
-		case CK_F:
-			if __.Fb < 0 || __.Fp > 0 {
-				return -__.Fb
-			}
+			case CK_F:
+				if __.Fb < 0 || __.Fp > 0 {
+					return -__.Fb
+				}
 
-		case CK_L:
-			if __.Lb < 0 || __.Lp > 0 {
-				return -__.Lb
-			}
+			case CK_L:
+				if __.Lb < 0 || __.Lp > 0 {
+					return -__.Lb
+				}
 
-		case CK_R:
-			if __.Rb < 0 || __.Rp > 0 {
-				return -__.Rb
-			}
+			case CK_R:
+				if __.Rb < 0 || __.Rp > 0 {
+					return -__.Rb
+				}
 
-		case CK_UB:
-			if (__.Ub < 0 || __.Up > 0) && (__.Bb < 0 || __.Bp > 0) {
-				return -Min(__.Ub, __.Bb)
-			}
+			case CK_UB:
+				if (__.Ub < 0 || __.Up > 0) && (__.Bb < 0 || __.Bp > 0) {
+					return -Min(__.Ub, __.Bb)
+				}
 
-		case CK_UF:
-			if (__.Ub < 0 || __.Up > 0) && (__.Fb < 0 || __.Fp > 0) {
-				return -Min(__.Ub, __.Fb)
-			}
+			case CK_UF:
+				if (__.Ub < 0 || __.Up > 0) && (__.Fb < 0 || __.Fp > 0) {
+					return -Min(__.Ub, __.Fb)
+				}
 
-		case CK_DB:
-			if (__.Db < 0 || __.Dp > 0) && (__.Bb < 0 || __.Bp > 0) {
-				return -Min(__.Db, __.Bb)
-			}
+			case CK_DB:
+				if (__.Db < 0 || __.Dp > 0) && (__.Bb < 0 || __.Bp > 0) {
+					return -Min(__.Db, __.Bb)
+				}
 
-		case CK_DF:
-			if (__.Db < 0 || __.Dp > 0) && (__.Fb < 0 || __.Fp > 0) {
-				return -Min(__.Db, __.Fb)
-			}
+			case CK_DF:
+				if (__.Db < 0 || __.Dp > 0) && (__.Fb < 0 || __.Fp > 0) {
+					return -Min(__.Db, __.Fb)
+				}
 
-		case CK_UL:
-			if (__.Ub < 0 || __.Up > 0) && (__.Lb < 0 || __.Lp > 0) {
-				return -Min(__.Ub, __.Lb)
-			}
+			case CK_UL:
+				if (__.Ub < 0 || __.Up > 0) && (__.Lb < 0 || __.Lp > 0) {
+					return -Min(__.Ub, __.Lb)
+				}
 
-		case CK_UR:
-			if (__.Ub < 0 || __.Up > 0) && (__.Rb < 0 || __.Rp > 0) {
-				return -Min(__.Ub, __.Rb)
-			}
+			case CK_UR:
+				if (__.Ub < 0 || __.Up > 0) && (__.Rb < 0 || __.Rp > 0) {
+					return -Min(__.Ub, __.Rb)
+				}
 
-		case CK_DL:
-			if (__.Db < 0 || __.Dp > 0) && (__.Lb < 0 || __.Lp > 0) {
-				return -Min(__.Db, __.Lb)
-			}
+			case CK_DL:
+				if (__.Db < 0 || __.Dp > 0) && (__.Lb < 0 || __.Lp > 0) {
+					return -Min(__.Db, __.Lb)
+				}
 
-		case CK_DR:
-			if (__.Db < 0 || __.Dp > 0) && (__.Rb < 0 || __.Rp > 0) {
-				return -Min(__.Db, __.Rb)
+			case CK_DR:
+				if (__.Db < 0 || __.Dp > 0) && (__.Rb < 0 || __.Rp > 0) {
+					return -Min(__.Db, __.Rb)
+				}
 			}
 		}
-	}
 	*/
 
 	// Release dollar directions
@@ -2994,7 +2994,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		// This approach has a quirk in that foreign inputs are accepted if they're entered the same frame that the intended input matched
 		// Should be harmless because at least that's very hard for a human to perform
 		// Out of the methods tried, this one has the best results for the least work
-		if !inputMatched && c.steps[i].greater && 
+		if !inputMatched && c.steps[i].greater &&
 			i > 0 && len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] {
 
 			// Check if the last change in inputs can be found in the previous step

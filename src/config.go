@@ -177,6 +177,7 @@ type Config struct {
 		PauseMasterVolume int     `ini:"PauseMasterVolume"`
 		WavVolume         int     `ini:"WavVolume"`
 		BGMVolume         int     `ini:"BGMVolume"`
+		BGMRAMBuffer      bool    `ini:"BGMRAMBuffer"`
 		MaxBGMVolume      int     `ini:"MaxBGMVolume"`
 		AudioDucking      bool    `ini:"AudioDucking"`
 	} `ini:"Sound"`

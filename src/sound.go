@@ -108,8 +108,8 @@ func newSwapSeeker(ss beep.StreamSeeker) *SwapSeeker {
 
 // Swap(next, absStart): next - new seeker
 func (sw *SwapSeeker) Swap(next beep.StreamSeeker) {
-	sw.mu.Lock()
 	speaker.Lock()
+	sw.mu.Lock()
 	pos := sw.ss.Position()
 
 	if ln := next.Len(); ln <= 0 { // guard against 0
@@ -395,8 +395,8 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	bgm.streamer.Seek(startPosition)
 	speaker.Play(bgm.ctrl)
 
-	// Handle the RAM swap in the background (only for looped BGM)
-	if lc != 0 {
+	// Handle the RAM swap in the background (only for looped BGM and only if the user enabled it)
+	if lc != 0 && sys.cfg.Sound.BGMRAMBuffer {
 		go func(ctx context.Context) {
 			// Call the cancel function when the goroutine exits
 			// to ensure cleanup.

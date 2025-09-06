@@ -638,6 +638,9 @@ type HitDef struct {
 }
 
 func (hd *HitDef) clear(c *Char, localscl float32) {
+	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
+		localscl = 1
+	}
 	// Convert local scale back to 4:3 in order to keep values consistent in widescreen
 	originLs := localscl * (320 / float32(sys.gameWidth))
 
@@ -851,8 +854,12 @@ type GetHitVar struct {
 }
 
 func (ghv *GetHitVar) clear(c *Char) {
+	localscl := c.localscl
+	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
+		localscl = 1
+	}
 	// Convert local scale back to 4:3 in order to keep values consistent in widescreen
-	originLs := c.localscl * (320 / float32(sys.gameWidth))
+	originLs := localscl * (320 / float32(sys.gameWidth))
 
 	*ghv = GetHitVar{
 		hittime:        -1,
@@ -3085,7 +3092,8 @@ func (c *Char) load(def string) error {
 	gi.constants["default.lifetoredlifemul"] = 0.75
 	gi.constants["super.lifetoredlifemul"] = 0.75
 	gi.constants["default.legacygamedistancespec"] = 0
-	gi.constants["default.ignoredefeatedenemies"] = 1
+	gi.constants["default.legacyfallyvelyaccel"] = 0
+	//gi.constants["default.ignoredefeatedenemies"] = 0
 	gi.constants["input.pauseonhitpause"] = 1
 	gi.constants["input.fbflipenemydistance"] = -1
 

@@ -2573,11 +2573,14 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 
 		// MUGEN's internal AI can't use commands without the "/" symbol on helpers
 		if ai && isHelper {
+			hasSlash := false
 			for _, k := range c.steps[i].keys {
-				if !k.slash {
-					inputMatched = false
-					break
+				if k.slash {
+					hasSlash = true
 				}
+			}
+			if !hasSlash {
+				return
 			}
 		}
 

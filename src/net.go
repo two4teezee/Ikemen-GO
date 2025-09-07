@@ -253,12 +253,14 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 	lastLoadedFrame = stateID
 }
 
+// Called when the GGPO backend needs the game to simulate a single frame
+// This can happen multiple times per displayed frame during a rollback
 func (r *RollbackSession) AdvanceFrame(flags int) {
 	var disconnectFlags int
 
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
-	// These are the confirmed inputs
+	// Get the confirmed inputs from the GGPO backend for the frame being simulated
 	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
 	sys.rollback.currentInputs = decodeInputs(inputs)
 
@@ -269,41 +271,9 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	}
 
 	if ggpoerr == nil {
-		sys.step = false
-		//sys.rollback.runShortcutScripts(&sys)
-
-		// If next round
-		if !sys.rollback.runNextRound(&sys) {
+		if !sys.rollback.simulateFrame(&sys) {
 			return
 		}
-
-		sys.bgPalFX.step()
-		sys.stage.action()
-
-		// Update game state
-		sys.action()
-
-		// if sys.rollback.handleFlags(&sys) {
-		// 	return
-		// }
-
-		if !sys.rollback.updateEvents(&sys) {
-			return
-		}
-
-		if sys.rollback.currentFight.fin && (!sys.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
-			return
-		}
-
-		if sys.endMatch {
-			sys.esc = true
-			return
-		} else if sys.esc {
-			sys.endMatch = sys.netConnection != nil || len(sys.cfg.Common.Lua) == 0
-			return
-		}
-
-		//sys.rollback.updateCamera(&sys)
 		//defer func() {
 		//	if re := recover(); re != nil {
 		//		if r.config.DesyncTest {

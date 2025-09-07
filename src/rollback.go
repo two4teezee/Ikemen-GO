@@ -173,11 +173,11 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	return false
 }
 
+// Called once per frame by the main game loop
+// Responsible for collecting local inputs and driving the GGPO backend forward
 func (rs *RollbackSystem) runFrame(s *System) bool {
 	var buffer []byte
 	var ggpoerr error
-
-	// The inputs here are for the sake of simulation
 
 	if sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
 		buffer = getAIInputs(1)
@@ -201,57 +201,9 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 		}
 
 		if ggpoerr == nil {
-
-			s.step = false
-			//rs.runShortcutScripts(s)
-
-			// If next round
-			if !rs.runNextRound(s) {
+			if !rs.simulateFrame(s) {
 				return false
 			}
-
-			s.bgPalFX.step()
-			s.stage.action()
-
-			// If frame is ready to tick and not paused
-			//rs.updateStage(s)
-
-			//for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
-			//	myChar := sys.chars[rs.session.currentPlayerHandle][0]
-			//	sys.commandLists[i].Input(myChar.controller, int32(myChar.facing), 0, inputs[i], false)
-			//	sys.commandLists[i].Step(int32(myChar.facing), false, false, 0)
-			//}
-
-			// Update game state
-			s.action()
-
-			// if rs.handleFlags(s) {
-			// 	return true
-			// }
-
-			if !rs.updateEvents(s) {
-				return false
-			}
-
-			// Break if finished
-			if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
-				return false
-			}
-
-			// Update system; break if update returns false (game ended)
-			//if !s.update() {
-			//	return false
-			//}
-
-			// If end match selected from menu/end of attract mode match/etc
-			if s.endMatch {
-				s.esc = true
-				return false
-			} else if s.esc {
-				s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
-				return false
-			}
-
 			defer func() {
 				if re := recover(); re != nil {
 					if rs.session.config.DesyncTest {
@@ -261,12 +213,10 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 					}
 				}
 			}()
-
 			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
 			if err != nil {
 				panic(err)
 			}
-
 		}
 	}
 	return true
@@ -281,6 +231,55 @@ func (rs *RollbackSystem) runShortcutScripts(s *System) {
 			}
 		}
 	}
+}
+
+// Contains the logic for a single frame of the game
+// Called by both runFrame for speculative execution, and AdvanceFrame for confirmed execution
+func (rs *RollbackSystem) simulateFrame(s *System) bool {
+	s.step = false
+	//rs.runShortcutScripts(s)
+
+	// If next round
+	if !rs.runNextRound(s) {
+		return false
+	}
+
+	s.bgPalFX.step()
+	s.stage.action()
+
+	// If frame is ready to tick and not paused
+	//rs.updateStage(s)
+
+	// Update game state
+	s.action()
+
+	// if rs.handleFlags(s) {
+	// 	return true
+	// }
+
+	if !rs.updateEvents(s) {
+		return false
+	}
+
+	// Break if finished
+	if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
+		return false
+	}
+
+	// Update system; break if update returns false (game ended)
+	//if !s.update() {
+	//	return false
+	//}
+
+	// If end match selected from menu/end of attract mode match/etc
+	if s.endMatch {
+		s.esc = true
+		return false
+	} else if s.esc {
+		s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
+		return false
+	}
+	return true
 }
 
 func (rs *RollbackSystem) runNextRound(s *System) bool {

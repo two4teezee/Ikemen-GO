@@ -262,11 +262,11 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	// the game state instead of reading from the keyboard.
 	// Get the confirmed inputs from the GGPO backend for the frame being simulated
 	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
-	sys.rollback.currentInputs = decodeInputs(inputs)
+	sys.rollback.ggpoInputs = decodeInputs(inputs)
 
 	if r.recording != nil {
-		r.SetInput(r.netTime, 0, sys.rollback.currentInputs[0])
-		r.SetInput(r.netTime, 1, sys.rollback.currentInputs[1])
+		r.SetInput(r.netTime, 0, sys.rollback.ggpoInputs[0])
+		r.SetInput(r.netTime, 1, sys.rollback.ggpoInputs[1])
 		r.netTime++
 	}
 
@@ -326,7 +326,7 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
 		r.SaveReplay()
-		ShowInfoDialog("Desync Error. Please report your issue to the rollback alpha issues page at https://github.com/assemblaj/Ikemen-GO/issues. Thanks for your patience", "Desync Error")
+		ShowInfoDialog("Desync error.\nIf the problem persists, please report it at:\nhttps://github.com/ikemen-engine/Ikemen-GO/issues.\nThank you for your patience", "Desync Error")
 	case ggpo.EventCodeConnectionInterrupted:
 		fmt.Println("EventCodeconnectionInterrupted")
 	case ggpo.EventCodeConnectionResumed:
@@ -334,11 +334,11 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 	}
 }
 
-func NewRollbackSesesion(config RollbackProperties) RollbackSession {
+func NewRollbackSession(config RollbackProperties) RollbackSession {
 	r := RollbackSession{}
 	r.saveStates = make(map[int]*GameState)
-	r.players = make([]ggpo.Player, 9)
-	r.handles = make([]ggpo.PlayerHandle, 9)
+	r.players = make([]ggpo.Player, 2) // MaxPlayerNo
+	r.handles = make([]ggpo.PlayerHandle, 2) // MaxPlayerNo
 	r.config = config
 	r.loopTimer = NewLoopTimer(60, 100)
 	r.timestamp = time.Now().Format("2006-01-02_03-04PM-05s")
@@ -348,6 +348,7 @@ func NewRollbackSesesion(config RollbackProperties) RollbackSession {
 	return r
 
 }
+
 func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
@@ -397,11 +398,13 @@ func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
 	}
 	return crc32.ChecksumIEEE(buf)
 }
+
 func (rs *RollbackSession) Input(time int32, player int) (input InputBits) {
 	inputs := rs.inputs[int(time)]
 	input = inputs[player]
 	return
 }
+
 func (rs *RollbackSession) AnyButton() bool {
 	for i := 0; i < len(rs.inputs[len(rs.inputs)-1]); i++ {
 		if rs.Input(sys.gameTime, i)&IB_anybutton != 0 {

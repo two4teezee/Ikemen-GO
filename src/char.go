@@ -638,11 +638,13 @@ type HitDef struct {
 }
 
 func (hd *HitDef) clear(c *Char, localscl float32) {
+	var originLs float32
 	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
-		localscl = 1
+		originLs = 1
+	} else {
+		// Convert local scale back to 4:3 in order to keep values consistent in widescreen
+		originLs = c.localscl * (320 / float32(sys.gameWidth))
 	}
-	// Convert local scale back to 4:3 in order to keep values consistent in widescreen
-	originLs := localscl * (320 / float32(sys.gameWidth))
 
 	*hd = HitDef{
 		isprojectile:       false,
@@ -854,12 +856,13 @@ type GetHitVar struct {
 }
 
 func (ghv *GetHitVar) clear(c *Char) {
-	localscl := c.localscl
+	var originLs float32
 	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
-		localscl = 1
+		originLs = 1
+	} else {
+		// Convert local scale back to 4:3 in order to keep values consistent in widescreen
+		originLs = c.localscl * (320 / float32(sys.gameWidth))
 	}
-	// Convert local scale back to 4:3 in order to keep values consistent in widescreen
-	originLs := localscl * (320 / float32(sys.gameWidth))
 
 	*ghv = GetHitVar{
 		hittime:        -1,

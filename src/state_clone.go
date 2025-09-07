@@ -235,6 +235,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	if c.anim != nil {
 		result.anim = c.anim.Clone(a, gsp)
 	}
+	if c.animBackup != nil {
+		result.animBackup = c.animBackup.Clone(a, gsp)
+	}
 	if c.curFrame != nil {
 		result.curFrame = c.curFrame.Clone(a)
 	}

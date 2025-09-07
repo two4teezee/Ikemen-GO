@@ -235,6 +235,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	if c.anim != nil {
 		result.anim = c.anim.Clone(a, gsp)
 	}
+	if c.animBackup != nil {
+		result.animBackup = c.animBackup.Clone(a, gsp)
+	}
 	if c.curFrame != nil {
 		result.curFrame = c.curFrame.Clone(a)
 	}
@@ -384,6 +387,10 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	if l.ro != nil {
 		result.ro = arena.New[LifeBarRound](a)
 		*result.ro = *l.ro
+		if l.ro.rt != nil {
+			result.ro.rt = arena.New[LifeBarRoundTransition](a)
+			*result.ro.rt = *l.ro.rt
+		}
 	}
 
 	//UIT

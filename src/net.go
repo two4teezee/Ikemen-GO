@@ -441,7 +441,6 @@ func (rs *RollbackSession) AnyButton() bool {
 	return false
 }
 
-
 func (rs *RollbackSession) InitP1(numPlayers int, localPort int, remotePort int, remoteIp string) {
 	if rs.config.LogsEnabled {
 		logFileName := fmt.Sprintf("save/logs/Rollback-%s.log", rs.timestamp)

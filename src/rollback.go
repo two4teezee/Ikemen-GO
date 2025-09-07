@@ -457,7 +457,6 @@ func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
 	return !s.gameEnd
 }
 
-
 func getAIInputs(player int) []byte {
 	var ib InputBits
 	ib.SetInputAI(player)

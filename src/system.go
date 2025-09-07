@@ -545,13 +545,24 @@ func (s *System) await(fps int) bool {
 		// the screen if network input is present.
 		defer gfx.BeginFrame(sys.netConnection == nil)
 	}
+
 	s.runMainThreadTask()
+
 	now := time.Now()
 	diff := s.redrawWait.nextTime.Sub(now)
-	wait := time.Second / time.Duration(fps)
-	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
+
+	var waitDuration time.Duration
+
+	if s.rollback.session != nil {
+		waitDuration = s.rollback.session.loopTimer.usToWaitThisLoop()
+	} else {
+		waitDuration = time.Second / time.Duration(fps)
+	}
+
+	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(waitDuration)
+
 	switch {
-	case diff >= 0 && diff < wait+2*time.Millisecond:
+	case diff >= 0 && diff < waitDuration+2*time.Millisecond:
 		time.Sleep(diff)
 		fallthrough
 	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
@@ -561,10 +572,11 @@ func (s *System) await(fps int) bool {
 		s.frameSkip = false
 	default:
 		if diff < -150*time.Millisecond {
-			s.redrawWait.nextTime = now.Add(wait)
+			s.redrawWait.nextTime = now.Add(waitDuration)
 		}
 		s.frameSkip = true
 	}
+
 	s.eventUpdate()
 
 	return !s.gameEnd
@@ -626,9 +638,11 @@ func (s *System) renderFrame() {
 
 func (s *System) update() bool {
 	s.frameCounter++
+
 	if s.gameTime == 0 {
 		s.preFightTime = s.frameCounter
 	}
+
 	if s.replayFile != nil {
 		if s.anyHardButton() {
 			s.await(s.cfg.Config.Framerate * 4)
@@ -637,10 +651,12 @@ func (s *System) update() bool {
 		}
 		return s.replayFile.Update()
 	}
+
 	if s.netConnection != nil {
 		s.await(s.cfg.Config.Framerate)
 		return s.netConnection.Update()
 	}
+
 	return s.await(s.cfg.Config.Framerate)
 }
 

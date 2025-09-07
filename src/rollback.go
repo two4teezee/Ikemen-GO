@@ -115,8 +115,8 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		}
 
 		s.renderFrame() // Do we need to render at this point? Is there anything to render?
-		frameTime := rs.session.loopTimer.usToWaitThisLoop()
-		running = rs.update(s, frameTime)
+		rs.session.loopTimer.usToWaitThisLoop()
+		running = s.update()
 
 		if !running {
 			break
@@ -144,9 +144,10 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		if !running {
 			break
 		}
+
 		s.renderFrame()
-		frameTime := rs.session.loopTimer.usToWaitThisLoop()
-		running = rs.update(s, frameTime)
+		rs.session.loopTimer.usToWaitThisLoop()
+		running = s.update()
 
 		if !running {
 			break
@@ -419,42 +420,7 @@ func (rs *RollbackSystem) updateCamera(s *System) {
 	}
 }
 
-func (rs *RollbackSystem) update(s *System, wait time.Duration) bool {
-	s.frameCounter++
-	return rs.await(s, wait)
-}
 
-func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
-	if !s.frameSkip {
-		// Render the finished frame
-		gfx.EndFrame()
-		s.window.SwapBuffers()
-		// Begin the next frame after events have been processed. Do not clear
-		// the screen if network input is present.
-		defer gfx.BeginFrame(sys.netConnection == nil)
-	}
-	s.runMainThreadTask()
-	now := time.Now()
-	diff := s.redrawWait.nextTime.Sub(now)
-	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
-	switch {
-	case diff >= 0 && diff < wait+2*time.Millisecond:
-		time.Sleep(diff)
-		fallthrough
-	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
-		fallthrough
-	case diff >= -17*time.Millisecond:
-		s.redrawWait.lastDraw = now
-		s.frameSkip = false
-	default:
-		if diff < -150*time.Millisecond {
-			s.redrawWait.nextTime = now.Add(wait)
-		}
-		s.frameSkip = true
-	}
-	s.eventUpdate()
-	return !s.gameEnd
-}
 
 func getAIInputs(player int) []byte {
 	var ib InputBits

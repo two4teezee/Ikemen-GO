@@ -387,6 +387,10 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	if l.ro != nil {
 		result.ro = arena.New[LifeBarRound](a)
 		*result.ro = *l.ro
+		if l.ro.rt != nil {
+			result.ro.rt = arena.New[LifeBarRoundTransition](a)
+			*result.ro.rt = *l.ro.rt
+		}
 	}
 
 	//UIT

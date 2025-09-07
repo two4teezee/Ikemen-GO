@@ -745,6 +745,9 @@ func (s *System) anyButton() bool {
 	if s.netConnection != nil {
 		return s.netConnection.AnyButton()
 	}
+	if s.rollback.session != nil {
+		return s.rollback.anyButton()
+	}
 	return s.anyHardButton()
 }
 

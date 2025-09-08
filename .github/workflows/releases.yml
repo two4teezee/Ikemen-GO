@@ -147,10 +147,7 @@ jobs:
         run: |
           echo "Preparing files for deployment"
           mkdir deploy
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            make appbundle BINNAME=Ikemen_GO_MacOS
-            cp -r I.K.E.M.E.N-Go.app deploy/
-          else
+          if [ "$RUNNER_OS" != "macOS" ]; then
             cp ${{ matrix.cfg.bin }} deploy/
           fi
           git clone https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git
@@ -171,6 +168,10 @@ jobs:
             ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
             echo "${{ needs.tag.outputs.version }}" > external/script/version
+          fi
+          if [ "$RUNNER_OS" == "macOS"]; then
+            make appbundle_docker BINNAME=${{ matrix.cfg.bin }}
+            cp -r I.K.E.M.E.N-Go.app deploy/
           fi
           if [ "$RUNNER_OS" == "Windows" ]; then
             "/c/Program Files/7-Zip/7z.exe" a ../$ARTIFACT_NAME *

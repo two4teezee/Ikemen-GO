@@ -147,7 +147,11 @@ jobs:
         run: |
           echo "Preparing files for deployment"
           mkdir deploy
-          cp ${{ matrix.cfg.bin }} deploy/
+          if [ "$RUNNER_OS" == "macOS" ]; then
+            cp -r I.K.E.M.E.N-Go.app deploy/
+          else
+            cp ${{ matrix.cfg.bin }} deploy/
+          fi
           git clone https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git
           cp -r data external font Ikemen_GO-Elecbyte-Screenpack/chars Ikemen_GO-Elecbyte-Screenpack/data Ikemen_GO-Elecbyte-Screenpack/font Ikemen_GO-Elecbyte-Screenpack/sound Ikemen_GO-Elecbyte-Screenpack/stages deploy/
           cp License.txt deploy/

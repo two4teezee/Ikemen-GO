@@ -152,6 +152,10 @@ jobs:
           cp -r data external font Ikemen_GO-Elecbyte-Screenpack/chars Ikemen_GO-Elecbyte-Screenpack/data Ikemen_GO-Elecbyte-Screenpack/font Ikemen_GO-Elecbyte-Screenpack/sound Ikemen_GO-Elecbyte-Screenpack/stages deploy/
           cp License.txt deploy/
           cp Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt deploy/ScreenpackLicense.txt
+          GAMEPAD_DB_URL="https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/refs/heads/master/gamecontrollerdb.txt"
+          mkdir -p deploy/external
+          echo "Downloading SDL GameController DB..."
+          curl -L "$GAMEPAD_DB_URL" -o deploy/external/gamecontrollerdb.txt
           echo "Zipping deploy directory"
           cd deploy
           if [ "${{ github.event.inputs.tag }}" == "" ]; then

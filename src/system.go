@@ -348,6 +348,9 @@ func (s *System) init(w, h int32) *lua.LState {
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
 	chk(err)
 
+	// Update the gamepad mappings with user mappings, if present.
+	input.UpdateGamepadMappings(sys.cfg.Config.GamepadMappings)
+
 	// Correct the joystick mappings (macOS)
 	if runtime.GOOS == "darwin" {
 		for i := 0; i < len(sys.joystickConfig); i++ {

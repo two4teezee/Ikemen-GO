@@ -230,8 +230,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 
 	result.aimg = c.aimg.Clone(a)
 
-	// todo, find the curFrame index and set result.curFrame as the pointer at
-	// that index
+	// todo, find the curFrame index and set result.curFrame as the pointer at that index
 	if c.anim != nil {
 		result.anim = c.anim.Clone(a, gsp)
 	}
@@ -303,6 +302,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	for k, v := range c.mapArray {
 		result.mapArray[k] = v
 	}
+
 	return
 }
 
@@ -342,10 +342,19 @@ func (ce *CommandStep) Clone(a *arena.Arena) (result CommandStep) {
 func (c *Command) clone(a *arena.Arena) (result Command) {
 	result = *c
 
+	result.completed = arena.MakeSlice[bool](a, len(c.completed), len(c.completed))
+	copy(result.completed, c.completed)
+
+	result.stepTimers = arena.MakeSlice[int32](a, len(c.stepTimers), len(c.stepTimers))
+	copy(result.stepTimers, c.stepTimers)
+
+	// Maybe we don't need to save these or any other things that are only updated upon loading the char
+	/*
 	result.steps = arena.MakeSlice[CommandStep](a, len(c.steps), len(c.steps))
 	for i := 0; i < len(c.steps); i++ {
 		result.steps[i] = c.steps[i].Clone(a)
 	}
+	*/
 
 	// New input code does not use these
 	/*

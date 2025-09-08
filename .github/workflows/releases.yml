@@ -148,6 +148,7 @@ jobs:
           echo "Preparing files for deployment"
           mkdir deploy
           if [ "$RUNNER_OS" == "macOS" ]; then
+            make appbundle BINNAME=Ikemen_GO_MacOS
             cp -r I.K.E.M.E.N-Go.app deploy/
           else
             cp ${{ matrix.cfg.bin }} deploy/

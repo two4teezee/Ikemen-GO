@@ -1,0 +1,30 @@
+# Additional game controller DB entries for I.K.E.M.E.N-GO
+#
+# If your controller is not recognized, use a utility such as https://generalarcade.com/gamepadtool/
+# to create the base controller mapping for this file.
+#
+# Additionally, if your controller has "stuck axes", usually denoted by running I.K.E.M.E.N-GO in a
+# terminal/command prompt and observing the output during joystick config. If it's outputting
+# something such as:
+#
+# [input_glfw.go][checkAxisForTrigger] 1.AXIS joy=0 i=2 s:-5 axes[i]=-1, name =
+#
+# ... then it means it is stuck on an axis (most likely a trigger input).
+#
+# Make a note of what value it says i is. In this case, there is a 2, so an entry for skipping
+# axis 2 might look something like:
+# 
+# 03000000500000000200000050000000,My Controller AxisSkip_2,platform:Mac OS X,a:b0,b:b1,x:b2,y:b3,back:b10,guide:b9,start:b8,leftstick:b6,rightstick:b7,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a5,righttrigger:a4,
+#
+# ... keep appending values to AxisSkip, separated by _, for each value of i that produces output similar
+# to the above. So if, after changing it to the above, you get another error:
+#
+# [input_glfw.go][checkAxisForTrigger] 1.AXIS joy=0 i=5 s:-10 axes[i]=-1, name = My Controller AxisSkip_2
+#
+# Again, make note of i. In this case, it is 5, so we must modify the name in our entry to be:
+#
+# 03000000500000000200000050000000,My Controller AxisSkip_2_5,platform:Mac OS X,a:b0,b:b1,x:b2,y:b3,back:b10,guide:b9,start:b8,leftstick:b6,rightstick:b7,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a5,righttrigger:a4,
+#
+# Keep modifying the name for as many stuck axes as your controller has.
+#
+03000000503200000210000051010000,Atari Game Controller,platform:Mac OS X,a:b0,b:b1,x:b2,y:b3,back:b10,guide:b9,start:b8,leftstick:b6,rightstick:b7,leftshoulder:b4,rightshoulder:b5,dpup:h0.1,dpdown:h0.4,dpleft:h0.8,dpright:h0.2,leftx:a0,lefty:a1,rightx:a2,righty:a3,lefttrigger:a5,righttrigger:a4,

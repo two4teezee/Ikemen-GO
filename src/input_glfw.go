@@ -311,7 +311,7 @@ func CheckAxisForTrigger(joy int, axes *[]float32) string {
 					uniqueAxes[n] = struct{}{}
 				}
 
-				for n, _ := range uniqueAxes {
+				for n := range uniqueAxes {
 					if i == n {
 						// do nothing
 						shouldSkipAxis = true

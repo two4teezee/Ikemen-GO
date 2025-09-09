@@ -985,7 +985,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findEntityByPlayerId", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -1050,7 +1050,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findEntityByName", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -1119,7 +1119,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findHelperById", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -2948,7 +2948,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleClsnDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {
@@ -2967,7 +2967,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleDebugDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {
@@ -3104,7 +3104,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleWireframeDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {

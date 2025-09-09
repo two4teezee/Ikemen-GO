@@ -2233,7 +2233,7 @@ func (s *System) fight() (reload bool) {
 	s.aiInput = [len(s.aiInput)]AiInput{}
 
 	// Disable debug during netplay (but not during replays)
-	if sys.netConnection != nil {
+	if !s.debugModeAllowed() {
 		s.debugDisplay = false
 		s.clsnDisplay = false
 		s.lifebarHide = false
@@ -2626,6 +2626,13 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 			}
 		}
 	}
+}
+
+func (s *System) debugModeAllowed() bool {
+	if s.netConnection != nil || s.rollback.session != nil {
+		return false
+	}
+	return s.cfg.Debug.AllowDebugMode
 }
 
 type RoundStartBackup struct {

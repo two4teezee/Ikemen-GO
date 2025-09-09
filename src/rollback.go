@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"time"
 
@@ -109,6 +108,8 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	rs.currentFight.reset()
 
 	// These empty frames help the netcode stabilize. Without them, the chances of it desyncing at match start increase a lot
+	// Update: Might not be necessary after syncTest fix
+	/*
 	for i := 0; i < 120; i++ {
 		err := rs.session.backend.Idle(
 			int(math.Max(0, float64(120))))
@@ -126,6 +127,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 			break
 		}
 	}
+	*/
 
 	// Loop until end of match
 	///fin := false
@@ -230,7 +232,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				}
 			}()
 
-			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum(s))
+			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum())
 			if err != nil {
 				panic(err)
 			}

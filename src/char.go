@@ -9734,7 +9734,7 @@ func (c *Char) actionPrepare() {
 							}
 							c.changeState(10, -1, -1, "") // Stand to crouch
 						}
-					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.Db < 0 {
+					} else if !c.asf(ASF_nostand) && c.ss.stateType == ST_C && c.cmd[0].Buffer.Db <= 0 {
 						if c.ss.no != 12 {
 							c.changeState(12, -1, -1, "") // Crouch to stand
 						}

@@ -13,7 +13,7 @@ type RollbackSystem struct {
 	session       *RollbackSession
 	currentFight  Fight
 	netConnection *NetConnection
-	currentInputs []InputBits
+	ggpoInputs    []InputBits
 }
 
 type RollbackProperties struct {
@@ -27,12 +27,15 @@ type RollbackProperties struct {
 	DesyncTestAI          bool `ini:"DesyncTestAI"`
 }
 
+// Currently system.go fight() is just short circuited to use this one instead during rollback
+// TODO: Merge with system.go
 func (rs *RollbackSystem) fight(s *System) bool {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	rs.currentFight = NewFight()
-	rs.currentInputs = make([]InputBits, MaxPlayerNo)
+	rs.ggpoInputs = make([]InputBits, 2)
+
 	// Defer resetting variables on return
 	defer rs.currentFight.endFight()
 
@@ -98,7 +101,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		rs.netConnection = s.netConnection
 		s.netConnection = nil
 	} else if s.netConnection == nil && rs.session == nil {
-		session := NewRollbackSesesion(s.cfg.Netplay.Rollback)
+		session := NewRollbackSession(s.cfg.Netplay.Rollback)
 		rs.session = &session
 		rs.session.InitSyncTest(2)
 	}
@@ -115,8 +118,9 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		}
 
 		s.renderFrame() // Do we need to render at this point? Is there anything to render?
-		frameTime := rs.session.loopTimer.usToWaitThisLoop()
-		running = rs.update(s, frameTime)
+
+		//rs.session.loopTimer.usToWaitThisLoop()
+		running = s.update()
 
 		if !running {
 			break
@@ -144,9 +148,11 @@ func (rs *RollbackSystem) fight(s *System) bool {
 		if !running {
 			break
 		}
+
 		s.renderFrame()
-		frameTime := rs.session.loopTimer.usToWaitThisLoop()
-		running = rs.update(s, frameTime)
+
+		//rs.session.loopTimer.usToWaitThisLoop()
+		running = s.update()
 
 		if !running {
 			break
@@ -160,7 +166,7 @@ func (rs *RollbackSystem) fight(s *System) bool {
 
 	// Prep for the next match.
 	if s.netConnection != nil {
-		newSession := NewRollbackSesesion(s.cfg.Netplay.Rollback)
+		newSession := NewRollbackSession(s.cfg.Netplay.Rollback)
 		host := rs.session.host
 		remoteIp := rs.session.remoteIp
 
@@ -173,82 +179,44 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	return false
 }
 
+// Called once per frame by the main game loop
+// Responsible for collecting local inputs and driving the GGPO backend forward
 func (rs *RollbackSystem) runFrame(s *System) bool {
 	var buffer []byte
 	var ggpoerr error
 
-	// The inputs here are for the sake of simulation
-
-	if sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		buffer = getAIInputs(1)
-		ggpoerr = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+	if rs.session.syncTest && rs.session.netTime == 0 {
+		if rs.session.config.DesyncTestAI {
+			buffer = getAIInputs(0)
+			ggpoerr = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
+			buffer = getAIInputs(1)
+			ggpoerr = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		} else {
+			buffer = rs.getInputs(0)
+			ggpoerr = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(0), buffer, len(buffer))
+			buffer = rs.getInputs(1)
+			ggpoerr = rs.session.backend.AddLocalInput(ggpo.PlayerHandle(1), buffer, len(buffer))
+		}
+	} else {
+		buffer = rs.getInputs(0)
+		ggpoerr = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
 	}
-
-	buffer = rs.getTestInputs(0)
-	ggpoerr = rs.session.backend.AddLocalInput(rs.session.currentPlayerHandle, buffer, len(buffer))
 
 	if ggpoerr == nil {
 		// Get speculative inputs for the local player for this frame
 		var values [][]byte
 		disconnectFlags := 0
 		values, ggpoerr = rs.session.backend.SyncInput(&disconnectFlags)
-		rs.currentInputs = decodeInputs(values)
+		rs.ggpoInputs = decodeInputs(values)
 
 		if rs.session.recording != nil {
-			rs.session.SetInput(rs.session.netTime, 0, rs.currentInputs[0])
-			rs.session.SetInput(rs.session.netTime, 1, rs.currentInputs[1])
+			rs.session.SetInput(rs.session.netTime, 0, rs.ggpoInputs[0])
+			rs.session.SetInput(rs.session.netTime, 1, rs.ggpoInputs[1])
 			rs.session.netTime++
 		}
 
 		if ggpoerr == nil {
-
-			s.step = false
-			//rs.runShortcutScripts(s)
-
-			// If next round
-			if !rs.runNextRound(s) {
-				return false
-			}
-
-			s.bgPalFX.step()
-			s.stage.action()
-
-			// If frame is ready to tick and not paused
-			//rs.updateStage(s)
-
-			//for i := 0; i < len(inputs) && i < len(sys.commandLists); i++ {
-			//	myChar := sys.chars[rs.session.currentPlayerHandle][0]
-			//	sys.commandLists[i].Input(myChar.controller, int32(myChar.facing), 0, inputs[i], false)
-			//	sys.commandLists[i].Step(int32(myChar.facing), false, false, 0)
-			//}
-
-			// Update game state
-			s.action()
-
-			// if rs.handleFlags(s) {
-			// 	return true
-			// }
-
-			if !rs.updateEvents(s) {
-				return false
-			}
-
-			// Break if finished
-			if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
-				return false
-			}
-
-			// Update system; break if update returns false (game ended)
-			//if !s.update() {
-			//	return false
-			//}
-
-			// If end match selected from menu/end of attract mode match/etc
-			if s.endMatch {
-				s.esc = true
-				return false
-			} else if s.esc {
-				s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
+			if !rs.simulateFrame(s) {
 				return false
 			}
 
@@ -266,11 +234,10 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			if err != nil {
 				panic(err)
 			}
-
 		}
 	}
-	return true
 
+	return true
 }
 
 func (rs *RollbackSystem) runShortcutScripts(s *System) {
@@ -281,6 +248,55 @@ func (rs *RollbackSystem) runShortcutScripts(s *System) {
 			}
 		}
 	}
+}
+
+// Contains the logic for a single frame of the game
+// Called by both runFrame for speculative execution, and AdvanceFrame for confirmed execution
+func (rs *RollbackSystem) simulateFrame(s *System) bool {
+	s.step = false
+	//rs.runShortcutScripts(s)
+
+	// If next round
+	if !rs.runNextRound(s) {
+		return false
+	}
+
+	s.bgPalFX.step()
+	s.stage.action()
+
+	// If frame is ready to tick and not paused
+	//rs.updateStage(s)
+
+	// Update game state
+	s.action()
+
+	// if rs.handleFlags(s) {
+	// 	return true
+	// }
+
+	if !rs.updateEvents(s) {
+		return false
+	}
+
+	// Break if finished
+	if rs.currentFight.fin && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
+		return false
+	}
+
+	// Update system; break if update returns false (game ended)
+	//if !s.update() {
+	//	return false
+	//}
+
+	// If end match selected from menu/end of attract mode match/etc
+	if s.endMatch {
+		s.esc = true
+		return false
+	} else if s.esc {
+		s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
+		return false
+	}
+	return true
 }
 
 func (rs *RollbackSystem) runNextRound(s *System) bool {
@@ -420,42 +436,7 @@ func (rs *RollbackSystem) updateCamera(s *System) {
 	}
 }
 
-func (rs *RollbackSystem) update(s *System, wait time.Duration) bool {
-	s.frameCounter++
-	return rs.await(s, wait)
-}
 
-func (rs *RollbackSystem) await(s *System, wait time.Duration) bool {
-	if !s.frameSkip {
-		// Render the finished frame
-		gfx.EndFrame()
-		s.window.SwapBuffers()
-		// Begin the next frame after events have been processed. Do not clear
-		// the screen if network input is present.
-		defer gfx.BeginFrame(sys.netConnection == nil)
-	}
-	s.runMainThreadTask()
-	now := time.Now()
-	diff := s.redrawWait.nextTime.Sub(now)
-	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(wait)
-	switch {
-	case diff >= 0 && diff < wait+2*time.Millisecond:
-		time.Sleep(diff)
-		fallthrough
-	case now.Sub(s.redrawWait.lastDraw) > 250*time.Millisecond:
-		fallthrough
-	case diff >= -17*time.Millisecond:
-		s.redrawWait.lastDraw = now
-		s.frameSkip = false
-	default:
-		if diff < -150*time.Millisecond {
-			s.redrawWait.nextTime = now.Add(wait)
-		}
-		s.frameSkip = true
-	}
-	s.eventUpdate()
-	return !s.gameEnd
-}
 
 func getAIInputs(player int) []byte {
 	var ib InputBits
@@ -796,25 +777,25 @@ func writeI32(i32 int32) []byte {
 
 func (rs *RollbackSystem) getInputs(player int) []byte {
 	var ib InputBits
-	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(player, false))
-	return writeI32(int32(ib))
-}
-
-func (rs *RollbackSystem) getTestInputs(player int) []byte {
-	var ib InputBits
-	ib.KeysToBits(sys.chars[0][0].cmd[0].Buffer.InputReader.LocalInput(player, false))
+	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(0, false))
 	return writeI32(int32(ib))
 }
 
 func (rs *RollbackSystem) readRollbackInput(controller int) [14]bool {
-	if controller >= 0 && controller < len(rs.currentInputs) {
-		return rs.currentInputs[controller].BitsToKeys()
+	if controller < 0 || controller >= len(sys.inputRemap) {
+		return [14]bool{}
 	}
-	return [14]bool{}
+
+	remap := sys.inputRemap[controller]
+	if remap < 0 || remap >= len(rs.ggpoInputs) {
+		return [14]bool{}
+	}
+
+	return rs.ggpoInputs[remap].BitsToKeys()
 }
 
 func (rs *RollbackSystem) anyButton() bool {
-	for _, b := range rs.currentInputs {
+	for _, b := range rs.ggpoInputs {
 		if b&IB_anybutton != 0 {
 			return true
 		}

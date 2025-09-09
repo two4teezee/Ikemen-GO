@@ -878,7 +878,7 @@ func systemScriptInit(l *lua.LState) {
 
 		//Rollback only
 		if sys.cfg.Netplay.RollbackNetcode {
-			rs := NewRollbackSesesion(sys.cfg.Netplay.Rollback)
+			rs := NewRollbackSession(sys.cfg.Netplay.Rollback)
 			sys.rollback.session = &rs
 		}
 

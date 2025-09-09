@@ -158,6 +158,10 @@ jobs:
           mkdir -p deploy/external
           echo "Downloading SDL GameController DB..."
           curl -L "$GAMEPAD_DB_URL" -o deploy/external/gamecontrollerdb.txt
+          if [ "$RUNNER_OS" == "macOS"]; then
+            make appbundle_docker BINNAME=${{ matrix.cfg.bin }}
+            cp -r I.K.E.M.E.N-Go.app deploy/
+          fi
           echo "Zipping deploy directory"
           cd deploy
           if [ "${{ github.event.inputs.tag }}" == "" ]; then
@@ -168,10 +172,6 @@ jobs:
             ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
             echo "${{ needs.tag.outputs.version }}" > external/script/version
-          fi
-          if [ "$RUNNER_OS" == "macOS"]; then
-            make appbundle_docker BINNAME=${{ matrix.cfg.bin }}
-            cp -r I.K.E.M.E.N-Go.app deploy/
           fi
           if [ "$RUNNER_OS" == "Windows" ]; then
             "/c/Program Files/7-Zip/7z.exe" a ../$ARTIFACT_NAME *

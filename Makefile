@@ -69,5 +69,21 @@ appbundle:
 	cp icontmp/icon.icns ../I.K.E.M.E.N-Go.app/Contents/Resources/icon.icns && \
 	rm -rf icontmp
 
+appbundle_docker:
+	mkdir -p I.K.E.M.E.N-Go.app
+	mkdir -p I.K.E.M.E.N-Go.app/Contents
+	mkdir -p I.K.E.M.E.N-Go.app/Contents/MacOS
+	mkdir -p I.K.E.M.E.N-Go.app/Contents/Resources
+	cp $(BINNAME) I.K.E.M.E.N-Go.app/Contents/MacOS/$(BINNAME)
+	cp ../build/Info.plist I.K.E.M.E.N-Go.app/Contents/Info.plist
+	cp ../build/bundle_run.sh I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
+	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
+	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/$(BINNAME)
+	mkdir -p ./icontmp/icon.iconset && \
+	cp ./external/icons/IkemenCylia_256.png ./icontmp/icon.iconset/icon_256x256.png && \
+	iconutil -c icns ./icontmp/icon.iconset && \
+	cp icontmp/icon.icns ./I.K.E.M.E.N-Go.app/Contents/Resources/icon.icns && \
+	rm -rf icontmp
+
 clean_appbundle:
 	rm -rf I.K.E.M.E.N-Go.app

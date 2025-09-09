@@ -147,10 +147,7 @@ jobs:
         run: |
           echo "Preparing files for deployment"
           mkdir deploy
-          if [ "$RUNNER_OS" == "macOS" ]; then
-            make appbundle BINNAME=Ikemen_GO_MacOS
-            cp -r I.K.E.M.E.N-Go.app deploy/
-          else
+          if [ "$RUNNER_OS" != "macOS" ]; then
             cp ${{ matrix.cfg.bin }} deploy/
           fi
           git clone https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git
@@ -161,6 +158,10 @@ jobs:
           mkdir -p deploy/external
           echo "Downloading SDL GameController DB..."
           curl -L "$GAMEPAD_DB_URL" -o deploy/external/gamecontrollerdb.txt
+          if [ "$RUNNER_OS" == "macOS"]; then
+            make appbundle_docker BINNAME=${{ matrix.cfg.bin }}
+            cp -r I.K.E.M.E.N-Go.app deploy/
+          fi
           echo "Zipping deploy directory"
           cd deploy
           if [ "${{ github.event.inputs.tag }}" == "" ]; then

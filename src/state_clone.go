@@ -350,10 +350,10 @@ func (c *Command) clone(a *arena.Arena) (result Command) {
 
 	// Maybe we don't need to save these or any other things that are only updated upon loading the char
 	/*
-	result.steps = arena.MakeSlice[CommandStep](a, len(c.steps), len(c.steps))
-	for i := 0; i < len(c.steps); i++ {
-		result.steps[i] = c.steps[i].Clone(a)
-	}
+		result.steps = arena.MakeSlice[CommandStep](a, len(c.steps), len(c.steps))
+		for i := 0; i < len(c.steps); i++ {
+			result.steps[i] = c.steps[i].Clone(a)
+		}
 	*/
 
 	// New input code does not use these

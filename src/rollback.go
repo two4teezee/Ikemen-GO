@@ -436,8 +436,6 @@ func (rs *RollbackSystem) updateCamera(s *System) {
 	}
 }
 
-
-
 func getAIInputs(player int) []byte {
 	var ib InputBits
 	ib.SetInputAI(player)

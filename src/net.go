@@ -337,7 +337,7 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 func NewRollbackSession(config RollbackProperties) RollbackSession {
 	r := RollbackSession{}
 	r.saveStates = make(map[int]*GameState)
-	r.players = make([]ggpo.Player, 2) // MaxPlayerNo
+	r.players = make([]ggpo.Player, 2)       // MaxPlayerNo
 	r.handles = make([]ggpo.PlayerHandle, 2) // MaxPlayerNo
 	r.config = config
 	r.loopTimer = NewLoopTimer(60, 100)

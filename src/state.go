@@ -208,13 +208,13 @@ type GameState struct {
 	//accel                   float32
 	//clsnDisplay             bool
 	//debugDisplay            bool
-	workpal                 []uint32
-	nomusic                 bool
-	keyConfig               []KeyConfig
-	joystickConfig          []KeyConfig
-	lifebar                 Lifebar
-	redrawWait              struct{ nextTime, lastDraw time.Time }
-	cgi                     [MaxPlayerNo]CharGlobalInfo
+	workpal        []uint32
+	nomusic        bool
+	keyConfig      []KeyConfig
+	joystickConfig []KeyConfig
+	lifebar        Lifebar
+	redrawWait     struct{ nextTime, lastDraw time.Time }
+	cgi            [MaxPlayerNo]CharGlobalInfo
 
 	// New 11/04/2022 all UIT
 	timerStart      int32

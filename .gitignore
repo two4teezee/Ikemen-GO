@@ -30,6 +30,7 @@ font/*
 stages/*
 sound/*
 debug/*
+video/*
 
 # Temp
 src/lua_triggers.go

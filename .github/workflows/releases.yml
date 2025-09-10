@@ -159,6 +159,7 @@ jobs:
           echo "Downloading SDL GameController DB..."
           curl -L "$GAMEPAD_DB_URL" -o deploy/external/gamecontrollerdb.txt
           if [ "$RUNNER_OS" == "macOS" ]; then
+            echo "Build the macOS .app bundle"
             make appbundle_docker BINNAME=${{ matrix.cfg.bin }}
             cp -r I.K.E.M.E.N-Go.app deploy/
           fi

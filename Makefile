@@ -75,8 +75,8 @@ appbundle_docker:
 	mkdir -p I.K.E.M.E.N-Go.app/Contents/MacOS
 	mkdir -p I.K.E.M.E.N-Go.app/Contents/Resources
 	cp $(BINNAME) I.K.E.M.E.N-Go.app/Contents/MacOS/$(BINNAME)
-	cp ../build/Info.plist I.K.E.M.E.N-Go.app/Contents/Info.plist
-	cp ../build/bundle_run.sh I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
+	cp ./build/Info.plist I.K.E.M.E.N-Go.app/Contents/Info.plist
+	cp ./build/bundle_run.sh I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/$(BINNAME)
 	mkdir -p ./icontmp/icon.iconset && \

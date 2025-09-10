@@ -421,7 +421,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	}
 	//
 
-	// Not UIT adding amyway
+	// Not UIT adding anyway
 	for i := 0; i < len(l.wc); i++ {
 		result.wc[i] = arena.New[LifeBarWinCount](a)
 		*result.wc[i] = *l.wc[i]
@@ -493,6 +493,23 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		for j := 0; j < len(l.nm[i]); j++ {
 			result.nm[i][j] = arena.New[LifeBarName](a)
 			*result.nm[i][j] = *l.nm[i][j]
+		}
+	}
+
+	// LifeBarAction
+	for i := range result.ac {
+		if l.ac[i] != nil {
+			result.ac[i] = arena.New[LifeBarAction](a)
+
+			*result.ac[i] = *l.ac[i]
+
+			if l.ac[i].messages != nil {
+				result.ac[i].messages = arena.MakeSlice[*LbMsg](a, len(l.ac[i].messages), len(l.ac[i].messages))
+				for j := 0; j < len(l.ac[i].messages); j++ {
+					result.ac[i].messages[j] = arena.New[LbMsg](a)
+					*result.ac[i].messages[j] = *l.ac[i].messages[j]
+				}
+			}
 		}
 	}
 

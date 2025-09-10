@@ -3,6 +3,7 @@ cd $(dirname $0)
 
 case "$OSTYPE" in
 	darwin*) #echo "It's a Mac!!" ;
+		xattr -d com.apple.quarantine I.K.E.M.E.N-Go.app
 		chmod +x ./I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 		./I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 	;;

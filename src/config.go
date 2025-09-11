@@ -54,7 +54,7 @@ type Config struct {
 		Difficulty int     `ini:"Difficulty"`
 		Life       float32 `ini:"Life"`
 		Time       int32   `ini:"Time"`
-		GameSpeed  float32 `ini:"GameSpeed"`
+		GameSpeed  int     `ini:"GameSpeed"`
 		Match      struct {
 			Wins         int32 `ini:"Wins"`
 			MaxDrawGames int32 `ini:"MaxDrawGames"`
@@ -298,7 +298,7 @@ func (c *Config) initStruct() {
 
 // Normalize values
 func (c *Config) normalize() {
-	c.SetValueUpdate("Options.GameSpeed", ClampF(c.Options.GameSpeed, -9, 9))
+	c.SetValueUpdate("Options.GameSpeed", int(Clamp(int32(c.Options.GameSpeed), -9, 9)))
 	c.SetValueUpdate("Options.Simul.Min", int(Clamp(int32(c.Options.Simul.Min), 2, int32(MaxSimul))))
 	c.SetValueUpdate("Options.Simul.Max", int(Clamp(int32(c.Options.Simul.Max), int32(c.Options.Simul.Min), int32(MaxSimul))))
 	c.SetValueUpdate("Options.Tag.Min", int(Clamp(int32(c.Options.Tag.Min), 2, int32(MaxSimul))))

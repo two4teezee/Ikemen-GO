@@ -30,7 +30,7 @@ type RollbackProperties struct {
 // TODO: Merge with system.go
 func (rs *RollbackSystem) fight(s *System) bool {
 	// Reset variables
-	s.gameTime, s.paused, s.accel = 0, false, 1
+	s.gameTime, s.paused, s.debugAccel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	rs.currentFight = NewFight()
 	rs.ggpoInputs = make([]InputBits, 2)

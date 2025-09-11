@@ -83,6 +83,7 @@ var sys = System{
 	commandLists:         make([]*CommandList, 0),
 	arenaSaveMap:         make(map[int]*arena.Arena),
 	arenaLoadMap:         make(map[int]*arena.Arena),
+	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
 }
 
 type TeamMode int32
@@ -241,7 +242,7 @@ type System struct {
 	debugc2stb              ClsnRect
 	debugcsize              ClsnRect
 	debugch                 ClsnRect
-	accel                   float32
+	debugAccel              float32
 	clsnSpr                 Sprite
 	clsnDisplay             bool
 	lifebarHide             bool
@@ -1663,7 +1664,7 @@ func (s *System) action() {
 	explUpdate(&s.explodsLayer1, false)
 	// Adjust game speed
 	if s.tickNextFrame() {
-		spd := ((60 + s.cfg.Options.GameSpeed*5) / float32(s.cfg.Config.Framerate)) * s.accel
+		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
 		// KO slowdown
 		s.slowtimeTrigger = 0
 		if s.intro < 0 && s.time != 0 && s.slowtime > 0 {
@@ -2245,7 +2246,8 @@ func (s *System) fight() (reload bool) {
 	}
 
 	// Reset variables
-	s.gameTime, s.paused, s.accel = 0, false, 1
+	s.gameTime = 0
+	s.paused = false
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	s.saveState = NewGameState()
 
@@ -2254,6 +2256,7 @@ func (s *System) fight() (reload bool) {
 		s.debugDisplay = false
 		s.clsnDisplay = false
 		s.lifebarHide = false
+		s.debugAccel = 1
 	}
 
 	// Defer resetting variables on return
@@ -2644,11 +2647,29 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 	}
 }
 
+func (s *System) gameLogicSpeed() int32 {
+	base := int32(60 + s.cfg.Options.GameSpeed*5) // TODO: config increments
+	spd := int32(float32(base) * s.debugAccel)
+	return Max(1, spd)
+}
+
+func (s *System) gameRenderSpeed() int32 {
+	spd := int32(s.cfg.Config.Framerate)
+	return Max(1, spd)
+}
+
 func (s *System) debugModeAllowed() bool {
 	if s.netConnection != nil || s.rollback.session != nil {
 		return false
 	}
 	return s.cfg.Debug.AllowDebugMode
+}
+
+func (s *System) IsRollback() bool {
+	if s.rollback.session != nil {
+		return s.rollback.session.inRollback
+	}
+	return false
 }
 
 type RoundStartBackup struct {

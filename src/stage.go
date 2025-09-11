@@ -101,7 +101,7 @@ const (
 type backGround struct {
 	_type              BgType
 	palfx              *PalFX
-	anim               Animation
+	anim               *Animation
 	bga                bgAction
 	id                 int32
 	start              [2]float32
@@ -140,7 +140,7 @@ type backGround struct {
 func newBackGround(sff *Sff) *backGround {
 	return &backGround{
 		palfx:              newPalFX(),
-		anim:               *newAnimation(sff, &sff.palList),
+		anim:               newAnimation(sff, &sff.palList),
 		delta:              [...]float32{1, 1},
 		zoomdelta:          [...]float32{1, math.MaxFloat32},
 		xscale:             [...]float32{1, 1},
@@ -161,8 +161,7 @@ func newBackGround(sff *Sff) *backGround {
 	}
 }
 
-func readBackGround(is IniSection, link *backGround,
-	sff *Sff, at AnimationTable, sProps StageProps) *backGround {
+func readBackGround(is IniSection, link *backGround, sff *Sff, at AnimationTable, sProps StageProps) *backGround {
 	bg := newBackGround(sff)
 	typ := is["type"]
 	if len(typ) == 0 {
@@ -187,7 +186,7 @@ func readBackGround(is IniSection, link *backGround,
 		if (bg._type != BG_Normal || len(is["spriteno"]) == 0) &&
 			is.ReadI32("actionno", &bg.actionno) {
 			if a := at.get(bg.actionno); a != nil {
-				bg.anim = *a
+				bg.anim = a
 				hasAnim = true
 			}
 		}
@@ -377,16 +376,19 @@ func (bg *backGround) reset() {
 	bg.palfx.invertblend = -3
 }
 
-// Changes BG animation without changing surrounding parameters
+// Changes BG animation without changing the surrounding parameters
 func (bg *backGround) changeAnim(val int32, a *Animation) {
 	// Save old
 	masktemp := bg.anim.mask
 	srcAlphatemp := bg.anim.srcAlpha
 	dstAlphatemp := bg.anim.dstAlpha
 	tiletmp := bg.anim.tile
-	// Change anim and restore old
+
+	// Change anim
 	bg.actionno = val
-	bg.anim = *a
+	bg.anim = a
+
+	// Restore
 	bg.anim.tile = tiletmp
 	bg.anim.dstAlpha = dstAlphatemp
 	bg.anim.srcAlpha = srcAlphatemp
@@ -699,6 +701,7 @@ type bgctNode struct {
 	bgc      []*bgCtrl
 	waitTime int32
 }
+
 type bgcTimeLine struct {
 	line []bgctNode
 	al   []*bgCtrl
@@ -800,9 +803,11 @@ type stageShadow struct {
 	offset     [2]float32
 	window     [4]float32
 }
+
 type stagePlayer struct {
 	startx, starty, startz, facing int32
 }
+
 type Stage struct {
 	def               string
 	bgmusic           string
@@ -2066,6 +2071,7 @@ type Model struct {
 	//lightNodes           []int32
 	//lightNodesForeground []int32
 }
+
 type Scene struct {
 	nodes           []uint32
 	name            string
@@ -2135,6 +2141,7 @@ type GLTFAnimation struct {
 	channels       []*GLTFAnimationChannel
 	samplers       []*GLTFAnimationSampler
 }
+
 type GLTFAnimationChannel struct {
 	//path         GLTFAnimationType
 	target       *GLTFAnimatableProperty
@@ -2143,14 +2150,17 @@ type GLTFAnimationChannel struct {
 	nodeIndex    *uint32
 	samplerIndex uint32
 }
+
 type GLTFAnimationSampler struct {
 	inputIndex    uint32
 	output        []float32
 	interpolation GLTFAnimationInterpolation
 }
+
 type GLTFTexture struct {
 	tex Texture
 }
+
 type GLTFAnimatableProperty struct {
 	restValue     interface{}
 	animatedValue interface{}
@@ -2222,6 +2232,7 @@ type Material struct {
 	emission                      GLTFAnimatableProperty // [3]float32
 	unlit                         bool
 }
+
 type Trans byte
 
 const (
@@ -2269,11 +2280,13 @@ type Skin struct {
 	inverseBindMatrices []float32
 	texture             *GLTFTexture
 }
+
 type Mesh struct {
 	name               string
 	morphTargetWeights GLTFAnimatableProperty // []float32
 	primitives         []*Primitive
 }
+
 type PrimitiveMode byte
 
 const (
@@ -2300,6 +2313,7 @@ type MorphTarget struct {
 	tangentBuffer  []float32
 	colorBuffer    []float32
 }
+
 type Primitive struct {
 	numVertices         uint32
 	numIndices          uint32
@@ -2408,6 +2422,7 @@ func loadEnvironment(filepath string) (*Environment, error) {
 	}
 	return env, nil
 }
+
 func loadglTFModel(filepath string) (*Model, error) {
 	mdl := &Model{offset: [3]float32{0, 0, 0}, rotation: [3]float32{0, 0, 0}, scale: [3]float32{1, 1, 1}}
 
@@ -3769,6 +3784,7 @@ func ExtractFrustumPlanes(MVPMatrix mgl.Mat4) [6]Plane {
 
 	return planes
 }
+
 func isCulled(MVPMatrix mgl.Mat4, box BoundingBox) bool {
 	points := [8][3]float32{
 		{box.min[0], box.min[1], box.min[2]},
@@ -3817,6 +3833,7 @@ func isCulled(MVPMatrix mgl.Mat4, box BoundingBox) bool {
 
 	return false
 }
+
 func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int, n *Node, camOffset [3]float32, drawBlended bool, unlit bool, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	//mat := n.getLocalTransform()
 	//model = model.Mul4(mat)
@@ -4068,6 +4085,7 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 	}
 }
+
 func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
@@ -4322,6 +4340,7 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	}
 	gfx.ReleaseModelPipeline()
 }
+
 func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber int32) {
 	if s.model == nil || !gfx.IsModelEnabled() {
 		return
@@ -4357,6 +4376,7 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 		s.model.draw(0, 1, int(layerNumber), 1, [3]float32{offset[0] / scale[0], offset[1] / scale[1], offset[2] / scale[2]}, proj, view, proj.Mul4(view), outlineConst)
 	}
 }
+
 func (channel *GLTFAnimationChannel) parseAnimationPointer(m *Model, pointer string) error {
 	channel.nodeIndex = nil
 	components := strings.Split(pointer, "/")
@@ -4671,6 +4691,7 @@ func (anim *GLTFAnimation) toggle(enabled bool) {
 		}
 	}
 }
+
 func (model *Model) step(turbo float32) {
 	for _, anim := range model.animations {
 		if anim.enabled == false {

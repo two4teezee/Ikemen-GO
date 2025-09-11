@@ -171,6 +171,7 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error
 	s.localscl = 240 / s.localcoord[1]
 	return s, nil
 }
+
 func (s *BGDef) getBg(id int32) (bg []*backGround) {
 	if id >= 0 {
 		for _, b := range s.bg {
@@ -181,6 +182,7 @@ func (s *BGDef) getBg(id int32) (bg []*backGround) {
 	}
 	return
 }
+
 func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 	bgc.currenttime++
 	switch bgc._type {
@@ -189,7 +191,7 @@ func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 		if a != nil {
 			for i := range bgc.bg {
 				bgc.bg[i].actionno = bgc.v[0]
-				bgc.bg[i].anim = *a
+				bgc.bg[i].anim = a
 			}
 		}
 	case BT_Visible:
@@ -290,6 +292,7 @@ func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 		}
 	}
 }
+
 func (s *BGDef) action() {
 	s.bgct.stepBGDef(s)
 	s.bga.action()

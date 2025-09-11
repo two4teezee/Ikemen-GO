@@ -880,7 +880,7 @@ func (s *System) screenWidth() float32 {
 	return float32(s.gameWidth)
 }
 
-func (s *System) roundEnd() bool {
+func (s *System) roundEnded() bool {
 	return s.intro < -s.lifebar.ro.over_hittime
 }
 
@@ -1484,286 +1484,9 @@ func (s *System) action() {
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	s.cam.ResetTracking()
 
-	// Run fight screen
-	if s.lifebar.ro.act() {
-		if s.intro > s.lifebar.ro.ctrl_time {
-			s.intro--
-			if s.gsf(GSF_intro) && s.intro <= s.lifebar.ro.ctrl_time {
-				s.intro = s.lifebar.ro.ctrl_time + 1
-			}
-		} else if s.intro > 0 {
-			if s.intro == s.lifebar.ro.ctrl_time {
-				for _, p := range s.chars {
-					if len(p) > 0 {
-						if !p[0].asf(ASF_nointroreset) {
-							p[0].posReset()
-						}
-					}
-				}
-			}
-			s.intro--
-			if s.intro == 0 {
-				for _, p := range s.chars {
-					if len(p) > 0 {
-						if p[0].alive() {
-							p[0].unsetSCF(SCF_over_alive)
-							if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
-								p[0].setCtrl(true)
-								if p[0].ss.no != 0 && !p[0].asf(ASF_nointroreset) {
-									p[0].selfState(0, -1, -1, 1, "")
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		if s.intro == 0 && s.time > 0 && !s.gsf(GSF_timerfreeze) &&
-			(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
-			s.time--
-		}
-
-		// Check if round ended by KO or time over and set win types
-		fin := func() bool {
-			checkPerfect := func(team int) bool {
-				for i := team; i < MaxSimul*2; i += 2 {
-					if len(s.chars[i]) > 0 &&
-						s.chars[i][0].life < s.chars[i][0].lifeMax {
-						return false
-					}
-				}
-				return true
-			}
-			if s.intro > 0 {
-				return false
-			}
-			// KO
-			ko := [...]bool{true, true}
-			for loser := range ko {
-				// Check if all players or leader on one side are KO
-				for i := loser; i < MaxSimul*2; i += 2 {
-					if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
-						if s.chars[i][0].alive() {
-							ko[loser] = false
-						} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.aiLevel[i] == 0) ||
-							(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
-							ko[loser] = true
-							break
-						}
-					}
-				}
-				if ko[loser] {
-					if checkPerfect(loser ^ 1) {
-						s.winType[loser^1].SetPerfect()
-					}
-				}
-			}
-			// Time over
-			ft := s.finishType
-			if s.time == 0 {
-				s.winType[0], s.winType[1] = WT_Time, WT_Time
-				l := [2]float32{}
-				for i := 0; i < 2; i++ { // Check life percentage of each team
-					for j := i; j < MaxSimul*2; j += 2 {
-						if len(s.chars[j]) > 0 {
-							if s.tmode[i] == TM_Simul || s.tmode[i] == TM_Tag {
-								l[i] += (float32(s.chars[j][0].life) / float32(s.numSimul[i])) / float32(s.chars[j][0].lifeMax)
-							} else {
-								l[i] += float32(s.chars[j][0].life) / float32(s.chars[j][0].lifeMax)
-							}
-						}
-					}
-				}
-				// Some other methods were considered to make the winner decision more fair, like a minimum % difference
-				// But ultimately a direct comparison seems to be the fairest method
-				if math.Round(float64(l[0]*1000)) != math.Round(float64(l[1]*1000)) || // Convert back to 1000 life points scale then round it to reduce calculation errors
-					((l[0] >= float32(1.0)) != (l[1] >= float32(1.0))) { // But make sure the rounding doesn't turn a perfect into a draw game
-					winner := 0
-					if l[0] < l[1] {
-						winner = 1
-					}
-					if checkPerfect(winner) {
-						s.winType[winner].SetPerfect()
-					}
-					s.finishType = FT_TO
-					s.winTeam = winner
-				} else { // Draw game
-					s.finishType = FT_TODraw
-					s.winTeam = -1
-				}
-			}
-			if s.intro >= -1 && (ko[0] || ko[1]) {
-				if ko[0] && ko[1] {
-					s.finishType = FT_DKO
-					s.winTeam = -1
-				} else {
-					s.finishType = FT_KO
-					s.winTeam = int(Btoi(ko[0]))
-				}
-			}
-			// Update win triggers if finish type was changed
-			if ft != s.finishType {
-				for i, p := range s.chars {
-					if len(p) > 0 && ko[^i&1] {
-						for _, h := range p {
-							for _, tid := range h.targets {
-								if t := s.playerID(tid); t != nil {
-									if t.ghv.attr&int32(AT_AH) != 0 {
-										s.winTrigger[i&1] = WT_Hyper
-									} else if t.ghv.attr&int32(AT_AS) != 0 && s.winTrigger[i&1] == WT_Normal {
-										s.winTrigger[i&1] = WT_Special
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-			return ko[0] || ko[1] || s.time == 0
-		}
-
-		// Post round
-		if s.roundEnd() || fin() {
-			rs4t := -s.lifebar.ro.over_waittime
-			fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
-
-			s.intro--
-
-			if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
-				// Consecutive wins counter
-				winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-				if !winner[0] || !winner[1] ||
-					s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-					s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-					s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-					for i, win := range winner {
-						if win {
-							s.wins[i]++
-							if s.matchOver() && s.wins[^i&1] == 0 {
-								s.consecutiveWins[i]++
-							}
-							s.consecutiveWins[^i&1] = 0
-						}
-					}
-				}
-			}
-
-			// Check if player skipped win pose time
-			if !s.winskipped && s.roundWinTime() && s.anyButton() && !s.gsf(GSF_roundnotskip) {
-				s.intro = Min(s.intro, fadeoutStart)
-				s.winskipped = true
-			}
-
-			// Start fadeout effect
-			if s.intro == fadeoutStart {
-				if s.gsf(GSF_roundnotover) && !s.winskipped {
-					// roundnotover prevents fadeoutStart from being reached
-					s.intro++
-				} else if s.lifebar.ro.rt.fadeoutTimer == 0 {
-					// Trigger fadeout only once
-					s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
-				}
-			}
-
-			if s.winskipped || !s.roundWinTime() {
-				// Check if game can proceed into roundstate 4
-				if s.waitdown > 0 {
-					if s.intro == rs4t-1 {
-						for _, p := range s.chars {
-							if len(p) > 0 {
-								// Check if this player is ready to proceed to roundstate 4
-								// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
-								// TODO: This could be manageable from the char's side with an AssertSpecial or such
-								if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
-									(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
-									continue
-								}
-								// Freeze timer if any player is not ready to proceed yet
-								s.intro = rs4t
-								break
-							}
-						}
-					}
-				}
-
-				// Disable ctrl (once) at the first frame of roundstate 4
-				if s.intro == rs4t-1 {
-					for _, p := range s.chars {
-						if len(p) > 0 {
-							p[0].setCtrl(false)
-						}
-					}
-				}
-
-				// Start running wintime counter only after getting into roundstate 4
-				if s.intro < rs4t && !s.roundWinTime() {
-					s.wintime--
-				}
-
-				// Set characters into win/lose poses, update win counters
-				if s.roundWinStates() {
-					if s.waitdown >= 0 {
-						winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-						if !winner[0] || !winner[1] ||
-							s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-							s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-							s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-							for i, win := range winner {
-								if win {
-									s.lifebar.wi[i].add(s.winType[i])
-									if s.matchOver() {
-										// In a draw game both players go back to 0 wins
-										if winner[0] == winner[1] { // sys.winTeam < 0
-											s.lifebar.wc[0].wins = 0
-											s.lifebar.wc[1].wins = 0
-										} else {
-											if s.wins[i] >= s.matchWins[i] {
-												s.lifebar.wc[i].wins++
-											}
-										}
-									}
-								}
-							}
-						} else {
-							s.draws++
-						}
-					}
-
-					for _, p := range s.chars {
-						if len(p) > 0 {
-							// Default life recovery. Used only if externalized Lua implementation is disabled
-							if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
-								p[0].alive() && !s.matchOver() &&
-								(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
-								p[0].life += int32((float32(p[0].lifeMax) *
-									float32(s.time) / 60) * s.turnsRecoveryRate)
-								if p[0].life > p[0].lifeMax {
-									p[0].life = p[0].lifeMax
-								}
-							}
-							// TODO: These changestates ought to be unhardcoded
-							if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
-								p[0].setSCF(SCF_over_alive)
-								if p[0].win() {
-									p[0].selfState(180, -1, -1, -1, "")
-								} else if p[0].lose() {
-									p[0].selfState(170, -1, -1, -1, "")
-								} else {
-									p[0].selfState(175, -1, -1, -1, "")
-								}
-							}
-						}
-					}
-
-					s.waitdown = 0
-				}
-
-				s.waitdown--
-			}
-		} else if s.intro < 0 {
-			s.intro = 0
-		}
-	}
+	// Update fight screen
+	// This is also reflected on characters (intros, win poses)
+	s.runFightScreen()
 
 	// Run "tick frame"
 	if s.tickFrame() {
@@ -1961,6 +1684,299 @@ func (s *System) action() {
 	}
 	s.tickSound()
 	return
+}
+
+func (s *System) runFightScreen() {
+	if !s.lifebar.ro.act() {
+		return
+	}
+
+	// Intros
+	if s.intro > s.lifebar.ro.ctrl_time {
+		s.intro--
+		if s.gsf(GSF_intro) && s.intro <= s.lifebar.ro.ctrl_time {
+			s.intro = s.lifebar.ro.ctrl_time + 1
+		}
+	} else if s.intro > 0 {
+		if s.intro == s.lifebar.ro.ctrl_time {
+			for _, p := range s.chars {
+				if len(p) > 0 {
+					if !p[0].asf(ASF_nointroreset) {
+						p[0].posReset()
+					}
+				}
+			}
+		}
+		s.intro--
+		if s.intro == 0 {
+			for _, p := range s.chars {
+				if len(p) > 0 {
+					if p[0].alive() {
+						p[0].unsetSCF(SCF_over_alive)
+						if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
+							p[0].setCtrl(true)
+							if p[0].ss.no != 0 && !p[0].asf(ASF_nointroreset) {
+								p[0].selfState(0, -1, -1, 1, "")
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Ongoing round
+	if s.intro == 0 && s.time > 0 && !s.gsf(GSF_timerfreeze) &&
+		(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
+		s.time--
+	}
+
+	// Post round
+	if s.roundEnded() || s.roundEndDecision() {
+		rs4t := -s.lifebar.ro.over_waittime
+		fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
+
+		s.intro--
+
+		if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
+			// Consecutive wins counter
+			winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+			if !winner[0] || !winner[1] ||
+				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+				s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+				s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+				for i, win := range winner {
+					if win {
+						s.wins[i]++
+						if s.matchOver() && s.wins[^i&1] == 0 {
+							s.consecutiveWins[i]++
+						}
+						s.consecutiveWins[^i&1] = 0
+					}
+				}
+			}
+		}
+
+		// Check if player skipped win pose time
+		if !s.winskipped && s.roundWinTime() && s.anyButton() && !s.gsf(GSF_roundnotskip) {
+			s.intro = Min(s.intro, fadeoutStart)
+			s.winskipped = true
+		}
+
+		// Start fadeout effect
+		if s.intro == fadeoutStart {
+			if s.gsf(GSF_roundnotover) && !s.winskipped {
+				// roundnotover prevents fadeoutStart from being reached
+				s.intro++
+			} else if s.lifebar.ro.rt.fadeoutTimer == 0 {
+				// Trigger fadeout only once
+				s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
+			}
+		}
+
+		if s.winskipped || !s.roundWinTime() {
+			// Check if game can proceed into roundstate 4
+			if s.waitdown > 0 {
+				if s.intro == rs4t-1 {
+					for _, p := range s.chars {
+						if len(p) > 0 {
+							// Check if this player is ready to proceed to roundstate 4
+							// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
+							// TODO: This could be manageable from the char's side with an AssertSpecial or such
+							if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
+								(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
+								continue
+							}
+							// Freeze timer if any player is not ready to proceed yet
+							s.intro = rs4t
+							break
+						}
+					}
+				}
+			}
+
+			// Disable ctrl (once) at the first frame of roundstate 4
+			if s.intro == rs4t-1 {
+				for _, p := range s.chars {
+					if len(p) > 0 {
+						p[0].setCtrl(false)
+					}
+				}
+			}
+
+			// Start running wintime counter only after getting into roundstate 4
+			if s.intro < rs4t && !s.roundWinTime() {
+				s.wintime--
+			}
+
+			// Set characters into win/lose poses, update win counters
+			if s.roundWinStates() {
+				if s.waitdown >= 0 {
+					winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+					if !winner[0] || !winner[1] ||
+						s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+						s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+						s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+						for i, win := range winner {
+							if win {
+								s.lifebar.wi[i].add(s.winType[i])
+								if s.matchOver() {
+									// In a draw game both players go back to 0 wins
+									if winner[0] == winner[1] { // sys.winTeam < 0
+										s.lifebar.wc[0].wins = 0
+										s.lifebar.wc[1].wins = 0
+									} else {
+										if s.wins[i] >= s.matchWins[i] {
+											s.lifebar.wc[i].wins++
+										}
+									}
+								}
+							}
+						}
+					} else {
+						s.draws++
+					}
+				}
+
+				for _, p := range s.chars {
+					if len(p) > 0 {
+						// Default life recovery. Used only if externalized Lua implementation is disabled
+						if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+							p[0].alive() && !s.matchOver() &&
+							(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
+							p[0].life += int32((float32(p[0].lifeMax) *
+								float32(s.time) / 60) * s.turnsRecoveryRate)
+							if p[0].life > p[0].lifeMax {
+								p[0].life = p[0].lifeMax
+							}
+						}
+						// TODO: These changestates ought to be unhardcoded
+						if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
+							p[0].setSCF(SCF_over_alive)
+							if p[0].win() {
+								p[0].selfState(180, -1, -1, -1, "")
+							} else if p[0].lose() {
+								p[0].selfState(170, -1, -1, -1, "")
+							} else {
+								p[0].selfState(175, -1, -1, -1, "")
+							}
+						}
+					}
+				}
+
+				s.waitdown = 0
+			}
+
+			s.waitdown--
+		}
+	} else if s.intro < 0 {
+		s.intro = 0
+	}
+}
+
+// Check if the round ended by KO or time over and set win types
+func (s *System) roundEndDecision() bool {
+	checkPerfect := func(team int) bool {
+		for i := team; i < MaxSimul*2; i += 2 {
+			if len(s.chars[i]) > 0 &&
+				s.chars[i][0].life < s.chars[i][0].lifeMax {
+				return false
+			}
+		}
+		return true
+	}
+	if s.intro > 0 {
+		return false
+	}
+
+	// KO check
+	ko := [...]bool{true, true}
+	for loser := range ko {
+		// Check if all players or leader on one side are KO
+		for i := loser; i < MaxSimul*2; i += 2 {
+			if len(s.chars[i]) > 0 && s.chars[i][0].teamside != -1 {
+				if s.chars[i][0].alive() {
+					ko[loser] = false
+				} else if (s.tmode[i&1] == TM_Simul && s.cfg.Options.Simul.LoseOnKO && s.aiLevel[i] == 0) ||
+					(s.tmode[i&1] == TM_Tag && s.cfg.Options.Tag.LoseOnKO) {
+					ko[loser] = true
+					break
+				}
+			}
+		}
+		if ko[loser] {
+			if checkPerfect(loser ^ 1) {
+				s.winType[loser^1].SetPerfect()
+			}
+		}
+	}
+
+	// Time over
+	ft := s.finishType
+	if s.time == 0 {
+		s.winType[0], s.winType[1] = WT_Time, WT_Time
+		l := [2]float32{}
+		for i := 0; i < 2; i++ { // Check life percentage of each team
+			for j := i; j < MaxSimul*2; j += 2 {
+				if len(s.chars[j]) > 0 {
+					if s.tmode[i] == TM_Simul || s.tmode[i] == TM_Tag {
+						l[i] += (float32(s.chars[j][0].life) / float32(s.numSimul[i])) / float32(s.chars[j][0].lifeMax)
+					} else {
+						l[i] += float32(s.chars[j][0].life) / float32(s.chars[j][0].lifeMax)
+					}
+				}
+			}
+		}
+		// Some other methods were considered to make the winner decision more fair, like a minimum % difference
+		// But ultimately a direct comparison seems to be the fairest method
+		if math.Round(float64(l[0]*1000)) != math.Round(float64(l[1]*1000)) || // Convert back to 1000 life points scale then round it to reduce calculation errors
+			((l[0] >= float32(1.0)) != (l[1] >= float32(1.0))) { // But make sure the rounding doesn't turn a perfect into a draw game
+			winner := 0
+			if l[0] < l[1] {
+				winner = 1
+			}
+			if checkPerfect(winner) {
+				s.winType[winner].SetPerfect()
+			}
+			s.finishType = FT_TO
+			s.winTeam = winner
+		} else { // Draw game
+			s.finishType = FT_TODraw
+			s.winTeam = -1
+		}
+	}
+
+	// KO
+	if s.intro >= -1 && (ko[0] || ko[1]) {
+		if ko[0] && ko[1] {
+			s.finishType = FT_DKO
+			s.winTeam = -1
+		} else {
+			s.finishType = FT_KO
+			s.winTeam = int(Btoi(ko[0]))
+		}
+	}
+
+	// Update win triggers if finish type was changed
+	if ft != s.finishType {
+		for i, p := range s.chars {
+			if len(p) > 0 && ko[^i&1] {
+				for _, h := range p {
+					for _, tid := range h.targets {
+						if t := s.playerID(tid); t != nil {
+							if t.ghv.attr&int32(AT_AH) != 0 {
+								s.winTrigger[i&1] = WT_Hyper
+							} else if t.ghv.attr&int32(AT_AS) != 0 && s.winTrigger[i&1] == WT_Normal {
+								s.winTrigger[i&1] = WT_Special
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return ko[0] || ko[1] || s.time == 0
 }
 
 func (s *System) draw(x, y, scl float32) {

@@ -2231,6 +2231,7 @@ func (s *System) fight() (reload bool) {
 	// Reset variables
 	s.gameTime, s.paused, s.accel = 0, false, 1
 	s.aiInput = [len(s.aiInput)]AiInput{}
+	s.saveState = NewGameState()
 
 	// Disable debug during netplay (but not during replays)
 	if !s.debugModeAllowed() {
@@ -2262,10 +2263,6 @@ func (s *System) fight() (reload bool) {
 		defer s.netConnection.Stop()
 	}
 
-	// Struct to save char values at start of the round
-	// Rolback branch makes a similar backup in System instead of letting it be local. Maybe we'll need the same
-	var roundBackup RoundStartBackup
-
 	// Init wins counter
 	s.wincnt.init()
 
@@ -2276,6 +2273,9 @@ func (s *System) fight() (reload bool) {
 
 	// Setup characters
 	s.SetupCharRoundStart(autolvmul, autolevels)
+
+	// Struct to save char and stage values at the start of a round
+	var roundBackup RoundStartBackup
 
 	// Make a new backup once everything is initialized
 	roundBackup.Save()

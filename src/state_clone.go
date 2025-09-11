@@ -393,15 +393,29 @@ func (cl *CommandList) Clone(a *arena.Arena) (result CommandList) {
 func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	result = *l
 
+	// Round
 	if l.ro != nil {
-		result.ro = arena.New[LifeBarRound](a)
+		result.ro = &LifeBarRound{} // Shallow copy
 		*result.ro = *l.ro
+		// Round Transition
+		// This needs a deep copy because it's a pointer inside LifebarRound and we need the timers
+		// When round transitions are expanded this can be revisited
 		if l.ro.rt != nil {
 			result.ro.rt = arena.New[LifeBarRoundTransition](a)
 			*result.ro.rt = *l.ro.rt
 		}
 	}
 
+	// Combo
+	for i := 0; i < len(l.co); i++ {
+		if l.co[i] != nil {
+			result.co[i] = arena.New[LifeBarCombo](a)
+			*result.co[i] = *l.co[i]
+		}
+	}
+
+	// We probably don't need a deep copy of these
+	/*
 	//UIT
 	for i := 0; i < len(l.sc); i++ {
 		if l.sc[i] != nil {
@@ -412,12 +426,6 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	if l.ti != nil {
 		result.ti = arena.New[LifeBarTime](a)
 		*result.ti = *l.ti
-	}
-	for i := 0; i < len(l.co); i++ {
-		if l.co[i] != nil {
-			result.co[i] = arena.New[LifeBarCombo](a)
-			*result.co[i] = *l.co[i]
-		}
 	}
 	//
 
@@ -443,11 +451,13 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	}
 	//
 
+	// Order
 	for i := range result.order {
 		result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
 		copy(result.order[i], l.order[i])
 	}
 
+	// HealthBar
 	for i := range result.hb {
 		result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
 		for j := 0; j < len(l.hb[i]); j++ {
@@ -456,6 +466,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// PowerBar
 	for i := range result.pb {
 		result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
 		for j := 0; j < len(l.pb[i]); j++ {
@@ -464,6 +475,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// GuardBar
 	for i := range result.gb {
 		result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
 		for j := 0; j < len(l.gb[i]); j++ {
@@ -472,6 +484,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// StunBar
 	for i := range result.sb {
 		result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
 		for j := 0; j < len(l.sb[i]); j++ {
@@ -480,6 +493,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// Face
 	for i := range result.fa {
 		result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
 		for j := 0; j < len(l.fa[i]); j++ {
@@ -488,6 +502,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// Name
 	for i := range result.nm {
 		result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
 		for j := 0; j < len(l.nm[i]); j++ {
@@ -495,8 +510,9 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 			*result.nm[i][j] = *l.nm[i][j]
 		}
 	}
+	*/
 
-	// LifeBarAction
+	// Action
 	for i := range result.ac {
 		if l.ac[i] != nil {
 			result.ac[i] = arena.New[LifeBarAction](a)
@@ -519,7 +535,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 func (bg *backGround) Clone(a *arena.Arena, gsp *GameStatePool) (result *backGround) {
 	result = &backGround{}
 	*result = *bg
-	result.anim = *bg.anim.Clone(a, gsp)
+	result.anim = bg.anim
 	return
 }
 

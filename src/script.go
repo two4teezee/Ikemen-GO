@@ -985,7 +985,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findEntityByPlayerId", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -1050,7 +1050,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findEntityByName", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -1119,7 +1119,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "findHelperById", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 
@@ -2374,7 +2374,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setAccel", func(*lua.LState) int {
-		sys.accel = float32(numArg(l, 1))
+		sys.debugAccel = float32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setAILevel", func(*lua.LState) int {
@@ -2715,7 +2715,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setGameSpeed", func(*lua.LState) int {
-		sys.cfg.Options.GameSpeed = float32(numArg(l, 1))
+		sys.cfg.Options.GameSpeed = int(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setRoundTime", func(l *lua.LState) int {
@@ -2948,7 +2948,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleClsnDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {
@@ -2967,7 +2967,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleDebugDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {
@@ -3104,7 +3104,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "toggleWireframeDisplay", func(*lua.LState) int {
-		if !sys.cfg.Debug.AllowDebugMode {
+		if !sys.debugModeAllowed() {
 			return 0
 		}
 		if !nilArg(l, 1) {
@@ -5270,7 +5270,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "tickspersecond", func(*lua.LState) int {
-		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed*5) * sys.accel))
+		l.Push(lua.LNumber(sys.gameLogicSpeed()))
 		return 1
 	})
 	luaRegister(l, "time", func(*lua.LState) int {
@@ -5459,7 +5459,7 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "debugmode", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "accel":
-			l.Push(lua.LNumber(sys.accel))
+			l.Push(lua.LNumber(sys.debugAccel))
 		case "clsndisplay":
 			l.Push(lua.LBool(sys.clsnDisplay))
 		case "debugdisplay":
@@ -6084,7 +6084,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "gamespeed", func(*lua.LState) int {
-		l.Push(lua.LNumber((60 + sys.cfg.Options.GameSpeed*5) / float32(sys.cfg.Config.Framerate) * sys.accel * 100))
+		l.Push(lua.LNumber(100 * float32(sys.gameLogicSpeed()) / float32(sys.gameRenderSpeed())))
 		return 1
 	})
 	luaRegister(l, "lasthitter", func(*lua.LState) int {

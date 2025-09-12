@@ -106,6 +106,7 @@ type GameState struct {
 	randseed       int32
 	Time           int32
 	GameTime       int32
+
 	projs          [MaxPlayerNo][]Projectile
 	chars          [MaxPlayerNo][]*Char
 	charData       [MaxPlayerNo][]Char
@@ -134,7 +135,6 @@ type GameState struct {
 	superplayerno      int
 	superdarken        bool
 	superanim          *Animation
-	superanimRef       *Animation
 	superpmap          PalFX
 	superpos           [2]float32
 	superscale         [2]float32
@@ -201,20 +201,18 @@ type GameState struct {
 	finishType              FinishType // UIT
 	waitdown                int32
 	slowtime                int32
-	shuttertime             int32
-	fadeintime              int32
-	fadeouttime             int32
+
 	changeStateNest         int32
-	//accel                   float32
-	//clsnDisplay             bool
-	//debugDisplay            bool
 	workpal        []uint32
 	nomusic        bool
 	keyConfig      []KeyConfig
 	joystickConfig []KeyConfig
 	lifebar        Lifebar
-	redrawWait     struct{ nextTime, lastDraw time.Time }
 	cgi            [MaxPlayerNo]CharGlobalInfo
+
+	//accel                   float32
+	//clsnDisplay             bool
+	//debugDisplay            bool
 
 	// New 11/04/2022 all UIT
 	timerStart      int32
@@ -270,6 +268,7 @@ type GameState struct {
 	brightnessOld int32
 	wintime       int32
 
+	// Rollback
 	netTime int32
 }
 

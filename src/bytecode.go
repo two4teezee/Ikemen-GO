@@ -2607,7 +2607,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_ishometeam:
 		sys.bcStack.PushB(c.teamside == sys.home)
 	case OC_ex_tickspersecond:
-		sys.bcStack.PushI(int32((60 + sys.cfg.Options.GameSpeed*5) * sys.accel))
+		sys.bcStack.PushI(sys.gameLogicSpeed())
 	case OC_ex_const240p:
 		*sys.bcStack.Top() = c.constp(320, sys.bcStack.Top().ToF())
 	case OC_ex_const480p:
@@ -3406,7 +3406,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
 	case OC_ex2_debugmode_accel:
-		sys.bcStack.PushF(sys.accel)
+		sys.bcStack.PushF(sys.debugAccel)
 	case OC_ex2_debugmode_clsndisplay:
 		sys.bcStack.PushB(sys.clsnDisplay)
 	case OC_ex2_debugmode_debugdisplay:

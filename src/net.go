@@ -87,6 +87,7 @@ type RollbackSession struct {
 	replayBuffer        [][MaxPlayerNo]InputBits
 	lastConfirmedInput  [MaxPlayerNo]InputBits
 	inputBits           []InputBits
+	inRollback          bool
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
@@ -256,11 +257,17 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 // Called when the GGPO backend needs the game to simulate a single frame
 // This can happen multiple times per displayed frame during a rollback
 func (r *RollbackSession) AdvanceFrame(flags int) {
-	var disconnectFlags int
+	// This flag allows the game logic to re-run while knowing it's in a rollback
+	// Will be useful later
+	r.inRollback = true
+	defer func() {
+		r.inRollback = false
+	}()
 
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
 	// Get the confirmed inputs from the GGPO backend for the frame being simulated
+	var disconnectFlags int
 	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
 	sys.rollback.ggpoInputs = decodeInputs(inputs)
 
@@ -284,7 +291,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		//	}
 		//}()
 
-		err := r.backend.AdvanceFrame(r.LiveChecksum(&sys))
+		err := r.backend.AdvanceFrame(r.LiveChecksum())
 		if err != nil {
 			panic(err)
 		}
@@ -356,7 +363,9 @@ func encodeInputs(inputs InputBits) []byte {
 type CharChecksum struct {
 	life    int32
 	redLife int32
-	juggle  int32
+	dizzyPoints int32
+	guardPoints int32
+	power       int32
 	animNo  int32
 	pos     [3]float32
 }
@@ -365,7 +374,9 @@ func (cc *CharChecksum) ToBytes() []byte {
 	buf := make([]byte, 0, unsafe.Sizeof(*cc))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.life))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.redLife))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.juggle))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.dizzyPoints))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.guardPoints))
+	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.power))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.animNo))
 	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0]))
 	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
@@ -377,23 +388,25 @@ func (c *Char) LiveChecksum() []byte {
 	cc := CharChecksum{
 		life:    c.life,
 		redLife: c.redLife,
-		juggle:  c.juggle,
+		dizzyPoints: c.dizzyPoints,
+		guardPoints: c.guardPoints,
+		power:       c.power,
 		animNo:  c.animNo,
 		pos:     c.pos,
 	}
 	return cc.ToBytes()
 }
 
-func (rs *RollbackSession) LiveChecksum(s *System) uint32 {
+func (rs *RollbackSession) LiveChecksum() uint32 {
 	// This (the full checksum) is unstable in live gameplay, do not use. Looking for replacements.
 	// if rs.config.LogsEnabled {
 	// 	return uint32(rs.saveStates[sys.rollbackStateID].Checksum())
 	// }
-	buf := writeI32(s.randseed)
-	buf = append(buf, writeI32(s.gameTime)...)
-	for i := 0; i < len(s.chars); i++ {
-		if len(s.chars[i]) > 0 {
-			buf = append(buf, s.chars[i][0].LiveChecksum()...)
+	buf := writeI32(sys.randseed)
+	buf = append(buf, writeI32(sys.gameTime)...)
+	for i := range sys.chars {
+		if len(sys.chars[i]) > 0 {
+			buf = append(buf, sys.chars[i][0].LiveChecksum()...)
 		}
 	}
 	return crc32.ChecksumIEEE(buf)

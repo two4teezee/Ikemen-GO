@@ -393,15 +393,29 @@ func (cl *CommandList) Clone(a *arena.Arena) (result CommandList) {
 func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	result = *l
 
+	// Round
 	if l.ro != nil {
-		result.ro = arena.New[LifeBarRound](a)
+		result.ro = &LifeBarRound{} // Shallow copy
 		*result.ro = *l.ro
+		// Round Transition
+		// This needs a deep copy because it's a pointer inside LifebarRound and we need the timers
+		// When round transitions are expanded this can be revisited
 		if l.ro.rt != nil {
 			result.ro.rt = arena.New[LifeBarRoundTransition](a)
 			*result.ro.rt = *l.ro.rt
 		}
 	}
 
+	// Combo
+	for i := 0; i < len(l.co); i++ {
+		if l.co[i] != nil {
+			result.co[i] = arena.New[LifeBarCombo](a)
+			*result.co[i] = *l.co[i]
+		}
+	}
+
+	// We probably don't need a deep copy of these
+	/*
 	//UIT
 	for i := 0; i < len(l.sc); i++ {
 		if l.sc[i] != nil {
@@ -413,15 +427,9 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		result.ti = arena.New[LifeBarTime](a)
 		*result.ti = *l.ti
 	}
-	for i := 0; i < len(l.co); i++ {
-		if l.co[i] != nil {
-			result.co[i] = arena.New[LifeBarCombo](a)
-			*result.co[i] = *l.co[i]
-		}
-	}
 	//
 
-	// Not UIT adding amyway
+	// Not UIT adding anyway
 	for i := 0; i < len(l.wc); i++ {
 		result.wc[i] = arena.New[LifeBarWinCount](a)
 		*result.wc[i] = *l.wc[i]
@@ -443,11 +451,13 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	}
 	//
 
+	// Order
 	for i := range result.order {
 		result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
 		copy(result.order[i], l.order[i])
 	}
 
+	// HealthBar
 	for i := range result.hb {
 		result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
 		for j := 0; j < len(l.hb[i]); j++ {
@@ -456,6 +466,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// PowerBar
 	for i := range result.pb {
 		result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
 		for j := 0; j < len(l.pb[i]); j++ {
@@ -464,6 +475,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// GuardBar
 	for i := range result.gb {
 		result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
 		for j := 0; j < len(l.gb[i]); j++ {
@@ -472,6 +484,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// StunBar
 	for i := range result.sb {
 		result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
 		for j := 0; j < len(l.sb[i]); j++ {
@@ -480,6 +493,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// Face
 	for i := range result.fa {
 		result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
 		for j := 0; j < len(l.fa[i]); j++ {
@@ -488,6 +502,7 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// Name
 	for i := range result.nm {
 		result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
 		for j := 0; j < len(l.nm[i]); j++ {
@@ -495,83 +510,75 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 			*result.nm[i][j] = *l.nm[i][j]
 		}
 	}
+	*/
 
-	return
-}
+	// Action
+	for i := range result.ac {
+		if l.ac[i] != nil {
+			result.ac[i] = arena.New[LifeBarAction](a)
 
-func (bg *backGround) Clone(a *arena.Arena, gsp *GameStatePool) (result *backGround) {
-	result = &backGround{}
-	*result = *bg
-	result.anim = *bg.anim.Clone(a, gsp)
-	return
-}
+			*result.ac[i] = *l.ac[i]
 
-func (bgc *bgCtrl) Clone(a *arena.Arena, gsp *GameStatePool) (result bgCtrl) {
-	result = bgCtrl{}
-	result = *bgc
-	result.bg = arena.MakeSlice[*backGround](a, len(bgc.bg), len(bgc.bg))
-	for i := 0; i < len(bgc.bg); i++ {
-		result.bg[i] = bgc.bg[i].Clone(a, gsp)
+			if l.ac[i].messages != nil {
+				result.ac[i].messages = arena.MakeSlice[*LbMsg](a, len(l.ac[i].messages), len(l.ac[i].messages))
+				for j := 0; j < len(l.ac[i].messages); j++ {
+					result.ac[i].messages[j] = arena.New[LbMsg](a)
+					*result.ac[i].messages[j] = *l.ac[i].messages[j]
+				}
+			}
+		}
 	}
+
 	return
 }
 
-func (bgctn bgctNode) Clone(a *arena.Arena, gsp *GameStatePool) (result bgctNode) {
-	result = bgctNode{}
-	result = bgctn
-	result.bgc = arena.MakeSlice[*bgCtrl](a, len(bgctn.bgc), len(bgctn.bgc))
-	for i := 0; i < len(bgctn.bgc); i++ {
-		bgc := bgctn.bgc[i].Clone(a, gsp)
-		result.bgc[i] = &bgc
-	}
-	return
-}
-
-func (bgct *bgcTimeLine) Clone(a *arena.Arena, gsp *GameStatePool) (result bgcTimeLine) {
-	result = bgcTimeLine{}
-	result = *bgct
-	result.line = arena.MakeSlice[bgctNode](a, len(bgct.line), len(bgct.line))
-	for i := 0; i < len(bgct.line); i++ {
-		result.line[i] = bgct.line[i].Clone(a, gsp)
-	}
-	result.al = arena.MakeSlice[*bgCtrl](a, len(bgct.al), len(bgct.al))
-	for i := 0; i < len(bgct.al); i++ {
-		bgCtrl := bgct.al[i].Clone(a, gsp)
-		result.al[i] = &bgCtrl
-	}
-	return
-}
-
-func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) (result *Stage) {
-	result = &Stage{}
+func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
+	result := &Stage{}
 	*result = *s
 
+	// Clone attached char def
 	result.attachedchardef = arena.MakeSlice[string](a, len(s.attachedchardef), len(s.attachedchardef))
 	copy(result.attachedchardef, s.attachedchardef)
 
-	result.constants = make(map[string]float32)
+	// Clone constants
+	result.constants = make(map[string]float32, len(s.constants))
 	for k, v := range s.constants {
 		result.constants[k] = v
 	}
 
+	// Clone animation table
 	result.at = *gsp.Get(s.at).(*AnimationTable)
 	maps.Clear(result.at)
 	for k, v := range s.at {
 		result.at[k] = v.Clone(a, gsp)
 	}
 
+	// Clone backgrounds and rebuild mapping
+	bgMap := make(map[*backGround]*backGround, len(s.bg))
 	result.bg = arena.MakeSlice[*backGround](a, len(s.bg), len(s.bg))
-	for i := 0; i < len(s.bg); i++ {
-		result.bg[i] = s.bg[i].Clone(a, gsp)
+	for i, oldbg := range s.bg {
+		newbg := &backGround{}
+		*newbg = *oldbg
+		if oldbg.anim != nil {
+			animCopy := *oldbg.anim
+			newbg.anim = &animCopy
+		}
+		result.bg[i] = newbg
+		bgMap[oldbg] = newbg
 	}
 
+	// Clone bgCtrl and point them to the cloned BG's
 	result.bgc = arena.MakeSlice[bgCtrl](a, len(s.bgc), len(s.bgc))
-	for i := 0; i < len(s.bgc); i++ {
-		result.bgc[i] = s.bgc[i].Clone(a, gsp)
+	for i, oldbgc := range s.bgc {
+		newbgc := oldbgc
+		newbgc.bg = arena.MakeSlice[*backGround](a, len(oldbgc.bg), len(oldbgc.bg))
+		for j, oldbg := range oldbgc.bg {
+			newbgc.bg[j] = bgMap[oldbg]
+		}
+		result.bgc[i] = newbgc
 	}
 
-	result.bgct = s.bgct.Clone(a, gsp)
-	return
+	return result
 }
 
 // other things can be copied, only focusing on OCD right now

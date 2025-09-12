@@ -7977,9 +7977,9 @@ func (c *Char) appendLifebarAction(text string, snd, spr [2]int32, anim, time in
 		teammsg.is[fmt.Sprintf("team%v.front.spr", c.teamside+1)] = fmt.Sprintf("%v,%v", spr[0], spr[1])
 	}
 	// Read background
-	msg.bg = *ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
 	// Read front
-	msg.front = *ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+	msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
 
 	// Insert new message
 	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)
@@ -10141,7 +10141,7 @@ func (c *Char) actionFinish() {
 		}
 	}
 	// Over flags (char is finished for the round)
-	if c.alive() && c.life > 0 && !sys.roundEnd() {
+	if c.alive() && c.life > 0 && !sys.roundEnded() {
 		c.unsetSCF(SCF_over_alive | SCF_over_ko)
 	}
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen

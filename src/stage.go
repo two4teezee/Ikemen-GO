@@ -546,7 +546,6 @@ type bgCtrl struct {
 	bg           []*backGround
 	node         []*Node
 	anim         []*GLTFAnimation
-	currenttime  int32
 	starttime    int32
 	endtime      int32
 	looptime     int32
@@ -697,99 +696,6 @@ func (bgc *bgCtrl) yEnable() bool {
 	return !math.IsNaN(float64(bgc.y))
 }
 
-type bgctNode struct {
-	bgc      []*bgCtrl
-	waitTime int32
-}
-
-type bgcTimeLine struct {
-	line []bgctNode
-	al   []*bgCtrl
-}
-
-func (bgct *bgcTimeLine) clear() {
-	*bgct = bgcTimeLine{}
-}
-
-func (bgct *bgcTimeLine) add(bgc *bgCtrl) {
-	if bgc.looptime >= 0 && bgc.endtime > bgc.looptime {
-		bgc.endtime = bgc.looptime
-	}
-	if bgc.starttime < 0 || bgc.starttime > bgc.endtime ||
-		bgc.looptime >= 0 && bgc.starttime >= bgc.looptime {
-		return
-	}
-	wtime := int32(0)
-	if bgc.currenttime != 0 {
-		if bgc.looptime < 0 {
-			return
-		}
-		wtime += bgc.looptime - bgc.currenttime
-	}
-	wtime += bgc.starttime
-	bgc.currenttime = bgc.starttime
-	if wtime < 0 {
-		bgc.currenttime -= wtime
-		wtime = 0
-	}
-	i := 0
-	for ; ; i++ {
-		if i == len(bgct.line) {
-			bgct.line = append(bgct.line,
-				bgctNode{bgc: []*bgCtrl{bgc}, waitTime: wtime})
-			return
-		}
-		if wtime <= bgct.line[i].waitTime {
-			break
-		}
-		wtime -= bgct.line[i].waitTime
-	}
-	if wtime == bgct.line[i].waitTime {
-		bgct.line[i].bgc = append(bgct.line[i].bgc, bgc)
-	} else {
-		bgct.line[i].waitTime -= wtime
-		bgct.line = append(bgct.line, bgctNode{})
-		copy(bgct.line[i+1:], bgct.line[i:])
-		bgct.line[i] = bgctNode{bgc: []*bgCtrl{bgc}, waitTime: wtime}
-	}
-}
-
-func (bgct *bgcTimeLine) step(s *Stage) {
-	if len(bgct.line) > 0 && bgct.line[0].waitTime <= 0 {
-		for _, b := range bgct.line[0].bgc {
-			for i, a := range bgct.al {
-				if b.idx < a.idx {
-					bgct.al = append(bgct.al, nil)
-					copy(bgct.al[i+1:], bgct.al[i:])
-					bgct.al[i] = b
-					b = nil
-					break
-				}
-			}
-			if b != nil {
-				bgct.al = append(bgct.al, b)
-			}
-		}
-		bgct.line = bgct.line[1:]
-	}
-	if len(bgct.line) > 0 {
-		bgct.line[0].waitTime--
-	}
-	var el []*bgCtrl
-	for i := 0; i < len(bgct.al); {
-		s.runBgCtrl(bgct.al[i])
-		if bgct.al[i].currenttime > bgct.al[i].endtime {
-			el = append(el, bgct.al[i])
-			bgct.al = append(bgct.al[:i], bgct.al[i+1:]...)
-			continue
-		}
-		i++
-	}
-	for _, b := range el {
-		bgct.add(b)
-	}
-}
-
 type stageShadow struct {
 	intensity  int32
 	color      uint32
@@ -822,7 +728,6 @@ type Stage struct {
 	at                AnimationTable
 	bg                []*backGround
 	bgc               []bgCtrl
-	bgct              bgcTimeLine
 	bga               bgAction
 	sdw               stageShadow
 	p                 [MaxPlayerNo]stagePlayer
@@ -1612,8 +1517,37 @@ func (s *Stage) get3DAnim(id uint32) (anims []*GLTFAnimation) {
 	return
 }
 
+// This essentially replaces the old timeline struct
+func (s *Stage) bgCtrlAction() {
+	for i := range s.bgc {
+		bgc := &s.bgc[i]
+		if bgc.starttime < 0 || (bgc.looptime >= 0 && bgc.starttime >= bgc.looptime) {
+			continue
+		}
+
+		if bgc.looptime > 0 && bgc.endtime > bgc.looptime {
+			bgc.endtime = bgc.looptime
+		}
+
+		active := false
+		if s.stageTime >= bgc.starttime {
+			if bgc.looptime > 0 {
+				duration := bgc.endtime - bgc.starttime
+				if (s.stageTime-bgc.starttime)%bgc.looptime <= duration {
+					active = true
+				}
+			} else if s.stageTime <= bgc.endtime {
+				active = true
+			}
+		}
+
+		if active {
+			s.runBgCtrl(bgc)
+		}
+	}
+}
+
 func (s *Stage) runBgCtrl(bgc *bgCtrl) {
-	bgc.currenttime++
 	switch bgc._type {
 	case BT_Anim:
 		if a := s.at.get(bgc.v[0]); a != nil {
@@ -1771,16 +1705,18 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
+
 	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) &&
 		(sys.pausetime <= 0 || !sys.pausebg) {
 		paused = false
 		s.stageTime++
-		s.bgct.step(s)
+		s.bgCtrlAction()
 		s.bga.action()
 		if s.model != nil {
 			s.model.step(sys.turbo)
 		}
 	}
+
 	for i, b := range s.bg {
 		b.palfx.step()
 		if sys.bgPalFX.enable {
@@ -1824,6 +1760,7 @@ func (s *Stage) action() {
 			s.bg[i].anim.Action()
 		}
 	}
+
 	if s.model != nil {
 		s.model.pfx.step()
 		if sys.bgPalFX.enable {
@@ -1896,22 +1833,16 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 }
 
 func (s *Stage) reset() {
+	s.stageTime = 0
 	s.sff.palList.ResetRemap()
 	s.bga.clear()
 	for i := range s.bg {
 		s.bg[i].reset()
 	}
-	for i := range s.bgc {
-		s.bgc[i].currenttime = 0
-	}
-	s.bgct.clear()
-	for i := len(s.bgc) - 1; i >= 0; i-- {
-		s.bgct.add(&s.bgc[i])
-	}
-	s.stageTime = 0
 	if s.model != nil {
 		s.model.reset()
 	}
+	// No need to reset BGCtrl at the moment. Tied to stagetime
 }
 
 func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]int32,

@@ -87,6 +87,7 @@ type RollbackSession struct {
 	replayBuffer        [][MaxPlayerNo]InputBits
 	lastConfirmedInput  [MaxPlayerNo]InputBits
 	inputBits           []InputBits
+	inRollback          bool
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits) {
@@ -256,11 +257,17 @@ func (r *RollbackSession) LoadGameState(stateID int) {
 // Called when the GGPO backend needs the game to simulate a single frame
 // This can happen multiple times per displayed frame during a rollback
 func (r *RollbackSession) AdvanceFrame(flags int) {
-	var disconnectFlags int
+	// This flag allows the game logic to re-run while knowing it's in a rollback
+	// Will be useful later
+	r.inRollback = true
+	defer func() {
+		r.inRollback = false
+	}()
 
 	// Make sure we fetch the inputs from GGPO and use these to update
 	// the game state instead of reading from the keyboard.
 	// Get the confirmed inputs from the GGPO backend for the frame being simulated
+	var disconnectFlags int
 	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
 	sys.rollback.ggpoInputs = decodeInputs(inputs)
 

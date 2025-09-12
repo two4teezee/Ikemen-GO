@@ -416,100 +416,100 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 
 	// We probably don't need a deep copy of these
 	/*
-	//UIT
-	for i := 0; i < len(l.sc); i++ {
-		if l.sc[i] != nil {
-			result.sc[i] = arena.New[LifeBarScore](a)
-			*result.sc[i] = *l.sc[i]
+		//UIT
+		for i := 0; i < len(l.sc); i++ {
+			if l.sc[i] != nil {
+				result.sc[i] = arena.New[LifeBarScore](a)
+				*result.sc[i] = *l.sc[i]
+			}
 		}
-	}
-	if l.ti != nil {
-		result.ti = arena.New[LifeBarTime](a)
-		*result.ti = *l.ti
-	}
-	//
-
-	// Not UIT adding anyway
-	for i := 0; i < len(l.wc); i++ {
-		result.wc[i] = arena.New[LifeBarWinCount](a)
-		*result.wc[i] = *l.wc[i]
-	}
-
-	if l.ma != nil {
-		result.ma = arena.New[LifeBarMatch](a)
-		*result.ma = *l.ma
-	}
-
-	for i := 0; i < len(l.ai); i++ {
-		result.ai[i] = arena.New[LifeBarAiLevel](a)
-		*result.ai[i] = *l.ai[i]
-	}
-
-	if l.tr != nil {
-		result.tr = arena.New[LifeBarTimer](a)
-		*result.tr = *l.tr
-	}
-	//
-
-	// Order
-	for i := range result.order {
-		result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
-		copy(result.order[i], l.order[i])
-	}
-
-	// HealthBar
-	for i := range result.hb {
-		result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
-		for j := 0; j < len(l.hb[i]); j++ {
-			result.hb[i][j] = arena.New[HealthBar](a)
-			*result.hb[i][j] = *l.hb[i][j]
+		if l.ti != nil {
+			result.ti = arena.New[LifeBarTime](a)
+			*result.ti = *l.ti
 		}
-	}
+		//
 
-	// PowerBar
-	for i := range result.pb {
-		result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
-		for j := 0; j < len(l.pb[i]); j++ {
-			result.pb[i][j] = arena.New[PowerBar](a)
-			*result.pb[i][j] = *l.pb[i][j]
+		// Not UIT adding anyway
+		for i := 0; i < len(l.wc); i++ {
+			result.wc[i] = arena.New[LifeBarWinCount](a)
+			*result.wc[i] = *l.wc[i]
 		}
-	}
 
-	// GuardBar
-	for i := range result.gb {
-		result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
-		for j := 0; j < len(l.gb[i]); j++ {
-			result.gb[i][j] = arena.New[GuardBar](a)
-			*result.gb[i][j] = *l.gb[i][j]
+		if l.ma != nil {
+			result.ma = arena.New[LifeBarMatch](a)
+			*result.ma = *l.ma
 		}
-	}
 
-	// StunBar
-	for i := range result.sb {
-		result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
-		for j := 0; j < len(l.sb[i]); j++ {
-			result.sb[i][j] = arena.New[StunBar](a)
-			*result.sb[i][j] = *l.sb[i][j]
+		for i := 0; i < len(l.ai); i++ {
+			result.ai[i] = arena.New[LifeBarAiLevel](a)
+			*result.ai[i] = *l.ai[i]
 		}
-	}
 
-	// Face
-	for i := range result.fa {
-		result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
-		for j := 0; j < len(l.fa[i]); j++ {
-			result.fa[i][j] = arena.New[LifeBarFace](a)
-			*result.fa[i][j] = *l.fa[i][j]
+		if l.tr != nil {
+			result.tr = arena.New[LifeBarTimer](a)
+			*result.tr = *l.tr
 		}
-	}
+		//
 
-	// Name
-	for i := range result.nm {
-		result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
-		for j := 0; j < len(l.nm[i]); j++ {
-			result.nm[i][j] = arena.New[LifeBarName](a)
-			*result.nm[i][j] = *l.nm[i][j]
+		// Order
+		for i := range result.order {
+			result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
+			copy(result.order[i], l.order[i])
 		}
-	}
+
+		// HealthBar
+		for i := range result.hb {
+			result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
+			for j := 0; j < len(l.hb[i]); j++ {
+				result.hb[i][j] = arena.New[HealthBar](a)
+				*result.hb[i][j] = *l.hb[i][j]
+			}
+		}
+
+		// PowerBar
+		for i := range result.pb {
+			result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
+			for j := 0; j < len(l.pb[i]); j++ {
+				result.pb[i][j] = arena.New[PowerBar](a)
+				*result.pb[i][j] = *l.pb[i][j]
+			}
+		}
+
+		// GuardBar
+		for i := range result.gb {
+			result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
+			for j := 0; j < len(l.gb[i]); j++ {
+				result.gb[i][j] = arena.New[GuardBar](a)
+				*result.gb[i][j] = *l.gb[i][j]
+			}
+		}
+
+		// StunBar
+		for i := range result.sb {
+			result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
+			for j := 0; j < len(l.sb[i]); j++ {
+				result.sb[i][j] = arena.New[StunBar](a)
+				*result.sb[i][j] = *l.sb[i][j]
+			}
+		}
+
+		// Face
+		for i := range result.fa {
+			result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
+			for j := 0; j < len(l.fa[i]); j++ {
+				result.fa[i][j] = arena.New[LifeBarFace](a)
+				*result.fa[i][j] = *l.fa[i][j]
+			}
+		}
+
+		// Name
+		for i := range result.nm {
+			result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
+			for j := 0; j < len(l.nm[i]); j++ {
+				result.nm[i][j] = arena.New[LifeBarName](a)
+				*result.nm[i][j] = *l.nm[i][j]
+			}
+		}
 	*/
 
 	// Action

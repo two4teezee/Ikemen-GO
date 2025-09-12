@@ -110,23 +110,23 @@ func (rs *RollbackSystem) fight(s *System) bool {
 	// These empty frames help the netcode stabilize. Without them, the chances of it desyncing at match start increase a lot
 	// Update: Might not be necessary after syncTest fix
 	/*
-	for i := 0; i < 120; i++ {
-		err := rs.session.backend.Idle(
-			int(math.Max(0, float64(120))))
-		fmt.Printf("difference: %d\n", rs.session.next-rs.session.now-1)
-		if err != nil {
-			panic(err)
+		for i := 0; i < 120; i++ {
+			err := rs.session.backend.Idle(
+				int(math.Max(0, float64(120))))
+			fmt.Printf("difference: %d\n", rs.session.next-rs.session.now-1)
+			if err != nil {
+				panic(err)
+			}
+
+			s.renderFrame() // Do we need to render at this point? Is there anything to render?
+
+			//rs.session.loopTimer.usToWaitThisLoop()
+			running = s.update()
+
+			if !running {
+				break
+			}
 		}
-
-		s.renderFrame() // Do we need to render at this point? Is there anything to render?
-
-		//rs.session.loopTimer.usToWaitThisLoop()
-		running = s.update()
-
-		if !running {
-			break
-		}
-	}
 	*/
 
 	// Loop until end of match

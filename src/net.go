@@ -361,13 +361,13 @@ func encodeInputs(inputs InputBits) []byte {
 }
 
 type CharChecksum struct {
-	life    int32
-	redLife int32
+	life        int32
+	redLife     int32
 	dizzyPoints int32
 	guardPoints int32
 	power       int32
-	animNo  int32
-	pos     [3]float32
+	animNo      int32
+	pos         [3]float32
 }
 
 func (cc *CharChecksum) ToBytes() []byte {
@@ -386,13 +386,13 @@ func (cc *CharChecksum) ToBytes() []byte {
 
 func (c *Char) LiveChecksum() []byte {
 	cc := CharChecksum{
-		life:    c.life,
-		redLife: c.redLife,
+		life:        c.life,
+		redLife:     c.redLife,
 		dizzyPoints: c.dizzyPoints,
 		guardPoints: c.guardPoints,
 		power:       c.power,
-		animNo:  c.animNo,
-		pos:     c.pos,
+		animNo:      c.animNo,
+		pos:         c.pos,
 	}
 	return cc.ToBytes()
 }

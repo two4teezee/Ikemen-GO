@@ -1791,7 +1791,7 @@ func newLifeBarName() *LifeBarName {
 	return &LifeBarName{}
 }
 
-func readLifeBarName(pre string, is IniSection,	sff *Sff, at AnimationTable, f []*Fnt) *LifeBarName {
+func readLifeBarName(pre string, is IniSection, sff *Sff, at AnimationTable, f []*Fnt) *LifeBarName {
 	nm := newLifeBarName()
 
 	is.ReadI32(pre+"pos", &nm.pos[0], &nm.pos[1])

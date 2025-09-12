@@ -99,13 +99,13 @@ func (gs *GameState) String() (str string) {
 const MaxSaveStates = 8
 
 type GameState struct {
-	bytes          []byte
-	id             int
-	saved          bool
-	frame          int32
-	randseed       int32
-	Time           int32
-	GameTime       int32
+	bytes    []byte
+	id       int
+	saved    bool
+	frame    int32
+	randseed int32
+	Time     int32
+	GameTime int32
 
 	projs          [MaxPlayerNo][]Projectile
 	chars          [MaxPlayerNo][]*Char
@@ -202,13 +202,13 @@ type GameState struct {
 	waitdown                int32
 	slowtime                int32
 
-	changeStateNest         int32
-	workpal        []uint32
-	nomusic        bool
-	keyConfig      []KeyConfig
-	joystickConfig []KeyConfig
-	lifebar        Lifebar
-	cgi            [MaxPlayerNo]CharGlobalInfo
+	changeStateNest int32
+	workpal         []uint32
+	nomusic         bool
+	keyConfig       []KeyConfig
+	joystickConfig  []KeyConfig
+	lifebar         Lifebar
+	cgi             [MaxPlayerNo]CharGlobalInfo
 
 	//accel                   float32
 	//clsnDisplay             bool

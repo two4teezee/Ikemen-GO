@@ -162,6 +162,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_autoguard)))
 			case "drawunder":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_drawunder)))
+			case "noaibuttonjam":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noaibuttonjam)))
 			case "noaicheat":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noaicheat)))
 			case "noailevel":

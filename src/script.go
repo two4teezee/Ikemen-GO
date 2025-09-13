@@ -837,7 +837,8 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, cl)
 		}
-		if cl.InputUpdate(int(numArg(l, 2))-1, false, 0, 0, nil, true) {
+		controller := int(numArg(l, 2)) - 1
+		if cl.InputUpdate(nil, controller, 0, true) {
 			cl.Step(false, false, false, false, 0)
 		}
 		return 0
@@ -5683,6 +5684,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_autoguard)))
 		case "drawunder":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_drawunder)))
+		case "noaibuttonjam":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_noaibuttonjam)))
 		case "noaicheat":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_noaicheat)))
 		case "noailevel":

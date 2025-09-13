@@ -4468,6 +4468,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_autoguard))
 		case "drawunder":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_drawunder))
+		case "noaibuttonjam":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noaibuttonjam))
 		case "noaicheat":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noaicheat))
 		case "noailevel":

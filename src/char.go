@@ -67,6 +67,7 @@ const (
 	ASF_animfreeze
 	ASF_autoguard
 	ASF_drawunder
+	ASF_noaibuttonjam
 	ASF_noaicheat
 	ASF_noailevel
 	ASF_noairjump
@@ -4309,6 +4310,9 @@ func (c *Char) command(pn, i int) bool {
 				return true
 			}
 		}
+		// Our AI cheating is more efficient but it's not accurate to Mugen
+		// In Mugen, essentially command trigger returns true on average once every 10 seconds for difficulty 8,
+		// and once every 30 seconds for difficulty 1. Other difficulties are probably linearly interpolated
 	}
 
 	return false
@@ -11010,7 +11014,7 @@ func (cl *CharList) commandUpdate() {
 				c.updateFBFlip()
 
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c.controller, c.fbFlip, sys.aiLevel[i], c.inputFlag, c.inputShift, false) {
+					c.cmd[0].InputUpdate(c, c.controller, sys.aiLevel[i], false) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {

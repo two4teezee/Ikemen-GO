@@ -399,10 +399,12 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	stgscl [2]float32, shakeY float32, isStage bool) {
 
 	// Handle parallax scaling (type = 2)
+	scalestartX := bg.scalestart[0]
 	if bg._type == BG_Parallax && (bg.width[0] != 0 || bg.width[1] != 0) && bg.anim.spr != nil {
 		bg.xscale[0] = float32(bg.width[0]) / float32(bg.anim.spr.Size[0])
 		bg.xscale[1] = float32(bg.width[1]) / float32(bg.anim.spr.Size[0])
-		bg.xofs = -float32(bg.width[0])/2 + float32(bg.anim.spr.Offset[0])*bg.xscale[0]
+		scalestartX = AbsF(scalestartX)
+		bg.xofs = scalestartX * ((-float32(bg.width[0]) / 2) + float32(bg.anim.spr.Offset[0])*bg.xscale[0])
 	}
 
 	// Calculate raster x ratio and base x scale
@@ -535,8 +537,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Render background if it's within the screen area
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
 		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
-			bg.xscale[0]*bgscl*(bg.scalestart[0]+xs)*xs3,
-			xbs*bgscl*(bg.scalestart[0]+xs)*xs3,
+			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
+			xbs*bgscl*(scalestartX+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
 			bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}

@@ -596,6 +596,8 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 				ht = 1
 			case "projectile":
 				ht = 2
+			case "proj":
+				ht = 2
 			default:
 				return Error("Invalid helpertype: " + data)
 			}

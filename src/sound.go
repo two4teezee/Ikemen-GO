@@ -614,23 +614,44 @@ func readSound(f io.ReadSeekCloser, size uint32) (*Sound, error) {
 		return nil, err
 	}
 	// Decode the sound at least once, so that we know the format is OK
-	s, fmt, err := wav.Decode(bytes.NewReader(wavData))
+	s, wavfmt, err := wav.Decode(bytes.NewReader(wavData))
 	if err != nil {
 		return nil, err
 	}
 	// Check if the file can be fully played
-	var samples [512][2]float64
-	for {
-		sn, _ := s.Stream(samples[:])
-		if sn == 0 {
-			// If sound wasn't able to be fully played, we disable it to avoid engine freezing
-			if s.Position() < s.Len() {
-				return nil, nil
+	// デコードテストを実行し、パニックを捕捉する
+	var recovered interface{}
+	func() {
+		defer func() {
+			// この無名関数内で発生したパニックを捕捉
+			if r := recover(); r != nil {
+				recovered = r
 			}
-			break
+		}()
+
+		// ファイルの終端までストリーミングを試みる
+		var samples [512][2]float64
+		for {
+			n, ok := s.Stream(samples[:])
+			if n == 0 || !ok {
+				// 正常に終端に達した場合
+				if s.Err() == nil && s.Position() >= s.Len() {
+					break
+				}
+				// その他のエラー
+				if s.Err() != nil {
+					// recover()で補足できないエラーはここでerrに詰める
+					recovered = s.Err()
+				}
+				break
+			}
 		}
+	}()
+	// パニックが捕捉された場合
+	if recovered != nil {
+		return nil, nil // If sound wasn't able to be fully played, we disable it to avoid engine freezing
 	}
-	return &Sound{wavData, fmt, s.Len()}, nil
+	return &Sound{wavData, wavfmt, s.Len()}, nil
 }
 
 func (s *Sound) GetStreamer() beep.StreamSeeker {

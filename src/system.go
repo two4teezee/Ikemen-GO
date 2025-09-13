@@ -2688,107 +2688,131 @@ func (s *System) IsRollback() bool {
 }
 
 type RoundStartBackup struct {
-	// Char
-	life, lifeMax               [MaxPlayerNo]int32
-	power, powerMax             [MaxPlayerNo]int32
-	guardPoints, guardPointsMax [MaxPlayerNo]int32
-	dizzyPoints, dizzyPointsMax [MaxPlayerNo]int32
-	redLife                     [MaxPlayerNo]int32
-	teamside                    [MaxPlayerNo]int
-	cnsvar                      [MaxPlayerNo]map[int32]int32
-	cnsfvar                     [MaxPlayerNo]map[int32]float32
-	mapArray                    [MaxPlayerNo]map[string]float32
-	dialogue                    [MaxPlayerNo][]string
-	remapSpr                    [MaxPlayerNo]RemapPreset
-	// Fight
+	charBackup    [MaxPlayerNo]Char
+	cgiBackup     [MaxPlayerNo]CharGlobalInfo
+	stageBackup   Stage
 	oldWins       [2]int32
 	oldDraws      int32
 	oldTeamLeader [2]int
-	// Stage
-	stageVars Stage
 }
 
 func (bk *RoundStartBackup) Save() {
-	for i, p := range sys.chars {
-		if len(p) > 0 {
-			bk.life[i] = p[0].life
-			bk.lifeMax[i] = p[0].lifeMax
-			bk.power[i] = p[0].power
-			bk.powerMax[i] = p[0].powerMax
-			bk.guardPoints[i] = p[0].guardPoints
-			bk.guardPointsMax[i] = p[0].guardPointsMax
-			bk.dizzyPoints[i] = p[0].dizzyPoints
-			bk.dizzyPointsMax[i] = p[0].dizzyPointsMax
-			bk.redLife[i] = p[0].redLife
-			bk.teamside[i] = p[0].teamside
+	// Save characters
+	for i, chars := range sys.chars {
+		if len(chars) == 0 {
+			continue
+		}
+		c := chars[0]
 
-			bk.cnsvar[i] = make(map[int32]int32)
-			for k, v := range p[0].cnsvar {
-				bk.cnsvar[i][k] = v
-			}
-			bk.cnsfvar[i] = make(map[int32]float32)
-			for k, v := range p[0].cnsfvar {
-				bk.cnsfvar[i][k] = v
-			}
-			bk.mapArray[i] = make(map[string]float32)
-			for k, v := range p[0].mapArray {
-				bk.mapArray[i][k] = v
-			}
-			bk.dialogue[i] = append([]string{}, p[0].dialogue...)
-			bk.remapSpr[i] = make(RemapPreset)
-			for k, v := range p[0].remapSpr {
-				bk.remapSpr[i][k] = v
-			}
+		// Shallow copy
+		bk.charBackup[i] = *c
+
+		// Deep copy maps
+		bk.charBackup[i].cnsvar = make(map[int32]int32, len(c.cnsvar))
+		for k, v := range c.cnsvar {
+			bk.charBackup[i].cnsvar[k] = v
+		}
+
+		bk.charBackup[i].cnsfvar = make(map[int32]float32, len(c.cnsfvar))
+		for k, v := range c.cnsfvar {
+			bk.charBackup[i].cnsfvar[k] = v
+		}
+
+		bk.charBackup[i].mapArray = make(map[string]float32, len(c.mapArray))
+		for k, v := range c.mapArray {
+			bk.charBackup[i].mapArray[k] = v
+		}
+
+		// Deep copy slices
+		bk.charBackup[i].dialogue = append([]string{}, c.dialogue...)
+		
+		// Deep copy remap preset
+		bk.charBackup[i].remapSpr = make(RemapPreset)
+		for k, v := range c.remapSpr {
+			bk.charBackup[i].remapSpr[k] = v
 		}
 	}
-	bk.oldWins = sys.wins
-	bk.oldDraws = sys.draws
+
+	// CharGlobalInfo backup
+	for i := range sys.cgi {
+		bk.cgiBackup[i] = sys.cgi[i]
+	}
+
+	// Stage backup
+	bk.stageBackup = *sys.stage
+
+	// Deep copy stage maps/slices
+	bk.stageBackup.constants = make(map[string]float32, len(sys.stage.constants))
+	for k, v := range sys.stage.constants {
+		bk.stageBackup.constants[k] = v
+	}
+	bk.stageBackup.attachedchardef = append([]string{}, sys.stage.attachedchardef...) // Do we need this one?
+
+	// Match info
+	bk.oldWins, bk.oldDraws = sys.wins, sys.draws
 	bk.oldTeamLeader = sys.teamLeader
-	bk.stageVars.copyStageVars(sys.stage)
 }
 
 func (bk *RoundStartBackup) Restore() {
-	sys.wins = bk.oldWins
-	sys.draws = bk.oldDraws
-	sys.teamLeader = bk.oldTeamLeader
+	// Restore characters
+	for i, chars := range sys.chars {
+		if len(chars) == 0 {
+			continue
+		}
 
-	for i, p := range sys.chars {
-		if len(p) > 0 {
-			p[0].life = bk.life[i]
-			p[0].lifeMax = bk.lifeMax[i]
-			p[0].power = bk.power[i]
-			p[0].powerMax = bk.powerMax[i]
-			p[0].guardPoints = bk.guardPoints[i]
-			p[0].guardPointsMax = bk.guardPointsMax[i]
-			p[0].dizzyPoints = bk.dizzyPoints[i]
-			p[0].dizzyPointsMax = bk.dizzyPointsMax[i]
-			p[0].redLife = bk.redLife[i]
-			p[0].teamside = bk.teamside[i]
+		// Restore shallow copy
+		*chars[0] = bk.charBackup[i]
 
-			p[0].cnsvar = make(map[int32]int32)
-			for k, v := range bk.cnsvar[i] {
-				p[0].cnsvar[k] = v
-			}
-			p[0].cnsfvar = make(map[int32]float32)
-			for k, v := range bk.cnsfvar[i] {
-				p[0].cnsfvar[k] = v
-			}
-			p[0].cnssysvar = make(map[int32]int32)
-			p[0].cnssysfvar = make(map[int32]float32)
-			p[0].mapArray = make(map[string]float32)
-			for k, v := range bk.mapArray[i] {
-				p[0].mapArray[k] = v
-			}
-			copy(p[0].dialogue[:], bk.dialogue[i])
-			p[0].remapSpr = make(RemapPreset)
-			for k, v := range bk.remapSpr[i] {
-				p[0].remapSpr[k] = v
-			}
+		// Restore CharGlobalInfo shallow copy
+		sys.cgi[i] = bk.cgiBackup[i]
+
+		// Deep copy maps and slices
+		chars[0].cnsvar = make(map[int32]int32, len(bk.charBackup[i].cnsvar))
+		for k, v := range bk.charBackup[i].cnsvar {
+			chars[0].cnsvar[k] = v
+		}
+
+		chars[0].cnsfvar = make(map[int32]float32, len(bk.charBackup[i].cnsfvar))
+		for k, v := range bk.charBackup[i].cnsfvar {
+			chars[0].cnsfvar[k] = v
+		}
+
+		chars[0].mapArray = make(map[string]float32, len(bk.charBackup[i].mapArray))
+		for k, v := range bk.charBackup[i].mapArray {
+			chars[0].mapArray[k] = v
+		}
+
+		chars[0].dialogue = append([]string{}, bk.charBackup[i].dialogue...)
+
+		chars[0].remapSpr = make(RemapPreset)
+		for k, v := range bk.charBackup[i].remapSpr {
+			chars[0].remapSpr[k] = v
 		}
 	}
 
+	// Restore CharGlobalInfo
+	for i := range sys.cgi {
+		sys.cgi[i] = bk.cgiBackup[i]
+	}
+
+	// Restore stage
+	// We preserve the stage time as a cosmetic thing just match Mugen. Might as well restore it to where it was when we use F4
+	// NOTE: If reloading stage time we'd need backups of the BGCtrls as well
 	// NOTE: This save and restore of stage variables makes ModifyStageVar not persist. Maybe that should not be the case?
-	sys.stage.copyStageVars(&bk.stageVars)
+	stageTime := sys.stage.stageTime
+	*sys.stage = bk.stageBackup
+	sys.stage.stageTime = stageTime
+
+	// Restore stage maps/slices
+	sys.stage.constants = make(map[string]float32, len(bk.stageBackup.constants))
+	for k, v := range bk.stageBackup.constants {
+		sys.stage.constants[k] = v
+	}
+	sys.stage.attachedchardef = append([]string{}, bk.stageBackup.attachedchardef...)
+
+	// Restore match info
+	sys.wins, sys.draws = bk.oldWins, bk.oldDraws
+	sys.teamLeader = bk.oldTeamLeader
 }
 
 // Code responsible for updating the 'autolevel.save' file.

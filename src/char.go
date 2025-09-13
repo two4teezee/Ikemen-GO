@@ -1282,6 +1282,10 @@ type Explod struct {
 	supermovetime       int32
 	pausemovetime       int32
 	anim                *Animation
+	animNo              int32
+	anim_ffx            string
+	animPN              int
+	spritePN            int
 	animelem            int32
 	animelemtime        int32
 	animfreeze          bool
@@ -1297,6 +1301,7 @@ type Explod struct {
 	fLength        float32
 	oldPos         [3]float32
 	newPos         [3]float32
+	interPos       [3]float32
 	playerId       int32
 	palfx          *PalFX
 	palfxdef       PalFXDef
@@ -1319,15 +1324,18 @@ type Explod struct {
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
 	interpolate_xshear   [2]float32
-	animNo               int32
-	interPos             [3]float32
-	animPN               int
-	spritePN             int
 }
 
-func (e *Explod) clear() {
+// Set default values according to char who creates the explod
+func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
-		id:                IErr,
+		id:                -1,
+		playerId:          c.id,
+		animPN:            c.playerNo,
+		spritePN:          c.playerNo,
+		layerno:           c.layerNo,
+		palfx:             c.getPalfx(),
+		palfxdef:          *newPalFXDef(),
 		bindtime:          1, // Not documented but confirmed
 		scale:             [2]float32{1, 1},
 		removetime:        -2,
@@ -1336,20 +1344,85 @@ func (e *Explod) clear() {
 		relativef:         1,
 		facing:            1,
 		vfacing:           1,
-		localscl:          1,
+		localscl:          c.localscl,
 		projection:        Projection_Orthographic,
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
 		animelemtime:      0,
-		animPN:            -1,
-		spritePN:          -1,
 		blendmode:         0,
 		alpha:             [...]int32{-1, 0},
-		playerId:          -1,
 		bindId:            -2,
 		ignorehitpause:    true,
 		interpolate_scale: [...]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
+	}
+
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
+		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
+		e.projection = Projection_Perspective
+	}
+
+	return e
+}
+
+func (e *Explod) setStartParams(c *Char, pfd *PalFXDef, rp [2]int32) {
+	// Init animation
+	e.setAnim(e.animNo, e.animPN, e.spritePN, e.anim_ffx)
+	e.setAnimElem()
+
+	// Update local scale according to sprite owner
+	if e.spritePN >= 0 && e.spritePN < len(sys.chars) {
+		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
+	}
+
+	e.start_animelem = e.animelem
+	e.start_fLength = e.fLength
+	e.start_xshear = e.xshear
+
+	for i := 0; i < 3; i++ {
+		if i < 2 {
+			e.start_scale[i] = e.scale[i]
+			e.start_alpha[i] = e.alpha[i]
+		}
+		e.start_rot[i] = e.anglerot[i]
+	}
+
+	if e.interpolate {
+		e.fLength = 0
+		for i := 0; i < 3; i++ {
+			if e.ownpal {
+				pfd.mul[i] = 256
+				pfd.add[i] = 0
+			}
+			if i < 2 {
+				e.scale[i] = 1
+				if e.blendmode == 1 {
+					e.alpha[i] = 255
+				}
+			}
+			e.anglerot[i] = 0
+		}
+		if e.ownpal {
+			pfd.color = 1
+			pfd.hue = 0
+		}
+	}
+
+	// Apply remap palette
+	if e.ownpal {
+		e.anim.UpdateSprite()
+		if e.anim.sff != sys.ffx["f"].fsff {
+			r := make([]int, len(e.palfx.remap))
+			copy(r, e.palfx.remap)
+			e.palfx = newPalFX()
+			e.palfx.remap = r
+			e.palfx.PalFXDef = e.palfxdef
+			c.forceRemapPal(e.palfx, rp)
+		} else {
+			e.palfx = newPalFX()
+			e.palfx.PalFXDef = e.palfxdef
+			e.palfx.remap = nil
+		}
 	}
 }
 
@@ -1490,7 +1563,6 @@ func (e *Explod) setAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx
 				}
 			}
 		}
-		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
 	}
 }
 
@@ -1806,39 +1878,6 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 	}
 	*fLength = e.interpolate_fLength[0] + e.fLength
 	*xshear = e.interpolate_xshear[0]
-}
-
-func (e *Explod) setStartParams(pfd *PalFXDef) {
-	e.start_animelem = e.animelem
-	e.start_fLength = e.fLength
-	e.start_xshear = e.xshear
-	for i := 0; i < 3; i++ {
-		if i < 2 {
-			e.start_scale[i] = e.scale[i]
-			e.start_alpha[i] = e.alpha[i]
-		}
-		e.start_rot[i] = e.anglerot[i]
-	}
-	if e.interpolate {
-		e.fLength = 0
-		for i := 0; i < 3; i++ {
-			if e.ownpal {
-				pfd.mul[i] = 256
-				pfd.add[i] = 0
-			}
-			if i < 2 {
-				e.scale[i] = 1
-				if e.blendmode == 1 {
-					e.alpha[i] = 255
-				}
-			}
-			e.anglerot[i] = 0
-		}
-		if e.ownpal {
-			pfd.color = 1
-			pfd.hue = 0
-		}
-	}
 }
 
 func (e *Explod) resetInterpolation(pfd *PalFXDef) {
@@ -5764,33 +5803,20 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 }
 
 func (c *Char) newExplod() (*Explod, int) {
-	explinit := func(expl *Explod) *Explod {
-		expl.clear()
-		// Explod defaults
-		expl.id = -1
-		expl.playerId = c.id
-		expl.layerno = c.layerNo
-		expl.palfx = c.getPalfx()
-		expl.palfxdef = *newPalFXDef()
-		if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			expl.projection = Projection_Perspective
-		} else {
-			expl.projection = Projection_Orthographic
-		}
-		return expl
-	}
 	// Reuse free explod slots
 	for i := range sys.explods[c.playerNo] {
 		if sys.explods[c.playerNo][i].id == IErr {
-			return explinit(&sys.explods[c.playerNo][i]), i
+			return sys.explods[c.playerNo][i].initFromChar(c), i
 		}
 	}
+
 	// Otherwise append it
 	i := len(sys.explods[c.playerNo])
 	if i < sys.cfg.Config.ExplodMax {
 		sys.explods[c.playerNo] = append(sys.explods[c.playerNo], Explod{})
-		return explinit(&sys.explods[c.playerNo][i]), i
+		return sys.explods[c.playerNo][i].initFromChar(c), i
 	}
+
 	return nil, -1
 }
 
@@ -5811,62 +5837,40 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 	return c.getDrawPal(e.palfx.remap[0])
 }
 
-func (c *Char) insertExplodEx(i int, rp [2]int32) {
+func (c *Char) insertExplod(i int) {
 	e := &sys.explods[c.playerNo][i]
 	if e.anim == nil {
 		e.id = IErr
 		return
 	}
-	e.anim.UpdateSprite()
-	if e.ownpal {
-		if e.anim.sff != sys.ffx["f"].fsff {
-			remap := make([]int, len(e.palfx.remap))
-			copy(remap, e.palfx.remap)
-			e.palfx = newPalFX()
-			e.palfx.remap = remap
-			e.palfx.PalFXDef = e.palfxdef
-			c.forceRemapPal(e.palfx, rp)
-		} else {
-			e.palfx = newPalFX()
-			e.palfx.PalFXDef = e.palfxdef
-			e.palfx.remap = nil
-		}
-	}
-	if e.layerno > 0 {
-		td := &sys.explodsLayer1[c.playerNo]
-		for ii, te := range *td {
-			if te < 0 {
-				(*td)[ii] = i
-				return
-			}
-		}
-		*td = append(*td, i)
-	} else if e.layerno < 0 {
-		td := &sys.explodsLayerN1[c.playerNo]
-		for ii, te := range *td {
-			if te < 0 {
-				(*td)[ii] = i
-				return
-			}
-		}
-		*td = append(*td, i)
-	} else {
-		ed := &sys.explodsLayer0[c.playerNo]
-		for ii, ex := range *ed {
+
+	e.anim.UpdateSprite() // Why is this here?
+
+	var layer *[]int
+	switch {
+	case e.layerno > 0:
+		layer = &sys.explodsLayer1[c.playerNo]
+	case e.layerno < 0:
+		layer = &sys.explodsLayerN1[c.playerNo]
+	default:
+		layer = &sys.explodsLayer0[c.playerNo]
+		for ii, ex := range *layer {
 			pid := sys.explods[c.playerNo][ex].playerId
 			if pid >= c.id && (pid > c.id || ex < i) {
-				*ed = append(*ed, 0)
-				copy((*ed)[ii+1:], (*ed)[ii:])
-				(*ed)[ii] = i
+				*layer = append(*layer, 0)
+				copy((*layer)[ii+1:], (*layer)[ii:])
+				(*layer)[ii] = i
 				return
 			}
 		}
-		*ed = append(*ed, i)
 	}
-}
-
-func (c *Char) insertExplod(i int) {
-	c.insertExplodEx(i, [...]int32{-1, 0})
+	for ii, te := range *layer {
+		if te < 0 {
+			(*layer)[ii] = i
+			return
+		}
+	}
+	*layer = append(*layer, i)
 }
 
 func (c *Char) explodBindTime(id, time int32) {

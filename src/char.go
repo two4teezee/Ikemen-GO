@@ -4031,15 +4031,15 @@ func (c *Char) indexTrigger() int32 {
 
 	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
 	/*
-	var searchIdx int32
-	for _, p := range sys.charList.runOrder {
-		if p != nil && !p.csf(CSF_destroy) {
-			if c == p {
-				return searchIdx
+		var searchIdx int32
+		for _, p := range sys.charList.runOrder {
+			if p != nil && !p.csf(CSF_destroy) {
+				if c == p {
+					return searchIdx
+				}
+				searchIdx++
 			}
-			searchIdx++
 		}
-	}
 	*/
 
 	return -1

@@ -782,15 +782,15 @@ func (s *System) playerIndexRedirect(idx int32) *Char {
 
 	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
 	/*
-	var searchIdx int32
-	for _, p := range sys.charList.runOrder {
-		if p != nil && !p.csf(CSF_destroy) {
-			if searchIdx == idx {
-				return p
+		var searchIdx int32
+		for _, p := range sys.charList.runOrder {
+			if p != nil && !p.csf(CSF_destroy) {
+				if searchIdx == idx {
+					return p
+				}
+				searchIdx++
 			}
-			searchIdx++
 		}
-	}
 	*/
 
 	return nil

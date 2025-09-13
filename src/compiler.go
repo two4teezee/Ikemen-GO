@@ -427,7 +427,6 @@ var triggerMap = map[string]int{
 	"palfxvar":           1,
 	"pausetime":          1,
 	"physics":            1,
-	"playercount":        1,
 	"playerindexexist":   1,
 	"playerno":           1,
 	"playernoexist":      1,
@@ -4701,8 +4700,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}); err != nil {
 			return bvNone(), err
 		}
-	case "playercount":
-		out.append(OC_ex_, OC_ex_playercount)
 	case "playerindexexist":
 		if _, err := c.oneArg(out, in, rd, true); err != nil {
 			return bvNone(), err

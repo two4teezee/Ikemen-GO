@@ -3241,7 +3241,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "playerindex", func(*lua.LState) int {
 		ret := false
-		if c := sys.playerIndex(int32(numArg(l, 1))); c != nil {
+		if c := sys.playerIndexRedirect(int32(numArg(l, 1))); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -4321,7 +4321,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "index", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.index))
+		l.Push(lua.LNumber(sys.debugWC.indexTrigger()))
 		return 1
 	})
 	luaRegister(l, "leftedge", func(*lua.LState) int {
@@ -5905,10 +5905,6 @@ func triggerFunctions(l *lua.LState) {
 			s = "N"
 		}
 		l.Push(lua.LString(s))
-		return 1
-	})
-	luaRegister(l, "playercount", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.playercount()))
 		return 1
 	})
 	luaRegister(l, "playerindexexist", func(*lua.LState) int {

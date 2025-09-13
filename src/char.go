@@ -2558,7 +2558,6 @@ type Char struct {
 	ss                  StateState
 	controller          int
 	id                  int32
-	index               int32
 	runorder            int32
 	helperId            int32
 	helperIndex         int32
@@ -2709,7 +2708,6 @@ func (c *Char) init(n int, idx int32) {
 		controller:    n,
 		animPN:        n,
 		id:            -1,
-		index:         -1,
 		runorder:      -1,
 		parentIndex:   IErr,
 		hoverIdx:      -1,
@@ -4024,6 +4022,29 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(c.helperIndexTrigger(id.ToI(), false) != nil)
 }
 
+func (c *Char) indexTrigger() int32 {
+	for i, p := range sys.charList.runOrder {
+		if c == p {
+			return int32(i)
+		}
+	}
+
+	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
+	/*
+	var searchIdx int32
+	for _, p := range sys.charList.runOrder {
+		if p != nil && !p.csf(CSF_destroy) {
+			if c == p {
+				return searchIdx
+			}
+			searchIdx++
+		}
+	}
+	*/
+
+	return -1
+}
+
 // Target redirection
 func (c *Char) targetTrigger(id int32, idx int) *Char {
 	// Invalid index
@@ -4568,16 +4589,6 @@ func (c *Char) numEnemy() int32 {
 	return n
 }
 
-func (c *Char) numPlayer() int32 {
-	n := int32(0)
-	for i := 0; i < len(sys.chars)-1; i++ {
-		if len(sys.chars[i]) > 0 && !sys.chars[i][0].scf(SCF_disabled) {
-			n += 1
-		}
-	}
-	return n
-}
-
 func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 	if eid.IsSF() {
 		return BytecodeSF()
@@ -4590,6 +4601,10 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 		}
 	}
 	return BytecodeInt(n)
+}
+
+func (c *Char) numPlayer() int32 {
+	return int32(len(sys.charList.runOrder))
 }
 
 func (c *Char) numText(textid BytecodeValue) BytecodeValue {
@@ -10900,7 +10915,6 @@ func (cl *CharList) clear() {
 func (cl *CharList) add(c *Char) {
 	// Append to run order
 	cl.runOrder = append(cl.runOrder, c)
-	c.index = int32(len(cl.runOrder))
 	// If any entry in the draw order is empty, use that one
 	i := 0
 	for ; i < len(cl.drawOrder); i++ {
@@ -10922,7 +10936,6 @@ func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
 	for i, c := range cl.runOrder {
 		if c.playerNo == pn && c.helperIndex == idx {
 			cl.runOrder[i] = dc
-			c.index = int32(i) + 1
 			ok = true
 			break
 		}
@@ -11837,20 +11850,11 @@ func (cl *CharList) cueDraw() {
 	}
 }
 
-func (cl *CharList) get(id int32) *Char {
+func (cl *CharList) getID(id int32) *Char {
 	if id < 0 {
 		return nil
 	}
 	return cl.idMap[id]
-}
-
-func (cl *CharList) getIndex(id int32) *Char {
-	for j, p := range cl.runOrder {
-		if (id - 1) == int32(j) {
-			return p
-		}
-	}
-	return nil
 }
 
 func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {

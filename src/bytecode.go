@@ -691,7 +691,6 @@ const (
 	OC_ex_timeelapsed
 	OC_ex_timeremaining
 	OC_ex_timetotal
-	OC_ex_playercount
 	OC_ex_pos_z
 	OC_ex_vel_z
 	OC_ex_prevanim
@@ -1609,7 +1608,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerindex:
-			if c = sys.playerIndex(sys.bcStack.Pop().ToI()); c != nil {
+			if c = sys.playerIndexRedirect(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -3109,8 +3108,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(timeRemaining())
 	case OC_ex_timetotal:
 		sys.bcStack.PushI(timeTotal())
-	case OC_ex_playercount:
-		sys.bcStack.PushI(sys.playercount())
 	case OC_ex_pos_z:
 		sys.bcStack.PushF(c.pos[2] * (c.localscl / oc.localscl))
 	case OC_ex_vel_z:
@@ -3185,7 +3182,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	camCorrected := false
 	switch opc {
 	case OC_ex2_index:
-		sys.bcStack.PushI(c.index)
+		sys.bcStack.PushI(c.indexTrigger())
 	case OC_ex2_isclsnproxy:
 		sys.bcStack.PushB(c.isclsnproxy)
 	case OC_ex2_groundlevel:

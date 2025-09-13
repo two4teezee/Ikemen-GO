@@ -772,11 +772,28 @@ func (s *System) anyButton() bool {
 }
 
 func (s *System) playerID(id int32) *Char {
-	return s.charList.get(id)
+	return s.charList.getID(id)
 }
 
-func (s *System) playerIndex(id int32) *Char {
-	return s.charList.getIndex(id)
+func (s *System) playerIndexRedirect(idx int32) *Char {
+	if idx >= 0 && int(idx) < len(s.charList.runOrder) {
+		return s.charList.runOrder[idx]
+	}
+
+	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
+	/*
+	var searchIdx int32
+	for _, p := range sys.charList.runOrder {
+		if p != nil && !p.csf(CSF_destroy) {
+			if searchIdx == idx {
+				return p
+			}
+			searchIdx++
+		}
+	}
+	*/
+
+	return nil
 }
 
 // We must check if wins are greater than 0 because modes like Training may have "0 rounds to win"
@@ -792,11 +809,13 @@ func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
 	return BytecodeBool(s.playerID(id.ToI()) != nil)
 }
 
+// TODO: This is redundant since the index always exists if "NumPlayer >= idx-1"
+// Maybe remove it or make it ignore destroyed helpers at least
 func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
 	if idx.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(s.playerIndex(idx.ToI()) != nil)
+	return BytecodeBool(s.playerIndexRedirect(idx.ToI()) != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
@@ -809,10 +828,6 @@ func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
 		exist = len(sys.chars[number]) > 0
 	}
 	return BytecodeBool(exist)
-}
-
-func (s *System) playercount() int32 {
-	return int32(len(s.charList.runOrder))
 }
 
 func (s *System) palfxvar(x int32, y int32) int32 {

@@ -5683,6 +5683,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_autoguard)))
 		case "drawunder":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_drawunder)))
+		case "noaicheat":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_noaicheat)))
 		case "noailevel":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_noailevel)))
 		case "noairjump":

@@ -67,6 +67,7 @@ const (
 	ASF_animfreeze
 	ASF_autoguard
 	ASF_drawunder
+	ASF_noaicheat
 	ASF_noailevel
 	ASF_noairjump
 	ASF_nobrake
@@ -4298,7 +4299,7 @@ func (c *Char) command(pn, i int) bool {
 
 	// AI cheating for commands longer than 1 button
 	// Maybe it could just cheat all of them and skip these checks
-	if c.controller < 0 && len(cl) > 0 {
+	if !c.asf(ASF_noaicheat) && c.controller < 0 && len(cl) > 0 {
 		steps := cl[0].steps
 		multiStep := len(steps) > 1
 		multiKey := len(steps) > 0 && len(steps[0].keys) > 1

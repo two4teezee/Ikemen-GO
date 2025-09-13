@@ -9882,7 +9882,7 @@ func (c *Char) actionRun() {
 		}
 		// Run state -1
 		c.minus = -1
-		if c.ss.sb.playerNo == c.playerNo && (c.playerFlag || c.keyctrl[0]) {
+		if c.ss.sb.playerNo == c.playerNo && c.keyctrl[0] {
 			if sb, ok := c.gi().states[-1]; ok {
 				sb.run(c)
 			}

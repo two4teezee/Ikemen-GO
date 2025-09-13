@@ -5613,27 +5613,141 @@ func (c *Compiler) paramValue(is IniSection, sc *StateControllerBase,
 	return nil
 }
 
+func (c *Compiler) paramAnimtype(is IniSection, sc *StateControllerBase, paramName string, id byte) error {
+	return c.stateParam(is, paramName, false, func(data string) error {
+		if len(data) == 0 {
+			return Error(paramName + " not specified")
+		}
+		var ra Reaction
+		dataLower := strings.ToLower(data)
+		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+			// Mugen chars: first letter is enough
+			switch dataLower[0] {
+			case 'l':
+				ra = RA_Light
+			case 'm':
+				ra = RA_Medium
+			case 'h':
+				ra = RA_Hard
+			case 'b':
+				ra = RA_Back
+			case 'u':
+				ra = RA_Up
+			case 'd':
+				ra = RA_Diagup
+			default:
+				return Error("Invalid " + paramName + ": " + data)
+			}
+		} else {
+			// Ikemen chars: require full word
+			switch dataLower {
+			case "light":
+				ra = RA_Light
+			case "medium":
+				ra = RA_Medium
+			case "hard":
+				ra = RA_Hard
+			case "back":
+				ra = RA_Back
+			case "up":
+				ra = RA_Up
+			case "diagup":
+				ra = RA_Diagup
+			default:
+				return Error("Invalid " + paramName + ": " + data)
+			}
+		}
+		sc.add(id, sc.iToExp(int32(ra)))
+		return nil
+	})
+}
+
+func (c *Compiler) paramHittype(is IniSection, sc *StateControllerBase, paramName string, id byte) error {
+	return c.stateParam(is, paramName, false, func(data string) error {
+		if len(data) == 0 {
+			return Error(paramName + " not specified")
+		}
+		var ht HitType
+		dataLower := strings.ToLower(data)
+		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+			// Mugen chars: first letter is enough
+			switch dataLower[0] {
+			case 'h':
+				ht = HT_High
+			case 'l':
+				ht = HT_Low
+			case 't':
+				ht = HT_Trip
+			case 'n':
+				ht = HT_None
+			default:
+				return Error("Invalid " + paramName + ": " + data)
+			}
+		} else {
+			// Ikemen chars: require full word
+			switch dataLower {
+			case "high":
+				ht = HT_High
+			case "low":
+				ht = HT_Low
+			case "trip":
+				ht = HT_Trip
+			case "none":
+				ht = HT_None
+			default:
+				return Error("Invalid " + paramName + ": " + data)
+			}
+		}
+		sc.add(id, sc.iToExp(int32(ht)))
+		return nil
+	})
+}
+
 func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase, id byte) error {
 	return c.stateParam(is, "postype", false, func(data string) error {
 		if len(data) == 0 {
 			return Error("postype not specified")
 		}
 		var pt PosType
-		if len(data) >= 2 && strings.ToLower(data[:2]) == "p2" {
-			pt = PT_P2
+		dataLower := strings.ToLower(data)
+		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+			// Mugen chars: first letter is enough
+			if len(dataLower) >= 2 && dataLower[:2] == "p2" {
+				pt = PT_P2
+			} else {
+				switch dataLower[0] {
+				case 'p':
+					pt = PT_P1
+				case 'f':
+					pt = PT_Front
+				case 'b':
+					pt = PT_Back
+				case 'l':
+					pt = PT_Left
+				case 'r':
+					pt = PT_Right
+				case 'n':
+					pt = PT_None
+				default:
+					return Error("Invalid postype: " + data)
+				}
+			}
 		} else {
-			switch strings.ToLower(data)[0] {
-			case 'p':
+			// Ikemen chars: require full word
+			switch dataLower {
+			case "p1":
 				pt = PT_P1
-			case 'f':
+			case "p2":
+				pt = PT_P2
+			case "front":
 				pt = PT_Front
-			case 'b':
+			case "back":
 				pt = PT_Back
-			case 'l':
+			case "left":
 				pt = PT_Left
-			case 'r':
+			case "right":
 				pt = PT_Right
-			case 'n':
+			case "none":
 				pt = PT_None
 			default:
 				return Error("Invalid postype: " + data)

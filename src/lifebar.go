@@ -2033,8 +2033,8 @@ func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
 		ti.counter[0].font[0] >= 0 && int(ti.counter[0].font[0]) < len(f) && f[ti.counter[0].font[0]] != nil {
 		var timeval int32 = -1
 		time := "o"
-		if sys.time >= 0 {
-			timeval = int32(math.Ceil(float64(sys.time) / float64(ti.framespercount)))
+		if sys.curRoundTime >= 0 {
+			timeval = int32(math.Ceil(float64(sys.curRoundTime) / float64(ti.framespercount)))
 			time = fmt.Sprintf("%v", timeval)
 		}
 		// Multiple fonts according to time remaining
@@ -2884,7 +2884,7 @@ func (ro *LifeBarRound) act() bool {
 	ro.triggerKODisplay = false
 	ro.triggerWinDisplay = false
 	// Early exits
-	if (sys.paused && !sys.step) || sys.gsf(GSF_roundfreeze) {
+	if (sys.paused && !sys.frameStepFlag) || sys.gsf(GSF_roundfreeze) {
 		return false
 	}
 	// Transition timers
@@ -3061,11 +3061,11 @@ func (ro *LifeBarRound) act() bool {
 			}
 		}
 		// Round over. Consists of KO screen and winner messages
-		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.time == 0) {
+		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
 			if ro.timerActive {
 				if sys.gameTime-sys.timerCount[sys.round-1] > 0 {
 					sys.timerCount[sys.round-1] = sys.gameTime - sys.timerCount[sys.round-1]
-					sys.timerRounds = append(sys.timerRounds, sys.roundTime-sys.time)
+					sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
 				} else {
 					sys.timerCount[sys.round-1] = 0
 				}
@@ -3673,7 +3673,7 @@ func (tr *LifeBarTimer) bgDraw(layerno int16) {
 
 func (tr *LifeBarTimer) draw(layerno int16, f []*Fnt) {
 	if tr.active && sys.lifebar.ti.framespercount > 0 &&
-		tr.text.font[0] >= 0 && int(tr.text.font[0]) < len(f) && f[tr.text.font[0]] != nil && sys.time >= 0 {
+		tr.text.font[0] >= 0 && int(tr.text.font[0]) < len(f) && f[tr.text.font[0]] != nil && sys.curRoundTime >= 0 {
 		text := tr.text.text
 		totalSec := float64(timeTotal()) / 60
 		h := math.Floor(totalSec / 3600)
@@ -3700,12 +3700,12 @@ func (tr *LifeBarTimer) draw(layerno int16, f []*Fnt) {
 }
 
 func timeElapsed() int32 {
-	return sys.roundTime - sys.time
+	return sys.maxRoundTime - sys.curRoundTime
 }
 
 func timeRemaining() int32 {
-	if sys.time >= 0 {
-		return sys.time
+	if sys.curRoundTime >= 0 {
+		return sys.curRoundTime
 	}
 	return -1
 }
@@ -4757,7 +4757,7 @@ func (l *Lifebar) reloadLifebar() error {
 }
 
 func (l *Lifebar) step() {
-	if sys.paused && !sys.step {
+	if sys.paused && !sys.frameStepFlag {
 		return
 	}
 	for ti, tm := range sys.tmode {

@@ -1359,8 +1359,8 @@ func systemScriptInit(l *lua.LState) {
 				// -1 on quit, -2 on restarting match
 				winp := int32(0)
 
-				// fight loop
-				if sys.fight() {
+				// Match loop
+				if sys.runMatch() {
 					// Match is restarting
 					for i, b := range sys.reloadCharSlot {
 						if b {
@@ -1451,7 +1451,7 @@ func systemScriptInit(l *lua.LState) {
 				tbl.RawSetString("scoreRounds", tbl_score)
 				tbl.RawSetString("timerRounds", tbl_time)
 				tbl.RawSetString("matchTime", lua.LNumber(ti))
-				tbl.RawSetString("roundTime", lua.LNumber(sys.roundTime))
+				tbl.RawSetString("roundTime", lua.LNumber(sys.maxRoundTime))
 				tbl.RawSetString("winTeam", lua.LNumber(sys.winTeam))
 				tbl.RawSetString("lastRound", lua.LNumber(sys.round-1))
 				tbl.RawSetString("draws", lua.LNumber(sys.draws))
@@ -1822,7 +1822,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "getRoundTime", func(l *lua.LState) int {
-		l.Push(lua.LNumber(sys.roundTime))
+		l.Push(lua.LNumber(sys.maxRoundTime))
 		return 1
 	})
 	luaRegister(l, "getStageInfo", func(*lua.LState) int {
@@ -2720,7 +2720,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setRoundTime", func(l *lua.LState) int {
-		sys.roundTime = int32(numArg(l, 1))
+		sys.maxRoundTime = int32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setConsecutiveRounds", func(l *lua.LState) int {
@@ -2754,7 +2754,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setTime", func(*lua.LState) int {
-		sys.time = int32(numArg(l, 1))
+		sys.curRoundTime = int32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setTimeFramesPerCount", func(l *lua.LState) int {
@@ -2831,8 +2831,8 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(Random()))
 		return 1
 	})
-	luaRegister(l, "step", func(*lua.LState) int {
-		sys.step = true
+	luaRegister(l, "frameStep", func(*lua.LState) int {
+		sys.frameStepFlag = true
 		return 0
 	})
 	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
@@ -6109,7 +6109,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "paused", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.paused && !sys.step))
+		l.Push(lua.LBool(sys.paused && !sys.frameStepFlag))
 		return 1
 	})
 	luaRegister(l, "postmatch", func(*lua.LState) int {

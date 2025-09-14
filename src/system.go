@@ -42,7 +42,7 @@ var sys = System{
 	widthScale:        1,
 	heightScale:       1,
 	brightness:        256,
-	roundTime:         -1,
+	maxRoundTime:      -1,
 	turnsRecoveryRate: 1.0 / 300,
 	soundMixer:        &beep.Mixer{},
 	bgm:               *newBgm(),
@@ -84,6 +84,8 @@ var sys = System{
 	arenaSaveMap:         make(map[int]*arena.Arena),
 	arenaLoadMap:         make(map[int]*arena.Arena),
 	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
+	// Match loop variables
+	autolvmul: math.Pow(2, 1.0/12), // Handicap levels for Random Test mode
 }
 
 type TeamMode int32
@@ -106,7 +108,7 @@ type System struct {
 	gameEnd, frameSkip      bool
 	redrawWait              struct{ nextTime, lastDraw time.Time }
 	brightness              int32
-	roundTime               int32
+	maxRoundTime            int32
 	turnsRecoveryRate       float32
 	debugFont               *TextSprite
 	debugDisplay            bool
@@ -133,7 +135,7 @@ type System struct {
 	inputRemap              [MaxPlayerNo]int
 	round                   int32
 	intro                   int32
-	time                    int32
+	curRoundTime            int32
 	lastHitter              [2]int
 	winTeam                 int
 	winType                 [2]WinType
@@ -195,7 +197,7 @@ type System struct {
 	xmin, xmax              float32
 	zmin, zmax              float32
 	winskipped              bool
-	paused, step            bool
+	paused, frameStepFlag   bool
 	roundResetFlg           bool
 	reloadFlg               bool
 	reloadStageFlg          bool
@@ -325,6 +327,12 @@ type System struct {
 	saveState       *GameState
 	saveStateFlag   bool
 	loadStateFlag   bool
+
+	// Match loop variables
+	autolvmul       float64
+	autolevels      [MaxPlayerNo]int32
+	fightLoopEnd    bool
+	roundBackup     RoundStartBackup
 
 	// for avg. FPS calculations
 	gameFPS       float32
@@ -1274,7 +1282,15 @@ func (s *System) clearPlayerAssets(pn int, destroy bool) {
 	s.explodsLayer1[pn] = s.explodsLayer1[pn][:0]
 }
 
-func (s *System) nextRound() {
+func (s *System) resetRoundState() {
+	s.roundBackup.Restore()
+	s.resetFrameTime()
+
+	s.paused = false
+	s.introSkipped = false
+	s.roundResetFlg = false
+	s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
+
 	s.resetGblEffect()
 	s.lifebar.reset()
 	s.saveStateFlag = false
@@ -1290,7 +1306,7 @@ func (s *System) nextRound() {
 	s.wintime = s.lifebar.ro.over_wintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
-	s.time = s.roundTime
+	s.curRoundTime = s.maxRoundTime
 	s.nextCharId = s.cfg.Config.HelperMax
 	if (s.tmode[0] == TM_Turns && s.wins[1] >= s.numTurns[0]-1) ||
 		(s.tmode[0] != TM_Turns && s.wins[1] >= s.lifebar.ro.match_wins[0]-1) {
@@ -1306,6 +1322,7 @@ func (s *System) nextRound() {
 	} else {
 		roundRef = s.round
 	}
+
 	if s.stageLoop && !s.roundResetFlg {
 		var keys []int
 		for k := range s.stageList {
@@ -1318,6 +1335,7 @@ func (s *System) nextRound() {
 			s.stageLoopNo = 0
 		}
 	}
+
 	var swap bool
 	if _, ok := s.stageList[roundRef]; ok {
 		s.stage = s.stageList[roundRef]
@@ -1331,70 +1349,80 @@ func (s *System) nextRound() {
 			}
 		}
 	}
+
 	s.cam.stageCamera = s.stage.stageCamera
 	s.cam.Init()
 	s.screenleft = float32(s.stage.screenleft) * s.stage.localscl
 	s.screenright = float32(s.stage.screenright) * s.stage.localscl
+
 	if s.stage.resetbg || swap {
 		s.stage.reset()
 	}
 	s.cam.ResetZoomdelay()
-	for i, p := range s.chars {
-		if len(p) > 0 {
-			s.nextCharId = Max(s.nextCharId, p[0].id+1) // nextCharId can't be this char's ID
-			s.clearPlayerAssets(i, false)
-			p[0].posReset()
-			p[0].setCtrl(false)
-			p[0].clearState()
-			p[0].prepareNextRound()
-			p[0].varRangeSet(0, s.cgi[i].data.intpersistindex-1, 0)
-			p[0].fvarRangeSet(0, s.cgi[i].data.floatpersistindex-1, 0)
-			for j := range p[0].cmd {
-				p[0].cmd[j].BufReset()
-			}
-			if s.roundsExisted[i&1] == 0 {
-				s.cgi[i].palettedata.palList.ResetRemap()
-				if s.cgi[i].sff.header.Ver0 == 1 {
-					p[0].remapPal(p[0].getPalfx(),
-						[...]int32{1, 1}, [...]int32{1, s.cgi[i].palno})
-				}
-			}
-			s.cgi[i].clearPCTime()
-		}
-	}
-	for _, p := range s.chars {
-		if len(p) > 0 {
-			zeroDeclared := p[0].gi().anim[0] != nil
 
-			if zeroDeclared {
-				p[0].selfState(5900, 0, -1, 0, "")
-			} else {
-				// Default to first anim in .AIR
-				var firstAnim int32
-				for k := range p[0].gi().anim {
-					firstAnim = k
-					break
-				}
-				p[0].selfState(5900, firstAnim, -1, 0, "")
+	for i, p := range s.chars {
+		if len(p) == 0 {
+			continue
+		}
+		s.nextCharId = Max(s.nextCharId, p[0].id+1)
+		s.clearPlayerAssets(i, false)
+		p[0].posReset()
+		p[0].setCtrl(false)
+		p[0].clearState()
+		p[0].prepareNextRound()
+		p[0].varRangeSet(0, s.cgi[i].data.intpersistindex-1, 0)
+		p[0].fvarRangeSet(0, s.cgi[i].data.floatpersistindex-1, 0)
+		for j := range p[0].cmd {
+			p[0].cmd[j].BufReset()
+		}
+		if s.roundsExisted[i&1] == 0 {
+			s.cgi[i].palettedata.palList.ResetRemap()
+			if s.cgi[i].sff.header.Ver0 == 1 {
+				p[0].remapPal(p[0].getPalfx(),
+					[...]int32{1, 1}, [...]int32{1, s.cgi[i].palno})
 			}
 		}
+		s.cgi[i].clearPCTime()
+	}
+
+	// Place characters in state 5900
+	for _, p := range s.chars {
+		if len(p) == 0 {
+			continue
+		}
+		// Select anim 0
+		firstAnim := int32(0)
+		// Default to first anim in .AIR if 0 was not found
+		if p[0].gi().anim[0] == nil {
+			for k := range p[0].gi().anim {
+				firstAnim = k
+				break
+			}
+		}
+		p[0].selfState(5900, firstAnim, -1, 0, "")
 	}
 }
 
+func (s *System) resetRound() {
+	s.resetRoundState()
+	s.runMainThreadTask()
+	gfx.Await()
+}
+
 func (s *System) debugPaused() bool {
-	return s.paused && !s.step && s.oldTickCount < s.tickCount
+	return s.paused && !s.frameStepFlag && s.oldTickCount < s.tickCount
 }
 
 // "Tick frames" are the frames where most of the game logic happens
 func (s *System) tickFrame() bool {
-	return (!s.paused || s.step) && s.oldTickCount < s.tickCount
+	return (!s.paused || s.frameStepFlag) && s.oldTickCount < s.tickCount
 }
 
 // "Tick next frame" is right after the "tick frame"
 // Where for instance the collision detections happen
 func (s *System) tickNextFrame() bool {
 	return int(s.tickCountF+s.nextAddTime) > s.tickCount &&
-		(!s.paused || s.step || s.oldTickCount >= s.tickCount)
+		(!s.paused || s.frameStepFlag || s.oldTickCount >= s.tickCount)
 }
 
 // This divides a frame into fractions for the purpose of drawing position interpolation
@@ -1682,7 +1710,7 @@ func (s *System) action() {
 		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
 		// KO slowdown
 		s.slowtimeTrigger = 0
-		if s.intro < 0 && s.time != 0 && s.slowtime > 0 {
+		if s.intro < 0 && s.curRoundTime != 0 && s.slowtime > 0 {
 			if !s.gsf(GSF_nokoslow) {
 				spd *= s.lifebar.ro.slow_speed
 				if s.slowtime < s.lifebar.ro.slow_fadetime {
@@ -1693,7 +1721,7 @@ func (s *System) action() {
 			s.slowtime--
 		}
 		// Outside match or while frame stepping
-		if s.postMatchFlg || s.step {
+		if s.postMatchFlg || s.frameStepFlag {
 			spd = 1
 		}
 		s.turbo = spd
@@ -1742,9 +1770,9 @@ func (s *System) runFightScreen() {
 	}
 
 	// Ongoing round
-	if s.intro == 0 && s.time > 0 && !s.gsf(GSF_timerfreeze) &&
+	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) &&
 		(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
-		s.time--
+		s.curRoundTime--
 	}
 
 	// Post round
@@ -1857,11 +1885,11 @@ func (s *System) runFightScreen() {
 				for _, p := range s.chars {
 					if len(p) > 0 {
 						// Default life recovery. Used only if externalized Lua implementation is disabled
-						if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.time > 0 && p[0].win() &&
+						if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.curRoundTime > 0 && p[0].win() &&
 							p[0].alive() && !s.matchOver() &&
 							(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
 							p[0].life += int32((float32(p[0].lifeMax) *
-								float32(s.time) / 60) * s.turnsRecoveryRate)
+								float32(s.curRoundTime) / 60) * s.turnsRecoveryRate)
 							if p[0].life > p[0].lifeMax {
 								p[0].life = p[0].lifeMax
 							}
@@ -1929,7 +1957,7 @@ func (s *System) roundEndDecision() bool {
 
 	// Time over
 	ft := s.finishType
-	if s.time == 0 {
+	if s.curRoundTime == 0 {
 		s.winType[0], s.winType[1] = WT_Time, WT_Time
 		l := [2]float32{}
 		for i := 0; i < 2; i++ { // Check life percentage of each team
@@ -1992,7 +2020,7 @@ func (s *System) roundEndDecision() bool {
 		}
 	}
 
-	return ko[0] || ko[1] || s.time == 0
+	return ko[0] || ko[1] || s.curRoundTime == 0
 }
 
 func (s *System) draw(x, y, scl float32) {
@@ -2253,16 +2281,12 @@ func (s *System) drawDebugText() {
 }
 
 // Starts and runs gameplay
-// Called to start each match, on hard reset with shift+F4, and
-// at the start of any round where a new character tags in for turns mode
-func (s *System) fight() (reload bool) {
-	if s.rollback.session != nil || s.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		return s.rollback.fight(s)
-	}
-
+// Called to start each match, on hard reset with shift+F4,
+// and at the start of any round where a new character tags in for turns mode
+func (s *System) runMatch() (reload bool) {
 	// Reset variables
 	s.gameTime = 0
-	s.paused = false
+	s.fightLoopEnd = false
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	s.saveState = NewGameState()
 
@@ -2300,19 +2324,11 @@ func (s *System) fight() (reload bool) {
 	// Init wins counter
 	s.wincnt.init()
 
-	// Handicap levels for Random Test mode
-	// What this does is make characters weaker as they accumulate wins
-	autolvmul := math.Pow(2, 1.0/12)
-	var autolevels [MaxPlayerNo]int32
-
 	// Setup characters
-	s.SetupCharRoundStart(autolvmul, autolevels)
-
-	// Struct to save char and stage values at the start of a round
-	var roundBackup RoundStartBackup
+	s.SetupCharRoundStart()
 
 	// Make a new backup once everything is initialized
-	roundBackup.Save()
+	s.roundBackup.Save()
 
 	// Default debug/scripts to player 1
 	s.debugWC = sys.chars[0][0]
@@ -2326,24 +2342,18 @@ func (s *System) fight() (reload bool) {
 		}
 	}
 
-	// Anonymous function to reset values. Called at the start of each round
-	reset := func() {
-		roundBackup.Restore()
-		s.resetFrameTime()
-		s.nextRound()
-		s.roundResetFlg, s.introSkipped = false, false
-		s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
-		s.runMainThreadTask()
-		gfx.Await()
+	s.resetRound()
+
+	// Now switch to rollback if applicable
+	// TODO: More merging so we don't hijack this function at all
+	if s.rollback.session != nil || s.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
+		return s.rollback.hijackRunMatch(s)
 	}
 
-	reset()
-
 	// Loop until end of match
-	fin := false
-	didTryLoadBGM := false
 	for !s.endMatch {
-		// Default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
+		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
+		didTryLoadBGM := false
 		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
 			// Need to search first
 			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
@@ -2352,7 +2362,9 @@ func (s *System) fight() (reload bool) {
 				return nil
 			})
 		}
-		s.step = false
+
+		s.frameStepFlag = false
+
 		for _, v := range s.shortcutScripts {
 			if v.Activate {
 				if err := s.luaLState.DoString(v.Script); err != nil {
@@ -2371,85 +2383,8 @@ func (s *System) fight() (reload bool) {
 		s.loadStateFlag = false
 
 		// If next round
-		if s.roundOver() && !fin {
-			s.round++
-			for i := range s.roundsExisted {
-				s.roundsExisted[i]++
-			}
-			s.clearAllSound()
-			tbl_roundNo := s.luaLState.NewTable()
-			for _, p := range s.chars {
-				if len(p) > 0 && p[0].teamside != -1 {
-					tmp := s.luaLState.NewTable()
-					tmp.RawSetString("name", lua.LString(p[0].name))
-					tmp.RawSetString("id", lua.LNumber(p[0].id))
-					tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-					tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-					tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-					tmp.RawSetString("life", lua.LNumber(p[0].life))
-					tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-					tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-					tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
-					tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
-					tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-					tmp.RawSetString("win", lua.LBool(p[0].win()))
-					tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-					tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-					tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-					tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
-					tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
-					tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-					tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-					tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
-					tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-				}
-			}
-			s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
-			s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
-
-			if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-				(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
-				// Prepare for the next round
-				for i, p := range s.chars {
-					if len(p) > 0 {
-						if s.tmode[i&1] != TM_Turns || !p[0].win() {
-							p[0].life = p[0].lifeMax
-						} else if p[0].life <= 0 {
-							p[0].life = 1
-						}
-						p[0].redLife = p[0].life // TODO: This doesn't truly need to be hardcoded
-					}
-				}
-				roundBackup.Save()
-				reset()
-			} else {
-				// End match, or prepare for a new character in turns mode
-				for i, tm := range s.tmode {
-					if s.chars[i][0].win() || (!s.chars[i][0].lose() && tm != TM_Turns) {
-						for j := i; j < len(s.chars); j += 2 {
-							if len(s.chars[j]) > 0 {
-								if s.chars[j][0].win() {
-									if sys.autolevel {
-										s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(autolvmul,
-											float64(autolevels[i]))*float64(s.chars[j][0].life))))
-									}
-								} else {
-									s.chars[j][0].life = Max(1, s.cgi[j].data.life)
-								}
-							}
-						}
-					}
-				}
-				// If match isn't over, presumably this is turns mode,
-				// so break to restart fight for the next character
-				if !s.matchOver() {
-					break
-				}
-
-				// Otherwise match is over
-				s.postMatchFlg = true
-				fin = true
-			}
+		if !s.runNextRound() {
+			break
 		}
 
 		s.bgPalFX.step()
@@ -2468,8 +2403,7 @@ func (s *System) fight() (reload bool) {
 
 		// F4 pressed to restart round
 		if s.roundResetFlg && !s.postMatchFlg {
-			sys.paused = false
-			reset()
+			s.resetRound()
 		}
 
 		// Shift+F4 pressed to restart match
@@ -2481,11 +2415,11 @@ func (s *System) fight() (reload bool) {
 		s.renderFrame()
 
 		// Break if finished
-		if fin && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
+		if s.fightLoopEnd && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
 			break
 		}
 
-		// Update system; break if update returns false (game ended)
+		// Update system. Break if update returns false (game ended)
 		if !s.update() {
 			break
 		}
@@ -2501,7 +2435,7 @@ func (s *System) fight() (reload bool) {
 	return false
 }
 
-func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]int32) {
+func (s *System) SetupCharRoundStart() {
 	// Prepare next round for all players
 	for _, p := range s.chars {
 		if len(p) > 0 {
@@ -2510,28 +2444,29 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 	}
 
 	// Update handicap for each character
+	// What this does is make characters weaker as they accumulate wins
 	for i, p := range s.chars {
 		if len(p) > 0 && p[0].teamside != -1 {
-			autolevels[i] = s.wincnt.getLevel(i)
+			s.autolevels[i] = s.wincnt.getLevel(i)
 		}
 	}
 
 	// Normalize autolevels so that the lowest one (or highest if all negative) is zero
 	// This ensures autolevel-based scaling is always relative, with at least one player at baseline (0)
-	minlv, maxlv := autolevels[0], autolevels[0]
-	for i, lv := range autolevels[1:] {
+	minlv, maxlv := s.autolevels[0], s.autolevels[0]
+	for i, lv := range s.autolevels[1:] {
 		if len(s.chars[i+1]) > 0 {
 			minlv = Min(minlv, lv)
 			maxlv = Max(maxlv, lv)
 		}
 	}
 	if minlv > 0 {
-		for i := range autolevels {
-			autolevels[i] -= minlv
+		for i := range s.autolevels {
+			s.autolevels[i] -= minlv
 		}
 	} else if maxlv < 0 {
-		for i := range autolevels {
-			autolevels[i] -= maxlv
+		for i := range s.autolevels {
+			s.autolevels[i] -= maxlv
 		}
 	}
 
@@ -2609,7 +2544,7 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 
 			// Set lifemax
 			if sys.autolevel {
-				foo := math.Pow(autolvmul, float64(-autolevels[i]))
+				foo := math.Pow(s.autolvmul, float64(-s.autolevels[i]))
 				p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
 			} else {
 				p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
@@ -2618,7 +2553,7 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 			if p[0].roundsExisted() > 0 {
 				// If character already existed for a round, presumably because of Turns mode, just update Random Test handicap
 				if sys.autolevel {
-					foo := math.Pow(autolvmul, float64(-autolevels[i]))
+					foo := math.Pow(s.autolvmul, float64(-s.autolevels[i]))
 					p[0].life = int32(math.Ceil(foo * float64(p[0].life)))
 				}
 			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
@@ -2660,6 +2595,97 @@ func (s *System) SetupCharRoundStart(autolvmul float64, autolevels [MaxPlayerNo]
 			}
 		}
 	}
+}
+
+func (s *System) runNextRound() bool {
+	if s.roundOver() && !s.fightLoopEnd {
+		s.round++
+
+		for i := range s.roundsExisted {
+			s.roundsExisted[i]++
+		}
+
+		s.clearAllSound()
+
+		tbl_roundNo := s.luaLState.NewTable()
+		for _, p := range s.chars {
+			if len(p) > 0 && p[0].teamside != -1 {
+				tmp := s.luaLState.NewTable()
+				tmp.RawSetString("name", lua.LString(p[0].name))
+				tmp.RawSetString("id", lua.LNumber(p[0].id))
+				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
+				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
+				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
+				tmp.RawSetString("life", lua.LNumber(p[0].life))
+				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
+				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
+				tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
+				tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
+				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
+				tmp.RawSetString("win", lua.LBool(p[0].win()))
+				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
+				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
+				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
+				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
+				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
+				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
+				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
+				tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
+				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
+			}
+		}
+
+		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
+
+		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
+			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+			// Prepare for the next round
+			for i, p := range s.chars {
+				if len(p) > 0 {
+					if s.tmode[i&1] != TM_Turns || !p[0].win() {
+						p[0].life = p[0].lifeMax
+					} else if p[0].life <= 0 {
+						p[0].life = 1
+					}
+					p[0].redLife = p[0].life // TODO: This doesn't truly need to be hardcoded
+				}
+			}
+			s.roundBackup.Save()
+			s.resetRound()
+		} else {
+			// End match, or prepare for a new character in turns mode
+			for i, tm := range s.tmode {
+				if s.chars[i][0].win() || (!s.chars[i][0].lose() && tm != TM_Turns) {
+					for j := i; j < len(s.chars); j += 2 {
+						if len(s.chars[j]) > 0 {
+							if s.chars[j][0].win() {
+								if sys.autolevel {
+									s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(s.autolvmul,
+										float64(s.autolevels[i]))*float64(s.chars[j][0].life))))
+								}
+							} else {
+								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+							}
+						}
+					}
+				}
+			}
+
+			// If match isn't over, presumably this is turns mode,
+			// so break to restart fight for the next character
+			if !s.matchOver() {
+				return false
+			}
+
+			// Otherwise match is over
+			s.postMatchFlg = true
+			s.fightLoopEnd = true
+		}
+	}
+
+	// Not last round
+	return true
 }
 
 func (s *System) gameLogicSpeed() int32 {

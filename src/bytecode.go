@@ -11254,8 +11254,8 @@ func (sc roundTimeAdd) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case roundTimeAdd_value:
-			if sys.roundTime != -1 {
-				sys.time = Clamp(sys.time+exp[0].evalI(c), 0, sys.roundTime)
+			if sys.maxRoundTime != -1 {
+				sys.curRoundTime = Clamp(sys.curRoundTime+exp[0].evalI(c), 0, sys.maxRoundTime)
 			}
 		}
 		return true
@@ -11274,8 +11274,8 @@ func (sc roundTimeSet) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case roundTimeSet_value:
-			if sys.roundTime != -1 {
-				sys.time = Clamp(exp[0].evalI(c), 0, sys.roundTime)
+			if sys.maxRoundTime != -1 {
+				sys.curRoundTime = Clamp(exp[0].evalI(c), 0, sys.maxRoundTime)
 			}
 		}
 		return true

@@ -7667,9 +7667,8 @@ func (c *Char) inputWait() bool {
 	if c.asf(ASF_postroundinput) {
 		return false
 	}
-	// If match just starting
-	// Not sure if Mugen actually does this
-	if sys.time == 0 {
+	// If time over
+	if sys.curRoundTime == 0 {
 		return true
 	}
 	// If after round "over.waittime" and the win poses have not started

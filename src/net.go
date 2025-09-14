@@ -153,7 +153,7 @@ func NewLoopTimer(fps uint32, framesToSpread uint32) LoopTimer {
 }
 
 func (lt *LoopTimer) OnGGPOTimeSyncEvent(framesAhead float32) {
-	if sys.intro > 0 && sys.time == 0 {
+	if sys.intro > 0 && sys.tickCount == 0 {
 		lt.waitTotal = time.Duration(float32(time.Second/60) * framesAhead)
 		lt.lastAdvantage = float32(time.Second/60) * framesAhead
 		if lt.lastAdvantage < float32(0) {
@@ -404,6 +404,8 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
 	// }
 	buf := writeI32(sys.randseed)
 	buf = append(buf, writeI32(sys.gameTime)...)
+	buf = append(buf, writeI32(sys.curRoundTime)...) // Round timer
+	buf = append(buf, writeI32(sys.curRoundTime)...) // Round timer
 	for i := range sys.chars {
 		if len(sys.chars[i]) > 0 {
 			buf = append(buf, sys.chars[i][0].LiveChecksum()...)

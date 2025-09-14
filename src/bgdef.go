@@ -257,8 +257,6 @@ func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 }
 
 func (s *BGDef) action() {
-	s.time++
-
 	// TODO: We could merge stage and motif BGCtrl's further. A lot of it is the same
 	for i := range s.bgc {
 		bgc := &s.bgc[i]
@@ -293,6 +291,10 @@ func (s *BGDef) action() {
 	if s.model != nil {
 		s.model.step(1)
 	}
+
+	// Global time must be incremented after updating BGCtrl
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2656
+	s.time++
 
 	link := 0
 	for i, b := range s.bg {

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"log"
-	"math"
 	"os"
 	"sort"
 	"strings"
@@ -367,7 +366,7 @@ type CharChecksum struct {
 	guardPoints int32
 	power       int32
 	animNo      int32
-	pos         [3]float32
+	//pos         [3]float32
 }
 
 func (cc *CharChecksum) ToBytes() []byte {
@@ -378,9 +377,9 @@ func (cc *CharChecksum) ToBytes() []byte {
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.guardPoints))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.power))
 	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.animNo))
-	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0]))
-	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
-	buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
+	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0]))
+	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
+	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
 	return buf
 }
 
@@ -392,7 +391,7 @@ func (c *Char) LiveChecksum() []byte {
 		guardPoints: c.guardPoints,
 		power:       c.power,
 		animNo:      c.animNo,
-		pos:         c.pos,
+		//pos:         c.pos, // Seems to cause false positives. Probably the float math
 	}
 	return cc.ToBytes()
 }
@@ -404,7 +403,6 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
 	// }
 	buf := writeI32(sys.randseed)
 	buf = append(buf, writeI32(sys.gameTime)...)
-	buf = append(buf, writeI32(sys.curRoundTime)...) // Round timer
 	buf = append(buf, writeI32(sys.curRoundTime)...) // Round timer
 	for i := range sys.chars {
 		if len(sys.chars[i]) > 0 {

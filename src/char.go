@@ -5809,7 +5809,6 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 	return c.getDrawPal(e.palfx.remap[0])
 }
 
-
 func (c *Char) insertExplod(i int) {
 	e := &sys.explods[c.playerNo][i]
 

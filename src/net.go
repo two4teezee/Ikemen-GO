@@ -367,7 +367,7 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
 	// Round start checks. Random select safeguard
 	if sys.tickCount == 0 {
 		// Stage
-		stageHash := crc32.ChecksumIEEE([]byte(sys.stage.name)) 
+		stageHash := crc32.ChecksumIEEE([]byte(sys.stage.name))
 		buf = binary.BigEndian.AppendUint32(buf, stageHash)
 
 		// Characters

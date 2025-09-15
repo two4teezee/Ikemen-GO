@@ -1293,6 +1293,7 @@ type Explod struct {
 	under          bool
 	alpha          [2]int32
 	ownpal         bool
+	remappal       [2]int32
 	ignorehitpause bool
 	rot            Rotation
 	anglerot       [3]float32
@@ -1355,6 +1356,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		ignorehitpause:    true,
 		interpolate_scale: [...]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
+		remappal:          [2]int32{-1, 0},
 	}
 
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
@@ -1363,67 +1365,6 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 	}
 
 	return e
-}
-
-func (e *Explod) setStartParams(c *Char, pfd *PalFXDef, rp [2]int32) {
-	// Init animation
-	e.setAnim(e.animNo, e.animPN, e.spritePN, e.anim_ffx)
-	e.setAnimElem()
-
-	// Update local scale according to sprite owner
-	if e.spritePN >= 0 && e.spritePN < len(sys.chars) {
-		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
-	}
-
-	e.start_animelem = e.animelem
-	e.start_fLength = e.fLength
-	e.start_xshear = e.xshear
-
-	for i := 0; i < 3; i++ {
-		if i < 2 {
-			e.start_scale[i] = e.scale[i]
-			e.start_alpha[i] = e.alpha[i]
-		}
-		e.start_rot[i] = e.anglerot[i]
-	}
-
-	if e.interpolate {
-		e.fLength = 0
-		for i := 0; i < 3; i++ {
-			if e.ownpal {
-				pfd.mul[i] = 256
-				pfd.add[i] = 0
-			}
-			if i < 2 {
-				e.scale[i] = 1
-				if e.blendmode == 1 {
-					e.alpha[i] = 255
-				}
-			}
-			e.anglerot[i] = 0
-		}
-		if e.ownpal {
-			pfd.color = 1
-			pfd.hue = 0
-		}
-	}
-
-	// Apply remap palette
-	if e.ownpal {
-		e.anim.UpdateSprite()
-		if e.anim.sff != sys.ffx["f"].fsff {
-			r := make([]int, len(e.palfx.remap))
-			copy(r, e.palfx.remap)
-			e.palfx = newPalFX()
-			e.palfx.remap = r
-			e.palfx.PalFXDef = e.palfxdef
-			c.forceRemapPal(e.palfx, rp)
-		} else {
-			e.palfx = newPalFX()
-			e.palfx.PalFXDef = e.palfxdef
-			e.palfx.remap = nil
-		}
-	}
 }
 
 func (e *Explod) setAllPosX(x float32) {
@@ -5837,15 +5778,79 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 	return c.getDrawPal(e.palfx.remap[0])
 }
 
+
 func (c *Char) insertExplod(i int) {
 	e := &sys.explods[c.playerNo][i]
+
+	// Init animation unless it already has been (e.g. sparks)
+	if e.anim == nil {
+		e.setAnim(e.animNo, e.animPN, e.spritePN, e.anim_ffx)
+		e.setAnimElem()
+	}
+
+	// If invalid animation, whole explod becomes invalid
+	// Note: If animation is not specified, it defaults to 0. If it is specified but invalid, explod is invalid
 	if e.anim == nil {
 		e.id = IErr
 		return
 	}
 
-	e.anim.UpdateSprite() // Why is this here?
+	// Update local scale according to sprite owner
+	if e.spritePN >= 0 && e.spritePN < len(sys.chars) {
+		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
+	}
 
+	// RemapPal and PalFX
+	if e.ownpal {
+		if e.anim.sff != sys.ffx["f"].fsff {
+			r := make([]int, len(e.palfx.remap))
+			copy(r, e.palfx.remap)
+			e.palfx = newPalFX()
+			e.palfx.remap = r
+			e.palfx.PalFXDef = e.palfxdef
+			c.forceRemapPal(e.palfx, e.remappal)
+		} else {
+			e.palfx = newPalFX()
+			e.palfx.PalFXDef = e.palfxdef
+			e.palfx.remap = nil
+		}
+	}
+
+	// Interpolation
+	e.start_animelem = e.animelem
+	e.start_fLength = e.fLength
+	e.start_xshear = e.xshear
+
+	for j := 0; j < 3; j++ {
+		if j < 2 {
+			e.start_scale[j] = e.scale[j]
+			e.start_alpha[j] = e.alpha[j]
+		}
+		e.start_rot[j] = e.anglerot[j]
+	}
+
+	if e.interpolate {
+		e.fLength = 0
+		for j := 0; j < 3; j++ {
+			if e.ownpal {
+				e.palfxdef.mul[j] = 256
+				e.palfxdef.add[j] = 0
+			}
+			if j < 2 {
+				e.scale[j] = 1
+				if e.blendmode == 1 {
+					e.alpha[j] = 255
+				}
+			}
+			e.anglerot[j] = 0
+		}
+		if e.ownpal {
+			e.palfxdef.color = 1
+			e.palfxdef.hue = 0
+		}
+	}
+
+	// Layering
 	var layer *[]int
 	switch {
 	case e.layerno > 0:
@@ -5871,6 +5876,9 @@ func (c *Char) insertExplod(i int) {
 		}
 	}
 	*layer = append(*layer, i)
+
+	// Explod ready
+	e.anim.UpdateSprite()
 }
 
 func (c *Char) explodBindTime(id, time int32) {

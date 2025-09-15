@@ -2786,33 +2786,32 @@ func (bk *RoundStartBackup) Restore() {
 			continue
 		}
 
+		c := chars[0]
+
 		// Restore shallow copy
-		*chars[0] = bk.charBackup[i]
+		*c = bk.charBackup[i]
 
-		// Restore CharGlobalInfo shallow copy
-		sys.cgi[i] = bk.cgiBackup[i]
-
-		// Deep copy maps and slices
-		chars[0].cnsvar = make(map[int32]int32, len(bk.charBackup[i].cnsvar))
+		// Remake the CNS variable maps
+		// Then restore only var and fvar (losing sysvar and sysfvar)
+		c.initCnsVar()
 		for k, v := range bk.charBackup[i].cnsvar {
-			chars[0].cnsvar[k] = v
+			c.cnsvar[k] = v
 		}
-
-		chars[0].cnsfvar = make(map[int32]float32, len(bk.charBackup[i].cnsfvar))
 		for k, v := range bk.charBackup[i].cnsfvar {
-			chars[0].cnsfvar[k] = v
+			c.cnsfvar[k] = v
 		}
 
-		chars[0].mapArray = make(map[string]float32, len(bk.charBackup[i].mapArray))
+		// Restore maps
+		c.mapArray = make(map[string]float32, len(bk.charBackup[i].mapArray))
 		for k, v := range bk.charBackup[i].mapArray {
-			chars[0].mapArray[k] = v
+			c.mapArray[k] = v
 		}
 
-		chars[0].dialogue = append([]string{}, bk.charBackup[i].dialogue...)
+		c.dialogue = append([]string{}, bk.charBackup[i].dialogue...)
 
-		chars[0].remapSpr = make(RemapPreset)
+		c.remapSpr = make(RemapPreset)
 		for k, v := range bk.charBackup[i].remapSpr {
-			chars[0].remapSpr[k] = v
+			c.remapSpr[k] = v
 		}
 	}
 
@@ -2822,7 +2821,7 @@ func (bk *RoundStartBackup) Restore() {
 	}
 
 	// Restore stage
-	// We preserve the stage time as a cosmetic thing just match Mugen. Might as well restore it to where it was when we use F4
+	// We preserve the stage time as a cosmetic thing just to match Mugen. Might as well restore it to where it was when we use F4
 	// NOTE: If reloading stage time we'd need backups of the BGCtrls as well
 	// NOTE: This save and restore of stage variables makes ModifyStageVar not persist. Maybe that should not be the case?
 	stageTime := sys.stage.stageTime

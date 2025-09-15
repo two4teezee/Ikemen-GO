@@ -5538,7 +5538,6 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	rp := [...]int32{-1, 0}
 
 	e, i := crun.newExplod()
 	if e == nil {
@@ -5573,9 +5572,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
-			rp[0] = exp[0].evalI(c)
+			e.remappal[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				rp[1] = exp[1].evalI(c)
+				e.remappal[1] = exp[1].evalI(c)
 			}
 		case explod_id:
 			e.id = Max(0, exp[0].evalI(c))
@@ -5769,7 +5768,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//	e.localscl = (320 / crun.localcoord)
 	//} else {
 
-	e.setStartParams(crun, &e.palfxdef, rp)
+	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with insertExplod
+
 	e.setPos(crun)
 	crun.insertExplod(i)
 	return false
@@ -5867,11 +5867,11 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	eid := int32(-1)
 	idx := int32(-1)
 	var expls []*Explod
-	rp := [...]int32{-1, 0}
 	remap := false
 	ptexists := false
 	animPN := -1
 	spritePN := -1
+
 	// Mugen chars can only modify some parameters after defining PosType
 	// Ikemen chars don't have this restriction
 	paramlock := func() bool {
@@ -5903,9 +5903,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				spritePN = pn
 			}
 		case explod_remappal:
-			rp[0] = exp[0].evalI(c)
+			e.remappal[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				rp[1] = exp[1].evalI(c)
+				e.remappal[1] = exp[1].evalI(c)
 			}
 			remap = true
 		case explod_id:
@@ -5922,7 +5922,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				}
 				eachExpl(func(e *Explod) {
 					if e.ownpal && remap {
-						crun.remapPal(e.palfx, [...]int32{1, 1}, rp)
+						crun.remapPal(e.palfx, [...]int32{1, 1}, e.remappal)
 					}
 				})
 			}

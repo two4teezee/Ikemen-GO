@@ -329,10 +329,10 @@ type System struct {
 	loadStateFlag   bool
 
 	// Match loop variables
-	autolvmul       float64
-	autolevels      [MaxPlayerNo]int32
-	fightLoopEnd    bool
-	roundBackup     RoundStartBackup
+	autolvmul    float64
+	autolevels   [MaxPlayerNo]int32
+	fightLoopEnd bool
+	roundBackup  RoundStartBackup
 
 	// for avg. FPS calculations
 	gameFPS       float32
@@ -2751,7 +2751,7 @@ func (bk *RoundStartBackup) Save() {
 
 		// Deep copy slices
 		bk.charBackup[i].dialogue = append([]string{}, c.dialogue...)
-		
+
 		// Deep copy remap preset
 		bk.charBackup[i].remapSpr = make(RemapPreset)
 		for k, v := range c.remapSpr {

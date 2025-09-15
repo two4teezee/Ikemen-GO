@@ -365,15 +365,21 @@ func readBackGround(is IniSection, link *backGround, sff *Sff, at AnimationTable
 }
 
 func (bg *backGround) reset() {
-	bg.palfx.clear()
-	bg.anim.Reset()
 	bg.bga.clear()
 	bg.bga.vel = bg.startv
 	bg.bga.radius = bg.startrad
 	bg.bga.sintime = bg.startsint
 	bg.bga.sinlooptime = bg.startsinlt
-	bg.palfx.time = -1
-	bg.palfx.invertblend = -3
+
+	if bg.anim != nil {
+		bg.anim.Reset()
+	}
+
+	if bg.palfx != nil {
+		bg.palfx.clear()
+		bg.palfx.time = -1
+		bg.palfx.invertblend = -3
+	}
 }
 
 // Changes BG animation without changing the surrounding parameters
@@ -1425,66 +1431,6 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 
 	s.mainstage = maindef
 	return s, nil
-}
-
-// TODO: This can be removed after rollback fight() is merged with system fight()
-func (s *Stage) copyStageVars(src *Stage) {
-	s.stageCamera.boundleft = src.stageCamera.boundleft
-	s.stageCamera.boundright = src.stageCamera.boundright
-	s.stageCamera.boundhigh = src.stageCamera.boundhigh
-	s.stageCamera.boundlow = src.stageCamera.boundlow
-	s.stageCamera.verticalfollow = src.stageCamera.verticalfollow
-	s.stageCamera.floortension = src.stageCamera.floortension
-	s.stageCamera.tensionhigh = src.stageCamera.tensionhigh
-	s.stageCamera.tensionlow = src.stageCamera.tensionlow
-	s.stageCamera.tension = src.stageCamera.tension
-	s.stageCamera.startzoom = src.stageCamera.startzoom
-	s.stageCamera.zoomout = src.stageCamera.zoomout
-	s.stageCamera.zoomin = src.stageCamera.zoomin
-	s.stageCamera.ytensionenable = src.stageCamera.ytensionenable
-	s.leftbound = src.leftbound
-	s.rightbound = src.rightbound
-	s.stageCamera.topz = src.stageCamera.topz
-	s.stageCamera.botz = src.stageCamera.botz
-	s.stageCamera.ztopscale = src.stageCamera.ztopscale
-	s.stageCamera.zbotscale = src.stageCamera.zbotscale
-	s.screenleft = src.screenleft
-	s.screenright = src.screenright
-	s.stageCamera.zoffset = src.stageCamera.zoffset
-	s.zoffsetlink = src.zoffsetlink
-	s.scale[0] = src.scale[0]
-	s.scale[1] = src.scale[1]
-	s.sdw.intensity = src.sdw.intensity
-	s.sdw.color = src.sdw.color
-	s.sdw.yscale = src.sdw.yscale
-	s.sdw.fadeend = src.sdw.fadeend
-	s.sdw.fadebgn = src.sdw.fadebgn
-	s.sdw.xshear = src.sdw.xshear
-	s.sdw.rot.angle = src.sdw.rot.angle
-	s.sdw.rot.xangle = src.sdw.rot.xangle
-	s.sdw.rot.yangle = src.sdw.rot.yangle
-	s.sdw.fLength = src.sdw.fLength
-	s.sdw.projection = src.sdw.projection
-	s.sdw.offset[0] = src.sdw.offset[0]
-	s.sdw.offset[1] = src.sdw.offset[1]
-	s.sdw.window[0] = src.sdw.window[0]
-	s.sdw.window[1] = src.sdw.window[1]
-	s.sdw.window[2] = src.sdw.window[2]
-	s.sdw.window[3] = src.sdw.window[3]
-	s.reflection.intensity = src.reflection.intensity
-	s.reflection.offset[0] = src.reflection.offset[0]
-	s.reflection.offset[1] = src.reflection.offset[1]
-	s.reflection.xshear = src.reflection.xshear
-	s.reflection.yscale = src.reflection.yscale
-	s.reflection.rot.angle = src.reflection.rot.angle
-	s.reflection.rot.xangle = src.reflection.rot.xangle
-	s.reflection.rot.yangle = src.reflection.rot.yangle
-	s.reflection.fLength = src.reflection.fLength
-	s.reflection.projection = src.reflection.projection
-	s.reflection.window[0] = src.reflection.window[0]
-	s.reflection.window[1] = src.reflection.window[1]
-	s.reflection.window[2] = src.reflection.window[2]
-	s.reflection.window[3] = src.reflection.window[3]
 }
 
 func (s *Stage) getBg(id int32) (bg []*backGround) {

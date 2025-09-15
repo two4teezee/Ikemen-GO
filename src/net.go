@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unsafe"
 
 	ggpo "github.com/assemblaj/ggpo"
 	"golang.org/x/exp/maps"
@@ -359,56 +358,51 @@ func encodeInputs(inputs InputBits) []byte {
 	return writeI32(int32(inputs))
 }
 
-type CharChecksum struct {
-	life        int32
-	redLife     int32
-	dizzyPoints int32
-	guardPoints int32
-	power       int32
-	animNo      int32
-	//pos         [3]float32
-}
-
-func (cc *CharChecksum) ToBytes() []byte {
-	buf := make([]byte, 0, unsafe.Sizeof(*cc))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.life))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.redLife))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.dizzyPoints))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.guardPoints))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.power))
-	buf = binary.BigEndian.AppendUint32(buf, uint32(cc.animNo))
-	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0]))
-	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
-	//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
-	return buf
-}
-
-func (c *Char) LiveChecksum() []byte {
-	cc := CharChecksum{
-		life:        c.life,
-		redLife:     c.redLife,
-		dizzyPoints: c.dizzyPoints,
-		guardPoints: c.guardPoints,
-		power:       c.power,
-		animNo:      c.animNo,
-		//pos:         c.pos, // Seems to cause false positives. Probably the float math
-	}
-	return cc.ToBytes()
-}
-
 func (rs *RollbackSession) LiveChecksum() uint32 {
-	// This (the full checksum) is unstable in live gameplay, do not use. Looking for replacements.
-	// if rs.config.LogsEnabled {
-	// 	return uint32(rs.saveStates[sys.rollbackStateID].Checksum())
-	// }
+	// System
 	buf := writeI32(sys.randseed)
 	buf = append(buf, writeI32(sys.gameTime)...)
-	buf = append(buf, writeI32(sys.curRoundTime)...) // Round timer
-	for i := range sys.chars {
-		if len(sys.chars[i]) > 0 {
-			buf = append(buf, sys.chars[i][0].LiveChecksum()...)
+	buf = append(buf, writeI32(sys.curRoundTime)...)
+
+	// Round start checks. Random select safeguard
+	if sys.tickCount == 0 {
+		// Stage
+		stageHash := crc32.ChecksumIEEE([]byte(sys.stage.name)) 
+		buf = binary.BigEndian.AppendUint32(buf, stageHash)
+
+		// Characters
+		for i := range sys.chars {
+			if len(sys.chars[i]) == 0 {
+				continue
+			}
+			c := sys.chars[i][0]
+			nameHash := crc32.ChecksumIEEE([]byte(c.name))
+			buf = binary.BigEndian.AppendUint32(buf, nameHash)
+		}
+
+		// CharGlobalInfo
+		for i := range sys.cgi {
+			buf = binary.BigEndian.AppendUint32(buf, uint32(sys.cgi[i].palno))
 		}
 	}
+
+	// Character data
+	for i := range sys.chars {
+		if len(sys.chars[i]) == 0 {
+			continue
+		}
+		c := sys.chars[i][0]
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.life))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.redLife))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.dizzyPoints))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.guardPoints))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.power))
+		buf = binary.BigEndian.AppendUint32(buf, uint32(c.animNo))
+		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0])) // These might add float operation errors
+		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
+		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
+	}
+
 	return crc32.ChecksumIEEE(buf)
 }
 

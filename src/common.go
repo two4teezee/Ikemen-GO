@@ -1133,14 +1133,18 @@ func (al *AnimLayout) Read(pre string, is IniSection, at AnimationTable, ln int1
 }
 
 func (al *AnimLayout) Reset() {
-	al.anim.Reset()
+	if al.anim != nil {
+		al.anim.Reset()
+	}
 }
 
 func (al *AnimLayout) Action() {
 	if al.palfx != nil {
 		al.palfx.step()
 	}
-	al.anim.Action()
+	if al.anim != nil {
+		al.anim.Action()
+	}
 }
 
 func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {

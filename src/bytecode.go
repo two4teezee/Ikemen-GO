@@ -5538,12 +5538,12 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	rp := [...]int32{-1, 0}
 
 	e, i := crun.newExplod()
 	if e == nil {
 		return false
 	}
+
 	e.id = 0
 
 	// Mugenversion 1.1 chars default postype to "None"
@@ -5573,9 +5573,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
-			rp[0] = exp[0].evalI(c)
+			e.remappal[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				rp[1] = exp[1].evalI(c)
+				e.remappal[1] = exp[1].evalI(c)
 			}
 		case explod_id:
 			e.id = Max(0, exp[0].evalI(c))
@@ -5769,7 +5769,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//	e.localscl = (320 / crun.localcoord)
 	//} else {
 
-	e.setStartParams(crun, &e.palfxdef, rp)
+	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with insertExplod
+
 	e.setPos(crun)
 	crun.insertExplod(i)
 	return false
@@ -5867,11 +5868,12 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	eid := int32(-1)
 	idx := int32(-1)
 	var expls []*Explod
-	rp := [...]int32{-1, 0}
+	rp := [2]int32{-1, 0}
 	remap := false
 	ptexists := false
 	animPN := -1
 	spritePN := -1
+
 	// Mugen chars can only modify some parameters after defining PosType
 	// Ikemen chars don't have this restriction
 	paramlock := func() bool {
@@ -6237,10 +6239,10 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
 					apn := crun.playerNo // Default to own player number
 					spn := crun.playerNo
-					if animPN != -1 {
+					if animPN >= 0 {
 						apn = animPN
 					}
-					if spritePN != -1 {
+					if spritePN >= 0 {
 						spn = spritePN
 					}
 					animNo := exp[1].evalI(c)
@@ -6248,9 +6250,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 					eachExpl(func(e *Explod) {
 						e.animNo = animNo
+						e.anim_ffx = ffx
 						e.animelem = 1
 						e.animelemtime = 0
-						e.setAnim(e.animNo, apn, spn, ffx)
+						e.animPN = apn
+						e.spritePN = spn
+						e.setAnim()
+						e.setAnimElem()
 					})
 				}
 			case explod_animelem:
@@ -6418,6 +6424,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	e.relativePos[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
 	crun.insertExplod(i)
+
 	return false
 }
 

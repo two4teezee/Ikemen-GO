@@ -1427,6 +1427,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	return s, nil
 }
 
+// TODO: This can be removed after rollback fight() is merged with system fight()
 func (s *Stage) copyStageVars(src *Stage) {
 	s.stageCamera.boundleft = src.stageCamera.boundleft
 	s.stageCamera.boundright = src.stageCamera.boundright
@@ -1708,12 +1709,16 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
 
-	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) &&
-		(sys.pausetime <= 0 || !sys.pausebg) {
+	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) && (sys.pausetime <= 0 || !sys.pausebg) {
 		paused = false
-		s.stageTime++
+
 		s.bgCtrlAction()
 		s.bga.action()
+
+		// Stage time must be incremented after updating BGCtrl
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2656
+		s.stageTime++
+
 		if s.model != nil {
 			s.model.step(sys.turbo)
 		}

@@ -1764,10 +1764,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_swap:
 			sys.bcStack.Swap()
 		case OC_ailevel:
-			if !c.asf(ASF_noailevel) {
-				sys.bcStack.PushI(int32(c.getAILevel()))
-			} else {
+			if c.asf(ASF_noailevel) {
 				sys.bcStack.PushI(0)
+			} else {
+				sys.bcStack.PushI(int32(c.getAILevel()))
 			}
 		case OC_alive:
 			sys.bcStack.PushB(c.alive())
@@ -2785,10 +2785,10 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		)
 		*i += 4
 	case OC_ex_ailevelf:
-		if !c.asf(ASF_noailevel) {
-			sys.bcStack.PushF(c.getAILevel())
-		} else {
+		if c.asf(ASF_noailevel) {
 			sys.bcStack.PushI(0)
+		} else {
+			sys.bcStack.PushF(c.getAILevel())
 		}
 	case OC_ex_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
@@ -5539,8 +5539,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 	rp := [...]int32{-1, 0}
-	animPN := -1
-	spritePN := -1
+
 	e, i := crun.newExplod()
 	if e == nil {
 		return false
@@ -5555,31 +5554,21 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_anim:
-			apn := crun.playerNo // Default to own player number
-			spn := crun.playerNo
-			if animPN != -1 {
-				apn = animPN
-			}
-			if spritePN != -1 {
-				spn = spritePN
-			}
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			if ffx != "" && ffx != "s" {
 				e.ownpal = true
 			}
 			e.animNo = exp[1].evalI(c)
-			e.animelem = 1
-			e.animelemtime = 0
-			e.setAnim(e.animNo, apn, spn, ffx)
+			e.anim_ffx = ffx
 		case explod_animplayerno:
 			pn := int(exp[0].evalI(c)) - 1
 			if crun.validatePlayerNo(pn, "animPlayerNo", "Explod") {
-				animPN = pn
+				e.animPN = pn
 			}
 		case explod_spriteplayerno:
 			pn := int(exp[0].evalI(c)) - 1
 			if crun.validatePlayerNo(pn, "spritePlayerNo", "Explod") {
-				spritePN = pn
+				e.spritePN = pn
 			}
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
@@ -5735,13 +5724,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_animelem:
 			e.animelem = exp[0].evalI(c)
-			if e.anim != nil {
-				e.anim.Action() // This being in this place can cause a nil animation crash
-			}
-			e.setAnimElem()
 		case explod_animelemtime:
 			e.animelemtime = exp[0].evalI(c)
-			e.setAnimElem()
 		case explod_animfreeze:
 			e.animfreeze = exp[0].evalB(c)
 		case explod_angle:
@@ -5784,10 +5768,10 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//if c.minus == -2 || c.minus == -4 {
 	//	e.localscl = (320 / crun.localcoord)
 	//} else {
-	e.localscl = crun.localscl
-	e.setStartParams(&e.palfxdef)
+
+	e.setStartParams(crun, &e.palfxdef, rp)
 	e.setPos(crun)
-	crun.insertExplodEx(i, rp)
+	crun.insertExplod(i)
 	return false
 }
 
@@ -11270,8 +11254,8 @@ func (sc roundTimeAdd) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case roundTimeAdd_value:
-			if sys.roundTime != -1 {
-				sys.time = Clamp(sys.time+exp[0].evalI(c), 0, sys.roundTime)
+			if sys.maxRoundTime != -1 {
+				sys.curRoundTime = Clamp(sys.curRoundTime+exp[0].evalI(c), 0, sys.maxRoundTime)
 			}
 		}
 		return true
@@ -11290,8 +11274,8 @@ func (sc roundTimeSet) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case roundTimeSet_value:
-			if sys.roundTime != -1 {
-				sys.time = Clamp(exp[0].evalI(c), 0, sys.roundTime)
+			if sys.maxRoundTime != -1 {
+				sys.curRoundTime = Clamp(exp[0].evalI(c), 0, sys.maxRoundTime)
 			}
 		}
 		return true

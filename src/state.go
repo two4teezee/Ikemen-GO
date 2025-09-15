@@ -82,7 +82,7 @@ func (gs *GameState) Checksum() int {
 }
 
 func (gs *GameState) String() (str string) {
-	str = fmt.Sprintf("Time: %d GameTime %d \n", gs.Time, gs.GameTime)
+	str = fmt.Sprintf("Time: %d GameTime %d \n", gs.curRoundTime, gs.GameTime)
 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 	str += fmt.Sprintf("bcVar: %v\n", gs.bcVar)
@@ -104,7 +104,7 @@ type GameState struct {
 	saved    bool
 	frame    int32
 	randseed int32
-	Time     int32
+	curRoundTime int32
 	GameTime int32
 
 	projs          [MaxPlayerNo][]Projectile
@@ -153,7 +153,7 @@ type GameState struct {
 	widthScale, heightScale float32
 	gameEnd, frameSkip      bool
 	brightness              int32
-	roundTime               int32 // UIT
+	maxRoundTime            int32 // UIT
 	team1VS2Life            float32
 	turnsRecoveryRate       float32
 	match                   int32 // UIT
@@ -183,7 +183,7 @@ type GameState struct {
 	screenright             float32
 	xmin, xmax              float32
 	winskipped              bool
-	paused, step            bool
+	paused, frameStepFlag   bool
 	roundResetFlg           bool
 	reloadFlg               bool
 	reloadStageFlg          bool
@@ -294,7 +294,7 @@ func (gs *GameState) LoadState(stateID int) {
 	gsp := &sys.loadPool
 
 	sys.randseed = gs.randseed
-	sys.time = gs.Time // UIT
+	sys.curRoundTime = gs.curRoundTime // UIT
 	sys.gameTime = gs.GameTime
 	gs.loadCharData(a, gsp)
 	gs.loadExplodData(a, gsp)
@@ -344,7 +344,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
-	sys.time = gs.Time
+	sys.curRoundTime = gs.curRoundTime
 	sys.nextCharId = gs.nextCharId
 
 	sys.scrrect = gs.scrrect
@@ -355,7 +355,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.gameEnd = gs.gameEnd
 	sys.frameSkip = gs.frameSkip
 	sys.brightness = gs.brightness
-	sys.roundTime = gs.roundTime
+	sys.maxRoundTime = gs.maxRoundTime
 	sys.turnsRecoveryRate = gs.turnsRecoveryRate
 
 	sys.changeStateNest = gs.changeStateNest
@@ -409,7 +409,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.xmax = gs.xmax
 	sys.winskipped = gs.winskipped
 	sys.paused = gs.paused
-	sys.step = gs.step
+	sys.frameStepFlag = gs.frameStepFlag
 	sys.roundResetFlg = gs.roundResetFlg
 	sys.reloadFlg = gs.reloadFlg
 	sys.reloadStageFlg = gs.reloadStageFlg
@@ -524,7 +524,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.saved = true
 	gs.frame = sys.frameCounter
 	gs.randseed = sys.randseed
-	gs.Time = sys.time
+	gs.curRoundTime = sys.curRoundTime
 	gs.GameTime = sys.gameTime
 
 	gs.saveCharData(a, gsp)
@@ -573,7 +573,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.Time = sys.time
+	gs.curRoundTime = sys.curRoundTime
 	gs.nextCharId = sys.nextCharId
 
 	gs.scrrect = sys.scrrect
@@ -584,7 +584,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.gameEnd = sys.gameEnd
 	gs.frameSkip = sys.frameSkip
 	gs.brightness = sys.brightness
-	gs.roundTime = sys.roundTime
+	gs.maxRoundTime = sys.maxRoundTime
 	gs.turnsRecoveryRate = sys.turnsRecoveryRate
 
 	gs.changeStateNest = sys.changeStateNest
@@ -637,7 +637,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.xmax = sys.xmax
 	gs.winskipped = sys.winskipped
 	gs.paused = sys.paused
-	gs.step = sys.step
+	gs.frameStepFlag = sys.frameStepFlag
 	gs.roundResetFlg = sys.roundResetFlg
 	gs.reloadFlg = sys.reloadFlg
 	gs.reloadStageFlg = sys.reloadStageFlg

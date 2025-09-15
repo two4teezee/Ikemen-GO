@@ -2391,7 +2391,10 @@ func (ai *AiInput) Update(level float32) {
 		ai.dt, ai.wt, ai.mt = 0, 0, 0
 		return
 	}
+
 	var chance, time int32 = 15, 60
+
+	// Helper to jam a button for a given time
 	jam := func(t *int32) bool {
 		(*t)--
 		if *t <= 0 {
@@ -2404,10 +2407,12 @@ func (ai *AiInput) Update(level float32) {
 		}
 		return false
 	}
-	// Pick a random direction to press
+
+	// Pick a random single direction
 	if jam(&ai.dirt) {
 		ai.dir = Rand(0, 7)
 	}
+
 	chance, time = int32((-11.25*level+165)*7), 30
 	jam(&ai.at)
 	jam(&ai.bt)
@@ -3090,9 +3095,30 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
-func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32, ibit InputBits, shifting [][2]int, script bool) bool {
+func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32, script bool) bool {
 	if cl.Buffer == nil {
 		return false
+	}
+
+	var aijam, flipbf bool
+	var ibit InputBits
+	var shifting [][2]int
+
+	// Get char parameters
+	if owner != nil {
+		//controller := owner.controller // We need this one as an argument because of currect script architecture
+		flipbf = owner.fbFlip
+		aijam = !owner.asf(ASF_noaibuttonjam)
+		ibit = owner.inputFlag
+		shifting = owner.inputShift
+	}
+
+	// With scripts we bypass most flags
+	if script {
+		flipbf = false
+		aijam = false
+		ibit = 0
+		shifting = nil
 	}
 
 	// This check is currently needed to prevent screenpack inputs from rapid firing
@@ -3109,11 +3135,13 @@ func (cl *CommandList) InputUpdate(controller int, flipbf bool, aiLevel float32,
 	var buttons [14]bool
 
 	if isAI {
-		// Since AI inputs use random numbers, we handle them locally to avoid desync
-		idx := ^controller
-		if idx >= 0 && idx < len(sys.aiInput) {
-			sys.aiInput[idx].Update(aiLevel)
-			buttons = sys.aiInput[idx].Buttons()
+		if aijam {
+			// Since AI inputs use random numbers, we handle them locally to avoid desync
+			idx := ^controller
+			if idx >= 0 && idx < len(sys.aiInput) {
+				sys.aiInput[idx].Update(aiLevel)
+				buttons = sys.aiInput[idx].Buttons()
+			}
 		}
 	} else if sys.replayFile != nil {
 		buttons = sys.replayFile.readReplayFile(controller)

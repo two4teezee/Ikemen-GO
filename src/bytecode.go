@@ -5543,6 +5543,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	if e == nil {
 		return false
 	}
+
 	e.id = 0
 
 	// Mugenversion 1.1 chars default postype to "None"
@@ -5867,6 +5868,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	eid := int32(-1)
 	idx := int32(-1)
 	var expls []*Explod
+	rp := [2]int32{-1, 0}
 	remap := false
 	ptexists := false
 	animPN := -1
@@ -5903,9 +5905,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				spritePN = pn
 			}
 		case explod_remappal:
-			e.remappal[0] = exp[0].evalI(c)
+			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				e.remappal[1] = exp[1].evalI(c)
+				rp[1] = exp[1].evalI(c)
 			}
 			remap = true
 		case explod_id:
@@ -5922,7 +5924,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				}
 				eachExpl(func(e *Explod) {
 					if e.ownpal && remap {
-						crun.remapPal(e.palfx, [...]int32{1, 1}, e.remappal)
+						crun.remapPal(e.palfx, [...]int32{1, 1}, rp)
 					}
 				})
 			}
@@ -6237,10 +6239,10 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
 					apn := crun.playerNo // Default to own player number
 					spn := crun.playerNo
-					if animPN != -1 {
+					if animPN >= 0 {
 						apn = animPN
 					}
-					if spritePN != -1 {
+					if spritePN >= 0 {
 						spn = spritePN
 					}
 					animNo := exp[1].evalI(c)
@@ -6248,9 +6250,13 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 					eachExpl(func(e *Explod) {
 						e.animNo = animNo
+						e.anim_ffx = ffx
 						e.animelem = 1
 						e.animelemtime = 0
-						e.setAnim(e.animNo, apn, spn, ffx)
+						e.animPN = apn
+						e.spritePN = spn
+						e.setAnim()
+						e.setAnimElem()
 					})
 				}
 			case explod_animelem:
@@ -6418,6 +6424,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	e.relativePos[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
 	crun.insertExplod(i)
+
 	return false
 }
 

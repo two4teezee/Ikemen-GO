@@ -1473,34 +1473,65 @@ func (e *Explod) matchId(eid, pid int32) bool {
 	return e.id >= 0 && e.playerId == pid && (eid < 0 || e.id == eid)
 }
 
-func (e *Explod) setAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
+func (e *Explod) setAnim() {
 	c := sys.playerID(e.playerId)
 	if c == nil {
 		return
 	}
 
-	if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
-		e.anim = a
-		e.animPN = animPlayerNo
-		e.spritePN = spritePlayerNo
+	// Check if using common FX
+	common := e.anim_ffx != "" && e.anim_ffx != "s"
 
-		if e.spritePN < 0 {
-			e.spritePN = c.playerNo
+	// Check animPN bounds
+	animPN := e.animPN
+	if animPN < 0 || common { // Common FX run getAnim with the owner's player number for the sake of scaling
+		animPN = c.playerNo
+	}
+	if animPN < 0 || animPN >= len(sys.chars) || len(sys.chars[animPN]) == 0 {
+		return
+	}
+	animChar := sys.chars[animPN][0]
+
+	// Get animation
+	a := animChar.getAnim(e.animNo, e.anim_ffx, false)
+	if a == nil {
+		return
+	}
+	e.anim = a
+
+	// Ignore SpritePN for common FX
+	if common {
+		// Set anim data owners to undefined for the sake of triggers
+		e.animPN = -1
+		e.spritePN = -1
+		return
+	}
+
+	// Palette setup
+	spritePN := e.spritePN
+	if spritePN < 0 {
+		spritePN = c.playerNo
+	}
+	if spritePN < 0 || spritePN >= len(sys.cgi) {
+		return
+	}
+
+	a.sff = sys.cgi[spritePN].sff
+	a.palettedata = &sys.cgi[spritePN].palettedata.palList
+
+	// Remap sprite palette if necessary
+	if c.playerNo != spritePN && !e.ownpal {
+		if len(sys.chars[spritePN]) == 0 {
+			return
 		}
-		if ffx == "" {
-			a.sff = sys.cgi[e.spritePN].sff
-			a.palettedata = &sys.cgi[e.spritePN].palettedata.palList
-			if c.playerNo != e.spritePN && !e.ownpal {
-				ownerChar := sys.chars[e.spritePN][0]
-				ownerPal := ownerChar.drawPal()
-				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
+		spriteChar := sys.chars[spritePN][0]
+		ownerPal := spriteChar.drawPal()
+		key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
 
-				if di, ok := a.palettedata.PalTable[key]; ok {
-					for _, id := range [...]int32{0, 9000} {
-						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
-							a.palettedata.Remap(spr.palidx, di)
-						}
-					}
+		if di, ok := a.palettedata.PalTable[key]; ok {
+			for _, id := range [...]int32{0, 9000} {
+				if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+					a.palettedata.Remap(spr.palidx, di)
 				}
 			}
 		}
@@ -5782,11 +5813,9 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 func (c *Char) insertExplod(i int) {
 	e := &sys.explods[c.playerNo][i]
 
-	// Init animation unless it already has been (e.g. sparks)
-	if e.anim == nil {
-		e.setAnim(e.animNo, e.animPN, e.spritePN, e.anim_ffx)
-		e.setAnimElem()
-	}
+	// Init animation
+	e.setAnim()
+	e.setAnimElem()
 
 	// If invalid animation, whole explod becomes invalid
 	// Note: If animation is not specified, it defaults to 0. If it is specified but invalid, explod is invalid
@@ -5796,6 +5825,7 @@ func (c *Char) insertExplod(i int) {
 	}
 
 	// Update local scale according to sprite owner
+	// Note: Common FX have undefined player number
 	if e.spritePN >= 0 && e.spritePN < len(sys.chars) {
 		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
 	}
@@ -5925,15 +5955,19 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 	if n == -2 {
 		return &Animation{}
 	}
+
 	if n == -1 {
 		return nil
 	}
+
 	current_ffx := ffx
+
 	if current_ffx == "f" {
 		if c.gi().fightfxPrefix != "" {
 			current_ffx = c.gi().fightfxPrefix // 固有プレフィックスで上書き
 		}
 	}
+
 	if current_ffx != "" && current_ffx != "s" {
 		if sys.ffx[current_ffx] != nil && sys.ffx[current_ffx].fat != nil {
 			a = sys.ffx[current_ffx].fat.get(n)
@@ -5941,6 +5975,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 	} else {
 		a = c.gi().anim.get(n)
 	}
+
 	if a == nil {
 		if fx {
 			if current_ffx != "" && current_ffx != "s" {
@@ -5968,6 +6003,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 		a.start_scale[0] /= c.localscl
 		a.start_scale[1] /= c.localscl
 	}
+
 	return
 }
 
@@ -7702,11 +7738,8 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 		return
 	}
 	if e, i := c.newExplod(); e != nil {
-		e.anim = c.getAnim(120, "f", true)
-		if e.anim != nil {
-			e.anim.start_scale[0] *= c.localscl
-			e.anim.start_scale[1] *= c.localscl
-		}
+		e.animNo = 120
+		e.anim_ffx = "f"
 		e.sprpriority = math.MaxInt32
 		e.layerno = c.layerNo
 		e.ownpal = true
@@ -9535,27 +9568,36 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			off[1] += p1.hitdef.sparkxy[1] * c.localscl
 		}
 
+		// Convert offset back to character's coordinate space
+		for i := range off {
+			off[i] /= c.localscl
+		}
+
 		// Save hitspark position to MoveHitVar
-		// Currently it is saved even if the hit is a projectile
-		c.mhv.sparkxy[0] = off[0]
-		c.mhv.sparkxy[1] = off[1]
+		if !isProjectile {
+			c.mhv.sparkxy[0] = off[0]
+			c.mhv.sparkxy[1] = off[1]
+		}
 
 		if animNo >= 0 {
 			if e, i := c.newExplod(); e != nil {
-				e.anim = c.getAnim(animNo, ffx, true)
+				//e.anim = c.getAnim(animNo, ffx, true)
+				e.animNo = animNo
+				e.anim_ffx = ffx
 				e.layerno = 1 // e.ontop = true
 				e.sprpriority = math.MinInt32
 				e.ownpal = true
-				e.relativePos = [...]float32{off[0], off[1], off[2]}
+				e.relativePos = [3]float32{off[0], off[1], off[2]}
 				e.supermovetime = -1
 				e.pausemovetime = -1
-				e.localscl = 1
-				if ffx == "" || ffx == "s" {
-					e.scale = [...]float32{c.localscl * sparkscale[0], c.localscl * sparkscale[1]}
-				} else if e.anim != nil {
-					e.anim.start_scale[0] *= c.localscl * sparkscale[0]
-					e.anim.start_scale[1] *= c.localscl * sparkscale[1]
-				}
+				e.scale = [2]float32{sparkscale[0], sparkscale[1]}
+				//e.localscl = 1
+				//if ffx == "" || ffx == "s" {
+				//	e.scale = [2]float32{c.localscl * sparkscale[0], c.localscl * sparkscale[1]}
+				//} else if e.anim != nil {
+				//	e.anim.start_scale[0] *= c.localscl * sparkscale[0]
+				//	e.anim.start_scale[1] *= c.localscl * sparkscale[1]
+				//}
 				e.setPos(p1)
 				e.anglerot[0] = sparkangle
 				c.insertExplod(i)

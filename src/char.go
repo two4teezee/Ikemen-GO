@@ -1479,62 +1479,34 @@ func (e *Explod) setAnim() {
 		return
 	}
 
-	// Check if using common FX
-	common := e.anim_ffx != "" && e.anim_ffx != "s"
-
-	// Check animPN bounds
-	animPN := e.animPN
-	if animPN < 0 || common { // Common FX run getAnim with the owner's player number for the sake of scaling
-		animPN = c.playerNo
-	}
-	if animPN < 0 || animPN >= len(sys.chars) || len(sys.chars[animPN]) == 0 {
+	// Validate AnimPlayerNo
+	if e.animPN < 0 {
+		e.animPN = c.playerNo
+	} else if e.animPN >= len(sys.chars) || len(sys.chars[e.animPN]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod animPlayerNo: %v", e.animPN))
 		return
 	}
-	animChar := sys.chars[animPN][0]
 
-	// Get animation
-	a := animChar.getAnim(e.animNo, e.anim_ffx, false)
+	// Validate SpritePlayerNo
+	if e.spritePN < 0 {
+		e.spritePN = c.playerNo
+	} else if e.spritePN >= len(sys.chars) || len(sys.chars[e.spritePN]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod spritePlayerNo: %v", e.spritePN))
+		return
+	}
+
+	// Get animation with sprite owner context
+	animChar := sys.chars[e.animPN][0]
+	a := animChar.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal, true)
 	if a == nil {
 		return
 	}
 	e.anim = a
 
-	// Ignore SpritePN for common FX
-	if common {
-		// Set anim data owners to undefined for the sake of triggers
+	// For common FX, mark owner as undefined for triggers
+	if e.anim_ffx != "" && e.anim_ffx != "s" {
 		e.animPN = -1
 		e.spritePN = -1
-		return
-	}
-
-	// Palette setup
-	spritePN := e.spritePN
-	if spritePN < 0 {
-		spritePN = c.playerNo
-	}
-	if spritePN < 0 || spritePN >= len(sys.cgi) {
-		return
-	}
-
-	a.sff = sys.cgi[spritePN].sff
-	a.palettedata = &sys.cgi[spritePN].palettedata.palList
-
-	// Remap sprite palette if necessary
-	if c.playerNo != spritePN && !e.ownpal {
-		if len(sys.chars[spritePN]) == 0 {
-			return
-		}
-		spriteChar := sys.chars[spritePN][0]
-		ownerPal := spriteChar.drawPal()
-		key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
-
-		if di, ok := a.palettedata.PalTable[key]; ok {
-			for _, id := range [...]int32{0, 9000} {
-				if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
-					a.palettedata.Remap(spr.palidx, di)
-				}
-			}
-		}
 	}
 }
 
@@ -2015,7 +1987,7 @@ func (p *Projectile) update() {
 					if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
 						if p.hitanim == -1 {
 							p.ani = nil
-						} else if ani := root.getAnim(p.hitanim, p.hitanim_ffx, true); ani != nil {
+						} else if ani := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); ani != nil {
 							p.ani = ani
 						}
 					}
@@ -2025,7 +1997,7 @@ func (p *Projectile) update() {
 					if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
 						if p.cancelanim == -1 {
 							p.ani = nil
-						} else if ani := root.getAnim(p.cancelanim, p.cancelanim_ffx, true); ani != nil {
+						} else if ani := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); ani != nil {
 							p.ani = ani
 						}
 					}
@@ -2044,7 +2016,7 @@ func (p *Projectile) update() {
 					if p.remanim != -2 {
 						if p.remanim == -1 {
 							p.ani = nil
-						} else if ani := root.getAnim(p.remanim, p.remanim_ffx, true); ani != nil {
+						} else if ani := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); ani != nil {
 							p.ani = ani
 							// In Mugen, if remanim is invalid the projectile will keep the current one
 							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
@@ -3793,50 +3765,42 @@ func (c *Char) clearHitDef() {
 	c.hitdef.clear(c, c.localscl)
 }
 
-func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string, alt bool) {
-	if a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, false); a != nil {
-		c.anim = a
-		c.anim.remap = c.remapSpr
+func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
+	// Get the animation
+	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal, false)
+
+	// If invalid
+	if a == nil {
+		return
+	}
+
+	// Assign animation to character
+	c.anim = a
+	c.anim.remap = c.remapSpr
+	c.prevAnimNo = c.animNo
+	c.animNo = animNo
+
+	// Animation is valid, so we update these variables
+	// Common FX set playerNo to undefined
+	if ffx != "" && ffx != "s" {
+		c.animPN = -1
+		c.spritePN = -1
+	} else {
 		c.animPN = animPlayerNo
 		c.spritePN = spritePlayerNo
-		c.prevAnimNo = c.animNo
-		c.animNo = animNo
-
-		// If using ChangeAnim2, the animation is changed but the sff is kept
-		if alt {
-			c.spritePN = c.playerNo
-		} else {
-			if c.spritePN < 0 {
-				c.spritePN = c.playerNo
-			} else {
-				c.spritePN = spritePlayerNo
-			}
-		}
-
-		if ffx == "" {
-			a.sff = sys.cgi[c.spritePN].sff
-			a.palettedata = &sys.cgi[c.spritePN].palettedata.palList
-			if c.playerNo != c.spritePN {
-				ownerChar := sys.chars[c.spritePN][0]
-				ownerPal := ownerChar.drawPal()
-				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
-
-				if di, ok := a.palettedata.PalTable[key]; ok {
-					for _, id := range [...]int32{0, 9000} {
-						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
-							a.palettedata.Remap(spr.palidx, di)
-						}
-					}
-				}
-			}
-		}
-		// Update animation local scale
-		c.animlocalscl = 320 / sys.chars[c.animPN][0].localcoord
-		// Clsn scale depends on the animation owner's scale, so it must be updated
-		c.updateClsnScale()
-		// Update reference frame
-		c.updateCurFrame()
 	}
+
+	// Update animation local scale
+	animOwner := c.animPN
+	if animOwner < 0 || animOwner >= len(sys.chars) || len(sys.chars[animOwner]) == 0 {
+		animOwner = c.playerNo
+	}
+	c.animlocalscl = 320 / sys.chars[animOwner][0].localcoord
+
+	// Clsn scale depends on the animation owner's scale, so it must be updated
+	c.updateClsnScale()
+	// Update reference frame
+	c.updateCurFrame()
 }
 
 func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
@@ -3847,7 +3811,24 @@ func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ff
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
 		animNo = 0
 	}
-	c.changeAnimEx(animNo, animPlayerNo, spritePlayerNo, ffx, false)
+
+	// Validate AnimPlayerNo
+	if animPlayerNo < 0 {
+		animPlayerNo = c.playerNo
+	} else if animPlayerNo >= len(sys.chars) || len(sys.chars[animPlayerNo]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid animPlayerNo: %v", animPlayerNo))
+		animPlayerNo = c.playerNo
+	}
+
+	// Validate SpritePlayerNo
+	if spritePlayerNo < 0 {
+		spritePlayerNo = c.playerNo
+	} else if spritePlayerNo >= len(sys.chars) || len(sys.chars[spritePlayerNo]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid spritePlayerNo: %v", spritePlayerNo))
+		spritePlayerNo = c.playerNo
+	}
+
+	c.changeAnimEx(animNo, animPlayerNo, spritePlayerNo, ffx)
 }
 
 func (c *Char) changeAnim2(animNo int32, animPlayerNo int, ffx string) {
@@ -3855,7 +3836,8 @@ func (c *Char) changeAnim2(animNo int32, animPlayerNo int, ffx string) {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted change to negative anim (different from -2)"))
 		animNo = 0
 	}
-	c.changeAnimEx(animNo, animPlayerNo, -1, ffx, true)
+
+	c.changeAnimEx(animNo, animPlayerNo, c.playerNo, ffx)
 }
 
 func (c *Char) setAnimElem(elem, elemtime int32) {
@@ -3885,6 +3867,7 @@ func (c *Char) setAnimElem(elem, elemtime int32) {
 	c.updateCurFrame()
 }
 
+/*
 func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
 	valid := pn >= 0 && pn < len(sys.chars) &&
 		len(sys.chars[pn]) > 0 && sys.chars[pn][0] != nil
@@ -3894,6 +3877,8 @@ func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
 	}
 	return true
 }
+*/
+
 
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {
@@ -5350,11 +5335,11 @@ func (c *Char) autoTurn() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
-				c.changeAnimEx(5, c.playerNo, -1, "", false)
+				c.changeAnim(5, c.playerNo, -1, "")
 			}
 		case ST_C:
 			if c.animNo != 6 {
-				c.changeAnimEx(6, c.playerNo, -1, "", false)
+				c.changeAnim(6, c.playerNo, -1, "")
 			}
 		}
 		c.setFacing(-c.facing)
@@ -5823,12 +5808,6 @@ func (c *Char) insertExplod(i int) {
 		return
 	}
 
-	// Update local scale according to sprite owner
-	// Note: Common FX have undefined player number
-	if e.spritePN >= 0 && e.spritePN < len(sys.chars) {
-		e.localscl = 320 / sys.chars[e.spritePN][0].localcoord
-	}
-
 	// RemapPal and PalFX
 	if e.ownpal {
 		if e.anim.sff != sys.ffx["f"].fsff {
@@ -5950,6 +5929,29 @@ func (c *Char) removeExplod(id, idx int32) {
 	// The same also happens in system.go
 }
 
+// Get animation and apply sprite owner properties to it
+func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool) *Animation {
+	// Get raw animation
+	a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, fx)
+	if a == nil {
+		return nil
+	}
+
+	// Apply sprite owner context
+	c.animSpriteSetup(a, spritePlayerNo, ffx, ownpal)
+
+	return a
+}
+
+// Calls getAnimSprite without the extra anim/sprite playerNo features
+// For projectiles essentially
+func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool) *Animation {
+	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, false)
+
+	return a
+}
+
+// Same old getAnim, but now without the FFX scale adjustment
 func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 	if n == -2 {
 		return &Animation{}
@@ -5975,6 +5977,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 		a = c.gi().anim.get(n)
 	}
 
+	// Log invalid animations
 	if a == nil {
 		if fx {
 			if current_ffx != "" && current_ffx != "s" {
@@ -5998,12 +6001,56 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			}
 			sys.errLog.Printf("%v%v\n", str, n)
 		}
-	} else if current_ffx != "" && current_ffx != "s" {
-		a.start_scale[0] /= c.localscl
-		a.start_scale[1] /= c.localscl
 	}
 
 	return
+}
+
+func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bool) {
+	// Validate parameters
+	if a == nil || spritePN < 0 || spritePN >= len(sys.chars) {
+		return
+	}
+	if len(sys.chars[spritePN]) == 0 || len(sys.chars[c.playerNo]) == 0 {
+		return
+	}
+
+	owner := sys.chars[spritePN][0]
+	self := sys.chars[c.playerNo][0]
+
+	// If not common FX
+	if ffx == "" || ffx == "s" {
+		// Set SFF and palette
+		a.sff = sys.cgi[spritePN].sff
+		a.palettedata = &sys.cgi[spritePN].palettedata.palList
+
+		// If changing sprites
+		if spritePN != c.playerNo {
+			// Remap palette to sprite owner's current palette if allowed
+			if ownpal {
+				ownerPal := owner.drawPal()
+				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
+
+				if di, ok := a.palettedata.PalTable[key]; ok {
+					for _, id := range [...]int32{0, 9000} {
+						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+							a.palettedata.Remap(spr.palidx, di)
+						}
+					}
+				}
+			}
+
+			// Update sprite scale according to SFF owner
+			if self.localscl != 0 {
+				a.start_scale[0] *= owner.localscl / self.localscl
+				a.start_scale[1] *= owner.localscl / self.localscl
+			}
+		}
+	} else {
+		// Otherwise just adapt scale
+		a.start_scale[0] /= self.localscl
+		a.start_scale[1] /= self.localscl
+	}
 }
 
 // Position functions
@@ -6170,15 +6217,16 @@ func (c *Char) projInit(p *Projectile, pt PosType, offx, offy, offz float32,
 	if p.anim < -1 {
 		p.anim = 0
 	}
-	p.ani = c.getAnim(p.anim, p.anim_ffx, true)
+
+	// Get animation with sprite context
+	p.ani = c.getSelfAnimSprite(p.anim, p.anim_ffx, true, true)
+
 	if p.ani == nil && c.anim != nil {
+		// Fallback: copy character's current animation
 		p.ani = &Animation{}
 		*p.ani = *c.anim
 		p.ani.SetAnimElem(1, 0)
 		p.anim = c.animNo
-	}
-	if p.ani != nil {
-		p.ani.UpdateSprite()
 	}
 
 	// Save total hits for later use

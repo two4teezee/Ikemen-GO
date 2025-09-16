@@ -4245,7 +4245,9 @@ func (sc stateDef) Run(c *Char) {
 				}
 			}
 		case stateDef_anim:
-			c.changeAnimEx(exp[1].evalI(c), c.playerNo, -1, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			c.changeAnim(animNo, c.playerNo, -1, ffx)
 		case stateDef_ctrl:
 			c.setCtrl(exp[0].evalB(c))
 		case stateDef_poweradd:
@@ -4830,6 +4832,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 	animPN := -1
 	spritePN := -1
 	setelem := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
@@ -4839,32 +4842,19 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
-			apn := crun.playerNo // Default to own player number
-			spn := crun.playerNo
-			if animPN != -1 {
-				apn = animPN
-			}
-			if spritePN != -1 {
-				spn = spritePN
-			}
-			if rpid != -1 {
-				apn, spn = rpid, rpid
+			if animPN < 0 && spritePN < 0 && rpid != -1 { // ReadPlayerID is deprecated so it's only used if the others are not present
+				animPN, spritePN = rpid, rpid
 			}
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-			crun.changeAnim(exp[1].evalI(c), apn, spn, ffx)
+			animNo := exp[1].evalI(c)
+			crun.changeAnim(animNo, animPN, spritePN, ffx)
 			if setelem {
 				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "changeAnim") {
-				animPN = pn
-			}
+			animPN = int(exp[0].evalI(c)) - 1
 		case changeAnim_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "changeAnim") {
-				spritePN = pn
-			}
+			spritePN = int(exp[0].evalI(c)) - 1
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
 				rpid = read.playerNo
@@ -4874,6 +4864,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	return false
 }
 
@@ -4888,6 +4879,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
@@ -4914,6 +4906,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	return false
 }
 
@@ -5561,15 +5554,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.animNo = exp[1].evalI(c)
 			e.anim_ffx = ffx
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "Explod") {
-				e.animPN = pn
-			}
+			e.animPN = int(exp[0].evalI(c))
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "Explod") {
-				e.spritePN = pn
-			}
+			e.spritePN = int(exp[0].evalI(c))
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5895,15 +5882,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "modifyExplod") {
-				animPN = pn
-			}
+			animPN = int(exp[0].evalI(c))
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "modifyExplod") {
-				spritePN = pn
-			}
+			spritePN = int(exp[0].evalI(c))
 		case explod_remappal:
 			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {

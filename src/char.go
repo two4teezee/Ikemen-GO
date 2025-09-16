@@ -1335,8 +1335,8 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		animPN:            c.playerNo,
 		spritePN:          c.playerNo,
 		layerno:           c.layerNo,
-		palfx:             c.getPalfx(),
-		palfxdef:          *newPalFXDef(),
+		palfx:             c.getPalfx(), // Safeguard. Overridden later
+		palfxdef:          *newPalFXDef(), // Actual PalFX handled later
 		bindtime:          1, // Not documented but confirmed
 		scale:             [2]float32{1, 1},
 		removetime:        -2,
@@ -5808,23 +5808,7 @@ func (c *Char) insertExplod(i int) {
 		return
 	}
 
-	// RemapPal and PalFX
-	if e.ownpal {
-		if e.anim.sff != sys.ffx["f"].fsff {
-			r := make([]int, len(e.palfx.remap))
-			copy(r, e.palfx.remap)
-			e.palfx = newPalFX()
-			e.palfx.remap = r
-			e.palfx.PalFXDef = e.palfxdef
-			c.forceRemapPal(e.palfx, e.remappal)
-		} else {
-			e.palfx = newPalFX()
-			e.palfx.PalFXDef = e.palfxdef
-			e.palfx.remap = nil
-		}
-	}
-
-	// Interpolation
+	// Set up interpolation
 	e.start_animelem = e.animelem
 	e.start_fLength = e.fLength
 	e.start_xshear = e.xshear
@@ -5855,6 +5839,24 @@ func (c *Char) insertExplod(i int) {
 		if e.ownpal {
 			e.palfxdef.color = 1
 			e.palfxdef.hue = 0
+		}
+	}
+
+	// Init "ownpal" PalFX and RemapPal
+	// Note: Must be placed after setting up interpolation
+	if e.ownpal {
+		if e.anim.sff != sys.ffx["f"].fsff {
+			// Keep parent's remapped palette while resetting PalFX
+			parentRemap := make([]int, len(c.getPalfx().remap))
+			copy(parentRemap, c.getPalfx().remap)
+			e.palfx = newPalFX()
+			e.palfx.remap = parentRemap
+			e.palfx.PalFXDef = e.palfxdef
+			c.forceRemapPal(e.palfx, e.remappal)
+		} else {
+			e.palfx = newPalFX()
+			e.palfx.PalFXDef = e.palfxdef
+			e.palfx.remap = nil
 		}
 	}
 
@@ -6041,9 +6043,10 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 			}
 
 			// Update sprite scale according to SFF owner
-			if self.localscl != 0 {
-				a.start_scale[0] *= owner.localscl / self.localscl
-				a.start_scale[1] *= owner.localscl / self.localscl
+			// We use localcoord to avoid fluctuations while characters are in custom states
+			if self.localcoord != 0 {
+				a.start_scale[0] *= self.localcoord / owner.localcoord
+				a.start_scale[1] *= self.localcoord / owner.localcoord
 			}
 		}
 	} else {

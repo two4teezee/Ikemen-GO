@@ -6367,8 +6367,11 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	if e == nil {
 		return false
 	}
+
 	e.id = 0
-	e.layerno, e.sprpriority, e.ownpal = 1, math.MinInt32, true
+	e.layerno = 1
+	e.sprpriority = math.MinInt32
+	e.ownpal = true
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -6395,8 +6398,10 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			if exp[0].evalB(c) {
 				e.layerno = 0
 			}
-		case gameMakeAnim_anim: // Minor: Mugen uses anim 0 if nothing is specified
-			e.anim = crun.getAnim(exp[1].evalI(c), string(*(*[]byte)(unsafe.Pointer(&exp[0]))), true)
+		case gameMakeAnim_anim:
+			e.anim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			e.animNo = exp[1].evalI(c)
+			e.anim = crun.getSelfAnimSprite(e.animNo, e.anim_ffx, e.ownpal, true)
 		}
 		return true
 	})
@@ -9426,8 +9431,11 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		sys.superanim = crun.getAnim(100, "f", true) // Default animation
 	}
 	if sys.superanim != nil {
-		sys.superanim.start_scale[0] *= crun.localscl
-		sys.superanim.start_scale[1] *= crun.localscl
+		// No longer needed
+		// TODO: Maybe we ought to make these as regular explods instead of a system thing
+		//sys.superanim.start_scale[0] *= crun.localscl
+		//sys.superanim.start_scale[1] *= crun.localscl
+
 		// Apply Z axis perspective
 		if sys.zEnabled() {
 			sys.superpos = sys.drawposXYfromZ(sys.superpos, crun.localscl, crun.interPos[2], crun.zScale)

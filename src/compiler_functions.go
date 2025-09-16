@@ -1138,25 +1138,19 @@ func (c *Compiler) gameMakeAnim(is IniSection, sc *StateControllerBase, _ int8) 
 			gameMakeAnim_under, VT_Bool, 1, false); err != nil {
 			return err
 		}
-		b := false
+
+		// Previously, Ikemen accepted either "value" or "anim" here. Turns out Mugen only accepts "value"
 		anim := func(data string) error {
-			b = true
 			prefix := c.getDataPrefix(&data, true)
 			return c.scAdd(sc, gameMakeAnim_anim, data, VT_Int, 1,
 				sc.beToExp(BytecodeExp(prefix))...)
 		}
-		if err := c.stateParam(is, "anim", false, func(data string) error {
+		if err := c.stateParam(is, "value", false, func(data string) error {
 			return anim(data)
 		}); err != nil {
 			return err
 		}
-		if !b {
-			if err := c.stateParam(is, "value", false, func(data string) error {
-				return anim(data)
-			}); err != nil {
-				return err
-			}
-		}
+
 		return nil
 	})
 	return *ret, err

@@ -2350,15 +2350,16 @@ func (s *System) runMatch() (reload bool) {
 		return s.rollback.hijackRunMatch(s)
 	}
 
+	didTryLoadBGM := false
+
 	// Loop until end of match
 	for !s.endMatch {
 		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
-		didTryLoadBGM := false
 		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+			didTryLoadBGM = true
 			// Need to search first
 			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
 				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
-				didTryLoadBGM = true
 				return nil
 			})
 		}

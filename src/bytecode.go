@@ -9374,7 +9374,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	sys.superdarken = true
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
-	sys.superp2defmul = crun.gi().constants["super.targetdefencemul"]
+	p2defmul := crun.gi().constants["super.targetdefencemul"]
 
 	// Default super FX
 	fx_anim := int32(100)
@@ -9405,9 +9405,9 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 				fx_pos[2] = exp[2].evalF(c)
 			}
 		case superPause_p2defmul:
-			sys.superp2defmul = exp[0].evalF(c)
-			if sys.superp2defmul == 0 {
-				sys.superp2defmul = crun.gi().constants["super.targetdefencemul"]
+			v := exp[0].evalF(c)
+			if v > 0 {
+				p2defmul = v
 			}
 		case superPause_poweradd:
 			crun.powerAdd(exp[0].evalI(c))
@@ -9441,7 +9441,8 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		// TODO: It also seems to inherit the player's remapped palette in Mugen
 	}
 
-	crun.setSuperPauseTime(t, mt, uh)
+	crun.setSuperPauseTime(t, mt, uh, p2defmul)
+
 	return false
 }
 

@@ -162,7 +162,7 @@ type System struct {
 	pausetimebuffer         int32
 	pausebg                 bool
 	pauseendcmdbuftime      int32
-	pauseplayer             int
+	pauseplayerno           int
 	supertime               int32
 	supertimebuffer         int32
 	superpausebg            bool

@@ -1532,38 +1532,44 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 	if e.anim == nil {
 		e.id = IErr
 	}
+
 	if e.id == IErr {
 		e.anim = nil
 		return
 	}
+
 	if sys.chars[playerNo][0].scf(SCF_disabled) {
 		return
 	}
-	var c *Char
-	if !e.ignorehitpause || e.removeongethit || e.removeonchangestate {
-		c = sys.playerID(e.playerId)
-	}
+
+	parent := sys.playerID(e.playerId)
+
 	// Remove on get hit
 	if sys.tickNextFrame() && e.removeongethit &&
-		c != nil && c.csf(CSF_gethit) && !c.inGuardState() {
+		parent != nil && parent.csf(CSF_gethit) && !parent.inGuardState() {
 		e.id, e.anim = IErr, nil
 		return
 	}
+
 	// Remove on ChangeState
 	if sys.tickNextFrame() && e.removeonchangestate && e.statehaschanged {
 		e.id, e.anim = IErr, nil
 		return
 	}
-	p := false
+
+	paused := false
 	if sys.supertime > 0 {
-		p = (e.supermovetime >= 0 && e.time >= e.supermovetime) || e.supermovetime < -2
+		paused = (e.supermovetime >= 0 && e.time >= e.supermovetime) || e.supermovetime < -2
 	} else if sys.pausetime > 0 {
-		p = (e.pausemovetime >= 0 && e.time >= e.pausemovetime) || e.pausemovetime < -2
+		paused = (e.pausemovetime >= 0 && e.time >= e.pausemovetime) || e.pausemovetime < -2
 	}
-	act := !p
+
+	act := !paused
+
 	if act && !e.ignorehitpause {
-		act = c == nil || c.acttmp%2 >= 0
+		act = parent == nil || parent.acttmp%2 >= 0
 	}
+
 	if sys.tickFrame() {
 		if e.removetime >= 0 && e.time >= e.removetime ||
 			act && e.removetime < -1 && e.anim.loopend {
@@ -1571,14 +1577,15 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 			return
 		}
 	}
+
 	// Bind explod to parent
 	// In Mugen this only happens if the explod is not paused, hence "act"
 	if act && e.bindtime != 0 &&
 		(e.space == Space_stage || (e.space == Space_screen && (e.postype <= PT_P2 || mugenverF < 1.1))) {
-		if c := sys.playerID(e.bindId); c != nil {
-			e.pos[0] = c.interPos[0]*c.localscl/e.localscl + c.offsetX()*c.localscl/e.localscl
-			e.pos[1] = c.interPos[1]*c.localscl/e.localscl + c.offsetY()*c.localscl/e.localscl
-			e.pos[2] = c.interPos[2] * c.localscl / e.localscl
+		if bindchar := sys.playerID(e.bindId); bindchar != nil {
+			e.pos[0] = bindchar.interPos[0]*bindchar.localscl/e.localscl + bindchar.offsetX()*bindchar.localscl/e.localscl
+			e.pos[1] = bindchar.interPos[1]*bindchar.localscl/e.localscl + bindchar.offsetY()*bindchar.localscl/e.localscl
+			e.pos[2] = bindchar.interPos[2] * bindchar.localscl / e.localscl
 		} else {
 			// Doesn't seem necessary to do this, since MUGEN 1.1 seems to carry bindtime even if
 			// you change bindId to something that doesn't point to any character
@@ -1691,7 +1698,7 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
 		screen:       e.space == Space_screen,
-		undarken:     playerNo == sys.superplayerno,
+		undarken:     parent != nil && parent.ignoreDarkenTime > 0, //playerNo == sys.superplayerno,
 		oldVer:       mugenverF < 1.0,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
@@ -2324,7 +2331,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          rot,
 			screen:       false,
-			undarken:     p.playerno == sys.superplayerno,
+			undarken:     sys.chars[p.playerno][0] != nil && sys.chars[p.playerno][0].ignoreDarkenTime > 0, //p.playerno == sys.superplayerno,
 			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
@@ -2493,6 +2500,7 @@ type CharSystemVar struct {
 	uniqHitCount      int32
 	pauseMovetime     int32
 	superMovetime     int32
+	ignoreDarkenTime  int32
 	unhittableTime    int32
 	bindTime          int32
 	bindToId          int32
@@ -2523,6 +2531,7 @@ type CharSystemVar struct {
 	sizeBox           [4]float32
 	attackMul         [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul   float32
+	superDefenseMulBuffer float32
 	fallDefenseMul    float32
 	customDefense     float32
 	finalDefense      float64
@@ -2796,6 +2805,7 @@ func (c *Char) prepareNextRound() {
 		attackMul:       [4]float32{atk, atk, atk, atk},
 		fallDefenseMul:  1,
 		superDefenseMul: 1,
+		superDefenseMulBuffer: 1,
 		customDefense:   1,
 		finalDefense:    1.0,
 	}
@@ -2829,6 +2839,7 @@ func (c *Char) clearCachedData() {
 	c.counterHit = false
 	c.fallTime = 0
 	c.superDefenseMul = 1
+	c.superDefenseMulBuffer = 1
 	c.fallDefenseMul = 1
 	c.customDefense = 1
 	c.defenseMulDelay = false
@@ -7681,10 +7692,11 @@ func (c *Char) p2BodyDistZ(oc *Char) BytecodeValue {
 }
 
 func (c *Char) setPauseTime(pausetime, movetime int32) {
-	if ^pausetime < sys.pausetimebuffer || c.playerNo != c.ss.sb.playerNo ||
-		sys.pauseplayer == c.playerNo {
+	// Buffer a new Pause only if its timer is higher than the current one or the same player is overriding their own pause
+	// This method is more complex but also fairer than Mugen, where only the last pause triggered matters
+	if ^pausetime < sys.pausetimebuffer || sys.pauseplayerno == c.playerNo || c.playerNo != c.ss.sb.playerNo {
 		sys.pausetimebuffer = ^pausetime
-		sys.pauseplayer = c.playerNo
+		sys.pauseplayerno = c.playerNo
 		if sys.pauseendcmdbuftime < 0 || sys.pauseendcmdbuftime > pausetime {
 			sys.pauseendcmdbuftime = 0
 		}
@@ -7697,13 +7709,15 @@ func (c *Char) setPauseTime(pausetime, movetime int32) {
 	}
 }
 
-func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
-	if ^pausetime < sys.supertimebuffer || c.playerNo != c.ss.sb.playerNo || sys.superplayerno == c.playerNo {
+func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool, p2defmul float32) {
+	// See setPauseTime
+	if ^pausetime < sys.supertimebuffer || sys.superplayerno == c.playerNo || c.playerNo != c.ss.sb.playerNo {
 		sys.supertimebuffer = ^pausetime
-		sys.superplayerno = c.playerNo // TODO: For simultaneous pauses, maybe both players should ignore "darken"
+		sys.superplayerno = c.playerNo
 		if sys.superendcmdbuftime < 0 || sys.superendcmdbuftime > pausetime {
 			sys.superendcmdbuftime = 0
 		}
+
 	}
 
 	c.superMovetime = Max(0, movetime)
@@ -7716,6 +7730,21 @@ func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
 
 	if unhittable {
 		c.unhittableTime = pausetime + Btoi(pausetime > 0)
+	}
+
+	c.ignoreDarkenTime = pausetime
+
+	// Apply superp2defmul to other teams
+	// Having this here makes it stack when partners initiate a double pause. Mugen does the same
+	if p2defmul != 1 {
+		for i := range sys.chars {
+			for j := range sys.chars[i] {
+				e := sys.chars[i][j]
+				if e != nil && e.teamside != c.teamside {
+					e.superDefenseMulBuffer *= p2defmul
+				}
+			}
+		}
 	}
 }
 
@@ -9922,6 +9951,9 @@ func (c *Char) actionPrepare() {
 			} else if sys.pausetime > 0 && c.pauseMovetime > 0 {
 				c.pauseMovetime--
 			}
+			if c.ignoreDarkenTime > 0 {
+				c.ignoreDarkenTime--
+			}
 		}
 		// Reset input modifiers
 		c.inputFlag = 0
@@ -10165,6 +10197,7 @@ func (c *Char) actionRun() {
 					c.ghv.playerId = 0
 					c.ghv.playerNo = -1
 					c.superDefenseMul = 1
+					c.superDefenseMulBuffer = 1
 					c.fallDefenseMul = 1
 					c.ghv.fallflag = false
 					c.ghv.fallcount = 0
@@ -10413,9 +10446,10 @@ func (c *Char) update() {
 		c.atktmp = int8(Btoi(c.ss.moveType != MT_I || c.hitdef.reversal_attr > 0))
 		c.hoverIdx = -1
 		c.hoverKeepState = false
-		// Apply SuperPause p2defmul
-		if sys.supertimebuffer < 0 && c.teamside != sys.superplayerno&1 {
-			c.superDefenseMul *= sys.superp2defmul
+		// Apply buffered SuperPause p2defmul
+		if c.superDefenseMulBuffer != 1 {
+			c.superDefenseMul *= c.superDefenseMulBuffer
+			c.superDefenseMulBuffer = 1
 		}
 		// Update final defense
 		var customDefense float32 = 1
@@ -10908,7 +10942,7 @@ func (c *Char) cueDraw() {
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
 			rot:          rot,
 			screen:       false,
-			undarken:     c.playerNo == sys.superplayerno,
+			undarken:     c.ignoreDarkenTime > 0,
 			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,

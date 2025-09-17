@@ -127,14 +127,13 @@ type GameState struct {
 	pausebg            bool
 	pauseendcmdbuftime int32
 	pausetimebuffer    int32
-	pauseplayer        int
+	pauseplayerno      int
 	supertimebuffer    int32
 	supertime          int32
 	superpausebg       bool
 	superendcmdbuftime int32
 	superplayerno      int
 	superdarken        bool
-	superp2defmul      float32
 
 	envShake            EnvShake
 	specialFlag         GlobalSpecialFlag // UIT
@@ -789,7 +788,6 @@ func (gs *GameState) saveSuperData(a *arena.Arena, gsp *GameStatePool) {
 	gs.superendcmdbuftime = sys.superendcmdbuftime
 	gs.superplayerno = sys.superplayerno
 	gs.superdarken = sys.superdarken
-	gs.superp2defmul = sys.superp2defmul
 }
 
 func (gs *GameState) savePauseData() {
@@ -797,7 +795,7 @@ func (gs *GameState) savePauseData() {
 	gs.pausetime = sys.pausetime
 	gs.pausebg = sys.pausebg
 	gs.pauseendcmdbuftime = sys.pauseendcmdbuftime
-	gs.pauseplayer = sys.pauseplayer
+	gs.pauseplayerno = sys.pauseplayerno
 }
 
 func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
@@ -864,7 +862,6 @@ func (gs *GameState) loadSuperData(a *arena.Arena, gsp *GameStatePool) {
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayerno = gs.superplayerno
 	sys.superdarken = gs.superdarken
-	sys.superp2defmul = gs.superp2defmul
 }
 
 func (gs *GameState) loadPauseData() {
@@ -872,7 +869,7 @@ func (gs *GameState) loadPauseData() {
 	sys.pausetime = gs.pausetime
 	sys.pausebg = gs.pausebg
 	sys.pauseendcmdbuftime = gs.pauseendcmdbuftime
-	sys.pauseplayer = gs.pauseplayer
+	sys.pauseplayerno = gs.pauseplayerno
 }
 
 func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {

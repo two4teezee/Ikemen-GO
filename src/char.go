@@ -1020,7 +1020,7 @@ func (mhv *MoveHitVar) clear() {
 }
 
 type aimgImage struct {
-	anim       Animation
+	anim       *Animation
 	pos        [2]float32
 	scl        [2]float32
 	priority   int32
@@ -1039,7 +1039,7 @@ type AfterImage struct {
 	timegap        int32
 	framegap       int32
 	alpha          [2]int32
-	palfx          []PalFX
+	palfx          []*PalFX
 	imgs           [64]aimgImage
 	imgidx         int32
 	restgap        int32
@@ -1050,9 +1050,13 @@ type AfterImage struct {
 }
 
 func newAfterImage() *AfterImage {
-	ai := &AfterImage{palfx: make([]PalFX, sys.cfg.Config.AfterImageMax)}
+	ai := &AfterImage{
+		palfx: make([]*PalFX, sys.cfg.Config.AfterImageMax),
+	}
 	for i := range ai.palfx {
-		ai.palfx[i].enable, ai.palfx[i].negType = true, true
+		ai.palfx[i] = newPalFX()
+		ai.palfx[i].enable = true
+		ai.palfx[i].negType = true
 	}
 	ai.clear()
 	return ai
@@ -1172,19 +1176,24 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 	}
 	if ai.restgap <= 0 {
 		img := &ai.imgs[ai.imgidx]
-		img.anim = *sd.anim
-		if sd.anim.spr != nil {
-			img.anim.spr = newSprite()
-			*img.anim.spr = *sd.anim.spr
-			if sd.anim.palettedata != nil {
-				sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
-				img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
-				sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
-			} else {
-				sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
-				img.anim.spr.Pal = sd.anim.spr.GetPal(&sd.anim.sff.palList)
-				sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+		if sd.anim != nil {
+			img.anim = &Animation{}
+			*img.anim = *sd.anim
+			if sd.anim.spr != nil {
+				img.anim.spr = newSprite()
+				*img.anim.spr = *sd.anim.spr
+				if sd.anim.palettedata != nil {
+					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+					img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
+					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+				} else {
+					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+					img.anim.spr.Pal = sd.anim.spr.GetPal(&sd.anim.sff.palList)
+					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+				}
 			}
+		} else {
+			img.anim = nil
 		}
 		img.pos = sd.pos
 		img.scl = sd.scl
@@ -1230,8 +1239,8 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 			step := i/ai.framegap - 1
 			ai.palfx[step].remap = sd.fx.remap
 			sprs.add(&SprData{
-				anim:         &img.anim,
-				fx:           &ai.palfx[step],
+				anim:         img.anim,
+				fx:           ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
 				alpha:        ai.alpha,
@@ -2158,7 +2167,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 
 		// Loop through their projectiles
 		for j := startj; j < len(sys.projs[i]); j++ {
-			pr := &sys.projs[i][j]
+			pr := sys.projs[i][j]
 
 			// Skip if other projectile can't trade
 			if pr.remflag || pr.hits < 0 || pr.id < 0 {
@@ -4607,7 +4616,7 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 	}
 	var id, n int32 = eid.ToI(), 0
 	for i := range sys.explods[c.playerNo] {
-		e := &sys.explods[c.playerNo][i]
+		e := sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			n++
 		}
@@ -4968,7 +4977,7 @@ func (c *Char) numProj() int32 {
 	}
 	n := int32(0)
 	for i := range sys.projs[c.playerNo] {
-		p := &sys.projs[c.playerNo][i]
+		p := sys.projs[c.playerNo][i]
 		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -4986,7 +4995,7 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	}
 	var id, n int32 = Max(0, pid.ToI()), 0
 	for i := range sys.projs[c.playerNo] {
-		p := &sys.projs[c.playerNo][i]
+		p := sys.projs[c.playerNo][i]
 		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
@@ -5781,8 +5790,9 @@ func (c *Char) newExplod() (*Explod, int) {
 	// Otherwise append it
 	i := len(sys.explods[c.playerNo])
 	if i < sys.cfg.Config.ExplodMax {
-		sys.explods[c.playerNo] = append(sys.explods[c.playerNo], Explod{})
-		return sys.explods[c.playerNo][i].initFromChar(c), i
+		newE := &Explod{}
+		sys.explods[c.playerNo] = append(sys.explods[c.playerNo], newE)
+		return newE.initFromChar(c), i
 	}
 
 	return nil, -1
@@ -5790,7 +5800,7 @@ func (c *Char) newExplod() (*Explod, int) {
 
 func (c *Char) getExplods(id int32) (expls []*Explod) {
 	for i := range sys.explods[c.playerNo] {
-		e := &sys.explods[c.playerNo][i]
+		e := sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
 			expls = append(expls, e)
 		}
@@ -5806,7 +5816,7 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 }
 
 func (c *Char) insertExplod(i int) {
-	e := &sys.explods[c.playerNo][i]
+	e := sys.explods[c.playerNo][i]
 
 	// Init animation
 	e.setAnim()
@@ -5890,12 +5900,16 @@ func (c *Char) insertExplod(i int) {
 			}
 		}
 	}
+
+	// Insert into first empty slot
 	for ii, te := range *layer {
 		if te < 0 {
 			(*layer)[ii] = i
 			return
 		}
 	}
+
+	// Append if no empty slot
 	*layer = append(*layer, i)
 
 	// Explod ready
@@ -5904,9 +5918,9 @@ func (c *Char) insertExplod(i int) {
 
 func (c *Char) explodBindTime(id, time int32) {
 	for i := range sys.explods[c.playerNo] {
-		e := &sys.explods[c.playerNo][i]
+		e := sys.explods[c.playerNo][i]
 		if e.matchId(id, c.id) {
-			sys.explods[c.playerNo][i].bindtime = time
+			e.bindtime = time
 		}
 	}
 }
@@ -6182,7 +6196,7 @@ func (c *Char) newProj() *Projectile {
 	// Reuse inactive projectile slot if available
 	for i := range sys.projs[c.playerNo] {
 		if sys.projs[c.playerNo][i].id < 0 {
-			p = &sys.projs[c.playerNo][i]
+			p = sys.projs[c.playerNo][i]
 			sys.projs[c.playerNo][i].clear()
 			break
 		}
@@ -6190,8 +6204,8 @@ func (c *Char) newProj() *Projectile {
 
 	// If no inactive projectile was found, append a new one within the max limit
 	if p == nil && len(sys.projs[c.playerNo]) < sys.cfg.Config.PlayerProjectileMax {
-		sys.projs[c.playerNo] = append(sys.projs[c.playerNo], *newProjectile())
-		p = &sys.projs[c.playerNo][len(sys.projs[c.playerNo])-1]
+		sys.projs[c.playerNo] = append(sys.projs[c.playerNo], newProjectile())
+		p = sys.projs[c.playerNo][len(sys.projs[c.playerNo])-1]
 	}
 
 	// Set default values
@@ -6287,7 +6301,7 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {
 	for i := range sys.projs[c.playerNo] {
-		p := &sys.projs[c.playerNo][i]
+		p := sys.projs[c.playerNo][i]
 		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
 			projs = append(projs, p)
 		}
@@ -11552,7 +11566,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 		//c.atktmp = -1
 
 		for j := range sys.projs[i] {
-			p := &sys.projs[i][j]
+			p := sys.projs[i][j]
 
 			// Skip if projectile can't hit
 			if p.id < 0 || p.hits <= 0 {

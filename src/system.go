@@ -47,8 +47,8 @@ var sys = System{
 	soundMixer:        &beep.Mixer{},
 	bgm:               *newBgm(),
 	soundChannels:     newSoundChannels(16),
-	allPalFX:          *newPalFX(),
-	bgPalFX:           *newPalFX(),
+	allPalFX:          newPalFX(),
+	bgPalFX:           newPalFX(),
 	ffx:               make(map[string]*FightFx),
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
 	sel:      *newSelect(),
@@ -115,7 +115,8 @@ type System struct {
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
 	soundChannels           *SoundChannels
-	allPalFX, bgPalFX       PalFX
+	allPalFX                *PalFX
+	bgPalFX                 *PalFX
 	lifebar                 Lifebar
 	cfg                     Config
 	ffx                     map[string]*FightFx
@@ -217,8 +218,8 @@ type System struct {
 	slowtime                int32
 	slowtimeTrigger         int32
 	wintime                 int32
-	projs                   [MaxPlayerNo][]Projectile
-	explods                 [MaxPlayerNo][]Explod
+	projs                   [MaxPlayerNo][]*Projectile
+	explods                 [MaxPlayerNo][]*Explod
 	explodsLayerN1          [MaxPlayerNo][]int
 	explodsLayer0           [MaxPlayerNo][]int
 	explodsLayer1           [MaxPlayerNo][]int

@@ -1475,8 +1475,8 @@ func systemScriptInit(l *lua.LState) {
 					sys.playBgmFlg = false
 				}
 				sys.clearAllSound()
-				sys.allPalFX = *newPalFX()
-				sys.bgPalFX = *newPalFX()
+				sys.allPalFX = newPalFX()
+				sys.bgPalFX = newPalFX()
 				sys.resetGblEffect()
 				sys.dialogueFlg = false
 				sys.dialogueForce = 0
@@ -2232,8 +2232,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "resetMatchData", func(*lua.LState) int {
-		sys.allPalFX = *newPalFX()
-		sys.bgPalFX = *newPalFX()
+		sys.allPalFX = newPalFX()
+		sys.bgPalFX = newPalFX()
 		sys.resetGblEffect()
 		for i, p := range sys.chars {
 			if len(p) > 0 {

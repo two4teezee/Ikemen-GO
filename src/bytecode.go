@@ -9367,17 +9367,20 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	sys.superpmap.remap = nil
-	sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-	sys.superscale = [2]float32{crun.facing, 1}
-
 	var t, mt int32 = 30, 0
 	uh := true
-	animset := false
+
+	// Default parameters
+	sys.superdarken = true
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
-	sys.superdarken = true
 	sys.superp2defmul = crun.gi().constants["super.targetdefencemul"]
+
+	// Default super FX
+	fx_anim := int32(100)
+	fx_ffx := "f"
+	fx_pos := [3]float32{0, 0, 0}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case superPause_time:
@@ -9391,20 +9394,15 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		case superPause_darken:
 			sys.superdarken = exp[0].evalB(c)
 		case superPause_anim:
-			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-			num := exp[1].evalI(c)
-			animset = true
-			if sys.superanim = crun.getAnim(num, ffx, true); sys.superanim != nil {
-				if ffx != "" && ffx != "s" {
-					sys.superpmap.remap = nil
-				} else {
-					sys.superpmap.remap = crun.getPalMap()
-				}
-			}
+			fx_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			fx_anim = exp[1].evalI(c)
 		case superPause_pos:
-			sys.superpos[0] += crun.facing * exp[0].evalF(c) * c.localscl
+			fx_pos[0] = exp[0].evalF(c)
 			if len(exp) > 1 {
-				sys.superpos[1] += exp[1].evalF(c) * c.localscl
+				fx_pos[1] = exp[1].evalF(c)
+			}
+			if len(exp) > 2 {
+				fx_pos[2] = exp[2].evalF(c)
 			}
 		case superPause_p2defmul:
 			sys.superp2defmul = exp[0].evalF(c)
@@ -9427,22 +9425,22 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if !animset {
-		sys.superanim = crun.getAnim(100, "f", true) // Default animation
-	}
-	if sys.superanim != nil {
-		// No longer needed
-		// TODO: Maybe we ought to make these as regular explods instead of a system thing
-		//sys.superanim.start_scale[0] *= crun.localscl
-		//sys.superanim.start_scale[1] *= crun.localscl
 
-		// Apply Z axis perspective
-		if sys.zEnabled() {
-			sys.superpos = sys.drawposXYfromZ(sys.superpos, crun.localscl, crun.interPos[2], crun.zScale)
-			sys.superscale[0] *= crun.zScale
-			sys.superscale[1] *= crun.zScale
-		}
+	// Add super FX
+	if e, i := c.newExplod(); e != nil {
+		e.animNo = fx_anim
+		e.anim_ffx = fx_ffx
+		e.layerno = 1
+		e.ownpal = true
+		e.removetime = -2
+		e.pausemovetime = -1
+		e.supermovetime = -1
+		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
+		e.setPos(c)
+		c.insertExplod(i)
+		// TODO: It also seems to inherit the player's remapped palette in Mugen
 	}
+
 	crun.setSuperPauseTime(t, mt, uh)
 	return false
 }

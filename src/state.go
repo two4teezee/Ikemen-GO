@@ -134,10 +134,6 @@ type GameState struct {
 	superendcmdbuftime int32
 	superplayerno      int
 	superdarken        bool
-	superanim          *Animation
-	superpmap          PalFX
-	superpos           [2]float32
-	superscale         [2]float32
 	superp2defmul      float32
 
 	envShake            EnvShake
@@ -793,14 +789,6 @@ func (gs *GameState) saveSuperData(a *arena.Arena, gsp *GameStatePool) {
 	gs.superendcmdbuftime = sys.superendcmdbuftime
 	gs.superplayerno = sys.superplayerno
 	gs.superdarken = sys.superdarken
-	if sys.superanim != nil {
-		gs.superanim = sys.superanim.Clone(a, gsp)
-	} else {
-		gs.superanim = sys.superanim
-	}
-	gs.superpmap = sys.superpmap.Clone(a)
-	gs.superpos = [2]float32{sys.superpos[0], sys.superpos[1]}
-	gs.superscale = sys.superscale
 	gs.superp2defmul = sys.superp2defmul
 }
 
@@ -876,14 +864,6 @@ func (gs *GameState) loadSuperData(a *arena.Arena, gsp *GameStatePool) {
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayerno = gs.superplayerno
 	sys.superdarken = gs.superdarken
-	if gs.superanim != nil {
-		sys.superanim = gs.superanim.Clone(a, gsp)
-	} else {
-		sys.superanim = gs.superanim
-	}
-	sys.superpmap = gs.superpmap.Clone(a)
-	sys.superpos = [2]float32{gs.superpos[0], gs.superpos[1]}
-	sys.superscale = gs.superscale
 	sys.superp2defmul = gs.superp2defmul
 }
 

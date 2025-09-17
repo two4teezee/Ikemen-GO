@@ -5760,7 +5760,7 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 }
 
 func (c *Char) newExplod() (*Explod, int) {
-	// Reuse free explod slots
+	// Reuse a free explod slot
 	for i := range sys.explods[c.playerNo] {
 		if sys.explods[c.playerNo][i].id == IErr {
 			return sys.explods[c.playerNo][i].initFromChar(c), i
@@ -7700,17 +7700,20 @@ func (c *Char) setPauseTime(pausetime, movetime int32) {
 func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool) {
 	if ^pausetime < sys.supertimebuffer || c.playerNo != c.ss.sb.playerNo || sys.superplayerno == c.playerNo {
 		sys.supertimebuffer = ^pausetime
-		sys.superplayerno = c.playerNo
+		sys.superplayerno = c.playerNo // TODO: For simultaneous pauses, maybe both players should ignore "darken"
 		if sys.superendcmdbuftime < 0 || sys.superendcmdbuftime > pausetime {
 			sys.superendcmdbuftime = 0
 		}
 	}
+
 	c.superMovetime = Max(0, movetime)
+
 	if c.superMovetime > pausetime {
 		c.superMovetime = 0
 	} else if sys.supertime > 0 && c.superMovetime > 0 {
 		c.superMovetime--
 	}
+
 	if unhittable {
 		c.unhittableTime = pausetime + Btoi(pausetime > 0)
 	}

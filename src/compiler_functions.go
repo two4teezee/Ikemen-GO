@@ -3380,7 +3380,7 @@ func (c *Compiler) superPause(is IniSection, sc *StateControllerBase, _ int8) (S
 			return err
 		}
 		if err := c.paramValue(is, sc, "pos",
-			superPause_pos, VT_Float, 2, false); err != nil {
+			superPause_pos, VT_Float, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "p2defmul",

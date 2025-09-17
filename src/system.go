@@ -57,7 +57,6 @@ var sys = System{
 	loader:   *newLoader(),
 	numSimul: [...]int32{2, 2}, numTurns: [...]int32{2, 2},
 	ignoreMostErrors: true,
-	superpmap:        *newPalFX(),
 	stageList:        make(map[int32]*Stage),
 	wincnt:           wincntMap(make(map[string][]int32)),
 	wincntFileName:   "save/autolevel.save",
@@ -170,10 +169,6 @@ type System struct {
 	superendcmdbuftime      int32
 	superplayerno           int
 	superdarken             bool
-	superanim               *Animation
-	superpmap               PalFX
-	superpos                [2]float32
-	superscale              [2]float32
 	superp2defmul           float32
 	envcol                  [3]int32
 	envcol_time             int32
@@ -1194,7 +1189,6 @@ func (s *System) resetGblEffect() {
 	s.envShake.clear()
 	s.pausetime, s.pausetimebuffer = 0, 0
 	s.supertime, s.supertimebuffer = 0, 0
-	s.superanim = nil
 	s.envcol_time = 0
 	s.specialFlag = 0
 }
@@ -1584,9 +1578,6 @@ func (s *System) action() {
 			// "NoKOSlow" added to facilitate custom slowdown. In Mugen that flag only needs to be asserted in first frame of KO slowdown
 			s.specialFlag = (s.specialFlag&GSF_intro | s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
 		}
-		if s.superanim != nil {
-			s.superanim.Action()
-		}
 		s.charList.action()
 		s.nomusic = s.gsf(GSF_nomusic) && !sys.postMatchFlg
 	}
@@ -1654,29 +1645,7 @@ func (s *System) action() {
 		s.xmin = s.cam.minLeft
 	}
 	s.charList.xScreenBound()
-	// Superpause effect
-	if s.superanim != nil {
-		s.spritesLayer1.add(&SprData{
-			anim:         s.superanim,
-			fx:           &s.superpmap,
-			pos:          s.superpos,
-			scl:          s.superscale,
-			alpha:        [2]int32{-1},
-			priority:     5,
-			rot:          Rotation{},
-			screen:       false,
-			undarken:     true,
-			oldVer:       s.cgi[s.superplayerno].mugenver[0] != 1,
-			facing:       1,
-			airOffsetFix: [2]float32{1, 1},
-			projection:   0,
-			fLength:      0,
-			window:       [4]float32{0, 0, 0, 0},
-		})
-		if s.superanim.loopend {
-			s.superanim = nil // Not allowed to loop
-		}
-	}
+
 	for i := range s.projs {
 		for j := range s.projs[i] {
 			if s.projs[i][j].id >= 0 {
@@ -1684,7 +1653,9 @@ func (s *System) action() {
 			}
 		}
 	}
+
 	s.charList.cueDraw()
+
 	explUpdate := func(edl *[len(s.chars)][]int, drop bool) {
 		for i, el := range *edl {
 			for j := len(el) - 1; j >= 0; j-- {
@@ -1705,6 +1676,7 @@ func (s *System) action() {
 	explUpdate(&s.explodsLayerN1, true)
 	explUpdate(&s.explodsLayer0, true)
 	explUpdate(&s.explodsLayer1, false)
+
 	// Adjust game speed
 	if s.tickNextFrame() {
 		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())

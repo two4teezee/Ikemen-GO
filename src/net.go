@@ -275,20 +275,22 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 		r.netTime++
 	}
 
+	// Run frame again using confirmed inputs
 	if ggpoerr == nil {
 		if !sys.rollback.simulateFrame(&sys) {
 			return
 		}
-		//defer func() {
-		//	if re := recover(); re != nil {
-		//		if r.config.DesyncTest {
-		//			r.log.updateLogs()
-		//			r.log.saveLogs()
-		//			panic("RaiseDesyncError")
-		//		}
-		//	}
-		//}()
-
+		defer func() {
+			if re := recover(); re != nil {
+				if r.config.DesyncTest {
+					r.log.updateLogs()
+					r.log.saveLogs()
+					panic("RaiseDesyncError")
+				}
+			}
+		}()
+		
+		// Notify GGPO that frame has advanced
 		err := r.backend.AdvanceFrame(r.LiveChecksum())
 		if err != nil {
 			panic(err)
@@ -365,7 +367,7 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
 	buf = append(buf, writeI32(sys.curRoundTime)...)
 
 	// Round start checks. Random select safeguard
-	if sys.tickCount == 0 {
+	if sys.tickCount <= 60 {
 		// Stage
 		stageHash := crc32.ChecksumIEEE([]byte(sys.stage.name))
 		buf = binary.BigEndian.AppendUint32(buf, stageHash)

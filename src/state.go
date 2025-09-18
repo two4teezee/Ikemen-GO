@@ -82,7 +82,7 @@ func (gs *GameState) Checksum() int {
 }
 
 func (gs *GameState) String() (str string) {
-	str = fmt.Sprintf("Time: %d GameTime %d \n", gs.curRoundTime, gs.GameTime)
+	str = fmt.Sprintf("GameTime %d CurRoundTime: %d\n", gs.gameTime, gs.curRoundTime)
 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 	str += fmt.Sprintf("bcVar: %v\n", gs.bcVar)
@@ -99,13 +99,16 @@ func (gs *GameState) String() (str string) {
 const MaxSaveStates = 8
 
 type GameState struct {
+	// Identifiers
 	bytes        []byte
 	id           int
 	saved        bool
 	frame        int32
+
+	// Selective copy of the system struct
 	randseed     int32
+	gameTime     int32
 	curRoundTime int32
-	GameTime     int32
 
 	projs          [MaxPlayerNo][]*Projectile
 	chars          [MaxPlayerNo][]*Char
@@ -287,13 +290,16 @@ func (gs *GameState) LoadState(stateID int) {
 	gsp := &sys.loadPool
 
 	sys.randseed = gs.randseed
+	sys.gameTime = gs.gameTime
 	sys.curRoundTime = gs.curRoundTime // UIT
-	sys.gameTime = gs.GameTime
+
 	gs.loadCharData(a, gsp)
 	gs.loadExplodData(a, gsp)
 	sys.cam = gs.cam
+
 	gs.loadPauseData()
-	gs.loadSuperData(a, gsp)
+	gs.loadSuperPauseData()
+
 	gs.loadPalFX(a)
 	gs.loadProjectileData(a, gsp)
 	sys.aiLevel = gs.aiLevel
@@ -337,7 +343,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
-	sys.curRoundTime = gs.curRoundTime
 	sys.nextCharId = gs.nextCharId
 
 	sys.scrrect = gs.scrrect
@@ -505,15 +510,18 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.cgi = sys.cgi
 	gs.saved = true
 	gs.frame = sys.frameCounter
+
 	gs.randseed = sys.randseed
+	gs.gameTime = sys.gameTime
 	gs.curRoundTime = sys.curRoundTime
-	gs.GameTime = sys.gameTime
 
 	gs.saveCharData(a, gsp)
 	gs.saveExplodData(a, gsp)
 	gs.cam = sys.cam
+
 	gs.savePauseData()
-	gs.saveSuperData(a, gsp)
+	gs.saveSuperPauseData()
+
 	gs.savePalFX(a)
 	gs.saveProjectileData(a, gsp)
 
@@ -555,7 +563,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.curRoundTime = sys.curRoundTime
 	gs.nextCharId = sys.nextCharId
 
 	gs.scrrect = sys.scrrect
@@ -758,21 +765,21 @@ func (gs *GameState) saveProjectileData(a *arena.Arena, gsp *GameStatePool) {
 	}
 }
 
-func (gs *GameState) saveSuperData(a *arena.Arena, gsp *GameStatePool) {
-	gs.supertimebuffer = sys.supertimebuffer
-	gs.supertime = sys.supertime
-	gs.superpausebg = sys.superpausebg
-	gs.superendcmdbuftime = sys.superendcmdbuftime
-	gs.superplayerno = sys.superplayerno
-	gs.superdarken = sys.superdarken
-}
-
 func (gs *GameState) savePauseData() {
 	gs.pausetimebuffer = sys.pausetimebuffer
 	gs.pausetime = sys.pausetime
 	gs.pausebg = sys.pausebg
 	gs.pauseendcmdbuftime = sys.pauseendcmdbuftime
 	gs.pauseplayerno = sys.pauseplayerno
+}
+
+func (gs *GameState) saveSuperPauseData() {
+	gs.supertimebuffer = sys.supertimebuffer
+	gs.supertime = sys.supertime
+	gs.superpausebg = sys.superpausebg
+	gs.superendcmdbuftime = sys.superendcmdbuftime
+	gs.superplayerno = sys.superplayerno
+	gs.superdarken = sys.superdarken
 }
 
 func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
@@ -841,7 +848,7 @@ func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 	sys.charList = gs.charList.Clone(a, gsp)
 }
 
-func (gs *GameState) loadSuperData(a *arena.Arena, gsp *GameStatePool) {
+func (gs *GameState) loadSuperPauseData() {
 	sys.supertimebuffer = gs.supertimebuffer
 	sys.supertime = gs.supertime
 	sys.superpausebg = gs.superpausebg

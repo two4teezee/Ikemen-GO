@@ -268,17 +268,15 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 		result.animBackup = c.animBackup.Clone(a, gsp)
 	}
 
-	result.aimg = c.aimg.Clone(a, gsp)
-
-	// Link curFrame to the corresponding frame in the cloned animation
-	if c.curFrame != nil && result.anim != nil {
-		for i := range result.anim.frames {
-			if &result.anim.frames[i] == c.curFrame {
-				result.curFrame = &result.anim.frames[i]
-				break
-			}
-		}
+	// Since curFrame is desynced from anim's state, we must save it as well
+	if c.curFrame != nil {
+		result.curFrame = c.curFrame.Clone(a)
+	} else {
+		result.curFrame = nil
 	}
+
+	// TODO: Profiling shows this is hotter than it should be
+	result.aimg = c.aimg.Clone(a, gsp)
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc

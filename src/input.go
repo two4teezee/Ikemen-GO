@@ -491,44 +491,6 @@ func (ibit *InputBits) KeysToBits(buttons [14]bool) {
 		Btoi(buttons[13])<<13)
 }
 
-func (ibit InputBits) RollbackBitsToKeys(cb *InputBuffer, facing int32) {
-	var U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool
-	// Convert bits to logical symbols
-	U = ibit&IB_PU != 0
-	D = ibit&IB_PD != 0
-	L = ibit&IB_PL != 0
-	R = ibit&IB_PR != 0
-	if facing < 0 {
-		B, F = ibit&IB_PR != 0, ibit&IB_PL != 0
-	} else {
-		B, F = ibit&IB_PL != 0, ibit&IB_PR != 0
-	}
-	a = ibit&IB_A != 0
-	b = ibit&IB_B != 0
-	c = ibit&IB_C != 0
-	x = ibit&IB_X != 0
-	y = ibit&IB_Y != 0
-	z = ibit&IB_Z != 0
-	s = ibit&IB_S != 0
-	d = ibit&IB_D != 0
-	w = ibit&IB_W != 0
-	m = ibit&IB_M != 0
-	// Absolute priority SOCD resolution is enforced during netplay
-	// TODO: Port the other options as well
-	if U && D {
-		D = false
-	}
-	if B && F {
-		B = false
-		if facing < 0 {
-			R = false
-		} else {
-			L = false
-		}
-	}
-	cb.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
-}
-
 // Convert received input bits back into keys
 func (ibit InputBits) BitsToKeys() [14]bool {
 	var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool

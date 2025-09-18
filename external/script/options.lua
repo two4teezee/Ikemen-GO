@@ -1291,6 +1291,7 @@ function options.f_createMenu(tbl, bool_main)
 		local moveTxt = 0
 		local item = 1
 		local t = tbl.items
+		main.f_menuSnap('option_info')
 		if bool_main then
 			main.f_bgReset(motif.optionbgdef.bg)
 			main.f_fadeReset('fadein', motif.option_info)
@@ -1337,6 +1338,7 @@ function options.f_createMenu(tbl, bool_main)
 				if tbl.submenu[f].loop ~= nil then
 					sndPlay(motif.files.snd_data, motif.option_info.cursor_done_snd[1], motif.option_info.cursor_done_snd[2])
 					tbl.submenu[f].loop()
+					main.f_menuSnap('option_info')
 				elseif not options.t_itemname[f](tbl, item, cursorPosY, moveTxt) then
 					break
 				end

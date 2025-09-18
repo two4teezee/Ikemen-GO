@@ -88,35 +88,51 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 func (rs *RollbackSystem) preMatchSetup() {
 	if rs.session != nil && sys.netConnection != nil {
 		if rs.session.host != "" {
+			// Initialize client as P2
 			rs.session.InitP2(2, 7550, 7600, rs.session.host)
 			rs.session.playerNo = 2
 		} else {
+			// Initialize host as P1
 			rs.session.InitP1(2, 7600, 7550, rs.session.remoteIp)
 			rs.session.playerNo = 1
 		}
-		//s.time = rs.session.netTime // What was this for? s.time is the round timer
-		s.preFightTime = s.netConnection.preFightTime
+
+		// Synchronize gameTime at match start
+		sys.gameTime = rs.session.netTime //s.time = rs.session.netTime // Old typo?
+		sys.preFightTime = sys.netConnection.preFightTime
+
+		// Wait until both peers have fully synchronized?
 		//if !rs.session.IsConnected() {
 		//	for !rs.session.synchronized {
 		//		rs.session.backend.Idle(0)
 		//	}
 		//}
-		// s.netConnection.Close()
-		rs.session.recording = s.netConnection.recording
-		rs.netConnection = s.netConnection
-		s.netConnection = nil
-	} else if s.netConnection == nil && rs.session == nil {
-		session := NewRollbackSession(s.cfg.Netplay.Rollback)
+		//sys.netConnection.Close()
+
+		// Borrow netConnection replay recording
+		rs.session.recording = sys.netConnection.recording
+
+		// Transfer the active netConnection to the rollback system
+		rs.netConnection = sys.netConnection
+		sys.netConnection = nil
+
+	} else if sys.netConnection == nil && rs.session == nil {
+		// If offline, initialize a local rollback sync test session
+		session := NewRollbackSession(sys.cfg.Netplay.Rollback)
 		rs.session = &session
 		rs.session.InitSyncTest(2)
 	}
+
+	// Reset rollback session timer
 	rs.session.netTime = 0
 }
 
 func (rs *RollbackSystem) postMatchSetup() {
 	rs.session.SaveReplay()
+
 	// sys.esc = true
 	//sys.rollback.currentFight.fin = true
+
 	sys.netConnection = rs.netConnection
 	rs.session.backend.Close()
 

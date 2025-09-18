@@ -1618,13 +1618,16 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 			off[0] = (off[0] + float32(sys.gameWidth)) / sys.cam.Scale
 		}
 	}
+
 	var facing float32 = e.facing * e.relativef
 	//if e.lockSpriteFacing {
 	//	facing = -1
 	//}
+
 	if sys.tickFrame() && act {
 		e.anim.UpdateSprite()
 	}
+
 	sprs := &sys.spritesLayer0
 	if e.layerno > 0 {
 		sprs = &sys.spritesLayer1
@@ -1633,14 +1636,16 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 	} else if e.under {
 		sprs = &sys.spritesLayerU
 	}
+
 	var pfx *PalFX
-	if e.palfx != nil && (e.anim.sff != sys.ffx["f"].fsff || e.ownpal) {
+	if e.palfx != nil && (!e.anim.isCommonFX() || e.ownpal) {
 		pfx = e.palfx
 	} else {
 		pfx = &PalFX{}
 		*pfx = *e.palfx
 		pfx.remap = nil
 	}
+
 	alp := e.alpha
 	anglerot := e.anglerot
 	fLength := e.fLength
@@ -5866,7 +5871,7 @@ func (c *Char) insertExplod(i int) {
 	// Init "ownpal" PalFX and RemapPal
 	// Note: Must be placed after setting up interpolation
 	if e.ownpal {
-		if e.anim.sff != sys.ffx["f"].fsff {
+		if !e.anim.isCommonFX() {
 			// Keep parent's remapped palette while resetting PalFX
 			parentRemap := make([]int, len(c.getPalfx().remap))
 			copy(parentRemap, c.getPalfx().remap)

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"os"
@@ -2024,32 +2025,82 @@ func (nc *NetConnection) GetHostGuestRemap() (host, guest int) {
 }
 
 func (nc *NetConnection) Accept(port string) error {
-	if ln, err := net.Listen("tcp", ":"+port); err != nil {
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
 		return err
-	} else {
-		nc.ln = ln.(*net.TCPListener)
-		nc.host = true
-		nc.locIn, nc.remIn = nc.GetHostGuestRemap()
-		go func() {
-			ln := nc.ln
-			if conn, err := ln.AcceptTCP(); err == nil {
-				nc.conn = conn
-				if sys.cfg.Netplay.RollbackNetcode {
-					sys.rollback.session.remoteIp = conn.RemoteAddr().(*net.TCPAddr).IP.String()
-				}
-			}
-			ln.Close()
-		}()
 	}
+
+	tcpLn, ok := ln.(*net.TCPListener)
+	if !ok {
+		ln.Close()
+		return fmt.Errorf("failed to cast net.Listener to *net.TCPListener")
+	}
+
+	nc.ln = tcpLn
+	nc.host = true
+	nc.conn = nil // Make sure this is a new connection
+	nc.locIn, nc.remIn = nc.GetHostGuestRemap()
+
+	go func() {
+		defer nc.ln.Close()
+
+		tempConn, err := nc.ln.AcceptTCP()
+		if err != nil {
+			return
+		}
+
+		if sys.cfg.Netplay.RollbackNetcode {
+			sys.rollback.session.remoteIp = tempConn.RemoteAddr().(*net.TCPAddr).IP.String()
+		}
+
+		//Send handshake
+		tempConn.Write([]byte("IKEMENGO"))
+
+		// Wait for client acknowledgment
+		ack := make([]byte, 8) // Length of our "password"
+		_, err = io.ReadFull(tempConn, ack)
+		if err != nil || string(ack) != "IKEMENGO" {
+			tempConn.Close()
+			return
+		}
+
+		// Handshake complete. Make temp connection permanent
+		nc.conn = tempConn
+	}()
+
 	return nil
 }
 
 func (nc *NetConnection) Connect(server, port string) {
 	nc.host = false
+	nc.conn = nil // Make sure this is a new connection
 	nc.remIn, nc.locIn = nc.GetHostGuestRemap()
+
 	go func() {
-		if conn, err := net.Dial("tcp", server+":"+port); err == nil {
-			nc.conn = conn.(*net.TCPConn)
+		for {
+			tempConn, err := net.Dial("tcp", server+":"+port)
+			if err != nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			tcpConn := tempConn.(*net.TCPConn)
+
+			// Wait for host handshake
+			buf := make([]byte, 8)
+			_, err = io.ReadFull(tcpConn, buf)
+			if err != nil || string(buf) != "IKEMENGO" {
+				tcpConn.Close()
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			// Send acknowledgment
+			tcpConn.Write([]byte("IKEMENGO"))
+
+			// Handshake complete. Make temp connection permanent
+			nc.conn = tcpConn
+			return
 		}
 	}()
 }

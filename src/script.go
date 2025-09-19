@@ -848,11 +848,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		if sys.cfg.Netplay.RollbackNetcode {
-			l.Push(lua.LBool(sys.netConnection.IsConnected() || sys.rollback.session.IsConnected()))
-		} else {
-			l.Push(lua.LBool(sys.netConnection.IsConnected()))
-		}
+		l.Push(lua.LBool(sys.netConnection.IsConnected())) // No need to check rollback here as this deals with the main menu connection
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {

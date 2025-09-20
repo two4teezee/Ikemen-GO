@@ -10941,10 +10941,12 @@ func (c *Char) cueDraw() {
 		// This seems more complicated than it ought to be. Probably because our drawing functions are different from Mugen
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1459, 1778 and 2089
 		airOffsetFix := [2]float32{1, 1}
-		if c.playerNo != c.animPN {
+		if c.playerNo != c.animPN && c.animPN >= 0 && c.animPN < len(sys.chars) && len(sys.chars[c.animPN]) > 0 {
+			self := sys.chars[c.playerNo][0]
+			owner := sys.chars[c.animPN][0]
 			airOffsetFix = [2]float32{
-				(sys.chars[c.playerNo][0].localcoord / sys.chars[c.animPN][0].localcoord) / (sys.chars[c.playerNo][0].size.xscale / sys.chars[c.animPN][0].size.xscale),
-				(sys.chars[c.playerNo][0].localcoord / sys.chars[c.animPN][0].localcoord) / (sys.chars[c.playerNo][0].size.yscale / sys.chars[c.animPN][0].size.yscale),
+				(self.localcoord / owner.localcoord) / (self.size.xscale / owner.size.xscale),
+				(self.localcoord / owner.localcoord) / (self.size.yscale / owner.size.yscale),
 			}
 		}
 

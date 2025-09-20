@@ -8067,7 +8067,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	return BytecodeFloat(Value)
 }
 
-func (c *Char) appendLifebarAction(text string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
+func (c *Char) appendLifebarAction(text, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
 	if c.teamside == -1 {
 		return
 	}
@@ -8077,7 +8077,14 @@ func (c *Char) appendLifebarAction(text string, snd, spr [2]int32, anim, time in
 
 	// Play sound
 	if snd[0] != -1 && snd[1] != -1 {
-		sys.lifebar.snd.play(snd, 100, 0, 0, 0, 0)
+		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].fsnd != nil {
+			s := sys.ffx[s_ffx].fsnd.Get(snd) //Common FX
+			if s != nil {
+				sys.soundChannels.Play(s, snd[0], snd[1], 100, 0, 0, 0, 0)
+			}
+		} else {
+			sys.lifebar.snd.play(snd, 100, 0, 0, 0, 0)
+		}
 	}
 
 	// If sound only, stop here
@@ -8143,7 +8150,11 @@ func (c *Char) appendLifebarAction(text string, snd, spr [2]int32, anim, time in
 	// Read background
 	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
 	// Read front
-	msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+	if a_ffx != "" && a_ffx != "s" { //Common FX
+		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.ffx[a_ffx].fsff, sys.ffx[a_ffx].fat, 2)
+	} else {
+		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+	}
 
 	// Insert new message
 	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)

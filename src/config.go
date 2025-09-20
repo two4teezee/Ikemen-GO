@@ -149,6 +149,7 @@ type Config struct {
 		StartStage        string  `ini:"StartStage"`
 		ForceStageZoomout float32 `ini:"ForceStageZoomout"`
 		ForceStageZoomin  float32 `ini:"ForceStageZoomin"`
+		KeepSpritesOnReload bool    `ini:"KeepSpritesOnReload"`
 	} `ini:"Debug"`
 	Video struct {
 		RenderMode              string   `ini:"RenderMode"`

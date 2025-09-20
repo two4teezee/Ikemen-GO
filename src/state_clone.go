@@ -177,39 +177,72 @@ func (ghv *GetHitVar) Clone(a *arena.Arena) (result *GetHitVar) {
 	return
 }
 
-func (ai AfterImage) Clone(a *arena.Arena) (result AfterImage) {
+func (ai AfterImage) Clone(a *arena.Arena, gsp *GameStatePool) (result AfterImage) {
 	result = ai
-	result.palfx = arena.MakeSlice[PalFX](a, len(ai.palfx), len(ai.palfx))
-	for i := 0; i < len(ai.palfx); i++ {
-		result.palfx[i] = ai.palfx[i].Clone(a)
+
+	// Deep copy Animations
+	for i := range ai.imgs {
+		if ai.imgs[i].anim != nil {
+			result.imgs[i].anim = ai.imgs[i].anim.Clone(a, gsp)
+		}
 	}
+
+	// Deep copy PalFX
+	if ai.palfx != nil {
+		result.palfx = arena.MakeSlice[*PalFX](a, len(ai.palfx), len(ai.palfx))
+		for i := range ai.palfx {
+			if ai.palfx[i] != nil {
+				result.palfx[i] = ai.palfx[i].Clone(a)
+			}
+		}
+	}
+
 	return
 }
 
-func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) (result *Explod) {
-	result = &Explod{}
+func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) *Explod {
+	if e == nil {
+		return nil
+	}
+
+	result := &Explod{}
 	*result = *e
+
 	if e.anim != nil {
 		result.anim = e.anim.Clone(a, gsp)
 	}
-	palfx := e.palfx.Clone(a)
-	result.palfx = &palfx
-	return
+
+	if e.palfx != nil {
+		result.palfx = e.palfx.Clone(a)
+	}
+
+	return result
 }
 
-func (p Projectile) clone(a *arena.Arena, gsp *GameStatePool) (result Projectile) {
-	result = p
-	if p.ani != nil {
-		*result.ani = *p.ani.Clone(a, gsp)
-	}
-	result.aimg.palfx = arena.MakeSlice[PalFX](a, len(p.aimg.palfx), len(p.aimg.palfx))
-	for i := 0; i < len(p.aimg.palfx); i++ {
-		result.aimg.palfx[i] = p.aimg.palfx[i].Clone(a)
+func (p *Projectile) clone(a *arena.Arena, gsp *GameStatePool) *Projectile {
+	if p == nil {
+		return nil
 	}
 
-	palfx := p.palfx.Clone(a)
-	result.palfx = &palfx
-	return
+	result := &Projectile{}
+	*result = *p
+
+	if p.ani != nil {
+		result.ani = p.ani.Clone(a, gsp)
+	}
+
+	if p.aimg.palfx != nil {
+		result.aimg.palfx = arena.MakeSlice[*PalFX](a, len(p.aimg.palfx), len(p.aimg.palfx))
+		for i := range p.aimg.palfx {
+			result.aimg.palfx[i] = p.aimg.palfx[i].Clone(a)
+		}
+	}
+
+	if p.palfx != nil {
+		result.palfx = p.palfx.Clone(a)
+	}
+
+	return result
 }
 
 func (ss *StateState) Clone(a *arena.Arena) (result StateState) {
@@ -228,18 +261,22 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result = Char{}
 	result = *c
 
-	result.aimg = c.aimg.Clone(a)
-
-	// todo, find the curFrame index and set result.curFrame as the pointer at that index
 	if c.anim != nil {
 		result.anim = c.anim.Clone(a, gsp)
 	}
 	if c.animBackup != nil {
 		result.animBackup = c.animBackup.Clone(a, gsp)
 	}
+
+	// Since curFrame is desynced from anim's state, we must save it as well
 	if c.curFrame != nil {
 		result.curFrame = c.curFrame.Clone(a)
+	} else {
+		result.curFrame = nil
 	}
+
+	// TODO: Profiling shows this is hotter than it should be
+	result.aimg = c.aimg.Clone(a, gsp)
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
@@ -251,6 +288,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result.targets = arena.MakeSlice[int32](a, len(c.targets), len(c.targets))
 	copy(result.targets, c.targets)
 
+	result.hitdefTargets = arena.MakeSlice[int32](a, len(c.hitdefTargets), len(c.hitdefTargets))
+	copy(result.hitdefTargets, c.hitdefTargets)
+
 	result.hitdefTargetsBuffer = arena.MakeSlice[int32](a, len(c.hitdefTargetsBuffer), len(c.hitdefTargetsBuffer))
 	copy(result.hitdefTargetsBuffer, c.hitdefTargetsBuffer)
 
@@ -259,6 +299,11 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 
 	result.p2EnemyList = arena.MakeSlice[*Char](a, len(c.p2EnemyList), len(c.p2EnemyList))
 	copy(result.p2EnemyList, c.p2EnemyList)
+
+	if c.p2EnemyBackup != nil {
+		tmp := *c.p2EnemyBackup
+		result.p2EnemyBackup = &tmp
+	}
 
 	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
@@ -280,16 +325,16 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	for k, v := range c.cnsvar {
 		result.cnsvar[k] = v
 	}
-	result.cnssysvar = *gsp.Get(c.cnssysvar).(*map[int32]int32)
-	maps.Clear(result.cnssysvar)
-	for k, v := range c.cnssysvar {
-		result.cnssysvar[k] = v
-	}
-
 	result.cnsfvar = *gsp.Get(c.cnsfvar).(*map[int32]float32)
 	maps.Clear(result.cnsfvar)
 	for k, v := range c.cnsfvar {
 		result.cnsfvar[k] = v
+	}
+
+	result.cnssysvar = *gsp.Get(c.cnssysvar).(*map[int32]int32)
+	maps.Clear(result.cnssysvar)
+	for k, v := range c.cnssysvar {
+		result.cnssysvar[k] = v
 	}
 	result.cnssysfvar = *gsp.Get(c.cnssysfvar).(*map[int32]float32)
 	maps.Clear(result.cnssysfvar)
@@ -301,6 +346,11 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	maps.Clear(result.mapArray)
 	for k, v := range c.mapArray {
 		result.mapArray[k] = v
+	}
+
+	if c.inputShift != nil {
+		result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
+		copy(result.inputShift, c.inputShift)
 	}
 
 	return
@@ -325,11 +375,16 @@ func (cl *CharList) Clone(a *arena.Arena, gsp *GameStatePool) (result CharList) 
 	return
 }
 
-func (pf PalFX) Clone(a *arena.Arena) (result PalFX) {
-	result = pf
-	result.remap = arena.MakeSlice[int](a, len(pf.remap), len(pf.remap))
-	copy(result.remap, pf.remap)
-	return
+func (pf *PalFX) Clone(a *arena.Arena) *PalFX {
+	if pf == nil {
+		return nil
+	}
+	result := *pf
+	if pf.remap != nil {
+		result.remap = arena.MakeSlice[int](a, len(pf.remap), len(pf.remap))
+		copy(result.remap, pf.remap)
+	}
+	return &result
 }
 
 func (ce *CommandStep) Clone(a *arena.Arena) (result CommandStep) {

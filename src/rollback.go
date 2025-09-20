@@ -32,56 +32,11 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 	// Reset variables
 	rs.ggpoInputs = make([]InputBits, 2)
 
-	var running bool
-	if rs.session != nil && s.netConnection != nil {
-		if rs.session.host != "" {
-			rs.session.InitP2(2, 7550, 7600, rs.session.host)
-			rs.session.playerNo = 2
-		} else {
-			rs.session.InitP1(2, 7600, 7550, rs.session.remoteIp)
-			rs.session.playerNo = 1
-		}
-		//s.time = rs.session.netTime // What was this for? s.time is the round timer
-		s.preFightTime = s.netConnection.preFightTime
-		//if !rs.session.IsConnected() {
-		// for !rs.session.synchronized {
-		// 	rs.session.backend.Idle(0)
-		// }
-		//}
-		// s.netConnection.Close()
-		rs.session.recording = s.netConnection.recording
-		rs.netConnection = s.netConnection
-		s.netConnection = nil
-	} else if s.netConnection == nil && rs.session == nil {
-		session := NewRollbackSession(s.cfg.Netplay.Rollback)
-		rs.session = &session
-		rs.session.InitSyncTest(2)
-	}
-	rs.session.netTime = 0
-
-	// These empty frames help the netcode stabilize. Without them, the chances of it desyncing at match start increase a lot
-	// Update: Might not be necessary after syncTest fix
-	/*
-		for i := 0; i < 120; i++ {
-			err := rs.session.backend.Idle(
-				int(math.Max(0, float64(120))))
-			fmt.Printf("difference: %d\n", rs.session.next-rs.session.now-1)
-			if err != nil {
-				panic(err)
-			}
-
-			s.renderFrame() // Do we need to render at this point? Is there anything to render?
-
-			//rs.session.loopTimer.usToWaitThisLoop()
-			running = s.update()
-
-			if !running {
-				break
-			}
-		}
-	*/
+	// Initialize rollback network session and synchronize state
+	rs.preMatchSetup()
 
 	var didTryLoadBGM bool
+	var running bool
 
 	// Loop until end of match
 	for !s.endMatch {
@@ -92,14 +47,15 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 			panic(err)
 		}
 
+		// Sync speculative inputs and run a speculative frame
 		running = rs.runFrame(s)
 
-		// default bgm playback, used only in Quick VS or if externalized Lua implementaion is disabled
-		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
+		if !didTryLoadBGM && s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 {
+			didTryLoadBGM = true
 			// Need to search first
 			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
 				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
-				didTryLoadBGM = true
 				return nil
 			})
 		}
@@ -123,15 +79,66 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 			break
 		}
 	}
+
+	rs.postMatchSetup()
+
+	return false
+}
+
+func (rs *RollbackSystem) preMatchSetup() {
+	if rs.session != nil && sys.netConnection != nil {
+		if rs.session.host != "" {
+			// Initialize client as P2
+			rs.session.InitP2(2, 7550, 7600, rs.session.host)
+			rs.session.playerNo = 2
+		} else {
+			// Initialize host as P1
+			rs.session.InitP1(2, 7600, 7550, rs.session.remoteIp)
+			rs.session.playerNo = 1
+		}
+
+		// Synchronize gameTime at match start
+		sys.gameTime = rs.session.netTime //s.time = rs.session.netTime // Old typo?
+		sys.preFightTime = sys.netConnection.preFightTime
+
+		// Wait until both peers have fully synchronized?
+		//if !rs.session.IsConnected() {
+		//	for !rs.session.synchronized {
+		//		rs.session.backend.Idle(0)
+		//	}
+		//}
+		//sys.netConnection.Close()
+
+		// Borrow netConnection replay recording
+		rs.session.recording = sys.netConnection.recording
+
+		// Transfer the active netConnection to the rollback system
+		rs.netConnection = sys.netConnection
+		sys.netConnection = nil
+
+	} else if sys.netConnection == nil && rs.session == nil {
+		// If offline, initialize a local rollback sync test session
+		session := NewRollbackSession(sys.cfg.Netplay.Rollback)
+		rs.session = &session
+		rs.session.InitSyncTest(2)
+	}
+
+	// Reset rollback session timer
+	rs.session.netTime = 0
+}
+
+func (rs *RollbackSystem) postMatchSetup() {
 	rs.session.SaveReplay()
+
 	// sys.esc = true
 	//sys.rollback.currentFight.fin = true
-	s.netConnection = rs.netConnection
+
+	sys.netConnection = rs.netConnection
 	rs.session.backend.Close()
 
 	// Prep for the next match.
-	if s.netConnection != nil {
-		newSession := NewRollbackSession(s.cfg.Netplay.Rollback)
+	if sys.netConnection != nil {
+		newSession := NewRollbackSession(sys.cfg.Netplay.Rollback)
 		host := rs.session.host
 		remoteIp := rs.session.remoteIp
 
@@ -141,7 +148,6 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 	} else {
 		rs.session = nil
 	}
-	return false
 }
 
 // Called once per frame by the main game loop
@@ -174,6 +180,7 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 		values, ggpoerr = rs.session.backend.SyncInput(&disconnectFlags)
 		rs.ggpoInputs = decodeInputs(values)
 
+		// TODO: Why does this depend on the replay?
 		if rs.session.recording != nil {
 			rs.session.SetInput(rs.session.netTime, 0, rs.ggpoInputs[0])
 			rs.session.SetInput(rs.session.netTime, 1, rs.ggpoInputs[1])
@@ -205,21 +212,10 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 	return true
 }
 
-func (rs *RollbackSystem) runShortcutScripts(s *System) {
-	for _, v := range s.shortcutScripts {
-		if v.Activate {
-			if err := s.luaLState.DoString(v.Script); err != nil {
-				s.errLog.Println(err.Error())
-			}
-		}
-	}
-}
-
 // Contains the logic for a single frame of the game
 // Called by both runFrame for speculative execution, and AdvanceFrame for confirmed execution
 func (rs *RollbackSystem) simulateFrame(s *System) bool {
 	s.frameStepFlag = false
-	//rs.runShortcutScripts(s)
 
 	// If next round
 	if !sys.runNextRound() {
@@ -230,13 +226,13 @@ func (rs *RollbackSystem) simulateFrame(s *System) bool {
 	s.stage.action()
 
 	// If frame is ready to tick and not paused
-	//rs.updateStage(s)
+	//sys.stage.action()
 
 	// Update game state
 	s.action()
 
 	// if rs.handleFlags(s) {
-	// 	return true
+	//	return true
 	// }
 
 	if !rs.updateEvents(s) {
@@ -262,11 +258,6 @@ func (rs *RollbackSystem) simulateFrame(s *System) bool {
 		return false
 	}
 	return true
-}
-
-func (rs *RollbackSystem) updateStage(s *System) {
-	// Update stage
-	s.stage.action()
 }
 
 func (rs *RollbackSystem) updateEvents(s *System) bool {
@@ -358,14 +349,6 @@ func decodeInputs(buffer [][]byte) []InputBits {
 	var inputs = make([]InputBits, len(buffer))
 	for i, b := range buffer {
 		inputs[i] = InputBits(readI32(b))
-	}
-	return inputs
-}
-
-// HACK: So you won't be playing eachothers characters
-func reverseInputs(inputs []InputBits) []InputBits {
-	for i, j := 0, len(inputs)-1; i < j; i, j = i+1, j-1 {
-		inputs[i], inputs[j] = inputs[j], inputs[i]
 	}
 	return inputs
 }

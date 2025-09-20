@@ -848,11 +848,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
-		if sys.cfg.Netplay.RollbackNetcode {
-			l.Push(lua.LBool(sys.netConnection.IsConnected() || sys.rollback.session.IsConnected()))
-		} else {
-			l.Push(lua.LBool(sys.netConnection.IsConnected()))
-		}
+		l.Push(lua.LBool(sys.netConnection.IsConnected())) // No need to check rollback here as this deals with the main menu connection
 		return 1
 	})
 	luaRegister(l, "dialogueReset", func(*lua.LState) int {
@@ -1364,8 +1360,10 @@ func systemScriptInit(l *lua.LState) {
 					// Match is restarting
 					for i, b := range sys.reloadCharSlot {
 						if b {
-							if s := sys.cgi[i].sff; s != nil {
-								removeSFFCache(s.filename)
+							if !sys.cfg.Debug.KeepSpritesOnReload {
+								if s := sys.cgi[i].sff; s != nil {
+									removeSFFCache(s.filename)
+								}
 							}
 							sys.chars[i] = []*Char{}
 							b = false
@@ -1475,9 +1473,8 @@ func systemScriptInit(l *lua.LState) {
 					sys.playBgmFlg = false
 				}
 				sys.clearAllSound()
-				sys.allPalFX = *newPalFX()
-				sys.bgPalFX = *newPalFX()
-				sys.superpmap = *newPalFX()
+				sys.allPalFX = newPalFX()
+				sys.bgPalFX = newPalFX()
 				sys.resetGblEffect()
 				sys.dialogueFlg = false
 				sys.dialogueForce = 0
@@ -2233,9 +2230,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "resetMatchData", func(*lua.LState) int {
-		sys.allPalFX = *newPalFX()
-		sys.bgPalFX = *newPalFX()
-		sys.superpmap = *newPalFX()
+		sys.allPalFX = newPalFX()
+		sys.bgPalFX = newPalFX()
 		sys.resetGblEffect()
 		for i, p := range sys.chars {
 			if len(p) > 0 {

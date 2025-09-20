@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"os"
@@ -489,44 +490,6 @@ func (ibit *InputBits) KeysToBits(buttons [14]bool) {
 		Btoi(buttons[11])<<11 |
 		Btoi(buttons[12])<<12 |
 		Btoi(buttons[13])<<13)
-}
-
-func (ibit InputBits) RollbackBitsToKeys(cb *InputBuffer, facing int32) {
-	var U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m bool
-	// Convert bits to logical symbols
-	U = ibit&IB_PU != 0
-	D = ibit&IB_PD != 0
-	L = ibit&IB_PL != 0
-	R = ibit&IB_PR != 0
-	if facing < 0 {
-		B, F = ibit&IB_PR != 0, ibit&IB_PL != 0
-	} else {
-		B, F = ibit&IB_PL != 0, ibit&IB_PR != 0
-	}
-	a = ibit&IB_A != 0
-	b = ibit&IB_B != 0
-	c = ibit&IB_C != 0
-	x = ibit&IB_X != 0
-	y = ibit&IB_Y != 0
-	z = ibit&IB_Z != 0
-	s = ibit&IB_S != 0
-	d = ibit&IB_D != 0
-	w = ibit&IB_W != 0
-	m = ibit&IB_M != 0
-	// Absolute priority SOCD resolution is enforced during netplay
-	// TODO: Port the other options as well
-	if U && D {
-		D = false
-	}
-	if B && F {
-		B = false
-		if facing < 0 {
-			R = false
-		} else {
-			L = false
-		}
-	}
-	cb.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 }
 
 // Convert received input bits back into keys
@@ -2062,32 +2025,82 @@ func (nc *NetConnection) GetHostGuestRemap() (host, guest int) {
 }
 
 func (nc *NetConnection) Accept(port string) error {
-	if ln, err := net.Listen("tcp", ":"+port); err != nil {
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
 		return err
-	} else {
-		nc.ln = ln.(*net.TCPListener)
-		nc.host = true
-		nc.locIn, nc.remIn = nc.GetHostGuestRemap()
-		go func() {
-			ln := nc.ln
-			if conn, err := ln.AcceptTCP(); err == nil {
-				nc.conn = conn
-				if sys.cfg.Netplay.RollbackNetcode {
-					sys.rollback.session.remoteIp = conn.RemoteAddr().(*net.TCPAddr).IP.String()
-				}
-			}
-			ln.Close()
-		}()
 	}
+
+	tcpLn, ok := ln.(*net.TCPListener)
+	if !ok {
+		ln.Close()
+		return fmt.Errorf("failed to cast net.Listener to *net.TCPListener")
+	}
+
+	nc.ln = tcpLn
+	nc.host = true
+	nc.conn = nil // Make sure this is a new connection
+	nc.locIn, nc.remIn = nc.GetHostGuestRemap()
+
+	go func() {
+		defer nc.ln.Close()
+
+		tempConn, err := nc.ln.AcceptTCP()
+		if err != nil {
+			return
+		}
+
+		if sys.cfg.Netplay.RollbackNetcode {
+			sys.rollback.session.remoteIp = tempConn.RemoteAddr().(*net.TCPAddr).IP.String()
+		}
+
+		//Send handshake
+		tempConn.Write([]byte("IKEMENGO"))
+
+		// Wait for client acknowledgment
+		ack := make([]byte, 8) // Length of our "password"
+		_, err = io.ReadFull(tempConn, ack)
+		if err != nil || string(ack) != "IKEMENGO" {
+			tempConn.Close()
+			return
+		}
+
+		// Handshake complete. Make temp connection permanent
+		nc.conn = tempConn
+	}()
+
 	return nil
 }
 
 func (nc *NetConnection) Connect(server, port string) {
 	nc.host = false
+	nc.conn = nil // Make sure this is a new connection
 	nc.remIn, nc.locIn = nc.GetHostGuestRemap()
+
 	go func() {
-		if conn, err := net.Dial("tcp", server+":"+port); err == nil {
-			nc.conn = conn.(*net.TCPConn)
+		for {
+			tempConn, err := net.Dial("tcp", server+":"+port)
+			if err != nil {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			tcpConn := tempConn.(*net.TCPConn)
+
+			// Wait for host handshake
+			buf := make([]byte, 8)
+			_, err = io.ReadFull(tcpConn, buf)
+			if err != nil || string(buf) != "IKEMENGO" {
+				tcpConn.Close()
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			// Send acknowledgment
+			tcpConn.Write([]byte("IKEMENGO"))
+
+			// Handshake complete. Make temp connection permanent
+			nc.conn = tcpConn
+			return
 		}
 	}()
 }

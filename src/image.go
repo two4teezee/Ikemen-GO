@@ -106,7 +106,7 @@ func (pf *PalFX) getSynFx(blending int) *PalFX {
 			pf.eColor = pf.color
 			pf.eHue = pf.hue
 		} else {
-			return &sys.allPalFX
+			return sys.allPalFX
 		}
 	}
 	if !sys.allPalFX.enable {
@@ -307,7 +307,7 @@ func (pf *PalFX) step() {
 	}
 }
 
-func (pf *PalFX) synthesize(pfx PalFX, blending int) {
+func (pf *PalFX) synthesize(pfx *PalFX, blending int) {
 	if blending == -2 {
 		for i, a := range pfx.eAdd {
 			pf.eAdd[i] = Clamp(pf.eAdd[i]-Abs(a), 0, 255)

@@ -2794,6 +2794,7 @@ main.t_itemname = {
 	end,
 	--SERVER CONNECT
 	['serverconnect'] = function(t, item)
+		sndPlay(motif.files.snd_data, motif[main.group].cursor_done_snd[1], motif[main.group].cursor_done_snd[2]) -- Needs manual sndPlay due to special menu behavior
 		if main.f_connect(gameOption('Netplay.IP.' .. t[item].displayname), main.f_extractText(motif.title_info.connecting_join_text, t[item].displayname, gameOption('Netplay.IP.' .. t[item].displayname))) then
 			synchronize()
 			math.randomseed(sszRandom())
@@ -2807,6 +2808,7 @@ main.t_itemname = {
 	end,
 	--SERVER HOST
 	['serverhost'] = function(t, item)
+		sndPlay(motif.files.snd_data, motif[main.group].cursor_done_snd[1], motif[main.group].cursor_done_snd[2]) -- Needs manual sndPlay due to special menu behavior
 		if main.f_connect("", main.f_extractText(motif.title_info.connecting_host_text, gameOption('Netplay.ListenPort'))) then
 			synchronize()
 			math.randomseed(sszRandom())

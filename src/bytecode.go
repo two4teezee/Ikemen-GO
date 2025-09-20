@@ -4245,7 +4245,9 @@ func (sc stateDef) Run(c *Char) {
 				}
 			}
 		case stateDef_anim:
-			c.changeAnimEx(exp[1].evalI(c), c.playerNo, -1, string(*(*[]byte)(unsafe.Pointer(&exp[0]))), false)
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			c.changeAnim(animNo, c.playerNo, -1, ffx)
 		case stateDef_ctrl:
 			c.setCtrl(exp[0].evalB(c))
 		case stateDef_poweradd:
@@ -4830,6 +4832,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 	animPN := -1
 	spritePN := -1
 	setelem := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
@@ -4839,32 +4842,19 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 			elemtime = exp[0].evalI(c)
 			setelem = true
 		case changeAnim_value:
-			apn := crun.playerNo // Default to own player number
-			spn := crun.playerNo
-			if animPN != -1 {
-				apn = animPN
-			}
-			if spritePN != -1 {
-				spn = spritePN
-			}
-			if rpid != -1 {
-				apn, spn = rpid, rpid
+			if animPN < 0 && spritePN < 0 && rpid != -1 { // ReadPlayerID is deprecated so it's only used if the others are not present
+				animPN, spritePN = rpid, rpid
 			}
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-			crun.changeAnim(exp[1].evalI(c), apn, spn, ffx)
+			animNo := exp[1].evalI(c)
+			crun.changeAnim(animNo, animPN, spritePN, ffx)
 			if setelem {
 				crun.setAnimElem(elem, elemtime)
 			}
 		case changeAnim_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "changeAnim") {
-				animPN = pn
-			}
+			animPN = int(exp[0].evalI(c)) - 1
 		case changeAnim_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "changeAnim") {
-				spritePN = pn
-			}
+			spritePN = int(exp[0].evalI(c)) - 1
 		case changeAnim_readplayerid:
 			if read := sys.playerID(exp[0].evalI(c)); read != nil {
 				rpid = read.playerNo
@@ -4874,6 +4864,7 @@ func (sc changeAnim) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	return false
 }
 
@@ -4888,6 +4879,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 	var elem, elemtime int32
 	var rpid int = -1
 	setelem := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeAnim_elem:
@@ -4914,6 +4906,7 @@ func (sc changeAnim2) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	return false
 }
 
@@ -5561,15 +5554,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.animNo = exp[1].evalI(c)
 			e.anim_ffx = ffx
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "Explod") {
-				e.animPN = pn
-			}
+			e.animPN = int(exp[0].evalI(c))
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "Explod") {
-				e.spritePN = pn
-			}
+			e.spritePN = int(exp[0].evalI(c))
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5895,15 +5882,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_animplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "animPlayerNo", "modifyExplod") {
-				animPN = pn
-			}
+			animPN = int(exp[0].evalI(c))
 		case explod_spriteplayerno:
-			pn := int(exp[0].evalI(c)) - 1
-			if crun.validatePlayerNo(pn, "spritePlayerNo", "modifyExplod") {
-				spritePN = pn
-			}
+			spritePN = int(exp[0].evalI(c))
 		case explod_remappal:
 			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
@@ -6386,8 +6367,11 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	if e == nil {
 		return false
 	}
+
 	e.id = 0
-	e.layerno, e.sprpriority, e.ownpal = 1, math.MinInt32, true
+	e.layerno = 1
+	e.sprpriority = math.MinInt32
+	e.ownpal = true
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -6414,8 +6398,10 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 			if exp[0].evalB(c) {
 				e.layerno = 0
 			}
-		case gameMakeAnim_anim: // Minor: Mugen uses anim 0 if nothing is specified
-			e.anim = crun.getAnim(exp[1].evalI(c), string(*(*[]byte)(unsafe.Pointer(&exp[0]))), true)
+		case gameMakeAnim_anim:
+			e.anim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			e.animNo = exp[1].evalI(c)
+			e.anim = crun.getSelfAnimSprite(e.animNo, e.anim_ffx, e.ownpal, true)
 		}
 		return true
 	})
@@ -9381,17 +9367,20 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	sys.superpmap.remap = nil
-	sys.superpos = [2]float32{crun.pos[0] * crun.localscl, crun.pos[1] * crun.localscl}
-	sys.superscale = [2]float32{crun.facing, 1}
-
 	var t, mt int32 = 30, 0
 	uh := true
-	animset := false
+
+	// Default parameters
+	sys.superdarken = true
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
-	sys.superdarken = true
-	sys.superp2defmul = crun.gi().constants["super.targetdefencemul"]
+	p2defmul := crun.gi().constants["super.targetdefencemul"]
+
+	// Default super FX
+	fx_anim := int32(100)
+	fx_ffx := "f"
+	fx_pos := [3]float32{0, 0, 0}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case superPause_time:
@@ -9405,25 +9394,20 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		case superPause_darken:
 			sys.superdarken = exp[0].evalB(c)
 		case superPause_anim:
-			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-			num := exp[1].evalI(c)
-			animset = true
-			if sys.superanim = crun.getAnim(num, ffx, true); sys.superanim != nil {
-				if ffx != "" && ffx != "s" {
-					sys.superpmap.remap = nil
-				} else {
-					sys.superpmap.remap = crun.getPalMap()
-				}
-			}
+			fx_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			fx_anim = exp[1].evalI(c)
 		case superPause_pos:
-			sys.superpos[0] += crun.facing * exp[0].evalF(c) * c.localscl
+			fx_pos[0] = exp[0].evalF(c)
 			if len(exp) > 1 {
-				sys.superpos[1] += exp[1].evalF(c) * c.localscl
+				fx_pos[1] = exp[1].evalF(c)
+			}
+			if len(exp) > 2 {
+				fx_pos[2] = exp[2].evalF(c)
 			}
 		case superPause_p2defmul:
-			sys.superp2defmul = exp[0].evalF(c)
-			if sys.superp2defmul == 0 {
-				sys.superp2defmul = crun.gi().constants["super.targetdefencemul"]
+			v := exp[0].evalF(c)
+			if v > 0 {
+				p2defmul = v
 			}
 		case superPause_poweradd:
 			crun.powerAdd(exp[0].evalI(c))
@@ -9441,20 +9425,24 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if !animset {
-		sys.superanim = crun.getAnim(100, "f", true) // Default animation
+
+	// Add super FX
+	if e, i := c.newExplod(); e != nil {
+		e.animNo = fx_anim
+		e.anim_ffx = fx_ffx
+		e.layerno = 1
+		e.ownpal = true
+		e.removetime = -2
+		e.pausemovetime = -1
+		e.supermovetime = -1
+		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
+		e.setPos(c)
+		c.insertExplod(i)
+		// TODO: It also seems to inherit the player's remapped palette in Mugen
 	}
-	if sys.superanim != nil {
-		sys.superanim.start_scale[0] *= crun.localscl
-		sys.superanim.start_scale[1] *= crun.localscl
-		// Apply Z axis perspective
-		if sys.zEnabled() {
-			sys.superpos = sys.drawposXYfromZ(sys.superpos, crun.localscl, crun.interPos[2], crun.zScale)
-			sys.superscale[0] *= crun.zScale
-			sys.superscale[1] *= crun.zScale
-		}
-	}
-	crun.setSuperPauseTime(t, mt, uh)
+
+	crun.setSuperPauseTime(t, mt, uh, p2defmul)
+
 	return false
 }
 

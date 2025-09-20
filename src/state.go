@@ -82,7 +82,7 @@ func (gs *GameState) Checksum() int {
 }
 
 func (gs *GameState) String() (str string) {
-	str = fmt.Sprintf("Time: %d GameTime %d \n", gs.curRoundTime, gs.GameTime)
+	str = fmt.Sprintf("GameTime %d CurRoundTime: %d\n", gs.gameTime, gs.curRoundTime)
 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 	str += fmt.Sprintf("bcVar: %v\n", gs.bcVar)
@@ -99,18 +99,21 @@ func (gs *GameState) String() (str string) {
 const MaxSaveStates = 8
 
 type GameState struct {
+	// Identifiers
 	bytes        []byte
 	id           int
 	saved        bool
 	frame        int32
-	randseed     int32
-	curRoundTime int32
-	GameTime     int32
 
-	projs          [MaxPlayerNo][]Projectile
+	// Selective copy of the system struct
+	randseed     int32
+	gameTime     int32
+	curRoundTime int32
+
+	projs          [MaxPlayerNo][]*Projectile
 	chars          [MaxPlayerNo][]*Char
 	charData       [MaxPlayerNo][]Char
-	explods        [MaxPlayerNo][]Explod
+	explods        [MaxPlayerNo][]*Explod
 	explodsLayer0  [MaxPlayerNo][]int
 	explodsLayer1  [MaxPlayerNo][]int
 	explodsLayerN1 [MaxPlayerNo][]int
@@ -120,25 +123,20 @@ type GameState struct {
 
 	aiLevel            [MaxPlayerNo]float32 // UIT
 	cam                Camera
-	allPalFX           PalFX
-	bgPalFX            PalFX
+	allPalFX           *PalFX
+	bgPalFX            *PalFX
 	pause              int32
 	pausetime          int32
 	pausebg            bool
 	pauseendcmdbuftime int32
 	pausetimebuffer    int32
-	pauseplayer        int
+	pauseplayerno      int
 	supertimebuffer    int32
 	supertime          int32
 	superpausebg       bool
 	superendcmdbuftime int32
 	superplayerno      int
 	superdarken        bool
-	superanim          *Animation
-	superpmap          PalFX
-	superpos           [2]float32
-	superscale         [2]float32
-	superp2defmul      float32
 
 	envShake            EnvShake
 	specialFlag         GlobalSpecialFlag // UIT
@@ -169,8 +167,6 @@ type GameState struct {
 	tmode                   [2]TeamMode // UIT
 	numSimul, numTurns      [2]int32    // UIT
 	esc                     bool
-	workingChar             *Char
-	workingStateState       StateBytecode // UIT
 	envcol_under            bool
 	nextCharId              int32
 	tickCount               int
@@ -294,13 +290,16 @@ func (gs *GameState) LoadState(stateID int) {
 	gsp := &sys.loadPool
 
 	sys.randseed = gs.randseed
+	sys.gameTime = gs.gameTime
 	sys.curRoundTime = gs.curRoundTime // UIT
-	sys.gameTime = gs.GameTime
+
 	gs.loadCharData(a, gsp)
 	gs.loadExplodData(a, gsp)
 	sys.cam = gs.cam
+
 	gs.loadPauseData()
-	gs.loadSuperData(a, gsp)
+	gs.loadSuperPauseData()
+
 	gs.loadPalFX(a)
 	gs.loadProjectileData(a, gsp)
 	sys.aiLevel = gs.aiLevel
@@ -344,7 +343,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
-	sys.curRoundTime = gs.curRoundTime
 	sys.nextCharId = gs.nextCharId
 
 	sys.scrrect = gs.scrrect
@@ -417,17 +415,6 @@ func (gs *GameState) LoadState(stateID int) {
 
 	sys.match = gs.match
 	sys.round = gs.round
-
-	// bug, if a prior state didn't have this
-	// Did the prior state actually have a working state
-	if gs.workingStateState.stateType != 0 && gs.workingStateState.moveType != 0 {
-		// if sys.workingState != nil {
-		// 	*sys.workingState = gs.workingStateState
-		// } else {
-		ws := gs.workingStateState.Clone(a)
-		sys.workingState = &ws
-		// }
-	}
 
 	sys.lifebar = gs.lifebar.Clone(a)
 
@@ -523,15 +510,18 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.cgi = sys.cgi
 	gs.saved = true
 	gs.frame = sys.frameCounter
+
 	gs.randseed = sys.randseed
+	gs.gameTime = sys.gameTime
 	gs.curRoundTime = sys.curRoundTime
-	gs.GameTime = sys.gameTime
 
 	gs.saveCharData(a, gsp)
 	gs.saveExplodData(a, gsp)
 	gs.cam = sys.cam
+
 	gs.savePauseData()
-	gs.saveSuperData(a, gsp)
+	gs.saveSuperPauseData()
+
 	gs.savePalFX(a)
 	gs.saveProjectileData(a, gsp)
 
@@ -573,7 +563,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.curRoundTime = sys.curRoundTime
 	gs.nextCharId = sys.nextCharId
 
 	gs.scrrect = sys.scrrect
@@ -645,11 +634,6 @@ func (gs *GameState) SaveState(stateID int) {
 
 	gs.match = sys.match
 	gs.round = sys.round
-
-	// bug, if a prior state didn't have this
-	if sys.workingState != nil {
-		gs.workingStateState = sys.workingState.Clone(a)
-	}
 
 	gs.lifebar = sys.lifebar.Clone(a)
 
@@ -752,12 +736,14 @@ func (gs *GameState) saveCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.chars {
 		gs.charData[i] = arena.MakeSlice[Char](a, len(sys.chars[i]), len(sys.chars[i]))
 		gs.chars[i] = arena.MakeSlice[*Char](a, len(sys.chars[i]), len(sys.chars[i]))
+
 		for j, c := range sys.chars[i] {
 			gs.charData[i][j] = c.Clone(a, gsp)
 			gs.chars[i][j] = c
 		}
 	}
 
+	// Update command sharing for chars without keyctrl
 	for i := range gs.chars {
 		for _, c := range gs.chars[i] {
 			if !c.keyctrl[0] {
@@ -766,42 +752,17 @@ func (gs *GameState) saveCharData(a *arena.Arena, gsp *GameStatePool) {
 		}
 	}
 
-	if sys.workingChar != nil {
-		c := sys.workingChar.Clone(a, gsp)
-		gs.workingChar = &c
-	} else {
-		gs.workingChar = sys.workingChar
-	}
-
+	// Clone charList
 	gs.charList = sys.charList.Clone(a, gsp)
-
 }
 
 func (gs *GameState) saveProjectileData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.projs {
-		gs.projs[i] = arena.MakeSlice[Projectile](a, len(sys.projs[i]), len(sys.projs[i]))
+		gs.projs[i] = arena.MakeSlice[*Projectile](a, len(sys.projs[i]), len(sys.projs[i]))
 		for j := 0; j < len(sys.projs[i]); j++ {
 			gs.projs[i][j] = sys.projs[i][j].clone(a, gsp)
 		}
 	}
-}
-
-func (gs *GameState) saveSuperData(a *arena.Arena, gsp *GameStatePool) {
-	gs.supertimebuffer = sys.supertimebuffer
-	gs.supertime = sys.supertime
-	gs.superpausebg = sys.superpausebg
-	gs.superendcmdbuftime = sys.superendcmdbuftime
-	gs.superplayerno = sys.superplayerno
-	gs.superdarken = sys.superdarken
-	if sys.superanim != nil {
-		gs.superanim = sys.superanim.Clone(a, gsp)
-	} else {
-		gs.superanim = sys.superanim
-	}
-	gs.superpmap = sys.superpmap.Clone(a)
-	gs.superpos = [2]float32{sys.superpos[0], sys.superpos[1]}
-	gs.superscale = sys.superscale
-	gs.superp2defmul = sys.superp2defmul
 }
 
 func (gs *GameState) savePauseData() {
@@ -809,14 +770,23 @@ func (gs *GameState) savePauseData() {
 	gs.pausetime = sys.pausetime
 	gs.pausebg = sys.pausebg
 	gs.pauseendcmdbuftime = sys.pauseendcmdbuftime
-	gs.pauseplayer = sys.pauseplayer
+	gs.pauseplayerno = sys.pauseplayerno
+}
+
+func (gs *GameState) saveSuperPauseData() {
+	gs.supertimebuffer = sys.supertimebuffer
+	gs.supertime = sys.supertime
+	gs.superpausebg = sys.superpausebg
+	gs.superendcmdbuftime = sys.superendcmdbuftime
+	gs.superplayerno = sys.superplayerno
+	gs.superdarken = sys.superdarken
 }
 
 func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range sys.explods {
-		gs.explods[i] = arena.MakeSlice[Explod](a, len(sys.explods[i]), len(sys.explods[i]))
+		gs.explods[i] = arena.MakeSlice[*Explod](a, len(sys.explods[i]), len(sys.explods[i]))
 		for j := 0; j < len(sys.explods[i]); j++ {
-			gs.explods[i][j] = *sys.explods[i][j].Clone(a, gsp)
+			gs.explods[i][j] = sys.explods[i][j].Clone(a, gsp)
 		}
 	}
 	for i := range sys.explodsLayer0 {
@@ -839,6 +809,7 @@ func (gs *GameState) loadPalFX(a *arena.Arena) {
 	sys.allPalFX = gs.allPalFX.Clone(a)
 	sys.bgPalFX = gs.bgPalFX.Clone(a)
 }
+
 func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 	for i := 0; i < len(sys.chars); i++ {
 		sys.chars[i] = arena.MakeSlice[*Char](a, len(gs.chars[i]), len(gs.chars[i]))
@@ -859,32 +830,31 @@ func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 		}
 	}
 
-	if gs.workingChar != nil {
-		wc := gs.workingChar.Clone(a, gsp)
-		sys.workingChar = &wc
-	} else {
-		sys.workingChar = gs.workingChar
+	// Set workingChar to the first char we find, just in case
+	sys.workingChar = nil
+	for i := range sys.chars {
+		for j := range sys.chars[i] {
+			if sys.chars[i][j] != nil {
+				sys.workingChar = sys.chars[i][j]
+				sys.workingState = &sys.workingChar.ss.sb
+				break
+			}
+		}
+		if sys.workingChar != nil {
+			break
+		}
 	}
 
 	sys.charList = gs.charList.Clone(a, gsp)
 }
 
-func (gs *GameState) loadSuperData(a *arena.Arena, gsp *GameStatePool) {
+func (gs *GameState) loadSuperPauseData() {
 	sys.supertimebuffer = gs.supertimebuffer
 	sys.supertime = gs.supertime
 	sys.superpausebg = gs.superpausebg
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayerno = gs.superplayerno
 	sys.superdarken = gs.superdarken
-	if gs.superanim != nil {
-		sys.superanim = gs.superanim.Clone(a, gsp)
-	} else {
-		sys.superanim = gs.superanim
-	}
-	sys.superpmap = gs.superpmap.Clone(a)
-	sys.superpos = [2]float32{gs.superpos[0], gs.superpos[1]}
-	sys.superscale = gs.superscale
-	sys.superp2defmul = gs.superp2defmul
 }
 
 func (gs *GameState) loadPauseData() {
@@ -892,14 +862,14 @@ func (gs *GameState) loadPauseData() {
 	sys.pausetime = gs.pausetime
 	sys.pausebg = gs.pausebg
 	sys.pauseendcmdbuftime = gs.pauseendcmdbuftime
-	sys.pauseplayer = gs.pauseplayer
+	sys.pauseplayerno = gs.pauseplayerno
 }
 
 func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.explods {
-		sys.explods[i] = arena.MakeSlice[Explod](a, len(gs.explods[i]), len(gs.explods[i]))
+		sys.explods[i] = arena.MakeSlice[*Explod](a, len(gs.explods[i]), len(gs.explods[i]))
 		for j := 0; j < len(gs.explods[i]); j++ {
-			sys.explods[i][j] = *gs.explods[i][j].Clone(a, gsp)
+			sys.explods[i][j] = gs.explods[i][j].Clone(a, gsp)
 		}
 	}
 
@@ -921,7 +891,7 @@ func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 
 func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.projs {
-		sys.projs[i] = arena.MakeSlice[Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
+		sys.projs[i] = arena.MakeSlice[*Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
 		for j := range gs.projs[i] {
 			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
 		}

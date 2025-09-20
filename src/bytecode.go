@@ -10922,7 +10922,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 		case lifebarAction_spr:
 			a_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			spr[0] = exp[1].evalI(c)
-			if len(exp) > 1 {
+			if len(exp) > 2 {
 				spr[1] = exp[2].evalI(c)
 			}
 		case lifebarAction_snd:

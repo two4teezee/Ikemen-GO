@@ -826,16 +826,19 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "commandGetState", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
+		if !ok || cl == nil {
 			userDataError(l, 1, cl)
+			l.Push(lua.LBool(false))
+			return 1 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		l.Push(lua.LBool(cl.GetState(strArg(l, 2))))
 		return 1
 	})
 	luaRegister(l, "commandInput", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
+		if !ok || cl == nil {
 			userDataError(l, 1, cl)
+			return 0 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		controller := int(numArg(l, 2)) - 1
 		if cl.InputUpdate(nil, controller, 0, true) {

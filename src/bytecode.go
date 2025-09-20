@@ -10905,6 +10905,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	var text string
 	var timemul float32 = 1
 	var time, anim int32 = -1, -1
+	s_ffx, a_ffx := "", ""
 	spr := [2]int32{-1, 0}
 	snd := [2]int32{-1, 0}
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -10916,23 +10917,26 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 		case lifebarAction_time:
 			time = exp[0].evalI(c)
 		case lifebarAction_anim:
-			anim = exp[0].evalI(c)
+			a_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			anim = exp[1].evalI(c)
 		case lifebarAction_spr:
-			spr[0] = exp[0].evalI(c)
+			a_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			spr[0] = exp[1].evalI(c)
 			if len(exp) > 1 {
-				spr[1] = exp[1].evalI(c)
+				spr[1] = exp[2].evalI(c)
 			}
 		case lifebarAction_snd:
-			snd[0] = exp[0].evalI(c)
-			if len(exp) > 1 {
-				snd[1] = exp[1].evalI(c)
+			s_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			snd[0] = exp[1].evalI(c)
+			if len(exp) > 2 {
+				snd[1] = exp[2].evalI(c)
 			}
 		case lifebarAction_text:
 			text = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		}
 		return true
 	})
-	crun.appendLifebarAction(text, snd, spr, anim, time, timemul, top)
+	crun.appendLifebarAction(text, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
 	return false
 }
 

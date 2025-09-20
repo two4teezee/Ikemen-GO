@@ -4500,16 +4500,25 @@ func (c *Compiler) lifebarAction(is IniSection, sc *StateControllerBase, _ int8)
 			lifebarAction_time, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "anim",
-			lifebarAction_anim, VT_Int, 1, false); err != nil {
+		if err := c.stateParam(is, "anim", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			return c.scAdd(sc, lifebarAction_anim, data, VT_Int, 1,
+				sc.beToExp(BytecodeExp(prefix))...)
+		}); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "spr",
-			lifebarAction_spr, VT_Int, 2, false); err != nil {
+		if err := c.stateParam(is, "spr", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			return c.scAdd(sc, lifebarAction_spr, data, VT_Int, 2,
+				sc.beToExp(BytecodeExp(prefix))...)
+		}); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "snd",
-			lifebarAction_snd, VT_Int, 2, false); err != nil {
+		if err := c.stateParam(is, "snd", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			return c.scAdd(sc, lifebarAction_snd, data, VT_Int, 2,
+				sc.beToExp(BytecodeExp(prefix))...)
+		}); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "text", false, func(data string) error {

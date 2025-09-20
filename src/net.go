@@ -289,7 +289,7 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 				}
 			}
 		}()
-		
+
 		// Notify GGPO that frame has advanced
 		err := r.backend.AdvanceFrame(r.LiveChecksum())
 		if err != nil {

@@ -1344,9 +1344,9 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		animPN:            c.playerNo,
 		spritePN:          c.playerNo,
 		layerno:           c.layerNo,
-		palfx:             c.getPalfx(), // Safeguard. Overridden later
+		palfx:             c.getPalfx(),   // Safeguard. Overridden later
 		palfxdef:          *newPalFXDef(), // Actual PalFX handled later
-		bindtime:          1, // Not documented but confirmed
+		bindtime:          1,              // Not documented but confirmed
 		scale:             [2]float32{1, 1},
 		removetime:        -2,
 		postype:           PT_P1,
@@ -2507,53 +2507,53 @@ const (
 )
 
 type CharSystemVar struct {
-	airJumpCount      int32
-	assertFlag        AssertSpecialFlag
-	hitCount          int32
-	guardCount        int32
-	uniqHitCount      int32
-	pauseMovetime     int32
-	superMovetime     int32
-	ignoreDarkenTime  int32
-	unhittableTime    int32
-	bindTime          int32
-	bindToId          int32
-	bindPos           [3]float32
-	bindPosAdd        [3]float32
-	bindFacing        float32
-	hitPauseTime      int32
-	rot               Rotation
-	anglerot          [3]float32
-	xshear            float32
-	projection        Projection
-	fLength           float32
-	angleDrawScale    [2]float32
-	alpha             [2]int32
-	window            [4]float32
-	systemFlag        SystemCharFlag
-	specialFlag       CharSpecialFlag
-	sprPriority       int32
-	layerNo           int32
-	receivedDmg       int32
-	receivedHits      int32
-	cornerVelOff      float32
-	sizeWidth         [2]float32
-	edgeWidth         [2]float32
-	sizeHeight        [2]float32
-	sizeDepth         [2]float32
-	edgeDepth         [2]float32
-	sizeBox           [4]float32
-	attackMul         [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
-	superDefenseMul   float32
+	airJumpCount          int32
+	assertFlag            AssertSpecialFlag
+	hitCount              int32
+	guardCount            int32
+	uniqHitCount          int32
+	pauseMovetime         int32
+	superMovetime         int32
+	ignoreDarkenTime      int32
+	unhittableTime        int32
+	bindTime              int32
+	bindToId              int32
+	bindPos               [3]float32
+	bindPosAdd            [3]float32
+	bindFacing            float32
+	hitPauseTime          int32
+	rot                   Rotation
+	anglerot              [3]float32
+	xshear                float32
+	projection            Projection
+	fLength               float32
+	angleDrawScale        [2]float32
+	alpha                 [2]int32
+	window                [4]float32
+	systemFlag            SystemCharFlag
+	specialFlag           CharSpecialFlag
+	sprPriority           int32
+	layerNo               int32
+	receivedDmg           int32
+	receivedHits          int32
+	cornerVelOff          float32
+	sizeWidth             [2]float32
+	edgeWidth             [2]float32
+	sizeHeight            [2]float32
+	sizeDepth             [2]float32
+	edgeDepth             [2]float32
+	sizeBox               [4]float32
+	attackMul             [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
+	superDefenseMul       float32
 	superDefenseMulBuffer float32
-	fallDefenseMul    float32
-	customDefense     float32
-	finalDefense      float64
-	defenseMulDelay   bool
-	counterHit        bool
-	prevNoStandGuard  bool
-	prevPauseMovetime int32
-	prevSuperMovetime int32
+	fallDefenseMul        float32
+	customDefense         float32
+	finalDefense          float64
+	defenseMulDelay       bool
+	counterHit            bool
+	prevNoStandGuard      bool
+	prevPauseMovetime     int32
+	prevSuperMovetime     int32
 }
 
 type Char struct {
@@ -2810,18 +2810,18 @@ func (c *Char) prepareNextRound() {
 	c.sysFvarRangeSet(0, math.MaxInt32, 0)
 	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
 	c.CharSystemVar = CharSystemVar{
-		bindToId:        -1,
-		angleDrawScale:  [2]float32{1, 1},
-		alpha:           [2]int32{255, 0},
-		sizeWidth:       [2]float32{c.baseWidthFront(), c.baseWidthBack()},
-		sizeHeight:      [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
-		sizeDepth:       [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
-		attackMul:       [4]float32{atk, atk, atk, atk},
-		fallDefenseMul:  1,
-		superDefenseMul: 1,
+		bindToId:              -1,
+		angleDrawScale:        [2]float32{1, 1},
+		alpha:                 [2]int32{255, 0},
+		sizeWidth:             [2]float32{c.baseWidthFront(), c.baseWidthBack()},
+		sizeHeight:            [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
+		sizeDepth:             [2]float32{c.baseDepthTop(), c.baseDepthBottom()},
+		attackMul:             [4]float32{atk, atk, atk, atk},
+		fallDefenseMul:        1,
+		superDefenseMul:       1,
 		superDefenseMulBuffer: 1,
-		customDefense:   1,
-		finalDefense:    1.0,
+		customDefense:         1,
+		finalDefense:          1.0,
 	}
 	c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
@@ -3903,7 +3903,6 @@ func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
 	return true
 }
 */
-
 
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {

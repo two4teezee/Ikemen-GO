@@ -139,16 +139,16 @@ type Config struct {
 		GamepadMappings     string   `ini:"GamepadMappings"`
 	} `ini:"Config"`
 	Debug struct {
-		AllowDebugMode    bool    `ini:"AllowDebugMode"`
-		AllowDebugKeys    bool    `ini:"AllowDebugKeys"`
-		ClipboardRows     int     `ini:"ClipboardRows"`
-		ConsoleRows       int     `ini:"ConsoleRows"`
-		ClsnDarken        bool    `ini:"ClsnDarken"`
-		Font              string  `ini:"Font"`
-		FontScale         float32 `ini:"FontScale"`
-		StartStage        string  `ini:"StartStage"`
-		ForceStageZoomout float32 `ini:"ForceStageZoomout"`
-		ForceStageZoomin  float32 `ini:"ForceStageZoomin"`
+		AllowDebugMode      bool    `ini:"AllowDebugMode"`
+		AllowDebugKeys      bool    `ini:"AllowDebugKeys"`
+		ClipboardRows       int     `ini:"ClipboardRows"`
+		ConsoleRows         int     `ini:"ConsoleRows"`
+		ClsnDarken          bool    `ini:"ClsnDarken"`
+		Font                string  `ini:"Font"`
+		FontScale           float32 `ini:"FontScale"`
+		StartStage          string  `ini:"StartStage"`
+		ForceStageZoomout   float32 `ini:"ForceStageZoomout"`
+		ForceStageZoomin    float32 `ini:"ForceStageZoomin"`
 		KeepSpritesOnReload bool    `ini:"KeepSpritesOnReload"`
 	} `ini:"Debug"`
 	Video struct {

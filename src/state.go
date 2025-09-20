@@ -100,10 +100,10 @@ const MaxSaveStates = 8
 
 type GameState struct {
 	// Identifiers
-	bytes        []byte
-	id           int
-	saved        bool
-	frame        int32
+	bytes []byte
+	id    int
+	saved bool
+	frame int32
 
 	// Selective copy of the system struct
 	randseed     int32

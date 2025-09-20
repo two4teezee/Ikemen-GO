@@ -1194,7 +1194,7 @@ func (s *System) resetGblEffect() {
 	s.specialFlag = 0
 }
 
-func (s *System) stopAllSound() {
+func (s *System) stopAllCharSound() {
 	for _, p := range s.chars {
 		for _, c := range p {
 			c.soundChannels.SetSize(0)
@@ -1242,7 +1242,7 @@ func (s *System) restoreAllVolume() {
 
 func (s *System) clearAllSound() {
 	s.soundChannels.StopAll()
-	s.stopAllSound()
+	s.stopAllCharSound()
 	s.soundMixer.Clear()
 }
 
@@ -2328,7 +2328,7 @@ func (s *System) runMatch() (reload bool) {
 	// Loop until end of match
 	for !s.endMatch {
 		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
-		if s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 && !didTryLoadBGM {
+		if !didTryLoadBGM && s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 {
 			didTryLoadBGM = true
 			// Need to search first
 			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
@@ -2348,6 +2348,7 @@ func (s *System) runMatch() (reload bool) {
 		}
 
 		// Save/load state
+		// TODO: Confirm at which exaact point rollback does its own save/restore and match that
 		if s.saveStateFlag {
 			s.saveState.SaveState(0)
 		} else if s.loadStateFlag {
@@ -2762,8 +2763,15 @@ func (bk *RoundStartBackup) Restore() {
 
 		c := chars[0]
 
+		// Preserve live sounds before overwriting
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2670
+		liveSounds := c.soundChannels
+
 		// Restore shallow copy
 		*c = bk.charBackup[i]
+
+		// Restore live sounds
+		c.soundChannels = liveSounds
 
 		// Remake the CNS variable maps
 		// Then restore only var and fvar (losing sysvar and sysfvar)

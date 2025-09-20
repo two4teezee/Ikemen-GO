@@ -10176,7 +10176,7 @@ func (sc stopSnd) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case stopSnd_channel:
 			if ch := Min(255, exp[0].evalI(c)); ch < 0 {
-				sys.stopAllSound()
+				sys.stopAllCharSound()
 			} else if c := crun.soundChannels.Get(ch); c != nil {
 				c.Stop()
 			}

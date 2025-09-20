@@ -2832,7 +2832,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
-		sys.stopAllSound()
+		sys.stopAllCharSound()
 		return 0
 	})
 	luaRegister(l, "stopSnd", func(l *lua.LState) int {
@@ -6306,7 +6306,7 @@ func deprecatedFunctions(l *lua.LState) {
 	// deprecated by stopSnd, stopAllSound
 	luaRegister(l, "charSndStop", func(l *lua.LState) int {
 		if l.GetTop() == 0 {
-			sys.stopAllSound()
+			sys.stopAllCharSound()
 			return 0
 		}
 		pn := int(numArg(l, 1))

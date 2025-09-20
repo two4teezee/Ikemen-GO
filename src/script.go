@@ -5561,6 +5561,31 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "gamevar", func(*lua.LState) int {
+		switch strings.ToLower(strArg(l, 1)) {
+		case "introtime":
+			if sys.intro > 0 {
+				l.Push(lua.LNumber(sys.intro))
+			} else {
+				l.Push(lua.LNumber(0))
+			}
+		case "outrotime":
+			if sys.intro < 0 {
+				l.Push(lua.LNumber(-sys.intro))
+			} else {
+				l.Push(lua.LNumber(0))
+			}
+		case "pausetime":
+			l.Push(lua.LNumber(sys.pausetime))
+		case "slowtime":
+			l.Push(lua.LNumber(sys.slowtimeTrigger))
+		case "superpausetime":
+			l.Push(lua.LNumber(sys.supertime))
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		return 1
+	})
 	luaRegister(l, "guardbreak", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.scf(SCF_guardbreak)))
 		return 1
@@ -6012,31 +6037,6 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "standby", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.scf(SCF_standby)))
-		return 1
-	})
-	luaRegister(l, "systemvar", func(*lua.LState) int {
-		switch strings.ToLower(strArg(l, 1)) {
-		case "introtime":
-			if sys.intro > 0 {
-				l.Push(lua.LNumber(sys.intro))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-		case "outrotime":
-			if sys.intro < 0 {
-				l.Push(lua.LNumber(-sys.intro))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-		case "pausetime":
-			l.Push(lua.LNumber(sys.pausetime))
-		case "slowtime":
-			l.Push(lua.LNumber(sys.slowtimeTrigger))
-		case "superpausetime":
-			l.Push(lua.LNumber(sys.supertime))
-		default:
-			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
-		}
 		return 1
 	})
 	luaRegister(l, "teamleader", func(*lua.LState) int {

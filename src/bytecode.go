@@ -920,11 +920,11 @@ const (
 	OC_ex2_motifstate_continuescreen
 	OC_ex2_motifstate_victoryscreen
 	OC_ex2_motifstate_winscreen
-	OC_ex2_systemvar_introtime
-	OC_ex2_systemvar_outrotime
-	OC_ex2_systemvar_pausetime
-	OC_ex2_systemvar_slowtime
-	OC_ex2_systemvar_superpausetime
+	OC_ex2_gamevar_introtime
+	OC_ex2_gamevar_outrotime
+	OC_ex2_gamevar_pausetime
+	OC_ex2_gamevar_slowtime
+	OC_ex2_gamevar_superpausetime
 	OC_ex2_topbounddist
 	OC_ex2_topboundbodydist
 	OC_ex2_botbounddist
@@ -3651,24 +3651,24 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.victoryScreenFlg)
 	case OC_ex2_motifstate_winscreen:
 		sys.bcStack.PushB(sys.winScreenFlg)
-	// SystemVar
-	case OC_ex2_systemvar_introtime:
+	// GameVar
+	case OC_ex2_gamevar_introtime:
 		if sys.intro > 0 {
 			sys.bcStack.PushI(sys.intro)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex2_systemvar_outrotime:
+	case OC_ex2_gamevar_outrotime:
 		if sys.intro < 0 {
 			sys.bcStack.PushI(-sys.intro)
 		} else {
 			sys.bcStack.PushI(0)
 		}
-	case OC_ex2_systemvar_pausetime:
+	case OC_ex2_gamevar_pausetime:
 		sys.bcStack.PushI(sys.pausetime)
-	case OC_ex2_systemvar_slowtime:
+	case OC_ex2_gamevar_slowtime:
 		sys.bcStack.PushI(sys.slowtimeTrigger)
-	case OC_ex2_systemvar_superpausetime:
+	case OC_ex2_gamevar_superpausetime:
 		sys.bcStack.PushI(sys.supertime)
 	// HitDefVar
 	case OC_ex2_hitdefvar_guard_dist_width_back:

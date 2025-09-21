@@ -386,6 +386,7 @@ var triggerMap = map[string]int{
 	"float":              1,
 	"gamemode":           1,
 	"gameoption":         1,
+	"gamevar":            1,
 	"groundangle":        1,
 	"guardbreak":         1,
 	"guardcount":         1,
@@ -457,7 +458,6 @@ var triggerMap = map[string]int{
 	"stagefrontedgedist": 1,
 	"stagetime":          1,
 	"standby":            1,
-	"systemvar":          1,
 	"teamleader":         1,
 	"teamsize":           1,
 	"timeelapsed":        1,
@@ -4340,6 +4340,31 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := nameSub(OC_ex_, OC_ex_gamemode); err != nil {
 			return bvNone(), err
 		}
+	case "gamevar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		svname := c.token
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		switch svname {
+		case "introtime":
+			opc = OC_ex2_gamevar_introtime
+		case "outrotime":
+			opc = OC_ex2_gamevar_outrotime
+		case "pausetime":
+			opc = OC_ex2_gamevar_pausetime
+		case "slowtime":
+			opc = OC_ex2_gamevar_slowtime
+		case "superpausetime":
+			opc = OC_ex2_gamevar_superpausetime
+		default:
+			return bvNone(), Error("Invalid GameVar argument: " + svname)
+		}
+		out.append(OC_ex2_)
+		out.append(opc)
 	case "groundangle":
 		out.append(OC_ex_, OC_ex_groundangle)
 	case "guardbreak":
@@ -4757,31 +4782,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_stagetime)
 	case "standby":
 		out.append(OC_ex_, OC_ex_standby)
-	case "systemvar":
-		if err := c.checkOpeningParenthesis(in); err != nil {
-			return bvNone(), err
-		}
-		svname := c.token
-		c.token = c.tokenizer(in)
-		if err := c.checkClosingParenthesis(); err != nil {
-			return bvNone(), err
-		}
-		switch svname {
-		case "introtime":
-			opc = OC_ex2_systemvar_introtime
-		case "outrotime":
-			opc = OC_ex2_systemvar_outrotime
-		case "pausetime":
-			opc = OC_ex2_systemvar_pausetime
-		case "slowtime":
-			opc = OC_ex2_systemvar_slowtime
-		case "superpausetime":
-			opc = OC_ex2_systemvar_superpausetime
-		default:
-			return bvNone(), Error("Invalid SystemVar argument: " + svname)
-		}
-		out.append(OC_ex2_)
-		out.append(opc)
 	case "teamleader":
 		out.append(OC_ex_, OC_ex_teamleader)
 	case "teamsize":

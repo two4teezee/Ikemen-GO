@@ -826,16 +826,19 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "commandGetState", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
+		if !ok || cl == nil {
 			userDataError(l, 1, cl)
+			l.Push(lua.LBool(false))
+			return 1 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		l.Push(lua.LBool(cl.GetState(strArg(l, 2))))
 		return 1
 	})
 	luaRegister(l, "commandInput", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
+		if !ok || cl == nil {
 			userDataError(l, 1, cl)
+			return 0 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		controller := int(numArg(l, 2)) - 1
 		if cl.InputUpdate(nil, controller, 0, true) {
@@ -2832,7 +2835,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
-		sys.stopAllSound()
+		sys.stopAllCharSound()
 		return 0
 	})
 	luaRegister(l, "stopSnd", func(l *lua.LState) int {
@@ -5561,6 +5564,31 @@ func triggerFunctions(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "gamevar", func(*lua.LState) int {
+		switch strings.ToLower(strArg(l, 1)) {
+		case "introtime":
+			if sys.intro > 0 {
+				l.Push(lua.LNumber(sys.intro))
+			} else {
+				l.Push(lua.LNumber(0))
+			}
+		case "outrotime":
+			if sys.intro < 0 {
+				l.Push(lua.LNumber(-sys.intro))
+			} else {
+				l.Push(lua.LNumber(0))
+			}
+		case "pausetime":
+			l.Push(lua.LNumber(sys.pausetime))
+		case "slowtime":
+			l.Push(lua.LNumber(sys.slowtimeTrigger))
+		case "superpausetime":
+			l.Push(lua.LNumber(sys.supertime))
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		return 1
+	})
 	luaRegister(l, "guardbreak", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.scf(SCF_guardbreak)))
 		return 1
@@ -6014,31 +6042,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.debugWC.scf(SCF_standby)))
 		return 1
 	})
-	luaRegister(l, "systemvar", func(*lua.LState) int {
-		switch strings.ToLower(strArg(l, 1)) {
-		case "introtime":
-			if sys.intro > 0 {
-				l.Push(lua.LNumber(sys.intro))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-		case "outrotime":
-			if sys.intro < 0 {
-				l.Push(lua.LNumber(-sys.intro))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
-		case "pausetime":
-			l.Push(lua.LNumber(sys.pausetime))
-		case "slowtime":
-			l.Push(lua.LNumber(sys.slowtimeTrigger))
-		case "superpausetime":
-			l.Push(lua.LNumber(sys.supertime))
-		default:
-			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
-		}
-		return 1
-	})
 	luaRegister(l, "teamleader", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.teamLeader()))
 		return 1
@@ -6306,7 +6309,7 @@ func deprecatedFunctions(l *lua.LState) {
 	// deprecated by stopSnd, stopAllSound
 	luaRegister(l, "charSndStop", func(l *lua.LState) int {
 		if l.GetTop() == 0 {
-			sys.stopAllSound()
+			sys.stopAllCharSound()
 			return 0
 		}
 		pn := int(numArg(l, 1))

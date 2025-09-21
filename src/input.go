@@ -807,11 +807,11 @@ func (ir *InputReader) ButtonAssistCheck(curr [9]bool) [9]bool {
 
 // This used to hold button state variables (e.g. U), but that didn't have any info we can't derive from the *b (e.g. Ub) vars
 type InputBuffer struct {
+	InputReader                            *InputReader
 	Bb, Db, Fb, Ub, Lb, Rb, Nb             int32 // Current state of buffer
 	ab, bb, cb, xb, yb, zb, sb, db, wb, mb int32
 	Bp, Dp, Fp, Up, Lp, Rp, Np             int32 // Previous state of buffer
 	ap, bp, cp, xp, yp, zp, sp, dp, wp, mp int32
-	InputReader                            *InputReader
 }
 
 func NewInputBuffer() *InputBuffer {
@@ -894,7 +894,8 @@ func (ib *InputBuffer) updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d,
 	update(m, &ib.mb)
 }
 
-// Check the buffer state of each key
+// Get the state of any symbol/key combination
+// An attempt was made to cache these states in a map, but computing them every time is already faster than looking up a map
 func (__ *InputBuffer) State(ck CommandStepKey) int32 {
 
 	// Hold simple directions
@@ -1910,12 +1911,89 @@ func (ib *InputBuffer) StateCharge(ck CommandStepKey) int32 {
 	return 0
 }
 
+/*
 // Time since last change of any key. Used for ">" type commands
 func (__ *InputBuffer) LastChangeTime() int32 {
 	dir := Min(Abs(__.Ub), Abs(__.Db), Abs(__.Bb), Abs(__.Fb), Abs(__.Lb), Abs(__.Rb))
 	btn := Min(Abs(__.ab), Abs(__.bb), Abs(__.cb), Abs(__.xb), Abs(__.yb), Abs(__.zb), Abs(__.sb), Abs(__.db), Abs(__.wb), Abs(__.mb))
 
 	return Min(dir, btn)
+}
+*/
+
+// Check if any recently changed key invalidates a ">" step
+// TODO: Make this work with the new $ replacement symbol
+func (c *Command) GreaterCheckFail(i int, ibuf *InputBuffer) bool {
+	// Determine which directional groups to check
+	// Otherwise B/F presses can invalidate L/R and vice-versa
+	var useLR bool
+	for _, sk := range c.steps[i].keys {
+		switch sk.key {
+		case CK_L, CK_R, CK_UL, CK_UR, CK_DL, CK_DR:
+			useLR = true
+		}
+	}
+
+	// Check each recent key to see if they belong in the step
+	checkKey := func(k CommandKey) bool {
+		// Press
+		if ibuf.State(CommandStepKey{key: k, tilde: false}) == 1 {
+			allowed := false
+			for _, sk := range c.steps[i].keys {
+				if sk.key == k && !sk.tilde {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return true
+			}
+			return false
+		}
+		// Release
+		if ibuf.State(CommandStepKey{key: k, tilde: true}) == 1 {
+			allowed := false
+			for _, sk := range c.steps[i].keys {
+				if sk.key == k && sk.tilde {
+					allowed = true
+					break
+				}
+			}
+			if !allowed {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Directions
+	for _, k := range [2]CommandKey{CK_U, CK_D} {
+		if checkKey(k) {
+			return true
+		}
+	}
+	if useLR {
+		for _, k := range [6]CommandKey{CK_L, CK_R, CK_UL, CK_UR, CK_DL, CK_DR} {
+			if checkKey(k) {
+				return true
+			}
+		}
+	} else {
+		for _, k := range [6]CommandKey{CK_B, CK_F, CK_UF, CK_UB, CK_DF, CK_DB} {
+			if checkKey(k) {
+				return true
+			}
+		}
+	}
+
+	// Buttons
+	for _, k := range [10]CommandKey{CK_a, CK_b, CK_c, CK_x, CK_y, CK_z, CK_s, CK_d, CK_w, CK_m} {
+		if checkKey(k) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // NetBuffer holds the inputs that are sent between players
@@ -3011,27 +3089,10 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 			}
 		}
 
-		// ">" check
-		// This approach has a quirk in that foreign inputs are accepted if they're entered the same frame that the intended input matched
-		// Should be harmless because at least that's very hard for a human to perform
-		// Out of the methods tried, this one has the best results for the least work
-		if !inputMatched && c.steps[i].greater &&
-			i > 0 && len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] {
-
-			// Check if the last change in inputs can be found in the previous step
-			hasLast := false
-			for _, key := range c.steps[i-1].keys {
-				if ibuf.State(key) == ibuf.LastChangeTime() {
-					hasLast = true
-					break
-				}
-			}
-
-			// Ikemen used to do a c.Clear(false) here
-			// But Mugen seems to do something like this instead. Or it's more like a ">" failure just prevents "inputMatched"
-			// This makes mashing some commands like "D, D, D" easier to do
-			// Clear previous step only
-			if !hasLast {
+		// Check ">" steps
+		if c.steps[i].greater && c.completed[i-1] && !c.completed[i] {
+			if c.GreaterCheckFail(i, ibuf) {
+				inputMatched = false
 				c.completed[i-1] = false
 				c.stepTimers[i-1] = 0
 			}

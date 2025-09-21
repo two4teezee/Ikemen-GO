@@ -5554,9 +5554,9 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			e.animNo = exp[1].evalI(c)
 			e.anim_ffx = ffx
 		case explod_animplayerno:
-			e.animPN = int(exp[0].evalI(c))
+			e.animPN = int(exp[0].evalI(c)) - 1
 		case explod_spriteplayerno:
-			e.spritePN = int(exp[0].evalI(c))
+			e.spritePN = int(exp[0].evalI(c)) - 1
 		case explod_ownpal:
 			e.ownpal = exp[0].evalB(c)
 		case explod_remappal:
@@ -5882,9 +5882,9 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case explod_animplayerno:
-			animPN = int(exp[0].evalI(c))
+			animPN = int(exp[0].evalI(c)) - 1
 		case explod_spriteplayerno:
-			spritePN = int(exp[0].evalI(c))
+			spritePN = int(exp[0].evalI(c)) - 1
 		case explod_remappal:
 			rp[0] = exp[0].evalI(c)
 			if len(exp) > 1 {

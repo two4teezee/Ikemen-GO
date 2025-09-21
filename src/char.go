@@ -1318,6 +1318,7 @@ type Explod struct {
 	window         [4]float32
 	//lockSpriteFacing     bool
 	localscl             float32
+	localcoord           float32
 	blendmode            int32
 	start_animelem       int32
 	start_scale          [2]float32
@@ -1355,6 +1356,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		facing:            1,
 		vfacing:           1,
 		localscl:          c.localscl,
+		localcoord:        c.localcoord,
 		projection:        Projection_Orthographic,
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
@@ -1492,7 +1494,7 @@ func (e *Explod) setAnim() {
 	if e.animPN < 0 {
 		e.animPN = c.playerNo
 	} else if e.animPN >= len(sys.chars) || len(sys.chars[e.animPN]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod animPlayerNo: %v", e.animPN))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod animPlayerNo: %v", e.animPN + 1))
 		return
 	}
 
@@ -1500,13 +1502,12 @@ func (e *Explod) setAnim() {
 	if e.spritePN < 0 {
 		e.spritePN = c.playerNo
 	} else if e.spritePN >= len(sys.chars) || len(sys.chars[e.spritePN]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod spritePlayerNo: %v", e.spritePN))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod spritePlayerNo: %v", e.spritePN + 1))
 		return
 	}
 
 	// Get animation with sprite owner context
-	animChar := sys.chars[e.animPN][0]
-	a := animChar.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal, true)
+	a := c.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal, true)
 	if a == nil {
 		return
 	}
@@ -1685,7 +1686,11 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 	drawpos := [2]float32{e.interPos[0], e.interPos[1]}
 
 	// Set scale
-	drawscale := [2]float32{facing * scale[0] * e.localscl, e.vfacing * scale[1] * e.localscl}
+	// Mugen uses "localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord
+	drawscale := [2]float32{
+		facing * scale[0] * (320 / e.localcoord),
+		e.vfacing * scale[1] * (320 / e.localcoord),
+	}
 
 	// Apply Z axis perspective
 	if e.space == Space_stage && sys.zEnabled() {
@@ -1927,6 +1932,7 @@ type Projectile struct {
 	window          [4]float32
 	xshear          float32
 	localscl        float32
+	localcoord      float32
 	parentAttackMul [4]float32
 	platform        bool
 	platformWidth   [2]float32
@@ -1956,6 +1962,7 @@ func (p *Projectile) clear() {
 		clsnAngle:      0,
 		remove:         true,
 		localscl:       1,
+		localcoord:     1,
 		projection:     Projection_Orthographic,
 		removetime:     -1,
 		velmul:         [...]float32{1, 1, 1},
@@ -2293,10 +2300,15 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		}
 	}
 
+	// Set position
 	pos := [2]float32{p.interPos[0] * p.localscl, p.interPos[1] * p.localscl}
 
-	scl := [...]float32{p.facing * p.scale[0] * p.localscl * p.zScale,
-		p.scale[1] * p.localscl * p.zScale}
+	// Set scale
+	// Mugen uses "localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord
+	drawscale := [2]float32{
+		p.facing * p.scale[0] * p.zScale * (320 / p.localcoord),
+		p.scale[1] * p.zScale * (320 / p.localcoord),
+	}
 
 	// Apply Z axis perspective
 	if sys.zEnabled() {
@@ -2328,10 +2340,10 @@ func (p *Projectile) cueDraw(oldVer bool) {
 	}
 
 	var pwin = [4]float32{
-		p.window[0] * scl[0],
-		p.window[1] * scl[1],
-		p.window[2] * scl[0],
-		p.window[3] * scl[1],
+		p.window[0] * drawscale[0],
+		p.window[1] * drawscale[1],
+		p.window[2] * drawscale[0],
+		p.window[3] * drawscale[1],
 	}
 
 	if p.ani != nil {
@@ -2340,7 +2352,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			anim:         p.ani,
 			fx:           p.palfx,
 			pos:          pos,
-			scl:          scl,
+			scl:          drawscale,
 			alpha:        [2]int32{-1},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          rot,
@@ -3841,7 +3853,7 @@ func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ff
 	if animPlayerNo < 0 {
 		animPlayerNo = c.playerNo
 	} else if animPlayerNo >= len(sys.chars) || len(sys.chars[animPlayerNo]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid animPlayerNo: %v", animPlayerNo))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid animPlayerNo: %v", animPlayerNo + 1))
 		animPlayerNo = c.playerNo
 	}
 
@@ -3849,7 +3861,7 @@ func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ff
 	if spritePlayerNo < 0 {
 		spritePlayerNo = c.playerNo
 	} else if spritePlayerNo >= len(sys.chars) || len(sys.chars[spritePlayerNo]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid spritePlayerNo: %v", spritePlayerNo))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid spritePlayerNo: %v", spritePlayerNo + 1))
 		spritePlayerNo = c.playerNo
 	}
 
@@ -3903,6 +3915,7 @@ func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
 	return true
 }
 */
+
 
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {
@@ -6049,8 +6062,7 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 	owner := sys.chars[spritePN][0]
 	self := sys.chars[c.playerNo][0]
 
-	// If not common FX
-	if ffx == "" || ffx == "s" {
+	if !a.isCommonFX() {
 		// Set SFF and palette
 		a.sff = sys.cgi[spritePN].sff
 		a.palettedata = &sys.cgi[spritePN].palettedata.palList
@@ -6080,8 +6092,10 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 		}
 	} else {
 		// Otherwise just adapt scale
-		a.start_scale[0] /= self.localscl
-		a.start_scale[1] /= self.localscl
+		if self.localcoord != 0 {
+			a.start_scale[0] /= 320 / self.localcoord
+			a.start_scale[1] /= 320 / self.localcoord
+		}
 	}
 }
 
@@ -6216,15 +6230,18 @@ func (c *Char) newProj() *Projectile {
 	if p != nil {
 		p.playerno = c.playerNo
 		p.id = 0
+
 		if c.minus == -2 || c.minus == -4 {
 			p.localscl = (320 / c.localcoord)
 		} else {
 			p.localscl = c.localscl
 		}
 
+		p.localcoord = c.localcoord
 		p.layerno = c.layerNo
 		p.palfx = c.getPalfx()
-		// Initialize projectile Hitdef. Must be placed after its localscl is defined
+
+		// Initialize projectile Hitdef. Must be placed after its localscl is determined
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
 		p.hitdef.clear(c, p.localscl)
 		p.hitdef.isprojectile = true
@@ -10890,8 +10907,10 @@ func (c *Char) cueDraw() {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
 			c.interPos[1]*c.localscl + c.offsetY()*c.localscl}
 
-		scl := [2]float32{c.facing * c.size.xscale * c.angleDrawScale[0] * c.zScale * (320 / c.localcoord),
-			c.size.yscale * c.angleDrawScale[1] * c.zScale * (320 / c.localcoord)}
+		drawscale := [2]float32{
+			c.facing * c.size.xscale * c.angleDrawScale[0] * c.zScale * (320 / c.localcoord),
+			c.size.yscale * c.angleDrawScale[1] * c.zScale * (320 / c.localcoord),
+		}
 
 		// Apply Z axis perspective
 		if sys.zEnabled() {
@@ -10951,10 +10970,10 @@ func (c *Char) cueDraw() {
 		}
 
 		var cwin = [4]float32{
-			c.window[0] * scl[0],
-			c.window[1] * scl[1],
-			c.window[2] * scl[0],
-			c.window[3] * scl[1],
+			c.window[0] * drawscale[0],
+			c.window[1] * drawscale[1],
+			c.window[2] * drawscale[0],
+			c.window[3] * drawscale[1],
 		}
 
 		// Use animation backup if char used ChangeAnim during hitpause
@@ -10968,7 +10987,7 @@ func (c *Char) cueDraw() {
 			anim:         anim,
 			fx:           c.getPalfx(),
 			pos:          pos,
-			scl:          scl,
+			scl:          drawscale,
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
 			rot:          rot,

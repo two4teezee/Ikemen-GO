@@ -774,6 +774,17 @@ func (s *System) anyButton() bool {
 	return s.anyHardButton()
 }
 
+func (s *System) anyChar() *Char {
+	for i := range s.chars {
+		for j := range s.chars[i] {
+			if s.chars[i][j] != nil {
+				return s.chars[i][j]
+			}
+		}
+	}
+	return nil
+}
+
 func (s *System) playerID(id int32) *Char {
 	return s.charList.getID(id)
 }
@@ -2313,8 +2324,8 @@ func (s *System) runMatch() (reload bool) {
 	// Make a new backup once everything is initialized
 	s.roundBackup.Save()
 
-	// Default debug/scripts to player 1
-	s.debugWC = sys.chars[0][0]
+	// Default debug/scripts to any found char
+	s.debugWC = s.anyChar()
 	debugInput := func() {
 		select {
 		case cl := <-s.commandLine:

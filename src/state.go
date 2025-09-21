@@ -254,7 +254,6 @@ type GameState struct {
 	fight        Fight
 	introSkipped bool
 	preFightTime int32
-	debugWC      *Char
 
 	commandLists []*CommandList
 	luaTables    []*lua.LTable
@@ -465,11 +464,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.continueFlg = gs.continueFlg
 	sys.stageLoopNo = gs.stageLoopNo
 
-	// 11/5/22
-
-	wc := gs.debugWC.Clone(a, gsp)
-	sys.debugWC = &wc
-
 	// gotta keep these pointers around because they are userdata
 	for i := 0; i < len(sys.commandLists); i++ {
 		gs.commandLists[i].CopyTo(sys.commandLists[i], a)
@@ -676,8 +670,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.continueFlg = sys.continueFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
-	debugWC := sys.debugWC.Clone(a, gsp)
-	gs.debugWC = &debugWC
 	gs.commandLists = arena.MakeSlice[*CommandList](a, len(sys.commandLists), len(sys.commandLists))
 	for i := 0; i < len(sys.commandLists); i++ {
 		cl := sys.commandLists[i].Clone(a)
@@ -830,19 +822,11 @@ func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 		}
 	}
 
-	// Set workingChar to the first char we find, just in case
-	sys.workingChar = nil
-	for i := range sys.chars {
-		for j := range sys.chars[i] {
-			if sys.chars[i][j] != nil {
-				sys.workingChar = sys.chars[i][j]
-				sys.workingState = &sys.workingChar.ss.sb
-				break
-			}
-		}
-		if sys.workingChar != nil {
-			break
-		}
+	// Set workingChar and debugWC to the first char we find, just in case
+	if c := sys.anyChar(); c != nil {
+		sys.workingChar = c
+		sys.workingState = &c.ss.sb
+		sys.debugWC = c
 	}
 
 	sys.charList = gs.charList.Clone(a, gsp)

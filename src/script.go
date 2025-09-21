@@ -3137,6 +3137,7 @@ func systemScriptInit(l *lua.LState) {
 
 // Trigger Functions
 func triggerFunctions(l *lua.LState) {
+	// Create a temporary dummy character to avoid possible nil checks
 	sys.debugWC = newChar(0, 0)
 	// redirection
 	luaRegister(l, "player", func(*lua.LState) int {

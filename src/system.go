@@ -216,7 +216,6 @@ type System struct {
 	finishType              FinishType
 	waitdown                int32
 	slowtime                int32
-	slowtimeTrigger         int32
 	wintime                 int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
@@ -1681,26 +1680,37 @@ func (s *System) action() {
 	// Adjust game speed
 	if s.tickNextFrame() {
 		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
+
 		// KO slowdown
-		s.slowtimeTrigger = 0
-		if s.intro < 0 && s.curRoundTime != 0 && s.slowtime > 0 {
+		if st := s.getSlowtime(); st > 0 {
 			if !s.gsf(GSF_nokoslow) {
-				spd *= s.lifebar.ro.slow_speed
-				if s.slowtime < s.lifebar.ro.slow_fadetime {
-					spd += (float32(1) - s.lifebar.ro.slow_speed) * float32(s.lifebar.ro.slow_fadetime-s.slowtime) / float32(s.lifebar.ro.slow_fadetime)
+				base := s.lifebar.ro.slow_speed
+				fade := s.lifebar.ro.slow_fadetime
+				spd *= base
+				if st < fade {
+					ratio := float32(fade-st) / float32(fade)
+					spd = base + (1-base)*ratio
 				}
 			}
-			s.slowtimeTrigger = s.slowtime
 			s.slowtime--
 		}
+
 		// Outside match or while frame stepping
 		if s.postMatchFlg || s.frameStepFlag {
 			spd = 1
 		}
+
 		s.turbo = spd
 	}
 	s.tickSound()
 	return
+}
+
+func (s *System) getSlowtime() int32 {
+	if s.slowtime > 0 && s.intro < 0 && s.curRoundTime != 0 {
+		return s.slowtime
+	}
+	return 0
 }
 
 func (s *System) runFightScreen() {

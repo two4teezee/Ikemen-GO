@@ -5581,7 +5581,7 @@ func triggerFunctions(l *lua.LState) {
 		case "pausetime":
 			l.Push(lua.LNumber(sys.pausetime))
 		case "slowtime":
-			l.Push(lua.LNumber(sys.slowtimeTrigger))
+			l.Push(lua.LNumber(sys.getSlowtime()))
 		case "superpausetime":
 			l.Push(lua.LNumber(sys.supertime))
 		default:

@@ -3667,7 +3667,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_gamevar_pausetime:
 		sys.bcStack.PushI(sys.pausetime)
 	case OC_ex2_gamevar_slowtime:
-		sys.bcStack.PushI(sys.slowtimeTrigger)
+		sys.bcStack.PushI(sys.getSlowtime())
 	case OC_ex2_gamevar_superpausetime:
 		sys.bcStack.PushI(sys.supertime)
 	// HitDefVar

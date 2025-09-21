@@ -1671,7 +1671,7 @@ func (s *System) action() {
 		for i, el := range *edl {
 			for j := len(el) - 1; j >= 0; j-- {
 				if el[j] >= 0 {
-					s.explods[i][el[j]].update(s.cgi[i].mugenverF, i)
+					s.explods[i][el[j]].update(i)
 					if s.explods[i][el[j]].id == IErr {
 						if drop {
 							el = append(el[:j], el[j+1:]...)

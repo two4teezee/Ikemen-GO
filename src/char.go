@@ -1538,7 +1538,7 @@ func (e *Explod) setAnimElem() {
 	}
 }
 
-func (e *Explod) update(mugenverF float32, playerNo int) {
+func (e *Explod) update(playerNo int) {
 	if e.anim == nil {
 		e.id = IErr
 	}
@@ -1548,11 +1548,12 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 		return
 	}
 
-	if sys.chars[playerNo][0].scf(SCF_disabled) {
+	parent := sys.playerID(e.playerId)
+	root := sys.chars[playerNo][0]
+
+	if root.scf(SCF_disabled) {
 		return
 	}
-
-	parent := sys.playerID(e.playerId)
 
 	// Remove on get hit
 	if sys.tickNextFrame() && e.removeongethit &&
@@ -1588,10 +1589,12 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 		}
 	}
 
+	oldVer := root.gi().mugenverF < 1.1
+
 	// Bind explod to parent
 	// In Mugen this only happens if the explod is not paused, hence "act"
 	if act && e.bindtime != 0 &&
-		(e.space == Space_stage || (e.space == Space_screen && (e.postype <= PT_P2 || mugenverF < 1.1))) {
+		(e.space == Space_stage || (e.space == Space_screen && (e.postype <= PT_P2 || oldVer))) {
 		if bindchar := sys.playerID(e.bindId); bindchar != nil {
 			e.pos[0] = bindchar.interPos[0]*bindchar.localscl/e.localscl + bindchar.offsetX()*bindchar.localscl/e.localscl
 			e.pos[1] = bindchar.interPos[1]*bindchar.localscl/e.localscl + bindchar.offsetY()*bindchar.localscl/e.localscl
@@ -1717,8 +1720,8 @@ func (e *Explod) update(mugenverF float32, playerNo int) {
 		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
 		screen:       e.space == Space_screen,
-		undarken:     parent != nil && parent.ignoreDarkenTime > 0, //playerNo == sys.superplayerno,
-		oldVer:       mugenverF < 1.0,
+		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
+		oldVer:       oldVer,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),

@@ -1494,7 +1494,7 @@ func (e *Explod) setAnim() {
 	if e.animPN < 0 {
 		e.animPN = c.playerNo
 	} else if e.animPN >= len(sys.chars) || len(sys.chars[e.animPN]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod animPlayerNo: %v", e.animPN + 1))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod animPlayerNo: %v", e.animPN+1))
 		return
 	}
 
@@ -1502,7 +1502,7 @@ func (e *Explod) setAnim() {
 	if e.spritePN < 0 {
 		e.spritePN = c.playerNo
 	} else if e.spritePN >= len(sys.chars) || len(sys.chars[e.spritePN]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod spritePlayerNo: %v", e.spritePN + 1))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid Explod spritePlayerNo: %v", e.spritePN+1))
 		return
 	}
 
@@ -3853,7 +3853,7 @@ func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ff
 	if animPlayerNo < 0 {
 		animPlayerNo = c.playerNo
 	} else if animPlayerNo >= len(sys.chars) || len(sys.chars[animPlayerNo]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid animPlayerNo: %v", animPlayerNo + 1))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid animPlayerNo: %v", animPlayerNo+1))
 		animPlayerNo = c.playerNo
 	}
 
@@ -3861,7 +3861,7 @@ func (c *Char) changeAnim(animNo int32, animPlayerNo int, spritePlayerNo int, ff
 	if spritePlayerNo < 0 {
 		spritePlayerNo = c.playerNo
 	} else if spritePlayerNo >= len(sys.chars) || len(sys.chars[spritePlayerNo]) == 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid spritePlayerNo: %v", spritePlayerNo + 1))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid spritePlayerNo: %v", spritePlayerNo+1))
 		spritePlayerNo = c.playerNo
 	}
 
@@ -3915,7 +3915,6 @@ func (c *Char) validatePlayerNo(pn int, pname, scname string) bool {
 	return true
 }
 */
-
 
 func (c *Char) setCtrl(ctrl bool) {
 	if ctrl {

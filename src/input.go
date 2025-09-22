@@ -3090,7 +3090,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 		}
 
 		// Check ">" steps
-		if c.steps[i].greater && c.completed[i-1] && !c.completed[i] {
+		if c.steps[i].greater && len(c.steps) >= 2 && c.completed[i-1] && !c.completed[i] {
 			if c.GreaterCheckFail(i, ibuf) {
 				inputMatched = false
 				c.completed[i-1] = false

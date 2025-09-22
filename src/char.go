@@ -1411,7 +1411,7 @@ func (e *Explod) setPos(c *Char) {
 		if e.space == Space_screen {
 			e.offset[0] = posX
 			e.offset[1] = sys.cam.GroundLevel()*e.localscl + posY
-			e.offset[2] = ClampF(posZ, sys.stage.stageCamera.topz, sys.stage.stageCamera.botz)
+			e.offset[2] = 0 // posZ? Technically screen has no depth
 		} else {
 			e.setAllPosX(posX)
 			e.setAllPosY(posY)
@@ -1679,14 +1679,15 @@ func (e *Explod) update(playerNo int) {
 	rot.yangle = anglerot[2]
 
 	// Interpolated position
+	// With z-axis it's important that we don't use localscl here yet
 	e.interPos = [3]float32{
-		(e.pos[0] + e.offset[0] + off[0] + e.interpolate_pos[0]) * e.localscl,
-		(e.pos[1] + e.offset[1] + off[1] + e.interpolate_pos[1]) * e.localscl,
-		(e.pos[2] + e.offset[2] + off[2] + e.interpolate_pos[2]) * e.localscl,
+		e.pos[0] + e.offset[0] + off[0] + e.interpolate_pos[0],
+		e.pos[1] + e.offset[1] + off[1] + e.interpolate_pos[1],
+		e.pos[2] + e.offset[2] + off[2] + e.interpolate_pos[2],
 	}
 
 	// Set drawing position
-	drawpos := [2]float32{e.interPos[0], e.interPos[1]}
+	drawpos := [2]float32{e.interPos[0] * e.localscl, e.interPos[1] * e.localscl}
 
 	// Set scale
 	// Mugen uses "localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord

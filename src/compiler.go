@@ -1724,6 +1724,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "length":
 			opct = OC_ex2_
 			opc = OC_ex2_bgmvar_length
+		case "loop":
+			opct = OC_ex2_
+			opc = OC_ex2_bgmvar_loop
+		case "loopcount":
+			opct = OC_ex2_
+			opc = OC_ex2_bgmvar_loopcount
 		case "loopend":
 			opct = OC_ex2_
 			opc = OC_ex2_bgmvar_loopend

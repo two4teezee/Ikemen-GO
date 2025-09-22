@@ -10146,9 +10146,9 @@ func (sc remapPal) Run(c *Char, _ []int32) bool {
 				src[1] = exp[1].evalI(c)
 			}
 		case remapPal_dest:
-			dst = [...]int32{exp[0].evalI(c), -1}
+			dst[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				dst[1] = exp[1].evalI(c)
+				dst[1] = exp[1].evalI(c) // If only first parameter is defined, the second one stays at default. As usual in CNS
 			}
 		}
 		return true

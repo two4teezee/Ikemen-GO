@@ -5077,9 +5077,7 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_kovelocity:
 			h.kovelocity = exp[0].evalB(c)
 		case helper_preserve:
-			if exp[0].evalB(c) {
-				h.preserve = sys.round
-			}
+			h.preserve = exp[0].evalB(c)
 		case helper_ownclsnscale:
 			h.ownclsnscale = exp[0].evalB(c)
 		case helper_standby:

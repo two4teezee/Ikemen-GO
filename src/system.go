@@ -1179,7 +1179,8 @@ func (s *System) newCharId() int32 {
 		taken = false
 		for _, p := range s.chars {
 			for _, c := range p {
-				if c.id == newid && c.preserve != 0 && !c.csf(CSF_destroy) {
+				//if c.id == newid && c.preserve != 0 && !c.csf(CSF_destroy) {
+				if c.id == newid && c.preserve && !c.csf(CSF_destroy) {
 					taken = true
 					newid++
 					break
@@ -1257,21 +1258,23 @@ func (s *System) clearAllSound() {
 }
 
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds
-func (s *System) clearPlayerAssets(pn int, destroy bool) {
+func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	if len(s.chars[pn]) > 0 {
 		p := s.chars[pn][0]
 		for _, h := range s.chars[pn][1:] {
-			if destroy || h.preserve == 0 || (s.roundResetFlg && h.preserve == s.round) {
+			h.soundChannels.SetSize(0)
+			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
+			if !h.preserve || forceDestroy { // F4 now destroys "preserve" helpers when reloading round start backup
 				h.destroy()
 			}
-			h.soundChannels.SetSize(0)
 		}
-		if destroy {
+		if forceDestroy {
 			p.children = p.children[:0]
 		} else {
 			for i, ch := range p.children {
 				if ch != nil {
-					if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+					//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+					if !ch.preserve {
 						p.children[i] = nil
 					}
 				}
@@ -2710,7 +2713,7 @@ func (s *System) IsRollback() bool {
 }
 
 type RoundStartBackup struct {
-	charBackup    [MaxPlayerNo]Char
+	charBackup    [MaxPlayerNo][]Char
 	cgiBackup     [MaxPlayerNo]CharGlobalInfo
 	stageBackup   Stage
 	oldWins       [2]int32
@@ -2720,38 +2723,43 @@ type RoundStartBackup struct {
 
 func (bk *RoundStartBackup) Save() {
 	// Save characters
+	// We save helpers as well because of "preserve" parameter
 	for i, chars := range sys.chars {
 		if len(chars) == 0 {
 			continue
 		}
-		c := chars[0]
 
-		// Shallow copy
-		bk.charBackup[i] = *c
+		// Allocate slice for backup
+		bk.charBackup[i] = make([]Char, 0, len(chars))
 
-		// Deep copy maps
-		bk.charBackup[i].cnsvar = make(map[int32]int32, len(c.cnsvar))
-		for k, v := range c.cnsvar {
-			bk.charBackup[i].cnsvar[k] = v
-		}
+		for _, c := range chars {
+			// Shallow copy whole struct
+			bkup := *c
 
-		bk.charBackup[i].cnsfvar = make(map[int32]float32, len(c.cnsfvar))
-		for k, v := range c.cnsfvar {
-			bk.charBackup[i].cnsfvar[k] = v
-		}
+			// Deep copy maps
+			bkup.cnsvar = make(map[int32]int32, len(c.cnsvar))
+			for k, v := range c.cnsvar {
+				bkup.cnsvar[k] = v
+			}
+			bkup.cnsfvar = make(map[int32]float32, len(c.cnsfvar))
+			for k, v := range c.cnsfvar {
+				bkup.cnsfvar[k] = v
+			}
+			bkup.mapArray = make(map[string]float32, len(c.mapArray))
+			for k, v := range c.mapArray {
+				bkup.mapArray[k] = v
+			}
 
-		bk.charBackup[i].mapArray = make(map[string]float32, len(c.mapArray))
-		for k, v := range c.mapArray {
-			bk.charBackup[i].mapArray[k] = v
-		}
+			// Deep copy dialogue slice
+			bkup.dialogue = append([]string{}, c.dialogue...)
 
-		// Deep copy slices
-		bk.charBackup[i].dialogue = append([]string{}, c.dialogue...)
+			// Deep copy remap preset
+			bkup.remapSpr = make(RemapPreset)
+			for k, v := range c.remapSpr {
+				bkup.remapSpr[k] = v
+			}
 
-		// Deep copy remap preset
-		bk.charBackup[i].remapSpr = make(RemapPreset)
-		for k, v := range c.remapSpr {
-			bk.charBackup[i].remapSpr[k] = v
+			bk.charBackup[i] = append(bk.charBackup[i], bkup)
 		}
 	}
 
@@ -2768,7 +2776,7 @@ func (bk *RoundStartBackup) Save() {
 	for k, v := range sys.stage.constants {
 		bk.stageBackup.constants[k] = v
 	}
-	bk.stageBackup.attachedchardef = append([]string{}, sys.stage.attachedchardef...) // Do we need this one?
+	bk.stageBackup.attachedchardef = append([]string{}, sys.stage.attachedchardef...)
 
 	// Match info
 	bk.oldWins, bk.oldDraws = sys.wins, sys.draws
@@ -2782,39 +2790,55 @@ func (bk *RoundStartBackup) Restore() {
 			continue
 		}
 
-		c := chars[0]
+		for j, c := range chars {
+			// Find the backup corresponding to this index
+			var bkup *Char
+			for k := range bk.charBackup[i] {
+				if bk.charBackup[i][k].helperIndex == c.helperIndex {
+					bkup = &bk.charBackup[i][k]
+					break
+				}
+			}
 
-		// Preserve live sounds before overwriting
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2670
-		liveSounds := c.soundChannels
+			// Safeguard: if no backup exists for this slot and it’s not the root, destroy the helper
+			if bkup == nil {
+				if j != 0 && c.helperIndex != 0 {
+					c.destroy()
+				}
+				continue
+			}
 
-		// Restore shallow copy
-		*c = bk.charBackup[i]
+			// Save live sounds before overwriting
+			liveSounds := c.soundChannels
 
-		// Restore live sounds
-		c.soundChannels = liveSounds
+			// Restore shallow copy from backup
+			*c = *bkup
 
-		// Remake the CNS variable maps
-		// Then restore only var and fvar (losing sysvar and sysfvar)
-		c.initCnsVar()
-		for k, v := range bk.charBackup[i].cnsvar {
-			c.cnsvar[k] = v
-		}
-		for k, v := range bk.charBackup[i].cnsfvar {
-			c.cnsfvar[k] = v
-		}
+			// Restore live sounds
+			c.soundChannels = liveSounds
 
-		// Restore maps
-		c.mapArray = make(map[string]float32, len(bk.charBackup[i].mapArray))
-		for k, v := range bk.charBackup[i].mapArray {
-			c.mapArray[k] = v
-		}
+			// Remake the CNS variable maps
+			// Then restore only var and fvar (losing sysvar and sysfvar)
+			c.initCnsVar()
+			for k, v := range bkup.cnsvar {
+				c.cnsvar[k] = v
+			}
+			for k, v := range bkup.cnsfvar {
+				c.cnsfvar[k] = v
+			}
 
-		c.dialogue = append([]string{}, bk.charBackup[i].dialogue...)
+			// Restore maps
+			c.mapArray = make(map[string]float32, len(bkup.mapArray))
+			for k, v := range bkup.mapArray {
+				c.mapArray[k] = v
+			}
 
-		c.remapSpr = make(RemapPreset)
-		for k, v := range bk.charBackup[i].remapSpr {
-			c.remapSpr[k] = v
+			c.dialogue = append([]string{}, bkup.dialogue...)
+
+			c.remapSpr = make(RemapPreset)
+			for k, v := range bkup.remapSpr {
+				c.remapSpr[k] = v
+			}
 		}
 	}
 

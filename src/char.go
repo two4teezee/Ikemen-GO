@@ -2670,7 +2670,7 @@ type Char struct {
 	dialogue          []string
 	immortal          bool
 	kovelocity        bool
-	preserve          int32
+	preserve          bool
 	inputFlag         InputBits
 	inputShift        [][2]int
 	pauseBool         bool
@@ -2873,6 +2873,7 @@ func (c *Char) clearCachedData() {
 	c.customDefense = 1
 	c.defenseMulDelay = false
 	c.ownpal = true
+	c.preserve = true // Just in case
 	c.animPN = -1
 	c.spritePN = -1
 	c.animNo = 0
@@ -5678,6 +5679,7 @@ func (c *Char) newHelper() (h *Char) {
 	h.id = sys.newCharId()
 	h.helperId = 0
 	h.ownpal = false
+	h.preserve = false
 	h.initCnsVar()
 	h.mapArray = make(map[string]float32)
 	h.remapSpr = make(RemapPreset)

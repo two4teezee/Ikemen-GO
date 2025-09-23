@@ -294,6 +294,10 @@ func (t *Texture_GL32) GetWidth() int32 {
 	return t.width
 }
 
+func (t *Texture_GL32) GetHeight() int32 {
+	return t.height
+}
+
 func (t *Texture_GL32) MapInternalFormat(i int32) uint32 {
 	var InternalFormatLUT = map[int32]uint32{
 		8:  gl.RED,

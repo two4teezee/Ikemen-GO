@@ -83,8 +83,11 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error
 		if len(s.bg) > 0 && s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		s.bg = append(s.bg, readBackGround(bgsec, bglink,
-			s.sff, s.at, s.stageprops))
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.at, s.stageprops, def)
+		if err != nil {
+			return nil, err
+		}
+		s.bg = append(s.bg, bg)
 	}
 	bgcdef := *newBgCtrl()
 	i = 0
@@ -330,7 +333,7 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 	}
 	//x, y = x/s.localscl, y/s.localscl
 	for _, b := range s.bg {
-		if b.layerno == layer && b.visible && b.anim.spr != nil {
+		if b.layerno == layer && b.visible && (b.anim.spr != nil || b._type == BG_Video) {
 			b.draw([...]float32{x, y}, scl, s.localscl, 1, s.scale, 0, false)
 		}
 	}

@@ -95,7 +95,36 @@ const (
 	BG_Normal BgType = iota
 	BG_Anim
 	BG_Parallax
+	BG_Video
 	BG_Dummy
+)
+
+type BgVideoScale int32
+
+const (
+	SC_None BgVideoScale = iota
+	SC_Stretch
+	SC_Fit
+	SC_FitWidth
+	SC_FitHeight
+	SC_ZoomFill
+	SC_Center
+)
+
+type BgVideoFlag int32
+
+const (
+	SF_FastBilinear BgVideoFlag = iota
+	SF_Bilinear
+	SF_Bicubic
+	SF_Experimental
+	SF_Neighbor
+	SF_Area
+	SF_Bicublin
+	SF_Gauss
+	SF_Sinc
+	SF_Lanczos
+	SF_Spline
 )
 
 type backGround struct {
@@ -103,6 +132,7 @@ type backGround struct {
 	palfx              *PalFX
 	anim               *Animation
 	bga                bgAction
+	video              bgVideo
 	id                 int32
 	start              [2]float32
 	xofs               float32
@@ -161,11 +191,12 @@ func newBackGround(sff *Sff) *backGround {
 	}
 }
 
-func readBackGround(is IniSection, link *backGround, sff *Sff, at AnimationTable, sProps StageProps) *backGround {
+func readBackGround(is IniSection, link *backGround,
+	sff *Sff, at AnimationTable, sProps StageProps, def string) (*backGround, error) {
 	bg := newBackGround(sff)
 	typ := is["type"]
 	if len(typ) == 0 {
-		return bg
+		return bg, nil
 	}
 	switch typ[0] {
 	case 'N', 'n':
@@ -174,14 +205,84 @@ func readBackGround(is IniSection, link *backGround, sff *Sff, at AnimationTable
 		bg._type = BG_Anim
 	case 'P', 'p':
 		bg._type = BG_Parallax
+	case 'V', 'v':
+		bg._type = BG_Video
 	case 'D', 'd':
 		bg._type = BG_Dummy
 	default:
-		return bg
+		return bg, nil
 	}
 	var tmp int32
 	is.ReadI32("layerno", &bg.layerno)
-	if bg._type != BG_Dummy {
+	if bg._type == BG_Video {
+		path := is["path"]
+		LoadFile(&path, []string{def, "", sys.motifDir, "data/", "video/"}, func(filename string) error {
+			path = filename
+			return nil
+		})
+		if len(path) != 0 {
+			volume := 100
+			if v, ok := is["volume"]; ok {
+				volume = int(Atoi(v))
+			}
+
+			var s BgVideoScale
+			if v, ok := is["scale"]; ok {
+				switch strings.ToLower(strings.TrimSpace(v)) {
+				case "none":
+					s = SC_None
+				case "stretch":
+					s = SC_Stretch
+				case "fit":
+					s = SC_Fit
+				case "fitwidth":
+					s = SC_FitWidth
+				case "fitheight":
+					s = SC_FitHeight
+				case "zoomfill":
+					s = SC_ZoomFill
+				case "center":
+					s = SC_Center
+				default:
+					return nil, Error("Invalid BG Video scale: " + v)
+				}
+			}
+
+			var f BgVideoFlag
+			if v, ok := is["filter"]; ok {
+				switch strings.ToLower(strings.TrimSpace(v)) {
+				case "fastbilinear":
+					f = SF_FastBilinear
+				case "bilinear":
+					f = SF_Bilinear
+				case "bicubic":
+					f = SF_Bicubic
+				case "experimental":
+					f = SF_Experimental
+				case "neighbor":
+					f = SF_Neighbor
+				case "area":
+					f = SF_Area
+				case "bicublin":
+					f = SF_Bicublin
+				case "gauss":
+					f = SF_Gauss
+				case "sinc":
+					f = SF_Sinc
+				case "lanczos":
+					f = SF_Lanczos
+				case "spline":
+					f = SF_Spline
+				default:
+					return nil, Error("Invalid BG Video filter: " + v)
+				}
+			}
+
+			if err := bg.video.Open(path, volume, s, f); err != nil {
+				return nil, err
+			}
+		}
+	} else if bg._type != BG_Dummy {
 		var hasAnim bool
 		if (bg._type != BG_Normal || len(is["spriteno"]) == 0) &&
 			is.ReadI32("actionno", &bg.actionno) {
@@ -361,7 +462,7 @@ func readBackGround(is IniSection, link *backGround, sff *Sff, at AnimationTable
 	if !is.ReadBool("roundpos", &bg.roundpos) {
 		bg.roundpos = sProps.roundpos
 	}
-	return bg
+	return bg, nil
 }
 
 func (bg *backGround) reset() {
@@ -496,13 +597,6 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	sclx *= lscl[0]
 	scly *= stglscl * stgscl[1]
 
-	// Xshear offset correction
-	xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
-
-	if bg.rot.angle != 0 {
-		xsoffset /= bg.rot.angle
-	}
-
 	// Calculate window scale
 	var wscl [2]float32
 	for i := range wscl {
@@ -542,11 +636,43 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 
 	// Render background if it's within the screen area
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
-		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
-			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
-			xbs*bgscl*(scalestartX+xs)*xs3,
-			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
+		if bg._type == BG_Video {
+			bg.video.Tick()
+			if bg.video.texture != nil {
+				texWidth := bg.video.texture.GetWidth()
+				texHeight := bg.video.texture.GetHeight()
+				rp := RenderParams{
+					tex:    bg.video.texture,
+					size:   [2]uint16{uint16(texWidth), uint16(texHeight)},
+					x:      x,
+					y:      y,
+					tile:   notiling,
+					xts:    sclx,
+					xbs:    scly,
+					ys:     1,
+					vs:     1,
+					xas:    1,
+					yas:    1,
+					rot:    Rotation{},
+					trans:  255,
+					mask:   -1,
+					window: &sys.scrrect,
+				}
+				RenderSprite(rp)
+			}
+		} else {
+			// Xshear offset correction
+			xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
+
+			if bg.rot.angle != 0 {
+				xsoffset /= bg.rot.angle
+			}
+			bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
+				bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
+				xbs*bgscl*(scalestartX+xs)*xs3,
+				ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+				bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
+		}
 	}
 }
 
@@ -1341,8 +1467,11 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if len(s.bg) > 0 && !s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		s.bg = append(s.bg, readBackGround(bgsec, bglink,
-			s.sff, s.at, s.stageprops))
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.at, s.stageprops, def)
+		if err != nil {
+			return nil, err
+		}
+		s.bg = append(s.bg, bg)
 	}
 	bgcdef := *newBgCtrl()
 	i = 0
@@ -1778,7 +1907,7 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	}
 	s.drawModel(pos, ofs[1], scl, layer)
 	for _, b := range s.bg {
-		if b.layerno == layer && b.visible && b.anim.spr != nil {
+		if b.layerno == layer && b.visible && (b.anim.spr != nil || b._type == BG_Video) {
 			b.draw(pos, scl, bgscl, s.localscl, s.scale, ofs[1], true)
 		}
 	}

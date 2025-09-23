@@ -150,6 +150,7 @@ type Config struct {
 		ForceStageZoomout   float32 `ini:"ForceStageZoomout"`
 		ForceStageZoomin    float32 `ini:"ForceStageZoomin"`
 		KeepSpritesOnReload bool    `ini:"KeepSpritesOnReload"`
+		MacOSUseCommandKey  bool    `ini:"MacOSUseCommandKey"`
 	} `ini:"Debug"`
 	Video struct {
 		RenderMode              string   `ini:"RenderMode"`
@@ -213,7 +214,6 @@ type Config struct {
 		SOCDResolution             int     `ini:"SOCDResolution"`
 		ControllerStickSensitivity float32 `ini:"ControllerStickSensitivity"`
 		XinputTriggerSensitivity   float32 `ini:"XinputTriggerSensitivity"`
-		MacOSUseCommandKey         bool    `ini:"MacOSUseCommandKey"`
 	} `ini:"Input"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

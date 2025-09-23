@@ -173,7 +173,7 @@ func KeyToString(k glfw.Key) string {
 func NewModifierKey(ctrl, alt, shift bool) (mod glfw.ModifierKey) {
 	if ctrl {
 		// Convert Ctrl to Command (⌘) key for macOS if user prefers it
-		if runtime.GOOS == "darwin" && sys.cfg.Input.MacOSUseCommandKey {
+		if runtime.GOOS == "darwin" && sys.cfg.Debug.MacOSUseCommandKey {
 			mod |= glfw.ModSuper
 		} else {
 			mod |= glfw.ModControl

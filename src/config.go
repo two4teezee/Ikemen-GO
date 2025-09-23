@@ -213,6 +213,7 @@ type Config struct {
 		SOCDResolution             int     `ini:"SOCDResolution"`
 		ControllerStickSensitivity float32 `ini:"ControllerStickSensitivity"`
 		XinputTriggerSensitivity   float32 `ini:"XinputTriggerSensitivity"`
+		MacOSUseCommandKey         bool    `ini:MacOSUseCommandKey`
 	} `ini:"Input"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`

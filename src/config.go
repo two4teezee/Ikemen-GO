@@ -150,6 +150,7 @@ type Config struct {
 		ForceStageZoomout   float32 `ini:"ForceStageZoomout"`
 		ForceStageZoomin    float32 `ini:"ForceStageZoomin"`
 		KeepSpritesOnReload bool    `ini:"KeepSpritesOnReload"`
+		MacOSUseCommandKey  bool    `ini:"MacOSUseCommandKey"`
 	} `ini:"Debug"`
 	Video struct {
 		RenderMode              string   `ini:"RenderMode"`

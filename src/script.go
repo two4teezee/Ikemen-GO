@@ -1942,7 +1942,10 @@ func systemScriptInit(l *lua.LState) {
 		// Handle the second argument which can be nil, string, or a table
 		val := l.Get(2)
 		var value interface{}
-		if val == lua.LNil {
+		if val.Type() == lua.LTBool {
+			// Convert Lua bools to native Go bools
+			value = lua.LVAsBool(val)
+		} else if val == lua.LNil {
 			// nil value means remove a map entry or clear an array depending on context
 			value = nil
 		} else if tbl, ok := val.(*lua.LTable); ok {

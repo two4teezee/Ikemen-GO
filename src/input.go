@@ -11,9 +11,9 @@ import (
 	"time"
 )
 
-var ModAlt = NewModifierKey(false, true, false)
-var ModCtrlAlt = NewModifierKey(true, true, false)
-var ModCtrlAltShift = NewModifierKey(true, true, true)
+var ModAlt ModifierKey
+var ModCtrlAlt ModifierKey
+var ModCtrlAltShift ModifierKey
 
 // CommandList > Command > CommandStep > CommandStepKey
 type CommandStepKey struct {
@@ -93,6 +93,11 @@ type ShortcutKey struct {
 }
 
 func NewShortcutKey(key Key, ctrl, alt, shift bool) *ShortcutKey {
+	if ModAlt == 0 {
+		ModAlt = NewModifierKey(false, true, false)
+		ModCtrlAlt = NewModifierKey(true, true, false)
+		ModCtrlAltShift = NewModifierKey(true, true, true)
+	}
 	sk := &ShortcutKey{}
 	sk.Key = key
 	sk.Mod = NewModifierKey(ctrl, alt, shift)

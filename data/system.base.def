@@ -1826,7 +1826,7 @@
 	menu.itemname.menuvideo.resolution.back = "Back"
 	menu.itemname.menuvideo.fullscreen = "Fullscreen"
 	menu.itemname.menuvideo.keepaspect = "Keep Aspect Ratio"
-	menu.itemname.menuvideo.windowscalemode = "Bilinear Filtering"
+	menu.itemname.menuvideo.windowscalemode = "Window Scale Mode"
 	menu.itemname.menuvideo.vsync = "VSync"
 	menu.itemname.menuvideo.msaa = "MSAA"
 	menu.itemname.menuvideo.shaders = "Shaders" ;reserved submenu

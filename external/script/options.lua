@@ -920,7 +920,7 @@ options.t_itemname = {
 			else
 				modifyGameOption('Video.WindowScaleMode', true)
 			end
-			t.items[item].vardisplay = options.f_boolDisplay(gameOption('Video.WindowScaleMode'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
+			t.items[item].vardisplay = options.t_vardisplay['windowscalemode']()
 			options.modified = true
 		end
 		return true
@@ -1552,7 +1552,7 @@ options.t_vardisplay = {
 		return options.f_definedDisplay(gameOption('Video.VSync'), {[1] = motif.option_info.menu_valuename_enabled}, motif.option_info.menu_valuename_disabled)
 	end,
 	['windowscalemode'] = function()
-		return options.f_boolDisplay(gameOption('Video.WindowScaleMode'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
+		return options.f_boolDisplay(gameOption('Video.WindowScaleMode'), "Bilinear", "Nearest")
 	end,
 }
 

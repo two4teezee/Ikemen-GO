@@ -2688,7 +2688,7 @@ func (s *System) runNextRound() bool {
 }
 
 func (s *System) gameLogicSpeed() int32 {
-	base := int32(60 + s.cfg.Options.GameSpeed*5) // TODO: config increments
+	base := int32(60 + s.cfg.Options.GameSpeed*s.cfg.Options.GameSpeedStep)
 	spd := int32(float32(base) * s.debugAccel)
 	return Max(1, spd)
 }

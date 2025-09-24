@@ -334,25 +334,38 @@ function build_ffmpeg() {
 }
 
 function maybe_build_ffmpeg() {
-	ensure_pkg_config_path
-	if have_ffmpeg_pc; then
-		return 0
-	fi
 	case "$BUILD_FFMPEG" in
-		no)
-			echo "ERROR: FFmpeg dev libraries not found (pkg-config)."
-			echo "       Install distro dev packages (e.g. libavformat-dev etc.),"
-			echo "       or re-run with BUILD_FFMPEG=yes to build a minimal copy locally."
-			exit 1
-			;;
-		auto|yes)
+		yes)
+			echo "==> BUILD_FFMPEG=yes: forcing local FFmpeg build"
 			build_ffmpeg
-			ensure_pkg_config_path
-			if ! have_ffmpeg_pc; then
-				echo "ERROR: FFmpeg pkg-config files still not visible after build."
-				exit 1
-			fi
-			;;
+			ensure_pkg_config_path   # prepend our $FFMPEG_PREFIX so pkg-config prefers it
+			return 0
+		;;
+	no)
+		ensure_pkg_config_path
+		if have_ffmpeg_pc; then
+			echo "==> Using system FFmpeg (BUILD_FFMPEG=no)."
+			return 0
+		fi
+		echo "ERROR: FFmpeg dev libraries not found (pkg-config)."
+		echo "       Install distro dev packages (e.g. libavformat-dev etc.),"
+		echo "       or re-run with BUILD_FFMPEG=yes to build a minimal copy locally."
+		exit 1
+		;;
+	auto|*)
+		ensure_pkg_config_path
+		if have_ffmpeg_pc; then
+			echo "==> Found FFmpeg via pkg-config; using it."
+			return 0
+		fi
+		echo "==> FFmpeg not found via pkg-config; building a minimal local copy."
+		build_ffmpeg
+		ensure_pkg_config_path
+		if ! have_ffmpeg_pc; then
+			echo "ERROR: FFmpeg pkg-config files still not visible after build."
+			exit 1
+		fi
+		;;
 	esac
 }
 

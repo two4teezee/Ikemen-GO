@@ -219,9 +219,6 @@ type System struct {
 	wintime                 int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
-	explodsLayerN1          [MaxPlayerNo][]int
-	explodsLayer0           [MaxPlayerNo][]int
-	explodsLayer1           [MaxPlayerNo][]int
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -1285,9 +1282,6 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	}
 	s.projs[pn] = s.projs[pn][:0]
 	s.explods[pn] = s.explods[pn][:0]
-	s.explodsLayerN1[pn] = s.explodsLayerN1[pn][:0]
-	s.explodsLayer0[pn] = s.explodsLayer0[pn][:0]
-	s.explodsLayer1[pn] = s.explodsLayer1[pn][:0]
 }
 
 func (s *System) resetRoundState() {
@@ -1669,27 +1663,7 @@ func (s *System) action() {
 	}
 
 	s.charList.cueDraw()
-
-	explUpdate := func(edl *[len(s.chars)][]int, drop bool) {
-		for i, el := range *edl {
-			for j := len(el) - 1; j >= 0; j-- {
-				if el[j] >= 0 {
-					s.explods[i][el[j]].update(i)
-					if s.explods[i][el[j]].id == IErr {
-						if drop {
-							el = append(el[:j], el[j+1:]...)
-							(*edl)[i] = el
-						} else {
-							el[j] = -1
-						}
-					}
-				}
-			}
-		}
-	}
-	explUpdate(&s.explodsLayerN1, true)
-	explUpdate(&s.explodsLayer0, true)
-	explUpdate(&s.explodsLayer1, false)
+	s.explodUpdate()
 
 	// Adjust game speed
 	if s.tickNextFrame() {
@@ -1718,6 +1692,21 @@ func (s *System) action() {
 	}
 	s.tickSound()
 	return
+}
+
+// Update all explods for all players
+func (s *System) explodUpdate() {
+	for i, playerExplods := range s.explods {
+		tempSlice := playerExplods[:0] // Reuse backing array
+		for _, e := range playerExplods {
+			e.update(i)
+			// Keep only valid explods in the slice
+			if e.id != IErr {
+				tempSlice = append(tempSlice, e)
+			}
+		}
+		s.explods[i] = tempSlice
+	}
 }
 
 func (s *System) getSlowtime() int32 {

@@ -110,13 +110,10 @@ type GameState struct {
 	gameTime     int32
 	curRoundTime int32
 
-	projs          [MaxPlayerNo][]*Projectile
 	chars          [MaxPlayerNo][]*Char
 	charData       [MaxPlayerNo][]Char
+	projs          [MaxPlayerNo][]*Projectile
 	explods        [MaxPlayerNo][]*Explod
-	explodsLayer0  [MaxPlayerNo][]int
-	explodsLayer1  [MaxPlayerNo][]int
-	explodsLayerN1 [MaxPlayerNo][]int
 	aiInput        [MaxPlayerNo]AiInput
 	inputRemap     [MaxPlayerNo]int
 	charList       CharList
@@ -781,20 +778,6 @@ func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 			gs.explods[i][j] = sys.explods[i][j].Clone(a, gsp)
 		}
 	}
-	for i := range sys.explodsLayer0 {
-		gs.explodsLayer0[i] = arena.MakeSlice[int](a, len(sys.explodsLayer0[i]), len(sys.explodsLayer0[i]))
-		copy(gs.explodsLayer0[i], sys.explodsLayer0[i])
-	}
-
-	for i := range sys.explodsLayer1 {
-		gs.explodsLayer1[i] = arena.MakeSlice[int](a, len(sys.explodsLayer1[i]), len(sys.explodsLayer1[i]))
-		copy(gs.explodsLayer1[i], sys.explodsLayer1[i])
-	}
-
-	for i := range sys.explodsLayerN1 {
-		gs.explodsLayerN1[i] = arena.MakeSlice[int](a, len(sys.explodsLayerN1[i]), len(sys.explodsLayerN1[i]))
-		copy(gs.explodsLayerN1[i], sys.explodsLayerN1[i])
-	}
 }
 
 func (gs *GameState) loadPalFX(a *arena.Arena) {
@@ -855,21 +838,6 @@ func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 		for j := 0; j < len(gs.explods[i]); j++ {
 			sys.explods[i][j] = gs.explods[i][j].Clone(a, gsp)
 		}
-	}
-
-	for i := range gs.explodsLayer0 {
-		sys.explodsLayer0[i] = arena.MakeSlice[int](a, len(gs.explodsLayer0[i]), len(gs.explodsLayer0[i]))
-		copy(sys.explodsLayer0[i], gs.explodsLayer0[i])
-	}
-
-	for i := range gs.explodsLayer1 {
-		sys.explodsLayer1[i] = arena.MakeSlice[int](a, len(gs.explodsLayer1[i]), len(gs.explodsLayer1[i]))
-		copy(sys.explodsLayer1[i], gs.explodsLayer1[i])
-	}
-
-	for i := range gs.explodsLayerN1 {
-		sys.explodsLayerN1[i] = arena.MakeSlice[int](a, len(gs.explodsLayerN1[i]), len(gs.explodsLayerN1[i]))
-		copy(sys.explodsLayerN1[i], gs.explodsLayerN1[i])
 	}
 }
 

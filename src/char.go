@@ -5801,22 +5801,18 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 	return
 }
 
+// Always append to preserve insertion order
 func (c *Char) newExplod() (*Explod, int) {
-	// Reuse a free explod slot
-	for i := range sys.explods[c.playerNo] {
-		if sys.explods[c.playerNo][i].id == IErr {
-			return sys.explods[c.playerNo][i].initFromChar(c), i
-		}
+	playerExplods := &sys.explods[c.playerNo]
+
+	// Append only if there’s room
+	if len(*playerExplods) < sys.cfg.Config.ExplodMax {
+		new := &Explod{}
+		*playerExplods = append(*playerExplods, new)
+		return new.initFromChar(c), len(*playerExplods) - 1
 	}
 
-	// Otherwise append it
-	i := len(sys.explods[c.playerNo])
-	if i < sys.cfg.Config.ExplodMax {
-		newE := &Explod{}
-		sys.explods[c.playerNo] = append(sys.explods[c.playerNo], newE)
-		return newE.initFromChar(c), i
-	}
-
+	// No room available
 	return nil, -1
 }
 
@@ -5903,37 +5899,6 @@ func (c *Char) insertExplod(i int) {
 		}
 	}
 
-	// Layering
-	var layer *[]int
-	switch {
-	case e.layerno > 0:
-		layer = &sys.explodsLayer1[c.playerNo]
-	case e.layerno < 0:
-		layer = &sys.explodsLayerN1[c.playerNo]
-	default:
-		layer = &sys.explodsLayer0[c.playerNo]
-		for ii, ex := range *layer {
-			pid := sys.explods[c.playerNo][ex].playerId
-			if pid >= c.id && (pid > c.id || ex < i) {
-				*layer = append(*layer, 0)
-				copy((*layer)[ii+1:], (*layer)[ii:])
-				(*layer)[ii] = i
-				return
-			}
-		}
-	}
-
-	// Insert into first empty slot
-	for ii, te := range *layer {
-		if te < 0 {
-			(*layer)[ii] = i
-			return
-		}
-	}
-
-	// Append if no empty slot
-	*layer = append(*layer, i)
-
 	// Explod ready
 	e.anim.UpdateSprite()
 }
@@ -5947,35 +5912,32 @@ func (c *Char) explodBindTime(id, time int32) {
 	}
 }
 
+// Marks matching explods invalid and prunes the slice immediately
 func (c *Char) removeExplod(id, idx int32) {
+	playerExplods := &sys.explods[c.playerNo]
+	n := int32(0)
 
-	remove := func(drawlist *[]int, drop bool) {
-		n := int32(0)
-		for i := len(*drawlist) - 1; i >= 0; i-- {
-			ei := (*drawlist)[i]
-			if ei >= 0 && sys.explods[c.playerNo][ei].matchId(id, c.id) {
-				if idx == n || idx < 0 {
-					sys.explods[c.playerNo][ei].id = IErr
-					if drop {
-						*drawlist = append((*drawlist)[:i], (*drawlist)[i+1:]...)
-					} else {
-						(*drawlist)[i] = -1
-					}
-					if idx == n {
-						break
-					}
+	// Mark matching explods invalid
+	for _, e := range *playerExplods {
+		if e.matchId(id, c.id) {
+			if idx < 0 || idx == n {
+				e.id = IErr
+				if idx == n {
+					break
 				}
-				n++
 			}
+			n++
 		}
 	}
-	remove(&sys.explodsLayerN1[c.playerNo], true)
-	remove(&sys.explodsLayer0[c.playerNo], true)
-	remove(&sys.explodsLayer1[c.playerNo], false)
 
-	// Ontop/layer 1 explod indexes are not removed (drop = false) to preserve Mugen drawing order
-	// TODO: This is obsolete with our current logic and may not be working correctly in the first place
-	// The same also happens in system.go
+	// Compact the slice to remove invalid explods
+	tempSlice := (*playerExplods)[:0] // Reuse backing array
+	for _, e := range *playerExplods {
+		if e.id != IErr {
+			tempSlice = append(tempSlice, e)
+		}
+	}
+	*playerExplods = tempSlice
 }
 
 // Get animation and apply sprite owner properties to it

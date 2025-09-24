@@ -4033,7 +4033,7 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	var count int
 	for _, h := range sys.charList.runOrder {
 		// Skip roots, helpers from other players and destroyed helpers
-		// Mugen confirmed to skip destroyed helpers in the same frame
+		// Mugen confirmed to skip helpers under DestroySelf in the same frame
 		if h.helperIndex == 0 || h.playerNo != c.playerNo || h.csf(CSF_destroy) {
 			continue
 		}
@@ -4491,6 +4491,7 @@ func (c *Char) isHelper(id int32, idx int) bool {
 	if c.helperIndex == 0 {
 		return false
 	}
+
 	// Backward compatibility
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 		// Some Mugen characters used "isHelper(-1)" even though it was meaningless there
@@ -4500,21 +4501,32 @@ func (c *Char) isHelper(id int32, idx int) bool {
 			return false
 		}
 	}
+
 	// Any helper
 	if id < 0 && idx < 0 {
 		return true
 	}
+
 	// Check ID only
 	if id >= 0 && idx < 0 {
 		return c.helperId == id
 	}
+
 	// Check specific ID or index
-	count := 0
-	for _, h := range sys.chars[c.playerNo][1:] {
+	var count int
+	for _, h := range sys.charList.runOrder {
+		// Skip roots, helpers from other players and destroyed helpers
+		// Mugen does not skip DestroySelf helpers here. What it does is clear helperId when DestroySelf is called
+		// However, skipping them is more consistent with the other helper triggers
+		if h.helperIndex == 0 || h.playerNo != c.playerNo || h.csf(CSF_destroy) {
+			continue
+		}
+
 		// Check specific ID
 		if id >= 0 && h.helperId != id {
 			continue
 		}
+
 		// Check any index
 		if idx < 0 {
 			if h == c {
@@ -4522,12 +4534,15 @@ func (c *Char) isHelper(id int32, idx int) bool {
 			}
 			continue
 		}
+
 		// Check specific index
 		if count == idx {
 			return h == c
 		}
+
 		count++
 	}
+
 	return false
 }
 
@@ -4985,11 +5000,14 @@ func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = hid.ToI(), 0
+
+	// Mugen confirmed to skip helpers under DestroySelf in the same frame
 	for _, h := range sys.chars[c.playerNo][1:] {
 		if !h.csf(CSF_destroy) && (id <= 0 || h.helperId == id) {
 			n++
 		}
 	}
+
 	return BytecodeInt(n)
 }
 
@@ -5643,17 +5661,23 @@ func (c *Char) destroy() {
 	}
 }
 
+// Mugen clears the helper ID here, before fully removing the helper (c.helperID = 0)
+// We don't so that all helper triggers behave the same
 func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	if c.helperIndex <= 0 {
 		return false
 	}
+
 	c.setCSF(CSF_destroy)
+
 	if removeexplods {
 		c.removeExplod(-1, -1)
 	}
+
 	if removetexts {
 		sys.lifebar.RemoveText(-1, c.id)
 	}
+
 	if recursive {
 		for _, ch := range c.children {
 			if ch != nil {
@@ -5661,6 +5685,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 			}
 		}
 	}
+
 	return true
 }
 

@@ -4795,6 +4795,7 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 
 	self := (crun.id == c.id)
 	rec, rem, rtx := false, false, false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case destroySelf_recursive:
@@ -4806,6 +4807,8 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
+	// Destroyself stops execution of current state, like ChangeState
 	return crun.destroySelf(rec, rem, rtx) && self
 }
 

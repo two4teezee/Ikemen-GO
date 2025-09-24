@@ -177,22 +177,7 @@ jobs:
           ( cd build/ffmpeg-src && git archive --format=tar HEAD ) | tar -x -C FFmpeg-CS
           cp build/ffmpeg-src/config.h FFmpeg-CS/ 2>/dev/null || true
           cp build/ffmpeg-src/config.log FFmpeg-CS/ 2>/dev/null || true
-          cat > FFmpeg-CS/BUILDINFO.txt <<EOF
-          Commit: $(cd build/ffmpeg-src && git rev-parse --short=12 HEAD)
-          Cherry-picked: effadce6c756247ea8bae32dc13bb3e6f464f0eb
-          Configured with:
-            --enable-shared --disable-static \
-            --disable-gpl --disable-nonfree \
-            --disable-debug --disable-doc --disable-programs --disable-everything \
-            --disable-autodetect \
-            --enable-avformat --enable-avcodec --enable-avutil --enable-swresample --enable-swscale \
-            --enable-avfilter --enable-filter=buffer,buffersink,format,scale,pad,crop \
-            --enable-protocol=file \
-            --enable-demuxer=matroska,webm \
-            --enable-decoder=vp9,opus,vorbis \
-            --enable-parser=vp9,opus,vorbis
-          Compiler: $(cc --version 2>/dev/null | head -1)
-          EOF
+          cp build/ffmpeg-src/BUILDINFO.txt FFmpeg-CS/ 2>/dev/null || true
           tar -czf "src_ffmpeg.tar.gz" FFmpeg-CS
           echo "artifact_ffsrc=src_ffmpeg.tar.gz" >> "$GITHUB_OUTPUT"
 

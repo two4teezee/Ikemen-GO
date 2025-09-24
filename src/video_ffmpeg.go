@@ -133,13 +133,13 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 			rs := &reisenAudioStreamer{ch: bgv.audioBuffer}
 			sys.bgm.OpenFromStreamer(rs, beep.SampleRate(audioStreams[0].SampleRate()), volume)
 		} else {
-			return fmt.Errorf("Audio stream open failed:", err)
+			return fmt.Errorf("Audio stream open failed: %v", err)
 		}
 	}
 
 	// Normalize timeline
 	if err := videoStreams[0].Rewind(0); err != nil {
-		return fmt.Errorf("Rewind(0) failed:", err)
+		return fmt.Errorf("Rewind(0) failed: %v", err)
 	}
 	bgv.haveBasePTS = false
 

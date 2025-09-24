@@ -21,8 +21,7 @@ DELAYLIB_DIR="$BUILDDIR/delaylib"
 FFMPEG_SRCDIR="$BUILDDIR/ffmpeg-src"
 
 # FFmpeg config
-FFMPEG_REV="${FFMPEG_REV:-78dc21b123e}"
-FFMPEG_PATCH="${FFMPEG_PATCH:-effadce6c756247ea8bae32dc13bb3e6f464f0eb}"
+FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
 # Always default to build/ffmpeg under the repo root (absolute path).
 FFMPEG_PREFIX="${FFMPEG_PREFIX:-$REPO_ROOT/$BUILDDIR/ffmpeg}"
 BUILD_FFMPEG="${BUILD_FFMPEG:-auto}"   # auto|yes|no
@@ -302,10 +301,6 @@ function build_ffmpeg() {
 	git clone https://github.com/FFmpeg/FFmpeg.git "$FFMPEG_SRCDIR"
 	pushd "$FFMPEG_SRCDIR" >/dev/null
 	git checkout "$FFMPEG_REV"
-	git config user.name local
-	git config user.email local@localhost
-	# Cherry-pick compatibility patch (same as CI)
-	git cherry-pick "$FFMPEG_PATCH"
 
 	echo "==> Starting configure..."
 	local configure_args=(
@@ -322,6 +317,20 @@ function build_ffmpeg() {
 		"--enable-decoder=vp8,vp9,opus,vorbis"
 		"--enable-parser=vp8,vp9,opus,vorbis"
 	)
+
+	# Creates $FFMPEG_SRCDIR/BUILDINFO.txt with revision, configure args, and compiler info.
+	local _cc="${CC:-cc}"
+	local _cc_path; _cc_path="$(command -v "$_cc" 2>/dev/null || echo "$_cc")"
+	local _cc_ver;  _cc_ver="$("$_cc" --version 2>/dev/null | head -n1 || true)"
+	local _rev_sha; _rev_sha="$(git rev-parse HEAD 2>/dev/null || true)"
+	{
+		echo "Revision: ${FFMPEG_REV}${_rev_sha:+ (commit ${_rev_sha})}"
+		echo -n "Configured with:"
+		printf " %s" "${configure_args[@]}"
+		echo
+		echo "Compiler: ${_cc_path}${_cc_ver:+ — ${_cc_ver}}"
+	} > BUILDINFO.txt
+
 	./configure "${configure_args[@]}"
 	echo "==> Configure complete. Starting make..."
 	make -j"$(getconf _NPROCESSORS_ONLN || echo 2)"

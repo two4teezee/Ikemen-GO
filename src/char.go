@@ -4030,16 +4030,25 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 		return nil
 	}
 
-	// Filter helpers with the specified ID
-	var filteredHelpers []*Char
-	for _, h := range sys.chars[c.playerNo][1:] {
-		if !h.csf(CSF_destroy) && (id <= 0 || id == h.helperId) {
-			filteredHelpers = append(filteredHelpers, h)
-			// Helper found at requested index
-			if idx >= 0 && len(filteredHelpers) == idx+1 {
-				return filteredHelpers[idx]
-			}
+	var count int
+	for _, h := range sys.charList.runOrder {
+		// Skip roots, helpers from other players and destroyed helpers
+		// Mugen confirmed to skip destroyed helpers in the same frame
+		if h.helperIndex == 0 || h.playerNo != c.playerNo || h.csf(CSF_destroy) {
+			continue
 		}
+
+		// Skip if helper ID doesn't match (except id <= 0, which matches any)
+		if id > 0 && h.helperId != id {
+			continue
+		}
+
+		// Found a valid helper
+		if count == idx {
+			return h
+		}
+
+		count++
 	}
 
 	// No valid helper found

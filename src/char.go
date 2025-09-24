@@ -11064,7 +11064,6 @@ func (c *Char) cueDraw() {
 
 type CharList struct {
 	runOrder         []*Char
-	drawOrder        []*Char
 	idMap            map[int32]*Char
 	enemyNearChanged bool
 }
@@ -11077,24 +11076,15 @@ func (cl *CharList) clear() {
 func (cl *CharList) add(c *Char) {
 	// Append to run order
 	cl.runOrder = append(cl.runOrder, c)
-	// If any entry in the draw order is empty, use that one
-	i := 0
-	for ; i < len(cl.drawOrder); i++ {
-		if cl.drawOrder[i] == nil {
-			cl.drawOrder[i] = c
-			break
-		}
-	}
-	// Otherwise append to the end
-	if i >= len(cl.drawOrder) {
-		cl.drawOrder = append(cl.drawOrder, c)
-	}
+
+	// Update char ID map for fast lookup
 	cl.idMap[c.id] = c
 }
 
 func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
 	var ok bool
-	// Replace in run order
+
+	// Replace in runOrder
 	for i, c := range cl.runOrder {
 		if c.playerNo == pn && c.helperIndex == idx {
 			cl.runOrder[i] = dc
@@ -11102,16 +11092,12 @@ func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
 			break
 		}
 	}
+
 	if ok {
-		// Replace in draw order
-		for i, c := range cl.drawOrder {
-			if c.playerNo == pn && c.helperIndex == idx {
-				cl.drawOrder[i] = dc
-				break
-			}
-		}
+		// Update ID map
 		cl.idMap[dc.id] = dc
 	}
+
 	return ok
 }
 
@@ -11123,20 +11109,8 @@ func (cl *CharList) delete(dc *Char) {
 			break
 		}
 	}
-	// You'd expect Mugen to remove the slot from the drawing order, but it does keep it open like this
-	//for i, c := range cl.drawOrder {
-	//	if c == dc {
-	//		cl.drawOrder[i] = nil
-	//		break
-	//	}
-	//}
-	// However removing it creates a more predictable drawing order
-	for i, c := range cl.drawOrder {
-		if c == dc {
-			cl.drawOrder = append(cl.drawOrder[:i], cl.drawOrder[i+1:]...)
-			break
-		}
-	}
+	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper
+	// However not reusing it creates a more predictable drawing order
 }
 
 func (cl *CharList) commandUpdate() {
@@ -11995,17 +11969,17 @@ func (cl *CharList) tick() {
 // Prepare characters for drawing
 // We once again check the movetype to minimize the difference between player sides
 func (cl *CharList) cueDraw() {
-	for _, c := range cl.drawOrder {
+	for _, c := range cl.runOrder {
 		if c != nil && c.ss.moveType == MT_A {
 			c.cueDraw()
 		}
 	}
-	for _, c := range cl.drawOrder {
+	for _, c := range cl.runOrder {
 		if c != nil && c.ss.moveType == MT_I {
 			c.cueDraw()
 		}
 	}
-	for _, c := range cl.drawOrder {
+	for _, c := range cl.runOrder {
 		if c != nil && c.ss.moveType == MT_H {
 			c.cueDraw()
 		}

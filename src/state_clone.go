@@ -364,9 +364,6 @@ func (cl *CharList) Clone(a *arena.Arena, gsp *GameStatePool) (result CharList) 
 	result.runOrder = arena.MakeSlice[*Char](a, len(cl.runOrder), len(cl.runOrder))
 	copy(result.runOrder, cl.runOrder)
 
-	result.drawOrder = arena.MakeSlice[*Char](a, len(cl.drawOrder), len(cl.drawOrder))
-	copy(result.drawOrder, cl.drawOrder)
-
 	result.idMap = *gsp.Get(cl.idMap).(*map[int32]*Char)
 	maps.Clear(result.idMap)
 	for k, v := range cl.idMap {

@@ -278,7 +278,10 @@ func readBackGround(is IniSection, link *backGround,
 				}
 			}
 
-			if err := bg.video.Open(path, volume, s, f); err != nil {
+			var loop bool
+			is.ReadBool("loop", &loop)
+
+			if err := bg.video.Open(path, volume, s, f, loop); err != nil {
 				return nil, err
 			}
 		}

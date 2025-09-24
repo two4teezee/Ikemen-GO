@@ -78,7 +78,7 @@ func (rs *reisenAudioStreamer) Stream(out [][2]float64) (n int, ok bool) {
 	return n, true
 }
 
-func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVideoFlag) error {
+func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVideoFlag, loop bool) error {
 	//fmt.Println("Opening media file:", filename)
 	media, err := reisen.NewMedia(filename)
 	if err != nil {
@@ -145,13 +145,35 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 
 	bgv.startWall = time.Now()
 
+	// Decode loop. When EOF is reached and loop==true, rewind to t=0 and continue.
 	go func() {
 		for {
 			gotPacket := bgv.processPacket(media)
-			if !gotPacket {
-				break
+			if gotPacket {
+				continue
 			}
+			// No packet => demuxer exhausted or error already reported via errs.
+			// If looping is requested, rewind to the beginning and reset pacing.
+			if loop {
+				// Prefer rewinding the VIDEO stream to keep A/V in sync per reisen docs.
+				if err := videoStreams[0].Rewind(0); err != nil {
+					bgv.errs <- fmt.Errorf("loop rewind video failed: %v", err)
+					break
+				}
+				// Optional: also rewind audio if present; safe no-op if demux-only.
+				if bgv.audioStream != nil {
+					_ = bgv.audioStream.Rewind(0)
+				}
+				// Reset pacing baseline so PresentationOffset() maps to fresh wall clock.
+				bgv.haveBasePTS = false
+				bgv.startWall = time.Now()
+				// Continue producing frames/samples on the same channels.
+				continue
+			}
+			// Not looping → finish and clean up.
+			break
 		}
+		// Cleanup only when we actually finish (i.e., not looping forever).
 		videoStreams[0].Close()
 		if bgv.audioStream != nil {
 			bgv.audioStream.Close()

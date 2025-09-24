@@ -8425,7 +8425,7 @@ func (c *Char) xScreenBound() {
 	if c.csf(CSF_stagebound) {
 		x = ClampF(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
 	}
-	c.setPosX(x)
+	c.setAllPosX(x)
 }
 
 func (c *Char) zDepthBound() {
@@ -8435,7 +8435,7 @@ func (c *Char) zDepthBound() {
 		max := -c.edgeDepth[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
-	c.setPosZ(posz)
+	c.setAllPosZ(posz)
 }
 
 func (c *Char) xPlatformBound(pxmin, pxmax float32) {
@@ -11726,34 +11726,38 @@ func (cl *CharList) pushDetection(getter *Char) {
 			// We skip the zAxisCheck function because we'll need to calculate the overlap again anyway
 
 			// Normal collision check
+			cposx := c.pos[0]*c.localscl
 			cxleft := c.sizeBox[0] * c.localscl
 			cxright := c.sizeBox[2] * c.localscl
 			if c.facing < 0 {
 				cxleft, cxright = -cxright, -cxleft
 			}
 
-			cxleft += c.pos[0] * c.localscl
-			cxright += c.pos[0] * c.localscl
+			cxleft += cposx
+			cxright += cposx
 
+			gposx := getter.pos[0]*getter.localscl
 			gxleft := getter.sizeBox[0] * getter.localscl
 			gxright := getter.sizeBox[2] * getter.localscl
 			if getter.facing < 0 {
 				gxleft, gxright = -gxright, -gxleft
 			}
 
-			gxleft += getter.pos[0] * getter.localscl
-			gxright += getter.pos[0] * getter.localscl
+			gxleft += gposx
+			gxright += gposx
 
 			// X axis fail
 			if gxleft >= cxright || cxleft >= gxright {
 				continue
 			}
 
-			cztop := c.pos[2]*c.localscl - c.sizeDepth[0]*c.localscl
-			czbot := c.pos[2]*c.localscl + c.sizeDepth[1]*c.localscl
+			cposz := c.pos[2]*c.localscl
+			cztop := cposz - c.sizeDepth[0]*c.localscl
+			czbot := cposz + c.sizeDepth[1]*c.localscl
 
-			gztop := getter.pos[2]*getter.localscl - getter.sizeDepth[0]*getter.localscl
-			gzbot := getter.pos[2]*getter.localscl + getter.sizeDepth[1]*getter.localscl
+			gposz := getter.pos[2]*getter.localscl
+			gztop := gposz - getter.sizeDepth[0]*getter.localscl
+			gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
 			// Z axis fail
 			if gztop >= czbot || cztop >= gzbot {
@@ -11792,10 +11796,10 @@ func (cl *CharList) pushDetection(getter *Char) {
 				// Determine in which axes to push the players
 				// This needs to check both if the players have velocity or if their positions have changed
 				var pushx, pushz bool
-				if sys.zEnabled() && getter.pos[2] != c.pos[2] { // If tied on Z axis we fall back to X pushing
+				if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
 					// Get distances in both axes
-					distx := AbsF(getter.pos[0] - c.pos[0])
-					distz := AbsF(getter.pos[2] - c.pos[2])
+					distx := AbsF(gposx - cposx)
+					distz := AbsF(gposz - cposz)
 
 					// Check how much each axis should weigh on the decision
 					// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
@@ -11868,18 +11872,21 @@ func (cl *CharList) pushDetection(getter *Char) {
 							c.pos[0] -= ((cxright - gxleft) * cfactor) / c.localscl
 						}
 					}
+					// Clamp X positions
+					c.xScreenBound()
+					getter.xScreenBound()
 				}
 
 				// TODO: Z axis push might need some decision for who stays in the corner, like X axis
 				if pushz {
-					if getter.pos[2] < c.pos[2] {
+					if gposz < cposz {
 						if c.pushPriority >= getter.pushPriority {
 							getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
 						}
 						if c.pushPriority <= getter.pushPriority {
 							c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
 						}
-					} else if getter.pos[2] > c.pos[2] {
+					} else if gposz > cposz{
 						if c.pushPriority >= getter.pushPriority {
 							getter.pos[2] += ((czbot - gztop) * gfactor) / getter.localscl
 						}
@@ -11891,20 +11898,6 @@ func (cl *CharList) pushDetection(getter *Char) {
 					c.zDepthBound()
 					getter.zDepthBound()
 				}
-
-				if getter.trackableByCamera() && getter.csf(CSF_screenbound) {
-					getter.pos[0] = ClampF(getter.pos[0], gxmin, gxmax)
-				}
-				if c.trackableByCamera() && c.csf(CSF_screenbound) {
-					l, r := c.edgeWidth[0], -c.edgeWidth[1]
-					if c.facing > 0 {
-						l, r = -r, -l
-					}
-					c.pos[0] = ClampF(c.pos[0], l+sys.xmin/c.localscl, r+sys.xmax/c.localscl)
-				}
-				getter.pos[0] = ClampF(getter.pos[0], sys.stage.leftbound*(sys.stage.localscl/getter.localscl), sys.stage.rightbound*(sys.stage.localscl/getter.localscl))
-				c.pos[0] = ClampF(c.pos[0], sys.stage.leftbound*(sys.stage.localscl/c.localscl), sys.stage.rightbound*(sys.stage.localscl/c.localscl))
-				getter.interPos[0], c.interPos[0] = getter.pos[0], c.pos[0]
 			}
 		}
 	}

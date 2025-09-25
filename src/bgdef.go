@@ -166,7 +166,7 @@ func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 		}
 	case BT_Enable:
 		for i := range bgc.bg {
-			bgc.bg[i].visible, bgc.bg[i].active = bgc.v[0] != 0, bgc.v[0] != 0
+			bgc.bg[i].active = bgc.v[0] != 0
 		}
 	case BT_PosSet:
 		for i := range bgc.bg {
@@ -290,6 +290,15 @@ func (s *BGDef) action() {
 		}
 	}
 
+	// After BGCtrl mutates states, align video play/pause to "active"
+	for i := range s.bg {
+		if s.bg[i]._type == BG_Video {
+			// Apply visibility first to avoid initial audio blip at t=0 when Visible=0.
+			s.bg[i].video.SetVisible(s.bg[i].visible)
+			s.bg[i].video.SetPlaying(s.bg[i].active)
+		}
+	}
+
 	s.bga.action()
 	if s.model != nil {
 		s.model.step(1)
@@ -333,7 +342,7 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 	}
 	//x, y = x/s.localscl, y/s.localscl
 	for _, b := range s.bg {
-		if b.layerno == layer && b.visible && (b.anim.spr != nil || b._type == BG_Video) {
+		if b.layerno == layer && b.visible && b.active && (b.anim.spr != nil || b._type == BG_Video) {
 			b.draw([...]float32{x, y}, scl, s.localscl, 1, s.scale, 0, false)
 		}
 	}

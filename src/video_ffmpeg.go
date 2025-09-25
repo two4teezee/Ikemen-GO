@@ -18,14 +18,20 @@ type bgVideo struct {
 	frameBuffer chan *image.RGBA
 	audioBuffer chan []float64 // interleaved L,R float64 samples
 	audioStream *reisen.AudioStream
+	videoStream *reisen.VideoStream
+	media       *reisen.Media
+	loop        bool
 	texture     Texture
 	startWall   time.Time
 	basePTS     time.Duration
 	haveBasePTS bool
+	elapsedPTS  time.Duration
 	lastFrame   *image.RGBA
 	volume      int
 	scale       BgVideoScale
 	flag        BgVideoFlag
+	playing     bool
+	visible     bool
 }
 
 const (
@@ -90,6 +96,12 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	bgv.volume = volume
 	bgv.scale = sc
 	bgv.flag = sf
+	bgv.loop = loop
+	bgv.media = media
+	bgv.playing = false
+	bgv.visible = true
+	bgv.elapsedPTS = 0
+	bgv.haveBasePTS = false
 
 	bgv.frameBuffer = make(chan *image.RGBA, frameBufferSize)
 	bgv.audioBuffer = make(chan []float64, 128)
@@ -123,6 +135,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 			}
 		}
 	}
+	bgv.videoStream = videoStreams[0]
 
 	// Try to open the first audio stream, if any
 	audioStreams := media.AudioStreams()
@@ -141,22 +154,26 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	if err := videoStreams[0].Rewind(0); err != nil {
 		return fmt.Errorf("Rewind(0) failed: %v", err)
 	}
-	bgv.haveBasePTS = false
 
-	bgv.startWall = time.Now()
+	bgv.haveBasePTS = false
 
 	// Decode loop. When EOF is reached and loop==true, rewind to t=0 and continue.
 	go func() {
 		for {
-			gotPacket := bgv.processPacket(media)
+			// Do not demux/decode while paused: that keeps A/V frozen and avoids audio blips.
+			if !bgv.playing {
+				time.Sleep(5 * time.Millisecond)
+				continue
+			}
+			gotPacket := bgv.processPacket(bgv.media)
 			if gotPacket {
 				continue
 			}
 			// No packet => demuxer exhausted or error already reported via errs.
 			// If looping is requested, rewind to the beginning and reset pacing.
-			if loop {
+			if bgv.loop {
 				// Prefer rewinding the VIDEO stream to keep A/V in sync per reisen docs.
-				if err := videoStreams[0].Rewind(0); err != nil {
+				if err := bgv.videoStream.Rewind(0); err != nil {
 					bgv.errs <- fmt.Errorf("loop rewind video failed: %v", err)
 					break
 				}
@@ -166,7 +183,8 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 				}
 				// Reset pacing baseline so PresentationOffset() maps to fresh wall clock.
 				bgv.haveBasePTS = false
-				bgv.startWall = time.Now()
+				// Keep elapsedPTS at 0; resume will re-anchor startWall.
+				bgv.elapsedPTS = 0
 				// Continue producing frames/samples on the same channels.
 				continue
 			}
@@ -174,7 +192,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 			break
 		}
 		// Cleanup only when we actually finish (i.e., not looping forever).
-		videoStreams[0].Close()
+		bgv.videoStream.Close()
 		if bgv.audioStream != nil {
 			bgv.audioStream.Close()
 		}
@@ -250,22 +268,29 @@ func (bgv *bgVideo) processPacket(media *reisen.Media) bool {
 					bgv.basePTS = off
 					bgv.haveBasePTS = true
 				}
-				off -= bgv.basePTS
-				if off < 0 {
-					off = 0
+				elapsed := off - bgv.basePTS
+				if elapsed < 0 {
+					elapsed = 0
 				}
-				sleepUntil := bgv.startWall.Add(off)
+				bgv.elapsedPTS = elapsed
+				sleepUntil := bgv.startWall.Add(elapsed)
 				d := time.Until(sleepUntil)
 				if d > 0 {
 					time.Sleep(d)
 				}
 			}
-			// Deliver frame to the render thread (already scaled/padded by FFmpeg if configured).
-			bgv.frameBuffer <- vf.Image()
-			bgv.lastFrame = vf.Image() // remember last for sticky reupload
+			// Deliver only when visible; while hidden we still pace timers but drop frames.
+			if bgv.visible {
+				bgv.frameBuffer <- vf.Image()
+				bgv.lastFrame = vf.Image() // remember last for sticky reupload
+			}
 		}
 
 	case reisen.StreamAudio:
+		// Only push audio while playing; otherwise streamer emits silence.
+		if !bgv.playing {
+			return true
+		}
 		// Decode to float64 interleaved samples and push to audioBuffer.
 		// Reisen delivers stereo float64 as little-endian bytes (L,R,L,R,...) per frame.
 		// We do NOT sleep here; the Beep speaker drives timing and back-pressures via the channel.
@@ -283,12 +308,16 @@ func (bgv *bgVideo) processPacket(media *reisen.Media) bool {
 					u := binary.LittleEndian.Uint64(raw[i : i+8])
 					samples = append(samples, math.Float64frombits(u))
 				}
-				// Never block the decode loop on audio delivery.
-				// If speaker can't keep up, drop this chunk to keep video moving.
-				select {
-				case bgv.audioBuffer <- samples:
-				default:
-					// drop
+				if bgv.visible {
+					// Never block the decode loop on audio delivery.
+					// If speaker can't keep up, drop this chunk to keep video moving.
+					select {
+					case bgv.audioBuffer <- samples:
+					default:
+						// drop
+					}
+				} else {
+					// Hidden: drop audio to remain silent while timers continue to run.
 				}
 			}
 		}
@@ -341,6 +370,59 @@ func (bgv *bgVideo) Tick() error {
 
 	// fmt.Println("Ticked video... ", bgv, bgv.started)
 	return nil
+}
+
+// SetPlaying toggles decode/audio production and (re)anchors the pacing clock.
+func (bgv *bgVideo) SetPlaying(on bool) {
+	if on == bgv.playing {
+		return
+	}
+	if on {
+		// If we have not established a baseline PTS in this decode epoch,
+		// rewind to t=0 so the first decoded frame is a keyframe.
+		if !bgv.haveBasePTS && bgv.videoStream != nil {
+			_ = bgv.videoStream.Rewind(0)
+		}
+		// Anchor wall clock so that current elapsedPTS displays "now".
+		bgv.startWall = time.Now().Add(-bgv.elapsedPTS)
+		bgv.playing = true
+	} else {
+		// Freeze: decode loop will idle until re-enabled.
+		bgv.playing = false
+	}
+}
+
+// SetVisible controls whether decoded A/V is presented.
+// When turning invisible, drain any queued audio so the mixer goes silent immediately.
+func (bgv *bgVideo) SetVisible(on bool) {
+	if on == bgv.visible {
+		return
+	}
+	bgv.visible = on
+	if !on {
+		// Drop any queued audio so the Beep streamer outputs silence right away.
+		for {
+			select {
+			case <-bgv.audioBuffer:
+				// keep draining
+			default:
+				return
+			}
+		}
+	}
+}
+
+// Reset rewinds streams to t=0 and clears pacing; playback remains paused.
+func (bgv *bgVideo) Reset() {
+	if bgv.videoStream != nil {
+		_ = bgv.videoStream.Rewind(0)
+	}
+	if bgv.audioStream != nil {
+		_ = bgv.audioStream.Rewind(0)
+	}
+	bgv.haveBasePTS = false
+	bgv.elapsedPTS = 0
+	bgv.lastFrame = nil
 }
 
 // buildFFFilterGraph builds a scale(+optional crop/pad)+format filtergraph string for FFmpeg.

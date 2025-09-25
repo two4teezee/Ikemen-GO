@@ -1648,7 +1648,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 		}
 	case BT_Enable:
 		for i := range bgc.bg {
-			bgc.bg[i].visible, bgc.bg[i].active = bgc.v[0] != 0, bgc.v[0] != 0
+			bgc.bg[i].active = bgc.v[0] != 0
 		}
 	case BT_PalFX:
 		for i := range bgc.bg {
@@ -1786,8 +1786,8 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
-
-	if sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) && (sys.pausetime <= 0 || !sys.pausebg) {
+	canStep := sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) && (sys.pausetime <= 0 || !sys.pausebg)
+	if canStep {
 		paused = false
 
 		s.bgCtrlAction()
@@ -1799,6 +1799,17 @@ func (s *Stage) action() {
 
 		if s.model != nil {
 			s.model.step(sys.turbo)
+		}
+	}
+
+	// Always (every frame) sync decoder run state to global pause + Enable.
+	// This prevents the decoder clock from advancing during round intro/superpause/pause.
+	for i := range s.bg {
+		if s.bg[i]._type == BG_Video {
+			shouldPlay := s.bg[i].active && !paused
+			// Apply visibility first so there's no frame-0 audio when Visible=0.
+			s.bg[i].video.SetVisible(s.bg[i].visible)
+			s.bg[i].video.SetPlaying(shouldPlay)
 		}
 	}
 
@@ -1910,7 +1921,8 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	}
 	s.drawModel(pos, ofs[1], scl, layer)
 	for _, b := range s.bg {
-		if b.layerno == layer && b.visible && (b.anim.spr != nil || b._type == BG_Video) {
+		// Draw only when visible and enabled (active).
+		if b.layerno == layer && b.visible && b.active && (b.anim.spr != nil || b._type == BG_Video) {
 			b.draw(pos, scl, bgscl, s.localscl, s.scale, ofs[1], true)
 		}
 	}
@@ -1923,6 +1935,11 @@ func (s *Stage) reset() {
 	s.bga.clear()
 	for i := range s.bg {
 		s.bg[i].reset()
+		// Ensure videos start paused, then rewind.
+		if s.bg[i]._type == BG_Video {
+			s.bg[i].video.SetPlaying(false)
+			s.bg[i].video.Reset()
+		}
 	}
 	if s.model != nil {
 		s.model.reset()

@@ -8836,69 +8836,70 @@ func (c *Char) hitByAttrTrigger(attr int32) bool {
 	if c.unhittableTime > 0 {
 		return false
 	}
-	// Create a dummy HitDef based on the provided attribute.
+
 	// Get state type (SCA) from among the attributes
 	attrsca := attr & int32(ST_MASK)
 
-	// checkHitByInvincibility returns 'true' if the character is INVULNERABLE.
-	// For HitByAttr, we need to know if the character IS VULNERABLE, so we return the opposite.
-	isInvulnerable := c.checkHitByInvincibility(-1, -1, attr, attrsca)
-
-	return !isInvulnerable
+	// Compare given attributes to character's HitBy slots
+	return c.checkHitByAllSlots(-1, -1, attr, attrsca)
 }
 
-func (c *Char) isVulnerableInSlot(hb HitBy, getterno int, getterid int32, ghdattr int32, attrsca int32) bool {
-	if (hb.playerno >= 0 && hb.playerno != getterno) ||
-		(hb.playerid >= 0 && hb.playerid != getterid) {
-		if !hb.not {
-			return false
-		}
-		return true
+// Check vulnerability in a single HitBy slot
+func (c *Char) checkHitBySlot(hb HitBy, getterno int, getterid, ghdattr, attrsca int32) bool {
+	// Check player number and ID restrictions
+	match := true
+	if (hb.playerno >= 0 && hb.playerno != getterno) || (hb.playerid >= 0 && hb.playerid != getterid) {
+		match = false
 	}
 
+	// Check attribute flags
 	if hb.flag&attrsca == 0 || hb.flag&ghdattr&^int32(ST_MASK) == 0 {
-		return false
+		match = false
 	}
-	return true
+
+	// Flip result if this is NotHitBy
+	if hb.not {
+		return !match
+	}
+
+	// Otherwise return normally
+	return match
 }
 
-// checkHitByInvincibility evaluates all of the character's HitBy/NotHitBy slots
-// to determine invincibility against the current attack.
-func (c *Char) checkHitByInvincibility(getterno int, getterid int32, ghdattr int32, attrsca int32) bool {
-	// check if there is a slot with stack=1
-	hasStack1Slot := false
-	for _, hb := range c.hitby {
-		if hb.time != 0 && hb.stack {
-			hasStack1Slot = true
-			break
-		}
-	}
+// checkHitByAllSlots evaluates all of the character's HitBy/NotHitBy slots
+// to determine if the character is vulnerable to the current attack.
+func (c *Char) checkHitByAllSlots(getterno int, getterid, ghdattr, attrsca int32) bool {
+	stackHit := false
+	hasStackSlot := false
+	nonStackHit := true
 
-	if hasStack1Slot {
-		// OR logic: If vulnerable in any of the stack=1 slots (hit is possible), the attack will hit.
-		canBeHit := false
-		for _, hb := range c.hitby {
-			if hb.time != 0 && hb.stack {
-				if c.isVulnerableInSlot(hb, getterno, getterid, ghdattr, attrsca) {
-					canBeHit = true
-					break
-				}
+	for _, hb := range c.hitby {
+		// Skip inactive slots
+		if hb.time == 0 {
+			continue
+		}
+
+		if hb.stack {
+			// OR logic: If vulnerable in any of the stack slots, the attack will hit
+			hasStackSlot = true
+			if c.checkHitBySlot(hb, getterno, getterid, ghdattr, attrsca) {
+				stackHit = true
 			}
-		}
-		return !canBeHit // If canBeHit is true, it is not invincible (returns false).
-	}
-
-	// AND logic: Must be vulnerable in all active slots.
-	for _, hb := range c.hitby {
-		if hb.time != 0 {
-			// If there is even one slot that makes the character invincible, the invincibility is confirmed.
-			if !c.isVulnerableInSlot(hb, getterno, getterid, ghdattr, attrsca) {
-				return true
+		} else {
+			// AND logic: If there is even one slot without vulnerability, the attack will miss
+			if !c.checkHitBySlot(hb, getterno, getterid, ghdattr, attrsca) {
+				nonStackHit = false
 			}
 		}
 	}
 
-	return false // Was vulnerable in all slots (not invincible).
+	// Combine OR (stack) and AND (non-stack)
+	if hasStackSlot {
+		return stackHit && nonStackHit
+	}
+
+	// Was vulnerable in all non-stack slots
+	return nonStackHit
 }
 
 // Check if HitDef attributes can hit a player
@@ -8989,9 +8990,10 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 	}
 
 	// HitBy and NotHitBy checks
-	if c.checkHitByInvincibility(getter.playerNo, getter.id, ghd.attr, attrsca) {
+	if !c.checkHitByAllSlots(getter.playerNo, getter.id, ghd.attr, attrsca) {
 		return false
 	}
+
 	return true
 }
 
@@ -10821,58 +10823,69 @@ func (c *Char) cueDebugDraw() {
 					sys.debugc1not.Add(clsn, xoff, yoff, xs, ys, angle)
 				}
 			}
+
 			// Check invincibility to decide box colors
 			flags := int32(ST_SCA) | int32(AT_ALL)
 			if clsn := c.curFrame.Clsn2; len(clsn) > 0 {
 				hb, mtk := false, false
+
 				if c.unhittableTime > 0 {
 					mtk = true
 				} else {
 					for _, h := range c.hitby {
-						if h.time != 0 {
-							// If carrying invincibility from previous iterations
-							if h.stack && flags != int32(ST_SCA)|int32(AT_ALL) {
-								nhbtxt = "Stacked"
-								hb = true
-								mtk = false
-								break
-							}
-							// If player-specific invincibility
-							if h.playerno >= 0 || h.playerid >= 0 {
-								nhbtxt = "Player-specific"
-								hb = true
-								mtk = false
-								break
-							}
-							// Combine all NotHitBy flags
-							if h.flag != 0 {
+						if h.time == 0 {
+							continue
+						}
+
+						// If carrying invincibility from previous iterations
+						if h.stack && flags != int32(ST_SCA)|int32(AT_ALL) {
+							nhbtxt = "Stacked"
+							hb = true
+							mtk = false
+							break
+						}
+
+						// Player-specific invincibility
+						if h.playerno >= 0 || h.playerid >= 0 {
+							nhbtxt = "Player-specific"
+							hb = true
+							mtk = false
+							break
+						}
+
+						// Combine flags for HitBy and NotHitBy
+						if h.flag != 0 {
+							if h.not {
+								// NotHitBy removes flags
+								flags &= ^h.flag
+							} else {
+								// HitBy keeps only allowed flags
 								flags &= h.flag
 							}
 						}
 					}
+
 					// If not stacked and not player-specific
-					if nhbtxt == "" {
-						if flags != int32(ST_SCA)|int32(AT_ALL) {
-							hb = true
-							mtk = flags&int32(ST_SCA) == 0 || flags&int32(AT_ALL) == 0
-						}
+					if nhbtxt == "" && flags != int32(ST_SCA)|int32(AT_ALL) {
+						hb = true
+						mtk = flags&int32(ST_SCA) == 0 || flags&int32(AT_ALL) == 0
 					}
 				}
-				if c.scf(SCF_standby) {
-					sys.debugc2stb.Add(clsn, xoff, yoff, xs, ys, angle)
-				} else if mtk {
-					// Add fully invincible Clsn2
-					sys.debugc2mtk.Add(clsn, xoff, yoff, xs, ys, angle)
-				} else if hb {
-					// Add partially invincible Clsn2
-					sys.debugc2hb.Add(clsn, xoff, yoff, xs, ys, angle)
-				} else if c.inguarddist && c.scf(SCF_guard) {
-					// Add guarding Clsn2
-					sys.debugc2grd.Add(clsn, xoff, yoff, xs, ys, angle)
-				} else {
-					// Add regular Clsn2
-					sys.debugc2.Add(clsn, xoff, yoff, xs, ys, angle)
+
+				// Decide which debug box to add
+				switch {
+				case c.scf(SCF_standby):
+					sys.debugc2stb.Add(clsn, xoff, yoff, xs, ys, angle) // Standby
+				case mtk:
+					sys.debugc2mtk.Add(clsn, xoff, yoff, xs, ys, angle) // Fully invincible
+				case hb:
+					sys.debugc2hb.Add(clsn, xoff, yoff, xs, ys, angle) // Partially invincible
+				case c.inguarddist && c.scf(SCF_guard):
+					sys.debugc2grd.Add(clsn, xoff, yoff, xs, ys, angle) // Guarding
+				default:
+					sys.debugc2.Add(clsn, xoff, yoff, xs, ys, angle) // Normal
 				}
+
 				// Add invulnerability text
 				if nhbtxt == "" {
 					if mtk {
@@ -10942,6 +10955,7 @@ func (c *Char) cueDebugDraw() {
 					}
 				}
 			}
+
 			// Add size box (width * height)
 			if c.csf(CSF_playerpush) {
 				sys.debugcsize.Add(c.sizeBoxToClsn(), x, y, c.facing*c.localscl, c.localscl, 0)

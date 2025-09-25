@@ -4271,12 +4271,7 @@ const (
 	hitBy_redirectid
 )
 
-func (sc hitBy) Run(c *Char, _ []int32) bool {
-	crun := getRedirectedChar(c, StateControllerBase(sc), hitBy_redirectid, "HitBy")
-	if crun == nil {
-		return false
-	}
-
+func (sc hitBy) runSub(c *Char, crun *Char, not bool) {
 	slot := int(-1)
 	attr := int32(-1)
 	time := int32(1)
@@ -4284,8 +4279,9 @@ func (sc hitBy) Run(c *Char, _ []int32) bool {
 	pid := int32(-1)
 	stk := false
 	old := false
+
 	set := func(slot int, attr, time int32, pno int, pid int32, stk bool) {
-		crun.hitby[slot].not = false
+		crun.hitby[slot].not = not
 		crun.hitby[slot].time = time
 		crun.hitby[slot].flag = attr
 		crun.hitby[slot].playerno = pno - 1
@@ -4325,6 +4321,16 @@ func (sc hitBy) Run(c *Char, _ []int32) bool {
 	if !old && slot >= 0 && slot <= 7 {
 		set(slot, attr, time, pno, pid, stk)
 	}
+}
+
+func (sc hitBy) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), hitBy_redirectid, "HitBy")
+	if crun == nil {
+		return false
+	}
+
+	// Run with "not" set to false
+	sc.runSub(c, crun, false)
 
 	return false
 }
@@ -4337,54 +4343,8 @@ func (sc notHitBy) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	slot := int(-1)
-	attr := int32(-1)
-	time := int32(1)
-	pno := int(-1)
-	pid := int32(-1)
-	stk := false
-	old := false
-	set := func(slot int, attr, time int32, pno int, pid int32, stk bool) {
-		crun.hitby[slot].not = true
-		crun.hitby[slot].time = time
-		crun.hitby[slot].flag = ^attr // Opposite
-		crun.hitby[slot].playerno = pno - 1
-		crun.hitby[slot].playerid = pid
-		crun.hitby[slot].stack = stk
-	}
-
-	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
-		switch paramID {
-		case hitBy_time:
-			time = exp[0].evalI(c)
-		case hitBy_value:
-			val := exp[0].evalI(c)
-			set(0, val, time, -1, -1, false)
-			old = true
-		case hitBy_value2:
-			val := exp[0].evalI(c)
-			set(1, val, time, -1, -1, false)
-			old = true
-		case hitBy_slot:
-			slot = int(Max(0, exp[0].evalI(c)))
-			if slot > 7 {
-				slot = 0
-			}
-		case hitBy_attr:
-			attr = exp[0].evalI(c)
-		case hitBy_playerno:
-			pno = int(exp[0].evalI(c))
-		case hitBy_playerid:
-			pid = exp[0].evalI(c)
-		case hitBy_stack:
-			stk = exp[0].evalB(c)
-		}
-		return true
-	})
-
-	if !old && slot >= 0 && slot <= 7 {
-		set(slot, attr, time, pno, pid, stk)
-	}
+	// Run with "not" set to true
+	hitBy(sc).runSub(c, crun, true)
 
 	return false
 }

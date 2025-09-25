@@ -4071,24 +4071,22 @@ func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) indexTrigger() int32 {
-	for i, p := range sys.charList.runOrder {
-		if c == p {
-			return int32(i)
+	// Ignore destroyed helpers for the sake of consistency
+	var searchIdx int32
+	for _, p := range sys.charList.runOrder {
+		if p != nil && !p.csf(CSF_destroy) {
+			if c == p {
+				return searchIdx
+			}
+			searchIdx++
 		}
 	}
 
-	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
-	/*
-		var searchIdx int32
-		for _, p := range sys.charList.runOrder {
-			if p != nil && !p.csf(CSF_destroy) {
-				if c == p {
-					return searchIdx
-				}
-				searchIdx++
-			}
-		}
-	*/
+	//for i, p := range sys.charList.runOrder {
+	//	if c == p {
+	//		return int32(i)
+	//	}
+	//}
 
 	return -1
 }
@@ -4670,7 +4668,18 @@ func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) numPlayer() int32 {
-	return int32(len(sys.charList.runOrder))
+	var count int32
+
+	// Ignore destroyed helpers for the sake of consistency
+	for _, ch := range sys.charList.runOrder {
+		if !ch.csf(CSF_destroy) {
+			count++
+		}
+	}
+
+	return count
+
+	//return int32(len(sys.charList.runOrder))
 }
 
 func (c *Char) numText(textid BytecodeValue) BytecodeValue {
@@ -4999,16 +5008,16 @@ func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
 	if hid.IsSF() {
 		return BytecodeSF()
 	}
-	var id, n int32 = hid.ToI(), 0
+	var id, count int32 = hid.ToI(), 0
 
 	// Mugen confirmed to skip helpers under DestroySelf in the same frame
 	for _, h := range sys.chars[c.playerNo][1:] {
 		if !h.csf(CSF_destroy) && (id <= 0 || h.helperId == id) {
-			n++
+			count++
 		}
 	}
 
-	return BytecodeInt(n)
+	return BytecodeInt(count)
 }
 
 func (c *Char) numPartner() int32 {
@@ -12082,11 +12091,23 @@ func (cl *CharList) cueDraw() {
 	}
 }
 
-func (cl *CharList) getID(id int32) *Char {
+func (cl *CharList) getCharWithID(id int32) *Char {
 	if id < 0 {
 		return nil
 	}
-	return cl.idMap[id]
+
+	// Invalid ID
+	ch, ok := cl.idMap[id]
+	if !ok {
+		return nil
+	}
+
+	// Mugen skips DestroySelf helpers here
+	if ch.csf(CSF_destroy) {
+		return nil
+	}
+
+	return ch
 }
 
 func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {

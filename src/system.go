@@ -783,26 +783,24 @@ func (s *System) anyChar() *Char {
 }
 
 func (s *System) playerID(id int32) *Char {
-	return s.charList.getID(id)
+	return s.charList.getCharWithID(id)
 }
 
 func (s *System) playerIndexRedirect(idx int32) *Char {
-	if idx >= 0 && int(idx) < len(s.charList.runOrder) {
-		return s.charList.runOrder[idx]
+	// We will ignore destroyed helpers here, like Mugen redirections
+	var searchIdx int32
+	for _, p := range sys.charList.runOrder {
+		if p != nil && !p.csf(CSF_destroy) {
+			if searchIdx == idx {
+				return p
+			}
+			searchIdx++
+		}
 	}
 
-	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
-	/*
-		var searchIdx int32
-		for _, p := range sys.charList.runOrder {
-			if p != nil && !p.csf(CSF_destroy) {
-				if searchIdx == idx {
-					return p
-				}
-				searchIdx++
-			}
-		}
-	*/
+	//if idx >= 0 && int(idx) < len(s.charList.runOrder) {
+	//	return s.charList.runOrder[idx]
+	//}
 
 	return nil
 }

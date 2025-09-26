@@ -5493,7 +5493,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 
-	e, i := crun.newExplod()
+	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
 	}
@@ -5717,10 +5717,10 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//	e.localscl = (320 / crun.localcoord)
 	//} else {
 
-	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with insertExplod
+	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with commitExplod
 
 	e.setPos(crun)
-	crun.insertExplod(i)
+	crun.commitExplod(i)
 	return false
 }
 
@@ -6324,7 +6324,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	e, i := crun.newExplod()
+	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
 	}
@@ -6370,7 +6370,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	e.relativePos[0] -= float32(crun.size.draw.offset[0])
 	e.relativePos[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
-	crun.insertExplod(i)
+	crun.commitExplod(i)
 
 	return false
 }
@@ -7159,7 +7159,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	clsnscale := false
 	rp := [...]int32{-1, 0}
 
-	p = crun.newProj()
+	p = crun.spawnProjectile()
 	if p == nil {
 		return false
 	}
@@ -7336,6 +7336,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	})
 
 	crun.setHitdefDefault(&p.hitdef)
+
 	if p.hitanim == -1 {
 		p.hitanim_ffx = p.anim_ffx
 	}
@@ -7350,7 +7351,8 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	if p.aimg.time != 0 {
 		p.aimg.setupPalFX()
 	}
-	crun.projInit(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
+
+	crun.commitProjectile(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
 	return false
 }
 
@@ -9388,7 +9390,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	})
 
 	// Add super FX
-	if e, i := c.newExplod(); e != nil {
+	if e, i := c.spawnExplod(); e != nil {
 		e.animNo = fx_anim
 		e.anim_ffx = fx_ffx
 		e.layerno = 1
@@ -9398,8 +9400,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		e.supermovetime = -1
 		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
 		e.setPos(c)
-		c.insertExplod(i)
-		// TODO: It also seems to inherit the player's remapped palette in Mugen
+		c.commitExplod(i)
 	}
 
 	crun.setSuperPauseTime(t, mt, uh, p2defmul)

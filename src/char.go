@@ -1337,6 +1337,10 @@ type Explod struct {
 	interpolate_xshear   [2]float32
 }
 
+func newExplod() *Explod {
+	return &Explod{}
+}
+
 // Set default values according to char who creates the explod
 func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
@@ -1362,14 +1366,15 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		animelem:          1,
 		animelemtime:      0,
 		blendmode:         0,
-		alpha:             [...]int32{-1, 0},
+		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
 		ignorehitpause:    true,
-		interpolate_scale: [...]float32{1, 1, 0, 0},
+		interpolate_scale: [4]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
 		remappal:          [2]int32{-1, 0},
 	}
 
+	// Backward compatibility
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
 		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
 		e.projection = Projection_Perspective
@@ -1950,39 +1955,66 @@ type Projectile struct {
 }
 
 func newProjectile() *Projectile {
-	p := &Projectile{}
-	p.clear()
-	return p
+	return &Projectile{}
 }
 
-func (p *Projectile) clear() {
-	*p = Projectile{
-		id:             IErr,
-		hitanim:        -1,
-		remanim:        IErr,
-		cancelanim:     IErr,
-		scale:          [...]float32{1, 1},
-		clsnScale:      [...]float32{1, 1},
-		clsnAngle:      0,
-		remove:         true,
-		localscl:       1,
-		localcoord:     1,
-		projection:     Projection_Orthographic,
-		removetime:     -1,
-		velmul:         [...]float32{1, 1, 1},
-		hits:           1,
-		totalhits:      1,
-		priority:       1,
-		priorityPoints: 1,
-		sprpriority:    3,
-		edgebound:      40,
-		stagebound:     40,
-		heightbound:    [...]int32{-240, 1},
-		depthbound:     math.MaxInt32,
-		facing:         1,
-		aimg:           *newAfterImage(),
-		platformFence:  true,
+// Set defaults according to projectile owner
+// TODO: Check how much should come from char who uses Projectile sctrl versus from the root
+func (p *Projectile) initFromChar(c *Char) *Projectile {
+	// Local scale exception
+	localscl := c.localscl
+	if c.minus == -2 || c.minus == -4 {
+		localscl = 320 / c.localcoord
 	}
+
+	*p = Projectile{
+		id:              0,
+		playerno:        c.playerNo,
+		hitanim:         -1,
+		remanim:         IErr,
+		cancelanim:      IErr,
+		scale:           [2]float32{1, 1},
+		clsnScale:       [2]float32{1, 1},
+		clsnAngle:       0,
+		remove:          true,
+		localscl:        localscl,
+		localcoord:      c.localcoord,
+		layerno:         c.layerNo,
+		palfx:           c.getPalfx(),
+		parentAttackMul: c.attackMul, // Projectile attackmul is decided upon its creation only
+		removetime:      -1,
+		velmul:          [3]float32{1, 1, 1},
+		hits:            1,
+		totalhits:       1,
+		priority:        1,
+		priorityPoints:  1,
+		sprpriority:     3,
+		edgebound:       int32(40 / localscl), // TODO: These probably need "originLocalscl"
+		stagebound:      int32(40 / localscl),
+		heightbound:     [2]int32{int32(-240 / localscl), int32(1 / localscl)},
+		depthbound:      math.MaxInt32,
+		facing:          1,
+		aimg:            *newAfterImage(),
+		projection:      Projection_Orthographic,
+		platformFence:   true,
+	}
+
+	// Backward compatibility
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
+		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
+		p.projection = Projection_Perspective
+	}
+
+	// Initialize projectile Hitdef. Must be placed after its localscl is determined
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
+	p.hitdef.clear(c, p.localscl)
+	p.hitdef.isprojectile = true
+	p.hitdef.playerNo = sys.workingState.playerNo
+	p.hitdef.guard_dist_x = [2]float32{c.size.proj.attack.dist.width[0], c.size.proj.attack.dist.width[1]}
+	p.hitdef.guard_dist_y = [2]float32{c.size.proj.attack.dist.height[0], c.size.proj.attack.dist.height[1]}
+	p.hitdef.guard_dist_z = [2]float32{c.size.proj.attack.dist.depth[0], c.size.proj.attack.dist.depth[1]}
+
+	return p
 }
 
 func (p *Projectile) setAllPos(pos [3]float32) {
@@ -5845,18 +5877,20 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 }
 
 // Always append to preserve insertion order
-func (c *Char) newExplod() (*Explod, int) {
+func (c *Char) spawnExplod() (*Explod, int) {
 	playerExplods := &sys.explods[c.playerNo]
 
-	// Append only if there’s room
-	if len(*playerExplods) < sys.cfg.Config.ExplodMax {
-		new := &Explod{}
-		*playerExplods = append(*playerExplods, new)
-		return new.initFromChar(c), len(*playerExplods) - 1
+	// Do nothing if explod limit reached
+	if len(*playerExplods) >= sys.cfg.Config.ExplodMax {
+		return nil, -1
 	}
 
-	// No room available
-	return nil, -1
+	e := newExplod()
+	*playerExplods = append(*playerExplods, e)
+	idx := len(*playerExplods) - 1
+
+	e.initFromChar(c)
+	return e, idx
 }
 
 func (c *Char) getExplods(id int32) (expls []*Explod) {
@@ -5876,7 +5910,8 @@ func (c *Char) explodDrawPal(e *Explod) [2]int32 {
 	return c.getDrawPal(e.palfx.remap[0])
 }
 
-func (c *Char) insertExplod(i int) {
+// Run final setup before explod goes live
+func (c *Char) commitExplod(i int) {
 	e := sys.explods[c.playerNo][i]
 
 	// Init animation
@@ -6218,60 +6253,39 @@ func (c *Char) hitAdd(h int32) {
 	}
 }
 
-func (c *Char) newProj() *Projectile {
+func (c *Char) spawnProjectile() *Projectile {
 	var p *Projectile
+	playerProjs := &sys.projs[c.playerNo]
 
 	// Reuse inactive projectile slot if available
-	for i := range sys.projs[c.playerNo] {
-		if sys.projs[c.playerNo][i].id < 0 {
-			p = sys.projs[c.playerNo][i]
-			sys.projs[c.playerNo][i].clear()
+	for i := range *playerProjs {
+		if (*playerProjs)[i].id < 0 {
+			p = (*playerProjs)[i]
 			break
 		}
 	}
 
 	// If no inactive projectile was found, append a new one within the max limit
-	if p == nil && len(sys.projs[c.playerNo]) < sys.cfg.Config.PlayerProjectileMax {
-		sys.projs[c.playerNo] = append(sys.projs[c.playerNo], newProjectile())
-		p = sys.projs[c.playerNo][len(sys.projs[c.playerNo])-1]
+	if p == nil && len(*playerProjs) < sys.cfg.Config.PlayerProjectileMax {
+		newP := newProjectile()
+		*playerProjs = append(*playerProjs, newP)
+		p = newP
 	}
 
 	// Set default values
 	if p != nil {
-		p.playerno = c.playerNo
-		p.id = 0
-
-		if c.minus == -2 || c.minus == -4 {
-			p.localscl = (320 / c.localcoord)
-		} else {
-			p.localscl = c.localscl
-		}
-
-		p.localcoord = c.localcoord
-		p.layerno = c.layerNo
-		p.palfx = c.getPalfx()
-
-		// Initialize projectile Hitdef. Must be placed after its localscl is determined
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
-		p.hitdef.clear(c, p.localscl)
-		p.hitdef.isprojectile = true
-		p.hitdef.playerNo = sys.workingState.playerNo
-		p.hitdef.guard_dist_x = [2]float32{c.size.proj.attack.dist.width[0], c.size.proj.attack.dist.width[1]}
-		p.hitdef.guard_dist_y = [2]float32{c.size.proj.attack.dist.height[0], c.size.proj.attack.dist.height[1]}
-		p.hitdef.guard_dist_z = [2]float32{c.size.proj.attack.dist.depth[0], c.size.proj.attack.dist.depth[1]}
+		p.initFromChar(c)
 	}
 
 	return p
 }
 
-func (c *Char) projInit(p *Projectile, pt PosType, offx, offy, offz float32,
+// Run final setup before projectile goes live
+func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz float32,
 	op bool, rpg, rpn int32, clsnscale bool) {
 	// Set starting position
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
-
-	// Projectile attackmul is decided upon its creation only
-	p.parentAttackMul = c.attackMul
 
 	if p.anim < -1 {
 		p.anim = 0
@@ -6291,22 +6305,25 @@ func (c *Char) projInit(p *Projectile, pt PosType, offx, offy, offz float32,
 	// Save total hits for later use
 	p.totalhits = p.hits
 
+	// Use "doscale" if applicable
 	if c.size.proj.doscale != 0 {
 		p.scale[0] *= c.size.xscale
 		p.scale[1] *= c.size.yscale
 	}
+
 	// Default Clsn scale
 	if !clsnscale {
 		p.clsnScale = c.clsnBaseScale
 	}
 
+	// Backward compatibility
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 		p.hitdef.chainid = -1
 		p.hitdef.nochainid = [8]int32{-1, -1, -1, -1, -1, -1, -1, -1}
 	}
 
+	// Facing handling
 	p.removefacing = c.facing
-
 	if p.velocity[0] < 0 {
 		p.facing *= -1
 		p.velocity[0] *= -1
@@ -7864,7 +7881,7 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 	} else {
 		return
 	}
-	if e, i := c.newExplod(); e != nil {
+	if e, i := c.spawnExplod(); e != nil {
 		e.animNo = 120
 		e.anim_ffx = "f"
 		e.sprpriority = math.MaxInt32
@@ -7872,7 +7889,7 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 		e.ownpal = true
 		e.relativePos = [...]float32{x, y, z}
 		e.setPos(c)
-		c.insertExplod(i)
+		c.commitExplod(i)
 	}
 }
 
@@ -9789,7 +9806,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		}
 
 		if animNo >= 0 {
-			if e, i := c.newExplod(); e != nil {
+			if e, i := c.spawnExplod(); e != nil {
 				//e.anim = c.getAnim(animNo, ffx, true)
 				e.animNo = animNo
 				e.anim_ffx = ffx
@@ -9809,7 +9826,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				//}
 				e.setPos(p1)
 				e.anglerot[0] = sparkangle
-				c.insertExplod(i)
+				c.commitExplod(i)
 			}
 		}
 	}

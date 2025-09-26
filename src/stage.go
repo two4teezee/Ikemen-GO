@@ -148,7 +148,7 @@ type backGround struct {
 	startsint          [2]int32
 	startsinlt         [2]int32
 	visible            bool
-	active             bool
+	enabled            bool
 	positionlink       bool
 	layerno            int32
 	autoresizeparallax bool
@@ -185,7 +185,7 @@ func newBackGround(sff *Sff) *backGround {
 		zoomscaledelta:     [...]float32{math.MaxFloat32, math.MaxFloat32},
 		actionno:           -1,
 		visible:            true,
-		active:             true,
+		enabled:            true,
 		autoresizeparallax: false,
 		startrect:          [...]int32{-32768, -32768, 65535, 65535},
 	}
@@ -1648,7 +1648,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 		}
 	case BT_Enable:
 		for i := range bgc.bg {
-			bgc.bg[i].active = bgc.v[0] != 0
+			bgc.bg[i].enabled = bgc.v[0] != 0
 		}
 	case BT_PalFX:
 		for i := range bgc.bg {
@@ -1803,10 +1803,10 @@ func (s *Stage) action() {
 	}
 
 	// Always (every frame) sync decoder run state to global pause + Enable.
-	// This prevents the decoder clock from advancing during round intro/superpause/pause.
+	// This prevents the decoder clock from advancing during pause.
 	for i := range s.bg {
 		if s.bg[i]._type == BG_Video {
-			shouldPlay := s.bg[i].active && !paused
+			shouldPlay := s.bg[i].enabled && !paused
 			// Apply visibility first so there's no frame-0 audio when Visible=0.
 			s.bg[i].video.SetVisible(s.bg[i].visible)
 			s.bg[i].video.SetPlaying(shouldPlay)
@@ -1835,7 +1835,7 @@ func (s *Stage) action() {
 			b.palfx.eInvertblend = sys.bgPalFX.eInvertblend
 			b.palfx.eNegType = sys.bgPalFX.eNegType
 		}
-		if b.active && !paused {
+		if b.enabled && !paused {
 			s.bg[i].bga.action()
 			if i > 0 && b.positionlink {
 				bgasinoffset0 := s.bg[link].bga.sinoffset[0]
@@ -1921,8 +1921,8 @@ func (s *Stage) draw(layer int32, x, y, scl float32) {
 	}
 	s.drawModel(pos, ofs[1], scl, layer)
 	for _, b := range s.bg {
-		// Draw only when visible and enabled (active).
-		if b.layerno == layer && b.visible && b.active && (b.anim.spr != nil || b._type == BG_Video) {
+		// Draw only when visible and enabled.
+		if b.layerno == layer && b.visible && b.enabled && (b.anim.spr != nil || b._type == BG_Video) {
 			b.draw(pos, scl, bgscl, s.localscl, s.scale, ofs[1], true)
 		}
 	}

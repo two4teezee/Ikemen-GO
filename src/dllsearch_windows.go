@@ -48,12 +48,12 @@ func init() {
 		"swscale-*.dll",
 	}
 
-	// Search order: exe dir → lib dir → Windows default dirs & PATH.
+	// Search order: exe dir -> lib dir -> Windows default dirs & PATH.
 	localOrder := []string{exeDir, libDir}
 	fallbackOrder := windowsDefaultAndPathDirs()
 
 	// Pick a concrete file for each family using the specified order.
-	chosen := make(map[string]string) // pattern → full path
+	chosen := make(map[string]string) // pattern -> full path
 	var missing []string
 
 	for _, pat := range wantPatterns {

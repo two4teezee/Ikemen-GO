@@ -1,5 +1,3 @@
-//go:build !kinc
-
 // This is almost identical to render_gl.go except it uses a VAO
 // for GL 3.2 which is the minimum version that runs on modern
 // macOS (Intel and ARM). Work adapted from assemblaj/fantasma

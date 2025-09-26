@@ -105,8 +105,7 @@ func loadFightFx(def string, isGlobal bool) error {
 					}
 				}
 				if ffx, ok := sys.ffx[prefix]; ok {
-					// グローバルFXは常に有効。キャラクターFXはカウントを増やす
-					// "Global FX are always enabled. Character FX increase the count"
+					// Global FX are always enabled. Character FX increase the count
 					if !isGlobal {
 						if ffx.refCount < 8 {
 							ffx.refCount += 1 + int((sys.numSimul[0]+sys.numSimul[1])/2)

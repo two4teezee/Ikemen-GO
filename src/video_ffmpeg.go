@@ -86,18 +86,18 @@ func (rs *reisenAudioStreamer) Stream(out [][2]float64) (n int, ok bool) {
 
 func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVideoFlag, loop bool) error {
 	//fmt.Println("Opening media file:", filename)
-	media, err := reisen.NewMedia(filename)
+	m, err := reisen.NewMedia(filename)
 	if err != nil {
 		return err
 	}
 
-	//bgv.describe(media)
+	//bgv.describe()
 
 	bgv.volume = volume
 	bgv.scale = sc
 	bgv.flag = sf
 	bgv.loop = loop
-	bgv.media = media
+	bgv.media = m
 	bgv.playing = false
 	bgv.visible = true
 	bgv.elapsedPTS = 0
@@ -107,12 +107,12 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	bgv.audioBuffer = make(chan []float64, 128)
 	bgv.errs = make(chan error)
 
-	err = media.OpenDecode()
+	err = bgv.media.OpenDecode()
 	if err != nil {
 		return err
 	}
 
-	videoStreams := media.VideoStreams()
+	videoStreams := bgv.media.VideoStreams()
 	if len(videoStreams) == 0 {
 		return fmt.Errorf("No decodable video streams in %s (check codecs in your FFmpeg build)", filename)
 	}
@@ -138,7 +138,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	bgv.videoStream = videoStreams[0]
 
 	// Try to open the first audio stream, if any
-	audioStreams := media.AudioStreams()
+	audioStreams := bgv.media.AudioStreams()
 	if len(audioStreams) > 0 {
 		if err := audioStreams[0].Open(); err == nil {
 			bgv.audioStream = audioStreams[0]
@@ -165,7 +165,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 				time.Sleep(5 * time.Millisecond)
 				continue
 			}
-			gotPacket := bgv.processPacket(bgv.media)
+			gotPacket := bgv.processPacket()
 			if gotPacket {
 				continue
 			}
@@ -196,7 +196,9 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 		if bgv.audioStream != nil {
 			bgv.audioStream.Close()
 		}
-		media.CloseDecode()
+		if bgv.media != nil {
+			bgv.media.CloseDecode()
+		}
 		close(bgv.frameBuffer)
 		close(bgv.audioBuffer)
 		close(bgv.errs)
@@ -205,21 +207,21 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	return nil
 }
 
-func (bgv *bgVideo) describe(media *reisen.Media) error {
+func (bgv *bgVideo) describe() error {
 	// Print the media properties.
-	dur, err := media.Duration()
+	dur, err := bgv.media.Duration()
 	if err != nil {
 		return err
 	}
 	fmt.Println("Duration:", dur)
-	fmt.Println("Format name:", media.FormatName())
-	fmt.Println("Format long name:", media.FormatLongName())
-	fmt.Println("MIME type:", media.FormatMIMEType())
-	fmt.Println("Number of streams:", media.StreamCount())
+	fmt.Println("Format name:", bgv.media.FormatName())
+	fmt.Println("Format long name:", bgv.media.FormatLongName())
+	fmt.Println("MIME type:", bgv.media.FormatMIMEType())
+	fmt.Println("Number of streams:", bgv.media.StreamCount())
 	fmt.Println()
 
 	// Enumerate the media file streams.
-	for _, stream := range media.Streams() {
+	for _, stream := range bgv.media.Streams() {
 		dur, err := stream.Duration()
 		if err != nil {
 			return err
@@ -240,8 +242,12 @@ func (bgv *bgVideo) describe(media *reisen.Media) error {
 	return nil
 }
 
-func (bgv *bgVideo) processPacket(media *reisen.Media) bool {
-	packet, gotPacket, err := media.ReadPacket()
+func (bgv *bgVideo) processPacket() bool {
+	if bgv.media == nil {
+		// No media yet; nothing to do.
+		return false
+	}
+	packet, gotPacket, err := bgv.media.ReadPacket()
 	if err != nil {
 		bgv.errs <- err
 	}
@@ -252,7 +258,7 @@ func (bgv *bgVideo) processPacket(media *reisen.Media) bool {
 
 	switch packet.Type() {
 	case reisen.StreamVideo:
-		s := media.Streams()[packet.StreamIndex()].(*reisen.VideoStream)
+		s := bgv.media.Streams()[packet.StreamIndex()].(*reisen.VideoStream)
 		vf, gotFrame, err := s.ReadVideoFrame()
 
 		if err != nil {
@@ -294,7 +300,7 @@ func (bgv *bgVideo) processPacket(media *reisen.Media) bool {
 		// Decode to float64 interleaved samples and push to audioBuffer.
 		// Reisen delivers stereo float64 as little-endian bytes (L,R,L,R,...) per frame.
 		// We do NOT sleep here; the Beep speaker drives timing and back-pressures via the channel.
-		s := media.Streams()[packet.StreamIndex()].(*reisen.AudioStream)
+		s := bgv.media.Streams()[packet.StreamIndex()].(*reisen.AudioStream)
 		af, gotFrame, err := s.ReadAudioFrame()
 		if err != nil {
 			bgv.errs <- err

@@ -8845,7 +8845,7 @@ func (c *Char) clsnCheckSingle(getter *Char, charbox, getterbox int32, reqcheck,
 			getter.pos[1]*getter.localscl + getter.offsetY()*getter.localscl},
 		getter.facing,
 		getterangle,
-		)
+	)
 }
 
 func (c *Char) hitByAttrTrigger(attr int32) bool {
@@ -11869,7 +11869,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 			// We skip the zAxisCheck function because we'll need to calculate the overlap again anyway
 
 			// Normal collision check
-			cposx := c.pos[0]*c.localscl
+			cposx := c.pos[0] * c.localscl
 			cxleft := c.sizeBox[0] * c.localscl
 			cxright := c.sizeBox[2] * c.localscl
 			if c.facing < 0 {
@@ -11879,7 +11879,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 			cxleft += cposx
 			cxright += cposx
 
-			gposx := getter.pos[0]*getter.localscl
+			gposx := getter.pos[0] * getter.localscl
 			gxleft := getter.sizeBox[0] * getter.localscl
 			gxright := getter.sizeBox[2] * getter.localscl
 			if getter.facing < 0 {
@@ -11894,11 +11894,11 @@ func (cl *CharList) pushDetection(getter *Char) {
 				continue
 			}
 
-			cposz := c.pos[2]*c.localscl
+			cposz := c.pos[2] * c.localscl
 			cztop := cposz - c.sizeDepth[0]*c.localscl
 			czbot := cposz + c.sizeDepth[1]*c.localscl
 
-			gposz := getter.pos[2]*getter.localscl
+			gposz := getter.pos[2] * getter.localscl
 			gztop := gposz - getter.sizeDepth[0]*getter.localscl
 			gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
@@ -12029,7 +12029,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 						if c.pushPriority <= getter.pushPriority {
 							c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
 						}
-					} else if gposz > cposz{
+					} else if gposz > cposz {
 						if c.pushPriority >= getter.pushPriority {
 							getter.pos[2] += ((czbot - gztop) * gfactor) / getter.localscl
 						}

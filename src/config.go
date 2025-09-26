@@ -51,12 +51,12 @@ type Config struct {
 		Lua     map[string][]string `ini:"map:^(?i)Lua[0-9]*$" lua:"Lua"`
 	} `ini:"Common"`
 	Options struct {
-		Difficulty int     `ini:"Difficulty"`
-		Life       float32 `ini:"Life"`
-		Time       int32   `ini:"Time"`
-		GameSpeed  int     `ini:"GameSpeed"`
-		GameSpeedStep int `ini:"GameSpeedStep"`
-		Match      struct {
+		Difficulty    int     `ini:"Difficulty"`
+		Life          float32 `ini:"Life"`
+		Time          int32   `ini:"Time"`
+		GameSpeed     int     `ini:"GameSpeed"`
+		GameSpeedStep int     `ini:"GameSpeedStep"`
+		Match         struct {
 			Wins         int32 `ini:"Wins"`
 			MaxDrawGames int32 `ini:"MaxDrawGames"`
 		} `ini:"Match"`

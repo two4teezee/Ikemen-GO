@@ -110,13 +110,13 @@ type GameState struct {
 	gameTime     int32
 	curRoundTime int32
 
-	chars          [MaxPlayerNo][]*Char
-	charData       [MaxPlayerNo][]Char
-	projs          [MaxPlayerNo][]*Projectile
-	explods        [MaxPlayerNo][]*Explod
-	aiInput        [MaxPlayerNo]AiInput
-	inputRemap     [MaxPlayerNo]int
-	charList       CharList
+	chars      [MaxPlayerNo][]*Char
+	charData   [MaxPlayerNo][]Char
+	projs      [MaxPlayerNo][]*Projectile
+	explods    [MaxPlayerNo][]*Explod
+	aiInput    [MaxPlayerNo]AiInput
+	inputRemap [MaxPlayerNo]int
+	charList   CharList
 
 	aiLevel            [MaxPlayerNo]float32 // UIT
 	cam                Camera

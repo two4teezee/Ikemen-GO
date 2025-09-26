@@ -3470,8 +3470,8 @@ func withoutTildeKey(k CommandKey) CommandKey {
 
 /*
 func autoGenerateExtendedCommand(originalCmd *Command) *Command {
-	// 対象コマンドか判定
-	// タメコマンド(/)や短すぎるコマンドは対象外
+	// Determine whether the command is eligible.
+	// Charge commands (/) and commands that are too short are excluded.
 	if len(originalCmd.cmd) < 3 {
 		return nil
 	}
@@ -3485,17 +3485,17 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 		return nil
 	}
 
-	// 最初の方向キー入力を探す
+	// Find the first directional key input.
 	firstInputKey := originalCmd.cmd[0].key[0]
 
 	var repeatPattern []cmdElem
 	repeatPos := -1
 
-	// 2番目の要素からループを開始し、最初のキーと同じキーを含む要素を探す
+	// Starting from the second element, look for an element that contains the same key as the first.
 	for i := 1; i < len(originalCmd.cmd); i++ {
 		found := false
 		for _, k := range originalCmd.cmd[i].key {
-			// `~` や `$` を無視して純粋なキーが同じか比較
+			// Compare the raw key while ignoring ~ and $.
 			if withoutTildeKey(k) == withoutTildeKey(firstInputKey) {
 				found = true
 				break
@@ -3503,7 +3503,7 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 		}
 		if found {
 			repeatPos = i
-			// 最初の入力から、それが再度現れる直前までをパターンとする
+			// Treat the sequence from the first input up to just before it reappears as the pattern.
 			repeatPattern = originalCmd.cmd[0:repeatPos]
 			break
 		}
@@ -3521,7 +3521,7 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 		modifiedPattern[i].key = newKeys
 	}
 
-	// 2番目以降のキー入力を$Nに置き換える
+	// Replace the second and subsequent key inputs with $N.
 	if len(modifiedPattern) > 1 {
 		for i := 1; i < len(modifiedPattern); i++ {
 			elem := &modifiedPattern[i]
@@ -3529,17 +3529,17 @@ func autoGenerateExtendedCommand(originalCmd *Command) *Command {
 		}
 	}
 
-	// 自動生成コマンドを作成
+	// Build the auto-generated command.
 	newCmdSlice := make([]cmdElem, 0, len(originalCmd.cmd)+len(modifiedPattern))
 	newCmdSlice = append(newCmdSlice, modifiedPattern...)
 	newCmdSlice = append(newCmdSlice, originalCmd.cmd...)
 
-	// 新規Command構造体を生成
+	// Create a new Command struct.
 	generatedCmd := *originalCmd
 	generatedCmd.cmd = newCmdSlice
 	generatedCmd.held = make([]bool, len(generatedCmd.hold))
 
-	// 繰り返しパターンの入力数に応じて猶予フレーム数 を加算する
+	// Add "grace frames" (time extension) based on the number of inputs in the repeating pattern.
 	timeExtension := int32(len(modifiedPattern)) * 4
 	generatedCmd.maxtime += timeExtension
 

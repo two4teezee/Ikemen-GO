@@ -3718,14 +3718,14 @@ func (c *Char) loadPalette() {
 }
 func (c *Char) loadFx(def string) error {
 	gi := c.gi()
-	gi.fxPath = []string{} // ロード前に必ず初期化
+	gi.fxPath = []string{} // Always initialize before loading.
 
 	charDefContent, err := LoadText(def)
 	if err != nil {
 		return err
 	}
 
-	// .defファイル内のパスを解決するためのヘルパー関数
+	// Helper function to resolve paths referenced inside the .def file.
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
 		isZipDef, zipArchiveOfDef, defSubPathInZip := IsZipPath(def)
 		pathInDefFile = filepath.ToSlash(pathInDefFile)
@@ -6054,7 +6054,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 
 	if current_ffx == "f" {
 		if c.gi().fightfxPrefix != "" {
-			current_ffx = c.gi().fightfxPrefix // 固有プレフィックスで上書き
+			current_ffx = c.gi().fightfxPrefix // Override with the character-specific prefix
 		}
 	}
 

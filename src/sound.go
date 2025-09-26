@@ -183,7 +183,7 @@ func (b *BufferSeeker) Stream(out [][2]float64) (n int, ok bool) {
 }
 
 func (b *BufferSeeker) Seek(p int) error {
-	// Clamp p so we don’t panic on bogus values
+	// Clamp p so we don't panic on bogus values
 	if p < 0 {
 		p = 0
 	} else if p > b.buf.Len() {
@@ -667,35 +667,35 @@ func readSound(f io.ReadSeekCloser, size uint32) (*Sound, error) {
 		return nil, err
 	}
 	// Check if the file can be fully played
-	// デコードテストを実行し、パニックを捕捉する
+	// Run a decode test and catch any panics.
 	var recovered interface{}
 	func() {
 		defer func() {
-			// この無名関数内で発生したパニックを捕捉
+			// Catch any panic that occurs inside this anonymous function.
 			if r := recover(); r != nil {
 				recovered = r
 			}
 		}()
 
-		// ファイルの終端までストリーミングを試みる
+		// Try streaming until the end of the file.
 		var samples [512][2]float64
 		for {
 			n, ok := s.Stream(samples[:])
 			if n == 0 || !ok {
-				// 正常に終端に達した場合
+				// When the end is reached normally.
 				if s.Err() == nil && s.Position() >= s.Len() {
 					break
 				}
-				// その他のエラー
+				// Other errors.
 				if s.Err() != nil {
-					// recover()で補足できないエラーはここでerrに詰める
+					// Errors not caught by recover() are stored here.
 					recovered = s.Err()
 				}
 				break
 			}
 		}
 	}()
-	// パニックが捕捉された場合
+	// If a panic was caught.
 	if recovered != nil {
 		return nil, nil // If sound wasn't able to be fully played, we disable it to avoid engine freezing
 	}

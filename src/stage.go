@@ -1947,6 +1947,15 @@ func (s *Stage) reset() {
 	// No need to reset BGCtrl at the moment. Tied to stagetime
 }
 
+// destroy stops any background video media so the stage can be safely discarded.
+func (s *Stage) destroy() {
+	for _, b := range s.bg {
+		if b != nil && b._type == BG_Video {
+			b.video.Close()
+		}
+	}
+}
+
 func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]int32,
 	add, mul [3]int32, sinadd [4]int32, sinmul [4]int32, sincolor [2]int32, sinhue [2]int32, invall int32, invblend int32, color float32, hue float32) {
 	for i := range s.bgc {

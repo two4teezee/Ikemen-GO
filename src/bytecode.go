@@ -3667,7 +3667,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_gamevar_pausetime:
 		sys.bcStack.PushI(sys.pausetime)
 	case OC_ex2_gamevar_slowtime:
-		sys.bcStack.PushI(sys.slowtimeTrigger)
+		sys.bcStack.PushI(sys.getSlowtime())
 	case OC_ex2_gamevar_superpausetime:
 		sys.bcStack.PushI(sys.supertime)
 	// HitDefVar
@@ -4271,12 +4271,7 @@ const (
 	hitBy_redirectid
 )
 
-func (sc hitBy) Run(c *Char, _ []int32) bool {
-	crun := getRedirectedChar(c, StateControllerBase(sc), hitBy_redirectid, "HitBy")
-	if crun == nil {
-		return false
-	}
-
+func (sc hitBy) runSub(c *Char, crun *Char, not bool) {
 	slot := int(-1)
 	attr := int32(-1)
 	time := int32(1)
@@ -4284,8 +4279,9 @@ func (sc hitBy) Run(c *Char, _ []int32) bool {
 	pid := int32(-1)
 	stk := false
 	old := false
+
 	set := func(slot int, attr, time int32, pno int, pid int32, stk bool) {
-		crun.hitby[slot].not = false
+		crun.hitby[slot].not = not
 		crun.hitby[slot].time = time
 		crun.hitby[slot].flag = attr
 		crun.hitby[slot].playerno = pno - 1
@@ -4325,6 +4321,16 @@ func (sc hitBy) Run(c *Char, _ []int32) bool {
 	if !old && slot >= 0 && slot <= 7 {
 		set(slot, attr, time, pno, pid, stk)
 	}
+}
+
+func (sc hitBy) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), hitBy_redirectid, "HitBy")
+	if crun == nil {
+		return false
+	}
+
+	// Run with "not" set to false
+	sc.runSub(c, crun, false)
 
 	return false
 }
@@ -4337,54 +4343,8 @@ func (sc notHitBy) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	slot := int(-1)
-	attr := int32(-1)
-	time := int32(1)
-	pno := int(-1)
-	pid := int32(-1)
-	stk := false
-	old := false
-	set := func(slot int, attr, time int32, pno int, pid int32, stk bool) {
-		crun.hitby[slot].not = true
-		crun.hitby[slot].time = time
-		crun.hitby[slot].flag = ^attr // Opposite
-		crun.hitby[slot].playerno = pno - 1
-		crun.hitby[slot].playerid = pid
-		crun.hitby[slot].stack = stk
-	}
-
-	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
-		switch paramID {
-		case hitBy_time:
-			time = exp[0].evalI(c)
-		case hitBy_value:
-			val := exp[0].evalI(c)
-			set(0, val, time, -1, -1, false)
-			old = true
-		case hitBy_value2:
-			val := exp[0].evalI(c)
-			set(1, val, time, -1, -1, false)
-			old = true
-		case hitBy_slot:
-			slot = int(Max(0, exp[0].evalI(c)))
-			if slot > 7 {
-				slot = 0
-			}
-		case hitBy_attr:
-			attr = exp[0].evalI(c)
-		case hitBy_playerno:
-			pno = int(exp[0].evalI(c))
-		case hitBy_playerid:
-			pid = exp[0].evalI(c)
-		case hitBy_stack:
-			stk = exp[0].evalB(c)
-		}
-		return true
-	})
-
-	if !old && slot >= 0 && slot <= 7 {
-		set(slot, attr, time, pno, pid, stk)
-	}
+	// Run with "not" set to true
+	hitBy(sc).runSub(c, crun, true)
 
 	return false
 }
@@ -4795,6 +4755,7 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 
 	self := (crun.id == c.id)
 	rec, rem, rtx := false, false, false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case destroySelf_recursive:
@@ -4806,6 +4767,8 @@ func (sc destroySelf) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
+	// Destroyself stops execution of current state, like ChangeState
 	return crun.destroySelf(rec, rem, rtx) && self
 }
 
@@ -5077,9 +5040,7 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_kovelocity:
 			h.kovelocity = exp[0].evalB(c)
 		case helper_preserve:
-			if exp[0].evalB(c) {
-				h.preserve = sys.round
-			}
+			h.preserve = exp[0].evalB(c)
 		case helper_ownclsnscale:
 			h.ownclsnscale = exp[0].evalB(c)
 		case helper_standby:
@@ -5532,7 +5493,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 
-	e, i := crun.newExplod()
+	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
 	}
@@ -5756,10 +5717,10 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//	e.localscl = (320 / crun.localcoord)
 	//} else {
 
-	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with insertExplod
+	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with commitExplod
 
 	e.setPos(crun)
-	crun.insertExplod(i)
+	crun.commitExplod(i)
 	return false
 }
 
@@ -6363,7 +6324,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	e, i := crun.newExplod()
+	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
 	}
@@ -6409,7 +6370,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	e.relativePos[0] -= float32(crun.size.draw.offset[0])
 	e.relativePos[1] -= float32(crun.size.draw.offset[1])
 	e.setPos(crun)
-	crun.insertExplod(i)
+	crun.commitExplod(i)
 
 	return false
 }
@@ -7198,7 +7159,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	clsnscale := false
 	rp := [...]int32{-1, 0}
 
-	p = crun.newProj()
+	p = crun.spawnProjectile()
 	if p == nil {
 		return false
 	}
@@ -7375,6 +7336,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	})
 
 	crun.setHitdefDefault(&p.hitdef)
+
 	if p.hitanim == -1 {
 		p.hitanim_ffx = p.anim_ffx
 	}
@@ -7389,7 +7351,8 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	if p.aimg.time != 0 {
 		p.aimg.setupPalFX()
 	}
-	crun.projInit(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
+
+	crun.commitProjectile(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
 	return false
 }
 
@@ -9427,7 +9390,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	})
 
 	// Add super FX
-	if e, i := c.newExplod(); e != nil {
+	if e, i := c.spawnExplod(); e != nil {
 		e.animNo = fx_anim
 		e.anim_ffx = fx_ffx
 		e.layerno = 1
@@ -9437,8 +9400,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		e.supermovetime = -1
 		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
 		e.setPos(c)
-		c.insertExplod(i)
-		// TODO: It also seems to inherit the player's remapped palette in Mugen
+		c.commitExplod(i)
 	}
 
 	crun.setSuperPauseTime(t, mt, uh, p2defmul)
@@ -10148,9 +10110,9 @@ func (sc remapPal) Run(c *Char, _ []int32) bool {
 				src[1] = exp[1].evalI(c)
 			}
 		case remapPal_dest:
-			dst = [...]int32{exp[0].evalI(c), -1}
+			dst[0] = exp[0].evalI(c)
 			if len(exp) > 1 {
-				dst[1] = exp[1].evalI(c)
+				dst[1] = exp[1].evalI(c) // If only first parameter is defined, the second one stays at default. As usual in CNS
 			}
 		}
 		return true

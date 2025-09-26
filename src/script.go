@@ -1942,7 +1942,10 @@ func systemScriptInit(l *lua.LState) {
 		// Handle the second argument which can be nil, string, or a table
 		val := l.Get(2)
 		var value interface{}
-		if val == lua.LNil {
+		if val.Type() == lua.LTBool {
+			// Convert Lua bools to native Go bools
+			value = lua.LVAsBool(val)
+		} else if val == lua.LNil {
 			// nil value means remove a map entry or clear an array depending on context
 			value = nil
 		} else if tbl, ok := val.(*lua.LTable); ok {
@@ -3137,6 +3140,7 @@ func systemScriptInit(l *lua.LState) {
 
 // Trigger Functions
 func triggerFunctions(l *lua.LState) {
+	// Create a temporary dummy character to avoid possible nil checks
 	sys.debugWC = newChar(0, 0)
 	// redirection
 	luaRegister(l, "player", func(*lua.LState) int {
@@ -5581,7 +5585,7 @@ func triggerFunctions(l *lua.LState) {
 		case "pausetime":
 			l.Push(lua.LNumber(sys.pausetime))
 		case "slowtime":
-			l.Push(lua.LNumber(sys.slowtimeTrigger))
+			l.Push(lua.LNumber(sys.getSlowtime()))
 		case "superpausetime":
 			l.Push(lua.LNumber(sys.supertime))
 		default:

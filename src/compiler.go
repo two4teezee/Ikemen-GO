@@ -30,6 +30,7 @@ type Compiler struct {
 	funcs            map[string]bytecodeFunction
 	funcUsed         map[string]bool
 	stateNo          int32
+	zssMode          bool
 }
 
 func newCompiler() *Compiler {
@@ -2676,7 +2677,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return nil
 		}
 		if err := eqne(hda); err != nil {
-			if sys.cgi[c.playerNo].ikemenverF > 0 || !sys.ignoreMostErrors {
+			//if sys.cgi[c.playerNo].ikemenverF > 0 || !sys.ignoreMostErrors {
+			if c.zssMode || !sys.ignoreMostErrors {
 				return bvNone(), err
 			}
 			sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": HitDefAttr Missing '=' or '!=' "+" in state %v ", c.stateNo))
@@ -5626,8 +5628,9 @@ func (c *Compiler) paramAnimtype(is IniSection, sc *StateControllerBase, paramNa
 		}
 		var ra Reaction
 		dataLower := strings.ToLower(data)
-		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
-			// Mugen chars: first letter is enough
+		//if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+		if !c.zssMode {
+			// CNS: first letter is enough
 			switch dataLower[0] {
 			case 'l':
 				ra = RA_Light
@@ -5645,7 +5648,7 @@ func (c *Compiler) paramAnimtype(is IniSection, sc *StateControllerBase, paramNa
 				return Error("Invalid " + paramName + ": " + data)
 			}
 		} else {
-			// Ikemen chars: require full word
+			// ZSS: require full word
 			switch dataLower {
 			case "light":
 				ra = RA_Light
@@ -5675,8 +5678,9 @@ func (c *Compiler) paramHittype(is IniSection, sc *StateControllerBase, paramNam
 		}
 		var ht HitType
 		dataLower := strings.ToLower(data)
-		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
-			// Mugen chars: first letter is enough
+		//if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+		if !c.zssMode {
+			// CNS: first letter is enough
 			switch dataLower[0] {
 			case 'h':
 				ht = HT_High
@@ -5690,7 +5694,7 @@ func (c *Compiler) paramHittype(is IniSection, sc *StateControllerBase, paramNam
 				return Error("Invalid " + paramName + ": " + data)
 			}
 		} else {
-			// Ikemen chars: require full word
+			// ZSS: require full word
 			switch dataLower {
 			case "high":
 				ht = HT_High
@@ -5716,8 +5720,9 @@ func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase, id byte)
 		}
 		var pt PosType
 		dataLower := strings.ToLower(data)
-		if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
-			// Mugen chars: first letter is enough
+		//if sys.cgi[c.playerNo].ikemenver[0] == 0 && sys.cgi[c.playerNo].ikemenver[1] == 0 {
+		if !c.zssMode {
+			// CNS: first letter is enough
 			if len(dataLower) >= 2 && dataLower[:2] == "p2" {
 				pt = PT_P2
 			} else {
@@ -5739,7 +5744,7 @@ func (c *Compiler) paramPostype(is IniSection, sc *StateControllerBase, id byte)
 				}
 			}
 		} else {
-			// Ikemen chars: require full word
+			// ZSS: require full word
 			switch dataLower {
 			case "p1":
 				pt = PT_P1
@@ -5776,7 +5781,8 @@ func (c *Compiler) paramSpace(is IniSection, sc *StateControllerBase, id byte) e
 		case "screen":
 			spc = Space_screen
 		default:
-			if sys.cgi[c.playerNo].ikemenverF > 0 && !sys.ignoreMostErrors {
+			//if sys.cgi[c.playerNo].ikemenverF > 0 && !sys.ignoreMostErrors {
+			if c.zssMode && !sys.ignoreMostErrors {
 				return Error("Invalid space type: " + data)
 			} else {
 				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Invalid space type: "+data+" in state %v ", c.stateNo))
@@ -6131,13 +6137,14 @@ func cnsStringArray(arg string) ([]string, error) {
 func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 	filename string, dirs []string, negoverride bool, constants map[string]float32) error {
 	var str string
-	zss := HasExtension(filename, ".zss")
+	c.zssMode = HasExtension(filename, ".zss")
 	fnz := filename
+
 	// Load state file
 	if err := LoadFile(&filename, dirs, func(filename string) error {
 		var err error
 		// If this is a zss file
-		if zss {
+		if c.zssMode {
 			b, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -6164,6 +6171,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 		}
 		return err
 	}
+
 	c.lines, c.i = SplitAndTrim(str, "\n"), 0
 	errmes := func(err error) error {
 		return Error(fmt.Sprintf("%v:%v:\n%v", filename, c.i+1, err.Error()))

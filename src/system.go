@@ -216,13 +216,9 @@ type System struct {
 	finishType              FinishType
 	waitdown                int32
 	slowtime                int32
-	slowtimeTrigger         int32
 	wintime                 int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
-	explodsLayerN1          [MaxPlayerNo][]int
-	explodsLayer0           [MaxPlayerNo][]int
-	explodsLayer1           [MaxPlayerNo][]int
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -775,27 +771,36 @@ func (s *System) anyButton() bool {
 	return s.anyHardButton()
 }
 
+func (s *System) anyChar() *Char {
+	for i := range s.chars {
+		for j := range s.chars[i] {
+			if s.chars[i][j] != nil {
+				return s.chars[i][j]
+			}
+		}
+	}
+	return nil
+}
+
 func (s *System) playerID(id int32) *Char {
-	return s.charList.getID(id)
+	return s.charList.getCharWithID(id)
 }
 
 func (s *System) playerIndexRedirect(idx int32) *Char {
-	if idx >= 0 && int(idx) < len(s.charList.runOrder) {
-		return s.charList.runOrder[idx]
+	// We will ignore destroyed helpers here, like Mugen redirections
+	var searchIdx int32
+	for _, p := range sys.charList.runOrder {
+		if p != nil && !p.csf(CSF_destroy) {
+			if searchIdx == idx {
+				return p
+			}
+			searchIdx++
+		}
 	}
 
-	// TODO: Should we ignore destroyed helpers? PlayerID doesn't but Helper does
-	/*
-		var searchIdx int32
-		for _, p := range sys.charList.runOrder {
-			if p != nil && !p.csf(CSF_destroy) {
-				if searchIdx == idx {
-					return p
-				}
-				searchIdx++
-			}
-		}
-	*/
+	//if idx >= 0 && int(idx) < len(s.charList.runOrder) {
+	//	return s.charList.runOrder[idx]
+	//}
 
 	return nil
 }
@@ -1169,7 +1174,8 @@ func (s *System) newCharId() int32 {
 		taken = false
 		for _, p := range s.chars {
 			for _, c := range p {
-				if c.id == newid && c.preserve != 0 && !c.csf(CSF_destroy) {
+				//if c.id == newid && c.preserve != 0 && !c.csf(CSF_destroy) {
+				if c.id == newid && c.preserve && !c.csf(CSF_destroy) {
 					taken = true
 					newid++
 					break
@@ -1247,21 +1253,23 @@ func (s *System) clearAllSound() {
 }
 
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds
-func (s *System) clearPlayerAssets(pn int, destroy bool) {
+func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	if len(s.chars[pn]) > 0 {
 		p := s.chars[pn][0]
 		for _, h := range s.chars[pn][1:] {
-			if destroy || h.preserve == 0 || (s.roundResetFlg && h.preserve == s.round) {
+			h.soundChannels.SetSize(0)
+			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
+			if !h.preserve || forceDestroy { // F4 now destroys "preserve" helpers when reloading round start backup
 				h.destroy()
 			}
-			h.soundChannels.SetSize(0)
 		}
-		if destroy {
+		if forceDestroy {
 			p.children = p.children[:0]
 		} else {
 			for i, ch := range p.children {
 				if ch != nil {
-					if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+					//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+					if !ch.preserve {
 						p.children[i] = nil
 					}
 				}
@@ -1272,9 +1280,6 @@ func (s *System) clearPlayerAssets(pn int, destroy bool) {
 	}
 	s.projs[pn] = s.projs[pn][:0]
 	s.explods[pn] = s.explods[pn][:0]
-	s.explodsLayerN1[pn] = s.explodsLayerN1[pn][:0]
-	s.explodsLayer0[pn] = s.explodsLayer0[pn][:0]
-	s.explodsLayer1[pn] = s.explodsLayer1[pn][:0]
 }
 
 func (s *System) resetRoundState() {
@@ -1656,51 +1661,57 @@ func (s *System) action() {
 	}
 
 	s.charList.cueDraw()
-
-	explUpdate := func(edl *[len(s.chars)][]int, drop bool) {
-		for i, el := range *edl {
-			for j := len(el) - 1; j >= 0; j-- {
-				if el[j] >= 0 {
-					s.explods[i][el[j]].update(s.cgi[i].mugenverF, i)
-					if s.explods[i][el[j]].id == IErr {
-						if drop {
-							el = append(el[:j], el[j+1:]...)
-							(*edl)[i] = el
-						} else {
-							el[j] = -1
-						}
-					}
-				}
-			}
-		}
-	}
-	explUpdate(&s.explodsLayerN1, true)
-	explUpdate(&s.explodsLayer0, true)
-	explUpdate(&s.explodsLayer1, false)
+	s.explodUpdate()
 
 	// Adjust game speed
 	if s.tickNextFrame() {
 		spd := float32(s.gameLogicSpeed()) / float32(s.gameRenderSpeed())
+
 		// KO slowdown
-		s.slowtimeTrigger = 0
-		if s.intro < 0 && s.curRoundTime != 0 && s.slowtime > 0 {
+		if st := s.getSlowtime(); st > 0 {
 			if !s.gsf(GSF_nokoslow) {
-				spd *= s.lifebar.ro.slow_speed
-				if s.slowtime < s.lifebar.ro.slow_fadetime {
-					spd += (float32(1) - s.lifebar.ro.slow_speed) * float32(s.lifebar.ro.slow_fadetime-s.slowtime) / float32(s.lifebar.ro.slow_fadetime)
+				base := s.lifebar.ro.slow_speed
+				fade := s.lifebar.ro.slow_fadetime
+				spd *= base
+				if st < fade {
+					ratio := float32(fade-st) / float32(fade)
+					spd = base + (1-base)*ratio
 				}
 			}
-			s.slowtimeTrigger = s.slowtime
 			s.slowtime--
 		}
+
 		// Outside match or while frame stepping
 		if s.postMatchFlg || s.frameStepFlag {
 			spd = 1
 		}
+
 		s.turbo = spd
 	}
 	s.tickSound()
 	return
+}
+
+// Update all explods for all players
+func (s *System) explodUpdate() {
+	for i, playerExplods := range s.explods {
+		tempSlice := playerExplods[:0] // Reuse backing array
+		for _, e := range playerExplods {
+			e.update(i)
+			// Keep only valid explods in the slice
+			if e.id != IErr {
+				tempSlice = append(tempSlice, e)
+			}
+		}
+		s.explods[i] = tempSlice
+	}
+}
+
+func (s *System) getSlowtime() int32 {
+	if s.slowtime > 0 && s.intro < 0 && s.curRoundTime != 0 {
+		return s.slowtime
+	}
+	return 0
 }
 
 func (s *System) runFightScreen() {
@@ -2303,8 +2314,8 @@ func (s *System) runMatch() (reload bool) {
 	// Make a new backup once everything is initialized
 	s.roundBackup.Save()
 
-	// Default debug/scripts to player 1
-	s.debugWC = sys.chars[0][0]
+	// Default debug/scripts to any found char
+	s.debugWC = s.anyChar()
 	debugInput := func() {
 		select {
 		case cl := <-s.commandLine:
@@ -2664,7 +2675,7 @@ func (s *System) runNextRound() bool {
 }
 
 func (s *System) gameLogicSpeed() int32 {
-	base := int32(60 + s.cfg.Options.GameSpeed*5) // TODO: config increments
+	base := int32(60 + s.cfg.Options.GameSpeed*s.cfg.Options.GameSpeedStep)
 	spd := int32(float32(base) * s.debugAccel)
 	return Max(1, spd)
 }
@@ -2689,7 +2700,7 @@ func (s *System) IsRollback() bool {
 }
 
 type RoundStartBackup struct {
-	charBackup    [MaxPlayerNo]Char
+	charBackup    [MaxPlayerNo][]Char
 	cgiBackup     [MaxPlayerNo]CharGlobalInfo
 	stageBackup   Stage
 	oldWins       [2]int32
@@ -2699,38 +2710,43 @@ type RoundStartBackup struct {
 
 func (bk *RoundStartBackup) Save() {
 	// Save characters
+	// We save helpers as well because of "preserve" parameter
 	for i, chars := range sys.chars {
 		if len(chars) == 0 {
 			continue
 		}
-		c := chars[0]
 
-		// Shallow copy
-		bk.charBackup[i] = *c
+		// Allocate slice for backup
+		bk.charBackup[i] = make([]Char, 0, len(chars))
 
-		// Deep copy maps
-		bk.charBackup[i].cnsvar = make(map[int32]int32, len(c.cnsvar))
-		for k, v := range c.cnsvar {
-			bk.charBackup[i].cnsvar[k] = v
-		}
+		for _, c := range chars {
+			// Shallow copy whole struct
+			bkup := *c
 
-		bk.charBackup[i].cnsfvar = make(map[int32]float32, len(c.cnsfvar))
-		for k, v := range c.cnsfvar {
-			bk.charBackup[i].cnsfvar[k] = v
-		}
+			// Deep copy maps
+			bkup.cnsvar = make(map[int32]int32, len(c.cnsvar))
+			for k, v := range c.cnsvar {
+				bkup.cnsvar[k] = v
+			}
+			bkup.cnsfvar = make(map[int32]float32, len(c.cnsfvar))
+			for k, v := range c.cnsfvar {
+				bkup.cnsfvar[k] = v
+			}
+			bkup.mapArray = make(map[string]float32, len(c.mapArray))
+			for k, v := range c.mapArray {
+				bkup.mapArray[k] = v
+			}
 
-		bk.charBackup[i].mapArray = make(map[string]float32, len(c.mapArray))
-		for k, v := range c.mapArray {
-			bk.charBackup[i].mapArray[k] = v
-		}
+			// Deep copy dialogue slice
+			bkup.dialogue = append([]string{}, c.dialogue...)
 
-		// Deep copy slices
-		bk.charBackup[i].dialogue = append([]string{}, c.dialogue...)
+			// Deep copy remap preset
+			bkup.remapSpr = make(RemapPreset)
+			for k, v := range c.remapSpr {
+				bkup.remapSpr[k] = v
+			}
 
-		// Deep copy remap preset
-		bk.charBackup[i].remapSpr = make(RemapPreset)
-		for k, v := range c.remapSpr {
-			bk.charBackup[i].remapSpr[k] = v
+			bk.charBackup[i] = append(bk.charBackup[i], bkup)
 		}
 	}
 
@@ -2747,7 +2763,7 @@ func (bk *RoundStartBackup) Save() {
 	for k, v := range sys.stage.constants {
 		bk.stageBackup.constants[k] = v
 	}
-	bk.stageBackup.attachedchardef = append([]string{}, sys.stage.attachedchardef...) // Do we need this one?
+	bk.stageBackup.attachedchardef = append([]string{}, sys.stage.attachedchardef...)
 
 	// Match info
 	bk.oldWins, bk.oldDraws = sys.wins, sys.draws
@@ -2761,39 +2777,55 @@ func (bk *RoundStartBackup) Restore() {
 			continue
 		}
 
-		c := chars[0]
+		for j, c := range chars {
+			// Find the backup corresponding to this index
+			var bkup *Char
+			for k := range bk.charBackup[i] {
+				if bk.charBackup[i][k].helperIndex == c.helperIndex {
+					bkup = &bk.charBackup[i][k]
+					break
+				}
+			}
 
-		// Preserve live sounds before overwriting
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2670
-		liveSounds := c.soundChannels
+			// Safeguard: if no backup exists for this slot and it’s not the root, destroy the helper
+			if bkup == nil {
+				if j != 0 && c.helperIndex != 0 {
+					c.destroy()
+				}
+				continue
+			}
 
-		// Restore shallow copy
-		*c = bk.charBackup[i]
+			// Save live sounds before overwriting
+			liveSounds := c.soundChannels
 
-		// Restore live sounds
-		c.soundChannels = liveSounds
+			// Restore shallow copy from backup
+			*c = *bkup
 
-		// Remake the CNS variable maps
-		// Then restore only var and fvar (losing sysvar and sysfvar)
-		c.initCnsVar()
-		for k, v := range bk.charBackup[i].cnsvar {
-			c.cnsvar[k] = v
-		}
-		for k, v := range bk.charBackup[i].cnsfvar {
-			c.cnsfvar[k] = v
-		}
+			// Restore live sounds
+			c.soundChannels = liveSounds
 
-		// Restore maps
-		c.mapArray = make(map[string]float32, len(bk.charBackup[i].mapArray))
-		for k, v := range bk.charBackup[i].mapArray {
-			c.mapArray[k] = v
-		}
+			// Remake the CNS variable maps
+			// Then restore only var and fvar (losing sysvar and sysfvar)
+			c.initCnsVar()
+			for k, v := range bkup.cnsvar {
+				c.cnsvar[k] = v
+			}
+			for k, v := range bkup.cnsfvar {
+				c.cnsfvar[k] = v
+			}
 
-		c.dialogue = append([]string{}, bk.charBackup[i].dialogue...)
+			// Restore maps
+			c.mapArray = make(map[string]float32, len(bkup.mapArray))
+			for k, v := range bkup.mapArray {
+				c.mapArray[k] = v
+			}
 
-		c.remapSpr = make(RemapPreset)
-		for k, v := range bk.charBackup[i].remapSpr {
-			c.remapSpr[k] = v
+			c.dialogue = append([]string{}, bkup.dialogue...)
+
+			c.remapSpr = make(RemapPreset)
+			for k, v := range bkup.remapSpr {
+				c.remapSpr[k] = v
+			}
 		}
 	}
 

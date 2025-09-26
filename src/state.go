@@ -110,13 +110,10 @@ type GameState struct {
 	gameTime     int32
 	curRoundTime int32
 
-	projs          [MaxPlayerNo][]*Projectile
 	chars          [MaxPlayerNo][]*Char
 	charData       [MaxPlayerNo][]Char
+	projs          [MaxPlayerNo][]*Projectile
 	explods        [MaxPlayerNo][]*Explod
-	explodsLayer0  [MaxPlayerNo][]int
-	explodsLayer1  [MaxPlayerNo][]int
-	explodsLayerN1 [MaxPlayerNo][]int
 	aiInput        [MaxPlayerNo]AiInput
 	inputRemap     [MaxPlayerNo]int
 	charList       CharList
@@ -254,7 +251,6 @@ type GameState struct {
 	fight        Fight
 	introSkipped bool
 	preFightTime int32
-	debugWC      *Char
 
 	commandLists []*CommandList
 	luaTables    []*lua.LTable
@@ -465,11 +461,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.continueFlg = gs.continueFlg
 	sys.stageLoopNo = gs.stageLoopNo
 
-	// 11/5/22
-
-	wc := gs.debugWC.Clone(a, gsp)
-	sys.debugWC = &wc
-
 	// gotta keep these pointers around because they are userdata
 	for i := 0; i < len(sys.commandLists); i++ {
 		gs.commandLists[i].CopyTo(sys.commandLists[i], a)
@@ -676,8 +667,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.continueFlg = sys.continueFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
-	debugWC := sys.debugWC.Clone(a, gsp)
-	gs.debugWC = &debugWC
 	gs.commandLists = arena.MakeSlice[*CommandList](a, len(sys.commandLists), len(sys.commandLists))
 	for i := 0; i < len(sys.commandLists); i++ {
 		cl := sys.commandLists[i].Clone(a)
@@ -789,20 +778,6 @@ func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 			gs.explods[i][j] = sys.explods[i][j].Clone(a, gsp)
 		}
 	}
-	for i := range sys.explodsLayer0 {
-		gs.explodsLayer0[i] = arena.MakeSlice[int](a, len(sys.explodsLayer0[i]), len(sys.explodsLayer0[i]))
-		copy(gs.explodsLayer0[i], sys.explodsLayer0[i])
-	}
-
-	for i := range sys.explodsLayer1 {
-		gs.explodsLayer1[i] = arena.MakeSlice[int](a, len(sys.explodsLayer1[i]), len(sys.explodsLayer1[i]))
-		copy(gs.explodsLayer1[i], sys.explodsLayer1[i])
-	}
-
-	for i := range sys.explodsLayerN1 {
-		gs.explodsLayerN1[i] = arena.MakeSlice[int](a, len(sys.explodsLayerN1[i]), len(sys.explodsLayerN1[i]))
-		copy(gs.explodsLayerN1[i], sys.explodsLayerN1[i])
-	}
 }
 
 func (gs *GameState) loadPalFX(a *arena.Arena) {
@@ -830,19 +805,11 @@ func (gs *GameState) loadCharData(a *arena.Arena, gsp *GameStatePool) {
 		}
 	}
 
-	// Set workingChar to the first char we find, just in case
-	sys.workingChar = nil
-	for i := range sys.chars {
-		for j := range sys.chars[i] {
-			if sys.chars[i][j] != nil {
-				sys.workingChar = sys.chars[i][j]
-				sys.workingState = &sys.workingChar.ss.sb
-				break
-			}
-		}
-		if sys.workingChar != nil {
-			break
-		}
+	// Set workingChar and debugWC to the first char we find, just in case
+	if c := sys.anyChar(); c != nil {
+		sys.workingChar = c
+		sys.workingState = &c.ss.sb
+		sys.debugWC = c
 	}
 
 	sys.charList = gs.charList.Clone(a, gsp)
@@ -871,21 +838,6 @@ func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 		for j := 0; j < len(gs.explods[i]); j++ {
 			sys.explods[i][j] = gs.explods[i][j].Clone(a, gsp)
 		}
-	}
-
-	for i := range gs.explodsLayer0 {
-		sys.explodsLayer0[i] = arena.MakeSlice[int](a, len(gs.explodsLayer0[i]), len(gs.explodsLayer0[i]))
-		copy(sys.explodsLayer0[i], gs.explodsLayer0[i])
-	}
-
-	for i := range gs.explodsLayer1 {
-		sys.explodsLayer1[i] = arena.MakeSlice[int](a, len(gs.explodsLayer1[i]), len(gs.explodsLayer1[i]))
-		copy(sys.explodsLayer1[i], gs.explodsLayer1[i])
-	}
-
-	for i := range gs.explodsLayerN1 {
-		sys.explodsLayerN1[i] = arena.MakeSlice[int](a, len(gs.explodsLayerN1[i]), len(gs.explodsLayerN1[i]))
-		copy(sys.explodsLayerN1[i], gs.explodsLayerN1[i])
 	}
 }
 

@@ -9,29 +9,36 @@ import (
 	"time"
 
 	"github.com/gopxl/beep/v2"
+	"github.com/gopxl/beep/v2/effects"
+	"github.com/gopxl/beep/v2/speaker"
 	"github.com/ikemen-engine/reisen"
 )
 
 type bgVideo struct {
-	started     bool
-	errs        chan error
-	frameBuffer chan *image.RGBA
-	audioBuffer chan []float64 // interleaved L,R float64 samples
-	audioStream *reisen.AudioStream
-	videoStream *reisen.VideoStream
-	media       *reisen.Media
-	loop        bool
-	texture     Texture
-	startWall   time.Time
-	basePTS     time.Duration
-	haveBasePTS bool
-	elapsedPTS  time.Duration
-	lastFrame   *image.RGBA
-	volume      int
-	scale       BgVideoScale
-	flag        BgVideoFlag
-	playing     bool
-	visible     bool
+	errs            chan error
+	frameBuffer     chan *image.RGBA
+	audioBuffer     chan []float64 // interleaved L,R float64 samples
+	quit            chan struct{}  // signals the decode goroutine to exit
+	done            chan struct{}  // closed when the goroutine exits
+	audioStream     *reisen.AudioStream
+	videoStream     *reisen.VideoStream
+	media           *reisen.Media
+	loop            bool
+	texture         Texture
+	startWall       time.Time
+	basePTS         time.Duration
+	haveBasePTS     bool
+	elapsedPTS      time.Duration
+	lastFrame       *image.RGBA
+	volume          int
+	scale           BgVideoScale
+	flag            BgVideoFlag
+	playing         bool
+	visible         bool
+	videoCtrl       *beep.Ctrl
+	videoVol        *effects.Volume
+	audioSampleRate beep.SampleRate
+	inMixer         bool
 }
 
 const (
@@ -84,8 +91,36 @@ func (rs *reisenAudioStreamer) Stream(out [][2]float64) (n int, ok bool) {
 	return n, true
 }
 
+// Non-blocking, close-safe drains (return immediately if channel is closed/empty).
+func drainAudio(ch <-chan []float64) {
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return
+			}
+		default:
+			return
+		}
+	}
+}
+
+func drainFrames(ch <-chan *image.RGBA) {
+	for {
+		select {
+		case _, ok := <-ch:
+			if !ok {
+				return
+			}
+		default:
+			return
+		}
+	}
+}
+
 func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVideoFlag, loop bool) error {
-	//fmt.Println("Opening media file:", filename)
+	fmt.Println("(bgv *bgVideo) Open")
+	// fmt.Println("Opening media file:", filename)
 	m, err := reisen.NewMedia(filename)
 	if err != nil {
 		return err
@@ -106,6 +141,8 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	bgv.frameBuffer = make(chan *image.RGBA, frameBufferSize)
 	bgv.audioBuffer = make(chan []float64, 128)
 	bgv.errs = make(chan error)
+	bgv.quit = make(chan struct{})
+	bgv.done = make(chan struct{})
 
 	err = bgv.media.OpenDecode()
 	if err != nil {
@@ -142,9 +179,18 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	if len(audioStreams) > 0 {
 		if err := audioStreams[0].Open(); err == nil {
 			bgv.audioStream = audioStreams[0]
-			// Hand off a streamer on the same channel path as regular BGM.
+			// Build an independent chain mixed into sys.soundMixer
+			bgv.audioSampleRate = beep.SampleRate(audioStreams[0].SampleRate())
 			rs := &reisenAudioStreamer{ch: bgv.audioBuffer}
-			sys.bgm.OpenFromStreamer(rs, beep.SampleRate(audioStreams[0].SampleRate()), volume)
+			bgv.videoVol = &effects.Volume{Streamer: rs, Base: 2}
+			// Resample video audio to match engine output sample rate
+			dst := beep.SampleRate(sys.cfg.Sound.SampleRate)
+			resampler := beep.Resample(audioResampleQuality, bgv.audioSampleRate, dst, bgv.videoVol)
+			bgv.videoCtrl = &beep.Ctrl{Streamer: resampler, Paused: true} // start paused until SetPlaying(true)
+			sys.soundMixer.Add(bgv.videoCtrl)
+			bgv.inMixer = true
+			bgv.volume = volume
+			bgv.updateAudioVolume()
 		} else {
 			return fmt.Errorf("Audio stream open failed: %v", err)
 		}
@@ -159,7 +205,14 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 
 	// Decode loop. When EOF is reached and loop==true, rewind to t=0 and continue.
 	go func() {
+		defer close(bgv.done)
 		for {
+			// Allow external shutdown.
+			select {
+			case <-bgv.quit:
+				goto finish
+			default:
+			}
 			// Do not demux/decode while paused: that keeps A/V frozen and avoids audio blips.
 			if !bgv.playing {
 				time.Sleep(5 * time.Millisecond)
@@ -191,6 +244,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 			// Not looping -> finish and clean up.
 			break
 		}
+	finish:
 		// Cleanup only when we actually finish (i.e., not looping forever).
 		bgv.videoStream.Close()
 		if bgv.audioStream != nil {
@@ -199,6 +253,13 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 		if bgv.media != nil {
 			bgv.media.CloseDecode()
 		}
+		// Detach from mixer
+		if bgv.videoCtrl != nil {
+			speaker.Lock()
+			bgv.videoCtrl.Streamer = nil
+			speaker.Unlock()
+		}
+		bgv.inMixer = false
 		close(bgv.frameBuffer)
 		close(bgv.audioBuffer)
 		close(bgv.errs)
@@ -333,7 +394,6 @@ func (bgv *bgVideo) processPacket() bool {
 }
 
 func (bgv *bgVideo) Tick() error {
-	// fmt.Println("Tick video... ", bgv, bgv.started)
 	select {
 	case err, ok := <-bgv.errs:
 		if ok {
@@ -341,10 +401,6 @@ func (bgv *bgVideo) Tick() error {
 		}
 
 	default:
-	}
-
-	if !bgv.started {
-		bgv.started = true
 	}
 
 	// Non-blocking receive so render loop never stalls
@@ -374,7 +430,6 @@ func (bgv *bgVideo) Tick() error {
 		}
 	}
 
-	// fmt.Println("Ticked video... ", bgv, bgv.started)
 	return nil
 }
 
@@ -384,6 +439,11 @@ func (bgv *bgVideo) SetPlaying(on bool) {
 		return
 	}
 	if on {
+		// Ensure we're attached to the mixer (it may have been cleared).
+		if bgv.videoCtrl != nil && !bgv.inMixer {
+			sys.soundMixer.Add(bgv.videoCtrl)
+			bgv.inMixer = true
+		}
 		// If we have not established a baseline PTS in this decode epoch,
 		// rewind to t=0 so the first decoded frame is a keyframe.
 		if !bgv.haveBasePTS && bgv.videoStream != nil {
@@ -396,6 +456,12 @@ func (bgv *bgVideo) SetPlaying(on bool) {
 		// Freeze: decode loop will idle until re-enabled.
 		bgv.playing = false
 	}
+	// Also pause/unpause the mixer-side ctrl for CPU savings.
+	if bgv.videoCtrl != nil {
+		speaker.Lock()
+		bgv.videoCtrl.Paused = !on
+		speaker.Unlock()
+	}
 }
 
 // SetVisible controls whether decoded A/V is presented.
@@ -406,29 +472,37 @@ func (bgv *bgVideo) SetVisible(on bool) {
 	}
 	bgv.visible = on
 	if !on {
-		// Drop any queued audio so the Beep streamer outputs silence right away.
-		for {
-			select {
-			case <-bgv.audioBuffer:
-				// keep draining
-			default:
-				return
-			}
-		}
+		// Drop queued audio so the streamer outputs silence right away.
+		drainAudio(bgv.audioBuffer)
+		// Drop queued video frames so we don't re-upload a stale image later.
+		drainFrames(bgv.frameBuffer)
 	}
 }
 
 // Reset rewinds streams to t=0 and clears pacing; playback remains paused.
 func (bgv *bgVideo) Reset() {
+	fmt.Println("(bgv *bgVideo) Reset()")
 	if bgv.videoStream != nil {
 		_ = bgv.videoStream.Rewind(0)
 	}
 	if bgv.audioStream != nil {
 		_ = bgv.audioStream.Rewind(0)
 	}
+	// Purge any queued samples/frames (close-safe).
+	drainAudio(bgv.audioBuffer)
+	drainFrames(bgv.frameBuffer)
+	// Clear any pending samples in the Beep adapter (if present).
+	if bgv.videoVol != nil {
+		if rs, ok := bgv.videoVol.Streamer.(*reisenAudioStreamer); ok {
+			rs.pending = nil
+			rs.closed = false
+		}
+	}
+	// Drop previously uploaded GPU texture and sticky frame to prevent flashes.
+	bgv.texture = nil
+	bgv.lastFrame = nil
 	bgv.haveBasePTS = false
 	bgv.elapsedPTS = 0
-	bgv.lastFrame = nil
 }
 
 // buildFFFilterGraph builds a scale(+optional crop/pad)+format filtergraph string for FFmpeg.
@@ -559,7 +633,49 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 		)
 	}
 
-	out := strings.Join(parts, ",")
-	//fmt.Println(out)
-	return out
+	return strings.Join(parts, ",")
+}
+
+// updateAudioVolume applies the same dB mapping as BGM so video audio
+// behaves like music but on a separate mixer path.
+func (bgv *bgVideo) updateAudioVolume() {
+	if bgv.videoVol == nil {
+		return
+	}
+	// Match BGM.UpdateVolume logic:
+	vol := -5 + float64(sys.cfg.Sound.BGMVolume)*0.06*
+		(float64(sys.cfg.Sound.MasterVolume)/100.0)*
+		(float64(bgv.volume)/100.0)
+	if vol >= 1 {
+		vol = 1
+	}
+	silent := vol <= -5
+	speaker.Lock()
+	bgv.videoVol.Volume = vol
+	bgv.videoVol.Silent = silent
+	speaker.Unlock()
+}
+
+// MixerCleared should be called when sys.soundMixer.Clear() is executed,
+// so the next SetPlaying(true) can re-attach this stream.
+func (bgv *bgVideo) MixerCleared() {
+	fmt.Println("(bgv *bgVideo) MixerCleared()")
+	bgv.inMixer = false
+}
+
+// Close stops decoding and frees resources. Safe to call multiple times.
+func (bgv *bgVideo) Close() {
+	// Quiesce producers and renderer first.
+	bgv.SetPlaying(false)
+	bgv.SetVisible(false)
+	// If already closed, return.
+	select {
+	case <-bgv.done:
+		return
+	default:
+	}
+	// Signal goroutine to exit; cleanup happens there.
+	if bgv.quit != nil {
+		close(bgv.quit)
+	}
 }

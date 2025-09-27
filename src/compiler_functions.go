@@ -875,6 +875,10 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_scale, VT_Float, 2, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "bindid",
+		explod_bindid, VT_Int, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "bindtime",
 		explod_bindtime, VT_Int, 1, false); err != nil {
 		return err
@@ -899,27 +903,12 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_sprpriority, VT_Int, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "bindid",
-		explod_bindid, VT_Int, 1, false); err != nil {
+	if err := c.paramValue(is, sc, "ontop",
+		explod_ontop, VT_Bool, 1, false); err != nil {
 		return err
 	}
-	if err := c.stateParam(is, "ontop", false, func(data string) error {
-		if err := c.scAdd(sc, explod_ontop, data, VT_Bool, 1); err != nil {
-			return err
-		}
-		if c.block != nil {
-			sc.add(explod_strictontop, nil)
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-	if err := c.stateParam(is, "under", false, func(data string) error {
-		if err := c.scAdd(sc, explod_under, data, VT_Bool, 1); err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
+	if err := c.paramValue(is, sc, "under",
+		explod_under, VT_Bool, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "layerno",

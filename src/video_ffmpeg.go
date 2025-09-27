@@ -31,8 +31,8 @@ type bgVideo struct {
 	elapsedPTS      time.Duration
 	lastFrame       *image.RGBA
 	volume          int
-	scale           BgVideoScale
-	flag            BgVideoFlag
+	scaleMode       BgVideoScaleMode
+	flag            BgVideoScaleFilter
 	playing         bool
 	visible         bool
 	videoCtrl       *beep.Ctrl
@@ -118,7 +118,7 @@ func drainFrames(ch <-chan *image.RGBA) {
 	}
 }
 
-func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVideoFlag, loop bool) error {
+func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf BgVideoScaleFilter, loop bool) error {
 	// fmt.Println("Opening media file:", filename)
 	m, err := reisen.NewMedia(filename)
 	if err != nil {
@@ -128,7 +128,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 	//bgv.describe()
 
 	bgv.volume = volume
-	bgv.scale = sc
+	bgv.scaleMode = sm
 	bgv.flag = sf
 	bgv.loop = loop
 	bgv.media = m
@@ -164,7 +164,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sc BgVideoScale, sf BgVide
 		srcW, srcH := v.Width(), v.Height()
 		winW, winH := int(sys.scrrect[2]), int(sys.scrrect[3])
 
-		if fg := buildFFFilterGraph(srcW, srcH, winW, winH, sc, sf); fg != "" {
+		if fg := buildFFFilterGraph(srcW, srcH, winW, winH, sm, sf); fg != "" {
 			if err := v.ApplyVideoFilterGraph(fg); err != nil {
 				// Don't fail playback if filter graph can't be applied; fall back to sws_scale path.
 				sys.errLog.Printf("video: ApplyVideoFilterGraph failed (%v) for graph '%s', using sws_scale fallback", err, fg)
@@ -504,7 +504,7 @@ func (bgv *bgVideo) Reset() {
 }
 
 // buildFFFilterGraph builds a scale(+optional crop/pad)+format filtergraph string for FFmpeg.
-func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) string {
+func buildFFFilterGraph(sw, sh, ww, wh int, sm BgVideoScaleMode, sf BgVideoScaleFilter) string {
 	if ww <= 0 || wh <= 0 || sw <= 0 || sh <= 0 {
 		return ""
 	}
@@ -574,16 +574,16 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 	}
 
 	var parts []string
-	switch sc {
-	case SC_None:
+	switch sm {
+	case SM_None:
 		// None: draw at native resolution, no scaling or padding.
 		return ""
 
-	case SC_Stretch:
+	case SM_Stretch:
 		// Stretch: fill window exactly, distorting aspect ratio (no bars, no crop).
 		parts = append(parts, scaleExact(ww, wh), "format=rgba")
 
-	case SC_Fit:
+	case SM_Fit:
 		// Fit (contain): uniform scale so entire video fits inside window; add bars if needed.
 		parts = append(parts,
 			fmt.Sprintf("scale=%d:%d:flags=%s:force_original_aspect_ratio=decrease:force_divisible_by=2", ww, wh, flag),
@@ -591,7 +591,7 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 			"format=rgba",
 		)
 
-	case SC_FitWidth:
+	case SM_FitWidth:
 		// FitWidth: match window width; keep AR.
 		// If height exceeds window -> center-crop vertically; if smaller -> pad vertically.
 		parts = append(parts,
@@ -601,7 +601,7 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 			"format=rgba",
 		)
 
-	case SC_FitHeight:
+	case SM_FitHeight:
 		// FitHeight: match window height; keep AR.
 		// If width exceeds window -> center-crop horizontally; if smaller -> pad horizontally.
 		parts = append(parts,
@@ -611,7 +611,7 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 			"format=rgba",
 		)
 
-	case SC_ZoomFill:
+	case SM_ZoomFill:
 		// ZoomFill (cover): uniform scale until content covers the window; center-crop overflow.
 		parts = append(parts,
 			fmt.Sprintf("scale=%d:%d:flags=%s:force_original_aspect_ratio=increase:force_divisible_by=2", ww, wh, flag),
@@ -620,7 +620,7 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sc BgVideoScale, sf BgVideoFlag) str
 			"format=rgba",
 		)
 
-	case SC_Center:
+	case SM_Center:
 		// Center (no scale): center the native frame; crop if larger, pad if smaller.
 		parts = append(parts,
 			// First trim to window bounds (no-op if already smaller).

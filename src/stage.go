@@ -99,22 +99,22 @@ const (
 	BG_Dummy
 )
 
-type BgVideoScale int32
+type BgVideoScaleMode int32
 
 const (
-	SC_None BgVideoScale = iota
-	SC_Stretch
-	SC_Fit
-	SC_FitWidth
-	SC_FitHeight
-	SC_ZoomFill
-	SC_Center
+	SM_None BgVideoScaleMode = iota
+	SM_Stretch
+	SM_Fit
+	SM_FitWidth
+	SM_FitHeight
+	SM_ZoomFill
+	SM_Center
 )
 
-type BgVideoFlag int32
+type BgVideoScaleFilter int32
 
 const (
-	SF_FastBilinear BgVideoFlag = iota
+	SF_FastBilinear BgVideoScaleFilter = iota
 	SF_Bilinear
 	SF_Bicubic
 	SF_Experimental
@@ -226,62 +226,62 @@ func readBackGround(is IniSection, link *backGround,
 				volume = int(Atoi(v))
 			}
 
-			var s BgVideoScale
-			if v, ok := is["scale"]; ok {
+			var sm BgVideoScaleMode
+			if v, ok := is["scalemode"]; ok {
 				switch strings.ToLower(strings.TrimSpace(v)) {
 				case "none":
-					s = SC_None
+					sm = SM_None
 				case "stretch":
-					s = SC_Stretch
+					sm = SM_Stretch
 				case "fit":
-					s = SC_Fit
+					sm = SM_Fit
 				case "fitwidth":
-					s = SC_FitWidth
+					sm = SM_FitWidth
 				case "fitheight":
-					s = SC_FitHeight
+					sm = SM_FitHeight
 				case "zoomfill":
-					s = SC_ZoomFill
+					sm = SM_ZoomFill
 				case "center":
-					s = SC_Center
+					sm = SM_Center
 				default:
-					return nil, Error("Invalid BG Video scale: " + v)
+					return nil, Error("Invalid BG Video scale mode: " + v)
 				}
 			}
 
-			var f BgVideoFlag
-			if v, ok := is["filter"]; ok {
+			var sf BgVideoScaleFilter
+			if v, ok := is["scalefilter"]; ok {
 				switch strings.ToLower(strings.TrimSpace(v)) {
 				case "fastbilinear":
-					f = SF_FastBilinear
+					sf = SF_FastBilinear
 				case "bilinear":
-					f = SF_Bilinear
+					sf = SF_Bilinear
 				case "bicubic":
-					f = SF_Bicubic
+					sf = SF_Bicubic
 				case "experimental":
-					f = SF_Experimental
+					sf = SF_Experimental
 				case "neighbor":
-					f = SF_Neighbor
+					sf = SF_Neighbor
 				case "area":
-					f = SF_Area
+					sf = SF_Area
 				case "bicublin":
-					f = SF_Bicublin
+					sf = SF_Bicublin
 				case "gauss":
-					f = SF_Gauss
+					sf = SF_Gauss
 				case "sinc":
-					f = SF_Sinc
+					sf = SF_Sinc
 				case "lanczos":
-					f = SF_Lanczos
+					sf = SF_Lanczos
 				case "spline":
-					f = SF_Spline
+					sf = SF_Spline
 				default:
-					return nil, Error("Invalid BG Video filter: " + v)
+					return nil, Error("Invalid BG Video scale filter: " + v)
 				}
 			}
 
 			var loop bool
 			is.ReadBool("loop", &loop)
 
-			if err := bg.video.Open(path, volume, s, f, loop); err != nil {
+			if err := bg.video.Open(path, volume, sm, sf, loop); err != nil {
 				return nil, err
 			}
 		}
@@ -644,22 +644,58 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			if bg.video.texture != nil {
 				texWidth := bg.video.texture.GetWidth()
 				texHeight := bg.video.texture.GetHeight()
+
+				// Mirror Animation.Draw semantics for position/origin/rotation.
+				// Base pivot (rcx) is center-of-screen for stages, top-left for motifs.
+				var baseRCX float32
+				if isStage {
+					baseRCX = float32(sys.gameWidth) / 2
+				}
+
+				// Compute render-space coords (same sign convention as sprites).
+				var rpX, rpY, rpRCX, rpRCY float32
+				if bg.rot.IsZero() {
+					// No rotation: negate x/y and use a center pivot on stages.
+					rpX = (-x) * sys.widthScale
+					rpY = (-y) * sys.heightScale
+					rpRCX = baseRCX * sys.widthScale
+					rpRCY = 0
+				} else {
+					// With rotation we pivot at (x + baseRCX, y)
+					rpRCX = (x + baseRCX) * sys.widthScale
+					rpRCY = y * sys.heightScale
+					// Position becomes local to the pivot in RenderSprite.
+					rpX, rpY = 0, 0
+					// Match Animation.Draw: vertical focal length scales with ycs
+					bg.fLength *= scly
+				}
+
+				// Object scales: include scalestart/scaledelta/zoomscaledelta math computed above.
+				// xts is "object X scale", xbs is "camera/global X scale", ys is "object Y scale".
+				xts := bg.xscale[0] * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
+				xbs2 := sclx * sys.widthScale
+				ys2 := (ys * ys3) * sys.heightScale
+
 				rp := RenderParams{
-					tex:    bg.video.texture,
-					size:   [2]uint16{uint16(texWidth), uint16(texHeight)},
-					x:      x,
-					y:      y,
-					tile:   notiling,
-					xts:    sclx,
-					xbs:    scly,
-					ys:     1,
-					vs:     1,
-					xas:    1,
-					yas:    1,
-					rot:    Rotation{},
-					trans:  255,
-					mask:   -1,
-					window: &sys.scrrect,
+					tex:            bg.video.texture,
+					size:           [2]uint16{uint16(texWidth), uint16(texHeight)},
+					x:              rpX,
+					y:              rpY,
+					tile:           notiling,
+					xts:            xts,
+					xbs:            xbs2,
+					ys:             ys2,
+					vs:             1,
+					xas:            1,
+					yas:            1,
+					rot:            bg.rot,
+					trans:          255,
+					mask:           -1,
+					window:         &rect,
+					rcx:            rpRCX,
+					rcy:            rpRCY,
+					projectionMode: int32(bg.projection),
+					fLength:        bg.fLength * sys.heightScale,
 				}
 				RenderSprite(rp)
 			}

@@ -666,15 +666,28 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 					rpRCY = y * sys.heightScale
 					// Position becomes local to the pivot in RenderSprite.
 					rpX, rpY = 0, 0
-					// Match Animation.Draw: vertical focal length scales with ycs
-					bg.fLength *= scly
 				}
 
 				// Object scales: include scalestart/scaledelta/zoomscaledelta math computed above.
 				// xts is "object X scale", xbs is "camera/global X scale", ys is "object Y scale".
 				xts := bg.xscale[0] * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
-				xbs2 := sclx * sys.widthScale
+				// Respect the refined xbs (parallax/autoresize/xbottomzoomdelta):
+				xbs2 := xbs * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
 				ys2 := (ys * ys3) * sys.heightScale
+
+				// Compute raster-x shear add exactly like Animation.Draw, but using video tex height.
+				rxadd := float32(0)
+				denom := AbsF(ys*ys3)*lscl[1]*float32(texHeight)*MaxF(bg.scalestart[1], 0.000001)
+				if denom != 0 {
+					rxadd = (xras * x / denom) * sclx_recip * bg.scalestart[1]
+				}
+				rxadd -= bg.xshear
+
+				// Focal length must be scaled like in Animation.Draw
+				fLen := bg.fLength
+				if !bg.rot.IsZero() {
+					fLen = fLen * scly
+				}
 
 				rp := RenderParams{
 					tex:            bg.video.texture,
@@ -686,6 +699,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 					xbs:            xbs2,
 					ys:             ys2,
 					vs:             1,
+					rxadd:          rxadd,
 					xas:            1,
 					yas:            1,
 					rot:            bg.rot,
@@ -695,7 +709,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 					rcx:            rpRCX,
 					rcy:            rpRCY,
 					projectionMode: int32(bg.projection),
-					fLength:        bg.fLength * sys.heightScale,
+					fLength:        fLen * sys.heightScale,
 				}
 				RenderSprite(rp)
 			}

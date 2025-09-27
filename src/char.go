@@ -8863,24 +8863,29 @@ func (c *Char) hitByAttrTrigger(attr int32) bool {
 
 // Check vulnerability in a single HitBy slot
 func (c *Char) checkHitBySlot(hb HitBy, getterno int, getterid, ghdattr, attrsca int32) bool {
-	// Check player number and ID restrictions
-	match := true
-	if (hb.playerno >= 0 && hb.playerno != getterno) || (hb.playerid >= 0 && hb.playerid != getterid) {
-		match = false
-	}
+	// Attribute
+	// Note: State type and attack attributes must be checked individually
+	attrCheck := hb.flag >= 0
+	scaMatch := hb.flag&attrsca != 0
+	atkMatch := hb.flag&ghdattr&^int32(ST_MASK) != 0
 
-	// Check attribute flags
-	if hb.flag&attrsca == 0 || hb.flag&ghdattr&^int32(ST_MASK) == 0 {
-		match = false
-	}
+	// Player number
+	pnoCheck := hb.playerno >= 0
+	pnoMatch := hb.playerno == getterno
 
-	// Flip result if this is NotHitBy
+	// Player ID
+	pidCheck := hb.playerid >= 0
+	pidMatch := hb.playerid == getterid
+
+	// For NotHitBy the hit is allowed only if no defined parameter matches
 	if hb.not {
-		return !match
+		anyMatch := (attrCheck && (scaMatch || atkMatch)) || (pnoCheck && pnoMatch) || (pidCheck && pidMatch)
+		return !anyMatch
 	}
 
-	// Otherwise return normally
-	return match
+	// For HitBy the hit is allowed only if all defined parameters match
+	allMatch := (!attrCheck || (scaMatch && atkMatch)) && (!pnoCheck || pnoMatch) && (!pidCheck || pidMatch)
+	return allMatch
 }
 
 // checkHitByAllSlots evaluates all of the character's HitBy/NotHitBy slots
@@ -10871,7 +10876,7 @@ func (c *Char) cueDebugDraw() {
 						}
 
 						// Combine flags for HitBy and NotHitBy
-						if h.flag != 0 {
+						if h.flag >= 0 {
 							if h.not {
 								// NotHitBy removes flags
 								flags &= ^h.flag

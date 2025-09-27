@@ -4260,14 +4260,12 @@ func (sc stateDef) Run(c *Char) {
 type hitBy StateControllerBase
 
 const (
-	hitBy_value byte = iota
-	hitBy_value2
-	hitBy_time
-	hitBy_attr
-	hitBy_slot
-	hitBy_playerno
+	hitBy_attr byte = iota
 	hitBy_playerid
+	hitBy_playerno
+	hitBy_slot
 	hitBy_stack
+	hitBy_time
 	hitBy_redirectid
 )
 
@@ -4278,9 +4276,13 @@ func (sc hitBy) runSub(c *Char, crun *Char, not bool) {
 	pno := int(-1)
 	pid := int32(-1)
 	stk := false
-	old := false
 
 	set := func(slot int, attr, time int32, pno int, pid int32, stk bool) {
+		if slot < 0 {
+			return
+		} else if slot >= len(crun.hitby) {
+			slot = 0
+		}
 		crun.hitby[slot].not = not
 		crun.hitby[slot].time = time
 		crun.hitby[slot].flag = attr
@@ -4293,19 +4295,8 @@ func (sc hitBy) runSub(c *Char, crun *Char, not bool) {
 		switch paramID {
 		case hitBy_time:
 			time = exp[0].evalI(c)
-		case hitBy_value:
-			val := exp[0].evalI(c)
-			set(0, val, time, -1, -1, false)
-			old = true
-		case hitBy_value2:
-			val := exp[0].evalI(c)
-			set(1, val, time, -1, -1, false) // This redundancy is because both values can be set simultaneously in Mugen
-			old = true
 		case hitBy_slot:
 			slot = int(Max(0, exp[0].evalI(c)))
-			if slot > 7 {
-				slot = 0
-			}
 		case hitBy_attr:
 			attr = exp[0].evalI(c)
 		case hitBy_playerno:
@@ -4318,9 +4309,7 @@ func (sc hitBy) runSub(c *Char, crun *Char, not bool) {
 		return true
 	})
 
-	if !old && slot >= 0 && slot <= 7 {
-		set(slot, attr, time, pno, pid, stk)
-	}
+	set(slot, attr, time, pno, pid, stk)
 }
 
 func (sc hitBy) Run(c *Char, _ []int32) bool {

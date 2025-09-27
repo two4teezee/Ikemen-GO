@@ -644,22 +644,58 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			if bg.video.texture != nil {
 				texWidth := bg.video.texture.GetWidth()
 				texHeight := bg.video.texture.GetHeight()
+
+				// Mirror Animation.Draw semantics for position/origin/rotation.
+				// Base pivot (rcx) is center-of-screen for stages, top-left for motifs.
+				var baseRCX float32
+				if isStage {
+					baseRCX = float32(sys.gameWidth) / 2
+				}
+
+				// Compute render-space coords (same sign convention as sprites).
+				var rpX, rpY, rpRCX, rpRCY float32
+				if bg.rot.IsZero() {
+					// No rotation: negate x/y and use a center pivot on stages.
+					rpX = (-x) * sys.widthScale
+					rpY = (-y) * sys.heightScale
+					rpRCX = baseRCX * sys.widthScale
+					rpRCY = 0
+				} else {
+					// With rotation we pivot at (x + baseRCX, y)
+					rpRCX = (x + baseRCX) * sys.widthScale
+					rpRCY = y * sys.heightScale
+					// Position becomes local to the pivot in RenderSprite.
+					rpX, rpY = 0, 0
+					// Match Animation.Draw: vertical focal length scales with ycs
+					bg.fLength *= scly
+				}
+
+				// Object scales: include scalestart/scaledelta/zoomscaledelta math computed above.
+				// xts is "object X scale", xbs is "camera/global X scale", ys is "object Y scale".
+				xts := bg.xscale[0] * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
+				xbs2 := sclx * sys.widthScale
+				ys2 := (ys * ys3) * sys.heightScale
+
 				rp := RenderParams{
-					tex:    bg.video.texture,
-					size:   [2]uint16{uint16(texWidth), uint16(texHeight)},
-					x:      x,
-					y:      y,
-					tile:   notiling,
-					xts:    sclx,
-					xbs:    scly,
-					ys:     1,
-					vs:     1,
-					xas:    1,
-					yas:    1,
-					rot:    Rotation{},
-					trans:  255,
-					mask:   -1,
-					window: &sys.scrrect,
+					tex:            bg.video.texture,
+					size:           [2]uint16{uint16(texWidth), uint16(texHeight)},
+					x:              rpX,
+					y:              rpY,
+					tile:           notiling,
+					xts:            xts,
+					xbs:            xbs2,
+					ys:             ys2,
+					vs:             1,
+					xas:            1,
+					yas:            1,
+					rot:            bg.rot,
+					trans:          255,
+					mask:           -1,
+					window:         &rect,
+					rcx:            rpRCX,
+					rcy:            rpRCY,
+					projectionMode: int32(bg.projection),
+					fLength:        bg.fLength * sys.heightScale,
 				}
 				RenderSprite(rp)
 			}

@@ -677,7 +677,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 
 				// Compute raster-x shear add exactly like Animation.Draw, but using video tex height.
 				rxadd := float32(0)
-				denom := AbsF(ys*ys3)*lscl[1]*float32(texHeight)*MaxF(bg.scalestart[1], 0.000001)
+				denom := AbsF(ys*ys3) * lscl[1] * float32(texHeight) * MaxF(bg.scalestart[1], 0.000001)
 				if denom != 0 {
 					rxadd = (xras * x / denom) * sclx_recip * bg.scalestart[1]
 				}

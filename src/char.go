@@ -8711,7 +8711,21 @@ func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 		charangle,
 	)
 }
+func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
+	projs := c.getProjs(-1)
 
+	if index < 0 || int(index) >= len(projs) {
+		return false
+	}
+	proj := projs[index]
+
+	target := sys.playerID(targetID)
+	if target == nil {
+		return false
+	}
+
+	return target.projClsnCheck(proj, boxType, 1)
+}
 func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
 	// Safety checks
 	if c == nil || getter == nil || c.anim == nil || getter.anim == nil {

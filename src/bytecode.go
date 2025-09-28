@@ -946,6 +946,7 @@ const (
 	OC_ex2_envshakevar_dir
 	OC_ex2_gethitvar_fall_envshake_dir
 	OC_ex2_xshear
+	OC_ex2_projclsnoverlap
 )
 
 type StringPool struct {
@@ -3826,6 +3827,11 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
 	case OC_ex2_xshear:
 		sys.bcStack.PushF(c.xshear)
+	case OC_ex2_projclsnoverlap:
+		boxType := sys.bcStack.Pop().ToI()
+		targetID := sys.bcStack.Pop().ToI()
+		index := sys.bcStack.Pop().ToI()
+		sys.bcStack.PushB(c.projClsnOverlapTrigger(index, targetID, boxType))
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -9414,6 +9420,9 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 	//crun.alpha[1] = 255
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		if len(exp) == 0 {
+			return false
+		}
 		switch paramID {
 		case trans_trans:
 			crun.alpha[0] = exp[0].evalI(c)
@@ -9429,9 +9438,9 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 				}
 			}
 		}
+		crun.setCSF(CSF_trans)
 		return true
 	})
-	crun.setCSF(CSF_trans)
 	return false
 }
 

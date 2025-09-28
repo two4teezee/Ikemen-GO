@@ -93,7 +93,11 @@ func (c *Compiler) hitBySub(is IniSection, sc *StateControllerBase, sctrlName st
 
 	// Cannot mix old and new syntax
 	if old && new {
-		return Error("Cannot mix old and new " + sctrlName + " syntaxes")
+		if c.zssMode {
+			return Error("Cannot mix old and new " + sctrlName + " syntaxes")
+		} else {
+			sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Cannot mix old and new: "+sctrlName+" in state %v ", c.stateNo))
+		}
 	}
 
 	// Must have at least one parameter

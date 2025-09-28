@@ -108,7 +108,6 @@ const (
 	SM_FitWidth
 	SM_FitHeight
 	SM_ZoomFill
-	SM_Center
 )
 
 type BgVideoScaleFilter int32
@@ -241,8 +240,6 @@ func readBackGround(is IniSection, link *backGround,
 					sm = SM_FitHeight
 				case "zoomfill":
 					sm = SM_ZoomFill
-				case "center":
-					sm = SM_Center
 				default:
 					return nil, Error("Invalid BG Video scale mode: " + v)
 				}
@@ -646,7 +643,14 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			}
 			bg.anim.spr = newSprite()
 			bg.anim.spr.Tex = bg.video.texture
-			bg.anim.spr.Size = [2]uint16{uint16(bg.video.texture.GetWidth()), uint16(bg.video.texture.GetHeight())}
+
+			// Convert to logical units so drawing is 1:1 relative to the game coordinate space.
+			w := float32(bg.video.texture.GetWidth())  / sys.widthScale
+			h := float32(bg.video.texture.GetHeight()) / sys.heightScale
+			bg.anim.spr.Size = [2]uint16{
+				uint16(math.Ceil(float64(w))),
+				uint16(math.Ceil(float64(h))),
+			}
 			bg.anim.scale_x = 1
 			bg.anim.scale_y = 1
 		}

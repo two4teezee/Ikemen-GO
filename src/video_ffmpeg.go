@@ -622,16 +622,6 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sm BgVideoScaleMode, sf BgVideoScale
 			fmt.Sprintf("crop=%d:%d:floor((iw-%d)/2):floor((ih-%d)/2)", ww, wh, ww, wh),
 			"format=rgba",
 		)
-
-	case SM_Center:
-		// Center (no scale): center the native frame; crop if larger, pad if smaller.
-		parts = append(parts,
-			// First trim to window bounds (no-op if already smaller).
-			fmt.Sprintf("crop=min(iw\\,%d):min(ih\\,%d):floor((iw-min(iw\\,%d))/2):floor((ih-min(ih\\,%d))/2)", ww, wh, ww, wh),
-			// Then pad out to the window (no-op if already exact).
-			padCenter(ww, wh),
-			"format=rgba",
-		)
 	}
 
 	return strings.Join(parts, ",")

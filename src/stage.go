@@ -641,91 +641,34 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
 		if bg._type == BG_Video {
 			bg.video.Tick()
-			if bg.video.texture != nil {
-				texWidth := bg.video.texture.GetWidth()
-				texHeight := bg.video.texture.GetHeight()
-
-				// Mirror Animation.Draw semantics for position/origin/rotation.
-				// Base pivot (rcx) is center-of-screen for stages, top-left for motifs.
-				var baseRCX float32
-				if isStage {
-					baseRCX = float32(sys.gameWidth) / 2
-				}
-
-				// Compute render-space coords (same sign convention as sprites).
-				var rpX, rpY, rpRCX, rpRCY float32
-				if bg.rot.IsZero() {
-					// No rotation: negate x/y and use a center pivot on stages.
-					rpX = (-x) * sys.widthScale
-					rpY = (-y) * sys.heightScale
-					rpRCX = baseRCX * sys.widthScale
-					rpRCY = 0
-				} else {
-					// With rotation we pivot at (x + baseRCX, y)
-					rpRCX = (x + baseRCX) * sys.widthScale
-					rpRCY = y * sys.heightScale
-					// Position becomes local to the pivot in RenderSprite.
-					rpX, rpY = 0, 0
-				}
-
-				// Object scales: include scalestart/scaledelta/zoomscaledelta math computed above.
-				// xts is "object X scale", xbs is "camera/global X scale", ys is "object Y scale".
-				xts := bg.xscale[0] * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
-				// Respect the refined xbs (parallax/autoresize/xbottomzoomdelta):
-				xbs2 := xbs * bgscl * (scalestartX + xs) * xs3 * sys.widthScale
-				ys2 := (ys * ys3) * sys.heightScale
-
-				// Compute raster-x shear add exactly like Animation.Draw, but using video tex height.
-				rxadd := float32(0)
-				denom := AbsF(ys*ys3) * lscl[1] * float32(texHeight) * MaxF(bg.scalestart[1], 0.000001)
-				if denom != 0 {
-					rxadd = (xras * x / denom) * sclx_recip * bg.scalestart[1]
-				}
-				rxadd -= bg.xshear
-
-				// Focal length must be scaled like in Animation.Draw
-				fLen := bg.fLength
-				if !bg.rot.IsZero() {
-					fLen = fLen * scly
-				}
-
-				rp := RenderParams{
-					tex:            bg.video.texture,
-					size:           [2]uint16{uint16(texWidth), uint16(texHeight)},
-					x:              rpX,
-					y:              rpY,
-					tile:           notiling,
-					xts:            xts,
-					xbs:            xbs2,
-					ys:             ys2,
-					vs:             1,
-					rxadd:          rxadd,
-					xas:            1,
-					yas:            1,
-					rot:            bg.rot,
-					trans:          255,
-					mask:           -1,
-					window:         &rect,
-					rcx:            rpRCX,
-					rcy:            rpRCY,
-					projectionMode: int32(bg.projection),
-					fLength:        fLen * sys.heightScale,
-				}
-				RenderSprite(rp)
+			if bg.video.texture == nil {
+				return
 			}
-		} else {
-			// Xshear offset correction
-			xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
-
-			if bg.rot.angle != 0 {
-				xsoffset /= bg.rot.angle
-			}
-			bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
-				bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
-				xbs*bgscl*(scalestartX+xs)*xs3,
-				ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-				bg.rot, float32(sys.gameWidth)/2, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
+			bg.anim.spr = newSprite()
+			bg.anim.spr.Tex = bg.video.texture
+			bg.anim.spr.Size = [2]uint16{uint16(bg.video.texture.GetWidth()), uint16(bg.video.texture.GetHeight())}
+			bg.anim.scale_x = 1
+			bg.anim.scale_y = 1
 		}
+
+		// Xshear offset correction
+		xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
+
+		if bg.rot.angle != 0 {
+			xsoffset /= bg.rot.angle
+		}
+
+		// Choose render origin: top-left for screenpack/storyboard videos, center for everything else
+		var rcx float32
+		if bg._type != BG_Video || isStage {
+			rcx = float32(sys.gameWidth) / 2
+		}
+
+		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
+			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
+			xbs*bgscl*(scalestartX+xs)*xs3,
+			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false, bg._type == BG_Video)
 	}
 }
 

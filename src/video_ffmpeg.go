@@ -199,6 +199,9 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 	if err := videoStreams[0].Rewind(0); err != nil {
 		return fmt.Errorf("Rewind(0) failed: %v", err)
 	}
+	if bgv.audioStream != nil {
+		_ = bgv.audioStream.Rewind(0)
+	}
 
 	bgv.haveBasePTS = false
 

@@ -672,11 +672,11 @@ func (a *Animation) alpha(isVideo bool) int32 {
 	if a.srcAlpha >= 0 || isVideo {
 		return alphaFromBlend(a.srcAlpha, a.dstAlpha, sys.brightness)
 	}
-    return alphaFromBlend(
-        int16(byte(a.interpolate_blend_srcalpha)),
-        int16(byte(a.interpolate_blend_dstalpha)),
+	return alphaFromBlend(
+		int16(byte(a.interpolate_blend_srcalpha)),
+		int16(byte(a.interpolate_blend_dstalpha)),
 		sys.brightness,
-    )
+	)
 }
 
 func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {

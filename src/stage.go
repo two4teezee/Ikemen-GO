@@ -645,7 +645,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.anim.spr.Tex = bg.video.texture
 
 			// Convert to logical units so drawing is 1:1 relative to the game coordinate space.
-			w := float32(bg.video.texture.GetWidth())  / sys.widthScale
+			w := float32(bg.video.texture.GetWidth()) / sys.widthScale
 			h := float32(bg.video.texture.GetHeight()) / sys.heightScale
 			bg.anim.spr.Size = [2]uint16{
 				uint16(math.Ceil(float64(w))),

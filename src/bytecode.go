@@ -13146,8 +13146,9 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 					bg.anim.mask = 0
 					bg.anim.srcAlpha = v1
 					bg.anim.dstAlpha = v2
-					if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 { // Sub fix
+					if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 { // Sub patch
 						bg.anim.srcAlpha = 0
+						bg.anim.dstAlpha = 255
 					}
 				})
 			case modifyStageBG_angle:

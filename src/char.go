@@ -197,14 +197,36 @@ func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	}
 }
 
-func (cr ClsnRect) draw(trans int32) {
+func (cr ClsnRect) draw(transSrc, transDst int32) {
 	paltex := PaletteToTexture(sys.clsnSpr.Pal)
 	for _, c := range cr {
 		params := RenderParams{
-			sys.clsnSpr.Tex, paltex, sys.clsnSpr.Size,
-			-c[0] * sys.widthScale, -c[1] * sys.heightScale, notiling,
-			c[2] * sys.widthScale, c[2] * sys.widthScale, c[3] * sys.heightScale, 1, 0,
-			1, 1, Rotation{c[6], 0, 0}, 0, trans, -1, nil, &sys.scrrect, c[4], c[5], 0, 0, 0, 0,
+			tex:            sys.clsnSpr.Tex,
+			paltex:         paltex,
+			size:           sys.clsnSpr.Size,
+			x:              -c[0] * sys.widthScale,
+			y:              -c[1] * sys.heightScale,
+			tile:           notiling,
+			xts:            c[2] * sys.widthScale,
+			xbs:            c[2] * sys.widthScale,
+			ys:             c[3] * sys.heightScale,
+			vs:             1,
+			rxadd:          0,
+			xas:            1,
+			yas:            1,
+			rot:            Rotation{angle: c[6]},
+			tint:           0,
+			transSrc:       transSrc,
+			transDst:       transDst,
+			mask:           -1,
+			pfx:            nil,
+			window:         &sys.scrrect,
+			rcx:            c[4],
+			rcy:            c[5],
+			projectionMode: 0,
+			fLength:        0,
+			xOffset:        0,
+			yOffset:        0,
 		}
 		RenderSprite(params)
 	}

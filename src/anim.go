@@ -42,101 +42,106 @@ func ReadAnimFrame(line string) *AnimFrame {
 		return nil
 	}
 	ary := strings.SplitN(line, ",", 10)
-	// Read required parameters
 	if len(ary) < 5 {
 		return nil
 	}
+
+	// Read required parameters
 	af := newAnimFrame()
 	af.Group = int16(Atoi(ary[0]))
 	af.Number = int16(Atoi(ary[1]))
 	af.Xoffset = int16(Atoi(ary[2]))
 	af.Yoffset = int16(Atoi(ary[3]))
 	af.Time = Atoi(ary[4])
+
 	// Read H and V flags
-	if len(ary) < 6 {
-		return af
-	}
-	for i := range ary[5] {
-		switch ary[5][i] {
-		case 'H', 'h':
-			af.Hscale = -1
-			af.Xoffset *= -1
-		case 'V', 'v':
-			af.Vscale = -1
-			af.Yoffset *= -1
+	if len(ary) >= 6 {
+		for i := range ary[5] {
+			switch ary[5][i] {
+			case 'H', 'h':
+				af.Hscale = -1
+				af.Xoffset *= -1
+			case 'V', 'v':
+				af.Vscale = -1
+				af.Yoffset *= -1
+			}
 		}
 	}
+
 	// Read alpha
-	if len(ary) < 7 {
-		return af
-	}
-	ia := strings.IndexAny(ary[6], "ASas")
-	if ia >= 0 {
-		ary[6] = ary[6][ia:]
-	}
-	a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
-	switch {
-	case a == "a1":
-		af.SrcAlpha, af.DstAlpha = 255, 128
-	case len(a) > 0 && a[0] == 's':
-		af.SrcAlpha, af.DstAlpha = 1, 255 // Ikemen uses AS1D255 in place of Sub. TODO: This ought to be refactored
-	case len(a) >= 2 && a[:2] == "as":
-		if len(a) > 2 && a[2] >= '0' && a[2] <= '9' {
-			i, alp := 2, 0
-			for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
-				alp = alp*10 + int(a[i]-'0')
-			}
-			alp &= 0x3fff
-			if alp >= 255 {
-				af.SrcAlpha = 255
-			} else {
-				af.SrcAlpha = byte(alp)
-			}
-			if i < len(a) && a[i] == 'd' {
-				i++
-				if i < len(a) && a[i] >= '0' && a[i] <= '9' {
-					alp = 0
-					for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
-						alp = alp*10 + int(a[i]-'0')
-					}
-					alp &= 0x3fff
-					if alp >= 255 {
-						af.DstAlpha = 255
-					} else {
-						af.DstAlpha = byte(alp)
-					}
-					if af.SrcAlpha == 1 && af.DstAlpha == 255 { // See above. The code would be better off without these workarounds
-						af.SrcAlpha = 0
+	if len(ary) >= 7 {
+		ia := strings.IndexAny(ary[6], "ASas")
+		if ia >= 0 {
+			ary[6] = ary[6][ia:]
+		}
+		a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
+		switch {
+		case a == "a1":
+			af.SrcAlpha = 255
+			af.DstAlpha = 128
+		case len(a) > 0 && a[0] == 's':
+			af.SrcAlpha = 1 // Ikemen uses AS1D254 in place of Sub. TODO: This ought to be refactored
+			af.DstAlpha = 254
+		case len(a) >= 2 && a[:2] == "as":
+			if len(a) > 2 && a[2] >= '0' && a[2] <= '9' {
+				i, alp := 2, 0
+				for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
+					alp = alp*10 + int(a[i]-'0')
+				}
+				alp &= 0x3fff
+				if alp >= 255 {
+					af.SrcAlpha = 255
+				} else {
+					af.SrcAlpha = byte(alp)
+				}
+				if i < len(a) && a[i] == 'd' {
+					i++
+					if i < len(a) && a[i] >= '0' && a[i] <= '9' {
+						alp = 0
+						for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
+							alp = alp*10 + int(a[i]-'0')
+						}
+						alp &= 0x3fff
+						if alp >= 255 {
+							af.DstAlpha = 255
+						} else {
+							af.DstAlpha = byte(alp)
+						}
+						if af.SrcAlpha == 1 && af.DstAlpha == 254 { // See above. The code would be better off without these workarounds
+							af.SrcAlpha = 0
+							af.DstAlpha = 255
+						}
 					}
 				}
 			}
+		case len(a) > 0 && a[0] == 'a':
+			af.SrcAlpha, af.DstAlpha = 255, 255
 		}
-	case len(a) > 0 && a[0] == 'a':
-		af.SrcAlpha, af.DstAlpha = 255, 255
 	}
+
 	// Read X scale
 	// In Mugen 1.1 a blank parameter means 0
-	// In Ikemen it means no change like the other optional parameters
-	if len(ary) < 8 {
-		return af
+	// In Ikemen it means no change, like the other optional parameters
+	if len(ary) >= 8 {
+		if IsNumeric(ary[7]) {
+			af.Xscale = float32(Atof(ary[7]))
+		}
 	}
-	if IsNumeric(ary[7]) {
-		af.Xscale = float32(Atof(ary[7]))
-	}
+
 	// Read Y scale
-	if len(ary) < 9 {
-		return af
+	if len(ary) >= 9 {
+		if IsNumeric(ary[8]) {
+			af.Yscale = float32(Atof(ary[8]))
+		}
 	}
-	if IsNumeric(ary[8]) {
-		af.Yscale = float32(Atof(ary[8]))
-	}
+
 	// Read angle
-	if len(ary) < 10 {
-		return af
+	if len(ary) >= 10 {
+		if IsNumeric(ary[9]) {
+			af.Angle = float32(Atof(ary[9]))
+		}
 	}
-	if IsNumeric(ary[9]) {
-		af.Angle = float32(Atof(ary[9]))
-	}
+
 	return af
 }
 
@@ -584,8 +589,9 @@ func (a *Animation) UpdateSprite() {
 			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
 				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 255 {
+				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch
 					a.interpolate_blend_srcalpha = 0
+					a.interpolate_blend_dstalpha = 255
 				}
 				break
 			}
@@ -639,54 +645,53 @@ func (a *Animation) Action() {
 	}
 }
 
-func alphaFromBlend(sa, da int16, brightness int32) int32 {
-	var s, d byte
-	s = byte(sa)
-	if da < 0 {
-		d = byte(^da >> 1)
-		if s == 1 && d == 255 {
-			s = 0
+// Convert animation transparency to RenderParams transparency
+func (a *Animation) getAlpha() (transSrc, transDst int32) {
+	var sa, da byte
+	if a.srcAlpha >= 0 {
+		sa = byte(a.srcAlpha)
+		if a.dstAlpha < 0 {
+			da = byte(^a.dstAlpha >> 1)
+			if sa == 1 && da == 254 { // Sub patch
+				sa = 0
+				da = 255
+			}
+		} else {
+			da = byte(a.dstAlpha)
 		}
 	} else {
 		d = byte(da)
 	}
-	if s == 1 && d == 255 {
-		return -2
+
+	// Sub transparency magic number
+	if sa == 1 && da == 254 {
+		return -2, 0
 	}
-	s = byte(int32(s) * brightness >> 8)
+
+	// Apply system brightness
+	sa = byte(int32(sa) * sys.brightness >> 8)
+
 	// Mugen sprites disappear a bit earlier than this
 	// However that makes subtle interpolated blending noticeably jump
-	if s < 1 && d == 255 {
-		return 0
-	}
-	if s == 255 && d == 255 {
-		return -1
-	}
-	out := int32(s)
-	if int(s)+int(d) < 254 || 256 < int(s)+int(d) {
-		out |= int32(d)<<10 | 1<<9
-	}
-	return out
+	//if sa < 1 && da == 255 {
+	//	return 0, 255
+	//}
+
+	return int32(sa), int32(da)
 }
 
-func (a *Animation) alpha(isVideo bool) int32 {
-	if a.srcAlpha >= 0 || isVideo {
-		return alphaFromBlend(a.srcAlpha, a.dstAlpha, sys.brightness)
-	}
-	return alphaFromBlend(
-		int16(byte(a.interpolate_blend_srcalpha)),
-		int16(byte(a.interpolate_blend_dstalpha)),
-		sys.brightness,
-	)
-}
-
-func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {
+func (a *Animation) pal(pfx *PalFX) (p []uint32, plt Texture) {
 	if a.palettedata != nil {
+		// Apply temporary palette remap if provided
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.palettedata.SwapPalMap(&pfx.remap)
 		}
+
+		// Get palette colors and texture
 		p = a.spr.GetPal(a.palettedata)
 		plt = a.spr.GetPalTex(a.palettedata)
+
+		// Restore original palette mapping
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.palettedata.SwapPalMap(&pfx.remap)
 		}
@@ -694,12 +699,15 @@ func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.sff.palList.SwapPalMap(&pfx.remap)
 		}
+
 		p = a.spr.GetPal(&a.sff.palList)
 		plt = a.spr.GetPalTex(&a.sff.palList)
+
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.sff.palList.SwapPalMap(&pfx.remap)
 		}
 	}
+
 	return
 }
 
@@ -787,10 +795,11 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		x, y = AbsF(xs)*float32(a.spr.Offset[0]), AbsF(ys)*float32(a.spr.Offset[1])
 		fLength *= ycs
 	}
-	trans := a.alpha(isVideo)
+
+	transSrc, transDst := a.getAlpha()
 
 	var paltex Texture
-	if !isVideo {
+	if !a.isVideo {
 		var pal []uint32
 		pal, paltex = a.pal(pfx, trans == -2)
 		if a.spr.coldepth <= 8 && paltex == nil {
@@ -814,7 +823,8 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		yas:            v,
 		rot:            rot,
 		tint:           color,
-		trans:          trans,
+		transSrc:       transSrc,
+		transDst:       transDst,
 		mask:           int32(a.mask),
 		pfx:            pfx,
 		window:         window,
@@ -867,7 +877,8 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		yas:            v,
 		rot:            rot,
 		tint:           color | 0xff000000,
-		trans:          0,
+		transSrc:       0,
+		transDst:       0,
 		mask:           int32(a.mask),
 		pfx:            nil,
 		window:         window,
@@ -903,8 +914,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 
 	if a.spr.coldepth <= 8 && (color != 0 || alpha > 0) {
 		if a.sff.header.Ver0 == 2 && a.sff.header.Ver2 == 1 {
-			trans := a.alpha(false)
-			pal, _ := a.pal(pfx, trans == -2)
+			pal, _ := a.pal(pfx)
 			if a.spr.PalTex == nil {
 				a.spr.PalTex = a.spr.CachePalette(pal)
 			}
@@ -915,11 +925,14 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	}
 
 	if color != 0 {
-		rp.trans = -2
+		rp.transSrc = -2
+		rp.transDst = 0
 		RenderSprite(rp)
 	}
+
 	if alpha > 0 {
-		rp.trans = (256-alpha)<<10 | 1<<9
+		rp.transSrc = 0
+		rp.transDst = 256-alpha
 		RenderSprite(rp)
 	}
 }
@@ -1391,8 +1404,9 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			s.anim.dstAlpha = 128
 		}
 		s.anim.dstAlpha = int16(Min(255, int32(s.anim.dstAlpha)+255-ref)) // TODO: This is too bright during blend interpolation
-		if s.anim.srcAlpha == 1 && s.anim.dstAlpha == 255 {
+		if s.anim.srcAlpha == 1 && s.anim.dstAlpha == 254 {
 			s.anim.srcAlpha = 0
+			s.anim.dstAlpha = 255
 		}
 
 		// Set the tint if it's there

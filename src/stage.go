@@ -353,8 +353,9 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 {
+			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
 				bg.anim.srcAlpha = 0
+				bg.anim.dstAlpha = 255
 			}
 		}
 	case "add1":
@@ -373,8 +374,9 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 {
+			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
 				bg.anim.srcAlpha = 0
+				bg.anim.dstAlpha = 255
 			}
 		}
 	case "sub":
@@ -3886,7 +3888,22 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 	if n.meshIndex == nil || !n.visible || (nodeLayerNumber != layerNumber) {
 		return
 	}
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, -int(n.trans))
+
+	// Rough patch
+	var transSrc, transDst int32
+	switch n.trans {
+	case TransAdd:
+		transSrc = 255
+		transDst = 255
+	case TransReverseSubtract:
+		transSrc = -2 // Only this one seems to matter
+		transDst = 0
+	default:
+		transSrc = 255
+		transDst = 0
+	}
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, transSrc, transDst)
+
 	blendEq := BlendAdd
 	src := BlendOne
 	dst := BlendOneMinusSrcAlpha

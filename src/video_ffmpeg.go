@@ -199,6 +199,9 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 	if err := videoStreams[0].Rewind(0); err != nil {
 		return fmt.Errorf("Rewind(0) failed: %v", err)
 	}
+	if bgv.audioStream != nil {
+		_ = bgv.audioStream.Rewind(0)
+	}
 
 	bgv.haveBasePTS = false
 
@@ -617,16 +620,6 @@ func buildFFFilterGraph(sw, sh, ww, wh int, sm BgVideoScaleMode, sf BgVideoScale
 			fmt.Sprintf("scale=%d:%d:flags=%s:force_original_aspect_ratio=increase:force_divisible_by=2", ww, wh, flag),
 			// Now both iw>=ww and ih>=wh, so crop center to the window.
 			fmt.Sprintf("crop=%d:%d:floor((iw-%d)/2):floor((ih-%d)/2)", ww, wh, ww, wh),
-			"format=rgba",
-		)
-
-	case SM_Center:
-		// Center (no scale): center the native frame; crop if larger, pad if smaller.
-		parts = append(parts,
-			// First trim to window bounds (no-op if already smaller).
-			fmt.Sprintf("crop=min(iw\\,%d):min(ih\\,%d):floor((iw-min(iw\\,%d))/2):floor((ih-min(ih\\,%d))/2)", ww, wh, ww, wh),
-			// Then pad out to the window (no-op if already exact).
-			padCenter(ww, wh),
 			"format=rgba",
 		)
 	}

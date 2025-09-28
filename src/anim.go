@@ -638,39 +638,45 @@ func (a *Animation) Action() {
 	}
 }
 
-func (a *Animation) alpha() int32 {
-	var sa, da byte
-	if a.srcAlpha >= 0 {
-		sa = byte(a.srcAlpha)
-		if a.dstAlpha < 0 {
-			da = byte(^a.dstAlpha >> 1)
-			if sa == 1 && da == 255 {
-				sa = 0
-			}
-		} else {
-			da = byte(a.dstAlpha)
+func alphaFromBlend(sa, da int16, brightness int32) int32 {
+	var s, d byte
+	s = byte(sa)
+	if da < 0 {
+		d = byte(^da >> 1)
+		if s == 1 && d == 255 {
+			s = 0
 		}
 	} else {
-		sa = byte(a.interpolate_blend_srcalpha)
-		da = byte(a.interpolate_blend_dstalpha)
+		d = byte(da)
 	}
-	if sa == 1 && da == 255 {
+	if s == 1 && d == 255 {
 		return -2
 	}
-	sa = byte(int32(sa) * sys.brightness >> 8)
+	s = byte(int32(s) * brightness >> 8)
 	// Mugen sprites disappear a bit earlier than this
 	// However that makes subtle interpolated blending noticeably jump
-	if sa < 1 && da == 255 {
+	if s < 1 && d == 255 {
 		return 0
 	}
-	if sa == 255 && da == 255 {
+	if s == 255 && d == 255 {
 		return -1
 	}
-	trans := int32(sa)
-	if int(sa)+int(da) < 254 || 256 < int(sa)+int(da) {
-		trans |= int32(da)<<10 | 1<<9
+	out := int32(s)
+	if int(s)+int(d) < 254 || 256 < int(s)+int(d) {
+		out |= int32(d)<<10 | 1<<9
 	}
-	return trans
+	return out
+}
+
+func (a *Animation) alpha() int32 {
+	if a.srcAlpha >= 0 {
+		return alphaFromBlend(a.srcAlpha, a.dstAlpha, sys.brightness)
+	}
+    return alphaFromBlend(
+        int16(byte(a.interpolate_blend_srcalpha)),
+        int16(byte(a.interpolate_blend_dstalpha)),
+		sys.brightness,
+    )
 }
 
 func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {

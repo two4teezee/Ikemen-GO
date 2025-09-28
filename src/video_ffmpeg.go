@@ -236,11 +236,20 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 				if bgv.audioStream != nil {
 					_ = bgv.audioStream.Rewind(0)
 				}
-				// Reset pacing baseline so PresentationOffset() maps to fresh wall clock.
+				// Drop any queued audio/video so the new loop starts clean.
+				drainAudio(bgv.audioBuffer)
+				drainFrames(bgv.frameBuffer)
+				// Also clear any pending samples in the Beep adapter.
+				if bgv.videoVol != nil {
+					if rs, ok := bgv.videoVol.Streamer.(*reisenAudioStreamer); ok {
+						rs.pending = nil
+						rs.closed = false
+					}
+				}
+				// Reset pacing baseline so PresentationOffset() maps to a fresh wall clock.
 				bgv.haveBasePTS = false
-				// Keep elapsedPTS at 0; resume will re-anchor startWall.
 				bgv.elapsedPTS = 0
-				// Continue producing frames/samples on the same channels.
+				bgv.startWall = time.Now() // re-anchor wall clock for producer-side sleep
 				continue
 			}
 			// Not looping -> finish and clean up.

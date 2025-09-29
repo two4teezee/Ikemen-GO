@@ -13250,24 +13250,29 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 					eachBg(func(bg *backGround) {
 						switch val {
 						case 0: // None
+							bg.anim.transType = TT_none
 							bg.anim.srcAlpha = -1
 							bg.anim.dstAlpha = 0
 						case 1: // Add
 							bg.anim.mask = 0
+							bg.anim.transType = TT_alpha
 							bg.anim.srcAlpha = 255
 							bg.anim.dstAlpha = 255
 						case 2: // Add1
 							bg.anim.mask = 0
+							bg.anim.transType = TT_alpha
 							bg.anim.srcAlpha = 255
 							bg.anim.dstAlpha = 128
 						case 3: // Addalpha
 							bg.anim.mask = 0
+							bg.anim.transType = TT_alpha
 							bg.anim.srcAlpha = 255 // Default to Add first
 							bg.anim.dstAlpha = 255
 						case 4: // Sub
 							bg.anim.mask = 0
+							bg.anim.transType = TT_sub
 							bg.anim.srcAlpha = 1 // That old hack that needs refactoring
-							bg.anim.dstAlpha = 255
+							bg.anim.dstAlpha = 254
 						}
 					})
 				}

@@ -1101,7 +1101,8 @@ func (ai *AfterImage) clear() {
 	ai.mul = [...]float32{0.65, 0.65, 0.75}
 	ai.timegap = 1
 	ai.framegap = 4
-	ai.alpha = [...]int32{-1, 0}
+	ai.trans = TT_default
+	ai.alpha = [2]int32{-1, 0}
 	ai.imgidx = 0
 	ai.restgap = 0
 	ai.reccount = 0
@@ -1266,6 +1267,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				fx:           ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
+				trans:        ai.trans,
 				alpha:        ai.alpha,
 				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
 				rot:          img.rot,
@@ -1354,7 +1356,7 @@ type Explod struct {
 	interpolate_time     [2]int32
 	interpolate_animelem [3]int32
 	interpolate_scale    [4]float32
-	interpolate_alpha    [5]int32
+	interpolate_alpha    [4]int32
 	interpolate_pos      [6]float32
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
@@ -1390,6 +1392,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		animelem:          1,
 		animelemtime:      0,
 		//blendmode:         0,
+		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
 		ignorehitpause:    true,
@@ -1746,6 +1749,7 @@ func (e *Explod) update(playerNo int) {
 		fx:           pfx,
 		pos:          drawpos,
 		scl:          drawscale,
+		trans:        e.trans,
 		alpha:        alp,
 		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
@@ -1856,9 +1860,9 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			if i < 2 {
 				e.interpolate_scale[i] = Lerp(e.interpolate_scale[i+2], e.start_scale[i], t) //-e.start_scale[i]
 				//if e.blendmode == 1 {
-				if e.trans == TT_add { // Any add?
+				//if e.trans == TT_alpha { // Any add?
 					e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
-				}
+				//}
 			}
 			e.interpolate_angle[i] = Lerp(e.interpolate_angle[i+3], e.start_rot[i], t)
 		}
@@ -1870,14 +1874,15 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 		if i < 2 {
 			(*scale)[i] = e.interpolate_scale[i] * e.scale[i]
 			//if e.blendmode == 1 {
-			if e.trans == TT_add { // Any add?
-				if (*alpha)[0] == 1 && (*alpha)[1] == 255 {
+			//if e.trans == TT_alpha { // Any add?
+				if (*alpha)[0] == 1 && (*alpha)[1] == 254 {
 					(*alpha)[0] = 0
+					(*alpha)[1] = 255
 				} else {
+					// Update alpha regardless of transparency type. Let type handle the rendering
 					(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
 				}
-
-			}
+			//}
 		}
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
 	}
@@ -2415,7 +2420,8 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			fx:           p.palfx,
 			pos:          pos,
 			scl:          drawscale,
-			alpha:        [2]int32{-1},
+			trans:        TT_default,
+			alpha:        [2]int32{-1, 0},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          rot,
 			screen:       false,
@@ -2889,6 +2895,7 @@ func (c *Char) prepareNextRound() {
 	c.CharSystemVar = CharSystemVar{
 		bindToId:              -1,
 		angleDrawScale:        [2]float32{1, 1},
+		trans:                 TT_default,
 		alpha:                 [2]int32{255, 0},
 		sizeWidth:             [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:            [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
@@ -5997,9 +6004,9 @@ func (c *Char) commitExplod(i int) {
 			if j < 2 {
 				e.scale[j] = 1
 				//if e.blendmode == 1 {
-				if e.trans == TT_add { // Any add?
+				//if e.trans == TT_alpha { // Any add?
 					e.alpha[j] = 255
-				}
+				//}
 			}
 			e.anglerot[j] = 0
 		}

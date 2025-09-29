@@ -20,9 +20,9 @@ type TransType int32
 const (
 	TT_default TransType = iota
 	TT_none
-	TT_add
+	//TT_add
 	TT_alpha
-	TT_add1
+	//TT_add1
 	TT_sub
 )
 

@@ -663,8 +663,8 @@ func (a *Animation) Action() {
 func (a *Animation) getAlpha() (transSrc, transDst int32) {
 	var sa, da byte
 
-	//if a.transType == TT_default {
-	if a.srcAlpha < 0 {
+	//if a.srcAlpha < 0 {
+	if a.transType == TT_default {
 		sa = byte(a.interpolate_blend_srcalpha)
 		da = byte(a.interpolate_blend_dstalpha)
 	} else {
@@ -1083,6 +1083,8 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			continue
 		}
 
+		// Get anim transparency from sprite data
+		s.anim.transType = s.trans
 		s.anim.srcAlpha = int16(s.alpha[0])
 		s.anim.dstAlpha = int16(s.alpha[1])
 
@@ -1405,12 +1407,15 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			continue
 		}
 
-		if s.alpha[0] < 0 {
+		//if s.alpha[0] < 0 {
+		if s.trans == TT_default {
 			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
 			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
 		} else {
-			s.anim.srcAlpha, s.anim.dstAlpha = int16(s.alpha[0]), int16(s.alpha[1])
+			s.anim.srcAlpha = int16(s.alpha[0])
+			s.anim.dstAlpha = int16(s.alpha[1])
 		}
+
 		var ref int32
 		if s.reflectIntensity != -1 {
 			ref = s.reflectIntensity

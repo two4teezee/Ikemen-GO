@@ -1298,7 +1298,7 @@ type Explod struct {
 	animelem            int32
 	animelemtime        int32
 	animfreeze          bool
-	//ontop                bool
+	ontop               bool // Legacy compatibility
 	under          bool
 	alpha          [2]int32
 	ownpal         bool
@@ -5975,6 +5975,14 @@ func (c *Char) commitExplod(i int) {
 			e.palfx.PalFXDef = e.palfxdef
 			e.palfx.remap = nil
 		}
+	}
+
+	// Emulate legacy ontop behavior
+	// Move from the end of the slice to the beginning to invert drawing order
+	if e.ontop {
+		playerExplods := &sys.explods[c.playerNo]
+		copy((*playerExplods)[1:i+1], (*playerExplods)[0:i])
+		(*playerExplods)[0] = e
 	}
 
 	// Explod ready

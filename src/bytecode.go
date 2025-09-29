@@ -5443,7 +5443,6 @@ const (
 	explod_layerno
 	explod_under
 	explod_ontop
-	explod_strictontop
 	explod_shadow
 	explod_removeongethit
 	explod_removeonchangestate
@@ -5619,13 +5618,12 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_ontop:
 			if exp[0].evalB(c) {
+				e.ontop = true
 				e.layerno = 1
-			} else {
-				e.layerno = 0
-			}
-		case explod_strictontop:
-			if e.layerno > 0 {
 				e.sprpriority = 0
+			} else {
+				e.ontop = false
+				e.layerno = 0
 			}
 		case explod_under:
 			e.under = exp[0].evalB(c)
@@ -6097,19 +6095,16 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				})
 			case explod_ontop:
-				if exp[0].evalB(c) {
-					eachExpl(func(e *Explod) {
-						e.layerno = 1
-					})
-				} else {
-					eachExpl(func(e *Explod) {
-						e.layerno = 0
-					})
-				}
-			case explod_strictontop:
+				// At this point we'd better not change the explod's position in the slice like when the explod is created
+				v := exp[0].evalB(c)
 				eachExpl(func(e *Explod) {
-					if e.layerno > 0 {
+					if v {
+						e.ontop = true
+						e.layerno = 1
 						e.sprpriority = 0
+					} else if e.ontop {
+						e.ontop = false
+						e.layerno = 0
 					}
 				})
 			case explod_under:

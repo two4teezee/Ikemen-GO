@@ -5979,16 +5979,20 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "airtype",
-			getHitVarSet_airtype, VT_Int, 1, false); err != nil {
+		if err := c.paramHittype(is, sc, "airtype", getHitVarSet_airtype); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "animtype",
-			getHitVarSet_animtype, VT_Int, 1, false); err != nil {
+		if err := c.paramAnimtype(is, sc, "animtype", getHitVarSet_animtype); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "attr",
-			getHitVarSet_attr, VT_Int, 1, false); err != nil {
+		if err := c.stateParam(is, "attr", false, func(data string) error {
+			attr, err := c.attr(data, true)
+			if err != nil {
+				return err
+			}
+			sc.add(getHitVarSet_attr, sc.iToExp(attr))
+			return nil
+		}); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "chainid",
@@ -6075,8 +6079,7 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_fallcount, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "groundtype",
-			getHitVarSet_groundtype, VT_Int, 1, false); err != nil {
+		if err := c.paramHittype(is, sc, "groundtype", getHitVarSet_groundtype); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "guardcount",

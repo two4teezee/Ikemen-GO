@@ -1299,23 +1299,23 @@ type Explod struct {
 	animelemtime        int32
 	animfreeze          bool
 	ontop               bool // Legacy compatibility
-	under          bool
-	alpha          [2]int32
-	ownpal         bool
-	remappal       [2]int32
-	ignorehitpause bool
-	rot            Rotation
-	anglerot       [3]float32
-	xshear         float32
-	projection     Projection
-	fLength        float32
-	oldPos         [3]float32
-	newPos         [3]float32
-	interPos       [3]float32
-	playerId       int32
-	palfx          *PalFX
-	palfxdef       PalFXDef
-	window         [4]float32
+	under               bool
+	alpha               [2]int32
+	ownpal              bool
+	remappal            [2]int32
+	ignorehitpause      bool
+	rot                 Rotation
+	anglerot            [3]float32
+	xshear              float32
+	projection          Projection
+	fLength             float32
+	oldPos              [3]float32
+	newPos              [3]float32
+	interPos            [3]float32
+	playerId            int32
+	palfx               *PalFX
+	palfxdef            PalFXDef
+	window              [4]float32
 	//lockSpriteFacing     bool
 	localscl             float32
 	localcoord           float32

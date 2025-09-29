@@ -766,7 +766,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		col := uint32(int32(numArg(l, 3))&0xff | int32(numArg(l, 2))&0xff<<8 |
 			int32(numArg(l, 1))&0xff<<16)
-		FillRect(sys.scrrect, col, as, 0)
+		FillRect(sys.scrrect, col, [2]int32{as, 0})
 		return 0
 	})
 	luaRegister(l, "clearConsole", func(*lua.LState) int {
@@ -964,7 +964,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "fade", func(l *lua.LState) int {
 		rect := [4]int32{int32(numArg(l, 1)), int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4))}
 		alpha := int32(numArg(l, 5))
-		FillRect(rect, 0, alpha>>uint(Btoi(sys.clsnDisplay))+Btoi(sys.clsnDisplay)*128, 0)
+		FillRect(rect, 0, [2]int32{alpha>>uint(Btoi(sys.clsnDisplay))+Btoi(sys.clsnDisplay)*128, 0})
 		return 0
 	})
 	luaRegister(l, "fadeColor", func(l *lua.LState) int {
@@ -991,7 +991,7 @@ func systemScriptInit(l *lua.LState) {
 			b = int32(numArg(l, 6))
 		}
 		col := uint32(int32(b)&0xff | int32(g)&0xff<<8 | int32(r)&0xff<<16)
-		FillRect(sys.scrrect, col, int32(as), 0)
+		FillRect(sys.scrrect, col, [2]int32{int32(as), 0})
 		l.Push(lua.LBool(true))
 		return 1
 	})
@@ -1007,7 +1007,7 @@ func systemScriptInit(l *lua.LState) {
 			int32((float32(numArg(l, 4)) / sys.luaSpriteScale) * sys.heightScale)}
 		col := uint32(int32(numArg(l, 7))&0xff | int32(numArg(l, 6))&0xff<<8 | int32(numArg(l, 5))&0xff<<16)
 		as, ad := int32(numArg(l, 8)), int32(numArg(l, 9))
-		FillRect(rect, col, as, ad)
+		FillRect(rect, col, [2]int32{as, ad})
 		return 0
 	})
 	luaRegister(l, "findEntityByPlayerId", func(*lua.LState) int {

@@ -2043,16 +2043,16 @@ func (s *System) draw(x, y, scl float32) {
 				}
 				c = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
 			}
-			FillRect(s.scrrect, c, 255, 0)
+			FillRect(s.scrrect, c, [2]int32{255, 0})
 		}
 
 		// Draw normal stage background fill and elements with layerNo == -1
 		if !s.gsf(GSF_nobg) {
 			if s.stage.debugbg {
-				FillRect(s.scrrect, 0xff00ff, 255, 0)
+				FillRect(s.scrrect, 0xff00ff, [2]int32{255, 0})
 			} else {
 				c = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
-				FillRect(s.scrrect, c, 255, 0)
+				FillRect(s.scrrect, c, [2]int32{255, 0})
 			}
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
@@ -2127,7 +2127,7 @@ func (s *System) draw(x, y, scl float32) {
 	}
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
-		FillRect(s.scrrect, ecol, 255, 0)
+		FillRect(s.scrrect, ecol, [2]int32{255, 0})
 	}
 
 	// Draw character sprites in layer 0
@@ -2154,26 +2154,27 @@ func (s *System) drawTop() {
 	s.brightness = s.brightnessOld
 	// Draw Clsn boxes
 	if s.clsnDisplay {
+		alpha := [2]int32{255, 255}
 		s.clsnSpr.Pal[0] = 0xff0000ff
-		s.debugc1hit.draw(255, 255)
+		s.debugc1hit.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff0040c0
-		s.debugc1rev.draw(255, 255)
+		s.debugc1rev.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff000080
-		s.debugc1not.draw(255, 255)
+		s.debugc1not.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xffff0000
-		s.debugc2.draw(255, 255)
+		s.debugc2.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff808000
-		s.debugc2hb.draw(255, 255)
+		s.debugc2hb.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff004000
-		s.debugc2mtk.draw(255, 255)
+		s.debugc2mtk.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xffc00040
-		s.debugc2grd.draw(255, 255)
+		s.debugc2grd.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff404040
-		s.debugc2stb.draw(255, 255)
+		s.debugc2stb.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xff303030
-		s.debugcsize.draw(255, 255)
+		s.debugcsize.draw(alpha)
 		s.clsnSpr.Pal[0] = 0xffffffff
-		s.debugch.draw(255, 255)
+		s.debugch.draw(alpha)
 	}
 }
 

@@ -93,9 +93,9 @@ func (pf *PalFX) clear() {
 	pf.clear2(false)
 }
 
-func (pf *PalFX) getSynFx(transSrc, transDst int32) *PalFX {
+func (pf *PalFX) getSynFx(alpha [2]int32) *PalFX {
 	if pf == nil || !pf.enable {
-		if transSrc == -2 && sys.allPalFX.enable { // Sub magic number
+		if alpha[0] == -2 && sys.allPalFX.enable { // Sub magic number
 			if pf == nil {
 				pf = newPalFX()
 			}
@@ -113,12 +113,12 @@ func (pf *PalFX) getSynFx(transSrc, transDst int32) *PalFX {
 		return pf
 	}
 	synth := *pf
-	synth.synthesize(sys.allPalFX, transSrc, transDst)
+	synth.synthesize(sys.allPalFX, alpha)
 	return &synth
 }
 
 func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
-	p := pf.getSynFx(0, 0)
+	p := pf.getSynFx([2]int32{0, 0})
 	if !p.enable {
 		return pal
 	}
@@ -169,9 +169,9 @@ func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
 	return sys.workpal
 }
 
-func (pf *PalFX) getFcPalFx(transNeg bool, transSrc, transDst int32) (neg bool, grayscale float32,
+func (pf *PalFX) getFcPalFx(transNeg bool, alpha [2]int32) (neg bool, grayscale float32,
 	add, mul [3]float32, invblend int32, hue float32) {
-	p := pf.getSynFx(transSrc, transDst)
+	p := pf.getSynFx(alpha)
 	if !p.enable {
 		neg = false
 		grayscale = 0
@@ -307,8 +307,8 @@ func (pf *PalFX) step() {
 	}
 }
 
-func (pf *PalFX) synthesize(pfx *PalFX, transSrc, transDst int32) {
-	if transSrc == -2 { // Sub magic number
+func (pf *PalFX) synthesize(pfx *PalFX, alpha [2]int32) {
+	if alpha[0] == -2 { // Sub magic number
 		for i, a := range pfx.eAdd {
 			pf.eAdd[i] = Clamp(pf.eAdd[i]-Abs(a), 0, 255)
 			pf.eMul[i] = Clamp(pf.eMul[i]-a, 0, 255)
@@ -329,7 +329,7 @@ func (pf *PalFX) synthesize(pfx *PalFX, transSrc, transDst int32) {
 	if pfx.invertall {
 		// Char blend inverse
 		if pfx.invertblend == 1 {
-			if (transSrc != 0 || transDst != 0) && pf.invertblend > -3 {
+			if alpha != [2]int32{0, 0} && pf.invertblend > -3 {
 				pf.eInvertall = pf.invertall
 			}
 			switch {
@@ -1241,8 +1241,8 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 		yas:            1,
 		rot:            rot,
 		tint:           0,
-		transSrc:       sys.brightness*255>>8,
-		transDst:       0,
+		blendMode:      TT_alpha,
+		blendAlpha:     [2]int32{sys.brightness*255>>8, 0},
 		mask:           0,
 		pfx:            fx,
 		window:         window,

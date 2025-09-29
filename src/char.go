@@ -197,7 +197,7 @@ func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	}
 }
 
-func (cr ClsnRect) draw(transSrc, transDst int32) {
+func (cr ClsnRect) draw(blendAlpha [2]int32) {
 	paltex := PaletteToTexture(sys.clsnSpr.Pal)
 	for _, c := range cr {
 		params := RenderParams{
@@ -216,8 +216,8 @@ func (cr ClsnRect) draw(transSrc, transDst int32) {
 			yas:            1,
 			rot:            Rotation{angle: c[6]},
 			tint:           0,
-			transSrc:       transSrc,
-			transDst:       transDst,
+			blendMode:      TT_alpha,
+			blendAlpha:     blendAlpha,
 			mask:           -1,
 			pfx:            nil,
 			window:         &sys.scrrect,
@@ -1875,13 +1875,13 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			(*scale)[i] = e.interpolate_scale[i] * e.scale[i]
 			//if e.blendmode == 1 {
 			//if e.trans == TT_alpha { // Any add?
-				if (*alpha)[0] == 1 && (*alpha)[1] == 254 {
-					(*alpha)[0] = 0
-					(*alpha)[1] = 255
-				} else {
+				//if (*alpha)[0] == 1 && (*alpha)[1] == 254 {
+				//	(*alpha)[0] = 0
+				//	(*alpha)[1] = 255
+				//} else {
 					// Update alpha regardless of transparency type. Let type handle the rendering
 					(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
-				}
+				//}
 			//}
 		}
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
@@ -11197,9 +11197,11 @@ func (c *Char) cueDraw() {
 			xshear:       c.xshear,
 			window:       cwin,
 		}
-		if !c.csf(CSF_trans) {
-			sd.alpha[0] = -1
-		}
+
+		//if !c.csf(CSF_trans) {
+		//	sd.alpha[0] = -1
+		//}
+
 		// Record afterimage
 		c.aimg.recAndCue(sd, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
 		// Hitshake effect
@@ -11215,6 +11217,7 @@ func (c *Char) cueDraw() {
 		} else if c.asf(ASF_drawunder) {
 			sprs = &sys.spritesLayerU
 		}
+
 		if !c.asf(ASF_invisible) {
 			sdwalp := int32(255)
 			if c.csf(CSF_trans) {

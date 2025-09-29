@@ -354,10 +354,10 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
-				bg.anim.srcAlpha = 0
-				bg.anim.dstAlpha = 255
-			}
+			//if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
+			//	bg.anim.srcAlpha = 0
+			//	bg.anim.dstAlpha = 255
+			//}
 		}
 	case "add1":
 		bg.anim.mask = 0
@@ -377,19 +377,19 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
-				bg.anim.srcAlpha = 0
-				bg.anim.dstAlpha = 255
-			}
+			//if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
+			//	bg.anim.srcAlpha = 0
+			//	bg.anim.dstAlpha = 255
+			//}
 		}
 	case "sub":
 		bg.anim.mask = 0
 		bg.anim.transType = TT_sub
-		bg.anim.srcAlpha = 1
-		bg.anim.dstAlpha = 254
+		bg.anim.srcAlpha = 255
+		bg.anim.dstAlpha = 255
 	case "none":
 		bg.anim.transType = TT_none
-		bg.anim.srcAlpha = -1
+		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 0
 	}
 	if is.readI32ForStage("tile", &bg.anim.tile.xflag, &bg.anim.tile.yflag) {
@@ -660,8 +660,10 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 				uint16(math.Ceil(float64(w))),
 				uint16(math.Ceil(float64(h))),
 			}
+
 			bg.anim.scale_x = 1
 			bg.anim.scale_y = 1
+
 		}
 
 		// Xshear offset correction
@@ -3897,19 +3899,16 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 	}
 
 	// Rough patch
-	var transSrc, transDst int32
+	var alpha [2]int32
 	switch n.trans {
 	case TransAdd:
-		transSrc = 255
-		transDst = 255
+		alpha = [2]int32{255, 255}
 	case TransReverseSubtract:
-		transSrc = -2 // Only this one seems to matter
-		transDst = 0
+		alpha = [2]int32{-2, 0} // Only this one seems to matter
 	default:
-		transSrc = 255
-		transDst = 0
+		alpha = [2]int32{255, 0}
 	}
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, transSrc, transDst)
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, alpha)
 
 	blendEq := BlendAdd
 	src := BlendOne

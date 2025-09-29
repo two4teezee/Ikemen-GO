@@ -84,8 +84,8 @@ func ReadAnimFrame(line string) *AnimFrame {
 			af.DstAlpha = 128
 		case len(a) > 0 && a[0] == 's':
 			af.TransType = TT_sub
-			af.SrcAlpha = 1 // Ikemen uses AS1D254 in place of Sub. TODO: This ought to be refactored
-			af.DstAlpha = 254
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
 		case len(a) >= 2 && a[:2] == "as":
 			af.TransType = TT_alpha
 			af.SrcAlpha = 255
@@ -114,10 +114,10 @@ func ReadAnimFrame(line string) *AnimFrame {
 						} else {
 							af.DstAlpha = byte(alp)
 						}
-						if af.SrcAlpha == 1 && af.DstAlpha == 254 { // See above. The code would be better off without these workarounds
-							af.SrcAlpha = 0
-							af.DstAlpha = 255
-						}
+						//if af.SrcAlpha == 1 && af.DstAlpha == 254 { // See above. The code would be better off without these workarounds
+						//	af.SrcAlpha = 0
+						//	af.DstAlpha = 255
+						//}
 					}
 				}
 			}
@@ -183,6 +183,7 @@ type Animation struct {
 	scale_x                    float32
 	scale_y                    float32
 	angle                      float32
+	curtrans                   TransType
 	interpolate_blend_srcalpha float32
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
@@ -546,6 +547,7 @@ func (a *Animation) UpdateSprite() {
 	}
 	a.newframe, a.drawidx = false, a.curelem
 
+	a.curtrans = a.frames[a.drawidx].TransType
 	a.scale_x = a.frames[a.drawidx].Xscale
 	a.scale_y = a.frames[a.drawidx].Yscale
 	a.angle = a.frames[a.drawidx].Angle
@@ -598,19 +600,19 @@ func (a *Animation) UpdateSprite() {
 		}
 	}
 
-	if byte(a.interpolate_blend_srcalpha) != 1 || byte(a.interpolate_blend_dstalpha) != 254 {
+	//if byte(a.interpolate_blend_srcalpha) != 1 || byte(a.interpolate_blend_dstalpha) != 254 {
 		for _, i := range a.interpolate_blend {
 			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
 				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch. Redundant, too?
-					a.interpolate_blend_srcalpha = 0
-					a.interpolate_blend_dstalpha = 255
-				}
+				//if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch. Redundant, too?
+				//	a.interpolate_blend_srcalpha = 0
+				//	a.interpolate_blend_dstalpha = 255
+				//}
 				break
 			}
 		}
-	}
+	//}
 }
 
 func (a *Animation) Action() {
@@ -660,42 +662,36 @@ func (a *Animation) Action() {
 }
 
 // Convert animation transparency to RenderParams transparency
-func (a *Animation) getAlpha() (transSrc, transDst int32) {
+func (a *Animation) getAlpha() (blendMode TransType, blendAlpha [2]int32) {
 	var sa, da byte
 
-	//if a.srcAlpha < 0 {
-	if a.transType == TT_default {
+	blendMode = a.transType
+
+	if blendMode == TT_default {
+		blendMode = a.curtrans
 		sa = byte(a.interpolate_blend_srcalpha)
 		da = byte(a.interpolate_blend_dstalpha)
 	} else {
 		sa = byte(a.srcAlpha)
-		if a.dstAlpha < 0 {
-			da = byte(^a.dstAlpha >> 1)
+		da = byte(a.dstAlpha)
+		// TODO: When was destination negative?
+		/*if a.dstAlpha < 0 {
+			da = ^a.dstAlpha >> 1
 			if sa == 1 && da == 254 { // Sub patch
 				sa = 0
 				da = 255
 			}
 		} else {
-			da = byte(a.dstAlpha)
-		}
-	}
-
-	// Sub transparency magic number
-	//if a.transType == TT_sub {
-	if sa == 1 && da == 254 {
-		return -2, 0
+			da = a.dstAlpha
+		}*/
 	}
 
 	// Apply system brightness
 	sa = byte(int32(sa) * sys.brightness >> 8)
 
-	// Mugen sprites disappear a bit earlier than this
-	// However that makes subtle interpolated blending noticeably jump
-	//if sa < 1 && da == 255 {
-	//	return 0, 255
-	//}
+	blendAlpha = [2]int32{int32(sa), int32(da)}
 
-	return int32(sa), int32(da)
+	return
 }
 
 func (a *Animation) pal(pfx *PalFX) (p []uint32, plt Texture) {
@@ -814,7 +810,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		fLength *= ycs
 	}
 
-	transSrc, transDst := a.getAlpha()
+	blendMode, blendAlpha := a.getAlpha()
 
 	var paltex Texture
 	if !a.isVideo {
@@ -841,8 +837,8 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		yas:            v,
 		rot:            rot,
 		tint:           color,
-		transSrc:       transSrc,
-		transDst:       transDst,
+		blendMode:      blendMode,
+		blendAlpha:     blendAlpha,
 		mask:           int32(a.mask),
 		pfx:            pfx,
 		window:         window,
@@ -895,8 +891,8 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		yas:            v,
 		rot:            rot,
 		tint:           color | 0xff000000,
-		transSrc:       0,
-		transDst:       0,
+		blendMode:      TT_sub,
+		blendAlpha:     [2]int32{0, 0},
 		mask:           int32(a.mask),
 		pfx:            nil,
 		window:         window,
@@ -943,14 +939,17 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	}
 
 	if color != 0 {
-		rp.transSrc = -2
-		rp.transDst = 0
+		//rp.blendMode = TT_sub
+		rp.blendAlpha = [2]int32{255, 255}
+		//rp.transSrc = -2
+		//rp.transDst = 0
 		RenderSprite(rp)
 	}
 
 	if alpha > 0 {
-		rp.transSrc = 0
-		rp.transDst = 256-alpha
+		rp.blendAlpha = [2]int32{0, 256-alpha}
+		//rp.transSrc = 0
+		//rp.transDst = 256-alpha
 		RenderSprite(rp)
 	}
 }
@@ -1082,11 +1081,6 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		if s.isBlank() {
 			continue
 		}
-
-		// Get anim transparency from sprite data
-		s.anim.transType = s.trans
-		s.anim.srcAlpha = int16(s.alpha[0])
-		s.anim.dstAlpha = int16(s.alpha[1])
 
 		ob := sys.brightness
 		if s.undarken {
@@ -1407,7 +1401,11 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			continue
 		}
 
-		//if s.alpha[0] < 0 {
+		// Backup animation transparency to temporarily change it
+		oldSrcAlpha := s.anim.srcAlpha
+		oldDstAlpha := s.anim.dstAlpha
+
+		// Get base alpha
 		if s.trans == TT_default {
 			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
 			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
@@ -1416,6 +1414,10 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			s.anim.dstAlpha = int16(s.alpha[1])
 		}
 
+		// Force reflections into trans alpha
+		s.trans = TT_alpha
+
+		// Apply reflection intensity
 		var ref int32
 		if s.reflectIntensity != -1 {
 			ref = s.reflectIntensity
@@ -1423,15 +1425,9 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			ref = sys.stage.reflection.intensity
 		}
 
-		s.anim.srcAlpha = int16(float32(int32(s.anim.srcAlpha)*ref) / 255)
-		if s.anim.dstAlpha < 0 {
-			s.anim.dstAlpha = 128
-		}
-		s.anim.dstAlpha = int16(Min(255, int32(s.anim.dstAlpha)+255-ref)) // TODO: This is too bright during blend interpolation
-		if s.anim.srcAlpha == 1 && s.anim.dstAlpha == 254 {
-			s.anim.srcAlpha = 0
-			s.anim.dstAlpha = 255
-		}
+		// Scale intensity by linear interpolation
+		s.anim.srcAlpha = int16((int32(s.anim.srcAlpha) * ref) / 255)
+		s.anim.dstAlpha = int16((int32(s.anim.dstAlpha) * ref) / 255 + (255 - ref))
 
 		// Set the tint if it's there
 		var color uint32
@@ -1553,7 +1549,11 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true, false)
+			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true)
+
+		// Restore original animation transparency just in case
+		s.anim.srcAlpha = oldSrcAlpha
+		s.anim.dstAlpha = oldDstAlpha
 	}
 }
 

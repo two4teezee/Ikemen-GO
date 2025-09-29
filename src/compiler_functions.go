@@ -1501,8 +1501,7 @@ func (c *Compiler) afterImageSub(is IniSection,
 		afterImage_redirectid, VT_Int, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramTrans(is, sc, prefix,
-		afterImage_trans, true); err != nil {
+	if err := c.paramTrans(is, sc, prefix, afterImage_trans, true); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, prefix+"time",
@@ -3431,7 +3430,10 @@ func (c *Compiler) trans(is IniSection, sc *StateControllerBase, _ int8) (StateC
 			trans_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.paramTrans(is, sc, "", trans_trans, false)
+		if err := c.paramTrans(is, sc, "", trans_trans, false); err != nil {
+			return err
+		}
+		return nil
 	})
 	return *ret, err
 }

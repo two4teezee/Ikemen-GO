@@ -12,6 +12,7 @@ type AnimFrame struct {
 	Group, Number int16
 	Xoffset       int16
 	Yoffset       int16
+	TransType     TransType
 	SrcAlpha      byte
 	DstAlpha      byte
 	Hscale        int8
@@ -27,6 +28,7 @@ func newAnimFrame() *AnimFrame {
 	return &AnimFrame{
 		Time:     -1,
 		Group:    -1,
+		TransType: TT_none,
 		SrcAlpha: 255,
 		DstAlpha: 0,
 		Hscale:   1, // These two are technically flags but are coded like scale for simplicity
@@ -77,12 +79,17 @@ func ReadAnimFrame(line string) *AnimFrame {
 		a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
 		switch {
 		case a == "a1":
+			af.TransType = TT_alpha
 			af.SrcAlpha = 255
 			af.DstAlpha = 128
 		case len(a) > 0 && a[0] == 's':
+			af.TransType = TT_sub
 			af.SrcAlpha = 1 // Ikemen uses AS1D254 in place of Sub. TODO: This ought to be refactored
 			af.DstAlpha = 254
 		case len(a) >= 2 && a[:2] == "as":
+			af.TransType = TT_alpha
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
 			if len(a) > 2 && a[2] >= '0' && a[2] <= '9' {
 				i, alp := 2, 0
 				for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
@@ -115,7 +122,9 @@ func ReadAnimFrame(line string) *AnimFrame {
 				}
 			}
 		case len(a) > 0 && a[0] == 'a':
-			af.SrcAlpha, af.DstAlpha = 255, 255
+			af.TransType = TT_alpha
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
 		}
 	}
 
@@ -164,6 +173,7 @@ type Animation struct {
 	looptime                   int32
 	prelooptime                int32
 	mask                       int16
+	transType                  TransType
 	srcAlpha                   int16
 	dstAlpha                   int16
 	newframe                   bool
@@ -184,6 +194,7 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		sff:         sff,
 		palettedata: pal,
 		mask:        -1,
+		transType:   TT_default,
 		srcAlpha:    -1,
 		newframe:    true,
 		remap:       make(RemapPreset),
@@ -548,6 +559,7 @@ func (a *Animation) UpdateSprite() {
 	if int(a.drawidx) >= len(a.frames)-1 {
 		nextDrawidx = a.loopstart
 	}
+
 	for _, i := range a.interpolate_offset {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
@@ -555,6 +567,7 @@ func (a *Animation) UpdateSprite() {
 			break
 		}
 	}
+
 	for _, i := range a.interpolate_scale {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			var drawframe_scale_x, nextframe_scale_x, drawframe_scale_y, nextframe_scale_y float32 = 1, 1, 1, 1
@@ -572,6 +585,7 @@ func (a *Animation) UpdateSprite() {
 	}
 	a.scale_x *= a.start_scale[0]
 	a.scale_y *= a.start_scale[1]
+
 	for _, i := range a.interpolate_angle {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			var drawframe_angle, nextframe_angle float32 = 0, 0
@@ -583,13 +597,13 @@ func (a *Animation) UpdateSprite() {
 			break
 		}
 	}
-	if byte(a.interpolate_blend_srcalpha) != 1 ||
-		byte(a.interpolate_blend_dstalpha) != 255 {
+
+	if byte(a.interpolate_blend_srcalpha) != 1 || byte(a.interpolate_blend_dstalpha) != 254 {
 		for _, i := range a.interpolate_blend {
 			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
 				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch
+				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch. Redundant, too?
 					a.interpolate_blend_srcalpha = 0
 					a.interpolate_blend_dstalpha = 255
 				}
@@ -648,7 +662,12 @@ func (a *Animation) Action() {
 // Convert animation transparency to RenderParams transparency
 func (a *Animation) getAlpha() (transSrc, transDst int32) {
 	var sa, da byte
-	if a.srcAlpha >= 0 {
+
+	//if a.transType == TT_default {
+	if a.srcAlpha < 0 {
+		sa = byte(a.interpolate_blend_srcalpha)
+		da = byte(a.interpolate_blend_dstalpha)
+	} else {
 		sa = byte(a.srcAlpha)
 		if a.dstAlpha < 0 {
 			da = byte(^a.dstAlpha >> 1)
@@ -659,11 +678,10 @@ func (a *Animation) getAlpha() (transSrc, transDst int32) {
 		} else {
 			da = byte(a.dstAlpha)
 		}
-	} else {
-		d = byte(da)
 	}
 
 	// Sub transparency magic number
+	//if a.transType == TT_sub {
 	if sa == 1 && da == 254 {
 		return -2, 0
 	}
@@ -987,6 +1005,7 @@ type SprData struct {
 	fx           *PalFX
 	pos          [2]float32
 	scl          [2]float32
+	trans        TransType
 	alpha        [2]int32
 	priority     int32
 	rot          Rotation

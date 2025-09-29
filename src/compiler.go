@@ -5882,124 +5882,81 @@ func (c *Compiler) paramSaveData(is IniSection, sc *StateControllerBase, id byte
 	})
 }
 
+// Parse trans and alpha together
 func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 	prefix string, id byte, afterImage bool) error {
+
 	return c.stateParam(is, prefix+"trans", false, func(data string) error {
 		if len(data) == 0 {
 			return Error("trans type not specified")
 		}
+
+		// Defaults
 		tt := TT_default
+		defsrc, defdst := int32(255), int32(0)
+
+		// Parse the trans type and set default alpha
 		data = strings.ToLower(data)
 		switch data {
 		case "none":
 			tt = TT_none
+			defsrc, defdst = 255, 0
 		case "add1":
-			tt = TT_add1
+			tt = TT_alpha
+			defsrc, defdst = 255, 128
 		case "sub":
 			tt = TT_sub
+			defsrc, defdst = 1, 255 // Placeholder
 		default:
-			_error := false
 			if afterImage {
-				if len(data) >= 3 && data[:3] == "add" {
-					tt = TT_add
+				if strings.HasPrefix(data, "add") {
+					tt = TT_alpha
+					defsrc, defdst = 255, 255
 				} else {
-					_error = true
+					return Error("Invalid trans type: " + data)
 				}
 			} else {
 				switch data {
 				case "default":
 					tt = TT_default
-				case "add":
-					tt = TT_add
-				case "addalpha", "alpha":
+					defsrc, defdst = 255, 0
+				case "add", "addalpha": // "alpha"?
 					tt = TT_alpha
+					defsrc, defdst = 255, 255
 				default:
-					_error = true
-				}
-			}
-			if _error {
-				if (!afterImage && sys.cgi[c.playerNo].ikemenverF > 0) || !sys.ignoreMostErrors {
 					return Error("Invalid trans type: " + data)
 				}
-				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Invalid trans type: "+data+" in state %v ", c.stateNo))
-				return nil
 			}
-
 		}
-		var exp []BytecodeExp
-		b := false
-		if !afterImage || sys.cgi[c.playerNo].mugenver[0] == 1 {
-			if err := c.stateParam(is, prefix+"alpha", false, func(data string) error {
-				b = true
-				bes, err := c.exprs(data, VT_Int, 2)
-				if err != nil {
-					return err
-				}
-				// TODO: Based on my tests add1 doesn't need special alpha[1] handling
-				// Remove unused code if there won't be regression.
-				//if tt == TT_add1 {
-				//	exp = make([]BytecodeExp, 4)
-				//} else if tt == TT_add || tt == TT_alpha {
-				if tt == TT_add || tt == TT_alpha || tt == TT_add1 {
-					exp = make([]BytecodeExp, 3)
-				} else {
-					exp = make([]BytecodeExp, 2)
-				}
-				exp[0] = bes[0]
-				if len(exp) == 2 {
-					exp[0].append(OC_pop)
-					switch tt {
-					case TT_none:
-						exp[0].appendValue(BytecodeInt(255))
-					case TT_sub:
-						exp[0].appendValue(BytecodeInt(1))
-					default:
-						exp[0].appendValue(BytecodeInt(-1))
-					}
-				}
-				if len(bes) > 1 {
-					exp[1] = bes[1]
-					if tt != TT_alpha && tt != TT_add1 && !(tt == TT_add && sys.cgi[c.playerNo].mugenver[0] == 1) {
-						exp[1].append(OC_pop)
-					}
-				}
-				switch tt {
-				case TT_alpha, TT_add1:
-					if len(bes) <= 1 {
-						exp[1].appendValue(BytecodeInt(255))
-					}
-				case TT_add:
-					if sys.cgi[c.playerNo].mugenver[0] == 1 {
-						if len(bes) <= 1 {
-							exp[1].appendValue(BytecodeInt(255))
-						}
-					} else {
-						exp[1].appendValue(BytecodeInt(255))
-					}
-				case TT_sub:
-					exp[1].appendValue(BytecodeInt(255))
-				default:
-					exp[1].appendValue(BytecodeInt(0))
-				}
-				return nil
-			}); err != nil {
+
+		exp := make([]BytecodeExp, 3)
+
+		// Parse custom alpha
+		_ = c.stateParam(is, prefix+"alpha", false, func(data string) error {
+			vals, err := c.exprs(data, VT_Int, 2)
+			if err != nil {
 				return err
 			}
-		}
-		if !b {
-			switch tt {
-			case TT_none:
-				exp = sc.iToExp(255, 0)
-			case TT_add:
-				exp = sc.iToExp(255, 255)
-			case TT_add1:
-				exp = sc.iToExp(255, ^255)
-			case TT_sub:
-				exp = sc.iToExp(1, 255)
-			default:
-				exp = sc.iToExp(-1, 0)
+			if len(vals) > 0 {
+				exp[0] = vals[0]
 			}
+			if len(vals) > 1 {
+				exp[1] = vals[1]
+			}
+			return nil
+		})
+
+		// Use custom or default alpha
+		if exp[0] == nil {
+			exp[0] = sc.iToExp(defsrc)[0]
 		}
+		if exp[1] == nil {
+			exp[1] = sc.iToExp(defdst)[0]
+		}
+
+		// Always use trans type
+		exp[2] = sc.iToExp(int32(tt))[0]
+
 		sc.add(id, exp)
 		return nil
 	})

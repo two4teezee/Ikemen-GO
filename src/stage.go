@@ -347,6 +347,7 @@ func readBackGround(is IniSection, link *backGround,
 	switch strings.ToLower(is["trans"]) {
 	case "add":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_alpha
 		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 255
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
@@ -360,8 +361,9 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "add1":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_alpha
 		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = ^255
+		bg.anim.dstAlpha = 128
 		var s, d int32 = 255, 255
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Min(255, s))
@@ -370,6 +372,7 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "addalpha":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_alpha
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
@@ -381,9 +384,11 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "sub":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_sub
 		bg.anim.srcAlpha = 1
-		bg.anim.dstAlpha = 255
+		bg.anim.dstAlpha = 254
 	case "none":
+		bg.anim.transType = TT_none
 		bg.anim.srcAlpha = -1
 		bg.anim.dstAlpha = 0
 	}
@@ -489,6 +494,7 @@ func (bg *backGround) reset() {
 func (bg *backGround) changeAnim(val int32, a *Animation) {
 	// Save old
 	masktemp := bg.anim.mask
+	transTypetemp := bg.anim.transType
 	srcAlphatemp := bg.anim.srcAlpha
 	dstAlphatemp := bg.anim.dstAlpha
 	tiletmp := bg.anim.tile
@@ -499,8 +505,9 @@ func (bg *backGround) changeAnim(val int32, a *Animation) {
 
 	// Restore
 	bg.anim.tile = tiletmp
-	bg.anim.dstAlpha = dstAlphatemp
+	bg.anim.transType = transTypetemp
 	bg.anim.srcAlpha = srcAlphatemp
+	bg.anim.dstAlpha = dstAlphatemp
 	bg.anim.mask = masktemp
 }
 

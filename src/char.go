@@ -1060,6 +1060,7 @@ type AfterImage struct {
 	mul            [3]float32
 	timegap        int32
 	framegap       int32
+	trans          TransType
 	alpha          [2]int32
 	palfx          []*PalFX
 	imgs           [64]aimgImage
@@ -1321,27 +1322,28 @@ type Explod struct {
 	animelemtime        int32
 	animfreeze          bool
 	ontop               bool // Legacy compatibility
-	under               bool
-	alpha               [2]int32
-	ownpal              bool
-	remappal            [2]int32
-	ignorehitpause      bool
-	rot                 Rotation
-	anglerot            [3]float32
-	xshear              float32
-	projection          Projection
-	fLength             float32
-	oldPos              [3]float32
-	newPos              [3]float32
-	interPos            [3]float32
-	playerId            int32
-	palfx               *PalFX
-	palfxdef            PalFXDef
-	window              [4]float32
+	under          bool
+	trans          TransType
+	alpha          [2]int32
+	ownpal         bool
+	remappal       [2]int32
+	ignorehitpause bool
+	rot            Rotation
+	anglerot       [3]float32
+	xshear         float32
+	projection     Projection
+	fLength        float32
+	oldPos         [3]float32
+	newPos         [3]float32
+	interPos       [3]float32
+	playerId       int32
+	palfx          *PalFX
+	palfxdef       PalFXDef
+	window         [4]float32
 	//lockSpriteFacing     bool
 	localscl             float32
 	localcoord           float32
-	blendmode            int32
+	//blendmode            int32
 	start_animelem       int32
 	start_scale          [2]float32
 	start_rot            [3]float32
@@ -1387,7 +1389,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
 		animelemtime:      0,
-		blendmode:         0,
+		//blendmode:         0,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
 		ignorehitpause:    true,
@@ -1853,7 +1855,8 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			e.interpolate_pos[i] = Lerp(e.interpolate_pos[i+3], 0, t)
 			if i < 2 {
 				e.interpolate_scale[i] = Lerp(e.interpolate_scale[i+2], e.start_scale[i], t) //-e.start_scale[i]
-				if e.blendmode == 1 {
+				//if e.blendmode == 1 {
+				if e.trans == TT_add { // Any add?
 					e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
 				}
 			}
@@ -1866,7 +1869,8 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 	for i := 0; i < 3; i++ {
 		if i < 2 {
 			(*scale)[i] = e.interpolate_scale[i] * e.scale[i]
-			if e.blendmode == 1 {
+			//if e.blendmode == 1 {
+			if e.trans == TT_add { // Any add?
 				if (*alpha)[0] == 1 && (*alpha)[1] == 255 {
 					(*alpha)[0] = 0
 				} else {
@@ -2600,6 +2604,7 @@ type CharSystemVar struct {
 	projection            Projection
 	fLength               float32
 	angleDrawScale        [2]float32
+	trans                 TransType
 	alpha                 [2]int32
 	window                [4]float32
 	systemFlag            SystemCharFlag
@@ -5991,7 +5996,8 @@ func (c *Char) commitExplod(i int) {
 			}
 			if j < 2 {
 				e.scale[j] = 1
-				if e.blendmode == 1 {
+				//if e.blendmode == 1 {
+				if e.trans == TT_add { // Any add?
 					e.alpha[j] = 255
 				}
 			}
@@ -10179,6 +10185,8 @@ func (c *Char) actionPrepare() {
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
 			c.unsetCSF(CSF_angledraw | CSF_trans)
 			c.angleDrawScale = [2]float32{1, 1}
+			c.trans = TT_default
+			c.alpha = [2]int32{255, 0}
 			c.offset = [2]float32{}
 			// Reset all AssertSpecial flags except the following, which are reset elsewhere in the code
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
@@ -11168,6 +11176,7 @@ func (c *Char) cueDraw() {
 			fx:           c.getPalfx(),
 			pos:          pos,
 			scl:          drawscale,
+			trans:        c.trans,
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
 			rot:          rot,

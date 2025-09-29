@@ -5641,6 +5641,12 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_removeonchangestate:
 			e.removeonchangestate = exp[0].evalB(c)
 		case explod_trans:
+			src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+			dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+			tt := TransType(exp[2].evalI(c))
+			e.trans = tt
+			e.alpha = [2]int32{src, dst}
+		/*case explod_trans:
 			e.alpha[0] = exp[0].evalI(c)
 			e.alpha[1] = exp[1].evalI(c)
 			sa, da := e.alpha[0], e.alpha[1]
@@ -5663,7 +5669,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				if e.alpha[0] == 1 && e.alpha[1] == 255 {
 					e.alpha[0] = 0
 				}
-			}
+			}*/
 		case explod_animelem:
 			e.animelem = exp[0].evalI(c)
 		case explod_animelemtime:
@@ -6132,16 +6138,24 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case explod_removeongethit:
-				t := exp[0].evalB(c)
+				v := exp[0].evalB(c)
 				eachExpl(func(e *Explod) {
-					e.removeongethit = t
+					e.removeongethit = v
 				})
 			case explod_removeonchangestate:
-				t := exp[0].evalB(c)
+				v := exp[0].evalB(c)
 				eachExpl(func(e *Explod) {
-					e.removeonchangestate = t
+					e.removeonchangestate = v
 				})
 			case explod_trans:
+				src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+				dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+				tt := TransType(exp[2].evalI(c))
+				eachExpl(func(e *Explod) {
+					e.trans = tt
+					e.alpha = [2]int32{src, dst}
+				})
+			/*case explod_trans:
 				s, d := exp[0].evalI(c), exp[1].evalI(c)
 				blendmode := 0
 				if len(exp) >= 3 {
@@ -6167,7 +6181,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				eachExpl(func(e *Explod) {
 					e.alpha = [...]int32{s, d}
 					e.blendmode = int32(blendmode)
-				})
+				})*/
 			case explod_anim:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
 					apn := crun.playerNo // Default to own player number
@@ -6391,6 +6405,12 @@ const (
 func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []BytecodeExp) {
 	switch paramID {
 	case afterImage_trans:
+		src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+		dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+		tt := TransType(exp[2].evalI(c))
+		ai.trans = tt
+		ai.alpha = [2]int32{src, dst}
+	/*case afterImage_trans:
 		ai.alpha[0] = exp[0].evalI(c)
 		ai.alpha[1] = exp[1].evalI(c)
 		if len(exp) >= 3 {
@@ -6402,7 +6422,7 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []Bytecod
 			if ai.alpha[0] == 1 && ai.alpha[1] == 255 {
 				ai.alpha[0] = 0
 			}
-		}
+		}*/
 	case afterImage_time:
 		ai.time = exp[0].evalI(c)
 	case afterImage_length:
@@ -9421,6 +9441,12 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 		}
 		switch paramID {
 		case trans_trans:
+			src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+			dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+			tt := TransType(exp[2].evalI(c))
+			crun.trans = tt
+			crun.alpha = [2]int32{src, dst}
+		/*case trans_trans:
 			crun.alpha[0] = exp[0].evalI(c)
 			crun.alpha[1] = exp[1].evalI(c)
 			if len(exp) >= 3 {
@@ -9432,7 +9458,7 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 				if crun.alpha[0] == 1 && crun.alpha[1] == 255 {
 					crun.alpha[0] = 0
 				}
-			}
+			}*/
 		}
 		crun.setCSF(CSF_trans)
 		return true

@@ -11225,8 +11225,10 @@ func (c *Char) cueDraw() {
 			}
 			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
 			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
+
 			// Add sprite to draw list
 			sprs.add(sd)
+
 			// Add shadow
 			if !c.asf(ASF_noshadow) {
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
@@ -11267,6 +11269,7 @@ func (c *Char) cueDraw() {
 					shadowfLength:    c.shadowfLength,
 					fadeOffset:       c.offsetY() + drawZoff,
 				})
+
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
 					SprData:          sd,

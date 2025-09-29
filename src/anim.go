@@ -854,7 +854,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 }
 
 func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd float32, rot Rotation,
-	pfx *PalFX, old bool, color uint32, alpha int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32, isVideo bool) {
+	pfx *PalFX, old bool, color uint32, intensity int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32) {
 
 	// Skip blank shadows
 	if a == nil || a.isBlank() {
@@ -926,7 +926,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	//	rp.paltex = PaletteToTexture(pal[:])
 	//}
 
-	if a.spr.coldepth <= 8 && (color != 0 || alpha > 0) {
+	if a.spr.coldepth <= 8 && (color != 0 || intensity > 0) {
 		if a.sff.header.Ver0 == 2 && a.sff.header.Ver2 == 1 {
 			pal, _ := a.pal(pfx)
 			if a.spr.PalTex == nil {
@@ -938,20 +938,20 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		}
 	}
 
+	// Draw shadow with one pass for intensity and another for color
+	// TODO: Maybe draw this with one pass. Probably easier once Sub can take an alpha value
+	if intensity > 0 {
+		rp.blendMode = TT_alpha
+		rp.blendAlpha = [2]int32{intensity, 255-intensity}
+		RenderSprite(rp)
+	}
 	if color != 0 {
-		//rp.blendMode = TT_sub
+		rp.blendMode = TT_sub
 		rp.blendAlpha = [2]int32{255, 255}
-		//rp.transSrc = -2
-		//rp.transDst = 0
 		RenderSprite(rp)
 	}
 
-	if alpha > 0 {
-		rp.blendAlpha = [2]int32{0, 256-alpha}
-		//rp.transSrc = 0
-		//rp.transDst = 256-alpha
-		RenderSprite(rp)
-	}
+	RenderSprite(rp)
 }
 
 type AnimationTable map[int32]*Animation
@@ -1082,6 +1082,22 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			continue
 		}
 
+		// Backup animation transparency to temporarily change it
+		oldTransType := s.anim.transType
+		oldSrcAlpha := s.anim.srcAlpha
+		oldDstAlpha := s.anim.dstAlpha
+
+		// Determine transparency
+		if s.trans == TT_default {
+			s.anim.transType = s.anim.curtrans
+			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
+			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
+		} else {
+			s.anim.transType = s.trans
+			s.anim.srcAlpha = int16(s.alpha[0])
+			s.anim.dstAlpha = int16(s.alpha[1])
+		}
+
 		ob := sys.brightness
 		if s.undarken {
 			sys.brightness = 256
@@ -1126,6 +1142,11 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
 			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
 			s.airOffsetFix, s.projection, s.fLength, 0, false, false)
+
+		// Restore original animation transparency just in case
+		s.anim.transType = oldTransType
+		s.anim.srcAlpha = oldSrcAlpha
+		s.anim.dstAlpha = oldDstAlpha
 
 		sys.brightness = ob
 	}
@@ -1211,7 +1232,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		color, alpha := s.shadowColor, s.shadowAlpha
-		if alpha >= 255 {
+
+		if s.trans == TT_default {
 			alpha = int32(255 - s.anim.interpolate_blend_dstalpha)
 		}
 
@@ -1402,6 +1424,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// Backup animation transparency to temporarily change it
+		oldTransType := s.anim.transType
 		oldSrcAlpha := s.anim.srcAlpha
 		oldDstAlpha := s.anim.dstAlpha
 
@@ -1415,7 +1438,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// Force reflections into trans alpha
-		s.trans = TT_alpha
+		s.anim.transType = TT_alpha
 
 		// Apply reflection intensity
 		var ref int32
@@ -1426,8 +1449,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// Scale intensity by linear interpolation
-		s.anim.srcAlpha = int16((int32(s.anim.srcAlpha) * ref) / 255)
-		s.anim.dstAlpha = int16((int32(s.anim.dstAlpha) * ref) / 255 + (255 - ref))
+		s.anim.srcAlpha = int16(int32(s.alpha[0]) * ref / 255)
+		s.anim.dstAlpha = int16(255 - (int32(255 - s.alpha[1]) * ref / 255))
 
 		// Set the tint if it's there
 		var color uint32
@@ -1552,6 +1575,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true)
 
 		// Restore original animation transparency just in case
+		s.anim.transType = oldTransType
 		s.anim.srcAlpha = oldSrcAlpha
 		s.anim.dstAlpha = oldDstAlpha
 	}

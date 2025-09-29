@@ -9460,9 +9460,15 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 				}
 			}*/
 		}
-		crun.setCSF(CSF_trans)
 		return true
 	})
+
+	if crun.trans == TT_default {
+		crun.unsetCSF(CSF_trans)
+	} else {
+		crun.setCSF(CSF_trans)
+	}
+
 	return false
 }
 

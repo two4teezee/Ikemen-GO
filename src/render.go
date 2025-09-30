@@ -483,15 +483,40 @@ func renderWithBlending(
 	}
 	switch {
 	// Sub
-	//case blendAlpha[0] == -2:
 	case blendMode == TT_sub:
-		if invblend >= 1 && acolor != nil {
+		/*if invblend >= 1 && acolor != nil {
 			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
 		}
 		if invblend == 3 && neg != nil {
 			*neg = false
 		}
-		render(BlendI, blendSourceFactor, BlendOne, 1)
+		render(BlendI, blendSourceFactor, BlendOne, 1)*/
+		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
+			// Fully transparent. Skip render
+		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
+			// Fast path for full subtraction
+			if invblend >= 1 && acolor != nil {
+				(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+			}
+			if invblend == 3 && neg != nil {
+				*neg = false
+			}
+			render(BlendI, blendSourceFactor, BlendOne, 1)
+		} else {
+			// Full alpha range
+			if blendAlpha[1] < 255 {
+				render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, 1-float32(blendAlpha[1])/255)
+			}
+			if blendAlpha[0] > 0 {
+				if invblend >= 1 && acolor != nil {
+					(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+				}
+				if invblend == 3 && neg != nil {
+					*neg = false
+				}
+				render(BlendI, blendSourceFactor, BlendOne, float32(blendAlpha[0])/255)
+			}
+		}
 
 	// Add
 	case blendMode == TT_alpha:
@@ -554,7 +579,6 @@ func renderWithBlending(
 		}
 
 	// None
-	//case blendAlpha[0] >= 255 && blendAlpha[1] <= 0:
 	default:
 		render(BlendAdd, blendSourceFactor, BlendOneMinusSrcAlpha, 1)
 	}

@@ -72,6 +72,33 @@ func ReadAnimFrame(line string) *AnimFrame {
 
 	// Read alpha
 	if len(ary) >= 7 {
+		// Helper to read source and destination
+		parseAlphaNumbers := func(a string, start int, defSrc, defDst byte) (src, dst byte) {
+			src, dst = defSrc, defDst
+			i, alp := start, 0
+			for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
+				alp = alp*10 + int(a[i]-'0')
+			}
+			alp &= 0x3fff
+			if alp < 255 {
+				src = byte(alp)
+			}
+			if i < len(a) && a[i] == 'd' {
+				i++
+				if i < len(a) && a[i] >= '0' && a[i] <= '9' {
+					alp = 0
+					for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
+						alp = alp*10 + int(a[i]-'0')
+					}
+					alp &= 0x3fff
+					if alp < 255 {
+						dst = byte(alp)
+					}
+				}
+			}
+			return
+		}
+
 		ia := strings.IndexAny(ary[6], "ASas")
 		if ia >= 0 {
 			ary[6] = ary[6][ia:]
@@ -82,47 +109,22 @@ func ReadAnimFrame(line string) *AnimFrame {
 			af.TransType = TT_alpha
 			af.SrcAlpha = 255
 			af.DstAlpha = 128
-		case len(a) > 0 && a[0] == 's':
+
+		case len(a) >= 2 && a[:2] == "as": // Add with alpha
+			af.TransType = TT_alpha
+			af.SrcAlpha, af.DstAlpha = parseAlphaNumbers(a, 2, 255, 255)
+
+		case len(a) > 0 && a[0] == 'a': // Plain Add
+			af.TransType = TT_alpha
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
+
+		case len(a) >= 2 && a[:2] == "ss": // Sub with alpha
 			af.TransType = TT_sub
-			af.SrcAlpha = 255
-			af.DstAlpha = 255
-		case len(a) >= 2 && a[:2] == "as":
-			af.TransType = TT_alpha
-			af.SrcAlpha = 255
-			af.DstAlpha = 255
-			if len(a) > 2 && a[2] >= '0' && a[2] <= '9' {
-				i, alp := 2, 0
-				for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
-					alp = alp*10 + int(a[i]-'0')
-				}
-				alp &= 0x3fff
-				if alp >= 255 {
-					af.SrcAlpha = 255
-				} else {
-					af.SrcAlpha = byte(alp)
-				}
-				if i < len(a) && a[i] == 'd' {
-					i++
-					if i < len(a) && a[i] >= '0' && a[i] <= '9' {
-						alp = 0
-						for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
-							alp = alp*10 + int(a[i]-'0')
-						}
-						alp &= 0x3fff
-						if alp >= 255 {
-							af.DstAlpha = 255
-						} else {
-							af.DstAlpha = byte(alp)
-						}
-						//if af.SrcAlpha == 1 && af.DstAlpha == 254 { // See above. The code would be better off without these workarounds
-						//	af.SrcAlpha = 0
-						//	af.DstAlpha = 255
-						//}
-					}
-				}
-			}
-		case len(a) > 0 && a[0] == 'a':
-			af.TransType = TT_alpha
+			af.SrcAlpha, af.DstAlpha = parseAlphaNumbers(a, 2, 255, 255)
+
+		case len(a) == 1 && a[0] == 's': // Plain sub
+			af.TransType = TT_sub
 			af.SrcAlpha = 255
 			af.DstAlpha = 255
 		}
@@ -600,19 +602,13 @@ func (a *Animation) UpdateSprite() {
 		}
 	}
 
-	//if byte(a.interpolate_blend_srcalpha) != 1 || byte(a.interpolate_blend_dstalpha) != 254 {
-		for _, i := range a.interpolate_blend {
-			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				//if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 254 { // Sub patch. Redundant, too?
-				//	a.interpolate_blend_srcalpha = 0
-				//	a.interpolate_blend_dstalpha = 255
-				//}
-				break
-			}
+	for _, i := range a.interpolate_blend {
+		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
+			a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			break
 		}
-	//}
+	}
 }
 
 func (a *Animation) Action() {
@@ -950,8 +946,6 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		rp.blendAlpha = [2]int32{255, 255}
 		RenderSprite(rp)
 	}
-
-	RenderSprite(rp)
 }
 
 type AnimationTable map[int32]*Animation

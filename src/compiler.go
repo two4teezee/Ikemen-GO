@@ -5906,7 +5906,7 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 			defsrc, defdst = 255, 128
 		case "sub":
 			tt = TT_sub
-			defsrc, defdst = 1, 255 // Placeholder
+			defsrc, defdst = 255, 255
 		default:
 			if afterImage {
 				if strings.HasPrefix(data, "add") {
@@ -5920,7 +5920,7 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 				case "default":
 					tt = TT_default
 					defsrc, defdst = 255, 0
-				case "add", "addalpha": // "alpha"?
+				case "add", "addalpha":
 					tt = TT_alpha
 					defsrc, defdst = 255, 255
 				default:

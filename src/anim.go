@@ -935,7 +935,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	}
 
 	// Draw shadow with one pass for intensity and another for color
-	// TODO: Maybe draw this with one pass. Probably easier once Sub can take an alpha value
+	// Drawing twice is a bit wasteful, but results are the most accurate to Mugen
 	if intensity > 0 {
 		rp.blendMode = TT_alpha
 		rp.blendAlpha = [2]int32{intensity, 255-intensity}
@@ -946,6 +946,14 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		rp.blendAlpha = [2]int32{255, 255}
 		RenderSprite(rp)
 	}
+
+	// This method would draw color and intensity in a single pass, but it's less accurate
+	// Another disadvantage of this method is that the double pass allows a wider range of color/intensity combinations
+	//if intensity > 0 || color != 0 {
+	//	rp.blendMode = TT_sub
+	//	rp.blendAlpha = [2]int32{intensity, 255 - intensity}
+	//	RenderSprite(rp)
+	//}
 }
 
 type AnimationTable map[int32]*Animation
@@ -1424,15 +1432,19 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// Get base alpha
 		if s.trans == TT_default {
+			s.anim.transType = s.anim.curtrans
 			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
 			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
 		} else {
+			s.anim.transType = s.trans
 			s.anim.srcAlpha = int16(s.alpha[0])
 			s.anim.dstAlpha = int16(s.alpha[1])
 		}
 
-		// Force reflections into trans alpha
-		s.anim.transType = TT_alpha
+		// Force reflections into Add transparency, unless original sprite has Sub
+		if s.anim.transType !=  TT_sub {
+			s.anim.transType = TT_alpha
+		}
 
 		// Apply reflection intensity
 		var ref int32

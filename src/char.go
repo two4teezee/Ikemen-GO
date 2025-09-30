@@ -2479,6 +2479,8 @@ type CharGlobalInfo struct {
 	fnt                     [10]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
+	attackBase              int32
+	defenceBase             int32
 }
 
 func (cgi *CharGlobalInfo) clearPCTime() {
@@ -2869,7 +2871,7 @@ func (c *Char) prepareNextRound() {
 		superDefenseMul:       1,
 		superDefenseMulBuffer: 1,
 		customDefense:         1,
-		finalDefense:          1.0,
+		finalDefense:          float64(c.gi().data.defence) / 100,
 	}
 	c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
@@ -2919,6 +2921,8 @@ func (c *Char) clearCachedData() {
 	c.winquote = -1
 	c.mapArray = make(map[string]float32)
 	c.remapSpr = make(RemapPreset)
+	c.gi().attackBase = c.gi().data.attack
+	c.gi().defenceBase = c.gi().data.defence
 }
 
 // Return Char Global Info normally
@@ -3180,6 +3184,8 @@ func (c *Char) load(def string) error {
 	// Correct engine default values to character's own localcoord
 	gi.data.init()
 	c.size.init()
+	gi.attackBase = 100
+	gi.defenceBase = 100
 
 	coordRatio := float32(c.gi().localcoord[0]) / 320
 
@@ -3294,7 +3300,9 @@ func (c *Char) load(def string) error {
 						is.ReadI32("guardpoints", &gi.data.guardpoints)
 						c.guardPointsMax = gi.data.guardpoints
 						is.ReadI32("attack", &gi.data.attack)
+						gi.attackBase = gi.data.attack
 						is.ReadI32("defence", &gi.data.defence)
+						gi.defenceBase = gi.data.defence
 						is.ReadI32("fall.defence_up", &gi.data.fall.defence_up)
 						gi.data.fall.defence_mul = (float32(gi.data.fall.defence_up) + 100) / 100
 						is.ReadI32("liedown.time", &gi.data.liedown.time)
@@ -4262,6 +4270,20 @@ func (c *Char) getAILevel() float32 {
 		return sys.aiLevel[c.playerNo]
 	}
 	return 0
+}
+
+func (c *Char) setAILevel(level float32) {
+	if c.playerNo < 0 || c.playerNo >= len(sys.aiLevel) {
+		return
+	}
+	sys.aiLevel[c.playerNo] = level
+	for _, c := range sys.chars[c.playerNo] {
+		if level == 0 {
+			c.controller = c.playerNo
+		} else {
+			c.controller = ^c.playerNo
+		}
+	}
 }
 
 func (c *Char) alive() bool {
@@ -8732,7 +8754,7 @@ func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
 		return false
 	}
 
-	return target.projClsnCheck(proj, boxType, 1)
+	return target.projClsnCheck(proj, boxType, 1) || target.projClsnCheck(proj, boxType, 2)
 }
 func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
 	// Safety checks
@@ -9198,7 +9220,6 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	// Default hit type and kill flag to "hit" (1)
 	hitResult = 1
 	getter.ghv.kill = hd.kill
-
 	// If enemy is guarding the correct way, "hitResult" is set to "guard" (2)
 	if canguard {
 		// Guardflag checks
@@ -9208,7 +9229,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			// Switch kill flag to guard if attempting to guard correctly
 			getter.ghv.kill = hd.guard_kill
 			// We only switch to guard behavior if the enemy can survive guarding the attack
-			if getter.life > getter.computeDamage(float64(hd.guarddamage), hd.guard_kill, false, attackMul[0], c, true) ||
+			if getter.life > getter.computeDamage(float64(hd.guarddamage), hd.guard_kill, false, attackMul[0]*(float32(c.gi().attackBase)/100), c, true) ||
 				sys.gsf(GSF_globalnoko) || getter.asf(ASF_noko) || getter.asf(ASF_noguardko) {
 				hitResult = 2
 			} else {
@@ -9662,40 +9683,40 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if hitResult == 1 {
 			// Life
 			if !getter.asf(ASF_nohitdamage) {
-				getter.ghv.damage += getter.computeDamage(float64(hd.hitdamage), getter.ghv.kill, false, attackMul[0], c, bnd)
+				getter.ghv.damage += getter.computeDamage(float64(hd.hitdamage), getter.ghv.kill, false, attackMul[0]*(float32(c.gi().attackBase)/100), c, bnd)
 			}
 			// Red life
 			if !getter.asf(ASF_noredlifedamage) {
-				getter.ghv.redlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, bnd)
+				getter.ghv.redlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1]*(float32(c.gi().attackBase)/100), c, bnd)
 			}
 			// Dizzy points
 			if !getter.asf(ASF_nodizzypointsdamage) && !getter.scf(SCF_dizzy) {
-				getter.ghv.dizzypoints += getter.computeDamage(float64(hd.dizzypoints), true, false, attackMul[2], c, false)
+				getter.ghv.dizzypoints += getter.computeDamage(float64(hd.dizzypoints), true, false, attackMul[2]*(float32(c.gi().attackBase)/100), c, false)
 			}
 		}
 		// Damage on guard
 		if hitResult == 2 {
 			// Life
 			if !getter.asf(ASF_noguarddamage) {
-				getter.ghv.damage += getter.computeDamage(float64(hd.guarddamage), getter.ghv.kill, false, attackMul[0], c, bnd)
+				getter.ghv.damage += getter.computeDamage(float64(hd.guarddamage), getter.ghv.kill, false, attackMul[0]*(float32(c.gi().attackBase)/100), c, bnd)
 			}
 			// Red life
 			if !getter.asf(ASF_noredlifedamage) {
-				getter.ghv.redlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, bnd)
+				getter.ghv.redlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1]*(float32(c.gi().attackBase)/100), c, bnd)
 			}
 			// Guard points
 			if !getter.asf(ASF_noguardpointsdamage) {
-				getter.ghv.guardpoints += getter.computeDamage(float64(hd.guardpoints), true, false, attackMul[3], c, false)
+				getter.ghv.guardpoints += getter.computeDamage(float64(hd.guardpoints), true, false, attackMul[3]*(float32(c.gi().attackBase)/100), c, false)
 			}
 		}
 		// Save absolute values
 		// These do not affect the player and are only used in GetHitVar
 		getter.ghv.hitpower += hd.hitgivepower
 		getter.ghv.guardpower += hd.guardgivepower
-		getter.ghv.hitdamage += getter.computeDamage(float64(hd.hitdamage), true, false, attackMul[0], c, false)
-		getter.ghv.guarddamage += getter.computeDamage(float64(hd.guarddamage), true, false, attackMul[0], c, false)
-		getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1], c, false)
-		getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1], c, false)
+		getter.ghv.hitdamage += getter.computeDamage(float64(hd.hitdamage), true, false, attackMul[0]*(float32(c.gi().attackBase)/100), c, false)
+		getter.ghv.guarddamage += getter.computeDamage(float64(hd.guarddamage), true, false, attackMul[0]*(float32(c.gi().attackBase)/100), c, false)
+		getter.ghv.hitredlife += getter.computeDamage(float64(hd.hitredlife), true, false, attackMul[1]*(float32(c.gi().attackBase)/100), c, false)
+		getter.ghv.guardredlife += getter.computeDamage(float64(hd.guardredlife), true, false, attackMul[1]*(float32(c.gi().attackBase)/100), c, false)
 
 		// Hit behavior on KO
 		if ghvset && getter.ghv.damage >= getter.life {
@@ -10627,7 +10648,7 @@ func (c *Char) update() {
 		if !c.defenseMulDelay || c.ss.moveType == MT_H {
 			customDefense = c.customDefense
 		}
-		c.finalDefense = float64(((float32(c.gi().data.defence) * customDefense * c.superDefenseMul * c.fallDefenseMul) / 100))
+		c.finalDefense = float64(((float32(c.gi().defenceBase) * customDefense * c.superDefenseMul * c.fallDefenseMul) / 100))
 	}
 	// Update position interpolation
 	if c.acttmp > 0 {

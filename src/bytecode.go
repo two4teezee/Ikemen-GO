@@ -266,11 +266,7 @@ const (
 	OC_const_size_ground_front
 	OC_const_size_air_back
 	OC_const_size_air_front
-	OC_const_size_height_stand
-	OC_const_size_height_crouch
-	OC_const_size_height_air_top
-	OC_const_size_height_air_bottom
-	OC_const_size_height_down
+	OC_const_size_height
 	OC_const_size_attack_dist_width_front
 	OC_const_size_attack_dist_width_back
 	OC_const_size_attack_dist_height_top
@@ -2088,23 +2084,15 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_size_yscale:
 		sys.bcStack.PushF(c.size.yscale)
 	case OC_const_size_ground_back:
-		sys.bcStack.PushF(c.size.ground.back * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(-c.size.standbox[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_ground_front:
-		sys.bcStack.PushF(c.size.ground.front * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(c.size.standbox[2] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_air_back:
-		sys.bcStack.PushF(c.size.air.back * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(-c.size.airbox[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_air_front:
-		sys.bcStack.PushF(c.size.air.front * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_stand:
-		sys.bcStack.PushF(c.size.height.stand * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_crouch:
-		sys.bcStack.PushF(c.size.height.crouch * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_air_top:
-		sys.bcStack.PushF(c.size.height.air[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_air_bottom:
-		sys.bcStack.PushF(c.size.height.air[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_down:
-		sys.bcStack.PushF(c.size.height.down * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(c.size.airbox[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_height:
+		sys.bcStack.PushF(-c.size.standbox[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_width_front:
 		sys.bcStack.PushF(c.size.attack.dist.width[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_width_back:
@@ -4946,24 +4934,15 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_size_yscale:
 			h.size.yscale = exp[0].evalF(c)
 		case helper_size_ground_back:
-			h.size.ground.back = exp[0].evalF(c)
+			h.size.standbox[0] = exp[0].evalF(c) * -1
 		case helper_size_ground_front:
-			h.size.ground.front = exp[0].evalF(c)
+			h.size.standbox[2] = exp[0].evalF(c)
 		case helper_size_air_back:
-			h.size.air.back = exp[0].evalF(c)
+			h.size.airbox[0] = exp[0].evalF(c) * -1
 		case helper_size_air_front:
-			h.size.air.front = exp[0].evalF(c)
+			h.size.airbox[2] = exp[0].evalF(c)
 		case helper_size_height_stand:
-			h.size.height.stand = exp[0].evalF(c)
-		case helper_size_height_crouch:
-			h.size.height.crouch = exp[0].evalF(c)
-		case helper_size_height_air:
-			h.size.height.air[0] = exp[0].evalF(c)
-			if len(exp) > 1 {
-				h.size.height.air[1] = exp[1].evalF(c)
-			}
-		case helper_size_height_down:
-			h.size.height.down = exp[0].evalF(c)
+			h.size.standbox[1] = exp[0].evalF(c) * -1
 		case helper_size_proj_doscale:
 			h.size.proj.doscale = exp[0].evalI(c)
 		case helper_size_head_pos:

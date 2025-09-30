@@ -1966,16 +1966,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_const_size_air_back)
 		case "size.air.front":
 			out.append(OC_const_size_air_front)
-		case "size.height", "size.height.stand": // Optional new syntax for consistency
-			out.append(OC_const_size_height_stand)
-		case "size.height.crouch":
-			out.append(OC_const_size_height_crouch)
-		case "size.height.air.top":
-			out.append(OC_const_size_height_air_top)
-		case "size.height.air.bottom":
-			out.append(OC_const_size_height_air_bottom)
-		case "size.height.down":
-			out.append(OC_const_size_height_down)
+		case "size.height":
+			out.append(OC_const_size_height)
 		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			out.append(OC_const_size_attack_dist_width_front)
 		case "size.attack.dist.width.back":

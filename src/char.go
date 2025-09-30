@@ -285,20 +285,10 @@ func (cd *CharData) init() {
 type CharSize struct {
 	xscale float32
 	yscale float32
-	ground struct {
-		back  float32
-		front float32
-	}
-	air struct {
-		back  float32
-		front float32
-	}
-	height struct {
-		stand  float32
-		crouch float32
-		air    [2]float32
-		down   float32
-	}
+	standbox  [4]float32 // Replaces ground.front, ground.back and height
+	crouchbox [4]float32
+	airbox    [4]float32 // Replaces air.front and air.back
+	downbox   [4]float32
 	attack struct {
 		dist struct {
 			width  [2]float32
@@ -336,14 +326,10 @@ func (cs *CharSize) init() {
 	*cs = CharSize{}
 	cs.xscale = 1
 	cs.yscale = 1
-	cs.ground.back = 15
-	cs.ground.front = 16
-	cs.air.back = 12
-	cs.air.front = 12
-	cs.height.stand = 60
-	cs.height.crouch = 60
-	cs.height.air = [...]float32{60, 0}
-	cs.height.down = 60
+	cs.standbox = [4]float32{-16, -60, 16, 0}
+	cs.crouchbox = [4]float32{-16, -60, 16, 0}
+	cs.airbox = [4]float32{-12, -60, 12, 0}
+	cs.downbox = [4]float32{-16, -60, 16, 0}
 	cs.attack.dist.width = [...]float32{160, 0}
 	cs.attack.dist.height = [...]float32{1000, 1000}
 	cs.attack.dist.depth = [...]float32{4, 4}
@@ -3222,15 +3208,12 @@ func (c *Char) load(def string) error {
 	coordRatio := float32(c.gi().localcoord[0]) / 320
 
 	if coordRatio != 1 {
-		c.size.ground.back *= coordRatio
-		c.size.ground.front *= coordRatio
-		c.size.air.back *= coordRatio
-		c.size.air.front *= coordRatio
-		c.size.height.stand *= coordRatio
-		c.size.height.crouch *= coordRatio
-		c.size.height.air[0] *= coordRatio
-		c.size.height.air[1] *= coordRatio
-		c.size.height.down *= coordRatio
+		for i := 0; i < 4; i++ {
+			c.size.standbox[i] *= coordRatio
+			c.size.crouchbox[i] *= coordRatio
+			c.size.airbox[i] *= coordRatio
+			c.size.downbox[i] *= coordRatio
+		}
 		c.size.attack.dist.width[0] *= coordRatio
 		c.size.attack.dist.width[1] *= coordRatio
 		c.size.attack.dist.height[0] *= coordRatio
@@ -3368,19 +3351,36 @@ func (c *Char) load(def string) error {
 						size = false
 						is.ReadF32("xscale", &c.size.xscale)
 						is.ReadF32("yscale", &c.size.yscale)
-						is.ReadF32("ground.back", &c.size.ground.back)
-						is.ReadF32("ground.front", &c.size.ground.front)
-						is.ReadF32("air.back", &c.size.air.back)
-						is.ReadF32("air.front", &c.size.air.front)
-						is.ReadF32("height", &c.size.height.stand)
-						is.ReadF32("height.stand", &c.size.height.stand)
+						// Read legacy size constants first
+						if is.ReadF32("ground.back", &c.size.standbox[0], &c.size.standbox[2]) {
+							c.size.standbox[0] *= -1
+						}
+						if is.ReadF32("air.back", &c.size.airbox[0], &c.size.airbox[2]) {
+							c.size.airbox[0] *= -1
+						}
+						if is.ReadF32("height", &c.size.standbox[1]) {
+							c.size.standbox[1] *= -1
+						}
+						// Default boxes to the old constants we just read
+						c.size.standbox = [4]float32{c.size.standbox[0], c.size.standbox[1], c.size.standbox[2], c.size.standbox[3]}
+						c.size.crouchbox = c.size.standbox
+						c.size.airbox = [4]float32{c.size.airbox[0], c.size.standbox[1], c.size.airbox[2], c.size.standbox[3]}
+						c.size.downbox = c.size.standbox
+						// Read new size constants to override them
+						is.ReadF32("stand.sizebox", &c.size.standbox[0], &c.size.standbox[1], &c.size.standbox[2], &c.size.standbox[3])
+						is.ReadF32("crouch.sizebox", &c.size.crouchbox[0], &c.size.crouchbox[1], &c.size.crouchbox[2], &c.size.crouchbox[3])
+						is.ReadF32("air.sizebox", &c.size.airbox[0], &c.size.airbox[1], &c.size.airbox[2], &c.size.airbox[3])
+						is.ReadF32("down.sizebox", &c.size.downbox[0], &c.size.downbox[1], &c.size.downbox[2], &c.size.downbox[3])
+						/*
+						is.ReadF32("height.stand", &c.size.height)
 						// New height constants default to old height constant
-						c.size.height.crouch = c.size.height.stand
-						c.size.height.air[0] = c.size.height.stand
-						c.size.height.down = c.size.height.stand
+						c.size.height.crouch = c.size.height
+						c.size.height.air[0] = c.size.height
+						c.size.height.down = c.size.height
 						is.ReadF32("height.crouch", &c.size.height.crouch)
 						is.ReadF32("height.air", &c.size.height.air[0], &c.size.height.air[1])
 						is.ReadF32("height.down", &c.size.height.down)
+						*/
 						is.ReadF32("attack.dist", &c.size.attack.dist.width[0])
 						is.ReadF32("attack.dist.width", &c.size.attack.dist.width[0], &c.size.attack.dist.width[1])
 						is.ReadF32("attack.dist.height", &c.size.attack.dist.height[0], &c.size.attack.dist.height[1])
@@ -6595,36 +6595,56 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 }
 
 func (c *Char) baseWidthFront() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.air.front)
+	switch c.ss.stateType {
+	case ST_C:
+		return float32(c.size.crouchbox[2])
+	case ST_A:
+		return float32(c.size.airbox[2])
+	case ST_L:
+		return float32(c.size.downbox[2])
+	default:
+		return float32(c.size.standbox[2])
 	}
-	return float32(c.size.ground.front)
 }
 
+// Because dimensions are positive we will invert the constants here
 func (c *Char) baseWidthBack() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.air.back)
+	switch c.ss.stateType {
+	case ST_C:
+		return -float32(c.size.crouchbox[0])
+	case ST_A:
+		return -float32(c.size.airbox[0])
+	case ST_L:
+		return -float32(c.size.downbox[0])
+	default:
+		return -float32(c.size.standbox[0])
 	}
-	return float32(c.size.ground.back)
 }
 
+// Because dimensions are positive we will invert the constants here
 func (c *Char) baseHeightTop() float32 {
-	if c.ss.stateType == ST_L {
-		return float32(c.size.height.down)
-	} else if c.ss.stateType == ST_A {
-		return float32(c.size.height.air[0])
-	} else if c.ss.stateType == ST_C {
-		return float32(c.size.height.crouch)
-	} else {
-		return float32(c.size.height.stand)
+	switch c.ss.stateType {
+	case ST_C:
+		return -float32(c.size.crouchbox[1])
+	case ST_A:
+		return -float32(c.size.airbox[1])
+	case ST_L:
+		return -float32(c.size.downbox[1])
+	default:
+		return -float32(c.size.standbox[1])
 	}
 }
 
 func (c *Char) baseHeightBottom() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.height.air[1])
-	} else {
-		return 0
+	switch c.ss.stateType {
+	case ST_C:
+		return float32(c.size.crouchbox[3])
+	case ST_A:
+		return float32(c.size.airbox[3])
+	case ST_L:
+		return float32(c.size.downbox[3])
+	default:
+		return float32(c.size.standbox[3])
 	}
 }
 

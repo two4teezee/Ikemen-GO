@@ -3564,23 +3564,15 @@ func triggerFunctions(l *lua.LState) {
 		case "size.yscale":
 			ln = lua.LNumber(c.size.yscale)
 		case "size.ground.back":
-			ln = lua.LNumber(c.size.ground.back)
+			ln = lua.LNumber(-c.size.standbox[0])
 		case "size.ground.front":
-			ln = lua.LNumber(c.size.ground.front)
+			ln = lua.LNumber(c.size.standbox[2])
 		case "size.air.back":
-			ln = lua.LNumber(c.size.air.back)
+			ln = lua.LNumber(-c.size.airbox[0])
 		case "size.air.front":
-			ln = lua.LNumber(c.size.air.front)
-		case "size.height", "size.height.stand": // Optional new syntax for consistency
-			ln = lua.LNumber(c.size.height.stand)
-		case "size.height.crouch":
-			ln = lua.LNumber(c.size.height.crouch)
-		case "size.height.air.top":
-			ln = lua.LNumber(c.size.height.air[0])
-		case "size.height.air.bottom":
-			ln = lua.LNumber(c.size.height.air[1])
-		case "size.height.down":
-			ln = lua.LNumber(c.size.height.down)
+			ln = lua.LNumber(c.size.airbox[2])
+		case "size.height":
+			ln = lua.LNumber(-c.size.standbox[1])
 		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.attack.dist.width[0])
 		case "size.attack.dist.width.back":

@@ -42,7 +42,6 @@ const (
 	CSF_posfreeze
 	CSF_screenbound
 	CSF_stagebound
-	CSF_trans
 	CSF_width
 	CSF_widthedge
 )
@@ -10188,7 +10187,7 @@ func (c *Char) actionPrepare() {
 		// The flags in this block are to be reset even during hitpause
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
-			c.unsetCSF(CSF_angledraw | CSF_trans)
+			c.unsetCSF(CSF_angledraw)
 			c.angleDrawScale = [2]float32{1, 1}
 			c.trans = TT_default
 			c.alpha = [2]int32{255, 0}
@@ -11143,11 +11142,6 @@ func (c *Char) cueDraw() {
 		//	c.aimg.recAfterImg(sdf(), c.hitPause())
 		//}
 
-		//if c.gi().mugenver[0] != 1 && c.csf(CSF_angledraw) && !c.csf(CSF_trans) {
-		//	c.setCSF(CSF_trans)
-		//	c.alpha = [...]int32{255, 0}
-		//}
-
 		// Determine AIR offset multiplier
 		// This must take into account both the coordinate spaces and the scale constants
 		// This seems more complicated than it ought to be. Probably because our drawing functions are different from Mugen
@@ -11196,10 +11190,6 @@ func (c *Char) cueDraw() {
 			window:       cwin,
 		}
 
-		//if !c.csf(CSF_trans) {
-		//	sd.alpha[0] = -1
-		//}
-
 		// Record afterimage
 		c.aimg.recAndCue(sd, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
 		// Hitshake effect
@@ -11217,10 +11207,7 @@ func (c *Char) cueDraw() {
 		}
 
 		if !c.asf(ASF_invisible) {
-			sdwalp := int32(255)
-			if c.csf(CSF_trans) {
-				sdwalp = 255 - c.alpha[1]
-			}
+			sdwalp := 255 - c.alpha[1]
 			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
 			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 

@@ -5441,17 +5441,9 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "alpha", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "source":
-			if sys.debugWC.csf(CSF_trans) {
-				l.Push(lua.LNumber(sys.debugWC.alpha[0]))
-			} else {
-				l.Push(lua.LNumber(255))
-			}
+			l.Push(lua.LNumber(sys.debugWC.alpha[0]))
 		case "dest":
-			if sys.debugWC.csf(CSF_trans) {
-				l.Push(lua.LNumber(sys.debugWC.alpha[1]))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
+			l.Push(lua.LNumber(sys.debugWC.alpha[1]))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

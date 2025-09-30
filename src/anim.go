@@ -1223,8 +1223,9 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue
 		}
-		var intensity int32
 
+		// Use stage or custom intensity
+		var intensity int32
 		if s.shadowIntensity != -1 {
 			intensity = s.shadowIntensity
 		} else {
@@ -1255,8 +1256,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			}
 		}
 
-		color = color&0xff*alpha<<8&0xff0000 |
-			color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
+		color = color&0xff*alpha<<8&0xff0000 | color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
 
 		var xshear float32
 		if s.xshear != 0 {

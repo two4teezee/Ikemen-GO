@@ -3150,17 +3150,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_offset_y:
 		sys.bcStack.PushF(c.offset[1] / oc.localscl)
 	case OC_ex_alpha_s:
-		if c.csf(CSF_trans) {
-			sys.bcStack.PushI(c.alpha[0])
-		} else {
-			sys.bcStack.PushI(255)
-		}
+		sys.bcStack.PushI(c.alpha[0])
 	case OC_ex_alpha_d:
-		if c.csf(CSF_trans) {
-			sys.bcStack.PushI(c.alpha[1])
-		} else {
-			sys.bcStack.PushI(0)
-		}
+		sys.bcStack.PushI(c.alpha[1])
 	case OC_ex_selfcommand:
 		if c.cmd == nil {
 			sys.bcStack.PushB(false)
@@ -9462,12 +9454,6 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-
-	if crun.trans == TT_default {
-		crun.unsetCSF(CSF_trans)
-	} else {
-		crun.setCSF(CSF_trans)
-	}
 
 	return false
 }

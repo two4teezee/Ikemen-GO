@@ -13097,7 +13097,6 @@ const (
 	modifyStageBG_id byte = iota
 	modifyStageBG_index
 	modifyStageBG_actionno
-	modifyStageBG_alpha
 	modifyStageBG_angle
 	modifyStageBG_xangle
 	modifyStageBG_yangle
@@ -13157,18 +13156,6 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 						}
 					})
 				}
-			case modifyStageBG_alpha:
-				v1 := int16(exp[0].evalI(c))
-				v2 := int16(exp[1].evalI(c))
-				eachBg(func(bg *backGround) {
-					bg.anim.mask = 0
-					bg.anim.srcAlpha = v1
-					bg.anim.dstAlpha = v2
-					if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 { // Sub patch
-						bg.anim.srcAlpha = 0
-						bg.anim.dstAlpha = 255
-					}
-				})
 			case modifyStageBG_angle:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
@@ -13237,37 +13224,15 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 					bg.scalestart[1] = scly
 				})
 			case modifyStageBG_trans:
-				val := exp[0].evalI(c)
-				if val == 0 || val == 1 || val == 2 || val == 3 || val == 4 {
-					eachBg(func(bg *backGround) {
-						switch val {
-						case 0: // None
-							bg.anim.transType = TT_none
-							bg.anim.srcAlpha = -1
-							bg.anim.dstAlpha = 0
-						case 1: // Add
-							bg.anim.mask = 0
-							bg.anim.transType = TT_alpha
-							bg.anim.srcAlpha = 255
-							bg.anim.dstAlpha = 255
-						case 2: // Add1
-							bg.anim.mask = 0
-							bg.anim.transType = TT_alpha
-							bg.anim.srcAlpha = 255
-							bg.anim.dstAlpha = 128
-						case 3: // Addalpha
-							bg.anim.mask = 0
-							bg.anim.transType = TT_alpha
-							bg.anim.srcAlpha = 255 // Default to Add first
-							bg.anim.dstAlpha = 255
-						case 4: // Sub
-							bg.anim.mask = 0
-							bg.anim.transType = TT_sub
-							bg.anim.srcAlpha = 1 // That old hack that needs refactoring
-							bg.anim.dstAlpha = 254
-						}
-					})
-				}
+				src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+				dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+				tt := TransType(exp[2].evalI(c))
+				eachBg(func(bg *backGround) {
+					bg.anim.mask = 0
+					bg.anim.transType = tt
+					bg.anim.srcAlpha = int16(src)
+					bg.anim.dstAlpha = int16(dst)
+				})
 			case modifyStageBG_velocity_x:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {

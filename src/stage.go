@@ -354,10 +354,6 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			//if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
-			//	bg.anim.srcAlpha = 0
-			//	bg.anim.dstAlpha = 255
-			//}
 		}
 	case "add1":
 		bg.anim.mask = 0
@@ -377,16 +373,17 @@ func readBackGround(is IniSection, link *backGround,
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			//if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 254 {
-			//	bg.anim.srcAlpha = 0
-			//	bg.anim.dstAlpha = 255
-			//}
 		}
 	case "sub":
 		bg.anim.mask = 0
 		bg.anim.transType = TT_sub
-		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = 255
+		sa, da := int32(255), int32(255)
+		if is.readI32ForStage("alpha", &sa, &da) {
+			sa = Clamp(sa, 0, 255)
+			da = Clamp(da, 0, 255)
+		}
+		bg.anim.srcAlpha = int16(sa)
+		bg.anim.dstAlpha = int16(da)
 	case "none":
 		bg.anim.transType = TT_none
 		bg.anim.srcAlpha = 255

@@ -6327,35 +6327,10 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "trans", false, func(data string) error {
-			if len(data) == 0 {
-				return Error("trans type not specified")
-			}
+		if _, ok := is["trans"]; ok { // Check if "trans" exists, since you can't set "any" from within paramTrans
 			any = true
-			var blend int32
-			switch strings.ToLower(data) {
-			case "none":
-				blend = 0
-			case "add":
-				blend = 1
-			case "add1":
-				blend = 2
-			case "addalpha":
-				blend = 3
-			case "sub":
-				blend = 4
-			default:
-				return Error("Invalid trans type: " + data)
-			}
-			sc.add(modifyStageBG_trans, sc.iToExp(blend))
-			return nil
-		}); err != nil {
-			return err
 		}
-		if err := c.stateParam(is, "alpha", false, func(data string) error { // Best if placed after trans
-			any = true
-			return c.scAdd(sc, modifyStageBG_alpha, data, VT_Int, 2)
-		}); err != nil {
+		if err := c.paramTrans(is, sc, "", modifyStageBG_trans, false); err != nil {
 			return err
 		}
 		if err := c.stateParam(is, "angle", false, func(data string) error {

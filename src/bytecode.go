@@ -3027,7 +3027,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_movehitvar_spark_y:
 		sys.bcStack.PushF(c.mhv.sparkxy[1] * (c.localscl / oc.localscl))
 	case OC_ex_movehitvar_uniqhit:
-		sys.bcStack.PushI(c.mhv.uniqhit)
+		sys.bcStack.PushI(int32(len(c.hitdefTargets)))
 	case OC_ex_numplayer:
 		sys.bcStack.PushI(c.numPlayer())
 	case OC_ex_clamp:

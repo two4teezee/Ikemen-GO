@@ -1034,7 +1034,6 @@ type MoveHitVar struct {
 	playerId   int32
 	playerNo   int
 	sparkxy    [2]float32
-	uniqhit    int32
 }
 
 func (mhv *MoveHitVar) clear() {
@@ -9380,7 +9379,6 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 	if !isProjectile {
 		c.hitdefTargetsBuffer = append(c.hitdefTargetsBuffer, getter.id)
-		c.mhv.uniqhit = int32(len(c.hitdefTargets))
 	}
 
 	// Determine if GetHitVars should be updated

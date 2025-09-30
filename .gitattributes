@@ -6,6 +6,7 @@
 *.go text eol=lf
 *.mod text eol=lf
 *.sum text eol=lf
+*.ini text eol=lf
 
 # Syntax
 *.def linguist-language=ini

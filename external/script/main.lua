@@ -3979,7 +3979,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 		return cursorPosY, moveTxt, item
 	end
 
-	if motif[section].menu_tween == 1 then
+	if motif[section].menu_tween_velocity > 0 then
 		td.slideOffset = f_tweenStep(td.slideOffset, 0, motif[section].menu_tween_velocity)
 		td.currentPos = td.targetPos + td.slideOffset
 	else
@@ -4223,7 +4223,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	end
 
 	--apply tween if enabled, otherwise snap to target
-	if motif[section].menu_boxcursor_tween == 1 then
+	if t_velocity > 0 then
 		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_velocity)
 	else
 		bcd.offsetY = targetY

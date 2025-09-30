@@ -5702,6 +5702,8 @@ func (c *Compiler) paramAnimtype(is IniSection, sc *StateControllerBase, paramNa
 				ra = RA_Medium
 			case "hard":
 				ra = RA_Hard
+			case "heavy":
+				ra = RA_Hard
 			case "back":
 				ra = RA_Back
 			case "up":

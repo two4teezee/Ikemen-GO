@@ -2846,7 +2846,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_spriteplayerno:
 		sys.bcStack.PushI(int32(c.spritePN) + 1)
 	case OC_ex_attack:
-		sys.bcStack.PushF(c.attackMul[0] * 100)
+		base := float32(c.gi().attackBase) * c.ocd().attackRatio / 100
+		sys.bcStack.PushF(base * c.attackMul[0] * 100)
 	case OC_ex_clsnoverlap:
 		c2 := sys.bcStack.Pop().ToI()
 		id := sys.bcStack.Pop().ToI()
@@ -9854,23 +9855,23 @@ func (sc attackMulSet) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	base := float32(crun.gi().data.attack) * crun.ocd().attackRatio / 100
+	attackRatio := crun.ocd().attackRatio
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case attackMulSet_value:
 			v := exp[0].evalF(c)
-			crun.attackMul[0] = v * base
-			crun.attackMul[1] = v * base
-			crun.attackMul[2] = v * base
-			crun.attackMul[3] = v * base
+			crun.attackMul[0] = v * attackRatio
+			crun.attackMul[1] = v * attackRatio
+			crun.attackMul[2] = v * attackRatio
+			crun.attackMul[3] = v * attackRatio
 		case attackMulSet_damage:
-			crun.attackMul[0] = exp[0].evalF(c) * base
+			crun.attackMul[0] = exp[0].evalF(c) * attackRatio
 		case attackMulSet_redlife:
-			crun.attackMul[1] = exp[0].evalF(c) * base
+			crun.attackMul[1] = exp[0].evalF(c) * attackRatio
 		case attackMulSet_dizzypoints:
-			crun.attackMul[2] = exp[0].evalF(c) * base
+			crun.attackMul[2] = exp[0].evalF(c) * attackRatio
 		case attackMulSet_guardpoints:
-			crun.attackMul[3] = exp[0].evalF(c) * base
+			crun.attackMul[3] = exp[0].evalF(c) * attackRatio
 		}
 		return true
 	})
@@ -12696,6 +12697,10 @@ const (
 	modifyPlayer_pausemovetime
 	modifyPlayer_supermovetime
 	modifyPlayer_unhittabletime
+	modifyPlayer_attack
+	modifyPlayer_defence
+	modifyPlayer_alive
+	modifyPlayer_ailevel
 	modifyPlayer_redirectid
 )
 
@@ -12786,6 +12791,20 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 			crun.superMovetime = Max(0, exp[0].evalI(c))
 		case modifyPlayer_unhittabletime:
 			crun.unhittableTime = Max(0, exp[0].evalI(c))
+		case modifyPlayer_attack:
+			crun.gi().attackBase = exp[0].evalI(c)
+		case modifyPlayer_defence:
+			crun.gi().defenceBase = exp[0].evalI(c)
+		case modifyPlayer_alive:
+			alive := exp[0].evalB(c)
+			if !alive {
+				crun.setSCF(SCF_ko)
+				crun.unsetSCF(SCF_ctrl)
+			} else {
+				crun.unsetSCF(SCF_ko)
+			}
+		case modifyPlayer_ailevel:
+			crun.setAILevel(exp[0].evalF(c))
 		}
 		return true
 	})

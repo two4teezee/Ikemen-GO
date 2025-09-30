@@ -3861,7 +3861,8 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		p.memberNo = atcpn
 		p.selectNo = -atcpn
 		p.teamside = -1
-		sys.aiLevel[pn] = float32(sys.cfg.Options.Difficulty)
+		sys.aiLevel[pn] = 0
+		p.controller = pn
 	} else {
 		p.memberNo = memberNo
 		p.selectNo = sys.sel.selected[pn&1][memberNo][0]

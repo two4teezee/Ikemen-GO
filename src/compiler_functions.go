@@ -5933,6 +5933,22 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyPlayer_unhittabletime, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "attack",
+			modifyPlayer_attack, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "defence",
+			modifyPlayer_defence, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "alive",
+			modifyPlayer_alive, VT_Bool, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "ailevel",
+			modifyPlayer_ailevel, VT_Float, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

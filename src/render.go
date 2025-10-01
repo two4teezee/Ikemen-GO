@@ -484,13 +484,6 @@ func renderWithBlending(
 	switch {
 	// Sub
 	case blendMode == TT_sub:
-		/*if invblend >= 1 && acolor != nil {
-			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
-		}
-		if invblend == 3 && neg != nil {
-			*neg = false
-		}
-		render(BlendI, blendSourceFactor, BlendOne, 1)*/
 		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
 			// Fully transparent. Skip render
 		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
@@ -531,21 +524,6 @@ func renderWithBlending(
 				*neg = false
 			}
 			render(Blend, blendSourceFactor, BlendOne, 1)
-		} else if blendAlpha[0] > 0 && blendAlpha[0] < 255 && blendAlpha[1] == 0 {
-			// Custom source with Destination 0
-			// TODO: Why is this a special branch?
-			Blend = BlendAdd
-			if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil {
-				// Sum of add components
-				gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
-				v3, al := MaxF((gc*255)-float32(blendAlpha[1]+blendAlpha[0]), 512)/128, (float32(blendAlpha[0]+blendAlpha[1])/255)
-				rM, gM, bM := mcolor[0]*al, mcolor[1]*al, mcolor[2]*al
-				(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
-				render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, al)
-				render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 4))
-			} else {
-				render(Blend, blendSourceFactor, BlendOneMinusSrcAlpha, float32(blendAlpha[0])/255)
-			}
 		} else {
 			// AddAlpha (includes Add1)
 			if blendAlpha[1] < 255 {

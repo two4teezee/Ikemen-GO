@@ -3555,7 +3555,8 @@ func (rt *LifeBarRoundTransition) Draw(layerno int16) {
 	if layerno == 2 {
 		fade := func(rect [4]int32, color uint32, alpha int32) {
 			src := alpha>>uint(Btoi(sys.clsnDisplay)) + Btoi(sys.clsnDisplay)*128
-			FillRect(rect, color, [2]int32{src, 0})
+			dst := 255-src
+			FillRect(rect, color, [2]int32{src, dst})
 		}
 
 		// Draw fadein/fadeout (mutually exclusive)

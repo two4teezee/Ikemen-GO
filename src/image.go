@@ -1802,7 +1802,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 				break
 			}
 		}
-		for i := 0; i < MaxPalNo + 1; i++ {
+		for i := 0; i < MaxPalNo+1; i++ {
 			for k := 0; k < len(preSelPal); k++ {
 				if preSelPal[k] == int32(i) {
 					selPal = append(selPal, int32(i))

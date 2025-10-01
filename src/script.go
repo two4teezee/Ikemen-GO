@@ -786,9 +786,9 @@ func systemScriptInit(l *lua.LState) {
 		if sys.usePalette == true {
 			copyAnim := CopyAnim(a)
 			for _, c := range copyAnim.anim.frames {
-				if copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx == 0 && len(sys.sel.GetChar(int(numArg(l, 2))).pal) > 0{
+				if copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx == 0 && len(sys.sel.GetChar(int(numArg(l, 2))).pal) > 0 {
 					copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Pal = nil
-				} 
+				}
 			}
 			l.Push(newUserData(l, copyAnim))
 		} else {
@@ -1940,8 +1940,8 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "loadPalettes", func(*lua.LState) int {
-	//Actual process of loading palettes
-	a, _ := toUserData(l, 1).(*Anim)
+		//Actual process of loading palettes
+		a, _ := toUserData(l, 1).(*Anim)
 		if sys.usePalette == true {
 			loadCharPalettes(a.anim.sff, a.anim.sff.filename, int(numArg(l, 2)))
 		}

@@ -1451,12 +1451,12 @@ func loadSff(filename string, char bool) (*Sff, error) {
 	return s, nil
 }
 
-func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
+func loadCharPalettes(sff *Sff, filename string, ref int) error {
 	f, err := OpenFile(filename)
 	if err != nil {
 		return err
 	}
-	h:= sff.header
+	h := sff.header
 	read := func(x interface{}) error {
 		return binary.Read(f, binary.LittleEndian, x)
 	}
@@ -1464,7 +1464,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 	if err := h.Read(f, &lofs, &tofs); err != nil {
 		return err
 	}
-	if sff.header.Ver0 != 1{
+	if sff.header.Ver0 != 1 {
 		uniquePals := make(map[[2]int16]int)
 		for i := 0; i < int(h.NumberOfPalettes); i++ {
 			f.Seek(int64(h.FirstPaletteHeaderOffset)+int64(i*16), 0)
@@ -1472,14 +1472,14 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 			if err := read(gn_[:]); err != nil {
 				return err
 			}
-			if gn_[0] == 1 && gn_[1] > 0{
+			if gn_[0] == 1 && gn_[1] > 0 {
 				var link uint16
 				if err := read(&link); err != nil {
 					return err
 				}
 				//Accounts for shared palettes
 				if link != 0 {
-					f.Seek((int64((i - int(link)) * 16)) * -1, 1)
+					f.Seek((int64((i-int(link))*16))*-1, 1)
 				}
 				var ofs, siz uint32
 				if err := read(&ofs); err != nil {
@@ -1517,7 +1517,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 					idx = i
 				}
 				uniquePals[[...]int16{gn_[0], gn_[1]}] = int(gn_[1])
-				sff.palList.SetSource(int(gn_[1]) - 1, pal)
+				sff.palList.SetSource(int(gn_[1])-1, pal)
 				sff.palList.PalTable[[...]int16{gn_[0], gn_[1]}] = int(gn_[1])
 				sff.palList.numcols[[...]int16{gn_[0], gn_[1]}] = int(gn_[2])
 				if i <= MaxPalNo &&
@@ -1537,7 +1537,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 		x := 0
 		c := sys.sel.charlist[ref]
 		pathname := ""
-		for x < len(strings.SplitAfterN(c.def, "/", -1)) - 1 {
+		for x < len(strings.SplitAfterN(c.def, "/", -1))-1 {
 			pathname = pathname + strings.SplitAfterN(c.def, "/", -1)[x]
 			x = x + 1
 		}
@@ -1546,7 +1546,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 			replaceCondition := true
 			U, err = os.Open(pathname + c.pal_files[x])
 			if err != nil {
-				fmt.Println("Failed to open " + c.pal_files[x]) 
+				fmt.Println("Failed to open " + c.pal_files[x])
 				replaceCondition = false
 			} else {
 				for i := 255; i >= 0; i-- {
@@ -1556,7 +1556,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) (error) {
 						break
 					}
 					if i != 0 {
-						sff.palList.palettes[c.pal[x] - 1][i] = uint32(255)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+						sff.palList.palettes[c.pal[x]-1][i] = uint32(255)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 					}
 				}
 				if replaceCondition == true {
@@ -1604,7 +1604,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	var prev *Sprite
 	preloadSprNum := len(preloadSpr)
 	preloadRef := make(map[int]bool)
-	
+
 	//set various variables that let us know if a sprite should use it's own palette
 	paletteState := 0
 	currentPalette := 0
@@ -1613,7 +1613,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	var initialPalLocation int64
 	initialPalLocation = 0
 	coloredPalette := -1
-	if sff.header.Ver0 != 1{
+	if sff.header.Ver0 != 1 {
 		for i := 0; i < int(h.NumberOfPalettes); i++ {
 			f.Seek(int64(h.FirstPaletteHeaderOffset)+int64(i*16), 0)
 			var gn_ [3]int16
@@ -1625,7 +1625,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 			}
 		}
 	}
-	
+
 	for i := 0; i < len(spriteList); i++ {
 		spriteList[i] = newSprite()
 		f.Seek(int64(shofs), 0)
@@ -1660,8 +1660,8 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 				initialPalLocation = paletteLocation
 			}
 			shofs = shofs - 32
-			f.Seek(-1, 1)//Return to where it was.
-			
+			f.Seek(-1, 1) //Return to where it was.
+
 		case 2:
 			if err := spriteList[i].readHeaderV2(f, &xofs, &size,
 				lofs, tofs, &indexOfPrevious); err != nil {
@@ -1716,7 +1716,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 							}
 							spriteList[i].Pal[c] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 						}
-						if paletteState % 2 == 0 {
+						if paletteState%2 == 0 {
 							spriteList[i].palidx = 0
 						} else {
 							spriteList[i].palidx = 1
@@ -1756,14 +1756,14 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 							}
 							spriteList[i].Pal[j] = uint32(rgba[3])<<24 | uint32(rgba[2])<<16 | uint32(rgba[1])<<8 | uint32(rgba[0])
 						}
-						
+
 						//Uses palidx as if it were a boolean, used later to know if sprite's palette should be removed in favor of character's selected palette
 						if spriteList[i].palidx != coloredPalette {
 							spriteList[i].palidx = 1
 						} else {
 							spriteList[i].palidx = 0
 						}
-						
+
 					}
 				}
 				if prev == nil {

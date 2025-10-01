@@ -250,7 +250,7 @@ type System struct {
 	timerCount              []int32
 	cmdFlags                map[string]string
 	whitePalTex             Texture
-	usePalette				bool
+	usePalette              bool
 	//FLAC_FrameWait          int
 	// Localcoord sceenpack
 	luaLocalcoord    [2]int32
@@ -3009,7 +3009,7 @@ type SelectChar struct {
 	pal            []int32
 	pal_defaults   []int32
 	pal_keymap     []int32
-	pal_files	   []string
+	pal_files      []string
 	localcoord     int32
 	portrait_scale float32
 	cns_scale      [2]float32

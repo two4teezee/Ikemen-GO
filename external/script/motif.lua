@@ -401,12 +401,14 @@ local motif =
 		p1_face_spr = {9000, 1},
 		p1_face_done_anim = -1, --Ikemen feature
 		p1_face_done_spr = {}, --Ikemen feature
+		p1_face_done_pal = 1, --Ikemen feature
 		p1_face_offset = {0, 0},
 		p1_face_facing = 1,
 		p1_face_scale = {1.0, 1.0},
 		p1_face_window = {},
 		p1_face_spacing = {0, 0}, --Ikemen feature
 		p1_face_padding = 0, --Ikemen feature
+		p1_face_pal = 0, --Ikemen Feature
 		p2_face_pos = {0, 0},
 		p2_face_num = 1, --Ikemen feature
 		p2_face_anim = -1, --Ikemen feature
@@ -419,6 +421,7 @@ local motif =
 		p2_face_window = {},
 		p2_face_spacing = {0, 0}, --Ikemen feature
 		p2_face_padding = 0, --Ikemen feature
+		p2_face_pal = 0, --Ikemen Feature
 		--p<pn>_member<num>_face_anim = -1, --Ikemen feature
 		--p<pn>_member<num>_face_spr = {9000, 1}, --Ikemen feature
 		--p<pn>_member<num>_face_done_anim = -1, --Ikemen feature
@@ -427,6 +430,8 @@ local motif =
 		--p<pn>_member<num>_face_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_speed = {0, 0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_dist = {0, 0}, --Ikemen feature
+		--p<pn>_member<num>_face_pal = 0, --Ikemen feature
+		--p<pn>_member<num>_face2_pal = 0, --Ikemen feature
 		p1_face2_anim = -1, --Ikemen feature
 		p1_face2_spr = {}, --Ikemen feature
 		p1_face2_offset = {0, 0}, --Ikemen feature
@@ -729,6 +734,21 @@ local motif =
 		p2_swap_snd = {-1, 0}, --Ikemen feature
 		p1_select_snd = {-1, 0}, --Ikemen feature (data read from character SND)
 		p2_select_snd = {-1, 0}, --Ikemen feature (data read from character SND)
+		paletteselect = 0, --Ikemen feature
+		--p<pn>_member<num>_palette_number_offset = {0, 0}, --Ikemen feature
+		--p<pn>_member<num>_palette_number_font = {-1, 0, 0}, --Ikemen feature
+		--p<pn>_member<num>_palette_number_scale = {1.0, 1.0}, --Ikemen featurefeature
+		--p<pn>_palette_number_offset = {0, 0}, --Ikemen feature
+		--p<pn>_palette_number_font = {-1, 0, 0}, --Ikemen feature
+		--p<pn>_palette_number_scale = {1.0, 1.0}, --Ikemen feature
+		p1_palette_next_key = '$F', --Ikemen feature
+		p1_palette_previous_key = '$B', --Ikemen feature
+		p1_palette_accept_key = 'a', --Ikemen feature
+		p2_palette_next_key = '$F', --Ikemen feature
+		p2_palette_previous_key = '$B', --Ikemen feature
+		p2_palette_accept_key = 'a', --Ikemen feature
+		palette_move_snd = {-1, 0}, --Ikemen feature
+		palette_done_snd = {-1, 0}, --Ikemen feature	
 	},
 	selectbgdef =
 	{
@@ -2960,6 +2980,28 @@ for k, v in pairs(motif) do
 		end
 	end
 end
+
+usingPalettes = false
+for i = 1, 3 do
+	if i == 1 then
+		currentSection = 'select_info'
+	elseif i == 2 then
+		currentSection = 'vs_screen'
+	elseif i == 3 then
+		currentSection = 'victory_screen'
+	end
+	for side = 1, 2 do
+		if motif[currentSection]['p' .. side .. '_pal'] == 1 or motif[currentSection]['p' .. side .. '_face_pal'] == 1 or motif[currentSection]['p' .. side .. '_face2_pal'] == 1 then
+			usingPalettes = true
+		end
+		for member = 1, 4 do
+			if motif[currentSection]['p' .. side .. '_member' .. member .. '_face_pal'] == 1 or motif[currentSection]['p' .. side .. '_member' .. member .. '_face2_pal'] == 1 then
+				usingPalettes = true
+			end
+		end
+	end
+end
+usePalette(usingPalettes)
 
 local t_pos = motif.select_info
 for _, v in ipairs({

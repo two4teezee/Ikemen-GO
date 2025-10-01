@@ -615,27 +615,6 @@ function start.f_setMusic(num, data)
 	end
 end
 
-LoadedPals = {}
-function ifCharPalsLoaded(ref)
-	for _, v in ipairs(LoadedPals) do
-		if v == ref then
-			return true
-		end
-	end
-	table.insert(LoadedPals, ref)
-	return false
-end
-
-function loadThePalettes(a, ref, pal)
-	if not ifCharPalsLoaded(ref) then
-		a = loadPalettes(a, ref)
-	end
-	a = colorPortrait(a, ref)
-	a = changeColorPalette(a, pal)
-	return a
-end
-
-
 -- generate table with palette entries already used by this char ref
 function start.f_setAssignedPal(ref, t_assignedPals)
 	for side = 1, 2 do
@@ -899,7 +878,7 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 				if usePal == 1 then
 					--Checks if the player is on the character select, we want to laod palettes after selecting in which case, to avoid fps drops moving quickly across the roster.
 					if t['title_netplayteamcoop_text'] == nil then
-						a = loadThePalettes(a, ref, start.f_getCharData(start.p[side].t_selected[member].ref).pal[start.p[side].t_selected[member].pal])
+						a = start.loadPalettes(a, ref, start.f_getCharData(start.p[side].t_selected[member].ref).pal[start.p[side].t_selected[member].pal])
 					end
 				end
 				animUpdate(a)
@@ -2814,7 +2793,7 @@ end
 
 --;============Add the characters who already loaded their palettes to a list, preventing palettes from being loaded multiple times.
 LoadedPals = {}
-function ifCharPalsLoaded(ref)
+local function ifCharPalsLoaded(ref)
 	for _, v in ipairs(LoadedPals) do
 		if v == ref then
 			return true
@@ -3000,13 +2979,13 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef
 					if start.p[side].t_selTemp[member].anim_data ~= nil then
 						if (motif.select_info['p' .. side .. '_member' .. member .. '_face_pal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face_pal'] >= 1) or (motif.select_info['p' .. side .. '_face_pal'] ~= nil and motif.select_info['p' .. side .. '_face_pal'] >= 1)  then
-							start.p[side].t_selTemp[member].anim_data = loadThePalettes(start.p[side].t_selTemp[member].anim_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
+							start.p[side].t_selTemp[member].anim_data = start.loadPalettes(start.p[side].t_selTemp[member].anim_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].anim_data)
 						end
 					end
 					if start.p[side].t_selTemp[member].face2_data ~= nil then
 						if (motif.select_info['p' .. side .. '_member' .. member .. '_face2_pal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face2_pal'] >= 1) or (motif.select_info['p' .. side .. '_face2_pal'] ~= nil and motif.select_info['p' .. side .. '_face2_pal'] >= 1)  then
-							start.p[side].t_selTemp[member].face2_data = loadThePalettes(start.p[side].t_selTemp[member].face2_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
+							start.p[side].t_selTemp[member].face2_data = start.loadPalettes(start.p[side].t_selTemp[member].face2_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].face2_data)
 						end
 					end
@@ -3014,12 +2993,6 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					selectState = 1
 				end
 			end
-			
-			
-			
-			
-			
-			
 		--selection menu
 		elseif selectState == 1 then
 			if motif.select_info['paletteselect'] ~= nil and motif.select_info['paletteselect'] > 0 then

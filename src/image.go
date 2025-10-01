@@ -11,7 +11,6 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"slices"
 	"strings"
 	"unsafe"
 )
@@ -1786,6 +1785,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 		}
 	}
 	// selectable palettes
+	var preSelPal []int32
 	var selPal []int32
 	if h.Ver0 != 1 && char {
 		//for i := 0; i < MaxPalNo; i++ {
@@ -1796,13 +1796,22 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 				return nil, nil, err
 			}
 			if gn_[0] == 1 && gn_[1] >= 1 && gn_[1] <= MaxPalNo {
-				selPal = append(selPal, int32(gn_[1]))
+				preSelPal = append(preSelPal, int32(gn_[1]))
 			}
-			if len(selPal) >= MaxPalNo {
+			if len(preSelPal) >= MaxPalNo {
 				break
 			}
 		}
-		slices.Sort(selPal)
+		for i := 0; i < MaxPalNo + 1; i++ {
+			for k := 0; k < len(preSelPal); k++ {
+				if preSelPal[k] == int32(i) {
+					selPal = append(selPal, int32(i))
+				}
+			}
+			if len(preSelPal) == len(selPal) {
+				break
+			}
+		}
 	}
 	return sff, selPal, nil
 }

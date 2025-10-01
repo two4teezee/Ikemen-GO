@@ -698,6 +698,7 @@
 	; (starting position adjusted by values assigned to face.num, face.spacing,
 	; and actual team count in a given match)
 	p1.face.padding = 0
+	p1.face.pal = 0
 
 	p2.face.num = 1
 	p2.face.anim = -1
@@ -705,6 +706,7 @@
 	p2.face.done.spr = 
 	p2.face.spacing = 0, 0
 	p2.face.padding = 0
+	p2.face.pal = 0
 
 	; Parameters for customizing portraits on per team member basis (values take
 	; priority over standard ones, if defined)
@@ -714,6 +716,7 @@
 	;p<pn>.member<num>.face.done.spr = 
 	;p<pn>.member<num>.face.offset = 0, 0
 	;p<pn>.member<num>.face.scale = 1.0, 1.0
+	;p<pn>.member<num>.face.anim = 0
 
 	; Optional portrait sliding is handled by 2 parameters:
 	; speed decides how many pixels the portrait movement covers on each frame
@@ -950,6 +953,22 @@
 	p2.teammenu.ratio7.icon.facing = 1
 	p2.teammenu.ratio7.icon.scale = 1.0, 1.0
 
+	paletteselect = 0, --Ikemen feature
+	--p<pn>.member<num>.palette.number.offset = {0, 0}, --Ikemen feature
+	--p<pn>.member<num>.palette.number.font = {-1, 0, 0}, --Ikemen feature
+	--p<pn>.member<num>.palette.number.scale = {1.0, 1.0}, --Ikemen featurefeature
+	--p<pn>.palette.number.offset = {0, 0}, --Ikemen feature
+	--p<pn>.palette.number.font = {-1, 0, 0}, --Ikemen feature
+	--p<pn>.palette.number.scale = {1.0, 1.0}, --Ikemen feature
+	p1.palette.next.key = '$F', --Ikemen feature
+	p1.palette.previous.key = '$B', --Ikemen feature
+	p1.palette.accept.key = 'a', --Ikemen feature
+	p2.palette.next.key = '$F', --Ikemen feature
+	p2.palette.previous.key = '$B', --Ikemen feature
+	p2.palette.accept.key = 'a', --Ikemen feature
+	palette.move.snd = {-1, 0}, --Ikemen feature
+	palette.done.snd = {-1, 0}, --Ikemen feature	
+
 [SelectBgDef] ;Ikemen feature
 	spr = ""
 	bgclearcolor = 0, 0, 0
@@ -1004,11 +1023,13 @@
 	p1.anim = -1
 	p1.spacing = 0, 0
 	p1.padding = 0
+	p1.pal = 0
 
 	p2.num = 1
 	p2.anim = -1
 	p2.spacing = 0, 0
 	p2.padding = 0
+	p2.pal = 0
 
 	;p<pn>.member<num>.anim = -1
 	;p<pn>.member<num>.spr = 9000, 1
@@ -1018,6 +1039,7 @@
 	;p<pn>.member<num>.scale = 1.0, 1.0
 	;p<pn>.member<num>.slide.speed = 0, 0
 	;p<pn>.member<num>.slide.dist = 0, 0
+	;p<pn>.member<num>.pal = 0
 
 	; Additional portrait layered under standard ones. Limited to 1 portrait per
 	; team side. Character that will fight first takes priority (portrait may
@@ -1028,6 +1050,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
+	p1.face2.pal = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1035,6 +1058,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
+	p2.face2.pal = 0
 
 	; Set to 1 to enable order selection
 	; https://github.com/ikemen-engine/Ikemen-GO/wiki/Miscellaneous-Info#orderselect
@@ -1329,6 +1353,7 @@
 	p1.anim = -1
 	p1.spacing = 0, 0
 	p1.padding = 0
+	p1.pal = 0
 
 	p2.pos = 0, 0
 	p2.num = 0
@@ -1340,6 +1365,7 @@
 	p2.window = 
 	p2.spacing = 0, 0
 	p2.padding = 0
+	p2.pal = 0
 
 	;p<pn>.member<num>.anim = -1
 	;p<pn>.member<num>.spr = 9000, 2
@@ -1357,6 +1383,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
+	p1.face2.pal = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1364,6 +1391,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
+	p2.face2.pal = 0
 
 	p1.name.scale = 1.0, 1.0
 	p1.name.xshear = 0.0

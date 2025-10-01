@@ -250,6 +250,7 @@ type System struct {
 	timerCount              []int32
 	cmdFlags                map[string]string
 	whitePalTex             Texture
+	usePalette				bool
 	//FLAC_FrameWait          int
 	// Localcoord sceenpack
 	luaLocalcoord    [2]int32
@@ -3008,6 +3009,7 @@ type SelectChar struct {
 	pal            []int32
 	pal_defaults   []int32
 	pal_keymap     []int32
+	pal_files	   []string
 	localcoord     int32
 	portrait_scale float32
 	cns_scale      [2]float32
@@ -3298,6 +3300,7 @@ func (s *Select) addChar(defLine string) {
 				for i := 1; i <= MaxPalNo; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
+						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
 					}
 				}
 				movelist_orig = decodeShiftJIS(isec["movelist"])
@@ -3317,6 +3320,7 @@ func (s *Select) addChar(defLine string) {
 				for i := 1; i <= MaxPalNo; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
+						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
 					}
 				}
 				movelist_orig = decodeShiftJIS(isec["movelist"])

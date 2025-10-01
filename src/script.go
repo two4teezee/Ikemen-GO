@@ -674,6 +674,13 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(false))
 		return 1
 	})
+	luaRegister(l, "changeColorPalette", func(*lua.LState) int {
+		//Changes the actual color of the palette
+		a, _ := toUserData(l, 1).(*Anim)
+		a.anim.palettedata.paletteMap[0] = int(numArg(l, 2)) - 1
+		l.Push(newUserData(l, a))
+		return 1
+	})
 	luaRegister(l, "changeState", func(l *lua.LState) int {
 		//state_no
 		st := int32(numArg(l, 1))
@@ -769,6 +776,25 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "clearSelected", func(l *lua.LState) int {
 		sys.sel.ClearSelected()
 		return 0
+	})
+	luaRegister(l, "colorPortrait", func(l *lua.LState) int {
+		//Creates a duplicate animation, to avoid palette sharing across players, then removes palettes from sprites
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		if sys.usePalette == true {
+			copyAnim := CopyAnim(a)
+			for _, c := range copyAnim.anim.frames {
+				if copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx == 0 && len(sys.sel.GetChar(int(numArg(l, 2))).pal) > 0{
+					copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Pal = nil
+				} 
+			}
+			l.Push(newUserData(l, copyAnim))
+		} else {
+			l.Push(newUserData(l, a))
+		}
+		return 1
 	})
 	luaRegister(l, "commandAdd", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
@@ -1912,6 +1938,15 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.lifebar = *lb
 		return 0
+	})
+	luaRegister(l, "loadPalettes", func(*lua.LState) int {
+	//Actual process of loading palettes
+	a, _ := toUserData(l, 1).(*Anim)
+		if sys.usePalette == true {
+			loadCharPalettes(a.anim.sff, a.anim.sff.filename, int(numArg(l, 2)))
+		}
+		l.Push(newUserData(l, a))
+		return 1
 	})
 	luaRegister(l, "loadStart", func(l *lua.LState) int {
 		if sys.gameMode != "randomtest" {
@@ -3120,6 +3155,11 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "updateVolume", func(l *lua.LState) int {
 		sys.bgm.UpdateVolume()
 		return 0
+	})
+	luaRegister(l, "usePalette", func(l *lua.LState) int {
+		//Sets palettes to be able to be used, this is used to avoid spending any time with the functions to make it work.
+		sys.usePalette = boolArg(l, 1)
+		return 1
 	})
 	luaRegister(l, "wavePlay", func(l *lua.LState) int {
 		s, ok := toUserData(l, 1).(*Sound)

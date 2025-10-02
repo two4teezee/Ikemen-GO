@@ -517,7 +517,7 @@ func renderWithBlending(
 				if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil && blendAlpha[0] < 255 {
 					// Sum of add components
 					gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
-					v3, ml, al := MaxF((gc*255)-float32(blendAlpha[1]+blendAlpha[0]), 512)/128, (float32(blendAlpha[0])/255), (float32(blendAlpha[0]+blendAlpha[1])/255)
+					v3, ml, al := MaxF((gc*255)-float32(blendAlpha[1]+blendAlpha[0]), 512)/128, (float32(blendAlpha[0]) / 255), (float32(blendAlpha[0]+blendAlpha[1]) / 255)
 					rM, gM, bM := mcolor[0]*ml, mcolor[1]*ml, mcolor[2]*ml
 					(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
 					render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 3))

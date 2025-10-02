@@ -550,7 +550,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation
 		rot:            rot,
 		tint:           0,
 		blendMode:      TT_none,
-		blendAlpha:     [2]int32{sys.brightness*255>>8, 0},
+		blendAlpha:     [2]int32{sys.brightness * 255 >> 8, 0},
 		mask:           0,
 		pfx:            palfx,
 		window:         window,

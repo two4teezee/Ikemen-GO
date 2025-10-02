@@ -283,13 +283,13 @@ func (cd *CharData) init() {
 }
 
 type CharSize struct {
-	xscale float32
-	yscale float32
+	xscale    float32
+	yscale    float32
 	standbox  [4]float32 // Replaces ground.front, ground.back and height
 	crouchbox [4]float32
 	airbox    [4]float32 // Replaces air.front and air.back
 	downbox   [4]float32
-	attack struct {
+	attack    struct {
 		dist struct {
 			width  [2]float32
 			height [2]float32
@@ -1308,27 +1308,27 @@ type Explod struct {
 	animelemtime        int32
 	animfreeze          bool
 	ontop               bool // Legacy compatibility
-	under          bool
-	trans          TransType
-	alpha          [2]int32
-	ownpal         bool
-	remappal       [2]int32
-	ignorehitpause bool
-	rot            Rotation
-	anglerot       [3]float32
-	xshear         float32
-	projection     Projection
-	fLength        float32
-	oldPos         [3]float32
-	newPos         [3]float32
-	interPos       [3]float32
-	playerId       int32
-	palfx          *PalFX
-	palfxdef       PalFXDef
-	window         [4]float32
+	under               bool
+	trans               TransType
+	alpha               [2]int32
+	ownpal              bool
+	remappal            [2]int32
+	ignorehitpause      bool
+	rot                 Rotation
+	anglerot            [3]float32
+	xshear              float32
+	projection          Projection
+	fLength             float32
+	oldPos              [3]float32
+	newPos              [3]float32
+	interPos            [3]float32
+	playerId            int32
+	palfx               *PalFX
+	palfxdef            PalFXDef
+	window              [4]float32
 	//lockSpriteFacing     bool
-	localscl             float32
-	localcoord           float32
+	localscl   float32
+	localcoord float32
 	//blendmode            int32
 	start_animelem       int32
 	start_scale          [2]float32
@@ -1354,27 +1354,27 @@ func newExplod() *Explod {
 // Set default values according to char who creates the explod
 func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
-		id:                -1,
-		playerId:          c.id,
-		animPN:            c.playerNo,
-		spritePN:          c.playerNo,
-		layerno:           c.layerNo,
-		palfx:             c.getPalfx(),   // Safeguard. Overridden later
-		palfxdef:          *newPalFXDef(), // Actual PalFX handled later
-		bindtime:          1,              // Not documented but confirmed
-		scale:             [2]float32{1, 1},
-		removetime:        -2,
-		postype:           PT_P1,
-		space:             Space_none,
-		relativef:         1,
-		facing:            1,
-		vfacing:           1,
-		localscl:          c.localscl,
-		localcoord:        c.localcoord,
-		projection:        Projection_Orthographic,
-		window:            [4]float32{0, 0, 0, 0},
-		animelem:          1,
-		animelemtime:      0,
+		id:           -1,
+		playerId:     c.id,
+		animPN:       c.playerNo,
+		spritePN:     c.playerNo,
+		layerno:      c.layerNo,
+		palfx:        c.getPalfx(),   // Safeguard. Overridden later
+		palfxdef:     *newPalFXDef(), // Actual PalFX handled later
+		bindtime:     1,              // Not documented but confirmed
+		scale:        [2]float32{1, 1},
+		removetime:   -2,
+		postype:      PT_P1,
+		space:        Space_none,
+		relativef:    1,
+		facing:       1,
+		vfacing:      1,
+		localscl:     c.localscl,
+		localcoord:   c.localcoord,
+		projection:   Projection_Orthographic,
+		window:       [4]float32{0, 0, 0, 0},
+		animelem:     1,
+		animelemtime: 0,
 		//blendmode:         0,
 		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
@@ -1843,7 +1843,7 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			e.interpolate_pos[i] = Lerp(e.interpolate_pos[i+3], 0, t)
 			if i < 2 {
 				e.interpolate_scale[i] = Lerp(e.interpolate_scale[i+2], e.start_scale[i], t) //-e.start_scale[i]
-					e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
+				e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
 			}
 			e.interpolate_angle[i] = Lerp(e.interpolate_angle[i+3], e.start_rot[i], t)
 		}
@@ -3361,14 +3361,14 @@ func (c *Char) load(def string) error {
 						is.ReadF32("air.sizebox", &c.size.airbox[0], &c.size.airbox[1], &c.size.airbox[2], &c.size.airbox[3])
 						is.ReadF32("down.sizebox", &c.size.downbox[0], &c.size.downbox[1], &c.size.downbox[2], &c.size.downbox[3])
 						/*
-						is.ReadF32("height.stand", &c.size.height)
-						// New height constants default to old height constant
-						c.size.height.crouch = c.size.height
-						c.size.height.air[0] = c.size.height
-						c.size.height.down = c.size.height
-						is.ReadF32("height.crouch", &c.size.height.crouch)
-						is.ReadF32("height.air", &c.size.height.air[0], &c.size.height.air[1])
-						is.ReadF32("height.down", &c.size.height.down)
+							is.ReadF32("height.stand", &c.size.height)
+							// New height constants default to old height constant
+							c.size.height.crouch = c.size.height
+							c.size.height.air[0] = c.size.height
+							c.size.height.down = c.size.height
+							is.ReadF32("height.crouch", &c.size.height.crouch)
+							is.ReadF32("height.air", &c.size.height.air[0], &c.size.height.air[1])
+							is.ReadF32("height.down", &c.size.height.down)
 						*/
 						is.ReadF32("attack.dist", &c.size.attack.dist.width[0])
 						is.ReadF32("attack.dist.width", &c.size.attack.dist.width[0], &c.size.attack.dist.width[1])
@@ -5992,7 +5992,7 @@ func (c *Char) commitExplod(i int) {
 				e.scale[j] = 1
 				//if e.blendmode == 1 {
 				//if e.trans == TT_add { // Any add?
-					e.alpha[j] = 255
+				e.alpha[j] = 255
 				//}
 			}
 			e.anglerot[j] = 0

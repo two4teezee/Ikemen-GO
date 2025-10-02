@@ -26,16 +26,16 @@ type AnimFrame struct {
 
 func newAnimFrame() *AnimFrame {
 	return &AnimFrame{
-		Time:     -1,
-		Group:    -1,
+		Time:      -1,
+		Group:     -1,
 		TransType: TT_none,
-		SrcAlpha: 255,
-		DstAlpha: 0,
-		Hscale:   1, // These two are technically flags but are coded like scale for simplicity
-		Vscale:   1,
-		Xscale:   1,
-		Yscale:   1,
-		Angle:    0,
+		SrcAlpha:  255,
+		DstAlpha:  0,
+		Hscale:    1, // These two are technically flags but are coded like scale for simplicity
+		Vscale:    1,
+		Xscale:    1,
+		Yscale:    1,
+		Angle:     0,
 	}
 }
 
@@ -938,7 +938,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	// Drawing twice is a bit wasteful, but results are the most accurate to Mugen
 	if intensity > 0 {
 		rp.blendMode = TT_add
-		rp.blendAlpha = [2]int32{intensity, 255-intensity}
+		rp.blendAlpha = [2]int32{intensity, 255 - intensity}
 		RenderSprite(rp)
 	}
 	if color != 0 {
@@ -1442,7 +1442,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// Force reflections into Add transparency, unless original sprite has Sub
-		if s.anim.transType !=  TT_sub {
+		if s.anim.transType != TT_sub {
 			s.anim.transType = TT_add
 		}
 
@@ -1456,7 +1456,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// Scale intensity by linear interpolation
 		s.anim.srcAlpha = int16(int32(s.alpha[0]) * ref / 255)
-		s.anim.dstAlpha = int16(255 - (int32(255 - s.alpha[1]) * ref / 255))
+		s.anim.dstAlpha = int16(255 - (int32(255-s.alpha[1]) * ref / 255))
 
 		// Set the tint if it's there
 		var color uint32

@@ -42,7 +42,6 @@ const (
 	CSF_posfreeze
 	CSF_screenbound
 	CSF_stagebound
-	CSF_trans
 	CSF_width
 	CSF_widthedge
 )
@@ -197,14 +196,36 @@ func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	}
 }
 
-func (cr ClsnRect) draw(trans int32) {
+func (cr ClsnRect) draw(blendAlpha [2]int32) {
 	paltex := PaletteToTexture(sys.clsnSpr.Pal)
 	for _, c := range cr {
 		params := RenderParams{
-			sys.clsnSpr.Tex, paltex, sys.clsnSpr.Size,
-			-c[0] * sys.widthScale, -c[1] * sys.heightScale, notiling,
-			c[2] * sys.widthScale, c[2] * sys.widthScale, c[3] * sys.heightScale, 1, 0,
-			1, 1, Rotation{c[6], 0, 0}, 0, trans, -1, nil, &sys.scrrect, c[4], c[5], 0, 0, 0, 0,
+			tex:            sys.clsnSpr.Tex,
+			paltex:         paltex,
+			size:           sys.clsnSpr.Size,
+			x:              -c[0] * sys.widthScale,
+			y:              -c[1] * sys.heightScale,
+			tile:           notiling,
+			xts:            c[2] * sys.widthScale,
+			xbs:            c[2] * sys.widthScale,
+			ys:             c[3] * sys.heightScale,
+			vs:             1,
+			rxadd:          0,
+			xas:            1,
+			yas:            1,
+			rot:            Rotation{angle: c[6]},
+			tint:           0,
+			blendMode:      TT_add,
+			blendAlpha:     blendAlpha,
+			mask:           -1,
+			pfx:            nil,
+			window:         &sys.scrrect,
+			rcx:            c[4],
+			rcy:            c[5],
+			projectionMode: 0,
+			fLength:        0,
+			xOffset:        0,
+			yOffset:        0,
 		}
 		RenderSprite(params)
 	}
@@ -264,20 +285,10 @@ func (cd *CharData) init() {
 type CharSize struct {
 	xscale float32
 	yscale float32
-	ground struct {
-		back  float32
-		front float32
-	}
-	air struct {
-		back  float32
-		front float32
-	}
-	height struct {
-		stand  float32
-		crouch float32
-		air    [2]float32
-		down   float32
-	}
+	standbox  [4]float32 // Replaces ground.front, ground.back and height
+	crouchbox [4]float32
+	airbox    [4]float32 // Replaces air.front and air.back
+	downbox   [4]float32
 	attack struct {
 		dist struct {
 			width  [2]float32
@@ -315,14 +326,10 @@ func (cs *CharSize) init() {
 	*cs = CharSize{}
 	cs.xscale = 1
 	cs.yscale = 1
-	cs.ground.back = 15
-	cs.ground.front = 16
-	cs.air.back = 12
-	cs.air.front = 12
-	cs.height.stand = 60
-	cs.height.crouch = 60
-	cs.height.air = [...]float32{60, 0}
-	cs.height.down = 60
+	cs.standbox = [4]float32{-16, -60, 16, 0}
+	cs.crouchbox = [4]float32{-16, -60, 16, 0}
+	cs.airbox = [4]float32{-12, -60, 12, 0}
+	cs.downbox = [4]float32{-16, -60, 16, 0}
 	cs.attack.dist.width = [...]float32{160, 0}
 	cs.attack.dist.height = [...]float32{1000, 1000}
 	cs.attack.dist.depth = [...]float32{4, 4}
@@ -1012,7 +1019,6 @@ type MoveHitVar struct {
 	playerId   int32
 	playerNo   int
 	sparkxy    [2]float32
-	uniqhit    int32
 }
 
 func (mhv *MoveHitVar) clear() {
@@ -1038,6 +1044,7 @@ type AfterImage struct {
 	mul            [3]float32
 	timegap        int32
 	framegap       int32
+	trans          TransType
 	alpha          [2]int32
 	palfx          []*PalFX
 	imgs           [64]aimgImage
@@ -1078,7 +1085,8 @@ func (ai *AfterImage) clear() {
 	ai.mul = [...]float32{0.65, 0.65, 0.75}
 	ai.timegap = 1
 	ai.framegap = 4
-	ai.alpha = [...]int32{-1, 0}
+	ai.trans = TT_default
+	ai.alpha = [2]int32{-1, 0}
 	ai.imgidx = 0
 	ai.restgap = 0
 	ai.reccount = 0
@@ -1243,6 +1251,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				fx:           ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
+				trans:        ai.trans,
 				alpha:        ai.alpha,
 				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
 				rot:          img.rot,
@@ -1299,27 +1308,28 @@ type Explod struct {
 	animelemtime        int32
 	animfreeze          bool
 	ontop               bool // Legacy compatibility
-	under               bool
-	alpha               [2]int32
-	ownpal              bool
-	remappal            [2]int32
-	ignorehitpause      bool
-	rot                 Rotation
-	anglerot            [3]float32
-	xshear              float32
-	projection          Projection
-	fLength             float32
-	oldPos              [3]float32
-	newPos              [3]float32
-	interPos            [3]float32
-	playerId            int32
-	palfx               *PalFX
-	palfxdef            PalFXDef
-	window              [4]float32
+	under          bool
+	trans          TransType
+	alpha          [2]int32
+	ownpal         bool
+	remappal       [2]int32
+	ignorehitpause bool
+	rot            Rotation
+	anglerot       [3]float32
+	xshear         float32
+	projection     Projection
+	fLength        float32
+	oldPos         [3]float32
+	newPos         [3]float32
+	interPos       [3]float32
+	playerId       int32
+	palfx          *PalFX
+	palfxdef       PalFXDef
+	window         [4]float32
 	//lockSpriteFacing     bool
 	localscl             float32
 	localcoord           float32
-	blendmode            int32
+	//blendmode            int32
 	start_animelem       int32
 	start_scale          [2]float32
 	start_rot            [3]float32
@@ -1330,7 +1340,7 @@ type Explod struct {
 	interpolate_time     [2]int32
 	interpolate_animelem [3]int32
 	interpolate_scale    [4]float32
-	interpolate_alpha    [5]int32
+	interpolate_alpha    [4]int32
 	interpolate_pos      [6]float32
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
@@ -1365,7 +1375,8 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		window:            [4]float32{0, 0, 0, 0},
 		animelem:          1,
 		animelemtime:      0,
-		blendmode:         0,
+		//blendmode:         0,
+		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
 		ignorehitpause:    true,
@@ -1722,6 +1733,7 @@ func (e *Explod) update(playerNo int) {
 		fx:           pfx,
 		pos:          drawpos,
 		scl:          drawscale,
+		trans:        e.trans,
 		alpha:        alp,
 		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
 		rot:          rot,
@@ -1831,9 +1843,7 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			e.interpolate_pos[i] = Lerp(e.interpolate_pos[i+3], 0, t)
 			if i < 2 {
 				e.interpolate_scale[i] = Lerp(e.interpolate_scale[i+2], e.start_scale[i], t) //-e.start_scale[i]
-				if e.blendmode == 1 {
 					e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
-				}
 			}
 			e.interpolate_angle[i] = Lerp(e.interpolate_angle[i+3], e.start_rot[i], t)
 		}
@@ -1844,14 +1854,8 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 	for i := 0; i < 3; i++ {
 		if i < 2 {
 			(*scale)[i] = e.interpolate_scale[i] * e.scale[i]
-			if e.blendmode == 1 {
-				if (*alpha)[0] == 1 && (*alpha)[1] == 255 {
-					(*alpha)[0] = 0
-				} else {
-					(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
-				}
-
-			}
+			// Update alpha regardless of transparency type. Let the type handle the rendering
+			(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
 		}
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
 	}
@@ -2389,7 +2393,8 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			fx:           p.palfx,
 			pos:          pos,
 			scl:          drawscale,
-			alpha:        [2]int32{-1},
+			trans:        TT_default,
+			alpha:        [2]int32{-1, 0},
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          rot,
 			screen:       false,
@@ -2578,6 +2583,7 @@ type CharSystemVar struct {
 	projection            Projection
 	fLength               float32
 	angleDrawScale        [2]float32
+	trans                 TransType
 	alpha                 [2]int32
 	window                [4]float32
 	systemFlag            SystemCharFlag
@@ -2862,6 +2868,7 @@ func (c *Char) prepareNextRound() {
 	c.CharSystemVar = CharSystemVar{
 		bindToId:              -1,
 		angleDrawScale:        [2]float32{1, 1},
+		trans:                 TT_default,
 		alpha:                 [2]int32{255, 0},
 		sizeWidth:             [2]float32{c.baseWidthFront(), c.baseWidthBack()},
 		sizeHeight:            [2]float32{c.baseHeightTop(), c.baseHeightBottom()},
@@ -3190,15 +3197,12 @@ func (c *Char) load(def string) error {
 	coordRatio := float32(c.gi().localcoord[0]) / 320
 
 	if coordRatio != 1 {
-		c.size.ground.back *= coordRatio
-		c.size.ground.front *= coordRatio
-		c.size.air.back *= coordRatio
-		c.size.air.front *= coordRatio
-		c.size.height.stand *= coordRatio
-		c.size.height.crouch *= coordRatio
-		c.size.height.air[0] *= coordRatio
-		c.size.height.air[1] *= coordRatio
-		c.size.height.down *= coordRatio
+		for i := 0; i < 4; i++ {
+			c.size.standbox[i] *= coordRatio
+			c.size.crouchbox[i] *= coordRatio
+			c.size.airbox[i] *= coordRatio
+			c.size.downbox[i] *= coordRatio
+		}
 		c.size.attack.dist.width[0] *= coordRatio
 		c.size.attack.dist.width[1] *= coordRatio
 		c.size.attack.dist.height[0] *= coordRatio
@@ -3336,19 +3340,36 @@ func (c *Char) load(def string) error {
 						size = false
 						is.ReadF32("xscale", &c.size.xscale)
 						is.ReadF32("yscale", &c.size.yscale)
-						is.ReadF32("ground.back", &c.size.ground.back)
-						is.ReadF32("ground.front", &c.size.ground.front)
-						is.ReadF32("air.back", &c.size.air.back)
-						is.ReadF32("air.front", &c.size.air.front)
-						is.ReadF32("height", &c.size.height.stand)
-						is.ReadF32("height.stand", &c.size.height.stand)
+						// Read legacy size constants first
+						if is.ReadF32("ground.back", &c.size.standbox[0], &c.size.standbox[2]) {
+							c.size.standbox[0] *= -1
+						}
+						if is.ReadF32("air.back", &c.size.airbox[0], &c.size.airbox[2]) {
+							c.size.airbox[0] *= -1
+						}
+						if is.ReadF32("height", &c.size.standbox[1]) {
+							c.size.standbox[1] *= -1
+						}
+						// Default boxes to the old constants we just read
+						c.size.standbox = [4]float32{c.size.standbox[0], c.size.standbox[1], c.size.standbox[2], c.size.standbox[3]}
+						c.size.crouchbox = c.size.standbox
+						c.size.airbox = [4]float32{c.size.airbox[0], c.size.standbox[1], c.size.airbox[2], c.size.standbox[3]}
+						c.size.downbox = c.size.standbox
+						// Read new size constants to override them
+						is.ReadF32("stand.sizebox", &c.size.standbox[0], &c.size.standbox[1], &c.size.standbox[2], &c.size.standbox[3])
+						is.ReadF32("crouch.sizebox", &c.size.crouchbox[0], &c.size.crouchbox[1], &c.size.crouchbox[2], &c.size.crouchbox[3])
+						is.ReadF32("air.sizebox", &c.size.airbox[0], &c.size.airbox[1], &c.size.airbox[2], &c.size.airbox[3])
+						is.ReadF32("down.sizebox", &c.size.downbox[0], &c.size.downbox[1], &c.size.downbox[2], &c.size.downbox[3])
+						/*
+						is.ReadF32("height.stand", &c.size.height)
 						// New height constants default to old height constant
-						c.size.height.crouch = c.size.height.stand
-						c.size.height.air[0] = c.size.height.stand
-						c.size.height.down = c.size.height.stand
+						c.size.height.crouch = c.size.height
+						c.size.height.air[0] = c.size.height
+						c.size.height.down = c.size.height
 						is.ReadF32("height.crouch", &c.size.height.crouch)
 						is.ReadF32("height.air", &c.size.height.air[0], &c.size.height.air[1])
 						is.ReadF32("height.down", &c.size.height.down)
+						*/
 						is.ReadF32("attack.dist", &c.size.attack.dist.width[0])
 						is.ReadF32("attack.dist.width", &c.size.attack.dist.width[0], &c.size.attack.dist.width[1])
 						is.ReadF32("attack.dist.height", &c.size.attack.dist.height[0], &c.size.attack.dist.height[1])
@@ -5969,9 +5990,10 @@ func (c *Char) commitExplod(i int) {
 			}
 			if j < 2 {
 				e.scale[j] = 1
-				if e.blendmode == 1 {
+				//if e.blendmode == 1 {
+				//if e.trans == TT_add { // Any add?
 					e.alpha[j] = 255
-				}
+				//}
 			}
 			e.anglerot[j] = 0
 		}
@@ -6562,36 +6584,56 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 }
 
 func (c *Char) baseWidthFront() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.air.front)
+	switch c.ss.stateType {
+	case ST_C:
+		return float32(c.size.crouchbox[2])
+	case ST_A:
+		return float32(c.size.airbox[2])
+	case ST_L:
+		return float32(c.size.downbox[2])
+	default:
+		return float32(c.size.standbox[2])
 	}
-	return float32(c.size.ground.front)
 }
 
+// Because dimensions are positive we will invert the constants here
 func (c *Char) baseWidthBack() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.air.back)
+	switch c.ss.stateType {
+	case ST_C:
+		return -float32(c.size.crouchbox[0])
+	case ST_A:
+		return -float32(c.size.airbox[0])
+	case ST_L:
+		return -float32(c.size.downbox[0])
+	default:
+		return -float32(c.size.standbox[0])
 	}
-	return float32(c.size.ground.back)
 }
 
+// Because dimensions are positive we will invert the constants here
 func (c *Char) baseHeightTop() float32 {
-	if c.ss.stateType == ST_L {
-		return float32(c.size.height.down)
-	} else if c.ss.stateType == ST_A {
-		return float32(c.size.height.air[0])
-	} else if c.ss.stateType == ST_C {
-		return float32(c.size.height.crouch)
-	} else {
-		return float32(c.size.height.stand)
+	switch c.ss.stateType {
+	case ST_C:
+		return -float32(c.size.crouchbox[1])
+	case ST_A:
+		return -float32(c.size.airbox[1])
+	case ST_L:
+		return -float32(c.size.downbox[1])
+	default:
+		return -float32(c.size.standbox[1])
 	}
 }
 
 func (c *Char) baseHeightBottom() float32 {
-	if c.ss.stateType == ST_A {
-		return float32(c.size.height.air[1])
-	} else {
-		return 0
+	switch c.ss.stateType {
+	case ST_C:
+		return float32(c.size.crouchbox[3])
+	case ST_A:
+		return float32(c.size.airbox[3])
+	case ST_L:
+		return float32(c.size.downbox[3])
+	default:
+		return float32(c.size.standbox[3])
 	}
 }
 
@@ -9345,7 +9387,6 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 	if !isProjectile {
 		c.hitdefTargetsBuffer = append(c.hitdefTargetsBuffer, getter.id)
-		c.mhv.uniqhit = int32(len(c.hitdefTargets))
 	}
 
 	// Determine if GetHitVars should be updated
@@ -10155,8 +10196,10 @@ func (c *Char) actionPrepare() {
 		// The flags in this block are to be reset even during hitpause
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
-			c.unsetCSF(CSF_angledraw | CSF_trans)
+			c.unsetCSF(CSF_angledraw)
 			c.angleDrawScale = [2]float32{1, 1}
+			c.trans = TT_default
+			c.alpha = [2]int32{255, 0}
 			c.offset = [2]float32{}
 			// Reset all AssertSpecial flags except the following, which are reset elsewhere in the code
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
@@ -11108,11 +11151,6 @@ func (c *Char) cueDraw() {
 		//	c.aimg.recAfterImg(sdf(), c.hitPause())
 		//}
 
-		//if c.gi().mugenver[0] != 1 && c.csf(CSF_angledraw) && !c.csf(CSF_trans) {
-		//	c.setCSF(CSF_trans)
-		//	c.alpha = [...]int32{255, 0}
-		//}
-
 		// Determine AIR offset multiplier
 		// This must take into account both the coordinate spaces and the scale constants
 		// This seems more complicated than it ought to be. Probably because our drawing functions are different from Mugen
@@ -11146,6 +11184,7 @@ func (c *Char) cueDraw() {
 			fx:           c.getPalfx(),
 			pos:          pos,
 			scl:          drawscale,
+			trans:        c.trans,
 			alpha:        c.alpha,
 			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
 			rot:          rot,
@@ -11159,9 +11198,7 @@ func (c *Char) cueDraw() {
 			xshear:       c.xshear,
 			window:       cwin,
 		}
-		if !c.csf(CSF_trans) {
-			sd.alpha[0] = -1
-		}
+
 		// Record afterimage
 		c.aimg.recAndCue(sd, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
 		// Hitshake effect
@@ -11177,15 +11214,15 @@ func (c *Char) cueDraw() {
 		} else if c.asf(ASF_drawunder) {
 			sprs = &sys.spritesLayerU
 		}
+
 		if !c.asf(ASF_invisible) {
-			sdwalp := int32(255)
-			if c.csf(CSF_trans) {
-				sdwalp = 255 - c.alpha[1]
-			}
+			sdwalp := 255 - c.alpha[1]
 			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
 			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
+
 			// Add sprite to draw list
 			sprs.add(sd)
+
 			// Add shadow
 			if !c.asf(ASF_noshadow) {
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
@@ -11226,6 +11263,7 @@ func (c *Char) cueDraw() {
 					shadowfLength:    c.shadowfLength,
 					fadeOffset:       c.offsetY() + drawZoff,
 				})
+
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
 					SprData:          sd,

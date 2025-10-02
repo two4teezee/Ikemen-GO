@@ -361,13 +361,13 @@ func encodeInputs(inputs InputBits) []byte {
 }
 
 func (rs *RollbackSession) LiveChecksum() uint32 {
-	// System
+	// System variables. Check always
 	buf := writeI32(sys.randseed)
 	buf = append(buf, writeI32(sys.gameTime)...)
 	buf = append(buf, writeI32(sys.curRoundTime)...)
 
-	// Round start checks. Random select safeguard
-	if sys.tickCount <= 60 {
+	// Round start checks. Ensure both players have the same selection
+	if sys.roundState() == 1 {
 		// Stage
 		stageHash := crc32.ChecksumIEEE([]byte(sys.stage.name))
 		buf = binary.BigEndian.AppendUint32(buf, stageHash)
@@ -388,21 +388,25 @@ func (rs *RollbackSession) LiveChecksum() uint32 {
 		}
 	}
 
-	// Character data
-	for i := range sys.chars {
-		if len(sys.chars[i]) == 0 {
-			continue
+	// During fight checks
+	// Checking life during intros may cause trouble with Turns mode life refill
+	if sys.roundState() == 2 || sys.roundState() == 3 {
+		// Character data
+		for i := range sys.chars {
+			if len(sys.chars[i]) == 0 {
+				continue
+			}
+			c := sys.chars[i][0]
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.life))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.redLife))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.dizzyPoints))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.guardPoints))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.power))
+			buf = binary.BigEndian.AppendUint32(buf, uint32(c.animNo))
+			//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0])) // These might add float operation errors
+			//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
+			//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
 		}
-		c := sys.chars[i][0]
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.life))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.redLife))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.dizzyPoints))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.guardPoints))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.power))
-		buf = binary.BigEndian.AppendUint32(buf, uint32(c.animNo))
-		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[0])) // These might add float operation errors
-		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[1]))
-		//buf = binary.BigEndian.AppendUint32(buf, math.Float32bits(cc.pos[2]))
 	}
 
 	return crc32.ChecksumIEEE(buf)

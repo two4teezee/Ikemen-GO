@@ -266,11 +266,7 @@ const (
 	OC_const_size_ground_front
 	OC_const_size_air_back
 	OC_const_size_air_front
-	OC_const_size_height_stand
-	OC_const_size_height_crouch
-	OC_const_size_height_air_top
-	OC_const_size_height_air_bottom
-	OC_const_size_height_down
+	OC_const_size_height
 	OC_const_size_attack_dist_width_front
 	OC_const_size_attack_dist_width_back
 	OC_const_size_attack_dist_height_top
@@ -2088,23 +2084,15 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_size_yscale:
 		sys.bcStack.PushF(c.size.yscale)
 	case OC_const_size_ground_back:
-		sys.bcStack.PushF(c.size.ground.back * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(-c.size.standbox[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_ground_front:
-		sys.bcStack.PushF(c.size.ground.front * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(c.size.standbox[2] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_air_back:
-		sys.bcStack.PushF(c.size.air.back * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(-c.size.airbox[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_air_front:
-		sys.bcStack.PushF(c.size.air.front * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_stand:
-		sys.bcStack.PushF(c.size.height.stand * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_crouch:
-		sys.bcStack.PushF(c.size.height.crouch * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_air_top:
-		sys.bcStack.PushF(c.size.height.air[0] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_air_bottom:
-		sys.bcStack.PushF(c.size.height.air[1] * ((320 / c.localcoord) / oc.localscl))
-	case OC_const_size_height_down:
-		sys.bcStack.PushF(c.size.height.down * ((320 / c.localcoord) / oc.localscl))
+		sys.bcStack.PushF(c.size.airbox[2] * ((320 / c.localcoord) / oc.localscl))
+	case OC_const_size_height:
+		sys.bcStack.PushF(-c.size.standbox[1] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_width_front:
 		sys.bcStack.PushF(c.size.attack.dist.width[0] * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_size_attack_dist_width_back:
@@ -3027,7 +3015,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_movehitvar_spark_y:
 		sys.bcStack.PushF(c.mhv.sparkxy[1] * (c.localscl / oc.localscl))
 	case OC_ex_movehitvar_uniqhit:
-		sys.bcStack.PushI(c.mhv.uniqhit)
+		sys.bcStack.PushI(int32(len(c.hitdefTargets)))
 	case OC_ex_numplayer:
 		sys.bcStack.PushI(c.numPlayer())
 	case OC_ex_clamp:
@@ -3150,17 +3138,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_offset_y:
 		sys.bcStack.PushF(c.offset[1] / oc.localscl)
 	case OC_ex_alpha_s:
-		if c.csf(CSF_trans) {
-			sys.bcStack.PushI(c.alpha[0])
-		} else {
-			sys.bcStack.PushI(255)
-		}
+		sys.bcStack.PushI(c.alpha[0])
 	case OC_ex_alpha_d:
-		if c.csf(CSF_trans) {
-			sys.bcStack.PushI(c.alpha[1])
-		} else {
-			sys.bcStack.PushI(0)
-		}
+		sys.bcStack.PushI(c.alpha[1])
 	case OC_ex_selfcommand:
 		if c.cmd == nil {
 			sys.bcStack.PushB(false)
@@ -4954,24 +4934,15 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_size_yscale:
 			h.size.yscale = exp[0].evalF(c)
 		case helper_size_ground_back:
-			h.size.ground.back = exp[0].evalF(c)
+			h.size.standbox[0] = exp[0].evalF(c) * -1
 		case helper_size_ground_front:
-			h.size.ground.front = exp[0].evalF(c)
+			h.size.standbox[2] = exp[0].evalF(c)
 		case helper_size_air_back:
-			h.size.air.back = exp[0].evalF(c)
+			h.size.airbox[0] = exp[0].evalF(c) * -1
 		case helper_size_air_front:
-			h.size.air.front = exp[0].evalF(c)
+			h.size.airbox[2] = exp[0].evalF(c)
 		case helper_size_height_stand:
-			h.size.height.stand = exp[0].evalF(c)
-		case helper_size_height_crouch:
-			h.size.height.crouch = exp[0].evalF(c)
-		case helper_size_height_air:
-			h.size.height.air[0] = exp[0].evalF(c)
-			if len(exp) > 1 {
-				h.size.height.air[1] = exp[1].evalF(c)
-			}
-		case helper_size_height_down:
-			h.size.height.down = exp[0].evalF(c)
+			h.size.standbox[1] = exp[0].evalF(c) * -1
 		case helper_size_proj_doscale:
 			h.size.proj.doscale = exp[0].evalI(c)
 		case helper_size_head_pos:
@@ -5641,6 +5612,12 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_removeonchangestate:
 			e.removeonchangestate = exp[0].evalB(c)
 		case explod_trans:
+			src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+			dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+			tt := TransType(exp[2].evalI(c))
+			e.trans = tt
+			e.alpha = [2]int32{src, dst}
+		/*case explod_trans:
 			e.alpha[0] = exp[0].evalI(c)
 			e.alpha[1] = exp[1].evalI(c)
 			sa, da := e.alpha[0], e.alpha[1]
@@ -5663,7 +5640,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				if e.alpha[0] == 1 && e.alpha[1] == 255 {
 					e.alpha[0] = 0
 				}
-			}
+			}*/
 		case explod_animelem:
 			e.animelem = exp[0].evalI(c)
 		case explod_animelemtime:
@@ -6132,16 +6109,24 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case explod_removeongethit:
-				t := exp[0].evalB(c)
+				v := exp[0].evalB(c)
 				eachExpl(func(e *Explod) {
-					e.removeongethit = t
+					e.removeongethit = v
 				})
 			case explod_removeonchangestate:
-				t := exp[0].evalB(c)
+				v := exp[0].evalB(c)
 				eachExpl(func(e *Explod) {
-					e.removeonchangestate = t
+					e.removeonchangestate = v
 				})
 			case explod_trans:
+				src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+				dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+				tt := TransType(exp[2].evalI(c))
+				eachExpl(func(e *Explod) {
+					e.trans = tt
+					e.alpha = [2]int32{src, dst}
+				})
+			/*case explod_trans:
 				s, d := exp[0].evalI(c), exp[1].evalI(c)
 				blendmode := 0
 				if len(exp) >= 3 {
@@ -6167,7 +6152,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				eachExpl(func(e *Explod) {
 					e.alpha = [...]int32{s, d}
 					e.blendmode = int32(blendmode)
-				})
+				})*/
 			case explod_anim:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 { // You could not modify this one in Mugen
 					apn := crun.playerNo // Default to own player number
@@ -6391,6 +6376,12 @@ const (
 func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []BytecodeExp) {
 	switch paramID {
 	case afterImage_trans:
+		src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+		dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+		tt := TransType(exp[2].evalI(c))
+		ai.trans = tt
+		ai.alpha = [2]int32{src, dst}
+	/*case afterImage_trans:
 		ai.alpha[0] = exp[0].evalI(c)
 		ai.alpha[1] = exp[1].evalI(c)
 		if len(exp) >= 3 {
@@ -6402,7 +6393,7 @@ func (sc afterImage) runSub(c *Char, ai *AfterImage, paramID byte, exp []Bytecod
 			if ai.alpha[0] == 1 && ai.alpha[1] == 255 {
 				ai.alpha[0] = 0
 			}
-		}
+		}*/
 	case afterImage_time:
 		ai.time = exp[0].evalI(c)
 	case afterImage_length:
@@ -9421,6 +9412,12 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 		}
 		switch paramID {
 		case trans_trans:
+			src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+			dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+			tt := TransType(exp[2].evalI(c))
+			crun.trans = tt
+			crun.alpha = [2]int32{src, dst}
+		/*case trans_trans:
 			crun.alpha[0] = exp[0].evalI(c)
 			crun.alpha[1] = exp[1].evalI(c)
 			if len(exp) >= 3 {
@@ -9432,11 +9429,11 @@ func (sc trans) Run(c *Char, _ []int32) bool {
 				if crun.alpha[0] == 1 && crun.alpha[1] == 255 {
 					crun.alpha[0] = 0
 				}
-			}
+			}*/
 		}
-		crun.setCSF(CSF_trans)
 		return true
 	})
+
 	return false
 }
 
@@ -13079,7 +13076,6 @@ const (
 	modifyStageBG_id byte = iota
 	modifyStageBG_index
 	modifyStageBG_actionno
-	modifyStageBG_alpha
 	modifyStageBG_angle
 	modifyStageBG_xangle
 	modifyStageBG_yangle
@@ -13139,17 +13135,6 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 						}
 					})
 				}
-			case modifyStageBG_alpha:
-				v1 := int16(exp[0].evalI(c))
-				v2 := int16(exp[1].evalI(c))
-				eachBg(func(bg *backGround) {
-					bg.anim.mask = 0
-					bg.anim.srcAlpha = v1
-					bg.anim.dstAlpha = v2
-					if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 { // Sub fix
-						bg.anim.srcAlpha = 0
-					}
-				})
 			case modifyStageBG_angle:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {
@@ -13218,32 +13203,15 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 					bg.scalestart[1] = scly
 				})
 			case modifyStageBG_trans:
-				val := exp[0].evalI(c)
-				if val == 0 || val == 1 || val == 2 || val == 3 || val == 4 {
-					eachBg(func(bg *backGround) {
-						switch val {
-						case 0: // None
-							bg.anim.srcAlpha = -1
-							bg.anim.dstAlpha = 0
-						case 1: // Add
-							bg.anim.mask = 0
-							bg.anim.srcAlpha = 255
-							bg.anim.dstAlpha = 255
-						case 2: // Add1
-							bg.anim.mask = 0
-							bg.anim.srcAlpha = 255
-							bg.anim.dstAlpha = 128
-						case 3: // Addalpha
-							bg.anim.mask = 0
-							bg.anim.srcAlpha = 255 // Default to Add first
-							bg.anim.dstAlpha = 255
-						case 4: // Sub
-							bg.anim.mask = 0
-							bg.anim.srcAlpha = 1 // That old hack that needs refactoring
-							bg.anim.dstAlpha = 255
-						}
-					})
-				}
+				src := Clamp(int32(exp[0].evalI(c)), 0, 255)
+				dst := Clamp(int32(exp[1].evalI(c)), 0, 255)
+				tt := TransType(exp[2].evalI(c))
+				eachBg(func(bg *backGround) {
+					bg.anim.mask = 0
+					bg.anim.transType = tt
+					bg.anim.srcAlpha = int16(src)
+					bg.anim.dstAlpha = int16(dst)
+				})
 			case modifyStageBG_velocity_x:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {

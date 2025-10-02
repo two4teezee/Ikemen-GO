@@ -347,20 +347,19 @@ func readBackGround(is IniSection, link *backGround,
 	switch strings.ToLower(is["trans"]) {
 	case "add":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_add
 		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 255
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 {
-				bg.anim.srcAlpha = 0
-			}
 		}
 	case "add1":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_add
 		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = ^255
+		bg.anim.dstAlpha = 128
 		var s, d int32 = 255, 255
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Min(255, s))
@@ -369,20 +368,25 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "addalpha":
 		bg.anim.mask = 0
+		bg.anim.transType = TT_add
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
 			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-			if bg.anim.srcAlpha == 1 && bg.anim.dstAlpha == 255 {
-				bg.anim.srcAlpha = 0
-			}
 		}
 	case "sub":
 		bg.anim.mask = 0
-		bg.anim.srcAlpha = 1
-		bg.anim.dstAlpha = 255
+		bg.anim.transType = TT_sub
+		sa, da := int32(255), int32(255)
+		if is.readI32ForStage("alpha", &sa, &da) {
+			sa = Clamp(sa, 0, 255)
+			da = Clamp(da, 0, 255)
+		}
+		bg.anim.srcAlpha = int16(sa)
+		bg.anim.dstAlpha = int16(da)
 	case "none":
-		bg.anim.srcAlpha = -1
+		bg.anim.transType = TT_none
+		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 0
 	}
 	if is.readI32ForStage("tile", &bg.anim.tile.xflag, &bg.anim.tile.yflag) {
@@ -487,6 +491,7 @@ func (bg *backGround) reset() {
 func (bg *backGround) changeAnim(val int32, a *Animation) {
 	// Save old
 	masktemp := bg.anim.mask
+	transTypetemp := bg.anim.transType
 	srcAlphatemp := bg.anim.srcAlpha
 	dstAlphatemp := bg.anim.dstAlpha
 	tiletmp := bg.anim.tile
@@ -497,8 +502,9 @@ func (bg *backGround) changeAnim(val int32, a *Animation) {
 
 	// Restore
 	bg.anim.tile = tiletmp
-	bg.anim.dstAlpha = dstAlphatemp
+	bg.anim.transType = transTypetemp
 	bg.anim.srcAlpha = srcAlphatemp
+	bg.anim.dstAlpha = dstAlphatemp
 	bg.anim.mask = masktemp
 }
 
@@ -641,6 +647,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			if bg.video.texture == nil {
 				return
 			}
+
+			bg.anim.isVideo = true
 			bg.anim.spr = newSprite()
 			bg.anim.spr.Tex = bg.video.texture
 
@@ -654,8 +662,10 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 				uint16(math.Ceil(float64(w))),
 				uint16(math.Ceil(float64(h))),
 			}
+
 			bg.anim.scale_x = 1
 			bg.anim.scale_y = 1
+
 		}
 
 		// Xshear offset correction
@@ -675,7 +685,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
 			xbs*bgscl*(scalestartX+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false, bg._type == BG_Video)
+			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 
@@ -3889,7 +3899,19 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 	if n.meshIndex == nil || !n.visible || (nodeLayerNumber != layerNumber) {
 		return
 	}
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, -int(n.trans))
+
+	// Rough patch
+	var alpha [2]int32
+	switch n.trans {
+	case TransAdd:
+		alpha = [2]int32{255, 255}
+	case TransReverseSubtract:
+		alpha = [2]int32{-2, 0} // Only this one seems to matter
+	default:
+		alpha = [2]int32{255, 0}
+	}
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, alpha)
+
 	blendEq := BlendAdd
 	src := BlendOne
 	dst := BlendOneMinusSrcAlpha

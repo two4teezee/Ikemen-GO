@@ -12,6 +12,7 @@ type AnimFrame struct {
 	Group, Number int16
 	Xoffset       int16
 	Yoffset       int16
+	TransType     TransType
 	SrcAlpha      byte
 	DstAlpha      byte
 	Hscale        int8
@@ -27,6 +28,7 @@ func newAnimFrame() *AnimFrame {
 	return &AnimFrame{
 		Time:     -1,
 		Group:    -1,
+		TransType: TT_none,
 		SrcAlpha: 255,
 		DstAlpha: 0,
 		Hscale:   1, // These two are technically flags but are coded like scale for simplicity
@@ -42,55 +44,44 @@ func ReadAnimFrame(line string) *AnimFrame {
 		return nil
 	}
 	ary := strings.SplitN(line, ",", 10)
-	// Read required parameters
 	if len(ary) < 5 {
 		return nil
 	}
+
+	// Read required parameters
 	af := newAnimFrame()
 	af.Group = int16(Atoi(ary[0]))
 	af.Number = int16(Atoi(ary[1]))
 	af.Xoffset = int16(Atoi(ary[2]))
 	af.Yoffset = int16(Atoi(ary[3]))
 	af.Time = Atoi(ary[4])
+
 	// Read H and V flags
-	if len(ary) < 6 {
-		return af
-	}
-	for i := range ary[5] {
-		switch ary[5][i] {
-		case 'H', 'h':
-			af.Hscale = -1
-			af.Xoffset *= -1
-		case 'V', 'v':
-			af.Vscale = -1
-			af.Yoffset *= -1
+	if len(ary) >= 6 {
+		for i := range ary[5] {
+			switch ary[5][i] {
+			case 'H', 'h':
+				af.Hscale = -1
+				af.Xoffset *= -1
+			case 'V', 'v':
+				af.Vscale = -1
+				af.Yoffset *= -1
+			}
 		}
 	}
+
 	// Read alpha
-	if len(ary) < 7 {
-		return af
-	}
-	ia := strings.IndexAny(ary[6], "ASas")
-	if ia >= 0 {
-		ary[6] = ary[6][ia:]
-	}
-	a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
-	switch {
-	case a == "a1":
-		af.SrcAlpha, af.DstAlpha = 255, 128
-	case len(a) > 0 && a[0] == 's':
-		af.SrcAlpha, af.DstAlpha = 1, 255 // Ikemen uses AS1D255 in place of Sub. TODO: This ought to be refactored
-	case len(a) >= 2 && a[:2] == "as":
-		if len(a) > 2 && a[2] >= '0' && a[2] <= '9' {
-			i, alp := 2, 0
+	if len(ary) >= 7 {
+		// Helper to read source and destination
+		parseAlphaNumbers := func(a string, start int, defSrc, defDst byte) (src, dst byte) {
+			src, dst = defSrc, defDst
+			i, alp := start, 0
 			for ; i < len(a) && a[i] >= '0' && a[i] <= '9'; i++ {
 				alp = alp*10 + int(a[i]-'0')
 			}
 			alp &= 0x3fff
-			if alp >= 255 {
-				af.SrcAlpha = 255
-			} else {
-				af.SrcAlpha = byte(alp)
+			if alp < 255 {
+				src = byte(alp)
 			}
 			if i < len(a) && a[i] == 'd' {
 				i++
@@ -100,43 +91,68 @@ func ReadAnimFrame(line string) *AnimFrame {
 						alp = alp*10 + int(a[i]-'0')
 					}
 					alp &= 0x3fff
-					if alp >= 255 {
-						af.DstAlpha = 255
-					} else {
-						af.DstAlpha = byte(alp)
-					}
-					if af.SrcAlpha == 1 && af.DstAlpha == 255 { // See above. The code would be better off without these workarounds
-						af.SrcAlpha = 0
+					if alp < 255 {
+						dst = byte(alp)
 					}
 				}
 			}
+			return
 		}
-	case len(a) > 0 && a[0] == 'a':
-		af.SrcAlpha, af.DstAlpha = 255, 255
+
+		ia := strings.IndexAny(ary[6], "ASas")
+		if ia >= 0 {
+			ary[6] = ary[6][ia:]
+		}
+		a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
+		switch {
+		case a == "a1":
+			af.TransType = TT_add
+			af.SrcAlpha = 255
+			af.DstAlpha = 128
+
+		case len(a) >= 2 && a[:2] == "as": // Add with alpha
+			af.TransType = TT_add
+			af.SrcAlpha, af.DstAlpha = parseAlphaNumbers(a, 2, 255, 255)
+
+		case len(a) > 0 && a[0] == 'a': // Plain Add
+			af.TransType = TT_add
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
+
+		case len(a) >= 2 && a[:2] == "ss": // Sub with alpha
+			af.TransType = TT_sub
+			af.SrcAlpha, af.DstAlpha = parseAlphaNumbers(a, 2, 255, 255)
+
+		case len(a) == 1 && a[0] == 's': // Plain sub
+			af.TransType = TT_sub
+			af.SrcAlpha = 255
+			af.DstAlpha = 255
+		}
 	}
+
 	// Read X scale
 	// In Mugen 1.1 a blank parameter means 0
-	// In Ikemen it means no change like the other optional parameters
-	if len(ary) < 8 {
-		return af
+	// In Ikemen it means no change, like the other optional parameters
+	if len(ary) >= 8 {
+		if IsNumeric(ary[7]) {
+			af.Xscale = float32(Atof(ary[7]))
+		}
 	}
-	if IsNumeric(ary[7]) {
-		af.Xscale = float32(Atof(ary[7]))
-	}
+
 	// Read Y scale
-	if len(ary) < 9 {
-		return af
+	if len(ary) >= 9 {
+		if IsNumeric(ary[8]) {
+			af.Yscale = float32(Atof(ary[8]))
+		}
 	}
-	if IsNumeric(ary[8]) {
-		af.Yscale = float32(Atof(ary[8]))
-	}
+
 	// Read angle
-	if len(ary) < 10 {
-		return af
+	if len(ary) >= 10 {
+		if IsNumeric(ary[9]) {
+			af.Angle = float32(Atof(ary[9]))
+		}
 	}
-	if IsNumeric(ary[9]) {
-		af.Angle = float32(Atof(ary[9]))
-	}
+
 	return af
 }
 
@@ -159,6 +175,7 @@ type Animation struct {
 	looptime                   int32
 	prelooptime                int32
 	mask                       int16
+	transType                  TransType
 	srcAlpha                   int16
 	dstAlpha                   int16
 	newframe                   bool
@@ -168,10 +185,12 @@ type Animation struct {
 	scale_x                    float32
 	scale_y                    float32
 	angle                      float32
+	curtrans                   TransType
 	interpolate_blend_srcalpha float32
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
 	start_scale                [2]float32
+	isVideo                    bool // Because videos are rendered through Animation.Draw()
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -179,6 +198,7 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		sff:         sff,
 		palettedata: pal,
 		mask:        -1,
+		transType:   TT_default,
 		srcAlpha:    -1,
 		newframe:    true,
 		remap:       make(RemapPreset),
@@ -530,6 +550,7 @@ func (a *Animation) UpdateSprite() {
 	}
 	a.newframe, a.drawidx = false, a.curelem
 
+	a.curtrans = a.frames[a.drawidx].TransType
 	a.scale_x = a.frames[a.drawidx].Xscale
 	a.scale_y = a.frames[a.drawidx].Yscale
 	a.angle = a.frames[a.drawidx].Angle
@@ -543,6 +564,7 @@ func (a *Animation) UpdateSprite() {
 	if int(a.drawidx) >= len(a.frames)-1 {
 		nextDrawidx = a.loopstart
 	}
+
 	for _, i := range a.interpolate_offset {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
@@ -550,6 +572,7 @@ func (a *Animation) UpdateSprite() {
 			break
 		}
 	}
+
 	for _, i := range a.interpolate_scale {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			var drawframe_scale_x, nextframe_scale_x, drawframe_scale_y, nextframe_scale_y float32 = 1, 1, 1, 1
@@ -567,6 +590,7 @@ func (a *Animation) UpdateSprite() {
 	}
 	a.scale_x *= a.start_scale[0]
 	a.scale_y *= a.start_scale[1]
+
 	for _, i := range a.interpolate_angle {
 		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
 			var drawframe_angle, nextframe_angle float32 = 0, 0
@@ -578,17 +602,12 @@ func (a *Animation) UpdateSprite() {
 			break
 		}
 	}
-	if byte(a.interpolate_blend_srcalpha) != 1 ||
-		byte(a.interpolate_blend_dstalpha) != 255 {
-		for _, i := range a.interpolate_blend {
-			if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-				a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-				if byte(a.interpolate_blend_srcalpha) == 1 && byte(a.interpolate_blend_dstalpha) == 255 {
-					a.interpolate_blend_srcalpha = 0
-				}
-				break
-			}
+
+	for _, i := range a.interpolate_blend {
+		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
+			a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			break
 		}
 	}
 }
@@ -639,54 +658,51 @@ func (a *Animation) Action() {
 	}
 }
 
-func alphaFromBlend(sa, da int16, brightness int32) int32 {
-	var s, d byte
-	s = byte(sa)
-	if da < 0 {
-		d = byte(^da >> 1)
-		if s == 1 && d == 255 {
-			s = 0
-		}
+// Convert animation transparency to RenderParams transparency
+func (a *Animation) getAlpha() (blendMode TransType, blendAlpha [2]int32) {
+	var sa, da byte
+
+	blendMode = a.transType
+
+	if blendMode == TT_default {
+		blendMode = a.curtrans
+		sa = byte(a.interpolate_blend_srcalpha)
+		da = byte(a.interpolate_blend_dstalpha)
 	} else {
-		d = byte(da)
+		sa = byte(a.srcAlpha)
+		da = byte(a.dstAlpha)
+		// TODO: When was destination negative?
+		/*if a.dstAlpha < 0 {
+			da = ^a.dstAlpha >> 1
+			if sa == 1 && da == 254 { // Sub patch
+				sa = 0
+				da = 255
+			}
+		} else {
+			da = a.dstAlpha
+		}*/
 	}
-	if s == 1 && d == 255 {
-		return -2
-	}
-	s = byte(int32(s) * brightness >> 8)
-	// Mugen sprites disappear a bit earlier than this
-	// However that makes subtle interpolated blending noticeably jump
-	if s < 1 && d == 255 {
-		return 0
-	}
-	if s == 255 && d == 255 {
-		return -1
-	}
-	out := int32(s)
-	if int(s)+int(d) < 254 || 256 < int(s)+int(d) {
-		out |= int32(d)<<10 | 1<<9
-	}
-	return out
+
+	// Apply system brightness
+	sa = byte(int32(sa) * sys.brightness >> 8)
+
+	blendAlpha = [2]int32{int32(sa), int32(da)}
+
+	return
 }
 
-func (a *Animation) alpha(isVideo bool) int32 {
-	if a.srcAlpha >= 0 || isVideo {
-		return alphaFromBlend(a.srcAlpha, a.dstAlpha, sys.brightness)
-	}
-	return alphaFromBlend(
-		int16(byte(a.interpolate_blend_srcalpha)),
-		int16(byte(a.interpolate_blend_dstalpha)),
-		sys.brightness,
-	)
-}
-
-func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {
+func (a *Animation) pal(pfx *PalFX) (p []uint32, plt Texture) {
 	if a.palettedata != nil {
+		// Apply temporary palette remap if provided
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.palettedata.SwapPalMap(&pfx.remap)
 		}
+
+		// Get palette colors and texture
 		p = a.spr.GetPal(a.palettedata)
 		plt = a.spr.GetPalTex(a.palettedata)
+
+		// Restore original palette mapping
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.palettedata.SwapPalMap(&pfx.remap)
 		}
@@ -694,12 +710,15 @@ func (a *Animation) pal(pfx *PalFX, neg bool) (p []uint32, plt Texture) {
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.sff.palList.SwapPalMap(&pfx.remap)
 		}
+
 		p = a.spr.GetPal(&a.sff.palList)
 		plt = a.spr.GetPalTex(&a.sff.palList)
+
 		if pfx != nil && len(pfx.remap) > 0 {
 			a.sff.palList.SwapPalMap(&pfx.remap)
 		}
 	}
+
 	return
 }
 
@@ -717,8 +736,7 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 
 func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, old bool, facing float32,
-	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32,
-	isReflection, isVideo bool) {
+	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32, isReflection bool) {
 
 	// Skip blank animations
 	if a == nil || a.isBlank() {
@@ -736,7 +754,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 
 	// Compute X and Y AIR animation offsets
 	var xoff, yoff float32
-	if !isVideo {
+	if !a.isVideo {
 		xoff = xs * airOffsetFix[0] * (float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x) * a.start_scale[0] * (1 / a.scale_x)
 		yoff = ys * airOffsetFix[1] * (float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y) * a.start_scale[1] * (1 / a.scale_y)
 	}
@@ -787,12 +805,13 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		x, y = AbsF(xs)*float32(a.spr.Offset[0]), AbsF(ys)*float32(a.spr.Offset[1])
 		fLength *= ycs
 	}
-	trans := a.alpha(isVideo)
+
+	blendMode, blendAlpha := a.getAlpha()
 
 	var paltex Texture
-	if !isVideo {
+	if !a.isVideo {
 		var pal []uint32
-		pal, paltex = a.pal(pfx, trans == -2)
+		pal, paltex = a.pal(pfx)
 		if a.spr.coldepth <= 8 && paltex == nil {
 			paltex = a.spr.CachePalette(pal)
 		}
@@ -814,7 +833,8 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		yas:            v,
 		rot:            rot,
 		tint:           color,
-		trans:          trans,
+		blendMode:      blendMode,
+		blendAlpha:     blendAlpha,
 		mask:           int32(a.mask),
 		pfx:            pfx,
 		window:         window,
@@ -830,7 +850,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 }
 
 func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd float32, rot Rotation,
-	pfx *PalFX, old bool, color uint32, alpha int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32, isVideo bool) {
+	pfx *PalFX, old bool, color uint32, intensity int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32) {
 
 	// Skip blank shadows
 	if a == nil || a.isBlank() {
@@ -867,7 +887,8 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		yas:            v,
 		rot:            rot,
 		tint:           color | 0xff000000,
-		trans:          0,
+		blendMode:      TT_sub,
+		blendAlpha:     [2]int32{0, 0},
 		mask:           int32(a.mask),
 		pfx:            nil,
 		window:         window,
@@ -901,10 +922,9 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	//	rp.paltex = PaletteToTexture(pal[:])
 	//}
 
-	if a.spr.coldepth <= 8 && (color != 0 || alpha > 0) {
+	if a.spr.coldepth <= 8 && (color != 0 || intensity > 0) {
 		if a.sff.header.Ver0 == 2 && a.sff.header.Ver2 == 1 {
-			trans := a.alpha(false)
-			pal, _ := a.pal(pfx, trans == -2)
+			pal, _ := a.pal(pfx)
 			if a.spr.PalTex == nil {
 				a.spr.PalTex = a.spr.CachePalette(pal)
 			}
@@ -914,14 +934,26 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		}
 	}
 
+	// Draw shadow with one pass for intensity and another for color
+	// Drawing twice is a bit wasteful, but results are the most accurate to Mugen
+	if intensity > 0 {
+		rp.blendMode = TT_add
+		rp.blendAlpha = [2]int32{intensity, 255-intensity}
+		RenderSprite(rp)
+	}
 	if color != 0 {
-		rp.trans = -2
+		rp.blendMode = TT_sub
+		rp.blendAlpha = [2]int32{255, 255}
 		RenderSprite(rp)
 	}
-	if alpha > 0 {
-		rp.trans = (256-alpha)<<10 | 1<<9
-		RenderSprite(rp)
-	}
+
+	// This method would draw color and intensity in a single pass, but it's less accurate
+	// Another disadvantage of this method is that the double pass allows a wider range of color/intensity combinations
+	//if intensity > 0 || color != 0 {
+	//	rp.blendMode = TT_sub
+	//	rp.blendAlpha = [2]int32{intensity, 255 - intensity}
+	//	RenderSprite(rp)
+	//}
 }
 
 type AnimationTable map[int32]*Animation
@@ -974,6 +1006,7 @@ type SprData struct {
 	fx           *PalFX
 	pos          [2]float32
 	scl          [2]float32
+	trans        TransType
 	alpha        [2]int32
 	priority     int32
 	rot          Rotation
@@ -1051,8 +1084,21 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			continue
 		}
 
-		s.anim.srcAlpha = int16(s.alpha[0])
-		s.anim.dstAlpha = int16(s.alpha[1])
+		// Backup animation transparency to temporarily change it
+		oldTransType := s.anim.transType
+		oldSrcAlpha := s.anim.srcAlpha
+		oldDstAlpha := s.anim.dstAlpha
+
+		// Determine transparency
+		if s.trans == TT_default {
+			s.anim.transType = s.anim.curtrans
+			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
+			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
+		} else {
+			s.anim.transType = s.trans
+			s.anim.srcAlpha = int16(s.alpha[0])
+			s.anim.dstAlpha = int16(s.alpha[1])
+		}
 
 		ob := sys.brightness
 		if s.undarken {
@@ -1097,7 +1143,12 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
 			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
-			s.airOffsetFix, s.projection, s.fLength, 0, false, false)
+			s.airOffsetFix, s.projection, s.fLength, 0, false)
+
+		// Restore original animation transparency just in case
+		s.anim.transType = oldTransType
+		s.anim.srcAlpha = oldSrcAlpha
+		s.anim.dstAlpha = oldDstAlpha
 
 		sys.brightness = ob
 	}
@@ -1174,8 +1225,9 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		if s == nil || s.anim == nil || s.anim.isBlank() {
 			continue
 		}
-		var intensity int32
 
+		// Use stage or custom intensity
+		var intensity int32
 		if s.shadowIntensity != -1 {
 			intensity = s.shadowIntensity
 		} else {
@@ -1183,7 +1235,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		color, alpha := s.shadowColor, s.shadowAlpha
-		if alpha >= 255 {
+
+		if s.trans == TT_default {
 			alpha = int32(255 - s.anim.interpolate_blend_dstalpha)
 		}
 
@@ -1205,8 +1258,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			}
 		}
 
-		color = color&0xff*alpha<<8&0xff0000 |
-			color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
+		color = color&0xff*alpha<<8&0xff0000 | color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
 
 		var xshear float32
 		if s.xshear != 0 {
@@ -1314,7 +1366,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(s.pos[1]*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			yscale, xshear, rot,
-			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength, false)
+			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}
 }
 
@@ -1373,12 +1425,28 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			continue
 		}
 
-		if s.alpha[0] < 0 {
+		// Backup animation transparency to temporarily change it
+		oldTransType := s.anim.transType
+		oldSrcAlpha := s.anim.srcAlpha
+		oldDstAlpha := s.anim.dstAlpha
+
+		// Get base alpha
+		if s.trans == TT_default {
+			s.anim.transType = s.anim.curtrans
 			s.anim.srcAlpha = int16(s.anim.interpolate_blend_srcalpha)
 			s.anim.dstAlpha = int16(s.anim.interpolate_blend_dstalpha)
 		} else {
-			s.anim.srcAlpha, s.anim.dstAlpha = int16(s.alpha[0]), int16(s.alpha[1])
+			s.anim.transType = s.trans
+			s.anim.srcAlpha = int16(s.alpha[0])
+			s.anim.dstAlpha = int16(s.alpha[1])
 		}
+
+		// Force reflections into Add transparency, unless original sprite has Sub
+		if s.anim.transType !=  TT_sub {
+			s.anim.transType = TT_add
+		}
+
+		// Apply reflection intensity
 		var ref int32
 		if s.reflectIntensity != -1 {
 			ref = s.reflectIntensity
@@ -1386,14 +1454,9 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			ref = sys.stage.reflection.intensity
 		}
 
-		s.anim.srcAlpha = int16(float32(int32(s.anim.srcAlpha)*ref) / 255)
-		if s.anim.dstAlpha < 0 {
-			s.anim.dstAlpha = 128
-		}
-		s.anim.dstAlpha = int16(Min(255, int32(s.anim.dstAlpha)+255-ref)) // TODO: This is too bright during blend interpolation
-		if s.anim.srcAlpha == 1 && s.anim.dstAlpha == 255 {
-			s.anim.srcAlpha = 0
-		}
+		// Scale intensity by linear interpolation
+		s.anim.srcAlpha = int16(int32(s.alpha[0]) * ref / 255)
+		s.anim.dstAlpha = int16(255 - (int32(255 - s.alpha[1]) * ref / 255))
 
 		// Set the tint if it's there
 		var color uint32
@@ -1515,7 +1578,12 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true, false)
+			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true)
+
+		// Restore original animation transparency just in case
+		s.anim.transType = oldTransType
+		s.anim.srcAlpha = oldSrcAlpha
+		s.anim.dstAlpha = oldDstAlpha
 	}
 }
 
@@ -1639,7 +1707,7 @@ func (a *Anim) Draw() {
 	if !sys.frameSkip {
 		a.anim.Draw(&a.window, a.x+float32(sys.gameWidth-320)/2,
 			a.y+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false, false)
+			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

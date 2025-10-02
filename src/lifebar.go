@@ -587,12 +587,16 @@ func (hb *HealthBar) reset() {
 	for i := range hb.front {
 		hb.front[i].Reset()
 	}
+
 	hb.shift.Reset()
+	hb.shift.anim.transType = TT_add // Since default is AIR transparency
 	hb.shift.anim.srcAlpha = 0
 	hb.shift.anim.dstAlpha = 255
+
 	for i := range hb.red {
 		hb.red[i].Reset()
 	}
+
 	hb.warn.Reset()
 }
 
@@ -936,7 +940,9 @@ func (pb *PowerBar) reset() {
 	for i := range pb.front {
 		pb.front[i].Reset()
 	}
+
 	pb.shift.Reset()
+	pb.shift.anim.transType = TT_add
 	pb.shift.anim.srcAlpha = 0
 	pb.shift.anim.dstAlpha = 255
 }
@@ -1195,9 +1201,12 @@ func (gb *GuardBar) reset() {
 	for _, v := range gb.front {
 		v.Reset()
 	}
+
 	gb.shift.Reset()
+	gb.shift.anim.transType = TT_add
 	gb.shift.anim.srcAlpha = 0
 	gb.shift.anim.dstAlpha = 255
+
 	gb.warn.Reset()
 }
 
@@ -1433,9 +1442,12 @@ func (sb *StunBar) reset() {
 	for i := range sb.front {
 		sb.front[i].Reset()
 	}
+
 	sb.shift.Reset()
+	sb.shift.anim.transType = TT_add
 	sb.shift.anim.srcAlpha = 255
 	sb.shift.anim.dstAlpha = 0
+
 	sb.warn.Reset()
 }
 
@@ -3542,7 +3554,9 @@ func (rt *LifeBarRoundTransition) Draw(layerno int16) {
 	// Draw fade and shutter
 	if layerno == 2 {
 		fade := func(rect [4]int32, color uint32, alpha int32) {
-			FillRect(rect, color, alpha>>uint(Btoi(sys.clsnDisplay))+Btoi(sys.clsnDisplay)*128)
+			src := alpha>>uint(Btoi(sys.clsnDisplay)) + Btoi(sys.clsnDisplay)*128
+			dst := 255-src
+			FillRect(rect, color, [2]int32{src, dst})
 		}
 
 		// Draw fadein/fadeout (mutually exclusive)

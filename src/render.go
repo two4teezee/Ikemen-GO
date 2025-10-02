@@ -164,8 +164,9 @@ type RenderParams struct {
 	xas, yas       float32
 	rot            Rotation
 	tint           uint32 // Sprite tint for shadows
-	trans          int32  // Transparency blending
-	mask           int32  // Mask for transparency
+	blendMode      TransType
+	blendAlpha     [2]int32
+	mask           int32 // Mask for transparency
 	pfx            *PalFX
 	window         *[4]int32
 	rcx, rcy       float32 // Rotation center
@@ -426,14 +427,7 @@ func RenderSprite(rp RenderParams) {
 		float32(rp.tint>>16&0xff) / 255, float32(rp.tint>>24&0xff) / 255}
 
 	if rp.pfx != nil {
-		blending := rp.trans
-		//if rp.trans == -2 || rp.trans == -1 || (rp.trans&0xff > 0 && rp.trans>>10&0xff >= 255) {
-		//	blending = true
-		//}
-		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(false, int(blending))
-		//if rp.trans == -2 && invblend < 1 {
-		//padd[0], padd[1], padd[2] = -padd[0], -padd[1], -padd[2]
-		//}
+		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(false, rp.blendAlpha)
 	}
 
 	proj := mgl.Ortho(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
@@ -469,11 +463,14 @@ func RenderSprite(rp RenderParams) {
 		gfx.ReleasePipeline()
 	}
 
-	renderWithBlending(render, rp.trans, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
+	renderWithBlending(render, rp.blendMode, rp.blendAlpha, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
 	gfx.DisableScissor()
 }
 
-func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a float32), trans int32, correctAlpha bool, invblend int32, neg *bool, acolor *[3]float32, mcolor *[3]float32, isrgba bool) {
+func renderWithBlending(
+	render func(eq BlendEquation, src, dst BlendFunc, a float32),
+	blendMode TransType, blendAlpha [2]int32, correctAlpha bool, invblend int32, neg *bool, acolor *[3]float32, mcolor *[3]float32, isrgba bool) {
+
 	blendSourceFactor := BlendSrcAlpha
 	if !correctAlpha {
 		blendSourceFactor = BlendOne
@@ -485,85 +482,87 @@ func renderWithBlending(render func(eq BlendEquation, src, dst BlendFunc, a floa
 		BlendI = BlendAdd
 	}
 	switch {
-	// Add (255, 255)
-	case trans == -1:
-		if invblend >= 1 && acolor != nil {
-			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+	// Add
+	case blendMode == TT_add:
+		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
+			// Fully transparent. Just don't render
+		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
+			// Fast path for full Add
+			if invblend >= 1 && acolor != nil {
+				(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+			}
+			if invblend == 3 && neg != nil {
+				*neg = false
+			}
+			render(Blend, blendSourceFactor, BlendOne, 1)
+		} else {
+			// AddAlpha (includes Add1)
+			if blendAlpha[1] < 255 {
+				render(Blend, BlendZero, BlendOneMinusSrcAlpha, 1-float32(blendAlpha[1])/255)
+			}
+			if blendAlpha[0] > 0 {
+				if invblend >= 1 && blendAlpha[1] >= 255 {
+					if invblend >= 2 {
+						if invblend == 3 && neg != nil {
+							*neg = false
+						}
+						if acolor != nil {
+							(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+						}
+					}
+					Blend = BlendReverseSubtract
+				} else {
+					Blend = BlendAdd
+				}
+				if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil && blendAlpha[0] < 255 {
+					// Sum of add components
+					gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
+					v3, ml, al := MaxF((gc*255)-float32(blendAlpha[1]+blendAlpha[0]), 512)/128, (float32(blendAlpha[0])/255), (float32(blendAlpha[0]+blendAlpha[1])/255)
+					rM, gM, bM := mcolor[0]*ml, mcolor[1]*ml, mcolor[2]*ml
+					(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
+					render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 3))
+				} else {
+					render(Blend, blendSourceFactor, BlendOne, float32(blendAlpha[0])/255)
+				}
+			}
 		}
-		if invblend == 3 && neg != nil {
-			*neg = false
-		}
-		render(Blend, blendSourceFactor, BlendOne, 1)
 
 	// Sub
-	case trans == -2:
-		if invblend >= 1 && acolor != nil {
-			(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
-		}
-		if invblend == 3 && neg != nil {
-			*neg = false
-		}
-		render(BlendI, blendSourceFactor, BlendOne, 1)
-
-	// Fully transparent (do not render)
-	case trans <= 0:
-
-	// Add1 (255, 128)
-	case trans < 255:
-		Blend = BlendAdd
-		if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil {
-			src, dst := trans&0xff, trans>>10&0xff
-			// Summ of add components
-			gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
-			v3, al := MaxF((gc*255)-float32(dst+src), 512)/128, (float32(src+dst) / 255)
-			rM, gM, bM := mcolor[0]*al, mcolor[1]*al, mcolor[2]*al
-			(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
-			render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, al)
-			render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 4))
+	case blendMode == TT_sub:
+		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
+			// Fully transparent. Skip render
+		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
+			// Fast path for full subtraction
+			if invblend >= 1 && acolor != nil {
+				(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+			}
+			if invblend == 3 && neg != nil {
+				*neg = false
+			}
+			render(BlendI, blendSourceFactor, BlendOne, 1)
 		} else {
-			render(Blend, blendSourceFactor, BlendOneMinusSrcAlpha, float32(trans)/255)
+			// Full alpha range
+			if blendAlpha[1] < 255 {
+				render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, 1-float32(blendAlpha[1])/255)
+			}
+			if blendAlpha[0] > 0 {
+				if invblend >= 1 && acolor != nil {
+					(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+				}
+				if invblend == 3 && neg != nil {
+					*neg = false
+				}
+				render(BlendI, blendSourceFactor, BlendOne, float32(blendAlpha[0])/255)
+			}
 		}
 
 	// None
-	case trans < 512:
-		render(BlendAdd, blendSourceFactor, BlendOneMinusSrcAlpha, 1)
-
-	// AddAlpha
 	default:
-		src, dst := trans&0xff, trans>>10&0xff
-		if dst < 255 {
-			render(Blend, BlendZero, BlendOneMinusSrcAlpha, 1-float32(dst)/255)
-		}
-
-		if src > 0 {
-			if invblend >= 1 && dst >= 255 {
-				if invblend >= 2 {
-					if invblend == 3 && neg != nil {
-						*neg = false
-					}
-					if acolor != nil {
-						(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
-					}
-				}
-				Blend = BlendReverseSubtract
-			} else {
-				Blend = BlendAdd
-			}
-			if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil && src < 255 {
-				// Summ of add components
-				gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
-				v3, ml, al := MaxF((gc*255)-float32(dst+src), 512)/128, (float32(src) / 255), (float32(src+dst) / 255)
-				rM, gM, bM := mcolor[0]*ml, mcolor[1]*ml, mcolor[2]*ml
-				(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
-				render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 3))
-			} else {
-				render(Blend, blendSourceFactor, BlendOne, float32(src)/255)
-			}
-		}
+		render(BlendAdd, blendSourceFactor, BlendOneMinusSrcAlpha, 1)
 	}
 }
 
-func FillRect(rect [4]int32, color uint32, trans int32) {
+func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	r := float32(color>>16&0xff) / 255
 	g := float32(color>>8&0xff) / 255
 	b := float32(color&0xff) / 255
@@ -588,5 +587,5 @@ func FillRect(rect [4]int32, color uint32, trans int32) {
 		gfx.SetUniformF("tint", r, g, b, a)
 		gfx.RenderQuad()
 		gfx.ReleasePipeline()
-	}, trans, true, 0, nil, nil, nil, false)
+	}, TT_add, alpha, true, 0, nil, nil, nil, false)
 }

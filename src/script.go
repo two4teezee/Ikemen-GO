@@ -760,13 +760,14 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "clearColor", func(l *lua.LState) int {
-		a := int32(255)
+		alpha := int32(255)
 		if !nilArg(l, 4) {
-			a = int32(numArg(l, 4))
+			alpha = int32(numArg(l, 4))
 		}
-		col := uint32(int32(numArg(l, 3))&0xff | int32(numArg(l, 2))&0xff<<8 |
-			int32(numArg(l, 1))&0xff<<16)
-		FillRect(sys.scrrect, col, a)
+		col := uint32(int32(numArg(l, 3))&0xff | int32(numArg(l, 2))&0xff<<8 | int32(numArg(l, 1))&0xff<<16)
+		src := alpha
+		dst := 255 - alpha
+		FillRect(sys.scrrect, col, [2]int32{src, dst})
 		return 0
 	})
 	luaRegister(l, "clearConsole", func(*lua.LState) int {
@@ -964,7 +965,9 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "fade", func(l *lua.LState) int {
 		rect := [4]int32{int32(numArg(l, 1)), int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4))}
 		alpha := int32(numArg(l, 5))
-		FillRect(rect, 0, alpha>>uint(Btoi(sys.clsnDisplay))+Btoi(sys.clsnDisplay)*128)
+		src := alpha>>uint(Btoi(sys.clsnDisplay)) + Btoi(sys.clsnDisplay)*128
+		dst := 255 - src
+		FillRect(rect, 0, [2]int32{src, dst})
 		return 0
 	})
 	luaRegister(l, "fadeColor", func(l *lua.LState) int {
@@ -978,20 +981,22 @@ func systemScriptInit(l *lua.LState) {
 			l.Push(lua.LBool(false))
 			return 1
 		}
-		r, g, b, a := int32(0), int32(0), int32(0), float64(0)
+		r, g, b, alpha := int32(0), int32(0), int32(0), float64(0)
 		if strArg(l, 1) == "fadeout" {
-			a = math.Floor(float64(255) / length * frame)
+			alpha = math.Floor(float64(255) / length * frame)
 		} else if strArg(l, 1) == "fadein" {
-			a = math.Floor(255 - 255*(frame-1)/length)
+			alpha = math.Floor(255 - 255*(frame-1)/length)
 		}
-		a = float64(ClampF(float32(a), 0, 255))
+		alpha = float64(ClampF(float32(alpha), 0, 255))
+		src := int32(alpha)
+		dst := 255 - src
 		if !nilArg(l, 6) {
 			r = int32(numArg(l, 4))
 			g = int32(numArg(l, 5))
 			b = int32(numArg(l, 6))
 		}
 		col := uint32(int32(b)&0xff | int32(g)&0xff<<8 | int32(r)&0xff<<16)
-		FillRect(sys.scrrect, col, int32(a))
+		FillRect(sys.scrrect, col, [2]int32{src, dst})
 		l.Push(lua.LBool(true))
 		return 1
 	})
@@ -1001,13 +1006,16 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "fillRect", func(l *lua.LState) int {
-		rect := [4]int32{int32((float32(numArg(l, 1))/sys.luaSpriteScale + float32(sys.gameWidth-320)/2 + sys.luaSpriteOffsetX) * sys.widthScale),
+		rect := [4]int32{
+			int32((float32(numArg(l, 1))/sys.luaSpriteScale + float32(sys.gameWidth-320)/2 + sys.luaSpriteOffsetX) * sys.widthScale),
 			int32((float32(numArg(l, 2))/sys.luaSpriteScale + float32(sys.gameHeight-240)) * sys.heightScale),
 			int32((float32(numArg(l, 3)) / sys.luaSpriteScale) * sys.widthScale),
-			int32((float32(numArg(l, 4)) / sys.luaSpriteScale) * sys.heightScale)}
+			int32((float32(numArg(l, 4)) / sys.luaSpriteScale) * sys.heightScale),
+		}
 		col := uint32(int32(numArg(l, 7))&0xff | int32(numArg(l, 6))&0xff<<8 | int32(numArg(l, 5))&0xff<<16)
-		a := int32(int32(numArg(l, 8))&0xff | int32(numArg(l, 9))&0xff<<10)
-		FillRect(rect, col, a)
+		src := int32(numArg(l, 8))
+		dst := int32(numArg(l, 9))
+		FillRect(rect, col, [2]int32{src, dst})
 		return 0
 	})
 	luaRegister(l, "findEntityByPlayerId", func(*lua.LState) int {
@@ -3564,23 +3572,15 @@ func triggerFunctions(l *lua.LState) {
 		case "size.yscale":
 			ln = lua.LNumber(c.size.yscale)
 		case "size.ground.back":
-			ln = lua.LNumber(c.size.ground.back)
+			ln = lua.LNumber(-c.size.standbox[0])
 		case "size.ground.front":
-			ln = lua.LNumber(c.size.ground.front)
+			ln = lua.LNumber(c.size.standbox[2])
 		case "size.air.back":
-			ln = lua.LNumber(c.size.air.back)
+			ln = lua.LNumber(-c.size.airbox[0])
 		case "size.air.front":
-			ln = lua.LNumber(c.size.air.front)
-		case "size.height", "size.height.stand": // Optional new syntax for consistency
-			ln = lua.LNumber(c.size.height.stand)
-		case "size.height.crouch":
-			ln = lua.LNumber(c.size.height.crouch)
-		case "size.height.air.top":
-			ln = lua.LNumber(c.size.height.air[0])
-		case "size.height.air.bottom":
-			ln = lua.LNumber(c.size.height.air[1])
-		case "size.height.down":
-			ln = lua.LNumber(c.size.height.down)
+			ln = lua.LNumber(c.size.airbox[2])
+		case "size.height":
+			ln = lua.LNumber(-c.size.standbox[1])
 		case "size.attack.dist", "size.attack.dist.width.front": // Optional new syntax for consistency
 			ln = lua.LNumber(c.size.attack.dist.width[0])
 		case "size.attack.dist.width.back":
@@ -4440,7 +4440,7 @@ func triggerFunctions(l *lua.LState) {
 		case "sparky":
 			ln = lua.LNumber(c.mhv.sparkxy[1])
 		case "uniqhit":
-			ln = lua.LNumber(c.mhv.uniqhit)
+			ln = lua.LNumber(len(c.hitdefTargets))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -5441,17 +5441,9 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "alpha", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "source":
-			if sys.debugWC.csf(CSF_trans) {
-				l.Push(lua.LNumber(sys.debugWC.alpha[0]))
-			} else {
-				l.Push(lua.LNumber(255))
-			}
+			l.Push(lua.LNumber(sys.debugWC.alpha[0]))
 		case "dest":
-			if sys.debugWC.csf(CSF_trans) {
-				l.Push(lua.LNumber(sys.debugWC.alpha[1]))
-			} else {
-				l.Push(lua.LNumber(0))
-			}
+			l.Push(lua.LNumber(sys.debugWC.alpha[1]))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

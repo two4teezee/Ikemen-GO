@@ -347,7 +347,7 @@ func readBackGround(is IniSection, link *backGround,
 	switch strings.ToLower(is["trans"]) {
 	case "add":
 		bg.anim.mask = 0
-		bg.anim.transType = TT_alpha
+		bg.anim.transType = TT_add
 		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 255
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
@@ -357,7 +357,7 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "add1":
 		bg.anim.mask = 0
-		bg.anim.transType = TT_alpha
+		bg.anim.transType = TT_add
 		bg.anim.srcAlpha = 255
 		bg.anim.dstAlpha = 128
 		var s, d int32 = 255, 255
@@ -368,7 +368,7 @@ func readBackGround(is IniSection, link *backGround,
 		}
 	case "addalpha":
 		bg.anim.mask = 0
-		bg.anim.transType = TT_alpha
+		bg.anim.transType = TT_add
 		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
 		if is.readI32ForStage("alpha", &s, &d) {
 			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
@@ -647,6 +647,8 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			if bg.video.texture == nil {
 				return
 			}
+
+			bg.anim.isVideo = true
 			bg.anim.spr = newSprite()
 			bg.anim.spr.Tex = bg.video.texture
 
@@ -680,7 +682,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
 			xbs*bgscl*(scalestartX+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false, bg._type == BG_Video)
+			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 

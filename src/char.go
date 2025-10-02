@@ -215,7 +215,7 @@ func (cr ClsnRect) draw(blendAlpha [2]int32) {
 			yas:            1,
 			rot:            Rotation{angle: c[6]},
 			tint:           0,
-			blendMode:      TT_alpha,
+			blendMode:      TT_add,
 			blendAlpha:     blendAlpha,
 			mask:           -1,
 			pfx:            nil,
@@ -1843,10 +1843,7 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 			e.interpolate_pos[i] = Lerp(e.interpolate_pos[i+3], 0, t)
 			if i < 2 {
 				e.interpolate_scale[i] = Lerp(e.interpolate_scale[i+2], e.start_scale[i], t) //-e.start_scale[i]
-				//if e.blendmode == 1 {
-				//if e.trans == TT_alpha { // Any add?
 					e.interpolate_alpha[i] = Clamp(int32(Lerp(float32(e.interpolate_alpha[i+2]), float32(e.start_alpha[i]), t)), 0, 255)
-				//}
 			}
 			e.interpolate_angle[i] = Lerp(e.interpolate_angle[i+3], e.start_rot[i], t)
 		}
@@ -1857,16 +1854,8 @@ func (e *Explod) Interpolate(act bool, scale *[2]float32, alpha *[2]int32, angle
 	for i := 0; i < 3; i++ {
 		if i < 2 {
 			(*scale)[i] = e.interpolate_scale[i] * e.scale[i]
-			//if e.blendmode == 1 {
-			//if e.trans == TT_alpha { // Any add?
-				//if (*alpha)[0] == 1 && (*alpha)[1] == 254 {
-				//	(*alpha)[0] = 0
-				//	(*alpha)[1] = 255
-				//} else {
-					// Update alpha regardless of transparency type. Let type handle the rendering
-					(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
-				//}
-			//}
+			// Update alpha regardless of transparency type. Let the type handle the rendering
+			(*alpha)[i] = int32(float32(e.interpolate_alpha[i]) * (float32(e.alpha[i]) / 255))
 		}
 		(*anglerot)[i] = e.interpolate_angle[i] + e.anglerot[i]
 	}
@@ -6002,7 +5991,7 @@ func (c *Char) commitExplod(i int) {
 			if j < 2 {
 				e.scale[j] = 1
 				//if e.blendmode == 1 {
-				//if e.trans == TT_alpha { // Any add?
+				//if e.trans == TT_add { // Any add?
 					e.alpha[j] = 255
 				//}
 			}

@@ -5894,7 +5894,7 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 			tt = TT_none
 			defsrc, defdst = 255, 0
 		case "add1":
-			tt = TT_alpha
+			tt = TT_add
 			defsrc, defdst = 255, 128
 		case "sub":
 			tt = TT_sub
@@ -5902,7 +5902,7 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 		default:
 			if afterImage {
 				if strings.HasPrefix(data, "add") {
-					tt = TT_alpha
+					tt = TT_add
 					defsrc, defdst = 255, 255
 				} else {
 					return Error("Invalid trans type: " + data)
@@ -5913,7 +5913,7 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 					tt = TT_default
 					defsrc, defdst = 255, 0
 				case "add", "addalpha":
-					tt = TT_alpha
+					tt = TT_add
 					defsrc, defdst = 255, 255
 				default:
 					return Error("Invalid trans type: " + data)

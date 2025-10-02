@@ -20,9 +20,7 @@ type TransType int32
 const (
 	TT_default TransType = iota
 	TT_none
-	//TT_add
-	TT_alpha
-	//TT_add1
+	TT_add
 	TT_sub
 )
 
@@ -1241,7 +1239,7 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 		yas:            1,
 		rot:            rot,
 		tint:           0,
-		blendMode:      TT_alpha,
+		blendMode:      TT_add,
 		blendAlpha:     [2]int32{sys.brightness*255>>8, 0},
 		mask:           0,
 		pfx:            fx,

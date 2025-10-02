@@ -482,37 +482,8 @@ func renderWithBlending(
 		BlendI = BlendAdd
 	}
 	switch {
-	// Sub
-	case blendMode == TT_sub:
-		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
-			// Fully transparent. Skip render
-		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
-			// Fast path for full subtraction
-			if invblend >= 1 && acolor != nil {
-				(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
-			}
-			if invblend == 3 && neg != nil {
-				*neg = false
-			}
-			render(BlendI, blendSourceFactor, BlendOne, 1)
-		} else {
-			// Full alpha range
-			if blendAlpha[1] < 255 {
-				render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, 1-float32(blendAlpha[1])/255)
-			}
-			if blendAlpha[0] > 0 {
-				if invblend >= 1 && acolor != nil {
-					(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
-				}
-				if invblend == 3 && neg != nil {
-					*neg = false
-				}
-				render(BlendI, blendSourceFactor, BlendOne, float32(blendAlpha[0])/255)
-			}
-		}
-
 	// Add
-	case blendMode == TT_alpha:
+	case blendMode == TT_add:
 		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
 			// Fully transparent. Just don't render
 		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
@@ -556,6 +527,35 @@ func renderWithBlending(
 			}
 		}
 
+	// Sub
+	case blendMode == TT_sub:
+		if blendAlpha[0] == 0 && blendAlpha[1] == 255 {
+			// Fully transparent. Skip render
+		} else if blendAlpha[0] == 255 && blendAlpha[1] == 255 {
+			// Fast path for full subtraction
+			if invblend >= 1 && acolor != nil {
+				(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+			}
+			if invblend == 3 && neg != nil {
+				*neg = false
+			}
+			render(BlendI, blendSourceFactor, BlendOne, 1)
+		} else {
+			// Full alpha range
+			if blendAlpha[1] < 255 {
+				render(BlendAdd, BlendZero, BlendOneMinusSrcAlpha, 1-float32(blendAlpha[1])/255)
+			}
+			if blendAlpha[0] > 0 {
+				if invblend >= 1 && acolor != nil {
+					(*acolor)[0], (*acolor)[1], (*acolor)[2] = -acolor[0], -acolor[1], -acolor[2]
+				}
+				if invblend == 3 && neg != nil {
+					*neg = false
+				}
+				render(BlendI, blendSourceFactor, BlendOne, float32(blendAlpha[0])/255)
+			}
+		}
+
 	// None
 	default:
 		render(BlendAdd, blendSourceFactor, BlendOneMinusSrcAlpha, 1)
@@ -587,5 +587,5 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 		gfx.SetUniformF("tint", r, g, b, a)
 		gfx.RenderQuad()
 		gfx.ReleasePipeline()
-	}, TT_alpha, alpha, true, 0, nil, nil, nil, false)
+	}, TT_add, alpha, true, 0, nil, nil, nil, false)
 }

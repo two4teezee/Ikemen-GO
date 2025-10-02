@@ -589,7 +589,7 @@ func (hb *HealthBar) reset() {
 	}
 
 	hb.shift.Reset()
-	hb.shift.anim.transType = TT_alpha // Since default is AIR transparency
+	hb.shift.anim.transType = TT_add // Since default is AIR transparency
 	hb.shift.anim.srcAlpha = 0
 	hb.shift.anim.dstAlpha = 255
 
@@ -942,7 +942,7 @@ func (pb *PowerBar) reset() {
 	}
 
 	pb.shift.Reset()
-	pb.shift.anim.transType = TT_alpha
+	pb.shift.anim.transType = TT_add
 	pb.shift.anim.srcAlpha = 0
 	pb.shift.anim.dstAlpha = 255
 }
@@ -1203,7 +1203,7 @@ func (gb *GuardBar) reset() {
 	}
 
 	gb.shift.Reset()
-	gb.shift.anim.transType = TT_alpha
+	gb.shift.anim.transType = TT_add
 	gb.shift.anim.srcAlpha = 0
 	gb.shift.anim.dstAlpha = 255
 
@@ -1444,7 +1444,7 @@ func (sb *StunBar) reset() {
 	}
 
 	sb.shift.Reset()
-	sb.shift.anim.transType = TT_alpha
+	sb.shift.anim.transType = TT_add
 	sb.shift.anim.srcAlpha = 255
 	sb.shift.anim.dstAlpha = 0
 

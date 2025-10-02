@@ -106,16 +106,16 @@ func ReadAnimFrame(line string) *AnimFrame {
 		a := strings.ToLower(SplitAndTrim(ary[6], ",")[0])
 		switch {
 		case a == "a1":
-			af.TransType = TT_alpha
+			af.TransType = TT_add
 			af.SrcAlpha = 255
 			af.DstAlpha = 128
 
 		case len(a) >= 2 && a[:2] == "as": // Add with alpha
-			af.TransType = TT_alpha
+			af.TransType = TT_add
 			af.SrcAlpha, af.DstAlpha = parseAlphaNumbers(a, 2, 255, 255)
 
 		case len(a) > 0 && a[0] == 'a': // Plain Add
-			af.TransType = TT_alpha
+			af.TransType = TT_add
 			af.SrcAlpha = 255
 			af.DstAlpha = 255
 
@@ -190,6 +190,7 @@ type Animation struct {
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
 	start_scale                [2]float32
+	isVideo                    bool // Because videos are rendered through Animation.Draw()
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -735,8 +736,7 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 
 func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, old bool, facing float32,
-	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32,
-	isReflection, isVideo bool) {
+	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32, isReflection bool) {
 
 	// Skip blank animations
 	if a == nil || a.isBlank() {
@@ -754,7 +754,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 
 	// Compute X and Y AIR animation offsets
 	var xoff, yoff float32
-	if !isVideo {
+	if !a.isVideo {
 		xoff = xs * airOffsetFix[0] * (float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x) * a.start_scale[0] * (1 / a.scale_x)
 		yoff = ys * airOffsetFix[1] * (float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y) * a.start_scale[1] * (1 / a.scale_y)
 	}
@@ -811,7 +811,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	var paltex Texture
 	if !a.isVideo {
 		var pal []uint32
-		pal, paltex = a.pal(pfx, trans == -2)
+		pal, paltex = a.pal(pfx)
 		if a.spr.coldepth <= 8 && paltex == nil {
 			paltex = a.spr.CachePalette(pal)
 		}
@@ -937,7 +937,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	// Draw shadow with one pass for intensity and another for color
 	// Drawing twice is a bit wasteful, but results are the most accurate to Mugen
 	if intensity > 0 {
-		rp.blendMode = TT_alpha
+		rp.blendMode = TT_add
 		rp.blendAlpha = [2]int32{intensity, 255-intensity}
 		RenderSprite(rp)
 	}
@@ -1143,7 +1143,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
 			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
-			s.airOffsetFix, s.projection, s.fLength, 0, false, false)
+			s.airOffsetFix, s.projection, s.fLength, 0, false)
 
 		// Restore original animation transparency just in case
 		s.anim.transType = oldTransType
@@ -1366,7 +1366,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(s.pos[1]*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			yscale, xshear, rot,
-			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength, false)
+			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}
 }
 
@@ -1443,7 +1443,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// Force reflections into Add transparency, unless original sprite has Sub
 		if s.anim.transType !=  TT_sub {
-			s.anim.transType = TT_alpha
+			s.anim.transType = TT_add
 		}
 
 		// Apply reflection intensity
@@ -1707,7 +1707,7 @@ func (a *Anim) Draw() {
 	if !sys.frameSkip {
 		a.anim.Draw(&a.window, a.x+float32(sys.gameWidth-320)/2,
 			a.y+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false, false)
+			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

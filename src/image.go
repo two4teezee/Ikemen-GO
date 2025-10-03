@@ -18,10 +18,10 @@ import (
 type TransType int32
 
 const (
-	TT_default TransType = iota
-	TT_none
+	TT_none TransType = iota
 	TT_add
 	TT_sub
+	TT_default
 )
 
 type PalFXDef struct {

@@ -199,7 +199,11 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		palettedata: pal,
 		mask:        -1,
 		transType:   TT_default,
-		srcAlpha:    -1,
+		srcAlpha:    255,
+		dstAlpha:    0,
+		curtrans:    TT_none,
+		interpolate_blend_srcalpha: 255,
+		interpolate_blend_dstalpha: 0,
 		newframe:    true,
 		remap:       make(RemapPreset),
 		start_scale: [...]float32{1, 1},
@@ -659,7 +663,7 @@ func (a *Animation) Action() {
 }
 
 // Convert animation transparency to RenderParams transparency
-func (a *Animation) getAlpha() (blendMode TransType, blendAlpha [2]int32) {
+func (a *Animation) alphaToBlend() (blendMode TransType, blendAlpha [2]int32) {
 	var sa, da byte
 
 	blendMode = a.transType
@@ -671,16 +675,13 @@ func (a *Animation) getAlpha() (blendMode TransType, blendAlpha [2]int32) {
 	} else {
 		sa = byte(a.srcAlpha)
 		da = byte(a.dstAlpha)
-		// TODO: When was destination negative?
-		/*if a.dstAlpha < 0 {
-			da = ^a.dstAlpha >> 1
-			if sa == 1 && da == 254 { // Sub patch
-				sa = 0
-				da = 255
-			}
-		} else {
-			da = a.dstAlpha
-		}*/
+	}
+
+	// Fallback: Make sure blend mode is not default
+	if blendMode == TT_default {
+		blendMode = TT_none
+		sa = byte(255)
+		da = byte(0)
 	}
 
 	// Apply system brightness
@@ -806,7 +807,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		fLength *= ycs
 	}
 
-	blendMode, blendAlpha := a.getAlpha()
+	blendMode, blendAlpha := a.alphaToBlend()
 
 	var paltex Texture
 	if !a.isVideo {
@@ -1084,6 +1085,12 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			continue
 		}
 
+		// Save system brightness
+		oldBright := sys.brightness
+		if s.undarken {
+			sys.brightness = 256
+		}
+
 		// Backup animation transparency to temporarily change it
 		oldTransType := s.anim.transType
 		oldSrcAlpha := s.anim.srcAlpha
@@ -1098,11 +1105,6 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			s.anim.transType = s.trans
 			s.anim.srcAlpha = int16(s.alpha[0])
 			s.anim.dstAlpha = int16(s.alpha[1])
-		}
-
-		ob := sys.brightness
-		if s.undarken {
-			sys.brightness = 256
 		}
 
 		var pos [2]float32
@@ -1150,7 +1152,8 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		s.anim.srcAlpha = oldSrcAlpha
 		s.anim.dstAlpha = oldDstAlpha
 
-		sys.brightness = ob
+		// Restore system brightness
+		sys.brightness = oldBright
 	}
 	BlendReset()
 }

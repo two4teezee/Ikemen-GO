@@ -1728,7 +1728,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
 
 		// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
-		ob := sys.brightness
+		oldBright := sys.brightness
 		if sys.chars[ref][0].ignoreDarkenTime > 0 { //ref == sys.superplayerno
 			sys.brightness = 256
 		}
@@ -1743,7 +1743,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		}
 
 		// Restore original system brightness
-		sys.brightness = ob
+		sys.brightness = oldBright
 
 		// Turns mode teammates
 		i := int32(len(far.teammate_face)) - 1
@@ -3303,7 +3303,7 @@ func (ro *LifeBarRound) reset() {
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
-	ob := sys.brightness
+	oldBright := sys.brightness
 	sys.brightness = 256
 
 	// Round call animations
@@ -3508,7 +3508,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		ro.rt.Draw(layerno)
 	}
 
-	sys.brightness = ob
+	sys.brightness = oldBright
 }
 
 type LifeBarRoundTransition struct {

@@ -3303,6 +3303,7 @@ func (ro *LifeBarRound) reset() {
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
+	// Temporarily override system brightness
 	oldBright := sys.brightness
 	sys.brightness = 256
 
@@ -3326,23 +3327,34 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			roundNum = sys.consecutiveWins[0] + 1
 		}
 
-		// Draw background
-		if ro.isSingleRound() &&
-			(ro.round_single.text.font[0] != -1 || len(ro.round_single.animLayout.anim.frames) > 0 || len(ro.round_single_bg[0].anim.frames) > 0) {
+		// Draw background and select round reference
+		switch {
+		case ro.isSingleRound() &&
+			 (ro.round_single.HasDrawable() || len(ro.round_single_bg) > 0 && ro.round_single_bg[0].HasAnim()):
 			// Single round
 			for i := range ro.round_single_bg {
-				ro.round_single_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.round_single_bg[i].Draw(
+					float32(ro.pos[0])+sys.lifebarOffsetX,
+					float32(ro.pos[1]),
+					layerno,
+					sys.lifebarScale,
+				)
 			}
 			round_ref = ro.round_single
-		} else if ro.isFinalRound() &&
-			(ro.round_final.text.font[0] != -1 || len(ro.round_final.animLayout.anim.frames) > 0 || len(ro.round_final_bg[0].anim.frames) > 0) {
+		case ro.isFinalRound() &&
+			 (ro.round_final.HasDrawable() || len(ro.round_final_bg) > 0 && ro.round_final_bg[0].HasAnim()):
 			// Final round
 			for i := range ro.round_final_bg {
-				ro.round_final_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.round_final_bg[i].Draw(
+					float32(ro.pos[0])+sys.lifebarOffsetX,
+					float32(ro.pos[1]),
+					layerno,
+					sys.lifebarScale,
+				)
 			}
 			round_ref = ro.round_final
-		} else if int(roundNum) <= len(ro.round) {
-			// Otherwise, use the appropriate round reference
+		case int(roundNum) <= len(ro.round) && ro.round[roundNum-1].HasDrawable():
+			// Normal round
 			round_ref = ro.round[roundNum-1]
 		}
 
@@ -3374,13 +3386,32 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		// Restore round_ref text
 		round_ref.text.text = tmp
 
-		// Draw the single or final top layer if appropriate, otherwise draw the default top layer
-		if ro.isSingleRound() && len(ro.round_single_top.anim.frames) > 0 {
-			ro.round_single_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
-		} else if ro.isFinalRound() && len(ro.round_final_top.anim.frames) > 0 {
-			ro.round_final_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
-		} else {
-			ro.round_default_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+		// Draw top layer
+		switch {
+		case ro.isSingleRound() && ro.round_single_top.anim != nil && len(ro.round_single_top.anim.frames) > 0:
+			// Single round
+			ro.round_single_top.Draw(
+				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[1]),
+				layerno,
+				sys.lifebarScale,
+			)
+		case ro.isFinalRound() && ro.round_final_top.anim != nil && len(ro.round_final_top.anim.frames) > 0:
+			// Final round
+			ro.round_final_top.Draw(
+				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[1]),
+				layerno,
+				sys.lifebarScale,
+			)
+		default:
+			// Normal round
+			ro.round_default_top.Draw(
+				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[1]),
+				layerno,
+				sys.lifebarScale,
+			)
 		}
 	}
 
@@ -3508,6 +3539,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		ro.rt.Draw(layerno)
 	}
 
+	// Restore system brightness
 	sys.brightness = oldBright
 }
 

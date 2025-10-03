@@ -5890,34 +5890,28 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 		// Parse the trans type and set default alpha
 		data = strings.ToLower(data)
 		switch data {
+		case "default":
+			tt = TT_default
+			defsrc, defdst = 255, 0
 		case "none":
 			tt = TT_none
 			defsrc, defdst = 255, 0
 		case "add1":
 			tt = TT_add
 			defsrc, defdst = 255, 128
+		case "add", "addalpha":
+			tt = TT_add
+			defsrc, defdst = 255, 255
 		case "sub":
 			tt = TT_sub
 			defsrc, defdst = 255, 255
 		default:
-			if afterImage {
-				if strings.HasPrefix(data, "add") {
-					tt = TT_add
-					defsrc, defdst = 255, 255
-				} else {
-					return Error("Invalid trans type: " + data)
-				}
+			// In Mugen, afterimages ignore invalid parameter names
+			if !afterImage || c.zssMode || !sys.ignoreMostErrors {
+				return Error("Invalid trans type: " + data)
 			} else {
-				switch data {
-				case "default":
-					tt = TT_default
-					defsrc, defdst = 255, 0
-				case "add", "addalpha":
-					tt = TT_add
-					defsrc, defdst = 255, 255
-				default:
-					return Error("Invalid trans type: " + data)
-				}
+				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Invalid trans type: "+data+" in state %v ", c.stateNo))
+				return nil
 			}
 		}
 

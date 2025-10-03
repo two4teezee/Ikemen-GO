@@ -1689,7 +1689,7 @@ function main.f_warning(t, background, info, title, txt, overlay)
 		if esc() or main.f_input(main.t_players, {'m'}) then
 			sndPlay(motif.files.snd_data, cancel_snd[1], cancel_snd[2])
 			return false
-		elseif getKey() ~= '' then
+		elseif getKey() ~= '' or main.f_input(main.t_players, {'a','b','c','x','y','z','d','w','s'}) then
 			sndPlay(motif.files.snd_data, done_snd[1], done_snd[2])
 			resetKey()
 			return true

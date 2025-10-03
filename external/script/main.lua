@@ -3874,7 +3874,11 @@ local function f_tweenStep(val, target, velocity)
 		return target
 	end
     local factor = math.min(velocity * 0.1, 1)
-    return val + (target - val) * factor
+	local newVal = val + (target - val) * factor
+    if math.abs(newVal - target) < 1 then
+    	return target
+	end
+	return newVal
 end
 
 --common menu calculations
@@ -3950,8 +3954,8 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
 	local visible = motif[section].menu_window_visibleitems
 	local spacing = motif[section].menu_item_spacing[2]
-	
 	local maxFirst = math.max(startItem, #t - visible + 1)
+	local t_time = motif[section].menu_tween_time
 	if maxFirst < startItem then 
 		maxFirst = startItem 
 	end
@@ -3979,8 +3983,8 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 		return cursorPosY, moveTxt, item
 	end
 
-	if motif[section].menu_tween_velocity > 0 then
-		td.slideOffset = f_tweenStep(td.slideOffset, 0, motif[section].menu_tween_velocity)
+	if t_time > 0 then
+		td.slideOffset = f_tweenStep(td.slideOffset, 0, t_time)
 		td.currentPos = td.targetPos + td.slideOffset
 	else
 		td.currentPos = td.targetPos
@@ -4213,7 +4217,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	local bcd = main.boxCursorData[section]
 	--calculate target Y position for cursor
 	local targetY = motif[section].menu_pos[2] + motif[section].menu_boxcursor_coords[2] + (cursorPosY - 1) * motif[section].menu_item_spacing[2]
-	local t_velocity = motif[section].menu_boxcursor_tween_velocity
+	local t_time = motif[section].menu_boxcursor_tween_time
 
 	--snap cursor immediately if first use or snap enabled
 	if bcd.snap == 1 or not bcd.init then
@@ -4223,8 +4227,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	end
 
 	--apply tween if enabled, otherwise snap to target
-	if t_velocity > 0 then
-		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_velocity)
+	if t_time > 0 then
+		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_time)
 	else
 		bcd.offsetY = targetY
 	end

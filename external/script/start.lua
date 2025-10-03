@@ -1179,14 +1179,13 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.slideOffset[1] = cd.startPos[1] - baseX
 		cd.slideOffset[2] = cd.startPos[2] - baseY
 	end
-
+	local t_time = {
+		motif.select_info['p' .. pn .. '_cursor_tween_time'][1],
+		motif.select_info['p' .. pn .. '_cursor_tween_time'][2]
+	}
 	-- apply tween if enabled, otherwise snap to target
-	if not done and motif.select_info['p' .. pn .. '_cursor_tween'] == 1 then
-		local t_velocity = {
-			motif.select_info['p' .. pn .. '_cursor_tween_velocity'][1],
-			motif.select_info['p' .. pn .. '_cursor_tween_velocity'][2]
-		}
-		f_cursorTween(cd.slideOffset, {0, 0}, t_velocity)
+	if not done and t_time[1] > 0 and t_time[2] > 0 then
+		f_cursorTween(cd.slideOffset, {0, 0}, t_time)
 	else
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
 	end
@@ -2813,28 +2812,56 @@ function start.loadPalettes(a, ref, pal)
 end
 
 --;===========================================================
---; Draw Palette Number
+--; Draw Palette Number and Text
 --;===========================================================
 function start.f_paletteNumberDraw(side, member)
-	local fontInfo = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_font'] or motif.select_info['p' .. side  .. '_palette_number_font']
-	local offsetInfo = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_offset'] or  motif.select_info['p' .. side  .. '_palette_number_offset']
-	local sizeInfo = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_scale'] or motif.select_info['p' .. side  .. '_palette_number_scale']
-	if (not (fontInfo == nil)) and (not (offsetInfo == nil)) and (not (sizeInfo == nil)) then
+	local numFontInfo = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_font'] or motif.select_info['p' .. side  .. '_palette_number_font']
+	local numOffset = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_offset'] or  motif.select_info['p' .. side  .. '_palette_number_offset']
+	local numScale = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_scale'] or motif.select_info['p' .. side  .. '_palette_number_scale']
+	local numXshear = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_xshear'] or motif.select_info['p' .. side .. '_palette_number_xshear']
+	local numAngle = motif.select_info['p' .. side .. '_member' .. member .. '_palette_number_angle'] or motif.select_info['p' .. side .. '_palette_number_angle']
+	if (numFontInfo and numOffset and numScale) ~= nil then
 		currentPallete = text:create({
-			font =   fontInfo[1],
-			bank =   fontInfo[2],
-			align =  fontInfo[3],
+			font =   numFontInfo[1],
+			bank =   numFontInfo[2],
+			align =  numFontInfo[3],
 			text =   start.f_getCharData(start.p[side].t_selTemp[member].ref).pal[start.p[side].t_selTemp[member].pal],
-			x =      offsetInfo[1],
-			y =      offsetInfo[2],
-			scaleX = sizeInfo[1],
-			scaleY = sizeInfo[2],
-			r =      fontInfo[4],
-			g =      fontInfo[5],
-			b =      fontInfo[6],
-			height = fontInfo[7],
+			x =      numOffset[1],
+			y =      numOffset[2],
+			scaleX = numScale[1],
+			scaleY = numScale[2],
+			r =      numFontInfo[4],
+			g =      numFontInfo[5],
+			b =      numFontInfo[6],
+			height = numFontInfo[7],
+			xshear = numXshear,
+			angle  = numAngle,
 		})
 		currentPallete:draw()
+	end
+	local textFontInfo = motif.select_info['p' .. side .. '_member' .. member .. '_palette_text_font'] or motif.select_info['p' .. side  .. '_palette_text_font']
+	local textOffset = motif.select_info['p' .. side .. '_member' .. member .. '_palette_text_offset'] or  motif.select_info['p' .. side  .. '_palette_text_offset']
+	local textScale = motif.select_info['p' .. side .. '_member' .. member .. '_palette_text_scale'] or motif.select_info['p' .. side  .. '_palette_text_scale']
+	local textXshear = motif.select_info['p' .. side .. '_member' .. member .. '_palette_text_xshear'] or motif.select_info['p' .. side .. '_palette_text_xshear']
+	local textAngle = motif.select_info['p' .. side .. '_member' .. member .. '_palette_text_angle'] or motif.select_info['p' .. side .. '_palette_text_angle']
+	if (textFontInfo and textOffset and textScale) ~= nil then
+		palleteText = text:create({
+			font =   textFontInfo[1],
+			bank =   textFontInfo[2],
+			align =  textFontInfo[3],
+			text =   motif.select_info['p' .. side  .. '_palette_text_text'],
+			x =      textOffset[1],
+			y =      textOffset[2],
+			scaleX = textScale[1],
+			scaleY = textScale[2],
+			r =      textFontInfo[4],
+			g =      textFontInfo[5],
+			b =      textFontInfo[6],
+			height = textFontInfo[7],
+			xshear = textXshear,
+			angle  = textAngle,
+		})
+		palleteText:draw()
 	end
 end
 
@@ -2947,21 +2974,23 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					if start.p[side].t_selTemp[member].pal == nil or start.p[side].t_selTemp[member].pal == 0 then
 						start.p[side].t_selTemp[member].pal = 1
 					end
-					if motif.select_info['paletteselect'] == 2 then
-						for c, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal_keymap) do
-							if start.p[side].t_selTemp[member].pal == c then
-								start.p[side].t_selTemp[member].pal = v
+					if start.f_getCharData(start.p[side].t_selTemp[member].ref).pal ~= nil then
+						if motif.select_info['paletteselect'] == 2 then
+							for c, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal_keymap) do
+								if start.p[side].t_selTemp[member].pal == c then
+									start.p[side].t_selTemp[member].pal = v
+									break
+								end
+							end
+						elseif motif.select_info['paletteselect'] > 2 then
+							start.p[side].t_selTemp[member].pal = 1
+						end
+						validPalette = false
+						for _, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal) do
+							if start.p[side].t_selTemp[member].pal == v then
+								validPalette = true
 								break
 							end
-						end
-					elseif motif.select_info['paletteselect'] > 2 then
-						start.p[side].t_selTemp[member].pal = 1
-					end
-					validPalette = false
-					for _, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal) do
-						if start.p[side].t_selTemp[member].pal == v then
-							validPalette = true
-							break
 						end
 					end
 					if not validPalette then
@@ -2978,13 +3007,13 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef
 					if start.p[side].t_selTemp[member].anim_data ~= nil then
-						if (motif.select_info['p' .. side .. '_member' .. member .. '_face_pal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face_pal'] >= 1) or (motif.select_info['p' .. side .. '_face_pal'] ~= nil and motif.select_info['p' .. side .. '_face_pal'] >= 1)  then
+						if (motif.select_info['p' .. side .. '_member' .. member .. '_face_applypalette'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face_applypalette'] >= 1) or (motif.select_info['p' .. side .. '_face_applypalette'] ~= nil and motif.select_info['p' .. side .. '_face_applypalette'] >= 1)  then
 							start.p[side].t_selTemp[member].anim_data = start.loadPalettes(start.p[side].t_selTemp[member].anim_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].anim_data)
 						end
 					end
 					if start.p[side].t_selTemp[member].face2_data ~= nil then
-						if (motif.select_info['p' .. side .. '_member' .. member .. '_face2_pal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face2_pal'] >= 1) or (motif.select_info['p' .. side .. '_face2_pal'] ~= nil and motif.select_info['p' .. side .. '_face2_pal'] >= 1)  then
+						if (motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypalette'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypalette'] >= 1) or (motif.select_info['p' .. side .. '_face2_applypalette'] ~= nil and motif.select_info['p' .. side .. '_face2_applypalette'] >= 1)  then
 							start.p[side].t_selTemp[member].face2_data = start.loadPalettes(start.p[side].t_selTemp[member].face2_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].face2_data)
 						end
@@ -3000,7 +3029,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				for _, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal) do
 					palleteCounter = palleteCounter + 1
 				end
-				if main.f_input({cmd}, {motif.select_info['p' .. side .. '_palette_accept_key']})then 
+				if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palette_accept_key'])) then
 					sndPlay(motif.files.snd_data, motif.select_info.palette_done_snd[1], motif.select_info.palette_done_snd[2])
 					start.p[side].t_selTemp[member].pal = start.f_getCharData(start.p[side].t_selTemp[member].ref).pal[start.p[side].t_selTemp[member].pal]
 					for c, v in ipairs(start.f_getCharData(start.p[side].t_selTemp[member].ref).pal_keymap) do

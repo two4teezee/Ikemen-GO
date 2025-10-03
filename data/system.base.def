@@ -192,7 +192,7 @@
 	menu.item.active.angle = 0.0
 
 	; Enables Mugen menu tween (if > 0) and allows adjusting its velocity
-	menu.tween.velocity = 3
+	menu.tween.time = 3
 
 	; Title text rendered in main menu
 	title.offset = 159, 19
@@ -306,7 +306,7 @@
 	; Snap boxcursor on menu section change
 	menu.boxcursor.tween.snap = 0
 	; Enables boxcursor tween (if > 0) and allows adjusting its velocity
-	menu.boxcursor.tween.velocity = 3
+	menu.boxcursor.tween.time = 3
 
 	; boxbg is an automatically generated overlay around itemnames, based on
 	; values assigned to menu.pos and menu.boxcursor.coords parameters.
@@ -621,12 +621,12 @@
 	; ticks between blinks when p2.cursor.blink = 1
 	p2.cursor.switchtime = 3
 
-	; Enables the Mugen 1.1 cursor tween (if > 0) and allows adjusting its x and y velocity
-	p1.cursor.tween.velocity = 0, 0
+	; Enables the Mugen 1.1 cursor tween (if > 0) and allows adjusting its x and y tween time
+	p1.cursor.tween.time = 0, 0
 	; Resets cursor animation when moving to a new cell
 	p1.cursor.reset = 0
 
-	p2.cursor.tween.velocity = 0, 0
+	p2.cursor.tween.time = 0, 0
 	p2.cursor.reset = 0
 
 	; cursor parameters defaults to p1 and p2 values, if not specified
@@ -698,7 +698,8 @@
 	; (starting position adjusted by values assigned to face.num, face.spacing,
 	; and actual team count in a given match)
 	p1.face.padding = 0
-	p1.face.pal = 0
+	; Set 1 to apply selected palette to Portraits
+	p1.face.applypalette = 0
 
 	p2.face.num = 1
 	p2.face.anim = -1
@@ -706,7 +707,7 @@
 	p2.face.done.spr = 
 	p2.face.spacing = 0, 0
 	p2.face.padding = 0
-	p2.face.pal = 0
+	p2.face.applypalette = 0
 
 	; Parameters for customizing portraits on per team member basis (values take
 	; priority over standard ones, if defined)
@@ -953,21 +954,35 @@
 	p2.teammenu.ratio7.icon.facing = 1
 	p2.teammenu.ratio7.icon.scale = 1.0, 1.0
 
-	paletteselect = 0, --Ikemen feature
-	--p<pn>.member<num>.palette.number.offset = {0, 0}, --Ikemen feature
-	--p<pn>.member<num>.palette.number.font = {-1, 0, 0}, --Ikemen feature
-	--p<pn>.member<num>.palette.number.scale = {1.0, 1.0}, --Ikemen featurefeature
-	--p<pn>.palette.number.offset = {0, 0}, --Ikemen feature
-	--p<pn>.palette.number.font = {-1, 0, 0}, --Ikemen feature
-	--p<pn>.palette.number.scale = {1.0, 1.0}, --Ikemen feature
-	p1.palette.next.key = '$F', --Ikemen feature
-	p1.palette.previous.key = '$B', --Ikemen feature
-	p1.palette.accept.key = 'a', --Ikemen feature
-	p2.palette.next.key = '$F', --Ikemen feature
-	p2.palette.previous.key = '$B', --Ikemen feature
-	p2.palette.accept.key = 'a', --Ikemen feature
-	palette.move.snd = {-1, 0}, --Ikemen feature
-	palette.done.snd = {-1, 0}, --Ikemen feature	
+	paletteselect = 0
+	;p<pn>_member<num>.palette.number.offset = 0, 0
+	;p<pn>.member<num>.palette.number.font = -1, 0, 0
+	;p<pn>.member<num>.palette.number.scale = 1.0, 1.0
+	;p<pn>_member<num>_palette_number_xshear = 1.0
+	;p<pn>_member<num>_palette_number_angle = 1
+	;p<pn>.palette.number.offset = 0, 0
+	;p<pn>.palette.number.font = -1, 0, 0
+	;p<pn>.palette.number.scale = 1.0, 1.0
+	;p<pn>_palette_number_xshear = 1.0
+	;p<pn>_palette_number_angle = 1
+	;p<pn>_member<num>.palette.text.offset = 0, 0
+	;p<pn>.member<num>.palette.text.font = -1, 0, 0
+	;p<pn>.member<num>.palette.text.scale = 1.0, 1.0
+	;p<pn>_member<num>_palette_text_xshear = 1.0
+	;p<pn>_member<num>_palette_text_angle = 1
+	;p<pn>.palette.text.offset = 0, 0
+	;p<pn>.palette.text.font = -1, 0, 0
+	;p<pn>.palette.text.scale = 1.0, 1.0
+	;p<pn>_palette_text_xshear = 1.0
+	;p<pn>_palette_text_angle = 1
+	p1.palette.next.key = "$F"
+	p1.palette.previous.key = "$B"
+	p1.palette.accept.key = "a&b&c&x&y&z&s"
+	p2.palette.next.key = "$F"
+	p2.palette.previous.key = "$B"
+	p2.palette.accept.key = "a&b&c&x&y&z&s"
+	palette.move.snd = -1, 0
+	palette.done.snd = -1, 0
 
 [SelectBgDef] ;Ikemen feature
 	spr = ""
@@ -1023,13 +1038,14 @@
 	p1.anim = -1
 	p1.spacing = 0, 0
 	p1.padding = 0
-	p1.pal = 0
+	; Set 1 to apply selected palette to Portraits
+	p1.applypalette = 0
 
 	p2.num = 1
 	p2.anim = -1
 	p2.spacing = 0, 0
 	p2.padding = 0
-	p2.pal = 0
+	p2.applypalette = 0
 
 	;p<pn>.member<num>.anim = -1
 	;p<pn>.member<num>.spr = 9000, 1
@@ -1050,7 +1066,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
-	p1.face2.pal = 0
+	p1.face2.applypalette = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1058,7 +1074,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
-	p2.face2.pal = 0
+	p2.face2.applypalette = 0
 
 	; Set to 1 to enable order selection
 	; https://github.com/ikemen-engine/Ikemen-GO/wiki/Miscellaneous-Info#orderselect
@@ -1353,7 +1369,8 @@
 	p1.anim = -1
 	p1.spacing = 0, 0
 	p1.padding = 0
-	p1.pal = 0
+	; Set 1 to apply selected palette to Portraits
+	p1.applypalette = 0
 
 	p2.pos = 0, 0
 	p2.num = 0
@@ -1383,7 +1400,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
-	p1.face2.pal = 0
+	p1.face2.applypalette = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1391,7 +1408,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
-	p2.face2.pal = 0
+	p2.face2.applypalette = 0
 
 	p1.name.scale = 1.0, 1.0
 	p1.name.xshear = 0.0
@@ -1580,7 +1597,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.velocity = 3
+	menu.tween.time = 3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -1665,7 +1682,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.velocity = 3
+	menu.boxcursor.tween.time = 3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -1925,7 +1942,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.velocity = 3
+	menu.tween.time = 3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -1971,7 +1988,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.velocity = 3
+	menu.boxcursor.tween.time = 3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2024,7 +2041,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.velocity = 3
+	menu.tween.time = 3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2094,7 +2111,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.velocity = 3
+	menu.boxcursor.tween.time = 3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2312,7 +2329,7 @@
 
 	menu.pos = 159, 158
 
-	menu.tween.velocity = 3
+	menu.tween.time = 3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2358,7 +2375,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.velocity = 3
+	menu.boxcursor.tween.time = 3
 
 	menu.boxbg.visible = 0
 	menu.boxbg.col = 0, 0, 0

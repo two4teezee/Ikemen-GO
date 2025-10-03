@@ -12315,6 +12315,14 @@ const (
 	modifyStageVar_playerinfo_rightbound
 	modifyStageVar_playerinfo_topbound
 	modifyStageVar_playerinfo_botbound
+	modifyStageVar_playerinfo_p1startx
+	modifyStageVar_playerinfo_p1starty
+	modifyStageVar_playerinfo_p2startx
+	modifyStageVar_playerinfo_p2starty
+	modifyStageVar_playerinfo_p1startz
+	modifyStageVar_playerinfo_p2startz
+	modifyStageVar_playerinfo_p1facing
+	modifyStageVar_playerinfo_p2facing
 	modifyStageVar_scaling_topz
 	modifyStageVar_scaling_botz
 	modifyStageVar_scaling_topscale
@@ -12434,6 +12442,22 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.topbound = exp[0].evalF(c) * scaleratio
 		case modifyStageVar_playerinfo_botbound:
 			s.botbound = exp[0].evalF(c) * scaleratio
+		case modifyStageVar_playerinfo_p1startx:
+			s.p[0].startx = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1starty:
+			s.p[0].starty = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2startx:
+			s.p[1].startx = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2starty:
+			s.p[1].starty = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1startz:
+			s.p[0].startz = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2startz:
+			s.p[1].startz = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1facing:
+			s.p[0].facing = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2facing:
+			s.p[1].facing = exp[0].evalI(c)
 		// Scaling group
 		case modifyStageVar_scaling_topz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz

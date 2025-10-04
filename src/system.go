@@ -257,6 +257,7 @@ type System struct {
 	luaSpriteScale   float32
 	luaPortraitScale float32
 	luaSpriteOffsetX float32
+	motifViewport43  [4]int32
 
 	// Localcoord lifebar
 	lifebarScale         float32
@@ -272,6 +273,8 @@ type System struct {
 	frameCounter      int32
 	preFightTime      int32
 	motifDir          string
+	motifDef          string
+	lifebarDef        string
 	captureNum        int
 	decisiveRound     [2]bool
 	timerStart        int32
@@ -348,6 +351,8 @@ func (s *System) init(w, h int32) *lua.LState {
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
+	s.loadLocalcoords()
+	s.setMotifScale()
 	var err error
 	// Create a system window.
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
@@ -514,6 +519,165 @@ func (s *System) setWindowSize(w, h int32) {
 	}
 	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
+}
+
+func loadLinesFromFile(path string) []string {
+	var lines []string
+	_ = LoadFile(&path, nil, func(file string) error {
+		str, _ := LoadText(file)
+		lines = SplitAndTrim(str, "\n")
+		return nil
+	})
+	return lines
+}
+
+func (s *System) resolveMotifPath() {
+	resolvePath := func(val string) string {
+		caseStr := strings.ToLower(val)
+
+		if strings.HasPrefix(caseStr, "data"+string(filepath.Separator)) && FileExist(val) != "" {
+			return filepath.ToSlash(val)
+		}
+		if strings.HasSuffix(caseStr, ".def") && FileExist(filepath.Join("data", val)) != "" {
+			return filepath.ToSlash(filepath.Join("data", val))
+		}
+		if FileExist(filepath.Join("data", val, "system.def")) != "" {
+			return filepath.ToSlash(filepath.Join("data", val, "system.def"))
+		}
+		return filepath.ToSlash(val)
+	}
+
+	motif := s.cfg.Config.Motif
+	if val, ok := s.cmdFlags["-r"]; ok {
+		motif = resolvePath(val)
+	} else if val, ok := s.cmdFlags["-rubric"]; ok {
+		motif = resolvePath(val)
+	} else {
+		motif = resolvePath(motif)
+	}
+
+	s.motifDef = motif
+	s.motifDir = filepath.ToSlash(filepath.Dir(motif)) + "/"
+}
+
+func (s *System) resolveLifebarPath() {
+	resolvePath := func(val string) string {
+		if FileExist(val) != "" {
+			return filepath.ToSlash(val)
+		}
+		if FileExist(filepath.Join(s.motifDir, val)) != "" {
+			return filepath.ToSlash(filepath.Join(s.motifDir, val))
+		}
+		if FileExist(filepath.Join("data", val)) != "" {
+			return filepath.ToSlash(filepath.Join("data", val))
+		}
+		return "data/fight.def"
+	}
+
+	if val, ok := s.cmdFlags["-lifebar"]; ok {
+		s.lifebarDef = resolvePath(val)
+		return
+	}
+	// Try to read fight.def from motif
+	if fightVal := func() string {
+			motifLines := loadLinesFromFile(s.motifDef)
+			for i := 0; i < len(motifLines); {
+				is, name, _ := ReadIniSection(motifLines, &i)
+				if strings.ToLower(name) == "files" {
+					if v, ok := is["fight"]; ok {
+						return v
+					}
+					break
+				}
+			}
+			return ""
+		}(); fightVal != "" {
+			s.lifebarDef = resolvePath(fightVal)
+		} else {
+			s.lifebarDef = "data/fight.def"
+		}
+}
+
+func (s *System) loadLocalcoords() {
+	s.resolveMotifPath()
+	s.resolveLifebarPath()
+
+	readLocalcoord := func(path string) [2]int32 {
+		lines := loadLinesFromFile(path)
+		for i := 0; i < len(lines); {
+			is, name, _ := ReadIniSection(lines, &i)
+			if strings.ToLower(name) == "info" {
+				var lc [2]int32
+				if is.ReadI32("localcoord", &lc[0], &lc[1]) {
+					return lc
+				}
+			}
+		}
+		return [2]int32{320, 240}
+	}
+	// Motif
+    s.luaLocalcoord = readLocalcoord(s.motifDef)
+	// Lifebar
+    s.lifebarLocalcoord = readLocalcoord(s.lifebarDef)
+}
+
+func getViewport(srcW, srcH, dstW, dstH int32) [4]int32 {
+    fromRatio := srcW * dstH
+    toRatio := srcH * dstW
+
+    if fromRatio > toRatio {
+        w := srcH * dstW / dstH
+        h := srcH
+        x := (srcW - w) / 2
+        return [4]int32{x, 0, w, h}
+    } else if fromRatio < toRatio {
+        w := srcW
+        h := srcW * dstH / dstW
+        y := (srcH - h) / 2
+        return [4]int32{0, y, w, h}
+    }
+    return [4]int32{0, 0, srcW, srcH}
+}
+
+// assign storyboard localcoord scaling
+func (s *System) setStoryboardScale(localcoord [2]int32) {
+    viewport := getViewport(localcoord[0], localcoord[1], 4, 3)
+    localW := float32(localcoord[0])
+    scaleX := float32(viewport[2]) / 320
+
+    s.luaSpriteScale = scaleX
+    s.luaSpriteOffsetX = -((localW/scaleX - 320) / 2)
+    s.luaPortraitScale = float32(viewport[2]) / localW
+}
+
+func (s *System) setMotifScale() {
+    s.motifViewport43 = getViewport(s.luaLocalcoord[0], s.luaLocalcoord[1], 4, 3)
+    scaleX := float32(s.motifViewport43[2]) / 320
+    offsetX := -((float32(s.luaLocalcoord[0]) / scaleX - 320) / 2)
+
+    s.luaSpriteScale = scaleX
+    s.luaSpriteOffsetX = offsetX
+    s.luaPortraitScale = float32(s.motifViewport43[2]) / float32(s.luaLocalcoord[0])
+}
+
+func (s *System) setLifebarScale() {
+    viewport43 := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], 4, 3)
+    viewport := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], s.gameWidth, s.gameHeight)
+
+    localW := float32(s.lifebarLocalcoord[0])
+    calcScale := float32(viewport[2]) / localW
+    calcOffsetX := (float32(viewport43[2]) - localW*calcScale) / 2
+
+    s.lifebarScale = 320.0 / float32(viewport43[2]) * calcScale
+    s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
+    s.lifebarOffsetX = calcOffsetX * calcScale
+
+    for _, ffx := range s.ffx {
+        for _, a := range ffx.fat {
+            scale := ffx.fx_scale * s.lifebarScale
+            a.start_scale = [...]float32{scale, scale}
+        }
+    }
 }
 
 func (s *System) eventUpdate() bool {
@@ -4035,7 +4199,8 @@ func (l *Loader) load() {
 	defer func() {
 		l.loadExit <- l.state
 	}()
-
+	sys.setLifebarScale()
+	sys.setMotifScale()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {

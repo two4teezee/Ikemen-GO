@@ -116,11 +116,11 @@ func loadFightFx(def string, isGlobal bool) error {
 				is.ReadF32("fx.scale", &ffx.fx_scale)
 				// Read localcoord
 				// Merely used for automatic fx.scale adjustment
-				// If localcoord is not available, we use the old method for scaling
+				// If localcoord is not available, we use raw value, scaling will be handled later
 				if is.ReadF32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1]) {
 					ffx.fx_scale *= float32(320 / ffx.localcoord[0])
 				} else {
-					ffx.fx_scale *= sys.lifebarScale
+					ffx.fx_scale *= 1
 				}
 			}
 		case "files":
@@ -4683,8 +4683,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	//	sys.ffx["f"].fx_scale = float32(sys.lifebarLocalcoord[0]) / 320
 	//}
 	for _, a := range sys.ffx["f"].fat {
-		a.start_scale = [...]float32{sys.lifebarScale * sys.ffx["f"].fx_scale,
-			sys.lifebarScale * sys.ffx["f"].fx_scale}
+		a.start_scale = [...]float32{sys.ffx["f"].fx_scale, sys.ffx["f"].fx_scale}
 	}
 	// Iterate over map in a stable iteration order
 	keys := make([]string, 0, len(l.missing))

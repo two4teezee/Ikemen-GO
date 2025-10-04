@@ -1939,10 +1939,18 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(sys.loader.state == LS_Loading))
 		return 1
 	})
+	luaRegister(l, "lifebarDef", func(l *lua.LState) int {
+		l.Push(lua.LString(sys.lifebarDef))
+		return 1
+	})
+	luaRegister(l, "motifDef", func(l *lua.LState) int {
+		l.Push(lua.LString(sys.motifDef))
+		return 1
+	})
 	luaRegister(l, "loadLifebar", func(l *lua.LState) int {
-		lb, err := loadLifebar(strArg(l, 1))
+		lb, err := loadLifebar(sys.lifebarDef)
 		if err != nil {
-			l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
+			l.RaiseError("\nCan't load %v: %v\n", sys.lifebarDef, err.Error())
 		}
 		sys.lifebar = *lb
 		return 0
@@ -2638,27 +2646,6 @@ func systemScriptInit(l *lua.LState) {
 		})
 		return 0
 	})
-	luaRegister(l, "setLifebarLocalcoord", func(l *lua.LState) int {
-		sys.lifebarLocalcoord[0] = int32(numArg(l, 1))
-		sys.lifebarLocalcoord[1] = int32(numArg(l, 2))
-		return 0
-	})
-	luaRegister(l, "setLifebarOffsetX", func(l *lua.LState) int {
-		sys.lifebarOffsetX = float32(numArg(l, 1))
-		return 0
-	})
-	luaRegister(l, "setLifebarOffsetY", func(l *lua.LState) int {
-		sys.lifebarOffsetY = float32(numArg(l, 1))
-		return 0
-	})
-	luaRegister(l, "setLifebarScale", func(l *lua.LState) int {
-		sys.lifebarScale = float32(numArg(l, 1))
-		return 0
-	})
-	luaRegister(l, "setLifebarPortraitScale", func(l *lua.LState) int {
-		sys.lifebarPortraitScale = float32(numArg(l, 1))
-		return 0
-	})
 	luaRegister(l, "setLifebarScore", func(*lua.LState) int {
 		sys.scoreStart[0] = float32(numArg(l, 1))
 		if !nilArg(l, 2) {
@@ -2670,21 +2657,37 @@ func systemScriptInit(l *lua.LState) {
 		sys.timerStart = int32(numArg(l, 1))
 		return 0
 	})
-	luaRegister(l, "setLuaLocalcoord", func(l *lua.LState) int {
-		sys.luaLocalcoord[0] = int32(numArg(l, 1))
-		sys.luaLocalcoord[1] = int32(numArg(l, 2))
+	luaRegister(l, "motifViewport43", func(l *lua.LState) int {
+		idx := int(numArg(l, 1))
+		if idx < 0 || idx >= len(sys.motifViewport43) {
+			l.RaiseError("\nInvalid index: %v\n", idx)
+		}
+		l.Push(lua.LNumber(sys.motifViewport43[idx]))
+		return 1
+	})
+	luaRegister(l, "motifLocalcoord", func(l *lua.LState) int {
+		idx := int(numArg(l, 1))
+		if idx < 0 || idx >= len(sys.luaLocalcoord) {
+			l.RaiseError("\nInvalid index: %v\n", idx)
+		}
+		l.Push(lua.LNumber(sys.luaLocalcoord[idx]))
+		return 1
+	})
+	luaRegister(l, "disableLuaScale", func(l *lua.LState) int {
+		sys.luaSpriteScale = 1
+		sys.luaSpriteOffsetX = 0
+		sys.luaPortraitScale = 1
 		return 0
 	})
-	luaRegister(l, "setLuaPortraitScale", func(l *lua.LState) int {
-		sys.luaPortraitScale = float32(numArg(l, 1))
+	luaRegister(l, "setLuaScale", func(l *lua.LState) int {
+		sys.setMotifScale()
 		return 0
 	})
-	luaRegister(l, "setLuaSpriteOffsetX", func(l *lua.LState) int {
-		sys.luaSpriteOffsetX = float32(numArg(l, 1))
-		return 0
-	})
-	luaRegister(l, "setLuaSpriteScale", func(l *lua.LState) int {
-		sys.luaSpriteScale = float32(numArg(l, 1))
+	luaRegister(l, "setStoryboardScale", func(l *lua.LState) int {
+		tbl := tableArg(l, 1)
+		w := int32(lua.LVAsNumber(tbl.RawGetInt(1)))
+		h := int32(lua.LVAsNumber(tbl.RawGetInt(2)))
+		sys.setStoryboardScale([2]int32{w, h})
 		return 0
 	})
 	luaRegister(l, "setMatchMaxDrawGames", func(l *lua.LState) int {
@@ -2705,10 +2708,6 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
 		sys.lifebar.ro.match_wins[tn-1] = int32(numArg(l, 2))
-		return 0
-	})
-	luaRegister(l, "setMotifDir", func(*lua.LState) int {
-		sys.motifDir = strArg(l, 1)
 		return 0
 	})
 	luaRegister(l, "setPlayers", func(l *lua.LState) int {

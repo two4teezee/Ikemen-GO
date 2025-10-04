@@ -5896,12 +5896,15 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 		case "none":
 			tt = TT_none
 			defsrc, defdst = 255, 0
+		case "add":
+			tt = TT_add
+			defsrc, defdst = 255, 255
 		case "add1":
 			tt = TT_add
 			defsrc, defdst = 255, 128
-		case "add", "addalpha":
+		case "addalpha":
 			tt = TT_add
-			defsrc, defdst = 255, 255
+			defsrc, defdst = 255, 0 // In Mugen it defaults to this before reading the alpha
 		case "sub":
 			tt = TT_sub
 			defsrc, defdst = 255, 255

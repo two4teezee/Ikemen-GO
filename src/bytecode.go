@@ -419,6 +419,14 @@ const (
 	OC_const_stagevar_playerinfo_rightbound
 	OC_const_stagevar_playerinfo_topbound
 	OC_const_stagevar_playerinfo_botbound
+	OC_const_stagevar_playerinfo_p1startx
+	OC_const_stagevar_playerinfo_p2startx
+	OC_const_stagevar_playerinfo_p1starty
+	OC_const_stagevar_playerinfo_p2starty
+	OC_const_stagevar_playerinfo_p1startz
+	OC_const_stagevar_playerinfo_p2startz
+	OC_const_stagevar_playerinfo_p1facing
+	OC_const_stagevar_playerinfo_p2facing
 	OC_const_stagevar_scaling_topz
 	OC_const_stagevar_scaling_botz
 	OC_const_stagevar_scaling_topscale
@@ -2438,6 +2446,22 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.stage.topbound * sys.stage.localscl / oc.localscl)
 	case OC_const_stagevar_playerinfo_botbound:
 		sys.bcStack.PushF(sys.stage.botbound * sys.stage.localscl / oc.localscl)
+	case OC_const_stagevar_playerinfo_p1startx:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].startx) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2startx:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].startx) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1starty:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].starty) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2starty:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].starty) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1startz:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].startz) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2startz:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].startz) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1facing:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].facing) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2facing:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].facing) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_scaling_topz:
 		sys.bcStack.PushF(sys.stage.stageCamera.topz)
 	case OC_const_stagevar_scaling_botz:

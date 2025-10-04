@@ -3330,7 +3330,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		// Draw background and select round reference
 		switch {
 		case ro.isSingleRound() &&
-			 (ro.round_single.HasDrawable() || len(ro.round_single_bg) > 0 && ro.round_single_bg[0].HasAnim()):
+			(ro.round_single.HasDrawable() || len(ro.round_single_bg) > 0 && ro.round_single_bg[0].HasAnim()):
 			// Single round
 			for i := range ro.round_single_bg {
 				ro.round_single_bg[i].Draw(
@@ -3342,7 +3342,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			}
 			round_ref = ro.round_single
 		case ro.isFinalRound() &&
-			 (ro.round_final.HasDrawable() || len(ro.round_final_bg) > 0 && ro.round_final_bg[0].HasAnim()):
+			(ro.round_final.HasDrawable() || len(ro.round_final_bg) > 0 && ro.round_final_bg[0].HasAnim()):
 			// Final round
 			for i := range ro.round_final_bg {
 				ro.round_final_bg[i].Draw(

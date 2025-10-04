@@ -195,18 +195,18 @@ type Animation struct {
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 	return &Animation{
-		sff:         sff,
-		palettedata: pal,
-		mask:        -1,
-		transType:   TT_default,
-		srcAlpha:    255,
-		dstAlpha:    0,
-		curtrans:    TT_none,
+		sff:                        sff,
+		palettedata:                pal,
+		mask:                       -1,
+		transType:                  TT_default,
+		srcAlpha:                   255,
+		dstAlpha:                   0,
+		curtrans:                   TT_none,
 		interpolate_blend_srcalpha: 255,
 		interpolate_blend_dstalpha: 0,
-		newframe:    true,
-		remap:       make(RemapPreset),
-		start_scale: [...]float32{1, 1},
+		newframe:                   true,
+		remap:                      make(RemapPreset),
+		start_scale:                [...]float32{1, 1},
 	}
 }
 

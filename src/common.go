@@ -1147,6 +1147,10 @@ func (al *AnimLayout) Action() {
 	}
 }
 
+func (al *AnimLayout) HasAnim() bool {
+	return al != nil && al.anim != nil && len(al.anim.frames) > 0
+}
+
 func (al *AnimLayout) Draw(x, y float32, layerno int16, scale float32) {
 	al.lay.DrawAnim(&al.lay.window, x, y, scale, 1, 1, layerno, al.anim, al.palfx)
 }
@@ -1267,10 +1271,15 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float3
 	if ats.displaytime > 0 && ats.cnt > ats.displaytime {
 		return
 	}
-	if len(ats.animLayout.anim.frames) > 0 {
+
+	// Draw animation if available
+	if ats.animLayout.anim != nil && len(ats.animLayout.anim.frames) > 0 {
 		ats.animLayout.Draw(x, y, layerno, scale)
-	} else if ats.text.font[0] >= 0 && int(ats.text.font[0]) < len(f) &&
-		len(ats.text.text) > 0 {
+		return // Skip text
+	}
+
+	// Otherwise draw text
+	if ats.text.font[0] >= 0 && int(ats.text.font[0]) < len(f) && len(ats.text.text) > 0 {
 		for k, v := range strings.Split(ats.text.text, "\\n") {
 			ats.text.lay.DrawText(x, y+
 				float32(k)*(float32(f[ats.text.font[0]].Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale+
@@ -1285,20 +1294,35 @@ func (ats *AnimTextSnd) NoSound() bool {
 	return ats.snd[0] < 0
 }
 
-func (ats *AnimTextSnd) NoDisplay() bool {
-	return len(ats.animLayout.anim.frames) == 0 &&
-		(ats.text.font[0] < 0 || len(ats.text.text) == 0)
+// Check if Draw() function is worth calling
+func (ats *AnimTextSnd) HasDrawable() bool {
+	hasAnim := ats.animLayout.anim != nil && len(ats.animLayout.anim.frames) > 0
+	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0
+
+	return hasAnim || hasText
 }
 
 // In Mugen this returns true if the animation ends before "displaytime" is over
 // It seems like the current Ikemen behavior makes more sense however
 // https://github.com/ikemen-engine/Ikemen-GO/issues/1150
 func (ats *AnimTextSnd) End(dt int32, inf bool) bool {
+	anim := ats.animLayout.anim
+
+	// If displaytime is negative, rely on animation current state
 	if ats.displaytime < 0 {
-		return len(ats.animLayout.anim.frames) == 0 || ats.animLayout.anim.loopend ||
-			(inf && ats.animLayout.anim.frames[ats.animLayout.anim.curelem].Time == -1 &&
-				ats.animLayout.anim.curelem == int32(len(ats.animLayout.anim.frames)-1))
+		if anim == nil || len(anim.frames) == 0 {
+			return true
+		}
+		if anim.loopend {
+			return true
+		}
+		if inf && anim.curelem == int32(len(anim.frames)-1) && anim.frames[anim.curelem].Time == -1 {
+			return true
+		}
+		return false
 	}
+
+	// Otherwise, use displaytime
 	return dt >= ats.displaytime
 }
 

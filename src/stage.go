@@ -344,51 +344,57 @@ func readBackGround(is IniSection, link *backGround,
 	if bg.zoomdelta[0] != math.MaxFloat32 && bg.zoomdelta[1] == math.MaxFloat32 {
 		bg.zoomdelta[1] = bg.zoomdelta[0]
 	}
-	switch strings.ToLower(is["trans"]) {
-	case "add":
-		bg.anim.mask = 0
-		bg.anim.transType = TT_add
-		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = 255
-		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
-		if is.readI32ForStage("alpha", &s, &d) {
-			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
-			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
+
+	// Read transparency
+	if data, ok := is["trans"]; ok {
+		switch strings.ToLower(data) {
+		case "add":
+			bg.anim.mask = 0
+			bg.anim.transType = TT_add
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 255
+		case "add1":
+			bg.anim.mask = 0
+			bg.anim.transType = TT_add
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 128
+		case "addalpha":
+			bg.anim.mask = 0
+			bg.anim.transType = TT_add
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 0 // In Mugen it defaults to this before reading the alpha
+		case "sub":
+			bg.anim.mask = 0
+			bg.anim.transType = TT_sub
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 255
+		case "none":
+			// In Mugen this does the same as Default
+			// TODO: Make ikemenversion fix it
+			//bg.anim.transType = TT_none
+			bg.anim.transType = TT_default
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 0
+		case "default":
+			bg.anim.transType = TT_default
+			bg.anim.srcAlpha = 255
+			bg.anim.dstAlpha = 0
+		default:
+			return nil, Error("Invalid trans type: " + data)
 		}
-	case "add1":
-		bg.anim.mask = 0
-		bg.anim.transType = TT_add
-		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = 128
-		var s, d int32 = 255, 255
-		if is.readI32ForStage("alpha", &s, &d) {
-			bg.anim.srcAlpha = int16(Min(255, s))
-			//bg.anim.dstAlpha = ^int16(Clamp(d, 0, 255))
-			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-		}
-	case "addalpha":
-		bg.anim.mask = 0
-		bg.anim.transType = TT_add
-		s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
-		if is.readI32ForStage("alpha", &s, &d) {
-			bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
-			bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
-		}
-	case "sub":
-		bg.anim.mask = 0
-		bg.anim.transType = TT_sub
-		sa, da := int32(255), int32(255)
-		if is.readI32ForStage("alpha", &sa, &da) {
-			sa = Clamp(sa, 0, 255)
-			da = Clamp(da, 0, 255)
-		}
-		bg.anim.srcAlpha = int16(sa)
-		bg.anim.dstAlpha = int16(da)
-	case "none":
-		bg.anim.transType = TT_none
-		bg.anim.srcAlpha = 255
-		bg.anim.dstAlpha = 0
 	}
+
+	// Read alpha if applicable
+	if bg.anim.transType == TT_add || bg.anim.transType == TT_sub {
+		if _, ok := is["alpha"]; ok {
+			s, d := int32(bg.anim.srcAlpha), int32(bg.anim.dstAlpha)
+			if is.readI32ForStage("alpha", &s, &d) {
+				bg.anim.srcAlpha = int16(Clamp(s, 0, 255))
+				bg.anim.dstAlpha = int16(Clamp(d, 0, 255))
+			}
+		}
+	}
+
 	if is.readI32ForStage("tile", &bg.anim.tile.xflag, &bg.anim.tile.yflag) {
 		if bg._type == BG_Parallax {
 			bg.anim.tile.yflag = 0
@@ -3900,17 +3906,12 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		return
 	}
 
-	// Rough patch
-	var alpha [2]int32
-	switch n.trans {
-	case TransAdd:
-		alpha = [2]int32{255, 255}
-	case TransReverseSubtract:
-		alpha = [2]int32{-2, 0} // Only this one seems to matter
-	default:
+	negTrans := (n.trans == TransReverseSubtract)
+	alpha := [2]int32{255, 255}
+	if n.trans == TransNone {
 		alpha = [2]int32{255, 0}
 	}
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(false, alpha)
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(negTrans, alpha)
 
 	blendEq := BlendAdd
 	src := BlendOne

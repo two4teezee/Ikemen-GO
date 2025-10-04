@@ -289,7 +289,7 @@ type System struct {
 	luaLState         *lua.LState
 	statusLFunc       *lua.LFunction
 	listLFunc         []*lua.LFunction
-	introSkipped      bool
+	introSkipCall     bool
 	endMatch          bool
 	continueFlg       bool
 	dialogueFlg       bool
@@ -1302,7 +1302,7 @@ func (s *System) resetRoundState() {
 	s.resetFrameTime()
 
 	s.paused = false
-	s.introSkipped = false
+	s.introSkipCall = false
 	s.roundResetFlg = false
 	s.reloadFlg, s.reloadStageFlg, s.reloadLifebarFlg = false, false, false
 
@@ -1520,6 +1520,44 @@ func (s *System) posReset() {
 	}
 }
 
+// Skip character intros on button press and play the shutter effect
+func (s *System) runIntroSkip() {
+	// If no intros to skip or not allowed to
+	if !s.gsf(GSF_intro) || s.gsf(GSF_roundnotskip) {
+		return
+	}
+
+	// If too late to skip intros
+	if s.intro <= s.lifebar.ro.ctrl_time || s.lifebar.ro.current >= 1 {
+		return
+	}
+
+	// Start shutter effect on button press
+	if s.lifebar.ro.rt.shutterTimer == 0 && s.anyButton() {
+		s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
+	}
+
+	// Skip intros when signal from shutter animation arrives
+	if s.introSkipCall {
+		s.introSkipCall = false
+		s.intro = s.lifebar.ro.ctrl_time
+
+		// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
+		kept := (s.specialFlag & GSF_skiprounddisplay) | (s.specialFlag & GSF_skipfightdisplay)
+		s.resetGblEffect()
+		s.specialFlag = kept
+
+		// Reset all characters
+		for i, p := range s.chars {
+			if len(p) > 0 {
+				s.clearPlayerAssets(i, false)
+				p[0].posReset()
+				p[0].selfState(0, -1, -1, 0, "")
+			}
+		}
+	}
+}
+
 func (s *System) action() {
 	// Clear sprite data
 	s.spritesLayerN1 = s.spritesLayerN1[:0]
@@ -1619,32 +1657,9 @@ func (s *System) action() {
 	// Run camera
 	x, y, scl = s.cam.action(x, y, scl, s.supertime > 0 || s.pausetime > 0)
 
-	// Skip character intros on button press and play the shutter effect
+	// Character intro skipping
 	if s.tickNextFrame() {
-		if s.lifebar.ro.current < 1 && !s.introSkipped {
-			// Checking the intro flag prevents skipping intros when they don't exist
-			if s.lifebar.ro.rt.shutterTimer == 0 &&
-				s.anyButton() && s.gsf(GSF_intro) && !s.gsf(GSF_roundnotskip) && s.intro > s.lifebar.ro.ctrl_time {
-				// Start shutter effect
-				s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
-			}
-			// Do the actual skipping halfway into the shutter animation, when it's closed
-			if s.lifebar.ro.rt.shutterTimer == s.lifebar.ro.rt.shutter_time {
-				// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
-				skipround := (s.specialFlag&GSF_skiprounddisplay | s.specialFlag&GSF_skipfightdisplay)
-				s.resetGblEffect()
-				s.specialFlag = skipround
-				s.intro = s.lifebar.ro.ctrl_time
-				for i, p := range s.chars {
-					if len(p) > 0 {
-						s.clearPlayerAssets(i, false)
-						p[0].posReset()
-						p[0].selfState(0, -1, -1, 0, "")
-					}
-				}
-				s.introSkipped = true
-			}
-		}
+		s.runIntroSkip()
 	}
 
 	if !s.cam.ZoomEnable {

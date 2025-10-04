@@ -3578,6 +3578,12 @@ func (rt *LifeBarRoundTransition) Step() {
 		rt.fadeoutTimer--
 	}
 	if rt.shutterTimer > 0 {
+		// Signal system to skip intros when shutter is about to be fully closed
+		// This ensures the intros will skip even if/when the shutter updates at a different rate than characters
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2720
+		if rt.shutterTimer == (rt.shutter_time + 1) {
+			sys.introSkipCall = true
+		}
 		rt.shutterTimer--
 	}
 }

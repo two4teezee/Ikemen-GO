@@ -12015,6 +12015,11 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
+	// Do nothing if text limit reached
+	if len(sys.lifebar.textsprite) >= sys.cfg.Config.TextMax {
+		return false
+	}
+
 	params := []interface{}{}
 	ts := NewTextSprite()
 	ts.ownerid = crun.id
@@ -12125,6 +12130,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	ts.xscl = xscl / ts.localScale
 	ts.yscl = yscl / ts.localScale
 	if fnt == -1 {

@@ -1473,6 +1473,7 @@ local motif =
 		--menu_itemname_projectilemax = 'ProjectileMax', --Ikemen feature
 		--menu_itemname_explodmax = 'ExplodMax', --Ikemen feature
 		--menu_itemname_afterimagemax = 'AfterImageMax', --Ikemen feature
+		--menu_itemname_textmax = 'TextMax', --Ikemen feature
 		--menu_itemname_portchange = 'Port Change', --Ikemen feature
 		--menu_itemname_default = 'Default Values', --Ikemen feature
 		--menu_itemname_empty = '', --Ikemen feature
@@ -2389,6 +2390,7 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuengine_explodmax = "ExplodMax"
 	motif.option_info.menu_itemname_menuengine_afterimagemax = "AfterImageMax"
 	motif.option_info.menu_itemname_menuengine_palettemax = "PaletteMax"
+	motif.option_info.menu_itemname_menuengine_textmax = "TextMax"
 	motif.option_info.menu_itemname_menuengine_empty = ""
 	motif.option_info.menu_itemname_menuengine_back = "Back"
 
@@ -2520,6 +2522,7 @@ function motif.setBaseOptionInfo()
 		"menuengine_explodmax",
 		"menuengine_afterimagemax",
 		"menuengine_palettemax",
+		"menuengine_textmax",
 		"menuengine_empty",
 		"menuengine_back",
 		"empty",

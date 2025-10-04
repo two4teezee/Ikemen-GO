@@ -1056,15 +1056,20 @@ type AfterImage struct {
 }
 
 func newAfterImage() *AfterImage {
+	maxFrames := Max(0, sys.cfg.Config.AfterImageMax)
+
 	ai := &AfterImage{
-		palfx: make([]*PalFX, sys.cfg.Config.AfterImageMax),
+		palfx: make([]*PalFX, maxFrames),
 	}
+
 	for i := range ai.palfx {
 		ai.palfx[i] = newPalFX()
 		ai.palfx[i].enable = true
 		ai.palfx[i].negType = true
 	}
+
 	ai.clear()
+
 	return ai
 }
 
@@ -5814,8 +5819,8 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 
 // Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
-	// If any existing helper entry is valid for overwriting, use that one
-	i := int32(0)
+	// If any existing helper entry is valid for overwriting, use it
+	i := int32(1)
 	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
 		if sys.chars[c.playerNo][i].helperIndex < 0 {
 			h = sys.chars[c.playerNo][i]
@@ -5823,9 +5828,10 @@ func (c *Char) newHelper() (h *Char) {
 			break
 		}
 	}
+
 	// Otherwise append to the end
 	if int(i) >= len(sys.chars[c.playerNo]) {
-		if i >= sys.cfg.Config.HelperMax {
+		if i > sys.cfg.Config.HelperMax { // Do not count index 0
 			return
 		}
 		h = newChar(c.playerNo, i)

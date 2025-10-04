@@ -3007,13 +3007,13 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef
 					if start.p[side].t_selTemp[member].anim_data ~= nil then
-						if (motif.select_info['p' .. side .. '_member' .. member .. '_face_applypalette'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face_applypalette'] >= 1) or (motif.select_info['p' .. side .. '_face_applypalette'] ~= nil and motif.select_info['p' .. side .. '_face_applypalette'] >= 1)  then
+						if (motif.select_info['p' .. side .. '_member' .. member .. '_face_applypal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face_applypal'] >= 1) or (motif.select_info['p' .. side .. '_face_applypal'] ~= nil and motif.select_info['p' .. side .. '_face_applypal'] >= 1)  then
 							start.p[side].t_selTemp[member].anim_data = start.loadPalettes(start.p[side].t_selTemp[member].anim_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].anim_data)
 						end
 					end
 					if start.p[side].t_selTemp[member].face2_data ~= nil then
-						if (motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypalette'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypalette'] >= 1) or (motif.select_info['p' .. side .. '_face2_applypalette'] ~= nil and motif.select_info['p' .. side .. '_face2_applypalette'] >= 1)  then
+						if (motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypal'] ~= nil and motif.select_info['p' .. side .. '_member' .. member .. '_face2_applypal'] >= 1) or (motif.select_info['p' .. side .. '_face2_applypal'] ~= nil and motif.select_info['p' .. side .. '_face2_applypal'] >= 1)  then
 							start.p[side].t_selTemp[member].face2_data = start.loadPalettes(start.p[side].t_selTemp[member].face2_data, start.p[side].t_selTemp[member].ref, start.p[side].t_selTemp[member].pal)
 							animUpdate(start.p[side].t_selTemp[member].face2_data)
 						end

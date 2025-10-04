@@ -699,7 +699,7 @@
 	; and actual team count in a given match)
 	p1.face.padding = 0
 	; Set 1 to apply selected palette to Portraits
-	p1.face.applypalette = 0
+	p1.face.applypal = 0
 
 	p2.face.num = 1
 	p2.face.anim = -1
@@ -707,7 +707,7 @@
 	p2.face.done.spr = 
 	p2.face.spacing = 0, 0
 	p2.face.padding = 0
-	p2.face.applypalette = 0
+	p2.face.applypal = 0
 
 	; Parameters for customizing portraits on per team member basis (values take
 	; priority over standard ones, if defined)
@@ -1039,13 +1039,13 @@
 	p1.spacing = 0, 0
 	p1.padding = 0
 	; Set 1 to apply selected palette to Portraits
-	p1.applypalette = 0
+	p1.applypal = 0
 
 	p2.num = 1
 	p2.anim = -1
 	p2.spacing = 0, 0
 	p2.padding = 0
-	p2.applypalette = 0
+	p2.applypal = 0
 
 	;p<pn>.member<num>.anim = -1
 	;p<pn>.member<num>.spr = 9000, 1
@@ -1066,7 +1066,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
-	p1.face2.applypalette = 0
+	p1.face2.applypal = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1074,7 +1074,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
-	p2.face2.applypalette = 0
+	p2.face2.applypal = 0
 
 	; Set to 1 to enable order selection
 	; https://github.com/ikemen-engine/Ikemen-GO/wiki/Miscellaneous-Info#orderselect
@@ -1370,7 +1370,7 @@
 	p1.spacing = 0, 0
 	p1.padding = 0
 	; Set 1 to apply selected palette to Portraits
-	p1.applypalette = 0
+	p1.applypal = 0
 
 	p2.pos = 0, 0
 	p2.num = 0
@@ -1400,7 +1400,7 @@
 	p1.face2.facing = 1
 	p1.face2.scale = 1.0, 1.0
 	p1.face2.window = 
-	p1.face2.applypalette = 0
+	p1.face2.applypal = 0
 
 	p2.face2.anim = -1
 	p2.face2.spr = 
@@ -1408,7 +1408,7 @@
 	p2.face2.facing = -1
 	p2.face2.scale = 1.0, 1.0
 	p2.face2.window = 
-	p2.face2.applypalette = 0
+	p2.face2.applypal = 0
 
 	p1.name.scale = 1.0, 1.0
 	p1.name.xshear = 0.0

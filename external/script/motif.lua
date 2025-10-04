@@ -408,7 +408,7 @@ local motif =
 		p1_face_window = {},
 		p1_face_spacing = {0, 0}, --Ikemen feature
 		p1_face_padding = 0, --Ikemen feature
-		p1_face_applypalette = 0, --Ikemen Feature
+		p1_face_applypal = 0, --Ikemen Feature
 		p2_face_pos = {0, 0},
 		p2_face_num = 1, --Ikemen feature
 		p2_face_anim = -1, --Ikemen feature
@@ -421,7 +421,7 @@ local motif =
 		p2_face_window = {},
 		p2_face_spacing = {0, 0}, --Ikemen feature
 		p2_face_padding = 0, --Ikemen feature
-		p2_face_applypalette = 0, --Ikemen Feature
+		p2_face_applypal = 0, --Ikemen Feature
 		--p<pn>_member<num>_face_anim = -1, --Ikemen feature
 		--p<pn>_member<num>_face_spr = {9000, 1}, --Ikemen feature
 		--p<pn>_member<num>_face_done_anim = -1, --Ikemen feature
@@ -430,8 +430,8 @@ local motif =
 		--p<pn>_member<num>_face_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_speed = {0, 0}, --Ikemen feature
 		--p<pn>_member<num>_face_slide_dist = {0, 0}, --Ikemen feature
-		--p<pn>_member<num>_face_applypalette = 0, --Ikemen feature
-		--p<pn>_member<num>_face2_applypalette = 0, --Ikemen feature
+		--p<pn>_member<num>_face_applypal = 0, --Ikemen feature
+		--p<pn>_member<num>_face2_applypal = 0, --Ikemen feature
 		p1_face2_anim = -1, --Ikemen feature
 		p1_face2_spr = {}, --Ikemen feature
 		p1_face2_offset = {0, 0}, --Ikemen feature
@@ -3005,11 +3005,11 @@ for i = 1, 3 do
 		currentSection = 'victory_screen'
 	end
 	for side = 1, 2 do
-		if motif[currentSection]['p' .. side .. '_pal'] == 1 or motif[currentSection]['p' .. side .. '_face_applypalette'] == 1 or motif[currentSection]['p' .. side .. '_face2_applypalette'] == 1 then
+		if motif[currentSection]['p' .. side .. '_pal'] == 1 or motif[currentSection]['p' .. side .. '_face_applypal'] == 1 or motif[currentSection]['p' .. side .. '_face2_applypal'] == 1 then
 			usingPalettes = true
 		end
 		for member = 1, 4 do
-			if motif[currentSection]['p' .. side .. '_member' .. member .. '_face_applypalette'] == 1 or motif[currentSection]['p' .. side .. '_member' .. member .. '_face2_applypalette'] == 1 then
+			if motif[currentSection]['p' .. side .. '_member' .. member .. '_face_applypal'] == 1 or motif[currentSection]['p' .. side .. '_member' .. member .. '_face2_applypal'] == 1 then
 				usingPalettes = true
 			end
 		end

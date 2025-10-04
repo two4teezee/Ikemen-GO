@@ -5624,6 +5624,38 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_playerinfo_botbound, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "playerinfo.p1startx",
+			modifyStageVar_playerinfo_p1startx, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p1starty",
+			modifyStageVar_playerinfo_p1starty, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p2startx",
+			modifyStageVar_playerinfo_p2startx, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p2starty",
+			modifyStageVar_playerinfo_p2starty, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p1startz",
+			modifyStageVar_playerinfo_p1startz, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p2startz",
+			modifyStageVar_playerinfo_p2startz, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p1facing",
+			modifyStageVar_playerinfo_p1facing, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "playerinfo.p2facing",
+			modifyStageVar_playerinfo_p2facing, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "scaling.topz",
 			modifyStageVar_scaling_topz, VT_Float, 1, false); err != nil {
 			return err

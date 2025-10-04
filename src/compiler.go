@@ -3640,6 +3640,22 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_playerinfo_topbound
 		case "playerinfo.botbound":
 			opc = OC_const_stagevar_playerinfo_botbound
+		case "playerinfo.p1startx":
+			opc = OC_const_stagevar_playerinfo_p1startx
+		case "playerinfo.p2startx":
+			opc = OC_const_stagevar_playerinfo_p2startx
+		case "playerinfo.p1starty":
+			opc = OC_const_stagevar_playerinfo_p1starty
+		case "playerinfo.p2starty":
+			opc = OC_const_stagevar_playerinfo_p2starty
+		case "playerinfo.p1startz":
+			opc = OC_const_stagevar_playerinfo_p1startz
+		case "playerinfo.p2startz":
+			opc = OC_const_stagevar_playerinfo_p2startz
+		case "playerinfo.p1facing":
+			opc = OC_const_stagevar_playerinfo_p1facing
+		case "playerinfo.p2facing":
+			opc = OC_const_stagevar_playerinfo_p2facing
 		case "scaling.topz":
 			opc = OC_const_stagevar_scaling_topz
 		case "scaling.botz":

@@ -5251,6 +5251,22 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(sys.stage.topbound))
 		case "playerinfo.botbound":
 			l.Push(lua.LNumber(sys.stage.botbound))
+		case "playerinfo.p1startx":
+			l.Push(lua.LNumber(sys.stage.p[0].startx))
+		case "playerinfo.p1starty":
+			l.Push(lua.LNumber(sys.stage.p[0].starty))
+		case "playerinfo.p2startx":
+			l.Push(lua.LNumber(sys.stage.p[1].startx))
+		case "playerinfo.p2starty":
+			l.Push(lua.LNumber(sys.stage.p[1].starty))
+		case "playerinfo.p1startz":
+			l.Push(lua.LNumber(sys.stage.p[0].startz))
+		case "playerinfo.p2startz":
+			l.Push(lua.LNumber(sys.stage.p[1].startz))
+		case "playerinfo.p1facing":
+			l.Push(lua.LNumber(sys.stage.p[0].facing))
+		case "playerinfo.p2facing":
+			l.Push(lua.LNumber(sys.stage.p[1].facing))
 		case "scaling.topz":
 			l.Push(lua.LNumber(sys.stage.stageCamera.topz))
 		case "scaling.botz":

@@ -419,6 +419,14 @@ const (
 	OC_const_stagevar_playerinfo_rightbound
 	OC_const_stagevar_playerinfo_topbound
 	OC_const_stagevar_playerinfo_botbound
+	OC_const_stagevar_playerinfo_p1startx
+	OC_const_stagevar_playerinfo_p2startx
+	OC_const_stagevar_playerinfo_p1starty
+	OC_const_stagevar_playerinfo_p2starty
+	OC_const_stagevar_playerinfo_p1startz
+	OC_const_stagevar_playerinfo_p2startz
+	OC_const_stagevar_playerinfo_p1facing
+	OC_const_stagevar_playerinfo_p2facing
 	OC_const_stagevar_scaling_topz
 	OC_const_stagevar_scaling_botz
 	OC_const_stagevar_scaling_topscale
@@ -2438,6 +2446,22 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.stage.topbound * sys.stage.localscl / oc.localscl)
 	case OC_const_stagevar_playerinfo_botbound:
 		sys.bcStack.PushF(sys.stage.botbound * sys.stage.localscl / oc.localscl)
+	case OC_const_stagevar_playerinfo_p1startx:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].startx) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2startx:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].startx) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1starty:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].starty) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2starty:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].starty) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1startz:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].startz) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2startz:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].startz) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p1facing:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[0].facing) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_playerinfo_p2facing:
+		sys.bcStack.PushI(int32(float32(sys.stage.p[1].facing) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_scaling_topz:
 		sys.bcStack.PushF(sys.stage.stageCamera.topz)
 	case OC_const_stagevar_scaling_botz:
@@ -12315,6 +12339,14 @@ const (
 	modifyStageVar_playerinfo_rightbound
 	modifyStageVar_playerinfo_topbound
 	modifyStageVar_playerinfo_botbound
+	modifyStageVar_playerinfo_p1startx
+	modifyStageVar_playerinfo_p1starty
+	modifyStageVar_playerinfo_p2startx
+	modifyStageVar_playerinfo_p2starty
+	modifyStageVar_playerinfo_p1startz
+	modifyStageVar_playerinfo_p2startz
+	modifyStageVar_playerinfo_p1facing
+	modifyStageVar_playerinfo_p2facing
 	modifyStageVar_scaling_topz
 	modifyStageVar_scaling_botz
 	modifyStageVar_scaling_topscale
@@ -12434,6 +12466,22 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.topbound = exp[0].evalF(c) * scaleratio
 		case modifyStageVar_playerinfo_botbound:
 			s.botbound = exp[0].evalF(c) * scaleratio
+		case modifyStageVar_playerinfo_p1startx:
+			s.p[0].startx = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1starty:
+			s.p[0].starty = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2startx:
+			s.p[1].startx = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2starty:
+			s.p[1].starty = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1startz:
+			s.p[0].startz = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2startz:
+			s.p[1].startz = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p1facing:
+			s.p[0].facing = exp[0].evalI(c)
+		case modifyStageVar_playerinfo_p2facing:
+			s.p[1].facing = exp[0].evalI(c)
 		// Scaling group
 		case modifyStageVar_scaling_topz:
 			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz

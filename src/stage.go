@@ -1849,7 +1849,7 @@ func (s *Stage) action() {
 			b.palfx.eHue = sys.bgPalFX.eHue
 			b.palfx.eInvertall = sys.bgPalFX.eInvertall
 			b.palfx.eInvertblend = sys.bgPalFX.eInvertblend
-			b.palfx.eNegType = sys.bgPalFX.eNegType
+			b.palfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 		if b.enabled && !paused {
 			s.bg[i].bga.action()
@@ -1882,7 +1882,7 @@ func (s *Stage) action() {
 			s.model.pfx.eHue = sys.bgPalFX.eHue
 			s.model.pfx.eInvertall = sys.bgPalFX.eInvertall
 			s.model.pfx.eInvertblend = sys.bgPalFX.eInvertblend
-			s.model.pfx.eNegType = sys.bgPalFX.eNegType
+			s.model.pfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 	}
 }

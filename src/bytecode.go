@@ -5333,7 +5333,7 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 	if pf == nil {
 		pf = newPalFX()
 	}
-	pf.clear2(true)
+	pf.clearWithNeg(true)
 
 	// Mugen 1.1 invertblend fallback
 	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 &&

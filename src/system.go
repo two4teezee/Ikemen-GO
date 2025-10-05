@@ -1685,7 +1685,7 @@ func (s *System) action() {
 	for i := range s.projs {
 		for j := range s.projs[i] {
 			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].cueDraw(s.cgi[i].mugenver[0] != 1)
+				s.projs[i][j].cueDraw()
 			}
 		}
 	}

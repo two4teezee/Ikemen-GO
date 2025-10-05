@@ -1065,7 +1065,7 @@ func newAfterImage() *AfterImage {
 	for i := range ai.palfx {
 		ai.palfx[i] = newPalFX()
 		ai.palfx[i].enable = true
-		ai.palfx[i].negType = true
+		ai.palfx[i].allowNeg = true
 	}
 
 	ai.clear()
@@ -2314,7 +2314,7 @@ func (p *Projectile) tick() {
 	}
 }
 
-func (p *Projectile) cueDraw(oldVer bool) {
+func (p *Projectile) cueDraw() {
 	notpause := p.hitpause <= 0 && !p.paused(p.playerno)
 	if sys.tickFrame() && p.ani != nil && notpause {
 		p.ani.UpdateSprite()
@@ -10095,7 +10095,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 		if hd.palfx.time > 0 && getter.palfx != nil {
-			getter.palfx.clear2(true)
+			getter.palfx.clearWithNeg(true)
 			getter.palfx.PalFXDef = hd.palfx
 		}
 		if hd.envshake_time > 0 {

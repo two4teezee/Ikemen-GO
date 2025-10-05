@@ -4915,19 +4915,23 @@ func (l *Lifebar) step() {
 		l.mo[sys.gameMode].step()
 	}
 	// Text sctrl
-	for i := 0; i < len(l.textsprite); i++ {
-		if l.textsprite[i].removetime == 0 {
-			l.textsprite = append(l.textsprite[:i], l.textsprite[i+1:]...)
-			i-- // -1 as the slice just got shorter
-		} else {
-			l.textsprite[i].Draw()
+	l.UpdateText()
+}
+
+func (l *Lifebar) UpdateText() {
+	tempSlice := l.textsprite[:0]
+
+	for _, ts := range l.textsprite {
+		if ts.removetime > 0 { // No infinite time at the moment since text sprites are not very efficient
+			ts.Draw()
 			if sys.tickNextFrame() {
-				if l.textsprite[i].removetime > 0 {
-					l.textsprite[i].removetime--
-				}
+				ts.removetime--
 			}
+			tempSlice = append(tempSlice, ts)
 		}
 	}
+
+	l.textsprite = tempSlice
 }
 
 func (l *Lifebar) RemoveText(id, ownerid int32) {

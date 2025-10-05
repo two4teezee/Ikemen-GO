@@ -6324,6 +6324,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+
 	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
@@ -9404,6 +9405,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		e.removetime = -2
 		e.pausemovetime = -1
 		e.supermovetime = -1
+		e.postype = PT_P1
 		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
 		e.setPos(c)
 		c.commitExplod(i)
@@ -9786,33 +9788,48 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 	}
 
 	spacing := int(3) // Default spacing is 3
+
+	// Collect parameters first
+	var p1x, p1y, p1z float32
+	var p2x, p2y, p2z float32
+	p2Set := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case makeDust_spacing:
 			spacing = int(exp[0].evalI(c))
 		case makeDust_pos:
-			x, y, z := exp[0].evalF(c), float32(0), float32(0)
+			p1x = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
-				if len(exp) > 2 {
-					z = exp[2].evalF(c)
-				}
+				p1y = exp[1].evalF(c)
 			}
-			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z, spacing)
+			if len(exp) > 2 {
+				p1z = exp[2].evalF(c)
+			}
 		case makeDust_pos2:
-			x, y, z := exp[0].evalF(c), float32(0), float32(0)
+			p2Set = true
+			p2x = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
-				if len(exp) > 2 {
-					z = exp[2].evalF(c)
-				}
+				p2y = exp[1].evalF(c)
 			}
-			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z, spacing)
+			if len(exp) > 2 {
+				p2z = exp[2].evalF(c)
+			}
 		}
 		return true
 	})
+
+	offX := float32(crun.size.draw.offset[0])
+	offY := float32(crun.size.draw.offset[1])
+
+	// Make one explod even if no pos was defined
+	crun.makeDust(p1x-offX, p1y-offY, p1z, spacing)
+
+	// Make a second one if pos2 was defined
+	if p2Set {
+		crun.makeDust(p2x-offX, p2y-offY, p2z, spacing)
+	}
+
 	return false
 }
 

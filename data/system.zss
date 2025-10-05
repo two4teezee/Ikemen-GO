@@ -3,8 +3,31 @@
 #===============================================================================
 [StateDef -4]
 
-if PauseTime = 0 {
-	if time > 0 && (stateNo = 5030 || stateNo = 5035 || stateNo = 5040 || stateNo = 5050 || stateNo = 5071 || stateNo = 5200){
+# For backward compatibility, x and z-axis get hit acceleration must be handled here
+# TODO: These cases should maybe use the state number constants
+# TODO: These patches could be done by appending sctrl's to the common1.cns states
+if pauseTime = 0 {
+	if time > 0 && (stateNo = 5030 || stateNo = 5035 || stateNo = 5040 || stateNo = 5050 || stateNo = 5071 || stateNo = 5200) {
 		velAdd{x: getHitVar(xAccel); z: getHitVar(zAccel)}
 	}
 }
+
+[StateDef +1]
+
+# For backward compatibility, z-axis get hit velocity must be handled here
+if time = 0 && pauseTime = 0 {
+	if stateNo = 151 || stateNo = 153 || stateNo = 155 || stateNo = 5001 || stateNo = 5011 || stateNo = 5030 || stateNo = 5071 || stateNo = 5081 {
+		hitVelSet{z: 1}
+	}
+}
+
+# Ground dust effects
+if gameVar(pausetime) = 0 && gameVar(superpausetime) = 0 {
+	if (moveType = H && (stateType = S || stateType = C)) || stateNo = 52 {
+		if pos y = 0 && (Abs(pos x + cameraPos x - map(_iksys_dustposx)) >= 1 || Abs(pos z - map(_iksys_dustposz)) >= 1) {
+			makeDust{spacing: 3}
+		}
+	}
+}
+mapSet{map: "_iksys_dustposx"; value: pos x + cameraPos x}
+mapSet{map: "_iksys_dustposz"; value: pos z}

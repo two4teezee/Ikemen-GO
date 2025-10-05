@@ -2748,8 +2748,8 @@ type Char struct {
 	ownclsnscale      bool
 	pushPriority      int32
 	prevfallflag      bool
-	dustOldPos        [3]float32
-	dustTime          int
+	makeDustSpacing   int
+	//dustOldPos        [3]float32
 }
 
 // Add a new char to the game
@@ -2838,7 +2838,7 @@ func (c *Char) clearState() {
 	c.counterHit = false
 	c.hitdefContact = false
 	c.fallTime = 0
-	c.dustTime = 0
+	c.makeDustSpacing = 0
 }
 
 func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
@@ -7989,21 +7989,25 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 	if c.asf(ASF_nomakedust) {
 		return
 	}
+
 	if spacing < 1 {
 		sys.appendToConsole(c.warn() + "invalid MakeDust spacing")
 		spacing = 1
 	}
-	if c.dustTime >= spacing {
-		c.dustTime = 0
+
+	if c.makeDustSpacing >= spacing {
+		c.makeDustSpacing = 0
 	} else {
 		return
 	}
+
 	if e, i := c.spawnExplod(); e != nil {
 		e.animNo = 120
 		e.anim_ffx = "f"
 		e.sprpriority = math.MaxInt32
 		e.layerno = c.layerNo
 		e.ownpal = true
+		e.postype = PT_P1
 		e.relativePos = [...]float32{x, y, z}
 		e.setPos(c)
 		c.commitExplod(i)
@@ -9947,6 +9951,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				e.layerno = 1 // e.ontop = true
 				e.sprpriority = math.MinInt32
 				e.ownpal = true
+				e.postype = PT_P1
 				e.relativePos = [3]float32{off[0], off[1], off[2]}
 				e.supermovetime = -1
 				e.pausemovetime = -1
@@ -10520,7 +10525,7 @@ func (c *Char) actionRun() {
 		if c.helperIndex == 0 && c.gi().pctime >= 0 {
 			c.gi().pctime++
 		}
-		c.dustTime++
+		c.makeDustSpacing++
 	}
 	c.xScreenBound()
 	c.zDepthBound()
@@ -10672,11 +10677,12 @@ func (c *Char) update() {
 				}
 			}
 			// Engine dust effects
-			if sys.supertime == 0 && sys.pausetime == 0 &&
-				((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
-				c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
-				c.makeDust(0, 0, 0, 3) // Default spacing of 3
-			}
+			// Moved to system.zss
+			//if sys.supertime == 0 && sys.pausetime == 0 &&
+			//	((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
+			//	c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
+			//	c.makeDust(0, 0, 0, 3) // Default spacing of 3
+			//}
 		}
 		if c.ss.moveType == MT_H {
 			// Set opposing team's First Attack flag
@@ -11332,7 +11338,7 @@ func (c *Char) cueDraw() {
 	if sys.tickNextFrame() {
 		c.minus = 2
 		c.oldPos = c.pos
-		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
+		//c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}
 }
 

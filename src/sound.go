@@ -17,9 +17,9 @@ import (
 	"io"
 	"math"
 	"os"
+	"runtime"
 	"sync"
 	"unsafe"
-	"runtime"
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/effects"
@@ -51,8 +51,8 @@ type xmStreamer struct {
 	err        error
 
 	// runtime tracking
-	posFrames   int   // frames already produced (a frame == one sample per channel)
-	totalFrames int   // estimated total frames (from total_time)
+	posFrames   int // frames already produced (a frame == one sample per channel)
+	totalFrames int // estimated total frames (from total_time)
 }
 
 // Stream fills the provided buffer with audio frames (Optimized version).
@@ -81,7 +81,6 @@ func (x *xmStreamer) Stream(samples [][2]float64) (int, bool) {
 	}
 	return frameCount, true
 }
-
 
 // Err returns the last error that occurred.
 func (x *xmStreamer) Err() error { return x.err }
@@ -129,13 +128,13 @@ func newXMStreamer(f *os.File) (*xmStreamer, error) {
 	}
 
 	// Convert Go file to C FILE*
-    // mode := C.CString("rb")
-    // defer C.free(unsafe.Pointer(mode))
-    // cFileStream := C.fdopen(C.int(f.Fd()), mode)
-    // if cFileStream == nil {
-    //     C.xmp_free_context(ctx)
-    //     return nil, Error("fdopen failed")
-    // }
+	// mode := C.CString("rb")
+	// defer C.free(unsafe.Pointer(mode))
+	// cFileStream := C.fdopen(C.int(f.Fd()), mode)
+	// if cFileStream == nil {
+	//     C.xmp_free_context(ctx)
+	//     return nil, Error("fdopen failed")
+	// }
 
 	// if C.xmp_load_module_from_file(ctx, unsafe.Pointer(cFileStream), 0) != 0 {
 	// 	C.xmp_free_context(ctx)
@@ -152,11 +151,11 @@ func newXMStreamer(f *os.File) (*xmStreamer, error) {
 	}
 
 	s := &xmStreamer{
-		ctx:        ctx,
-		channels:   2,
-		sampleRate: audioFrequency,
-		totalFrames: int(float64(info.total_time) * float64(audioFrequency) / 1000.0), 
-		buffer:     make([]int16, audioOutLen*2), // 2048 stereo frames → lower memory
+		ctx:         ctx,
+		channels:    2,
+		sampleRate:  audioFrequency,
+		totalFrames: int(float64(info.total_time) * float64(audioFrequency) / 1000.0),
+		buffer:      make([]int16, audioOutLen*2), // 2048 stereo frames → lower memory
 	}
 	runtime.SetFinalizer(s, func(s *xmStreamer) { s.Close() })
 	return s, nil
@@ -501,7 +500,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 			bgm.streamer, format, err = midi.Decode(f, sf, beep.SampleRate(int(sys.cfg.Sound.SampleRate)))
 			bgm.format = "midi"
 		}
-	} else if HasExtension(bgm.filename, ".xm")  || HasExtension(bgm.filename, ".mod")  || HasExtension(bgm.filename, ".it")  || HasExtension(bgm.filename, ".s3m") {
+	} else if HasExtension(bgm.filename, ".xm") || HasExtension(bgm.filename, ".mod") || HasExtension(bgm.filename, ".it") || HasExtension(bgm.filename, ".s3m") {
 		bgm.streamer, format, err = xmpDecode(f)
 		bgm.format = "xmp"
 	} else {
@@ -549,7 +548,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	speaker.Play(bgm.ctrl)
 
 	// Handle the RAM swap in the background (only for looped BGM and only if the user enabled it)
-	if lc != 0 && sys.cfg.Sound.BGMRAMBuffer && bgm.format != "xmp"{
+	if lc != 0 && sys.cfg.Sound.BGMRAMBuffer && bgm.format != "xmp" {
 		go func(ctx context.Context) {
 			// Call the cancel function when the goroutine exits
 			// to ensure cleanup.

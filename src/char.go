@@ -5870,9 +5870,9 @@ func (c *Char) newHelper() (h *Char) {
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	facing int32, rp [2]int32, extmap bool) {
 	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
-	h.setAllPosX(p[0])
-	h.setAllPosY(p[1])
-	h.setAllPosZ(p[2])
+	h.setPosX(p[0], true)
+	h.setPosY(p[1], true)
+	h.setPosZ(p[2], true)
 	h.vel = [3]float32{}
 	if h.ownpal {
 		h.palfx = newPalFX()
@@ -6241,85 +6241,76 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 	}
 }
 
-// Position functions
-func (c *Char) setPosX(x float32) {
-	if c.pos[0] == x {
-		return
-	}
-
-	c.pos[0] = x
-	// We do this because Mugen is very sensitive to enemy position changes
-	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
-	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
-	if c.playerFlag {
-		sys.charList.enemyNearChanged = true
-	} else {
-		c.enemyNearP2Clear()
-	}
-}
-
-func (c *Char) setPosY(y float32) { // This function mostly exists right now so we don't forget to use the other two
-	c.pos[1] = y
-}
-
-func (c *Char) setPosZ(z float32) {
-	if c.pos[2] == z {
-		return
-	}
-
-	c.pos[2] = z
-	// Z distance is also factored into enemy near lists
-	if sys.zEnabled() {
-		if c.playerFlag {
-			sys.charList.enemyNearChanged = true
-		} else {
-			c.enemyNearP2Clear()
-		}
-	}
-}
-
+// Set char to round start position
 func (c *Char) posReset() {
 	if c.teamside == -1 || c.playerNo < 0 || c.playerNo >= len(sys.stage.p) {
 		c.facing = 1
-		c.setAllPosX(0)
-		c.setAllPosY(0)
-		c.setAllPosZ(0)
+		c.setPosX(0, true)
+		c.setPosY(0, true)
+		c.setPosZ(0, true)
 	} else {
 		c.facing = float32(sys.stage.p[c.playerNo].facing)
-		c.setAllPosX((float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl) / c.localscl)
-		c.setAllPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl)
-		c.setAllPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl)
+		c.setPosX(float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl / c.localscl, true)
+		c.setPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl, true)
+		c.setPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl, true)
 	}
 	c.vel[0] = 0
 	c.vel[1] = 0
 	c.vel[2] = 0
 }
 
-func (c *Char) setAllPosX(x float32) {
-	c.oldPos[0], c.interPos[0] = x, x
-	c.setPosX(x)
+func (c *Char) setPosX(x float32, all bool) {
+	// We do this because Mugen is very sensitive to enemy position changes
+	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
+	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
+	if c.pos[0] != x {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+		c.pos[0] = x
+	}
+
+	if all {
+		c.oldPos[0], c.interPos[0] = x, x
+	}
 }
 
-func (c *Char) setAllPosY(y float32) {
-	c.oldPos[1], c.interPos[1] = y, y
-	c.setPosY(y)
+func (c *Char) setPosY(y float32, all bool) { // This function mostly exists right now so we don't forget to use the other two
+	c.pos[1] = y
+
+	if all {
+		c.oldPos[1], c.interPos[1] = y, y
+	}
 }
 
-func (c *Char) setAllPosZ(z float32) {
-	c.oldPos[2], c.interPos[2] = z, z
-	c.setPosZ(z)
+func (c *Char) setPosZ(z float32, all bool) {
+	// Z distance is also factored into enemy near lists
+	if c.pos[2] != z {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+		c.pos[2] = z
+	}
+
+	if all {
+		c.oldPos[2], c.interPos[2] = z, z
+	}
 }
 
 func (c *Char) addX(x float32) {
-	c.setAllPosX(c.pos[0] + c.facing*x)
+	c.setPosX(c.pos[0] + x*c.facing, true)
 }
 
 func (c *Char) addY(y float32) {
-	c.setAllPosY(c.pos[1] + y)
+	c.setPosY(c.pos[1] + y, true)
 }
 
 func (c *Char) addZ(z float32) {
-	c.setAllPosZ(c.pos[2] + z)
+	c.setPosZ(c.pos[2] + z, false)
 }
 
 func (c *Char) hitAdd(h int32) {
@@ -7192,13 +7183,13 @@ func (c *Char) bindToTarget(tar []int32, time int32, x, y, z float32, hmf HMF) {
 				y += t.size.head.pos[1] * ((320 / t.localcoord) / c.localscl)
 			}
 			if !math.IsNaN(float64(x)) {
-				c.setAllPosX(t.pos[0]*(t.localscl/c.localscl) + t.facing*x)
+				c.setPosX(t.pos[0]*(t.localscl/c.localscl) + x*t.facing, true)
 			}
 			if !math.IsNaN(float64(y)) {
-				c.setAllPosY(t.pos[1]*(t.localscl/c.localscl) + y)
+				c.setPosY(t.pos[1]*(t.localscl/c.localscl) + y, true)
 			}
 			if !math.IsNaN(float64(z)) {
-				c.setAllPosZ(t.pos[2]*(t.localscl/c.localscl) + z)
+				c.setPosZ(t.pos[2]*(t.localscl/c.localscl) + z, true)
 			}
 			c.targetBind(tar[:1], time,
 				c.facing*c.distX(t, c),
@@ -8411,17 +8402,17 @@ func (c *Char) posUpdate() {
 	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
+			c.setPosX(c.oldPos[0] + c.mhv.cornerpush, false) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
+			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush, false)
 		}
 		if nobind[1] {
-			c.setPosY(c.oldPos[1] + c.vel[1])
+			c.setPosY(c.oldPos[1] + c.vel[1], false)
 		}
 		if nobind[2] {
-			c.setPosZ(c.oldPos[2] + c.vel[2])
+			c.setPosZ(c.oldPos[2] + c.vel[2], false)
 		}
 	}
 
@@ -8559,20 +8550,20 @@ func (c *Char) bind() {
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
-			c.setAllPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]))
+			c.setPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]), true)
 			c.interPos[0] += bt.interPos[0] - bt.pos[0]
 			c.oldPos[0] += bt.oldPos[0] - bt.pos[0]
 			c.pushed = c.pushed || bt.pushed
 			c.ghv.xoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[1])) {
-			c.setAllPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]))
+			c.setPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]), true)
 			c.interPos[1] += bt.interPos[1] - bt.pos[1]
 			c.oldPos[1] += bt.oldPos[1] - bt.pos[1]
 			c.ghv.yoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[2])) {
-			c.setAllPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]))
+			c.setPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]), true)
 			c.interPos[2] += bt.interPos[2] - bt.pos[2]
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
@@ -8596,6 +8587,8 @@ func (c *Char) trackableByCamera() bool {
 
 func (c *Char) xScreenBound() {
 	x := c.pos[0]
+	before := x
+
 	if !sys.cam.roundstart && c.trackableByCamera() && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
 		min, max := c.edgeWidth[0], -c.edgeWidth[1]
 		if c.facing > 0 {
@@ -8603,20 +8596,30 @@ func (c *Char) xScreenBound() {
 		}
 		x = ClampF(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 	}
+
 	if c.csf(CSF_stagebound) {
 		x = ClampF(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
 	}
-	c.setAllPosX(x)
+
+	// Only update interpolation etc if necessary
+	if x != before {
+		c.setPosX(x, true)
+	}
 }
 
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
+	before := posz
+
 	if c.csf(CSF_stagebound) {
 		min := c.edgeDepth[0]
 		max := -c.edgeDepth[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
-	c.setAllPosZ(posz)
+
+	if posz != before {
+		c.setPosZ(posz, true)
+	}
 }
 
 func (c *Char) xPlatformBound(pxmin, pxmax float32) {
@@ -8628,7 +8631,7 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 		}
 		x = ClampF(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
 	}
-	c.setAllPosX(x)
+	c.setPosX(x, true)
 	c.xScreenBound()
 }
 
@@ -10664,15 +10667,15 @@ func (c *Char) update() {
 			}
 			if c.ss.moveType == MT_H {
 				if c.ghv.xoff != 0 {
-					c.setPosX(c.pos[0] + c.ghv.xoff)
+					c.setPosX(c.pos[0] + c.ghv.xoff, false)
 					c.ghv.xoff = 0
 				}
 				if c.ghv.yoff != 0 {
-					c.setPosY(c.pos[1] + c.ghv.yoff)
+					c.setPosY(c.pos[1] + c.ghv.yoff, false)
 					c.ghv.yoff = 0
 				}
 				if c.ghv.zoff != 0 {
-					c.setPosZ(c.pos[2] + c.ghv.zoff)
+					c.setPosZ(c.pos[2] + c.ghv.zoff, false)
 					c.ghv.zoff = 0
 				}
 			}
@@ -11982,8 +11985,6 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 }
 
 func (cl *CharList) pushDetection(getter *Char) {
-	var gxmin, gxmax float32
-
 	// Stop outer loop if getter won't push
 	if !getter.csf(CSF_playerpush) || getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
 		return
@@ -12048,14 +12049,6 @@ func (cl *CharList) pushDetection(getter *Char) {
 			if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
 
 				getter.pushed, c.pushed = true, true
-
-				gxmin = getter.edgeWidth[0]
-				gxmax = -getter.edgeWidth[1]
-				if getter.facing > 0 {
-					gxmin, gxmax = -gxmax, -gxmin
-				}
-				gxmin += sys.xmin / getter.localscl
-				gxmax += sys.xmax / getter.localscl
 
 				// Decide who gets pushed
 				cpushed := float32(0.5)
@@ -12137,6 +12130,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 							tmp = -c.facing
 						}
 					}
+
 					if tmp > 0 {
 						if c.pushPriority >= getter.pushPriority {
 							getter.pos[0] -= ((gxright - cxleft) * gfactor) / getter.localscl
@@ -12152,6 +12146,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 							c.pos[0] -= ((cxright - gxleft) * cfactor) / c.localscl
 						}
 					}
+
 					// Clamp X positions
 					c.xScreenBound()
 					getter.xScreenBound()
@@ -12174,6 +12169,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 							c.pos[2] -= ((czbot - gztop) * cfactor) / c.localscl
 						}
 					}
+
 					// Clamp Z positions
 					c.zDepthBound()
 					getter.zDepthBound()

@@ -5099,19 +5099,19 @@ func (sc posSet) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case posSet_x:
 			x := sys.cam.Pos[0]/crun.localscl + exp[0].evalF(c)*redirscale
-			crun.setAllPosX(x)
+			crun.setPosX(x, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[0])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[0] = x
 			}
 		case posSet_y:
 			y := exp[0].evalF(c)*redirscale + crun.groundLevel + crun.platformPosY
-			crun.setAllPosY(y)
+			crun.setPosY(y, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[1])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[1] = y
 			}
 		case posSet_z:
 			z := exp[0].evalF(c) * redirscale
-			crun.setAllPosZ(z)
+			crun.setPosZ(z, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[2])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[2] = z
 			}

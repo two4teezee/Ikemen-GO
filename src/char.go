@@ -3359,10 +3359,12 @@ func (c *Char) load(def string) error {
 						is.ReadF32("xscale", &c.size.xscale)
 						is.ReadF32("yscale", &c.size.yscale)
 						// Read legacy size constants first
-						if is.ReadF32("ground.back", &c.size.standbox[0], &c.size.standbox[2]) {
+						is.ReadF32("ground.front", &c.size.standbox[2])
+						if is.ReadF32("ground.back", &c.size.standbox[0]) {
 							c.size.standbox[0] *= -1
 						}
-						if is.ReadF32("air.back", &c.size.airbox[0], &c.size.airbox[2]) {
+						is.ReadF32("air.front", &c.size.airbox[2])
+						if is.ReadF32("air.back", &c.size.airbox[0]) {
 							c.size.airbox[0] *= -1
 						}
 						if is.ReadF32("height", &c.size.standbox[1]) {
@@ -11996,184 +11998,202 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
-		// Pushbox vertical size and coordinates
+		// Y-axis check
+		// Run it first because it's the fastest one
 		cytop := (c.pos[1] + c.sizeBox[1]) * c.localscl
 		cybot := (c.pos[1] + c.sizeBox[3]) * c.localscl
 		gytop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
 		gybot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
 
-		if cybot >= gytop && cytop <= gybot { // Pushbox vertical overlap
+		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
 
-			// We skip the zAxisCheck function because we'll need to calculate the overlap again anyway
+		// Y-axis fail
+		if overlapY <= 0 {
+			continue
+		}
 
-			// Normal collision check
-			cposx := c.pos[0] * c.localscl
-			cxleft := c.sizeBox[0] * c.localscl
-			cxright := c.sizeBox[2] * c.localscl
-			if c.facing < 0 {
-				cxleft, cxright = -cxright, -cxleft
-			}
+		// X-axis check
+		cposx := c.pos[0] * c.localscl
+		cxleft := c.sizeBox[0] * c.localscl
+		cxright := c.sizeBox[2] * c.localscl
+		if c.facing < 0 {
+			cxleft, cxright = -cxright, -cxleft
+		}
 
-			cxleft += cposx
-			cxright += cposx
+		cxleft += cposx
+		cxright += cposx
 
-			gposx := getter.pos[0] * getter.localscl
-			gxleft := getter.sizeBox[0] * getter.localscl
-			gxright := getter.sizeBox[2] * getter.localscl
-			if getter.facing < 0 {
-				gxleft, gxright = -gxright, -gxleft
-			}
+		gposx := getter.pos[0] * getter.localscl
+		gxleft := getter.sizeBox[0] * getter.localscl
+		gxright := getter.sizeBox[2] * getter.localscl
+		if getter.facing < 0 {
+			gxleft, gxright = -gxright, -gxleft
+		}
 
-			gxleft += gposx
-			gxright += gposx
+		gxleft += gposx
+		gxright += gposx
 
-			// X axis fail
-			if gxleft >= cxright || cxleft >= gxright {
-				continue
-			}
+		overlapX := MinF(gxright, cxright) - MaxF(gxleft, cxleft)
 
-			cposz := c.pos[2] * c.localscl
-			cztop := cposz - c.sizeDepth[0]*c.localscl
-			czbot := cposz + c.sizeDepth[1]*c.localscl
+		// X-axis fail
+		if overlapX <= 0 {
+			continue
+		}
 
-			gposz := getter.pos[2] * getter.localscl
-			gztop := gposz - getter.sizeDepth[0]*getter.localscl
-			gzbot := gposz + getter.sizeDepth[1]*getter.localscl
+		// Z-axis check
+		// We don't use the zAxisCheck function because we need the actual overlap amount
+		cposz := c.pos[2] * c.localscl
+		cztop := cposz - c.sizeDepth[0]*c.localscl
+		czbot := cposz + c.sizeDepth[1]*c.localscl
 
-			// Z axis fail
-			if gztop >= czbot || cztop >= gzbot {
-				continue
-			}
+		gposz := getter.pos[2] * getter.localscl
+		gztop := gposz - getter.sizeDepth[0]*getter.localscl
+		gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
-			// Push characters away from each other
-			if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
+		overlapZ := MinF(gzbot, czbot) - MaxF(gztop, cztop)
 
-				getter.pushed, c.pushed = true, true
+		// Z-axis fail
+		if overlapZ <= 0 {
+			continue
+		}
 
-				// Decide who gets pushed
-				cpushed := float32(0.5)
-				gpushed := float32(0.5)
-				if c.pushPriority > getter.pushPriority {
-					cpushed = 0
-					gpushed = 1
-				} else if c.pushPriority < getter.pushPriority {
-					cpushed = 1
-					gpushed = 0
-				}
+		// Push characters away from each other
+		if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
 
+			c.pushed, getter.pushed = true, true
+
+			// Determine who gets pushed and the multipliers
+			var cfactor, gfactor float32
+			switch {
+			case c.pushPriority > getter.pushPriority:
+				cfactor = 0
+				gfactor = getter.size.pushfactor // Maybe use other character's constant?
+			case c.pushPriority < getter.pushPriority:
+				cfactor = c.size.pushfactor
+				gfactor = 0
+			default:
 				// Compare player weights and apply pushing factors
 				// Weight determines which player is pushed more. Factor determines how fast the player overlap is resolved
-				cfactor := float32(getter.size.weight) / float32(c.size.weight+getter.size.weight) * c.size.pushfactor * cpushed
-				gfactor := float32(c.size.weight) / float32(c.size.weight+getter.size.weight) * getter.size.pushfactor * gpushed
+				cfactor = float32(getter.size.weight) / float32(c.size.weight+getter.size.weight)
+				gfactor = float32(c.size.weight) / float32(c.size.weight+getter.size.weight) * getter.size.pushfactor
+				cfactor *= c.size.pushfactor
+				gfactor *= getter.size.pushfactor
+			}
 
-				// Determine in which axes to push the players
-				// This needs to check both if the players have velocity or if their positions have changed
-				var pushx, pushz bool
-				if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
-					// Get distances in both axes
-					distx := AbsF(gposx - cposx)
-					distz := AbsF(gposz - cposz)
+			// Determine in which axes to push the players
+			// This needs to check both if the players have velocity or if their positions have changed
+			var pushx, pushz bool
+			if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
+				// Get distances in both axes
+				distx := AbsF(gposx - cposx)
+				distz := AbsF(gposz - cposz)
 
-					// Check how much each axis should weigh on the decision
-					// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
-					xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
-					ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
-					distzadj := distz
-					if ztotal != 0 {
-						distzadj = (xtotal / ztotal) * distz
-					}
+				// Check how much each axis should weigh on the decision
+				// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
+				xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
+				ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
+				distzadj := distz
+				if ztotal != 0 {
+					distzadj = (xtotal / ztotal) * distz
+				}
 
-					// Push farthest axis or both if distances are similar
-					similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
-					if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
-						pushx = true
-						pushz = true
-					} else if distx >= distzadj {
-						pushx = true
+				// Push farthest axis or both if distances are similar
+				similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
+				if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
+					pushx = true
+					pushz = true
+				} else if distx >= distzadj {
+					pushx = true
+				} else {
+					pushz = true
+				}
+			} else {
+				pushx = true
+			}
+
+			if pushx {
+				tmp := getter.distX(c, getter)
+				if tmp == 0 {
+					// Decide direction in which to push each player in case of a tie in position
+					// This also decides who gets to stay in the corner
+					// Some of these checks are similar to char run order, but this approach allows better tie break control
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/1426
+					if c.pushPriority > getter.pushPriority {
+						if c.pos[0] >= 0 {
+							tmp = 1
+						} else {
+							tmp = -1
+						}
+					} else if c.pushPriority < getter.pushPriority {
+						if getter.pos[0] >= 0 {
+							tmp = -1
+						} else {
+							tmp = 1
+						}
+					} else if c.ss.moveType == MT_H && getter.ss.moveType != MT_H {
+						tmp = -c.facing
+					} else if c.ss.moveType != MT_H && getter.ss.moveType == MT_H {
+						tmp = getter.facing
+					} else if c.ss.moveType == MT_A && getter.ss.moveType != MT_A {
+						tmp = getter.facing
+					} else if c.ss.moveType != MT_A && getter.ss.moveType == MT_A {
+						tmp = -c.facing
+					} else if c.pos[1]*c.localscl < getter.pos[1]*getter.localscl {
+						tmp = getter.facing
 					} else {
-						pushz = true
+						tmp = -c.facing
+					}
+				}
+
+				if tmp > 0 {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[0] -= overlapX * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[0] += overlapX * cfactor / c.localscl
 					}
 				} else {
-					pushx = true
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[0] += overlapX * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[0] -= overlapX * cfactor / c.localscl
+					}
 				}
 
-				if pushx {
-					tmp := getter.distX(c, getter)
-					if tmp == 0 {
-						// Decide direction in which to push each player in case of a tie in position
-						// This also decides who gets to stay in the corner
-						// Some of these checks are similar to char run order, but this approach allows better tie break control
-						// https://github.com/ikemen-engine/Ikemen-GO/issues/1426
-						if c.pushPriority > getter.pushPriority {
-							if c.pos[0] >= 0 {
-								tmp = 1
-							} else {
-								tmp = -1
-							}
-						} else if c.pushPriority < getter.pushPriority {
-							if getter.pos[0] >= 0 {
-								tmp = -1
-							} else {
-								tmp = 1
-							}
-						} else if c.ss.moveType == MT_H && getter.ss.moveType != MT_H {
-							tmp = -c.facing
-						} else if c.ss.moveType != MT_H && getter.ss.moveType == MT_H {
-							tmp = getter.facing
-						} else if c.ss.moveType == MT_A && getter.ss.moveType != MT_A {
-							tmp = getter.facing
-						} else if c.ss.moveType != MT_A && getter.ss.moveType == MT_A {
-							tmp = -c.facing
-						} else if c.pos[1]*c.localscl < getter.pos[1]*getter.localscl {
-							tmp = getter.facing
-						} else {
-							tmp = -c.facing
-						}
-					}
+				// Clamp X positions
+				c.xScreenBound()
+				getter.xScreenBound()
 
-					if tmp > 0 {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[0] -= ((gxright - cxleft) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[0] += ((gxright - cxleft) * cfactor) / c.localscl
-						}
-					} else {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[0] += ((cxright - gxleft) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[0] -= ((cxright - gxleft) * cfactor) / c.localscl
-						}
-					}
+				// Update position interpolation
+				// TODO: Interpolation still looks wrong when framerate is above 60fps
+				c.setPosX(c.pos[0], true)
+			}
 
-					// Clamp X positions
-					c.xScreenBound()
-					getter.xScreenBound()
+			// TODO: Z axis push might need some decision for who stays in the corner, like X axis
+			if pushz {
+				if gposz < cposz {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[2] -= overlapZ * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[2] += overlapZ * cfactor / c.localscl
+					}
+				} else if gposz > cposz {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[2] += overlapZ * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[2] -= overlapZ * cfactor / c.localscl
+					}
 				}
 
-				// TODO: Z axis push might need some decision for who stays in the corner, like X axis
-				if pushz {
-					if gposz < cposz {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
-						}
-					} else if gposz > cposz {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] += ((czbot - gztop) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] -= ((czbot - gztop) * cfactor) / c.localscl
-						}
-					}
+				// Clamp Z positions
+				c.zDepthBound()
+				getter.zDepthBound()
 
-					// Clamp Z positions
-					c.zDepthBound()
-					getter.zDepthBound()
-				}
+				// Update position interpolation
+				c.setPosZ(c.pos[2], true)
 			}
 		}
 	}

@@ -59,7 +59,7 @@ BUILD_FFMPEG=no ./build/build.sh Win64   # or Win32
 ### Dependencies (Debian/Ubuntu)
 ```bash
 sudo apt update && sudo apt install -y \
-  golang-go git pkg-config make nasm yasm build-essential
+  golang-go git pkg-config make nasm yasm build-essential libxmp-dev
 ```
 
 ### Build x86-64 (Ikemen_GO_Linux)

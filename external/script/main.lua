@@ -3872,16 +3872,15 @@ function main.f_demoStart()
 end
 
 --calculate menu.tween and boxcursor.tween
-local function f_tweenStep(val, target, velocity)
-    if not velocity or velocity <= 0 then
-		return target
-	end
-    local factor = math.min(velocity * 0.1, 1)
-	local newVal = val + (target - val) * factor
+local function f_tweenStep(val, target, factor)
+    if not factor or factor <= 0 then
+        return target
+    end
+    local newVal = val + (target - val) * math.min(factor, 1)
     if math.abs(newVal - target) < 1 then
-    	return target
-	end
-	return newVal
+        return target
+    end
+    return newVal
 end
 
 --common menu calculations
@@ -3958,7 +3957,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 	local visible = motif[section].menu_window_visibleitems
 	local spacing = motif[section].menu_item_spacing[2]
 	local maxFirst = math.max(startItem, #t - visible + 1)
-	local t_time = motif[section].menu_tween_time
+	local t_factor = motif[section].menu_tween_factor
 	if maxFirst < startItem then 
 		maxFirst = startItem 
 	end
@@ -3986,8 +3985,8 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 		return cursorPosY, moveTxt, item
 	end
 
-	if t_time > 0 then
-		td.slideOffset = f_tweenStep(td.slideOffset, 0, t_time)
+	if t_factor > 0 then
+		td.slideOffset = f_tweenStep(td.slideOffset, 0, t_factor)
 		td.currentPos = td.targetPos + td.slideOffset
 	else
 		td.currentPos = td.targetPos
@@ -4220,7 +4219,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	local bcd = main.boxCursorData[section]
 	--calculate target Y position for cursor
 	local targetY = motif[section].menu_pos[2] + motif[section].menu_boxcursor_coords[2] + (cursorPosY - 1) * motif[section].menu_item_spacing[2]
-	local t_time = motif[section].menu_boxcursor_tween_time
+	local t_factor = motif[section].menu_boxcursor_tween_factor
 
 	--snap cursor immediately if first use or snap enabled
 	if bcd.snap == 1 or not bcd.init then
@@ -4230,8 +4229,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 	end
 
 	--apply tween if enabled, otherwise snap to target
-	if t_time > 0 then
-		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_time)
+	if t_factor > 0 then
+		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_factor)
 	else
 		bcd.offsetY = targetY
 	end

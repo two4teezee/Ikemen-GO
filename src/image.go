@@ -1531,7 +1531,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			}
 		}
 	} else {
-		var U *os.File
+		var U io.ReadSeekCloser
 		x := 0
 		c := sys.sel.charlist[ref]
 		pathname := ""
@@ -1542,7 +1542,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		x = 0
 		for x < len(c.pal_files) {
 			replaceCondition := true
-			U, err = os.Open(pathname + c.pal_files[x])
+			U, err = OpenFile(pathname + c.pal_files[x])
 			if err != nil {
 				fmt.Println("Failed to open " + c.pal_files[x])
 				replaceCondition = false

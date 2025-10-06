@@ -6166,7 +6166,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "gamespeed", func(*lua.LState) int {
-		l.Push(lua.LNumber(100 * float32(sys.gameLogicSpeed()) / float32(sys.gameRenderSpeed())))
+		l.Push(lua.LNumber(100 * sys.gameLogicSpeed() / 60))
 		return 1
 	})
 	luaRegister(l, "lasthitter", func(*lua.LState) int {

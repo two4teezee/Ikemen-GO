@@ -754,13 +754,13 @@ local motif =
 		--p<pn>_palmenu_text_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_palmenu_text_xshear = 1.0, --Ikemen feature
 		--p<pn>_palmenu_text_angle = 1, --Ikemen feature
-		p1_palmenu_pos = {0, 0}, --Ikemen feature
+		p1_palmenu_bg_pos = {0, 0}, --Ikemen feature
 		p1_palmenu_bg_anim = -1, --Ikemen feature
 		p1_palmenu_bg_spr = {}, --Ikemen feature
 		p1_palmenu_bg_offset = {0, 0}, --Ikemen feature
 		p1_palmenu_bg_facing = 1, --Ikemen feature
 		p1_palmenu_bg_scale = {1.0, 1.0}, --Ikemen feature
-		p2_palmenu_pos = {0, 0}, --Ikemen feature
+		p2_palmenu_bg_pos = {0, 0}, --Ikemen feature
 		p2_palmenu_bg_anim = -1, --Ikemen feature
 		p2_palmenu_bg_spr = {}, --Ikemen feature
 		p2_palmenu_bg_offset = {0, 0}, --Ikemen feature
@@ -768,11 +768,16 @@ local motif =
 		p2_palmenu_bg_scale = {1.0, 1.0}, --Ikemen feature
 		p1_palmenu_next_key = '$F', --Ikemen feature
 		p1_palmenu_previous_key = '$B', --Ikemen feature
-		p1_palmenu_accept_key = 'a&b&c&s', --Ikemen feature
+		p1_palmenu_accept_key = 'a&b&c', --Ikemen feature
 		p1_palmenu_cancel_key = 'x&y&z', --Ikemen feature
+		p1_palmenu_random_key = 's', --Ikemen feature
+		p1_palmenu_random_text = "Random", --Ikemen feature
 		p2_palmenu_next_key = '$F', --Ikemen feature
 		p2_palmenu_previous_key = '$B', --Ikemen feature
-		p2_palmenu_accept_key = 'a&b&c&s', --Ikemen feature
+		p2_palmenu_accept_key = 'a&b&c', --Ikemen feature
+		p2_palmenu_cancel_key = 'x&y&z', --Ikemen feature
+		p2_palmenu_random_key = 's', --Ikemen feature
+		p2_palmenu_random_text = "Random", --Ikemen feature
 		palmenu_move_snd = {-1, 0}, --Ikemen feature
 		palmenu_done_snd = {-1, 0}, --Ikemen feature
 		palmenu_cancel_snd = {-1, 0}, --Ikemen feature
@@ -3063,7 +3068,7 @@ for _, v in ipairs({
 	{s = 'p1_teammenu_ratio5_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_teammenu_ratio6_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_teammenu_ratio7_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
-	{s = 'p1_palmenu_bg_',                x = t_pos.p1_palmenu_pos[1],                                     y = t_pos.p1_palmenu_pos[2]},
+	{s = 'p1_palmenu_bg_',                x = t_pos.p1_palmenu_bg_pos[1],                                  y = t_pos.p1_palmenu_bg_pos[2]},
 	{s = 'p2_teammenu_bg_',               x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_selftitle_',        x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_enemytitle_',       x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
@@ -3077,7 +3082,7 @@ for _, v in ipairs({
 	{s = 'p2_teammenu_ratio5_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
 	{s = 'p2_teammenu_ratio6_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
 	{s = 'p2_teammenu_ratio7_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
-	{s = 'p2_palmenu_bg_',                x = t_pos.p2_palmenu_pos[1],                                     y = t_pos.p2_palmenu_pos[2]},
+	{s = 'p2_palmenu_bg_',                x = t_pos.p2_palmenu_bg_pos[1],                                  y = t_pos.p2_palmenu_bg_pos[2]},
 	{s = 'stage_portrait_random_',        x = t_pos.stage_pos[1],                                          y = t_pos.stage_pos[2]},
 	{s = 'stage_portrait_bg_',            x = t_pos.stage_pos[1],                                          y = t_pos.stage_pos[2]},
 }) do

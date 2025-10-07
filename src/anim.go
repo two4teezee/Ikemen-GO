@@ -736,7 +736,7 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 }
 
 func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
-	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, old bool, facing float32,
+	rxadd float32, rot Rotation, rcx float32, pfx *PalFX, facing float32,
 	airOffsetFix [2]float32, projectionMode int32, fLength float32, color uint32, isReflection bool) {
 
 	// Skip blank animations
@@ -768,14 +768,13 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 		if xs < 0 {
 			x *= -1
 			// This was deliberately replicating a Mugen bug, but we don't need that
-			// TODO: Maybe we don't need all these "old" arguments in the functions anymore
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/1864
 			//if old {
 			//	x += xs
 			//}
 		}
 		if ys < 0 {
 			y *= -1
-			// This was deliberately replicating a Mugen bug, but we don't need that
 			//if old {
 			//	y += ys
 			//}
@@ -851,7 +850,7 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 }
 
 func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd float32, rot Rotation,
-	pfx *PalFX, old bool, color uint32, intensity int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32) {
+	pfx *PalFX, color uint32, intensity int32, facing float32, airOffsetFix [2]float32, projectionMode int32, fLength float32) {
 
 	// Skip blank shadows
 	if a == nil || a.isBlank() {
@@ -1004,7 +1003,7 @@ func (at AnimationTable) get(no int32) *Animation {
 
 type SprData struct {
 	anim         *Animation
-	fx           *PalFX
+	pfx          *PalFX
 	pos          [2]float32
 	scl          [2]float32
 	trans        TransType
@@ -1013,7 +1012,6 @@ type SprData struct {
 	rot          Rotation
 	screen       bool
 	undarken     bool // Ignore SuperPause "darken"
-	oldVer       bool
 	facing       float32
 	airOffsetFix [2]float32 // posLocalscl replacement
 	projection   int32
@@ -1144,7 +1142,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		}
 
 		s.anim.Draw(drawwindow, pos[0]-xsoffset, pos[1], cs, cs, s.scl[0], s.scl[0],
-			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.fx, s.oldVer, s.facing,
+			s.scl[1], xshear, s.rot, float32(sys.gameWidth)/2, s.pfx, s.facing,
 			s.airOffsetFix, s.projection, s.fLength, 0, false)
 
 		// Restore original animation transparency just in case
@@ -1369,7 +1367,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(s.pos[1]*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			yscale, xshear, rot,
-			s.fx, s.oldVer, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
+			s.pfx, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}
 }
 
@@ -1581,7 +1579,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
-			s.fx, s.oldVer, s.facing, s.airOffsetFix, projection, fLength, color, true)
+			s.pfx, s.facing, s.airOffsetFix, projection, fLength, color, true)
 
 		// Restore original animation transparency just in case
 		s.anim.transType = oldTransType
@@ -1710,7 +1708,7 @@ func (a *Anim) Draw() {
 	if !sys.frameSkip {
 		a.anim.Draw(&a.window, a.x+float32(sys.gameWidth-320)/2,
 			a.y+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-			0, Rotation{}, 0, a.palfx, false, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			0, Rotation{}, 0, a.palfx, 1, [2]float32{1, 1}, 0, 0, 0, false)
 	}
 }
 

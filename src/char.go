@@ -1032,7 +1032,6 @@ type aimgImage struct {
 	rot        Rotation
 	projection int32
 	fLength    float32
-	oldVer     bool
 }
 
 type AfterImage struct {
@@ -1195,13 +1194,13 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 				img.anim.spr = newSprite()
 				*img.anim.spr = *sd.anim.spr
 				if sd.anim.palettedata != nil {
-					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
-					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 				} else {
-					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+					sd.anim.sff.palList.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(&sd.anim.sff.palList)
-					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+					sd.anim.sff.palList.SwapPalMap(&sd.pfx.remap)
 				}
 			}
 		} else {
@@ -1212,7 +1211,6 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		img.rot = sd.rot
 		img.projection = sd.projection
 		img.fLength = sd.fLength
-		img.oldVer = sd.oldVer
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 		ai.imgidx = (ai.imgidx + 1) & 63
 		ai.reccount++
@@ -1249,10 +1247,10 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		}
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
 			step := i/ai.framegap - 1
-			ai.palfx[step].remap = sd.fx.remap
+			ai.palfx[step].remap = sd.pfx.remap
 			sprs.add(&SprData{
 				anim:         img.anim,
-				fx:           ai.palfx[step],
+				pfx:           ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
 				trans:        ai.trans,
@@ -1261,7 +1259,6 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				rot:          img.rot,
 				screen:       false,
 				undarken:     sd.undarken,
-				oldVer:       sd.oldVer,
 				facing:       sd.facing,
 				airOffsetFix: sd.airOffsetFix,
 				projection:   img.projection,
@@ -1734,7 +1731,7 @@ func (e *Explod) update(playerNo int) {
 	// Add sprite to draw list
 	sd := &SprData{
 		anim:         e.anim,
-		fx:           pfx,
+		pfx:          pfx,
 		pos:          drawpos,
 		scl:          drawscale,
 		trans:        e.trans,
@@ -1743,7 +1740,6 @@ func (e *Explod) update(playerNo int) {
 		rot:          rot,
 		screen:       e.space == Space_screen,
 		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		oldVer:       oldVer,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
@@ -2394,7 +2390,7 @@ func (p *Projectile) cueDraw() {
 		// Add sprite to draw list
 		sd := &SprData{
 			anim:         p.ani,
-			fx:           p.palfx,
+			pfx:          p.palfx,
 			pos:          pos,
 			scl:          drawscale,
 			trans:        TT_default,
@@ -2403,7 +2399,6 @@ func (p *Projectile) cueDraw() {
 			rot:          rot,
 			screen:       false,
 			undarken:     sys.chars[p.playerno][0] != nil && sys.chars[p.playerno][0].ignoreDarkenTime > 0, //p.playerno == sys.superplayerno,
-			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
 			projection:   int32(p.projection),
@@ -11314,7 +11309,7 @@ func (c *Char) cueDraw() {
 		// Define sprite data
 		sd := &SprData{
 			anim:         anim,
-			fx:           c.getPalfx(),
+			pfx:          c.getPalfx(),
 			pos:          pos,
 			scl:          drawscale,
 			trans:        c.trans,
@@ -11323,7 +11318,6 @@ func (c *Char) cueDraw() {
 			rot:          rot,
 			screen:       false,
 			undarken:     c.ignoreDarkenTime > 0,
-			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,
 			projection:   int32(c.projection),

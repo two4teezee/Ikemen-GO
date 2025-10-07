@@ -191,8 +191,8 @@
 	menu.item.active.xshear = 0.0
 	menu.item.active.angle = 0.0
 
-	; Enables Mugen menu tween (if > 0) and allows adjusting its velocity
-	menu.tween.time = 3
+	; Enables Mugen menu tween (if > 0.0) and allows adjusting its factor
+	menu.tween.factor = 0.3
 
 	; Title text rendered in main menu
 	title.offset = 159, 19
@@ -305,8 +305,8 @@
 
 	; Snap boxcursor on menu section change
 	menu.boxcursor.tween.snap = 0
-	; Enables boxcursor tween (if > 0) and allows adjusting its velocity
-	menu.boxcursor.tween.time = 3
+	; Enables boxcursor tween (if > 0.0) and allows adjusting its factor
+	menu.boxcursor.tween.factor = 0.3
 
 	; boxbg is an automatically generated overlay around itemnames, based on
 	; values assigned to menu.pos and menu.boxcursor.coords parameters.
@@ -621,12 +621,12 @@
 	; ticks between blinks when p2.cursor.blink = 1
 	p2.cursor.switchtime = 3
 
-	; Enables the Mugen 1.1 cursor tween (if > 0) and allows adjusting its x and y tween time
-	p1.cursor.tween.time = 0, 0
+	; Enables the Mugen 1.1 cursor tween (if > 0) and allows adjusting its x and y tween factors
+	p1.cursor.tween.factor = 0.0, 0.0
 	; Resets cursor animation when moving to a new cell
 	p1.cursor.reset = 0
 
-	p2.cursor.tween.time = 0, 0
+	p2.cursor.tween.factor = 0.0, 0.0
 	p2.cursor.reset = 0
 
 	; cursor parameters defaults to p1 and p2 values, if not specified
@@ -955,34 +955,53 @@
 	p2.teammenu.ratio7.icon.scale = 1.0, 1.0
 
 	paletteselect = 0
-	;p<pn>_member<num>.palette.number.offset = 0, 0
-	;p<pn>.member<num>.palette.number.font = -1, 0, 0
-	;p<pn>.member<num>.palette.number.scale = 1.0, 1.0
-	;p<pn>_member<num>_palette_number_xshear = 1.0
-	;p<pn>_member<num>_palette_number_angle = 1
-	;p<pn>.palette.number.offset = 0, 0
-	;p<pn>.palette.number.font = -1, 0, 0
-	;p<pn>.palette.number.scale = 1.0, 1.0
-	;p<pn>_palette_number_xshear = 1.0
-	;p<pn>_palette_number_angle = 1
-	;p<pn>_member<num>.palette.text.offset = 0, 0
-	;p<pn>.member<num>.palette.text.font = -1, 0, 0
-	;p<pn>.member<num>.palette.text.scale = 1.0, 1.0
-	;p<pn>_member<num>_palette_text_xshear = 1.0
-	;p<pn>_member<num>_palette_text_angle = 1
-	;p<pn>.palette.text.offset = 0, 0
-	;p<pn>.palette.text.font = -1, 0, 0
-	;p<pn>.palette.text.scale = 1.0, 1.0
-	;p<pn>_palette_text_xshear = 1.0
-	;p<pn>_palette_text_angle = 1
-	p1.palette.next.key = "$F"
-	p1.palette.previous.key = "$B"
-	p1.palette.accept.key = "a&b&c&x&y&z&s"
-	p2.palette.next.key = "$F"
-	p2.palette.previous.key = "$B"
-	p2.palette.accept.key = "a&b&c&x&y&z&s"
-	palette.move.snd = -1, 0
-	palette.done.snd = -1, 0
+	;p<pn>_member<num>.palmenu.number.offset = 0, 0
+	;p<pn>.member<num>.palmenu.number.font = -1, 0, 0
+	;p<pn>.member<num>.palmenu.number.scale = 1.0, 1.0
+	;p<pn>_member<num>.palmenu.number.xshear = 1.0
+	;p<pn>_member<num>.palmenu.number.angle = 1
+	;p<pn>.palmenu.number.offset = 0, 0
+	;p<pn>.palmenu.number.font = -1, 0, 0
+	;p<pn>.palmenu.number.scale = 1.0, 1.0
+	;p<pn>_palmenu.number.xshear = 1.0
+	;p<pn>_palmenu.number.angle = 1
+	;p<pn>_member<num>.palmenu.text.offset = 0, 0
+	;p<pn>.member<num>.palmenu.text.font = -1, 0, 0
+	;p<pn>.member<num>.palmenu.text.scale = 1.0, 1.0
+	;p<pn>_member<num>_palmenu.text.xshear = 1.0
+	;p<pn>_member<num>_palmenu.text.angle = 1
+	;p<pn>.palmenu.text.offset = 0, 0
+	;p<pn>.palmenu.text.font = -1, 0, 0
+	;p<pn>.palmenu.text.scale = 1.0, 1.0
+	;p<pn>_palmenu.text.xshear = 1.0
+	;p<pn>_palmenu.text.angle = 1
+	p1.palmenu.bg.pos = 0, 0
+	p1.palmenu.bg.anim = -1
+	p1.palmenu.bg.spr =
+	p1.palmenu.bg.offset = 0, 0
+	p1.palmenu.bg.facing = 1
+	p1.palmenu.bg.scale = 1.0, 1.0
+	p2.palmenu.bg.pos = 0, 0
+	p2.palmenu.bg.anim = -1
+	p2.palmenu.bg.spr = 
+	p2.palmenu.bg_offset = 0, 0
+	p2.palmenu.bg_facing = 1
+	p2.palmenu.bg_scale = 1.0, 1.0
+	p1.palmenu.next.key = "$F"
+	p1.palmenu.previous.key = "$B"
+	p1.palmenu.accept.key = "a&b&c"
+	p1.palmenu.cancel.key = "x&y&z"
+	p1.palmenu.random.key = "s"
+	p1.palmenu.random.text = "Random"
+	p2.palmenu.next.key = "$F"
+	p2.palmenu.previous.key = "$B"
+	p2.palmenu.accept.key = "a&b&c"
+	p2.palmenu.cancel.key = "x&y&z"
+	p2.palmenu.random.key = "s"
+	p2.palmenu.random.text = "Random"
+	palmenu.move.snd = -1, 0
+	palmenu.done.snd = -1, 0
+	palmenu.cancel.snd = -1, 0
 
 [SelectBgDef] ;Ikemen feature
 	spr = ""
@@ -1597,7 +1616,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.time = 3
+	menu.tween.factor = 0.3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -1682,7 +1701,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.time = 3
+	menu.boxcursor.tween.factor = 0.3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -1942,7 +1961,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.time = 3
+	menu.tween.factor = 0.3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -1988,7 +2007,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.time = 3
+	menu.boxcursor.tween.factor = 0.3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2041,7 +2060,7 @@
 
 	menu.pos = 85, 33
 
-	menu.tween.time = 3
+	menu.tween.factor = 0.3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2111,7 +2130,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.time = 3
+	menu.boxcursor.tween.factor = 0.3
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2329,7 +2348,7 @@
 
 	menu.pos = 159, 158
 
-	menu.tween.time = 3
+	menu.tween.factor = 0.3
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2375,7 +2394,7 @@
 	menu.boxcursor.col = 255, 255, 255
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
-	menu.boxcursor.tween.time = 3
+	menu.boxcursor.tween.factor = 0.3
 
 	menu.boxbg.visible = 0
 	menu.boxbg.col = 0, 0, 0

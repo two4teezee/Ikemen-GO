@@ -345,6 +345,9 @@ func isRunningInsideAppBundle(exePath string) bool {
 // Initialize stuff, this is called after the config int at main.go
 func (s *System) init(w, h int32) *lua.LState {
 	s.setWindowSize(w, h)
+	for i := range sys.cgi {
+		sys.cgi[i].palInfo = make(map[int]PalInfo)
+	}
 	var err error
 	// Create a system window.
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
@@ -2900,8 +2903,8 @@ func (wm *wincntMap) init() {
 			tmp := strings.Split(l, ",")
 			if len(tmp) >= 2 {
 				item := toint(strings.Split(strings.TrimSpace(tmp[1]), " ")) // Get win counts per palette
-				if len(item) < MaxPalNo {
-					item = append(item, make([]int32, MaxPalNo-len(item))...) // Ensure item has MaxPalNo elements
+				if len(item) < sys.cfg.Config.PaletteMax {
+					item = append(item, make([]int32, sys.cfg.Config.PaletteMax-len(item))...) // Ensure item has sys.cfg.Config.PaletteMax elements
 				}
 				(*wm)[tmp[0]] = item // Map character definition to win counts
 			}
@@ -2962,11 +2965,11 @@ func (wm *wincntMap) update() {
 	}
 }
 
-// Retrieves win counts for a character, ensuring the slice has MaxPalNo elements
+// Retrieves win counts for a character, ensuring the slice has sys.cfg.Config.PaletteMax elements
 func (wm wincntMap) getItem(def string) []int32 {
 	lv := wm[def]
-	if len(lv) < MaxPalNo {
-		lv = append(lv, make([]int32, MaxPalNo-len(lv))...)
+	if len(lv) < sys.cfg.Config.PaletteMax {
+		lv = append(lv, make([]int32, sys.cfg.Config.PaletteMax-len(lv))...)
 	}
 	return lv
 }
@@ -2975,7 +2978,7 @@ func (wm wincntMap) getItem(def string) []int32 {
 func (wm wincntMap) setItem(pn int, item []int32) {
 	var ave, palcnt int32 = 0, 0
 	for i, v := range item {
-		if sys.cgi[pn].palSelectable[i] {
+		if pal, ok := sys.cgi[pn].palInfo[i]; ok && pal.selectable {
 			ave += v
 			palcnt++
 		}
@@ -2984,7 +2987,7 @@ func (wm wincntMap) setItem(pn int, item []int32) {
 		ave /= palcnt
 	}
 	for i := range item {
-		if !sys.cgi[pn].palSelectable[i] {
+		if pal, ok := sys.cgi[pn].palInfo[i]; !ok || !pal.selectable {
 			item[i] = ave // Set non-selectable palettes to average value
 		}
 	}
@@ -3298,7 +3301,7 @@ func (s *Select) addChar(defLine string) {
 				sprite_orig = decodeShiftJIS(isec["sprite"])
 				anim_orig = decodeShiftJIS(isec["anim"])
 				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= MaxPalNo; i++ {
+				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
@@ -3318,7 +3321,7 @@ func (s *Select) addChar(defLine string) {
 				sprite_orig = decodeShiftJIS(isec["sprite"])
 				anim_orig = decodeShiftJIS(isec["anim"])
 				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= MaxPalNo; i++ {
+				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
 					if isec[fmt.Sprintf("pal%v", i)] != "" {
 						sc.pal = append(sc.pal, int32(i))
 						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
@@ -3333,11 +3336,14 @@ func (s *Select) addChar(defLine string) {
 		case "palette ": // Note space
 			if keymap && len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
-				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				sc.pal_keymap = make([]int32, 12)
+				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap = append(sc.pal_keymap, i32)
+						sc.pal_keymap[i] = i32
+					} else {
+						sc.pal_keymap[i] = int32(i + 1) // default
 					}
 				}
 			}
@@ -3345,11 +3351,14 @@ func (s *Select) addChar(defLine string) {
 			if lanKeymap &&
 				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
-				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				sc.pal_keymap = make([]int32, 12)
+				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap = append(sc.pal_keymap, i32)
+						sc.pal_keymap[i] = i32
+					} else {
+						sc.pal_keymap[i] = int32(i + 1)
 					}
 				}
 			}
@@ -3690,7 +3699,7 @@ func (s *Select) AddSelectedChar(tn, cn, pl int) bool {
 			return false
 		}
 		n = int(Rand(0, int32(len(s.charlist))-1))
-		pl = int(Rand(1, MaxPalNo))
+		pl = int(Rand(1, int32(sys.cfg.Config.PaletteMax)))
 	}
 	sys.loadMutex.Lock()
 	s.selected[tn] = append(s.selected[tn], [...]int{n, pl})

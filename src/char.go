@@ -4163,18 +4163,75 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	return nil
 }
 
-func (c *Char) helperIndexTrigger(n int32, log bool) *Char {
-	if n <= 0 {
+func (c *Char) getHelperIndex(idx int32) *Char {
+	if idx <= 0 {
 		return c
 	}
-	return sys.charList.getHelperIndex(c, n, log)
+
+	var t []int32
+
+	// Find all helpers in parent-child chain
+	for j, h := range sys.charList.runOrder {
+		// Check only the relevant player number
+		if h.playerNo != c.playerNo {
+			continue
+		}
+		if c.id != h.id {
+			if c.helperIndex == 0 {
+				// Helpers created by the root. Direct check
+				hr := h.root(false)
+				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
+					t = append(t, int32(j))
+				}
+			} else {
+				// Helpers created by other helpers
+				hp := h.parent(false)
+
+				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
+				// This should no longer be necessary now that destroyed helpers are no longer valid parents
+				//checked := make(map[*Char]bool)
+
+				// Iterate until reaching the root or some error
+				for hp != nil {
+					// Original player found to be this helper's (grand)parent. Add helper to list
+					if hp.id == c.id {
+						t = append(t, int32(j))
+						break
+					}
+					// Search further up the parent chain for a relation to the original player
+					hp = hp.parent(false)
+				}
+			}
+		}
+	}
+
+	// Return the Nth helper we found
+	for i := 0; i < len(t); i++ {
+		ch := sys.charList.runOrder[int32(t[i])]
+		if (idx-1) == int32(i) && ch != nil {
+			return ch
+		}
+	}
+
+	return nil
 }
 
-func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
+func (c *Char) helperIndexTrigger(idx int32) *Char {
+	ch := c.getHelperIndex(idx)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
+	}
+
+	return ch
+}
+
+func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.helperIndexTrigger(id.ToI(), false) != nil)
+	return BytecodeBool(c.getHelperIndex(id.ToI()) != nil)
 }
 
 func (c *Char) indexTrigger() int32 {
@@ -4303,6 +4360,26 @@ func (c *Char) p2() *Char {
 		c.p2EnemyBackup = p
 	}
 	return p
+}
+
+func (c *Char) playerIDTrigger(id int32) *Char {
+	ch := sys.playerID(id)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with ID: %v", id))
+	}
+
+	return ch
+}
+
+func (c *Char) playerIndexTrigger(idx int32) *Char {
+	ch := sys.playerIndex(idx)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with index: %v", idx))
+	}
+
+	return ch
 }
 
 // Checks if a player should be considered an enemy at all for the "Enemy" and "P2" triggers, before filtering them further
@@ -12273,87 +12350,6 @@ func (cl *CharList) cueDraw() {
 			c.cueDraw()
 		}
 	}
-}
-
-func (cl *CharList) getCharWithID(id int32) *Char {
-	if id < 0 {
-		return nil
-	}
-
-	// Invalid ID
-	ch, ok := cl.idMap[id]
-	if !ok {
-		return nil
-	}
-
-	// Mugen skips DestroySelf helpers here
-	if ch.csf(CSF_destroy) {
-		return nil
-	}
-
-	return ch
-}
-
-func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
-	var t []int32
-
-	// Find all helpers in parent-child chain
-	for j, h := range cl.runOrder {
-		// Check only the relevant player number
-		if h.playerNo != c.playerNo {
-			continue
-		}
-		if c.id != h.id {
-			if c.helperIndex == 0 {
-				// Helpers created by the root. Direct check
-				hr := h.root(false)
-				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
-					t = append(t, int32(j))
-				}
-			} else {
-				// Helpers created by other helpers
-				hp := h.parent(false)
-
-				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
-				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
-				// This should no longer be necessary now that destroyed helpers are no longer valid parents
-				//checked := make(map[*Char]bool)
-
-				// Iterate until reaching the root or some error
-				for hp != nil {
-					//if checked[hp] {
-					//	if log {
-					//		sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
-					//	}
-					//	break
-					//}
-					//checked[hp] = true
-
-					// Original player found to be this helper's (grand)parent. Add helper to list
-					if hp.id == c.id {
-						t = append(t, int32(j))
-						break
-					}
-					// Search further up the parent chain for a relation to the original player
-					hp = hp.parent(false)
-				}
-			}
-		}
-	}
-
-	// Return the Nth helper we found
-	for i := 0; i < len(t); i++ {
-		ch := cl.runOrder[int32(t[i])]
-		if (idx-1) == int32(i) && ch != nil {
-			return ch
-		}
-	}
-
-	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
-	}
-
-	return nil
 }
 
 // Remove player from P2 references if it becomes invalid (standby etc)

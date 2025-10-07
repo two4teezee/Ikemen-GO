@@ -3285,7 +3285,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "playerid", func(*lua.LState) int {
 		ret := false
-		if c := sys.playerID(int32(numArg(l, 1))); c != nil {
+		if c := sys.debugWC.playerIDTrigger(int32(numArg(l, 1))); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3293,7 +3293,7 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "playerindex", func(*lua.LState) int {
 		ret := false
-		if c := sys.playerIndexRedirect(int32(numArg(l, 1))); c != nil {
+		if c := sys.debugWC.playerIndexTrigger(int32(numArg(l, 1))); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3316,11 +3316,11 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "helperindex", func(*lua.LState) int {
-		ret, id := false, int32(0)
+		ret, idx := false, int32(0)
 		if !nilArg(l, 1) {
-			id = int32(numArg(l, 1))
+			idx = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.helperIndexTrigger(id, true); c != nil {
+		if c := sys.debugWC.helperIndexTrigger(idx); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -5684,7 +5684,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "helperindexexist", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.helperByIndexExist(
+		l.Push(lua.LBool(sys.debugWC.helperIndexExist(
 			BytecodeInt(int32(numArg(l, 1)))).ToB()))
 		return 1
 	})

@@ -787,10 +787,29 @@ func (s *System) anyChar() *Char {
 }
 
 func (s *System) playerID(id int32) *Char {
-	return s.charList.getCharWithID(id)
+	if id < 0 {
+		return nil
+	}
+
+	// Invalid ID
+	ch, ok := s.charList.idMap[id]
+	if !ok {
+		return nil
+	}
+
+	// Mugen skips DestroySelf helpers here
+	if ch.csf(CSF_destroy) {
+		return nil
+	}
+
+	return ch
 }
 
-func (s *System) playerIndexRedirect(idx int32) *Char {
+func (s *System) playerIndex(idx int32) *Char {
+	if idx < 0 || int(idx) >= len(sys.charList.runOrder) {
+		return nil
+	}
+
 	// We will ignore destroyed helpers here, like Mugen redirections
 	var searchIdx int32
 	for _, p := range sys.charList.runOrder {
@@ -828,7 +847,7 @@ func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
 	if idx.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(s.playerIndexRedirect(idx.ToI()) != nil)
+	return BytecodeBool(s.playerIndex(idx.ToI()) != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {

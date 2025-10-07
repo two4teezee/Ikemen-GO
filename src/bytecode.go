@@ -1606,14 +1606,14 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerid:
-			if c = sys.playerID(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerindex:
-			if c = sys.playerIndexRedirect(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -1634,7 +1634,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_helperindex:
-			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
+			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -2944,7 +2944,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_ex_helperindexexist:
-		*sys.bcStack.Top() = c.helperByIndexExist(*sys.bcStack.Top())
+		*sys.bcStack.Top() = c.helperIndexExist(*sys.bcStack.Top())
 	case OC_ex_hitoverridden:
 		sys.bcStack.PushB(c.hoverIdx >= 0)
 	case OC_ex_ikemenversion:

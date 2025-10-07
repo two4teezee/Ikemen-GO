@@ -6584,8 +6584,8 @@ func (c *Compiler) statementEnd(line *string) error {
 	return nil
 }
 
-func (c *Compiler) readKeyValue(is IniSection, end string,
-	line *string) error {
+func (c *Compiler) readKeyValue(is IniSection, end string, line *string) error {
+	// Read the key (parameter name)
 	name := c.scan(line)
 	if name == "" || name == ":" {
 		return c.wrongClosureToken()
@@ -6593,15 +6593,27 @@ func (c *Compiler) readKeyValue(is IniSection, end string,
 	if name == end {
 		return nil
 	}
+
+	// Check for duplicate keys
+	if _, exists := is[name]; exists {
+		return Error(fmt.Sprintf("Duplicate key found: %s", name))
+	}
+
+	// Check separator
 	c.scan(line)
 	if err := c.needToken(":"); err != nil {
 		return err
 	}
+
+	// Read the value
 	data, _, err := c.readSentence(line)
 	if err != nil {
 		return err
 	}
+
+	// Store the pair
 	is[name] = data
+
 	return nil
 }
 

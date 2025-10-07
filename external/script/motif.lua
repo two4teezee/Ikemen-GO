@@ -1,7 +1,7 @@
 --;===========================================================
 --; DEFAULT VALUES
 --;===========================================================
-local verInfo = main.f_fileRead("external/script/version", "r")
+local verInfo = main.f_fileRead("external/script/version", "r", true) or "local"
 
 --This pre-made table (3/4 of the whole file) contains all default values used in screenpack. New table from parsed DEF file is merged on top of this one.
 --This is important because there are more params available in Ikemen. Whole screenpack code refers to these values.

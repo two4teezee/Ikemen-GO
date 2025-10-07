@@ -18,12 +18,15 @@ json = (loadfile 'external/script/json.lua')()
 --;===========================================================
 
 --return file content
-function main.f_fileRead(path, mode)
+function main.f_fileRead(path, mode, noError)
 	local file = io.open(path, mode or 'r')
-	if file == nil then
-		panicError("\nFile doesn't exist: " .. path)
-		return
+	if not file then
+		if not noError then
+			panicError("\nFile doesn't exist: " .. path)
+		end
+		return nil
 	end
+
 	local str = file:read("*all")
 	file:close()
 	return str

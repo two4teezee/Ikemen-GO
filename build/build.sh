@@ -9,6 +9,24 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 cd "$REPO_ROOT"
 
+# Fail fast on unsafe repo paths (MSYS2/Cygwin): only allow [A-Za-z0-9._/-]
+require_safe_path() {
+  case "$OSTYPE" in
+    msys|cygwin)
+      if [[ "$REPO_ROOT" =~ [^A-Za-z0-9._/-] ]]; then
+        echo "ERROR: Repository path contains characters unsafe for MSYS2/autotools:" >&2
+        echo "  $REPO_ROOT" >&2
+        echo "Use only letters, digits, '_', '-', '.'" >&2
+        echo "Tip: move to something like: C:\dev\Ikemen-GO" >&2
+        exit 1
+      fi
+      if ((${#REPO_ROOT} > 220)); then
+        echo "WARNING: Very long path (${#REPO_ROOT} chars) may hit Windows MAX_PATH issues." >&2
+      fi
+      ;;
+  esac
+}
+
 # Int vars
 DEBUG_BUILD="${DEBUG_BUILD:-0}"
 binName="Default"
@@ -26,29 +44,33 @@ FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
 FFMPEG_PREFIX="${FFMPEG_PREFIX:-$REPO_ROOT/$BUILDDIR/ffmpeg}"
 BUILD_FFMPEG="${BUILD_FFMPEG:-auto}"   # auto|yes|no
 
+# ---- App metadata (overridden by CI)
+APP_VERSION="${APP_VERSION:-nightly}"
+APP_BUILDTIME="${APP_BUILDTIME:-$(date '+%Y-%m-%d')}"
+
 # --- Always pause on Windows on exit (covers success and failure) ----------
 pause_always_windows() {
-  local status="${1:-0}"
-  case "$OSTYPE" in
-    msys|cygwin)
-      # Don't pause in CI environments (prevents hanging GitHub Actions).
-      if [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
-        return 0
-      fi
-      # Choose message by exit status
-      local msg
-      if [[ "$status" -eq 0 ]]; then
-        msg="Build finished successfully. Press any key to close..."
-      else
-        msg="Build failed (exit $status). Press any key to close..."
-      fi
-      # If stdin/stdout are terminals, just read a key.
-      if [[ -t 0 && -t 1 ]]; then
-        printf "%s" "$msg" ; IFS= read -r -n1 _ ; echo
-        return 0
-      fi
-    ;;
-  esac
+	local status="${1:-0}"
+	case "$OSTYPE" in
+		msys|cygwin)
+		# Don't pause in CI environments (prevents hanging GitHub Actions).
+		if [[ -n "${CI:-}" || -n "${GITHUB_ACTIONS:-}" ]]; then
+			return 0
+		fi
+		# Choose message by exit status
+		local msg
+		if [[ "$status" -eq 0 ]]; then
+			msg="Build finished successfully. Press any key to close..."
+		else
+			msg="Build failed (exit $status). Press any key to close..."
+		fi
+		# If stdin/stdout are terminals, just read a key.
+		if [[ -t 0 && -t 1 ]]; then
+			printf "%s" "$msg" ; IFS= read -r -n1 _ ; echo
+			return 0
+		fi
+	;;
+	esac
 }
 trap 'st=$?; pause_always_windows "$st"' EXIT
 
@@ -81,69 +103,88 @@ ensure_go_env() {
 
 # Dependency preflight (prints actionable commands)
 check_deps() {
-  local missing=()
-  need() { command -v "$1" >/dev/null 2>&1 || missing+=("$1"); }
+	local missing=()
+	need() { command -v "$1" >/dev/null 2>&1 || missing+=("$1"); }
 
-  case "$OSTYPE" in
-    msys|cygwin)
-      # MSYS2/MINGW64
-      need git
-      need make
-      need pkg-config
-      need gcc
-      need g++
-      need nasm
-      need yasm
-      need go
-      need gendef
-      need dlltool
-      if ((${#missing[@]})); then
-        echo "Install from the MINGW64 shell:" >&2
-        echo "  pacman -Syu --noconfirm" >&2
-        echo "  pacman -S --noconfirm \\" >&2
-        echo "    git make diffutils mingw-w64-x86_64-pkg-config \\" >&2
-        echo "    mingw-w64-x86_64-go mingw-w64-x86_64-toolchain \\" >&2
-        echo "    mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm \\" >&2
-        echo "    mingw-w64-x86_64-tools-git" >&2
-        exit 1
-      fi
-      ;;
-    darwin*)
-      need git
-      need pkg-config
-      need clang
-      need clang++
-      need nasm
-      need go
-      # yasm not strictly required when using NASM, but list it if missing for parity
-      command -v yasm >/dev/null 2>&1 || echo "Note: yasm not found (nasm present). If build fails, try: brew install yasm" >&2
-      if ((${#missing[@]})); then
-        echo "ERROR: Missing tools: ${missing[*]}" >&2
-        echo "Install with Homebrew:" >&2
-        echo "  brew update && brew install git go pkg-config nasm" >&2
-        exit 1
-      fi
-      ;;
-    linux*)
-      need git
-      need pkg-config
-      need gcc
-      need g++
-      need make
-      need nasm
-      need yasm
-      need go
-      if ((${#missing[@]})); then
-        echo "ERROR: Missing tools: ${missing[*]}" >&2
-        echo "Install (Debian/Ubuntu):" >&2
-        echo "  sudo apt update && sudo apt install -y golang-go git pkg-config make nasm yasm build-essential" >&2
-        exit 1
-      fi
-      ;;
-    *)
-      :
-      ;;
-  esac
+	case "$OSTYPE" in
+		msys|cygwin)
+			# MSYS2/MINGW64
+			need git
+			need make
+			need pkg-config
+			need gcc
+			need g++
+			need nasm
+			need yasm
+			need go
+			need gendef
+			need dlltool
+			if ((${#missing[@]})); then
+				echo "Install from the MINGW64 shell:" >&2
+				echo "  pacman -Syu --noconfirm" >&2
+				echo "  pacman -S --noconfirm \\" >&2
+				echo "    git make diffutils mingw-w64-x86_64-pkg-config \\" >&2
+				echo "    mingw-w64-x86_64-go mingw-w64-x86_64-toolchain \\" >&2
+				echo "    mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm \\" >&2
+				echo "    mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp" >&2
+				exit 1
+			fi
+		;;
+		darwin*)
+			need git
+			need pkg-config
+			need clang
+			need clang++
+			need nasm
+			need go
+			# yasm not strictly required when using NASM, but list it if missing for parity
+			command -v yasm >/dev/null 2>&1 || echo "Note: yasm not found (nasm present). If build fails, try: brew install yasm" >&2
+			if ((${#missing[@]})); then
+				echo "ERROR: Missing tools: ${missing[*]}" >&2
+				echo "Install with Homebrew:" >&2
+				echo "  brew update && brew install git go pkg-config nasm libxmp" >&2
+				exit 1
+			fi
+		;;
+		linux*)
+			need git
+			need pkg-config
+			need gcc
+			need g++
+			need make
+			need nasm
+			need yasm
+			need go
+			if ((${#missing[@]})); then
+				echo "ERROR: Missing tools: ${missing[*]}" >&2
+				echo "Install (Debian/Ubuntu):" >&2
+				echo "  sudo apt update && sudo apt install -y golang-go git pkg-config make nasm yasm build-essential libxmp-dev" >&2
+				exit 1
+			fi
+		;;
+	esac
+}
+
+# Ensure libxmp (via pkg-config) is available
+require_libxmp() {
+	local pc="${PKG_CONFIG:-pkg-config}"
+	if ! $pc --exists libxmp 2>/dev/null; then
+	case "$OSTYPE" in
+		msys|cygwin)
+			echo "ERROR: libxmp dev package not found. Install: pacman -S mingw-w64-x86_64-libxmp" >&2
+			;;
+		darwin*)
+			echo "ERROR: libxmp not found. Install with Homebrew: brew install libxmp" >&2
+			;;
+		linux*)
+			echo "ERROR: libxmp dev package not found. Install (Debian/Ubuntu): sudo apt install -y libxmp-dev" >&2
+			;;
+		*)
+			echo "ERROR: libxmp dev package not found (pkg-config module 'libxmp')." >&2
+			;;
+		esac
+		exit 1
+	fi
 }
 
 # Main function.
@@ -169,6 +210,12 @@ function main() {
 
 	# Make sure required build tools exist
 	check_deps
+
+	# Enforce safe path
+	require_safe_path
+
+	# Record a local build timestamp
+	echo "$APP_BUILDTIME" > external/script/version
 
 	# Check OS
 	checkOS "$targetOS"
@@ -383,50 +430,41 @@ function create_delay_import_libs_windows() {
 	[[ "$GOOS" != "windows" ]] && return 0
 	mkdir -p "$DELAYLIB_DIR"
 	shopt -s nullglob
-	local d
-	for d in "$FFMPEG_PREFIX"/bin/*.dll; do
+	local d base name libname
+	for d in "$FFMPEG_PREFIX"/bin/*.dll /mingw64/bin/libxmp*.dll /mingw64/bin/libwinpthread-1.dll; do
 		[[ -f "$d" ]] || continue
-		local base name libname
-		base="$(basename "$d")"          # e.g. avcodec-59.dll
-		name="${base%.dll}"              # avcodec-59
-		libname="${name%%-*}"            # avcodec
-		libname="${libname#lib}"         # strip lib- prefix if any
+		base="$(basename "$d")"          # e.g. libxmp-4.dll
+		name="${base%.dll}"              # libxmp-4
+		libname="${name%%-*}"            # libxmp
+		libname="${libname#lib}"         # xmp
 		( cd "$DELAYLIB_DIR" && gendef "$d" >/dev/null )
 		dlltool --dllname "$base" --def "$DELAYLIB_DIR/${name}.def" --output-delaylib "$DELAYLIB_DIR/lib${libname}.dll.a"
 		rm -f "$DELAYLIB_DIR/${name}.def"
 	done
-	# Also delay-load libwinpthread (dependency of avutil on MSYS2)
-	if [[ -f /mingw64/bin/libwinpthread-1.dll ]]; then
-		( cd "$DELAYLIB_DIR" && gendef /mingw64/bin/libwinpthread-1.dll >/dev/null )
-		dlltool --dllname libwinpthread-1.dll --def "$DELAYLIB_DIR/libwinpthread-1.def" --output-delaylib "$DELAYLIB_DIR/libwinpthread.dll.a"
-		rm -f "$DELAYLIB_DIR/libwinpthread-1.def"
-	fi
 	shopt -u nullglob
 }
-
-# ---- App metadata (overridden by CI)
-APP_VERSION="${APP_VERSION:-nightly}"
-APP_BUILDTIME="${APP_BUILDTIME:-$(date +%F)}"
 
 # --- Build functions ---
 function build() {
 	maybe_build_ffmpeg
 	export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
-	# Pull FFmpeg flags from pkg-config
-	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter) ${CGO_CFLAGS:-}"
-	local ffmpeg_libs
-	ffmpeg_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter)"
+	# Ensure libxmp is present
+	require_libxmp
+	# Pull dependency flags from pkg-config (FFmpeg + libxmp)
+	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp) ${CGO_CFLAGS:-}"
+	local deps_libs
+	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp)"
 
 	# RPATH for local libs on *nix; macOS adds rpath to bundle/exec path
 	if [[ "$GOOS" == "linux" ]]; then
-		export CGO_LDFLAGS="${ffmpeg_libs} -lpthread -lm -ldl -lz -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/lib ${CGO_LDFLAGS:-}"
+		export CGO_LDFLAGS="${deps_libs} -lpthread -lm -ldl -lz -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/lib ${CGO_LDFLAGS:-}"
 	elif [[ "$GOOS" == "darwin" ]]; then
-		export CGO_LDFLAGS="${ffmpeg_libs} ${CGO_LDFLAGS:-} -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks"
+		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks"
 	fi
 
 	echo "==> Building Go binary (this may take a while)..."
 	go build -trimpath -v \
-	  -ldflags "-X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
+	  -ldflags "-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
 	  -o "$OUTDIR/$binName" ./src
 
 	# bundle libs
@@ -441,28 +479,33 @@ function buildWin() {
 	stage_windows_resources
 	maybe_build_ffmpeg
 	export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
-	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter) ${CGO_CFLAGS:-}"
-	local ffmpeg_libs
-	ffmpeg_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter)"
+	# Ensure libxmp is present
+	require_libxmp
+	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp) ${CGO_CFLAGS:-}"
+	local deps_libs
+	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp)"
 	create_delay_import_libs_windows
 	# Prefer our delay-libs first so -lavcodec resolves delay-load flavor
-	export CGO_LDFLAGS="-L$PWD/$DELAYLIB_DIR ${ffmpeg_libs} ${CGO_LDFLAGS:-}"
+	export CGO_LDFLAGS="-L$PWD/$DELAYLIB_DIR ${deps_libs} ${CGO_LDFLAGS:-}"
 
 	echo "==> Building Go binary (this may take a while)..."
 	if [[ "${DEBUG_BUILD:-}" -eq 1 ]]; then
 		# Console subsystem: keep a terminal for logs/panics while debugging
 		go build -trimpath -v \
-		  -ldflags "-X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
+		  -ldflags "-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
 		  -o "$OUTDIR/$binName" ./src
 	else
 		# GUI subsystem: hides console window
 		go build -trimpath -v \
-		  -ldflags "-H windowsgui -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
+		  -ldflags "-H windowsgui -s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
 		  -o "$OUTDIR/$binName" ./src
 	fi
 
 	# bundle libs
 	bundle_shared_libs
+
+	# Clean embedded resource object
+	rm -f src/rsrc_windows.syso 2>/dev/null || true
 
 	echo "==> Build successful (Windows)"
 	echo "    Binary: $OUTDIR/$binName"
@@ -594,13 +637,26 @@ function bundle_shared_libs() {
 		for d in \
 			/mingw64/bin/libwinpthread-1.dll \
 			/mingw64/bin/libgcc_s_seh-1.dll \
-			/mingw64/bin/libstdc++-6.dll ; do
+			/mingw64/bin/libstdc++-6.dll \
+			/mingw64/bin/libxmp*.dll ; do
 			cp -av "$d" "$dest_lib/" 2>/dev/null || true
 		done
 	elif [[ -d "$FFMPEG_PREFIX/lib" ]]; then
 		# Linux & macOS
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.so* "$dest_lib/" 2>/dev/null || true
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.dylib "$dest_lib/" 2>/dev/null || true
+	fi
+	# Always try to bundle libxmp for portable runtime on Linux/macOS.
+	# (Windows was handled above.)
+	if [[ "$GOOS" != "windows" ]]; then
+		# Prefer pkg-config to locate the correct lib directory.
+		local pc libdir
+		pc="${PKG_CONFIG:-pkg-config}"
+		libdir="$($pc --variable=libdir libxmp 2>/dev/null || true)"
+		if [[ -n "$libdir" && -d "$libdir" ]]; then
+			cp -av "${libdir}"/libxmp*.so*   "$dest_lib/" 2>/dev/null || true
+			cp -av "${libdir}"/libxmp*.dylib "$dest_lib/" 2>/dev/null || true
+		fi
 	fi
 }
 
@@ -631,8 +687,8 @@ function checkOS() {
 }
 
 if [ ! -f ./go.mod ]; then
-  echo "Missing go.mod. Run:  go mod init <module> && go mod download"
-  exit 1
+	echo "Missing go.mod. Run:  go mod init <module> && go mod download"
+	exit 1
 fi
 
 main "$@"

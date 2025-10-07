@@ -1,6 +1,6 @@
 # Building Ikemen GO
 
-Ikemen GO links against **FFmpeg** for background video (VP9/Opus/Vorbis in WebM/Matroska).
+Ikemen GO links against **FFmpeg** (background video: VP9/Opus/Vorbis in WebM/Matroska) and **libxmp** (module music: MOD/XM/S3M/IT, etc.).
 `build/build.sh` **auto-detects your OS** and, by default, **auto-builds a minimal FFmpeg**
 (same config as CI). You don't need system FFmpeg dev packages unless you prefer them.
 
@@ -16,7 +16,7 @@ pacman -S --noconfirm \
   git make diffutils mingw-w64-x86_64-pkg-config \
   mingw-w64-x86_64-go mingw-w64-x86_64-toolchain \
   mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm \
-  mingw-w64-x86_64-tools-git
+  mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp
 ```
 > On MSYS2 we auto-fix "trimmed" Go by setting `GOROOT=/mingw64/lib/go` if needed.
 
@@ -32,7 +32,7 @@ make Ikemen_GO.exe
 
 ### Build 32-bit (Ikemen_GO_x86.exe)
 > Requires 32-bit MinGW cross tools in addition to the above:
-> `pacman -S --noconfirm mingw-w64-i686-toolchain mingw-w64-i686-pkg-config mingw-w64-i686-nasm mingw-w64-i686-yasm`
+> `pacman -S --noconfirm mingw-w64-i686-toolchain mingw-w64-i686-pkg-config mingw-w64-i686-nasm mingw-w64-i686-yasm mingw-w64-i686-libxmp`
 ```bash
 # build.sh
 ./build/build.sh Win32
@@ -103,7 +103,7 @@ BUILD_FFMPEG=no ./build/build.sh Linux      # or LinuxARM
 
 ### Dependencies (Homebrew)
 ```bash
-brew update && brew install git go pkg-config nasm
+brew update && brew install git go pkg-config nasm libxmp
 # Optional: brew install yasm
 ```
 
@@ -164,5 +164,6 @@ The release CI bundles these automatically.
 - **Missing tools**: re-run the dependency commands for your OS/arch.
 - **FFmpeg link errors**: use the default `build.sh` (auto-builds FFmpeg), or install system FFmpeg
   dev packages and run with `BUILD_FFMPEG=no`.
+- **libxmp not found**: install libxmp-dev (Linux), libxmp (macOS/Homebrew), or the MSYS2 package mingw-w64-*-libxmp on Windows.
 - **Windows DLLs**: verify `.\lib\*.dll` exists (local build places FFmpeg DLLs there).
 - **Linux GL compatibility**: try `MESA_GL_VERSION_OVERRIDE=2.1` for a fallback.

@@ -46,6 +46,7 @@ func init() {
 		"libwinpthread-*.dll",
 		"swresample-*.dll",
 		"swscale-*.dll",
+		"libxmp*.dll",
 	}
 
 	// Search order: exe dir -> lib dir -> Windows default dirs & PATH.
@@ -85,7 +86,7 @@ func init() {
 			where.WriteString("  " + d + "\n")
 		}
 		ShowErrorDialog(
-			"Required FFmpeg DLLs are missing.\n\n" +
+			"Required runtime DLLs are missing.\n\n" +
 				"Searched locations (in priority order):\n" + where.String() + "\n" +
 				"Missing families:\n  " + strings.Join(missing, "\n  "),
 		)
@@ -107,7 +108,7 @@ func init() {
 	}
 	if len(loadErrs) > 0 {
 		ShowErrorDialog(
-			"Failed to load FFmpeg runtime libraries.\n\n" +
+			"Failed to load required runtime libraries.\n\n" +
 				"Errors:\n  " + strings.Join(loadErrs, "\n  ") + "\n\n" +
 				"Ensure the DLLs match your app architecture and aren’t blocked by AV/SmartScreen.",
 		)

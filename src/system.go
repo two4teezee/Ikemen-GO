@@ -346,7 +346,7 @@ func isRunningInsideAppBundle(exePath string) bool {
 func (s *System) init(w, h int32) *lua.LState {
 	s.setWindowSize(w, h)
 	for i := range sys.cgi {
-		sys.cgi[i].PalInfo = make(map[int]PalInfo)
+		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
 	var err error
 	// Create a system window.
@@ -2978,7 +2978,7 @@ func (wm wincntMap) getItem(def string) []int32 {
 func (wm wincntMap) setItem(pn int, item []int32) {
 	var ave, palcnt int32 = 0, 0
 	for i, v := range item {
-		if pal, ok := sys.cgi[pn].PalInfo[i]; ok && pal.Selectable {
+		if pal, ok := sys.cgi[pn].palInfo[i]; ok && pal.selectable {
 			ave += v
 			palcnt++
 		}
@@ -2987,7 +2987,7 @@ func (wm wincntMap) setItem(pn int, item []int32) {
 		ave /= palcnt
 	}
 	for i := range item {
-		if pal, ok := sys.cgi[pn].PalInfo[i]; !ok || !pal.Selectable {
+		if pal, ok := sys.cgi[pn].palInfo[i]; !ok || !pal.selectable {
 			item[i] = ave // Set non-selectable palettes to average value
 		}
 	}
@@ -3336,11 +3336,14 @@ func (s *Select) addChar(defLine string) {
 		case "palette ": // Note space
 			if keymap && len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
-				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				sc.pal_keymap = make([]int32, 12)
+				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap = append(sc.pal_keymap, i32)
+						sc.pal_keymap[i] = i32
+					} else {
+						sc.pal_keymap[i] = int32(i + 1) // default
 					}
 				}
 			}
@@ -3348,11 +3351,14 @@ func (s *Select) addChar(defLine string) {
 			if lanKeymap &&
 				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
 				keymap = false
-				for _, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				sc.pal_keymap = make([]int32, 12)
+				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap = append(sc.pal_keymap, i32)
+						sc.pal_keymap[i] = i32
+					} else {
+						sc.pal_keymap[i] = int32(i + 1)
 					}
 				}
 			}

@@ -2845,7 +2845,7 @@ function start.f_palMenuDraw(side, member)
 		}):draw()
 	end
 
-	-- desenha text
+	-- draw text
 	local textFontInfo = getInfo('palmenu_text_font')
 	local textOffset = getInfo('palmenu_text_offset')
 	local textScale = getInfo('palmenu_text_scale')
@@ -3129,7 +3129,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
              			start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
                 		start.c[player].randPalPreview = start.f_randomPal(charRef)
 
-						applyPalette(charData.pal[start.c[player].randPalPreview])
+						applyPalette(start.c[player].randPalPreview)
 						sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
 					else
 						start.c[player].randPalCnt = start.c[player].randPalCnt - 1

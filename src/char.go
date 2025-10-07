@@ -2447,10 +2447,10 @@ const (
 )
 
 type PalInfo struct {
-    KeyMap     int32
-    Filename   string
-    Exists     bool
-    Selectable bool
+    keyMap     int32
+    filename   string
+    exists     bool
+    selectable bool
 }
 
 type CharGlobalInfo struct {
@@ -2465,7 +2465,7 @@ type CharGlobalInfo struct {
 	palettedata             *Palette
 	snd                     *Snd
 	anim                    AnimationTable
-	PalInfo 				map[int]PalInfo
+	palInfo 				map[int]PalInfo
 	palno                   int32
 	ikemenver               [3]uint16
 	ikemenverF              float32
@@ -2981,9 +2981,9 @@ func (c *Char) load(def string) error {
 	gi.anim = NewAnimationTable()
 	gi.fnt = [10]*Fnt{}
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
-		pal := gi.PalInfo[i]
-		pal.KeyMap = int32(i)
-		gi.PalInfo[i] = pal
+		pal := gi.palInfo[i]
+		pal.keyMap = int32(i)
+		gi.palInfo[i] = pal
 	}
 	c.mapDefault = make(map[string]float32)
 	// Helper to resolve paths relative to the .def file's logical location
@@ -3058,9 +3058,9 @@ func (c *Char) load(def string) error {
 				anim = decodeShiftJIS(is["anim"])
 				sound = decodeShiftJIS(is["sound"])
 				for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
-					pal := gi.PalInfo[i]
-					pal.Filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
-					gi.PalInfo[i] = pal
+					pal := gi.palInfo[i]
+					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
+					gi.palInfo[i] = pal
 				}
 				for i := range fnt {
 					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
@@ -3078,9 +3078,9 @@ func (c *Char) load(def string) error {
 						if i32 < 1 || int(i32) > sys.cfg.Config.PaletteMax {
 							i32 = 1
 						}
-						pal := gi.PalInfo[i]
-						pal.KeyMap = i32 - 1
-						gi.PalInfo[i] = pal
+						pal := gi.palInfo[i]
+						pal.keyMap = i32 - 1
+						gi.palInfo[i] = pal
 					}
 				}
 			}
@@ -3123,9 +3123,9 @@ func (c *Char) load(def string) error {
 				anim = decodeShiftJIS(is["anim"])
 				sound = decodeShiftJIS(is["sound"])
 				for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
-					pal := gi.PalInfo[i]
-					pal.Filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
-					gi.PalInfo[i] = pal
+					pal := gi.palInfo[i]
+					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
+					gi.palInfo[i] = pal
 				}
 				for i := range fnt {
 					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
@@ -3144,9 +3144,9 @@ func (c *Char) load(def string) error {
 						if i32 < 1 || int(i32) > sys.cfg.Config.PaletteMax {
 							i32 = 1
 						}
-						pal := gi.PalInfo[i]
-						pal.KeyMap = i32 - 1
-						gi.PalInfo[i] = pal
+						pal := gi.palInfo[i]
+						pal.keyMap = i32 - 1
+						gi.palInfo[i] = pal
 					}
 				}
 			}
@@ -3663,16 +3663,13 @@ func (c *Char) loadPalette() {
 			var f io.ReadSeekCloser
 			var err error
 
-			pal := gi.PalInfo[i]
-			if pal.Filename == "" {
-				pal.Filename = fmt.Sprintf("pal%v.act", i+1)
-			}
+			pal := gi.palInfo[i]
 
-			if LoadFile(&pal.Filename, []string{gi.def, "", sys.motifDir, "data/"}, func(file string) error {
+			if LoadFile(&pal.filename, []string{gi.def, "", sys.motifDir, "data/"}, func(file string) error {
 				f, err = OpenFile(file)
 				return err
 			}) == nil {
-				gi.PalInfo[i] = pal
+				gi.palInfo[i] = pal
 
 				for i := 255; i >= 0; i-- {
 					var rgb [3]byte
@@ -3690,8 +3687,8 @@ func (c *Char) loadPalette() {
 					if tmp == 0 && i > 0 {
 						copy(gi.palettedata.palList.Get(0), pl)
 					}
-					pal.Exists = true
-					gi.PalInfo[i] = pal
+					pal.exists = true
+					gi.palInfo[i] = pal
 					// Palette Texture Generation
 					if len(gi.palettedata.palList.PalTex) <= i {
 						newLen := i + 1
@@ -3706,8 +3703,8 @@ func (c *Char) loadPalette() {
 				chk(f.Close())
 			}
 			if err != nil {
-				pal.Exists = false
-				gi.PalInfo[i] = pal
+				pal.exists = false
+				gi.palInfo[i] = pal
 				if i > 0 {
 					delete(gi.palettedata.palList.PalTable, [...]int16{1, int16(i + 1)})
 				}
@@ -3718,9 +3715,9 @@ func (c *Char) loadPalette() {
 		}
 	} else {
 		for i := 0; i < maxPal; i++ {
-			pal := gi.PalInfo[i]
-			_, pal.Exists = gi.palettedata.palList.PalTable[[...]int16{1, int16(i + 1)}]
-			gi.PalInfo[i] = pal
+			pal := gi.palInfo[i]
+			_, pal.exists = gi.palettedata.palList.PalTable[[...]int16{1, int16(i + 1)}]
+			gi.palInfo[i] = pal
 		}
 		if gi.sff.header.NumberOfPalettes > 0 {
 			numPals := int(gi.sff.header.NumberOfPalettes)
@@ -3737,23 +3734,23 @@ func (c *Char) loadPalette() {
 	}
 
 	// Resets selectable
-	for k, pal := range gi.PalInfo {
-		pal.Selectable = false
-		gi.PalInfo[k] = pal
+	for k, pal := range gi.palInfo {
+		pal.selectable = false
+		gi.palInfo[k] = pal
 	}
 
 	// Fill selectable based on keymap
 	for i := 0; i < maxPal; i++ {
-		pal := gi.PalInfo[i]
-		startj := int(pal.KeyMap)
-		if p, ok := gi.PalInfo[startj]; !ok || !p.Exists {
+		pal := gi.palInfo[i]
+		startj := int(pal.keyMap)
+		if p, ok := gi.palInfo[startj]; !ok || !p.exists {
 			continue
 		}
 		j := startj
 		for {
-			if p, ok := gi.PalInfo[j]; ok && p.Exists {
-				p.Selectable = true
-				gi.PalInfo[j] = p
+			if p, ok := gi.palInfo[j]; ok && p.exists {
+				p.selectable = true
+				gi.palInfo[j] = p
 				break
 			}
 			j++
@@ -3770,10 +3767,10 @@ func (c *Char) loadPalette() {
 	if palIdx < 0 {
 		palIdx = 0
 	}
-	if p, ok := gi.PalInfo[int(palIdx)]; !ok || !p.Exists {
+	if p, ok := gi.palInfo[int(palIdx)]; !ok || !p.exists {
 		found := false
 		for i := 0; i < maxPal; i++ {
-			if p, ok := gi.PalInfo[i]; ok && p.Exists {
+			if p, ok := gi.palInfo[i]; ok && p.exists {
 				gi.palno = int32(i + 1)
 				found = true
 				break
@@ -3781,7 +3778,7 @@ func (c *Char) loadPalette() {
 		}
 		if !found {
 			gi.palno = 1
-			gi.PalInfo[0] = PalInfo{Exists: true, Selectable: true}
+			gi.palInfo[0] = PalInfo{exists: true, selectable: true}
 		}
 	}
 

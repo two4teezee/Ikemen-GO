@@ -121,24 +121,24 @@ type Config struct {
 		} `ini:"Ratio"`
 	} `ini:"Options"`
 	Config struct {
-		Motif               string   `ini:"Motif"`
-		Players             int      `ini:"Players"`
-		Framerate           int      `ini:"Framerate"`
-		Language            string   `ini:"Language"`
-		AfterImageMax       int32    `ini:"AfterImageMax"`
-		ExplodMax           int      `ini:"ExplodMax"`
-		HelperMax           int32    `ini:"HelperMax"`
-		ProjectileMax 		int      `ini:"ProjectileMax"`
-		PaletteMax          int      `ini:"PaletteMax"`
-		ZoomActive          bool     `ini:"ZoomActive"`
-		EscOpensMenu        bool     `ini:"EscOpensMenu"`
-		FirstRun            bool     `ini:"FirstRun"`
-		WindowTitle         string   `ini:"WindowTitle"`
-		WindowIcon          []string `ini:"WindowIcon"`
-		System              string   `ini:"System"`
-		ScreenshotFolder    string   `ini:"ScreenshotFolder"`
-		TrainingChar        string   `ini:"TrainingChar"`
-		GamepadMappings     string   `ini:"GamepadMappings"`
+		Motif            string   `ini:"Motif"`
+		Players          int      `ini:"Players"`
+		Framerate        int      `ini:"Framerate"`
+		Language         string   `ini:"Language"`
+		AfterImageMax    int32    `ini:"AfterImageMax"`
+		ExplodMax        int      `ini:"ExplodMax"`
+		HelperMax        int32    `ini:"HelperMax"`
+		ProjectileMax    int      `ini:"ProjectileMax"`
+		PaletteMax       int      `ini:"PaletteMax"`
+		ZoomActive       bool     `ini:"ZoomActive"`
+		EscOpensMenu     bool     `ini:"EscOpensMenu"`
+		FirstRun         bool     `ini:"FirstRun"`
+		WindowTitle      string   `ini:"WindowTitle"`
+		WindowIcon       []string `ini:"WindowIcon"`
+		System           string   `ini:"System"`
+		ScreenshotFolder string   `ini:"ScreenshotFolder"`
+		TrainingChar     string   `ini:"TrainingChar"`
+		GamepadMappings  string   `ini:"GamepadMappings"`
 	} `ini:"Config"`
 	Debug struct {
 		AllowDebugMode      bool    `ini:"AllowDebugMode"`

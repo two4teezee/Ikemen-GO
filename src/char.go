@@ -2447,10 +2447,10 @@ const (
 )
 
 type PalInfo struct {
-    keyMap     int32
-    filename   string
-    exists     bool
-    selectable bool
+	keyMap     int32
+	filename   string
+	exists     bool
+	selectable bool
 }
 
 type CharGlobalInfo struct {
@@ -2465,7 +2465,7 @@ type CharGlobalInfo struct {
 	palettedata             *Palette
 	snd                     *Snd
 	anim                    AnimationTable
-	palInfo 				map[int]PalInfo
+	palInfo                 map[int]PalInfo
 	palno                   int32
 	ikemenver               [3]uint16
 	ikemenverF              float32

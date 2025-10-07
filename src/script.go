@@ -2343,7 +2343,7 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("%v\nInvalid team side: %v\n", sys.sel.GetChar(cn).def, tn)
 		}
 		pl := int(numArg(l, 3))
-		if pl < 1 || pl > 12 {
+		if pl < 1 || pl > sys.cfg.Config.PaletteMax {
 			l.RaiseError("%v\nInvalid palette: %v\n", sys.sel.GetChar(cn).def, pl)
 		}
 		var ret int

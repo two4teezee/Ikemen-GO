@@ -1268,7 +1268,7 @@ type Palette struct {
 func newSff() (s *Sff) {
 	s = &Sff{sprites: make(map[[2]int16]*Sprite)}
 	s.palList.init()
-	for i := int16(1); i <= int16(MaxPalNo); i++ {
+	for i := int16(1); i <= int16(sys.cfg.Config.PaletteMax); i++ {
 		s.palList.PalTable[[...]int16{1, i}], _ = s.palList.NewPal()
 	}
 	return
@@ -1277,7 +1277,7 @@ func newSff() (s *Sff) {
 func newPaldata() (p *Palette) {
 	p = &Palette{}
 	p.palList.init()
-	for i := int16(1); i <= int16(MaxPalNo); i++ {
+	for i := int16(1); i <= int16(sys.cfg.Config.PaletteMax); i++ {
 		p.palList.PalTable[[...]int16{1, i}], _ = p.palList.NewPal()
 	}
 	return
@@ -1369,13 +1369,13 @@ func loadSff(filename string, char bool) (*Sff, error) {
 			s.palList.SetSource(i, pal)
 			s.palList.PalTable[[...]int16{gn_[0], gn_[1]}] = idx
 			s.palList.numcols[[...]int16{gn_[0], gn_[1]}] = int(gn_[2])
-			if i <= MaxPalNo &&
+			if i <= sys.cfg.Config.PaletteMax &&
 				s.palList.PalTable[[...]int16{1, int16(i + 1)}] == s.palList.PalTable[[...]int16{gn_[0], gn_[1]}] &&
 				gn_[0] != 1 && gn_[1] != int16(i+1) {
 				s.palList.PalTable[[...]int16{1, int16(i + 1)}] = -1
 			}
-			if i <= MaxPalNo && i+1 == int(s.header.NumberOfPalettes) {
-				for j := i + 1; j < MaxPalNo; j++ {
+			if i <= sys.cfg.Config.PaletteMax && i+1 == int(s.header.NumberOfPalettes) {
+				for j := i + 1; j < sys.cfg.Config.PaletteMax; j++ {
 					delete(s.palList.PalTable, [...]int16{1, int16(j + 1)}) // Remove extra palette
 				}
 			}
@@ -1518,13 +1518,13 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 				sff.palList.SetSource(int(gn_[1])-1, pal)
 				sff.palList.PalTable[[...]int16{gn_[0], gn_[1]}] = int(gn_[1])
 				sff.palList.numcols[[...]int16{gn_[0], gn_[1]}] = int(gn_[2])
-				if i <= MaxPalNo &&
+				if i <= sys.cfg.Config.PaletteMax &&
 					sff.palList.PalTable[[...]int16{1, int16(i + 1)}] == sff.palList.PalTable[[...]int16{gn_[0], gn_[1]}] &&
 					gn_[0] != 1 && gn_[1] != int16(i+1) {
 					sff.palList.PalTable[[...]int16{1, int16(i + 1)}] = -1
 				}
-				if i <= MaxPalNo && i+1 == int(h.NumberOfPalettes) {
-					for j := i + 1; j < MaxPalNo; j++ {
+				if i <= sys.cfg.Config.PaletteMax && i+1 == int(h.NumberOfPalettes) {
+					for j := i + 1; j < sys.cfg.Config.PaletteMax; j++ {
 						delete(sff.palList.PalTable, [...]int16{1, int16(j + 1)}) // Remove extra palette
 					}
 				}
@@ -1787,21 +1787,20 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	var preSelPal []int32
 	var selPal []int32
 	if h.Ver0 != 1 && char {
-		//for i := 0; i < MaxPalNo; i++ {
 		for i := 0; i < int(h.NumberOfPalettes); i++ {
 			f.Seek(int64(h.FirstPaletteHeaderOffset)+int64(i*16), 0)
 			var gn_ [3]int16
 			if err := read(gn_[:]); err != nil {
 				return nil, nil, err
 			}
-			if gn_[0] == 1 && gn_[1] >= 1 && gn_[1] <= MaxPalNo {
+			if gn_[0] == 1 && gn_[1] >= 1 && gn_[1] <= int16(sys.cfg.Config.PaletteMax) {
 				preSelPal = append(preSelPal, int32(gn_[1]))
 			}
-			if len(preSelPal) >= MaxPalNo {
+			if len(preSelPal) >= sys.cfg.Config.PaletteMax {
 				break
 			}
 		}
-		for i := 0; i < MaxPalNo+1; i++ {
+		for i := 0; i <= sys.cfg.Config.PaletteMax; i++ {
 			for k := 0; k < len(preSelPal); k++ {
 				if preSelPal[k] == int32(i) {
 					selPal = append(selPal, int32(i))

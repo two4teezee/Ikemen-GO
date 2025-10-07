@@ -1469,7 +1469,7 @@ local motif =
 		--menu_itemname_debugkeys = 'Debug Keys', --Ikemen feature
 		--menu_itemname_debugmode = 'Debug Mode', --Ikemen feature
 		--menu_itemname_helpermax = 'HelperMax', --Ikemen feature
-		--menu_itemname_projectilemax = 'PlayerProjectileMax', --Ikemen feature
+		--menu_itemname_projectilemax = 'ProjectileMax', --Ikemen feature
 		--menu_itemname_explodmax = 'ExplodMax', --Ikemen feature
 		--menu_itemname_afterimagemax = 'AfterImageMax', --Ikemen feature
 		--menu_itemname_portchange = 'Port Change', --Ikemen feature
@@ -2384,9 +2384,10 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuengine_debugmode = "Debug Mode"
 	motif.option_info.menu_itemname_menuengine_empty = ""
 	motif.option_info.menu_itemname_menuengine_helpermax = "HelperMax"
-	motif.option_info.menu_itemname_menuengine_projectilemax = "PlayerProjectileMax"
+	motif.option_info.menu_itemname_menuengine_projectilemax = "ProjectileMax"
 	motif.option_info.menu_itemname_menuengine_explodmax = "ExplodMax"
 	motif.option_info.menu_itemname_menuengine_afterimagemax = "AfterImageMax"
+	motif.option_info.menu_itemname_menuengine_palettemax = "PaletteMax"
 	motif.option_info.menu_itemname_menuengine_empty = ""
 	motif.option_info.menu_itemname_menuengine_back = "Back"
 
@@ -2517,6 +2518,7 @@ function motif.setBaseOptionInfo()
 		"menuengine_projectilemax",
 		"menuengine_explodmax",
 		"menuengine_afterimagemax",
+		"menuengine_palettemax",
 		"menuengine_empty",
 		"menuengine_back",
 		"empty",

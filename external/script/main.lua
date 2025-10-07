@@ -3873,14 +3873,14 @@ end
 
 --calculate menu.tween and boxcursor.tween
 local function f_tweenStep(val, target, factor)
-    if not factor or factor <= 0 then
-        return target
-    end
-    local newVal = val + (target - val) * math.min(factor, 1)
-    if math.abs(newVal - target) < 1 then
-        return target
-    end
-    return newVal
+	if not factor or factor <= 0 then
+		return target
+	end
+	local newVal = val + (target - val) * math.min(factor, 1)
+	if math.abs(newVal - target) < 1 then
+		return target
+	end
+	return newVal
 end
 
 --common menu calculations

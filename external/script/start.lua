@@ -3141,7 +3141,15 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			end
 		--confirm selection
 		elseif selectState == 3 then
-			local finalPal = (motif.select_info.paletteselect == 1) and start.p[side].t_selTemp[member].pal or start.f_selectPal(start.c[player].selRef, start.p[side].t_selTemp[member].pal)
+			local valid = {1,2,3}
+			local finalPal
+			for _, v in ipairs(valid) do
+				if motif.select_info.paletteselect == v then
+					finalPal = start.p[side].t_selTemp[member].pal
+					break
+				end
+			end
+			finalPal = finalPal or start.f_selectPal(start.c[player].selRef, start.p[side].t_selTemp[member].pal)
 			start.p[side].t_selected[member] = {
 				ref = start.c[player].selRef,
 				pal = finalPal,
@@ -4878,8 +4886,8 @@ function start.f_dialogue()
 			motif.dialogue_info['p' .. side .. '_face_facing'],
 			motif.dialogue_info['p' .. side .. '_face_window'][1],
 			motif.dialogue_info['p' .. side .. '_face_window'][2],
-			motif.dialogue_info['p' .. side .. '_face_window'][3] * gameOption('Video.GameWidth') / motifLocalcoord(0),
-			motif.dialogue_info['p' .. side .. '_face_window'][4] * gameOption('Video.GameHeight') / motifLocalcoord(1)
+			motif.dialogue_info['p' .. side .. '_face_window'][3] * gameOption('Video.GameWidth') / main.SP_Localcoord[1],
+			motif.dialogue_info['p' .. side .. '_face_window'][4] * gameOption('Video.GameHeight') / main.SP_Localcoord[2]
 		)
 		--draw names
 		start['txt_dialogue_p' .. side .. '_name']:draw()

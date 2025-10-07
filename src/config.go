@@ -128,7 +128,8 @@ type Config struct {
 		AfterImageMax       int32    `ini:"AfterImageMax"`
 		ExplodMax           int      `ini:"ExplodMax"`
 		HelperMax           int32    `ini:"HelperMax"`
-		PlayerProjectileMax int      `ini:"PlayerProjectileMax"`
+		ProjectileMax 		int      `ini:"ProjectileMax"`
+		PaletteMax          int      `ini:"PaletteMax"`
 		ZoomActive          bool     `ini:"ZoomActive"`
 		EscOpensMenu        bool     `ini:"EscOpensMenu"`
 		FirstRun            bool     `ini:"FirstRun"`

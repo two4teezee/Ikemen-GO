@@ -5892,7 +5892,7 @@ func (c *Compiler) paramSaveData(is IniSection, sc *StateControllerBase, id byte
 
 // Parse trans and alpha together
 func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
-	prefix string, id byte, afterImage bool) error {
+	prefix string, id byte, cnsParam bool) error {
 
 	return c.stateParam(is, prefix+"trans", false, func(data string) error {
 		if len(data) == 0 {
@@ -5925,8 +5925,8 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 			tt = TT_sub
 			defsrc, defdst = 255, 255
 		default:
-			// In Mugen, afterimages ignore invalid parameter names
-			if !afterImage || c.zssMode || !sys.ignoreMostErrors {
+			// In Mugen, cns ignore invalid parameter names
+			if !cnsParam || c.zssMode || !sys.ignoreMostErrors {
 				return Error("Invalid trans type: " + data)
 			} else {
 				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Invalid trans type: "+data+" in state %v ", c.stateNo))

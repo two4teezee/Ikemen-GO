@@ -1253,7 +1253,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	if sectionExists {
 		sectionExists = false
-		s.bgmusic = sec[0]["bgmusic"]
+		s.bgmusic = decodeShiftJIS(sec[0]["bgmusic"])
 		sec[0].ReadI32("bgmvolume", &s.bgmvolume)
 		sec[0].ReadI32("bgmloopstart", &s.bgmloopstart)
 		sec[0].ReadI32("bgmloopend", &s.bgmloopend)

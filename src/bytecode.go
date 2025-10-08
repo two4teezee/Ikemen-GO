@@ -12870,6 +12870,7 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 				crun.unsetSCF(SCF_ctrl)
 			} else {
 				crun.unsetSCF(SCF_ko)
+				crun.unsetSCF(SCF_over_alive | SCF_over_ko)
 			}
 		case modifyPlayer_ailevel:
 			crun.setAILevel(exp[0].evalF(c))

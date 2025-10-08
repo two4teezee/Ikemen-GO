@@ -1426,6 +1426,19 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			continue
 		}
 
+		// Use custom or stage reflection intensity
+		var ref int32
+		if s.reflectIntensity != -1 {
+			ref = s.reflectIntensity
+		} else {
+			ref = sys.stage.reflection.intensity
+		}
+
+		// Skip if no intensity
+		if ref <= 0 {
+			continue
+		}
+
 		// Backup animation transparency to temporarily change it
 		oldTransType := s.anim.transType
 		oldSrcAlpha := s.anim.srcAlpha
@@ -1447,19 +1460,11 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			s.anim.transType = TT_add
 		}
 
-		// Apply reflection intensity
-		var ref int32
-		if s.reflectIntensity != -1 {
-			ref = s.reflectIntensity
-		} else {
-			ref = sys.stage.reflection.intensity
-		}
-
 		// Scale intensity by linear interpolation
-		s.anim.srcAlpha = int16(int32(s.alpha[0]) * ref / 255)
-		s.anim.dstAlpha = int16(255 - (int32(255-s.alpha[1]) * ref / 255))
+		s.anim.srcAlpha = int16(int32(s.anim.srcAlpha) * ref / 255)
+		s.anim.dstAlpha = int16(255 - (int32(255-s.anim.dstAlpha) * ref / 255))
 
-		// Set the tint if it's there
+		// Use custom or stage reflection color
 		var color uint32
 		if s.reflectColor < 0 {
 			color = sys.stage.reflection.color
@@ -1468,6 +1473,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// Add alpha if color is specified
+		// TODO: This method makes sprites with transparency have reflections that are too bright
 		if color != 0 {
 			color |= uint32(ref << 24)
 		}

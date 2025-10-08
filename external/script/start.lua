@@ -1184,6 +1184,14 @@ function start.f_drawCursor(pn, x, y, param, done)
 	else
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
 	end
+
+	if motif.select_info['p' .. pn .. '_cursor_tween_wrap_snap'] == 1 then
+		local dx = cd.targetPos[1] - cd.startPos[1]
+		local dy = cd.targetPos[2] - cd.startPos[2]
+		if math.abs(dx) > motif.select_info.cell_size[1] * (motif.select_info.columns - 1) or math.abs(dy) > motif.select_info.cell_size[2] * (motif.select_info.rows - 1) then
+		cd.slideOffset[1], cd.slideOffset[2] = 0, 0	
+		end
+	end
 	-- update final cursor position
 	cd.currentPos[1] = cd.targetPos[1] + cd.slideOffset[1]
 	cd.currentPos[2] = cd.targetPos[2] + cd.slideOffset[2]
@@ -2270,13 +2278,10 @@ function start.f_selectScreen()
 			end
 		end
 		--draw cell art
-
-
-
-    if start.needUpdateDrawList then
-        staticDrawList = start.updateDrawList()
-        start.needUpdateDrawList = false 
-    end
+		if start.needUpdateDrawList then
+			staticDrawList = start.updateDrawList()
+			start.needUpdateDrawList = false 
+		end
 	batchDraw(staticDrawList)
 		--draw done cursors
 		for side = 1, 2 do
@@ -2321,6 +2326,10 @@ function start.f_selectScreen()
 					if start.needUpdateDrawList == false then
 						start.needUpdateDrawList= DrawUpdateflag
 					end
+					--palmenu
+					if v.selectState == 0 and not main.f_input(main.t_players, {'m'}) then
+						start.p[side].inPalMenu = false
+					end
 					--draw active cursor
 					if side == 2 and motif.select_info.p2_cursor_blink == 1 then
 						local sameCell = false
@@ -2350,11 +2359,15 @@ function start.f_selectScreen()
 					start.p[side].screenDelay = start.p[side].screenDelay - 1
 				end
 			end
-		end
-		--exit select screen
-		if not escFlag and (esc() or main.f_input(main.t_players, {'m'})) then
-			main.f_fadeReset('fadeout', motif.select_info)
-			escFlag = true
+			--exit select screen
+			for side = 1, 2 do
+				for _, v in ipairs(start.p[side].t_selCmd) do
+					if not escFlag and (esc() or (main.f_input({v.cmd}, {'m'}) and not start.p[side].inPalMenu)) then
+						main.f_fadeReset('fadeout', motif.select_info)
+						escFlag = true
+					end
+				end
+			end
 		end
 		--draw names
 		for side = 1, 2 do
@@ -2823,6 +2836,7 @@ function start.f_palMenuDraw(side, member)
 	-- bg
 	main.f_animPosDraw(motif.select_info['p' .. side .. '_palmenu_bg_data'])
 	-- draw number
+	local palMenuPos = getInfo('palmenu_pos')
 	local numFontInfo = getInfo('palmenu_number_font')
 	local numOffset = getInfo('palmenu_number_offset')
 	local numScale = getInfo('palmenu_number_scale')
@@ -2832,8 +2846,8 @@ function start.f_palMenuDraw(side, member)
 			bank   = numFontInfo[2],
 			align  = numFontInfo[3],
 			text   = displayText,
-			x      = numOffset[1],
-			y      = numOffset[2],
+			x      = palMenuPos[1] + numOffset[1],
+			y      = palMenuPos[2] + numOffset[2],
 			scaleX = numScale[1],
 			scaleY = numScale[2],
 			r      = numFontInfo[4],
@@ -2845,7 +2859,7 @@ function start.f_palMenuDraw(side, member)
 		}):draw()
 	end
 
-	-- draw text
+	-- desenha text
 	local textFontInfo = getInfo('palmenu_text_font')
 	local textOffset = getInfo('palmenu_text_offset')
 	local textScale = getInfo('palmenu_text_scale')
@@ -2855,8 +2869,8 @@ function start.f_palMenuDraw(side, member)
 			bank   = textFontInfo[2],
 			align  = textFontInfo[3],
 			text   = motif.select_info['p' .. side .. '_palmenu_text_text'] or "",
-			x      = textOffset[1],
-			y      = textOffset[2],
+			x      = palMenuPos[1] + textOffset[1],
+			y      = palMenuPos[2] + textOffset[2],
 			scaleX = textScale[1],
 			scaleY = textScale[2],
 			r      = textFontInfo[4],
@@ -2897,6 +2911,15 @@ local function resolvePalConflict(side, charRef, pal)
 		pal = (pal % total) + 1
 	end
     return pal
+end
+
+local function applyPalette(sel, charData, palIndex)
+    if sel.anim_data then
+        sel.anim_data = changeColorPalette(sel.anim_data, charData.pal[palIndex])
+    end
+    if sel.face2_data then
+        sel.face2_data = changeColorPalette(sel.face2_data, charData.pal[palIndex])
+    end
 end
 
 --;===========================================================
@@ -3065,26 +3088,12 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				local totalPals = #charData.pal
 				local maxIndex = totalPals + 1
 				local pal = start.p[side].t_selTemp[member].pal
-
-				local function applyPalette(palIndex)
-					local sel = start.p[side].t_selTemp[member]
-					if sel.anim_data then
-						sel.anim_data = changeColorPalette(sel.anim_data, charData.pal[palIndex])
-					end
-					if sel.face2_data then
-						sel.face2_data = changeColorPalette(sel.face2_data, charData.pal[palIndex])
-					end
-				end
-
+				start.p[side].inPalMenu = true
 				if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_accept_key'])) then
 					if pal == maxIndex then
 						pal = start.c[player].randPalPreview or start.f_randomPal(charRef)
 					end
-
-					pal = resolvePalConflict(side, charRef, pal)
 					start.p[side].t_selTemp[member].pal = pal
-
-					applyPalette(pal)
 					selectState = 3
 
 					sndPlay(motif.files.snd_data, motif.select_info.palmenu_done_snd[1], motif.select_info.palmenu_done_snd[2])
@@ -3094,7 +3103,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].pal = pal
 
 					if pal <= totalPals then
-						applyPalette(pal)
+						applyPalette(start.p[side].t_selTemp[member], charData, pal)
 					end
 
 					sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
@@ -3104,7 +3113,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].pal = pal
 
 					if pal <= totalPals then
-						applyPalette(pal)
+						applyPalette(start.p[side].t_selTemp[member], charData, pal)
 					end
 
 					sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
@@ -3129,7 +3138,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
              			start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
                 		start.c[player].randPalPreview = start.f_randomPal(charRef)
 
-						applyPalette(start.c[player].randPalPreview)
+						applyPalette(start.p[side].t_selTemp[member], charData, start.c[player].randPalPreview)
 						sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
 					else
 						start.c[player].randPalCnt = start.c[player].randPalCnt - 1
@@ -3150,6 +3159,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				end
 			end
 			finalPal = finalPal or start.f_selectPal(start.c[player].selRef, start.p[side].t_selTemp[member].pal)
+			finalPal = resolvePalConflict(side, start.c[player].selRef, finalPal)
+			applyPalette(start.p[side].t_selTemp[member], start.f_getCharData(start.c[player].selRef), finalPal)
 			start.p[side].t_selected[member] = {
 				ref = start.c[player].selRef,
 				pal = finalPal,

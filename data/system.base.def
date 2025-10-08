@@ -193,7 +193,8 @@
 
 	; Enables Mugen menu tween (if > 0.0) and allows adjusting its factor
 	menu.tween.factor = 0.3
-
+	; Snaps menu when wrapping
+	menu.tween.wrap.snap = 0
 	; Title text rendered in main menu
 	title.offset = 159, 19
 	title.font = -1, 0, 0, 255, 255, 255, -1
@@ -307,7 +308,8 @@
 	menu.boxcursor.tween.snap = 0
 	; Enables boxcursor tween (if > 0.0) and allows adjusting its factor
 	menu.boxcursor.tween.factor = 0.3
-
+	; Snaps boxcursor when the menu is wrapping
+	menu.boxcursor.tween.snap = 0
 	; boxbg is an automatically generated overlay around itemnames, based on
 	; values assigned to menu.pos and menu.boxcursor.coords parameters.
 	menu.boxbg.visible = 0
@@ -622,11 +624,13 @@
 	p2.cursor.switchtime = 3
 
 	; Enables the Mugen 1.1 cursor tween (if > 0) and allows adjusting its x and y tween factors
-	p1.cursor.tween.factor = 0.0, 0.0
+	p1.cursor.tween.factor = 0.5, 0.5
+	; Snaps the cursor when wrapping
+	p1.cursor.tween.wrap.snap = 0
 	; Resets cursor animation when moving to a new cell
 	p1.cursor.reset = 0
 
-	p2.cursor.tween.factor = 0.0, 0.0
+	p2.cursor.tween.factor = 0.5, 0.5
 	p2.cursor.reset = 0
 
 	; cursor parameters defaults to p1 and p2 values, if not specified
@@ -968,32 +972,32 @@
 	;p<pn>.member<num>.palmenu.text.offset = 0, 0
 	;p<pn>.member<num>.palmenu.text.font = -1, 0, 0
 	;p<pn>.member<num>.palmenu.text.scale = 1.0, 1.0
-	;p<pn>.member<num>_palmenu.text.xshear = 1.0
-	;p<pn>.member<num>_palmenu.text.angle = 1
+	;p<pn>.member<num>.palmenu.text.xshear = 1.0
+	;p<pn>.member<num>.palmenu.text.angle = 1
 	;p<pn>.palmenu.text.offset = 0, 0
 	;p<pn>.palmenu.text.font = -1, 0, 0
 	;p<pn>.palmenu.text.scale = 1.0, 1.0
 	;p<pn>.palmenu.text.xshear = 1.0
 	;p<pn>.palmenu.text.angle = 1
 	;p<pn>.palmenu.text.text = ""
-	p1.palmenu.bg.pos = 0, 0
+	p1.palmenu.pos = 0, 0
 	p1.palmenu.bg.anim = -1
 	p1.palmenu.bg.spr =
 	p1.palmenu.bg.offset = 0, 0
 	p1.palmenu.bg.facing = 1
 	p1.palmenu.bg.scale = 1.0, 1.0
-	p2.palmenu.bg.pos = 0, 0
-	p2.palmenu.bg.anim = -1
-	p2.palmenu.bg.spr = 
-	p2.palmenu.bg_offset = 0, 0
-	p2.palmenu.bg_facing = 1
-	p2.palmenu.bg_scale = 1.0, 1.0
 	p1.palmenu.next.key = "$F"
 	p1.palmenu.previous.key = "$B"
 	p1.palmenu.accept.key = "a&b&c"
 	p1.palmenu.cancel.key = "x&y&z"
 	p1.palmenu.random.key = "s"
 	p1.palmenu.random.text = "Random"
+	p2.palmenu.pos = 0, 0
+	p2.palmenu.bg.anim = -1
+	p2.palmenu.bg.spr = 
+	p2.palmenu.bg.offset = 0, 0
+	p2.palmenu.bg.facing = 1
+	p2.palmenu.bg.scale = 1.0, 1.0
 	p2.palmenu.next.key = "$F"
 	p2.palmenu.previous.key = "$B"
 	p2.palmenu.accept.key = "a&b&c"
@@ -1618,6 +1622,7 @@
 	menu.pos = 85, 33
 
 	menu.tween.factor = 0.3
+	menu.tween.wrap.snap = 0
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -1703,6 +1708,7 @@
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
 	menu.boxcursor.tween.factor = 0.3
+	menu.boxcursor.tween.wrap.snap = 0
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -1963,6 +1969,7 @@
 	menu.pos = 85, 33
 
 	menu.tween.factor = 0.3
+	menu.tween.wrap.snap = 0
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2009,6 +2016,7 @@
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
 	menu.boxcursor.tween.factor = 0.3
+	menu.boxcursor.tween.wrap.snap = 0
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2062,6 +2070,7 @@
 	menu.pos = 85, 33
 
 	menu.tween.factor = 0.3
+	menu.tween.wrap.snap = 0
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 
@@ -2132,6 +2141,7 @@
 	menu.boxcursor.alpharange = 10, 40, 2, 255, 255, 0
 	menu.boxcursor.tween.snap = 0
 	menu.boxcursor.tween.factor = 0.3
+	menu.boxcursor.tween.wrap.snap = 0
 
 	menu.boxbg.visible = 1
 	menu.boxbg.col = 0, 0, 0
@@ -2350,6 +2360,7 @@
 	menu.pos = 159, 158
 
 	menu.tween.factor = 0.3
+	menu.tween.wrap.snap = 0
 
 	;menu.bg.<itemname>.anim = -1
 	;menu.bg.<itemname>.spr = 

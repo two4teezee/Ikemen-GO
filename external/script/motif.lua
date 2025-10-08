@@ -166,6 +166,7 @@ local motif =
 		menu_hiscore_key = 's', --Ikemen feature
 		menu_pos = {159, 158},
 		menu_tween_factor = 0.3, --Ikemen feature
+		menu_tween_wrap_snap = 0 --Ikemen feature
 		--menu_bg_<itemname>_anim = -1, --Ikemen feature
 		--menu_bg_<itemname>_spr = {}, --Ikemen feature
 		--menu_bg_<itemname>_offset = {0, 0}, --Ikemen feature
@@ -200,6 +201,7 @@ local motif =
 		menu_boxcursor_visible = 1,
 		menu_boxcursor_tween_snap = 0, --Ikemen feature
 		menu_boxcursor_tween_factor = 0.3, --Ikemen feature
+		menu_boxcursor_tween_wrap_snap = 0 --Ikemen feature
 		menu_boxcursor_coords = {-40, -10, 39, 2},
 		menu_boxcursor_col = {255, 255, 255}, --Ikemen feature
 		menu_boxcursor_alpharange = {10, 40, 2, 255, 255, 0}, --Ikemen feature
@@ -305,7 +307,8 @@ local motif =
 		--cell_<col>_<row>_offset = {0, 0}, --Ikemen feature
 		--cell_<col>_<row>_facing = 1, --Ikemen feature
 		--cell_<col>_<row>_skip = 0, --Ikemen feature
-		p1_cursor_tween_factor = {0.3, 0.3}, --Ikemen feature
+		p1_cursor_tween_factor = {0.5, 0.5}, --Ikemen feature
+		p1_cursor_tween_wrap_snap = 0, --Ikemen feature
 		p1_cursor_startcell = {0, 0},
 		p1_cursor_active_anim = -1,
 		p1_cursor_active_spr = {},
@@ -321,7 +324,8 @@ local motif =
 		p1_cursor_done_snd = {100, 1},
 		p1_cursor_reset = 0, --Ikemen feature
 		p1_random_move_snd = {100, 0},
-		p2_cursor_tween_factor = {0.3, 0.3}, --Ikemen feature
+		p2_cursor_tween_factor = {0.5, 0.5}, --Ikemen feature
+		p2_cursor_tween_wrap_snap = 0 --Ikemen feature
 		p2_cursor_startcell = {0, 4},
 		p2_cursor_active_anim = -1,
 		p2_cursor_active_spr = {},
@@ -754,19 +758,12 @@ local motif =
 		--p<pn>_palmenu_text_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_palmenu_text_xshear = 1.0, --Ikemen feature
 		--p<pn>_palmenu_text_angle = 1, --Ikemen feature
-		--p<pn>_palmenu_text_text = '' --Ikemen feature
-		p1_palmenu_bg_pos = {0, 0}, --Ikemen feature
+		p1_palmenu_pos = {0, 0}, --Ikemen feature
 		p1_palmenu_bg_anim = -1, --Ikemen feature
 		p1_palmenu_bg_spr = {}, --Ikemen feature
 		p1_palmenu_bg_offset = {0, 0}, --Ikemen feature
 		p1_palmenu_bg_facing = 1, --Ikemen feature
 		p1_palmenu_bg_scale = {1.0, 1.0}, --Ikemen feature
-		p2_palmenu_bg_pos = {0, 0}, --Ikemen feature
-		p2_palmenu_bg_anim = -1, --Ikemen feature
-		p2_palmenu_bg_spr = {}, --Ikemen feature
-		p2_palmenu_bg_offset = {0, 0}, --Ikemen feature
-		p2_palmenu_bg_facing = 1, --Ikemen feature
-		p2_palmenu_bg_scale = {1.0, 1.0}, --Ikemen feature
 		p1_palmenu_next_key = '$F', --Ikemen feature
 		p1_palmenu_previous_key = '$B', --Ikemen feature
 		p1_palmenu_accept_key = 'a&b&c', --Ikemen feature
@@ -779,6 +776,12 @@ local motif =
 		p2_palmenu_cancel_key = 'x&y&z', --Ikemen feature
 		p2_palmenu_random_key = 's', --Ikemen feature
 		p2_palmenu_random_text = 'Random', --Ikemen feature
+		p2_palmenu_pos = {0, 0}, --Ikemen feature
+		p2_palmenu_bg_anim = -1, --Ikemen feature
+		p2_palmenu_bg_spr = {}, --Ikemen feature
+		p2_palmenu_bg_offset = {0, 0}, --Ikemen feature
+		p2_palmenu_bg_facing = 1, --Ikemen feature
+		p2_palmenu_bg_scale = {1.0, 1.0}, --Ikemen feature
 		palmenu_move_snd = {-1, 0}, --Ikemen feature
 		palmenu_done_snd = {-1, 0}, --Ikemen feature
 		palmenu_cancel_snd = {-1, 0}, --Ikemen feature
@@ -1247,6 +1250,7 @@ local motif =
 		menu_uselocalcoord = 0, --Ikemen feature
 		menu_pos = {85, 33}, --Ikemen feature
 		menu_tween_factor = 0.3, --Ikemen feature
+		menu_tween_wrap_snap = 0 --Ikemen feature
 		--menu_bg_<itemname>_anim = -1, --Ikemen feature
 		--menu_bg_<itemname>_spr = {}, --Ikemen feature
 		--menu_bg_<itemname>_offset = {0, 0}, --Ikemen feature
@@ -1316,6 +1320,7 @@ local motif =
 		menu_boxcursor_visible = 1, --Ikemen feature
 		menu_boxcursor_tween_snap = 0, --Ikemen feature
 		menu_boxcursor_tween_factor = 0.3, --Ikemen feature
+		menu_boxcursor_tween_wrap_snap = 0 --Ikemen feature
 		menu_boxcursor_coords = {-5, -10, 154, 3}, --Ikemen feature
 		menu_boxcursor_col = {255, 255, 255}, --Ikemen feature
 		menu_boxcursor_alpharange = {10, 40, 2, 255, 255, 0}, --Ikemen feature
@@ -1503,6 +1508,7 @@ local motif =
 		menu_uselocalcoord = 0, --Ikemen feature
 		menu_pos = {85, 33}, --Ikemen feature
 		menu_tween_factor = 0.3, --Ikemen feature
+		menu_tween_wrap_snap = 0 --Ikemen feature
 		--menu_bg_<itemname>_anim = -1, --Ikemen feature
 		--menu_bg_<itemname>_spr = {}, --Ikemen feature
 		--menu_bg_<itemname>_offset = {0, 0}, --Ikemen feature
@@ -1537,6 +1543,7 @@ local motif =
 		menu_boxcursor_visible = 1, --Ikemen feature
 		menu_boxcursor_tween_snap = 0, --Ikemen feature
 		menu_boxcursor_tween_factor = 0.3, --Ikemen feature
+		menu_boxcursor_tween_wrap_snap = 0 --Ikemen feature
 		menu_boxcursor_coords = {-5, -10, 154, 3}, --Ikemen feature
 		menu_boxcursor_col = {255, 255, 255}, --Ikemen feature
 		menu_boxcursor_alpharange = {10, 40, 2, 255, 255, 0}, --Ikemen feature
@@ -1581,6 +1588,7 @@ local motif =
 		menu_uselocalcoord = 0, --Ikemen feature
 		menu_pos = {85, 33}, --Ikemen feature
 		menu_tween_factor = 0.3, --Ikemen feature
+		menu_tween_wrap_snap = 0 --Ikemen feature
 		--menu_bg_<itemname>_anim = -1, --Ikemen feature
 		--menu_bg_<itemname>_spr = {}, --Ikemen feature
 		--menu_bg_<itemname>_offset = {0, 0}, --Ikemen feature
@@ -1635,6 +1643,7 @@ local motif =
 		menu_boxcursor_visible = 1, --Ikemen feature
 		menu_boxcursor_tween_snap = 0, --Ikemen feature
 		menu_boxcursor_tween_factor = 0.3, --Ikemen feature
+		menu_boxcursor_tween_wrap_snap = 0 --Ikemen feature
 		menu_boxcursor_coords = {-5, -10, 154, 3}, --Ikemen feature
 		menu_boxcursor_col = {255, 255, 255}, --Ikemen feature
 		menu_boxcursor_alpharange = {10, 40, 2, 255, 255, 0}, --Ikemen feature
@@ -1819,6 +1828,7 @@ local motif =
 		menu_accept_key = 'a&b&c&x&y&z&s', --Ikemen feature
 		menu_pos = {159, 158}, --Ikemen feature
 		menu_tween_factor = 0.3, --Ikemen feature
+		menu_tween_tween_wrap_snap = 0 --Ikemen feature
 		--menu_bg_<itemname>_anim = -1, --Ikemen feature
 		--menu_bg_<itemname>_spr = {}, --Ikemen feature
 		--menu_bg_<itemname>_offset = {0, 0}, --Ikemen feature
@@ -1853,6 +1863,7 @@ local motif =
 		menu_boxcursor_visible = 1, --Ikemen feature
 		menu_boxcursor_tween_snap = 0, --Ikemen feature
 		menu_boxcursor_tween_factor = 0.3, --Ikemen feature
+		menu_boxcursor_tween_wrap_snap = 0 --Ikemen feature
 		menu_boxcursor_coords = {-40, -10, 39, 2},
 		menu_boxcursor_col = {255, 255, 255}, --Ikemen feature
 		menu_boxcursor_alpharange = {10, 40, 2, 255, 255, 0}, --Ikemen feature
@@ -3074,7 +3085,7 @@ for _, v in ipairs({
 	{s = 'p1_teammenu_ratio5_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_teammenu_ratio6_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_teammenu_ratio7_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
-	{s = 'p1_palmenu_bg_',                x = t_pos.p1_palmenu_bg_pos[1],                                  y = t_pos.p1_palmenu_bg_pos[2]},
+	{s = 'p1_palmenu_bg_',                x = t_pos.p1_palmenu_pos[1],                                     y = t_pos.p1_palmenu_pos[2]},
 	{s = 'p2_teammenu_bg_',               x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_selftitle_',        x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_enemytitle_',       x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
@@ -3088,7 +3099,7 @@ for _, v in ipairs({
 	{s = 'p2_teammenu_ratio5_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
 	{s = 'p2_teammenu_ratio6_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
 	{s = 'p2_teammenu_ratio7_icon_',      x = t_pos.p2_teammenu_pos[1] + t_pos.p2_teammenu_item_offset[1], y = t_pos.p2_teammenu_pos[2] + t_pos.p2_teammenu_item_offset[2]},
-	{s = 'p2_palmenu_bg_',                x = t_pos.p2_palmenu_bg_pos[1],                                  y = t_pos.p2_palmenu_bg_pos[2]},
+	{s = 'p2_palmenu_bg_',                x = t_pos.p2_palmenu_pos[1],                                     y = t_pos.p2_palmenu_pos[2]},
 	{s = 'stage_portrait_random_',        x = t_pos.stage_pos[1],                                          y = t_pos.stage_pos[2]},
 	{s = 'stage_portrait_bg_',            x = t_pos.stage_pos[1],                                          y = t_pos.stage_pos[2]},
 }) do

@@ -1032,7 +1032,6 @@ type aimgImage struct {
 	rot        Rotation
 	projection int32
 	fLength    float32
-	oldVer     bool
 }
 
 type AfterImage struct {
@@ -1056,15 +1055,20 @@ type AfterImage struct {
 }
 
 func newAfterImage() *AfterImage {
+	maxFrames := Max(0, sys.cfg.Config.AfterImageMax)
+
 	ai := &AfterImage{
-		palfx: make([]*PalFX, sys.cfg.Config.AfterImageMax),
+		palfx: make([]*PalFX, maxFrames),
 	}
+
 	for i := range ai.palfx {
 		ai.palfx[i] = newPalFX()
 		ai.palfx[i].enable = true
-		ai.palfx[i].negType = true
+		ai.palfx[i].allowNeg = true
 	}
+
 	ai.clear()
+
 	return ai
 }
 
@@ -1190,13 +1194,13 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 				img.anim.spr = newSprite()
 				*img.anim.spr = *sd.anim.spr
 				if sd.anim.palettedata != nil {
-					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
-					sd.anim.palettedata.SwapPalMap(&sd.fx.remap)
+					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 				} else {
-					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+					sd.anim.sff.palList.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(&sd.anim.sff.palList)
-					sd.anim.sff.palList.SwapPalMap(&sd.fx.remap)
+					sd.anim.sff.palList.SwapPalMap(&sd.pfx.remap)
 				}
 			}
 		} else {
@@ -1207,7 +1211,6 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		img.rot = sd.rot
 		img.projection = sd.projection
 		img.fLength = sd.fLength
-		img.oldVer = sd.oldVer
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 		ai.imgidx = (ai.imgidx + 1) & 63
 		ai.reccount++
@@ -1244,10 +1247,10 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		}
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
 			step := i/ai.framegap - 1
-			ai.palfx[step].remap = sd.fx.remap
+			ai.palfx[step].remap = sd.pfx.remap
 			sprs.add(&SprData{
 				anim:         img.anim,
-				fx:           ai.palfx[step],
+				pfx:           ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
 				trans:        ai.trans,
@@ -1256,7 +1259,6 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 				rot:          img.rot,
 				screen:       false,
 				undarken:     sd.undarken,
-				oldVer:       sd.oldVer,
 				facing:       sd.facing,
 				airOffsetFix: sd.airOffsetFix,
 				projection:   img.projection,
@@ -1729,7 +1731,7 @@ func (e *Explod) update(playerNo int) {
 	// Add sprite to draw list
 	sd := &SprData{
 		anim:         e.anim,
-		fx:           pfx,
+		pfx:          pfx,
 		pos:          drawpos,
 		scl:          drawscale,
 		trans:        e.trans,
@@ -1738,7 +1740,6 @@ func (e *Explod) update(playerNo int) {
 		rot:          rot,
 		screen:       e.space == Space_screen,
 		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		oldVer:       oldVer,
 		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
@@ -2309,7 +2310,7 @@ func (p *Projectile) tick() {
 	}
 }
 
-func (p *Projectile) cueDraw(oldVer bool) {
+func (p *Projectile) cueDraw() {
 	notpause := p.hitpause <= 0 && !p.paused(p.playerno)
 	if sys.tickFrame() && p.ani != nil && notpause {
 		p.ani.UpdateSprite()
@@ -2389,7 +2390,7 @@ func (p *Projectile) cueDraw(oldVer bool) {
 		// Add sprite to draw list
 		sd := &SprData{
 			anim:         p.ani,
-			fx:           p.palfx,
+			pfx:          p.palfx,
 			pos:          pos,
 			scl:          drawscale,
 			trans:        TT_default,
@@ -2398,7 +2399,6 @@ func (p *Projectile) cueDraw(oldVer bool) {
 			rot:          rot,
 			screen:       false,
 			undarken:     sys.chars[p.playerno][0] != nil && sys.chars[p.playerno][0].ignoreDarkenTime > 0, //p.playerno == sys.superplayerno,
-			oldVer:       sys.cgi[p.playerno].mugenver[0] != 1,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
 			projection:   int32(p.projection),
@@ -2743,8 +2743,8 @@ type Char struct {
 	ownclsnscale      bool
 	pushPriority      int32
 	prevfallflag      bool
-	dustOldPos        [3]float32
-	dustTime          int
+	makeDustSpacing   int
+	//dustOldPos        [3]float32
 }
 
 // Add a new char to the game
@@ -2833,7 +2833,7 @@ func (c *Char) clearState() {
 	c.counterHit = false
 	c.hitdefContact = false
 	c.fallTime = 0
-	c.dustTime = 0
+	c.makeDustSpacing = 0
 }
 
 func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
@@ -3354,10 +3354,12 @@ func (c *Char) load(def string) error {
 						is.ReadF32("xscale", &c.size.xscale)
 						is.ReadF32("yscale", &c.size.yscale)
 						// Read legacy size constants first
-						if is.ReadF32("ground.back", &c.size.standbox[0], &c.size.standbox[2]) {
+						is.ReadF32("ground.front", &c.size.standbox[2])
+						if is.ReadF32("ground.back", &c.size.standbox[0]) {
 							c.size.standbox[0] *= -1
 						}
-						if is.ReadF32("air.back", &c.size.airbox[0], &c.size.airbox[2]) {
+						is.ReadF32("air.front", &c.size.airbox[2])
+						if is.ReadF32("air.back", &c.size.airbox[0]) {
 							c.size.airbox[0] *= -1
 						}
 						if is.ReadF32("height", &c.size.standbox[1]) {
@@ -4156,18 +4158,75 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	return nil
 }
 
-func (c *Char) helperIndexTrigger(n int32, log bool) *Char {
-	if n <= 0 {
+func (c *Char) getHelperIndex(idx int32) *Char {
+	if idx <= 0 {
 		return c
 	}
-	return sys.charList.getHelperIndex(c, n, log)
+
+	var t []int32
+
+	// Find all helpers in parent-child chain
+	for j, h := range sys.charList.runOrder {
+		// Check only the relevant player number
+		if h.playerNo != c.playerNo {
+			continue
+		}
+		if c.id != h.id {
+			if c.helperIndex == 0 {
+				// Helpers created by the root. Direct check
+				hr := h.root(false)
+				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
+					t = append(t, int32(j))
+				}
+			} else {
+				// Helpers created by other helpers
+				hp := h.parent(false)
+
+				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
+				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
+				// This should no longer be necessary now that destroyed helpers are no longer valid parents
+				//checked := make(map[*Char]bool)
+
+				// Iterate until reaching the root or some error
+				for hp != nil {
+					// Original player found to be this helper's (grand)parent. Add helper to list
+					if hp.id == c.id {
+						t = append(t, int32(j))
+						break
+					}
+					// Search further up the parent chain for a relation to the original player
+					hp = hp.parent(false)
+				}
+			}
+		}
+	}
+
+	// Return the Nth helper we found
+	for i := 0; i < len(t); i++ {
+		ch := sys.charList.runOrder[int32(t[i])]
+		if (idx-1) == int32(i) && ch != nil {
+			return ch
+		}
+	}
+
+	return nil
 }
 
-func (c *Char) helperByIndexExist(id BytecodeValue) BytecodeValue {
+func (c *Char) helperIndexTrigger(idx int32) *Char {
+	ch := c.getHelperIndex(idx)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
+	}
+
+	return ch
+}
+
+func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.helperIndexTrigger(id.ToI(), false) != nil)
+	return BytecodeBool(c.getHelperIndex(id.ToI()) != nil)
 }
 
 func (c *Char) indexTrigger() int32 {
@@ -4296,6 +4355,26 @@ func (c *Char) p2() *Char {
 		c.p2EnemyBackup = p
 	}
 	return p
+}
+
+func (c *Char) playerIDTrigger(id int32) *Char {
+	ch := sys.playerID(id)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with ID: %v", id))
+	}
+
+	return ch
+}
+
+func (c *Char) playerIndexTrigger(idx int32) *Char {
+	ch := sys.playerIndex(idx)
+
+	if ch == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with index: %v", idx))
+	}
+
+	return ch
 }
 
 // Checks if a player should be considered an enemy at all for the "Enemy" and "P2" triggers, before filtering them further
@@ -5814,8 +5893,8 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 
 // Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
-	// If any existing helper entry is valid for overwriting, use that one
-	i := int32(0)
+	// If any existing helper entry is valid for overwriting, use it
+	i := int32(1)
 	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
 		if sys.chars[c.playerNo][i].helperIndex < 0 {
 			h = sys.chars[c.playerNo][i]
@@ -5823,9 +5902,10 @@ func (c *Char) newHelper() (h *Char) {
 			break
 		}
 	}
+
 	// Otherwise append to the end
 	if int(i) >= len(sys.chars[c.playerNo]) {
-		if i >= sys.cfg.Config.HelperMax {
+		if i > sys.cfg.Config.HelperMax { // Do not count index 0
 			return
 		}
 		h = newChar(c.playerNo, i)
@@ -5864,9 +5944,9 @@ func (c *Char) newHelper() (h *Char) {
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	facing int32, rp [2]int32, extmap bool) {
 	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
-	h.setAllPosX(p[0])
-	h.setAllPosY(p[1])
-	h.setAllPosZ(p[2])
+	h.setPosX(p[0], true)
+	h.setPosY(p[1], true)
+	h.setPosZ(p[2], true)
 	h.vel = [3]float32{}
 	if h.ownpal {
 		h.palfx = newPalFX()
@@ -6235,85 +6315,76 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 	}
 }
 
-// Position functions
-func (c *Char) setPosX(x float32) {
-	if c.pos[0] == x {
-		return
-	}
-
-	c.pos[0] = x
-	// We do this because Mugen is very sensitive to enemy position changes
-	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
-	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
-	if c.playerFlag {
-		sys.charList.enemyNearChanged = true
-	} else {
-		c.enemyNearP2Clear()
-	}
-}
-
-func (c *Char) setPosY(y float32) { // This function mostly exists right now so we don't forget to use the other two
-	c.pos[1] = y
-}
-
-func (c *Char) setPosZ(z float32) {
-	if c.pos[2] == z {
-		return
-	}
-
-	c.pos[2] = z
-	// Z distance is also factored into enemy near lists
-	if sys.zEnabled() {
-		if c.playerFlag {
-			sys.charList.enemyNearChanged = true
-		} else {
-			c.enemyNearP2Clear()
-		}
-	}
-}
-
+// Set char to round start position
 func (c *Char) posReset() {
 	if c.teamside == -1 || c.playerNo < 0 || c.playerNo >= len(sys.stage.p) {
 		c.facing = 1
-		c.setAllPosX(0)
-		c.setAllPosY(0)
-		c.setAllPosZ(0)
+		c.setPosX(0, true)
+		c.setPosY(0, true)
+		c.setPosZ(0, true)
 	} else {
 		c.facing = float32(sys.stage.p[c.playerNo].facing)
-		c.setAllPosX((float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl) / c.localscl)
-		c.setAllPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl)
-		c.setAllPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl)
+		c.setPosX(float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl / c.localscl, true)
+		c.setPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl, true)
+		c.setPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl, true)
 	}
 	c.vel[0] = 0
 	c.vel[1] = 0
 	c.vel[2] = 0
 }
 
-func (c *Char) setAllPosX(x float32) {
-	c.oldPos[0], c.interPos[0] = x, x
-	c.setPosX(x)
+func (c *Char) setPosX(x float32, all bool) {
+	// We do this because Mugen is very sensitive to enemy position changes
+	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
+	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
+	if c.pos[0] != x {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+		c.pos[0] = x
+	}
+
+	if all {
+		c.oldPos[0], c.interPos[0] = x, x
+	}
 }
 
-func (c *Char) setAllPosY(y float32) {
-	c.oldPos[1], c.interPos[1] = y, y
-	c.setPosY(y)
+func (c *Char) setPosY(y float32, all bool) { // This function mostly exists right now so we don't forget to use the other two
+	c.pos[1] = y
+
+	if all {
+		c.oldPos[1], c.interPos[1] = y, y
+	}
 }
 
-func (c *Char) setAllPosZ(z float32) {
-	c.oldPos[2], c.interPos[2] = z, z
-	c.setPosZ(z)
+func (c *Char) setPosZ(z float32, all bool) {
+	// Z distance is also factored into enemy near lists
+	if c.pos[2] != z {
+		if c.playerFlag {
+			sys.charList.enemyNearChanged = true
+		} else {
+			c.enemyNearP2Clear()
+		}
+		c.pos[2] = z
+	}
+
+	if all {
+		c.oldPos[2], c.interPos[2] = z, z
+	}
 }
 
 func (c *Char) addX(x float32) {
-	c.setAllPosX(c.pos[0] + c.facing*x)
+	c.setPosX(c.pos[0] + x*c.facing, true)
 }
 
 func (c *Char) addY(y float32) {
-	c.setAllPosY(c.pos[1] + y)
+	c.setPosY(c.pos[1] + y, true)
 }
 
 func (c *Char) addZ(z float32) {
-	c.setAllPosZ(c.pos[2] + z)
+	c.setPosZ(c.pos[2] + z, false)
 }
 
 func (c *Char) hitAdd(h int32) {
@@ -7186,13 +7257,13 @@ func (c *Char) bindToTarget(tar []int32, time int32, x, y, z float32, hmf HMF) {
 				y += t.size.head.pos[1] * ((320 / t.localcoord) / c.localscl)
 			}
 			if !math.IsNaN(float64(x)) {
-				c.setAllPosX(t.pos[0]*(t.localscl/c.localscl) + t.facing*x)
+				c.setPosX(t.pos[0]*(t.localscl/c.localscl) + x*t.facing, true)
 			}
 			if !math.IsNaN(float64(y)) {
-				c.setAllPosY(t.pos[1]*(t.localscl/c.localscl) + y)
+				c.setPosY(t.pos[1]*(t.localscl/c.localscl) + y, true)
 			}
 			if !math.IsNaN(float64(z)) {
-				c.setAllPosZ(t.pos[2]*(t.localscl/c.localscl) + z)
+				c.setPosZ(t.pos[2]*(t.localscl/c.localscl) + z, true)
 			}
 			c.targetBind(tar[:1], time,
 				c.facing*c.distX(t, c),
@@ -7983,21 +8054,25 @@ func (c *Char) makeDust(x, y, z float32, spacing int) {
 	if c.asf(ASF_nomakedust) {
 		return
 	}
+
 	if spacing < 1 {
 		sys.appendToConsole(c.warn() + "invalid MakeDust spacing")
 		spacing = 1
 	}
-	if c.dustTime >= spacing {
-		c.dustTime = 0
+
+	if c.makeDustSpacing >= spacing {
+		c.makeDustSpacing = 0
 	} else {
 		return
 	}
+
 	if e, i := c.spawnExplod(); e != nil {
 		e.animNo = 120
 		e.anim_ffx = "f"
 		e.sprpriority = math.MaxInt32
 		e.layerno = c.layerNo
 		e.ownpal = true
+		e.postype = PT_P1
 		e.relativePos = [...]float32{x, y, z}
 		e.setPos(c)
 		c.commitExplod(i)
@@ -8401,17 +8476,17 @@ func (c *Char) posUpdate() {
 	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.mhv.cornerpush) // PosFreeze does not disable cornerpush in Mugen
+			c.setPosX(c.oldPos[0] + c.mhv.cornerpush, false) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush)
+			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush, false)
 		}
 		if nobind[1] {
-			c.setPosY(c.oldPos[1] + c.vel[1])
+			c.setPosY(c.oldPos[1] + c.vel[1], false)
 		}
 		if nobind[2] {
-			c.setPosZ(c.oldPos[2] + c.vel[2])
+			c.setPosZ(c.oldPos[2] + c.vel[2], false)
 		}
 	}
 
@@ -8549,20 +8624,20 @@ func (c *Char) bind() {
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
-			c.setAllPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]))
+			c.setPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]), true)
 			c.interPos[0] += bt.interPos[0] - bt.pos[0]
 			c.oldPos[0] += bt.oldPos[0] - bt.pos[0]
 			c.pushed = c.pushed || bt.pushed
 			c.ghv.xoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[1])) {
-			c.setAllPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]))
+			c.setPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]), true)
 			c.interPos[1] += bt.interPos[1] - bt.pos[1]
 			c.oldPos[1] += bt.oldPos[1] - bt.pos[1]
 			c.ghv.yoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[2])) {
-			c.setAllPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]))
+			c.setPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]), true)
 			c.interPos[2] += bt.interPos[2] - bt.pos[2]
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
@@ -8586,6 +8661,8 @@ func (c *Char) trackableByCamera() bool {
 
 func (c *Char) xScreenBound() {
 	x := c.pos[0]
+	before := x
+
 	if !sys.cam.roundstart && c.trackableByCamera() && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
 		min, max := c.edgeWidth[0], -c.edgeWidth[1]
 		if c.facing > 0 {
@@ -8593,20 +8670,30 @@ func (c *Char) xScreenBound() {
 		}
 		x = ClampF(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 	}
+
 	if c.csf(CSF_stagebound) {
 		x = ClampF(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
 	}
-	c.setAllPosX(x)
+
+	// Only update interpolation etc if necessary
+	if x != before {
+		c.setPosX(x, true)
+	}
 }
 
 func (c *Char) zDepthBound() {
 	posz := c.pos[2]
+	before := posz
+
 	if c.csf(CSF_stagebound) {
 		min := c.edgeDepth[0]
 		max := -c.edgeDepth[1]
 		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
-	c.setAllPosZ(posz)
+
+	if posz != before {
+		c.setPosZ(posz, true)
+	}
 }
 
 func (c *Char) xPlatformBound(pxmin, pxmax float32) {
@@ -8618,7 +8705,7 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 		}
 		x = ClampF(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
 	}
-	c.setAllPosX(x)
+	c.setPosX(x, true)
 	c.xScreenBound()
 }
 
@@ -9941,6 +10028,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				e.layerno = 1 // e.ontop = true
 				e.sprpriority = math.MinInt32
 				e.ownpal = true
+				e.postype = PT_P1
 				e.relativePos = [3]float32{off[0], off[1], off[2]}
 				e.supermovetime = -1
 				e.pausemovetime = -1
@@ -10079,7 +10167,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		}
 		if hd.palfx.time > 0 && getter.palfx != nil {
-			getter.palfx.clear2(true)
+			getter.palfx.clearWithNeg(true)
 			getter.palfx.PalFXDef = hd.palfx
 		}
 		if hd.envshake_time > 0 {
@@ -10514,7 +10602,7 @@ func (c *Char) actionRun() {
 		if c.helperIndex == 0 && c.gi().pctime >= 0 {
 			c.gi().pctime++
 		}
-		c.dustTime++
+		c.makeDustSpacing++
 	}
 	c.xScreenBound()
 	c.zDepthBound()
@@ -10653,24 +10741,25 @@ func (c *Char) update() {
 			}
 			if c.ss.moveType == MT_H {
 				if c.ghv.xoff != 0 {
-					c.setPosX(c.pos[0] + c.ghv.xoff)
+					c.setPosX(c.pos[0] + c.ghv.xoff, false)
 					c.ghv.xoff = 0
 				}
 				if c.ghv.yoff != 0 {
-					c.setPosY(c.pos[1] + c.ghv.yoff)
+					c.setPosY(c.pos[1] + c.ghv.yoff, false)
 					c.ghv.yoff = 0
 				}
 				if c.ghv.zoff != 0 {
-					c.setPosZ(c.pos[2] + c.ghv.zoff)
+					c.setPosZ(c.pos[2] + c.ghv.zoff, false)
 					c.ghv.zoff = 0
 				}
 			}
 			// Engine dust effects
-			if sys.supertime == 0 && sys.pausetime == 0 &&
-				((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
-				c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
-				c.makeDust(0, 0, 0, 3) // Default spacing of 3
-			}
+			// Moved to system.zss
+			//if sys.supertime == 0 && sys.pausetime == 0 &&
+			//	((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
+			//	c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
+			//	c.makeDust(0, 0, 0, 3) // Default spacing of 3
+			//}
 		}
 		if c.ss.moveType == MT_H {
 			// Set opposing team's First Attack flag
@@ -11220,7 +11309,7 @@ func (c *Char) cueDraw() {
 		// Define sprite data
 		sd := &SprData{
 			anim:         anim,
-			fx:           c.getPalfx(),
+			pfx:          c.getPalfx(),
 			pos:          pos,
 			scl:          drawscale,
 			trans:        c.trans,
@@ -11229,7 +11318,6 @@ func (c *Char) cueDraw() {
 			rot:          rot,
 			screen:       false,
 			undarken:     c.ignoreDarkenTime > 0,
-			oldVer:       c.gi().mugenver[0] != 1,
 			facing:       c.facing,
 			airOffsetFix: airOffsetFix,
 			projection:   int32(c.projection),
@@ -11326,7 +11414,7 @@ func (c *Char) cueDraw() {
 	if sys.tickNextFrame() {
 		c.minus = 2
 		c.oldPos = c.pos
-		c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
+		//c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}
 }
 
@@ -11970,8 +12058,6 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 }
 
 func (cl *CharList) pushDetection(getter *Char) {
-	var gxmin, gxmax float32
-
 	// Stop outer loop if getter won't push
 	if !getter.csf(CSF_playerpush) || getter.scf(SCF_standby) || getter.scf(SCF_disabled) {
 		return
@@ -11983,189 +12069,202 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
-		// Pushbox vertical size and coordinates
+		// Y-axis check
+		// Run it first because it's the fastest one
 		cytop := (c.pos[1] + c.sizeBox[1]) * c.localscl
 		cybot := (c.pos[1] + c.sizeBox[3]) * c.localscl
 		gytop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
 		gybot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
 
-		if cybot >= gytop && cytop <= gybot { // Pushbox vertical overlap
+		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
 
-			// We skip the zAxisCheck function because we'll need to calculate the overlap again anyway
+		// Y-axis fail
+		if overlapY <= 0 {
+			continue
+		}
 
-			// Normal collision check
-			cposx := c.pos[0] * c.localscl
-			cxleft := c.sizeBox[0] * c.localscl
-			cxright := c.sizeBox[2] * c.localscl
-			if c.facing < 0 {
-				cxleft, cxright = -cxright, -cxleft
-			}
+		// X-axis check
+		cposx := c.pos[0] * c.localscl
+		cxleft := c.sizeBox[0] * c.localscl
+		cxright := c.sizeBox[2] * c.localscl
+		if c.facing < 0 {
+			cxleft, cxright = -cxright, -cxleft
+		}
 
-			cxleft += cposx
-			cxright += cposx
+		cxleft += cposx
+		cxright += cposx
 
-			gposx := getter.pos[0] * getter.localscl
-			gxleft := getter.sizeBox[0] * getter.localscl
-			gxright := getter.sizeBox[2] * getter.localscl
-			if getter.facing < 0 {
-				gxleft, gxright = -gxright, -gxleft
-			}
+		gposx := getter.pos[0] * getter.localscl
+		gxleft := getter.sizeBox[0] * getter.localscl
+		gxright := getter.sizeBox[2] * getter.localscl
+		if getter.facing < 0 {
+			gxleft, gxright = -gxright, -gxleft
+		}
 
-			gxleft += gposx
-			gxright += gposx
+		gxleft += gposx
+		gxright += gposx
 
-			// X axis fail
-			if gxleft >= cxright || cxleft >= gxright {
-				continue
-			}
+		overlapX := MinF(gxright, cxright) - MaxF(gxleft, cxleft)
 
-			cposz := c.pos[2] * c.localscl
-			cztop := cposz - c.sizeDepth[0]*c.localscl
-			czbot := cposz + c.sizeDepth[1]*c.localscl
+		// X-axis fail
+		if overlapX <= 0 {
+			continue
+		}
 
-			gposz := getter.pos[2] * getter.localscl
-			gztop := gposz - getter.sizeDepth[0]*getter.localscl
-			gzbot := gposz + getter.sizeDepth[1]*getter.localscl
+		// Z-axis check
+		// We don't use the zAxisCheck function because we need the actual overlap amount
+		cposz := c.pos[2] * c.localscl
+		cztop := cposz - c.sizeDepth[0]*c.localscl
+		czbot := cposz + c.sizeDepth[1]*c.localscl
 
-			// Z axis fail
-			if gztop >= czbot || cztop >= gzbot {
-				continue
-			}
+		gposz := getter.pos[2] * getter.localscl
+		gztop := gposz - getter.sizeDepth[0]*getter.localscl
+		gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
-			// Push characters away from each other
-			if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
+		overlapZ := MinF(gzbot, czbot) - MaxF(gztop, cztop)
 
-				getter.pushed, c.pushed = true, true
+		// Z-axis fail
+		if overlapZ <= 0 {
+			continue
+		}
 
-				gxmin = getter.edgeWidth[0]
-				gxmax = -getter.edgeWidth[1]
-				if getter.facing > 0 {
-					gxmin, gxmax = -gxmax, -gxmin
-				}
-				gxmin += sys.xmin / getter.localscl
-				gxmax += sys.xmax / getter.localscl
+		// Push characters away from each other
+		if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
 
-				// Decide who gets pushed
-				cpushed := float32(0.5)
-				gpushed := float32(0.5)
-				if c.pushPriority > getter.pushPriority {
-					cpushed = 0
-					gpushed = 1
-				} else if c.pushPriority < getter.pushPriority {
-					cpushed = 1
-					gpushed = 0
-				}
+			c.pushed, getter.pushed = true, true
 
+			// Determine who gets pushed and the multipliers
+			var cfactor, gfactor float32
+			switch {
+			case c.pushPriority > getter.pushPriority:
+				cfactor = 0
+				gfactor = getter.size.pushfactor // Maybe use other character's constant?
+			case c.pushPriority < getter.pushPriority:
+				cfactor = c.size.pushfactor
+				gfactor = 0
+			default:
 				// Compare player weights and apply pushing factors
 				// Weight determines which player is pushed more. Factor determines how fast the player overlap is resolved
-				cfactor := float32(getter.size.weight) / float32(c.size.weight+getter.size.weight) * c.size.pushfactor * cpushed
-				gfactor := float32(c.size.weight) / float32(c.size.weight+getter.size.weight) * getter.size.pushfactor * gpushed
+				cfactor = float32(getter.size.weight) / float32(c.size.weight+getter.size.weight)
+				gfactor = float32(c.size.weight) / float32(c.size.weight+getter.size.weight) * getter.size.pushfactor
+				cfactor *= c.size.pushfactor
+				gfactor *= getter.size.pushfactor
+			}
 
-				// Determine in which axes to push the players
-				// This needs to check both if the players have velocity or if their positions have changed
-				var pushx, pushz bool
-				if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
-					// Get distances in both axes
-					distx := AbsF(gposx - cposx)
-					distz := AbsF(gposz - cposz)
+			// Determine in which axes to push the players
+			// This needs to check both if the players have velocity or if their positions have changed
+			var pushx, pushz bool
+			if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
+				// Get distances in both axes
+				distx := AbsF(gposx - cposx)
+				distz := AbsF(gposz - cposz)
 
-					// Check how much each axis should weigh on the decision
-					// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
-					xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
-					ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
-					distzadj := distz
-					if ztotal != 0 {
-						distzadj = (xtotal / ztotal) * distz
-					}
+				// Check how much each axis should weigh on the decision
+				// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
+				xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
+				ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
+				distzadj := distz
+				if ztotal != 0 {
+					distzadj = (xtotal / ztotal) * distz
+				}
 
-					// Push farthest axis or both if distances are similar
-					similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
-					if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
-						pushx = true
-						pushz = true
-					} else if distx >= distzadj {
-						pushx = true
+				// Push farthest axis or both if distances are similar
+				similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
+				if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
+					pushx = true
+					pushz = true
+				} else if distx >= distzadj {
+					pushx = true
+				} else {
+					pushz = true
+				}
+			} else {
+				pushx = true
+			}
+
+			if pushx {
+				tmp := getter.distX(c, getter)
+				if tmp == 0 {
+					// Decide direction in which to push each player in case of a tie in position
+					// This also decides who gets to stay in the corner
+					// Some of these checks are similar to char run order, but this approach allows better tie break control
+					// https://github.com/ikemen-engine/Ikemen-GO/issues/1426
+					if c.pushPriority > getter.pushPriority {
+						if c.pos[0] >= 0 {
+							tmp = 1
+						} else {
+							tmp = -1
+						}
+					} else if c.pushPriority < getter.pushPriority {
+						if getter.pos[0] >= 0 {
+							tmp = -1
+						} else {
+							tmp = 1
+						}
+					} else if c.ss.moveType == MT_H && getter.ss.moveType != MT_H {
+						tmp = -c.facing
+					} else if c.ss.moveType != MT_H && getter.ss.moveType == MT_H {
+						tmp = getter.facing
+					} else if c.ss.moveType == MT_A && getter.ss.moveType != MT_A {
+						tmp = getter.facing
+					} else if c.ss.moveType != MT_A && getter.ss.moveType == MT_A {
+						tmp = -c.facing
+					} else if c.pos[1]*c.localscl < getter.pos[1]*getter.localscl {
+						tmp = getter.facing
 					} else {
-						pushz = true
+						tmp = -c.facing
+					}
+				}
+
+				if tmp > 0 {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[0] -= overlapX * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[0] += overlapX * cfactor / c.localscl
 					}
 				} else {
-					pushx = true
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[0] += overlapX * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[0] -= overlapX * cfactor / c.localscl
+					}
 				}
 
-				if pushx {
-					tmp := getter.distX(c, getter)
-					if tmp == 0 {
-						// Decide direction in which to push each player in case of a tie in position
-						// This also decides who gets to stay in the corner
-						// Some of these checks are similar to char run order, but this approach allows better tie break control
-						// https://github.com/ikemen-engine/Ikemen-GO/issues/1426
-						if c.pushPriority > getter.pushPriority {
-							if c.pos[0] >= 0 {
-								tmp = 1
-							} else {
-								tmp = -1
-							}
-						} else if c.pushPriority < getter.pushPriority {
-							if getter.pos[0] >= 0 {
-								tmp = -1
-							} else {
-								tmp = 1
-							}
-						} else if c.ss.moveType == MT_H && getter.ss.moveType != MT_H {
-							tmp = -c.facing
-						} else if c.ss.moveType != MT_H && getter.ss.moveType == MT_H {
-							tmp = getter.facing
-						} else if c.ss.moveType == MT_A && getter.ss.moveType != MT_A {
-							tmp = getter.facing
-						} else if c.ss.moveType != MT_A && getter.ss.moveType == MT_A {
-							tmp = -c.facing
-						} else if c.pos[1]*c.localscl < getter.pos[1]*getter.localscl {
-							tmp = getter.facing
-						} else {
-							tmp = -c.facing
-						}
+				// Clamp X positions
+				c.xScreenBound()
+				getter.xScreenBound()
+
+				// Update position interpolation
+				// TODO: Interpolation still looks wrong when framerate is above 60fps
+				c.setPosX(c.pos[0], true)
+			}
+
+			// TODO: Z axis push might need some decision for who stays in the corner, like X axis
+			if pushz {
+				if gposz < cposz {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[2] -= overlapZ * gfactor / getter.localscl
 					}
-					if tmp > 0 {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[0] -= ((gxright - cxleft) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[0] += ((gxright - cxleft) * cfactor) / c.localscl
-						}
-					} else {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[0] += ((cxright - gxleft) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[0] -= ((cxright - gxleft) * cfactor) / c.localscl
-						}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[2] += overlapZ * cfactor / c.localscl
 					}
-					// Clamp X positions
-					c.xScreenBound()
-					getter.xScreenBound()
+				} else if gposz > cposz {
+					if c.pushPriority >= getter.pushPriority {
+						getter.pos[2] += overlapZ * gfactor / getter.localscl
+					}
+					if c.pushPriority <= getter.pushPriority {
+						c.pos[2] -= overlapZ * cfactor / c.localscl
+					}
 				}
 
-				// TODO: Z axis push might need some decision for who stays in the corner, like X axis
-				if pushz {
-					if gposz < cposz {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] -= ((gzbot - cztop) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] += ((gzbot - cztop) * cfactor) / c.localscl
-						}
-					} else if gposz > cposz {
-						if c.pushPriority >= getter.pushPriority {
-							getter.pos[2] += ((czbot - gztop) * gfactor) / getter.localscl
-						}
-						if c.pushPriority <= getter.pushPriority {
-							c.pos[2] -= ((czbot - gztop) * cfactor) / c.localscl
-						}
-					}
-					// Clamp Z positions
-					c.zDepthBound()
-					getter.zDepthBound()
-				}
+				// Clamp Z positions
+				c.zDepthBound()
+				getter.zDepthBound()
+
+				// Update position interpolation
+				c.setPosZ(c.pos[2], true)
 			}
 		}
 	}
@@ -12245,87 +12344,6 @@ func (cl *CharList) cueDraw() {
 			c.cueDraw()
 		}
 	}
-}
-
-func (cl *CharList) getCharWithID(id int32) *Char {
-	if id < 0 {
-		return nil
-	}
-
-	// Invalid ID
-	ch, ok := cl.idMap[id]
-	if !ok {
-		return nil
-	}
-
-	// Mugen skips DestroySelf helpers here
-	if ch.csf(CSF_destroy) {
-		return nil
-	}
-
-	return ch
-}
-
-func (cl *CharList) getHelperIndex(c *Char, idx int32, log bool) *Char {
-	var t []int32
-
-	// Find all helpers in parent-child chain
-	for j, h := range cl.runOrder {
-		// Check only the relevant player number
-		if h.playerNo != c.playerNo {
-			continue
-		}
-		if c.id != h.id {
-			if c.helperIndex == 0 {
-				// Helpers created by the root. Direct check
-				hr := h.root(false)
-				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
-					t = append(t, int32(j))
-				}
-			} else {
-				// Helpers created by other helpers
-				hp := h.parent(false)
-
-				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
-				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
-				// This should no longer be necessary now that destroyed helpers are no longer valid parents
-				//checked := make(map[*Char]bool)
-
-				// Iterate until reaching the root or some error
-				for hp != nil {
-					//if checked[hp] {
-					//	if log {
-					//		sys.appendToConsole(c.warn() + "stopped infinite loop while determining helper index")
-					//	}
-					//	break
-					//}
-					//checked[hp] = true
-
-					// Original player found to be this helper's (grand)parent. Add helper to list
-					if hp.id == c.id {
-						t = append(t, int32(j))
-						break
-					}
-					// Search further up the parent chain for a relation to the original player
-					hp = hp.parent(false)
-				}
-			}
-		}
-	}
-
-	// Return the Nth helper we found
-	for i := 0; i < len(t); i++ {
-		ch := cl.runOrder[int32(t[i])]
-		if (idx-1) == int32(i) && ch != nil {
-			return ch
-		}
-	}
-
-	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
-	}
-
-	return nil
 }
 
 // Remove player from P2 references if it becomes invalid (standby etc)

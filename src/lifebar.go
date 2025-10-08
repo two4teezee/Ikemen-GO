@@ -3578,6 +3578,12 @@ func (rt *LifeBarRoundTransition) Step() {
 		rt.fadeoutTimer--
 	}
 	if rt.shutterTimer > 0 {
+		// Signal system to skip intros when shutter is about to be fully closed
+		// This ensures the intros will skip even if/when the shutter updates at a different rate than characters
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2720
+		if rt.shutterTimer == (rt.shutter_time + 1) {
+			sys.introSkipCall = true
+		}
 		rt.shutterTimer--
 	}
 }
@@ -4909,19 +4915,23 @@ func (l *Lifebar) step() {
 		l.mo[sys.gameMode].step()
 	}
 	// Text sctrl
-	for i := 0; i < len(l.textsprite); i++ {
-		if l.textsprite[i].removetime == 0 {
-			l.textsprite = append(l.textsprite[:i], l.textsprite[i+1:]...)
-			i-- // -1 as the slice just got shorter
-		} else {
-			l.textsprite[i].Draw()
+	l.UpdateText()
+}
+
+func (l *Lifebar) UpdateText() {
+	tempSlice := l.textsprite[:0]
+
+	for _, ts := range l.textsprite {
+		if ts.removetime > 0 { // No infinite time at the moment since text sprites are not very efficient
+			ts.Draw()
 			if sys.tickNextFrame() {
-				if l.textsprite[i].removetime > 0 {
-					l.textsprite[i].removetime--
-				}
+				ts.removetime--
 			}
+			tempSlice = append(tempSlice, ts)
 		}
 	}
+
+	l.textsprite = tempSlice
 }
 
 func (l *Lifebar) RemoveText(id, ownerid int32) {

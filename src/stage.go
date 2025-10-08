@@ -691,7 +691,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
 			xbs*bgscl*(scalestartX+xs)*xs3,
 			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
-			bg.rot, rcx, bg.palfx, true, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
+			bg.rot, rcx, bg.palfx, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
 
@@ -1849,7 +1849,7 @@ func (s *Stage) action() {
 			b.palfx.eHue = sys.bgPalFX.eHue
 			b.palfx.eInvertall = sys.bgPalFX.eInvertall
 			b.palfx.eInvertblend = sys.bgPalFX.eInvertblend
-			b.palfx.eNegType = sys.bgPalFX.eNegType
+			b.palfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 		if b.enabled && !paused {
 			s.bg[i].bga.action()
@@ -1882,7 +1882,7 @@ func (s *Stage) action() {
 			s.model.pfx.eHue = sys.bgPalFX.eHue
 			s.model.pfx.eInvertall = sys.bgPalFX.eInvertall
 			s.model.pfx.eInvertblend = sys.bgPalFX.eInvertblend
-			s.model.pfx.eNegType = sys.bgPalFX.eNegType
+			s.model.pfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 	}
 }

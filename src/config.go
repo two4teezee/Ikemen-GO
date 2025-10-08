@@ -130,6 +130,7 @@ type Config struct {
 		HelperMax        int32    `ini:"HelperMax"`
 		ProjectileMax    int      `ini:"ProjectileMax"`
 		PaletteMax       int      `ini:"PaletteMax"`
+		TextMax          int      `ini:"TextMax"`
 		ZoomActive       bool     `ini:"ZoomActive"`
 		EscOpensMenu     bool     `ini:"EscOpensMenu"`
 		FirstRun         bool     `ini:"FirstRun"`
@@ -302,14 +303,20 @@ func (c *Config) initStruct() {
 
 // Normalize values
 func (c *Config) normalize() {
+	c.SetValueUpdate("Config.Framerate", int(Clamp(int32(c.Config.Framerate), 1, 840)))
+	c.SetValueUpdate("Config.Players", int(Clamp(int32(c.Config.Players), 1, int32(MaxSimul)*2)))
 	c.SetValueUpdate("Options.GameSpeed", int(Clamp(int32(c.Options.GameSpeed), -9, 9)))
 	c.SetValueUpdate("Options.GameSpeedStep", int(Clamp(int32(c.Options.GameSpeedStep), 1, 60)))
-	c.SetValueUpdate("Options.Simul.Min", int(Clamp(int32(c.Options.Simul.Min), 2, int32(MaxSimul))))
 	c.SetValueUpdate("Options.Simul.Max", int(Clamp(int32(c.Options.Simul.Max), int32(c.Options.Simul.Min), int32(MaxSimul))))
-	c.SetValueUpdate("Options.Tag.Min", int(Clamp(int32(c.Options.Tag.Min), 2, int32(MaxSimul))))
+	c.SetValueUpdate("Options.Simul.Min", int(Clamp(int32(c.Options.Simul.Min), 2, int32(MaxSimul))))
 	c.SetValueUpdate("Options.Tag.Max", int(Clamp(int32(c.Options.Tag.Max), int32(c.Options.Tag.Min), int32(MaxSimul))))
-	c.SetValueUpdate("Config.Players", int(Clamp(int32(c.Config.Players), 1, int32(MaxSimul)*2)))
-	c.SetValueUpdate("Config.Framerate", int(Clamp(int32(c.Config.Framerate), 1, 840)))
+	c.SetValueUpdate("Options.Tag.Min", int(Clamp(int32(c.Options.Tag.Min), 2, int32(MaxSimul))))
+
+	// Options that determine allocation sizes should not be negative
+	if c.Config.AfterImageMax < 0 {
+		c.SetValueUpdate("Config.AfterImageMax", 0)
+	}
+
 	path := strings.TrimSpace(c.Config.ScreenshotFolder)
 	if path != "" {
 		path = strings.ReplaceAll(path, "\\", "/")
@@ -320,16 +327,19 @@ func (c *Config) normalize() {
 			c.SetValueUpdate("Config.ScreenshotFolder", path)
 		}
 	}
+
 	switch c.Sound.SampleRate {
 	case 22050, 44100, 48000:
 	default:
 		c.SetValueUpdate("Sound.SampleRate", 44100)
 	}
-	c.SetValueUpdate("Sound.PanningRange", ClampF(c.Sound.PanningRange, 0, 100))
-	c.SetValueUpdate("Sound.WavChannels", Clamp(c.Sound.WavChannels, 1, 256))
-	c.SetValueUpdate("Sound.PauseMasterVolume", int(Clamp(int32(c.Sound.PauseMasterVolume), 0, 100)))
-	c.SetValueUpdate("Sound.MaxBGMVolume", int(Clamp(int32(c.Sound.MaxBGMVolume), 100, 250)))
+
 	c.SetValueUpdate("Input.SOCDResolution", int(Clamp(int32(c.Input.SOCDResolution), 0, 4)))
+	c.SetValueUpdate("Sound.MaxBGMVolume", int(Clamp(int32(c.Sound.MaxBGMVolume), 100, 250)))
+	c.SetValueUpdate("Sound.PanningRange", ClampF(c.Sound.PanningRange, 0, 100))
+	c.SetValueUpdate("Sound.PauseMasterVolume", int(Clamp(int32(c.Sound.PauseMasterVolume), 0, 100)))
+	c.SetValueUpdate("Sound.WavChannels", Clamp(c.Sound.WavChannels, 1, 256))
+
 	switch c.Video.MSAA {
 	case 0, 2, 4, 6, 8, 16, 32:
 	default:

@@ -249,7 +249,7 @@ type GameState struct {
 
 	// 11/5/2022
 	fight        Fight
-	introSkipped bool
+	introSkipCall bool
 	preFightTime int32
 
 	commandLists []*CommandList
@@ -473,8 +473,7 @@ func (gs *GameState) LoadState(stateID int) {
 		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
 	}
 
-	sys.introSkipped = gs.introSkipped
-
+	sys.introSkipCall = gs.introSkipCall
 	sys.preFightTime = gs.preFightTime
 
 	sys.loopBreak = gs.loopBreak
@@ -682,7 +681,7 @@ func (gs *GameState) SaveState(stateID int) {
 		gs.fight = sys.rollback.currentFight.Clone(a, gsp)
 	}
 
-	gs.introSkipped = sys.introSkipped
+	gs.introSkipCall = sys.introSkipCall
 	gs.preFightTime = sys.preFightTime
 
 	gs.loopBreak = sys.loopBreak

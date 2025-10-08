@@ -57,10 +57,10 @@ func newPalFXDef() *PalFXDef {
 type PalFX struct {
 	PalFXDef
 	remap        []int
-	negType      bool
+	allowNeg     bool // Can use negative color math
 	sintime      [4]int32
 	enable       bool
-	eNegType     bool
+	eAllowNeg    bool
 	eInvertall   bool
 	eInvertblend int32
 	eAdd         [3]int32
@@ -79,16 +79,16 @@ func newPalFX() *PalFX {
 	return &PalFX{}
 }
 
-func (pf *PalFX) clear2(nt bool) {
+func (pf *PalFX) clearWithNeg(neg bool) {
 	pf.PalFXDef = *newPalFXDef()
-	pf.negType = nt
+	pf.allowNeg = neg
 	for i := 0; i < len(pf.sintime); i++ {
 		pf.sintime[i] = 0
 	}
 }
 
 func (pf *PalFX) clear() {
-	pf.clear2(false)
+	pf.clearWithNeg(false)
 }
 
 func (pf *PalFX) getSynFx(alpha [2]int32) *PalFX {
@@ -120,7 +120,7 @@ func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
 	if !p.enable {
 		return pal
 	}
-	if !p.eNegType {
+	if !p.eAllowNeg {
 		neg = false
 	}
 	var m [3]int32
@@ -185,7 +185,7 @@ func (pf *PalFX) getFcPalFx(transNeg bool, alpha [2]int32) (neg bool, grayscale 
 	grayscale = 1 - p.eColor
 	invblend = p.eInvertblend
 	hue = -(p.eHue * 180.0) * (math.Pi / 180.0)
-	if !p.eNegType {
+	if !p.eAllowNeg {
 		transNeg = false
 	}
 	for i, v := range p.eAdd {
@@ -287,7 +287,7 @@ func (pf *PalFX) step() {
 		} else {
 			pf.eInvertblend = pf.invertblend
 		}
-		pf.eNegType = pf.negType
+		pf.eAllowNeg = pf.allowNeg
 		pf.sinAdd(&pf.eAdd)
 		pf.sinMul(&pf.eMul)
 		pf.sinColor(&pf.eColor)

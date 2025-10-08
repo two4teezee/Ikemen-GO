@@ -1606,14 +1606,14 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerid:
-			if c = sys.playerID(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerindex:
-			if c = sys.playerIndexRedirect(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -1634,7 +1634,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_helperindex:
-			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
+			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
@@ -2944,7 +2944,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 				unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_ex_helperindexexist:
-		*sys.bcStack.Top() = c.helperByIndexExist(*sys.bcStack.Top())
+		*sys.bcStack.Top() = c.helperIndexExist(*sys.bcStack.Top())
 	case OC_ex_hitoverridden:
 		sys.bcStack.PushB(c.hoverIdx >= 0)
 	case OC_ex_ikemenversion:
@@ -5099,19 +5099,19 @@ func (sc posSet) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case posSet_x:
 			x := sys.cam.Pos[0]/crun.localscl + exp[0].evalF(c)*redirscale
-			crun.setAllPosX(x)
+			crun.setPosX(x, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[0])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[0] = x
 			}
 		case posSet_y:
 			y := exp[0].evalF(c)*redirscale + crun.groundLevel + crun.platformPosY
-			crun.setAllPosY(y)
+			crun.setPosY(y, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[1])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[1] = y
 			}
 		case posSet_z:
 			z := exp[0].evalF(c) * redirscale
-			crun.setAllPosZ(z)
+			crun.setPosZ(z, true)
 			if crun.bindToId > 0 && !math.IsNaN(float64(crun.bindPos[2])) && sys.playerID(crun.bindToId) != nil {
 				crun.bindPosAdd[2] = z
 			}
@@ -5333,7 +5333,7 @@ func (sc palFX) Run(c *Char, _ []int32) bool {
 	if pf == nil {
 		pf = newPalFX()
 	}
-	pf.clear2(true)
+	pf.clearWithNeg(true)
 
 	// Mugen 1.1 invertblend fallback
 	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 &&
@@ -6324,6 +6324,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+
 	e, i := crun.spawnExplod()
 	if e == nil {
 		return false
@@ -9404,6 +9405,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		e.removetime = -2
 		e.pausemovetime = -1
 		e.supermovetime = -1
+		e.postype = PT_P1
 		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
 		e.setPos(c)
 		c.commitExplod(i)
@@ -9786,33 +9788,48 @@ func (sc makeDust) Run(c *Char, _ []int32) bool {
 	}
 
 	spacing := int(3) // Default spacing is 3
+
+	// Collect parameters first
+	var p1x, p1y, p1z float32
+	var p2x, p2y, p2z float32
+	p2Set := false
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case makeDust_spacing:
 			spacing = int(exp[0].evalI(c))
 		case makeDust_pos:
-			x, y, z := exp[0].evalF(c), float32(0), float32(0)
+			p1x = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
-				if len(exp) > 2 {
-					z = exp[2].evalF(c)
-				}
+				p1y = exp[1].evalF(c)
 			}
-			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z, spacing)
+			if len(exp) > 2 {
+				p1z = exp[2].evalF(c)
+			}
 		case makeDust_pos2:
-			x, y, z := exp[0].evalF(c), float32(0), float32(0)
+			p2Set = true
+			p2x = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
-				if len(exp) > 2 {
-					z = exp[2].evalF(c)
-				}
+				p2y = exp[1].evalF(c)
 			}
-			crun.makeDust(x-float32(crun.size.draw.offset[0]),
-				y-float32(crun.size.draw.offset[1]), z, spacing)
+			if len(exp) > 2 {
+				p2z = exp[2].evalF(c)
+			}
 		}
 		return true
 	})
+
+	offX := float32(crun.size.draw.offset[0])
+	offY := float32(crun.size.draw.offset[1])
+
+	// Make one explod even if no pos was defined
+	crun.makeDust(p1x-offX, p1y-offY, p1z, spacing)
+
+	// Make a second one if pos2 was defined
+	if p2Set {
+		crun.makeDust(p2x-offX, p2y-offY, p2z, spacing)
+	}
+
 	return false
 }
 
@@ -12015,6 +12032,11 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
+	// Do nothing if text limit reached
+	if len(sys.lifebar.textsprite) >= sys.cfg.Config.TextMax {
+		return false
+	}
+
 	params := []interface{}{}
 	ts := NewTextSprite()
 	ts.ownerid = crun.id
@@ -12125,6 +12147,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	ts.xscl = xscl / ts.localScale
 	ts.yscl = yscl / ts.localScale
 	if fnt == -1 {

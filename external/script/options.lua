@@ -182,6 +182,7 @@ options.t_itemname = {
 			modifyGameOption('Config.HelperMax', 56)
 			modifyGameOption('Config.ProjectileMax', 256)
 			modifyGameOption('Config.PaletteMax', 100)
+			modifyGameOption('Config.TextMax', 256)
 			--modifyGameOption('Config.ZoomActive', true)
 			--modifyGameOption('Config.EscOpensMenu', true)
 			--modifyGameOption('Config.BackgroundLoading', false) --TODO: not implemented
@@ -1265,6 +1266,21 @@ options.t_itemname = {
 		options.needReload = true
 		return true
 	end,
+	--TextMax
+	['textmax'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F'}) then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			modifyGameOption('Config.TextMax', gameOption('Config.TextMax') + 1)
+			t.items[item].vardisplay = gameOption('Config.TextMax')
+			options.modified = true
+		elseif main.f_input(main.t_players, {'$B'}) and gameOption('Config.TextMax') > 1 then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			modifyGameOption('Config.TextMax', gameOption('Config.TextMax') - 1)
+			t.items[item].vardisplay = gameOption('Config.TextMax')
+			options.modified = true
+		end
+		return true
+	end,
 	--Save and Return
 	['savereturn'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
@@ -1562,6 +1578,9 @@ options.t_vardisplay = {
 	end,
 	['teampowershare'] = function()
 		return options.f_boolDisplay(gameOption('Options.Team.PowerShare'))
+	end,
+	['textmax'] = function()
+		return gameOption('Config.TextMax')
 	end,
 	['turnsrecoverybase'] = function()
 		return gameOption('Options.Turns.Recovery.Base') .. '%'

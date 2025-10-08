@@ -4919,19 +4919,29 @@ func (l *Lifebar) step() {
 }
 
 func (l *Lifebar) UpdateText() {
-	tempSlice := l.textsprite[:0]
+	// Explod timers update at this time, so we'll do the same here
+	if sys.tickNextFrame() {
+		tempSlice := l.textsprite[:0]
 
-	for _, ts := range l.textsprite {
-		if ts.removetime > 0 { // No infinite time at the moment since text sprites are not very efficient
-			ts.Draw()
-			if sys.tickNextFrame() {
-				ts.removetime--
+		for _, ts := range l.textsprite {
+			ts.elapsedTicks++
+
+			ts.SetTextVel()
+
+			if ts.palfx != nil && !ts.forcecolor {
+				ts.palfx.step()
 			}
-			tempSlice = append(tempSlice, ts)
-		}
-	}
 
-	l.textsprite = tempSlice
+			if ts.removetime != 0 {
+				tempSlice = append(tempSlice, ts) // Keep this text
+				if ts.removetime > 0 {
+					ts.removetime--
+				}
+			}
+		}
+
+		l.textsprite = tempSlice
+	}
 }
 
 func (l *Lifebar) RemoveText(id, ownerid int32) {

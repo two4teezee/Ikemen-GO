@@ -3934,6 +3934,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 			end
 		end
 	end
+	main.menuWrapped = false
 	if item > #t or (item == 1 and t[item].itemname == 'empty') then
 		item = 1
 		while true do
@@ -3941,6 +3942,10 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 			item = item + 1
 		end
 		cursorPosY = item
+		if motif[section].menu_tween_wrap_snap == 1 then
+			main.menuSnap = true
+		end
+		main.menuWrapped = true
 	elseif item < 1 then
 		item = #t
 		while true do
@@ -3952,6 +3957,10 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, section, keyPrev, k
 		else
 			cursorPosY = item
 		end
+		if motif[section].menu_tween_wrap_snap == 1 then
+			main.menuSnap = true
+		end
+		main.menuWrapped = true
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
 	local visible = motif[section].menu_window_visibleitems
@@ -4227,7 +4236,9 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 		bcd.init = true
 		bcd.snap = -1
 	end
-
+	if motif[section].menu_boxcursor_tween_wrap_snap == 1 and main.menuWrapped then
+		bcd.offsetY = targetY
+	end
 	--apply tween if enabled, otherwise snap to target
 	if t_factor > 0 then
 		bcd.offsetY = f_tweenStep(bcd.offsetY, targetY, t_factor)

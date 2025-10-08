@@ -1250,7 +1250,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 			ai.palfx[step].remap = sd.pfx.remap
 			sprs.add(&SprData{
 				anim:         img.anim,
-				pfx:           ai.palfx[step],
+				pfx:          ai.palfx[step],
 				pos:          img.pos,
 				scl:          img.scl,
 				trans:        ai.trans,
@@ -6324,9 +6324,9 @@ func (c *Char) posReset() {
 		c.setPosZ(0, true)
 	} else {
 		c.facing = float32(sys.stage.p[c.playerNo].facing)
-		c.setPosX(float32(sys.stage.p[c.playerNo].startx) * sys.stage.localscl / c.localscl, true)
-		c.setPosY(float32(sys.stage.p[c.playerNo].starty) * sys.stage.localscl / c.localscl, true)
-		c.setPosZ(float32(sys.stage.p[c.playerNo].startz) * sys.stage.localscl / c.localscl, true)
+		c.setPosX(float32(sys.stage.p[c.playerNo].startx)*sys.stage.localscl/c.localscl, true)
+		c.setPosY(float32(sys.stage.p[c.playerNo].starty)*sys.stage.localscl/c.localscl, true)
+		c.setPosZ(float32(sys.stage.p[c.playerNo].startz)*sys.stage.localscl/c.localscl, true)
 	}
 	c.vel[0] = 0
 	c.vel[1] = 0
@@ -6376,15 +6376,15 @@ func (c *Char) setPosZ(z float32, all bool) {
 }
 
 func (c *Char) addX(x float32) {
-	c.setPosX(c.pos[0] + x*c.facing, true)
+	c.setPosX(c.pos[0]+x*c.facing, true)
 }
 
 func (c *Char) addY(y float32) {
-	c.setPosY(c.pos[1] + y, true)
+	c.setPosY(c.pos[1]+y, true)
 }
 
 func (c *Char) addZ(z float32) {
-	c.setPosZ(c.pos[2] + z, false)
+	c.setPosZ(c.pos[2]+z, false)
 }
 
 func (c *Char) hitAdd(h int32) {
@@ -7257,13 +7257,13 @@ func (c *Char) bindToTarget(tar []int32, time int32, x, y, z float32, hmf HMF) {
 				y += t.size.head.pos[1] * ((320 / t.localcoord) / c.localscl)
 			}
 			if !math.IsNaN(float64(x)) {
-				c.setPosX(t.pos[0]*(t.localscl/c.localscl) + x*t.facing, true)
+				c.setPosX(t.pos[0]*(t.localscl/c.localscl)+x*t.facing, true)
 			}
 			if !math.IsNaN(float64(y)) {
-				c.setPosY(t.pos[1]*(t.localscl/c.localscl) + y, true)
+				c.setPosY(t.pos[1]*(t.localscl/c.localscl)+y, true)
 			}
 			if !math.IsNaN(float64(z)) {
-				c.setPosZ(t.pos[2]*(t.localscl/c.localscl) + z, true)
+				c.setPosZ(t.pos[2]*(t.localscl/c.localscl)+z, true)
 			}
 			c.targetBind(tar[:1], time,
 				c.facing*c.distX(t, c),
@@ -8476,17 +8476,17 @@ func (c *Char) posUpdate() {
 	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.mhv.cornerpush, false) // PosFreeze does not disable cornerpush in Mugen
+			c.setPosX(c.oldPos[0]+c.mhv.cornerpush, false) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0] + c.vel[0]*c.facing + c.mhv.cornerpush, false)
+			c.setPosX(c.oldPos[0]+c.vel[0]*c.facing+c.mhv.cornerpush, false)
 		}
 		if nobind[1] {
-			c.setPosY(c.oldPos[1] + c.vel[1], false)
+			c.setPosY(c.oldPos[1]+c.vel[1], false)
 		}
 		if nobind[2] {
-			c.setPosZ(c.oldPos[2] + c.vel[2], false)
+			c.setPosZ(c.oldPos[2]+c.vel[2], false)
 		}
 	}
 
@@ -8624,20 +8624,20 @@ func (c *Char) bind() {
 			if AbsF(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
-			c.setPosX(bt.pos[0]*bt.localscl/c.localscl + f*(c.bindPos[0]+c.bindPosAdd[0]), true)
+			c.setPosX(bt.pos[0]*bt.localscl/c.localscl+f*(c.bindPos[0]+c.bindPosAdd[0]), true)
 			c.interPos[0] += bt.interPos[0] - bt.pos[0]
 			c.oldPos[0] += bt.oldPos[0] - bt.pos[0]
 			c.pushed = c.pushed || bt.pushed
 			c.ghv.xoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[1])) {
-			c.setPosY(bt.pos[1]*bt.localscl/c.localscl + (c.bindPos[1] + c.bindPosAdd[1]), true)
+			c.setPosY(bt.pos[1]*bt.localscl/c.localscl+(c.bindPos[1]+c.bindPosAdd[1]), true)
 			c.interPos[1] += bt.interPos[1] - bt.pos[1]
 			c.oldPos[1] += bt.oldPos[1] - bt.pos[1]
 			c.ghv.yoff = 0
 		}
 		if !math.IsNaN(float64(c.bindPos[2])) {
-			c.setPosZ(bt.pos[2]*bt.localscl/c.localscl + (c.bindPos[2] + c.bindPosAdd[2]), true)
+			c.setPosZ(bt.pos[2]*bt.localscl/c.localscl+(c.bindPos[2]+c.bindPosAdd[2]), true)
 			c.interPos[2] += bt.interPos[2] - bt.pos[2]
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
@@ -10741,15 +10741,15 @@ func (c *Char) update() {
 			}
 			if c.ss.moveType == MT_H {
 				if c.ghv.xoff != 0 {
-					c.setPosX(c.pos[0] + c.ghv.xoff, false)
+					c.setPosX(c.pos[0]+c.ghv.xoff, false)
 					c.ghv.xoff = 0
 				}
 				if c.ghv.yoff != 0 {
-					c.setPosY(c.pos[1] + c.ghv.yoff, false)
+					c.setPosY(c.pos[1]+c.ghv.yoff, false)
 					c.ghv.yoff = 0
 				}
 				if c.ghv.zoff != 0 {
-					c.setPosZ(c.pos[2] + c.ghv.zoff, false)
+					c.setPosZ(c.pos[2]+c.ghv.zoff, false)
 					c.ghv.zoff = 0
 				}
 			}

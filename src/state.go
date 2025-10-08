@@ -248,9 +248,9 @@ type GameState struct {
 	stageLoopNo int
 
 	// 11/5/2022
-	fight        Fight
+	fight         Fight
 	introSkipCall bool
-	preFightTime int32
+	preFightTime  int32
 
 	commandLists []*CommandList
 	luaTables    []*lua.LTable

@@ -600,7 +600,11 @@ func (s *System) renderFrame() {
 			if s.zoomStageBound {
 				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
 				if s.zoomCameraBound {
-					dx = x + ClampF(s.zoomPosXLag/scl, -s.cam.halfWidth/scl*2*(1-1/s.zoomScale), s.cam.halfWidth/scl*2*(1-1/s.zoomScale))
+					zoomedViewWidth := float32(s.gameWidth) / s.drawScale
+					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
+					maxCamX := x + (s.cam.halfWidth/scl - zoomedViewWidth/2)
+					intermediateTargetX := x + s.zoomPosXLag/scl
+					dx = ClampF(intermediateTargetX, minCamX, maxCamX)
 				} else {
 					dx = x + s.zoomPosXLag/scl
 				}

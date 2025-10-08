@@ -645,7 +645,11 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		if err := c.stateParam(is, "name", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
-				return Error("Helper name not enclosed in \"")
+				if c.zssMode {
+					return Error("Helper name not enclosed in \"")
+				}
+				sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + fmt.Sprintf(": Helper name not enclosed in \" : in state %v ", c.stateNo))
+				return nil
 			}
 			sc.add(helper_name, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
@@ -927,7 +931,7 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_removeonchangestate, VT_Bool, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramTrans(is, sc, "", explod_trans, false); err != nil {
+	if err := c.paramTrans(is, sc, "", explod_trans, true); err != nil {
 		return err
 	}
 	if err := c.palFXSub(is, sc, "palfx."); err != nil {
@@ -3430,7 +3434,7 @@ func (c *Compiler) trans(is IniSection, sc *StateControllerBase, _ int8) (StateC
 			trans_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramTrans(is, sc, "", trans_trans, false); err != nil {
+		if err := c.paramTrans(is, sc, "", trans_trans, true); err != nil {
 			return err
 		}
 		return nil

@@ -2867,7 +2867,7 @@ func (c *Char) enemyNearP2Clear() {
 func (c *Char) prepareNextRound() {
 	c.sysVarRangeSet(0, math.MaxInt32, 0)
 	c.sysFvarRangeSet(0, math.MaxInt32, 0)
-	atk := float32(c.gi().data.attack) * c.ocd().attackRatio / 100
+	atk := c.ocd().attackRatio
 	c.CharSystemVar = CharSystemVar{
 		bindToId:              -1,
 		angleDrawScale:        [2]float32{1, 1},
@@ -5601,7 +5601,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 }
 
 func (c *Char) autoTurn() {
-	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
+	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() && (c.ss.no != 52 || c.animTime() == 0) {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {

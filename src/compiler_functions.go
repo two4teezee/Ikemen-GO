@@ -3434,7 +3434,7 @@ func (c *Compiler) trans(is IniSection, sc *StateControllerBase, _ int8) (StateC
 			trans_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramTrans(is, sc, "", trans_trans, true); err != nil {
+		if err := c.paramTrans(is, sc, "", trans_trans, false); err != nil {
 			return err
 		}
 		return nil

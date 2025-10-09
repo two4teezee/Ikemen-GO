@@ -179,7 +179,7 @@ type System struct {
 	stageList               map[int32]*Stage
 	stageLoop               bool
 	stageLoopNo             int
-	stageLocalcoords 		map[string][2]float32
+	stageLocalcoords        map[string][2]float32
 	wireframeDisplay        bool
 	nextCharId              int32
 	wincnt                  wincntMap
@@ -582,22 +582,22 @@ func (s *System) resolveLifebarPath() {
 	}
 	// Try to read fight.def from motif
 	if fightVal := func() string {
-			motifLines := loadLinesFromFile(s.motifDef)
-			for i := 0; i < len(motifLines); {
-				is, name, _ := ReadIniSection(motifLines, &i)
-				if strings.ToLower(name) == "files" {
-					if v, ok := is["fight"]; ok {
-						return v
-					}
-					break
+		motifLines := loadLinesFromFile(s.motifDef)
+		for i := 0; i < len(motifLines); {
+			is, name, _ := ReadIniSection(motifLines, &i)
+			if strings.ToLower(name) == "files" {
+				if v, ok := is["fight"]; ok {
+					return v
 				}
+				break
 			}
-			return ""
-		}(); fightVal != "" {
-			s.lifebarDef = resolvePath(fightVal)
-		} else {
-			s.lifebarDef = "data/fight.def"
 		}
+		return ""
+	}(); fightVal != "" {
+		s.lifebarDef = resolvePath(fightVal)
+	} else {
+		s.lifebarDef = "data/fight.def"
+	}
 }
 
 func (s *System) loadLocalcoords() {
@@ -618,68 +618,68 @@ func (s *System) loadLocalcoords() {
 		return [2]int32{320, 240}
 	}
 	// Motif
-    s.luaLocalcoord = readLocalcoord(s.motifDef)
+	s.luaLocalcoord = readLocalcoord(s.motifDef)
 	// Lifebar
-    s.lifebarLocalcoord = readLocalcoord(s.lifebarDef)
+	s.lifebarLocalcoord = readLocalcoord(s.lifebarDef)
 }
 
 func getViewport(srcW, srcH, dstW, dstH int32) [4]int32 {
-    fromRatio := srcW * dstH
-    toRatio := srcH * dstW
+	fromRatio := srcW * dstH
+	toRatio := srcH * dstW
 
-    if fromRatio > toRatio {
-        w := srcH * dstW / dstH
-        h := srcH
-        x := (srcW - w) / 2
-        return [4]int32{x, 0, w, h}
-    } else if fromRatio < toRatio {
-        w := srcW
-        h := srcW * dstH / dstW
-        y := (srcH - h) / 2
-        return [4]int32{0, y, w, h}
-    }
-    return [4]int32{0, 0, srcW, srcH}
+	if fromRatio > toRatio {
+		w := srcH * dstW / dstH
+		h := srcH
+		x := (srcW - w) / 2
+		return [4]int32{x, 0, w, h}
+	} else if fromRatio < toRatio {
+		w := srcW
+		h := srcW * dstH / dstW
+		y := (srcH - h) / 2
+		return [4]int32{0, y, w, h}
+	}
+	return [4]int32{0, 0, srcW, srcH}
 }
 
 // assign storyboard localcoord scaling
 func (s *System) setStoryboardScale(localcoord [2]int32) {
-    viewport := getViewport(localcoord[0], localcoord[1], 4, 3)
-    localW := float32(localcoord[0])
-    scaleX := float32(viewport[2]) / 320
+	viewport := getViewport(localcoord[0], localcoord[1], 4, 3)
+	localW := float32(localcoord[0])
+	scaleX := float32(viewport[2]) / 320
 
-    s.luaSpriteScale = scaleX
-    s.luaSpriteOffsetX = -((localW/scaleX - 320) / 2)
-    s.luaPortraitScale = float32(viewport[2]) / localW
+	s.luaSpriteScale = scaleX
+	s.luaSpriteOffsetX = -((localW/scaleX - 320) / 2)
+	s.luaPortraitScale = float32(viewport[2]) / localW
 }
 
 func (s *System) setMotifScale() {
-    s.motifViewport43 = getViewport(s.luaLocalcoord[0], s.luaLocalcoord[1], 4, 3)
-    scaleX := float32(s.motifViewport43[2]) / 320
-    offsetX := -((float32(s.luaLocalcoord[0]) / scaleX - 320) / 2)
+	s.motifViewport43 = getViewport(s.luaLocalcoord[0], s.luaLocalcoord[1], 4, 3)
+	scaleX := float32(s.motifViewport43[2]) / 320
+	offsetX := -((float32(s.luaLocalcoord[0])/scaleX - 320) / 2)
 
-    s.luaSpriteScale = scaleX
-    s.luaSpriteOffsetX = offsetX
-    s.luaPortraitScale = float32(s.motifViewport43[2]) / float32(s.luaLocalcoord[0])
+	s.luaSpriteScale = scaleX
+	s.luaSpriteOffsetX = offsetX
+	s.luaPortraitScale = float32(s.motifViewport43[2]) / float32(s.luaLocalcoord[0])
 }
 
 func (s *System) setLifebarScale() {
-    viewport43 := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], 4, 3)
-    viewport := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], s.gameWidth, s.gameHeight)
+	viewport43 := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], 4, 3)
+	viewport := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], s.gameWidth, s.gameHeight)
 
-    localW := float32(s.lifebarLocalcoord[0])
-    calcScale := float32(viewport[2]) / localW
-    calcOffsetX := (float32(viewport43[2]) - localW*calcScale) / 2
+	localW := float32(s.lifebarLocalcoord[0])
+	calcScale := float32(viewport[2]) / localW
+	calcOffsetX := (float32(viewport43[2]) - localW*calcScale) / 2
 
-    s.lifebarScale = 320.0 / float32(viewport43[2]) * calcScale
-    s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
-    s.lifebarOffsetX = calcOffsetX * calcScale
+	s.lifebarScale = 320.0 / float32(viewport43[2]) * calcScale
+	s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
+	s.lifebarOffsetX = calcOffsetX * calcScale
 
-    for _, ffx := range s.ffx {
-        for _, a := range ffx.fat {
-            scale := ffx.fx_scale * s.lifebarScale
-            a.start_scale = [...]float32{scale, scale}
-        }
-    }
+	for _, ffx := range s.ffx {
+		for _, a := range ffx.fat {
+			scale := ffx.fx_scale * s.lifebarScale
+			a.start_scale = [...]float32{scale, scale}
+		}
+	}
 }
 
 func (s *System) isAspect43(localcoord [2]int32) bool {

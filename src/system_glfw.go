@@ -136,7 +136,7 @@ func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
 		aspectWindow := float32(winWidth) / float32(winHeight)
 		if aspectWindow > aspectNative {
 			resizedHeight = int32(winHeight)
-			resizedWidth = int32(float32(resizedHeight) * aspectNative) 
+			resizedWidth = int32(float32(resizedHeight) * aspectNative)
 			x = (int32(winWidth) - resizedWidth) / 2
 			y = 0
 		} else {

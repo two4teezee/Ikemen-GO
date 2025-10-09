@@ -5,7 +5,7 @@ local storyboard = {}
 storyboard.t_storyboard = {} --stores all parsed storyboards (we parse each of them only once)
 
 local function f_reset(t)
-	main.f_setStoryboardScale(t.info.localcoord)
+	setStoryboardScale(t.info.localcoord)
 	for _, scene in pairs(t.scene) do
 		if scene.bg_name ~= '' and scene.bg then
 			bgReset(scene.bg)
@@ -324,7 +324,7 @@ local function f_parse(path)
 	--merge tables
 	t = main.f_tableMerge(t_default, t)
 	--localcoord
-	main.f_setStoryboardScale(t.info.localcoord)
+	setStoryboardScale(t.info.localcoord)
 	--scenedef spr
 	t.scenedef.spr = searchFile(t.scenedef.spr, {t.fileDir})
 	if not main.f_fileExists(t.scenedef.spr) then
@@ -432,19 +432,19 @@ function storyboard.f_preload(path)
     if storyboard.t_storyboard[path] ~= nil or not main.f_fileExists(path) then
         return
     end
-    main.f_disableLuaScale()
+    disableLuaScale()
     storyboard.t_storyboard[path] = f_parse(path)
-    main.f_setLuaScale()
+    setLuaScale()
 end
 
 function storyboard.f_storyboard(path, attract)
 	path = path:gsub('\\', '/')
 	main.f_cmdBufReset()
-	main.f_disableLuaScale()
+	disableLuaScale()
 	if storyboard.t_storyboard[path] == nil then
 		storyboard.t_storyboard[path] = f_parse(path)
 		if storyboard.t_storyboard[path] == nil then
-			main.f_setLuaScale()
+			setLuaScale()
 			return false
 		end
 	else
@@ -454,7 +454,7 @@ function storyboard.f_storyboard(path, attract)
 		f_play(storyboard.t_storyboard[path], attract or false)
 	end
 	main.f_cmdBufReset()
-	main.f_setLuaScale()
+	setLuaScale()
 	if attract and main.credits > 0 then
 		return true
 	end

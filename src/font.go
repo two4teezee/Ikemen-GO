@@ -19,6 +19,7 @@ type TtfFont interface {
 	SetColor(red float32, green float32, blue float32, alpha float32)
 	Width(scale float32, fs string, argv ...interface{}) float32
 	Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
+	UpdateResolution(windowWidth int, windowHeight int)
 }
 
 // Fnt is a interface for basic font information
@@ -572,6 +573,10 @@ func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
 
 	if len(txt) == 0 {
 		return
+	}
+
+	if f.ttf != nil {
+		f.ttf.UpdateResolution(int(sys.gameWidth), int(sys.gameHeight))
 	}
 
 	x += float32(f.offset[0])*xscl + float32(sys.gameWidth-320)/2

@@ -702,7 +702,7 @@ function menu.f_commandlistRender(section, t)
 						if v.align == -1 then
 							alignOffset = alignOffset - motif.glyphs_data[v.text].info.Size[1] * scaleX
 						end
-						if motif.defaultMenu then main.f_disableLuaScale() end
+						if motif.defaultMenu then disableLuaScale() end
 						animSetScale(motif.glyphs_data[v.text].anim, scaleX, scaleY)
 						animSetPos(
 							motif.glyphs_data[v.text].anim,
@@ -718,7 +718,7 @@ function menu.f_commandlistRender(section, t)
 						)
 						--animUpdate(motif.glyphs_data[v.text].anim)
 						animDraw(motif.glyphs_data[v.text].anim)
-						if motif.defaultMenu then main.f_setLuaScale() end
+						if motif.defaultMenu then setLuaScale() end
 						if k < #cmdList[n] then
 							width = motif.glyphs_data[v.text].info.Size[1] * scaleX + motif[section].movelist_glyphs_spacing[1]
 						end

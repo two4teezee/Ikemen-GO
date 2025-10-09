@@ -119,33 +119,43 @@ func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
 	// calculates a position and size for the viewport to fill the window while centered (see render_gl.go)
 	// returns x, y, width, height respectively
 	winWidth, winHeight := w.GetSize()
-	ratioWidth := float32(winWidth) / float32(sys.gameWidth)
-	ratioHeight := float32(winHeight) / float32(sys.gameHeight)
-	var ratio float32
-	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
 
-	if int32(winWidth) == sys.scrrect[2] && int32(winHeight) == sys.scrrect[3] {
+	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
+	// If aspect ratio should not be kept, just return full window
+	if !sys.cfg.Video.KeepAspect {
 		return 0, 0, int32(winWidth), int32(winHeight)
 	}
-
-	if ratioWidth < ratioHeight {
-		ratio = ratioWidth
-	} else {
-		ratio = ratioHeight
-	}
-
-	if sys.cfg.Video.KeepAspect {
-		resizedWidth = int32(float32(sys.gameWidth) * ratio)
-		resizedHeight = int32(float32(sys.gameHeight) * ratio)
-
-		// calculate offsets for the resized width to center it to the window
-		if resizedWidth < int32(winWidth) {
-			x = (int32(winWidth) - resizedWidth) / 2
+	// StageFit special case
+	if sys.cfg.Video.StageFit && sys.gameTime > 0 && sys.stage != nil && sys.isAspect43(sys.stage.stageCamera.localcoord) {
+		w := sys.stage.stageCamera.localcoord[0]
+		h := sys.stage.stageCamera.localcoord[1]
+		if h <= 0 {
+			h = 240
 		}
-		if resizedHeight < int32(winHeight) {
+		aspectNative := float32(w) / float32(h)
+		aspectWindow := float32(winWidth) / float32(winHeight)
+		if aspectWindow > aspectNative {
+			resizedHeight = int32(winHeight)
+			resizedWidth = int32(float32(resizedHeight) * aspectNative) 
+			x = (int32(winWidth) - resizedWidth) / 2
+			y = 0
+		} else {
+			resizedWidth = int32(winWidth)
+			resizedHeight = int32(float32(resizedWidth) / aspectNative)
+			x = 0
 			y = (int32(winHeight) - resizedHeight) / 2
 		}
+		return x, y, resizedWidth, resizedHeight
 	}
+	// Normal scaling (fit the window while keeping aspect)
+	ratioWidth := float32(winWidth) / float32(sys.gameWidth)
+	ratioHeight := float32(winHeight) / float32(sys.gameHeight)
+	ratio := MinF(ratioWidth, ratioHeight)
+
+	resizedWidth = int32(float32(sys.gameWidth) * ratio)
+	resizedHeight = int32(float32(sys.gameHeight) * ratio)
+	x = (int32(winWidth) - resizedWidth) / 2
+	y = (int32(winHeight) - resizedHeight) / 2
 
 	return x, y, resizedWidth, resizedHeight
 }

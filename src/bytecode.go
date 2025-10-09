@@ -13496,6 +13496,63 @@ func (sc shiftInput) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type modifyClsn StateControllerBase
+
+const (
+	modifyClsn_group byte = iota
+	modifyClsn_index
+	modifyClsn_rect
+	modifyClsn_redirectid
+)
+
+func (sc modifyClsn) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), modifyClsn_redirectid, "ModifyClsn")
+	if crun == nil {
+		return false
+	}
+
+	redirscale := c.localscl / crun.localscl
+
+	// Default everything to 0
+	var box ClsnModifier
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case modifyClsn_group:
+			box.group = exp[0].evalI(c)
+		case modifyClsn_index:
+			box.index = int(exp[0].evalI(c))
+		case modifyClsn_rect:
+			box.rect[0] = exp[0].evalF(c) * redirscale
+			if len(exp) > 1 {
+				box.rect[1] = exp[1].evalF(c) * redirscale
+			}
+			if len(exp) > 2 {
+				box.rect[2] = exp[2].evalF(c) * redirscale
+			}
+			if len(exp) > 3 {
+				box.rect[3] = exp[3].evalF(c) * redirscale
+			}
+			// Normalize rectangle
+			if box.rect[0] > box.rect[2] {
+				box.rect[0], box.rect[2] = box.rect[2], box.rect[0]
+			}
+			if box.rect[1] > box.rect[3] {
+				box.rect[1], box.rect[3] = box.rect[3], box.rect[1]
+			}
+		}
+		return true
+	})
+
+	if box.group == 0 {
+		crun.clsnModifiers = nil
+	} else {
+		crun.clsnModifiers = append(crun.clsnModifiers, box)
+	}
+
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

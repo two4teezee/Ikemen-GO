@@ -2142,48 +2142,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_score, VT_Float, 2, false); err != nil {
 		return err
 	}
-	if err := c.stateParam(is, "p2clsncheck", false, func(data string) error {
-		if len(data) == 0 {
-			return Error("p2clsncheck not specified")
-		}
-		var box int32
-		switch strings.ToLower(data) {
-		case "none":
-			box = 0
-		case "clsn1":
-			box = 1
-		case "clsn2":
-			box = 2
-		case "size":
-			box = 3
-		default:
-			return Error("Invalid p2clsncheck type: " + data)
-		}
-		sc.add(hitDef_p2clsncheck, sc.iToExp(box))
-		return nil
-	}); err != nil {
+	if err := c.paramClsnType(is, sc, "p2clsncheck", hitDef_p2clsncheck); err != nil {
 		return err
 	}
-	if err := c.stateParam(is, "p2clsnrequire", false, func(data string) error {
-		if len(data) == 0 {
-			return Error("p2clsnrequire not specified")
-		}
-		var box int32
-		switch strings.ToLower(data) {
-		case "none":
-			box = 0
-		case "clsn1":
-			box = 1
-		case "clsn2":
-			box = 2
-		case "size":
-			box = 3
-		default:
-			return Error("Invalid p2clsnrequire type: " + data)
-		}
-		sc.add(hitDef_p2clsnrequire, sc.iToExp(box))
-		return nil
-	}); err != nil {
+	if err := c.paramClsnType(is, sc, "p2clsnrequire", hitDef_p2clsnrequire); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "down.recover",
@@ -6500,6 +6462,28 @@ func (c *Compiler) shiftInput(is IniSection, sc *StateControllerBase, _ int8) (S
 		return nil
 	})
 
+	return *ret, err
+}
+
+func (c *Compiler) modifyClsn(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyClsn)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			modifyClsn_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramClsnType(is, sc, "group", modifyClsn_group); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "index",
+			modifyClsn_index, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "rect",
+			modifyClsn_rect, VT_Float, 4, false); err != nil {
+			return err
+		}
+		return nil
+	})
 	return *ret, err
 }
 

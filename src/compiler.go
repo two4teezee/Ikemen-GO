@@ -152,6 +152,7 @@ func newCompiler() *Compiler {
 		"modifybgctrl":         c.modifyBGCtrl,
 		"modifybgctrl3d":       c.modifyBGCtrl3d,
 		"modifybgm":            c.modifyBgm,
+		"modifyclsn":           c.modifyClsn,
 		"modifyhitdef":         c.modifyHitDef,
 		"modifyplayer":         c.modifyPlayer,
 		"modifyprojectile":     c.modifyProjectile,
@@ -5963,6 +5964,29 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 		exp[2] = sc.iToExp(int32(tt))[0]
 
 		sc.add(id, exp)
+		return nil
+	})
+}
+
+func (c *Compiler) paramClsnType(is IniSection, sc *StateControllerBase, paramName string, id byte) error {
+	return c.stateParam(is, paramName, false, func(data string) error {
+		if len(data) == 0 {
+			return Error("Clsn type not specified for " + paramName)
+		}
+		var box int32
+		switch strings.ToLower(data) {
+		case "none":
+			box = 0
+		case "clsn1":
+			box = 1
+		case "clsn2":
+			box = 2
+		case "size":
+			box = 3
+		default:
+			return Error("Invalid Clsn type for " + paramName + ": " + data)
+		}
+		sc.add(id, sc.iToExp(box))
 		return nil
 	})
 }

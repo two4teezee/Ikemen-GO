@@ -2358,6 +2358,7 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuvideo_resolution_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_fullscreen = "Fullscreen"
 	motif.option_info.menu_itemname_menuvideo_vsync = "VSync"
+	motif.option_info.menu_itemname_menuvideo_stagefit = "StageFit"
 	motif.option_info.menu_itemname_menuvideo_keepaspect = "Keep Aspect Ratio"
 	motif.option_info.menu_itemname_menuvideo_windowscalemode = "Window Scale Mode"
 	motif.option_info.menu_itemname_menuvideo_msaa = "MSAA"
@@ -2494,6 +2495,7 @@ function motif.setBaseOptionInfo()
 		"menuvideo_resolution_back",
 		"menuvideo_fullscreen",
 		"menuvideo_vsync",
+		"menuvideo_stagefit",
 		"menuvideo_keepaspect",
 		"menuvideo_windowscalemode",
 		"menuvideo_msaa",

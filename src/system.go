@@ -58,6 +58,7 @@ var sys = System{
 	numSimul: [...]int32{2, 2}, numTurns: [...]int32{2, 2},
 	ignoreMostErrors: true,
 	stageList:        make(map[int32]*Stage),
+	stageLocalcoords: make(map[string][2]float32),
 	wincnt:           wincntMap(make(map[string][]int32)),
 	wincntFileName:   "save/autolevel.save",
 	oldNextAddTime:   1,
@@ -178,6 +179,7 @@ type System struct {
 	stageList               map[int32]*Stage
 	stageLoop               bool
 	stageLoopNo             int
+	stageLocalcoords 		map[string][2]float32
 	wireframeDisplay        bool
 	nextCharId              int32
 	wincnt                  wincntMap
@@ -678,6 +680,32 @@ func (s *System) setLifebarScale() {
             a.start_scale = [...]float32{scale, scale}
         }
     }
+}
+
+func (s *System) isAspect43(localcoord [2]int32) bool {
+	if localcoord[1] == 0 {
+		return false
+	}
+	aspect := float32(localcoord[0]) / float32(localcoord[1])
+	aspect43 := float32(4.0 / 3.0)
+	eps := float32(0.01)
+
+	return AbsF(aspect-aspect43) < eps
+}
+
+func (s *System) stageFit() {
+	def := strings.ToLower(filepath.Base(sys.sel.stagelist[sys.sel.selectedStageNo-1].def))
+	coord, ok := sys.stageLocalcoords[def]
+	if !ok {
+		return
+	}
+	coordInt := [2]int32{int32(coord[0]), int32(coord[1])}
+	if !sys.isAspect43(coordInt) {
+		return
+	}
+	coordRatio := float32(coordInt[0]) / 320
+	sys.gameWidth = int32(float32(coordInt[0]) / coordRatio)
+	sys.widthScale = float32(sys.scrrect[2]) / float32(sys.gameWidth)
 }
 
 func (s *System) eventUpdate() bool {
@@ -2635,7 +2663,9 @@ func (s *System) runMatch() (reload bool) {
 			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
 		}
 	}
-
+	if s.endMatch && sys.cfg.Video.StageFit {
+		s.setWindowSize(s.scrrect[2], s.scrrect[3]) // Restore original resolution
+	}
 	return false
 }
 
@@ -3838,20 +3868,28 @@ func (s *Select) AddStage(def string) error {
 		case "stageinfo":
 			if stageinfo {
 				stageinfo = false
+				localcoord := [2]float32{320, 240}
+				is.ReadF32("localcoord", &localcoord[0], &localcoord[1])
 				if ok := is.ReadF32("portraitscale", &ss.portrait_scale); !ok {
-					localcoord := float32(320)
-					is.ReadF32("localcoord", &localcoord)
-					ss.portrait_scale = 320 / localcoord
+					ss.portrait_scale = 320 / localcoord[0]
+				}
+				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
+					key := strings.ToLower(filepath.Base(ss.def))
+					sys.stageLocalcoords[key] = localcoord // Store localcoords for StageFit
 				}
 			}
 		case fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language):
 			if lanStageinfo {
 				stageinfo = false
 				lanStageinfo = false
+				localcoord := [2]float32{320, 240}
+				is.ReadF32("localcoord", &localcoord[0], &localcoord[1])
 				if ok := is.ReadF32("portraitscale", &ss.portrait_scale); !ok {
-					localcoord := float32(320)
-					is.ReadF32("localcoord", &localcoord)
-					ss.portrait_scale = 320 / localcoord
+					ss.portrait_scale = 320 / localcoord[0]
+				}
+				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
+					key := strings.ToLower(filepath.Base(ss.def))
+					sys.stageLocalcoords[key] = localcoord
 				}
 			}
 		}
@@ -4199,8 +4237,16 @@ func (l *Loader) load() {
 	defer func() {
 		l.loadExit <- l.state
 	}()
+	if sys.cfg.Video.StageFit {
+		sys.stageFit()
+		coordRatio := float32(sys.gameWidth) / 320
+		for _, c := range sys.chars {
+			if len(c) > 0 {
+				c[0].localcoord = c[0].gi().localcoord[0] / coordRatio
+			}
+		}
+	}
 	sys.setLifebarScale()
-	sys.setMotifScale()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {

@@ -217,6 +217,7 @@ options.t_itemname = {
 			modifyGameOption('Video.ExternalShaders', {})
 			modifyGameOption('Video.WindowScaleMode', true)
 			modifyGameOption('Video.KeepAspect', true)
+			modifyGameOption('Video.StageFit', true)
 			modifyGameOption('Video.EnableModel', true)
 			modifyGameOption('Video.EnableModelShadow', true)
 			--modifyGameOption('Sound.SampleRate', 44100)
@@ -928,6 +929,21 @@ options.t_itemname = {
 		end
 		return true
 	end,
+	--StageFit
+	['stagefit'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			if gameOption('Video.StageFit') then
+				modifyGameOption('Video.StageFit', false)
+			else
+				modifyGameOption('Video.StageFit', true)
+			end
+			t.items[item].vardisplay = options.f_boolDisplay(gameOption('Video.StageFit'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
+			options.modified = true
+			options.needReload = true
+		end
+		return true
+	end,
 	--Keep Aspect Ratio
 	['keepaspect'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then
@@ -1442,6 +1458,9 @@ options.t_vardisplay = {
 	end,
 	['helpermax'] = function()
 		return gameOption('Config.HelperMax')
+	end,
+	['stagefit'] = function()
+		return options.f_boolDisplay(gameOption('Video.StageFit'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)
 	end,
 	['keepaspect'] = function()
 		return options.f_boolDisplay(gameOption('Video.KeepAspect'), motif.option_info.menu_valuename_enabled, motif.option_info.menu_valuename_disabled)

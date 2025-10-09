@@ -3813,7 +3813,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "defence", func(*lua.LState) int {
-		l.Push(lua.LNumber(float32(sys.debugWC.finalDefense * 100)))
+		l.Push(lua.LNumber(sys.debugWC.finalDefense * 100))
 		return 1
 	})
 	luaRegister(l, "drawgame", func(*lua.LState) int {
@@ -5520,10 +5520,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.animPN + 1))
 		return 1
 	})
-	luaRegister(l, "attack", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.attackMul[0] * 100))
-		return 1
-	})
 	luaRegister(l, "clamp", func(*lua.LState) int {
 		v1, v2, v3, retv := float32(numArg(l, 1)), float32(numArg(l, 2)), float32(numArg(l, 3)), float32(0)
 		retv = MaxF(v2, MinF(v1, v3))
@@ -5559,11 +5555,6 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "decisiveround", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.decisiveRound[^sys.debugWC.playerNo&1]))
-		return 1
-	})
-	// deg (dedicated functionality already exists in Lua)
-	luaRegister(l, "defence", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.finalDefense * 100))
 		return 1
 	})
 	luaRegister(l, "displayname", func(*lua.LState) int {

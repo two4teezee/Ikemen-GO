@@ -2205,7 +2205,7 @@ function start.f_selectScreen()
 	local stageActiveCount = 0
 	local stageActiveType = 'stage_active'
 	timerSelect = 0
-	local escFlag = false
+	start.escFlag = false
 	local t_teamMenu = {{}, {}}
 	local blinkCount = 0
 	local counter = 0 - motif.select_info.fadein_time
@@ -2326,7 +2326,7 @@ function start.f_selectScreen()
 					if start.needUpdateDrawList == false then
 						start.needUpdateDrawList= DrawUpdateflag
 					end
-					--palmenu
+					--not in palmenu
 					if v.selectState == 0 and not main.f_input(main.t_players, {'m'}) then
 						start.p[side].inPalMenu = false
 					end
@@ -2360,12 +2360,10 @@ function start.f_selectScreen()
 				end
 			end
 			--exit select screen
-			for side = 1, 2 do
-				for _, v in ipairs(start.p[side].t_selCmd) do
-					if not escFlag and (esc() or (main.f_input({v.cmd}, {'m'}) and not start.p[side].inPalMenu)) then
-						main.f_fadeReset('fadeout', motif.select_info)
-						escFlag = true
-					end
+			for _, v in ipairs(start.p[side].t_selCmd) do
+				if not start.escFlag and (esc() or (main.f_input({v.cmd}, {'m'}) and not start.p[side].inPalMenu)) then
+					main.f_fadeReset('fadeout', motif.select_info)
+					start.escFlag = true
 				end
 			end
 		end
@@ -2498,7 +2496,7 @@ function start.f_selectScreen()
 		end
 		main.f_refresh()
 	end
-	return not escFlag
+	return not start.escFlag
 end
 
 --;===========================================================
@@ -2618,6 +2616,11 @@ function start.f_teamMenu(side, t)
 					end
 				end
 			end
+		end
+		--Exit during team menu
+		if not start.escFlag and (esc() or main.f_input(main.t_players, {'m'})) then
+			main.f_fadeReset('fadeout', motif.select_info)
+			start.escFlag = true
 		end
 		--Draw team background
 		main.f_animPosDraw(motif.select_info['p' .. side .. '_teammenu_bg_data'])
@@ -3120,10 +3123,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				-- cancel
 				elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_cancel_key'])) then
 					local charRef = start.p[side].t_selTemp[member].ref
-					local a = start.f_animGet(charRef, side, member, motif.select_info, '_face', '', false)
-					if a then
-						start.p[side].t_selTemp[member].anim_data = a
-					end
+					start.p[side].t_selTemp[member].anim_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '', true)
+					start.p[side].t_selTemp[member].face2_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face2', '', true)
 					selectState = 0
 
 					sndPlay(motif.files.snd_data, motif.select_info.palmenu_cancel_snd[1], motif.select_info.palmenu_cancel_snd[2])

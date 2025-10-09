@@ -399,43 +399,13 @@ if main.flags['-height'] then
 end
 
 --motif
-main.motifDef = gameOption('Config.Motif')
-if main.flags['-r'] ~= nil or main.flags['-rubric'] ~= nil then
-	local case = main.flags['-r']:lower() or main.flags['-rubric']:lower()
-	if case:match('^data[/\\]') and main.f_fileExists(main.flags['-r']) then
-		main.motifDef = main.flags['-r'] or main.flags['-rubric']
-	elseif case:match('%.def$') and main.f_fileExists('data/' .. main.flags['-r']) then
-		main.motifDef = 'data/' .. (main.flags['-r'] or main.flags['-rubric'])
-	elseif main.f_fileExists('data/' .. main.flags['-r'] .. '/system.def') then
-		main.motifDef = 'data/' .. (main.flags['-r'] or main.flags['-rubric']) .. '/system.def'
-	end
-end
-main.motifDir, main.motifFile = main.motifDef:match('^(.-)[^/\\]+$')
-setMotifDir(main.motifDir)
+main.motifDir, main.motifFile = motifDef():match('^(.-)[^/\\]+$')
 
 --lifebar
-main.motifData = main.f_fileRead(main.motifDef)
-local fileDir = main.motifDef:match('^(.-)[^/\\]+$')
-if main.flags['-lifebar'] ~= nil then
-	main.lifebarDef = main.flags['-lifebar']
-else
-	main.lifebarDef = main.motifData:match('\n%s*fight%s*=%s*(.-%.def)%s*')
-end
-if main.f_fileExists(main.lifebarDef) then
-	--do nothing
-elseif main.f_fileExists(fileDir .. main.lifebarDef) then
-	main.lifebarDef = fileDir .. main.lifebarDef
-elseif main.f_fileExists('data/' .. main.lifebarDef) then
-	main.lifebarDef = 'data/' .. main.lifebarDef
-else
-	main.lifebarDef = 'data/fight.def'
-end
-main.lifebarData = main.f_fileRead(main.lifebarDef)
+main.motifData = main.f_fileRead(motifDef())
+main.lifebarData = main.f_fileRead(lifebarDef())
+
 refresh()
-
---localcoord
-require('external.script.screenpack')
-
 --"phantom pixel" adjustment to match mugen flipping behavior (extra pixel)
 function main.f_alignOffset(align)
 	if align == -1 then
@@ -546,13 +516,13 @@ function text:create(t)
 	textImgSetAlign(t.ti, t.align)
 	textImgSetText(t.ti, t.text)
 	textImgSetColor(t.ti, t.r, t.g, t.b)
-	if t.defsc then main.f_disableLuaScale() end
+	if t.defsc then disableLuaScale() end
 	textImgSetPos(t.ti, t.x + main.f_alignOffset(t.align), t.y)
 	textImgSetScale(t.ti, t.scaleX, t.scaleY)
 	textImgSetWindow(t.ti, t.window[1], t.window[2], t.window[3] - t.window[1], t.window[4] - t.window[2])
 	textImgSetXShear(t.ti, t.xshear)
 	textImgSetAngle(t.ti, t.angle)
-	if t.defsc then main.f_setLuaScale() end
+	if t.defsc then setLuaScale() end
 	return t
 end
 
@@ -599,13 +569,13 @@ function text:update(t)
 		textImgSetAlign(self.ti, self.align)
 		textImgSetText(self.ti, self.text)
 		textImgSetColor(self.ti, self.r, self.g, self.b)
-		if self.defsc then main.f_disableLuaScale() end
+		if self.defsc then disableLuaScale() end
 		textImgSetPos(self.ti, self.x + main.f_alignOffset(self.align), self.y)
 		textImgSetScale(self.ti, self.scaleX, self.scaleY)
 		textImgSetWindow(self.ti, self.window[1], self.window[2], self.window[3] - self.window[1], self.window[4] - self.window[2])
 		textImgSetXShear(self.ti, self.xshear)
 		textImgSetAngle(self.ti, self.angle)
-		if self.defsc then main.f_setLuaScale() end
+		if self.defsc then setLuaScale() end
 	else
 		self.text = t
 		textImgSetText(self.ti, self.text)
@@ -721,9 +691,9 @@ end
 
 --draw rect
 function rect:draw()
-	if self.defsc then main.f_disableLuaScale() end
+	if self.defsc then disableLuaScale() end
 	fillRect(self.x1, self.y1, self.x2, self.y2, self.r, self.g, self.b, self.src, self.dst)
-	if self.defsc then main.f_setLuaScale() end
+	if self.defsc then setLuaScale() end
 	return self
 end
 
@@ -896,14 +866,14 @@ function main.f_animFromTable(t, sff, x, y, scaleX, scaleY, facing, infFrame, de
 		end
 		anim = anim .. '\n'
 	end
-	if defsc then main.f_disableLuaScale() end
+	if defsc then disableLuaScale() end
 	if anim == '' then
 		anim = '-1,0, 0,0, -1'
 	end
 	local data = animNew(sff, anim)
 	animSetScale(data, scaleX, scaleY)
 	animUpdate(data)
-	if defsc then main.f_setLuaScale() end
+	if defsc then setLuaScale() end
 	return data, length
 end
 
@@ -1410,7 +1380,7 @@ function main.f_commandLine()
 	local t_matchWins = {single = main.roundsNumSingle, simul = main.roundsNumSimul, tag = main.roundsNumTag, draw = main.maxDrawGames}
 	local roundTime = gameOption('Options.Time')
 	if main.flags['-loadmotif'] == nil then
-		loadLifebar(main.lifebarDef)
+		loadLifebar()
 	end
 	setLifebarElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
 	local frames = fightscreenvar("time.framespercount")
@@ -1596,7 +1566,7 @@ motif = require('external.script.motif')
 main.txt_loading = main.f_createTextImg(motif.title_info, 'loading')
 main.txt_loading:draw()
 refresh()
-loadLifebar(main.lifebarDef)
+loadLifebar()
 main.f_loadingRefresh(main.txt_loading)
 main.timeFramesPerCount = fightscreenvar("time.framespercount")
 main.f_updateRoundsNum()
@@ -1938,8 +1908,8 @@ function main.f_addChar(line, playable, loading, slot)
 				if main.t_selChars[row].cell_data ~= nil then
 					animSetScale(
 						main.t_selChars[row].cell_data,
-						motif.select_info.portrait_scale[1] * main.t_selChars[row].portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
-						motif.select_info.portrait_scale[2] * main.t_selChars[row].portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
+						motif.select_info.portrait_scale[1] * main.t_selChars[row].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
+						motif.select_info.portrait_scale[2] * main.t_selChars[row].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
 						false
 					)
 					animUpdate(main.t_selChars[row].cell_data)
@@ -2044,8 +2014,8 @@ function main.f_addStage(file, hidden)
 			if main.t_selStages[stageNo].anim_data ~= nil then
 				animSetScale(
 					main.t_selStages[stageNo].anim_data,
-					motif.select_info.stage_portrait_scale[1] * main.t_selStages[stageNo].portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
-					motif.select_info.stage_portrait_scale[2] * main.t_selStages[stageNo].portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
+					motif.select_info.stage_portrait_scale[1] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
+					motif.select_info.stage_portrait_scale[2] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
 					false
 				)
 				animSetWindow(
@@ -2396,7 +2366,7 @@ function main.f_menuWindow(t)
 			t.menu_pos[2] + (t.menu_window_visibleitems - 1) * t.menu_item_spacing[2] + t.menu_window_margins_y[2]
 		}
 	end
-	return {0, 0, main.SP_Localcoord[1], math.max(240, main.SP_Localcoord[2])}
+	return {0, 0, motifLocalcoord(0), math.max(240, motifLocalcoord(1))}
 end
 
 --Load additional scripts

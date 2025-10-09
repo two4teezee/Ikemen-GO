@@ -856,7 +856,7 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 			end
 			local a = animGetPreloadedCharData(ref, v[1], v[2], loop)
 			if a ~= nil then
-				local xscale = start.f_getCharData(ref).portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1])
+				local xscale = start.f_getCharData(ref).portrait_scale / (motifViewport43(2) / motifLocalcoord(0))
 				local yscale = xscale
 				if v[2] == -1 then
 					xscale = xscale * (start.f_getCharData(ref).cns_scale[1] or 1)
@@ -2859,7 +2859,7 @@ function start.f_palMenuDraw(side, member)
 		}):draw()
 	end
 
-	-- desenha text
+	-- draw text
 	local textFontInfo = getInfo('palmenu_text_font')
 	local textOffset = getInfo('palmenu_text_offset')
 	local textScale = getInfo('palmenu_text_scale')
@@ -4250,8 +4250,8 @@ function start.f_hiscoreInit(gameMode, playMusic, input)
 						if a ~= nil then
 							animSetScale(
 								a,
-								motif.hiscore_info.item_face_scale[1] * start.f_getCharData(start.f_getCharRef(def)).portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
-								motif.hiscore_info.item_face_scale[2] * start.f_getCharData(start.f_getCharRef(def)).portrait_scale / (main.SP_Viewport43[3] / main.SP_Localcoord[1]),
+								motif.hiscore_info.item_face_scale[1] * start.f_getCharData(start.f_getCharRef(def)).portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
+								motif.hiscore_info.item_face_scale[2] * start.f_getCharData(start.f_getCharRef(def)).portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
 								false
 							)
 							animUpdate(a)
@@ -4897,8 +4897,8 @@ function start.f_dialogue()
 			motif.dialogue_info['p' .. side .. '_face_facing'],
 			motif.dialogue_info['p' .. side .. '_face_window'][1],
 			motif.dialogue_info['p' .. side .. '_face_window'][2],
-			motif.dialogue_info['p' .. side .. '_face_window'][3] * gameOption('Video.GameWidth') / main.SP_Localcoord[1],
-			motif.dialogue_info['p' .. side .. '_face_window'][4] * gameOption('Video.GameHeight') / main.SP_Localcoord[2]
+			motif.dialogue_info['p' .. side .. '_face_window'][3] * gameOption('Video.GameWidth') / motifLocalcoord(0),
+			motif.dialogue_info['p' .. side .. '_face_window'][4] * gameOption('Video.GameHeight') / motifLocalcoord(1)
 		)
 		--draw names
 		start['txt_dialogue_p' .. side .. '_name']:draw()

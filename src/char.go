@@ -12239,6 +12239,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 				// Update position interpolation
 				// TODO: Interpolation still looks wrong when framerate is above 60fps
 				c.setPosX(c.pos[0], true)
+				getter.setPosX(getter.pos[0], true)
 			}
 
 			// TODO: Z axis push might need some decision for who stays in the corner, like X axis
@@ -12265,6 +12266,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Update position interpolation
 				c.setPosZ(c.pos[2], true)
+				getter.setPosZ(getter.pos[2], true)
 			}
 		}
 	}

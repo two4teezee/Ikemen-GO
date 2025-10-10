@@ -676,50 +676,56 @@ func (ts *TextSprite) SetTextVel() {
 }
 
 func (ts *TextSprite) Draw() {
-	if !sys.frameSkip && ts.fnt != nil {
-		tabSize := 4
-		tabSpaces := strings.Repeat(" ", tabSize)
+	if sys.frameSkip || ts.fnt == nil || len(ts.text) == 0 {
+		return
+	}
 
-		if sys.tickFrame() {
-			if ts.textDelay > 0 { // If textDelay is greater than 0, it controls the maximum number of characters
-				ts.elapsedTicks++
-			}
-			ts.SetTextVel()
-			if ts.palfx != nil && !ts.forcecolor {
-				ts.palfx.step()
-			}
+	// Replace each tab with 4 spaces
+	// We do this first so that length checks are accurate
+	text := strings.ReplaceAll(ts.text, "\t", "    ")
+
+	maxChars := int32(len(text))
+
+	// If textDelay is greater than 0, it controls the maximum number of characters
+	if ts.textDelay > 0 {
+		// Offset the delay so that we show the first character immediately
+		elapsed := ts.elapsedTicks + ts.textDelay
+		maxChars = int32(elapsed / ts.textDelay)
+	}
+
+	maxChars = Clamp(maxChars, 0, int32(len(text)))
+
+	// Control of total displayed characters
+	totalCharsShown := 0
+
+	lines := strings.Split(text, "\n")
+
+	for i, line := range lines {
+		lineLength := len(line)
+
+		// Shows the characters progressively
+		charsToShow := int(Min(int32(lineLength), maxChars-int32(totalCharsShown)))
+		if charsToShow <= 0 {
+			continue
 		}
 
-		maxChars := int32(ts.elapsedTicks / ts.textDelay)
-		totalCharsShown := 0 // Control of total displayed characters
+		newY := ts.y + float32(i)*ts.yscl*ts.lineSpacing
 
-		lines := strings.Split(ts.text, "\n")
-		for i, line := range lines {
-			line = strings.ReplaceAll(line, "\t", tabSpaces)
-			newY := ts.y + float32(i)*ts.yscl*ts.lineSpacing
-			lineLength := len(line)
+		// Xshear offset correction
+		xshear := -ts.xshear
+		xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
 
-			// Shows the characters progressively
-			charsToShow := lineLength // Default to show the entire line
-			if ts.textDelay > 0 {
-				charsToShow = int(Min(int32(lineLength), maxChars-int32(totalCharsShown)))
-				totalCharsShown += charsToShow
-			}
+		// Draw the visible line
+		if ts.fnt.Type == "truetype" {
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
+		} else {
+			ts.fnt.DrawText(line[:charsToShow], ts.x-xsoffset, newY, ts.xscl, ts.yscl,
+				xshear, Rotation{ts.angle, 0, 0}, ts.bank, ts.align, &ts.window, ts.palfx)
+		}
 
-			// Xshear offset correction
-			xshear := -ts.xshear
-			xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
-
-			// Draws the visible line
-			if ts.fnt.Type == "truetype" {
-				ts.fnt.DrawTtf(line[:charsToShow], ts.x, newY, ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
-			} else {
-				ts.fnt.DrawText(line[:charsToShow], ts.x-xsoffset, newY, ts.xscl, ts.yscl, xshear, Rotation{ts.angle, 0, 0}, ts.bank, ts.align, &ts.window, ts.palfx)
-			}
-
-			if ts.textDelay > 0 && totalCharsShown >= int(maxChars) {
-				break
-			}
+		totalCharsShown += charsToShow
+		if totalCharsShown >= int(maxChars) {
+			break
 		}
 	}
 }

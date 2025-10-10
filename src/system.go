@@ -842,6 +842,9 @@ func (s *System) update() bool {
 
 	if s.gameTime == 0 {
 		s.preFightTime = s.frameCounter
+		if sys.cfg.Video.StageFit {
+			s.setWindowSize(s.scrrect[2], s.scrrect[3]) // Restore original resolution
+		}
 	}
 
 	if s.replayFile != nil {
@@ -2662,9 +2665,6 @@ func (s *System) runMatch() (reload bool) {
 		} else if s.esc {
 			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
 		}
-	}
-	if s.endMatch && sys.cfg.Video.StageFit {
-		s.setWindowSize(s.scrrect[2], s.scrrect[3]) // Restore original resolution
 	}
 	return false
 }

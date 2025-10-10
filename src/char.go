@@ -5601,7 +5601,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 }
 
 func (c *Char) autoTurn() {
-	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() && (c.ss.no != 52 || c.animTime() == 0) {
+	if c.helperIndex == 0 && !c.asf(ASF_noautoturn) && sys.stage.autoturn && c.shouldFaceP2() {
 		switch c.ss.stateType {
 		case ST_S:
 			if c.animNo != 5 {
@@ -5788,11 +5788,12 @@ func (c *Char) stateChange2() bool {
 func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 	// This is a very specific and undocumented Mugen behavior that was probably superseded by "facep2"
 	// It serves very little purpose while negatively affecting some new Ikemen features like NoTurnTarget
-	// It could be removed in the future
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1755
-	//if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 {
-	//	c.autoTurn()
-	//}
+	// It doesn't work with ikemenversion
+	if c.minus <= 0 && c.scf(SCF_ctrl) && sys.roundState() <= 2 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
+		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && !c.asf(ASF_nofacep2) {
+		c.autoTurn()
+	}
 	if anim != -1 {
 		c.changeAnim(anim, c.playerNo, -1, ffx)
 	}
@@ -11493,7 +11494,8 @@ func (cl *CharList) commandUpdate() {
 				// Auto turning check for the root
 				// Having this here makes B and F inputs reverse the same instant the character turns
 				if act && c.helperIndex == 0 && (c.scf(SCF_ctrl) || sys.roundState() > 2) &&
-					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 || c.ss.no == 52) {
+					(c.ss.no == 0 || c.ss.no == 11 || c.ss.no == 20 ||
+						c.ss.no == 52 && (c.animTime() == 0 || (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0))) {
 					c.autoTurn()
 				}
 

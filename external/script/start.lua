@@ -841,7 +841,7 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 		t['p' .. side .. subname .. prefix .. '_spr'],
 		default
 	}
-	for k, v in ipairs(sources) do
+	for k, v in pairs(sources) do
 		local anim = v[1]
 		if anim ~= nil and anim ~= -1 then
 			-- Determine whether to apply palette
@@ -862,6 +862,12 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 					or t['p' .. side .. '_applypal']
 					or 0
 			end
+
+			local baseSubname = subname
+			if subname == '_palmenu' then
+				baseSubname = '_face'
+			end
+
 			-- Try to load the animation
 			local a = animGetPreloadedCharData(ref, anim, v[2], loop)
 			if a then
@@ -875,16 +881,16 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 				end
 				animSetScale(
 					a,
-					t['p' .. side .. subname .. '_scale'][1] * ((t['p' .. side .. '_member' .. member .. subname .. '_scale'] or {1,1})[1]) * xscale,
-					t['p' .. side .. subname .. '_scale'][2] * ((t['p' .. side .. '_member' .. member .. subname .. '_scale'] or {1,1})[2]) * yscale,
+					t['p' .. side .. baseSubname .. '_scale'][1] * ((t['p' .. side .. '_member' .. member .. baseSubname .. '_scale'] or {1,1})[1]) * xscale,
+					t['p' .. side .. baseSubname .. '_scale'][2] * ((t['p' .. side .. '_member' .. member .. baseSubname .. '_scale'] or {1,1})[2]) * yscale,
 					false
 				)
 				animSetWindow(
 					a,
-					t['p' .. side .. subname .. '_window'][1],
-					t['p' .. side .. subname .. '_window'][2],
-					t['p' .. side .. subname .. '_window'][3],
-					t['p' .. side .. subname .. '_window'][4]
+					t['p' .. side .. baseSubname .. '_window'][1],
+					t['p' .. side .. baseSubname .. '_window'][2],
+					t['p' .. side .. baseSubname .. '_window'][3],
+					t['p' .. side .. baseSubname .. '_window'][4]
 				)
 				-- Apply palette if needed
 				if usePal == 1 and not t['title_netplayteamcoop_text'] then
@@ -3049,17 +3055,31 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					if start.p[side].t_selTemp[member].pal == nil or start.p[side].t_selTemp[member].pal == 0 then
 						start.p[side].t_selTemp[member].pal = 1
 					end
-					-- if select anim differs from done anim and coop or pX.face.num allows to display more than 1 portrait or it's the last team member
-					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local done_wait = motif.select_info['p' .. side .. '_palmenu_done_wait']
-					if motif.select_info.paletteselect == 0 then done_wait = 0 end
-					if done_wait == 0 and done_anim ~= -1 and start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
-						local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
+					-- done anim helper
+					local function setDoneAnim(ref, side, member, subname, prefix)
+						local a = start.f_animGet(ref, side, member, motif.select_info, subname, prefix, false)
 						if a then
 							start.p[side].t_selTemp[member].anim_data = a
-							start.p[side].screenDelay = math.min(120, math.max(start.p[side].screenDelay, animGetLength(start.p[side].t_selTemp[member].anim_data)))
+							start.p[side].screenDelay = math.min(
+								120,
+								math.max(start.p[side].screenDelay, animGetLength(a))
+							)
 						end
 					end
+					-- if select anim differs from done anim and coop or pX.face.num allows to display more than 1 portrait or it's the last team member
+					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
+					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
+					local selAnim = start.p[side].t_selTemp[member].anim
+					local canShow = main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
+
+					if selAnim ~= done_anim and canShow then
+						if motif.select_info.paletteselect == 0 and done_anim ~= -1 then 
+							setDoneAnim(start.c[player].selRef, side, member, '_face', '_done')
+						elseif palmenu_done_anim ~= -1 then 
+							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_done')
+						end
+					end
+
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef
 					local charRef = start.p[side].t_selTemp[member].ref
 					local pal = start.p[side].t_selTemp[member].pal
@@ -3114,9 +3134,11 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 						pal = start.c[player].randPalPreview or start.f_randomPal(charRef)
 					end
 					start.p[side].t_selTemp[member].pal = pal
-					-- play done animation if it's on hold
-					if motif.select_info['p' .. side .. '_palmenu_done_wait'] == 1 then
-						if done_anim ~= -1 and start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+					--play the face.done animation if it’s different from the palmenu.done animation
+					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
+					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
+					if done_anim ~= palmenu_done_anim then
+						if start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 							local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
 							if a then
 								start.p[side].t_selTemp[member].anim_data = a

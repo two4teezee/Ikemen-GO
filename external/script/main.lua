@@ -2993,7 +2993,9 @@ main.t_itemname = {
 		--main.lifebar.p2ailevel = true
 		main.roundTime = -1
 		main.selectMenu[2] = true
-		main.stageMenu = true
+		if gameOption('Config.TrainingStage') == '' then
+			main.stageMenu = true
+		end
 		main.teamMenu[1].ratio = true
 		main.teamMenu[1].simul = true
 		main.teamMenu[1].single = true

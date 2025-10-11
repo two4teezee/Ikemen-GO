@@ -536,6 +536,8 @@ function start.f_setStage(num, assigned)
 		elseif main.stageOrder and main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order] ~= nil then --stage assigned as stage order param
 			num = math.random(1, #main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order])
 			num = main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order][num]
+		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
+			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
 		else --stage randomly selected
 			num = main.t_includeStage[1][math.random(1, #main.t_includeStage[1])]
 		end

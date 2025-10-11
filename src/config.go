@@ -139,6 +139,7 @@ type Config struct {
 		System           string   `ini:"System"`
 		ScreenshotFolder string   `ini:"ScreenshotFolder"`
 		TrainingChar     string   `ini:"TrainingChar"`
+		TrainingStage    string   `ini:"TrainingStage"`
 		GamepadMappings  string   `ini:"GamepadMappings"`
 	} `ini:"Config"`
 	Debug struct {

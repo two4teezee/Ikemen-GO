@@ -1874,9 +1874,11 @@ function launchFight(data)
 		t.order = data.order or 1
 		t.orderselect = {main.f_arg(data.p1orderselect, main.orderSelect[1]), main.f_arg(data.p2orderselect, main.orderSelect[2])}
 		t.p1char = data.p1char or {}
+		t.p1pal = data.p1pal
 		t.p1numratio = data.p1numratio or {}
 		t.p1rounds = data.p1rounds or nil
 		t.p2char = data.p2char or {}
+		t.p2pal = data.p2pal
 		t.p2numratio = data.p2numratio or {}
 		t.p2rounds = data.p2rounds or nil
 		t.exclude = data.exclude or {}
@@ -1928,7 +1930,7 @@ function launchFight(data)
 			local ref = start.f_getCharRef(v)
 			table.insert(start.p[1].t_selected, {
 				ref = ref,
-				pal = start.f_selectPal(ref),
+				pal = t.p1pal or start.f_selectPal(ref),
 				pn = start.f_getPlayerNo(1, #start.p[1].t_selected + 1),
 				--cursor = {},
 				ratioLevel = start.f_getRatio(1, t.p1numratio[cnt]),
@@ -1948,7 +1950,7 @@ function launchFight(data)
 			local ref = start.f_getCharRef(v)
 			table.insert(start.p[2].t_selected, {
 				ref = ref,
-				pal = start.f_selectPal(ref),
+				pal = t.p2pal or start.f_selectPal(ref),
 				pn = start.f_getPlayerNo(2, #start.p[2].t_selected + 1),
 				--cursor = {},
 				ratioLevel = start.f_getRatio(2, t.p2numratio[cnt]),

@@ -988,8 +988,9 @@
 	p1.palmenu.bg.scale = 1.0, 1.0
 	p1.palmenu.next.key = "$F"
 	p1.palmenu.previous.key = "$B"
-	p1.palmenu.accept.key = "a&b&c"
-	p1.palmenu.cancel.key = "x&y&z"
+	p1.palmenu.accept.key = "a&b&c&x&y&z"
+	p1.palmenu.done.wait = 0
+	p1.palmenu.cancel.key = "m"
 	p1.palmenu.random.key = "s"
 	p1.palmenu.random.text = "Random"
 	p2.palmenu.pos = 0, 0
@@ -1000,8 +1001,9 @@
 	p2.palmenu.bg.scale = 1.0, 1.0
 	p2.palmenu.next.key = "$F"
 	p2.palmenu.previous.key = "$B"
-	p2.palmenu.accept.key = "a&b&c"
-	p2.palmenu.cancel.key = "x&y&z"
+	p2.palmenu.accept.key = "a&b&c&x&y&z"
+	p2.palmenu.done.wait = 0
+	p2.palmenu.cancel.key = "m"
 	p2.palmenu.random.key = "s"
 	p2.palmenu.random.text = "Random"
 	palmenu.move.snd = -1, 0

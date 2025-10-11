@@ -830,42 +830,51 @@ function start.f_resetTempData(t, subname)
 end
 
 function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
-	if ref == nil then
-		return nil
-	end
-	for k, v in pairs({
-		{t['p' .. side .. '_member' .. member .. subname .. prefix .. '_anim'], -1},
-		{t['p' .. side .. subname .. prefix .. '_anim'], -1},
+	if not ref then return nil end
+	-- Animation/sprite priority order
+	local sources = {
+		{ t['p' .. side .. '_member' .. member .. subname .. prefix .. '_anim'], -1 },
+		{ t['p' .. side .. subname .. prefix .. '_anim'], -1 },
 		t['p' .. side .. '_member' .. member .. subname .. prefix .. '_spr'],
 		t['p' .. side .. subname .. prefix .. '_spr'],
 		default
-	}) do
-		if v[1] ~= nil and v[1] ~= -1 then
-			--Check if palettes should be used for this animation
+	}
+	for k, v in ipairs(sources) do
+		local anim = v[1]
+		if anim ~= nil and anim ~= -1 then
+			-- Determine whether to apply palette
+			local usePal = 0
 			if k == 1 or k == 3 then
 				usePal = t['p' .. side .. '_member' .. member .. subname .. prefix .. '_applypal'] or 0
 			elseif k == 2 or k == 4 then
-				usePal = t['p' .. side .. subname .. prefix .. '_applypal'] or 0 
-			elseif k == 5 then
-				usePal = 0
+				usePal = t['p' .. side .. subname .. prefix .. '_applypal'] or 0
 			end
-			if subname == face then
-				if usePal == 0 then
-					usePal = t['p' .. side .. '_applypal'] or 0
-				end
+			-- Fallback: if it's a face and not explicitly set, use the global side palette flag
+			if subname == '_face' and usePal == 0 then
+				usePal = t['p' .. side .. '_applypal'] or 0
 			end
-			local a = animGetPreloadedCharData(ref, v[1], v[2], loop)
-			if a ~= nil then
-				local xscale = start.f_getCharData(ref).portrait_scale / (motifViewport43(2) / motifLocalcoord(0))
-				local yscale = xscale
+			-- If this is the "done" animation and no palette flag is set, inherit from face or vsscreen applypal
+			if prefix == '_done' and usePal == 0 then
+				usePal = t['p' .. side .. '_member' .. member .. '_face_applypal']
+					or t['p' .. side .. '_face_applypal']
+					or t['p' .. side .. '_applypal']
+					or 0
+			end
+			-- Try to load the animation
+			local a = animGetPreloadedCharData(ref, anim, v[2], loop)
+			if a then
+				local charData = start.f_getCharData(ref)
+				local baseScale = charData.portrait_scale / (motifViewport43(2) / motifLocalcoord(0))
+				local xscale, yscale = baseScale, baseScale
+
 				if v[2] == -1 then
-					xscale = xscale * (start.f_getCharData(ref).cns_scale[1] or 1)
-					yscale = yscale * (start.f_getCharData(ref).cns_scale[2] or 1)
+					xscale = xscale * (charData.cns_scale[1] or 1)
+					yscale = yscale * (charData.cns_scale[2] or 1)
 				end
 				animSetScale(
 					a,
-					t['p' .. side .. subname .. '_scale'][1] * (main.f_tableExists(t['p' .. side .. '_member' .. member .. subname .. '_scale'])[1] or 1) * xscale,
-					t['p' .. side .. subname .. '_scale'][2] * (main.f_tableExists(t['p' .. side .. '_member' .. member .. subname .. '_scale'])[2] or 1) * yscale,
+					t['p' .. side .. subname .. '_scale'][1] * ((t['p' .. side .. '_member' .. member .. subname .. '_scale'] or {1,1})[1]) * xscale,
+					t['p' .. side .. subname .. '_scale'][2] * ((t['p' .. side .. '_member' .. member .. subname .. '_scale'] or {1,1})[2]) * yscale,
 					false
 				)
 				animSetWindow(
@@ -875,10 +884,12 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 					t['p' .. side .. subname .. '_window'][3],
 					t['p' .. side .. subname .. '_window'][4]
 				)
-				if usePal == 1 then
-					--Checks if the player is on the character select, we want to laod palettes after selecting in which case, to avoid fps drops moving quickly across the roster.
-					if t['title_netplayteamcoop_text'] == nil then
-						a = start.loadPalettes(a, ref, start.f_getCharData(start.p[side].t_selected[member].ref).pal[start.p[side].t_selected[member].pal])
+				-- Apply palette if needed
+				if usePal == 1 and not t['title_netplayteamcoop_text'] then
+					local sel = start.p[side].t_selected[member]
+					if sel and sel.ref then
+						local pal = start.f_getCharData(sel.ref).pal[sel.pal]
+						a = start.loadPalettes(a, ref, pal)
 					end
 				end
 				animUpdate(a)
@@ -2355,7 +2366,7 @@ function start.f_selectScreen()
 			end
 			--delayed screen transition for the duration of face_done_anim or selection sound
 			if start.p[side].screenDelay > 0 then
-				if main.f_input(main.t_players, {'pal', 's'}) then
+				if main.f_input(main.t_players, {'pal', 's'}) and not start.p[side].inPalMenu then
 					start.p[side].screenDelay = 0
 				else
 					start.p[side].screenDelay = start.p[side].screenDelay - 1
@@ -2899,10 +2910,10 @@ end
 
 local function resolvePalConflict(side, charRef, pal)
     local charData = start.f_getCharData(charRef)
-    if not charData or not charData.pal then
+	local total = #charData.pal
+    if not charData or not charData.pal or total == 1 then
         return pal
     end
-    local total = #charData.pal
     local usedPals = {}
 
     for s = 1, 2 do
@@ -3038,7 +3049,9 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					-- if select anim differs from done anim and coop or pX.face.num allows to display more than 1 portrait or it's the last team member
 					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					if done_anim ~= -1 and start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+					local done_wait = motif.select_info['p' .. side .. '_palmenu_done_wait']
+					if motif.select_info.paletteselect == 0 then done_wait = 0 end
+					if done_wait == 0 and done_anim ~= -1 and start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 						local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
 						if a then
 							start.p[side].t_selTemp[member].anim_data = a
@@ -3099,6 +3112,18 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 						pal = start.c[player].randPalPreview or start.f_randomPal(charRef)
 					end
 					start.p[side].t_selTemp[member].pal = pal
+					-- play done animation if it's on hold
+					if motif.select_info['p' .. side .. '_palmenu_done_wait'] == 1 then
+						if done_anim ~= -1 and start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+							local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
+							if a then
+								start.p[side].t_selTemp[member].anim_data = a
+								start.p[side].t_selTemp[member].anim_data = start.loadPalettes(start.p[side].t_selTemp[member].anim_data, charRef, pal)
+								animUpdate(start.p[side].t_selTemp[member].anim_data)
+								start.p[side].screenDelay = math.min(120, math.max(start.p[side].screenDelay, animGetLength(start.p[side].t_selTemp[member].anim_data)))
+							end
+						end
+					end
 					selectState = 3
 
 					sndPlay(motif.files.snd_data, motif.select_info.palmenu_done_snd[1], motif.select_info.palmenu_done_snd[2])
@@ -3158,6 +3183,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			for _, v in ipairs(valid) do
 				if motif.select_info.paletteselect == v then
 					finalPal = start.p[side].t_selTemp[member].pal
+					start.p[side].inPalMenu = false
 					break
 				end
 			end

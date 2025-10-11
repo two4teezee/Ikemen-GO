@@ -1697,17 +1697,19 @@ func (s *System) resetFrameTime() {
 
 func (s *System) charUpdate() {
 	s.charList.update()
-	// Because sys.projs has actual elements rather than pointers like sys.chars does, it's important to not copy its contents with range
+
+	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
 	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
-	// for i, pr := range s.projs {
+	// Update: Projectiles now work based on pointers, so we can go back to old loop format
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].playerno = i // Safeguard
-				s.projs[i][j].update()
+		for _, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.playerno = i // Safeguard
+				p.update()
 			}
 		}
 	}
+
 	// Set global First Attack flag if either team got it
 	if s.firstAttack[0] >= 0 || s.firstAttack[1] >= 0 {
 		s.firstAttack[2] = 1
@@ -1717,12 +1719,13 @@ func (s *System) charUpdate() {
 // Run collision detection for chars and projectiles
 func (s *System) globalCollision() {
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].tradeDetection(i, j)
+		for j, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.tradeDetection(i, j)
 			}
 		}
 	}
+
 	s.charList.collisionDetection()
 }
 
@@ -1897,9 +1900,9 @@ func (s *System) action() {
 	s.charList.xScreenBound()
 
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].cueDraw()
+		for _, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.cueDraw()
 			}
 		}
 	}
@@ -1956,9 +1959,9 @@ func (s *System) globalTick() {
 	s.charList.tick()
 
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id != IErr {
-				s.projs[i][j].tick()
+		for _, p := range s.projs[i] {
+			if p.id != IErr {
+				p.tick()
 			}
 		}
 	}

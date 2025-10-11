@@ -5225,13 +5225,15 @@ func (c *Char) numProj() int32 {
 	if c.helperIndex != 0 {
 		return 0
 	}
+
 	n := int32(0)
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
 	}
+
 	return n
 }
 
@@ -5239,17 +5241,20 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	if pid.IsSF() {
 		return BytecodeSF()
 	}
+
 	// Helpers cannot own projectiles
 	if c.helperIndex != 0 {
 		return BytecodeInt(0)
 	}
+
 	var id, n int32 = Max(0, pid.ToI()), 0
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
 	}
+
 	return BytecodeInt(n)
 }
 
@@ -6511,12 +6516,12 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
 			projs = append(projs, p)
 		}
 	}
+
 	return
 }
 

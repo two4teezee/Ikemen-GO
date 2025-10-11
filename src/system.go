@@ -674,7 +674,10 @@ func (s *System) setLifebarScale() {
 	s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
 	s.lifebarOffsetX = calcOffsetX * calcScale
 
-	for _, ffx := range s.ffx {
+	for prefix, ffx := range s.ffx {
+		if prefix != "f" && prefix != "s" {
+			continue
+		}
 		for _, a := range ffx.fat {
 			scale := ffx.fx_scale * s.lifebarScale
 			a.start_scale = [...]float32{scale, scale}

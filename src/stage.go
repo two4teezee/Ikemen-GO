@@ -1802,16 +1802,14 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 
 func (s *Stage) action() {
 	link, zlink, paused := 0, -1, true
+
 	canStep := sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) && (sys.pausetime <= 0 || !sys.pausebg)
+
 	if canStep {
 		paused = false
 
 		s.bgCtrlAction()
 		s.bga.action()
-
-		// Stage time must be incremented after updating BGCtrl
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2656
-		s.stageTime++
 
 		if s.model != nil {
 			s.model.step(sys.turbo)
@@ -1831,6 +1829,7 @@ func (s *Stage) action() {
 
 	for i, b := range s.bg {
 		b.palfx.step()
+
 		if sys.bgPalFX.enable {
 			// TODO: Finish proper synthesization of bgPalFX into PalFX from bg element
 			// (Right now, bgPalFX just overrides all unique parameters from BG Elements' PalFX)
@@ -1851,6 +1850,7 @@ func (s *Stage) action() {
 			b.palfx.eInvertblend = sys.bgPalFX.eInvertblend
 			b.palfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
+
 		if b.enabled && !paused {
 			s.bg[i].bga.action()
 			if i > 0 && b.positionlink {
@@ -1885,6 +1885,14 @@ func (s *Stage) action() {
 			s.model.pfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 	}
+}
+
+// Currently this function only exists so that the stage update sequence is similar to others. In the future it could run more tasks
+// Doing this allows characters to see "stageTime = 0"
+func (s *Stage) tick() {
+	// Stage time must be incremented after updating BGCtrl's
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2656
+	s.stageTime++
 }
 
 func (s *Stage) draw(layer int32, x, y, scl float32) {

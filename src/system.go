@@ -1724,13 +1724,6 @@ func (s *System) globalCollision() {
 		}
 	}
 	s.charList.collisionDetection()
-	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id != IErr {
-				s.projs[i][j].tick()
-			}
-		}
-	}
 }
 
 func (s *System) posReset() {
@@ -1872,7 +1865,7 @@ func (s *System) action() {
 	s.lifebar.step()
 	if s.tickNextFrame() {
 		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing
-		s.charList.tick()
+		s.globalTick()
 	}
 
 	// Run camera
@@ -1956,6 +1949,21 @@ func (s *System) explodUpdate() {
 		}
 		s.explods[i] = tempSlice
 	}
+}
+
+func (s *System) globalTick() {
+	s.stage.tick()
+	s.charList.tick()
+
+	for i := range s.projs {
+		for j := range s.projs[i] {
+			if s.projs[i][j].id != IErr {
+				s.projs[i][j].tick()
+			}
+		}
+	}
+
+	s.gameTime++
 }
 
 func (s *System) getSlowtime() int32 {

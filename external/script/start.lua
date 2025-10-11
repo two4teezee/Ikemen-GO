@@ -3068,15 +3068,15 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					-- if select anim differs from done anim and coop or pX.face.num allows to display more than 1 portrait or it's the last team member
 					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
+					local palmenu_preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
 					local selAnim = start.p[side].t_selTemp[member].anim
 					local canShow = main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
 
 					if selAnim ~= done_anim and canShow then
 						if motif.select_info.paletteselect == 0 and done_anim ~= -1 then 
 							setDoneAnim(start.c[player].selRef, side, member, '_face', '_done')
-						elseif palmenu_done_anim ~= -1 then 
-							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_done')
+						elseif palmenu_preview_anim ~= -1 then 
+							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_preview')
 						end
 					end
 
@@ -3136,8 +3136,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].pal = pal
 					--play the face.done animation if it’s different from the palmenu.done animation
 					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
-					if done_anim ~= palmenu_done_anim then
+					local palmenu_preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
+					if done_anim ~= palmenu_preview_anim then
 						if start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 							local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
 							if a then

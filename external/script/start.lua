@@ -516,30 +516,44 @@ function start.f_storeStats()
 end
 --;===========================================================
 
+--returns the next item from th stagepool
+function start.stageShuffleBag(id, pool)
+	start._shuffleBags = start._shuffleBags or {}
+	start._shuffleBags[id] = start._shuffleBags[id] or {}
+
+	if #start._shuffleBags[id] == 0 then
+		local t = {}
+		for i = 1, #pool do table.insert(t, i) end
+		start.shuffleTable(t)
+		start._shuffleBags[id] = t
+	end
+
+	local idx = table.remove(start._shuffleBags[id])
+	return pool[idx]
+end
+
 --sets stage
 function start.f_setStage(num, assigned)
 	if main.stageMenu then
-		num = main.t_selectableStages[stageListNo]
+		local pool = main.t_selectableStages
 		if stageListNo == 0 then
-			num = main.t_selectableStages[math.random(1, #main.t_selectableStages)]
+			num = start.stageShuffleBag('stageMenu', pool)
 			stageListNo = num -- comment out to randomize stage after each fight in survival mode, when random stage is chosen
 			stageRandom = true
 		else
-			num = main.t_selectableStages[stageListNo]
+			num = pool[stageListNo]
 		end
 		assigned = true
 	end
 	if not assigned then
 		if main.charparam.stage and start.f_getCharData(start.p[2].t_selected[1].ref).stage ~= nil then --stage assigned as character param
-			num = math.random(1, #start.f_getCharData(start.p[2].t_selected[1].ref).stage)
-			num = start.f_getCharData(start.p[2].t_selected[1].ref).stage[num]
+			num = start.stageShuffleBag(charData.ref, charData.stage)
 		elseif main.stageOrder and main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order] ~= nil then --stage assigned as stage order param
-			num = math.random(1, #main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order])
-			num = main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order][num]
+			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])
 		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
 		else --stage randomly selected
-			num = main.t_includeStage[1][math.random(1, #main.t_includeStage[1])]
+			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
 		end
 	end
 	selectStage(num)
@@ -1364,24 +1378,35 @@ function start.f_excludeChar(t, ref)
 	return t
 end
 
+--shuffles a table in-place
+function start.shuffleTable(t)
+	for i = #t, 2, -1 do
+		local j = math.random(i)
+		t[i], t[j] = t[j], t[i]
+	end
+end
+
 --returns random char ref
 function start.f_randomChar(pn)
 	if #main.t_randomChars == 0 then
 		return nil
 	end
-	if gameOption('Options.Team.Duplicates') then
-		return main.t_randomChars[math.random(1, #main.t_randomChars)]
-	end
-	local t = {}
-	for k, v in ipairs(main.t_randomChars) do
-		if not t_reservedChars[pn][v] then
-			table.insert(t, v)
+	start._shuffleBags = start._shuffleBags or {}
+
+	if not start._shuffleBags[pn] or #start._shuffleBags[pn] == 0 then
+		start._shuffleBags[pn] = {}
+		local t = {}
+		for _, v in ipairs(main.t_randomChars) do
+			if gameOption('Options.Team.Duplicates') or not t_reservedChars[pn][v] then
+				table.insert(t, v)
+			end
 		end
+		start.shuffleTable(t)
+		start._shuffleBags[pn] = t
 	end
-	if #t > 0 then
-		return t[math.random(1, #t)]
-	end
-	return main.t_randomChars[math.random(1, #main.t_randomChars)]
+	--draws one char from the bag
+	local result = table.remove(start._shuffleBags[pn])
+	return result
 end
 
 --return true if slot is selected, update start.t_grid
@@ -2907,13 +2932,28 @@ function start.f_palMenuDraw(side, member)
 	end
 end
 
+--returns a random palette
 function start.f_randomPal(charRef)
-    local charData = start.f_getCharData(charRef)
-    local pals = charData and charData.pal
-    if type(pals) ~= "table" or #pals == 0 then
-        return 1
-    end
-    return math.random(1, #pals)
+	start._shufflePals = start._shufflePals or {}
+	start._shufflePals[charRef] = start._shufflePals[charRef] or {}
+
+	local charData = start.f_getCharData(charRef)
+	local pals = charData and charData.pal
+	if type(pals) ~= "table" or #pals == 0 then
+		return 1
+	end
+
+	if #start._shufflePals[charRef] == 0 then
+		local t = {}
+		for i = 1, #pals do
+			table.insert(t, i)
+		end
+		start.shuffleTable(t)
+		start._shufflePals[charRef] = t
+	end
+	--draws one pal from the bag
+	local result = table.remove(start._shufflePals[charRef])
+	return result
 end
 
 local function resolvePalConflict(side, charRef, pal)

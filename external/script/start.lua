@@ -546,13 +546,15 @@ function start.f_setStage(num, assigned)
 		assigned = true
 	end
 	if not assigned then
-		if main.charparam.stage and start.f_getCharData(start.p[2].t_selected[1].ref).stage ~= nil then --stage assigned as character param
+		local sel = start.p[2] and start.p[2].t_selected and start.p[2].t_selected[1]
+		local charData = sel and sel.ref and start.f_getCharData(sel.ref)
+		if charData and charData.stage and #charData.stage > 0 then
 			num = start.stageShuffleBag(charData.ref, charData.stage)
-		elseif main.stageOrder and main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order] ~= nil then --stage assigned as stage order param
+		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then
 			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])
-		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
+		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
-		else --stage randomly selected
+		else
 			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
 		end
 	end

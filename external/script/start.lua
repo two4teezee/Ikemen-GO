@@ -516,30 +516,61 @@ function start.f_storeStats()
 end
 --;===========================================================
 
+--returns the next stage path from the given pool
+function start.stageShuffleBag(id, pool)
+	-- safety check: prevent nil or invalid pools
+	if not pool or type(pool) ~= 'table' or #pool == 0 then
+		return nil
+	end
+
+	-- safety check: prevent nil id
+	id = id or 'defaultStageBag'
+	start.shuffleBags = start.shuffleBags or {}
+	start.shuffleBags[id] = start.shuffleBags[id] or {}
+
+	if #start.shuffleBags[id] == 0 then
+		local t = {}
+		for i = 1, #pool do
+			table.insert(t, i)
+		end
+		start.shuffleTable(t)
+		start.shuffleBags[id] = t
+	end
+
+	local idx = table.remove(start.shuffleBags[id])
+	local result = pool[idx]
+
+	-- ensure result is a valid stage string (handles numeric refs)
+	if type(result) == "number" and main.t_selectableStages and main.t_selectableStages[result] then
+		result = main.t_selectableStages[result]
+	end
+	return result
+end
+
 --sets stage
 function start.f_setStage(num, assigned)
 	if main.stageMenu then
-		num = main.t_selectableStages[stageListNo]
+		local pool = main.t_selectableStages
 		if stageListNo == 0 then
-			num = main.t_selectableStages[math.random(1, #main.t_selectableStages)]
+			num = start.stageShuffleBag('stageMenu', pool)
 			stageListNo = num -- comment out to randomize stage after each fight in survival mode, when random stage is chosen
 			stageRandom = true
 		else
-			num = main.t_selectableStages[stageListNo]
+			num = pool[stageListNo]
 		end
 		assigned = true
 	end
 	if not assigned then
-		if main.charparam.stage and start.f_getCharData(start.p[2].t_selected[1].ref).stage ~= nil then --stage assigned as character param
-			num = math.random(1, #start.f_getCharData(start.p[2].t_selected[1].ref).stage)
-			num = start.f_getCharData(start.p[2].t_selected[1].ref).stage[num]
-		elseif main.stageOrder and main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order] ~= nil then --stage assigned as stage order param
-			num = math.random(1, #main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order])
-			num = main.t_orderStages[start.f_getCharData(start.p[2].t_selected[1].ref).order][num]
+		local sel = start.p[2] and start.p[2].t_selected and start.p[2].t_selected[1]
+		local charData = sel and sel.ref and start.f_getCharData(sel.ref)
+		if charData and charData.stage and #charData.stage > 0 and not (gamemode('training') and gameOption('Config.TrainingStage')) then --stage assigned as character param
+			num = start.stageShuffleBag(charData.ref, charData.stage)
+		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then --stage assigned as stage order param
+			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])
 		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
-		else --stage randomly selected
-			num = main.t_includeStage[1][math.random(1, #main.t_includeStage[1])]
+		else
+			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
 		end
 	end
 	selectStage(num)
@@ -1364,24 +1395,35 @@ function start.f_excludeChar(t, ref)
 	return t
 end
 
+--shuffles a table in-place
+function start.shuffleTable(t)
+	for i = #t, 2, -1 do
+		local j = math.random(i)
+		t[i], t[j] = t[j], t[i]
+	end
+end
+
 --returns random char ref
 function start.f_randomChar(pn)
 	if #main.t_randomChars == 0 then
 		return nil
 	end
-	if gameOption('Options.Team.Duplicates') then
-		return main.t_randomChars[math.random(1, #main.t_randomChars)]
-	end
-	local t = {}
-	for k, v in ipairs(main.t_randomChars) do
-		if not t_reservedChars[pn][v] then
-			table.insert(t, v)
+	start.shuffleBags = start.shuffleBags or {}
+
+	if not start.shuffleBags[pn] or #start.shuffleBags[pn] == 0 then
+		start.shuffleBags[pn] = {}
+		local t = {}
+		for _, v in ipairs(main.t_randomChars) do
+			if gameOption('Options.Team.Duplicates') or not t_reservedChars[pn][v] then
+				table.insert(t, v)
+			end
 		end
+		start.shuffleTable(t)
+		start.shuffleBags[pn] = t
 	end
-	if #t > 0 then
-		return t[math.random(1, #t)]
-	end
-	return main.t_randomChars[math.random(1, #main.t_randomChars)]
+	--draws one char from the bag
+	local result = table.remove(start.shuffleBags[pn])
+	return result
 end
 
 --return true if slot is selected, update start.t_grid
@@ -2907,13 +2949,28 @@ function start.f_palMenuDraw(side, member)
 	end
 end
 
+--returns a random palette
 function start.f_randomPal(charRef)
-    local charData = start.f_getCharData(charRef)
-    local pals = charData and charData.pal
-    if type(pals) ~= "table" or #pals == 0 then
-        return 1
-    end
-    return math.random(1, #pals)
+	start.shufflePals = start.shufflePals or {}
+	start.shufflePals[charRef] = start.shufflePals[charRef] or {}
+
+	local charData = start.f_getCharData(charRef)
+	local pals = charData and charData.pal
+	if type(pals) ~= "table" or #pals == 0 then
+		return 1
+	end
+
+	if #start.shufflePals[charRef] == 0 then
+		local t = {}
+		for i = 1, #pals do
+			table.insert(t, i)
+		end
+		start.shuffleTable(t)
+		start.shufflePals[charRef] = t
+	end
+	--draws one pal from the bag
+	local result = table.remove(start.shufflePals[charRef])
+	return result
 end
 
 local function resolvePalConflict(side, charRef, pal)
@@ -3068,15 +3125,15 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					-- if select anim differs from done anim and coop or pX.face.num allows to display more than 1 portrait or it's the last team member
 					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
+					local palmenu_preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
 					local selAnim = start.p[side].t_selTemp[member].anim
 					local canShow = main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
 
 					if selAnim ~= done_anim and canShow then
 						if motif.select_info.paletteselect == 0 and done_anim ~= -1 then 
 							setDoneAnim(start.c[player].selRef, side, member, '_face', '_done')
-						elseif palmenu_done_anim ~= -1 then 
-							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_done')
+						elseif palmenu_preview_anim ~= -1 then 
+							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_preview')
 						end
 					end
 
@@ -3136,8 +3193,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].pal = pal
 					--play the face.done animation if it’s different from the palmenu.done animation
 					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local palmenu_done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_done_anim'] or motif.select_info['p' .. side .. '_palmenu_done_anim']
-					if done_anim ~= palmenu_done_anim then
+					local palmenu_preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
+					if done_anim ~= palmenu_preview_anim then
 						if start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
 							local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
 							if a then

@@ -1841,12 +1841,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		ctype := c.token
 		switch ctype {
-		case "size":
-			bv1 = BytecodeInt(3)
 		case "clsn1":
 			bv1 = BytecodeInt(1)
 		case "clsn2":
 			bv1 = BytecodeInt(2)
+		case "size":
+			bv1 = BytecodeInt(3)
+		default:
+			return bvNone(), Error(fmt.Sprintf("Invalid Clsn type: %s", ctype))
 		}
 		c.token = c.tokenizer(in)
 

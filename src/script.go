@@ -3504,16 +3504,19 @@ func triggerFunctions(l *lua.LState) {
 
 		getClsnCoord := func(offset int) {
 			switch c {
-			case "size":
-				v = lua.LNumber(sys.debugWC.sizeBox[offset])
 			case "clsn1":
-				clsn := sys.debugWC.curFrame.Clsn1
+				clsn := sys.debugWC.getClsn(1)
 				if clsn != nil && idx >= 0 && idx < len(clsn) {
 					v = lua.LNumber(clsn[idx][offset])
 				}
 			case "clsn2":
-				clsn := sys.debugWC.curFrame.Clsn2
+				clsn := sys.debugWC.getClsn(2)
 				if clsn != nil && idx >= 0 && idx < len(clsn) {
+					v = lua.LNumber(clsn[idx][offset])
+				}
+			case "size":
+				clsn := sys.debugWC.getClsn(3)
+				if clsn != nil && len(clsn) > 0 {
 					v = lua.LNumber(clsn[idx][offset])
 				}
 			}

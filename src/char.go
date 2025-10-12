@@ -2610,7 +2610,6 @@ type CharSystemVar struct {
 	sizeHeight            [2]float32
 	sizeDepth             [2]float32
 	edgeDepth             [2]float32
-	sizeBox               [4]float32
 	attackMul             [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul       float32
 	superDefenseMulBuffer float32
@@ -2662,6 +2661,7 @@ type Char struct {
 	localscl            float32 // Ratio between 320 and the localcoord of the current state
 	animlocalscl        float32
 	size                CharSize
+	//sizeBox           [4]float32
 	clsnBaseScale       [2]float32
 	clsnScaleMul        [2]float32 // From TransformClsn
 	clsnScale           [2]float32 // The final one
@@ -2731,7 +2731,6 @@ type Char struct {
 	downHitOffset     bool
 	koEchoTimer       int32
 	groundLevel       float32
-	sizeBox           [4]float32
 	shadowColor       [3]int32
 	shadowIntensity   int32
 	shadowOffset      [2]float32
@@ -2893,7 +2892,7 @@ func (c *Char) prepareNextRound() {
 		customDefense:         1,
 		finalDefense:          float64(c.gi().data.defence) / 100,
 	}
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
 	if c.helperIndex == 0 {
 		if sys.roundsExisted[c.playerNo&1] > 0 {
@@ -5723,7 +5722,7 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		c.sizeWidth[1] *= lsRatio
 		c.sizeHeight[0] *= lsRatio
 		c.sizeHeight[1] *= lsRatio
-		c.updateSizeBox()
+		//c.updateSizeBox()
 
 		c.sizeDepth[0] *= lsRatio
 		c.sizeDepth[1] *= lsRatio
@@ -6777,7 +6776,7 @@ func (c *Char) setWidth(fw, bw float32) {
 	c.sizeWidth[0] = c.baseWidthFront()*coordRatio + fw
 	c.sizeWidth[1] = c.baseWidthBack()*coordRatio + bw
 
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.setCSF(CSF_width)
 }
 
@@ -6787,7 +6786,7 @@ func (c *Char) setHeight(th, bh float32) {
 	c.sizeHeight[0] = c.baseHeightTop()*coordRatio + th
 	c.sizeHeight[1] = c.baseHeightBottom()*coordRatio + bh
 
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.setCSF(CSF_height)
 }
 
@@ -6836,6 +6835,7 @@ func (c *Char) updateClsnScale() {
 		c.clsnBaseScale[1] * c.clsnScaleMul[1] * c.animlocalscl}
 }
 
+/*
 // Convert size variables to a Clsn-like box
 // This box will replace width and height values in some other parts of the code
 func (c *Char) updateSizeBox() {
@@ -6854,11 +6854,14 @@ func (c *Char) updateSizeBox() {
 	}
 	c.sizeBox = [4]float32{back, top, front, bottom}
 }
+*/
 
+/*
 // Returns the size box in the same format as Clsn boxes
 func (c *Char) sizeBoxToClsn() [][4]float32 {
 	return [][4]float32{c.sizeBox}
 }
+*/
 
 func (c *Char) gethitAnimtype() Reaction {
 	if c.ghv.fallflag {
@@ -7840,28 +7843,46 @@ func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
 	var cw, oppw float32
 	dist := c.distX(opp, oc)
 
+	// Get size boxes
+	cbox := c.getAnySizeBox()
+	oppbox := opp.getAnySizeBox()
+
+	// Normally this can only happen with ModifyClsn
+	// TODO: Decide whether to return NaN (accurate) or use distance to center axis (forgiving)
+	if cbox == nil || oppbox == nil {
+		return float32(math.NaN())
+	}
+
 	// Char reference
 	// The player reference is always the front width but the enemy reference varies
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2432
-	cw = c.sizeBox[2] * c.facing * (c.localscl / oc.localscl)
+	cw = cbox[2] * c.facing * (c.localscl / oc.localscl)
 
 	// Enemy reference
 	if ((dist * c.facing) >= 0) == (c.facing != opp.facing) {
 		// Use front width
-		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl / oc.localscl)
+		oppw = oppbox[2] * opp.facing * (opp.localscl / oc.localscl)
 	} else {
 		// Use back width
-		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl / oc.localscl)
+		oppw = oppbox[0] * opp.facing * (opp.localscl / oc.localscl)
 	}
 
 	return dist - cw + oppw
 }
 
 func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
-	ctop := (c.pos[1] + c.sizeBox[1]) * c.localscl
-	cbot := (c.pos[1] + c.sizeBox[3]) * c.localscl
-	otop := (opp.pos[1] + opp.sizeBox[1]) * opp.localscl
-	obot := (opp.pos[1] + opp.sizeBox[3]) * opp.localscl
+	cbox := c.getAnySizeBox()
+	oppbox := opp.getAnySizeBox()
+
+	if cbox == nil || oppbox == nil {
+		return float32(math.NaN())
+	}
+
+	ctop := (c.pos[1] + cbox[1]) * c.localscl
+	cbot := (c.pos[1] + cbox[3]) * c.localscl
+	otop := (opp.pos[1] + oppbox[1]) * opp.localscl
+	obot := (opp.pos[1] + oppbox[3]) * opp.localscl
+
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7876,6 +7897,7 @@ func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
 	cbot := (c.pos[2] + c.sizeDepth[1]) * c.localscl
 	otop := (opp.pos[2] - opp.sizeDepth[0]) * opp.localscl
 	obot := (opp.pos[2] + opp.sizeDepth[1]) * opp.localscl
+
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -8816,12 +8838,38 @@ func (c *Char) flattenClsnProxies() []*Char {
 	return list
 }
 
+// Return the current size as a rectangle
+func (c *Char) sizeToBox() [4]float32 {
+	back := -c.sizeWidth[1]
+	front := c.sizeWidth[0]
+	if back > front {
+		back, front = front, back
+	}
+
+	top := -c.sizeHeight[0]
+	bottom := c.sizeHeight[1]
+	if top > bottom {
+		top, bottom = bottom, top
+	}
+
+	return [4]float32{back, top, front, bottom}
+}
+
+// Placeholder while we decide whether to allow multiple boxes or not
+func (c *Char) getAnySizeBox() *[4]float32 {
+	boxes := c.getClsn(3)
+	if len(boxes) == 0 {
+		return nil
+	}
+	return &boxes[0]
+}
+
 // Combine current Clsn with existing modifiers
 func (c *Char) getClsn(group int32) [][4]float32 {
 	// By default, use the final displayed frame's boxes
 	charframe := c.curFrame
 
-	// While states are still running, use the frame that *will* be displayed instead, because of the ClsnOverlap trigger
+	// While states are still running, use the frame that *will* be displayed instead, because of Clsn triggers
 	if c.minus < 2 && c.anim != nil {
 		charframe = c.anim.CurrentFrame()
 	}
@@ -8840,7 +8888,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 			original = charframe.Clsn2
 		}
 	case 3:
-		original = [][4]float32{c.sizeBox}
+		original = [][4]float32{c.sizeToBox()}
 	}
 
 	// Just in case, copy the slice so the original is never mutated
@@ -8863,7 +8911,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 		// Delete box if modifier is all 0's
 		case mod.rect == [4]float32{}:
 			if mod.index == -1 {
-				final = nil
+				final = final[:0]
 			} else if mod.index >= 0 && mod.index < len(final) {
 				final = append(final[:mod.index], final[mod.index+1:]...)
 			}
@@ -8886,9 +8934,15 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 	}
 
 	// Return nil if empty to make it easier to check for no boxes later
-	if len(final) == 0 {
-		return nil
-	}
+	//if len(final) == 0 {
+	//	return nil
+	//}
+
+	// Only one size box allowed
+	// TODO: Decision between this or allowing multiple ones (with push code using the first or all of them)
+	//if group == 3 {
+	//	return final[:1]
+	//}
 
 	return final
 }
@@ -8959,7 +9013,7 @@ func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	// Fetch character boxes
 	clsn2 := c.getClsn(cbox)
 
-	if clsn1 == nil || clsn2 == nil {
+	if len(clsn1) == 0 || len(clsn2) == 0 {
 		return false
 	}
 
@@ -9072,7 +9126,7 @@ func (c *Char) clsnCheckSingle(getter *Char, charbox, getterbox int32, reqcheck 
 	clsn1 := c.getClsn(charbox)
 	clsn2 := getter.getClsn(getterbox)
 
-	if clsn1 == nil || clsn2 == nil {
+	if len(clsn1) == 0 || len(clsn2) == 0 {
 		return false
 	}
 
@@ -10524,7 +10578,7 @@ func (c *Char) actionRun() {
 			c.edgeDepth = [2]float32{0, 0}
 		}
 	}
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	if !c.pauseBool {
 		if !c.hitPause() {
 			// In Mugen chars are forced to stay in state 5110 at least one frame before getting up
@@ -12130,38 +12184,44 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
+		// Get size box
+		// We wil check overlap for the first boxes only
+		// TODO: Either check all here, or allow only one size box to exist at a time
+		cbox := c.getAnySizeBox()
+		gbox := getter.getAnySizeBox()
+
+		if cbox == nil || gbox == nil {
+			continue
+		}
+
 		// Y-axis check
 		// Run it first because it's the fastest one
-		cytop := (c.pos[1] + c.sizeBox[1]) * c.localscl
-		cybot := (c.pos[1] + c.sizeBox[3]) * c.localscl
-		gytop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
-		gybot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
+		cytop := (c.pos[1] + cbox[1]) * c.localscl
+		cybot := (c.pos[1] + cbox[3]) * c.localscl
+		gytop := (getter.pos[1] + gbox[1]) * getter.localscl
+		gybot := (getter.pos[1] + gbox[3]) * getter.localscl
 
 		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
-
-		// Y-axis fail
 		if overlapY <= 0 {
 			continue
 		}
 
 		// X-axis check
 		cposx := c.pos[0] * c.localscl
-		cxleft := c.sizeBox[0] * c.localscl
-		cxright := c.sizeBox[2] * c.localscl
+		cxleft := cbox[0] * c.localscl
+		cxright := cbox[2] * c.localscl
 		if c.facing < 0 {
 			cxleft, cxright = -cxright, -cxleft
 		}
-
 		cxleft += cposx
 		cxright += cposx
 
 		gposx := getter.pos[0] * getter.localscl
-		gxleft := getter.sizeBox[0] * getter.localscl
-		gxright := getter.sizeBox[2] * getter.localscl
+		gxleft := gbox[0] * getter.localscl
+		gxright := gbox[2] * getter.localscl
 		if getter.facing < 0 {
 			gxleft, gxright = -gxright, -gxleft
 		}
-
 		gxleft += gposx
 		gxright += gposx
 

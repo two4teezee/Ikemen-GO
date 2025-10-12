@@ -3332,79 +3332,21 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(sys.bgm.startPos))
 	case OC_ex2_bgmvar_volume:
 		sys.bcStack.PushI(int32(sys.bgm.bgmVolume))
-	case OC_ex2_clsnvar_left:
+	case OC_ex2_clsnvar_left, OC_ex2_clsnvar_top, OC_ex2_clsnvar_right, OC_ex2_clsnvar_bottom:
 		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
+		group := int32(sys.bcStack.Pop().ToI()) // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[0]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][0]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][0]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_top:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[1]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][1]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][1]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_right:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[2]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][2]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][2]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_bottom:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[3]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][3]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][3]
+		clsn := c.getClsn(group)
+		if clsn != nil && idx >= 0 && idx < len(clsn) {
+			switch opc {
+			case OC_ex2_clsnvar_left:
+				v = clsn[idx][0]
+			case OC_ex2_clsnvar_top:
+				v = clsn[idx][1]
+			case OC_ex2_clsnvar_right:
+				v = clsn[idx][2]
+			case OC_ex2_clsnvar_bottom:
+				v = clsn[idx][3]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))

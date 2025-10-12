@@ -516,20 +516,35 @@ function start.f_storeStats()
 end
 --;===========================================================
 
---returns the next item from the stagepool
+--returns the next stage path from the given pool
 function start.stageShuffleBag(id, pool)
+	-- safety check: prevent nil or invalid pools
+	if not pool or type(pool) ~= 'table' or #pool == 0 then
+		return nil
+	end
+
+	-- safety check: prevent nil id
+	id = id or 'defaultStageBag'
 	start.shuffleBags = start.shuffleBags or {}
 	start.shuffleBags[id] = start.shuffleBags[id] or {}
 
 	if #start.shuffleBags[id] == 0 then
 		local t = {}
-		for i = 1, #pool do table.insert(t, i) end
+		for i = 1, #pool do
+			table.insert(t, i)
+		end
 		start.shuffleTable(t)
 		start.shuffleBags[id] = t
 	end
 
 	local idx = table.remove(start.shuffleBags[id])
-	return pool[idx]
+	local result = pool[idx]
+
+	-- ensure result is a valid stage string (handles numeric refs)
+	if type(result) == "number" and main.t_selectableStages and main.t_selectableStages[result] then
+		result = main.t_selectableStages[result]
+	end
+	return result
 end
 
 --sets stage
@@ -548,11 +563,11 @@ function start.f_setStage(num, assigned)
 	if not assigned then
 		local sel = start.p[2] and start.p[2].t_selected and start.p[2].t_selected[1]
 		local charData = sel and sel.ref and start.f_getCharData(sel.ref)
-		if charData and charData.stage and #charData.stage > 0 then
+		if charData and charData.stage and #charData.stage > 0 then --stage assigned as character param
 			num = start.stageShuffleBag(charData.ref, charData.stage)
-		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then
+		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then --stage assigned as stage order param
 			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])
-		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then
+		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
 		else
 			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])

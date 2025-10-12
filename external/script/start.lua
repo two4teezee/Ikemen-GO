@@ -518,17 +518,17 @@ end
 
 --returns the next item from th stagepool
 function start.stageShuffleBag(id, pool)
-	start._shuffleBags = start._shuffleBags or {}
-	start._shuffleBags[id] = start._shuffleBags[id] or {}
+	start.shuffleBags = start.shuffleBags or {}
+	start.shuffleBags[id] = start.shuffleBags[id] or {}
 
-	if #start._shuffleBags[id] == 0 then
+	if #start.shuffleBags[id] == 0 then
 		local t = {}
 		for i = 1, #pool do table.insert(t, i) end
 		start.shuffleTable(t)
-		start._shuffleBags[id] = t
+		start.shuffleBags[id] = t
 	end
 
-	local idx = table.remove(start._shuffleBags[id])
+	local idx = table.remove(start.shuffleBags[id])
 	return pool[idx]
 end
 
@@ -1391,10 +1391,10 @@ function start.f_randomChar(pn)
 	if #main.t_randomChars == 0 then
 		return nil
 	end
-	start._shuffleBags = start._shuffleBags or {}
+	start.shuffleBags = start.shuffleBags or {}
 
-	if not start._shuffleBags[pn] or #start._shuffleBags[pn] == 0 then
-		start._shuffleBags[pn] = {}
+	if not start.shuffleBags[pn] or #start.shuffleBags[pn] == 0 then
+		start.shuffleBags[pn] = {}
 		local t = {}
 		for _, v in ipairs(main.t_randomChars) do
 			if gameOption('Options.Team.Duplicates') or not t_reservedChars[pn][v] then
@@ -1402,10 +1402,10 @@ function start.f_randomChar(pn)
 			end
 		end
 		start.shuffleTable(t)
-		start._shuffleBags[pn] = t
+		start.shuffleBags[pn] = t
 	end
 	--draws one char from the bag
-	local result = table.remove(start._shuffleBags[pn])
+	local result = table.remove(start.shuffleBags[pn])
 	return result
 end
 
@@ -2934,8 +2934,8 @@ end
 
 --returns a random palette
 function start.f_randomPal(charRef)
-	start._shufflePals = start._shufflePals or {}
-	start._shufflePals[charRef] = start._shufflePals[charRef] or {}
+	start.shufflePals = start.shufflePals or {}
+	start.shufflePals[charRef] = start.shufflePals[charRef] or {}
 
 	local charData = start.f_getCharData(charRef)
 	local pals = charData and charData.pal
@@ -2943,16 +2943,16 @@ function start.f_randomPal(charRef)
 		return 1
 	end
 
-	if #start._shufflePals[charRef] == 0 then
+	if #start.shufflePals[charRef] == 0 then
 		local t = {}
 		for i = 1, #pals do
 			table.insert(t, i)
 		end
 		start.shuffleTable(t)
-		start._shufflePals[charRef] = t
+		start.shufflePals[charRef] = t
 	end
 	--draws one pal from the bag
-	local result = table.remove(start._shufflePals[charRef])
+	local result = table.remove(start.shufflePals[charRef])
 	return result
 end
 

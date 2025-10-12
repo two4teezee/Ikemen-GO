@@ -3805,13 +3805,13 @@ function main.f_demo()
 	main.f_fadeReset('fadeout', motif.demo_mode)
 	main.menu.f = main.t_itemname.demo()
 end
-
+--prevents mirrored palette in demo mode mirror matches
 local function getUniquePalette(ch, prev)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
 
 	if not prev or ch ~= prev.ch then
-		return pals[math.random(1, #pals)]
+		return pals[sszRandom() % #pals + 1]
 	end
 
 	local available = {}
@@ -3822,7 +3822,7 @@ local function getUniquePalette(ch, prev)
 	end
 
 	if #available > 0 then
-		return available[math.random(1, #available)]
+		return available[sszRandom() % #available + 1]
 	else
 		return prev.pal
 	end

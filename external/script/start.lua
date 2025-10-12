@@ -516,7 +516,7 @@ function start.f_storeStats()
 end
 --;===========================================================
 
---returns the next item from th stagepool
+--returns the next item from the stagepool
 function start.stageShuffleBag(id, pool)
 	start.shuffleBags = start.shuffleBags or {}
 	start.shuffleBags[id] = start.shuffleBags[id] or {}

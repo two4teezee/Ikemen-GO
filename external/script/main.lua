@@ -3806,6 +3806,14 @@ function main.f_demo()
 	main.menu.f = main.t_itemname.demo()
 end
 
+local function getUniquePalette(ch, prev)
+	local pal
+	repeat
+		pal = getCharRandomPalette(ch)
+	until not prev or ch ~= prev.ch or pal ~= prev.pal
+	return pal
+end
+
 function main.f_demoStart()
 	main.f_default()
 	main.lifebar.bars = motif.demo_mode.fight_bars_display == 1
@@ -3814,7 +3822,10 @@ function main.f_demoStart()
 		setCom(i, 8)
 		setTeamMode(i, 0, 1)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		selectChar(i, ch, getCharRandomPalette(ch))
+		local pal = getUniquePalette(ch, prev)
+
+		selectChar(i, ch, pal)
+		prev = {ch = ch, pal = pal}
 	end
 	local stage = start.f_setStage()
 	start.f_setMusic(stage)

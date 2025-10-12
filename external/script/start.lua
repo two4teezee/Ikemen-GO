@@ -563,7 +563,7 @@ function start.f_setStage(num, assigned)
 	if not assigned then
 		local sel = start.p[2] and start.p[2].t_selected and start.p[2].t_selected[1]
 		local charData = sel and sel.ref and start.f_getCharData(sel.ref)
-		if charData and charData.stage and #charData.stage > 0 then --stage assigned as character param
+		if charData and charData.stage and #charData.stage > 0 and not (gamemode('training') and gameOption('Config.TrainingStage')) then --stage assigned as character param
 			num = start.stageShuffleBag(charData.ref, charData.stage)
 		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then --stage assigned as stage order param
 			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])

@@ -115,47 +115,48 @@ func (w *Window) GetSize() (int, int) {
 	return w.Window.GetSize()
 }
 
+// Calculates a position and size for the viewport to fill the window while centered (see render_gl.go)
+// Returns x, y, width, height respectively
 func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
-	// calculates a position and size for the viewport to fill the window while centered (see render_gl.go)
-	// returns x, y, width, height respectively
 	winWidth, winHeight := w.GetSize()
 
 	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
+
 	// If aspect ratio should not be kept, just return full window
 	if !sys.cfg.Video.KeepAspect {
 		return 0, 0, int32(winWidth), int32(winHeight)
 	}
-	// StageFit special case
-	if sys.cfg.Video.StageFit && sys.gameTime > 0 && sys.stage != nil && sys.isAspect43(sys.stage.stageCamera.localcoord) {
-		w := sys.stage.stageCamera.localcoord[0]
-		h := sys.stage.stageCamera.localcoord[1]
-		if h <= 0 {
-			h = 240
-		}
-		aspectNative := float32(w) / float32(h)
-		aspectWindow := float32(winWidth) / float32(winHeight)
-		if aspectWindow > aspectNative {
-			resizedHeight = int32(winHeight)
-			resizedWidth = int32(float32(resizedHeight) * aspectNative)
-			x = (int32(winWidth) - resizedWidth) / 2
-			y = 0
-		} else {
-			resizedWidth = int32(winWidth)
-			resizedHeight = int32(float32(resizedWidth) / aspectNative)
-			x = 0
-			y = (int32(winHeight) - resizedHeight) / 2
-		}
-		return x, y, resizedWidth, resizedHeight
-	}
-	// Normal scaling (fit the window while keeping aspect)
-	ratioWidth := float32(winWidth) / float32(sys.gameWidth)
-	ratioHeight := float32(winHeight) / float32(sys.gameHeight)
-	ratio := MinF(ratioWidth, ratioHeight)
 
-	resizedWidth = int32(float32(sys.gameWidth) * ratio)
-	resizedHeight = int32(float32(sys.gameHeight) * ratio)
-	x = (int32(winWidth) - resizedWidth) / 2
-	y = (int32(winHeight) - resizedHeight) / 2
+	// Select stage or default aspect ratio
+	var aspectGame float32
+	if sys.shouldRenderStageFit() {
+		coord := sys.stage.stageCamera.localcoord
+		if coord[0] > 0 && coord[1] > 0 {
+			aspectGame = float32(coord[0]) / float32(coord[1])
+		} else {
+			aspectGame = float32(sys.cfg.Video.GameWidth) / float32(sys.cfg.Video.GameHeight)
+		}
+	} else {
+		aspectGame = float32(sys.cfg.Video.GameWidth) / float32(sys.cfg.Video.GameHeight)
+	}
+
+	// Window aspect ratio
+	aspectWindow := float32(winWidth) / float32(winHeight)
+
+	// Preserve stage aspect ratio
+	if aspectWindow > aspectGame {
+		// Window is wider: black bars on sides
+		resizedHeight = int32(winHeight)
+		resizedWidth = int32(float32(resizedHeight) * aspectGame)
+		x = (int32(winWidth) - resizedWidth) / 2
+		y = 0
+	} else {
+		// Window is taller: black bars on top and bottom
+		resizedWidth = int32(winWidth)
+		resizedHeight = int32(float32(resizedWidth) / aspectGame)
+		x = 0
+		y = (int32(winHeight) - resizedHeight) / 2
+	}
 
 	return x, y, resizedWidth, resizedHeight
 }

@@ -534,10 +534,15 @@ function start.stageShuffleBag(id, pool)
 			table.insert(t, i)
 		end
 		start.shuffleTable(t)
+		-- prevent immediate repetition if the bag was just refilled
+		if start.lastStageIdx and #pool > 1 and t[#t] == start.lastStageIdx then
+			table.insert(t, 1, table.remove(t)) -- rotate
+		end
 		start.shuffleBags[id] = t
 	end
 
 	local idx = table.remove(start.shuffleBags[id])
+	start.lastStageIdx = idx
 	local result = pool[idx]
 
 	-- ensure result is a valid stage string (handles numeric refs)
@@ -1395,11 +1400,17 @@ function start.f_excludeChar(t, ref)
 	return t
 end
 
---shuffles a table in-place
-function start.shuffleTable(t)
+--shuffles a table in-place (using synced RNG)
+function start.shuffleTable(t, last)
 	for i = #t, 2, -1 do
-		local j = math.random(i)
+		local j = (sszRandom() % i) + 1
 		t[i], t[j] = t[j], t[i]
+	end
+	-- prevent first element from repeating the last of previous cycle
+	if last and #t > 1 and t[#t] == last then
+		-- swap the first element with a random other position
+		local swap = (sszRandom() % (#t - 1)) + 1
+		t[#t], t[swap] = t[swap], t[#t]
 	end
 end
 
@@ -1411,18 +1422,21 @@ function start.f_randomChar(pn)
 	start.shuffleBags = start.shuffleBags or {}
 
 	if not start.shuffleBags[pn] or #start.shuffleBags[pn] == 0 then
-		start.shuffleBags[pn] = {}
+		local last = start.lastRandomChar and start.lastRandomChar[pn]
 		local t = {}
 		for _, v in ipairs(main.t_randomChars) do
 			if gameOption('Options.Team.Duplicates') or not t_reservedChars[pn][v] then
 				table.insert(t, v)
 			end
 		end
-		start.shuffleTable(t)
+		start.shuffleTable(t, last)
 		start.shuffleBags[pn] = t
 	end
-	--draws one char from the bag
+	-- draw one char from the bag
 	local result = table.remove(start.shuffleBags[pn])
+	-- store the last drawn value
+	start.lastRandomChar = start.lastRandomChar or {}
+	start.lastRandomChar[pn] = result
 	return result
 end
 
@@ -1480,7 +1494,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 								sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_swap_snd'][1], motif.select_info['p' .. side .. '_swap_snd'][2])
 							end
 						else --select
-							main.t_selGrid[cell].slot = v[math.random(1, #v)]
+							main.t_selGrid[cell].slot = v[(sszRandom() % #v) + 1]
 							start.c[player].selRef = start.f_selGrid(cell).char_ref
 						end
 						start.t_grid[y + 1][x + 1].char = start.f_selGrid(cell).char
@@ -2949,7 +2963,7 @@ function start.f_palMenuDraw(side, member)
 	end
 end
 
---returns a random palette
+--returns a random palette (using synced RNG)
 function start.f_randomPal(charRef)
 	start.shufflePals = start.shufflePals or {}
 	start.shufflePals[charRef] = start.shufflePals[charRef] or {}
@@ -2961,15 +2975,19 @@ function start.f_randomPal(charRef)
 	end
 
 	if #start.shufflePals[charRef] == 0 then
+		local last = start.lastRandomPal and start.lastRandomPal[charRef]
 		local t = {}
 		for i = 1, #pals do
 			table.insert(t, i)
 		end
-		start.shuffleTable(t)
+		start.shuffleTable(t, last)
 		start.shufflePals[charRef] = t
 	end
-	--draws one pal from the bag
+	-- draw one palette from the bag
 	local result = table.remove(start.shufflePals[charRef])
+	-- store last drawn palette
+	start.lastRandomPal = start.lastRandomPal or {}
+	start.lastRandomPal[charRef] = result
 	return result
 end
 

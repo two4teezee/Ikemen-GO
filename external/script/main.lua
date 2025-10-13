@@ -3805,6 +3805,28 @@ function main.f_demo()
 	main.f_fadeReset('fadeout', motif.demo_mode)
 	main.menu.f = main.t_itemname.demo()
 end
+--prevents mirrored palette in demo mode mirror matches
+local function getUniquePalette(ch, prev)
+	local charData = start.f_getCharData(ch)
+	local pals = charData and charData.pal or {1}
+
+	if not prev or ch ~= prev.ch then
+		return pals[sszRandom() % #pals + 1]
+	end
+
+	local available = {}
+	for _, p in ipairs(pals) do
+		if p ~= prev.pal then
+			table.insert(available, p)
+		end
+	end
+
+	if #available > 0 then
+		return available[sszRandom() % #available + 1]
+	else
+		return prev.pal
+	end
+end
 
 function main.f_demoStart()
 	main.f_default()
@@ -3814,7 +3836,10 @@ function main.f_demoStart()
 		setCom(i, 8)
 		setTeamMode(i, 0, 1)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		selectChar(i, ch, getCharRandomPalette(ch))
+		local pal = getUniquePalette(ch, prev)
+
+		selectChar(i, ch, pal)
+		prev = {ch = ch, pal = pal}
 	end
 	local stage = start.f_setStage()
 	start.f_setMusic(stage)

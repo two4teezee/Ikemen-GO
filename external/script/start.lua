@@ -3157,6 +3157,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef
 					local charRef = start.p[side].t_selTemp[member].ref
+					local charData = start.f_getCharData(charRef)
 					local pal = start.p[side].t_selTemp[member].pal
 					local finalPal
 
@@ -3172,6 +3173,10 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 
 					-- resolve visual palette conflict
 					finalPal = resolvePalConflict(side, charRef, finalPal)
+
+					if finalPal > #charData.pal then
+						finalPal = #charData.pal
+					end
 
 					if motif.select_info.paletteselect > 0 then
 						start.p[side].t_selTemp[member].pal = finalPal

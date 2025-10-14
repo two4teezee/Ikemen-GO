@@ -779,16 +779,27 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "colorPortrait", func(l *lua.LState) int {
-		//Creates a duplicate animation, to avoid palette sharing across players, then removes palettes from sprites
+		// Creates a duplicate animation to avoid palette sharing across players
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {
 			userDataError(l, 1, a)
+			return 0
 		}
-		if sys.usePalette == true {
+		if sys.usePalette {
 			copyAnim := CopyAnim(a)
+			char := sys.sel.GetChar(int(numArg(l, 2)))
 			for _, c := range copyAnim.anim.frames {
-				if copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx == 0 && len(sys.sel.GetChar(int(numArg(l, 2))).pal) > 0 {
-					copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Pal = nil
+				// Ignore special / invalid frames
+				if c.Group < 0 || c.Number < 0 {
+					continue
+				}
+				spr, ok := copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}]
+				if !ok || spr == nil {
+					continue
+				}
+				// Remove base palette
+				if len(char.pal) > 0 && spr.palidx == 0 {
+					spr.Pal = nil
 				}
 			}
 			l.Push(newUserData(l, copyAnim))

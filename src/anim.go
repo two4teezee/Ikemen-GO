@@ -1614,37 +1614,39 @@ func NewAnim(sff *Sff, action string) *Anim {
 	return a
 }
 
+// CopyAnim creates a deep copy of an animation, ensuring palette independence
+// to avoid palette sharing across players.
 func CopyAnim(a *Anim) *Anim {
-	//Copy information, this is used for showing palettes to avoid the same palette when a character is selected twice.
+	if a == nil || a.anim == nil || a.anim.sff == nil {
+		return nil
+	}
+	srcSff := a.anim.sff
 	copySff := newSff()
-	copySff.header = a.anim.sff.header
-	copySff.palList.palettes = a.anim.sff.palList.palettes
-	x := 0
-	copySff.palList.paletteMap = nil
-	for x < len(a.anim.sff.palList.paletteMap) { //Copy each value from the palette map individually, without doing this, different sides/members of the same character will share palettes.
-		copySff.palList.paletteMap = append(copySff.palList.paletteMap, x)
-		x = x + 1
-	}
-	copySff.palList.PalTable = a.anim.sff.palList.PalTable
-	copySff.palList.numcols = a.anim.sff.palList.numcols
-	copySff.palList.PalTex = a.anim.sff.palList.PalTex
-	frameAnims := ""
-	x = 0
-	for x < len(a.anim.frames) {
-		frameAnims = frameAnims + fmt.Sprint(a.anim.frames[x].Group) + "," + fmt.Sprint(a.anim.frames[x].Number) + "," + fmt.Sprint(a.anim.frames[x].Xoffset) + "," + fmt.Sprint(a.anim.frames[x].Yoffset) + "," + fmt.Sprint(a.anim.frames[x].Time) + "\n"
-		x = x + 1
-	}
+	// Copy header and palette info
+	copySff.header = srcSff.header
+	copySff.palList.palettes = srcSff.palList.palettes
+	// Independent paletteMap copy
+	copySff.palList.paletteMap = make([]int, len(srcSff.palList.paletteMap))
+	copy(copySff.palList.paletteMap, srcSff.palList.paletteMap)
 
-	//Create animation and copy animation data
-	newAnim := NewAnim(copySff, frameAnims)
+	copySff.palList.PalTable = srcSff.palList.PalTable
+	copySff.palList.numcols = srcSff.palList.numcols
+	copySff.palList.PalTex = srcSff.palList.PalTex
+	// Serialize frames for NewAnim
+	var frameAnims strings.Builder
+	for _, f := range a.anim.frames {
+		frameAnims.WriteString(fmt.Sprintf("%d,%d,%d,%d,%d\n",
+			f.Group, f.Number, f.Xoffset, f.Yoffset, f.Time))
+	}
+	// Create new animation using copied SFF
+	newAnim := NewAnim(copySff, frameAnims.String())
 	newAnim.window = a.window
 	newAnim.x = a.x
 	newAnim.y = a.y
 	newAnim.xscl = a.xscl
 	newAnim.yscl = a.yscl
 	newAnim.palfx = a.palfx
-
-	//Information to match the current frame in the animation
+	// Copy current animation state (timing, loop, interpolation, etc.)
 	newAnim.anim.looptime = a.anim.looptime
 	newAnim.anim.loopstart = a.anim.loopstart
 	newAnim.anim.curtime = a.anim.curtime
@@ -1653,16 +1655,25 @@ func CopyAnim(a *Anim) *Anim {
 	newAnim.anim.frames = a.anim.frames
 	newAnim.anim.interpolate_blend_srcalpha = a.anim.interpolate_blend_srcalpha
 	newAnim.anim.interpolate_scale = a.anim.interpolate_scale
+	// Copy all valid sprites safely
 	for _, c := range a.anim.frames {
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}] = newSprite()
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Pal = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Pal
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Tex = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Tex
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].palidx
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].coldepth = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].coldepth
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Offset[1] = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Offset[1]
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Size[1] = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Size[1]
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Offset[0] = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Offset[0]
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}].Size[0] = a.anim.sff.sprites[[...]int16{c.Group, c.Number}].Size[0]
+		// Ignore invalid / special frames
+		if c.Group < 0 || c.Number < 0 {
+			continue
+		}
+		src, ok := srcSff.sprites[[...]int16{c.Group, c.Number}]
+		if !ok || src == nil {
+			continue
+		}
+		dst := newSprite()
+		dst.Pal = src.Pal
+		dst.Tex = src.Tex
+		dst.palidx = src.palidx
+		dst.coldepth = src.coldepth
+		// Copy arrays (if not slices, this is fine as-is)
+		dst.Offset = src.Offset
+		dst.Size = src.Size
+		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}] = dst
 	}
 	return newAnim
 }

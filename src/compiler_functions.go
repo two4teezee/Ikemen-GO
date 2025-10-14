@@ -6465,21 +6465,21 @@ func (c *Compiler) shiftInput(is IniSection, sc *StateControllerBase, _ int8) (S
 	return *ret, err
 }
 
-func (c *Compiler) modifyClsn(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
-	ret, err := (*modifyClsn)(sc), c.stateSec(is, func() error {
+func (c *Compiler) overrideClsn(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*overrideClsn)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
-			modifyClsn_redirectid, VT_Int, 1, false); err != nil {
+			overrideClsn_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramClsnType(is, sc, "group", modifyClsn_group); err != nil {
+		if err := c.paramClsnType(is, sc, "group", overrideClsn_group); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "index",
-			modifyClsn_index, VT_Int, 1, false); err != nil {
+			overrideClsn_index, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "rect",
-			modifyClsn_rect, VT_Float, 4, false); err != nil {
+			overrideClsn_rect, VT_Float, 4, false); err != nil {
 			return err
 		}
 		return nil

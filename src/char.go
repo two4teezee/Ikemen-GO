@@ -232,8 +232,8 @@ func (cr ClsnRect) draw(blendAlpha [2]int32) {
 	}
 }
 
-// ModifyClsn
-type ClsnModifier struct {
+// OverrideClsn
+type ClsnOverride struct {
 	group int32
 	index int
 	rect  [4]float32
@@ -2666,7 +2666,7 @@ type Char struct {
 	clsnScaleMul        [2]float32 // From TransformClsn
 	clsnScale           [2]float32 // The final one
 	clsnAngle           float32
-	clsnModifiers       []ClsnModifier
+	clsnOverrides       []ClsnOverride
 	zScale              float32
 	hitdef              HitDef
 	ghv                 GetHitVar
@@ -7867,7 +7867,7 @@ func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
 	cbox := c.getAnySizeBox()
 	oppbox := opp.getAnySizeBox()
 
-	// Normally this can only happen with ModifyClsn
+	// Normally this can only happen with OverrideClsn
 	// TODO: Decide whether to return NaN (accurate) or use distance to center axis (forgiving)
 	if cbox == nil || oppbox == nil {
 		return float32(math.NaN())
@@ -8916,7 +8916,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 	copy(final, original)
 
 	// Apply appropriate modifiers
-	for _, mod := range c.clsnModifiers {
+	for _, mod := range c.clsnOverrides {
 		if mod.group != group {
 			continue
 		}
@@ -10461,7 +10461,7 @@ func (c *Char) actionPrepare() {
 		// Reset Clsn modifiers
 		c.clsnScaleMul = [2]float32{1.0, 1.0}
 		c.clsnAngle = 0
-		c.clsnModifiers = c.clsnModifiers[:0]
+		c.clsnOverrides = c.clsnOverrides[:0]
 
 		// Reset modifyShadow
 		c.shadowColor = [3]int32{-1, -1, -1}

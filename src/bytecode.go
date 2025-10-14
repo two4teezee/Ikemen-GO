@@ -13438,17 +13438,17 @@ func (sc shiftInput) Run(c *Char, _ []int32) bool {
 	return false
 }
 
-type modifyClsn StateControllerBase
+type overrideClsn StateControllerBase
 
 const (
-	modifyClsn_group byte = iota
-	modifyClsn_index
-	modifyClsn_rect
-	modifyClsn_redirectid
+	overrideClsn_group byte = iota
+	overrideClsn_index
+	overrideClsn_rect
+	overrideClsn_redirectid
 )
 
-func (sc modifyClsn) Run(c *Char, _ []int32) bool {
-	crun := getRedirectedChar(c, StateControllerBase(sc), modifyClsn_redirectid, "ModifyClsn")
+func (sc overrideClsn) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), overrideClsn_redirectid, "OverrideClsn")
 	if crun == nil {
 		return false
 	}
@@ -13456,15 +13456,15 @@ func (sc modifyClsn) Run(c *Char, _ []int32) bool {
 	redirscale := c.localscl / crun.localscl
 
 	// Default everything to 0
-	var box ClsnModifier
+	var box ClsnOverride
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case modifyClsn_group:
+		case overrideClsn_group:
 			box.group = exp[0].evalI(c)
-		case modifyClsn_index:
+		case overrideClsn_index:
 			box.index = int(exp[0].evalI(c))
-		case modifyClsn_rect:
+		case overrideClsn_rect:
 			box.rect[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
 				box.rect[1] = exp[1].evalF(c) * redirscale
@@ -13487,9 +13487,9 @@ func (sc modifyClsn) Run(c *Char, _ []int32) bool {
 	})
 
 	if box.group == 0 {
-		crun.clsnModifiers = nil
+		crun.clsnOverrides = nil
 	} else {
-		crun.clsnModifiers = append(crun.clsnModifiers, box)
+		crun.clsnOverrides = append(crun.clsnOverrides, box)
 	}
 
 	return false

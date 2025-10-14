@@ -308,8 +308,8 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
 	copy(result.inputShift, c.inputShift)
 
-	result.clsnModifiers = arena.MakeSlice[ClsnModifier](a, len(c.clsnModifiers), len(c.clsnModifiers))
-	copy(result.clsnModifiers, c.clsnModifiers)
+	result.clsnOverrides = arena.MakeSlice[ClsnOverride](a, len(c.clsnOverrides), len(c.clsnOverrides))
+	copy(result.clsnOverrides, c.clsnOverrides)
 
 	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)

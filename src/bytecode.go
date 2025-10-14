@@ -1606,7 +1606,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerid:
-			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}

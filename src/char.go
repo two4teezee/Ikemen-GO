@@ -4366,10 +4366,10 @@ func (c *Char) p2() *Char {
 	return p
 }
 
-func (c *Char) playerIDTrigger(id int32) *Char {
+func (c *Char) playerIDTrigger(id int32, log bool) *Char {
 	ch := sys.playerID(id)
 
-	if ch == nil {
+	if log && ch == nil {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with ID: %v", id))
 	}
 

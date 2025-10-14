@@ -3295,7 +3295,9 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "playerid", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.playerIDTrigger(int32(numArg(l, 1))); c != nil {
+		// Script version doesn't log errors because debug mode uses it
+		// TODO: Script redirects should either all log errors or none of them should
+		if c := sys.debugWC.playerIDTrigger(int32(numArg(l, 1)), false); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))

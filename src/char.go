@@ -6293,7 +6293,28 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 	owner := sys.chars[spritePN][0]
 	self := sys.chars[c.playerNo][0]
 
-	if !a.isCommonFX() {
+	if a.isCommonFX() {
+		for _, fx := range sys.ffx { // A little redundant since isCommonFX also does this loop, but easier to read
+			if fx.fsff == a.sff {
+				// Calculate scale
+				// With the addition of variable viewport, we should now calculate the scale each time instead of precomputing it
+				scale := fx.fx_scale
+				if fx.localcoord[0] > 0 {
+					scale = fx.fx_scale * 320 / fx.localcoord[0]
+				}
+
+				// Apply char localcoord
+				coordRatio := float32(c.gi().localcoord[0]) / 320
+				scale *= coordRatio
+
+				// Apply scale to animation
+				a.start_scale[0] = scale
+				a.start_scale[1] = scale
+
+				break
+			}
+		}
+	} else {
 		// Set SFF and palette
 		a.sff = sys.cgi[spritePN].sff
 		a.palettedata = &sys.cgi[spritePN].palettedata.palList
@@ -6315,17 +6336,11 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 			}
 
 			// Update sprite scale according to SFF owner
-			// We use localcoord to avoid fluctuations while characters are in custom states
+			// We use localcoord instead of localscl to avoid fluctuations while characters are in custom states
 			if self.localcoord != 0 {
 				a.start_scale[0] *= self.localcoord / owner.localcoord
 				a.start_scale[1] *= self.localcoord / owner.localcoord
 			}
-		}
-	} else {
-		// Otherwise just adapt scale
-		if self.localcoord != 0 {
-			a.start_scale[0] /= 320 / self.localcoord
-			a.start_scale[1] /= 320 / self.localcoord
 		}
 	}
 }

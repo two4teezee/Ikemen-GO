@@ -1630,14 +1630,28 @@ f_preloadList(motif.victory_screen.p2_face2_spr)
 f_preloadList(motif.hiscore_info.item_face_anim)
 f_preloadList(motif.hiscore_info.item_face_spr)
 for i = 1, 2 do
-	for _, v in ipairs({{sec = 'select_info', sn = '_face'}, {sec = 'vs_screen', sn = ''}, {sec = 'victory_screen', sn = ''}}) do
-		for j = 1, motif[v.sec]['p' .. i .. v.sn .. '_num'] do
-			f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_anim'])
-			f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_spr'])
-			f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_done_anim'])
-			f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_done_spr'])
-		end
-	end
+    for _, v in ipairs({{sec = 'select_info', sn = '_face'},{sec = 'select_info', sn = '_palmenu', inherit = '_face'},{sec = 'vs_screen',   sn = ''},
+		{sec = 'victory_screen', sn = ''},
+    }) do
+        local memberCount
+        if v.inherit then
+            local faceNumKey = 'p' .. i .. v.inherit .. '_num'
+            memberCount = motif[v.sec][faceNumKey] or 0
+        else
+            local numKey = 'p' .. i .. (v.sn or '') .. '_num'
+            memberCount = motif[v.sec][numKey] or 0
+        end
+        for j = 1, memberCount do
+            f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_anim'])
+            f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_spr'])
+            f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_done_anim'])
+            f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. v.sn .. '_done_spr'])
+            if v.sn == '_palmenu' then
+                f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. '_palmenu_preview_spr'])
+                f_preloadList(motif[v.sec]['p' .. i .. '_member' .. j .. '_palmenu_preview_anim'])
+            end
+        end
+    end
 end
 
 -- generate preload stage spr/anim list

@@ -120,30 +120,18 @@ func (w *Window) GetSize() (int, int) {
 func (w *Window) GetScaledViewportSize() (int32, int32, int32, int32) {
 	winWidth, winHeight := w.GetSize()
 
-	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
-
 	// If aspect ratio should not be kept, just return full window
 	if !sys.cfg.Video.KeepAspect {
 		return 0, 0, int32(winWidth), int32(winHeight)
 	}
 
-	// Select stage or default aspect ratio
-	var aspectGame float32
-	if sys.shouldRenderStageFit() {
-		coord := sys.stage.stageCamera.localcoord
-		if coord[0] > 0 && coord[1] > 0 {
-			aspectGame = float32(coord[0]) / float32(coord[1])
-		} else {
-			aspectGame = float32(sys.cfg.Video.GameWidth) / float32(sys.cfg.Video.GameHeight)
-		}
-	} else {
-		aspectGame = float32(sys.cfg.Video.GameWidth) / float32(sys.cfg.Video.GameHeight)
-	}
+	var x, y, resizedWidth, resizedHeight int32 = 0, 0, int32(winWidth), int32(winHeight)
 
-	// Window aspect ratio
+	// Select stage or default aspect ratio
+	aspectGame := sys.getCurrentAspect()
 	aspectWindow := float32(winWidth) / float32(winHeight)
 
-	// Preserve stage aspect ratio
+	// Keep aspect ratio
 	if aspectWindow > aspectGame {
 		// Window is wider: black bars on sides
 		resizedHeight = int32(winHeight)

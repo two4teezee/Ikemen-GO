@@ -5423,8 +5423,13 @@ func (c *Char) screenPosY() float32 {
 }
 
 func (c *Char) screenHeight() float32 {
-	return sys.screenHeight() / (320.0 / float32(c.stOgi().localcoord[0])) /
-		((3.0 / 4.0) / (float32(sys.scrrect[3]) / float32(sys.scrrect[2])))
+	aspect := sys.getCurrentAspect()
+
+	// Compute height from width
+	height := c.stOgi().localcoord[0] / aspect
+
+	// Round to nearest integer
+	return float32(int32(height + 0.5))
 }
 
 func (c *Char) screenWidth() float32 {

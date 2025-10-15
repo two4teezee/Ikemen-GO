@@ -686,7 +686,7 @@ func (s *System) isAspect43(localcoord [2]int32) bool {
 	return AbsF(aspect-aspect43) < eps
 }
 
-// Placeholder for if/when we make aspect ratio not depend on stage only
+// Will be useful if/when we make aspect ratio not depend on stage only
 func (s *System) middleOfMatch() bool {
 	return s.matchTime != 0 && !s.postMatchFlg
 }
@@ -702,6 +702,20 @@ func (s *System) shouldRenderStageFit() bool {
 	}
 
 	return true
+}
+
+// This allows Char to access aspect ratio without going through Window, which can add errors
+func (s *System) getCurrentAspect() float32 {
+	// Use stage aspect ratio
+	if s.shouldRenderStageFit() {
+		coord := s.stage.stageCamera.localcoord
+		if coord[0] > 0 && coord[1] > 0 {
+			return float32(coord[0]) / float32(coord[1])
+		}
+	}
+
+	// Fallback to default
+	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
 }
 
 func (s *System) applyStageFit() {
@@ -1149,8 +1163,10 @@ func (s *System) palfxvar2(x int32, y int32) float32 {
 	return n * 256
 }
 
+// Only Lua uses these currently
 func (s *System) screenHeight() float32 {
-	return 240
+	//return 240
+	return float32(s.gameHeight)
 }
 
 func (s *System) screenWidth() float32 {

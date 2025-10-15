@@ -995,6 +995,8 @@
 	p1.palmenu.accept.key = "a&b&c&x&y&z"
 	p1.palmenu.preview.anim = -1
 	p1.palmenu.preview.spr =
+	;p<pn>.member<num>.palmenu.preview.anim = -1
+	;p<pn>.member<num>.palmenu.preview.spr =
 	p1.palmenu.cancel.key = "m"
 	p1.palmenu.random.key = "s"
 	p1.palmenu.random.text = "Random"

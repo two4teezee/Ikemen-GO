@@ -131,7 +131,7 @@ type System struct {
 	aiLevel                 [MaxPlayerNo]float32
 	autolevel               bool
 	home                    int
-	gameTime                int32
+	matchTime               int32
 	match                   int32
 	inputRemap              [MaxPlayerNo]int
 	round                   int32
@@ -273,7 +273,7 @@ type System struct {
 	windowMainIcon    []image.Image
 	gameMode          string
 	frameCounter      int32
-	preFightTime      int32
+	preMatchTime      int32
 	motifDir          string
 	motifDef          string
 	lifebarDef        string
@@ -688,7 +688,7 @@ func (s *System) isAspect43(localcoord [2]int32) bool {
 
 // Placeholder for if/when we make aspect ratio not depend on stage only
 func (s *System) middleOfMatch() bool {
-	return s.gameTime != 0 && !s.postMatchFlg
+	return s.matchTime != 0 && !s.postMatchFlg
 }
 
 // Used for the viewport change
@@ -868,8 +868,8 @@ func (s *System) renderFrame() {
 func (s *System) update() bool {
 	s.frameCounter++
 
-	if s.gameTime == 0 {
-		s.preFightTime = s.frameCounter
+	if s.matchTime == 0 {
+		s.preMatchTime = s.frameCounter
 	}
 
 	// Restore original resolution after stagefit
@@ -1993,7 +1993,7 @@ func (s *System) globalTick() {
 		}
 	}
 
-	s.gameTime++
+	s.matchTime++
 }
 
 func (s *System) getSlowtime() int32 {
@@ -2559,7 +2559,7 @@ func (s *System) drawDebugText() {
 // and at the start of any round where a new character tags in for turns mode
 func (s *System) runMatch() (reload bool) {
 	// Reset variables
-	s.gameTime = 0
+	s.matchTime = 0
 	s.fightLoopEnd = false
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	s.saveState = NewGameState()

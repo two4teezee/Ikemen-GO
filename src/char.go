@@ -12458,7 +12458,6 @@ func (cl *CharList) collisionDetection() {
 }
 
 func (cl *CharList) tick() {
-	sys.gameTime++
 	for _, c := range cl.runOrder {
 		c.tick()
 	}

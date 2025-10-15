@@ -1841,15 +1841,15 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				sys.bcStack.PushF(c.gameHeight())
 			}
 		case OC_gametime:
-			var pfTime int32
+			var pmTime int32
 			if sys.netConnection != nil {
-				pfTime = sys.netConnection.preFightTime
+				pmTime = sys.netConnection.preMatchTime
 			} else if sys.replayFile != nil {
-				pfTime = sys.replayFile.pfTime
+				pmTime = sys.replayFile.pmTime
 			} else {
-				pfTime = sys.preFightTime
+				pmTime = sys.preMatchTime
 			}
-			sys.bcStack.PushI(sys.gameTime + pfTime)
+			sys.bcStack.PushI(sys.matchTime + pmTime)
 		case OC_gamewidth:
 			// Optional exception preventing GameWidth from being affected by stage zoom.
 			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 0 &&
@@ -2916,7 +2916,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_fightscreenvar_time_framespercount:
 		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex_fighttime:
-		sys.bcStack.PushI(sys.gameTime)
+		sys.bcStack.PushI(sys.matchTime)
 	case OC_ex_firstattack:
 		sys.bcStack.PushB(sys.firstAttack[c.teamside] == c.playerNo)
 	case OC_ex_float:

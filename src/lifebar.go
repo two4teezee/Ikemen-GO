@@ -3040,7 +3040,7 @@ func (ro *LifeBarRound) act() bool {
 						ro.waitTimer[1] = ro.fight_time
 						ro.waitSoundTimer[1] = ro.fight_sndtime
 						ro.drawTimer[1] = 0
-						sys.timerCount = append(sys.timerCount, sys.gameTime)
+						sys.timerCount = append(sys.timerCount, sys.matchTime)
 						ro.timerActive = true
 					}
 					ro.waitTimer[1]--
@@ -3068,8 +3068,8 @@ func (ro *LifeBarRound) act() bool {
 		// Round over. Consists of KO screen and winner messages
 		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
 			if ro.timerActive {
-				if sys.gameTime-sys.timerCount[sys.round-1] > 0 {
-					sys.timerCount[sys.round-1] = sys.gameTime - sys.timerCount[sys.round-1]
+				if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
+					sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]
 					sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
 				} else {
 					sys.timerCount[sys.round-1] = 0

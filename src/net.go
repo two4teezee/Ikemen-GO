@@ -363,7 +363,7 @@ func encodeInputs(inputs InputBits) []byte {
 func (rs *RollbackSession) LiveChecksum() uint32 {
 	// System variables. Check always
 	buf := writeI32(sys.randseed)
-	buf = append(buf, writeI32(sys.gameTime)...)
+	buf = append(buf, writeI32(sys.matchTime)...)
 	buf = append(buf, writeI32(sys.curRoundTime)...)
 
 	// Round start checks. Ensure both players have the same selection
@@ -420,7 +420,7 @@ func (rs *RollbackSession) Input(time int32, player int) (input InputBits) {
 
 func (rs *RollbackSession) AnyButton() bool {
 	for i := 0; i < len(rs.inputs[len(rs.inputs)-1]); i++ {
-		if rs.Input(sys.gameTime, i)&IB_anybutton != 0 {
+		if rs.Input(sys.matchTime, i)&IB_anybutton != 0 {
 			return true
 		}
 	}

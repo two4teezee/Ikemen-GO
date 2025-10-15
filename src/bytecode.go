@@ -13261,7 +13261,8 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_color byte = iota
+	modifyShadow_anim byte = iota
+	modifyShadow_color
 	modifyShadow_intensity
 	modifyShadow_offset
 	modifyShadow_window
@@ -13285,6 +13286,15 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_anim:
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			// We'll use crun.playerNo as animPN and spritePN because the main use case is replacing the shadow with one of your own anims
+			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			if anim != nil {
+				anim.Action() // Need to step for it to appear
+				crun.shadowAnim = anim
+			}
 		case modifyShadow_color:
 			var r, g, b int32
 			r = Clamp(exp[0].evalI(c), 0, 255)
@@ -13327,7 +13337,8 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 type modifyReflection StateControllerBase
 
 const (
-	modifyReflection_color byte = iota
+	modifyReflection_anim byte = iota
+	modifyReflection_color
 	modifyReflection_intensity
 	modifyReflection_offset
 	modifyReflection_window
@@ -13351,6 +13362,14 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_anim:
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			if anim != nil {
+				anim.Action() // Need to step for it to appear
+				crun.reflectAnim = anim
+			}
 		case modifyReflection_color:
 			var r, g, b int32
 			r = Clamp(exp[0].evalI(c), 0, 255)

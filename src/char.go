@@ -2731,6 +2731,7 @@ type Char struct {
 	downHitOffset     bool
 	koEchoTimer       int32
 	groundLevel       float32
+	shadowAnim        *Animation
 	shadowColor       [3]int32
 	shadowIntensity   int32
 	shadowOffset      [2]float32
@@ -2740,6 +2741,7 @@ type Char struct {
 	shadowRot         Rotation
 	shadowProjection  Projection
 	shadowfLength     float32
+	reflectAnim       *Animation
 	reflectColor      [3]int32
 	reflectIntensity  int32
 	reflectOffset     [2]float32
@@ -10464,6 +10466,7 @@ func (c *Char) actionPrepare() {
 		c.clsnOverrides = c.clsnOverrides[:0]
 
 		// Reset modifyShadow
+		c.shadowAnim = nil
 		c.shadowColor = [3]int32{-1, -1, -1}
 		c.shadowIntensity = -1
 		c.shadowOffset = [2]float32{}
@@ -11441,7 +11444,7 @@ func (c *Char) cueDraw() {
 		}
 
 		// Define sprite data
-		sd := &SprData{
+		charSD := &SprData{
 			anim:         anim,
 			pfx:          c.getPalfx(),
 			pos:          pos,
@@ -11461,10 +11464,10 @@ func (c *Char) cueDraw() {
 		}
 
 		// Record afterimage
-		c.aimg.recAndCue(sd, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
+		c.aimg.recAndCue(charSD, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
 		// Hitshake effect
 		if c.ghv.hitshaketime > 0 && c.ss.time&1 != 0 {
-			sd.pos[0] -= c.facing
+			charSD.pos[0] -= c.facing
 		}
 		// Draw char according to layer number
 		sprs := &sys.spritesLayer0
@@ -11477,19 +11480,28 @@ func (c *Char) cueDraw() {
 		}
 
 		if !c.asf(ASF_invisible) {
-			sdwalp := 255 - c.alpha[1]
-			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
-			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
-
 			// Add sprite to draw list
-			sprs.add(sd)
+			sprs.add(charSD)
 
-			// Add shadow
+			// Add shadow and reflection
 			if !c.asf(ASF_noshadow) {
+				// Default shadow to same sprite data as char
+				shadowSD := charSD
+				// Replace shadow animation
+				// TODO: This may need to clear more parts of the sprite data
+				if c.shadowAnim != nil {
+					shadowSDcopy := *shadowSD
+					shadowSDcopy.anim = c.shadowAnim
+					shadowSD = &shadowSDcopy
+				}
+				// Shadow modifiers
+				sdwalp := 255 - c.alpha[1]
+				sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
 				// That doesn't seem to actually happen in either Winmugen or Mugen 1.1
 				//soy := c.size.shadowoffset
-				//if sd.oldVer {
+				//if charSD.oldVer {
 				//	soy *= 1.5
 				//}
 				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
@@ -11508,7 +11520,7 @@ func (c *Char) cueDraw() {
 
 				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
-					SprData:         sd,
+					SprData:         shadowSD,
 					shadowColor:     sdwclr,
 					shadowAlpha:     sdwalp,
 					shadowIntensity: c.shadowIntensity,
@@ -11525,9 +11537,21 @@ func (c *Char) cueDraw() {
 					fadeOffset:       c.offsetY() + drawZoff,
 				})
 
+				// Default reflection to same sprite data as char
+				reflectSD := charSD
+				// Replace reflection animation
+				// TODO: This may need to clear more parts of the sprite data
+				if c.reflectAnim != nil {
+					reflectSDcopy := *reflectSD
+					reflectSDcopy.anim = c.reflectAnim
+					reflectSD = &reflectSDcopy
+				}
+				// Reflection modifiers
+				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
+
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
-					SprData:          sd,
+					SprData:          reflectSD,
 					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{

@@ -1256,6 +1256,13 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "anim", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			return c.scAdd(sc, modifyShadow_anim, data, VT_Int, 1,
+				sc.beToExp(BytecodeExp(prefix))...)
+		}); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			modifyShadow_color, VT_Int, 3, false); err != nil {
 			return err
@@ -1309,6 +1316,13 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 	ret, err := (*modifyReflection)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
 			modifyReflection_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "anim", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			return c.scAdd(sc, modifyReflection_anim, data, VT_Int, 1,
+				sc.beToExp(BytecodeExp(prefix))...)
+		}); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "color",

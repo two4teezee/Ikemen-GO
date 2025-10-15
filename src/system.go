@@ -888,7 +888,7 @@ func (s *System) update() bool {
 
 	// Restore original resolution after stagefit
 	if !s.middleOfMatch() {
-		s.setWindowSize(s.scrrect[2], s.scrrect[3]) 
+		s.setWindowSize(s.scrrect[2], s.scrrect[3])
 	}
 
 	if s.replayFile != nil {

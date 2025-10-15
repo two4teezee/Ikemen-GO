@@ -2624,43 +2624,43 @@ type CharSystemVar struct {
 }
 
 type Char struct {
-	name                string
-	palfx               *PalFX
-	anim                *Animation
-	animBackup          *Animation
-	curFrame            *AnimFrame
-	cmd                 []CommandList
-	ss                  StateState
-	controller          int
-	id                  int32
-	runorder            int32
-	helperId            int32
-	helperIndex         int32
-	parentIndex         int32
-	playerNo            int
-	teamside            int
-	keyctrl             [4]bool
-	playerFlag          bool // Root and player type helpers
-	hprojectile         bool // Helper type projectile. Currently unused
-	animPN              int
-	spritePN            int
-	animNo              int32
-	prevAnimNo          int32
-	life                int32
-	lifeMax             int32
-	power               int32
-	powerMax            int32
-	dizzyPoints         int32
-	dizzyPointsMax      int32
-	guardPoints         int32
-	guardPointsMax      int32
-	redLife             int32
-	juggle              int32
-	fallTime            int32
-	localcoord          float32 // Char localcoord[0] scaled to game resolution
-	localscl            float32 // Ratio between 320 and the localcoord of the current state
-	animlocalscl        float32
-	size                CharSize
+	name           string
+	palfx          *PalFX
+	anim           *Animation
+	animBackup     *Animation
+	curFrame       *AnimFrame
+	cmd            []CommandList
+	ss             StateState
+	controller     int
+	id             int32
+	runorder       int32
+	helperId       int32
+	helperIndex    int32
+	parentIndex    int32
+	playerNo       int
+	teamside       int
+	keyctrl        [4]bool
+	playerFlag     bool // Root and player type helpers
+	hprojectile    bool // Helper type projectile. Currently unused
+	animPN         int
+	spritePN       int
+	animNo         int32
+	prevAnimNo     int32
+	life           int32
+	lifeMax        int32
+	power          int32
+	powerMax       int32
+	dizzyPoints    int32
+	dizzyPointsMax int32
+	guardPoints    int32
+	guardPointsMax int32
+	redLife        int32
+	juggle         int32
+	fallTime       int32
+	localcoord     float32 // Char localcoord[0] scaled to game resolution
+	localscl       float32 // Ratio between 320 and the localcoord of the current state
+	animlocalscl   float32
+	size           CharSize
 	//sizeBox           [4]float32
 	clsnBaseScale       [2]float32
 	clsnScaleMul        [2]float32 // From TransformClsn

@@ -2050,7 +2050,7 @@ type NetConnection struct {
 	delay        int32
 	recording    *os.File
 	host         bool
-	preFightTime int32
+	preMatchTime int32
 }
 
 func NewNetConnection() *NetConnection {
@@ -2263,22 +2263,22 @@ func (nc *NetConnection) Synchronize() error {
 		}
 	}
 	Srand(seed)
-	var pfTime int32
+	var pmTime int32
 	if nc.host {
-		pfTime = sys.preFightTime
-		if err := nc.writeI32(pfTime); err != nil {
+		pmTime = sys.preMatchTime
+		if err := nc.writeI32(pmTime); err != nil {
 			return err
 		}
 	} else {
 		var err error
-		if pfTime, err = nc.readI32(); err != nil {
+		if pmTime, err = nc.readI32(); err != nil {
 			return err
 		}
 	}
-	nc.preFightTime = pfTime
+	nc.preMatchTime = pmTime
 	if nc.recording != nil {
 		binary.Write(nc.recording, binary.LittleEndian, &seed)
-		binary.Write(nc.recording, binary.LittleEndian, &pfTime)
+		binary.Write(nc.recording, binary.LittleEndian, &pmTime)
 	}
 	if err := nc.writeI32(nc.time); err != nil {
 		return err
@@ -2398,7 +2398,7 @@ func (nc *NetConnection) Update() bool {
 type ReplayFile struct {
 	f      *os.File
 	ibit   [MaxPlayerNo]InputBits
-	pfTime int32
+	pmTime int32
 }
 
 func OpenReplayFile(filename string) *ReplayFile {
@@ -2437,9 +2437,9 @@ func (rf *ReplayFile) Synchronize() {
 		if binary.Read(rf.f, binary.LittleEndian, &seed) == nil {
 			Srand(seed)
 		}
-		var pfTime int32
-		if binary.Read(rf.f, binary.LittleEndian, &pfTime) == nil {
-			rf.pfTime = pfTime
+		var pmTime int32
+		if binary.Read(rf.f, binary.LittleEndian, &pmTime) == nil {
+			rf.pmTime = pmTime
 			rf.Update()
 		}
 	}

@@ -131,7 +131,7 @@ type System struct {
 	aiLevel                 [MaxPlayerNo]float32
 	autolevel               bool
 	home                    int
-	gameTime                int32
+	matchTime               int32
 	match                   int32
 	inputRemap              [MaxPlayerNo]int
 	round                   int32
@@ -273,7 +273,7 @@ type System struct {
 	windowMainIcon    []image.Image
 	gameMode          string
 	frameCounter      int32
-	preFightTime      int32
+	preMatchTime      int32
 	motifDir          string
 	motifDef          string
 	lifebarDef        string
@@ -673,16 +673,6 @@ func (s *System) setLifebarScale() {
 	s.lifebarScale = 320.0 / float32(viewport43[2]) * calcScale
 	s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
 	s.lifebarOffsetX = calcOffsetX * calcScale
-
-	for prefix, ffx := range s.ffx {
-		if prefix != "f" && prefix != "s" {
-			continue
-		}
-		for _, a := range ffx.fat {
-			scale := ffx.fx_scale * s.lifebarScale
-			a.start_scale = [...]float32{scale, scale}
-		}
-	}
 }
 
 func (s *System) isAspect43(localcoord [2]int32) bool {
@@ -696,19 +686,68 @@ func (s *System) isAspect43(localcoord [2]int32) bool {
 	return AbsF(aspect-aspect43) < eps
 }
 
-func (s *System) stageFit() {
-	def := strings.ToLower(filepath.Base(sys.sel.stagelist[sys.sel.selectedStageNo-1].def))
-	coord, ok := sys.stageLocalcoords[def]
-	if !ok {
-		return
+// Will be useful if/when we make aspect ratio not depend on stage only
+func (s *System) middleOfMatch() bool {
+	return s.matchTime != 0 && !s.postMatchFlg
+}
+
+// Used for the viewport change
+func (s *System) shouldRenderStageFit() bool {
+	if !s.middleOfMatch() || !sys.cfg.Video.StageFit || s.stage == nil {
+		return false
 	}
-	coordInt := [2]int32{int32(coord[0]), int32(coord[1])}
-	if !sys.isAspect43(coordInt) {
-		return
+
+	if sys.stage.stageCamera.localcoord[0] <= 0 || sys.stage.stageCamera.localcoord[1] <= 0 {
+		return false
 	}
-	coordRatio := float32(coordInt[0]) / 320
-	sys.gameWidth = int32(float32(coordInt[0]) / coordRatio)
-	sys.widthScale = float32(sys.scrrect[2]) / float32(sys.gameWidth)
+
+	return true
+}
+
+// This allows Char to access aspect ratio without going through Window, which can add errors
+func (s *System) getCurrentAspect() float32 {
+	// Use stage aspect ratio
+	if s.shouldRenderStageFit() {
+		coord := s.stage.stageCamera.localcoord
+		if coord[0] > 0 && coord[1] > 0 {
+			return float32(coord[0]) / float32(coord[1])
+		}
+	}
+
+	// Fallback to default
+	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+}
+
+func (s *System) applyStageFit() {
+	baseHeight := float32(240)
+	var stageWidth, stageHeight float32
+
+	// Get the next stage's localcoord
+	if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
+		def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
+		if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
+			stageWidth = float32(coord[0])
+			stageHeight = float32(coord[1])
+		}
+	}
+
+	// Calculate the stage's aspect ratio
+	var aspectGame float32
+	if stageWidth > 0 && stageHeight > 0 {
+		aspectGame = stageWidth / stageHeight
+	} else {
+		// Fallback
+		aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+	}
+
+	// Compute new gameWidth/gameHeight while maintaining the same base height
+	gameWidth := baseHeight * aspectGame
+	s.gameWidth = int32(gameWidth)
+	s.gameHeight = int32(baseHeight)
+
+	// Scale to fit current screen size
+	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
+	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
 
 func (s *System) eventUpdate() bool {
@@ -843,11 +882,13 @@ func (s *System) renderFrame() {
 func (s *System) update() bool {
 	s.frameCounter++
 
-	if s.gameTime == 0 {
-		s.preFightTime = s.frameCounter
-		if sys.cfg.Video.StageFit {
-			s.setWindowSize(s.scrrect[2], s.scrrect[3]) // Restore original resolution
-		}
+	if s.matchTime == 0 {
+		s.preMatchTime = s.frameCounter
+	}
+
+	// Restore original resolution after stagefit
+	if !s.middleOfMatch() {
+		s.setWindowSize(s.scrrect[2], s.scrrect[3]) 
 	}
 
 	if s.replayFile != nil {
@@ -1122,8 +1163,10 @@ func (s *System) palfxvar2(x int32, y int32) float32 {
 	return n * 256
 }
 
+// Only Lua uses these currently
 func (s *System) screenHeight() float32 {
-	return 240
+	//return 240
+	return float32(s.gameHeight)
 }
 
 func (s *System) screenWidth() float32 {
@@ -1697,17 +1740,19 @@ func (s *System) resetFrameTime() {
 
 func (s *System) charUpdate() {
 	s.charList.update()
-	// Because sys.projs has actual elements rather than pointers like sys.chars does, it's important to not copy its contents with range
+
+	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
 	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
-	// for i, pr := range s.projs {
+	// Update: Projectiles now work based on pointers, so we can go back to old loop format
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].playerno = i // Safeguard
-				s.projs[i][j].update()
+		for _, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.playerno = i // Safeguard
+				p.update()
 			}
 		}
 	}
+
 	// Set global First Attack flag if either team got it
 	if s.firstAttack[0] >= 0 || s.firstAttack[1] >= 0 {
 		s.firstAttack[2] = 1
@@ -1717,20 +1762,14 @@ func (s *System) charUpdate() {
 // Run collision detection for chars and projectiles
 func (s *System) globalCollision() {
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].tradeDetection(i, j)
+		for j, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.tradeDetection(i, j)
 			}
 		}
 	}
+
 	s.charList.collisionDetection()
-	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id != IErr {
-				s.projs[i][j].tick()
-			}
-		}
-	}
 }
 
 func (s *System) posReset() {
@@ -1872,7 +1911,7 @@ func (s *System) action() {
 	s.lifebar.step()
 	if s.tickNextFrame() {
 		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing
-		s.charList.tick()
+		s.globalTick()
 	}
 
 	// Run camera
@@ -1904,9 +1943,9 @@ func (s *System) action() {
 	s.charList.xScreenBound()
 
 	for i := range s.projs {
-		for j := range s.projs[i] {
-			if s.projs[i][j].id >= 0 {
-				s.projs[i][j].cueDraw()
+		for _, p := range s.projs[i] {
+			if p.id >= 0 {
+				p.cueDraw()
 			}
 		}
 	}
@@ -1956,6 +1995,21 @@ func (s *System) explodUpdate() {
 		}
 		s.explods[i] = tempSlice
 	}
+}
+
+func (s *System) globalTick() {
+	s.stage.tick()
+	s.charList.tick()
+
+	for i := range s.projs {
+		for _, p := range s.projs[i] {
+			if p.id != IErr {
+				p.tick()
+			}
+		}
+	}
+
+	s.matchTime++
 }
 
 func (s *System) getSlowtime() int32 {
@@ -2521,7 +2575,7 @@ func (s *System) drawDebugText() {
 // and at the start of any round where a new character tags in for turns mode
 func (s *System) runMatch() (reload bool) {
 	// Reset variables
-	s.gameTime = 0
+	s.matchTime = 0
 	s.fightLoopEnd = false
 	s.aiInput = [len(s.aiInput)]AiInput{}
 	s.saveState = NewGameState()
@@ -4240,8 +4294,12 @@ func (l *Loader) load() {
 	defer func() {
 		l.loadExit <- l.state
 	}()
+
 	if sys.cfg.Video.StageFit {
-		sys.stageFit()
+		// Update aspect ratio
+		sys.applyStageFit()
+
+		// Update character scaling
 		coordRatio := float32(sys.gameWidth) / 320
 		for _, c := range sys.chars {
 			if len(c) > 0 {
@@ -4249,6 +4307,7 @@ func (l *Loader) load() {
 			}
 		}
 	}
+
 	sys.setLifebarScale()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {

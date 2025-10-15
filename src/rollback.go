@@ -97,9 +97,9 @@ func (rs *RollbackSystem) preMatchSetup() {
 			rs.session.playerNo = 1
 		}
 
-		// Synchronize gameTime at match start
-		sys.gameTime = rs.session.netTime //s.time = rs.session.netTime // Old typo?
-		sys.preFightTime = sys.netConnection.preFightTime
+		// Synchronize matchTime at match start
+		sys.matchTime = rs.session.netTime //s.time = rs.session.netTime // Old typo?
+		sys.preMatchTime = sys.netConnection.preMatchTime
 
 		// Wait until both peers have fully synchronized?
 		//if !rs.session.IsConnected() {

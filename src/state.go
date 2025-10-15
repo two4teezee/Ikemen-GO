@@ -82,7 +82,7 @@ func (gs *GameState) Checksum() int {
 }
 
 func (gs *GameState) String() (str string) {
-	str = fmt.Sprintf("GameTime %d CurRoundTime: %d\n", gs.gameTime, gs.curRoundTime)
+	str = fmt.Sprintf("MatchTime %d CurRoundTime: %d\n", gs.matchTime, gs.curRoundTime)
 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 	str += fmt.Sprintf("bcVar: %v\n", gs.bcVar)
@@ -107,7 +107,7 @@ type GameState struct {
 
 	// Selective copy of the system struct
 	randseed     int32
-	gameTime     int32
+	matchTime    int32
 	curRoundTime int32
 
 	chars      [MaxPlayerNo][]*Char
@@ -250,7 +250,7 @@ type GameState struct {
 	// 11/5/2022
 	fight         Fight
 	introSkipCall bool
-	preFightTime  int32
+	preMatchTime  int32
 
 	commandLists []*CommandList
 	luaTables    []*lua.LTable
@@ -286,7 +286,7 @@ func (gs *GameState) LoadState(stateID int) {
 	gsp := &sys.loadPool
 
 	sys.randseed = gs.randseed
-	sys.gameTime = gs.gameTime
+	sys.matchTime = gs.matchTime
 	sys.curRoundTime = gs.curRoundTime // UIT
 
 	gs.loadCharData(a, gsp)
@@ -474,7 +474,7 @@ func (gs *GameState) LoadState(stateID int) {
 	}
 
 	sys.introSkipCall = gs.introSkipCall
-	sys.preFightTime = gs.preFightTime
+	sys.preMatchTime = gs.preMatchTime
 
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
@@ -502,7 +502,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.frame = sys.frameCounter
 
 	gs.randseed = sys.randseed
-	gs.gameTime = sys.gameTime
+	gs.matchTime = sys.matchTime
 	gs.curRoundTime = sys.curRoundTime
 
 	gs.saveCharData(a, gsp)
@@ -682,7 +682,7 @@ func (gs *GameState) SaveState(stateID int) {
 	}
 
 	gs.introSkipCall = sys.introSkipCall
-	gs.preFightTime = sys.preFightTime
+	gs.preMatchTime = sys.preMatchTime
 
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue

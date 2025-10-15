@@ -1606,7 +1606,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeSF())
 			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
 		case OC_playerid:
-			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI()); c != nil {
+			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}
@@ -1841,15 +1841,15 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				sys.bcStack.PushF(c.gameHeight())
 			}
 		case OC_gametime:
-			var pfTime int32
+			var pmTime int32
 			if sys.netConnection != nil {
-				pfTime = sys.netConnection.preFightTime
+				pmTime = sys.netConnection.preMatchTime
 			} else if sys.replayFile != nil {
-				pfTime = sys.replayFile.pfTime
+				pmTime = sys.replayFile.pmTime
 			} else {
-				pfTime = sys.preFightTime
+				pmTime = sys.preMatchTime
 			}
-			sys.bcStack.PushI(sys.gameTime + pfTime)
+			sys.bcStack.PushI(sys.matchTime + pmTime)
 		case OC_gamewidth:
 			// Optional exception preventing GameWidth from being affected by stage zoom.
 			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 0 &&
@@ -2916,7 +2916,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_fightscreenvar_time_framespercount:
 		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex_fighttime:
-		sys.bcStack.PushI(sys.gameTime)
+		sys.bcStack.PushI(sys.matchTime)
 	case OC_ex_firstattack:
 		sys.bcStack.PushB(sys.firstAttack[c.teamside] == c.playerNo)
 	case OC_ex_float:
@@ -3332,79 +3332,21 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(sys.bgm.startPos))
 	case OC_ex2_bgmvar_volume:
 		sys.bcStack.PushI(int32(sys.bgm.bgmVolume))
-	case OC_ex2_clsnvar_left:
+	case OC_ex2_clsnvar_left, OC_ex2_clsnvar_top, OC_ex2_clsnvar_right, OC_ex2_clsnvar_bottom:
 		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
+		group := int32(sys.bcStack.Pop().ToI()) // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
 		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[0]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][0]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][0]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_top:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[1]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][1]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][1]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_right:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[2]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][2]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][2]
-			}
-		}
-		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
-	case OC_ex2_clsnvar_bottom:
-		idx := int(sys.bcStack.Pop().ToI())
-		id := int(sys.bcStack.Pop().ToI())
-		v := float32(math.NaN())
-		switch id {
-		case 3: // DON'T ASK WHY BUT 0 CAUSES ERRORS, 3 DOES NOT
-			v = c.sizeBox[3]
-		case 1:
-			cf1 := c.anim.CurrentFrame().Clsn1
-			if cf1 != nil && idx >= 0 && idx < len(cf1) {
-				v = cf1[idx][3]
-			}
-		case 2:
-			cf2 := c.anim.CurrentFrame().Clsn2
-			if cf2 != nil && idx >= 0 && idx < len(cf2) {
-				v = cf2[idx][3]
+		clsn := c.getClsn(group)
+		if clsn != nil && idx >= 0 && idx < len(clsn) {
+			switch opc {
+			case OC_ex2_clsnvar_left:
+				v = clsn[idx][0]
+			case OC_ex2_clsnvar_top:
+				v = clsn[idx][1]
+			case OC_ex2_clsnvar_right:
+				v = clsn[idx][2]
+			case OC_ex2_clsnvar_bottom:
+				v = clsn[idx][3]
 			}
 		}
 		sys.bcStack.PushF(v * (c.localscl / oc.localscl))
@@ -13492,6 +13434,63 @@ func (sc shiftInput) Run(c *Char, _ []int32) bool {
 
 	// Otherise add new mapping
 	c.inputShift = append(c.inputShift, [2]int{src, dst})
+
+	return false
+}
+
+type overrideClsn StateControllerBase
+
+const (
+	overrideClsn_group byte = iota
+	overrideClsn_index
+	overrideClsn_rect
+	overrideClsn_redirectid
+)
+
+func (sc overrideClsn) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), overrideClsn_redirectid, "OverrideClsn")
+	if crun == nil {
+		return false
+	}
+
+	redirscale := c.localscl / crun.localscl
+
+	// Default everything to 0
+	var box ClsnOverride
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case overrideClsn_group:
+			box.group = exp[0].evalI(c)
+		case overrideClsn_index:
+			box.index = int(exp[0].evalI(c))
+		case overrideClsn_rect:
+			box.rect[0] = exp[0].evalF(c) * redirscale
+			if len(exp) > 1 {
+				box.rect[1] = exp[1].evalF(c) * redirscale
+			}
+			if len(exp) > 2 {
+				box.rect[2] = exp[2].evalF(c) * redirscale
+			}
+			if len(exp) > 3 {
+				box.rect[3] = exp[3].evalF(c) * redirscale
+			}
+			// Normalize rectangle
+			if box.rect[0] > box.rect[2] {
+				box.rect[0], box.rect[2] = box.rect[2], box.rect[0]
+			}
+			if box.rect[1] > box.rect[3] {
+				box.rect[1], box.rect[3] = box.rect[3], box.rect[1]
+			}
+		}
+		return true
+	})
+
+	if box.group == 0 {
+		crun.clsnOverrides = nil
+	} else {
+		crun.clsnOverrides = append(crun.clsnOverrides, box)
+	}
 
 	return false
 }

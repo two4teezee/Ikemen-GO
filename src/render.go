@@ -177,7 +177,7 @@ type RenderParams struct {
 }
 
 func (rp *RenderParams) IsValid() bool {
-	return rp.tex.IsValid() && rp.size[0] != 0 && rp.size[1] != 0 &&
+	return rp.tex != nil && rp.tex.IsValid() && rp.size[0] != 0 && rp.size[1] != 0 &&
 		IsFinite(rp.x+rp.y+rp.xts+rp.xbs+rp.ys+rp.vs+rp.rxadd+rp.rot.angle+rp.rcx+rp.rcy)
 }
 

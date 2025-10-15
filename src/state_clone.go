@@ -305,6 +305,12 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 		result.p2EnemyBackup = &tmp
 	}
 
+	result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
+	copy(result.inputShift, c.inputShift)
+
+	result.clsnOverrides = arena.MakeSlice[ClsnOverride](a, len(c.clsnOverrides), len(c.clsnOverrides))
+	copy(result.clsnOverrides, c.clsnOverrides)
+
 	result.clipboardText = arena.MakeSlice[string](a, len(c.clipboardText), len(c.clipboardText))
 	copy(result.clipboardText, c.clipboardText)
 
@@ -346,11 +352,6 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	maps.Clear(result.mapArray)
 	for k, v := range c.mapArray {
 		result.mapArray[k] = v
-	}
-
-	if c.inputShift != nil {
-		result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
-		copy(result.inputShift, c.inputShift)
 	}
 
 	return

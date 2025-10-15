@@ -1529,8 +1529,8 @@ func systemScriptInit(l *lua.LState) {
 				sys.dialogueBarsFlg = false
 				sys.noSoundFlg = false
 				sys.postMatchFlg = false
-				sys.preFightTime += sys.gameTime
-				sys.gameTime = 0
+				sys.preMatchTime += sys.matchTime
+				sys.matchTime = 0
 				sys.consoleText = []string{}
 				sys.stageLoopNo = 0
 				sys.paused = false
@@ -3295,7 +3295,9 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "playerid", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.playerIDTrigger(int32(numArg(l, 1))); c != nil {
+		// Script version doesn't log errors because debug mode uses it
+		// TODO: Script redirects should either all log errors or none of them should
+		if c := sys.debugWC.playerIDTrigger(int32(numArg(l, 1)), false); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -3504,16 +3506,19 @@ func triggerFunctions(l *lua.LState) {
 
 		getClsnCoord := func(offset int) {
 			switch c {
-			case "size":
-				v = lua.LNumber(sys.debugWC.sizeBox[offset])
 			case "clsn1":
-				clsn := sys.debugWC.curFrame.Clsn1
+				clsn := sys.debugWC.getClsn(1)
 				if clsn != nil && idx >= 0 && idx < len(clsn) {
 					v = lua.LNumber(clsn[idx][offset])
 				}
 			case "clsn2":
-				clsn := sys.debugWC.curFrame.Clsn2
+				clsn := sys.debugWC.getClsn(2)
 				if clsn != nil && idx >= 0 && idx < len(clsn) {
+					v = lua.LNumber(clsn[idx][offset])
+				}
+			case "size":
+				clsn := sys.debugWC.getClsn(3)
+				if clsn != nil && len(clsn) > 0 {
 					v = lua.LNumber(clsn[idx][offset])
 				}
 			}
@@ -3966,7 +3971,7 @@ func triggerFunctions(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "gametime", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.gameTime + sys.preFightTime))
+		l.Push(lua.LNumber(sys.matchTime + sys.preMatchTime))
 		return 1
 	})
 	luaRegister(l, "gamewidth", func(*lua.LState) int {
@@ -5632,7 +5637,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "fighttime", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.gameTime))
+		l.Push(lua.LNumber(sys.matchTime))
 		return 1
 	})
 	luaRegister(l, "firstattack", func(*lua.LState) int {

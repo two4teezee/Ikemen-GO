@@ -169,12 +169,14 @@ const (
 	SaveData_fvar
 )
 
+// Debug Clsn text
 type ClsnText struct {
 	x, y    float32
 	text    string
 	r, g, b int32
 }
 
+// Debug Clsn display
 type ClsnRect [][7]float32
 
 func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
@@ -228,6 +230,13 @@ func (cr ClsnRect) draw(blendAlpha [2]int32) {
 		}
 		RenderSprite(params)
 	}
+}
+
+// OverrideClsn
+type ClsnOverride struct {
+	group int32
+	index int
+	rect  [4]float32
 }
 
 type CharData struct {
@@ -2601,7 +2610,6 @@ type CharSystemVar struct {
 	sizeHeight            [2]float32
 	sizeDepth             [2]float32
 	edgeDepth             [2]float32
-	sizeBox               [4]float32
 	attackMul             [4]float32 // 0 Damage, 1 Red Life, 2 Dizzy Points, 3 Guard Points
 	superDefenseMul       float32
 	superDefenseMulBuffer float32
@@ -2653,10 +2661,12 @@ type Char struct {
 	localscl            float32 // Ratio between 320 and the localcoord of the current state
 	animlocalscl        float32
 	size                CharSize
+	//sizeBox           [4]float32
 	clsnBaseScale       [2]float32
 	clsnScaleMul        [2]float32 // From TransformClsn
 	clsnScale           [2]float32 // The final one
 	clsnAngle           float32
+	clsnOverrides       []ClsnOverride
 	zScale              float32
 	hitdef              HitDef
 	ghv                 GetHitVar
@@ -2721,7 +2731,6 @@ type Char struct {
 	downHitOffset     bool
 	koEchoTimer       int32
 	groundLevel       float32
-	sizeBox           [4]float32
 	shadowColor       [3]int32
 	shadowIntensity   int32
 	shadowOffset      [2]float32
@@ -2781,7 +2790,7 @@ func (c *Char) init(n int, idx int32) {
 		mctype:        MC_Hit,
 		ownpal:        true,
 		facing:        1,
-		minus:         2,
+		minus:         3,
 		winquote:      -1,
 		clsnBaseScale: [2]float32{1, 1},
 		clsnScaleMul:  [2]float32{1, 1},
@@ -2842,7 +2851,7 @@ func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
 	if getter == nil {
 		return false
 	}
-	return c.clsnCheck(getter, box1, box2, false, true)
+	return c.clsnCheck(getter, box1, box2, false)
 }
 
 func (c *Char) addChild(ch *Char) {
@@ -2883,7 +2892,7 @@ func (c *Char) prepareNextRound() {
 		customDefense:         1,
 		finalDefense:          float64(c.gi().data.defence) / 100,
 	}
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
 	if c.helperIndex == 0 {
 		if sys.roundsExisted[c.playerNo&1] > 0 {
@@ -2927,7 +2936,7 @@ func (c *Char) clearCachedData() {
 	c.inguarddist = false
 	c.p1facing = 0
 	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 2
+	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
 	c.winquote = -1
 	c.mapArray = make(map[string]float32)
 	c.remapSpr = make(RemapPreset)
@@ -4357,10 +4366,10 @@ func (c *Char) p2() *Char {
 	return p
 }
 
-func (c *Char) playerIDTrigger(id int32) *Char {
+func (c *Char) playerIDTrigger(id int32, log bool) *Char {
 	ch := sys.playerID(id)
 
-	if ch == nil {
+	if log && ch == nil {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("found no player with ID: %v", id))
 	}
 
@@ -5225,13 +5234,15 @@ func (c *Char) numProj() int32 {
 	if c.helperIndex != 0 {
 		return 0
 	}
+
 	n := int32(0)
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
 	}
+
 	return n
 }
 
@@ -5239,17 +5250,20 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	if pid.IsSF() {
 		return BytecodeSF()
 	}
+
 	// Helpers cannot own projectiles
 	if c.helperIndex != 0 {
 		return BytecodeInt(0)
 	}
+
 	var id, n int32 = Max(0, pid.ToI()), 0
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
 	}
+
 	return BytecodeInt(n)
 }
 
@@ -5409,8 +5423,13 @@ func (c *Char) screenPosY() float32 {
 }
 
 func (c *Char) screenHeight() float32 {
-	return sys.screenHeight() / (320.0 / float32(c.stOgi().localcoord[0])) /
-		((3.0 / 4.0) / (float32(sys.scrrect[3]) / float32(sys.scrrect[2])))
+	aspect := sys.getCurrentAspect()
+
+	// Compute height from width
+	height := c.stOgi().localcoord[0] / aspect
+
+	// Round to nearest integer
+	return float32(int32(height + 0.5))
 }
 
 func (c *Char) screenWidth() float32 {
@@ -5708,7 +5727,7 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		c.sizeWidth[1] *= lsRatio
 		c.sizeHeight[0] *= lsRatio
 		c.sizeHeight[1] *= lsRatio
-		c.updateSizeBox()
+		//c.updateSizeBox()
 
 		c.sizeDepth[0] *= lsRatio
 		c.sizeDepth[1] *= lsRatio
@@ -6279,7 +6298,28 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 	owner := sys.chars[spritePN][0]
 	self := sys.chars[c.playerNo][0]
 
-	if !a.isCommonFX() {
+	if a.isCommonFX() {
+		for _, fx := range sys.ffx { // A little redundant since isCommonFX also does this loop, but easier to read
+			if fx.fsff == a.sff {
+				// Calculate scale
+				// With the addition of variable viewport, we should now calculate the scale each time instead of precomputing it
+				scale := fx.fx_scale
+				if fx.localcoord[0] > 0 {
+					scale = fx.fx_scale * 320 / fx.localcoord[0]
+				}
+
+				// Apply char localcoord
+				coordRatio := float32(c.gi().localcoord[0]) / 320
+				scale *= coordRatio
+
+				// Apply scale to animation
+				a.start_scale[0] = scale
+				a.start_scale[1] = scale
+
+				break
+			}
+		}
+	} else {
 		// Set SFF and palette
 		a.sff = sys.cgi[spritePN].sff
 		a.palettedata = &sys.cgi[spritePN].palettedata.palList
@@ -6301,17 +6341,11 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 			}
 
 			// Update sprite scale according to SFF owner
-			// We use localcoord to avoid fluctuations while characters are in custom states
+			// We use localcoord instead of localscl to avoid fluctuations while characters are in custom states
 			if self.localcoord != 0 {
 				a.start_scale[0] *= self.localcoord / owner.localcoord
 				a.start_scale[1] *= self.localcoord / owner.localcoord
 			}
-		}
-	} else {
-		// Otherwise just adapt scale
-		if self.localcoord != 0 {
-			a.start_scale[0] /= 320 / self.localcoord
-			a.start_scale[1] /= 320 / self.localcoord
 		}
 	}
 }
@@ -6511,12 +6545,12 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 }
 
 func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for i := range sys.projs[c.playerNo] {
-		p := sys.projs[c.playerNo][i]
+	for _, p := range sys.projs[c.playerNo] {
 		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
 			projs = append(projs, p)
 		}
 	}
+
 	return
 }
 
@@ -6762,7 +6796,7 @@ func (c *Char) setWidth(fw, bw float32) {
 	c.sizeWidth[0] = c.baseWidthFront()*coordRatio + fw
 	c.sizeWidth[1] = c.baseWidthBack()*coordRatio + bw
 
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.setCSF(CSF_width)
 }
 
@@ -6772,7 +6806,7 @@ func (c *Char) setHeight(th, bh float32) {
 	c.sizeHeight[0] = c.baseHeightTop()*coordRatio + th
 	c.sizeHeight[1] = c.baseHeightBottom()*coordRatio + bh
 
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	c.setCSF(CSF_height)
 }
 
@@ -6821,6 +6855,7 @@ func (c *Char) updateClsnScale() {
 		c.clsnBaseScale[1] * c.clsnScaleMul[1] * c.animlocalscl}
 }
 
+/*
 // Convert size variables to a Clsn-like box
 // This box will replace width and height values in some other parts of the code
 func (c *Char) updateSizeBox() {
@@ -6839,11 +6874,14 @@ func (c *Char) updateSizeBox() {
 	}
 	c.sizeBox = [4]float32{back, top, front, bottom}
 }
+*/
 
+/*
 // Returns the size box in the same format as Clsn boxes
 func (c *Char) sizeBoxToClsn() [][4]float32 {
 	return [][4]float32{c.sizeBox}
 }
+*/
 
 func (c *Char) gethitAnimtype() Reaction {
 	if c.ghv.fallflag {
@@ -7825,28 +7863,46 @@ func (c *Char) bodyDistX(opp *Char, oc *Char) float32 {
 	var cw, oppw float32
 	dist := c.distX(opp, oc)
 
+	// Get size boxes
+	cbox := c.getAnySizeBox()
+	oppbox := opp.getAnySizeBox()
+
+	// Normally this can only happen with OverrideClsn
+	// TODO: Decide whether to return NaN (accurate) or use distance to center axis (forgiving)
+	if cbox == nil || oppbox == nil {
+		return float32(math.NaN())
+	}
+
 	// Char reference
 	// The player reference is always the front width but the enemy reference varies
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2432
-	cw = c.sizeBox[2] * c.facing * (c.localscl / oc.localscl)
+	cw = cbox[2] * c.facing * (c.localscl / oc.localscl)
 
 	// Enemy reference
 	if ((dist * c.facing) >= 0) == (c.facing != opp.facing) {
 		// Use front width
-		oppw = opp.sizeBox[2] * opp.facing * (opp.localscl / oc.localscl)
+		oppw = oppbox[2] * opp.facing * (opp.localscl / oc.localscl)
 	} else {
 		// Use back width
-		oppw = opp.sizeBox[0] * opp.facing * (opp.localscl / oc.localscl)
+		oppw = oppbox[0] * opp.facing * (opp.localscl / oc.localscl)
 	}
 
 	return dist - cw + oppw
 }
 
 func (c *Char) bodyDistY(opp *Char, oc *Char) float32 {
-	ctop := (c.pos[1] + c.sizeBox[1]) * c.localscl
-	cbot := (c.pos[1] + c.sizeBox[3]) * c.localscl
-	otop := (opp.pos[1] + opp.sizeBox[1]) * opp.localscl
-	obot := (opp.pos[1] + opp.sizeBox[3]) * opp.localscl
+	cbox := c.getAnySizeBox()
+	oppbox := opp.getAnySizeBox()
+
+	if cbox == nil || oppbox == nil {
+		return float32(math.NaN())
+	}
+
+	ctop := (c.pos[1] + cbox[1]) * c.localscl
+	cbot := (c.pos[1] + cbox[3]) * c.localscl
+	otop := (opp.pos[1] + oppbox[1]) * opp.localscl
+	obot := (opp.pos[1] + oppbox[3]) * opp.localscl
+
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -7861,6 +7917,7 @@ func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
 	cbot := (c.pos[2] + c.sizeDepth[1]) * c.localscl
 	otop := (opp.pos[2] - opp.sizeDepth[0]) * opp.localscl
 	obot := (opp.pos[2] + opp.sizeDepth[1]) * opp.localscl
+
 	if cbot < otop {
 		return (otop - cbot) / oc.localscl
 	} else if ctop > obot {
@@ -8801,6 +8858,115 @@ func (c *Char) flattenClsnProxies() []*Char {
 	return list
 }
 
+// Return the current size as a rectangle
+func (c *Char) sizeToBox() [4]float32 {
+	back := -c.sizeWidth[1]
+	front := c.sizeWidth[0]
+	if back > front {
+		back, front = front, back
+	}
+
+	top := -c.sizeHeight[0]
+	bottom := c.sizeHeight[1]
+	if top > bottom {
+		top, bottom = bottom, top
+	}
+
+	return [4]float32{back, top, front, bottom}
+}
+
+// Placeholder while we decide whether to allow multiple boxes or not
+func (c *Char) getAnySizeBox() *[4]float32 {
+	boxes := c.getClsn(3)
+	if len(boxes) == 0 {
+		return nil
+	}
+	return &boxes[0]
+}
+
+// Combine current Clsn with existing modifiers
+func (c *Char) getClsn(group int32) [][4]float32 {
+	// By default, use the final displayed frame's boxes
+	charframe := c.curFrame
+
+	// While states are still running, use the frame that *will* be displayed instead, because of Clsn triggers
+	if c.minus < 2 && c.anim != nil {
+		charframe = c.anim.CurrentFrame()
+	}
+
+	var original [][4]float32
+
+	// Get current Clsn
+	// Modifiers will still work even if no original boxes are found
+	switch group {
+	case 1:
+		if charframe != nil {
+			original = charframe.Clsn1
+		}
+	case 2:
+		if charframe != nil {
+			original = charframe.Clsn2
+		}
+	case 3:
+		original = [][4]float32{c.sizeToBox()}
+	}
+
+	// Just in case, copy the slice so the original is never mutated
+	final := make([][4]float32, len(original))
+	copy(final, original)
+
+	// Apply appropriate modifiers
+	for _, mod := range c.clsnOverrides {
+		if mod.group != group {
+			continue
+		}
+
+		// Helper to apply modifiers
+		// This will make it easier to add new parameters later if needed
+		modify := func(i int) {
+			final[i] = mod.rect
+		}
+
+		switch {
+		// Delete box if modifier is all 0's
+		case mod.rect == [4]float32{}:
+			if mod.index == -1 {
+				final = final[:0]
+			} else if mod.index >= 0 && mod.index < len(final) {
+				final = append(final[:mod.index], final[mod.index+1:]...)
+			}
+
+		// Modify all existing boxes
+		case mod.index == -1:
+			for i := range final {
+				modify(i)
+			}
+
+		// Add new box if modifying out of bounds
+		case mod.index >= len(final):
+			final = append(final, [4]float32{}) // append empty slot
+			modify(len(final) - 1)              // apply modifier
+
+		// Modify the specific valid index
+		default:
+			modify(mod.index)
+		}
+	}
+
+	// Return nil if empty to make it easier to check for no boxes later
+	//if len(final) == 0 {
+	//	return nil
+	//}
+
+	// Only one size box allowed
+	// TODO: Decision between this or allowing multiple ones (with push code using the first or all of them)
+	//if group == 3 {
+	//	return final[:1]
+	//}
+
+	return final
+}
+
 func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
 	if p.ani == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
@@ -8832,59 +8998,42 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 
 func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
-	if p.ani == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+	if p.ani == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
 
 	// Get projectile animation frame
 	frm := p.ani.CurrentFrame()
-
-	// Check if animation frames are valid
-	if frm == nil || c.curFrame == nil {
+	if frm == nil {
 		return false
 	}
 
-	// Accepted box types
-	if cbox != 1 && cbox != 2 && cbox != 3 {
-		return false
+	// Projectiles trade with their Clsn2 only
+	if c.asf(ASF_projtypecollision) {
+		cbox, pbox = 2, 2
 	}
 
 	// Required boxes not found
-	if p.hitdef.p2clsnrequire == 1 && c.curFrame.Clsn1 == nil ||
-		p.hitdef.p2clsnrequire == 2 && c.curFrame.Clsn2 == nil {
-		return false
+	reqtype := p.hitdef.p2clsnrequire
+	if reqtype > 0 {
+		if (reqtype == 1 || reqtype == 2) && len(c.getClsn(reqtype)) == 0 {
+			return false
+		}
 	}
 
-	// Decide which box types should collide
-	var clsn1, clsn2 [][4]float32
-	if c.asf(ASF_projtypecollision) { // Projectiles trade with their Clsn2 only
+	// Fetch projectile boxes
+	var clsn1 [][4]float32
+
+	if pbox == 2 {
 		clsn1 = frm.Clsn2
-		clsn2 = c.curFrame.Clsn2
 	} else {
-		if pbox == 2 {
-			clsn1 = frm.Clsn2
-		} else {
-			clsn1 = frm.Clsn1
-		}
-		if cbox == 1 {
-			clsn2 = c.curFrame.Clsn1
-			if clsn2 == nil && p.hitdef.p2clsnrequire == 1 {
-				return false
-			}
-		} else if cbox == 3 {
-			clsn2 = c.sizeBoxToClsn()
-			if clsn2 == nil && p.hitdef.p2clsnrequire == 3 {
-				return false // Size box should alway exist, but...
-			}
-		} else {
-			clsn2 = c.curFrame.Clsn2
-			if clsn2 == nil && p.hitdef.p2clsnrequire == 2 {
-				return false
-			}
-		}
+		clsn1 = frm.Clsn1
 	}
 
-	if clsn1 == nil || clsn2 == nil {
+	// Fetch character boxes
+	clsn2 := c.getClsn(cbox)
+
+	if len(clsn1) == 0 || len(clsn2) == 0 {
 		return false
 	}
 
@@ -8910,6 +9059,7 @@ func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 		charangle,
 	)
 }
+
 func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
 	projs := c.getProjs(-1)
 
@@ -8925,7 +9075,8 @@ func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
 
 	return target.projClsnCheck(proj, boxType, 1) || target.projClsnCheck(proj, boxType, 2)
 }
-func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
+
+func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck bool) bool {
 	// Safety checks
 	if c == nil || getter == nil || c.anim == nil || getter.anim == nil {
 		return false
@@ -8956,7 +9107,7 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 	// Check collision for all combinations
 	for _, charSingle := range charTotal {
 		for _, getterSingle := range getterTotal {
-			if charSingle.clsnCheckSingle(getterSingle, charbox, getterbox, reqcheck, trigger) {
+			if charSingle.clsnCheckSingle(getterSingle, charbox, getterbox, reqcheck) {
 				return true
 			}
 		}
@@ -8965,68 +9116,37 @@ func (c *Char) clsnCheck(getter *Char, charbox, getterbox int32, reqcheck, trigg
 	return false
 }
 
-func (c *Char) clsnCheckSingle(getter *Char, charbox, getterbox int32, reqcheck, trigger bool) bool {
+func (c *Char) clsnCheckSingle(getter *Char, charbox, getterbox int32, reqcheck bool) bool {
 	// Safety checks
 	if c == nil || getter == nil || c.anim == nil || getter.anim == nil {
 		return false
 	}
 
-	// What this does is normally check the Clsn in the currently displayed frame
-	// But in the ClsnOverlap trigger, we must check the frame that *will* be displayed instead
-	charframe := c.curFrame
-	getterframe := getter.curFrame
-	if trigger {
-		charframe = c.anim.CurrentFrame()
-		getterframe = getter.anim.CurrentFrame()
-	}
-
-	// Nil anim & standby check
-	if charframe == nil || getterframe == nil ||
-		c.scf(SCF_standby) || getter.scf(SCF_standby) ||
-		c.scf(SCF_disabled) || getter.scf(SCF_disabled) {
+	// Standby or disabled check
+	if c.scf(SCF_standby) || getter.scf(SCF_standby) || c.scf(SCF_disabled) || getter.scf(SCF_disabled) {
 		return false
 	}
 
-	// Accepted box types
-	if charbox != 1 && charbox != 2 && charbox != 3 {
-		return false
-	}
-	if getterbox != 1 && getterbox != 2 && getterbox != 3 {
-		return false
+	// Projectiles trade with their Clsn2 only
+	if c.asf(ASF_projtypecollision) && getter.asf(ASF_projtypecollision) {
+		charbox = 2
+		getterbox = 2
 	}
 
 	// Required boxes not found
 	// Only Hitdef and Reversaldef do this check
-	if reqcheck {
-		if c.hitdef.p2clsnrequire == 1 && getterframe.Clsn1 == nil ||
-			c.hitdef.p2clsnrequire == 2 && getterframe.Clsn2 == nil {
+	reqtype := c.hitdef.p2clsnrequire
+	if reqtype > 0 {
+		if (reqtype == 1 || reqtype == 2) && len(getter.getClsn(reqtype)) == 0 {
 			return false
 		}
 	}
 
-	// Decide which box types should collide
-	var clsn1, clsn2 [][4]float32
-	if c.asf(ASF_projtypecollision) && getter.asf(ASF_projtypecollision) { // Projectiles trade with their Clsn2 only
-		clsn1 = charframe.Clsn2
-		clsn2 = getterframe.Clsn2
-	} else {
-		if charbox == 1 {
-			clsn1 = charframe.Clsn1
-		} else if charbox == 3 {
-			clsn1 = c.sizeBoxToClsn()
-		} else {
-			clsn1 = charframe.Clsn2
-		}
-		if getterbox == 1 {
-			clsn2 = getterframe.Clsn1
-		} else if getterbox == 3 {
-			clsn2 = [][4]float32{getter.sizeBox}
-		} else {
-			clsn2 = getterframe.Clsn2
-		}
-	}
+	// Fetch the box types that should collide
+	clsn1 := c.getClsn(charbox)
+	clsn2 := getter.getClsn(getterbox)
 
-	if clsn1 == nil || clsn2 == nil {
+	if len(clsn1) == 0 || len(clsn2) == 0 {
 		return false
 	}
 
@@ -9260,7 +9380,7 @@ func (c *Char) hittableByChar(getter *Char, ghd *HitDef, gst StateType, proj boo
 			return (getter.atktmp >= 0 || !c.hasTarget(getter.id)) &&
 				!getter.hasTargetOfHitdef(c.id) &&
 				getter.attrCheck(c, hd, c.ss.stateType) &&
-				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) &&
+				c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true) &&
 				sys.zAxisOverlap(c.pos[2], c.hitdef.attack_depth[0], c.hitdef.attack_depth[1], c.localscl,
 					getter.pos[2], getter.sizeDepth[0], getter.sizeDepth[1], getter.localscl)
 		}
@@ -10208,7 +10328,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 }
 
 func (c *Char) actionPrepare() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	c.pauseBool = false
@@ -10316,11 +10436,14 @@ func (c *Char) actionPrepare() {
 				c.ignoreDarkenTime--
 			}
 		}
+
 		// Reset input modifiers
 		c.inputFlag = 0
 		c.inputShift = c.inputShift[:0]
+
 		// This AssertSpecial flag is special in that it must always reset regardless of hitpause
 		c.unsetASF(ASF_animatehitpause)
+
 		// The flags in this block are to be reset even during hitpause
 		// Exception for WinMugen chars, where they persisted during hitpause
 		if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || c.stWgi().mugenver[0] == 1 || !c.hitPause() {
@@ -10333,10 +10456,13 @@ func (c *Char) actionPrepare() {
 			c.assertFlag = (c.assertFlag&ASF_nostandguard | c.assertFlag&ASF_nocrouchguard | c.assertFlag&ASF_noairguard |
 				c.assertFlag&ASF_runfirst | c.assertFlag&ASF_runlast)
 		}
+
 		// The flags below also reset during hitpause, but are new to Ikemen and don't need the exception above
 		// Reset Clsn modifiers
 		c.clsnScaleMul = [2]float32{1.0, 1.0}
 		c.clsnAngle = 0
+		c.clsnOverrides = c.clsnOverrides[:0]
+
 		// Reset modifyShadow
 		c.shadowColor = [3]int32{-1, -1, -1}
 		c.shadowIntensity = -1
@@ -10347,6 +10473,7 @@ func (c *Char) actionPrepare() {
 		c.shadowRot = Rotation{0, 0, 0}
 		c.shadowProjection = -1
 		c.shadowfLength = 0
+
 		// Reset modifyReflection
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
@@ -10357,6 +10484,7 @@ func (c *Char) actionPrepare() {
 		c.reflectRot = Rotation{0, 0, 0}
 		c.reflectProjection = -1
 		c.reflectfLength = 0
+
 		// Reset TransformSprite
 		c.window = [4]float32{}
 		c.xshear = 0
@@ -10378,7 +10506,7 @@ func (c *Char) actionPrepare() {
 }
 
 func (c *Char) actionRun() {
-	if c.minus != 2 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
+	if c.minus != 3 || c.csf(CSF_destroy) || c.scf(SCF_disabled) {
 		return
 	}
 	// Run state -4
@@ -10470,7 +10598,7 @@ func (c *Char) actionRun() {
 			c.edgeDepth = [2]float32{0, 0}
 		}
 	}
-	c.updateSizeBox()
+	//c.updateSizeBox()
 	if !c.pauseBool {
 		if !c.hitPause() {
 			// In Mugen chars are forced to stay in state 5110 at least one frame before getting up
@@ -10614,8 +10742,9 @@ func (c *Char) actionRun() {
 			}
 		}
 	}
-	c.minus = 1
 	c.acttmp += int8(Btoi(!c.pause() && !c.hitPause())) - int8(Btoi(c.hitPause()))
+	// Signal that "actionRun" has finished
+	c.minus = 1
 }
 
 func (c *Char) actionFinish() {
@@ -10669,7 +10798,8 @@ func (c *Char) actionFinish() {
 	if c.ss.no == 5150 && !c.scf(SCF_over_ko) { // Actual KO is not required in Mugen
 		c.setSCF(SCF_over_ko)
 	}
-	c.minus = 1
+	// Signal that "actionFinish" has finished
+	c.minus = 2
 }
 
 func (c *Char) track() {
@@ -11049,21 +11179,23 @@ func (c *Char) cueDebugDraw() {
 	if sys.clsnDisplay {
 		if c.curFrame != nil {
 			// Add Clsn1
-			if clsn := c.curFrame.Clsn1; len(clsn) > 0 {
+			clsn1 := c.getClsn(1)
+			if len(clsn1) > 0 {
 				if c.scf(SCF_standby) {
 					// Add nothing
 				} else if c.atktmp != 0 && c.hitdef.reversal_attr > 0 {
-					sys.debugc1rev.Add(clsn, xoff, yoff, xs, ys, angle)
+					sys.debugc1rev.Add(clsn1, xoff, yoff, xs, ys, angle)
 				} else if c.atktmp != 0 && c.hitdef.attr > 0 {
-					sys.debugc1hit.Add(clsn, xoff, yoff, xs, ys, angle)
+					sys.debugc1hit.Add(clsn1, xoff, yoff, xs, ys, angle)
 				} else {
-					sys.debugc1not.Add(clsn, xoff, yoff, xs, ys, angle)
+					sys.debugc1not.Add(clsn1, xoff, yoff, xs, ys, angle)
 				}
 			}
 
 			// Check invincibility to decide box colors
-			flags := int32(ST_SCA) | int32(AT_ALL)
-			if clsn := c.curFrame.Clsn2; len(clsn) > 0 {
+			clsn2 := c.getClsn(2)
+			if len(clsn2) > 0 {
+				flags := int32(ST_SCA) | int32(AT_ALL)
 				hb, mtk := false, false
 
 				if c.unhittableTime > 0 {
@@ -11112,15 +11244,15 @@ func (c *Char) cueDebugDraw() {
 				// Decide which debug box to add
 				switch {
 				case c.scf(SCF_standby):
-					sys.debugc2stb.Add(clsn, xoff, yoff, xs, ys, angle) // Standby
+					sys.debugc2stb.Add(clsn2, xoff, yoff, xs, ys, angle) // Standby
 				case mtk:
-					sys.debugc2mtk.Add(clsn, xoff, yoff, xs, ys, angle) // Fully invincible
+					sys.debugc2mtk.Add(clsn2, xoff, yoff, xs, ys, angle) // Fully invincible
 				case hb:
-					sys.debugc2hb.Add(clsn, xoff, yoff, xs, ys, angle) // Partially invincible
+					sys.debugc2hb.Add(clsn2, xoff, yoff, xs, ys, angle) // Partially invincible
 				case c.inguarddist && c.scf(SCF_guard):
-					sys.debugc2grd.Add(clsn, xoff, yoff, xs, ys, angle) // Guarding
+					sys.debugc2grd.Add(clsn2, xoff, yoff, xs, ys, angle) // Guarding
 				default:
-					sys.debugc2.Add(clsn, xoff, yoff, xs, ys, angle) // Normal
+					sys.debugc2.Add(clsn2, xoff, yoff, xs, ys, angle) // Normal
 				}
 
 				// Add invulnerability text
@@ -11195,7 +11327,8 @@ func (c *Char) cueDebugDraw() {
 
 			// Add size box (width * height)
 			if c.csf(CSF_playerpush) {
-				sys.debugcsize.Add(c.sizeBoxToClsn(), x, y, c.facing*c.localscl, c.localscl, 0)
+				sizebox := c.getClsn(3)
+				sys.debugcsize.Add(sizebox, x, y, c.facing*c.localscl, c.localscl, 0)
 			}
 		}
 		// Add crosshair
@@ -11413,7 +11546,8 @@ func (c *Char) cueDraw() {
 		}
 	}
 	if sys.tickNextFrame() {
-		c.minus = 2
+		// Signal that all tasks have finished
+		c.minus = 3
 		c.oldPos = c.pos
 		//c.dustOldPos = c.pos // We need this one separated because PosAdd and such change oldPos
 	}
@@ -11665,7 +11799,6 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 	//getter.enemyNearP2Clear()
 
 	for _, c := range cl.runOrder {
-
 		// Stop current iteration if this char is disabled
 		if c.scf(SCF_standby) || c.scf(SCF_disabled) {
 			continue
@@ -11756,7 +11889,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 				}
 
 				// If collision OK then get the hit type and act accordingly
-				if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true, false) {
+				if zok && c.clsnCheck(getter, 1, c.hitdef.p2clsncheck, true) {
 					if hitResult := c.hitResultCheck(getter, nil); hitResult != 0 {
 						// Check if MoveContact should be updated
 						// Hit type None should also set MoveHit here
@@ -12071,38 +12204,44 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
+		// Get size box
+		// We wil check overlap for the first boxes only
+		// TODO: Either check all here, or allow only one size box to exist at a time
+		cbox := c.getAnySizeBox()
+		gbox := getter.getAnySizeBox()
+
+		if cbox == nil || gbox == nil {
+			continue
+		}
+
 		// Y-axis check
 		// Run it first because it's the fastest one
-		cytop := (c.pos[1] + c.sizeBox[1]) * c.localscl
-		cybot := (c.pos[1] + c.sizeBox[3]) * c.localscl
-		gytop := (getter.pos[1] + getter.sizeBox[1]) * getter.localscl
-		gybot := (getter.pos[1] + getter.sizeBox[3]) * getter.localscl
+		cytop := (c.pos[1] + cbox[1]) * c.localscl
+		cybot := (c.pos[1] + cbox[3]) * c.localscl
+		gytop := (getter.pos[1] + gbox[1]) * getter.localscl
+		gybot := (getter.pos[1] + gbox[3]) * getter.localscl
 
 		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
-
-		// Y-axis fail
 		if overlapY <= 0 {
 			continue
 		}
 
 		// X-axis check
 		cposx := c.pos[0] * c.localscl
-		cxleft := c.sizeBox[0] * c.localscl
-		cxright := c.sizeBox[2] * c.localscl
+		cxleft := cbox[0] * c.localscl
+		cxright := cbox[2] * c.localscl
 		if c.facing < 0 {
 			cxleft, cxright = -cxright, -cxleft
 		}
-
 		cxleft += cposx
 		cxright += cposx
 
 		gposx := getter.pos[0] * getter.localscl
-		gxleft := getter.sizeBox[0] * getter.localscl
-		gxright := getter.sizeBox[2] * getter.localscl
+		gxleft := gbox[0] * getter.localscl
+		gxright := gbox[2] * getter.localscl
 		if getter.facing < 0 {
 			gxleft, gxright = -gxright, -gxleft
 		}
-
 		gxleft += gposx
 		gxright += gposx
 
@@ -12131,7 +12270,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		}
 
 		// Push characters away from each other
-		if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false, false) {
+		if c.asf(ASF_sizepushonly) || getter.clsnCheck(c, 2, 2, false) {
 
 			c.pushed, getter.pushed = true, true
 
@@ -12324,7 +12463,6 @@ func (cl *CharList) collisionDetection() {
 }
 
 func (cl *CharList) tick() {
-	sys.gameTime++
 	for _, c := range cl.runOrder {
 		c.tick()
 	}

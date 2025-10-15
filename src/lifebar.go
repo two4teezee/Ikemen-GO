@@ -62,7 +62,7 @@ func newFightFx() *FightFx {
 	return &FightFx{
 		fsff:       &Sff{},
 		fx_scale:   1.0,
-		localcoord: [...]float32{320, 240},
+		localcoord: [2]float32{float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1])},
 	}
 }
 
@@ -114,14 +114,7 @@ func loadFightFx(def string, isGlobal bool) error {
 					return nil
 				}
 				is.ReadF32("fx.scale", &ffx.fx_scale)
-				// Read localcoord
-				// Merely used for automatic fx.scale adjustment
-				// If localcoord is not available, we use raw value, scaling will be handled later
-				if is.ReadF32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1]) {
-					ffx.fx_scale *= float32(320 / ffx.localcoord[0])
-				} else {
-					ffx.fx_scale *= 1
-				}
+				is.ReadF32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1])
 			}
 		case "files":
 			// Read files section
@@ -161,9 +154,10 @@ func loadFightFx(def string, isGlobal bool) error {
 		}
 	}
 	// Set fx scale to anims
-	for _, a := range ffx.fat {
-		a.start_scale = [...]float32{ffx.fx_scale, ffx.fx_scale}
-	}
+	// Now calculated in each animation call
+	//for _, a := range ffx.fat {
+	//	a.start_scale = [...]float32{ffx.fx_scale, ffx.fx_scale}
+	//}
 	// Adding used prefixes to a list is no longer necessary
 	// We will check if they're being used in the ffx map directly
 	//if sys.ffx[prefix] == nil {
@@ -3046,7 +3040,7 @@ func (ro *LifeBarRound) act() bool {
 						ro.waitTimer[1] = ro.fight_time
 						ro.waitSoundTimer[1] = ro.fight_sndtime
 						ro.drawTimer[1] = 0
-						sys.timerCount = append(sys.timerCount, sys.gameTime)
+						sys.timerCount = append(sys.timerCount, sys.matchTime)
 						ro.timerActive = true
 					}
 					ro.waitTimer[1]--
@@ -3074,8 +3068,8 @@ func (ro *LifeBarRound) act() bool {
 		// Round over. Consists of KO screen and winner messages
 		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
 			if ro.timerActive {
-				if sys.gameTime-sys.timerCount[sys.round-1] > 0 {
-					sys.timerCount[sys.round-1] = sys.gameTime - sys.timerCount[sys.round-1]
+				if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
+					sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]
 					sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
 				} else {
 					sys.timerCount[sys.round-1] = 0
@@ -4221,8 +4215,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	l.at = ReadAnimationTable(l.sff, &l.sff.palList, lines, &i)
 	i = 0
 	filesflg := true
-	ffx := newFightFx()
-	ffx.isGlobal = true
+
 	// Load Common FX first
 	for _, key := range SortedKeys(sys.cfg.Common.Fx) {
 		for _, v := range sys.cfg.Common.Fx[key] {
@@ -4231,6 +4224,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 			}
 		}
 	}
+
+	// Prepare lifebar FightFX
+	ffx := newFightFx()
+	ffx.isGlobal = true
+
 	for i < len(lines) {
 		is, name, subname := ReadIniSection(lines, &i)
 		switch name {
@@ -4682,9 +4680,10 @@ func loadLifebar(def string) (*Lifebar, error) {
 	//if math.IsNaN(float64(sys.ffx["f"].fx_scale)) {
 	//	sys.ffx["f"].fx_scale = float32(sys.lifebarLocalcoord[0]) / 320
 	//}
-	for _, a := range sys.ffx["f"].fat {
-		a.start_scale = [...]float32{sys.ffx["f"].fx_scale, sys.ffx["f"].fx_scale}
-	}
+	// Now calculated in each animation call
+	//for _, a := range sys.ffx["f"].fat {
+	//	a.start_scale = [...]float32{sys.ffx["f"].fx_scale, sys.ffx["f"].fx_scale}
+	//}
 	// Iterate over map in a stable iteration order
 	keys := make([]string, 0, len(l.missing))
 	for k := range l.missing {

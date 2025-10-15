@@ -161,6 +161,7 @@ func newCompiler() *Compiler {
 		"modifysnd":            c.modifySnd,
 		"modifystagebg":        c.modifyStageBG,
 		"modifystagevar":       c.modifyStageVar,
+		"overrideclsn":         c.overrideClsn,
 		"parentmapadd":         c.parentMapAdd,
 		"parentmapset":         c.parentMapSet,
 		"playbgm":              c.playBgm,
@@ -1840,12 +1841,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		ctype := c.token
 		switch ctype {
-		case "size":
-			bv1 = BytecodeInt(3)
 		case "clsn1":
 			bv1 = BytecodeInt(1)
 		case "clsn2":
 			bv1 = BytecodeInt(2)
+		case "size":
+			bv1 = BytecodeInt(3)
+		default:
+			return bvNone(), Error(fmt.Sprintf("Invalid Clsn type: %s", ctype))
 		}
 		c.token = c.tokenizer(in)
 
@@ -5963,6 +5966,29 @@ func (c *Compiler) paramTrans(is IniSection, sc *StateControllerBase,
 		exp[2] = sc.iToExp(int32(tt))[0]
 
 		sc.add(id, exp)
+		return nil
+	})
+}
+
+func (c *Compiler) paramClsnType(is IniSection, sc *StateControllerBase, paramName string, id byte) error {
+	return c.stateParam(is, paramName, false, func(data string) error {
+		if len(data) == 0 {
+			return Error("Clsn type not specified for " + paramName)
+		}
+		var box int32
+		switch strings.ToLower(data) {
+		case "none":
+			box = 0
+		case "clsn1":
+			box = 1
+		case "clsn2":
+			box = 2
+		case "size":
+			box = 3
+		default:
+			return Error("Invalid Clsn type for " + paramName + ": " + data)
+		}
+		sc.add(id, sc.iToExp(box))
 		return nil
 	})
 }

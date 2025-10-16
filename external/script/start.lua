@@ -578,6 +578,13 @@ function start.f_setStage(num, assigned)
 			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
 		end
 	end
+	if not num then -- extra fallback to prevent rare cases of nil num
+		if main.t_selectableStages and #main.t_selectableStages > 0 then
+			num = main.t_selectableStages[1]
+		else
+			num = 1
+		end
+	end
 	selectStage(num)
 	return num
 end

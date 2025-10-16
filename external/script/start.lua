@@ -932,8 +932,7 @@ function start.f_animGet(ref, side, member, t, subname, prefix, loop, default)
 				if usePal == 1 and not t['title_netplayteamcoop_text'] then
 					local sel = start.p[side].t_selected[member]
 					if sel and sel.ref then
-						local pal = start.f_getCharData(sel.ref).pal[sel.pal]
-						a = start.loadPalettes(a, ref, pal)
+						a = start.loadPalettes(a, ref, sel.pal)
 					end
 				end
 				animUpdate(a)
@@ -2341,7 +2340,6 @@ function start.f_selectScreen()
 			main.credits = main.credits + 1
 			resetKey()
 		end
-
 		--draw clearcolor
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
@@ -2401,7 +2399,7 @@ function start.f_selectScreen()
 					--member selection
 					v.selectState, DrawUpdateflag = start.f_selectMenu(side, v.cmd, v.player, member, v.selectState)
 					if start.needUpdateDrawList == false then
-						start.needUpdateDrawList= DrawUpdateflag
+						start.needUpdateDrawList = DrawUpdateflag
 					end
 					--not in palmenu
 					if v.selectState == 0 and not main.f_input(main.t_players, {'m'}) then
@@ -2878,8 +2876,11 @@ function start.f_teamMenu(side, t)
 	end
 end
 
---;============Add the characters who already loaded their palettes to a list, preventing palettes from being loaded multiple times.
+--===========================================================
+--; PALETTE SELECT
+--===========================================================
 LoadedPals = {}
+-- Tracks which characters have already had their palettes loaded to avoid redundant loading
 local function ifCharPalsLoaded(ref)
 	for _, v in ipairs(LoadedPals) do
 		if v == ref then
@@ -2889,30 +2890,23 @@ local function ifCharPalsLoaded(ref)
 	table.insert(LoadedPals, ref)
 	return false
 end
-
+-- Loads palettes for a character if needed, prepares the animation, and applies the palette
 function start.loadPalettes(a, ref, pal)
 	if not ifCharPalsLoaded(ref) then
 		a = loadPalettes(a, ref)
 	end
-	a = colorPortrait(a, ref)
+	a = prepareAnim(a, ref)
 	a = changeColorPalette(a, pal)
 	return a
 end
 
---===========================================================
--- Draw Palette Menu
---===========================================================
-function start.f_palMenuDraw(side, member)
-	local charData = start.f_getCharData(start.p[side].t_selTemp[member].ref)
-	if not charData or not charData.pal then return end
-	local palIndex = start.p[side].t_selTemp[member].pal
-	local totalPals = #charData.pal
+function start.f_palMenuDraw(side, member, curIdx, validIdx ,maxIdx)
 	-- helper to get infos
 	local function getInfo(key)
 		return motif.select_info['p' .. side .. '_member' .. member .. '_' .. key]
 			or motif.select_info['p' .. side .. '_' .. key]
 	end
-	local displayText = (palIndex == totalPals + 1) and getInfo('palmenu_random_text') or tostring(palIndex)
+	local displayText = (curIdx == maxIdx) and getInfo('palmenu_random_text') or tostring(validIdx)
 	-- bg
 	main.f_animPosDraw(motif.select_info['p' .. side .. '_palmenu_bg_data'])
 	-- draw number
@@ -2938,7 +2932,6 @@ function start.f_palMenuDraw(side, member)
 			angle  = getInfo('palmenu_number_angle'),
 		}):draw()
 	end
-
 	-- draw text
 	local textFontInfo = getInfo('palmenu_text_font')
 	local textOffset = getInfo('palmenu_text_offset')
@@ -2964,21 +2957,15 @@ function start.f_palMenuDraw(side, member)
 end
 
 --returns a random palette (using synced RNG)
-function start.f_randomPal(charRef)
+function start.f_randomPal(charRef, validPals)
 	start.shufflePals = start.shufflePals or {}
 	start.shufflePals[charRef] = start.shufflePals[charRef] or {}
-
-	local charData = start.f_getCharData(charRef)
-	local pals = charData and charData.pal
-	if type(pals) ~= "table" or #pals == 0 then
-		return 1
-	end
 
 	if #start.shufflePals[charRef] == 0 then
 		local last = start.lastRandomPal and start.lastRandomPal[charRef]
 		local t = {}
-		for i = 1, #pals do
-			table.insert(t, i)
+		for _, v in ipairs(validPals) do
+			table.insert(t, v)
 		end
 		start.shuffleTable(t, last)
 		start.shufflePals[charRef] = t
@@ -3014,11 +3001,104 @@ end
 
 local function applyPalette(sel, charData, palIndex)
     if sel.anim_data then
-        sel.anim_data = changeColorPalette(sel.anim_data, charData.pal[palIndex])
+        sel.anim_data = changeColorPalette(sel.anim_data, palIndex)
     end
     if sel.face2_data then
-        sel.face2_data = changeColorPalette(sel.face2_data, charData.pal[palIndex])
+        sel.face2_data = changeColorPalette(sel.face2_data, palIndex)
     end
+end
+
+-- palette select menu
+function start.f_palMenu(side, cmd, player, member, selectState)
+	local st = start.p[side].t_selTemp[member]
+    local charRef = st.ref
+    local charData = start.f_getCharData(charRef)
+    -- initialize palette list and index if character changed or not yet set
+    if st.validPalsCharRef ~= charRef or not st.validPals then
+        local valid, seen, cur = {}, {}, ValidatePal(1, charRef)
+        valid[1], seen[cur] = cur, true
+        for i = 1, #charData.pal do
+            local nextp = ValidatePal(cur + 1, charRef)
+            if seen[nextp] then break end
+            table.insert(valid, nextp)
+            seen[nextp], cur = true, nextp
+        end
+        st.validPals, st.validPalsCharRef = valid, charRef
+        -- set current index to match current palette (or default to first)
+        local curPal = st.pal or valid[1]
+        st.currentIdx = 1
+        for i, p in ipairs(valid) do
+            if p == curPal then st.currentIdx = i; break end
+        end
+    end
+
+    local validPals = st.validPals
+    local curIdx = st.currentIdx or 1
+    local pal = st.pal or validPals[curIdx]
+    local maxIdx = #validPals + 1
+    start.p[side].inPalMenu = true
+
+    -- accept selection
+    if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_accept_key'])) then
+        pal = (curIdx == maxIdx) and (start.c[player].randPalPreview or start.f_randomPal(charRef, validPals)) or validPals[curIdx]
+        st.pal, st.currentIdx = pal, curIdx
+        -- done anim after pal confirmation
+        local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
+        local preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
+        if done_anim ~= preview_anim then
+            if st.anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
+                local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
+                if a then
+                    st.anim_data = start.loadPalettes(a, charRef, pal)
+                    animUpdate(st.anim_data)
+                    start.p[side].screenDelay = math.min(120, math.max(start.p[side].screenDelay, animGetLength(st.anim_data)))
+                end
+            end
+        end
+        selectState = 3
+        sndPlay(motif.files.snd_data, motif.select_info.palmenu_done_snd[1], motif.select_info.palmenu_done_snd[2])
+     -- next palette
+    elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_next_key']}) then
+        curIdx = (curIdx == maxIdx) and 1 or curIdx + 1
+        st.currentIdx = curIdx
+        if curIdx < maxIdx then
+			applyPalette(st, charData, validPals[curIdx])
+		end
+        sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+    -- previous palette
+    elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_previous_key']}) then
+        curIdx = (curIdx == 1) and maxIdx or curIdx - 1
+        st.currentIdx = curIdx
+        if curIdx < maxIdx then
+			applyPalette(st, charData, validPals[curIdx])
+		end
+        sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+    -- cancel
+    elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_cancel_key'])) then
+        st.anim_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '', true)
+        st.face2_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face2', '', true)
+        selectState = 0
+		st.currentIdx = nil
+		st.validPals = nil
+        sndPlay(motif.files.snd_data, motif.select_info.palmenu_cancel_snd[1], motif.select_info.palmenu_cancel_snd[2])
+    end
+    -- random hotkey
+    if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_random_key'])) then
+        curIdx, st.currentIdx = maxIdx, maxIdx
+    end
+    -- random preview update
+    if st.currentIdx == maxIdx then
+        if not start.c[player].randPalCnt or start.c[player].randPalCnt <= 0 then
+            start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
+            start.c[player].randPalPreview = start.f_randomPal(charRef, validPals)
+            applyPalette(st, charData, start.c[player].randPalPreview)
+            sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+        else
+            start.c[player].randPalCnt = start.c[player].randPalCnt - 1
+        end
+    end
+    start.f_palMenuDraw(side, member, curIdx, validPals[curIdx], maxIdx)
+    return selectState
 end
 
 --;===========================================================
@@ -3172,11 +3252,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 
 					-- resolve visual palette conflict
+					finalPal = ValidatePal(finalPal, charRef)
 					finalPal = resolvePalConflict(side, charRef, finalPal)
-
-					if finalPal > #charData.pal then
-						finalPal = #charData.pal
-					end
 
 					if motif.select_info.paletteselect > 0 then
 						start.p[side].t_selTemp[member].pal = finalPal
@@ -3203,80 +3280,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 		--selection menu
 		elseif selectState == 1 then
 			if motif.select_info.paletteselect and motif.select_info.paletteselect > 0 then
-				local charRef = start.p[side].t_selTemp[member].ref
-				local charData = start.f_getCharData(charRef)
-				local totalPals = #charData.pal
-				local maxIndex = totalPals + 1
-				local pal = start.p[side].t_selTemp[member].pal
-				start.p[side].inPalMenu = true
-				if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_accept_key'])) then
-					if pal == maxIndex then
-						pal = start.c[player].randPalPreview or start.f_randomPal(charRef)
-					end
-					start.p[side].t_selTemp[member].pal = pal
-					--play the face.done animation if it’s different from the palmenu.done animation
-					local done_anim = motif.select_info['p' .. side .. '_member' .. member .. '_face_done_anim'] or motif.select_info['p' .. side .. '_face_done_anim']
-					local palmenu_preview_anim = motif.select_info['p' .. side .. '_member' .. member .. '_palmenu_preview_anim'] or motif.select_info['p' .. side .. '_palmenu_preview_anim']
-					if done_anim ~= palmenu_preview_anim then
-						if start.p[side].t_selTemp[member].anim ~= done_anim and (main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars) then
-							local a = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '_done', false)
-							if a then
-								start.p[side].t_selTemp[member].anim_data = a
-								start.p[side].t_selTemp[member].anim_data = start.loadPalettes(start.p[side].t_selTemp[member].anim_data, charRef, pal)
-								animUpdate(start.p[side].t_selTemp[member].anim_data)
-								start.p[side].screenDelay = math.min(120, math.max(start.p[side].screenDelay, animGetLength(start.p[side].t_selTemp[member].anim_data)))
-							end
-						end
-					end
-					selectState = 3
-
-					sndPlay(motif.files.snd_data, motif.select_info.palmenu_done_snd[1], motif.select_info.palmenu_done_snd[2])
-				-- next palette
-				elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_next_key']}) then
-					pal = (pal == maxIndex) and 1 or pal + 1
-					start.p[side].t_selTemp[member].pal = pal
-
-					if pal <= totalPals then
-						applyPalette(start.p[side].t_selTemp[member], charData, pal)
-					end
-
-					sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
-				-- previous palette
-				elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_previous_key']}) then
-					pal = (pal == 1) and maxIndex or pal - 1
-					start.p[side].t_selTemp[member].pal = pal
-
-					if pal <= totalPals then
-						applyPalette(start.p[side].t_selTemp[member], charData, pal)
-					end
-
-					sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
-				-- cancel
-				elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_cancel_key'])) then
-					local charRef = start.p[side].t_selTemp[member].ref
-					start.p[side].t_selTemp[member].anim_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '', true)
-					start.p[side].t_selTemp[member].face2_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face2', '', true)
-					selectState = 0
-
-					sndPlay(motif.files.snd_data, motif.select_info.palmenu_cancel_snd[1], motif.select_info.palmenu_cancel_snd[2])
-				end
-				-- random shortcut
-				if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_random_key'])) and pal ~= maxIndex then
-					start.p[side].t_selTemp[member].pal = maxIndex
-				end
-				-- random active
-				if pal == maxIndex then
-					if not start.c[player].randPalCnt or start.c[player].randPalCnt <= 0 then
-             			start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
-                		start.c[player].randPalPreview = start.f_randomPal(charRef)
-
-						applyPalette(start.p[side].t_selTemp[member], charData, start.c[player].randPalPreview)
-						sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
-					else
-						start.c[player].randPalCnt = start.c[player].randPalCnt - 1
-					end
-				end
-				start.f_palMenuDraw(side, member)
+				selectState = start.f_palMenu(side, cmd, player, member, selectState)
 			else
 				selectState = 3
 			end

@@ -3693,6 +3693,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_shadow_color_b
 		case "shadow.yscale":
 			opc = OC_const_stagevar_shadow_yscale
+		case "shadow.ydelta":
+			opc = OC_const_stagevar_shadow_yscale
 		case "shadow.fade.range.begin":
 			opc = OC_const_stagevar_shadow_fade_range_begin
 		case "shadow.fade.range.end":
@@ -3707,6 +3709,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_reflection_intensity
 		case "reflection.yscale":
 			opc = OC_const_stagevar_reflection_yscale
+		case "reflection.ydelta":
+			opc = OC_const_stagevar_reflection_ydelta
 		case "reflection.offset.x":
 			opc = OC_const_stagevar_reflection_offset_x
 		case "reflection.offset.y":

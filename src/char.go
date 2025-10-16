@@ -1772,13 +1772,13 @@ func (e *Explod) update(playerNo int) {
 			shadowColor:  sdwclr,
 			shadowAlpha:  sdwalp,
 			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			fadeOffset:   drawZoff,
+			groundLevel:  drawZoff,
 		})
 		// Add reflection sprite
 		sys.reflections.add(&ReflectionSprite{
 			SprData:       sd,
 			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			fadeOffset:    drawZoff,
+			groundLevel:   drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -2427,13 +2427,13 @@ func (p *Projectile) cueDraw() {
 				shadowColor:  sdwclr,
 				shadowAlpha:  255,
 				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-				fadeOffset:   drawZoff,
+				groundLevel:  drawZoff,
 			})
 			// Add reflection
 			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
 				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-				fadeOffset:    drawZoff,
+				groundLevel:   drawZoff,
 			})
 		}
 	}
@@ -11534,7 +11534,7 @@ func (c *Char) cueDraw() {
 					shadowRot:        c.shadowRot,
 					shadowProjection: int32(c.shadowProjection),
 					shadowfLength:    c.shadowfLength,
-					fadeOffset:       c.offsetY() + drawZoff,
+					groundLevel:      c.offsetY() + drawZoff,
 				})
 
 				// Default reflection to same sprite data as char
@@ -11564,7 +11564,7 @@ func (c *Char) cueDraw() {
 					reflectRot:        c.reflectRot,
 					reflectProjection: int32(c.reflectProjection),
 					reflectfLength:    c.reflectfLength,
-					fadeOffset:        c.offsetY() + drawZoff,
+					groundLevel:       c.offsetY() + drawZoff,
 				})
 			}
 		}

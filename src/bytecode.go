@@ -444,12 +444,14 @@ const (
 	OC_const_stagevar_shadow_color_g
 	OC_const_stagevar_shadow_color_b
 	OC_const_stagevar_shadow_yscale
+	OC_const_stagevar_shadow_ydelta
 	OC_const_stagevar_shadow_fade_range_begin
 	OC_const_stagevar_shadow_fade_range_end
 	OC_const_stagevar_shadow_xshear
 	OC_const_stagevar_shadow_offset_x
 	OC_const_stagevar_shadow_offset_y
 	OC_const_stagevar_reflection_intensity
+	OC_const_stagevar_reflection_ydelta
 	OC_const_stagevar_reflection_yscale
 	OC_const_stagevar_reflection_offset_x
 	OC_const_stagevar_reflection_offset_y
@@ -2496,6 +2498,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(sys.stage.sdw.color & 0xFF))
 	case OC_const_stagevar_shadow_yscale:
 		sys.bcStack.PushF(sys.stage.sdw.yscale)
+	case OC_const_stagevar_shadow_ydelta:
+		sys.bcStack.PushF(sys.stage.sdw.ydelta)
 	case OC_const_stagevar_shadow_fade_range_begin:
 		sys.bcStack.PushI(int32(float32(sys.stage.sdw.fadebgn) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_shadow_fade_range_end:
@@ -2510,6 +2514,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.stage.reflection.intensity)
 	case OC_const_stagevar_reflection_yscale:
 		sys.bcStack.PushF(sys.stage.reflection.yscale)
+	case OC_const_stagevar_reflection_ydelta:
+		sys.bcStack.PushF(sys.stage.reflection.ydelta)
 	case OC_const_stagevar_reflection_offset_x:
 		sys.bcStack.PushF(sys.stage.reflection.offset[0] * sys.stage.localscl / oc.localscl)
 	case OC_const_stagevar_reflection_offset_y:
@@ -12325,6 +12331,7 @@ const (
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
+	modifyStageVar_shadow_ydelta
 	modifyStageVar_shadow_angle
 	modifyStageVar_shadow_xangle
 	modifyStageVar_shadow_yangle
@@ -12336,6 +12343,7 @@ const (
 	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
+	modifyStageVar_reflection_ydelta
 	modifyStageVar_reflection_angle
 	modifyStageVar_reflection_xangle
 	modifyStageVar_reflection_yangle
@@ -12491,6 +12499,8 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.sdw.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_shadow_yscale:
 			s.sdw.yscale = exp[0].evalF(c)
+		case modifyStageVar_shadow_ydelta:
+			s.sdw.ydelta = exp[0].evalF(c)
 		case modifyStageVar_shadow_angle:
 			s.sdw.rot.angle = exp[0].evalF(c)
 		case modifyStageVar_shadow_xangle:
@@ -12528,6 +12538,8 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 		case modifyStageVar_reflection_intensity:
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyStageVar_reflection_yscale:
+			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_ydelta:
 			s.reflection.yscale = exp[0].evalF(c)
 		case modifyStageVar_reflection_angle:
 			s.reflection.rot.angle = exp[0].evalF(c)

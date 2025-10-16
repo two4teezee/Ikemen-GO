@@ -5324,6 +5324,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(int32(sys.stage.sdw.color & 0xFF)))
 		case "shadow.yscale":
 			l.Push(lua.LNumber(sys.stage.sdw.yscale))
+		case "shadow.ydelta":
+			l.Push(lua.LNumber(sys.stage.sdw.ydelta))
 		case "shadow.fade.range.begin":
 			l.Push(lua.LNumber(sys.stage.sdw.fadebgn))
 		case "shadow.fade.range.end":
@@ -5338,6 +5340,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(sys.stage.reflection.intensity))
 		case "reflection.yscale":
 			l.Push(lua.LNumber(sys.stage.reflection.yscale))
+		case "reflection.ydelta":
+			l.Push(lua.LNumber(sys.stage.reflection.ydelta))
 		case "reflection.offset.x":
 			l.Push(lua.LNumber(sys.stage.reflection.offset[0]))
 		case "reflection.offset.y":

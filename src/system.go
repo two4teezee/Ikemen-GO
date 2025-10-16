@@ -40,7 +40,7 @@ var sys = System{
 	gameHeight:        240,
 	widthScale:        1,
 	heightScale:       1,
-	brightness:        256,
+	brightness:        1,
 	maxRoundTime:      -1,
 	turnsRecoveryRate: 1.0 / 300,
 	soundMixer:        &beep.Mixer{},
@@ -104,7 +104,8 @@ type System struct {
 	window                  *Window
 	gameEnd, frameSkip      bool
 	redrawWait              struct{ nextTime, lastDraw time.Time }
-	brightness              int32
+	brightness              float32
+	brightnessOld           float32
 	maxRoundTime            int32
 	turnsRecoveryRate       float32
 	debugFont               *TextSprite
@@ -166,7 +167,7 @@ type System struct {
 	superpausebg            bool
 	superendcmdbuftime      int32
 	superplayerno           int
-	superdarken             bool
+	superbrightness         float32
 	superp2defmul           float32
 	envcol                  [3]int32
 	envcol_time             int32
@@ -300,7 +301,6 @@ type System struct {
 	victoryScreenFlg  bool
 	winScreenFlg      bool
 	playBgmFlg        bool
-	brightnessOld     int32
 	loopBreak         bool
 	loopContinue      bool
 
@@ -2314,10 +2314,15 @@ func (s *System) roundEndDecision() bool {
 }
 
 func (s *System) draw(x, y, scl float32) {
-	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 |
-		s.envcol[0]&0xff<<16)
+	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
+
 	s.brightnessOld = s.brightness
-	s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
+	//s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
+	s.brightness = 1.0
+	if s.supertime > 0 && s.superbrightness >= 0 && s.superbrightness < 1 {
+		s.brightness = s.superbrightness
+	}
+
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
 	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)

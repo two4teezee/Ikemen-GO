@@ -3369,6 +3369,10 @@ func (c *Compiler) superPause(is IniSection, sc *StateControllerBase, _ int8) (S
 			superPause_darken, VT_Bool, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "brightness",
+			superPause_brightness, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "anim", false, func(data string) error {
 			prefix := c.getDataPrefix(&data, true)
 			return c.scAdd(sc, superPause_anim, data, VT_Int, 1,

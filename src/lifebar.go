@@ -1724,7 +1724,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
 		oldBright := sys.brightness
 		if sys.chars[ref][0].ignoreDarkenTime > 0 { //ref == sys.superplayerno
-			sys.brightness = 256
+			sys.brightness = 1.0
 		}
 
 		// Draw the actual face sprite
@@ -3299,7 +3299,7 @@ func (ro *LifeBarRound) reset() {
 func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 	// Temporarily override system brightness
 	oldBright := sys.brightness
-	sys.brightness = 256
+	sys.brightness = 1.0
 
 	// Round call animations
 	if !ro.roundCallOver && ro.waitTimer[0] < 0 && sys.intro <= ro.ctrl_time {

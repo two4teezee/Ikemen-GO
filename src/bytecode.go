@@ -9276,6 +9276,7 @@ const (
 	superPause_pausebg
 	superPause_endcmdbuftime
 	superPause_darken
+	superPause_brightness
 	superPause_anim
 	superPause_pos
 	superPause_p2defmul
@@ -9295,7 +9296,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	uh := true
 
 	// Default parameters
-	sys.superdarken = true
+	sys.superbrightness = 0.5 // Darken used to be 128/256
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
 	p2defmul := crun.gi().constants["super.targetdefencemul"]
@@ -9316,7 +9317,14 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		case superPause_endcmdbuftime:
 			sys.superendcmdbuftime = exp[0].evalI(c)
 		case superPause_darken:
-			sys.superdarken = exp[0].evalB(c)
+			if exp[0].evalB(c) {
+				sys.superbrightness = 0.5
+			} else {
+				sys.superbrightness = 1.0
+			}
+		case superPause_brightness:
+			sys.superbrightness = (exp[0].evalF(c)) / 256
+			sys.superbrightness = ClampF(sys.superbrightness, 0, 1)
 		case superPause_anim:
 			fx_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			fx_anim = exp[1].evalI(c)

@@ -685,7 +685,7 @@ func (a *Animation) alphaToBlend() (blendMode TransType, blendAlpha [2]int32) {
 	}
 
 	// Apply system brightness
-	sa = byte(int32(sa) * sys.brightness >> 8)
+	sa = byte(float32(sa) * sys.brightness)
 
 	blendAlpha = [2]int32{int32(sa), int32(da)}
 
@@ -1086,7 +1086,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		// Save system brightness
 		oldBright := sys.brightness
 		if s.undarken {
-			sys.brightness = 256
+			sys.brightness = 1.0
 		}
 
 		// Backup animation transparency to temporarily change it

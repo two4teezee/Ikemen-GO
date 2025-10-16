@@ -4007,7 +4007,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		}
 		gfx.SetModelUniformI("unlit", int(Btoi(unlit || mat.unlit)))
 		gfx.SetModelUniformFv("add", padd[:])
-		gfx.SetModelUniformFv("mult", []float32{pmul[0] * float32(sys.brightness) / 256, pmul[1] * float32(sys.brightness) / 256, pmul[2] * float32(sys.brightness) / 256})
+		gfx.SetModelUniformFv("mult", []float32{pmul[0] * sys.brightness, pmul[1] * sys.brightness, pmul[2] * sys.brightness})
 		gfx.SetModelUniformI("neg", int(Btoi(neg)))
 		gfx.SetModelUniformF("hue", hue)
 		gfx.SetModelUniformF("gray", grayscale)

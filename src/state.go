@@ -133,7 +133,7 @@ type GameState struct {
 	superpausebg       bool
 	superendcmdbuftime int32
 	superplayerno      int
-	superdarken        bool
+	superbrightness    float32
 
 	envShake            EnvShake
 	specialFlag         GlobalSpecialFlag // UIT
@@ -147,7 +147,8 @@ type GameState struct {
 	gameWidth, gameHeight   int32 // UIT
 	widthScale, heightScale float32
 	gameEnd, frameSkip      bool
-	brightness              int32
+	brightness              float32
+	brightnessOld           float32
 	maxRoundTime            int32 // UIT
 	team1VS2Life            float32
 	turnsRecoveryRate       float32
@@ -257,7 +258,6 @@ type GameState struct {
 
 	loopBreak     bool
 	loopContinue  bool
-	brightnessOld int32
 	wintime       int32
 
 	// Rollback
@@ -349,6 +349,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.gameEnd = gs.gameEnd
 	sys.frameSkip = gs.frameSkip
 	sys.brightness = gs.brightness
+	sys.brightnessOld = gs.brightnessOld
 	sys.maxRoundTime = gs.maxRoundTime
 	sys.turnsRecoveryRate = gs.turnsRecoveryRate
 
@@ -478,7 +479,6 @@ func (gs *GameState) LoadState(stateID int) {
 
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
-	sys.brightnessOld = gs.brightnessOld
 
 	sys.wintime = gs.wintime
 
@@ -563,6 +563,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.gameEnd = sys.gameEnd
 	gs.frameSkip = sys.frameSkip
 	gs.brightness = sys.brightness
+	gs.brightnessOld = sys.brightnessOld
 	gs.maxRoundTime = sys.maxRoundTime
 	gs.turnsRecoveryRate = sys.turnsRecoveryRate
 
@@ -686,7 +687,6 @@ func (gs *GameState) SaveState(stateID int) {
 
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue
-	gs.brightnessOld = sys.brightnessOld
 
 	gs.wintime = sys.wintime
 
@@ -767,7 +767,7 @@ func (gs *GameState) saveSuperPauseData() {
 	gs.superpausebg = sys.superpausebg
 	gs.superendcmdbuftime = sys.superendcmdbuftime
 	gs.superplayerno = sys.superplayerno
-	gs.superdarken = sys.superdarken
+	gs.superbrightness = sys.superbrightness
 }
 
 func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
@@ -820,7 +820,7 @@ func (gs *GameState) loadSuperPauseData() {
 	sys.superpausebg = gs.superpausebg
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayerno = gs.superplayerno
-	sys.superdarken = gs.superdarken
+	sys.superbrightness = gs.superbrightness
 }
 
 func (gs *GameState) loadPauseData() {

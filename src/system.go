@@ -2736,7 +2736,7 @@ func (s *System) SetupCharRoundStart() {
 		}
 	}
 
-	// Set max power for teams sharing meter
+	// For power sharing, set maximum power to the highest one in the team
 	if s.cfg.Options.Team.PowerShare {
 		for i, p := range s.chars {
 			if len(p) > 0 && p[0].teamside != -1 {
@@ -2750,67 +2750,82 @@ func (s *System) SetupCharRoundStart() {
 		}
 	}
 
-	// Initialize each character
+	// Calculate maximum life for all characters
 	for i, p := range s.chars {
 		if len(p) > 0 {
 			// Get max life, and adjust based on team mode
-			var lm float32
-			if p[0].ocd().lifeMax != -1 {
-				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+			var lmax float32
+			if p[0].ocd().lifeMax > 0 {
+				lmax = float32(p[0].ocd().lifeMax)
 			} else {
-				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+				lmax = float32(p[0].gi().data.life)
 			}
+
+			// Apply life options
+			lmax *= p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+
+			// Adjust life by team mode
 			if p[0].teamside != -1 {
 				switch s.tmode[i&1] {
 				case TM_Single:
+					// Single mode gets the explicitly configured bonus
 					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						lm *= s.cfg.Options.Team.SingleVsTeamLife / 100
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.matchWins[(i+1)&1])
-						}
+					case TM_Simul, TM_Turns, TM_Tag:
+						lmax *= s.cfg.Options.Team.SingleVsTeamLife / 100
 					}
 				case TM_Simul, TM_Tag:
-					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1] < s.numSimul[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numSimul[(i+1)&1]) / float32(s.numSimul[i&1])
+					// For Simul/Tag life sharing, use average life of the team
+					if s.cfg.Options.Team.LifeShare {
+						totalTeamLife := float32(0)
+						teamSize := 0
+						for j := i & 1; j < MaxSimul*2; j += 2 {
+							if len(s.chars[j]) > 0 {
+								var charLm float32
+								if s.chars[j][0].ocd().lifeMax > 0 {
+									charLm = float32(s.chars[j][0].ocd().lifeMax) * s.chars[j][0].ocd().lifeRatio * s.cfg.Options.Life / 100
+								} else {
+									charLm = float32(s.chars[j][0].gi().data.life) * s.chars[j][0].ocd().lifeRatio * s.cfg.Options.Life / 100
+								}
+								totalTeamLife += charLm
+								teamSize++
+							}
 						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numSimul[i&1]*s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.numSimul[i&1]*s.matchWins[(i+1)&1])
-						}
-					default:
-						if s.cfg.Options.Team.LifeShare {
-							lm /= float32(s.numSimul[i&1])
+						if teamSize > 0 {
+							lmax = totalTeamLife / float32(teamSize)
 						}
 					}
 				case TM_Turns:
-					switch s.tmode[(i+1)&1] {
-					case TM_Single:
-						if s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.matchWins[i&1]) / float32(s.numTurns[i&1])
-						}
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * s.cfg.Options.Team.SingleVsTeamLife / 100 *
-								float32(s.numSimul[(i+1)&1]*s.matchWins[i&1]) /
-								float32(s.numTurns[i&1])
-						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) / float32(s.numTurns[i&1])
-						}
+					// For Turns life sharing, divide life by number of characters
+					if s.cfg.Options.Team.LifeShare && s.numTurns[i&1] > 0 {
+						lmax /= float32(s.numTurns[i&1])
 					}
 				}
 			}
 
 			// Set lifemax
-			p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
+			p[0].lifeMax = Max(1, int32(math.Floor(float64(lmax))))
+		}
+	}
 
+	// Initialize each character's dizzy and guard points
+	for _, p := range s.chars {
+		if len(p) > 0 {
+			if p[0].ocd().dizzyPoints > 0 {
+				p[0].dizzyPoints = p[0].ocd().dizzyPoints
+			} else {
+				p[0].dizzyPoints = p[0].dizzyPointsMax
+			}
+			if p[0].ocd().guardPoints > 0 {
+				p[0].guardPoints = p[0].ocd().guardPoints
+			} else {
+				p[0].guardPoints = p[0].guardPointsMax
+			}
+		}
+	}
+
+	// Initialize each character's state
+	for i, p := range s.chars {
+		if len(p) > 0 {
 			if p[0].roundsExisted() == 0 && (s.round == 1 || s.tmode[i&1] == TM_Turns) {
 				// If round 1 or a new character in Turns mode, initialize values
 				if p[0].ocd().life != -1 {
@@ -2836,17 +2851,6 @@ func (s *System) SetupCharRoundStart() {
 				}
 				p[0].dialogue = []string{}
 				p[0].remapSpr = make(RemapPreset)
-			}
-
-			if p[0].ocd().guardPoints != -1 {
-				p[0].guardPoints = Clamp(p[0].ocd().guardPoints, 0, p[0].guardPointsMax)
-			} else {
-				p[0].guardPoints = p[0].guardPointsMax
-			}
-			if p[0].ocd().dizzyPoints != -1 {
-				p[0].dizzyPoints = Clamp(p[0].ocd().dizzyPoints, 0, p[0].dizzyPointsMax)
-			} else {
-				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
 		}
 	}

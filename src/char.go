@@ -4669,6 +4669,8 @@ func (c *Char) powerOwner() *Char {
 		// TODO: If we ever expand on teamside switching, this could loop over sys.chars and return the first one on the player's side
 		// But currently this method is just slightly more efficient
 	}
+
+	// Default to root
 	return sys.chars[c.playerNo][0]
 }
 
@@ -7604,7 +7606,9 @@ func (c *Char) lifeSet(life int32) {
 	if c.alive() && sys.roundNoDamage() {
 		return
 	}
+
 	c.life = Clamp(life, 0, c.lifeMax)
+
 	if c.life == 0 {
 		// Check win type
 		if c.playerFlag && c.teamside != -1 {
@@ -7636,12 +7640,23 @@ func (c *Char) lifeSet(life int32) {
 		}
 		c.redLife = 0
 	}
+
 	if c.teamside != c.ghv.playerNo&1 && c.teamside != -1 && c.ghv.playerNo < MaxSimul*2 { // attacker and receiver from opposite teams
 		sys.lastHitter[^c.playerNo&1] = c.ghv.playerNo
 	}
+
 	// Disable red life. Placing this here makes it never lag behind life
 	if !c.redLifeEnabled() {
 		c.redLife = c.life
+	}
+
+	// Update life sharing
+	if c.helperIndex == 0 && sys.cfg.Options.Team.LifeShare {
+		for _, p := range sys.chars {
+			if len(p) > 0 && p[0].teamside == c.teamside {
+				p[0].life = c.life
+			}
+		}
 	}
 }
 
@@ -7725,6 +7740,15 @@ func (c *Char) redLifeSet(set int32) {
 		c.redLife = 0
 	} else if c.redLifeEnabled() && !sys.roundNoDamage() {
 		c.redLife = Clamp(set, c.life, c.lifeMax)
+	}
+
+	// Update life sharing
+	if c.helperIndex == 0 && sys.cfg.Options.Team.LifeShare {
+		for _, p := range sys.chars {
+			if len(p) > 0 && p[0].teamside == c.teamside {
+				p[0].redLife = c.redLife
+			}
+		}
 	}
 }
 

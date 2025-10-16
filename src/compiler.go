@@ -3711,6 +3711,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_reflection_yscale
 		case "reflection.ydelta":
 			opc = OC_const_stagevar_reflection_ydelta
+		case "reflection.fade.range.begin":
+			opc = OC_const_stagevar_reflection_fade_range_begin
+		case "reflection.fade.range.end":
+			opc = OC_const_stagevar_reflection_fade_range_end
 		case "reflection.offset.x":
 			opc = OC_const_stagevar_reflection_offset_x
 		case "reflection.offset.y":

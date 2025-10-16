@@ -5692,6 +5692,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_shadow_ydelta, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "shadow.fade.range",
+			modifyStageVar_shadow_fade_range, VT_Int, 2, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "shadow.angle",
 			modifyStageVar_shadow_angle, VT_Float, 1, false); err != nil {
 			return err
@@ -5710,10 +5714,6 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramProjection(is, sc, "shadow.projection",
 			modifyStageVar_shadow_projection); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "shadow.fade.range",
-			modifyStageVar_shadow_fade_range, VT_Int, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "shadow.xshear",
@@ -5738,6 +5738,10 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramValue(is, sc, "reflection.ydelta",
 			modifyStageVar_reflection_ydelta, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "reflection.fade.range",
+			modifyStageVar_reflection_fade_range, VT_Int, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "reflection.angle",

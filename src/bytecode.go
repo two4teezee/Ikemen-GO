@@ -455,6 +455,8 @@ const (
 	OC_const_stagevar_reflection_yscale
 	OC_const_stagevar_reflection_offset_x
 	OC_const_stagevar_reflection_offset_y
+	OC_const_stagevar_reflection_fade_range_begin
+	OC_const_stagevar_reflection_fade_range_end
 	OC_const_stagevar_reflection_xshear
 	OC_const_stagevar_reflection_color_r
 	OC_const_stagevar_reflection_color_g
@@ -2516,6 +2518,10 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.stage.reflection.yscale)
 	case OC_const_stagevar_reflection_ydelta:
 		sys.bcStack.PushF(sys.stage.reflection.ydelta)
+	case OC_const_stagevar_reflection_fade_range_begin:
+		sys.bcStack.PushI(int32(float32(sys.stage.reflection.fadebgn) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_reflection_fade_range_end:
+		sys.bcStack.PushI(int32(float32(sys.stage.reflection.fadeend) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_reflection_offset_x:
 		sys.bcStack.PushF(sys.stage.reflection.offset[0] * sys.stage.localscl / oc.localscl)
 	case OC_const_stagevar_reflection_offset_y:
@@ -12349,6 +12355,7 @@ const (
 	modifyStageVar_reflection_yangle
 	modifyStageVar_reflection_focallength
 	modifyStageVar_reflection_projection
+	modifyStageVar_reflection_fade_range
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
@@ -12541,6 +12548,11 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.yscale = exp[0].evalF(c)
 		case modifyStageVar_reflection_ydelta:
 			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_fade_range:
+			s.reflection.fadeend = int32(exp[0].evalF(c) * scaleratio)
+			if len(exp) > 1 {
+				s.reflection.fadebgn = int32(exp[1].evalF(c) * scaleratio)
+			}
 		case modifyStageVar_reflection_angle:
 			s.reflection.rot.angle = exp[0].evalF(c)
 		case modifyStageVar_reflection_xangle:

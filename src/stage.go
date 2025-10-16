@@ -1442,6 +1442,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			s.reflection.layerno = Clamp(tmp, -1, 0)
 		}
 		sec[0].ReadF32("yscale", &s.reflection.yscale)
+		sec[0].readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
 		sec[0].ReadF32("xshear", &s.reflection.xshear)
 		sec[0].ReadF32("angle", &s.reflection.rot.angle)
 		sec[0].ReadF32("xangle", &s.reflection.rot.xangle)

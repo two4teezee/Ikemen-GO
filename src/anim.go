@@ -1242,17 +1242,21 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		// Fading range
-		fend := float32(sys.stage.sdw.fadeend) * sys.stage.localscl
-		fbgn := float32(sys.stage.sdw.fadebgn) * sys.stage.localscl
-		if fbgn <= fend {
-			// Ignore incorrect fade effect
-		} else if s.pos[1]-s.groundLevel <= fend {
-			continue // Do not render shadow
-		} else if s.pos[1]-s.groundLevel < fbgn {
-			alpha = int32(float32(alpha) * (fend - (s.pos[1] - s.groundLevel)) / (fend - fbgn))
+		fadebegin := float32(sys.stage.sdw.fadebgn) * sys.stage.localscl
+		fadeend := float32(sys.stage.sdw.fadeend) * sys.stage.localscl
+		fadepos := s.pos[1] - s.groundLevel
+
+		if fadebegin > fadeend {
+			if fadepos <= fadeend {
+				continue // Do not render
+			} else if fadepos < fadebegin {
+				faderange := fadebegin - fadeend
+				fadefactor := (fadebegin - fadepos) / faderange
+				alpha = int32(float32(alpha) * (1 - fadefactor))
+			}
 		}
 
-		// Apply shadow delta only after original position has been used to calculate fading
+		// Apply delta only after original position has been used to calculate fading
 		sdwPosY := s.pos[1] // Avoid mutation
 		if sys.stage.sdw.ydelta != 1 {
 			sdwPosY = s.groundLevel + (sdwPosY-s.groundLevel)*sys.stage.sdw.ydelta
@@ -1484,7 +1488,23 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			color |= uint32(ref << 24)
 		}
 
-		// Apply shadow delta only after original position has been used to calculate fading
+		// Fading range
+		fadebegin := float32(sys.stage.reflection.fadebgn) * sys.stage.localscl
+		fadeend := float32(sys.stage.reflection.fadeend) * sys.stage.localscl
+		fadepos := s.pos[1] - s.groundLevel
+
+		if fadebegin > fadeend {
+			if fadepos <= fadeend {
+				continue // Do not render
+			} else if fadepos < fadebegin {
+				faderange := fadebegin - fadeend
+				fadefactor := (fadebegin - fadepos) / faderange
+				s.anim.srcAlpha = int16(float32(s.anim.srcAlpha) * (1 - fadefactor)) // Towards 0
+				s.anim.dstAlpha = int16(float32(s.anim.dstAlpha) + (255 - float32(s.anim.dstAlpha)) * fadefactor) // Towards 255
+			}
+		}
+
+		// Apply delta only after original position has been used to calculate fading
 		refPosY := s.pos[1] // Avoid mutation
 		if sys.stage.reflection.ydelta != 1 {
 			refPosY = s.groundLevel + (refPosY-s.groundLevel)*sys.stage.reflection.ydelta

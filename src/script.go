@@ -5342,6 +5342,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(sys.stage.reflection.yscale))
 		case "reflection.ydelta":
 			l.Push(lua.LNumber(sys.stage.reflection.ydelta))
+		case "reflection.fade.range.begin":
+			l.Push(lua.LNumber(sys.stage.reflection.fadebgn))
+		case "reflection.fade.range.end":
+			l.Push(lua.LNumber(sys.stage.reflection.fadeend))
 		case "reflection.offset.x":
 			l.Push(lua.LNumber(sys.stage.reflection.offset[0]))
 		case "reflection.offset.y":

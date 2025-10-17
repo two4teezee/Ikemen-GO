@@ -2461,10 +2461,6 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "setAutoLevel", func(*lua.LState) int {
-		sys.autolevel = boolArg(l, 1)
-		return 0
-	})
 	luaRegister(l, "setCom", func(*lua.LState) int {
 		pn := int(numArg(l, 1))
 		ailv := float32(numArg(l, 2))

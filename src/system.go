@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -59,8 +58,6 @@ var sys = System{
 	ignoreMostErrors: true,
 	stageList:        make(map[int32]*Stage),
 	stageLocalcoords: make(map[string][2]float32),
-	wincnt:           wincntMap(make(map[string][]int32)),
-	wincntFileName:   "save/autolevel.save",
 	oldNextAddTime:   1,
 	commandLine:      make(chan string),
 	cam:              *newCamera(),
@@ -129,7 +126,6 @@ type System struct {
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
 	aiLevel                 [MaxPlayerNo]float32
-	autolevel               bool
 	home                    int
 	matchTime               int32
 	match                   int32
@@ -182,8 +178,6 @@ type System struct {
 	stageLocalcoords        map[string][2]float32
 	wireframeDisplay        bool
 	nextCharId              int32
-	wincnt                  wincntMap
-	wincntFileName          string
 	tickCount               int
 	oldTickCount            int
 	tickCountF              float32
@@ -328,7 +322,6 @@ type System struct {
 
 	// Match loop variables
 	autolvmul    float64
-	autolevels   [MaxPlayerNo]int32
 	fightLoopEnd bool
 	roundBackup  RoundStartBackup
 
@@ -2599,7 +2592,6 @@ func (s *System) runMatch() (reload bool) {
 				s.clearPlayerAssets(i, s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0))
 			}
 		}
-		s.wincnt.update()
 	}()
 
 	// Synchronize with external inputs (netplay, replays, etc)
@@ -2610,9 +2602,6 @@ func (s *System) runMatch() (reload bool) {
 	if s.netConnection != nil {
 		defer s.netConnection.Stop()
 	}
-
-	// Init wins counter
-	s.wincnt.init()
 
 	// Setup characters
 	s.SetupCharRoundStart()
@@ -2734,33 +2723,6 @@ func (s *System) SetupCharRoundStart() {
 		}
 	}
 
-	// Update handicap for each character
-	// What this does is make characters weaker as they accumulate wins
-	for i, p := range s.chars {
-		if len(p) > 0 && p[0].teamside != -1 {
-			s.autolevels[i] = s.wincnt.getLevel(i)
-		}
-	}
-
-	// Normalize autolevels so that the lowest one (or highest if all negative) is zero
-	// This ensures autolevel-based scaling is always relative, with at least one player at baseline (0)
-	minlv, maxlv := s.autolevels[0], s.autolevels[0]
-	for i, lv := range s.autolevels[1:] {
-		if len(s.chars[i+1]) > 0 {
-			minlv = Min(minlv, lv)
-			maxlv = Max(maxlv, lv)
-		}
-	}
-	if minlv > 0 {
-		for i := range s.autolevels {
-			s.autolevels[i] -= minlv
-		}
-	} else if maxlv < 0 {
-		for i := range s.autolevels {
-			s.autolevels[i] -= maxlv
-		}
-	}
-
 	// Set max power for teams sharing meter
 	if s.cfg.Options.Team.PowerShare {
 		for i, p := range s.chars {
@@ -2834,20 +2796,9 @@ func (s *System) SetupCharRoundStart() {
 			}
 
 			// Set lifemax
-			if sys.autolevel {
-				foo := math.Pow(s.autolvmul, float64(-s.autolevels[i]))
-				p[0].lifeMax = Max(1, int32(math.Floor(foo*float64(lm))))
-			} else {
-				p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
-			}
+			p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
 
-			if p[0].roundsExisted() > 0 {
-				// If character already existed for a round, presumably because of Turns mode, just update Random Test handicap
-				if sys.autolevel {
-					foo := math.Pow(s.autolvmul, float64(-s.autolevels[i]))
-					p[0].life = int32(math.Ceil(foo * float64(p[0].life)))
-				}
-			} else if s.round == 1 || s.tmode[i&1] == TM_Turns {
+			if p[0].roundsExisted() == 0 && (s.round == 1 || s.tmode[i&1] == TM_Turns) {
 				// If round 1 or a new character in Turns mode, initialize values
 				if p[0].ocd().life != -1 {
 					p[0].life = Clamp(p[0].ocd().life, 0, p[0].lifeMax)
@@ -2950,14 +2901,9 @@ func (s *System) runNextRound() bool {
 				if s.chars[i][0].win() || (!s.chars[i][0].lose() && tm != TM_Turns) {
 					for j := i; j < len(s.chars); j += 2 {
 						if len(s.chars[j]) > 0 {
-							if s.chars[j][0].win() {
-								if sys.autolevel {
-									s.chars[j][0].life = Max(1, int32(math.Ceil(math.Pow(s.autolvmul,
-										float64(s.autolevels[i]))*float64(s.chars[j][0].life))))
-								}
-							} else {
-								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
-							}
+							if !s.chars[j][0].win() {
+ 								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+ 							}
 						}
 					}
 				}
@@ -3157,135 +3103,6 @@ func (bk *RoundStartBackup) Restore() {
 	// Restore match info
 	sys.wins, sys.draws = bk.oldWins, bk.oldDraws
 	sys.teamLeader = bk.oldTeamLeader
-}
-
-// Code responsible for updating the 'autolevel.save' file.
-// This file stores win/loss data for each character per palette, which is used by 'randomtest.lua'.
-// The 'randomtest.lua' script reads this data to generate AI ranks and adjust the difficulty of opponents in random battles.
-
-type wincntMap map[string][]int32 // Map of character definitions to their win counts per palette
-
-// Initializes the win count map by reading from 'autolevel.save' file
-func (wm *wincntMap) init() {
-	if sys.autolevel {
-		b, err := os.ReadFile(sys.wincntFileName) // Read the autolevel.save file
-		if err != nil {
-			return
-		}
-		str := string(b)
-		if len(str) < 3 {
-			return
-		}
-		if str[:3] == "\ufeff" { // Remove Byte Order Mark if present
-			str = str[3:]
-		}
-		// Converts array of strings to array of int32
-		toint := func(strAry []string) (intAry []int32) {
-			for _, s := range strAry {
-				i, _ := strconv.ParseInt(s, 10, 32)
-				intAry = append(intAry, int32(i))
-			}
-			return
-		}
-		// Parse each line in the autolevel.save file
-		for _, l := range strings.Split(str, "\n") {
-			tmp := strings.Split(l, ",")
-			if len(tmp) >= 2 {
-				item := toint(strings.Split(strings.TrimSpace(tmp[1]), " ")) // Get win counts per palette
-				if len(item) < sys.cfg.Config.PaletteMax {
-					item = append(item, make([]int32, sys.cfg.Config.PaletteMax-len(item))...) // Ensure item has sys.cfg.Config.PaletteMax elements
-				}
-				(*wm)[tmp[0]] = item // Map character definition to win counts
-			}
-		}
-	}
-}
-
-// Updates the win count map after a match and writes to 'autolevel.save' file
-func (wm *wincntMap) update() {
-	// Calculates win points based on team modes and number of simul characters
-	winPoint := func(i int) int32 {
-		if sys.tmode[(i+1)&1] == TM_Simul || sys.tmode[(i+1)&1] == TM_Tag {
-			if sys.tmode[i&1] != TM_Simul && sys.tmode[i&1] != TM_Tag {
-				return sys.numSimul[(i+1)&1]
-			} else if sys.numSimul[(i+1)&1] > sys.numSimul[i&1] {
-				return sys.numSimul[(i+1)&1] / sys.numSimul[i&1]
-			}
-		}
-		return 1
-	}
-	// Updates win counts for winning characters
-	win := func(i int) {
-		item := wm.getItem(sys.cgi[i].def)
-		item[sys.cgi[i].palno-1] += winPoint(i)
-		wm.setItem(i, item)
-	}
-	// Updates win counts for losing characters
-	lose := func(i int) {
-		item := wm.getItem(sys.cgi[i].def)
-		item[sys.cgi[i].palno-1] -= winPoint(i)
-		wm.setItem(i, item)
-	}
-	if sys.autolevel && sys.matchOver() {
-		// Iterate over all characters in the match
-		for i, p := range sys.chars {
-			if len(p) > 0 {
-				if p[0].win() {
-					win(i) // Update win counts for winners
-				} else if p[0].lose() {
-					lose(i) // Update win counts for losers
-				}
-			}
-		}
-		// Write updated win counts back to 'autolevel.save' file
-		var str string
-		for k, v := range *wm {
-			str += k + ","
-			for _, w := range v {
-				str += fmt.Sprintf(" %v", w)
-			}
-			str += "\r\n"
-		}
-		f, err := os.Create(sys.wincntFileName)
-		if err == nil {
-			f.Write([]byte(str))
-			chk(f.Close())
-		}
-	}
-}
-
-// Retrieves win counts for a character, ensuring the slice has sys.cfg.Config.PaletteMax elements
-func (wm wincntMap) getItem(def string) []int32 {
-	lv := wm[def]
-	if len(lv) < sys.cfg.Config.PaletteMax {
-		lv = append(lv, make([]int32, sys.cfg.Config.PaletteMax-len(lv))...)
-	}
-	return lv
-}
-
-// Sets win counts for a character, averaging values for non-selectable palettes
-func (wm wincntMap) setItem(pn int, item []int32) {
-	var ave, palcnt int32 = 0, 0
-	for i, v := range item {
-		if pal, ok := sys.cgi[pn].palInfo[i]; ok && pal.selectable {
-			ave += v
-			palcnt++
-		}
-	}
-	if palcnt > 0 {
-		ave /= palcnt
-	}
-	for i := range item {
-		if pal, ok := sys.cgi[pn].palInfo[i]; !ok || !pal.selectable {
-			item[i] = ave // Set non-selectable palettes to average value
-		}
-	}
-	wm[sys.cgi[pn].def] = item
-}
-
-// Gets the win count (level) for a character's specific palette
-func (wm wincntMap) getLevel(p int) int32 {
-	return wm.getItem(sys.cgi[p].def)[sys.cgi[p].palno-1]
 }
 
 type SelectChar struct {

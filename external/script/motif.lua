@@ -245,7 +245,6 @@ local motif =
 		--menu_itemname_survivalcoop = 'SURVIVAL CO-OP',
 		--menu_itemname_bonusgames = 'BONUS GAMES', --Ikemen feature
 		--menu_itemname_watch = 'CPU MATCH',
-		--menu_itemname_randomtest = 'RANDOMTEST', --Ikemen feature
 		--menu_itemname_replay = 'REPLAY', --Ikemen feature
 		--menu_itemname_options = 'OPTIONS',
 		--menu_itemname_back = 'BACK', --Ikemen feature

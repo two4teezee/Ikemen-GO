@@ -2389,7 +2389,6 @@ end
 
 --Load additional scripts
 start = require('external.script.start')
-randomtest = require('external.script.randomtest')
 options = require('external.script.options')
 storyboard = require('external.script.storyboard')
 menu = require('external.script.menu')
@@ -2500,7 +2499,6 @@ function main.f_default()
 	main.victoryScreen = false --if victory screen should be shown
 	resetAILevel()
 	resetRemapInput()
-	setAutoLevel(false)
 	setConsecutiveWins(1, 0)
 	setConsecutiveWins(2, 0)
 	setConsecutiveRounds(false)
@@ -2772,12 +2770,6 @@ main.t_itemname = {
 	['options'] = function()
 		hook.run("main.t_itemname")
 		return options.menu.loop
-	end,
-	--RANDOMTEST
-	['randomtest'] = function()
-		setGameMode('randomtest')
-		hook.run("main.t_itemname")
-		return randomtest.run
 	end,
 	--REPLAY
 	['replay'] = function()
@@ -4504,17 +4496,6 @@ motif.f_start()
 if main.flags['-p1'] ~= nil and main.flags['-p2'] ~= nil then
 	main.f_default()
 	main.f_commandLine()
-end
-
-if main.flags['-stresstest'] ~= nil then
-	main.f_default()
-	local frameskip = tonumber(main.flags['-stresstest'])
-	if frameskip >= 1 then
-		setGameSpeed((frameskip + 1) * gameOption('Config.Framerate'))
-	end
-	setGameMode('randomtest')
-	randomtest.run()
-	os.exit()
 end
 
 main.f_loadingRefresh(main.txt_loading)

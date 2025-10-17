@@ -834,7 +834,7 @@ type VulkanShadowMapTexture struct {
 	tex                  *Texture_VK
 }
 
-//Set 0
+// Set 0
 type VulkanModelProgramUniformBufferObject0 struct {
 	viewMatrix           [16]float32
 	projectionMatrix     [16]float32
@@ -846,7 +846,7 @@ type VulkanModelProgramUniformBufferObject0 struct {
 	mipCount             int32
 }
 
-//Set 1
+// Set 1
 type VulkanModelProgramUniformBufferObject1 struct {
 	texTransform                  [12]float32 //[9]float32
 	normalMapTransform            [12]float32 //[9]float32
@@ -864,7 +864,7 @@ type VulkanModelProgramUniformBufferObject1 struct {
 	enableAlpha                   bool
 }
 
-//Set 2
+// Set 2
 type VulkanModelProgramUniformBufferObject2 struct {
 	modelMatrix                 [16]float32
 	normalMatrix                [16]float32
@@ -1128,7 +1128,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 	}
 	//Try to use discrete GPU, use the first available GPU if discrete GPU is not available
 	r.gpuIndex = 0
-	for i, _ := range r.gpuDevices {
+	for i := range r.gpuDevices {
 		var gpuProperties vk.PhysicalDeviceProperties
 		vk.GetPhysicalDeviceProperties(r.gpuDevices[i], &gpuProperties)
 		gpuProperties.Deref()
@@ -2386,7 +2386,7 @@ func (r *Renderer_VK) GetShadowMapPipeline(state *VulkanShadowMapPipelineState) 
 		Width:    float32(r.shadowMapTextures.width),
 		Height:   float32(r.shadowMapTextures.height),
 	}}
-	scissors := []vk.Rect2D{vk.Rect2D{
+	scissors := []vk.Rect2D{{
 		Offset: vk.Offset2D{
 			X: 0,
 			Y: 0,
@@ -4130,12 +4130,12 @@ func (r *Renderer_VK) CreateDescriptorPool() {
 		panic(err)
 	}
 	imageInfo := [][]vk.DescriptorImageInfo{
-		[]vk.DescriptorImageInfo{{
+		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
 			ImageView:   r.renderTargets[0].texture.imageView,
 			Sampler:     r.spriteSamplers[1],
 		}},
-		[]vk.DescriptorImageInfo{{
+		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
 			ImageView:   r.renderTargets[1].texture.imageView,
 			Sampler:     r.spriteSamplers[1],
@@ -4891,7 +4891,7 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 			ClearValue: vk.NewClearDepthStencil(1.0, 0),
 		},
 	}
-	vk.CmdClearAttachments(r.commandBuffers[0], uint32(len(clearAttachments)), clearAttachments, 1, []vk.ClearRect{vk.ClearRect{
+	vk.CmdClearAttachments(r.commandBuffers[0], uint32(len(clearAttachments)), clearAttachments, 1, []vk.ClearRect{{
 		Rect: vk.Rect2D{
 			Offset: vk.Offset2D{
 				X: 0, Y: 0,
@@ -5323,7 +5323,7 @@ func (r *Renderer_VK) prepareModelPipeline(bufferIndex uint32, env *Environment)
 			ClearValue: vk.NewClearDepthStencil(1.0, 0),
 		},
 	}
-	vk.CmdClearAttachments(r.commandBuffers[0], uint32(len(clearAttachments)), clearAttachments, 1, []vk.ClearRect{vk.ClearRect{
+	vk.CmdClearAttachments(r.commandBuffers[0], uint32(len(clearAttachments)), clearAttachments, 1, []vk.ClearRect{{
 		Rect: vk.Rect2D{
 			Offset: vk.Offset2D{
 				X: 0, Y: 0,
@@ -6442,7 +6442,7 @@ func (r *Renderer_VK) RenderElements(mode PrimitiveMode, count, offset int) {
 		Width:    float32(sys.scrrect[2]),
 		Height:   float32(sys.scrrect[3]),
 	}}
-	scissors := []vk.Rect2D{vk.Rect2D{
+	scissors := []vk.Rect2D{{
 		Offset: vk.Offset2D{
 			X: 0,
 			Y: 0,
@@ -6731,7 +6731,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 
 	imageInfo := [][]vk.DescriptorImageInfo{
-		[]vk.DescriptorImageInfo{{
+		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
 			ImageView:   envTexture.imageView,
 			Sampler:     envTexture.sampler,
@@ -7004,7 +7004,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 	vk.CmdBindVertexBuffers(r.commandBuffers[0], 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
-		[]vk.DescriptorImageInfo{{
+		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
 			ImageView:   cubeTexture.imageView,
 			Sampler:     cubeTexture.sampler,
@@ -7156,7 +7156,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 	vk.CmdBindVertexBuffers(r.commandBuffers[0], 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
-		[]vk.DescriptorImageInfo{{
+		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
 			ImageView:   cubeTexture.imageView,
 			Sampler:     cubeTexture.sampler,

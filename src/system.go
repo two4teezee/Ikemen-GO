@@ -2921,8 +2921,8 @@ func (s *System) runNextRound() bool {
 					for j := i; j < len(s.chars); j += 2 {
 						if len(s.chars[j]) > 0 {
 							if !s.chars[j][0].win() {
- 								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
- 							}
+								s.chars[j][0].life = Max(1, s.cgi[j].data.life)
+							}
 						}
 					}
 				}

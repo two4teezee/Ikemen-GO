@@ -142,7 +142,7 @@ check_deps() {
 			if ((${#missing[@]})); then
 				echo "ERROR: Missing tools: ${missing[*]}" >&2
 				echo "Install with Homebrew:" >&2
-				echo "  brew update && brew install git go pkg-config nasm libxmp" >&2
+				echo "  brew update && brew install git go pkg-config nasm libxmp molten-vk" >&2
 				exit 1
 			fi
 		;;
@@ -183,6 +183,45 @@ require_libxmp() {
 			echo "ERROR: libxmp dev package not found (pkg-config module 'libxmp')." >&2
 			;;
 		esac
+		exit 1
+	fi
+}
+
+# MoltenVK (macOS Vulkan) detection
+MVK_DYLIB=""
+MVK_LIB_DIR=""
+find_moltenvk() {
+	local candidates=()
+	# Prefer Homebrew paths if available
+	if command -v brew >/dev/null 2>&1; then
+		local bp; bp="$(brew --prefix 2>/dev/null || true)"
+		[[ -n "$bp" ]] && candidates+=("$bp/opt/molten-vk/lib/libMoltenVK.dylib")
+		local mp; mp="$(brew --prefix molten-vk 2>/dev/null || true)"
+		[[ -n "$mp" ]] && candidates+=("$mp/lib/libMoltenVK.dylib")
+	fi
+	# Common fallbacks (Apple Silicon / Intel)
+	candidates+=("/opt/homebrew/lib/libMoltenVK.dylib" "/usr/local/lib/libMoltenVK.dylib")
+	for p in "${candidates[@]}"; do
+		if [[ -f "$p" ]]; then
+			MVK_DYLIB="$p"
+			MVK_LIB_DIR="$(dirname "$p")"
+			return 0
+		fi
+	done
+	return 1
+}
+
+require_moltenvk() {
+	[[ "$GOOS" != "darwin" ]] && return 0
+	if find_moltenvk; then
+		# Ensure clang can find MoltenVK when CGO links
+		if [[ "${CGO_LDFLAGS:-}" != *"-L$MVK_LIB_DIR"* ]]; then
+			export CGO_LDFLAGS="${CGO_LDFLAGS:-} -L$MVK_LIB_DIR"
+		fi
+	else
+		echo "ERROR: MoltenVK not found (required for the Vulkan renderer on macOS)." >&2
+		echo "Install with Homebrew:" >&2
+		echo "  brew install molten-vk" >&2
 		exit 1
 	fi
 }
@@ -462,6 +501,9 @@ function build() {
 		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks"
 	fi
 
+	# On macOS we require MoltenVK for the Vulkan renderer
+	require_moltenvk
+
 	echo "==> Building Go binary (this may take a while)..."
 	go build -trimpath -v \
 	  -ldflags "-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
@@ -645,6 +687,18 @@ function bundle_shared_libs() {
 		# Linux & macOS
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.so* "$dest_lib/" 2>/dev/null || true
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.dylib "$dest_lib/" 2>/dev/null || true
+	fi
+	# Bundle MoltenVK on macOS
+	if [[ "$GOOS" == "darwin" ]]; then
+		local mvk="${MVK_DYLIB:-}"
+		if [[ -z "$mvk" ]]; then
+			for d in \
+				"/opt/homebrew/lib/libMoltenVK.dylib" \
+				"/usr/local/lib/libMoltenVK.dylib"; do
+				[[ -f "$d" ]] && { mvk="$d"; break; }
+			done
+		fi
+		[[ -n "$mvk" ]] && cp -av "$mvk" "$dest_lib/" 2>/dev/null || true
 	fi
 	# Always try to bundle libxmp for portable runtime on Linux/macOS.
 	# (Windows was handled above.)

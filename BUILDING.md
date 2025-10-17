@@ -103,7 +103,7 @@ BUILD_FFMPEG=no ./build/build.sh Linux      # or LinuxARM
 
 ### Dependencies (Homebrew)
 ```bash
-brew update && brew install git go pkg-config nasm libxmp
+brew update && brew install git go pkg-config nasm libxmp molten-vk
 # Optional: brew install yasm
 ```
 

@@ -141,10 +141,10 @@ jobs:
             export HOMEBREW_NO_AUTO_UPDATE=1
             export HOMEBREW_NO_INSTALL_FROM_API=1
             brew update-reset || true
-            ( brew install --quiet pkg-config git nasm libxmp ) || (
+            ( brew install --quiet pkg-config git nasm libxmp molten-vk ) || (
               echo "First attempt failed; retrying with API mode..." >&2
               unset HOMEBREW_NO_INSTALL_FROM_API
-              brew install --quiet pkg-config git nasm libxmp
+              brew install --quiet pkg-config git nasm libxmp molten-vk
             )
           fi
 

@@ -1,21 +1,22 @@
 package main
 
 import (
+	"container/list"
 	_ "embed"
 	"math"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
-	"github.com/ikemen-engine/glfont"
 )
 
 type Texture interface {
 	SetData(data []byte)
-	SetDataG(data []byte, mag, min, ws, wt int32)
+	SetSubData(data []byte, x, y, width, height int32)
+	SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam)
 	SetPixelData(data []float32)
-	SetRGBPixelData(data []float32)
 	IsValid() bool
 	GetWidth() int32
 	GetHeight() int32
+	CopyData(src *Texture)
 }
 
 type Renderer interface {
@@ -41,9 +42,11 @@ type Renderer interface {
 	ReleaseModelPipeline()
 
 	newTexture(width, height, depth int32, filter bool) (t Texture)
+	newPaletteTexture() (t Texture)
+	newModelTexture(width, height, depth int32, filter bool) (t Texture)
 	newDataTexture(width, height int32) (t Texture)
 	newHDRTexture(width, height int32) (t Texture)
-	newCubeMapTexture(widthHeight int32, mipmap bool) (t Texture)
+	newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) (t Texture)
 
 	ReadPixels(data []uint8, width, height int)
 	Scissor(x, y, width, height int32)
@@ -64,6 +67,7 @@ type Renderer interface {
 	SetShadowMapUniformF(name string, values ...float32)
 	SetShadowMapUniformFv(name string, values []float32)
 	SetShadowMapUniformMatrix(name string, value []float32)
+	SetShadowMapUniformMatrix3(name string, value []float32)
 	SetShadowMapTexture(name string, t Texture)
 	SetShadowFrameTexture(i uint32)
 	SetShadowFrameCubeTexture(i uint32)
@@ -73,9 +77,15 @@ type Renderer interface {
 
 	RenderQuad()
 	RenderElements(mode PrimitiveMode, count, offset int)
+	RenderShadowMapElements(mode PrimitiveMode, count, offset int)
 	RenderCubeMap(envTexture Texture, cubeTexture Texture)
 	RenderFilteredCubeMap(distribution int32, cubeTexture Texture, filteredTexture Texture, mipmapLevel, sampleCount int32, roughness float32)
 	RenderLUT(distribution int32, cubeTexture Texture, lutTexture Texture, sampleCount int32)
+
+	PerspectiveProjectionMatrix(angle, aspect, near, far float32) mgl.Mat4
+	OrthographicProjectionMatrix(left, right, bottom, top, near, far float32) mgl.Mat4
+
+	NewWorkerThread() bool
 }
 
 //go:embed shaders/sprite.vert.glsl
@@ -111,9 +121,15 @@ var panoramaToCubeMapFragShader string
 //go:embed shaders/cubemapFiltering.frag.glsl
 var cubemapFilteringFragShader string
 
+//go:embed shaders/font.frag.glsl
+var fragmentFontShader string
+
+//go:embed shaders/font.vert.glsl
+var vertexFontShader string
+
 // The global, platform-specific rendering backend
 var gfx Renderer
-var gfxFont glfont.FontRenderer
+var gfxFont FontRenderer
 
 // Blend constants
 type BlendFunc int
@@ -132,6 +148,20 @@ type BlendEquation int
 const (
 	BlendAdd = BlendEquation(iota)
 	BlendReverseSubtract
+)
+
+type TextureSamplingParam int
+
+const (
+	TextureSamplingFilterNearest = TextureSamplingParam(iota)
+	TextureSamplingFilterLinear
+	TextureSamplingFilterNearestMipMapNearest
+	TextureSamplingFilterLinearMipMapNearest
+	TextureSamplingFilterNearestMipMapLinear
+	TextureSamplingFilterLinearMipMapLinear
+	TextureSamplingWrapClampToEdge
+	TextureSamplingWrapMirroredRepeat
+	TextureSamplingWrapRepeat
 )
 
 // Rotation holds rotation parameters
@@ -431,7 +461,7 @@ func RenderSprite(rp RenderParams) {
 		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(false, rp.blendAlpha)
 	}
 
-	proj := mgl.Ortho(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
+	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 
 	gfx.Scissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
@@ -585,7 +615,7 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	b := float32(color&0xff) / 255
 
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
-	proj := mgl.Ortho(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
+	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 
 	x1, y1 := float32(rect[0]), -float32(rect[1])
 	x2, y2 := float32(rect[0]+rect[2]), -float32(rect[1]+rect[3])
@@ -607,4 +637,112 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	}
 
 	renderWithBlending(render, TT_add, alpha, true, 0, nil, nil, nil, false)
+}
+
+type TextureAtlas struct {
+	texture Texture
+	width   int32
+	height  int32
+	depth   int32
+	filter  bool
+	resize  bool
+	skyline *list.List //[][2]uint32
+}
+
+func CreateTextureAtlas(width, height int32, depth int32, filter bool) *TextureAtlas {
+	ta := &TextureAtlas{width: width, height: height, texture: gfx.newTexture(width, height, depth, filter), depth: depth, filter: filter, skyline: list.New(), resize: false}
+	ta.skyline.PushBack([2]int32{0, 0})
+	return ta
+}
+func (ta *TextureAtlas) AddImage(width, height int32, data []byte) ([4]float32, bool) {
+	const maxWidth = 4096
+	if ta.resize {
+		if width > ta.width || height > ta.height {
+			if width > maxWidth/2 || height > maxWidth/2 {
+				return [4]float32{}, false
+			}
+			ta.Resize(width*2, height*2)
+		}
+	}
+	x, y, ok := ta.FindPlaceToInsert(width, height)
+	if !ok {
+		if ta.resize {
+			if ta.width != maxWidth && ta.height != maxWidth {
+				ta.Resize(ta.width*2, ta.height*2)
+			}
+			x, y, ok = ta.FindPlaceToInsert(width, height)
+		}
+		if !ok {
+			return [4]float32{}, false
+		}
+	}
+	ta.texture.SetSubData(data, x, y, width, height)
+	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
+}
+func (ta *TextureAtlas) FindPlaceToInsert(width, height int32) (int32, int32, bool) {
+	var bestX int32 = math.MaxInt32
+	var bestY int32 = math.MaxInt32
+	var bestItr *list.Element = nil
+	var bestItr2 *list.Element = nil
+	for itr := ta.skyline.Front(); itr != nil; itr = itr.Next() {
+		x := itr.Value.([2]int32)[0]
+		y := itr.Value.([2]int32)[1]
+		if width > ta.width-x {
+			break
+		}
+		if y >= bestY {
+			continue
+		}
+		xMax := x + width
+		var itr2 *list.Element
+		for itr2 = itr.Next(); itr2 != nil; itr2 = itr2.Next() {
+			x2 := itr2.Value.([2]int32)[0]
+			y2 := itr2.Value.([2]int32)[1]
+			if xMax <= x2 {
+				break
+			}
+			if y < y2 {
+				y = y2
+			}
+		}
+		if y >= bestY || height > ta.height-y {
+			continue
+		}
+		bestItr = itr
+		bestItr2 = itr2
+		bestX = x
+		bestY = y
+	}
+	if bestItr == nil {
+		return 0, 0, false
+	}
+	ta.skyline.InsertBefore([2]int32{bestX, bestY + height}, bestItr)
+
+	if bestItr2 == nil && bestX+width < ta.width {
+		ta.skyline.InsertBefore([2]int32{bestX + width, ta.skyline.Back().Value.([2]int32)[1]}, bestItr)
+	} else if bestItr2 != nil && bestX+width < bestItr2.Value.([2]int32)[0] {
+		ta.skyline.InsertBefore([2]int32{bestX + width, bestItr2.Prev().Value.([2]int32)[1]}, bestItr)
+	}
+	itrNext := bestItr
+	for itr := bestItr; itr != bestItr2; itr = itrNext {
+		itrNext = itr.Next()
+		ta.skyline.Remove(itr)
+	}
+	return bestX, bestY, true
+}
+
+func (ta *TextureAtlas) Resize(width, height int32) {
+	if width < ta.width || height < ta.height {
+		panic("New width cannot be smaller than old width")
+	}
+	if height < ta.height {
+		panic("New height cannot be smaller than old height")
+	}
+	t := gfx.newTexture(width, height, ta.depth, ta.filter)
+	t.CopyData(&ta.texture)
+	ta.skyline.PushBack([2]int32{ta.width, 0})
+	ta.width = width
+	ta.height = height
+	ta.texture = t
+	return
 }

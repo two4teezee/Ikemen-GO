@@ -797,6 +797,17 @@ options.t_itemname = {
 		end
 		return true
 	end,
+	--vk13
+	['vk13'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, {'pal', 's'}) then
+			sndPlay(motif.files.snd_data, motif.option_info.cursor_move_snd[1], motif.option_info.cursor_move_snd[2])
+			modifyGameOption('Video.RenderMode', "Vulkan 1.3")
+			options.modified = true
+			options.needReload = true
+			return false
+		end
+		return true
+	end,
 	--Resolution (submenu)
 	['resolution'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, {'$F', '$B', 'pal', 's'}) then

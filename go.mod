@@ -11,7 +11,7 @@ require (
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20240506104042-037f3cc74f2a
 	github.com/go-gl/mathgl v1.0.0
 	github.com/gopxl/beep/v2 v2.1.1-0.20240921133731-defe79638e99
-	github.com/ikemen-engine/glfont v0.0.0-20241213091943-20149a0b660a
+	github.com/ikemen-engine/glfont v0.0.0-20251016155222-a9b96228f830
 	github.com/ikemen-engine/reisen v0.1.10-0.20250928163542-0bb3c3392852
 	github.com/lukegb/dds v0.0.0-20190402175749-8b7170e64003
 	github.com/qmuntal/gltf v0.24.2
@@ -23,13 +23,13 @@ require (
 )
 
 require (
+	github.com/Eiton/vulkan v0.0.0-20250730113011-bf42e2273c75 // indirect
 	github.com/icza/bitio v1.1.0 // indirect
 	github.com/mewkiz/flac v1.0.12 // indirect
 	github.com/mewkiz/pkg v0.0.0-20230226050401-4010bf0fec14 // indirect
 )
 
 require (
-	//github.com/Eiton/glfont v0.0.0-20241204103952-50dc7762af2b // indirect
 	github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d // indirect
 	github.com/ebitengine/oto/v3 v3.2.0 // indirect
 	github.com/ebitengine/purego v0.7.1 // indirect

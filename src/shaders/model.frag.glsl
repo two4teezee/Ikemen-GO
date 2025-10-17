@@ -1,3 +1,80 @@
+struct Light
+{
+    vec3 direction;
+    float range;
+
+    vec3 color;
+    float intensity;
+
+    vec3 position;
+    float innerConeCos;
+
+    float outerConeCos;
+    int type;
+
+    float shadowBias;
+    float shadowMapFar;
+};
+#if __VERSION__ >= 450
+#define ENABLE_SHADOW 
+#define COMPAT_TEXTURE texture
+#define COMPAT_TEXTURE_CUBE texture
+#define COMPAT_TEXTURE_CUBE_LOD textureLod
+#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
+#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+layout(binding = 0) uniform EnvironmentUniform {
+	layout(offset = 384) Light lights[4];
+	layout(offset = 640) mat3 environmentRotation;
+	layout(offset = 688) vec3 cameraPosition;
+	layout(offset = 700) float environmentIntensity;
+	layout(offset = 704) int mipCount;
+};
+layout(binding = 1) uniform MaterialUniform {
+	mat3 texTransform,normalMapTransform,metallicRoughnessMapTransform,ambientOcclusionMapTransform,emissionMapTransform;
+	vec4 baseColorFactor;
+	vec3 emission;
+	vec2 metallicRoughness;
+	float ambientOcclusionStrength;
+	float alphaThreshold;
+	
+	bool unlit;
+	bool enableAlpha;
+};
+layout(binding = 2) uniform UniformBufferObject {
+	layout(offset = 192) float meshOutline;
+	layout(offset = 196) float gray;
+	layout(offset = 200) float hue;
+	layout(offset = 208) vec3 add;
+	layout(offset = 224) vec3 mult;
+	
+};
+layout (constant_id = 6) const bool useTexture = false;
+layout (constant_id = 7) const bool useNormalMap = false;
+layout (constant_id = 8) const bool useMetallicRoughnessMap = false;
+layout (constant_id = 9) const bool useEmissionMap = false;
+layout (constant_id = 10) const bool neg = false;
+layout (constant_id = 11) const bool useShadowMap = false;
+
+layout(binding = 5) uniform samplerCube lambertianEnvSampler;
+layout(binding = 6) uniform samplerCube GGXEnvSampler;
+layout(binding = 7) uniform sampler2D GGXLUT;
+
+layout(binding = 8) uniform sampler2D tex;
+layout(binding = 9) uniform sampler2D normalMap;
+layout(binding = 10) uniform sampler2D metallicRoughnessMap;
+layout(binding = 11) uniform sampler2D ambientOcclusionMap;
+layout(binding = 12) uniform sampler2D emissionMap;
+layout(binding = 13) uniform samplerCubeArray shadowCubeMap;
+
+layout(location = 0) in vec3 normal;
+layout(location = 1) in vec3 tangent;
+layout(location = 2) in vec3 bitangent;
+layout(location = 3) in vec2 texcoord;
+layout(location = 4) in vec4 vColor;
+layout(location = 5) in vec3 worldSpacePos;
+layout(location = 6) in vec4 lightSpacePos[4];
+layout(location = 0) out vec4 FragColor;
+#else
 #if __VERSION__ >= 130
 #extension GL_ARB_texture_cube_map_array : enable
 #define COMPAT_VARYING in
@@ -24,23 +101,6 @@ uniform samplerCube shadowCubeMap[4];
 #define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
 #endif
 #endif
-struct Light
-{
-    vec3 direction;
-    float range;
-
-    vec3 color;
-    float intensity;
-
-    vec3 position;
-    float innerConeCos;
-
-    float outerConeCos;
-    int type;
-
-    float shadowBias;
-    float shadowMapFar;
-};
 
 uniform sampler2D tex;
 uniform mat3 texTransform;
@@ -89,6 +149,10 @@ COMPAT_VARYING vec3 bitangent;
 COMPAT_VARYING vec3 worldSpacePos;
 COMPAT_VARYING vec4 lightSpacePos[4];
 
+const bool useShadowMap = true;
+#endif
+
+
 const float PI = 3.14159265358979;
 const int LightType_Directional = 0;
 const int LightType_Point = 1;
@@ -102,6 +166,9 @@ float clampedDot(vec3 x, vec3 y)
 float DirectionalLightShadowCalculation(int index, vec4 lightSpacePos,float NdotL,float shadowBias)
 {
     #ifdef ENABLE_SHADOW
+    if(!useShadowMap){
+        return 1.0;
+    }
     // perform perspective divide
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     // transform to [0,1] range
@@ -124,6 +191,9 @@ float DirectionalLightShadowCalculation(int index, vec4 lightSpacePos,float Ndot
 float SpotLightShadowCalculation(int index, vec3 pointToLight, vec4 lightSpacePos,float NdotL,float farPlane,float shadowBias)
 {
     #ifdef ENABLE_SHADOW
+    if(!useShadowMap){
+        return 1.0;
+    }
     float epsilon = 1.0 / 1024.0;
     vec2 xy = vec2(clamp(lightSpacePos.x,epsilon,1.0-epsilon),clamp(lightSpacePos.y,epsilon,1.0-epsilon));
     float closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
@@ -142,6 +212,9 @@ float SpotLightShadowCalculation(int index, vec3 pointToLight, vec4 lightSpacePo
 float PointLightShadowCalculation(int index, vec3 pointToLight,float NdotL,float farPlane,float shadowBias)
 {
     #ifdef ENABLE_SHADOW
+    if(!useShadowMap){
+        return 1.0;
+    }
     vec3 xyz = -pointToLight;
     float closestDepth = COMPAT_SHADOW_CUBE_MAP_TEXTURE();
     // it is currently in linear range between [0,1]. Re-transform back to original value

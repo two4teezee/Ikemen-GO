@@ -2467,17 +2467,17 @@ func loadEnvironment(filepath string) (*Environment, error) {
 			if !gfx.IsModelEnabled() {
 				return
 			}
+			lowestMipLevel := int32(4)
 			env.hdrTexture.tex = gfx.newHDRTexture(int32(img.Bounds().Max.X), int32(img.Bounds().Max.Y))
 
-			env.hdrTexture.tex.SetRGBPixelData(data)
-			env.cubeMapTexture.tex = gfx.newCubeMapTexture(256, true)
-			env.lambertianTexture.tex = gfx.newCubeMapTexture(256, false)
-			env.GGXTexture.tex = gfx.newCubeMapTexture(256, true)
+			env.hdrTexture.tex.SetPixelData(data)
+			env.cubeMapTexture.tex = gfx.newCubeMapTexture(256, true, 0)
+			env.lambertianTexture.tex = gfx.newCubeMapTexture(256, false, 0)
+			env.GGXTexture.tex = gfx.newCubeMapTexture(256, true, lowestMipLevel)
 			env.GGXLUT.tex = gfx.newDataTexture(1024, 1024)
 
 			gfx.RenderCubeMap(env.hdrTexture.tex, env.cubeMapTexture.tex)
 			gfx.RenderFilteredCubeMap(0, env.cubeMapTexture.tex, env.lambertianTexture.tex, 0, env.lambertianSampleCount, 0)
-			lowestMipLevel := int32(4)
 			env.mipmapLevels = int32(Floor(float32(math.Log2(256)))) + 1 - lowestMipLevel
 			for i := int32(0); i < env.mipmapLevels; i++ {
 				roughness := float32(i) / float32((env.mipmapLevels - 1))
@@ -2600,36 +2600,36 @@ func loadglTFModel(filepath string) (*Model, error) {
 			} else {
 				texture := &GLTFTexture{}
 				s := doc.Samplers[*t.Sampler]
-				mag, _ := map[gltf.MagFilter]int32{
-					gltf.MagUndefined: 9729,
-					gltf.MagNearest:   9728,
-					gltf.MagLinear:    9729,
+				mag, _ := map[gltf.MagFilter]TextureSamplingParam{
+					gltf.MagUndefined: TextureSamplingFilterLinear,
+					gltf.MagNearest:   TextureSamplingFilterNearest,
+					gltf.MagLinear:    TextureSamplingFilterLinear,
 				}[s.MagFilter]
-				min, _ := map[gltf.MinFilter]int32{
-					gltf.MinUndefined:            9729,
-					gltf.MinNearest:              9728,
-					gltf.MinLinear:               9729,
-					gltf.MinNearestMipMapNearest: 9984,
-					gltf.MinLinearMipMapNearest:  9985,
-					gltf.MinNearestMipMapLinear:  9986,
-					gltf.MinLinearMipMapLinear:   9987,
+				min, _ := map[gltf.MinFilter]TextureSamplingParam{
+					gltf.MinUndefined:            TextureSamplingFilterLinear,
+					gltf.MinNearest:              TextureSamplingFilterLinear,
+					gltf.MinLinear:               TextureSamplingFilterLinear,
+					gltf.MinNearestMipMapNearest: TextureSamplingFilterNearestMipMapNearest,
+					gltf.MinLinearMipMapNearest:  TextureSamplingFilterLinearMipMapNearest,
+					gltf.MinNearestMipMapLinear:  TextureSamplingFilterNearestMipMapLinear,
+					gltf.MinLinearMipMapLinear:   TextureSamplingFilterLinearMipMapLinear,
 				}[s.MinFilter]
-				wrapS, _ := map[gltf.WrappingMode]int32{
-					gltf.WrapClampToEdge:    33071,
-					gltf.WrapMirroredRepeat: 33648,
-					gltf.WrapRepeat:         10497,
+				wrapS, _ := map[gltf.WrappingMode]TextureSamplingParam{
+					gltf.WrapClampToEdge:    TextureSamplingWrapClampToEdge,
+					gltf.WrapMirroredRepeat: TextureSamplingWrapMirroredRepeat,
+					gltf.WrapRepeat:         TextureSamplingWrapRepeat,
 				}[s.WrapS]
-				wrapT, _ := map[gltf.WrappingMode]int32{
-					gltf.WrapClampToEdge:    33071,
-					gltf.WrapMirroredRepeat: 33648,
-					gltf.WrapRepeat:         10497,
+				wrapT, _ := map[gltf.WrappingMode]TextureSamplingParam{
+					gltf.WrapClampToEdge:    TextureSamplingWrapClampToEdge,
+					gltf.WrapMirroredRepeat: TextureSamplingWrapMirroredRepeat,
+					gltf.WrapRepeat:         TextureSamplingWrapRepeat,
 				}[s.WrapT]
 
 				img := images[*t.Source]
 				rgba := image.NewRGBA(img.Bounds())
 				draw.Draw(rgba, img.Bounds(), img, img.Bounds().Min, draw.Src)
 				sys.mainThreadTask <- func() {
-					texture.tex = gfx.newTexture(int32(img.Bounds().Max.X), int32(img.Bounds().Max.Y), 32, false)
+					texture.tex = gfx.newModelTexture(int32(img.Bounds().Max.X), int32(img.Bounds().Max.Y), 32, false)
 					texture.tex.SetDataG(rgba.Pix, mag, min, wrapS, wrapT)
 				}
 				textureMap[[2]int32{int32(*t.Source), int32(*t.Sampler)}] = texture
@@ -2640,16 +2640,16 @@ func loadglTFModel(filepath string) (*Model, error) {
 				mdl.textures = append(mdl.textures, texture)
 			} else {
 				texture := &GLTFTexture{}
-				mag := 9728
-				min := 9728
-				wrapS := 10497
-				wrapT := 10497
+				mag := TextureSamplingFilterNearest
+				min := TextureSamplingFilterNearest
+				wrapS := TextureSamplingWrapRepeat
+				wrapT := TextureSamplingWrapRepeat
 				img := images[*t.Source]
 				rgba := image.NewRGBA(img.Bounds())
 				draw.Draw(rgba, img.Bounds(), img, img.Bounds().Min, draw.Src)
 				sys.mainThreadTask <- func() {
-					texture.tex = gfx.newTexture(int32(img.Bounds().Max.X), int32(img.Bounds().Max.Y), 32, false)
-					texture.tex.SetDataG(rgba.Pix, int32(mag), int32(min), int32(wrapS), int32(wrapT))
+					texture.tex = gfx.newModelTexture(int32(img.Bounds().Max.X), int32(img.Bounds().Max.Y), 32, false)
+					texture.tex.SetDataG(rgba.Pix, mag, min, wrapS, wrapT)
 				}
 				textureMap[[2]int32{int32(*t.Source), -1}] = texture
 				mdl.textures = append(mdl.textures, texture)
@@ -4133,7 +4133,7 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		} else {
 			gfx.SetShadowMapUniformI("useTexture", 0)
 		}
-		gfx.SetModelUniformMatrix3("texTransform", mat.textureTransform[:])
+		gfx.SetShadowMapUniformMatrix3("texTransform", mat.textureTransform[:])
 		for i := 0; i < numLights; i++ {
 			culled := true
 			if n.skin == nil && p.morphTargetCount == 0 {
@@ -4147,18 +4147,155 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 				} else {
 					if isCulled(viewProjMatrices[i*6].Mul4(n.worldTransform), p.boundingBox) {
 						continue
+					} else {
+						culled = false
 					}
 				}
 			}
 			if culled == false {
 				gfx.SetShadowMapUniformI("layerOffset", i*6)
 				gfx.SetShadowMapUniformI("lightIndex", i+lightIndex)
-				gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
+				gfx.RenderShadowMapElements(mode, int(p.numIndices), int(p.elementBufferOffset))
 			}
 		}
 	}
 }
+func (model *Model) drawShadow(bufferIndex uint32, sceneNumber int, offset [3]float32) {
+	scene := model.scenes[sceneNumber]
+	gfx.prepareShadowMapPipeline(bufferIndex)
+	numLights := 0
+	var lightMatrices [32]mgl.Mat4
+	var lightTypes [4]LightType
+	for i := 0; i < 4; i++ {
+		if i >= len(scene.lightNodes) {
+			gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0)
+			continue
+		}
+		numLights += 1
+		lightNode := model.nodes[scene.lightNodes[i]]
+		light := model.lights[*lightNode.lightIndex]
+		shadowMapNear := float32(0.1)
+		if light.lightType == DirectionalLight {
+			shadowMapNear = -20
+		}
+		shadowMapFar := float32(50)
+		shadowMapBottom := float32(-20)
+		shadowMapTop := float32(20)
+		shadowMapLeft := float32(-20)
+		shadowMapRight := float32(20)
 
+		if light.lightType == DirectionalLight {
+			shadowMapNear = -20
+		}
+		if v := light.shadowMapNear.getValue().(float32); v != 0 {
+			shadowMapNear = v
+		}
+		if v := light.shadowMapFar.getValue().(float32); v != 0 {
+			shadowMapFar = v
+		}
+		if v := light.shadowMapBottom.getValue().(float32); v != 0 {
+			shadowMapBottom = v
+		}
+		if v := light.shadowMapTop.getValue().(float32); v != 0 {
+			shadowMapTop = v
+		}
+		if v := light.shadowMapLeft.getValue().(float32); v != 0 {
+			shadowMapLeft = v
+		}
+		if v := light.shadowMapRight.getValue().(float32); v != 0 {
+			shadowMapRight = v
+		}
+		if v := lightNode.shadowMapNear.getValue().(float32); v != 0 {
+			shadowMapNear = v
+		}
+		if v := lightNode.shadowMapFar.getValue().(float32); v != 0 {
+			shadowMapFar = v
+		}
+		if v := lightNode.shadowMapBottom.getValue().(float32); v != 0 {
+			shadowMapBottom = v
+		}
+		if v := lightNode.shadowMapTop.getValue().(float32); v != 0 {
+			shadowMapTop = v
+		}
+		if v := lightNode.shadowMapLeft.getValue().(float32); v != 0 {
+			shadowMapLeft = v
+		}
+		if v := lightNode.shadowMapRight.getValue().(float32); v != 0 {
+			shadowMapRight = v
+		}
+
+		lightProj := gfx.PerspectiveProjectionMatrix(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
+		if light.lightType == DirectionalLight {
+			lightProj = gfx.OrthographicProjectionMatrix(shadowMapLeft, shadowMapRight, shadowMapBottom, shadowMapTop, shadowMapNear, shadowMapFar)
+		} else if light.lightType == SpotLight {
+			lightProj = gfx.PerspectiveProjectionMatrix(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
+		}
+		lightTypes[i] = light.lightType
+		if light.lightType == PointLight {
+			//var lightMatrices [6]mgl.Mat4
+			lightMatrices[i*6] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+			lightMatrices[i*6+1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
+			lightMatrices[i*6+2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
+			lightMatrices[i*6+3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
+			lightMatrices[i*6+4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
+			lightMatrices[i*6+5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
+			for j := 0; j < 6; j++ {
+				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[i*6+j][:])
+			}
+			gfx.SetShadowMapUniformI("lights["+strconv.Itoa(i)+"].type", 2)
+
+		} else {
+			lightView := mgl.LookAtV([3]float32{lightNode.localTransform[12], lightNode.localTransform[13], lightNode.localTransform[14]}, [3]float32{lightNode.localTransform[12] + lightNode.lightDirection[0], lightNode.localTransform[13] + lightNode.lightDirection[1], lightNode.localTransform[14] + lightNode.lightDirection[2]}, [3]float32{0, 1, 0})
+			lightMatrices[i*6] = lightProj.Mul4(lightView)
+			gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrices[i*6][:])
+			if light.lightType == DirectionalLight {
+				gfx.SetShadowMapUniformI("lights["+strconv.Itoa(i)+"].type", 1)
+			} else {
+				gfx.SetShadowMapUniformI("lights["+strconv.Itoa(i)+"].type", 3)
+			}
+		}
+		gfx.SetShadowMapUniformF("lights["+strconv.Itoa(i)+"].shadowMapFar", shadowMapFar)
+		gfx.SetShadowMapUniformF("lights["+strconv.Itoa(i)+"].position", lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14])
+		if gfx.GetName() == "OpenGL 2.1" {
+			if light.lightType == PointLight {
+				gfx.SetShadowFrameCubeTexture(uint32(i))
+			} else {
+				gfx.SetShadowFrameTexture(uint32(i))
+			}
+			for _, index := range scene.nodes {
+				drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
+			}
+			for _, index := range scene.nodes {
+				drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
+			}
+			if len(model.scenes) > 1 {
+				for _, index := range scene.nodes {
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
+				}
+				for _, index := range scene.nodes {
+					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
+				}
+			}
+		}
+	}
+	if gfx.GetName() != "OpenGL 2.1" {
+		for _, index := range scene.nodes {
+			drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
+		}
+		for _, index := range scene.nodes {
+			drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
+		}
+		if len(model.scenes) > 1 {
+			for _, index := range scene.nodes {
+				drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
+			}
+			for _, index := range scene.nodes {
+				drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
+			}
+		}
+	}
+	gfx.ReleaseShadowPipeline()
+}
 func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return
@@ -4169,139 +4306,13 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		calculateAnimationData(model, model.nodes[index])
 	}
 	if len(scene.lightNodes) > 0 && layerNumber == -1 && gfx.IsShadowEnabled() {
-		gfx.prepareShadowMapPipeline(bufferIndex)
-		numLights := 0
-		var lightMatrices [32]mgl.Mat4
-		var lightTypes [4]LightType
-		for i := 0; i < 4; i++ {
-			if i >= len(scene.lightNodes) {
-				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0)
-				continue
-			}
-			numLights += 1
-			lightNode := model.nodes[scene.lightNodes[i]]
-			light := model.lights[*lightNode.lightIndex]
-			shadowMapNear := float32(0.1)
-			if light.lightType == DirectionalLight {
-				shadowMapNear = -20
-			}
-			shadowMapFar := float32(50)
-			shadowMapBottom := float32(-20)
-			shadowMapTop := float32(20)
-			shadowMapLeft := float32(-20)
-			shadowMapRight := float32(20)
-
-			if light.lightType == DirectionalLight {
-				shadowMapNear = -20
-			}
-			if v := light.shadowMapNear.getValue().(float32); v != 0 {
-				shadowMapNear = v
-			}
-			if v := light.shadowMapFar.getValue().(float32); v != 0 {
-				shadowMapFar = v
-			}
-			if v := light.shadowMapBottom.getValue().(float32); v != 0 {
-				shadowMapBottom = v
-			}
-			if v := light.shadowMapTop.getValue().(float32); v != 0 {
-				shadowMapTop = v
-			}
-			if v := light.shadowMapLeft.getValue().(float32); v != 0 {
-				shadowMapLeft = v
-			}
-			if v := light.shadowMapRight.getValue().(float32); v != 0 {
-				shadowMapRight = v
-			}
-			if v := lightNode.shadowMapNear.getValue().(float32); v != 0 {
-				shadowMapNear = v
-			}
-			if v := lightNode.shadowMapFar.getValue().(float32); v != 0 {
-				shadowMapFar = v
-			}
-			if v := lightNode.shadowMapBottom.getValue().(float32); v != 0 {
-				shadowMapBottom = v
-			}
-			if v := lightNode.shadowMapTop.getValue().(float32); v != 0 {
-				shadowMapTop = v
-			}
-			if v := lightNode.shadowMapLeft.getValue().(float32); v != 0 {
-				shadowMapLeft = v
-			}
-			if v := lightNode.shadowMapRight.getValue().(float32); v != 0 {
-				shadowMapRight = v
-			}
-
-			lightProj := mgl.Perspective(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
-			if light.lightType == DirectionalLight {
-				lightProj = mgl.Ortho(shadowMapLeft, shadowMapRight, shadowMapBottom, shadowMapTop, shadowMapNear, shadowMapFar)
-			} else if light.lightType == SpotLight {
-				lightProj = mgl.Perspective(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
-			}
-			lightTypes[i] = light.lightType
-			if light.lightType == PointLight {
-				//var lightMatrices [6]mgl.Mat4
-				lightMatrices[i*6] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] + 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[i*6+1] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12] - 1, lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{0, -1, 0}))
-				lightMatrices[i*6+2] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] + 1, lightNode.worldTransform[14]}, [3]float32{0, 0, 1}))
-				lightMatrices[i*6+3] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13] - 1, lightNode.worldTransform[14]}, [3]float32{0, 0, -1}))
-				lightMatrices[i*6+4] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] + 1}, [3]float32{0, -1, 0}))
-				lightMatrices[i*6+5] = lightProj.Mul4(mgl.LookAtV([3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14]}, [3]float32{lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14] - 1}, [3]float32{0, -1, 0}))
-				for j := 0; j < 6; j++ {
-					gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6+j)+"]", lightMatrices[i*6+j][:])
-				}
-				gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 2)
-
-			} else {
-				lightView := mgl.LookAtV([3]float32{lightNode.localTransform[12], lightNode.localTransform[13], lightNode.localTransform[14]}, [3]float32{lightNode.localTransform[12] + lightNode.lightDirection[0], lightNode.localTransform[13] + lightNode.lightDirection[1], lightNode.localTransform[14] + lightNode.lightDirection[2]}, [3]float32{0, 1, 0})
-				lightMatrices[i*6] = lightProj.Mul4(lightView)
-				gfx.SetShadowMapUniformMatrix("lightMatrices["+strconv.Itoa(i*6)+"]", lightMatrices[i*6][:])
-				if light.lightType == DirectionalLight {
-					gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 1)
-				} else {
-					gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 3)
-				}
-			}
-			gfx.SetShadowMapUniformF("farPlane["+strconv.Itoa(i)+"]", shadowMapFar)
-			gfx.SetShadowMapUniformF("lightPos["+strconv.Itoa(i)+"]", lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14])
-			if gfx.GetName() == "OpenGL 2.1" {
-				if light.lightType == PointLight {
-					gfx.SetShadowFrameCubeTexture(uint32(i))
-				} else {
-					gfx.SetShadowFrameTexture(uint32(i))
-				}
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
-				}
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
-				}
-				if len(model.scenes) > 1 {
-					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
-					}
-					for _, index := range scene.nodes {
-						drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
-					}
-				}
-			}
+		// Do it in another thread if possible
+		if gfx.NewWorkerThread() {
+			go model.drawShadow(bufferIndex, sceneNumber, offset)
+		} else {
+			model.drawShadow(bufferIndex, sceneNumber, offset)
 		}
-		if gfx.GetName() == "OpenGL 3.2" {
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
-			}
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
-			}
-			if len(model.scenes) > 1 {
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
-				}
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
-				}
-			}
-		}
-		gfx.ReleaseShadowPipeline()
+
 	}
 	if model.environment != nil {
 		gfx.prepareModelPipeline(bufferIndex, model.environment)
@@ -4310,8 +4321,6 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	}
 	gfx.SetModelUniformMatrix("projection", proj[:])
 	gfx.SetModelUniformMatrix("view", view[:])
-
-	//gfx.SetModelUniformF("farPlane", 50)
 
 	unlit := false
 	for idx := 0; idx < 4; idx++ {
@@ -4393,7 +4402,7 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 				lightMatrix := lightProj.Mul4(lightView)
 				gfx.SetModelUniformMatrix("lightMatrices["+strconv.Itoa(idx)+"]", lightMatrix[:])
 			} else if light.lightType == SpotLight {
-				lightProj := mgl.Perspective(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
+				lightProj := gfx.PerspectiveProjectionMatrix(mgl.DegToRad(90), 1, shadowMapNear, shadowMapFar)
 				lightView := mgl.LookAtV([3]float32{lightNode.localTransform[12], lightNode.localTransform[13], lightNode.localTransform[14]}, [3]float32{lightNode.localTransform[12] + lightNode.lightDirection[0], lightNode.localTransform[13] + lightNode.lightDirection[1], lightNode.localTransform[14] + lightNode.lightDirection[2]}, [3]float32{0, 1, 0})
 				lightMatrix := lightProj.Mul4(lightView)
 				gfx.SetModelUniformMatrix("lightMatrices["+strconv.Itoa(idx)+"]", lightMatrix[:])
@@ -4450,8 +4459,7 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 
 	proj = proj.Mul4(mgl.Scale3D(scaleX, scaleY, 1))
 	proj = proj.Mul4(mgl.Translate3D(0, (sys.cam.yshift * scl), 0))
-	proj = proj.Mul4(mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.stageCamera.near, s.stageCamera.far))
-
+	proj = proj.Mul4(gfx.PerspectiveProjectionMatrix(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.stageCamera.near, s.stageCamera.far))
 	view := mgl.Ident4()
 	view = view.Mul4(mgl.Translate3D(offset[0], offset[1], offset[2]))
 	view = view.Mul4(mgl.HomogRotate3DX(rotation[0]))

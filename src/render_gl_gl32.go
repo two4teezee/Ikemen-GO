@@ -173,11 +173,19 @@ func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) (t T
 	return
 }
 
+func (r *Renderer_GL32) newPaletteTexture() Texture {
+	return r.newTexture(256, 1, 32, false)
+}
+
+func (r *Renderer_GL32) newModelTexture(width, height, depth int32, filter bool) Texture {
+	return r.newTexture(width, height, depth, filter)
+}
+
 func (r *Renderer_GL32) newDataTexture(width, height int32) (t Texture) {
 	var h uint32
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
-	t = &Texture_GL32{width, height, 32, false, h}
+	t = &Texture_GL32{width, height, 128, false, h}
 	runtime.SetFinalizer(t, func(t *Texture_GL32) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
@@ -195,7 +203,7 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) (t Texture) {
 	var h uint32
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
-	t = &Texture_GL32{width, height, 24, false, h}
+	t = &Texture_GL32{width, height, 96, false, h}
 	runtime.SetFinalizer(t, func(t *Texture_GL32) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
@@ -209,7 +217,7 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) (t Texture) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
 	return
 }
-func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool) (t Texture) {
+func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) (t Texture) {
 	var h uint32
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
@@ -258,7 +266,10 @@ func (t *Texture_GL32) SetData(data []byte) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
-func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt int32) {
+func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height int32) {
+
+}
+func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
@@ -266,21 +277,21 @@ func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt int32) {
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, format, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, mag)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, min)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, ws)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wt)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, t.MapTextureSamplingParam(mag))
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, t.MapTextureSamplingParam(min))
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, t.MapTextureSamplingParam(ws))
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, t.MapTextureSamplingParam(wt))
 }
 func (t *Texture_GL32) SetPixelData(data []float32) {
-
+	format := t.MapInternalFormat(Max(t.depth/4, 8))
+	internalFormat := t.MapInternalFormat(Max(t.depth, 8))
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, t.width, t.height, 0, gl.RGBA, gl.FLOAT, unsafe.Pointer(&data[0]))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uint32(format), gl.FLOAT, unsafe.Pointer(&data[0]))
 }
-func (t *Texture_GL32) SetRGBPixelData(data []float32) {
-	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, t.width, t.height, 0, gl.RGB, gl.FLOAT, unsafe.Pointer(&data[0]))
+
+func (t Texture_GL32) CopyData(src *Texture) {
+
 }
 
 // Return whether texture has a valid handle
@@ -298,11 +309,28 @@ func (t *Texture_GL32) GetHeight() int32 {
 
 func (t *Texture_GL32) MapInternalFormat(i int32) uint32 {
 	var InternalFormatLUT = map[int32]uint32{
-		8:  gl.RED,
-		24: gl.RGB,
-		32: gl.RGBA,
+		8:   gl.RED,
+		24:  gl.RGB,
+		32:  gl.RGBA,
+		96:  gl.RGB32F,
+		128: gl.RGBA32F,
 	}
 	return InternalFormatLUT[i]
+}
+
+func (t *Texture_GL32) MapTextureSamplingParam(i TextureSamplingParam) int32 {
+	var SamplingParam = map[TextureSamplingParam]int32{
+		TextureSamplingFilterNearest:              gl.NEAREST,
+		TextureSamplingFilterLinear:               gl.LINEAR,
+		TextureSamplingFilterNearestMipMapNearest: gl.NEAREST_MIPMAP_NEAREST,
+		TextureSamplingFilterLinearMipMapNearest:  gl.LINEAR_MIPMAP_NEAREST,
+		TextureSamplingFilterNearestMipMapLinear:  gl.NEAREST_MIPMAP_LINEAR,
+		TextureSamplingFilterLinearMipMapLinear:   gl.LINEAR_MIPMAP_LINEAR,
+		TextureSamplingWrapClampToEdge:            gl.CLAMP_TO_EDGE,
+		TextureSamplingWrapMirroredRepeat:         gl.MIRRORED_REPEAT,
+		TextureSamplingWrapRepeat:                 gl.REPEAT,
+	}
+	return SamplingParam[i]
 }
 
 // ------------------------------------------------------------------
@@ -374,7 +402,7 @@ func (r *Renderer_GL32) InitModelShader() error {
 	if err != nil {
 		return err
 	}
-	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttribute")
+	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
 		"metallicRoughness", "ambientOcclusionStrength", "emission", "environmentIntensity", "mipCount", "meshOutline",
@@ -398,8 +426,8 @@ func (r *Renderer_GL32) InitModelShader() error {
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
 			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
 			"lightMatrices[18]", "lightMatrices[19]", "lightMatrices[20]", "lightMatrices[21]", "lightMatrices[22]", "lightMatrices[23]",
-			"lightType[0]", "lightType[1]", "lightType[2]", "lightType[3]", "lightPos[0]", "lightPos[1]", "lightPos[2]", "lightPos[3]",
-			"farPlane[0]", "farPlane[1]", "farPlane[2]", "farPlane[3]", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension",
+			"lights[0].type", "lights[1].type", "lights[2].type", "lights[3].type", "lights[0].position", "lights[1].position", "lights[2].position", "lights[3].position",
+			"lights[0].shadowMapFar", "lights[1].shadowMapFar", "lights[2].shadowMapFar", "lights[3].shadowMapFar", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension",
 			"numTargets", "numVertices", "enableAlpha", "alphaThreshold", "baseColorFactor", "useTexture", "texTransform", "layerOffset", "lightIndex")
 		r.shadowMapShader.RegisterTextures("morphTargetValues", "jointMatrices", "tex")
 	}
@@ -477,8 +505,8 @@ func (r *Renderer_GL32) Init() {
 
 	// External Shaders
 	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
-		r.postShaderSelect[i], _ = r.newShaderProgram(sys.externalShaders[0][i],
-			sys.externalShaders[1][i], "", fmt.Sprintf("Postprocess Shader #%v", i), true)
+		r.postShaderSelect[i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00",
+			string(sys.externalShaders[1][i])+"\x00", "", fmt.Sprintf("Postprocess Shader #%v", i), true)
 		r.postShaderSelect[i].RegisterAttributes("VertCoord", "TexCoord")
 		loc := r.postShaderSelect[i].a["TexCoord"]
 		gl.VertexAttribPointer(uint32(loc), 3, gl.FLOAT, false, 5*4, gl.PtrOffset(2*4))
@@ -1220,13 +1248,13 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	}
 	if useOutlineAttribute {
 		r.useOutlineAttribute = true
-		loc = r.modelShader.a["outlineAttribute"]
+		loc = r.modelShader.a["outlineAttributeIn"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
 	} else if r.useOutlineAttribute {
 		r.useOutlineAttribute = false
-		loc = r.modelShader.a["outlineAttribute"]
+		loc = r.modelShader.a["outlineAttributeIn"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
@@ -1268,7 +1296,7 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	loc = r.modelShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["outlineAttribute"]
+	loc = r.modelShader.a["outlineAttributeIn"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
@@ -1429,6 +1457,11 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix(name string, value []float32) 
 	gl.UniformMatrix4fv(loc, 1, false, &value[0])
 }
 
+func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32) {
+	loc := r.shadowMapShader.u[name]
+	gl.UniformMatrix3fv(loc, 1, false, &value[0])
+}
+
 func (r *Renderer_GL32) SetShadowMapTexture(name string, tex Texture) {
 	t := tex.(*Texture_GL32)
 	loc, unit := r.shadowMapShader.u[name], r.shadowMapShader.t[name]
@@ -1467,6 +1500,9 @@ func (r *Renderer_GL32) RenderQuad() {
 }
 func (r *Renderer_GL32) RenderElements(mode PrimitiveMode, count, offset int) {
 	gl.DrawElementsWithOffset(r.MapPrimitiveMode(mode), int32(count), gl.UNSIGNED_INT, uintptr(offset))
+}
+func (r *Renderer_GL32) RenderShadowMapElements(mode PrimitiveMode, count, offset int) {
+	r.RenderElements(mode, count, offset)
 }
 
 func (r *Renderer_GL32) RenderCubeMap(envTex Texture, cubeTex Texture) {
@@ -1522,7 +1558,7 @@ func (r *Renderer_GL32) RenderFilteredCubeMap(distribution int32, cubeTex Textur
 	loc = r.cubemapFilteringShader.u["distribution"]
 	gl.Uniform1i(loc, distribution)
 	loc = r.cubemapFilteringShader.u["width"]
-	gl.Uniform1i(loc, currentTextureSize)
+	gl.Uniform1i(loc, textureSize)
 	loc = r.cubemapFilteringShader.u["roughness"]
 	gl.Uniform1f(loc, roughness)
 	loc = r.cubemapFilteringShader.u["intensityScale"]
@@ -1579,4 +1615,17 @@ func (r *Renderer_GL32) RenderLUT(distribution int32, cubeTex Texture, lutTex Te
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
+}
+
+func (r *Renderer_GL32) PerspectiveProjectionMatrix(angle, aspect, near, far float32) mgl.Mat4 {
+	return mgl.Perspective(angle, aspect, near, far)
+}
+
+func (r *Renderer_GL32) OrthographicProjectionMatrix(left, right, bottom, top, near, far float32) mgl.Mat4 {
+	ret := mgl.Ortho(left, right, bottom, top, near, far)
+	return ret
+}
+
+func (r *Renderer_GL32) NewWorkerThread() bool {
+	return false
 }

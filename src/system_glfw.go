@@ -46,8 +46,11 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		glfw.WindowHint(glfw.ContextVersionMinor, 2)
 		glfw.WindowHint(glfw.OpenGLForwardCompatible, glfw.True)
 		glfw.WindowHint(glfw.OpenGLProfile, glfw.OpenGLCoreProfile)
-	} else {
+	} else if sys.cfg.Video.RenderMode == "OpenGL 2.1" {
 		glfw.WindowHint(glfw.ContextVersionMajor, 2)
+		glfw.WindowHint(glfw.ContextVersionMinor, 1)
+	} else {
+		glfw.WindowHint(glfw.ClientAPI, glfw.NoAPI)
 		glfw.WindowHint(glfw.ContextVersionMinor, 1)
 	}
 
@@ -77,15 +80,18 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 			window.SetPos(x, y)
 		}
 	}
-
-	window.MakeContextCurrent()
+	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+		window.MakeContextCurrent()
+	}
 	window.SetKeyCallback(keyCallback)
 	window.SetCharModsCallback(charCallback)
 	window.SetRefreshCallback(refreshCallback)
 
-	// V-Sync
-	if s.cfg.Video.VSync >= 0 {
-		glfw.SwapInterval(s.cfg.Video.VSync)
+	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+		// V-Sync
+		if s.cfg.Video.VSync >= 0 {
+			glfw.SwapInterval(s.cfg.Video.VSync)
+		}
 	}
 
 	ret := &Window{window, s.cfg.Config.WindowTitle, fullscreen, x, y, w, h}
@@ -108,7 +114,9 @@ func (w *Window) SetIcon(icon []image.Image) {
 }
 
 func (w *Window) SetSwapInterval(interval int) {
-	glfw.SwapInterval(interval)
+	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+		glfw.SwapInterval(interval)
+	}
 }
 
 func (w *Window) GetSize() (int, int) {
@@ -171,7 +179,7 @@ func (w *Window) toggleFullscreen() {
 		}
 		w.SetInputMode(glfw.CursorMode, glfw.CursorHidden)
 	}
-	if sys.cfg.Video.VSync != -1 {
+	if sys.cfg.Video.VSync != -1 && (sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1") {
 		glfw.SwapInterval(sys.cfg.Video.VSync)
 	}
 	w.fullscreen = !w.fullscreen
@@ -190,8 +198,10 @@ func (w *Window) Close() {
 }
 
 func refreshCallback(w *glfw.Window) {
-	gfx.EndFrame()
-	w.SwapBuffers()
+	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+		gfx.EndFrame()
+		w.SwapBuffers()
+	}
 }
 
 func keyCallback(_ *glfw.Window, key Key, _ int, action glfw.Action, mk ModifierKey) {

@@ -1,5 +1,21 @@
 #define MATH_PI 3.1415926535897932384626433832795
 
+#if __VERSION__ >= 450
+#extension GL_EXT_multiview : enable
+#define currentFace gl_ViewIndex
+layout(binding = 0)uniform samplerCube cubeMap;
+#define COMPAT_TEXTURE_CUBE_LOD textureLod
+layout(push_constant, std430) uniform u {
+	int sampleCount;
+	int distribution;
+	int width;
+	float roughness;
+	float intensityScale;
+	bool isLUT;
+};
+layout(location = 0) in vec2 texcoord;
+layout(location = 0) out vec4 FragColor;
+#else
 #if __VERSION__ >= 130
 #define COMPAT_VARYING in
 #define COMPAT_TEXTURE_CUBE_LOD textureLod
@@ -11,7 +27,6 @@ out vec4 FragColor;
 #define FragColor gl_FragColor
 #define COMPAT_TEXTURE_CUBE_LOD textureCubeLod
 #endif
-
 uniform samplerCube cubeMap;
 uniform int sampleCount;
 uniform int distribution;
@@ -21,9 +36,11 @@ uniform float roughness;
 uniform float intensityScale;
 uniform bool isLUT;
 COMPAT_VARYING vec2 texcoord;
+#endif
 const int cLambertian = 0;
 const int cGGX = 1;
 const int cCharlie = 2;
+
 
 vec3 uvToXYZ(int face, vec2 uv)
 {

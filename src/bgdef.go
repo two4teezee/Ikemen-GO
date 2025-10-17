@@ -335,7 +335,7 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 		}
 		drawFOV := s.fov * math.Pi / 180
 		outlineConst := float32(0.003 * math.Tan(float64(drawFOV)))
-		proj := mgl.Perspective(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.near, s.far)
+		proj := gfx.PerspectiveProjectionMatrix(drawFOV, float32(sys.scrrect[2])/float32(sys.scrrect[3]), s.near, s.far)
 		view := mgl.Translate3D(s.modelOffset[0], s.modelOffset[1], s.modelOffset[2])
 		view = view.Mul4(mgl.Scale3D(s.modelScale[0], s.modelScale[1], s.modelScale[2]))
 		s.model.draw(1, int(s.sceneNumber), int(layer), 0, s.modelOffset, proj, view, proj.Mul4(view), outlineConst)

@@ -21,7 +21,7 @@ import (
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
-	"github.com/ikemen-engine/glfont"
+	glfont "github.com/ikemen-engine/glfont"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -269,7 +269,7 @@ type System struct {
 	lifebarLocalcoord    [2]int32
 
 	msaa              int32
-	externalShaders   [][]string
+	externalShaders   [][][]byte
 	windowMainIcon    []image.Image
 	gameMode          string
 	frameCounter      int32
@@ -405,34 +405,48 @@ func (s *System) init(w, h int32) *lua.LState {
 	// We need to do this before the render initialization at "gfx.Init()"
 	if len(s.cfg.Video.ExternalShaders) > 0 {
 		// First we initialize arrays.
-		s.externalShaders = make([][]string, 2)
-		s.externalShaders[0] = make([]string, len(s.cfg.Video.ExternalShaders))
-		s.externalShaders[1] = make([]string, len(s.cfg.Video.ExternalShaders))
+		s.externalShaders = make([][][]byte, 2)
+		s.externalShaders[0] = make([][]byte, len(s.cfg.Video.ExternalShaders))
+		s.externalShaders[1] = make([][]byte, len(s.cfg.Video.ExternalShaders))
 
 		// Then we load.
 		for i, shaderLocation := range s.cfg.Video.ExternalShaders {
 			// Create names.
 			shaderLocation = strings.Replace(shaderLocation, "\\", "/", -1)
 
-			// Load vert shaders.
-			content, err := os.ReadFile(shaderLocation + ".vert")
-			if err != nil {
-				chk(err)
-			}
-			s.externalShaders[0][i] = string(content) + "\x00"
+			if s.cfg.Video.RenderMode != "Vulkan 1.3" {
+				// Load vert shaders.
+				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert")
+				if err != nil {
+					chk(err)
+				}
 
-			// Load frag shaders.
-			content, err = os.ReadFile(shaderLocation + ".frag")
-			if err != nil {
-				chk(err)
+				// Load frag shaders.
+				s.externalShaders[1][i], err = os.ReadFile(shaderLocation + ".frag")
+				if err != nil {
+					chk(err)
+				}
+			} else {
+				// Load spv shaders
+				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert.spv")
+				if err != nil {
+					chk(err)
+				}
+
+				s.externalShaders[1][i], err = os.ReadFile(shaderLocation + ".frag.spv")
+				if err != nil {
+					chk(err)
+				}
 			}
-			s.externalShaders[1][i] = string(content) + "\x00"
 		}
 	}
 	// PS: The "\x00" is what is know as Null Terminator.
 
 	// Now we proceed to init the render.
-	if s.cfg.Video.RenderMode == "OpenGL 2.1" {
+	if s.cfg.Video.RenderMode == "Vulkan 1.3" {
+		gfx = &Renderer_VK{}
+		gfxFont = &FontRenderer_VK{}
+	} else if s.cfg.Video.RenderMode == "OpenGL 2.1" {
 		gfx = &Renderer_GL21{}
 		gfxFont = &glfont.FontRenderer_GL21{}
 	} else {
@@ -440,6 +454,7 @@ func (s *System) init(w, h int32) *lua.LState {
 		gfxFont = &glfont.FontRenderer_GL32{}
 	}
 	gfx.Init()
+	gfxFont.Init()
 	gfx.BeginFrame(false)
 	// And the audio.
 	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)
@@ -461,7 +476,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	for i := 1; i < 256; i++ {
 		whitepal[i] = 0xffffffff // White (and full alpha)
 	}
-	s.whitePalTex = gfx.newTexture(256, 1, 32, false)
+	s.whitePalTex = gfx.newPaletteTexture()
 	s.whitePalTex.SetData(pal32ToBytes(whitepal))
 
 	systemScriptInit(l)
@@ -775,7 +790,11 @@ func (s *System) await(fps int) bool {
 	if !s.frameSkip {
 		// Render the finished frame
 		gfx.EndFrame()
-		s.window.SwapBuffers()
+		if gfx.GetName()[:6] == "OpenGL" {
+			s.window.SwapBuffers()
+		} else {
+			gfx.Await()
+		}
 		if s.isTakingScreenshot {
 			defer captureScreen()
 			s.isTakingScreenshot = false

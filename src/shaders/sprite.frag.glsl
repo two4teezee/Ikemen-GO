@@ -1,3 +1,22 @@
+#if __VERSION__ >= 450
+#define COMPAT_TEXTURE texture
+layout(binding = 1) uniform UniformBufferObject  {
+	vec4 x1x2x4x3;
+	vec4 tint;
+	vec3 add;
+	vec3 mult;
+	float alpha, gray, hue;
+	int mask;
+	bool isFlat, isRgba, isTrapez, neg;
+};
+layout(push_constant, std430) uniform u {
+	vec4 palUV;
+};
+layout(binding = 2) uniform sampler2D tex;
+layout(binding = 3) uniform sampler2D pal;
+layout(location = 0) in vec2 texcoord;
+layout(location = 0) out vec4 FragColor;
+#else
 #if __VERSION__ >= 130
 #define COMPAT_VARYING in
 #define COMPAT_TEXTURE texture
@@ -7,8 +26,6 @@ out vec4 FragColor;
 #define FragColor gl_FragColor
 #define COMPAT_TEXTURE texture2D
 #endif
-
-
 uniform sampler2D tex;
 uniform sampler2D pal;
 
@@ -20,6 +37,7 @@ uniform int mask;
 uniform bool isFlat, isRgba, isTrapez, neg;
 
 COMPAT_VARYING vec2 texcoord;
+#endif
 
 vec3 hue_shift(vec3 color, float dhue) {
 	float s = sin(dhue);
@@ -56,7 +74,11 @@ void main(void) {
 			final_add *= c.a;
 			final_mul.rgb *= alpha;
 		} else {
+			#if __VERSION__ >= 450
+			c = COMPAT_TEXTURE(pal, vec2(palUV[0]+palUV[2]*c.r*0.9966, palUV[1]));
+			#else
 			c = COMPAT_TEXTURE(pal, vec2(c.r*0.9966, 0.5));
+			#endif
 			if (mask == -1) {
 				c.a = 1.0;
 			}

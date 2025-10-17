@@ -450,7 +450,7 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 }
 
 func PaletteToTexture(pal []uint32) Texture {
-	tx := gfx.newTexture(256, 1, 32, false)
+	tx := gfx.newPaletteTexture()
 
 	// Safely handle invalid palettes
 	if len(pal) == 0 {
@@ -1864,10 +1864,13 @@ func captureScreen() {
 	img := image.NewNRGBA(image.Rect(0, 0, width, height))
 	gfx.ReadPixels(pixdata, width, height)
 	for i := 0; i < 4*width*height; i++ {
-		var x, y, j int
-		x = i % (width * 4)
-		y = i / (width * 4)
-		j = x + (height-1-y)*width*4
+		j := i
+		if gfx.GetName() != "Vulkan 1.3.239" {
+			var x, y int
+			x = i % (width * 4)
+			y = i / (width * 4)
+			j = x + (height-1-y)*width*4
+		}
 		if i%4 == 3 {
 			pixdata[i] = 255 // Set the alpha value to 255
 		}

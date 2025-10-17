@@ -8,6 +8,48 @@ import (
 	"strings"
 )
 
+type FontRenderer interface {
+	Init()
+	LoadFont(file string, scale int32, windowWidth int, windowHeight int) (interface{}, error)
+	//LoadTrueTypeFont(program uint32, r io.Reader, scale int32, low, high rune, dir Direction) (Font, error)
+	//newProgram(GLSLVersion uint, vertexShaderSource, fragmentShaderSource string) (uint32, error)
+}
+
+type Font interface {
+	SetColor(red float32, green float32, blue float32, alpha float32)
+	UpdateResolution(windowWidth int, windowHeight int)
+	Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
+	//renderGlyphBatch(batchChars []*character, indices []rune, vertices []float32)
+	Width(scale float32, fs string, argv ...interface{}) float32
+}
+
+type character struct {
+	textureID uint32 // ID handle of the glyph texture
+	uv        [4]float32
+	width     int //glyph width
+	height    int //glyph height
+	advance   int //glyph advance
+	bearingH  int //glyph bearing horizontal
+	bearingV  int //glyph bearing vertical
+}
+
+type color struct {
+	r float32
+	g float32
+	b float32
+	a float32
+}
+
+// Direction represents the direction in which strings should be rendered.
+type Direction uint8
+
+// Known directions.
+const (
+	LeftToRight Direction = iota // E.g.: Latin
+	RightToLeft                  // E.g.: Arabic
+	TopToBottom                  // E.g.: Chinese
+)
+
 // FntCharImage stores sprite and position
 type FntCharImage struct {
 	ofs, w uint16

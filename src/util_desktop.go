@@ -47,7 +47,7 @@ func LoadFntTtf(f *Fnt, fontfile string, filename string, height int32) {
 	if err != nil {
 		panic(err)
 	}
-	f.ttf = ttf
+	f.ttf = ttf.(Font)
 
 	// Create Ttf dummy palettes
 	f.palettes = make([][256]uint32, 1)

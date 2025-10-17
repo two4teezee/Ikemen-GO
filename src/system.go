@@ -3392,27 +3392,27 @@ func (s *Select) GetChar(i int) *SelectChar {
 
 // Validates a palette index for the palette select
 func (s *Select) ValidatePalette(charRef, requested int) int {
-    if charRef < 0 || charRef >= len(s.charlist) {
-        return 1
-    }
-    sc := &s.charlist[charRef]
-    if len(sc.pal) == 0 {
-        return 1
-    }
-    // If the requested index exists, return it
-    for _, real := range sc.pal {
-        if int(real) == requested {
-            return requested
-        }
-    }
-    // Otherwise, return the next valid one (circular)
-    for _, real := range sc.pal {
-        if int(real) > requested {
-            return int(real)
-        }
-    }
-    // Fallback: return the first available
-    return int(sc.pal[0])
+	if charRef < 0 || charRef >= len(s.charlist) {
+		return 1
+	}
+	sc := &s.charlist[charRef]
+	if len(sc.pal) == 0 {
+		return 1
+	}
+	// If the requested index exists, return it
+	for _, real := range sc.pal {
+		if int(real) == requested {
+			return requested
+		}
+	}
+	// Otherwise, return the next valid one (circular)
+	for _, real := range sc.pal {
+		if int(real) > requested {
+			return int(real)
+		}
+	}
+	// Fallback: return the first available
+	return int(sc.pal[0])
 }
 
 func (s *Select) SelectStage(n int) { s.selectedStageNo = n }

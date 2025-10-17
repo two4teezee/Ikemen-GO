@@ -5427,6 +5427,7 @@ func (c *Char) screenPosY() float32 {
 }
 
 func (c *Char) screenHeight() float32 {
+	// We need both match and screenpack aspects because of victory and game over screens
 	aspect := sys.getCurrentAspect()
 
 	// Compute height from width

@@ -342,7 +342,7 @@ func isRunningInsideAppBundle(exePath string) bool {
 
 // Initialize stuff, this is called after the config int at main.go
 func (s *System) init(w, h int32) *lua.LState {
-	s.setWindowSize(w, h)
+	s.setGameSize(w, h)
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
@@ -520,13 +520,27 @@ func (s *System) shutdown() {
 	speaker.Close()
 }
 
-func (s *System) setWindowSize(w, h int32) {
+func (s *System) setGameSize(w, h int32) {
 	s.scrrect[2], s.scrrect[3] = w, h
-	if s.scrrect[2]*3 > s.scrrect[3]*4 {
-		s.gameWidth, s.gameHeight = s.scrrect[2]*3*320/(s.scrrect[3]*4), 240
+
+	// TODO: These ought to be system constants maybe
+	baseWidth := int32(320)
+	baseHeight := int32(240)
+
+	screenAspect := float32(w) / float32(h)
+	targetAspect := float32(baseWidth) / float32(baseHeight)
+
+	if screenAspect > targetAspect {
+		// Screen is wider than 4:3 - scale based on height
+		s.gameWidth = int32(float32(baseHeight) * screenAspect)
+		s.gameHeight = baseHeight
 	} else {
-		s.gameWidth, s.gameHeight = 320, s.scrrect[3]*4*240/(s.scrrect[2]*3)
+		// Screen is taller than 4:3 - scale based on width  
+		s.gameWidth = baseWidth
+		s.gameHeight = int32(float32(baseWidth) / screenAspect)
 	}
+
+	// Update scale
 	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
@@ -683,61 +697,71 @@ func (s *System) setLifebarScale() {
 	s.lifebarOffsetX = calcOffsetX * calcScale
 }
 
-// Will be useful if/when we make aspect ratio not depend on stage only
 func (s *System) middleOfMatch() bool {
 	return s.matchTime != 0 && !s.postMatchFlg
 }
 
-// Used for the viewport change
-func (s *System) shouldRenderStageFit() bool {
-	if !s.middleOfMatch() || !sys.cfg.Video.StageFit || s.stage == nil {
-		return false
-	}
-
-	if sys.stage.stageCamera.localcoord[0] <= 0 || sys.stage.stageCamera.localcoord[1] <= 0 {
-		return false
-	}
-
-	return true
-}
-
 // This allows Char to access aspect ratio without going through Window, which can add errors
-func (s *System) getCurrentAspect() float32 {
-	// Use stage aspect ratio
-	if s.shouldRenderStageFit() {
+func (s *System) getFightAspect() float32 {
+	// Stage aspect ratio
+	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 && s.stage != nil {
 		coord := s.stage.stageCamera.localcoord
 		if coord[0] > 0 && coord[1] > 0 {
 			return float32(coord[0]) / float32(coord[1])
 		}
 	}
 
-	// Fallback to default
+	// Custom aspect ratio
+	if s.cfg.Video.FightAspectWidth > 0 && s.cfg.Video.FightAspectHeight > 0 {
+		return float32(s.cfg.Video.FightAspectWidth) / float32(s.cfg.Video.FightAspectHeight)
+	}
+
+	// Default
 	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
 }
 
-func (s *System) applyStageFit() {
+func (s *System) getMotifAspect() float32 {
+	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+}
+
+func (s *System) getCurrentAspect() float32 {
+	if s.middleOfMatch() {
+		return s.getFightAspect()
+	}
+	return s.getMotifAspect()
+}
+
+// Change aspect ratio at match start
+func (s *System) applyFightAspect() {
 	baseHeight := float32(240)
-	var stageWidth, stageHeight float32
-
-	// Get the next stage's localcoord
-	if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
-		def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
-		if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
-			stageWidth = float32(coord[0])
-			stageHeight = float32(coord[1])
-		}
-	}
-
-	// Calculate the stage's aspect ratio
 	var aspectGame float32
-	if stageWidth > 0 && stageHeight > 0 {
-		aspectGame = stageWidth / stageHeight
+
+	// Select which aspect ratio to use
+	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 {
+		// Stage aspect
+		// Get the next stage's localcoord
+		// We need this branch because here we check next stage instead of current one like getFightAspect()
+		var stageWidth, stageHeight float32
+		if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
+			def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
+			if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
+				stageWidth = float32(coord[0])
+				stageHeight = float32(coord[1])
+			}
+		}
+
+		// Calculate the stage's aspect ratio
+		if stageWidth > 0 && stageHeight > 0 {
+			aspectGame = stageWidth / stageHeight
+		} else {
+			// Fallback
+			aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+		}
 	} else {
-		// Fallback
-		aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+		aspectGame = s.getFightAspect()
 	}
 
-	// Compute new gameWidth/gameHeight while maintaining the same base height
+	// Compute new game dimensions while maintaining the same base height
 	gameWidth := baseHeight * aspectGame
 	s.gameWidth = int32(gameWidth)
 	s.gameHeight = int32(baseHeight)
@@ -887,9 +911,10 @@ func (s *System) update() bool {
 		s.preMatchTime = s.frameCounter
 	}
 
-	// Restore original resolution after stagefit
+	// Restore original resolution after changing aspect ratio
 	if !s.middleOfMatch() {
-		s.setWindowSize(s.scrrect[2], s.scrrect[3])
+		// TODO: This should probably not be based on scrrect
+		s.setGameSize(s.scrrect[2], s.scrrect[3])
 	}
 
 	if s.replayFile != nil {
@@ -4156,20 +4181,27 @@ func (l *Loader) load() {
 		l.loadExit <- l.state
 	}()
 
-	if sys.cfg.Video.StageFit {
-		// Update aspect ratio
-		sys.applyStageFit()
+	// Update aspect ratio
+	sys.applyFightAspect()
 
-		// Update character scaling
-		coordRatio := float32(sys.gameWidth) / 320
-		for _, c := range sys.chars {
-			if len(c) > 0 {
-				c[0].localcoord = c[0].gi().localcoord[0] / coordRatio
-			}
+	// Update cached stage scaling
+	// In case FightAspect option was changed between matches
+	if sys.stage != nil {
+		sys.stage.localscl = float32(sys.gameWidth) / float32(sys.stage.stageCamera.localcoord[0])
+		sys.stage.stageCamera.localscl = sys.stage.localscl
+	}
+
+	// Update cached character scaling
+	for _, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].localcoord = 320 / (float32(sys.gameWidth) / 320)
+			p[0].localscl = 320 / p[0].localcoord
 		}
 	}
 
+	// Update lifebar scale
 	sys.setLifebarScale()
+
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {

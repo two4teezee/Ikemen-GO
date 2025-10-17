@@ -1460,6 +1460,8 @@ local motif =
 		--menu_itemname_ratio4attack = 'Ratio 4 Damage', --Ikemen feature
 		--menu_itemname_resolution = 'Resolution', --Ikemen feature
 		--menu_itemname_customres = 'Custom', --Ikemen feature
+		--menu_itemname_aspectratio = 'Aspect Ratio', --Ikemen feature
+		--menu_itemname_customaspect = 'Custom', --Ikemen feature
 		--menu_itemname_fullscreen = 'Fullscreen', --Ikemen feature
 		--menu_itemname_vsync = 'VSync', --Ikemen feature
 		--menu_itemname_msaa = 'MSAA', --Ikemen feature
@@ -2357,12 +2359,21 @@ function motif.setBaseOptionInfo()
 	motif.option_info.menu_itemname_menuvideo_resolution_1280x720 = "1280x720   (16:9 HD)"
 	motif.option_info.menu_itemname_menuvideo_resolution_1600x900 = "1600x900   (16:9 HD+)"
 	motif.option_info.menu_itemname_menuvideo_resolution_1920x1080 = "1920x1080  (16:9 FHD)"
-	motif.option_info.menu_itemname_menuvideo_resolution_empty = ""
 	motif.option_info.menu_itemname_menuvideo_resolution_customres = "Custom"
+	motif.option_info.menu_itemname_menuvideo_resolution_empty = ""
 	motif.option_info.menu_itemname_menuvideo_resolution_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_fullscreen = "Fullscreen"
 	motif.option_info.menu_itemname_menuvideo_vsync = "VSync"
-	motif.option_info.menu_itemname_menuvideo_stagefit = "StageFit"
+	--motif.option_info.menu_itemname_menuvideo_stagefit = "StageFit"
+	motif.option_info.menu_itemname_menuvideo_aspectratio = "Aspect Ratio" --reserved submenu
+	-- Aspect ratio is assigned based on values used in itemname suffix (e.g. 4:3)
+	motif.option_info.menu_itemname_menuvideo_aspectratio_default = "Default"
+	motif.option_info.menu_itemname_menuvideo_aspectratio_stage = "Stage"
+	motif.option_info.menu_itemname_menuvideo_aspectratio_4x3 = "4:3"
+	motif.option_info.menu_itemname_menuvideo_aspectratio_16x9 = "16:9"
+	motif.option_info.menu_itemname_menuvideo_aspectratio_customaspect = "Custom"
+	motif.option_info.menu_itemname_menuvideo_aspectratio_empty = ""
+	motif.option_info.menu_itemname_menuvideo_aspectratio_back = "Back"
 	motif.option_info.menu_itemname_menuvideo_keepaspect = "Keep Aspect Ratio"
 	motif.option_info.menu_itemname_menuvideo_windowscalemode = "Window Scale Mode"
 	motif.option_info.menu_itemname_menuvideo_msaa = "MSAA"
@@ -2495,12 +2506,20 @@ function motif.setBaseOptionInfo()
 		"menuvideo_resolution_1280x720",
 		"menuvideo_resolution_1600x900",
 		"menuvideo_resolution_1920x1080",
-		"menuvideo_resolution_empty",
 		"menuvideo_resolution_customres",
+		"menuvideo_resolution_empty",
 		"menuvideo_resolution_back",
 		"menuvideo_fullscreen",
 		"menuvideo_vsync",
-		"menuvideo_stagefit",
+		--"menuvideo_stagefit",
+		"menuvideo_aspectratio",
+		"menuvideo_aspectratio_default",
+		"menuvideo_aspectratio_stage",
+		"menuvideo_aspectratio_4x3",
+		"menuvideo_aspectratio_16x9",
+		"menuvideo_aspectratio_customaspect",
+		"menuvideo_aspectratio_empty",
+		"menuvideo_aspectratio_back",
 		"menuvideo_keepaspect",
 		"menuvideo_windowscalemode",
 		"menuvideo_msaa",

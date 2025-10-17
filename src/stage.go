@@ -4424,19 +4424,19 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 	scale := [3]float32{s.model.scale[0], s.model.scale[1], s.model.scale[2]}
 	proj := mgl.Translate3D(0, (sys.cam.zoomanchorcorrection+yofs)/float32(sys.gameHeight)*2+syo2+aspectCorrection, 0)
 
-	// Apply stagefit
+	// Apply aspect ratio scaling
 	// TODO: In the letterbox case the model renders too low
 	scaleX := scaleCorrection
 	scaleY := scaleCorrection
-	if sys.cfg.Video.StageFit {
-		aspectGame := float32(sys.gameWidth) / float32(sys.gameHeight)
+	if sys.cfg.Video.FightAspectWidth != 0 && sys.cfg.Video.FightAspectHeight != 0 {
+		aspectGame := sys.getCurrentAspect()
 		aspectWindow := float32(sys.scrrect[2]) / float32(sys.scrrect[3])
 
 		if aspectWindow > aspectGame {
-			// Pillarbox
+			// Pillarbox - window is wider than game
 			scaleX *= aspectWindow / aspectGame
 		} else if aspectWindow < aspectGame {
-			// Letterbox
+			// Letterbox - window is taller than game  
 			scaleY *= aspectGame / aspectWindow
 		}
 	}

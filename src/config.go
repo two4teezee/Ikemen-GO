@@ -170,7 +170,8 @@ type Config struct {
 		WindowCentered          bool     `ini:"WindowCentered"`
 		ExternalShaders         []string `ini:"ExternalShaders"`
 		WindowScaleMode         bool     `ini:"WindowScaleMode"`
-		StageFit                bool     `ini:"StageFit"`
+		FightAspectWidth        int32    `ini:"FightAspectWidth"`
+		FightAspectHeight       int32    `ini:"FightAspectHeight"`
 		KeepAspect              bool     `ini:"KeepAspect"`
 		RendererDebugMode       bool     `ini:"RendererDebugMode"`
 		EnableModel             bool     `ini:"EnableModel"`

@@ -9814,7 +9814,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					} else {
 						ghv.xvel = hd.air_velocity[0] * scaleratio * -byf
 						ghv.yvel = hd.air_velocity[1] * scaleratio
-						ghv.zvel = hd.air_velocity[1] * scaleratio
+						ghv.zvel = hd.air_velocity[2] * scaleratio
 					}
 				} else {
 					ghv.ctrltime = hd.ground_hittime

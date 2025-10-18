@@ -4911,6 +4911,8 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 	r.spriteProgram.uniformBufferOffset = 0
 	r.currentSpriteTexture.spriteTexture = r.dummyTexture
 	r.currentSpriteTexture.palTexture = r.palTexture.textures[0]
+	r.VKState.spriteTexture = r.dummyTexture
+	r.VKState.palTexture = r.dummyTexture
 	r.modelProgram.uniformOffsetMap = make(map[interface{}]uint32)
 	r.modelProgram.uniformBufferOffset = 0
 	//r.spriteProgram.descriptorSetCache.ClearAccessFlag()

@@ -5596,6 +5596,9 @@ func (r *Renderer_VK) SetUniformFv(name string, values []float32) {
 }
 
 func (r *Renderer_VK) SetTexture(name string, tex Texture) {
+	if tex == nil {
+		return
+	}
 	if name == "tex" {
 		r.VKState.spriteTexture = tex.(*Texture_VK)
 	} else if name == "pal" {

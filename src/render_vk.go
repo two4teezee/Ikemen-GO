@@ -1094,7 +1094,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 		instanceCreateInfo.EnabledExtensionCount += 1
 		instanceCreateInfo.Flags = vk.InstanceCreateFlags(vk.InstanceCreateEnumeratePortabilityBit)
 	}
-	vkDebug = false
+	vkDebug = sys.cfg.Video.RendererDebugMode
 	if vkDebug {
 		if r.checkValidationLayerSupport() {
 			instanceCreateInfo.EnabledLayerCount = uint32(len(vk_validationLayers))

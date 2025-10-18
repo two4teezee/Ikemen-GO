@@ -51,7 +51,7 @@ layout(location = 5) in vec4 joints_1;
 layout(location = 6) in vec4 weights_0;
 layout(location = 7) in vec4 weights_1;
 layout(location = 0) out vec4 fragPos;
-layout(location = 1) out float vColorAlpha;
+layout(location = 1) out float vColor;
 layout(location = 2) out vec2 texcoord;
 layout(location = 3) out flat int lightIndex;
 #else
@@ -84,7 +84,7 @@ COMPAT_ATTRIBUTE vec4 joints_0;
 COMPAT_ATTRIBUTE vec4 joints_1;
 COMPAT_ATTRIBUTE vec4 weights_0;
 COMPAT_ATTRIBUTE vec4 weights_1;
-COMPAT_VARYING float vColorAlpha;
+COMPAT_VARYING float vColor;
 COMPAT_VARYING vec2 texcoord;
 
 
@@ -123,9 +123,9 @@ mat4 getJointMatrix(){
 void main() {
 	texcoord = uv;
 	if(useVertColor) {
-		vColorAlpha = vertColor.a;
+		vColor = vertColor.a;
 	}else{
-		vColorAlpha = 1;
+		vColor = 1;
 	}
 	vec4 pos = vec4(position, 1.0);
 	if(morphTargetOffset[0] > 0){

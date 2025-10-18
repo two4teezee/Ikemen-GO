@@ -1224,7 +1224,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 	var device vk.Device
 	err = vk.Error(vk.CreateDevice(r.gpuDevices[r.gpuIndex], deviceCreateInfo, nil, &device))
 	if err != nil {
-		r.gpuDevices = nil
+		//r.gpuDevices = nil
 		vk.DestroySurface(r.instance, r.surface, nil)
 		vk.DestroyInstance(r.instance, nil)
 		err = fmt.Errorf("vkCreateDevice failed with %s", err)

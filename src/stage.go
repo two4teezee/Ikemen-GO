@@ -3689,6 +3689,7 @@ func calculateAnimationData(mdl *Model, n *Node) {
 			continue
 		}
 		if len(morphTargetWeights) > 0 && len(p.morphTargets) >= len(morphTargetWeights) {
+			p.morphTargetWeight = [8]float32{0, 0, 0, 0, 0, 0, 0, 0}
 			if activeMorphTargetChanged {
 				width := p.morphTargetTexture.tex.GetWidth()
 				targetBuffer := make([]float32, 4*width*width)

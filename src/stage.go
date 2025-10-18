@@ -3689,6 +3689,7 @@ func calculateAnimationData(mdl *Model, n *Node) {
 			continue
 		}
 		if len(morphTargetWeights) > 0 && len(p.morphTargets) >= len(morphTargetWeights) {
+			p.morphTargetWeight = [8]float32{0, 0, 0, 0, 0, 0, 0, 0}
 			if activeMorphTargetChanged {
 				width := p.morphTargetTexture.tex.GetWidth()
 				targetBuffer := make([]float32, 4*width*width)
@@ -4806,7 +4807,7 @@ func (model *Model) step(turbo float32) {
 		time := 60 * float64(anim.time)
 		if math.Abs(time-math.Floor(time)) < 0.001 {
 			anim.time = float32(math.Floor(time) / 60)
-		} else if math.Abs(float64(anim.time)-math.Ceil(float64(anim.time))) < 0.001 {
+		} else if math.Abs(float64(time)-math.Ceil(float64(time))) < 0.001 {
 			anim.time = float32(math.Ceil(time) / 60)
 		}
 		if anim.time >= anim.duration && anim.duration > 0 {

@@ -1094,7 +1094,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 		instanceCreateInfo.EnabledExtensionCount += 1
 		instanceCreateInfo.Flags = vk.InstanceCreateFlags(vk.InstanceCreateEnumeratePortabilityBit)
 	}
-	vkDebug = false
+	vkDebug = sys.cfg.Video.RendererDebugMode
 	if vkDebug {
 		if r.checkValidationLayerSupport() {
 			instanceCreateInfo.EnabledLayerCount = uint32(len(vk_validationLayers))
@@ -1224,7 +1224,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 	var device vk.Device
 	err = vk.Error(vk.CreateDevice(r.gpuDevices[r.gpuIndex], deviceCreateInfo, nil, &device))
 	if err != nil {
-		r.gpuDevices = nil
+		//r.gpuDevices = nil
 		vk.DestroySurface(r.instance, r.surface, nil)
 		vk.DestroyInstance(r.instance, nil)
 		err = fmt.Errorf("vkCreateDevice failed with %s", err)

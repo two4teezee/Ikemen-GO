@@ -192,7 +192,9 @@ void main(void) {
 			lightSpacePos[i] = lightMatrices[i] * tmp2;
 		}
 	}else{
-		normal = normalize(mat3(normalMatrix) * normal);
+		if(normal.x+normal.y+normal.z != 0){
+			normal = normalize(mat3(normalMatrix) * normal);
+		}
 		if(tangent.x+tangent.y+tangent.z != 0){
 			tangent = normalize(vec3(model * vec4(tangent,0)));
 			bitangent = cross(normal, tangent) * (useTangent?tangentIn.w:0);

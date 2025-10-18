@@ -172,6 +172,7 @@ type Config struct {
 		WindowScaleMode         bool     `ini:"WindowScaleMode"`
 		StageFit                bool     `ini:"StageFit"`
 		KeepAspect              bool     `ini:"KeepAspect"`
+		RendererDebugMode       bool     `ini:"RendererDebugMode"`
 		EnableModel             bool     `ini:"EnableModel"`
 		EnableModelShadow       bool     `ini:"EnableModelShadow"`
 	} `ini:"Video"`

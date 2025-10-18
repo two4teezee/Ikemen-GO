@@ -695,6 +695,9 @@ func (r *Renderer_GL32) BlendReset() {
 	gl.BlendFunc(r.MapBlendFunction(BlendSrcAlpha), r.MapBlendFunction(BlendOneMinusSrcAlpha))
 }
 func (r *Renderer_GL32) EndFrame() {
+	if len(r.fbo_pp) == 0 {
+		return
+	}
 	// tell GL to use our vertex array object
 	// this'll be where our quad is stored
 	gl.BindVertexArray(r.vao)

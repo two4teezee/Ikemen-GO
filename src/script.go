@@ -3182,6 +3182,11 @@ func systemScriptInit(l *lua.LState) {
 		sys.usePalette = boolArg(l, 1)
 		return 1
 	})
+	luaRegister(l, "version", func(l *lua.LState) int {
+		ver := fmt.Sprintf("%s - %s", Version, BuildTime)
+		l.Push(lua.LString(ver))
+		return 1
+	})
 	luaRegister(l, "wavePlay", func(l *lua.LState) int {
 		s, ok := toUserData(l, 1).(*Sound)
 		if !ok {

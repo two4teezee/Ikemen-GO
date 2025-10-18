@@ -60,7 +60,7 @@ jobs:
           else
             echo "version=nightly" >> $GITHUB_ENV
           fi
-          echo "buildTime=$(date '+%Y-%m-%d')" >> $GITHUB_ENV
+          echo "buildTime=$(date '+%Y.%m.%d')" >> $GITHUB_ENV
 
   build:
     name: prepare release
@@ -320,11 +320,9 @@ jobs:
           if [ "${{ github.event.inputs.tag }}" = "" ]; then
             ARTIFACT_NAME=Ikemen_GO-dev-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
-            echo "${{ needs.tag.outputs.buildTime }}" > external/script/version
           else
             ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
-            echo "${{ needs.tag.outputs.version }}" > external/script/version
           fi
           if [ "$RUNNER_OS" = "Windows" ]; then
             "/c/Program Files/7-Zip/7z.exe" a ../$ARTIFACT_NAME *

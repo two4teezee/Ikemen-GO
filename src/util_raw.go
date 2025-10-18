@@ -6,6 +6,7 @@ import (
 	"C"
 	"io"
 	"os"
+	"sync/atomic"
 )
 
 // Main entry point for C programs
@@ -22,6 +23,7 @@ func NewLogWriter() io.Writer {
 
 // Message box implementation using stderr
 func ShowInfoDialog(message, title string) {
+	atomic.StoreInt32(&errorDialogShown, 1)
 	print(title + "\n\n" + message)
 }
 

@@ -46,7 +46,7 @@ BUILD_FFMPEG="${BUILD_FFMPEG:-auto}"   # auto|yes|no
 
 # ---- App metadata (overridden by CI)
 APP_VERSION="${APP_VERSION:-nightly}"
-APP_BUILDTIME="${APP_BUILDTIME:-$(date '+%Y-%m-%d')}"
+APP_BUILDTIME="${APP_BUILDTIME:-$(date '+%Y.%m.%d')}"
 
 # --- Always pause on Windows on exit (covers success and failure) ----------
 pause_always_windows() {
@@ -252,9 +252,6 @@ function main() {
 
 	# Enforce safe path
 	require_safe_path
-
-	# Record a local build timestamp
-	echo "$APP_BUILDTIME" > external/script/version
 
 	# Check OS
 	checkOS "$targetOS"

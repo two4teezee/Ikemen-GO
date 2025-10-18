@@ -1,8 +1,6 @@
 --;===========================================================
 --; DEFAULT VALUES
 --;===========================================================
-local verInfo = main.f_fileRead("external/script/version", "r", true) or "local"
-
 --This pre-made table (3/4 of the whole file) contains all default values used in screenpack. New table from parsed DEF file is merged on top of this one.
 --This is important because there are more params available in Ikemen. Whole screenpack code refers to these values.
 local motif =
@@ -136,7 +134,7 @@ local motif =
 		footer3_xshear = 0.0, --Ikemen feature
 		footer3_angle = 0.0, --Ikemen feature
 		footer3_scale = {1.0, 1.0}, --Ikemen feature
-		footer3_text = verInfo, --Ikemen feature
+		footer3_text = version(), --Ikemen feature
 		footer_overlay_window = {0, motifLocalcoord(1) - 7, motifLocalcoord(0) - 1, motifLocalcoord(1) - 1}, --Ikemen feature
 		footer_overlay_col = {0, 0, 64}, --Ikemen feature
 		footer_overlay_alpha = {255, 100}, --Ikemen feature

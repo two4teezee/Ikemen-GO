@@ -680,6 +680,10 @@ func (ta *TextureAtlas) AddImage(width, height int32, data []byte) ([4]float32, 
 	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
 }
 func (ta *TextureAtlas) FindPlaceToInsert(width, height int32) (int32, int32, bool) {
+	//leave 1px space
+	space := int32(1)
+	width += space * 2
+	height += space * 2
 	var bestX int32 = math.MaxInt32
 	var bestY int32 = math.MaxInt32
 	var bestItr *list.Element = nil
@@ -728,6 +732,8 @@ func (ta *TextureAtlas) FindPlaceToInsert(width, height int32) (int32, int32, bo
 		itrNext = itr.Next()
 		ta.skyline.Remove(itr)
 	}
+	bestX += space
+	bestY += space
 	return bestX, bestY, true
 }
 

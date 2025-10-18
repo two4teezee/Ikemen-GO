@@ -686,6 +686,9 @@ func (r *Renderer_GL21) BlendReset() {
 	gl.BlendFunc(r.MapBlendFunction(BlendSrcAlpha), r.MapBlendFunction(BlendOneMinusSrcAlpha))
 }
 func (r *Renderer_GL21) EndFrame() {
+	if len(r.fbo_pp) == 0 {
+		return
+	}
 	x, y, width, height := int32(0), int32(0), int32(sys.scrrect[2]), int32(sys.scrrect[3])
 	time := glfw.GetTime() // consistent time across all shaders
 

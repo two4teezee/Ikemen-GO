@@ -1316,6 +1316,17 @@ func (r *Renderer_VK) PrintInfo() {
 	log.Println(len(r.gpuDevices))
 	log.Println(vk.Version(gpuProperties.ApiVersion))
 	log.Println(vk.Version(gpuProperties.DriverVersion))
+
+	log.Println("VULKAN SUPPORTED DEVICE EXTENSIONS")
+	var extensionCount uint32
+	var extensionProperties []vk.ExtensionProperties
+	vk.EnumerateDeviceExtensionProperties(r.gpuDevices[r.gpuIndex], "", &extensionCount, nil)
+	extensionProperties = make([]vk.ExtensionProperties, extensionCount)
+	vk.EnumerateDeviceExtensionProperties(r.gpuDevices[r.gpuIndex], "", &extensionCount, extensionProperties)
+	for i := range extensionProperties {
+		extensionProperties[i].Deref()
+		log.Println(vk.ToString(extensionProperties[i].ExtensionName[:]))
+	}
 }
 
 func (r *Renderer_VK) checkValidationLayerSupport() bool {
@@ -4653,9 +4664,11 @@ func (r *Renderer_VK) Init() {
 	}
 	err = r.NewVulkanDevice(appInfo, uintptr(sys.window.Handle()))
 	if err != nil {
+		if len(r.gpuDevices) > 0 {
+			r.PrintInfo()
+		}
 		panic(err)
 	}
-	r.PrintInfo()
 	err = r.CreateSwapchain()
 	if err != nil {
 		panic(err)
@@ -4911,6 +4924,8 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 	r.spriteProgram.uniformBufferOffset = 0
 	r.currentSpriteTexture.spriteTexture = r.dummyTexture
 	r.currentSpriteTexture.palTexture = r.palTexture.textures[0]
+	r.VKState.spriteTexture = r.dummyTexture
+	r.VKState.palTexture = r.dummyTexture
 	r.modelProgram.uniformOffsetMap = make(map[interface{}]uint32)
 	r.modelProgram.uniformBufferOffset = 0
 	//r.spriteProgram.descriptorSetCache.ClearAccessFlag()

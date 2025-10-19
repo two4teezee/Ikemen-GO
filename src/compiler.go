@@ -4859,9 +4859,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_timetotal)
 	case "angle":
 		out.append(OC_ex_, OC_ex_angle)
-	case "XAngle":
+	case "xangle":
 		out.append(OC_ex2_, OC_ex2_angle_x)
-	case "YAngle":
+	case "yangle":
 		out.append(OC_ex2_, OC_ex2_angle_y)
 	case "scale":
 		c.token = c.tokenizer(in)

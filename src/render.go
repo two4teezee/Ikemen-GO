@@ -225,8 +225,69 @@ func drawQuads(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4 float32) {
 	gfx.RenderQuad()
 }
 
+func applyRotation(modelview mgl.Mat4, rp RenderParams) mgl.Mat4 {
+	aspectGame := sys.getCurrentAspect()
+	aspectWindow := float32(sys.scrrect[2]) / float32(sys.scrrect[3])
+
+	rotMatrix := func() mgl.Mat4 {
+		return mgl.Rotate3DX(-rp.rot.xangle * math.Pi / 180.0).
+			Mul3(mgl.Rotate3DY(rp.rot.yangle * math.Pi / 180.0)).
+			Mul3(mgl.Rotate3DZ(rp.rot.angle * math.Pi / 180.0)).
+			Mat4()
+	}
+
+	if sys.cfg.Video.StageFit && AbsF(aspectGame-aspectWindow) > 0.01 {
+		if aspectWindow > aspectGame {
+			// Window wider: normalize X
+			scaleX := aspectWindow / aspectGame
+			modelview = modelview.Mul4(mgl.Scale3D(scaleX, rp.vs, 1)) // pre-scale
+			modelview = modelview.Mul4(rotMatrix())	// rotate
+			modelview = modelview.Mul4(mgl.Scale3D(1/scaleX, 1, 1))	// restore
+		} else {
+			// Window taller: normalize Y
+			scaleY := aspectGame / aspectWindow
+			modelview = modelview.Mul4(mgl.Scale3D(1, scaleY*rp.vs, 1))
+			modelview = modelview.Mul4(rotMatrix())
+			modelview = modelview.Mul4(mgl.Scale3D(1, 1/scaleY, 1))
+		}
+	} else {
+		// Same aspect: simple rotation
+		modelview = modelview.Mul4(mgl.Scale3D(1, rp.vs, 1))
+		modelview = modelview.Mul4(rotMatrix())
+	}
+
+	return modelview
+}
+
+// Builds the base projection transform depending on projectionMode
+func applyProjection(modelview mgl.Mat4, rp RenderParams, n int, botdist, dy float32) mgl.Mat4 {
+    if rp.projectionMode == 0 {
+        // No projection, just center on pivot + tile offset
+        return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
+    }
+
+    matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
+
+    if rp.projectionMode == 1 {
+        modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), rp.fLength))
+        modelview = modelview.Mul4(matrix)
+        modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
+        modelview = modelview.Mul4(mgl.Translate3D(-float32(sys.scrrect[2])/2.0,float32(sys.scrrect[3])/2.0,-rp.fLength,))
+        return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
+    }
+
+    if rp.projectionMode == 2 {
+        modelview = modelview.Mul4(mgl.Translate3D(rp.rcx-float32(sys.scrrect[2])/2.0-rp.xOffset, rp.rcy-float32(sys.scrrect[3])/2.0+rp.yOffset, rp.fLength))
+        modelview = modelview.Mul4(matrix)
+        modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
+        return modelview.Mul4(mgl.Translate3D(rp.xOffset+float32(n)*botdist, -rp.yOffset+dy, -rp.fLength))
+    }
+
+    return modelview
+}
+
 // Render a quad with optional horizontal tiling
-func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width float32, rp RenderParams) {
+func renderSpriteHTile(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width float32, rp RenderParams) {
 	//            p3
 	//    p4 o-----o-----o- - -o
 	//      /      |      \     ` .
@@ -245,26 +306,34 @@ func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width fl
 	xmax := float32(sys.scrrect[2])
 	left, right := int32(0), int32(1)
 	if rp.tile.xflag != 0 {
-		if topdist >= 0.01 {
-			if x1 > x2 {
-				left = 1 - int32(math.Ceil(float64(MaxF(x4/topdist, x1/botdist))))
-				right = int32(math.Ceil(float64(MaxF((xmax-x3)/topdist, (xmax-x2)/botdist))))
-			} else {
-				left = 1 - int32(math.Ceil(float64(MaxF(x3/topdist, x2/botdist))))
-				right = int32(math.Ceil(float64(MaxF((xmax-x4)/topdist, (xmax-x1)/botdist))))
+		if rp.projectionMode == 0 {
+			// Original culling logic (only when no projection)
+			if topdist >= 0.01 {
+				if x1 > x2 {
+					left = 1 - int32(math.Ceil(float64(MaxF(x4/topdist, x1/botdist))))
+					right = int32(math.Ceil(float64(MaxF((xmax-x3)/topdist, (xmax-x2)/botdist))))
+				} else {
+					left = 1 - int32(math.Ceil(float64(MaxF(x3/topdist, x2/botdist))))
+					right = int32(math.Ceil(float64(MaxF((xmax-x4)/topdist, (xmax-x1)/botdist))))
+				}
+			} else if topdist <= -0.01 {
+				if x1 > x2 {
+					left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
+					right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
+				} else {
+					left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
+					right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
+				}
 			}
-		} else if topdist <= -0.01 {
-			if x1 > x2 {
-				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
-				right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
-			} else {
-				left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
-				right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
+			if rp.tile.xflag != 1 {
+				left = 0
+				right = Min(right, Max(rp.tile.xflag, 1))
 			}
-		}
-		if rp.tile.xflag != 1 {
-			left = 0
-			right = Min(right, Max(rp.tile.xflag, 1))
+		} else {
+		// When projection is active: skip horizontal culling (geometry distortion breaks it)
+		// Instead, use a fixed symmetric range based on xflag to avoid infinite tiling
+			left = 1 - rp.tile.xflag
+			right = rp.tile.xflag
 		}
 	}
 
@@ -274,9 +343,8 @@ func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width fl
 		x3d, x4d := x3+float32(n)*topdist, x4+float32(n)*topdist
 		mat := modelview
 		if !rp.rot.IsZero() {
-			mat = mat.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
-			//modelview = modelview.Mul4(mgl.Scale3D(1, rp.vs, 1))
-			mat = mat.Mul4(mgl.Rotate3DZ(rp.rot.angle * math.Pi / 180.0).Mat4())
+			mat = applyProjection(mat, rp, int(n), botdist, dy)
+			mat = applyRotation(mat, rp)
 			mat = mat.Mul4(mgl.Translate3D(-(rp.rcx + float32(n)*botdist), -(rp.rcy + dy), 0))
 		}
 
@@ -284,7 +352,7 @@ func rmTileHSub(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, width fl
 	}
 }
 
-func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
+func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 	x1, y1 := rp.x, rp.rcy+((rp.y-rp.ys*float32(rp.size[1]))-rp.rcy)*rp.vs
 	x2, y2 := x1+rp.xbs*float32(rp.size[0]), y1
 	x3, y3 := rp.x+rp.xts*float32(rp.size[0]), rp.rcy+(rp.y-rp.rcy)*rp.vs
@@ -303,25 +371,7 @@ func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
 			y3 = rp.y
 			y4 = y3
 		}
-		if rp.projectionMode == 0 {
-			modelview = modelview.Mul4(mgl.Translate3D(rp.rcx, rp.rcy, 0))
-		} else if rp.projectionMode == 1 {
-			// This is the inverse of the orthographic projection matrix
-			matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
-			modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), rp.fLength))
-			modelview = modelview.Mul4(matrix)
-			modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
-			modelview = modelview.Mul4(mgl.Translate3D(-float32(sys.scrrect[2])/2.0, float32(sys.scrrect[3])/2.0, -rp.fLength))
-			modelview = modelview.Mul4(mgl.Translate3D(rp.rcx, rp.rcy, 0))
-		} else if rp.projectionMode == 2 {
-			matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
-			//modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), 2048))
-			modelview = modelview.Mul4(mgl.Translate3D(rp.rcx-float32(sys.scrrect[2])/2.0-rp.xOffset, rp.rcy-float32(sys.scrrect[3])/2.0+rp.yOffset, rp.fLength))
-			modelview = modelview.Mul4(matrix)
-			modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
-			modelview = modelview.Mul4(mgl.Translate3D(rp.xOffset, -rp.yOffset, -rp.fLength))
-		}
-
+		modelview = applyProjection(modelview, rp, 0, 1, 0)
 		// Apply shear matrix before rotation
 		shearMatrix := mgl.Mat4{
 			1, 0, 0, 0,
@@ -331,11 +381,7 @@ func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
 		modelview = modelview.Mul4(shearMatrix)
 		modelview = modelview.Mul4(mgl.Translate3D(rp.rxadd*rp.ys*float32(rp.size[1]), 0, 0))
 
-		modelview = modelview.Mul4(mgl.Scale3D(1, rp.vs, 1))
-		modelview = modelview.Mul4(
-			mgl.Rotate3DX(-rp.rot.xangle * math.Pi / 180.0).Mul3(
-				mgl.Rotate3DY(rp.rot.yangle * math.Pi / 180.0)).Mul3(
-				mgl.Rotate3DZ(rp.rot.angle * math.Pi / 180.0)).Mat4())
+		modelview = applyRotation(modelview, rp)
 		modelview = modelview.Mul4(mgl.Translate3D(-rp.rcx, -rp.rcy, 0))
 
 		drawQuads(modelview, x1, y1, x2, y2, x3, y3, x4, y4)
@@ -374,7 +420,7 @@ func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
 			x1d, x2d, x3d, x4d, y1d, y2d, y3d, y4d, xy = xy[len(xy)-8], xy[len(xy)-7], xy[len(xy)-6], xy[len(xy)-5], xy[len(xy)-4], xy[len(xy)-3], xy[len(xy)-2], xy[len(xy)-1], xy[:len(xy)-8]
 			if (0 > y1d || 0 > y4d) &&
 				(y1d > float32(-sys.scrrect[3]) || y4d > float32(-sys.scrrect[3])) {
-				rmTileHSub(modelview, x1d, y1d, x2d, y2d, x3d, y3d, x4d, y4d, y1d-y1, float32(rp.size[0]), rp)
+				renderSpriteHTile(modelview, x1d, y1d, x2d, y2d, x3d, y3d, x4d, y4d, y1d-y1, float32(rp.size[0]), rp)
 			}
 		}
 	}
@@ -393,8 +439,7 @@ func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
 			}
 			if (0 > y1 || 0 > y4) &&
 				(y1 > float32(-sys.scrrect[3]) || y4 > float32(-sys.scrrect[3])) {
-				rmTileHSub(modelview, x1, y1, x2, y2, x3, y3, x4, y4, y1-oy,
-					float32(rp.size[0]), rp)
+				renderSpriteHTile(modelview, x1, y1, x2, y2, x3, y3, x4, y4, y1-oy, float32(rp.size[0]), rp)
 			}
 			if rp.tile.yflag != 1 && n != 0 {
 				n--
@@ -415,7 +460,7 @@ func rmTileSub(modelview mgl.Mat4, rp RenderParams) {
 	}
 }
 
-func rmInitSub(rp *RenderParams) {
+func initRenderSpriteQuad(rp *RenderParams) {
 	if rp.vs < 0 {
 		rp.vs *= -1
 		rp.ys *= -1
@@ -452,7 +497,7 @@ func RenderSprite(rp RenderParams) {
 		return
 	}
 
-	rmInitSub(&rp)
+	initRenderSpriteQuad(&rp)
 
 	neg, grayscale, padd, pmul, invblend, hue := false, float32(0), [3]float32{0, 0, 0}, [3]float32{1, 1, 1}, int32(0), float32(0)
 	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
@@ -490,7 +535,7 @@ func RenderSprite(rp RenderParams) {
 		gfx.SetUniformFv("tint", tint[:])
 		gfx.SetUniformF("alpha", a)
 
-		rmTileSub(modelview, rp)
+		renderSpriteQuad(modelview, rp)
 
 		gfx.ReleasePipeline()
 	}

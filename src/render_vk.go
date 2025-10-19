@@ -799,6 +799,7 @@ const (
 	VulkanResourceTypeTexture VulkanResourceType = iota
 	VulkanResourceTypePaletteTexture
 	VulkanResourceTypeBuffer
+	VulkanResourceTypeFence
 )
 
 type VulkanResource struct {
@@ -4403,12 +4404,12 @@ func (r *Renderer_VK) CreateSyncObjects() error {
 	r.semaphores = make([]vk.Semaphore, 2)
 	err = vk.Error(vk.CreateSemaphore(r.device, &semaphoreCreateInfo, nil, &r.semaphores[0]))
 	if err != nil {
-		err = fmt.Errorf("vk.CreateFence failed with %s", err)
+		err = fmt.Errorf("vk.CreateSemaphore failed with %s", err)
 		return err
 	}
 	err = vk.Error(vk.CreateSemaphore(r.device, &semaphoreCreateInfo, nil, &r.semaphores[1]))
 	if err != nil {
-		err = fmt.Errorf("vk.CreateFence failed with %s", err)
+		err = fmt.Errorf("vk.CreateSemaphore failed with %s", err)
 		return err
 	}
 	return nil
@@ -4804,6 +4805,10 @@ func (r *Renderer_VK) DestroyResources(queueLength int) {
 				vk.DestroyBuffer(r.device, res.resources[0].(vk.Buffer), nil)
 				vk.FreeMemory(r.device, res.resources[1].(vk.DeviceMemory), nil)
 				break
+			case VulkanResourceTypeFence:
+				vk.WaitForFences(r.device, 1, []vk.Fence{res.resources[0].(vk.Fence)}, vk.True, 10*1000*1000*1000)
+				vk.DestroyFence(r.device, res.resources[0].(vk.Fence), nil)
+				break
 			}
 		default:
 			empty = true
@@ -4828,6 +4833,16 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 		go r.DestroyResources(len(r.destroyResourceQueue))
 	}
 	if len(r.usedCommands) > 0 {
+		if r.stagingBufferFences[0] {
+			vk.WaitForFences(r.device, 1, r.fences[1:2], vk.True, 10*1000*1000*1000)
+			vk.ResetFences(r.device, 1, r.fences[1:2])
+			r.stagingBufferFences[0] = false
+		}
+		if r.stagingBufferFences[1] {
+			vk.WaitForFences(r.device, 1, r.fences[2:3], vk.True, 10*1000*1000*1000)
+			vk.ResetFences(r.device, 1, r.fences[2:3])
+			r.stagingBufferFences[1] = false
+		}
 		vk.FreeCommandBuffers(r.device, r.commandPools[0], uint32(len(r.usedCommands)), r.usedCommands)
 		r.usedCommands = r.usedCommands[:0]
 	}
@@ -7311,7 +7326,6 @@ func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize
 	if size > uint32(r.stagingBuffers[r.stagingBufferIndex].size) {
 		r.FlushTempCommands()
 		if size > uint32(r.stagingBuffers[r.stagingBufferIndex].size) {
-			r.stagingBufferFences[r.stagingBufferIndex] = false
 			r.ResizeStagingBuffer(size)
 		}
 	}
@@ -7328,14 +7342,30 @@ func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize
 		log.Println("[WARN] failed to copy image data")
 	}
 	ret := vk.DeviceSize(r.stagingBufferOffset)
-	if size%4 > 0 {
-		r.stagingBufferOffset += size + 4 - (size % 4)
+	if size%16 > 0 {
+		r.stagingBufferOffset += size + 16 - (size % 16)
 	} else {
 		r.stagingBufferOffset += size
 	}
 	return ret
 }
 func (r *Renderer_VK) ResizeStagingBuffer(size uint32) {
+	r.stagingBufferFences[r.stagingBufferIndex] = false
+	r.destroyResourceQueue <- VulkanResource{
+		VulkanResourceTypeFence,
+		[]interface{}{
+			r.fences[1+r.stagingBufferIndex],
+		},
+	}
+	var fence vk.Fence
+	fenceCreateInfo := vk.FenceCreateInfo{
+		SType: vk.StructureTypeFenceCreateInfo,
+	}
+	err := vk.Error(vk.CreateFence(r.device, &fenceCreateInfo, nil, &fence))
+	if err != nil {
+		panic(err)
+	}
+	r.fences[1+r.stagingBufferIndex] = fence
 	r.destroyResourceQueue <- VulkanResource{
 		VulkanResourceTypeBuffer,
 		[]interface{}{

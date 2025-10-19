@@ -444,15 +444,19 @@ const (
 	OC_const_stagevar_shadow_color_g
 	OC_const_stagevar_shadow_color_b
 	OC_const_stagevar_shadow_yscale
+	OC_const_stagevar_shadow_ydelta
 	OC_const_stagevar_shadow_fade_range_begin
 	OC_const_stagevar_shadow_fade_range_end
 	OC_const_stagevar_shadow_xshear
 	OC_const_stagevar_shadow_offset_x
 	OC_const_stagevar_shadow_offset_y
 	OC_const_stagevar_reflection_intensity
+	OC_const_stagevar_reflection_ydelta
 	OC_const_stagevar_reflection_yscale
 	OC_const_stagevar_reflection_offset_x
 	OC_const_stagevar_reflection_offset_y
+	OC_const_stagevar_reflection_fade_range_begin
+	OC_const_stagevar_reflection_fade_range_end
 	OC_const_stagevar_reflection_xshear
 	OC_const_stagevar_reflection_color_r
 	OC_const_stagevar_reflection_color_g
@@ -2496,6 +2500,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(sys.stage.sdw.color & 0xFF))
 	case OC_const_stagevar_shadow_yscale:
 		sys.bcStack.PushF(sys.stage.sdw.yscale)
+	case OC_const_stagevar_shadow_ydelta:
+		sys.bcStack.PushF(sys.stage.sdw.ydelta)
 	case OC_const_stagevar_shadow_fade_range_begin:
 		sys.bcStack.PushI(int32(float32(sys.stage.sdw.fadebgn) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_shadow_fade_range_end:
@@ -2510,6 +2516,12 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.stage.reflection.intensity)
 	case OC_const_stagevar_reflection_yscale:
 		sys.bcStack.PushF(sys.stage.reflection.yscale)
+	case OC_const_stagevar_reflection_ydelta:
+		sys.bcStack.PushF(sys.stage.reflection.ydelta)
+	case OC_const_stagevar_reflection_fade_range_begin:
+		sys.bcStack.PushI(int32(float32(sys.stage.reflection.fadebgn) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_reflection_fade_range_end:
+		sys.bcStack.PushI(int32(float32(sys.stage.reflection.fadeend) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_reflection_offset_x:
 		sys.bcStack.PushF(sys.stage.reflection.offset[0] * sys.stage.localscl / oc.localscl)
 	case OC_const_stagevar_reflection_offset_y:
@@ -9264,6 +9276,7 @@ const (
 	superPause_pausebg
 	superPause_endcmdbuftime
 	superPause_darken
+	superPause_brightness
 	superPause_anim
 	superPause_pos
 	superPause_p2defmul
@@ -9283,7 +9296,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	uh := true
 
 	// Default parameters
-	sys.superdarken = true
+	sys.superbrightness = 0.5 // Darken used to be 128/256
 	sys.superpausebg = true
 	sys.superendcmdbuftime = 0
 	p2defmul := crun.gi().constants["super.targetdefencemul"]
@@ -9304,7 +9317,14 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 		case superPause_endcmdbuftime:
 			sys.superendcmdbuftime = exp[0].evalI(c)
 		case superPause_darken:
-			sys.superdarken = exp[0].evalB(c)
+			if exp[0].evalB(c) {
+				sys.superbrightness = 0.5
+			} else {
+				sys.superbrightness = 1.0
+			}
+		case superPause_brightness:
+			sys.superbrightness = (exp[0].evalF(c)) / 256
+			sys.superbrightness = ClampF(sys.superbrightness, 0, 1)
 		case superPause_anim:
 			fx_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			fx_anim = exp[1].evalI(c)
@@ -12325,6 +12345,7 @@ const (
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
+	modifyStageVar_shadow_ydelta
 	modifyStageVar_shadow_angle
 	modifyStageVar_shadow_xangle
 	modifyStageVar_shadow_yangle
@@ -12336,11 +12357,13 @@ const (
 	modifyStageVar_shadow_window
 	modifyStageVar_reflection_intensity
 	modifyStageVar_reflection_yscale
+	modifyStageVar_reflection_ydelta
 	modifyStageVar_reflection_angle
 	modifyStageVar_reflection_xangle
 	modifyStageVar_reflection_yangle
 	modifyStageVar_reflection_focallength
 	modifyStageVar_reflection_projection
+	modifyStageVar_reflection_fade_range
 	modifyStageVar_reflection_xshear
 	modifyStageVar_reflection_color
 	modifyStageVar_reflection_offset
@@ -12491,6 +12514,8 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.sdw.color = uint32(r<<16 | g<<8 | b)
 		case modifyStageVar_shadow_yscale:
 			s.sdw.yscale = exp[0].evalF(c)
+		case modifyStageVar_shadow_ydelta:
+			s.sdw.ydelta = exp[0].evalF(c)
 		case modifyStageVar_shadow_angle:
 			s.sdw.rot.angle = exp[0].evalF(c)
 		case modifyStageVar_shadow_xangle:
@@ -12529,6 +12554,13 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.reflection.intensity = Clamp(exp[0].evalI(c), 0, 255)
 		case modifyStageVar_reflection_yscale:
 			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_ydelta:
+			s.reflection.yscale = exp[0].evalF(c)
+		case modifyStageVar_reflection_fade_range:
+			s.reflection.fadeend = int32(exp[0].evalF(c) * scaleratio)
+			if len(exp) > 1 {
+				s.reflection.fadebgn = int32(exp[1].evalF(c) * scaleratio)
+			}
 		case modifyStageVar_reflection_angle:
 			s.reflection.rot.angle = exp[0].evalF(c)
 		case modifyStageVar_reflection_xangle:
@@ -13261,7 +13293,8 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_color byte = iota
+	modifyShadow_anim byte = iota
+	modifyShadow_color
 	modifyShadow_intensity
 	modifyShadow_offset
 	modifyShadow_window
@@ -13285,6 +13318,15 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_anim:
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			// We'll use crun.playerNo as animPN and spritePN because the main use case is replacing the shadow with one of your own anims
+			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			if anim != nil {
+				anim.Action() // Need to step for it to appear
+				crun.shadowAnim = anim
+			}
 		case modifyShadow_color:
 			var r, g, b int32
 			r = Clamp(exp[0].evalI(c), 0, 255)
@@ -13327,7 +13369,8 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 type modifyReflection StateControllerBase
 
 const (
-	modifyReflection_color byte = iota
+	modifyReflection_anim byte = iota
+	modifyReflection_color
 	modifyReflection_intensity
 	modifyReflection_offset
 	modifyReflection_window
@@ -13351,6 +13394,14 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_anim:
+			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			animNo := exp[1].evalI(c)
+			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			if anim != nil {
+				anim.Action() // Need to step for it to appear
+				crun.reflectAnim = anim
+			}
 		case modifyReflection_color:
 			var r, g, b int32
 			r = Clamp(exp[0].evalI(c), 0, 255)

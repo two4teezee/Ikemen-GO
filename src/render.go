@@ -236,7 +236,7 @@ func applyRotation(modelview mgl.Mat4, rp RenderParams) mgl.Mat4 {
 			Mat4()
 	}
 
-	if sys.cfg.Video.StageFit && AbsF(aspectGame-aspectWindow) > 0.01 {
+	if AbsF(aspectGame-aspectWindow) > 0.01 {
 		if aspectWindow > aspectGame {
 			// Window wider: normalize X
 			scaleX := aspectWindow / aspectGame

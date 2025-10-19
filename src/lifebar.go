@@ -475,10 +475,10 @@ func readHealthBar(pre string, is IniSection, sff *Sff, at AnimationTable, f []*
 }
 
 func (hb *HealthBar) step(ref int, hbr *HealthBar) {
-	var life float32 = float32(sys.chars[ref][0].life) / float32(sys.chars[ref][0].lifeMax)
-	//redlife := (float32(sys.chars[ref][0].life) + float32(sys.chars[ref][0].redLife)) / float32(sys.chars[ref][0].lifeMax)
-	var redVal int32 = sys.chars[ref][0].redLife - sys.chars[ref][0].life
-	var getHit bool = (sys.chars[ref][0].receivedHits != 0 || sys.chars[ref][0].ss.moveType == MT_H) && !sys.chars[ref][0].scf(SCF_over_ko)
+	refChar := sys.chars[ref][0]
+	var life float32 = float32(refChar.life) / float32(refChar.lifeMax)
+	var redVal int32 = refChar.redLife - refChar.life
+	var getHit bool = (refChar.receivedHits != 0 || refChar.ss.moveType == MT_H) && !refChar.scf(SCF_over_ko)
 
 	if hbr.toplife > life {
 		hbr.toplife += (life - hbr.toplife) / 2
@@ -531,7 +531,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 	hb.top.Action()
 	hb.mid.Action()
 	// Multiple front elements - red life
-	if sys.chars[ref][0].redLifeEnabled() {
+	if refChar.redLifeEnabled() {
 		var rv int32
 		for k := range hb.red {
 			if k > rv && redVal >= k {
@@ -601,9 +601,12 @@ func (hb *HealthBar) bgDraw(layerno int16) {
 }
 
 func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
-	life := float32(sys.chars[ref][0].life) / float32(sys.chars[ref][0].lifeMax)
-	redlife := float32(sys.chars[ref][0].redLife) / float32(sys.chars[ref][0].lifeMax)
-	redval := sys.chars[ref][0].redLife - sys.chars[ref][0].life
+	// Get reference values
+	refChar := sys.chars[ref][0]
+	life := float32(refChar.life) / float32(refChar.lifeMax)
+	redlife := float32(refChar.redLife) / float32(refChar.lifeMax)
+	redval := refChar.redLife - refChar.life
+
 	var MidPosX = (float32(sys.gameWidth-320) / 2)
 	var MidPosY = (float32(sys.gameHeight-240) / 2)
 	// Calculates the clipping rectangle based on current bar settings
@@ -659,7 +662,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 	}
 
 	// Draw red life
-	if sys.chars[ref][0].redLifeEnabled() {
+	if refChar.redLifeEnabled() {
 		var rv int32
 		for k := range hb.red {
 			if k > rv && redval >= k {
@@ -677,7 +680,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 					rv2 = k
 				}
 			}
-			text := strings.Replace(hb.red_value[rv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].redLife), 1)
+			text := strings.Replace(hb.red_value[rv2].text, "%d", fmt.Sprintf("%v", refChar.redLife), 1)
 			text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(redlife)*100)), 1)
 			hb.red_value[rv2].lay.DrawText(
 				float32(hb.pos[0])+sys.lifebarOffsetX,
@@ -722,7 +725,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 				fv2 = k
 			}
 		}
-		text := strings.Replace(hb.value[fv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].life), 1)
+		text := strings.Replace(hb.value[fv2].text, "%d", fmt.Sprintf("%v", refChar.life), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(life)*100)), 1)
 		hb.value[fv2].lay.DrawText(
 			float32(hb.pos[0])+sys.lifebarOffsetX,
@@ -844,11 +847,14 @@ func readPowerBar(pre string, is IniSection, sff *Sff, at AnimationTable, f []*F
 }
 
 func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
-	pbval := sys.chars[ref][0].getPower()
-	power := float32(pbval) / float32(sys.chars[ref][0].powerMax)
+	// Get reference values
+	refChar := sys.chars[ref][0]
+	pbval := refChar.getPower()
+	power := float32(pbval) / float32(refChar.powerMax)
 	level := pbval / 1000
+
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(sys.chars[ref][0].powerMax)/1000-1)
+		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	// Element shifting gradient
@@ -955,12 +961,13 @@ func (pb *PowerBar) bgDraw(layerno int16, ref int) {
 }
 
 func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
-	pbval := sys.chars[ref][0].getPower()
-	power := float32(pbval) / float32(sys.chars[ref][0].powerMax)
+	refChar := sys.chars[ref][0]
+	pbval := refChar.getPower()
+	power := float32(pbval) / float32(refChar.powerMax)
 	level := pbval / 1000
 
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(sys.chars[ref][0].powerMax)/1000-1)
+		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	var MidPosX = (float32(sys.gameWidth-320) / 2)
@@ -1136,11 +1143,12 @@ func readGuardBar(pre string, is IniSection,
 }
 
 func (gb *GuardBar) step(ref int, gbr *GuardBar, snd *Snd) {
-	if !sys.chars[ref][0].guardBreakEnabled() {
+	refChar := sys.chars[ref][0]
+	if !refChar.guardBreakEnabled() {
 		return
 	}
 
-	points := float32(sys.chars[ref][0].guardPoints) / float32(sys.chars[ref][0].guardPointsMax)
+	points := float32(refChar.guardPoints) / float32(refChar.guardPointsMax)
 	if gb.invertfill {
 		points = 1 - points
 	}
@@ -1221,7 +1229,8 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 	//	return
 	//}
 
-	points := float32(sys.chars[ref][0].guardPoints) / float32(sys.chars[ref][0].guardPointsMax)
+	refChar := sys.chars[ref][0]
+	points := float32(refChar.guardPoints) / float32(refChar.guardPointsMax)
 	if gb.invertfill {
 		points = 1 - points
 	}
@@ -1295,7 +1304,7 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 				mv2 = k
 			}
 		}
-		text := strings.Replace(gb.value[mv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].guardPoints), 1)
+		text := strings.Replace(gb.value[mv2].text, "%d", fmt.Sprintf("%v", refChar.guardPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
 		gb.value[mv2].lay.DrawText(
 			float32(gb.pos[0])+sys.lifebarOffsetX,
@@ -1379,11 +1388,12 @@ func readStunBar(pre string, is IniSection,
 }
 
 func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
-	if !sys.chars[ref][0].dizzyEnabled() {
+	refChar := sys.chars[ref][0]
+	if !refChar.dizzyEnabled() {
 		return
 	}
 
-	points := float32(sys.chars[ref][0].dizzyPoints) / float32(sys.chars[ref][0].dizzyPointsMax)
+	points := float32(refChar.dizzyPoints) / float32(refChar.dizzyPointsMax)
 	if sb.invertfill {
 		points = 1 - points
 	}
@@ -1462,7 +1472,8 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 	//	return
 	//}
 
-	points := float32(sys.chars[ref][0].dizzyPoints) / float32(sys.chars[ref][0].dizzyPointsMax)
+	refChar := sys.chars[ref][0]
+	points := float32(refChar.dizzyPoints) / float32(refChar.dizzyPointsMax)
 	if sb.invertfill {
 		points = 1 - points
 	}
@@ -1536,7 +1547,7 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 				mv2 = k
 			}
 		}
-		text := strings.Replace(sb.value[mv2].text, "%d", fmt.Sprintf("%v", sys.chars[ref][0].dizzyPoints), 1)
+		text := strings.Replace(sb.value[mv2].text, "%d", fmt.Sprintf("%v", refChar.dizzyPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
 		sb.value[mv2].lay.DrawText(
 			float32(sb.pos[0])+sys.lifebarOffsetX,
@@ -1635,9 +1646,10 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 }
 
 func (fa *LifeBarFace) step(ref int, far *LifeBarFace) {
+	refChar := sys.chars[ref][0]
 	group, number := int16(fa.face_spr[0]), int16(fa.face_spr[1])
-	if sys.chars[ref][0] != nil && sys.chars[ref][0].anim != nil {
-		if mg, ok := sys.chars[ref][0].anim.remap[group]; ok {
+	if refChar != nil && refChar.anim != nil {
+		if mg, ok := refChar.anim.remap[group]; ok {
 			if mn, ok := mg[number]; ok {
 				group, number = mn[0], mn[1]
 			}
@@ -1690,16 +1702,18 @@ func (fa *LifeBarFace) bgDraw(layerno int16) {
 }
 
 func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
+	refChar := sys.chars[ref][0]
+
 	if far.face != nil {
 		// Get player current PalFX if applicable
 		pfx := newPalFX()
 		if far.palfxshare {
-			pfx = sys.chars[ref][0].getPalfx()
+			pfx = refChar.getPalfx()
 		}
 
 		// Swap palette maps to get the player's current palette
 		if far.palshare {
-			sys.cgi[ref].palettedata.palList.SwapPalMap(&sys.chars[ref][0].getPalfx().remap)
+			sys.cgi[ref].palettedata.palList.SwapPalMap(&refChar.getPalfx().remap)
 		}
 
 		// Get texture
@@ -1714,7 +1728,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 		// Revert palette maps to initial state
 		if far.palshare {
-			sys.cgi[ref].palettedata.palList.SwapPalMap(&sys.chars[ref][0].getPalfx().remap)
+			sys.cgi[ref].palettedata.palList.SwapPalMap(&refChar.getPalfx().remap)
 		}
 
 		// TODO: PalFX sharing has a bug in Tag in that it uses the parameter from the char's original placement in the team
@@ -1723,8 +1737,8 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 		// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
 		oldBright := sys.brightness
-		if sys.chars[ref][0].ignoreDarkenTime > 0 { //ref == sys.superplayerno
-			sys.brightness = 256
+		if refChar.ignoreDarkenTime > 0 { //ref == sys.superplayerno
+			sys.brightness = 1.0
 		}
 
 		// Draw the actual face sprite
@@ -1732,7 +1746,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 			far.face, pfx, sys.cgi[ref].portraitscale*sys.lifebarPortraitScale, &fa.face_lay.window)
 
 		// Draw KO layer
-		if !sys.chars[ref][0].alive() {
+		if !refChar.alive() {
 			fa.ko.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
 		}
 
@@ -2881,6 +2895,7 @@ func (ro *LifeBarRound) isFinalRound() bool {
 		(sys.draws >= sys.lifebar.ro.match_maxdrawgames[0] || sys.draws >= sys.lifebar.ro.match_maxdrawgames[1])
 }
 
+// Check is sys.intro timer should step
 func (ro *LifeBarRound) act() bool {
 	// Reset FightScreenState trigger flags
 	// This method is easier and more accurate than computing the times again for the trigger
@@ -2888,14 +2903,17 @@ func (ro *LifeBarRound) act() bool {
 	ro.triggerFightDisplay = false
 	ro.triggerKODisplay = false
 	ro.triggerWinDisplay = false
+
 	// Early exits
 	if (sys.paused && !sys.frameStepFlag) || sys.gsf(GSF_roundfreeze) {
 		return false
 	}
+
 	// Transition timers
-	if ro.rt != nil {
+	if ro.rt != nil && sys.tickNextFrame() {
 		ro.rt.Step()
 	}
+
 	// Pre-intro
 	if sys.intro > ro.ctrl_time {
 		ro.current = 0
@@ -2906,17 +2924,9 @@ func (ro *LifeBarRound) act() bool {
 		// Mugen ignores the "shuttertime" here, but that makes the round/fight announcement too abrupt
 		return false
 	} else {
-		// Check if current round animation can be skipped
-		// This is to prevent suddenly ending the animations if a flag is enabled
-		canSkip := func(phase int) bool {
-			if phase < len(ro.waitTimer) && phase < len(ro.waitSoundTimer) && phase < len(ro.drawTimer) {
-				return ro.waitTimer[phase] >= 0 && ro.waitSoundTimer[phase] >= 0 && ro.drawTimer[phase] <= 0
-			}
-			return false
-		}
-		// Round intro. Consists of round and fight calls
+		// Intro
 		if !ro.roundCallOver || !ro.fightCallOver {
-
+			// Check dialogue
 			if sys.round == 1 && sys.intro == ro.ctrl_time && len(sys.cfg.Common.Lua) > 0 {
 				for _, p := range sys.chars {
 					if len(p) > 0 && len(p[0].dialogue) > 0 {
@@ -2926,264 +2936,288 @@ func (ro *LifeBarRound) act() bool {
 					}
 				}
 			}
-			// Previously skipping the char intros took us to the fight call, like Mugen
-			// Most games go to the round call instead so this was changed
-			//if sys.introSkipped && !sys.dialogueFlg {
-			//	ro.roundCallOver = true
-			//	ro.callFight()
-			//	sys.introSkipped = false
-			//}
-			// Round call
-			if sys.gsf(GSF_skiprounddisplay) && canSkip(0) { // Skip
-				ro.roundCallOver = true
-				ro.waitTimer[1] = 0
-			}
-			if !ro.roundCallOver {
-				roundNum := sys.round
-				if sys.consecutiveRounds {
-					roundNum = sys.consecutiveWins[0] + 1
-				}
-				// Sounds
-				if ro.waitSoundTimer[0] == 0 {
-					if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
-						ro.snd.play(ro.round_single.snd, 100, 0, 0, 0, 0)
-					} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
-						ro.snd.play(ro.round_final.snd, 100, 0, 0, 0, 0)
-					} else if int(roundNum) <= len(ro.round) && ro.round[roundNum-1].snd[0] != -1 {
-						ro.snd.play(ro.round[roundNum-1].snd, 100, 0, 0, 0, 0)
-					} else {
-						ro.snd.play(ro.round_default.snd, 100, 0, 0, 0, 0)
-					}
-				}
-				ro.waitSoundTimer[0]--
-				// Animations
-				if ro.waitTimer[0] <= 0 {
-					ro.triggerRoundDisplay = true
-					ro.drawTimer[0]++
-					if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
-						if len(ro.round_single_top.anim.frames) > 0 {
-							ro.round_single_top.Action()
-						} else {
-							ro.round_default_top.Action()
-						}
-						ro.round_single.Action()
-						ro.round_default.Action()
-						if len(ro.round_single_bg[0].anim.frames) > 0 {
-							for i := len(ro.round_single_bg) - 1; i >= 0; i-- {
-								ro.round_single_bg[i].Action()
-							}
-						} else {
-							for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-								ro.round_default_bg[i].Action()
-							}
-						}
-						ro.roundCallOver = ro.round_single.End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
-					} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
-						if len(ro.round_final_top.anim.frames) > 0 {
-							ro.round_final_top.Action()
-						} else {
-							ro.round_default_top.Action()
-						}
-						ro.round_final.Action()
-						ro.round_default.Action()
-						if len(ro.round_final_bg[0].anim.frames) > 0 {
-							for i := len(ro.round_final_bg) - 1; i >= 0; i-- {
-								ro.round_final_bg[i].Action()
-							}
-						} else {
-							for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-								ro.round_default_bg[i].Action()
-							}
-						}
-						ro.roundCallOver = ro.round_final.End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
-					} else if int(roundNum) <= len(ro.round) {
-						ro.round_default_top.Action()
-						ro.round[roundNum-1].Action()
-						ro.round_default.Action()
-						for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-							ro.round_default_bg[i].Action()
-						}
-						ro.roundCallOver = ro.round[roundNum-1].End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
-					} else {
-						ro.round_default_top.Action()
-						ro.round_default.Action()
-						for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-							ro.round_default_bg[i].Action()
-						}
-						ro.roundCallOver = ro.round_default.End(ro.drawTimer[0], true)
-					}
-				}
-				ro.waitTimer[0]--
-			}
-			// Fight call
-			endFightCall := func() {
-				ro.current = 2
-				ro.waitTimer[2], ro.waitSoundTimer[2], ro.drawTimer[2] = ro.ko_time, ro.ko_sndtime, 0
-				ro.waitTimer[3], ro.waitSoundTimer[3], ro.drawTimer[3] = ro.win_time, ro.win_sndtime, 0
-				ro.fightCallOver = true
-			}
-			// Skip fight call
-			// Cannot be skipped unless round call is finished or also skipped
-			if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) && canSkip(1) {
-				endFightCall()
-				if sys.intro > 1 {
-					sys.intro = 1 // Skip ctrl waiting time
-				}
-			}
-			if !ro.fightCallOver {
-				if ro.current == 0 {
-					if ro.waitTimer[1] == 0 {
-						// This used to be callFight()
-						ro.fight.Reset()
-						ro.fight_top.Reset()
-						ro.current = 1
-						ro.waitTimer[1] = ro.fight_time
-						ro.waitSoundTimer[1] = ro.fight_sndtime
-						ro.drawTimer[1] = 0
-						sys.timerCount = append(sys.timerCount, sys.matchTime)
-						ro.timerActive = true
-					}
-					ro.waitTimer[1]--
-				} else if !ro.fightCallOver {
-					if ro.waitSoundTimer[1] == 0 {
-						ro.snd.play(ro.fight.snd, 100, 0, 0, 0, 0)
-					}
-					ro.waitSoundTimer[1]--
-					if ro.waitTimer[1] <= 0 {
-						ro.triggerFightDisplay = true
-						ro.drawTimer[1]++
-						ro.fight_top.Action()
-						ro.fight.Action()
-						for i := len(ro.fight_bg) - 1; i >= 0; i-- {
-							ro.fight_bg[i].Action()
-						}
-						if ro.fight.End(ro.drawTimer[1], true) && ro.waitSoundTimer[1] < 0 {
-							endFightCall()
-						}
-					}
-					ro.waitTimer[1]--
-				}
-			}
+			ro.handleRoundIntro()
 		}
-		// Round over. Consists of KO screen and winner messages
+		// Outro
 		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
-			if ro.timerActive {
-				if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
-					sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]
-					sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
-				} else {
-					sys.timerCount[sys.round-1] = 0
-				}
-				ro.timerActive = false
-			}
-			steptimers := func(ats *AnimTextSnd, t int, delay int32, name string) {
-				if ro.waitSoundTimer[t]+delay == 0 {
-					ro.snd.play(ats.snd, 100, 0, 0, 0, 0)
-					ro.waitSoundTimer[t]--
-				}
-				ro.waitSoundTimer[t]--
-				if ats.End(ro.drawTimer[t], false) {
-					ro.waitTimer[t] = 2
-				}
-				if ro.waitTimer[t]+delay <= 0 {
-					ro.drawTimer[t]++
-					ats.Action()
-					// Flag FightScreenState while anims are playing
-					if !ats.End(ro.drawTimer[t], true) {
-						switch name {
-						case "ko":
-							ro.triggerKODisplay = true
-						case "win":
-							ro.triggerWinDisplay = true
-						}
-					}
-				}
-				ro.waitTimer[t]--
-			}
-			// KO screen
-			if !(sys.gsf(GSF_skipkodisplay) && canSkip(2)) {
-				switch sys.finishType {
-				case FT_KO:
-					ro.ko_top.Action()
-					steptimers(&ro.ko, 2, 9, "ko")
-					for i := len(ro.ko_bg) - 1; i >= 0; i-- {
-						ro.ko_bg[i].Action()
-					}
-				case FT_DKO:
-					ro.dko_top.Action()
-					steptimers(&ro.dko, 2, 9, "ko")
-					for i := len(ro.dko_bg) - 1; i >= 0; i-- {
-						ro.dko_bg[i].Action()
-					}
-				default:
-					ro.to_top.Action()
-					steptimers(&ro.to, 2, 0, "ko") // In Mugen there's no delay between the time over text and the sound
-					for i := len(ro.to_bg) - 1; i >= 0; i-- {
-						ro.to_bg[i].Action()
-					}
-				}
-			}
-			// Winner announcement
-			if sys.intro < -(ro.over_waittime) && !(sys.gsf(GSF_skipwindisplay) && canSkip(3)) {
-				wt := sys.winTeam
-				if wt < 0 {
-					wt = 0
-				}
-				if sys.finishType == FT_TODraw {
-					ro.drawgame_top.Action()
-					steptimers(&ro.drawgame, 3, 0, "win")
-					for i := len(ro.drawgame_bg) - 1; i >= 0; i-- {
-						ro.drawgame_bg[i].Action()
-					}
-				} else if sys.winTeam >= 0 { // Skip if draw game (double KO)
-					if sys.tmode[sys.winTeam] == TM_Simul || sys.tmode[sys.winTeam] == TM_Tag {
-						if sys.numSimul[sys.winTeam] == 2 {
-							ro.win2_top[wt].Action()
-							steptimers(&ro.win2[wt], 3, 0, "win")
-							for i := len(ro.win2_bg[wt]) - 1; i >= 0; i-- {
-								ro.win2_bg[wt][i].Action()
-							}
-						} else if sys.numSimul[sys.winTeam] == 3 {
-							ro.win3_top[wt].Action()
-							steptimers(&ro.win3[wt], 3, 0, "win")
-							for i := len(ro.win3_bg[wt]) - 1; i >= 0; i-- {
-								ro.win3_bg[wt][i].Action()
-							}
-						} else {
-							ro.win4_top[wt].Action()
-							steptimers(&ro.win4[wt], 3, 0, "win")
-							for i := len(ro.win4_bg[wt]) - 1; i >= 0; i-- {
-								ro.win4_bg[wt][i].Action()
-							}
-						}
-					} else {
-						ro.win_top[wt].Action()
-						steptimers(&ro.win[wt], 3, 0, "win")
-						for i := len(ro.win_bg[wt]) - 1; i >= 0; i-- {
-							ro.win_bg[wt][i].Action()
-						}
-					}
-				}
-				// Perfect and other special win types
-				if sys.winTeam >= 0 {
-					index := sys.winType[sys.winTeam]
-					if index > WT_NumTypes {
-						if sys.winTeam == 0 {
-							ro.winType[WT_Perfect].step(ro.snd)
-							index = index - WT_NumTypes - 1
-						} else {
-							ro.winType[WT_Perfect+WT_NumTypes].step(ro.snd)
-							index = index - 1
-						}
-					}
-					ro.winType[index].step(ro.snd)
-				}
-			}
+			ro.handleRoundOutro()
 		} else {
 			return ro.current > 0
 		}
 	}
 	return sys.tickNextFrame()
+}
+
+// Check if current round animation can be skipped
+// This prevents cutting an animation after it's already running
+func (ro *LifeBarRound) canSkipPhase(phase int) bool {
+	if phase < len(ro.waitTimer) && phase < len(ro.waitSoundTimer) && phase < len(ro.drawTimer) {
+		return ro.waitTimer[phase] >= 0 && ro.waitSoundTimer[phase] >= 0 && ro.drawTimer[phase] <= 0
+	}
+	return false
+}
+
+// Consists of round and fight calls
+func (ro *LifeBarRound) handleRoundIntro() {
+	// Previously skipping the char intros took us to the fight call, like Mugen
+	// Most games go to the round call instead so this was changed
+	//if sys.introSkipped && !sys.dialogueFlg {
+	//	ro.roundCallOver = true
+	//	ro.callFight()
+	//	sys.introSkipped = false
+	//}
+
+	// Round call
+	if sys.gsf(GSF_skiprounddisplay) && ro.canSkipPhase(0) { // Skip
+		ro.roundCallOver = true
+		ro.waitTimer[1] = 0
+	}
+	if !ro.roundCallOver {
+		roundNum := sys.round
+		if sys.consecutiveRounds {
+			roundNum = sys.consecutiveWins[0] + 1
+		}
+		// Sounds
+		if ro.waitSoundTimer[0] == 0 {
+			if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
+				ro.snd.play(ro.round_single.snd, 100, 0, 0, 0, 0)
+			} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
+				ro.snd.play(ro.round_final.snd, 100, 0, 0, 0, 0)
+			} else if int(roundNum) <= len(ro.round) && ro.round[roundNum-1].snd[0] != -1 {
+				ro.snd.play(ro.round[roundNum-1].snd, 100, 0, 0, 0, 0)
+			} else {
+				ro.snd.play(ro.round_default.snd, 100, 0, 0, 0, 0)
+			}
+		}
+		ro.waitSoundTimer[0]--
+		// Animations
+		if ro.waitTimer[0] <= 0 {
+			ro.triggerRoundDisplay = true
+			ro.drawTimer[0]++
+			if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
+				if len(ro.round_single_top.anim.frames) > 0 {
+					ro.round_single_top.Action()
+				} else {
+					ro.round_default_top.Action()
+				}
+				ro.round_single.Action()
+				ro.round_default.Action()
+				if len(ro.round_single_bg[0].anim.frames) > 0 {
+					for i := len(ro.round_single_bg) - 1; i >= 0; i-- {
+						ro.round_single_bg[i].Action()
+					}
+				} else {
+					for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+						ro.round_default_bg[i].Action()
+					}
+				}
+				ro.roundCallOver = ro.round_single.End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
+			} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
+				if len(ro.round_final_top.anim.frames) > 0 {
+					ro.round_final_top.Action()
+				} else {
+					ro.round_default_top.Action()
+				}
+				ro.round_final.Action()
+				ro.round_default.Action()
+				if len(ro.round_final_bg[0].anim.frames) > 0 {
+					for i := len(ro.round_final_bg) - 1; i >= 0; i-- {
+						ro.round_final_bg[i].Action()
+					}
+				} else {
+					for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+						ro.round_default_bg[i].Action()
+					}
+				}
+				ro.roundCallOver = ro.round_final.End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
+			} else if int(roundNum) <= len(ro.round) {
+				ro.round_default_top.Action()
+				ro.round[roundNum-1].Action()
+				ro.round_default.Action()
+				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+					ro.round_default_bg[i].Action()
+				}
+				ro.roundCallOver = ro.round[roundNum-1].End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
+			} else {
+				ro.round_default_top.Action()
+				ro.round_default.Action()
+				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+					ro.round_default_bg[i].Action()
+				}
+				ro.roundCallOver = ro.round_default.End(ro.drawTimer[0], true)
+			}
+		}
+		ro.waitTimer[0]--
+	}
+
+	// Fight call
+	endFightCall := func() {
+		ro.current = 2
+		ro.waitTimer[2], ro.waitSoundTimer[2], ro.drawTimer[2] = ro.ko_time, ro.ko_sndtime, 0
+		ro.waitTimer[3], ro.waitSoundTimer[3], ro.drawTimer[3] = ro.win_time, ro.win_sndtime, 0
+		ro.fightCallOver = true
+	}
+	// Skip fight call
+	// Cannot be skipped unless round call is finished or also skipped
+	if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) && ro.canSkipPhase(1) {
+		endFightCall()
+		if sys.intro > 1 {
+			sys.intro = 1 // Skip ctrl waiting time
+		}
+	}
+	if !ro.fightCallOver {
+		if ro.current == 0 {
+			if ro.waitTimer[1] == 0 {
+				// This used to be callFight()
+				ro.fight.Reset()
+				ro.fight_top.Reset()
+				ro.current = 1
+				ro.waitTimer[1] = ro.fight_time
+				ro.waitSoundTimer[1] = ro.fight_sndtime
+				ro.drawTimer[1] = 0
+				sys.timerCount = append(sys.timerCount, sys.matchTime)
+				ro.timerActive = true
+			}
+			ro.waitTimer[1]--
+		} else if !ro.fightCallOver {
+			if ro.waitSoundTimer[1] == 0 {
+				ro.snd.play(ro.fight.snd, 100, 0, 0, 0, 0)
+			}
+			ro.waitSoundTimer[1]--
+			if ro.waitTimer[1] <= 0 {
+				ro.triggerFightDisplay = true
+				ro.drawTimer[1]++
+				ro.fight_top.Action()
+				ro.fight.Action()
+				for i := len(ro.fight_bg) - 1; i >= 0; i-- {
+					ro.fight_bg[i].Action()
+				}
+				if ro.fight.End(ro.drawTimer[1], true) && ro.waitSoundTimer[1] < 0 {
+					endFightCall()
+				}
+			}
+			ro.waitTimer[1]--
+		}
+	}
+}
+
+// Consists of KO screen and winner messages
+func (ro *LifeBarRound) handleRoundOutro() {
+	if ro.timerActive {
+		if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
+			sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]
+			sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
+		} else {
+			sys.timerCount[sys.round-1] = 0
+		}
+		ro.timerActive = false
+	}
+
+	steptimers := func(ats *AnimTextSnd, t int, delay int32, name string) {
+		if ro.waitSoundTimer[t]+delay == 0 {
+			ro.snd.play(ats.snd, 100, 0, 0, 0, 0)
+			ro.waitSoundTimer[t]--
+		}
+		ro.waitSoundTimer[t]--
+		if ats.End(ro.drawTimer[t], false) {
+			ro.waitTimer[t] = 2
+		}
+		if ro.waitTimer[t]+delay <= 0 {
+			ro.drawTimer[t]++
+			ats.Action()
+			// Flag FightScreenState while anims are playing
+			if !ats.End(ro.drawTimer[t], true) {
+				switch name {
+				case "ko":
+					ro.triggerKODisplay = true
+				case "win":
+					ro.triggerWinDisplay = true
+				}
+			}
+		}
+		ro.waitTimer[t]--
+	}
+
+	// KO screen
+	if !(sys.gsf(GSF_skipkodisplay) && ro.canSkipPhase(2)) {
+		switch sys.finishType {
+		case FT_KO:
+			ro.ko_top.Action()
+			steptimers(&ro.ko, 2, 9, "ko")
+			for i := len(ro.ko_bg) - 1; i >= 0; i-- {
+				ro.ko_bg[i].Action()
+			}
+		case FT_DKO:
+			ro.dko_top.Action()
+			steptimers(&ro.dko, 2, 9, "ko")
+			for i := len(ro.dko_bg) - 1; i >= 0; i-- {
+				ro.dko_bg[i].Action()
+			}
+		default:
+			ro.to_top.Action()
+			steptimers(&ro.to, 2, 0, "ko") // In Mugen there's no delay between the time over text and the sound
+			for i := len(ro.to_bg) - 1; i >= 0; i-- {
+				ro.to_bg[i].Action()
+			}
+		}
+	}
+
+	// Winner announcement
+	if sys.intro < -(ro.over_waittime) && !(sys.gsf(GSF_skipwindisplay) && ro.canSkipPhase(3)) {
+		wt := sys.winTeam
+		if wt < 0 {
+			wt = 0
+		}
+		if sys.finishType == FT_TODraw {
+			ro.drawgame_top.Action()
+			steptimers(&ro.drawgame, 3, 0, "win")
+			for i := len(ro.drawgame_bg) - 1; i >= 0; i-- {
+				ro.drawgame_bg[i].Action()
+			}
+		} else if sys.winTeam >= 0 { // Skip if draw game (double KO)
+			if sys.tmode[sys.winTeam] == TM_Simul || sys.tmode[sys.winTeam] == TM_Tag {
+				if sys.numSimul[sys.winTeam] == 2 {
+					ro.win2_top[wt].Action()
+					steptimers(&ro.win2[wt], 3, 0, "win")
+					for i := len(ro.win2_bg[wt]) - 1; i >= 0; i-- {
+						ro.win2_bg[wt][i].Action()
+					}
+				} else if sys.numSimul[sys.winTeam] == 3 {
+					ro.win3_top[wt].Action()
+					steptimers(&ro.win3[wt], 3, 0, "win")
+					for i := len(ro.win3_bg[wt]) - 1; i >= 0; i-- {
+						ro.win3_bg[wt][i].Action()
+					}
+				} else {
+					ro.win4_top[wt].Action()
+					steptimers(&ro.win4[wt], 3, 0, "win")
+					for i := len(ro.win4_bg[wt]) - 1; i >= 0; i-- {
+						ro.win4_bg[wt][i].Action()
+					}
+				}
+			} else {
+				ro.win_top[wt].Action()
+				steptimers(&ro.win[wt], 3, 0, "win")
+				for i := len(ro.win_bg[wt]) - 1; i >= 0; i-- {
+					ro.win_bg[wt][i].Action()
+				}
+			}
+		}
+		// Perfect and other special win types
+		if sys.winTeam >= 0 {
+			index := sys.winType[sys.winTeam]
+			if index > WT_NumTypes {
+				if sys.winTeam == 0 {
+					ro.winType[WT_Perfect].step(ro.snd)
+					index = index - WT_NumTypes - 1
+				} else {
+					ro.winType[WT_Perfect+WT_NumTypes].step(ro.snd)
+					index = index - 1
+				}
+			}
+			ro.winType[index].step(ro.snd)
+		}
+	}
 }
 
 func (ro *LifeBarRound) reset() {
@@ -3299,7 +3333,7 @@ func (ro *LifeBarRound) reset() {
 func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 	// Temporarily override system brightness
 	oldBright := sys.brightness
-	sys.brightness = 256
+	sys.brightness = 1.0
 
 	// Round call animations
 	if !ro.roundCallOver && ro.waitTimer[0] < 0 && sys.intro <= ro.ctrl_time {
@@ -4775,6 +4809,24 @@ func loadLifebar(def string) (*Lifebar, error) {
 		}
 	}
 	l.def = def
+
+	/*
+	// TODO: This is a hack
+	// During team life sharing, replace Tag/Simul lifebars with single
+	// For some reason just doing this in the drawing function doesn't work
+	if sys.cfg.Options.Team.LifeShare {
+		teamModeIndices := []int{1, 3, 4, 5, 6, 7} // Simul, Tag, and their 3P/4P variants
+		
+		for _, i := range teamModeIndices {
+			if i < len(l.hb) {
+				// Replace with Single lifebars
+				l.hb[i][0] = l.hb[0][0]
+				l.hb[i][1] = l.hb[0][1]
+			}
+		}
+	}
+	*/
+
 	return l, nil
 }
 
@@ -4951,8 +5003,11 @@ func (l *Lifebar) RemoveText(id, ownerid int32) {
 	}
 }
 
+// Resets lifebar as well as prepares team mode configuration for each player
 func (l *Lifebar) reset() {
 	var num [2]int
+
+	// Update team mode reference for each player
 	for ti, tm := range sys.tmode {
 		l.ref[ti] = int(tm)
 		if tm == TM_Simul {
@@ -4976,16 +5031,20 @@ func (l *Lifebar) reset() {
 		} else {
 			l.ref[ti] = 0 // Single (2)
 		}
+
+		// Set maximum number of lifebars
 		if tm == TM_Simul || tm == TM_Tag {
 			num[ti] = int(math.Min(8, float64(sys.numSimul[ti])*2))
 		} else {
 			num[ti] = len(l.hb[l.ref[ti]])
 		}
+
 		l.order[ti] = []int{}
 		for i := ti; i < num[ti]; i += 2 {
 			l.order[ti] = append(l.order[ti], i)
 		}
 	}
+
 	for i := range l.hb {
 		for j := range l.hb[i] {
 			l.hb[i][j].reset()
@@ -5067,12 +5126,14 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti, tm := range sys.tmode {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
-					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) { // Draw player 1 or 2 bars
+					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
+						// Draw player 1 or 2 bars
 						if i == 0 && !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
 							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
 							l.pb[l.ref[ti]][index].draw(layerno, index, l.pb[l.ref[ti]][index], l.fnt[:])
 						}
-					} else { // Draw everyone's bars
+					} else {
+						// Draw everyone's bars
 						if !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
 							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
 							l.pb[l.ref[ti]][index].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt[:])
@@ -5183,9 +5244,9 @@ func (l *Lifebar) draw(layerno int16) {
 		l.ro.draw(layerno, l.fnt[:])
 	}
 	// Text sctrl
-	for _, v := range l.textsprite {
-		if v.layerno == layerno {
-			v.Draw()
+	for _, ts := range l.textsprite {
+		if ts.layerno == layerno {
+			ts.Draw()
 		}
 	}
 	BlendReset()

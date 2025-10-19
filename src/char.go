@@ -1772,13 +1772,13 @@ func (e *Explod) update(playerNo int) {
 			shadowColor:  sdwclr,
 			shadowAlpha:  sdwalp,
 			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			fadeOffset:   drawZoff,
+			groundLevel:  drawZoff,
 		})
 		// Add reflection sprite
 		sys.reflections.add(&ReflectionSprite{
 			SprData:       sd,
 			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			fadeOffset:    drawZoff,
+			groundLevel:   drawZoff,
 		})
 	}
 	if sys.tickNextFrame() {
@@ -2427,13 +2427,13 @@ func (p *Projectile) cueDraw() {
 				shadowColor:  sdwclr,
 				shadowAlpha:  255,
 				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-				fadeOffset:   drawZoff,
+				groundLevel:  drawZoff,
 			})
 			// Add reflection
 			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
 				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-				fadeOffset:    drawZoff,
+				groundLevel:   drawZoff,
 			})
 		}
 	}
@@ -2731,6 +2731,7 @@ type Char struct {
 	downHitOffset     bool
 	koEchoTimer       int32
 	groundLevel       float32
+	shadowAnim        *Animation
 	shadowColor       [3]int32
 	shadowIntensity   int32
 	shadowOffset      [2]float32
@@ -2740,6 +2741,7 @@ type Char struct {
 	shadowRot         Rotation
 	shadowProjection  Projection
 	shadowfLength     float32
+	reflectAnim       *Animation
 	reflectColor      [3]int32
 	reflectIntensity  int32
 	reflectOffset     [2]float32
@@ -4667,6 +4669,8 @@ func (c *Char) powerOwner() *Char {
 		// TODO: If we ever expand on teamside switching, this could loop over sys.chars and return the first one on the player's side
 		// But currently this method is just slightly more efficient
 	}
+
+	// Default to root
 	return sys.chars[c.playerNo][0]
 }
 
@@ -5423,6 +5427,7 @@ func (c *Char) screenPosY() float32 {
 }
 
 func (c *Char) screenHeight() float32 {
+	// We need both match and screenpack aspects because of victory and game over screens
 	aspect := sys.getCurrentAspect()
 
 	// Compute height from width
@@ -7602,7 +7607,9 @@ func (c *Char) lifeSet(life int32) {
 	if c.alive() && sys.roundNoDamage() {
 		return
 	}
+
 	c.life = Clamp(life, 0, c.lifeMax)
+
 	if c.life == 0 {
 		// Check win type
 		if c.playerFlag && c.teamside != -1 {
@@ -7634,12 +7641,23 @@ func (c *Char) lifeSet(life int32) {
 		}
 		c.redLife = 0
 	}
+
 	if c.teamside != c.ghv.playerNo&1 && c.teamside != -1 && c.ghv.playerNo < MaxSimul*2 { // attacker and receiver from opposite teams
 		sys.lastHitter[^c.playerNo&1] = c.ghv.playerNo
 	}
+
 	// Disable red life. Placing this here makes it never lag behind life
 	if !c.redLifeEnabled() {
 		c.redLife = c.life
+	}
+
+	// Update life sharing
+	if c.helperIndex == 0 && sys.cfg.Options.Team.LifeShare {
+		for _, p := range sys.chars {
+			if len(p) > 0 && p[0].teamside == c.teamside {
+				p[0].life = c.life
+			}
+		}
 	}
 }
 
@@ -7723,6 +7741,15 @@ func (c *Char) redLifeSet(set int32) {
 		c.redLife = 0
 	} else if c.redLifeEnabled() && !sys.roundNoDamage() {
 		c.redLife = Clamp(set, c.life, c.lifeMax)
+	}
+
+	// Update life sharing
+	if c.helperIndex == 0 && sys.cfg.Options.Team.LifeShare {
+		for _, p := range sys.chars {
+			if len(p) > 0 && p[0].teamside == c.teamside {
+				p[0].redLife = c.redLife
+			}
+		}
 	}
 }
 
@@ -9788,7 +9815,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					} else {
 						ghv.xvel = hd.air_velocity[0] * scaleratio * -byf
 						ghv.yvel = hd.air_velocity[1] * scaleratio
-						ghv.zvel = hd.air_velocity[1] * scaleratio
+						ghv.zvel = hd.air_velocity[2] * scaleratio
 					}
 				} else {
 					ghv.ctrltime = hd.ground_hittime
@@ -10464,6 +10491,7 @@ func (c *Char) actionPrepare() {
 		c.clsnOverrides = c.clsnOverrides[:0]
 
 		// Reset modifyShadow
+		c.shadowAnim = nil
 		c.shadowColor = [3]int32{-1, -1, -1}
 		c.shadowIntensity = -1
 		c.shadowOffset = [2]float32{}
@@ -11441,7 +11469,7 @@ func (c *Char) cueDraw() {
 		}
 
 		// Define sprite data
-		sd := &SprData{
+		charSD := &SprData{
 			anim:         anim,
 			pfx:          c.getPalfx(),
 			pos:          pos,
@@ -11461,10 +11489,10 @@ func (c *Char) cueDraw() {
 		}
 
 		// Record afterimage
-		c.aimg.recAndCue(sd, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
+		c.aimg.recAndCue(charSD, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)
 		// Hitshake effect
 		if c.ghv.hitshaketime > 0 && c.ss.time&1 != 0 {
-			sd.pos[0] -= c.facing
+			charSD.pos[0] -= c.facing
 		}
 		// Draw char according to layer number
 		sprs := &sys.spritesLayer0
@@ -11477,19 +11505,28 @@ func (c *Char) cueDraw() {
 		}
 
 		if !c.asf(ASF_invisible) {
-			sdwalp := 255 - c.alpha[1]
-			sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
-			reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
-
 			// Add sprite to draw list
-			sprs.add(sd)
+			sprs.add(charSD)
 
-			// Add shadow
+			// Add shadow and reflection
 			if !c.asf(ASF_noshadow) {
+				// Default shadow to same sprite data as char
+				shadowSD := charSD
+				// Replace shadow animation
+				// TODO: This may need to clear more parts of the sprite data
+				if c.shadowAnim != nil {
+					shadowSDcopy := *shadowSD
+					shadowSDcopy.anim = c.shadowAnim
+					shadowSD = &shadowSDcopy
+				}
+				// Shadow modifiers
+				sdwalp := 255 - c.alpha[1]
+				sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
 				// That doesn't seem to actually happen in either Winmugen or Mugen 1.1
 				//soy := c.size.shadowoffset
-				//if sd.oldVer {
+				//if charSD.oldVer {
 				//	soy *= 1.5
 				//}
 				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
@@ -11508,7 +11545,7 @@ func (c *Char) cueDraw() {
 
 				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
-					SprData:         sd,
+					SprData:         shadowSD,
 					shadowColor:     sdwclr,
 					shadowAlpha:     sdwalp,
 					shadowIntensity: c.shadowIntensity,
@@ -11522,12 +11559,24 @@ func (c *Char) cueDraw() {
 					shadowRot:        c.shadowRot,
 					shadowProjection: int32(c.shadowProjection),
 					shadowfLength:    c.shadowfLength,
-					fadeOffset:       c.offsetY() + drawZoff,
+					groundLevel:      c.offsetY() + drawZoff,
 				})
+
+				// Default reflection to same sprite data as char
+				reflectSD := charSD
+				// Replace reflection animation
+				// TODO: This may need to clear more parts of the sprite data
+				if c.reflectAnim != nil {
+					reflectSDcopy := *reflectSD
+					reflectSDcopy.anim = c.reflectAnim
+					reflectSD = &reflectSDcopy
+				}
+				// Reflection modifiers
+				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
-					SprData:          sd,
+					SprData:          reflectSD,
 					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
 					reflectOffset: [2]float32{
@@ -11540,7 +11589,7 @@ func (c *Char) cueDraw() {
 					reflectRot:        c.reflectRot,
 					reflectProjection: int32(c.reflectProjection),
 					reflectfLength:    c.reflectfLength,
-					fadeOffset:        c.offsetY() + drawZoff,
+					groundLevel:       c.offsetY() + drawZoff,
 				})
 			}
 		}

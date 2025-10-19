@@ -685,7 +685,7 @@ func (a *Animation) alphaToBlend() (blendMode TransType, blendAlpha [2]int32) {
 	}
 
 	// Apply system brightness
-	sa = byte(int32(sa) * sys.brightness >> 8)
+	sa = byte(float32(sa) * sys.brightness)
 
 	blendAlpha = [2]int32{int32(sa), int32(da)}
 
@@ -1086,7 +1086,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		// Save system brightness
 		oldBright := sys.brightness
 		if s.undarken {
-			sys.brightness = 256
+			sys.brightness = 1.0
 		}
 
 		// Backup animation transparency to temporarily change it
@@ -1158,6 +1158,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 type ShadowSprite struct {
 	*SprData
+	groundLevel      float32
 	shadowColor      int32
 	shadowAlpha      int32
 	shadowIntensity  int32
@@ -1168,7 +1169,6 @@ type ShadowSprite struct {
 	shadowRot        Rotation
 	shadowProjection int32
 	shadowfLength    float32
-	fadeOffset       float32
 }
 
 type ShadowList []*ShadowSprite
@@ -1242,14 +1242,24 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		}
 
 		// Fading range
-		fend := float32(sys.stage.sdw.fadeend) * sys.stage.localscl
-		fbgn := float32(sys.stage.sdw.fadebgn) * sys.stage.localscl
-		if fbgn <= fend {
-			// Ignore incorrect fade effect
-		} else if s.pos[1]-s.fadeOffset <= fend {
-			continue // Do not render shadow
-		} else if s.pos[1]-s.fadeOffset < fbgn {
-			alpha = int32(float32(alpha) * (fend - (s.pos[1] - s.fadeOffset)) / (fend - fbgn))
+		fadebegin := float32(sys.stage.sdw.fadebgn) * sys.stage.localscl
+		fadeend := float32(sys.stage.sdw.fadeend) * sys.stage.localscl
+		fadepos := s.pos[1] - s.groundLevel
+
+		if fadebegin > fadeend {
+			if fadepos <= fadeend {
+				continue // Do not render
+			} else if fadepos < fadebegin {
+				faderange := fadebegin - fadeend
+				fadefactor := (fadebegin - fadepos) / faderange
+				alpha = int32(float32(alpha) * (1 - fadefactor))
+			}
+		}
+
+		// Apply delta only after original position has been used to calculate fading
+		sdwPosY := s.pos[1] // Avoid mutation
+		if sys.stage.sdw.ydelta != 1 {
+			sdwPosY = s.groundLevel + (sdwPosY-s.groundLevel)*sys.stage.sdw.ydelta
 		}
 
 		if color < 0 {
@@ -1308,7 +1318,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.groundLevel) * xshear * SignF(yscale)
 		}
 
 		var projection int32
@@ -1364,7 +1374,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		s.anim.ShadowDraw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])-((x-s.pos[0]-offsetX)*scl),
-			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(s.pos[1]*yscale-offsetY)*scl,
+			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(sdwPosY*yscale-offsetY)*scl,
 			scl*s.scl[0], scl*-s.scl[1],
 			yscale, xshear, rot,
 			s.pfx, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
@@ -1373,6 +1383,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 type ReflectionSprite struct {
 	*SprData
+	groundLevel       float32
 	reflectColor      int32
 	reflectIntensity  int32
 	reflectOffset     [2]float32
@@ -1382,7 +1393,6 @@ type ReflectionSprite struct {
 	reflectRot        Rotation
 	reflectProjection int32
 	reflectfLength    float32
-	fadeOffset        float32
 }
 
 type ReflectionList []*ReflectionSprite
@@ -1478,6 +1488,28 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			color |= uint32(ref << 24)
 		}
 
+		// Fading range
+		fadebegin := float32(sys.stage.reflection.fadebgn) * sys.stage.localscl
+		fadeend := float32(sys.stage.reflection.fadeend) * sys.stage.localscl
+		fadepos := s.pos[1] - s.groundLevel
+
+		if fadebegin > fadeend {
+			if fadepos <= fadeend {
+				continue // Do not render
+			} else if fadepos < fadebegin {
+				faderange := fadebegin - fadeend
+				fadefactor := (fadebegin - fadepos) / faderange
+				s.anim.srcAlpha = int16(float32(s.anim.srcAlpha) * (1 - fadefactor)) // Towards 0
+				s.anim.dstAlpha = int16(float32(s.anim.dstAlpha) + (255 - float32(s.anim.dstAlpha)) * fadefactor) // Towards 255
+			}
+		}
+
+		// Apply delta only after original position has been used to calculate fading
+		refPosY := s.pos[1] // Avoid mutation
+		if sys.stage.reflection.ydelta != 1 {
+			refPosY = s.groundLevel + (refPosY-s.groundLevel)*sys.stage.reflection.ydelta
+		}
+
 		var xshear float32
 		if s.xshear != 0 {
 			xshear = -s.xshear
@@ -1526,7 +1558,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1] + s.fadeOffset) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.groundLevel) * xshear * SignF(yscale)
 		}
 
 		var projection int32
@@ -1582,7 +1614,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		s.anim.Draw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])/scl-(x-s.pos[0]-offsetX),
-			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(s.pos[1]*yscale-offsetY),
+			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(refPosY*yscale-offsetY),
 			scl, scl, s.scl[0], s.scl[0],
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
 			s.pfx, s.facing, s.airOffsetFix, projection, fLength, color, true)

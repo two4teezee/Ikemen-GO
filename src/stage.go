@@ -861,6 +861,8 @@ type stageShadow struct {
 	projection Projection
 	offset     [2]float32
 	window     [4]float32
+	ydelta     float32
+	layerno    int32
 }
 
 type stagePlayer struct {
@@ -883,14 +885,13 @@ type Stage struct {
 	bgc               []bgCtrl
 	bga               bgAction
 	sdw               stageShadow
+	reflection        stageShadow
 	p                 [MaxPlayerNo]stagePlayer
 	leftbound         float32
 	rightbound        float32
 	screenleft        int32
 	screenright       int32
 	zoffsetlink       int32
-	reflection        stageShadow
-	reflectionlayerno int32
 	hires             bool
 	autoturn          bool
 	resetbg           bool
@@ -943,8 +944,10 @@ func newStage(def string) *Stage {
 	}
 	s.sdw.intensity = 128
 	s.sdw.color = 0x000000 // https://github.com/ikemen-engine/Ikemen-GO/issues/2150
-	s.reflection.color = 0xFFFFFF
 	s.sdw.yscale = 0.4
+	s.sdw.ydelta = 1.0
+	s.reflection.color = 0xFFFFFF
+	s.reflection.ydelta = 1.0
 	s.p[0].startx = -70
 	s.p[1].startx = 70
 	s.stageprops = newStageProps()
@@ -1406,6 +1409,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		sec[0].readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
 		sec[0].readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
+		sec[0].ReadF32("ydelta", &s.sdw.ydelta)
 		// Shadow group warnings
 		if s.sdw.fadeend > s.sdw.fadebgn {
 			sys.appendToConsole("Warning: Stage shadow fade.range defined incorrectly")
@@ -1426,9 +1430,6 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		s.reflection.xshear = 0
 		s.reflection.color = 0xFFFFFF
 		var tmp int32
-		var tmp2 float32
-		var tmp3 [2]float32
-		var tmp4 [4]float32
 		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
 		if sec[0].ReadI32("intensity", &tmp) {
 			s.reflection.intensity = Clamp(tmp, 0, 255)
@@ -1438,26 +1439,15 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		r, g, b = Clamp(r, 0, 255), Clamp(g, 0, 255), Clamp(b, 0, 255)
 		s.reflection.color = uint32(r<<16 | g<<8 | b)
 		if sec[0].ReadI32("layerno", &tmp) {
-			s.reflectionlayerno = Clamp(tmp, -1, 0)
+			s.reflection.layerno = Clamp(tmp, -1, 0)
 		}
-		if sec[0].ReadF32("yscale", &tmp2) {
-			s.reflection.yscale = tmp2
-		}
-		if sec[0].ReadF32("xshear", &tmp2) {
-			s.reflection.xshear = tmp2
-		}
-		if sec[0].ReadF32("angle", &tmp2) {
-			s.reflection.rot.angle = tmp2
-		}
-		if sec[0].ReadF32("xangle", &tmp2) {
-			s.reflection.rot.xangle = tmp2
-		}
-		if sec[0].ReadF32("yangle", &tmp2) {
-			s.reflection.rot.yangle = tmp2
-		}
-		if sec[0].ReadF32("focallength", &tmp2) {
-			s.reflection.fLength = tmp2
-		}
+		sec[0].ReadF32("yscale", &s.reflection.yscale)
+		sec[0].readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
+		sec[0].ReadF32("xshear", &s.reflection.xshear)
+		sec[0].ReadF32("angle", &s.reflection.rot.angle)
+		sec[0].ReadF32("xangle", &s.reflection.rot.xangle)
+		sec[0].ReadF32("yangle", &s.reflection.rot.yangle)
+		sec[0].ReadF32("focallength", &s.reflection.fLength)
 		if str, ok := sec[0]["projection"]; ok {
 			switch strings.ToLower(strings.TrimSpace(str)) {
 			case "orthographic":
@@ -1468,16 +1458,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.reflection.projection = Projection_Perspective2
 			}
 		}
-		if sec[0].readF32ForStage("offset", &tmp3[0], &tmp3[1]) {
-			s.reflection.offset[0] = tmp3[0]
-			s.reflection.offset[1] = tmp3[1]
-		}
-		if sec[0].readF32ForStage("window", &tmp4[0], &tmp4[1], &tmp4[2], &tmp4[3]) {
-			s.reflection.window[0] = tmp4[0]
-			s.reflection.window[1] = tmp4[1]
-			s.reflection.window[2] = tmp4[2]
-			s.reflection.window[3] = tmp4[3]
-		}
+		sec[0].readF32ForStage("offset", &s.reflection.offset[0], &s.reflection.offset[1])
+		sec[0].readF32ForStage("window", &s.reflection.window[0], &s.reflection.window[1], &s.reflection.window[2], &s.reflection.window[3])
+		sec[0].ReadF32("ydelta", &s.reflection.ydelta)
 	}
 
 	// BG group
@@ -4024,7 +4007,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		}
 		gfx.SetModelUniformI("unlit", int(Btoi(unlit || mat.unlit)))
 		gfx.SetModelUniformFv("add", padd[:])
-		gfx.SetModelUniformFv("mult", []float32{pmul[0] * float32(sys.brightness) / 256, pmul[1] * float32(sys.brightness) / 256, pmul[2] * float32(sys.brightness) / 256})
+		gfx.SetModelUniformFv("mult", []float32{pmul[0] * sys.brightness, pmul[1] * sys.brightness, pmul[2] * sys.brightness})
 		gfx.SetModelUniformI("neg", int(Btoi(neg)))
 		gfx.SetModelUniformF("hue", hue)
 		gfx.SetModelUniformF("gray", grayscale)
@@ -4441,19 +4424,19 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 	scale := [3]float32{s.model.scale[0], s.model.scale[1], s.model.scale[2]}
 	proj := mgl.Translate3D(0, (sys.cam.zoomanchorcorrection+yofs)/float32(sys.gameHeight)*2+syo2+aspectCorrection, 0)
 
-	// Apply stagefit
+	// Apply aspect ratio scaling
 	// TODO: In the letterbox case the model renders too low
 	scaleX := scaleCorrection
 	scaleY := scaleCorrection
-	if sys.cfg.Video.StageFit {
-		aspectGame := float32(sys.gameWidth) / float32(sys.gameHeight)
+	if sys.cfg.Video.FightAspectWidth != 0 && sys.cfg.Video.FightAspectHeight != 0 {
+		aspectGame := sys.getCurrentAspect()
 		aspectWindow := float32(sys.scrrect[2]) / float32(sys.scrrect[3])
 
 		if aspectWindow > aspectGame {
-			// Pillarbox
+			// Pillarbox - window is wider than game
 			scaleX *= aspectWindow / aspectGame
 		} else if aspectWindow < aspectGame {
-			// Letterbox
+			// Letterbox - window is taller than game  
 			scaleY *= aspectGame / aspectWindow
 		}
 	}

@@ -40,7 +40,7 @@ var sys = System{
 	gameHeight:        240,
 	widthScale:        1,
 	heightScale:       1,
-	brightness:        256,
+	brightness:        1,
 	maxRoundTime:      -1,
 	turnsRecoveryRate: 1.0 / 300,
 	soundMixer:        &beep.Mixer{},
@@ -104,7 +104,8 @@ type System struct {
 	window                  *Window
 	gameEnd, frameSkip      bool
 	redrawWait              struct{ nextTime, lastDraw time.Time }
-	brightness              int32
+	brightness              float32
+	brightnessOld           float32
 	maxRoundTime            int32
 	turnsRecoveryRate       float32
 	debugFont               *TextSprite
@@ -166,7 +167,7 @@ type System struct {
 	superpausebg            bool
 	superendcmdbuftime      int32
 	superplayerno           int
-	superdarken             bool
+	superbrightness         float32
 	superp2defmul           float32
 	envcol                  [3]int32
 	envcol_time             int32
@@ -300,7 +301,6 @@ type System struct {
 	victoryScreenFlg  bool
 	winScreenFlg      bool
 	playBgmFlg        bool
-	brightnessOld     int32
 	loopBreak         bool
 	loopContinue      bool
 
@@ -342,7 +342,7 @@ func isRunningInsideAppBundle(exePath string) bool {
 
 // Initialize stuff, this is called after the config int at main.go
 func (s *System) init(w, h int32) *lua.LState {
-	s.setWindowSize(w, h)
+	s.setGameSize(w, h)
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
@@ -520,13 +520,27 @@ func (s *System) shutdown() {
 	speaker.Close()
 }
 
-func (s *System) setWindowSize(w, h int32) {
+func (s *System) setGameSize(w, h int32) {
 	s.scrrect[2], s.scrrect[3] = w, h
-	if s.scrrect[2]*3 > s.scrrect[3]*4 {
-		s.gameWidth, s.gameHeight = s.scrrect[2]*3*320/(s.scrrect[3]*4), 240
+
+	// TODO: These ought to be system constants maybe
+	baseWidth := int32(320)
+	baseHeight := int32(240)
+
+	screenAspect := float32(w) / float32(h)
+	targetAspect := float32(baseWidth) / float32(baseHeight)
+
+	if screenAspect > targetAspect {
+		// Screen is wider than 4:3 - scale based on height
+		s.gameWidth = int32(float32(baseHeight) * screenAspect)
+		s.gameHeight = baseHeight
 	} else {
-		s.gameWidth, s.gameHeight = 320, s.scrrect[3]*4*240/(s.scrrect[2]*3)
+		// Screen is taller than 4:3 - scale based on width  
+		s.gameWidth = baseWidth
+		s.gameHeight = int32(float32(baseWidth) / screenAspect)
 	}
+
+	// Update scale
 	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
@@ -683,61 +697,71 @@ func (s *System) setLifebarScale() {
 	s.lifebarOffsetX = calcOffsetX * calcScale
 }
 
-// Will be useful if/when we make aspect ratio not depend on stage only
 func (s *System) middleOfMatch() bool {
 	return s.matchTime != 0 && !s.postMatchFlg
 }
 
-// Used for the viewport change
-func (s *System) shouldRenderStageFit() bool {
-	if !s.middleOfMatch() || !sys.cfg.Video.StageFit || s.stage == nil {
-		return false
-	}
-
-	if sys.stage.stageCamera.localcoord[0] <= 0 || sys.stage.stageCamera.localcoord[1] <= 0 {
-		return false
-	}
-
-	return true
-}
-
 // This allows Char to access aspect ratio without going through Window, which can add errors
-func (s *System) getCurrentAspect() float32 {
-	// Use stage aspect ratio
-	if s.shouldRenderStageFit() {
+func (s *System) getFightAspect() float32 {
+	// Stage aspect ratio
+	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 && s.stage != nil {
 		coord := s.stage.stageCamera.localcoord
 		if coord[0] > 0 && coord[1] > 0 {
 			return float32(coord[0]) / float32(coord[1])
 		}
 	}
 
-	// Fallback to default
+	// Custom aspect ratio
+	if s.cfg.Video.FightAspectWidth > 0 && s.cfg.Video.FightAspectHeight > 0 {
+		return float32(s.cfg.Video.FightAspectWidth) / float32(s.cfg.Video.FightAspectHeight)
+	}
+
+	// Default
 	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
 }
 
-func (s *System) applyStageFit() {
+func (s *System) getMotifAspect() float32 {
+	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+}
+
+func (s *System) getCurrentAspect() float32 {
+	if s.middleOfMatch() {
+		return s.getFightAspect()
+	}
+	return s.getMotifAspect()
+}
+
+// Change aspect ratio at match start
+func (s *System) applyFightAspect() {
 	baseHeight := float32(240)
-	var stageWidth, stageHeight float32
-
-	// Get the next stage's localcoord
-	if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
-		def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
-		if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
-			stageWidth = float32(coord[0])
-			stageHeight = float32(coord[1])
-		}
-	}
-
-	// Calculate the stage's aspect ratio
 	var aspectGame float32
-	if stageWidth > 0 && stageHeight > 0 {
-		aspectGame = stageWidth / stageHeight
+
+	// Select which aspect ratio to use
+	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 {
+		// Stage aspect
+		// Get the next stage's localcoord
+		// We need this branch because here we check next stage instead of current one like getFightAspect()
+		var stageWidth, stageHeight float32
+		if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
+			def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
+			if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
+				stageWidth = float32(coord[0])
+				stageHeight = float32(coord[1])
+			}
+		}
+
+		// Calculate the stage's aspect ratio
+		if stageWidth > 0 && stageHeight > 0 {
+			aspectGame = stageWidth / stageHeight
+		} else {
+			// Fallback
+			aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+		}
 	} else {
-		// Fallback
-		aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+		aspectGame = s.getFightAspect()
 	}
 
-	// Compute new gameWidth/gameHeight while maintaining the same base height
+	// Compute new game dimensions while maintaining the same base height
 	gameWidth := baseHeight * aspectGame
 	s.gameWidth = int32(gameWidth)
 	s.gameHeight = int32(baseHeight)
@@ -887,9 +911,10 @@ func (s *System) update() bool {
 		s.preMatchTime = s.frameCounter
 	}
 
-	// Restore original resolution after stagefit
+	// Restore original resolution after changing aspect ratio
 	if !s.middleOfMatch() {
-		s.setWindowSize(s.scrrect[2], s.scrrect[3])
+		// TODO: This should probably not be based on scrrect
+		s.setGameSize(s.scrrect[2], s.scrrect[3])
 	}
 
 	if s.replayFile != nil {
@@ -1842,9 +1867,9 @@ func (s *System) action() {
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	s.cam.ResetTracking()
 
-	// Update fight screen
+	// Update round state
 	// This is also reflected on characters (intros, win poses)
-	s.runFightScreen()
+	s.stepRoundState()
 
 	// Run "tick frame"
 	if s.tickFrame() {
@@ -2020,7 +2045,9 @@ func (s *System) getSlowtime() int32 {
 	return 0
 }
 
-func (s *System) runFightScreen() {
+// Step sys.intro timer and execute related tasks
+func (s *System) stepRoundState() {
+	// Freeze round state if round animations cannot advance
 	if !s.lifebar.ro.act() {
 		return
 	}
@@ -2060,8 +2087,8 @@ func (s *System) runFightScreen() {
 	}
 
 	// Ongoing round
-	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) &&
-		(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
+	// Handle remaining time limit
+	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
 		s.curRoundTime--
 	}
 
@@ -2314,10 +2341,15 @@ func (s *System) roundEndDecision() bool {
 }
 
 func (s *System) draw(x, y, scl float32) {
-	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 |
-		s.envcol[0]&0xff<<16)
+	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
+
 	s.brightnessOld = s.brightness
-	s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
+	//s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
+	s.brightness = 1.0
+	if s.supertime > 0 && s.superbrightness >= 0 && s.superbrightness < 1 {
+		s.brightness = s.superbrightness
+	}
+
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
 	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
@@ -2355,7 +2387,7 @@ func (s *System) draw(x, y, scl float32) {
 
 		// Draw reflections on layer -1
 		if !s.gsf(GSF_globalnoshadow) {
-			if s.stage.reflectionlayerno < 0 {
+			if s.stage.reflection.layerno < 0 {
 				s.reflections.draw(x, y, scl*s.cam.BaseScale())
 			}
 		}
@@ -2375,7 +2407,7 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw reflections on layer 0
 		// TODO: Make shadows render in same layers as their sources?
 		if !s.gsf(GSF_globalnoshadow) {
-			if s.stage.reflectionlayerno >= 0 {
+			if s.stage.reflection.layerno >= 0 {
 				s.reflections.draw(x, y, scl*s.cam.BaseScale())
 			}
 			s.shadows.draw(x, y, scl*s.cam.BaseScale())
@@ -2731,7 +2763,7 @@ func (s *System) SetupCharRoundStart() {
 		}
 	}
 
-	// Set max power for teams sharing meter
+	// For power sharing, set maximum power to the highest one in the team
 	if s.cfg.Options.Team.PowerShare {
 		for i, p := range s.chars {
 			if len(p) > 0 && p[0].teamside != -1 {
@@ -2745,67 +2777,82 @@ func (s *System) SetupCharRoundStart() {
 		}
 	}
 
-	// Initialize each character
+	// Calculate maximum life for all characters
 	for i, p := range s.chars {
 		if len(p) > 0 {
 			// Get max life, and adjust based on team mode
-			var lm float32
-			if p[0].ocd().lifeMax != -1 {
-				lm = float32(p[0].ocd().lifeMax) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+			var lmax float32
+			if p[0].ocd().lifeMax > 0 {
+				lmax = float32(p[0].ocd().lifeMax)
 			} else {
-				lm = float32(p[0].gi().data.life) * p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+				lmax = float32(p[0].gi().data.life)
 			}
+
+			// Apply life options
+			lmax *= p[0].ocd().lifeRatio * s.cfg.Options.Life / 100
+
+			// Adjust life by team mode
 			if p[0].teamside != -1 {
 				switch s.tmode[i&1] {
 				case TM_Single:
+					// Single mode gets the explicitly configured bonus
 					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						lm *= s.cfg.Options.Team.SingleVsTeamLife / 100
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.matchWins[(i+1)&1])
-						}
+					case TM_Simul, TM_Turns, TM_Tag:
+						lmax *= s.cfg.Options.Team.SingleVsTeamLife / 100
 					}
 				case TM_Simul, TM_Tag:
-					switch s.tmode[(i+1)&1] {
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1] < s.numSimul[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numSimul[(i+1)&1]) / float32(s.numSimul[i&1])
+					// For Simul/Tag life sharing, use average life of the team
+					if s.cfg.Options.Team.LifeShare {
+						totalTeamLife := float32(0)
+						teamSize := 0
+						for j := i & 1; j < MaxSimul*2; j += 2 {
+							if len(s.chars[j]) > 0 {
+								var charLm float32
+								if s.chars[j][0].ocd().lifeMax > 0 {
+									charLm = float32(s.chars[j][0].ocd().lifeMax) * s.chars[j][0].ocd().lifeRatio * s.cfg.Options.Life / 100
+								} else {
+									charLm = float32(s.chars[j][0].gi().data.life) * s.chars[j][0].ocd().lifeRatio * s.cfg.Options.Life / 100
+								}
+								totalTeamLife += charLm
+								teamSize++
+							}
 						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numSimul[i&1]*s.matchWins[(i+1)&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) /
-								float32(s.numSimul[i&1]*s.matchWins[(i+1)&1])
-						}
-					default:
-						if s.cfg.Options.Team.LifeShare {
-							lm /= float32(s.numSimul[i&1])
+						if teamSize > 0 {
+							lmax = totalTeamLife / float32(teamSize)
 						}
 					}
 				case TM_Turns:
-					switch s.tmode[(i+1)&1] {
-					case TM_Single:
-						if s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.matchWins[i&1]) / float32(s.numTurns[i&1])
-						}
-					case TM_Simul, TM_Tag:
-						if s.numSimul[(i+1)&1]*s.matchWins[i&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * s.cfg.Options.Team.SingleVsTeamLife / 100 *
-								float32(s.numSimul[(i+1)&1]*s.matchWins[i&1]) /
-								float32(s.numTurns[i&1])
-						}
-					case TM_Turns:
-						if s.numTurns[(i+1)&1] < s.numTurns[i&1] && s.cfg.Options.Team.LifeShare {
-							lm = lm * float32(s.numTurns[(i+1)&1]) / float32(s.numTurns[i&1])
-						}
+					// For Turns life sharing, divide life by number of characters
+					if s.cfg.Options.Team.LifeShare && s.numTurns[i&1] > 0 {
+						lmax /= float32(s.numTurns[i&1])
 					}
 				}
 			}
 
 			// Set lifemax
-			p[0].lifeMax = Max(1, int32(math.Floor(float64(lm))))
+			p[0].lifeMax = Max(1, int32(math.Floor(float64(lmax))))
+		}
+	}
 
+	// Initialize each character's dizzy and guard points
+	for _, p := range s.chars {
+		if len(p) > 0 {
+			if p[0].ocd().dizzyPoints > 0 {
+				p[0].dizzyPoints = p[0].ocd().dizzyPoints
+			} else {
+				p[0].dizzyPoints = p[0].dizzyPointsMax
+			}
+			if p[0].ocd().guardPoints > 0 {
+				p[0].guardPoints = p[0].ocd().guardPoints
+			} else {
+				p[0].guardPoints = p[0].guardPointsMax
+			}
+		}
+	}
+
+	// Initialize each character's state
+	for i, p := range s.chars {
+		if len(p) > 0 {
 			if p[0].roundsExisted() == 0 && (s.round == 1 || s.tmode[i&1] == TM_Turns) {
 				// If round 1 or a new character in Turns mode, initialize values
 				if p[0].ocd().life != -1 {
@@ -2831,17 +2878,6 @@ func (s *System) SetupCharRoundStart() {
 				}
 				p[0].dialogue = []string{}
 				p[0].remapSpr = make(RemapPreset)
-			}
-
-			if p[0].ocd().guardPoints != -1 {
-				p[0].guardPoints = Clamp(p[0].ocd().guardPoints, 0, p[0].guardPointsMax)
-			} else {
-				p[0].guardPoints = p[0].guardPointsMax
-			}
-			if p[0].ocd().dizzyPoints != -1 {
-				p[0].dizzyPoints = Clamp(p[0].ocd().dizzyPoints, 0, p[0].dizzyPointsMax)
-			} else {
-				p[0].dizzyPoints = p[0].dizzyPointsMax
 			}
 		}
 	}
@@ -4145,20 +4181,27 @@ func (l *Loader) load() {
 		l.loadExit <- l.state
 	}()
 
-	if sys.cfg.Video.StageFit {
-		// Update aspect ratio
-		sys.applyStageFit()
+	// Update aspect ratio
+	sys.applyFightAspect()
 
-		// Update character scaling
-		coordRatio := float32(sys.gameWidth) / 320
-		for _, c := range sys.chars {
-			if len(c) > 0 {
-				c[0].localcoord = c[0].gi().localcoord[0] / coordRatio
-			}
+	// Update cached stage scaling
+	// In case FightAspect option was changed between matches
+	if sys.stage != nil {
+		sys.stage.localscl = float32(sys.gameWidth) / float32(sys.stage.stageCamera.localcoord[0])
+		sys.stage.stageCamera.localscl = sys.stage.localscl
+	}
+
+	// Update cached character scaling
+	for _, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].localcoord = 320 / (float32(sys.gameWidth) / 320)
+			p[0].localscl = 320 / p[0].localcoord
 		}
 	}
 
+	// Update lifebar scale
 	sys.setLifebarScale()
+
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {

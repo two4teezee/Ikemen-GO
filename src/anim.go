@@ -1499,8 +1499,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			} else if fadepos < fadebegin {
 				faderange := fadebegin - fadeend
 				fadefactor := (fadebegin - fadepos) / faderange
-				s.anim.srcAlpha = int16(float32(s.anim.srcAlpha) * (1 - fadefactor)) // Towards 0
-				s.anim.dstAlpha = int16(float32(s.anim.dstAlpha) + (255 - float32(s.anim.dstAlpha)) * fadefactor) // Towards 255
+				s.anim.srcAlpha = int16(float32(s.anim.srcAlpha) * (1 - fadefactor))                          // Towards 0
+				s.anim.dstAlpha = int16(float32(s.anim.dstAlpha) + (255-float32(s.anim.dstAlpha))*fadefactor) // Towards 255
 			}
 		}
 

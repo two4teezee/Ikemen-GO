@@ -535,7 +535,7 @@ func (s *System) setGameSize(w, h int32) {
 		s.gameWidth = int32(float32(baseHeight) * screenAspect)
 		s.gameHeight = baseHeight
 	} else {
-		// Screen is taller than 4:3 - scale based on width  
+		// Screen is taller than 4:3 - scale based on width
 		s.gameWidth = baseWidth
 		s.gameHeight = int32(float32(baseWidth) / screenAspect)
 	}

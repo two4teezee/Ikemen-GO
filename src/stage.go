@@ -870,57 +870,57 @@ type stagePlayer struct {
 }
 
 type Stage struct {
-	def               string
-	bgmusic           string
-	name              string
-	displayname       string
-	author            string
-	nameLow           string
-	displaynameLow    string
-	authorLow         string
-	attachedchardef   []string
-	sff               *Sff
-	at                AnimationTable
-	bg                []*backGround
-	bgc               []bgCtrl
-	bga               bgAction
-	sdw               stageShadow
-	reflection        stageShadow
-	p                 [MaxPlayerNo]stagePlayer
-	leftbound         float32
-	rightbound        float32
-	screenleft        int32
-	screenright       int32
-	zoffsetlink       int32
-	hires             bool
-	autoturn          bool
-	resetbg           bool
-	debugbg           bool
-	bgclearcolor      [3]int32
-	localscl          float32
-	scale             [2]float32
-	bgmvolume         int32
-	bgmloopstart      int32
-	bgmloopend        int32
-	bgmstartposition  int32
-	bgmfreqmul        float32
-	bgmratiolife      int32
-	bgmtriggerlife    int32
-	bgmtriggeralt     int32
-	mainstage         bool
-	stageCamera       stageCamera
-	stageTime         int32
-	constants         map[string]float32
-	partnerspacing    int32
-	ikemenver         [3]uint16
-	ikemenverF        float32
-	mugenver          [2]uint16
-	mugenverF         float32
-	reload            bool
-	stageprops        StageProps
-	model             *Model
-	topbound          float32
-	botbound          float32
+	def              string
+	bgmusic          string
+	name             string
+	displayname      string
+	author           string
+	nameLow          string
+	displaynameLow   string
+	authorLow        string
+	attachedchardef  []string
+	sff              *Sff
+	at               AnimationTable
+	bg               []*backGround
+	bgc              []bgCtrl
+	bga              bgAction
+	sdw              stageShadow
+	reflection       stageShadow
+	p                [MaxPlayerNo]stagePlayer
+	leftbound        float32
+	rightbound       float32
+	screenleft       int32
+	screenright      int32
+	zoffsetlink      int32
+	hires            bool
+	autoturn         bool
+	resetbg          bool
+	debugbg          bool
+	bgclearcolor     [3]int32
+	localscl         float32
+	scale            [2]float32
+	bgmvolume        int32
+	bgmloopstart     int32
+	bgmloopend       int32
+	bgmstartposition int32
+	bgmfreqmul       float32
+	bgmratiolife     int32
+	bgmtriggerlife   int32
+	bgmtriggeralt    int32
+	mainstage        bool
+	stageCamera      stageCamera
+	stageTime        int32
+	constants        map[string]float32
+	partnerspacing   int32
+	ikemenver        [3]uint16
+	ikemenverF       float32
+	mugenver         [2]uint16
+	mugenverF        float32
+	reload           bool
+	stageprops       StageProps
+	model            *Model
+	topbound         float32
+	botbound         float32
 }
 
 func newStage(def string) *Stage {
@@ -4436,7 +4436,7 @@ func (s *Stage) drawModel(pos [2]float32, yofs float32, scl float32, layerNumber
 			// Pillarbox - window is wider than game
 			scaleX *= aspectWindow / aspectGame
 		} else if aspectWindow < aspectGame {
-			// Letterbox - window is taller than game  
+			// Letterbox - window is taller than game
 			scaleY *= aspectGame / aspectWindow
 		}
 	}

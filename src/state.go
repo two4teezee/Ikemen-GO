@@ -256,9 +256,9 @@ type GameState struct {
 	commandLists []*CommandList
 	luaTables    []*lua.LTable
 
-	loopBreak     bool
-	loopContinue  bool
-	wintime       int32
+	loopBreak    bool
+	loopContinue bool
+	wintime      int32
 
 	// Rollback
 	netTime int32

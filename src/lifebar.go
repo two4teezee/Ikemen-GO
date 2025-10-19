@@ -4811,20 +4811,20 @@ func loadLifebar(def string) (*Lifebar, error) {
 	l.def = def
 
 	/*
-	// TODO: This is a hack
-	// During team life sharing, replace Tag/Simul lifebars with single
-	// For some reason just doing this in the drawing function doesn't work
-	if sys.cfg.Options.Team.LifeShare {
-		teamModeIndices := []int{1, 3, 4, 5, 6, 7} // Simul, Tag, and their 3P/4P variants
-		
-		for _, i := range teamModeIndices {
-			if i < len(l.hb) {
-				// Replace with Single lifebars
-				l.hb[i][0] = l.hb[0][0]
-				l.hb[i][1] = l.hb[0][1]
+		// TODO: This is a hack
+		// During team life sharing, replace Tag/Simul lifebars with single
+		// For some reason just doing this in the drawing function doesn't work
+		if sys.cfg.Options.Team.LifeShare {
+			teamModeIndices := []int{1, 3, 4, 5, 6, 7} // Simul, Tag, and their 3P/4P variants
+
+			for _, i := range teamModeIndices {
+				if i < len(l.hb) {
+					// Replace with Single lifebars
+					l.hb[i][0] = l.hb[0][0]
+					l.hb[i][1] = l.hb[0][1]
+				}
 			}
 		}
-	}
 	*/
 
 	return l, nil

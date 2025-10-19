@@ -1842,9 +1842,9 @@ func (s *System) action() {
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	s.cam.ResetTracking()
 
-	// Update fight screen
+	// Update round state
 	// This is also reflected on characters (intros, win poses)
-	s.runFightScreen()
+	s.stepRoundState()
 
 	// Run "tick frame"
 	if s.tickFrame() {
@@ -2020,7 +2020,9 @@ func (s *System) getSlowtime() int32 {
 	return 0
 }
 
-func (s *System) runFightScreen() {
+// Step sys.intro timer and execute related tasks
+func (s *System) stepRoundState() {
+	// Freeze round state if round animations cannot advance
 	if !s.lifebar.ro.act() {
 		return
 	}
@@ -2060,8 +2062,8 @@ func (s *System) runFightScreen() {
 	}
 
 	// Ongoing round
-	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) &&
-		(s.supertime <= 0 || !s.superpausebg) && (s.pausetime <= 0 || !s.pausebg) {
+	// Handle remaining time limit
+	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
 		s.curRoundTime--
 	}
 

@@ -3063,23 +3063,23 @@ function start.f_palMenu(side, cmd, player, member, selectState)
             end
         end
         selectState = 3
-        sndPlay(motif.files.snd_data, motif.select_info.palmenu_done_snd[1], motif.select_info.palmenu_done_snd[2])
+		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_done_snd'][1], motif.select_info['p' .. side .. '_palmenu_done_snd'][2])
      -- next palette
-    elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_next_key']}) then
+	elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_next_key'])) then
         curIdx = (curIdx == maxIdx) and 1 or curIdx + 1
         st.currentIdx = curIdx
         if curIdx < maxIdx then
 			applyPalette(st, charData, validPals[curIdx])
 		end
-        sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_value_snd'][1], motif.select_info['p' .. side .. '_palmenu_value_snd'][2])
     -- previous palette
-    elseif main.f_input({cmd}, {motif.select_info['p' .. side .. '_palmenu_previous_key']}) then
+    elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_previous_key'])) then
         curIdx = (curIdx == 1) and maxIdx or curIdx - 1
         st.currentIdx = curIdx
         if curIdx < maxIdx then
 			applyPalette(st, charData, validPals[curIdx])
 		end
-        sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_value_snd'][1], motif.select_info['p' .. side .. '_palmenu_value_snd'][2])
     -- cancel
     elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_cancel_key'])) then
         st.anim_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info, '_face', '', true)
@@ -3087,7 +3087,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
         selectState = 0
 		st.currentIdx = nil
 		st.validPals = nil
-        sndPlay(motif.files.snd_data, motif.select_info.palmenu_cancel_snd[1], motif.select_info.palmenu_cancel_snd[2])
+		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_cancel_snd'][1], motif.select_info['p' .. side .. '_palmenu_cancel_snd'][2])
     end
     -- random hotkey
     if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_random_key'])) then
@@ -3099,7 +3099,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
             start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
             start.c[player].randPalPreview = start.f_randomPal(charRef, validPals)
             applyPalette(st, charData, start.c[player].randPalPreview)
-            sndPlay(motif.files.snd_data, motif.select_info.palmenu_move_snd[1], motif.select_info.palmenu_move_snd[2])
+        	sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_value_snd'][1], motif.select_info['p' .. side .. '_palmenu_value_snd'][2])
         else
             start.c[player].randPalCnt = start.c[player].randPalCnt - 1
         end

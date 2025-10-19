@@ -1625,3 +1625,6 @@ func (r *Renderer_GL21) OrthographicProjectionMatrix(left, right, bottom, top, n
 func (r *Renderer_GL21) NewWorkerThread() bool {
 	return false
 }
+
+func (r *Renderer_GL21) SetVSync() {
+}

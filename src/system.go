@@ -683,17 +683,6 @@ func (s *System) setLifebarScale() {
 	s.lifebarOffsetX = calcOffsetX * calcScale
 }
 
-func (s *System) isAspect43(localcoord [2]int32) bool {
-	if localcoord[1] == 0 {
-		return false
-	}
-	aspect := float32(localcoord[0]) / float32(localcoord[1])
-	aspect43 := float32(4.0 / 3.0)
-	eps := float32(0.01)
-
-	return AbsF(aspect-aspect43) < eps
-}
-
 // Will be useful if/when we make aspect ratio not depend on stage only
 func (s *System) middleOfMatch() bool {
 	return s.matchTime != 0 && !s.postMatchFlg

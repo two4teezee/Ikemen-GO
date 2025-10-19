@@ -241,8 +241,8 @@ func applyRotation(modelview mgl.Mat4, rp RenderParams) mgl.Mat4 {
 			// Window wider: normalize X
 			scaleX := aspectWindow / aspectGame
 			modelview = modelview.Mul4(mgl.Scale3D(scaleX, rp.vs, 1)) // pre-scale
-			modelview = modelview.Mul4(rotMatrix())	// rotate
-			modelview = modelview.Mul4(mgl.Scale3D(1/scaleX, 1, 1))	// restore
+			modelview = modelview.Mul4(rotMatrix())                   // rotate
+			modelview = modelview.Mul4(mgl.Scale3D(1/scaleX, 1, 1))   // restore
 		} else {
 			// Window taller: normalize Y
 			scaleY := aspectGame / aspectWindow
@@ -261,29 +261,29 @@ func applyRotation(modelview mgl.Mat4, rp RenderParams) mgl.Mat4 {
 
 // Builds the base projection transform depending on projectionMode
 func applyProjection(modelview mgl.Mat4, rp RenderParams, n int, botdist, dy float32) mgl.Mat4 {
-    if rp.projectionMode == 0 {
-        // No projection, just center on pivot + tile offset
-        return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
-    }
+	if rp.projectionMode == 0 {
+		// No projection, just center on pivot + tile offset
+		return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
+	}
 
-    matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
+	matrix := mgl.Mat4{float32(sys.scrrect[2] / 2.0), 0, 0, 0, 0, float32(sys.scrrect[3] / 2), 0, 0, 0, 0, -65535, 0, float32(sys.scrrect[2] / 2), float32(sys.scrrect[3] / 2), 0, 1}
 
-    if rp.projectionMode == 1 {
-        modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), rp.fLength))
-        modelview = modelview.Mul4(matrix)
-        modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
-        modelview = modelview.Mul4(mgl.Translate3D(-float32(sys.scrrect[2])/2.0,float32(sys.scrrect[3])/2.0,-rp.fLength,))
-        return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
-    }
+	if rp.projectionMode == 1 {
+		modelview = modelview.Mul4(mgl.Translate3D(0, -float32(sys.scrrect[3]), rp.fLength))
+		modelview = modelview.Mul4(matrix)
+		modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
+		modelview = modelview.Mul4(mgl.Translate3D(-float32(sys.scrrect[2])/2.0, float32(sys.scrrect[3])/2.0, -rp.fLength))
+		return modelview.Mul4(mgl.Translate3D(rp.rcx+float32(n)*botdist, rp.rcy+dy, 0))
+	}
 
-    if rp.projectionMode == 2 {
-        modelview = modelview.Mul4(mgl.Translate3D(rp.rcx-float32(sys.scrrect[2])/2.0-rp.xOffset, rp.rcy-float32(sys.scrrect[3])/2.0+rp.yOffset, rp.fLength))
-        modelview = modelview.Mul4(matrix)
-        modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
-        return modelview.Mul4(mgl.Translate3D(rp.xOffset+float32(n)*botdist, -rp.yOffset+dy, -rp.fLength))
-    }
+	if rp.projectionMode == 2 {
+		modelview = modelview.Mul4(mgl.Translate3D(rp.rcx-float32(sys.scrrect[2])/2.0-rp.xOffset, rp.rcy-float32(sys.scrrect[3])/2.0+rp.yOffset, rp.fLength))
+		modelview = modelview.Mul4(matrix)
+		modelview = modelview.Mul4(mgl.Frustum(-float32(sys.scrrect[2])/2/rp.fLength, float32(sys.scrrect[2])/2/rp.fLength, -float32(sys.scrrect[3])/2/rp.fLength, float32(sys.scrrect[3])/2/rp.fLength, 1.0, 65535))
+		return modelview.Mul4(mgl.Translate3D(rp.xOffset+float32(n)*botdist, -rp.yOffset+dy, -rp.fLength))
+	}
 
-    return modelview
+	return modelview
 }
 
 // Render a quad with optional horizontal tiling
@@ -330,8 +330,8 @@ func renderSpriteHTile(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, w
 				right = Min(right, Max(rp.tile.xflag, 1))
 			}
 		} else {
-		// When projection is active: skip horizontal culling (geometry distortion breaks it)
-		// Instead, use a fixed symmetric range based on xflag to avoid infinite tiling
+			// When projection is active: skip horizontal culling (geometry distortion breaks it)
+			// Instead, use a fixed symmetric range based on xflag to avoid infinite tiling
 			left = 1 - rp.tile.xflag
 			right = rp.tile.xflag
 		}

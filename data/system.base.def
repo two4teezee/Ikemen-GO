@@ -990,8 +990,8 @@
 	p1.palmenu.bg.offset = 0, 0
 	p1.palmenu.bg.facing = 1
 	p1.palmenu.bg.scale = 1.0, 1.0
-	p1.palmenu.next.key = "$F"
-	p1.palmenu.previous.key = "$B"
+	p1.palmenu.next.key = "$D&$F"
+	p1.palmenu.previous.key = "$U&$B"
 	p1.palmenu.accept.key = "a&b&c&x&y&z"
 	p1.palmenu.preview.anim = -1
 	p1.palmenu.preview.spr =
@@ -1000,23 +1000,27 @@
 	p1.palmenu.cancel.key = "m"
 	p1.palmenu.random.key = "s"
 	p1.palmenu.random.text = "Random"
+	p1.palmenu.value.snd = -1, 0
+	p1.palmenu.done.snd = -1, 0
+	p1.palmenu.cancel.snd = -1, 0
+	
 	p2.palmenu.pos = 0, 0
 	p2.palmenu.bg.anim = -1
 	p2.palmenu.bg.spr = 
 	p2.palmenu.bg.offset = 0, 0
 	p2.palmenu.bg.facing = 1
 	p2.palmenu.bg.scale = 1.0, 1.0
-	p2.palmenu.next.key = "$F"
-	p2.palmenu.previous.key = "$B"
+	p2.palmenu.next.key = "$D&$F"
+	p2.palmenu.previous.key = "$U&$B"
 	p2.palmenu.accept.key = "a&b&c&x&y&z"
 	p2.palmenu.preview.anim = -1
 	p2.palmenu.preview.spr =
 	p2.palmenu.cancel.key = "m"
 	p2.palmenu.random.key = "s"
 	p2.palmenu.random.text = "Random"
-	palmenu.move.snd = -1, 0
-	palmenu.done.snd = -1, 0
-	palmenu.cancel.snd = -1, 0
+	p2.palmenu.value.snd = -1, 0
+	p2.palmenu.done.snd = -1, 0
+	p2.palmenu.cancel.snd = -1, 0
 
 [SelectBgDef] ;Ikemen feature
 	spr = ""

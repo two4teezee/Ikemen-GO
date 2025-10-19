@@ -705,6 +705,7 @@ type Renderer_VK struct {
 	gpuDevices []vk.PhysicalDevice
 	gpuIndex   uint32
 
+	setVSync                 bool
 	instance                 vk.Instance
 	surface                  vk.Surface
 	device                   vk.Device
@@ -4657,6 +4658,7 @@ func (r *Renderer_VK) Init() {
 	r.stagingBufferOffset = 0
 	r.stagingImageCopyRegions = make(map[vk.Image][]vk.BufferImageCopy)
 	r.VKState.VulkanModelPipelineState.VulkanModelSpecializationConstants1.useShadowMap = r.enableShadow
+	r.setVSync = false
 
 	vk.SetGetInstanceProcAddr(glfw.GetVulkanGetInstanceProcAddress())
 	err := vk.Init()
@@ -4845,6 +4847,10 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 		}
 		vk.FreeCommandBuffers(r.device, r.commandPools[0], uint32(len(r.usedCommands)), r.usedCommands)
 		r.usedCommands = r.usedCommands[:0]
+	}
+	if r.setVSync {
+		r.setVSync = false
+		r.RecreateSwapchain()
 	}
 	res := vk.AcquireNextImage(r.device, r.swapchains[0].swapchain,
 		vk.MaxUint64, r.semaphores[0], vk.NullFence, &r.swapchains[0].currentImageIndex)
@@ -7523,4 +7529,8 @@ func (r *Renderer_VK) AllocateImageMemory(img vk.Image, memoryProperty vk.Memory
 		panic(err)
 	}
 	return imageMemory
+}
+
+func (r *Renderer_VK) SetVSync() {
+	r.setVSync = true
 }

@@ -85,6 +85,7 @@ type Renderer interface {
 	PerspectiveProjectionMatrix(angle, aspect, near, far float32) mgl.Mat4
 	OrthographicProjectionMatrix(left, right, bottom, top, near, far float32) mgl.Mat4
 
+	SetVSync()
 	NewWorkerThread() bool
 }
 

@@ -116,6 +116,8 @@ func (w *Window) SetIcon(icon []image.Image) {
 func (w *Window) SetSwapInterval(interval int) {
 	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
 		glfw.SwapInterval(interval)
+	} else {
+		gfx.SetVSync()
 	}
 }
 

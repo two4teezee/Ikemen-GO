@@ -717,11 +717,15 @@ func (s *System) getFightAspect() float32 {
 	}
 
 	// Default
-	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+	// Using video options directly has unwanted behavior if those options are changed without restarting Ikemen
+	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+	return float32(s.scrrect[2]) / float32(s.scrrect[3])
 }
 
 func (s *System) getMotifAspect() float32 {
-	return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+	// Using options directly makes aspect change as soon as options are changed
+	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+	return float32(s.scrrect[2]) / float32(s.scrrect[3])
 }
 
 func (s *System) getCurrentAspect() float32 {
@@ -755,7 +759,8 @@ func (s *System) applyFightAspect() {
 			aspectGame = stageWidth / stageHeight
 		} else {
 			// Fallback
-			aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+			//aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
+			aspectGame = float32(s.scrrect[2]) / float32(s.scrrect[3])
 		}
 	} else {
 		aspectGame = s.getFightAspect()
@@ -4194,7 +4199,7 @@ func (l *Loader) load() {
 	// Update cached character scaling
 	for _, p := range sys.chars {
 		if len(p) > 0 {
-			p[0].localcoord = 320 / (float32(sys.gameWidth) / 320)
+			p[0].localcoord = p[0].gi().localcoord[0] / (float32(sys.gameWidth) / 320)
 			p[0].localscl = 320 / p[0].localcoord
 		}
 	}

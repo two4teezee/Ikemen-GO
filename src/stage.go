@@ -4311,7 +4311,7 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		gfx.SetModelUniformF("lights["+strconv.Itoa(idx)+"].color", 0, 0, 0)
 	}
 	if len(scene.lightNodes) > 0 {
-		for idx := 0; idx < len(scene.lightNodes); idx++ {
+		for idx := 0; idx < MinI(len(scene.lightNodes), 4); idx++ {
 			lightNode := model.nodes[scene.lightNodes[idx]]
 			light := model.lights[*lightNode.lightIndex]
 			shadowMapNear := float32(0.1)

@@ -1,3 +1,10 @@
+#if __VERSION__ >= 450
+#define ENABLE_SHADOW 
+#define COMPAT_TEXTURE texture
+#define COMPAT_TEXTURE_CUBE texture
+#define COMPAT_TEXTURE_CUBE_LOD textureLod
+#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
+#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
 struct Light
 {
     vec3 direction;
@@ -15,13 +22,6 @@ struct Light
     float shadowBias;
     float shadowMapFar;
 };
-#if __VERSION__ >= 450
-#define ENABLE_SHADOW 
-#define COMPAT_TEXTURE texture
-#define COMPAT_TEXTURE_CUBE texture
-#define COMPAT_TEXTURE_CUBE_LOD textureLod
-#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
-#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
 layout(binding = 0) uniform EnvironmentUniform {
 	layout(offset = 384) Light lights[4];
 	layout(offset = 640) mat3 environmentRotation;
@@ -101,7 +101,23 @@ uniform samplerCube shadowCubeMap[4];
 #define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
 #endif
 #endif
+struct Light
+{
+    vec3 direction;
+    float range;
 
+    vec3 color;
+    float intensity;
+
+    vec3 position;
+    float innerConeCos;
+
+    float outerConeCos;
+    int type;
+
+    float shadowBias;
+    float shadowMapFar;
+};
 uniform sampler2D tex;
 uniform mat3 texTransform;
 uniform sampler2D normalMap;

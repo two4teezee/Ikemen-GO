@@ -203,6 +203,8 @@ func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -218,6 +220,8 @@ func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutTransferDstOptimal,
 			NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
+			DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -261,6 +265,8 @@ func (t *Texture_VK) SetDataG(textureData []byte, mag, min, ws, wt TextureSampli
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -456,6 +462,8 @@ func (t *Texture_VK) SetPixelData(textureData []float32) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -471,6 +479,8 @@ func (t *Texture_VK) SetPixelData(textureData []float32) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutTransferDstOptimal,
 			NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
+			DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -517,6 +527,8 @@ func (t *Texture_VK) SetCubeMapData(textureData []byte) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -532,6 +544,8 @@ func (t *Texture_VK) SetCubeMapData(textureData []byte) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutTransferDstOptimal,
 			NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
+			DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -585,6 +599,8 @@ func (t Texture_VK) CopyData(sourceTexture *Texture) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -600,6 +616,8 @@ func (t Texture_VK) CopyData(sourceTexture *Texture) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutUndefined,
 			NewLayout:           vk.ImageLayoutTransferSrcOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+			DstAccessMask:       vk.AccessFlags(vk.AccessTransferReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               src.img,
@@ -636,6 +654,8 @@ func (t Texture_VK) CopyData(sourceTexture *Texture) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutTransferDstOptimal,
 			NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessTransferWriteBit),
+			DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               t.img,
@@ -651,6 +671,8 @@ func (t Texture_VK) CopyData(sourceTexture *Texture) {
 			SType:               vk.StructureTypeImageMemoryBarrier,
 			OldLayout:           vk.ImageLayoutTransferSrcOptimal,
 			NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+			SrcAccessMask:       vk.AccessFlags(vk.AccessTransferReadBit),
+			DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 			SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 			DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 			Image:               src.img,
@@ -1462,7 +1484,7 @@ func (r *Renderer_VK) addPalTexture() {
 		r.palTexture.emptySlot.PushBack([2]uint32{index, uint32(i)})
 	}
 	t := &Texture_VK{int32(r.palTexture.size), int32(r.palTexture.size), 32, false, 1, [2]int32{0, 0}, [4]float32{0, 0, 1, 1}, nil, nil, nil}
-	t.img = r.CreateImage(uint32(t.width), uint32(t.height), vk.FormatR8g8b8a8Unorm, 1, 1, vk.ImageUsageFlags(vk.ImageUsageTransferDstBit|vk.ImageUsageSampledBit), 1, vk.ImageTilingOptimal, false)
+	t.img = r.CreateImage(uint32(t.width), uint32(t.height), vk.FormatR8g8b8a8Unorm, 1, 1, vk.ImageUsageFlags(vk.ImageUsageTransferDstBit|vk.ImageUsageSampledBit), 1, vk.ImageTilingLinear, false)
 	imageMemory := r.AllocateImageMemory(t.img, vk.MemoryPropertyDeviceLocalBit)
 	t.imageView = r.CreateImageView(t.img, vk.FormatR8g8b8a8Unorm, 0, 1, 1, false)
 	r.palTexture.textures = append(r.palTexture.textures, t)
@@ -1480,6 +1502,8 @@ func (r *Renderer_VK) addPalTexture() {
 		SType:               vk.StructureTypeImageMemoryBarrier,
 		OldLayout:           vk.ImageLayoutUndefined,
 		NewLayout:           vk.ImageLayoutShaderReadOnlyOptimal,
+		SrcAccessMask:       vk.AccessFlags(vk.AccessNone),
+		DstAccessMask:       vk.AccessFlags(vk.AccessShaderReadBit),
 		SrcQueueFamilyIndex: vk.QueueFamilyIgnored,
 		DstQueueFamilyIndex: vk.QueueFamilyIgnored,
 		Image:               t.img,
@@ -5441,10 +5465,12 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 	imageMemory := r.AllocateImageMemory(img, vk.MemoryPropertyHostVisibleBit|vk.MemoryPropertyHostCachedBit)
 	imgBarriers := []vk.ImageMemoryBarrier{
 		{
-			SType:     vk.StructureTypeImageMemoryBarrier,
-			OldLayout: vk.ImageLayoutUndefined,
-			NewLayout: vk.ImageLayoutTransferDstOptimal,
-			Image:     img,
+			SType:         vk.StructureTypeImageMemoryBarrier,
+			OldLayout:     vk.ImageLayoutUndefined,
+			NewLayout:     vk.ImageLayoutTransferDstOptimal,
+			SrcAccessMask: vk.AccessFlags(vk.AccessNone),
+			DstAccessMask: vk.AccessFlags(vk.AccessTransferWriteBit),
+			Image:         img,
 			SubresourceRange: vk.ImageSubresourceRange{
 				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
 				BaseMipLevel:   0,
@@ -5454,10 +5480,12 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 			},
 		},
 		{
-			SType:     vk.StructureTypeImageMemoryBarrier,
-			OldLayout: vk.ImageLayoutPresentSrc,
-			NewLayout: vk.ImageLayoutTransferSrcOptimal,
-			Image:     r.swapchains[0].images[imageIndex],
+			SType:         vk.StructureTypeImageMemoryBarrier,
+			OldLayout:     vk.ImageLayoutPresentSrc,
+			NewLayout:     vk.ImageLayoutTransferSrcOptimal,
+			SrcAccessMask: vk.AccessFlags(vk.AccessNone),
+			DstAccessMask: vk.AccessFlags(vk.AccessTransferReadBit),
+			Image:         r.swapchains[0].images[imageIndex],
 			SubresourceRange: vk.ImageSubresourceRange{
 				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
 				BaseMipLevel:   0,
@@ -5510,10 +5538,12 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 	vk.CmdBlitImage(cmd, r.swapchains[0].images[imageIndex], vk.ImageLayoutTransferSrcOptimal, img, vk.ImageLayoutTransferDstOptimal, uint32(len(imageBlits)), imageBlits, vk.FilterLinear)
 	imgBarriers = []vk.ImageMemoryBarrier{
 		{
-			SType:     vk.StructureTypeImageMemoryBarrier,
-			OldLayout: vk.ImageLayoutTransferDstOptimal,
-			NewLayout: vk.ImageLayoutGeneral,
-			Image:     img,
+			SType:         vk.StructureTypeImageMemoryBarrier,
+			OldLayout:     vk.ImageLayoutTransferDstOptimal,
+			NewLayout:     vk.ImageLayoutGeneral,
+			SrcAccessMask: vk.AccessFlags(vk.AccessTransferWriteBit),
+			DstAccessMask: vk.AccessFlags(vk.AccessNone),
+			Image:         img,
 			SubresourceRange: vk.ImageSubresourceRange{
 				AspectMask:     vk.ImageAspectFlags(vk.ImageAspectColorBit),
 				BaseMipLevel:   0,

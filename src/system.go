@@ -4194,7 +4194,7 @@ func (l *Loader) load() {
 	// Update cached character scaling
 	for _, p := range sys.chars {
 		if len(p) > 0 {
-			p[0].localcoord = 320 / (float32(sys.gameWidth) / 320)
+			p[0].localcoord = p[0].gi().localcoord[0] / (float32(sys.gameWidth) / 320)
 			p[0].localscl = 320 / p[0].localcoord
 		}
 	}

@@ -219,6 +219,8 @@ func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align
 func (txt *LbText) SetColor(r, g, b int32) {
 	txt.forcecolor = true
 	txt.palfx.setColor(r, g, b)
+	txt.frgba = [...]float32{float32(r) / 255, float32(g) / 255,
+		float32(b) / 255, 1.0}
 }
 
 func (txt *LbText) step() {

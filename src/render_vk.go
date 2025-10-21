@@ -6174,8 +6174,9 @@ func (r *Renderer_VK) RenderQuad() {
 			PImageInfo:      imageInfo,
 		})
 	}
-	if switchedProgram || r.VKState.palTexture != r.currentSpriteTexture.palTexture {
-		if switchedProgram || r.VKState.palTexture.offset[0] != r.currentSpriteTexture.palTexture.offset[0] || r.VKState.palTexture.offset[1] != r.currentSpriteTexture.palTexture.offset[1] {
+	// MacOS MoltenVK workaround: push constants need to be set every draw call
+	if switchedProgram || r.VKState.palTexture != r.currentSpriteTexture.palTexture || runtime.GOOS == "darwin" {
+		if switchedProgram || r.VKState.palTexture.offset[0] != r.currentSpriteTexture.palTexture.offset[0] || r.VKState.palTexture.offset[1] != r.currentSpriteTexture.palTexture.offset[1] || runtime.GOOS == "darwin" {
 			uvst := r.VKState.palTexture.uvst
 			vk.CmdPushConstants(r.commandBuffers[0], r.spriteProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 16, unsafe.Pointer(&uvst))
 		}
@@ -6740,14 +6741,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	vk.ResetFences(r.device, 1, r.fences[:1])
 	r.vertexBufferOffset = 0
 
-	vk.ResetCommandBuffer(r.commandBuffers[0], 0)
-	cmdBufferBeginInfo := vk.CommandBufferBeginInfo{
-		SType:            vk.StructureTypeCommandBufferBeginInfo,
-		Flags:            0,
-		PInheritanceInfo: nil,
-	}
-	vk.BeginCommandBuffer(r.commandBuffers[0], &cmdBufferBeginInfo)
-
+	cmd := r.BeginSingleTimeCommands()
 	barriers := []vk.ImageMemoryBarrier{
 		{
 			SType:               vk.StructureTypeImageMemoryBarrier,
@@ -6767,7 +6761,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 
 	colorAttachmentInfos := []vk.RenderingAttachmentInfo{{
 		SType:       vk.StructureTypeRenderingAttachmentInfo,
@@ -6793,10 +6787,10 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(r.commandBuffers[0], renderInfo)
-	vk.CmdBindPipeline(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelines[0])
+	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelines[0])
 
-	vk.CmdBindVertexBuffers(r.commandBuffers[0], 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
+	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 
 	imageInfo := [][]vk.DescriptorImageInfo{
@@ -6817,7 +6811,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 			PImageInfo:      imageInfo[0],
 		},
 	}
-	vk.CmdPushDescriptorSet(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
+	vk.CmdPushDescriptorSet(cmd, vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
 
 	viewports := []vk.Viewport{{
 		MinDepth: 0.0,
@@ -6837,13 +6831,13 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 			Height: uint32(textureSize),
 		},
 	}
-	vk.CmdSetViewport(r.commandBuffers[0], 0, 1, viewports)
+	vk.CmdSetViewport(cmd, 0, 1, viewports)
 	scissors := []vk.Rect2D{scissor}
-	vk.CmdSetScissor(r.commandBuffers[0], 0, 1, scissors)
+	vk.CmdSetScissor(cmd, 0, 1, scissors)
 
-	vk.CmdDraw(r.commandBuffers[0], 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
+	vk.CmdDraw(cmd, 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
 
-	vk.CmdEndRendering(r.commandBuffers[0])
+	vk.CmdEndRendering(cmd)
 
 	//Generate mip maps
 	if cubeTexture.mipLevels > 1 {
@@ -6884,7 +6878,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 			},
 		}
 
-		vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+		vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 
 		for i := uint32(1); i < cubeTexture.mipLevels; i++ {
 			imageBlits := []vk.ImageBlit{{
@@ -6925,7 +6919,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 					},
 				},
 			}}
-			vk.CmdBlitImage(r.commandBuffers[0], cubeTexture.img, vk.ImageLayoutTransferSrcOptimal, cubeTexture.img, vk.ImageLayoutTransferDstOptimal, uint32(len(imageBlits)), imageBlits, vk.FilterLinear)
+			vk.CmdBlitImage(cmd, cubeTexture.img, vk.ImageLayoutTransferSrcOptimal, cubeTexture.img, vk.ImageLayoutTransferDstOptimal, uint32(len(imageBlits)), imageBlits, vk.FilterLinear)
 			barriers = []vk.ImageMemoryBarrier{
 				{
 					SType:               vk.StructureTypeImageMemoryBarrier,
@@ -6945,7 +6939,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 					},
 				},
 			}
-			vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+			vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 		}
 
 		barriers = []vk.ImageMemoryBarrier{
@@ -6967,7 +6961,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 				},
 			},
 		}
-		vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+		vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 	} else {
 		barriers := []vk.ImageMemoryBarrier{
 			{
@@ -6988,10 +6982,10 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 				},
 			},
 		}
-		vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+		vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTransferBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 	}
-	vk.EndCommandBuffer(r.commandBuffers[0])
-	commandBuffers := []vk.CommandBuffer{r.commandBuffers[0]}
+	vk.EndCommandBuffer(cmd)
+	commandBuffers := []vk.CommandBuffer{cmd}
 	submitInfo := []vk.SubmitInfo{{
 		SType:              vk.StructureTypeSubmitInfo,
 		CommandBufferCount: 1,
@@ -7014,14 +7008,8 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 
 	vk.WaitForFences(r.device, 1, r.fences[:1], vk.True, 10*1000*1000*1000)
 	vk.ResetFences(r.device, 1, r.fences[:1])
-	vk.ResetCommandBuffer(r.commandBuffers[0], 0)
-	cmdBufferBeginInfo := vk.CommandBufferBeginInfo{
-		SType:            vk.StructureTypeCommandBufferBeginInfo,
-		Flags:            0,
-		PInheritanceInfo: nil,
-	}
-	vk.BeginCommandBuffer(r.commandBuffers[0], &cmdBufferBeginInfo)
 
+	cmd := r.BeginSingleTimeCommands()
 	barriers := []vk.ImageMemoryBarrier{
 		{
 			SType:               vk.StructureTypeImageMemoryBarrier,
@@ -7041,7 +7029,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 
 	colorAttachmentInfos := []vk.RenderingAttachmentInfo{{
 		SType:       vk.StructureTypeRenderingAttachmentInfo,
@@ -7067,10 +7055,10 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(r.commandBuffers[0], renderInfo)
-	vk.CmdBindPipeline(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelines[0])
+	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelines[0])
 
-	vk.CmdBindVertexBuffers(r.commandBuffers[0], 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
+	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
 		{{
@@ -7090,7 +7078,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 			PImageInfo:      imageInfo[0],
 		},
 	}
-	vk.CmdPushDescriptorSet(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
+	vk.CmdPushDescriptorSet(cmd, vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
 	pushConstants := struct {
 		sampleCount    int32
 		distribution   int32
@@ -7101,7 +7089,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 		_padding       [3]bool
 	}{sampleCount, distribution, textureSize, roughness, 1, false, [3]bool{}}
 
-	vk.CmdPushConstants(r.commandBuffers[0], r.cubemapFilteringProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 4*6, unsafe.Pointer(&pushConstants))
+	vk.CmdPushConstants(cmd, r.cubemapFilteringProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 4*6, unsafe.Pointer(&pushConstants))
 	viewports := []vk.Viewport{{
 		MinDepth: 0.0,
 		MaxDepth: 1.0,
@@ -7120,13 +7108,13 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 			Height: uint32(currentTextureSize),
 		},
 	}
-	vk.CmdSetViewport(r.commandBuffers[0], 0, 1, viewports)
+	vk.CmdSetViewport(cmd, 0, 1, viewports)
 	scissors := []vk.Rect2D{scissor}
-	vk.CmdSetScissor(r.commandBuffers[0], 0, 1, scissors)
+	vk.CmdSetScissor(cmd, 0, 1, scissors)
 
-	vk.CmdDraw(r.commandBuffers[0], 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
+	vk.CmdDraw(cmd, 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
 
-	vk.CmdEndRendering(r.commandBuffers[0])
+	vk.CmdEndRendering(cmd)
 
 	barriers = []vk.ImageMemoryBarrier{
 		{
@@ -7147,17 +7135,8 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
-
-	vk.EndCommandBuffer(r.commandBuffers[0])
-	commandBuffers := []vk.CommandBuffer{r.commandBuffers[0]}
-	submitInfo := []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    commandBuffers,
-	}}
-	vk.QueueSubmit(r.queue, 1, submitInfo, r.fences[0])
-	vk.QueueWaitIdle(r.queue)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+	r.EndSingleTimeCommands(cmd)
 }
 func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Texture, sampleCount int32) {
 	cubeTexture := cubeTex.(*Texture_VK)
@@ -7166,14 +7145,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 	vk.WaitForFences(r.device, 1, r.fences[:1], vk.True, 10*1000*1000*1000)
 	vk.ResetFences(r.device, 1, r.fences[:1])
 
-	vk.ResetCommandBuffer(r.commandBuffers[0], 0)
-	cmdBufferBeginInfo := vk.CommandBufferBeginInfo{
-		SType:            vk.StructureTypeCommandBufferBeginInfo,
-		Flags:            0,
-		PInheritanceInfo: nil,
-	}
-	vk.BeginCommandBuffer(r.commandBuffers[0], &cmdBufferBeginInfo)
-
+	cmd := r.BeginSingleTimeCommands()
 	barriers := []vk.ImageMemoryBarrier{
 		{
 			SType:               vk.StructureTypeImageMemoryBarrier,
@@ -7193,7 +7165,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 
 	colorAttachmentInfos := []vk.RenderingAttachmentInfo{{
 		SType:       vk.StructureTypeRenderingAttachmentInfo,
@@ -7219,10 +7191,10 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(r.commandBuffers[0], renderInfo)
-	vk.CmdBindPipeline(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.lutProgram.pipelines[0])
+	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.lutProgram.pipelines[0])
 
-	vk.CmdBindVertexBuffers(r.commandBuffers[0], 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
+	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
 	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
 		{{
@@ -7242,7 +7214,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 			PImageInfo:      imageInfo[0],
 		},
 	}
-	vk.CmdPushDescriptorSet(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.lutProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
+	vk.CmdPushDescriptorSet(cmd, vk.PipelineBindPointGraphics, r.lutProgram.pipelineLayout, 0, uint32(len(descriptorWrites)), descriptorWrites)
 	pushConstants := struct {
 		sampleCount    int32
 		distribution   int32
@@ -7252,7 +7224,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 		isLUT          bool
 		_padding       [3]bool
 	}{sampleCount, distribution, textureSize, 0, 1, true, [3]bool{}}
-	vk.CmdPushConstants(r.commandBuffers[0], r.lutProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 4*6, unsafe.Pointer(&pushConstants))
+	vk.CmdPushConstants(cmd, r.lutProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 4*6, unsafe.Pointer(&pushConstants))
 	viewports := []vk.Viewport{{
 		MinDepth: 0.0,
 		MaxDepth: 1.0,
@@ -7271,13 +7243,13 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 			Height: uint32(textureSize),
 		},
 	}
-	vk.CmdSetViewport(r.commandBuffers[0], 0, 1, viewports)
+	vk.CmdSetViewport(cmd, 0, 1, viewports)
 	scissors := []vk.Rect2D{scissor}
-	vk.CmdSetScissor(r.commandBuffers[0], 0, 1, scissors)
+	vk.CmdSetScissor(cmd, 0, 1, scissors)
 
-	vk.CmdDraw(r.commandBuffers[0], 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
+	vk.CmdDraw(cmd, 4, 1, uint32(r.vertexBufferOffset)/8-4, 0)
 
-	vk.CmdEndRendering(r.commandBuffers[0])
+	vk.CmdEndRendering(cmd)
 
 	barriers = []vk.ImageMemoryBarrier{
 		{
@@ -7298,17 +7270,9 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(r.commandBuffers[0], vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageColorAttachmentOutputBit), vk.PipelineStageFlags(vk.PipelineStageFragmentShaderBit), 0, 0, nil, 0, nil, uint32(len(barriers)), barriers)
 
-	vk.EndCommandBuffer(r.commandBuffers[0])
-	commandBuffers := []vk.CommandBuffer{r.commandBuffers[0]}
-	submitInfo := []vk.SubmitInfo{{
-		SType:              vk.StructureTypeSubmitInfo,
-		CommandBufferCount: 1,
-		PCommandBuffers:    commandBuffers,
-	}}
-	vk.QueueSubmit(r.queue, 1, submitInfo, r.fences[0])
-	vk.QueueWaitIdle(r.queue)
+	r.EndSingleTimeCommands(cmd)
 }
 
 func (r *Renderer_VK) FlushTempCommands() {

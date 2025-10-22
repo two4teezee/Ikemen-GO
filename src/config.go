@@ -248,16 +248,23 @@ func loadConfig(def string) (*Config, error) {
 		//AllowDuplicateShadowValues: true,
 	}
 
-	// Load the INI file
+	// Choose default config source: prefer physical file, else embedded bytes.
+	var defaultSrc interface{}
+	if fp := FileExist("resources/defaultConfig.ini"); len(fp) != 0 {
+		defaultSrc = fp
+	} else {
+		defaultSrc = defaultConfig
+	}
+	// Load the INI file(s)
 	var iniFile *ini.File
 	var err error
 	if fp := FileExist(def); len(fp) == 0 {
-		iniFile, err = ini.LoadSources(options, defaultConfig)
+		iniFile, err = ini.LoadSources(options, defaultSrc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read data: %v", err)
 		}
 	} else {
-		iniFile, err = ini.LoadSources(options, defaultConfig, def)
+		iniFile, err = ini.LoadSources(options, defaultSrc, def)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read data: %v", err)
 		}

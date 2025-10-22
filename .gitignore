@@ -15,6 +15,7 @@ Ikemen_GO_x86.exe
 Ikemen_GO.command
 external/script/.idea/*
 *.manifest
+resources/*
 
 # Ikemen_GO-Elecbyte-Screenpack
 ScreenpackLicense.txt

@@ -2664,6 +2664,7 @@ type CharGlobalInfo struct {
 	fnt                     [10]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
+	music                   Music
 	attackBase              int32
 	defenceBase             int32
 }
@@ -3168,6 +3169,11 @@ func (c *Char) stWgi() *CharGlobalInfo {
 	}
 }
 
+// Return Select Char Info
+func (c *Char) si() *SelectChar {
+	return &sys.sel.charlist[c.selectNo]
+}
+
 func (c *Char) ocd() *OverrideCharData {
 	team := c.teamside
 	if c.teamside == -1 {
@@ -3392,7 +3398,7 @@ func (c *Char) load(def string) error {
 
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
-			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
 				str, err = LoadText(filename)
 				if err != nil {
 					return err
@@ -3503,7 +3509,7 @@ func (c *Char) load(def string) error {
 
 	if len(cns) > 0 {
 		cns_resolved := resolvePathRelativeToDef(cns)
-		if err := LoadFile(&cns_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&cns_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			str, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -3771,7 +3777,7 @@ func (c *Char) load(def string) error {
 
 	if len(sprite) > 0 {
 		sprite_resolved := resolvePathRelativeToDef(sprite)
-		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err_sff error
 			gi.sff, err_sff = loadSff(filename, true) // loadSff uses OpenFile
 			return err_sff
@@ -3798,7 +3804,7 @@ func (c *Char) load(def string) error {
 	str = ""
 	if len(anim) > 0 {
 		anim_resolved := resolvePathRelativeToDef(anim)
-		if LoadFile(&anim_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if LoadFile(&anim_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err_air error
 			str, err_air = LoadText(filename)
 			if err_air != nil {
@@ -3811,7 +3817,7 @@ func (c *Char) load(def string) error {
 	}
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
-			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -3827,7 +3833,7 @@ func (c *Char) load(def string) error {
 	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
-		if LoadFile(&sound_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if LoadFile(&sound_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err error
 			gi.snd, err = LoadSnd(filename)
 			return err
@@ -3843,7 +3849,7 @@ func (c *Char) load(def string) error {
 			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
 			i := i_fnt
 			f_pair := f_fnt_pair
-			LoadFile(&resolvedFntPath, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
+			LoadFile(&resolvedFntPath, []string{def, sys.motif.Def, "", "data/", "font/"}, func(filename string) error {
 				// Defer the font loading to the main thread
 				sys.mainThreadTask <- func() {
 					var err error
@@ -3878,7 +3884,7 @@ func (c *Char) loadPalette() {
 
 			pal := gi.palInfo[i]
 
-			if LoadFile(&pal.filename, []string{gi.def, "", sys.motifDir, "data/"}, func(file string) error {
+			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
 				f, err = OpenFile(file)
 				return err
 			}) == nil {
@@ -4067,7 +4073,7 @@ func (c *Char) loadFx(def string) error {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motifDir, "data/"}); found_path_fallback != "" {
+							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"}); found_path_fallback != "" {
 								if err := loadFightFx(found_path_fallback, false); err != nil {
 									sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path_fallback, def, err)
 								} else {
@@ -5121,7 +5127,7 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = textid.ToI(), 0
-	for _, ts := range sys.lifebar.textsprite {
+	for _, ts := range sys.motif.textsprite {
 		if ts.id == id && ts.ownerid == c.id {
 			n++
 		}
@@ -6179,7 +6185,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if removetexts {
-		sys.lifebar.removeText(-1, -1, c.id)
+		sys.motif.removeText(-1, -1, c.id)
 	}
 
 	if recursive {

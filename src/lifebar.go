@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -62,7 +63,7 @@ func newFightFx() *FightFx {
 	return &FightFx{
 		fsff:       &Sff{},
 		fx_scale:   1.0,
-		localcoord: [2]float32{float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1])},
+		localcoord: [2]float32{float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1])},
 	}
 }
 
@@ -120,7 +121,7 @@ func loadFightFx(def string, isGlobal bool) error {
 			// Read files section
 			if files {
 				files = false
-				if is.LoadFile("sff", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						s, err := loadSff(filename, false)
 						if err != nil {
@@ -131,7 +132,7 @@ func loadFightFx(def string, isGlobal bool) error {
 					}); err != nil {
 					return err
 				}
-				if is.LoadFile("air", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("air", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						str, err := LoadText(filename)
 						if err != nil {
@@ -143,7 +144,7 @@ func loadFightFx(def string, isGlobal bool) error {
 					}); err != nil {
 					return err
 				}
-				if is.LoadFile("snd", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("snd", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						ffx.fsnd, err = LoadSnd(filename)
 						return err
@@ -196,9 +197,12 @@ func newLbText(align int32) *LbText {
 func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align int32) *LbText {
 	txt := newLbText(align)
 
-	txt.font[3], txt.font[4], txt.font[5], txt.font[6], txt.font[7] = -1, -1, -1, 255, -1
-	is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
-		&txt.font[3], &txt.font[4], &txt.font[5], &txt.font[6], &txt.font[7])
+	txt.font[3], txt.font[4], txt.font[5], txt.font[6], txt.font[7] = 255, 255, 255, 255, -1
+	var setCol bool
+	if is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
+		&txt.font[3], &txt.font[4], &txt.font[5], &txt.font[6], &txt.font[7]) {
+		setCol = true
+	}
 	if txt.font[0] >= 0 && int(txt.font[0]) < len(f) && f[txt.font[0]] == nil {
 		sys.errLog.Printf("Undefined font %v referenced by lifebar parameter: %v\n", txt.font[0], pre+"font")
 		txt.font[0] = -1
@@ -209,7 +213,7 @@ func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align
 		txt.text = str
 	}
 	txt.lay = *ReadLayout(pre, is, ln)
-	if txt.font[3] >= 0 && txt.font[4] >= 0 && txt.font[5] >= 0 {
+	if setCol {
 		txt.SetColor(txt.font[3], txt.font[4], txt.font[5], txt.font[6])
 	}
 	txt.pfxinit = ReadPalFX(pre+"palfx.", is, txt.palfx)
@@ -281,14 +285,14 @@ func (bts *LbBgTextSnd) reset() {
 
 func (bts *LbBgTextSnd) bgDraw(layerno int16) {
 	if bts.timer > bts.time && bts.timer <= bts.time+bts.displaytime {
-		bts.bg.Draw(float32(bts.pos[0])+sys.lifebarOffsetX, float32(bts.pos[1]), layerno, sys.lifebarScale)
+		bts.bg.Draw(float32(bts.pos[0])+sys.lifebar.offsetX, float32(bts.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
 func (bts *LbBgTextSnd) draw(layerno int16, f []*Fnt) {
 	if bts.timer > bts.time && bts.timer <= bts.time+bts.displaytime &&
 		bts.text.font[0] >= 0 && int(bts.text.font[0]) < len(f) && f[bts.text.font[0]] != nil {
-		bts.text.lay.DrawText(float32(bts.pos[0])+sys.lifebarOffsetX, float32(bts.pos[1]), sys.lifebarScale, layerno,
+		bts.text.lay.DrawText(float32(bts.pos[0])+sys.lifebar.offsetX, float32(bts.pos[1]), sys.lifebar.scale, layerno,
 			bts.text.text, f[bts.text.font[0]], bts.text.font[1], bts.text.font[2], bts.text.palfx, bts.text.frgba)
 	}
 }
@@ -597,9 +601,9 @@ func (hb *HealthBar) reset() {
 }
 
 func (hb *HealthBar) bgDraw(layerno int16) {
-	hb.bg0.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	hb.bg1.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	hb.bg2.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	hb.bg0.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	hb.bg1.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	hb.bg2.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
@@ -620,11 +624,11 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		}
 
 		if hb.range_x != [2]int32{0, 0} {
-			r[0], r[2] = calcBarFillRect(hb.pos[0], hb.range_x, sys.lifebarOffsetX, sys.lifebarScale, sys.widthScale, MidPosX, life)
+			r[0], r[2] = calcBarFillRect(hb.pos[0], hb.range_x, sys.lifebar.offsetX, sys.lifebar.scale, sys.widthScale, MidPosX, life)
 		}
 
 		if hb.range_y != [2]int32{0, 0} {
-			r[1], r[3] = calcBarFillRect(hb.pos[1], hb.range_y, sys.lifebarOffsetY, sys.lifebarScale, sys.heightScale, MidPosY, life)
+			r[1], r[3] = calcBarFillRect(hb.pos[1], hb.range_y, sys.lifebar.offsetY, sys.lifebar.scale, sys.heightScale, MidPosY, life)
 		}
 		return r
 	}
@@ -671,7 +675,7 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 				rv = k
 			}
 		}
-		hb.red[rv].lay.DrawAnim(&rr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, rxs, rys,
+		hb.red[rv].lay.DrawAnim(&rr, float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, rxs, rys,
 			layerno, hb.red[rv].anim, hb.red[rv].palfx)
 
 		if hb.red_value[0].font[0] >= 0 && int(hb.red_value[0].font[0]) < len(f) && f[hb.red_value[0].font[0]] != nil {
@@ -685,8 +689,8 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 			text := strings.Replace(hb.red_value[rv2].text, "%d", fmt.Sprintf("%v", refChar.redLife), 1)
 			text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(redlife)*100)), 1)
 			hb.red_value[rv2].lay.DrawText(
-				float32(hb.pos[0])+sys.lifebarOffsetX,
-				float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
+				float32(hb.pos[0])+sys.lifebar.offsetX,
+				float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale,
 				layerno,
 				text,
 				f[hb.red_value[rv2].font[0]],
@@ -698,11 +702,11 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		}
 	}
 
-	hb.mid.lay.DrawAnim(&mr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
+	hb.mid.lay.DrawAnim(&mr, float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, mxs, mys,
 		layerno, hb.mid.anim, hb.mid.palfx)
 
 	if hb.mid_shift {
-		hb.shift.lay.DrawAnim(&mr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
+		hb.shift.lay.DrawAnim(&mr, float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, mxs, mys,
 			layerno, hb.shift.anim, hb.shift.palfx)
 	}
 
@@ -713,10 +717,10 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 			fv = k
 		}
 	}
-	hb.front[fv].lay.DrawAnim(&lr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, lxs, lys,
+	hb.front[fv].lay.DrawAnim(&lr, float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, lxs, lys,
 		layerno, hb.front[fv].anim, hb.front[fv].palfx)
 
-	hb.shift.lay.DrawAnim(&lr, float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, lxs, lys,
+	hb.shift.lay.DrawAnim(&lr, float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, lxs, lys,
 		layerno, hb.shift.anim, hb.shift.palfx)
 
 	if hb.value[0].font[0] >= 0 && int(hb.value[0].font[0]) < len(f) && f[hb.value[0].font[0]] != nil {
@@ -730,8 +734,8 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		text := strings.Replace(hb.value[fv2].text, "%d", fmt.Sprintf("%v", refChar.life), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(life)*100)), 1)
 		hb.value[fv2].lay.DrawText(
-			float32(hb.pos[0])+sys.lifebarOffsetX,
-			float32(hb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale,
+			float32(hb.pos[0])+sys.lifebar.offsetX,
+			float32(hb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale,
 			layerno,
 			text,
 			f[hb.value[fv2].font[0]],
@@ -742,10 +746,10 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f []*Fnt) {
 		)
 	}
 
-	hb.top.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	hb.top.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 
 	if life <= float32(hb.warn_range[0])/100 && life >= float32(hb.warn_range[1])/100 {
-		hb.warn.Draw(float32(hb.pos[0])+sys.lifebarOffsetX, float32(hb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+		hb.warn.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	}
 }
 
@@ -957,9 +961,9 @@ func (pb *PowerBar) bgDraw(layerno int16, ref int) {
 			fv = k
 		}
 	}
-	pb.bg0[fv].Draw(float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	pb.bg1.Draw(float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	pb.bg2.Draw(float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	pb.bg0[fv].Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	pb.bg1.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	pb.bg2.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
@@ -982,11 +986,11 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 		}
 
 		if pb.range_x != [2]int32{0, 0} {
-			r[0], r[2] = calcBarFillRect(pb.pos[0], pb.range_x, sys.lifebarOffsetX, sys.lifebarScale, sys.widthScale, MidPosX, power)
+			r[0], r[2] = calcBarFillRect(pb.pos[0], pb.range_x, sys.lifebar.offsetX, sys.lifebar.scale, sys.widthScale, MidPosX, power)
 		}
 
 		if pb.range_y != [2]int32{0, 0} {
-			r[1], r[3] = calcBarFillRect(pb.pos[1], pb.range_y, sys.lifebarOffsetY, sys.lifebarScale, sys.heightScale, MidPosY, power)
+			r[1], r[3] = calcBarFillRect(pb.pos[1], pb.range_y, sys.lifebar.offsetY, sys.lifebar.scale, sys.heightScale, MidPosY, power)
 		}
 		return r
 	}
@@ -1016,7 +1020,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 			mr[2] -= Min(mr[2], pr[2])
 		}
 	}
-	pb.mid.lay.DrawAnim(&mr, float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
+	pb.mid.lay.DrawAnim(&mr, float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, mxs, mys,
 		layerno, pb.mid.anim, pb.mid.palfx)
 
 	// Multiple front elements
@@ -1026,10 +1030,10 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 			fv = k
 		}
 	}
-	pb.front[fv].lay.DrawAnim(&pr, float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	pb.front[fv].lay.DrawAnim(&pr, float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, pb.front[fv].anim, pb.front[fv].palfx)
 
-	pb.shift.lay.DrawAnim(&pr, float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	pb.shift.lay.DrawAnim(&pr, float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, pb.shift.anim, pb.shift.palfx)
 
 	// Powerbar text.
@@ -1043,9 +1047,9 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 		}
 
 		pb.counter[cv].lay.DrawText(
-			float32(pb.pos[0])+sys.lifebarOffsetX,
-			float32(pb.pos[1])+sys.lifebarOffsetY,
-			sys.lifebarScale,
+			float32(pb.pos[0])+sys.lifebar.offsetX,
+			float32(pb.pos[1])+sys.lifebar.offsetY,
+			sys.lifebar.scale,
 			layerno,
 			strings.Replace(pb.counter[cv].text, "%i", fmt.Sprintf("%v", pbval/pb.counter_rounding), 1),
 			f[pb.counter[cv].font[0]],
@@ -1069,9 +1073,9 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(power)*100)), 1)
 
 		pb.value[cv2].lay.DrawText(
-			float32(pb.pos[0])+sys.lifebarOffsetX,
-			float32(pb.pos[1])+sys.lifebarOffsetY,
-			sys.lifebarScale,
+			float32(pb.pos[0])+sys.lifebar.offsetX,
+			float32(pb.pos[1])+sys.lifebar.offsetY,
+			sys.lifebar.scale,
 			layerno,
 			text,
 			f[pb.value[cv2].font[0]],
@@ -1081,7 +1085,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f []*Fnt) {
 			pb.value[cv2].frgba,
 		)
 	}
-	pb.top.Draw(float32(pb.pos[0])+sys.lifebarOffsetX, float32(pb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	pb.top.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 type GuardBar struct {
@@ -1220,9 +1224,9 @@ func (gb *GuardBar) bgDraw(layerno int16) {
 	//	return
 	//}
 
-	gb.bg0.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	gb.bg1.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	gb.bg2.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	gb.bg0.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	gb.bg1.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	gb.bg2.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
@@ -1247,11 +1251,11 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 		}
 
 		if gb.range_x != [2]int32{0, 0} {
-			r[0], r[2] = calcBarFillRect(gb.pos[0], gb.range_x, sys.lifebarOffsetX, sys.lifebarScale, sys.widthScale, MidPosX, points)
+			r[0], r[2] = calcBarFillRect(gb.pos[0], gb.range_x, sys.lifebar.offsetX, sys.lifebar.scale, sys.widthScale, MidPosX, points)
 		}
 
 		if gb.range_y != [2]int32{0, 0} {
-			r[1], r[3] = calcBarFillRect(gb.pos[1], gb.range_y, sys.lifebarOffsetY, sys.lifebarScale, sys.heightScale, MidPosY, points)
+			r[1], r[3] = calcBarFillRect(gb.pos[1], gb.range_y, sys.lifebar.offsetY, sys.lifebar.scale, sys.heightScale, MidPosY, points)
 		}
 		return r
 	}
@@ -1282,7 +1286,7 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 			mr[2] -= Min(mr[2], pr[2])
 		}
 	}
-	gb.mid.lay.DrawAnim(&mr, float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
+	gb.mid.lay.DrawAnim(&mr, float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, mxs, mys,
 		layerno, gb.mid.anim, gb.mid.palfx)
 
 	// Multiple front elements
@@ -1292,10 +1296,10 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 			mv = k
 		}
 	}
-	gb.front[mv].lay.DrawAnim(&pr, float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	gb.front[mv].lay.DrawAnim(&pr, float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, gb.front[mv].anim, gb.front[mv].palfx)
 
-	gb.shift.lay.DrawAnim(&pr, float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	gb.shift.lay.DrawAnim(&pr, float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, gb.shift.anim, gb.shift.palfx)
 
 	if gb.value[0].font[0] >= 0 && int(gb.value[0].font[0]) < len(f) && f[gb.value[0].font[0]] != nil {
@@ -1309,9 +1313,9 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 		text := strings.Replace(gb.value[mv2].text, "%d", fmt.Sprintf("%v", refChar.guardPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
 		gb.value[mv2].lay.DrawText(
-			float32(gb.pos[0])+sys.lifebarOffsetX,
-			float32(gb.pos[1])+sys.lifebarOffsetY,
-			sys.lifebarScale,
+			float32(gb.pos[0])+sys.lifebar.offsetX,
+			float32(gb.pos[1])+sys.lifebar.offsetY,
+			sys.lifebar.scale,
 			layerno,
 			text,
 			f[gb.value[mv2].font[0]],
@@ -1323,10 +1327,10 @@ func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f []*Fnt) {
 	}
 
 	if points <= float32(gb.warn_range[0])/100 && points >= float32(gb.warn_range[1])/100 {
-		gb.warn.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+		gb.warn.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	}
 
-	gb.top.Draw(float32(gb.pos[0])+sys.lifebarOffsetX, float32(gb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	gb.top.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 type StunBar struct {
@@ -1463,9 +1467,9 @@ func (sb *StunBar) bgDraw(layerno int16) {
 	//	return
 	//}
 
-	sb.bg0.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	sb.bg1.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
-	sb.bg2.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	sb.bg0.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	sb.bg1.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
+	sb.bg2.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
@@ -1490,11 +1494,11 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 		}
 
 		if sb.range_x != [2]int32{0, 0} {
-			r[0], r[2] = calcBarFillRect(sb.pos[0], sb.range_x, sys.lifebarOffsetX, sys.lifebarScale, sys.widthScale, MidPosX, points)
+			r[0], r[2] = calcBarFillRect(sb.pos[0], sb.range_x, sys.lifebar.offsetX, sys.lifebar.scale, sys.widthScale, MidPosX, points)
 		}
 
 		if sb.range_y != [2]int32{0, 0} {
-			r[1], r[3] = calcBarFillRect(sb.pos[1], sb.range_y, sys.lifebarOffsetY, sys.lifebarScale, sys.heightScale, MidPosY, points)
+			r[1], r[3] = calcBarFillRect(sb.pos[1], sb.range_y, sys.lifebar.offsetY, sys.lifebar.scale, sys.heightScale, MidPosY, points)
 		}
 		return r
 	}
@@ -1525,7 +1529,7 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 			mr[2] -= Min(mr[2], pr[2])
 		}
 	}
-	sb.mid.lay.DrawAnim(&mr, float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, mxs, mys,
+	sb.mid.lay.DrawAnim(&mr, float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, mxs, mys,
 		layerno, sb.mid.anim, sb.mid.palfx)
 
 	// Multiple front elements
@@ -1535,10 +1539,10 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 			mv = k
 		}
 	}
-	sb.front[mv].lay.DrawAnim(&pr, float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	sb.front[mv].lay.DrawAnim(&pr, float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, sb.front[mv].anim, sb.front[mv].palfx)
 
-	sb.shift.lay.DrawAnim(&pr, float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, sys.lifebarScale, pxs, pys,
+	sb.shift.lay.DrawAnim(&pr, float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, sb.shift.anim, sb.shift.palfx)
 
 	if sb.value[0].font[0] >= 0 && int(sb.value[0].font[0]) < len(f) && f[sb.value[0].font[0]] != nil {
@@ -1552,9 +1556,9 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 		text := strings.Replace(sb.value[mv2].text, "%d", fmt.Sprintf("%v", refChar.dizzyPoints), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(points)*100)), 1)
 		sb.value[mv2].lay.DrawText(
-			float32(sb.pos[0])+sys.lifebarOffsetX,
-			float32(sb.pos[1])+sys.lifebarOffsetY,
-			sys.lifebarScale,
+			float32(sb.pos[0])+sys.lifebar.offsetX,
+			float32(sb.pos[1])+sys.lifebar.offsetY,
+			sys.lifebar.scale,
 			layerno,
 			text, f[sb.value[mv2].font[0]],
 			sb.value[mv2].font[1],
@@ -1565,10 +1569,10 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f []*Fnt) {
 	}
 
 	if points >= float32(sb.warn_range[0])/100 && points <= float32(sb.warn_range[1])/100 {
-		sb.warn.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+		sb.warn.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	}
 
-	sb.top.Draw(float32(sb.pos[0])+sys.lifebarOffsetX, float32(sb.pos[1])+sys.lifebarOffsetY, layerno, sys.lifebarScale)
+	sb.top.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
 type LifeBarFace struct {
@@ -1697,10 +1701,10 @@ func (fa *LifeBarFace) reset() {
 }
 
 func (fa *LifeBarFace) bgDraw(layerno int16) {
-	fa.bg.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
-	fa.bg0.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
-	fa.bg1.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
-	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
+	fa.bg.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
+	fa.bg0.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
+	fa.bg1.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
+	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
 func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
@@ -1744,12 +1748,12 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		}
 
 		// Draw the actual face sprite
-		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebarOffsetX)*sys.lifebarScale, float32(fa.pos[1])*sys.lifebarScale, layerno,
-			far.face, pfx, sys.cgi[ref].portraitscale*sys.lifebarPortraitScale, &fa.face_lay.window)
+		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebar.offsetX)*sys.lifebar.scale, float32(fa.pos[1])*sys.lifebar.scale, layerno,
+			far.face, pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
 
 		// Draw KO layer
 		if !refChar.alive() {
-			fa.ko.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
+			fa.ko.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 		}
 
 		// Restore original system brightness
@@ -1774,16 +1778,16 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 					continue
 				}
 				// Draw background
-				fa.teammate_bg.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
-				fa.teammate_bg0.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
-				fa.teammate_bg1.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
-				fa.teammate_bg2.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
+				fa.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+				fa.teammate_bg0.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+				fa.teammate_bg1.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+				fa.teammate_bg2.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 				// Draw face
-				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebarOffsetX)*sys.lifebarScale, y*sys.lifebarScale, layerno, far.teammate_face[i], nil,
-					far.teammate_scale[i]*sys.lifebarPortraitScale, &fa.teammate_face_lay.window)
+				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebar.offsetX)*sys.lifebar.scale, y*sys.lifebar.scale, layerno, far.teammate_face[i], nil,
+					far.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
 				// Draw KO layer
 				if i < fa.numko {
-					fa.teammate_ko.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
+					fa.teammate_ko.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 				}
 				// Add spacing
 				x -= float32(fa.teammate_spacing[0])
@@ -1793,7 +1797,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 	}
 
 	// Draw top layer
-	fa.top.Draw(float32(fa.pos[0])+sys.lifebarOffsetX, float32(fa.pos[1]), layerno, sys.lifebarScale)
+	fa.top.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
 type LifeBarName struct {
@@ -1842,12 +1846,12 @@ func (nm *LifeBarName) reset() {
 }
 
 func (nm *LifeBarName) bgDraw(layerno int16) {
-	nm.bg.Draw(float32(nm.pos[0])+sys.lifebarOffsetX, float32(nm.pos[1]), layerno, sys.lifebarScale)
+	nm.bg.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
 }
 
 func (nm *LifeBarName) draw(layerno int16, ref int, f []*Fnt, side int) {
 	if nm.name.font[0] >= 0 && int(nm.name.font[0]) < len(f) && f[nm.name.font[0]] != nil {
-		nm.name.lay.DrawText((float32(nm.pos[0]) + sys.lifebarOffsetX), float32(nm.pos[1]), sys.lifebarScale, layerno,
+		nm.name.lay.DrawText((float32(nm.pos[0]) + sys.lifebar.offsetX), float32(nm.pos[1]), sys.lifebar.scale, layerno,
 			sys.cgi[ref].lifebarname, f[nm.name.font[0]], nm.name.font[1], nm.name.font[2], nm.name.palfx, nm.name.frgba)
 	}
 	// Get Turns mode partner names from system
@@ -1856,9 +1860,9 @@ func (nm *LifeBarName) draw(layerno int16, ref int, f []*Fnt, side int) {
 		x := float32(nm.teammate_pos[0] + nm.teammate_spacing[0]*(i-nm.numko-1))
 		y := float32(nm.teammate_pos[1] + nm.teammate_spacing[1]*(i-nm.numko-1))
 		for ; i >= nm.numko+1; i-- {
-			nm.teammate_bg.Draw((x + sys.lifebarOffsetX), y, layerno, sys.lifebarScale)
+			nm.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 			if nm.teammate_name.font[0] >= 0 && int(nm.teammate_name.font[0]) < len(f) && f[nm.teammate_name.font[0]] != nil {
-				nm.teammate_name.lay.DrawText((float32(x) + sys.lifebarOffsetX), float32(y), sys.lifebarScale, layerno,
+				nm.teammate_name.lay.DrawText((float32(x) + sys.lifebar.offsetX), float32(y), sys.lifebar.scale, layerno,
 					sys.sel.GetChar(sys.sel.selected[side][i][0]).lifebarname, f[nm.teammate_name.font[0]], nm.teammate_name.font[1],
 					nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
 			}
@@ -1866,7 +1870,7 @@ func (nm *LifeBarName) draw(layerno int16, ref int, f []*Fnt, side int) {
 			y -= float32(nm.teammate_spacing[1])
 		}
 	}
-	nm.top.Draw(float32(nm.pos[0])+sys.lifebarOffsetX, float32(nm.pos[1]), layerno, sys.lifebarScale)
+	nm.top.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
 }
 
 type LifeBarWinIcon struct {
@@ -1958,12 +1962,12 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f []*Fnt, side int) {
 		bg0num = float64(sys.numTurns[^side&1])
 	}
 	for i := 0; i < int(math.Min(float64(wi.useiconupto), bg0num)); i++ {
-		wi.bg0.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebarScale)
+		wi.bg0.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 	}
 	if len(wi.wins) > int(wi.useiconupto) {
 		if wi.counter.font[0] >= 0 && int(wi.counter.font[0]) < len(f) && f[wi.counter.font[0]] != nil {
-			wi.counter.lay.DrawText(float32(wi.pos[0])+sys.lifebarOffsetX, float32(wi.pos[1]), sys.lifebarScale,
+			wi.counter.lay.DrawText(float32(wi.pos[0])+sys.lifebar.offsetX, float32(wi.pos[1]), sys.lifebar.scale,
 				layerno, strings.Replace(wi.counter.text, "%i", fmt.Sprintf("%v", len(wi.wins)), 1),
 				f[wi.counter.font[0]], wi.counter.font[1], wi.counter.font[2], wi.counter.palfx, wi.counter.frgba)
 		}
@@ -1975,11 +1979,11 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f []*Fnt, side int) {
 				wt -= WT_PNormal
 				p = true
 			}
-			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebarScale)
+			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			if p {
-				wi.icon[WT_Perfect].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebarScale)
+				wi.icon[WT_Perfect].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			}
 		}
 		if wi.added != nil {
@@ -1989,18 +1993,18 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f []*Fnt, side int) {
 				p = true
 			}
 			wi.icon[wt].lay.DrawAnim(&wi.icon[wt].lay.window,
-				float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebarScale, 1, 1, layerno, wi.added, nil)
+				float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.added, nil)
 			if p {
 				wi.icon[WT_Perfect].lay.DrawAnim(&wi.icon[WT_Perfect].lay.window,
-					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebarScale, 1, 1, layerno, wi.addedP, nil)
+					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedP, nil)
 			}
 		}
 	}
 	for i := 0; i < int(math.Min(float64(wi.useiconupto), bg0num)); i++ {
-		wi.top.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebarOffsetX,
-			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebarScale)
+		wi.top.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -2046,7 +2050,7 @@ func (ti *LifeBarTime) reset() {
 }
 
 func (ti *LifeBarTime) bgDraw(layerno int16) {
-	ti.bg.Draw(float32(ti.pos[0])+sys.lifebarOffsetX, float32(ti.pos[1]), layerno, sys.lifebarScale)
+	ti.bg.Draw(float32(ti.pos[0])+sys.lifebar.offsetX, float32(ti.pos[1]), layerno, sys.lifebar.scale)
 }
 
 func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
@@ -2074,11 +2078,11 @@ func (ti *LifeBarTime) draw(layerno int16, f []*Fnt) {
 			}
 		}
 		ti.activeIdx = tv
-		ti.counter[tv].lay.DrawText(float32(ti.pos[0])+sys.lifebarOffsetX, float32(ti.pos[1]), sys.lifebarScale, layerno,
+		ti.counter[tv].lay.DrawText(float32(ti.pos[0])+sys.lifebar.offsetX, float32(ti.pos[1]), sys.lifebar.scale, layerno,
 			time, f[ti.counter[tv].font[0]], ti.counter[tv].font[1], ti.counter[tv].font[2], ti.counter[tv].palfx,
 			ti.counter[tv].frgba)
 	}
-	ti.top.Draw(float32(ti.pos[0])+sys.lifebarOffsetX, float32(ti.pos[1]), layerno, sys.lifebarScale)
+	ti.top.Draw(float32(ti.pos[0])+sys.lifebar.offsetX, float32(ti.pos[1]), layerno, sys.lifebar.scale)
 }
 
 type LifeBarCombo struct {
@@ -2128,9 +2132,9 @@ func readLifeBarCombo(pre string, is IniSection,
 	if side == 1 {
 		// mugen 1.0 implementation reuses winmugen code where both sides shared the same values
 		if pre == "team2." {
-			co.start_x = float32(sys.lifebarLocalcoord[0]) - co.start_x
+			co.start_x = float32(sys.lifebar.localcoord[0]) - co.start_x
 		} else {
-			co.pos[0] = sys.lifebarLocalcoord[0] - co.pos[0]
+			co.pos[0] = sys.lifebar.localcoord[0] - co.pos[0]
 		}
 	}
 	var align int32
@@ -2178,7 +2182,7 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 	if co.resttime > 0 {
 		co.counterX -= co.counterX / co.showspeed
 	} else if combo < 2 {
-		co.counterX -= sys.lifebar.fnt_scale * co.hidespeed * float32(sys.lifebarLocalcoord[0]) / 320
+		co.counterX -= sys.lifebar.fnt_scale * co.hidespeed * float32(sys.lifebar.localcoord[0]) / 320
 		if co.counterX < co.start_x*2 {
 			co.counterX = co.start_x * 2
 		}
@@ -2285,7 +2289,7 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 			x -= co.counterX
 		}
 	}
-	co.bg.Draw(x+sys.lifebarOffsetX, float32(co.pos[1]), layerno, sys.lifebarScale)
+	co.bg.Draw(x+sys.lifebar.offsetX, float32(co.pos[1]), layerno, sys.lifebar.scale)
 	var length float32
 	if co.text[tv].font[0] >= 0 && int(co.text[tv].font[0]) < len(f) && f[co.text[tv].font[0]] != nil {
 		text := strings.Replace(co.text[tv].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
@@ -2309,10 +2313,10 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 					length = lt
 				}
 			}
-			co.text[tv].lay.DrawText(x+sys.lifebarOffsetX, float32(co.pos[1])+
+			co.text[tv].lay.DrawText(x+sys.lifebar.offsetX, float32(co.pos[1])+
 				float32(k)*(float32(f[co.text[tv].font[0]].Size[1])*co.text[tv].lay.scale[1]*sys.lifebar.fnt_scale+
 					float32(f[co.text[tv].font[0]].Spacing[1])*co.text[tv].lay.scale[1]*sys.lifebar.fnt_scale),
-				sys.lifebarScale, layerno, v, f[co.text[tv].font[0]], co.text[tv].font[1], co.text[tv].font[2],
+				sys.lifebar.scale, layerno, v, f[co.text[tv].font[0]], co.text[tv].font[1], co.text[tv].font[2],
 				co.text[tv].palfx, co.text[tv].frgba)
 		}
 	}
@@ -2322,10 +2326,10 @@ func (co *LifeBarCombo) draw(layerno int16, f []*Fnt, side int) {
 		}
 
 		z := 1 + float32(co.shaketime)*co.counter_mult*float32(math.Sin(float64(co.shaketime)*(math.Pi/2.5)))
-		co.counter[cv].lay.DrawText((x-length+sys.lifebarOffsetX)/z, float32(co.pos[1])/z, z*sys.lifebarScale, layerno,
+		co.counter[cv].lay.DrawText((x-length+sys.lifebar.offsetX)/z, float32(co.pos[1])/z, z*sys.lifebar.scale, layerno,
 			counter, f[co.counter[cv].font[0]], co.counter[cv].font[1], co.counter[cv].font[2], co.counter[cv].palfx, co.counter[cv].frgba)
 	}
-	co.top.Draw(x+sys.lifebarOffsetX, float32(co.pos[1]), layerno, sys.lifebarScale)
+	co.top.Draw(x+sys.lifebar.offsetX, float32(co.pos[1]), layerno, sys.lifebar.scale)
 }
 
 type LbMsg struct {
@@ -2414,7 +2418,7 @@ func readLifeBarAction(pre string, is IniSection, f []*Fnt) *LifeBarAction {
 	is.ReadI32(pre+"spacing", &ac.spacing[0], &ac.spacing[1])
 	is.ReadF32(pre+"start.x", &ac.start_x)
 	if pre == "team2." {
-		ac.start_x = float32(sys.lifebarLocalcoord[0]) - ac.start_x
+		ac.start_x = float32(sys.lifebar.localcoord[0]) - ac.start_x
 	}
 	ac.text = *readLbText(pre+"text.", is, "", 2, f, 0)
 	is.ReadI32(pre+"displaytime", &ac.displaytime)
@@ -2435,7 +2439,7 @@ func (ac *LifeBarAction) step(leader int) {
 		if v.resttime > 0 {
 			v.counterX -= v.counterX / ac.showspeed
 		} else {
-			v.counterX -= sys.lifebar.fnt_scale * ac.hidespeed * float32(sys.lifebarLocalcoord[0]) / 320
+			v.counterX -= sys.lifebar.fnt_scale * ac.hidespeed * float32(sys.lifebar.localcoord[0]) / 320
 			if v.counterX < ac.start_x*2 {
 				v.del = true
 			}
@@ -2476,21 +2480,21 @@ func (ac *LifeBarAction) draw(layerno int16, f []*Fnt, side int) {
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2166
 		// Draw background
 		if v.bg.anim.spr != nil {
-			v.bg.Draw(x+sys.lifebarOffsetX+float32(k)*float32(ac.spacing[0]),
+			v.bg.Draw(x+sys.lifebar.offsetX+float32(k)*float32(ac.spacing[0]),
 				float32(ac.pos[1])+float32(k)*float32(ac.spacing[1]),
-				layerno, sys.lifebarScale)
+				layerno, sys.lifebar.scale)
 		}
 		// Draw animation/sprite
 		if v.front.anim.spr != nil {
-			v.front.Draw(x+sys.lifebarOffsetX+float32(k)*float32(ac.spacing[0]),
+			v.front.Draw(x+sys.lifebar.offsetX+float32(k)*float32(ac.spacing[0]),
 				float32(ac.pos[1])+float32(k)*float32(ac.spacing[1]),
-				layerno, sys.lifebarScale)
+				layerno, sys.lifebar.scale)
 		}
 		// Draw text
 		if v.text != "" && ac.text.font[0] >= 0 && int(ac.text.font[0]) < len(f) && f[ac.text.font[0]] != nil {
-			ac.text.lay.DrawText(x+sys.lifebarOffsetX+float32(k)*float32(ac.spacing[0]),
+			ac.text.lay.DrawText(x+sys.lifebar.offsetX+float32(k)*float32(ac.spacing[0]),
 				float32(ac.pos[1])+float32(k)*float32(ac.spacing[1]),
-				sys.lifebarScale, layerno, v.text, f[ac.text.font[0]], ac.text.font[1], ac.text.font[2],
+				sys.lifebar.scale, layerno, v.text, f[ac.text.font[0]], ac.text.font[1], ac.text.font[2],
 				ac.text.palfx, ac.text.frgba)
 		}
 	}
@@ -2556,9 +2560,13 @@ type LifeBarRound struct {
 	fightCallOver       bool
 	timerActive         bool
 	winType             [WT_NumTypes * 2]LbBgTextSnd
+	fadeIn              *Fade
+	fadeOut             *Fade
+	shutterTimer        int32
+	shutter_time        int32
+	shutter_col         uint32
 	callfight_time      int32
-	rt                  *LifeBarRoundTransition // TODO: Decide whether to just make this part of [Round] or not
-	triggerRoundDisplay bool                    // FightScreenState trigger
+	triggerRoundDisplay bool // FightScreenState trigger
 	triggerFightDisplay bool
 	triggerKODisplay    bool
 	triggerWinDisplay   bool
@@ -2579,8 +2587,31 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_wintime:       45,
 		over_forcewintime:  900, // Hardcoded in Mugen
 		over_time:          210,
+		shutter_time:       15,
 		callfight_time:     60,
 	}
+}
+
+func readLbFade(pre string, is IniSection, sff *Sff, at AnimationTable) *Fade {
+	fp := newFade()
+	is.ReadI32(pre+"time", &fp.time)
+	is.ReadI32(pre+"col", &fp.col[0], &fp.col[1], &fp.col[2])
+	fp.colEncoded = uint32(fp.col[0]&0xff<<16 | fp.col[1]&0xff<<8 | fp.col[2]&0xff)
+	is.ReadI32(pre+"snd", &fp.snd[0], &fp.snd[1])
+	anim := int32(-1)
+	is.ReadI32(pre+"anim", &anim)
+	fp.animData = NewAnim(sff, "-1,0, 0,0, -1")
+	//fp.animData.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
+	fp.animData.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
+	fp.animData.SetPos(0, 0)   // TODO: use fp.animData.Reset() instead
+	fp.animData.SetScale(1, 1) // TODO: use fp.animData.Reset() instead
+	//fp.animData.Reset() // TODO: comment out pos and scale adjustments
+	if animData, exists := at[anim]; exists {
+		fp.animData.anim = animData
+	} else {
+		fp.animData.anim = nil
+	}
+	return fp
 }
 
 func readLifeBarRound(is IniSection,
@@ -2877,28 +2908,15 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Suicide+WT_NumTypes] = readLbBgTextSnd("p2.suicide.", is, sff, at, 0, f)
 	ro.winType[WT_Teammate+WT_NumTypes] = readLbBgTextSnd("p2.teammate.", is, sff, at, 0, f)
 	ro.winType[WT_Perfect+WT_NumTypes] = readLbBgTextSnd("p2.perfect.", is, sff, at, 0, f)
-	is.ReadI32("callfight.time", &ro.callfight_time)
-	// Transitions
-	rt := newLifeBarRoundTransition()
-	is.ReadI32("fadein.time", &rt.fadein_time)
+	ro.fadeIn = readLbFade("fadein.", is, sff, at)
+	ro.fadeOut = readLbFade("fadeout.", is, sff, at)
+	ro.over_time = Max(ro.fadeOut.time, ro.over_time)
+	is.ReadI32("shutter.time", &ro.shutter_time)
 	var col [3]int32
-	if is.ReadI32("fadein.col", &col[0], &col[1], &col[2]) {
-		rt.fadein_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)
-	}
-	is.ReadI32("fadeout.time", &rt.fadeout_time)
-	ro.over_time = Max(rt.fadeout_time, ro.over_time)
-	col = [...]int32{0, 0, 0}
-	if is.ReadI32("fadeout.col", &col[0], &col[1], &col[2]) {
-		rt.fadeout_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)
-	}
-	is.ReadI32("shutter.time", &rt.shutter_time)
-	col = [...]int32{0, 0, 0}
 	if is.ReadI32("shutter.col", &col[0], &col[1], &col[2]) {
-		rt.shutter_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)
+		ro.shutter_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)
 	}
-
-	ro.rt = rt
-
+	is.ReadI32("callfight.time", &ro.callfight_time)
 	return ro
 }
 
@@ -2924,10 +2942,21 @@ func (ro *LifeBarRound) act() bool {
 	if (sys.paused && !sys.frameStepFlag) || sys.gsf(GSF_roundfreeze) {
 		return false
 	}
-
-	// Transition timers
-	if ro.rt != nil && sys.tickNextFrame() {
-		ro.rt.Step()
+	// Step fades
+	if ro.fadeOut.isActive() {
+		ro.fadeOut.step()
+	} else if ro.fadeIn.isActive() {
+		ro.fadeIn.step()
+	}
+	if ro.shutterTimer > 0 {
+		// Signal system to skip intros when shutter is about to be fully closed
+		// This ensures the intros will skip even if/when the shutter updates at a different rate than characters
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2720
+		if ro.shutterTimer == (ro.shutter_time + 1) {
+			sys.introSkipCall = true
+			ro.fadeIn.timeRemaining = 0
+		}
+		ro.shutterTimer--
 	}
 
 	// Pre-intro
@@ -2935,23 +2964,13 @@ func (ro *LifeBarRound) act() bool {
 		ro.current = 0
 		ro.waitTimer[0], ro.waitSoundTimer[0], ro.drawTimer[0] = ro.round_time, ro.round_sndtime, 0
 		ro.waitTimer[1] = ro.callfight_time
-	} else if (sys.intro >= 0 && !sys.tickNextFrame()) || sys.dialogueFlg || ro.rt.shutterTimer > 0 {
+	} else if (sys.intro >= 0 && !sys.tickNextFrame()) || sys.motif.di.active || ro.shutterTimer > 0 {
 		// Skip announcements during the middle of the round, "shuttertime" or dialogues
 		// Mugen ignores the "shuttertime" here, but that makes the round/fight announcement too abrupt
 		return false
 	} else {
 		// Intro
 		if !ro.roundCallOver || !ro.fightCallOver {
-			// Check dialogue
-			if sys.round == 1 && sys.intro == ro.ctrl_time && len(sys.cfg.Common.Lua) > 0 {
-				for _, p := range sys.chars {
-					if len(p) > 0 && len(p[0].dialogue) > 0 {
-						sys.posReset()
-						sys.dialogueFlg = true
-						return false
-					}
-				}
-			}
 			ro.handleRoundIntro()
 		}
 		// Outro
@@ -3238,6 +3257,9 @@ func (ro *LifeBarRound) handleRoundOutro() {
 
 func (ro *LifeBarRound) reset() {
 	ro.current = 0
+	ro.shutterTimer = 0
+	ro.fadeOut.reset()
+	ro.fadeIn.init(ro.fadeIn, true)
 	// Round animations
 	ro.round_default.Reset()
 	ro.round_default_top.Reset()
@@ -3342,8 +3364,6 @@ func (ro *LifeBarRound) reset() {
 	ro.drawTimer = [4]int32{}
 	ro.roundCallOver = false
 	ro.fightCallOver = false
-	// Transitions (fade in/out and shutter for now)
-	ro.rt.Reset()
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
@@ -3357,10 +3377,10 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		// Draw default round background
 		for i := range ro.round_default_bg {
 			ro.round_default_bg[i].Draw(
-				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[0])+sys.lifebar.offsetX,
 				float32(ro.pos[1]),
 				layerno,
-				sys.lifebarScale,
+				sys.lifebar.scale,
 			)
 		}
 
@@ -3378,10 +3398,10 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			// Single round
 			for i := range ro.round_single_bg {
 				ro.round_single_bg[i].Draw(
-					float32(ro.pos[0])+sys.lifebarOffsetX,
+					float32(ro.pos[0])+sys.lifebar.offsetX,
 					float32(ro.pos[1]),
 					layerno,
-					sys.lifebarScale,
+					sys.lifebar.scale,
 				)
 			}
 			round_ref = ro.round_single
@@ -3390,10 +3410,10 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			// Final round
 			for i := range ro.round_final_bg {
 				ro.round_final_bg[i].Draw(
-					float32(ro.pos[0])+sys.lifebarOffsetX,
+					float32(ro.pos[0])+sys.lifebar.offsetX,
 					float32(ro.pos[1]),
 					layerno,
-					sys.lifebarScale,
+					sys.lifebar.scale,
 				)
 			}
 			round_ref = ro.round_final
@@ -3413,7 +3433,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		}
 
 		// Draw default round
-		ro.round_default.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+		ro.round_default.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 
 		// Restore default text
 		ro.round_default.text.text = tmp
@@ -3425,7 +3445,7 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		round_ref.text.text = OldSprintf(tmp, roundNum)
 
 		// Draw round-specific elements
-		round_ref.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+		round_ref.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 
 		// Restore round_ref text
 		round_ref.text.text = tmp
@@ -3435,26 +3455,26 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		case ro.isSingleRound() && ro.round_single_top.anim != nil && len(ro.round_single_top.anim.frames) > 0:
 			// Single round
 			ro.round_single_top.Draw(
-				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[0])+sys.lifebar.offsetX,
 				float32(ro.pos[1]),
 				layerno,
-				sys.lifebarScale,
+				sys.lifebar.scale,
 			)
 		case ro.isFinalRound() && ro.round_final_top.anim != nil && len(ro.round_final_top.anim.frames) > 0:
 			// Final round
 			ro.round_final_top.Draw(
-				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[0])+sys.lifebar.offsetX,
 				float32(ro.pos[1]),
 				layerno,
-				sys.lifebarScale,
+				sys.lifebar.scale,
 			)
 		default:
 			// Normal round
 			ro.round_default_top.Draw(
-				float32(ro.pos[0])+sys.lifebarOffsetX,
+				float32(ro.pos[0])+sys.lifebar.offsetX,
 				float32(ro.pos[1]),
 				layerno,
-				sys.lifebarScale,
+				sys.lifebar.scale,
 			)
 		}
 	}
@@ -3462,10 +3482,10 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 	// "Fight!" animations
 	if !ro.fightCallOver && ro.waitTimer[1] < 0 {
 		for i := range ro.fight_bg {
-			ro.fight_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+			ro.fight_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 		}
-		ro.fight.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
-		ro.fight_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+		ro.fight.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+		ro.fight_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 	}
 
 	if ro.current == 2 {
@@ -3474,22 +3494,22 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			switch sys.finishType {
 			case FT_KO:
 				for i := range ro.ko_bg {
-					ro.ko_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+					ro.ko_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
-				ro.ko.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
-				ro.ko_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.ko.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				ro.ko_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			case FT_DKO:
 				for i := range ro.dko_bg {
-					ro.dko_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+					ro.dko_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
-				ro.dko.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
-				ro.dko_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.dko.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				ro.dko_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			default:
 				for i := range ro.to_bg {
-					ro.to_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+					ro.to_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
-				ro.to.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
-				ro.to_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.to.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				ro.to_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			}
 		}
 		// Winner announcement
@@ -3500,10 +3520,10 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 			}
 			if sys.finishType == FT_TODraw {
 				for i := range ro.drawgame_bg {
-					ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+					ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
-				ro.drawgame.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
-				ro.drawgame_top.Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+				ro.drawgame.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				ro.drawgame_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			} else if sys.winTeam >= 0 { // Skip if draw game (double KO)
 				if sys.tmode[sys.winTeam] == TM_Simul || sys.tmode[sys.winTeam] == TM_Tag {
 					var inter []interface{}
@@ -3515,40 +3535,40 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 					if sys.numSimul[sys.winTeam] == 2 {
 						tmp := ro.win2[wt].text.text
 						for i := range ro.win2_bg[wt] {
-							ro.win2_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+							ro.win2_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 						}
 						ro.win2[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win2[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+						ro.win2[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 						ro.win2[wt].text.text = tmp
-						ro.win2_top[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+						ro.win2_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 					} else if sys.numSimul[sys.winTeam] == 3 {
 						tmp := ro.win3[wt].text.text
 						for i := range ro.win3_bg[wt] {
-							ro.win3_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+							ro.win3_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 						}
 						ro.win3[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win3[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+						ro.win3[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 						ro.win3[wt].text.text = tmp
-						ro.win3_top[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+						ro.win3_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 					} else {
 						tmp := ro.win4[wt].text.text
 						for i := range ro.win4_bg[wt] {
-							ro.win4_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+							ro.win4_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 						}
 						ro.win4[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win4[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+						ro.win4[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 						ro.win4[wt].text.text = tmp
-						ro.win4_top[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+						ro.win4_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 					}
 				} else if sys.winTeam >= 0 {
 					tmp := ro.win[wt].text.text
 					for i := range ro.win_bg[wt] {
-						ro.win_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+						ro.win_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 					}
 					ro.win[wt].text.text = OldSprintf(tmp, sys.cgi[sys.winTeam].displayname)
-					ro.win[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, f, sys.lifebarScale)
+					ro.win[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 					ro.win[wt].text.text = tmp
-					ro.win_top[wt].Draw(float32(ro.pos[0])+sys.lifebarOffsetX, float32(ro.pos[1]), layerno, sys.lifebarScale)
+					ro.win_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
 			}
 			// Perfect and other special win types
@@ -3578,98 +3598,28 @@ func (ro *LifeBarRound) draw(layerno int16, f []*Fnt) {
 		}
 	}
 
-	// Transitions
-	if ro.rt != nil {
-		ro.rt.Draw(layerno)
-	}
-
 	// Restore system brightness
 	sys.brightness = oldBright
-}
 
-type LifeBarRoundTransition struct {
-	fadein_time  int32
-	fadein_col   uint32
-	fadeout_time int32
-	fadeout_col  uint32
-	shutter_time int32
-	shutter_col  uint32
-	fadeinTimer  int32
-	fadeoutTimer int32
-	shutterTimer int32
-	// Add anim layouts etc for round transitions here
-}
-
-func newLifeBarRoundTransition() *LifeBarRoundTransition {
-	return &LifeBarRoundTransition{
-		fadein_time:  30,
-		fadeout_time: 30,
-		shutter_time: 15,
-	}
-}
-
-func (rt *LifeBarRoundTransition) Reset() {
-	rt.fadeinTimer = rt.fadein_time
-	rt.fadeoutTimer = 0
-	rt.shutterTimer = 0
-}
-
-func (rt *LifeBarRoundTransition) Step() {
-	if rt.fadeinTimer > 0 {
-		rt.fadeinTimer--
-	}
-	if rt.fadeoutTimer > 0 {
-		rt.fadeoutTimer--
-	}
-	if rt.shutterTimer > 0 {
-		// Signal system to skip intros when shutter is about to be fully closed
-		// This ensures the intros will skip even if/when the shutter updates at a different rate than characters
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2720
-		if rt.shutterTimer == (rt.shutter_time + 1) {
-			sys.introSkipCall = true
-		}
-		rt.shutterTimer--
-	}
-}
-
-func (rt *LifeBarRoundTransition) Draw(layerno int16) {
-	// Draw fade and shutter
+	// Screen fading
 	if layerno == 2 {
-		fade := func(rect [4]int32, color uint32, alpha int32) {
-			src := alpha>>uint(Btoi(sys.clsnDisplay)) + Btoi(sys.clsnDisplay)*128
-			dst := 255 - src
-			FillRect(rect, color, [2]int32{src, dst})
-		}
-
-		// Draw fadein/fadeout (mutually exclusive)
-		if rt.fadeinTimer > 0 {
-			fade(sys.scrrect, rt.fadein_col, 256*rt.fadeinTimer/Max(1, rt.fadein_time))
-		} else if rt.fadeoutTimer > 0 && !sys.dialogueFlg {
-			fade(sys.scrrect, rt.fadeout_col, 256*(rt.fadeout_time-rt.fadeoutTimer)/Max(1, rt.fadeout_time))
+		if ro.fadeOut.isActive() {
+			ro.fadeOut.draw()
+		} else if ro.fadeIn.isActive() {
+			ro.fadeIn.draw()
 		} else if sys.clsnDisplay && sys.cfg.Debug.ClsnDarken {
-			fade(sys.scrrect, 0, 0)
+			ro.fadeIn.drawRect(sys.scrrect, 0, 0)
 		}
 
-		// Draw shutter effect on skipped intros
-		if rt.shutterTimer > 0 {
-			var h int32
-			if rt.shutterTimer > rt.shutter_time {
-				// Closing
-				h = (rt.shutter_time*2 - rt.shutterTimer) * ((sys.scrrect[3] + 1) >> 1) / Max(1, rt.shutter_time)
-			} else {
-				// Opening
-				h = rt.shutterTimer * ((sys.scrrect[3] + 1) >> 1) / Max(1, rt.shutter_time)
-			}
+		if ro.shutterTimer > 0 {
 			rect := sys.scrrect
-			rect[3] = h
-			fade(rect, rt.shutter_col, 255)
-			rect[1] = sys.scrrect[3] - h
-			rect[3] = h
-			fade(rect, rt.shutter_col, 255)
+			rect[3] = ro.shutterTimer * ((sys.scrrect[3] + 1) >> 1) / ro.shutter_time
+			ro.fadeIn.drawRect(rect, ro.shutter_col, 255)
+			rect[1] = sys.scrrect[3] - rect[3]
+			ro.fadeIn.drawRect(rect, ro.shutter_col, 255)
 		}
 	}
-
-	// Draw animations etc here
+	BlendReset()
 }
 
 type LifeBarRatio struct {
@@ -3708,13 +3658,13 @@ func (ra *LifeBarRatio) reset() {
 }
 
 func (ra *LifeBarRatio) bgDraw(layerno int16) {
-	ra.bg.Draw(float32(ra.pos[0])+sys.lifebarOffsetX, float32(ra.pos[1]), layerno, sys.lifebarScale)
+	ra.bg.Draw(float32(ra.pos[0])+sys.lifebar.offsetX, float32(ra.pos[1]), layerno, sys.lifebar.scale)
 }
 
 func (ra *LifeBarRatio) draw(layerno int16, num int32) {
-	ra.icon[num].Draw(float32(ra.pos[0])+sys.lifebarOffsetX,
-		float32(ra.pos[1]), layerno, sys.lifebarScale)
-	ra.top.Draw(float32(ra.pos[0])+sys.lifebarOffsetX, float32(ra.pos[1]), layerno, sys.lifebarScale)
+	ra.icon[num].Draw(float32(ra.pos[0])+sys.lifebar.offsetX,
+		float32(ra.pos[1]), layerno, sys.lifebar.scale)
+	ra.top.Draw(float32(ra.pos[0])+sys.lifebar.offsetX, float32(ra.pos[1]), layerno, sys.lifebar.scale)
 }
 
 type LifeBarTimer struct {
@@ -3762,7 +3712,7 @@ func (tr *LifeBarTimer) reset() {
 
 func (tr *LifeBarTimer) bgDraw(layerno int16) {
 	if tr.active {
-		tr.bg.Draw(float32(tr.pos[0])+sys.lifebarOffsetX, float32(tr.pos[1]), layerno, sys.lifebarScale)
+		tr.bg.Draw(float32(tr.pos[0])+sys.lifebar.offsetX, float32(tr.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -3788,9 +3738,9 @@ func (tr *LifeBarTimer) draw(layerno int16, f []*Fnt) {
 		text = strings.Replace(text, "%m", ms, 1)
 		text = strings.Replace(text, "%s", ss, 1)
 		text = strings.Replace(text, "%x", xs, 1)
-		tr.text.lay.DrawText(float32(tr.pos[0])+sys.lifebarOffsetX, float32(tr.pos[1]), sys.lifebarScale, layerno,
+		tr.text.lay.DrawText(float32(tr.pos[0])+sys.lifebar.offsetX, float32(tr.pos[1]), sys.lifebar.scale, layerno,
 			text, f[tr.text.font[0]], tr.text.font[1], tr.text.font[2], tr.text.palfx, tr.text.frgba)
-		tr.top.Draw(float32(tr.pos[0])+sys.lifebarOffsetX, float32(tr.pos[1]), layerno, sys.lifebarScale)
+		tr.top.Draw(float32(tr.pos[0])+sys.lifebar.offsetX, float32(tr.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -3874,7 +3824,7 @@ func (sc *LifeBarScore) reset() {
 
 func (sc *LifeBarScore) bgDraw(layerno int16) {
 	if sc.active {
-		sc.bg.Draw(float32(sc.pos[0])+sys.lifebarOffsetX, float32(sc.pos[1]), layerno, sys.lifebarScale)
+		sc.bg.Draw(float32(sc.pos[0])+sys.lifebar.offsetX, float32(sc.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -3911,9 +3861,9 @@ func (sc *LifeBarScore) draw(layerno int16, f []*Fnt, side int) {
 		}
 		// replace %s with formatted string
 		text = strings.Replace(text, "%s", s[0]+ds+s[1], 1)
-		sc.text.lay.DrawText(float32(sc.pos[0])+sys.lifebarOffsetX, float32(sc.pos[1]), sys.lifebarScale, layerno,
+		sc.text.lay.DrawText(float32(sc.pos[0])+sys.lifebar.offsetX, float32(sc.pos[1]), sys.lifebar.scale, layerno,
 			text, f[sc.text.font[0]], sc.text.font[1], sc.text.font[2], sc.text.palfx, sc.text.frgba)
-		sc.top.Draw(float32(sc.pos[0])+sys.lifebarOffsetX, float32(sc.pos[1]), layerno, sys.lifebarScale)
+		sc.top.Draw(float32(sc.pos[0])+sys.lifebar.offsetX, float32(sc.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -3962,7 +3912,7 @@ func (ma *LifeBarMatch) reset() {
 
 func (ma *LifeBarMatch) bgDraw(layerno int16) {
 	if ma.active {
-		ma.bg.Draw(float32(ma.pos[0])+sys.lifebarOffsetX, float32(ma.pos[1]), layerno, sys.lifebarScale)
+		ma.bg.Draw(float32(ma.pos[0])+sys.lifebar.offsetX, float32(ma.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -3970,9 +3920,9 @@ func (ma *LifeBarMatch) draw(layerno int16, f []*Fnt) {
 	if ma.active && ma.text.font[0] >= 0 && int(ma.text.font[0]) < len(f) && f[ma.text.font[0]] != nil {
 		text := ma.text.text
 		text = strings.Replace(text, "%s", fmt.Sprintf("%v", sys.match), 1)
-		ma.text.lay.DrawText(float32(ma.pos[0])+sys.lifebarOffsetX, float32(ma.pos[1]), sys.lifebarScale, layerno,
+		ma.text.lay.DrawText(float32(ma.pos[0])+sys.lifebar.offsetX, float32(ma.pos[1]), sys.lifebar.scale, layerno,
 			text, f[ma.text.font[0]], ma.text.font[1], ma.text.font[2], ma.text.palfx, ma.text.frgba)
-		ma.top.Draw(float32(ma.pos[0])+sys.lifebarOffsetX, float32(ma.pos[1]), layerno, sys.lifebarScale)
+		ma.top.Draw(float32(ma.pos[0])+sys.lifebar.offsetX, float32(ma.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -4025,7 +3975,7 @@ func (ai *LifeBarAiLevel) reset() {
 
 func (ai *LifeBarAiLevel) bgDraw(layerno int16) {
 	if ai.active {
-		ai.bg.Draw(float32(ai.pos[0])+sys.lifebarOffsetX, float32(ai.pos[1]), layerno, sys.lifebarScale)
+		ai.bg.Draw(float32(ai.pos[0])+sys.lifebar.offsetX, float32(ai.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -4048,9 +3998,9 @@ func (ai *LifeBarAiLevel) draw(layerno int16, f []*Fnt, ailv float32) {
 		// percentage value
 		p := ailv / 8 * 100
 		text = strings.Replace(text, "%p", fmt.Sprintf("%.0f", p), 1)
-		ai.text.lay.DrawText(float32(ai.pos[0])+sys.lifebarOffsetX, float32(ai.pos[1]), sys.lifebarScale, layerno,
+		ai.text.lay.DrawText(float32(ai.pos[0])+sys.lifebar.offsetX, float32(ai.pos[1]), sys.lifebar.scale, layerno,
 			text, f[ai.text.font[0]], ai.text.font[1], ai.text.font[2], ai.text.palfx, ai.text.frgba)
-		ai.top.Draw(float32(ai.pos[0])+sys.lifebarOffsetX, float32(ai.pos[1]), layerno, sys.lifebarScale)
+		ai.top.Draw(float32(ai.pos[0])+sys.lifebar.offsetX, float32(ai.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -4100,7 +4050,7 @@ func (wc *LifeBarWinCount) reset() {
 
 func (wc *LifeBarWinCount) bgDraw(layerno int16) {
 	if wc.active {
-		wc.bg.Draw(float32(wc.pos[0])+sys.lifebarOffsetX, float32(wc.pos[1]), layerno, sys.lifebarScale)
+		wc.bg.Draw(float32(wc.pos[0])+sys.lifebar.offsetX, float32(wc.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -4108,9 +4058,9 @@ func (wc *LifeBarWinCount) draw(layerno int16, f []*Fnt, side int) {
 	if wc.active && wc.text.font[0] >= 0 && int(wc.text.font[0]) < len(f) && f[wc.text.font[0]] != nil {
 		text := wc.text.text
 		text = strings.Replace(text, "%s", fmt.Sprintf("%v", wc.wins), 1)
-		wc.text.lay.DrawText(float32(wc.pos[0])+sys.lifebarOffsetX, float32(wc.pos[1]), sys.lifebarScale, layerno,
+		wc.text.lay.DrawText(float32(wc.pos[0])+sys.lifebar.offsetX, float32(wc.pos[1]), sys.lifebar.scale, layerno,
 			text, f[wc.text.font[0]], wc.text.font[1], wc.text.font[2], wc.text.palfx, wc.text.frgba)
-		wc.top.Draw(float32(wc.pos[0])+sys.lifebarOffsetX, float32(wc.pos[1]), layerno, sys.lifebarScale)
+		wc.top.Draw(float32(wc.pos[0])+sys.lifebar.offsetX, float32(wc.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
@@ -4154,68 +4104,76 @@ func (mo *LifeBarMode) reset() {
 
 func (mo *LifeBarMode) bgDraw(layerno int16) {
 	if sys.lifebar.mode {
-		mo.bg.Draw(float32(mo.pos[0])+sys.lifebarOffsetX, float32(mo.pos[1]), layerno, sys.lifebarScale)
+		mo.bg.Draw(float32(mo.pos[0])+sys.lifebar.offsetX, float32(mo.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
 func (mo *LifeBarMode) draw(layerno int16, f []*Fnt) {
 	if sys.lifebar.mode && mo.text.font[0] >= 0 && int(mo.text.font[0]) < len(f) && f[mo.text.font[0]] != nil {
-		mo.text.lay.DrawText(float32(mo.pos[0])+sys.lifebarOffsetX, float32(mo.pos[1]), sys.lifebarScale, layerno,
+		mo.text.lay.DrawText(float32(mo.pos[0])+sys.lifebar.offsetX, float32(mo.pos[1]), sys.lifebar.scale, layerno,
 			mo.text.text, f[mo.text.font[0]], mo.text.font[1], mo.text.font[2], mo.text.palfx, mo.text.frgba)
-		mo.top.Draw(float32(mo.pos[0])+sys.lifebarOffsetX, float32(mo.pos[1]), layerno, sys.lifebarScale)
+		mo.top.Draw(float32(mo.pos[0])+sys.lifebar.offsetX, float32(mo.pos[1]), layerno, sys.lifebar.scale)
 	}
 }
 
 type Lifebar struct {
-	def        string
-	name       string
-	nameLow    string
-	author     string
-	authorLow  string
-	at         AnimationTable
-	sff        *Sff
-	snd        *Snd
-	fnt        [10]*Fnt
-	ref        [2]int
-	order      [2][]int
-	hb         [8][]*HealthBar
-	pb         [8][]*PowerBar
-	gb         [8][]*GuardBar
-	sb         [8][]*StunBar
-	fa         [8][]*LifeBarFace
-	nm         [8][]*LifeBarName
-	wi         [2]*LifeBarWinIcon
-	ti         *LifeBarTime
-	co         [2]*LifeBarCombo
-	ac         [2]*LifeBarAction
-	ro         *LifeBarRound
-	rt         *LifeBarRoundTransition
-	ra         [2]*LifeBarRatio
-	tr         *LifeBarTimer
-	sc         [2]*LifeBarScore
-	ma         *LifeBarMatch
-	ai         [2]*LifeBarAiLevel
-	wc         [2]*LifeBarWinCount
-	mo         map[string]*LifeBarMode
-	missing    map[string]int
-	active     bool
-	bars       bool
-	mode       bool
-	redlifebar bool
-	guardbar   bool
-	stunbar    bool
-	hidebars   bool
-	fnt_scale  float32
-	fx_limit   int
-	textsprite []*TextSprite
+	def           string
+	name          string
+	nameLow       string
+	author        string
+	authorLow     string
+	localcoord    [2]int32
+	offsetX       float32
+	offsetY       float32
+	scale         float32
+	portraitScale float32
+	at            AnimationTable
+	sff           *Sff
+	snd           *Snd
+	fnt           [10]*Fnt
+	ref           [2]int
+	order         [2][]int
+	hb            [8][]*HealthBar
+	pb            [8][]*PowerBar
+	gb            [8][]*GuardBar
+	sb            [8][]*StunBar
+	fa            [8][]*LifeBarFace
+	nm            [8][]*LifeBarName
+	wi            [2]*LifeBarWinIcon
+	ti            *LifeBarTime
+	co            [2]*LifeBarCombo
+	ac            [2]*LifeBarAction
+	ro            *LifeBarRound
+	ra            [2]*LifeBarRatio
+	tr            *LifeBarTimer
+	sc            [2]*LifeBarScore
+	ma            *LifeBarMatch
+	ai            [2]*LifeBarAiLevel
+	wc            [2]*LifeBarWinCount
+	mo            map[string]*LifeBarMode
+	missing       map[string]int
+	active        bool
+	bars          bool
+	mode          bool
+	redlifebar    bool
+	guardbar      bool
+	stunbar       bool
+	hidebars      bool
+	fnt_scale     float32
+	fx_limit      int
 }
 
 func loadLifebar(def string) (*Lifebar, error) {
+	if def == "" {
+		sys.lifebar.resolvePath()
+		def = sys.lifebar.def
+	}
 	str, err := LoadText(def)
 	if err != nil {
 		return nil, err
 	}
-	l := &Lifebar{sff: &Sff{}, snd: &Snd{},
+	l := &Lifebar{localcoord: [...]int32{320, 240}, scale: 1, portraitScale: 1,
+		sff: &Sff{}, snd: &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -4266,6 +4224,25 @@ func loadLifebar(def string) (*Lifebar, error) {
 	i = 0
 	filesflg := true
 
+	// Pre-scan [info] to initialize lifebar localcoord/scale before any FightFX load
+	pre := 0
+	for pre < len(lines) {
+		is, name, _ := ReadIniSection(lines, &pre)
+		if name == "info" {
+			// If lifebar doesn't have localcoord assigned we're using screenpack localcoord
+			if !is.ReadI32("localcoord", &l.localcoord[0], &l.localcoord[1]) {
+				l.localcoord[0], l.localcoord[1] = sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1]
+			}
+			l.setLifebarScale()
+			// Seed sys.lifebar with values used during loading (before the final assignment)
+			sys.lifebar.localcoord = l.localcoord
+			sys.lifebar.offsetX = l.offsetX
+			sys.lifebar.scale = l.scale
+			sys.lifebar.portraitScale = l.portraitScale
+			break
+		}
+	}
+
 	// Load Common FX first
 	for _, key := range SortedKeys(sys.cfg.Common.Fx) {
 		for _, v := range sys.cfg.Common.Fx[key] {
@@ -4291,10 +4268,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 			l.nameLow = strings.ToLower(l.name)
 			l.author, _, _ = is.getText("author")
 			l.authorLow = strings.ToLower(l.author)
+			// Localcoord/scale already pre-initialized above to unblock early FightFX
 		case "files":
 			if filesflg {
 				filesflg = false
-				if is.LoadFile("sff", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						s, err := loadSff(filename, false)
 						if err != nil {
@@ -4305,7 +4283,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 					}); err != nil {
 					return nil, err
 				}
-				if is.LoadFile("snd", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("snd", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						s, err := LoadSnd(filename)
 						if err != nil {
@@ -4316,7 +4294,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 					}); err != nil {
 					return nil, err
 				}
-				if is.LoadFile("fightfx.sff", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("fightfx.sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						s, err := loadSff(filename, false)
 						if err != nil {
@@ -4327,7 +4305,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 					}); err != nil {
 					return nil, err
 				}
-				if is.LoadFile("fightfx.air", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("fightfx.air", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						str, err := LoadText(filename)
 						if err != nil {
@@ -4339,7 +4317,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 					}); err != nil {
 					return nil, err
 				}
-				if is.LoadFile("common.snd", []string{def, sys.motifDir, "", "data/"},
+				if is.LoadFile("common.snd", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
 						ffx.fsnd, err = LoadSnd(filename)
 						return err
@@ -4347,7 +4325,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 					return nil, err
 				}
 				for i := 1; i <= l.fx_limit; i++ {
-					if err := is.LoadFile(fmt.Sprintf("fx%v", i), []string{def, sys.motifDir, "", "data/"},
+					if err := is.LoadFile(fmt.Sprintf("fx%v", i), []string{def, sys.motif.Def, "", "data/"},
 						func(filename string) error {
 							if err := loadFightFx(filename, true); err != nil {
 								return err
@@ -4359,7 +4337,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 				}
 				for i := range l.fnt {
 					/*if*/
-					is.LoadFile(fmt.Sprintf("font%v", i), []string{def, sys.motifDir, "", "data/", "font/"},
+					is.LoadFile(fmt.Sprintf("font%v", i), []string{def, sys.motif.Def, "", "data/", "font/"},
 						func(filename string) error {
 							var height int32 = -1
 							if len(is[fmt.Sprintf("font%v.height", i)]) > 0 {
@@ -4728,7 +4706,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	sys.ffx["f"] = ffx
 	// fightfx scale
 	//if math.IsNaN(float64(sys.ffx["f"].fx_scale)) {
-	//	sys.ffx["f"].fx_scale = float32(sys.lifebarLocalcoord[0]) / 320
+	//	sys.ffx["f"].fx_scale = float32(l.localcoord[0]) / 320
 	//}
 	// Now calculated in each animation call
 	//for _, a := range sys.ffx["f"].fat {
@@ -4980,60 +4958,6 @@ func (l *Lifebar) step() {
 	if _, ok := l.mo[sys.gameMode]; ok {
 		l.mo[sys.gameMode].step()
 	}
-	// Text sctrl
-	l.UpdateText()
-}
-
-func (l *Lifebar) UpdateText() {
-	// Explod timers update at this time, so we'll do the same here
-	if sys.tickNextFrame() {
-		tempSlice := l.textsprite[:0]
-
-		for _, ts := range l.textsprite {
-			ts.elapsedTicks++
-
-			ts.SetTextVel()
-
-			if ts.palfx != nil && !ts.forcecolor {
-				ts.palfx.step()
-			}
-
-			if ts.removetime != 0 {
-				tempSlice = append(tempSlice, ts) // Keep this text
-				if ts.removetime > 0 {
-					ts.removetime--
-				}
-			}
-		}
-
-		l.textsprite = tempSlice
-	}
-}
-
-func (l *Lifebar) removeText(id, index, ownerid int32) {
-	n := int32(0)
-
-	// Mark matching texts invalid
-	for _, ts := range l.textsprite {
-		if (id == -1 && ts.ownerid == ownerid) || (id != -1 && ts.id == id && ts.ownerid == ownerid) {
-			if index < 0 || index == n {
-				ts.id = IErr
-				if index == n {
-					break
-				}
-			}
-			n++
-		}
-	}
-
-	// Compact the slice to remove invalid texts
-	tempSlice := l.textsprite[:0] // Reuse backing array
-	for _, ts := range l.textsprite {
-		if ts.id != IErr {
-			tempSlice = append(tempSlice, ts)
-		}
-	}
-	l.textsprite = tempSlice
 }
 
 // Resets lifebar as well as prepares team mode configuration for each player
@@ -5136,7 +5060,6 @@ func (l *Lifebar) reset() {
 	if _, ok := l.mo[sys.gameMode]; ok {
 		l.mo[sys.gameMode].reset()
 	}
-	l.textsprite = []*TextSprite{}
 }
 
 func (l *Lifebar) draw(layerno int16) {
@@ -5276,11 +5199,39 @@ func (l *Lifebar) draw(layerno int16) {
 		// LifeBarRound
 		l.ro.draw(layerno, l.fnt[:])
 	}
-	// Text sctrl
-	for _, ts := range l.textsprite {
-		if ts.layerno == layerno {
-			ts.Draw()
-		}
-	}
 	BlendReset()
+}
+
+func (l *Lifebar) setLifebarScale() {
+	// Calculate viewport for a 4:3 aspect ratio
+	viewport43 := getViewport(float64(l.localcoord[0]), float64(l.localcoord[1]), 4, 3)
+
+	// Calculate viewport based on the game's configured width and height
+	viewport := getViewport(float64(l.localcoord[0]), float64(l.localcoord[1]), float64(sys.gameWidth), float64(sys.gameHeight))
+
+	localW := float32(l.localcoord[0])
+	calcScale := float32(viewport[2]) / localW
+	calcOffsetX := (float32(viewport43[2]) - localW*calcScale) / 2
+
+	l.offsetX = float32(calcOffsetX * calcScale)
+	l.scale = 320.0 / float32(viewport43[2]) * calcScale
+	l.portraitScale = localW / float32(viewport43[2]) * calcScale
+}
+
+func (l *Lifebar) resolvePath() {
+	v := sys.motif.Files.Fight
+	if x, ok := sys.cmdFlags["-lifebar"]; ok {
+		v = x
+	}
+	v = filepath.ToSlash(v)
+	if v == "" {
+		v = "fight.def"
+	}
+	resolved := SearchFile(v, []string{"", filepath.ToSlash(filepath.Dir(sys.motif.Def)) + "/", "data/"})
+	if FileExist(resolved) != "" {
+		l.def = filepath.ToSlash(resolved)
+		return
+	}
+
+	l.def = v
 }

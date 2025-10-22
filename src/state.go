@@ -152,7 +152,6 @@ type GameState struct {
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32 // UIT
-	turnsRecoveryRate       float32
 	match                   int32 // UIT
 	round                   int32 // UIT
 	intro                   int32
@@ -203,6 +202,7 @@ type GameState struct {
 	keyConfig       []KeyConfig
 	joystickConfig  []KeyConfig
 	lifebar         Lifebar
+	motif           Motif
 	cgi             [MaxPlayerNo]CharGlobalInfo
 
 	//accel                   float32
@@ -244,7 +244,6 @@ type GameState struct {
 
 	// Script
 	endMatch    bool
-	matchData   *lua.LTable
 	noSoundFlg  bool
 	continueFlg bool
 
@@ -352,7 +351,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.brightness = gs.brightness
 	sys.brightnessOld = gs.brightnessOld
 	sys.maxRoundTime = gs.maxRoundTime
-	sys.turnsRecoveryRate = gs.turnsRecoveryRate
 
 	sys.changeStateNest = gs.changeStateNest
 
@@ -416,6 +414,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.round = gs.round
 
 	sys.lifebar = gs.lifebar.Clone(a)
+	sys.motif = gs.motif.Clone(a)
 
 	sys.cgi = gs.cgi
 
@@ -438,7 +437,7 @@ func (gs *GameState) LoadState(stateID int) {
 		sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
 	}
 
-	sys.dialogueFlg = gs.dialogueFlg
+	sys.motif.di.active = gs.dialogueFlg
 	sys.gameMode = gs.gameMode
 	sys.consecutiveWins = gs.consecutiveWins
 	sys.firstAttack = gs.firstAttack
@@ -457,9 +456,6 @@ func (gs *GameState) LoadState(stateID int) {
 	copy(sys.timerCount, gs.timerCount)
 
 	sys.endMatch = gs.endMatch
-
-	// theoretically this shouldn't do anything.
-	sys.matchData = gs.cloneLuaTable(gs.matchData)
 
 	sys.noSoundFlg = gs.noSoundFlg
 	sys.continueFlg = gs.continueFlg
@@ -580,7 +576,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.brightness = sys.brightness
 	gs.brightnessOld = sys.brightnessOld
 	gs.maxRoundTime = sys.maxRoundTime
-	gs.turnsRecoveryRate = sys.turnsRecoveryRate
 
 	gs.changeStateNest = sys.changeStateNest
 
@@ -643,6 +638,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.round = sys.round
 
 	gs.lifebar = sys.lifebar.Clone(a)
+	gs.motif = sys.motif.Clone(a)
 
 	gs.timerStart = sys.timerStart
 	gs.timerRounds = arena.MakeSlice[int32](a, len(sys.timerRounds), len(sys.timerRounds))
@@ -658,7 +654,7 @@ func (gs *GameState) SaveState(stateID int) {
 		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
 	}
 
-	gs.dialogueFlg = sys.dialogueFlg
+	gs.dialogueFlg = sys.motif.di.active
 	gs.gameMode = sys.gameMode
 	gs.consecutiveWins = sys.consecutiveWins
 	gs.firstAttack = sys.firstAttack
@@ -676,10 +672,6 @@ func (gs *GameState) SaveState(stateID int) {
 	copy(gs.timerCount, sys.timerCount)
 
 	gs.endMatch = sys.endMatch
-
-	// can't deep copy because its members are private
-	//matchData := *sys.matchData
-	gs.matchData = gs.cloneLuaTable(sys.matchData)
 
 	gs.noSoundFlg = sys.noSoundFlg
 	gs.continueFlg = sys.continueFlg

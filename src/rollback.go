@@ -36,7 +36,6 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 	// Initialize rollback network session and synchronize state
 	rs.preMatchSetup()
 
-	var didTryLoadBGM bool
 	var running bool
 
 	// Loop until end of match
@@ -51,17 +50,7 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 		// Sync speculative inputs and run a speculative frame
 		running = rs.runFrame(s)
 
-		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
-		if !didTryLoadBGM && s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 {
-			didTryLoadBGM = true
-			// Need to search first
-			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
-				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
-				return nil
-			})
-		}
-
-		if s.fightLoopEnd && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
+		if s.fightLoopEnd && !s.postMatchFlg {
 			break
 		}
 
@@ -240,7 +229,7 @@ func (rs *RollbackSystem) simulateFrame(s *System) bool {
 	}
 
 	// Break if finished
-	if s.fightLoopEnd && (!s.postMatchFlg || len(s.cfg.Common.Lua) == 0) {
+	if s.fightLoopEnd && !s.postMatchFlg {
 		return false
 	}
 
@@ -254,7 +243,7 @@ func (rs *RollbackSystem) simulateFrame(s *System) bool {
 		s.esc = true
 		return false
 	} else if s.esc {
-		s.endMatch = s.netConnection != nil || len(s.cfg.Common.Lua) == 0
+		s.endMatch = s.netConnection != nil
 		return false
 	}
 	return true

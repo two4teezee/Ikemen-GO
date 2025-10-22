@@ -26,11 +26,14 @@ type Key = sdl.Keycode
 type ModifierKey = sdl.Keymod
 
 const (
-	KeyUnknown = sdl.K_UNKNOWN
-	KeyEscape  = sdl.K_ESCAPE
-	KeyEnter   = sdl.K_RETURN
-	KeyInsert  = sdl.K_INSERT
-	KeyF12     = sdl.K_F12
+	KeyUnknown    = sdl.K_UNKNOWN
+	KeyEscape     = sdl.K_ESCAPE
+	KeyEnter      = sdl.K_RETURN
+	KeyInsert     = sdl.K_INSERT
+	KeyF5         = sdl.K_F5
+	KeyF12        = sdl.K_F12
+	KeyPause      = sdl.K_PAUSE
+	KeyScrollLock = sdl.K_SCROLLLOCK
 )
 
 var KeyToStringLUT = map[sdl.Keycode]string{

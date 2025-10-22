@@ -70,33 +70,39 @@ func main() {
 
 	processCommandLine()
 
+	// Ensure cmdFlags exists even when there are no CLI args,
+	// since we assign defaults below.
+	if sys.cmdFlags == nil {
+		sys.cmdFlags = make(map[string]string)
+	}
+
+	// Stats file path
+	if _, ok := sys.cmdFlags["-stats"]; !ok {
+		sys.cmdFlags["-stats"] = "save/stats.json"
+	}
+
 	// Try reading stats
-	if _, err := os.ReadFile("save/stats.json"); err != nil {
+	if _, err := os.ReadFile(sys.cmdFlags["-stats"]); err != nil {
 		// If there was an error reading, write an empty json file
-		f, err := os.Create("save/stats.json")
+		f, err := os.Create(sys.cmdFlags["-stats"])
 		chk(err)
 		f.Write([]byte("{}"))
 		chk(f.Close())
 	}
 
 	// Config file path
-	cfgPath := "save/config.ini"
-	// If a different config file is defined in the command line parameters, use it instead
-	if _, ok := sys.cmdFlags["-config"]; ok {
-		cfgPath = sys.cmdFlags["-config"]
+	if _, ok := sys.cmdFlags["-config"]; !ok {
+		sys.cmdFlags["-config"] = "save/config.ini"
 	}
-
-	if cfg, err := loadConfig(cfgPath); err != nil {
+	if cfg, err := loadConfig(sys.cmdFlags["-config"]); err != nil {
 		chk(err)
 	} else {
 		sys.cfg = *cfg
 	}
 
-	//os.Mkdir("debug", os.ModeSticky|0755)
-
 	// Check if the main lua file exists.
 	if ftemp, err1 := os.Open(sys.cfg.Config.System); err1 != nil {
-		ftemp.Close()
+		//ftemp.Close()
 		var err2 = Error(
 			"Main lua file \"" + sys.cfg.Config.System + "\" error." +
 				"\n" + err1.Error(),

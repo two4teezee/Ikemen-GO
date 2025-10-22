@@ -455,6 +455,15 @@ func newBgm() *Bgm {
 	return &Bgm{}
 }
 
+func (bgm *Bgm) Stop() {
+	if bgm.ctrl != nil {
+		speaker.Lock()
+		bgm.ctrl.Streamer = nil
+		speaker.Unlock()
+	}
+	bgm.filename = ""
+}
+
 func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd, startPosition int, freqmul float32, loopcount int) {
 	// Right away, cancel any running goroutines.
 	bgm.mu.Lock()

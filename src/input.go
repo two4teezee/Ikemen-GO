@@ -142,7 +142,7 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 			key == KeyEscape && (mk&ModCtrlAlt) == 0
 		for k, v := range sys.shortcutScripts {
 			if sys.netConnection == nil && (sys.replayFile == nil || !v.DebugKey) &&
-				//(!sys.paused || sys.step || v.Pause) &&
+				//(!sys.paused || sys.frameStepFlag || v.Pause) &&
 				(sys.cfg.Debug.AllowDebugKeys || !v.DebugKey) {
 				v.Activate = v.Activate || k.Test(key, mk)
 			}
@@ -150,8 +150,20 @@ func OnKeyPressed(key Key, mk ModifierKey) {
 		if key == KeyF12 {
 			captureScreen()
 		}
+		if key == KeyF5 && sys.credits != -1 {
+			sys.credits += 1
+			sys.motif.Snd.play(sys.motif.AttractMode.Credits.Snd, 100, 0, 0, 0, 0)
+		}
 		if key == KeyEnter && (mk&ModAlt) != 0 {
 			sys.window.toggleFullscreen()
+		}
+		if !sys.gameRunning && sys.netConnection == nil {
+			if key == KeyPause {
+				sys.paused = !sys.paused
+			}
+			if key == KeyScrollLock {
+				sys.frameStepFlag = true
+			}
 		}
 	}
 }
@@ -3266,9 +3278,10 @@ type CommandList struct {
 	DefaultBufferHitpause bool
 	DefaultBufferPauseEnd bool
 	DefaultBufferShared   bool
+	ControllerNo          int32
 }
 
-func NewCommandList(cb *InputBuffer) *CommandList {
+func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
 	return &CommandList{
 		Buffer:                cb,
 		Names:                 make(map[string]int),
@@ -3279,6 +3292,7 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
 		DefaultBufferShared:   true,
+		ControllerNo:          cn,
 	}
 }
 

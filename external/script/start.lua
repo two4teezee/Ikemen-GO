@@ -3000,10 +3000,23 @@ local function resolvePalConflict(side, charRef, pal)
             end
         end
     end
-	while usedPals[pal] do
-		pal = (pal % total) + 1
-	end
-    return pal
+    local free = {}
+    for i = 1, total do
+        if not usedPals[i] then
+            table.insert(free, i)
+        end
+    end
+
+    if #free == 0 then
+        return pal
+    end
+
+    for _, v in ipairs(free) do
+        if v == pal then
+            return pal
+        end
+    end
+    return free[1]
 end
 
 local function applyPalette(sel, charData, palIndex)

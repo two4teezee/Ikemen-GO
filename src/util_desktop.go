@@ -1,4 +1,4 @@
-//go:build !js && !raw
+//go:build !raw
 
 package main
 

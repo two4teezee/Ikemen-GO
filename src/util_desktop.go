@@ -5,7 +5,6 @@ package main
 import (
 	"io"
 	"os"
-	"sync/atomic"
 
 	findfont "github.com/flopp/go-findfont"
 	"github.com/sqweek/dialog"
@@ -22,7 +21,6 @@ func ShowInfoDialog(message, title string) {
 }
 
 func ShowErrorDialog(message string) {
-	atomic.StoreInt32(&errorDialogShown, 1)
 	dialog.Message(message).Title("I.K.E.M.E.N Error").Error()
 }
 

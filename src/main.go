@@ -6,10 +6,8 @@ import (
 	"path"
 	"regexp"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"strings"
-	"sync/atomic"
 
 	lua "github.com/yuin/gopher-lua"
 )
@@ -20,9 +18,6 @@ var BuildTime = "" // Set automatically by GitHub Actions
 func init() {
 	runtime.LockOSThread()
 }
-
-// set to 1 once ShowErrorDialog has displayed an error
-var errorDialogShown int32
 
 // Checks if error is not null, if there is an error it displays a error dialogue box and crashes the program.
 func chk(err error) {
@@ -56,20 +51,7 @@ func closeLog(f *os.File) {
 }
 
 func main() {
-	// Catch any panic that happens before Lua starts.
-	defer func() {
-		if r := recover(); r != nil {
-			if atomic.LoadInt32(&errorDialogShown) == 0 {
-				body := fmt.Sprintf("%v\n\nStack trace:\n%s", r, string(debug.Stack()))
-				errorLog := createLog("Ikemen.log")
-				fmt.Fprintf(errorLog, "Version: %s\nBuild Time: %s\n\nError log:\n", Version, BuildTime)
-				fmt.Fprintln(errorLog, body)
-				closeLog(errorLog)
-				ShowErrorDialog(fmt.Sprintf("%s\n\nError saved to Ikemen.log", body))
-			}
-			os.Exit(1)
-		}
-	}()
+
 	exePath, err := os.Executable()
 	if err != nil {
 		fmt.Println("Error getting executable path:", err)

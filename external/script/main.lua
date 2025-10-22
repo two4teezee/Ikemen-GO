@@ -51,13 +51,30 @@ stats = json.decode(main.f_fileRead(main.flags['-stats']))
 
 --add default commands
 main.t_commands = {
-	['$U'] = 0, ['$D'] = 0, ['$B'] = 0, ['$F'] = 0, ['a'] = 0, ['b'] = 0, ['c'] = 0, ['x'] = 0, ['y'] = 0, ['z'] = 0, ['s'] = 0, ['d'] = 0, ['w'] = 0, ['m'] = 0, ['/s'] = 0, ['/d'] = 0, ['/w'] = 0}
+    {name = "$U", input = "$U"},
+    {name = "$D", input = "$D"},
+    {name = "$B", input = "$B"},
+    {name = "$F", input = "$F"},
+    {name = "a",  input = "a"},
+    {name = "b",  input = "b"},
+    {name = "c",  input = "c"},
+    {name = "x",  input = "x"},
+    {name = "y",  input = "y"},
+    {name = "z",  input = "z"},
+    {name = "s",  input = "s"},
+    {name = "d",  input = "d"},
+    {name = "w",  input = "w"},
+    {name = "m",  input = "m"},
+    {name = "/s", input = "/s"},
+    {name = "/d", input = "/d"},
+    {name = "/w", input = "/w"},
+}
 function main.f_commandNew()
-	local c = commandNew()
-	for k, _ in pairs(main.t_commands) do
-		commandAdd(c, k, k)
-	end
-	return c
+    local c = commandNew()
+    for _, v in ipairs(main.t_commands) do
+        commandAdd(c, v.name, v.input)
+    end
+    return c
 end
 
 main.t_defaultKeysMapping = {

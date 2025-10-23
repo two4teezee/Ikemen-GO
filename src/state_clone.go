@@ -600,10 +600,10 @@ func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
 	}
 
 	// Clone animation table
-	result.at = *gsp.Get(s.at).(*AnimationTable)
-	maps.Clear(result.at)
-	for k, v := range s.at {
-		result.at[k] = v.Clone(a, gsp)
+	result.animTable = *gsp.Get(s.animTable).(*AnimationTable)
+	maps.Clear(result.animTable)
+	for k, v := range s.animTable {
+		result.animTable[k] = v.Clone(a, gsp)
 	}
 
 	// Clone backgrounds and rebuild mapping

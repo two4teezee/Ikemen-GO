@@ -1703,8 +1703,8 @@ func (s *System) resetRoundState() {
 		// Select anim 0
 		firstAnim := int32(0)
 		// Default to first anim in .AIR if 0 was not found
-		if p[0].gi().anim[0] == nil {
-			for k := range p[0].gi().anim {
+		if p[0].gi().animTable[0] == nil {
+			for k := range p[0].gi().animTable {
 				firstAnim = k
 				break
 			}

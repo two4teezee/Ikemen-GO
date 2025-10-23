@@ -14,7 +14,7 @@ type BGDef struct {
 	def          string
 	localcoord   [2]float32
 	sff          *Sff
-	at           AnimationTable
+	animTable    AnimationTable
 	bg           []*backGround
 	bgc          []bgCtrl
 	bga          bgAction
@@ -77,13 +77,13 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error
 	}
 	s.sff = sff
 	s.model = model
-	s.at = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
+	s.animTable = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
 	var bglink *backGround
 	for _, bgsec := range defmap[bgname] {
 		if len(s.bg) > 0 && s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		bg, err := readBackGround(bgsec, bglink, s.sff, s.at, s.stageprops, def)
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def)
 		if err != nil {
 			return nil, err
 		}
@@ -153,12 +153,9 @@ func (s *BGDef) getBg(id int32) (bg []*backGround) {
 func (s *BGDef) runBgCtrl(bgc *bgCtrl) {
 	switch bgc._type {
 	case BT_Anim:
-		a := s.at.get(bgc.v[0])
-		if a != nil {
-			for i := range bgc.bg {
-				bgc.bg[i].actionno = bgc.v[0]
-				bgc.bg[i].anim = a
-			}
+		animNo := bgc.v[0]
+		for i := range bgc.bg {
+			bgc.bg[i].changeAnim(animNo, s.animTable)
 		}
 	case BT_Visible:
 		for i := range bgc.bg {

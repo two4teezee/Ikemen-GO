@@ -818,7 +818,7 @@ func (c *Compiler) ctrlSet(is IniSection, sc *StateControllerBase, _ int8) (Stat
 }
 
 func (c *Compiler) explodSub(is IniSection,
-	sc *StateControllerBase) error {
+	sc *StateControllerBase, ihp int8) error {
 	if err := c.paramValue(is, sc, "remappal",
 		explod_remappal, VT_Int, 2, false); err != nil {
 		return err
@@ -877,6 +877,14 @@ func (c *Compiler) explodSub(is IniSection,
 	}
 	if err := c.paramValue(is, sc, "scale",
 		explod_scale, VT_Float, 2, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "synclayer",
+		explod_synclayer, VT_Int, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "syncid",
+		explod_syncid, VT_Int, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "bindid",
@@ -939,6 +947,9 @@ func (c *Compiler) explodSub(is IniSection,
 	}
 	if err := c.paramValue(is, sc, "window",
 		explod_window, VT_Float, 4, false); err != nil {
+		return err
+	}
+	if err := c.afterImageSub(is, sc, ihp, "afterimage."); err != nil {
 		return err
 	}
 	return nil
@@ -1023,7 +1034,7 @@ func (c *Compiler) explod(is IniSection, sc *StateControllerBase,
 			explod_ownpal, VT_Bool, 1, false); err != nil {
 			return err
 		}
-		if err := c.explodSub(is, sc); err != nil {
+		if err := c.explodSub(is, sc, ihp); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "animelem",
@@ -1080,7 +1091,7 @@ func (c *Compiler) modifyExplod(is IniSection, sc *StateControllerBase,
 			modifyexplod_index, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.explodSub(is, sc); err != nil {
+		if err := c.explodSub(is, sc, ihp); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "animplayerno",
@@ -1729,6 +1740,10 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_fall_kill, VT_Bool, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "keepstate",
+		hitDef_keepstate, VT_Bool, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "hitonce",
 		hitDef_hitonce, VT_Bool, 1, false); err != nil {
 		return err
@@ -2186,6 +2201,19 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_unhittabletime, VT_Int, 2, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "p2stand.friction",
+		hitDef_p2stand_friction, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "p2crouch.friction",
+		hitDef_p2crouch_friction, VT_Float, 1, false); err != nil {
+		return err
+	}
+	if err := c.paramValue(is, sc, "missonreversaldef",
+		hitDef_missonreversaldef, VT_Bool, 1, false); err != nil {
+		return err
+	}
+
 	return nil
 }
 

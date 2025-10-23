@@ -954,6 +954,11 @@ const (
 	OC_ex2_envshakevar_dir
 	OC_ex2_gethitvar_fall_envshake_dir
 	OC_ex2_xshear
+	OC_ex2_zoomvar_scale
+	OC_ex2_zoomvar_pos_x
+	OC_ex2_zoomvar_pos_y
+	OC_ex2_zoomvar_lag
+	OC_ex2_zoomvar_time
 	OC_ex2_projclsnoverlap
 )
 
@@ -3786,6 +3791,16 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
 	case OC_ex2_xshear:
 		sys.bcStack.PushF(c.xshear)
+	case OC_ex2_zoomvar_scale:
+		sys.bcStack.PushF(sys.drawScale)
+	case OC_ex2_zoomvar_pos_x:
+		sys.bcStack.PushF(sys.zoomPosXLag)
+	case OC_ex2_zoomvar_pos_y:
+		sys.bcStack.PushF(sys.zoomPosYLag)
+	case OC_ex2_zoomvar_lag:
+		sys.bcStack.PushF(sys.zoomlag)
+	case OC_ex2_zoomvar_time:
+		sys.bcStack.PushI(sys.enableZoomtime)
 	case OC_ex2_projclsnoverlap:
 		boxType := sys.bcStack.Pop().ToI()
 		targetID := sys.bcStack.Pop().ToI()
@@ -5371,7 +5386,7 @@ func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 type explod StateControllerBase
 
 const (
-	explod_anim byte = iota + palFX_last + 1
+	explod_anim byte = iota + palFX_last + afterImage_last + 1
 	explod_ownpal
 	explod_remappal
 	explod_id
@@ -5425,7 +5440,9 @@ const (
 	explod_interpolation
 	explod_animplayerno
 	explod_spriteplayerno
-	explod_last = iota + palFX_last + 1 - 1
+	explod_synclayer
+	explod_syncid
+	explod_last = iota + palFX_last + afterImage_last + 1 - 1
 	explod_redirectid
 )
 
@@ -5643,6 +5660,14 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				bId = crun.id
 			}
 			e.setBind(bId)
+		case explod_synclayer:
+			e.syncLayer = exp[0].evalI(c)
+		case explod_syncid:
+			sId := exp[0].evalI(c)
+			if sId == -1 {
+				sId = crun.id
+			}
+			e.syncId = sId
 		case explod_projection:
 			e.projection = Projection(exp[0].evalI(c))
 		case explod_window:
@@ -5653,6 +5678,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 				e.palfxdef.invertblend = -2
 			}
+			afterImage(sc).runSub(c, &e.aimg, paramID, exp)
 			palFX(sc).runSub(c, &e.palfxdef, paramID, exp)
 
 			explod(sc).setInterpolation(c, e, paramID, exp, &e.palfxdef)
@@ -6225,6 +6251,19 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				eachExpl(func(e *Explod) {
 					e.setBind(bId)
 				})
+			case explod_synclayer:
+				sl := exp[0].evalI(c)
+				eachExpl(func(e *Explod) {
+					e.syncLayer = sl
+				})
+			case explod_syncid:
+				sId := exp[0].evalI(c)
+				if sId == -1 {
+					sId = crun.id
+				}
+				eachExpl(func(e *Explod) {
+					e.syncId = sId
+				})
 			case explod_interpolation:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
 					interpolation := exp[0].evalB(c)
@@ -6247,6 +6286,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					if e.ownpal {
 						palFX(sc).runSub(c, &e.palfx.PalFXDef, paramID, exp)
 					}
+					afterImage(sc).runSub(c, &e.aimg, paramID, exp)
 				})
 			}
 		}
@@ -6602,6 +6642,10 @@ const (
 	hitDef_sparkscale
 	hitDef_guard_sparkscale
 	hitDef_unhittabletime
+	hitDef_p2stand_friction
+	hitDef_p2crouch_friction
+	hitDef_keepstate
+	hitDef_missonreversaldef
 	hitDef_last = iota + afterImage_last + 1 - 1
 	hitDef_redirectid
 )
@@ -6973,6 +7017,14 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		if len(exp) > 1 {
 			hd.unhittabletime[1] = exp[1].evalI(c)
 		}
+	case hitDef_p2stand_friction:
+		hd.P2StandFriction = exp[0].evalF(c)
+	case hitDef_p2crouch_friction:
+		hd.P2CrouchFriction = exp[0].evalF(c)
+	case hitDef_keepstate:
+		hd.KeepState = exp[0].evalB(c)
+	case hitDef_missonreversaldef:
+		hd.MissOnReversalDef = Btoi(exp[0].evalB(c))
 	default:
 		if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {
 			return false

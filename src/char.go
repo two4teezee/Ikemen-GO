@@ -652,6 +652,10 @@ type HitDef struct {
 	p2clsnrequire              int32
 	attack_depth               [2]float32
 	unhittabletime             [2]int32
+	P2StandFriction            float32
+	P2CrouchFriction           float32
+	KeepState                  bool
+	MissOnReversalDef          int32
 }
 
 func (hd *HitDef) clear(c *Char, localscl float32) {
@@ -766,6 +770,10 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		fall_envshake_dir:   0.0,
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
 		unhittabletime:      [2]int32{IErr, IErr},
+		P2StandFriction:     float32(math.NaN()),
+		P2CrouchFriction:    float32(math.NaN()),
+		KeepState:           false,
+		MissOnReversalDef:   0,
 
 		reversal_guardflag:     IErr,
 		reversal_guardflag_not: IErr,
@@ -870,6 +878,9 @@ type GetHitVar struct {
 	down_recover        bool
 	down_recovertime    int32
 	guardflag           int32
+	keepstate           bool
+	p2standfriction     float32
+	p2crouchfriction    float32
 }
 
 func (ghv *GetHitVar) clear(c *Char) {
@@ -882,17 +893,20 @@ func (ghv *GetHitVar) clear(c *Char) {
 	}
 
 	*ghv = GetHitVar{
-		hittime:        -1,
-		yaccel:         0.35 / originLs,
-		xoff:           ghv.xoff,
-		yoff:           ghv.yoff,
-		zoff:           ghv.zoff,
-		hitid:          -1,
-		playerNo:       -1,
-		fall_animtype:  RA_Unknown,
-		fall_xvelocity: float32(math.NaN()),
-		fall_yvelocity: -4.5 / originLs,
-		fall_zvelocity: float32(math.NaN()),
+		hittime:          -1,
+		yaccel:           0.35 / originLs,
+		xoff:             ghv.xoff,
+		yoff:             ghv.yoff,
+		zoff:             ghv.zoff,
+		hitid:            -1,
+		playerNo:         -1,
+		fall_animtype:    RA_Unknown,
+		fall_xvelocity:   float32(math.NaN()),
+		fall_yvelocity:   -4.5 / originLs,
+		fall_zvelocity:   float32(math.NaN()),
+		keepstate:        false,
+		p2standfriction:  float32(math.NaN()),
+		p2crouchfriction: float32(math.NaN()),
 	}
 }
 
@@ -1336,6 +1350,9 @@ type Explod struct {
 	palfx               *PalFX
 	palfxdef            PalFXDef
 	window              [4]float32
+	syncLayer           int32
+	syncId              int32
+	aimg                AfterImage
 	//lockSpriteFacing     bool
 	localscl   float32
 	localcoord float32
@@ -1389,10 +1406,13 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
+		syncId:            -1,
+		syncLayer:         0,
 		ignorehitpause:    true,
 		interpolate_scale: [4]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
 		remappal:          [2]int32{-1, 0},
+		aimg:              *newAfterImage(),
 	}
 
 	// Backward compatibility
@@ -1639,6 +1659,38 @@ func (e *Explod) update(playerNo int) {
 			e.pos[i] = e.newPos[i] - (e.newPos[i]-e.oldPos[i])*(1-spd)
 		}
 	}
+	if e.syncId >= 0 {
+		if syncChar := sys.playerID(e.syncId); syncChar != nil {
+			e.sprpriority = syncChar.sprPriority
+			e.scale = [2]float32{syncChar.size.xscale * syncChar.angleDrawScale[0], syncChar.size.yscale * syncChar.angleDrawScale[1]}
+			if syncChar.csf(CSF_angledraw) {
+				e.anglerot = syncChar.anglerot
+			} else {
+				e.anglerot = [3]float32{0, 0, 0}
+			}
+			e.trans = syncChar.trans
+			if syncChar.aimg.time != 0 {
+				// Copy Afterimage settings, but not the state
+				e.aimg.time = syncChar.aimg.time
+				e.aimg.length = syncChar.aimg.length
+				e.aimg.timegap = syncChar.aimg.timegap
+				e.aimg.framegap = syncChar.aimg.framegap
+				e.aimg.add = syncChar.aimg.add
+				e.aimg.postbright = syncChar.aimg.postbright
+				e.aimg.mul = syncChar.aimg.mul
+				e.aimg.trans = syncChar.aimg.trans
+				e.aimg.alpha = syncChar.aimg.alpha
+				e.aimg.restgap = syncChar.aimg.restgap
+				e.aimg.timecount = syncChar.aimg.timecount
+				e.aimg.priority = syncChar.aimg.priority
+				e.aimg.ignorehitpause = syncChar.aimg.ignorehitpause
+				e.aimg.palfx[0] = syncChar.aimg.palfx[0] // Settings are in the first element
+			}
+			e.alpha = syncChar.alpha
+			e.palfx = syncChar.getPalfx()
+			e.facing = syncChar.facing
+		}
+	}
 	off := e.relativePos
 	// Left and right pos types change relative position depending on stage camera zoom and game width
 	if e.space == Space_stage {
@@ -1756,6 +1808,13 @@ func (e *Explod) update(playerNo int) {
 		window:       ewin,
 		xshear:       xshear,
 	}
+	if e.syncId >= 0 {
+		sd.syncId = e.syncId
+		sd.syncLayer = e.syncLayer
+	}
+	// Record afterimage
+	e.aimg.recAndCue(sd, sys.tickNextFrame() && act, sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0), e.layerno)
+
 	sprs.add(sd)
 
 	// Add shadow if color is not 0
@@ -1805,6 +1864,9 @@ func (e *Explod) update(playerNo int) {
 		if act {
 			if e.palfx != nil && e.ownpal {
 				e.palfx.step()
+			}
+			if e.aimg.time != 0 {
+				e.aimg.setupPalFX()
 			}
 			e.oldPos = e.pos
 			e.newPos[0] = e.pos[0] + e.velocity[0]*e.facing
@@ -8580,17 +8642,25 @@ func (c *Char) posUpdate() {
 	// Apply physics types
 	switch c.ss.physics {
 	case ST_S:
-		c.vel[0] *= c.gi().movement.stand.friction
+		standFriction := c.gi().movement.stand.friction
+		if !math.IsNaN(float64(c.ghv.p2standfriction)) {
+			standFriction = c.ghv.p2standfriction
+		}
+		c.vel[0] *= standFriction
 		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
-		c.vel[2] *= c.gi().movement.stand.friction
+		c.vel[2] *= standFriction
 		if AbsF(c.vel[2]) < 1/originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
-		c.vel[0] *= c.gi().movement.crouch.friction
-		c.vel[2] *= c.gi().movement.crouch.friction
+		crouchFriction := c.gi().movement.crouch.friction
+		if !math.IsNaN(float64(c.ghv.p2crouchfriction)) {
+			crouchFriction = c.ghv.p2crouchfriction
+		}
+		c.vel[0] *= crouchFriction
+		c.vel[2] *= crouchFriction
 	case ST_A:
 		c.gravity()
 	}
@@ -9309,6 +9379,9 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// ReversalDef vs HitDef attributes check
 	if ghd.reversal_attr > 0 {
+		if c.hitdef.MissOnReversalDef > 0 {
+			return false
+		}
 		// Check HitDef validity
 		if c.hitdef.attr <= 0 || c.atktmp == 0 {
 			return false
@@ -9647,7 +9720,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				if hd.p2getp1state {
 					pn = hd.playerNo
 				}
-				if getter.stateChange1(hd.p2stateno, pn) {
+				if !hd.KeepState && getter.stateChange1(hd.p2stateno, pn) {
 					// In Mugen, using p2stateno forces movetype to H
 					// https://github.com/ikemen-engine/Ikemen-GO/issues/2466
 					getter.ss.changeMoveType(MT_H)
@@ -9671,6 +9744,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		getter.ghv.hitid = hd.id
 		getter.ghv.playerNo = hd.playerNo
 		getter.ghv.playerId = hd.attackerID
+		getter.ghv.keepstate = hd.KeepState
 		getter.ghv.groundtype = hd.ground_type
 		getter.ghv.airtype = hd.air_type
 		if getter.ss.stateType == ST_A {
@@ -9714,7 +9788,11 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if getter.bindToId == c.id {
 			getter.setBindTime(0)
 		}
-		if ghvset {
+		if hd.KeepState && ghvset {
+			getter.ghv.keepstate = hd.KeepState
+			getter.hitPauseTime = Max(0, hd.guard_pausetime[1])
+			getter.ghv.hitshaketime = 0
+		} else if ghvset {
 			ghv := &getter.ghv
 			cmb := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !ghv.guarded
 			// Precompute localcoord conversion factor
@@ -9748,6 +9826,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				ghv.hitshaketime = Max(0, hd.guard_pausetime[1])
 				ghv.hittime = Max(0, hd.guard_hittime)
 				ghv.slidetime = hd.guard_slidetime
+
 				if getter.ss.stateType == ST_A {
 					ghv.ctrltime = hd.airguard_ctrltime
 					ghv.xvel = hd.airguard_velocity[0] * scaleratio * -byf
@@ -9986,6 +10065,11 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		// Flag enemy as getting hit
 		getter.setCSF(CSF_gethit)
 		getter.ghv.frame = true
+
+		// P2 Friction
+		getter.ghv.p2standfriction = hd.P2StandFriction
+		getter.ghv.p2crouchfriction = hd.P2CrouchFriction
+
 		// In Mugen, having any HitOverride active allows GetHitVar Damage to exceed the remaining life
 		bnd := true
 		for _, ho := range getter.hover {
@@ -10660,25 +10744,25 @@ func (c *Char) actionRun() {
 			c.updateCurFrame()
 		}
 		if c.ghv.damage != 0 {
-			if c.ss.moveType == MT_H {
+			if c.ss.moveType == MT_H || c.ghv.keepstate {
 				c.lifeAdd(-float64(c.ghv.damage), true, true)
 			}
 			c.ghv.damage = 0
 		}
 		if c.ghv.redlife != 0 {
-			if c.ss.moveType == MT_H {
+			if c.ss.moveType == MT_H || c.ghv.keepstate {
 				c.redLifeAdd(-float64(c.ghv.redlife), true)
 			}
 			c.ghv.redlife = 0
 		}
 		if c.ghv.dizzypoints != 0 {
-			if c.ss.moveType == MT_H {
+			if c.ss.moveType == MT_H || c.ghv.keepstate {
 				c.dizzyPointsAdd(-float64(c.ghv.dizzypoints), true)
 			}
 			c.ghv.dizzypoints = 0
 		}
 		if c.ghv.guardpoints != 0 {
-			if c.ss.moveType == MT_H {
+			if c.ss.moveType == MT_H || c.ghv.keepstate {
 				c.guardPointsAdd(-float64(c.ghv.guardpoints), true)
 			}
 			c.ghv.guardpoints = 0
@@ -11088,7 +11172,7 @@ func (c *Char) tick() {
 		}
 	}
 	// Change to get hit states
-	if c.csf(CSF_gethit) && !c.hoverKeepState {
+	if c.csf(CSF_gethit) && !c.hoverKeepState && !c.ghv.keepstate {
 		// This flag prevents prevMoveType from being changed twice
 		c.ss.storeMoveType = true
 		c.ss.changeMoveType(MT_H)
@@ -11487,6 +11571,8 @@ func (c *Char) cueDraw() {
 			xshear:       c.xshear,
 			window:       cwin,
 		}
+		charSD.syncId = c.id
+		charSD.syncLayer = 0 // Character body is always at layer 0
 
 		// Record afterimage
 		c.aimg.recAndCue(charSD, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo)

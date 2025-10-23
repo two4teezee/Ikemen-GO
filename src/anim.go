@@ -1017,6 +1017,8 @@ type SprData struct {
 	projection   int32
 	fLength      float32
 	window       [4]float32
+	syncId       int32 // Synchronization target ID
+	syncLayer    int32 // Layer for synchronized drawing
 	xshear       float32
 }
 
@@ -1067,7 +1069,12 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		if dl[i].priority != dl[j].priority {
 			return dl[i].priority > dl[j].priority
 		}
-		return false
+		// Then by SyncID to group synchronized sprites together
+		if dl[i].syncId != dl[j].syncId {
+			return dl[i].syncId < dl[j].syncId
+		}
+		// Sort by syncLayer to ensure proper layering within a sync group
+		return dl[i].syncLayer > dl[j].syncLayer
 	})
 
 	// Common variables

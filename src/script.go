@@ -6261,6 +6261,25 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(winp))
 		return 1
 	})
+	luaRegister(l, "zoomvar", func(*lua.LState) int {
+		var ln lua.LNumber
+		switch strings.ToLower(strArg(l, 1)) {
+		case "scale":
+			ln = lua.LNumber(sys.drawScale)
+		case "pos.x":
+			ln = lua.LNumber(sys.zoomPosXLag)
+		case "pos.y":
+			ln = lua.LNumber(sys.zoomPosYLag)
+		case "lag":
+			ln = lua.LNumber(sys.zoomlag)
+		case "time":
+			ln = lua.LNumber(sys.enableZoomtime)
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
+		}
+		l.Push(ln)
+		return 1
+	})
 }
 
 // Legacy functions that may be removed in future, once script refactoring is finished

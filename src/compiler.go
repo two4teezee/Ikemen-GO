@@ -469,6 +469,7 @@ var triggerMap = map[string]int{
 	"winhyper":           1,
 	"winspecial":         1,
 	"xshear":             1,
+	"zoomvar":            1,
 }
 
 func (c *Compiler) tokenizer(in *string) string {
@@ -4905,6 +4906,33 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 	case "xshear":
 		out.append(OC_ex2_, OC_ex2_xshear)
+	case "zoomvar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		opct := OC_ex2_
+		switch c.token {
+		case "scale":
+			opc = OC_ex2_zoomvar_scale
+		case "pos.x":
+			opc = OC_ex2_zoomvar_pos_x
+		case "pos.y":
+			opc = OC_ex2_zoomvar_pos_y
+		case "lag":
+			opc = OC_ex2_zoomvar_lag
+		case "time":
+			opc = OC_ex2_zoomvar_time
+		default:
+			return bvNone(), Error("Invalid ZoomVar argument: " + c.token)
+		}
+		out.append(opct, opc)
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		if rd {
+			out.append(OC_rdreset)
+		}
 	case "=", "!=", ">", ">=", "<", "<=", "&", "&&", "^", "^^", "|", "||",
 		"+", "*", "**", "/", "%":
 		if !sys.ignoreMostErrors || len(c.previousOperator) > 0 {

@@ -5964,7 +5964,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if removetexts {
-		sys.lifebar.RemoveText(-1, c.id)
+		sys.lifebar.removeText(-1, -1, c.id)
 	}
 
 	if recursive {

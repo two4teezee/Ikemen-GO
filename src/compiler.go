@@ -161,6 +161,7 @@ func newCompiler() *Compiler {
 		"modifysnd":            c.modifySnd,
 		"modifystagebg":        c.modifyStageBG,
 		"modifystagevar":       c.modifyStageVar,
+		"modifytext":           c.modifyText,
 		"overrideclsn":         c.overrideClsn,
 		"parentmapadd":         c.parentMapAdd,
 		"parentmapset":         c.parentMapSet,

@@ -635,25 +635,27 @@ type TextSprite struct {
 	ownerid          int32
 	id               int32
 	text             string
+	template         string
+	params           []interface{}
 	fnt              *Fnt
 	bank, align      int32
 	x, y, xscl, yscl float32
-	window           [4]int32
-	palfx            *PalFX
-	frgba            [4]float32 // ttf fonts
-	removetime       int32      // text sctrl
-	layerno          int16      // text sctrl
+	xshear           float32
+	angle            float32
 	localScale       float32    // text sctrl
 	offsetX          int32      // text sctrl
 	lineSpacing      float32
+	layerno          int16      // text sctrl
+	palfx            *PalFX
+	frgba            [4]float32 // ttf fonts
+	forcecolor       bool
+	removetime       int32      // text sctrl
 	elapsedTicks     float32
 	textDelay        float32
 	velocity         [2]float32
 	friction         [2]float32
 	accel            [2]float32
-	forcecolor       bool
-	xshear           float32
-	angle            float32
+	window           [4]int32
 }
 
 func NewTextSprite() *TextSprite {

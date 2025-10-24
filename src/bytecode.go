@@ -12392,16 +12392,16 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			switch fflg {
 			case "f":
 				fntList = sys.lifebar.fnt
-				//case "m":
-				//	fntList = sys.motif.Fnt
+			case "m":
+				fntList = sys.motif.Fnt
 			}
 			if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
 				ts.fnt = fntList[fnt]
 				switch fflg {
 				case "f":
 					ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
-				//case "m":
-				//	ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
+				case "m":
+					ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
 				default:
 					//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
 				}

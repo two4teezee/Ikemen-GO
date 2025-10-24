@@ -2661,7 +2661,7 @@ type CharGlobalInfo struct {
 	remapPreset             map[string]RemapPreset
 	remappedpal             [2]int32
 	localcoord              [2]float32
-	fnt                     [10]*Fnt
+	fnt                     map[int]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
 	music                   Music
@@ -3194,7 +3194,7 @@ func (c *Char) load(def string) error {
 	gi.def, gi.displayname, gi.lifebarname, gi.author = def, "", "", ""
 	gi.sff, gi.palettedata, gi.snd, gi.quotes = nil, nil, nil, [MaxQuotes]string{}
 	gi.animTable = NewAnimationTable()
-	gi.fnt = [10]*Fnt{}
+	gi.fnt = make(map[int]*Fnt)
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
 		pal := gi.palInfo[i]
 		pal.keyMap = int32(i)
@@ -3239,7 +3239,39 @@ func (c *Char) load(def string) error {
 	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
 	c.localscl = 320 / c.localcoord
 	gi.portraitscale = 1
-	var fnt [10][2]string
+	// Collect arbitrary number of fonts
+	type fontSpec struct {
+		path   string
+		height int32
+	}
+	fntSpecs := map[int]fontSpec{}
+	parseFonts := func(is IniSection) {
+		for k, v := range is {
+			if strings.HasPrefix(k, "font") {
+				rest := k[4:]
+				if rest == "" {
+					continue
+				}
+				// extract leading digits from the remainder (handles font12 and font12.height)
+				j := 0
+				for j < len(rest) && rest[j] >= '0' && rest[j] <= '9' {
+					j++
+				}
+				if j == 0 {
+					continue
+				}
+				idx := int(Atoi(rest[:j]))
+				tail := rest[j:]
+				fs := fntSpecs[idx]
+				if tail == "" {
+					fs.path = v
+				} else if tail == ".height" {
+					fs.height = int32(Atoi(v))
+				}
+				fntSpecs[idx] = fs
+			}
+		}
+	}
 	for i < len(lines) {
 		is, name, subname := ReadIniSection(lines, &i)
 		switch name {
@@ -3277,10 +3309,7 @@ func (c *Char) load(def string) error {
 					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 					gi.palInfo[i] = pal
 				}
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
-				}
+				parseFonts(is)
 			}
 		case "palette ":
 			if keymap &&
@@ -3342,10 +3371,7 @@ func (c *Char) load(def string) error {
 					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 					gi.palInfo[i] = pal
 				}
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
-				}
+				parseFonts(is)
 			}
 		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
 			if lanKeymap &&
@@ -3843,29 +3869,28 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.snd = newSnd()
 	}
-	// Load fonts
-	for i_fnt, f_fnt_pair := range fnt {
-		if len(f_fnt_pair[0]) > 0 {
-			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
-			i := i_fnt
-			f_pair := f_fnt_pair
-			LoadFile(&resolvedFntPath, []string{def, sys.motif.Def, "", "data/", "font/"}, func(filename string) error {
-				// Defer the font loading to the main thread
-				sys.mainThreadTask <- func() {
-					var err error
-					var height int32 = -1
-					if len(f_pair[1]) > 0 {
-						height = Atoi(f_pair[1])
-					}
-					if gi.fnt[i], err = loadFnt(filename, height); err != nil {
-						sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
-						// Assign a new empty font on failure to prevent nil pointer panics
-						gi.fnt[i] = newFnt()
-					}
-				}
-				return nil
-			})
+	// Load each declared font index into the font map.
+	for idx, spec := range fntSpecs {
+		if len(spec.path) == 0 {
+			continue
 		}
+		resolvedFntPath := resolvePathRelativeToDef(spec.path)
+		i := idx
+		LoadFile(&resolvedFntPath, []string{def, sys.motif.Def, "", "data/", "font/"}, func(filename string) error {
+			sys.mainThreadTask <- func() {
+				h := int32(-1)
+				if spec.height != 0 {
+					h = spec.height
+				}
+				if fnt, err := loadFnt(filename, h); err != nil {
+					sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+					gi.fnt[i] = newFnt()
+				} else {
+					gi.fnt[i] = fnt
+				}
+			}
+			return nil
+		})
 	}
 	return nil
 }

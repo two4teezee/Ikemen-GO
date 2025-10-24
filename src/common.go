@@ -1271,7 +1271,7 @@ func newAnimTextSnd(sff *Sff, ln int16) *AnimTextSnd {
 }
 
 func ReadAnimTextSnd(pre string, is IniSection,
-	sff *Sff, at AnimationTable, ln int16, f []*Fnt) *AnimTextSnd {
+	sff *Sff, at AnimationTable, ln int16, f map[int]*Fnt) *AnimTextSnd {
 
 	ats := newAnimTextSnd(sff, ln)
 	ats.Read(pre, is, at, ln, f)
@@ -1279,7 +1279,7 @@ func ReadAnimTextSnd(pre string, is IniSection,
 }
 
 func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
-	ln int16, f []*Fnt) {
+	ln int16, f map[int]*Fnt) {
 	is.ReadI32(pre+"snd", &ats.snd[0], &ats.snd[1])
 	ats.text = *readLbText(pre, is, "", ln, f, 0)
 	ats.animLayout.lay = *newLayout(ln)
@@ -1299,7 +1299,7 @@ func (ats *AnimTextSnd) Action() {
 	ats.text.step()
 }
 
-func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {
+func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f map[int]*Fnt, scale float32) {
 	if ats.displaytime > 0 && ats.cnt > ats.displaytime {
 		return
 	}
@@ -1311,13 +1311,16 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float3
 	}
 
 	// Otherwise draw text
-	if ats.text.font[0] >= 0 && int(ats.text.font[0]) < len(f) && len(ats.text.text) > 0 {
+	if ats.text.font[0] >= 0 && getFont(f, ats.text.font[0]) != nil && len(ats.text.text) > 0 {
+		ff := getFont(f, ats.text.font[0])
 		for k, v := range strings.Split(ats.text.text, "\\n") {
-			ats.text.lay.DrawText(x, y+
-				float32(k)*(float32(f[ats.text.font[0]].Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale+
-					float32(f[ats.text.font[0]].Spacing[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale),
-				scale, layerno, v, f[ats.text.font[0]], ats.text.font[1], ats.text.font[2], ats.text.palfx,
-				ats.text.frgba)
+			if ff == nil {
+				break
+			}
+			lineH := float32(ff.Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale +
+				float32(ff.Spacing[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale
+			ats.text.lay.DrawText(x, y+float32(k)*lineH,
+				scale, layerno, v, ff, ats.text.font[1], ats.text.font[2], ats.text.palfx, ats.text.frgba)
 		}
 	}
 }
@@ -1329,7 +1332,7 @@ func (ats *AnimTextSnd) NoSound() bool {
 // Check if Draw() function is worth calling
 func (ats *AnimTextSnd) HasDrawable() bool {
 	hasAnim := ats.animLayout.anim != nil && len(ats.animLayout.anim.frames) > 0
-	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0
+	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0 && getFont(sys.lifebar.fnt, ats.text.font[0]) != nil
 
 	return hasAnim || hasText
 }

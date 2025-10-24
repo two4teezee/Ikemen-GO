@@ -5436,23 +5436,23 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 
 func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*modifyText)(sc), c.stateSec(is, func() error {
-		if err := c.paramValue(is, sc, "redirectid", 
+		if err := c.paramValue(is, sc, "redirectid",
 			modifytext_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "index", 
+		if err := c.paramValue(is, sc, "index",
 			modifytext_index, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "id", 
+		if err := c.paramValue(is, sc, "id",
 			text_id, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "removetime", 
+		if err := c.paramValue(is, sc, "removetime",
 			text_removetime, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "layerno", 
+		if err := c.paramValue(is, sc, "layerno",
 			text_layerno, VT_Int, 1, false); err != nil {
 			return err
 		}
@@ -5488,63 +5488,63 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 		if err := c.stateParam(is, "font", false, func(data string) error {
 			prefix := c.getDataPrefix(&data, false)
 			fflg := prefix == "f"
-			return c.scAdd(sc, text_font, data, VT_Int, 1, 
+			return c.scAdd(sc, text_font, data, VT_Int, 1,
 				sc.iToExp(Btoi(fflg))...)
 		}); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "localcoord", 
+		if err := c.paramValue(is, sc, "localcoord",
 			text_localcoord, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "bank", 
+		if err := c.paramValue(is, sc, "bank",
 			text_bank, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "align", 
+		if err := c.paramValue(is, sc, "align",
 			text_align, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "linespacing", 
+		if err := c.paramValue(is, sc, "linespacing",
 			text_linespacing, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "textdelay", 
+		if err := c.paramValue(is, sc, "textdelay",
 			text_textdelay, VT_Float, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "pos", 
+		if err := c.paramValue(is, sc, "pos",
 			text_pos, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "velocity", 
+		if err := c.paramValue(is, sc, "velocity",
 			text_velocity, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "friction", 
+		if err := c.paramValue(is, sc, "friction",
 			text_friction, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "accel", 
+		if err := c.paramValue(is, sc, "accel",
 			text_accel, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "scale", 
+		if err := c.paramValue(is, sc, "scale",
 			text_scale, VT_Float, 2, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "angle", 
+		if err := c.paramValue(is, sc, "angle",
 			text_angle, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.palFXSub(is, sc, "palfx."); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "color", 
+		if err := c.paramValue(is, sc, "color",
 			text_color, VT_Int, 3, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "xshear", 
+		if err := c.paramValue(is, sc, "xshear",
 			text_xshear, VT_Float, 1, false); err != nil {
 			return err
 		}

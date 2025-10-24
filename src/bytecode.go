@@ -12254,11 +12254,11 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 type modifyText text
 
 const (
-    modifytext_redirectid = iota + text_last + 1
-    modifytext_index
+	modifytext_redirectid = iota + text_last + 1
+	modifytext_index
 )
 
-	func (sc modifyText) Run(c *Char, _ []int32) bool {
+func (sc modifyText) Run(c *Char, _ []int32) bool {
 	crun := getRedirectedChar(c, StateControllerBase(sc), modifytext_redirectid, "ModifyText")
 	if crun == nil {
 		return false
@@ -12308,8 +12308,8 @@ const (
 				})
 			case text_layerno:
 				l := int16(exp[0].evalI(c))
-				eachText(func(ts *TextSprite) { 
-					ts.layerno = l 
+				eachText(func(ts *TextSprite) {
+					ts.layerno = l
 				})
 			case text_params:
 				ps := make([]interface{}, 0, len(exp))
@@ -12358,29 +12358,29 @@ const (
 					y = exp[1].evalF(c)
 				}
 				if x > 0 && y > 0 {
-					eachText(func(ts *TextSprite) { 
-						ts.SetLocalcoord(x, y) 
+					eachText(func(ts *TextSprite) {
+						ts.SetLocalcoord(x, y)
 					})
 				}
 			case text_bank:
 				b := exp[0].evalI(c)
-				eachText(func(ts *TextSprite) { 
-					ts.bank = b 
+				eachText(func(ts *TextSprite) {
+					ts.bank = b
 				})
 			case text_align:
 				a := exp[0].evalI(c)
-				eachText(func(ts *TextSprite) { 
-					ts.align = a 
+				eachText(func(ts *TextSprite) {
+					ts.align = a
 				})
 			case text_linespacing:
 				ls := exp[0].evalF(c)
-				eachText(func(ts *TextSprite) { 
-					ts.lineSpacing = ls 
+				eachText(func(ts *TextSprite) {
+					ts.lineSpacing = ls
 				})
 			case text_textdelay:
 				td := exp[0].evalF(c)
-				eachText(func(ts *TextSprite) { 
-					ts.textDelay = td 
+				eachText(func(ts *TextSprite) {
+					ts.textDelay = td
 				})
 			case text_pos:
 				x := exp[0].evalF(c)
@@ -12427,18 +12427,18 @@ const (
 				}
 			case text_angle:
 				a := exp[0].evalF(c)
-				eachText(func(ts *TextSprite) { 
-					ts.angle = a 
+				eachText(func(ts *TextSprite) {
+					ts.angle = a
 				})
 			case text_scale:
 				x := exp[0].evalF(c)
-				eachText(func(ts *TextSprite) { 
-					ts.xscl = x / ts.localScale 
+				eachText(func(ts *TextSprite) {
+					ts.xscl = x / ts.localScale
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
-					eachText(func(ts *TextSprite) { 
-						ts.yscl = y / ts.localScale 
+					eachText(func(ts *TextSprite) {
+						ts.yscl = y / ts.localScale
 					})
 				}
 			case text_color:
@@ -12449,13 +12449,13 @@ const (
 						b = exp[2].evalI(c)
 					}
 				}
-				eachText(func(ts *TextSprite) { 
-					ts.SetColor(r, g, b) 
+				eachText(func(ts *TextSprite) {
+					ts.SetColor(r, g, b)
 				})
 			case text_xshear:
 				xs := exp[0].evalF(c)
-				eachText(func(ts *TextSprite) { 
-					ts.xshear = xs 
+				eachText(func(ts *TextSprite) {
+					ts.xshear = xs
 				})
 			default:
 				eachText(func(ts *TextSprite) {
@@ -12466,7 +12466,7 @@ const (
 		return true
 	})
 	return false
-	}
+}
 
 type removeText StateControllerBase
 

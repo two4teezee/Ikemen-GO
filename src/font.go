@@ -642,14 +642,14 @@ type TextSprite struct {
 	x, y, xscl, yscl float32
 	xshear           float32
 	angle            float32
-	localScale       float32    // text sctrl
-	offsetX          int32      // text sctrl
+	localScale       float32 // text sctrl
+	offsetX          int32   // text sctrl
 	lineSpacing      float32
-	layerno          int16      // text sctrl
+	layerno          int16 // text sctrl
 	palfx            *PalFX
 	frgba            [4]float32 // ttf fonts
 	forcecolor       bool
-	removetime       int32      // text sctrl
+	removetime       int32 // text sctrl
 	elapsedTicks     float32
 	textDelay        float32
 	velocity         [2]float32

@@ -4996,13 +4996,30 @@ func (l *Lifebar) UpdateText() {
 	}
 }
 
-func (l *Lifebar) RemoveText(id, ownerid int32) {
-	for i := len(l.textsprite) - 1; i >= 0; i-- {
-		if (id == -1 && l.textsprite[i].ownerid == ownerid) ||
-			(id != -1 && l.textsprite[i].id == id && l.textsprite[i].ownerid == ownerid) {
-			l.textsprite = append(l.textsprite[:i], l.textsprite[i+1:]...)
+func (l *Lifebar) removeText(id, index, ownerid int32) {
+	n := int32(0)
+
+	// Mark matching texts invalid
+	for _, ts := range l.textsprite {
+		if (id == -1 && ts.ownerid == ownerid) || (id != -1 && ts.id == id && ts.ownerid == ownerid) {
+			if index < 0 || index == n {
+				ts.id = IErr
+				if index == n {
+					break
+				}
+			}
+			n++
 		}
 	}
+
+	// Compact the slice to remove invalid texts
+	tempSlice := l.textsprite[:0] // Reuse backing array
+	for _, ts := range l.textsprite {
+		if ts.id != IErr {
+			tempSlice = append(tempSlice, ts)
+		}
+	}
+	l.textsprite = tempSlice
 }
 
 // Resets lifebar as well as prepares team mode configuration for each player

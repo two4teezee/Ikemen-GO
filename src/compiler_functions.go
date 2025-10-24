@@ -5434,6 +5434,125 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 	return *ret, err
 }
 
+func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*modifyText)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid", 
+			modifytext_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "index", 
+			modifytext_index, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "id", 
+			text_id, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "removetime", 
+			text_removetime, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "layerno", 
+			text_layerno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "params", false, func(data string) error {
+			bes, err := c.exprs(data, VT_SFalse, 100000)
+			if err != nil {
+				return err
+			}
+			sc.add(text_params, bes)
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "text", false, func(data string) error {
+			_else := false
+			if len(data) >= 2 && data[0] == '"' {
+				if i := strings.Index(data[1:], "\""); i >= 0 {
+					data, _ = strconv.Unquote(data)
+				} else {
+					_else = true
+				}
+			} else {
+				_else = true
+			}
+			if _else {
+				return Error("Text not enclosed in \"")
+			}
+			sc.add(text_text, sc.iToExp(int32(sys.stringPool[c.playerNo].Add(data))))
+			return nil
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "font", false, func(data string) error {
+			prefix := c.getDataPrefix(&data, false)
+			fflg := prefix == "f"
+			return c.scAdd(sc, text_font, data, VT_Int, 1, 
+				sc.iToExp(Btoi(fflg))...)
+		}); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "localcoord", 
+			text_localcoord, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "bank", 
+			text_bank, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "align", 
+			text_align, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "linespacing", 
+			text_linespacing, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "textdelay", 
+			text_textdelay, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "pos", 
+			text_pos, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "velocity", 
+			text_velocity, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "friction", 
+			text_friction, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "accel", 
+			text_accel, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "scale", 
+			text_scale, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "angle", 
+			text_angle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.palFXSub(is, sc, "palfx."); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "color", 
+			text_color, VT_Int, 3, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "xshear", 
+			text_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) removeText(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*removeText)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
@@ -5444,6 +5563,11 @@ func (c *Compiler) removeText(is IniSection, sc *StateControllerBase, _ int8) (S
 		if err := c.stateParam(is, "id", false, func(data string) error {
 			b = true
 			return c.scAdd(sc, removetext_id, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "index", false, func(data string) error {
+			return c.scAdd(sc, removetext_index, data, VT_Int, 1)
 		}); err != nil {
 			return err
 		}

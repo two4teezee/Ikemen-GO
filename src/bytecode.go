@@ -12051,10 +12051,10 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	params := []interface{}{}
 	ts := NewTextSprite()
 	ts.ownerid = crun.id
 	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
+	ts.params = []interface{}{}
 	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
 
@@ -12067,16 +12067,17 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_params:
 			for _, e := range exp {
 				if bv := e.run(c); bv.vtype == VT_Float {
-					params = append(params, bv.ToF())
+					ts.params = append(ts.params, bv.ToF())
 				} else {
-					params = append(params, bv.ToI())
+					ts.params = append(ts.params, bv.ToI())
 				}
 			}
 		case text_text:
 			sn := int(exp[0].evalI(c))
 			spl := sys.stringPool[sys.workingState.playerNo].List
 			if sn >= 0 && sn < len(spl) {
-				ts.text = OldSprintf(spl[sn], params...)
+				ts.template = spl[sn] //stores the base string from stringPool
+				ts.text = OldSprintf(ts.template, ts.params...)
 			}
 		case text_font:
 			fnt = int(exp[1].evalI(c))
@@ -12170,7 +12171,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		ts.yscl *= sys.debugFont.yscl
 	}
 	if ts.text == "" {
-		ts.text = OldSprintf("%v", params...)
+		ts.text = OldSprintf("%v", ts.params...)
 	}
 	sys.lifebar.textsprite = append(sys.lifebar.textsprite, ts)
 	return false
@@ -12179,7 +12180,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
 	switch paramID {
 	case palFX_time:
-		ts.palfx.time = exp[0].evalI(c) * 2
+		ts.palfx.time = exp[0].evalI(c)
 	case palFX_color:
 		ts.palfx.color = exp[0].evalF(c) / 256
 	case palFX_hue:
@@ -12196,10 +12197,10 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 		var side int32 = 1
 		if len(exp) > 3 {
 			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[0] = -exp[3].evalI(c) * 2
+				ts.palfx.cycletime[0] = -exp[3].evalI(c)
 				side = -1
 			} else {
-				ts.palfx.cycletime[0] = exp[3].evalI(c) * 2
+				ts.palfx.cycletime[0] = exp[3].evalI(c)
 			}
 		}
 		ts.palfx.sinadd[0] = exp[0].evalI(c) * side
@@ -12209,10 +12210,10 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 		var side int32 = 1
 		if len(exp) > 3 {
 			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[1] = -exp[3].evalI(c) * 2
+				ts.palfx.cycletime[1] = -exp[3].evalI(c)
 				side = -1
 			} else {
-				ts.palfx.cycletime[1] = exp[3].evalI(c) * 2
+				ts.palfx.cycletime[1] = exp[3].evalI(c)
 			}
 		}
 		ts.palfx.sinmul[0] = exp[0].evalI(c) * side
@@ -12222,10 +12223,10 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 		var side int32 = 1
 		if len(exp) > 1 {
 			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[2] = -exp[1].evalI(c) * 2
+				ts.palfx.cycletime[2] = -exp[1].evalI(c)
 				side = -1
 			} else {
-				ts.palfx.cycletime[2] = exp[1].evalI(c) * 2
+				ts.palfx.cycletime[2] = exp[1].evalI(c)
 			}
 		}
 		ts.palfx.sincolor = exp[0].evalI(c) * side
@@ -12233,10 +12234,10 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 		var side int32 = 1
 		if len(exp) > 1 {
 			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[3] = -exp[1].evalI(c) * 2
+				ts.palfx.cycletime[3] = -exp[1].evalI(c)
 				side = -1
 			} else {
-				ts.palfx.cycletime[3] = exp[1].evalI(c) * 2
+				ts.palfx.cycletime[3] = exp[1].evalI(c)
 			}
 		}
 		ts.palfx.sinhue = exp[0].evalI(c) * side
@@ -12250,10 +12251,228 @@ func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bo
 	return false
 }
 
+type modifyText text
+
+const (
+    modifytext_redirectid = iota + text_last + 1
+    modifytext_index
+)
+
+	func (sc modifyText) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), modifytext_redirectid, "ModifyText")
+	if crun == nil {
+		return false
+	}
+
+	tid := int32(-1)
+	idx := int32(-1)
+	var texts []*TextSprite
+
+	eachText := func(f func(ts *TextSprite)) {
+		if idx < 0 {
+			for _, ts := range texts {
+				f(ts)
+			}
+		} else if idx >= 0 && idx < int32(len(texts)) {
+			f(texts[idx])
+		}
+	}
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case text_id:
+			tid = exp[0].evalI(c)
+		case modifytext_index:
+			idx = exp[0].evalI(c)
+		case modifytext_redirectid:
+			return true
+		default:
+			if len(texts) == 0 {
+				for _, ts := range sys.lifebar.textsprite {
+					if ts.ownerid != crun.id {
+						continue
+					}
+					if tid == -1 || ts.id == tid {
+						texts = append(texts, ts)
+					}
+				}
+				if len(texts) == 0 {
+					return false
+				}
+			}
+			switch paramID {
+			case text_removetime:
+				rt := exp[0].evalI(c)
+				eachText(func(ts *TextSprite) {
+					ts.removetime = rt
+				})
+			case text_layerno:
+				l := int16(exp[0].evalI(c))
+				eachText(func(ts *TextSprite) { 
+					ts.layerno = l 
+				})
+			case text_params:
+				ps := make([]interface{}, 0, len(exp))
+				for _, e := range exp {
+					bv := e.run(c)
+					if bv.vtype == VT_Float {
+						ps = append(ps, bv.ToF())
+					} else {
+						ps = append(ps, bv.ToI())
+					}
+				}
+				eachText(func(ts *TextSprite) {
+					ts.params = ps
+					if ts.template != "" {
+						ts.text = OldSprintf(ts.template, ts.params...)
+					}
+				})
+			case text_text:
+				sn := int(exp[0].evalI(c))
+				spl := sys.stringPool[sys.workingState.playerNo].List
+				if sn >= 0 && sn < len(spl) {
+					eachText(func(ts *TextSprite) {
+						ts.template = spl[sn]
+						ts.text = OldSprintf(ts.template, ts.params...)
+					})
+				}
+			case text_font:
+				fnt := int(exp[1].evalI(c))
+				fflg := exp[0].evalB(c)
+				fntList := crun.gi().fnt
+				if fflg {
+					fntList = sys.lifebar.fnt
+				}
+				if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
+					eachText(func(ts *TextSprite) {
+						ts.fnt = fntList[fnt]
+						if fflg {
+							ts.SetLocalcoord(float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1]))
+						}
+					})
+				}
+			case text_localcoord:
+				var x, y float32
+				x = exp[0].evalF(c)
+				if len(exp) > 1 {
+					y = exp[1].evalF(c)
+				}
+				if x > 0 && y > 0 {
+					eachText(func(ts *TextSprite) { 
+						ts.SetLocalcoord(x, y) 
+					})
+				}
+			case text_bank:
+				b := exp[0].evalI(c)
+				eachText(func(ts *TextSprite) { 
+					ts.bank = b 
+				})
+			case text_align:
+				a := exp[0].evalI(c)
+				eachText(func(ts *TextSprite) { 
+					ts.align = a 
+				})
+			case text_linespacing:
+				ls := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) { 
+					ts.lineSpacing = ls 
+				})
+			case text_textdelay:
+				td := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) { 
+					ts.textDelay = td 
+				})
+			case text_pos:
+				x := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.x = x/ts.localScale + float32(ts.offsetX)
+				})
+				if len(exp) > 1 {
+					y := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.y = y / ts.localScale
+					})
+				}
+			case text_velocity:
+				velx := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.velocity[0] = velx / ts.localScale
+				})
+				if len(exp) > 1 {
+					vely := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.velocity[1] = vely / ts.localScale
+					})
+				}
+			case text_friction:
+				var v1, v2 float32
+				v1 = exp[0].evalF(c)
+				if len(exp) > 1 {
+					v2 = exp[1].evalF(c)
+				}
+				eachText(func(ts *TextSprite) {
+					ts.friction[0] = v1
+					ts.friction[1] = v2
+				})
+			case text_accel:
+				ax := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.accel[0] = ax / ts.localScale
+				})
+				if len(exp) > 1 {
+					ay := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.accel[1] = ay / ts.localScale
+					})
+				}
+			case text_angle:
+				a := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) { 
+					ts.angle = a 
+				})
+			case text_scale:
+				x := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) { 
+					ts.xscl = x / ts.localScale 
+				})
+				if len(exp) > 1 {
+					y := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) { 
+						ts.yscl = y / ts.localScale 
+					})
+				}
+			case text_color:
+				var r, g, b int32 = exp[0].evalI(c), 255, 255
+				if len(exp) > 1 {
+					g = exp[1].evalI(c)
+					if len(exp) > 2 {
+						b = exp[2].evalI(c)
+					}
+				}
+				eachText(func(ts *TextSprite) { 
+					ts.SetColor(r, g, b) 
+				})
+			case text_xshear:
+				xs := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) { 
+					ts.xshear = xs 
+				})
+			default:
+				eachText(func(ts *TextSprite) {
+					applyTextPalFX(ts, paramID, exp, c)
+				})
+			}
+		}
+		return true
+	})
+	return false
+	}
+
 type removeText StateControllerBase
 
 const (
 	removetext_id byte = iota
+	removetext_index
 	removetext_redirectid
 )
 
@@ -12263,15 +12482,18 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	textID := int32(-1)
+	tid := int32(-1)
+	idx := int32(-1)
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case removetext_id:
-			textID = exp[0].evalI(c)
+			tid = exp[0].evalI(c)
+		case removetext_index:
+			idx = exp[0].evalI(c)
 		}
 		return true
 	})
-	sys.lifebar.RemoveText(textID, crun.id)
+	sys.lifebar.removeText(tid, idx, crun.id)
 	return false
 }
 

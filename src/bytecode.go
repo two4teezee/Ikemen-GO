@@ -13445,16 +13445,15 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 			// Start modifying
 			switch paramID {
 			case modifyStageBG_actionno:
-				val := exp[0].evalI(c)
-				a := sys.stage.at.get(val) // Check if stage has that animation
-				if a != nil {
-					eachBg(func(bg *backGround) {
-						if bg._type == BG_Anim {
-							bg.changeAnim(val, a)
-							bg.anim.Action() // This step is necessary because stages update before characters
-						}
-					})
-				}
+				animNo := exp[0].evalI(c)
+				// Getting an animation first and then applying it to multiple objects can cause shared pointer issues
+				// a := sys.stage.animTable.get(val)
+				eachBg(func(bg *backGround) {
+					if bg._type == BG_Anim {
+						bg.changeAnim(animNo, sys.stage.animTable)
+						bg.anim.Action() // This step is necessary because stages update before characters
+					}
+				})
 			case modifyStageBG_angle:
 				val := exp[0].evalF(c)
 				eachBg(func(bg *backGround) {

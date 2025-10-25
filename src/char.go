@@ -2535,7 +2535,7 @@ type CharGlobalInfo struct {
 	sff                     *Sff
 	palettedata             *Palette
 	snd                     *Snd
-	anim                    AnimationTable
+	animTable               AnimationTable
 	palInfo                 map[int]PalInfo
 	palno                   int32
 	ikemenver               [3]uint16
@@ -3051,7 +3051,7 @@ func (c *Char) load(def string) error {
 	gi := &sys.cgi[c.playerNo]
 	gi.def, gi.displayname, gi.lifebarname, gi.author = def, "", "", ""
 	gi.sff, gi.palettedata, gi.snd, gi.quotes = nil, nil, nil, [MaxQuotes]string{}
-	gi.anim = NewAnimationTable()
+	gi.animTable = NewAnimationTable()
 	gi.fnt = [10]*Fnt{}
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
 		pal := gi.palInfo[i]
@@ -3686,7 +3686,7 @@ func (c *Char) load(def string) error {
 		}
 	}
 	lines, i = SplitAndTrim(str, "\n"), 0
-	gi.anim = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
+	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
 		if LoadFile(&sound_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
@@ -5507,7 +5507,7 @@ func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
 	if anim.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.gi().anim.get(anim.ToI()) != nil)
+	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
@@ -6321,7 +6321,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			a = sys.ffx[current_ffx].fat.get(n)
 		}
 	} else {
-		a = c.gi().anim.get(n)
+		a = c.gi().animTable.get(n)
 	}
 
 	// Log invalid animations

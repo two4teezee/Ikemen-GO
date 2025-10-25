@@ -493,25 +493,34 @@ func (bg *backGround) reset() {
 	}
 }
 
-// Changes BG animation without changing the surrounding parameters
-func (bg *backGround) changeAnim(val int32, a *Animation) {
-	// Save old
-	masktemp := bg.anim.mask
-	transTypetemp := bg.anim.transType
-	srcAlphatemp := bg.anim.srcAlpha
-	dstAlphatemp := bg.anim.dstAlpha
-	tiletmp := bg.anim.tile
+// Changes the BG's animation without changing its unique parameters
+func (bg *backGround) changeAnim(animNo int32, table AnimationTable) {
+	// Get the new animation
+	// Putting this step here prevents multiple BG elements from sharing the same animation pointer
+	// It's also closer to how characters, explods and such change animations
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2830
+	src := table.get(animNo)
+	if src == nil {
+		return
+	}
 
-	// Change anim
-	bg.actionno = val
-	bg.anim = a
+	// Save the previous anim's parameters that should persist
+	maskTemp := bg.anim.mask
+	transTypeTemp := bg.anim.transType
+	srcAlphaTemp := bg.anim.srcAlpha
+	dstAlphaTemp := bg.anim.dstAlpha
+	tileTemp := bg.anim.tile
 
-	// Restore
-	bg.anim.tile = tiletmp
-	bg.anim.transType = transTypetemp
-	bg.anim.srcAlpha = srcAlphatemp
-	bg.anim.dstAlpha = dstAlphatemp
-	bg.anim.mask = masktemp
+	// Assign new animation and action number
+	bg.anim = src
+	bg.actionno = animNo
+
+	// Restore persistent parameters
+	bg.anim.mask = maskTemp
+	bg.anim.transType = transTypeTemp
+	bg.anim.srcAlpha = srcAlphaTemp
+	bg.anim.dstAlpha = dstAlphaTemp
+	bg.anim.tile = tileTemp
 }
 
 func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
@@ -880,7 +889,7 @@ type Stage struct {
 	authorLow        string
 	attachedchardef  []string
 	sff              *Sff
-	at               AnimationTable
+	animTable        AnimationTable
 	bg               []*backGround
 	bgc              []bgCtrl
 	bga              bgAction
@@ -962,7 +971,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	s.sff = &Sff{}
 	lines, i := SplitAndTrim(str, "\n"), 0
-	s.at = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
+	s.animTable = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
 	i = 0
 	defmap := make(map[string][]IniSection)
 	for i < len(lines) {
@@ -1469,7 +1478,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if len(s.bg) > 0 && !s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		bg, err := readBackGround(bgsec, bglink, s.sff, s.at, s.stageprops, def)
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def)
 		if err != nil {
 			return nil, err
 		}
@@ -1630,13 +1639,12 @@ func (s *Stage) bgCtrlAction() {
 func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 	switch bgc._type {
 	case BT_Anim:
-		if a := s.at.get(bgc.v[0]); a != nil {
-			for i := range bgc.bg {
-				bgc.bg[i].changeAnim(bgc.v[0], a)
-			}
+		animNo := bgc.v[0]
+		for i := range bgc.bg {
+			bgc.bg[i].changeAnim(animNo, s.animTable)
 		}
 		for i := range bgc.anim {
-			bgc.anim[i].toggle(bgc.v[0] != 0)
+			bgc.anim[i].toggle(animNo != 0)
 		}
 	case BT_Visible:
 		for i := range bgc.bg {

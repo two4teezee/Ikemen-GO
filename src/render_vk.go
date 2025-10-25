@@ -4968,12 +4968,11 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 	r.spriteProgram.uniformOffsetMap = make(map[interface{}]uint32)
 	r.spriteProgram.uniformBufferOffset = 0
 	r.currentSpriteTexture.spriteTexture = r.dummyTexture
-	r.currentSpriteTexture.palTexture = r.palTexture.textures[0]
+	r.currentSpriteTexture.palTexture = r.dummyTexture
 	r.VKState.spriteTexture = r.dummyTexture
 	r.VKState.palTexture = r.dummyTexture
 	r.modelProgram.uniformOffsetMap = make(map[interface{}]uint32)
 	r.modelProgram.uniformBufferOffset = 0
-	//r.spriteProgram.descriptorSetCache.ClearAccessFlag()
 }
 
 func (r *Renderer_VK) BlendReset() {
@@ -6176,7 +6175,7 @@ func (r *Renderer_VK) RenderQuad() {
 	}
 	// MacOS MoltenVK workaround: push constants need to be set every draw call
 	if switchedProgram || r.VKState.palTexture != r.currentSpriteTexture.palTexture || runtime.GOOS == "darwin" {
-		if switchedProgram || r.VKState.palTexture.offset[0] != r.currentSpriteTexture.palTexture.offset[0] || r.VKState.palTexture.offset[1] != r.currentSpriteTexture.palTexture.offset[1] || runtime.GOOS == "darwin" {
+		if switchedProgram || r.VKState.palTexture.img != r.currentSpriteTexture.palTexture.img || r.VKState.palTexture.offset[0] != r.currentSpriteTexture.palTexture.offset[0] || r.VKState.palTexture.offset[1] != r.currentSpriteTexture.palTexture.offset[1] || runtime.GOOS == "darwin" {
 			uvst := r.VKState.palTexture.uvst
 			vk.CmdPushConstants(r.commandBuffers[0], r.spriteProgram.pipelineLayout, vk.ShaderStageFlags(vk.ShaderStageFragmentBit), 0, 16, unsafe.Pointer(&uvst))
 		}

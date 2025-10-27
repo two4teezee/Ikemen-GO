@@ -1741,7 +1741,9 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 											break
 										}
 										var alpha byte = 255
-										if c == 0 { alpha = 0 }
+										if c == 0 {
+											alpha = 0
+										}
 										pal[c] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 									}
 									if ok {

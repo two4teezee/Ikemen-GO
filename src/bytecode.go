@@ -960,6 +960,8 @@ const (
 	OC_ex2_zoomvar_lag
 	OC_ex2_zoomvar_time
 	OC_ex2_projclsnoverlap
+	OC_ex2_attackmul
+	OC_ex2_defencemul
 )
 
 type StringPool struct {
@@ -2875,8 +2877,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_spriteplayerno:
 		sys.bcStack.PushI(int32(c.spritePN) + 1)
 	case OC_ex_attack:
-		base := float32(c.gi().attackBase) * c.ocd().attackRatio / 100
-		sys.bcStack.PushF(base * c.attackMul[0] * 100)
+		sys.bcStack.PushF(float32(c.gi().attackBase) * c.ocd().attackRatio)
 	case OC_ex_clsnoverlap:
 		c2 := sys.bcStack.Pop().ToI()
 		id := sys.bcStack.Pop().ToI()
@@ -2889,7 +2890,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_decisiveround:
 		sys.bcStack.PushB(sys.decisiveRound[^c.playerNo&1])
 	case OC_ex_defence:
-		sys.bcStack.PushF(float32(c.finalDefense * 100))
+		sys.bcStack.PushF(float32(c.gi().defenceBase))
 	case OC_ex_dizzy:
 		sys.bcStack.PushB(c.scf(SCF_dizzy))
 	case OC_ex_dizzypoints:
@@ -3806,6 +3807,10 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		targetID := sys.bcStack.Pop().ToI()
 		index := sys.bcStack.Pop().ToI()
 		sys.bcStack.PushB(c.projClsnOverlapTrigger(index, targetID, boxType))
+	case OC_ex2_attackmul:
+		sys.bcStack.PushF(c.attackMul[0])
+	case OC_ex2_defencemul:
+		sys.bcStack.PushF(float32(c.finalDefense / float64(c.gi().defenceBase) * 100))
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3920,6 +3925,15 @@ func newStateBlock() *StateBlock {
 }
 
 func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
+	c.currentSctrlIndex = b.persistentIndex
+	// For Mugen compatibility, if in hitpause and this SCTRL has the same index
+	// as the SCTRL that triggered a ChangeState during the hitpause
+	if c.hitPause() && c.hitStateChangeIdx >= 0 && b.persistentIndex == c.hitStateChangeIdx &&
+		c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		// skip the execution of this SCTRL
+		return false
+	}
+
 	// Check if the character is currently in a hit pause
 	if c.hitPause() {
 		// If ignorehitpause is less than -1, do not proceed with this controller
@@ -4523,6 +4537,7 @@ func (sc selfState) Run(c *Char, _ []int32) bool {
 	stop := (crun.id == c.id)
 	var v, a, r, ctrl int32 = -1, -1, -1, -1
 	ffx := ""
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case changeState_value:
@@ -6642,8 +6657,8 @@ const (
 	hitDef_sparkscale
 	hitDef_guard_sparkscale
 	hitDef_unhittabletime
-	hitDef_p2stand_friction
-	hitDef_p2crouch_friction
+	hitDef_stand_friction
+	hitDef_crouch_friction
 	hitDef_keepstate
 	hitDef_missonreversaldef
 	hitDef_last = iota + afterImage_last + 1 - 1
@@ -7017,10 +7032,10 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		if len(exp) > 1 {
 			hd.unhittabletime[1] = exp[1].evalI(c)
 		}
-	case hitDef_p2stand_friction:
-		hd.P2StandFriction = exp[0].evalF(c)
-	case hitDef_p2crouch_friction:
-		hd.P2CrouchFriction = exp[0].evalF(c)
+	case hitDef_stand_friction:
+		hd.StandFriction = exp[0].evalF(c)
+	case hitDef_crouch_friction:
+		hd.CrouchFriction = exp[0].evalF(c)
 	case hitDef_keepstate:
 		hd.KeepState = exp[0].evalB(c)
 	case hitDef_missonreversaldef:

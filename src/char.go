@@ -652,8 +652,8 @@ type HitDef struct {
 	p2clsnrequire              int32
 	attack_depth               [2]float32
 	unhittabletime             [2]int32
-	P2StandFriction            float32
-	P2CrouchFriction           float32
+	StandFriction              float32
+	CrouchFriction             float32
 	KeepState                  bool
 	MissOnReversalDef          int32
 }
@@ -770,8 +770,8 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		fall_envshake_dir:   0.0,
 		attack_depth:        [2]float32{c.size.attack.depth[0], c.size.attack.depth[1]},
 		unhittabletime:      [2]int32{IErr, IErr},
-		P2StandFriction:     float32(math.NaN()),
-		P2CrouchFriction:    float32(math.NaN()),
+		StandFriction:       float32(math.NaN()),
+		CrouchFriction:      float32(math.NaN()),
 		KeepState:           false,
 		MissOnReversalDef:   0,
 
@@ -879,8 +879,8 @@ type GetHitVar struct {
 	down_recovertime    int32
 	guardflag           int32
 	keepstate           bool
-	p2standfriction     float32
-	p2crouchfriction    float32
+	standfriction       float32
+	crouchfriction      float32
 }
 
 func (ghv *GetHitVar) clear(c *Char) {
@@ -893,20 +893,20 @@ func (ghv *GetHitVar) clear(c *Char) {
 	}
 
 	*ghv = GetHitVar{
-		hittime:          -1,
-		yaccel:           0.35 / originLs,
-		xoff:             ghv.xoff,
-		yoff:             ghv.yoff,
-		zoff:             ghv.zoff,
-		hitid:            -1,
-		playerNo:         -1,
-		fall_animtype:    RA_Unknown,
-		fall_xvelocity:   float32(math.NaN()),
-		fall_yvelocity:   -4.5 / originLs,
-		fall_zvelocity:   float32(math.NaN()),
-		keepstate:        false,
-		p2standfriction:  float32(math.NaN()),
-		p2crouchfriction: float32(math.NaN()),
+		hittime:        -1,
+		yaccel:         0.35 / originLs,
+		xoff:           ghv.xoff,
+		yoff:           ghv.yoff,
+		zoff:           ghv.zoff,
+		hitid:          -1,
+		playerNo:       -1,
+		fall_animtype:  RA_Unknown,
+		fall_xvelocity: float32(math.NaN()),
+		fall_yvelocity: -4.5 / originLs,
+		fall_zvelocity: float32(math.NaN()),
+		keepstate:      false,
+		standfriction:  float32(math.NaN()),
+		crouchfriction: float32(math.NaN()),
 	}
 }
 
@@ -2817,6 +2817,8 @@ type Char struct {
 	pushPriority      int32
 	prevfallflag      bool
 	makeDustSpacing   int
+	hitStateChangeIdx int32
+	currentSctrlIndex int32
 	//dustOldPos        [3]float32
 }
 
@@ -2907,6 +2909,7 @@ func (c *Char) clearState() {
 	c.hitdefContact = false
 	c.fallTime = 0
 	c.makeDustSpacing = 0
+	c.hitStateChangeIdx = -1
 }
 
 func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
@@ -5761,6 +5764,14 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 		sys.errLog.Printf("Maximum ChangeState loops: %v, %v, %v -> %v -> %v\n", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
 		return false
 	}
+	var ctrlsps_backup []int32
+	if c.hitPause() {
+		// If in hitpause, back up the current state's persistent.
+		ctrlsps_backup = make([]int32, len(c.ss.sb.ctrlsps))
+		copy(ctrlsps_backup, c.ss.sb.ctrlsps)
+	} else {
+		ctrlsps_backup = nil
+	}
 
 	c.ss.prevno = c.ss.no
 	c.ss.no = Max(0, no)
@@ -5840,6 +5851,20 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 	// Ikemenver chars aren't affected by this.
 	if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
 		c.ss.sb.ctrlsps = make([]int32, len(c.ss.sb.ctrlsps))
+	} else {
+		// Reset persistent counters for this state (MUGEN chars)
+		if c.hitPause() && ctrlsps_backup != nil {
+			// If changing state during hitpause, restore (carry over) persistent from the before state
+			c.ss.sb.ctrlsps = make([]int32, len(c.ss.sb.ctrlsps))
+			copy(c.ss.sb.ctrlsps, ctrlsps_backup)
+
+			// Get the index of the currently executing SCTRL block
+			c.hitStateChangeIdx = c.currentSctrlIndex
+		} else {
+			// If not in hitpause, reset persistent
+			c.ss.sb.ctrlsps = make([]int32, len(c.ss.sb.ctrlsps))
+			c.hitStateChangeIdx = -1
+		}
 	}
 	c.stchtmp = true
 	return true
@@ -5848,10 +5873,6 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 func (c *Char) stateChange2() bool {
 	if c.stchtmp && !c.hitPause() {
 		c.ss.sb.init(c)
-		// Reset persistent counters for this state (MUGEN chars)
-		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			c.ss.sb.ctrlsps = make([]int32, len(c.ss.sb.ctrlsps))
-		}
 		// Flag RemoveOnChangeState explods for removal
 		for i := range sys.explods[c.playerNo] {
 			if sys.explods[c.playerNo][i].playerId == c.id && sys.explods[c.playerNo][i].removeonchangestate {
@@ -8643,8 +8664,8 @@ func (c *Char) posUpdate() {
 	switch c.ss.physics {
 	case ST_S:
 		standFriction := c.gi().movement.stand.friction
-		if !math.IsNaN(float64(c.ghv.p2standfriction)) {
-			standFriction = c.ghv.p2standfriction
+		if !math.IsNaN(float64(c.ghv.standfriction)) {
+			standFriction = c.ghv.standfriction
 		}
 		c.vel[0] *= standFriction
 		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
@@ -8656,8 +8677,8 @@ func (c *Char) posUpdate() {
 		}
 	case ST_C:
 		crouchFriction := c.gi().movement.crouch.friction
-		if !math.IsNaN(float64(c.ghv.p2crouchfriction)) {
-			crouchFriction = c.ghv.p2crouchfriction
+		if !math.IsNaN(float64(c.ghv.crouchfriction)) {
+			crouchFriction = c.ghv.crouchfriction
 		}
 		c.vel[0] *= crouchFriction
 		c.vel[2] *= crouchFriction
@@ -10067,8 +10088,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		getter.ghv.frame = true
 
 		// P2 Friction
-		getter.ghv.p2standfriction = hd.P2StandFriction
-		getter.ghv.p2crouchfriction = hd.P2CrouchFriction
+		getter.ghv.standfriction = hd.StandFriction
+		getter.ghv.crouchfriction = hd.CrouchFriction
 
 		// In Mugen, having any HitOverride active allows GetHitVar Damage to exceed the remaining life
 		bnd := true
@@ -11256,6 +11277,16 @@ func (c *Char) tick() {
 			c.hitPauseTime--
 			if c.hitPauseTime == 0 {
 				c.ss.clearHitPauseExecutionToggleFlags()
+				//Having a hitStateChangeIdx means that ChangeState was performed during the hitpause
+				if c.hitStateChangeIdx != -1 {
+					// For Mugen compatibility, the persistent is reset when the hitpause ends during ChangeState
+					if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+						for i := range c.ss.sb.ctrlsps {
+							c.ss.sb.ctrlsps[i] = 0
+						}
+					}
+					c.hitStateChangeIdx = -1
+				}
 			}
 		}
 		// Fast recovery from lie down

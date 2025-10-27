@@ -2201,12 +2201,12 @@ func (c *Compiler) hitDefSub(is IniSection, sc *StateControllerBase) error {
 		hitDef_unhittabletime, VT_Int, 2, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "p2stand.friction",
-		hitDef_p2stand_friction, VT_Float, 1, false); err != nil {
+	if err := c.paramValue(is, sc, "stand.friction",
+		hitDef_stand_friction, VT_Float, 1, false); err != nil {
 		return err
 	}
-	if err := c.paramValue(is, sc, "p2crouch.friction",
-		hitDef_p2crouch_friction, VT_Float, 1, false); err != nil {
+	if err := c.paramValue(is, sc, "crouch.friction",
+		hitDef_crouch_friction, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "missonreversaldef",

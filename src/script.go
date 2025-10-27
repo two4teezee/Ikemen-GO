@@ -3386,7 +3386,8 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "attack", func(*lua.LState) int {
-		l.Push(lua.LNumber(float32(sys.debugWC.gi().attackBase) * sys.debugWC.ocd().attackRatio))
+		base := float32(sys.debugWC.gi().attackBase) * sys.debugWC.ocd().attackRatio / 100
+		l.Push(lua.LNumber(base * sys.debugWC.attackMul[0] * 100))
 		return 1
 	})
 	luaRegister(l, "attackmul", func(*lua.LState) int {
@@ -3839,7 +3840,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "defence", func(*lua.LState) int {
-		l.Push(lua.LNumber(float32(sys.debugWC.gi().defenceBase)))
+		l.Push(lua.LNumber(sys.debugWC.finalDefense * 100))
 		return 1
 	})
 	luaRegister(l, "defencemul", func(*lua.LState) int {

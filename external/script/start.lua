@@ -2987,12 +2987,10 @@ end
 
 local function resolvePalConflict(side, charRef, pal)
     local charData = start.f_getCharData(charRef)
-	local total = #charData.pal
-    if not charData or not charData.pal or total == 1 then
+    if not charData or not charData.pal then
         return pal
     end
     local usedPals = {}
-
     for s = 1, 2 do
         for _, sel in ipairs(start.p[s].t_selected) do
             if sel.ref == charRef and sel.pal then
@@ -3000,23 +2998,24 @@ local function resolvePalConflict(side, charRef, pal)
             end
         end
     end
-    local free = {}
-    for i = 1, total do
+    -- if the chosen palette is not used, keep it
+    if not usedPals[pal] then
+        return ValidatePal(pal, charRef)
+    end
+    -- if it's in use, try to find the next free one
+    local maxPal = gameOption('Config.PaletteMax')
+    for i = pal + 1, maxPal do
         if not usedPals[i] then
-            table.insert(free, i)
+            return ValidatePal(i, charRef)
+        end
+    end
+    for i = 1, pal - 1 do
+        if not usedPals[i] then
+            return ValidatePal(i, charRef)
         end
     end
 
-    if #free == 0 then
-        return pal
-    end
-
-    for _, v in ipairs(free) do
-        if v == pal then
-            return pal
-        end
-    end
-    return free[1]
+    return ValidatePal(pal, charRef)
 end
 
 local function applyPalette(sel, charData, palIndex)
@@ -3272,7 +3271,6 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 
 					-- resolve visual palette conflict
-					finalPal = ValidatePal(finalPal, charRef)
 					finalPal = resolvePalConflict(side, charRef, finalPal)
 
 					if motif.select_info.paletteselect > 0 then

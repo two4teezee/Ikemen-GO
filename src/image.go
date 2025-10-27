@@ -1577,10 +1577,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 					break
 				}
 				if i != 0 {
-					pal[i] = uint32(255)<<24 |
-						uint32(rgb[2])<<16 |
-						uint32(rgb[1])<<8 |
-						uint32(rgb[0])
+					pal[i] = uint32(255)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 				}
 			}
 			chk(U.Close())
@@ -1632,9 +1629,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	paletteState := 0
 	currentPalette := 0
 	var paletteLocation int64
-	paletteLocation = 0
 	var initialPalLocation int64
-	initialPalLocation = 0
 	coloredPalette := -1
 	if sff.header.Ver0 != 1 {
 		for i := 0; i < int(h.NumberOfPalettes); i++ {
@@ -1669,13 +1664,13 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 					paletteLocation = initialPalLocation
 				} else if ps == 0 && paletteState == 2 {
 					paletteState = 3
-					currentPalette = currentPalette + 1
+					currentPalette++
 					paletteLocation = int64(xofs - 768)
 				} else if ps == 0 {
 					if currentPalette == 0 {
 						paletteState = 1
 					}
-					currentPalette = currentPalette + 1
+					currentPalette++
 					paletteLocation = int64(xofs - 768)
 				}
 			} else {
@@ -1725,26 +1720,41 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 					// palette
 					plXofs = xofs
 					if h.Ver0 == 1 {
-						//Grab whichever palette is currently being used.
-						f.Seek(paletteLocation, 0)
-						spriteList[i].Pal = make([]uint32, 256)
-						var rgb [3]byte
-						for c := range spriteList[i].Pal {
-							if err := read(rgb[:]); err != nil {
-								return nil, nil, err
-							}
-							var alpha byte = 255
-							if c == 0 {
-								alpha = 0
-							}
-							spriteList[i].Pal[c] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
-						}
-						if paletteState%2 == 0 {
+						// Try palette from list
+						spriteList[i].Pal = pl.Get(spriteList[i].palidx)
+						if spriteList[i].palidx >= sys.cfg.Config.PaletteMax || spriteList[i].palidx < 0 {
 							spriteList[i].palidx = 0
+						}
+						if spriteList[i].Pal == nil {
+							spriteList[i].palidx = 0
+						}
+						// Base or shared sprites, force palette read from file (keeps shared ones in sync)
+						if spriteList[i].Group == 0 && spriteList[i].Number == 0 || paletteState%2 == 0 {
+							if paletteLocation > 0 {
+								if _, err := f.Seek(paletteLocation, 0); err == nil {
+									pal := make([]uint32, 256)
+									var rgb [3]byte
+									ok := true
+									for c := range pal {
+										if err := read(rgb[:]); err != nil {
+											ok = false
+											break
+										}
+										var alpha byte = 255
+										if c == 0 { alpha = 0 }
+										pal[c] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+									}
+									if ok {
+										spriteList[i].Pal = pal
+										spriteList[i].palidx = 0 // shared
+									}
+								}
+							}
+							f.Seek(int64(xofs), 0) // reset pointer to sprite data
 						} else {
+							// Unique palette, keep as is
 							spriteList[i].palidx = 1
 						}
-						f.Seek(int64(xofs), 0)
 					} else if spriteList[i].coldepth <= 8 {
 						plSize = 0
 						plIndexOfPrevious = uint16(spriteList[i].palidx)

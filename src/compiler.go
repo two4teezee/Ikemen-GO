@@ -366,6 +366,7 @@ var triggerMap = map[string]int{
 	"spriteplayerno":     1,
 	"atan2":              1,
 	"attack":             1,
+	"attackmul":          1,
 	"bgmvar":             1,
 	"clamp":              1,
 	"clsnoverlap":        1,
@@ -375,6 +376,7 @@ var triggerMap = map[string]int{
 	"const1080p":         1,
 	"decisiveround":      1,
 	"defence":            1,
+	"defencemul":         1,
 	"deg":                1,
 	"displayname":        1,
 	"dizzy":              1,
@@ -4272,6 +4274,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_spriteplayerno)
 	case "attack":
 		out.append(OC_ex_, OC_ex_attack)
+	case "attackmul":
+		out.append(OC_ex2_, OC_ex2_attackmul)
 	case "combocount":
 		out.append(OC_ex_, OC_ex_combocount)
 	case "consecutivewins":
@@ -4305,6 +4309,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_decisiveround)
 	case "defence":
 		out.append(OC_ex_, OC_ex_defence)
+	case "defencemul":
+		out.append(OC_ex2_, OC_ex2_defencemul)
 	case "dizzy":
 		out.append(OC_ex_, OC_ex_dizzy)
 	case "dizzypoints":
@@ -6291,7 +6297,7 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 		if err := c.stateDef(is, sbc); err != nil {
 			return errmes(err)
 		}
-
+		sctrl_index_counter := 0
 		// Continue looping through state file lines to define the current state
 		for c.i++; c.i < len(c.lines); c.i++ {
 			// Get the current line, without comments
@@ -6334,8 +6340,8 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 							if c.block.persistent <= 0 {
 								c.block.persistent = math.MaxInt32
 							}
-							c.block.persistentIndex = int32(len(sbc.ctrlsps))
-							sbc.ctrlsps = append(sbc.ctrlsps, 0)
+							//c.block.persistentIndex = int32(len(sbc.ctrlsps))
+							//sbc.ctrlsps = append(sbc.ctrlsps, 0)
 						}
 					}
 				case "ignorehitpause":
@@ -6409,7 +6415,16 @@ func (c *Compiler) stateCompile(states map[int32]StateBytecode,
 			if err != nil {
 				return errmes(err)
 			}
+			c.block.persistentIndex = int32(sctrl_index_counter)
+			sctrl_index_counter++
 
+			// Check if the counter array needs to be extended
+			if int(c.block.persistentIndex) >= len(sbc.ctrlsps) {
+				newSize := int(c.block.persistentIndex) + 1
+				oldCtrlsps := sbc.ctrlsps
+				sbc.ctrlsps = make([]int32, newSize)
+				copy(sbc.ctrlsps, oldCtrlsps)
+			}
 			// Check that the sctrl has a valid type parameter
 			if scf == nil {
 				return errmes(Error("State controller type not specified"))

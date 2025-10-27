@@ -3390,6 +3390,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(base * sys.debugWC.attackMul[0] * 100))
 		return 1
 	})
+	luaRegister(l, "attackmul", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.attackMul[0]))
+		return 1
+	})
 	luaRegister(l, "authorname", func(*lua.LState) int {
 		l.Push(lua.LString(sys.debugWC.gi().author))
 		return 1
@@ -3837,6 +3841,10 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "defence", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.finalDefense * 100))
+		return 1
+	})
+	luaRegister(l, "defencemul", func(*lua.LState) int {
+		l.Push(lua.LNumber(float32(sys.debugWC.finalDefense / float64(sys.debugWC.gi().defenceBase) * 100)))
 		return 1
 	})
 	luaRegister(l, "drawgame", func(*lua.LState) int {

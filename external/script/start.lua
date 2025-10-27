@@ -2986,36 +2986,36 @@ function start.f_randomPal(charRef, validPals)
 end
 
 local function resolvePalConflict(side, charRef, pal)
-    local charData = start.f_getCharData(charRef)
-    if not charData or not charData.pal then
-        return pal
-    end
-    local usedPals = {}
-    for s = 1, 2 do
-        for _, sel in ipairs(start.p[s].t_selected) do
-            if sel.ref == charRef and sel.pal then
-                usedPals[sel.pal] = true
-            end
-        end
-    end
-    -- if the chosen palette is not used, keep it
-    if not usedPals[pal] then
-        return ValidatePal(pal, charRef)
-    end
-    -- if it's in use, try to find the next free one
-    local maxPal = gameOption('Config.PaletteMax')
-    for i = pal + 1, maxPal do
-        if not usedPals[i] then
-            return ValidatePal(i, charRef)
-        end
-    end
-    for i = 1, pal - 1 do
-        if not usedPals[i] then
-            return ValidatePal(i, charRef)
-        end
-    end
+	local charData = start.f_getCharData(charRef)
+	if not charData or not charData.pal then
+		return pal
+	end
+	local usedPals = {}
+	for s = 1, 2 do
+		for _, sel in ipairs(start.p[s].t_selected) do
+			if sel.ref == charRef and sel.pal then
+				usedPals[sel.pal] = true
+			end
+		end
+	end
+	-- if the chosen palette is not used, keep it
+	if not usedPals[pal] then
+		return ValidatePal(pal, charRef)
+	end
+	-- if it's in use, try to find the next free one
+	local maxPal = gameOption('Config.PaletteMax')
+	for i = pal + 1, maxPal do
+	if not usedPals[i] then
+			return ValidatePal(i, charRef)
+		end
+	end
+	for i = 1, pal - 1 do
+		if not usedPals[i] then
+			return ValidatePal(i, charRef)
+		end
+	end
 
-    return ValidatePal(pal, charRef)
+	return ValidatePal(pal, charRef)
 end
 
 local function applyPalette(sel, charData, palIndex)

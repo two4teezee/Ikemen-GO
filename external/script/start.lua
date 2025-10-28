@@ -1236,8 +1236,8 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.slideOffset[2] = cd.startPos[2] - baseY
 	end
 	local t_factor = {
-		motif.select_info['p' .. pn .. '_cursor_tween_factor'][1],
-		motif.select_info['p' .. pn .. '_cursor_tween_factor'][2]
+		motif.select_info['p' .. 2-pn%2 .. '_cursor_tween_factor'][1],
+		motif.select_info['p' .. 2-pn%2 .. '_cursor_tween_factor'][2]
 	}
 	-- apply tween if enabled, otherwise snap to target
 	if not done and t_factor[1] > 0 and t_factor[2] > 0 then

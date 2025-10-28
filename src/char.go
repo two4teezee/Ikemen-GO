@@ -1350,6 +1350,7 @@ type Explod struct {
 	palfx               *PalFX
 	palfxdef            PalFXDef
 	window              [4]float32
+	syncParams          bool
 	syncLayer           int32
 	syncId              int32
 	aimg                AfterImage
@@ -1407,6 +1408,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
 		syncId:            -1,
+		syncParams:        true,
 		syncLayer:         0,
 		ignorehitpause:    true,
 		interpolate_scale: [4]float32{1, 1, 0, 0},
@@ -1659,8 +1661,8 @@ func (e *Explod) update(playerNo int) {
 			e.pos[i] = e.newPos[i] - (e.newPos[i]-e.oldPos[i])*(1-spd)
 		}
 	}
-	if e.syncId >= 0 {
-		if syncChar := sys.playerID(e.syncId); syncChar != nil {
+	if e.syncId > 0 {
+		if syncChar := sys.playerID(e.syncId); syncChar != nil && e.syncParams {
 			e.sprpriority = syncChar.sprPriority
 			e.scale = [2]float32{syncChar.size.xscale * syncChar.angleDrawScale[0], syncChar.size.yscale * syncChar.angleDrawScale[1]}
 			if syncChar.csf(CSF_angledraw) {
@@ -1668,7 +1670,15 @@ func (e *Explod) update(playerNo int) {
 			} else {
 				e.anglerot = [3]float32{0, 0, 0}
 			}
+			e.window = syncChar.window
+			e.xshear = syncChar.xshear
+			e.projection = syncChar.projection
+			e.fLength = syncChar.fLength
+
 			e.trans = syncChar.trans
+			e.alpha = syncChar.alpha
+			e.palfx = syncChar.getPalfx()
+			e.facing = syncChar.facing
 			if syncChar.aimg.time != 0 {
 				// Copy Afterimage settings, but not the state
 				e.aimg.time = syncChar.aimg.time
@@ -1686,9 +1696,6 @@ func (e *Explod) update(playerNo int) {
 				e.aimg.ignorehitpause = syncChar.aimg.ignorehitpause
 				e.aimg.palfx[0] = syncChar.aimg.palfx[0] // Settings are in the first element
 			}
-			e.alpha = syncChar.alpha
-			e.palfx = syncChar.getPalfx()
-			e.facing = syncChar.facing
 		}
 	}
 	off := e.relativePos
@@ -1808,7 +1815,7 @@ func (e *Explod) update(playerNo int) {
 		window:       ewin,
 		xshear:       xshear,
 	}
-	if e.syncId >= 0 {
+	if e.syncId > 0 {
 		sd.syncId = e.syncId
 		sd.syncLayer = e.syncLayer
 	}

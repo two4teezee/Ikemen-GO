@@ -4074,6 +4074,18 @@ func triggerFunctions(l *lua.LState) {
 			ln = lua.LNumber(c.ghv.hitshaketime)
 		case "hittime":
 			ln = lua.LNumber(c.ghv.hittime)
+		case "stand.friction":
+			sf := c.ghv.standfriction
+			if math.IsNaN(float64(sf)) {
+				sf = c.gi().movement.stand.friction
+			}
+			ln = lua.LNumber(sf)
+		case "crouch.friction":
+			cf := c.ghv.crouchfriction
+			if math.IsNaN(float64(cf)) {
+				cf = c.gi().movement.crouch.friction
+			}
+			ln = lua.LNumber(cf)
 		case "slidetime":
 			ln = lua.LNumber(c.ghv.slidetime)
 		case "ctrltime":

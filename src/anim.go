@@ -1070,6 +1070,10 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		if dl[i].priority != dl[j].priority {
 			return dl[i].priority > dl[j].priority
 		}
+		// Then by SyncID to group synchronized sprites together
+		if dl[i].syncId != dl[j].syncId && dl[i].syncId > 0 && dl[j].syncId > 0 {
+			return dl[i].syncId < dl[j].syncId
+		}
 		// Sort by syncLayer to ensure proper layering within a sync group
 		return dl[i].syncLayer > dl[j].syncLayer
 	})

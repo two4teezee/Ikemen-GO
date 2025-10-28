@@ -586,6 +586,8 @@ const (
 	OC_ex_gethitvar_down_recover
 	OC_ex_gethitvar_down_recovertime
 	OC_ex_gethitvar_guardflag
+	OC_ex_gethitvar_stand_friction
+	OC_ex_gethitvar_crouch_friction
 	OC_ex_ailevelf
 	OC_ex_animelemvar_alphadest
 	OC_ex_animelemvar_angle
@@ -718,7 +720,6 @@ const (
 	OC_ex_alpha_s
 	OC_ex_alpha_d
 	OC_ex_selfcommand
-	OC_ex_guardcount
 	OC_ex_fightscreenvar_info_author
 	OC_ex_fightscreenvar_info_localcoord_x
 	OC_ex_fightscreenvar_info_localcoord_y
@@ -962,6 +963,7 @@ const (
 	OC_ex2_projclsnoverlap
 	OC_ex2_attackmul
 	OC_ex2_defencemul
+	OC_ex2_guardcount
 )
 
 type StringPool struct {
@@ -2673,6 +2675,18 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.ghv.hitshaketime)
 	case OC_ex_gethitvar_hittime:
 		sys.bcStack.PushI(c.ghv.hittime)
+	case OC_ex_gethitvar_stand_friction:
+		sf := c.ghv.standfriction
+		if math.IsNaN(float64(sf)) {
+			sf = c.gi().movement.stand.friction
+		}
+		sys.bcStack.PushF(sf)
+	case OC_ex_gethitvar_crouch_friction:
+		cf := c.ghv.crouchfriction
+		if math.IsNaN(float64(cf)) {
+			cf = c.gi().movement.crouch.friction
+		}
+		sys.bcStack.PushF(cf)
 	case OC_ex_gethitvar_slidetime:
 		sys.bcStack.PushI(c.ghv.slidetime)
 	case OC_ex_gethitvar_ctrltime:
@@ -2949,8 +2963,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.groundAngle)
 	case OC_ex_guardbreak:
 		sys.bcStack.PushB(c.scf(SCF_guardbreak))
-	case OC_ex_guardcount:
-		sys.bcStack.PushI(c.guardCount)
 	case OC_ex_guardpoints:
 		sys.bcStack.PushI(c.guardPoints)
 	case OC_ex_guardpointsmax:
@@ -3812,6 +3824,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.attackMul[0])
 	case OC_ex2_defencemul:
 		sys.bcStack.PushF(float32(c.finalDefense / float64(c.gi().defenceBase) * 100))
+	case OC_ex2_guardcount:
+		sys.bcStack.PushI(c.guardCount)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3941,6 +3955,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 		if b.ignorehitpause < -1 {
 			return false
 		}
+		/* https://github.com/ikemen-engine/Ikemen-GO/issues/2360
 		// If ignorehitpause is non-negative, use the hitPauseExecutionToggleFlags mechanism
 		if b.ignorehitpause >= 0 {
 			flag := &c.ss.hitPauseExecutionToggleFlags[sys.workingState.playerNo][b.ignorehitpause]
@@ -3951,6 +3966,7 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 				return false
 			}
 		}
+		*/
 	}
 	if b.persistentIndex >= 0 {
 		ps[b.persistentIndex]--
@@ -5456,6 +5472,7 @@ const (
 	explod_interpolation
 	explod_animplayerno
 	explod_spriteplayerno
+	explod_syncparams
 	explod_synclayer
 	explod_syncid
 	explod_last = iota + palFX_last + afterImage_last + 1 - 1
@@ -5684,6 +5701,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 				sId = crun.id
 			}
 			e.syncId = sId
+		case explod_syncparams:
+			e.syncParams = exp[0].evalB(c)
 		case explod_projection:
 			e.projection = Projection(exp[0].evalI(c))
 		case explod_window:
@@ -6279,6 +6298,11 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				}
 				eachExpl(func(e *Explod) {
 					e.syncId = sId
+				})
+			case explod_syncparams:
+				sp := exp[0].evalB(c)
+				eachExpl(func(e *Explod) {
+					e.syncParams = sp
 				})
 			case explod_interpolation:
 				if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 {
@@ -9214,7 +9238,7 @@ func (sc envShake) Run(c *Char, _ []int32) bool {
 		case envShake_freq:
 			sys.envShake.freq = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		case envShake_phase:
-			sys.envShake.phase = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
+			sys.envShake.phase = MaxF(-180*float32(math.Pi)/180, exp[0].evalF(c)*float32(math.Pi)/180)
 		case envShake_mul:
 			sys.envShake.mul = exp[0].evalF(c)
 		case envShake_dir:
@@ -13151,6 +13175,7 @@ const (
 	getHitVarSet_animtype
 	getHitVarSet_attr
 	getHitVarSet_chainid
+	getHitVarSet_crouchfriction
 	getHitVarSet_ctrltime
 	getHitVarSet_damage
 	getHitVarSet_dizzypoints
@@ -13183,6 +13208,7 @@ const (
 	getHitVarSet_playerno
 	getHitVarSet_redlife
 	getHitVarSet_slidetime
+	getHitVarSet_standfriction
 	getHitVarSet_xvel
 	getHitVarSet_yvel
 	getHitVarSet_zvel
@@ -13210,6 +13236,8 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.attr = exp[0].evalI(c)
 		case getHitVarSet_chainid:
 			crun.ghv.hitid = exp[0].evalI(c)
+		case getHitVarSet_crouchfriction:
+			crun.ghv.crouchfriction = exp[0].evalF(c)
 		case getHitVarSet_ctrltime:
 			crun.ghv.ctrltime = exp[0].evalI(c)
 		case getHitVarSet_damage:
@@ -13272,6 +13300,8 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.redlife = exp[0].evalI(c)
 		case getHitVarSet_slidetime:
 			crun.ghv.slidetime = exp[0].evalI(c)
+		case getHitVarSet_standfriction:
+			crun.ghv.standfriction = exp[0].evalF(c)
 		case getHitVarSet_xvel:
 			crun.ghv.xvel = exp[0].evalF(c) * redirscale
 		case getHitVarSet_yvel:

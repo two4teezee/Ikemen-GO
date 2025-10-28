@@ -883,6 +883,10 @@ func (c *Compiler) explodSub(is IniSection,
 		explod_synclayer, VT_Int, 1, false); err != nil {
 		return err
 	}
+	if err := c.paramValue(is, sc, "syncparams",
+		explod_syncparams, VT_Bool, 1, false); err != nil {
+		return err
+	}
 	if err := c.paramValue(is, sc, "syncid",
 		explod_syncid, VT_Int, 1, false); err != nil {
 		return err
@@ -6182,6 +6186,10 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			getHitVarSet_chainid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "crouch.friction",
+			getHitVarSet_crouchfriction, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "ctrltime",
 			getHitVarSet_ctrltime, VT_Int, 1, false); err != nil {
 			return err
@@ -6300,6 +6308,10 @@ func (c *Compiler) getHitVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		if err := c.paramValue(is, sc, "redlife",
 			getHitVarSet_redlife, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "stand.friction",
+			getHitVarSet_standfriction, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "slidetime",

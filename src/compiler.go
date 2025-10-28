@@ -2468,6 +2468,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_gethitvar_hitshaketime
 		case "hittime":
 			opc = OC_ex_gethitvar_hittime
+		case "stand.friction":
+			opc = OC_ex_gethitvar_stand_friction
+		case "crouch.friction":
+			opc = OC_ex_gethitvar_crouch_friction
 		case "slidetime":
 			opc = OC_ex_gethitvar_slidetime
 		case "ctrltime":
@@ -2645,7 +2649,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "groundlevel":
 		out.append(OC_ex2_, OC_ex2_groundlevel)
 	case "guardcount":
-		out.append(OC_ex_, OC_ex_guardcount)
+		out.append(OC_ex2_, OC_ex2_guardcount)
 	case "helperindexexist":
 		if _, err := c.oneArg(out, in, rd, true); err != nil {
 			return bvNone(), err

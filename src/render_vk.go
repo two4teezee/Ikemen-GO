@@ -5992,6 +5992,40 @@ func (r *Renderer_VK) SetVertexData(values ...float32) {
 	vk.Memcopy(unsafe.Pointer(uintptr(r.vertexBuffers[bufferIndex].data)+offset), (*[m]byte)(unsafe.Pointer((*sliceHeader)(unsafe.Pointer(&values)).Data))[:len(values)*4])
 	r.vertexBufferOffset += uintptr(len(values) * 4)
 }
+
+func (r *Renderer_VK) SetVertexData2(cmd vk.CommandBuffer, values ...float32) {
+	const m = 0x7fffffff
+	bufferIndex := int(r.vertexBufferOffset) / int(r.vertexBuffers[0].size)
+	offset := r.vertexBufferOffset % r.vertexBuffers[bufferIndex].size
+	if (int(offset) + len(values)*4) > int(r.vertexBuffers[0].size) {
+		bufferIndex += 1
+		r.vertexBufferOffset = uintptr(bufferIndex * int(r.vertexBuffers[0].size))
+		offset = 0
+	}
+	if bufferIndex >= len(r.vertexBuffers) {
+		//allocate a new buffer
+		log.Println("[INFO] allocate new vertex buffer")
+		var vertexBuffer VulkanBuffer
+		var vertexBufferMemory vk.DeviceMemory
+		var err error
+		vertexBuffer.size = r.vertexBuffers[0].size
+		vertexBuffer.buffer, err = r.CreateBuffer(vk.DeviceSize(vertexBuffer.size), vk.BufferUsageFlags(vk.BufferUsageTransferSrcBit|vk.BufferUsageVertexBufferBit), (vk.MemoryPropertyHostVisibleBit | vk.MemoryPropertyHostCoherentBit), &vertexBufferMemory)
+		if err != nil {
+			panic(err)
+		}
+		vertexBuffer.bufferMemory = vertexBufferMemory
+		var vertexData unsafe.Pointer
+		vk.MapMemory(r.device, vertexBuffer.bufferMemory, 0, vk.DeviceSize(vertexBuffer.size), 0, &vertexData)
+		vertexBuffer.data = vertexData
+		r.vertexBuffers = append(r.vertexBuffers, vertexBuffer)
+	}
+	if offset == 0 {
+		vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[bufferIndex].buffer}, []vk.DeviceSize{0})
+	}
+	vk.Memcopy(unsafe.Pointer(uintptr(r.vertexBuffers[bufferIndex].data)+offset), (*[m]byte)(unsafe.Pointer((*sliceHeader)(unsafe.Pointer(&values)).Data))[:len(values)*4])
+	r.vertexBufferOffset += uintptr(len(values) * 4)
+}
+
 func (r *Renderer_VK) SetModelVertexData(bufferIndex uint32, values []byte) {
 	if r.modelVertexBuffers[bufferIndex].size >= 0 {
 		vk.DestroyBuffer(r.device, r.modelVertexBuffers[bufferIndex].buffer, nil)
@@ -6789,7 +6823,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
-	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
+	r.SetVertexData2(cmd, -1, -1, 1, -1, -1, 1, 1, 1)
 
 	imageInfo := [][]vk.DescriptorImageInfo{
 		{{
@@ -7054,7 +7088,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
-	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
+	r.SetVertexData2(cmd, -1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
 		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,
@@ -7188,7 +7222,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.lutProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
-	r.SetVertexData(-1, -1, 1, -1, -1, 1, 1, 1)
+	r.SetVertexData2(cmd, -1, -1, 1, -1, -1, 1, 1, 1)
 	imageInfo := [][]vk.DescriptorImageInfo{
 		{{
 			ImageLayout: vk.ImageLayoutShaderReadOnlyOptimal,

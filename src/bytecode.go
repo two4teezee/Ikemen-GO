@@ -12800,21 +12800,13 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.p[1].facing = exp[0].evalI(c)
 		// Scaling group
 		case modifyStageVar_scaling_topz:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz
-				s.stageCamera.topz = exp[0].evalF(c)
-			}
+			s.stageCamera.topz = exp[0].evalF(c)
 		case modifyStageVar_scaling_botz:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botz
-				s.stageCamera.botz = exp[0].evalF(c)
-			}
+			s.stageCamera.botz = exp[0].evalF(c)
 		case modifyStageVar_scaling_topscale:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topscale
-				s.stageCamera.ztopscale = exp[0].evalF(c)
-			}
+			s.stageCamera.ztopscale = exp[0].evalF(c)
 		case modifyStageVar_scaling_botscale:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botscale
-				s.stageCamera.zbotscale = exp[0].evalF(c)
-			}
+			s.stageCamera.zbotscale = exp[0].evalF(c)
 		// Bound group
 		case modifyStageVar_bound_screenleft:
 			s.screenleft = int32(exp[0].evalF(c) * scaleratio)

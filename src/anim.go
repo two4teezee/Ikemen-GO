@@ -1682,8 +1682,7 @@ func NewAnim(sff *Sff, action string) *Anim {
 	return a
 }
 
-// CopyAnim creates a deep copy of an animation, ensuring palette independence
-// to avoid palette sharing across players.
+// CopyAnim creates a shallow copy of an animation with independent palette mapping
 func CopyAnim(a *Anim) *Anim {
 	if a == nil || a.anim == nil || a.anim.sff == nil {
 		return nil
@@ -1725,23 +1724,27 @@ func CopyAnim(a *Anim) *Anim {
 	newAnim.anim.interpolate_scale = a.anim.interpolate_scale
 	// Copy all valid sprites safely
 	for _, c := range a.anim.frames {
-		// Ignore invalid / special frames
-		if c.Group < 0 || c.Number < 0 {
-			continue
-		}
-		src, ok := srcSff.sprites[[...]int16{c.Group, c.Number}]
+		// We do not skip negative keys, they can be valid due to int16 overflow
+		key := [...]int16{c.Group, c.Number}
+		src, ok := srcSff.sprites[key]
 		if !ok || src == nil {
 			continue
 		}
 		dst := newSprite()
-		dst.Pal = src.Pal
+
 		dst.Tex = src.Tex
 		dst.palidx = src.palidx
 		dst.coldepth = src.coldepth
 		// Copy arrays (if not slices, this is fine as-is)
 		dst.Offset = src.Offset
 		dst.Size = src.Size
-		newAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}] = dst
+
+		if dst.palidx == 0 {
+			dst.Pal = nil
+		} else {
+			dst.Pal = src.Pal
+		}
+		newAnim.anim.sff.sprites[key] = dst
 	}
 	return newAnim
 }

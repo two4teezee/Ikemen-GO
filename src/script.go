@@ -796,10 +796,6 @@ func systemScriptInit(l *lua.LState) {
 			copyAnim := CopyAnim(a)
 			char := sys.sel.GetChar(int(numArg(l, 2)))
 			for _, c := range copyAnim.anim.frames {
-				// Ignore special / invalid frames
-				if c.Group < 0 || c.Number < 0 {
-					continue
-				}
 				spr, ok := copyAnim.anim.sff.sprites[[...]int16{c.Group, c.Number}]
 				if !ok || spr == nil {
 					continue

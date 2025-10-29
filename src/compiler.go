@@ -3683,6 +3683,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_stageinfo_localcoord_x
 		case "stageinfo.localcoord.y":
 			opc = OC_const_stagevar_stageinfo_localcoord_y
+		case "stageinfo.resetbg":
+			opc = OC_const_stagevar_stageinfo_resetbg
 		case "stageinfo.zoffset":
 			opc = OC_const_stagevar_stageinfo_zoffset
 		case "stageinfo.zoffsetlink":

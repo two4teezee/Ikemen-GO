@@ -5820,12 +5820,8 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 			modifyStageVar_bound_screenright, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "stageinfo.zoffset",
-			modifyStageVar_stageinfo_zoffset, VT_Int, 1, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "stageinfo.zoffsetlink",
-			modifyStageVar_stageinfo_zoffsetlink, VT_Int, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "stageinfo.resetbg",
+			modifyStageVar_stageinfo_resetbg, VT_Bool, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "stageinfo.xscale",
@@ -5834,6 +5830,14 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		if err := c.paramValue(is, sc, "stageinfo.yscale",
 			modifyStageVar_stageinfo_yscale, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "stageinfo.zoffset",
+			modifyStageVar_stageinfo_zoffset, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "stageinfo.zoffsetlink",
+			modifyStageVar_stageinfo_zoffsetlink, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "shadow.intensity",

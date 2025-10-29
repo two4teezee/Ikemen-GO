@@ -435,6 +435,7 @@ const (
 	OC_const_stagevar_bound_screenright
 	OC_const_stagevar_stageinfo_localcoord_x
 	OC_const_stagevar_stageinfo_localcoord_y
+	OC_const_stagevar_stageinfo_resetbg
 	OC_const_stagevar_stageinfo_xscale
 	OC_const_stagevar_stageinfo_yscale
 	OC_const_stagevar_stageinfo_zoffset
@@ -2491,6 +2492,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.stage.stageCamera.localcoord[0])
 	case OC_const_stagevar_stageinfo_localcoord_y:
 		sys.bcStack.PushI(sys.stage.stageCamera.localcoord[1])
+	case OC_const_stagevar_stageinfo_resetbg:
+		sys.bcStack.PushB(sys.stage.resetbg)
 	case OC_const_stagevar_stageinfo_xscale:
 		sys.bcStack.PushF(sys.stage.scale[0])
 	case OC_const_stagevar_stageinfo_yscale:
@@ -12658,10 +12661,11 @@ const (
 	modifyStageVar_scaling_botscale
 	modifyStageVar_bound_screenleft
 	modifyStageVar_bound_screenright
-	modifyStageVar_stageinfo_zoffset
-	modifyStageVar_stageinfo_zoffsetlink
+	modifyStageVar_stageinfo_resetbg
 	modifyStageVar_stageinfo_xscale
 	modifyStageVar_stageinfo_yscale
+	modifyStageVar_stageinfo_zoffset
+	modifyStageVar_stageinfo_zoffsetlink
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
@@ -12815,15 +12819,17 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.screenright = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		// StageInfo group
+		case modifyStageVar_stageinfo_resetbg:
+			s.resetbg = exp[0].evalB(c)
+		case modifyStageVar_stageinfo_xscale:
+			s.scale[0] = exp[0].evalF(c)
+		case modifyStageVar_stageinfo_yscale:
+			s.scale[1] = exp[0].evalF(c)
 		case modifyStageVar_stageinfo_zoffset:
 			s.stageCamera.zoffset = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_stageinfo_zoffsetlink:
 			s.zoffsetlink = exp[0].evalI(c)
-		case modifyStageVar_stageinfo_xscale:
-			s.scale[0] = exp[0].evalF(c)
-		case modifyStageVar_stageinfo_yscale:
-			s.scale[1] = exp[0].evalF(c)
 		// Shadow group
 		case modifyStageVar_shadow_intensity:
 			s.sdw.intensity = Clamp(exp[0].evalI(c), 0, 255)

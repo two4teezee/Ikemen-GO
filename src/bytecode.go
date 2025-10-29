@@ -13622,18 +13622,19 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_anim byte = iota
+	modifyShadow_angle byte = iota
+	modifyShadow_anim
 	modifyShadow_color
+	modifyShadow_focallength
 	modifyShadow_intensity
 	modifyShadow_offset
-	modifyShadow_window
-	modifyShadow_xshear
-	modifyShadow_yscale
-	modifyShadow_angle
-	modifyShadow_xangle
-	modifyShadow_yangle
-	modifyShadow_focallength
 	modifyShadow_projection
+	modifyShadow_window
+	modifyShadow_xangle
+	modifyShadow_xscale
+	modifyShadow_xshear
+	modifyShadow_yangle
+	modifyShadow_yscale
 	modifyShadow_redirectid
 )
 
@@ -13675,6 +13676,8 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 			}
 		case modifyShadow_window:
 			crun.shadowWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyShadow_xscale:
+			crun.shadowXscale = exp[0].evalF(c)
 		case modifyShadow_xshear:
 			crun.shadowXshear = exp[0].evalF(c)
 		case modifyShadow_yscale:

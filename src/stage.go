@@ -861,6 +861,7 @@ func (bgc *bgCtrl) yEnable() bool {
 type stageShadow struct {
 	intensity  int32
 	color      uint32
+	xscale     float32
 	yscale     float32
 	fadeend    int32
 	fadebgn    int32
@@ -953,8 +954,9 @@ func newStage(def string) *Stage {
 	}
 	s.sdw.intensity = 128
 	s.sdw.color = 0x000000 // https://github.com/ikemen-engine/Ikemen-GO/issues/2150
-	s.sdw.yscale = 0.4
+	s.sdw.xscale = 1.0
 	s.sdw.ydelta = 1.0
+	s.sdw.yscale = 0.4
 	s.reflection.color = 0xFFFFFF
 	s.reflection.ydelta = 1.0
 	s.p[0].startx = -70
@@ -1399,6 +1401,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			r, g, b = 0, 0, 0
 		}
 		s.sdw.color = uint32(r<<16 | g<<8 | b)
+		sec[0].ReadF32("xscale", &s.sdw.xscale)
 		sec[0].ReadF32("yscale", &s.sdw.yscale)
 		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
 		sec[0].ReadF32("xshear", &s.sdw.xshear)

@@ -1294,6 +1294,10 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 			modifyShadow_window, VT_Float, 4, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xscale",
+			modifyShadow_xscale, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "xshear",
 			modifyShadow_xshear, VT_Float, 1, false); err != nil {
 			return err

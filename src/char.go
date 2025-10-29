@@ -2805,6 +2805,7 @@ type Char struct {
 	shadowIntensity   int32
 	shadowOffset      [2]float32
 	shadowWindow      [4]float32
+	shadowXscale      float32
 	shadowXshear      float32
 	shadowYscale      float32
 	shadowRot         Rotation
@@ -10608,6 +10609,7 @@ func (c *Char) actionPrepare() {
 		c.shadowIntensity = -1
 		c.shadowOffset = [2]float32{}
 		c.shadowWindow = [4]float32{}
+		c.shadowXscale = 0
 		c.shadowXshear = 0
 		c.shadowYscale = 0
 		c.shadowRot = Rotation{0, 0, 0}
@@ -11678,6 +11680,7 @@ func (c *Char) cueDraw() {
 						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 					},
 					shadowWindow:     c.shadowWindow,
+					shadowXscale:     c.shadowXscale,
 					shadowXshear:     c.shadowXshear,
 					shadowYscale:     c.shadowYscale,
 					shadowRot:        c.shadowRot,

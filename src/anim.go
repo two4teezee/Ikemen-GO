@@ -1172,6 +1172,7 @@ type ShadowSprite struct {
 	shadowIntensity  int32
 	shadowOffset     [2]float32
 	shadowWindow     [4]float32
+	shadowXscale     float32
 	shadowXshear     float32
 	shadowYscale     float32
 	shadowRot        Rotation
@@ -1286,6 +1287,13 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			xshear = sys.stage.sdw.xshear + s.shadowXshear
 		}
 
+		var xscale float32
+		if s.shadowXscale != 0 {
+			xscale = sys.stage.sdw.xscale * s.shadowXscale
+		} else {
+			xscale = sys.stage.sdw.xscale
+		}
+
 		var yscale float32
 		if s.shadowYscale != 0 {
 			yscale = sys.stage.sdw.yscale * s.shadowYscale
@@ -1383,7 +1391,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		s.anim.ShadowDraw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])-((x-s.pos[0]-offsetX)*scl),
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(sdwPosY*yscale-offsetY)*scl,
-			scl*s.scl[0], scl*-s.scl[1],
+			scl*s.scl[0]*xscale, scl*-s.scl[1],
 			yscale, xshear, rot,
 			s.pfx, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}

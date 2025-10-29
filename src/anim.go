@@ -1290,9 +1290,12 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			yscale = sys.stage.sdw.yscale
 		}
 
-		xshear := -s.xshear
-		if xshear == 0 {
-			xshear = sys.stage.sdw.xshear + s.shadowXshear
+		// Stack original sprite xshear with stage or custom xshear
+		var xshear float32
+		if s.shadowXshear != 0 {
+			xshear = -s.xshear + s.shadowXshear
+		} else {
+			xshear = -s.xshear + sys.stage.sdw.xshear
 		}
 
 		// Invert xshear if sprite is flipped vertically
@@ -1315,6 +1318,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			return 0
 		}
 
+		// TODO: These should probably stack with "s" rotation instead of overriding it
 		rot := Rotation{
 			angle:  rotVal(s.shadowRot.angle, sys.stage.sdw.rot.angle, s.rot.angle),
 			xangle: rotVal(s.shadowRot.xangle, sys.stage.sdw.rot.xangle, s.rot.xangle),
@@ -1532,9 +1536,12 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			yscale = sys.stage.reflection.yscale
 		}
 
-		xshear := -s.xshear
-		if xshear == 0 {
-			xshear = sys.stage.reflection.xshear + s.reflectXshear
+		// Stack original sprite xshear with stage or custom xshear
+		var xshear float32
+		if s.reflectXshear != 0 {
+			xshear = -s.xshear + s.reflectXshear
+		} else {
+			xshear = -s.xshear + sys.stage.reflection.xshear
 		}
 
 		// Invert xshear if sprite is flipped vertically
@@ -1557,6 +1564,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			return 0
 		}
 
+		// TODO: These should probably stack with "s" rotation instead of overriding it
 		rot := Rotation{
 			angle:  rotVal(s.reflectRot.angle, sys.stage.reflection.rot.angle, s.rot.angle),
 			xangle: rotVal(s.reflectRot.xangle, sys.stage.reflection.rot.xangle, s.rot.xangle),

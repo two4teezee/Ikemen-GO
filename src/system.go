@@ -626,23 +626,27 @@ func (s *System) loadLocalcoords() {
 	s.resolveMotifPath()
 	s.resolveLifebarPath()
 
-	readLocalcoord := func(path string) [2]int32 {
+	readLocalcoord := func(path string) ([2]int32, bool) {
 		lines := loadLinesFromFile(path)
 		for i := 0; i < len(lines); {
 			is, name, _ := ReadIniSection(lines, &i)
 			if strings.ToLower(name) == "info" {
 				var lc [2]int32
 				if is.ReadI32("localcoord", &lc[0], &lc[1]) {
-					return lc
+					return lc, true
 				}
 			}
 		}
-		return [2]int32{320, 240}
+		return [2]int32{320, 240}, false
 	}
 	// Motif
-	s.luaLocalcoord = readLocalcoord(s.motifDef)
+	s.luaLocalcoord, _ = readLocalcoord(s.motifDef)
 	// Lifebar
-	s.lifebarLocalcoord = readLocalcoord(s.lifebarDef)
+	if lc, ok := readLocalcoord(s.lifebarDef); ok {
+		s.lifebarLocalcoord = lc
+	} else {
+		s.lifebarLocalcoord = s.luaLocalcoord
+	}
 }
 
 func getViewport(srcW, srcH, dstW, dstH int32) [4]int32 {

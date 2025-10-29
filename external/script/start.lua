@@ -533,7 +533,7 @@ function start.stageShuffleBag(id, pool)
 		for i = 1, #pool do
 			table.insert(t, i)
 		end
-		start.shuffleTable(t)
+		start.f_shuffleTable(t)
 		-- prevent immediate repetition if the bag was just refilled
 		if start.lastStageIdx and #pool > 1 and t[#t] == start.lastStageIdx then
 			table.insert(t, 1, table.remove(t)) -- rotate
@@ -1235,7 +1235,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.slideOffset[1] = cd.startPos[1] - baseX
 		cd.slideOffset[2] = cd.startPos[2] - baseY
 	end
-	local t_factor = {
+	local t_factor = { -- we also remap pn to p1/p2 to avoid crashes in vs coop when motif lacks other players tween data
 		motif.select_info['p' .. 2-pn%2 .. '_cursor_tween_factor'][1],
 		motif.select_info['p' .. 2-pn%2 .. '_cursor_tween_factor'][2]
 	}
@@ -1407,7 +1407,7 @@ function start.f_excludeChar(t, ref)
 end
 
 --shuffles a table in-place (using synced RNG)
-function start.shuffleTable(t, last)
+function start.f_shuffleTable(t, last)
 	for i = #t, 2, -1 do
 		local j = (sszRandom() % i) + 1
 		t[i], t[j] = t[j], t[i]
@@ -1435,7 +1435,7 @@ function start.f_randomChar(pn)
 				table.insert(t, v)
 			end
 		end
-		start.shuffleTable(t, last)
+		start.f_shuffleTable(t, last)
 		start.shuffleBags[pn] = t
 	end
 	-- draw one char from the bag
@@ -2429,7 +2429,11 @@ function start.f_selectScreen()
 						end
 					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
-						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active', false)
+						if v.selectState > 0 and motif.select_info.paletteselect > 0 then --draw done cursor when palmenu is active
+							start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_done', false)
+						else
+							start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, '_cursor_active', false)
+						end
 					end
 				end
 			end
@@ -2978,7 +2982,7 @@ function start.f_randomPal(charRef, validPals)
 		for _, v in ipairs(validPals) do
 			table.insert(t, v)
 		end
-		start.shuffleTable(t, last)
+		start.f_shuffleTable(t, last)
 		start.shufflePals[charRef] = t
 	end
 	-- draw one palette from the bag

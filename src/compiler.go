@@ -3679,6 +3679,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_const_stagevar_bound_screenleft
 		case "bound.screenright":
 			opc = OC_const_stagevar_bound_screenright
+		case "stageinfo.autoturn":
+			opc = OC_const_stagevar_stageinfo_autoturn
 		case "stageinfo.localcoord.x":
 			opc = OC_const_stagevar_stageinfo_localcoord_x
 		case "stageinfo.localcoord.y":

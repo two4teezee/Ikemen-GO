@@ -433,6 +433,7 @@ const (
 	OC_const_stagevar_scaling_botscale
 	OC_const_stagevar_bound_screenleft
 	OC_const_stagevar_bound_screenright
+	OC_const_stagevar_stageinfo_autoturn
 	OC_const_stagevar_stageinfo_localcoord_x
 	OC_const_stagevar_stageinfo_localcoord_y
 	OC_const_stagevar_stageinfo_resetbg
@@ -2488,6 +2489,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(float32(sys.stage.screenleft) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_bound_screenright:
 		sys.bcStack.PushI(int32(float32(sys.stage.screenright) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_stageinfo_autoturn:
+		sys.bcStack.PushB(sys.stage.autoturn)
 	case OC_const_stagevar_stageinfo_localcoord_x:
 		sys.bcStack.PushI(sys.stage.stageCamera.localcoord[0])
 	case OC_const_stagevar_stageinfo_localcoord_y:
@@ -12661,6 +12664,7 @@ const (
 	modifyStageVar_scaling_botscale
 	modifyStageVar_bound_screenleft
 	modifyStageVar_bound_screenright
+	modifyStageVar_stageinfo_autoturn
 	modifyStageVar_stageinfo_resetbg
 	modifyStageVar_stageinfo_xscale
 	modifyStageVar_stageinfo_yscale
@@ -12819,6 +12823,8 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.screenright = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		// StageInfo group
+		case modifyStageVar_stageinfo_autoturn:
+			s.autoturn = exp[0].evalB(c)
 		case modifyStageVar_stageinfo_resetbg:
 			s.resetbg = exp[0].evalB(c)
 		case modifyStageVar_stageinfo_xscale:

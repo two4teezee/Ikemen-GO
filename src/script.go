@@ -5331,6 +5331,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(sys.stage.stageCamera.localcoord[0]))
 		case "stageinfo.localcoord.y":
 			l.Push(lua.LNumber(sys.stage.stageCamera.localcoord[1]))
+		case "stageinfo.autoturn":
+			l.Push(lua.LBool(sys.stage.autoturn))
 		case "stageinfo.resetbg":
 			l.Push(lua.LBool(sys.stage.resetbg))
 		case "stageinfo.xscale":

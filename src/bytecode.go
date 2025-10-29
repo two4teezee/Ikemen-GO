@@ -13706,6 +13706,7 @@ const (
 	modifyReflection_intensity
 	modifyReflection_offset
 	modifyReflection_window
+	modifyReflection_xscale
 	modifyReflection_xshear
 	modifyReflection_yscale
 	modifyReflection_angle
@@ -13753,6 +13754,8 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 			}
 		case modifyReflection_window:
 			crun.reflectWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyReflection_xscale:
+			crun.reflectXscale = exp[0].evalF(c)
 		case modifyReflection_xshear:
 			crun.reflectXshear = exp[0].evalF(c)
 		case modifyReflection_yscale:

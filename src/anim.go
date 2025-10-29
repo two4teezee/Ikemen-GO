@@ -1280,29 +1280,24 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		color = color&0xff*alpha<<8&0xff0000 | color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
 
-		var xshear float32
-		if s.xshear != 0 {
-			xshear = -s.xshear
-		} else {
-			xshear = sys.stage.sdw.xshear + s.shadowXshear
-		}
-
-		var xscale float32
-		if s.shadowXscale != 0 {
-			xscale = sys.stage.sdw.xscale * s.shadowXscale
-		} else {
+		xscale := s.shadowXscale
+		if xscale == 0 {
 			xscale = sys.stage.sdw.xscale
 		}
 
-		var yscale float32
-		if s.shadowYscale != 0 {
-			yscale = sys.stage.sdw.yscale * s.shadowYscale
-		} else {
+		yscale := s.shadowYscale
+		if yscale == 0 {
 			yscale = sys.stage.sdw.yscale
 		}
 
+		xshear := -s.xshear
+		if xshear == 0 {
+			xshear = sys.stage.sdw.xshear + s.shadowXshear
+		}
+
+		// Invert xshear if sprite is flipped vertically
 		if yscale > 0 {
-			xshear = -xshear // Invert if sprite is flipped
+			xshear = -xshear
 		}
 
 		offsetX := s.shadowOffset[0] + sys.stage.sdw.offset[0]
@@ -1404,6 +1399,7 @@ type ReflectionSprite struct {
 	reflectIntensity  int32
 	reflectOffset     [2]float32
 	reflectWindow     [4]float32
+	reflectXscale     float32
 	reflectXshear     float32
 	reflectYscale     float32
 	reflectRot        Rotation
@@ -1526,22 +1522,24 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			refPosY = s.groundLevel + (refPosY-s.groundLevel)*sys.stage.reflection.ydelta
 		}
 
-		var xshear float32
-		if s.xshear != 0 {
-			xshear = -s.xshear
-		} else {
-			xshear = sys.stage.reflection.xshear + s.reflectXshear
+		xscale := s.reflectXscale
+		if xscale == 0 {
+			xscale = sys.stage.reflection.xscale
 		}
 
-		var yscale float32
-		if s.reflectYscale != 0 {
-			yscale = sys.stage.reflection.yscale * s.reflectYscale
-		} else {
+		yscale := s.reflectYscale
+		if yscale == 0 {
 			yscale = sys.stage.reflection.yscale
 		}
 
+		xshear := -s.xshear
+		if xshear == 0 {
+			xshear = sys.stage.reflection.xshear + s.reflectXshear
+		}
+
+		// Invert xshear if sprite is flipped vertically
 		if yscale > 0 {
-			xshear = -xshear // Invert if sprite is flipped
+			xshear = -xshear
 		}
 
 		offsetX := s.reflectOffset[0] + sys.stage.reflection.offset[0]
@@ -1631,7 +1629,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		s.anim.Draw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])/scl-(x-s.pos[0]-offsetX),
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(refPosY*yscale-offsetY),
-			scl, scl, s.scl[0], s.scl[0],
+			scl, scl,
+			s.scl[0]*xscale, s.scl[0] * xscale,
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
 			s.pfx, s.facing, s.airOffsetFix, projection, fLength, color, true)
 

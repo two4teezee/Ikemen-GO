@@ -1360,6 +1360,10 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 			modifyReflection_window, VT_Float, 4, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xscale",
+			modifyReflection_xscale, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "xshear",
 			modifyReflection_xshear, VT_Float, 1, false); err != nil {
 			return err

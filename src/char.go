@@ -1826,12 +1826,14 @@ func (e *Explod) update(playerNo int) {
 
 	// Add shadow if color is not 0
 	sdwclr := e.shadow[0]<<16 | e.shadow[1]&0xff<<8 | e.shadow[2]&0xff
+
 	if sdwclr != 0 {
 		sdwalp := 255 - alp[1]
 		if sdwalp < 0 {
 			sdwalp = 256
 		}
 		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
+
 		// Add shadow sprite
 		sys.shadows.add(&ShadowSprite{
 			SprData:      sd,
@@ -1840,6 +1842,7 @@ func (e *Explod) update(playerNo int) {
 			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
 			groundLevel:  drawZoff,
 		})
+
 		// Add reflection sprite
 		sys.reflections.add(&ReflectionSprite{
 			SprData:       sd,
@@ -1847,6 +1850,7 @@ func (e *Explod) update(playerNo int) {
 			groundLevel:   drawZoff,
 		})
 	}
+
 	if sys.tickNextFrame() {
 
 		//if e.space == Space_screen && e.bindtime == 0 {
@@ -2484,12 +2488,16 @@ func (p *Projectile) cueDraw() {
 			window:       pwin,
 			xshear:       p.xshear,
 		}
+
 		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno)
 		sprs.add(sd)
+
 		// Add a shadow if color is not 0
 		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
+
 		if sdwclr != 0 {
 			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
+
 			// Add shadow
 			sys.shadows.add(&ShadowSprite{
 				SprData:      sd,
@@ -2498,6 +2506,7 @@ func (p *Projectile) cueDraw() {
 				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
 				groundLevel:  drawZoff,
 			})
+
 			// Add reflection
 			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
@@ -2816,6 +2825,7 @@ type Char struct {
 	reflectIntensity  int32
 	reflectOffset     [2]float32
 	reflectWindow     [4]float32
+	reflectXscale     float32
 	reflectXshear     float32
 	reflectYscale     float32
 	reflectRot        Rotation
@@ -10621,6 +10631,7 @@ func (c *Char) actionPrepare() {
 		c.reflectIntensity = -1
 		c.reflectOffset = [2]float32{}
 		c.reflectWindow = [4]float32{}
+		c.reflectXscale = 0
 		c.reflectXshear = 0
 		c.reflectYscale = 0
 		c.reflectRot = Rotation{0, 0, 0}
@@ -11655,19 +11666,22 @@ func (c *Char) cueDraw() {
 				//if charSD.oldVer {
 				//	soy *= 1.5
 				//}
+
 				// Mugen uses some odd math for the shadow offset here, factoring in the stage's shadow scale
 				// Meaning the character's shadow offset constant is unable to offset it correctly in every stage
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
-				// Gets the Yscale defined by ModifyShadow/Reflection or keeps the one from the stage
-				getYscale := func(char, stage float32) float32 {
-					if char != 0 {
-						return char
-					}
-					return stage
+
+				// Get the Yscale defined by ModifyShadow/Reflection or keep the one from the stage
+				sdwYscale := sys.stage.sdw.yscale
+				if c.shadowYscale != 0 {
+					sdwYscale = c.shadowYscale
 				}
-				sdwYscale := getYscale(c.shadowYscale, sys.stage.sdw.yscale)
-				refYscale := getYscale(c.reflectYscale, sys.stage.reflection.yscale)
+
+				refYscale := sys.stage.reflection.yscale
+				if c.reflectYscale != 0 {
+					refYscale = c.reflectYscale
+				}
 
 				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
@@ -11698,6 +11712,7 @@ func (c *Char) cueDraw() {
 					reflectSDcopy.anim = c.reflectAnim
 					reflectSD = &reflectSDcopy
 				}
+
 				// Reflection modifiers
 				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 
@@ -11711,6 +11726,7 @@ func (c *Char) cueDraw() {
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
 					},
 					reflectWindow:     c.reflectWindow,
+					reflectXscale:     c.reflectXscale,
 					reflectXshear:     c.reflectXshear,
 					reflectYscale:     c.reflectYscale,
 					reflectRot:        c.reflectRot,

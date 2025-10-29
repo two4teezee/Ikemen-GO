@@ -958,7 +958,9 @@ func newStage(def string) *Stage {
 	s.sdw.ydelta = 1.0
 	s.sdw.yscale = 0.4
 	s.reflection.color = 0xFFFFFF
+	s.reflection.xscale = 1.0
 	s.reflection.ydelta = 1.0
+	s.reflection.yscale = 1.0 // Default scale is 1. It's normally off because default intensity is 0
 	s.p[0].startx = -70
 	s.p[1].startx = 70
 	s.stageprops = newStageProps()
@@ -1438,8 +1440,6 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	if sectionExists {
 		sectionExists = false
-		s.reflection.yscale = 1.0
-		s.reflection.xshear = 0
 		s.reflection.color = 0xFFFFFF
 		var tmp int32
 		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
@@ -1453,6 +1453,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if sec[0].ReadI32("layerno", &tmp) {
 			s.reflection.layerno = Clamp(tmp, -1, 0)
 		}
+		sec[0].ReadF32("xscale", &s.reflection.xscale)
 		sec[0].ReadF32("yscale", &s.reflection.yscale)
 		sec[0].readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
 		sec[0].ReadF32("xshear", &s.reflection.xshear)

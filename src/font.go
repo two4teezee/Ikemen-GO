@@ -397,13 +397,13 @@ func LoadFntSff(f *Fnt, fontfile string, filename string) {
 	var idef int
 	for i := 0; i < int(sff.header.NumberOfPalettes); i++ {
 		var pal []uint32
-		si, ok := sff.palList.PalTable[[...]int16{0, int16(i)}]
+		si, ok := sff.palList.PalTable[[...]uint16{0, uint16(i)}]
 		if ok && si >= 0 {
 			pal = sff.palList.Get(si)
 			if i == 0 {
 				idef = si
 			}
-			switch sff.palList.numcols[[...]int16{0, int16(i)}] {
+			switch sff.palList.numcols[[...]uint16{0, uint16(i)}] {
 			case 256:
 				f.coldepth[i] = 8
 			case 32:

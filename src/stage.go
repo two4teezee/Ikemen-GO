@@ -300,7 +300,7 @@ func readBackGround(is IniSection, link *backGround,
 			if is.readI32ForStage("spriteno", &g, &n) {
 				bg.anim.frames = []AnimFrame{*newAnimFrame()}
 				bg.anim.frames[0].Group, bg.anim.frames[0].Number =
-					I32ToI16(g), I32ToI16(n)
+					I32ToU16(g), I32ToU16(n)
 			}
 			if is.ReadI32("mask", &tmp) {
 				if tmp != 0 {

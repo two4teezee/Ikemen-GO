@@ -547,8 +547,8 @@ func (sh *SffHeader) Read(r io.Reader, lofs *uint32, tofs *uint32) error {
 type Sprite struct {
 	Pal      []uint32
 	Tex      Texture
-	Group    int16 // References above 32767 will be read as negative. This is true to SFF format however
-	Number   int16
+	Group    uint16 // Group index: valid range 0–65535
+	Number   uint16	// Sprite index: valid range 0–65535
 	Size     [2]uint16
 	Offset   [2]int16
 	palidx   int
@@ -1256,7 +1256,7 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 
 type Sff struct {
 	header  SffHeader
-	sprites map[[2]int16]*Sprite
+	sprites map[[2]uint16]*Sprite
 	palList PaletteList
 	// This is the sffCache key
 	filename string
@@ -1266,7 +1266,7 @@ type Palette struct {
 }
 
 func newSff() (s *Sff) {
-	s = &Sff{sprites: make(map[[2]int16]*Sprite)}
+	s = &Sff{sprites: make(map[[2]uint16]*Sprite)}
 	s.palList.init()
 	for i := int16(1); i <= int16(sys.cfg.Config.PaletteMax); i++ {
 		s.palList.PalTable[[...]int16{1, i}], _ = s.palList.NewPal()
@@ -1426,9 +1426,9 @@ func loadSff(filename string, char bool) (*Sff, error) {
 			}
 			prev = spriteList[i]
 		}
-		if s.sprites[[...]int16{spriteList[i].Group, spriteList[i].Number}] ==
+		if s.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] ==
 			nil {
-			s.sprites[[...]int16{spriteList[i].Group, spriteList[i].Number}] =
+			s.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] =
 				spriteList[i]
 		}
 		if s.header.Ver0 == 1 {
@@ -1592,7 +1592,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 	return nil
 }
 
-func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff, []int32, error) {
+func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff, []int32, error) {
 	sff := newSff()
 	f, err := OpenFile(filename)
 	if err != nil {
@@ -1686,9 +1686,9 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 				return nil, nil, err
 			}
 		}
-		if _, ok := preloadSpr[[...]int16{spriteList[i].Group, spriteList[i].Number}]; ok || (prev == nil && spriteList[i].palidx < 0) {
+		if _, ok := preloadSpr[[...]uint16{spriteList[i].Group, spriteList[i].Number}]; ok || (prev == nil && spriteList[i].palidx < 0) {
 			if ok {
-				ok = sff.sprites[[...]int16{spriteList[i].Group, spriteList[i].Number}] == nil
+				ok = sff.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] == nil
 			}
 			// sprite
 			if size == 0 {
@@ -1807,7 +1807,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 			}
 			preloadRef[i] = true
 			if ok {
-				sff.sprites[[...]int16{spriteList[i].Group, spriteList[i].Number}] = spriteList[i]
+				sff.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] = spriteList[i]
 				preloadSprNum--
 				if preloadSprNum == 0 {
 					break
@@ -1851,14 +1851,14 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]int16]bool) (*Sff,
 	return sff, selPal, nil
 }
 
-func (s *Sff) GetSprite(g, n int16) *Sprite {
-	if g == -1 {
+func (s *Sff) GetSprite(g, n uint16) *Sprite {
+	if g == 0xFFFF {
 		return nil
 	}
-	return s.sprites[[...]int16{g, n}]
+	return s.sprites[[2]uint16{g, n}]
 }
 
-func (s *Sff) getOwnPalSprite(g, n int16, pl *PaletteList) *Sprite {
+func (s *Sff) getOwnPalSprite(g, n uint16, pl *PaletteList) *Sprite {
 	sys.runMainThreadTask() // Generate texture
 	sp := s.GetSprite(g, n)
 	if sp == nil {

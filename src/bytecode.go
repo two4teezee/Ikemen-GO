@@ -12181,14 +12181,17 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				yscl = exp[1].evalF(c)
 			}
 		case text_color:
-			var r, g, b int32 = exp[0].evalI(c), 255, 255
+			var r, g, b, a int32 = exp[0].evalI(c), 255, 255, 255
 			if len(exp) > 1 {
 				g = exp[1].evalI(c)
 				if len(exp) > 2 {
 					b = exp[2].evalI(c)
+					if len(exp) > 3 {
+						a = exp[3].evalI(c)
+					}
 				}
 			}
-			ts.SetColor(r, g, b)
+			ts.SetColor(r, g, b, a)
 		case text_xshear:
 			ts.xshear = exp[0].evalF(c)
 		case text_id:
@@ -12482,15 +12485,18 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case text_color:
-				var r, g, b int32 = exp[0].evalI(c), 255, 255
+				var r, g, b, a int32 = exp[0].evalI(c), 255, 255, 255
 				if len(exp) > 1 {
 					g = exp[1].evalI(c)
 					if len(exp) > 2 {
 						b = exp[2].evalI(c)
+						if len(exp) > 3 {
+							a = exp[3].evalI(c)
+						}
 					}
 				}
 				eachText(func(ts *TextSprite) {
-					ts.SetColor(r, g, b)
+					ts.SetColor(r, g, b, a)
 				})
 			case text_xshear:
 				xs := exp[0].evalF(c)

@@ -171,9 +171,9 @@ const (
 
 // Debug Clsn text
 type ClsnText struct {
-	x, y    float32
-	text    string
-	r, g, b int32
+	x, y       float32
+	text       string
+	r, g, b, a int32
 }
 
 // Debug Clsn display

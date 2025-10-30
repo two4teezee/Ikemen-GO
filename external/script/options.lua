@@ -2373,6 +2373,7 @@ function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 			g =      motif.option_info['keymenu_item_p' .. i .. '_font'][5],
 			b =      motif.option_info['keymenu_item_p' .. i .. '_font'][6],
 			height = motif.option_info['keymenu_item_p' .. i .. '_font'][7],
+			a =      motif.option_info['keymenu_item_p' .. i .. '_font'][8],
 			xshear = motif.option_info['keymenu_item_p' .. i .. '_xshear'],
 			angle  = motif.option_info['keymenu_item_p' .. i .. '_angle'],
 			defsc =  motif.defaultOptions,

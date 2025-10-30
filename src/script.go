@@ -2940,7 +2940,12 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.SetColor(int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4)))
+		// Default alpha to 255 for compatibility
+		a := int32(255)
+		if !nilArg(l, 5) {
+			a = int32(MinI(255, int(numArg(l, 5))))
+		}
+		ts.SetColor(int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4)), a)
 		return 0
 	})
 	luaRegister(l, "textImgSetFont", func(*lua.LState) int {

@@ -506,6 +506,7 @@ function text:create(t)
 	t.r = t.r or 255
 	t.g = t.g or 255
 	t.b = t.b or 255
+	t.a = t.a or 255
 	t.height = t.height or -1
 	if t.window == nil then t.window = {} end
 	t.window[1] = t.window[1] or 0
@@ -532,7 +533,7 @@ function text:create(t)
 	textImgSetBank(t.ti, t.bank)
 	textImgSetAlign(t.ti, t.align)
 	textImgSetText(t.ti, t.text)
-	textImgSetColor(t.ti, t.r, t.g, t.b)
+	textImgSetColor(t.ti, t.r, t.g, t.b, t.a)
 	if t.defsc then disableLuaScale() end
 	textImgSetPos(t.ti, t.x + main.f_alignOffset(t.align), t.y)
 	textImgSetScale(t.ti, t.scaleX, t.scaleY)
@@ -585,7 +586,7 @@ function text:update(t)
 		textImgSetBank(self.ti, self.bank)
 		textImgSetAlign(self.ti, self.align)
 		textImgSetText(self.ti, self.text)
-		textImgSetColor(self.ti, self.r, self.g, self.b)
+		textImgSetColor(self.ti, self.r, self.g, self.b, self.a)
 		if self.defsc then disableLuaScale() end
 		textImgSetPos(self.ti, self.x + main.f_alignOffset(self.align), self.y)
 		textImgSetScale(self.ti, self.scaleX, self.scaleY)
@@ -733,6 +734,7 @@ function main.f_createTextImg(t, prefix, mod)
 		g =      t[prefix .. '_font'][5],
 		b =      t[prefix .. '_font'][6],
 		height = t[prefix .. '_font'][7],
+		a =      t[prefix .. '_font'][8],
 		xshear = t[prefix .. '_xshear'] or 0,
 		angle  = t[prefix .. '_angle'] or 0,
 		window = t[prefix .. '_window'],

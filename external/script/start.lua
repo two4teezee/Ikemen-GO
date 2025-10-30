@@ -2472,8 +2472,8 @@ function start.f_selectScreen()
 							r =      motif.select_info['p' .. side .. '_name_font'][4],
 							g =      motif.select_info['p' .. side .. '_name_font'][5],
 							b =      motif.select_info['p' .. side .. '_name_font'][6],
-							height = motif.select_info['p' .. side .. '_name_font'][7],
-							a =      motif.select_info['p' .. side .. '_name_font'][8],
+							height = motif.select_info['p' .. side .. '_name_font'][8],
+							a =      motif.select_info['p' .. side .. '_name_font'][7],
 							xshear = motif.select_info['p' .. side .. '_name_xshear'],
 							angle  = motif.select_info['p' .. side .. '_name_angle'],
 						})
@@ -2546,8 +2546,8 @@ function start.f_selectScreen()
 						r =      motif.select_info[stageActiveType .. '_font'][4],
 						g =      motif.select_info[stageActiveType .. '_font'][5],
 						b =      motif.select_info[stageActiveType .. '_font'][6],
-						height = motif.select_info[stageActiveType .. '_font'][7],
-						a =      motif.select_info[stageActiveType .. '_font'][8],
+						height = motif.select_info[stageActiveType .. '_font'][8],
+						a =      motif.select_info[stageActiveType .. '_font'][7],
 						xshear = motif.select_info[stageActiveType .. '_xshear'],
 						angle  = motif.select_info[stageActiveType .. '_angle'],
 					})
@@ -2750,8 +2750,8 @@ function start.f_teamMenu(side, t)
 					r =      motif.select_info[t_teamActiveType[side] .. '_font'][4],
 					g =      motif.select_info[t_teamActiveType[side] .. '_font'][5],
 					b =      motif.select_info[t_teamActiveType[side] .. '_font'][6],
-					height = motif.select_info[t_teamActiveType[side] .. '_font'][7],
-					a =      motif.select_info[t_teamActiveType[side] .. '_font'][8],
+					height = motif.select_info[t_teamActiveType[side] .. '_font'][8],
+					a =      motif.select_info[t_teamActiveType[side] .. '_font'][7],
 					xshear = motif.select_info[t_teamActiveType[side] .. '_xshear'],
 					angle  = motif.select_info[t_teamActiveType[side] .. '_angle'],
 				})
@@ -2772,8 +2772,8 @@ function start.f_teamMenu(side, t)
 					r =      motif.select_info['p' .. side .. '_teammenu_item_font'][4],
 					g =      motif.select_info['p' .. side .. '_teammenu_item_font'][5],
 					b =      motif.select_info['p' .. side .. '_teammenu_item_font'][6],
-					height = motif.select_info['p' .. side .. '_teammenu_item_font'][7],
-					a =      motif.select_info['p' .. side .. '_teammenu_item_font'][8],
+					height = motif.select_info['p' .. side .. '_teammenu_item_font'][8],
+					a =      motif.select_info['p' .. side .. '_teammenu_item_font'][7],
 					xshear = motif.select_info['p' .. side .. '_teammenu_item_xshear'],
 					angle  = motif.select_info['p' .. side .. '_teammenu_item_angle'],
 				})
@@ -3578,8 +3578,8 @@ function start.f_selectVersus(active, t_orderSelect)
 						r =      motif.vs_screen['p' .. side .. '_name_font'][4],
 						g =      motif.vs_screen['p' .. side .. '_name_font'][5],
 						b =      motif.vs_screen['p' .. side .. '_name_font'][6],
-						height = motif.vs_screen['p' .. side .. '_name_font'][7],
-						a =      motif.vs_screen['p' .. side .. '_name_font'][8],
+						height = motif.vs_screen['p' .. side .. '_name_font'][8],
+						a =      motif.vs_screen['p' .. side .. '_name_font'][7],
 						xshear = motif.vs_screen['p' .. side .. '_name_xshear'],
 						angle  = motif.vs_screen['p' .. side .. '_name_angle'],
 					})
@@ -4314,8 +4314,8 @@ function start.f_continue()
 				r =      motif.continue_screen[var .. '_font'][4],
 				g =      motif.continue_screen[var .. '_font'][5],
 				b =      motif.continue_screen[var .. '_font'][6],
-				height = motif.continue_screen[var .. '_font'][7],
-				a =      motif.continue_screen[var .. '_font'][8],
+				height = motif.continue_screen[var .. '_font'][8],
+				a =      motif.continue_screen[var .. '_font'][7],
 				xshear = motif.continue_screen[var .. '_xshear'],
 				angle  = motif.continue_screen[var .. '_angle'],
 			})
@@ -4894,7 +4894,7 @@ function start.f_dialogueParse()
 								r = motif.dialogue_info['p' .. i .. '_text_font'][4],
 								g = motif.dialogue_info['p' .. i .. '_text_font'][5],
 								b = motif.dialogue_info['p' .. i .. '_text_font'][6],
-								a = motif.dialogue_info['p' .. i .. '_text_font'][8]
+								a = motif.dialogue_info['p' .. i .. '_text_font'][7]
 							}
 						else
 							t.colors[i][length] = color:fromHex(m2)
@@ -5023,7 +5023,7 @@ function start.f_dialogue()
 				motif.dialogue_info['p' .. t_parsed.side .. '_text_offset'][2],
 				motif.dialogue_info['p' .. t_parsed.side .. '_text_spacing'][1],
 				motif.dialogue_info['p' .. t_parsed.side .. '_text_spacing'][2],
-				main.font_def[motif.dialogue_info['p' .. t_parsed.side .. '_text_font'][1] .. motif.dialogue_info['p' .. t_parsed.side .. '_text_font'][7]],
+				main.font_def[motif.dialogue_info['p' .. t_parsed.side .. '_text_font'][1] .. motif.dialogue_info['p' .. t_parsed.side .. '_text_font'][8]],
 				motif.dialogue_info['p' .. t_parsed.side .. '_text_delay'],
 				main.f_lineLength(
 					motif.dialogue_info['p' .. t_parsed.side .. '_text_offset'][1],

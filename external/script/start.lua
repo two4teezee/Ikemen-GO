@@ -984,7 +984,17 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, icon)
 	if last then
 		member = #t_portraits
 	end
-	if t_portraits[member].face2_data ~= nil then
+    t_portraits[member].skipCurrent = false
+    -- draw random 'portraits'
+	if motif.select_info['p' .. side .. '_face_random'] == 1 then
+		if start.p and start.p[side] and start.p[side].inRandom then
+			main.f_animPosDraw(motif.select_info['p' .. side .. '_face2_random_data'])
+			main.f_animPosDraw(motif.select_info['p' .. side .. '_face_random_data'])
+			t_portraits[member].skipCurrent = true
+		end
+	end
+
+	if not t_portraits[member].skipCurrent and t_portraits[member].face2_data ~= nil then
 		main.f_animPosDraw(
 			t_portraits[member].face2_data,
 			t['p' .. side .. subname .. '_pos'][1] + t['p' .. side .. '_face2_offset'][1],
@@ -995,7 +1005,7 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, icon)
 	end
 	-- if next player portrait should replace previous one
 	if t['p' .. side .. subname .. '_num'] == 1 and last and not main.coop then
-		if t_portraits[#t_portraits].anim_data ~= nil then
+		if not t_portraits[member].skipCurrent and t_portraits[#t_portraits].anim_data ~= nil then
 			local v = t_portraits[#t_portraits]
 			f_slideDistCalc(v.slide_dist, t['p' .. side .. '_member1' .. subname .. '_slide_dist'], t['p' .. side .. '_member1' .. subname .. '_slide_speed'])
 			main.f_animPosDraw(
@@ -1011,7 +1021,7 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, icon)
 	-- otherwise render portraits in order, up to the 'num' limit
 	for member = #t_portraits, 1, -1 do
 		if member <= t['p' .. side .. subname .. '_num'] --[[or (last and main.coop)]] then
-			if t_portraits[member].anim_data ~= nil then
+			if not t_portraits[member].skipCurrent and t_portraits[member].anim_data ~= nil then
 				local v = t_portraits[member]
 				f_slideDistCalc(v.slide_dist, t['p' .. side .. '_member' .. member .. subname .. '_slide_dist'], t['p' .. side .. '_member' .. member .. subname .. '_slide_speed'])
 					main.f_animPosDraw(
@@ -3116,9 +3126,13 @@ function start.f_palMenu(side, cmd, player, member, selectState)
     -- random preview update
     if st.currentIdx == maxIdx then
         if not start.c[player].randPalCnt or start.c[player].randPalCnt <= 0 then
-            start.c[player].randPalCnt = motif.select_info.cell_random_switchtime
+            start.c[player].randPalCnt = motif.select_info.palmenu_random_switchtime
             start.c[player].randPalPreview = start.f_randomPal(charRef, validPals)
-            applyPalette(st, charData, start.c[player].randPalPreview)
+			if motif.select_info['p' .. side .. '_palmenu_random_applypal'] == 1 then
+            	applyPalette(st, charData, start.c[player].randPalPreview)
+			else
+				applyPalette(st, charData, 1)
+			end
         	sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_value_snd'][1], motif.select_info['p' .. side .. '_palmenu_value_snd'][2])
         else
             start.c[player].randPalCnt = start.c[player].randPalCnt - 1
@@ -3208,6 +3222,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				end
 				-- cursor at randomselect cell
 				if start.f_selGrid(start.c[player].cell + 1).char == 'randomselect' or start.f_selGrid(start.c[player].cell + 1).hidden == 3 then
+					start.p[side].inRandom = true
 					if start.c[player].randCnt > 0 then
 						start.c[player].randCnt = start.c[player].randCnt - 1
 						start.c[player].selRef = start.c[player].randRef
@@ -3223,6 +3238,8 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 							start.c[player].randRef = start.c[player].selRef
 						end
 					end
+				else
+					start.p[side].inRandom = false
 				end
 				-- update anim data
 				if updateAnim then
@@ -3234,6 +3251,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					sndPlay(motif.files.snd_data, start.f_getCursorData(player, '_cursor_done_snd')[1], start.f_getCursorData(player, '_cursor_done_snd')[2])
 					start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_select_snd'][1], motif.select_info['p' .. side .. '_select_snd'][2])
 					start.p[side].t_selTemp[member].pal = main.f_btnPalNo(cmd)
+					start.p[side].inRandom = false
 					if start.p[side].t_selTemp[member].pal == nil or start.p[side].t_selTemp[member].pal == 0 then
 						start.p[side].t_selTemp[member].pal = 1
 					end

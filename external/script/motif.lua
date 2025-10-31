@@ -408,7 +408,13 @@ local motif =
 		p1_face_window = {},
 		p1_face_spacing = {0, 0}, --Ikemen feature
 		p1_face_padding = 0, --Ikemen feature
-		p1_face_applypal = 0, --Ikemen Feature
+		p1_face_applypal = 0, --Ikemen feature
+		p1_face_random = 0, --Ikemen feature
+		p1_face_random_anim = -1, --Ikemen feature
+		p1_face_random_spr = {}, --Ikemen feature
+		p1_face_random_offset = {0, 0}, --Ikemen feature
+		p1_face_random_facing = 1, --Ikemen feature
+		p1_face_random_scale = {1.0, 1.0}, --Ikemen feature
 		p2_face_pos = {0, 0},
 		p2_face_num = 1, --Ikemen feature
 		p2_face_anim = -1, --Ikemen feature
@@ -421,7 +427,12 @@ local motif =
 		p2_face_window = {},
 		p2_face_spacing = {0, 0}, --Ikemen feature
 		p2_face_padding = 0, --Ikemen feature
-		p2_face_applypal = 0, --Ikemen Feature
+		p2_face_applypal = 0, --Ikemen feature
+		p2_face_random_anim = -1, --Ikemen feature
+		p2_face_random_spr = {}, --Ikemen feature
+		p2_face_random_offset = {0, 0}, --Ikemen feature
+		p2_face_random_facing = 1, --Ikemen feature
+		p2_face_random_scale = {1.0, 1.0}, --Ikemen feature
 		--p<pn>_member<num>_face_anim = -1, --Ikemen feature
 		--p<pn>_member<num>_face_spr = {9000, 1}, --Ikemen feature
 		--p<pn>_member<num>_face_done_anim = -1, --Ikemen feature
@@ -438,12 +449,22 @@ local motif =
 		p1_face2_facing = 1, --Ikemen feature
 		p1_face2_scale = {1.0, 1.0}, --Ikemen feature
 		p1_face2_window = {}, --Ikemen feature
+		p1_face2_random_anim = -1,
+		p1_face2_random_spr = {},
+		p1_face2_random_offset = {0, 0},
+		p1_face2_random_facing = 1,
+		p1_face2_random_scale = {1.0, 1.0},
 		p2_face2_anim = -1, --Ikemen feature
 		p2_face2_spr = {}, --Ikemen feature
 		p2_face2_offset = {0, 0}, --Ikemen feature
 		p2_face2_facing = -1, --Ikemen feature
 		p2_face2_scale = {1.0, 1.0}, --Ikemen feature
 		p2_face2_window = {}, --Ikemen feature
+		p2_face2_random_anim = -1,
+		p2_face2_random_spr = {},
+		p2_face2_random_offset = {0, 0},
+		p2_face2_random_facing = -1,
+		p2_face2_random_scale = {1.0, 1.0},
 		p1_name_num = 4, --Ikemen feature
 		p1_name_offset = {0, 0},
 		p1_name_font = {-1, 4, 1, 255, 255, 255, 255, -1},
@@ -735,6 +756,7 @@ local motif =
 		p1_select_snd = {-1, 0}, --Ikemen feature (data read from character SND)
 		p2_select_snd = {-1, 0}, --Ikemen feature (data read from character SND)
 		paletteselect = 0, --Ikemen feature
+		palmenu_random_switchtime = 4, --Ikemen feature
 		--p<pn>_member<num>_palmenu_number_offset = {0, 0}, --Ikemen feature
 		--p<pn>_member<num>_palmenu_number_font = {-1, 0, 0}, --Ikemen feature
 		--p<pn>_member<num>_palmenu_number_scale = {1.0, 1.0}, --Ikemen feature
@@ -771,6 +793,7 @@ local motif =
 		p1_palmenu_cancel_key = 'm', --Ikemen feature
 		p1_palmenu_random_key = 's', --Ikemen feature
 		p1_palmenu_random_text = 'Random', --Ikemen feature
+		p1_palmenu_random_applypal = 1, --Ikemen feature
 		p1_palmenu_value_snd = {-1, 0}, --Ikemen feature
 		p1_palmenu_done_snd = {-1, 0}, --Ikemen feature
 		p1_palmenu_cancel_snd = {-1, 0}, --Ikemen feature
@@ -788,6 +811,7 @@ local motif =
 		p2_palmenu_cancel_key = 'm', --Ikemen feature
 		p2_palmenu_random_key = 's', --Ikemen feature
 		p2_palmenu_random_text = 'Random', --Ikemen feature
+		p2_palmenu_random_applypal = 1, --Ikemen feature
 		p2_palmenu_value_snd = {-1, 0}, --Ikemen feature
 		p2_palmenu_done_snd = {-1, 0}, --Ikemen feature
 		p2_palmenu_cancel_snd = {-1, 0}, --Ikemen feature
@@ -2768,22 +2792,6 @@ for line in main.motifData:gmatch('([^\n]*)\n?') do
 						end
 					end
 					pos[param] = value
-				elseif param:match('^palmenu_itemname_') then
-				local subt, append = param:match('^([^_]+)_itemname_(.+)$')
-				if pos_sort[subt] == nil then
-					pos_sort[subt] = {}
-				end
-				table.insert(pos_sort[subt], append)
-				for i = 1, 2 do
-					local prefix = 'p' .. i .. '_'
-					local bg = param:gsub('_itemname_', '_bg_')
-					def_pos[prefix .. bg .. '_anim']   = -1
-					def_pos[prefix .. bg .. '_spr']    = {-1, 0}
-					def_pos[prefix .. bg .. '_offset'] = {0, 0}
-					def_pos[prefix .. bg .. '_facing'] = 1
-					def_pos[prefix .. bg .. '_scale']  = {1.0, 1.0}
-				end
-				pos[param] = value
 				elseif value:match('.+,.+') then --multiple values
 					local fontRef = -1
 					for i, c in ipairs(main.f_strsplit(',', value)) do --split value using "," delimiter
@@ -3101,6 +3109,8 @@ local t_pos = motif.select_info
 for _, v in ipairs({
 	{s = 'cell_bg_',                      x = 0,                                                           y = 0},
 	{s = 'cell_random_',                  x = 0,                                                           y = 0},
+	{s = 'p1_face_random_',               x = t_pos.p1_face_pos[1],                                        y = t_pos.p1_face_pos[2]},
+	{s = 'p1_face2_random_',              x = t_pos.p1_face_pos[1],                                        y = t_pos.p1_face_pos[2]},
 	{s = 'p1_teammenu_bg_',               x = t_pos.p1_teammenu_pos[1],                                    y = t_pos.p1_teammenu_pos[2]},
 	{s = 'p1_teammenu_selftitle_',        x = t_pos.p1_teammenu_pos[1],                                    y = t_pos.p1_teammenu_pos[2]},
 	{s = 'p1_teammenu_enemytitle_',       x = t_pos.p1_teammenu_pos[1],                                    y = t_pos.p1_teammenu_pos[2]},
@@ -3115,6 +3125,8 @@ for _, v in ipairs({
 	{s = 'p1_teammenu_ratio6_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_teammenu_ratio7_icon_',      x = t_pos.p1_teammenu_pos[1] + t_pos.p1_teammenu_item_offset[1], y = t_pos.p1_teammenu_pos[2] + t_pos.p1_teammenu_item_offset[2]},
 	{s = 'p1_palmenu_bg_',                x = t_pos.p1_palmenu_pos[1],                                     y = t_pos.p1_palmenu_pos[2]},
+	{s = 'p2_face_random_',               x = t_pos.p2_face_pos[1],                                        y = t_pos.p2_face_pos[2]},
+	{s = 'p2_face2_random_',              x = t_pos.p2_face_pos[1],                                        y = t_pos.p2_face_pos[2]},
 	{s = 'p2_teammenu_bg_',               x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_selftitle_',        x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},
 	{s = 'p2_teammenu_enemytitle_',       x = t_pos.p2_teammenu_pos[1],                                    y = t_pos.p2_teammenu_pos[2]},

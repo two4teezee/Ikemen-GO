@@ -68,24 +68,26 @@ type TtfFont interface {
 
 // Fnt is a interface for basic font information
 type Fnt struct {
-	images    map[int32]map[rune]*FntCharImage
-	palettes  [][256]uint32
-	coldepth  []byte
-	ver, ver2 uint16
-	Type      string
-	BankType  string
-	Size      [2]uint16
-	Spacing   [2]int32
-	colors    int32
-	offset    [2]int32
-	ttf       TtfFont
-	paltex    Texture
+	images      map[int32]map[rune]*FntCharImage
+	palettes    [][256]uint32
+	coldepth    []byte
+	ver, ver2   uint16
+	Type        string
+	BankType    string
+	Size        [2]uint16
+	Spacing     [2]int32
+	colors      int32
+	offset      [2]int32
+	ttf         TtfFont
+	paltex      Texture
+	lastPalBank int32
 }
 
 func newFnt() *Fnt {
 	return &Fnt{
-		images:   make(map[int32]map[rune]*FntCharImage),
-		BankType: "palette",
+		images:      make(map[int32]map[rune]*FntCharImage),
+		BankType:    "palette",
+		lastPalBank: -1,
 	}
 }
 
@@ -576,7 +578,11 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 		pal = f.palettes[bank][:] //palfx.getFxPal(f.palettes[bank][:], false)
 	}
 
-	f.paltex = nil
+	// Only force a new paltex on bank change; otherwise reuse the previous one
+	if f.lastPalBank != bank {
+		f.paltex = nil
+		f.lastPalBank = bank
+	}
 
 	// Set the trans type
 	tt := TT_none

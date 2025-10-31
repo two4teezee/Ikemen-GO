@@ -5426,7 +5426,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			return err
 		}
 		if err := c.paramValue(is, sc, "color",
-			text_color, VT_Int, 3, false); err != nil {
+			text_color, VT_Int, 4, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "xshear",
@@ -5545,7 +5545,7 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 			return err
 		}
 		if err := c.paramValue(is, sc, "color",
-			text_color, VT_Int, 3, false); err != nil {
+			text_color, VT_Int, 4, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "xshear",

@@ -2534,7 +2534,7 @@ func (s *System) drawDebugText() {
 		x := (320-float32(s.gameWidth))/2 + 1
 		y := 240 - float32(s.gameHeight)
 		if s.statusLFunc != nil {
-			s.debugFont.SetColor(255, 255, 255)
+			s.debugFont.SetColor(255, 255, 255, 255)
 			for i, p := range s.chars {
 				if len(p) > 0 {
 					top := s.luaLState.GetTop()
@@ -2551,7 +2551,7 @@ func (s *System) drawDebugText() {
 		}
 		// Console
 		y = MaxF(y, 48+240-float32(s.gameHeight))
-		s.debugFont.SetColor(255, 255, 255)
+		s.debugFont.SetColor(255, 255, 255, 255)
 		for _, s := range s.consoleText {
 			put(&x, &y, s)
 		}
@@ -2568,12 +2568,12 @@ func (s *System) drawDebugText() {
 		for i, f := range s.listLFunc {
 			if f != nil {
 				if i == 1 {
-					s.debugFont.SetColor(199, 199, 219)
+					s.debugFont.SetColor(199, 199, 219, 255)
 				} else if (i == 2 && s.debugWC.animPN != s.debugWC.playerNo) ||
 					(i == 3 && s.debugWC.ss.sb.playerNo != s.debugWC.playerNo) {
-					s.debugFont.SetColor(255, 255, 127)
+					s.debugFont.SetColor(255, 255, 127, 255)
 				} else {
-					s.debugFont.SetColor(255, 255, 255)
+					s.debugFont.SetColor(255, 255, 255, 255)
 				}
 				top := s.luaLState.GetTop()
 				if s.luaLState.CallByParam(lua.P{Fn: f, NRet: 1,
@@ -2591,7 +2591,7 @@ func (s *System) drawDebugText() {
 			}
 		}
 		// Clipboard
-		s.debugFont.SetColor(255, 255, 255)
+		s.debugFont.SetColor(255, 255, 255, 255)
 		for _, s := range s.debugWC.clipboardText {
 			put(&x, &y, s)
 		}
@@ -2600,7 +2600,7 @@ func (s *System) drawDebugText() {
 	// Unlike Mugen, this is drawn separately from the Clsn boxes themselves, making debug more flexible
 	//if s.clsnDisplay {
 	for _, t := range s.clsnText {
-		s.debugFont.SetColor(t.r, t.g, t.b)
+		s.debugFont.SetColor(t.r, t.g, t.b, t.a)
 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/s.widthScale,
 			s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 0, &s.scrrect,
 			s.debugFont.palfx, s.debugFont.frgba)

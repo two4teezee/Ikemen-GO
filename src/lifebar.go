@@ -176,7 +176,7 @@ func loadFightFx(def string, isGlobal bool) error {
 }
 
 type LbText struct {
-	font       [6]int32
+	font       [8]int32 // to match Lua arg count regardless
 	text       string
 	lay        Layout
 	palfx      *PalFX
@@ -187,7 +187,7 @@ type LbText struct {
 
 func newLbText(align int32) *LbText {
 	return &LbText{
-		font:  [...]int32{-1, 0, align, 255, 255, 255},
+		font:  [...]int32{-1, 0, align, 255, 255, 255, 255, -1},
 		palfx: newPalFX(),
 		frgba: [...]float32{1.0, 1.0, 1.0, 1.0},
 	}
@@ -196,9 +196,9 @@ func newLbText(align int32) *LbText {
 func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align int32) *LbText {
 	txt := newLbText(align)
 
-	txt.font[3], txt.font[4], txt.font[5] = -1, -1, -1
+	txt.font[3], txt.font[4], txt.font[5], txt.font[6], txt.font[7] = -1, -1, -1, 255, -1
 	is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
-		&txt.font[3], &txt.font[4], &txt.font[5])
+		&txt.font[3], &txt.font[4], &txt.font[5], &txt.font[6], &txt.font[7])
 	if txt.font[0] >= 0 && int(txt.font[0]) < len(f) && f[txt.font[0]] == nil {
 		sys.errLog.Printf("Undefined font %v referenced by lifebar parameter: %v\n", txt.font[0], pre+"font")
 		txt.font[0] = -1
@@ -210,17 +210,17 @@ func readLbText(pre string, is IniSection, str string, ln int16, f []*Fnt, align
 	}
 	txt.lay = *ReadLayout(pre, is, ln)
 	if txt.font[3] >= 0 && txt.font[4] >= 0 && txt.font[5] >= 0 {
-		txt.SetColor(txt.font[3], txt.font[4], txt.font[5])
+		txt.SetColor(txt.font[3], txt.font[4], txt.font[5], txt.font[6])
 	}
 	txt.pfxinit = ReadPalFX(pre+"palfx.", is, txt.palfx)
 	return txt
 }
 
-func (txt *LbText) SetColor(r, g, b int32) {
+func (txt *LbText) SetColor(r, g, b, a int32) {
 	txt.forcecolor = true
 	txt.palfx.setColor(r, g, b)
 	txt.frgba = [...]float32{float32(r) / 255, float32(g) / 255,
-		float32(b) / 255, 1.0}
+		float32(b) / 255, float32(a) / 255}
 }
 
 func (txt *LbText) step() {

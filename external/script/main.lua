@@ -506,6 +506,7 @@ function text:create(t)
 	t.r = t.r or 255
 	t.g = t.g or 255
 	t.b = t.b or 255
+	t.a = t.a or 255
 	t.height = t.height or -1
 	if t.window == nil then t.window = {} end
 	t.window[1] = t.window[1] or 0
@@ -532,7 +533,7 @@ function text:create(t)
 	textImgSetBank(t.ti, t.bank)
 	textImgSetAlign(t.ti, t.align)
 	textImgSetText(t.ti, t.text)
-	textImgSetColor(t.ti, t.r, t.g, t.b)
+	textImgSetColor(t.ti, t.r, t.g, t.b, t.a)
 	if t.defsc then disableLuaScale() end
 	textImgSetPos(t.ti, t.x + main.f_alignOffset(t.align), t.y)
 	textImgSetScale(t.ti, t.scaleX, t.scaleY)
@@ -585,7 +586,7 @@ function text:update(t)
 		textImgSetBank(self.ti, self.bank)
 		textImgSetAlign(self.ti, self.align)
 		textImgSetText(self.ti, self.text)
-		textImgSetColor(self.ti, self.r, self.g, self.b)
+		textImgSetColor(self.ti, self.r, self.g, self.b, self.a)
 		if self.defsc then disableLuaScale() end
 		textImgSetPos(self.ti, self.x + main.f_alignOffset(self.align), self.y)
 		textImgSetScale(self.ti, self.scaleX, self.scaleY)
@@ -732,7 +733,8 @@ function main.f_createTextImg(t, prefix, mod)
 		r =      t[prefix .. '_font'][4],
 		g =      t[prefix .. '_font'][5],
 		b =      t[prefix .. '_font'][6],
-		height = t[prefix .. '_font'][7],
+		height = t[prefix .. '_font'][8],
+		a =      t[prefix .. '_font'][7],
 		xshear = t[prefix .. '_xshear'] or 0,
 		angle  = t[prefix .. '_angle'] or 0,
 		window = t[prefix .. '_window'],
@@ -4118,7 +4120,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_selected_active_font[4],
 						g =      motif[section].menu_item_selected_active_font[5],
 						b =      motif[section].menu_item_selected_active_font[6],
-						height = motif[section].menu_item_selected_active_font[7],
+						a =      motif[section].menu_item_selected_active_font[7],
+						height = motif[section].menu_item_selected_active_font[8],
 						xshear = motif[section].menu_item_selected_active_xshear,
 						angle  = motif[section].menu_item_selected_active_angle,
 						defsc =  defsc,
@@ -4137,7 +4140,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_active_font[4],
 						g =      motif[section].menu_item_active_font[5],
 						b =      motif[section].menu_item_active_font[6],
-						height = motif[section].menu_item_active_font[7],
+						a =      motif[section].menu_item_active_font[7],
+						height = motif[section].menu_item_active_font[8],
 						xshear = motif[section].menu_item_active_xshear,
 						angle  = motif[section].menu_item_active_angle,
 						defsc =  defsc,
@@ -4157,7 +4161,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_value_active_font[4],
 						g =      motif[section].menu_item_value_active_font[5],
 						b =      motif[section].menu_item_value_active_font[6],
-						height = motif[section].menu_item_value_active_font[7],
+						a =      motif[section].menu_item_value_active_font[7],
+						height = motif[section].menu_item_value_active_font[8],
 						xshear = motif[section].menu_item_value_active_xshear,
 						angle  = motif[section].menu_item_value_active_angle,
 						defsc =  defsc,
@@ -4192,7 +4197,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_selected_font[4],
 						g =      motif[section].menu_item_selected_font[5],
 						b =      motif[section].menu_item_selected_font[6],
-						height = motif[section].menu_item_selected_font[7],
+						a =      motif[section].menu_item_selected_font[7],
+						height = motif[section].menu_item_selected_font[8],
 						xshear = motif[section].menu_item_selected_xshear,
 						angle  = motif[section].menu_item_selected_angle,
 						defsc =  defsc,
@@ -4211,7 +4217,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_font[4],
 						g =      motif[section].menu_item_font[5],
 						b =      motif[section].menu_item_font[6],
-						height = motif[section].menu_item_font[7],
+						a =      motif[section].menu_item_font[7],
+						height = motif[section].menu_item_font[8],
 						xshear = motif[section].menu_item_xshear,
 						angle  = motif[section].menu_item_angle,
 						defsc =  defsc,
@@ -4231,7 +4238,8 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, section, bgdef, tit
 						r =      motif[section].menu_item_value_font[4],
 						g =      motif[section].menu_item_value_font[5],
 						b =      motif[section].menu_item_value_font[6],
-						height = motif[section].menu_item_value_font[7],
+						a =      motif[section].menu_item_value_font[7],
+						height = motif[section].menu_item_value_font[8],
 						xshear = motif[section].menu_item_value_xshear,
 						angle  = motif[section].menu_item_value_angle,
 						defsc =  defsc,

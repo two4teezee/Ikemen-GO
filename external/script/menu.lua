@@ -459,7 +459,7 @@ function menu.f_start()
 			--menu[v.section .. '_t_movelistWindow'] = {0, 0, main.SP_Localcoord[1], main.SP_Localcoord[2]}
 			if motif[v.section].movelist_window_margins_y[1] ~= 0 or motif[v.section].movelist_window_margins_y[2] ~= 0 then
 				local data = menu[v.section .. '_txt_text']
-				local font_def = main.font_def[motif[v.section].movelist_text_font[1] .. motif[v.section].movelist_text_font[7]]
+				local font_def = main.font_def[motif[v.section].movelist_text_font[1] .. motif[v.section].movelist_text_font[8]]
 				menu[v.section .. '_t_movelistWindow'] = {
 					0,
 					math.max(0, motif[v.section].movelist_pos[2] + motif[v.section].movelist_text_offset[2] - motif[v.section].movelist_window_margins_y[1]),
@@ -693,7 +693,7 @@ function menu.f_commandlistRender(section, t)
 					align = v.align
 				end
 				local data = menu[section .. '_txt_text']
-				local font_def = main.font_def[motif[section].movelist_text_font[1] .. motif[section].movelist_text_font[7]]
+				local font_def = main.font_def[motif[section].movelist_text_font[1] .. motif[section].movelist_text_font[8]]
 				--render glyph
 				if v.glyph and motif.glyphs_data[v.text] ~= nil then
 					if motif.glyphs_data[v.text].info ~= nil then
@@ -733,6 +733,7 @@ function menu.f_commandlistRender(section, t)
 						r = v.col.r or motif[section].movelist_text_font[4],
 						g = v.col.g or motif[section].movelist_text_font[5],
 						b = v.col.b or motif[section].movelist_text_font[6],
+						a = v.col.a or motif[section].movelist_text_font[7],
 					})
 					data:draw()
 					if k < #cmdList[n] then

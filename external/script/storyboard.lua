@@ -85,7 +85,7 @@ local function f_play(t, attract)
 								scene.layerall_pos[2] + layer.offset[2] + layer.vel[2] * counter,
 								layer.spacing[1],
 								layer.spacing[2],
-								main.font_def[layer.font[1] .. layer.font[7]],
+								main.font_def[layer.font[1] .. layer.font[8]],
 								layer.textdelay,
 								main.f_lineLength(
 									scene.layerall_pos[1] + layer.offset[1] + layer.vel[1] * counter,
@@ -414,7 +414,8 @@ local function f_parse(path)
 					r =      layer.font[4],
 					g =      layer.font[5],
 					b =      layer.font[6],
-					height = layer.font[7],
+					a =      layer.font[7],
+					height = layer.font[8],
 					window = layer.textwindow,
 				})
 			end

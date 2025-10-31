@@ -4034,7 +4034,7 @@ function start.f_victory()
 			motif.victory_screen.winquote_offset[2],
 			motif.victory_screen.winquote_spacing[1],
 			motif.victory_screen.winquote_spacing[2],
-			main.font_def[motif.victory_screen.winquote_font[1] .. motif.victory_screen.winquote_font[7]],
+			main.font_def[motif.victory_screen.winquote_font[1] .. motif.victory_screen.winquote_font[8]],
 			motif.victory_screen.winquote_delay,
 			main.f_lineLength(
 				motif.victory_screen.winquote_offset[1],

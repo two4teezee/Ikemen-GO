@@ -1625,6 +1625,9 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 	var prev *Sprite
 	preloadSprNum := len(preloadSpr)
 	preloadRef := make(map[int]bool)
+	headerXofs := make([]uint32, len(spriteList))
+	headerSize := make([]uint32, len(spriteList))
+	headerShofs32 := make([]int64, len(spriteList)) // só usado em Ver0 == 1
 
 	//set various variables that let us know if a sprite should use it's own palette
 	paletteState := 0
@@ -1680,29 +1683,53 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 			}
 			shofs = shofs - 32
 			f.Seek(-1, 1) //Return to where it was.
-
+			headerShofs32[i] = int64(shofs + 32)
 		case 2:
 			if err := spriteList[i].readHeaderV2(f, &xofs, &size,
 				lofs, tofs, &indexOfPrevious); err != nil {
 				return nil, nil, err
 			}
 		}
+		headerXofs[i] = xofs
+    	headerSize[i] = size
 		if _, ok := preloadSpr[[...]uint16{spriteList[i].Group, spriteList[i].Number}]; ok || (prev == nil && spriteList[i].palidx < 0) {
 			if ok {
 				ok = sff.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] == nil
 			}
 			// sprite
 			if size == 0 {
-				if ok := preloadRef[int(indexOfPrevious)]; ok {
-					dst, src := spriteList[i], spriteList[int(indexOfPrevious)]
-					sys.mainThreadTask <- func() {
-						dst.shareCopy(src)
+				base := int(indexOfPrevious)
+				copyPal := func(srcIdx int) {
+					dst, src := spriteList[i], spriteList[srcIdx]
+					sys.mainThreadTask <- func() { dst.shareCopy(src) }
+					spriteList[i].palidx = spriteList[srcIdx].palidx
+				}
+				switch {
+				case preloadRef[base]:
+					copyPal(base)
+				case base < i:
+					bxofs, bsize := headerXofs[base], headerSize[base]
+					if bsize > 0 {
+						var err error
+						switch h.Ver0 {
+						case 1:
+							err = spriteList[base].read(
+								f, h, headerShofs32[base], bsize, bxofs, prev,
+								pl, char && (prev == nil || spriteList[base].Group == 0 && spriteList[base].Number == 0),
+							)
+						case 2:
+							err = spriteList[base].readV2(f, int64(bxofs), bsize)
+						}
+						if err != nil {
+							return nil, nil, err
+						}
+						preloadRef[base] = true
+						copyPal(base)
+					} else {
+						spriteList[i].palidx = 0
 					}
-					spriteList[i].palidx = spriteList[int(indexOfPrevious)].palidx
-					//} else if int(indexOfPrevious) < i {
-					// TODO: read previously skipped sprite and palette
-				} else {
-					spriteList[i].palidx = 0 //index out of range
+				default:
+					spriteList[i].palidx = 0 // index out of range
 				}
 			} else {
 				switch h.Ver0 {

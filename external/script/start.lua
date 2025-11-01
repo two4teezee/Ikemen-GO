@@ -2486,8 +2486,8 @@ function start.f_selectScreen()
 							r =      motif.select_info['p' .. side .. '_name_font'][4],
 							g =      motif.select_info['p' .. side .. '_name_font'][5],
 							b =      motif.select_info['p' .. side .. '_name_font'][6],
-							height = motif.select_info['p' .. side .. '_name_font'][8],
 							a =      motif.select_info['p' .. side .. '_name_font'][7],
+							height = motif.select_info['p' .. side .. '_name_font'][8],
 							xshear = motif.select_info['p' .. side .. '_name_xshear'],
 							angle  = motif.select_info['p' .. side .. '_name_angle'],
 						})
@@ -2560,8 +2560,8 @@ function start.f_selectScreen()
 						r =      motif.select_info[stageActiveType .. '_font'][4],
 						g =      motif.select_info[stageActiveType .. '_font'][5],
 						b =      motif.select_info[stageActiveType .. '_font'][6],
-						height = motif.select_info[stageActiveType .. '_font'][8],
 						a =      motif.select_info[stageActiveType .. '_font'][7],
+						height = motif.select_info[stageActiveType .. '_font'][8],
 						xshear = motif.select_info[stageActiveType .. '_xshear'],
 						angle  = motif.select_info[stageActiveType .. '_angle'],
 					})
@@ -2764,8 +2764,8 @@ function start.f_teamMenu(side, t)
 					r =      motif.select_info[t_teamActiveType[side] .. '_font'][4],
 					g =      motif.select_info[t_teamActiveType[side] .. '_font'][5],
 					b =      motif.select_info[t_teamActiveType[side] .. '_font'][6],
-					height = motif.select_info[t_teamActiveType[side] .. '_font'][8],
 					a =      motif.select_info[t_teamActiveType[side] .. '_font'][7],
+					height = motif.select_info[t_teamActiveType[side] .. '_font'][8],
 					xshear = motif.select_info[t_teamActiveType[side] .. '_xshear'],
 					angle  = motif.select_info[t_teamActiveType[side] .. '_angle'],
 				})
@@ -2786,8 +2786,8 @@ function start.f_teamMenu(side, t)
 					r =      motif.select_info['p' .. side .. '_teammenu_item_font'][4],
 					g =      motif.select_info['p' .. side .. '_teammenu_item_font'][5],
 					b =      motif.select_info['p' .. side .. '_teammenu_item_font'][6],
-					height = motif.select_info['p' .. side .. '_teammenu_item_font'][8],
 					a =      motif.select_info['p' .. side .. '_teammenu_item_font'][7],
+					height = motif.select_info['p' .. side .. '_teammenu_item_font'][8],
 					xshear = motif.select_info['p' .. side .. '_teammenu_item_xshear'],
 					angle  = motif.select_info['p' .. side .. '_teammenu_item_angle'],
 				})
@@ -2952,7 +2952,8 @@ function start.f_palMenuDraw(side, member, curIdx, validIdx ,maxIdx)
 			r      = numFontInfo[4],
 			g      = numFontInfo[5],
 			b      = numFontInfo[6],
-			height = numFontInfo[7],
+			a      = numFontInfo[7],
+			height = numFontInfo[8],
 			xshear = getInfo('palmenu_number_xshear'),
 			angle  = getInfo('palmenu_number_angle'),
 		}):draw()
@@ -2974,7 +2975,8 @@ function start.f_palMenuDraw(side, member, curIdx, validIdx ,maxIdx)
 			r      = textFontInfo[4],
 			g      = textFontInfo[5],
 			b      = textFontInfo[6],
-			height = textFontInfo[7],
+			a      = textFontInfo[7]
+			height = textFontInfo[8],
 			xshear = getInfo('palmenu_text_xshear'),
 			angle  = getInfo('palmenu_text_angle'),
 		}):draw()
@@ -3600,8 +3602,8 @@ function start.f_selectVersus(active, t_orderSelect)
 						r =      motif.vs_screen['p' .. side .. '_name_font'][4],
 						g =      motif.vs_screen['p' .. side .. '_name_font'][5],
 						b =      motif.vs_screen['p' .. side .. '_name_font'][6],
-						height = motif.vs_screen['p' .. side .. '_name_font'][8],
 						a =      motif.vs_screen['p' .. side .. '_name_font'][7],
+						height = motif.vs_screen['p' .. side .. '_name_font'][8],
 						xshear = motif.vs_screen['p' .. side .. '_name_xshear'],
 						angle  = motif.vs_screen['p' .. side .. '_name_angle'],
 					})
@@ -4336,8 +4338,8 @@ function start.f_continue()
 				r =      motif.continue_screen[var .. '_font'][4],
 				g =      motif.continue_screen[var .. '_font'][5],
 				b =      motif.continue_screen[var .. '_font'][6],
-				height = motif.continue_screen[var .. '_font'][8],
 				a =      motif.continue_screen[var .. '_font'][7],
+				height = motif.continue_screen[var .. '_font'][8],
 				xshear = motif.continue_screen[var .. '_xshear'],
 				angle  = motif.continue_screen[var .. '_angle'],
 			})

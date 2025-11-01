@@ -1309,20 +1309,27 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		// Rotation offset. Only shadow scale sign
 		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
 
-		rotVal := func(vals ...float32) float32 {
-			for _, v := range vals {
-				if v != 0 {
-					return v
-				}
+		// Add custom or stage shadow rotation to original sprite rotation
+		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if customAngle != 0 {
+				return baseAngle + customAngle
 			}
-			return 0
+			return baseAngle + stageAngle
 		}
 
-		// TODO: These should probably stack with "s" rotation instead of overriding it
 		rot := Rotation{
-			angle:  rotVal(s.shadowRot.angle, sys.stage.sdw.rot.angle, s.rot.angle),
-			xangle: rotVal(s.shadowRot.xangle, sys.stage.sdw.rot.xangle, s.rot.xangle),
-			yangle: rotVal(s.shadowRot.yangle, sys.stage.sdw.rot.yangle, s.rot.yangle),
+			angle:  addRot(s.rot.angle, s.shadowRot.angle, sys.stage.sdw.rot.angle),
+			xangle: addRot(s.rot.xangle, s.shadowRot.xangle, sys.stage.sdw.rot.xangle),
+			yangle: addRot(s.rot.yangle, s.shadowRot.yangle, sys.stage.sdw.rot.yangle),
+		}
+
+		// If sprite is flipped horizontally, invert the added rotation part
+		// TODO: This is possibly not ideal. Maybe the original sprite's facing should be used instead of checking angle sign
+		if s.rot.angle < 0 {
+			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+		}
+		if s.rot.yangle < 0 {
+			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
 		}
 
 		if rot.angle != 0 {
@@ -1555,20 +1562,26 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		// Rotation offset
 		xrotoff := xshear * yscale * (float32(s.anim.spr.Offset[1]) * s.scl[1] * scl)
 
-		rotVal := func(vals ...float32) float32 {
-			for _, v := range vals {
-				if v != 0 {
-					return v
-				}
+		// Add custom or stage reflection rotation to original sprite rotation
+		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if customAngle != 0 {
+				return baseAngle + customAngle
 			}
-			return 0
+			return baseAngle + stageAngle
 		}
 
-		// TODO: These should probably stack with "s" rotation instead of overriding it
 		rot := Rotation{
-			angle:  rotVal(s.reflectRot.angle, sys.stage.reflection.rot.angle, s.rot.angle),
-			xangle: rotVal(s.reflectRot.xangle, sys.stage.reflection.rot.xangle, s.rot.xangle),
-			yangle: rotVal(s.reflectRot.yangle, sys.stage.reflection.rot.yangle, s.rot.yangle),
+			angle:  addRot(s.rot.angle, s.reflectRot.angle, sys.stage.reflection.rot.angle),
+			xangle: addRot(s.rot.xangle, s.reflectRot.xangle, sys.stage.reflection.rot.xangle),
+			yangle: addRot(s.rot.yangle, s.reflectRot.yangle, sys.stage.reflection.rot.yangle),
+		}
+
+		// If sprite is flipped horizontally, invert the added rotation part
+		if s.rot.angle < 0 {
+			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+		}
+		if s.rot.yangle < 0 {
+			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
 		}
 
 		if rot.angle != 0 {

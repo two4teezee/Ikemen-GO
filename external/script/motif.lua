@@ -500,6 +500,7 @@ local motif =
 		stage_done_scale = {1.0, 1.0}, --Ikemen feature
 		stage_text = 'Stage %i: %s', --Ikemen feature
 		stage_random_text = 'Stage: Random', --Ikemen feature
+		stage_randomselect = 1, --Ikemen feature
 		stage_portrait_anim = -1, --Ikemen feature
 		stage_portrait_spr = {}, --Ikemen feature
 		stage_portrait_offset = {0, 0}, --Ikemen feature
@@ -512,7 +513,7 @@ local motif =
 		stage_portrait_random_spr = {}, --Ikemen feature
 		stage_portrait_random_offset = {0, 0}, --Ikemen feature
 		stage_portrait_random_scale = {1.0, 1.0}, --Ikemen feature
-		stage_portrait_window = {}, --Ikemen feature
+		stage_portrait_window = {0, 0, motifLocalcoord(0), motifLocalcoord(1)}, --Ikemen feature
 		teammenu_move_wrapping = 1,
 		teammenu_itemname_single = 'Single', --Ikemen feature
 		teammenu_itemname_simul = 'Simul', --Ikemen feature
@@ -946,6 +947,22 @@ local motif =
 		timer_framespercount = 60, --Ikemen feature
 		timer_displaytime = 10, --Ikemen feature
 		stage_snd = {-1, 0}, --Ikemen feature
+		stage_pos = {0, 0}, --Ikemen feature
+		stage_text = "Next Stage: %s", --Ikemen feature
+		stage_text_font = {-1, 0, 0, 255, 255, 255, 255, -1}, --Ikemen feature
+		stage_text_offset = {0, 0}, --Ikemen feature
+		stage_text_xshear = 0.0, --Ikemen feature
+		stage_text_angle = 0.0, --Ikemen feature
+		stage_text_scale = {1.0, 1.0}, --Ikemen feature
+		stage_portrait_anim = -1, --Ikemen feature
+		stage_portrait_spr = {}, --Ikemen feature
+		stage_portrait_offset = {0, 0}, --Ikemen feature
+		stage_portrait_scale = {1.0, 1.0}, --Ikemen feature
+		stage_portrait_bg_anim = -1, --Ikemen feature
+		stage_portrait_bg_spr = {}, --Ikemen feature
+		stage_portrait_bg_offset = {0, 0}, --Ikemen feature
+		stage_portrait_bg_scale = {1.0, 1.0}, --Ikemen feature
+		stage_portrait_window = {0, 0, motifLocalcoord(0), motifLocalcoord(1)}, --Ikemen feature
 	},
 	versusbgdef =
 	{
@@ -2909,7 +2926,7 @@ end
 --adjust window parameters
 for k, v in pairs({
 	select_info = {'p1_face_window', 'p2_face_window', 'p1_face2_window', 'p2_face2_window', 'stage_portrait_window'},
-	vs_screen = {'p1_window', 'p2_window', 'p1_face2_window', 'p2_face2_window'},
+	vs_screen = {'p1_window', 'p2_window', 'p1_face2_window', 'p2_face2_window', 'stage_portrait_window'},
 	victory_screen = {'p1_window', 'p2_window', 'p1_face2_window', 'p2_face2_window', 'winquote_window'},
 	dialogue_info = {'p1_face_window', 'p2_face_window', 'p1_text_window', 'p2_text_window'},
 	hiscore_info = {'item_face_window'},
@@ -3163,6 +3180,7 @@ for i = 1, 2 do
 	motif.f_loadSprData(motif.vs_screen, {s = 'p' .. i .. '_value_icon_'})
 	motif.f_loadSprData(motif.vs_screen, {s = 'p' .. i .. '_value_empty_icon_'})
 end
+motif.f_loadSprData(motif.vs_screen, {s = 'stage_portrait_bg_', x = motif.vs_screen.stage_pos[1], y = motif.vs_screen.stage_pos[2]})
 
 --continue screen spr/anim data
 motif.f_loadSprData(motif.continue_screen, {s = 'counter_'})

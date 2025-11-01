@@ -705,7 +705,7 @@
 	; Set to 1 to apply selected palette to Portraits
 	p1.face.applypal = 0
 
-	; Set to 1 to enable the drawing of a sprite from the motif during random select instead of cycling portraits
+	; Set to 1 to enable the drawing of a sprite or anim from the screenpack during char random select instead of cycling portraits
 	; the overall position is inherited from p<n>.face.pos
 	p1.face.random = 0
 	p1.face.random.anim = -1
@@ -796,6 +796,11 @@
 	stage.done.scale = 1.0, 1.0
 	stage.text = "Stage %i: %s"
 	stage.random.text = "Stage: Random"
+
+	; 0 = randomselect disabled (doesn’t show in the list)
+	; 1 = default
+	; 2 = randomselect at the 'end' of the list
+	stage.randomselect = 1
 
 	; Stage portrait use sprites and anim data from stage's SFF and DEF files.
 	; portrait.bg and portrait.random use screenpack data. portrait element is
@@ -1236,6 +1241,25 @@
 	; Sound triggered when particular stage is selected (data read from
 	; attachedchar SND file associated with stage)
 	stage.snd = -1, 0
+
+	; Stage portrait use sprites and anim data from stage's SFF and DEF files.
+	; portrait.bg and portrait.random use screenpack data.
+	stage.pos = 0, 0
+	stage.text = "Next Stage: %s"
+	stage.text.font = -1, 0, 0, 255, 255, 255, 255, -1
+	stage.text.offset = 0, 0
+	stage.text.xshear = 0.0
+	stage.text.angle = 0.0
+	stage.text.scale = 1.0, 1.0
+	stage.portrait.anim = -1
+	stage.portrait.spr = 
+	stage.portrait.offset = 0, 0
+	stage.portrait.scale = 1.0, 1.0
+	stage.portrait.bg.anim = -1
+	stage.portrait.bg.spr = 
+	stage.portrait.bg.offset = 0, 0
+	stage.portrait.bg.scale = 1.0, 1.0
+	stage.portrait.window = 
 
 [VersusBgDef] ;Ikemen feature
 	spr = ""

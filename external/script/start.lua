@@ -1840,7 +1840,11 @@ function start.f_selectReset(hardReset)
 		col = col + 1
 	end
 	if hardReset then
-		stageListNo = 0
+		if motif.select_info.stage_randomselect == 0 or motif.select_info.stage_randomselect == 2 then
+			stageListNo = 1
+		else
+			stageListNo = 0
+		end
 		restoreCursor = false
 		--cursor start cell
 		for i = 1, gameOption('Config.Players') do
@@ -2540,7 +2544,7 @@ function start.f_selectScreen()
 				if stageListNo == 0 then
 					t_txt[1] = motif.select_info.stage_random_text
 				else
-					t = motif.select_info.stage_text:gsub('%%i', tostring(stageListNo))
+					local t = motif.select_info.stage_text:gsub('%%i', tostring(stageListNo))
 					t = t:gsub('\n', '\\n')
 					t = t:gsub('%%s', main.t_selStages[main.t_selectableStages[stageListNo]].name)
 					for i, c in ipairs(main.f_strsplit('\\n', t)) do --split string using "\n" delimiter
@@ -2975,7 +2979,7 @@ function start.f_palMenuDraw(side, member, curIdx, validIdx ,maxIdx)
 			r      = textFontInfo[4],
 			g      = textFontInfo[5],
 			b      = textFontInfo[6],
-			a      = textFontInfo[7]
+			a      = textFontInfo[7],
 			height = textFontInfo[8],
 			xshear = getInfo('palmenu_text_xshear'),
 			angle  = getInfo('palmenu_text_angle'),
@@ -3399,28 +3403,39 @@ end
 --;===========================================================
 function start.f_stageMenu()
 	local n = stageListNo
+	local randomMode = {
+		[0] = { init = 1, min = 1 }, -- disabled
+		[1] = { init = 0, min = 0 }, -- default
+		[2] = { init = 1, min = 0 }, -- random at the 'end'
+	}
+
+	local r = randomMode[motif.select_info.stage_randomselect] or randomMode[1]
+	local stageListIdx = r.init
+	local stageListMinIdx = r.min
+	local stageListMaxIdx = #main.t_selectableStages
+
 	if timerSelect == -1 then
 		stageEnd = true
 		return
 	elseif main.f_input(main.t_players, {'$B'}) then
 		sndPlay(motif.files.snd_data, motif.select_info.stage_move_snd[1], motif.select_info.stage_move_snd[2])
 		stageListNo = stageListNo - 1
-		if stageListNo < 0 then stageListNo = #main.t_selectableStages end
+		if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
 	elseif main.f_input(main.t_players, {'$F'}) then
 		sndPlay(motif.files.snd_data, motif.select_info.stage_move_snd[1], motif.select_info.stage_move_snd[2])
 		stageListNo = stageListNo + 1
-		if stageListNo > #main.t_selectableStages then stageListNo = 0 end
+		if stageListNo > stageListMaxIdx then stageListNo = stageListMinIdx end
 	elseif main.f_input(main.t_players, {'$U'}) then
 		sndPlay(motif.files.snd_data, motif.select_info.stage_move_snd[1], motif.select_info.stage_move_snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo - 1
-			if stageListNo < 0 then stageListNo = #main.t_selectableStages end
+			if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
 		end
 	elseif main.f_input(main.t_players, {'$D'}) then
 		sndPlay(motif.files.snd_data, motif.select_info.stage_move_snd[1], motif.select_info.stage_move_snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo + 1
-			if stageListNo > #main.t_selectableStages then stageListNo = 0 end
+			if stageListNo > stageListMaxIdx then stageListNo = stageListMinIdx end
 		end
 	end
 	if n ~= stageListNo and stageListNo > 0 then
@@ -3433,6 +3448,7 @@ end
 --; VERSUS SCREEN / ORDER SELECTION
 --;===========================================================
 local txt_matchNo = main.f_createTextImg(motif.vs_screen, 'match')
+local txt_vsStage = main.f_createTextImg(motif.vs_screen, 'stage_text')
 local t_txt_nameVS = {}
 for i = 1, 2 do
 	table.insert(t_txt_nameVS, main.f_createTextImg(motif.vs_screen, 'p' .. i .. '_name'))
@@ -3483,6 +3499,7 @@ function start.f_selectVersus(active, t_orderSelect)
 	local escFlag = false
 	local t_order = {{}, {}}
 	local t_icon = {'_icon', '_icon'}
+	local selStageNo = getStageNo()
 	while true do
 		local snd = false
 		-- for each team side member
@@ -3548,7 +3565,6 @@ function start.f_selectVersus(active, t_orderSelect)
 							start.p[side].t_selTemp[member].anim_data = start.f_animGet(v.ref, side, member, motif.vs_screen, '', '_done', false) or start.p[side].t_selTemp[member].anim_data
 						end
 					end
-
 				end
 				if t_orderSelect[side] then
 					t_icon[side] = '_icon_done'
@@ -3610,6 +3626,49 @@ function start.f_selectVersus(active, t_orderSelect)
 					t_txt_nameVS[side]:draw()
 				end
 			end
+		end
+		--draw stage portrait
+		if selStageNo then
+			--draw stage portrait background
+			main.f_animPosDraw(motif.vs_screen.stage_portrait_bg_data)
+			--draw stage portrait loaded from stage SFF
+			if main.t_selStages[selStageNo].vs_anim_data then
+				main.f_animPosDraw(
+					main.t_selStages[selStageNo].vs_anim_data,
+					motif.vs_screen.stage_pos[1] + motif.vs_screen.stage_portrait_offset[1],
+					motif.vs_screen.stage_pos[2] + motif.vs_screen.stage_portrait_offset[2]
+				)
+			end
+		end
+		--draw stage name
+		local t_txt = {}
+		if selStageNo and main.t_selStages[selStageNo] then
+			local t = motif.vs_screen.stage_text:gsub('%%i', tostring(selStageNo))
+			t = t:gsub('\n', '\\n')
+			t = t:gsub('%%s', main.t_selStages[selStageNo].name)
+			for i, c in ipairs(main.f_strsplit('\\n', t)) do
+				t_txt[i] = c
+			end
+		end
+		for i = 1, #t_txt do
+			txt_vsStage:update({
+				font   = motif.vs_screen.stage_text_font[1],
+				bank   = motif.vs_screen.stage_text_font[2],
+				align  = motif.vs_screen.stage_text_font[3],
+				text   = t_txt[i],
+				x      = motif.vs_screen.stage_pos[1] + motif.vs_screen.stage_text_offset[1],
+				y      = motif.vs_screen.stage_pos[2] + motif.vs_screen.stage_text_offset[2] + main.f_ySpacing(motif.vs_screen, 'stage_text') * (i - 1),
+				scaleX = motif.vs_screen.stage_text_scale[1],
+				scaleY = motif.vs_screen.stage_text_scale[2],
+				r      = motif.vs_screen.stage_text_font[4],
+				g      = motif.vs_screen.stage_text_font[5],
+				b      = motif.vs_screen.stage_text_font[6],
+				a      = motif.vs_screen.stage_text_font[7],
+				height = motif.vs_screen.stage_text_font[8],
+				xshear = motif.vs_screen.stage_text_xshear,
+				angle  = motif.vs_screen.stage_text_angle,
+			})
+			txt_vsStage:draw()
 		end
 		--draw match counter
 		if main.versusMatchNo then
@@ -4903,7 +4962,7 @@ function start.f_dialogueParse()
 		for m1, m2 in v:gmatch('(.-)<([^>]+)>') do
 			--text
 			if m1 ~= '' then
-				length = length + string.len(m1:gsub('\\n', ''))
+				length = length + main.f_utf8len(m1:gsub('\\n', ''))
 				text = text .. m1
 			end
 			if not m2:match('^#$') then

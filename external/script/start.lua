@@ -2306,6 +2306,7 @@ function start.f_selectScreen()
 	local t_teamMenu = {{}, {}}
 	local blinkCount = 0
 	local counter = 0 - motif.select_info.fadein_time
+	local timerReset = false
 	-- generate team mode items table
 	for side = 1, 2 do
 		-- start with all default teammode entires
@@ -2505,6 +2506,10 @@ function start.f_selectScreen()
 			restoreCursor = true
 			if main.stageMenu and not stageEnd then --Stage select
 				start.f_stageMenu()
+				if not timerReset then
+					timerSelect = motif.select_info.timer_displaytime
+					timerReset = true
+				end
 			elseif start.p[1].screenDelay <= 0 and start.p[2].screenDelay <= 0 and main.fadeType == 'fadein' then
 				main.f_fadeReset('fadeout', motif.select_info)
 			end
@@ -3082,7 +3087,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
     start.p[side].inPalMenu = true
 
     -- accept selection
-    if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_accept_key'])) then
+    if main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_accept_key'])) or timerSelect == -1 then
         pal = (curIdx == maxIdx) and (start.c[player].randPalPreview or start.f_randomPal(charRef, validPals)) or validPals[curIdx]
         st.pal, st.currentIdx = pal, curIdx
         -- done anim after pal confirmation
@@ -3254,6 +3259,9 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 				end
 				-- cell selected or select screen timer reached 0
 				if (slotSelected and start.f_selGrid(start.c[player].cell + 1).char ~= nil and start.f_selGrid(start.c[player].cell + 1).hidden ~= 2) or (motif.select_info.timer_count ~= -1 and timerSelect == -1) then
+					if motif.select_info.paletteselect ~= 0 then
+						timerSelect = motif.select_info.timer_displaytime
+					end
 					sndPlay(motif.files.snd_data, start.f_getCursorData(player, '_cursor_done_snd')[1], start.f_getCursorData(player, '_cursor_done_snd')[2])
 					start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_select_snd'][1], motif.select_info['p' .. side .. '_select_snd'][2])
 					start.p[side].t_selTemp[member].pal = main.f_btnPalNo(cmd)
@@ -3367,6 +3375,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 						start.c[2].cell = start.c[1].cell
 						start.c[2].selX = start.c[1].selX
 						start.c[2].selY = start.c[1].selY
+						start.p[2].teamEnd = false
 					else
 						start.p[2].teamEnd = false
 					end
@@ -3414,10 +3423,7 @@ function start.f_stageMenu()
 	local stageListMinIdx = r.min
 	local stageListMaxIdx = #main.t_selectableStages
 
-	if timerSelect == -1 then
-		stageEnd = true
-		return
-	elseif main.f_input(main.t_players, {'$B'}) then
+	if main.f_input(main.t_players, {'$B'}) then
 		sndPlay(motif.files.snd_data, motif.select_info.stage_move_snd[1], motif.select_info.stage_move_snd[2])
 		stageListNo = stageListNo - 1
 		if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end

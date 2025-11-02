@@ -1311,7 +1311,7 @@ end
 
 --y spacing calculation
 function main.f_ySpacing(t, key)
-	local font_def = main.font_def[t[key .. '_font'][1] .. t[key .. '_font'][7]]
+	local font_def = main.font_def[t[key .. '_font'][1] .. t[key .. '_font'][8]]
 	if font_def == nil then return 0 end
 	return main.f_round(font_def.Size[2] * t[key .. '_scale'][2] + font_def.Spacing[2] * t[key .. '_scale'][2])
 end

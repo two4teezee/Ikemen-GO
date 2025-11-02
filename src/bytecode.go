@@ -433,8 +433,10 @@ const (
 	OC_const_stagevar_scaling_botscale
 	OC_const_stagevar_bound_screenleft
 	OC_const_stagevar_bound_screenright
+	OC_const_stagevar_stageinfo_autoturn
 	OC_const_stagevar_stageinfo_localcoord_x
 	OC_const_stagevar_stageinfo_localcoord_y
+	OC_const_stagevar_stageinfo_resetbg
 	OC_const_stagevar_stageinfo_xscale
 	OC_const_stagevar_stageinfo_yscale
 	OC_const_stagevar_stageinfo_zoffset
@@ -2487,10 +2489,14 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(int32(float32(sys.stage.screenleft) * sys.stage.localscl / oc.localscl))
 	case OC_const_stagevar_bound_screenright:
 		sys.bcStack.PushI(int32(float32(sys.stage.screenright) * sys.stage.localscl / oc.localscl))
+	case OC_const_stagevar_stageinfo_autoturn:
+		sys.bcStack.PushB(sys.stage.autoturn)
 	case OC_const_stagevar_stageinfo_localcoord_x:
 		sys.bcStack.PushI(sys.stage.stageCamera.localcoord[0])
 	case OC_const_stagevar_stageinfo_localcoord_y:
 		sys.bcStack.PushI(sys.stage.stageCamera.localcoord[1])
+	case OC_const_stagevar_stageinfo_resetbg:
+		sys.bcStack.PushB(sys.stage.resetbg)
 	case OC_const_stagevar_stageinfo_xscale:
 		sys.bcStack.PushF(sys.stage.scale[0])
 	case OC_const_stagevar_stageinfo_yscale:
@@ -12658,10 +12664,12 @@ const (
 	modifyStageVar_scaling_botscale
 	modifyStageVar_bound_screenleft
 	modifyStageVar_bound_screenright
-	modifyStageVar_stageinfo_zoffset
-	modifyStageVar_stageinfo_zoffsetlink
+	modifyStageVar_stageinfo_autoturn
+	modifyStageVar_stageinfo_resetbg
 	modifyStageVar_stageinfo_xscale
 	modifyStageVar_stageinfo_yscale
+	modifyStageVar_stageinfo_zoffset
+	modifyStageVar_stageinfo_zoffsetlink
 	modifyStageVar_shadow_intensity
 	modifyStageVar_shadow_color
 	modifyStageVar_shadow_yscale
@@ -12792,21 +12800,13 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.p[1].facing = exp[0].evalI(c)
 		// Scaling group
 		case modifyStageVar_scaling_topz:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topz
-				s.stageCamera.topz = exp[0].evalF(c)
-			}
+			s.stageCamera.topz = exp[0].evalF(c)
 		case modifyStageVar_scaling_botz:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botz
-				s.stageCamera.botz = exp[0].evalF(c)
-			}
+			s.stageCamera.botz = exp[0].evalF(c)
 		case modifyStageVar_scaling_topscale:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for topscale
-				s.stageCamera.ztopscale = exp[0].evalF(c)
-			}
+			s.stageCamera.ztopscale = exp[0].evalF(c)
 		case modifyStageVar_scaling_botscale:
-			if s.mugenver[0] != 1 { // mugen 1.0+ removed support for botscale
-				s.stageCamera.zbotscale = exp[0].evalF(c)
-			}
+			s.stageCamera.zbotscale = exp[0].evalF(c)
 		// Bound group
 		case modifyStageVar_bound_screenleft:
 			s.screenleft = int32(exp[0].evalF(c) * scaleratio)
@@ -12815,15 +12815,19 @@ func (sc modifyStageVar) Run(c *Char, _ []int32) bool {
 			s.screenright = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		// StageInfo group
+		case modifyStageVar_stageinfo_autoturn:
+			s.autoturn = exp[0].evalB(c)
+		case modifyStageVar_stageinfo_resetbg:
+			s.resetbg = exp[0].evalB(c)
+		case modifyStageVar_stageinfo_xscale:
+			s.scale[0] = exp[0].evalF(c)
+		case modifyStageVar_stageinfo_yscale:
+			s.scale[1] = exp[0].evalF(c)
 		case modifyStageVar_stageinfo_zoffset:
 			s.stageCamera.zoffset = int32(exp[0].evalF(c) * scaleratio)
 			shouldResetCamera = true
 		case modifyStageVar_stageinfo_zoffsetlink:
 			s.zoffsetlink = exp[0].evalI(c)
-		case modifyStageVar_stageinfo_xscale:
-			s.scale[0] = exp[0].evalF(c)
-		case modifyStageVar_stageinfo_yscale:
-			s.scale[1] = exp[0].evalF(c)
 		// Shadow group
 		case modifyStageVar_shadow_intensity:
 			s.sdw.intensity = Clamp(exp[0].evalI(c), 0, 255)
@@ -13618,18 +13622,19 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 type modifyShadow StateControllerBase
 
 const (
-	modifyShadow_anim byte = iota
+	modifyShadow_angle byte = iota
+	modifyShadow_anim
 	modifyShadow_color
+	modifyShadow_focallength
 	modifyShadow_intensity
 	modifyShadow_offset
-	modifyShadow_window
-	modifyShadow_xshear
-	modifyShadow_yscale
-	modifyShadow_angle
-	modifyShadow_xangle
-	modifyShadow_yangle
-	modifyShadow_focallength
 	modifyShadow_projection
+	modifyShadow_window
+	modifyShadow_xangle
+	modifyShadow_xscale
+	modifyShadow_xshear
+	modifyShadow_yangle
+	modifyShadow_yscale
 	modifyShadow_redirectid
 )
 
@@ -13671,6 +13676,8 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 			}
 		case modifyShadow_window:
 			crun.shadowWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyShadow_xscale:
+			crun.shadowXscale = exp[0].evalF(c)
 		case modifyShadow_xshear:
 			crun.shadowXshear = exp[0].evalF(c)
 		case modifyShadow_yscale:
@@ -13699,6 +13706,7 @@ const (
 	modifyReflection_intensity
 	modifyReflection_offset
 	modifyReflection_window
+	modifyReflection_xscale
 	modifyReflection_xshear
 	modifyReflection_yscale
 	modifyReflection_angle
@@ -13746,6 +13754,8 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 			}
 		case modifyReflection_window:
 			crun.reflectWindow = [4]float32{exp[0].evalF(c), exp[1].evalF(c), exp[2].evalF(c), exp[3].evalF(c)}
+		case modifyReflection_xscale:
+			crun.reflectXscale = exp[0].evalF(c)
 		case modifyReflection_xshear:
 			crun.reflectXshear = exp[0].evalF(c)
 		case modifyReflection_yscale:

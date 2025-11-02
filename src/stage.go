@@ -861,6 +861,7 @@ func (bgc *bgCtrl) yEnable() bool {
 type stageShadow struct {
 	intensity  int32
 	color      uint32
+	xscale     float32
 	yscale     float32
 	fadeend    int32
 	fadebgn    int32
@@ -892,7 +893,7 @@ type Stage struct {
 	animTable        AnimationTable
 	bg               []*backGround
 	bgc              []bgCtrl
-	bga              bgAction
+	bga              bgAction // For position linking
 	sdw              stageShadow
 	reflection       stageShadow
 	p                [MaxPlayerNo]stagePlayer
@@ -953,10 +954,13 @@ func newStage(def string) *Stage {
 	}
 	s.sdw.intensity = 128
 	s.sdw.color = 0x000000 // https://github.com/ikemen-engine/Ikemen-GO/issues/2150
-	s.sdw.yscale = 0.4
+	s.sdw.xscale = 1.0
 	s.sdw.ydelta = 1.0
+	s.sdw.yscale = 0.4
 	s.reflection.color = 0xFFFFFF
+	s.reflection.xscale = 1.0
 	s.reflection.ydelta = 1.0
+	s.reflection.yscale = 1.0 // Default scale is 1. It's normally off because default intensity is 0
 	s.p[0].startx = -70
 	s.p[1].startx = 70
 	s.stageprops = newStageProps()
@@ -1399,6 +1403,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			r, g, b = 0, 0, 0
 		}
 		s.sdw.color = uint32(r<<16 | g<<8 | b)
+		sec[0].ReadF32("xscale", &s.sdw.xscale)
 		sec[0].ReadF32("yscale", &s.sdw.yscale)
 		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
 		sec[0].ReadF32("xshear", &s.sdw.xshear)
@@ -1435,8 +1440,6 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	if sectionExists {
 		sectionExists = false
-		s.reflection.yscale = 1.0
-		s.reflection.xshear = 0
 		s.reflection.color = 0xFFFFFF
 		var tmp int32
 		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
@@ -1450,6 +1453,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if sec[0].ReadI32("layerno", &tmp) {
 			s.reflection.layerno = Clamp(tmp, -1, 0)
 		}
+		sec[0].ReadF32("xscale", &s.reflection.xscale)
 		sec[0].ReadF32("yscale", &s.reflection.yscale)
 		sec[0].readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
 		sec[0].ReadF32("xshear", &s.reflection.xshear)
@@ -1791,14 +1795,16 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 	}
 }
 
+func (s *Stage) paused() bool {
+	return (sys.supertime > 0 && sys.superpausebg) || (sys.pausetime > 0 && sys.pausebg)
+}
+
 func (s *Stage) action() {
-	link, zlink, paused := 0, -1, true
+	link, zlink := 0, -1
+	canStep := sys.tickFrame() && !s.paused()
 
-	canStep := sys.tickFrame() && (sys.supertime <= 0 || !sys.superpausebg) && (sys.pausetime <= 0 || !sys.pausebg)
-
+	// Update animations and controllers
 	if canStep {
-		paused = false
-
 		s.bgCtrlAction()
 		s.bga.action()
 
@@ -1811,16 +1817,18 @@ func (s *Stage) action() {
 	// This prevents the decoder clock from advancing during pause.
 	for i := range s.bg {
 		if s.bg[i]._type == BG_Video {
-			shouldPlay := s.bg[i].enabled && !paused
+			shouldPlay := s.bg[i].enabled && canStep
 			// Apply visibility first so there's no frame-0 audio when Visible=0.
 			s.bg[i].video.SetVisible(s.bg[i].visible)
 			s.bg[i].video.SetPlaying(shouldPlay)
 		}
 	}
 
+	// Update BG elements
 	for i, b := range s.bg {
 		b.palfx.step()
 
+		// BGPalFX can step even if the stage is paused
 		if sys.bgPalFX.enable {
 			// TODO: Finish proper synthesization of bgPalFX into PalFX from bg element
 			// (Right now, bgPalFX just overrides all unique parameters from BG Elements' PalFX)
@@ -1842,7 +1850,7 @@ func (s *Stage) action() {
 			b.palfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 
-		if b.enabled && !paused {
+		if b.enabled && canStep {
 			s.bg[i].bga.action()
 			if i > 0 && b.positionlink {
 				bgasinoffset0 := s.bg[link].bga.sinoffset[0]
@@ -1864,6 +1872,7 @@ func (s *Stage) action() {
 		}
 	}
 
+	// Update model PalFX
 	if s.model != nil {
 		s.model.pfx.step()
 		if sys.bgPalFX.enable {
@@ -1881,6 +1890,10 @@ func (s *Stage) action() {
 // Currently this function only exists so that the stage update sequence is similar to others. In the future it could run more tasks
 // Doing this allows characters to see "stageTime = 0"
 func (s *Stage) tick() {
+	if s.paused() {
+		return
+	}
+
 	// Stage time must be incremented after updating BGCtrl's
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2656
 	s.stageTime++

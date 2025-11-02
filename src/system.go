@@ -1872,10 +1872,6 @@ func (s *System) action() {
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	s.cam.ResetTracking()
 
-	// Update round state
-	// This is also reflected on characters (intros, win poses)
-	s.stepRoundState()
-
 	// Run "tick frame"
 	if s.tickFrame() {
 		// X axis player limits
@@ -1935,6 +1931,11 @@ func (s *System) action() {
 	// This function runs every tick
 	// It should be placed between "tick frame" and "tick next frame"
 	s.charUpdate()
+
+	// Update round state
+	// This is also reflected on characters (intros, win poses)
+	// It's important that this is placed after the tickFrame logic, or characters will not see every step of the sys.intro timer
+	s.stepRoundState()
 
 	// Update lifebars
 	// This must happen before hit detection for accurate display

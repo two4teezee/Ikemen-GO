@@ -1172,6 +1172,7 @@ type ShadowSprite struct {
 	shadowIntensity  int32
 	shadowOffset     [2]float32
 	shadowWindow     [4]float32
+	shadowXscale     float32
 	shadowXshear     float32
 	shadowYscale     float32
 	shadowRot        Rotation
@@ -1279,22 +1280,27 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		color = color&0xff*alpha<<8&0xff0000 | color&0xff00*alpha>>8&0xff00 | color&0xff0000*alpha>>24&0xff
 
-		var xshear float32
-		if s.xshear != 0 {
-			xshear = -s.xshear
-		} else {
-			xshear = sys.stage.sdw.xshear + s.shadowXshear
+		xscale := s.shadowXscale
+		if xscale == 0 {
+			xscale = sys.stage.sdw.xscale
 		}
 
-		var yscale float32
-		if s.shadowYscale != 0 {
-			yscale = sys.stage.sdw.yscale * s.shadowYscale
-		} else {
+		yscale := s.shadowYscale
+		if yscale == 0 {
 			yscale = sys.stage.sdw.yscale
 		}
 
+		// Stack original sprite xshear with stage or custom xshear
+		var xshear float32
+		if s.shadowXshear != 0 {
+			xshear = -s.xshear + s.shadowXshear
+		} else {
+			xshear = -s.xshear + sys.stage.sdw.xshear
+		}
+
+		// Invert xshear if sprite is flipped vertically
 		if yscale > 0 {
-			xshear = -xshear // Invert if sprite is flipped
+			xshear = -xshear
 		}
 
 		offsetX := s.shadowOffset[0] + sys.stage.sdw.offset[0]
@@ -1303,19 +1309,27 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		// Rotation offset. Only shadow scale sign
 		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
 
-		rotVal := func(vals ...float32) float32 {
-			for _, v := range vals {
-				if v != 0 {
-					return v
-				}
+		// Add custom or stage shadow rotation to original sprite rotation
+		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if customAngle != 0 {
+				return baseAngle + customAngle
 			}
-			return 0
+			return baseAngle + stageAngle
 		}
 
 		rot := Rotation{
-			angle:  rotVal(s.shadowRot.angle, sys.stage.sdw.rot.angle, s.rot.angle),
-			xangle: rotVal(s.shadowRot.xangle, sys.stage.sdw.rot.xangle, s.rot.xangle),
-			yangle: rotVal(s.shadowRot.yangle, sys.stage.sdw.rot.yangle, s.rot.yangle),
+			angle:  addRot(s.rot.angle, s.shadowRot.angle, sys.stage.sdw.rot.angle),
+			xangle: addRot(s.rot.xangle, s.shadowRot.xangle, sys.stage.sdw.rot.xangle),
+			yangle: addRot(s.rot.yangle, s.shadowRot.yangle, sys.stage.sdw.rot.yangle),
+		}
+
+		// If sprite is flipped horizontally, invert the added rotation part
+		// TODO: This is possibly not ideal. Maybe the original sprite's facing should be used instead of checking angle sign
+		if s.rot.angle < 0 {
+			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+		}
+		if s.rot.yangle < 0 {
+			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
 		}
 
 		if rot.angle != 0 {
@@ -1383,7 +1397,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		s.anim.ShadowDraw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])-((x-s.pos[0]-offsetX)*scl),
 			sys.cam.GroundLevel()+(sys.cam.Offset[1]-shake[1])-y-(sdwPosY*yscale-offsetY)*scl,
-			scl*s.scl[0], scl*-s.scl[1],
+			scl*s.scl[0]*xscale, scl*-s.scl[1],
 			yscale, xshear, rot,
 			s.pfx, uint32(color), intensity, s.facing, s.airOffsetFix, projection, fLength)
 	}
@@ -1396,6 +1410,7 @@ type ReflectionSprite struct {
 	reflectIntensity  int32
 	reflectOffset     [2]float32
 	reflectWindow     [4]float32
+	reflectXscale     float32
 	reflectXshear     float32
 	reflectYscale     float32
 	reflectRot        Rotation
@@ -1518,22 +1533,27 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			refPosY = s.groundLevel + (refPosY-s.groundLevel)*sys.stage.reflection.ydelta
 		}
 
-		var xshear float32
-		if s.xshear != 0 {
-			xshear = -s.xshear
-		} else {
-			xshear = sys.stage.reflection.xshear + s.reflectXshear
+		xscale := s.reflectXscale
+		if xscale == 0 {
+			xscale = sys.stage.reflection.xscale
 		}
 
-		var yscale float32
-		if s.reflectYscale != 0 {
-			yscale = sys.stage.reflection.yscale * s.reflectYscale
-		} else {
+		yscale := s.reflectYscale
+		if yscale == 0 {
 			yscale = sys.stage.reflection.yscale
 		}
 
+		// Stack original sprite xshear with stage or custom xshear
+		var xshear float32
+		if s.reflectXshear != 0 {
+			xshear = -s.xshear + s.reflectXshear
+		} else {
+			xshear = -s.xshear + sys.stage.reflection.xshear
+		}
+
+		// Invert xshear if sprite is flipped vertically
 		if yscale > 0 {
-			xshear = -xshear // Invert if sprite is flipped
+			xshear = -xshear
 		}
 
 		offsetX := s.reflectOffset[0] + sys.stage.reflection.offset[0]
@@ -1542,19 +1562,26 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		// Rotation offset
 		xrotoff := xshear * yscale * (float32(s.anim.spr.Offset[1]) * s.scl[1] * scl)
 
-		rotVal := func(vals ...float32) float32 {
-			for _, v := range vals {
-				if v != 0 {
-					return v
-				}
+		// Add custom or stage reflection rotation to original sprite rotation
+		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if customAngle != 0 {
+				return baseAngle + customAngle
 			}
-			return 0
+			return baseAngle + stageAngle
 		}
 
 		rot := Rotation{
-			angle:  rotVal(s.reflectRot.angle, sys.stage.reflection.rot.angle, s.rot.angle),
-			xangle: rotVal(s.reflectRot.xangle, sys.stage.reflection.rot.xangle, s.rot.xangle),
-			yangle: rotVal(s.reflectRot.yangle, sys.stage.reflection.rot.yangle, s.rot.yangle),
+			angle:  addRot(s.rot.angle, s.reflectRot.angle, sys.stage.reflection.rot.angle),
+			xangle: addRot(s.rot.xangle, s.reflectRot.xangle, sys.stage.reflection.rot.xangle),
+			yangle: addRot(s.rot.yangle, s.reflectRot.yangle, sys.stage.reflection.rot.yangle),
+		}
+
+		// If sprite is flipped horizontally, invert the added rotation part
+		if s.rot.angle < 0 {
+			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+		}
+		if s.rot.yangle < 0 {
+			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
 		}
 
 		if rot.angle != 0 {
@@ -1623,7 +1650,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		s.anim.Draw(drawwindow,
 			(sys.cam.Offset[0]-shake[0])/scl-(x-s.pos[0]-offsetX),
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(refPosY*yscale-offsetY),
-			scl, scl, s.scl[0], s.scl[0],
+			scl, scl,
+			s.scl[0]*xscale, s.scl[0] * xscale,
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
 			s.pfx, s.facing, s.airOffsetFix, projection, fLength, color, true)
 

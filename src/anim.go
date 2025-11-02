@@ -1651,7 +1651,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			(sys.cam.Offset[0]-shake[0])/scl-(x-s.pos[0]-offsetX),
 			(sys.cam.GroundLevel()+sys.cam.Offset[1]-shake[1])/scl-y/scl-(refPosY*yscale-offsetY),
 			scl, scl,
-			s.scl[0]*xscale, s.scl[0] * xscale,
+			s.scl[0]*xscale, s.scl[0]*xscale,
 			-s.scl[1]*yscale, xshear, rot, float32(sys.gameWidth)/2,
 			s.pfx, s.facing, s.airOffsetFix, projection, fLength, color, true)
 

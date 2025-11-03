@@ -13624,6 +13624,8 @@ type modifyShadow StateControllerBase
 const (
 	modifyShadow_angle byte = iota
 	modifyShadow_anim
+	modifyShadow_animplayerno
+	modifyShadow_spriteplayerno
 	modifyShadow_color
 	modifyShadow_focallength
 	modifyShadow_intensity
@@ -13645,14 +13647,19 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+	animPN := crun.playerNo
+	spritePN := crun.playerNo
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_animplayerno:
+			animPN = int(exp[0].evalI(c)) - 1
+		case modifyShadow_spriteplayerno:
+			spritePN = int(exp[0].evalI(c)) - 1
 		case modifyShadow_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			// We'll use crun.playerNo as animPN and spritePN because the main use case is replacing the shadow with one of your own anims
-			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.shadowAnim = anim
@@ -13702,6 +13709,8 @@ type modifyReflection StateControllerBase
 
 const (
 	modifyReflection_anim byte = iota
+	modifyReflection_animplayerno
+	modifyReflection_spriteplayerno
 	modifyReflection_color
 	modifyReflection_intensity
 	modifyReflection_offset
@@ -13724,13 +13733,19 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+	animPN := crun.playerNo
+	spritePN := crun.playerNo
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_animplayerno:
+			animPN = int(exp[0].evalI(c)) - 1
+		case modifyReflection_spriteplayerno:
+			spritePN = int(exp[0].evalI(c)) - 1
 		case modifyReflection_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.reflectAnim = anim

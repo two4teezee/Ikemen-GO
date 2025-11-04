@@ -986,7 +986,11 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, icon)
 	end
 	t_portraits[member].skipCurrent = false
 	-- draw random 'portraits'
-	if motif.select_info['p' .. side .. '_face_random'] == 1 then
+	local face_spr = motif.select_info['p' .. side .. '_face_random_spr']
+	local face2_spr = motif.select_info['p' .. side .. '_face2_random_spr']
+	local hasSpr = (face_spr ~= nil and #face_spr >= 2 and face_spr[1] ~= -1 and face_spr[2] ~= -1) or (face2_spr ~= nil and #face2_spr >= 2 and face2_spr[1] ~= -1 and face2_spr[2] ~= -1)
+
+	if ((motif.select_info['p' .. side .. '_face_random_anim'] ~= -1 or motif.select_info['p' .. side .. '_face2_random_anim'] ~= -1) or hasSpr) then
 		if start.p and start.p[side] and start.p[side].inRandom then
 			main.f_animPosDraw(motif.select_info['p' .. side .. '_face2_random_data'])
 			main.f_animPosDraw(motif.select_info['p' .. side .. '_face_random_data'])
@@ -3454,7 +3458,7 @@ end
 --; VERSUS SCREEN / ORDER SELECTION
 --;===========================================================
 local txt_matchNo = main.f_createTextImg(motif.vs_screen, 'match')
-local txt_vsStage = main.f_createTextImg(motif.vs_screen, 'stage_text')
+local txt_vsStage = main.f_createTextImg(motif.vs_screen, 'stage')
 local t_txt_nameVS = {}
 for i = 1, 2 do
 	table.insert(t_txt_nameVS, main.f_createTextImg(motif.vs_screen, 'p' .. i .. '_name'))
@@ -3658,21 +3662,21 @@ function start.f_selectVersus(active, t_orderSelect)
 		end
 		for i = 1, #t_txt do
 			txt_vsStage:update({
-				font   = motif.vs_screen.stage_text_font[1],
-				bank   = motif.vs_screen.stage_text_font[2],
-				align  = motif.vs_screen.stage_text_font[3],
+				font   = motif.vs_screen.stage_font[1],
+				bank   = motif.vs_screen.stage_font[2],
+				align  = motif.vs_screen.stage_font[3],
 				text   = t_txt[i],
-				x      = motif.vs_screen.stage_pos[1] + motif.vs_screen.stage_text_offset[1],
-				y      = motif.vs_screen.stage_pos[2] + motif.vs_screen.stage_text_offset[2] + main.f_ySpacing(motif.vs_screen, 'stage_text') * (i - 1),
-				scaleX = motif.vs_screen.stage_text_scale[1],
-				scaleY = motif.vs_screen.stage_text_scale[2],
-				r      = motif.vs_screen.stage_text_font[4],
-				g      = motif.vs_screen.stage_text_font[5],
-				b      = motif.vs_screen.stage_text_font[6],
-				a      = motif.vs_screen.stage_text_font[7],
-				height = motif.vs_screen.stage_text_font[8],
-				xshear = motif.vs_screen.stage_text_xshear,
-				angle  = motif.vs_screen.stage_text_angle,
+				x      = motif.vs_screen.stage_pos[1] + motif.vs_screen.stage_offset[1],
+				y      = motif.vs_screen.stage_pos[2] + motif.vs_screen.stage_offset[2] + main.f_ySpacing(motif.vs_screen, 'stage') * (i - 1),
+				scaleX = motif.vs_screen.stage_scale[1],
+				scaleY = motif.vs_screen.stage_scale[2],
+				r      = motif.vs_screen.stage_font[4],
+				g      = motif.vs_screen.stage_font[5],
+				b      = motif.vs_screen.stage_font[6],
+				a      = motif.vs_screen.stage_font[7],
+				height = motif.vs_screen.stage_font[8],
+				xshear = motif.vs_screen.stage_xshear,
+				angle  = motif.vs_screen.stage_angle,
 			})
 			txt_vsStage:draw()
 		end

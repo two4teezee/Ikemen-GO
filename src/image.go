@@ -1702,7 +1702,11 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 				copyPal := func(srcIdx int) {
 					dst, src := spriteList[i], spriteList[srcIdx]
 					sys.mainThreadTask <- func() { dst.shareCopy(src) }
-					spriteList[i].palidx = spriteList[srcIdx].palidx
+					if spriteList[srcIdx].palidx < 0 || int(spriteList[srcIdx].palidx) >= len(pl.paletteMap) {
+						spriteList[i].palidx = 0
+					} else {
+						spriteList[i].palidx = spriteList[srcIdx].palidx
+					}
 				}
 				switch {
 				case preloadRef[base]:

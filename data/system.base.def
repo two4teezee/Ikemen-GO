@@ -705,9 +705,8 @@
 	; Set to 1 to apply selected palette to Portraits
 	p1.face.applypal = 0
 
-	; Set to 1 to enable the drawing of a sprite or anim from the screenpack during char random select instead of cycling portraits
+	; If defined draws a sprite or anim from the screenpack during char random select instead of cycling portraits
 	; the overall position is inherited from p<n>.face.pos
-	p1.face.random = 0
 	p1.face.random.anim = -1
 	p1.face.random.spr = 
 	p1.face.random.offset = 0, 0
@@ -722,7 +721,6 @@
 	p2.face.padding = 0
 	p2.face.applypal = 0
 
-	p2.face.random = 0
 	p2.face.random.anim = -1
 	p2.face.random.spr = 
 	p2.face.random.offset = 0, 0
@@ -1246,11 +1244,11 @@
 	; portrait.bg and portrait.random use screenpack data.
 	stage.pos = 0, 0
 	stage.text = "Next Stage: %s"
-	stage.text.font = -1, 0, 0, 255, 255, 255, 255, -1
-	stage.text.offset = 0, 0
-	stage.text.xshear = 0.0
-	stage.text.angle = 0.0
-	stage.text.scale = 1.0, 1.0
+	stage.font = -1, 0, 0, 255, 255, 255, 255, -1
+	stage.offset = 0, 0
+	stage.xshear = 0.0
+	stage.angle = 0.0
+	stage.scale = 1.0, 1.0
 	stage.portrait.anim = -1
 	stage.portrait.spr = 
 	stage.portrait.offset = 0, 0

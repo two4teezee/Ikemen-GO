@@ -1639,7 +1639,7 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 	is.ReadI32(pre+"teammate.face.spr", &fa.teammate_face_spr[0],
 		&fa.teammate_face_spr[1])
 	if fa.teammate_face_spr[0] != -1 {
-		sys.sel.charSpritePreload[[...]int16{int16(fa.teammate_face_spr[0]), int16(fa.teammate_face_spr[1])}] = true
+		sys.sel.charSpritePreload[[...]uint16{uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1])}] = true
 	}
 	fa.teammate_face_lay = *ReadLayout(pre+"teammate.face.", is, 0)
 	is.ReadBool(pre+"teammate.ko.hide", &fa.teammate_ko_hide)
@@ -1649,7 +1649,7 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 
 func (fa *LifeBarFace) step(ref int, far *LifeBarFace) {
 	refChar := sys.chars[ref][0]
-	group, number := int16(fa.face_spr[0]), int16(fa.face_spr[1])
+	group, number := uint16(fa.face_spr[0]), uint16(fa.face_spr[1])
 	if refChar != nil && refChar.anim != nil {
 		if mg, ok := refChar.anim.remap[group]; ok {
 			if mn, ok := mg[number]; ok {

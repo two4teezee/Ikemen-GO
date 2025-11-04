@@ -3637,10 +3637,10 @@ func (c *Char) load(def string) error {
 							if len(k) == 2 {
 								var v [2]int32
 								is.ReadI32(key, &v[0], &v[1])
-								if _, ok := gi.remapPreset[subname][int16(Atoi(k[0]))]; !ok {
-									gi.remapPreset[subname][int16(Atoi(k[0]))] = make(RemapTable)
+								if _, ok := gi.remapPreset[subname][uint16(Atoi(k[0]))]; !ok {
+									gi.remapPreset[subname][uint16(Atoi(k[0]))] = make(RemapTable)
 								}
-								gi.remapPreset[subname][int16(Atoi(k[0]))][int16(Atoi(k[1]))] = [...]int16{int16(v[0]), int16(v[1])}
+								gi.remapPreset[subname][uint16(Atoi(k[0]))][uint16(Atoi(k[1]))] = [...]uint16{uint16(v[0]), uint16(v[1])}
 							}
 						}
 					}
@@ -3668,8 +3668,8 @@ func (c *Char) load(def string) error {
 	gi.palettedata.palList = PaletteList{
 		palettes:   append([][]uint32{}, gi.sff.palList.palettes...),
 		paletteMap: append([]int{}, gi.sff.palList.paletteMap...),
-		PalTable:   make(map[[2]int16]int),
-		numcols:    make(map[[2]int16]int),
+		PalTable:   make(map[[2]uint16]int),
+		numcols:    make(map[[2]uint16]int),
 		PalTex:     append([]Texture{}, gi.sff.palList.PalTex...),
 	}
 	for key, value := range gi.sff.palList.PalTable {
@@ -3802,17 +3802,17 @@ func (c *Char) loadPalette() {
 				pal.exists = false
 				gi.palInfo[i] = pal
 				if i > 0 {
-					delete(gi.palettedata.palList.PalTable, [...]int16{1, int16(i + 1)})
+					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
 				}
 			}
 		}
 		if tmp == 0 {
-			delete(gi.palettedata.palList.PalTable, [...]int16{1, 1})
+			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
 	} else {
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
-			_, pal.exists = gi.palettedata.palList.PalTable[[...]int16{1, int16(i + 1)}]
+			_, pal.exists = gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
 			gi.palInfo[i] = pal
 		}
 		if gi.sff.header.NumberOfPalettes > 0 {
@@ -6435,11 +6435,11 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 			// Remap palette to sprite owner's current palette if allowed
 			if ownpal {
 				ownerPal := owner.drawPal()
-				key := [2]int16{int16(ownerPal[0]), int16(ownerPal[1])}
+				key := [2]uint16{uint16(ownerPal[0]), uint16(ownerPal[1])}
 
 				if di, ok := a.palettedata.PalTable[key]; ok {
 					for _, id := range [...]int32{0, 9000} {
-						if spr := a.sff.GetSprite(int16(id), 0); spr != nil {
+						if spr := a.sff.GetSprite(uint16(id), 0); spr != nil {
 							a.palettedata.Remap(spr.palidx, di)
 						}
 					}
@@ -8325,12 +8325,12 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 	plist := c.gi().palettedata.palList
 
 	// Look up source and destination palettes
-	si, ok := plist.PalTable[[...]int16{int16(src[0]), int16(src[1])}]
+	si, ok := plist.PalTable[[...]uint16{uint16(src[0]), uint16(src[1])}]
 	if !ok || si < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("has no source palette for RemapPal: %v,%v", src[0], src[1]))
 		return
 	}
-	di, ok := plist.PalTable[[...]int16{int16(dst[0]), int16(dst[1])}]
+	di, ok := plist.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("has no dest palette for RemapPal: %v,%v", dst[0], dst[1]))
 		return
@@ -8368,7 +8368,7 @@ func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
 	}
 
 	// Get new palette
-	di, ok := c.gi().palettedata.palList.PalTable[[...]int16{int16(dst[0]), int16(dst[1])}]
+	di, ok := c.gi().palettedata.palList.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		return
 	}
@@ -8399,24 +8399,25 @@ func (c *Char) drawPal() [2]int32 {
 	return c.getDrawPal(palMap[0])
 }
 
-type RemapTable map[int16][2]int16
-type RemapPreset map[int16]RemapTable
+type RemapTable map[uint16][2]uint16
+type RemapPreset map[uint16]RemapTable
 
-func (c *Char) remapSprite(src [2]int16, dst [2]int16) {
-	if src[0] < 0 || src[1] < 0 || dst[0] < 0 || dst[1] < 0 {
+func (c *Char) remapSprite(src [2]uint16, dst [2]uint16) {
+	nullSpr := uint16(0xFFFF)
+	if src[0] == nullSpr || src[1] == nullSpr || dst[0] == nullSpr || dst[1] == nullSpr {
 		return
 	}
 	if _, ok := c.remapSpr[src[0]]; !ok {
 		c.remapSpr[src[0]] = make(RemapTable)
 	}
-	c.remapSpr[src[0]][src[1]] = [...]int16{dst[0], dst[1]}
+	c.remapSpr[src[0]][src[1]] = [...]uint16{dst[0], dst[1]}
 }
 
 func (c *Char) remapSpritePreset(preset string) {
 	if _, ok := c.gi().remapPreset[preset]; !ok {
 		return
 	}
-	var src, dst [2]int16
+	var src, dst [2]uint16
 	for src[0] = range c.gi().remapPreset[preset] {
 		for src[1], dst = range c.gi().remapPreset[preset][src[0]] {
 			c.remapSprite(src, dst)

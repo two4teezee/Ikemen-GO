@@ -11258,8 +11258,8 @@ func (sc remapSprite) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
-
-	src := [...]int16{-1, -1}
+	nullSpr := uint16(0xFFFF)
+	src := [...]uint16{nullSpr, nullSpr}
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -11270,14 +11270,14 @@ func (sc remapSprite) Run(c *Char, _ []int32) bool {
 		case remapSprite_preset:
 			crun.remapSpritePreset(string(*(*[]byte)(unsafe.Pointer(&exp[0]))))
 		case remapSprite_source:
-			src[0] = int16(exp[0].evalI(c))
+			src[0] = uint16(exp[0].evalI(c))
 			if len(exp) > 1 {
-				src[1] = int16(exp[1].evalI(c))
+				src[1] = uint16(exp[1].evalI(c))
 			}
 		case remapSprite_dest:
-			dst := [...]int16{int16(exp[0].evalI(c)), -1}
+			dst := [...]uint16{uint16(exp[0].evalI(c)), nullSpr}
 			if len(exp) > 1 {
-				dst[1] = int16(exp[1].evalI(c))
+				dst[1] = uint16(exp[1].evalI(c))
 			}
 			crun.remapSprite(src, dst)
 		}
@@ -13556,8 +13556,8 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 				eachBg(func(bg *backGround) {
 					if bg._type == BG_Normal {
 						bg.anim.frames = []AnimFrame{*newAnimFrame()}
-						bg.anim.frames[0].Group = I32ToI16(gr)
-						bg.anim.frames[0].Number = I32ToI16(im)
+						bg.anim.frames[0].Group = I32ToU16(gr)
+						bg.anim.frames[0].Number = I32ToU16(im)
 					}
 				})
 			case modifyStageBG_start_x:
@@ -13624,6 +13624,8 @@ type modifyShadow StateControllerBase
 const (
 	modifyShadow_angle byte = iota
 	modifyShadow_anim
+	modifyShadow_animplayerno
+	modifyShadow_spriteplayerno
 	modifyShadow_color
 	modifyShadow_focallength
 	modifyShadow_intensity
@@ -13645,14 +13647,19 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+	animPN := crun.playerNo
+	spritePN := crun.playerNo
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_animplayerno:
+			animPN = int(exp[0].evalI(c)) - 1
+		case modifyShadow_spriteplayerno:
+			spritePN = int(exp[0].evalI(c)) - 1
 		case modifyShadow_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			// We'll use crun.playerNo as animPN and spritePN because the main use case is replacing the shadow with one of your own anims
-			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.shadowAnim = anim
@@ -13702,6 +13709,8 @@ type modifyReflection StateControllerBase
 
 const (
 	modifyReflection_anim byte = iota
+	modifyReflection_animplayerno
+	modifyReflection_spriteplayerno
 	modifyReflection_color
 	modifyReflection_intensity
 	modifyReflection_offset
@@ -13724,13 +13733,19 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
+	animPN := crun.playerNo
+	spritePN := crun.playerNo
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_animplayerno:
+			animPN = int(exp[0].evalI(c)) - 1
+		case modifyReflection_spriteplayerno:
+			spritePN = int(exp[0].evalI(c)) - 1
 		case modifyReflection_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			anim := c.getAnimSprite(animNo, crun.playerNo, crun.playerNo, ffx, true, false)
+			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.reflectAnim = anim

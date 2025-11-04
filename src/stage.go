@@ -300,7 +300,7 @@ func readBackGround(is IniSection, link *backGround,
 			if is.readI32ForStage("spriteno", &g, &n) {
 				bg.anim.frames = []AnimFrame{*newAnimFrame()}
 				bg.anim.frames[0].Group, bg.anim.frames[0].Number =
-					I32ToI16(g), I32ToI16(n)
+					I32ToU16(g), I32ToU16(n)
 			}
 			if is.ReadI32("mask", &tmp) {
 				if tmp != 0 {
@@ -1719,7 +1719,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 	case BT_RemapPal:
 		if bgc.src[0] >= 0 && bgc.src[1] >= 0 && bgc.dst[1] >= 0 {
 			// Get source pal
-			si, ok := s.sff.palList.PalTable[[...]int16{int16(bgc.src[0]), int16(bgc.src[1])}]
+			si, ok := s.sff.palList.PalTable[[...]uint16{uint16(bgc.src[0]), uint16(bgc.src[1])}]
 			if !ok || si < 0 {
 				return
 			}
@@ -1729,7 +1729,7 @@ func (s *Stage) runBgCtrl(bgc *bgCtrl) {
 				di = si
 			} else {
 				// Get dest pal
-				di, ok = s.sff.palList.PalTable[[...]int16{int16(bgc.dst[0]), int16(bgc.dst[1])}]
+				di, ok = s.sff.palList.PalTable[[...]uint16{uint16(bgc.dst[0]), uint16(bgc.dst[1])}]
 				if !ok || di < 0 {
 					return
 				}

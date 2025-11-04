@@ -733,8 +733,8 @@ function main.f_createTextImg(t, prefix, mod)
 		r =      t[prefix .. '_font'][4],
 		g =      t[prefix .. '_font'][5],
 		b =      t[prefix .. '_font'][6],
-		height = t[prefix .. '_font'][8],
 		a =      t[prefix .. '_font'][7],
+		height = t[prefix .. '_font'][8],
 		xshear = t[prefix .. '_xshear'] or 0,
 		angle  = t[prefix .. '_angle'] or 0,
 		window = t[prefix .. '_window'],
@@ -1674,11 +1674,13 @@ for i = 1, 2 do
 end
 
 -- generate preload stage spr/anim list
-if #motif.select_info.stage_portrait_spr >= 2 and motif.select_info.stage_portrait_spr[1] >= 0 then
-	preloadListStage(motif.select_info.stage_portrait_spr[1], motif.select_info.stage_portrait_spr[2])
-end
-if motif.select_info.stage_portrait_anim >= 0 then
-	preloadListStage(motif.select_info.stage_portrait_anim)
+for _, v in ipairs({{sec = 'select_info'}, {sec = 'vs_screen'}}) do
+	if #motif[v.sec].stage_portrait_spr >= 2 and motif[v.sec].stage_portrait_spr[1] >= 0 then
+		preloadListStage(motif[v.sec].stage_portrait_spr[1], motif[v.sec].stage_portrait_spr[2])
+	end
+	if motif[v.sec].stage_portrait_anim >= 0 then
+		preloadListStage(motif[v.sec].stage_portrait_anim)
+	end
 end
 
 --warning display
@@ -2045,28 +2047,33 @@ function main.f_addStage(file, hidden)
 	end
 	main.t_stageDef[file:lower()] = stageNo
 	--anim data
-	for _, v in pairs({{motif.select_info.stage_portrait_anim, -1}, motif.select_info.stage_portrait_spr}) do
-		if #v > 0 and v[1] ~= -1 then
-			main.t_selStages[stageNo].anim_data = animGetPreloadedStageData(stageNo, v[1], v[2])
-			if main.t_selStages[stageNo].anim_data ~= nil then
-				animSetScale(
-					main.t_selStages[stageNo].anim_data,
-					motif.select_info.stage_portrait_scale[1] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
-					motif.select_info.stage_portrait_scale[2] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
-					false
-				)
-				animSetWindow(
-					main.t_selStages[stageNo].anim_data,
-					motif.select_info.stage_portrait_window[1],
-					motif.select_info.stage_portrait_window[2],
-					motif.select_info.stage_portrait_window[3],
-					motif.select_info.stage_portrait_window[4]
-				)
-				animUpdate(main.t_selStages[stageNo].anim_data)
-				break
+	local function f_makeStageAnim(stageNo, motifSection, fieldName)
+		for _, v in pairs({{motifSection.stage_portrait_anim, -1}, motifSection.stage_portrait_spr}) do
+			if #v > 0 and v[1] ~= -1 then
+				local anim = animGetPreloadedStageData(stageNo, v[1], v[2])
+				if anim ~= nil then
+					animSetScale(anim,
+						motifSection.stage_portrait_scale[1] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
+						motifSection.stage_portrait_scale[2] * main.t_selStages[stageNo].portrait_scale / (motifViewport43(2) / motifLocalcoord(0)),
+						false
+					)
+					animSetWindow(anim,
+						motifSection.stage_portrait_window[1],
+						motifSection.stage_portrait_window[2],
+						motifSection.stage_portrait_window[3],
+						motifSection.stage_portrait_window[4]
+					)
+					animUpdate(anim)
+					main.t_selStages[stageNo][fieldName] = anim
+					break
+				end
 			end
 		end
 	end
+	--select screen anim data
+	f_makeStageAnim(stageNo, motif.select_info, "anim_data")
+	--vs screen anim data
+	f_makeStageAnim(stageNo, motif.vs_screen, "vs_anim_data")
 	if hidden ~= nil and hidden ~= 0 then
 		main.t_selStages[stageNo].hidden = hidden
 	end

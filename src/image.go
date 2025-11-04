@@ -548,7 +548,7 @@ type Sprite struct {
 	Pal      []uint32
 	Tex      Texture
 	Group    uint16 // Group index: valid range 0–65535
-	Number   uint16	// Sprite index: valid range 0–65535
+	Number   uint16 // Sprite index: valid range 0–65535
 	Size     [2]uint16
 	Offset   [2]int16
 	palidx   int
@@ -1455,8 +1455,8 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		return err
 	}
 	h := sff.header
-	read := func(x interface{}) error { 
-		return binary.Read(f, binary.LittleEndian, x) 
+	read := func(x interface{}) error {
+		return binary.Read(f, binary.LittleEndian, x)
 	}
 	var lofs, tofs uint32
 	if err := h.Read(f, &lofs, &tofs); err != nil {
@@ -1691,7 +1691,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 			}
 		}
 		headerXofs[i] = xofs
-    	headerSize[i] = size
+		headerSize[i] = size
 		if _, ok := preloadSpr[[...]uint16{spriteList[i].Group, spriteList[i].Number}]; ok || (prev == nil && spriteList[i].palidx < 0) {
 			if ok {
 				ok = sff.sprites[[...]uint16{spriteList[i].Group, spriteList[i].Number}] == nil

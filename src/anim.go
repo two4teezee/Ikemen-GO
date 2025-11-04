@@ -8,21 +8,21 @@ import (
 
 // AnimFrame holds frame data, used in animation tables.
 type AnimFrame struct {
-	Time          int32
-	Group         uint16
-	Number        uint16
-	Xoffset       int16
-	Yoffset       int16
-	TransType     TransType
-	SrcAlpha      byte
-	DstAlpha      byte
-	Hscale        int8
-	Vscale        int8
-	Xscale        float32
-	Yscale        float32
-	Angle         float32
-	Clsn1         [][4]float32
-	Clsn2         [][4]float32
+	Time      int32
+	Group     uint16
+	Number    uint16
+	Xoffset   int16
+	Yoffset   int16
+	TransType TransType
+	SrcAlpha  byte
+	DstAlpha  byte
+	Hscale    int8
+	Vscale    int8
+	Xscale    float32
+	Yscale    float32
+	Angle     float32
+	Clsn1     [][4]float32
+	Clsn2     [][4]float32
 }
 
 func newAnimFrame() *AnimFrame {

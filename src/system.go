@@ -3237,10 +3237,10 @@ type Select struct {
 
 func newSelect() *Select {
 	return &Select{
-		selectedStageNo:     -1,
-		charSpritePreload:   map[[2]uint16]bool{[...]uint16{9000, 0}: true, [...]uint16{9000, 1}: true}, 
-		stageSpritePreload:  make(map[[2]uint16]bool),
-		cdefOverwrite:       make(map[int]string)}
+		selectedStageNo:    -1,
+		charSpritePreload:  map[[2]uint16]bool{[...]uint16{9000, 0}: true, [...]uint16{9000, 1}: true},
+		stageSpritePreload: make(map[[2]uint16]bool),
+		cdefOverwrite:      make(map[int]string)}
 }
 
 func (s *Select) GetCharNo(i int) int {

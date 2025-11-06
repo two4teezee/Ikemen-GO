@@ -12,6 +12,78 @@ import (
 )
 
 // -------------------------------------------------------------------
+// Language helpers
+// -------------------------------------------------------------------
+
+// SelectedLanguage returns the effective 2-letter language code to use.
+func SelectedLanguage() string {
+	lang := strings.ToLower(strings.TrimSpace(sys.cfg.Config.Language))
+	if lang == "system" {
+		s := strings.ToLower(strings.TrimSpace(osPreferredLanguage()))
+		// Treat empty/C/POSIX as unset.
+		if s == "" || s == "c" || s == "posix" {
+			return "en"
+		}
+		// Extract 2-letter code from start (e.g., "en_US", "en-US.UTF-8").
+		if len(s) >= 2 && s[0] >= 'a' && s[0] <= 'z' && s[1] >= 'a' && s[1] <= 'z' {
+			lang = s[:2]
+		} else {
+			return "en"
+		}
+	}
+	// Keep only first 2 letters if longer (e.g., "pt-BR" → "pt").
+	if len(lang) >= 2 {
+		lang = lang[:2]
+	}
+	if lang == "" {
+		lang = "en"
+	}
+	return lang
+}
+
+// ResolveLangSectionName returns the section name to read, honoring language prefixes.
+func ResolveLangSectionName(f *ini.File, section string, lang string) string {
+	if f == nil || section == "" {
+		return section
+	}
+	if lang = strings.ToLower(strings.TrimSpace(lang)); lang != "" {
+		if _, err := f.GetSection(lang + "." + section); err == nil {
+			return lang + "." + section
+		}
+	}
+	if _, err := f.GetSection(section); err == nil {
+		return section
+	}
+	if _, err := f.GetSection("en." + section); err == nil {
+		return "en." + section
+	}
+	return section
+}
+
+// pickLangSection returns the INI section to use for a logical section name,
+// honoring language-specific overrides if present.
+func pickLangSection(f *ini.File, sec string) *ini.Section {
+	if f == nil || sec == "" {
+		return nil
+	}
+	name := ResolveLangSectionName(f, sec, SelectedLanguage())
+	if s, err := f.GetSection(name); err == nil && s != nil {
+		return s
+	}
+	// Best-effort fallback.
+	return f.Section(sec)
+}
+
+// normalize/strip a potential "xx." language prefix. Returns (lang, base, hasPrefix).
+func splitLangPrefix(name string) (string, string, bool) {
+	re := regexp.MustCompile(`(?i)^([a-z]{2})\.(.+)$`)
+	if m := re.FindStringSubmatch(name); len(m) == 3 {
+		return strings.ToLower(m[1]), m[2], true
+	}
+	return "", name, false
+}
+
+// -------------------------------------------------------------------
 // Helper Functions
 // -------------------------------------------------------------------
 

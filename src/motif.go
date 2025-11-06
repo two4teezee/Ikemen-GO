@@ -1480,42 +1480,52 @@ func loadMotif(def string) (*Motif, error) {
 		if src == nil {
 			return
 		}
-		for _, section := range src.Sections() {
-			sectionName := section.Name()
-			// Skip the default section and "music" (handled elsewhere)
-			if sectionName == ini.DEFAULT_SECTION || sectionName == "music" {
+		type secPair struct {
+			sec  *ini.Section
+			name string // logical (language-stripped) name
+		}
+		var baseSecs, langSecs []secPair
+		curLang := SelectedLanguage()
+
+		for _, s := range src.Sections() {
+			raw := s.Name()
+			if raw == ini.DEFAULT_SECTION {
 				continue
 			}
-			// Skip [Begin Action] and background sections
-			prefixes := []string{
-				"begin ",
-				"titlebg ",
-				"selectbg ",
-				"versusbg ",
-				"continuebg ",
-				"victorybg ",
-				"winbg ",
-				"survivalresultsbg ",
-				"timeattackresultsbg ",
-				"optionbg ",
-				"replaybg ",
-				"menubg ",
-				"trainingbg ",
-				"attractbg ",
-				"challengerbg ",
-				"hiscorebg ",
-			}
-			skip := false
-			for _, prefix := range prefixes {
-				if strings.HasPrefix(sectionName, prefix) {
-					skip = true
-					break
+			lang, base, has := splitLangPrefix(raw)
+			logical := base
+			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
+			lb := strings.ToLower(logical)
+			for _, p := range []string{
+				"begin ", "titlebg ", "selectbg ", "versusbg ", "continuebg ",
+				"victorybg ", "winbg ", "survivalresultsbg ", "timeattackresultsbg ",
+				"optionbg ", "replaybg ", "menubg ", "trainingbg ", "attractbg ",
+				"challengerbg ", "hiscorebg ",
+			} {
+				if strings.HasPrefix(lb, p) {
+					goto nextSection
 				}
 			}
-			if skip {
-				continue
+			// "music" is handled separately later.
+			if strings.EqualFold(logical, "music") {
+				goto nextSection
 			}
+			// Route by language.
+			if has {
+				if lang == "en" {
+					baseSecs = append(baseSecs, secPair{s, logical})
+				} else if lang == curLang {
+					langSecs = append(langSecs, secPair{s, logical})
+				}
+			} else {
+				baseSecs = append(baseSecs, secPair{s, logical})
+			}
+		nextSection:
+		}
 
+		process := func(pair secPair) {
+			section := pair.sec
+			sectionName := pair.name
 			for _, key := range section.Keys() {
 				keyName := key.Name()
 				if strings.HasPrefix(keyName, "menu.itemname.") {
@@ -1544,6 +1554,12 @@ func loadMotif(def string) (*Motif, error) {
 					fmt.Printf("Warning: Failed to assign key [%s.%s]: %v\n", sectionName, keyName, err)
 				}
 			}
+		}
+		for _, sp := range baseSecs {
+			process(sp)
+		}
+		for _, sp := range langSecs {
+			process(sp)
 		}
 	}
 
@@ -1590,7 +1606,7 @@ func loadMotif(def string) (*Motif, error) {
 	m.populateDataPointers()
 	m.applyPostParsePosAdjustments()
 
-	m.Music = parseMusicSection(iniFile.Section("Music"))
+	m.Music = parseMusicSection(pickLangSection(iniFile, "Music"))
 
 	return &m, nil
 }

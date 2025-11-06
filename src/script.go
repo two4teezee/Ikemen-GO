@@ -2424,7 +2424,9 @@ func systemScriptInit(l *lua.LState) {
 			if file == nil || sec == "" {
 				return
 			}
-			s, err := file.GetSection(sec)
+			// Choose the language-appropriate section name transparently.
+			secName := ResolveLangSectionName(file, sec, SelectedLanguage())
+			s, err := file.GetSection(secName)
 			if err != nil || s == nil {
 				return
 			}
@@ -2497,7 +2499,7 @@ func systemScriptInit(l *lua.LState) {
 				if file == nil || sec == "" {
 					return
 				}
-				s, err := file.GetSection(sec)
+				s, err := file.GetSection(ResolveLangSectionName(file, sec, SelectedLanguage()))
 				if err != nil || s == nil {
 					return
 				}
@@ -2583,7 +2585,7 @@ func systemScriptInit(l *lua.LState) {
 				if file == nil || sec == "" {
 					return
 				}
-				s, err := file.GetSection(sec)
+				s, err := file.GetSection(ResolveLangSectionName(file, sec, SelectedLanguage()))
 				if err != nil || s == nil {
 					return
 				}

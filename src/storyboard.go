@@ -157,61 +157,98 @@ func loadStoryboard(def string) (*Storyboard, error) {
 		if src == nil {
 			return nil
 		}
-		// carry-over across consecutive [Scene N] sections within this source
-		var clearcolor, clearalpha, clearlayerno, layerallpos string
+		// Group base vs. language-specific sections (preserving file order within each group).
+		type secPair struct {
+			sec  *ini.Section
+			name string // logical name without the "xx." prefix
+		}
+		var baseSecs, langSecs []secPair
+		curLang := SelectedLanguage()
 
-		for _, section := range src.Sections() {
-			sectionName := section.Name()
-			if sectionName == ini.DEFAULT_SECTION {
+		// We only care about [Info], [SceneDef], and [Scene N] (case-insensitive, language prefix allowed).
+		interesting := func(logical string) bool {
+			l := strings.ToLower(logical)
+			return l == "info" || l == "scenedef" || strings.HasPrefix(l, "scene ")
+		}
+
+		for _, s := range src.Sections() {
+			raw := s.Name()
+			if raw == ini.DEFAULT_SECTION {
 				continue
 			}
-			// Only parse Info, SceneDef and Scene sections
-			prefixes := []string{"info", "scenedef", "scene "}
-			skip := true
-			for _, prefix := range prefixes {
-				if strings.HasPrefix(sectionName, prefix) {
-					skip = false
-					break
-				}
+			lang, base, has := splitLangPrefix(raw)
+			logical := base
+			if !has {
+				logical = raw
 			}
-			if skip {
+			if !interesting(logical) {
 				continue
 			}
-
-			// Inject carry-over keys for scenes (so missing ones inherit from the previous scene in THIS source)
-			if strings.HasPrefix(sectionName, "scene ") {
-				keysToCheck := map[string]*string{
-					"clearcolor":   &clearcolor,
-					"clearalpha":   &clearalpha,
-					"clearlayerno": &clearlayerno,
-					"layerall.pos": &layerallpos,
+			if has {
+				if lang == "en" {
+					baseSecs = append(baseSecs, secPair{s, logical})
+				} else if lang == curLang {
+					langSecs = append(langSecs, secPair{s, logical})
 				}
-				existing := make(map[string]bool)
-				for _, k := range section.Keys() {
-					if ptr, ok := keysToCheck[k.Name()]; ok {
-						*ptr = k.Value()
-						existing[k.Name()] = true
+			} else {
+				baseSecs = append(baseSecs, secPair{s, logical})
+			}
+		}
+
+		// one pass over a slice of sections; inject scene carry-over inside that pass only
+		process := func(list []secPair) error {
+			// carry-over across consecutive [Scene N] sections within THIS pass
+			var clearcolor, clearalpha, clearlayerno, layerallpos string
+
+			for _, sp := range list {
+				section := sp.sec
+				sectionName := sp.name // logical (no lang prefix)
+
+				// Inject carry-over keys for scenes (so missing ones inherit within THIS pass)
+				if strings.HasPrefix(strings.ToLower(sectionName), "scene ") {
+					keysToCheck := map[string]*string{
+						"clearcolor":   &clearcolor,
+						"clearalpha":   &clearalpha,
+						"clearlayerno": &clearlayerno,
+						"layerall.pos": &layerallpos,
 					}
-				}
-				for k, ptr := range keysToCheck {
-					if !existing[k] && *ptr != "" {
-						if _, err := section.NewKey(k, *ptr); err != nil {
-							return fmt.Errorf("failed to add %s to %q: %w", k, sectionName, err)
+					existing := make(map[string]bool)
+					for _, k := range section.Keys() {
+						if ptr, ok := keysToCheck[strings.ToLower(k.Name())]; ok {
+							*ptr = k.Value()
+							existing[strings.ToLower(k.Name())] = true
+						}
+					}
+					for k, ptr := range keysToCheck {
+						if !existing[k] && *ptr != "" {
+							if _, err := section.NewKey(k, *ptr); err != nil {
+								return fmt.Errorf("failed to add %s to %q: %w", k, section.Name(), err)
+							}
 						}
 					}
 				}
-			}
 
-			for _, key := range section.Keys() {
-				keyName := key.Name()
-				value := key.Value()
-				fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
-				keyParts := parseQueryPath(fullKey)
-				if err := assignField(&s, keyParts, value, def); err != nil {
-					// keep going; soft-fail like before
-					//fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
+				for _, key := range section.Keys() {
+					keyName := key.Name()
+					value := key.Value()
+					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
+					keyParts := parseQueryPath(fullKey)
+					if err := assignField(&s, keyParts, value, def); err != nil {
+						// keep going; soft-fail like before
+						//fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
+					}
 				}
 			}
+			return nil
+		}
+
+		// Apply base (unprefixed + en.*) first, then language overrides
+		if err := process(baseSecs); err != nil {
+			return err
+		}
+		// reset of carry-over between passes is handled by new local vars in process()
+		if err := process(langSecs); err != nil {
+			return err
 		}
 		return nil
 	}
@@ -243,7 +280,7 @@ func loadStoryboard(def string) (*Storyboard, error) {
 
 	for scene, sceneProps := range s.Scene {
 		sceneName := strings.Replace(scene, "scene_", "scene ", 1)
-		sceneProps.Music = parseMusicSection(iniFile.Section(sceneName))
+		sceneProps.Music = parseMusicSection(pickLangSection(iniFile, sceneName))
 	}
 
 	return &s, nil

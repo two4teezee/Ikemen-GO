@@ -716,8 +716,8 @@ func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
 		return nil
 	}
 	if s.palidx < 0 || int(s.palidx) >= len(pl.paletteMap) {
-        s.palidx = 0
-    }
+		s.palidx = 0
+	}
 	return pl.PalTex[pl.paletteMap[int(s.palidx)]]
 }
 

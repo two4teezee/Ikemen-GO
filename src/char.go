@@ -1631,7 +1631,7 @@ func (e *Explod) update(playerNo int) {
 
 	if sys.tickFrame() {
 		if e.removetime >= 0 && e.time >= e.removetime ||
-			act && e.removetime < -1 && e.anim.loopend {
+			act && e.removetime <= -2 && e.anim.loopend {
 			e.id, e.anim = IErr, nil
 			return
 		}

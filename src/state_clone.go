@@ -271,8 +271,13 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	// Since curFrame is desynced from anim's state, we must save it as well
 	if c.curFrame != nil {
 		result.curFrame = c.curFrame.Clone(a)
-	} else {
-		result.curFrame = nil
+	}
+
+	if c.shadowAnim != nil {
+		result.shadowAnim = c.shadowAnim.Clone(a, gsp)
+	}
+	if c.reflectAnim != nil {
+		result.reflectAnim = c.reflectAnim.Clone(a, gsp)
 	}
 
 	// TODO: Profiling shows this is hotter than it should be

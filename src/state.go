@@ -166,7 +166,7 @@ type GameState struct {
 	numSimul, numTurns      [2]int32    // UIT
 	esc                     bool
 	envcol_under            bool
-	nextCharId              int32
+	lastCharId              int32
 	tickCount               int
 	oldTickCount            int
 	tickCountF              float32
@@ -339,7 +339,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
-	sys.nextCharId = gs.nextCharId
+	sys.lastCharId = gs.lastCharId
 
 	sys.scrrect = gs.scrrect
 	sys.gameWidth = gs.gameWidth
@@ -391,7 +391,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.numTurns = gs.numTurns
 	sys.esc = gs.esc
 	sys.envcol_under = gs.envcol_under
-	sys.nextCharId = gs.nextCharId
+	sys.lastCharId = gs.lastCharId
 	sys.tickCount = gs.tickCount
 	sys.oldTickCount = gs.oldTickCount
 	sys.tickCountF = gs.tickCountF
@@ -553,7 +553,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.nextCharId = sys.nextCharId
+	gs.lastCharId = sys.lastCharId
 
 	gs.scrrect = sys.scrrect
 	gs.gameWidth = sys.gameWidth
@@ -604,7 +604,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.numTurns = sys.numTurns
 	gs.esc = sys.esc
 	gs.envcol_under = sys.envcol_under
-	gs.nextCharId = sys.nextCharId
+	gs.lastCharId = sys.lastCharId
 	gs.tickCount = sys.tickCount
 	gs.oldTickCount = sys.oldTickCount
 	gs.tickCountF = sys.tickCountF

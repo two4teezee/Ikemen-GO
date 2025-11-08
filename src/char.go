@@ -11754,8 +11754,23 @@ type CharList struct {
 }
 
 func (cl *CharList) clear() {
+	// Reset CharList
 	*cl = CharList{idMap: make(map[int32]*Char)}
-	sys.nextCharId = sys.cfg.Config.HelperMax
+
+	// Reset player ID tracker to baseline
+	// ID's start from HelperMax in Mugen. We don't strictly need to do the same but it might improve backward compatibility
+	// TODO: Mugen codes that rely on this fact already don't work correctly in Mugen, so it may be pointless to do the same
+	sys.lastCharId = Max(0, sys.cfg.Config.HelperMax - 1)
+
+	// Clear all player ID's to avoid false conflicts with stale players
+	// TODO: Maybe stale players should be cleared better
+	for _, p := range sys.chars {
+		for _, c := range p {
+			if c != nil {
+				c.id = -1
+			}
+		}
+	}
 }
 
 func (cl *CharList) add(c *Char) {

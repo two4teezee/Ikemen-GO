@@ -3093,7 +3093,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_deg:
 		be.deg(sys.bcStack.Top())
 	case OC_ex_lastplayerid:
-		sys.bcStack.PushI(sys.nextCharId - 1)
+		sys.bcStack.PushI(sys.lastCharId)
 	case OC_ex_lerp:
 		v3 := sys.bcStack.Pop()
 		v2 := sys.bcStack.Pop()

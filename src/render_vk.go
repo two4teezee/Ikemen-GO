@@ -60,7 +60,7 @@ func (r *Renderer_VK) newTexture(width, height, depth int32, filter bool) Textur
 	t.imageView = r.CreateImageView(t.img, format, 0, 1, 1, false)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -78,7 +78,7 @@ func (r *Renderer_VK) newModelTexture(width, height, depth int32, filter bool) T
 	t.imageView = r.CreateImageView(t.img, format, 0, t.mipLevels, 1, false)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -96,7 +96,7 @@ func (r *Renderer_VK) newDataTexture(width, height int32) Texture {
 	t.sampler = r.GetSampler(VulkanSamplerInfo{TextureSamplingFilterNearest, TextureSamplingFilterNearest, TextureSamplingWrapClampToEdge, TextureSamplingWrapClampToEdge})
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -125,7 +125,7 @@ func (r *Renderer_VK) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMi
 	t.imageView = r.CreateImageView(t.img, format, 0, t.mipLevels, 6, true)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -152,7 +152,7 @@ func (r *Renderer_VK) newPaletteTexture() Texture {
 	}
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypePaletteTexture,
 			[]interface{}{
 				slot,
@@ -170,7 +170,7 @@ func (r *Renderer_VK) newDummyCubeMapTexture() Texture {
 	t.imageView = r.CreateImageView(t.img, format, 0, t.mipLevels, 6, true)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -718,11 +718,12 @@ func (t *Texture_VK) MapInternalFormat(i int32) vk.Format {
 // Renderer_VK
 
 type Renderer_VK struct {
-	destroyResourceQueue chan VulkanResource
-	enableModel          bool
-	enableShadow         bool
-	renderShadowMap      bool
-	waitGroup            sync.WaitGroup
+	destroyResourceQueues     [2]chan VulkanResource
+	destroyResourceQueueIndex uint32
+	enableModel               bool
+	enableShadow              bool
+	renderShadowMap           bool
+	waitGroup                 sync.WaitGroup
 
 	gpuDevices []vk.PhysicalDevice
 	gpuIndex   uint32
@@ -1399,7 +1400,7 @@ func (r *Renderer_VK) CreateRenderTargetTexture(width, height uint32, numSamples
 	t.imageView = r.CreateImageView(t.img, r.swapchains[0].format, 0, 1, 1, false)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -1420,7 +1421,7 @@ func (r *Renderer_VK) CreateRenderTargetDepthTexture(width, height uint32, numSa
 	t.imageView = r.CreateImageView(t.img, vk.FormatD32Sfloat, 0, 1, 1, false)
 
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -1489,7 +1490,7 @@ func (r *Renderer_VK) addPalTexture() {
 	t.imageView = r.CreateImageView(t.img, vk.FormatR8g8b8a8Unorm, 0, 1, 1, false)
 	r.palTexture.textures = append(r.palTexture.textures, t)
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -1550,7 +1551,7 @@ func (r *Renderer_VK) createShadowMapTexture(widthHeight int32) *Texture_VK {
 	vk.EndCommandBuffer(commandBuffer)
 	r.tempCommands = append(gfx.(*Renderer_VK).tempCommands, commandBuffer)
 	runtime.SetFinalizer(t, func(t *Texture_VK) {
-		r.destroyResourceQueue <- VulkanResource{
+		r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 			VulkanResourceTypeTexture,
 			[]interface{}{
 				t.img, t.imageView, imageMemory,
@@ -4557,7 +4558,9 @@ func (r *Renderer_VK) Destroy() {
 	r.DestroySwapchain()
 
 	runtime.GC()
-	r.DestroyResources(len(r.destroyResourceQueue))
+	r.DestroyResources(len(r.destroyResourceQueues[r.destroyResourceQueueIndex]))
+	r.destroyResourceQueueIndex = (r.destroyResourceQueueIndex + 1) % 2
+	r.DestroyResources(len(r.destroyResourceQueues[r.destroyResourceQueueIndex]))
 
 	vk.DestroySurface(r.instance, r.surface, nil)
 	vk.DestroyDevice(r.device, nil)
@@ -4798,7 +4801,9 @@ func (r *Renderer_VK) Init() {
 			}
 		}
 	}
-	r.destroyResourceQueue = make(chan VulkanResource, 65536)
+	r.destroyResourceQueues[0] = make(chan VulkanResource, 65536)
+	r.destroyResourceQueues[1] = make(chan VulkanResource, 65536)
+	r.destroyResourceQueueIndex = 0
 }
 
 func (r *Renderer_VK) Close() {
@@ -4817,7 +4822,7 @@ func (r *Renderer_VK) DestroyResources(queueLength int) {
 	empty := false
 	for i := 0; i < queueLength && !empty; i++ {
 		select {
-		case res := <-r.destroyResourceQueue:
+		case res := <-r.destroyResourceQueues[r.destroyResourceQueueIndex]:
 			switch res.resourceType {
 			case VulkanResourceTypeTexture:
 				vk.DestroyImageView(r.device, res.resources[1].(vk.ImageView), nil)
@@ -4855,8 +4860,9 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 		vk.WaitForFences(r.device, 1, r.fences[:1], vk.True, 10*1000*1000*1000)
 	}
 	vk.ResetFences(r.device, 1, r.fences[:1])
-	if len(r.destroyResourceQueue) > 0 {
-		go r.DestroyResources(len(r.destroyResourceQueue))
+	r.destroyResourceQueueIndex = (r.destroyResourceQueueIndex + 1) % 2
+	if len(r.destroyResourceQueues[r.destroyResourceQueueIndex]) > 0 {
+		go r.DestroyResources(len(r.destroyResourceQueues[r.destroyResourceQueueIndex]))
 	}
 	if len(r.usedCommands) > 0 {
 		if r.stagingBufferFences[0] {
@@ -7378,7 +7384,7 @@ func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize
 }
 func (r *Renderer_VK) ResizeStagingBuffer(size uint32) {
 	r.stagingBufferFences[r.stagingBufferIndex] = false
-	r.destroyResourceQueue <- VulkanResource{
+	r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 		VulkanResourceTypeFence,
 		[]interface{}{
 			r.fences[1+r.stagingBufferIndex],
@@ -7393,7 +7399,7 @@ func (r *Renderer_VK) ResizeStagingBuffer(size uint32) {
 		panic(err)
 	}
 	r.fences[1+r.stagingBufferIndex] = fence
-	r.destroyResourceQueue <- VulkanResource{
+	r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{
 		VulkanResourceTypeBuffer,
 		[]interface{}{
 			r.stagingBuffers[r.stagingBufferIndex].buffer, r.stagingBuffers[r.stagingBufferIndex].bufferMemory,

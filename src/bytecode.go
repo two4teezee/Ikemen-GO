@@ -5897,9 +5897,6 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				// What possibly happens in Mugen is that all parameters are read first then only applied if PosType is defined
 				if paramlock() {
 					eachExpl(func(e *Explod) {
-						if e.facing*e.relativef >= 0 { // See below
-							e.relativef = 1
-						}
 						e.offset = [3]float32{0, 0, 0}
 						e.setAllPosX(e.offset[0])
 						e.setAllPosY(e.offset[1])
@@ -5912,6 +5909,10 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 							e.bindtime = 1
 						}
 						e.space = Space_none
+						// Defaulting facing too makes some explods face the wrong way
+						//if e.facing*e.relativef >= 0 { // See below
+						//	e.relativef = 1
+						//}
 					})
 				}
 				// Flag PosType as found

@@ -315,6 +315,9 @@ type System struct {
 	keepAlivePrev    time.Time
 	keepAliveStart   time.Time
 	keepAliveCount   int
+
+	luaDrawPreOps   []func()
+	luaDrawLayerOps [3][]func()
 }
 
 // Check if the application is running inside a macOS app bundle
@@ -745,18 +748,16 @@ func (s *System) renderFrame() {
 		s.draw(dx, dy, dscl)
 	}
 
+	if !s.frameSkip {
+		s.luaFlushDrawQueue()
+	} else {
+		// On skipped frames, discard queued draws to avoid buildup.
+		s.luaDiscardDrawQueue()
+	}
+
 	// Render top elements
 	if !s.frameSkip {
 		s.drawTop()
-	}
-
-	// Common Lua calls
-	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
-		for _, v := range sys.cfg.Common.Lua[key] {
-			if err := s.luaLState.DoString(v); err != nil {
-				s.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
-			}
-		}
 	}
 
 	// Render debug elements
@@ -1323,6 +1324,51 @@ func (s *System) printToConsole(pn, sn int, a ...interface{}) {
 			fmt.Printf("%s\n", str)
 			s.appendToConsole(str)
 		}
+	}
+}
+
+// Lua-driven deferred draw queue
+// Used by embedded Lua helpers (animDraw/bgDraw/textImgDraw/etc).
+func (s *System) luaQueuePreDraw(fn func()) {
+	if fn == nil {
+		return
+	}
+	s.luaDrawPreOps = append(s.luaDrawPreOps, fn)
+}
+func (s *System) luaQueueLayerDraw(layer int, fn func()) {
+	if fn == nil {
+		return
+	}
+	// Negative layers behave like a "pre" pass (e.g. clearColor).
+	if layer < 0 {
+		s.luaQueuePreDraw(fn)
+		return
+	}
+	// Clamp to last known Lua layer bucket.
+	if layer >= len(s.luaDrawLayerOps) {
+		layer = len(s.luaDrawLayerOps) - 1
+	}
+	s.luaDrawLayerOps[layer] = append(s.luaDrawLayerOps[layer], fn)
+}
+
+func (s *System) luaFlushDrawQueue() {
+	// Pre-pass
+	for _, fn := range s.luaDrawPreOps {
+		fn()
+	}
+	s.luaDrawPreOps = s.luaDrawPreOps[:0]
+	// Layered passes
+	for i := range s.luaDrawLayerOps {
+		for _, fn := range s.luaDrawLayerOps[i] {
+			fn()
+		}
+		s.luaDrawLayerOps[i] = s.luaDrawLayerOps[i][:0]
+	}
+}
+func (s *System) luaDiscardDrawQueue() {
+	s.luaDrawPreOps = s.luaDrawPreOps[:0]
+	for i := range s.luaDrawLayerOps {
+		s.luaDrawLayerOps[i] = s.luaDrawLayerOps[i][:0]
 	}
 }
 
@@ -2044,6 +2090,15 @@ func (s *System) action() {
 
 	// Run motif
 	s.motif.act()
+
+	// Common Lua calls
+	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+		for _, v := range sys.cfg.Common.Lua[key] {
+			if err := sys.luaLState.DoString(v); err != nil {
+				sys.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
+			}
+		}
+	}
 
 	if s.tickNextFrame() {
 		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing

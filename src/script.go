@@ -668,7 +668,11 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 2) {
 			layer = int16(numArg(l, 2))
 		}
-		a.Draw(layer)
+		aSnap := *a
+		layerLocal := layer
+		sys.luaQueueLayerDraw(int(layerLocal), func() {
+			(&aSnap).Draw(layerLocal)
+		})
 		return 0
 	})
 	luaRegister(l, "animGetLength", func(*lua.LState) int {
@@ -1133,7 +1137,11 @@ func systemScriptInit(l *lua.LState) {
 			}
 			anim.SetPos(x, y)
 			anim.SetFacing(facing)
-			anim.Draw(layer)
+			aSnap := *anim
+			layerLocal := layer
+			sys.luaQueueLayerDraw(int(layerLocal), func() {
+				(&aSnap).Draw(layerLocal)
+			})
 		})
 		return 0
 	})
@@ -1160,7 +1168,12 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 5) {
 			scl = float32(numArg(l, 5))
 		}
-		bg.Draw(layer, x, y, scl)
+		bgSnap := *bg
+		layerLocal := layer
+		xLocal, yLocal, sclLocal := x, y, scl
+		sys.luaQueueLayerDraw(int(layerLocal), func() {
+			(&bgSnap).Draw(layerLocal, xLocal, yLocal, sclLocal)
+		})
 		return 0
 	})
 	luaRegister(l, "bgNew", func(*lua.LState) int {
@@ -1269,7 +1282,11 @@ func systemScriptInit(l *lua.LState) {
 		col := uint32(int32(numArg(l, 3))&0xff | int32(numArg(l, 2))&0xff<<8 | int32(numArg(l, 1))&0xff<<16)
 		src := alpha
 		dst := 255 - alpha
-		FillRect(sys.scrrect, col, [2]int32{src, dst})
+		colLocal := col
+		srcLocal, dstLocal := src, dst
+		sys.luaQueuePreDraw(func() {
+			FillRect(sys.scrrect, colLocal, [2]int32{srcLocal, dstLocal})
+		})
 		return 0
 	})
 	luaRegister(l, "clearConsole", func(*lua.LState) int {
@@ -1723,6 +1740,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	// Execute a match of gameplay
 	luaRegister(l, "game", func(l *lua.LState) int {
+		sys.luaDiscardDrawQueue()
 		sys.gameRunning = true
 		// Anonymous function to load characters and stages, and/or wait for them to finish loading
 		load := func() error {
@@ -1940,6 +1958,7 @@ func systemScriptInit(l *lua.LState) {
 				sys.paused = false
 				sys.gameRunning = false
 				sys.clearSpriteData()
+				sys.luaDiscardDrawQueue()
 				l.Push(lua.LNumber(winp))
 				l.Push(lua.LNumber(sys.motif.ch.controllerNo + 1))
 				return 2
@@ -3109,6 +3128,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "refresh", func(*lua.LState) int {
 		sys.tickSound()
 		if !sys.frameSkip {
+			sys.luaFlushDrawQueue()
 			if sys.motif.fadeIn.isActive() {
 				BlendReset()
 				sys.motif.fadeIn.step()
@@ -3118,6 +3138,9 @@ func systemScriptInit(l *lua.LState) {
 				sys.motif.fadeOut.step()
 				sys.motif.fadeOut.draw()
 			}
+		} else {
+			// On skipped frames, discard queued draws to avoid buildup.
+			sys.luaDiscardDrawQueue()
 		}
 		if !sys.update() {
 			l.RaiseError("<game end>")
@@ -3145,7 +3168,12 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 2) {
 			layer = int16(numArg(l, 2))
 		}
-		r.Draw(layer)
+		//r.Draw(layer)
+		rSnap := *r
+		layerLocal := layer
+		sys.luaQueueLayerDraw(int(layerLocal), func() {
+			(&rSnap).Draw(layerLocal)
+		})
 		return 0
 	})
 	luaRegister(l, "rectNew", func(*lua.LState) int {
@@ -3982,7 +4010,13 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 2) {
 			layer = int16(numArg(l, 2))
 		}
-		ts.Draw(layer)
+		//tsSnap := *ts
+		tsSnap := ts.Copy()
+		layerLocal := layer
+		sys.luaQueueLayerDraw(int(layerLocal), func() {
+			//(&tsSnap).Draw(layerLocal)
+			tsSnap.Draw(layerLocal)
+		})
 		return 0
 	})
 	luaRegister(l, "textImgNew", func(*lua.LState) int {

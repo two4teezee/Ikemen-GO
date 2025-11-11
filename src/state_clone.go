@@ -216,6 +216,8 @@ func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) *Explod {
 		result.palfx = e.palfx.Clone(a)
 	}
 
+	result.aimg = e.aimg.Clone(a, gsp)
+
 	return result
 }
 
@@ -231,16 +233,11 @@ func (p *Projectile) clone(a *arena.Arena, gsp *GameStatePool) *Projectile {
 		result.ani = p.ani.Clone(a, gsp)
 	}
 
-	if p.aimg.palfx != nil {
-		result.aimg.palfx = arena.MakeSlice[*PalFX](a, len(p.aimg.palfx), len(p.aimg.palfx))
-		for i := range p.aimg.palfx {
-			result.aimg.palfx[i] = p.aimg.palfx[i].Clone(a)
-		}
-	}
-
 	if p.palfx != nil {
 		result.palfx = p.palfx.Clone(a)
 	}
+
+	result.aimg = p.aimg.Clone(a, gsp)
 
 	return result
 }
@@ -281,7 +278,12 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	}
 
 	// TODO: Profiling shows this is hotter than it should be
+	// Maybe we ought to clear animation data from them when their timer expires
 	result.aimg = c.aimg.Clone(a, gsp)
+
+	if c.palfx != nil {
+		result.palfx = c.palfx.Clone(a)
+	}
 
 	// Manually copy references that shallow copy poorly, as needed
 	// Pointers, slices, maps, functions, channels etc
@@ -305,10 +307,12 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result.p2EnemyList = arena.MakeSlice[*Char](a, len(c.p2EnemyList), len(c.p2EnemyList))
 	copy(result.p2EnemyList, c.p2EnemyList)
 
-	if c.p2EnemyBackup != nil {
-		tmp := *c.p2EnemyBackup
-		result.p2EnemyBackup = &tmp
-	}
+	//if c.p2EnemyBackup != nil {
+	//	tmp := *c.p2EnemyBackup
+	//	result.p2EnemyBackup = &tmp
+	//}
+	// This ought to be enough
+	result.p2EnemyBackup = c.p2EnemyBackup
 
 	result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
 	copy(result.inputShift, c.inputShift)
@@ -365,8 +369,6 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 func (cl *CharList) Clone(a *arena.Arena, gsp *GameStatePool) (result CharList) {
 	result = *cl
 
-	// Manually copy references that shallow copy poorly, as needed
-	// Pointers, slices, maps, functions, channels etc
 	result.runOrder = arena.MakeSlice[*Char](a, len(cl.runOrder), len(cl.runOrder))
 	copy(result.runOrder, cl.runOrder)
 
@@ -375,6 +377,7 @@ func (cl *CharList) Clone(a *arena.Arena, gsp *GameStatePool) (result CharList) 
 	for k, v := range cl.idMap {
 		result.idMap[k] = v
 	}
+
 	return
 }
 
@@ -383,10 +386,12 @@ func (pf *PalFX) Clone(a *arena.Arena) *PalFX {
 		return nil
 	}
 	result := *pf
+
 	if pf.remap != nil {
 		result.remap = arena.MakeSlice[int](a, len(pf.remap), len(pf.remap))
 		copy(result.remap, pf.remap)
 	}
+
 	return &result
 }
 

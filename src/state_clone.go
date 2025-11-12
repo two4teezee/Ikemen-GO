@@ -279,6 +279,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 
 	// TODO: Profiling shows this is hotter than it should be
 	// Maybe we ought to clear animation data from them when their timer expires
+	// Update: Done already but copying 60 PalFX's is still a problem
 	result.aimg = c.aimg.Clone(a, gsp)
 
 	if c.palfx != nil {

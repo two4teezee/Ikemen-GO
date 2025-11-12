@@ -1090,12 +1090,12 @@ func newAfterImage() *AfterImage {
 		ai.palfx[i].allowNeg = true
 	}
 
-	ai.clear()
+	ai.setDefault()
 
 	return ai
 }
 
-func (ai *AfterImage) clear() {
+func (ai *AfterImage) setDefault() {
 	ai.time = 0
 	ai.length = 20
 	if len(ai.palfx) > 0 {
@@ -1249,6 +1249,14 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 		ai.framegap < 1 || ai.framegap > 32767 {
 		ai.time = 0
 		ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
+		// Clear animation and PalFX data
+		// This makes afterimages lighter in save states
+		for i := range ai.imgs {
+			ai.imgs[i].anim = nil
+		}
+		for i := range ai.palfx {
+			ai.palfx[i] = nil
+		}
 		return
 	}
 

@@ -6532,7 +6532,7 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	crun.aimg.clear()
+	crun.aimg.setDefault()
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
 		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
 		crun.aimg.palfx[0].invertblend = -2

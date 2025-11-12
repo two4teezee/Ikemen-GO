@@ -1082,9 +1082,6 @@ type AfterImage struct {
 }
 
 func newAfterImage() *AfterImage {
-	// This isn't what AfterImageMax is supposed to do
-	//maxFrames := Max(0, sys.cfg.Config.AfterImageMax)
-
 	ai := &AfterImage{}
 
 	for i := range ai.palfx {
@@ -1136,6 +1133,19 @@ func (ai *AfterImage) clear() {
 			ai.imgs[i].anim = nil
 		}
 		ai.hasAnim = false
+	}
+}
+
+// Correct parameters while printing debug warnings for the char in question
+func (ai *AfterImage) validateParams(c *Char) {
+	// Check if length is allowed
+	if ai.length < 0 {
+		sys.appendToConsole(c.warn() + "AfterImage length must be positive")
+		ai.length = 0
+	}
+	if ai.length > MaxAimgLength {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("AfterImage length exceeds the maximum of %v", MaxAimgLength))
+		ai.length = MaxAimgLength
 	}
 }
 
@@ -1277,17 +1287,6 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 		return
 	}
 
-	// Respect AfterImageMax
-	if sys.activeAfterImages[playerNo] >= sys.cfg.Config.AfterImageMax {
-		return
-	}
-
-	// Track number of afterimage effects used by this player
-	sys.activeAfterImages[playerNo]++
-
-	//end := Min(sys.cfg.Config.AfterImageMax,
-	//	(Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap)
-
 	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap
 
 	// Decide layering
@@ -1299,6 +1298,11 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 	}
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
+		// Respect AfterImageMax
+		if sys.afterImageCount[playerNo] >= sys.cfg.Config.AfterImageMax {
+			break
+		}
+
 		img := &ai.imgs[(ai.imgidx-i+MaxAimgLength) % MaxAimgLength]
 
 		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
@@ -1308,7 +1312,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
 
 			step := i/ai.framegap - 1
-			if step < 0 || step >= len(ai.palfx) {
+			if step < 0 || step >= int32(len(ai.palfx)) {
 				continue
 			}
 
@@ -1331,7 +1335,11 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 				window:       sd.window,
 				xshear:       sd.xshear,
 			})
-			// Afterimages don't cast shadows or reflections
+
+			// Track number of afterimage sprites used by this player
+			sys.afterImageCount[playerNo]++
+
+			// Note: Afterimages don't cast shadows or reflections
 		}
 	}
 

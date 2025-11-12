@@ -216,7 +216,6 @@ type System struct {
 	wintime                 int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
-	activeAfterImages       [MaxPlayerNo]int32
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -224,6 +223,7 @@ type System struct {
 	spritesLayer1           DrawList
 	shadows                 ShadowList
 	reflections             ReflectionList
+	afterImageCount         [MaxPlayerNo]int32
 	debugc1hit              ClsnRect
 	debugc1rev              ClsnRect
 	debugc1not              ClsnRect
@@ -1941,8 +1941,8 @@ func (s *System) clearSpriteData() {
 	s.clsnText = nil
 
 	// Reset afterimage tracker
-	for i := range s.activeAfterImages {
-		s.activeAfterImages[i] = 0
+	for i := range s.afterImageCount {
+		s.afterImageCount[i] = 0
 	}
 }
 

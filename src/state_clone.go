@@ -188,12 +188,9 @@ func (ai AfterImage) Clone(a *arena.Arena, gsp *GameStatePool) (result AfterImag
 	}
 
 	// Deep copy PalFX
-	if ai.palfx != nil {
-		result.palfx = arena.MakeSlice[*PalFX](a, len(ai.palfx), len(ai.palfx))
-		for i := range ai.palfx {
-			if ai.palfx[i] != nil {
-				result.palfx[i] = ai.palfx[i].Clone(a)
-			}
+	for i := range ai.palfx {
+		if ai.palfx[i] != nil {
+			result.palfx[i] = ai.palfx[i].Clone(a)
 		}
 	}
 

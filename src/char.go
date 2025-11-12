@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-const MaxQuotes = 100
+const (
+	MaxAimgLength = 60
+	MaxQuotes = 100
+)
 
 type SystemCharFlag uint32
 
@@ -1067,22 +1070,22 @@ type AfterImage struct {
 	framegap       int32
 	trans          TransType
 	alpha          [2]int32
-	palfx          []*PalFX
-	imgs           [64]aimgImage
+	palfx          [MaxAimgLength]*PalFX
+	imgs           [MaxAimgLength]aimgImage
 	imgidx         int32
 	restgap        int32
 	reccount       int32
 	timecount      int32
 	priority       int32
 	ignorehitpause bool
+	hasAnim        bool
 }
 
 func newAfterImage() *AfterImage {
-	maxFrames := Max(0, sys.cfg.Config.AfterImageMax)
+	// This isn't what AfterImageMax is supposed to do
+	//maxFrames := Max(0, sys.cfg.Config.AfterImageMax)
 
-	ai := &AfterImage{
-		palfx: make([]*PalFX, maxFrames),
-	}
+	ai := &AfterImage{}
 
 	for i := range ai.palfx {
 		ai.palfx[i] = newPalFX()
@@ -1098,14 +1101,6 @@ func newAfterImage() *AfterImage {
 func (ai *AfterImage) setDefault() {
 	ai.time = 0
 	ai.length = 20
-	if len(ai.palfx) > 0 {
-		ai.palfx[0].eColor = 1
-		ai.palfx[0].eHue = 0
-		ai.palfx[0].eInvertall = false
-		ai.palfx[0].eInvertblend = 0
-		ai.palfx[0].eAdd = [...]int32{30, 30, 30}
-		ai.palfx[0].eMul = [...]int32{120, 120, 220}
-	}
 	ai.postbright = [3]int32{}
 	ai.add = [...]int32{10, 10, 25}
 	ai.mul = [...]float32{0.65, 0.65, 0.75}
@@ -1118,6 +1113,30 @@ func (ai *AfterImage) setDefault() {
 	ai.reccount = 0
 	ai.timecount = 0
 	ai.ignorehitpause = true
+
+	if len(ai.palfx) > 0 && ai.palfx[0] != nil {
+		ai.palfx[0].eColor = 1
+		ai.palfx[0].eHue = 0
+		ai.palfx[0].eInvertall = false
+		ai.palfx[0].eInvertblend = 0
+		ai.palfx[0].eAdd = [...]int32{30, 30, 30}
+		ai.palfx[0].eMul = [...]int32{120, 120, 220}
+	}
+}
+
+func (ai *AfterImage) clear() {
+	ai.time = 0
+	ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
+
+	// Clear animation data
+	// This makes afterimages lighter in save states
+	// We lock this operation behind the bool because clear() is called every frame when the afterimage is inactive
+	if ai.hasAnim {
+		for i := range ai.imgs {
+			ai.imgs[i].anim = nil
+		}
+		ai.hasAnim = false
+	}
 }
 
 func (ai *AfterImage) setPalColor(color int32) {
@@ -1208,8 +1227,10 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		ai.reccount, ai.timegap = 0, 0
 		return
 	}
+
 	if ai.restgap <= 0 {
 		img := &ai.imgs[ai.imgidx]
+
 		if sd.anim != nil {
 			img.anim = &Animation{}
 			*img.anim = *sd.anim
@@ -1229,39 +1250,45 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		} else {
 			img.anim = nil
 		}
+
 		img.pos = sd.pos
 		img.scl = sd.scl
 		img.rot = sd.rot
 		img.projection = sd.projection
 		img.fLength = sd.fLength
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
-		ai.imgidx = (ai.imgidx + 1) & 63
+
+		ai.imgidx = (ai.imgidx + 1) % MaxAimgLength
 		ai.reccount++
 		ai.restgap = ai.timegap
+		ai.hasAnim = true
 	}
+
 	ai.restgap--
 	ai.timecount++
 }
 
-func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int32, screen_space bool) {
+func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
+	// Check if this afterimage is no longer active or invalid
 	if ai.time == 0 || (ai.timecount >= ai.timegap*ai.length+ai.time-1 && ai.time > 0) ||
 		ai.timegap < 1 || ai.timegap > 32767 ||
 		ai.framegap < 1 || ai.framegap > 32767 {
-		ai.time = 0
-		ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
-		// Clear animation and PalFX data
-		// This makes afterimages lighter in save states
-		for i := range ai.imgs {
-			ai.imgs[i].anim = nil
-		}
-		for i := range ai.palfx {
-			ai.palfx[i] = nil
-		}
+		ai.clear()
 		return
 	}
 
-	end := Min(sys.cfg.Config.AfterImageMax,
-		(Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap)
+	// Respect AfterImageMax
+	if sys.activeAfterImages[playerNo] >= sys.cfg.Config.AfterImageMax {
+		return
+	}
+
+	// Track number of afterimage effects used by this player
+	sys.activeAfterImages[playerNo]++
+
+	//end := Min(sys.cfg.Config.AfterImageMax,
+	//	(Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap)
+
+	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap
 
 	// Decide layering
 	sprs := &sys.spritesLayer0
@@ -1272,12 +1299,19 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 	}
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
-		img := &ai.imgs[(ai.imgidx-i)&63]
+		img := &ai.imgs[(ai.imgidx-i+MaxAimgLength) % MaxAimgLength]
+
 		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
 			img.priority = sd.priority - 2
 		}
+
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
+
 			step := i/ai.framegap - 1
+			if step < 0 || step >= len(ai.palfx) {
+				continue
+			}
+
 			ai.palfx[step].remap = sd.pfx.remap
 			sprs.add(&SprData{
 				anim:         img.anim,
@@ -1300,6 +1334,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, rec bool, hitpause bool, layer int3
 			// Afterimages don't cast shadows or reflections
 		}
 	}
+
 	if rec || hitpause && ai.ignorehitpause {
 		ai.recAfterImg(sd, hitpause)
 	}
@@ -1827,8 +1862,10 @@ func (e *Explod) update(playerNo int) {
 		sd.syncId = e.syncId
 		sd.syncLayer = e.syncLayer
 	}
+
 	// Record afterimage
-	e.aimg.recAndCue(sd, sys.tickNextFrame() && act, sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0), e.layerno, e.space == Space_screen)
+	rec := sys.tickNextFrame() && act, sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0)
+	e.aimg.recAndCue(sd, playerNo, rec, e.layerno, e.space == Space_screen)
 
 	sprs.add(sd)
 
@@ -2497,7 +2534,9 @@ func (p *Projectile) cueDraw() {
 			xshear:       p.xshear,
 		}
 
-		p.aimg.recAndCue(sd, sys.tickNextFrame() && notpause, false, p.layerno, false)
+		// Record afterimage
+		p.aimg.recAndCue(sd, p.playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
+
 		sprs.add(sd)
 
 		// Add a shadow if color is not 0
@@ -11636,11 +11675,13 @@ func (c *Char) cueDraw() {
 		charSD.syncLayer = 0 // Character body is always at layer 0
 
 		// Record afterimage
-		c.aimg.recAndCue(charSD, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+		c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+
 		// Hitshake effect
 		if c.ghv.hitshaketime > 0 && c.ss.time&1 != 0 {
 			charSD.pos[0] -= c.facing
 		}
+
 		// Draw char according to layer number
 		sprs := &sys.spritesLayer0
 		if c.layerNo > 0 {

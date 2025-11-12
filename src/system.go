@@ -216,6 +216,7 @@ type System struct {
 	wintime                 int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
+	activeAfterImages       [MaxPlayerNo]int32
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -1915,14 +1916,18 @@ func (s *System) runIntroSkip() {
 	}
 }
 
-func (s *System) action() {
-	// Clear sprite data
+func (s *System) clearSpriteData() {
+	// Main sprites
 	s.spritesLayerN1 = s.spritesLayerN1[:0]
 	s.spritesLayerU = s.spritesLayerU[:0]
 	s.spritesLayer0 = s.spritesLayer0[:0]
 	s.spritesLayer1 = s.spritesLayer1[:0]
+
+	// Shadows and reflections
 	s.shadows = s.shadows[:0]
 	s.reflections = s.reflections[:0]
+
+	// Debug sprites
 	s.debugc1hit = s.debugc1hit[:0]
 	s.debugc1rev = s.debugc1rev[:0]
 	s.debugc1not = s.debugc1not[:0]
@@ -1934,6 +1939,15 @@ func (s *System) action() {
 	s.debugcsize = s.debugcsize[:0]
 	s.debugch = s.debugch[:0]
 	s.clsnText = nil
+
+	// Reset afterimage tracker
+	for i := range s.activeAfterImages {
+		s.activeAfterImages[i] = 0
+	}
+}
+
+func (s *System) action() {
+	s.clearSpriteData()
 
 	var x, y, scl float32 = s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale / s.cam.BaseScale()
 	s.cam.ResetTracking()

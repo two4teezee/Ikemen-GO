@@ -6076,8 +6076,10 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 
 // Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
-	// If any existing helper entry is valid for overwriting, use it
+	// Start at index 1, skipping the root
 	i := int32(1)
+
+	// If any existing helper entry is available for overwriting, use it
 	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
 		if sys.chars[c.playerNo][i].helperIndex < 0 {
 			h = sys.chars[c.playerNo][i]
@@ -6088,9 +6090,14 @@ func (c *Char) newHelper() (h *Char) {
 
 	// Otherwise append to the end
 	if int(i) >= len(sys.chars[c.playerNo]) {
+		// Check helper limit
 		if i > sys.cfg.Config.HelperMax { // Do not count index 0
+			root := sys.chars[c.playerNo][0]
+			sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v helpers. Helper creation skipped", sys.cfg.Config.HelperMax))
 			return
 		}
+
+		// Add helper if allowed
 		h = newChar(c.playerNo, i)
 		sys.chars[c.playerNo] = append(sys.chars[c.playerNo], h)
 	}
@@ -6626,7 +6633,15 @@ func (c *Char) spawnProjectile() *Projectile {
 	}
 
 	// If no inactive projectile was found, append a new one within the max limit
-	if p == nil && len(*playerProjs) < sys.cfg.Config.ProjectileMax {
+	if p == nil {
+		// Check projectile limit
+		if len(*playerProjs) >= sys.cfg.Config.ProjectileMax {
+			root := sys.chars[c.playerNo][0]
+			sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v projectiles. New projectile creation skipped", sys.cfg.Config.ProjectileMax))
+			return nil
+		}
+
+		// Add projectile if allowed
 		newP := newProjectile()
 		*playerProjs = append(*playerProjs, newP)
 		p = newP

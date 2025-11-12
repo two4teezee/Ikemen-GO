@@ -177,7 +177,6 @@ type GameState struct {
 	screenright             float32
 	xmin, xmax              float32
 	winskipped              bool
-	paused, frameStepFlag   bool
 	roundResetFlg           bool
 	reloadFlg               bool
 	reloadStageFlg          bool
@@ -403,8 +402,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.xmin = gs.xmin
 	sys.xmax = gs.xmax
 	sys.winskipped = gs.winskipped
-	sys.paused = gs.paused
-	sys.frameStepFlag = gs.frameStepFlag
 	sys.roundResetFlg = gs.roundResetFlg
 	sys.reloadFlg = gs.reloadFlg
 	sys.reloadStageFlg = gs.reloadStageFlg
@@ -616,8 +613,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.xmin = sys.xmin
 	gs.xmax = sys.xmax
 	gs.winskipped = sys.winskipped
-	gs.paused = sys.paused
-	gs.frameStepFlag = sys.frameStepFlag
 	gs.roundResetFlg = sys.roundResetFlg
 	gs.reloadFlg = sys.reloadFlg
 	gs.reloadStageFlg = sys.reloadStageFlg

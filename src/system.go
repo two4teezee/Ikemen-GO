@@ -257,6 +257,7 @@ type System struct {
 	decisiveRound     [2]bool
 	timerStart        int32
 	timerRounds       []int32
+	curPlayTime       int32
 	scoreStart        [2]float32
 	scoreRounds       [][2]float32
 	statsLog          StatsLog
@@ -1720,7 +1721,7 @@ func (s *System) resetRoundState() {
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.curRoundTime = s.maxRoundTime
-
+	s.curPlayTime = 0
 	// Mugen resets the starting ID between matches but not between rounds
 	// Previously Ikemen reset it between rounds, but that creates the odd scenario where a new player in Turns mode will have the same ID as a previous player
 	//s.nextCharId = s.cfg.Config.HelperMax
@@ -2235,6 +2236,33 @@ func (s *System) getSlowtime() int32 {
 	return 0
 }
 
+func (s *System) timeElapsed() int32 {
+	// Timed rounds
+	if s.maxRoundTime > 0 {
+		return s.maxRoundTime - s.curRoundTime
+	}
+	// Unlimited rounds
+	return s.curPlayTime
+}
+
+func (s *System) timeRemaining() int32 {
+	if s.curRoundTime >= 0 {
+		return s.curRoundTime
+	}
+	return -1
+}
+
+func (s *System) timeTotal() int32 {
+	t := s.timerStart
+	for _, v := range s.timerRounds {
+		t += v
+	}
+	if s.lifebar.ro.timerActive {
+		t += s.timeElapsed()
+	}
+	return t
+}
+
 // Step sys.intro timer and execute related tasks
 func (s *System) stepRoundState() {
 	// Freeze round state if round animations cannot advance
@@ -2288,8 +2316,11 @@ func (s *System) stepRoundState() {
 
 	// Ongoing round
 	// Handle remaining time limit
-	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
-		s.curRoundTime--
+	if s.intro == 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
+		if s.maxRoundTime > 0 && s.curRoundTime > 0 {
+			s.curRoundTime--
+		}
+		s.curPlayTime++
 	}
 
 	// Post round

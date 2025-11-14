@@ -3164,7 +3164,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 	if ro.timerActive {
 		if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
 			sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]
-			sys.timerRounds = append(sys.timerRounds, sys.maxRoundTime-sys.curRoundTime)
+			sys.timerRounds = append(sys.timerRounds, sys.timeElapsed())
 		} else {
 			sys.timerCount[sys.round-1] = 0
 		}
@@ -3743,7 +3743,7 @@ func (tr *LifeBarTimer) draw(layerno int16, f map[int]*Fnt) {
 	if tr.active && sys.lifebar.ti.framespercount > 0 &&
 		tr.text.font[0] >= 0 && getFont(f, tr.text.font[0]) != nil && sys.curRoundTime >= 0 {
 		text := tr.text.text
-		totalSec := float64(timeTotal()) / 60
+		totalSec := float64(sys.timeTotal()) / 60
 		h := math.Floor(totalSec / 3600)
 		m := math.Floor((totalSec/3600 - h) * 60)
 		s := math.Floor(((totalSec/3600-h)*60 - m) * 60)
@@ -3765,28 +3765,6 @@ func (tr *LifeBarTimer) draw(layerno int16, f map[int]*Fnt) {
 			text, getFont(f, tr.text.font[0]), tr.text.font[1], tr.text.font[2], tr.text.palfx, tr.text.frgba)
 		tr.top.Draw(float32(tr.pos[0])+sys.lifebar.offsetX, float32(tr.pos[1]), layerno, sys.lifebar.scale)
 	}
-}
-
-func timeElapsed() int32 {
-	return sys.maxRoundTime - sys.curRoundTime
-}
-
-func timeRemaining() int32 {
-	if sys.curRoundTime >= 0 {
-		return sys.curRoundTime
-	}
-	return -1
-}
-
-func timeTotal() int32 {
-	t := sys.timerStart
-	for _, v := range sys.timerRounds {
-		t += v
-	}
-	if sys.lifebar.ro.timerActive {
-		t += timeElapsed()
-	}
-	return t
 }
 
 type LifeBarScore struct {

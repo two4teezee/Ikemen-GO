@@ -105,7 +105,7 @@ func (wi *MotifWin) initTimeAttack(m *Motif) bool {
 
 	m.TimeAttackResultsBgDef.BGDef.Reset()
 
-	m.TimeAttackResultsScreen.WinsText.TextSpriteData.text = FormatTimeText(m.TimeAttackResultsScreen.WinsText.Text, float64(timeTotal())/60)
+	m.TimeAttackResultsScreen.WinsText.TextSpriteData.text = FormatTimeText(m.TimeAttackResultsScreen.WinsText.Text, float64(sys.timeTotal())/60)
 	wi.assignStates(m.TimeAttackResultsScreen.P1.State, m.TimeAttackResultsScreen.P1.Teammate.State, m.TimeAttackResultsScreen.P2.State, m.TimeAttackResultsScreen.P2.Teammate.State)
 	wi.stateTime = m.TimeAttackResultsScreen.State.Time
 	wi.soundsEnabled = m.TimeAttackResultsScreen.Sounds.Enabled

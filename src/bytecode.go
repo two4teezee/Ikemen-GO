@@ -3183,11 +3183,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_teamsize:
 		sys.bcStack.PushI(c.teamSize())
 	case OC_ex_timeelapsed:
-		sys.bcStack.PushI(timeElapsed())
+		sys.bcStack.PushI(sys.timeElapsed())
 	case OC_ex_timeremaining:
-		sys.bcStack.PushI(timeRemaining())
+		sys.bcStack.PushI(sys.timeRemaining())
 	case OC_ex_timetotal:
-		sys.bcStack.PushI(timeTotal())
+		sys.bcStack.PushI(sys.timeTotal())
 	case OC_ex_pos_z:
 		sys.bcStack.PushF(c.pos[2] * (c.localscl / oc.localscl))
 	case OC_ex_vel_z:

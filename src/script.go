@@ -7405,15 +7405,15 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "timeelapsed", func(*lua.LState) int {
-		l.Push(lua.LNumber(timeElapsed()))
+		l.Push(lua.LNumber(sys.timeElapsed()))
 		return 1
 	})
 	luaRegister(l, "timeremaining", func(*lua.LState) int {
-		l.Push(lua.LNumber(timeRemaining()))
+		l.Push(lua.LNumber(sys.timeRemaining()))
 		return 1
 	})
 	luaRegister(l, "timetotal", func(*lua.LState) int {
-		l.Push(lua.LNumber(timeTotal()))
+		l.Push(lua.LNumber(sys.timeTotal()))
 		return 1
 	})
 	// lua/debug only triggers

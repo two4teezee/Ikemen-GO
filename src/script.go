@@ -2374,6 +2374,28 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(sys.loader.state == LS_Loading))
 		return 1
 	})
+	luaRegister(l, "loadIni", func(l *lua.LState) int {
+		def := ""
+		if !nilArg(l, 1) {
+			def = strArg(l, 1)
+		}
+		if def == "" {
+			l.RaiseError("loadIniTable: expected ini filename")
+		}
+		raw, err := LoadText(def)
+		if err != nil {
+			l.RaiseError("\nCan't load ini %v: %v\n", def, err.Error())
+		}
+		opts := ini.LoadOptions{
+			SkipUnrecognizableLines: true,
+		}
+		iniFile, err := ini.LoadSources(opts, []byte(NormalizeNewlines(raw)))
+		if err != nil {
+			l.RaiseError("\nCan't parse ini %v: %v\n", def, err.Error())
+		}
+		l.Push(iniToLuaTable(l, iniFile))
+		return 1
+	})
 	luaRegister(l, "loadLifebar", func(l *lua.LState) int {
 		def := ""
 		if !nilArg(l, 1) {

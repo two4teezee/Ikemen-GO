@@ -967,6 +967,12 @@ const (
 	OC_ex2_defencemul
 	OC_ex2_guardcount
 	OC_ex2_airjumpcount
+	OC_ex2_analog_leftx
+	OC_ex2_analog_lefty
+	OC_ex2_analog_rightx
+	OC_ex2_analog_righty
+	OC_ex2_analog_lefttrigger
+	OC_ex2_analog_righttrigger
 )
 
 type StringPool struct {
@@ -3835,6 +3841,18 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.guardCount)
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
+	case OC_ex2_analog_leftx:
+		sys.bcStack.PushF(c.analogAxes[0])
+	case OC_ex2_analog_lefty:
+		sys.bcStack.PushF(c.analogAxes[1])
+	case OC_ex2_analog_rightx:
+		sys.bcStack.PushF(c.analogAxes[2])
+	case OC_ex2_analog_righty:
+		sys.bcStack.PushF(c.analogAxes[3])
+	case OC_ex2_analog_lefttrigger:
+		sys.bcStack.PushF(c.analogAxes[4])
+	case OC_ex2_analog_righttrigger:
+		sys.bcStack.PushF(c.analogAxes[5])
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -10722,22 +10740,45 @@ const (
 	forceFeedback_freq
 	forceFeedback_ampl
 	forceFeedback_self
+	forceFeedback_lo
+	forceFeedback_hi
 	forceFeedback_redirectid
 )
 
 func (sc forceFeedback) Run(c *Char, _ []int32) bool {
-	/*crun := c
-	waveform := int32(0)
-	time := int32(60)
+	crun := getRedirectedChar(c, StateControllerBase(sc), forceFeedback_redirectid, "ForceFeedback")
+	if crun == nil {
+		return false
+	}
+
+	waveform := waveform_sine
+	// var lo, hi uint16 = 0, 0
+	time := uint32(60)
 	freq := [4]float32{128, 0, 0, 0}
 	ampl := [4]float32{128, 0, 0, 0}
+	newAPI := false
+	lo := uint16(0)
+	hi := uint16(0)
 	self := true
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case forceFeedback_waveform:
-			waveform = exp[0].evalI(c)
+			// We're just gonna use this to hack the parameters in
+			wf := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			switch wf {
+			case "off":
+				waveform = waveform_off
+			default:
+				fallthrough
+			case "sine":
+				waveform = waveform_sine
+			case "square":
+				waveform = waveform_square
+			case "sinesquare":
+				waveform = waveform_sinesquare
+			}
 		case forceFeedback_time:
-			time = exp[0].evalI(c)
+			time = uint32(exp[0].evalI(c))
 		case forceFeedback_freq:
 			freq[0] = exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -10760,18 +10801,41 @@ func (sc forceFeedback) Run(c *Char, _ []int32) bool {
 			if len(exp) > 3 {
 				ampl[3] = exp[3].evalF(c)
 			}
+		// We really don't need this because of redirectID and we have more than 2 players
 		case forceFeedback_self:
 			self = exp[0].evalB(c)
-		case forceFeedback_redirectid:
-			if rid := sys.playerID(exp[0].evalI(c)); rid != nil {
-				crun = rid
-			} else {
-				return false
-			}
+		// New API functions begin below
+		case forceFeedback_lo:
+			newAPI = true
+			lo = uint16(exp[0].evalI(c))
+		case forceFeedback_hi:
+			newAPI = true
+			hi = uint16(exp[0].evalI(c))
 		}
 		return true
-	})*/
-	// TODO: not implemented
+	})
+	if crun.controller >= 0 && crun.controller < len(sys.ffbparams) {
+		joy := crun.controller
+		if newAPI { // New API: just rumble straight away on the ultimately redirected character
+			input.RumbleController(sys.inputRemap[sys.joystickConfig[joy].Joy], lo, hi, time)
+		} else { // Old API: fill out FFB params
+			// Do a final redirect to P2 if self defined
+			if !self {
+				if crun = crun.p2(); crun == nil {
+					return false
+				}
+				joy = crun.controller
+			}
+			sys.ffbparams[sys.inputRemap[sys.joystickConfig[joy].Joy]] = ForceFeedbackParams{
+				timer:    time,
+				start:    ampl[0],
+				d1:       ampl[1],
+				d2:       ampl[2],
+				d3:       ampl[3],
+				waveform: waveform,
+			}
+		}
+	}
 	return false
 }
 
@@ -10801,6 +10865,51 @@ func (sc assertCommand) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	crun.assertCommand(n, bt)
+	return false
+}
+
+type assertAnalogVector StateControllerBase
+
+const (
+	assertAnalogVector_leftx byte = iota
+	assertAnalogVector_lefty
+	assertAnalogVector_rightx
+	assertAnalogVector_righty
+	assertAnalogVector_lefttrigger
+	assertAnalogVector_righttrigger
+	assertAnalogVector_redirectid
+)
+
+func (sc assertAnalogVector) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), assertAnalogVector_redirectid, "AssertAnalogVector")
+	if crun == nil {
+		return false
+	}
+
+	var axes [6]float32 = [6]float32{0, 0, 0, 0, 0, 0}
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case assertAnalogVector_leftx:
+			axes[0] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+		case assertAnalogVector_lefty:
+			axes[1] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+		case assertAnalogVector_rightx:
+			axes[2] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+		case assertAnalogVector_righty:
+			axes[3] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+		case assertAnalogVector_lefttrigger:
+			axes[4] = ClampF(exp[0].evalF(c), 0, 1.0)
+		case assertAnalogVector_righttrigger:
+			axes[5] = ClampF(exp[0].evalF(c), 0, 1.0)
+		}
+		return true
+	})
+
+	for i := 0; i < len(axes); i++ {
+		crun.analogAxes[i] = axes[i]
+	}
+
 	return false
 }
 

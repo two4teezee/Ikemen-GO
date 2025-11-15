@@ -1872,9 +1872,11 @@ func (e *Explod) update(playerNo int) {
 	}
 
 	// Record afterimage
-	rec := sys.tickNextFrame() && act, sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0)
-	e.aimg.recAndCue(sd, playerNo, rec, e.layerno, e.space == Space_screen)
+	e.aimg.recAndCue(sd, playerNo, sys.tickNextFrame() && act,
+		sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
+		e.layerno, e.space == Space_screen)
 
+	// Add to drawlist
 	sprs.add(sd)
 
 	// Add shadow if color is not 0

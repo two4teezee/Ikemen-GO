@@ -1510,7 +1510,7 @@ func (s *System) initPlayerID() {
 // Prune player ID's above the last active root ID
 // Mugen doesn't do this, but it avoids having to work with very high ID's in later rounds
 func (s *System) pruneCharId() {
-	s.lastCharId = Max(0, sys.cfg.Config.HelperMax - 1)
+	s.lastCharId = Max(0, sys.cfg.Config.HelperMax-1)
 
 	for _, p := range s.chars {
 		if len(p) > 0 && p[0] != nil && p[0].id > s.lastCharId {

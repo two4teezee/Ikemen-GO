@@ -11,7 +11,7 @@ import (
 
 const (
 	MaxAimgLength = 60
-	MaxQuotes = 100
+	MaxQuotes     = 100
 )
 
 type SystemCharFlag uint32
@@ -1287,7 +1287,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 		return
 	}
 
-	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap
+	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	// Decide layering
 	sprs := &sys.spritesLayer0
@@ -1303,7 +1303,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 			break
 		}
 
-		img := &ai.imgs[(ai.imgidx-i+MaxAimgLength) % MaxAimgLength]
+		img := &ai.imgs[(ai.imgidx-i+MaxAimgLength)%MaxAimgLength]
 
 		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
 			img.priority = sd.priority - 2
@@ -11832,7 +11832,7 @@ func (cl *CharList) clear() {
 	// Reset player ID tracker to baseline
 	// ID's start from HelperMax in Mugen. We don't strictly need to do the same but it might improve backward compatibility
 	// TODO: Mugen codes that rely on this fact already don't work correctly in Mugen, so it may be pointless to do the same
-	sys.lastCharId = Max(0, sys.cfg.Config.HelperMax - 1)
+	sys.lastCharId = Max(0, sys.cfg.Config.HelperMax-1)
 
 	// Clear all player ID's to avoid false conflicts with stale players
 	// TODO: Maybe stale players should be cleared better

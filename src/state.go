@@ -166,7 +166,7 @@ type GameState struct {
 	numSimul, numTurns      [2]int32    // UIT
 	esc                     bool
 	envcol_under            bool
-	nextCharId              int32
+	lastCharId              int32
 	tickCount               int
 	oldTickCount            int
 	tickCountF              float32
@@ -177,7 +177,6 @@ type GameState struct {
 	screenright             float32
 	xmin, xmax              float32
 	winskipped              bool
-	paused, frameStepFlag   bool
 	roundResetFlg           bool
 	reloadFlg               bool
 	reloadStageFlg          bool
@@ -339,7 +338,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winskipped = gs.winskipped
 
 	sys.intro = gs.intro
-	sys.nextCharId = gs.nextCharId
+	sys.lastCharId = gs.lastCharId
 
 	sys.scrrect = gs.scrrect
 	sys.gameWidth = gs.gameWidth
@@ -391,7 +390,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.numTurns = gs.numTurns
 	sys.esc = gs.esc
 	sys.envcol_under = gs.envcol_under
-	sys.nextCharId = gs.nextCharId
+	sys.lastCharId = gs.lastCharId
 	sys.tickCount = gs.tickCount
 	sys.oldTickCount = gs.oldTickCount
 	sys.tickCountF = gs.tickCountF
@@ -403,8 +402,6 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.xmin = gs.xmin
 	sys.xmax = gs.xmax
 	sys.winskipped = gs.winskipped
-	sys.paused = gs.paused
-	sys.frameStepFlag = gs.frameStepFlag
 	sys.roundResetFlg = gs.roundResetFlg
 	sys.reloadFlg = gs.reloadFlg
 	sys.reloadStageFlg = gs.reloadStageFlg
@@ -553,7 +550,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
-	gs.nextCharId = sys.nextCharId
+	gs.lastCharId = sys.lastCharId
 
 	gs.scrrect = sys.scrrect
 	gs.gameWidth = sys.gameWidth
@@ -604,7 +601,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.numTurns = sys.numTurns
 	gs.esc = sys.esc
 	gs.envcol_under = sys.envcol_under
-	gs.nextCharId = sys.nextCharId
+	gs.lastCharId = sys.lastCharId
 	gs.tickCount = sys.tickCount
 	gs.oldTickCount = sys.oldTickCount
 	gs.tickCountF = sys.tickCountF
@@ -616,8 +613,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.xmin = sys.xmin
 	gs.xmax = sys.xmax
 	gs.winskipped = sys.winskipped
-	gs.paused = sys.paused
-	gs.frameStepFlag = sys.frameStepFlag
 	gs.roundResetFlg = sys.roundResetFlg
 	gs.reloadFlg = sys.reloadFlg
 	gs.reloadStageFlg = sys.reloadStageFlg

@@ -3279,7 +3279,11 @@ type CommandList struct {
 	DefaultBufferPauseEnd bool
 	DefaultBufferShared   bool
 	ControllerNo          int32
+	AnalogDeadTime        int
+	AnalogLastAxis        string
 }
+
+const analogDeadTimeFrames = 20
 
 func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
 	return &CommandList{
@@ -3293,7 +3297,43 @@ func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
 		DefaultBufferPauseEnd: true,
 		DefaultBufferShared:   true,
 		ControllerNo:          cn,
+		AnalogDeadTime:        analogDeadTimeFrames,
+		AnalogLastAxis:        "",
 	}
+}
+
+// Compiles a command string and adds it to this CommandList using the provided timing/buffering settings.
+func (cl *CommandList) AddCommand(
+	name, cmdstr string,
+	time, buftime int32,
+	bufferHitpause, bufferPauseend bool,
+	steptime int32,
+) error {
+	if cl == nil {
+		return fmt.Errorf("AddCommand called on nil CommandList")
+	}
+
+	cmdstr = strings.TrimSpace(cmdstr)
+	if cmdstr == "" {
+		// Nothing to add, but not an error.
+		return nil
+	}
+
+	cm := newCommand()
+	cm.name = name
+
+	if err := cm.ReadCommandSymbols(cmdstr, NewCommandKeyRemap()); err != nil {
+		return err
+	}
+
+	cm.maxtime = time
+	cm.maxbuftime = buftime
+	cm.buffer_hitpause = bufferHitpause
+	cm.buffer_pauseend = bufferPauseend
+	cm.maxsteptime = steptime
+
+	cl.Add(*cm)
+	return nil
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
@@ -3608,6 +3648,80 @@ func (cl *CommandList) CopyList(src CommandList) {
 			cl.Commands[i][j].stepTimers = make([]int32, len(c.stepTimers))
 		}
 	}
+}
+
+// Checks raw controller tokens (A/B/X/Y, LS_*, RS_*, LT/RT) using joystick state, with analog dead-time for axis-based tokens.
+// controllerIdx is the index in sys.commandLists (0-based).
+func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int) bool {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return false
+	}
+	// Only handle tokens that are known raw controller tokens.
+	if _, ok := StringToButtonLUT[token]; !ok {
+		return false
+	}
+	isAnalog := func(t string) bool {
+		switch t {
+		case "LS_X-", "LS_X+", "LS_Y-", "LS_Y+",
+			"RS_X-", "RS_X+", "RS_Y-", "RS_Y+",
+			"LT", "RT":
+			return true
+		}
+		return false
+	}
+	// Resolve logical controller index -> joystick index.
+	joyIdx := -1
+	if controllerIdx >= 0 {
+		if controllerIdx < len(sys.inputRemap) {
+			mapped := sys.inputRemap[controllerIdx]
+			if mapped >= 0 {
+				joyIdx = mapped
+			} else {
+				joyIdx = controllerIdx
+			}
+		} else {
+			joyIdx = controllerIdx
+		}
+	}
+	if isAnalog(token) {
+		key, _ := getJoystickKey(joyIdx)
+		stickIsNeutral := key == ""
+		if stickIsNeutral {
+			// When returning to neutral, forget last axis for this list.
+			cl.AnalogLastAxis = ""
+			return false
+		}
+		if cl.AnalogDeadTime > 0 {
+			cl.AnalogDeadTime--
+			return false
+		}
+		if key == token && key != cl.AnalogLastAxis {
+			cl.AnalogDeadTime = analogDeadTimeFrames
+			cl.AnalogLastAxis = key
+			return true
+		}
+		return false
+	}
+	// Non-analog controller tokens (A/B/X/Y/etc.): simple digital button check.
+	idx, ok := StringToButtonLUT[token]
+	if !ok {
+		return false
+	}
+	if joyIdx < 0 || joyIdx >= input.GetMaxJoystickCount() {
+		return false
+	}
+	buttons := input.GetJoystickButtons(joyIdx)
+	if len(buttons) == 0 {
+		return false
+	}
+	// Map button id (idx) to the correct slot in buttons slice via buttonOrder.
+	for i, b := range buttonOrder {
+		if int(b) == idx {
+			return i < len(buttons) && buttons[i] != 0
+		}
+	}
+	return false
 }
 
 /*

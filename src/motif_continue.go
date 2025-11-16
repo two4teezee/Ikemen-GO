@@ -158,7 +158,7 @@ func (co *MotifContinue) step(m *Motif) {
 			if m.button(m.ContinueScreen.Move.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Move.Snd, 100, 0, 0, 0, 0)
 				co.yesSide = !co.yesSide
-			} else if m.button(m.ContinueScreen.Done.Key, co.pn-1) {
+			} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) || m.button(m.ContinueScreen.Done.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 				co.processSelection(m, co.yesSide)
 			}
@@ -167,7 +167,7 @@ func (co *MotifContinue) step(m *Motif) {
 				if (sys.credits == -1 || sys.credits > 0) && m.button(m.ContinueScreen.Done.Key, co.pn-1) {
 					m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 					co.processSelection(m, true)
-				} else if m.button(m.ContinueScreen.Move.Key, co.pn-1) &&
+				} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) &&
 					co.counter >= m.ContinueScreen.Counter.StartTime+m.ContinueScreen.Counter.SkipStart {
 					co.skipCounter(m)
 				}

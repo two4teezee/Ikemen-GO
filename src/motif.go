@@ -31,11 +31,12 @@ type PalFxProperties struct {
 }
 
 type InfoProperties struct {
-	Name         string   `ini:"name"`
-	Author       string   `ini:"author"`
-	VersionDate  string   `ini:"versiondate"`
-	MugenVersion string   `ini:"mugenversion"`
-	Localcoord   [2]int32 `ini:"localcoord" default:"320,240"`
+	Name          string   `ini:"name"`
+	Author        string   `ini:"author"`
+	VersionDate   string   `ini:"versiondate"`
+	MugenVersion  string   `ini:"mugenversion"`
+	IkemenVersion string   `ini:"ikemenversion"`
+	Localcoord    [2]int32 `ini:"localcoord" default:"320,240"`
 }
 
 type FontProperties struct {
@@ -205,6 +206,15 @@ type MenuProperties struct {
 	Previous struct {
 		Key []string `ini:"key"`
 	} `ini:"previous"`
+	Add struct { // only used by [Option Info], [Menu Info], [Training Info]
+		Key []string `ini:"key"`
+	} `ini:"add"`
+	Subtract struct { // only used by [Option Info], [Menu Info], [Training Info]
+		Key []string `ini:"key"`
+	} `ini:"subtract"`
+	Cancel struct {
+		Key []string `ini:"key"`
+	} `ini:"cancel"`
 	Done struct {
 		Key []string `ini:"key"`
 	} `ini:"done"`
@@ -465,6 +475,14 @@ type PlayerSelectProperties struct {
 		Previous struct {
 			Key []string `ini:"key"`
 		} `ini:"previous"`
+		Done struct {
+			Key []string `ini:"key"`
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
+		} `ini:"done"`
+		Cancel struct {
+			Key []string `ini:"key"`
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
+		} `ini:"cancel"`
 		Random struct {
 			Key  []string `ini:"key"`
 			Text string   `ini:"text"`
@@ -472,14 +490,6 @@ type PlayerSelectProperties struct {
 		Value struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"value"`
-		Cancel struct {
-			Key []string `ini:"key"`
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
-		} `ini:"cancel"`
-		Done struct {
-			Key []string `ini:"key"`
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
-		} `ini:"done"`
 		Preview struct {
 			Snd  [2]int32 `ini:"snd" default:"-1,0"`
 			Anim int32    `ini:"anim" default:"-1" preload:"char"`
@@ -511,10 +521,22 @@ type SelectInfoProperties struct {
 	SearchEmptyBoxesUp   bool           `ini:"searchemptyboxesup"`
 	SearchEmptyBoxesDown bool           `ini:"searchemptyboxesdown"`
 	Cell                 struct {
-		Size    [2]int32            `ini:"size"`
-		Spacing [2]float32          `ini:"spacing"`
-		Bg      AnimationProperties `ini:"bg"`
-		Random  struct {
+		Size    [2]int32   `ini:"size"`
+		Spacing [2]float32 `ini:"spacing"`
+		Up      struct {
+			Key []string `ini:"key"`
+		} `ini:"up"`
+		Down struct {
+			Key []string `ini:"key"`
+		} `ini:"down"`
+		Left struct {
+			Key []string `ini:"key"`
+		} `ini:"left"`
+		Right struct {
+			Key []string `ini:"key"`
+		} `ini:"right"`
+		Bg     AnimationProperties `ini:"bg"`
+		Random struct {
 			AnimationProperties
 			SwitchTime int32 `ini:"switchtime"`
 		} `ini:"random"`
@@ -568,7 +590,11 @@ type SelectInfoProperties struct {
 			Random AnimationProperties `ini:"random"`
 		} `ini:"portrait"`
 	} `ini:"stage"`
+	Done struct {
+		Key []string `ini:"key"`
+	} `ini:"done"`
 	Cancel struct {
+		Key []string `ini:"key"`
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"cancel"`
 	Portrait AnimationProperties `ini:"portrait"`
@@ -592,13 +618,8 @@ type ValueIconVsProperties struct {
 type PlayerVsProperties struct {
 	FaceProperties
 	Face2 FaceProperties `ini:"face2"`
-	Skip  struct {
-		Key []string `ini:"key"`
-	} `ini:"skip"`
-	Select struct {
-		Key []string `ini:"key"`
-	} `ini:"select"`
-	Name struct {
+	Key   []string       `ini:"key"`
+	Name  struct {
 		TextProperties
 		Pos     [2]float32 `ini:"pos"`
 		Num     int32      `ini:"num"`     // only used by P1-P2
@@ -649,8 +670,15 @@ type VsScreenProperties struct {
 	P8    PlayerVsProperties `ini:"p8"`
 	Timer TimerProperties    `ini:"timer"`
 	Done  struct {
-		Time int32 `ini:"time"`
+		Key  []string `ini:"key"`
+		Time int32    `ini:"time"`
 	} `ini:"done"`
+	Skip struct {
+		Key []string `ini:"key"`
+	} `ini:"skip"`
+	Cancel struct {
+		Key []string `ini:"key"`
+	} `ini:"cancel"`
 	Stage struct {
 		Pos [2]float32 `ini:"pos"`
 		TextProperties
@@ -728,6 +756,9 @@ type ContinueScreenProperties struct {
 		Key []string `ini:"key"`
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"done"`
+	Skip struct {
+		Key []string `ini:"key"`
+	} `ini:"skip"`
 	Overlay OverlayProperties `ini:"overlay"`
 	P1      struct {
 		State []int32 `ini:"state"`
@@ -1045,7 +1076,8 @@ type AttractModeProperties struct {
 		} `ini:"insert"`
 		Press struct {
 			TextProperties
-			Blinktime int32 `ini:"blinktime"`
+			Blinktime int32    `ini:"blinktime"`
+			Key       []string `ini:"key"`
 		} `ini:"press"`
 		Timer TimerProperties `ini:"timer"`
 	} `ini:"start"`
@@ -1066,6 +1098,7 @@ type ChallengerInfoProperties struct {
 		Snd  [2]int32 `ini:"" default:"-1,0"`
 		Time int32    `ini:"time"`
 	} `ini:"snd"`
+	Key  []string `ini:"key"`
 	Text struct {
 		TextProperties
 		Displaytime int32 `ini:"displaytime"`
@@ -1255,7 +1288,6 @@ type Motif struct {
 	fadeIn                  *Fade
 	fadeOut                 *Fade
 	fadePolicy              FadeStartPolicy
-	btnPressedFlag          bool
 	textsprite              []*TextSprite
 }
 
@@ -2155,17 +2187,63 @@ func (m *Motif) populateDataPointers() {
 }
 
 func (m *Motif) button(btns []string, controllerNo int) bool {
-	// Workaround for the lack of button release detection when reading KeyConfig inputs.
-	if m.btnPressedFlag {
-		return false
-	}
 	for _, btn := range btns {
-		n := sys.button(btn)
-		if n >= 0 && (n == controllerNo || controllerNo == -1) {
-			return true
+		// First: raw controller tokens (A/B/X/Y, LS_*, RS_*, LT/RT) go through
+		// direct joystick checks (with analog dead-time for axis tokens).
+		if sys.isControllerButtonToken(btn) {
+			if controllerNo >= 0 {
+				if controllerNo < len(sys.commandLists) {
+					if cl := sys.commandLists[controllerNo]; cl != nil {
+						if cl.IsControllerButtonPressed(btn, controllerNo) {
+							return true
+						}
+					}
+				}
+			} else {
+				// controllerNo < 0: any controller.
+				for i := 0; i < len(sys.commandLists); i++ {
+					if cl := sys.commandLists[i]; cl != nil {
+						if cl.IsControllerButtonPressed(btn, i) {
+							return true
+						}
+					}
+				}
+			}
+			continue
+		}
+
+		// Otherwise: use command-system state
+		// check command lists
+		if controllerNo >= 0 {
+			// specific controller
+			if controllerNo < len(sys.commandLists) {
+				if cl := sys.commandLists[controllerNo]; cl != nil {
+					if cl.GetState(btn) {
+						return true
+					}
+				}
+			}
+		} else {
+			// any controller
+			for i := 0; i < len(sys.commandLists); i++ {
+				if cl := sys.commandLists[i]; cl != nil && cl.GetState(btn) {
+					return true
+				}
+			}
 		}
 	}
 	return false
+}
+
+func (m *Motif) buttonController(btns []string) int {
+	for _, btn := range btns {
+		for i, cl := range sys.commandLists {
+			if cl != nil && cl.GetState(btn) {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 func (mo *Motif) processStateChange(c *Char, states []int32) bool {
@@ -2273,6 +2351,7 @@ func (m *Motif) step() {
 	if sys.paused && !sys.frameStepFlag {
 		return
 	}
+	sys.StepCommandLists()
 	if m.me.active {
 		m.me.step(m)
 	} else if sys.escExit() {
@@ -2304,7 +2383,6 @@ func (m *Motif) step() {
 	if sys.storyboard.active {
 		sys.storyboard.step()
 	}
-	m.btnPressedFlag = sys.keyInput != KeyUnknown
 }
 
 func (m *Motif) UpdateText() {

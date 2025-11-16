@@ -893,7 +893,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 	local tmpX = selX
 	local tmpY = selY
 	local found = false
-	if main.f_input({cmd}, {'$U', 'LS_Y-'}) or dir == 'U' then
+	if main.f_input({cmd}, motif.select_info.cell.up.key) or dir == 'U' then
 		for i = 1, motif.select_info.rows do
 			selY = selY - 1
 			if selY < 0 then
@@ -914,7 +914,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				break
 			end
 		end
-	elseif main.f_input({cmd}, {'$D', 'LS_Y+'}) or dir == 'D' then
+	elseif main.f_input({cmd}, motif.select_info.cell.down.key) or dir == 'D' then
 		for i = 1, motif.select_info.rows do
 			selY = selY + 1
 			if selY >= motif.select_info.rows then
@@ -935,7 +935,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				break
 			end
 		end
-	elseif main.f_input({cmd}, {'$B', 'LS_X-'}) or dir == 'B' then
+	elseif main.f_input({cmd}, motif.select_info.cell.left.key) or dir == 'B' then
 		if dir ~= nil then
 			found, selX = start.f_searchEmptyBoxes(selX, selY, side, -1)
 		else
@@ -953,7 +953,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				end
 			end
 		end
-	elseif main.f_input({cmd}, {'$F', 'LS_X+'}) or dir == 'F' then
+	elseif main.f_input({cmd}, motif.select_info.cell.right.key) or dir == 'F' then
 		if dir ~= nil then
 			found, selX = start.f_searchEmptyBoxes(selX, selY, side, 1)
 		else
@@ -2198,7 +2198,7 @@ function start.f_selectScreen()
 						start.needUpdateDrawList = DrawUpdateflag
 					end
 					--not in palmenu
-					if v.selectState == 0 and not main.f_input(main.t_players, {'m'}) then
+					if v.selectState == 0 and not main.f_input(main.t_players, motif.select_info.cancel.key) then
 						start.p[side].inPalMenu = false
 					end
 					--draw active cursor
@@ -2229,7 +2229,7 @@ function start.f_selectScreen()
 			end
 			--delayed screen transition for the duration of face_done_anim or selection sound
 			if start.p[side].screenDelay > 0 then
-				if main.f_input(main.t_players, {'pal', 's'}) and not start.p[side].inPalMenu then
+				if main.f_input(main.t_players, motif.select_info.done.key) and not start.p[side].inPalMenu then
 					start.p[side].screenDelay = 0
 				else
 					start.p[side].screenDelay = start.p[side].screenDelay - 1
@@ -2237,7 +2237,7 @@ function start.f_selectScreen()
 			end
 			--exit select screen
 			for _, v in ipairs(start.p[side].t_selCmd) do
-				if not start.escFlag and (esc() or (main.f_input({v.cmd}, {'m'}) and not start.p[side].inPalMenu)) then
+				if not start.escFlag and (esc() or (main.f_input({v.cmd}, motif.select_info.cancel.key) and not start.p[side].inPalMenu)) then
 					fadeOutInit(motif.select_info.fadeout.FadeData)
 					fadeOutStarted = true
 					start.escFlag = true
@@ -2296,7 +2296,7 @@ function start.f_selectScreen()
 					)
 				end
 				if not stageEnd then
-					if main.f_input(main.t_players, {'pal', 's'}) or timerSelect == -1 then
+					if main.f_input(main.t_players, motif.select_info.done.key) or timerSelect == -1 then
 						sndPlay(motif.Snd, motif.select_info.stage.done.snd[1], motif.select_info.stage.done.snd[2])
 						textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.done.font)
 						stageEnd = true
@@ -2459,7 +2459,7 @@ function start.f_teamMenu(side, t)
 			end
 		end
 		--Exit during team menu
-		if not start.escFlag and (esc() or main.f_input(main.t_players, {'m'})) then
+		if not start.escFlag and (esc() or main.f_input(main.t_players, motif.select_info.cancel.key)) then
 			esc(false)
 			fadeOutInit(motif.select_info.fadeout.FadeData)
 			fadeOutStarted = true
@@ -3149,21 +3149,21 @@ function start.f_stageMenu()
 	local stageListMinIdx = r.min
 	local stageListMaxIdx = #main.t_selectableStages
 
-	if main.f_input(main.t_players, {'$B', 'LS_X-'}) then
+	if main.f_input(main.t_players, motif.select_info.cell.left.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		stageListNo = stageListNo - 1
 		if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
-	elseif main.f_input(main.t_players, {'$F', 'LS_X+'}) then
+	elseif main.f_input(main.t_players, motif.select_info.cell.right.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		stageListNo = stageListNo + 1
 		if stageListNo > stageListMaxIdx then stageListNo = stageListMinIdx end
-	elseif main.f_input(main.t_players, {'$U', 'LS_Y-'}) then
+	elseif main.f_input(main.t_players, motif.select_info.cell.up.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo - 1
 			if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
 		end
-	elseif main.f_input(main.t_players, {'$D', 'LS_Y+'}) then
+	elseif main.f_input(main.t_players, motif.select_info.cell.down.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo + 1
@@ -3234,7 +3234,7 @@ function start.f_selectVersus(active, t_orderSelect)
 				-- until loading flag is set
 				if not v.loading then
 					-- if not valid for order selection or CPU or doesn't have key for this member assigned, or order timer run out
-					if not t_orderSelect[side] or main.cpuSide[side] or (motif.vs_screen['p' .. pn].select.key == '' and #t_order[side] == k - 1) or timerCount == -1 then
+					if not t_orderSelect[side] or main.cpuSide[side] or (#motif.vs_screen['p' .. pn].key == 0 and #t_order[side] == k - 1) or timerCount == -1 then
 						table.insert(t_order[side], k)
 						-- if it's the last unordered team member
 						if #start.p[side].t_selected == #t_order[side] then
@@ -3256,7 +3256,7 @@ function start.f_selectVersus(active, t_orderSelect)
 								snd = true
 							end
 						end
-					elseif main.f_input({side}, motif.vs_screen['p' .. pn].select.key) or (#start.p[side].t_selected == #t_order[side] + 1) then
+					elseif main.f_input({side}, motif.vs_screen['p' .. pn].key) or (#start.p[side].t_selected == #t_order[side] + 1) then
 						table.insert(t_order[side], k)
 						-- confirm char selection (starts loading immediately if gameOption('Config.BackgroundLoading') is true)
 						selectChar(side, v.ref, v.pal)
@@ -3386,8 +3386,8 @@ function start.f_selectVersus(active, t_orderSelect)
 		for side = 1, 2 do
 			if not fadeOutStarted and (
 				counter >= motif.vs_screen.time
-				or (not main.cpuSide[side] and main.f_input({side}, motif.vs_screen['p' .. side].skip.key))
-				or (done and main.f_input({side}, motif.vs_screen['p' .. side].done.key))
+				or (not main.cpuSide[side] and main.f_input({side}, motif.vs_screen.skip.key))
+				or (done and main.f_input({side}, motif.vs_screen.done.key))
 				) then
 				fadeOutInit(motif.vs_screen.fadeout.FadeData)
 				fadeOutStarted = true
@@ -3395,7 +3395,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			end
 		end
 		--frame transition
-		if not escFlag and (esc() or main.f_input(main.t_players, {'m'})) then
+		if not escFlag and (esc() or main.f_input(main.t_players, motif.vs_screen.cancel.key)) then
 			esc(false)
 			fadeOutInit(motif.vs_screen.fadeout.FadeData)
 			fadeOutStarted = true

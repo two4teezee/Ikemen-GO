@@ -27,11 +27,11 @@ func (ch *MotifChallenger) init(m *Motif) {
 		return
 	}
 
-	sBuffController := sys.button("s")
-	if sBuffController == -1 || sBuffController == sys.chars[0][0].controller {
+	controllerNo := m.buttonController(m.ChallengerInfo.Key)
+	if controllerNo == -1 || controllerNo == sys.chars[0][0].controller {
 		return
 	}
-	ch.controllerNo = sBuffController
+	ch.controllerNo = controllerNo
 
 	if m.AttractMode.Enabled && sys.credits > 0 {
 		sys.credits--

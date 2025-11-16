@@ -518,6 +518,11 @@ func setFieldValue(fieldVal reflect.Value, value interface{}, defTag string, key
 	}
 	trimmedValue := strings.TrimSpace(strVal)
 
+	// Normalize legacy key syntax: replace & separator with commas
+	if strings.HasSuffix(strings.ToLower(keyPath), ".key") {
+		trimmedValue = strings.ReplaceAll(trimmedValue, "&", ",")
+	}
+
 	// Unwrap pointer
 	if fieldVal.Kind() == reflect.Ptr {
 		if fieldVal.IsNil() {
@@ -566,11 +571,7 @@ func setFieldValue(fieldVal reflect.Value, value interface{}, defTag string, key
 		fieldVal.Set(newSlice)
 
 	case reflect.Array:
-		// Respect '&' as an alternate separator, otherwise comma
 		separator := ","
-		if strings.Contains(trimmedValue, "&") {
-			separator = "&"
-		}
 		parts := strings.Split(trimmedValue, separator)
 
 		// Special-case for font arrays: allow filename in the first slot.
@@ -2150,8 +2151,49 @@ func SetFade(obj interface{}, fVal, structVal, parent reflect.Value) {
 	fVal.Set(reflect.ValueOf(fade))
 }
 
+// collectCommandsFromKeyField looks at a field whose struct tag is ini:"key" and registers all its command names into sys.commandLists.
+func collectCommandsFromKeyField(fieldVal reflect.Value) {
+	if !fieldVal.IsValid() {
+		return
+	}
+	for fieldVal.Kind() == reflect.Ptr {
+		if fieldVal.IsNil() {
+			return
+		}
+		fieldVal = fieldVal.Elem()
+	}
+
+	switch fieldVal.Kind() {
+	case reflect.String:
+		cmd := strings.TrimSpace(fieldVal.String())
+		if cmd != "" {
+			sys.AddCommandToLists(cmd)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < fieldVal.Len(); i++ {
+			elem := fieldVal.Index(i)
+			for elem.Kind() == reflect.Ptr {
+				if elem.IsNil() {
+					goto nextElem
+				}
+				elem = elem.Elem()
+			}
+			if elem.Kind() == reflect.String {
+				cmd := strings.TrimSpace(elem.String())
+				if cmd != "" {
+					sys.AddCommandToLists(cmd)
+				}
+			}
+		nextElem:
+		}
+	}
+}
+
 // PopulateDataPointers initializes all *Anim, *TextSprite, *PalFX, *Rect, *Fade pointers in the struct.
 func PopulateDataPointers(obj interface{}, rootLocalcoord [2]int32) {
+	// Make sure command lists exist before we start scanning for ini:"key" fields and registering commands.
+	sys.EnsureCommandLists()
+
 	// Resolve root SFF once (defaults for subtrees without an override).
 	rootObjVal := reflect.ValueOf(obj).Elem()
 	var rootSff *Sff
@@ -2200,6 +2242,11 @@ func PopulateDataPointers(obj interface{}, rootLocalcoord [2]int32) {
 				// Skip unexported fields
 				if fType.PkgPath != "" {
 					continue
+				}
+
+				// Automatically register all command strings used by this struct. All such fields are marked with ini:"key".
+				if strings.EqualFold(fType.Tag.Get("ini"), "key") {
+					collectCommandsFromKeyField(fVal)
 				}
 
 				if fType.Name == "Localcoord" && fVal.CanSet() &&

@@ -1306,16 +1306,10 @@ func systemScriptInit(l *lua.LState) {
 		name := strArg(l, 2)
 		cmdstr := strArg(l, 3)
 
-		cm := newCommand()
-		cm.name = name
-		if err := cm.ReadCommandSymbols(cmdstr, NewCommandKeyRemap()); err != nil {
-			l.RaiseError(err.Error())
-		}
-
 		time := cl.DefaultTime
 		buftime := cl.DefaultBufferTime
-		buffer_hitpause := cl.DefaultBufferHitpause
-		buffer_pauseend := cl.DefaultBufferPauseEnd
+		bufferHitpause := cl.DefaultBufferHitpause
+		bufferPauseend := cl.DefaultBufferPauseEnd
 		steptime := cl.DefaultStepTime
 
 		if !nilArg(l, 4) {
@@ -1325,22 +1319,26 @@ func systemScriptInit(l *lua.LState) {
 			buftime = Max(1, int32(numArg(l, 5)))
 		}
 		if !nilArg(l, 6) {
-			buffer_hitpause = boolArg(l, 6)
+			bufferHitpause = boolArg(l, 6)
 		}
 		if !nilArg(l, 7) {
-			buffer_pauseend = boolArg(l, 7)
+			bufferPauseend = boolArg(l, 7)
 		}
 		if !nilArg(l, 8) {
 			steptime = int32(numArg(l, 8))
 		}
 
-		cm.maxtime = time
-		cm.maxbuftime = buftime
-		cm.buffer_hitpause = buffer_hitpause
-		cm.buffer_pauseend = buffer_pauseend
-		cm.maxsteptime = steptime
-
-		cl.Add(*cm)
+		if err := cl.AddCommand(
+			name,
+			cmdstr,
+			time,
+			buftime,
+			bufferHitpause,
+			bufferPauseend,
+			steptime,
+		); err != nil {
+			l.RaiseError(err.Error())
+		}
 		return 0
 	})
 	luaRegister(l, "commandBufReset", func(l *lua.LState) int {
@@ -1378,7 +1376,18 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 1) {
 			controllerNo = int32(numArg(l, 1))
 		}
-		l.Push(newUserData(l, NewCommandList(NewInputBuffer(), controllerNo)))
+		cl := NewCommandList(NewInputBuffer(), controllerNo)
+		if controllerNo > 0 {
+			idx := int(controllerNo - 1) // 0-based index
+			// Grow sys.commandLists if needed
+			if idx >= len(sys.commandLists) {
+				tmp := make([]*CommandList, idx+1)
+				copy(tmp, sys.commandLists)
+				sys.commandLists = tmp
+			}
+			sys.commandLists[idx] = cl
+		}
+		l.Push(newUserData(l, cl))
 		return 1
 	})
 	luaRegister(l, "computeRanking", func(l *lua.LState) int {
@@ -2156,35 +2165,14 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "getJoystickKey", func(*lua.LState) int {
-		var s string
-		var joy, min, max int = 0, 0, input.GetMaxJoystickCount()
+		controllerIdx := -1
 		if !nilArg(l, 1) {
-			min = int(Clamp(int32(numArg(l, 1)), 0, int32(max-1)))
-			max = min + 1
+			max := input.GetMaxJoystickCount()
+			controllerIdx = int(Clamp(int32(numArg(l, 1)), 0, int32(max-1)))
 		}
-		for joy = min; joy < max; joy++ {
-			if input.IsJoystickPresent(joy) {
-				axes := input.GetJoystickAxes(joy)
-				btns := input.GetJoystickButtons(joy)
 
-				s = CheckAxisForDpad(&axes, len(btns))
-				if s != "" {
-					break
-				}
-				s = CheckAxisForTrigger(&axes)
-				if s != "" {
-					break
-				}
-				for i := range btns {
-					if btns[i] > 0 {
-						s = ButtonToStringLUT[i]
-					}
-				}
-				if s != "" {
-					break
-				}
-			}
-		}
+		s, joy := getJoystickKey(controllerIdx)
+
 		l.Push(lua.LString(s))
 		if s != "" {
 			l.Push(lua.LNumber(joy + 1))
@@ -3164,6 +3152,7 @@ func systemScriptInit(l *lua.LState) {
 			// On skipped frames, discard queued draws to avoid buildup.
 			sys.luaDiscardDrawQueue()
 		}
+		//sys.StepCommandLists()
 		if !sys.update() {
 			l.RaiseError("<game end>")
 		}
@@ -3352,7 +3341,6 @@ func systemScriptInit(l *lua.LState) {
 			if sys.storyboard.active {
 				sys.storyboard.step()
 			}
-			sys.motif.btnPressedFlag = sys.keyInput != KeyUnknown
 		}
 		if sys.storyboard.active && !sys.frameSkip {
 			sys.storyboard.draw(0)
@@ -3378,7 +3366,6 @@ func systemScriptInit(l *lua.LState) {
 			if sys.motif.hi.active {
 				sys.motif.hi.step(&sys.motif)
 			}
-			sys.motif.btnPressedFlag = sys.keyInput != KeyUnknown
 		}
 		if sys.motif.hi.active && !sys.frameSkip {
 			sys.motif.hi.draw(&sys.motif, 0)

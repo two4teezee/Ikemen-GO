@@ -207,36 +207,37 @@ local ANALOG_DEAD_TIME = 20 -- dead time to limit scrolling behavior
 main.playerInput = 1
 main.lastAxis = nil
 main.analogDeadTime = ANALOG_DEAD_TIME
-function main.f_input(p, b)
+function main.f_input(p, ...)
+	-- Collect all key arrays passed
+	local keyTables = {...}
 	for _, pn in ipairs(p) do
-		for _, btn in ipairs(b) do
-			if btn == 'pal' then
-				if main.f_btnPalNo(pn) > 0 then
-					main.playerInput = pn
-					main.lastAxis = nil
-					return true
-				end
-			elseif main.isJoystickAxis[btn] then
-				local key = getJoystickKey(pn - 1)
-				local stickIsNeutral = (key == nil or key == '') and pn == main.playerInput
-				-- Handle analog axes
-				if stickIsNeutral then
-					main.lastAxis = nil
-					return false
-				else
-					if main.analogDeadTime > 0 then
-						main.analogDeadTime = main.analogDeadTime - 1
-					end
-					if key == btn and main.analogDeadTime == 0 and key ~= main.lastAxis then
+		-- Loop over each key array
+		for i = 1, #keyTables do
+			local b = keyTables[i]
+			if type(b) == "table" then
+				for _, btn in ipairs(b) do
+					if main.isJoystickAxis[btn] then
+						local key = getJoystickKey(pn - 1)
+						local stickIsNeutral = (key == nil or key == '') and pn == main.playerInput
+						-- Handle analog axes
+						if stickIsNeutral then
+							main.lastAxis = nil
+						else
+							if main.analogDeadTime > 0 then
+								main.analogDeadTime = main.analogDeadTime - 1
+							end
+							if key == btn and main.analogDeadTime == 0 and key ~= main.lastAxis then
+								main.playerInput = pn
+								main.analogDeadTime = ANALOG_DEAD_TIME
+								main.lastAxis = key
+								return true
+							end
+						end
+					elseif commandGetState(main.t_cmd[pn], btn) then
 						main.playerInput = pn
-						main.analogDeadTime = ANALOG_DEAD_TIME
-						main.lastAxis = key
 						return true
 					end
 				end
-			elseif commandGetState(main.t_cmd[pn], btn) then
-				main.playerInput = pn
-				return true
 			end
 		end
 	end
@@ -888,44 +889,6 @@ main.t_unlockLua = {chars = {}, stages = {}, modes = {}}
 motif = loadMotif()
 if main.debugLog then main.f_printTable(motif, "debug/loadMotif.txt") end
 
--- Recursively scan motif for fields named "key" and register their commands.
-local function addAllKeyCommands(root)
-	-- Avoid infinite loops on cyclic tables (weak keys so GC can collect)
-	local visited = setmetatable({}, { __mode = 'k' })
-	local function visit(t)
-		if type(t) ~= 'table' or visited[t] then return end
-		visited[t] = true
-		for k, v in pairs(t) do
-			if k == 'key' and type(v) == 'table' then
-				for _, cmd in ipairs(v) do
-					if type(cmd) == 'string' and cmd ~= '' then
-						-- Detect old &-chained format like "$U&$F" or "a&b&c&x&y&z"
-						if cmd:find('&', 1, true) then
-							panicError(string.format(
-								"Wrong key format detected in screenpack.\n" ..
-								"Offending key command: %q\n\n" ..
-								"Use comma-separated keys instead (e.g. $U, $F).\n" ..
-								"Update the screenpack or patch it with:\n" ..
-								"https://github.com/ikemen-engine/screenpack-updater\n",
-								cmd
-							))
-						end
-						-- Normal, correct format
-						if not main.isJoystickAxis[cmd] then
-							main.f_commandAdd(cmd, cmd)
-						end
-					end
-				end
-			end
-			if type(v) == 'table' then
-				visit(v)
-			end
-		end
-	end
-	visit(root)
-end
-addAllKeyCommands(motif)
-
 textImgSetText(motif.title_info.footer.version.TextSpriteData, version())
 
 loadLifebar()
@@ -934,7 +897,7 @@ main.timeFramesPerCount = fightscreenvar("time.framespercount")
 main.f_updateRoundsNum()
 
 --warning display
-function main.f_warning(text, background, overlay, titleData, textData, cancel_snd, done_snd)
+function main.f_warning(text, sec, background, overlay, titleData, textData, cancel_snd, done_snd)
 	local overlay = overlay or motif.warning_info.overlay.RectData
 	local titleData = titleData or motif.warning_info.title.TextSpriteData
 	local textData = textData or motif.warning_info.text.TextSpriteData
@@ -946,11 +909,11 @@ function main.f_warning(text, background, overlay, titleData, textData, cancel_s
 	esc(false)
 	while true do
 		main.f_cmdInput()
-		if esc() or main.f_input(main.t_players, {'m'}) then
+		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
 			esc(false)
 			sndPlay(motif.Snd, cancel_snd[1], cancel_snd[2])
 			return false
-		elseif getKey() ~= '' or main.f_input(main.t_players, {'a','b','c','x','y','z','d','w','s'}) then
+		elseif getKey() ~= '' or main.f_input(main.t_players, sec.menu.done.key) then
 			sndPlay(motif.Snd, done_snd[1], done_snd[2])
 			resetKey()
 			return true
@@ -972,11 +935,11 @@ function main.f_warning(text, background, overlay, titleData, textData, cancel_s
 	end
 end
 
-function main.f_drawInput(textData, text, overlay, background)
+function main.f_drawInput(textData, text, sec, background, overlay)
 	local input = ''
 	resetKey()
 	while true do
-		if esc() or main.f_input(main.t_players, {'m'}) then
+		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
 			input = ''
 			break
 		end
@@ -1425,7 +1388,7 @@ for line in content:gmatch('[^\r\n]+') do
 				rmax = tonumber(rmax) or rmin
 				order = tonumber(order)
 				if rmin == nil or order == nil or rmin < 1 or rmin > 4 or rmax < 1 or rmax > 4 or rmin > rmax then
-					main.f_warning(motif.warning_info.text.text.ratio, motif.titlebgdef)
+					main.f_warning(motif.warning_info.text.text.ratio, motif.title_info, motif.titlebgdef)
 					main.t_selOptions[rowName .. 'ratiomatches'] = nil
 					break
 				end
@@ -1826,16 +1789,18 @@ main.t_itemname = {
 		local name = main.f_drawInput(
 			motif[main.group].textinput.TextSpriteData,
 			motif[main.group].textinput.text.name,
-			motif[main.group].textinput.overlay.RectData,
-			motif[main.background]
+			motif[main.group],
+			motif[main.background],
+			motif[main.group].textinput.overlay.RectData
 		)
 		if name ~= '' then
 			sndPlay(motif.Snd, motif[main.group].cursor.move.snd[1], motif[main.group].cursor.move.snd[2])
 			local address = main.f_drawInput(
 				motif[main.group].textinput.TextSpriteData,
 				motif[main.group].textinput.text.address,
-				motif[main.group].textinput.overlay.RectData,
-				motif[main.background]
+				motif[main.group],
+				motif[main.background],
+				motif[main.group].textinput.overlay.RectData
 			)
 			if address:match('^[0-9%.]+$') then
 				sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
@@ -2423,10 +2388,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 					introWaitCycles = 0
 				end
-				if esc() or main.f_input(main.t_players, {'m'}) then
-					if motif[main.group].menu_item_active_bg_data ~= nil then
-						animReset(motif[main.group].menu_item_active_bg_data)
-					end
+				if esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) then
 					if not bool_main then
 						sndPlay(motif.Snd, motif[main.group].cancel.snd[1], motif[main.group].cancel.snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then
@@ -2453,6 +2415,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					end
 					main.f_warning(
 						motif.infobox.text.text,
+						motif[main.group],
 						motif[main.background],
 						motif.infobox.overlay.RectData,
 						motif.infobox.title.TextSpriteData,
@@ -2655,11 +2618,11 @@ function main.f_replay()
 			playBgm({source = "motif.title"})
 			main.close = false
 			break
-		elseif esc() or main.f_input(main.t_players, {'m'}) or (t[item].itemname == 'back' and main.f_input(main.t_players, {'pal', 's'})) then
+		elseif esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and main.f_input(main.t_players, motif[main.group].menu.done.key)) then
 			sndPlay(motif.Snd, motif.replay_info.cancel.snd[1], motif.replay_info.cancel.snd[2])
 			fadeOutInit(motif.replay_info.fadeout.FadeData)
 			main.close = true
-		elseif main.f_input(main.t_players, {'pal', 's'}) then
+		elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
 			enterReplay(t[item].itemname)
 			synchronize()
@@ -2676,7 +2639,7 @@ end
 function main.f_connect(server, str)
 	enterNetPlay(server)
 	while not connected() do
-		if esc() or main.f_input(main.t_players, {'m'}) then
+		if esc() or main.f_input(main.t_players, motif.title_info.menu.cancel.key) then
 			sndPlay(motif.Snd, motif.title_info.cancel.snd[1], motif.title_info.cancel.snd[2])
 			exitNetPlay()
 			return false
@@ -2874,7 +2837,7 @@ function main.f_attractStart()
 		--draw layerno = 1 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
-		if not fadeOutStarted and not fadeInActive() and ((credits() ~= 0 and main.f_input(main.t_players, {'s'})) or (not timerActive and counter >= motif.attract_mode.start.time)) then
+		if not fadeOutStarted and not fadeInActive() and ((credits() ~= 0 and main.f_input(main.t_players, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
 			if credits() ~= 0 then
 				sndPlay(motif.Snd, motif.attract_mode.start.done.snd[1], motif.attract_mode.start.done.snd[2])
 			end
@@ -2883,7 +2846,7 @@ function main.f_attractStart()
 		end
 		--frame transition
 		main.f_cmdInput()
-		if esc() --[[or main.f_input(main.t_players, {'m'})]] then
+		if esc() --[[or main.f_input(main.t_players, motif.attract_mode.menu.cancel.key)]] then
 			esc(false)
 			return false
 		end

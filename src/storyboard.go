@@ -453,6 +453,7 @@ func (s *Storyboard) init() {
 }
 
 func (s *Storyboard) step() {
+	sys.StepCommandLists()
 	sceneKey := s.sceneKeys[s.currentSceneIndex]
 	sceneProps := s.Scene[sceneKey]
 
@@ -552,6 +553,11 @@ func (s *Storyboard) step() {
 		if s.currentSceneIndex >= len(s.sceneKeys) {
 			if s.musicPlaying {
 				sys.bgm.Stop()
+			}
+			for _, cl := range sys.commandLists {
+				if cl != nil {
+					cl.BufReset()
+				}
 			}
 			s.active = false
 			// Do not force-reset fadeOut here; it will self-reset after its last draw.

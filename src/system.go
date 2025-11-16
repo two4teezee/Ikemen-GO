@@ -942,76 +942,82 @@ func (s *System) anyButton() bool {
 	return s.anyHardButton()
 }
 
-func (s *System) button(btn string) int {
-	checkButton := func(configs []KeyConfig, btn string) int {
-		for i, kc := range configs {
-			switch btn {
-			case "U":
-				if sys.keyState[Key(kc.dU)] {
-					return i
-				}
-			case "D":
-				if sys.keyState[Key(kc.dD)] {
-					return i
-				}
-			case "L":
-				if sys.keyState[Key(kc.dL)] {
-					return i
-				}
-			case "R":
-				if sys.keyState[Key(kc.dR)] {
-					return i
-				}
-			case "a":
-				if sys.keyState[Key(kc.kA)] {
-					return i
-				}
-			case "b":
-				if sys.keyState[Key(kc.kB)] {
-					return i
-				}
-			case "c":
-				if sys.keyState[Key(kc.kC)] {
-					return i
-				}
-			case "x":
-				if sys.keyState[Key(kc.kX)] {
-					return i
-				}
-			case "y":
-				if sys.keyState[Key(kc.kY)] {
-					return i
-				}
-			case "z":
-				if sys.keyState[Key(kc.kZ)] {
-					return i
-				}
-			case "s":
-				if sys.keyState[Key(kc.kS)] {
-					return i
-				}
-			case "d":
-				if sys.keyState[Key(kc.kD)] {
-					return i
-				}
-			case "w":
-				if sys.keyState[Key(kc.kW)] {
-					return i
-				}
-			case "m":
-				if sys.keyState[Key(kc.kM)] {
-					return i
-				}
-			}
+// initializes commandLists so that there is one CommandList per configured player.
+func (s *System) EnsureCommandLists() {
+	players := int(s.cfg.Config.Players)
+	if players <= 0 {
+		return
+	}
+
+	// Grow slice if needed
+	if len(s.commandLists) < players {
+		tmp := make([]*CommandList, players)
+		copy(tmp, s.commandLists)
+		s.commandLists = tmp
+	}
+
+	// Create missing CommandLists
+	for i := 0; i < players; i++ {
+		if s.commandLists[i] == nil {
+			controllerNo := int32(i + 1) // controller numbers are 1-based
+			cl := NewCommandList(NewInputBuffer(), controllerNo)
+			s.commandLists[i] = cl
 		}
-		return -1
 	}
-	controllerNo := checkButton(s.keyConfig, btn)
-	if controllerNo >= 0 {
-		return controllerNo
+}
+
+// returns true if the given string is either empty or matches one of the raw controller button tokens
+func (s *System) isControllerButtonToken(cmdstr string) bool {
+	cmd := strings.TrimSpace(cmdstr)
+	if cmd == "" {
+		return false
 	}
-	controllerNo = checkButton(s.joystickConfig, btn)
-	return controllerNo
+	_, ok := StringToButtonLUT[cmd]
+	return ok
+}
+
+// Compiles the given command string and adds it to every initialized CommandList.
+func (s *System) AddCommandToLists(cmdstr string) {
+	if s.isControllerButtonToken(cmdstr) {
+		return
+	}
+	s.EnsureCommandLists()
+	for _, cl := range s.commandLists {
+		if cl == nil {
+			continue
+		}
+		time := cl.DefaultTime
+		buftime := cl.DefaultBufferTime
+		bufferHitpause := cl.DefaultBufferHitpause
+		bufferPauseend := cl.DefaultBufferPauseEnd
+		steptime := cl.DefaultStepTime
+		if err := cl.AddCommand(
+			cmdstr, // name
+			cmdstr, // cmdstr
+			time,
+			buftime,
+			bufferHitpause,
+			bufferPauseend,
+			steptime,
+		); err != nil && s.errLog != nil {
+			// Don't panic the engine on bad user config; just log.
+			s.errLog.Printf("Failed to parse command '%s': %v", cmdstr, err)
+		}
+	}
+}
+
+// equivalent of Lua commandInput
+func (s *System) StepCommandLists() {
+	for i, cl := range s.commandLists {
+		if cl == nil || cl.Buffer == nil {
+			continue
+		}
+		// controller index is 0-based here
+		controller := i
+		if cl.InputUpdate(nil, controller, 0, true) {
+			cl.Step(false, false, false, false, 0)
+		}
+	}
 }
 
 func (s *System) netplay() bool {

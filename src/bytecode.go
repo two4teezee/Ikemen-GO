@@ -5757,7 +5757,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with commitExplod
 
 	if e.aimg != nil && e.aimg.time != 0 {
-		e.aimg.setupPalFX()
+		e.aimg.setup(crun)
 	}
 
 	e.setPos(crun)
@@ -6363,7 +6363,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 				}
 				if isAfterImageParam(paramID) {
 					eachExpl(func(e *Explod) {
-						if e.aimg == nil {
+						if e.aimg == nil { // Can update existing afterimage
 							e.aimg = newAfterImage()
 						}
 						afterImage(sc).runSub(c, crun, e.aimg, paramID, exp)
@@ -6383,8 +6383,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 	// Update AfterImage PalFX
 	eachExpl(func(e *Explod) {
-		if e.aimg != nil && e.aimg.time != 0 && !e.aimg.palfxready {
-			e.aimg.setupPalFX()
+		if e.aimg != nil && e.aimg.time != 0 && e.aimg.needsetup {
+			e.aimg.setup(crun)
 		}
 	})
 
@@ -6487,8 +6487,9 @@ const (
 )
 
 func (sc afterImage) runSub(c, crun *Char, ai *AfterImage, paramID byte, exp []BytecodeExp) {
-	// Flag to run PalFX setup
-	ai.palfxready = false
+	// Flag to run setup
+	// This avoids setting up the afterimage repeatedly when for instance an explod is modified
+	ai.needsetup = true
 
 	switch paramID {
 	case afterImage_trans:
@@ -6569,10 +6570,6 @@ func (sc afterImage) runSub(c, crun *Char, ai *AfterImage, paramID byte, exp []B
 	case afterImage_ignorehitpause:
 		ai.ignorehitpause = exp[0].evalB(c)
 	}
-
-	// Check for errors
-	// This placement is not ideal, but it's a little cleaner than doing it in every sctrl that has afterimage parameters
-	ai.validateParams(crun)
 }
 
 func (sc afterImage) Run(c *Char, _ []int32) bool {
@@ -6581,6 +6578,9 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
+	// Always make a new afterimage instead of updating current one
+	// More limited than ModifyExplod/Projectile, but also more accurate to Mugen
+	// TODO: If afterimages were refactored to not change PalFX of existing images, chars could update them as well
 	crun.aimg = newAfterImage()
 
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
@@ -6597,7 +6597,7 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	crun.aimg.setupPalFX()
+	crun.aimg.setup(crun)
 
 	return false
 }
@@ -7480,7 +7480,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 	}
 
 	if p.aimg != nil && p.aimg.time != 0 {
-		p.aimg.setupPalFX()
+		p.aimg.setup(crun)
 	}
 
 	crun.commitProjectile(p, pt, offx, offy, offz, op, rp[0], rp[1], clsnscale)
@@ -7570,6 +7570,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 	mpid := int32(-1)
 	mpidx := int32(-1)
 	var projs []*Projectile
+
 	eachProj := func(f func(p *Projectile)) {
 		if mpidx < 0 {
 			for _, p := range projs {
@@ -8564,8 +8565,8 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 
 	// Update AfterImage PalFX
 	eachProj(func(p *Projectile) {
-		if p.aimg != nil && p.aimg.time != 0 && !p.aimg.palfxready {
-			p.aimg.setupPalFX()
+		if p.aimg != nil && p.aimg.time != 0 && p.aimg.needsetup {
+			p.aimg.setup(crun)
 		}
 	})
 

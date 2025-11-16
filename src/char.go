@@ -1070,16 +1070,15 @@ type AfterImage struct {
 	framegap       int32
 	trans          TransType
 	alpha          [2]int32
-	palfx          [MaxAimgLength]*PalFX
-	imgs           [MaxAimgLength]aimgImage
+	palfx          []*PalFX
+	imgs           []aimgImage
 	imgidx         int32
 	restgap        int32
 	reccount       int32
 	timecount      int32
 	priority       int32
 	ignorehitpause bool
-	palfxready     bool
-	//hasAnim        bool
+	needsetup      bool
 }
 
 func newAfterImage() *AfterImage {
@@ -1101,6 +1100,10 @@ func newAfterImage() *AfterImage {
 	ai.timecount = 0
 	ai.ignorehitpause = true
 
+    // Allocate slices with maximum capacity but length 1
+    ai.palfx = make([]*PalFX, 1, MaxAimgLength)
+    ai.imgs  = make([]aimgImage, 1, MaxAimgLength)
+
 	// Initialize PalFX
 	for i := range ai.palfx {
 		ai.palfx[i] = newPalFX()
@@ -1119,36 +1122,6 @@ func newAfterImage() *AfterImage {
 	}
 
 	return ai
-}
-
-/*
-func (ai *AfterImage) clear() {
-	ai.time = 0
-	ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
-
-	// Clear animation data
-	// This makes afterimages lighter in save states
-	// We lock this operation behind the bool because clear() is called every frame when the afterimage is inactive
-	if ai.hasAnim {
-		for i := range ai.imgs {
-			ai.imgs[i].anim = nil
-		}
-		ai.hasAnim = false
-	}
-}
-*/
-
-// Correct parameters while printing debug warnings for the char in question
-func (ai *AfterImage) validateParams(c *Char) {
-	// Check if length is allowed
-	if ai.length < 0 {
-		sys.appendToConsole(c.warn() + "AfterImage length must be positive")
-		ai.length = 0
-	}
-	if ai.length > MaxAimgLength {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("AfterImage length exceeds the maximum of %v", MaxAimgLength))
-		ai.length = MaxAimgLength
-	}
 }
 
 func (ai *AfterImage) setPalColor(color int32) {
@@ -1211,8 +1184,46 @@ func (ai *AfterImage) setPalContrastB(mulb int32) {
 	}
 }
 
-// Set up every frame's PalFX in advance
-func (ai *AfterImage) setupPalFX() {
+// Set up every frame in advance
+func (ai *AfterImage) setup(c *Char) {
+	// Check if length is allowed
+	if ai.length < 0 {
+		sys.appendToConsole(c.warn() + "AfterImage length must be positive")
+		ai.length = 0
+	}
+	if ai.length > MaxAimgLength {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("AfterImage length exceeds the maximum of %v", MaxAimgLength))
+		ai.length = MaxAimgLength
+	}
+
+	need := int(ai.length)
+	if need <= 0 {
+		return
+	}
+
+	// Resize image buffer
+	if len(ai.imgs) < need {
+		ai.imgs = append(ai.imgs, make([]aimgImage, need-len(ai.imgs))...)
+	} else {
+		ai.imgs = ai.imgs[:need]
+	}
+
+	// Clamp imgidx in case AfterImage was modified while live
+	// Only ModifyExplod/Projectile can this. Char always rebuilds afterimages
+	ai.imgidx = Clamp(ai.imgidx, 0, int32(len(ai.imgs))-1)
+
+	// Resize PalFX buffer
+	if len(ai.palfx) < need {
+		base := ai.palfx[0]
+		for len(ai.palfx) < need {
+			p := *base
+			ai.palfx = append(ai.palfx, &p)
+		}
+	} else {
+		ai.palfx = ai.palfx[:need]
+	}
+
+	// Setup PalFX
 	pb := ai.postbright
 
 	if ai.palfx[0].invertblend <= -2 && ai.palfx[0].eInvertall {
@@ -1235,7 +1246,7 @@ func (ai *AfterImage) setupPalFX() {
 		pb = [3]int32{}
 	}
 
-	ai.palfxready = true
+	ai.needsetup = false
 }
 
 func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
@@ -1274,10 +1285,9 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		img.fLength = sd.fLength
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 
-		ai.imgidx = (ai.imgidx + 1) % MaxAimgLength
+		ai.imgidx = (ai.imgidx + 1) % int32(len(ai.imgs))
 		ai.reccount++
 		ai.restgap = ai.timegap
-		//ai.hasAnim = true
 	}
 
 	ai.restgap--
@@ -1310,7 +1320,9 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 			break
 		}
 
-		img := &ai.imgs[(ai.imgidx-i+MaxAimgLength)%MaxAimgLength]
+		// Save images in ring buffer
+		ringsize := int32(len(ai.imgs))
+		img := &ai.imgs[(ai.imgidx-i+ringsize)%ringsize]
 
 		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
 			img.priority = sd.priority - 2

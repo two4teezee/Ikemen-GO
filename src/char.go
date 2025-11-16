@@ -1078,24 +1078,14 @@ type AfterImage struct {
 	timecount      int32
 	priority       int32
 	ignorehitpause bool
-	hasAnim        bool
+	palfxready     bool
+	//hasAnim        bool
 }
 
 func newAfterImage() *AfterImage {
 	ai := &AfterImage{}
 
-	for i := range ai.palfx {
-		ai.palfx[i] = newPalFX()
-		ai.palfx[i].enable = true
-		ai.palfx[i].allowNeg = true
-	}
-
-	ai.setDefault()
-
-	return ai
-}
-
-func (ai *AfterImage) setDefault() {
+	// Defaults
 	ai.time = 0
 	ai.length = 20
 	ai.postbright = [3]int32{}
@@ -1111,6 +1101,14 @@ func (ai *AfterImage) setDefault() {
 	ai.timecount = 0
 	ai.ignorehitpause = true
 
+	// Initialize PalFX
+	for i := range ai.palfx {
+		ai.palfx[i] = newPalFX()
+		ai.palfx[i].enable = true
+		ai.palfx[i].allowNeg = true
+	}
+
+	// PalFX defaults
 	if len(ai.palfx) > 0 && ai.palfx[0] != nil {
 		ai.palfx[0].eColor = 1
 		ai.palfx[0].eHue = 0
@@ -1119,8 +1117,11 @@ func (ai *AfterImage) setDefault() {
 		ai.palfx[0].eAdd = [...]int32{30, 30, 30}
 		ai.palfx[0].eMul = [...]int32{120, 120, 220}
 	}
+
+	return ai
 }
 
+/*
 func (ai *AfterImage) clear() {
 	ai.time = 0
 	ai.reccount, ai.timecount, ai.timegap = 0, 0, 0
@@ -1135,6 +1136,7 @@ func (ai *AfterImage) clear() {
 		ai.hasAnim = false
 	}
 }
+*/
 
 // Correct parameters while printing debug warnings for the char in question
 func (ai *AfterImage) validateParams(c *Char) {
@@ -1219,17 +1221,21 @@ func (ai *AfterImage) setupPalFX() {
 		ai.palfx[0].eInvertblend = ai.palfx[0].invertblend
 	}
 
+	// Start from index 1, because index 0 contains the starting parameters
 	for i := 1; i < len(ai.palfx); i++ {
 		ai.palfx[i].eColor = ai.palfx[i-1].eColor
 		ai.palfx[i].eHue = ai.palfx[i-1].eHue
 		ai.palfx[i].eInvertall = ai.palfx[i-1].eInvertall
 		ai.palfx[i].eInvertblend = ai.palfx[i-1].eInvertblend
+
 		for j := range pb {
 			ai.palfx[i].eAdd[j] = ai.palfx[i-1].eAdd[j] + ai.add[j] + pb[j]
 			ai.palfx[i].eMul[j] = int32(float32(ai.palfx[i-1].eMul[j]) * ai.mul[j])
 		}
 		pb = [3]int32{}
 	}
+
+	ai.palfxready = true
 }
 
 func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
@@ -1271,24 +1277,23 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 		ai.imgidx = (ai.imgidx + 1) % MaxAimgLength
 		ai.reccount++
 		ai.restgap = ai.timegap
-		ai.hasAnim = true
+		//ai.hasAnim = true
 	}
 
 	ai.restgap--
 	ai.timecount++
 }
 
-func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
-	// Check if this afterimage is no longer active or invalid
+func (ai *AfterImage) isActive() bool {
 	if ai.time == 0 || (ai.timecount >= ai.timegap*ai.length+ai.time-1 && ai.time > 0) ||
 		ai.timegap < 1 || ai.timegap > 32767 ||
 		ai.framegap < 1 || ai.framegap > 32767 {
-		ai.clear()
-		return
+		return false
 	}
+	return true
+}
 
-	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
-
+func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
 	// Decide layering
 	sprs := &sys.spritesLayer0
 	if layer > 0 {
@@ -1296,6 +1301,8 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 	} else if layer < 0 {
 		sprs = &sys.spritesLayerN1
 	}
+
+	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
 		// Respect AfterImageMax
@@ -1404,7 +1411,7 @@ type Explod struct {
 	syncParams          bool
 	syncLayer           int32
 	syncId              int32
-	aimg                AfterImage
+	aimg                *AfterImage
 	//lockSpriteFacing     bool
 	localscl   float32
 	localcoord float32
@@ -1465,7 +1472,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		interpolate_scale: [4]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
 		remappal:          [2]int32{-1, 0},
-		aimg:              *newAfterImage(),
+		//aimg:              *newAfterImage(),
 	}
 
 	// Backward compatibility
@@ -1730,7 +1737,11 @@ func (e *Explod) update(playerNo int) {
 			e.alpha = syncChar.alpha
 			e.palfx = syncChar.getPalfx()
 			e.facing = syncChar.facing
-			if syncChar.aimg.time != 0 {
+
+			if syncChar.aimg != nil && syncChar.aimg.time != 0 {
+				if e.aimg == nil {
+					e.aimg = newAfterImage()
+				}
 				// Copy Afterimage settings, but not the state
 				e.aimg.time = syncChar.aimg.time
 				e.aimg.length = syncChar.aimg.length
@@ -1749,6 +1760,7 @@ func (e *Explod) update(playerNo int) {
 			}
 		}
 	}
+
 	off := e.relativePos
 	// Left and right pos types change relative position depending on stage camera zoom and game width
 	if e.space == Space_stage {
@@ -1872,9 +1884,15 @@ func (e *Explod) update(playerNo int) {
 	}
 
 	// Record afterimage
-	e.aimg.recAndCue(sd, playerNo, sys.tickNextFrame() && act,
-		sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
-		e.layerno, e.space == Space_screen)
+	if e.aimg != nil {
+		if e.aimg.isActive() {
+			e.aimg.recAndCue(sd, playerNo, sys.tickNextFrame() && act,
+				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
+				e.layerno, e.space == Space_screen)
+		} else {
+			e.aimg = nil
+		}
+	}
 
 	// Add to drawlist
 	sprs.add(sd)
@@ -1930,9 +1948,6 @@ func (e *Explod) update(playerNo int) {
 		if act {
 			if e.palfx != nil && e.ownpal {
 				e.palfx.step()
-			}
-			if e.aimg.time != 0 {
-				e.aimg.setupPalFX()
 			}
 			e.oldPos = e.pos
 			e.newPos[0] = e.pos[0] + e.velocity[0]*e.facing
@@ -2077,7 +2092,7 @@ type Projectile struct {
 	hitpause        int32
 	oldPos          [3]float32
 	newPos          [3]float32
-	aimg            AfterImage
+	aimg            *AfterImage
 	palfx           *PalFX
 	window          [4]float32
 	xshear          float32
@@ -2135,7 +2150,7 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 		heightbound:     [2]int32{int32(-240 / localscl), int32(1 / localscl)},
 		depthbound:      math.MaxInt32,
 		facing:          1,
-		aimg:            *newAfterImage(),
+		//aimg:            *newAfterImage(),
 		projection:      Projection_Orthographic,
 		platformFence:   true,
 	}
@@ -2545,7 +2560,13 @@ func (p *Projectile) cueDraw() {
 		}
 
 		// Record afterimage
-		p.aimg.recAndCue(sd, p.playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
+		if p.aimg != nil {
+			if p.aimg.isActive() {
+				p.aimg.recAndCue(sd, p.playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
+			} else {
+				p.aimg = nil
+			}
+		}
 
 		sprs.add(sd)
 
@@ -2831,7 +2852,7 @@ type Char struct {
 	cnssysvar           map[int32]int32
 	cnssysfvar          map[int32]float32
 	CharSystemVar
-	aimg                 AfterImage
+	aimg                 *AfterImage
 	soundChannels        SoundChannels
 	p1facing             float32
 	cpucmd               int32
@@ -2898,7 +2919,6 @@ type Char struct {
 	makeDustSpacing      int
 	hitStateChangeIdx    int32
 	currentSctrlIndex    int32
-	//dustOldPos        [3]float32
 }
 
 // Add a new char to the game
@@ -2941,7 +2961,7 @@ func (c *Char) init(n int, idx int32) {
 		clsnScaleMul:  [2]float32{1, 1},
 		clsnScale:     [2]float32{1, 1},
 		zScale:        1,
-		aimg:          *newAfterImage(),
+		//aimg:          *newAfterImage(),
 		CharSystemVar: CharSystemVar{
 			superDefenseMul: 1.0,
 			fallDefenseMul:  1.0,
@@ -3041,7 +3061,7 @@ func (c *Char) prepareNextRound() {
 	//c.updateSizeBox()
 	c.oldPos, c.interPos = c.pos, c.pos
 	if c.helperIndex == 0 {
-		if sys.roundsExisted[c.playerNo&1] > 0 {
+		if sys.roundsExisted[c.playerNo&1] > 0 { // TODO: Why do we need this branch?
 			c.palfx.clear()
 		} else {
 			c.palfx = newPalFX()
@@ -3052,7 +3072,12 @@ func (c *Char) prepareNextRound() {
 	} else {
 		c.palfx = nil
 	}
-	c.aimg.timegap = -1
+
+	//c.aimg.timegap = -1
+	if c.aimg != nil {
+		c.aimg = nil
+	}
+
 	c.enemyNearP2Clear()
 	c.targets = c.targets[:0]
 	c.cpucmd = -1
@@ -11777,7 +11802,13 @@ func (c *Char) cueDraw() {
 		charSD.syncLayer = 0 // Character body is always at layer 0
 
 		// Record afterimage
-		c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+		if c.aimg != nil {
+			if c.aimg.isActive() {
+				c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+			} else {
+				c.aimg = nil
+			}
+		}
 
 		// Hitshake effect
 		if c.ghv.hitshaketime > 0 && c.ss.time&1 != 0 {

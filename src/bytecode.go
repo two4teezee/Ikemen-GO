@@ -5244,6 +5244,10 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+func isPalFXParam(paramID byte) bool {
+    return paramID >= palFX_time && paramID < palFX_last
+}
+
 type palFX StateControllerBase
 
 const (
@@ -5405,7 +5409,9 @@ func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 			bgidx = int(exp[0].evalI(c))
 		default:
 			// Parse PalFX parameters
-			palFX(sc).runSub(c, &pfx, paramID, exp)
+			if isPalFXParam(paramID) {
+				palFX(sc).runSub(c, &pfx, paramID, exp)
+			}
 		}
 		return true
 	})
@@ -5729,11 +5735,16 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
 				e.palfxdef.invertblend = -2
 			}
-			afterImage(sc).runSub(c, crun, &e.aimg, paramID, exp)
-			palFX(sc).runSub(c, &e.palfxdef, paramID, exp)
-
-			explod(sc).setInterpolation(c, e, paramID, exp, &e.palfxdef)
-
+			if isAfterImageParam(paramID) {
+				if e.aimg == nil {
+					e.aimg = newAfterImage()
+				}
+				afterImage(sc).runSub(c, crun, e.aimg, paramID, exp)
+			}
+			if isPalFXParam(paramID) {
+				palFX(sc).runSub(c, &e.palfxdef, paramID, exp)
+			}
+			explod(sc).parseInterpolation(c, e, paramID, exp, &e.palfxdef)
 		}
 		return true
 	})
@@ -5745,12 +5756,16 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 	//e.setStartParams(crun, &e.palfxdef, rp) // Merged with commitExplod
 
+	if e.aimg != nil && e.aimg.time != 0 {
+		e.aimg.setupPalFX()
+	}
+
 	e.setPos(crun)
 	crun.commitExplod(i)
 	return false
 }
 
-func (sc explod) setInterpolation(c *Char, e *Explod, paramID byte, exp []BytecodeExp, pfd *PalFXDef) bool {
+func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []BytecodeExp, pfd *PalFXDef) bool {
 	switch paramID {
 	case explod_interpolate_time:
 		e.interpolate_time[0] = exp[0].evalI(c)
@@ -6339,22 +6354,40 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					})
 				}
 			default:
-				eachExpl(func(e *Explod) {
-					if e.ownpal {
-						palFX(sc).runSub(c, &e.palfx.PalFXDef, paramID, exp)
-					}
-					afterImage(sc).runSub(c, crun, &e.aimg, paramID, exp)
-				})
+				if isPalFXParam(paramID) {
+					eachExpl(func(e *Explod) {
+						if e.ownpal {
+							palFX(sc).runSub(c, &e.palfx.PalFXDef, paramID, exp)
+						}
+					})
+				}
+				if isAfterImageParam(paramID) {
+					eachExpl(func(e *Explod) {
+						if e.aimg == nil {
+							e.aimg = newAfterImage()
+						}
+						afterImage(sc).runSub(c, crun, e.aimg, paramID, exp)
+					})
+				}
 			}
 		}
 		return true
 	})
+
 	// Update relative positions if postype was updated
 	if ptexists {
 		eachExpl(func(e *Explod) {
 			e.setPos(crun)
 		})
 	}
+
+	// Update AfterImage PalFX
+	eachExpl(func(e *Explod) {
+		if e.aimg != nil && e.aimg.time != 0 && !e.aimg.palfxready {
+			e.aimg.setupPalFX()
+		}
+	})
+
 	return false
 }
 
@@ -6427,11 +6460,15 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+func isAfterImageParam(paramID byte) bool {
+    return paramID >= afterImage_time && paramID < afterImage_last
+}
+
 type afterImage palFX
 
 const (
-	afterImage_trans = iota + palFX_last + 1
-	afterImage_time
+	afterImage_time = iota + palFX_last + 1
+	afterImage_trans
 	afterImage_length
 	afterImage_timegap
 	afterImage_framegap
@@ -6450,6 +6487,9 @@ const (
 )
 
 func (sc afterImage) runSub(c, crun *Char, ai *AfterImage, paramID byte, exp []BytecodeExp) {
+	// Flag to run PalFX setup
+	ai.palfxready = false
+
 	switch paramID {
 	case afterImage_trans:
 		src := Clamp(int32(exp[0].evalI(c)), 0, 255)
@@ -6541,7 +6581,8 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	crun.aimg.setDefault()
+	crun.aimg = newAfterImage()
+
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 &&
 		c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
 		crun.aimg.palfx[0].invertblend = -2
@@ -6552,11 +6593,12 @@ func (sc afterImage) Run(c *Char, _ []int32) bool {
 		if paramID == afterImage_redirectid {
 			return true // Already handled. Avoid runSub
 		}
-		sc.runSub(c, crun, &crun.aimg, paramID, exp)
+		sc.runSub(c, crun, crun.aimg, paramID, exp)
 		return true
 	})
 
 	crun.aimg.setupPalFX()
+
 	return false
 }
 
@@ -6573,7 +6615,7 @@ func (sc afterImageTime) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	if crun.aimg.timegap <= 0 {
+	if crun.aimg == nil || crun.aimg.timegap <= 0 {
 		return false
 	}
 
@@ -6590,6 +6632,10 @@ func (sc afterImageTime) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	return false
+}
+
+func isHitDefParam(paramID byte) bool {
+    return paramID >= hitDef_attr && paramID < hitDef_last
 }
 
 type hitDef afterImage
@@ -7087,9 +7133,13 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 	case hitDef_missonreversaldef:
 		hd.MissOnReversalDef = Btoi(exp[0].evalB(c))
 	default:
-		if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {
-			return false
+		if isPalFXParam(paramID) {
+			palFX(sc).runSub(c, &hd.palfx, paramID, exp)
 		}
+		// TODO: Why did this one specifically return false?
+		//if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {
+		//	return false
+		//}
 	}
 	return true
 }
@@ -7402,8 +7452,14 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		case projectile_redirectid:
 			return true // Already handled. Avoid runSub
 		default:
-			if !hitDef(sc).runSub(c, &p.hitdef, paramID, exp) {
-				afterImage(sc).runSub(c, crun, &p.aimg, paramID, exp)
+			if isHitDefParam(paramID) {
+				hitDef(sc).runSub(c, &p.hitdef, paramID, exp)
+			}
+			if isAfterImageParam(paramID) {
+				if p.aimg == nil {
+					p.aimg = newAfterImage()
+				}
+				afterImage(sc).runSub(c, crun, p.aimg, paramID, exp)
 			}
 		}
 		return true
@@ -7422,7 +7478,8 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		p.cancelanim = p.remanim
 		p.cancelanim_ffx = p.remanim_ffx
 	}
-	if p.aimg.time != 0 {
+
+	if p.aimg != nil && p.aimg.time != 0 {
 		p.aimg.setupPalFX()
 	}
 
@@ -8492,15 +8549,26 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.hitdef.attack_depth[1] = v2
 				})
 			default:
-				eachProj(func(p *Projectile) {
-					if !hitDef(sc).runSub(c, &p.hitdef, paramID, exp) {
-						afterImage(sc).runSub(c, crun, &p.aimg, paramID, exp)
-					}
-				})
+				if isAfterImageParam(paramID) {
+					eachProj(func(p *Projectile) {
+						if p.aimg == nil {
+							p.aimg = newAfterImage()
+						}
+						afterImage(sc).runSub(c, crun, p.aimg, paramID, exp)
+					})
+				}
 			}
 		}
 		return true
 	})
+
+	// Update AfterImage PalFX
+	eachProj(func(p *Projectile) {
+		if p.aimg != nil && p.aimg.time != 0 && !p.aimg.palfxready {
+			p.aimg.setupPalFX()
+		}
+	})
+
 	return false
 }
 

@@ -177,8 +177,13 @@ func (ghv *GetHitVar) Clone(a *arena.Arena) (result *GetHitVar) {
 	return
 }
 
-func (ai AfterImage) Clone(a *arena.Arena, gsp *GameStatePool) (result AfterImage) {
-	result = ai
+func (ai *AfterImage) Clone(a *arena.Arena, gsp *GameStatePool) *AfterImage {
+	if ai == nil {
+		return nil
+	}
+
+	result := &AfterImage{}
+	*result = *ai
 
 	// Deep copy Animations
 	for i := range ai.imgs {
@@ -194,7 +199,7 @@ func (ai AfterImage) Clone(a *arena.Arena, gsp *GameStatePool) (result AfterImag
 		}
 	}
 
-	return
+	return result
 }
 
 func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) *Explod {
@@ -213,7 +218,9 @@ func (e *Explod) Clone(a *arena.Arena, gsp *GameStatePool) *Explod {
 		result.palfx = e.palfx.Clone(a)
 	}
 
-	result.aimg = e.aimg.Clone(a, gsp)
+	if e.aimg != nil {
+		result.aimg = e.aimg.Clone(a, gsp)
+	}
 
 	return result
 }
@@ -234,7 +241,9 @@ func (p *Projectile) clone(a *arena.Arena, gsp *GameStatePool) *Projectile {
 		result.palfx = p.palfx.Clone(a)
 	}
 
-	result.aimg = p.aimg.Clone(a, gsp)
+	if p.aimg != nil {
+		result.aimg = p.aimg.Clone(a, gsp)
+	}
 
 	return result
 }
@@ -277,7 +286,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	// TODO: Profiling shows this is hotter than it should be
 	// Maybe we ought to clear animation data from them when their timer expires
 	// Update: Done already but copying 60 PalFX's is still a problem
-	result.aimg = c.aimg.Clone(a, gsp)
+	if c.aimg != nil {
+		result.aimg = c.aimg.Clone(a, gsp)
+	}
 
 	if c.palfx != nil {
 		result.palfx = c.palfx.Clone(a)

@@ -1,15 +1,25 @@
 package main
 
 import (
+	"bytes"
 	_ "embed" // Support for go:embed resources
+	"encoding/json"
 	"fmt"
+	"math"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/ini.v1"
+
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 //go:embed resources/defaultMotif.ini
@@ -103,6 +113,52 @@ type AnimationProperties struct {
 	AnimData   *Anim
 }
 
+type AnimationTextProperties struct {
+	Anim           int32      `ini:"anim" default:"-1"`
+	Spr            [2]int32   `ini:"spr" default:"-1,0"`
+	Offset         [2]float32 `ini:"offset"`
+	Facing         int32      `ini:"facing" default:"1"`
+	Scale          [2]float32 `ini:"scale" default:"1,1"`
+	Xshear         float32    `ini:"xshear"`
+	Angle          float32    `ini:"angle"`
+	Layerno        int16      `ini:"layerno" default:"1"`
+	Window         [4]int32   `ini:"window"`
+	Localcoord     [2]int32   `ini:"localcoord"`
+	AnimData       *Anim
+	Font           [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
+	Text           string   `ini:"text"`
+	TextSpriteData *TextSprite
+}
+
+type AnimationCharPreloadProperties struct {
+	Anim       int32      `ini:"anim" default:"-1" preload:"char"`
+	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
+	Offset     [2]float32 `ini:"offset"`
+	Facing     int32      `ini:"facing" default:"1"`
+	Scale      [2]float32 `ini:"scale" default:"1,1"`
+	Xshear     float32    `ini:"xshear"`
+	Angle      float32    `ini:"angle"`
+	Layerno    int16      `ini:"layerno" default:"1"`
+	Window     [4]int32   `ini:"window"`
+	Localcoord [2]int32   `ini:"localcoord"`
+	AnimData   *Anim
+	ApplyPal   bool `ini:"applypal" preload:"pal"`
+}
+
+type AnimationStagePreloadProperties struct {
+	Anim       int32      `ini:"anim" default:"-1" preload:"stage"`
+	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
+	Offset     [2]float32 `ini:"offset"`
+	Facing     int32      `ini:"facing" default:"1"`
+	Scale      [2]float32 `ini:"scale" default:"1,1"`
+	Xshear     float32    `ini:"xshear"`
+	Angle      float32    `ini:"angle"`
+	Layerno    int16      `ini:"layerno" default:"1"`
+	Window     [4]int32   `ini:"window"`
+	Localcoord [2]int32   `ini:"localcoord"`
+	AnimData   *Anim
+}
+
 type TextProperties struct {
 	Font           [8]int32   `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
 	Offset         [2]float32 `ini:"offset"`
@@ -157,6 +213,41 @@ type BoxCursorProperties struct {
 	//Palfx      PalFxProperties `ini:"palfx"`
 	RectData *Rect
 	Tween    TweenProperties `ini:"tween"`
+}
+
+type OverlayProperties struct {
+	Col        [3]int32 `ini:"col"`
+	Alpha      [2]int32 `ini:"alpha" default:"0,255"`
+	Layerno    int16    `ini:"layerno" default:"0"`
+	Window     [4]int32 `ini:"window"`
+	Localcoord [2]int32 `ini:"localcoord"`
+	RectData   *Rect
+}
+
+type BgDefProperties struct {
+	Sff            *Sff
+	BGDef          *BGDef
+	Spr            string   `ini:"spr"`
+	BgClearColor   [3]int32 `ini:"bgclearcolor" default:"-1,0,0"`
+	BgClearAlpha   [2]int32 `ini:"bgclearalpha" default:"255,0"`
+	BgClearLayerno int16    `ini:"bgclearlayerno" default:"0"`
+	DefaultLayer   int32    `ini:"defaultlayer" default:"0"`
+	Localcoord     [2]int32 `ini:"localcoord"`
+	RectData       *Rect
+}
+
+type GlyphProperties struct {
+	Spr    [2]int32   `ini:""` // default ini target: e.g. [Glyphs] ^3K = 63,0 -> Glyphs["^3K"].Spr = [63,0]
+	Offset [2]float32 `ini:"offset"`
+	//Facing     int32      `ini:"facing" default:"1"`
+	Scale [2]float32 `ini:"scale" default:"1,1"`
+	//Xshear     float32    `ini:"xshear"`
+	//Angle      float32    `ini:"angle"`
+	Layerno int16 `ini:"layerno" default:"1"`
+	//Window     [4]int32   `ini:"window"`
+	Localcoord [2]int32 `ini:"localcoord"`
+	AnimData   *Anim
+	Size       [2]int32 `lua:"Size"`
 }
 
 type MenuProperties struct {
@@ -226,62 +317,6 @@ type MenuProperties struct {
 	Itemname  map[string]string `ini:"itemname"`
 }
 
-type OverlayProperties struct {
-	Col        [3]int32 `ini:"col"`
-	Alpha      [2]int32 `ini:"alpha" default:"0,255"`
-	Layerno    int16    `ini:"layerno" default:"0"`
-	Window     [4]int32 `ini:"window"`
-	Localcoord [2]int32 `ini:"localcoord"`
-	RectData   *Rect
-}
-
-type TitleInfoProperties struct {
-	FadeIn  FadeProperties `ini:"fadein"`
-	FadeOut FadeProperties `ini:"fadeout"`
-	Title   TextProperties `ini:"title"`
-	Menu    MenuProperties `ini:"menu"`
-	Cursor  struct {
-		Move struct {
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
-		} `ini:"move"`
-		Done struct {
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
-		} `ini:"done"`
-		Snd map[string][2]int32 `ini:"snd"`
-	} `ini:"cursor"`
-	Cancel struct {
-		Snd [2]int32 `ini:"snd" default:"-1,0"`
-	} `ini:"cancel"`
-	Loading TextProperties `ini:"loading"`
-	Footer  struct {
-		Title   TextProperties    `ini:"title"`
-		Info    TextProperties    `ini:"info"`
-		Version TextProperties    `ini:"version"`
-		Overlay OverlayProperties `ini:"overlay"`
-	} `ini:"footer"`
-	Connecting struct {
-		Host    TextProperties    `ini:"host"`
-		Join    TextProperties    `ini:"join"`
-		Overlay OverlayProperties `ini:"overlay"`
-	} `ini:"connecting"`
-	TextInput struct {
-		TextMapProperties
-		Overlay OverlayProperties `ini:"overlay"`
-	} `ini:"textinput"`
-}
-
-type BgDefProperties struct {
-	Sff            *Sff
-	BGDef          *BGDef
-	Spr            string   `ini:"spr"`
-	BgClearColor   [3]int32 `ini:"bgclearcolor" default:"-1,0,0"`
-	BgClearAlpha   [2]int32 `ini:"bgclearalpha" default:"255,0"`
-	BgClearLayerno int16    `ini:"bgclearlayerno" default:"0"`
-	DefaultLayer   int32    `ini:"defaultlayer" default:"0"`
-	Localcoord     [2]int32 `ini:"localcoord"`
-	RectData       *Rect
-}
-
 type InfoBoxProperties struct {
 	Title   TextProperties    `ini:"title"`
 	Text    TextProperties    `ini:"text"`
@@ -332,38 +367,6 @@ type ItemProperties struct {
 	} `ini:"active2"`
 	Cursor    AnimationProperties `ini:"cursor"`    // only used by [Select Info].pX.teammenu.item
 	Uppercase bool                `ini:"uppercase"` // only used by [Hiscore Info].item.name
-}
-
-type AnimationTextProperties struct {
-	Anim           int32      `ini:"anim" default:"-1"`
-	Spr            [2]int32   `ini:"spr" default:"-1,0"`
-	Offset         [2]float32 `ini:"offset"`
-	Facing         int32      `ini:"facing" default:"1"`
-	Scale          [2]float32 `ini:"scale" default:"1,1"`
-	Xshear         float32    `ini:"xshear"`
-	Angle          float32    `ini:"angle"`
-	Layerno        int16      `ini:"layerno" default:"1"`
-	Window         [4]int32   `ini:"window"`
-	Localcoord     [2]int32   `ini:"localcoord"`
-	AnimData       *Anim
-	Font           [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-	Text           string   `ini:"text"`
-	TextSpriteData *TextSprite
-}
-
-type AnimationCharPreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"char"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
-	ApplyPal   bool `ini:"applypal" preload:"pal"`
 }
 
 type FaceProperties struct {
@@ -509,6 +512,105 @@ type TeamModesProperties struct {
 	Ratio  string `ini:"ratio"`
 }
 
+type ValueIconVsProperties struct {
+	AnimationProperties
+	Spacing [2]float32 `ini:"spacing"` // not used by value.empty.icon, only used by P1-P2
+}
+
+type PlayerVsProperties struct {
+	FaceProperties
+	Face2 FaceProperties `ini:"face2"`
+	Key   []string       `ini:"key"`
+	Name  struct {
+		TextProperties
+		Pos     [2]float32 `ini:"pos"`
+		Num     int32      `ini:"num"`     // only used by P1-P2
+		Spacing [2]float32 `ini:"spacing"` // only used by P1-P2
+	} `ini:"name"`
+	Icon struct {
+		AnimationProperties
+		Done AnimationProperties `ini:"done"`
+	} `ini:"icon"`
+	Value struct {
+		Icon  ValueIconVsProperties `ini:"icon"`
+		Empty struct {
+			Icon ValueIconVsProperties `ini:"icon"`
+		} `ini:"empty"`
+		Snd [2]int32 `ini:"snd" default:"-1,0"`
+	} `ini:"value"`
+}
+
+type PlayerVictoryProperties struct {
+	FaceProperties
+	Face2    FaceProperties `ini:"face2"`
+	Name     TextProperties `ini:"name"`
+	State    []int32        `ini:"state"`
+	Teammate struct {
+		State []int32 `ini:"state"`
+	} `ini:"teammate"`
+}
+
+type PlayerResultsProperties struct {
+	State []int32  `ini:"state"`
+	Win   struct { // not used by [Win Screen], [Time Attack Result Screen]
+		State []int32 `ini:"state"`
+	} `ini:"win"`
+	Teammate struct {
+		State []int32  `ini:"state"`
+		Win   struct { // not used by [Win Screen], [Time Attack Result Screen]
+			State []int32 `ini:"state"`
+		} `ini:"win"`
+	} `ini:"teammate"`
+}
+
+type PlayerDialogueProperties struct {
+	Bg   AnimationProperties `ini:"bg"`
+	Face AnimationProperties `ini:"face"`
+	Name TextProperties      `ini:"name"`
+	Text struct {
+		TextProperties
+		TextSpacing float32 `ini:"textspacing"`
+		TextDelay   int32   `ini:"textdelay"`
+		TextWrap    string  `ini:"textwrap"`
+	} `ini:"text"`
+	Active AnimationProperties `ini:"active"`
+}
+
+type TitleInfoProperties struct {
+	FadeIn  FadeProperties `ini:"fadein"`
+	FadeOut FadeProperties `ini:"fadeout"`
+	Title   TextProperties `ini:"title"`
+	Menu    MenuProperties `ini:"menu"`
+	Cursor  struct {
+		Move struct {
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
+		} `ini:"move"`
+		Done struct {
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
+		} `ini:"done"`
+		Snd map[string][2]int32 `ini:"snd"`
+	} `ini:"cursor"`
+	Cancel struct {
+		Snd [2]int32 `ini:"snd" default:"-1,0"`
+	} `ini:"cancel"`
+	Loading TextProperties `ini:"loading"`
+	Footer  struct {
+		Title   TextProperties    `ini:"title"`
+		Info    TextProperties    `ini:"info"`
+		Version TextProperties    `ini:"version"`
+		Overlay OverlayProperties `ini:"overlay"`
+	} `ini:"footer"`
+	Connecting struct {
+		Host    TextProperties    `ini:"host"`
+		Join    TextProperties    `ini:"join"`
+		Overlay OverlayProperties `ini:"overlay"`
+	} `ini:"connecting"`
+	TextInput struct {
+		TextMapProperties
+		Overlay OverlayProperties `ini:"overlay"`
+	} `ini:"textinput"`
+}
+
 type SelectInfoProperties struct {
 	FadeIn               FadeProperties `ini:"fadein"`
 	FadeOut              FadeProperties `ini:"fadeout"`
@@ -610,48 +712,6 @@ type SelectInfoProperties struct {
 	PaletteSelect int32           `ini:"paletteselect"`
 }
 
-type ValueIconVsProperties struct {
-	AnimationProperties
-	Spacing [2]float32 `ini:"spacing"` // not used by value.empty.icon, only used by P1-P2
-}
-
-type PlayerVsProperties struct {
-	FaceProperties
-	Face2 FaceProperties `ini:"face2"`
-	Key   []string       `ini:"key"`
-	Name  struct {
-		TextProperties
-		Pos     [2]float32 `ini:"pos"`
-		Num     int32      `ini:"num"`     // only used by P1-P2
-		Spacing [2]float32 `ini:"spacing"` // only used by P1-P2
-	} `ini:"name"`
-	Icon struct {
-		AnimationProperties
-		Done AnimationProperties `ini:"done"`
-	} `ini:"icon"`
-	Value struct {
-		Icon  ValueIconVsProperties `ini:"icon"`
-		Empty struct {
-			Icon ValueIconVsProperties `ini:"icon"`
-		} `ini:"empty"`
-		Snd [2]int32 `ini:"snd" default:"-1,0"`
-	} `ini:"value"`
-}
-
-type AnimationStagePreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"stage"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
-}
-
 type VsScreenProperties struct {
 	FadeIn      FadeProperties `ini:"fadein"`
 	FadeOut     FadeProperties `ini:"fadeout"`
@@ -715,6 +775,9 @@ type DemoModeProperties struct {
 	VsScreen struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"vsscreen"`
+	Cancel struct {
+		Key []string `ini:"key"`
+	} `ini:"cancel"`
 }
 
 type ContinueCounterProperties struct {
@@ -815,16 +878,6 @@ type StoryboardProperties struct {
 	Storyboard string `ini:"storyboard" lookup:"def,,data/"`
 }
 
-type PlayerVictoryProperties struct {
-	FaceProperties
-	Face2    FaceProperties `ini:"face2"`
-	Name     TextProperties `ini:"name"`
-	State    []int32        `ini:"state"`
-	Teammate struct {
-		State []int32 `ini:"state"`
-	} `ini:"teammate"`
-}
-
 type VictoryScreenProperties struct {
 	Enabled bool `ini:"enabled"`
 	Sounds  struct {
@@ -833,6 +886,9 @@ type VictoryScreenProperties struct {
 	Cpu struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"cpu"`
+	Vs struct {
+		Enabled bool `ini:"enabled"`
+	} `ini:"vs"`
 	Winner struct {
 		TeamKo struct {
 			Enabled bool `ini:"enabled"`
@@ -863,19 +919,6 @@ type VictoryScreenProperties struct {
 	P6 PlayerVictoryProperties `ini:"p6"`
 	P7 PlayerVictoryProperties `ini:"p7"`
 	P8 PlayerVictoryProperties `ini:"p8"`
-}
-
-type PlayerResultsProperties struct {
-	State []int32  `ini:"state"`
-	Win   struct { // not used by [Win Screen], [Time Attack Result Screen]
-		State []int32 `ini:"state"`
-	} `ini:"win"`
-	Teammate struct {
-		State []int32  `ini:"state"`
-		Win   struct { // not used by [Win Screen], [Time Attack Result Screen]
-			State []int32 `ini:"state"`
-		} `ini:"win"`
-	} `ini:"teammate"`
 }
 
 type WinScreenProperties struct {
@@ -1110,19 +1153,6 @@ type ChallengerInfoProperties struct {
 	Overlay OverlayProperties `ini:"overlay"`
 }
 
-type PlayerDialogueProperties struct {
-	Bg   AnimationProperties `ini:"bg"`
-	Face AnimationProperties `ini:"face"`
-	Name TextProperties      `ini:"name"`
-	Text struct {
-		TextProperties
-		TextSpacing float32 `ini:"textspacing"`
-		TextDelay   int32   `ini:"textdelay"`
-		TextWrap    string  `ini:"textwrap"`
-	} `ini:"text"`
-	Active AnimationProperties `ini:"active"`
-}
-
 type DialogueInfoProperties struct {
 	Enabled    bool  `ini:"enabled"`
 	StartTime  int32 `ini:"starttime"`
@@ -1188,12 +1218,13 @@ type HiscoreInfoProperties struct {
 		Snd  [2]int32 `ini:"snd" default:"-1,0"`
 		Time int32    `ini:"time"`
 	} `ini:"done"`
+	Cancel struct {
+		Key []string `ini:"key"`
+		Snd [2]int32 `ini:"snd" default:"-1,0"`
+	} `ini:"cancel"`
 	Move struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"move"`
-	Cancel struct {
-		Snd [2]int32 `ini:"snd" default:"-1,0"`
-	} `ini:"cancel"`
 	Glyphs []string `ini:"glyphs"`
 }
 
@@ -1207,20 +1238,6 @@ type WarningInfoProperties struct {
 	Done struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"done"`
-}
-
-type GlyphProperties struct {
-	Spr    [2]int32   `ini:""` // default ini target: e.g. [Glyphs] ^3K = 63,0 -> Glyphs["^3K"].Spr = [63,0]
-	Offset [2]float32 `ini:"offset"`
-	//Facing     int32      `ini:"facing" default:"1"`
-	Scale [2]float32 `ini:"scale" default:"1,1"`
-	//Xshear     float32    `ini:"xshear"`
-	//Angle      float32    `ini:"angle"`
-	Layerno int16 `ini:"layerno" default:"1"`
-	//Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32 `ini:"localcoord"`
-	AnimData   *Anim
-	Size       [2]int32 `lua:"Size"`
 }
 
 type Motif struct {
@@ -1298,6 +1315,34 @@ func hasUserKey(iniFile *ini.File, section, key string) bool {
 		return false
 	}
 	return sec.HasKey(key)
+}
+
+// preprocessINIContent removes or modifies specific sections before parsing.
+func preprocessINIContent(input string) string {
+	// Define a regex to find the [Infobox Text] section
+	infoboxRegex := regexp.MustCompile(`(?s)\[Infobox Text\]\n(.*?)(\n\[|$)`)
+	// Extract the content of [Infobox Text]
+	matches := infoboxRegex.FindStringSubmatch(input)
+	if len(matches) < 3 {
+		// If the section is not found, return the original input
+		return input
+	}
+	infoboxTextContent := matches[1]
+	// Process the extracted text
+	processedText := strings.TrimSpace(infoboxTextContent)
+	processedText = strings.ReplaceAll(processedText, "\n", `\n`)
+	// Resolve first two %s placeholders to Version and BuildTime
+	processedText = strings.Replace(processedText, "%s", Version, 1)
+	processedText = strings.Replace(processedText, "%s", BuildTime, 1)
+	// Create the new text.text line with an added newline at the end
+	newTextLine := fmt.Sprintf("\ttext.text = %s\n\n", processedText)
+	// Remove the [Infobox Text] section from the input
+	output := infoboxRegex.ReplaceAllString(input, "$2")
+	// Define a regex to find the [InfoBox] section header
+	infoBoxHeaderRegex := regexp.MustCompile(`(?m)(\[InfoBox\]\n)`)
+	// Insert the new text.text line right after the [InfoBox] header
+	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
+	return output
 }
 
 // applyCustomDefaults injects custom defaults.
@@ -1382,34 +1427,6 @@ func reserveUserFontSlots(m *Motif) {
 			}
 		}
 	}
-}
-
-// preprocessINIContent removes or modifies specific sections before parsing.
-func preprocessINIContent(input string) string {
-	// Define a regex to find the [Infobox Text] section
-	infoboxRegex := regexp.MustCompile(`(?s)\[Infobox Text\]\n(.*?)(\n\[|$)`)
-	// Extract the content of [Infobox Text]
-	matches := infoboxRegex.FindStringSubmatch(input)
-	if len(matches) < 3 {
-		// If the section is not found, return the original input
-		return input
-	}
-	infoboxTextContent := matches[1]
-	// Process the extracted text
-	processedText := strings.TrimSpace(infoboxTextContent)
-	processedText = strings.ReplaceAll(processedText, "\n", `\n`)
-	// Resolve first two %s placeholders to Version and BuildTime
-	processedText = strings.Replace(processedText, "%s", Version, 1)
-	processedText = strings.Replace(processedText, "%s", BuildTime, 1)
-	// Create the new text.text line with an added newline at the end
-	newTextLine := fmt.Sprintf("\ttext.text = %s\n\n", processedText)
-	// Remove the [Infobox Text] section from the input
-	output := infoboxRegex.ReplaceAllString(input, "$2")
-	// Define a regex to find the [InfoBox] section header
-	infoBoxHeaderRegex := regexp.MustCompile(`(?m)(\[InfoBox\]\n)`)
-	// Insert the new text.text line right after the [InfoBox] header
-	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
-	return output
 }
 
 // loadMotif loads and parses the INI file into a Motif struct.
@@ -1959,6 +1976,16 @@ func (m *Motif) overrideParams() {
 	//resolveInlineFonts(m.IniFile, m.Def, m.Fnt, m.fntIndexByKey, m.SetValueUpdate)
 }
 
+// Initialize struct
+func (m *Motif) initStruct() {
+	initMaps(reflect.ValueOf(m).Elem())
+	applyDefaultsToValue(reflect.ValueOf(m).Elem())
+	m.fadeIn = newFade()
+	m.fadeOut = newFade()
+	m.fadePolicy = FadeContinue
+	m.fntIndexByKey = make(map[string]int)
+}
+
 func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) {
 	if bgDef.Spr == "" || bgDef.Spr == spr || bgDef.Spr == m.Files.Spr {
 		bgDef.Sff = m.Sff
@@ -2114,29 +2141,197 @@ func (m *Motif) loadFiles() {
 	}
 }
 
-// Initialize struct
-func (m *Motif) initStruct() {
-	initMaps(reflect.ValueOf(m).Elem())
-	applyDefaultsToValue(reflect.ValueOf(m).Elem())
-	m.fadeIn = newFade()
-	m.fadeOut = newFade()
-	m.fadePolicy = FadeContinue
-	m.fntIndexByKey = make(map[string]int)
+func (m *Motif) populateDataPointers() {
+	PopulateDataPointers(m, m.Info.Localcoord)
 }
 
-// GetValue retrieves the value based on the query string.
-func (m *Motif) GetValue(query string) (interface{}, error) {
-	return GetValue(m, query)
+func (m *Motif) resolvePath() {
+	v := sys.cfg.Config.Motif
+	if x, ok := sys.cmdFlags["-r"]; ok {
+		v = x
+	} else if x, ok := sys.cmdFlags["-rubric"]; ok {
+		v = x
+	}
+
+	v = filepath.ToSlash(v)
+	lower := strings.ToLower(v)
+
+	if strings.HasPrefix(lower, "data/") {
+		if FileExist(v) != "" {
+			m.Def = v
+			return
+		}
+	}
+
+	if strings.HasSuffix(lower, ".def") {
+		if cand := SearchFile(v, []string{"data/"}); FileExist(cand) != "" {
+			m.Def = filepath.ToSlash(cand)
+			return
+		}
+	}
+
+	dir := filepath.ToSlash(filepath.Join("data", v)) + "/"
+	if cand := SearchFile("system.def", []string{dir}); FileExist(cand) != "" {
+		m.Def = filepath.ToSlash(cand)
+		return
+	}
+
+	m.Def = v
 }
 
-// SetValue sets the value based on the query string and updates the IniFile.
-func (m *Motif) SetValueUpdate(query string, value interface{}) error {
-	return SetValueUpdate(m, m.IniFile, query, value)
-}
+func (m *Motif) applyPostParsePosAdjustments() {
+	animSetPos := func(a *Anim, dx, dy float32) {
+		a.SetPos(a.offsetInit[0]+dx, a.offsetInit[1]+dy)
+	}
+	textSetPos := func(ts *TextSprite, dx, dy float32) {
+		ts.SetPos(ts.offsetInit[0]+dx, ts.offsetInit[1]+dy)
+	}
+	offsetAnims := func(dx, dy float32, anims ...*Anim) {
+		for _, a := range anims {
+			animSetPos(a, dx, dy)
+		}
+	}
+	offsetTexts := func(dx, dy float32, texts ...*TextSprite) {
+		for _, ts := range texts {
+			textSetPos(ts, dx, dy)
+		}
+	}
+	shiftMenu := func(me *MenuProperties) {
+		dx, dy := me.Pos[0], me.Pos[1]
+		// Arrows
+		offsetAnims(dx, dy, me.Arrow.Up.AnimData, me.Arrow.Down.AnimData)
+		// Common item texts
+		offsetTexts(dx, dy,
+			me.Item.TextSpriteData,
+			me.Item.Selected.TextSpriteData,
+			me.Item.Selected.Active.TextSpriteData,
+			me.Item.Active.TextSpriteData,
+			me.Item.Value.TextSpriteData,
+			me.Item.Value.Active.TextSpriteData,
+			// Extra fields some menus use:
+			me.Item.Value.Conflict.TextSpriteData,
+			me.Item.Info.TextSpriteData,
+			me.Item.Info.Active.TextSpriteData,
+		)
+		// Backgrounds
+		for _, ap := range me.Item.Bg {
+			animSetPos(ap.AnimData, dx, dy)
+		}
+		for _, ap := range me.Item.Active.Bg {
+			animSetPos(ap.AnimData, dx, dy)
+		}
+	}
+	adjustSelect := func(ps *PlayerSelectProperties) {
+		tm := &ps.TeamMenu
+		// TeamMenu backgrounds
+		for _, ap := range tm.Bg {
+			animSetPos(ap.AnimData, tm.Pos[0], tm.Pos[1])
+		}
+		for _, ap := range tm.Active.Bg {
+			animSetPos(ap.AnimData, tm.Pos[0], tm.Pos[1])
+		}
+		// Titles & base text
+		offsetAnims(tm.Pos[0], tm.Pos[1], tm.SelfTitle.AnimData, tm.EnemyTitle.AnimData)
+		offsetTexts(tm.Pos[0], tm.Pos[1], tm.SelfTitle.TextSpriteData, tm.EnemyTitle.TextSpriteData)
+		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData)
+		// Icons at (Pos + Item.Offset)
+		offX := tm.Pos[0] + tm.Item.Offset[0]
+		offY := tm.Pos[1] + tm.Item.Offset[1]
+		offsetAnims(offX, offY,
+			tm.Item.Cursor.AnimData,
+			tm.Value.Icon.AnimData,
+			tm.Value.Empty.Icon.AnimData,
+			tm.Ratio1.Icon.AnimData,
+			tm.Ratio2.Icon.AnimData,
+			tm.Ratio3.Icon.AnimData,
+			tm.Ratio4.Icon.AnimData,
+			tm.Ratio5.Icon.AnimData,
+			tm.Ratio6.Icon.AnimData,
+			tm.Ratio7.Icon.AnimData,
+		)
+		// Palette menu
+		pm := &ps.PalMenu
+		animSetPos(pm.Bg.AnimData, pm.Pos[0], pm.Pos[1])
+		offsetTexts(pm.Pos[0], pm.Pos[1], pm.Number.TextSpriteData, pm.Text.TextSpriteData)
 
-// Save writes the current IniFile to disk, preserving comments and syntax.
-func (m *Motif) Save(file string) error {
-	return SaveINI(m.IniFile, file)
+		// Face.Random and Face2.Random
+		offsetAnims(ps.Face.Pos[0], ps.Face.Pos[1], ps.Face.Random.AnimData)
+		offsetAnims(ps.Face2.Pos[0], ps.Face2.Pos[1], ps.Face2.Random.AnimData)
+	}
+
+	// Select Screen: Players
+	for _, ps := range []*PlayerSelectProperties{
+		&m.SelectInfo.P1, &m.SelectInfo.P2, &m.SelectInfo.P3, &m.SelectInfo.P4,
+		&m.SelectInfo.P5, &m.SelectInfo.P6, &m.SelectInfo.P7, &m.SelectInfo.P8,
+	} {
+		adjustSelect(ps)
+	}
+
+	// Select Screen: Stage portrait
+	{
+		st := &m.SelectInfo.Stage
+		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData, st.Portrait.Random.AnimData)
+		textSetPos(st.TextSpriteData, st.Pos[0], st.Pos[1])
+	}
+
+	// Menus
+	for _, me := range []*MenuProperties{
+		&m.TitleInfo.Menu,
+		&m.OptionInfo.Menu,
+		&m.ReplayInfo.Menu,
+		&m.AttractMode.Menu,
+		&m.MenuInfo.Menu,
+		&m.TrainingInfo.Menu,
+		&m.OptionInfo.KeyMenu.Menu,
+	} {
+		shiftMenu(me)
+	}
+
+	// KeyMenu
+	{
+		km := &m.OptionInfo.KeyMenu
+		textSetPos(km.P1.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P1.MenuOffset[0], km.Menu.Pos[1]+km.P1.MenuOffset[1])
+		textSetPos(km.P2.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P2.MenuOffset[0], km.Menu.Pos[1]+km.P2.MenuOffset[1])
+	}
+
+	// Movelists (MenuInfo, TrainingInfo)
+	{
+		mv := &m.MenuInfo.Movelist
+		offsetAnims(mv.Pos[0], mv.Pos[1], mv.Arrow.Up.AnimData, mv.Arrow.Down.AnimData)
+		offsetTexts(mv.Pos[0], mv.Pos[1], mv.Title.TextSpriteData, mv.Text.TextSpriteData)
+
+		mv2 := &m.TrainingInfo.Movelist
+		offsetAnims(mv2.Pos[0], mv2.Pos[1], mv2.Arrow.Up.AnimData, mv2.Arrow.Down.AnimData)
+		offsetTexts(mv2.Pos[0], mv2.Pos[1], mv2.Title.TextSpriteData, mv2.Text.TextSpriteData)
+	}
+
+	// VS Screen: player name positions
+	{
+		type namePos struct {
+			ts  *TextSprite
+			pos [2]float32
+		}
+		names := []namePos{
+			{m.VsScreen.P1.Name.TextSpriteData, m.VsScreen.P1.Name.Pos},
+			{m.VsScreen.P2.Name.TextSpriteData, m.VsScreen.P2.Name.Pos},
+			{m.VsScreen.P3.Name.TextSpriteData, m.VsScreen.P3.Name.Pos},
+			{m.VsScreen.P4.Name.TextSpriteData, m.VsScreen.P4.Name.Pos},
+			{m.VsScreen.P5.Name.TextSpriteData, m.VsScreen.P5.Name.Pos},
+			{m.VsScreen.P6.Name.TextSpriteData, m.VsScreen.P6.Name.Pos},
+			{m.VsScreen.P7.Name.TextSpriteData, m.VsScreen.P7.Name.Pos},
+			{m.VsScreen.P8.Name.TextSpriteData, m.VsScreen.P8.Name.Pos},
+		}
+		for _, n := range names {
+			textSetPos(n.ts, n.pos[0], n.pos[1])
+		}
+	}
+
+	// VS Screen: stage
+	{
+		st := &m.VsScreen.Stage
+		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData)
+		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData)
+	}
 }
 
 func (m *Motif) drawLoading() {
@@ -2182,8 +2377,19 @@ func (m *Motif) drawLoading() {
 	sys.runMainThreadTask()
 }
 
-func (m *Motif) populateDataPointers() {
-	PopulateDataPointers(m, m.Info.Localcoord)
+// GetValue retrieves the value based on the query string.
+func (m *Motif) GetValue(query string) (interface{}, error) {
+	return GetValue(m, query)
+}
+
+// SetValue sets the value based on the query string and updates the IniFile.
+func (m *Motif) SetValueUpdate(query string, value interface{}) error {
+	return SetValueUpdate(m, m.IniFile, query, value)
+}
+
+// Save writes the current IniFile to disk, preserving comments and syntax.
+func (m *Motif) Save(file string) error {
+	return SaveINI(m.IniFile, file)
 }
 
 func (m *Motif) button(btns []string, controllerNo int) bool {
@@ -2537,6 +2743,10 @@ func (m *Motif) act() {
 	}
 }
 
+func (m *Motif) setMotifScale(localcoord [2]int32) {
+	// not needed
+}
+
 func FormatTimeText(text string, totalSec float64) string {
 	h := int(totalSec / 3600)
 	m := int(totalSec/60) % 60
@@ -2554,195 +2764,2623 @@ func FormatTimeText(text string, totalSec float64) string {
 	return result
 }
 
-func (m *Motif) setMotifScale(localcoord [2]int32) {
-	// not needed
+type MotifMenu struct {
+	enabled     bool
+	active      bool
+	initialized bool
+	counter     int32
+	endTimer    int32
 }
 
-func (m *Motif) resolvePath() {
-	v := sys.cfg.Config.Motif
-	if x, ok := sys.cmdFlags["-r"]; ok {
-		v = x
-	} else if x, ok := sys.cmdFlags["-rubric"]; ok {
-		v = x
+func (me *MotifMenu) reset(m *Motif) {
+	me.active = false
+	me.initialized = false
+	me.endTimer = -1
+}
+
+func (me *MotifMenu) init(m *Motif) {
+	if !m.MenuInfo.Enabled || !me.enabled {
+		me.initialized = true
+		return
 	}
-
-	v = filepath.ToSlash(v)
-	lower := strings.ToLower(v)
-
-	if strings.HasPrefix(lower, "data/") {
-		if FileExist(v) != "" {
-			m.Def = v
-			return
-		}
-	}
-
-	if strings.HasSuffix(lower, ".def") {
-		if cand := SearchFile(v, []string{"data/"}); FileExist(cand) != "" {
-			m.Def = filepath.ToSlash(cand)
-			return
-		}
-	}
-
-	dir := filepath.ToSlash(filepath.Join("data", v)) + "/"
-	if cand := SearchFile("system.def", []string{dir}); FileExist(cand) != "" {
-		m.Def = filepath.ToSlash(cand)
+	if (!sys.esc && !m.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
 
-	m.Def = v
+	if err := sys.luaLState.DoString("menuInit()"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
+	}
+
+	m.MenuInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	me.counter = 0
+	me.active = true
+	me.initialized = true
 }
 
-func (m *Motif) applyPostParsePosAdjustments() {
-	animSetPos := func(a *Anim, dx, dy float32) {
-		a.SetPos(a.offsetInit[0]+dx, a.offsetInit[1]+dy)
+func (me *MotifMenu) step(m *Motif) {
+	if me.endTimer == -1 && (sys.keyInput == KeyUnknown || sys.endMatch) {
+		startFadeOut(m.MenuInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+		me.endTimer = me.counter + m.fadeOut.timeRemaining
 	}
-	textSetPos := func(ts *TextSprite, dx, dy float32) {
-		ts.SetPos(ts.offsetInit[0]+dx, ts.offsetInit[1]+dy)
+
+	// Check if the sequence has ended
+	if me.endTimer != -1 && me.counter >= me.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		me.active = false
+		me.reset(m)
+		sys.paused = false
+		return
 	}
-	offsetAnims := func(dx, dy float32, anims ...*Anim) {
-		for _, a := range anims {
-			animSetPos(a, dx, dy)
+
+	// Increment counter
+	me.counter++
+}
+
+func (me *MotifMenu) draw(m *Motif, layerno int16) {
+	if layerno == 2 {
+		//if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
+		//	sys.luaLState.RaiseError("Error executing Lua function: %v\n", err.Error())
+		//} else if !ok {
+		//	me.reset(m)
+		//}
+		if err := sys.luaLState.DoString("menuRun()"); err != nil {
+			sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
 		}
 	}
-	offsetTexts := func(dx, dy float32, texts ...*TextSprite) {
-		for _, ts := range texts {
-			textSetPos(ts, dx, dy)
-		}
+}
+
+type MotifChallenger struct {
+	enabled       bool
+	active        bool
+	initialized   bool
+	counter       int32
+	endTimer      int32
+	controllerNo  int
+	lifebarActive bool
+}
+
+func (ch *MotifChallenger) reset(m *Motif) {
+	ch.active = false
+	ch.initialized = false
+	ch.endTimer = -1
+	ch.controllerNo = -1
+}
+
+func (ch *MotifChallenger) init(m *Motif) {
+	if !m.ChallengerInfo.Enabled || !ch.enabled {
+		ch.initialized = true
+		return
 	}
-	shiftMenu := func(me *MenuProperties) {
-		dx, dy := me.Pos[0], me.Pos[1]
-		// Arrows
-		offsetAnims(dx, dy, me.Arrow.Up.AnimData, me.Arrow.Down.AnimData)
-		// Common item texts
-		offsetTexts(dx, dy,
-			me.Item.TextSpriteData,
-			me.Item.Selected.TextSpriteData,
-			me.Item.Selected.Active.TextSpriteData,
-			me.Item.Active.TextSpriteData,
-			me.Item.Value.TextSpriteData,
-			me.Item.Value.Active.TextSpriteData,
-			// Extra fields some menus use:
-			me.Item.Value.Conflict.TextSpriteData,
-			me.Item.Info.TextSpriteData,
-			me.Item.Info.Active.TextSpriteData,
+
+	controllerNo := m.buttonController(m.ChallengerInfo.Key)
+	if controllerNo == -1 || controllerNo == sys.chars[0][0].controller {
+		return
+	}
+	ch.controllerNo = controllerNo
+
+	if m.AttractMode.Enabled && sys.credits > 0 {
+		sys.credits--
+	}
+
+	ch.lifebarActive = sys.lifebar.active
+	sys.lifebar.active = false
+
+	m.ChallengerBgDef.BGDef.Reset()
+	m.ChallengerInfo.Bg.AnimData.Reset()
+
+	m.ChallengerInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	ch.counter = 0
+	ch.active = true
+	ch.initialized = true
+}
+
+func (ch *MotifChallenger) step(m *Motif) {
+	if ch.endTimer == -1 && ch.counter == m.ChallengerInfo.Time {
+		startFadeOut(m.ChallengerInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+		ch.endTimer = ch.counter + m.fadeOut.timeRemaining
+	}
+	sys.setGSF(GSF_nobardisplay)
+	sys.setGSF(GSF_nomusic)
+	sys.setGSF(GSF_timerfreeze)
+	if ch.counter == m.ChallengerInfo.Pause.Time {
+		sys.pausetime = m.ChallengerInfo.Time + m.ChallengerInfo.FadeOut.Time
+	}
+	if ch.counter == m.ChallengerInfo.Snd.Time {
+		m.Snd.play(m.ChallengerInfo.Snd.Snd, 100, 0, 0, 0, 0)
+	}
+	if ch.counter >= m.ChallengerInfo.Bg.Displaytime {
+		m.ChallengerInfo.Bg.AnimData.Update()
+	}
+
+	//if ch.endTimer != -1 && ch.counter + 2 >= ch.endTimer {
+	//	sys.endMatch = true
+	//}
+
+	// Check if the sequence has ended
+	if ch.endTimer != -1 && ch.counter >= ch.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		ch.active = false
+		sys.lifebar.active = ch.lifebarActive
+		sys.endMatch = true
+		return
+	}
+
+	// Increment counter
+	ch.counter++
+}
+
+func (ch *MotifChallenger) draw(m *Motif, layerno int16) {
+	m.ChallengerInfo.Overlay.RectData.Draw(layerno)
+	if m.ChallengerBgDef.BgClearColor[0] >= 0 {
+		m.ChallengerBgDef.RectData.Draw(layerno)
+	}
+	m.ChallengerBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	if ch.counter >= m.ChallengerInfo.Text.Displaytime {
+		m.ChallengerInfo.Text.TextSpriteData.Draw(layerno)
+	}
+	if ch.counter >= m.ChallengerInfo.Bg.Displaytime {
+		m.ChallengerInfo.Bg.AnimData.Draw(layerno)
+	}
+}
+
+type MotifContinue struct {
+	enabled     bool
+	active      bool
+	initialized bool
+	counter     int32
+	endTimer    int32
+	credits     int32
+	yesSide     bool
+	selected    bool
+	counts      []string
+	pn          int
+}
+
+func (co *MotifContinue) reset(m *Motif) {
+	sys.continueFlg = false
+	co.active = false
+	co.initialized = false
+	co.yesSide = true
+	co.selected = false
+	co.endTimer = -1
+}
+
+func (co *MotifContinue) extractAndSortKeysDescending(m *Motif) []string {
+	keys := make([]string, 0, len(m.ContinueScreen.Counter.MapCounts))
+	for key := range m.ContinueScreen.Counter.MapCounts {
+		keys = append(keys, key)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+	return keys
+}
+
+func (co *MotifContinue) updateCreditsText(m *Motif) {
+	formattedText := fmt.Sprintf(m.replaceFormatSpecifiers(m.ContinueScreen.Credits.Text), sys.credits)
+	m.ContinueScreen.Credits.TextSpriteData.text = formattedText
+	co.credits = sys.credits
+}
+
+func (co *MotifContinue) init(m *Motif) {
+	if (!m.ContinueScreen.Enabled || !co.enabled || sys.cfg.Options.QuickContinue) ||
+		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) {
+		co.initialized = true
+		return
+	}
+
+	co.pn = 1 // TODO: Initialize pn appropriately
+
+	// Extract and sort keys in descending order
+	co.counts = co.extractAndSortKeysDescending(m)
+
+	m.ContinueBgDef.BGDef.Reset()
+
+	m.ContinueScreen.Continue.TextSpriteData.Reset()
+	m.ContinueScreen.Continue.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
+
+	m.ContinueScreen.Yes.TextSpriteData.Reset()
+	m.ContinueScreen.Yes.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
+
+	m.ContinueScreen.Yes.Active.TextSpriteData.Reset()
+	m.ContinueScreen.Yes.Active.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
+
+	m.ContinueScreen.No.TextSpriteData.Reset()
+	m.ContinueScreen.No.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
+
+	m.ContinueScreen.No.Active.TextSpriteData.Reset()
+	m.ContinueScreen.No.Active.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
+
+	m.ContinueScreen.Counter.AnimData.Reset()
+	//m.ContinueScreen.Counter.AnimData.Update()
+
+	co.updateCreditsText(m)
+
+	// Handle state transitions
+	m.processStateTransitions(m.ContinueScreen.P2.State, m.ContinueScreen.P2.Teammate.State, m.ContinueScreen.P1.State, m.ContinueScreen.P1.Teammate.State)
+
+	co.yesSide = true
+
+	if m.ContinueScreen.Sounds.Enabled {
+		sys.clearAllSound()
+		sys.noSoundFlg = true
+	}
+
+	m.Music.Play("continue", sys.motif.Def, false)
+
+	m.ContinueScreen.FadeIn.FadeData.init(m.fadeIn, true)
+	co.counter = 0
+	co.active = true
+	co.initialized = true
+}
+
+func (co *MotifContinue) processSelection(m *Motif, continueSelected bool) {
+	cs := m.ContinueScreen
+	if continueSelected {
+		m.processStateTransitions(
+			cs.P2.Yes.State,
+			cs.P2.Teammate.Yes.State,
+			cs.P1.Yes.State,
+			cs.P1.Teammate.Yes.State,
 		)
-		// Backgrounds
-		for _, ap := range me.Item.Bg {
-			animSetPos(ap.AnimData, dx, dy)
+		sys.continueFlg = true
+		if sys.credits != -1 {
+			sys.credits--
 		}
-		for _, ap := range me.Item.Active.Bg {
-			animSetPos(ap.AnimData, dx, dy)
-		}
-	}
-	adjustSelect := func(ps *PlayerSelectProperties) {
-		tm := &ps.TeamMenu
-		// TeamMenu backgrounds
-		for _, ap := range tm.Bg {
-			animSetPos(ap.AnimData, tm.Pos[0], tm.Pos[1])
-		}
-		for _, ap := range tm.Active.Bg {
-			animSetPos(ap.AnimData, tm.Pos[0], tm.Pos[1])
-		}
-		// Titles & base text
-		offsetAnims(tm.Pos[0], tm.Pos[1], tm.SelfTitle.AnimData, tm.EnemyTitle.AnimData)
-		offsetTexts(tm.Pos[0], tm.Pos[1], tm.SelfTitle.TextSpriteData, tm.EnemyTitle.TextSpriteData)
-		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData)
-		// Icons at (Pos + Item.Offset)
-		offX := tm.Pos[0] + tm.Item.Offset[0]
-		offY := tm.Pos[1] + tm.Item.Offset[1]
-		offsetAnims(offX, offY,
-			tm.Item.Cursor.AnimData,
-			tm.Value.Icon.AnimData,
-			tm.Value.Empty.Icon.AnimData,
-			tm.Ratio1.Icon.AnimData,
-			tm.Ratio2.Icon.AnimData,
-			tm.Ratio3.Icon.AnimData,
-			tm.Ratio4.Icon.AnimData,
-			tm.Ratio5.Icon.AnimData,
-			tm.Ratio6.Icon.AnimData,
-			tm.Ratio7.Icon.AnimData,
+	} else {
+		m.processStateTransitions(
+			cs.P2.No.State,
+			cs.P2.Teammate.No.State,
+			cs.P1.No.State,
+			cs.P1.Teammate.No.State,
 		)
-		// Palette menu
-		pm := &ps.PalMenu
-		animSetPos(pm.Bg.AnimData, pm.Pos[0], pm.Pos[1])
-		offsetTexts(pm.Pos[0], pm.Pos[1], pm.Number.TextSpriteData, pm.Text.TextSpriteData)
-
-		// Face.Random and Face2.Random
-		offsetAnims(ps.Face.Pos[0], ps.Face.Pos[1], ps.Face.Random.AnimData)
-		offsetAnims(ps.Face2.Pos[0], ps.Face2.Pos[1], ps.Face2.Random.AnimData)
 	}
+	startFadeOut(m.ContinueScreen.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	co.endTimer = co.counter + m.fadeOut.timeRemaining
+	co.selected = true
+}
 
-	// Select Screen: Players
-	for _, ps := range []*PlayerSelectProperties{
-		&m.SelectInfo.P1, &m.SelectInfo.P2, &m.SelectInfo.P3, &m.SelectInfo.P4,
-		&m.SelectInfo.P5, &m.SelectInfo.P6, &m.SelectInfo.P7, &m.SelectInfo.P8,
-	} {
-		adjustSelect(ps)
-	}
-
-	// Select Screen: Stage portrait
-	{
-		st := &m.SelectInfo.Stage
-		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData, st.Portrait.Random.AnimData)
-		textSetPos(st.TextSpriteData, st.Pos[0], st.Pos[1])
-	}
-
-	// Menus
-	for _, me := range []*MenuProperties{
-		&m.TitleInfo.Menu,
-		&m.OptionInfo.Menu,
-		&m.ReplayInfo.Menu,
-		&m.AttractMode.Menu,
-		&m.MenuInfo.Menu,
-		&m.TrainingInfo.Menu,
-		&m.OptionInfo.KeyMenu.Menu,
-	} {
-		shiftMenu(me)
-	}
-
-	// KeyMenu
-	{
-		km := &m.OptionInfo.KeyMenu
-		textSetPos(km.P1.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P1.MenuOffset[0], km.Menu.Pos[1]+km.P1.MenuOffset[1])
-		textSetPos(km.P2.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P2.MenuOffset[0], km.Menu.Pos[1]+km.P2.MenuOffset[1])
-	}
-
-	// Movelists (MenuInfo, TrainingInfo)
-	{
-		mv := &m.MenuInfo.Movelist
-		offsetAnims(mv.Pos[0], mv.Pos[1], mv.Arrow.Up.AnimData, mv.Arrow.Down.AnimData)
-		offsetTexts(mv.Pos[0], mv.Pos[1], mv.Title.TextSpriteData, mv.Text.TextSpriteData)
-
-		mv2 := &m.TrainingInfo.Movelist
-		offsetAnims(mv2.Pos[0], mv2.Pos[1], mv2.Arrow.Up.AnimData, mv2.Arrow.Down.AnimData)
-		offsetTexts(mv2.Pos[0], mv2.Pos[1], mv2.Title.TextSpriteData, mv2.Text.TextSpriteData)
-	}
-
-	// VS Screen: player name positions
-	{
-		type namePos struct {
-			ts  *TextSprite
-			pos [2]float32
+func (co *MotifContinue) skipCounter(m *Motif) {
+	for _, key := range co.counts {
+		properties := m.ContinueScreen.Counter.MapCounts[key]
+		if co.counter < properties.SkipTime {
+			for co.counter < properties.SkipTime {
+				co.counter++
+				m.ContinueScreen.Counter.AnimData.Update()
+			}
+			break
 		}
-		names := []namePos{
-			{m.VsScreen.P1.Name.TextSpriteData, m.VsScreen.P1.Name.Pos},
-			{m.VsScreen.P2.Name.TextSpriteData, m.VsScreen.P2.Name.Pos},
-			{m.VsScreen.P3.Name.TextSpriteData, m.VsScreen.P3.Name.Pos},
-			{m.VsScreen.P4.Name.TextSpriteData, m.VsScreen.P4.Name.Pos},
-			{m.VsScreen.P5.Name.TextSpriteData, m.VsScreen.P5.Name.Pos},
-			{m.VsScreen.P6.Name.TextSpriteData, m.VsScreen.P6.Name.Pos},
-			{m.VsScreen.P7.Name.TextSpriteData, m.VsScreen.P7.Name.Pos},
-			{m.VsScreen.P8.Name.TextSpriteData, m.VsScreen.P8.Name.Pos},
+	}
+}
+
+func (co *MotifContinue) playCounterSounds(m *Motif) {
+	for _, key := range co.counts {
+		properties := m.ContinueScreen.Counter.MapCounts[key]
+		if co.counter == properties.SkipTime {
+			m.Snd.play(properties.Snd, 100, 0, 0, 0, 0)
+			break
 		}
-		for _, n := range names {
-			textSetPos(n.ts, n.pos[0], n.pos[1])
+	}
+}
+
+func (co *MotifContinue) step(m *Motif) {
+	if co.credits != sys.credits {
+		co.updateCreditsText(m)
+		if !co.selected {
+			co.counter = 0
+			m.ContinueScreen.Counter.AnimData.Reset()
 		}
 	}
 
-	// VS Screen: stage
-	{
-		st := &m.VsScreen.Stage
-		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData)
-		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData)
+	if !co.selected {
+		m.ContinueScreen.Counter.AnimData.Update()
+		if m.ContinueScreen.LegacyMode.Enabled {
+			if m.button(m.ContinueScreen.Move.Key, co.pn-1) {
+				m.Snd.play(m.ContinueScreen.Move.Snd, 100, 0, 0, 0, 0)
+				co.yesSide = !co.yesSide
+			} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) || m.button(m.ContinueScreen.Done.Key, co.pn-1) {
+				m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
+				co.processSelection(m, co.yesSide)
+			}
+		} else {
+			if co.counter < m.ContinueScreen.Counter.End.SkipTime {
+				if (sys.credits == -1 || sys.credits > 0) && m.button(m.ContinueScreen.Done.Key, co.pn-1) {
+					m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
+					co.processSelection(m, true)
+				} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) &&
+					co.counter >= m.ContinueScreen.Counter.StartTime+m.ContinueScreen.Counter.SkipStart {
+					co.skipCounter(m)
+				}
+				co.playCounterSounds(m)
+			} else if co.counter == m.ContinueScreen.Counter.End.SkipTime {
+				m.Snd.play(m.ContinueScreen.Counter.End.Snd, 100, 0, 0, 0, 0)
+				co.processSelection(m, false)
+			}
+		}
+	}
+
+	// Check if the sequence has ended
+	if co.selected && co.endTimer != -1 && co.counter >= co.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		co.active = false
+		if !m.ContinueScreen.Sounds.Enabled {
+			sys.noSoundFlg = false
+		}
+		return
+	}
+	// Increment counter
+	co.counter++
+}
+
+func (co *MotifContinue) drawLegacyMode(m *Motif, layerno int16) {
+	// Continue
+	m.ContinueScreen.Continue.TextSpriteData.Draw(layerno)
+	// Yes / No
+	if co.yesSide {
+		m.ContinueScreen.Yes.Active.TextSpriteData.Draw(layerno)
+		m.ContinueScreen.No.TextSpriteData.Draw(layerno)
+	} else {
+		m.ContinueScreen.Yes.TextSpriteData.Draw(layerno)
+		m.ContinueScreen.No.Active.TextSpriteData.Draw(layerno)
+	}
+}
+
+func (co *MotifContinue) draw(m *Motif, layerno int16) {
+	// Overlay
+	m.ContinueScreen.Overlay.RectData.Draw(layerno)
+	// Background
+	if m.ContinueBgDef.BgClearColor[0] >= 0 {
+		m.ContinueBgDef.RectData.Draw(layerno)
+	}
+	m.ContinueBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	// Mugen style
+	if m.ContinueScreen.LegacyMode.Enabled {
+		co.drawLegacyMode(m, layerno)
+	} else if !co.selected {
+		// Arcade style Counter
+		m.ContinueScreen.Counter.AnimData.Draw(layerno)
+	}
+	// Credits
+	if sys.credits != -1 && co.counter >= m.ContinueScreen.Counter.SkipStart {
+		m.ContinueScreen.Credits.TextSpriteData.Draw(layerno)
+	}
+}
+
+type MotifDemo struct {
+	enabled     bool
+	active      bool
+	initialized bool
+	counter     int32
+	endTimer    int32
+}
+
+func (de *MotifDemo) reset(m *Motif) {
+	de.active = false
+	de.initialized = false
+	de.endTimer = -1
+}
+
+func (de *MotifDemo) init(m *Motif) {
+	if !m.DemoMode.Enabled || !de.enabled || sys.gameMode != "demo" {
+		de.initialized = true
+		return
+	}
+
+	de.counter = 0
+
+	// Override lifebar fading
+	m.DemoMode.FadeIn.FadeData.init(sys.lifebar.ro.fadeIn, true)
+
+	de.active = true
+	de.initialized = true
+}
+
+func (de *MotifDemo) step(m *Motif) {
+	if de.endTimer == -1 {
+		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && m.button(m.DemoMode.Cancel.Key, -1))
+		if de.counter == m.DemoMode.Fight.EndTime || cancel {
+			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, cancel, m.fadePolicy)
+			de.endTimer = de.counter + sys.lifebar.ro.fadeOut.timeRemaining
+		}
+	}
+
+	// Check if the sequence has ended
+	if de.endTimer != -1 && de.counter >= de.endTimer {
+		if sys.lifebar.ro.fadeOut != nil {
+			sys.lifebar.ro.fadeOut.reset()
+		}
+		de.active = false
+		sys.endMatch = true
+		return
+	}
+
+	// Increment counter
+	de.counter++
+}
+
+func (de *MotifDemo) draw(m *Motif, layerno int16) {
+	// nothing to draw, may be expanded in future
+}
+
+// MotifDialogue is the top-level container for storing parsed dialogue data.
+type MotifDialogue struct {
+	enabled           bool
+	active            bool
+	initialized       bool
+	counter           int32
+	char              *Char
+	faceParams        [2]FaceParams
+	parsed            []DialogueParsedLine
+	textNum           int
+	lineFullyRendered bool
+	charDelayCounter  int32
+	activeSide        int
+	wait              int
+	switchCounter     int
+	endCounter        int
+}
+
+type FaceParams struct {
+	grp int
+	idx int
+	pn  int
+}
+
+type DialogueParsedLine struct {
+	side     int
+	text     string
+	tokens   map[int][]DialogueToken
+	typedCnt int
+}
+
+type DialogueToken struct {
+	param       string
+	side        int
+	redirection string
+	pn          int
+	value       []interface{}
+}
+
+func (di *MotifDialogue) dialogueRedirection(redirect string) int {
+	var redirection, val string
+	if parts := strings.SplitN(redirect, "(", 2); len(parts) == 2 {
+		redirection = strings.ToLower(strings.TrimSpace(parts[0]))
+		val = strings.TrimSpace(strings.TrimSuffix(parts[1], ")"))
+	} else {
+		redirection = strings.ToLower(strings.TrimSpace(redirect))
+	}
+	switch redirection {
+	case "self":
+		return di.char.playerNo + 1
+	case "playerno":
+		pn := int(Atoi(val))
+		if pn >= 1 && pn <= len(sys.chars) && len(sys.chars[pn-1]) > 0 {
+			return pn
+		}
+	case "partner":
+		if val == "" {
+			val = "0"
+		}
+		partnerNum := Atoi(val)
+		if partner := di.char.partner(partnerNum, true); partner != nil {
+			return partner.playerNo + 1
+		}
+	case "enemy":
+		if val == "" {
+			val = "0"
+		}
+		enemyNum := Atoi(val)
+		if enemy := di.char.enemy(enemyNum); enemy != nil {
+			return enemy.playerNo + 1
+		}
+	case "enemyname":
+		for i := int32(0); i < di.char.numEnemy(); i++ {
+			if enemy := di.char.enemy(i); enemy != nil {
+				if strings.EqualFold(enemy.name, val) {
+					return enemy.playerNo + 1
+				}
+			}
+		}
+	case "partnername":
+		for i := int32(0); i < di.char.numPartner(); i++ {
+			if partner := di.char.partner(i, false); partner != nil {
+				if strings.EqualFold(partner.name, val) {
+					return partner.playerNo + 1
+				}
+			}
+		}
+	default:
+	}
+	return -1
+}
+
+func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
+	tag = strings.TrimSpace(tag)
+	pOnlyRe := regexp.MustCompile(`^p(\d+)$`)
+	if pOnlyRe.MatchString(tag) {
+		matches := pOnlyRe.FindStringSubmatch(tag)
+		if len(matches) == 2 {
+			pnValue, _ := strconv.Atoi(matches[1])
+			return []DialogueToken{{
+				param: "p",
+				side:  -1,
+				pn:    pnValue,
+			}}
+		}
+	}
+	equalIndex := strings.Index(tag, "=")
+	if equalIndex == -1 {
+		return nil
+	}
+	paramPart := tag[:equalIndex]
+	valuePart := tag[equalIndex+1:]
+	side := -1
+	param := paramPart
+	redirection := ""
+	pn := -1
+	numValues := []interface{}{}
+	pPrefixRe := regexp.MustCompile(`^p(\d+)([a-zA-Z]+)$`)
+	if pPrefixRe.MatchString(paramPart) {
+		subMatches := pPrefixRe.FindStringSubmatch(paramPart)
+		if len(subMatches) == 3 {
+			s, _ := strconv.Atoi(subMatches[1])
+			side = s
+			param = subMatches[2]
+		}
+	}
+	parts := strings.Split(valuePart, ",")
+	if len(parts) > 0 {
+		if _, err := strconv.Atoi(parts[0]); err != nil {
+			redirection = parts[0]
+			parts = parts[1:]
+		}
+		for _, p := range parts {
+			if val, err := strconv.ParseFloat(p, 32); err == nil {
+				numValues = append(numValues, float32(val))
+			} else {
+				numValues = append(numValues, p)
+			}
+		}
+		pn = di.dialogueRedirection(redirection)
+	}
+	return []DialogueToken{{
+		param:       param,
+		side:        side,
+		redirection: redirection,
+		pn:          pn,
+		value:       numValues,
+	}}
+}
+
+func (di *MotifDialogue) parseLine(line string) DialogueParsedLine {
+	side := -1
+	re := regexp.MustCompile(`<([^>]+)>`)
+	var finalText strings.Builder
+	tokensMap := make(map[int][]DialogueToken)
+	offset := 0
+	pos := 0
+	matches := re.FindAllStringIndex(line, -1)
+	for _, match := range matches {
+		startIdx := match[0]
+		endIdx := match[1]
+		if startIdx > pos {
+			substr := line[pos:startIdx]
+			finalText.WriteString(substr)
+			offset += utf8.RuneCountInString(substr)
+		}
+		tokenContent := line[startIdx+1 : endIdx-1]
+		parsedTokens := di.parseTag(tokenContent)
+		if len(parsedTokens) == 1 && parsedTokens[0].param == "p" && parsedTokens[0].pn != -1 {
+			side = parsedTokens[0].pn
+		} else {
+			for _, tkn := range parsedTokens {
+				tokensMap[offset] = append(tokensMap[offset], tkn)
+			}
+		}
+		pos = endIdx
+	}
+	if pos < len(line) {
+		substr := line[pos:]
+		finalText.WriteString(substr)
+		offset += utf8.RuneCountInString(substr)
+	}
+	return DialogueParsedLine{
+		side:     side,
+		text:     strings.TrimSpace(finalText.String()),
+		tokens:   tokensMap,
+		typedCnt: 0,
+	}
+}
+
+func (di *MotifDialogue) parseAll(lines []string) []DialogueParsedLine {
+	var result []DialogueParsedLine
+	for _, line := range lines {
+		parsedLine := di.parseLine(line)
+		result = append(result, parsedLine)
+	}
+	return result
+}
+
+func (di *MotifDialogue) preprocessNames(lines []string) []string {
+	result := make([]string, len(lines))
+	nameRe := regexp.MustCompile(`<(displayname|name)=([^>]+)>`)
+	for i, line := range lines {
+		newLine := line
+		for {
+			loc := nameRe.FindStringSubmatchIndex(newLine)
+			if loc == nil {
+				break
+			}
+			fullMatch := newLine[loc[0]:loc[1]]
+			paramType := newLine[loc[2]:loc[3]]
+			redirectionValue := newLine[loc[4]:loc[5]]
+			resolvedPn := di.dialogueRedirection(redirectionValue)
+			replacementText := ""
+			if resolvedPn != -1 {
+				if paramType == "displayname" {
+					replacementText = sys.chars[resolvedPn-1][0].gi().displayname
+				} else {
+					replacementText = sys.chars[resolvedPn-1][0].name
+				}
+			}
+			newLine = strings.Replace(newLine, fullMatch, replacementText, 1)
+		}
+		result[i] = newLine
+	}
+	return result
+}
+
+func (di *MotifDialogue) getDialogueLines() ([]string, int, error) {
+	pn := sys.dialogueForce
+	if pn != 0 && (pn < 1 || pn > MaxSimul*2+MaxAttachedChar) {
+		return nil, 0, fmt.Errorf("invalid player number: %v", pn)
+	}
+	if pn == 0 {
+		var validPlayers []int
+		for i, p := range sys.chars {
+			if len(p) > 0 && len(p[0].dialogue) > 0 {
+				validPlayers = append(validPlayers, i+1)
+			}
+		}
+		if len(validPlayers) > 0 {
+			pn = validPlayers[rand.Int()%len(validPlayers)]
+		}
+	}
+	lines := []string{}
+	if pn >= 1 && pn <= len(sys.chars) && len(sys.chars[pn-1]) > 0 {
+		for _, line := range sys.chars[pn-1][0].dialogue {
+			lines = append(lines, line)
+		}
+	}
+	return lines, pn, nil
+}
+
+// reset re-initializes certain state and animations.
+func (di *MotifDialogue) reset(m *Motif) {
+	di.active = false
+	di.initialized = false
+	di.counter = 0
+	di.textNum = 0
+	di.wait = 0
+	di.lineFullyRendered = false
+	di.charDelayCounter = 0
+	di.switchCounter = 0
+	di.endCounter = 0
+
+	m.DialogueInfo.P1.Bg.AnimData.Reset()
+	m.DialogueInfo.P2.Bg.AnimData.Reset()
+	m.DialogueInfo.P1.Face.AnimData.Reset()
+	m.DialogueInfo.P2.Face.AnimData.Reset()
+	m.DialogueInfo.P1.Active.AnimData.Reset()
+	m.DialogueInfo.P2.Active.AnimData.Reset()
+
+	m.DialogueInfo.P1.Text.TextSpriteData.text = ""
+	m.DialogueInfo.P2.Text.TextSpriteData.text = ""
+	// Dialogue uses its own typewriter logic, so disable the internal TextSprite typing.
+	m.DialogueInfo.P1.Text.TextSpriteData.textDelay = 0
+	m.DialogueInfo.P2.Text.TextSpriteData.textDelay = 0
+}
+
+func (di *MotifDialogue) clear(m *Motif) {
+	for _, p := range sys.chars {
+		if len(p) > 0 {
+			p[0].dialogue = nil
+		}
+	}
+	di.initialized = false
+	sys.dialogueForce = 0
+	sys.dialogueBarsFlg = false
+	m.DialogueInfo.P1.Face.AnimData.anim = nil
+	m.DialogueInfo.P2.Face.AnimData.anim = nil
+}
+
+func (di *MotifDialogue) init(m *Motif) {
+	if !m.DialogueInfo.Enabled || !di.enabled {
+		di.initialized = true
+		return
+	}
+
+	di.reset(m)
+
+	lines, pn, _ := di.getDialogueLines()
+	di.char = sys.chars[pn-1][0]
+
+	lines = di.preprocessNames(lines)
+	di.parsed = di.parseAll(lines)
+
+	/*for i, line := range di.parsed {
+		fmt.Printf("\nLine %d, side=%d\nText: %q\nTokens:\n", i+1, line.side, line.text)
+		for textPos, tokens := range line.tokens {
+			for _, t := range tokens {
+				fmt.Printf("  atPos=%d  -> Param=%q Side=%d Redir=%q Pn=%d Value=%v\n",
+					textPos, t.param, t.side, t.redirection, t.pn, t.value)
+			}
+		}
+	}*/
+
+	di.active = true
+	di.initialized = true
+}
+
+// applyTokens checks and applies tokens at the current typed length in the text.
+func (di *MotifDialogue) applyTokens(m *Motif, line *DialogueParsedLine) {
+	typedLen := int(line.typedCnt)
+	runeCount := utf8.RuneCountInString(line.text)
+	if typedLen > runeCount {
+		typedLen = runeCount
+	}
+
+	for i := 0; i <= typedLen; i++ {
+		if tokenList, exists := line.tokens[i]; exists && len(tokenList) > 0 {
+			for idx := len(tokenList) - 1; idx >= 0; idx-- {
+				token := tokenList[idx]
+				applied := di.applyToken(m, line, token, i)
+				if applied {
+					// remove token
+					tokenList = append(tokenList[:idx], tokenList[idx+1:]...)
+				}
+			}
+			line.tokens[i] = tokenList
+		}
+	}
+}
+
+// setFace changes the face anim for the given side.
+func (di *MotifDialogue) setFace(pn, grp, idx int) *Animation {
+	if pn < 1 || pn > len(sys.chars) || len(sys.chars[pn-1]) == 0 {
+		return nil
+	}
+	c := sys.chars[pn-1][0]
+	a := NewAnim(nil, "")
+	var ok bool
+	if sp := c.gi().sff.GetSprite(uint16(grp), uint16(idx)); sp != nil {
+		action := fmt.Sprintf("%d, %d, 0, 0, -1", grp, idx)
+		a = NewAnim(c.gi().sff, action)
+		ok = (a != nil)
+	} else if grp >= 0 && idx == -1 {
+		if a.anim = c.gi().animTable.get(int32(grp)); a.anim != nil {
+			ok = true
+		}
+	}
+	if ok {
+		a.palfx = c.getPalfx()
+		return a.anim
+	}
+	return nil
+}
+
+// applyToken handles the application of a single DialogueToken.
+// Returns true if the token should be removed after application.
+func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token DialogueToken, index int) bool {
+	switch token.param {
+	case "clear":
+		line.text = ""
+	case "wait":
+		if len(token.value) > 0 {
+			if waitFrames, ok := token.value[0].(float32); ok {
+				di.wait = int(waitFrames)
+			}
+		}
+		return true
+	case "face":
+		if token.side == 1 || token.side == 2 {
+			if len(token.value) >= 1 {
+				if v1, ok := token.value[0].(float32); ok {
+					grp := int(v1)
+					idx := -1
+					if len(token.value) >= 2 {
+						if v2, ok := token.value[1].(float32); ok {
+							idx = int(v2)
+						}
+					}
+					if di.faceParams[token.side-1].pn != token.pn || di.faceParams[token.side-1].grp != grp ||
+						di.faceParams[token.side-1].idx != idx {
+						if anim := di.setFace(token.pn, grp, idx); anim != nil {
+							if token.side == 1 {
+								m.DialogueInfo.P2.Face.AnimData.anim = anim
+							} else if token.side == 2 {
+								m.DialogueInfo.P1.Face.AnimData.anim = anim
+							}
+							di.faceParams[token.side-1].pn = token.pn
+							di.faceParams[token.side-1].grp = grp
+							di.faceParams[token.side-1].idx = idx
+						}
+					}
+				}
+			}
+		}
+		return true
+	case "name":
+		if token.pn != -1 {
+			name := sys.chars[token.pn-1][0].gi().displayname
+			if token.side == 1 {
+				m.DialogueInfo.P1.Name.TextSpriteData.text = name
+			} else if token.side == 2 {
+				m.DialogueInfo.P2.Name.TextSpriteData.text = name
+			}
+		} else if name, ok := token.value[0].(string); ok {
+			m.DialogueInfo.P2.Name.TextSpriteData.text = name
+		}
+		return true
+	case "sound":
+		if len(token.value) >= 2 {
+			f, lw, lp, stopgh, stopcs := false, false, false, false, false
+			var g, n, ch, vo, priority, lc int32 = -1, 0, -1, 100, 0, 0
+			var loopstart, loopend, startposition int = 0, 0, 0
+			var p, fr float32 = 0, 1
+			x := &sys.chars[token.pn-1][0].pos[0]
+			ls := sys.chars[token.pn-1][0].localscl
+			prefix := ""
+			if f {
+				prefix = "f"
+			}
+			if v1, ok1 := token.value[0].(float32); ok1 {
+				g = int32(v1)
+				if v2, ok2 := token.value[1].(float32); ok2 {
+					n = int32(v2)
+					if len(token.value) >= 3 {
+						if v3, ok3 := token.value[2].(float32); ok3 {
+							vo = int32(v3)
+						}
+					}
+				}
+			}
+			if lc == 0 {
+				if lp {
+					sys.chars[token.pn-1][0].playSound(prefix, lw, -1, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+				} else {
+					sys.chars[token.pn-1][0].playSound(prefix, lw, 0, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+				}
+				// Otherwise, read the loopcount parameter directly
+			} else {
+				sys.chars[token.pn-1][0].playSound(prefix, lw, lc, g, n, ch, vo, p, fr, ls, x, false, priority, loopstart, loopend, startposition, stopgh, stopcs)
+			}
+		}
+		return true
+	case "anim":
+		if len(token.value) >= 1 {
+			if v, ok := token.value[0].(float32); ok {
+				animNo := int32(v)
+				if sys.chars[token.pn-1][0].selfAnimExist(BytecodeInt(animNo)) == BytecodeBool(true) {
+					sys.chars[token.pn-1][0].changeAnim(animNo, token.pn-1, -1, "")
+				}
+			}
+		}
+		return true
+	case "state":
+		if len(token.value) >= 1 {
+			if v, ok := token.value[0].(float32); ok {
+				stateNo := int32(v)
+				if stateNo == -1 {
+					for _, ch := range sys.chars[token.pn-1] {
+						ch.setSCF(SCF_disabled)
+					}
+				} else if sys.chars[token.pn-1][0].selfStatenoExist(BytecodeInt(stateNo)) == BytecodeBool(true) {
+					for _, ch := range sys.chars[token.pn-1] {
+						if ch.scf(SCF_disabled) {
+							ch.unsetSCF(SCF_disabled)
+						}
+					}
+					sys.chars[token.pn-1][0].changeState(int32(stateNo), -1, -1, "")
+				}
+			}
+			return true
+		}
+		return true
+	case "map":
+		if len(token.value) >= 2 {
+			mapName, ok1 := token.value[0].(string)
+			mapVal, ok2 := token.value[1].(float32)
+			if !ok1 || !ok2 {
+				return false
+			}
+			mapOp := int32(0)
+			if len(token.value) >= 3 {
+				if op, ok3 := token.value[2].(string); ok3 && op == "add" {
+					mapOp = 1
+				}
+			}
+			sys.chars[token.pn-1][0].mapSet(mapName, mapVal, mapOp)
+		}
+		return true
+	default:
+		// Unrecognized token parameter.
+	}
+	return false
+}
+
+// step processes dialogue state each frame, handling timing, skipping, cancel, wrapping, etc.
+func (di *MotifDialogue) step(m *Motif) {
+	// If we have no lines, do nothing
+	if len(di.parsed) == 0 {
+		return
+	}
+
+	// If user presses "cancel", end the dialogue
+	if m.button(m.DialogueInfo.Cancel.Key, -1) {
+		di.active = false
+		di.clear(m)
+		return
+	}
+
+	// Update any background/face/active animations
+	m.DialogueInfo.P1.Bg.AnimData.Update()
+	m.DialogueInfo.P2.Bg.AnimData.Update()
+	m.DialogueInfo.P1.Face.AnimData.Update()
+	m.DialogueInfo.P2.Face.AnimData.Update()
+	if di.activeSide == 1 {
+		m.DialogueInfo.P1.Active.AnimData.Update()
+	} else if di.activeSide == 2 {
+		m.DialogueInfo.P2.Active.AnimData.Update()
+	}
+
+	// Check if we haven't reached StartTime yet
+	if di.counter < m.DialogueInfo.StartTime {
+		di.counter++
+		return
+	}
+
+	// Check if we've gone past all lines
+	if di.textNum >= len(di.parsed) {
+		// If we haven't started EndCounter yet, do so
+		if di.endCounter == 0 {
+			di.endCounter = int(m.DialogueInfo.EndTime)
+		} else {
+			di.endCounter--
+			if di.endCounter <= 0 {
+				// Done
+				di.active = false
+				di.clear(m)
+				return
+			}
+		}
+		di.counter++
+		return
+	}
+
+	// We have a valid line to render
+	currentLine := &di.parsed[di.textNum]
+	di.activeSide = currentLine.side
+	prevLineFullyRendered := di.lineFullyRendered
+
+	// Handle "skip" key (only after SkipTime)
+	if di.counter >= m.DialogueInfo.SkipTime {
+		if m.button(m.DialogueInfo.Skip.Key, -1) {
+			if !di.lineFullyRendered {
+				currentLine.typedCnt = utf8.RuneCountInString(currentLine.text)
+				di.lineFullyRendered = true
+				di.switchCounter = 0
+				di.wait = 0
+			} else {
+				// If line is already fully rendered => move to next line
+				di.advanceLine(m)
+				return
+			}
+		}
+	}
+
+	// Determine the per-character delay for this side
+	var charDelay float32
+	if currentLine.side == 1 {
+		charDelay = float32(m.DialogueInfo.P1.Text.TextDelay)
+	} else if currentLine.side == 2 {
+		charDelay = float32(m.DialogueInfo.P2.Text.TextDelay)
+	} else {
+		charDelay = 1
+	}
+
+	// Handle any explicit token-based wait
+	if di.wait > 0 {
+		di.wait--
+	} else if !di.lineFullyRendered {
+		// Otherwise, reveal letters one by one
+		StepTypewriter(
+			currentLine.text,
+			&currentLine.typedCnt,
+			&di.charDelayCounter,
+			&di.lineFullyRendered,
+			charDelay,
+		)
+	}
+
+	// Apply any tokens for newly revealed characters
+	di.applyTokens(m, currentLine)
+
+	// Clamp typedLen so it doesn't exceed the line length
+	typedLen := currentLine.typedCnt
+	runeCount := utf8.RuneCountInString(currentLine.text)
+	if typedLen > runeCount {
+		typedLen = runeCount
+	}
+
+	// If we've just finished the line
+	if typedLen >= runeCount && !prevLineFullyRendered {
+		di.lineFullyRendered = true // StepTypewriter already set this, but keep explicit.
+		di.switchCounter = 0
+	}
+
+	// If line is fully rendered, handle auto-switch after SwitchTime
+	if di.lineFullyRendered {
+		di.switchCounter++
+		if di.switchCounter >= int(m.DialogueInfo.SwitchTime) {
+			di.advanceLine(m)
+			return
+		}
+	}
+
+	if currentLine.side == 1 {
+		m.DialogueInfo.P1.Text.TextSpriteData.wrapText(currentLine.text, typedLen)
+		m.DialogueInfo.P1.Text.TextSpriteData.Update()
+	} else if currentLine.side == 2 {
+		m.DialogueInfo.P2.Text.TextSpriteData.wrapText(currentLine.text, typedLen)
+		m.DialogueInfo.P2.Text.TextSpriteData.Update()
+	}
+
+	// Finally increment the global frame counter
+	di.counter++
+}
+
+// advanceLine moves to the next line, clearing or preserving text depending on side.
+func (di *MotifDialogue) advanceLine(m *Motif) {
+	// Clear text if next line uses the same side; preserve if different side
+	currentSide := -1
+	if di.textNum < len(di.parsed) {
+		currentSide = di.parsed[di.textNum].side
+	}
+
+	di.textNum++
+	if di.textNum < len(di.parsed) {
+		nextSide := di.parsed[di.textNum].side
+		if nextSide == currentSide {
+			// Same side => replace text with the new line, so clear now
+			if currentSide == 1 {
+				m.DialogueInfo.P1.Text.TextSpriteData.text = ""
+			} else if currentSide == 2 {
+				m.DialogueInfo.P2.Text.TextSpriteData.text = ""
+			}
+		}
+	} else {
+		// If we're out of lines, text is presumably done
+	}
+
+	// Reset state
+	di.lineFullyRendered = false
+	di.switchCounter = 0
+	di.wait = 0
+	di.charDelayCounter = 0
+}
+
+// draw renders the dialogue on the screen based on the current state.
+func (di *MotifDialogue) draw(m *Motif, layerno int16) {
+	// BG
+	m.DialogueInfo.P1.Bg.AnimData.Draw(layerno)
+	m.DialogueInfo.P2.Bg.AnimData.Draw(layerno)
+
+	// If we haven't reached StartTime yet, or no lines, skip drawing text
+	if di.counter < m.DialogueInfo.StartTime || len(di.parsed) == 0 {
+		return
+	}
+
+	// Names
+	m.DialogueInfo.P1.Name.TextSpriteData.Draw(layerno)
+	m.DialogueInfo.P2.Name.TextSpriteData.Draw(layerno)
+
+	// Faces
+	m.DialogueInfo.P1.Face.AnimData.Draw(layerno)
+	m.DialogueInfo.P2.Face.AnimData.Draw(layerno)
+
+	// Text
+	m.DialogueInfo.P1.Text.TextSpriteData.Draw(layerno)
+	m.DialogueInfo.P2.Text.TextSpriteData.Draw(layerno)
+
+	// Active anim highlight
+	if di.activeSide == 1 {
+		m.DialogueInfo.P1.Active.AnimData.Draw(layerno)
+	} else if di.activeSide == 2 {
+		m.DialogueInfo.P2.Active.AnimData.Draw(layerno)
+	}
+}
+
+type MotifHiscore struct {
+	enabled     bool
+	active      bool
+	initialized bool
+	counter     int32
+	endTimer    int32
+	place       int32
+	mode        string
+	rows        []rankingRow
+	statsRaw    string
+
+	// Active-row blink state (Rank / Result / Name)
+	rankActiveCount   int32
+	resultActiveCount int32
+	nameActiveCount   int32
+	rankUseActive2    bool
+	resultUseActive2  bool
+	nameUseActive2    bool
+
+	// Name entry & timer
+	input       bool  // true while entering name
+	letters     []int // 1-based indices into glyph list
+	timerCount  int32 // remaining displayed timer count
+	timerFrames int32 // frames left until next decrement
+	haveSaved   bool  // true once we've persisted the entered name
+}
+
+// rankingRow is a minimal container built from dynamic JSON (no static decode).
+type rankingRow struct {
+	score int
+	time  float64
+	win   int
+	name  string
+	pals  []int32
+	chars []string
+	bgs   []*Anim
+	faces []*Anim
+
+	rankData          *TextSprite
+	resultData        *TextSprite
+	nameData          *TextSprite
+	rankDataActive    *TextSprite
+	rankDataActive2   *TextSprite
+	resultDataActive  *TextSprite
+	resultDataActive2 *TextSprite
+	nameDataActive    *TextSprite
+	nameDataActive2   *TextSprite
+}
+
+func (hi *MotifHiscore) reset(m *Motif) {
+	hi.active = false
+	hi.initialized = false
+	hi.endTimer = -1
+	hi.counter = 0
+	hi.place = 0
+	hi.mode = ""
+	hi.rankActiveCount, hi.resultActiveCount, hi.nameActiveCount = 0, 0, 0
+	hi.rankUseActive2, hi.resultUseActive2, hi.nameUseActive2 = false, false, false
+	hi.rows = nil
+	hi.input = false
+	hi.letters = nil
+	hi.timerCount = 0
+	hi.timerFrames = 0
+	hi.haveSaved = false
+}
+
+func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
+	//if !m.HiscoreInfo.Enabled || !hi.enabled {
+	//	hi.initialized = true
+	//	return
+	//}
+
+	dataType, _ := m.HiscoreInfo.Ranking[mode]
+
+	hi.reset(m)
+	hi.place = place
+	hi.mode = mode
+	hi.input = (place > 0)
+	if hi.input {
+		// Start with one letter selected
+		hi.letters = []int{1}
+	}
+
+	// Timer setup (only matters during input)
+	hi.timerCount = m.HiscoreInfo.Timer.Count
+	hi.timerFrames = m.HiscoreInfo.Timer.Framespercount
+
+	// Parse and cache rows (read from JSON file)
+	hi.rows = parseRankingRows("save/stats.json", mode)
+
+	// Build portraits cache from cached rows (store on each row)
+	visible := int(m.HiscoreInfo.Window.VisibleItems)
+	if visible <= 0 || visible > len(hi.rows) {
+		visible = len(hi.rows)
+	}
+
+	m.HiscoreInfo.Item.Face.AnimData.Reset()
+	m.HiscoreInfo.Item.Face.Bg.AnimData.Reset()
+	m.HiscoreInfo.Item.Face.Unknown.AnimData.Reset()
+	baseX, baseY := m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1]
+	itemOffX, itemOffY := m.HiscoreInfo.Item.Offset[0], m.HiscoreInfo.Item.Offset[1]
+	for i := 0; i < visible; i++ {
+		rowDefs := hi.rows[i].chars
+		rowBgs := make([]*Anim, 0, len(rowDefs))
+		rowFaces := make([]*Anim, 0, len(rowDefs))
+		limit := int(m.HiscoreInfo.Item.Face.Num)
+		if limit <= 0 {
+			limit = math.MaxInt32
+		}
+		for j, def := range rowDefs {
+			if j >= limit {
+				break
+			}
+			// Compute the on-screen position for this face/background once.
+			x := baseX + itemOffX + m.HiscoreInfo.Item.Face.Offset[0] +
+				float32(i)*m.HiscoreInfo.Item.Spacing[0] +
+				float32(j)*m.HiscoreInfo.Item.Face.Spacing[0]
+			y := baseY + itemOffY + m.HiscoreInfo.Item.Face.Offset[1] +
+				float32(i)*(m.HiscoreInfo.Item.Spacing[1]+m.HiscoreInfo.Item.Face.Spacing[1])
+
+			// Background anim per face (clone so each slot has its own pos/state)
+			if m.HiscoreInfo.Item.Face.Bg.AnimData != nil {
+				bg := m.HiscoreInfo.Item.Face.Bg.AnimData.Copy()
+				if bg != nil {
+					bg.SetPos(x+m.HiscoreInfo.Item.Face.Bg.Offset[0], y+m.HiscoreInfo.Item.Face.Bg.Offset[1])
+				}
+				rowBgs = append(rowBgs, bg)
+			} else {
+				rowBgs = append(rowBgs, nil)
+			}
+
+			// Face anim (character or unknown)
+			if a := hiscorePortraitAnim(def, m, x, y); a != nil {
+				rowFaces = append(rowFaces, a)
+			} else if m.HiscoreInfo.Item.Face.Unknown.AnimData != nil {
+				// Use a cloned "unknown" placeholder per slot so we can position/update independently.
+				ua := m.HiscoreInfo.Item.Face.Unknown.AnimData.Copy()
+				if ua != nil {
+					ua.SetPos(x+m.HiscoreInfo.Item.Face.Unknown.Offset[0], y+m.HiscoreInfo.Item.Face.Unknown.Offset[1])
+				}
+				rowFaces = append(rowFaces, ua)
+			} else {
+				rowFaces = append(rowFaces, nil)
+			}
+
+			//
+		}
+		hi.rows[i].bgs = rowBgs
+		hi.rows[i].faces = rowFaces
+	}
+
+	// Build per-row TextSprites (Rank / Result / Name)
+	for i := 0; i < visible; i++ {
+		row := &hi.rows[i]
+		// Rank
+		if m.HiscoreInfo.Item.Rank.TextSpriteData != nil {
+			ts := m.HiscoreInfo.Item.Rank.TextSpriteData.Copy()
+			if ts != nil {
+				x := baseX + itemOffX + m.HiscoreInfo.Item.Rank.Offset[0] +
+					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
+				stepY := float32(math.Round(float64(
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Rank.Spacing[1]),
+				)))
+				y := baseY + itemOffY + m.HiscoreInfo.Item.Rank.Offset[1] + stepY*float32(i)
+				ts.SetPos(x, y)
+				rankKey := Itoa(i + 1)
+				fmtStr, ok := m.HiscoreInfo.Item.Rank.Text[rankKey]
+				if !ok || fmtStr == "" {
+					fmtStr = m.HiscoreInfo.Item.Rank.Text["default"]
+				}
+				fmtStr = m.replaceFormatSpecifiers(fmtStr)
+				ts.text = fmt.Sprintf(fmtStr, i+1)
+				if m.HiscoreInfo.Item.Rank.Uppercase {
+					ts.text = strings.ToUpper(ts.text)
+				}
+			}
+			row.rankData = ts
+		}
+		// If this is the highlighted row, prepare Active/Active2 clones (same pos/text)
+		if hi.place > 0 && int(hi.place-1) == i {
+			if row.rankData != nil {
+				row.rankDataActive = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active.Font, m.Fnt)
+				row.rankDataActive2 = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active2.Font, m.Fnt)
+			}
+		}
+
+		// Result
+		if m.HiscoreInfo.Item.Result.TextSpriteData != nil {
+			ts := m.HiscoreInfo.Item.Result.TextSpriteData.Copy()
+			if ts != nil {
+				x := baseX + itemOffX + m.HiscoreInfo.Item.Result.Offset[0] +
+					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
+				stepY := float32(math.Round(float64(
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Result.Spacing[1]),
+				)))
+				y := baseY + itemOffY + m.HiscoreInfo.Item.Result.Offset[1] + stepY*float32(i)
+				ts.SetPos(x, y)
+
+				fmtStr := m.HiscoreInfo.Item.Result.Text[dataType]
+				fmtStr = m.replaceFormatSpecifiers(fmtStr)
+				switch dataType {
+				case "score":
+					// e.g. "%08d" -> zero-padded to width 8
+					fmtStr = fmt.Sprintf(fmtStr, row.score)
+				case "win":
+					// e.g. "Round %d"
+					fmtStr = fmt.Sprintf(fmtStr, row.win)
+				case "time":
+					// e.g. "%m'%s''%x"
+					fmtStr = FormatTimeText(fmtStr, row.time)
+				}
+				if m.HiscoreInfo.Item.Result.Uppercase {
+					fmtStr = strings.ToUpper(fmtStr)
+				}
+				ts.text = fmtStr
+			}
+			row.resultData = ts
+		}
+		if hi.place > 0 && int(hi.place-1) == i {
+			if row.resultData != nil {
+				row.resultDataActive = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active.Font, m.Fnt)
+				row.resultDataActive2 = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active2.Font, m.Fnt)
+			}
+		}
+
+		// Name
+		if m.HiscoreInfo.Item.Name.TextSpriteData != nil {
+			ts := m.HiscoreInfo.Item.Name.TextSpriteData.Copy()
+			if ts != nil {
+				x := baseX + itemOffX + m.HiscoreInfo.Item.Name.Offset[0] +
+					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
+				stepY := float32(math.Round(float64(
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Name.Spacing[1]),
+				)))
+				y := baseY + itemOffY + m.HiscoreInfo.Item.Name.Offset[1] + stepY*float32(i)
+				ts.SetPos(x, y)
+				// If highlighted & input, start with glyph-based editable text; else use row.name from stats
+				if hi.input && int(hi.place-1) == i {
+					row.name = "" // TODO: this shouldn't be needed if we're appending new row
+					name := buildNameFromLetters(m, hi.letters)
+					fs := m.replaceFormatSpecifiers(m.HiscoreInfo.Item.Name.Text["default"])
+					ts.text = fmt.Sprintf(fs, name)
+				} else {
+					fs := m.replaceFormatSpecifiers(m.HiscoreInfo.Item.Name.Text["default"])
+					ts.text = fmt.Sprintf(fs, row.name)
+				}
+				if m.HiscoreInfo.Item.Name.Uppercase {
+					ts.text = strings.ToUpper(ts.text)
+				}
+			}
+			row.nameData = ts
+		}
+		if hi.place > 0 && int(hi.place-1) == i {
+			if row.nameData != nil {
+				row.nameDataActive = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active.Font, m.Fnt)
+				row.nameDataActive2 = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active2.Font, m.Fnt)
+			}
+		}
+	}
+
+	// Initialize timer TextSprite (position & first value)
+	if m.HiscoreInfo.Timer.TextSpriteData != nil {
+		m.HiscoreInfo.Timer.TextSpriteData.Reset()
+		m.HiscoreInfo.Timer.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+		ts := m.HiscoreInfo.Timer.Text
+		ts = m.replaceFormatSpecifiers(ts)
+		if hi.input && hi.timerCount >= 0 && m.HiscoreInfo.Timer.Count != -1 {
+			m.HiscoreInfo.Timer.TextSpriteData.text = fmt.Sprintf(ts, hi.timerCount)
+		} else {
+			// Leave text as-is if timer disabled
+			m.HiscoreInfo.Timer.TextSpriteData.text = fmt.Sprintf(ts, 0)
+		}
+	}
+
+	m.HiscoreBgDef.BGDef.Reset()
+	m.HiscoreInfo.FadeIn.FadeData.init(m.fadeIn, true)
+
+	m.HiscoreInfo.Title.TextSpriteData.Reset()
+	m.HiscoreInfo.Title.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+	if v, ok := m.HiscoreInfo.Title.Text[mode]; ok {
+		m.HiscoreInfo.Title.TextSpriteData.text = v
+	}
+
+	m.HiscoreInfo.Title.Rank.TextSpriteData.Reset()
+	m.HiscoreInfo.Title.Rank.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+
+	m.HiscoreInfo.Title.Result.TextSpriteData.Reset()
+	m.HiscoreInfo.Title.Result.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+
+	m.HiscoreInfo.Title.Name.TextSpriteData.Reset()
+	m.HiscoreInfo.Title.Name.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+
+	m.HiscoreInfo.Title.Face.TextSpriteData.Reset()
+	m.HiscoreInfo.Title.Face.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
+
+	m.Music.Play("hiscore", sys.motif.Def, false)
+
+	//hi.counter = 0
+	hi.active = true
+	hi.initialized = true
+}
+
+func (hi *MotifHiscore) step(m *Motif) {
+	// Begin fade-out on cancel or when time elapses.
+	if hi.endTimer == -1 {
+		cancel := sys.esc || m.button(m.HiscoreInfo.Cancel.Key, -1) || (!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
+		if cancel || (!hi.input && hi.counter == m.HiscoreInfo.Time) {
+			startFadeOut(m.HiscoreInfo.FadeOut.FadeData, m.fadeOut, cancel, m.fadePolicy)
+			hi.endTimer = hi.counter + m.fadeOut.timeRemaining
+		}
+	}
+
+	hi.handleBlinkers(m)
+
+	// Advance animations for per-face backgrounds and faces
+	for i := range hi.rows {
+		row := &hi.rows[i]
+		for _, bg := range row.bgs {
+			if bg != nil {
+				bg.Update()
+			}
+		}
+		for _, face := range row.faces {
+			if face != nil {
+				face.Update()
+			}
+		}
+	}
+
+	// Name input & timer (only for highlighted row)
+	if hi.place > 0 {
+		idx := int(hi.place - 1)
+		if idx >= 0 && idx < len(hi.rows) {
+			row := &hi.rows[idx]
+			// Timer tick — only if enabled and input active
+			if hi.input && m.HiscoreInfo.Timer.Count != -1 {
+				if hi.timerFrames > 0 {
+					hi.timerFrames--
+				} else {
+					if hi.timerCount > 0 {
+						hi.timerCount--
+					}
+					hi.timerFrames = m.HiscoreInfo.Timer.Framespercount
+				}
+				// Update timer text each step
+				if m.HiscoreInfo.Timer.TextSpriteData != nil {
+					ts := m.HiscoreInfo.Timer.Text
+					ts = m.replaceFormatSpecifiers(ts)
+					m.HiscoreInfo.Timer.TextSpriteData.text = fmt.Sprintf(ts, hi.timerCount)
+				}
+				// When time runs out, auto-finish input
+				if hi.timerCount <= 0 {
+					m.Snd.play(m.HiscoreInfo.Done.Snd, 100, 0, 0, 0, 0)
+					hi.input = false
+					// Give a short tail
+					hi.counter = m.HiscoreInfo.Time - m.HiscoreInfo.Done.Time
+					hi.finalizeAndSave()
+				}
+			}
+
+			// Handle name glyph entry while input is active
+			if hi.input {
+				controller := -1 // TODO: proper controller
+				maxLen := initialsWidth(m.HiscoreInfo.Item.Name.Text["default"])
+				glyphCount := len(m.HiscoreInfo.Glyphs)
+				// Previous glyph
+				if m.button(m.HiscoreInfo.Previous.Key, controller) {
+					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
+					if len(hi.letters) == 0 {
+						hi.letters = []int{1}
+					} else {
+						last := len(hi.letters) - 1
+						hi.letters[last]--
+						if hi.letters[last] <= 0 {
+							hi.letters[last] = glyphCount
+						}
+					}
+					updateRowNameFromLetters(m, row, hi.letters)
+					// Next glyph
+				} else if m.button(m.HiscoreInfo.Next.Key, controller) {
+					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
+					if len(hi.letters) == 0 {
+						hi.letters = []int{1}
+					} else {
+						last := len(hi.letters) - 1
+						hi.letters[last]++
+						if hi.letters[last] > glyphCount {
+							hi.letters[last] = 1
+						}
+					}
+					updateRowNameFromLetters(m, row, hi.letters)
+					// Confirm / Add / Backspace
+				} else if m.button(m.HiscoreInfo.Done.Key, controller) {
+					// Current glyph meaning
+					curGlyph := currentGlyph(m, hi.letters)
+					if curGlyph == "<" {
+						// Backspace
+						m.Snd.play(m.HiscoreInfo.Cancel.Snd, 100, 0, 0, 0, 0)
+						if len(hi.letters) > 1 {
+							hi.letters = hi.letters[:len(hi.letters)-1]
+						} else {
+							hi.letters = []int{1}
+						}
+						updateRowNameFromLetters(m, row, hi.letters)
+					} else if len(hi.letters) < maxLen {
+						m.Snd.play(m.HiscoreInfo.Done.Snd, 100, 0, 0, 0, 0)
+						lastIdx := hi.letters[len(hi.letters)-1]
+						hi.letters = append(hi.letters, lastIdx)
+						updateRowNameFromLetters(m, row, hi.letters)
+					} else {
+						// Finalize
+						m.Snd.play(m.HiscoreInfo.Done.Snd, 100, 0, 0, 0, 0)
+						hi.input = false
+						hi.counter = m.HiscoreInfo.Time - m.HiscoreInfo.Done.Time
+						hi.finalizeAndSave()
+					}
+				}
+			}
+		}
+	}
+
+	// Finish after fade-out completes
+	if hi.endTimer != -1 && hi.counter >= hi.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		hi.reset(m)
+		//hi.active = false
+		return
+	}
+
+	hi.counter++
+}
+
+func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
+	// Background
+	if m.HiscoreBgDef.BgClearColor[0] >= 0 {
+		m.HiscoreBgDef.RectData.Draw(layerno)
+	}
+	m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+
+	// Title and subtitles
+	m.HiscoreInfo.Title.TextSpriteData.Draw(layerno)
+	m.HiscoreInfo.Title.Rank.TextSpriteData.Draw(layerno)
+	m.HiscoreInfo.Title.Result.TextSpriteData.Draw(layerno)
+	m.HiscoreInfo.Title.Name.TextSpriteData.Draw(layerno)
+	m.HiscoreInfo.Title.Face.TextSpriteData.Draw(layerno)
+
+	for i := 0; i < len(hi.rows); i++ {
+		// Portraits bg
+		for _, bg := range hi.rows[i].bgs {
+			if bg != nil {
+				bg.Draw(layerno)
+			}
+		}
+		// Portraits
+		for _, a := range hi.rows[i].faces {
+			if a == nil {
+				continue
+			}
+			a.Draw(layerno)
+		}
+
+		// Text sprites (blink only on highlighted row)
+		row := &hi.rows[i]
+		if hi.place > 0 && int(hi.place-1) == i {
+			// Rank
+			if hi.rankUseActive2 {
+				row.rankDataActive2.Draw(layerno)
+			} else {
+				row.rankDataActive.Draw(layerno)
+			}
+			// Result
+			if hi.resultUseActive2 {
+				row.resultDataActive2.Draw(layerno)
+			} else {
+				row.resultDataActive.Draw(layerno)
+			}
+			// Name
+			if hi.nameUseActive2 {
+				row.nameDataActive2.Draw(layerno)
+			} else {
+				row.nameDataActive.Draw(layerno)
+			}
+		} else {
+			row.rankData.Draw(layerno)
+			row.resultData.Draw(layerno)
+			row.nameData.Draw(layerno)
+		}
+	}
+
+	// Timer (only when enabled & during input)
+	if m.HiscoreInfo.Timer.Count != -1 && hi.input && m.HiscoreInfo.Timer.TextSpriteData != nil {
+		m.HiscoreInfo.Timer.TextSpriteData.Draw(layerno)
+	}
+
+	// Overlay
+	m.HiscoreInfo.Overlay.RectData.Draw(layerno)
+}
+
+func (hi *MotifHiscore) finalizeAndSave() {
+	if hi.haveSaved || hi.place <= 0 || hi.mode == "" {
+		return
+	}
+	idx := int(hi.place - 1)
+	if idx < 0 || idx >= len(hi.rows) {
+		return
+	}
+	name := strings.TrimSpace(hi.rows[idx].name)
+	if name == "" {
+		// Keep blank if user never entered anything (matches legacy behavior).
+		hi.haveSaved = true
+		return
+	}
+	data, err := os.ReadFile("save/stats.json")
+	if err != nil {
+		fmt.Println("hiscore: cannot read save/stats.json for name save:", err)
+		hi.haveSaved = true
+		return
+	}
+	path := fmt.Sprintf("modes.%s.ranking.%d.name", hi.mode, idx)
+	out, err := sjson.SetBytes(data, path, name)
+	if err != nil {
+		fmt.Println("hiscore: sjson set failed:", err)
+		hi.haveSaved = true
+		return
+	}
+	// Pretty-print the JSON
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, out, "", "  "); err == nil {
+		out = buf.Bytes()
+	} else {
+		fmt.Println("hiscore: pretty print failed, writing compact JSON:", err)
+	}
+	if err := os.WriteFile("save/stats.json", out, 0644); err != nil {
+		fmt.Println("hiscore: write save/stats.json failed:", err)
+	}
+	hi.haveSaved = true
+}
+
+func (hi *MotifHiscore) handleBlinkers(m *Motif) {
+	// Toggle between Active and Active2 fonts based on switchtime values.
+	if hi.place <= 0 {
+		return
+	}
+	if hi.rankActiveCount < m.HiscoreInfo.Item.Rank.Active.Switchtime {
+		hi.rankActiveCount++
+	} else {
+		hi.rankUseActive2 = !hi.rankUseActive2
+		hi.rankActiveCount = 0
+	}
+	if hi.resultActiveCount < m.HiscoreInfo.Item.Result.Active.Switchtime {
+		hi.resultActiveCount++
+	} else {
+		hi.resultUseActive2 = !hi.resultUseActive2
+		hi.resultActiveCount = 0
+	}
+	if hi.nameActiveCount < m.HiscoreInfo.Item.Name.Active.Switchtime {
+		hi.nameActiveCount++
+	} else {
+		hi.nameUseActive2 = !hi.nameUseActive2
+		hi.nameActiveCount = 0
+	}
+}
+
+// hiscorePortraitAnim returns a prepared *Anim for a character "def key" using preloaded
+// animations/sprites from sys.sel.charlist. If nothing is found, it returns nil.
+func hiscorePortraitAnim(defKey string, m *Motif, x, y float32) *Anim {
+	if defKey == "" {
+		return nil
+	}
+	defKey = normalizeDefKey(defKey)
+	for i := range sys.sel.charlist {
+		sc := &sys.sel.charlist[i]
+		if !matchDef(sc.def, defKey) {
+			continue
+		}
+		// Prefer explicit anim number if configured, else sprite tuple.
+		var animCopy *Animation
+		if m.HiscoreInfo.Item.Face.Anim >= 0 {
+			animCopy = sc.anims.get(m.HiscoreInfo.Item.Face.Anim, -1)
+		} else if m.HiscoreInfo.Item.Face.Spr[0] >= 0 {
+			grp := m.HiscoreInfo.Item.Face.Spr[0]
+			idx := m.HiscoreInfo.Item.Face.Spr[1]
+			animCopy = sc.anims.get(grp, idx)
+		}
+		if animCopy == nil {
+			// Not preloaded; fall back to unknown handled by caller.
+			return nil
+		}
+		// Wrap *Animation into *Anim
+		a := NewAnim(nil, "")
+		a.anim = animCopy
+		// Optional tuning (localcoord/scale/window/facing) from motif face settings.
+		lc := m.HiscoreInfo.Item.Face.Localcoord
+		a.SetLocalcoord(float32(lc[0]), float32(lc[1]))
+		a.SetPos(x, y)
+		sx := m.HiscoreInfo.Item.Face.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		sy := m.HiscoreInfo.Item.Face.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		a.SetScale(sx, sy)
+		w := m.HiscoreInfo.Item.Face.Window
+		a.SetWindow([4]float32{float32(w[0]), float32(w[1]), float32(w[2]), float32(w[3])})
+		a.layerno = m.HiscoreInfo.Item.Face.Layerno
+		a.SetFacing(float32(m.HiscoreInfo.Item.Face.Facing))
+		return a
+	}
+	return nil
+}
+
+// normalizeDefKey turns "chars/kfm/kfm.def" or "kfm.def" or "kfm" into "kfm".
+func normalizeDefKey(s string) string {
+	s = strings.ReplaceAll(s, "\\", "/")
+	base := filepath.Base(s)
+	ext := filepath.Ext(base)
+	if ext != "" {
+		base = strings.TrimSuffix(base, ext)
+	}
+	return strings.ToLower(base)
+}
+
+// matchDef checks whether a select entry path matches a stats "def key".
+func matchDef(selectDefPath, key string) bool {
+	if key == "" {
+		return false
+	}
+	selectDefPath = strings.ReplaceAll(selectDefPath, "\\", "/")
+	base := normalizeDefKey(selectDefPath)
+	if base == key {
+		return true
+	}
+	// Also allow directory name match (e.g., chars/kfm_zss/char.def -> kfm_zss)
+	dir := strings.ToLower(filepath.Base(filepath.Dir(selectDefPath)))
+	return dir == key
+}
+
+// parseRankingRows reads <path> and converts modes.<mode>.ranking into []rankingRow.
+func parseRankingRows(path, mode string) []rankingRow {
+	if path == "" || mode == "" {
+		return nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		fmt.Println("hiscore: read stats.json failed:", err)
+		return nil
+	}
+	res := gjson.GetBytes(data, "modes."+mode+".ranking")
+	if !res.Exists() || !res.IsArray() {
+		return nil
+	}
+	out := make([]rankingRow, 0, int(res.Get("#").Int()))
+	res.ForEach(func(_, v gjson.Result) bool {
+		row := rankingRow{
+			score: int(v.Get("score").Int()),
+			time:  v.Get("time").Float(),
+			win:   int(v.Get("win").Int()),
+			name:  v.Get("name").Str,
+		}
+		if ca := v.Get("chars"); ca.Exists() && ca.IsArray() {
+			ca.ForEach(func(_, c gjson.Result) bool {
+				row.chars = append(row.chars, c.Str)
+				return true
+			})
+		}
+		out = append(out, row)
+		return true
+	})
+	return out
+}
+
+func cloneWithFont(src *TextSprite, font [8]int32, fnt map[int]*Fnt) *TextSprite {
+	if src == nil {
+		return nil
+	}
+	dst := src.Copy()
+	dst.ApplyFontTuple(font, fnt)
+	return dst
+}
+
+func initialsWidth(fmtStr string) int {
+	// Extract %<N>s (default 3)
+	re := regexp.MustCompile(`%([0-9]+)s`)
+	m := re.FindStringSubmatch(fmtStr)
+	if len(m) >= 2 {
+		if n := Atoi(m[1]); n > 0 {
+			return int(n)
+		}
+	}
+	return 3
+}
+
+// currentGlyph returns current glyph character for the active letter slot.
+func currentGlyph(mo *Motif, letters []int) string {
+	if len(letters) == 0 {
+		return ""
+	}
+	idx := letters[len(letters)-1] // 1-based
+	if idx <= 0 || idx > len(mo.HiscoreInfo.Glyphs) {
+		return ""
+	}
+	return mo.HiscoreInfo.Glyphs[idx-1]
+}
+
+// buildNameFromLetters converts indices into the configured glyph table.
+func buildNameFromLetters(mo *Motif, letters []int) string {
+	var b strings.Builder
+	for _, i := range letters {
+		if i <= 0 || i > len(mo.HiscoreInfo.Glyphs) {
+			continue
+		}
+		ch := mo.HiscoreInfo.Glyphs[i-1]
+		if ch == ">" {
+			ch = " "
+		}
+		b.WriteString(ch)
+	}
+	return b.String()
+}
+
+// updateRowNameFromLetters updates row text sprites (normal + active variants) from letters.
+func updateRowNameFromLetters(mo *Motif, row *rankingRow, letters []int) {
+	name := buildNameFromLetters(mo, letters)
+	if mo.HiscoreInfo.Item.Name.Uppercase {
+		name = strings.ToUpper(name)
+	}
+	row.name = name
+	fmtStr := mo.replaceFormatSpecifiers(mo.HiscoreInfo.Item.Name.Text["default"])
+	if row.nameData != nil {
+		row.nameData.text = fmt.Sprintf(fmtStr, name)
+	}
+	if row.nameDataActive != nil {
+		row.nameDataActive.text = fmt.Sprintf(fmtStr, name)
+	}
+	if row.nameDataActive2 != nil {
+		row.nameDataActive2.text = fmt.Sprintf(fmtStr, name)
+	}
+}
+
+type MotifVictory struct {
+	enabled           bool
+	active            bool
+	initialized       bool
+	counter           int32
+	endTimer          int32
+	stateDone         bool
+	text              string
+	lineFullyRendered bool
+	charDelayCounter  int32
+	typedCnt          int
+}
+
+// victoryEntry represents one slot to render on the victory screen
+// (either a loaded character or not loaded Turns member).
+type victoryEntry struct {
+	side     int   // 0 or 1
+	memberNo int   // 0-based team order
+	cn       int   // index into sys.sel.charlist
+	pal      int   // 1-based palette number
+	c        *Char // non-nil if this member is currently loaded
+}
+
+func (vi *MotifVictory) reset(m *Motif) {
+	vi.active = false
+	vi.initialized = false
+	vi.stateDone = false
+	vi.lineFullyRendered = false
+	vi.charDelayCounter = 0
+	vi.typedCnt = 0
+	// Victory screen uses its own typewriter logic, so disable the internal TextSprite typing.
+	m.VictoryScreen.WinQuote.TextSpriteData.textDelay = 0
+	vi.endTimer = -1
+	vi.clear(m)
+}
+
+func (vi *MotifVictory) clearProps(props *PlayerVictoryProperties) {
+	props.AnimData = NewAnim(nil, "")
+	props.Face2.AnimData = NewAnim(nil, "")
+	props.Name.TextSpriteData.text = ""
+}
+
+func (vi *MotifVictory) clear(m *Motif) {
+	vi.clearProps(&m.VictoryScreen.P1)
+	vi.clearProps(&m.VictoryScreen.P2)
+	vi.clearProps(&m.VictoryScreen.P3)
+	vi.clearProps(&m.VictoryScreen.P4)
+	vi.clearProps(&m.VictoryScreen.P5)
+	vi.clearProps(&m.VictoryScreen.P6)
+	vi.clearProps(&m.VictoryScreen.P7)
+	vi.clearProps(&m.VictoryScreen.P8)
+}
+
+func (vi *MotifVictory) getVictoryQuote(m *Motif) string {
+	p := sys.chars[sys.winnerTeam()-1][0]
+	quoteIndex := int(p.winquote)
+	playerQuotes := sys.cgi[p.playerNo].quotes
+
+	//fmt.Printf("[Victory] Winner team=%d playerNo=%d initialWinquote=%d\n", sys.winnerTeam(), p.playerNo, quoteIndex)
+
+	// Check if the quote index is out of range
+	if quoteIndex < 0 || quoteIndex >= MaxQuotes {
+		// Collect available quote indices
+		availableQuotes := []int{}
+		for i, quote := range playerQuotes {
+			if quote != "" {
+				availableQuotes = append(availableQuotes, i)
+			}
+		}
+
+		// Select a random available quote if any exist
+		if len(availableQuotes) > 0 {
+			quoteIndex = availableQuotes[rand.Intn(len(availableQuotes))]
+		} else {
+			quoteIndex = -1
+		}
+	}
+
+	// Return the selected quote if valid, otherwise fall back to the default
+	//fmt.Printf("[Victory] Using quoteIndex=%d (MaxQuotes=%d). Fallback text present=%v\n", quoteIndex, MaxQuotes, m.VictoryScreen.WinQuote.Text != "")
+	if quoteIndex != -1 && len(playerQuotes) == MaxQuotes {
+		return playerQuotes[quoteIndex]
+	}
+	return m.VictoryScreen.WinQuote.Text
+}
+
+// buildSideOrder reconstructs the list of members to render for a side
+//   - Winner: last hitter leader, then other winners (alive first unless allowKO)
+//   - Loser : first encountered leader, then other losers
+//   - Fill with not loaded Turns members from the original selection
+func (vi *MotifVictory) buildSideOrder(side int, allowKO bool, maxNum int) []victoryEntry {
+	winnerSide := int(sys.winnerTeam() - 1)
+	if maxNum <= 0 {
+		//fmt.Printf("[Victory] buildSideOrder side=%d allowKO=%v maxNum=%d winnerSide=%d -> SKIP (num=0)\n", side, allowKO, maxNum, winnerSide)
+		return nil
+	}
+	out := make([]victoryEntry, 0, maxNum)
+	usedMember := map[int]bool{}
+	//fmt.Printf("[Victory] buildSideOrder side=%d allowKO=%v maxNum=%d winnerSide=%d\n", side, allowKO, maxNum, winnerSide)
+
+	// Helper to push a loaded char
+	pushLoaded := func(c *Char) {
+		if c == nil || int(c.teamside) != side {
+			return
+		}
+		mn := int(c.memberNo)
+		if usedMember[mn] || len(out) >= maxNum {
+			return
+		}
+		out = append(out, victoryEntry{
+			side:     side,
+			memberNo: mn,
+			cn:       int(c.selectNo),
+			pal:      int(c.gi().palno),
+			c:        c,
+		})
+		usedMember[mn] = true
+		//fmt.Printf("[Victory] -> pushLoaded: side=%d memberNo=%d cn=%d pal=%d alive=%v leader=%v\n", side, mn, int(c.selectNo), int(c.gi().palno), c.alive(), len(out) == 1)
+	}
+
+	// 1) Choose leader
+	if side == winnerSide {
+		leaderPn := sys.lastHitter[side]
+		if leaderPn < 0 {
+			leaderPn = sys.teamLeader[side]
+		}
+		if leaderPn >= 0 && leaderPn < MaxPlayerNo && len(sys.chars[leaderPn]) > 0 {
+			pushLoaded(sys.chars[leaderPn][0])
+		}
+	} else {
+		// Loser: first encountered from this side
+		for i := 0; i < MaxPlayerNo && len(out) < 1; i++ {
+			if len(sys.chars[i]) == 0 {
+				continue
+			}
+			if int(sys.chars[i][0].teamside) == side {
+				pushLoaded(sys.chars[i][0])
+				break
+			}
+		}
+	}
+
+	// 2) Append remaining loaded members from this side
+	for i := 0; i < MaxPlayerNo && len(out) < maxNum; i++ {
+		if len(sys.chars[i]) == 0 {
+			continue
+		}
+		c := sys.chars[i][0]
+		if int(c.teamside) != side {
+			continue
+		}
+		// Skip if already used as leader
+		if len(out) > 0 && out[0].c == c {
+			continue
+		}
+		// Winner: prefer alive unless allowKO
+		if side == winnerSide {
+			if c.alive() || allowKO {
+				pushLoaded(c)
+			}
+		} else {
+			// Loser: include regardless of alive status (matches legacy loop)
+			pushLoaded(c)
+		}
+	}
+
+	// 3) Fill with un-loaded Turns team members from original select order
+	if len(out) < maxNum {
+		sel := sys.sel.selected[side]
+		leaderMember := -1
+		if len(out) > 0 {
+			leaderMember = out[0].memberNo
+		}
+		for k := 0; k < len(sel) && len(out) < maxNum; k++ {
+			if usedMember[k] {
+				continue
+			}
+			if !allowKO && leaderMember != -1 && k <= leaderMember {
+				continue
+			}
+			cn := int(sel[k][0])
+			pl := int(sel[k][1])
+			out = append(out, victoryEntry{
+				side:     side,
+				memberNo: k,
+				cn:       cn,
+				pal:      pl,
+				c:        nil, // not loaded this round
+			})
+			usedMember[k] = true
+		}
+	}
+	if len(out) > maxNum {
+		//fmt.Printf("[Victory] Truncating out to %d (had %d)\n", maxNum, len(out))
+		out = out[:maxNum]
+	}
+	return out
+}
+
+// applyEntry fills one PlayerVictoryProperties slot from a victoryEntry.
+func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e victoryEntry, slotName string) {
+	// Name
+	if e.c != nil {
+		dst.Name.TextSpriteData.text = e.c.gi().displayname
+	} else {
+		sc := sys.sel.GetChar(e.cn)
+		if sc != nil {
+			name := sc.lifebarname
+			if name == "" {
+				name = sc.name
+			}
+			dst.Name.TextSpriteData.text = name
+		}
+	}
+	//fmt.Printf("[Victory] applyEntry slot=%s side=%d memberNo=%d cn=%d pal=%d loaded=%v name=%q\n", slotName, e.side, e.memberNo, e.cn, e.pal, e.c != nil, dst.Name.TextSpriteData.text)
+	// Resolve SelectChar (for portraits)
+	sc := sys.sel.GetChar(e.cn)
+	// Main face
+	mainX := dst.Pos[0] + dst.Offset[0]
+	mainY := dst.Pos[1] + dst.Offset[1]
+	dst.AnimData = victoryPortraitAnim(
+		m, sc, slotName+".main",
+		dst.Anim, dst.Spr,
+		dst.Localcoord, dst.Layerno, dst.Facing,
+		dst.Scale, dst.Window,
+		mainX, mainY,
+		dst.ApplyPal || e.c == nil, // loaded chars already have their runtime pal; for un-loaded we must apply
+		e.pal, e.c,
+	)
+	// Face2
+	face2X := dst.Pos[0] + dst.Face2.Offset[0]
+	face2Y := dst.Pos[1] + dst.Face2.Offset[1]
+	dst.Face2.AnimData = victoryPortraitAnim(
+		m, sc, slotName+".face2",
+		dst.Face2.Anim, dst.Face2.Spr,
+		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
+		dst.Face2.Scale, dst.Face2.Window,
+		face2X, face2Y,
+		dst.Face2.ApplyPal || e.c == nil,
+		e.pal, e.c,
+	)
+	if dst.AnimData == nil && dst.Face2.AnimData == nil {
+		//fmt.Printf("[Victory] slot=%s -> WARNING: both main and face2 animations are nil\n", slotName)
+	}
+}
+
+func (vi *MotifVictory) init(m *Motif) {
+	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) {
+		vi.initialized = true
+		return
+	}
+
+	//fmt.Printf("[Victory] init: enabled=%v winnerTeam=%d cpu.enabled=%v p1.num=%d p2.num=%d\n", m.VictoryScreen.Enabled, sys.winnerTeam(), m.VictoryScreen.Cpu.Enabled, m.VictoryScreen.P1.Num, m.VictoryScreen.P2.Num)
+
+	// Build orders for both sides
+	winnerSide := int(sys.winnerTeam() - 1)
+	loserSide := winnerSide ^ 1
+	// How many portraits per side (respect motif p1_num / p2_num)
+	maxW := int(Clamp(m.VictoryScreen.P1.Num, 0, 4))
+	maxL := int(Clamp(m.VictoryScreen.P2.Num, 0, 4))
+	wEntries := vi.buildSideOrder(winnerSide, m.VictoryScreen.Winner.TeamKo.Enabled, maxW)
+	lEntries := vi.buildSideOrder(loserSide, true, maxL) // losers always allow KO display
+
+	// Apply to motif slots: winners -> P1,P3,P5,P7 ; losers -> P2,P4,P6,P8
+	wSlots := []*PlayerVictoryProperties{&m.VictoryScreen.P1, &m.VictoryScreen.P3, &m.VictoryScreen.P5, &m.VictoryScreen.P7}
+	lSlots := []*PlayerVictoryProperties{&m.VictoryScreen.P2, &m.VictoryScreen.P4, &m.VictoryScreen.P6, &m.VictoryScreen.P8}
+	wNames := []string{"P1", "P3", "P5", "P7"}
+	lNames := []string{"P2", "P4", "P6", "P8"}
+	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
+		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
+	}
+	for i := 0; i < len(lEntries) && i < len(lSlots); i++ {
+		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
+	}
+
+	vi.text = vi.getVictoryQuote(m)
+	m.VictoryBgDef.BGDef.Reset()
+
+	//fmt.Printf("[Victory] init done. Winners=%d entries, Losers=%d entries. WinQuote=%q\n", len(wEntries), len(lEntries), vi.text)
+
+	if sys.winnerTeam() == 1 {
+		m.processStateTransitions(m.VictoryScreen.P1.State, m.VictoryScreen.P1.Teammate.State, m.VictoryScreen.P2.State, m.VictoryScreen.P2.Teammate.State)
+	} else if sys.winnerTeam() == 2 {
+		m.processStateTransitions(m.VictoryScreen.P2.State, m.VictoryScreen.P2.Teammate.State, m.VictoryScreen.P1.State, m.VictoryScreen.P1.Teammate.State)
+	}
+
+	if m.VictoryScreen.Sounds.Enabled {
+		sys.clearAllSound()
+		sys.noSoundFlg = true
+	}
+
+	m.Music.Play("victory", sys.motif.Def, false)
+
+	m.VictoryScreen.FadeIn.FadeData.init(m.fadeIn, true)
+	vi.counter = 0
+	vi.active = true
+	vi.initialized = true
+}
+
+func (vi *MotifVictory) step(m *Motif) {
+	cancelPressed := sys.esc || m.button(m.VictoryScreen.Cancel.Key, -1)
+	skipPressed := m.button(m.VictoryScreen.Skip.Key, -1)
+	prevLineFullyRendered := vi.lineFullyRendered
+	//fmt.Printf("[Victory] step: counter=%d time=%d endTimer=%d typedCnt=%d lineFullyRendered=%v cancel=%v skip=%v\n", vi.counter, m.VictoryScreen.Time, vi.endTimer, vi.typedCnt, vi.lineFullyRendered, cancelPressed, skipPressed)
+
+	m.VictoryScreen.P1.AnimData.Update()
+	m.VictoryScreen.P2.AnimData.Update()
+	m.VictoryScreen.P3.AnimData.Update()
+	m.VictoryScreen.P4.AnimData.Update()
+	m.VictoryScreen.P5.AnimData.Update()
+	m.VictoryScreen.P6.AnimData.Update()
+	m.VictoryScreen.P7.AnimData.Update()
+	m.VictoryScreen.P8.AnimData.Update()
+
+	m.VictoryScreen.P1.Face2.AnimData.Update()
+	m.VictoryScreen.P2.Face2.AnimData.Update()
+	m.VictoryScreen.P3.Face2.AnimData.Update()
+	m.VictoryScreen.P4.Face2.AnimData.Update()
+	m.VictoryScreen.P5.Face2.AnimData.Update()
+	m.VictoryScreen.P6.Face2.AnimData.Update()
+	m.VictoryScreen.P7.Face2.AnimData.Update()
+	m.VictoryScreen.P8.Face2.AnimData.Update()
+
+	// First press of Skip: fast-forward the text, but do NOT start fadeout yet.
+	if skipPressed && !prevLineFullyRendered {
+		totalRunes := utf8.RuneCountInString(vi.text)
+		vi.typedCnt = totalRunes
+		vi.lineFullyRendered = true
+		vi.charDelayCounter = 0
+		//fmt.Printf("[Victory] Skip pressed -> fast-forward winquote (totalRunes=%d)\n", totalRunes)
+	}
+
+	// While we haven't finished typing the quote, keep revealing characters
+	// regardless of the global time limit. Fadeout will only start once the
+	// line is fully rendered (see logic below).
+	if !vi.lineFullyRendered {
+		StepTypewriter(
+			vi.text,
+			&vi.typedCnt,
+			&vi.charDelayCounter,
+			&vi.lineFullyRendered,
+			float32(m.VictoryScreen.WinQuote.TextDelay),
+		)
+	}
+
+	// Clamp typedLen so it doesn't exceed the line length
+	totalRunes := utf8.RuneCountInString(vi.text)
+	typedLen := vi.typedCnt
+	if typedLen > totalRunes {
+		typedLen = totalRunes
+	}
+
+	m.VictoryScreen.WinQuote.TextSpriteData.wrapText(vi.text, typedLen)
+	m.VictoryScreen.WinQuote.TextSpriteData.Update()
+
+	// Decide when to start fadeout: Cancel key / Skip key / Time limit
+	if vi.endTimer == -1 {
+		userInterrupt := cancelPressed || (skipPressed && prevLineFullyRendered)
+		timeUp := vi.lineFullyRendered && vi.counter >= m.VictoryScreen.Time
+
+		if userInterrupt || timeUp {
+			startFadeOut(m.VictoryScreen.FadeOut.FadeData, m.fadeOut, userInterrupt, m.fadePolicy)
+			vi.endTimer = vi.counter + m.fadeOut.timeRemaining
+			//fmt.Printf("[Victory] Starting fadeout: counter=%d time=%d endTimer=%d userInterrupt=%v timeUp=%v\n", vi.counter, m.VictoryScreen.Time, vi.endTimer, userInterrupt, timeUp)
+		}
+	}
+
+	// Check if the sequence has ended
+	if vi.endTimer != -1 && vi.counter >= vi.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		vi.active = false
+		if !m.VictoryScreen.Sounds.Enabled {
+			sys.noSoundFlg = false
+		}
+		return
+	}
+
+	// Increment counter
+	vi.counter++
+}
+
+func (vi *MotifVictory) draw(m *Motif, layerno int16) {
+	// Overlay
+	m.VictoryScreen.Overlay.RectData.Draw(layerno)
+
+	// Background
+	if m.VictoryBgDef.BgClearColor[0] >= 0 {
+		m.VictoryBgDef.RectData.Draw(layerno)
+	}
+	m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+
+	// Face2 portraits
+	m.VictoryScreen.P1.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P2.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P3.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P4.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P5.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P6.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P7.Face2.AnimData.Draw(layerno)
+	m.VictoryScreen.P8.Face2.AnimData.Draw(layerno)
+
+	// Face portraits
+	m.VictoryScreen.P1.AnimData.Draw(layerno)
+	m.VictoryScreen.P2.AnimData.Draw(layerno)
+	m.VictoryScreen.P3.AnimData.Draw(layerno)
+	m.VictoryScreen.P4.AnimData.Draw(layerno)
+	m.VictoryScreen.P5.AnimData.Draw(layerno)
+	m.VictoryScreen.P6.AnimData.Draw(layerno)
+	m.VictoryScreen.P7.AnimData.Draw(layerno)
+	m.VictoryScreen.P8.AnimData.Draw(layerno)
+
+	// Name
+	m.VictoryScreen.P1.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P2.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P3.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P4.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P5.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P6.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P7.Name.TextSpriteData.Draw(layerno)
+	m.VictoryScreen.P8.Name.TextSpriteData.Draw(layerno)
+
+	// Winquote
+	m.VictoryScreen.WinQuote.TextSpriteData.Draw(layerno)
+}
+
+// buildSingleFrameFromSFF creates a 1-frame Animation from a raw sprite (grp, idx).
+// Used when a motif references .spr (group/index) and the preloaded table lacks it.
+func buildSingleFrameFromSFF(sff *Sff, grp, idx int32) *Animation {
+	if sff == nil || sff.GetSprite(uint16(grp), uint16(idx)) == nil {
+		return nil
+	}
+	anim := newAnimation(sff, &sff.palList)
+	anim.mask = 0
+	af := newAnimFrame()
+	af.Group, af.Number = grp, idx
+	af.Time = 1 // stable single-frame
+	anim.frames = append(anim.frames, *af)
+	return anim
+}
+
+// tryGetPortrait tries a sequence of (group,index) pairs first from preloaded
+// SelectChar anims, then by building a single-frame Animation from the owner SFF.
+// Returns the first non-nil *Animation and a label describing where it came from.
+func tryGetPortrait(sc *SelectChar, ownerC *Char, pairs [][2]int32) (anim *Animation, from string) {
+	for _, p := range pairs {
+		grp, idx := p[0], p[1]
+		if sc != nil {
+			if a := sc.anims.get(grp, idx); a != nil {
+				return a, fmt.Sprintf("preloaded(%d,%d)", grp, idx)
+			}
+		}
+		if ownerC != nil && ownerC.playerNo >= 0 && ownerC.playerNo < len(sys.cgi) && sys.cgi[ownerC.playerNo].sff != nil {
+			if a := buildSingleFrameFromSFF(sys.cgi[ownerC.playerNo].sff, grp, idx); a != nil {
+				return a, fmt.Sprintf("sff(%d,%d)", grp, idx)
+			}
+		}
+	}
+	return nil, ""
+}
+
+// victoryPortraitAnim builds a *Anim for a character select entry and positions it.
+// It uses per-character preloaded animations (sys.sel.charlist[cn].anims).
+// If the requested anim/spr is missing, it falls back to (9000,1) then (9000,0).
+func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
+	animNo int32, spr [2]int32,
+	localcoord [2]int32, layerno int16, facing int32,
+	scale [2]float32, window [4]int32,
+	x, y float32, applyPal bool, pal int, ownerC *Char) *Anim {
+
+	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
+
+	if sc == nil {
+		return nil
+	}
+	var animCopy *Animation
+	if animNo >= 0 {
+		// First: explicit animation number
+		animCopy = sc.anims.get(animNo, -1)
+		if animCopy == nil {
+			// if the specific anim is missing, try default big portrait
+			if a, _ /*from*/ := tryGetPortrait(sc, ownerC, [][2]int32{{9000, 1} /*, {9000, 0}*/}); a != nil {
+				animCopy = a
+				//fmt.Printf("[Victory] slot=%s -> fallback from anim %d to %s\n", slot, animNo/*, from*/)
+			}
+		}
+	} else if spr[0] >= 0 {
+		// Try requested (grp,idx) first (preloaded or SFF-build), then fall back to 9000,1
+		want := [][2]int32{{spr[0], spr[1]}, {9000, 1} /*, {9000, 0}*/}
+		if a, _ /*from*/ := tryGetPortrait(sc, ownerC, want); a != nil {
+			animCopy = a
+		} else {
+			// Detailed failure logs for the first requested pair
+			if ownerC != nil && ownerC.playerNo >= 0 && ownerC.playerNo < len(sys.cgi) && sys.cgi[ownerC.playerNo].sff != nil {
+				if sys.cgi[ownerC.playerNo].sff.GetSprite(uint16(spr[0]), uint16(spr[1])) == nil {
+					//fmt.Printf("[Victory] slot=%s -> FAILED to build 1-frame anim: sprite not in SFF (spr=%d,%d)\n", slot, spr[0], spr[1])
+				}
+			} else {
+				//fmt.Printf("[Victory] slot=%s -> owner SFF is nil; cannot build 1-frame anim (spr=%d,%d)\n", slot, spr[0], spr[1])
+			}
+		}
+	}
+	// Always return a non-nil *Anim. If we couldn't resolve a real anim, fall back to a safe dummy created by NewAnim.
+	a := NewAnim(nil, "")
+	if animCopy != nil {
+		a.anim = animCopy
+	} else {
+		//fmt.Printf("[Victory] slot=%s -> animCopy=nil (animNo=%d spr=%d,%d). Check if your portraits are defined as an ANIM or plain SPR.\n", slot, animNo, spr[0], spr[1])
+	}
+	// Localcoord / window / layer / facing
+	//a.SetLocalcoord(float32(localcoord[0]), float32(localcoord[1]))
+	if localcoord[0] > 0 && localcoord[1] > 0 {
+		a.SetLocalcoord(float32(localcoord[0]), float32(localcoord[1]))
+	} else {
+		//fmt.Printf("[Victory] slot=%s -> skip SetLocalcoord (0,0); using default engine localcoord\n", slot)
+	}
+	a.layerno = layerno
+	a.SetFacing(float32(facing))
+	//a.SetWindow([4]float32{float32(window[0]), float32(window[1]), float32(window[2]), float32(window[3])})
+	if window[2] > window[0] && window[3] > window[1] {
+		a.SetWindow([4]float32{float32(window[0]), float32(window[1]), float32(window[2]), float32(window[3])})
+	} else {
+		//fmt.Printf("[Victory] slot=%s -> skip SetWindow (no clipping)\n", slot)
+	}
+	// Position
+	a.SetPos(x, y)
+	// Scale: include character portraitscale and coord conversion similar to hiscore
+	sx := scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+	sy := scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+	a.SetScale(sx, sy)
+	if sx == 0 || sy == 0 {
+		//fmt.Printf("[Victory] slot=%s -> WARNING: zero scale sx=%.4f sy=%.4f (check portraitscale/localcoord)\n", slot, sx, sy)
+	}
+	// Palette for non-loaded (or force-apply if requested)
+	if applyPal && pal > 0 && a.anim.sff != nil {
+		if len(a.anim.sff.palList.paletteMap) > 0 {
+			a.anim.sff.palList.paletteMap[0] = pal - 1
+		}
+		//fmt.Printf("[Victory] slot=%s -> applied palette %d\n", slot, pal)
+	}
+	return a
+}
+
+type MotifWin struct {
+	winEnabled      bool
+	loseEnabled     bool
+	active          bool
+	initialized     bool
+	counter         int32
+	endTimer        int32
+	fadeIn          *Fade
+	fadeOut         *Fade
+	stateDone       bool
+	soundsEnabled   bool
+	fadeOutTime     int32
+	time            int32
+	keyCancel       []string
+	p1State         []int32
+	p1TeammateState []int32
+	p2State         []int32
+	p2TeammateState []int32
+	stateTime       int32
+	//winCount        int32
+	//loseCnt         int32
+}
+
+// Assign state data to MotifWin
+func (wi *MotifWin) assignStates(p1, p1Teammate, p2, p2Teammate []int32) {
+	wi.p1State = p1
+	wi.p1TeammateState = p1Teammate
+	wi.p2State = p2
+	wi.p2TeammateState = p2Teammate
+}
+
+func (wi *MotifWin) reset(m *Motif) {
+	wi.active = false
+	wi.initialized = false
+	wi.stateDone = false
+	wi.endTimer = -1
+}
+
+// Initialize the MotifWin based on the current game mode
+func (wi *MotifWin) init(m *Motif) {
+	if (wi.winEnabled && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
+		(wi.loseEnabled && (sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1)) {
+		if ok := wi.initSurvival(m); ok {
+		} else if ok := wi.initTimeAttack(m); ok {
+		} else if ok := wi.initWinScreen(m); ok {
+		} else {
+			wi.initialized = true
+			return
+		}
+	} else {
+		wi.initialized = true
+		return
+	}
+
+	if wi.soundsEnabled {
+		sys.clearAllSound()
+		sys.noSoundFlg = true
+	}
+
+	m.Music.Play("results", sys.motif.Def, false)
+
+	wi.fadeIn.init(m.fadeIn, true)
+	wi.counter = 0
+	wi.active = true
+	wi.initialized = true
+}
+
+// Handle survival mode initialization
+func (wi *MotifWin) initSurvival(m *Motif) bool {
+	if !strings.HasPrefix(sys.gameMode, "survival") || !m.SurvivalResultsScreen.Enabled {
+		return false
+	}
+
+	m.SurvivalResultsBgDef.BGDef.Reset()
+
+	m.SurvivalResultsScreen.WinsText.TextSpriteData.text = fmt.Sprintf(m.replaceFormatSpecifiers(m.SurvivalResultsScreen.WinsText.Text), sys.match-1)
+	if sys.match >= m.SurvivalResultsScreen.RoundsToWin {
+		wi.assignStates(m.SurvivalResultsScreen.P1.Win.State, m.SurvivalResultsScreen.P1.Teammate.Win.State, m.SurvivalResultsScreen.P2.Win.State, m.SurvivalResultsScreen.P2.Teammate.Win.State)
+	} else {
+		wi.assignStates(m.SurvivalResultsScreen.P1.State, m.SurvivalResultsScreen.P1.Teammate.State, m.SurvivalResultsScreen.P2.State, m.SurvivalResultsScreen.P2.Teammate.State)
+	}
+	wi.stateTime = m.SurvivalResultsScreen.State.Time
+	wi.soundsEnabled = m.SurvivalResultsScreen.Sounds.Enabled
+
+	wi.keyCancel = m.SurvivalResultsScreen.Cancel.Key
+	wi.time = m.SurvivalResultsScreen.Show.Time
+	wi.fadeOutTime = m.SurvivalResultsScreen.FadeOut.Time
+	wi.fadeIn = m.SurvivalResultsScreen.FadeIn.FadeData
+	wi.fadeOut = m.SurvivalResultsScreen.FadeOut.FadeData
+	return true
+}
+
+// Handle time attack mode initialization
+func (wi *MotifWin) initTimeAttack(m *Motif) bool {
+	if sys.gameMode != "timeattack" || !m.TimeAttackResultsScreen.Enabled {
+		return false
+	}
+
+	m.TimeAttackResultsBgDef.BGDef.Reset()
+
+	m.TimeAttackResultsScreen.WinsText.TextSpriteData.text = FormatTimeText(m.TimeAttackResultsScreen.WinsText.Text, float64(sys.timeTotal())/60)
+	wi.assignStates(m.TimeAttackResultsScreen.P1.State, m.TimeAttackResultsScreen.P1.Teammate.State, m.TimeAttackResultsScreen.P2.State, m.TimeAttackResultsScreen.P2.Teammate.State)
+	wi.stateTime = m.TimeAttackResultsScreen.State.Time
+	wi.soundsEnabled = m.TimeAttackResultsScreen.Sounds.Enabled
+
+	wi.keyCancel = m.TimeAttackResultsScreen.Cancel.Key
+	wi.time = m.TimeAttackResultsScreen.Show.Time
+	wi.fadeOutTime = m.TimeAttackResultsScreen.FadeOut.Time
+	wi.fadeIn = m.TimeAttackResultsScreen.FadeIn.FadeData
+	wi.fadeOut = m.TimeAttackResultsScreen.FadeOut.FadeData
+	return true
+}
+
+// Handle win screen mode initialization
+func (wi *MotifWin) initWinScreen(m *Motif) bool {
+	if sys.home != 1 || !m.WinScreen.Enabled {
+		return false
+	}
+
+	m.WinBgDef.BGDef.Reset()
+
+	wi.assignStates(m.WinScreen.P1.State, m.WinScreen.P1.Teammate.State, m.WinScreen.P2.State, m.WinScreen.P2.Teammate.State)
+	wi.stateTime = m.WinScreen.State.Time
+	wi.soundsEnabled = m.WinScreen.Sounds.Enabled
+
+	wi.keyCancel = m.WinScreen.Cancel.Key
+	wi.time = m.WinScreen.Pose.Time
+	wi.fadeOutTime = m.WinScreen.FadeOut.Time
+	wi.fadeIn = m.WinScreen.FadeIn.FadeData
+	wi.fadeOut = m.WinScreen.FadeOut.FadeData
+	return true
+}
+
+// Process the step logic for MotifWin
+func (wi *MotifWin) step(m *Motif) {
+	if wi.endTimer == -1 {
+		cancel := sys.esc || m.button(wi.keyCancel, -1)
+		if cancel || wi.counter == wi.time {
+			startFadeOut(wi.fadeOut, m.fadeOut, cancel, m.fadePolicy)
+			wi.endTimer = wi.counter + m.fadeOut.timeRemaining
+		}
+	}
+
+	// Handle state transitions
+	if !wi.stateDone && wi.counter >= wi.stateTime {
+		m.processStateTransitions(wi.p1State, wi.p1TeammateState, wi.p2State, wi.p2TeammateState)
+		wi.stateDone = true
+	}
+
+	// Check if the sequence has ended
+	if wi.endTimer != -1 && wi.counter >= wi.endTimer {
+		if m.fadeOut != nil {
+			m.fadeOut.reset()
+		}
+		wi.active = false
+		if !wi.soundsEnabled {
+			sys.noSoundFlg = false
+		}
+		return
+	}
+
+	// Increment counter
+	wi.counter++
+}
+
+func (wi *MotifWin) draw(m *Motif, layerno int16) {
+	if strings.HasPrefix(sys.gameMode, "survival") {
+		if m.SurvivalResultsBgDef.BgClearColor[0] >= 0 {
+			m.SurvivalResultsBgDef.RectData.Draw(layerno)
+		}
+		m.SurvivalResultsBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		m.SurvivalResultsScreen.Overlay.RectData.Draw(layerno)
+		if wi.counter >= m.SurvivalResultsScreen.WinsText.DisplayTime {
+			m.SurvivalResultsScreen.WinsText.TextSpriteData.Draw(layerno)
+		}
+	} else if sys.gameMode == "timeattack" {
+		if m.TimeAttackResultsBgDef.BgClearColor[0] >= 0 {
+			m.TimeAttackResultsBgDef.RectData.Draw(layerno)
+		}
+		m.TimeAttackResultsBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		m.TimeAttackResultsScreen.Overlay.RectData.Draw(layerno)
+		if wi.counter >= m.TimeAttackResultsScreen.WinsText.DisplayTime {
+			m.TimeAttackResultsScreen.WinsText.TextSpriteData.Draw(layerno)
+		}
+	} else {
+		if m.WinBgDef.BgClearColor[0] >= 0 {
+			m.WinBgDef.RectData.Draw(layerno)
+		}
+		m.WinBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		m.WinScreen.Overlay.RectData.Draw(layerno)
+		if wi.counter >= m.WinScreen.WinText.DisplayTime {
+			m.WinScreen.WinText.TextSpriteData.Draw(layerno)
+		}
 	}
 }

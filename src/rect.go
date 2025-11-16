@@ -1,7 +1,7 @@
 package main
 
 import (
-// "fmt"
+	"math"
 )
 
 type Fade struct {
@@ -146,3 +146,116 @@ func startFadeOut(tmpl *Fade, dest *Fade, overrideBlack bool, policy FadeStartPo
 		fi.reset()
 	}
 }
+
+type Rect struct {
+	window     [4]int32
+	col        uint32
+	alpha      [2]int32
+	time       int32
+	layerno    int16
+	localScale float32
+	offsetX    int32
+	// pulse src = clamp(mid + amp * sin(phase))
+	pulseMid       float32
+	pulseAmp       float32
+	pulsePhase     float32
+	pulsePhaseStep float32 // radians per frame = 2π / periodFrames
+	autoAlpha      bool
+	//palfx          *PalFX
+	// initial, unscaled values
+	windowInit [4]float32
+}
+
+func NewRect() *Rect {
+	return &Rect{window: sys.scrrect, alpha: [2]int32{255, 0}, localScale: 1}
+}
+
+func packAlpha(src, dst int32) [2]int32 {
+	return [2]int32{Clamp(src, 0, 255), Clamp(dst, 0, 255)}
+}
+
+func (r *Rect) updateAlpha() {
+	if !r.autoAlpha {
+		return
+	}
+	r.pulsePhase += r.pulsePhaseStep
+	v := r.pulseMid + r.pulseAmp*float32(math.Sin(float64(r.pulsePhase)))
+	src := Clamp(int32(math.Round(float64(v))), 0, 255)
+	r.alpha = packAlpha(src, 255-src)
+}
+
+func (r *Rect) Draw(ln int16) {
+	if r.layerno == ln && r != nil {
+		FillRect(r.window, r.col, r.alpha)
+	}
+}
+
+func (r *Rect) Reset() {
+	r.SetWindow(r.windowInit)
+}
+
+func (r *Rect) SetColor(col [3]int32) {
+	r.col = uint32(col[2]&0xff | col[1]&0xff<<8 | col[0]&0xff<<16)
+}
+
+func (r *Rect) SetAlpha(alpha [2]int32) {
+	r.alpha = packAlpha(alpha[0], alpha[1])
+	r.autoAlpha = false
+}
+
+func (r *Rect) SetAlphaPulse(sMid, sAmp, sPeriod int32) {
+	m := float32(Clamp(sMid, 0, 255))
+	a := float32(Clamp(sAmp, 0, 255))
+	if sPeriod <= 0 || a == 0 {
+		r.pulseMid, r.pulseAmp = m, 0
+		r.pulsePhaseStep = 0
+		r.autoAlpha = false
+		return
+	}
+	r.pulseMid, r.pulseAmp = m, a
+	r.pulsePhaseStep = float32(2 * math.Pi / float64(sPeriod))
+	r.autoAlpha = true
+}
+
+func (r *Rect) SetLocalcoord(lx, ly float32) {
+	if lx <= 0 || ly <= 0 {
+		return
+	}
+	v := lx
+	if lx*3 > ly*4 {
+		v = ly * 4 / 3
+	}
+	r.localScale = float32(v / 320)
+	r.offsetX = -int32(math.Floor(float64(lx)/(float64(v)/320)-320) / 2)
+}
+
+func (r *Rect) SetWindow(window [4]float32) {
+	if window == [4]float32{0, 0, 0, 0} {
+		return
+	}
+	r.windowInit = window
+	x := window[0]/r.localScale + float32(r.offsetX)
+	y := window[1] / r.localScale
+	w := (window[2] - window[0]) / r.localScale
+	h := (window[3] - window[1]) / r.localScale
+	r.window[0] = int32((x + float32(sys.gameWidth-320)/2) * sys.widthScale)
+	r.window[1] = int32((y + float32(sys.gameHeight-240)) * sys.heightScale)
+	r.window[2] = int32(w*sys.widthScale + 0.5)
+	r.window[3] = int32(h*sys.heightScale + 0.5)
+}
+
+func (r *Rect) Update() {
+	if r != nil {
+		r.updateAlpha()
+		//if r.palfx != nil {
+		//	r.palfx.step()
+		//}
+	}
+}
+
+//func (r *Rect) SetPalFx(p *PalFX) {
+//	r.palfx = p
+//	if r.palfx != nil && r.palfx.time == 0 {
+//		r.palfx.time = -1
+//	}
+//}

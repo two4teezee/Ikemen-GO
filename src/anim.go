@@ -191,6 +191,7 @@ type Animation struct {
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
 	start_scale                [2]float32
+	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
 }
 
@@ -785,10 +786,18 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 			//}
 		}
 		if a.tile.xflag == 1 {
-			space := xs / h * float32(a.tile.xspacing)
-			if a.tile.xspacing <= 0 {
-				space += xs / h * float32(a.spr.Size[0])
-				space += float32(a.spr.Size[0])
+			var space float32
+			if a.isParallax {
+				space = xs * float32(a.tile.xspacing)
+				if a.tile.xspacing <= 0 {
+					space += xs * float32(a.spr.Size[0])
+				}
+			} else {
+				space = xs/h * float32(a.tile.xspacing)
+				if a.tile.xspacing <= 0 {
+					space += xs/h * float32(a.spr.Size[0])
+					space += float32(a.spr.Size[0])
+				}
 			}
 			if space != 0 {
 				x -= float32(int(x/space)) * space

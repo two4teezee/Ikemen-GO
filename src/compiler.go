@@ -2605,6 +2605,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "guardflag":
 			opc = OC_ex_gethitvar_guardflag
 			isFlag = 2
+		case "keepstate":
+			opc = OC_ex_gethitvar_keepstate
 		default:
 			return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
 		}
@@ -4232,7 +4234,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "ailevelf":
 		out.append(OC_ex_, OC_ex_ailevelf)
 	case "airjumpcount":
-		out.append(OC_ex_, OC_ex_airjumpcount)
+		out.append(OC_ex2_, OC_ex2_airjumpcount)
 	case "animelemvar":
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err

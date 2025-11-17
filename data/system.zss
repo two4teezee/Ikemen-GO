@@ -3,12 +3,20 @@
 #===============================================================================
 [StateDef -4]
 
-# For backward compatibility, x and z-axis get hit acceleration must be handled here
-# TODO: These cases should maybe use the state number constants
-# TODO: These patches could be done by appending sctrl's to the common1.cns states
 if pauseTime = 0 {
+	# For backward compatibility, x and z-axis get hit acceleration must be handled here
+	# TODO: These cases should maybe use the state number constants
+	# TODO: These patches could be done by appending sctrl's to the common1.cns states
 	if time > 0 && (stateNo = 5030 || stateNo = 5035 || stateNo = 5040 || stateNo = 5050 || stateNo = 5071 || stateNo = 5200) {
 		velAdd{x: getHitVar(xAccel); z: getHitVar(zAccel)}
+	}
+	# When keepstate attack, pause at hitshaketime are handled here
+	# TODO: will change the pause process from hitpause to a new pause SCTRL
+	if gethitvar(keepstate) && gethitvar(hitshaketime)>0 && hitpausetime=0 && !HitOverridden {
+		ModifyPlayer{hitpausetime:gethitvar(hitshaketime)}
+		ignorehitpause{
+		GetHitVarSet{hitshaketime:0}
+		}
 	}
 }
 

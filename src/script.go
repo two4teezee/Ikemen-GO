@@ -4212,6 +4212,8 @@ func triggerFunctions(l *lua.LState) {
 			// LNumber (we have a LString)
 			l.Push(flagLStr(c.ghv.guardflag))
 			return 1
+		case "keepstate":
+			ln = lua.LNumber(Btoi(c.ghv.keepstate))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

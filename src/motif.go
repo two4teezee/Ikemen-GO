@@ -2646,7 +2646,63 @@ func (m *Motif) removeText(id, index, ownerid int32) {
 	m.textsprite = tempSlice
 }
 
+// drawAspectBars renders black bars when the fight aspect and motif aspect differ.
+func (m *Motif) drawAspectBars() {
+	fightAspect := sys.getFightAspect()
+	motifAspect := sys.getMotifAspect()
+
+	if fightAspect <= 0 || motifAspect <= 0 || fightAspect == motifAspect {
+		return
+	}
+
+	sw := sys.scrrect[2]
+	sh := sys.scrrect[3]
+
+	// Collect up to two bar rectangles (pillarbox or letterbox).
+	var rects [][4]int32
+
+	if fightAspect < motifAspect {
+		// Fight view is narrower than the motif (e.g. 4:3 fight on 16:9 motif):
+		// add vertical bars on the left and right.
+		contentWidth := int32(float32(sh) * fightAspect)
+		if contentWidth > 0 && contentWidth < sw {
+			offsetX := (sw - contentWidth) / 2
+			leftBar := [4]int32{0, 0, offsetX, sh}
+			rightBarWidth := sw - (offsetX + contentWidth)
+			if rightBarWidth < 0 {
+				rightBarWidth = 0
+			}
+			rightBar := [4]int32{offsetX + contentWidth, 0, rightBarWidth, sh}
+			rects = append(rects, leftBar, rightBar)
+		}
+	} else if fightAspect > motifAspect {
+		// Fight view is wider than the motif: add horizontal bars top and bottom.
+		contentHeight := int32(float32(sw) / fightAspect)
+		if contentHeight > 0 && contentHeight < sh {
+			offsetY := (sh - contentHeight) / 2
+			topBar := [4]int32{0, 0, sw, offsetY}
+			bottomBarHeight := sh - (offsetY + contentHeight)
+			if bottomBarHeight < 0 {
+				bottomBarHeight = 0
+			}
+			bottomBar := [4]int32{0, offsetY + contentHeight, sw, bottomBarHeight}
+			rects = append(rects, topBar, bottomBar)
+		}
+	}
+
+	for _, r := range rects {
+		if r[2] > 0 && r[3] > 0 {
+			// 0x000000 = black, fully opaque.
+			FillRect(r, 0x000000, [2]int32{255, 0})
+		}
+	}
+}
+
 func (m *Motif) draw(layerno int16) {
+	// Draw black bars if fight aspect and motif aspect differ.
+	if layerno == 1 && (!sys.middleOfMatch() || m.me.active) {
+		m.drawAspectBars()
+	}
 	if m.ch.active {
 		m.ch.draw(m, layerno)
 	}
@@ -2786,6 +2842,7 @@ func (me *MotifMenu) reset(m *Motif) {
 	me.active = false
 	me.initialized = false
 	me.endTimer = -1
+	sys.applyFightAspect()
 }
 
 func (me *MotifMenu) init(m *Motif) {
@@ -2796,6 +2853,7 @@ func (me *MotifMenu) init(m *Motif) {
 	if (!sys.esc && !m.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
 	if err := sys.luaLState.DoString("menuInit()"); err != nil {
 		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
@@ -2856,6 +2914,7 @@ func (ch *MotifChallenger) reset(m *Motif) {
 	ch.initialized = false
 	ch.endTimer = -1
 	ch.controllerNo = -1
+	//sys.applyFightAspect()
 }
 
 func (ch *MotifChallenger) init(m *Motif) {
@@ -2869,6 +2928,7 @@ func (ch *MotifChallenger) init(m *Motif) {
 		return
 	}
 	ch.controllerNo = controllerNo
+	//sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
 	if m.AttractMode.Enabled && sys.credits > 0 {
 		sys.credits--
@@ -2957,6 +3017,7 @@ func (co *MotifContinue) reset(m *Motif) {
 	co.yesSide = true
 	co.selected = false
 	co.endTimer = -1
+	sys.applyFightAspect()
 }
 
 func (co *MotifContinue) extractAndSortKeysDescending(m *Motif) []string {
@@ -2980,7 +3041,7 @@ func (co *MotifContinue) init(m *Motif) {
 		co.initialized = true
 		return
 	}
-
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 	co.pn = 1 // TODO: Initialize pn appropriately
 
 	// Extract and sort keys in descending order
@@ -4689,6 +4750,7 @@ func (vi *MotifVictory) reset(m *Motif) {
 	m.VictoryScreen.WinQuote.TextSpriteData.textDelay = 0
 	vi.endTimer = -1
 	vi.clear(m)
+	sys.applyFightAspect()
 }
 
 func (vi *MotifVictory) clearProps(props *PlayerVictoryProperties) {
@@ -4907,6 +4969,7 @@ func (vi *MotifVictory) init(m *Motif) {
 		vi.initialized = true
 		return
 	}
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
 	//fmt.Printf("[Victory] init: enabled=%v winnerTeam=%d cpu.enabled=%v p1.num=%d p2.num=%d\n", m.VictoryScreen.Enabled, sys.winnerTeam(), m.VictoryScreen.Cpu.Enabled, m.VictoryScreen.P1.Num, m.VictoryScreen.P2.Num)
 
@@ -5229,6 +5292,7 @@ func (wi *MotifWin) assignStates(p1, p1Teammate, p2, p2Teammate []int32) {
 	wi.p1TeammateState = p1Teammate
 	wi.p2State = p2
 	wi.p2TeammateState = p2Teammate
+	sys.applyFightAspect()
 }
 
 func (wi *MotifWin) reset(m *Motif) {
@@ -5253,6 +5317,7 @@ func (wi *MotifWin) init(m *Motif) {
 		wi.initialized = true
 		return
 	}
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
 	if wi.soundsEnabled {
 		sys.clearAllSound()

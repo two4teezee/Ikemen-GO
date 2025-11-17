@@ -561,7 +561,7 @@ func (s *System) getMotifAspect() float32 {
 }
 
 func (s *System) getCurrentAspect() float32 {
-	if s.middleOfMatch() {
+	if s.middleOfMatch() && !s.motif.me.active {
 		return s.getFightAspect()
 	}
 	return s.getMotifAspect()
@@ -807,12 +807,6 @@ func (s *System) update() bool {
 				}
 			}
 		}
-	}
-
-	// Restore original resolution after changing aspect ratio
-	if !s.middleOfMatch() {
-		// TODO: This should probably not be based on scrrect
-		s.setGameSize(s.scrrect[2], s.scrrect[3])
 	}
 
 	if s.replayFile != nil {
@@ -2714,6 +2708,9 @@ func (s *System) draw(x, y, scl float32) {
 
 	// Draw motif layer 2
 	s.motif.draw(2)
+
+	// Draw motif layer 3
+	s.motif.draw(3)
 }
 
 func (s *System) drawTop() {

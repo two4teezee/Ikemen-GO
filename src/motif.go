@@ -1027,12 +1027,13 @@ type ReplayInfoProperties struct {
 }
 
 type MenuInfoProperties struct {
-	Enabled bool           `ini:"enabled"`
-	FadeIn  FadeProperties `ini:"fadein"`
-	FadeOut FadeProperties `ini:"fadeout"`
-	Title   TextProperties `ini:"title"`
-	Menu    MenuProperties `ini:"menu"`
-	Cursor  struct {
+	Enabled  bool           `ini:"enabled"`
+	FadeIn   FadeProperties `ini:"fadein"`
+	FadeOut  FadeProperties `ini:"fadeout"`
+	Title    TextProperties `ini:"title"`
+	Menu     MenuProperties `ini:"menu"`
+	HideBars bool           `ini:"hidebars"`
+	Cursor   struct {
 		Move struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"move"`

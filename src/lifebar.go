@@ -5101,7 +5101,7 @@ func (l *Lifebar) reset() {
 }
 
 func (l *Lifebar) draw(layerno int16) {
-	if sys.postMatchFlg || sys.dialogueBarsFlg {
+	if sys.postMatchFlg || sys.dialogueBarsFlg || (sys.motif.me.active && sys.motif.MenuInfo.HideBars) {
 		return
 	}
 	if !sys.lifebarHide && l.active {

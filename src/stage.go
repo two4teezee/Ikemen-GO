@@ -194,7 +194,7 @@ func newBackGround(sff *Sff) *backGround {
 }
 
 func readBackGround(is IniSection, link *backGround,
-	sff *Sff, at AnimationTable, sProps StageProps, def string, defaultlayer int32) (*backGround, error) {
+	sff *Sff, at AnimationTable, sProps StageProps, def string, startlayer int32) (*backGround, error) {
 	bg := newBackGround(sff)
 	typ := is["type"]
 	if len(typ) == 0 {
@@ -215,9 +215,8 @@ func readBackGround(is IniSection, link *backGround,
 		return bg, nil
 	}
 	var tmp int32
-	if !is.ReadI32("layerno", &bg.layerno) {
-		bg.layerno = defaultlayer
-	}
+	is.ReadI32("layerno", &bg.layerno)
+	bg.layerno += startlayer
 
 	if bg._type == BG_Video {
 		path := is["path"]

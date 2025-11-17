@@ -231,7 +231,7 @@ type BgDefProperties struct {
 	BgClearColor   [3]int32 `ini:"bgclearcolor" default:"-1,0,0"`
 	BgClearAlpha   [2]int32 `ini:"bgclearalpha" default:"255,0"`
 	BgClearLayerno int16    `ini:"bgclearlayerno" default:"0"`
-	DefaultLayer   int32    `ini:"defaultlayer" default:"0"`
+	StartLayer     int32    `ini:"startlayer" default:"0"`
 	Localcoord     [2]int32 `ini:"localcoord"`
 	RectData       *Rect
 }
@@ -258,10 +258,10 @@ type MenuProperties struct {
 		Uppercase bool                            `ini:"uppercase"`
 		Spacing   [2]float32                      `ini:"spacing"`
 		Tween     TweenProperties                 `ini:"tween"`
-		Bg        map[string]*AnimationProperties `ini:"bg"`
+		Bg        map[string]*AnimationProperties `ini:"bg" flatten:"true"`
 		Active    struct {
 			TextProperties
-			Bg map[string]*AnimationProperties `ini:"bg"`
+			Bg map[string]*AnimationProperties `ini:"bg" flatten:"true"`
 		} `ini:"active"`
 		Selected struct { // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Attract Mode]
 			TextProperties
@@ -411,9 +411,9 @@ type PlayerSelectProperties struct {
 	} `ini:"select"`
 	TeamMenu struct { // only used by P1-P2
 		Pos    [2]float32                      `ini:"pos"`
-		Bg     map[string]*AnimationProperties `ini:"bg"`
+		Bg     map[string]*AnimationProperties `ini:"bg" flatten:"true"`
 		Active struct {
-			Bg map[string]*AnimationProperties `ini:"bg"`
+			Bg map[string]*AnimationProperties `ini:"bg" flatten:"true"`
 		} `ini:"active"`
 		SelfTitle struct {
 			AnimationTextProperties
@@ -1547,13 +1547,21 @@ func loadMotif(def string) (*Motif, error) {
 			logical := base
 			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
 			lb := strings.ToLower(logical)
+			// Skip raw BG sections which are handled by loadBGDef.
+			if strings.HasPrefix(lb, "begin ") {
+				goto nextSection
+			}
 			for _, p := range []string{
-				"begin ", "titlebg ", "selectbg ", "versusbg ", "continuebg ",
-				"victorybg ", "winbg ", "survivalresultsbg ", "timeattackresultsbg ",
-				"optionbg ", "replaybg ", "menubg ", "trainingbg ", "attractbg ",
-				"challengerbg ", "hiscorebg ",
+				"titlebg", "selectbg", "versusbg", "continuebg",
+				"victorybg", "winbg", "survivalresultsbg", "timeattackresultsbg",
+				"optionbg", "replaybg", "menubg", "trainingbg", "attractbg",
+				"challengerbg", "hiscorebg",
 			} {
 				if strings.HasPrefix(lb, p) {
+					// Allow BgDef sections that should be mapped into BgDefProperties.
+					if strings.HasSuffix(lb, "bgdef") {
+						break
+					}
 					goto nextSection
 				}
 			}
@@ -2008,7 +2016,7 @@ func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) 
 	}
 	if bgname != "" {
 		var err error
-		bgDef.BGDef, err = loadBGDef(bgDef.Sff, m.Model, m.Def, bgname, bgDef.DefaultLayer)
+		bgDef.BGDef, err = loadBGDef(bgDef.Sff, m.Model, m.Def, bgname, bgDef.StartLayer)
 		if err != nil {
 			sys.errLog.Printf("Failed to load %v (%v): %v\n", bgname, m.Def, err.Error())
 		}

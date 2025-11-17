@@ -740,6 +740,103 @@ func assignToPatternMap(v reflect.Value, lastPartName string, value interface{},
 	return false, v, nil
 }
 
+// assignToFlattenMapField handles map fields with `flatten:"true"`.
+func assignToFlattenMapField(fieldVal reflect.Value, sf reflect.StructField, parts []queryPart, currentIndex int, value interface{},
+	baseDef string, extractNames func([]queryPart) []string) (bool, error) {
+
+	flattenTag := strings.TrimSpace(strings.ToLower(sf.Tag.Get("flatten")))
+	if !(flattenTag == "true" || flattenTag == "1" || flattenTag == "yes") {
+		return false, nil
+	}
+
+	// Need at least: bg.<key>.field
+	if len(parts) < currentIndex+3 {
+		return false, nil
+	}
+
+	// Parts layout (indices):
+	//   currentIndex   -> "bg"
+	//   keyStart..keyEnd -> key segments to flatten with "_"
+	//   propIdx        -> final struct field name (e.g. "spr", "offset", ...)
+	keyStart := currentIndex + 1
+	keyEnd := len(parts) - 2
+	propIdx := len(parts) - 1
+
+	if keyStart > keyEnd {
+		return false, nil
+	}
+
+	// Build flattened key: menunetwork.serverhost -> "menunetwork_serverhost"
+	keySegments := make([]string, 0, keyEnd-keyStart+1)
+	for i := keyStart; i <= keyEnd; i++ {
+		keySegments = append(keySegments, parts[i].name)
+	}
+	mapKey := strings.Join(keySegments, "_")
+	if mapKey == "" {
+		return false, nil
+	}
+
+	if fieldVal.IsNil() {
+		fieldVal.Set(reflect.MakeMap(fieldVal.Type()))
+	}
+
+	mapKeyVal := reflect.ValueOf(mapKey)
+	elemType := fieldVal.Type().Elem()
+	mapElem := fieldVal.MapIndex(mapKeyVal)
+
+	var elem reflect.Value
+	if mapElem.IsValid() {
+		// Reuse existing element; for pointer types we can take it directly.
+		if elemType.Kind() == reflect.Ptr {
+			elem = mapElem
+		} else {
+			elem = reflect.New(elemType).Elem()
+			elem.Set(mapElem)
+		}
+	} else {
+		// Create new element with defaults.
+		if elemType.Kind() == reflect.Ptr {
+			elem = reflect.New(elemType.Elem())
+		} else {
+			elem = reflect.New(elemType).Elem()
+		}
+		applyDefaultsToValue(elem)
+	}
+
+	// Dereference pointer to get the underlying struct.
+	target := elem
+	for target.Kind() == reflect.Ptr {
+		if target.IsNil() {
+			target.Set(reflect.New(target.Type().Elem()))
+			applyDefaultsToValue(target)
+		}
+		target = target.Elem()
+	}
+
+	if target.Kind() != reflect.Struct {
+		return false, fmt.Errorf("flatten map element for '%s' is not a struct", sf.Name)
+	}
+
+	propPart := parts[propIdx]
+	fieldVal2, fieldType, foundField := findFieldByINITag(target, propPart.name)
+	if !foundField {
+		return false, fmt.Errorf("field '%s' not found in flattened map element '%s'", propPart.name, mapKey)
+	}
+
+	defTag := fieldType.Tag.Get("default")
+	lookupTag := fieldType.Tag.Get("lookup")
+	keyPath := strings.Join(extractNames(parts), ".")
+
+	if err := setFieldValue(fieldVal2, value, defTag, keyPath, lookupTag, baseDef); err != nil {
+		return false, err
+	}
+
+	// Store back into the map.
+	fieldVal.SetMapIndex(mapKeyVal, elem)
+
+	return true, nil
+}
+
 // elemHasFieldWithINITag reports whether elemType (or its Elem for pointers)
 // has an exported field whose ini:"..." tag equals 'name' (case-insensitive).
 func elemHasFieldWithINITag(elemType reflect.Type, name string) bool {
@@ -925,15 +1022,18 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 		if v.Kind() == reflect.Struct {
 			fieldVal, sf, found := findFieldByINITag(v, part.name)
 			if found {
-				// If we're stepping into a MAP field, record its key-sensitivity policy.
 				if fieldVal.Kind() == reflect.Map {
+					// First, try flattened map semantics if requested by tag.
+					if ok, err := assignToFlattenMapField(fieldVal, sf, parts, i, value, baseDef, extractNames); err != nil {
+						return err
+					} else if ok {
+
+						return nil
+					}
+
+					// Normal map-of-struct behavior (using "default" key).
 					currentMapInsensitiveKeys = tagInsensitiveKeys(sf)
-				}
-				// Special handling if the matched field is a MAP:
-				// If the next token is an element-field of the map's element type,
-				// step into map["default"].
-				if fieldVal.Kind() == reflect.Map {
-					// require a following token to decide
+
 					if i+1 < len(parts) {
 						elemType := fieldVal.Type().Elem()
 						if elemHasFieldWithINITag(elemType, parts[i+1].name) {
@@ -951,10 +1051,10 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 								}
 								applyDefaultsToValue(newVal)
 								fieldVal.SetMapIndex(defKey, newVal)
-								// use the value we just inserted, which is addressable
+
 								v = newVal
 							} else {
-								// make an addressable copy and store it back so subsequent sets persist
+
 								if elemType.Kind() == reflect.Ptr {
 									newVal = reflect.New(elemType.Elem())
 									newVal.Elem().Set(mapElem.Elem())

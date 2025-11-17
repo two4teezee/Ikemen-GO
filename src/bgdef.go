@@ -24,7 +24,7 @@ type BGDef struct {
 	scale        [2]float32
 	stageprops   StageProps
 	bgclearcolor [3]int32
-	defaultlayer int32
+	startlayer   int32
 	model        *Model
 	sceneNumber  int32
 	fov          float32
@@ -40,7 +40,7 @@ func newBGDef(def string) *BGDef {
 	return s
 }
 
-func loadBGDef(sff *Sff, model *Model, def string, bgname string, defaultlayer int32) (*BGDef, error) {
+func loadBGDef(sff *Sff, model *Model, def string, bgname string, startlayer int32) (*BGDef, error) {
 	bgname = strings.ToLower(bgname)
 	s := newBGDef(def)
 	str, err := LoadText(def)
@@ -65,8 +65,8 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string, defaultlayer i
 	}
 	if sec := defmap[fmt.Sprintf("%sdef", bgname)]; len(sec) > 0 {
 		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
-		if !sec[0].readI32ForStage("defaultlayer", &s.defaultlayer) {
-			s.defaultlayer = defaultlayer
+		if !sec[0].readI32ForStage("startlayer", &s.startlayer) {
+			s.startlayer = startlayer
 		}
 		s.sceneNumber = -1
 		sec[0].readI32ForStage("scenenumber", &s.sceneNumber)
@@ -88,7 +88,7 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string, defaultlayer i
 		if len(s.bg) > 0 && s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def, s.defaultlayer)
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def, s.startlayer)
 		if err != nil {
 			return nil, err
 		}

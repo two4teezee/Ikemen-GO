@@ -3191,7 +3191,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	end
 	for i = 1, items_shown do
 		if i > item - cursorPosY or not tweenDone then
-			local displayname = t[i].displayname
+			local displayname = main.f_itemnameUpper(t[i].displayname, sec.menu.item.uppercase)
 			if t[i].itemname:match("^spacer%d*$") then
 				displayname = ""
 			end

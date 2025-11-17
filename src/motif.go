@@ -255,10 +255,11 @@ type MenuProperties struct {
 	Tween TweenProperties `ini:"tween"`
 	Item  struct {
 		TextProperties
-		Spacing [2]float32                      `ini:"spacing"`
-		Tween   TweenProperties                 `ini:"tween"`
-		Bg      map[string]*AnimationProperties `ini:"bg"`
-		Active  struct {
+		Uppercase bool                            `ini:"uppercase"`
+		Spacing   [2]float32                      `ini:"spacing"`
+		Tween     TweenProperties                 `ini:"tween"`
+		Bg        map[string]*AnimationProperties `ini:"bg"`
+		Active    struct {
 			TextProperties
 			Bg map[string]*AnimationProperties `ini:"bg"`
 		} `ini:"active"`
@@ -4892,7 +4893,8 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 }
 
 func (vi *MotifVictory) init(m *Motif) {
-	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) {
+	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) ||
+		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) {
 		vi.initialized = true
 		return
 	}

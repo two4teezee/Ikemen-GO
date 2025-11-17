@@ -2488,7 +2488,7 @@ function start.f_teamMenu(side, t)
 				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
 				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
 			)
-			textImgSetText(motif.select_info['p' .. side].teammenu.item.TextSpriteData, t[i].displayname)
+			textImgSetText(motif.select_info['p' .. side].teammenu.item.TextSpriteData, main.f_itemnameUpper(t[i].displayname, motif.select_info['p' .. side].teammenu.item.uppercase))
 			--Draw team items
 			if i == start.p[side].teamMenu then
 				if t_teamActiveCount[side] < motif.select_info['p' .. side].teammenu.item.active.switchtime then --delay change

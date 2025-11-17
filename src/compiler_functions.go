@@ -1286,12 +1286,20 @@ func (c *Compiler) modifyShadow(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animelem",
+			modifyShadow_animelem, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			modifyShadow_color, VT_Int, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "intensity",
 			modifyShadow_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "keeptransform",
+			modifyShadow_keeptransform, VT_Bool, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "offset",
@@ -1360,12 +1368,20 @@ func (c *Compiler) modifyReflection(is IniSection, sc *StateControllerBase, _ in
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "animelem",
+			modifyReflection_animelem, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "color",
 			modifyReflection_color, VT_Int, 3, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "intensity",
 			modifyReflection_intensity, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "keeptransform",
+			modifyReflection_keeptransform, VT_Bool, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "offset",

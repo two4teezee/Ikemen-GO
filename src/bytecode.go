@@ -13635,9 +13635,11 @@ const (
 	modifyShadow_anim
 	modifyShadow_animplayerno
 	modifyShadow_spriteplayerno
+	modifyShadow_animelem
 	modifyShadow_color
 	modifyShadow_focallength
 	modifyShadow_intensity
+	modifyShadow_keeptransform
 	modifyShadow_offset
 	modifyShadow_projection
 	modifyShadow_window
@@ -13656,11 +13658,14 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	animPN := crun.playerNo
-	spritePN := crun.playerNo
+	animPN := -1
+	spritePN := -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyShadow_animelem:
+			crun.shadowAnimelem = exp[0].evalI(c)
+			crun.setAnimElemTo(crun.shadowAnim, &crun.shadowAnimelem)
 		case modifyShadow_animplayerno:
 			animPN = int(exp[0].evalI(c)) - 1
 		case modifyShadow_spriteplayerno:
@@ -13668,7 +13673,7 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 		case modifyShadow_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
+			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, false, "ModifyShadow")
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.shadowAnim = anim
@@ -13685,6 +13690,8 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 			crun.shadowColor = [3]int32{r, g, b}
 		case modifyShadow_intensity:
 			crun.shadowIntensity = Clamp(exp[0].evalI(c), 0, 255)
+		case modifyShadow_keeptransform:
+			crun.shadowKeeptransform = exp[0].evalB(c)
 		case modifyShadow_offset:
 			crun.shadowOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {
@@ -13720,8 +13727,10 @@ const (
 	modifyReflection_anim byte = iota
 	modifyReflection_animplayerno
 	modifyReflection_spriteplayerno
+	modifyReflection_animelem
 	modifyReflection_color
 	modifyReflection_intensity
+	modifyReflection_keeptransform
 	modifyReflection_offset
 	modifyReflection_window
 	modifyReflection_xscale
@@ -13742,11 +13751,14 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 	}
 
 	redirscale := c.localscl / crun.localscl
-	animPN := crun.playerNo
-	spritePN := crun.playerNo
+	animPN := -1
+	spritePN := -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case modifyReflection_animelem:
+			crun.reflectAnimelem = exp[0].evalI(c)
+			crun.setAnimElemTo(crun.reflectAnim, &crun.reflectAnimelem)
 		case modifyReflection_animplayerno:
 			animPN = int(exp[0].evalI(c)) - 1
 		case modifyReflection_spriteplayerno:
@@ -13754,7 +13766,7 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 		case modifyReflection_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			anim := c.getAnimSprite(animNo, animPN, spritePN, ffx, true, false)
+			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, false, "ModifyReflection")
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.reflectAnim = anim
@@ -13771,6 +13783,8 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 			crun.reflectColor = [3]int32{r, g, b}
 		case modifyReflection_intensity:
 			crun.reflectIntensity = Clamp(exp[0].evalI(c), 0, 255)
+		case modifyReflection_keeptransform:
+			crun.reflectKeeptransform = exp[0].evalB(c)
 		case modifyReflection_offset:
 			crun.reflectOffset[0] = exp[0].evalF(c) * redirscale
 			if len(exp) > 1 {

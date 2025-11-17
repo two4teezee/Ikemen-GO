@@ -2831,69 +2831,73 @@ type Char struct {
 	cnssysvar           map[int32]int32
 	cnssysfvar          map[int32]float32
 	CharSystemVar
-	aimg              AfterImage
-	soundChannels     SoundChannels
-	p1facing          float32
-	cpucmd            int32
-	offset            [2]float32
-	stchtmp           bool
-	inguarddist       bool
-	pushed            bool
-	hitdefContact     bool
-	atktmp            int8 // 1 hitdef can hit, 0 cannot hit, -1 other
-	hittmp            int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
-	acttmp            int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
-	minus             int8 // Essentially the current negative state
-	platformPosY      float32
-	groundAngle       float32
-	ownpal            bool
-	winquote          int32
-	memberNo          int
-	selectNo          int
-	inheritJuggle     int32
-	inheritChannels   int32
-	mapArray          map[string]float32
-	mapDefault        map[string]float32
-	remapSpr          RemapPreset
-	clipboardText     []string
-	dialogue          []string
-	immortal          bool
-	kovelocity        bool
-	preserve          bool
-	inputFlag         InputBits
-	inputShift        [][2]int
-	pauseBool         bool
-	downHitOffset     bool
-	koEchoTimer       int32
-	groundLevel       float32
-	shadowAnim        *Animation
-	shadowColor       [3]int32
-	shadowIntensity   int32
-	shadowOffset      [2]float32
-	shadowWindow      [4]float32
-	shadowXscale      float32
-	shadowXshear      float32
-	shadowYscale      float32
-	shadowRot         Rotation
-	shadowProjection  Projection
-	shadowfLength     float32
-	reflectAnim       *Animation
-	reflectColor      [3]int32
-	reflectIntensity  int32
-	reflectOffset     [2]float32
-	reflectWindow     [4]float32
-	reflectXscale     float32
-	reflectXshear     float32
-	reflectYscale     float32
-	reflectRot        Rotation
-	reflectProjection Projection
-	reflectfLength    float32
-	ownclsnscale      bool
-	pushPriority      int32
-	prevfallflag      bool
-	makeDustSpacing   int
-	hitStateChangeIdx int32
-	currentSctrlIndex int32
+	aimg                 AfterImage
+	soundChannels        SoundChannels
+	p1facing             float32
+	cpucmd               int32
+	offset               [2]float32
+	stchtmp              bool
+	inguarddist          bool
+	pushed               bool
+	hitdefContact        bool
+	atktmp               int8 // 1 hitdef can hit, 0 cannot hit, -1 other
+	hittmp               int8 // 0 idle, 1 being hit, 2 falling, -1 reversaldef
+	acttmp               int8 // 1 unpaused, 0 default, -1 hitpause, -2 pause
+	minus                int8 // Essentially the current negative state
+	platformPosY         float32
+	groundAngle          float32
+	ownpal               bool
+	winquote             int32
+	memberNo             int
+	selectNo             int
+	inheritJuggle        int32
+	inheritChannels      int32
+	mapArray             map[string]float32
+	mapDefault           map[string]float32
+	remapSpr             RemapPreset
+	clipboardText        []string
+	dialogue             []string
+	immortal             bool
+	kovelocity           bool
+	preserve             bool
+	inputFlag            InputBits
+	inputShift           [][2]int
+	pauseBool            bool
+	downHitOffset        bool
+	koEchoTimer          int32
+	groundLevel          float32
+	shadowAnim           *Animation
+	shadowAnimelem       int32
+	shadowColor          [3]int32
+	shadowIntensity      int32
+	shadowKeeptransform  bool
+	shadowOffset         [2]float32
+	shadowWindow         [4]float32
+	shadowXscale         float32
+	shadowXshear         float32
+	shadowYscale         float32
+	shadowRot            Rotation
+	shadowProjection     Projection
+	shadowfLength        float32
+	reflectAnim          *Animation
+	reflectAnimelem      int32
+	reflectColor         [3]int32
+	reflectIntensity     int32
+	reflectKeeptransform bool
+	reflectOffset        [2]float32
+	reflectWindow        [4]float32
+	reflectXscale        float32
+	reflectXshear        float32
+	reflectYscale        float32
+	reflectRot           Rotation
+	reflectProjection    Projection
+	reflectfLength       float32
+	ownclsnscale         bool
+	pushPriority         int32
+	prevfallflag         bool
+	makeDustSpacing      int
+	hitStateChangeIdx    int32
+	currentSctrlIndex    int32
 	//dustOldPos        [3]float32
 }
 
@@ -4162,6 +4166,25 @@ func (c *Char) setAnimElem(elem, elemtime int32) {
 	// Set them
 	c.anim.SetAnimElem(elem, elemtime)
 	c.updateCurFrame()
+}
+
+// Used to set Shadows and Reflections animElem
+func (c *Char) setAnimElemTo(anim *Animation, animelem *int32) {
+    if anim != nil {
+		// Validate elem
+        if *animelem < 1 || int(*animelem) > len(anim.frames) {
+            *animelem = 1
+        }
+        /* Shadows and Reflections don't really a animate, so elemtime here is pointless
+        if *elemtime != 0 {
+            frametime := anim.frames[*animelem-1].Time
+            if *elemtime < 0 || (frametime != -1 && *elemtime >= frametime) {
+                *elemtime = 0
+            }
+        }
+		*/
+        anim.SetAnimElem(*animelem, 0)
+    }
 }
 
 /*
@@ -6401,6 +6424,26 @@ func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool)
 	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, false)
 
 	return a
+}
+
+// Calls getAnimSprite with playerNo checks for Shadows and Reflections
+func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool, scname string) *Animation {
+	// Validate AnimPlayerNo
+	if animPlayerNo < 0 {
+		animPlayerNo = c.playerNo
+	} else if animPlayerNo >= len(sys.chars) || len(sys.chars[animPlayerNo]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s animPlayerNo: %v", scname, animPlayerNo+1))
+		animPlayerNo = c.playerNo
+	}
+	// Validate SpritePlayerNo
+	if spritePlayerNo < 0 {
+		spritePlayerNo = c.playerNo
+	} else if spritePlayerNo >= len(sys.chars) || len(sys.chars[spritePlayerNo]) == 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Invalid %s spritePlayerNo: %v", scname, spritePlayerNo+1))
+		spritePlayerNo = c.playerNo
+	}
+
+	return c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, ownpal, fx)
 }
 
 // Same old getAnim, but now without the FFX scale adjustment
@@ -10691,6 +10734,7 @@ func (c *Char) actionPrepare() {
 		c.shadowAnim = nil
 		c.shadowColor = [3]int32{-1, -1, -1}
 		c.shadowIntensity = -1
+		c.shadowKeeptransform = false
 		c.shadowOffset = [2]float32{}
 		c.shadowWindow = [4]float32{}
 		c.shadowXscale = 0
@@ -10701,8 +10745,10 @@ func (c *Char) actionPrepare() {
 		c.shadowfLength = 0
 
 		// Reset modifyReflection
+		c.reflectAnim = nil
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
+		c.reflectKeeptransform = false
 		c.reflectOffset = [2]float32{}
 		c.reflectWindow = [4]float32{}
 		c.reflectXscale = 0
@@ -11730,6 +11776,11 @@ func (c *Char) cueDraw() {
 				if c.shadowAnim != nil {
 					shadowSDcopy := *shadowSD
 					shadowSDcopy.anim = c.shadowAnim
+					if c.shadowKeeptransform {
+						shadowSDcopy.rot = c.shadowRot
+						shadowSDcopy.xshear = c.shadowXshear
+					}
+					shadowSDcopy.anim.curelem = c.shadowAnimelem
 					shadowSD = &shadowSDcopy
 				}
 				// Shadow modifiers
@@ -11786,6 +11837,11 @@ func (c *Char) cueDraw() {
 				if c.reflectAnim != nil {
 					reflectSDcopy := *reflectSD
 					reflectSDcopy.anim = c.reflectAnim
+					if c.reflectKeeptransform {
+						reflectSDcopy.rot = c.reflectRot
+						reflectSDcopy.xshear = c.reflectXshear
+					}
+					reflectSDcopy.anim.curelem = c.reflectAnimelem
 					reflectSD = &reflectSDcopy
 				}
 

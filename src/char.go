@@ -8418,7 +8418,7 @@ func (c *Char) inputWait() bool {
 		return true
 	}
 	// If after round "over.waittime" and the win poses have not started
-	if sys.intro <= -sys.lifebar.ro.over_waittime && sys.wintime >= 0 {
+	if sys.intro <= -sys.lifebar.ro.over_waittime && sys.winposetime >= 0 {
 		return true
 	}
 	return false

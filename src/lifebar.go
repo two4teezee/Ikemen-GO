@@ -2535,8 +2535,8 @@ type LifeBarRound struct {
 	over_waittime       int32
 	over_hittime        int32
 	over_wintime        int32
+	over_forcewintime   int32
 	over_time           int32
-	over_cancelwintime  int32
 	win_time            int32
 	win_sndtime         int32
 	win, win2           [2]AnimTextSnd
@@ -2577,8 +2577,8 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_waittime:      45,
 		over_hittime:       10,
 		over_wintime:       45,
+		over_forcewintime:  900, // Hardcoded in Mugen
 		over_time:          210,
-		over_cancelwintime: 900, // Hardcoded in Mugen
 		callfight_time:     60,
 	}
 }
@@ -2670,13 +2670,13 @@ func readLifeBarRound(is IniSection,
 	if ro.over_wintime < 1 {
 		ro.over_wintime = 1
 	}
+	is.ReadI32("over.forcewintime", &ro.over_forcewintime)
+	if ro.over_forcewintime < 1 {
+		ro.over_forcewintime = 1
+	}
 	is.ReadI32("over.time", &ro.over_time)
 	if ro.over_time < 1 {
 		ro.over_time = 1
-	}
-	is.ReadI32("over.cancelwintime", &ro.over_cancelwintime)
-	if ro.over_cancelwintime < 1 {
-		ro.over_cancelwintime = 1
 	}
 	is.ReadI32("win.time", &ro.win_time)
 	ro.win_sndtime = ro.win_time

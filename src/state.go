@@ -257,7 +257,7 @@ type GameState struct {
 
 	loopBreak    bool
 	loopContinue bool
-	wintime      int32
+	winposetime  int32
 
 	// Rollback
 	netTime int32
@@ -477,7 +477,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
 
-	sys.wintime = gs.wintime
+	sys.winposetime = gs.winposetime
 
 	// Log state load
 	if sys.rollback.session == nil {
@@ -683,7 +683,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue
 
-	gs.wintime = sys.wintime
+	gs.winposetime = sys.winposetime
 
 	// Log save state
 	if sys.rollback.session == nil {

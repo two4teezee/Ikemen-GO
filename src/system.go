@@ -1667,7 +1667,7 @@ func (s *System) resetRoundState() {
 	s.lastHitter = [2]int{-1, -1}
 	s.slowtime = s.lifebar.ro.slow_time
 	s.winposetime = s.lifebar.ro.over_wintime
-	s.winwaittime = s.lifebar.ro.over_waittime + s.lifebar.ro.over_cancelwintime
+	s.winwaittime = s.lifebar.ro.over_waittime + s.lifebar.ro.over_forcewintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.curRoundTime = s.maxRoundTime
@@ -2251,7 +2251,8 @@ func (s *System) stepRoundState() {
 		}
 
 		// Set timer to start win/lose poses. Update win counters
-		if s.winposetime == 0 { // In the first frame only
+		// In the first frame of win poses only
+		if s.winposetime == 0 {
 			// Attribute the win icon
 			winner := [2]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
 			if !winner[0] || !winner[1] ||
@@ -2299,8 +2300,7 @@ func (s *System) stepRoundState() {
 		}
 
 		// Send characters to win/lose poses
-		// Making this "<=" gives characters one last chance to do their poses
-		// It's less efficient and more dangerous than "==" however so should be monitored
+		// In Mugen this loop can run at any point after the win poses have started, hence "<="
 		if s.winposetime <= 0 {
 			for _, p := range s.chars {
 				if len(p) == 0 {
@@ -2308,10 +2308,8 @@ func (s *System) stepRoundState() {
 				}
 				// TODO: These changestates ought to be unhardcoded
 				// Mugen only checks for readiness in the RoundState 4 loop above. It doesn't care in this one and forces characters into win poses no matter what
-				if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].activelyFighting() && p[0].alive() &&
-					p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L { // Mugen ignores statetype here (but not earlier)
-					// Note: In the current code a character can end the round without "SCF_over_alive" if they did everything to avoid entering win poses
-					// Should be safe but it's something to keep in mind
+				// HitPause is checked here but not in the other loop. Perhaps because changing states during hitpause in Mugen isn't quite safe
+				if !p[0].scf(SCF_over_alive) && p[0].alive() && p[0].activelyFighting() && !p[0].hitPause() {
 					p[0].setSCF(SCF_over_alive)
 					if p[0].win() {
 						p[0].selfState(180, -1, -1, -1, "")

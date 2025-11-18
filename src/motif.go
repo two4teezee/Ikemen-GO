@@ -25,6 +25,18 @@ import (
 //go:embed resources/defaultMotif.ini
 var defaultMotif []byte
 
+// Motif parsing flow:
+// 1. A Motif struct is created, all maps are initialized and `default` struct tags
+//    are applied via applyDefaultsToValue, so every field has a well-defined base.
+// 2. Two INI files are loaded: resources/defaultMotif.ini (defaults) and the
+//    user motif .def. defaultOnlyIni holds only the embedded defaults, userIniFile
+//    holds only user values, and iniFile is a merged view used for saving/lookup.
+// 3. Values from defaultOnlyIni are assigned first, then values from userIniFile
+//    overwrite them. INI section/key names are mapped to struct fields using `ini`
+//    tags (including maps, pattern maps and flattening). After that, additional
+//    passes (custom defaults, inheritance, localcoord fixes, font resolution,
+//    PopulateDataPointers, etc.) adjust the final runtime data.
+
 type PalFxProperties struct {
 	Time        int32    `ini:"time" default:"-1"`
 	Color       float32  `ini:"color" default:"256"`
@@ -2345,6 +2357,32 @@ func (m *Motif) applyPostParsePosAdjustments() {
 }
 
 func (m *Motif) drawLoading() {
+	// Ensure the loading font slot is populated before creating the TextSprite.
+	fontIdx := m.TitleInfo.Loading.Font[0]
+	if fontIdx >= 0 {
+		if m.Fnt == nil {
+			m.Fnt = make(map[int]*Fnt)
+		}
+		if m.Fnt[int(fontIdx)] == nil && m.Files.Font != nil {
+			key := fmt.Sprintf("font%d", fontIdx)
+			if fp, ok := m.Files.Font[key]; ok && fp != nil && fp.Font != "" {
+				f, err := loadFnt(fp.Font, fp.Height)
+				if err != nil {
+					sys.errLog.Printf("Failed to preload %v for loading screen (%s): %v", fp.Font, key, err)
+				}
+				if f == nil {
+					f = newFnt()
+				}
+				m.Fnt[int(fontIdx)] = f
+				registerFontIndex(m.fntIndexByKey, fp.Font, fp.Height, int(fontIdx))
+				fp.Type = f.Type
+				fp.Size = f.Size
+				fp.Spacing = f.Spacing
+				fp.Offset = f.offset
+			}
+		}
+	}
+
 	// Build directly from the struct values so we don't need to populate everything.
 	v := reflect.ValueOf(&m.TitleInfo.Loading).Elem()
 	f := v.FieldByName("TextSpriteData")

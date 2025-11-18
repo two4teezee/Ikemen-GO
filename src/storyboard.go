@@ -15,11 +15,13 @@ import (
 var defaultStoryboard []byte
 
 type LayerProperties struct {
-	Anim           int32      `ini:"anim"`
-	Spr            [2]int32   `ini:"spr"`
+	Anim           int32      `ini:"anim" default:"-1"`
+	Spr            [2]int32   `ini:"spr" default:"-1,0"`
 	Offset         [2]float32 `ini:"offset"`
 	Facing         int32      `ini:"facing" default:"1"`
 	Scale          [2]float32 `ini:"scale" default:"1,1"`
+	Xshear         float32    `ini:"xshear"`
+	Angle          float32    `ini:"angle"`
 	Layerno        int16      `ini:"layerno" default:"2"`
 	Window         [4]int32   `ini:"window"`
 	Localcoord     [2]int32   `ini:"localcoord"`

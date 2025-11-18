@@ -574,20 +574,48 @@ func setFieldValue(fieldVal reflect.Value, value interface{}, defTag string, key
 		separator := ","
 		parts := strings.Split(trimmedValue, separator)
 
-		// Special-case for font arrays: allow filename in the first slot.
+		// For font arrays, the first element may be a path instead of a numeric index.
+		// In that case we keep the index as -1 so it can be resolved later by the inline font loader.
 		lkp := strings.ToLower(keyPath)
 		isFontArray := strings.HasSuffix(lkp, ".font") || lkp == "font"
 		if isFontArray && len(parts) > 0 {
 			first := strings.TrimSpace(parts[0])
 			if first != "" {
 				if _, err := strconv.ParseInt(first, 10, 64); err != nil {
-					// Defer resolution (resolveInlineFonts will patch it later)
+					// Non-numeric font id (inline font path) – keep index as -1,it will be resolved later.
 					parts[0] = "-1"
 				}
 			}
 		}
 
-		// Preserve existing elements for indices the user did not set.
+		// Treat the assignment as partial when not all array elements are provided or some entries are blank.
+		// For such partial updates we rebuild the array from default tag/zeros instead of keeping older values (e.g. from defaultMotif.ini)
+		isPartial := len(parts) < fieldVal.Len()
+		if !isPartial {
+			for _, raw := range parts {
+				if strings.TrimSpace(raw) == "" {
+					isPartial = true
+					break
+				}
+			}
+		}
+
+		if isPartial {
+			if defTag != "" {
+				// Rebase the whole array to the struct-level `default` tag string.
+				if err := setFieldValue(fieldVal, defTag, "", keyPath, lookupTag, baseDef); err != nil {
+					return err
+				}
+			} else {
+				// If there is no struct `default`, rebase the array to zero values.
+				for i := 0; i < fieldVal.Len(); i++ {
+					elem := fieldVal.Index(i)
+					elem.Set(reflect.Zero(elem.Type()))
+				}
+			}
+		}
+
+		// Apply user / source values on top of the freshly rebased array.
 		for i := 0; i < fieldVal.Len(); i++ {
 			var p string
 			if i < len(parts) {

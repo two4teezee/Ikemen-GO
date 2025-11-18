@@ -10734,7 +10734,7 @@ func (c *Char) actionPrepare() {
 		c.shadowAnim = nil
 		c.shadowColor = [3]int32{-1, -1, -1}
 		c.shadowIntensity = -1
-		c.shadowKeeptransform = false
+		c.shadowKeeptransform = true
 		c.shadowOffset = [2]float32{}
 		c.shadowWindow = [4]float32{}
 		c.shadowXscale = 0
@@ -10748,7 +10748,7 @@ func (c *Char) actionPrepare() {
 		c.reflectAnim = nil
 		c.reflectColor = [3]int32{-1, -1, -1}
 		c.reflectIntensity = -1
-		c.reflectKeeptransform = false
+		c.reflectKeeptransform = true
 		c.reflectOffset = [2]float32{}
 		c.reflectWindow = [4]float32{}
 		c.reflectXscale = 0
@@ -11776,10 +11776,6 @@ func (c *Char) cueDraw() {
 				if c.shadowAnim != nil {
 					shadowSDcopy := *shadowSD
 					shadowSDcopy.anim = c.shadowAnim
-					if c.shadowKeeptransform {
-						shadowSDcopy.rot = c.shadowRot
-						shadowSDcopy.xshear = c.shadowXshear
-					}
 					shadowSDcopy.anim.curelem = c.shadowAnimelem
 					shadowSD = &shadowSDcopy
 				}
@@ -11810,12 +11806,18 @@ func (c *Char) cueDraw() {
 					refYscale = c.reflectYscale
 				}
 
+				sdwKeeptransform := c.shadowKeeptransform 
+				if !c.shadowKeeptransform {
+					sdwKeeptransform = false
+				}
+
 				// Add shadow to shadow list
 				sys.shadows.add(&ShadowSprite{
 					SprData:         shadowSD,
 					shadowColor:     sdwclr,
 					shadowAlpha:     sdwalp,
 					shadowIntensity: c.shadowIntensity,
+					shadowKeeptransform: sdwKeeptransform,
 					shadowOffset: [2]float32{
 						c.shadowOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
@@ -11837,10 +11839,6 @@ func (c *Char) cueDraw() {
 				if c.reflectAnim != nil {
 					reflectSDcopy := *reflectSD
 					reflectSDcopy.anim = c.reflectAnim
-					if c.reflectKeeptransform {
-						reflectSDcopy.rot = c.reflectRot
-						reflectSDcopy.xshear = c.reflectXshear
-					}
 					reflectSDcopy.anim.curelem = c.reflectAnimelem
 					reflectSD = &reflectSDcopy
 				}
@@ -11848,11 +11846,17 @@ func (c *Char) cueDraw() {
 				// Reflection modifiers
 				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
 
+				reflectKeeptransform := c.reflectKeeptransform 
+				if !c.reflectKeeptransform {
+					reflectKeeptransform = false
+				}
+
 				// Add reflection to reflection list
 				sys.reflections.add(&ReflectionSprite{
 					SprData:          reflectSD,
 					reflectColor:     reflectclr,
 					reflectIntensity: c.reflectIntensity,
+					reflectKeeptransform: reflectKeeptransform,
 					reflectOffset: [2]float32{
 						c.reflectOffset[0] * c.localscl,
 						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,

@@ -192,7 +192,7 @@ type GameState struct {
 	zoomCameraBound         bool
 	zoomPos                 [2]float32
 	finishType              FinishType // UIT
-	waitdown                int32
+	winwaittime             int32
 	slowtime                int32
 
 	changeStateNest int32
@@ -332,7 +332,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winType = gs.winType
 	sys.winTrigger = gs.winTrigger
 	sys.lastHitter = gs.lastHitter
-	sys.waitdown = gs.waitdown
+	sys.winwaittime = gs.winwaittime
 	sys.slowtime = gs.slowtime
 
 	sys.winskipped = gs.winskipped
@@ -546,7 +546,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.winType = sys.winType
 	gs.winTrigger = sys.winTrigger
 	gs.lastHitter = sys.lastHitter
-	gs.waitdown = sys.waitdown
+	gs.winwaittime = sys.winwaittime
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro

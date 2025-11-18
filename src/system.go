@@ -211,9 +211,9 @@ type System struct {
 	debugWC                 *Char
 	cam                     Camera
 	finishType              FinishType
-	waitdown                int32
+	winwaittime             int32
 	slowtime                int32
-	wintime                 int32
+	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
 	changeStateNest         int32
@@ -1273,10 +1273,10 @@ func (s *System) outroState() int32 {
 	case s.roundOver():
 		// Round over
 		return 5
-	case s.roundWinStates():
+	case s.winposetime <= 0:
 		// Player win states
 		return 4
-	case sys.intro <= -sys.lifebar.ro.over_waittime && sys.wintime >= 0:
+	case sys.intro <= -sys.lifebar.ro.over_waittime && sys.winposetime > 0:
 		// Players lose control, but the round has not yet entered win states
 		return 3
 	case s.intro < -s.lifebar.ro.over_hittime || sys.lifebar.ro.over_hittime == 1:
@@ -1289,14 +1289,6 @@ func (s *System) outroState() int32 {
 		// Fallback case, shouldn't be reached
 		return 0
 	}
-}
-
-func (s *System) roundWinStates() bool {
-	return s.waitdown <= 0 || s.roundWinTime()
-}
-
-func (s *System) roundWinTime() bool {
-	return s.wintime < 0
 }
 
 func (s *System) roundOver() bool {
@@ -1673,9 +1665,9 @@ func (s *System) resetRoundState() {
 	s.winType = [...]WinType{WT_Normal, WT_Normal}
 	s.winTrigger = [...]WinType{WT_Normal, WT_Normal}
 	s.lastHitter = [2]int{-1, -1}
-	s.waitdown = s.lifebar.ro.over_waittime + 900
 	s.slowtime = s.lifebar.ro.slow_time
-	s.wintime = s.lifebar.ro.over_wintime
+	s.winposetime = s.lifebar.ro.over_wintime
+	s.winwaittime = s.lifebar.ro.over_waittime + s.lifebar.ro.over_cancelwintime
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.curRoundTime = s.maxRoundTime
@@ -2205,7 +2197,7 @@ func (s *System) stepRoundState() {
 		}
 
 		// Check if player skipped win pose time
-		if !s.winskipped && s.roundWinTime() && s.anyButton() && !s.gsf(GSF_roundnotskip) {
+		if !s.winskipped && s.winposetime < 0 && s.anyButton() && !s.gsf(GSF_roundnotskip) {
 			s.intro = Min(s.intro, fadeoutStart)
 			s.winskipped = true
 		}
@@ -2221,9 +2213,10 @@ func (s *System) stepRoundState() {
 			}
 		}
 
-		if s.winskipped || !s.roundWinTime() {
+		// Before win poses
+		if s.winposetime > 0 {
 			// Check if game can proceed into roundstate 4
-			if s.waitdown > 0 {
+			if s.winwaittime > 0 {
 				if s.intro == rs4t-1 {
 					for _, p := range s.chars {
 						if len(p) > 0 {
@@ -2231,7 +2224,7 @@ func (s *System) stepRoundState() {
 							// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
 							// TODO: This could be manageable from the char's side with an AssertSpecial or such
 							if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
-								(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L) {
+								(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L && p[0].animNo != 5) {
 								continue
 							}
 							// Freeze timer if any player is not ready to proceed yet
@@ -2250,71 +2243,89 @@ func (s *System) stepRoundState() {
 					}
 				}
 			}
+		}
 
-			// Start running wintime counter only after getting into roundstate 4
-			if s.intro < rs4t && !s.roundWinTime() {
-				s.wintime--
-			}
+		// Start running wintime counter only after getting into roundstate 4
+		if s.intro < rs4t {
+			s.winposetime--
+		}
 
-			// Set characters into win/lose poses, update win counters
-			if s.roundWinStates() {
-				if s.waitdown >= 0 {
-					winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-					if !winner[0] || !winner[1] ||
-						s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-						s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-						s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
-						for i, win := range winner {
-							if win {
-								s.lifebar.wi[i].add(s.winType[i])
-								if s.matchOver() {
-									// In a draw game both players go back to 0 wins
-									if winner[0] == winner[1] { // sys.winTeam < 0
-										s.lifebar.wc[0].wins = 0
-										s.lifebar.wc[1].wins = 0
-									} else {
-										if s.wins[i] >= s.matchWins[i] {
-											s.lifebar.wc[i].wins++
-										}
-									}
+		// Set timer to start win/lose poses. Update win counters
+		if s.winposetime == 0 { // In the first frame only
+			// Attribute the win icon
+			winner := [2]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+			if !winner[0] || !winner[1] ||
+				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
+				s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+				for i, win := range winner {
+					if win {
+						s.lifebar.wi[i].add(s.winType[i])
+						if s.matchOver() {
+							// In a draw game both players go back to 0 wins
+							if winner[0] == winner[1] { // sys.winTeam < 0
+								s.lifebar.wc[0].wins = 0
+								s.lifebar.wc[1].wins = 0
+							} else {
+								if s.wins[i] >= s.matchWins[i] {
+									s.lifebar.wc[i].wins++
 								}
 							}
 						}
-					} else {
-						s.draws++
 					}
 				}
-
-				for _, p := range s.chars {
-					if len(p) > 0 {
-						// Default life recovery. Used only if externalized Lua implementation is disabled
-						if len(sys.cfg.Common.Lua) == 0 && s.waitdown >= 0 && s.curRoundTime > 0 && p[0].win() &&
-							p[0].alive() && !s.matchOver() &&
-							(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
-							p[0].life += int32((float32(p[0].lifeMax) *
-								float32(s.curRoundTime) / 60) * s.turnsRecoveryRate)
-							if p[0].life > p[0].lifeMax {
-								p[0].life = p[0].lifeMax
-							}
-						}
-						// TODO: These changestates ought to be unhardcoded
-						if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() && p[0].animNo != 5 {
-							p[0].setSCF(SCF_over_alive)
-							if p[0].win() {
-								p[0].selfState(180, -1, -1, -1, "")
-							} else if p[0].lose() {
-								p[0].selfState(170, -1, -1, -1, "")
-							} else {
-								p[0].selfState(175, -1, -1, -1, "")
-							}
-						}
-					}
-				}
-
-				s.waitdown = 0
+			} else {
+				s.draws++
 			}
 
-			s.waitdown--
+			// Default life recovery. Used only if externalized Lua implementation is disabled
+			if len(sys.cfg.Common.Lua) == 0 {
+				for _, p := range s.chars {
+					if len(p) == 0 {
+						continue
+					}
+					if p[0].winKO() && p[0].alive() && !s.matchOver() &&
+						(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
+						p[0].life += int32((float32(p[0].lifeMax) * float32(s.curRoundTime) / 60) * s.turnsRecoveryRate)
+
+						if p[0].life > p[0].lifeMax {
+							p[0].life = p[0].lifeMax
+						}
+					}
+				}
+			}
+
+			// Fast forward wait timer since we're now done waiting
+			s.winwaittime = 0
+		}
+
+		// Send characters to win/lose poses
+		// Making this "<=" gives characters one last chance to do their poses
+		// It's less efficient and more dangerous than "==" however so should be monitored
+		if s.winposetime <= 0 {
+			for _, p := range s.chars {
+				if len(p) == 0 {
+					continue
+				}
+				// TODO: These changestates ought to be unhardcoded
+				// Mugen only checks for readiness in the RoundState 4 loop above. It doesn't care in this one and forces characters into win poses no matter what
+				if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() &&
+					p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L { // Mugen ignores statetype here (but not earlier)
+					// Note: In the current code a character can end the round without "SCF_over_alive" if they did everything to avoid entering win poses
+					// Should be safe but it's something to keep in mind
+					p[0].setSCF(SCF_over_alive)
+					if p[0].win() {
+						p[0].selfState(180, -1, -1, -1, "")
+					} else if p[0].lose() {
+						p[0].selfState(170, -1, -1, -1, "")
+					} else {
+						p[0].selfState(175, -1, -1, -1, "")
+					}
+				}
+			}
+		}
+
+		if s.winwaittime > 0 {
+			s.winwaittime--
 		}
 	} else if s.intro < 0 {
 		s.intro = 0
@@ -2337,7 +2348,7 @@ func (s *System) roundEndDecision() bool {
 	}
 
 	// KO check
-	ko := [...]bool{true, true}
+	ko := [2]bool{true, true}
 	for loser := range ko {
 		// Check if all players or leader on one side are KO
 		for i := loser; i < MaxSimul*2; i += 2 {

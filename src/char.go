@@ -5957,6 +5957,8 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 			// If changing state during hitpause, restore (carry over) persistent from the before state
 			c.ss.sb.ctrlsps = make([]int32, len(c.ss.sb.ctrlsps))
 			copy(c.ss.sb.ctrlsps, ctrlsps_backup)
+			// Apply special persistent counter behavior for state changes during hitpause
+			c.persistentChangeStateHitpauseCorrection(&c.ss.sb)
 
 			// Get the index of the currently executing SCTRL block
 			c.hitStateChangeIdx = c.currentSctrlIndex
@@ -5970,6 +5972,31 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 	return true
 }
 
+// Correction process to reproduce MUGEN's persistent behavior
+// This is called during a ChangeState while in hitpause
+func (c *Char) persistentChangeStateHitpauseCorrection(sbc *StateBytecode) {
+	// Nested structures do not need to be considered
+	for _, sctrl := range sbc.block.ctrls {
+		if sctrlBlock, ok := sctrl.(StateBlock); ok {
+			idx := sctrlBlock.persistentIndex
+			if idx >= 0 && int(idx) < len(sbc.ctrlsps) {
+				// If the destination SCTRL is persistent=0 (run-once)
+				if sctrlBlock.persistent == math.MaxInt32 {
+					// If the carried-over counter is > 1 (waiting),it is considered "already executed" and locked
+					if sbc.ctrlsps[idx] > 1 {
+						sbc.ctrlsps[idx] = math.MaxInt32
+					}
+				} else { // If the destination SCTRL is persistent > 0
+					// If the carried-over counter was from a p=0 SCTRL and was already executed (locked state)
+					// reset the counter with the new persistent value, making it executable again
+					if sbc.ctrlsps[idx] == math.MaxInt32 {
+						sbc.ctrlsps[idx] = sctrlBlock.persistent
+					}
+				}
+			}
+		}
+	}
+}
 func (c *Char) stateChange2() bool {
 	if c.stchtmp && !c.hitPause() {
 		c.ss.sb.init(c)
@@ -9946,8 +9973,11 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		}
 		if hd.KeepState && ghvset {
 			getter.ghv.keepstate = hd.KeepState
-			getter.hitPauseTime = Max(0, hd.guard_pausetime[1])
-			getter.ghv.hitshaketime = 0
+			if hitResult == 2 {
+				getter.ghv.hitshaketime = Max(0, hd.guard_pausetime[1])
+			} else {
+				getter.ghv.hitshaketime = Max(0, hd.pausetime[1])
+			}
 		} else if ghvset {
 			ghv := &getter.ghv
 			cmb := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !ghv.guarded
@@ -10905,25 +10935,25 @@ func (c *Char) actionRun() {
 			c.updateCurFrame()
 		}
 		if c.ghv.damage != 0 {
-			if c.ss.moveType == MT_H || c.ghv.keepstate {
+			if c.ss.moveType == MT_H || (c.ghv.keepstate && c.hoverIdx == -1) {
 				c.lifeAdd(-float64(c.ghv.damage), true, true)
 			}
 			c.ghv.damage = 0
 		}
 		if c.ghv.redlife != 0 {
-			if c.ss.moveType == MT_H || c.ghv.keepstate {
+			if c.ss.moveType == MT_H || (c.ghv.keepstate && c.hoverIdx == -1) {
 				c.redLifeAdd(-float64(c.ghv.redlife), true)
 			}
 			c.ghv.redlife = 0
 		}
 		if c.ghv.dizzypoints != 0 {
-			if c.ss.moveType == MT_H || c.ghv.keepstate {
+			if c.ss.moveType == MT_H || (c.ghv.keepstate && c.hoverIdx == -1) {
 				c.dizzyPointsAdd(-float64(c.ghv.dizzypoints), true)
 			}
 			c.ghv.dizzypoints = 0
 		}
 		if c.ghv.guardpoints != 0 {
-			if c.ss.moveType == MT_H || c.ghv.keepstate {
+			if c.ss.moveType == MT_H || (c.ghv.keepstate && c.hoverIdx == -1) {
 				c.guardPointsAdd(-float64(c.ghv.guardpoints), true)
 			}
 			c.ghv.guardpoints = 0
@@ -10933,6 +10963,7 @@ func (c *Char) actionRun() {
 		c.ghv.power = 0
 		c.ghv.hitpower = 0
 		c.ghv.guardpower = 0
+		c.ghv.keepstate = false
 		// The following block used to be in char.update()
 		// That however caused a breaking difference with Mugen when checking these variables between different players
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1540

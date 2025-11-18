@@ -590,6 +590,7 @@ const (
 	OC_ex_gethitvar_guardflag
 	OC_ex_gethitvar_stand_friction
 	OC_ex_gethitvar_crouch_friction
+	OC_ex_gethitvar_keepstate
 	OC_ex_ailevelf
 	OC_ex_animelemvar_alphadest
 	OC_ex_animelemvar_angle
@@ -709,7 +710,6 @@ const (
 	OC_ex_prevmovetype
 	OC_ex_prevstatetype
 	OC_ex_reversaldefattr
-	OC_ex_airjumpcount
 	OC_ex_envshakevar_time
 	OC_ex_envshakevar_freq
 	OC_ex_envshakevar_ampl
@@ -966,6 +966,7 @@ const (
 	OC_ex2_attackmul
 	OC_ex2_defencemul
 	OC_ex2_guardcount
+	OC_ex2_airjumpcount
 )
 
 type StringPool struct {
@@ -2836,14 +2837,14 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 			c.ghv.guardflag&attr != 0,
 		)
 		*i += 4
+	case OC_ex_gethitvar_keepstate:
+		sys.bcStack.PushB(c.ghv.keepstate)
 	case OC_ex_ailevelf:
 		if c.asf(ASF_noailevel) {
 			sys.bcStack.PushI(0)
 		} else {
 			sys.bcStack.PushF(c.getAILevel())
 		}
-	case OC_ex_airjumpcount:
-		sys.bcStack.PushI(c.airJumpCount)
 	// AnimelemVar
 	case OC_ex_animelemvar_alphadest, OC_ex_animelemvar_alphasource, OC_ex_animelemvar_angle,
 		OC_ex_animelemvar_group, OC_ex_animelemvar_hflip, OC_ex_animelemvar_image,
@@ -3832,6 +3833,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(float32(c.finalDefense / float64(c.gi().defenceBase) * 100))
 	case OC_ex2_guardcount:
 		sys.bcStack.PushI(c.guardCount)
+	case OC_ex2_airjumpcount:
+		sys.bcStack.PushI(c.airJumpCount)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3975,7 +3978,9 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 		*/
 	}
 	if b.persistentIndex >= 0 {
-		ps[b.persistentIndex]--
+		if ps[b.persistentIndex] != math.MaxInt32 {
+			ps[b.persistentIndex]--
+		}
 		if ps[b.persistentIndex] > 0 {
 			return false
 		}

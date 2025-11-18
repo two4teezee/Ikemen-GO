@@ -396,6 +396,7 @@ function menu.f_start()
 							table.insert(menu[v.id].items, {
 								itemname = c,
 								displayname = v.sec.menu.itemname[suffix],
+								paramname = suffix,
 								vardisplay = menu.f_vardisplay(c),
 								selected = false,
 							})
@@ -419,6 +420,7 @@ function menu.f_start()
 						table.insert(t_pos.items, {
 							itemname = c,
 							displayname = v.sec.menu.itemname[suffix],
+							paramname = suffix,
 							vardisplay = menu.f_vardisplay(c),
 							selected = false,
 						})
@@ -438,12 +440,12 @@ function menu.f_start()
 		textImgSetWindow(v.sec.menu.item.selected.TextSpriteData, w[1], w[2], w[3], w[4])
 		textImgSetWindow(v.sec.menu.item.TextSpriteData, w[1], w[2], w[3], w[4])
 		textImgSetWindow(v.sec.menu.item.value.TextSpriteData, w[1], w[2], w[3], w[4])
-		for _, v2 in pairs(v.sec.menu.item.bg) do
-			animSetWindow(v2.AnimData, w[1], w[2], w[3], w[4])
-		end
-		for _, v2 in pairs(v.sec.menu.item.active.bg) do
-			animSetWindow(v2.AnimData, w[1], w[2], w[3], w[4])
-		end
+		--for _, v2 in pairs(v.sec.menu.item.bg) do
+		--	animSetWindow(v2.AnimData, w[1], w[2], w[3], w[4])
+		--end
+		--for _, v2 in pairs(v.sec.menu.item.active.bg) do
+		--	animSetWindow(v2.AnimData, w[1], w[2], w[3], w[4])
+		--end
 		if main.debugLog then main.f_printTable(menu[v.id], 'debug/t_' .. v.id .. 'Menu.txt') end
 		-- Move list
 		if v.movelist then

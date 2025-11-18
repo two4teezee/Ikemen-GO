@@ -2519,6 +2519,7 @@ function main.f_start()
 						table.insert(main.menu.items, {
 							itemname = c,
 							displayname = motif[main.group].menu.itemname[suffix],
+							paramname = suffix,
 						})
 						if c == 'bonusgames' then bonusUpper = main.menu.items[#main.menu.items].displayname == main.menu.items[#main.menu.items].displayname:upper() end
 					end
@@ -2532,6 +2533,7 @@ function main.f_start()
 					table.insert(t_pos.items, {
 						itemname = c,
 						displayname = motif[main.group].menu.itemname[suffix],
+						paramname = suffix,
 					})
 					if c == 'bonusgames' then bonusUpper = t_pos.items[#t_pos.items].displayname == t_pos.items[#t_pos.items].displayname:upper() end
 				end
@@ -2549,6 +2551,7 @@ function main.f_start()
 					table.insert(t_pos.items, {
 						itemname = itemname,
 						displayname = main.f_itemnameUpper(name, bonusUpper),
+						paramname = suffix:gsub('back$', itemname),
 					})
 				end
 			end
@@ -2559,6 +2562,7 @@ function main.f_start()
 					table.insert(t_pos.items, {
 						itemname = itemname,
 						displayname = v.displayname,
+						paramname = suffix:gsub('back$', itemname),
 					})
 				end
 			end
@@ -2569,6 +2573,7 @@ function main.f_start()
 					table.insert(t_pos.items, {
 						itemname = itemname,
 						displayname = k,
+						paramname = suffix:gsub('back$', itemname),
 					})
 				end
 			end
@@ -2580,12 +2585,12 @@ function main.f_start()
 	textImgSetWindow(motif[main.group].menu.item.selected.TextSpriteData, w[1], w[2], w[3], w[4])
 	textImgSetWindow(motif[main.group].menu.item.TextSpriteData, w[1], w[2], w[3], w[4])
 	textImgSetWindow(motif[main.group].menu.item.value.TextSpriteData, w[1], w[2], w[3], w[4])
-	for _, v in pairs(motif[main.group].menu.item.bg) do
-		animSetWindow(v.AnimData, w[1], w[2], w[3], w[4])
-	end
-	for _, v in pairs(motif[main.group].menu.item.active.bg) do
-		animSetWindow(v.AnimData, w[1], w[2], w[3], w[4])
-	end
+	--for _, v in pairs(motif[main.group].menu.item.bg) do
+	--	animSetWindow(v.AnimData, w[1], w[2], w[3], w[4])
+	--end
+	--for _, v in pairs(motif[main.group].menu.item.active.bg) do
+	--	animSetWindow(v.AnimData, w[1], w[2], w[3], w[4])
+	--end
 	if main.debugLog then main.f_printTable(main.menu, 'debug/t_mainMenu.txt') end
 end
 
@@ -3189,135 +3194,78 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	if items_shown > #t or (visible > 0 and items_shown < #t and (sec.menu.window.margins.y[1] ~= 0 or sec.menu.window.margins.y[2] ~= 0)) then
 		items_shown = #t
 	end
+
+	-- helper that draws a single item either as active or inactive
+	local function drawItem(i, isActive)
+		local itemData = t[i]
+		-- display name
+		local displayname = main.f_itemnameUpper(itemData.displayname, sec.menu.item.uppercase)
+		if itemData.itemname:match("^spacer%d*$") then
+			displayname = ""
+		end
+		-- shared position
+		local posX = offx + (i - 1) * sec.menu.item.spacing[1]
+		local posY = offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
+		-- background params
+		local bgTable = isActive and sec.menu.item.active.bg or sec.menu.item.bg
+		local params = bgTable[itemData.paramname] or bgTable.default
+		-- draw background
+		main.f_animPosDraw(
+			params.AnimData,
+			-- TODO: pre 1.0 skipped spacing calc for bg elements, consider adding it
+			-- posX, posY
+			offx,
+			offy
+		)
+		-- text sprite for label
+		local labelSprite
+		if itemData.selected then
+			labelSprite = isActive and sec.menu.item.selected.active.TextSpriteData or sec.menu.item.selected.TextSpriteData
+		else
+			labelSprite = isActive and sec.menu.item.active.TextSpriteData or sec.menu.item.TextSpriteData
+		end
+		textImgReset(labelSprite)
+		textImgAddPos(labelSprite, posX, posY)
+		textImgSetText(labelSprite, displayname)
+		textImgDraw(labelSprite)
+		-- value / info sprites
+		if itemData.vardisplay ~= nil then
+			if itemData.conflict and sec.menu.item.value.conflict and sec.menu.item.value.conflict.TextSpriteData then
+				local spr = sec.menu.item.value.conflict.TextSpriteData
+				textImgReset(spr)
+				textImgAddPos(spr, posX, posY)
+				textImgSetText(spr, itemData.vardisplay)
+				textImgDraw(spr)
+			else
+				local spr = isActive and sec.menu.item.value.active.TextSpriteData or sec.menu.item.value.TextSpriteData
+				textImgReset(spr)
+				textImgAddPos(spr, posX, posY)
+				textImgSetText(spr, itemData.vardisplay)
+				textImgDraw(spr)
+			end
+		elseif itemData.infodisplay ~= nil then
+			local spr = isActive and sec.menu.item.info.active.TextSpriteData or sec.menu.item.info.TextSpriteData
+			textImgReset(spr)
+			textImgAddPos(spr, posX, posY)
+			textImgSetText(spr, itemData.infodisplay)
+			textImgDraw(spr)
+		end
+	end
+	-- draw not active items
 	for i = 1, items_shown do
 		if i > item - cursorPosY or not tweenDone then
-			local displayname = main.f_itemnameUpper(t[i].displayname, sec.menu.item.uppercase)
-			if t[i].itemname:match("^spacer%d*$") then
-				displayname = ""
+			local isSelected = (i == item) and (not forceInactive)
+			if not isSelected then
+				drawItem(i, false)
 			end
+		end
+	end
+	-- draw active items
+	for i = 1, items_shown do
+		if i > item - cursorPosY or not tweenDone then
 			local isSelected = (i == item) and (not forceInactive)
 			if isSelected then
-				--Draw active item background
-				local params = sec.menu.item.active.bg.default
-				if sec.menu.item.active.bg[t[i].itemname] ~= nil then
-					params = sec.menu.item.active.bg[t[i].itemname]
-				end
-				main.f_animPosDraw(
-					params.AnimData,
-					offx + (i - 1) * sec.menu.item.spacing[1],
-					offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-				)
-				--Draw active item font
-				if t[i].selected then
-					textImgReset(sec.menu.item.selected.active.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.selected.active.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.selected.active.TextSpriteData, displayname)
-					textImgDraw(sec.menu.item.selected.active.TextSpriteData)
-				else
-					textImgReset(sec.menu.item.active.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.active.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.active.TextSpriteData, displayname)
-					textImgDraw(sec.menu.item.active.TextSpriteData)
-				end
-				if t[i].vardisplay ~= nil then
-					if t[i].conflict and sec.menu.item.value.conflict and sec.menu.item.value.conflict.TextSpriteData then
-						textImgReset(sec.menu.item.value.conflict.TextSpriteData)
-						textImgAddPos(
-							sec.menu.item.value.conflict.TextSpriteData,
-							offx + (i - 1) * sec.menu.item.spacing[1],
-							offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-						)
-						textImgSetText(sec.menu.item.value.conflict.TextSpriteData, t[i].vardisplay)
-						textImgDraw(sec.menu.item.value.conflict.TextSpriteData)
-					else
-						textImgReset(sec.menu.item.value.active.TextSpriteData)
-						textImgAddPos(
-							sec.menu.item.value.active.TextSpriteData,
-							offx + (i - 1) * sec.menu.item.spacing[1],
-							offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-						)
-						textImgSetText(sec.menu.item.value.active.TextSpriteData, t[i].vardisplay)
-						textImgDraw(sec.menu.item.value.active.TextSpriteData)
-					end
-				elseif t[i].infodisplay ~= nil then
-					textImgReset(sec.menu.item.info.active.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.info.active.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.info.active.TextSpriteData, t[i].infodisplay)
-					textImgDraw(sec.menu.item.info.active.TextSpriteData)
-				end
-			else
-				--Draw not active item background
-				local params = sec.menu.item.bg.default
-				if sec.menu.item.bg[t[i].itemname] ~= nil then
-					params = sec.menu.item.bg[t[i].itemname]
-				end
-				main.f_animPosDraw(
-					params.AnimData,
-					offx + (i - 1) * sec.menu.item.spacing[1],
-					offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-				)
-				--Draw not active item font
-				if t[i].selected then
-					textImgReset(sec.menu.item.selected.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.selected.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.selected.TextSpriteData, displayname)
-					textImgDraw(sec.menu.item.selected.TextSpriteData)
-				else
-					textImgReset(sec.menu.item.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.TextSpriteData, displayname)
-					textImgDraw(sec.menu.item.TextSpriteData)
-				end
-				if t[i].vardisplay ~= nil then
-					if t[i].conflict and sec.menu.item.value.conflict and sec.menu.item.value.conflict.TextSpriteData then
-						textImgReset(sec.menu.item.value.conflict.TextSpriteData)
-						textImgAddPos(
-							sec.menu.item.value.conflict.TextSpriteData,
-							offx + (i - 1) * sec.menu.item.spacing[1],
-							offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-						)
-						textImgSetText(sec.menu.item.value.conflict.TextSpriteData, t[i].vardisplay)
-						textImgDraw(sec.menu.item.value.conflict.TextSpriteData)
-					else
-						textImgReset(sec.menu.item.value.TextSpriteData)
-						textImgAddPos(
-							sec.menu.item.value.TextSpriteData,
-							offx + (i - 1) * sec.menu.item.spacing[1],
-							offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-						)
-						textImgSetText(sec.menu.item.value.TextSpriteData, t[i].vardisplay)
-						textImgDraw(sec.menu.item.value.TextSpriteData)
-					end
-				elseif t[i].infodisplay ~= nil then
-					textImgReset(sec.menu.item.info.TextSpriteData)
-					textImgAddPos(
-						sec.menu.item.info.TextSpriteData,
-						offx + (i - 1) * sec.menu.item.spacing[1],
-						offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
-					)
-					textImgSetText(sec.menu.item.info.TextSpriteData, t[i].infodisplay)
-					textImgDraw(sec.menu.item.info.TextSpriteData)
-				end
+				drawItem(i, true)
 			end
 		end
 	end
@@ -3332,7 +3280,6 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	--calculate target Y position for cursor
 	local targetY = offy + sec.menu.pos[2] + sec.menu.boxcursor.coords[2] + (cursorPosY - 1) * sec.menu.item.spacing[2]
 	local t_factor = sec.menu.boxcursor.tween.factor
-
 	--snap cursor immediately if first use or snap enabled
 	if sec.boxCursorData.snap == 1 or not sec.boxCursorData.init then
 		sec.boxCursorData.offsetY = targetY

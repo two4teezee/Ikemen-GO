@@ -1879,6 +1879,7 @@ function options.f_start()
 					table.insert(t_pos.items, 1, {
 						itemname = itemname,
 						displayname = options.t_shaders[k].filename,
+						paramname = suffix:gsub('back$', itemname),
 						vardisplay = options.f_boolDisplay(idx > 0, tostring(idx), ''),
 						selected = isSelected,
 					})
@@ -1910,6 +1911,7 @@ function options.f_start()
 					table.insert(t_pos.items, {
 						itemname = c,
 						displayname = motif.option_info.menu.itemname[suffix],
+						paramname = suffix,
 						vardisplay = options.f_vardisplay(c),
 						selected = false,
 					})
@@ -1970,13 +1972,13 @@ end
 --; KEY SETTINGS
 --;===========================================================
 local t_keyCfg = {}
-table.insert(t_keyCfg, {itemname = 'spacer', displayname = '-'})
+table.insert(t_keyCfg, {itemname = 'spacer', displayname = '-', paramname = 'spacer'})
 for _, v in ipairs(motif.option_info.keymenu.itemname_order or {}) do
 	if main.t_defaultKeysMapping[v] ~= nil or v == "configall" then
-		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.itemname[v] or '', infodisplay = ''})
+		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.itemname[v] or '', paramname = v, infodisplay = ''})
 	end
 end
-table.insert(t_keyCfg, {itemname = 'page', displayname = '', infodisplay = ''})
+table.insert(t_keyCfg, {itemname = 'page', displayname = '', paramname = 'page', infodisplay = ''})
 
 -- find the index of the "Config all" row
 local configall_start = 2
@@ -2433,6 +2435,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			local row = {
 				itemname    = base.itemname,
 				displayname = base.displayname,
+				paramname   = base.paramname,
 				selected    = base.selected,
 				vardisplay  = base['vardisplay' .. pn],
 				infodisplay = base.infodisplay,

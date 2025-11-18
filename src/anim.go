@@ -793,9 +793,9 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 					space += xs * float32(a.spr.Size[0])
 				}
 			} else {
-				space = xs/h * float32(a.tile.xspacing)
+				space = xs / h * float32(a.tile.xspacing)
 				if a.tile.xspacing <= 0 {
-					space += xs/h * float32(a.spr.Size[0])
+					space += xs / h * float32(a.spr.Size[0])
 					space += float32(a.spr.Size[0])
 				}
 			}

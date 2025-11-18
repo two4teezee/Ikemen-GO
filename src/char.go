@@ -4642,6 +4642,15 @@ func (c *Char) alive() bool {
 	return !c.scf(SCF_ko)
 }
 
+// Check if a player should care about winning or losing
+// Used to enter win/lose states
+func (c *Char) activelyFighting() bool {
+	if c.teamside < 0 || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+		return false
+	}
+	return true
+}
+
 func (c *Char) animElemNo(time int32) BytecodeValue {
 	if c.anim != nil && time >= -c.anim.curtime {
 		return BytecodeInt(c.anim.AnimElemNo(time))

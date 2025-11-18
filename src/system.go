@@ -2140,8 +2140,8 @@ func (s *System) stepRoundState() {
 		if s.intro == s.lifebar.ro.ctrl_time {
 			for _, p := range s.chars {
 				if len(p) > 0 {
-					if !p[0].asf(ASF_nointroreset) {
-						p[0].posReset()
+					if p[0].activelyFighting() && !p[0].asf(ASF_nointroreset) {
+						p[0].posReset() // Technically we don't really need this step
 					}
 				}
 			}
@@ -2152,10 +2152,11 @@ func (s *System) stepRoundState() {
 				if len(p) > 0 {
 					if p[0].alive() {
 						p[0].unsetSCF(SCF_over_alive)
-						if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
+						//if !p[0].scf(SCF_standby) || p[0].teamside == -1 {
+						if p[0].activelyFighting() {
 							p[0].setCtrl(true)
 							if p[0].ss.no != 0 && !p[0].asf(ASF_nointroreset) {
-								p[0].selfState(0, -1, -1, 1, "")
+								p[0].selfState(0, -1, -1, 1, "") // Nor this one
 							}
 						}
 					}
@@ -2221,9 +2222,8 @@ func (s *System) stepRoundState() {
 					for _, p := range s.chars {
 						if len(p) > 0 {
 							// Check if this player is ready to proceed to roundstate 4
-							// TODO: The game should normally only wait for players that are active in the fight // || p[0].teamside == -1 || p[0].scf(SCF_standby)
-							// TODO: This could be manageable from the char's side with an AssertSpecial or such
-							if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) ||
+							// Maybe the "activelyFighting()" could be replaced with an AssertSpecial flag or such to ignore the win/lose states
+							if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) || !p[0].activelyFighting() ||
 								(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L && p[0].animNo != 5) {
 								continue
 							}
@@ -2308,7 +2308,7 @@ func (s *System) stepRoundState() {
 				}
 				// TODO: These changestates ought to be unhardcoded
 				// Mugen only checks for readiness in the RoundState 4 loop above. It doesn't care in this one and forces characters into win poses no matter what
-				if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].alive() &&
+				if !p[0].scf(SCF_over_alive) && !p[0].hitPause() && p[0].activelyFighting() && p[0].alive() &&
 					p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L { // Mugen ignores statetype here (but not earlier)
 					// Note: In the current code a character can end the round without "SCF_over_alive" if they did everything to avoid entering win poses
 					// Should be safe but it's something to keep in mind

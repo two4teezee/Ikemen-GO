@@ -31,6 +31,9 @@ func (fa *Fade) reset() {
 }
 
 func (fa *Fade) init(fade *Fade, isFadeIn bool) {
+	if fa.time <= 0 && fa.animData != nil && fa.animData.anim != nil {
+		fa.time = fa.animData.GetLength()
+	}
 	fa.reset()
 	fa.colEncoded = uint32(fa.col[0]&0xff<<16 | fa.col[1]&0xff<<8 | fa.col[2]&0xff)
 	fa.isFadeIn = isFadeIn
@@ -42,6 +45,10 @@ func (fa *Fade) step() {
 	if !fa.active || (sys.gameRunning && !sys.tickFrame() && !sys.motif.me.active) {
 		return
 	}
+	if fa.time == fa.timeRemaining && fa.snd[0] != -1 && fa.snd[1] != -1 {
+		sys.motif.Snd.play(fa.snd, 100, 0, 0, 0, 0)
+	}
+
 	if fa.animData != nil {
 		fa.animData.Update()
 	}

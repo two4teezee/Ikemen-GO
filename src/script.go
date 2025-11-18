@@ -680,15 +680,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		var sum int32
-		for _, f := range a.anim.frames {
-			if f.Time == -1 {
-				sum += 1
-			} else {
-				sum += f.Time
-			}
-		}
-		l.Push(lua.LNumber(sum))
+		l.Push(lua.LNumber(a.GetLength()))
 		l.Push(lua.LNumber(a.anim.totaltime))
 		return 2
 	})

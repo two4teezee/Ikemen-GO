@@ -535,6 +535,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		bg.xscale[1] = float32(bg.width[1]) / float32(bg.anim.spr.Size[0])
 		scalestartX = AbsF(scalestartX)
 		bg.xofs = scalestartX * ((-float32(bg.width[0]) / 2) + float32(bg.anim.spr.Offset[0])*bg.xscale[0])
+		bg.anim.isParallax = true
 	}
 
 	// Calculate raster x ratio and base x scale

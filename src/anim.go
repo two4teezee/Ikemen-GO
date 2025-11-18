@@ -191,6 +191,7 @@ type Animation struct {
 	interpolate_blend_dstalpha float32
 	remap                      RemapPreset
 	start_scale                [2]float32
+	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
 }
 
@@ -785,10 +786,18 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 			//}
 		}
 		if a.tile.xflag == 1 {
-			space := xs / h * float32(a.tile.xspacing)
-			if a.tile.xspacing <= 0 {
-				space += xs / h * float32(a.spr.Size[0])
-				space += float32(a.spr.Size[0])
+			var space float32
+			if a.isParallax {
+				space = xs * float32(a.tile.xspacing)
+				if a.tile.xspacing <= 0 {
+					space += xs * float32(a.spr.Size[0])
+				}
+			} else {
+				space = xs/h * float32(a.tile.xspacing)
+				if a.tile.xspacing <= 0 {
+					space += xs/h * float32(a.spr.Size[0])
+					space += float32(a.spr.Size[0])
+				}
 			}
 			if space != 0 {
 				x -= float32(int(x/space)) * space
@@ -1168,18 +1177,19 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 
 type ShadowSprite struct {
 	*SprData
-	groundLevel      float32
-	shadowColor      int32
-	shadowAlpha      int32
-	shadowIntensity  int32
-	shadowOffset     [2]float32
-	shadowWindow     [4]float32
-	shadowXscale     float32
-	shadowXshear     float32
-	shadowYscale     float32
-	shadowRot        Rotation
-	shadowProjection int32
-	shadowfLength    float32
+	groundLevel         float32
+	shadowColor         int32
+	shadowAlpha         int32
+	shadowIntensity     int32
+	shadowKeeptransform bool
+	shadowOffset        [2]float32
+	shadowWindow        [4]float32
+	shadowXscale        float32
+	shadowXshear        float32
+	shadowYscale        float32
+	shadowRot           Rotation
+	shadowProjection    int32
+	shadowfLength       float32
 }
 
 type ShadowList []*ShadowSprite
@@ -1296,6 +1306,8 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		var xshear float32
 		if s.shadowXshear != 0 {
 			xshear = -s.xshear + s.shadowXshear
+		} else if !s.shadowKeeptransform { // Do not stack original sprite xshear in this case
+			xshear = s.shadowXshear
 		} else {
 			xshear = -s.xshear + sys.stage.sdw.xshear
 		}
@@ -1313,6 +1325,9 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// Add custom or stage shadow rotation to original sprite rotation
 		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if !s.shadowKeeptransform {
+				return customAngle // Raw modifyShadow angle
+			}
 			if customAngle != 0 {
 				return baseAngle + customAngle
 			}
@@ -1327,11 +1342,13 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// If sprite is flipped horizontally, invert the added rotation part
 		// TODO: This is possibly not ideal. Maybe the original sprite's facing should be used instead of checking angle sign
-		if s.rot.angle < 0 {
-			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
-		}
-		if s.rot.yangle < 0 {
-			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
+		if s.shadowKeeptransform {
+			if s.rot.angle < 0 {
+				rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+			}
+			if s.rot.yangle < 0 {
+				rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
+			}
 		}
 
 		if rot.angle != 0 {
@@ -1408,17 +1425,18 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 type ReflectionSprite struct {
 	*SprData
-	groundLevel       float32
-	reflectColor      int32
-	reflectIntensity  int32
-	reflectOffset     [2]float32
-	reflectWindow     [4]float32
-	reflectXscale     float32
-	reflectXshear     float32
-	reflectYscale     float32
-	reflectRot        Rotation
-	reflectProjection int32
-	reflectfLength    float32
+	groundLevel          float32
+	reflectColor         int32
+	reflectIntensity     int32
+	reflectKeeptransform bool
+	reflectOffset        [2]float32
+	reflectWindow        [4]float32
+	reflectXscale        float32
+	reflectXshear        float32
+	reflectYscale        float32
+	reflectRot           Rotation
+	reflectProjection    int32
+	reflectfLength       float32
 }
 
 type ReflectionList []*ReflectionSprite
@@ -1550,6 +1568,8 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		var xshear float32
 		if s.reflectXshear != 0 {
 			xshear = -s.xshear + s.reflectXshear
+		} else if !s.reflectKeeptransform {
+			xshear = s.reflectXshear
 		} else {
 			xshear = -s.xshear + sys.stage.reflection.xshear
 		}
@@ -1567,6 +1587,9 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// Add custom or stage reflection rotation to original sprite rotation
 		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
+			if !s.reflectKeeptransform {
+				return customAngle
+			}
 			if customAngle != 0 {
 				return baseAngle + customAngle
 			}
@@ -1580,11 +1603,13 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 		}
 
 		// If sprite is flipped horizontally, invert the added rotation part
-		if s.rot.angle < 0 {
-			rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
-		}
-		if s.rot.yangle < 0 {
-			rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
+		if s.reflectKeeptransform {
+			if s.rot.angle < 0 {
+				rot.angle = s.rot.angle - (rot.angle - s.rot.angle)
+			}
+			if s.rot.yangle < 0 {
+				rot.yangle = s.rot.yangle - (rot.yangle - s.rot.yangle)
+			}
 		}
 
 		if rot.angle != 0 {

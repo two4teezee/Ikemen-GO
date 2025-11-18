@@ -1304,10 +1304,10 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// Stack original sprite xshear with stage or custom xshear
 		var xshear float32
-		if s.shadowXshear != 0 {
-			xshear = -s.xshear + s.shadowXshear
-		} else if !s.shadowKeeptransform { // Do not stack original sprite xshear in this case
+		if !s.shadowKeeptransform { // Do not stack original sprite xshear in this case
 			xshear = s.shadowXshear
+		} else if s.shadowXshear != 0 {
+			xshear = -s.xshear + s.shadowXshear
 		} else {
 			xshear = -s.xshear + sys.stage.sdw.xshear
 		}
@@ -1566,10 +1566,10 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// Stack original sprite xshear with stage or custom xshear
 		var xshear float32
-		if s.reflectXshear != 0 {
-			xshear = -s.xshear + s.reflectXshear
-		} else if !s.reflectKeeptransform {
+		if !s.reflectKeeptransform {
 			xshear = s.reflectXshear
+		} else if s.reflectXshear != 0 {
+			xshear = -s.xshear + s.reflectXshear
 		} else {
 			xshear = -s.xshear + sys.stage.reflection.xshear
 		}

@@ -749,10 +749,12 @@ function start.f_animGet(ref, side, member, paramsSide, params, loop, srcAnim)
 				animSetLocalcoord(a, motif.info.localcoord[1], motif.info.localcoord[2])
 				animSetLayerno(a, params.layerno)
 				animSetVelocity(a, paramsSide.velocity[1], paramsSide.velocity[2])
+				animSetMaxDist(a, paramsSide.maxdist[1], paramsSide.maxdist[2])
 				animSetAccel(a, paramsSide.accel[1], paramsSide.accel[2])
 				animSetFriction(a, paramsSide.friction[1], paramsSide.friction[2])
 				animSetPos(a, 0, 0)
 				animSetScale(a, params.scale[1] * xscale, params.scale[2] * yscale)
+				animSetFacing(a, params.facing)
 				animSetXShear(a, params.xshear)
 				animSetAngle(a, params.angle)
 				animSetWindow(a, params.window[1], params.window[2], params.window[3], params.window[4])
@@ -785,14 +787,14 @@ local function f_portraitsXCalc(side, member, paramsSide, params)
 end
 
 local function getParams(side, member, t, subname)
+	local paramsSide = t['p' .. side]
 	local pn = 2 * (member - 1) + side
 	local params = t['p' .. pn]
-	local paramsSide = t['p' .. side]
 	if subname and subname ~= '' then
-		params = params[subname]
 		paramsSide = paramsSide[subname]
+		params = params[subname]
 	end
-	return params, paramsSide
+	return paramsSide, params
 end
 
 local function drawPortraitRandom(randomCfg)
@@ -810,16 +812,15 @@ end
 local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 	local lastIdx = #t_portraits
 	-- "next player replaces previous one" case
-	local params, paramsSide = getParams(side, lastIdx, t, subname)
+	local paramsSide, params = getParams(side, lastIdx, t, subname)
 	if paramsSide.num == 1 and last and not main.coop then
 		local v = t_portraits[lastIdx]
 		local data = v[dataField]
 		if not v.skipCurrent and data ~= nil then
 			main.f_animPosDraw(
 				data,
-				f_portraitsXCalc(side, 1, params, paramsSide),
-				paramsSide.pos[2] + params.offset[2],
-				params.facing
+				f_portraitsXCalc(side, 1, paramsSide, params),
+				paramsSide.pos[2] + params.offset[2]
 			)
 		end
 		-- we're done for this layer in this mode
@@ -827,15 +828,14 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 	end
 	-- stacked portraits up to num
 	for member = lastIdx, 1, -1 do
-		local params, paramsSide = getParams(side, member, t, subname)
+		local paramsSide, params = getParams(side, member, t, subname)
 		local v = t_portraits[member]
 		local data = v[dataField]
 		if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
 			main.f_animPosDraw(
 				data,
-				f_portraitsXCalc(side, member, params, paramsSide),
-				paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2],
-				params.facing
+				f_portraitsXCalc(side, member, paramsSide, params),
+				paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
 			)
 		end
 	end
@@ -875,14 +875,14 @@ function start.f_drawPortraits(t_portraits, side, t, subname, last, iconDone)
 		return
 	end
 	for member = 1, #t_portraits do
-		local params, paramsSide = getParams(side, member, t, subname)
+		local paramsSide, params = getParams(side, member, t, subname)
 		local animData = params.icon.AnimData
 		if iconDone then
 			animData = params.icon.done.AnimData
 		end
 		main.f_animPosDraw(
 			animData,
-			f_portraitsXCalc(side, member, params, paramsSide),
+			f_portraitsXCalc(side, member, paramsSide, params),
 			paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
 		)
 	end
@@ -3322,15 +3322,13 @@ function start.f_selectVersus(active, t_orderSelect)
 						main.f_animPosDraw(
 							motif.vs_screen['p' .. pn].value.empty.icon.AnimData,
 							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[1],
-							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[2],
-							motif.vs_screen['p' .. pn].value.empty.icon.facing
+							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[2]
 						)
 					else
 						main.f_animPosDraw(
 							motif.vs_screen['p' .. pn].value.icon.AnimData,
 							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[1],
-							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[2],
-							motif.vs_screen['p' .. pn].value.icon.facing
+							(i - 1) * motif.vs_screen['p' .. side].value.icon.spacing[2]
 						)
 					end
 				end

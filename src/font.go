@@ -675,6 +675,7 @@ type TextSprite struct {
 	friction         [2]float32
 	accel            [2]float32
 	vel              [2]float32
+	maxDist          [2]float32
 	// initial, unscaled values
 	offsetInit   [2]float32
 	scaleInit    [2]float32
@@ -790,6 +791,11 @@ func (ts *TextSprite) SetVelocity(xvel, yvel float32) {
 	ts.xvel = xvel / ts.localScale
 	ts.yvel = yvel / ts.localScale
 	ts.vel = [2]float32{}
+}
+
+func (ts *TextSprite) SetMaxDist(x, y float32) {
+	ts.maxDist[0] = x / ts.localScale
+	ts.maxDist[1] = y / ts.localScale
 }
 
 func (ts *TextSprite) SetAccel(xacc, yacc float32) {
@@ -1067,18 +1073,49 @@ func StepTypewriter(fullLine string, typedLen *int, charDelayCounter *int32,
 }
 
 func (ts *TextSprite) updateVel() {
-	ts.vel[0] += ts.xvel
-	ts.vel[1] += ts.yvel
+	// candidate new displacement
+	nx := ts.vel[0] + ts.xvel
+	ny := ts.vel[1] + ts.yvel
 
-	ts.xvel *= ts.friction[0]
-	ts.xvel += ts.accel[0]
-	if math.Abs(float64(ts.xvel)) < 0.1 && math.Abs(float64(ts.friction[0])) < 1 {
+	// clamp to maxDist per axis, if set (non-zero)
+	if ts.maxDist[0] != 0 {
+		lim := ts.maxDist[0]
+		if (lim > 0 && nx >= lim) || (lim < 0 && nx <= lim) {
+			nx = lim
+			ts.xvel = 0
+		}
+	}
+	if ts.maxDist[1] != 0 {
+		lim := ts.maxDist[1]
+		if (lim > 0 && ny >= lim) || (lim < 0 && ny <= lim) {
+			ny = lim
+			ts.yvel = 0
+		}
+	}
+
+	ts.vel[0] = nx
+	ts.vel[1] = ny
+
+	// apply friction/accel only while we're within the maxDist on that axis
+	if ts.maxDist[0] == 0 ||
+		math.Abs(float64(ts.vel[0])) < math.Abs(float64(ts.maxDist[0])) {
+		ts.xvel *= ts.friction[0]
+		ts.xvel += ts.accel[0]
+		if math.Abs(float64(ts.xvel)) < 0.1 && math.Abs(float64(ts.friction[0])) < 1 {
+			ts.xvel = 0
+		}
+	} else {
 		ts.xvel = 0
 	}
 
-	ts.yvel *= ts.friction[1]
-	ts.yvel += ts.accel[1]
-	if math.Abs(float64(ts.yvel)) < 0.1 && math.Abs(float64(ts.friction[1])) < 1 {
+	if ts.maxDist[1] == 0 ||
+		math.Abs(float64(ts.vel[1])) < math.Abs(float64(ts.maxDist[1])) {
+		ts.yvel *= ts.friction[1]
+		ts.yvel += ts.accel[1]
+		if math.Abs(float64(ts.yvel)) < 0.1 && math.Abs(float64(ts.friction[1])) < 1 {
+			ts.yvel = 0
+		}
+	} else {
 		ts.yvel = 0
 	}
 }

@@ -1737,14 +1737,15 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	anim := int32(-1)
 	spr := [2]int32{-1, 0}
 	offset := [2]float32{0, 0}
-	facing := float32(1)
 	scale := [2]float32{1, 1}
+	facing := float32(1)
 	xshear := float32(0)
 	angle := float32(0)
 	layerno := int16(1)
 	localcoord := [2]float32{0, 0}
 	window := [4]float32{0, 0, 0, 0}
 	velocity := [2]float32{0, 0}
+	maxDist := [2]float32{0, 0}
 	accel := [2]float32{0, 0}
 	friction := [2]float32{1, 1}
 	hasSpr := false
@@ -1765,12 +1766,12 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 		offset[0] = float32(fv.Index(0).Float())
 		offset[1] = float32(fv.Index(1).Float())
 	}
-	if fv, ok := get("Facing"); ok && fv.Kind() >= reflect.Int && fv.Kind() <= reflect.Int64 {
-		facing = float32(fv.Int())
-	}
 	if fv, ok := get("Scale"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
 		scale[0] = float32(fv.Index(0).Float())
 		scale[1] = float32(fv.Index(1).Float())
+	}
+	if fv, ok := get("Facing"); ok && fv.Kind() >= reflect.Int && fv.Kind() <= reflect.Int64 {
+		facing = float32(fv.Int())
 	}
 	if fv, ok := get("Xshear"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
 		xshear = float32(fv.Float())
@@ -1794,6 +1795,10 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	if fv, ok := get("Velocity"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
 		velocity[0] = float32(fv.Index(0).Float())
 		velocity[1] = float32(fv.Index(1).Float())
+	}
+	if fv, ok := get("MaxDist"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
+		maxDist[0] = float32(fv.Index(0).Float())
+		maxDist[1] = float32(fv.Index(1).Float())
 	}
 	if fv, ok := get("Accel"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
 		accel[0] = float32(fv.Index(0).Float())
@@ -1847,12 +1852,12 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	}
 	// animSetLocalcoord
 	a.SetLocalcoord(localcoord[0], localcoord[1])
-	// animSetFacing
-	a.SetFacing(facing)
 	// animSetPos
 	a.SetPos(offset[0], offset[1])
 	// animSetScale
 	a.SetScale(scale[0], scale[1])
+	// animSetFacing
+	a.facing = facing
 	// animSetXShear
 	a.xshear = xshear
 	// animSetAngle
@@ -1863,6 +1868,8 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	a.layerno = layerno
 	// animSetVelocity
 	a.SetVelocity(velocity[0], velocity[1])
+	// animSetMaxDist
+	a.SetMaxDist(maxDist[0], maxDist[1])
 	// animSetAccel
 	a.SetAccel(accel[0], accel[1])
 	// animSetFriction
@@ -1903,6 +1910,7 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	textSpacing := float32(0)
 	textWrap := ""
 	velocity := [2]float32{0, 0}
+	maxDist := [2]float32{0, 0}
 	accel := [2]float32{0, 0}
 	friction := [2]float32{1, 1}
 
@@ -1968,6 +1976,10 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 		velocity[0] = float32(fv.Index(0).Float())
 		velocity[1] = float32(fv.Index(1).Float())
 	}
+	if fv, ok := get("MaxDist"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
+		maxDist[0] = float32(fv.Index(0).Float())
+		maxDist[1] = float32(fv.Index(1).Float())
+	}
 	if fv, ok := get("Accel"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
 		accel[0] = float32(fv.Index(0).Float())
 		accel[1] = float32(fv.Index(1).Float())
@@ -2021,6 +2033,8 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	ts.textWrap = textWrap == "w" || textWrap == "1"
 	// textImgSetVelocity
 	ts.SetVelocity(velocity[0], velocity[1])
+	// textImgSetMaxDist
+	ts.SetMaxDist(maxDist[0], maxDist[1])
 	// textImgSetAccel
 	ts.SetAccel(accel[0], accel[1])
 	// textImgSetFriction

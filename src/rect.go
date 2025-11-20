@@ -31,7 +31,7 @@ func (fa *Fade) reset() {
 }
 
 func (fa *Fade) init(fade *Fade, isFadeIn bool) {
-	if fa.time <= 0 && fa.animData != nil && fa.animData.anim != nil {
+	if fa.time <= 1 && fa.animData != nil && fa.animData.anim != nil { // TODO: fight.def fade time is currently clamped to a minimum of 1, consider changing to 0.
 		fa.time = fa.animData.GetLength()
 	}
 	fa.reset()

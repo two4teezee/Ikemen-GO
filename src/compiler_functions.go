@@ -5542,6 +5542,10 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_velocity, VT_Float, 2, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "maxdist",
+			text_maxdist, VT_Float, 2, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "friction",
 			text_friction, VT_Float, 2, false); err != nil {
 			return err
@@ -5659,6 +5663,10 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		if err := c.paramValue(is, sc, "velocity",
 			text_velocity, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "maxdist",
+			text_maxdist, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "friction",

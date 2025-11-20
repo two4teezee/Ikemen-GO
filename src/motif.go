@@ -338,7 +338,7 @@ type InfoBoxProperties struct {
 
 type CellOverrideProperties struct {
 	Offset [2]float32 `ini:"offset"`
-	Facing int32      `ini:"facing"`
+	Facing int32      `ini:"facing" default:"1"`
 	Skip   bool       `ini:"skip"`
 }
 
@@ -390,6 +390,7 @@ type FaceProperties struct {
 	} `ini:"done"`
 	Random   AnimationProperties `ini:"random"` // only used by [Select Info]
 	Velocity [2]float32          `ini:"velocity"`
+	MaxDist  [2]float32          `ini:"maxdist"`
 	Accel    [2]float32          `ini:"accel"`
 	Friction [2]float32          `ini:"friction" default:"1,1"`
 	Pos      [2]float32          `ini:"pos"`
@@ -4617,10 +4618,10 @@ func hiscorePortraitAnim(defKey string, m *Motif, x, y float32) *Anim {
 		sx := m.HiscoreInfo.Item.Face.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
 		sy := m.HiscoreInfo.Item.Face.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
 		a.SetScale(sx, sy)
+		a.facing = float32(m.HiscoreInfo.Item.Face.Facing)
 		w := m.HiscoreInfo.Item.Face.Window
 		a.SetWindow([4]float32{float32(w[0]), float32(w[1]), float32(w[2]), float32(w[3])})
 		a.layerno = m.HiscoreInfo.Item.Face.Layerno
-		a.SetFacing(float32(m.HiscoreInfo.Item.Face.Facing))
 		return a
 	}
 	return nil
@@ -5275,7 +5276,6 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 		//fmt.Printf("[Victory] slot=%s -> skip SetLocalcoord (0,0); using default engine localcoord\n", slot)
 	}
 	a.layerno = layerno
-	a.SetFacing(float32(facing))
 	//a.SetWindow([4]float32{float32(window[0]), float32(window[1]), float32(window[2]), float32(window[3])})
 	if window[2] > window[0] && window[3] > window[1] {
 		a.SetWindow([4]float32{float32(window[0]), float32(window[1]), float32(window[2]), float32(window[3])})
@@ -5288,6 +5288,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	sx := scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
 	sy := scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
 	a.SetScale(sx, sy)
+	a.facing = float32(facing)
 	if sx == 0 || sy == 0 {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: zero scale sx=%.4f sy=%.4f (check portraitscale/localcoord)\n", slot, sx, sy)
 	}

@@ -12335,6 +12335,7 @@ const (
 	text_text
 	text_pos
 	text_velocity
+	text_maxdist
 	text_friction
 	text_accel
 	text_angle
@@ -12361,7 +12362,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	ts.ownerid = crun.id
 	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
 	ts.params = []interface{}{}
-	var x, y, xscl, yscl, xvel, yvel, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0
+	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -12435,6 +12436,11 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				yvel = exp[1].evalF(c)
 			}
+		case text_maxdist:
+			xmaxdist = exp[0].evalF(c)
+			if len(exp) > 1 {
+				ymaxdist = exp[1].evalF(c)
+			}
 		case text_friction:
 			ts.friction[0] = exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -12480,6 +12486,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	ts.SetPos(x, y)
 	ts.SetScale(xscl, yscl)
 	ts.SetVelocity(xvel, yvel)
+	ts.SetMaxDist(xmaxdist, ymaxdist)
 	ts.SetAccel(xacc, yacc)
 	if fnt == -1 {
 		ts.fnt = sys.debugFont.fnt
@@ -12718,6 +12725,17 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					vely := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
 						ts.yvel = vely / ts.localScale
+					})
+				}
+			case text_maxdist:
+				xmaxdist := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.maxDist[0] = xmaxdist / ts.localScale
+				})
+				if len(exp) > 1 {
+					ymaxdist := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.maxDist[1] = ymaxdist / ts.localScale
 					})
 				}
 			case text_friction:

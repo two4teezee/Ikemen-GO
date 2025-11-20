@@ -723,6 +723,7 @@ function menu.f_commandlistRender(sec, t)
 							alignOffset = alignOffset - g.Size[1] * scaleX
 						end
 						animSetScale(g.AnimData, scaleX, scaleY)
+						--animSetFacing(g.AnimData, facing)
 						animSetPos(
 							g.AnimData,
 							math.floor(sec.movelist.pos[1] + sec.movelist.text.offset[1] + sec.movelist.glyphs.offset[1] + alignOffset + lengthOffset),

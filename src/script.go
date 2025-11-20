@@ -656,7 +656,7 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 2) {
 			str = strArg(l, 2)
 		}
-		fmt.Println(str, a, a.anim)
+		fmt.Println(str, "*Anim:", a, "*Animation:", a.anim)
 		return 0
 	})
 	luaRegister(l, "animDraw", func(*lua.LState) int {
@@ -893,7 +893,15 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		a.SetFacing(float32(numArg(l, 2)))
+		a.facing = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "animSetMaxDist", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		a.SetMaxDist(float32(numArg(l, 2)), float32(numArg(l, 3)))
 		return 0
 	})
 	luaRegister(l, "animSetPalFX", func(*lua.LState) int {
@@ -1128,7 +1136,7 @@ func systemScriptInit(l *lua.LState) {
 				layer = int16(lua.LVAsNumber(layerVal))
 			}
 			anim.SetPos(x, y)
-			anim.SetFacing(facing)
+			anim.facing = facing
 			aSnap := *anim
 			layerLocal := layer
 			sys.luaQueueLayerDraw(int(layerLocal), func() {
@@ -4153,6 +4161,14 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, ts)
 		}
 		ts.SetLocalcoord(float32(numArg(l, 2)), float32(numArg(l, 3)))
+		return 0
+	})
+	luaRegister(l, "textImgSetMaxDist", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.SetMaxDist(float32(numArg(l, 2)), float32(numArg(l, 3)))
 		return 0
 	})
 	luaRegister(l, "textImgSetScale", func(*lua.LState) int {

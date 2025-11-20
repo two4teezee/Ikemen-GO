@@ -1705,6 +1705,8 @@ type Anim struct {
 	friction         [2]float32
 	accel            [2]float32
 	vel              [2]float32
+	maxDist          [2]float32
+	facing           float32
 	// initial, unscaled values
 	offsetInit   [2]float32
 	scaleInit    [2]float32
@@ -1720,6 +1722,7 @@ func NewAnim(sff *Sff, action string) *Anim {
 		palfx:      newPalFX(),
 		localScale: 1,
 		friction:   [2]float32{1.0, 1.0},
+		facing:     1,
 	}
 	if action != "" {
 		lines, i := SplitAndTrim(action, "\n"), 0
@@ -1767,6 +1770,8 @@ func (a *Anim) Copy() *Anim {
 	newAnim.scaleInit = a.scaleInit
 	newAnim.windowInit = a.windowInit
 	newAnim.velocityInit = a.velocityInit
+	newAnim.maxDist = a.maxDist
+	newAnim.facing = a.facing
 	newAnim.window = a.window
 	newAnim.x = a.x
 	newAnim.y = a.y
@@ -1826,12 +1831,6 @@ func (a *Anim) SetAlpha(src, dst int16) {
 	a.anim.srcAlpha, a.anim.dstAlpha = src, dst
 }
 
-func (a *Anim) SetFacing(fc float32) {
-	if (fc == 1 && a.xscl < 0) || (fc == -1 && a.xscl > 0) {
-		a.xscl *= -1
-	}
-}
-
 func (a *Anim) SetLocalcoord(lx, ly float32) {
 	if lx <= 0 || ly <= 0 {
 		return
@@ -1886,24 +1885,60 @@ func (a *Anim) SetVelocity(xvel, yvel float32) {
 	a.vel = [2]float32{}
 }
 
+func (a *Anim) SetMaxDist(x, y float32) {
+	a.maxDist[0] = x / a.localScale
+	a.maxDist[1] = y / a.localScale
+}
+
 func (a *Anim) SetAccel(xacc, yacc float32) {
 	a.accel[0] = xacc / a.localScale
 	a.accel[1] = yacc / a.localScale
 }
 
 func (a *Anim) updateVel() {
-	a.vel[0] += a.xvel
-	a.vel[1] += a.yvel
+	// candidate new displacement
+	nx := a.vel[0] + a.xvel
+	ny := a.vel[1] + a.yvel
 
-	a.xvel *= a.friction[0]
-	a.xvel += a.accel[0]
-	if math.Abs(float64(a.xvel)) < 0.1 && math.Abs(float64(a.friction[0])) < 1 {
+	// clamp to maxDist per axis, if set (non-zero)
+	if a.maxDist[0] != 0 {
+		lim := a.maxDist[0]
+		if (lim > 0 && nx >= lim) || (lim < 0 && nx <= lim) {
+			nx = lim
+			a.xvel = 0
+		}
+	}
+	if a.maxDist[1] != 0 {
+		lim := a.maxDist[1]
+		if (lim > 0 && ny >= lim) || (lim < 0 && ny <= lim) {
+			ny = lim
+			a.yvel = 0
+		}
+	}
+
+	a.vel[0] = nx
+	a.vel[1] = ny
+
+	// apply friction/accel only while we're within the maxDist on that axis
+	if a.maxDist[0] == 0 ||
+		math.Abs(float64(a.vel[0])) < math.Abs(float64(a.maxDist[0])) {
+		a.xvel *= a.friction[0]
+		a.xvel += a.accel[0]
+		if math.Abs(float64(a.xvel)) < 0.1 && math.Abs(float64(a.friction[0])) < 1 {
+			a.xvel = 0
+		}
+	} else {
 		a.xvel = 0
 	}
 
-	a.yvel *= a.friction[1]
-	a.yvel += a.accel[1]
-	if math.Abs(float64(a.yvel)) < 0.1 && math.Abs(float64(a.friction[1])) < 1 {
+	if a.maxDist[1] == 0 ||
+		math.Abs(float64(a.vel[1])) < math.Abs(float64(a.maxDist[1])) {
+		a.yvel *= a.friction[1]
+		a.yvel += a.accel[1]
+		if math.Abs(float64(a.yvel)) < 0.1 && math.Abs(float64(a.friction[1])) < 1 {
+			a.yvel = 0
+		}
+	} else {
 		a.yvel = 0
 	}
 }
@@ -1928,9 +1963,15 @@ func (a *Anim) Draw(ln int16) {
 		xsoffset = xshear * (float32(a.anim.spr.Offset[1]) * a.yscl)
 	}
 
+	// Facing correction
+	xscl := a.xscl
+	if (a.facing == 1 && a.xscl < 0) || (a.facing == -1 && a.xscl > 0) {
+		xscl *= -1
+	}
+
 	a.anim.Draw(&a.window, a.x+a.vel[0]-xsoffset+float32(sys.gameWidth-320)/2,
-		a.y+a.vel[1]+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-		xshear, Rotation{a.angle, 0, 0}, 0, a.palfx, 1, [2]float32{1, 1}, 0, 0, 0, false)
+		a.y+a.vel[1]+float32(sys.gameHeight-240), 1, 1, xscl, xscl, a.yscl,
+		xshear, Rotation{a.angle, 0, 0}, 0, a.palfx, a.facing, [2]float32{1, 1}, 0, 0, 0, false)
 }
 
 func (a *Anim) Reset() {

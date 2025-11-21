@@ -44,7 +44,7 @@ jobs:
       buildTime: ${{ env.buildTime }}
       #previousTag: ${{ steps.previousTag.outputs.tag }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       #- name: Get previous tag
       #  id: previousTag
@@ -95,7 +95,7 @@ jobs:
             build_target: MacOSARM # MacOS
     runs-on: ${{ matrix.cfg.os }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup Golang with cache
         uses: magnetikonline/action-golang-cache@v5

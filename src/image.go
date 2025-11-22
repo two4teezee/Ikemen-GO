@@ -869,8 +869,8 @@ func (s *Sprite) read(f io.ReadSeeker, sh *SffHeader, offset int64, datasize uin
 	if !paletteSame {
 		// If new palette, search for PCX 0x0C marker to skip padding
 		var b [1]byte
-		scanStart := blockEnd - 769 
-		scanLimit := pcxDataStart 
+		scanStart := blockEnd - 769
+		scanLimit := pcxDataStart
 
 		for pos := scanStart; pos >= scanLimit; pos-- {
 			f.Seek(pos, 0)

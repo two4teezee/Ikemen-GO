@@ -1158,7 +1158,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 		vk.GetPhysicalDeviceProperties(r.gpuDevices[i], &gpuProperties)
 		gpuProperties.Deref()
 		if gpuProperties.DeviceType == vk.PhysicalDeviceTypeDiscreteGpu {
-			gpuProperties.Limits.Deref()
+			//gpuProperties.Limits.Deref()
 			r.maxAnisotropy = gpuProperties.Limits.MaxSamplerAnisotropy
 			r.minUniformBufferOffsetAlignment = uint32(gpuProperties.Limits.MinUniformBufferOffsetAlignment)
 			r.maxImageArrayLayers = gpuProperties.Limits.MaxImageArrayLayers
@@ -1579,7 +1579,7 @@ func (r *Renderer_VK) CreateBuffer(size vk.DeviceSize, usage vk.BufferUsageFlags
 	}
 	var memReq vk.MemoryRequirements
 	vk.GetBufferMemoryRequirements(r.device, buffer, &memReq)
-	memReq.Deref()
+	//memReq.Deref()
 	memoryTypeIndex, ok := r.memoryTypeMap[properties]
 	if !ok {
 		memoryTypeIndex, _ = vk.FindMemoryTypeIndex(r.gpuDevices[r.gpuIndex], memReq.MemoryTypeBits, properties)
@@ -1619,7 +1619,7 @@ func (r *Renderer_VK) CreateSwapchain() error {
 
 	chosenFormat := -1
 	for i := 0; i < int(formatCount); i++ {
-		formats[i].Deref()
+		//formats[i].Deref()
 		if formats[i].Format == vk.FormatB8g8r8a8Unorm || formats[i].Format == vk.FormatR8g8b8a8Unorm {
 			chosenFormat = i
 			break
@@ -1628,9 +1628,8 @@ func (r *Renderer_VK) CreateSwapchain() error {
 	if chosenFormat < 0 {
 		if len(formats) > 0 {
 			fmt.Printf("Choosing fallback SurfaceFormat")
-			formats[0].Deref()
+			//formats[0].Deref()
 			chosenFormat = 0
-			fmt.Printf(err.Error())
 			fmt.Printf("Falling back on surface format: %v", formats[0].Format)
 		} else {
 			err := fmt.Errorf("vk.GetPhysicalDeviceSurfaceFormats not found suitable format")
@@ -1639,7 +1638,7 @@ func (r *Renderer_VK) CreateSwapchain() error {
 
 	}
 
-	surfaceCapabilities.Deref()
+	//surfaceCapabilities.Deref()
 	imageExtent := surfaceCapabilities.CurrentExtent
 	width, height := sys.window.GetSize()
 	imageExtent.Width = uint32(width)
@@ -1685,10 +1684,10 @@ func (r *Renderer_VK) CreateSwapchain() error {
 	}
 	r.swapchains[0].format = formats[chosenFormat].Format
 	r.swapchains[0].extent = surfaceCapabilities.CurrentExtent
-	r.swapchains[0].extent.Deref()
-	for i := range formats {
-		formats[i].Free()
-	}
+	//r.swapchains[0].extent.Deref()
+	// for i := range formats {
+	// 	formats[i].Free()
+	// }
 	r.CreateSwapchainImageViews(r.swapchains[0])
 	return nil
 }
@@ -1939,6 +1938,7 @@ func (r *Renderer_VK) CreateSpriteProgram() (*VulkanProgramInfo, error) {
 			StageFlags:         vk.ShaderStageFlags(vk.ShaderStageFragmentBit),
 		},
 	}
+
 	layoutInfo := vk.DescriptorSetLayoutCreateInfo{
 		SType:        vk.StructureTypeDescriptorSetLayoutCreateInfo,
 		Flags:        vk.DescriptorSetLayoutCreateFlags(vk.DescriptorSetLayoutCreatePushDescriptorBit),
@@ -4644,6 +4644,9 @@ func (r *Renderer_VK) CreatePipelineCache() error {
 	if err == nil {
 		defer cacheFile.Close()
 		cacheData, err := io.ReadAll(cacheFile)
+		pinner := runtime.Pinner{}
+		pinner.Pin(&cacheData[0])
+		defer pinner.Unpin()
 		if err == nil {
 			pipelineCacheInfo.InitialDataSize = uint64(len(cacheData))
 			pipelineCacheInfo.PInitialData = unsafe.Pointer(&cacheData[0])
@@ -5324,7 +5327,7 @@ func (r *Renderer_VK) prepareShadowMapPipeline(bufferIndex uint32) {
 		PColorAttachments:    nil,
 		PDepthAttachment:     depthAttachmentInfos,
 	}
-	vk.CmdBeginRendering(r.commandBuffers[1], renderInfo)
+	vk.CmdBeginRendering(r.commandBuffers[1], &renderInfo)
 
 	vk.CmdBindIndexBuffer(r.commandBuffers[1], r.modelIndexBuffers[bufferIndex].buffer, 0, vk.IndexTypeUint32)
 	r.VKState.modelVertexBufferIndex = bufferIndex
@@ -5570,7 +5573,7 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 	}
 	var subResourceLayout vk.SubresourceLayout
 	vk.GetImageSubresourceLayout(r.device, img, &subResource, &subResourceLayout)
-	subResourceLayout.Deref()
+	//subResourceLayout.Deref()
 	var mappedData unsafe.Pointer
 	vk.MapMemory(r.device, imageMemory, subResourceLayout.Offset, vk.DeviceSize(width*height*4), 0, &mappedData)
 	const m = 0x7fffffff
@@ -5969,7 +5972,7 @@ func (r *Renderer_VK) SetShadowFrameCubeTexture(i uint32) {
 func (r *Renderer_VK) SetVertexData(values ...float32) {
 	const m = 0x7fffffff
 	bufferIndex := int(r.vertexBufferOffset) / int(r.vertexBuffers[0].size)
-	offset := r.vertexBufferOffset % r.vertexBuffers[bufferIndex].size
+	offset := r.vertexBufferOffset % r.vertexBuffers[0].size
 	if (int(offset) + len(values)*4) > int(r.vertexBuffers[0].size) {
 		bufferIndex += 1
 		r.vertexBufferOffset = uintptr(bufferIndex * int(r.vertexBuffers[0].size))
@@ -6825,7 +6828,7 @@ func (r *Renderer_VK) RenderCubeMap(envTex Texture, cubeTex Texture) {
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBeginRendering(cmd, &renderInfo)
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.panoramaToCubeMapProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
@@ -7090,7 +7093,7 @@ func (r *Renderer_VK) RenderFilteredCubeMap(distribution int32, cubeTex Texture,
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBeginRendering(cmd, &renderInfo)
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.cubemapFilteringProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
@@ -7224,7 +7227,7 @@ func (r *Renderer_VK) RenderLUT(distribution int32, cubeTex Texture, lutTex Text
 		ColorAttachmentCount: 1,
 		PColorAttachments:    colorAttachmentInfos,
 	}
-	vk.CmdBeginRendering(cmd, renderInfo)
+	vk.CmdBeginRendering(cmd, &renderInfo)
 	vk.CmdBindPipeline(cmd, vk.PipelineBindPointGraphics, r.lutProgram.pipelines[0])
 
 	vk.CmdBindVertexBuffers(cmd, 0, 1, []vk.Buffer{r.vertexBuffers[0].buffer}, []vk.DeviceSize{0})
@@ -7533,7 +7536,7 @@ func (r *Renderer_VK) CreateImageView(img vk.Image, format vk.Format, baseLevel 
 func (r *Renderer_VK) AllocateImageMemory(img vk.Image, memoryProperty vk.MemoryPropertyFlagBits) vk.DeviceMemory {
 	var memReq vk.MemoryRequirements
 	vk.GetImageMemoryRequirements(r.device, img, &memReq)
-	memReq.Deref()
+	//memReq.Deref()
 	memoryTypeIndex, ok := r.memoryTypeMap[memoryProperty]
 	if !ok {
 		memoryTypeIndex, _ = vk.FindMemoryTypeIndex(r.gpuDevices[r.gpuIndex], memReq.MemoryTypeBits, memoryProperty)

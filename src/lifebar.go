@@ -2535,6 +2535,7 @@ type LifeBarRound struct {
 	over_waittime       int32
 	over_hittime        int32
 	over_wintime        int32
+	over_forcewintime   int32
 	over_time           int32
 	win_time            int32
 	win_sndtime         int32
@@ -2576,6 +2577,7 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_waittime:      45,
 		over_hittime:       10,
 		over_wintime:       45,
+		over_forcewintime:  900, // Hardcoded in Mugen
 		over_time:          210,
 		callfight_time:     60,
 	}
@@ -2584,13 +2586,13 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 func readLifeBarRound(is IniSection,
 	sff *Sff, at AnimationTable, snd *Snd, f []*Fnt) *LifeBarRound {
 	ro := newLifeBarRound(snd)
-	var tmp int32
-	var ftmp float32
+
 	is.ReadI32("pos", &ro.pos[0], &ro.pos[1])
 	is.ReadI32("match.wins", &ro.match_wins[0], &ro.match_wins[1])
 	is.ReadI32("match.maxdrawgames", &ro.match_maxdrawgames[0], &ro.match_maxdrawgames[1])
-	if is.ReadI32("start.waittime", &tmp) {
-		ro.start_waittime = Max(1, tmp)
+	is.ReadI32("start.waittime", &ro.start_waittime)
+	if ro.start_waittime < 1 {
+		ro.start_waittime = 1
 	}
 	is.ReadI32("round.time", &ro.round_time)
 	ro.round_sndtime = ro.round_time
@@ -2623,8 +2625,9 @@ func readLifeBarRound(is IniSection,
 	for i := range ro.fight_bg {
 		ro.fight_bg[i] = ReadAnimLayout(fmt.Sprintf("fight.bg%v.", i), is, sff, at, 2)
 	}
-	if is.ReadI32("ctrl.time", &tmp) {
-		ro.ctrl_time = Max(1, tmp)
+	is.ReadI32("ctrl.time", &ro.ctrl_time)
+	if ro.ctrl_time < 1 {
+		ro.ctrl_time = 1
 	}
 	is.ReadI32("ko.time", &ro.ko_time)
 	ro.ko_sndtime = ro.ko_time
@@ -2644,30 +2647,41 @@ func readLifeBarRound(is IniSection,
 	for i := range ro.to_bg {
 		ro.to_bg[i] = ReadAnimLayout(fmt.Sprintf("to.bg%v.", i), is, sff, at, 2)
 	}
+
 	is.ReadI32("slow.time", &ro.slow_time)
-	if is.ReadI32("slow.fadetime", &tmp) {
-		ro.slow_fadetime = Min(ro.slow_time, tmp)
-	} else {
-		ro.slow_fadetime = int32(float32(ro.slow_time) * 0.75)
+	ro.slow_fadetime = int32(float32(ro.slow_time) * 0.75) // Default fadetime
+	is.ReadI32("slow.fadetime", &ro.slow_fadetime)
+	if ro.slow_fadetime > ro.slow_time {
+		ro.slow_fadetime = ro.slow_time
 	}
-	if is.ReadF32("slow.speed", &ftmp) {
-		ro.slow_speed = MinF(1, ftmp)
+	is.ReadF32("slow.speed", &ro.slow_speed)
+	if ro.slow_speed > 1 {
+		ro.slow_speed = 1
 	}
-	if is.ReadI32("over.hittime", &tmp) {
-		ro.over_hittime = Max(1, tmp)
+	is.ReadI32("over.hittime", &ro.over_hittime)
+	if ro.over_hittime < 1 {
+		ro.over_hittime = 1
 	}
-	if is.ReadI32("over.waittime", &tmp) {
-		ro.over_waittime = Max(1, tmp)
+	is.ReadI32("over.waittime", &ro.over_waittime)
+	if ro.over_waittime < 1 {
+		ro.over_waittime = 1
 	}
-	if is.ReadI32("over.wintime", &tmp) {
-		ro.over_wintime = Max(1, tmp)
+	is.ReadI32("over.wintime", &ro.over_wintime)
+	if ro.over_wintime < 1 {
+		ro.over_wintime = 1
 	}
-	if is.ReadI32("over.time", &tmp) {
-		ro.over_time = Max(1, tmp)
+	is.ReadI32("over.forcewintime", &ro.over_forcewintime)
+	if ro.over_forcewintime < 1 {
+		ro.over_forcewintime = 1
+	}
+	is.ReadI32("over.time", &ro.over_time)
+	if ro.over_time < 1 {
+		ro.over_time = 1
 	}
 	is.ReadI32("win.time", &ro.win_time)
 	ro.win_sndtime = ro.win_time
 	is.ReadI32("win.sndtime", &ro.win_sndtime)
+
 	for i := 0; i < 2; i++ {
 		var ok, bg bool
 		// win

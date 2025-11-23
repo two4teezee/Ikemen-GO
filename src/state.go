@@ -192,7 +192,7 @@ type GameState struct {
 	zoomCameraBound         bool
 	zoomPos                 [2]float32
 	finishType              FinishType // UIT
-	waitdown                int32
+	winwaittime             int32
 	slowtime                int32
 
 	changeStateNest int32
@@ -257,7 +257,7 @@ type GameState struct {
 
 	loopBreak    bool
 	loopContinue bool
-	wintime      int32
+	winposetime  int32
 
 	// Rollback
 	netTime int32
@@ -332,7 +332,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.winType = gs.winType
 	sys.winTrigger = gs.winTrigger
 	sys.lastHitter = gs.lastHitter
-	sys.waitdown = gs.waitdown
+	sys.winwaittime = gs.winwaittime
 	sys.slowtime = gs.slowtime
 
 	sys.winskipped = gs.winskipped
@@ -477,7 +477,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
 
-	sys.wintime = gs.wintime
+	sys.winposetime = gs.winposetime
 
 	// Log state load
 	if sys.rollback.session == nil {
@@ -546,7 +546,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.winType = sys.winType
 	gs.winTrigger = sys.winTrigger
 	gs.lastHitter = sys.lastHitter
-	gs.waitdown = sys.waitdown
+	gs.winwaittime = sys.winwaittime
 	gs.slowtime = sys.slowtime
 	gs.winskipped = sys.winskipped
 	gs.intro = sys.intro
@@ -683,7 +683,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.loopBreak = sys.loopBreak
 	gs.loopContinue = sys.loopContinue
 
-	gs.wintime = sys.wintime
+	gs.winposetime = sys.winposetime
 
 	// Log save state
 	if sys.rollback.session == nil {

@@ -4269,7 +4269,10 @@ func (sc stateDef) Run(c *Char) {
 		case stateDef_anim:
 			ffx := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			animNo := exp[1].evalI(c)
-			c.changeAnim(animNo, c.playerNo, -1, ffx)
+			// "anim = -1" in this case means no change
+			if animNo != -1 {
+				c.changeAnim(animNo, c.playerNo, -1, ffx)
+			}
 		case stateDef_ctrl:
 			c.setCtrl(exp[0].evalB(c))
 		case stateDef_poweradd:

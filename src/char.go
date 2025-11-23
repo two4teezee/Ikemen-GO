@@ -6074,12 +6074,16 @@ func (c *Char) changeStateEx(no int32, pn int, anim, ctrl int32, ffx string) {
 		(c.ss.stateType == ST_S || c.ss.stateType == ST_C) && !c.asf(ASF_nofacep2) {
 		c.autoTurn()
 	}
+
+	// "anim = -1" in this case means no change
 	if anim != -1 {
 		c.changeAnim(anim, c.playerNo, -1, ffx)
 	}
+
 	if ctrl >= 0 {
 		c.setCtrl(ctrl != 0)
 	}
+
 	if c.stateChange1(no, pn) && sys.changeStateNest == 0 && c.minus == 0 {
 		for c.stchtmp && sys.changeStateNest < MaxLoop {
 			c.stateChange2()
@@ -6521,10 +6525,13 @@ func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlaye
 
 // Same old getAnim, but now without the FFX scale adjustment
 func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
+	// Return empty but valid animation
 	if n == -2 {
 		return &Animation{}
 	}
 
+	// In most cases, -1 means no animation. So we return nothing but do not log an error
+	// In ChangeState and StateDef, however, it means no change in animation (handled in respective places)
 	if n == -1 {
 		return nil
 	}

@@ -1100,9 +1100,9 @@ func newAfterImage() *AfterImage {
 	ai.timecount = 0
 	ai.ignorehitpause = true
 
-    // Allocate slices with maximum capacity but length 1
-    ai.palfx = make([]*PalFX, 1, MaxAimgLength)
-    ai.imgs  = make([]aimgImage, 1, MaxAimgLength)
+	// Allocate slices with maximum capacity but length 1
+	ai.palfx = make([]*PalFX, 1, MaxAimgLength)
+	ai.imgs = make([]aimgImage, 1, MaxAimgLength)
 
 	// Initialize PalFX
 	for i := range ai.palfx {
@@ -1312,7 +1312,7 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 		sprs = &sys.spritesLayerN1
 	}
 
-	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length)/ai.framegap)*ai.framegap
+	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
 		// Respect AfterImageMax
@@ -2163,8 +2163,8 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 		depthbound:      math.MaxInt32,
 		facing:          1,
 		//aimg:            *newAfterImage(),
-		projection:      Projection_Orthographic,
-		platformFence:   true,
+		projection:    Projection_Orthographic,
+		platformFence: true,
 	}
 
 	// Backward compatibility

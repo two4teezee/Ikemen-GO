@@ -1863,15 +1863,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				sys.bcStack.PushF(c.gameHeight())
 			}
 		case OC_gametime:
-			var pmTime int32
-			if sys.netConnection != nil {
-				pmTime = sys.netConnection.preMatchTime
-			} else if sys.replayFile != nil {
-				pmTime = sys.replayFile.pmTime
-			} else {
-				pmTime = sys.preMatchTime
-			}
-			sys.bcStack.PushI(sys.matchTime + pmTime)
+			sys.bcStack.PushI(sys.gameTime())
 		case OC_gamewidth:
 			// Optional exception preventing GameWidth from being affected by stage zoom.
 			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 0 &&

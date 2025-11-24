@@ -2408,7 +2408,7 @@ type ReplayFile struct {
 	f      *os.File
 	ibit   [MaxPlayerNo]InputBits
 	iaxes  [MaxPlayerNo][6]int8
-	pmTime int32
+	preMatchTime int32
 }
 
 func OpenReplayFile(filename string) *ReplayFile {
@@ -2461,7 +2461,7 @@ func (rf *ReplayFile) Synchronize() {
 		}
 		var pmTime int32
 		if binary.Read(rf.f, binary.LittleEndian, &pmTime) == nil {
-			rf.pmTime = pmTime
+			rf.preMatchTime = pmTime
 			rf.Update()
 		}
 	}

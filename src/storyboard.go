@@ -98,7 +98,7 @@ type Storyboard struct {
 		StartScene int                        `ini:"startscene"`
 		Key        struct {
 			Skip   []string `ini:"skip"`
-			Cancel []string `ini:"cancel" default:"a,b,c,x,y,z,d,w,s,m"` //TODO
+			Cancel []string `ini:"cancel"`
 		} `ini:"key"`
 	} `ini:"scenedef"`
 	Scene         map[string]*SceneProperties `ini:"map:^(?i)scene_?[0-9]+$" lua:"scene"`
@@ -442,6 +442,39 @@ func (s *Storyboard) reset() {
 	s.fadePolicy = FadeStop
 }
 
+// sceneHasTyping returns true if any text layer in the scene has text that hasn't finished rendering yet
+func (s *Storyboard) sceneHasTyping(sceneProps *SceneProperties) bool {
+	for _, layerProps := range sceneProps.Layer {
+		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
+			continue
+		}
+		if layerProps.EndTime != 0 && s.counter >= layerProps.EndTime {
+			continue
+		}
+		if !layerProps.lineFullyRendered {
+			return true
+		}
+	}
+	return false
+}
+
+// revealAllSceneText forces all text layers in the scene to be fully rendered
+// immediately, bypassing any remaining typewriter delay and StartTime.
+func (s *Storyboard) revealAllSceneText(sceneProps *SceneProperties) {
+	for _, layerProps := range sceneProps.Layer {
+		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
+			continue
+		}
+		if layerProps.EndTime != 0 && s.counter >= layerProps.EndTime {
+			continue
+		}
+		runeCount := utf8.RuneCountInString(layerProps.Text)
+		layerProps.typedLen = runeCount
+		layerProps.lineFullyRendered = true
+		layerProps.charDelayCounter = 0
+	}
+}
+
 func (s *Storyboard) init() {
 	//if !s.enabled {
 	//	co.initialized = true
@@ -459,16 +492,29 @@ func (s *Storyboard) step() {
 	sceneKey := s.sceneKeys[s.currentSceneIndex]
 	sceneProps := s.Scene[sceneKey]
 
+	// Cancel handling
 	if sys.esc ||
 		(!sys.motif.AttractMode.Enabled && sys.motif.button(s.SceneDef.Key.Cancel, -1)) ||
 		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0) {
 		sys.esc = false
 		s.cancel = true
 	}
-	// Start fade-out either when the scene ends, user skips, or user cancels.
+
+	// Skip handling
 	skipPressed := sys.motif.button(s.SceneDef.Key.Skip, -1)
-	if s.endTimer == -1 && (s.counter == sceneProps.End.Time || s.cancel || skipPressed) {
-		userInterrupt := s.cancel || skipPressed
+	hasTyping := s.sceneHasTyping(sceneProps)
+
+	// If there is still typewriter text in this scene, treat Skip as "finish text" rather than advancing the scene.
+	if skipPressed && hasTyping {
+		s.revealAllSceneText(sceneProps)
+	}
+
+	// If there is still typewriter text in this scene, treat Skip as "finish text" only.
+	// Only when all text is fully rendered should Skip advance the scene.
+	skipAdvancesScene := skipPressed && !hasTyping
+
+	if s.endTimer == -1 && (s.counter == sceneProps.End.Time || s.cancel || skipAdvancesScene) {
+		userInterrupt := s.cancel || skipAdvancesScene
 		startFadeOut(sceneProps.FadeOut.FadeData, sys.motif.fadeOut, userInterrupt, s.fadePolicy)
 		s.endTimer = s.counter + sys.motif.fadeOut.timeRemaining
 	}
@@ -503,20 +549,10 @@ func (s *Storyboard) step() {
 				layerProps.AnimData.Update()
 			}
 		}
-
 		if layerProps.TextSpriteData != nil && layerProps.Text != "" {
 			nextCounter := s.counter + 1
-			if nextCounter >= layerProps.StartTime &&
-				(layerProps.EndTime == 0 || nextCounter < layerProps.EndTime) {
-
+			if nextCounter >= layerProps.StartTime && (layerProps.EndTime == 0 || nextCounter < layerProps.EndTime) {
 				runeCount := utf8.RuneCountInString(layerProps.Text)
-
-				if skipPressed && !layerProps.lineFullyRendered {
-					layerProps.typedLen = runeCount
-					layerProps.lineFullyRendered = true
-					layerProps.charDelayCounter = 0
-				}
-
 				if !layerProps.lineFullyRendered {
 					StepTypewriter(
 						layerProps.Text,
@@ -532,7 +568,6 @@ func (s *Storyboard) step() {
 						layerProps.lineFullyRendered = true
 					}
 				}
-
 				layerProps.TextSpriteData.wrapText(layerProps.Text, layerProps.typedLen)
 				layerProps.TextSpriteData.Update()
 			}
@@ -593,7 +628,8 @@ func (s *Storyboard) draw(layerno int16) {
 
 	for _, key := range SortedKeys(sceneProps.Layer) {
 		layerProps := sceneProps.Layer[key]
-		if s.counter >= layerProps.StartTime && (s.counter < layerProps.EndTime || layerProps.EndTime == 0) {
+		// If the text was force-finished by Skip, draw it even if StartTime hasn't been reached yet.
+		if (s.counter >= layerProps.StartTime || layerProps.lineFullyRendered) && (s.counter < layerProps.EndTime || layerProps.EndTime == 0) {
 			if layerProps.AnimData != nil {
 				layerProps.AnimData.Draw(layerno)
 			}

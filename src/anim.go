@@ -1975,6 +1975,9 @@ func (a *Anim) Draw(ln int16) {
 }
 
 func (a *Anim) Reset() {
+	if a == nil {
+		return
+	}
 	if a.anim != nil {
 		a.anim.Reset()
 	}

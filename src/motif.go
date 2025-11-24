@@ -579,8 +579,11 @@ type PlayerResultsProperties struct {
 
 type PlayerDialogueProperties struct {
 	Bg   AnimationProperties `ini:"bg"`
-	Face AnimationProperties `ini:"face"`
-	Name TextProperties      `ini:"name"`
+	Face struct {
+		AnimationProperties
+		Active AnimationProperties `ini:"active"`
+	} `ini:"face"`
+	Name TextProperties `ini:"name"`
 	Text struct {
 		TextProperties
 		TextSpacing float32 `ini:"textspacing"`
@@ -2739,7 +2742,7 @@ func (m *Motif) drawAspectBars() {
 
 func (m *Motif) draw(layerno int16) {
 	// Draw black bars if fight aspect and motif aspect differ.
-	if layerno == 1 && (!sys.middleOfMatch() || m.me.active) {
+	if layerno == 1 && (!sys.middleOfMatch() || m.me.active || m.di.active) {
 		m.drawAspectBars()
 	}
 	if m.ch.active {
@@ -3329,6 +3332,7 @@ type MotifDialogue struct {
 	lineFullyRendered bool
 	charDelayCounter  int32
 	activeSide        int
+	talkingSide       int
 	wait              int
 	switchCounter     int
 	endCounter        int
@@ -3353,6 +3357,14 @@ type DialogueToken struct {
 	redirection string
 	pn          int
 	value       []interface{}
+}
+
+// isValidPlayerNo returns true if pn refers to an existing character entry.
+func (di *MotifDialogue) isValidPlayerNo(pn int) bool {
+	if pn < 1 || pn > len(sys.chars) {
+		return false
+	}
+	return len(sys.chars[pn-1]) > 0
 }
 
 func (di *MotifDialogue) dialogueRedirection(redirect string) int {
@@ -3467,7 +3479,7 @@ func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
 }
 
 func (di *MotifDialogue) parseLine(line string) DialogueParsedLine {
-	side := -1
+	side := 1
 	re := regexp.MustCompile(`<([^>]+)>`)
 	var finalText strings.Builder
 	tokensMap := make(map[int][]DialogueToken)
@@ -3498,6 +3510,7 @@ func (di *MotifDialogue) parseLine(line string) DialogueParsedLine {
 		finalText.WriteString(substr)
 		offset += utf8.RuneCountInString(substr)
 	}
+	//fmt.Printf("[Dialogue] parseLine: side=%d text=%q tokens=%v\n", side, strings.TrimSpace(finalText.String()), tokensMap)
 	return DialogueParsedLine{
 		side:     side,
 		text:     strings.TrimSpace(finalText.String()),
@@ -3580,11 +3593,16 @@ func (di *MotifDialogue) reset(m *Motif) {
 	di.charDelayCounter = 0
 	di.switchCounter = 0
 	di.endCounter = 0
+	di.activeSide = -1
+	di.talkingSide = 0
+	di.parsed = nil
 
 	m.DialogueInfo.P1.Bg.AnimData.Reset()
 	m.DialogueInfo.P2.Bg.AnimData.Reset()
 	m.DialogueInfo.P1.Face.AnimData.Reset()
 	m.DialogueInfo.P2.Face.AnimData.Reset()
+	m.DialogueInfo.P1.Face.Active.AnimData.Reset()
+	m.DialogueInfo.P2.Face.Active.AnimData.Reset()
 	m.DialogueInfo.P1.Active.AnimData.Reset()
 	m.DialogueInfo.P2.Active.AnimData.Reset()
 
@@ -3593,6 +3611,17 @@ func (di *MotifDialogue) reset(m *Motif) {
 	// Dialogue uses its own typewriter logic, so disable the internal TextSprite typing.
 	m.DialogueInfo.P1.Text.TextSpriteData.textDelay = 0
 	m.DialogueInfo.P2.Text.TextSpriteData.textDelay = 0
+
+	// Reset cached face parameters so portraits are reapplied when a new dialogue starts.
+	for i := range di.faceParams {
+		di.faceParams[i] = FaceParams{
+			grp: -1,
+			idx: -1,
+			pn:  -1,
+		}
+	}
+
+	//sys.applyFightAspect()
 }
 
 func (di *MotifDialogue) clear(m *Motif) {
@@ -3606,6 +3635,94 @@ func (di *MotifDialogue) clear(m *Motif) {
 	sys.dialogueBarsFlg = false
 	m.DialogueInfo.P1.Face.AnimData.anim = nil
 	m.DialogueInfo.P2.Face.AnimData.anim = nil
+	if m.DialogueInfo.P1.Face.Active.AnimData != nil {
+		m.DialogueInfo.P1.Face.Active.AnimData.anim = nil
+	}
+	if m.DialogueInfo.P2.Face.Active.AnimData != nil {
+		m.DialogueInfo.P2.Face.Active.AnimData.anim = nil
+	}
+	sys.applyFightAspect()
+}
+
+func (di *MotifDialogue) initDefaults(m *Motif) {
+	if di.char == nil {
+		return
+	}
+
+	selfPn := di.dialogueRedirection("self")
+	enemyPn := di.dialogueRedirection("enemy")
+
+	setSide := func(side int, pn int) {
+		if pn <= 0 || !di.isValidPlayerNo(pn) {
+			return
+		}
+
+		// Default face (same as pXface); "side" must be 1 or 2.
+		var faceCfg *struct {
+			AnimationProperties
+			Active AnimationProperties `ini:"active"`
+		}
+		if side == 1 {
+			faceCfg = &m.DialogueInfo.P1.Face
+		} else if side == 2 {
+			faceCfg = &m.DialogueInfo.P2.Face
+		} else {
+			return
+		}
+
+		// For defaults, prefer Anim over Spr. If Anim < 0, fall back to Spr.
+		grp, idx := -1, -1
+		if faceCfg.Anim >= 0 {
+			grp = int(faceCfg.Anim)
+			idx = -1 // treat as animation number
+		} else if faceCfg.Spr[0] >= 0 {
+			grp = int(faceCfg.Spr[0])
+			idx = int(faceCfg.Spr[1])
+		}
+
+		if grp >= 0 {
+			if anim := di.setFace(m, side, pn, grp, idx); anim != nil {
+				if side == 1 {
+					m.DialogueInfo.P1.Face.AnimData = anim
+				} else if side == 2 {
+					m.DialogueInfo.P2.Face.AnimData = anim
+				}
+				di.faceParams[side-1] = FaceParams{grp: grp, idx: idx, pn: pn}
+			}
+		}
+
+		// Default active face (same as <pXfaceactive>)
+		activeCfg := &faceCfg.Active
+		grp, idx = -1, -1
+		if activeCfg.Anim >= 0 {
+			grp = int(activeCfg.Anim)
+			idx = -1
+		} else if activeCfg.Spr[0] >= 0 {
+			grp = int(activeCfg.Spr[0])
+			idx = int(activeCfg.Spr[1])
+		}
+
+		if grp >= 0 {
+			if anim := di.setFaceActive(m, side, pn, grp, idx); anim != nil {
+				if side == 1 {
+					m.DialogueInfo.P1.Face.Active.AnimData = anim
+				} else if side == 2 {
+					m.DialogueInfo.P2.Face.Active.AnimData = anim
+				}
+			}
+		}
+
+		// Default name (equivalent to <pXname=...>)
+		name := sys.chars[pn-1][0].gi().displayname
+		if side == 1 {
+			m.DialogueInfo.P1.Name.TextSpriteData.text = name
+		} else if side == 2 {
+			m.DialogueInfo.P2.Name.TextSpriteData.text = name
+		}
+	}
+
+	setSide(1, selfPn)
+	setSide(2, enemyPn)
 }
 
 func (di *MotifDialogue) init(m *Motif) {
@@ -3615,12 +3732,15 @@ func (di *MotifDialogue) init(m *Motif) {
 	}
 
 	di.reset(m)
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
 	lines, pn, _ := di.getDialogueLines()
 	di.char = sys.chars[pn-1][0]
 
 	lines = di.preprocessNames(lines)
 	di.parsed = di.parseAll(lines)
+
+	di.initDefaults(m)
 
 	/*for i, line := range di.parsed {
 		fmt.Printf("\nLine %d, side=%d\nText: %q\nTokens:\n", i+1, line.side, line.text)
@@ -3659,28 +3779,108 @@ func (di *MotifDialogue) applyTokens(m *Motif, line *DialogueParsedLine) {
 	}
 }
 
-// setFace changes the face anim for the given side.
-func (di *MotifDialogue) setFace(pn, grp, idx int) *Animation {
+func (di *MotifDialogue) resetPortraitIdle(a *Anim) {
+	if a == nil || a.anim == nil {
+		return
+	}
+	a.anim.Reset()
+}
+
+// buildFaceAnim is a shared helper used by setFace / setFaceActive to build
+// a portrait animation from either a character anim number or a raw sprite.
+func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg *AnimationProperties) *Anim {
 	if pn < 1 || pn > len(sys.chars) || len(sys.chars[pn-1]) == 0 {
 		return nil
 	}
+	if side != 1 && side != 2 {
+		return nil
+	}
 	c := sys.chars[pn-1][0]
+	sc := sys.sel.GetChar(int(c.selectNo))
+
 	a := NewAnim(nil, "")
 	var ok bool
-	if sp := c.gi().sff.GetSprite(uint16(grp), uint16(idx)); sp != nil {
-		action := fmt.Sprintf("%d, %d, 0, 0, -1", grp, idx)
-		a = NewAnim(c.gi().sff, action)
-		ok = (a != nil)
-	} else if grp >= 0 && idx == -1 {
-		if a.anim = c.gi().animTable.get(int32(grp)); a.anim != nil {
+	if grp >= 0 && idx == -1 {
+		// Treat grp as an animation number from the character.
+		if anim := c.gi().animTable.get(int32(grp)); anim != nil {
+			a.anim = anim
+			ok = true
+		}
+	} else if grp >= 0 && idx >= 0 {
+		// Treat grp/idx as sprite group/index from the character SFF.
+		if anim, _ := tryGetPortrait(sc, c, [][2]int32{{int32(grp), int32(idx)}}); anim != nil {
+			a.anim = anim
 			ok = true
 		}
 	}
-	if ok {
-		a.palfx = c.getPalfx()
-		return a.anim
+
+	if !ok || a.anim == nil {
+		return nil
 	}
-	return nil
+
+	// Use the same palfx as the character.
+	a.palfx = c.getPalfx()
+
+	// Localcoord from motif definition (if present).
+	lc := faceCfg.Localcoord
+	if lc[0] > 0 && lc[1] > 0 {
+		a.SetLocalcoord(float32(lc[0]), float32(lc[1]))
+	}
+
+	a.layerno = faceCfg.Layerno
+
+	// Clamp to window if configured.
+	w := faceCfg.Window
+	if w[2] > w[0] && w[3] > w[1] {
+		a.SetWindow([4]float32{float32(w[0]), float32(w[1]), float32(w[2]), float32(w[3])})
+	}
+
+	// Position.
+	a.SetPos(faceCfg.Offset[0], faceCfg.Offset[1])
+
+	// Scale – reuse the same logic as the victory/hiscore screens so portraits
+	// respect character localcoord and portraitscale when SelectChar data exists.
+	sx, sy := faceCfg.Scale[0], faceCfg.Scale[1]
+	if sc != nil && sc.localcoord[0] != 0 {
+		sx = faceCfg.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		sy = faceCfg.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+	}
+	a.SetScale(sx, sy)
+
+	a.facing = float32(faceCfg.Facing)
+	a.xshear = faceCfg.Xshear
+	a.angle = faceCfg.Angle
+	a.Update()
+
+	return a
+}
+
+// setFaceActive changes the active face anim for the given side. This is used for the "talking" variant of the portrait.
+func (di *MotifDialogue) setFaceActive(m *Motif, side, pn, grp, idx int) *Anim {
+	var faceCfg *AnimationProperties
+	switch side {
+	case 1:
+		faceCfg = &m.DialogueInfo.P1.Face.Active
+	case 2:
+		faceCfg = &m.DialogueInfo.P2.Face.Active
+	default:
+		return nil
+	}
+	return di.buildFaceAnim(m, side, pn, grp, idx, faceCfg)
+}
+
+// setFace changes the idle/normal face anim for the given side.
+func (di *MotifDialogue) setFace(m *Motif, side, pn, grp, idx int) *Anim {
+	var faceCfg *AnimationProperties
+	switch side {
+	case 1:
+		faceCfg = &m.DialogueInfo.P1.Face.AnimationProperties
+	case 2:
+		faceCfg = &m.DialogueInfo.P2.Face.AnimationProperties
+	default:
+		return nil
+	}
+	return di.buildFaceAnim(m, side, pn, grp, idx, faceCfg)
 }
 
 // applyToken handles the application of a single DialogueToken.
@@ -3707,17 +3907,39 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 							idx = int(v2)
 						}
 					}
-					if di.faceParams[token.side-1].pn != token.pn || di.faceParams[token.side-1].grp != grp ||
-						di.faceParams[token.side-1].idx != idx {
-						if anim := di.setFace(token.pn, grp, idx); anim != nil {
+					cur := &di.faceParams[token.side-1]
+					if cur.pn != token.pn || cur.grp != grp || cur.idx != idx {
+						if anim := di.setFace(m, token.side, token.pn, grp, idx); anim != nil {
 							if token.side == 1 {
-								m.DialogueInfo.P2.Face.AnimData.anim = anim
+								m.DialogueInfo.P1.Face.AnimData = anim
 							} else if token.side == 2 {
-								m.DialogueInfo.P1.Face.AnimData.anim = anim
+								m.DialogueInfo.P2.Face.AnimData = anim
 							}
-							di.faceParams[token.side-1].pn = token.pn
-							di.faceParams[token.side-1].grp = grp
-							di.faceParams[token.side-1].idx = idx
+							cur.pn = token.pn
+							cur.grp = grp
+							cur.idx = idx
+						}
+					}
+				}
+			}
+		}
+		return true
+	case "faceactive":
+		if token.side == 1 || token.side == 2 {
+			if len(token.value) >= 1 {
+				if v1, ok := token.value[0].(float32); ok {
+					grp := int(v1)
+					idx := -1
+					if len(token.value) >= 2 {
+						if v2, ok := token.value[1].(float32); ok {
+							idx = int(v2)
+						}
+					}
+					if anim := di.setFaceActive(m, token.side, token.pn, grp, idx); anim != nil {
+						if token.side == 1 {
+							m.DialogueInfo.P1.Face.Active.AnimData = anim
+						} else if token.side == 2 {
+							m.DialogueInfo.P2.Face.Active.AnimData = anim
 						}
 					}
 				}
@@ -3725,19 +3947,44 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 		}
 		return true
 	case "name":
-		if token.pn != -1 {
+		//fmt.Printf("[Dialogue] applyToken name: pn=%d side=%d redir=%q value=%v\n", token.pn, token.side, token.redirection, token.value)
+		// 1) If we have a valid player number, use that character's display name.
+		if token.pn != -1 && di.isValidPlayerNo(token.pn) {
 			name := sys.chars[token.pn-1][0].gi().displayname
 			if token.side == 1 {
 				m.DialogueInfo.P1.Name.TextSpriteData.text = name
 			} else if token.side == 2 {
 				m.DialogueInfo.P2.Name.TextSpriteData.text = name
 			}
-		} else if name, ok := token.value[0].(string); ok {
+			return true
+		}
+
+		// 2) Otherwise, try to use an explicit string value from the token.
+		var name string
+		if len(token.value) > 0 {
+			if v, ok := token.value[0].(string); ok {
+				name = v
+			}
+		}
+
+		// 3) For tags like <p1name=name> parseTag puts the text into redirection and leaves value empty, so fall back to redirection if needed.
+		if name == "" {
+			name = strings.TrimSpace(token.redirection)
+		}
+		if name == "" {
+			return true
+		}
+		if token.side == 1 {
+			m.DialogueInfo.P1.Name.TextSpriteData.text = name
+		} else if token.side == 2 {
 			m.DialogueInfo.P2.Name.TextSpriteData.text = name
 		}
 		return true
 	case "sound":
 		if len(token.value) >= 2 {
+			if !di.isValidPlayerNo(token.pn) {
+				return true
+			}
 			f, lw, lp, stopgh, stopcs := false, false, false, false, false
 			var g, n, ch, vo, priority, lc int32 = -1, 0, -1, 100, 0, 0
 			var loopstart, loopend, startposition int = 0, 0, 0
@@ -3773,6 +4020,9 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 		return true
 	case "anim":
 		if len(token.value) >= 1 {
+			if !di.isValidPlayerNo(token.pn) {
+				return true
+			}
 			if v, ok := token.value[0].(float32); ok {
 				animNo := int32(v)
 				if sys.chars[token.pn-1][0].selfAnimExist(BytecodeInt(animNo)) == BytecodeBool(true) {
@@ -3783,6 +4033,9 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 		return true
 	case "state":
 		if len(token.value) >= 1 {
+			if !di.isValidPlayerNo(token.pn) {
+				return true
+			}
 			if v, ok := token.value[0].(float32); ok {
 				stateNo := int32(v)
 				if stateNo == -1 {
@@ -3803,6 +4056,9 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 		return true
 	case "map":
 		if len(token.value) >= 2 {
+			if !di.isValidPlayerNo(token.pn) {
+				return true
+			}
 			mapName, ok1 := token.value[0].(string)
 			mapVal, ok2 := token.value[1].(float32)
 			if !ok1 || !ok2 {
@@ -3827,6 +4083,8 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 func (di *MotifDialogue) step(m *Motif) {
 	// If we have no lines, do nothing
 	if len(di.parsed) == 0 {
+		di.active = false
+		di.clear(m)
 		return
 	}
 
@@ -3837,19 +4095,15 @@ func (di *MotifDialogue) step(m *Motif) {
 		return
 	}
 
-	// Update any background/face/active animations
+	// Update background animations
 	m.DialogueInfo.P1.Bg.AnimData.Update()
 	m.DialogueInfo.P2.Bg.AnimData.Update()
-	m.DialogueInfo.P1.Face.AnimData.Update()
-	m.DialogueInfo.P2.Face.AnimData.Update()
-	if di.activeSide == 1 {
-		m.DialogueInfo.P1.Active.AnimData.Update()
-	} else if di.activeSide == 2 {
-		m.DialogueInfo.P2.Active.AnimData.Update()
-	}
 
 	// Check if we haven't reached StartTime yet
 	if di.counter < m.DialogueInfo.StartTime {
+		// Before dialogue starts, keep both portraits in a neutral pose.
+		di.resetPortraitIdle(m.DialogueInfo.P1.Face.AnimData)
+		di.resetPortraitIdle(m.DialogueInfo.P2.Face.AnimData)
 		di.counter++
 		return
 	}
@@ -3862,6 +4116,9 @@ func (di *MotifDialogue) step(m *Motif) {
 		} else {
 			di.endCounter--
 			if di.endCounter <= 0 {
+				// No more dialogue: make sure both portraits end in a neutral pose.
+				di.resetPortraitIdle(m.DialogueInfo.P1.Face.AnimData)
+				di.resetPortraitIdle(m.DialogueInfo.P2.Face.AnimData)
 				// Done
 				di.active = false
 				di.clear(m)
@@ -3874,6 +4131,7 @@ func (di *MotifDialogue) step(m *Motif) {
 
 	// We have a valid line to render
 	currentLine := &di.parsed[di.textNum]
+	//fmt.Printf("[Dialogue] step: textNum=%d side=%d typedCnt=%d text=%q\n", di.textNum, currentLine.side, currentLine.typedCnt, currentLine.text)
 	di.activeSide = currentLine.side
 	prevLineFullyRendered := di.lineFullyRendered
 
@@ -3950,6 +4208,79 @@ func (di *MotifDialogue) step(m *Motif) {
 		m.DialogueInfo.P2.Text.TextSpriteData.Update()
 	}
 
+	// Decide who is "talking" this frame for portrait animation:
+	// - must be the current line's side
+	// - only while characters are still being revealed (line not fully rendered)
+	// - and no explicit <wait> is active.
+	prevTalkingSide := di.talkingSide
+	talkingSide := 0
+	if di.wait == 0 && !di.lineFullyRendered {
+		if currentLine.side == 1 || currentLine.side == 2 {
+			talkingSide = currentLine.side
+		}
+	}
+	di.talkingSide = talkingSide
+
+	// Update the active highlight for the current active side.
+	if di.activeSide == 1 {
+		m.DialogueInfo.P1.Active.AnimData.Update()
+	} else if di.activeSide == 2 {
+		m.DialogueInfo.P2.Active.AnimData.Update()
+	}
+
+	// If a side just changed talking state, reset its face anims so the next
+	// variant (idle or active) starts from the first frame.
+	if prevTalkingSide != di.talkingSide {
+		// P1 changed state?
+		if prevTalkingSide == 1 || di.talkingSide == 1 {
+			if m.DialogueInfo.P1.Face.AnimData != nil {
+				m.DialogueInfo.P1.Face.AnimData.Reset()
+			}
+			if m.DialogueInfo.P1.Face.Active.AnimData != nil &&
+				m.DialogueInfo.P1.Face.Active.AnimData.anim != nil &&
+				m.DialogueInfo.P1.Face.Active.AnimData != m.DialogueInfo.P1.Face.AnimData {
+				m.DialogueInfo.P1.Face.Active.AnimData.Reset()
+			}
+		}
+		// P2 changed state?
+		if prevTalkingSide == 2 || di.talkingSide == 2 {
+			if m.DialogueInfo.P2.Face.AnimData != nil {
+				m.DialogueInfo.P2.Face.AnimData.Reset()
+			}
+			if m.DialogueInfo.P2.Face.Active.AnimData != nil &&
+				m.DialogueInfo.P2.Face.Active.AnimData.anim != nil &&
+				m.DialogueInfo.P2.Face.Active.AnimData != m.DialogueInfo.P2.Face.AnimData {
+				m.DialogueInfo.P2.Face.Active.AnimData.Reset()
+			}
+		}
+	}
+
+	// Step portraits:
+	// - If side has an active variant and is talking: step active variant.
+	// - Otherwise: always step standard face so idle portraits keep animating.
+	// P1
+	p1Idle := m.DialogueInfo.P1.Face.AnimData
+	var p1Active *Anim
+	if m.DialogueInfo.P1.Face.Active.AnimData != nil && m.DialogueInfo.P1.Face.Active.AnimData.anim != nil {
+		p1Active = m.DialogueInfo.P1.Face.Active.AnimData
+	}
+	if di.talkingSide == 1 && p1Active != nil {
+		p1Active.Update()
+	} else if p1Idle != nil {
+		p1Idle.Update()
+	}
+	// P2
+	p2Idle := m.DialogueInfo.P2.Face.AnimData
+	var p2Active *Anim
+	if m.DialogueInfo.P2.Face.Active.AnimData != nil && m.DialogueInfo.P2.Face.Active.AnimData.anim != nil {
+		p2Active = m.DialogueInfo.P2.Face.Active.AnimData
+	}
+	if di.talkingSide == 2 && p2Active != nil {
+		p2Active.Update()
+	} else if p2Idle != nil {
+		p2Idle.Update()
+	}
+
 	// Finally increment the global frame counter
 	di.counter++
 }
@@ -3995,13 +4326,40 @@ func (di *MotifDialogue) draw(m *Motif, layerno int16) {
 		return
 	}
 
+	// Faces
+	// - If a side is actively talking and has an active variant, draw the active one.
+	// - Otherwise draw the normal face.
+	// - If active variant is missing, fall back to the normal face for both states.
+	// P1
+	p1Idle := m.DialogueInfo.P1.Face.AnimData
+	var p1Active *Anim
+	if m.DialogueInfo.P1.Face.Active.AnimData != nil && m.DialogueInfo.P1.Face.Active.AnimData.anim != nil {
+		p1Active = m.DialogueInfo.P1.Face.Active.AnimData
+	} else {
+		p1Active = p1Idle
+	}
+	if di.talkingSide == 1 && p1Active != nil {
+		p1Active.Draw(layerno)
+	} else if p1Idle != nil {
+		p1Idle.Draw(layerno)
+	}
+	// P2
+	p2Idle := m.DialogueInfo.P2.Face.AnimData
+	var p2Active *Anim
+	if m.DialogueInfo.P2.Face.Active.AnimData != nil && m.DialogueInfo.P2.Face.Active.AnimData.anim != nil {
+		p2Active = m.DialogueInfo.P2.Face.Active.AnimData
+	} else {
+		p2Active = p2Idle
+	}
+	if di.talkingSide == 2 && p2Active != nil {
+		p2Active.Draw(layerno)
+	} else if p2Idle != nil {
+		p2Idle.Draw(layerno)
+	}
+
 	// Names
 	m.DialogueInfo.P1.Name.TextSpriteData.Draw(layerno)
 	m.DialogueInfo.P2.Name.TextSpriteData.Draw(layerno)
-
-	// Faces
-	m.DialogueInfo.P1.Face.AnimData.Draw(layerno)
-	m.DialogueInfo.P2.Face.AnimData.Draw(layerno)
 
 	// Text
 	m.DialogueInfo.P1.Text.TextSpriteData.Draw(layerno)

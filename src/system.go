@@ -561,7 +561,7 @@ func (s *System) getMotifAspect() float32 {
 }
 
 func (s *System) getCurrentAspect() float32 {
-	if s.middleOfMatch() && !s.motif.me.active {
+	if s.middleOfMatch() && !s.motif.me.active && !s.motif.di.active {
 		return s.getFightAspect()
 	}
 	return s.getMotifAspect()

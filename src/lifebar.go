@@ -5101,10 +5101,10 @@ func (l *Lifebar) reset() {
 }
 
 func (l *Lifebar) draw(layerno int16) {
-	if sys.postMatchFlg || sys.dialogueBarsFlg || (sys.motif.me.active && sys.motif.MenuInfo.HideBars) {
+	if sys.postMatchFlg {
 		return
 	}
-	if !sys.lifebarHide && l.active {
+	if !sys.lifebarHide && l.active && !sys.dialogueBarsFlg && (!sys.motif.me.active || !sys.motif.MenuInfo.HideBars) {
 		if !sys.gsf(GSF_nobardisplay) && l.bars {
 			// HealthBar
 			for ti := range sys.tmode {

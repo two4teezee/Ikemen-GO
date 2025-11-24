@@ -1399,11 +1399,6 @@ func loadSff(filename string, char bool) (*Sff, error) {
 				gn_[0] != 1 && gn_[1] != uint16(i+1) {
 				s.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = -1
 			}
-			if i <= sys.cfg.Config.PaletteMax && i+1 == int(s.header.NumberOfPalettes) {
-				for j := i + 1; j < sys.cfg.Config.PaletteMax; j++ {
-					delete(s.palList.PalTable, [...]uint16{1, uint16(j + 1)}) // Remove extra palette
-				}
-			}
 		}
 	}
 	spriteList := make([]*Sprite, int(s.header.NumberOfSprites))

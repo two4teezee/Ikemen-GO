@@ -323,7 +323,6 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 			r.log.saveLogs()
 		}
 		fmt.Println("EventCodeDisconnectedFromPeer")
-		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
 		disconnectMessage := fmt.Sprintf("Player %d disconnected.", info.Player)
 		r.SaveReplay()
@@ -336,7 +335,6 @@ func (r *RollbackSession) OnEvent(info *ggpo.Event) {
 			r.log.saveLogs()
 		}
 		fmt.Println("EventCodeDesync")
-		sys.rollback.currentFight.fin = true
 		sys.endMatch = true
 		r.SaveReplay()
 		ShowInfoDialog("Desync error.\nIf the problem persists, please report it at:\nhttps://github.com/ikemen-engine/Ikemen-GO/issues.\nThank you for your patience", "Desync Error")

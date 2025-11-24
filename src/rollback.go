@@ -9,7 +9,6 @@ import (
 
 type RollbackSystem struct {
 	session          *RollbackSession
-	currentFight     Fight
 	netConnection    *NetConnection
 	ggpoInputs       []InputBits
 	ggpoAnalogInputs [][6]int8
@@ -133,7 +132,6 @@ func (rs *RollbackSystem) postMatchSetup() {
 	rs.session.SaveReplay()
 
 	// sys.esc = true
-	//sys.rollback.currentFight.fin = true
 
 	sys.netConnection = rs.netConnection
 	rs.session.backend.Close()
@@ -313,31 +311,6 @@ func (ib *InputBits) SetInputAI(in int) {
 		Btoi(sys.aiInput[in].d())<<11 |
 		Btoi(sys.aiInput[in].w())<<12 |
 		Btoi(sys.aiInput[in].m())<<13)
-}
-
-// system.go already refactored to use a local var to save all this data
-type Fight struct {
-	fin                                                               bool
-	oldTeamLeader                                                     [2]int
-	oldWins                                                           [2]int32
-	oldDraws                                                          int32
-	oldStageVars                                                      Stage
-	level                                                             []int32
-	lvmul                                                             float64
-	life, pow, gpow, spow, rlife                                      []int32
-	cnsvar                                                            []map[int32]int32
-	cnsfvar                                                           []map[int32]float32
-	dialogue                                                          [][]string
-	mapArray                                                          []map[string]float32
-	remapSpr                                                          []RemapPreset
-	lifeMax, power, powerMax                                          []int32
-	guardPoints, guardPointsMax, dizzyPoints, dizzyPointsMax, redLife []int32
-	teamside                                                          []int
-}
-
-func NewFight() Fight {
-	f := Fight{}
-	return f
 }
 
 func readI16(b []byte) int16 {

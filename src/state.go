@@ -251,7 +251,6 @@ type GameState struct {
 	stageLoopNo int
 
 	// 11/5/2022
-	fight         Fight
 	introSkipCall bool
 	preMatchTime  int32
 
@@ -472,11 +471,6 @@ func (gs *GameState) LoadState(stateID int) {
 	}
 
 	// sys.luaTables = gs.luaTables
-
-	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback.session != nil {
-		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
-	}
 
 	sys.preMatchTime = gs.preMatchTime
 	sys.introSkipCall = gs.introSkipCall
@@ -699,11 +693,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.luaTables = arena.MakeSlice[*lua.LTable](a, len(sys.luaTables), len(sys.luaTables))
 	for i := 0; i < len(sys.luaTables); i++ {
 		gs.luaTables[i] = gs.cloneLuaTable(sys.luaTables[i])
-	}
-
-	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback.session != nil {
-		gs.fight = sys.rollback.currentFight.Clone(a, gsp)
 	}
 
 	gs.introSkipCall = sys.introSkipCall

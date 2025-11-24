@@ -281,6 +281,7 @@ func (sw *SwapSeeker) Stream(out [][2]float64) (int, bool) {
 	sw.mu.RUnlock()
 	return ss.Stream(out)
 }
+
 func (sw *SwapSeeker) Seek(p int) error {
 	sw.mu.RLock()
 	ss := sw.ss
@@ -288,18 +289,21 @@ func (sw *SwapSeeker) Seek(p int) error {
 	sw.mu.RUnlock()
 	return err
 }
+
 func (sw *SwapSeeker) Position() int {
 	sw.mu.RLock()
 	pos := sw.ss.Position()
 	sw.mu.RUnlock()
 	return pos
 }
+
 func (sw *SwapSeeker) Len() int {
 	sw.mu.RLock()
 	l := sw.ss.Len()
 	sw.mu.RUnlock()
 	return l
 }
+
 func (sw *SwapSeeker) Err() error {
 	sw.mu.RLock()
 	e := sw.ss.Err()
@@ -344,7 +348,9 @@ func (b *BufferSeeker) Seek(p int) error {
 }
 
 func (b *BufferSeeker) Position() int { return b.pos }
+
 func (b *BufferSeeker) Len() int      { return b.buf.Len() }
+
 func (b *BufferSeeker) Err() error    { return nil }
 
 // ------------------------------------------------------------------
@@ -952,13 +958,16 @@ func LoadSndFiltered(filename string, keepItem func([2]int32) bool, max uint32) 
 	}
 	return s, nil
 }
+
 func (s *Snd) Get(gn [2]int32) *Sound {
 	return s.table[gn]
 }
+
 func (s *Snd) play(gn [2]int32, volumescale int32, pan float32, loopstart, loopend, startposition int) bool {
 	sound := s.Get(gn)
 	return sys.soundChannels.Play(sound, gn[0], gn[1], volumescale, pan, loopstart, loopend, startposition)
 }
+
 func (s *Snd) stop(gn [2]int32) {
 	sound := s.Get(gn)
 	sys.soundChannels.Stop(sound)
@@ -1032,22 +1041,27 @@ type SoundChannel struct {
 	stopOnChangeState bool
 	group             int32
 	number            int32
+	timeStamp         int32
 }
 
 func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul float32, loopStart, loopEnd, startPosition int) {
 	if sound == nil {
 		return
 	}
+
 	s.sound = sound
 	s.group = group
 	s.number = number
+	s.timeStamp = sys.gameTime()
 	s.streamer = s.sound.GetStreamer()
+
 	loopCount := int(0)
 	if loop < 0 {
 		loopCount = -1
 	} else {
 		loopCount = MaxI(0, int(loop-1))
 	}
+
 	// going to continue using our streamLooper which is now modified from beep.Loop2
 	looper := newStreamLooper(s.streamer, loopCount, loopStart, loopEnd)
 	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0, channel: -1, loop: int32(loopCount), freqmul: freqmul, startPos: startPosition}
@@ -1058,9 +1072,11 @@ func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul flo
 	s.streamer.Seek(startPosition)
 	sys.soundMixer.Add(s.ctrl)
 }
+
 func (s *SoundChannel) IsPlaying() bool {
 	return s.sound != nil
 }
+
 func (s *SoundChannel) SetPaused(pause bool) {
 	if s.ctrl == nil || s.ctrl.Paused == pause {
 		return
@@ -1069,6 +1085,7 @@ func (s *SoundChannel) SetPaused(pause bool) {
 	s.ctrl.Paused = pause
 	speaker.Unlock()
 }
+
 func (s *SoundChannel) Stop() {
 	if s.ctrl != nil {
 		speaker.Lock()
@@ -1077,11 +1094,13 @@ func (s *SoundChannel) Stop() {
 	}
 	s.sound = nil
 }
+
 func (s *SoundChannel) SetVolume(vol float32) {
 	if s.ctrl != nil {
 		s.sfx.volume = ClampF(vol, 0, 512)
 	}
 }
+
 func (s *SoundChannel) SetPan(p, ls float32, x *float32) {
 	if s.ctrl != nil {
 		s.sfx.ls = ls
@@ -1089,16 +1108,19 @@ func (s *SoundChannel) SetPan(p, ls float32, x *float32) {
 		s.sfx.p = p * ls
 	}
 }
+
 func (s *SoundChannel) SetPriority(priority int32) {
 	if s.ctrl != nil {
 		s.sfx.priority = priority
 	}
 }
+
 func (s *SoundChannel) SetChannel(channel int32) {
 	if s.ctrl != nil {
 		s.sfx.channel = channel
 	}
 }
+
 func (s *SoundChannel) SetFreqMul(freqmul float32) {
 	if s.ctrl != nil {
 		if s.sound != nil {
@@ -1119,6 +1141,7 @@ func (s *SoundChannel) SetFreqMul(freqmul float32) {
 		}
 	}
 }
+
 func (s *SoundChannel) SetLoopPoints(loopstart, loopend int) {
 	// Set both at once, why not
 	if sl, ok := s.sfx.streamer.(*StreamLooper); ok {
@@ -1155,6 +1178,7 @@ func newSoundChannels(size int32) *SoundChannels {
 	s.SetSize(size)
 	return s
 }
+
 func (s *SoundChannels) SetSize(size int32) {
 	if size > s.count() {
 		c := make([]SoundChannel, size-s.count())
@@ -1169,9 +1193,11 @@ func (s *SoundChannels) SetSize(size int32) {
 		s.volResume = s.volResume[:size]
 	}
 }
+
 func (s *SoundChannels) count() int32 {
 	return int32(len(s.channels))
 }
+
 func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundChannel {
 	if ch >= 0 && ch < sys.cfg.Sound.WavChannels {
 		for i := s.count() - 1; i >= 0; i-- {
@@ -1194,6 +1220,7 @@ func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundCh
 	}
 	return nil
 }
+
 func (s *SoundChannels) reserveChannel() *SoundChannel {
 	for i := range s.channels {
 		if !s.channels[i].IsPlaying() {
@@ -1202,6 +1229,7 @@ func (s *SoundChannels) reserveChannel() *SoundChannel {
 	}
 	return nil
 }
+
 func (s *SoundChannels) Get(ch int32) *SoundChannel {
 	if ch >= 0 && ch < s.count() {
 		for i := range s.channels {
@@ -1213,6 +1241,7 @@ func (s *SoundChannels) Get(ch int32) *SoundChannel {
 	}
 	return nil
 }
+
 func (s *SoundChannels) Play(sound *Sound, group, number, volumescale int32, pan float32, loopStart, loopEnd, startPosition int) bool {
 	if sound == nil {
 		return false
@@ -1226,6 +1255,7 @@ func (s *SoundChannels) Play(sound *Sound, group, number, volumescale int32, pan
 	c.SetPan(pan, 0, nil)
 	return true
 }
+
 func (s *SoundChannels) IsPlaying(sound *Sound) bool {
 	for i := range s.channels {
 		v := &s.channels[i]
@@ -1235,6 +1265,7 @@ func (s *SoundChannels) IsPlaying(sound *Sound) bool {
 	}
 	return false
 }
+
 func (s *SoundChannels) Stop(sound *Sound) {
 	for i := range s.channels {
 		v := &s.channels[i]

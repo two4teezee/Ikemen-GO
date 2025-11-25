@@ -4644,9 +4644,10 @@ func (r *Renderer_VK) CreatePipelineCache() error {
 	if err == nil {
 		defer cacheFile.Close()
 		cacheData, err := io.ReadAll(cacheFile)
-		pinner := runtime.Pinner{}
-		pinner.Pin(&cacheData[0])
-		defer pinner.Unpin()
+		// go 1.21+ feature
+		// pinner := runtime.Pinner{}
+		// pinner.Pin(&cacheData[0])
+		// defer pinner.Unpin()
 		if err == nil {
 			pipelineCacheInfo.InitialDataSize = uint64(len(cacheData))
 			pipelineCacheInfo.PInitialData = unsafe.Pointer(&cacheData[0])

@@ -6,6 +6,8 @@ github.com/Eiton/vulkan v0.0.0-20251024132427-732131af8682 h1:QAKWmR+/eg63syQ2AS
 github.com/Eiton/vulkan v0.0.0-20251024132427-732131af8682/go.mod h1:3O9afAqFWBxgbKHanYAoOT1bkRkxyWxB7qfIoYJrm+g=
 github.com/Eiton/vulkan v0.0.0-20251123130526-85ddf7d0854d h1:VW/3rhljmIihyvTLuilJAiza2VSURxUtfqiAS33yGPQ=
 github.com/Eiton/vulkan v0.0.0-20251123130526-85ddf7d0854d/go.mod h1:3O9afAqFWBxgbKHanYAoOT1bkRkxyWxB7qfIoYJrm+g=
+github.com/Eiton/vulkan v0.0.0-20251125114215-6585a2a8590b h1:pW7CTN1QCXCr0KyaskGs3dyoyruIOIeOKL0bt3HZ4JY=
+github.com/Eiton/vulkan v0.0.0-20251125114215-6585a2a8590b/go.mod h1:3O9afAqFWBxgbKHanYAoOT1bkRkxyWxB7qfIoYJrm+g=
 github.com/TheTitanrain/w32 v0.0.0-20180517000239-4f5cfb03fabf/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d h1:2xp1BQbqcDDaikHnASWpVZRjibOxu7y9LhAv04whugI=
 github.com/TheTitanrain/w32 v0.0.0-20200114052255-2654d97dbd3d/go.mod h1:peYoMncQljjNS6tZwI9WVyQB3qZS6u79/N3mBOcnd3I=

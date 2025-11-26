@@ -419,6 +419,7 @@ func (s *Storyboard) reset() {
 				if layerProps.AnimData.palfx != nil {
 					layerProps.AnimData.palfx.clear()
 				}
+				layerProps.AnimData.Update()
 			}
 			if layerProps.TextSpriteData != nil {
 				layerProps.TextSpriteData.Reset()
@@ -448,7 +449,7 @@ func (s *Storyboard) sceneHasTyping(sceneProps *SceneProperties) bool {
 		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
 			continue
 		}
-		if layerProps.EndTime != 0 && s.counter >= layerProps.EndTime {
+		if layerProps.EndTime > 0 && s.counter >= layerProps.EndTime {
 			continue
 		}
 		if !layerProps.lineFullyRendered {
@@ -465,7 +466,7 @@ func (s *Storyboard) revealAllSceneText(sceneProps *SceneProperties) {
 		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
 			continue
 		}
-		if layerProps.EndTime != 0 && s.counter >= layerProps.EndTime {
+		if layerProps.EndTime > 0 && s.counter >= layerProps.EndTime {
 			continue
 		}
 		runeCount := utf8.RuneCountInString(layerProps.Text)
@@ -544,14 +545,14 @@ func (s *Storyboard) step() {
 
 	for _, layerProps := range sceneProps.Layer {
 		// Update animations while the layer is actually visible.
-		if s.counter >= layerProps.StartTime && (s.counter < layerProps.EndTime || layerProps.EndTime == 0) {
+		if s.counter >= layerProps.StartTime && (s.counter < layerProps.EndTime || layerProps.EndTime <= 0) {
 			if layerProps.AnimData != nil {
 				layerProps.AnimData.Update()
 			}
 		}
 		if layerProps.TextSpriteData != nil && layerProps.Text != "" {
 			nextCounter := s.counter + 1
-			if nextCounter >= layerProps.StartTime && (layerProps.EndTime == 0 || nextCounter < layerProps.EndTime) {
+			if nextCounter >= layerProps.StartTime && (nextCounter < layerProps.EndTime || layerProps.EndTime <= 0) {
 				runeCount := utf8.RuneCountInString(layerProps.Text)
 				if !layerProps.lineFullyRendered {
 					StepTypewriter(
@@ -629,7 +630,7 @@ func (s *Storyboard) draw(layerno int16) {
 	for _, key := range SortedKeys(sceneProps.Layer) {
 		layerProps := sceneProps.Layer[key]
 		// If the text was force-finished by Skip, draw it even if StartTime hasn't been reached yet.
-		if (s.counter >= layerProps.StartTime || layerProps.lineFullyRendered) && (s.counter < layerProps.EndTime || layerProps.EndTime == 0) {
+		if (s.counter >= layerProps.StartTime || layerProps.lineFullyRendered) && (s.counter < layerProps.EndTime || layerProps.EndTime <= 0) {
 			if layerProps.AnimData != nil {
 				layerProps.AnimData.Draw(layerno)
 			}

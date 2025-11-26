@@ -3012,7 +3012,7 @@ func (c *Char) init(n int, idx int32) {
 	}
 
 	// Set controller to CPU if applicable
-	if c.controller >= 0 && c.controller < len(sys.aiLevel) && sys.aiLevel[c.controller] != 0 {
+	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
 	}
 

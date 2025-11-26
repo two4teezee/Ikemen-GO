@@ -124,6 +124,7 @@ type System struct {
 	netConnection           *NetConnection
 	replayFile              *ReplayFile
 	aiInput                 [MaxPlayerNo]AiInput
+	ffbparams               [MaxPlayerNo]ForceFeedbackParams
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
 	aiLevel                 [MaxPlayerNo]float32
@@ -328,7 +329,7 @@ type System struct {
 
 	// for avg. FPS calculations
 	gameFPS       float32
-	prevTimestamp float64
+	prevTimestamp uint64
 	absTickCountF float32
 
 	// screenshot deferral
@@ -354,6 +355,12 @@ func (s *System) init(w, h int32) *lua.LState {
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
 	chk(err)
 
+	if strings.Contains(s.cfg.Video.RenderMode, "OpenGL") {
+		if _, err := s.window.GLCreateContext(); err != nil {
+			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
+		}
+	}
+
 	exePath, err := os.Executable()
 	if err != nil {
 		fmt.Println("Error getting executable path:", err)
@@ -367,33 +374,6 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	// Update the gamepad mappings with user mappings, if present.
 	input.UpdateGamepadMappings(sys.cfg.Config.GamepadMappings)
-
-	// Correct the joystick mappings (macOS)
-	if runtime.GOOS == "darwin" {
-		for i := 0; i < len(sys.joystickConfig); i++ {
-			jc := &sys.joystickConfig[i]
-			joyS := jc.Joy
-
-			if input.IsJoystickPresent(joyS) {
-				guid := input.GetJoystickGUID(joyS)
-
-				// Correct the inner config
-				if sys.joystickConfig[joyS].GUID != guid && !sys.joystickConfig[i].isInitialized {
-
-					// Swap those that don't match
-					joyIndices := input.GetJoystickIndices(guid)
-					if len(joyIndices) == 1 {
-						for j := 0; j < len(sys.joystickConfig); j++ {
-							if sys.joystickConfig[j].GUID == guid {
-								sys.joystickConfig[i].swap(&sys.joystickConfig[j])
-								break
-							}
-						}
-					}
-				}
-			}
-		}
-	}
 
 	// Loading of external shader data.
 	// We need to do this before the render initialization at "gfx.Init()"
@@ -921,6 +901,41 @@ func (s *System) update() bool {
 		s.preMatchTime = s.frameCounter
 	}
 
+	// Correct the joystick mappings (macOS)
+	for i := 0; i < len(sys.joystickConfig); i++ {
+		if runtime.GOOS == "darwin" && !sys.joystickConfig[i].isInitialized {
+			joyS := i
+			if joyS < len(sys.joystickConfig) {
+				if input.IsJoystickPresent(joyS) {
+					guid := input.GetJoystickGUID(joyS)
+
+					// Correct the inner config
+					if sys.joystickConfig[joyS].GUID != guid && !sys.joystickConfig[joyS].isInitialized {
+						// Swap those that don't match
+						for i := 0; i < len(sys.joystickConfig); i++ {
+							if i != joyS && sys.joystickConfig[i].GUID == guid {
+								sys.joystickConfig[joyS].swap(&sys.joystickConfig[i])
+								logicalPlayerA := sys.joystickConfig[joyS].Joy
+								logicalPlayerB := sys.joystickConfig[i].Joy
+								sys.inputRemap[logicalPlayerA] = joyS
+								sys.inputRemap[logicalPlayerB] = i
+								// cs := *input.controllerstate[joyS]
+								// *input.controllerstate[joyS] = *input.controllerstate[i]
+								// *input.controllerstate[i] = cs
+								// c := input.controllers[joyS]
+								// input.controllers[joyS] = input.controllers[i]
+								// input.controllers[i] = c
+								// fmt.Printf("system.go: inputremap[%v] = %v, inputRemap[%v] = %v\n", joyS, sys.inputRemap[joyS], i, sys.inputRemap[i])
+								// fmt.Printf("system.go: %v, Joy = %v, RealJoy = %v, GUID = %v\n", input.GetJoystickGUID(joyS), joyS, sys.joystickConfig[joyS].Joy, guid)
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// Restore original resolution after changing aspect ratio
 	if !s.middleOfMatch() {
 		// TODO: This should probably not be based on scrrect
@@ -1021,7 +1036,7 @@ func (s *System) anyHardButton() bool {
 	hardButtonIdx := []int{4, 5, 6, 7, 8, 9}
 
 	for _, kc := range s.keyConfig {
-		buttons := ControllerState(kc)
+		buttons := GetControllerState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true
@@ -1030,7 +1045,7 @@ func (s *System) anyHardButton() bool {
 	}
 
 	for _, kc := range s.joystickConfig {
-		buttons := ControllerState(kc)
+		buttons := GetControllerState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true
@@ -2081,6 +2096,31 @@ func (s *System) action() {
 		}
 
 		s.turbo = spd
+
+		// Force Feedback (legacy)
+		for i := 0; i < len(s.ffbparams); i++ {
+			if s.ffbparams[i].timer > 0 {
+				start := s.ffbparams[i].start
+				t := s.ffbparams[i].timer
+				d1, d2, d3 := s.ffbparams[i].d1, s.ffbparams[i].d2, s.ffbparams[i].d3
+				d1 = float32(math.Pow(float64(d1), float64(t)))
+				d2 = float32(math.Pow(float64(d2), float64(t*t)))
+				d3 = float32(math.Pow(float64(d2), float64(t*t*t)))
+				ampl := (start + d1 + d2 + d3) / 255.0
+				intensity := uint16(ampl * 0xFFFF)
+				switch s.ffbparams[i].waveform {
+				case waveform_off:
+					input.RumbleController(i, 0, 0, 1)
+				case waveform_sine:
+					input.RumbleController(i, intensity, 0, 1)
+				case waveform_square:
+					input.RumbleController(i, 0, intensity, 1)
+				case waveform_sinesquare:
+					input.RumbleController(i, intensity, intensity, 1)
+				}
+				s.ffbparams[i].timer--
+			}
+		}
 	}
 	s.tickSound()
 	return

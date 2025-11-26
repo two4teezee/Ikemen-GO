@@ -8,10 +8,11 @@ import (
 )
 
 type RollbackSystem struct {
-	session       *RollbackSession
-	currentFight  Fight
-	netConnection *NetConnection
-	ggpoInputs    []InputBits
+	session          *RollbackSession
+	currentFight     Fight
+	netConnection    *NetConnection
+	ggpoInputs       []InputBits
+	ggpoAnalogInputs [][6]int8
 }
 
 type RollbackProperties struct {
@@ -31,6 +32,7 @@ func (rs *RollbackSystem) hijackRunMatch(s *System) bool {
 
 	// Reset variables
 	rs.ggpoInputs = make([]InputBits, 2)
+	rs.ggpoAnalogInputs = make([][6]int8, 2)
 
 	// Initialize rollback network session and synchronize state
 	rs.preMatchSetup()
@@ -178,12 +180,12 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 		var values [][]byte
 		disconnectFlags := 0
 		values, ggpoerr = rs.session.backend.SyncInput(&disconnectFlags)
-		rs.ggpoInputs = decodeInputs(values)
+		rs.ggpoInputs, rs.ggpoAnalogInputs = decodeInputs(values)
 
 		// TODO: Why does this depend on the replay?
 		if rs.session.recording != nil {
-			rs.session.SetInput(rs.session.netTime, 0, rs.ggpoInputs[0])
-			rs.session.SetInput(rs.session.netTime, 1, rs.ggpoInputs[1])
+			rs.session.SetInput(rs.session.netTime, 0, rs.ggpoInputs[0], rs.ggpoAnalogInputs[0])
+			rs.session.SetInput(rs.session.netTime, 1, rs.ggpoInputs[1], rs.ggpoAnalogInputs[1])
 			rs.session.netTime++
 		}
 
@@ -338,6 +340,13 @@ func NewFight() Fight {
 	return f
 }
 
+func readI16(b []byte) int16 {
+	if len(b) < 2 {
+		return 0
+	}
+	return int16(b[0]) | int16(b[1])<<8
+}
+
 func readI32(b []byte) int32 {
 	if len(b) < 4 {
 		return 0
@@ -345,12 +354,25 @@ func readI32(b []byte) int32 {
 	return int32(b[0]) | int32(b[1])<<8 | int32(b[2])<<16 | int32(b[3])<<24
 }
 
-func decodeInputs(buffer [][]byte) []InputBits {
+func decodeInputs(buffer [][]byte) ([]InputBits, [][6]int8) {
 	var inputs = make([]InputBits, len(buffer))
+	var analogInputs = make([][6]int8, len(buffer))
 	for i, b := range buffer {
-		inputs[i] = InputBits(readI32(b))
+		inputs[i] = InputBits(readI16(b))
+		for j := 0; j < len(analogInputs[i]); j++ {
+			if len(b) < 8 {
+				analogInputs[i][j] = 0
+			} else {
+				analogInputs[i][j] = int8(b[2+j])
+			}
+		}
 	}
-	return inputs
+	return inputs, analogInputs
+}
+
+func writeI16(i16 int16) []byte {
+	b := []byte{byte(i16), byte((i16 >> 8) & 0xFF)}
+	return b
 }
 
 func writeI32(i32 int32) []byte {
@@ -359,9 +381,18 @@ func writeI32(i32 int32) []byte {
 }
 
 func (rs *RollbackSystem) getInputs(player int) []byte {
+	// Digital inputs
 	var ib InputBits
 	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(0, false))
-	return writeI32(int32(ib))
+	bytes := writeI16(int16(ib))
+
+	// Analog inputs
+	sbyteAxes := rs.netConnection.buf[player].InputReader.LocalAnalogInput(0)
+	for i := 0; i < len(sbyteAxes); i++ {
+		bytes = append(bytes, byte(sbyteAxes[i]))
+	}
+
+	return bytes
 }
 
 func (rs *RollbackSystem) readRollbackInput(controller int) [14]bool {
@@ -375,6 +406,19 @@ func (rs *RollbackSystem) readRollbackInput(controller int) [14]bool {
 	}
 
 	return rs.ggpoInputs[remap].BitsToKeys()
+}
+
+func (rs *RollbackSystem) readRollbackInputAnalog(controller int) [6]int8 {
+	if controller < 0 || controller >= len(sys.inputRemap) {
+		return [6]int8{}
+	}
+
+	remap := sys.inputRemap[controller]
+	if remap < 0 || remap >= len(rs.ggpoInputs) {
+		return [6]int8{}
+	}
+
+	return rs.ggpoAnalogInputs[remap]
 }
 
 func (rs *RollbackSystem) anyButton() bool {

@@ -1396,10 +1396,12 @@ function start.f_playWave(ref, name, g, n, loops)
 		if sound == nil or sound == '' then
 			return 0
 		end
-		if start.f_getCharData(ref)[name .. '_wave_data'] == nil then
-			start.f_getCharData(ref)[name .. '_wave_data'] = getWaveData(start.f_getCharData(ref).dir .. sound, g, n, loops or -1)
+		local key = name .. '_wave_data_' .. g .. '_' .. n
+		if start.f_getCharData(ref)[key] == nil then
+			start.f_getCharData(ref)[key] =
+				getWaveData(start.f_getCharData(ref).dir .. start.f_getCharData(ref).sound, g, n, loops or -1)
 		end
-		wavePlay(start.f_getCharData(ref)[name .. '_wave_data'], g, n)
+		wavePlay(start.f_getCharData(ref)[key], g, n)
 	end
 end
 
@@ -3108,6 +3110,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 			end
 		end
 		selectState = 3
+		start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_select_snd'][1], motif.select_info['p' .. side .. '_select_snd'][2])
 		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_done_snd'][1], motif.select_info['p' .. side .. '_palmenu_done_snd'][2])
 	 -- next palette
 	elseif main.f_input({cmd}, main.f_extractKeys(motif.select_info['p' .. side .. '_palmenu_next_key'])) then
@@ -3267,7 +3270,9 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 						timerSelect = motif.select_info.timer_displaytime
 					end
 					sndPlay(motif.files.snd_data, start.f_getCursorData(player, '_cursor_done_snd')[1], start.f_getCursorData(player, '_cursor_done_snd')[2])
-					start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_select_snd'][1], motif.select_info['p' .. side .. '_select_snd'][2])
+					if motif.select_info.paletteselect == 0 then
+						start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_select_snd'][1], motif.select_info['p' .. side .. '_select_snd'][2])
+					end
 					start.p[side].t_selTemp[member].pal = main.f_btnPalNo(cmd)
 					start.p[side].inRandom = false
 					if start.p[side].t_selTemp[member].pal == nil or start.p[side].t_selTemp[member].pal == 0 then
@@ -3291,9 +3296,10 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					local canShow = main.coop or motif.select_info['p' .. side .. '_face_num'] > 1 or main.f_tableLength(start.p[side].t_selected) + 1 == start.p[side].numChars
 
 					if selAnim ~= done_anim and canShow then
-						if motif.select_info.paletteselect == 0 and done_anim ~= -1 then 
+						if motif.select_info.paletteselect == 0 and done_anim ~= -1 then
 							setDoneAnim(start.c[player].selRef, side, member, '_face', '_done')
-						elseif palmenu_preview_anim ~= -1 then 
+						elseif palmenu_preview_anim ~= -1 and motif.select_info.paletteselect ~= 0 then
+							start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side .. '_palmenu_preview_snd'][1], motif.select_info['p' .. side .. '_palmenu_preview_snd'][2])
 							setDoneAnim(start.c[player].selRef, side, member, '_palmenu', '_preview')
 						end
 					end

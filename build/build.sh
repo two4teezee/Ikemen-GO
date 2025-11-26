@@ -126,7 +126,8 @@ check_deps() {
 				echo "    git make diffutils mingw-w64-x86_64-pkg-config \\" >&2
 				echo "    mingw-w64-x86_64-go mingw-w64-x86_64-toolchain \\" >&2
 				echo "    mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm \\" >&2
-				echo "    mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp" >&2
+				echo "    mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp \\" >&2
+				echo "    mingw-w64-x86_64-SDL2" >&2
 				exit 1
 			fi
 		;;
@@ -142,7 +143,7 @@ check_deps() {
 			if ((${#missing[@]})); then
 				echo "ERROR: Missing tools: ${missing[*]}" >&2
 				echo "Install with Homebrew:" >&2
-				echo "  brew update && brew install git go pkg-config nasm libxmp molten-vk" >&2
+				echo "  brew update && brew install git go pkg-config nasm libxmp sdl2 molten-vk" >&2
 				exit 1
 			fi
 		;;
@@ -158,11 +159,33 @@ check_deps() {
 			if ((${#missing[@]})); then
 				echo "ERROR: Missing tools: ${missing[*]}" >&2
 				echo "Install (Debian/Ubuntu):" >&2
-				echo "  sudo apt update && sudo apt install -y golang-go git pkg-config make nasm yasm build-essential libxmp-dev" >&2
+				echo "  sudo apt update && sudo apt install -y golang-go git pkg-config make nasm yasm build-essential libxmp-dev libsdl2-dev" >&2
 				exit 1
 			fi
 		;;
 	esac
+}
+
+# Ensure SDL2 (via pkg-config) is available
+require_sdl2() {
+	local pc="${PKG_CONFIG:-pkg-config}"
+	if ! $pc --exists sdl2 2>/dev/null; then
+	case "$OSTYPE" in
+		msys|cygwin)
+			echo "ERROR: SDL2 dev package not found. Install: pacman -S mingw-w64-x86_64-SDL2" >&2
+			;;
+		darwin*)
+			echo "ERROR: SDL2 not found. Install with Homebrew: brew install sdl2" >&2
+			;;
+		linux*)
+			echo "ERROR: SDL2 dev package not found. Install (Debian/Ubuntu): sudo apt install -y libsdl2-dev" >&2
+			;;
+		*)
+			echo "ERROR: SDL2 dev package not found (pkg-config module 'sdl2')." >&2
+			;;
+		esac
+		exit 1
+	fi
 }
 
 # Ensure libxmp (via pkg-config) is available
@@ -486,10 +509,12 @@ function build() {
 	export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
 	# Ensure libxmp is present
 	require_libxmp
-	# Pull dependency flags from pkg-config (FFmpeg + libxmp)
-	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp) ${CGO_CFLAGS:-}"
+	# Ensure SDL2 is present
+	require_sdl2
+	# Pull dependency flags from pkg-config (FFmpeg + libxmp + SDL2)
+	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2) ${CGO_CFLAGS:-}"
 	local deps_libs
-	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp)"
+	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2)"
 
 	# RPATH for local libs on *nix; macOS adds rpath to bundle/exec path
 	if [[ "$GOOS" == "linux" ]]; then
@@ -520,9 +545,12 @@ function buildWin() {
 	export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
 	# Ensure libxmp is present
 	require_libxmp
-	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp) ${CGO_CFLAGS:-}"
+	# Ensure SDL2 is present
+	require_sdl2
+	# Pull dependency flags from pkg-config (FFmpeg + libxmp + SDL2)
+	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2) ${CGO_CFLAGS:-}"
 	local deps_libs
-	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp)"
+	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2)"
 	create_delay_import_libs_windows
 	# Prefer our delay-libs first so -lavcodec resolves delay-load flavor
 	export CGO_LDFLAGS="-L$PWD/$DELAYLIB_DIR ${deps_libs} ${CGO_LDFLAGS:-}"
@@ -677,7 +705,8 @@ function bundle_shared_libs() {
 			/mingw64/bin/libwinpthread-1.dll \
 			/mingw64/bin/libgcc_s_seh-1.dll \
 			/mingw64/bin/libstdc++-6.dll \
-			/mingw64/bin/libxmp*.dll ; do
+			/mingw64/bin/libxmp*.dll \
+			/mingw64/bin/SDL2*.dll ; do
 			cp -av "$d" "$dest_lib/" 2>/dev/null || true
 		done
 	elif [[ -d "$FFMPEG_PREFIX/lib" ]]; then
@@ -701,12 +730,17 @@ function bundle_shared_libs() {
 	# (Windows was handled above.)
 	if [[ "$GOOS" != "windows" ]]; then
 		# Prefer pkg-config to locate the correct lib directory.
-		local pc libdir
+		local pc libdir libdir_sdl2
 		pc="${PKG_CONFIG:-pkg-config}"
 		libdir="$($pc --variable=libdir libxmp 2>/dev/null || true)"
 		if [[ -n "$libdir" && -d "$libdir" ]]; then
 			cp -av "${libdir}"/libxmp*.so*   "$dest_lib/" 2>/dev/null || true
 			cp -av "${libdir}"/libxmp*.dylib "$dest_lib/" 2>/dev/null || true
+		fi
+		libdir_sdl2="$($pc --variable=libdir sdl2 2>/dev/null || true)"
+		if [[ -n "$libdir_sdl2" && -d "$libdir_sdl2" ]]; then
+			cp -av "${libdir_sdl2}"/libSDL2*.so*   "$dest_lib/" 2>/dev/null || true
+			cp -av "${libdir_sdl2}"/libSDL2*.dylib "$dest_lib/" 2>/dev/null || true
 		fi
 	fi
 }

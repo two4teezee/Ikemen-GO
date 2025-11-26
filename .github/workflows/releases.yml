@@ -120,6 +120,7 @@ jobs:
             mingw-w64-x86_64-bzip2
             mingw-w64-x86_64-nasm
             mingw-w64-x86_64-tools-git
+            mingw-w64-x86_64-SDL2
             mingw-w64-x86_64-yasm
             mingw-w64-x86_64-libxmp
       - name: Prepare Vulkan SDK
@@ -133,7 +134,7 @@ jobs:
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
             sudo apt-get update && sudo apt-get install -y libasound2-dev libgl1-mesa-dev xorg-dev libgtk-3-dev \
-              build-essential pkg-config git yasm nasm curl ca-certificates libxmp-dev
+              build-essential pkg-config git yasm nasm curl ca-certificates libxmp-dev libsdl2-dev
           fi
           if [ "$RUNNER_OS" = "macOS" ]; then
             # Avoid update, disable analytics, prefer taps over API, and retry.
@@ -141,10 +142,10 @@ jobs:
             export HOMEBREW_NO_AUTO_UPDATE=1
             export HOMEBREW_NO_INSTALL_FROM_API=1
             brew update-reset || true
-            ( brew install --quiet pkg-config git nasm libxmp molten-vk ) || (
+            ( brew install --quiet pkg-config git nasm libxmp sdl2 molten-vk ) || (
               echo "First attempt failed; retrying with API mode..." >&2
               unset HOMEBREW_NO_INSTALL_FROM_API
-              brew install --quiet pkg-config git nasm libxmp molten-vk
+              brew install --quiet pkg-config git nasm libxmp sdl2 molten-vk
             )
           fi
 
@@ -287,6 +288,15 @@ jobs:
             echo "-----------------------------------------------------------"
             set -o pipefail
             curl -fsSL https://raw.githubusercontent.com/libxmp/libxmp/master/README | awk '/^LICENSE$/{p=1} p'
+            echo
+            echo "Section 5: SDL2 and Notices"
+            echo "---------------------------"
+            echo "This program uses SDL2 for windowing, input, controller support."
+            echo "Upstream: https://github.com/libsdl-org/SDL"
+            echo
+            echo "SDL2 LICENSE (zlib, fetched from upstream LICENSE.txt):"
+            echo "-------------------------------------------------------"
+            curl -fsSL https://raw.githubusercontent.com/libsdl-org/SDL/main/LICENSE.txt
             echo
           } > deploy/LICENSES.txt
 

@@ -3135,6 +3135,10 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		selectState = 0
 		st.currentIdx = nil
 		st.validPals = nil
+		local cursorData = start.f_getCursorData(player, '_cursor_done' .. '_' .. start.c[player].selX + 1 .. '_' .. start.c[player].selY + 1 .. '_data')
+		if cursorData ~= nil then
+			animReset(cursorData)
+		end
 		sndPlay(motif.files.snd_data, motif.select_info['p' .. side .. '_palmenu_cancel_snd'][1], motif.select_info['p' .. side .. '_palmenu_cancel_snd'][2])
 	end
 	-- random hotkey

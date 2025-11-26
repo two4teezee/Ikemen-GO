@@ -1,6 +1,7 @@
 # Building Ikemen GO
 
-Ikemen GO links against **FFmpeg** (background video: VP9/Opus/Vorbis in WebM/Matroska) and **libxmp** (module music: MOD/XM/S3M/IT, etc.).
+Ikemen GO links against **FFmpeg** (background video: VP9/Opus/Vorbis in WebM/Matroska), **libxmp** (module music: MOD/XM/S3M/IT, etc.), and **SDL2** (windowing, input, and game controller support via go-sdl2).
+All three must be available as development packages via **pkg-config** (`libav*`, `libxmp`, and `sdl2`).
 `build/build.sh` **auto-detects your OS** and, by default, **auto-builds a minimal FFmpeg**
 (same config as CI). You don't need system FFmpeg dev packages unless you prefer them.
 
@@ -16,7 +17,8 @@ pacman -S --noconfirm \
   git make diffutils mingw-w64-x86_64-pkg-config \
   mingw-w64-x86_64-go mingw-w64-x86_64-toolchain \
   mingw-w64-x86_64-nasm mingw-w64-x86_64-yasm \
-  mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp
+  mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp \
+  mingw-w64-x86_64-SDL2
 ```
 > On MSYS2 we auto-fix "trimmed" Go by setting `GOROOT=/mingw64/lib/go` if needed.
 
@@ -32,7 +34,7 @@ make Ikemen_GO.exe
 
 ### Build 32-bit (Ikemen_GO_x86.exe)
 > Requires 32-bit MinGW cross tools in addition to the above:
-> `pacman -S --noconfirm mingw-w64-i686-toolchain mingw-w64-i686-pkg-config mingw-w64-i686-nasm mingw-w64-i686-yasm mingw-w64-i686-libxmp`
+> `pacman -S --noconfirm mingw-w64-i686-toolchain mingw-w64-i686-pkg-config mingw-w64-i686-nasm mingw-w64-i686-yasm mingw-w64-i686-libxmp mingw-w64-i686-SDL2`
 ```bash
 # build.sh
 ./build/build.sh Win32
@@ -59,7 +61,8 @@ BUILD_FFMPEG=no ./build/build.sh Win64   # or Win32
 ### Dependencies (Debian/Ubuntu)
 ```bash
 sudo apt update && sudo apt install -y \
-  golang-go git pkg-config make nasm yasm build-essential libxmp-dev
+  golang-go git pkg-config make nasm yasm build-essential \
+  libxmp-dev libsdl2-dev
 ```
 
 ### Build x86-64 (Ikemen_GO_Linux)
@@ -103,7 +106,7 @@ BUILD_FFMPEG=no ./build/build.sh Linux      # or LinuxARM
 
 ### Dependencies (Homebrew)
 ```bash
-brew update && brew install git go pkg-config nasm libxmp molten-vk
+brew update && brew install git go pkg-config nasm libxmp sdl2 molten-vk
 # Optional: brew install yasm
 ```
 
@@ -162,8 +165,8 @@ The release CI bundles these automatically.
 
 ## Troubleshooting
 - **Missing tools**: re-run the dependency commands for your OS/arch.
-- **FFmpeg link errors**: use the default `build.sh` (auto-builds FFmpeg), or install system FFmpeg
-  dev packages and run with `BUILD_FFMPEG=no`.
+- **FFmpeg link errors**: use the default `build.sh` (auto-builds FFmpeg), or install system FFmpeg dev packages and run with `BUILD_FFMPEG=no`.
 - **libxmp not found**: install libxmp-dev (Linux), libxmp (macOS/Homebrew), or the MSYS2 package mingw-w64-*-libxmp on Windows.
+- **SDL2 not found / pkg-config errors**: if you see an error mentioning that the sdl2 package is missing from the pkg-config search path, install SDL2 development files.
 - **Windows DLLs**: verify `.\lib\*.dll` exists (local build places FFmpeg DLLs there).
 - **Linux GL compatibility**: try `MESA_GL_VERSION_OVERRIDE=2.1` for a fallback.

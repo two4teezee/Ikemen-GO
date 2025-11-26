@@ -490,7 +490,7 @@ function create_delay_import_libs_windows() {
 	mkdir -p "$DELAYLIB_DIR"
 	shopt -s nullglob
 	local d base name libname
-	for d in "$FFMPEG_PREFIX"/bin/*.dll /mingw64/bin/libxmp*.dll /mingw64/bin/libwinpthread-1.dll; do
+	for d in "$FFMPEG_PREFIX"/bin/*.dll /mingw64/bin/libxmp*.dll /mingw64/bin/libwinpthread-1.dll /mingw64/bin/SDL2*.dll; do
 		[[ -f "$d" ]] || continue
 		base="$(basename "$d")"          # e.g. libxmp-4.dll
 		name="${base%.dll}"              # libxmp-4

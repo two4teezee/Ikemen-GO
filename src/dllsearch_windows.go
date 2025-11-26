@@ -47,6 +47,7 @@ func init() {
 		"swresample-*.dll",
 		"swscale-*.dll",
 		"libxmp*.dll",
+		"SDL2*.dll",
 	}
 
 	// Search order: exe dir -> lib dir -> Windows default dirs & PATH.

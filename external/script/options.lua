@@ -2133,6 +2133,28 @@ end
 
 function options.f_keyCfg(cfgType, controller, bgdef, skipClear)
 	local t = t_keyCfg
+	-- Dynamically add/remove the "Rumble" option based on type
+	if cfgType ~= 'Joystick' then
+		for k,v in ipairs(t) do
+			if t[k].itemname == 'Rumble' then
+				table.remove(t, k)
+				break
+			end
+		end
+	else
+		local found = false
+		for k,v in ipairs(t) do
+			if t[k].itemname == 'Rumble' then
+				found = true
+				break
+			end
+		end
+		if not found then
+			table.insert(t, #t, {data = f_keyCfgText(), itemname = 'Rumble', displayname = motif.option_info.keymenu_itemname_rumble, vardata = f_keyCfgText()})
+			options.f_keyCfgReset(cfgType)
+		end
+	end
+	
 	--Config all
 	if configall then
 		--esc (reset mapping)

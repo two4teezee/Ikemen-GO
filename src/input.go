@@ -3281,9 +3281,13 @@ func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32,
 		axes = NormalizeAxes(&rawAxes)
 	} else {
 		// If not AI, replay, or network, then it's a local human player
-		if controller < len(sys.inputRemap) {
-			buttons = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
-			axes = input.GetJoystickAxes(sys.joystickConfig[controller].Joy)
+		if controller >= 0 {
+			if controller < len(sys.inputRemap) {
+				buttons = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
+			}
+			if controller < len(sys.joystickConfig) {
+				axes = input.GetJoystickAxes(sys.joystickConfig[controller].Joy)
+			}
 		}
 	}
 

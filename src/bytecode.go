@@ -10826,13 +10826,16 @@ func (sc forceFeedback) Run(c *Char, _ []int32) bool {
 				}
 				joy = crun.controller
 			}
-			sys.ffbparams[sys.inputRemap[sys.joystickConfig[joy].Joy]] = ForceFeedbackParams{
-				timer:    time,
-				start:    ampl[0],
-				d1:       ampl[1],
-				d2:       ampl[2],
-				d3:       ampl[3],
-				waveform: waveform,
+			// Don't rumble helpers.
+			if joy >= 0 && joy < len(sys.joystickConfig) && crun.helperIndex == 0 {
+				sys.ffbparams[sys.inputRemap[sys.joystickConfig[joy].Joy]] = ForceFeedbackParams{
+					timer:    time,
+					start:    ampl[0],
+					d1:       ampl[1],
+					d2:       ampl[2],
+					d3:       ampl[3],
+					waveform: waveform,
+				}
 			}
 		}
 	}

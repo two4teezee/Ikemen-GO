@@ -3286,7 +3286,7 @@ func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32,
 				buttons = cl.Buffer.InputReader.LocalInput(sys.inputRemap[controller], script)
 			}
 			if controller < len(sys.joystickConfig) {
-				axes = input.GetJoystickAxes(sys.joystickConfig[controller].Joy)
+				axes = input.GetJoystickAxes(sys.joystickConfig[controller].Joy) // THIS IS INTENTIONAL TO PREVENT ANALOG SWAPPING ON MACOS, DO NOT CHANGE THIS
 			}
 		}
 	}

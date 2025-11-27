@@ -5258,7 +5258,7 @@ func (sc velMul) Run(c *Char, _ []int32) bool {
 }
 
 func isPalFXParam(paramID byte) bool {
-	return paramID >= palFX_time && paramID < palFX_last
+	return paramID >= palFX_time && paramID <= palFX_last
 }
 
 type palFX StateControllerBase
@@ -6474,7 +6474,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 }
 
 func isAfterImageParam(paramID byte) bool {
-	return paramID >= afterImage_time && paramID < afterImage_last
+	return paramID >= afterImage_time && paramID <= afterImage_last
 }
 
 type afterImage palFX
@@ -6648,7 +6648,7 @@ func (sc afterImageTime) Run(c *Char, _ []int32) bool {
 }
 
 func isHitDefParam(paramID byte) bool {
-	return paramID >= hitDef_attr && paramID < hitDef_last
+	return paramID >= hitDef_attr && paramID <= hitDef_last
 }
 
 type hitDef afterImage
@@ -7149,10 +7149,6 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 		if isPalFXParam(paramID) {
 			palFX(sc).runSub(c, &hd.palfx, paramID, exp)
 		}
-		// TODO: Why did this one specifically return false?
-		//if !palFX(sc).runSub(c, &hd.palfx, paramID, exp) {
-		//	return false
-		//}
 	}
 	return true
 }

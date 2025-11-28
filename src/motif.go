@@ -185,7 +185,7 @@ type MenuProperties struct {
 			Active TextProperties `ini:"active"`
 		} `ini:"info"`
 	} `ini:"item"`
-	Window struct { // not used by [Option Info].keymenu
+	Window struct {
 		Margins struct {
 			Y [2]float32 `ini:"y"`
 		} `ini:"margins"`
@@ -193,7 +193,7 @@ type MenuProperties struct {
 	} `ini:"window"`
 	BoxCursor BoxCursorProperties `ini:"boxcursor"`
 	BoxBg     BoxBgProperties     `ini:"boxbg"`
-	Arrow     struct {            // not used by [Option Info].keymenu
+	Arrow     struct {
 		Up   AnimationProperties `ini:"up"`
 		Down AnimationProperties `ini:"down"`
 	} `ini:"arrow"`

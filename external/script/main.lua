@@ -1507,19 +1507,20 @@ function main.f_itemnameUpper(title, uppercase)
 end
 
 --returns table storing menu window coordinates
-function main.f_menuWindow(t)
+function main.f_menuWindow(t, offset)
+	local offset = offset or {0, 0}
 	-- If margins are set, keep legacy vertical-only clamp.
 	if t.window.margins.y[1] ~= 0 or t.window.margins.y[2] ~= 0 then
 		return {
 			0,
-			math.max(0, t.pos[2] - t.window.margins.y[1]),
+			math.max(0, t.pos[2] + offset[2] - t.window.margins.y[1]),
 			motif.info.localcoord[1],
-			t.pos[2] + (t.window.visibleitems - 1) * t.item.spacing[2] + t.window.margins.y[2]
+			t.pos[2] + offset[2] + (t.window.visibleitems - 1) * t.item.spacing[2] + t.window.margins.y[2]
 		}
 	end
 	-- Margins 0,0 => clamp tightly to the menu box (both axes).
-	local x1 = t.pos[1] + t.boxcursor.coords[1]
-	local y1 = t.pos[2] + t.boxcursor.coords[2]
+	local x1 = t.pos[1] + offset[1] + t.boxcursor.coords[1]
+	local y1 = t.pos[2] + offset[2] + t.boxcursor.coords[2]
 	local w  = t.boxcursor.coords[3] - t.boxcursor.coords[1] + 1
 	local h  = t.boxcursor.coords[4] - t.boxcursor.coords[2] + 1
 	-- Height grows with visible rows; using visibleitems is enough for clipping.
@@ -2382,7 +2383,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					main.f_demo()
 				end
 				local item_sav = item
-				cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif[main.group])
+				cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif[main.group], motif[main.group].cursor)
 				textImgSetText(motif[main.group].title.TextSpriteData, tbl.title)
 				if item_sav ~= item then
 					demoFrameCounter = 0
@@ -2611,7 +2612,7 @@ function main.f_replay()
 	main.close = false
 	while true do
 		main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif.replay_info, motif.replaybgdef, false)
-		cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.replay_info)
+		cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.replay_info, motif.replay_info.cursor)
 		if main.close and not fadeInActive() and not fadeOutActive() then
 			bgReset(motif[main.background].BGDef)
 			fadeInInit(motif[main.group].fadein.FadeData)
@@ -3007,7 +3008,7 @@ local function f_tweenStep(val, target, factor)
 end
 
 --common menu calculations
-function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec)
+function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, forcedDir)
 	-- persistent scroll tween per section
 	if not sec.menuTweenData then
 		sec.menuTweenData = {
@@ -3023,19 +3024,35 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec)
 		end
 		startItem = startItem + 1
 	end
-	if main.f_input(main.t_players, sec.menu.next.key) then
-		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
+	-- effective visible-items: treat 0 / nil as "all items"
+	local visible = #t
+	if sec.menu and sec.menu.window and sec.menu.window.visibleitems ~= nil then
+		if sec.menu.window.visibleitems > 0 then
+			visible = sec.menu.window.visibleitems
+		end
+	end
+	-- movement: forcedDir: 1 = next (down), -1 = previous (up), 0/nil = no forced move
+	local moveDir = 0
+	if forcedDir ~= nil then
+		moveDir = forcedDir
+	elseif main.f_input(main.t_players, sec.menu.next.key) then
+		moveDir = 1
+	elseif main.f_input(main.t_players, sec.menu.previous.key) then
+		moveDir = -1
+	end
+	if moveDir == 1 then
+		sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
 		while true do
 			item = item + 1
-			if cursorPosY < sec.menu.window.visibleitems then
+			if cursorPosY < visible then
 				cursorPosY = cursorPosY + 1
 			end
 			if t[item] == nil or not t[item].itemname:match("^spacer%d*$") then
 				break
 			end
 		end
-	elseif main.f_input(main.t_players, sec.menu.previous.key) then
-		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
+	elseif moveDir == -1 then
+		sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
 		while true do
 			item = item - 1
 			if cursorPosY > startItem then
@@ -3064,8 +3081,8 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec)
 			if not t[item].itemname:match("^spacer%d*$") or item <= 1 then break end
 			item = item - 1
 		end
-		if item > sec.menu.window.visibleitems then
-			cursorPosY = sec.menu.window.visibleitems
+		if item > visible then
+			cursorPosY = visible
 		else
 			cursorPosY = item
 		end
@@ -3075,22 +3092,21 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec)
 		main.menuWrapped = true
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
-	local visible = sec.menu.window.visibleitems
 	local spacing = sec.menu.item.spacing[2]
-	local maxFirst = math.max(startItem, #t - visible + 1)
+	-- max index that can appear at the top of the window
+	local maxFirst = math.max(1, #t - visible + 1)
 	local t_factor = sec.menu.tween.factor
-	if maxFirst < startItem then 
-		maxFirst = startItem 
-	end
 
+	-- which list index should be drawn on the very first row
 	local desiredFirst = item - cursorPosY + 1
-	if desiredFirst < startItem then 
-		desiredFirst = startItem 
-	end
-	if desiredFirst > maxFirst then 
-		desiredFirst = maxFirst 
+	-- clamp so we never scroll before the first row or past the end
+	if desiredFirst < 1 then
+		desiredFirst = 1
+	elseif desiredFirst > maxFirst then
+		desiredFirst = maxFirst
 	end
 
+	-- Measure scroll offset from the first drawn row.
 	local targetMove = (desiredFirst - 1) * spacing
 	-- update target and offset if changed, snap immediately if requested, otherwise apply tween or direct move
 	if sec.menuTweenData.targetPos ~= targetMove then
@@ -3125,7 +3141,6 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	--   skipTitle                : skip drawing the title
 	--   forceInactive            : treat "selected" row as inactive (no highlight, no cursor)
 	--   skipInput                : do not call main.f_cmdInput() inside this function
-	--   unlimitedItems           : ignore window.visibleitems (draw all items)
 	opts = opts or {}
 	local offx = opts.offx or 0
 	local offy = opts.offy or 0
@@ -3134,7 +3149,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 
 	-- effective visible-items: treat 0 or 'unlimitedItems' as "all"
 	local visible = (sec.menu and sec.menu.window and sec.menu.window.visibleitems) or #t
-	if opts.unlimitedItems or not visible or visible <= 0 then
+	if not visible or visible <= 0 then
 		visible = #t
 	end
 
@@ -3346,10 +3361,14 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	--draw scroll arrows
 	if #t > visible then
 		if item > cursorPosY then
+			animReset(sec.menu.arrow.up.AnimData, {'pos'})
+			animAddPos(sec.menu.arrow.up.AnimData, offx, offy)
 			animUpdate(sec.menu.arrow.up.AnimData)
 			animDraw(sec.menu.arrow.up.AnimData)
 		end
 		if item >= cursorPosY and item + visible - cursorPosY < #t then
+			animReset(sec.menu.arrow.down.AnimData, {'pos'})
+			animAddPos(sec.menu.arrow.down.AnimData, offx, offy)
 			animUpdate(sec.menu.arrow.down.AnimData)
 			animDraw(sec.menu.arrow.down.AnimData)
 		end

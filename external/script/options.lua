@@ -1443,7 +1443,7 @@ function options.f_createMenu(tbl, bool_main)
 			else
 				main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif.option_info, motif.optionbgdef, false)
 			end
-			cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info)
+			cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info, motif.option_info.cursor)
 			textImgReset(motif.option_info.title.TextSpriteData)
 			textImgSetText(motif.option_info.title.TextSpriteData, tbl.title)
 			if main.close and not fadeInActive() and not fadeOutActive() then
@@ -1935,6 +1935,33 @@ function options.f_start()
 	for _, v in pairs(motif.option_info.menu.item.active.bg) do
 		animSetWindow(v.AnimData, w[1], w[2], w[3], w[4])
 	end
+	-- Keymenu windows
+	-- The first entry in t_keyCfg is a "spacer" row. We want that row to sit *above* the visible clipping area.
+	-- To do that we keep the same window height, but slide the window down by one row of keymenu item spacing.
+	-- Only the Y offset matters here (X uses full screen width).
+	local keyWinOffsetY = motif.option_info.keymenu.p1.menuoffset[2] + motif.option_info.keymenu.menu.item.spacing[2]
+	local kw = main.f_menuWindow(motif.option_info.keymenu.menu, {0, keyWinOffsetY})
+	-- keep the window shifted down, but crop one row at the bottom
+	kw[4] = kw[4] - motif.option_info.keymenu.menu.item.spacing[2]
+	-- base / selected label text
+	textImgSetWindow(motif.option_info.keymenu.menu.item.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.selected.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	-- value text (normal / active / conflict)
+	textImgSetWindow(motif.option_info.keymenu.menu.item.value.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.value.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.value.conflict.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.info.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.info.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	-- selected / active label variants
+	textImgSetWindow(motif.option_info.keymenu.menu.item.selected.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.menu.item.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+		-- item backgrounds share the same clipping window
+	for _, v in pairs(motif.option_info.keymenu.menu.item.bg) do
+		animSetWindow(v.AnimData, kw[1], kw[2], kw[3], kw[4])
+	end
+	for _, v in pairs(motif.option_info.keymenu.menu.item.active.bg) do
+		animSetWindow(v.AnimData, kw[1], kw[2], kw[3], kw[4])
+	end
 	-- log
 	if main.debugLog then main.f_printTable(options.menu, 'debug/t_optionsMenu.txt') end
 end
@@ -1943,7 +1970,7 @@ end
 --; KEY SETTINGS
 --;===========================================================
 local t_keyCfg = {}
-table.insert(t_keyCfg, { itemname = 'spacer', displayname = '' })
+table.insert(t_keyCfg, {itemname = 'spacer', displayname = '-'})
 for _, v in ipairs(motif.option_info.keymenu.itemname_order or {}) do
 	if main.t_defaultKeysMapping[v] ~= nil or v == "configall" then
 		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.itemname[v] or '', infodisplay = ''})
@@ -1951,10 +1978,20 @@ for _, v in ipairs(motif.option_info.keymenu.itemname_order or {}) do
 end
 table.insert(t_keyCfg, {itemname = 'page', displayname = '', infodisplay = ''})
 
-local cursorPosY = 2
-local item = 2
-local item_start = 2
-local configall = false
+-- find the index of the "Config all" row
+local configall_start = 2
+for i, row in ipairs(t_keyCfg) do
+	if row.itemname == 'configall' then
+		configall_start = i
+		break
+	end
+end
+-- initial selection: keep it on the Config all row
+local cursorPosY = configall_start
+local item = configall_start
+local item_start = configall_start
+local captureActive = false
+local captureMode = nil
 local key = ''
 local t_keyList = {}
 local t_conflict = {}
@@ -1965,10 +2002,31 @@ local side = 1
 local btn = ''
 local joyNum = 0
 
+-- which actions we save / restore per player
+local t_keyCfgFields = {
+	'Joystick', 'up', 'down', 'left', 'right',
+	'a', 'b', 'c', 'x', 'y', 'z',
+	'start', 'd', 'w', 'menu', 'GUID',
+}
+
 local t_btnEnabled = {}
 for _, row in ipairs(t_keyCfg) do
 	if main.t_defaultKeysMapping[row.itemname] then
 		t_btnEnabled[row.itemname] = true
+	end
+end
+
+-- Restore saved key config for a single player from t_savedConfig
+local function f_restoreKeyConfigPlayer(cfgType, pn)
+	local saved = t_savedConfig[pn]
+	if not saved then
+		return
+	end
+	for _, field in ipairs(t_keyCfgFields) do
+		local oldVal = saved[field]
+		if oldVal ~= nil then
+			modifyGameOption(string.format('%s_P%d.%s', cfgType, pn, field), oldVal)
+		end
 	end
 end
 
@@ -2064,10 +2122,11 @@ end
 function options.f_keyCfgInit(cfgType, title)
 	resetKey()
 	main.f_cmdInput()
-	cursorPosY = 2
-	item = 2
-	item_start = 2
-	configall = false
+	cursorPosY = configall_start
+	item = configall_start
+	item_start = configall_start
+	captureMode = nil
+	captureActive = false
 	key = ''
 	t_conflict = {}
 	t_savedConfig = {}
@@ -2090,7 +2149,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	if motif.option_info.keymenu.itemname.rumble ~= '' then
 		if cfgType ~= 'Joystick' then
 			for k,v in ipairs(t) do
-				if t[k].itemname == 'Rumble' then
+				if t[k].itemname == 'rumble' then
 					table.remove(t, k)
 					break
 				end
@@ -2098,49 +2157,43 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		else
 			local found = false
 			for k,v in ipairs(t) do
-				if t[k].itemname == 'Rumble' then
+				if t[k].itemname == 'rumble' then
 					found = true
 					break
 				end
 			end
 			if not found then
-				table.insert(t, #t, {itemname = 'Rumble', displayname = motif.option_info.keymenu.itemname.rumble, paramname = 'Rumble', infodisplay = ''})
+				table.insert(t, #t, {itemname = 'rumble', displayname = motif.option_info.keymenu.itemname.rumble, paramname = 'rumble', infodisplay = ''})
 				options.f_keyCfgReset(cfgType)
 			end
 		end
 	end
-	local moveTxt = 0 --dummy
-	--Config all
-	if configall then
-		--esc (reset mapping)
+	local moveTxt = 0
+	local forcedDir = nil
+	-- Config all / single-button capture
+	if captureActive then
+		-- esc while capturing (cancel)
 		if esc() --[[or main.f_input(main.t_players, motif.option_info.menu.cancel.key)]] then
 			sndPlay(motif.Snd, motif.option_info.cancel.snd[1], motif.option_info.cancel.snd[2])
 			esc(false)
 			for i = 1, gameOption('Config.Players') do
 				if i == player then
-					modifyGameOption(cfgType .. '_P' .. i .. '.Joystick', t_savedConfig[i].Joystick)
-					modifyGameOption(cfgType .. '_P' .. i .. '.up', t_savedConfig[i].up)
-					modifyGameOption(cfgType .. '_P' .. i .. '.down', t_savedConfig[i].down)
-					modifyGameOption(cfgType .. '_P' .. i .. '.left', t_savedConfig[i].left)
-					modifyGameOption(cfgType .. '_P' .. i .. '.right', t_savedConfig[i].right)
-					modifyGameOption(cfgType .. '_P' .. i .. '.a', t_savedConfig[i].a)
-					modifyGameOption(cfgType .. '_P' .. i .. '.b', t_savedConfig[i].b)
-					modifyGameOption(cfgType .. '_P' .. i .. '.c', t_savedConfig[i].c)
-					modifyGameOption(cfgType .. '_P' .. i .. '.x', t_savedConfig[i].x)
-					modifyGameOption(cfgType .. '_P' .. i .. '.y', t_savedConfig[i].y)
-					modifyGameOption(cfgType .. '_P' .. i .. '.z', t_savedConfig[i].z)
-					modifyGameOption(cfgType .. '_P' .. i .. '.start', t_savedConfig[i].start)
-					modifyGameOption(cfgType .. '_P' .. i .. '.d', t_savedConfig[i].d)
-					modifyGameOption(cfgType .. '_P' .. i .. '.w', t_savedConfig[i].w)
-					modifyGameOption(cfgType .. '_P' .. i .. '.menu', t_savedConfig[i].menu)
-					modifyGameOption(cfgType .. '_P' .. i .. '.GUID', t_savedConfig[i].GUID)
+					f_restoreKeyConfigPlayer(cfgType, i)
 				end
-				options.f_setKeyConfig(cfgType)
 			end
+			options.f_setKeyConfig(cfgType)
 			options.f_keyCfgReset(cfgType)
-			item = item_start
-			cursorPosY = item_start
-			configall = false
+			-- on cancel, Config all should always return to the Config all row, while single-button capture should keep the row it started from
+			local resetIndex
+			if captureMode == 'all' then
+				resetIndex = configall_start
+			else
+				resetIndex = item_start
+			end
+			captureMode = nil
+			captureActive = false
+			item = resetIndex
+			cursorPosY = resetIndex
 			main.f_cmdBufReset()
 		--spacebar (disable key)
 		elseif getKey('SPACE') then
@@ -2166,6 +2219,8 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				btnReleased = false
 			end
 		end
+		-- while Config all is active we lock menu movement by default
+		forcedDir = 0
 		--other keyboard or gamepad key
 		if key ~= '' and key ~= 'nil' then
 			if key == 'SPACE' then
@@ -2211,15 +2266,30 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				modifyGameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname, key)
 				options.modified = true
 			end
-			--move to the next position
-			item = item + 1
-			cursorPosY = cursorPosY + 1
-			if item > #t or t[item].itemname == 'page' or t[item].itemname == 'rumble' then
-				item = item_start
-				cursorPosY = item_start
-				configall = false
+			if captureMode == 'all' then
+				-- decide what to do next: move down or finish Config all
+				local nextIndex = item + 1
+				local nextRow = t[nextIndex]
+				if nextRow == nil or nextRow.itemname == 'page' or nextRow.itemname == 'rumble' then
+					-- reached end sentinel, stop Config all and reset selection
+					item = configall_start
+					cursorPosY = configall_start
+					captureActive = false
+					captureMode = nil
+					options.f_setKeyConfig(cfgType)
+					main.f_cmdBufReset()
+					forcedDir = 0 -- keep cursor where we reset it
+				else
+					-- continue Config all: simulate one "down" press so scrolling / wrapping is handled by common menu code
+					forcedDir = 1
+				end
+			else
+				-- single-button capture: finish after one assignment, keep current scroll / cursor
+				captureActive = false
+				captureMode = nil
 				options.f_setKeyConfig(cfgType)
 				main.f_cmdBufReset()
+				forcedDir = 0
 			end
 			key = ''
 		end
@@ -2234,22 +2304,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			if t_conflict[joyNum] then
 				if not main.f_warning(motif.warning_info.text.text.keys, motif.option_info, motif.optionbgdef) then
 					for i = 1, gameOption('Config.Players') do
-						modifyGameOption(cfgType .. '_P' .. i .. '.Joystick', t_savedConfig[i].Joystick)
-						modifyGameOption(cfgType .. '_P' .. i .. '.up', t_savedConfig[i].up)
-						modifyGameOption(cfgType .. '_P' .. i .. '.down', t_savedConfig[i].down)
-						modifyGameOption(cfgType .. '_P' .. i .. '.left', t_savedConfig[i].left)
-						modifyGameOption(cfgType .. '_P' .. i .. '.right', t_savedConfig[i].right)
-						modifyGameOption(cfgType .. '_P' .. i .. '.a', t_savedConfig[i].a)
-						modifyGameOption(cfgType .. '_P' .. i .. '.b', t_savedConfig[i].b)
-						modifyGameOption(cfgType .. '_P' .. i .. '.c', t_savedConfig[i].c)
-						modifyGameOption(cfgType .. '_P' .. i .. '.x', t_savedConfig[i].x)
-						modifyGameOption(cfgType .. '_P' .. i .. '.y', t_savedConfig[i].y)
-						modifyGameOption(cfgType .. '_P' .. i .. '.z', t_savedConfig[i].z)
-						modifyGameOption(cfgType .. '_P' .. i .. '.start', t_savedConfig[i].start)
-						modifyGameOption(cfgType .. '_P' .. i .. '.d', t_savedConfig[i].d)
-						modifyGameOption(cfgType .. '_P' .. i .. '.w', t_savedConfig[i].w)
-						modifyGameOption(cfgType .. '_P' .. i .. '.menu', t_savedConfig[i].menu)
-						modifyGameOption(cfgType .. '_P' .. i .. '.GUID', t_savedConfig[i].GUID)
+						f_restoreKeyConfigPlayer(cfgType, i)
 					end
 					options.f_setKeyConfig(cfgType)
 					menu.itemname = ''
@@ -2283,16 +2338,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			player = player - 1
 			side = main.f_playerSide(player)
 			joyNum = gameOption(cfgType .. '_P' .. player .. '.Joystick')
-		--move up / down
-		elseif main.f_input(main.t_players, motif.option_info.keymenu.menu.next.key, motif.option_info.keymenu.menu.previous.key) then
-			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			if cursorPosY == item_start then
-				cursorPosY = #t
-				item = #t
-			else
-				cursorPosY = item_start
-				item = item_start
-			end
 		--Config all
 		elseif t[item].itemname == 'configall' or key:match('^F[0-9]+$') then
 			local pn = key:match('^F([0-9]+)$')
@@ -2309,13 +2354,37 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				end
 				if cfgType == 'Joystick' and getJoystickPresent(joyNum) == false then
 					main.f_warning(motif.warning_info.text.text.pad, motif.option_info, motif.optionbgdef)
-					item = item_start
-					cursorPosY = item_start
+					item = configall_start
+					cursorPosY = configall_start
 				else
-					item = item_start + 1
-					cursorPosY = item_start + 1
+					-- start "Config all" capture
+					captureMode = 'all'
+					item = configall_start + 1
+					cursorPosY = configall_start + 1
 					btnReleased = false
-					configall = true
+					captureActive = true
+				end
+			end
+		-- Single-button assignment
+		elseif t_btnEnabled[t[item].itemname] and main.f_input(main.t_players, motif.option_info.keymenu.menu.done.key) then
+			if cfgType == 'Joystick' and getJoystickPresent(joyNum) == false then
+				-- same behaviour as Config all when no gamepad is connected
+				main.f_warning(motif.warning_info.text.text.pad, motif.option_info, motif.optionbgdef)
+				item = configall_start
+				cursorPosY = configall_start
+			else
+				-- enter capture mode but only for this single row
+				sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
+				-- item_start remembers which row started this single-button capture;
+				item_start = item
+				btnReleased = false
+				captureMode = 'single'
+				captureActive = true
+				-- preload current button for this action (used by configall logic)
+				if t_btnEnabled[t[item].itemname] then
+					btn = gameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname)
+				else
+					btn = ''
 				end
 			end
 		-- Rumble toggle
@@ -2331,31 +2400,29 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		end
 		resetKey()
 	end
+	-- standard / forced menu movement (up/down)
+	-- When Config all is active, movement is driven by forcedDir (0 = locked, 1 = down).
+	cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info.keymenu, motif.option_info.cursor, forcedDir)
 	-- recompute current-player conflict flag (used on exit)
 	t_conflict[joyNum] = false
-	do
-		local curVal = nil
-		for i = 1, #t do
-			curVal = t[i]['vardisplay' .. player]
-			if curVal ~= nil then
-				local cnt = t_keyList[joyNum][tostring(curVal)]
-				if cnt ~= nil and cnt > 1 then
-					t_conflict[joyNum] = true
-					break
-				end
+	local curVal = nil
+	for i = 1, #t do
+		curVal = t[i]['vardisplay' .. player]
+		if curVal ~= nil then
+			local cnt = t_keyList[joyNum][tostring(curVal)]
+			if cnt ~= nil and cnt > 1 then
+				t_conflict[joyNum] = true
+				break
 			end
 		end
 	end
-
 	if not skipClear then
 		clearColor(bg.bgclearcolor[1], bg.bgclearcolor[2], bg.bgclearcolor[3])
 	end
 	--draw layerno = 0 backgrounds
 	bgDraw(bg.BGDef, 0)
-
 	--draw title
 	textImgDraw(motif.option_info.title.TextSpriteData)
-
 	-- Build per-pane item arrays with correct vardisplay/infodisplay and conflict flags
 	local function buildPaneItems(pane)
 		local pn = pane + player - side
@@ -2387,6 +2454,10 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 					end
 				end
 			end
+			-- custom vardisplay when single-button capture is waiting for input on this row
+			if captureMode == 'single' and captureActive and pn == player and i == item and t_btnEnabled[base.itemname] then
+				row.vardisplay = tostring(motif.option_info.menu.valuename.presskey)
+			end
 			-- conflict marker per pane
 			if row.vardisplay ~= nil then
 				local cnt = t_keyList[joy][tostring(row.vardisplay)]
@@ -2396,10 +2467,8 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		end
 		return list
 	end
-
 	local leftItems  = buildPaneItems(1)
 	local rightItems = buildPaneItems(2)
-
 	-- left pane (active highlight only if side == 1)
 	main.f_menuCommonDraw(
 		leftItems, item, cursorPosY, moveTxt, motif.option_info.keymenu, bg, true,
@@ -2407,7 +2476,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			offx = motif.option_info.keymenu.p1.menuoffset[1],
 			offy = motif.option_info.keymenu.p1.menuoffset[2],
 			forceInactive = (side ~= 1),
-			skipBG0 = true, skipBG1 = true, skipTitle = true, skipInput = true, unlimitedItems = true,
+			skipBG0 = true, skipBG1 = true, skipTitle = true, skipInput = true,
 		}
 	)
 	-- right pane (active highlight only if side == 2)
@@ -2417,10 +2486,9 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			offx = motif.option_info.keymenu.p2.menuoffset[1],
 			offy = motif.option_info.keymenu.p2.menuoffset[2],
 			forceInactive = (side ~= 2),
-			skipBG0 = true, skipBG1 = true, skipTitle = true, skipInput = true, unlimitedItems = true,
+			skipBG0 = true, skipBG1 = true, skipTitle = true, skipInput = true,
 		}
 	)
-
 	-- draw player labels on top of panels (above boxbg)
 	for i = 1, 2 do
 		textImgReset(motif.option_info.keymenu['p' .. i].playerno.TextSpriteData)
@@ -2430,7 +2498,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		)
 		textImgDraw(motif.option_info.keymenu['p' .. i].playerno.TextSpriteData)
 	end
-
 	--draw layerno = 1 backgrounds
 	bgDraw(bg.BGDef, 1)
 	main.f_cmdInput()

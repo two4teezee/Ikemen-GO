@@ -601,6 +601,26 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// TextSprite
+	if l.textsprite != nil {
+		result.textsprite = make([]*TextSprite, len(l.textsprite))
+		for i, ts := range l.textsprite {
+			if ts != nil {
+				result.textsprite[i] = &TextSprite{}
+				*result.textsprite[i] = *ts
+
+				if ts.params != nil {
+					result.textsprite[i].params = make([]interface{}, len(ts.params))
+					copy(result.textsprite[i].params, ts.params)
+				}
+
+				if ts.palfx != nil {
+					result.textsprite[i].palfx = ts.palfx.Clone(a)
+				}
+			}
+		}
+	}
+
 	return
 }
 

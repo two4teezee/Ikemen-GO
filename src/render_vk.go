@@ -1710,7 +1710,6 @@ func (r *Renderer_VK) RecreateSwapchain() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 func (r *Renderer_VK) CreateMainRenderPass(sweapchain *VulkanSwapchainInfo, numSamples int32, containsDepthTexture bool) (*VulkanRenderInfo, error) {
 	attachmentDescriptions := []vk.AttachmentDescription{
@@ -4905,11 +4904,16 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 		if res == vk.ErrorOutOfDate || res == vk.Suboptimal {
 			log.Println("[INFO] recreate swapchain")
 			r.RecreateSwapchain()
-			err := vk.Error(vk.AcquireNextImage(r.device, r.swapchains[0].swapchain,
-				vk.MaxUint64, r.semaphores[0], vk.NullFence, &r.swapchains[0].currentImageIndex))
-			if err != nil {
-				err = fmt.Errorf("vk.AcquireNextImage failed with %s", err)
-				panic(err)
+			res = vk.AcquireNextImage(r.device, r.swapchains[0].swapchain,
+				vk.MaxUint64, r.semaphores[0], vk.NullFence, &r.swapchains[0].currentImageIndex)
+			if res != vk.Success {
+				// Try continue execution if error is suboptimal
+				if res == vk.Suboptimal {
+					log.Println("[WARNING] vk.AcquireNextImage returned suboptimal after swapchain recreation")
+				} else {
+					err := fmt.Errorf("vk.AcquireNextImage failed with %s", vk.Error(res))
+					panic(err)
+				}
 			}
 		} else {
 			err := fmt.Errorf("vk.AcquireNextImage failed with %s", vk.Error(res))
@@ -5519,7 +5523,7 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 			},
 		},
 	}
-	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageBottomOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageTopOfPipeBit), 0, 0, nil, 0, nil, 2, imgBarriers)
+	vk.CmdPipelineBarrier(cmd, vk.PipelineStageFlags(vk.PipelineStageBottomOfPipeBit), vk.PipelineStageFlags(vk.PipelineStageTransferBit), 0, 0, nil, 0, nil, 2, imgBarriers)
 
 	imageBlits := []vk.ImageBlit{{
 		SrcSubresource: vk.ImageSubresourceLayers{

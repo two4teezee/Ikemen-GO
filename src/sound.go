@@ -349,9 +349,9 @@ func (b *BufferSeeker) Seek(p int) error {
 
 func (b *BufferSeeker) Position() int { return b.pos }
 
-func (b *BufferSeeker) Len() int      { return b.buf.Len() }
+func (b *BufferSeeker) Len() int { return b.buf.Len() }
 
-func (b *BufferSeeker) Err() error    { return nil }
+func (b *BufferSeeker) Err() error { return nil }
 
 // ------------------------------------------------------------------
 // Loop Streamer

@@ -2415,9 +2415,9 @@ func (nc *NetConnection) Update() bool {
 }
 
 type ReplayFile struct {
-	file   *os.File
-	ibit   [MaxPlayerNo]InputBits
-	iaxes  [MaxPlayerNo][6]int8
+	file         *os.File
+	ibit         [MaxPlayerNo]InputBits
+	iaxes        [MaxPlayerNo][6]int8
 	preMatchTime int32
 }
 

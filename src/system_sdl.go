@@ -257,6 +257,7 @@ func (w *Window) toggleFullscreen() {
 			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
 		} else {
 			w.Window.SetBordered(true)
+			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
 			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN))
 		}
 		sdl.ShowCursor(sdl.DISABLE)

@@ -71,11 +71,6 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 			// This is necessary for proper video mode changes.
 			windowFlags |= sdl.WINDOW_FULLSCREEN
 			windowFlags |= sdl.WINDOW_RESIZABLE
-
-			// Clear borderless flag if it's there
-			if (windowFlags & sdl.WINDOW_BORDERLESS) != 0 {
-				windowFlags ^= sdl.WINDOW_BORDERLESS
-			}
 		} else {
 			windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 			windowFlags |= sdl.WINDOW_BORDERLESS
@@ -83,10 +78,8 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	} else {
 		windowFlags |= sdl.WINDOW_RESIZABLE
 		windowFlags |= sdl.WINDOW_SHOWN
-
-		// Clear borderless flag if it's there
-		if (windowFlags & sdl.WINDOW_BORDERLESS) != 0 {
-			windowFlags ^= sdl.WINDOW_BORDERLESS
+		if s.cfg.Video.Borderless {
+			windowFlags |= sdl.WINDOW_BORDERLESS
 		}
 	}
 	window, err = sdl.CreateWindow(s.cfg.Config.WindowTitle, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED, w2, h2, windowFlags)
@@ -236,10 +229,10 @@ func (w *Window) GetClipboardString() string {
 }
 
 func (w *Window) toggleFullscreen() {
-	var mode, _ = sdl.GetDisplayMode(0, 0)
+	// var mode, _ = sdl.GetDisplayMode(0, 0)
 
 	if w.fullscreen {
-		w.Window.SetBordered(true)
+		w.Window.SetBordered(false)
 		w.Window.SetFullscreen(0)
 		sdl.ShowCursor(sdl.ENABLE)
 		w.Window.SetSize(int32(w.w), int32(w.h))
@@ -253,7 +246,7 @@ func (w *Window) toggleFullscreen() {
 
 		if sys.cfg.Video.Borderless {
 			w.Window.SetBordered(false)
-			w.Window.SetSize(mode.W, mode.H)
+			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
 			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
 		} else {
 			w.Window.SetBordered(true)

@@ -78,6 +78,9 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	} else {
 		windowFlags |= sdl.WINDOW_RESIZABLE
 		windowFlags |= sdl.WINDOW_SHOWN
+		if s.cfg.Video.Borderless {
+			windowFlags |= sdl.WINDOW_BORDERLESS
+		}
 	}
 	window, err = sdl.CreateWindow(s.cfg.Config.WindowTitle, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED, w2, h2, windowFlags)
 	if err != nil {
@@ -93,6 +96,11 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		}
 		sdl.ShowCursor(sdl.DISABLE)
 	} else {
+		if !s.cfg.Video.Borderless {
+			window.SetBordered(true)
+		} else {
+			window.SetBordered(false)
+		}
 		window.SetSize(w2, h2)
 		sdl.ShowCursor(sdl.ENABLE)
 		if s.cfg.Video.WindowCentered {
@@ -221,10 +229,10 @@ func (w *Window) GetClipboardString() string {
 }
 
 func (w *Window) toggleFullscreen() {
-	var mode, _ = sdl.GetDisplayMode(0, 0)
+	// var mode, _ = sdl.GetDisplayMode(0, 0)
 
 	if w.fullscreen {
-		w.Window.SetBordered(true)
+		w.Window.SetBordered(false)
 		w.Window.SetFullscreen(0)
 		sdl.ShowCursor(sdl.ENABLE)
 		w.Window.SetSize(int32(w.w), int32(w.h))
@@ -236,12 +244,13 @@ func (w *Window) toggleFullscreen() {
 		w.x, w.y = int(x2), int(y2)
 		w.w, w.h = int(w2), int(h2)
 
-		w.Window.SetBordered(false)
-
 		if sys.cfg.Video.Borderless {
-			w.Window.SetSize(mode.W, mode.H)
+			w.Window.SetBordered(false)
+			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
 			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
 		} else {
+			w.Window.SetBordered(true)
+			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
 			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN))
 		}
 		sdl.ShowCursor(sdl.DISABLE)

@@ -81,8 +81,6 @@ var sys = System{
 	arenaSaveMap:         make(map[int]*arena.Arena),
 	arenaLoadMap:         make(map[int]*arena.Arena),
 	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
-	// Match loop variables
-	autolvmul: math.Pow(2, 1.0/12), // Handicap levels for Random Test mode
 }
 
 type TeamMode int32
@@ -323,7 +321,6 @@ type System struct {
 	loadStateFlag   bool
 
 	// Match loop variables
-	autolvmul    float64
 	fightLoopEnd bool
 	roundBackup  RoundStartBackup
 
@@ -1231,6 +1228,21 @@ func (s *System) roundEnded() bool {
 // Characters cannot hurt each other between lifebar timers over.hittime and over.waittime
 func (s *System) roundNoDamage() bool {
 	return sys.intro < 0 && sys.intro <= -sys.lifebar.ro.over_hittime && sys.intro >= -sys.lifebar.ro.over_waittime
+}
+
+// Gametime is the sum of the match time and the screenpack time
+func (s *System) gameTime() int32 {
+	// Select the appropriate offset
+	var pmTime int32
+	if sys.netConnection != nil {
+		pmTime = sys.netConnection.preMatchTime
+	} else if sys.replayFile != nil {
+		pmTime = sys.replayFile.preMatchTime
+	} else {
+		pmTime = sys.preMatchTime
+	}
+
+	return sys.matchTime + pmTime
 }
 
 // In Mugen, RoundState 2 begins as soon as the "Fight" screen appears, before players have control
@@ -2263,6 +2275,8 @@ func (s *System) stepRoundState() {
 						if len(p) > 0 {
 							// Check if this player is ready to proceed to roundstate 4
 							// Maybe the "activelyFighting()" could be replaced with an AssertSpecial flag or such to ignore the win/lose states
+							// Mugen seems to skip this anim 5 check on time overs
+							// It also seems a bit pointless to begin with because the char has already turned by the time anim 5 starts
 							if p[0].scf(SCF_over_alive) || p[0].scf(SCF_over_ko) || !p[0].activelyFighting() ||
 								(p[0].scf(SCF_ctrl) && p[0].ss.moveType == MT_I && p[0].ss.stateType != ST_A && p[0].ss.stateType != ST_L && p[0].animNo != 5) {
 								continue

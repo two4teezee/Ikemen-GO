@@ -3967,7 +3967,7 @@ func triggerFunctions(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "gametime", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.matchTime + sys.preMatchTime))
+		l.Push(lua.LNumber(sys.gameTime()))
 		return 1
 	})
 	luaRegister(l, "gamewidth", func(*lua.LState) int {

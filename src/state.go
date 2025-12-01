@@ -98,6 +98,8 @@ func (gs *GameState) String() (str string) {
 
 const MaxSaveStates = 8
 
+// TODO: System ought to be refactored so we don't need to keep track of and manually copy all of this
+// There could be an embedded MatchState struct in System that we shallow copied as a start
 type GameState struct {
 	// Identifiers
 	bytes []byte
@@ -123,7 +125,6 @@ type GameState struct {
 	cam                Camera
 	allPalFX           *PalFX
 	bgPalFX            *PalFX
-	pause              int32
 	pausetime          int32
 	pausebg            bool
 	pauseendcmdbuftime int32
@@ -151,7 +152,6 @@ type GameState struct {
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32 // UIT
-	team1VS2Life            float32
 	turnsRecoveryRate       float32
 	match                   int32 // UIT
 	round                   int32 // UIT
@@ -177,6 +177,7 @@ type GameState struct {
 	screenleft              float32
 	screenright             float32
 	xmin, xmax              float32
+	zmin, zmax              float32
 	winskipped              bool
 	roundResetFlg           bool
 	reloadFlg               bool
@@ -222,6 +223,7 @@ type GameState struct {
 	dialogueFlg     bool
 	gameMode        string
 	consecutiveWins [2]int32
+	firstAttack     [3]int
 	home            int
 
 	// Non UIT, but adding them anyway just because
@@ -249,7 +251,6 @@ type GameState struct {
 	stageLoopNo int
 
 	// 11/5/2022
-	fight         Fight
 	introSkipCall bool
 	preMatchTime  int32
 
@@ -402,6 +403,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.screenright = gs.screenright
 	sys.xmin = gs.xmin
 	sys.xmax = gs.xmax
+	sys.zmin = gs.zmin
+	sys.zmax = gs.zmax
 	sys.winskipped = gs.winskipped
 	sys.roundResetFlg = gs.roundResetFlg
 	sys.reloadFlg = gs.reloadFlg
@@ -438,6 +441,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.dialogueFlg = gs.dialogueFlg
 	sys.gameMode = gs.gameMode
 	sys.consecutiveWins = gs.consecutiveWins
+	sys.firstAttack = gs.firstAttack
 	sys.home = gs.home
 
 	// Not UIT
@@ -468,18 +472,30 @@ func (gs *GameState) LoadState(stateID int) {
 
 	// sys.luaTables = gs.luaTables
 
-	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback.session != nil {
-		sys.rollback.currentFight = gs.fight.Clone(a, gsp)
-	}
-
-	sys.introSkipCall = gs.introSkipCall
 	sys.preMatchTime = gs.preMatchTime
+	sys.introSkipCall = gs.introSkipCall
+	sys.winposetime = gs.winposetime
 
 	sys.loopBreak = gs.loopBreak
 	sys.loopContinue = gs.loopContinue
 
-	sys.winposetime = gs.winposetime
+	// Stop all sounds if they started playing after the point of the save state
+	for i := range sys.soundChannels.channels {
+		ch := &sys.soundChannels.channels[i]
+		if ch.timeStamp > sys.gameTime() {
+			ch.Stop()
+		}
+	}
+	for _, p := range sys.chars {
+		for _, c := range p {
+			for i := range c.soundChannels.channels {
+				ch := &c.soundChannels.channels[i]
+				if ch.timeStamp > sys.gameTime() {
+					ch.Stop()
+				}
+			}
+		}
+	}
 
 	// Log state load
 	if sys.rollback.session == nil {
@@ -614,6 +630,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.screenright = sys.screenright
 	gs.xmin = sys.xmin
 	gs.xmax = sys.xmax
+	gs.zmin = sys.zmin
+	gs.zmax = sys.zmax
 	gs.winskipped = sys.winskipped
 	gs.roundResetFlg = sys.roundResetFlg
 	gs.reloadFlg = sys.reloadFlg
@@ -643,6 +661,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.dialogueFlg = sys.dialogueFlg
 	gs.gameMode = sys.gameMode
 	gs.consecutiveWins = sys.consecutiveWins
+	gs.firstAttack = sys.firstAttack
+	gs.home = sys.home
 
 	gs.stageLoop = sys.stageLoop
 	gs.dialogueBarsFlg = sys.dialogueBarsFlg
@@ -673,11 +693,6 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.luaTables = arena.MakeSlice[*lua.LTable](a, len(sys.luaTables), len(sys.luaTables))
 	for i := 0; i < len(sys.luaTables); i++ {
 		gs.luaTables[i] = gs.cloneLuaTable(sys.luaTables[i])
-	}
-
-	// This won't be around if we aren't in a proper rollback session.
-	if sys.rollback.session != nil {
-		gs.fight = sys.rollback.currentFight.Clone(a, gsp)
 	}
 
 	gs.introSkipCall = sys.introSkipCall

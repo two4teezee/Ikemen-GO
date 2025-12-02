@@ -296,7 +296,7 @@ func (s *BGDef) action() {
 		}
 	}
 
-	s.bga.action()
+	s.bga.action(true)
 	if s.model != nil {
 		s.model.step(1)
 	}
@@ -307,7 +307,7 @@ func (s *BGDef) action() {
 
 	link := 0
 	for i, b := range s.bg {
-		s.bg[i].bga.action()
+		s.bg[i].bga.action(b.enabled)
 		if i > 0 && b.positionlink {
 			s.bg[i].bga.offset[0] += s.bg[link].bga.sinoffset[0]
 			s.bg[i].bga.offset[1] += s.bg[link].bga.sinoffset[1]

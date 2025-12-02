@@ -696,10 +696,10 @@ if time = 0 {
 }
 changeAnim{value: sysVar(2)}
 if hitShakeOver {
-	if getHitVar(yVel) {
-		changeState{value: 5030}
-	} else {
+	if getHitVar(yVel) = 0 {
 		changeState{value: 5081}
+	} else {
+		changeState{value: 5030}
 	}
 }
 

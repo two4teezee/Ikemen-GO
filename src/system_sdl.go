@@ -64,24 +64,26 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 	}
 
 	// Create main window.
-	// NOTE: Borderless fullscreen is in reality just a window without borders.
+	// NOTE: borderless fullscreen is in reality just a window without borders.
+	//       We want fake fullscreen so as not to mess with the users' other windows!
+	//       On Windows, true exclusive fullscreen can resize other windows and blank
+	//       the display if the game resolution is different from the desktop resolution.
+	//       On macOS, this can cause flickering behavior. "Fake" fullscreen prevents all
+	//       erratic behavior on all platforms.
 	if fullscreen {
-		if !s.cfg.Video.Borderless {
-			// Equivalent to true GLFW fullscreen (exclusive mode: using monitor object)
-			// This is necessary for proper video mode changes.
-			windowFlags |= sdl.WINDOW_FULLSCREEN
-			windowFlags |= sdl.WINDOW_RESIZABLE
-		} else {
-			windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
-			windowFlags |= sdl.WINDOW_BORDERLESS
-		}
+		windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
 	} else {
-		windowFlags |= sdl.WINDOW_RESIZABLE
 		windowFlags |= sdl.WINDOW_SHOWN
-		if s.cfg.Video.Borderless {
-			windowFlags |= sdl.WINDOW_BORDERLESS
-		}
 	}
+
+	// Because we ought to set these flags the same regardless of fullscreen or not.
+	// It makes no sense to have the resizable flag on a window without borders.
+	if !s.cfg.Video.Borderless {
+		windowFlags |= sdl.WINDOW_RESIZABLE
+	} else {
+		windowFlags |= sdl.WINDOW_BORDERLESS
+	}
+
 	window, err = sdl.CreateWindow(s.cfg.Config.WindowTitle, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED, w2, h2, windowFlags)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create window: %w", err)
@@ -244,15 +246,9 @@ func (w *Window) toggleFullscreen() {
 		w.x, w.y = int(x2), int(y2)
 		w.w, w.h = int(w2), int(h2)
 
-		if sys.cfg.Video.Borderless {
-			w.Window.SetBordered(false)
-			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
-			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
-		} else {
-			w.Window.SetBordered(true)
-			w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
-			w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN))
-		}
+		w.Window.SetBordered(!sys.cfg.Video.Borderless)
+		w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
+		w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
 		sdl.ShowCursor(sdl.DISABLE)
 	}
 	if sys.cfg.Video.VSync != -1 && (sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1") {

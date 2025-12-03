@@ -72,15 +72,17 @@ func (bga *bgAction) clear() {
 	*bga = bgAction{}
 }
 
-func (bga *bgAction) action() {
+func (bga *bgAction) action(updateTime bool) {
 	for i := 0; i < 2; i++ {
 		bga.pos[i] += bga.vel[i]
 		if bga.sinlooptime[i] > 0 {
 			bga.sinoffset[i] = bga.radius[i] * float32(math.Sin(
 				2*math.Pi*float64(bga.sintime[i])/float64(bga.sinlooptime[i])))
-			bga.sintime[i]++
-			if bga.sintime[i] >= bga.sinlooptime[i] {
-				bga.sintime[i] = 0
+			if updateTime {
+				bga.sintime[i]++
+				if bga.sintime[i] >= bga.sinlooptime[i] {
+					bga.sintime[i] = 0
+				}
 			}
 		} else {
 			bga.sinoffset[i] = 0
@@ -1809,7 +1811,7 @@ func (s *Stage) action() {
 	// Update animations and controllers
 	if canStep {
 		s.bgCtrlAction()
-		s.bga.action()
+		s.bga.action(true)
 
 		if s.model != nil {
 			s.model.step(sys.turbo)
@@ -1853,8 +1855,8 @@ func (s *Stage) action() {
 			b.palfx.eAllowNeg = sys.bgPalFX.eAllowNeg
 		}
 
-		if b.enabled && canStep {
-			s.bg[i].bga.action()
+		if canStep {
+			s.bg[i].bga.action(b.enabled)
 			if i > 0 && b.positionlink {
 				bgasinoffset0 := s.bg[link].bga.sinoffset[0]
 				bgasinoffset1 := s.bg[link].bga.sinoffset[1]
@@ -1871,6 +1873,9 @@ func (s *Stage) action() {
 				zlink = i
 				s.bga.offset[1] += b.bga.offset[1]
 			}
+		}
+
+		if b.enabled && canStep {
 			s.bg[i].anim.Action()
 		}
 	}

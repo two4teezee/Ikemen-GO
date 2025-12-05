@@ -216,8 +216,8 @@ function main.f_input(p, b)
 			elseif btn == 'LS_X-' or btn == 'LS_X+' or btn == 'LS_Y-' or btn == 'LS_Y+' or
 					btn == 'RS_X-' or btn == 'RS_X+' or btn == 'RS_Y-' or btn == 'RS_Y+' or
 					btn == 'LT' or btn == 'RT' then
-				local key = getJoystickKey(pn)
-				local stickIsNeutral = (key == nil or key == '')
+				local key = getJoystickKey(pn-1) -- fix off-by-one
+				local stickIsNeutral = (key == nil or key == '') and pn == main.playerInput
 				-- Handle analog axes
 				if stickIsNeutral then
 					main.lastAxis = nil

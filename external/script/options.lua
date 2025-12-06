@@ -1457,7 +1457,7 @@ function options.f_createMenu(tbl, bool_main)
 				main.f_playBGM(false, motif.music.title_bgm, motif.music.title_bgm_loop, motif.music.title_bgm_volume, motif.music.title_bgm_loopstart, motif.music.title_bgm_loopend)
 				main.close = false
 				break
-			elseif esc() or main.f_input(main.t_players, {'m'}) then
+			elseif (esc() or main.f_input(main.t_players, {'m'})) and not main.fadeActive then
 				sndPlay(motif.files.snd_data, motif.option_info.cancel_snd[1], motif.option_info.cancel_snd[2])
 				if bool_main then
 					if options.modified then

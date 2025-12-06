@@ -926,6 +926,7 @@ type Stage struct {
 	stageTime       int32
 	music           Music
 	bgmState        BGMState
+	bgmratio        float32
 	constants       map[string]float32
 	partnerspacing  int32
 	ikemenver       [3]uint16
@@ -953,6 +954,7 @@ func newStage(def string) *Stage {
 		scale:          [...]float32{float32(math.NaN()), float32(math.NaN())},
 		stageCamera:    *newStageCamera(),
 		music:          make(Music),
+		bgmratio:       0.3,
 		constants:      make(map[string]float32),
 		partnerspacing: 25,
 	}
@@ -1284,7 +1286,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			return nil, err
 		}
 
+		sec[0].ReadF32("bgmratio", &s.bgmratio)
 		s.music = parseMusicSection(iniFile.Section(musicSection))
+		s.music.DebugDump(fmt.Sprintf("Stage %s [Music]", def))
 	}
 
 	// BGDef group
@@ -1807,6 +1811,9 @@ func (s *Stage) paused() bool {
 }
 
 func (s *Stage) action() {
+	// Handle Music
+	s.music.act()
+
 	link, zlink := 0, -1
 	canStep := sys.tickFrame() && !s.paused()
 

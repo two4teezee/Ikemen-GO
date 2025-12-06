@@ -1949,7 +1949,7 @@ func systemScriptInit(l *lua.LState) {
 				sys.sel.cdefOverwrite = make(map[int]string)
 				sys.sel.sdefOverwrite = ""
 				if sys.playBgmFlg {
-					sys.bgm.Open("", 1, 100, 0, 0, 0, 1.0, 1)
+					sys.bgm.Stop()
 					sys.playBgmFlg = false
 				}
 				sys.clearAllSound()

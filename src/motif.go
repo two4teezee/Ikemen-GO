@@ -1682,6 +1682,7 @@ func loadMotif(def string) (*Motif, error) {
 	m.applyPostParsePosAdjustments()
 
 	m.Music = parseMusicSection(pickLangSection(iniFile, "Music"))
+	m.Music.DebugDump("Motif [Music]")
 
 	return &m, nil
 }
@@ -3121,7 +3122,7 @@ func (co *MotifContinue) init(m *Motif) {
 		sys.noSoundFlg = true
 	}
 
-	m.Music.Play("continue", sys.motif.Def, false)
+	m.Music.Play("continue", sys.motif.Def)
 
 	m.ContinueScreen.FadeIn.FadeData.init(m.fadeIn, true)
 	co.counter = 0
@@ -4671,7 +4672,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
 	m.HiscoreInfo.Title.Face.TextSpriteData.Reset()
 	m.HiscoreInfo.Title.Face.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
 
-	m.Music.Play("hiscore", sys.motif.Def, false)
+	m.Music.Play("hiscore", sys.motif.Def)
 
 	//hi.counter = 0
 	hi.active = true
@@ -5407,7 +5408,7 @@ func (vi *MotifVictory) init(m *Motif) {
 		sys.noSoundFlg = true
 	}
 
-	m.Music.Play("victory", sys.motif.Def, false)
+	m.Music.Play("victory", sys.motif.Def)
 
 	m.VictoryScreen.FadeIn.FadeData.init(m.fadeIn, true)
 	vi.counter = 0
@@ -5721,7 +5722,7 @@ func (wi *MotifWin) init(m *Motif) {
 		sys.noSoundFlg = true
 	}
 
-	m.Music.Play("results", sys.motif.Def, false)
+	m.Music.Play("results", sys.motif.Def)
 
 	wi.fadeIn.init(m.fadeIn, true)
 	wi.counter = 0

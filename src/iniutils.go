@@ -2644,6 +2644,9 @@ func parseMusicSection(section *ini.Section) Music {
 		}
 	}
 
+	// Debug dump
+	music.DebugDump(fmt.Sprintf("parseMusicSection[%s]", section.Name()))
+
 	// Return final music
 	return music
 }

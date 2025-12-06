@@ -1021,7 +1021,7 @@ func (s *System) netplay() bool {
 func (s *System) escExit() bool {
 	return sys.esc && (sys.netplay() ||
 		!sys.cfg.Config.EscOpensMenu ||
-		sys.gameMode == "" ||
+		sys.gameMode == "" || sys.gameMode == "demo" ||
 		(sys.motif.AttractMode.Enabled && sys.credits == 0))
 }
 
@@ -1813,6 +1813,8 @@ func (s *System) resetRoundState() {
 		s.cgi[i].music.Override(p[0].si().music)
 		// Override with music with launchFight parameters
 		s.cgi[i].music.Override(sys.sel.music)
+		// Debug dump of merged music.
+		s.cgi[i].music.DebugDump(fmt.Sprintf("cgi[%d].music after resetRoundState", i))
 	}
 
 	// Place characters in state 5900

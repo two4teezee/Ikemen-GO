@@ -292,6 +292,7 @@ func loadStoryboard(def string) (*Storyboard, error) {
 	for scene, sceneProps := range s.Scene {
 		sceneName := strings.Replace(scene, "scene_", "scene ", 1)
 		sceneProps.Music = parseMusicSection(pickLangSection(iniFile, sceneName))
+		sceneProps.Music.DebugDump(fmt.Sprintf("Storyboard %s [%s]", def, sceneName))
 	}
 
 	return &s, nil
@@ -411,6 +412,9 @@ func (s *Storyboard) populateDataPointers() {
 }
 
 func (s *Storyboard) reset() {
+	if !sys.middleOfMatch() {
+		sys.bgm.Stop()
+	}
 	s.active = false
 	s.initialized = false
 	s.endTimer = -1
@@ -530,7 +534,7 @@ func (s *Storyboard) step() {
 	}
 
 	if s.counter == 0 {
-		if ok := sceneProps.Music.Play("", s.Def, false); ok {
+		if ok := sceneProps.Music.Play("", s.Def); ok {
 			s.musicPlaying = true
 		}
 		sceneProps.FadeIn.FadeData.init(sys.motif.fadeIn, true)

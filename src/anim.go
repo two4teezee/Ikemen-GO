@@ -194,6 +194,7 @@ type Animation struct {
 	start_scale                [2]float32
 	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
+	phantomPixel               bool
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -763,8 +764,21 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	// Compute X and Y AIR animation offsets
 	var xoff, yoff float32
 	if !a.isVideo {
-		xoff = xs * airOffsetFix[0] * (float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x) * a.start_scale[0] * (1 / a.scale_x)
-		yoff = ys * airOffsetFix[1] * (float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y) * a.start_scale[1] * (1 / a.scale_y)
+		xoffBase := float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x
+		yoffBase := float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y
+
+		// Phantom pixel adjustment: when frames are explicitly flipped via
+		// H or V in the AIR data, substract an extra pixel of offset.
+		if a.phantomPixel {
+			if a.frames[a.drawidx].Hscale < 0 {
+				xoffBase--
+			}
+			if a.frames[a.drawidx].Vscale < 0 {
+				yoffBase--
+			}
+		}
+		xoff = xs * airOffsetFix[0] * xoffBase * a.start_scale[0] * (1 / a.scale_x)
+		yoff = ys * airOffsetFix[1] * yoffBase * a.start_scale[1] * (1 / a.scale_y)
 	}
 
 	x = xcs*x + xoff

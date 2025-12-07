@@ -1994,7 +1994,7 @@ type NetConnection struct {
 	st           NetState
 	sendEnd      chan bool
 	recvEnd      chan bool
-	buf          [MaxPlayerNo]NetBuffer
+	buf          [MaxSimul*2]NetBuffer // We skip attached characters here because they never have human inputs
 	locIn        int
 	remIn        int
 	time         int32
@@ -2242,7 +2242,7 @@ func (nc *NetConnection) Synchronize() error {
 	}
 	nc.Stop()
 
-	// Determine random seed
+	// Synchronize to host's random seed
 	var seed int32
 	if nc.host {
 		seed = Random()
@@ -2257,7 +2257,7 @@ func (nc *NetConnection) Synchronize() error {
 	}
 	Srand(seed)
 
-	// Determine gametime trigger offset
+	// Synchronize to host's pre-match time
 	var pmTime int32
 	if nc.host {
 		pmTime = sys.preMatchTime
@@ -2272,10 +2272,13 @@ func (nc *NetConnection) Synchronize() error {
 	}
 	nc.preMatchTime = pmTime
 
+	// Write seed and pre-match time to replay file
 	if nc.recording != nil {
 		binary.Write(nc.recording, binary.LittleEndian, &seed)
 		binary.Write(nc.recording, binary.LittleEndian, &pmTime)
 	}
+
+	// Verify connection time synchronization
 	if err := nc.writeI32(nc.time); err != nil {
 		return err
 	}
@@ -2287,19 +2290,27 @@ func (nc *NetConnection) Synchronize() error {
 	if sys.rollback.session != nil {
 		sys.rollback.session.netTime = nc.time
 	}
+
+	// Reset local and remote input buffers for the current time
 	nc.buf[nc.locIn].reset(nc.time)
 	nc.buf[nc.remIn].reset(nc.time)
 	nc.st = NS_Playing
+
+	// Start sending inputs to remote peer in a goroutine
 	<-nc.sendEnd
 	go func(nb *NetBuffer) {
-		defer func() { nc.sendEnd <- true }()
+		defer func() {
+			nc.sendEnd <- true
+		}()
 		for nc.st == NS_Playing {
+			// Check if there are unsent frames
 			if nb.senT < nb.inpT {
+				// Write digital inputs
 				if err := nc.writeI16(int16(nb.buf[nb.senT&(NETBUF_NUM_FRAMES-1)])); err != nil {
 					nc.st = NS_Error
 					return
 				} else {
-					// Write analog data now
+					// Write analog inputs
 					for j := 0; j < len(nb.axisBuf[nb.senT&(NETBUF_NUM_FRAMES-1)]); j++ {
 						if err = nc.writeI8(nb.axisBuf[nb.senT&(NETBUF_NUM_FRAMES-1)][j]); err != nil {
 							nc.st = NS_Error
@@ -2311,23 +2322,31 @@ func (nc *NetConnection) Synchronize() error {
 			}
 			time.Sleep(time.Millisecond)
 		}
+		// Write termination signal to indicate no more input frames
 		nc.writeI16(-1)
 	}(&nc.buf[nc.locIn])
+
+	// Start receiving inputs from remote peer in a goroutine
 	<-nc.recvEnd
 	go func(nb *NetBuffer) {
-		defer func() { nc.recvEnd <- true }()
+		defer func() {
+			nc.recvEnd <- true
+		}()
 		for nc.st == NS_Playing {
+			// Check if there is space in the input buffer
 			if nb.inpT-nb.curT < NETBUF_NUM_FRAMES {
 				if tmp, err := nc.readI16(); err != nil {
 					nc.st = NS_Error
 					return
 				} else {
+					// Read digital inputs
 					nb.buf[nb.inpT&(NETBUF_NUM_FRAMES-1)] = InputBits(tmp)
 					if tmp < 0 {
+						// If remote sent termination signal
 						nc.st = NS_Stopped
 						return
 					} else {
-						// Read analog data now
+						// Read analog inputs
 						for j := 0; j < len(nb.axisBuf[nb.inpT&(NETBUF_NUM_FRAMES-1)]); j++ {
 							if tmp2, err := nc.readI8(); err != nil {
 								nc.st = NS_Error
@@ -2343,6 +2362,7 @@ func (nc *NetConnection) Synchronize() error {
 			}
 			time.Sleep(time.Millisecond)
 		}
+
 		// There may be padding for the axis buffer so safest to just change this.
 		for tmp := int16(0); tmp != -1; {
 			var err error
@@ -2351,7 +2371,13 @@ func (nc *NetConnection) Synchronize() error {
 			}
 		}
 	}(&nc.buf[nc.remIn])
+
+	// Update game state after synchronization
 	nc.Update()
+
+	// Log status
+	log.Printf("Network synchronized: seed=%d pmTime=%d time=%d host=%v", seed, pmTime, nc.time, nc.host)
+
 	return nil
 }
 
@@ -2359,6 +2385,7 @@ func (nc *NetConnection) Update() bool {
 	if nc.st != NS_Stopped {
 		nc.stoppedcnt = 0
 	}
+
 	if !sys.gameEnd {
 		switch nc.st {
 		case NS_Stopped:
@@ -2370,54 +2397,70 @@ func (nc *NetConnection) Update() bool {
 			fallthrough
 		case NS_Playing:
 			for {
+				// Determine the earliest frame that has been processed by both local and remote buffers
 				foo := Min(nc.buf[nc.locIn].senT, nc.buf[nc.remIn].senT)
+
+				// Calculate network delay difference between local and remote input buffers
 				tmp := nc.buf[nc.remIn].inpT + nc.delay>>3 - nc.buf[nc.locIn].inpT
+
+				// Adjust local buffer to synchronize with remote
 				if tmp >= 0 {
+					// Local buffer is behind. Advance it
 					nc.buf[nc.locIn].writeNetBuffer(0)
 					if nc.delay > 0 {
 						nc.delay--
 					}
 				} else if tmp < -1 {
+					// Local buffer is ahead. Increase delay to catch up
 					nc.delay += 4
 				}
+
+				// Break loop if we have reached the frame that both buffers have sent
 				if nc.time >= foo {
 					if sys.esc || !sys.await(sys.cfg.Config.Framerate) || nc.st != NS_Playing {
 						break
 					}
 					continue
 				}
+
+				// Update current frame time for local and remote buffers
 				nc.buf[nc.locIn].curT = nc.time
 				nc.buf[nc.remIn].curT = nc.time
 
 				// Write inputs to replay file
 				if nc.recording != nil {
-					// We skip attached characters here because they never have human inputs
-					for i := 0; i < MaxSimul*2; i++ {
-						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].buf[nc.time&(NETBUF_NUM_FRAMES-1)])
-						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].axisBuf[nc.time&(NETBUF_NUM_FRAMES-1)])
+					for i := range nc.buf {
+						ringIdx := nc.time&(NETBUF_NUM_FRAMES-1)
+						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].buf[ringIdx])
+						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].axisBuf[ringIdx])
 					}
 				}
 
 				nc.time++
+
+				// Ensure local buffer writes any remaining frames
 				if nc.time >= foo {
 					nc.buf[nc.locIn].writeNetBuffer(0)
 				}
+
 				break
 			}
 		case NS_End, NS_Error:
 			sys.esc = true
 		}
 	}
+
 	if sys.esc {
 		nc.end()
 	}
+
 	return !sys.gameEnd
 }
 
 type ReplayFile struct {
 	file         *os.File
-	ibit         [MaxPlayerNo]InputBits
-	iaxes        [MaxPlayerNo][6]int8
+	ibit         [MaxSimul*2]InputBits
+	iaxes        [MaxSimul*2][6]int8
 	preMatchTime int32
 }
 
@@ -2439,14 +2482,14 @@ func (rf *ReplayFile) Close() {
 }
 
 // Read input buttons from replay input
-func (rf *ReplayFile) readReplayFile(i int) [14]bool {
+func (rf *ReplayFile) readReplayInput(i int) [14]bool {
 	if i >= 0 && i < len(rf.ibit) {
 		return rf.ibit[sys.inputRemap[i]].BitsToKeys()
 	}
 	return [14]bool{}
 }
 
-func (rf *ReplayFile) readReplayFileAnalog(i int) [6]int8 {
+func (rf *ReplayFile) readReplayInputAnalog(i int) [6]int8 {
 	if i >= 0 && i < len(rf.ibit) {
 		remap := sys.inputRemap[i] // we'll be using this a lot
 
@@ -2467,27 +2510,29 @@ func (rf *ReplayFile) AnyButton() bool {
 	return false
 }
 
+// Read system variables from replay file
 func (rf *ReplayFile) Synchronize() {
 	if rf.file != nil {
 		// Read random seed
 		var seed int32
-		err := binary.Read(rf.file, binary.LittleEndian, &seed)
-		log.Printf("Random seed read: %d, error: %v", seed, err)
-		if err == nil {
+		if err := binary.Read(rf.file, binary.LittleEndian, &seed); err == nil {
 			Srand(seed)
 		}
 
-		// Read gametime trigger offset
+		// Read pre-match time
 		var pmTime int32
-		err = binary.Read(rf.file, binary.LittleEndian, &pmTime)
-		log.Printf("Pre-match time read: %v, error: %v", pmTime, err)
-		if err == nil {
+		if err := binary.Read(rf.file, binary.LittleEndian, &pmTime); err == nil {
 			rf.preMatchTime = pmTime
+			// Advance first frame
 			rf.Update()
 		}
+
+		// Log status
+		log.Printf("Replay synchronized: seed=%d pmTime=%d", seed, pmTime)
 	}
 }
 
+// Read a chunk of inputs from the replay file
 func (rf *ReplayFile) Update() bool {
 	if rf.file == nil {
 		sys.esc = true
@@ -2504,25 +2549,23 @@ func (rf *ReplayFile) Update() bool {
 			}
 
 			// Read each player at a time, in the order of digital inputs, followed by each analog axis
-			for i := 0; i < len(rf.iaxes); i++ {
-				err := binary.Read(rf.file, binary.LittleEndian, rf.ibit[i])
-				if err != nil {
+			for i := 0; i < len(rf.ibit); i++ {
+				// Read digital input (pointer)
+				if err := binary.Read(rf.file, binary.LittleEndian, &rf.ibit[i]); err != nil {
 					log.Printf("Error while reading digital input for controller %d: %v", i, err)
 					sys.esc = true
 					break
-				} else {
-					// Now get the analog axes.
-					for j := 0; j < len(rf.iaxes[i]); j++ {
-						err = binary.Read(rf.file, binary.LittleEndian, rf.iaxes[i][j])
-						if err != nil {
-							log.Printf("Error while reading analog input for controller %d, axis %d: %v", i, j, err)
-							sys.esc = true
-							break
-						}
-					}
+				}
+
+				// Read analog input (pointer to all at once)
+				if err := binary.Read(rf.file, binary.LittleEndian, &rf.iaxes[i]); err != nil {
+					log.Printf("Error while reading analog input for controller %d: %v", i, err)
+					sys.esc = true
+					break
 				}
 			}
 		}
+
 		if sys.esc {
 			log.Printf("Closing replay file")
 			rf.Close()
@@ -3291,8 +3334,8 @@ func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32,
 			}
 		}
 	} else if sys.replayFile != nil {
-		buttons = sys.replayFile.readReplayFile(controller)
-		rawAxes := sys.replayFile.readReplayFileAnalog(controller)
+		buttons = sys.replayFile.readReplayInput(controller)
+		rawAxes := sys.replayFile.readReplayInputAnalog(controller)
 		axes = NormalizeAxes(&rawAxes)
 	} else if sys.netConnection != nil {
 		buttons = sys.netConnection.readNetInput(controller)

@@ -962,51 +962,51 @@ func (c *Compiler) explodSub(is IniSection,
 func (c *Compiler) explodInterpolate(is IniSection,
 	sc *StateControllerBase) error {
 	if err := c.paramValue(is, sc, "interpolation.time",
-		explod_interpolate_time, VT_Int, 1, false); err != nil {
+		explod_interpolation_time, VT_Int, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.animelem",
-		explod_interpolate_animelem, VT_Int, 1, false); err != nil {
+		explod_interpolation_animelem, VT_Int, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.scale",
-		explod_interpolate_scale, VT_Float, 2, false); err != nil {
+		explod_interpolation_scale, VT_Float, 2, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.angle",
-		explod_interpolate_angle, VT_Float, 3, false); err != nil {
+		explod_interpolation_angle, VT_Float, 3, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.alpha",
-		explod_interpolate_alpha, VT_Float, 2, false); err != nil {
+		explod_interpolation_alpha, VT_Float, 2, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.offset",
-		explod_interpolate_pos, VT_Float, 3, false); err != nil {
+		explod_interpolation_pos, VT_Float, 3, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.focallength",
-		explod_interpolate_focallength, VT_Float, 1, false); err != nil {
+		explod_interpolation_focallength, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.xshear",
-		explod_interpolate_xshear, VT_Float, 1, false); err != nil {
+		explod_interpolation_xshear, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.mul",
-		explod_interpolate_pfx_mul, VT_Int, 3, false); err != nil {
+		explod_interpolation_pfx_mul, VT_Int, 3, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.add",
-		explod_interpolate_pfx_add, VT_Int, 3, false); err != nil {
+		explod_interpolation_pfx_add, VT_Int, 3, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.color",
-		explod_interpolate_pfx_color, VT_Float, 1, false); err != nil {
+		explod_interpolation_pfx_color, VT_Float, 1, false); err != nil {
 		return err
 	}
 	if err := c.paramValue(is, sc, "interpolation.palfx.hue",
-		explod_interpolate_pfx_hue, VT_Float, 1, false); err != nil {
+		explod_interpolation_pfx_hue, VT_Float, 1, false); err != nil {
 		return err
 	}
 	return nil

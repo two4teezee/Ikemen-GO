@@ -5279,7 +5279,7 @@ const (
 	palFX_redirectid
 )
 
-func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) bool {
+func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) {
 	switch paramID {
 	case palFX_time:
 		pfd.time = exp[0].evalI(c)
@@ -5347,10 +5347,7 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) 
 		pfd.invertall = exp[0].evalB(c)
 	case palFX_invertblend:
 		pfd.invertblend = Clamp(exp[0].evalI(c), -1, 2)
-	default:
-		return false
 	}
-	return true
 }
 
 func (sc palFX) Run(c *Char, _ []int32) bool {
@@ -5492,19 +5489,19 @@ const (
 	explod_bindid
 	explod_space
 	explod_window
-	explod_interpolate_time
-	explod_interpolate_animelem
-	explod_interpolate_pos
-	explod_interpolate_scale
-	explod_interpolate_angle
-	explod_interpolate_alpha
-	explod_interpolate_focallength
-	explod_interpolate_xshear
-	explod_interpolate_pfx_mul
-	explod_interpolate_pfx_add
-	explod_interpolate_pfx_color
-	explod_interpolate_pfx_hue
 	explod_interpolation
+	explod_interpolation_time
+	explod_interpolation_animelem
+	explod_interpolation_pos
+	explod_interpolation_scale
+	explod_interpolation_angle
+	explod_interpolation_alpha
+	explod_interpolation_focallength
+	explod_interpolation_xshear
+	explod_interpolation_pfx_mul
+	explod_interpolation_pfx_add
+	explod_interpolation_pfx_color
+	explod_interpolation_pfx_hue
 	explod_animplayerno
 	explod_spriteplayerno
 	explod_syncparams
@@ -5532,6 +5529,11 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 	// Mugenversion 1.1 chars default postype to "None"
 	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
 		e.postype = PT_None
+	}
+
+	// Mugen 1.1 behavior if invertblend param is omitted
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 {
+		e.palfx.invertblend = -2
 	}
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -5745,16 +5747,13 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 		case explod_redirectid:
 			return true // Already handled. Avoid default
 		default:
-			if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-				e.palfxdef.invertblend = -2
-			}
-			if isAfterImageParam(paramID) {
+			switch {
+			case isAfterImageParam(paramID):
 				if e.aimg == nil {
 					e.aimg = newAfterImage()
 				}
 				afterImage(sc).runSub(c, crun, e.aimg, paramID, exp)
-			}
-			if isPalFXParam(paramID) {
+			case isPalFXParam(paramID):
 				palFX(sc).runSub(c, &e.palfxdef, paramID, exp)
 			}
 			explod(sc).parseInterpolation(c, e, paramID, exp, &e.palfxdef)
@@ -5780,7 +5779,7 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 
 func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []BytecodeExp, pfd *PalFXDef) bool {
 	switch paramID {
-	case explod_interpolate_time:
+	case explod_interpolation_time:
 		e.interpolate_time[0] = exp[0].evalI(c)
 		if e.interpolate_time[0] < 0 {
 			e.interpolate_time[0] = e.removetime
@@ -5794,11 +5793,11 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 				pfd.itime = e.interpolate_time[0]
 			}
 		}
-	case explod_interpolate_animelem:
+	case explod_interpolation_animelem:
 		e.interpolate_animelem[1] = exp[0].evalI(c)
 		e.interpolate_animelem[0] = e.animelem
 		e.interpolate_animelem[2] = e.interpolate_animelem[1]
-	case explod_interpolate_pos:
+	case explod_interpolation_pos:
 		e.interpolate_pos[3] = exp[0].evalF(c)
 		if len(exp) > 1 {
 			e.interpolate_pos[4] = exp[1].evalF(c)
@@ -5806,17 +5805,17 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 				e.interpolate_pos[5] = exp[2].evalF(c)
 			}
 		}
-	case explod_interpolate_scale:
+	case explod_interpolation_scale:
 		e.interpolate_scale[2] = exp[0].evalF(c)
 		if len(exp) > 1 {
 			e.interpolate_scale[3] = exp[1].evalF(c)
 		}
-	case explod_interpolate_alpha:
+	case explod_interpolation_alpha:
 		e.interpolate_alpha[2] = exp[0].evalI(c)
 		e.interpolate_alpha[3] = exp[1].evalI(c)
 		e.interpolate_alpha[2] = Clamp(e.interpolate_alpha[2], 0, 255)
 		e.interpolate_alpha[3] = Clamp(e.interpolate_alpha[3], 0, 255)
-	case explod_interpolate_angle:
+	case explod_interpolation_angle:
 		e.interpolate_angle[3] = exp[0].evalF(c)
 		if len(exp) > 1 {
 			e.interpolate_angle[4] = exp[1].evalF(c)
@@ -5824,11 +5823,11 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 		if len(exp) > 2 {
 			e.interpolate_angle[5] = exp[2].evalF(c)
 		}
-	case explod_interpolate_focallength:
+	case explod_interpolation_focallength:
 		e.interpolate_fLength[1] = exp[0].evalF(c)
-	case explod_interpolate_xshear:
+	case explod_interpolation_xshear:
 		e.interpolate_xshear[1] = exp[0].evalF(c)
-	case explod_interpolate_pfx_mul:
+	case explod_interpolation_pfx_mul:
 		pfd.imul[0] = exp[0].evalI(c)
 		if len(exp) > 1 {
 			pfd.imul[1] = exp[1].evalI(c)
@@ -5836,7 +5835,7 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 		if len(exp) > 2 {
 			pfd.imul[2] = exp[2].evalI(c)
 		}
-	case explod_interpolate_pfx_add:
+	case explod_interpolation_pfx_add:
 		pfd.iadd[0] = exp[0].evalI(c)
 		if len(exp) > 1 {
 			pfd.iadd[1] = exp[1].evalI(c)
@@ -5844,9 +5843,9 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 		if len(exp) > 2 {
 			pfd.iadd[2] = exp[2].evalI(c)
 		}
-	case explod_interpolate_pfx_color:
+	case explod_interpolation_pfx_color:
 		pfd.icolor[0] = exp[0].evalF(c) / 256
-	case explod_interpolate_pfx_hue:
+	case explod_interpolation_pfx_hue:
 		pfd.ihue[0] = exp[0].evalF(c) / 256
 	default:
 	}
@@ -6367,14 +6366,14 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					})
 				}
 			default:
-				if isPalFXParam(paramID) {
+				switch {
+				case isPalFXParam(paramID):
 					eachExpl(func(e *Explod) {
 						if e.ownpal {
 							palFX(sc).runSub(c, &e.palfx.PalFXDef, paramID, exp)
 						}
 					})
-				}
-				if isAfterImageParam(paramID) {
+				case isAfterImageParam(paramID):
 					eachExpl(func(e *Explod) {
 						if e.aimg == nil { // Can update existing afterimage
 							e.aimg = newAfterImage()
@@ -6648,7 +6647,9 @@ func (sc afterImageTime) Run(c *Char, _ []int32) bool {
 }
 
 func isHitDefParam(paramID byte) bool {
-	return paramID >= hitDef_attr && paramID <= hitDef_last
+	return paramID >= hitDef_attr && paramID <= hitDef_last || isPalFXParam(paramID)
+	// HitDef has its own PalFX parameters so we must check them here
+	// TODO: This structure will have to be revised if we ever want to give PalFX to projectiles
 }
 
 type hitDef afterImage
@@ -6771,7 +6772,7 @@ const (
 )
 
 // Additions to Hitdef should ideally also be done to GetHitVarSet and ModifyProjectile
-func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bool {
+func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 	switch paramID {
 	case hitDef_attr:
 		hd.attr = exp[0].evalI(c)
@@ -7150,7 +7151,6 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) bo
 			palFX(sc).runSub(c, &hd.palfx, paramID, exp)
 		}
 	}
-	return true
 }
 
 func (sc hitDef) Run(c *Char, _ []int32) bool {
@@ -7461,10 +7461,10 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		case projectile_redirectid:
 			return true // Already handled. Avoid runSub
 		default:
-			if isHitDefParam(paramID) {
+			switch {
+			case isHitDefParam(paramID):
 				hitDef(sc).runSub(c, &p.hitdef, paramID, exp)
-			}
-			if isAfterImageParam(paramID) {
+			case isAfterImageParam(paramID):
 				if p.aimg == nil {
 					p.aimg = newAfterImage()
 				}

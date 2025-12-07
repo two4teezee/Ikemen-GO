@@ -9,7 +9,7 @@ import (
 )
 
 type FontRenderer interface {
-	Init()
+	Init(renderer interface{})
 	LoadFont(file string, scale int32, windowWidth int, windowHeight int) (interface{}, error)
 	//LoadTrueTypeFont(program uint32, r io.Reader, scale int32, low, high rune, dir Direction) (Font, error)
 	//newProgram(GLSLVersion uint, vertexShaderSource, fragmentShaderSource string) (uint32, error)

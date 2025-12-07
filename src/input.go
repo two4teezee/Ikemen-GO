@@ -1994,7 +1994,7 @@ type NetConnection struct {
 	st           NetState
 	sendEnd      chan bool
 	recvEnd      chan bool
-	buf          [MaxSimul*2]NetBuffer // We skip attached characters here because they never have human inputs
+	buf          [MaxSimul * 2]NetBuffer // We skip attached characters here because they never have human inputs
 	locIn        int
 	remIn        int
 	time         int32
@@ -2430,7 +2430,7 @@ func (nc *NetConnection) Update() bool {
 				// Write inputs to replay file
 				if nc.recording != nil {
 					for i := range nc.buf {
-						ringIdx := nc.time&(NETBUF_NUM_FRAMES-1)
+						ringIdx := nc.time & (NETBUF_NUM_FRAMES - 1)
 						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].buf[ringIdx])
 						binary.Write(nc.recording, binary.LittleEndian, &nc.buf[i].axisBuf[ringIdx])
 					}
@@ -2459,8 +2459,8 @@ func (nc *NetConnection) Update() bool {
 
 type ReplayFile struct {
 	file         *os.File
-	ibit         [MaxSimul*2]InputBits
-	iaxes        [MaxSimul*2][6]int8
+	ibit         [MaxSimul * 2]InputBits
+	iaxes        [MaxSimul * 2][6]int8
 	preMatchTime int32
 }
 

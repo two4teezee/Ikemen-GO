@@ -165,6 +165,10 @@ func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) (t T
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
 	t = &Texture_GL32{width, height, depth, filter, h}
+	format := t.(*Texture_GL32).MapInternalFormat(Max(depth, 8))
+	gl.BindTexture(gl.TEXTURE_2D, h)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), width, height, 0, format, gl.UNSIGNED_BYTE, nil)
+	gl.BindTexture(gl.TEXTURE_2D, 0)
 	runtime.SetFinalizer(t, func(t *Texture_GL32) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
@@ -267,7 +271,25 @@ func (t *Texture_GL32) SetData(data []byte) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height int32) {
+	var interp int32 = gl.NEAREST
+	if t.filter {
+		interp = gl.LINEAR
+	}
 
+	format := t.MapInternalFormat(Max(t.depth, 8))
+
+	gl.BindTexture(gl.TEXTURE_2D, t.handle)
+	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	if data != nil {
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
+	} else {
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, nil)
+	}
+
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interp)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interp)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 

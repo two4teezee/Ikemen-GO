@@ -37,8 +37,8 @@ type FontRenderer_VK struct {
 	freeDescriptors list.List
 }
 
-func (r *FontRenderer_VK) Init() {
-	renderer := gfx.(*Renderer_VK)
+func (r *FontRenderer_VK) Init(rendererVk interface{}) {
+	renderer := rendererVk.(*Renderer_VK)
 	r.device = renderer.device
 	program := &VulkanProgramInfo{}
 	var err error
@@ -534,8 +534,8 @@ func (f *Font_VK) UpdateResolution(windowWidth int, windowHeight int) {
 }
 func (f *Font_VK) Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 	r := gfx.(*Renderer_VK)
-	switchedProgram := gfx.(*Renderer_VK).VKState.currentProgram != gfxFont.(*FontRenderer_VK).program
-	gfx.(*Renderer_VK).VKState.currentProgram = gfxFont.(*FontRenderer_VK).program
+	switchedProgram := r.VKState.currentProgram != gfxFont.(*FontRenderer_VK).program
+	r.VKState.currentProgram = gfxFont.(*FontRenderer_VK).program
 
 	indices := []rune(fmt.Sprintf(fs, argv...))
 
@@ -551,8 +551,8 @@ func (f *Font_VK) Printf(x, y float32, scale float32, align int32, blend bool, w
 		pipelineIndex = 1
 	}
 	pipeline := gfxFont.(*FontRenderer_VK).program.pipelines[pipelineIndex]
-	if switchedProgram || pipeline != gfx.(*Renderer_VK).VKState.currentPipeline {
-		gfx.(*Renderer_VK).VKState.currentPipeline = pipeline
+	if switchedProgram || pipeline != r.VKState.currentPipeline {
+		r.VKState.currentPipeline = pipeline
 		vk.CmdBindPipeline(r.commandBuffers[0], vk.PipelineBindPointGraphics, pipeline)
 	}
 	if switchedProgram {

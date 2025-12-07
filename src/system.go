@@ -20,7 +20,8 @@ import (
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/speaker"
-	glfont "github.com/ikemen-engine/glfont"
+
+	//glfont "github.com/ikemen-engine/glfont"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -419,13 +420,13 @@ func (s *System) init(w, h int32) *lua.LState {
 		gfxFont = &FontRenderer_VK{}
 	} else if s.cfg.Video.RenderMode == "OpenGL 2.1" {
 		gfx = &Renderer_GL21{}
-		gfxFont = &glfont.FontRenderer_GL21{}
+		gfxFont = &FontRenderer_GL21{}
 	} else {
 		gfx = &Renderer_GL32{}
-		gfxFont = &glfont.FontRenderer_GL32{}
+		gfxFont = &FontRenderer_GL32{}
 	}
 	gfx.Init()
-	gfxFont.Init()
+	gfxFont.Init(gfx)
 	gfx.BeginFrame(false)
 	// And the audio.
 	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)

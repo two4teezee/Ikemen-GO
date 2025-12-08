@@ -2313,6 +2313,42 @@ end
 
 local demoFrameCounter = 0
 local introWaitCycles = 0
+
+-- Returns the action function name and visible items table if the given menu table has exactly one actionable entry.
+function main.f_getSingleMenuAction(tbl)
+	if tbl == nil or tbl.items == nil then
+		return nil
+	end
+	local cnt = 0
+	local f = nil
+	for _, v in ipairs(tbl.items) do
+		if tbl.name == 'bonusgames' --[[or tbl.name == 'storymode']] or v.itemname == 'joinadd' then
+			return nil
+		elseif v.itemname ~= 'back' and main.t_unlockLua.modes[v.itemname] == nil then
+			local fname = v.itemname
+			if main.t_itemname[fname] == nil then
+				if t_storyModeList[fname] then
+					fname = 'storyarc'
+				elseif fname:match('^bonus_') then
+					fname = 'bonus'
+				elseif fname:match('^ip_') then
+					fname = 'serverconnect'
+				end
+			end
+			cnt = cnt + 1
+			f = fname
+			if cnt > 1 then
+				return nil
+			end
+		end
+	end
+	if f ~= nil and main.t_itemname[f] ~= nil and cnt == 1 then
+		local t = main.f_hiddenItems(tbl.items)
+		return f, t
+	end
+	return nil
+end
+
 -- Shared menu loop logic
 function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 	return function()
@@ -2321,27 +2357,19 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		local moveTxt = 0
 		local item = 1
 		local t = main.f_hiddenItems(tbl.items)
+		local call_t_override = nil
+		local call_item_override = nil
 		--skip showing menu if there is only 1 valid item
-		local cnt = 0
-		local f = ''
 		main.f_menuSnap(motif[main.group])
-		for _, v in ipairs(tbl.items) do
-			if tbl.name == 'bonusgames' --[[or tbl.name == 'storymode']] or v.itemname == 'joinadd' then
-				skip = true
-				break
-			elseif v.itemname ~= 'back' and main.t_unlockLua.modes[v.itemname] == nil then
-				f = v.itemname
-				if main.t_itemname[f] == nil and t_storyModeList[f] then
-					f = 'storyarc'
-				end
-				cnt = cnt + 1
-			end
-		end
-		if main.t_itemname[f] ~= nil and cnt == 1 --[[and not motif.attract_mode.enabled]] then
+		-- Only auto-run here for menus that are entered directly (no parent submenu), so the fadeout is handled in the caller for submenus.
+		local single_f, single_t = main.f_getSingleMenuAction(tbl)
+		if single_f ~= nil and bool_bgreset then
 			main.f_default()
-			main.menu.f = main.t_itemname[f](t, item)
+			main.menu.f = main.t_itemname[single_f](single_t, item)
 			main.f_unlock(false)
-			main.menu.f()
+			if main.menu.f ~= nil then
+				main.menu.f()
+			end
 			main.f_default()
 			main.f_unlock(false)
 			local itemNum = #t
@@ -2351,7 +2379,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 				return
 			end
 		end
-		--more than 1 item, continue loop
+		--more than 1 item (or newly unlocked ones), continue loop
 		if bool_main then
 			if motif.files.logo.storyboard ~= '' then
 				main.f_storyboard(motif.files.logo.storyboard)
@@ -2453,14 +2481,23 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 						elseif f:match('^ip_') then
 							f = 'serverconnect'
 						elseif tbl.submenu[f].loop ~= nil and #tbl.submenu[f].items > 0 then
-							if motif.title_info.cursor[f] ~= nil and motif.title_info.cursor[f].snd ~= nil then
-								sndPlay(motif.Snd, motif.title_info.cursor[f].snd[1], motif.title_info.cursor[f].snd[2])
+							-- Check if the target submenu would immediately auto-run a single actionable item.
+							-- If so, treat that as if it was selected directly here, so fadeout uses the current menu.
+							local single_f2, single_t2 = main.f_getSingleMenuAction(tbl.submenu[f])
+							if single_f2 ~= nil then
+								f = single_f2
+								call_t_override = single_t2
+								call_item_override = 1
 							else
-								sndPlay(motif.Snd, motif.title_info.cursor.done.snd[1], motif.title_info.cursor.done.snd[2])
+								if motif.title_info.cursor[f] ~= nil and motif.title_info.cursor[f].snd ~= nil then
+									sndPlay(motif.Snd, motif.title_info.cursor[f].snd[1], motif.title_info.cursor[f].snd[2])
+								else
+									sndPlay(motif.Snd, motif.title_info.cursor.done.snd[1], motif.title_info.cursor.done.snd[2])
+								end
+								tbl.submenu[f].loop()
+								f = ''
+								main.f_menuSnap(motif[main.group])
 							end
-							tbl.submenu[f].loop()
-							f = ''
-							main.f_menuSnap(motif[main.group])
 						else
 							break
 						end
@@ -2470,8 +2507,12 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 						if f == 'joinadd' then
 							tbl.items = main.t_itemname[f](t, item)
 						elseif main.t_itemname[f] ~= nil then
-							main.menu.f = main.t_itemname[f](t, item)
+							local call_t = call_t_override or t
+							local call_item = call_item_override or item
+							main.menu.f = main.t_itemname[f](call_t, call_item)
 						end
+						call_t_override = nil
+						call_item_override = nil
 						if main.menu.f ~= nil then
 							if motif.title_info.cursor[f] ~= nil and motif.title_info.cursor[f].snd ~= nil then
 								sndPlay(motif.Snd, motif.title_info.cursor[f].snd[1], motif.title_info.cursor[f].snd[2])

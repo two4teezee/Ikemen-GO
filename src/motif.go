@@ -2990,6 +2990,9 @@ func (ch *MotifChallenger) init(m *Motif) {
 }
 
 func (ch *MotifChallenger) step(m *Motif) {
+	if err := sys.luaLState.DoString("hook.run('game.challenger')"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.challenger", err.Error())
+	}
 	if ch.endTimer == -1 && ch.counter == m.ChallengerInfo.Time {
 		startFadeOut(m.ChallengerInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
 		ch.endTimer = ch.counter + m.fadeOut.timeRemaining
@@ -3180,6 +3183,9 @@ func (co *MotifContinue) playCounterSounds(m *Motif) {
 }
 
 func (co *MotifContinue) step(m *Motif) {
+	if err := sys.luaLState.DoString("hook.run('game.continue')"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.continue", err.Error())
+	}
 	if co.credits != sys.credits {
 		co.updateCreditsText(m)
 		if !co.selected {
@@ -4680,6 +4686,9 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
 }
 
 func (hi *MotifHiscore) step(m *Motif) {
+	if err := sys.luaLState.DoString("hook.run('game.hiscore')"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.hiscore", err.Error())
+	}
 	// Begin fade-out on cancel or when time elapses.
 	if hi.endTimer == -1 {
 		cancel := sys.esc || m.button(m.HiscoreInfo.Cancel.Key, -1) || (!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
@@ -5417,6 +5426,9 @@ func (vi *MotifVictory) init(m *Motif) {
 }
 
 func (vi *MotifVictory) step(m *Motif) {
+	if err := sys.luaLState.DoString("hook.run('game.victory')"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.victory", err.Error())
+	}
 	cancelPressed := sys.esc || m.button(m.VictoryScreen.Cancel.Key, -1)
 	skipPressed := m.button(m.VictoryScreen.Skip.Key, -1)
 	prevLineFullyRendered := vi.lineFullyRendered
@@ -5798,6 +5810,9 @@ func (wi *MotifWin) initWinScreen(m *Motif) bool {
 
 // Process the step logic for MotifWin
 func (wi *MotifWin) step(m *Motif) {
+	if err := sys.luaLState.DoString("hook.run('game.result')"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.result", err.Error())
+	}
 	if wi.endTimer == -1 {
 		cancel := sys.esc || m.button(wi.keyCancel, -1)
 		if cancel || wi.counter == wi.time {

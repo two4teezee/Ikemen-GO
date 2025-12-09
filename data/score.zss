@@ -40,8 +40,8 @@ ignoreHitPause if !const(Default.Enable.Score) || teamSide = 0 {
 				let timeMul = 1.5;
 			}
 			scoreAdd{value: round(float(life) / lifeMax / (numPartner + 1) * 10000 * $timeMul, -2)}
-			map(_iksys_scoreTimeVitalFlag) := 1;
 		}
+		map(_iksys_scoreTimeVitalFlag) := 1;
 	}
 } else if roundState >= 2 {
 	# score: first attack bonus

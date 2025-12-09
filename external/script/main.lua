@@ -1558,6 +1558,7 @@ function main.f_hiscore(mode, place)
 		if not runHiscore(mode, place) then
 			break
 		end
+		main.f_cmdInput()
 		refresh()
 	end
 end

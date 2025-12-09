@@ -1178,6 +1178,19 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 				continue
 			}
 
+			// Handle Text map fields: rewrite "<key>.text" to "text.<key>" and re-dispatch.
+			if i+1 < len(parts) && strings.EqualFold(parts[i+1].name, "text") {
+				if fieldValText, _, foundText := findFieldByINITag(v, "text"); foundText &&
+					fieldValText.Kind() == reflect.Map &&
+					fieldValText.Type().Key().Kind() == reflect.String &&
+					fieldValText.Type().Elem().Kind() == reflect.String {
+					newParts := make([]queryPart, len(parts))
+					copy(newParts, parts)
+					newParts[i], newParts[i+1] = newParts[i+1], newParts[i]
+					return assignField(structPtr, newParts, value, baseDef)
+				}
+			}
+
 			return fmt.Errorf("field '%s' not found as struct or map field", part.name)
 
 		} else if v.Kind() == reflect.Map {

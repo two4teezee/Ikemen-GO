@@ -490,12 +490,12 @@ function menu.f_init()
 	if gamemode('training') then
 		sndPlay(motif.Snd, motif.training_info.enter.snd[1], motif.training_info.enter.snd[2])
 		bgReset(motif.trainingbgdef.BGDef)
-		fadeInInit(motif.training_info.fadein.FadeData)
+		main.f_fadeReset('fadein', motif.training_info)
 		menu.currentMenu = {menu.training.loop, menu.training.loop}
 	else
 		sndPlay(motif.Snd, motif.menu_info.enter.snd[1], motif.menu_info.enter.snd[2])
 		bgReset(motif.menubgdef.BGDef)
-		fadeInInit(motif.menu_info.fadein.FadeData)
+		main.f_fadeReset('fadein', motif.menu_info)
 		--menu.menu.cursorPosY = 1
 		--menu.menu.moveTxt = 0
 		--menu.menu.item = 1

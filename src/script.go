@@ -680,8 +680,13 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		l.Push(lua.LNumber(a.GetLength()))
-		l.Push(lua.LNumber(a.anim.totaltime))
+		var length, totaltime int32
+		if a.anim != nil {
+			length = a.GetLength()
+			totaltime = a.anim.totaltime
+		}
+		l.Push(lua.LNumber(length))
+		l.Push(lua.LNumber(totaltime))
 		return 2
 	})
 	luaRegister(l, "animGetPreloadedCharData", func(l *lua.LState) int {
@@ -1472,29 +1477,61 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "fadeInActive", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.motif.fadeIn.isActive()))
-		return 1
-	})
-	luaRegister(l, "fadeInInit", func(*lua.LState) int {
-		f, ok := toUserData(l, 1).(*Fade)
-		if !ok {
-			userDataError(l, 1, f)
+	//luaRegister(l, "fadeInActive", func(*lua.LState) int {
+	//	l.Push(lua.LBool(sys.motif.fadeIn.isActive()))
+	//	return 1
+	//})
+	//luaRegister(l, "fadeInInit", func(*lua.LState) int {
+	//	f, ok := toUserData(l, 1).(*Fade)
+	//	if !ok {
+	//		userDataError(l, 1, f)
+	//	}
+	//	f.init(sys.motif.fadeIn, true)
+	//	return 0
+	//})
+	//luaRegister(l, "fadeOutActive", func(*lua.LState) int {
+	//	l.Push(lua.LBool(sys.motif.fadeOut.isActive()))
+	//	return 1
+	//})
+	//luaRegister(l, "fadeOutInit", func(*lua.LState) int {
+	//	f, ok := toUserData(l, 1).(*Fade)
+	//	if !ok {
+	//		userDataError(l, 1, f)
+	//	}
+	//	f.init(sys.motif.fadeOut, false)
+	//	return 0
+	//})
+	luaRegister(l, "fadeColor", func(l *lua.LState) int {
+		if int32(numArg(l, 2)) > sys.frameCounter {
+			l.Push(lua.LBool(true)) // delayed fade
+			return 1
 		}
-		f.init(sys.motif.fadeIn, true)
-		return 0
-	})
-	luaRegister(l, "fadeOutActive", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.motif.fadeOut.isActive()))
-		return 1
-	})
-	luaRegister(l, "fadeOutInit", func(*lua.LState) int {
-		f, ok := toUserData(l, 1).(*Fade)
-		if !ok {
-			userDataError(l, 1, f)
+		frame := float64(sys.frameCounter - int32(numArg(l, 2)))
+		length := numArg(l, 3)
+		if frame > length || length <= 0 {
+			l.Push(lua.LBool(false))
+			return 1
 		}
-		f.init(sys.motif.fadeOut, false)
-		return 0
+		r, g, b, alpha := int32(0), int32(0), int32(0), float64(0)
+		if strArg(l, 1) == "fadeout" {
+			alpha = math.Floor(float64(255) / length * frame)
+		} else if strArg(l, 1) == "fadein" {
+			alpha = math.Floor(255 - 255*(frame-1)/length)
+		}
+		alpha = float64(ClampF(float32(alpha), 0, 255))
+		src := int32(alpha)
+		dst := 255 - src
+		if !nilArg(l, 6) {
+			r = int32(numArg(l, 4))
+			g = int32(numArg(l, 5))
+			b = int32(numArg(l, 6))
+		}
+		col := uint32(int32(b)&0xff | int32(g)&0xff<<8 | int32(r)&0xff<<16)
+		sys.luaQueueLayerDraw(2, func() {
+			FillRect(sys.scrrect, col, [2]int32{src, dst})
+		})
+		l.Push(lua.LBool(true))
+		return 1
 	})
 	luaRegister(l, "fileExists", func(l *lua.LState) int {
 		path := strArg(l, 1)

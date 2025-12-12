@@ -1390,7 +1390,7 @@ options.t_itemname = {
 			if options.modified then
 				options.f_saveCfg(options.needReload)
 			end
-			fadeOutInit(motif.option_info.fadeout.FadeData)
+			main.f_fadeReset('fadeout', motif.option_info)
 			main.close = true
 			--return false
 		end
@@ -1403,7 +1403,7 @@ options.t_itemname = {
 			if options.needReload then
 				main.f_warning(motif.warning_info.text.text.noreload, motif.option_info, motif.optionbgdef)
 			end
-			fadeOutInit(motif.option_info.fadeout.FadeData)
+			main.f_fadeReset('fadeout', motif.option_info)
 			main.close = true
 			--return false
 		end
@@ -1432,7 +1432,7 @@ function options.f_createMenu(tbl, bool_main)
 		main.f_menuSnap(motif.option_info)
 		if bool_main then
 			bgReset(motif.optionbgdef.BGDef)
-			fadeInInit(motif.option_info.fadein.FadeData)
+			main.f_fadeReset('fadein', motif.option_info)
 			playBgm({source = "motif.option"})
 			main.close = false
 		end
@@ -1446,9 +1446,9 @@ function options.f_createMenu(tbl, bool_main)
 			cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info, motif.option_info.cursor)
 			textImgReset(motif.option_info.title.TextSpriteData)
 			textImgSetText(motif.option_info.title.TextSpriteData, tbl.title)
-			if main.close and not fadeInActive() and not fadeOutActive() then
+			if main.close and not main.fadeActive then
 				bgReset(motif[main.background].BGDef)
-				fadeInInit(motif[main.group].fadein.FadeData)
+				main.f_fadeReset('fadein', motif[main.group])
 				playBgm({source = "motif.title"})
 				main.close = false
 				break
@@ -1461,7 +1461,7 @@ function options.f_createMenu(tbl, bool_main)
 					if options.needReload then
 						main.f_warning(motif.warning_info.text.text.noreload, motif.option_info, motif.optionbgdef)
 					end
-					fadeOutInit(motif.option_info.fadeout.FadeData)
+					main.f_fadeReset('fadeout', motif.option_info)
 					main.close = true
 				else
 					break

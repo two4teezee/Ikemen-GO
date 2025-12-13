@@ -206,7 +206,7 @@ end
 local ANALOG_DEAD_TIME = 20 -- dead time to limit scrolling behavior
 main.playerInput = 1
 main.lastAxis = nil
-main.analogDeadTime = ANALOG_DEAD_TIME
+main.analogDeadTime = 0
 function main.f_input(p, ...)
 	-- Collect all key arrays passed
 	local keyTables = {...}
@@ -233,7 +233,7 @@ function main.f_input(p, ...)
 								return true
 							end
 						end
-					elseif commandGetState(main.t_cmd[pn], btn) then
+					elseif commandGetState(main.t_cmd[pn], btn) and main.analogDeadTime <= 0 then
 						main.playerInput = pn
 						return true
 					end

@@ -20,20 +20,20 @@ type AIrampProperties struct {
 
 type KeysProperties struct {
 	Joystick int    `ini:"Joystick"`
-	Up       string `ini:"Up"`
-	Down     string `ini:"Down"`
-	Left     string `ini:"Left"`
-	Right    string `ini:"Right"`
-	A        string `ini:"A"`
-	B        string `ini:"B"`
-	C        string `ini:"C"`
-	X        string `ini:"X"`
-	Y        string `ini:"Y"`
-	Z        string `ini:"Z"`
-	Start    string `ini:"Start"`
-	D        string `ini:"D"`
-	W        string `ini:"W"`
-	Menu     string `ini:"Menu"`
+	Up       string `ini:"up"`
+	Down     string `ini:"down"`
+	Left     string `ini:"left"`
+	Right    string `ini:"right"`
+	A        string `ini:"a"`
+	B        string `ini:"b"`
+	C        string `ini:"c"`
+	X        string `ini:"x"`
+	Y        string `ini:"y"`
+	Z        string `ini:"z"`
+	Start    string `ini:"start"`
+	D        string `ini:"d"`
+	W        string `ini:"w"`
+	Menu     string `ini:"menu"`
 	GUID     string `ini:"GUID"`
 	RumbleOn bool   `ini:"RumbleOn"`
 }
@@ -256,49 +256,65 @@ func loadConfig(def string) (*Config, error) {
 	} else {
 		defaultSrc = defaultConfig
 	}
-	// Load the INI file(s)
+	// Load the INI file
 	var iniFile *ini.File
+	var defaultOnlyIni *ini.File
+	var userIniFile *ini.File
 	var err error
 	if fp := FileExist(def); len(fp) == 0 {
 		iniFile, err = ini.LoadSources(options, defaultSrc)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read data: %v", err)
 		}
+		defaultOnlyIni, err = ini.LoadSources(options, defaultSrc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read defaults-only data: %v", err)
+		}
+		// no user file
 	} else {
 		iniFile, err = ini.LoadSources(options, defaultSrc, def)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read data: %v", err)
+		}
+		defaultOnlyIni, err = ini.LoadSources(options, defaultSrc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read defaults-only data: %v", err)
+		}
+		userIniFile, err = ini.LoadSources(options, def)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read user data: %v", err)
 		}
 	}
 	var c Config
 	c.Def = def
 	c.initStruct()
 
-	// Iterate through all sections
-	for _, section := range iniFile.Sections() {
-		sectionName := section.Name()
-
-		// Skip the default section
-		if sectionName == ini.DEFAULT_SECTION {
-			continue
+	assignFrom := func(src *ini.File) {
+		if src == nil {
+			return
 		}
-
-		// Always include the section name as the first part of the key
-		for _, key := range section.Keys() {
-			keyName := key.Name()
-			values := key.ValueWithShadows() // Retrieve all shadowed values
-
-			for _, value := range values {
-				// Replace spaces with underscores in section and key names before parsing.
-				fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
-
-				keyParts := parseQueryPath(fullKey)
-				if err := assignField(&c, keyParts, value); err != nil {
-					fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
+		for _, section := range src.Sections() {
+			sectionName := section.Name()
+			if sectionName == ini.DEFAULT_SECTION {
+				continue
+			}
+			for _, key := range section.Keys() {
+				keyName := key.Name()
+				values := key.ValueWithShadows()
+				for _, value := range values {
+					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
+					keyParts := parseQueryPath(fullKey)
+					if err := assignField(&c, keyParts, value, def); err != nil {
+						fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
+					}
 				}
 			}
 		}
 	}
+
+	// Apply precedence: struct zero/default tags < defaultConfig.ini < user config
+	assignFrom(defaultOnlyIni)
+	assignFrom(userIniFile)
 
 	c.IniFile = iniFile
 	c.normalize()

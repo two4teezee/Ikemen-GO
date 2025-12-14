@@ -181,6 +181,7 @@ func newCompiler() *Compiler {
 		"savestate":            c.saveState,
 		"scoreadd":             c.scoreAdd,
 		"shiftinput":           c.shiftInput,
+		"storyboard":           c.storyboard,
 		"tagin":                c.tagIn,
 		"tagout":               c.tagOut,
 		"targetadd":            c.targetAdd,
@@ -407,7 +408,6 @@ var triggerMap = map[string]int{
 	"incustomanim":       1,
 	"incustomstate":      1,
 	"index":              1,
-	"indialogue":         1,
 	"inputtime":          1,
 	"introstate":         1,
 	"isasserted":         1,
@@ -422,6 +422,7 @@ var triggerMap = map[string]int{
 	"memberno":           1,
 	"min":                1,
 	"motifstate":         1,
+	"motifvar":           1,
 	"movecountered":      1,
 	"movehitvar":         1,
 	"mugenversion":       1,
@@ -4508,8 +4509,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_incustomanim)
 	case "incustomstate":
 		out.append(OC_ex_, OC_ex_incustomstate)
-	case "indialogue":
-		out.append(OC_ex_, OC_ex_indialogue)
 	case "inputtime":
 		if err := c.checkOpeningParenthesisCS(in); err != nil {
 			return bvNone(), err
@@ -4779,17 +4778,43 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		switch msname {
+		case "challenger":
+			opc = OC_ex2_motifstate_challenger
 		case "continuescreen":
 			opc = OC_ex2_motifstate_continuescreen
+		case "continueyes":
+			opc = OC_ex2_motifstate_continueyes
+		case "continueno":
+			opc = OC_ex2_motifstate_continueno
+		case "demo":
+			opc = OC_ex2_motifstate_demo
+		case "dialogue":
+			opc = OC_ex2_motifstate_dialogue
+		case "menu":
+			opc = OC_ex2_motifstate_menu
 		case "victoryscreen":
 			opc = OC_ex2_motifstate_victoryscreen
 		case "winscreen":
 			opc = OC_ex2_motifstate_winscreen
+		case "hiscore":
+			opc = OC_ex2_motifstate_hiscore
 		default:
 			return bvNone(), Error("Invalid MotifState argument: " + msname)
 		}
 		out.append(OC_ex2_)
 		out.append(opc)
+	case "motifvar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		out.append(OC_const_)
+		out.appendI32Op(OC_const_motifvar, int32(sys.stringPool[c.playerNo].Add(
+			strings.ToLower(c.token))))
+		*in = strings.TrimSpace(*in)
+		if len(*in) == 0 || (!sys.ignoreMostErrors && (*in)[0] != ')') {
+			return bvNone(), Error("Missing ')' before " + c.token)
+		}
+		*in = (*in)[1:]
 	case "movecountered":
 		out.append(OC_ex_, OC_ex_movecountered)
 	case "movehitvar":
@@ -7678,7 +7703,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Load the command file
 	str = ""
 	if len(cmd) > 0 {
-		if err := LoadFile(&cmd, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&cmd, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err error
 			str, err = LoadText(filename)
 			if err != nil {
@@ -7691,7 +7716,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	}
 	for _, key := range SortedKeys(sys.cfg.Common.Cmd) {
 		for _, v := range sys.cfg.Common.Cmd[key] {
-			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -7710,7 +7735,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 		sys.chars[pn][0].cmd = make([]CommandList, MaxPlayerNo)
 		b := NewInputBuffer()
 		for i := range sys.chars[pn][0].cmd {
-			sys.chars[pn][0].cmd[i] = *NewCommandList(b)
+			sys.chars[pn][0].cmd[i] = *NewCommandList(b, -1)
 		}
 	}
 	c.cmdl = &sys.chars[pn][0].cmd[pn]
@@ -7839,7 +7864,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Compile state files
 	for _, s := range st {
 		if len(s) > 0 {
-			if err := c.stateCompile(states, s, []string{def, "", sys.motifDir, "data/"},
+			if err := c.stateCompile(states, s, []string{def, "", sys.motif.Def, "data/"},
 				sys.cgi[pn].ikemenver[0] == 0 &&
 					sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 				return nil, err
@@ -7848,7 +7873,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	}
 	// Compile states in command file
 	if len(cmd) > 0 {
-		if err := c.stateCompile(states, cmd, []string{def, "", sys.motifDir, "data/"},
+		if err := c.stateCompile(states, cmd, []string{def, "", sys.motif.Def, "data/"},
 			sys.cgi[pn].ikemenver[0] == 0 &&
 				sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 			return nil, err
@@ -7856,7 +7881,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	}
 	// Compile states in stcommon state file
 	if len(stcommon) > 0 {
-		if err := c.stateCompile(states, stcommon, []string{def, "", sys.motifDir, "data/"},
+		if err := c.stateCompile(states, stcommon, []string{def, "", sys.motif.Def, "data/"},
 			sys.cgi[pn].ikemenver[0] == 0 &&
 				sys.cgi[pn].ikemenver[1] == 0, constants); err != nil {
 			return nil, err
@@ -7865,7 +7890,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Compile common states
 	for _, key := range SortedKeys(sys.cfg.Common.States) {
 		for _, v := range sys.cfg.Common.States[key] {
-			if err := c.stateCompile(states, v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"},
+			if err := c.stateCompile(states, v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"},
 				false, constants); err != nil {
 				return nil, err
 			}

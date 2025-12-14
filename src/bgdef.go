@@ -24,6 +24,7 @@ type BGDef struct {
 	scale        [2]float32
 	stageprops   StageProps
 	bgclearcolor [3]int32
+	startlayer   int32
 	model        *Model
 	sceneNumber  int32
 	fov          float32
@@ -39,7 +40,8 @@ func newBGDef(def string) *BGDef {
 	return s
 }
 
-func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error) {
+func loadBGDef(sff *Sff, model *Model, def string, bgname string, startlayer int32) (*BGDef, error) {
+	bgname = strings.ToLower(bgname)
 	s := newBGDef(def)
 	str, err := LoadText(def)
 	if err != nil {
@@ -63,6 +65,9 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error
 	}
 	if sec := defmap[fmt.Sprintf("%sdef", bgname)]; len(sec) > 0 {
 		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
+		if !sec[0].readI32ForStage("startlayer", &s.startlayer) {
+			s.startlayer = startlayer
+		}
 		s.sceneNumber = -1
 		sec[0].readI32ForStage("scenenumber", &s.sceneNumber)
 		sec[0].readF32ForStage("fov", &s.fov)
@@ -83,7 +88,7 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string) (*BGDef, error
 		if len(s.bg) > 0 && s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def)
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def, s.startlayer)
 		if err != nil {
 			return nil, err
 		}
@@ -320,7 +325,7 @@ func (s *BGDef) action() {
 	}
 }
 
-func (s *BGDef) draw(layer int32, x, y, scl float32) {
+func (s *BGDef) Draw(layer int32, x, y, scl float32) {
 	// Action will only happen once per frame even though this function is called more times
 	// TODO: Doing this in layer 0 is currently necessary for it to work in screenpacks, but it might be introducing a frame of delay in layer -1
 	if layer == 0 {
@@ -345,7 +350,7 @@ func (s *BGDef) draw(layer int32, x, y, scl float32) {
 	}
 }
 
-func (s *BGDef) reset() {
+func (s *BGDef) Reset() {
 	s.bga.clear()
 	for i := range s.bg {
 		s.bg[i].reset()

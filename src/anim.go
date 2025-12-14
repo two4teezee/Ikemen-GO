@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 )
@@ -193,6 +194,7 @@ type Animation struct {
 	start_scale                [2]float32
 	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
+	phantomPixel               bool
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -762,8 +764,21 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 	// Compute X and Y AIR animation offsets
 	var xoff, yoff float32
 	if !a.isVideo {
-		xoff = xs * airOffsetFix[0] * (float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x) * a.start_scale[0] * (1 / a.scale_x)
-		yoff = ys * airOffsetFix[1] * (float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y) * a.start_scale[1] * (1 / a.scale_y)
+		xoffBase := float32(a.frames[a.drawidx].Xoffset) + a.interpolate_offset_x
+		yoffBase := float32(a.frames[a.drawidx].Yoffset) + a.interpolate_offset_y
+
+		// Phantom pixel adjustment: when frames are explicitly flipped via
+		// H or V in the AIR data, substract an extra pixel of offset.
+		if a.phantomPixel {
+			if a.frames[a.drawidx].Hscale < 0 {
+				xoffBase--
+			}
+			if a.frames[a.drawidx].Vscale < 0 {
+				yoffBase--
+			}
+		}
+		xoff = xs * airOffsetFix[0] * xoffBase * a.start_scale[0] * (1 / a.scale_x)
+		yoff = ys * airOffsetFix[1] * yoffBase * a.start_scale[1] * (1 / a.scale_y)
 	}
 
 	x = xcs*x + xoff
@@ -1692,26 +1707,51 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 type Anim struct {
 	anim             *Animation
-	window           [4]int32
 	x, y, xscl, yscl float32
+	window           [4]int32
+	xshear           float32
+	angle            float32
+	xvel, yvel       float32
 	palfx            *PalFX
+	layerno          int16
+	localScale       float32
+	offsetX          int32
+	friction         [2]float32
+	accel            [2]float32
+	vel              [2]float32
+	maxDist          [2]float32
+	facing           float32
+	// initial, unscaled values
+	offsetInit   [2]float32
+	scaleInit    [2]float32
+	windowInit   [4]float32
+	velocityInit [2]float32
 }
 
 func NewAnim(sff *Sff, action string) *Anim {
-	lines, i := SplitAndTrim(action, "\n"), 0
-	a := &Anim{anim: ReadAnimation(sff, &sff.palList, lines, &i),
-		window: sys.scrrect, x: sys.luaSpriteOffsetX,
-		xscl: 1, yscl: 1, palfx: newPalFX()}
+	a := &Anim{
+		window:     sys.scrrect,
+		xscl:       1,
+		yscl:       1,
+		palfx:      newPalFX(),
+		localScale: 1,
+		friction:   [2]float32{1.0, 1.0},
+		facing:     1,
+	}
+	if action != "" {
+		lines, i := SplitAndTrim(action, "\n"), 0
+		a.anim = ReadAnimation(sff, &sff.palList, lines, &i)
+		if len(a.anim.frames) == 0 {
+			return nil
+		}
+	}
 	a.palfx.clear()
 	a.palfx.time = -1
-	if len(a.anim.frames) == 0 {
-		return nil
-	}
 	return a
 }
 
-// CopyAnim creates a shallow copy of an animation with independent palette mapping
-func CopyAnim(a *Anim) *Anim {
+// Creates a shallow copy with independent palette mapping
+func (a *Anim) Copy() *Anim {
 	if a == nil || a.anim == nil || a.anim.sff == nil {
 		return nil
 	}
@@ -1735,6 +1775,17 @@ func CopyAnim(a *Anim) *Anim {
 	}
 	// Create new animation using copied SFF
 	newAnim := NewAnim(copySff, frameAnims.String())
+	newAnim.layerno = a.layerno
+	newAnim.localScale = a.localScale
+	newAnim.offsetX = a.offsetX
+	newAnim.friction = a.friction
+	newAnim.accel = a.accel
+	newAnim.offsetInit = a.offsetInit
+	newAnim.scaleInit = a.scaleInit
+	newAnim.windowInit = a.windowInit
+	newAnim.velocityInit = a.velocityInit
+	newAnim.maxDist = a.maxDist
+	newAnim.facing = a.facing
 	newAnim.window = a.window
 	newAnim.x = a.x
 	newAnim.y = a.y
@@ -1750,6 +1801,9 @@ func CopyAnim(a *Anim) *Anim {
 	newAnim.anim.frames = a.anim.frames
 	newAnim.anim.interpolate_blend_srcalpha = a.anim.interpolate_blend_srcalpha
 	newAnim.anim.interpolate_scale = a.anim.interpolate_scale
+	newAnim.anim.mask = a.anim.mask
+	newAnim.anim.srcAlpha = a.anim.srcAlpha
+	newAnim.anim.dstAlpha = a.anim.dstAlpha
 	// Copy all valid sprites safely
 	for _, c := range a.anim.frames {
 		if c.Group < 0 || c.Number < 0 {
@@ -1779,15 +1833,6 @@ func CopyAnim(a *Anim) *Anim {
 	return newAnim
 }
 
-func (a *Anim) SetPos(x, y float32) {
-	a.x, a.y = x, y
-}
-
-func (a *Anim) AddPos(x, y float32) {
-	a.x += x
-	a.y += y
-}
-
 func (a *Anim) SetTile(x, y, sx, sy int32) {
 	a.anim.tile.xflag, a.anim.tile.yflag, a.anim.tile.xspacing, a.anim.tile.yspacing = x, y, sx, sy
 }
@@ -1800,38 +1845,183 @@ func (a *Anim) SetAlpha(src, dst int16) {
 	a.anim.srcAlpha, a.anim.dstAlpha = src, dst
 }
 
-func (a *Anim) SetFacing(fc float32) {
-	if (fc == 1 && a.xscl < 0) || (fc == -1 && a.xscl > 0) {
-		a.xscl *= -1
+func (a *Anim) SetLocalcoord(lx, ly float32) {
+	if lx <= 0 || ly <= 0 {
+		return
 	}
+	v := lx
+	if lx*3 > ly*4 {
+		v = ly * 4 / 3
+	}
+	a.localScale = float32(v / 320)
+	a.offsetX = -int32(math.Floor(float64(lx)/(float64(v)/320)-320) / 2)
 }
 
-func (a *Anim) SetScale(x, y float32) {
-	a.xscl, a.yscl = x, y
+func (a *Anim) SetPos(x, y float32) {
+	a.offsetInit[0] = x
+	a.offsetInit[1] = y
+	a.x = x/a.localScale + float32(a.offsetX)
+	a.y = y / a.localScale
 }
 
-func (a *Anim) SetWindow(x, y, w, h float32) {
+func (a *Anim) AddPos(x, y float32) {
+	a.x += x / a.localScale
+	a.y += y / a.localScale
+}
+
+func (a *Anim) SetScale(xscl, yscl float32) {
+	a.scaleInit[0] = xscl
+	a.scaleInit[1] = yscl
+	a.xscl = xscl / a.localScale
+	a.yscl = yscl / a.localScale
+}
+
+func (a *Anim) SetWindow(window [4]float32) {
+	if window == [4]float32{0, 0, 0, 0} {
+		return
+	}
+	a.windowInit = window
+	x := window[0]/a.localScale + float32(a.offsetX)
+	y := window[1] / a.localScale
+	w := (window[2] - window[0]) / a.localScale
+	h := (window[3] - window[1]) / a.localScale
 	a.window[0] = int32((x + float32(sys.gameWidth-320)/2) * sys.widthScale)
 	a.window[1] = int32((y + float32(sys.gameHeight-240)) * sys.heightScale)
 	a.window[2] = int32(w*sys.widthScale + 0.5)
 	a.window[3] = int32(h*sys.heightScale + 0.5)
 }
 
-func (a *Anim) Update() {
-	a.palfx.step()
-	a.anim.Action()
+func (a *Anim) SetVelocity(xvel, yvel float32) {
+	a.velocityInit[0] = xvel
+	a.velocityInit[1] = yvel
+	a.xvel = xvel / a.localScale
+	a.yvel = yvel / a.localScale
+	a.vel = [2]float32{}
 }
 
-func (a *Anim) Draw() {
-	if !sys.frameSkip {
-		a.anim.Draw(&a.window, a.x+float32(sys.gameWidth-320)/2,
-			a.y+float32(sys.gameHeight-240), 1, 1, a.xscl, a.xscl, a.yscl,
-			0, Rotation{}, 0, a.palfx, 1, [2]float32{1, 1}, 0, 0, 0, false)
+func (a *Anim) SetMaxDist(x, y float32) {
+	a.maxDist[0] = x / a.localScale
+	a.maxDist[1] = y / a.localScale
+}
+
+func (a *Anim) SetAccel(xacc, yacc float32) {
+	a.accel[0] = xacc / a.localScale
+	a.accel[1] = yacc / a.localScale
+}
+
+func (a *Anim) updateVel() {
+	// candidate new displacement
+	nx := a.vel[0] + a.xvel
+	ny := a.vel[1] + a.yvel
+
+	// clamp to maxDist per axis, if set (non-zero)
+	if a.maxDist[0] != 0 {
+		lim := a.maxDist[0]
+		if (lim > 0 && nx >= lim) || (lim < 0 && nx <= lim) {
+			nx = lim
+			a.xvel = 0
+		}
+	}
+	if a.maxDist[1] != 0 {
+		lim := a.maxDist[1]
+		if (lim > 0 && ny >= lim) || (lim < 0 && ny <= lim) {
+			ny = lim
+			a.yvel = 0
+		}
+	}
+
+	a.vel[0] = nx
+	a.vel[1] = ny
+
+	// apply friction/accel only while we're within the maxDist on that axis
+	if a.maxDist[0] == 0 ||
+		math.Abs(float64(a.vel[0])) < math.Abs(float64(a.maxDist[0])) {
+		a.xvel *= a.friction[0]
+		a.xvel += a.accel[0]
+		if math.Abs(float64(a.xvel)) < 0.1 && math.Abs(float64(a.friction[0])) < 1 {
+			a.xvel = 0
+		}
+	} else {
+		a.xvel = 0
+	}
+
+	if a.maxDist[1] == 0 ||
+		math.Abs(float64(a.vel[1])) < math.Abs(float64(a.maxDist[1])) {
+		a.yvel *= a.friction[1]
+		a.yvel += a.accel[1]
+		if math.Abs(float64(a.yvel)) < 0.1 && math.Abs(float64(a.friction[1])) < 1 {
+			a.yvel = 0
+		}
+	} else {
+		a.yvel = 0
 	}
 }
 
-func (a *Anim) ResetFrames() {
-	a.anim.Reset()
+func (a *Anim) Update() {
+	if a.anim == nil {
+		return
+	}
+	a.palfx.step()
+	a.anim.Action()
+	a.updateVel()
+}
+
+func (a *Anim) Draw(ln int16) {
+	if sys.frameSkip || a == nil || a.anim == nil || a.layerno != ln {
+		return
+	}
+	// Xshear offset correction
+	xshear := -a.xshear
+	var xsoffset float32
+	if a.anim.spr != nil {
+		xsoffset = xshear * (float32(a.anim.spr.Offset[1]) * a.yscl)
+	}
+
+	// Facing correction
+	xscl := a.xscl
+	if (a.facing == 1 && a.xscl < 0) || (a.facing == -1 && a.xscl > 0) {
+		xscl *= -1
+	}
+
+	a.anim.Draw(&a.window, a.x+a.vel[0]-xsoffset+float32(sys.gameWidth-320)/2,
+		a.y+a.vel[1]+float32(sys.gameHeight-240), 1, 1, xscl, xscl, a.yscl,
+		xshear, Rotation{a.angle, 0, 0}, 0, a.palfx, a.facing, [2]float32{1, 1}, 0, 0, 0, false)
+}
+
+func (a *Anim) Reset() {
+	if a == nil {
+		return
+	}
+	if a.anim != nil {
+		a.anim.Reset()
+	}
+	a.SetPos(a.offsetInit[0], a.offsetInit[1])
+	a.SetScale(a.scaleInit[0], a.scaleInit[1])
+	a.SetWindow(a.windowInit)
+	a.SetVelocity(a.velocityInit[0], a.velocityInit[1])
+	if a.palfx != nil {
+		a.palfx.clear()
+	}
+}
+
+func (a *Anim) GetLength() int32 {
+	if a == nil || a.anim == nil || len(a.anim.frames) == 0 {
+		return 0
+	}
+	var length int32
+	for _, f := range a.anim.frames {
+		var t int32
+		switch {
+		case f.Time == -1: // Special case: infinite frame, count as 1 tick
+			t = 1
+		case f.Time > 0: //Normal positive duration
+			t = f.Time
+		default: // Time <= 0 (except -1) doesn't contribute
+			t = 0
+		}
+		length += t
+	}
+	return length
 }
 
 type PreloadedAnims map[[2]int32]*Animation

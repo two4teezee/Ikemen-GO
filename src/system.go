@@ -35,21 +35,20 @@ const (
 // The only instance of a System struct.
 // Do not create more than 1.
 var sys = System{
-	randseed:          int32(time.Now().UnixNano()),
-	scrrect:           [...]int32{0, 0, 320, 240},
-	gameWidth:         320,
-	gameHeight:        240,
-	widthScale:        1,
-	heightScale:       1,
-	brightness:        1,
-	maxRoundTime:      -1,
-	turnsRecoveryRate: 1.0 / 300,
-	soundMixer:        &beep.Mixer{},
-	bgm:               *newBgm(),
-	soundChannels:     newSoundChannels(16),
-	allPalFX:          newPalFX(),
-	bgPalFX:           newPalFX(),
-	ffx:               make(map[string]*FightFx),
+	randseed:      int32(time.Now().UnixNano()),
+	scrrect:       [...]int32{0, 0, 320, 240},
+	gameWidth:     320,
+	gameHeight:    240,
+	widthScale:    1,
+	heightScale:   1,
+	brightness:    1,
+	maxRoundTime:  -1,
+	soundMixer:    &beep.Mixer{},
+	bgm:           *newBgm(),
+	soundChannels: newSoundChannels(16),
+	allPalFX:      newPalFX(),
+	bgPalFX:       newPalFX(),
+	ffx:           make(map[string]*FightFx),
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
 	sel:      *newSelect(),
 	keyState: make(map[Key]bool),
@@ -66,22 +65,17 @@ var sys = System{
 	workpal:          make([]uint32, 256),
 	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
 	keyInput:         KeyUnknown,
-	//FLAC_FrameWait:          -1,
-	luaSpriteScale:       1,
-	luaPortraitScale:     1,
-	lifebarScale:         1,
-	lifebarPortraitScale: 1,
-	saveState:            NewGameState(),
-	statePool:            NewGameStatePool(),
-	savePool:             NewGameStatePool(),
-	loadPool:             NewGameStatePool(),
-	luaStringVars:        make(map[string]string),
-	luaNumVars:           make(map[string]float32),
-	luaTables:            make([]*lua.LTable, 0),
-	commandLists:         make([]*CommandList, 0),
-	arenaSaveMap:         make(map[int]*arena.Arena),
-	arenaLoadMap:         make(map[int]*arena.Arena),
-	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
+	saveState:        NewGameState(),
+	statePool:        NewGameStatePool(),
+	savePool:         NewGameStatePool(),
+	loadPool:         NewGameStatePool(),
+	luaStringVars:    make(map[string]string),
+	luaNumVars:       make(map[string]float32),
+	luaTables:        make([]*lua.LTable, 0),
+	commandLists:     make([]*CommandList, 0),
+	arenaSaveMap:     make(map[int]*arena.Arena),
+	arenaLoadMap:     make(map[int]*arena.Arena),
+	debugAccel:       1, // TODO: We probably shouldn't rely on this being initialized to 1
 }
 
 type TeamMode int32
@@ -106,7 +100,6 @@ type System struct {
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32
-	turnsRecoveryRate       float32
 	debugFont               *TextSprite
 	debugDisplay            bool
 	debugRef                [2]int // player number, helper index
@@ -116,6 +109,8 @@ type System struct {
 	allPalFX                *PalFX
 	bgPalFX                 *PalFX
 	lifebar                 Lifebar
+	motif                   Motif
+	storyboard              Storyboard
 	cfg                     Config
 	ffx                     map[string]*FightFx
 	sel                     Select
@@ -249,20 +244,8 @@ type System struct {
 	cmdFlags                map[string]string
 	whitePalTex             Texture
 	usePalette              bool
-	//FLAC_FrameWait          int
-	// Localcoord sceenpack
-	luaLocalcoord    [2]int32
-	luaSpriteScale   float32
-	luaPortraitScale float32
-	luaSpriteOffsetX float32
-	motifViewport43  [4]int32
-
-	// Localcoord lifebar
-	lifebarScale         float32
-	lifebarOffsetX       float32
-	lifebarOffsetY       float32
-	lifebarPortraitScale float32
-	lifebarLocalcoord    [2]int32
+	credits                 int32
+	gameRunning             bool
 
 	msaa              int32
 	externalShaders   [][][]byte
@@ -270,16 +253,14 @@ type System struct {
 	gameMode          string
 	frameCounter      int32
 	preMatchTime      int32
-	motifDir          string
-	motifDef          string
-	lifebarDef        string
 	captureNum        int
 	decisiveRound     [2]bool
 	timerStart        int32
 	timerRounds       []int32
+	curPlayTime       int32
 	scoreStart        [2]float32
 	scoreRounds       [][2]float32
-	matchData         *lua.LTable
+	statsLog          StatsLog
 	consecutiveWins   [2]int32
 	consecutiveRounds bool
 	firstAttack       [3]int
@@ -293,14 +274,10 @@ type System struct {
 	introSkipCall     bool
 	endMatch          bool
 	continueFlg       bool
-	dialogueFlg       bool
 	dialogueForce     int
 	dialogueBarsFlg   bool
 	noSoundFlg        bool
 	postMatchFlg      bool
-	continueScreenFlg bool
-	victoryScreenFlg  bool
-	winScreenFlg      bool
 	playBgmFlg        bool
 	loopBreak         bool
 	loopContinue      bool
@@ -332,6 +309,16 @@ type System struct {
 
 	// screenshot deferral
 	isTakingScreenshot bool
+
+	// keepAlive profiling (debug only)
+	keepAliveProfile bool
+	keepAliveOnce    sync.Once
+	keepAlivePrev    time.Time
+	keepAliveStart   time.Time
+	keepAliveCount   int
+
+	luaDrawPreOps   []func()
+	luaDrawLayerOps [3][]func()
 }
 
 // Check if the application is running inside a macOS app bundle
@@ -346,8 +333,6 @@ func (s *System) init(w, h int32) *lua.LState {
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
-	s.loadLocalcoords()
-	s.setMotifScale()
 	var err error
 	// Create a system window.
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
@@ -524,160 +509,24 @@ func (s *System) setGameSize(w, h int32) {
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
 
-func loadLinesFromFile(path string) []string {
-	var lines []string
-	_ = LoadFile(&path, nil, func(file string) error {
-		str, _ := LoadText(file)
-		lines = SplitAndTrim(str, "\n")
-		return nil
-	})
-	return lines
-}
-
-func (s *System) resolveMotifPath() {
-	resolvePath := func(val string) string {
-		caseStr := strings.ToLower(val)
-
-		if strings.HasPrefix(caseStr, "data"+string(filepath.Separator)) && FileExist(val) != "" {
-			return filepath.ToSlash(val)
-		}
-		if strings.HasSuffix(caseStr, ".def") && FileExist(filepath.Join("data", val)) != "" {
-			return filepath.ToSlash(filepath.Join("data", val))
-		}
-		if FileExist(filepath.Join("data", val, "system.def")) != "" {
-			return filepath.ToSlash(filepath.Join("data", val, "system.def"))
-		}
-		return filepath.ToSlash(val)
-	}
-
-	motif := s.cfg.Config.Motif
-	if val, ok := s.cmdFlags["-r"]; ok {
-		motif = resolvePath(val)
-	} else if val, ok := s.cmdFlags["-rubric"]; ok {
-		motif = resolvePath(val)
-	} else {
-		motif = resolvePath(motif)
-	}
-
-	s.motifDef = motif
-	s.motifDir = filepath.ToSlash(filepath.Dir(motif)) + "/"
-}
-
-func (s *System) resolveLifebarPath() {
-	resolvePath := func(val string) string {
-		if FileExist(val) != "" {
-			return filepath.ToSlash(val)
-		}
-		if FileExist(filepath.Join(s.motifDir, val)) != "" {
-			return filepath.ToSlash(filepath.Join(s.motifDir, val))
-		}
-		if FileExist(filepath.Join("data", val)) != "" {
-			return filepath.ToSlash(filepath.Join("data", val))
-		}
-		return "data/fight.def"
-	}
-
-	if val, ok := s.cmdFlags["-lifebar"]; ok {
-		s.lifebarDef = resolvePath(val)
-		return
-	}
-	// Try to read fight.def from motif
-	if fightVal := func() string {
-		motifLines := loadLinesFromFile(s.motifDef)
-		for i := 0; i < len(motifLines); {
-			is, name, _ := ReadIniSection(motifLines, &i)
-			if strings.ToLower(name) == "files" {
-				if v, ok := is["fight"]; ok {
-					return v
-				}
-				break
-			}
-		}
-		return ""
-	}(); fightVal != "" {
-		s.lifebarDef = resolvePath(fightVal)
-	} else {
-		s.lifebarDef = "data/fight.def"
-	}
-}
-
-func (s *System) loadLocalcoords() {
-	s.resolveMotifPath()
-	s.resolveLifebarPath()
-
-	readLocalcoord := func(path string) ([2]int32, bool) {
-		lines := loadLinesFromFile(path)
-		for i := 0; i < len(lines); {
-			is, name, _ := ReadIniSection(lines, &i)
-			if strings.ToLower(name) == "info" {
-				var lc [2]int32
-				if is.ReadI32("localcoord", &lc[0], &lc[1]) {
-					return lc, true
-				}
-			}
-		}
-		return [2]int32{320, 240}, false
-	}
-	// Motif
-	s.luaLocalcoord, _ = readLocalcoord(s.motifDef)
-	// Lifebar
-	if lc, ok := readLocalcoord(s.lifebarDef); ok {
-		s.lifebarLocalcoord = lc
-	} else {
-		s.lifebarLocalcoord = s.luaLocalcoord
-	}
-}
-
-func getViewport(srcW, srcH, dstW, dstH int32) [4]int32 {
+func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
 	fromRatio := srcW * dstH
 	toRatio := srcH * dstW
-
 	if fromRatio > toRatio {
+		// Source is wider than target aspect ratio
 		w := srcH * dstW / dstH
 		h := srcH
 		x := (srcW - w) / 2
-		return [4]int32{x, 0, w, h}
+		return [4]float64{x, 0, w, h}
 	} else if fromRatio < toRatio {
+		// Source is taller than target aspect ratio
 		w := srcW
 		h := srcW * dstH / dstW
 		y := (srcH - h) / 2
-		return [4]int32{0, y, w, h}
+		return [4]float64{0, y, w, h}
 	}
-	return [4]int32{0, 0, srcW, srcH}
-}
-
-// assign storyboard localcoord scaling
-func (s *System) setStoryboardScale(localcoord [2]int32) {
-	viewport := getViewport(localcoord[0], localcoord[1], 4, 3)
-	localW := float32(localcoord[0])
-	scaleX := float32(viewport[2]) / 320
-
-	s.luaSpriteScale = scaleX
-	s.luaSpriteOffsetX = -((localW/scaleX - 320) / 2)
-	s.luaPortraitScale = float32(viewport[2]) / localW
-}
-
-func (s *System) setMotifScale() {
-	s.motifViewport43 = getViewport(s.luaLocalcoord[0], s.luaLocalcoord[1], 4, 3)
-	scaleX := float32(s.motifViewport43[2]) / 320
-	offsetX := -((float32(s.luaLocalcoord[0])/scaleX - 320) / 2)
-
-	s.luaSpriteScale = scaleX
-	s.luaSpriteOffsetX = offsetX
-	s.luaPortraitScale = float32(s.motifViewport43[2]) / float32(s.luaLocalcoord[0])
-}
-
-func (s *System) setLifebarScale() {
-	viewport43 := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], 4, 3)
-	viewport := getViewport(s.lifebarLocalcoord[0], s.lifebarLocalcoord[1], s.gameWidth, s.gameHeight)
-
-	localW := float32(s.lifebarLocalcoord[0])
-	calcScale := float32(viewport[2]) / localW
-	calcOffsetX := (float32(viewport43[2]) - localW*calcScale) / 2
-
-	s.lifebarScale = 320.0 / float32(viewport43[2]) * calcScale
-	s.lifebarPortraitScale = localW / float32(viewport43[2]) * calcScale
-	s.lifebarOffsetX = calcOffsetX * calcScale
+	// Source and target have the same aspect ratio
+	return [4]float64{0, 0, srcW, srcH}
 }
 
 func (s *System) middleOfMatch() bool {
@@ -712,7 +561,7 @@ func (s *System) getMotifAspect() float32 {
 }
 
 func (s *System) getCurrentAspect() float32 {
-	if s.middleOfMatch() {
+	if s.middleOfMatch() && !s.motif.me.active && !s.motif.di.active {
 		return s.getFightAspect()
 	}
 	return s.getMotifAspect()
@@ -778,6 +627,34 @@ func (s *System) runMainThreadTask() {
 			return
 		}
 	}
+}
+
+func (s *System) keepAlive() {
+	//s.keepAliveProfile = true
+	// Log elapsed time since previous keepAlive and where this call came from.
+	if s.keepAliveProfile {
+		now := time.Now()
+		if s.keepAliveCount == 0 {
+			s.keepAliveStart = now
+		} else {
+			delta := now.Sub(s.keepAlivePrev)
+			total := now.Sub(s.keepAliveStart)
+			_, file, line, ok := runtime.Caller(1)
+			loc := "unknown"
+			if ok {
+				loc = fmt.Sprintf("%s:%d", filepath.Base(file), line)
+			}
+			s.errLog.Printf("[keepAlive] #%d Δ=%.3fms total=%.3fs at %s",
+				s.keepAliveCount,
+				float64(delta)/float64(time.Millisecond),
+				float64(total)/float64(time.Second),
+				loc)
+		}
+		s.keepAlivePrev = now
+		s.keepAliveCount++
+	}
+	s.runMainThreadTask()
+	s.window.pollEvents()
 }
 
 func (s *System) await(fps int) bool {
@@ -872,18 +749,16 @@ func (s *System) renderFrame() {
 		s.draw(dx, dy, dscl)
 	}
 
-	// Render top elements such as fade effects
 	if !s.frameSkip {
-		s.drawTop()
+		s.luaFlushDrawQueue()
+	} else {
+		// On skipped frames, discard queued draws to avoid buildup.
+		s.luaDiscardDrawQueue()
 	}
 
-	// Lua code is executed after drawing the fade effects, so that the menus are on top of them
-	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
-		for _, v := range sys.cfg.Common.Lua[key] {
-			if err := s.luaLState.DoString(v); err != nil {
-				s.luaLState.RaiseError(err.Error())
-			}
-		}
+	// Render top elements
+	if !s.frameSkip {
+		s.drawTop()
 	}
 
 	// Render debug elements
@@ -932,12 +807,6 @@ func (s *System) update() bool {
 				}
 			}
 		}
-	}
-
-	// Restore original resolution after changing aspect ratio
-	if !s.middleOfMatch() {
-		// TODO: This should probably not be based on scrrect
-		s.setGameSize(s.scrrect[2], s.scrrect[3])
 	}
 
 	if s.replayFile != nil {
@@ -1065,6 +934,95 @@ func (s *System) anyButton() bool {
 		return s.rollback.anyButton()
 	}
 	return s.anyHardButton()
+}
+
+// initializes commandLists so that there is one CommandList per configured player.
+func (s *System) EnsureCommandLists() {
+	players := int(s.cfg.Config.Players)
+	if players <= 0 {
+		return
+	}
+
+	// Grow slice if needed
+	if len(s.commandLists) < players {
+		tmp := make([]*CommandList, players)
+		copy(tmp, s.commandLists)
+		s.commandLists = tmp
+	}
+
+	// Create missing CommandLists
+	for i := 0; i < players; i++ {
+		if s.commandLists[i] == nil {
+			controllerNo := int32(i + 1) // controller numbers are 1-based
+			cl := NewCommandList(NewInputBuffer(), controllerNo)
+			s.commandLists[i] = cl
+		}
+	}
+}
+
+// returns true if the given string is either empty or matches one of the raw controller button tokens
+func (s *System) isControllerButtonToken(cmdstr string) bool {
+	cmd := strings.TrimSpace(cmdstr)
+	if cmd == "" {
+		return false
+	}
+	_, ok := StringToButtonLUT[cmd]
+	return ok
+}
+
+// Compiles the given command string and adds it to every initialized CommandList.
+func (s *System) AddCommandToLists(cmdstr string) {
+	if s.isControllerButtonToken(cmdstr) {
+		return
+	}
+	s.EnsureCommandLists()
+	for _, cl := range s.commandLists {
+		if cl == nil {
+			continue
+		}
+		time := cl.DefaultTime
+		buftime := cl.DefaultBufferTime
+		bufferHitpause := cl.DefaultBufferHitpause
+		bufferPauseend := cl.DefaultBufferPauseEnd
+		steptime := cl.DefaultStepTime
+		if err := cl.AddCommand(
+			cmdstr, // name
+			cmdstr, // cmdstr
+			time,
+			buftime,
+			bufferHitpause,
+			bufferPauseend,
+			steptime,
+		); err != nil && s.errLog != nil {
+			// Don't panic the engine on bad user config; just log.
+			s.errLog.Printf("Failed to parse command '%s': %v", cmdstr, err)
+		}
+	}
+}
+
+// equivalent of Lua commandInput
+func (s *System) StepCommandLists() {
+	for i, cl := range s.commandLists {
+		if cl == nil || cl.Buffer == nil {
+			continue
+		}
+		// controller index is 0-based here
+		controller := i
+		if cl.InputUpdate(nil, controller, 0, true) {
+			cl.Step(false, false, false, false, 0)
+		}
+	}
+}
+
+func (s *System) netplay() bool {
+	return sys.rollback.session != nil || sys.netConnection != nil || sys.replayFile != nil
+}
+
+func (s *System) escExit() bool {
+	return sys.esc && (sys.netplay() ||
+		!sys.cfg.Config.EscOpensMenu ||
+		sys.gameMode == "" || sys.gameMode == "demo" ||
+		(sys.motif.AttractMode.Enabled && sys.credits == 0))
 }
 
 func (s *System) anyChar() *Char {
@@ -1270,17 +1228,13 @@ func (s *System) introState() int32 {
 	case s.intro > s.lifebar.ro.ctrl_time+1:
 		// Pre-intro [RoundState = 0]
 		return 1
-	case (s.dialogueFlg && s.dialogueForce == 0) || s.intro == s.lifebar.ro.ctrl_time+1:
+	case (s.motif.di.active && s.dialogueForce == 0) || s.intro == s.lifebar.ro.ctrl_time+1:
 		// Player intros [RoundState = 1]
 		return 2
 	case s.intro == s.lifebar.ro.ctrl_time:
-		// Dialogue detection (s.dialogueFlg is detectable 1 frame later)
-		if s.dialogueForce == 0 {
-			for _, p := range sys.chars {
-				if len(p) > 0 && len(p[0].dialogue) > 0 {
-					return 2
-				}
-			}
+		// Dialogue detection (s.motif.di.active is detectable 1 frame later)
+		if s.motif.isDialogueSet() {
+			return 2
 		}
 		// Round announcement
 		return 3
@@ -1323,6 +1277,28 @@ func (s *System) roundOver() bool {
 	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
 }
 
+func (s *System) roundStateTicks() int32 {
+	return s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
+}
+
+func (s *System) winnerTeam() int32 {
+	var winp int32 = -1
+	if !s.endMatch {
+		if s.matchOver() && s.roundOver() {
+			w1 := s.wins[0] >= s.matchWins[0]
+			w2 := s.wins[1] >= s.matchWins[1]
+			if w1 != w2 {
+				winp = Btoi(w1) + Btoi(w2)*2
+			} else {
+				winp = 0
+			}
+		} else if s.winTeam >= 0 || s.roundState() >= 3 {
+			winp = int32(s.winTeam) + 1
+		}
+	}
+	return winp
+}
+
 func (s *System) gsf(gsf GlobalSpecialFlag) bool {
 	return s.specialFlag&gsf != 0
 }
@@ -1349,6 +1325,51 @@ func (s *System) printToConsole(pn, sn int, a ...interface{}) {
 			fmt.Printf("%s\n", str)
 			s.appendToConsole(str)
 		}
+	}
+}
+
+// Lua-driven deferred draw queue
+// Used by embedded Lua helpers (animDraw/bgDraw/textImgDraw/etc).
+func (s *System) luaQueuePreDraw(fn func()) {
+	if fn == nil {
+		return
+	}
+	s.luaDrawPreOps = append(s.luaDrawPreOps, fn)
+}
+func (s *System) luaQueueLayerDraw(layer int, fn func()) {
+	if fn == nil {
+		return
+	}
+	// Negative layers behave like a "pre" pass (e.g. clearColor).
+	if layer < 0 {
+		s.luaQueuePreDraw(fn)
+		return
+	}
+	// Clamp to last known Lua layer bucket.
+	if layer >= len(s.luaDrawLayerOps) {
+		layer = len(s.luaDrawLayerOps) - 1
+	}
+	s.luaDrawLayerOps[layer] = append(s.luaDrawLayerOps[layer], fn)
+}
+
+func (s *System) luaFlushDrawQueue() {
+	// Pre-pass
+	for _, fn := range s.luaDrawPreOps {
+		fn()
+	}
+	s.luaDrawPreOps = s.luaDrawPreOps[:0]
+	// Layered passes
+	for i := range s.luaDrawLayerOps {
+		for _, fn := range s.luaDrawLayerOps[i] {
+			fn()
+		}
+		s.luaDrawLayerOps[i] = s.luaDrawLayerOps[i][:0]
+	}
+}
+func (s *System) luaDiscardDrawQueue() {
+	s.luaDrawPreOps = s.luaDrawPreOps[:0]
+	for i := range s.luaDrawLayerOps {
+		s.luaDrawLayerOps[i] = s.luaDrawLayerOps[i][:0]
 	}
 }
 
@@ -1685,6 +1706,7 @@ func (s *System) resetRoundState() {
 
 	s.resetGblEffect()
 	s.lifebar.reset()
+	s.motif.reset()
 	s.saveStateFlag = false
 	s.loadStateFlag = false
 	s.firstAttack = [3]int{-1, -1, 0}
@@ -1699,7 +1721,7 @@ func (s *System) resetRoundState() {
 	s.winskipped = false
 	s.intro = s.lifebar.ro.start_waittime + s.lifebar.ro.ctrl_time + 1
 	s.curRoundTime = s.maxRoundTime
-
+	s.curPlayTime = 0
 	// Mugen resets the starting ID between matches but not between rounds
 	// Previously Ikemen reset it between rounds, but that creates the odd scenario where a new player in Turns mode will have the same ID as a previous player
 	//s.nextCharId = s.cfg.Config.HelperMax
@@ -1780,6 +1802,19 @@ func (s *System) resetRoundState() {
 			}
 		}
 		s.cgi[i].clearPCTime()
+
+		// Reset music map
+		s.cgi[i].music = make(Music)
+		// Append stage def file music parameters
+		s.cgi[i].music.Append(sys.stage.music)
+		// Append select.def stage music parameters
+		s.cgi[i].music.Append(sys.stage.si().music)
+		// Override with select.def char music parameters
+		s.cgi[i].music.Override(p[0].si().music)
+		// Override with music with launchFight parameters
+		s.cgi[i].music.Override(sys.sel.music)
+		// Debug dump of merged music.
+		s.cgi[i].music.DebugDump(fmt.Sprintf("cgi[%d].music after resetRoundState", i))
 	}
 
 	// Place characters in state 5900
@@ -1856,6 +1891,17 @@ func (s *System) resetFrameTime() {
 	s.nextAddTime, s.oldNextAddTime = 1, 1
 }
 
+func (s *System) resetMatchData(assets bool) {
+	sys.allPalFX = newPalFX()
+	sys.bgPalFX = newPalFX()
+	sys.resetGblEffect()
+	for i, p := range sys.chars {
+		if len(p) > 0 {
+			sys.clearPlayerAssets(i, assets)
+		}
+	}
+}
+
 func (s *System) charUpdate() {
 	s.charList.update()
 
@@ -1911,8 +1957,8 @@ func (s *System) runIntroSkip() {
 	}
 
 	// Start shutter effect on button press
-	if s.lifebar.ro.rt.shutterTimer == 0 && s.anyButton() {
-		s.lifebar.ro.rt.shutterTimer = s.lifebar.ro.rt.shutter_time * 2 // Open + close time
+	if s.lifebar.ro.shutterTimer == 0 && s.anyButton() {
+		s.lifebar.ro.shutterTimer = s.lifebar.ro.shutter_time * 2 // Open + close time
 	}
 
 	// Skip intros when signal from shutter animation arrives
@@ -2041,6 +2087,22 @@ func (s *System) action() {
 	// This must happen before hit detection for accurate display
 	// Allows a combo to still end if a character is hit in the same frame where it exits movetype H
 	s.lifebar.step()
+
+	// Update motif
+	s.motif.step()
+
+	// Run motif
+	s.motif.act()
+
+	// Common Lua calls
+	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+		for _, v := range sys.cfg.Common.Lua[key] {
+			if err := sys.luaLState.DoString(v); err != nil {
+				sys.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
+			}
+		}
+	}
+
 	if s.tickNextFrame() {
 		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing
 		s.globalTick()
@@ -2176,11 +2238,47 @@ func (s *System) getSlowtime() int32 {
 	return 0
 }
 
+func (s *System) timeElapsed() int32 {
+	// Timed rounds
+	if s.maxRoundTime > 0 {
+		return s.maxRoundTime - s.curRoundTime
+	}
+	// Unlimited rounds
+	return s.curPlayTime
+}
+
+func (s *System) timeRemaining() int32 {
+	if s.curRoundTime >= 0 {
+		return s.curRoundTime
+	}
+	return -1
+}
+
+func (s *System) timeTotal() int32 {
+	t := s.timerStart
+	for _, v := range s.timerRounds {
+		t += v
+	}
+	if s.lifebar.ro.timerActive {
+		t += s.timeElapsed()
+	}
+	return t
+}
+
 // Step sys.intro timer and execute related tasks
 func (s *System) stepRoundState() {
 	// Freeze round state if round animations cannot advance
 	if !s.lifebar.ro.act() {
 		return
+	}
+
+	// Fading
+	if !(s.lifebar.ro.fadeOut.isActive() || s.lifebar.ro.fadeIn.isActive()) {
+		if s.motif.fadeOut.isActive() {
+			s.motif.fadeOut.step()
+		} else if s.motif.fadeIn.isActive() {
+			s.motif.fadeIn.step()
+		}
 	}
 
 	// Intros
@@ -2220,14 +2318,17 @@ func (s *System) stepRoundState() {
 
 	// Ongoing round
 	// Handle remaining time limit
-	if s.intro == 0 && s.curRoundTime > 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
-		s.curRoundTime--
+	if s.intro == 0 && !s.gsf(GSF_timerfreeze) && s.supertime <= 0 && s.pausetime <= 0 {
+		if s.maxRoundTime > 0 && s.curRoundTime > 0 {
+			s.curRoundTime--
+		}
+		s.curPlayTime++
 	}
 
 	// Post round
 	if s.roundEnded() || s.roundEndDecision() {
 		rs4t := -s.lifebar.ro.over_waittime
-		fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.rt.fadeout_time
+		fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.fadeOut.time
 
 		s.intro--
 
@@ -2255,16 +2356,8 @@ func (s *System) stepRoundState() {
 			s.intro = Min(s.intro, fadeoutStart)
 			s.winskipped = true
 		}
-
-		// Start fadeout effect
-		if s.intro == fadeoutStart {
-			if s.gsf(GSF_roundnotover) && !s.winskipped {
-				// roundnotover prevents fadeoutStart from being reached
-				s.intro++
-			} else if s.lifebar.ro.rt.fadeoutTimer == 0 {
-				// Trigger fadeout only once
-				s.lifebar.ro.rt.fadeoutTimer = s.lifebar.ro.rt.fadeout_time
-			}
+		if s.intro == fadeoutStart && !s.gsf(GSF_roundnotover) && !s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
+			s.lifebar.ro.fadeOut.init(s.lifebar.ro.fadeOut, false)
 		}
 
 		// Before win poses
@@ -2333,23 +2426,6 @@ func (s *System) stepRoundState() {
 				s.draws++
 			}
 
-			// Default life recovery. Used only if externalized Lua implementation is disabled
-			if len(sys.cfg.Common.Lua) == 0 {
-				for _, p := range s.chars {
-					if len(p) == 0 {
-						continue
-					}
-					if p[0].winKO() && p[0].alive() && !s.matchOver() &&
-						(s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns) {
-						p[0].life += int32((float32(p[0].lifeMax) * float32(s.curRoundTime) / 60) * s.turnsRecoveryRate)
-
-						if p[0].life > p[0].lifeMax {
-							p[0].life = p[0].lifeMax
-						}
-					}
-				}
-			}
-
 			// Fast forward wait timer since we're now done waiting
 			s.winwaittime = 0
 		}
@@ -2379,6 +2455,10 @@ func (s *System) stepRoundState() {
 
 		if s.winwaittime > 0 {
 			s.winwaittime--
+		}
+		// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
+		if !s.winskipped && s.gsf(GSF_roundnotover) && s.intro == fadeoutStart {
+			s.intro++
 		}
 	} else if s.intro < 0 {
 		s.intro = 0
@@ -2600,6 +2680,8 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw lifebar layers -1 and 0
 		s.lifebar.draw(-1)
 		s.lifebar.draw(0)
+		// Draw motif layer 0
+		s.motif.draw(0)
 	}
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
@@ -2617,16 +2699,25 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw lifebar layer 1
 	s.lifebar.draw(1)
 
+	// Draw motif layer 1
+	s.motif.draw(1)
+
 	// Draw character sprites in layer 1 (old "ontop")
 	s.spritesLayer1.draw(x, y, scl*s.cam.BaseScale())
 
 	// Draw lifebar layer 2
 	s.lifebar.draw(2)
+
+	// Draw motif layer 2
+	s.motif.draw(2)
+
+	// Draw motif layer 3
+	s.motif.draw(3)
 }
 
 func (s *System) drawTop() {
 	BlendReset()
-	// Screen fading was here
+
 	s.brightness = s.brightnessOld
 	// Draw Clsn boxes
 	if s.clsnDisplay {
@@ -2805,7 +2896,7 @@ func (s *System) runMatch() (reload bool) {
 		select {
 		case cl := <-s.commandLine:
 			if err := s.luaLState.DoString(cl); err != nil {
-				s.errLog.Println(err.Error())
+				s.luaLState.RaiseError("Error during Debug Input Lua execution:\nCode: %s\nDetails: %s", cl, err.Error())
 			}
 		default:
 		}
@@ -2819,26 +2910,14 @@ func (s *System) runMatch() (reload bool) {
 		return s.rollback.hijackRunMatch(s)
 	}
 
-	didTryLoadBGM := false
-
 	// Loop until end of match
 	for !s.endMatch {
-		// Default BGM playback. Used only in Quick VS or if externalized Lua implementaion is disabled
-		if !didTryLoadBGM && s.round == 1 && (s.gameMode == "" || len(sys.cfg.Common.Lua) == 0) && sys.stage.stageTime > 0 {
-			didTryLoadBGM = true
-			// Need to search first
-			LoadFile(&s.stage.bgmusic, []string{s.stage.def, "", "sound/"}, func(path string) error {
-				s.bgm.Open(path, 1, int(s.stage.bgmvolume), int(s.stage.bgmloopstart), int(s.stage.bgmloopend), int(s.stage.bgmstartposition), s.stage.bgmfreqmul, -1)
-				return nil
-			})
-		}
-
 		s.frameStepFlag = false
 
 		for _, v := range s.shortcutScripts {
 			if v.Activate {
 				if err := s.luaLState.DoString(v.Script); err != nil {
-					s.errLog.Println(err.Error())
+					s.luaLState.RaiseError("Error executing Lua code: %s\n%v", v.Script, err.Error())
 				}
 			}
 		}
@@ -2882,26 +2961,36 @@ func (s *System) runMatch() (reload bool) {
 			return true
 		}
 
-		// Render frame
-		s.renderFrame()
-
 		// Break if finished
-		if s.fightLoopEnd && (!s.postMatchFlg || len(sys.cfg.Common.Lua) == 0) {
+		if s.fightLoopEnd && !s.postMatchFlg {
 			break
 		}
+
+		if s.endMatch && !s.lifebar.ro.fadeOut.isActive() {
+			break
+		}
+
+		// Render frame
+		s.renderFrame()
 
 		// Update system. Break if update returns false (game ended)
 		if !s.update() {
 			break
 		}
 
-		// If end match selected from menu/end of attract mode match/etc
+		// If end match selected from menu
 		if s.endMatch {
-			s.esc = true
-		} else if s.esc {
-			s.endMatch = s.netConnection != nil || len(sys.cfg.Common.Lua) == 0
+			if !s.motif.fadeOut.isActive() {
+				break
+			}
+		}
+
+		// If player pressed esc during netplay
+		if s.esc && s.netConnection != nil {
+			break
 		}
 	}
+
 	return false
 }
 
@@ -3042,36 +3131,7 @@ func (s *System) runNextRound() bool {
 		}
 
 		s.clearAllSound()
-
-		tbl_roundNo := s.luaLState.NewTable()
-		for _, p := range s.chars {
-			if len(p) > 0 && p[0].teamside != -1 {
-				tmp := s.luaLState.NewTable()
-				tmp.RawSetString("name", lua.LString(p[0].name))
-				tmp.RawSetString("id", lua.LNumber(p[0].id))
-				tmp.RawSetString("memberNo", lua.LNumber(p[0].memberNo))
-				tmp.RawSetString("selectNo", lua.LNumber(p[0].selectNo))
-				tmp.RawSetString("teamside", lua.LNumber(p[0].teamside))
-				tmp.RawSetString("life", lua.LNumber(p[0].life))
-				tmp.RawSetString("lifeMax", lua.LNumber(p[0].lifeMax))
-				tmp.RawSetString("winquote", lua.LNumber(p[0].winquote))
-				tmp.RawSetString("aiLevel", lua.LNumber(p[0].getAILevel()))
-				tmp.RawSetString("palno", lua.LNumber(p[0].gi().palno))
-				tmp.RawSetString("ratiolevel", lua.LNumber(p[0].ocd().ratioLevel))
-				tmp.RawSetString("win", lua.LBool(p[0].win()))
-				tmp.RawSetString("winKO", lua.LBool(p[0].winKO()))
-				tmp.RawSetString("winTime", lua.LBool(p[0].winTime()))
-				tmp.RawSetString("winPerfect", lua.LBool(p[0].winPerfect()))
-				tmp.RawSetString("winSpecial", lua.LBool(p[0].winType(WT_Special)))
-				tmp.RawSetString("winHyper", lua.LBool(p[0].winType(WT_Hyper)))
-				tmp.RawSetString("drawgame", lua.LBool(p[0].drawgame()))
-				tmp.RawSetString("ko", lua.LBool(p[0].scf(SCF_ko)))
-				tmp.RawSetString("over_ko", lua.LBool(p[0].scf(SCF_over_ko)))
-				tbl_roundNo.RawSetInt(p[0].playerNo+1, tmp)
-			}
-		}
-
-		s.matchData.RawSetInt(int(s.round-1), tbl_roundNo)
+		s.statsLog.nextRound()
 		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
 
 		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
@@ -3112,6 +3172,7 @@ func (s *System) runNextRound() bool {
 			// Otherwise match is over
 			s.postMatchFlg = true
 			s.fightLoopEnd = true
+			s.resetMatchData(false)
 		}
 	}
 
@@ -3300,33 +3361,37 @@ func (bk *RoundStartBackup) Restore() {
 }
 
 type SelectChar struct {
-	def            string
-	name           string
-	lifebarname    string
-	author         string
-	sound          string
-	intro          string
-	ending         string
-	arcadepath     string
-	ratiopath      string
-	movelist       string
-	pal            []int32
-	pal_defaults   []int32
-	pal_keymap     []int32
-	pal_files      []string
-	localcoord     int32
-	portrait_scale float32
-	cns_scale      [2]float32
-	anims          PreloadedAnims
-	sff            *Sff
+	def           string
+	name          string
+	lifebarname   string
+	author        string
+	sound         string
+	intro         string
+	ending        string
+	arcadepath    string
+	ratiopath     string
+	movelist      string
+	pal           []int32
+	pal_defaults  []int32
+	pal_keymap    []int32
+	pal_files     []string
+	localcoord    [2]float32
+	portraitscale float32
+	cns_scale     [2]float32
+	anims         PreloadedAnims
+	sff           *Sff
+	music         Music
+	//scp            *SelectCharParams
 }
 
 func newSelectChar() *SelectChar {
 	return &SelectChar{
-		localcoord:     320,
-		portrait_scale: 1,
-		cns_scale:      [...]float32{1, 1},
-		anims:          NewPreloadedAnims(),
+		localcoord:    [2]float32{320, 240},
+		portraitscale: 1,
+		cns_scale:     [2]float32{1, 1},
+		anims:         NewPreloadedAnims(),
+		music:         make(Music),
+		//scp:           newSelectCharParams(),
 	}
 }
 
@@ -3334,14 +3399,22 @@ type SelectStage struct {
 	def             string
 	name            string
 	attachedchardef []string
-	stagebgm        IniSection
-	portrait_scale  float32
+	localcoord      [2]float32
+	portraitscale   float32
 	anims           PreloadedAnims
 	sff             *Sff
+	music           Music
+	//ssp             *SelectStageParams
 }
 
 func newSelectStage() *SelectStage {
-	return &SelectStage{portrait_scale: 1, anims: NewPreloadedAnims()}
+	return &SelectStage{
+		localcoord:    [2]float32{320, 240},
+		portraitscale: 1,
+		anims:         NewPreloadedAnims(),
+		music:         make(Music),
+		//ssp:           newSelectStageParams(),
+	}
 }
 
 type OverrideCharData struct {
@@ -3366,21 +3439,27 @@ type Select struct {
 	stagelist          []SelectStage
 	selected           [2][][2]int
 	selectedStageNo    int
-	charAnimPreload    []int32
-	stageAnimPreload   []int32
+	charAnimPreload    map[int32]bool
+	stageAnimPreload   map[int32]bool
 	charSpritePreload  map[[2]uint16]bool
 	stageSpritePreload map[[2]uint16]bool
 	cdefOverwrite      map[int]string
 	sdefOverwrite      string
 	ocd                [3][]OverrideCharData
+	music              Music
 }
 
 func newSelect() *Select {
 	return &Select{
-		selectedStageNo:    -1,
-		charSpritePreload:  map[[2]uint16]bool{[...]uint16{9000, 0}: true, [...]uint16{9000, 1}: true},
+		selectedStageNo:  -1,
+		charAnimPreload:  make(map[int32]bool),
+		stageAnimPreload: make(map[int32]bool),
+		charSpritePreload: map[[2]uint16]bool{[...]uint16{9000, 0}: true,
+			[...]uint16{9000, 1}: true},
 		stageSpritePreload: make(map[[2]uint16]bool),
-		cdefOverwrite:      make(map[int]string)}
+		cdefOverwrite:      make(map[int]string),
+		music:              make(Music),
+	}
 }
 
 func (s *Select) GetCharNo(i int) int {
@@ -3447,12 +3526,12 @@ func getDefaultDefPathInZip(zipFilePathOnDisk string) (path1 string, path2 strin
 	return path1, path2
 }
 
-func (s *Select) addChar(defLine string) {
+func (s *Select) AddChar(def string) *SelectChar {
 	tnow := time.Now()
 	s.charlist = append(s.charlist, *newSelectChar())
 	sc := &s.charlist[len(s.charlist)-1]
 
-	parts := strings.Split(defLine, ",")
+	parts := strings.Split(def, ",")
 	defPathFromSelect := strings.TrimSpace(parts[0])
 	defPathFromSelect = filepath.ToSlash(defPathFromSelect)
 
@@ -3463,11 +3542,11 @@ func (s *Select) addChar(defLine string) {
 
 	if strings.ToLower(defPathFromSelect) == "randomselect" {
 		sc.def, sc.name = "randomselect", "Random"
-		return
+		return nil
 	}
 	if strings.ToLower(defPathFromSelect) == "dummyslot" {
 		sc.name = "dummyslot"
-		return
+		return nil
 	}
 
 	var finalDefPath string
@@ -3494,7 +3573,7 @@ func (s *Select) addChar(defLine string) {
 		if actualZipPathOnDisk == "" {
 			sc.name = "dummyslot"
 			tstr = fmt.Sprintf("Char: %v (ZIP NOT FOUND)", defPathFromSelect)
-			return
+			return nil
 		}
 
 		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
@@ -3510,7 +3589,7 @@ func (s *Select) addChar(defLine string) {
 			} else {
 				sc.name = "dummyslot"
 				tstr = fmt.Sprintf("Char: %v (DEF IN ZIP MISSING: %s or %s)", defPathFromSelect, defInZip1, defInZip2)
-				return
+				return nil
 			}
 		}
 	} else {
@@ -3528,7 +3607,7 @@ func (s *Select) addChar(defLine string) {
 		if foundDiskPath == "" || !strings.HasSuffix(strings.ToLower(foundDiskPath), ".def") {
 			sc.name = "dummyslot"
 			tstr = fmt.Sprintf("Char: %v (DEF NOT FOUND)", defPathFromSelect)
-			return
+			return nil
 		}
 		finalDefPath = foundDiskPath
 	}
@@ -3536,14 +3615,14 @@ func (s *Select) addChar(defLine string) {
 	sc.def = finalDefPath
 	if sc.def == "" {
 		sc.name = "dummyslot"
-		return
+		return nil
 	}
 
 	charDefContent, err := LoadText(sc.def)
 	if err != nil {
 		sc.name = "dummyslot"
 		tstr = fmt.Sprintf("Char: %v (DEF READ ERROR: %s)", defPathFromSelect, err.Error())
-		return
+		return nil
 	}
 
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -3597,10 +3676,8 @@ func (s *Select) addChar(defLine string) {
 				}
 				sc.author, _, _ = isec.getText("author")
 				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadI32("localcoord", &sc.localcoord)
-				if ok = isec.ReadF32("portraitscale", &sc.portrait_scale); !ok {
-					sc.portrait_scale = 320 / float32(sc.localcoord)
-				}
+				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
+				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
 		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
 			if lanInfo {
@@ -3615,10 +3692,8 @@ func (s *Select) addChar(defLine string) {
 				}
 				sc.author, _, _ = isec.getText("author")
 				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadI32("localcoord", &sc.localcoord)
-				if ok = isec.ReadF32("portraitscale", &sc.portrait_scale); !ok {
-					sc.portrait_scale = 320 / float32(sc.localcoord)
-				}
+				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
+				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
 		case "files":
 			if files {
@@ -3724,10 +3799,10 @@ func (s *Select) addChar(defLine string) {
 			switch name {
 			case "size":
 				if ok := is.ReadF32("xscale", &sc.cns_scale[0]); !ok {
-					sc.cns_scale[0] = 320 / float32(sc.localcoord)
+					sc.cns_scale[0] = 320 / sc.localcoord[0]
 				}
 				if ok := is.ReadF32("yscale", &sc.cns_scale[1]); !ok {
-					sc.cns_scale[1] = 320 / float32(sc.localcoord)
+					sc.cns_scale[1] = 320 / sc.localcoord[0]
 				}
 				return nil
 			}
@@ -3744,7 +3819,7 @@ func (s *Select) addChar(defLine string) {
 			}
 			lines, i := SplitAndTrim(str, "\n"), 0
 			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &i) // SFF here is temporary
-			for _, v_anim := range s.charAnimPreload {
+			for v_anim := range s.charAnimPreload {
 				if animation := at.get(v_anim); animation != nil {
 					sc.anims.addAnim(animation, v_anim)
 					for _, fr := range animation.frames {
@@ -3797,9 +3872,11 @@ func (s *Select) addChar(defLine string) {
 			return nil
 		})
 	}
+
+	return sc
 }
 
-func (s *Select) AddStage(def string) error {
+func (s *Select) AddStage(def string) (*SelectStage, error) {
 	var tstr string
 	tnow := time.Now()
 	defer func() {
@@ -3833,7 +3910,7 @@ func (s *Select) AddStage(def string) error {
 		if actualZipPathOnDisk == "" {
 			err := fmt.Errorf("stage zip not found: %s", defPathFromSelect)
 			sys.errLog.Printf("Failed to add stage, file not found: %v\n", defPathFromSelect)
-			return err
+			return nil, err
 		}
 
 		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
@@ -3848,7 +3925,7 @@ func (s *Select) AddStage(def string) error {
 			} else {
 				err := fmt.Errorf("def file not found in zip: %s or %s", defInZip1, defInZip2)
 				sys.errLog.Printf("Failed to add stage, def file not found in %v: %v or %v\n", defPathFromSelect, defInZip1, defInZip2)
-				return err
+				return nil, err
 			}
 		}
 	} else {
@@ -3860,7 +3937,7 @@ func (s *Select) AddStage(def string) error {
 			return nil
 		}); err != nil {
 			sys.errLog.Printf("Failed to add stage, file not found: %v\n", def)
-			return err
+			return nil, err
 		}
 	}
 
@@ -3876,10 +3953,10 @@ func (s *Select) AddStage(def string) error {
 		return nil
 	}); err != nil {
 		sys.errLog.Printf("Failed to add stage, file not found: %s: %v\n", finalDefPath, err)
-		return err
+		return nil, err
 	}
 	tstr = fmt.Sprintf("Stage added: %v", finalDefPath)
-	i, info, music, bgdef, stageinfo, lanInfo, lanMusic, lanBgdef, lanStageinfo := 0, true, true, true, true, true, true, true, true
+	i, info, bgdef, stageinfo, lanInfo, lanBgdef, lanStageinfo := 0, true, true, true, true, true, true
 	var spr string
 	s.stagelist = append(s.stagelist, *newSelectStage())
 	ss := &s.stagelist[len(s.stagelist)-1]
@@ -3901,7 +3978,7 @@ func (s *Select) AddStage(def string) error {
 					if i > 0 {
 						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
 					}
-					if err := is.LoadFile(key, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 						// Ensure slice has correct length
 						for len(ss.attachedchardef) <= i {
 							ss.attachedchardef = append(ss.attachedchardef, "")
@@ -3928,7 +4005,7 @@ func (s *Select) AddStage(def string) error {
 					if i > 0 {
 						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
 					}
-					if err := is.LoadFile(key, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 						// Ensure slice has correct length (fill gaps)
 						for len(ss.attachedchardef) <= i {
 							ss.attachedchardef = append(ss.attachedchardef, "")
@@ -3939,17 +4016,6 @@ func (s *Select) AddStage(def string) error {
 						continue
 					}
 				}
-			}
-		case "music":
-			if music {
-				music = false
-				ss.stagebgm = is
-			}
-		case fmt.Sprintf("%v.music", sys.cfg.Config.Language):
-			if lanMusic {
-				music = false
-				lanMusic = false
-				ss.stagebgm = is
 			}
 		case "bgdef":
 			if bgdef {
@@ -3965,28 +4031,22 @@ func (s *Select) AddStage(def string) error {
 		case "stageinfo":
 			if stageinfo {
 				stageinfo = false
-				localcoord := [2]float32{320, 240}
-				is.ReadF32("localcoord", &localcoord[0], &localcoord[1])
-				if ok := is.ReadF32("portraitscale", &ss.portrait_scale); !ok {
-					ss.portrait_scale = 320 / localcoord[0]
-				}
+				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				is.ReadF32("portraitscale", &ss.portraitscale)
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
-					sys.stageLocalcoords[key] = localcoord // Store localcoords for StageFit
+					sys.stageLocalcoords[key] = ss.localcoord // Store localcoords for StageFit
 				}
 			}
 		case fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language):
 			if lanStageinfo {
 				stageinfo = false
 				lanStageinfo = false
-				localcoord := [2]float32{320, 240}
-				is.ReadF32("localcoord", &localcoord[0], &localcoord[1])
-				if ok := is.ReadF32("portraitscale", &ss.portrait_scale); !ok {
-					ss.portrait_scale = 320 / localcoord[0]
-				}
+				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				is.ReadF32("portraitscale", &ss.portraitscale)
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
-					sys.stageLocalcoords[key] = localcoord
+					sys.stageLocalcoords[key] = ss.localcoord
 				}
 			}
 		}
@@ -4000,7 +4060,7 @@ func (s *Select) AddStage(def string) error {
 		// preload animations
 		i = 0
 		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
-		for _, v := range s.stageAnimPreload {
+		for v := range s.stageAnimPreload {
 			if anim := at.get(v); anim != nil {
 				ss.anims.addAnim(anim, v)
 				for _, fr := range anim.frames {
@@ -4024,7 +4084,7 @@ func (s *Select) AddStage(def string) error {
 			return nil
 		})
 	}
-	return nil
+	return ss, nil
 }
 
 func (s *Select) AddSelectedChar(tn, cn, pl int) bool {
@@ -4053,6 +4113,7 @@ func (s *Select) ClearSelected() {
 	s.ocd = [3][]OverrideCharData{}
 	sys.loadMutex.Unlock()
 	s.selectedStageNo = -1
+	s.music = make(Music)
 }
 
 type LoaderState int32
@@ -4278,7 +4339,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 			fa.teammate_scale = make([]float32, nsel)
 			sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
 			for i, ci := range idx {
-				fa.teammate_scale[i] = sys.sel.charlist[ci].portrait_scale
+				fa.teammate_scale[i] = sys.sel.charlist[ci].portraitscale * 320 / sys.sel.charlist[ci].localcoord[0]
 				fa.teammate_face[i] = sys.sel.charlist[ci].sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
 			}
 		}
@@ -4359,8 +4420,8 @@ func (l *Loader) load() {
 	}
 
 	// Update lifebar scale
-	sys.setLifebarScale()
-
+	sys.lifebar.setLifebarScale()
+	//sys.motif.setMotifScale()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {

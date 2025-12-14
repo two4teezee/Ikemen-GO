@@ -2661,9 +2661,10 @@ type CharGlobalInfo struct {
 	remapPreset             map[string]RemapPreset
 	remappedpal             [2]int32
 	localcoord              [2]float32
-	fnt                     [10]*Fnt
+	fnt                     map[int]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
+	music                   Music
 	attackBase              int32
 	defenceBase             int32
 }
@@ -3168,6 +3169,11 @@ func (c *Char) stWgi() *CharGlobalInfo {
 	}
 }
 
+// Return Select Char Info
+func (c *Char) si() *SelectChar {
+	return &sys.sel.charlist[c.selectNo]
+}
+
 func (c *Char) ocd() *OverrideCharData {
 	team := c.teamside
 	if c.teamside == -1 {
@@ -3188,7 +3194,7 @@ func (c *Char) load(def string) error {
 	gi.def, gi.displayname, gi.lifebarname, gi.author = def, "", "", ""
 	gi.sff, gi.palettedata, gi.snd, gi.quotes = nil, nil, nil, [MaxQuotes]string{}
 	gi.animTable = NewAnimationTable()
-	gi.fnt = [10]*Fnt{}
+	gi.fnt = make(map[int]*Fnt)
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
 		pal := gi.palInfo[i]
 		pal.keyMap = int32(i)
@@ -3233,7 +3239,39 @@ func (c *Char) load(def string) error {
 	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
 	c.localscl = 320 / c.localcoord
 	gi.portraitscale = 1
-	var fnt [10][2]string
+	// Collect arbitrary number of fonts
+	type fontSpec struct {
+		path   string
+		height int32
+	}
+	fntSpecs := map[int]fontSpec{}
+	parseFonts := func(is IniSection) {
+		for k, v := range is {
+			if strings.HasPrefix(k, "font") {
+				rest := k[4:]
+				if rest == "" {
+					continue
+				}
+				// extract leading digits from the remainder (handles font12 and font12.height)
+				j := 0
+				for j < len(rest) && rest[j] >= '0' && rest[j] <= '9' {
+					j++
+				}
+				if j == 0 {
+					continue
+				}
+				idx := int(Atoi(rest[:j]))
+				tail := rest[j:]
+				fs := fntSpecs[idx]
+				if tail == "" {
+					fs.path = v
+				} else if tail == ".height" {
+					fs.height = int32(Atoi(v))
+				}
+				fntSpecs[idx] = fs
+			}
+		}
+	}
 	for i < len(lines) {
 		is, name, subname := ReadIniSection(lines, &i)
 		switch name {
@@ -3271,10 +3309,7 @@ func (c *Char) load(def string) error {
 					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 					gi.palInfo[i] = pal
 				}
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
-				}
+				parseFonts(is)
 			}
 		case "palette ":
 			if keymap &&
@@ -3336,10 +3371,7 @@ func (c *Char) load(def string) error {
 					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
 					gi.palInfo[i] = pal
 				}
-				for i := range fnt {
-					fnt[i][0] = is[fmt.Sprintf("font%v", i)]
-					fnt[i][1] = is[fmt.Sprintf("fnt_height%v", i)]
-				}
+				parseFonts(is)
 			}
 		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
 			if lanKeymap &&
@@ -3392,7 +3424,7 @@ func (c *Char) load(def string) error {
 
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
-			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
 				str, err = LoadText(filename)
 				if err != nil {
 					return err
@@ -3503,7 +3535,7 @@ func (c *Char) load(def string) error {
 
 	if len(cns) > 0 {
 		cns_resolved := resolvePathRelativeToDef(cns)
-		if err := LoadFile(&cns_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&cns_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			str, err := LoadText(filename)
 			if err != nil {
 				return err
@@ -3771,7 +3803,7 @@ func (c *Char) load(def string) error {
 
 	if len(sprite) > 0 {
 		sprite_resolved := resolvePathRelativeToDef(sprite)
-		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err_sff error
 			gi.sff, err_sff = loadSff(filename, true) // loadSff uses OpenFile
 			return err_sff
@@ -3798,7 +3830,7 @@ func (c *Char) load(def string) error {
 	str = ""
 	if len(anim) > 0 {
 		anim_resolved := resolvePathRelativeToDef(anim)
-		if LoadFile(&anim_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if LoadFile(&anim_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err_air error
 			str, err_air = LoadText(filename)
 			if err_air != nil {
@@ -3811,7 +3843,7 @@ func (c *Char) load(def string) error {
 	}
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
-			if err := LoadFile(&v, []string{def, sys.motifDir, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -3827,7 +3859,7 @@ func (c *Char) load(def string) error {
 	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
-		if LoadFile(&sound_resolved, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if LoadFile(&sound_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err error
 			gi.snd, err = LoadSnd(filename)
 			return err
@@ -3837,29 +3869,28 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.snd = newSnd()
 	}
-	// Load fonts
-	for i_fnt, f_fnt_pair := range fnt {
-		if len(f_fnt_pair[0]) > 0 {
-			resolvedFntPath := resolvePathRelativeToDef(f_fnt_pair[0])
-			i := i_fnt
-			f_pair := f_fnt_pair
-			LoadFile(&resolvedFntPath, []string{def, sys.motifDir, "", "data/", "font/"}, func(filename string) error {
-				// Defer the font loading to the main thread
-				sys.mainThreadTask <- func() {
-					var err error
-					var height int32 = -1
-					if len(f_pair[1]) > 0 {
-						height = Atoi(f_pair[1])
-					}
-					if gi.fnt[i], err = loadFnt(filename, height); err != nil {
-						sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
-						// Assign a new empty font on failure to prevent nil pointer panics
-						gi.fnt[i] = newFnt()
-					}
-				}
-				return nil
-			})
+	// Load each declared font index into the font map.
+	for idx, spec := range fntSpecs {
+		if len(spec.path) == 0 {
+			continue
 		}
+		resolvedFntPath := resolvePathRelativeToDef(spec.path)
+		i := idx
+		LoadFile(&resolvedFntPath, []string{def, sys.motif.Def, "", "data/", "font/"}, func(filename string) error {
+			sys.mainThreadTask <- func() {
+				h := int32(-1)
+				if spec.height != 0 {
+					h = spec.height
+				}
+				if fnt, err := loadFnt(filename, h); err != nil {
+					sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+					gi.fnt[i] = newFnt()
+				} else {
+					gi.fnt[i] = fnt
+				}
+			}
+			return nil
+		})
 	}
 	return nil
 }
@@ -3878,7 +3909,7 @@ func (c *Char) loadPalette() {
 
 			pal := gi.palInfo[i]
 
-			if LoadFile(&pal.filename, []string{gi.def, "", sys.motifDir, "data/"}, func(file string) error {
+			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
 				f, err = OpenFile(file)
 				return err
 			}) == nil {
@@ -4067,7 +4098,7 @@ func (c *Char) loadFx(def string) error {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motifDir, "data/"}); found_path_fallback != "" {
+							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"}); found_path_fallback != "" {
 								if err := loadFightFx(found_path_fallback, false); err != nil {
 									sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path_fallback, def, err)
 								} else {
@@ -5121,7 +5152,7 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = textid.ToI(), 0
-	for _, ts := range sys.lifebar.textsprite {
+	for _, ts := range sys.motif.textsprite {
 		if ts.id == id && ts.ownerid == c.id {
 			n++
 		}
@@ -6179,7 +6210,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if removetexts {
-		sys.lifebar.removeText(-1, -1, c.id)
+		sys.motif.removeText(-1, -1, c.id)
 	}
 
 	if recursive {

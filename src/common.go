@@ -200,6 +200,26 @@ func IsNumeric(s string) bool {
 	return err == nil
 }
 
+// IsInt reports whether s is a valid base-10 integer literal (optional +/-).
+func IsInt(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	if s[0] == '+' || s[0] == '-' {
+		s = s[1:]
+	}
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 func Atoi(str string) int32 {
 	var n int64
 	str = strings.TrimSpace(str)
@@ -281,6 +301,18 @@ func Atof(str string) float64 {
 		}
 	}
 	return f
+}
+
+func Atob(str string) bool {
+	b, err := strconv.ParseBool(str)
+	if err != nil {
+		return false
+	}
+	return b
+}
+
+func Itoa(n int) string {
+	return fmt.Sprintf("%d", n)
 }
 
 func RectRotate(x, y, w, h, cx, cy, angle float32) [][2]float32 {
@@ -1007,10 +1039,10 @@ func (l *Layout) Read(pre string, is IniSection) {
 	is.ReadF32(pre+"angle", &l.angle)
 	is.ReadF32(pre+"xshear", &l.xshear)
 	if is.ReadI32(pre+"window", &l.window[0], &l.window[1], &l.window[2], &l.window[3]) {
-		l.window[0] = int32(float32(l.window[0]) * float32(sys.scrrect[2]/sys.lifebarLocalcoord[0]))
-		l.window[1] = int32(float32(l.window[1]) * float32(sys.scrrect[3]/sys.lifebarLocalcoord[1]))
-		l.window[2] = int32(float32(l.window[2]) * float32(sys.scrrect[2]/sys.lifebarLocalcoord[0]))
-		l.window[3] = int32(float32(l.window[3]) * float32(sys.scrrect[3]/sys.lifebarLocalcoord[1]))
+		l.window[0] = int32(float32(l.window[0]) * float32(sys.scrrect[2]/sys.lifebar.localcoord[0]))
+		l.window[1] = int32(float32(l.window[1]) * float32(sys.scrrect[3]/sys.lifebar.localcoord[1]))
+		l.window[2] = int32(float32(l.window[2]) * float32(sys.scrrect[2]/sys.lifebar.localcoord[0]))
+		l.window[3] = int32(float32(l.window[3]) * float32(sys.scrrect[3]/sys.lifebar.localcoord[1]))
 		window := l.window
 		if window[2] < window[0] {
 			l.window[2] = window[0]
@@ -1031,10 +1063,10 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 	if l.layerno == ln && s != nil {
 		// TODO: test "phantom pixel"
 		if l.facing < 0 {
-			x += sys.lifebar.fnt_scale * sys.lifebarScale
+			x += sys.lifebar.fnt_scale * sys.lifebar.scale
 		}
 		if l.vfacing < 0 {
-			y += sys.lifebar.fnt_scale * sys.lifebarScale
+			y += sys.lifebar.fnt_scale * sys.lifebar.scale
 		}
 		if s.coldepth <= 8 && s.PalTex == nil {
 			s.PalTex = s.CachePalette(s.Pal)
@@ -1043,7 +1075,7 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 		xshear := -l.xshear
 		xsoffset := xshear * (float32(s.Offset[1]) * l.scale[1] * fscale)
 
-		s.Draw(x+l.offset[0]*sys.lifebarScale-xsoffset, y+l.offset[1]*sys.lifebarScale,
+		s.Draw(x+l.offset[0]*sys.lifebar.scale-xsoffset, y+l.offset[1]*sys.lifebar.scale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
 			xshear, Rotation{l.angle, 0, 0}, fx, window)
 	}
@@ -1239,7 +1271,7 @@ func newAnimTextSnd(sff *Sff, ln int16) *AnimTextSnd {
 }
 
 func ReadAnimTextSnd(pre string, is IniSection,
-	sff *Sff, at AnimationTable, ln int16, f []*Fnt) *AnimTextSnd {
+	sff *Sff, at AnimationTable, ln int16, f map[int]*Fnt) *AnimTextSnd {
 
 	ats := newAnimTextSnd(sff, ln)
 	ats.Read(pre, is, at, ln, f)
@@ -1247,7 +1279,7 @@ func ReadAnimTextSnd(pre string, is IniSection,
 }
 
 func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
-	ln int16, f []*Fnt) {
+	ln int16, f map[int]*Fnt) {
 	is.ReadI32(pre+"snd", &ats.snd[0], &ats.snd[1])
 	ats.text = *readLbText(pre, is, "", ln, f, 0)
 	ats.animLayout.lay = *newLayout(ln)
@@ -1267,7 +1299,7 @@ func (ats *AnimTextSnd) Action() {
 	ats.text.step()
 }
 
-func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float32) {
+func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f map[int]*Fnt, scale float32) {
 	if ats.displaytime > 0 && ats.cnt > ats.displaytime {
 		return
 	}
@@ -1279,13 +1311,16 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f []*Fnt, scale float3
 	}
 
 	// Otherwise draw text
-	if ats.text.font[0] >= 0 && int(ats.text.font[0]) < len(f) && len(ats.text.text) > 0 {
+	if ats.text.font[0] >= 0 && getFont(f, ats.text.font[0]) != nil && len(ats.text.text) > 0 {
+		ff := getFont(f, ats.text.font[0])
 		for k, v := range strings.Split(ats.text.text, "\\n") {
-			ats.text.lay.DrawText(x, y+
-				float32(k)*(float32(f[ats.text.font[0]].Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale+
-					float32(f[ats.text.font[0]].Spacing[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale),
-				scale, layerno, v, f[ats.text.font[0]], ats.text.font[1], ats.text.font[2], ats.text.palfx,
-				ats.text.frgba)
+			if ff == nil {
+				break
+			}
+			lineH := float32(ff.Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale +
+				float32(ff.Spacing[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale
+			ats.text.lay.DrawText(x, y+float32(k)*lineH,
+				scale, layerno, v, ff, ats.text.font[1], ats.text.font[2], ats.text.palfx, ats.text.frgba)
 		}
 	}
 }
@@ -1297,7 +1332,7 @@ func (ats *AnimTextSnd) NoSound() bool {
 // Check if Draw() function is worth calling
 func (ats *AnimTextSnd) HasDrawable() bool {
 	hasAnim := ats.animLayout.anim != nil && len(ats.animLayout.anim.frames) > 0
-	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0
+	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0 && getFont(sys.lifebar.fnt, ats.text.font[0]) != nil
 
 	return hasAnim || hasText
 }
@@ -1328,15 +1363,16 @@ func (ats *AnimTextSnd) End(dt int32, inf bool) bool {
 
 // compareNatural compares two strings using natural order
 func compareNatural(a, b string) bool {
-	re := regexp.MustCompile(`^([a-zA-Z]+)(\d*)$`)
+	re := regexp.MustCompile(`^([a-zA-Z_]+)(\d*)$`)
 
 	// Extract prefix and numeric parts for both strings
 	aMatches := re.FindStringSubmatch(a)
 	bMatches := re.FindStringSubmatch(b)
 
-	// Index range check
-	if len(aMatches) < 3 || len(bMatches) < 3 {
-		return false
+	// If regex doesn't match, print warning and place non-matching items at the end
+	if aMatches == nil || bMatches == nil {
+		fmt.Printf("Warning: Skipping comparison for non-matching keys: '%s' vs '%s'\n", a, b)
+		return a < b // Default to lexicographic comparison to prevent panic
 	}
 
 	// Extract prefix and numeric part

@@ -464,6 +464,7 @@ const (
 	OC_const_stagevar_reflection_color_g
 	OC_const_stagevar_reflection_color_b
 	OC_const_gameoption
+	OC_const_motifvar
 	OC_const_constants
 	OC_const_stage_constants
 )
@@ -928,9 +929,16 @@ const (
 	OC_ex2_fightscreenstate_kodisplay
 	OC_ex2_fightscreenstate_rounddisplay
 	OC_ex2_fightscreenstate_windisplay
+	OC_ex2_motifstate_challenger
 	OC_ex2_motifstate_continuescreen
+	OC_ex2_motifstate_continueyes
+	OC_ex2_motifstate_continueno
+	OC_ex2_motifstate_demo
+	OC_ex2_motifstate_dialogue
+	OC_ex2_motifstate_menu
 	OC_ex2_motifstate_victoryscreen
 	OC_ex2_motifstate_winscreen
+	OC_ex2_motifstate_hiscore
 	OC_ex2_gamevar_introtime
 	OC_ex2_gamevar_outrotime
 	OC_ex2_gamevar_pausetime
@@ -2572,6 +2580,30 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushB(false)
 		}
 		*i += 4
+	case OC_const_motifvar:
+		value, err := sys.motif.GetValue(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
+			unsafe.Pointer(&be[*i]))])
+		if err == nil {
+			switch v := value.(type) {
+			case bool:
+				sys.bcStack.PushB(v)
+			case float32:
+				sys.bcStack.PushF(v)
+			case float64:
+				sys.bcStack.PushF(float32(v))
+			case int:
+				sys.bcStack.PushI(int32(v))
+			case int64:
+				sys.bcStack.PushI(int32(v))
+			case int32:
+				sys.bcStack.PushI(v)
+			default:
+				sys.bcStack.PushB(false)
+			}
+		} else {
+			sys.bcStack.PushB(false)
+		}
+		*i += 4
 	case OC_const_constants:
 		sys.bcStack.PushF(c.gi().constants[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
 			unsafe.Pointer(&be[*i]))]])
@@ -2928,9 +2960,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
 		*i += 4
 	case OC_ex_fightscreenvar_info_localcoord_x:
-		sys.bcStack.PushI(sys.lifebarLocalcoord[0])
+		sys.bcStack.PushI(sys.lifebar.localcoord[0])
 	case OC_ex_fightscreenvar_info_localcoord_y:
-		sys.bcStack.PushI(sys.lifebarLocalcoord[1])
+		sys.bcStack.PushI(sys.lifebar.localcoord[1])
 	case OC_ex_fightscreenvar_info_name:
 		sys.bcStack.PushB(sys.lifebar.nameLow ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
@@ -2989,8 +3021,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.animPN != c.playerNo)
 	case OC_ex_incustomstate:
 		sys.bcStack.PushB(c.ss.sb.playerNo != c.playerNo)
-	case OC_ex_indialogue:
-		sys.bcStack.PushB(sys.dialogueFlg)
 	// InputTime
 	case OC_ex_inputtime_B, OC_ex_inputtime_D, OC_ex_inputtime_F, OC_ex_inputtime_U, OC_ex_inputtime_L, OC_ex_inputtime_R, OC_ex_inputtime_N,
 		OC_ex_inputtime_a, OC_ex_inputtime_b, OC_ex_inputtime_c, OC_ex_inputtime_x, OC_ex_inputtime_y, OC_ex_inputtime_z,
@@ -3153,11 +3183,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_teamsize:
 		sys.bcStack.PushI(c.teamSize())
 	case OC_ex_timeelapsed:
-		sys.bcStack.PushI(timeElapsed())
+		sys.bcStack.PushI(sys.timeElapsed())
 	case OC_ex_timeremaining:
-		sys.bcStack.PushI(timeRemaining())
+		sys.bcStack.PushI(sys.timeRemaining())
 	case OC_ex_timetotal:
-		sys.bcStack.PushI(timeTotal())
+		sys.bcStack.PushI(sys.timeTotal())
 	case OC_ex_pos_z:
 		sys.bcStack.PushF(c.pos[2] * (c.localscl / oc.localscl))
 	case OC_ex_vel_z:
@@ -3629,12 +3659,26 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_fightscreenstate_windisplay:
 		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
 	// MotifState
+	case OC_ex2_motifstate_challenger:
+		sys.bcStack.PushB(sys.motif.ch.active)
 	case OC_ex2_motifstate_continuescreen:
-		sys.bcStack.PushB(sys.continueScreenFlg)
+		sys.bcStack.PushB(sys.motif.co.active)
+	case OC_ex2_motifstate_continueyes:
+		sys.bcStack.PushB(sys.motif.co.active && sys.motif.co.selected && sys.continueFlg)
+	case OC_ex2_motifstate_continueno:
+		sys.bcStack.PushB(sys.motif.co.active && sys.motif.co.selected && !sys.continueFlg)
+	case OC_ex2_motifstate_demo:
+		sys.bcStack.PushB(sys.motif.de.active)
+	case OC_ex2_motifstate_dialogue:
+		sys.bcStack.PushB(sys.motif.di.active)
+	case OC_ex2_motifstate_menu:
+		sys.bcStack.PushB(sys.motif.me.active)
 	case OC_ex2_motifstate_victoryscreen:
-		sys.bcStack.PushB(sys.victoryScreenFlg)
+		sys.bcStack.PushB(sys.motif.vi.active)
 	case OC_ex2_motifstate_winscreen:
-		sys.bcStack.PushB(sys.winScreenFlg)
+		sys.bcStack.PushB(sys.motif.wi.active)
+	case OC_ex2_motifstate_hiscore:
+		sys.bcStack.PushB(sys.motif.hi.active)
 	// GameVar
 	case OC_ex2_gamevar_introtime:
 		if sys.intro > 0 {
@@ -10951,6 +10995,9 @@ const (
 )
 
 func (sc dialogue) Run(c *Char, _ []int32) bool {
+	if !sys.motif.di.enabled {
+		return false
+	}
 	crun := getRedirectedChar(c, StateControllerBase(sc), dialogue_redirectid, "Dialogue")
 	if crun == nil {
 		return false
@@ -10961,7 +11008,7 @@ func (sc dialogue) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case dialogue_hidebars:
-			sys.dialogueBarsFlg = sys.lifebar.hidebars && exp[0].evalB(c)
+			sys.dialogueBarsFlg = sys.motif.DialogueInfo.Enabled && exp[0].evalB(c)
 		case dialogue_force:
 			force = exp[0].evalB(c)
 		case dialogue_text:
@@ -10971,7 +11018,6 @@ func (sc dialogue) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	if force {
-		sys.dialogueFlg = true
 		sys.dialogueForce = crun.playerNo + 1
 	}
 	return false
@@ -11613,6 +11659,29 @@ func (sc scoreAdd) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type storyboard StateControllerBase
+
+const (
+	storyboard_path byte = iota
+)
+
+func (sc storyboard) Run(c *Char, _ []int32) bool {
+	StateControllerBase(sc).run(c, func(id byte, exp []BytecodeExp) bool {
+		switch id {
+		case storyboard_path:
+			path := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+			s, err := loadStoryboard(path)
+			if err != nil {
+				panic(err)
+			}
+			sys.storyboard = *s
+			sys.storyboard.init()
+		}
+		return true
+	})
+	return false
+}
+
 type modifyBGCtrl StateControllerBase
 
 const (
@@ -12020,7 +12089,8 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 type playBgm StateControllerBase
 
 const (
-	playBgm_bgm = iota
+	playBgm_source = iota
+	playBgm_bgm
 	playBgm_volume
 	playBgm_loop
 	playBgm_loopstart
@@ -12037,23 +12107,35 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	var b, totalRecall bool
+	var b bool
 	var bgm string
 	var loop, loopcount, volume, loopstart, loopend, startposition int = 1, -1, 100, 0, 0, 0
 	var freqmul float32 = 1.0
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
+		case playBgm_source:
+			src := string(*(*[]byte)(unsafe.Pointer(&exp[1])))
+			switch MusicSource(exp[0].evalI(c)) {
+			case MS_Match:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = crun.gi().music.Read(src, sys.stage.def)
+			case MS_StageDef:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = sys.stage.music.Read(src, sys.stage.def)
+			case MS_CharParams:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = crun.si().music.Read(src, crun.gi().def)
+			case MS_StageParams:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = sys.stage.si().music.Read(src, sys.stage.def)
+			case MS_LaunchParams:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = sys.sel.music.Read(src, sys.stage.def)
+			case MS_Motif:
+				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = sys.motif.Music.Read(src, sys.motif.Def)
+			}
+			b = bgm != ""
 		case playBgm_bgm:
 			bgm = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-			// Default to stage BGM if string is stage
-			if bgm == "stage" {
-				// Search .def directory last in this instance
-				bgm = SearchFile(sys.stage.bgmusic, []string{sys.stage.def, "", "sound/", crun.gi().def})
-				totalRecall = true
-			} else if bgm != "" {
+			if bgm != "" {
 				bgm = SearchFile(bgm, []string{crun.gi().def, sys.stage.def, "", "sound/"})
 			}
-			b = true
+			b = bgm != ""
 		case playBgm_volume:
 			volume = int(exp[0].evalI(c))
 			if !b {
@@ -12076,14 +12158,6 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 		return true
 	})
 	if b {
-		// Recall all the stage info
-		if totalRecall {
-			volume = int(sys.stage.bgmvolume)
-			startposition = int(sys.stage.bgmstartposition)
-			loopstart = int(sys.stage.bgmloopstart)
-			loopend = int(sys.stage.bgmloopend)
-			freqmul = sys.stage.bgmfreqmul
-		}
 		sys.bgm.Open(bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
 		sys.playBgmFlg = true
 	}
@@ -12256,11 +12330,12 @@ const (
 	text_localcoord
 	text_bank
 	text_align
-	text_linespacing
+	text_textspacing
 	text_textdelay
 	text_text
 	text_pos
 	text_velocity
+	text_maxdist
 	text_friction
 	text_accel
 	text_angle
@@ -12279,7 +12354,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// Do nothing if text limit reached
-	if len(sys.lifebar.textsprite) >= sys.cfg.Config.TextMax {
+	if len(sys.motif.textsprite) >= sys.cfg.Config.TextMax {
 		return false
 	}
 
@@ -12287,7 +12362,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	ts.ownerid = crun.id
 	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
 	ts.params = []interface{}{}
-	var xscl, yscl float32 = 1, 1
+	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -12312,17 +12387,23 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				ts.text = OldSprintf(ts.template, ts.params...)
 			}
 		case text_font:
+			fflg := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			fnt = int(exp[1].evalI(c))
-			fflg := exp[0].evalB(c)
 			fntList := crun.gi().fnt
-			if fflg {
+			switch fflg {
+			case "f":
 				fntList = sys.lifebar.fnt
+			case "m":
+				fntList = sys.motif.Fnt
 			}
 			if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
 				ts.fnt = fntList[fnt]
-				if fflg {
-					ts.SetLocalcoord(float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1]))
-				} else {
+				switch fflg {
+				case "f":
+					ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
+				case "m":
+					ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
+				default:
 					//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
 				}
 			} else {
@@ -12341,19 +12422,24 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			ts.bank = exp[0].evalI(c)
 		case text_align:
 			ts.align = exp[0].evalI(c)
-		case text_linespacing:
-			ts.lineSpacing = exp[0].evalF(c)
+		case text_textspacing:
+			ts.textSpacing = exp[0].evalF(c)
 		case text_textdelay:
 			ts.textDelay = exp[0].evalF(c)
 		case text_pos:
-			ts.x = exp[0].evalF(c)/ts.localScale + float32(ts.offsetX)
+			x = exp[0].evalF(c)
 			if len(exp) > 1 {
-				ts.y = exp[1].evalF(c) / ts.localScale
+				y = exp[1].evalF(c)
 			}
 		case text_velocity:
-			ts.velocity[0] = exp[0].evalF(c) / ts.localScale
+			xvel = exp[0].evalF(c)
 			if len(exp) > 1 {
-				ts.velocity[1] = exp[1].evalF(c) / ts.localScale
+				yvel = exp[1].evalF(c)
+			}
+		case text_maxdist:
+			xmaxdist = exp[0].evalF(c)
+			if len(exp) > 1 {
+				ymaxdist = exp[1].evalF(c)
 			}
 		case text_friction:
 			ts.friction[0] = exp[0].evalF(c)
@@ -12361,9 +12447,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				ts.friction[1] = exp[1].evalF(c)
 			}
 		case text_accel:
-			ts.accel[0] = exp[0].evalF(c) / ts.localScale
+			xacc = exp[0].evalF(c)
 			if len(exp) > 1 {
-				ts.accel[1] = exp[1].evalF(c) / ts.localScale
+				yacc = exp[1].evalF(c)
 			}
 		case text_angle:
 			ts.angle = exp[0].evalF(c)
@@ -12397,9 +12483,11 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-
-	ts.xscl = xscl / ts.localScale
-	ts.yscl = yscl / ts.localScale
+	ts.SetPos(x, y)
+	ts.SetScale(xscl, yscl)
+	ts.SetVelocity(xvel, yvel)
+	ts.SetMaxDist(xmaxdist, ymaxdist)
+	ts.SetAccel(xacc, yacc)
 	if fnt == -1 {
 		ts.fnt = sys.debugFont.fnt
 		ts.xscl *= sys.debugFont.xscl
@@ -12408,7 +12496,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
-	sys.lifebar.textsprite = append(sys.lifebar.textsprite, ts)
+	sys.motif.textsprite = append(sys.motif.textsprite, ts)
 	return false
 }
 
@@ -12523,7 +12611,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			return true
 		default:
 			if len(texts) == 0 {
-				for _, ts := range sys.lifebar.textsprite {
+				for _, ts := range sys.motif.textsprite {
 					if ts.ownerid != crun.id {
 						continue
 					}
@@ -12582,7 +12670,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					eachText(func(ts *TextSprite) {
 						ts.fnt = fntList[fnt]
 						if fflg {
-							ts.SetLocalcoord(float32(sys.lifebarLocalcoord[0]), float32(sys.lifebarLocalcoord[1]))
+							ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
 						}
 					})
 				}
@@ -12607,10 +12695,10 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 				eachText(func(ts *TextSprite) {
 					ts.align = a
 				})
-			case text_linespacing:
+			case text_textspacing:
 				ls := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.lineSpacing = ls
+					ts.textSpacing = ls
 				})
 			case text_textdelay:
 				td := exp[0].evalF(c)
@@ -12631,12 +12719,23 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_velocity:
 				velx := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.velocity[0] = velx / ts.localScale
+					ts.xvel = velx / ts.localScale
 				})
 				if len(exp) > 1 {
 					vely := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.velocity[1] = vely / ts.localScale
+						ts.yvel = vely / ts.localScale
+					})
+				}
+			case text_maxdist:
+				xmaxdist := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.maxDist[0] = xmaxdist / ts.localScale
+				})
+				if len(exp) > 1 {
+					ymaxdist := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.maxDist[1] = ymaxdist / ts.localScale
 					})
 				}
 			case text_friction:
@@ -12731,7 +12830,7 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	sys.lifebar.removeText(tid, idx, crun.id)
+	sys.motif.removeText(tid, idx, crun.id)
 	return false
 }
 

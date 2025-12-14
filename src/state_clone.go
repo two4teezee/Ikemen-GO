@@ -469,13 +469,6 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	if l.ro != nil {
 		result.ro = &LifeBarRound{} // Shallow copy
 		*result.ro = *l.ro
-		// Round Transition
-		// This needs a deep copy because it's a pointer inside LifebarRound and we need the timers
-		// When round transitions are expanded this can be revisited
-		if l.ro.rt != nil {
-			result.ro.rt = arena.New[LifeBarRoundTransition](a)
-			*result.ro.rt = *l.ro.rt
-		}
 	}
 
 	// Combo
@@ -601,10 +594,16 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	return
+}
+
+func (m *Motif) Clone(a *arena.Arena) (result Motif) {
+	result = *m
+
 	// TextSprite
-	if l.textsprite != nil {
-		result.textsprite = make([]*TextSprite, len(l.textsprite))
-		for i, ts := range l.textsprite {
+	if m.textsprite != nil {
+		result.textsprite = make([]*TextSprite, len(m.textsprite))
+		for i, ts := range m.textsprite {
 			if ts != nil {
 				result.textsprite[i] = &TextSprite{}
 				*result.textsprite[i] = *ts
@@ -680,9 +679,6 @@ func (s Select) Clone(a *arena.Arena) (result Select) {
 		result.ocd[i] = arena.MakeSlice[OverrideCharData](a, len(s.ocd[i]), len(s.ocd[i]))
 		copy(result.ocd[i], s.ocd[i])
 	}
-
-	result.stageAnimPreload = arena.MakeSlice[int32](a, len(s.stageAnimPreload), len(s.stageAnimPreload))
-	copy(result.stageAnimPreload, s.stageAnimPreload)
 
 	return
 }

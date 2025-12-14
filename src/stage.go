@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gopkg.in/ini.v1"
 	"image"
 	"image/draw"
 	_ "image/jpeg"
@@ -193,7 +194,7 @@ func newBackGround(sff *Sff) *backGround {
 }
 
 func readBackGround(is IniSection, link *backGround,
-	sff *Sff, at AnimationTable, sProps StageProps, def string) (*backGround, error) {
+	sff *Sff, at AnimationTable, sProps StageProps, def string, startlayer int32) (*backGround, error) {
 	bg := newBackGround(sff)
 	typ := is["type"]
 	if len(typ) == 0 {
@@ -215,9 +216,11 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	var tmp int32
 	is.ReadI32("layerno", &bg.layerno)
+	bg.layerno += startlayer
+
 	if bg._type == BG_Video {
 		path := is["path"]
-		LoadFile(&path, []string{def, "", sys.motifDir, "data/", "video/"}, func(filename string) error {
+		LoadFile(&path, []string{def, "", sys.motif.Def, "data/", "video/"}, func(filename string) error {
 			path = filename
 			return nil
 		})
@@ -884,58 +887,57 @@ type stagePlayer struct {
 	startx, starty, startz, facing int32
 }
 
+// Return Select Stage Info
+func (s *Stage) si() *SelectStage {
+	return &sys.sel.stagelist[sys.sel.selectedStageNo-1]
+}
+
 type Stage struct {
-	def              string
-	bgmusic          string
-	name             string
-	displayname      string
-	author           string
-	nameLow          string
-	displaynameLow   string
-	authorLow        string
-	attachedchardef  []string
-	sff              *Sff
-	animTable        AnimationTable
-	bg               []*backGround
-	bgc              []bgCtrl
-	bga              bgAction // For position linking
-	sdw              stageShadow
-	reflection       stageShadow
-	p                [MaxPlayerNo]stagePlayer
-	leftbound        float32
-	rightbound       float32
-	screenleft       int32
-	screenright      int32
-	zoffsetlink      int32
-	hires            bool
-	autoturn         bool
-	resetbg          bool
-	debugbg          bool
-	bgclearcolor     [3]int32
-	localscl         float32
-	scale            [2]float32
-	bgmvolume        int32
-	bgmloopstart     int32
-	bgmloopend       int32
-	bgmstartposition int32
-	bgmfreqmul       float32
-	bgmratiolife     int32
-	bgmtriggerlife   int32
-	bgmtriggeralt    int32
-	mainstage        bool
-	stageCamera      stageCamera
-	stageTime        int32
-	constants        map[string]float32
-	partnerspacing   int32
-	ikemenver        [3]uint16
-	ikemenverF       float32
-	mugenver         [2]uint16
-	mugenverF        float32
-	reload           bool
-	stageprops       StageProps
-	model            *Model
-	topbound         float32
-	botbound         float32
+	def             string
+	name            string
+	displayname     string
+	author          string
+	nameLow         string
+	displaynameLow  string
+	authorLow       string
+	attachedchardef []string
+	sff             *Sff
+	animTable       AnimationTable
+	bg              []*backGround
+	bgc             []bgCtrl
+	bga             bgAction // For position linking
+	sdw             stageShadow
+	reflection      stageShadow
+	p               [MaxPlayerNo]stagePlayer
+	leftbound       float32
+	rightbound      float32
+	screenleft      int32
+	screenright     int32
+	zoffsetlink     int32
+	hires           bool
+	autoturn        bool
+	resetbg         bool
+	debugbg         bool
+	bgclearcolor    [3]int32
+	localscl        float32
+	scale           [2]float32
+	mainstage       bool
+	stageCamera     stageCamera
+	stageTime       int32
+	music           Music
+	bgmState        BGMState
+	bgmratio        float32
+	constants       map[string]float32
+	partnerspacing  int32
+	ikemenver       [3]uint16
+	ikemenverF      float32
+	mugenver        [2]uint16
+	mugenverF       float32
+	reload          bool
+	stageprops      StageProps
+	model           *Model
+	topbound        float32
+	botbound        float32
 }
 
 func newStage(def string) *Stage {
@@ -950,12 +952,11 @@ func newStage(def string) *Stage {
 		resetbg:        true,
 		localscl:       1,
 		scale:          [...]float32{float32(math.NaN()), float32(math.NaN())},
-		bgmratiolife:   30,
 		stageCamera:    *newStageCamera(),
+		music:          make(Music),
+		bgmratio:       0.3,
 		constants:      make(map[string]float32),
 		partnerspacing: 25,
-		bgmvolume:      100,
-		bgmfreqmul:     1, // Fallback value to allow music to play on legacy stages without a bgmfreqmul parameter
 	}
 	s.sdw.intensity = 128
 	s.sdw.color = 0x000000 // https://github.com/ikemen-engine/Ikemen-GO/issues/2150
@@ -1050,7 +1051,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				sys.appendToConsole(fmt.Sprintf("Warning: You can only define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
 				continue
 			}
-			if err := sec[0].LoadFile(i, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+			if err := sec[0].LoadFile(i, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 				// Ensure slice has correct length
 				for len(s.attachedchardef) <= ac {
 					s.attachedchardef = append(s.attachedchardef, "")
@@ -1069,7 +1070,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 					re := regexp.MustCompile("[0-9]+")
 					submatchall := re.FindAllString(k, -1)
 					if len(submatchall) == 1 {
-						if err := LoadFile(&v, []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+						if err := LoadFile(&v, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 							if sys.stageList[Atoi(submatchall[0])], err = loadStage(filename, false); err != nil {
 								return fmt.Errorf("failed to load %v:\n%v", filename, err)
 							}
@@ -1265,8 +1266,10 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Music group
+	musicSection := "music"
 	if sec = defmap[fmt.Sprintf("%v.music", sys.cfg.Config.Language)]; len(sec) > 0 {
 		sectionExists = true
+		musicSection = fmt.Sprintf("%v.music", sys.cfg.Config.Language)
 	} else {
 		if sec = defmap["music"]; len(sec) > 0 {
 			sectionExists = true
@@ -1274,15 +1277,18 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	if sectionExists {
 		sectionExists = false
-		s.bgmusic = decodeShiftJIS(sec[0]["bgmusic"])
-		sec[0].ReadI32("bgmvolume", &s.bgmvolume)
-		sec[0].ReadI32("bgmloopstart", &s.bgmloopstart)
-		sec[0].ReadI32("bgmloopend", &s.bgmloopend)
-		sec[0].ReadI32("bgmstartposition", &s.bgmstartposition)
-		sec[0].ReadF32("bgmfreqmul", &s.bgmfreqmul)
-		sec[0].ReadI32("bgmratio.life", &s.bgmratiolife)
-		sec[0].ReadI32("bgmtrigger.life", &s.bgmtriggerlife)
-		sec[0].ReadI32("bgmtrigger.alt", &s.bgmtriggeralt)
+		iniFile, err := ini.LoadSources(ini.LoadOptions{
+			Insensitive:             true,
+			SkipUnrecognizableLines: true,
+		}, def)
+		if err != nil {
+			fmt.Printf("Failed to load INI file: %v\n", err)
+			return nil, err
+		}
+
+		sec[0].ReadF32("bgmratio", &s.bgmratio)
+		s.music = parseMusicSection(iniFile.Section(musicSection))
+		s.music.DebugDump(fmt.Sprintf("Stage %s [Music]", def))
 	}
 
 	// BGDef group
@@ -1295,7 +1301,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 	if sectionExists {
 		sectionExists = false
-		if sec[0].LoadFile("spr", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if sec[0].LoadFile("spr", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			sff, err := loadSff(filename, false)
 			if err != nil {
 				return err
@@ -1310,7 +1316,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}); err != nil {
 			return nil, err
 		}
-		if err = sec[0].LoadFile("model", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err = sec[0].LoadFile("model", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			model, err := loadglTFModel(filename)
 			if err != nil {
 				return err
@@ -1370,7 +1376,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				}
 			}
 		}
-		if err = sec[0].LoadFile("environment", []string{def, "", sys.motifDir, "data/"}, func(filename string) error {
+		if err = sec[0].LoadFile("environment", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			env, err := loadEnvironment(filename)
 			if err != nil {
 				return err
@@ -1487,7 +1493,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		if len(s.bg) > 0 && !s.bg[len(s.bg)-1].positionlink {
 			bglink = s.bg[len(s.bg)-1]
 		}
-		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def)
+		bg, err := readBackGround(bgsec, bglink, s.sff, s.animTable, s.stageprops, def, 0)
 		if err != nil {
 			return nil, err
 		}
@@ -1805,6 +1811,9 @@ func (s *Stage) paused() bool {
 }
 
 func (s *Stage) action() {
+	// Handle Music
+	s.music.act()
+
 	link, zlink := 0, -1
 	canStep := sys.tickFrame() && !s.paused()
 
@@ -2572,7 +2581,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 					buffer = bytes.NewBuffer(decodedData)
 				}
 			} else {
-				if err := LoadFile(&img.URI, []string{filepath, "", sys.motifDir, "data/"}, func(filename string) error {
+				if err := LoadFile(&img.URI, []string{filepath, "", sys.motif.Def, "data/"}, func(filename string) error {
 					// Use OpenFile which respects the virtual file system (zip)
 					f, err := OpenFile(filename)
 					if err != nil {

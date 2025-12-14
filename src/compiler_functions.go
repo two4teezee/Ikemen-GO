@@ -4947,6 +4947,43 @@ func (c *Compiler) playBgm(is IniSection, sc *StateControllerBase, _ int8) (Stat
 			playBgm_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
+		if err := c.stateParam(is, "source", false, func(data string) error {
+			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+				return Error("source not enclosed in \"")
+			}
+			src := data[1 : len(data)-1]
+
+			// Expect "<origin>.<rest...>", where origin maps to MusicSource
+			parts := strings.SplitN(src, ".", 2)
+			originStr := strings.ToLower(parts[0])
+			rest := ""
+			if len(parts) > 1 {
+				rest = parts[1]
+			}
+
+			var ms MusicSource
+			switch originStr {
+			case "match":
+				ms = MS_Match
+			case "stagedef":
+				ms = MS_StageDef
+			case "charparams":
+				ms = MS_CharParams
+			case "stageparams":
+				ms = MS_StageParams
+			case "launchparams":
+				ms = MS_LaunchParams
+			case "motif":
+				ms = MS_Motif
+			default:
+				return Error("Invalid source: " + parts[0])
+			}
+			// Send 2 values: number (MusicSource) + remaining string
+			sc.add(playBgm_source, append(sc.iToExp(int32(ms)), sc.beToExp(BytecodeExp(rest))...))
+			return nil
+		}); err != nil {
+			return err
+		}
 		if err := c.stateParam(is, "bgm", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 				return Error("BGM not enclosed in \"")
@@ -5318,6 +5355,22 @@ func (c *Compiler) scoreAdd(is IniSection, sc *StateControllerBase, _ int8) (Sta
 	return *ret, err
 }
 
+func (c *Compiler) storyboard(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*storyboard)(sc), c.stateSec(is, func() error {
+		if err := c.stateParam(is, "path", false, func(data string) error {
+			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+				return Error("Not enclosed in \"")
+			}
+			sc.add(storyboard_path, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
+			return nil
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) targetDizzyPointsAdd(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*targetDizzyPointsAdd)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "redirectid",
@@ -5473,8 +5526,8 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_align, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "linespacing",
-			text_linespacing, VT_Float, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "textspacing",
+			text_textspacing, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "textdelay",
@@ -5487,6 +5540,10 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 		}
 		if err := c.paramValue(is, sc, "velocity",
 			text_velocity, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "maxdist",
+			text_maxdist, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "friction",
@@ -5592,8 +5649,8 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 			text_align, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "linespacing",
-			text_linespacing, VT_Float, 1, false); err != nil {
+		if err := c.paramValue(is, sc, "textspacing",
+			text_textspacing, VT_Float, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "textdelay",
@@ -5606,6 +5663,10 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		if err := c.paramValue(is, sc, "velocity",
 			text_velocity, VT_Float, 2, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "maxdist",
+			text_maxdist, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "friction",

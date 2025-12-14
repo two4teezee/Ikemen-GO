@@ -26,11 +26,14 @@ type Key = sdl.Keycode
 type ModifierKey = sdl.Keymod
 
 const (
-	KeyUnknown = sdl.K_UNKNOWN
-	KeyEscape  = sdl.K_ESCAPE
-	KeyEnter   = sdl.K_RETURN
-	KeyInsert  = sdl.K_INSERT
-	KeyF12     = sdl.K_F12
+	KeyUnknown    = sdl.K_UNKNOWN
+	KeyEscape     = sdl.K_ESCAPE
+	KeyEnter      = sdl.K_RETURN
+	KeyInsert     = sdl.K_INSERT
+	KeyF5         = sdl.K_F5
+	KeyF12        = sdl.K_F12
+	KeyPause      = sdl.K_PAUSE
+	KeyScrollLock = sdl.K_SCROLLLOCK
 )
 
 var KeyToStringLUT = map[sdl.Keycode]string{
@@ -391,4 +394,47 @@ func CheckAxisForTrigger(axes *[6]float32) string {
 		}
 	}
 	return s
+}
+
+// returns the first active button/axis token string and the joystick index.
+func getJoystickKey(controllerIdx int) (string, int) {
+	var s string
+	min, max := 0, input.GetMaxJoystickCount()
+
+	if controllerIdx >= 0 && controllerIdx < max {
+		min, max = controllerIdx, controllerIdx+1
+	}
+
+	for joy := min; joy < max; joy++ {
+		if !input.IsJoystickPresent(joy) {
+			continue
+		}
+
+		axes := input.GetJoystickAxes(joy)
+		btns := input.GetJoystickButtons(joy)
+
+		// Prefer stick directions (LS_*/RS_* / DP_*).
+		s = CheckAxisForDpad(&axes, len(btns))
+		if s != "" {
+			return s, joy
+		}
+
+		// Then triggers (LT / RT).
+		s = CheckAxisForTrigger(&axes)
+		if s != "" {
+			return s, joy
+		}
+
+		// Finally, digital buttons (A/B/X/Y/etc.).
+		for i := range btns {
+			if btns[i] > 0 {
+				s = ButtonToStringLUT[i]
+			}
+		}
+		if s != "" {
+			return s, joy
+		}
+	}
+
+	return "", -1
 }

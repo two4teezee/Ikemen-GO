@@ -217,7 +217,6 @@ options.t_itemname = {
 			--modifyGameOption('Video.WindowCentered', true)
 			modifyGameOption('Video.ExternalShaders', {})
 			modifyGameOption('Video.WindowScaleMode', true)
-			--modifyGameOption('Video.StageFit', true)
 			modifyGameOption('Video.FightAspectWidth', -1)
 			modifyGameOption('Video.FightAspectHeight', -1)
 			modifyGameOption('Video.KeepAspect', true)
@@ -941,23 +940,6 @@ options.t_itemname = {
 		end
 		return true
 	end,
-	--[[
-	--StageFit
-	['stagefit'] = function(t, item, cursorPosY, moveTxt)
-		if main.f_input(main.t_players, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
-			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			if gameOption('Video.StageFit') then
-				modifyGameOption('Video.StageFit', false)
-			else
-				modifyGameOption('Video.StageFit', true)
-			end
-			t.items[item].vardisplay = options.f_boolDisplay(gameOption('Video.StageFit'), motif.option_info.menu.valuename.enabled, motif.option_info.menu.valuename.disabled)
-			options.modified = true
-			options.needReload = true
-		end
-		return true
-	end,
-	]]
 	-- Match Aspect Ratio (submenu)
 	['aspectratio'] = function(t, item, cursorPosY, moveTxt)
 		if main.f_input(main.t_players, motif.option_info.menu.add.key, motif.option_info.menu.subtract.key, motif.option_info.menu.done.key) then
@@ -1557,11 +1539,6 @@ options.t_vardisplay = {
 	['helpermax'] = function()
 		return gameOption('Config.HelperMax')
 	end,
-	--[[
-	['stagefit'] = function()
-		return options.f_boolDisplay(gameOption('Video.StageFit'), motif.option_info.menu.valuename.enabled, motif.option_info.menu.valuename.disabled)
-	end,
-	]]
 	['keepaspect'] = function()
 		return options.f_boolDisplay(gameOption('Video.KeepAspect'), motif.option_info.menu.valuename.enabled, motif.option_info.menu.valuename.disabled)
 	end,

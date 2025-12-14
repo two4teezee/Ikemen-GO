@@ -4692,8 +4692,8 @@ func (hi *MotifHiscore) step(m *Motif) {
 	// Begin fade-out on cancel or when time elapses.
 	if hi.endTimer == -1 {
 		cancel := sys.esc || m.button(m.HiscoreInfo.Cancel.Key, -1) ||
-		(!hi.input && m.button(m.HiscoreInfo.Done.Key, -1)) ||
-		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
+			(!hi.input && m.button(m.HiscoreInfo.Done.Key, -1)) ||
+			(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
 		if cancel || (!hi.input && hi.counter == m.HiscoreInfo.Time) {
 			startFadeOut(m.HiscoreInfo.FadeOut.FadeData, m.fadeOut, cancel, m.fadePolicy)
 			hi.endTimer = hi.counter + m.fadeOut.timeRemaining

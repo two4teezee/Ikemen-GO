@@ -1880,6 +1880,16 @@ func (a *Anim) SetWindow(window [4]float32) {
 	if window == [4]float32{0, 0, 0, 0} {
 		return
 	}
+
+	// Normalize to (left, top, right, bottom).
+	// Motif code can pass mirrored coords (x1 > x2), but the engine expects a positive width/height clip rect.
+	if window[0] > window[2] {
+		window[0], window[2] = window[2], window[0]
+	}
+	if window[1] > window[3] {
+		window[1], window[3] = window[3], window[1]
+	}
+
 	a.windowInit = window
 	x := window[0]/a.localScale + float32(a.offsetX)
 	y := window[1] / a.localScale

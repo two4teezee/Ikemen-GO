@@ -12117,6 +12117,10 @@ func (cl *CharList) commandUpdate() {
 				// Update Forward/Back flipping flag
 				c.updateFBFlip()
 
+				// Safety guard: prevent indexing cmd slices when they may be empty.
+				if len(c.cmd) == 0 || (c.helperIndex > 0 && len(root.cmd) == 0) {
+					continue
+				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
 					c.cmd[0].InputUpdate(c, c.controller, sys.aiLevel[i], false) {
 					// Clear input buffers and skip the rest of the loop

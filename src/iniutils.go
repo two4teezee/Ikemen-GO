@@ -2754,7 +2754,7 @@ func resolveInlineFonts(iniFile *ini.File, baseDef string, fnt map[int]*Fnt, ind
 			}
 			// treat as filename; derive height from last element when present
 			h := int32(-1)
-			if len(parts) >= 7 {
+			if len(parts) > 7 {
 				hvStr := strings.TrimSpace(parts[7])
 				if IsInt(hvStr) {
 					h = Atoi(hvStr)

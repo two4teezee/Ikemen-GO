@@ -2492,16 +2492,18 @@ func systemScriptInit(l *lua.LState) {
 				return
 			}
 			// Choose the language-appropriate section name transparently.
-			secName := ResolveLangSectionName(file, sec, SelectedLanguage())
-			s, err := file.GetSection(secName)
-			if err != nil || s == nil {
-				return
-			}
 			lp := strings.ToLower(pref)
-			for _, k := range s.Keys() {
-				n := k.Name()
-				if strings.HasPrefix(strings.ToLower(n), lp) {
-					fn(n[len(pref):], k.Value())
+			// Overlay semantics: [Section] then [<lang>.Section]
+			for _, secName := range ResolveLangSectionNames(file, sec, SelectedLanguage()) {
+				s, err := file.GetSection(secName)
+				if err != nil || s == nil {
+					continue
+				}
+				for _, k := range s.Keys() {
+					n := k.Name()
+					if strings.HasPrefix(strings.ToLower(n), lp) {
+						fn(n[len(pref):], k.Value())
+					}
 				}
 			}
 		}
@@ -2566,26 +2568,48 @@ func systemScriptInit(l *lua.LState) {
 				if file == nil || sec == "" {
 					return
 				}
-				s, err := file.GetSection(ResolveLangSectionName(file, sec, SelectedLanguage()))
-				if err != nil || s == nil {
-					return
-				}
 				lp := strings.ToLower(pref)
-				for _, k := range s.Keys() {
-					n := k.Name()
-					if !strings.HasPrefix(strings.ToLower(n), lp) {
+				// Build effective entries per overlay semantics:
+				// [Section] then [<lang>.Section] overwriting values/disabled flags.
+				byFlat := map[string]entry{}
+				var order []string
+
+				addFrom := func(s *ini.Section) {
+					if s == nil {
+						return
+					}
+					for _, k := range s.Keys() {
+						n := k.Name()
+						if !strings.HasPrefix(strings.ToLower(n), lp) {
+							continue
+						}
+						p := n[len(pref):]
+						base := p
+						if i := strings.LastIndex(base, "."); i >= 0 {
+							base = base[i+1:]
+						}
+						e := entry{
+							flat:     strings.ReplaceAll(p, ".", "_"),
+							base:     strings.ToLower(base),
+							disabled: isEmpty(k.Value()),
+						}
+						if _, ok := byFlat[e.flat]; !ok {
+							order = append(order, e.flat)
+						}
+						byFlat[e.flat] = e
+					}
+				}
+
+				for _, secName := range ResolveLangSectionNames(file, sec, SelectedLanguage()) {
+					s, err := file.GetSection(secName)
+					if err != nil || s == nil {
 						continue
 					}
-					p := n[len(pref):] // e.g. "menuversus.back"
-					base := p
-					if i := strings.LastIndex(base, "."); i >= 0 {
-						base = base[i+1:]
-					}
-					out = append(out, entry{
-						flat:     strings.ReplaceAll(p, ".", "_"), // e.g. "menuversus_back"
-						base:     strings.ToLower(base),           // e.g. "back"
-						disabled: isEmpty(k.Value()),
-					})
+					addFrom(s)
+				}
+
+				for _, flat := range order {
+					out = append(out, byFlat[flat])
 				}
 				return
 			}
@@ -2652,29 +2676,50 @@ func systemScriptInit(l *lua.LState) {
 				if file == nil || sec == "" {
 					return
 				}
-				s, err := file.GetSection(ResolveLangSectionName(file, sec, SelectedLanguage()))
-				if err != nil || s == nil {
-					return
-				}
 				const pref = "teammenu.itemname."
 				lp := strings.ToLower(pref)
-				for _, k := range s.Keys() {
-					n := k.Name()
-					ln := strings.ToLower(n)
-					if !strings.HasPrefix(ln, lp) {
+				// Overlay semantics: [Section] then [<lang>.Section]
+				byKey := map[string]entry{} // key = elem|field
+				var order []string
+
+				addFrom := func(s *ini.Section) {
+					if s == nil {
+						return
+					}
+					for _, k := range s.Keys() {
+						n := k.Name()
+						ln := strings.ToLower(n)
+						if !strings.HasPrefix(ln, lp) {
+							continue
+						}
+						rest := n[len(pref):]
+						ps := strings.Split(rest, ".")
+						elem := "default"
+						field := ""
+						if len(ps) == 1 {
+							field = strings.ToLower(ps[0])
+						} else {
+							elem = strings.ToLower(ps[0])
+							field = strings.ToLower(ps[len(ps)-1])
+						}
+						e := entry{elem: elem, field: field, disabled: isEmpty(k.Value())}
+						key := elem + "|" + field
+						if _, ok := byKey[key]; !ok {
+							order = append(order, key)
+						}
+						byKey[key] = e
+					}
+				}
+
+				for _, secName := range ResolveLangSectionNames(file, sec, SelectedLanguage()) {
+					s, err := file.GetSection(secName)
+					if err != nil || s == nil {
 						continue
 					}
-					rest := n[len(pref):] // e.g. "simul" or "teamarcade.simul"
-					ps := strings.Split(rest, ".")
-					elem := "default"
-					field := ""
-					if len(ps) == 1 {
-						field = strings.ToLower(ps[0])
-					} else {
-						elem = strings.ToLower(ps[0])
-						field = strings.ToLower(ps[len(ps)-1])
-					}
-					out = append(out, entry{elem: elem, field: field, disabled: isEmpty(k.Value())})
+					addFrom(s)
+				}
+				for _, k := range order {
+					out = append(out, byKey[k])
 				}
 				return
 			}

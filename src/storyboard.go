@@ -179,17 +179,15 @@ func loadStoryboard(def string) (*Storyboard, error) {
 				continue
 			}
 			lang, base, has := splitLangPrefix(raw)
-			logical := base
-			if !has {
-				logical = raw
+			logical := raw
+			if has {
+				logical = base
 			}
 			if !interesting(logical) {
 				continue
 			}
 			if has {
-				if lang == "en" {
-					baseSecs = append(baseSecs, secPair{s, logical})
-				} else if lang == curLang {
+				if lang == curLang {
 					langSecs = append(langSecs, secPair{s, logical})
 				}
 			} else {
@@ -291,7 +289,7 @@ func loadStoryboard(def string) (*Storyboard, error) {
 
 	for scene, sceneProps := range s.Scene {
 		sceneName := strings.Replace(scene, "scene_", "scene ", 1)
-		sceneProps.Music = parseMusicSection(pickLangSection(iniFile, sceneName))
+		sceneProps.Music = parseMusicSection(pickLangSectionMerged(iniFile, sceneName))
 		sceneProps.Music.DebugDump(fmt.Sprintf("Storyboard %s [%s]", def, sceneName))
 	}
 

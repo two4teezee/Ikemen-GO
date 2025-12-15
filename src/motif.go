@@ -1484,54 +1484,27 @@ func loadMotif(def string) (*Motif, error) {
 			return fmt.Errorf("Failed to load text from %s: %w", filename, err)
 		}
 
-		createTempFile := func(content string) (*os.File, error) {
-			tmp, err := os.CreateTemp("", "temp_*.ini")
-			if err != nil {
-				return nil, fmt.Errorf("could not create temporary file: %w", err)
-			}
-			// Ensure the temporary file is removed when the function exits
-			defer os.Remove(tmp.Name())
+		// Preprocess and load INI sources from memory.
+		normalizedInput := []byte(preprocessINIContent(NormalizeNewlines(string(inputBytes))))
+		normalizedDefault := []byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif))))
 
-			if _, err := tmp.WriteString(content); err != nil {
-				tmp.Close()
-				return nil, fmt.Errorf("failed to write to temporary file %s: %w", tmp.Name(), err)
-			}
-
-			return tmp, nil
-		}
-
-		normalizedInput := preprocessINIContent(NormalizeNewlines(string(inputBytes)))
-		tempDefFile, err := createTempFile(normalizedInput)
+		// Load merged INI: defaults first, then user (user overrides)
+		iniFile, err = ini.LoadSources(options, normalizedDefault, normalizedInput)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to load INI sources (defaults + user) from memory: %w", err)
 		}
 
-		normalizedDefault := preprocessINIContent(NormalizeNewlines(string(defaultMotif)))
-		tempDefaultFile, err := createTempFile(normalizedDefault)
+		// Load defaults-only
+		defaultOnlyIni, err = ini.LoadSources(options, normalizedDefault)
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to load defaults-only INI from memory: %w", err)
 		}
 
-		// Load the INI file using the temporary files
-		iniFile, err = ini.LoadSources(options, tempDefaultFile.Name(), tempDefFile.Name())
+		// Load user-only
+		userIniFile, err = ini.LoadSources(options, normalizedInput)
 		if err != nil {
-			return fmt.Errorf("Failed to load INI sources from %s and %s: %w", tempDefaultFile.Name(), tempDefFile.Name(), err)
+			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
 		}
-
-		// Also keep a defaults-only INI, so we can apply it before user overrides.
-		defaultOnlyIni, err = ini.LoadSources(options, tempDefaultFile.Name())
-		if err != nil {
-			return fmt.Errorf("Failed to load defaults-only INI from %s: %w", tempDefaultFile.Name(), err)
-		}
-
-		// Load user-only INI to know which keys the user actually provided in system.def
-		userIniFile, err = ini.LoadSources(options, tempDefFile.Name())
-		if err != nil {
-			return fmt.Errorf("Failed to load user INI source from %s: %w", tempDefFile.Name(), err)
-		}
-
-		tempDefaultFile.Close()
-		tempDefFile.Close()
 
 		return nil
 	}); err != nil {

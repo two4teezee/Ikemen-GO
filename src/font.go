@@ -1046,10 +1046,20 @@ func StepTypewriter(fullLine string, typedLen *int, charDelayCounter *int32,
 	if fullLine == "" {
 		*typedLen = 0
 		*lineFullyRendered = true
+		*charDelayCounter = 0
 		return
 	}
 
 	totalRunes := utf8.RuneCountInString(fullLine)
+
+	// textdelay <= 0 means "show everything immediately"
+	if delay <= 0 {
+		*typedLen = totalRunes
+		*charDelayCounter = 0
+		*lineFullyRendered = true
+		return
+	}
+
 	if *typedLen > totalRunes {
 		*typedLen = totalRunes
 	}

@@ -1587,6 +1587,12 @@ function main.f_storyboard(path)
 	if s == nil then
 		return
 	end
+	if main.debugLog then
+		-- get filename without extension from full path
+		local name = path:match("([^/\\]+)$") or "unknown" -- last path segment
+		name = name:gsub("%.[^%.]+$", "") -- strip last extension
+		main.f_printTable(s, 'debug/loadStoryboard_' .. name .. '.txt')
+	end
 	while true do
 		if not runStoryboard() then
 			break

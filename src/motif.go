@@ -3023,6 +3023,7 @@ type MotifContinue struct {
 	initialized bool
 	counter     int32
 	endTimer    int32
+	showEndAnim bool
 	credits     int32
 	yesSide     bool
 	selected    bool
@@ -3037,6 +3038,7 @@ func (co *MotifContinue) reset(m *Motif) {
 	co.yesSide = true
 	co.selected = false
 	co.endTimer = -1
+	co.showEndAnim = false
 	sys.applyFightAspect()
 }
 
@@ -3105,6 +3107,7 @@ func (co *MotifContinue) init(m *Motif) {
 	co.counter = 0
 	co.active = true
 	co.initialized = true
+	co.showEndAnim = false
 }
 
 func (co *MotifContinue) processSelection(m *Motif, continueSelected bool) {
@@ -3168,8 +3171,21 @@ func (co *MotifContinue) step(m *Motif) {
 		}
 	}
 
-	if !co.selected {
+	// Keep the counter anim running while showing the integrated end/gameover tail.
+	if !co.selected || co.showEndAnim {
 		m.ContinueScreen.Counter.AnimData.Update()
+	}
+
+	// If we're showing the integrated end/gameover tail (gameover.enabled = 0),
+	// defer fadeout until the counter animation reaches endtime.
+	if co.selected && co.showEndAnim && co.endTimer == -1 &&
+		m.ContinueScreen.Counter.EndTime > 0 &&
+		co.counter >= m.ContinueScreen.Counter.EndTime {
+		startFadeOut(m.ContinueScreen.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+		co.endTimer = co.counter + m.fadeOut.timeRemaining
+	}
+
+	if !co.selected {
 		if m.ContinueScreen.LegacyMode.Enabled {
 			if m.button(m.ContinueScreen.Move.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Move.Snd, 100, 0, 0, 0, 0)
@@ -3190,7 +3206,23 @@ func (co *MotifContinue) step(m *Motif) {
 				co.playCounterSounds(m)
 			} else if co.counter == m.ContinueScreen.Counter.End.SkipTime {
 				m.Snd.play(m.ContinueScreen.Counter.End.Snd, 100, 0, 0, 0, 0)
-				co.processSelection(m, false)
+				m.Music.Play("continue.end", sys.motif.Def)
+				// If separate gameover screen is disabled, the end/gameover portion is integrated into the same counter animation.
+				// Let it play to endtime, then fade out.
+				if !m.ContinueScreen.GameOver.Enabled {
+					cs := m.ContinueScreen
+					m.processStateTransitions(
+						cs.P2.No.State,
+						cs.P2.Teammate.No.State,
+						cs.P1.No.State,
+						cs.P1.Teammate.No.State,
+					)
+					co.selected = true
+					co.showEndAnim = true
+					// fadeout will be started when counter reaches Counter.EndTime
+				} else {
+					co.processSelection(m, false)
+				}
 			}
 		}
 	}
@@ -3234,7 +3266,7 @@ func (co *MotifContinue) draw(m *Motif, layerno int16) {
 	// Mugen style
 	if m.ContinueScreen.LegacyMode.Enabled {
 		co.drawLegacyMode(m, layerno)
-	} else if !co.selected {
+	} else if !co.selected || co.showEndAnim {
 		// Arcade style Counter
 		m.ContinueScreen.Counter.AnimData.Draw(layerno)
 	}

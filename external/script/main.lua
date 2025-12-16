@@ -2445,7 +2445,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		if bool_bgreset then
 			if not motif.attract_mode.enabled then
 				bgReset(motif[main.background].BGDef)
-				playBgm({source = "motif.title"})
+				playBgm({source = "motif.title", interrupt = true})
 			end
 			main.f_fadeReset('fadein', motif[main.group])
 		end
@@ -2720,7 +2720,7 @@ function main.f_replay()
 		if main.close and not main.fadeActive then
 			bgReset(motif[main.background].BGDef)
 			main.f_fadeReset('fadein', motif[main.group])
-			playBgm({source = "motif.title"})
+			playBgm({source = "motif.title", interrupt = true})
 			main.close = false
 			break
 		elseif esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and main.f_input(main.t_players, motif[main.group].menu.done.key)) then
@@ -2854,7 +2854,7 @@ function main.f_hiscoreDisplay(itemname)
 	sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
 	main.f_hiscore(itemname, -1)
 	--main.f_fadeReset('fadein', motif[main.group])
-	playBgm({source = "motif.title"})
+	playBgm({source = "motif.title", interrupt = true})
 	return true
 end
 
@@ -2871,7 +2871,7 @@ function main.f_attractStart()
 	bgReset(motif.attractbgdef.BGDef)
 	main.f_fadeReset('fadein', motif.attract_mode)
 	local fadeOutStarted = false
-	playBgm({source = "motif.title"})
+	playBgm({source = "motif.title", interrupt = true})
 	local creditsCnt = credits()
 	while true do
 		counter = counter + 1

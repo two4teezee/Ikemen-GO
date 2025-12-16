@@ -1431,7 +1431,7 @@ function options.f_createMenu(tbl, bool_main)
 			if main.close and not main.fadeActive then
 				bgReset(motif[main.background].BGDef)
 				main.f_fadeReset('fadein', motif[main.group])
-				playBgm({source = "motif.title"})
+				playBgm({source = "motif.title", interrupt = true})
 				main.close = false
 				break
 			elseif esc() or main.f_input(main.t_players, motif.option_info.menu.cancel.key) then

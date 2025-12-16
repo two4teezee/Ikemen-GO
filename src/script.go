@@ -3068,15 +3068,33 @@ func systemScriptInit(l *lua.LState) {
 				l.RaiseError("\nInvalid table key: %v\n", k)
 			}
 		})
-		// Apply if a new BGM is set, interrupt if explicitly requested or if it's different from the current one.
-		if hasNewBGM && bgm != "" {
-			// Compare against currently playing filename
-			same := false
-			if sys.bgm.filename != "" {
-				same = (filepath.Clean(strings.ToLower(bgm)) == filepath.Clean(strings.ToLower(sys.bgm.filename)))
+		// Compare against currently playing filename.
+		same := false
+		if bgm != "" && sys.bgm.filename != "" {
+			same = (filepath.Clean(strings.ToLower(bgm)) == filepath.Clean(strings.ToLower(sys.bgm.filename)))
+		}
+		// If an interrupt was explicitly requested, it must stop the currently playing music even when the requested BGM is undefined/empty.
+		// The only time music should persist is when the "new" BGM resolves to the same file as the currently playing one.
+		if interruptExplicit && interrupt && !same {
+			if hasNewBGM && bgm != "" {
+				sys.bgm.Open(bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
+			} else {
+				sys.bgm.Stop()
 			}
+			return 0
+		}
+		// If the requested BGM is the same as the current one, never restart it.
+		if same {
+			if volExplicit {
+				sys.bgm.bgmVolume = int(Min(int32(volume), int32(sys.cfg.Sound.MaxBGMVolume)))
+				sys.bgm.UpdateVolume()
+			}
+			return 0
+		}
+		// Otherwise, apply if a new BGM is set. If interrupt wasn't explicitly provided, default to interrupting when switching to a different track.
+		if hasNewBGM && bgm != "" {
 			if !interruptExplicit {
-				interrupt = !same
+				interrupt = true
 			}
 			if interrupt {
 				sys.bgm.Open(bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)

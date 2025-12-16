@@ -1566,7 +1566,7 @@ function start.f_selectMode()
 			sndPlay(motif.Snd, motif.select_info.cancel.snd[1], motif.select_info.cancel.snd[2])
 			bgReset(motif[main.background].BGDef)
 			main.f_fadeReset('fadein', motif[main.group])
-			playBgm({source = "motif.title"})
+			playBgm({source = "motif.title", interrupt = true})
 			return
 		end
 		--first match
@@ -1635,7 +1635,7 @@ function start.f_selectMode()
 			if start.exit then
 				bgReset(motif[main.background].BGDef)
 				main.f_fadeReset('fadein', motif[main.group])
-				playBgm({source = "motif.title"})
+				playBgm({source = "motif.title", interrupt = true})
 				start.exit = false
 				return
 			end
@@ -2086,7 +2086,7 @@ function start.f_selectScreen()
 	bgReset(motif.selectbgdef.BGDef)
 	main.f_fadeReset('fadein', motif.select_info)
 	local fadeOutStarted = false
-	playBgm({source = "motif.select"})
+	playBgm({source = "motif.select", interrupt = true})
 	start.f_resetTempData(motif.select_info, 'face')
 	f_snapCursor()
 	local stageActiveCount = 0

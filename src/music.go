@@ -180,6 +180,11 @@ func (m Music) Override(other Music) {
 	}
 }
 
+// flattens dotted prefixes to underscore form, matching parseMusicSection.
+func normalizeMusicPrefix(prefix string) string {
+	return strings.ReplaceAll(prefix, ".", "_")
+}
+
 // AppendParams parses comma-separated "key=value" pairs (as passed from
 // Lua addChar/addStage/loadStart) and appends to the proper prefix list.
 func (m Music) AppendParams(entries []string) {
@@ -190,10 +195,27 @@ func (m Music) AppendParams(entries []string) {
 			value := strings.TrimSpace(c[eqPos+1:])
 			prefix := ""
 			field := key
-			if dotPos := strings.Index(key, "."); dotPos != -1 {
+
+			// Allow dots in prefix: split using the last ".<music anchor>" if present,
+			// otherwise fall back to last dot.
+			kl := strings.ToLower(key)
+			anchors := []string{".bgmusic", ".music", ".bgm"}
+			best := -1
+			for _, a := range anchors {
+				if i := strings.LastIndex(kl, a); i > best {
+					best = i
+				}
+			}
+			if best >= 0 {
+				prefix = strings.TrimSpace(key[:best])
+				field = strings.TrimSpace(key[best+1:]) // without leading dot
+			} else if dotPos := strings.LastIndex(key, "."); dotPos != -1 {
 				prefix = key[:dotPos]
 				field = key[dotPos+1:]
 			}
+
+			// Flatten dotted prefixes to match storage in parseMusicSection.
+			prefix = normalizeMusicPrefix(prefix)
 			//fmt.Printf("[music] AppendParams: normalized key='%s' -> prefix='%s', field='%s', value='%s'\n", key, prefix, field, value)
 
 			// Ignore non-music fields
@@ -261,10 +283,20 @@ func (m Music) Read(key, def string) (string, int, int, int, int, int, float32, 
 	var loop, volume, loopstart, loopend, startposition, loopcount int = 1, 100, 0, 0, 0, -1
 	var freqmul float32 = 1.0
 	//fmt.Printf("[music] Read: key='%s' def='%s'\n", key, def)
+	// Support dotted prefixes by only stripping a suffix when the key actually targets a music field.
 	prefix := key
-	if dotPos := strings.Index(key, "."); dotPos != -1 {
-		prefix = key[:dotPos]
+	kl := strings.ToLower(key)
+	anchors := []string{".bgmusic", ".music", ".bgm"}
+	best := -1
+	for _, a := range anchors {
+		if i := strings.LastIndex(kl, a); i > best {
+			best = i
+		}
 	}
+	if best >= 0 {
+		prefix = key[:best]
+	}
+	prefix = normalizeMusicPrefix(prefix)
 	if len(m[prefix]) > 0 {
 		idx := int(RandI(0, int32(len(m[prefix]))-1))
 		bgm = SearchFile(m[prefix][idx].bgmusic, []string{def, "", "sound/"})
@@ -314,7 +346,8 @@ func (m Music) tryPlay(key, def string) bool {
 	//if dot := strings.Index(key, "."); dot != -1 {
 	//	key = key[:dot]
 	//}
-	lst, ok := m[key]
+	nkey := normalizeMusicPrefix(key)
+	lst, ok := m[nkey]
 	if !ok || len(lst) == 0 {
 		//fmt.Printf("[music] tryPlay: prefix '%s' not found or empty\n", key)
 		return false
@@ -331,7 +364,7 @@ func (m Music) tryPlay(key, def string) bool {
 		//fmt.Printf("[music] tryPlay: prefix '%s' has no defined bgmusic entries\n", key)
 		return false
 	}
-	ok = m.Play(key+".bgmusic", def)
+	ok = m.Play(nkey+".bgmusic", def)
 	//fmt.Printf("[music] tryPlay: Play('%s.bgmusic') -> %v\n", key, ok)
 	return ok
 }

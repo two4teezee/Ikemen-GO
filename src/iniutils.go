@@ -2589,6 +2589,36 @@ func (h *BgmProperties) maxSize() int {
 	return maxLen
 }
 
+// Split a [Music] key into (prefix, property) while allowing dots in prefix.
+func splitMusicKey(rawKey string) (prefix string, property string) {
+	k := strings.TrimSpace(rawKey)
+	if k == "" {
+		return "", ""
+	}
+	kl := strings.ToLower(k)
+
+	// Find the last occurrence of a known music anchor so that prefixes can contain dots.
+	anchors := []string{".bgmusic", ".music", ".bgm"}
+	best := -1
+	for _, a := range anchors {
+		if i := strings.LastIndex(kl, a); i > best {
+			best = i
+		}
+	}
+
+	if best >= 0 {
+		prefix = strings.TrimSpace(k[:best])
+		property = strings.TrimSpace(kl[best+1:]) // without leading dot
+		return prefix, property
+	}
+
+	// Fallback
+	if dotIdx := strings.Index(k, "."); dotIdx >= 0 {
+		return strings.TrimSpace(k[:dotIdx]), strings.TrimSpace(strings.ToLower(k[dotIdx+1:]))
+	}
+	return "", strings.ToLower(k)
+}
+
 func parseMusicSection(section *ini.Section) Music {
 	// If section is nil, just return empty Music
 	if section == nil {
@@ -2615,16 +2645,12 @@ func parseMusicSection(section *ini.Section) Music {
 			continue
 		}
 
-		// Split into prefix and property
-		prefix := ""
-		property := rawKey
-		if dotIdx := strings.Index(rawKey, "."); dotIdx >= 0 {
-			prefix = strings.ToLower(rawKey[:dotIdx])
-			property = strings.ToLower(rawKey[dotIdx+1:])
-		} else {
-			// entire rawKey is the property
-			property = strings.ToLower(rawKey)
-		}
+		// Split into prefix and property, allowing dots inside prefix.
+		prefixRaw, property := splitMusicKey(rawKey)
+
+		// Normalize prefix: lower-case + flatten dots to underscores
+		prefix := strings.ToLower(prefixRaw)
+		prefix = strings.ReplaceAll(prefix, ".", "_")
 
 		// Split comma-separated values
 		values := strings.Split(rawVal, ",")

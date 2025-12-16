@@ -850,7 +850,7 @@ options.t_itemname = {
 				sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 				local resheight = tonumber(main.f_drawInput(
 					motif.option_info.textinput.TextSpriteData,
-					motif.option_info.textinput.resheight.reswidth,
+					motif.option_info.textinput.text.resheight,
 					motif.option_info,
 					motif.optionbgdef,
 					motif.option_info.textinput.overlay.RectData

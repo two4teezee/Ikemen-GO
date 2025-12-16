@@ -690,6 +690,41 @@ function main.f_countSubstring(s1, s2)
 	return select(2, s1:gsub(s2, ""))
 end
 
+-- formats using %s / %i in the order they appear in fmt
+function main.f_formatBySpec(fmt, specMap)
+	if fmt == nil then return "" end
+	if type(fmt) ~= "string" then fmt = tostring(fmt) end
+	local args = {}
+	local pos = 1
+	while true do
+		local p = fmt:find("%%", pos)
+		if not p then break end
+		local nextc = fmt:sub(p + 1, p + 1)
+		if nextc == "%" then
+			-- literal %%
+			pos = p + 2
+		else
+			-- match a printf-like directive
+			local _, e, verb = fmt:find("%%[%-%+ #0]*%d*%.?%d*([A-Za-z])", p)
+			if not e then break end
+			if verb == "s" then
+				args[#args + 1] = tostring(specMap.s or "")
+			elseif verb == "i" or verb == "d" or verb == "u" then
+				args[#args + 1] = tonumber(specMap.i) or 0
+			end
+			pos = e + 1
+		end
+	end
+	if #args == 0 then return fmt end
+	local fmt2 = fmt
+	local ok, out = pcall(string.format, fmt2, unpack(args))
+	if not ok then
+		print("main.f_formatBySpec ERROR: " .. tostring(out))
+		return fmt
+	end
+	return out
+end
+
 --update rounds to win variables
 main.roundsNumSingle = {}
 main.roundsNumSimul = {}

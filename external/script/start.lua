@@ -2316,7 +2316,7 @@ function start.f_selectScreen()
 				--draw stage name
 				local stage_text = motif.select_info.stage.random.text
 				if stageListNo ~= 0 then
-					stage_text = string.format(motif.select_info.stage.text, stageListNo, main.t_selStages[main.t_selectableStages[stageListNo]].name)
+					stage_text = main.f_formatBySpec(motif.select_info.stage.text, {i = stageListNo, s = main.t_selStages[main.t_selectableStages[stageListNo]].name})
 				end
 				textImgReset(motif.select_info.stage.TextSpriteData)
 				textImgSetText(motif.select_info.stage.TextSpriteData, stage_text)
@@ -3367,7 +3367,8 @@ function start.f_selectVersus(active, t_orderSelect)
 		--draw stage name
 		if selStageNo and main.t_selStages[selStageNo] then
 			textImgReset(motif.vs_screen.stage.TextSpriteData)
-			textImgSetText(motif.vs_screen.stage.TextSpriteData, string.format(motif.vs_screen.stage.text, main.t_selStages[selStageNo].name))
+			local stage_text = main.f_formatBySpec(motif.vs_screen.stage.text, {i = selStageNo, s = main.t_selStages[selStageNo].name})
+			textImgSetText(motif.vs_screen.stage.TextSpriteData, stage_text)
 			textImgDraw(motif.vs_screen.stage.TextSpriteData)
 		end
 		--draw match counter

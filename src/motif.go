@@ -5153,8 +5153,10 @@ func (vi *MotifVictory) clear(m *Motif) {
 	vi.clearProps(&m.VictoryScreen.P8)
 }
 
-func (vi *MotifVictory) getVictoryQuote(m *Motif) string {
-	p := sys.chars[sys.winnerTeam()-1][0]
+func (vi *MotifVictory) getVictoryQuote(m *Motif, p *Char) string {
+	if p == nil || p.playerNo < 0 || p.playerNo >= len(sys.cgi) {
+		return m.VictoryScreen.WinQuote.Text
+	}
 	quoteIndex := int(p.winquote)
 	playerQuotes := sys.cgi[p.playerNo].quotes
 
@@ -5377,7 +5379,11 @@ func (vi *MotifVictory) init(m *Motif) {
 		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
 	}
 
-	vi.text = vi.getVictoryQuote(m)
+	var leader *Char
+	if len(wEntries) > 0 {
+		leader = wEntries[0].c
+	}
+	vi.text = vi.getVictoryQuote(m, leader)
 	m.VictoryBgDef.BGDef.Reset()
 
 	//fmt.Printf("[Victory] init done. Winners=%d entries, Losers=%d entries. WinQuote=%q\n", len(wEntries), len(lEntries), vi.text)
@@ -5578,11 +5584,10 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
-	if sc == nil {
-		return nil
-	}
+	a := NewAnim(nil, "")
+
 	var animCopy *Animation
-	if animNo >= 0 {
+	if sc != nil && animNo >= 0 {
 		// First: explicit animation number
 		animCopy = sc.anims.get(animNo, -1)
 		if animCopy == nil {
@@ -5592,7 +5597,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 				//fmt.Printf("[Victory] slot=%s -> fallback from anim %d to %s\n", slot, animNo/*, from*/)
 			}
 		}
-	} else if spr[0] >= 0 {
+	} else if sc != nil && spr[0] >= 0 {
 		// Try requested (grp,idx) first (preloaded or SFF-build), then fall back to 9000,1
 		want := [][2]int32{{spr[0], spr[1]}, {9000, 1} /*, {9000, 0}*/}
 		if a, _ /*from*/ := tryGetPortrait(sc, ownerC, want); a != nil {
@@ -5608,8 +5613,6 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 			}
 		}
 	}
-	// Always return a non-nil *Anim. If we couldn't resolve a real anim, fall back to a safe dummy created by NewAnim.
-	a := NewAnim(nil, "")
 	if animCopy != nil {
 		a.anim = animCopy
 	} else {
@@ -5632,15 +5635,20 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	// Position
 	a.SetPos(x, y)
 	// Scale: include character portraitscale and coord conversion similar to hiscore
-	sx := scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
-	sy := scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+	sx, sy := scale[0], scale[1]
+	// Only apply SelectChar scaling if sc is present and has valid localcoord.
+	if sc != nil && sc.localcoord[0] > 0 {
+		base := float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		sx = scale[0] * sc.portraitscale * base
+		sy = scale[1] * sc.portraitscale * base
+	}
 	a.SetScale(sx, sy)
 	a.facing = float32(facing)
 	if sx == 0 || sy == 0 {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: zero scale sx=%.4f sy=%.4f (check portraitscale/localcoord)\n", slot, sx, sy)
 	}
 	// Palette for non-loaded (or force-apply if requested)
-	if applyPal && pal > 0 && a.anim.sff != nil {
+	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
 		if len(a.anim.sff.palList.paletteMap) > 0 {
 			a.anim.sff.palList.paletteMap[0] = pal - 1
 		}

@@ -5153,8 +5153,10 @@ func (vi *MotifVictory) clear(m *Motif) {
 	vi.clearProps(&m.VictoryScreen.P8)
 }
 
-func (vi *MotifVictory) getVictoryQuote(m *Motif) string {
-	p := sys.chars[sys.winnerTeam()-1][0]
+func (vi *MotifVictory) getVictoryQuote(m *Motif, p *Char) string {
+	if p == nil || p.playerNo < 0 || p.playerNo >= len(sys.cgi) {
+		return m.VictoryScreen.WinQuote.Text
+	}
 	quoteIndex := int(p.winquote)
 	playerQuotes := sys.cgi[p.playerNo].quotes
 
@@ -5377,7 +5379,11 @@ func (vi *MotifVictory) init(m *Motif) {
 		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
 	}
 
-	vi.text = vi.getVictoryQuote(m)
+	var leader *Char
+	if len(wEntries) > 0 {
+		leader = wEntries[0].c
+	}
+	vi.text = vi.getVictoryQuote(m, leader)
 	m.VictoryBgDef.BGDef.Reset()
 
 	//fmt.Printf("[Victory] init done. Winners=%d entries, Losers=%d entries. WinQuote=%q\n", len(wEntries), len(lEntries), vi.text)

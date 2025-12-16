@@ -320,12 +320,12 @@ func (m Music) tryPlay(key, def string) bool {
 		return false
 	}
 	hasDefined := false
-	for i, v := range lst {
+	for _, v := range lst {
 		if v != nil && strings.TrimSpace(v.bgmusic) != "" {
 			hasDefined = true
 			break
 		}
-		fmt.Printf("[music] tryPlay: prefix '%s' candidate[%d] has empty bgmusic\n", key, i)
+		//fmt.Printf("[music] tryPlay: prefix '%s' candidate[%d] has empty bgmusic\n", key, i)
 	}
 	if !hasDefined {
 		//fmt.Printf("[music] tryPlay: prefix '%s' has no defined bgmusic entries\n", key)

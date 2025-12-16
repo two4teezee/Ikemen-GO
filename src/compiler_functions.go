@@ -5508,9 +5508,12 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 		}
 		if err := c.stateParam(is, "font", false, func(data string) error {
 			prefix := c.getDataPrefix(&data, false)
-			fflg := prefix == "f"
+			// Only "f" (lifebar) or "m" (motif) are meaningful for Text/ModifyText.
+			if prefix != "f" && prefix != "m" {
+				prefix = ""
+			}
 			return c.scAdd(sc, text_font, data, VT_Int, 1,
-				sc.iToExp(Btoi(fflg))...)
+				sc.beToExp(BytecodeExp(prefix))...)
 		}); err != nil {
 			return err
 		}
@@ -5631,9 +5634,12 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		if err := c.stateParam(is, "font", false, func(data string) error {
 			prefix := c.getDataPrefix(&data, false)
-			fflg := prefix == "f"
+			// Only "f" (lifebar) or "m" (motif) are meaningful for Text/ModifyText.
+			if prefix != "f" && prefix != "m" {
+				prefix = ""
+			}
 			return c.scAdd(sc, text_font, data, VT_Int, 1,
-				sc.iToExp(Btoi(fflg))...)
+				sc.beToExp(BytecodeExp(prefix))...)
 		}); err != nil {
 			return err
 		}

@@ -497,8 +497,8 @@ function main.f_fadeAnim(fadeGroup)
 	--draw fade anim
 	if main.fadeCnt > 0 then
 		if fadeGroup[main.fadeType].AnimData ~= nil then
-			animDraw(fadeGroup[main.fadeType].AnimData)
 			animUpdate(fadeGroup[main.fadeType].AnimData)
+			animDraw(fadeGroup[main.fadeType].AnimData)
 		end
 		main.fadeCnt = main.fadeCnt - 1
 	end
@@ -526,7 +526,7 @@ function main.f_fadeReset(fadeType, fadeGroup)
 	main.fadeCnt = 0
 	if fadeGroup[fadeType].AnimData ~= nil then
 		animReset(fadeGroup[fadeType].AnimData)
-		animUpdate(fadeGroup[fadeType].AnimData)
+		--animUpdate(fadeGroup[fadeType].AnimData)
 		main.fadeCnt = animGetLength(fadeGroup[fadeType].AnimData)
 		if fadeType == 'fadeout' and main.fadeCnt > fadeGroup[fadeType].time then
 			main.fadeStart = main.fadeStart + main.fadeCnt - fadeGroup[fadeType].time

@@ -1533,7 +1533,10 @@ func loadMotif(def string) (*Motif, error) {
 				continue
 			}
 			lang, base, has := splitLangPrefix(raw)
-			logical := base
+			logical := raw
+			if has {
+				logical = base
+			}
 			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
 			lb := strings.ToLower(logical)
 			// Skip raw BG sections which are handled by loadBGDef.
@@ -1560,9 +1563,7 @@ func loadMotif(def string) (*Motif, error) {
 			}
 			// Route by language.
 			if has {
-				if lang == "en" {
-					baseSecs = append(baseSecs, secPair{s, logical})
-				} else if lang == curLang {
+				if lang == curLang {
 					langSecs = append(langSecs, secPair{s, logical})
 				}
 			} else {
@@ -1654,7 +1655,7 @@ func loadMotif(def string) (*Motif, error) {
 	m.populateDataPointers()
 	m.applyPostParsePosAdjustments()
 
-	m.Music = parseMusicSection(pickLangSection(iniFile, "Music"))
+	m.Music = parseMusicSection(pickLangSectionMerged(iniFile, "Music"))
 	m.Music.DebugDump("Motif [Music]")
 
 	return &m, nil

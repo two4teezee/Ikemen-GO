@@ -60,6 +60,77 @@ func ResolveLangSectionName(f *ini.File, section string, lang string) string {
 	return section
 }
 
+// ResolveLangSectionNames returns section names in overlay order:
+// base [Section] first, then [<lang>.Section] (if present).
+func ResolveLangSectionNames(f *ini.File, section string, lang string) []string {
+	if f == nil || section == "" {
+		return []string{section}
+	}
+	lang = strings.ToLower(strings.TrimSpace(lang))
+	out := make([]string, 0, 2)
+
+	// Base section first (if it exists)
+	if _, err := f.GetSection(section); err == nil {
+		out = append(out, section)
+	}
+
+	// Language override section second (if it exists)
+	if lang != "" {
+		ls := lang + "." + section
+		if _, err := f.GetSection(ls); err == nil {
+			out = append(out, ls)
+		}
+	}
+
+	// If neither exists, keep original name as a best-effort fallback.
+	if len(out) == 0 {
+		out = append(out, section)
+	}
+	return out
+}
+
+// pickLangSectionMerged returns a synthetic section that behaves like:
+// [Section] with keys overwritten by [<lang>.Section] (if present).
+func pickLangSectionMerged(f *ini.File, sec string) *ini.Section {
+	if f == nil || sec == "" {
+		return nil
+	}
+	lang := strings.ToLower(strings.TrimSpace(SelectedLanguage()))
+	var baseSec, langSec *ini.Section
+	if s, err := f.GetSection(sec); err == nil && s != nil {
+		baseSec = s
+	}
+	if lang != "" {
+		if s, err := f.GetSection(lang + "." + sec); err == nil && s != nil {
+			langSec = s
+		}
+	}
+	if baseSec == nil {
+		return langSec
+	}
+	if langSec == nil {
+		return baseSec
+	}
+
+	// Build a synthetic merged section: base keys first, then lang overrides.
+	tmp := ini.Empty()
+	merged, _ := tmp.NewSection(sec)
+	for _, k := range baseSec.Keys() {
+		_, _ = merged.NewKey(k.Name(), k.Value())
+	}
+	for _, k := range langSec.Keys() {
+		if merged.HasKey(k.Name()) {
+			mk, _ := merged.GetKey(k.Name())
+			if mk != nil {
+				mk.SetValue(k.Value())
+			}
+		} else {
+			_, _ = merged.NewKey(k.Name(), k.Value())
+		}
+	}
+	return merged
+}
+
 // pickLangSection returns the INI section to use for a logical section name,
 // honoring language-specific overrides if present.
 func pickLangSection(f *ini.File, sec string) *ini.Section {

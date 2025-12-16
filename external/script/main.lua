@@ -690,6 +690,41 @@ function main.f_countSubstring(s1, s2)
 	return select(2, s1:gsub(s2, ""))
 end
 
+-- formats using %s / %i in the order they appear in fmt
+function main.f_formatBySpec(fmt, specMap)
+	if fmt == nil then return "" end
+	if type(fmt) ~= "string" then fmt = tostring(fmt) end
+	local args = {}
+	local pos = 1
+	while true do
+		local p = fmt:find("%%", pos)
+		if not p then break end
+		local nextc = fmt:sub(p + 1, p + 1)
+		if nextc == "%" then
+			-- literal %%
+			pos = p + 2
+		else
+			-- match a printf-like directive
+			local _, e, verb = fmt:find("%%[%-%+ #0]*%d*%.?%d*([A-Za-z])", p)
+			if not e then break end
+			if verb == "s" then
+				args[#args + 1] = tostring(specMap.s or "")
+			elseif verb == "i" or verb == "d" or verb == "u" then
+				args[#args + 1] = tonumber(specMap.i) or 0
+			end
+			pos = e + 1
+		end
+	end
+	if #args == 0 then return fmt end
+	local fmt2 = fmt
+	local ok, out = pcall(string.format, fmt2, unpack(args))
+	if not ok then
+		print("main.f_formatBySpec ERROR: " .. tostring(out))
+		return fmt
+	end
+	return out
+end
+
 --update rounds to win variables
 main.roundsNumSingle = {}
 main.roundsNumSimul = {}
@@ -1587,6 +1622,12 @@ function main.f_storyboard(path)
 	if s == nil then
 		return
 	end
+	if main.debugLog then
+		-- get filename without extension from full path
+		local name = path:match("([^/\\]+)$") or "unknown" -- last path segment
+		name = name:gsub("%.[^%.]+$", "") -- strip last extension
+		main.f_printTable(s, 'debug/loadStoryboard_' .. name .. '.txt')
+	end
 	while true do
 		if not runStoryboard() then
 			break
@@ -2439,7 +2480,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		if bool_bgreset then
 			if not motif.attract_mode.enabled then
 				bgReset(motif[main.background].BGDef)
-				playBgm({source = "motif.title"})
+				playBgm({source = "motif.title", interrupt = true})
 			end
 			main.f_fadeReset('fadein', motif[main.group])
 		end
@@ -2714,7 +2755,7 @@ function main.f_replay()
 		if main.close and not main.fadeActive then
 			bgReset(motif[main.background].BGDef)
 			main.f_fadeReset('fadein', motif[main.group])
-			playBgm({source = "motif.title"})
+			playBgm({source = "motif.title", interrupt = true})
 			main.close = false
 			break
 		elseif esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and main.f_input(main.t_players, motif[main.group].menu.done.key)) then
@@ -2848,7 +2889,7 @@ function main.f_hiscoreDisplay(itemname)
 	sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
 	main.f_hiscore(itemname, -1)
 	--main.f_fadeReset('fadein', motif[main.group])
-	playBgm({source = "motif.title"})
+	playBgm({source = "motif.title", interrupt = true})
 	return true
 end
 
@@ -2865,7 +2906,7 @@ function main.f_attractStart()
 	bgReset(motif.attractbgdef.BGDef)
 	main.f_fadeReset('fadein', motif.attract_mode)
 	local fadeOutStarted = false
-	playBgm({source = "motif.title"})
+	playBgm({source = "motif.title", interrupt = true})
 	local creditsCnt = credits()
 	while true do
 		counter = counter + 1

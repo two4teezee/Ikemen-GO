@@ -850,7 +850,7 @@ options.t_itemname = {
 				sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 				local resheight = tonumber(main.f_drawInput(
 					motif.option_info.textinput.TextSpriteData,
-					motif.option_info.textinput.resheight.reswidth,
+					motif.option_info.textinput.text.resheight,
 					motif.option_info,
 					motif.optionbgdef,
 					motif.option_info.textinput.overlay.RectData
@@ -1431,7 +1431,7 @@ function options.f_createMenu(tbl, bool_main)
 			if main.close and not main.fadeActive then
 				bgReset(motif[main.background].BGDef)
 				main.f_fadeReset('fadein', motif[main.group])
-				playBgm({source = "motif.title"})
+				playBgm({source = "motif.title", interrupt = true})
 				main.close = false
 				break
 			elseif esc() or main.f_input(main.t_players, motif.option_info.menu.cancel.key) then

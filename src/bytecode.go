@@ -12396,15 +12396,19 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			case "m":
 				fntList = sys.motif.Fnt
 			}
-			if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
-				ts.fnt = fntList[fnt]
-				switch fflg {
-				case "f":
-					ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
-				case "m":
-					ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
-				default:
-					//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+			if fnt >= 0 {
+				if f := fntList[fnt]; f != nil {
+					ts.fnt = f
+					switch fflg {
+					case "f":
+						ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
+					case "m":
+						ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
+					default:
+						//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+					}
+				} else {
+					fnt = -1
 				}
 			} else {
 				fnt = -1
@@ -12661,18 +12665,28 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 				}
 			case text_font:
 				fnt := int(exp[1].evalI(c))
-				fflg := exp[0].evalB(c)
+				fflg := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 				fntList := crun.gi().fnt
-				if fflg {
+				switch fflg {
+				case "f":
 					fntList = sys.lifebar.fnt
+				case "m":
+					fntList = sys.motif.Fnt
 				}
-				if fnt >= 0 && fnt < len(fntList) && fntList[fnt] != nil {
-					eachText(func(ts *TextSprite) {
-						ts.fnt = fntList[fnt]
-						if fflg {
-							ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
-						}
-					})
+				if fnt >= 0 {
+					if f := fntList[fnt]; f != nil {
+						eachText(func(ts *TextSprite) {
+							ts.fnt = f
+							switch fflg {
+							case "f":
+								ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
+							case "m":
+								ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
+							default:
+								//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+							}
+						})
+					}
 				}
 			case text_localcoord:
 				var x, y float32

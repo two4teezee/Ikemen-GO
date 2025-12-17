@@ -3096,7 +3096,7 @@ func (co *MotifContinue) init(m *Motif) {
 
 	co.yesSide = true
 
-	if m.ContinueScreen.Sounds.Enabled {
+	if !m.ContinueScreen.Sounds.Enabled {
 		sys.clearAllSound()
 		sys.noSoundFlg = true
 	}
@@ -5426,7 +5426,7 @@ func (vi *MotifVictory) init(m *Motif) {
 		m.processStateTransitions(m.VictoryScreen.P2.State, m.VictoryScreen.P2.Teammate.State, m.VictoryScreen.P1.State, m.VictoryScreen.P1.Teammate.State)
 	}
 
-	if m.VictoryScreen.Sounds.Enabled {
+	if !m.VictoryScreen.Sounds.Enabled {
 		sys.clearAllSound()
 		sys.noSoundFlg = true
 	}
@@ -5745,7 +5745,7 @@ func (wi *MotifWin) init(m *Motif) {
 	}
 	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
-	if wi.soundsEnabled {
+	if !wi.soundsEnabled {
 		sys.clearAllSound()
 		sys.noSoundFlg = true
 	}

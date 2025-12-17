@@ -1259,71 +1259,69 @@ type WarningInfoProperties struct {
 }
 
 type Motif struct {
-	IniFile                 *ini.File
-	UserIniFile             *ini.File
-	DefaultOnlyIni          *ini.File
-	At                      AnimationTable
-	Sff                     *Sff
-	Snd                     *Snd
-	Fnt                     map[int]*Fnt
-	GlyphsSff               *Sff
-	Model                   *Model
-	Music                   Music
-	Def                     string                      `ini:"def"`
-	Info                    InfoProperties              `ini:"info"`
-	Files                   FilesProperties             `ini:"files"`
-	Languages               map[string]string           `ini:"languages"`
-	TitleInfo               TitleInfoProperties         `ini:"title_info"`
-	TitleBgDef              BgDefProperties             `ini:"titlebgdef"`
-	InfoBox                 InfoBoxProperties           `ini:"infobox"`
-	SelectInfo              SelectInfoProperties        `ini:"select_info"`
-	SelectBgDef             BgDefProperties             `ini:"selectbgdef"`
-	VsScreen                VsScreenProperties          `ini:"vs_screen"`
-	VersusBgDef             BgDefProperties             `ini:"versusbgdef"`
-	DemoMode                DemoModeProperties          `ini:"demo_mode"`
-	ContinueScreen          ContinueScreenProperties    `ini:"continue_screen"`
-	ContinueBgDef           BgDefProperties             `ini:"continuebgdef"`
-	GameOverScreen          StoryboardProperties        `ini:"game_over_screen"`
-	VictoryScreen           VictoryScreenProperties     `ini:"victory_screen"`
-	VictoryBgDef            BgDefProperties             `ini:"victorybgdef"`
-	WinScreen               WinScreenProperties         `ini:"win_screen"`
-	WinBgDef                BgDefProperties             `ini:"winbgdef"`
-	DefaultEnding           StoryboardProperties        `ini:"default_ending"`
-	EndCredits              StoryboardProperties        `ini:"end_credits"`
-	SurvivalResultsScreen   ResultsScreenProperties     `ini:"survival_results_screen"`
-	SurvivalResultsBgDef    BgDefProperties             `ini:"survivalresultsbgdef"`
-	TimeAttackResultsScreen ResultsScreenProperties     `ini:"time_attack_results_screen"`
-	TimeAttackResultsBgDef  BgDefProperties             `ini:"timeattackresultsbgdef"`
-	OptionInfo              OptionInfoProperties        `ini:"option_info"`
-	OptionBgDef             BgDefProperties             `ini:"optionbgdef"`
-	ReplayInfo              ReplayInfoProperties        `ini:"replay_info"`
-	ReplayBgDef             BgDefProperties             `ini:"replaybgdef"`
-	MenuInfo                MenuInfoProperties          `ini:"menu_info"`
-	MenuBgDef               BgDefProperties             `ini:"menubgdef"`
-	TrainingInfo            MenuInfoProperties          `ini:"training_info"`
-	TrainingBgDef           BgDefProperties             `ini:"trainingbgdef"`
-	AttractMode             AttractModeProperties       `ini:"attract_mode"`
-	AttractBgDef            BgDefProperties             `ini:"attractbgdef"`
-	ChallengerInfo          ChallengerInfoProperties    `ini:"challenger_info"`
-	ChallengerBgDef         BgDefProperties             `ini:"challengerbgdef"`
-	DialogueInfo            DialogueInfoProperties      `ini:"dialogue_info"`
-	HiscoreInfo             HiscoreInfoProperties       `ini:"hiscore_info"`
-	HiscoreBgDef            BgDefProperties             `ini:"hiscorebgdef"`
-	WarningInfo             WarningInfoProperties       `ini:"warning_info"`
-	Glyphs                  map[string]*GlyphProperties `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
-	fntIndexByKey           map[string]int              // filepath|height -> index
-	ch                      MotifChallenger
-	co                      MotifContinue
-	de                      MotifDemo
-	di                      MotifDialogue
-	vi                      MotifVictory
-	wi                      MotifWin
-	hi                      MotifHiscore
-	me                      MotifMenu
-	fadeIn                  *Fade
-	fadeOut                 *Fade
-	fadePolicy              FadeStartPolicy
-	textsprite              []*TextSprite
+	IniFile         *ini.File
+	UserIniFile     *ini.File
+	DefaultOnlyIni  *ini.File
+	At              AnimationTable
+	Sff             *Sff
+	Snd             *Snd
+	Fnt             map[int]*Fnt
+	GlyphsSff       *Sff
+	Model           *Model
+	Music           Music
+	Def             string                              `ini:"def"`
+	Info            InfoProperties                      `ini:"info"`
+	Files           FilesProperties                     `ini:"files"`
+	Languages       map[string]string                   `ini:"languages"`
+	TitleInfo       TitleInfoProperties                 `ini:"title_info"`
+	TitleBgDef      BgDefProperties                     `ini:"titlebgdef"`
+	InfoBox         InfoBoxProperties                   `ini:"infobox"`
+	SelectInfo      SelectInfoProperties                `ini:"select_info"`
+	SelectBgDef     BgDefProperties                     `ini:"selectbgdef"`
+	VsScreen        VsScreenProperties                  `ini:"vs_screen"`
+	VersusBgDef     BgDefProperties                     `ini:"versusbgdef"`
+	DemoMode        DemoModeProperties                  `ini:"demo_mode"`
+	ContinueScreen  ContinueScreenProperties            `ini:"continue_screen"`
+	ContinueBgDef   BgDefProperties                     `ini:"continuebgdef"`
+	GameOverScreen  StoryboardProperties                `ini:"game_over_screen"`
+	VictoryScreen   VictoryScreenProperties             `ini:"victory_screen"`
+	VictoryBgDef    BgDefProperties                     `ini:"victorybgdef"`
+	WinScreen       WinScreenProperties                 `ini:"win_screen"`
+	WinBgDef        BgDefProperties                     `ini:"winbgdef"`
+	DefaultEnding   StoryboardProperties                `ini:"default_ending"`
+	EndCredits      StoryboardProperties                `ini:"end_credits"`
+	ResultsScreen   map[string]*ResultsScreenProperties `ini:"map:^(?i).+results.*screen$" lua:"results_screen"`
+	ResultsBgDef    map[string]*BgDefProperties         `ini:"map:^(?i).+resultsbgdef$" lua:"resultsbgdef"`
+	OptionInfo      OptionInfoProperties                `ini:"option_info"`
+	OptionBgDef     BgDefProperties                     `ini:"optionbgdef"`
+	ReplayInfo      ReplayInfoProperties                `ini:"replay_info"`
+	ReplayBgDef     BgDefProperties                     `ini:"replaybgdef"`
+	MenuInfo        MenuInfoProperties                  `ini:"menu_info"`
+	MenuBgDef       BgDefProperties                     `ini:"menubgdef"`
+	TrainingInfo    MenuInfoProperties                  `ini:"training_info"`
+	TrainingBgDef   BgDefProperties                     `ini:"trainingbgdef"`
+	AttractMode     AttractModeProperties               `ini:"attract_mode"`
+	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
+	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
+	ChallengerBgDef BgDefProperties                     `ini:"challengerbgdef"`
+	DialogueInfo    DialogueInfoProperties              `ini:"dialogue_info"`
+	HiscoreInfo     HiscoreInfoProperties               `ini:"hiscore_info"`
+	HiscoreBgDef    BgDefProperties                     `ini:"hiscorebgdef"`
+	WarningInfo     WarningInfoProperties               `ini:"warning_info"`
+	Glyphs          map[string]*GlyphProperties         `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
+	fntIndexByKey   map[string]int                      // filepath|height -> index
+	ch              MotifChallenger
+	co              MotifContinue
+	de              MotifDemo
+	di              MotifDialogue
+	vi              MotifVictory
+	wi              MotifWin
+	hi              MotifHiscore
+	me              MotifMenu
+	fadeIn          *Fade
+	fadeOut         *Fade
+	fadePolicy      FadeStartPolicy
+	textsprite      []*TextSprite
 }
 
 // hasUserKey returns true if the given key exists in `section` of the INI.
@@ -1539,13 +1537,19 @@ func loadMotif(def string) (*Motif, error) {
 			}
 			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
 			lb := strings.ToLower(logical)
+			// Skip BG element sections like [XResultsBg] (but still allow *BgDef sections).
+			if strings.Contains(lb, "resultsbg") {
+				if !strings.HasSuffix(lb, "bgdef") {
+					goto nextSection
+				}
+			}
 			// Skip raw BG sections which are handled by loadBGDef.
 			if strings.HasPrefix(lb, "begin ") {
 				goto nextSection
 			}
 			for _, p := range []string{
 				"titlebg", "selectbg", "versusbg", "continuebg",
-				"victorybg", "winbg", "survivalresultsbg", "timeattackresultsbg",
+				"victorybg", "winbg",
 				"optionbg", "replaybg", "menubg", "trainingbg", "attractbg",
 				"challengerbg", "hiscorebg",
 			} {
@@ -2072,8 +2076,18 @@ func (m *Motif) loadFiles() {
 	m.loadBgDefProperties(&m.ContinueBgDef, "continuebg", m.Files.Spr)
 	m.loadBgDefProperties(&m.VictoryBgDef, "victorybg", m.Files.Spr)
 	m.loadBgDefProperties(&m.WinBgDef, "winbg", m.Files.Spr)
-	m.loadBgDefProperties(&m.SurvivalResultsBgDef, "survivalresultsbg", m.Files.Spr)
-	m.loadBgDefProperties(&m.TimeAttackResultsBgDef, "timeattackresultsbg", m.Files.Spr)
+
+	// Load all ResultsBgDef entries (any mode that defines <mode>ResultsBgDef).
+	for secKey, bg := range m.ResultsBgDef {
+		if bg == nil {
+			continue
+		}
+		key := strings.ToLower(secKey)
+		// "survivalresultsbgdef" -> "survivalresultsbg"
+		bgName := strings.TrimSuffix(key, "def")
+		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
+	}
+
 	m.loadBgDefProperties(&m.OptionBgDef, "optionbg", m.Files.Spr)
 	if _, err := m.UserIniFile.GetSection("ReplayBgDef"); err == nil {
 		m.loadBgDefProperties(&m.ReplayBgDef, "replaybg", m.Files.Spr)
@@ -5710,6 +5724,80 @@ type MotifWin struct {
 	stateTime       int32
 	//winCount        int32
 	//loseCnt         int32
+
+	resultsScreen *ResultsScreenProperties
+	resultsBgDef  *BgDefProperties
+	resultsKey    string
+}
+
+// results helpers
+func normalizeModeKey(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	// unify common separators; keep only [a-z0-9]
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
+func stripSuffixAndTrimSep(s, suffix string) (string, bool) {
+	sl := strings.ToLower(s)
+	suffix = strings.ToLower(suffix)
+	if !strings.HasSuffix(sl, suffix) {
+		return "", false
+	}
+	prefix := s[:len(s)-len(suffix)]
+	prefix = strings.TrimRight(prefix, "._- ")
+	prefix = strings.TrimRight(prefix, "_")
+	return prefix, true
+}
+
+func (wi *MotifWin) findResultsScreenForMode(m *Motif, mode string) (*ResultsScreenProperties, string) {
+	if m == nil || len(m.ResultsScreen) == 0 {
+		return nil, ""
+	}
+	nm := normalizeModeKey(mode)
+	for k, v := range m.ResultsScreen {
+		if v == nil {
+			continue
+		}
+		// keys are stored lowercased by assignToPatternMap, but don't assume
+		prefix, ok := stripSuffixAndTrimSep(k, "results_screen")
+		if !ok {
+			prefix, ok = stripSuffixAndTrimSep(k, "results.screen")
+		}
+		if !ok {
+			continue
+		}
+		if normalizeModeKey(prefix) == nm {
+			return v, strings.ToLower(k)
+		}
+	}
+	return nil, ""
+}
+
+func (wi *MotifWin) findResultsBgDefForMode(m *Motif, mode string) (*BgDefProperties, string) {
+	if m == nil || len(m.ResultsBgDef) == 0 {
+		return nil, ""
+	}
+	nm := normalizeModeKey(mode)
+	for k, v := range m.ResultsBgDef {
+		if v == nil {
+			continue
+		}
+		prefix, ok := stripSuffixAndTrimSep(k, "resultsbgdef")
+		if !ok {
+			continue
+		}
+		if normalizeModeKey(prefix) == nm {
+			return v, strings.ToLower(k)
+		}
+	}
+	return nil, ""
 }
 
 // Assign state data to MotifWin
@@ -5726,14 +5814,17 @@ func (wi *MotifWin) reset(m *Motif) {
 	wi.initialized = false
 	wi.stateDone = false
 	wi.endTimer = -1
+
+	wi.resultsScreen = nil
+	wi.resultsBgDef = nil
+	wi.resultsKey = ""
 }
 
 // Initialize the MotifWin based on the current game mode
 func (wi *MotifWin) init(m *Motif) {
 	if (wi.winEnabled && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
 		(wi.loseEnabled && (sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1)) {
-		if ok := wi.initSurvival(m); ok {
-		} else if ok := wi.initTimeAttack(m); ok {
+		if ok := wi.initResults(m); ok {
 		} else if ok := wi.initWinScreen(m); ok {
 		} else {
 			wi.initialized = true
@@ -5758,49 +5849,62 @@ func (wi *MotifWin) init(m *Motif) {
 	wi.initialized = true
 }
 
-// Handle survival mode initialization
-func (wi *MotifWin) initSurvival(m *Motif) bool {
-	if !strings.HasPrefix(sys.gameMode, "survival") || !m.SurvivalResultsScreen.Enabled {
+func (wi *MotifWin) initResults(m *Motif) bool {
+	// Locate "<mode>_results_screen" and "<mode>resultsbgdef" (any mode, not hardcoded fields).
+	rs, rsKey := wi.findResultsScreenForMode(m, sys.gameMode)
+	if rs == nil || !rs.Enabled {
 		return false
 	}
+	bg, bgKey := wi.findResultsBgDefForMode(m, sys.gameMode)
 
-	m.SurvivalResultsBgDef.BGDef.Reset()
-
-	m.SurvivalResultsScreen.WinsText.TextSpriteData.text = fmt.Sprintf(m.replaceFormatSpecifiers(m.SurvivalResultsScreen.WinsText.Text), sys.match-1)
-	if sys.match >= m.SurvivalResultsScreen.RoundsToWin {
-		wi.assignStates(m.SurvivalResultsScreen.P1.Win.State, m.SurvivalResultsScreen.P1.Teammate.Win.State, m.SurvivalResultsScreen.P2.Win.State, m.SurvivalResultsScreen.P2.Teammate.Win.State)
-	} else {
-		wi.assignStates(m.SurvivalResultsScreen.P1.State, m.SurvivalResultsScreen.P1.Teammate.State, m.SurvivalResultsScreen.P2.State, m.SurvivalResultsScreen.P2.Teammate.State)
-	}
-	wi.stateTime = m.SurvivalResultsScreen.State.Time
-	wi.soundsEnabled = m.SurvivalResultsScreen.Sounds.Enabled
-
-	wi.keyCancel = m.SurvivalResultsScreen.Cancel.Key
-	wi.time = m.SurvivalResultsScreen.Show.Time
-	wi.fadeOutTime = m.SurvivalResultsScreen.FadeOut.Time
-	wi.fadeIn = m.SurvivalResultsScreen.FadeIn.FadeData
-	wi.fadeOut = m.SurvivalResultsScreen.FadeOut.FadeData
-	return true
-}
-
-// Handle time attack mode initialization
-func (wi *MotifWin) initTimeAttack(m *Motif) bool {
-	if sys.gameMode != "timeattack" || !m.TimeAttackResultsScreen.Enabled {
-		return false
+	// BgDef is optional-ish: allow results screen to run even if BGDef is missing,
+	// but drawing will naturally skip the BG.
+	if bg != nil && bg.BGDef != nil {
+		bg.BGDef.Reset()
 	}
 
-	m.TimeAttackResultsBgDef.BGDef.Reset()
+	// Remember current active results pointers for draw().
+	wi.resultsScreen = rs
+	wi.resultsBgDef = bg
+	wi.resultsKey = rsKey
+	if wi.resultsKey == "" {
+		wi.resultsKey = bgKey
+	}
 
-	m.TimeAttackResultsScreen.WinsText.TextSpriteData.text = FormatTimeText(m.TimeAttackResultsScreen.WinsText.Text, float64(sys.timeTotal())/60)
-	wi.assignStates(m.TimeAttackResultsScreen.P1.State, m.TimeAttackResultsScreen.P1.Teammate.State, m.TimeAttackResultsScreen.P2.State, m.TimeAttackResultsScreen.P2.Teammate.State)
-	wi.stateTime = m.TimeAttackResultsScreen.State.Time
-	wi.soundsEnabled = m.TimeAttackResultsScreen.Sounds.Enabled
+	// Wins text formatting:
+	// - "rounds-based" modes: when roundsToWin is set, mimic old survival behavior.
+	// - "timeattack": keep existing time formatting (selected by mode key, not by hardcoded struct fields).
+	modeNorm := normalizeModeKey(sys.gameMode)
+	switch {
+	case rs.RoundsToWin > 0 || strings.Contains(modeNorm, "survival"):
+		if rs.WinsText.TextSpriteData != nil {
+			rs.WinsText.TextSpriteData.text = fmt.Sprintf(m.replaceFormatSpecifiers(rs.WinsText.Text), sys.match-1)
+		}
+		if rs.RoundsToWin > 0 && sys.match >= rs.RoundsToWin {
+			wi.assignStates(rs.P1.Win.State, rs.P1.Teammate.Win.State, rs.P2.Win.State, rs.P2.Teammate.Win.State)
+		} else {
+			wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+		}
+	case strings.Contains(modeNorm, "time"):
+		if rs.WinsText.TextSpriteData != nil {
+			rs.WinsText.TextSpriteData.text = FormatTimeText(rs.WinsText.Text, float64(sys.timeTotal())/60)
+		}
+		wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+	default:
+		// Generic: no assumptions about what the text represents.
+		if rs.WinsText.TextSpriteData != nil {
+			rs.WinsText.TextSpriteData.text = rs.WinsText.Text
+		}
+		wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+	}
 
-	wi.keyCancel = m.TimeAttackResultsScreen.Cancel.Key
-	wi.time = m.TimeAttackResultsScreen.Show.Time
-	wi.fadeOutTime = m.TimeAttackResultsScreen.FadeOut.Time
-	wi.fadeIn = m.TimeAttackResultsScreen.FadeIn.FadeData
-	wi.fadeOut = m.TimeAttackResultsScreen.FadeOut.FadeData
+	wi.stateTime = rs.State.Time
+	wi.soundsEnabled = rs.Sounds.Enabled
+	wi.keyCancel = rs.Cancel.Key
+	wi.time = rs.Show.Time
+	wi.fadeOutTime = rs.FadeOut.Time
+	wi.fadeIn = rs.FadeIn.FadeData
+	wi.fadeOut = rs.FadeOut.FadeData
 	return true
 }
 
@@ -5811,6 +5915,10 @@ func (wi *MotifWin) initWinScreen(m *Motif) bool {
 	}
 
 	m.WinBgDef.BGDef.Reset()
+
+	wi.resultsScreen = nil
+	wi.resultsBgDef = nil
+	wi.resultsKey = ""
 
 	wi.assignStates(m.WinScreen.P1.State, m.WinScreen.P1.Teammate.State, m.WinScreen.P2.State, m.WinScreen.P2.Teammate.State)
 	wi.stateTime = m.WinScreen.State.Time
@@ -5860,25 +5968,30 @@ func (wi *MotifWin) step(m *Motif) {
 }
 
 func (wi *MotifWin) draw(m *Motif, layerno int16) {
-	if strings.HasPrefix(sys.gameMode, "survival") {
-		if m.SurvivalResultsBgDef.BgClearColor[0] >= 0 {
-			m.SurvivalResultsBgDef.RectData.Draw(layerno)
+	// If we initialized via results map, draw that (no hardcoded mode names).
+	if wi.resultsScreen != nil {
+		bg := wi.resultsBgDef
+		rs := wi.resultsScreen
+
+		if bg != nil {
+			if bg.BgClearColor[0] >= 0 && bg.RectData != nil {
+				bg.RectData.Draw(layerno)
+			}
+			if bg.BGDef != nil {
+				bg.BGDef.Draw(int32(layerno), 0, 0, 1)
+			}
 		}
-		m.SurvivalResultsBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
-		m.SurvivalResultsScreen.Overlay.RectData.Draw(layerno)
-		if wi.counter >= m.SurvivalResultsScreen.WinsText.DisplayTime {
-			m.SurvivalResultsScreen.WinsText.TextSpriteData.Draw(layerno)
+		if rs.Overlay.RectData != nil {
+			rs.Overlay.RectData.Draw(layerno)
 		}
-	} else if sys.gameMode == "timeattack" {
-		if m.TimeAttackResultsBgDef.BgClearColor[0] >= 0 {
-			m.TimeAttackResultsBgDef.RectData.Draw(layerno)
+		if wi.counter >= rs.WinsText.DisplayTime && rs.WinsText.TextSpriteData != nil {
+			rs.WinsText.TextSpriteData.Draw(layerno)
 		}
-		m.TimeAttackResultsBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
-		m.TimeAttackResultsScreen.Overlay.RectData.Draw(layerno)
-		if wi.counter >= m.TimeAttackResultsScreen.WinsText.DisplayTime {
-			m.TimeAttackResultsScreen.WinsText.TextSpriteData.Draw(layerno)
-		}
-	} else {
+		return
+	}
+
+	// Fallback: normal win screen.
+	{
 		if m.WinBgDef.BgClearColor[0] >= 0 {
 			m.WinBgDef.RectData.Draw(layerno)
 		}

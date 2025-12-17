@@ -81,18 +81,30 @@ func tallyRun() runTally {
 }
 
 func modeCleared(mode string, matches int) bool {
-	switch mode {
-	case "survival", "survivalcoop", "netplaysurvivalcoop":
-		// P1 wins OR reached configured rounds to win
+	// Survival-like: P1 wins OR reached configured rounds-to-win.
+	modeLower := strings.ToLower(mode)
+	if strings.Contains(modeLower, "survival") {
 		if sys.winnerTeam() == 1 {
 			return true
 		}
-		rtw := int(sys.motif.SurvivalResultsScreen.RoundsToWin)
-		return matches >= rtw && rtw > 0
-	default:
-		// Arcade / Timeattack / TeamCoop etc.
-		return sys.winnerTeam() == 1
+		// Pull rounds-to-win from the unified ResultsScreen map.
+		// Prefer the exact mode entry; if not present, fall back to plain "survival"
+		// so modes like "survivalcoop"/"netplaysurvivalcoop" can reuse [Survival Results Screen].
+		rs, _ := sys.motif.wi.findResultsScreenForMode(&sys.motif, modeLower)
+		if rs == nil {
+			rs, _ = sys.motif.wi.findResultsScreenForMode(&sys.motif, "survival")
+		}
+		if rs != nil {
+			rtw := int(rs.RoundsToWin)
+			return matches >= rtw && rtw > 0
+		}
+
+		// No results screen config available -> can't use rounds-to-win rule.
+		return false
 	}
+
+	// Arcade / Timeattack / TeamCoop etc.
+	return sys.winnerTeam() == 1
 }
 
 func rankingTypeFor(mode string) (string, bool) {

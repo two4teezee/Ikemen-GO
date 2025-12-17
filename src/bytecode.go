@@ -659,7 +659,6 @@ const (
 	OC_ex_ikemenversion
 	OC_ex_incustomanim
 	OC_ex_incustomstate
-	OC_ex_indialogue
 	OC_ex_isassertedchar
 	OC_ex_isassertedglobal
 	OC_ex_ishost

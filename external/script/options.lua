@@ -1434,7 +1434,7 @@ function options.f_createMenu(tbl, bool_main)
 				playBgm({source = "motif.title", interrupt = true})
 				main.close = false
 				break
-			elseif esc() or main.f_input(main.t_players, motif.option_info.menu.cancel.key) then
+			elseif (esc() or main.f_input(main.t_players, motif.option_info.menu.cancel.key)) and not main.fadeActive then
 				sndPlay(motif.Snd, motif.option_info.cancel.snd[1], motif.option_info.cancel.snd[2])
 				if bool_main then
 					if options.modified then

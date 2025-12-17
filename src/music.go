@@ -427,7 +427,7 @@ func (m Music) act() {
 			// Victory (decisive round, winning & alive)
 			if sys.stage.bgmState < BGMStateVictory &&
 				c.win() && c.alive() &&
-				sys.decisiveRound[c.teamside] {
+				sys.decisiveRound[^c.playerNo&1] {
 
 				//fmt.Printf("[music] act: decisive victory for teamside=%d, trying 'victory' prefix\n", c.teamside)
 

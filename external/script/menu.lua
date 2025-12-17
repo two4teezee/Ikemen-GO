@@ -689,9 +689,9 @@ function menu.f_commandlistRender(sec, t)
 	--draw overlay
 	rectDraw(sec.movelist.overlay.RectData)
 	--draw title
-	textImgReset(sec.title.TextSpriteData)
-	textImgSetText(sec.title.TextSpriteData, main.f_itemnameUpper(string.format(sec.movelist.title.text, t.name), sec.movelist.title.uppercase))
-	textImgDraw(sec.title.TextSpriteData)
+	textImgReset(sec.movelist.title.TextSpriteData)
+	textImgSetText(sec.movelist.title.TextSpriteData, main.f_itemnameUpper(string.format(sec.movelist.title.text, t.name), sec.movelist.title.uppercase))
+	textImgDraw(sec.movelist.title.TextSpriteData)
 	--draw commands
 	local i = 0
 	for n = t.tbl.movelistLine, math.min(t.tbl.movelistLine + sec.movelist.window.visibleitems + 1, #cmdList) do

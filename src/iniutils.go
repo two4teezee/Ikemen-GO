@@ -1297,6 +1297,35 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 	return nil
 }
 
+// resolveSectionForWrite tries to map an internal/tag section name (using underscores instead of spaces)
+// onto the actual section name present in the INI (which can have spaces).
+// If a matching existing section is found, it returns that canonical name.
+// Otherwise it returns a best-effort name for creation (preferring spaces).
+func resolveSectionForWrite(f *ini.File, sec string) string {
+	if f == nil || sec == "" {
+		return sec
+	}
+	// Exact name (case-insensitive lookup is handled by ini when enabled)
+	if _, err := f.GetSection(sec); err == nil {
+		// Keep the canonical stored name (preserves original casing/spaces)
+		s, _ := f.GetSection(sec)
+		if s != nil {
+			return s.Name()
+		}
+		return sec
+	}
+	// Underscore -> space fallback
+	if strings.Contains(sec, "_") {
+		alt := strings.ReplaceAll(sec, "_", " ")
+		if s, err := f.GetSection(alt); err == nil && s != nil {
+			return s.Name()
+		}
+		// Prefer creating the spaced name so we don't split the config across two sections.
+		return alt
+	}
+	return sec
+}
+
 // updateINIFile updates the INI file based on the struct, query, and value
 func updateINIFile(obj interface{}, iniFile *ini.File, query string, value string) error {
 	parts := parseQueryPath(query)
@@ -1495,6 +1524,8 @@ finalize:
 
 	keyName := strings.Join(keyNameParts, ".")
 
+	// Map internal/tag section names to the real INI section name.
+	sectionName = resolveSectionForWrite(iniFile, sectionName)
 	section, err := iniFile.GetSection(sectionName)
 	if err != nil {
 		section, err = iniFile.NewSection(sectionName)

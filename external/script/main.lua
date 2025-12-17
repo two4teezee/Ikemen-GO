@@ -3212,7 +3212,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			item = item + 1
 		end
 		cursorPosY = item
-		if sec.menu.tween.wrap.snap then
+		if sec.menu.tween.wrap.snap == 1 then
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
@@ -3227,7 +3227,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 		else
 			cursorPosY = item
 		end
-		if sec.menu.tween.wrap.snap then
+		if sec.menu.tween.wrap.snap == 1 then
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
@@ -3422,7 +3422,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		sec.boxCursorData.init = true
 		sec.boxCursorData.snap = -1
 	end
-	if sec.menu.boxcursor.tween.wrap.snap and main.menuWrapped then
+	if sec.menu.boxcursor.tween.wrap.snap == 1 and main.menuWrapped then
 		sec.boxCursorData.offsetY = targetY
 	end
 	--apply tween if enabled, otherwise snap to target

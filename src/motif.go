@@ -208,9 +208,9 @@ type BoxBgProperties struct {
 
 type TweenProperties struct {
 	Factor [2]float32 `ini:"factor"`
-	Snap   int32      `ini:"snap"`
+	Snap   bool       `ini:"snap"`
 	Wrap   struct {
-		Snap int32 `ini:"snap"`
+		Snap bool `ini:"snap"`
 	} `ini:"wrap"`
 }
 

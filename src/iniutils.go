@@ -2602,24 +2602,6 @@ func PopulateDataPointers(obj interface{}, rootLocalcoord [2]int32) {
 	populate(v.Elem(), v.Elem(), rootLocalcoord, rootSff)
 }
 
-// maxSize returns the largest slice length among all BGM property slices
-func (h *BgmProperties) maxSize() int {
-	maxLen := len(h.Bgm)
-	check := func(n int) {
-		if n > maxLen {
-			maxLen = n
-		}
-	}
-	check(len(h.Loop))
-	check(len(h.Volume))
-	check(len(h.LoopStart))
-	check(len(h.LoopEnd))
-	check(len(h.StartPosition))
-	check(len(h.FreqMul))
-	check(len(h.LoopCount))
-	return maxLen
-}
-
 // Split a [Music] key into (prefix, property) while allowing dots in prefix.
 func splitMusicKey(rawKey string) (prefix string, property string) {
 	k := strings.TrimSpace(rawKey)
@@ -2656,16 +2638,67 @@ func parseMusicSection(section *ini.Section) Music {
 		return make(Music)
 	}
 
-	// Create temporary holder for raw data
-	propMap := make(map[string]*BgmProperties)
+	// Local holder that preserves list alignment while allowing "unset" (nil)
+	// so defaults from newBgMusic() are not overridden by empty values.
+	type musicHolder struct {
+		Bgm           []string
+		Loop          []*int32
+		Volume        []*int32
+		LoopStart     []*int32
+		LoopEnd       []*int32
+		StartPosition []*int32
+		FreqMul       []*float32
+		LoopCount     []*int32
+	}
 
-	getHolder := func(prefix string) *BgmProperties {
+	propMap := make(map[string]*musicHolder)
+
+	get := func(prefix string) *musicHolder {
 		if h, ok := propMap[prefix]; ok {
 			return h
 		}
-		h := &BgmProperties{}
+		h := &musicHolder{}
 		propMap[prefix] = h
 		return h
+	}
+
+	appendI32PtrList := func(dst *[]*int32, items []string) {
+		for _, s := range items {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				*dst = append(*dst, nil)
+				continue
+			}
+			v := Atoi(s)
+			*dst = append(*dst, &v)
+		}
+	}
+	appendF32PtrList := func(dst *[]*float32, items []string) {
+		for _, s := range items {
+			s = strings.TrimSpace(s)
+			if s == "" {
+				*dst = append(*dst, nil)
+				continue
+			}
+			v := float32(Atof(s))
+			*dst = append(*dst, &v)
+		}
+	}
+	maxSize := func(h *musicHolder) int {
+		maxLen := len(h.Bgm)
+		check := func(n int) {
+			if n > maxLen {
+				maxLen = n
+			}
+		}
+		check(len(h.Loop))
+		check(len(h.Volume))
+		check(len(h.LoopStart))
+		check(len(h.LoopEnd))
+		check(len(h.StartPosition))
+		check(len(h.FreqMul))
+		check(len(h.LoopCount))
+		return maxLen
 	}
 
 	// Parse keys
@@ -2692,43 +2725,29 @@ func parseMusicSection(section *ini.Section) Music {
 		// Fill BgmProperties fields based on recognized property names
 		switch property {
 		case "bgm", "bgmusic":
-			h := getHolder(prefix)
+			h := get(prefix)
 			h.Bgm = append(h.Bgm, values...)
 		case "bgm.loop", "bgmloop":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.Loop = append(h.Loop, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.Loop, values)
 		case "bgm.volume", "bgmvolume":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.Volume = append(h.Volume, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.Volume, values)
 		case "bgm.loopstart", "bgmloopstart":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.LoopStart = append(h.LoopStart, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.LoopStart, values)
 		case "bgm.loopend", "bgmloopend":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.LoopEnd = append(h.LoopEnd, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.LoopEnd, values)
 		case "bgm.startposition", "bgmstartposition":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.StartPosition = append(h.StartPosition, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.StartPosition, values)
 		case "bgm.freqmul", "bgmfreqmul":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.FreqMul = append(h.FreqMul, float32(Atof(v)))
-			}
+			h := get(prefix)
+			appendF32PtrList(&h.FreqMul, values)
 		case "bgm.loopcount", "bgmloopcount":
-			h := getHolder(prefix)
-			for _, v := range values {
-				h.LoopCount = append(h.LoopCount, Atoi(v))
-			}
+			h := get(prefix)
+			appendI32PtrList(&h.LoopCount, values)
 		default:
 			// unrecognized => skip
 			continue
@@ -2750,36 +2769,33 @@ func parseMusicSection(section *ini.Section) Music {
 			continue
 		}
 
-		// Apply defaults (Loop=1, Volume=100, etc.) only for actual music entries.
-		applyDefaultsToValue(reflect.ValueOf(holder).Elem())
-
 		// Build the final []*bgMusic slice
-		count := holder.maxSize()
+		count := maxSize(holder)
 		for i := 0; i < count; i++ {
 			bg := newBgMusic()
 			if i < len(holder.Bgm) {
 				bg.bgmusic = holder.Bgm[i]
 			}
-			if i < len(holder.Loop) {
-				bg.bgmloop = holder.Loop[i]
+			if i < len(holder.Loop) && holder.Loop[i] != nil {
+				bg.bgmloop = *holder.Loop[i]
 			}
-			if i < len(holder.Volume) {
-				bg.bgmvolume = holder.Volume[i]
+			if i < len(holder.Volume) && holder.Volume[i] != nil {
+				bg.bgmvolume = *holder.Volume[i]
 			}
-			if i < len(holder.LoopStart) {
-				bg.bgmloopstart = holder.LoopStart[i]
+			if i < len(holder.LoopStart) && holder.LoopStart[i] != nil {
+				bg.bgmloopstart = *holder.LoopStart[i]
 			}
-			if i < len(holder.LoopEnd) {
-				bg.bgmloopend = holder.LoopEnd[i]
+			if i < len(holder.LoopEnd) && holder.LoopEnd[i] != nil {
+				bg.bgmloopend = *holder.LoopEnd[i]
 			}
-			if i < len(holder.StartPosition) {
-				bg.bgmstartposition = holder.StartPosition[i]
+			if i < len(holder.StartPosition) && holder.StartPosition[i] != nil {
+				bg.bgmstartposition = *holder.StartPosition[i]
 			}
-			if i < len(holder.FreqMul) {
-				bg.bgmfreqmul = holder.FreqMul[i]
+			if i < len(holder.FreqMul) && holder.FreqMul[i] != nil {
+				bg.bgmfreqmul = *holder.FreqMul[i]
 			}
-			if i < len(holder.LoopCount) {
-				bg.bgmloopcount = holder.LoopCount[i]
+			if i < len(holder.LoopCount) && holder.LoopCount[i] != nil {
+				bg.bgmloopcount = *holder.LoopCount[i]
 			}
 			music[prefix] = append(music[prefix], bg)
 		}

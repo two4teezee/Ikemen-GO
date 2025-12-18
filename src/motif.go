@@ -1983,6 +1983,9 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Victory Screen", SrcPrefix: "p2.", DstSec: "Victory Screen", DstPrefix: "p4."},
 		{SrcSec: "Victory Screen", SrcPrefix: "p2.", DstSec: "Victory Screen", DstPrefix: "p6."},
 		{SrcSec: "Victory Screen", SrcPrefix: "p2.", DstSec: "Victory Screen", DstPrefix: "p8."},
+		// [Dialogue Info]
+		{SrcSec: "Dialogue Info", SrcPrefix: "p1.face.", DstSec: "Dialogue Info", DstPrefix: "p1.face.active."},
+		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
 	}
 	m.mergeWithInheritance(specs)
 	// Inheritance may add new font filenames; rerun resolver to map them to deduped font indices.
@@ -2881,7 +2884,9 @@ func (me *MotifMenu) reset(m *Motif) {
 	me.active = false
 	me.initialized = false
 	me.endTimer = -1
-	sys.applyFightAspect()
+	if !m.di.active {
+		sys.applyFightAspect()
+	}
 }
 
 func (me *MotifMenu) init(m *Motif) {

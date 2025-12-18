@@ -5256,10 +5256,53 @@ func (l *Lifebar) setLifebarScale() {
 	l.portraitScale = localW / float32(viewport43[2]) * calcScale
 }
 
+func readMotifFightFromDef(def string) string {
+	if def == "" {
+		return ""
+	}
+	tmp := def
+	var fight string
+	// Use existing path resolution logic.
+	_ = LoadFile(&tmp, []string{tmp, "", "data/"}, func(filename string) error {
+		if filename == "" {
+			return nil
+		}
+		str, err := LoadText(filename)
+		if err != nil {
+			return err
+		}
+		// Minimal parse: scan sections until [Files], then grab "fight".
+		lines := SplitAndTrim(NormalizeNewlines(str), "\n")
+		i := 0
+		for i < len(lines) {
+			is, name, _ := ReadIniSection(lines, &i)
+			if len(name) == 0 {
+				break
+			}
+			if strings.EqualFold(name, "Files") {
+				if v, ok := is["fight"]; ok {
+					fight = strings.TrimSpace(v)
+				}
+				break
+			}
+		}
+		return nil
+	})
+	return fight
+}
+
 func (l *Lifebar) resolvePath() {
-	v := sys.motif.Files.Fight
+	var v string
 	if x, ok := sys.cmdFlags["-lifebar"]; ok {
 		v = x
+	} else {
+		// Prefer already-parsed value.
+		v = sys.motif.Files.Fight
+		// If motif.Files.Fight is not set yet, resolve motif path and read only the [Files] fight entry from sys.motif.Def.
+		if v == "" {
+			sys.motif.resolvePath()
+			v = readMotifFightFromDef(sys.motif.Def)
+		}
 	}
 	v = filepath.ToSlash(v)
 	if v == "" {
@@ -5270,6 +5313,5 @@ func (l *Lifebar) resolvePath() {
 		l.def = filepath.ToSlash(resolved)
 		return
 	}
-
 	l.def = v
 }

@@ -949,10 +949,10 @@ options.t_itemname = {
 			local currentWidth = gameOption('Video.FightAspectWidth')
 			local currentHeight = gameOption('Video.FightAspectHeight')
 			for k, v in ipairs(t.submenu[t.items[item].itemname].items) do
-				if v.itemname == 'default' and currentWidth == 0 and currentHeight == 0 then
+				if v.itemname == 'defaultaspect' and currentWidth == 0 and currentHeight == 0 then
 					v.selected = true
 					ok = true
-				elseif v.itemname == 'stage' and currentWidth == -1 and currentHeight == -1 then
+				elseif v.itemname == 'stageaspect' and currentWidth == -1 and currentHeight == -1 then
 					v.selected = true
 					ok = true
 				else
@@ -1468,6 +1468,15 @@ end
 
 options.t_vardisplayPointers = {}
 
+local function findItemnameBySuffix(sfx)
+	for _, k in ipairs(motif.option_info.menu.itemname_order) do
+		if k:match(sfx) then
+			return motif.option_info.menu.itemname[k]
+		end
+	end
+	return ''
+end
+
 -- Associative elements table storing functions returning current setting values
 -- rendered alongside menu item name. Can be appended via external module.
 options.t_vardisplay = {
@@ -1489,9 +1498,9 @@ options.t_vardisplay = {
 		if width > 0 and height > 0 then
 			return width .. ':' .. height
 		elseif width < 0 and height < 0 then
-			return 'Stage'
+			return findItemnameBySuffix('stageaspect$')
 		else
-			return 'Default'
+			return findItemnameBySuffix('defaultaspect$')
 		end
 	end,
 	['audioducking'] = function()
@@ -1773,8 +1782,8 @@ function options.f_start()
 		-- aspect ratio
 		elseif v:match('_aspectratio_') then
 			-- aspect ratio default
-			if v:match('_aspectratio_default$') then
-				options.t_itemname['default'] = function(t, item, cursorPosY, moveTxt)
+			if v:match('_aspectratio_defaultaspect$') then
+				options.t_itemname['defaultaspect'] = function(t, item, cursorPosY, moveTxt)
 					if main.f_input(main.t_players, motif.option_info.menu.done.key) then
 						sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
 						modifyGameOption('Video.FightAspectWidth', 0)
@@ -1785,8 +1794,8 @@ function options.f_start()
 					return true
 				end
 			-- aspect ratio stage
-			elseif v:match('_aspectratio_stage$') then
-				options.t_itemname['stage'] = function(t, item, cursorPosY, moveTxt)
+			elseif v:match('_aspectratio_stageaspect$') then
+				options.t_itemname['stageaspect'] = function(t, item, cursorPosY, moveTxt)
 					if main.f_input(main.t_players, motif.option_info.menu.done.key) then
 						sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
 						modifyGameOption('Video.FightAspectWidth', -1)

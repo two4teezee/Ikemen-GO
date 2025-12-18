@@ -2628,12 +2628,11 @@ func systemScriptInit(l *lua.LState) {
 						disabledFlat[e.flat] = true
 						continue
 					}
-					// Allow duplicates for separators (empty, empty1, empty2, ...).
+					// Allow duplicates for separators (spacer, spacer1, spacer2, ...).
 					if disabledFlat[e.flat] || (seenFlat[e.flat] && !isSpacerKey(e.base)) {
 						continue
 					}
-					// For defaults, suppress items whose leaf was already added from user entries (or earlier),
-					// but DO NOT suppress "back" or empty* so each submenu can have its own back/separators.
+					// For defaults, suppress items whose leaf was already added from user entries (or earlier), but do not suppress back or spacer*
 					if isDefault && e.base != "back" && !isSpacerKey(e.base) && seenBase[e.base] {
 						continue
 					}

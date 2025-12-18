@@ -2884,7 +2884,9 @@ func (me *MotifMenu) reset(m *Motif) {
 	me.active = false
 	me.initialized = false
 	me.endTimer = -1
-	sys.applyFightAspect()
+	if !m.di.active {
+		sys.applyFightAspect()
+	}
 }
 
 func (me *MotifMenu) init(m *Motif) {

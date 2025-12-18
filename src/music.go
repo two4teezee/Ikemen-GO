@@ -56,6 +56,9 @@
 //   "<prefix>.music=" starts a new candidate for that prefix; subsequent
 //   "<prefix>.bgm*" fields update the most recently created candidate.
 //
+// NOTE: select_params.go additionally supports "music=path vol loopstart loopend"
+// by expanding it into the above "<prefix>.bgm*" keys before calling AppendParams.
+//
 // Normalization of naming
 // -----------------------
 // Elecbyte used inconsistent keys across files. Both the INI loader

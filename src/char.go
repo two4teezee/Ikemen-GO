@@ -3179,14 +3179,13 @@ func (c *Char) ocd() *OverrideCharData {
 	if c.teamside == -1 {
 		team = 2
 	}
-	// This check prevents a crash when modifying helpers to be teamside 0
-	// This happens because OverrideCharData is indexed by teamside
-	// TODO: Perhaps ModifyPlayer or OverrideCharData could be refactored to not need this and be safer overall
-	if c.memberNo < len(sys.sel.ocd[team]) {
-		return &sys.sel.ocd[team][c.memberNo]
+	if team < 0 || team > 2 || c.memberNo < 0 {
+		return newOverrideCharData()
 	}
-	// Return default values as safeguard
-	return newOverrideCharData()
+	if sys.sel.launchFightParams == nil {
+		sys.sel.launchFightParams = newLaunchFightParams()
+	}
+	return sys.sel.launchFightParams.ensureOverride(team, c.memberNo)
 }
 
 func (c *Char) load(def string) error {

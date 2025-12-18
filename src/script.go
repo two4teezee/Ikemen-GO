@@ -592,8 +592,13 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "addChar", func(l *lua.LState) int {
 		if sc := sys.sel.AddChar(strArg(l, 1)); sc != nil {
 			if !nilArg(l, 2) {
-				//sc.scp.AddParams(strArg(l, 2), sc)
-				sc.music.AppendParams(SplitAndTrim(strArg(l, 2), ","))
+				entries := SplitAndTrim(strArg(l, 2), ",")
+				if sc.scp == nil {
+					sc.scp = newSelectCharParams()
+				}
+				sc.scp.AppendParams(entries)
+				// Feed normalized music params to Music
+				sc.music.AppendParams(sc.scp.MusicEntries())
 			}
 			l.Push(lua.LBool(true))
 		} else {
@@ -616,8 +621,13 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "addStage", func(l *lua.LState) int {
 		if ss, err := sys.sel.AddStage(strArg(l, 1)); err == nil {
 			if !nilArg(l, 2) {
-				//ss.ssp.AddParams(strArg(l, 2), ss)
-				ss.music.AppendParams(SplitAndTrim(strArg(l, 2), ","))
+				entries := SplitAndTrim(strArg(l, 2), ",")
+				if ss.ssp == nil {
+					ss.ssp = newSelectStageParams()
+				}
+				ss.ssp.AppendParams(entries)
+				// Feed normalized music params to Music.
+				ss.music.AppendParams(ss.ssp.MusicEntries())
 			}
 			l.Push(lua.LBool(true))
 		} else {
@@ -2149,6 +2159,17 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "getCharSelectParams", func(*lua.LState) int {
+		c := sys.sel.GetChar(int(numArg(l, 1)))
+		lv := toLValue(l, c.scp)
+		lTable, ok := lv.(*lua.LTable)
+		if !ok {
+			l.RaiseError("Error: 'lv' is not a *lua.LTable")
+			return 0
+		}
+		l.Push(lTable)
+		return 1
+	})
 	luaRegister(l, "getClipboardString", func(*lua.LState) int {
 		s := sys.window.GetClipboardString()
 		l.Push(lua.LString(s))
@@ -2246,6 +2267,16 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LString(s))
 		return 1
 	})
+	luaRegister(l, "getLaunchFightParams", func(*lua.LState) int {
+		lv := toLValue(l, sys.sel.launchFightParams)
+		lTable, ok := lv.(*lua.LTable)
+		if !ok {
+			l.RaiseError("Error: 'lv' is not a *lua.LTable")
+			return 0
+		}
+		l.Push(lTable)
+		return 1
+	})
 	luaRegister(l, "getMatchMaxDrawGames", func(l *lua.LState) int {
 		tn := int(numArg(l, 1))
 		if tn < 1 || tn > 2 {
@@ -2283,6 +2314,17 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "getStageNo", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.sel.selectedStageNo))
+		return 1
+	})
+	luaRegister(l, "getStageSelectParams", func(*lua.LState) int {
+		c := sys.sel.GetStage(int(numArg(l, 1)))
+		lv := toLValue(l, c.ssp)
+		lTable, ok := lv.(*lua.LTable)
+		if !ok {
+			l.RaiseError("Error: 'lv' is not a *lua.LTable")
+			return 0
+		}
+		l.Push(lTable)
 		return 1
 	})
 	luaRegister(l, "getTimestamp", func(*lua.LState) int {
@@ -2822,7 +2864,15 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nStage not selected for load\n")
 		}
 		if !nilArg(l, 1) {
-			sys.sel.music.AppendParams(SplitAndTrim(strArg(l, 1), ","))
+			entries := SplitAndTrim(strArg(l, 1), ",")
+			if sys.sel.launchFightParams == nil {
+				sys.sel.launchFightParams = newLaunchFightParams()
+			} else {
+				sys.sel.launchFightParams.Reset()
+			}
+			sys.sel.launchFightParams.AppendParams(entries)
+			// Feed normalized music params to Music.
+			sys.sel.music.AppendParams(sys.sel.launchFightParams.MusicEntries())
 		}
 		sys.loadStart()
 		return 0
@@ -2889,46 +2939,6 @@ func systemScriptInit(l *lua.LState) {
 			scType = 1
 		}
 		sys.debugWC.mapSet(strArg(l, 1), float32(numArg(l, 2)), scType)
-		return 0
-	})
-	luaRegister(l, "overrideCharData", func(l *lua.LState) int {
-		tn := int(numArg(l, 1))
-		if tn < 1 || tn > 2 {
-			l.RaiseError("\nInvalid team side: %v\n", tn)
-		}
-		mn := int(numArg(l, 2))
-		if len(sys.sel.ocd[tn-1]) == 0 {
-			l.RaiseError("\noverrideCharData function used before loading player %v, member %v\n", tn, mn)
-		}
-		tableArg(l, 3).ForEach(func(key, value lua.LValue) {
-			switch k := key.(type) {
-			case lua.LString:
-				switch strings.ToLower(string(k)) {
-				case "life":
-					sys.sel.ocd[tn-1][mn-1].life = int32(lua.LVAsNumber(value))
-				case "lifemax":
-					sys.sel.ocd[tn-1][mn-1].lifeMax = int32(lua.LVAsNumber(value))
-				case "power":
-					sys.sel.ocd[tn-1][mn-1].power = int32(lua.LVAsNumber(value))
-				case "dizzypoints":
-					sys.sel.ocd[tn-1][mn-1].dizzyPoints = int32(lua.LVAsNumber(value))
-				case "guardpoints":
-					sys.sel.ocd[tn-1][mn-1].guardPoints = int32(lua.LVAsNumber(value))
-				case "ratiolevel":
-					sys.sel.ocd[tn-1][mn-1].ratioLevel = int32(lua.LVAsNumber(value))
-				case "liferatio":
-					sys.sel.ocd[tn-1][mn-1].lifeRatio = float32(lua.LVAsNumber(value))
-				case "attackratio":
-					sys.sel.ocd[tn-1][mn-1].attackRatio = float32(lua.LVAsNumber(value))
-				case "existed":
-					sys.sel.ocd[tn-1][mn-1].existed = lua.LVAsBool(value)
-				default:
-					l.RaiseError("\nInvalid table key: %v\n", k)
-				}
-			default:
-				l.RaiseError("\nInvalid table key type: %v\n", fmt.Sprintf("%T\n", key))
-			}
-		})
 		return 0
 	})
 	luaRegister(l, "panicError", func(*lua.LState) int {
@@ -3427,6 +3437,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "resetGameStats", func(*lua.LState) int {
 		sys.statsLog.reset()
+		sys.continueFlg = false
 		return 0
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {
@@ -3940,7 +3951,8 @@ func systemScriptInit(l *lua.LState) {
 		if nt < 1 || (tm != TM_Turns && nt > MaxSimul) {
 			l.RaiseError("\nInvalid team size: %v\n", nt)
 		}
-		sys.sel.selected[tn-1], sys.sel.ocd[tn-1] = nil, nil
+		sys.sel.selected[tn-1] = nil
+		//sys.sel.ocd[tn-1] = nil
 		sys.tmode[tn-1] = tm
 		if tm == TM_Turns {
 			sys.numSimul[tn-1] = 1

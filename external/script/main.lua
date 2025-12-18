@@ -785,7 +785,6 @@ function main.f_commandLine()
 	local t_matchWins = {single = main.roundsNumSingle, simul = main.roundsNumSimul, tag = main.roundsNumTag, draw = main.maxDrawGames}
 	local roundTime = gameOption('Options.Time')
 	if getCommandLineValue("-loadmotif") == nil then
-		loadMotif()
 		loadLifebar()
 	end
 	setLifebarElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
@@ -902,6 +901,7 @@ function main.f_commandLine()
 	setTeamMode(1, t_teamMode[1], t_numChars[1])
 	setTeamMode(2, t_teamMode[2], t_numChars[2])
 	if main.debugLog then main.f_printTable(t, 'debug/t_quickvs.txt') end
+	local t_params = {}
 	--iterate over the table in -p order ascending
 	for _, v in main.f_sortKeys(t, function(t, a, b) return t[b].num > t[a].num end) do
 		if main.t_charDef[v.character:lower()] == nil then
@@ -919,7 +919,11 @@ function main.f_commandLine()
 		selectChar(v.player, main.t_charDef[v.character:lower()], v.pal)
 		setCom(v.num, v.ai)
 		remapInput(v.num, v.input)
-		overrideCharData(v.player, math.ceil(v.num / 2), v.override)
+		-- fold overrides into loadStart() params (p1.<member>.<field>=...)
+		local member = math.ceil(v.num / 2)
+		for k2, v2 in pairs(v.override) do
+			table.insert(t_params, 'p' .. v.player .. '.' .. member .. '.' .. k2 .. '=' .. tostring(v2))
+		end
 		if start ~= nil then
 			if start.p[v.player].t_selected == nil then
 				start.p[v.player].t_selected = {}
@@ -947,7 +951,12 @@ function main.f_commandLine()
 		main.f_cmdBufReset()
 		refresh()
 	end
-	loadStart()
+	local params = table.concat(t_params, ", ")
+	if params == '' then
+		loadStart()
+	else
+		loadStart(params)
+	end
 	while loading() do
 		--do nothing
 	end

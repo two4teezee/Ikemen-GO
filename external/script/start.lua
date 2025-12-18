@@ -1483,31 +1483,6 @@ function start.f_matchPersistence()
 	return start.p[1].numChars
 end
 
---upcoming match character data adjustment
-function start.f_overrideCharData()
-	for side = 1, 2 do
-		for member, v in ipairs(start.p[side].t_selected) do
-			local lifeRatio = nil
-			local attackRatio = nil
-			if v.ratioLevel then
-				lifeRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Life')
-				attackRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Attack')
-			end
-			overrideCharData(side, member, {
-				['life'] = v.life,
-				['lifemax'] = v.lifeMax,
-				['power'] = v.power,
-				['dizzypoints'] = v.dizzyPoints,
-				['guardpoints'] = v.guardPoints,
-				['ratiolevel'] = v.ratioLevel,
-				['liferatio'] = v.lifeRatio or lifeRatio,
-				['attackratio'] = v.attackRatio or attackRatio, 
-				['existed'] = v.existed,
-			})
-		end
-	end
-end
-
 --start game
 function start.f_game(lua)
 	clearColor(0, 0, 0)
@@ -1948,7 +1923,6 @@ function launchFight(data)
 		t.stageNo = start.f_setStage(t.stageNo, t.stage ~= '' or continue() or loopCount > 0)
 		if not start.f_selectVersus(t.vsscreen, t.orderselect) then break end
 		start.f_selectLoading(t.musicParams)
-		start.f_overrideCharData()
 		local continueScreen = main.motif.continuescreen
 		local victoryScreen = main.motif.victoryscreen
 		main.motif.continuescreen = t.continue
@@ -3421,15 +3395,41 @@ end
 --loading loop called after versus screen is finished
 function start.f_selectLoading(musicParams)
 	clearAllSound()
+	local params = musicParams or ''
+	local function addParam(k, v)
+		if v == nil then return end
+		if params == '' then
+			params = k .. '=' .. tostring(v)
+		else
+			params = params .. ', ' .. k .. '=' .. tostring(v)
+		end
+	end
 	for side = 1, 2 do
-		for _, v in ipairs(start.p[side].t_selected) do
+		for member, v in ipairs(start.p[side].t_selected) do
 			if not v.loading then
 				selectChar(side, v.ref, v.pal)
 				v.loading = true
 			end
+			-- fold overrideCharData() payload into loadStart() params
+			local lifeRatio = nil
+			local attackRatio = nil
+			if v.ratioLevel then
+				lifeRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Life')
+				attackRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Attack')
+			end
+			local pfx = 'p' .. side .. '.' .. member .. '.'
+			addParam(pfx .. 'life', v.life)
+			addParam(pfx .. 'lifemax', v.lifeMax)
+			addParam(pfx .. 'power', v.power)
+			addParam(pfx .. 'dizzypoints', v.dizzyPoints)
+			addParam(pfx .. 'guardpoints', v.guardPoints)
+			addParam(pfx .. 'ratiolevel', v.ratioLevel)
+			addParam(pfx .. 'liferatio', v.lifeRatio or lifeRatio)
+			addParam(pfx .. 'attackratio', v.attackRatio or attackRatio)
+			addParam(pfx .. 'existed', v.existed)
 		end
 	end
-	loadStart(musicParams)
+	loadStart(params)
 end
 
 return start

@@ -672,13 +672,6 @@ func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
 	return result
 }
 
-// other things can be copied, only focusing on OCD right now
 func (s Select) Clone(a *arena.Arena) (result Select) {
-	result = s
-	for i := 0; i < len(s.ocd); i++ {
-		result.ocd[i] = arena.MakeSlice[OverrideCharData](a, len(s.ocd[i]), len(s.ocd[i]))
-		copy(result.ocd[i], s.ocd[i])
-	}
-
 	return
 }

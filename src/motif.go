@@ -2589,6 +2589,9 @@ func (mo *Motif) replaceFormatSpecifiers(input string) string {
 }
 
 func (m *Motif) reset() {
+	if m.IniFile == nil {
+		return
+	}
 	m.fadeIn.reset()
 	m.fadeOut.reset()
 	m.ch.reset(m)
@@ -3086,7 +3089,8 @@ func (co *MotifContinue) updateCreditsText(m *Motif) {
 
 func (co *MotifContinue) init(m *Motif) {
 	if (!m.ContinueScreen.Enabled || !co.enabled || sys.cfg.Options.QuickContinue) ||
-		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) {
+		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
+		!sys.sel.launchFightParams.Continue {
 		co.initialized = true
 		return
 	}
@@ -5409,22 +5413,34 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 
 func (vi *MotifVictory) init(m *Motif) {
 	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) ||
-		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) {
+		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) ||
+		!sys.sel.launchFightParams.VictoryScreen {
 		vi.initialized = true
 		return
 	}
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 
-	//fmt.Printf("[Victory] init: enabled=%v winnerTeam=%d cpu.enabled=%v p1.num=%d p2.num=%d\n", m.VictoryScreen.Enabled, sys.winnerTeam(), m.VictoryScreen.Cpu.Enabled, m.VictoryScreen.P1.Num, m.VictoryScreen.P2.Num)
-
-	// Build orders for both sides
+	// Determine which character is used for victory screen (same one used below as leader/quote),
+	// and honor select.def character param: victoryscreen (skip completely when false).
 	winnerSide := int(sys.winnerTeam() - 1)
 	loserSide := winnerSide ^ 1
-	// How many portraits per side (respect motif p1_num / p2_num)
 	maxW := int(Clamp(m.VictoryScreen.P1.Num, 0, 4))
 	maxL := int(Clamp(m.VictoryScreen.P2.Num, 0, 4))
 	wEntries := vi.buildSideOrder(winnerSide, m.VictoryScreen.Winner.TeamKo.Enabled, maxW)
 	lEntries := vi.buildSideOrder(loserSide, true, maxL) // losers always allow KO display
+
+	if len(wEntries) > 0 {
+		cn := wEntries[0].cn
+		if cn >= 0 {
+			if sc := sys.sel.GetChar(cn); sc != nil && sc.scp != nil && !sc.scp.VictoryScreen {
+				vi.initialized = true
+				return
+			}
+		}
+	}
+
+	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+
+	//fmt.Printf("[Victory] init: enabled=%v winnerTeam=%d cpu.enabled=%v p1.num=%d p2.num=%d\n", m.VictoryScreen.Enabled, sys.winnerTeam(), m.VictoryScreen.Cpu.Enabled, m.VictoryScreen.P1.Num, m.VictoryScreen.P2.Num)
 
 	// Apply to motif slots: winners -> P1,P3,P5,P7 ; losers -> P2,P4,P6,P8
 	wSlots := []*PlayerVictoryProperties{&m.VictoryScreen.P1, &m.VictoryScreen.P3, &m.VictoryScreen.P5, &m.VictoryScreen.P7}

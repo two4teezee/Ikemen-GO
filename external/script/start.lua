@@ -1092,7 +1092,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
 	end
 
-	if motif.select_info['p' .. pn].cursor.tween.wrap.snap == 1 then
+	if motif.select_info['p' .. pn].cursor.tween.wrap.snap ~= 0 then
 		local dx = cd.targetPos[1] - cd.startPos[1]
 		local dy = cd.targetPos[2] - cd.startPos[2]
 		if math.abs(dx) > motif.select_info.cell.size[1] * (motif.select_info.columns - 1) or math.abs(dy) > motif.select_info.cell.size[2] * (motif.select_info.rows - 1) then

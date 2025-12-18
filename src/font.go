@@ -81,6 +81,8 @@ type Fnt struct {
 	ttf         TtfFont
 	paltex      Texture
 	lastPalBank int32
+	lastPalBase *uint32
+	paltexCache map[*uint32]Texture
 }
 
 func newFnt() *Fnt {
@@ -88,6 +90,7 @@ func newFnt() *Fnt {
 		images:      make(map[int32]map[rune]*FntCharImage),
 		BankType:    "palette",
 		lastPalBank: -1,
+		paltexCache: make(map[*uint32]Texture),
 	}
 }
 
@@ -499,8 +502,26 @@ func (f *Fnt) drawChar(
 
 	x -= xscl * float32(spr.Offset[0])
 	y -= yscl * float32(spr.Offset[1])
-	if spr.coldepth <= 8 && f.paltex == nil {
-		f.paltex = spr.CachePalette(pal)
+	if spr.coldepth <= 8 {
+		// Cache palette textures per palette, not per sprite
+		var base *uint32
+		if len(pal) > 0 {
+			base = &pal[0]
+		}
+		if base == nil {
+			f.paltex = nil
+			f.lastPalBase = nil
+		} else if f.lastPalBase == base && f.paltex != nil {
+			// fast path
+		} else if tx, ok := f.paltexCache[base]; ok && tx != nil {
+			f.paltex = tx
+			f.lastPalBase = base
+		} else {
+			// first time seeing this palette: upload once and reuse
+			f.paltex = PaletteToTexture(pal)
+			f.paltexCache[base] = f.paltex
+			f.lastPalBase = base
+		}
 	}
 
 	// Update only the render parameters that change between each character
@@ -582,6 +603,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 	if f.lastPalBank != bank {
 		f.paltex = nil
 		f.lastPalBank = bank
+		f.lastPalBase = nil
 	}
 
 	// Set the trans type

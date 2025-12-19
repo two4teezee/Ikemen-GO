@@ -4248,7 +4248,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 	// Load Common FX first
 	for _, key := range SortedKeys(sys.cfg.Common.Fx) {
 		for _, v := range sys.cfg.Common.Fx[key] {
-			if err := loadFightFx(v, true); err != nil {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, "", "data/"}, func(filename string) error {
+				if err := loadFightFx(filename, true); err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
 				return nil, err
 			}
 		}

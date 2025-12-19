@@ -886,7 +886,11 @@ func newSnd() *Snd {
 }
 
 func LoadSnd(filename string) (*Snd, error) {
-	return LoadSndFiltered(filename, func(gn [2]int32) bool { return gn[0] >= 0 && gn[1] >= 0 }, 0)
+	s, err := LoadSndFiltered(filename, func(gn [2]int32) bool { return gn[0] >= 0 && gn[1] >= 0 }, 0)
+	if err != nil {
+		return nil, Error(fmt.Sprintf("LoadSnd failed: %v\n%v", filename, err))
+	}
+	return s, nil
 }
 
 // Parse a .snd file and return an Snd structure with its contents

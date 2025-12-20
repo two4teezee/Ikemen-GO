@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gopkg.in/ini.v1"
 	"image"
 	"image/draw"
 	_ "image/jpeg"
@@ -20,6 +19,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/ini.v1"
 
 	_ "github.com/lukegb/dds"
 	"github.com/mdouchement/hdr"
@@ -1302,7 +1303,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	if sectionExists {
 		sectionExists = false
 		if sec[0].LoadFile("spr", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
-			sff, err := loadSff(filename, false)
+			sff, err := loadSff(filename, false, false)
 			if err != nil {
 				return err
 			}

@@ -123,7 +123,7 @@ func loadFightFx(def string, isGlobal bool) error {
 				files = false
 				if is.LoadFile("sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						s, err := loadSff(filename, false)
+						s, err := loadSff(filename, false, true)
 						if err != nil {
 							return err
 						}
@@ -4276,7 +4276,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 				filesflg = false
 				if is.LoadFile("sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						s, err := loadSff(filename, false)
+						s, err := loadSff(filename, false, true)
 						if err != nil {
 							return err
 						}
@@ -4298,7 +4298,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 				}
 				if is.LoadFile("fightfx.sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						s, err := loadSff(filename, false)
+						s, err := loadSff(filename, false, true)
 						if err != nil {
 							return err
 						}

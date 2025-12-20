@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	lua "github.com/yuin/gopher-lua"
-	"gopkg.in/ini.v1"
 	"io"
 	"math"
 	"math/rand"
@@ -16,6 +14,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	lua "github.com/yuin/gopher-lua"
+	"gopkg.in/ini.v1"
 )
 
 // ExecFunc executes a Lua function by name and returns its boolean result.
@@ -3497,7 +3498,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "sffNew", func(l *lua.LState) int {
 		if !nilArg(l, 1) {
-			sff, err := loadSff(strArg(l, 1), false)
+			sff, err := loadSff(strArg(l, 1), false, true)
 			if err != nil {
 				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
 			}

@@ -1322,7 +1322,7 @@ func removeSFFCache(filename string) {
 	}
 }
 
-func loadSff(filename string, char bool) (*Sff, error) {
+func loadSff(filename string, char bool, isMainThread bool) (*Sff, error) {
 	// If this SFF is already in the cache, just return a copy
 	if cached, ok := SffCache[filename]; ok {
 		cached.refCount++
@@ -1453,6 +1453,9 @@ func loadSff(filename string, char bool) (*Sff, error) {
 			shofs = int64(xofs)
 		} else {
 			shofs += 28
+		}
+		if isMainThread {
+			sys.runMainThreadTask()
 		}
 	}
 	SffCache[filename] = &SffCacheEntry{*s, 1}

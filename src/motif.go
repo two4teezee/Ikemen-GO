@@ -1993,7 +1993,7 @@ func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) 
 		LoadFile(&bgDef.Spr, []string{bgDef.Spr, m.Def, "", "data/"}, func(filename string) error {
 			if filename != "" {
 				var err error
-				bgDef.Sff, err = loadSff(filename, false)
+				bgDef.Sff, err = loadSff(filename, false, true)
 				if err != nil {
 					sys.errLog.Printf("Failed to load %v: %v", filename, err)
 				}
@@ -2021,7 +2021,7 @@ func (m *Motif) loadFiles() {
 	LoadFile(&m.Files.Spr, []string{m.Files.Spr}, func(filename string) error {
 		if filename != "" {
 			var err error
-			m.Sff, err = loadSff(filename, false)
+			m.Sff, err = loadSff(filename, false, true)
 			if err != nil {
 				sys.errLog.Printf("Failed to load %v: %v", filename, err)
 			}
@@ -2036,7 +2036,7 @@ func (m *Motif) loadFiles() {
 	LoadFile(&m.Files.Glyphs, []string{m.Files.Glyphs}, func(filename string) error {
 		if filename != "" {
 			var err error
-			m.GlyphsSff, err = loadSff(filename, false)
+			m.GlyphsSff, err = loadSff(filename, false, true)
 			if err != nil {
 				sys.errLog.Printf("Failed to load %v: %v", filename, err)
 			}

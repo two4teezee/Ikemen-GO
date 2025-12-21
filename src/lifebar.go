@@ -2941,11 +2941,11 @@ func readLifeBarRound(is IniSection,
 }
 
 func (ro *LifeBarRound) isSingleRound() bool {
-	return !sys.consecutiveRounds && sys.round == 1 && sys.decisiveRound[0] && sys.decisiveRound[1]
+	return !sys.sel.gameParams.PersistRounds && sys.round == 1 && sys.decisiveRound[0] && sys.decisiveRound[1]
 }
 
 func (ro *LifeBarRound) isFinalRound() bool {
-	return !sys.consecutiveRounds && sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] &&
+	return !sys.sel.gameParams.PersistRounds && sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] &&
 		(sys.draws >= sys.lifebar.ro.match_maxdrawgames[0] || sys.draws >= sys.lifebar.ro.match_maxdrawgames[1])
 }
 
@@ -3029,8 +3029,8 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	}
 	if !ro.roundCallOver {
 		roundNum := sys.round
-		if sys.consecutiveRounds {
-			roundNum = sys.consecutiveWins[0] + 1
+		if sys.sel.gameParams.PersistRounds {
+			roundNum = sys.match
 		}
 		// Sounds
 		if ro.waitSoundTimer[0] == 0 {
@@ -3407,8 +3407,8 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 		// Check round number
 		var round_ref AnimTextSnd
 		roundNum := sys.round
-		if sys.consecutiveRounds {
-			roundNum = sys.consecutiveWins[0] + 1
+		if sys.sel.gameParams.PersistRounds {
+			roundNum = sys.match
 		}
 
 		// Draw background and select round reference

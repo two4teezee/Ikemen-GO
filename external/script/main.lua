@@ -1714,7 +1714,6 @@ function main.f_default()
 		stunbar = gameOption('Options.Dizzy'),
 		redlifebar = gameOption('Options.RedLife'),
 	}
-	main.lifePersistence = false --if life should be maintained after match
 	main.luaPath = 'external/script/default.lua' --path to script executed by start.f_selectMode()
 	main.makeRoster = false --if default roster for each match should be generated before first match
 	main.matchWins = { --amount of rounds to win for each team side and team mode
@@ -1740,6 +1739,9 @@ function main.f_default()
 	main.numTag = {gameOption('Options.Tag.Min'), gameOption('Options.Tag.Max')} --min/max number of tag characters
 	main.numTurns = {gameOption('Options.Turns.Min'), gameOption('Options.Turns.Max')} --min/max number of turn characters
 	main.orderSelect = {false, false} --if versus screen order selection should be active
+	main.persistLife = false --if life should be maintained after match
+	main.persistMusic = false --if the music that was playing previously should be stopped at the start of the match
+	main.persistRounds = false --if lifebar should use consecutive wins for round numbers
 	main.quickContinue = false --if by default continuing should skip player selection
 	main.rankingCondition = false --if winning (clearing) whole mode is needed for rankings to be saved
 	main.resetScore = false --if loosing should set score for the next match to lose count
@@ -1760,7 +1762,6 @@ function main.f_default()
 	end
 	setConsecutiveWins(1, 0)
 	setConsecutiveWins(2, 0)
-	setConsecutiveRounds(false)
 	setGameMode('')
 	setHomeTeam(2) --http://mugenguild.com/forum/topics/ishometeam-triggers-169132.0.html
 	setLifebarElements(main.lifebar)
@@ -1932,7 +1933,6 @@ main.t_itemname = {
 		main.exitSelect = true
 		--main.lifebar.match = true
 		--main.lifebar.p2ailevel = true
-		main.lifePersistence = true
 		main.makeRoster = true
 		main.motif.losescreen = true
 		main.motif.winscreen = true
@@ -1942,6 +1942,9 @@ main.t_itemname = {
 		main.matchWins.tag = {1, 1}
 		main.numSimul = {2, 2}
 		main.numTag = {2, 2}
+		main.persistLife = true
+		main.persistMusic = true
+		main.persistRounds = true
 		main.stageMenu = true
 		main.storyboard.credits = true
 		main.storyboard.gameover = true
@@ -1953,7 +1956,6 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.netplaysurvivalcoop)
-		setConsecutiveRounds(true)
 		setGameMode('netplaysurvivalcoop')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2093,7 +2095,6 @@ main.t_itemname = {
 		main.exitSelect = true
 		--main.lifebar.match = true
 		--main.lifebar.p2ailevel = true
-		main.lifePersistence = true
 		main.makeRoster = true
 		main.motif.hiscore = true
 		main.motif.losescreen = true
@@ -2104,6 +2105,9 @@ main.t_itemname = {
 		main.matchWins.tag = {1, 1}
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
+		main.persistLife = true
+		main.persistMusic = true
+		main.persistRounds = true
 		main.rotationChars = true
 		main.stageMenu = true
 		main.storyboard.credits = true
@@ -2119,7 +2123,6 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
-		setConsecutiveRounds(true)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2137,7 +2140,6 @@ main.t_itemname = {
 		main.exitSelect = true
 		--main.lifebar.match = true
 		--main.lifebar.p2ailevel = true
-		main.lifePersistence = true
 		main.makeRoster = true
 		main.motif.hiscore = true
 		main.motif.winscreen = true
@@ -2147,6 +2149,9 @@ main.t_itemname = {
 		main.matchWins.tag = {1, 1}
 		main.numSimul = {2, math.min(4, gameOption('Config.Players'))}
 		main.numTag = {2, math.min(4, gameOption('Config.Players'))}
+		main.persistLife = true
+		main.persistMusic = true
+		main.persistRounds = true
 		main.rotationChars = true
 		main.stageMenu = true
 		main.storyboard.credits = true
@@ -2159,7 +2164,6 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survivalcoop)
-		setConsecutiveRounds(true)
 		setGameMode('survivalcoop')
 		hook.run("main.t_itemname")
 		return start.f_selectMode

@@ -4482,6 +4482,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_gamevar_slowtime
 		case "superpausetime":
 			opc = OC_ex2_gamevar_superpausetime
+		case "persistlife":
+			opc = OC_ex2_gamevar_persistlife
+		case "persistmusic":
+			opc = OC_ex2_gamevar_persistmusic
+		case "persistrounds":
+			opc = OC_ex2_gamevar_persistrounds
 		default:
 			return bvNone(), Error("Invalid GameVar argument: " + svname)
 		}

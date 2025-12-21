@@ -288,7 +288,7 @@ end
 function start.f_setRounds(roundTime, t_rounds)
 	-- disable winscreen if another match exists
 	local winscreen = main.motif.winscreen
-	if winscreen and (not main.makeRoster or start.t_roster[matchno() + 1] ~= nil) then
+	if winscreen and main.makeRoster and start.t_roster[matchno() + 1] ~= nil then
 		main.motif.winscreen = false
 	end
 	setMotifElements(main.motif)
@@ -1196,6 +1196,34 @@ function start.f_clearTimeText(text, totalSec)
 	return text:gsub('%%h', h):gsub('%%m', m):gsub('%%s', s):gsub('%%x', x)
 end
 
+--returns formatted record text table
+function start.f_getRecordText()
+	local text = motif.select_info.record.text[gamemode()]
+	if text == nil then
+		return ""
+	end
+	local stats = jsonDecode('save/stats.json')
+	if stats.modes == nil or stats.modes[gamemode()] == nil or stats.modes[gamemode()].ranking == nil or stats.modes[gamemode()].ranking[1] == nil then
+		return ""
+	end
+	local t = stats.modes[gamemode()].ranking[1]
+	--time
+	text = start.f_clearTimeText(text, t.time)
+	--score
+	text = text:gsub('%%p', tostring(t.score))
+	--win
+	text = text:gsub('%%r', tostring(t.win))
+	--char name
+	local name = '?' --in case character being removed from roster
+	if main.t_charDef[t.chars[1]] ~= nil then
+		name = start.f_getCharData(main.t_charDef[t.chars[1]]).name
+	end
+	text = text:gsub('%%c', name)
+	--player name
+	text = text:gsub('%%n', t.name)
+	return text
+end
+
 --cursor sound data, play cursor sound
 function start.f_playWave(ref, name, g, n, loops)
 	if g < 0 or n < 0 then return 0 end
@@ -1414,7 +1442,7 @@ function start.f_matchPersistence()
 		end
 
 		-- if defeated members should be removed from team, or if life should be maintained
-		if main.dropDefeated or main.lifePersistence then
+		if main.dropDefeated or main.persistLife then
 			local t_removeMembers = {}
 			-- Turns
 			if start.p[1].teamMode == 2 then
@@ -1431,11 +1459,11 @@ function start.f_matchPersistence()
 								if main.dropDefeated then
 									t_removeMembers[memberIdx] = true
 								-- or resurrect and recover character's life
-								elseif main.lifePersistence then
+								elseif main.persistLife then
 									start.p[1].t_selected[memberIdx].life = math.max(1, f_lifeRecovery(f1.LifeMax or 0, f1.RatioLevel or 0))
 								end
 							-- otherwise maintain character's life
-							elseif main.lifePersistence then
+							elseif main.persistLife then
 								start.p[1].t_selected[memberIdx].life = f1.Life or start.p[1].t_selected[memberIdx].life
 							end
 						end
@@ -1458,11 +1486,11 @@ function start.f_matchPersistence()
 									if main.dropDefeated then
 										t_removeMembers[memberIdx] = true
 									-- or resurrect and recover character's life
-									elseif main.lifePersistence then
+									elseif main.persistLife then
 										start.p[1].t_selected[memberIdx].life = math.max(1, f_lifeRecovery(f.LifeMax or 0, f.RatioLevel or 0))
 									end
 								-- otherwise maintain character's life
-								elseif main.lifePersistence then
+								elseif main.persistLife then
 									start.p[1].t_selected[memberIdx].life = f.Life or start.p[1].t_selected[memberIdx].life
 								end
 							end
@@ -2105,6 +2133,9 @@ function start.f_selectScreen()
 		end
 	end
 
+	textImgReset(motif.select_info.record.TextSpriteData)
+	textImgSetText(motif.select_info.record.TextSpriteData, start.f_getRecordText())
+
 	local staticDrawList = start.updateDrawList()
 	start.needUpdateDrawList = false
 
@@ -2296,6 +2327,9 @@ function start.f_selectScreen()
 				textImgSetText(motif.select_info.stage.TextSpriteData, stage_text)
 				textImgDraw(motif.select_info.stage.TextSpriteData)
 			end
+		else
+			--draw record text
+			textImgDraw(motif.select_info.record.TextSpriteData)
 		end
 		--draw timer
 		if motif.select_info.timer.count ~= -1 and (not start.p[1].teamEnd or not start.p[2].teamEnd or not start.p[1].selEnd or not start.p[2].selEnd or (main.stageMenu and not stageEnd)) and counter >= 0 then
@@ -3429,6 +3463,9 @@ function start.f_selectLoading(musicParams)
 			addParam(pfx .. 'existed', v.existed)
 		end
 	end
+	addParam('persistlife', main.persistLife)
+	addParam('persistmusic', main.persistMusic)
+	addParam('persistrounds', main.persistRounds)
 	loadStart(params)
 end
 

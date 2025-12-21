@@ -523,7 +523,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	}
 	if err != nil {
 		f.Close()
-		sys.errLog.Printf("Failed to load bgm: %v", err)
+		sys.errLog.Printf("Failed to load bgm: %v\n%v", bgm.filename, err)
 		return
 	}
 	lc := 0

@@ -2268,8 +2268,8 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LString(s))
 		return 1
 	})
-	luaRegister(l, "getLaunchFightParams", func(*lua.LState) int {
-		lv := toLValue(l, sys.sel.launchFightParams)
+	luaRegister(l, "getGameParams", func(*lua.LState) int {
+		lv := toLValue(l, sys.sel.gameParams)
 		lTable, ok := lv.(*lua.LTable)
 		if !ok {
 			l.RaiseError("Error: 'lv' is not a *lua.LTable")
@@ -2866,14 +2866,14 @@ func systemScriptInit(l *lua.LState) {
 		}
 		if !nilArg(l, 1) {
 			entries := SplitAndTrim(strArg(l, 1), ",")
-			if sys.sel.launchFightParams == nil {
-				sys.sel.launchFightParams = newLaunchFightParams()
+			if sys.sel.gameParams == nil {
+				sys.sel.gameParams = newGameParams()
 			} else {
-				sys.sel.launchFightParams.Reset()
+				sys.sel.gameParams.Reset()
 			}
-			sys.sel.launchFightParams.AppendParams(entries)
+			sys.sel.gameParams.AppendParams(entries)
 			// Feed normalized music params to Music.
-			sys.sel.music.AppendParams(sys.sel.launchFightParams.MusicEntries())
+			sys.sel.music.AppendParams(sys.sel.gameParams.MusicEntries())
 		}
 		sys.loadStart()
 		return 0
@@ -3933,10 +3933,6 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "setRoundTime", func(l *lua.LState) int {
 		sys.maxRoundTime = int32(numArg(l, 1))
-		return 0
-	})
-	luaRegister(l, "setConsecutiveRounds", func(l *lua.LState) int {
-		sys.consecutiveRounds = boolArg(l, 1)
 		return 0
 	})
 	luaRegister(l, "setTeamMode", func(*lua.LState) int {
@@ -7026,6 +7022,12 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LNumber(sys.getSlowtime()))
 		case "superpausetime":
 			l.Push(lua.LNumber(sys.supertime))
+		case "persistlife":
+			l.Push(lua.LBool(sys.sel.gameParams.PersistLife))
+		case "persistmusic":
+			l.Push(lua.LBool(sys.sel.gameParams.PersistMusic))
+		case "persistrounds":
+			l.Push(lua.LBool(sys.sel.gameParams.PersistRounds))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

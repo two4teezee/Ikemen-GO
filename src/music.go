@@ -323,7 +323,7 @@ func (m Music) Play(key, path string) bool {
 	if track != "" && track != sys.bgm.filename {
 		//fmt.Printf("[music] Play: opening track='%s' loop=%d vol=%d loopstart=%d loopend=%d startpos=%d freqmul=%g loopcount=%d\n", track, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
 		sys.bgm.Open(track, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
-		sys.playBgmFlg = sys.playBgmFlg || !strings.Contains(sys.gameMode, "survival")
+		sys.playBgmFlg = sys.playBgmFlg || !sys.sel.gameParams.PersistMusic
 		return true
 	}
 	if track == "" {
@@ -382,7 +382,7 @@ func (m Music) act() {
 	}
 	//fmt.Printf("[music] act: tickCount=%d round=%d match=%d bgmState=%d\n", sys.tickCount, sys.round, sys.match, sys.stage.bgmState)
 	if sys.tickCount == 0 && sys.round == 1 &&
-		(sys.match == 1 || !strings.Contains(sys.gameMode, "survival") || sys.stage.bgmState != BGMStateRound) {
+		(sys.match == 1 || !sys.sel.gameParams.PersistMusic || sys.stage.bgmState != BGMStateRound) {
 		sys.bgm.Stop()
 		sys.stage.bgmState = BGMStateIdle
 	}
@@ -403,13 +403,9 @@ func (m Music) act() {
 				!sys.roundResetFlg {
 				switch {
 				case sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] && crun.tryPlay("final", sys.stage.def):
-					//fmt.Printf("[music] act: using prefix 'final' for round start\n")
-				case strings.Contains(sys.gameMode, "survival") && crun.tryPlay(fmt.Sprintf("round%d", sys.match), sys.stage.def):
-					//fmt.Printf("[music] act: using prefix 'round%d' (survival, match=%d)\n", sys.match, sys.match)
+				case sys.sel.gameParams.PersistMusic && crun.tryPlay(fmt.Sprintf("round%d", sys.match), sys.stage.def):
 				case crun.tryPlay(fmt.Sprintf("round%d", sys.round), sys.stage.def):
-					//fmt.Printf("[music] act: using prefix 'round%d' (round=%d)\n", sys.round, sys.round)
 				case crun.tryPlay("", sys.stage.def):
-					//fmt.Printf("[music] act: using default prefix ''\n")
 				}
 				sys.stage.bgmState = BGMStateRound
 				continue

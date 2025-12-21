@@ -1,10 +1,9 @@
 package main
 
 import (
-	"bytes"
 	_ "embed" // Support for go:embed resources
-	"encoding/json"
 	"fmt"
+	"io/fs"
 	"math"
 	"math/rand"
 	"os"
@@ -718,6 +717,7 @@ type SelectInfoProperties struct {
 	} `ini:"cancel"`
 	Portrait AnimationProperties `ini:"portrait"`
 	Title    TextMapProperties   `ini:"title"`
+	Record   TextMapProperties   `ini:"record"`
 	TeamMenu struct {
 		Move struct {
 			Wrapping bool `ini:"wrapping"`
@@ -725,7 +725,6 @@ type SelectInfoProperties struct {
 		Itemname map[string]*TeamModesProperties `ini:"itemname"`
 	} `ini:"teammenu"`
 	Timer         TimerProperties `ini:"timer"`
-	Record        TextProperties  `ini:"record"`
 	PaletteSelect int32           `ini:"paletteselect"`
 }
 
@@ -943,8 +942,9 @@ type WinScreenProperties struct {
 	Sounds  struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"sounds"`
-	FadeIn  FadeProperties `ini:"fadein"`
-	FadeOut FadeProperties `ini:"fadeout"`
+	Results map[string]string `ini:"results"`
+	FadeIn  FadeProperties    `ini:"fadein"`
+	FadeOut FadeProperties    `ini:"fadeout"`
 	Pose    struct {
 		Time int32 `ini:"time"`
 	} `ini:"pose"`
@@ -1445,6 +1445,40 @@ func reserveUserFontSlots(m *Motif) {
 	}
 }
 
+// returns a stable-sorted list of files named "system.def" located anywhere under the given root (e.g. external/mods), including nested subdirs.
+func findExternalModSystemDefs(root string) ([]string, error) {
+	st, err := os.Stat(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if !st.IsDir() {
+		return nil, nil
+	}
+
+	var out []string
+	err = filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if d.IsDir() {
+			return nil
+		}
+		// Match filename, case-insensitive
+		if strings.EqualFold(d.Name(), "system.def") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
 // loadMotif loads and parses the INI file into a Motif struct.
 func loadMotif(def string) (*Motif, error) {
 	if def == "" {
@@ -1477,13 +1511,35 @@ func loadMotif(def string) (*Motif, error) {
 	var defaultOnlyIni *ini.File
 
 	if err := LoadFile(&def, []string{def, "", "data/"}, func(filename string) error {
+		def = filename
+
+		// Inline-append any external/mods/**/system.def files before parsing.
+		modSystemDefs, err := findExternalModSystemDefs(filepath.FromSlash("external/mods"))
+		if err != nil {
+			return fmt.Errorf("Failed to discover external mod system.def files: %w", err)
+		}
+
 		inputBytes, err := LoadText(filename)
 		if err != nil {
 			return fmt.Errorf("Failed to load text from %s: %w", filename, err)
 		}
 
+		var modsConcat strings.Builder
+		for _, p := range modSystemDefs {
+			txt, err := LoadText(p)
+			if err != nil {
+				return fmt.Errorf("Failed to load mod system.def from %s: %w", p, err)
+			}
+			modsConcat.WriteString(txt)
+			if !strings.HasSuffix(txt, "\n") {
+				modsConcat.WriteString("\n")
+			}
+		}
+
 		// Preprocess and load INI sources from memory.
-		normalizedInput := []byte(preprocessINIContent(NormalizeNewlines(string(inputBytes))))
+		// Mods go on top so the motif file (last) can override them.
+		combined := modsConcat.String() + NormalizeNewlines(string(inputBytes))
+		normalizedInput := []byte(preprocessINIContent(combined))
 		normalizedDefault := []byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif))))
 
 		// Load merged INI: defaults first, then user (user overrides)
@@ -1665,15 +1721,6 @@ func loadMotif(def string) (*Motif, error) {
 	return &m, nil
 }
 
-// InheritSpec describes how to inherit keys from one prefix to another inside the given INI sections.
-// Example: srcSec="Option Info", srcPrefix="menu.", dstSec="Option Info", dstPrefix="keymenu.menu."
-type InheritSpec struct {
-	SrcSec    string
-	SrcPrefix string
-	DstSec    string
-	DstPrefix string
-}
-
 // Propagates movelist.glyphs defaults
 func (m *Motif) applyGlyphDefaultsFromMovelist() {
 	if m == nil {
@@ -1792,6 +1839,15 @@ func (m *Motif) fixLocalcoordOverrides() {
 			}
 		}
 	}
+}
+
+// InheritSpec describes how to inherit keys from one prefix to another inside the given INI sections.
+// Example: srcSec="Option Info", srcPrefix="menu.", dstSec="Option Info", dstPrefix="keymenu.menu."
+type InheritSpec struct {
+	SrcSec    string
+	SrcPrefix string
+	DstSec    string
+	DstPrefix string
 }
 
 // mergeWithInheritance applies "user overrides default" with intra-file inheritance.
@@ -2514,6 +2570,7 @@ func (mo *Motif) processStateChange(c *Char, states []int32) bool {
 	return false
 }
 
+// processStateTransitions applies state changes by win/lose outcome.
 func (mo *Motif) processStateTransitions(winnerState, winnerTeammateState, loserState, loserTeammateState []int32) {
 	isWinnerLeader, isLoserLeader := false, false
 	for _, p := range sys.chars {
@@ -2541,51 +2598,61 @@ func (mo *Motif) processStateTransitions(winnerState, winnerTeammateState, loser
 	}
 }
 
-// replaceFormatSpecifiers converts Lua 5.1/C-style format specifiers
-// to Go's fmt.Sprintf equivalents where they differ.
-func (mo *Motif) replaceFormatSpecifiers(input string) string {
-	// Verbs that exist in Lua's string.format/C but not in Go's fmt: %i, %u, %I
-	// Everything else we care about (%d, %o, %x, %X, %e, %E, %f, %g, %G, %c, %s, %q, %p, %%) is already understood by fmt.
-	var formatSpecifierMap = map[string]string{
-		"i": "d",
-		"I": "d",
-		"u": "d",
-	}
-	re := regexp.MustCompile(`%%|%([-+ #0]*)?(\d+)?(\.\d+)?([hlLzjt]*)?([a-zA-Z])`)
+// applies state changes by team side, not by win/lose outcome.
+func (mo *Motif) processStateTransitionsBySide(p1State, p1TeammateState, p2State, p2TeammateState []int32) {
+	// Track whether we've assigned a "leader" state for each side.
+	leaderDone := [2]bool{false, false}
 
-	return re.ReplaceAllStringFunc(input, func(match string) string {
-		// Keep literal %%
-		if match == "%%" {
-			return "%%"
+	// Helper to choose state slices by side.
+	getStates := func(side int) (leader []int32, mate []int32) {
+		if side == 0 {
+			return p1State, p1TeammateState
 		}
-		sub := re.FindStringSubmatch(match)
-		if len(sub) != 6 {
-			return match // should not happen, but be safe
+		return p2State, p2TeammateState
+	}
+
+	// 1) Prefer applying leader state to the actual team leader (if available).
+	// sys.teamLeader[] is used elsewhere in this file, so it should be stable here too.
+	for side := 0; side < 2; side++ {
+		leaderPn := sys.teamLeader[side]
+		if leaderPn < 0 || leaderPn >= len(sys.chars) || len(sys.chars[leaderPn]) == 0 {
+			continue
 		}
-		flags := sub[1]
-		width := sub[2]
-		precision := sub[3]
-		// length := sub[4] // dropped for Go
-		verb := sub[5]
-		// Map Lua/C-only verbs to Go equivalents
-		if mapped, ok := formatSpecifierMap[verb]; ok {
-			verb = mapped
+		c := sys.chars[leaderPn][0]
+		// Only accept if the character is actually on that side.
+		if int(c.teamside) != side {
+			continue
 		}
-		// Rebuild without the C length modifier.
-		var b strings.Builder
-		b.WriteByte('%')
-		if flags != "" {
-			b.WriteString(flags)
+		ls, _ := getStates(side)
+		mo.processStateChange(c, ls)
+		leaderDone[side] = true
+	}
+
+	// 2) Apply remaining members in stable playerNo order.
+	// First encountered member becomes leader if we couldn't resolve a leader above.
+	for pn, p := range sys.chars {
+		if len(p) == 0 {
+			continue
 		}
-		if width != "" {
-			b.WriteString(width)
+		c := p[0]
+		side := int(c.teamside)
+		if side < 0 || side > 1 {
+			continue
 		}
-		if precision != "" {
-			b.WriteString(precision)
+
+		// If we already applied to the explicit leaderPn, skip it here.
+		if leaderDone[side] && pn == sys.teamLeader[side] {
+			continue
 		}
-		b.WriteString(verb)
-		return b.String()
-	})
+
+		ls, ms := getStates(side)
+		if !leaderDone[side] {
+			mo.processStateChange(c, ls)
+			leaderDone[side] = true
+		} else {
+			mo.processStateChange(c, ms)
+		}
+	}
 }
 
 func (m *Motif) reset() {
@@ -2854,11 +2921,7 @@ func (m *Motif) act() {
 	}
 }
 
-func (m *Motif) setMotifScale(localcoord [2]int32) {
-	// not needed
-}
-
-func FormatTimeText(text string, totalSec float64) string {
+func formatTimeText(text string, totalSec float64) string {
 	h := int(totalSec / 3600)
 	m := int(totalSec/60) % 60
 	s := int(totalSec) % 60
@@ -2873,6 +2936,76 @@ func FormatTimeText(text string, totalSec float64) string {
 	result = strings.ReplaceAll(result, "%s", sStr)
 	result = strings.ReplaceAll(result, "%x", xStr)
 	return result
+}
+
+// replaceFormatSpecifiers converts Lua 5.1/C-style format specifiers
+// to Go's fmt.Sprintf equivalents where they differ.
+func (mo *Motif) replaceFormatSpecifiers(input string) string {
+	// Verbs that exist in Lua's string.format/C but not in Go's fmt: %i, %u, %I
+	// Everything else we care about (%d, %o, %x, %X, %e, %E, %f, %g, %G, %c, %s, %q, %p, %%) is already understood by fmt.
+	var formatSpecifierMap = map[string]string{
+		"i": "d",
+		"I": "d",
+		"u": "d",
+	}
+	re := regexp.MustCompile(`%%|%([-+ #0]*)?(\d+)?(\.\d+)?([hlLzjt]*)?([a-zA-Z])`)
+
+	return re.ReplaceAllStringFunc(input, func(match string) string {
+		// Keep literal %%
+		if match == "%%" {
+			return "%%"
+		}
+		sub := re.FindStringSubmatch(match)
+		if len(sub) != 6 {
+			return match // should not happen, but be safe
+		}
+		flags := sub[1]
+		width := sub[2]
+		precision := sub[3]
+		// length := sub[4] // dropped for Go
+		verb := sub[5]
+		// Map Lua/C-only verbs to Go equivalents
+		if mapped, ok := formatSpecifierMap[verb]; ok {
+			verb = mapped
+		}
+		// Rebuild without the C length modifier.
+		var b strings.Builder
+		b.WriteByte('%')
+		if flags != "" {
+			b.WriteString(flags)
+		}
+		if width != "" {
+			b.WriteString(width)
+		}
+		if precision != "" {
+			b.WriteString(precision)
+		}
+		b.WriteString(verb)
+		return b.String()
+	})
+}
+
+// Counts fmt verbs in a format string, ignoring literal %%.
+func countFmtVerbs(format string) int {
+	re := regexp.MustCompile(`%%|%([-+ #0]*)?(\d+)?(\.\d+)?([hlLzjt]*)?([a-zA-Z])`)
+	matches := re.FindAllString(format, -1)
+	n := 0
+	for _, m := range matches {
+		if m != "%%" {
+			n++
+		}
+	}
+	return n
+}
+
+// fmt.Sprintf helper. Normalizes Lua/C-style verbs, supports any number of args
+func (mo *Motif) sprintf(format string, args ...interface{}) string {
+	fs := mo.replaceFormatSpecifiers(format)
+	// Trim extra args so legacy one-placeholder strings still work when callers pass (wins, losses).
+	if n := countFmtVerbs(fs); n >= 0 && len(args) > n {
+		args = args[:n]
+	}
+	return fmt.Sprintf(fs, args...)
 }
 
 type MotifMenu struct {
@@ -3090,7 +3223,7 @@ func (co *MotifContinue) updateCreditsText(m *Motif) {
 func (co *MotifContinue) init(m *Motif) {
 	if (!m.ContinueScreen.Enabled || !co.enabled || sys.cfg.Options.QuickContinue) ||
 		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
-		!sys.sel.launchFightParams.Continue {
+		!sys.sel.gameParams.Continue {
 		co.initialized = true
 		return
 	}
@@ -4628,7 +4761,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
 					fmtStr = fmt.Sprintf(fmtStr, row.win)
 				case "time":
 					// e.g. "%m'%s''%x"
-					fmtStr = FormatTimeText(fmtStr, row.time)
+					fmtStr = formatTimeText(fmtStr, row.time)
 				}
 				if m.HiscoreInfo.Item.Result.Uppercase {
 					fmtStr = strings.ToUpper(fmtStr)
@@ -4952,14 +5085,7 @@ func (hi *MotifHiscore) finalizeAndSave() {
 		hi.haveSaved = true
 		return
 	}
-	// Pretty-print the JSON
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, out, "", "  "); err == nil {
-		out = buf.Bytes()
-	} else {
-		fmt.Println("hiscore: pretty print failed, writing compact JSON:", err)
-	}
-	if err := os.WriteFile("save/stats.json", out, 0644); err != nil {
+	if err := writeStatsPretty("save/stats.json", out); err != nil {
 		fmt.Println("hiscore: write save/stats.json failed:", err)
 	}
 	hi.haveSaved = true
@@ -5414,7 +5540,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 func (vi *MotifVictory) init(m *Motif) {
 	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) ||
 		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) ||
-		!sys.sel.launchFightParams.VictoryScreen {
+		!sys.sel.gameParams.VictoryScreen {
 		vi.initialized = true
 		return
 	}
@@ -5759,76 +5885,6 @@ type MotifWin struct {
 	resultsKey    string
 }
 
-// results helpers
-func normalizeModeKey(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	// unify common separators; keep only [a-z0-9]
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
-}
-
-func stripSuffixAndTrimSep(s, suffix string) (string, bool) {
-	sl := strings.ToLower(s)
-	suffix = strings.ToLower(suffix)
-	if !strings.HasSuffix(sl, suffix) {
-		return "", false
-	}
-	prefix := s[:len(s)-len(suffix)]
-	prefix = strings.TrimRight(prefix, "._- ")
-	prefix = strings.TrimRight(prefix, "_")
-	return prefix, true
-}
-
-func (wi *MotifWin) findResultsScreenForMode(m *Motif, mode string) (*ResultsScreenProperties, string) {
-	if m == nil || len(m.ResultsScreen) == 0 {
-		return nil, ""
-	}
-	nm := normalizeModeKey(mode)
-	for k, v := range m.ResultsScreen {
-		if v == nil {
-			continue
-		}
-		// keys are stored lowercased by assignToPatternMap, but don't assume
-		prefix, ok := stripSuffixAndTrimSep(k, "results_screen")
-		if !ok {
-			prefix, ok = stripSuffixAndTrimSep(k, "results.screen")
-		}
-		if !ok {
-			continue
-		}
-		if normalizeModeKey(prefix) == nm {
-			return v, strings.ToLower(k)
-		}
-	}
-	return nil, ""
-}
-
-func (wi *MotifWin) findResultsBgDefForMode(m *Motif, mode string) (*BgDefProperties, string) {
-	if m == nil || len(m.ResultsBgDef) == 0 {
-		return nil, ""
-	}
-	nm := normalizeModeKey(mode)
-	for k, v := range m.ResultsBgDef {
-		if v == nil {
-			continue
-		}
-		prefix, ok := stripSuffixAndTrimSep(k, "resultsbgdef")
-		if !ok {
-			continue
-		}
-		if normalizeModeKey(prefix) == nm {
-			return v, strings.ToLower(k)
-		}
-	}
-	return nil, ""
-}
-
 // Assign state data to MotifWin
 func (wi *MotifWin) assignStates(p1, p1Teammate, p2, p2Teammate []int32) {
 	wi.p1State = p1
@@ -5853,11 +5909,20 @@ func (wi *MotifWin) reset(m *Motif) {
 func (wi *MotifWin) init(m *Motif) {
 	if (wi.winEnabled && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
 		(wi.loseEnabled && (sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1)) {
-		if ok := wi.initResults(m); ok {
-		} else if ok := wi.initWinScreen(m); ok {
-		} else {
-			wi.initialized = true
-			return
+		// Variant selection: [Win Screen] results.<gamemode> = <section name>
+		// If not defined, fall back to standard Win Screen.
+		variant := strings.TrimSpace(m.WinScreen.Results[sys.gameMode])
+		if variant == "" || strings.EqualFold(variant, "win screen") {
+			if !wi.initWinScreen(m) {
+				wi.initialized = true
+				return
+			}
+		} else if !wi.initResultsVariant(m, variant) {
+			// If the configured variant doesn't exist/disabled, fall back to Win Screen.
+			if !wi.initWinScreen(m) {
+				wi.initialized = true
+				return
+			}
 		}
 	} else {
 		wi.initialized = true
@@ -5878,49 +5943,92 @@ func (wi *MotifWin) init(m *Motif) {
 	wi.initialized = true
 }
 
-func (wi *MotifWin) initResults(m *Motif) bool {
-	// Locate "<mode>_results_screen" and "<mode>resultsbgdef" (any mode, not hardcoded fields).
-	rs, rsKey := wi.findResultsScreenForMode(m, sys.gameMode)
+func (wi *MotifWin) initResultsVariant(m *Motif, sectionName string) bool {
+	// sectionName is something like "X Results Screen".
+	// Parsed section keys are lowercased, and spaces become underscores in the map key.
+	name := strings.TrimSpace(sectionName)
+	if m == nil || name == "" || len(m.ResultsScreen) == 0 {
+		return false
+	}
+
+	rsKey := strings.ToLower(strings.ReplaceAll(name, " ", "_"))
+	rs := m.ResultsScreen[rsKey]
 	if rs == nil || !rs.Enabled {
 		return false
 	}
-	bg, bgKey := wi.findResultsBgDefForMode(m, sys.gameMode)
 
-	// BgDef is optional-ish: allow results screen to run even if BGDef is missing,
-	// but drawing will naturally skip the BG.
+	// BgDef key: "<base>resultsbgdef" where base is section name without " Results Screen".
+	base := strings.ToLower(name)
+	if strings.HasSuffix(base, " results screen") {
+		base = strings.TrimSuffix(base, " results screen")
+	}
+	base = strings.TrimSpace(base)
+	base = strings.ReplaceAll(base, " ", "")
+	bgKey := base + "resultsbgdef"
+	bg := m.ResultsBgDef[bgKey]
+
 	if bg != nil && bg.BGDef != nil {
 		bg.BGDef.Reset()
 	}
 
-	// Remember current active results pointers for draw().
 	wi.resultsScreen = rs
 	wi.resultsBgDef = bg
 	wi.resultsKey = rsKey
-	if wi.resultsKey == "" {
-		wi.resultsKey = bgKey
-	}
 
-	// Wins text formatting:
-	// - "rounds-based" modes: when roundsToWin is set, mimic old survival behavior.
-	// - "timeattack": keep existing time formatting (selected by mode key, not by hardcoded struct fields).
-	modeNorm := normalizeModeKey(sys.gameMode)
-	switch {
-	case rs.RoundsToWin > 0 || strings.Contains(modeNorm, "survival"):
+	// Formatting type comes from [Hiscore Info] ranking.<gamemode> = score|time|win
+	dataType := strings.ToLower(strings.TrimSpace(m.HiscoreInfo.Ranking[sys.gameMode]))
+
+	// Unified win/lose selection: win anims only if we would get a hiscore entry (name input).
+	wouldPlace := rankingWouldPlace(sys.gameMode)
+
+	switch dataType {
+	case "win":
 		if rs.WinsText.TextSpriteData != nil {
-			rs.WinsText.TextSpriteData.text = fmt.Sprintf(m.replaceFormatSpecifiers(rs.WinsText.Text), sys.match-1)
+			tal := tallyRun()
+			rs.WinsText.TextSpriteData.text = m.sprintf(rs.WinsText.Text, tal.winP1, tal.loseP1)
 		}
-		if rs.RoundsToWin > 0 && sys.match >= rs.RoundsToWin {
+		if wouldPlace && rs.RoundsToWin > 0 && sys.match >= rs.RoundsToWin {
 			wi.assignStates(rs.P1.Win.State, rs.P1.Teammate.Win.State, rs.P2.Win.State, rs.P2.Teammate.Win.State)
 		} else {
 			wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
 		}
-	case strings.Contains(modeNorm, "time"):
+	case "time":
 		if rs.WinsText.TextSpriteData != nil {
-			rs.WinsText.TextSpriteData.text = FormatTimeText(rs.WinsText.Text, float64(sys.timeTotal())/60)
+			rs.WinsText.TextSpriteData.text = formatTimeText(rs.WinsText.Text, float64(sys.timeTotal())/60)
 		}
-		wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+		if wouldPlace {
+			wi.assignStates(
+				rs.P1.Win.State, rs.P1.Teammate.Win.State,
+				rs.P2.Win.State, rs.P2.Teammate.Win.State,
+			)
+		} else {
+			wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+		}
+	case "score":
+		if rs.WinsText.TextSpriteData != nil {
+			fs := m.replaceFormatSpecifiers(rs.WinsText.Text)
+			// Total score for P1 side:
+			sc := int32(0)
+			if len(sys.scoreStart) > 0 {
+				sc = int32(sys.scoreStart[0])
+			}
+			for _, v := range sys.scoreRounds {
+				if len(v) > 0 {
+					sc += int32(v[0])
+				}
+			}
+			rs.WinsText.TextSpriteData.text = fmt.Sprintf(fs, sc)
+		}
+		if wouldPlace {
+			wi.assignStates(
+				rs.P1.Win.State, rs.P1.Teammate.Win.State,
+				rs.P2.Win.State, rs.P2.Teammate.Win.State,
+			)
+		} else {
+			wi.assignStates(rs.P1.State, rs.P1.Teammate.State, rs.P2.State, rs.P2.Teammate.State)
+		}
 	default:
-		// Generic: no assumptions about what the text represents.
+		// dataType == "" (or unknown): no formatting fallback.
 		if rs.WinsText.TextSpriteData != nil {
 			rs.WinsText.TextSpriteData.text = rs.WinsText.Text
 		}
@@ -5976,7 +6084,7 @@ func (wi *MotifWin) step(m *Motif) {
 
 	// Handle state transitions
 	if !wi.stateDone && wi.counter >= wi.stateTime {
-		m.processStateTransitions(wi.p1State, wi.p1TeammateState, wi.p2State, wi.p2TeammateState)
+		m.processStateTransitionsBySide(wi.p1State, wi.p1TeammateState, wi.p2State, wi.p2TeammateState)
 		wi.stateDone = true
 	}
 

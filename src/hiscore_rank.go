@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -51,60 +53,110 @@ type runTally struct {
 	timeTicks int32
 	winP1     int
 	loseP1    int
-	maxStreak int
+	consecP1  int
 	scoreP1   int
 }
 
 func tallyRun() runTally {
 	var t runTally
-	streak := 0
+	consec := 0
 	lastScore := 0
-	for _, m := range sys.statsLog.Matches {
-		t.timeTicks += m.MatchTime
-		if m.WinSide == 1 {
-			t.winP1++
-			streak++
-		} else if m.WinSide == 2 {
-			t.loseP1++
-			streak = 0
+	matches := sys.statsLog.Matches
+	lastIdx := len(matches) - 1
+	for i, m := range matches {
+		// If the last match isn't finalized yet derive its values from live engine state.
+		useLive := false
+		if i == lastIdx && (sys.postMatchFlg || sys.matchOver()) && m.MatchTime == 0 && len(m.Rounds) > 0 {
+			useLive = true
 		}
-		if streak > t.maxStreak {
-			t.maxStreak = streak
+		var (
+			matchTime int32
+			winSide   int
+			p2Wins    int32
+			scoreP1   int
+		)
+		if useLive {
+			// Match time from current engine timers
+			var total int32
+			for _, v := range sys.timerRounds {
+				total += v
+			}
+			matchTime = total
+			// Outcome from current engine state
+			winSide = sys.winTeam
+			p2Wins = sys.wins[1]
+			// Total score from current engine state (same as StatsLog.finalizeMatch)
+			sc0 := int32(0)
+			if len(sys.scoreStart) > 0 {
+				sc0 = int32(sys.scoreStart[0])
+			}
+			for _, v := range sys.scoreRounds {
+				if len(v) > 0 {
+					sc0 += int32(v[0])
+				}
+			}
+			scoreP1 = int(sc0)
+		} else {
+			matchTime = m.MatchTime
+			winSide = m.WinSide
+			p2Wins = m.Wins[1]
+			scoreP1 = int(m.TotalScore[0])
+		}
+		t.timeTicks += matchTime
+		switch winSide {
+		case 0: // P1 won
+			t.winP1++
+			// ConsecutiveWins semantics:
+			// - increments only if opponent won 0 rounds in this match
+			// - losing any round resets to 0 and prevents increment for this match
+			if p2Wins == 0 {
+				consec++
+			} else {
+				consec = 0
+			}
+		case 1: // P2 won
+			t.loseP1++
+			consec = 0
+		default:
+			// Unknown / draw / aborted: don't count as win or loss, break streak.
+			consec = 0
 		}
 		// TotalScore is already cumulative at match end
-		if len(m.TotalScore) == 2 {
-			lastScore = int(m.TotalScore[0])
-		}
+		lastScore = scoreP1
 	}
 	t.scoreP1 = lastScore
+	t.consecP1 = consec
 	return t
 }
 
-func modeCleared(mode string, matches int) bool {
-	// Survival-like: P1 wins OR reached configured rounds-to-win.
-	modeLower := strings.ToLower(mode)
-	if strings.Contains(modeLower, "survival") {
-		if sys.winnerTeam() == 1 {
-			return true
-		}
-		// Pull rounds-to-win from the unified ResultsScreen map.
-		// Prefer the exact mode entry; if not present, fall back to plain "survival"
-		// so modes like "survivalcoop"/"netplaysurvivalcoop" can reuse [Survival Results Screen].
-		rs, _ := sys.motif.wi.findResultsScreenForMode(&sys.motif, modeLower)
-		if rs == nil {
-			rs, _ = sys.motif.wi.findResultsScreenForMode(&sys.motif, "survival")
-		}
-		if rs != nil {
-			rtw := int(rs.RoundsToWin)
-			return matches >= rtw && rtw > 0
-		}
-
-		// No results screen config available -> can't use rounds-to-win rule.
-		return false
+// Resolves the configured results screen variant for this gamemode:
+// [Win Screen] results.<gamemode> = <section name>
+// Returns nil if the mode uses "Win Screen" or the configured results screen doesn't exist/disabled.
+func resultsScreenForMode(mode string) *ResultsScreenProperties {
+	// mode and parsed keys are lowercased by design in this codebase.
+	variant := strings.TrimSpace(sys.motif.WinScreen.Results[mode])
+	if variant == "" || strings.EqualFold(variant, "win screen") {
+		return nil
 	}
+	rsKey := strings.ToLower(strings.ReplaceAll(variant, " ", "_"))
+	rs := sys.motif.ResultsScreen[rsKey]
+	if rs == nil || !rs.Enabled {
+		return nil
+	}
+	return rs
+}
 
-	// Arcade / Timeattack / TeamCoop etc.
-	return sys.winnerTeam() == 1
+func modeCleared(mode string, matches int) bool {
+	// If the selected results screen variant for this mode defines roundstowin > 0,
+	// treat it as "survival-like": cleared if P1 wins or reached roundstowin.
+	// Otherwise: cleared if P1 wins.
+	if sys.winnerTeam() == 1 {
+		return true
+	}
+	if rs := resultsScreenForMode(mode); rs != nil && rs.RoundsToWin > 0 {
+		return matches >= int(rs.RoundsToWin)
+	}
+	return false
 }
 
 func rankingTypeFor(mode string) (string, bool) {
@@ -115,8 +167,124 @@ func rankingTypeFor(mode string) (string, bool) {
 	return v, ok
 }
 
+// Returns true if the just-finished run would produce a ranking entry.
+func rankingWouldPlace(mode string) bool {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		return false
+	}
+	rType, ok := rankingTypeFor(mode)
+	if !ok {
+		return false
+	}
+	rType = strings.ToLower(strings.TrimSpace(rType))
+	tal := tallyRun()
+	// Ranking exceptions
+	if rType == "score" && tal.scoreP1 == 0 {
+		return false
+	}
+	if rType == "win" && tal.winP1 == 0 {
+		return false
+	}
+
+	// VisibleItems <= 0 means "no truncation" -> always place.
+	visible := int(sys.motif.HiscoreInfo.Window.VisibleItems)
+	if visible <= 0 {
+		return true
+	}
+
+	data, err := os.ReadFile("save/stats.json")
+	if err != nil || len(data) == 0 {
+		return true
+	}
+
+	// Build existing entries
+	var entries []*rankingEntry
+	rankPath := "modes." + mode + ".ranking"
+	if arr := gjson.GetBytes(data, rankPath); arr.Exists() && arr.IsArray() {
+		arr.ForEach(func(_, v gjson.Result) bool {
+			e := &rankingEntry{
+				Score:       int(v.Get("score").Int()),
+				Time:        v.Get("time").Float(),
+				Win:         int(v.Get("win").Int()),
+				Lose:        int(v.Get("lose").Int()),
+				Consecutive: int(v.Get("consecutive").Int()),
+				Name:        v.Get("name").Str,
+				Tmode:       int32(v.Get("tmode").Int()),
+				AILevel:     int32(v.Get("ailevel").Int()),
+			}
+			if ca := v.Get("chars"); ca.Exists() && ca.IsArray() {
+				ca.ForEach(func(_, c gjson.Result) bool {
+					e.Chars = append(e.Chars, c.Str)
+					return true
+				})
+			}
+			entries = append(entries, e)
+			return true
+		})
+	}
+
+	// If there is room in the visible window, we will place.
+	if len(entries) < visible {
+		return true
+	}
+
+	// New entry (same values as computeAndSaveRanking)
+	newE := &rankingEntry{
+		Score:       tal.scoreP1,
+		Time:        round2(float64(tal.timeTicks) / 60.0),
+		Win:         tal.winP1,
+		Lose:        tal.loseP1,
+		Consecutive: tal.consecP1,
+		Name:        "",
+		Chars:       selectedCharKeys(),
+		Tmode:       int32(sys.tmode[0]),
+		AILevel:     int32(sys.cfg.Options.Difficulty),
+	}
+	entries = append(entries, newE)
+
+	// Sort by mode (must match computeAndSaveRanking)
+	sort.SliceStable(entries, func(i, j int) bool {
+		switch rType {
+		case "score":
+			return entries[i].Score > entries[j].Score
+		case "time":
+			return entries[i].Time < entries[j].Time
+		case "win":
+			if entries[i].Win != entries[j].Win {
+				return entries[i].Win > entries[j].Win
+			}
+			return entries[i].Score > entries[j].Score
+		default:
+			return false
+		}
+	})
+
+	// Truncate to visible and see if our entry survives.
+	if len(entries) > visible {
+		entries = entries[:visible]
+	}
+	for _, e := range entries {
+		if e == newE {
+			return true
+		}
+	}
+	return false
+}
+
+func writeStatsPretty(path string, data []byte) error {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, data, "", "  "); err == nil {
+		data = buf.Bytes()
+	} else {
+		fmt.Println("stats: pretty print failed, writing compact JSON:", err)
+	}
+	return os.WriteFile(path, data, 0o644)
+}
+
 // Main entry: computes cleared/placement, writes save/stats.json. Returns (cleared, place).
 func computeAndSaveRanking(mode string) (bool, int32) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
 	// Tally the just-finished run
 	tal := tallyRun()
 	cleared := modeCleared(mode, len(sys.statsLog.Matches))
@@ -160,17 +328,17 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 	// If hiscore ranking isn't defined for this mode, we're done.
 	rType, ok := rankingTypeFor(mode)
 	if !ok {
-		_ = os.WriteFile("save/stats.json", data, 0o644)
+		_ = writeStatsPretty("save/stats.json", data)
 		return cleared, 0
 	}
 
 	// Ranking exceptions (match Lua behavior)
 	if rType == "score" && tal.scoreP1 == 0 {
-		_ = os.WriteFile("save/stats.json", data, 0o644)
+		_ = writeStatsPretty("save/stats.json", data)
 		return cleared, 0
 	}
 	if rType == "win" && tal.winP1 == 0 {
-		_ = os.WriteFile("save/stats.json", data, 0o644)
+		_ = writeStatsPretty("save/stats.json", data)
 		return cleared, 0
 	}
 
@@ -206,7 +374,7 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 		Time:        round2(float64(tal.timeTicks) / 60.0),
 		Win:         tal.winP1,
 		Lose:        tal.loseP1,
-		Consecutive: tal.maxStreak,
+		Consecutive: tal.consecP1,
 		Name:        "",
 		Chars:       selectedCharKeys(),
 		Tmode:       int32(sys.tmode[0]),
@@ -267,7 +435,7 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 	// Serialize back to JSON (preserving other keys)
 	buf, _ := json.Marshal(entries)
 	data, _ = sjson.SetRawBytes(data, rankPath, buf)
-	_ = os.WriteFile("save/stats.json", data, 0o644)
+	_ = writeStatsPretty("save/stats.json", data)
 
 	return cleared, place
 }

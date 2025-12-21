@@ -3,6 +3,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 
@@ -34,7 +35,7 @@ func LoadFntTtf(f *Fnt, fontfile string, filename string, height int32) {
 		var err error
 		fileDir, err = findfont.Find(fileDir)
 		if err != nil {
-			panic(err)
+			panic(fmt.Errorf("failed to find ttf font %v: %w", fileDir, err))
 		}
 	}
 	// Load ttf
@@ -46,6 +47,7 @@ func LoadFntTtf(f *Fnt, fontfile string, filename string, height int32) {
 	ttf, err := gfxFont.LoadFont(fileDir, height, int(sys.gameWidth), int(sys.gameHeight))
 	if err != nil {
 		panic(err)
+		panic(fmt.Errorf("failed to load ttf font %v: %w", fileDir, err))
 	}
 	f.ttf = ttf.(Font)
 

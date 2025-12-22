@@ -425,6 +425,49 @@ func setNestedLuaKey(l *lua.LState, tbl *lua.LTable, key string, val lua.LValue)
 	}
 }
 
+// Lowercases section names and replaces spaces with underscores.
+func normalizeSectionName(name string) string {
+	name = strings.TrimSpace(strings.ToLower(name))
+	if name == "" {
+		return name
+	}
+	// Collapse any whitespace runs (spaces/tabs/etc.) into single underscores.
+	return strings.Join(strings.Fields(name), "_")
+}
+
+// Converts an INI value string into a typed Lua value
+func parseIniLuaValue(raw string) lua.LValue {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		// Empty stays as empty string (matches typical INI semantics)
+		return lua.LString("")
+	}
+	// 1) Quoted string wins over everything else
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		if unq, err := strconv.Unquote(s); err == nil {
+			return lua.LString(unq)
+		}
+		// Fallback: strip outer quotes if Unquote fails
+		return lua.LString(s[1 : len(s)-1])
+	}
+	// 2) Bool
+	switch strings.ToLower(s) {
+	case "true":
+		return lua.LTrue
+	case "false":
+		return lua.LFalse
+	}
+	// 3) Number (prefer int, else float)
+	if i, err := strconv.ParseInt(s, 0, 64); err == nil {
+		return lua.LNumber(i)
+	}
+	if f, err := strconv.ParseFloat(s, 64); err == nil {
+		return lua.LNumber(RoundFloat(f, 6))
+	}
+	// Defensive fallback (should be rare)
+	return lua.LString(s)
+}
+
 func iniToLuaTable(l *lua.LState, f *ini.File) *lua.LTable {
 	t := l.NewTable()
 	if f == nil {
@@ -434,7 +477,7 @@ func iniToLuaTable(l *lua.LState, f *ini.File) *lua.LTable {
 		secTable := l.NewTable()
 		for _, k := range sec.Keys() {
 			name := k.Name()
-			val := lua.LString(k.Value())
+			val := parseIniLuaValue(k.Value())
 			if strings.Contains(name, ".") {
 				// use nested tables for dotted keys
 				setNestedLuaKey(l, secTable, name, val)
@@ -443,7 +486,7 @@ func iniToLuaTable(l *lua.LState, f *ini.File) *lua.LTable {
 				secTable.RawSetString(name, val)
 			}
 		}
-		t.RawSetString(sec.Name(), secTable)
+		t.RawSetString(normalizeSectionName(sec.Name()), secTable)
 	}
 	return t
 }
@@ -3466,14 +3509,24 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.paused || sys.frameStepFlag {
 			if !sys.motif.hi.initialized {
 				var mode string
-				var place int32
+				var place, endtime int32
+				var nofade, nobgs bool
 				if !nilArg(l, 1) {
 					mode = strArg(l, 1)
 				}
 				if !nilArg(l, 2) {
 					place = int32(numArg(l, 2))
 				}
-				sys.motif.hi.init(&sys.motif, mode, place)
+				if !nilArg(l, 3) {
+					endtime = int32(numArg(l, 3))
+				}
+				if !nilArg(l, 4) {
+					nofade = boolArg(l, 4)
+				}
+				if !nilArg(l, 5) {
+					nobgs = boolArg(l, 5)
+				}
+				sys.motif.hi.init(&sys.motif, mode, place, endtime, nofade, nobgs)
 			}
 			if sys.motif.hi.active {
 				sys.motif.hi.step(&sys.motif)

@@ -4560,6 +4560,9 @@ type MotifHiscore struct {
 	mode        string
 	rows        []rankingRow
 	statsRaw    string
+	endTime     int32
+	noFade      bool
+	noBgs       bool
 
 	// Active-row blink state (Rank / Result / Name)
 	rankActiveCount   int32
@@ -4606,6 +4609,9 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.counter = 0
 	hi.place = 0
 	hi.mode = ""
+	hi.endTime = 0
+	hi.noFade = false
+	hi.noBgs = false
 	hi.rankActiveCount, hi.resultActiveCount, hi.nameActiveCount = 0, 0, 0
 	hi.rankUseActive2, hi.resultUseActive2, hi.nameUseActive2 = false, false, false
 	hi.rows = nil
@@ -4616,7 +4622,7 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.haveSaved = false
 }
 
-func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
+func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs bool) {
 	//if !m.HiscoreInfo.Enabled || !hi.enabled {
 	//	hi.initialized = true
 	//	return
@@ -4627,6 +4633,12 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
 	hi.reset(m)
 	hi.place = place
 	hi.mode = mode
+	hi.endTime = m.HiscoreInfo.Time
+	if endTime > 0 {
+		hi.endTime = endTime
+	}
+	hi.noFade = noFade
+	hi.noBgs = noBgs
 	hi.input = (place > 0)
 	if hi.input {
 		// Start with one letter selected
@@ -4828,7 +4840,9 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place int32) {
 	}
 
 	m.HiscoreBgDef.BGDef.Reset()
-	m.HiscoreInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	if !hi.noFade {
+		m.HiscoreInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	}
 
 	m.HiscoreInfo.Title.TextSpriteData.Reset()
 	m.HiscoreInfo.Title.TextSpriteData.AddPos(m.HiscoreInfo.Pos[0], m.HiscoreInfo.Pos[1])
@@ -4864,8 +4878,10 @@ func (hi *MotifHiscore) step(m *Motif) {
 		cancel := sys.esc || m.button(m.HiscoreInfo.Cancel.Key, -1) ||
 			(!hi.input && m.button(m.HiscoreInfo.Done.Key, -1)) ||
 			(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
-		if cancel || (!hi.input && hi.counter == m.HiscoreInfo.Time) {
-			startFadeOut(m.HiscoreInfo.FadeOut.FadeData, m.fadeOut, cancel, m.fadePolicy)
+		if cancel || (!hi.input && hi.counter == hi.endTime) {
+			if !hi.noFade {
+				startFadeOut(m.HiscoreInfo.FadeOut.FadeData, m.fadeOut, cancel, m.fadePolicy)
+			}
 			hi.endTimer = hi.counter + m.fadeOut.timeRemaining
 		}
 	}
@@ -4913,7 +4929,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 					m.Snd.play(m.HiscoreInfo.Done.Snd, 100, 0, 0, 0, 0)
 					hi.input = false
 					// Give a short tail
-					hi.counter = m.HiscoreInfo.Time - m.HiscoreInfo.Done.Time
+					hi.counter = hi.endTime - m.HiscoreInfo.Done.Time
 					hi.finalizeAndSave()
 				}
 			}
@@ -4971,7 +4987,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 						// Finalize
 						m.Snd.play(m.HiscoreInfo.Done.Snd, 100, 0, 0, 0, 0)
 						hi.input = false
-						hi.counter = m.HiscoreInfo.Time - m.HiscoreInfo.Done.Time
+						hi.counter = hi.endTime - m.HiscoreInfo.Done.Time
 						hi.finalizeAndSave()
 					}
 				}
@@ -4981,7 +4997,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 
 	// Finish after fade-out completes
 	if hi.endTimer != -1 && hi.counter >= hi.endTimer {
-		if m.fadeOut != nil {
+		if m.fadeOut != nil && !hi.noFade {
 			m.fadeOut.reset()
 		}
 		hi.reset(m)
@@ -4994,11 +5010,12 @@ func (hi *MotifHiscore) step(m *Motif) {
 
 func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 	// Background
-	if m.HiscoreBgDef.BgClearColor[0] >= 0 {
-		m.HiscoreBgDef.RectData.Draw(layerno)
+	if !hi.noBgs {
+		if m.HiscoreBgDef.BgClearColor[0] >= 0 {
+			m.HiscoreBgDef.RectData.Draw(layerno)
+		}
+		m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 	}
-	m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
-
 	// Title and subtitles
 	m.HiscoreInfo.Title.TextSpriteData.Draw(layerno)
 	m.HiscoreInfo.Title.Rank.TextSpriteData.Draw(layerno)

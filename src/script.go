@@ -3510,7 +3510,7 @@ func systemScriptInit(l *lua.LState) {
 			if !sys.motif.hi.initialized {
 				var mode string
 				var place, endtime int32
-				var nofade, nobgs bool
+				var nofade, nobgs, nooverlay bool
 				if !nilArg(l, 1) {
 					mode = strArg(l, 1)
 				}
@@ -3526,7 +3526,10 @@ func systemScriptInit(l *lua.LState) {
 				if !nilArg(l, 5) {
 					nobgs = boolArg(l, 5)
 				}
-				sys.motif.hi.init(&sys.motif, mode, place, endtime, nofade, nobgs)
+				if !nilArg(l, 6) {
+					nooverlay = boolArg(l, 6)
+				}
+				sys.motif.hi.init(&sys.motif, mode, place, endtime, nofade, nobgs, nooverlay)
 			}
 			if sys.motif.hi.active {
 				sys.motif.hi.step(&sys.motif)

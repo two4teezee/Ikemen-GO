@@ -943,6 +943,9 @@ const (
 	OC_ex2_gamevar_pausetime
 	OC_ex2_gamevar_slowtime
 	OC_ex2_gamevar_superpausetime
+	OC_ex2_gamevar_persistrounds
+	OC_ex2_gamevar_persistlife
+	OC_ex2_gamevar_persistmusic
 	OC_ex2_topbounddist
 	OC_ex2_topboundbodydist
 	OC_ex2_botbounddist
@@ -3697,6 +3700,12 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(sys.getSlowtime())
 	case OC_ex2_gamevar_superpausetime:
 		sys.bcStack.PushI(sys.supertime)
+	case OC_ex2_gamevar_persistrounds:
+		sys.bcStack.PushB(sys.sel.gameParams.PersistRounds)
+	case OC_ex2_gamevar_persistlife:
+		sys.bcStack.PushB(sys.sel.gameParams.PersistLife)
+	case OC_ex2_gamevar_persistmusic:
+		sys.bcStack.PushB(sys.sel.gameParams.PersistMusic)
 	// HitDefVar
 	case OC_ex2_hitdefvar_guard_dist_width_back:
 		sys.bcStack.PushF(c.hitdef.guard_dist_x[1] * (c.localscl / oc.localscl))

@@ -3182,10 +3182,10 @@ func (c *Char) ocd() *OverrideCharData {
 	if team < 0 || team > 2 || c.memberNo < 0 {
 		return newOverrideCharData()
 	}
-	if sys.sel.launchFightParams == nil {
-		sys.sel.launchFightParams = newLaunchFightParams()
+	if sys.sel.gameParams == nil {
+		sys.sel.gameParams = newGameParams()
 	}
-	return sys.sel.launchFightParams.ensureOverride(team, c.memberNo)
+	return sys.sel.gameParams.ensureOverride(team, c.memberNo)
 }
 
 func (c *Char) load(def string) error {

@@ -81,6 +81,43 @@ func extractPrefixFromMusicKey(key string) (prefix string) {
 	return ""
 }
 
+func splitMusicParamValue(v string) (path string, extras []string) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return "", nil
+	}
+
+	lower := strings.ToLower(v)
+	exts := []string{
+		".ogg", ".mp3", ".wav", ".flac",
+		".mid", ".midi",
+		".xm", ".mod", ".it", ".s3m",
+	}
+
+	bestEnd := -1
+	for _, ext := range exts {
+		if i := strings.LastIndex(lower, ext); i >= 0 {
+			end := i + len(ext)
+			if end > bestEnd {
+				bestEnd = end
+			}
+		}
+	}
+
+	// If no supported extension is found, we won't be able to play it anyway,
+	// so just treat the whole value as the path (no extras).
+	if bestEnd <= 0 {
+		return v, nil
+	}
+
+	path = strings.TrimSpace(v[:bestEnd])
+	rest := strings.TrimSpace(v[bestEnd:])
+	if rest != "" {
+		extras = strings.Fields(rest)
+	}
+	return path, extras
+}
+
 // expandMusicKV turns: music=path 80 100 200 into:
 // music=path, bgmvolume=80, bgmloopstart=100, bgmloopend=200
 func expandMusicKV(key, value string) []string {
@@ -90,13 +127,13 @@ func expandMusicKV(key, value string) []string {
 		return nil
 	}
 
-	parts := strings.Fields(value)
-	if len(parts) == 0 {
+	path, extras := splitMusicParamValue(value)
+	if strings.TrimSpace(path) == "" {
 		return []string{key + "="}
 	}
 
-	out := []string{key + "=" + parts[0]}
-	if len(parts) == 1 {
+	out := []string{key + "=" + path}
+	if len(extras) == 0 {
 		return out
 	}
 
@@ -107,14 +144,14 @@ func expandMusicKV(key, value string) []string {
 	}
 
 	// volume, loopstart, loopend (optional)
-	if len(parts) >= 2 {
-		out = append(out, fmt.Sprintf("%sbgmvolume=%s", pfx, parts[1]))
+	if len(extras) >= 1 {
+		out = append(out, fmt.Sprintf("%sbgmvolume=%s", pfx, extras[0]))
 	}
-	if len(parts) >= 3 {
-		out = append(out, fmt.Sprintf("%sbgmloopstart=%s", pfx, parts[2]))
+	if len(extras) >= 2 {
+		out = append(out, fmt.Sprintf("%sbgmloopstart=%s", pfx, extras[1]))
 	}
-	if len(parts) >= 4 {
-		out = append(out, fmt.Sprintf("%sbgmloopend=%s", pfx, parts[3]))
+	if len(extras) >= 3 {
+		out = append(out, fmt.Sprintf("%sbgmloopend=%s", pfx, extras[2]))
 	}
 	return out
 }
@@ -294,7 +331,7 @@ func newOverrideCharData() *OverrideCharData {
 		guardPoints: -1, ratioLevel: 0, lifeRatio: 1, attackRatio: 1}
 }
 
-type LaunchFightParams struct {
+type GameParams struct {
 	musicEntries  []string `ini:"musicentries"`
 	Continue      bool     `ini:"continue"`
 	QuickContinue bool     `ini:"quickcontinue"`
@@ -305,12 +342,15 @@ type LaunchFightParams struct {
 	VsScreen      bool     `ini:"vsscreen"`
 	VictoryScreen bool     `ini:"victoryscreen"`
 	LuaCode       string   `ini:"luacode"`
+	PersistLife   bool     `ini:"persistlife"`
+	PersistMusic  bool     `ini:"persistmusic"`
+	PersistRounds bool     `ini:"persistrounds"`
 	ocd           [3][]OverrideCharData
 	Raw           []string
 }
 
-func newLaunchFightParams() *LaunchFightParams {
-	return &LaunchFightParams{
+func newGameParams() *GameParams {
+	return &GameParams{
 		musicEntries:  make([]string, 0),
 		Raw:           make([]string, 0),
 		Continue:      true,
@@ -327,15 +367,15 @@ func newLaunchFightParams() *LaunchFightParams {
 	}
 }
 
-func (p *LaunchFightParams) MusicEntries() []string {
+func (p *GameParams) MusicEntries() []string {
 	return p.musicEntries
 }
 
-func (p *LaunchFightParams) Reset() {
-	*p = *newLaunchFightParams()
+func (p *GameParams) Reset() {
+	*p = *newGameParams()
 }
 
-func (p *LaunchFightParams) ensureOverride(team, member int) *OverrideCharData {
+func (p *GameParams) ensureOverride(team, member int) *OverrideCharData {
 	if team < 0 || team >= len(p.ocd) || member < 0 {
 		return newOverrideCharData()
 	}
@@ -345,7 +385,7 @@ func (p *LaunchFightParams) ensureOverride(team, member int) *OverrideCharData {
 	return &p.ocd[team][member]
 }
 
-func (p *LaunchFightParams) AppendParams(entries []string) {
+func (p *GameParams) AppendParams(entries []string) {
 	p.Raw = append(p.Raw, entries...)
 	for _, e := range entries {
 		key, val, ok := parseKV(e)
@@ -412,6 +452,18 @@ func (p *LaunchFightParams) AppendParams(entries []string) {
 			}
 		case "lua":
 			p.LuaCode = val
+		case "persistlife":
+			if b, ok := parseBoolLoose(val); ok {
+				p.PersistLife = b
+			}
+		case "persistmusic":
+			if b, ok := parseBoolLoose(val); ok {
+				p.PersistMusic = b
+			}
+		case "persistrounds":
+			if b, ok := parseBoolLoose(val); ok {
+				p.PersistRounds = b
+			}
 		}
 	}
 }

@@ -4563,6 +4563,7 @@ type MotifHiscore struct {
 	endTime     int32
 	noFade      bool
 	noBgs       bool
+	noOverlay   bool
 
 	// Active-row blink state (Rank / Result / Name)
 	rankActiveCount   int32
@@ -4612,6 +4613,7 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.endTime = 0
 	hi.noFade = false
 	hi.noBgs = false
+	hi.noOverlay = false
 	hi.rankActiveCount, hi.resultActiveCount, hi.nameActiveCount = 0, 0, 0
 	hi.rankUseActive2, hi.resultUseActive2, hi.nameUseActive2 = false, false, false
 	hi.rows = nil
@@ -4622,7 +4624,7 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.haveSaved = false
 }
 
-func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs bool) {
+func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs, noOverlay bool) {
 	//if !m.HiscoreInfo.Enabled || !hi.enabled {
 	//	hi.initialized = true
 	//	return
@@ -4639,6 +4641,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 	}
 	hi.noFade = noFade
 	hi.noBgs = noBgs
+	hi.noOverlay = noOverlay
 	hi.input = (place > 0)
 	if hi.input {
 		// Start with one letter selected
@@ -5072,7 +5075,9 @@ func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 	}
 
 	// Overlay
-	m.HiscoreInfo.Overlay.RectData.Draw(layerno)
+	if !hi.noOverlay {
+		m.HiscoreInfo.Overlay.RectData.Draw(layerno)
+	}
 }
 
 func (hi *MotifHiscore) finalizeAndSave() {

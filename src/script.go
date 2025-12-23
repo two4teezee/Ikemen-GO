@@ -4450,7 +4450,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.angle = float32(numArg(l, 2))
+		ts.rot.angle = float32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "textImgUpdate", func(*lua.LState) int {

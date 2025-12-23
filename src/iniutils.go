@@ -2176,7 +2176,7 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	// textImgSetXShear
 	ts.xshear = xshear
 	// textImgSetAngle
-	ts.angle = angle
+	ts.rot.angle = angle
 	// textImgSetWindow
 	ts.SetWindow(window)
 	// textImgSetLayerno

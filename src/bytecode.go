@@ -12347,6 +12347,10 @@ const (
 	text_friction
 	text_accel
 	text_angle
+	text_xangle
+	text_yangle
+	text_projection
+	text_focallength
 	text_scale
 	text_color
 	text_xshear
@@ -12464,7 +12468,15 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				yacc = exp[1].evalF(c)
 			}
 		case text_angle:
-			ts.angle = exp[0].evalF(c)
+			ts.rot.angle = exp[0].evalF(c)
+		case text_xangle:
+			ts.rot.xangle = exp[0].evalF(c)
+		case text_yangle:
+			ts.rot.yangle = exp[0].evalF(c)
+		case text_projection:
+			ts.projection = exp[0].evalI(c)
+		case text_focallength:
+			ts.fLength = exp[0].evalF(c)
 		case text_scale:
 			xscl = exp[0].evalF(c)
 			if len(exp) > 1 {
@@ -12784,7 +12796,25 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_angle:
 				a := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.angle = a
+					ts.rot.angle = a
+				})
+			case text_xangle:
+				a := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.rot.xangle = a
+				})
+			case text_yangle:
+				a := exp[0].evalF(c)
+				eachText(func(ts *TextSprite) {
+					ts.rot.yangle = a
+				})
+			case text_projection:
+				eachText(func(ts *TextSprite) {
+					ts.projection = exp[0].evalI(c)
+				})
+			case text_focallength:
+				eachText(func(ts *TextSprite) {
+					ts.fLength = exp[0].evalF(c)
 				})
 			case text_scale:
 				x := exp[0].evalF(c)

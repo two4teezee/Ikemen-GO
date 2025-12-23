@@ -4039,6 +4039,23 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 	a.facing = float32(faceCfg.Facing)
 	a.xshear = faceCfg.Xshear
 	a.rot.angle = faceCfg.Angle
+	a.rot.xangle = faceCfg.XAngle
+	a.rot.yangle = faceCfg.YAngle
+	a.projection = int32(Projection_Orthographic) // Default
+	v := strings.ToLower(strings.TrimSpace(faceCfg.Projection))
+	switch v {
+	case "perspective":
+		a.projection = int32(Projection_Perspective)
+	case "perspective2":
+		a.projection = int32(Projection_Perspective2)
+	case "orthographic":
+		// default, we don't need to do nothing
+	default:
+		if i, err := strconv.Atoi(v); err == nil {
+			a.projection = int32(i)
+		}
+	}
+	a.fLength = faceCfg.Focallength
 	a.Update()
 
 	return a

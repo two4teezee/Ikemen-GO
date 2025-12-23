@@ -111,17 +111,21 @@ type FadeProperties struct {
 }
 
 type AnimationProperties struct {
-	Anim       int32      `ini:"anim" default:"-1"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
+	Anim        int32      `ini:"anim" default:"-1"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+	Projection  string     `ini:"projection"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
 }
 
 type AnimationTextProperties struct {
@@ -142,32 +146,40 @@ type AnimationTextProperties struct {
 }
 
 type AnimationCharPreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"char"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
-	ApplyPal   bool `ini:"applypal" preload:"pal"`
+	Anim        int32      `ini:"anim" default:"-1" preload:"char"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+    Projection  string     `ini:"projection"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
+	ApplyPal    bool `ini:"applypal" preload:"pal"`
 }
 
 type AnimationStagePreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"stage"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
+	Anim        int32      `ini:"anim" default:"-1" preload:"stage"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+	Projection  string     `ini:"projection"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
 }
 
 type TextProperties struct {
@@ -4026,7 +4038,7 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 
 	a.facing = float32(faceCfg.Facing)
 	a.xshear = faceCfg.Xshear
-	a.angle = faceCfg.Angle
+	a.rot.angle = faceCfg.Angle
 	a.Update()
 
 	return a

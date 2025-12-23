@@ -1149,7 +1149,53 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		a.angle = float32(numArg(l, 2))
+		a.rot.angle = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "animSetXAngle", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		a.rot.xangle = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "animSetYAngle", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		a.rot.yangle = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "animSetProjection", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		switch l.Get(2).Type() {
+
+		case lua.LTNumber:
+			a.projection = int32(numArg(l, 2))
+
+		case lua.LTString:
+			switch strings.ToLower(strings.TrimSpace(l.Get(2).String())) {
+			case "orthographic":
+				a.projection = int32(Projection_Orthographic)
+			case "perspective":
+				a.projection = int32(Projection_Perspective)
+			case "perspective2":
+				a.projection = int32(Projection_Perspective2)
+			}
+		}
+		return 0
+	})
+	luaRegister(l, "animSetfLength", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		a.fLength = float32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "animUpdate", func(*lua.LState) int {

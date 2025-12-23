@@ -672,6 +672,56 @@ func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
 	return result
 }
 
-func (s Select) Clone(a *arena.Arena) (result Select) {
-	return
-}
+/*func (s Select) Clone(a *arena.Arena) (result Select) {
+	result = s
+
+	// Copy selected (mutable; slices)
+	for side := 0; side < len(s.selected); side++ {
+		if s.selected[side] == nil {
+			result.selected[side] = nil
+			continue
+		}
+		if a != nil {
+			result.selected[side] = arena.MakeSlice[[2]int](a, len(s.selected[side]), len(s.selected[side]))
+		} else {
+			result.selected[side] = make([][2]int, len(s.selected[side]))
+		}
+		copy(result.selected[side], s.selected[side])
+	}
+
+	// Copy overwrite map headers (maps are reference types)
+	if s.cdefOverwrite != nil {
+		result.cdefOverwrite = make(map[int]string, len(s.cdefOverwrite))
+		for k, v := range s.cdefOverwrite {
+			result.cdefOverwrite[k] = v
+		}
+	}
+
+	// Copy music map header and candidate slices.
+	// The *bgMusic entries themselves are treated as immutable; copying pointers is enough.
+	if s.music != nil {
+		result.music = make(Music, len(s.music))
+		for k, lst := range s.music {
+			if lst == nil {
+				result.music[k] = nil
+			continue
+			}
+			var nlst []*bgMusic
+			if a != nil {
+				nlst = arena.MakeSlice[*bgMusic](a, len(lst), len(lst))
+			} else {
+				nlst = make([]*bgMusic, len(lst))
+			}
+			copy(nlst, lst)
+			result.music[k] = nlst
+		}
+	}
+
+	// gameParams should never be nil during fight code paths.
+	// Keep the existing pointer (stable), but defensively initialize if needed.
+	if result.gameParams == nil {
+		result.gameParams = newGameParams()
+	}
+
+	return result
+}*/

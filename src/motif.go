@@ -159,7 +159,7 @@ type AnimationCharPreloadProperties struct {
 	Angle       float32    `ini:"angle"`
 	XAngle      float32    `ini:"xangle"`
 	YAngle      float32    `ini:"yangle"`
-    Projection  string     `ini:"projection" default:"orthographic"`
+	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
 	Layerno     int16      `ini:"layerno" default:"1"`
 	Window      [4]int32   `ini:"window"`
@@ -364,12 +364,12 @@ type CellOverrideProperties struct {
 	Facing      int32      `ini:"facing" default:"1"`
 	Skip        bool       `ini:"skip"`
 	Scale       [2]float32 `ini:"scale"`
-    XShear      float32    `ini:"xshear"`
-    Angle       float32    `ini:"angle"`
-    XAngle      float32    `ini:"xangle"`
-    YAngle      float32    `ini:"yangle"`
-    Projection  string     `ini:"projection" default:"orthographic"`
-    FocalLength float32    `ini:"focallength"`
+	XShear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+	Projection  string     `ini:"projection" default:"orthographic"`
+	FocalLength float32    `ini:"focallength"`
 }
 
 type TimerProperties struct {

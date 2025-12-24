@@ -1215,19 +1215,25 @@ func systemScriptInit(l *lua.LState) {
 
 		tbl.ForEach(func(_, val lua.LValue) {
 			item, ok := val.(*lua.LTable)
-			if !ok { return }
+			if !ok {
+				return
+			}
 
 			luaAnim := item.RawGetString("anim")
 			ud, ok := luaAnim.(*lua.LUserData)
-			if !ok { return }
+			if !ok {
+				return
+			}
 
 			anim, ok := ud.Value.(*Anim)
-			if !ok { return }
+			if !ok {
+				return
+			}
 
 			x := float32(lua.LVAsNumber(item.RawGetString("x")))
 			y := float32(lua.LVAsNumber(item.RawGetString("y")))
 			facing := float32(lua.LVAsNumber(item.RawGetString("facing")))
-			
+
 			anim.SetPos(x, y)
 			anim.facing = facing
 

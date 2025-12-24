@@ -681,7 +681,7 @@ type TextSprite struct {
 	x, y, xscl, yscl float32
 	window           [4]int32
 	xshear           float32
-	rot            	 Rotation
+	rot              Rotation
 	projection       int32
 	fLength          float32
 	xvel, yvel       float32

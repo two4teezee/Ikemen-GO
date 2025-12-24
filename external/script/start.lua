@@ -1028,20 +1028,64 @@ function start.f_getCursorData(pn)
 	return motif.select_info['p' .. (pn - 1) % 2 + 1]
 end
 
-local function getCellFacing(default, col, row)
-	local cell = motif.select_info.cell[col .. '-' .. row]
-	if cell ~= nil and cell.facing ~= 0 then
-		return cell.facing
+local function getCellOverride(col, row)
+    local cells = motif.select_info.cell
+    local exact = col .. '-' .. row
+	local colWild = col .. '-*'
+	local rowWild = '*-' .. row
+    if cells[exact] then 
+		return cells[exact] 
+	end
+    if cells[colWild] then 
+		return cells[colWild] 
+	end
+    if cells[rowWild] then 
+		return cells[rowWild] 
+	end
+    if cells['*-*'] then 
+		return cells['*-*'] 
+	end
+    return nil
+end
+
+function getCellFacing(default, col, row)
+	local override = getCellOverride(col, row)
+	if override ~= nil and override.facing ~= 0 then
+		return override.facing
 	end
 	return default
 end
 
-local function getCellOffset(col, row)
-	local cell = motif.select_info.cell[col .. '-' .. row]
-	if cell ~= nil and cell.offset ~= nil then
-		return cell.offset
+function getCellOffset(col, row)
+	local override = getCellOverride(col, row)
+	if override ~= nil and override.offset ~= nil then
+		return override.offset
 	end
 	return {0, 0}
+end
+
+function getCellTransform(col, row, paramName, default)
+	local override = getCellOverride(col, row)
+	if override ~= nil then
+		local val = override[paramName]
+		-- Table Validation
+		if type(val) == "table" then
+			if paramName == "scale" then
+				if val[1] ~= 0 or val[2] ~= 0 then return val end
+			else
+				return val
+			end
+		elseif type(val) == "string" then
+			if val ~= "" then 
+				return val 
+			end
+		elseif type(val) == "number" then
+			if val ~= 0 then 
+				return val 
+			end
+		end
+	end
+	return default
 end
 
 --draw cursor
@@ -1113,8 +1157,21 @@ function start.f_drawCursor(pn, x, y, param, done)
 	if motif.select_info['p' .. pn].cursor[param][key] ~= nil then
 		params = motif.select_info['p' .. pn].cursor[param][key]
 	end
+	local a = params.AnimData
+	if a then -- inherit cell transformation
+		animSetFacing(a, getCellFacing(params.facing, x, y))
+		local scale = getCellTransform(x, y, "scale", params.scale)
+		animSetScale(a, scale[1], scale[2])
+		animSetXShear(a, getCellTransform(x, y, "xshear", params.xshear))
+		animSetAngle(a, getCellTransform(x, y, "angle", params.angle))
+		animSetXAngle(a, getCellTransform(x, y, "xangle", params.xangle))
+		animSetYAngle(a, getCellTransform(x, y, "yangle", params.yangle))
+		animSetProjection(a, getCellTransform(x, y, "projection", params.projection))
+		animSetfLength(a, getCellTransform(x, y, "focallength", params.focallength))
+		animUpdate(a)
+	end
 	main.f_animPosDraw(
-		params.AnimData,
+		a,
 		cd.currentPos[1],
 		cd.currentPos[2],
 		getCellFacing(params.facing, x, y)
@@ -2048,34 +2105,46 @@ function start.updateDrawList()
 		for col = 1, motif.select_info.columns do
 			local cellIndex = (row - 1) * motif.select_info.columns + col
 			local t = start.t_grid[row][col]
+			local c = col - 1
+			local r = row - 1
 
 			if t.skip ~= 1 then
 				local charData = start.f_selGrid(cellIndex)
+				local function getTransforms(defaultFacing)
+					return {
+						facing      = getCellFacing(defaultFacing, c, r),
+						scale       = getCellTransform(c, r, "scale", nil),
+						xshear      = getCellTransform(c, r, "xshear", nil),
+						angle       = getCellTransform(c, r, "angle", nil),
+						xangle      = getCellTransform(c, r, "xangle", nil),
+						yangle      = getCellTransform(c, r, "yangle", nil),
+						projection  = getCellTransform(c, r, "projection", nil),
+						focallength = getCellTransform(c, r, "focallength", nil)
+					}
+				end
+
 				if (charData and charData.char ~= nil and (charData.hidden == 0 or charData.hidden == 3)) or motif.select_info.showemptyboxes then
-					table.insert(drawList, {
-						anim = motif.select_info.cell.bg.AnimData,
-						x = motif.select_info.pos[1] + t.x,
-						y = motif.select_info.pos[2] + t.y,
-						facing = getCellFacing(motif.select_info.cell.bg.facing, col - 1, row - 1)
-					})
+					local item = getTransforms(motif.select_info.cell.bg.facing)
+					item.anim = motif.select_info.cell.bg.AnimData
+					item.x = motif.select_info.pos[1] + t.x
+					item.y = motif.select_info.pos[2] + t.y
+					table.insert(drawList, item)
 				end
 
 				if charData and (charData.char == 'randomselect' or charData.hidden == 3) then
-					table.insert(drawList, {
-						anim = motif.select_info.cell.random.AnimData,
-						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1],
-						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2],
-						facing = getCellFacing(motif.select_info.cell.random.facing, col - 1, row - 1)
-					})
+					local item = getTransforms(motif.select_info.cell.random.facing)
+					item.anim = motif.select_info.cell.random.AnimData
+					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
+					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
+					table.insert(drawList, item)
 				end
 
 				if charData and charData.char_ref ~= nil and charData.hidden == 0 then
-					table.insert(drawList, {
-						anim = charData.cell_data,
-						x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1],
-						y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2],
-						facing = getCellFacing(motif.select_info.portrait.facing, col - 1, row - 1)
-					})
+					local item = getTransforms(motif.select_info.portrait.facing)
+					item.anim = charData.cell_data
+					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
+					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
+					table.insert(drawList, item)
 				end
 			end
 		end

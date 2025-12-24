@@ -360,9 +360,16 @@ type InfoBoxProperties struct {
 }
 
 type CellOverrideProperties struct {
-	Offset [2]float32 `ini:"offset"`
-	Facing int32      `ini:"facing" default:"1"`
-	Skip   bool       `ini:"skip"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Skip        bool       `ini:"skip"`
+	Scale       [2]float32 `ini:"scale"`
+    XShear      float32    `ini:"xshear"`
+    Angle       float32    `ini:"angle"`
+    XAngle      float32    `ini:"xangle"`
+    YAngle      float32    `ini:"yangle"`
+    Projection  string     `ini:"projection"`
+    FocalLength float32    `ini:"focallength"`
 }
 
 type TimerProperties struct {
@@ -682,7 +689,7 @@ type SelectInfoProperties struct {
 			AnimationProperties
 			SwitchTime int32 `ini:"switchtime"`
 		} `ini:"random"`
-		MapCell map[string]*CellOverrideProperties `ini:"map:^[0-9]+-[0-9]+$" lua:""`
+		MapCell map[string]*CellOverrideProperties `ini:"map:^[0-9*]+-[0-9*]+$" lua:""`
 	} `ini:"cell"`
 	P1      PlayerSelectProperties `ini:"p1"`
 	P2      PlayerSelectProperties `ini:"p2"`

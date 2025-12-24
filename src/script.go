@@ -1215,34 +1215,73 @@ func systemScriptInit(l *lua.LState) {
 
 		tbl.ForEach(func(_, val lua.LValue) {
 			item, ok := val.(*lua.LTable)
-			if !ok {
-				// l.RaiseError("batchDraw expects a table of tables")
-				return
-			}
+			if !ok { return }
 
 			luaAnim := item.RawGetString("anim")
-
 			ud, ok := luaAnim.(*lua.LUserData)
-			if !ok {
-				return
-			}
+			if !ok { return }
 
 			anim, ok := ud.Value.(*Anim)
-			if !ok {
-				return
-			}
+			if !ok { return }
 
 			x := float32(lua.LVAsNumber(item.RawGetString("x")))
 			y := float32(lua.LVAsNumber(item.RawGetString("y")))
 			facing := float32(lua.LVAsNumber(item.RawGetString("facing")))
+			
+			anim.SetPos(x, y)
+			anim.facing = facing
+
+			aSnap := *anim
+
+			if v := item.RawGetString("scale"); v.Type() == lua.LTTable {
+				sTbl := v.(*lua.LTable)
+				sclX := float32(lua.LVAsNumber(sTbl.RawGetInt(1)))
+				sclY := float32(lua.LVAsNumber(sTbl.RawGetInt(2)))
+				if sclX != 0 || sclY != 0 {
+					(&aSnap).SetScale(sclX, sclY)
+				}
+			}
+
+			if v := item.RawGetString("xshear"); v != lua.LNil {
+				aSnap.xshear = float32(lua.LVAsNumber(v))
+			}
+
+			if v := item.RawGetString("angle"); v != lua.LNil {
+				aSnap.rot.angle = float32(lua.LVAsNumber(v))
+			}
+			if v := item.RawGetString("xangle"); v != lua.LNil {
+				aSnap.rot.xangle = float32(lua.LVAsNumber(v))
+			}
+			if v := item.RawGetString("yangle"); v != lua.LNil {
+				aSnap.rot.yangle = float32(lua.LVAsNumber(v))
+			}
+
+			if v := item.RawGetString("projection"); v != lua.LNil {
+				switch v.Type() {
+				case lua.LTNumber:
+					aSnap.projection = int32(lua.LVAsNumber(v))
+				case lua.LTString:
+					switch strings.ToLower(strings.TrimSpace(v.String())) {
+					case "orthographic":
+						aSnap.projection = int32(Projection_Orthographic)
+					case "perspective":
+						aSnap.projection = int32(Projection_Perspective)
+					case "perspective2":
+						aSnap.projection = int32(Projection_Perspective2)
+					}
+				}
+			}
+
+			if v := item.RawGetString("focallength"); v != lua.LNil {
+				aSnap.fLength = float32(lua.LVAsNumber(v))
+			}
+
 			layerVal := item.RawGetString("layerno")
-			layer := anim.layerno
+			layer := aSnap.layerno
 			if layerVal != lua.LNil {
 				layer = int16(lua.LVAsNumber(layerVal))
 			}
-			anim.SetPos(x, y)
-			anim.facing = facing
-			aSnap := *anim
+
 			layerLocal := layer
 			sys.luaQueueLayerDraw(int(layerLocal), func() {
 				(&aSnap).Draw(layerLocal)

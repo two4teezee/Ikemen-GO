@@ -136,6 +136,10 @@ type AnimationTextProperties struct {
 	Scale          [2]float32 `ini:"scale" default:"1,1"`
 	Xshear         float32    `ini:"xshear"`
 	Angle          float32    `ini:"angle"`
+	XAngle         float32    `ini:"xangle"`
+	YAngle         float32    `ini:"yangle"`
+	Projection     string     `ini:"projection"`
+	Focallength    float32    `ini:"focallength" default:"2048"`
 	Layerno        int16      `ini:"layerno" default:"1"`
 	Window         [4]int32   `ini:"window"`
 	Localcoord     [2]int32   `ini:"localcoord"`
@@ -188,6 +192,10 @@ type TextProperties struct {
 	Scale          [2]float32 `ini:"scale" default:"1,1"`
 	Xshear         float32    `ini:"xshear"`
 	Angle          float32    `ini:"angle"`
+	XAngle         float32    `ini:"xangle"`
+	YAngle         float32    `ini:"yangle"`
+	Projection     string     `ini:"projection"`
+	Focallength    float32    `ini:"focallength" default:"2048"`
 	Text           string     `ini:"text"`
 	Layerno        int16      `ini:"layerno" default:"1"`
 	Window         [4]int32   `ini:"window"`
@@ -201,6 +209,10 @@ type TextMapProperties struct {
 	Scale          [2]float32        `ini:"scale" default:"1,1"`
 	Xshear         float32           `ini:"xshear"`
 	Angle          float32           `ini:"angle"`
+	XAngle         float32           `ini:"xangle"`
+	YAngle         float32           `ini:"yangle"`
+	Projection     string            `ini:"projection"`
+	Focallength    float32           `ini:"focallength" default:"2048"`
 	Text           map[string]string `ini:"text"`
 	Layerno        int16             `ini:"layerno" default:"1"`
 	Window         [4]int32          `ini:"window"`

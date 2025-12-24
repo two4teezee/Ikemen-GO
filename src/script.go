@@ -4453,6 +4453,52 @@ func systemScriptInit(l *lua.LState) {
 		ts.rot.angle = float32(numArg(l, 2))
 		return 0
 	})
+	luaRegister(l, "textImgSetXAngle", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.rot.xangle = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "textImgSetYAngle", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.rot.yangle = float32(numArg(l, 2))
+		return 0
+	})
+	luaRegister(l, "textImgSetProjection", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		switch l.Get(2).Type() {
+
+		case lua.LTNumber:
+			ts.projection = int32(numArg(l, 2))
+
+		case lua.LTString:
+			switch strings.ToLower(strings.TrimSpace(l.Get(2).String())) {
+			case "orthographic":
+				ts.projection = int32(Projection_Orthographic)
+			case "perspective":
+				ts.projection = int32(Projection_Perspective)
+			case "perspective2":
+				ts.projection = int32(Projection_Perspective2)
+			}
+		}
+		return 0
+	})
+	luaRegister(l, "textImgSetfLength", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		ts.fLength = float32(numArg(l, 2))
+		return 0
+	})
 	luaRegister(l, "textImgUpdate", func(*lua.LState) int {
 		ts, ok := toUserData(l, 1).(*TextSprite)
 		if !ok {

@@ -1793,6 +1793,7 @@ func (a *Anim) Copy() *Anim {
 	newAnim.y = a.y
 	newAnim.xscl = a.xscl
 	newAnim.yscl = a.yscl
+	newAnim.xshear = a.xshear
 	newAnim.rot.angle = a.rot.angle
 	newAnim.rot.xangle = a.rot.xangle
 	newAnim.rot.yangle = a.rot.yangle

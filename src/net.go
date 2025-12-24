@@ -494,7 +494,8 @@ func (rs *RollbackSession) InitP2(numPlayers int, localPort int, remotePort int,
 	}
 
 	var inputBits InputBits = 0
-	var inputSize int = len(encodeInputs(inputBits))
+	var inputAxes [6]int8 = [6]int8{}
+	var inputSize int = len(encodeInputs(inputBits)) + len(inputAxes)
 
 	player := ggpo.NewRemotePlayer(20, 1, remoteIp, remotePort)
 	player2 := ggpo.NewLocalPlayer(20, 2)
@@ -543,7 +544,8 @@ func (rs *RollbackSession) InitSyncTest(numPlayers int) {
 	}
 
 	var inputBits InputBits = 0
-	var inputSize int = len(encodeInputs(inputBits))
+	var inputAxes [6]int8 = [6]int8{}
+	var inputSize int = len(encodeInputs(inputBits)) + len(inputAxes)
 
 	player := ggpo.NewLocalPlayer(20, 1)
 	player2 := ggpo.NewLocalPlayer(20, 2)

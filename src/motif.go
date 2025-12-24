@@ -120,7 +120,7 @@ type AnimationProperties struct {
 	Angle       float32    `ini:"angle"`
 	XAngle      float32    `ini:"xangle"`
 	YAngle      float32    `ini:"yangle"`
-	Projection  string     `ini:"projection"`
+	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
 	Layerno     int16      `ini:"layerno" default:"1"`
 	Window      [4]int32   `ini:"window"`
@@ -138,7 +138,7 @@ type AnimationTextProperties struct {
 	Angle          float32    `ini:"angle"`
 	XAngle         float32    `ini:"xangle"`
 	YAngle         float32    `ini:"yangle"`
-	Projection     string     `ini:"projection"`
+	Projection     string     `ini:"projection" default:"orthographic"`
 	Focallength    float32    `ini:"focallength" default:"2048"`
 	Layerno        int16      `ini:"layerno" default:"1"`
 	Window         [4]int32   `ini:"window"`
@@ -159,7 +159,7 @@ type AnimationCharPreloadProperties struct {
 	Angle       float32    `ini:"angle"`
 	XAngle      float32    `ini:"xangle"`
 	YAngle      float32    `ini:"yangle"`
-    Projection  string     `ini:"projection"`
+    Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
 	Layerno     int16      `ini:"layerno" default:"1"`
 	Window      [4]int32   `ini:"window"`
@@ -178,7 +178,7 @@ type AnimationStagePreloadProperties struct {
 	Angle       float32    `ini:"angle"`
 	XAngle      float32    `ini:"xangle"`
 	YAngle      float32    `ini:"yangle"`
-	Projection  string     `ini:"projection"`
+	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
 	Layerno     int16      `ini:"layerno" default:"1"`
 	Window      [4]int32   `ini:"window"`
@@ -194,7 +194,7 @@ type TextProperties struct {
 	Angle          float32    `ini:"angle"`
 	XAngle         float32    `ini:"xangle"`
 	YAngle         float32    `ini:"yangle"`
-	Projection     string     `ini:"projection"`
+	Projection     string     `ini:"projection" default:"orthographic"`
 	Focallength    float32    `ini:"focallength" default:"2048"`
 	Text           string     `ini:"text"`
 	Layerno        int16      `ini:"layerno" default:"1"`
@@ -211,7 +211,7 @@ type TextMapProperties struct {
 	Angle          float32           `ini:"angle"`
 	XAngle         float32           `ini:"xangle"`
 	YAngle         float32           `ini:"yangle"`
-	Projection     string            `ini:"projection"`
+	Projection     string            `ini:"projection" default:"orthographic"`
 	Focallength    float32           `ini:"focallength" default:"2048"`
 	Text           map[string]string `ini:"text"`
 	Layerno        int16             `ini:"layerno" default:"1"`
@@ -368,7 +368,7 @@ type CellOverrideProperties struct {
     Angle       float32    `ini:"angle"`
     XAngle      float32    `ini:"xangle"`
     YAngle      float32    `ini:"yangle"`
-    Projection  string     `ini:"projection"`
+    Projection  string     `ini:"projection" default:"orthographic"`
     FocalLength float32    `ini:"focallength"`
 }
 

@@ -1856,6 +1856,10 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	facing := float32(1)
 	xshear := float32(0)
 	angle := float32(0)
+	xangle := float32(0)
+	yangle := float32(0)
+	focallength := float32(2048)
+	projection := int32(0)
 	layerno := int16(1)
 	localcoord := [2]float32{0, 0}
 	window := [4]float32{0, 0, 0, 0}
@@ -1893,6 +1897,35 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	}
 	if fv, ok := get("Angle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
 		angle = float32(fv.Float())
+	}
+	if fv, ok := get("XAngle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		xangle = float32(fv.Float())
+	}
+	if fv, ok := get("YAngle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		yangle = float32(fv.Float())
+	}
+	if fv, ok := get("Focallength"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		focallength = float32(fv.Float())
+	}
+	if fv, ok := get("Projection"); ok {
+		switch fv.Kind() {
+
+		case reflect.String:
+			switch strings.ToLower(strings.TrimSpace(fv.String())) {
+			case "orthographic":
+				projection = int32(Projection_Orthographic)
+			case "perspective":
+				projection = int32(Projection_Perspective)
+			case "perspective2":
+				projection = int32(Projection_Perspective2)
+			default:
+				if i, err := strconv.Atoi(fv.String()); err == nil {
+					projection = int32(i)
+				}
+			}
+		case reflect.Int32, reflect.Int64:
+			projection = int32(fv.Int())
+		}
 	}
 	if fv, ok := get("Layerno"); ok && fv.Kind() >= reflect.Int && fv.Kind() <= reflect.Int64 {
 		layerno = int16(fv.Int())
@@ -1976,7 +2009,15 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	// animSetXShear
 	a.xshear = xshear
 	// animSetAngle
-	a.angle = angle
+	a.rot.angle = angle
+	// animSetXAngle
+	a.rot.xangle = xangle
+	// animSetYAngle
+	a.rot.yangle = yangle
+	// animSetProjection
+	a.projection = projection
+	// animSetfLength
+	a.fLength = focallength
 	// animSetWindow
 	a.SetWindow(window)
 	// animSetLayerno
@@ -2017,6 +2058,10 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	scale := [2]float32{1, 1}
 	xshear := float32(0)
 	angle := float32(0)
+	xangle := float32(0)
+	yangle := float32(0)
+	focallength := float32(2048)
+	projection := int32(0)
 	text := ""
 	layerno := int16(1)
 	localcoord := [2]float32{0, 0}
@@ -2051,6 +2096,35 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	}
 	if fv, ok := get("Angle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
 		angle = float32(fv.Float())
+	}
+	if fv, ok := get("XAngle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		xangle = float32(fv.Float())
+	}
+	if fv, ok := get("YAngle"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		yangle = float32(fv.Float())
+	}
+	if fv, ok := get("Focallength"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
+		focallength = float32(fv.Float())
+	}
+	if fv, ok := get("Projection"); ok {
+		switch fv.Kind() {
+
+		case reflect.String:
+			switch strings.ToLower(strings.TrimSpace(fv.String())) {
+			case "orthographic":
+				projection = int32(Projection_Orthographic)
+			case "perspective":
+				projection = int32(Projection_Perspective)
+			case "perspective2":
+				projection = int32(Projection_Perspective2)
+			default:
+				if i, err := strconv.Atoi(fv.String()); err == nil {
+					projection = int32(i)
+				}
+			}
+		case reflect.Int32, reflect.Int64:
+			projection = int32(fv.Int())
+		}
 	}
 	if fv, ok := get("Text"); ok && fv.Kind() == reflect.String {
 		text = fv.String()
@@ -2135,7 +2209,15 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	// textImgSetXShear
 	ts.xshear = xshear
 	// textImgSetAngle
-	ts.angle = angle
+	ts.rot.angle = angle
+	// textImgSetXAngle
+	ts.rot.xangle = xangle
+	// textImgSetYAngle
+	ts.rot.yangle = yangle
+	// textSetProjection
+	ts.projection = projection
+	// textSetfLength
+	ts.fLength = focallength
 	// textImgSetWindow
 	ts.SetWindow(window)
 	// textImgSetLayerno

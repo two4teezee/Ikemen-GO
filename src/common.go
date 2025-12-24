@@ -996,18 +996,27 @@ func (is IniSection) getText(name string) (str string, ok bool, err error) {
 }
 
 type Layout struct {
-	offset  [2]float32
-	facing  int8
-	vfacing int8
-	layerno int16
-	scale   [2]float32
-	angle   float32
-	xshear  float32
-	window  [4]int32
+	offset     [2]float32
+	facing     int8
+	vfacing    int8
+	layerno    int16
+	scale      [2]float32
+	rot        Rotation
+	projection Projection
+	fLength    float32
+	xshear     float32
+	window     [4]int32
 }
 
 func newLayout(ln int16) *Layout {
-	return &Layout{facing: 1, vfacing: 1, layerno: ln, scale: [...]float32{1, 1}}
+	return &Layout{
+		facing:     1,
+		vfacing:    1,
+		layerno:    ln,
+		scale:      [2]float32{1, 1},
+		projection: Projection_Orthographic,
+		fLength:    2048,
+	}
 }
 
 func ReadLayout(pre string, is IniSection, ln int16) *Layout {
@@ -1036,8 +1045,21 @@ func (l *Layout) Read(pre string, is IniSection) {
 	is.ReadI32(pre+"layerno", &ln)
 	l.layerno = I32ToI16(Min(2, ln))
 	is.ReadF32(pre+"scale", &l.scale[0], &l.scale[1])
-	is.ReadF32(pre+"angle", &l.angle)
+	is.ReadF32(pre+"angle", &l.rot.angle)
+	is.ReadF32(pre+"xangle", &l.rot.xangle)
+	is.ReadF32(pre+"yangle", &l.rot.yangle)
 	is.ReadF32(pre+"xshear", &l.xshear)
+	is.ReadF32(pre+"focallength", &l.fLength)
+	if str, ok := is[pre+"projection"]; ok {
+		switch strings.ToLower(strings.TrimSpace(str)) {
+		case "orthographic":
+			l.projection = Projection_Orthographic
+		case "perspective":
+			l.projection = Projection_Perspective
+		case "perspective2":
+			l.projection = Projection_Perspective2
+		}
+	}
 	if is.ReadI32(pre+"window", &l.window[0], &l.window[1], &l.window[2], &l.window[3]) {
 		l.window[0] = int32(float32(l.window[0]) * float32(sys.scrrect[2]/sys.lifebar.localcoord[0]))
 		l.window[1] = int32(float32(l.window[1]) * float32(sys.scrrect[3]/sys.lifebar.localcoord[1]))
@@ -1077,7 +1099,7 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 
 		s.Draw(x+l.offset[0]*sys.lifebar.scale-xsoffset, y+l.offset[1]*sys.lifebar.scale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
-			xshear, Rotation{l.angle, 0, 0}, fx, window)
+			xshear, l.rot, int32(l.projection), l.fLength, fx, window)
 	}
 }
 
@@ -1100,8 +1122,8 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, 
 
 		a.Draw(r, x+l.offset[0]-xsoffset, y+l.offset[1]+float32(sys.gameHeight-240),
 			scl, scl, (l.scale[0]*xscl)*float32(l.facing), (l.scale[0]*xscl)*float32(l.facing),
-			(l.scale[1]*yscl)*float32(l.vfacing), xshear, Rotation{l.angle, 0, 0},
-			float32(sys.gameWidth-320)/2, palfx, 1, [2]float32{1, 1}, 0, 0, 0, false)
+			(l.scale[1]*yscl)*float32(l.vfacing), xshear, l.rot,
+			float32(sys.gameWidth-320)/2, palfx, 1, [2]float32{1, 1}, int32(l.projection), l.fLength, 0, false)
 	}
 }
 
@@ -1121,8 +1143,8 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 
 		f.Print(text, (x+l.offset[0]-xsoffset)*scl, (y+l.offset[1])*scl,
 			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, Rotation{l.angle, 0, 0},
-			b, a, &l.window, palfx, frgba)
+			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, l.rot,
+			int32(l.projection), l.fLength, b, a, &l.window, palfx, frgba)
 	}
 }
 

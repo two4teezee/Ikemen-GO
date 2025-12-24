@@ -111,17 +111,21 @@ type FadeProperties struct {
 }
 
 type AnimationProperties struct {
-	Anim       int32      `ini:"anim" default:"-1"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
+	Anim        int32      `ini:"anim" default:"-1"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+	Projection  string     `ini:"projection" default:"orthographic"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
 }
 
 type AnimationTextProperties struct {
@@ -132,6 +136,10 @@ type AnimationTextProperties struct {
 	Scale          [2]float32 `ini:"scale" default:"1,1"`
 	Xshear         float32    `ini:"xshear"`
 	Angle          float32    `ini:"angle"`
+	XAngle         float32    `ini:"xangle"`
+	YAngle         float32    `ini:"yangle"`
+	Projection     string     `ini:"projection" default:"orthographic"`
+	Focallength    float32    `ini:"focallength" default:"2048"`
 	Layerno        int16      `ini:"layerno" default:"1"`
 	Window         [4]int32   `ini:"window"`
 	Localcoord     [2]int32   `ini:"localcoord"`
@@ -142,32 +150,40 @@ type AnimationTextProperties struct {
 }
 
 type AnimationCharPreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"char"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
-	ApplyPal   bool `ini:"applypal" preload:"pal"`
+	Anim        int32      `ini:"anim" default:"-1" preload:"char"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0" preload:"char"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+    Projection  string     `ini:"projection" default:"orthographic"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
+	ApplyPal    bool `ini:"applypal" preload:"pal"`
 }
 
 type AnimationStagePreloadProperties struct {
-	Anim       int32      `ini:"anim" default:"-1" preload:"stage"`
-	Spr        [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
-	Offset     [2]float32 `ini:"offset"`
-	Facing     int32      `ini:"facing" default:"1"`
-	Scale      [2]float32 `ini:"scale" default:"1,1"`
-	Xshear     float32    `ini:"xshear"`
-	Angle      float32    `ini:"angle"`
-	Layerno    int16      `ini:"layerno" default:"1"`
-	Window     [4]int32   `ini:"window"`
-	Localcoord [2]int32   `ini:"localcoord"`
-	AnimData   *Anim
+	Anim        int32      `ini:"anim" default:"-1" preload:"stage"`
+	Spr         [2]int32   `ini:"spr" default:"-1,0" preload:"stage"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Scale       [2]float32 `ini:"scale" default:"1,1"`
+	Xshear      float32    `ini:"xshear"`
+	Angle       float32    `ini:"angle"`
+	XAngle      float32    `ini:"xangle"`
+	YAngle      float32    `ini:"yangle"`
+	Projection  string     `ini:"projection" default:"orthographic"`
+	Focallength float32    `ini:"focallength" default:"2048"`
+	Layerno     int16      `ini:"layerno" default:"1"`
+	Window      [4]int32   `ini:"window"`
+	Localcoord  [2]int32   `ini:"localcoord"`
+	AnimData    *Anim
 }
 
 type TextProperties struct {
@@ -176,6 +192,10 @@ type TextProperties struct {
 	Scale          [2]float32 `ini:"scale" default:"1,1"`
 	Xshear         float32    `ini:"xshear"`
 	Angle          float32    `ini:"angle"`
+	XAngle         float32    `ini:"xangle"`
+	YAngle         float32    `ini:"yangle"`
+	Projection     string     `ini:"projection" default:"orthographic"`
+	Focallength    float32    `ini:"focallength" default:"2048"`
 	Text           string     `ini:"text"`
 	Layerno        int16      `ini:"layerno" default:"1"`
 	Window         [4]int32   `ini:"window"`
@@ -189,6 +209,10 @@ type TextMapProperties struct {
 	Scale          [2]float32        `ini:"scale" default:"1,1"`
 	Xshear         float32           `ini:"xshear"`
 	Angle          float32           `ini:"angle"`
+	XAngle         float32           `ini:"xangle"`
+	YAngle         float32           `ini:"yangle"`
+	Projection     string            `ini:"projection" default:"orthographic"`
+	Focallength    float32           `ini:"focallength" default:"2048"`
 	Text           map[string]string `ini:"text"`
 	Layerno        int16             `ini:"layerno" default:"1"`
 	Window         [4]int32          `ini:"window"`
@@ -336,9 +360,16 @@ type InfoBoxProperties struct {
 }
 
 type CellOverrideProperties struct {
-	Offset [2]float32 `ini:"offset"`
-	Facing int32      `ini:"facing" default:"1"`
-	Skip   bool       `ini:"skip"`
+	Offset      [2]float32 `ini:"offset"`
+	Facing      int32      `ini:"facing" default:"1"`
+	Skip        bool       `ini:"skip"`
+	Scale       [2]float32 `ini:"scale"`
+    XShear      float32    `ini:"xshear"`
+    Angle       float32    `ini:"angle"`
+    XAngle      float32    `ini:"xangle"`
+    YAngle      float32    `ini:"yangle"`
+    Projection  string     `ini:"projection" default:"orthographic"`
+    FocalLength float32    `ini:"focallength"`
 }
 
 type TimerProperties struct {
@@ -658,7 +689,7 @@ type SelectInfoProperties struct {
 			AnimationProperties
 			SwitchTime int32 `ini:"switchtime"`
 		} `ini:"random"`
-		MapCell map[string]*CellOverrideProperties `ini:"map:^[0-9]+-[0-9]+$" lua:""`
+		MapCell map[string]*CellOverrideProperties `ini:"map:^[0-9*]+-[0-9*]+$" lua:""`
 	} `ini:"cell"`
 	P1      PlayerSelectProperties `ini:"p1"`
 	P2      PlayerSelectProperties `ini:"p2"`
@@ -4026,7 +4057,24 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 
 	a.facing = float32(faceCfg.Facing)
 	a.xshear = faceCfg.Xshear
-	a.angle = faceCfg.Angle
+	a.rot.angle = faceCfg.Angle
+	a.rot.xangle = faceCfg.XAngle
+	a.rot.yangle = faceCfg.YAngle
+	a.projection = int32(Projection_Orthographic) // Default
+	v := strings.ToLower(strings.TrimSpace(faceCfg.Projection))
+	switch v {
+	case "perspective":
+		a.projection = int32(Projection_Perspective)
+	case "perspective2":
+		a.projection = int32(Projection_Perspective2)
+	case "orthographic":
+		// default, we don't need to do nothing
+	default:
+		if i, err := strconv.Atoi(v); err == nil {
+			a.projection = int32(i)
+		}
+	}
+	a.fLength = faceCfg.Focallength
 	a.Update()
 
 	return a

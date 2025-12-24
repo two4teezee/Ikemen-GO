@@ -5565,6 +5565,14 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			text_angle, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			text_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			text_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.palFXSub(is, sc, "palfx."); err != nil {
 			return err
 		}
@@ -5574,6 +5582,14 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 		}
 		if err := c.paramValue(is, sc, "xshear",
 			text_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection",
+			text_projection); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			text_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil
@@ -5691,6 +5707,14 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 			text_angle, VT_Float, 1, false); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "xangle",
+			text_xangle, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "yangle",
+			text_yangle, VT_Float, 1, false); err != nil {
+			return err
+		}
 		if err := c.palFXSub(is, sc, "palfx."); err != nil {
 			return err
 		}
@@ -5700,6 +5724,14 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		if err := c.paramValue(is, sc, "xshear",
 			text_xshear, VT_Float, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramProjection(is, sc, "projection",
+			text_projection); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "focallength",
+			text_focallength, VT_Float, 1, false); err != nil {
 			return err
 		}
 		return nil

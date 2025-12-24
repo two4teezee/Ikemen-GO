@@ -186,7 +186,7 @@ type Animation struct {
 	interpolate_offset_y       float32
 	scale_x                    float32
 	scale_y                    float32
-	angle                      float32
+	rot                        Rotation
 	curtrans                   TransType
 	interpolate_blend_srcalpha float32
 	interpolate_blend_dstalpha float32
@@ -565,7 +565,7 @@ func (a *Animation) UpdateSprite() {
 	a.curtrans = a.frames[a.drawidx].TransType
 	a.scale_x = a.frames[a.drawidx].Xscale
 	a.scale_y = a.frames[a.drawidx].Yscale
-	a.angle = a.frames[a.drawidx].Angle
+	a.rot.angle = a.frames[a.drawidx].Angle
 
 	a.interpolate_offset_x = 0
 	a.interpolate_offset_y = 0
@@ -610,7 +610,7 @@ func (a *Animation) UpdateSprite() {
 			drawframe_angle = a.frames[a.drawidx].Angle
 			nextframe_angle = a.frames[nextDrawidx].Angle
 
-			a.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.curelemtime)
+			a.rot.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.curelemtime)
 			break
 		}
 	}
@@ -739,7 +739,7 @@ func (a *Animation) drawSub1(angle, facing float32) (h, v, agl float32) {
 	agl = angle
 	h *= a.scale_x
 	v *= a.scale_y
-	agl += a.angle * facing
+	agl += a.rot.angle * facing
 	return
 }
 
@@ -1710,7 +1710,9 @@ type Anim struct {
 	x, y, xscl, yscl float32
 	window           [4]int32
 	xshear           float32
-	angle            float32
+	projection       int32
+	fLength          float32
+	rot              Rotation
 	xvel, yvel       float32
 	palfx            *PalFX
 	layerno          int16
@@ -1791,6 +1793,12 @@ func (a *Anim) Copy() *Anim {
 	newAnim.y = a.y
 	newAnim.xscl = a.xscl
 	newAnim.yscl = a.yscl
+	newAnim.xshear = a.xshear
+	newAnim.rot.angle = a.rot.angle
+	newAnim.rot.xangle = a.rot.xangle
+	newAnim.rot.yangle = a.rot.yangle
+	newAnim.projection = a.projection
+	newAnim.fLength = a.fLength
 	newAnim.palfx = a.palfx
 	// Copy current animation state (timing, loop, interpolation, etc.)
 	newAnim.anim.looptime = a.anim.looptime
@@ -1995,7 +2003,7 @@ func (a *Anim) Draw(ln int16) {
 
 	a.anim.Draw(&a.window, a.x+a.vel[0]-xsoffset+float32(sys.gameWidth-320)/2,
 		a.y+a.vel[1]+float32(sys.gameHeight-240), 1, 1, xscl, xscl, a.yscl,
-		xshear, Rotation{a.angle, 0, 0}, 0, a.palfx, a.facing, [2]float32{1, 1}, 0, 0, 0, false)
+		xshear, a.rot, 0, a.palfx, a.facing, [2]float32{1, 1}, a.projection, a.fLength, 0, false)
 }
 
 func (a *Anim) Reset() {

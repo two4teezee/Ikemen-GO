@@ -535,20 +535,20 @@ func (f *Fnt) drawChar(
 	return float32(spr.Size[0]) * xscl
 }
 
-func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, bank, align int32,
+func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, projectionMode int32, fLength float32, bank, align int32,
 	window *[4]int32, palfx *PalFX, frgba [4]float32) {
 	if !sys.frameSkip {
 		if f.Type == "truetype" {
 			f.DrawTtf(txt, x, y, xscl, yscl, align, true, window, frgba)
 		} else {
-			f.DrawText(txt, x, y, xscl, yscl, rxadd, rot, bank, align, window, palfx, frgba[3])
+			f.DrawText(txt, x, y, xscl, yscl, rxadd, rot, projectionMode, fLength, bank, align, window, palfx, frgba[3])
 		}
 	}
 }
 
 // DrawText prints on screen a specified text with the current font sprites
 func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
-	rot Rotation, bank, align int32, window *[4]int32, palfx *PalFX, alpha float32) {
+	rot Rotation, projectionMode int32, fLength float32, bank, align int32, window *[4]int32, palfx *PalFX, alpha float32) {
 
 	if len(txt) == 0 || xscl == 0 || yscl == 0 {
 		return
@@ -638,8 +638,8 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 		window:         window,
 		rcx:            rcx,
 		rcy:            rcy,
-		projectionMode: 0,
-		fLength:        0,
+		projectionMode: projectionMode,
+		fLength:        fLength,
 		xOffset:        0,
 		yOffset:        0,
 	}
@@ -681,7 +681,9 @@ type TextSprite struct {
 	x, y, xscl, yscl float32
 	window           [4]int32
 	xshear           float32
-	angle            float32
+	rot            	 Rotation
+	projection       int32
+	fLength          float32
 	xvel, yvel       float32
 	localScale       float32
 	offsetX          int32
@@ -1211,7 +1213,7 @@ func (ts *TextSprite) Draw(ln int16) {
 			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
 		} else {
 			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl,
-				xshear, Rotation{ts.angle, 0, 0}, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3])
+				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3])
 		}
 
 		totalCharsShown += charsToShow

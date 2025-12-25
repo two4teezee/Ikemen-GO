@@ -131,43 +131,45 @@ const (
 )
 
 type backGround struct {
-	_type              BgType
-	palfx              *PalFX
-	anim               *Animation
-	bga                bgAction
-	video              bgVideo
-	id                 int32
-	start              [2]float32
-	xofs               float32
-	delta              [2]float32
-	width              [2]int32
-	xscale             [2]float32
-	rasterx            [2]float32
-	yscalestart        float32
-	yscaledelta        float32
-	actionno           int32
-	startv             [2]float32
-	startrad           [2]float32
-	startsint          [2]int32
-	startsinlt         [2]int32
-	visible            bool
-	enabled            bool
-	positionlink       bool
-	layerno            int32
-	autoresizeparallax bool
-	notmaskwindow      int32
-	startrect          [4]int32
-	windowdelta        [2]float32
-	scalestart         [2]float32
-	scaledelta         [2]float32
-	zoomdelta          [2]float32
-	zoomscaledelta     [2]float32
-	xbottomzoomdelta   float32
-	roundpos           bool
-	rot                Rotation
-	fLength            float32
-	projection         Projection
-	xshear             float32
+	_type                 BgType
+	palfx                 *PalFX
+	anim                  *Animation
+	bga                   bgAction
+	video                 bgVideo
+	id                    int32
+	start                 [2]float32
+	xofs                  float32
+	delta                 [2]float32
+	width                 [2]int32
+	xscale                [2]float32
+	rasterx               [2]float32
+	yscalestart           float32
+	yscaledelta           float32
+	actionno              int32
+	startv                [2]float32
+	startrad              [2]float32
+	startsint             [2]int32
+	startsinlt            [2]int32
+	visible               bool
+	enabled               bool
+	positionlink          bool
+	layerno               int32
+	autoresizeparallax    bool
+	autoresizeparallaxSet bool
+	notmaskwindow         int32
+	startrect             [4]int32
+	windowdelta           [2]float32
+	scalestart            [2]float32
+	scaledelta            [2]float32
+	zoomdelta             [2]float32
+	zoomdeltaSet          bool
+	zoomscaledelta        [2]float32
+	xbottomzoomdelta      float32
+	roundpos              bool
+	rot                   Rotation
+	fLength               float32
+	projection            Projection
+	xshear                float32
 }
 
 func newBackGround(sff *Sff) *backGround {
@@ -321,7 +323,10 @@ func readBackGround(is IniSection, link *backGround,
 		bg.startv = link.startv
 		bg.delta = link.delta
 	}
-	is.ReadBool("autoresizeparallax", &bg.autoresizeparallax)
+	if _, ok := is["autoresizeparallax"]; ok {
+		bg.autoresizeparallaxSet = true
+		is.ReadBool("autoresizeparallax", &bg.autoresizeparallax)
+	}
 	is.readF32ForStage("start", &bg.start[0], &bg.start[1])
 	if !bg.positionlink {
 		is.readF32ForStage("delta", &bg.delta[0], &bg.delta[1])
@@ -345,7 +350,9 @@ func readBackGround(is IniSection, link *backGround,
 	}
 	is.readF32ForStage("xbottomzoomdelta", &bg.xbottomzoomdelta)
 	is.readF32ForStage("zoomscaledelta", &bg.zoomscaledelta[0], &bg.zoomscaledelta[1])
-	is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1])
+	if is.readF32ForStage("zoomdelta", &bg.zoomdelta[0], &bg.zoomdelta[1]) {
+		bg.zoomdeltaSet = true
+	}
 	if bg.zoomdelta[0] != math.MaxFloat32 && bg.zoomdelta[1] == math.MaxFloat32 {
 		bg.zoomdelta[1] = bg.zoomdelta[0]
 	}
@@ -553,15 +560,18 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	lscl := [...]float32{stglscl * stgscl[0], stglscl * stgscl[1]}
 
 	// Handle zoom scaling if zoomdelta is specified
+	var Yzoomdelta float32 = 1
 	if bg.zoomdelta[0] != math.MaxFloat32 {
 		sclx = drawscl + (1-drawscl)*(1-bg.zoomdelta[0])
 		scly = drawscl + (1-drawscl)*(1-bg.zoomdelta[1])
+		Yzoomdelta = bg.zoomdelta[1]
 		if !bg.autoresizeparallax {
 			sclx_recip = 1 + bg.zoomdelta[0]*((1/(sclx*lscl[0])*lscl[0])-1)
 		}
 	} else {
 		sclx = MaxF(0, drawscl+(1-drawscl)*(1-dx))
 		scly = MaxF(0, drawscl+(1-drawscl)*(1-MaxF(0, bg.delta[1]*bgscl)))
+		Yzoomdelta = MaxF(0, bg.delta[1]*bgscl)
 	}
 
 	// Adjust x scale and x bottom zoom if autoresizeparallax is enabled
@@ -618,7 +628,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		zoff := float32(sys.cam.zoffset) * stglscl
 		y = y*bgscl + ((zoff-shakeY)/scly-zoff)/stglscl/stgscl[1]
 		y -= sys.cam.aspectcorrection / (scly * stglscl * stgscl[1])
-		y -= sys.cam.zoomanchorcorrection / (scly * stglscl * stgscl[1])
+		y -= (sys.cam.zoomanchorcorrection / (scly * stglscl * stgscl[1])) * Yzoomdelta
 	} else {
 		y = y*bgscl + ((float32(sys.gameHeight)-shakeY)/stglscl/scly-240)/stgscl[1]
 	}
@@ -653,7 +663,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		zoff := float32(sys.cam.zoffset) * stglscl
 		startrect1 += (zoff-shakeY)/scly - zoff/stglscl/stgscl[1]
 		startrect1 -= sys.cam.aspectcorrection / scly
-		startrect1 -= sys.cam.zoomanchorcorrection / scly
+		startrect1 -= (sys.cam.zoomanchorcorrection / scly) * Yzoomdelta
 	}
 	startrect1 *= sys.heightScale * wscl[1]
 	startrect1 -= shakeY
@@ -1234,11 +1244,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec[0].ReadF32("near", &s.stageCamera.near)
 		sec[0].ReadF32("far", &s.stageCamera.far)
 		sec[0].ReadBool("autocenter", &s.stageCamera.autocenter)
-		sec[0].ReadF32("zoomindelay", &s.stageCamera.zoomindelay)
-		sec[0].ReadF32("zoominspeed", &s.stageCamera.zoominspeed)
-		sec[0].ReadF32("zoomoutspeed", &s.stageCamera.zoomoutspeed)
 		sec[0].ReadF32("yscrollspeed", &s.stageCamera.yscrollspeed)
-		sec[0].ReadF32("boundhighzoomdelta", &s.stageCamera.boundhighzoomdelta)
 		sec[0].ReadF32("verticalfollowzoomdelta", &s.stageCamera.verticalfollowzoomdelta)
 		sec[0].ReadBool("lowestcap", &s.stageCamera.lowestcap)
 		sec[0].ReadF32("zoomin", &s.stageCamera.zoomin)
@@ -1251,10 +1257,31 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.stageCamera.zoomout = sys.cfg.Debug.ForceStageZoomout
 			}
 		}
-		anchor, _, _ := sec[0].getText("zoomanchor")
+		anchor, zoomanchorOk, _ := sec[0].getText("zoomanchor")
 		if strings.ToLower(anchor) == "bottom" {
 			s.stageCamera.zoomanchor = true
 		}
+		sec[0].ReadBool("autozoom", &s.stageCamera.autoZoom)
+
+		if s.stageCamera.autoZoom {
+			if s.stageCamera.zoomin == 1 {
+				s.stageCamera.zoomin = sys.cam.LegacyZoomMax
+			}
+			if s.stageCamera.zoomout == 1 {
+				s.stageCamera.zoomout = sys.cam.LegacyZoomMin
+			}
+			if !zoomanchorOk {
+				s.stageCamera.zoomanchor = true
+			}
+			s.stageCamera.zoomindelay = 25
+			s.stageCamera.zoominspeed = 0.4
+			s.stageCamera.zoomoutspeed = 0.4
+			s.stageCamera.boundhighzoomdelta = 1.0
+		}
+		sec[0].ReadF32("zoomindelay", &s.stageCamera.zoomindelay)
+		sec[0].ReadF32("zoominspeed", &s.stageCamera.zoominspeed)
+		sec[0].ReadF32("zoomoutspeed", &s.stageCamera.zoomoutspeed)
+		sec[0].ReadF32("boundhighzoomdelta", &s.stageCamera.boundhighzoomdelta)
 		if sec[0].ReadI32("tensionlow", &s.stageCamera.tensionlow) {
 			s.stageCamera.ytensionenable = true
 			sec[0].ReadI32("tensionhigh", &s.stageCamera.tensionhigh)
@@ -1281,7 +1308,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		iniFile, err := ini.LoadSources(ini.LoadOptions{
 			Insensitive:             true,
 			SkipUnrecognizableLines: true,
-		}, def)
+		}, []byte(str))
 		if err != nil {
 			fmt.Printf("Failed to load INI file: %v\n", err)
 			return nil, err
@@ -1500,6 +1527,19 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		s.bg = append(s.bg, bg)
 	}
+
+	if s.stageCamera.autoZoom {
+		for i := range s.bg {
+			if s.bg[i]._type == BG_Parallax && !s.bg[i].autoresizeparallaxSet {
+				s.bg[i].autoresizeparallax = true
+			}
+
+			if !s.bg[i].zoomdeltaSet {
+				s.bg[i].zoomdelta[0] = math.MaxFloat32
+			}
+		}
+	}
+
 	bgcdef := *newBgCtrl()
 	i = 0
 	for i < len(lines) {

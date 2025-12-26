@@ -67,7 +67,7 @@ func newFightFx() *FightFx {
 	}
 }
 
-func loadFightFx(def string, isGlobal bool) error {
+func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 	str, err := LoadText(def)
 	if err != nil {
 		return err
@@ -123,7 +123,7 @@ func loadFightFx(def string, isGlobal bool) error {
 				files = false
 				if is.LoadFile("sff", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						s, err := loadSff(filename, false, true)
+						s, err := loadSff(filename, false, isMainThread)
 						if err != nil {
 							return err
 						}
@@ -4246,7 +4246,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	for _, key := range SortedKeys(sys.cfg.Common.Fx) {
 		for _, v := range sys.cfg.Common.Fx[key] {
 			if err := LoadFile(&v, []string{def, sys.motif.Def, "", "data/"}, func(filename string) error {
-				if err := loadFightFx(filename, true); err != nil {
+				if err := loadFightFx(filename, true, true); err != nil {
 					return err
 				}
 				return nil
@@ -4331,7 +4331,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 				for i := 1; i <= l.fx_limit; i++ {
 					if err := is.LoadFile(fmt.Sprintf("fx%v", i), []string{def, sys.motif.Def, "", "data/"},
 						func(filename string) error {
-							if err := loadFightFx(filename, true); err != nil {
+							if err := loadFightFx(filename, true, true); err != nil {
 								return err
 							}
 							return nil

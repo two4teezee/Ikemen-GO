@@ -2144,6 +2144,20 @@ function start.updateDrawList()
 					item.anim = charData.cell_data
 					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
 					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
+					-- apply cell scale override while preserving portrait resolution factor
+					if item.scale ~= nil then
+						local charInfo = main.t_selChars[charData.char_ref + 1]
+						if charInfo then
+							local portraitScale = charInfo.portraitscale or 1
+							local charLocalcoord = charInfo.localcoord or motif.info.localcoord[1]
+							-- recompute resolution compensation factor
+							local resFix = portraitScale * motif.info.localcoord[1] / charLocalcoord
+							item.scale = {
+								item.scale[1] * resFix,
+								item.scale[2] * resFix
+							}
+						end
+					end
 					table.insert(drawList, item)
 				end
 			end

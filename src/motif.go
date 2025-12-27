@@ -2687,6 +2687,7 @@ func (mo *Motif) processStateTransitionsBySide(p1State, p1TeammateState, p2State
 }
 
 func (m *Motif) reset() {
+	m.textsprite = []*TextSprite{}
 	if m.IniFile == nil {
 		return
 	}
@@ -2701,7 +2702,6 @@ func (m *Motif) reset() {
 	m.wi.reset(m)
 	m.hi.reset(m)
 	m.co.reset(m)
-	m.textsprite = []*TextSprite{}
 	//sys.storyboard.reset()
 	m.me.reset(m)
 }

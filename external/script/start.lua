@@ -1835,6 +1835,35 @@ function start.f_selectChallenger()
 	return true
 end
 
+local function buildMusicParams(data)
+	local out = {}
+	for k, v in pairs(data) do
+		if type(k) == "string" and k:match("music$") then
+			if type(v) == "string" then
+				out[#out + 1] = k .. "=" .. v
+			elseif type(v) == "table" and #v > 0 then
+				local first = v[1]
+				-- If table looks like { "path.mp3", 100, 123, 456 } => positional args
+				local positional = (type(first) == "string") and (#v == 1 or type(v[2]) ~= "string")
+				if positional then
+					local pieces = {}
+					for i = 1, #v do
+						pieces[i] = tostring(v[i])
+					end
+					-- space-separated to avoid commas inside the value
+					out[#out + 1] = k .. "=" .. table.concat(pieces, " ")
+				else
+					-- Treat as multiple candidate tracks: {"a.mp3","b.mp3",...}
+					for i = 1, #v do
+						out[#out + 1] = k .. "=" .. tostring(v[i])
+					end
+				end
+			end
+		end
+	end
+	return table.concat(out, ", ")
+end
+
 function launchFight(data)
 	local t = {}
 	if continue() then -- on rematch all arguments are ignored and values are restored from last match
@@ -1859,17 +1888,7 @@ function launchFight(data)
 		t.p2numratio = data.p2numratio or {}
 		t.p2rounds = data.p2rounds or nil
 		t.exclude = data.exclude or {}
-		-- Music
-		t.musicParams = ''
-		for k, v in pairs(data) do
-			if (type(v) == "string" or type(v) == "number") and k:match('bgm') then
-				if t.musicParams == '' then
-					t.musicParams = k .. '=' .. v
-				else
-					t.musicParams = t.musicParams .. ', ' .. k .. '=' .. v
-				end
-			end
-		end
+		t.musicParams = buildMusicParams(data)
 		t.stage = data.stage or ''
 		t.ai = data.ai or nil
 		t.vsscreen = main.f_arg(data.vsscreen, main.motif.versusscreen)
@@ -3516,14 +3535,13 @@ end
 --loading loop called after versus screen is finished
 function start.f_selectLoading(musicParams)
 	clearAllSound()
-	local params = musicParams or ''
+	local parts = {}
+	if musicParams and musicParams ~= "" then
+		parts[#parts + 1] = musicParams
+	end
 	local function addParam(k, v)
 		if v == nil then return end
-		if params == '' then
-			params = k .. '=' .. tostring(v)
-		else
-			params = params .. ', ' .. k .. '=' .. tostring(v)
-		end
+		parts[#parts + 1] = k .. "=" .. tostring(v)
 	end
 	for side = 1, 2 do
 		for member, v in ipairs(start.p[side].t_selected) do
@@ -3532,27 +3550,28 @@ function start.f_selectLoading(musicParams)
 				v.loading = true
 			end
 			-- fold overrideCharData() payload into loadStart() params
-			local lifeRatio = nil
-			local attackRatio = nil
+			local lifeRatio, attackRatio
 			if v.ratioLevel then
-				lifeRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Life')
-				attackRatio = gameOption('Options.Ratio.Level' .. v.ratioLevel .. '.Attack')
+				lifeRatio = gameOption("Options.Ratio.Level" .. v.ratioLevel .. ".Life")
+				attackRatio = gameOption("Options.Ratio.Level" .. v.ratioLevel .. ".Attack")
 			end
-			local pfx = 'p' .. side .. '.' .. member .. '.'
-			addParam(pfx .. 'life', v.life)
-			addParam(pfx .. 'lifemax', v.lifeMax)
-			addParam(pfx .. 'power', v.power)
-			addParam(pfx .. 'dizzypoints', v.dizzyPoints)
-			addParam(pfx .. 'guardpoints', v.guardPoints)
-			addParam(pfx .. 'ratiolevel', v.ratioLevel)
-			addParam(pfx .. 'liferatio', v.lifeRatio or lifeRatio)
-			addParam(pfx .. 'attackratio', v.attackRatio or attackRatio)
-			addParam(pfx .. 'existed', v.existed)
+			local pfx = "p" .. side .. "." .. member .. "."
+			addParam(pfx .. "life", v.life)
+			addParam(pfx .. "lifemax", v.lifeMax)
+			addParam(pfx .. "power", v.power)
+			addParam(pfx .. "dizzypoints", v.dizzyPoints)
+			addParam(pfx .. "guardpoints", v.guardPoints)
+			addParam(pfx .. "ratiolevel", v.ratioLevel)
+			addParam(pfx .. "liferatio", v.lifeRatio or lifeRatio)
+			addParam(pfx .. "attackratio", v.attackRatio or attackRatio)
+			addParam(pfx .. "existed", v.existed)
 		end
 	end
-	addParam('persistlife', main.persistLife)
-	addParam('persistmusic', main.persistMusic)
-	addParam('persistrounds', main.persistRounds)
+	addParam("persistlife", main.persistLife)
+	addParam("persistmusic", main.persistMusic)
+	addParam("persistrounds", main.persistRounds)
+	local params = table.concat(parts, ", ")
+	if main.debugLog then main.f_printTable(params, "debug/loadStartParams.txt") end
 	loadStart(params)
 end
 

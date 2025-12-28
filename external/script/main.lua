@@ -1284,6 +1284,10 @@ function main.f_addStage(file, hidden, line)
 					animSetFacing(a, params.facing)
 					animSetXShear(a, params.xshear)
 					animSetAngle(a, params.angle)
+					animSetXAngle(a, params.xangle)
+					animSetYAngle(a, params.yangle)
+					animSetProjection(a, params.projection)
+					animSetfLength(a, params.focallength)
 					if params.window == nil or #params.window < 4 then
 						params.window = {0, 0, motif.info.localcoord[1], motif.info.localcoord[2]}
 					end

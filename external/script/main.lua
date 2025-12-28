@@ -779,6 +779,7 @@ main.t_selStages = {}
 --; COMMAND LINE QUICK VS
 --;===========================================================
 function main.f_commandLine()
+	setCredits(-1)
 	local ref = #main.t_selChars
 	local t_teamMode = {0, 0}
 	local t_numChars = {0, 0}

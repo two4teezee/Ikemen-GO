@@ -246,6 +246,7 @@ menu.t_itemname = {
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
 			endMatch()
+			start.characterchange = true
 			main.pauseMenu = false
 			return false
 		end

@@ -2040,8 +2040,11 @@ function launchFight(data)
 		main.motif.continuescreen = continueScreen
 		main.motif.victoryscreen = victoryScreen
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
+		if start.exit or start.characterchange then
+			start.characterchange = false
+			break
 		-- here comes a new challenger
-		if start.challenger > 0 then
+		elseif start.challenger > 0 then
 			if t.challenger then -- end function called by f_arcadeChallenger() regardless of outcome
 				ok = not start.exit and not esc()
 				break

@@ -926,7 +926,7 @@ type StoryboardProperties struct {
 }
 
 type VictoryScreenProperties struct {
-	Enabled bool `ini:"enabled"`
+	Enabled  bool `ini:"enabled"`
 	KeepSide struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"keepside`

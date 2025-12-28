@@ -927,7 +927,10 @@ type StoryboardProperties struct {
 
 type VictoryScreenProperties struct {
 	Enabled bool `ini:"enabled"`
-	Sounds  struct {
+	KeepSide struct {
+		Enabled bool `ini:"enabled"`
+	} `ini:"keepside`
+	Sounds struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"sounds"`
 	Cpu struct {
@@ -944,6 +947,7 @@ type VictoryScreenProperties struct {
 	FadeIn   FadeProperties `ini:"fadein"`
 	FadeOut  FadeProperties `ini:"fadeout"`
 	Time     int32          `ini:"time"`
+	WinName  TextProperties `ini:"winname"`
 	WinQuote struct {
 		TextProperties
 		TextSpacing float32 `ini:"textspacing"`
@@ -5620,7 +5624,7 @@ func (vi *MotifVictory) init(m *Motif) {
 	winnerSide := int(sys.winnerTeam() - 1)
 	loserSide := winnerSide ^ 1
 	maxW := int(Clamp(m.VictoryScreen.P1.Num, 0, 4))
-	maxL := int(Clamp(m.VictoryScreen.P2.Num, 0, 4))
+	maxL := int(Clamp(m.VictoryScreen.P2.Num, 1, 4))
 	wEntries := vi.buildSideOrder(winnerSide, m.VictoryScreen.Winner.TeamKo.Enabled, maxW)
 	lEntries := vi.buildSideOrder(loserSide, true, maxL) // losers always allow KO display
 
@@ -5643,6 +5647,11 @@ func (vi *MotifVictory) init(m *Motif) {
 	lSlots := []*PlayerVictoryProperties{&m.VictoryScreen.P2, &m.VictoryScreen.P4, &m.VictoryScreen.P6, &m.VictoryScreen.P8}
 	wNames := []string{"P1", "P3", "P5", "P7"}
 	lNames := []string{"P2", "P4", "P6", "P8"}
+
+	if m.VictoryScreen.KeepSide.Enabled && sys.winnerTeam() == 2 {
+		wSlots, lSlots = lSlots, wSlots
+	}
+
 	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
 		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
 	}
@@ -5655,6 +5664,12 @@ func (vi *MotifVictory) init(m *Motif) {
 		leader = wEntries[0].c
 	}
 	vi.text = vi.getVictoryQuote(m, leader)
+
+	m.VictoryScreen.WinName.TextSpriteData.text = ""
+	if leader != nil {
+		// Displays only the winner’s name regardless of team side or player number
+		m.VictoryScreen.WinName.TextSpriteData.text = leader.gi().displayname
+	}
 	m.VictoryBgDef.BGDef.Reset()
 
 	//fmt.Printf("[Victory] init done. Winners=%d entries, Losers=%d entries. WinQuote=%q\n", len(wEntries), len(lEntries), vi.text)
@@ -5805,6 +5820,8 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	m.VictoryScreen.P7.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P8.Name.TextSpriteData.Draw(layerno)
 
+	// Winner Name
+	m.VictoryScreen.WinName.TextSpriteData.Draw(layerno)
 	// Winquote
 	m.VictoryScreen.WinQuote.TextSpriteData.Draw(layerno)
 }

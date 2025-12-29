@@ -166,6 +166,7 @@ type AnimationCharPreloadProperties struct {
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
 	ApplyPal    bool `ini:"applypal" preload:"pal"`
+	InvertOrder bool `ini:"invertorder"`
 }
 
 type AnimationStagePreloadProperties struct {
@@ -5643,12 +5644,27 @@ func (vi *MotifVictory) init(m *Motif) {
 	lSlots := []*PlayerVictoryProperties{&m.VictoryScreen.P2, &m.VictoryScreen.P4, &m.VictoryScreen.P6, &m.VictoryScreen.P8}
 	wNames := []string{"P1", "P3", "P5", "P7"}
 	lNames := []string{"P2", "P4", "P6", "P8"}
-	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
-		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
+	// invertorder controls which slot an entry is mapped to
+	applyWithOrder := func(entries []victoryEntry, slots []*PlayerVictoryProperties, names []string, invert bool) {
+		max := len(entries)
+		if max > len(slots) {
+			max = len(slots)
+		}
+		if !invert {
+			for i := 0; i < max; i++ {
+				vi.applyEntry(m, slots[i], entries[i], names[i])
+			}
+			return
+		}
+		// reversed slot mapping: first entry goes to the last slot (drawn last = on top)
+		for i := 0; i < max; i++ {
+			j := len(slots) - 1 - i
+			vi.applyEntry(m, slots[j], entries[i], names[j])
+		}
 	}
-	for i := 0; i < len(lEntries) && i < len(lSlots); i++ {
-		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
-	}
+
+	applyWithOrder(wEntries, wSlots, wNames, m.VictoryScreen.P1.InvertOrder)
+	applyWithOrder(lEntries, lSlots, lNames, m.VictoryScreen.P2.InvertOrder)
 
 	var leader *Char
 	if len(wEntries) > 0 {

@@ -3068,6 +3068,9 @@ func (me *MotifMenu) reset(m *Motif) {
 	if !m.di.active {
 		sys.applyFightAspect()
 	}
+	if err := sys.luaLState.DoString("menuReset()"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
+	}
 }
 
 func (me *MotifMenu) init(m *Motif) {

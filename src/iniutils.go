@@ -2692,6 +2692,11 @@ func splitMusicKey(rawKey string) (prefix string, property string) {
 	}
 	kl := strings.ToLower(k)
 
+	// Treat bare "bgm.*"/"bgmusic.*"/"music.*" keys as unprefixed so parseMusicSection sees "bgm.loop" etc.
+	if strings.HasPrefix(kl, "bgm.") || strings.HasPrefix(kl, "bgmusic.") || strings.HasPrefix(kl, "music.") {
+		return "", kl
+	}
+
 	// Find the last occurrence of a known music anchor so that prefixes can contain dots.
 	anchors := []string{".bgmusic", ".music", ".bgm"}
 	best := -1

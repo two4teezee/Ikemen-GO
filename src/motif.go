@@ -165,8 +165,8 @@ type AnimationCharPreloadProperties struct {
 	Window      [4]int32   `ini:"window"`
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
-	ApplyPal    bool `ini:"applypal" preload:"pal"`
-	InvertOrder bool `ini:"invertorder"`
+	ApplyPal    bool  `ini:"applypal" preload:"pal"`
+	DrawOrder   int32 `ini:"draworder"`
 }
 
 type AnimationStagePreloadProperties struct {
@@ -5651,27 +5651,12 @@ func (vi *MotifVictory) init(m *Motif) {
 	if m.VictoryScreen.KeepSide.Enabled && sys.winnerTeam() == 2 {
 		wSlots, lSlots = lSlots, wSlots
 	}
-	// invertorder controls which slot an entry is mapped to
-	applyWithOrder := func(entries []victoryEntry, slots []*PlayerVictoryProperties, names []string, invert bool) {
-		max := len(entries)
-		if max > len(slots) {
-			max = len(slots)
-		}
-		if !invert {
-			for i := 0; i < max; i++ {
-				vi.applyEntry(m, slots[i], entries[i], names[i])
-			}
-			return
-		}
-		// reversed slot mapping: first entry goes to the last slot (drawn last = on top)
-		for i := 0; i < max; i++ {
-			j := len(slots) - 1 - i
-			vi.applyEntry(m, slots[j], entries[i], names[j])
-		}
+	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
+		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
 	}
-
-	applyWithOrder(wEntries, wSlots, wNames, m.VictoryScreen.P1.InvertOrder)
-	applyWithOrder(lEntries, lSlots, lNames, m.VictoryScreen.P2.InvertOrder)
+	for i := 0; i < len(lEntries) && i < len(lSlots); i++ {
+		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
+	}
 
 	var leader *Char
 	if len(wEntries) > 0 {
@@ -5795,6 +5780,28 @@ func (vi *MotifVictory) step(m *Motif) {
 }
 
 func (vi *MotifVictory) draw(m *Motif, layerno int16) {
+	// Order victory slots by draworder (int). Higher = drawn later (on top).
+	type slotRef struct {
+		idx   int
+		p     *PlayerVictoryProperties
+		order int32
+	}
+	slots := []slotRef{
+		{0, &m.VictoryScreen.P1, m.VictoryScreen.P1.DrawOrder},
+		{1, &m.VictoryScreen.P2, m.VictoryScreen.P2.DrawOrder},
+		{2, &m.VictoryScreen.P3, m.VictoryScreen.P3.DrawOrder},
+		{3, &m.VictoryScreen.P4, m.VictoryScreen.P4.DrawOrder},
+		{4, &m.VictoryScreen.P5, m.VictoryScreen.P5.DrawOrder},
+		{5, &m.VictoryScreen.P6, m.VictoryScreen.P6.DrawOrder},
+		{6, &m.VictoryScreen.P7, m.VictoryScreen.P7.DrawOrder},
+		{7, &m.VictoryScreen.P8, m.VictoryScreen.P8.DrawOrder},
+	}
+	sort.SliceStable(slots, func(i, j int) bool {
+		if slots[i].order == slots[j].order {
+			return slots[i].idx < slots[j].idx
+		}
+		return slots[i].order < slots[j].order
+	})
 	// Overlay
 	m.VictoryScreen.Overlay.RectData.Draw(layerno)
 
@@ -5805,24 +5812,14 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 
 	// Face2 portraits
-	m.VictoryScreen.P1.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P2.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P3.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P4.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P5.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P6.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P7.Face2.AnimData.Draw(layerno)
-	m.VictoryScreen.P8.Face2.AnimData.Draw(layerno)
+	for _, s := range slots {
+		s.p.Face2.AnimData.Draw(layerno)
+	}
 
 	// Face portraits
-	m.VictoryScreen.P1.AnimData.Draw(layerno)
-	m.VictoryScreen.P2.AnimData.Draw(layerno)
-	m.VictoryScreen.P3.AnimData.Draw(layerno)
-	m.VictoryScreen.P4.AnimData.Draw(layerno)
-	m.VictoryScreen.P5.AnimData.Draw(layerno)
-	m.VictoryScreen.P6.AnimData.Draw(layerno)
-	m.VictoryScreen.P7.AnimData.Draw(layerno)
-	m.VictoryScreen.P8.AnimData.Draw(layerno)
+	for _, s := range slots {
+		s.p.AnimData.Draw(layerno)
+	}
 
 	// Name
 	m.VictoryScreen.P1.Name.TextSpriteData.Draw(layerno)
@@ -5833,6 +5830,9 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	m.VictoryScreen.P6.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P7.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P8.Name.TextSpriteData.Draw(layerno)
+	//for _, s := range slots {
+	//	s.p.Name.TextSpriteData.Draw(layerno)
+	//}
 
 	// Winner Name
 	m.VictoryScreen.WinName.TextSpriteData.Draw(layerno)

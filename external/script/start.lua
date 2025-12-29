@@ -831,31 +831,28 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 		return
 	end
 	-- stacked portraits up to num
-	if paramsSide.invertorder then
-		for member = lastIdx, 1, -1 do
-			local paramsSide, params = getParams(side, member, t, subname)
-			local v = t_portraits[member]
-			local data = v[dataField]
-			if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
-				main.f_animPosDraw(
-					data,
-					f_portraitsXCalc(side, member, paramsSide, params),
-					paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
-				)
-			end
+	local order = {}
+	for member = 1, lastIdx do
+		local paramsSide, params = getParams(side, member, t, subname)
+		order[#order + 1] = {m = member, o = params.draworder}
+	end
+	table.sort(order, function(a, b)
+		if a.o == b.o then
+			return a.m < b.m -- stable legacy tie-break (invertorder=0 behavior)
 		end
-	else
-		for member = 1, lastIdx do
-			local paramsSide, params = getParams(side, member, t, subname)
-			local v = t_portraits[member]
-			local data = v[dataField]
-			if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
-				main.f_animPosDraw(
-					data,
-					f_portraitsXCalc(side, member, paramsSide, params),
-					paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
-				)
-			end
+		return a.o < b.o
+	end)
+	for _, it in ipairs(order) do
+		local member = it.m
+		local paramsSide, params = getParams(side, member, t, subname)
+		local v = t_portraits[member]
+		local data = v[dataField]
+		if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
+			main.f_animPosDraw(
+				data,
+				f_portraitsXCalc(side, member, paramsSide, params),
+				paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
+			)
 		end
 	end
 end

@@ -5651,7 +5651,7 @@ func (vi *MotifVictory) init(m *Motif) {
 	if m.VictoryScreen.KeepSide.Enabled && sys.winnerTeam() == 2 {
 		wSlots, lSlots = lSlots, wSlots
 	}
-  // invertorder controls which slot an entry is mapped to
+	// invertorder controls which slot an entry is mapped to
 	applyWithOrder := func(entries []victoryEntry, slots []*PlayerVictoryProperties, names []string, invert bool) {
 		max := len(entries)
 		if max > len(slots) {

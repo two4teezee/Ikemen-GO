@@ -617,6 +617,14 @@ func SearchFile(file string, dirs []string) string {
 }
 
 func LoadFile(file *string, dirs []string, load func(string) error) error {
+	// Allow optional quotes around paths
+	*file = strings.TrimSpace(*file)
+	if len(*file) >= 2 {
+		q := (*file)[0]
+		if (q == '"' || q == '\'') && (*file)[len(*file)-1] == q {
+			*file = (*file)[1 : len(*file)-1]
+		}
+	}
 	fp := SearchFile(*file, dirs)
 	if err := load(fp); err != nil {
 		if len(dirs) > 0 {

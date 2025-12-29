@@ -929,7 +929,7 @@ type VictoryScreenProperties struct {
 	Enabled  bool `ini:"enabled"`
 	KeepSide struct {
 		Enabled bool `ini:"enabled"`
-	} `ini:"keepside`
+	} `ini:"keepside"`
 	Sounds struct {
 		Enabled bool `ini:"enabled"`
 	} `ini:"sounds"`

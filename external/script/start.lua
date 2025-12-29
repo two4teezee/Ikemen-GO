@@ -831,16 +831,31 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 		return
 	end
 	-- stacked portraits up to num
-	for member = lastIdx, 1, -1 do
-		local paramsSide, params = getParams(side, member, t, subname)
-		local v = t_portraits[member]
-		local data = v[dataField]
-		if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
-			main.f_animPosDraw(
-				data,
-				f_portraitsXCalc(side, member, paramsSide, params),
-				paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
-			)
+	if paramsSide.invertorder then
+		for member = lastIdx, 1, -1 do
+			local paramsSide, params = getParams(side, member, t, subname)
+			local v = t_portraits[member]
+			local data = v[dataField]
+			if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
+				main.f_animPosDraw(
+					data,
+					f_portraitsXCalc(side, member, paramsSide, params),
+					paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
+				)
+			end
+		end
+	else
+		for member = 1, lastIdx do
+			local paramsSide, params = getParams(side, member, t, subname)
+			local v = t_portraits[member]
+			local data = v[dataField]
+			if member <= paramsSide.num and not v.skipCurrent and data ~= nil then
+				main.f_animPosDraw(
+					data,
+					f_portraitsXCalc(side, member, paramsSide, params),
+					paramsSide.pos[2] + params.offset[2] + (member - 1) * paramsSide.spacing[2]
+				)
+			end
 		end
 	end
 end

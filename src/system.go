@@ -1832,6 +1832,11 @@ func (s *System) resetRoundState() {
 		}
 		p[0].selfState(5900, firstAnim, -1, 0, "")
 	}
+
+	// Backup must reflect the post-swap roundXdef stage, or F4 restores the prior round's stage.
+	if s.stage != nil {
+		s.roundBackup.Save()
+	}
 }
 
 func (s *System) resetRound() {

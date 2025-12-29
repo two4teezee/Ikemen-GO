@@ -1832,6 +1832,11 @@ func (s *System) resetRoundState() {
 		}
 		p[0].selfState(5900, firstAnim, -1, 0, "")
 	}
+
+	// Backup must reflect the post-swap roundXdef stage, or F4 restores the prior round's stage.
+	if s.stage != nil {
+		s.roundBackup.Save()
+	}
 }
 
 func (s *System) resetRound() {
@@ -2355,7 +2360,9 @@ func (s *System) stepRoundState() {
 			s.intro = Min(s.intro, fadeoutStart)
 			s.winskipped = true
 		}
-		if s.intro == fadeoutStart && !s.gsf(GSF_roundnotover) && !s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
+		// If the user skipped winposes, don't let RoundNotOver swallow the single fadeoutStart tick.
+		if s.intro == fadeoutStart && (!s.gsf(GSF_roundnotover) || s.winskipped) &&
+			!s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
 			s.lifebar.ro.fadeOut.init(s.lifebar.ro.fadeOut, false)
 		}
 

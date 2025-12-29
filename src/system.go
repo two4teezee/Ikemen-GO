@@ -2355,7 +2355,9 @@ func (s *System) stepRoundState() {
 			s.intro = Min(s.intro, fadeoutStart)
 			s.winskipped = true
 		}
-		if s.intro == fadeoutStart && !s.gsf(GSF_roundnotover) && !s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
+		// If the user skipped winposes, don't let RoundNotOver swallow the single fadeoutStart tick.
+		if s.intro == fadeoutStart && (!s.gsf(GSF_roundnotover) || s.winskipped) &&
+			!s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
 			s.lifebar.ro.fadeOut.init(s.lifebar.ro.fadeOut, false)
 		}
 

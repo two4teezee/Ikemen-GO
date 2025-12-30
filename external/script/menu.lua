@@ -530,12 +530,67 @@ function menu.f_run()
 	return main.pauseMenu
 end
 
+-- Reset selection/scroll state recursively for a menu table (root + submenus)
+local function f_resetMenuState(tbl)
+	if type(tbl) ~= "table" then return end
+	-- Reset cursor/scroll
+	tbl.cursorPosY = 1
+	tbl.moveTxt = 0
+	tbl.item = 1
+	-- Force one-frame input refresh path used by f_createMenu
+	tbl.reset = true
+	-- Clear any "selected" flags on items (if used by custom menus)
+	if type(tbl.items) == "table" then
+		for i = 1, #tbl.items do
+			if type(tbl.items[i]) == "table" then
+				tbl.items[i].selected = false
+			end
+		end
+	end
+	-- Recurse into submenus
+	if type(tbl.submenu) == "table" then
+		for _, sub in pairs(tbl.submenu) do
+			f_resetMenuState(sub)
+		end
+	end
+end
+
+function menu.f_reset()
+	-- exit any special screens rendered by menu.f_run()
+	menu.itemname = ''
+	-- Reset movelist selector (command list screen)
+	menu.movelistChar = 1
+	-- Reset tween caches
+	motif.menu_info.menuTweenData = nil
+	motif.menu_info.boxCursorData = nil
+	motif.training_info.menuTweenData = nil
+	motif.training_info.boxCursorData = nil
+	-- Determine which root menu is active and reset its cursor/item/scroll (and all submenus)
+	if menu.currentMenu ~= nil and menu.currentMenu[2] ~= nil then
+		if menu.training ~= nil and menu.training.loop ~= nil and menu.currentMenu[2] == menu.training.loop then
+			f_resetMenuState(menu.training)
+		else
+			f_resetMenuState(menu.menu)
+		end
+	end
+	-- Force snap on next calc so we don't keep old scroll offsets.
+	main.menuSnap = true
+	-- restore root menu loop
+	if menu.currentMenu ~= nil and menu.currentMenu[2] ~= nil then
+		menu.currentMenu[1] = menu.currentMenu[2]
+	end
+end
+
 function menuInit()
 	return menu.f_init()
 end
 
 function menuRun()
 	return menu.f_run()
+end
+
+function menuReset()
+	return menu.f_reset()
 end
 
 --;===========================================================

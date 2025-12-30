@@ -5616,8 +5616,9 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		m, sc, slotName+".main",
 		targetAnim, targetSpr,
 		dst.Localcoord, dst.Layerno, dst.Facing,
-		dst.Scale, dst.Window,
-		mainX, mainY,
+		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle, 
+		dst.YAngle, dst.Projection, dst.Focallength, 
+		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
 		e.pal, e.c,
 	)
@@ -5628,8 +5629,9 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		m, sc, slotName+".face2",
 		targetFace2Anim, targetFace2Spr,
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
-		dst.Face2.Scale, dst.Face2.Window,
-		face2X, face2Y,
+		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle, 
+		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength, 
+		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
 		e.pal, e.c,
 	)
@@ -5907,7 +5909,8 @@ func tryGetPortrait(sc *SelectChar, ownerC *Char, pairs [][2]int32) (anim *Anima
 func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	animNo int32, spr [2]int32,
 	localcoord [2]int32, layerno int16, facing int32,
-	scale [2]float32, window [4]int32,
+	scale [2]float32, xshear float32, angle float32, xangle float32, 
+	yangle float32, projection string, fLength float32, window [4]int32,
 	x, y float32, applyPal bool, pal int, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
@@ -5975,6 +5978,26 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	if sx == 0 || sy == 0 {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: zero scale sx=%.4f sy=%.4f (check portraitscale/localcoord)\n", slot, sx, sy)
 	}
+	// Transformations
+	a.xshear = xshear
+	a.rot.angle = angle
+	a.rot.xangle = xangle
+	a.rot.yangle = yangle
+	a.projection = int32(Projection_Orthographic) // Default
+	v := strings.ToLower(strings.TrimSpace(projection))
+	switch v {
+	case "perspective":
+		a.projection = int32(Projection_Perspective)
+	case "perspective2":
+		a.projection = int32(Projection_Perspective2)
+	case "orthographic":
+		// default, we don't need to do nothing
+	default:
+		if i, err := strconv.Atoi(v); err == nil {
+			a.projection = int32(i)
+		}
+	}
+	a.fLength = fLength
 	// Palette for non-loaded (or force-apply if requested)
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
 		if len(a.anim.sff.palList.paletteMap) > 0 {

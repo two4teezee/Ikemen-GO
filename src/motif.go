@@ -587,7 +587,11 @@ type PlayerVsProperties struct {
 
 type PlayerVictoryProperties struct {
 	FaceProperties
-	Face2    FaceProperties `ini:"face2"`
+	Lose     FaceProperties `ini:"lose"`
+	Face2 struct {   
+		FaceProperties
+		Lose FaceProperties `ini:"lose"`
+	}
 	Name     TextProperties `ini:"name"`
 	State    []int32        `ini:"state"`
 	Teammate struct {
@@ -5566,7 +5570,7 @@ func (vi *MotifVictory) buildSideOrder(side int, allowKO bool, maxNum int) []vic
 }
 
 // applyEntry fills one PlayerVictoryProperties slot from a victoryEntry.
-func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e victoryEntry, slotName string) {
+func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e victoryEntry, slotName string, isLoser bool) {
 	// Name
 	if e.c != nil {
 		dst.Name.TextSpriteData.text = e.c.gi().displayname
@@ -5583,16 +5587,38 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	//fmt.Printf("[Victory] applyEntry slot=%s side=%d memberNo=%d cn=%d pal=%d loaded=%v name=%q\n", slotName, e.side, e.memberNo, e.cn, e.pal, e.c != nil, dst.Name.TextSpriteData.text)
 	// Resolve SelectChar (for portraits)
 	sc := sys.sel.GetChar(e.cn)
+
+	// Default win portraits
+	targetSpr := dst.Spr
+	targetAnim := dst.Anim
+	targetFace2Spr := dst.Face2.Spr
+	targetFace2Anim := dst.Face2.Anim
+
+	if isLoser {
+		if dst.Lose.Spr[0] != -1 {
+			targetSpr = dst.Lose.Spr
+		}
+		if dst.Lose.Anim != -1 {
+			targetAnim = dst.Lose.Anim
+		}
+		if dst.Face2.Lose.Spr[0] != -1 {
+			targetFace2Spr = dst.Face2.Lose.Spr
+		}
+		if dst.Face2.Lose.Anim != -1 {
+			targetFace2Anim = dst.Face2.Lose.Anim
+		}
+	}
+
 	// Main face
 	mainX := dst.Pos[0] + dst.Offset[0]
 	mainY := dst.Pos[1] + dst.Offset[1]
 	dst.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".main",
-		dst.Anim, dst.Spr,
+		targetAnim, targetSpr,
 		dst.Localcoord, dst.Layerno, dst.Facing,
 		dst.Scale, dst.Window,
 		mainX, mainY,
-		dst.ApplyPal || e.c == nil, // loaded chars already have their runtime pal; for un-loaded we must apply
+		dst.ApplyPal || e.c == nil,
 		e.pal, e.c,
 	)
 	// Face2
@@ -5600,7 +5626,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	face2Y := dst.Pos[1] + dst.Face2.Offset[1]
 	dst.Face2.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".face2",
-		dst.Face2.Anim, dst.Face2.Spr,
+		targetFace2Anim, targetFace2Spr,
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
 		dst.Face2.Scale, dst.Face2.Window,
 		face2X, face2Y,
@@ -5625,7 +5651,7 @@ func (vi *MotifVictory) init(m *Motif) {
 	winnerSide := int(sys.winnerTeam() - 1)
 	loserSide := winnerSide ^ 1
 	maxW := int(Clamp(m.VictoryScreen.P1.Num, 0, 4))
-	maxL := int(Clamp(m.VictoryScreen.P2.Num, 1, 4))
+	maxL := int(Clamp(m.VictoryScreen.P2.Num, 0, 4))
 	wEntries := vi.buildSideOrder(winnerSide, m.VictoryScreen.Winner.TeamKo.Enabled, maxW)
 	lEntries := vi.buildSideOrder(loserSide, true, maxL) // losers always allow KO display
 
@@ -5652,10 +5678,10 @@ func (vi *MotifVictory) init(m *Motif) {
 		wSlots, lSlots = lSlots, wSlots
 	}
 	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
-		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
+		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i], false)
 	}
 	for i := 0; i < len(lEntries) && i < len(lSlots); i++ {
-		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
+		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i], true)
 	}
 
 	var leader *Char

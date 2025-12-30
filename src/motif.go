@@ -586,14 +586,14 @@ type PlayerVsProperties struct {
 }
 
 type PlayerLoseProperties struct {
-    FaceProperties
-    Darken int32 `ini:"darken"`
+	FaceProperties
+	Darken int32 `ini:"darken"`
 }
 
 type PlayerVictoryProperties struct {
 	FaceProperties
-	Lose     PlayerLoseProperties `ini:"lose"`
-	Face2 struct {   
+	Lose  PlayerLoseProperties `ini:"lose"`
+	Face2 struct {
 		FaceProperties
 		Lose PlayerLoseProperties `ini:"lose"`
 	}
@@ -5621,8 +5621,8 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		m, sc, slotName+".main",
 		targetAnim, targetSpr,
 		dst.Localcoord, dst.Layerno, dst.Facing,
-		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle, 
-		dst.YAngle, dst.Projection, dst.Focallength, 
+		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle,
+		dst.YAngle, dst.Projection, dst.Focallength,
 		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
 		e.pal, dst.Lose.Darken, e.c,
@@ -5634,8 +5634,8 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		m, sc, slotName+".face2",
 		targetFace2Anim, targetFace2Spr,
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
-		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle, 
-		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength, 
+		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle,
+		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength,
 		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
 		e.pal, dst.Face2.Lose.Darken, e.c,
@@ -5914,7 +5914,7 @@ func tryGetPortrait(sc *SelectChar, ownerC *Char, pairs [][2]int32) (anim *Anima
 func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	animNo int32, spr [2]int32,
 	localcoord [2]int32, layerno int16, facing int32,
-	scale [2]float32, xshear float32, angle float32, xangle float32, 
+	scale [2]float32, xshear float32, angle float32, xangle float32,
 	yangle float32, projection string, fLength float32, window [4]int32,
 	x, y float32, applyPal bool, pal int, darken int32, ownerC *Char) *Anim {
 
@@ -6020,11 +6020,11 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 			isCopied = true
 		}
 		val := 256 - darken
-		if val < 0 { 
-			val = 0 
+		if val < 0 {
+			val = 0
 		}
-		if val > 256 { 
-			val = 256 
+		if val > 256 {
+			val = 256
 		}
 		a.palfx.time = -1
 		a.palfx.mul = [3]int32{val, val, val}

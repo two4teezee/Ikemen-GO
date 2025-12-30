@@ -585,12 +585,17 @@ type PlayerVsProperties struct {
 	} `ini:"value"`
 }
 
+type PlayerLoseProperties struct {
+    FaceProperties
+    Darken int32 `ini:"darken"`
+}
+
 type PlayerVictoryProperties struct {
 	FaceProperties
-	Lose     FaceProperties `ini:"lose"`
+	Lose     PlayerLoseProperties `ini:"lose"`
 	Face2 struct {   
 		FaceProperties
-		Lose FaceProperties `ini:"lose"`
+		Lose PlayerLoseProperties `ini:"lose"`
 	}
 	Name     TextProperties `ini:"name"`
 	State    []int32        `ini:"state"`
@@ -5620,7 +5625,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.YAngle, dst.Projection, dst.Focallength, 
 		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
-		e.pal, e.c,
+		e.pal, dst.Lose.Darken, e.c,
 	)
 	// Face2
 	face2X := dst.Pos[0] + dst.Face2.Offset[0]
@@ -5633,7 +5638,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength, 
 		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
-		e.pal, e.c,
+		e.pal, dst.Face2.Lose.Darken, e.c,
 	)
 	if dst.AnimData == nil && dst.Face2.AnimData == nil {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: both main and face2 animations are nil\n", slotName)
@@ -5911,7 +5916,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	localcoord [2]int32, layerno int16, facing int32,
 	scale [2]float32, xshear float32, angle float32, xangle float32, 
 	yangle float32, projection string, fLength float32, window [4]int32,
-	x, y float32, applyPal bool, pal int, ownerC *Char) *Anim {
+	x, y float32, applyPal bool, pal int, darken int32, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
@@ -5999,13 +6004,32 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	}
 	a.fLength = fLength
 	// Palette for non-loaded (or force-apply if requested)
+	isCopied := false
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
 		if len(a.anim.sff.palList.paletteMap) > 0 {
 			a = a.Copy()
+			isCopied = true
 			a.anim.sff.palList.paletteMap[0] = pal - 1
 		}
 		//fmt.Printf("[Victory] slot=%s -> applied palette %d\n", slot, pal)
 	}
+
+	if darken > 0 && darken < 256 && a.anim != nil && a.anim.sff != nil {
+		if !isCopied {
+			a = a.Copy()
+			isCopied = true
+		}
+		val := 256 - darken
+		if val < 0 { 
+			val = 0 
+		}
+		if val > 256 { 
+			val = 256 
+		}
+		a.palfx.time = -1
+		a.palfx.mul = [3]int32{val, val, val}
+	}
+
 	return a
 }
 

@@ -5978,6 +5978,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	// Palette for non-loaded (or force-apply if requested)
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
 		if len(a.anim.sff.palList.paletteMap) > 0 {
+			a = a.Copy()
 			a.anim.sff.palList.paletteMap[0] = pal - 1
 		}
 		//fmt.Printf("[Victory] slot=%s -> applied palette %d\n", slot, pal)

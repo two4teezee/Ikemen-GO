@@ -4720,11 +4720,14 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 	// Parse and cache rows (read from JSON file)
 	hi.rows = parseRankingRows("save/stats.json", mode)
 
-	// Build portraits cache from cached rows (store on each row)
-	visible := int(m.HiscoreInfo.Window.VisibleItems)
-	if visible <= 0 || visible > len(hi.rows) {
-		visible = len(hi.rows)
+	// If a VisibleItems cap is configured, ignore any extra entries in stats.json.
+	capVisible := int(m.HiscoreInfo.Window.VisibleItems)
+	if capVisible > 0 && capVisible < len(hi.rows) {
+		hi.rows = hi.rows[:capVisible]
 	}
+
+	// Build portraits/text only for the rows we will actually show.
+	visible := len(hi.rows)
 
 	m.HiscoreInfo.Item.Face.AnimData.Reset()
 	m.HiscoreInfo.Item.Face.Bg.AnimData.Reset()

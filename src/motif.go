@@ -585,9 +585,18 @@ type PlayerVsProperties struct {
 	} `ini:"value"`
 }
 
+type PlayerLoseProperties struct {
+    FaceProperties
+    Darken int32 `ini:"darken"`
+}
+
 type PlayerVictoryProperties struct {
 	FaceProperties
-	Face2    FaceProperties `ini:"face2"`
+	Lose     PlayerLoseProperties `ini:"lose"`
+	Face2 struct {   
+		FaceProperties
+		Lose PlayerLoseProperties `ini:"lose"`
+	}
 	Name     TextProperties `ini:"name"`
 	State    []int32        `ini:"state"`
 	Teammate struct {
@@ -5566,7 +5575,7 @@ func (vi *MotifVictory) buildSideOrder(side int, allowKO bool, maxNum int) []vic
 }
 
 // applyEntry fills one PlayerVictoryProperties slot from a victoryEntry.
-func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e victoryEntry, slotName string) {
+func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e victoryEntry, slotName string, isLoser bool) {
 	// Name
 	if e.c != nil {
 		dst.Name.TextSpriteData.text = e.c.gi().displayname
@@ -5583,29 +5592,53 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	//fmt.Printf("[Victory] applyEntry slot=%s side=%d memberNo=%d cn=%d pal=%d loaded=%v name=%q\n", slotName, e.side, e.memberNo, e.cn, e.pal, e.c != nil, dst.Name.TextSpriteData.text)
 	// Resolve SelectChar (for portraits)
 	sc := sys.sel.GetChar(e.cn)
+
+	// Default win portraits
+	targetSpr := dst.Spr
+	targetAnim := dst.Anim
+	targetFace2Spr := dst.Face2.Spr
+	targetFace2Anim := dst.Face2.Anim
+
+	if isLoser {
+		if dst.Lose.Spr[0] != -1 {
+			targetSpr = dst.Lose.Spr
+		}
+		if dst.Lose.Anim != -1 {
+			targetAnim = dst.Lose.Anim
+		}
+		if dst.Face2.Lose.Spr[0] != -1 {
+			targetFace2Spr = dst.Face2.Lose.Spr
+		}
+		if dst.Face2.Lose.Anim != -1 {
+			targetFace2Anim = dst.Face2.Lose.Anim
+		}
+	}
+
 	// Main face
 	mainX := dst.Pos[0] + dst.Offset[0]
 	mainY := dst.Pos[1] + dst.Offset[1]
 	dst.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".main",
-		dst.Anim, dst.Spr,
+		targetAnim, targetSpr,
 		dst.Localcoord, dst.Layerno, dst.Facing,
-		dst.Scale, dst.Window,
-		mainX, mainY,
-		dst.ApplyPal || e.c == nil, // loaded chars already have their runtime pal; for un-loaded we must apply
-		e.pal, e.c,
+		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle, 
+		dst.YAngle, dst.Projection, dst.Focallength, 
+		dst.Window, mainX, mainY,
+		dst.ApplyPal || e.c == nil,
+		e.pal, dst.Lose.Darken, e.c,
 	)
 	// Face2
 	face2X := dst.Pos[0] + dst.Face2.Offset[0]
 	face2Y := dst.Pos[1] + dst.Face2.Offset[1]
 	dst.Face2.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".face2",
-		dst.Face2.Anim, dst.Face2.Spr,
+		targetFace2Anim, targetFace2Spr,
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
-		dst.Face2.Scale, dst.Face2.Window,
-		face2X, face2Y,
+		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle, 
+		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength, 
+		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
-		e.pal, e.c,
+		e.pal, dst.Face2.Lose.Darken, e.c,
 	)
 	if dst.AnimData == nil && dst.Face2.AnimData == nil {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: both main and face2 animations are nil\n", slotName)
@@ -5625,7 +5658,7 @@ func (vi *MotifVictory) init(m *Motif) {
 	winnerSide := int(sys.winnerTeam() - 1)
 	loserSide := winnerSide ^ 1
 	maxW := int(Clamp(m.VictoryScreen.P1.Num, 0, 4))
-	maxL := int(Clamp(m.VictoryScreen.P2.Num, 1, 4))
+	maxL := int(Clamp(m.VictoryScreen.P2.Num, 0, 4))
 	wEntries := vi.buildSideOrder(winnerSide, m.VictoryScreen.Winner.TeamKo.Enabled, maxW)
 	lEntries := vi.buildSideOrder(loserSide, true, maxL) // losers always allow KO display
 
@@ -5652,10 +5685,10 @@ func (vi *MotifVictory) init(m *Motif) {
 		wSlots, lSlots = lSlots, wSlots
 	}
 	for i := 0; i < len(wEntries) && i < len(wSlots); i++ {
-		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i])
+		vi.applyEntry(m, wSlots[i], wEntries[i], wNames[i], false)
 	}
 	for i := 0; i < len(lEntries) && i < len(lSlots); i++ {
-		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i])
+		vi.applyEntry(m, lSlots[i], lEntries[i], lNames[i], true)
 	}
 
 	var leader *Char
@@ -5881,8 +5914,9 @@ func tryGetPortrait(sc *SelectChar, ownerC *Char, pairs [][2]int32) (anim *Anima
 func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	animNo int32, spr [2]int32,
 	localcoord [2]int32, layerno int16, facing int32,
-	scale [2]float32, window [4]int32,
-	x, y float32, applyPal bool, pal int, ownerC *Char) *Anim {
+	scale [2]float32, xshear float32, angle float32, xangle float32, 
+	yangle float32, projection string, fLength float32, window [4]int32,
+	x, y float32, applyPal bool, pal int, darken int32, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
@@ -5949,13 +5983,53 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	if sx == 0 || sy == 0 {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: zero scale sx=%.4f sy=%.4f (check portraitscale/localcoord)\n", slot, sx, sy)
 	}
+	// Transformations
+	a.xshear = xshear
+	a.rot.angle = angle
+	a.rot.xangle = xangle
+	a.rot.yangle = yangle
+	a.projection = int32(Projection_Orthographic) // Default
+	v := strings.ToLower(strings.TrimSpace(projection))
+	switch v {
+	case "perspective":
+		a.projection = int32(Projection_Perspective)
+	case "perspective2":
+		a.projection = int32(Projection_Perspective2)
+	case "orthographic":
+		// default, we don't need to do nothing
+	default:
+		if i, err := strconv.Atoi(v); err == nil {
+			a.projection = int32(i)
+		}
+	}
+	a.fLength = fLength
 	// Palette for non-loaded (or force-apply if requested)
+	isCopied := false
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
 		if len(a.anim.sff.palList.paletteMap) > 0 {
+			a = a.Copy()
+			isCopied = true
 			a.anim.sff.palList.paletteMap[0] = pal - 1
 		}
 		//fmt.Printf("[Victory] slot=%s -> applied palette %d\n", slot, pal)
 	}
+
+	if darken > 0 && darken < 256 && a.anim != nil && a.anim.sff != nil {
+		if !isCopied {
+			a = a.Copy()
+			isCopied = true
+		}
+		val := 256 - darken
+		if val < 0 { 
+			val = 0 
+		}
+		if val > 256 { 
+			val = 256 
+		}
+		a.palfx.time = -1
+		a.palfx.mul = [3]int32{val, val, val}
+	}
+
 	return a
 }
 

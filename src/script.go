@@ -436,7 +436,7 @@ func normalizeSectionName(name string) string {
 }
 
 // Converts an INI value string into a typed Lua value
-func parseIniLuaValue(raw string) lua.LValue {
+func parseIniLuaValue(l *lua.LState, raw string) lua.LValue {
 	s := strings.TrimSpace(raw)
 	if s == "" {
 		// Empty stays as empty string (matches typical INI semantics)
@@ -450,14 +450,27 @@ func parseIniLuaValue(raw string) lua.LValue {
 		// Fallback: strip outer quotes if Unquote fails
 		return lua.LString(s[1 : len(s)-1])
 	}
-	// 2) Bool
+	// 2) Comma-separated list -> Lua array table
+	if strings.Contains(s, ",") {
+		parts := strings.Split(s, ",")
+		tbl := l.NewTable()
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if p == "" {
+				continue
+			}
+			tbl.Append(parseIniLuaValue(l, p))
+		}
+		return tbl
+	}
+	// 3) Bool
 	switch strings.ToLower(s) {
 	case "true":
 		return lua.LTrue
 	case "false":
 		return lua.LFalse
 	}
-	// 3) Number (prefer int, else float)
+	// 4) Number (prefer int, else float)
 	if i, err := strconv.ParseInt(s, 0, 64); err == nil {
 		return lua.LNumber(i)
 	}
@@ -477,7 +490,7 @@ func iniToLuaTable(l *lua.LState, f *ini.File) *lua.LTable {
 		secTable := l.NewTable()
 		for _, k := range sec.Keys() {
 			name := k.Name()
-			val := parseIniLuaValue(k.Value())
+			val := parseIniLuaValue(l, k.Value())
 			if strings.Contains(name, ".") {
 				// use nested tables for dotted keys
 				setNestedLuaKey(l, secTable, name, val)

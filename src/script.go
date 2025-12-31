@@ -2174,10 +2174,11 @@ func systemScriptInit(l *lua.LState) {
 
 				// Reset roundsExisted to 0 if the losing side is on turns mode
 				for i := 0; i < 2; i++ {
-					if !sys.chars[i][0].win() && sys.tmode[i] == TM_Turns {
+					if sys.tmode[i] == TM_Turns && sys.effectiveLoss[i] {
+						sys.roundsExisted[i] = 0
+						// Increment number of lifebar KO portraits to render
 						sys.lifebar.fa[TM_Turns][i].numko++
 						sys.lifebar.nm[TM_Turns][i].numko++
-						sys.roundsExisted[i] = 0
 					}
 				}
 

@@ -301,6 +301,11 @@ func loadConfig(def string) (*Config, error) {
 			for _, key := range section.Keys() {
 				keyName := key.Name()
 				values := key.ValueWithShadows()
+				// go-ini can return an empty slice here for keys with an empty value.
+				// We still want to process the key once so empty arrays can override defaults.
+				if len(values) == 0 {
+					values = []string{key.Value()}
+				}
 				for _, value := range values {
 					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
 					keyParts := parseQueryPath(fullKey)

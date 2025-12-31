@@ -283,10 +283,7 @@ function  main.f_isdir(path)
 	return main.f_exists(path .. '/')
 end
 
-main.debugLog = false
-if main.f_isdir('debug') then
-	main.debugLog = true
-end
+main.debugLog = main.f_isdir('debug')
 
 --check if file exists
 function main.f_fileExists(file)
@@ -3583,7 +3580,7 @@ if main.debugLog then
 	main.f_printTable(main.t_selectableStages, "debug/t_selectableStages.txt")
 	main.f_printTable(main.t_selGrid, "debug/t_selGrid.txt")
 	main.f_printTable(main.t_unlockLua, "debug/t_unlockLua.txt")
-	main.f_printTable(config, "debug/config.txt")
+	main.f_printTable(loadGameOption(), "debug/config.txt")
 end
 
 main.f_start()

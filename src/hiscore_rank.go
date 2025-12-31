@@ -193,7 +193,7 @@ func rankingWouldPlace(mode string) bool {
 		return true
 	}
 
-	data, err := os.ReadFile("save/stats.json")
+	data, err := os.ReadFile(sys.cmdFlags["-stats"])
 	if err != nil || len(data) == 0 {
 		return true
 	}
@@ -290,7 +290,7 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 	cleared := modeCleared(mode, len(sys.statsLog.Matches))
 
 	// Read or create stats file
-	data, _ := os.ReadFile("save/stats.json")
+	data, _ := os.ReadFile(sys.cmdFlags["-stats"])
 	if len(data) == 0 {
 		data = []byte(`{}`)
 	}
@@ -328,17 +328,17 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 	// If hiscore ranking isn't defined for this mode, we're done.
 	rType, ok := rankingTypeFor(mode)
 	if !ok {
-		_ = writeStatsPretty("save/stats.json", data)
+		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 		return cleared, 0
 	}
 
 	// Ranking exceptions (match Lua behavior)
 	if rType == "score" && tal.scoreP1 == 0 {
-		_ = writeStatsPretty("save/stats.json", data)
+		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 		return cleared, 0
 	}
 	if rType == "win" && tal.winP1 == 0 {
-		_ = writeStatsPretty("save/stats.json", data)
+		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 		return cleared, 0
 	}
 
@@ -435,7 +435,7 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 	// Serialize back to JSON (preserving other keys)
 	buf, _ := json.Marshal(entries)
 	data, _ = sjson.SetRawBytes(data, rankPath, buf)
-	_ = writeStatsPretty("save/stats.json", data)
+	_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 
 	return cleared, place
 }

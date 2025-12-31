@@ -4718,7 +4718,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 	hi.timerFrames = m.HiscoreInfo.Timer.Framespercount
 
 	// Parse and cache rows (read from JSON file)
-	hi.rows = parseRankingRows("save/stats.json", mode)
+	hi.rows = parseRankingRows(sys.cmdFlags["-stats"], mode)
 
 	// If a VisibleItems cap is configured, ignore any extra entries in stats.json.
 	capVisible := int(m.HiscoreInfo.Window.VisibleItems)
@@ -5162,7 +5162,7 @@ func (hi *MotifHiscore) finalizeAndSave() {
 		hi.haveSaved = true
 		return
 	}
-	data, err := os.ReadFile("save/stats.json")
+	data, err := os.ReadFile(sys.cmdFlags["-stats"])
 	if err != nil {
 		fmt.Println("hiscore: cannot read save/stats.json for name save:", err)
 		hi.haveSaved = true
@@ -5175,7 +5175,7 @@ func (hi *MotifHiscore) finalizeAndSave() {
 		hi.haveSaved = true
 		return
 	}
-	if err := writeStatsPretty("save/stats.json", out); err != nil {
+	if err := writeStatsPretty(sys.cmdFlags["-stats"], out); err != nil {
 		fmt.Println("hiscore: write save/stats.json failed:", err)
 	}
 	hi.haveSaved = true

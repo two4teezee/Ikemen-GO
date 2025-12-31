@@ -603,15 +603,23 @@ func setFieldValue(fieldVal reflect.Value, value interface{}, defTag string, key
 		fieldVal = fieldVal.Elem()
 	}
 
-	// If the user explicitly gave an empty line => use the defTag if any
+	// Empty INI value semantics:
+	// - Scalars: treat as "unset" (do not override whatever is already there, e.g. defaults)
+	// - Arrays/Slices: treat as "clear" (override defaults with no entries)
 	if trimmedValue == "" {
-		if defTag == "" {
-			// If no default tag => zero out
+		switch fieldVal.Kind() {
+		case reflect.Slice, reflect.Array:
+			// Explicitly clear list/array
 			setNil(fieldVal)
 			return nil
+		default:
+			// Leave existing
+			if defTag == "" {
+				return nil
+			}
+			// If a struct-level default tag exists, apply it
+			trimmedValue = defTag
 		}
-		// If there's a default tag => parse it as if user typed it
-		trimmedValue = defTag
 	}
 
 	// Now parse the final (non-empty) string

@@ -533,11 +533,17 @@ func (a *Animation) UpdateSprite() {
 	if len(a.frames) == 0 {
 		return
 	}
+
+	// Handle frame timing and looping
 	if a.totaltime > 0 {
+		// Change into the loop start frame when animation ends
 		if a.curtime >= a.totaltime {
 			a.curelemtime, a.newframe, a.curelem = 0, true, a.loopstart
 		}
+
 		a.animSeek(a.curelem)
+
+		// Handle negative prelooptime
 		if a.prelooptime < 0 && a.curtime >= a.totaltime+a.prelooptime &&
 			a.curtime >= a.totaltime-a.looptime &&
 			(a.curtime == a.totaltime+a.prelooptime ||
@@ -547,6 +553,8 @@ func (a *Animation) UpdateSprite() {
 			a.curelem = 0
 		}
 	}
+
+	// Change to a new sprite if necessary
 	if a.newframe && a.sff != nil && a.frames[a.curelem].Time != 0 {
 		group, number := a.curFrame().Group, a.curFrame().Number
 		if mg, ok := a.remap[group]; ok {
@@ -567,60 +575,77 @@ func (a *Animation) UpdateSprite() {
 	a.scale_y = a.frames[a.drawidx].Yscale
 	a.rot.angle = a.frames[a.drawidx].Angle
 
+	a.UpdateInterpolation()
+
+	// Apply scale correction only after interpolation runs
+	a.scale_x *= a.start_scale[0]
+	a.scale_y *= a.start_scale[1]
+}
+
+func (a *Animation) UpdateInterpolation() {
+	// Reset values
 	a.interpolate_offset_x = 0
 	a.interpolate_offset_y = 0
 	a.interpolate_blend_srcalpha = float32(a.frames[a.drawidx].SrcAlpha)
 	a.interpolate_blend_dstalpha = float32(a.frames[a.drawidx].DstAlpha)
 
+	// Determine which frame to interpolate into
 	nextDrawidx := a.drawidx + 1
 	if int(a.drawidx) >= len(a.frames)-1 {
 		nextDrawidx = a.loopstart
 	}
 
+	// Determine current interpolation progress
+	var progress float32
+	if a.frames[a.drawidx].Time > 0 {
+		progress = float32(a.curelemtime) / float32(a.curFrame().Time)
+	}
+
+	// Invalid progress
+	if progress <= 0 {
+		return
+	}
+
+	// Offset
 	for _, i := range a.interpolate_offset {
-		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			break
+		if nextDrawidx != i {
+			continue
 		}
+		a.interpolate_offset_x = float32(a.frames[nextDrawidx].Xoffset-a.frames[a.drawidx].Xoffset) * progress
+		a.interpolate_offset_y = float32(a.frames[nextDrawidx].Yoffset-a.frames[a.drawidx].Yoffset) * progress
+		break
 	}
 
+	// Scale
 	for _, i := range a.interpolate_scale {
-		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			var drawframe_scale_x, nextframe_scale_x, drawframe_scale_y, nextframe_scale_y float32 = 1, 1, 1, 1
-
-			drawframe_scale_x = a.frames[a.drawidx].Xscale
-			drawframe_scale_y = a.frames[a.drawidx].Yscale
-
-			nextframe_scale_x = a.frames[nextDrawidx].Xscale
-			nextframe_scale_y = a.frames[nextDrawidx].Yscale
-
-			a.scale_x += (nextframe_scale_x - drawframe_scale_x) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			a.scale_y += (nextframe_scale_y - drawframe_scale_y) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			break
+		if nextDrawidx != i {
+			continue
 		}
+		a.scale_x += (a.frames[nextDrawidx].Xscale - a.frames[a.drawidx].Xscale) * progress
+		a.scale_y += (a.frames[nextDrawidx].Yscale - a.frames[a.drawidx].Yscale) * progress
+		break
 	}
-	a.scale_x *= a.start_scale[0]
-	a.scale_y *= a.start_scale[1]
 
+	// Angle
 	for _, i := range a.interpolate_angle {
-		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			var drawframe_angle, nextframe_angle float32 = 0, 0
-
-			drawframe_angle = a.frames[a.drawidx].Angle
-			nextframe_angle = a.frames[nextDrawidx].Angle
-
-			a.rot.angle += (nextframe_angle - drawframe_angle) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			break
+		if nextDrawidx != i {
+			continue
 		}
+		a.rot.angle += (a.frames[nextDrawidx].Angle - a.frames[a.drawidx].Angle) * progress
+		break
 	}
 
+	// Blend
 	for _, i := range a.interpolate_blend {
-		if nextDrawidx == i && (a.frames[a.drawidx].Time >= 0) {
-			a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) / float32(a.curFrame().Time) * float32(a.curelemtime)
-			break
+		if nextDrawidx != i {
+			continue
 		}
+		// We only interpolate blend if blending actually exists
+		if a.curtrans != TransNone {
+			a.interpolate_blend_srcalpha += (float32(a.frames[nextDrawidx].SrcAlpha) - a.interpolate_blend_srcalpha) * progress
+			a.interpolate_blend_dstalpha += (float32(a.frames[nextDrawidx].DstAlpha) - a.interpolate_blend_dstalpha) * progress
+		}
+		break
 	}
 }
 

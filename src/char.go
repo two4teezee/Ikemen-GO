@@ -2059,7 +2059,7 @@ type Projectile struct {
 	playerno        int
 	hitdef          HitDef
 	id              int32
-	anim            int32
+	animNo          int32
 	anim_ffx        string
 	hitanim         int32
 	hitanim_ffx     string
@@ -2099,7 +2099,7 @@ type Projectile struct {
 	shadow          [3]int32
 	supermovetime   int32
 	pausemovetime   int32
-	ani             *Animation
+	anim            *Animation
 	curmisstime     int32
 	hitpause        int32
 	oldPos          [3]float32
@@ -2210,32 +2210,32 @@ func (p *Projectile) paused(playerNo int) bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused(p.playerno) && p.hitpause == 0 {
-		if p.anim >= 0 && !p.remflag {
+		if p.animNo >= 0 && !p.remflag {
 			remove := true
 			root := sys.chars[p.playerno][0]
 			if p.hits < 0 {
 				// Remove behavior
 				if p.hits == -1 && p.remove {
-					if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
+					if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 						if p.hitanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+							p.anim = a
 						}
 					}
 				}
 				// Cancel behavior
 				if p.hits == -2 {
-					if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
+					if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 						if p.cancelanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+							p.anim = a
 						}
 					}
 				}
 			} else if p.removetime == 0 ||
-				p.removetime <= -2 && (p.ani == nil || p.ani.loopend) ||
+				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
 				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
 				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
 				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
@@ -2244,12 +2244,12 @@ func (p *Projectile) update() {
 				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
 				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-				if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
+				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
 					if p.remanim != -2 {
 						if p.remanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+							p.anim = a
 							// In Mugen, if remanim is invalid the projectile will keep the current one
 							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
 						}
@@ -2262,8 +2262,8 @@ func (p *Projectile) update() {
 			// Active to removing transition
 			if remove {
 				p.remflag = true
-				if p.ani != nil {
-					p.ani.UpdateSprite()
+				if p.anim != nil {
+					p.anim.UpdateSprite()
 				}
 				p.velocity = p.remvelocity
 				if p.facing == p.removefacing {
@@ -2273,7 +2273,7 @@ func (p *Projectile) update() {
 				}
 				p.accel = [3]float32{0, 0, 0}
 				p.velmul = [3]float32{1, 1, 1}
-				p.anim = -1
+				p.animNo = -1
 				// In Mugen, projectiles can hit even after their removetime expires
 				// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 				//if p.hits >= 0 {
@@ -2283,10 +2283,10 @@ func (p *Projectile) update() {
 		}
 		// Remove projectile
 		if p.remflag {
-			if p.ani != nil && (p.ani.totaltime <= 0 || p.ani.AnimTime() == 0) {
-				p.ani = nil
+			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
+				p.anim = nil
 			}
-			if p.ani == nil && p.id >= 0 {
+			if p.anim == nil && p.id >= 0 {
 				p.id = ^p.id
 			}
 		}
@@ -2309,7 +2309,7 @@ func (p *Projectile) update() {
 				p.velocity[i] += p.accel[i]
 				p.velocity[i] *= p.velmul[i]
 			}
-			if p.velocity[0] < 0 && p.anim != -1 {
+			if p.velocity[0] < 0 && p.animNo != -1 {
 				p.facing *= -1
 				p.velocity[0] *= -1
 				p.accel[0] *= -1
@@ -2363,7 +2363,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 	}
 
 	// Skip if this projectile can't run a collision check at all
-	if p.ani == nil || len(p.ani.frames) == 0 || p.ani.CurrentFrame().Clsn2 == nil {
+	if p.anim == nil || len(p.anim.frames) == 0 || p.anim.CurrentFrame().Clsn2 == nil {
 		return
 	}
 
@@ -2391,7 +2391,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Skip if other projectile can't run collision check
-			if pr.ani == nil || len(pr.ani.frames) == 0 || pr.ani.CurrentFrame().Clsn2 == nil {
+			if pr.anim == nil || len(pr.anim.frames) == 0 || pr.anim.CurrentFrame().Clsn2 == nil {
 				continue
 			}
 
@@ -2411,8 +2411,8 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Run Clsn check
-			clsn1 := p.ani.CurrentFrame().Clsn2 // Projectiles trade with their Clsn2 only
-			clsn2 := pr.ani.CurrentFrame().Clsn2
+			clsn1 := p.anim.CurrentFrame().Clsn2 // Projectiles trade with their Clsn2 only
+			clsn2 := pr.anim.CurrentFrame().Clsn2
 			if clsn1 != nil && clsn2 != nil {
 				if sys.clsnOverlap(clsn1,
 					[...]float32{p.clsnScale[0] * p.localscl, p.clsnScale[1] * p.localscl},
@@ -2476,13 +2476,13 @@ func (p *Projectile) tick() {
 
 func (p *Projectile) cueDraw() {
 	notpause := p.hitpause <= 0 && !p.paused(p.playerno)
-	if sys.tickFrame() && p.ani != nil && notpause {
-		p.ani.UpdateSprite()
+	if sys.tickFrame() && p.anim != nil && notpause {
+		p.anim.UpdateSprite()
 	}
 
 	// Projectile Clsn display
-	if sys.clsnDisplay && p.ani != nil {
-		if frm := p.ani.drawFrame(); frm != nil {
+	if sys.clsnDisplay && p.anim != nil {
+		if frm := p.anim.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
 					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
@@ -2499,8 +2499,8 @@ func (p *Projectile) cueDraw() {
 	}
 
 	if sys.tickNextFrame() && (notpause || !p.paused(p.playerno)) {
-		if p.ani != nil && notpause {
-			p.ani.Action()
+		if p.anim != nil && notpause {
+			p.anim.Action()
 		}
 	}
 
@@ -2550,10 +2550,10 @@ func (p *Projectile) cueDraw() {
 		p.window[3] * drawscale[1],
 	}
 
-	if p.ani != nil {
+	if p.anim != nil {
 		// Add sprite to draw list
 		sd := &SprData{
-			anim:         p.ani,
+			anim:         p.anim,
 			pfx:          p.palfx,
 			pos:          pos,
 			scl:          drawscale,
@@ -6704,19 +6704,19 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
 
-	if p.anim < -1 {
-		p.anim = 0
+	if p.animNo < -1 {
+		p.animNo = 0
 	}
 
 	// Get animation with sprite context
-	p.ani = c.getSelfAnimSprite(p.anim, p.anim_ffx, true, true)
+	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
 
-	if p.ani == nil && c.anim != nil {
+	if p.anim == nil && c.anim != nil {
 		// Fallback: copy character's current animation
-		p.ani = &Animation{}
-		*p.ani = *c.anim
-		p.ani.SetAnimElem(1, 0)
-		p.anim = c.animNo
+		p.anim = &Animation{}
+		*p.anim = *c.anim
+		p.anim.SetAnimElem(1, 0)
+		p.animNo = c.animNo
 	}
 
 	// Save total hits for later use
@@ -9271,7 +9271,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 
 func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
-	if p.ani == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+	if p.anim == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
 
@@ -9300,12 +9300,12 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 
 func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
-	if p.ani == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+	if p.anim == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
 
 	// Get projectile animation frame
-	frm := p.ani.CurrentFrame()
+	frm := p.anim.CurrentFrame()
 	if frm == nil {
 		return false
 	}

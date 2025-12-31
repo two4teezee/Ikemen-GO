@@ -3572,7 +3572,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			case OC_ex2_projvar_accel_z:
 				sys.bcStack.PushF(p.accel[2] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_animelem:
-				sys.bcStack.PushI(p.ani.curelem + 1)
+				sys.bcStack.PushI(p.anim.curelem + 1)
 			case OC_ex2_projvar_drawpal_group:
 				sys.bcStack.PushI(c.projDrawPal(p)[0])
 			case OC_ex2_projvar_drawpal_index:
@@ -3598,7 +3598,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			case OC_ex2_projvar_pos_z:
 				sys.bcStack.PushF(p.pos[2] * p.localscl / oc.localscl)
 			case OC_ex2_projvar_projanim:
-				sys.bcStack.PushI(p.anim)
+				sys.bcStack.PushI(p.animNo)
 			case OC_ex2_projvar_projangle:
 				sys.bcStack.PushF(p.anglerot[0])
 			case OC_ex2_projvar_projyangle:
@@ -4991,10 +4991,7 @@ const (
 	helper_size_ground_front
 	helper_size_air_back
 	helper_size_air_front
-	helper_size_height_stand
-	helper_size_height_crouch
-	helper_size_height_air
-	helper_size_height_down
+	helper_size_height
 	helper_size_proj_doscale
 	helper_size_head_pos
 	helper_size_mid_pos
@@ -5069,7 +5066,7 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 			h.size.airbox[0] = exp[0].evalF(c) * -1
 		case helper_size_air_front:
 			h.size.airbox[2] = exp[0].evalF(c)
-		case helper_size_height_stand:
+		case helper_size_height:
 			h.size.standbox[1] = exp[0].evalF(c) * -1
 		case helper_size_proj_doscale:
 			h.size.proj.doscale = exp[0].evalI(c)
@@ -5480,7 +5477,6 @@ const (
 func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 	bgid := int32(-1)
 	bgidx := int(-1)
-	var backgrounds []*backGround
 
 	pfx := *newPalFXDef()
 	pfx.invertblend = -2 // Forcing 1.1 behavior
@@ -5508,16 +5504,14 @@ func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 		sys.bgPalFX.invertblend = -3
 	} else {
 		// Apply to specific elements
-		backgrounds = c.getMultipleStageBg(bgid, bgidx, false)
-		if len(backgrounds) == 0 {
-			return false
-		}
+		backgrounds := c.getMultipleStageBg(bgid, bgidx, false)
 		for _, bg := range backgrounds {
 			bg.palfx.clear()
 			bg.palfx.PalFXDef = pfx
 			bg.palfx.invertblend = -3
 		}
 	}
+
 	return false
 }
 
@@ -7479,7 +7473,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		case projectile_projdepthbound:
 			p.depthbound = int32(float32(exp[0].evalI(c)) * redirscale)
 		case projectile_projanim:
-			p.anim = exp[1].evalI(c)
+			p.animNo = exp[1].evalI(c)
 			p.anim_ffx = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		case projectile_supermovetime:
 			p.supermovetime = exp[0].evalI(c)
@@ -7879,10 +7873,10 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					v2 = Max(-1, exp[1].evalI(c))
 				}
 				eachProj(func(p *Projectile) {
-					if p.anim != v2 || p.anim_ffx != v1 {
-						p.anim_ffx = v1
-						p.anim = v2
-						p.ani = c.getAnim(p.anim, p.anim_ffx, true) // need to change anim ref too
+					if p.animNo != v2 || p.anim_ffx != v1 { // TODO: This isn't required for chars, so maybe it shouldn't be here either
+						p.anim_ffx = v1 // TODO: These two should only be updated if the new animation is valid
+						p.animNo = v2
+						p.anim = c.getAnim(p.animNo, p.anim_ffx, true) // need to change anim ref too
 					}
 				})
 			case projectile_supermovetime:

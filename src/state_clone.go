@@ -233,8 +233,8 @@ func (p *Projectile) clone(a *arena.Arena, gsp *GameStatePool) *Projectile {
 	result := &Projectile{}
 	*result = *p
 
-	if p.ani != nil {
-		result.ani = p.ani.Clone(a, gsp)
+	if p.anim != nil {
+		result.anim = p.anim.Clone(a, gsp)
 	}
 
 	if p.palfx != nil {

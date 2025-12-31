@@ -124,7 +124,7 @@ type System struct {
 	home                    int
 	matchTime               int32
 	match                   int32
-	inputRemap              [MaxPlayerNo]int
+	inputRemap              [MaxPlayerNo]int // Ingame player number (index) to human player number (value) pairing
 	round                   int32
 	intro                   int32
 	curRoundTime            int32
@@ -421,9 +421,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	l := lua.NewState()
 	l.Options.IncludeGoStackTrace = true
 	l.OpenLibs()
-	for i := range s.inputRemap {
-		s.inputRemap[i] = i
-	}
+	s.resetRemapInput()
 	for i := range s.stringPool {
 		s.stringPool[i] = *NewStringPool()
 	}

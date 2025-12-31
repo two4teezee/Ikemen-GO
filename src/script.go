@@ -6522,9 +6522,9 @@ func triggerFunctions(l *lua.LState) {
 			case "accel z":
 				lv = lua.LNumber(p.accel[2])
 			case "anim":
-				lv = lua.LNumber(p.anim)
+				lv = lua.LNumber(p.animNo)
 			case "animelem":
-				lv = lua.LNumber(p.ani.curelem + 1)
+				lv = lua.LNumber(p.anim.curelem + 1)
 			case "angle":
 				lv = lua.LNumber(p.anglerot[0])
 			case "angle x":

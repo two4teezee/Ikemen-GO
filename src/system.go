@@ -1018,10 +1018,8 @@ func (s *System) netplay() bool {
 }
 
 func (s *System) escExit() bool {
-	return sys.esc && (sys.netplay() ||
-		!sys.cfg.Config.EscOpensMenu ||
-		sys.gameMode == "" || sys.gameMode == "demo" ||
-		(sys.motif.AttractMode.Enabled && sys.credits == 0))
+	return (sys.gameMode == "demo" && (sys.esc || sys.motif.button([]string{"m"}, -1))) ||
+		(sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" || (sys.motif.AttractMode.Enabled && sys.credits == 0)))
 }
 
 func (s *System) anyChar() *Char {

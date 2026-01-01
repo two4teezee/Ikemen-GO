@@ -9922,6 +9922,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		return 0
 	}
 
+	// Check if getter was already being hit. For hitcount tracking
+	getterInCombo := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !getter.ghv.guarded
+
 	// Check if the enemy can guard this attack
 	// Unguardable flag also affects projectiles
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2367
@@ -10132,7 +10135,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		} else if ghvset {
 			ghv := &getter.ghv
-			cmb := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !ghv.guarded
+
 			// Precompute localcoord conversion factor
 			scaleratio := c.localscl / getter.localscl
 
@@ -10257,7 +10260,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && ghv.hittime > 0 {
 					ghv.hittime += 1
 				}
-				if cmb {
+				if getterInCombo {
 					ghv.hitcount++
 				} else {
 					ghv.hitcount = 1

@@ -2915,11 +2915,6 @@ func (r *Renderer_VK) GetModelPipeline(state *VulkanPipelineState) vk.Pipeline {
 			Size:       4,
 			Offset:     16,
 		},
-		{
-			ConstantID: 11,
-			Size:       4,
-			Offset:     20,
-		},
 	}
 	vertSpecializationInfo := []vk.SpecializationInfo{
 		{

@@ -2508,6 +2508,9 @@ func (m *Motif) drawLoading() {
 	ts.Reset()
 
 	sys.mainThreadTask <- func() {
+		// End previous frame
+		gfx.EndFrame()
+
 		// Start a one-off frame
 		gfx.BeginFrame(true)
 

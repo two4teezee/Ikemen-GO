@@ -39,6 +39,7 @@ type LayerProperties struct {
 	PalFx          PalFxProperties `ini:"palfx"`
 	TextSpacing    float32         `ini:"textspacing"`
 	TextDelay      float32         `ini:"textdelay" default:"2"`
+	TextWrap       string          `ini:"textwrap" default:"w"`
 	TextWindow     [4]int32        `ini:"textwindow"`
 	StartTime      int32           `ini:"starttime"`
 	EndTime        int32           `ini:"endtime"`

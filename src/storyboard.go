@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -118,6 +119,8 @@ type Storyboard struct {
 	cancel            bool
 	musicPlaying      bool
 	fadePolicy        FadeStartPolicy
+	dialogueLayers    []*LayerProperties // ordered text layers (StartTime asc, then layer index)
+	dialoguePos       int                // current layer index into dialogueLayers
 }
 
 // loadStoryboard loads and parses the INI file into a struct.
@@ -468,37 +471,91 @@ func (s *Storyboard) reset() {
 	s.fadePolicy = FadeStop
 }
 
-// sceneHasTyping returns true if any text layer in the scene has text that hasn't finished rendering yet
-func (s *Storyboard) sceneHasTyping(sceneProps *SceneProperties) bool {
-	for _, layerProps := range sceneProps.Layer {
-		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
-			continue
-		}
-		if layerProps.EndTime > 0 && s.counter >= layerProps.EndTime {
-			continue
-		}
-		if !layerProps.lineFullyRendered {
-			return true
-		}
+// Builds the ordered list of text layers for skip-to-advance. Order: StartTime ascending, then layer numeric index.
+func (s *Storyboard) buildDialogueQueue(sceneProps *SceneProperties) {
+	type entry struct {
+		key   string
+		lp    *LayerProperties
+		start int32
+		idx   int
 	}
-	return false
+
+	parseLayerIndex := func(key string) int {
+		// Accept "layer0", "layer_0", "Layer10", etc.
+		re := regexp.MustCompile(`\d+`)
+		num := re.FindString(key)
+		if num == "" {
+			return 1<<30 - 1
+		}
+		return int(Atoi(num))
+	}
+
+	var items []entry
+	for _, key := range SortedKeys(sceneProps.Layer) {
+		lp := sceneProps.Layer[key]
+		if lp == nil || lp.TextSpriteData == nil || lp.Text == "" {
+			continue
+		}
+		items = append(items, entry{
+			key:   key,
+			lp:    lp,
+			start: lp.StartTime,
+			idx:   parseLayerIndex(key),
+		})
+	}
+
+	sort.SliceStable(items, func(i, j int) bool {
+		if items[i].start != items[j].start {
+			return items[i].start < items[j].start
+		}
+		if items[i].idx != items[j].idx {
+			return items[i].idx < items[j].idx
+		}
+		return strings.ToLower(items[i].key) < strings.ToLower(items[j].key)
+	})
+
+	s.dialogueLayers = s.dialogueLayers[:0]
+	for _, it := range items {
+		s.dialogueLayers = append(s.dialogueLayers, it.lp)
+	}
+	s.dialoguePos = 0
 }
 
-// revealAllSceneText forces all text layers in the scene to be fully rendered
-// immediately, bypassing any remaining typewriter delay and StartTime.
-func (s *Storyboard) revealAllSceneText(sceneProps *SceneProperties) {
-	for _, layerProps := range sceneProps.Layer {
-		if layerProps.TextSpriteData == nil || layerProps.Text == "" {
+// Advances the dialogue cursor past layers that are already over due to time.
+// This prevents skip from trying to act on old layers if the scene has naturally progressed.
+func (s *Storyboard) syncDialoguePosToTime() {
+	for s.dialoguePos < len(s.dialogueLayers) {
+		lp := s.dialogueLayers[s.dialoguePos]
+		if lp == nil {
+			s.dialoguePos++
 			continue
 		}
-		if layerProps.EndTime > 0 && s.counter >= layerProps.EndTime {
+		// If the layer's time window has ended, advance past it.
+		if lp.EndTime > 0 && s.counter >= lp.EndTime {
+			s.dialoguePos++
 			continue
 		}
-		runeCount := utf8.RuneCountInString(layerProps.Text)
-		layerProps.typedLen = runeCount
-		layerProps.lineFullyRendered = true
-		layerProps.charDelayCounter = 0
+		break
 	}
+}
+
+func (s *Storyboard) revealTextLayer(lp *LayerProperties) {
+	if lp == nil || lp.TextSpriteData == nil || lp.Text == "" {
+		return
+	}
+	// Only reveal once its StartTime is active (or we're at/after it).
+	if s.counter < lp.StartTime {
+		return
+	}
+	if lp.EndTime > 0 && s.counter >= lp.EndTime {
+		return
+	}
+	runeCount := utf8.RuneCountInString(lp.Text)
+	lp.typedLen = runeCount
+	lp.lineFullyRendered = true
+	lp.charDelayCounter = 0
+	// Apply immediately so it draws this frame.
+	lp.TextSpriteData.wrapText(lp.Text, lp.typedLen)
 }
 
 func (s *Storyboard) init() {
@@ -518,6 +575,15 @@ func (s *Storyboard) step() {
 	sceneKey := s.sceneKeys[s.currentSceneIndex]
 	sceneProps := s.Scene[sceneKey]
 
+	// because skip may fast-forward s.counter, we must not rely on (s.counter == 0)
+	// later in the frame. Capture scene start state up front.
+	sceneJustStarted := (s.counter == 0)
+
+	// Scene entry: build dialogue queue for this scene.
+	if sceneJustStarted {
+		s.buildDialogueQueue(sceneProps)
+	}
+
 	// Cancel handling
 	if sys.esc ||
 		(!sys.motif.AttractMode.Enabled && sys.motif.button(s.SceneDef.Key.Cancel, -1)) ||
@@ -528,24 +594,61 @@ func (s *Storyboard) step() {
 
 	// Skip handling
 	skipPressed := sys.motif.button(s.SceneDef.Key.Skip, -1)
-	hasTyping := s.sceneHasTyping(sceneProps)
 
-	// If there is still typewriter text in this scene, treat Skip as "finish text" rather than advancing the scene.
-	if skipPressed && hasTyping {
-		s.revealAllSceneText(sceneProps)
+	// Keep dialogue cursor aligned with time progression.
+	s.syncDialoguePosToTime()
+
+	skipAdvancesScene := false
+	if skipPressed {
+		// Dialogue progression:
+		// 1) If current layer hasn't started yet, fast-forward to its start.
+		// 2) If it's typing, finish only that layer.
+		// 3) If it's fully rendered, advance to next layer (fast-forward if needed).
+		// 4) If no layers remain, skip advances the scene.
+		if s.dialoguePos < len(s.dialogueLayers) {
+			lp := s.dialogueLayers[s.dialoguePos]
+			if lp != nil {
+				// If we're before this layer's window, jump to just before StartTime so it begins immediately.
+				if s.counter < lp.StartTime {
+					s.counter = lp.StartTime - 1
+				} else if (lp.EndTime <= 0 || s.counter < lp.EndTime) && !lp.lineFullyRendered {
+					// Finish only the currently-typing layer.
+					s.revealTextLayer(lp)
+				} else {
+					// Already fully rendered (or effectively done): advance to next layer.
+					s.dialoguePos++
+					s.syncDialoguePosToTime()
+					if s.dialoguePos < len(s.dialogueLayers) {
+						next := s.dialogueLayers[s.dialoguePos]
+						if next != nil && s.counter < next.StartTime {
+							s.counter = next.StartTime - 1
+						}
+					} else {
+						// All dialogue layers handled: next skip should advance scene immediately.
+						skipAdvancesScene = true
+					}
+				}
+			} else {
+				// Defensive: nil entry
+				s.dialoguePos++
+			}
+		} else {
+			// No dialogue layers (or already finished): skip advances the scene.
+			skipAdvancesScene = true
+		}
 	}
 
-	// If there is still typewriter text in this scene, treat Skip as "finish text" only.
-	// Only when all text is fully rendered should Skip advance the scene.
-	skipAdvancesScene := skipPressed && !hasTyping
+	// Auto-end logic must use >= because skip can fast-forward time past end.time.
+	reachedEndTime := (s.counter >= sceneProps.End.Time)
 
-	if s.endTimer == -1 && (s.counter == sceneProps.End.Time || s.cancel || skipAdvancesScene) {
+	if s.endTimer == -1 && (reachedEndTime || s.cancel || skipAdvancesScene) {
 		userInterrupt := s.cancel || skipAdvancesScene
 		startFadeOut(sceneProps.FadeOut.FadeData, sys.motif.fadeOut, userInterrupt, s.fadePolicy)
 		s.endTimer = s.counter + sys.motif.fadeOut.timeRemaining
 	}
 
-	if s.counter == 0 {
+	// Run "scene start" init even if skip fast-forwarded s.counter this frame.
+	if sceneJustStarted {
 		if ok := sceneProps.Music.Play("", s.Def); ok {
 			s.musicPlaying = true
 		}
@@ -654,8 +757,9 @@ func (s *Storyboard) draw(layerno int16) {
 
 	for _, key := range SortedKeys(sceneProps.Layer) {
 		layerProps := sceneProps.Layer[key]
-		// If the text was force-finished by Skip, draw it even if StartTime hasn't been reached yet.
-		if (s.counter >= layerProps.StartTime || layerProps.lineFullyRendered) && (s.counter < layerProps.EndTime || layerProps.EndTime <= 0) {
+		// Draw only within the layer's actual time window.
+		// (Pre-start drawing is intentionally disallowed to prevent overlap when skipping.)
+		if s.counter >= layerProps.StartTime && (s.counter < layerProps.EndTime || layerProps.EndTime <= 0) {
 			if layerProps.AnimData != nil {
 				layerProps.AnimData.Draw(layerno)
 			}

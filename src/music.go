@@ -394,7 +394,7 @@ func (m Music) act() {
 				continue
 			}
 			c := sys.chars[pn][0] // root player in this slot
-			crun := sys.cgi[pn].music
+			cmusic := sys.cgi[pn].music
 
 			// Round Start
 			if c.teamside == sys.home &&
@@ -402,10 +402,10 @@ func (m Music) act() {
 				sys.tickCount == 0 &&
 				!sys.roundResetFlg {
 				switch {
-				case sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] && crun.tryPlay("final", sys.stage.def):
-				case sys.sel.gameParams.PersistMusic && crun.tryPlay(fmt.Sprintf("round%d", sys.match), sys.stage.def):
-				case crun.tryPlay(fmt.Sprintf("round%d", sys.round), sys.stage.def):
-				case crun.tryPlay("", sys.stage.def):
+				case sys.roundIsFinal() && cmusic.tryPlay("final", sys.stage.def):
+				case sys.sel.gameParams.PersistMusic && cmusic.tryPlay(fmt.Sprintf("round%d", sys.match), sys.stage.def):
+				case cmusic.tryPlay(fmt.Sprintf("round%d", sys.round), sys.stage.def):
+				case cmusic.tryPlay("", sys.stage.def):
 				}
 				sys.stage.bgmState = BGMStateRound
 				continue
@@ -417,7 +417,7 @@ func (m Music) act() {
 				c.playerNo == c.teamLeader()-1 &&
 				float32(c.life)/float32(c.lifeMax) <= sys.stage.bgmratio {
 				//fmt.Printf("[music] act: low life detected for player %d, trying 'life' prefix\n", c.playerNo)
-				if crun.tryPlay("life", sys.stage.def) {
+				if cmusic.tryPlay("life", sys.stage.def) {
 					sys.stage.bgmState = BGMStateLowLife
 					continue
 				}
@@ -426,11 +426,11 @@ func (m Music) act() {
 			// Victory (decisive round, winning & alive)
 			if sys.stage.bgmState < BGMStateVictory &&
 				c.win() && c.alive() &&
-				sys.decisiveRound[^c.playerNo&1] {
+				sys.decisiveRound[c.playerNo&1] {
 
 				//fmt.Printf("[music] act: decisive victory for teamside=%d, trying 'victory' prefix\n", c.teamside)
 
-				if crun.tryPlay("victory", sys.stage.def) {
+				if cmusic.tryPlay("victory", sys.stage.def) {
 					sys.stage.bgmState = BGMStateVictory
 					continue
 				}

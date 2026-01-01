@@ -2942,7 +2942,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_consecutivewins:
 		sys.bcStack.PushI(c.consecutiveWins())
 	case OC_ex_decisiveround:
-		sys.bcStack.PushB(sys.decisiveRound[^c.playerNo&1])
+		sys.bcStack.PushB(sys.decisiveRound[c.playerNo&1])
 	case OC_ex_defence:
 		sys.bcStack.PushF(float32(c.finalDefense * 100))
 	case OC_ex_dizzy:

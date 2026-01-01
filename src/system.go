@@ -1299,6 +1299,18 @@ func (s *System) roundStateTicks() int32 {
 	return s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
 }
 
+// Check if the match consists of a single round
+func (s *System) roundIsSingle() bool {
+	return !s.sel.gameParams.PersistRounds && s.round == 1 && s.decisiveRound[0] && s.decisiveRound[1]
+}
+
+// This checks if a round is eligible for "Final Round" behavior, not if it's literally the final round
+// https://github.com/ikemen-engine/Ikemen-GO/issues/1659
+func (s *System) roundIsFinal() bool {
+	return !s.sel.gameParams.PersistRounds && s.round > 1 && s.decisiveRound[0] && s.decisiveRound[1] &&
+		(s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1])
+}
+
 func (s *System) winnerTeam() int32 {
 	var winp int32 = -1
 	if !s.endMatch {
@@ -1745,14 +1757,16 @@ func (s *System) resetRoundState() {
 	// Previously Ikemen reset it between rounds, but that creates the odd scenario where a new player in Turns mode will have the same ID as a previous player
 	//s.nextCharId = s.cfg.Config.HelperMax
 
-	if (s.tmode[0] == TM_Turns && s.wins[1] >= s.numTurns[0]-1) ||
-		(s.tmode[0] != TM_Turns && s.wins[1] >= s.lifebar.ro.match_wins[0]-1) {
-		s.decisiveRound[0] = true
-	}
-
-	if (s.tmode[1] == TM_Turns && s.wins[0] >= s.numTurns[1]-1) ||
-		(s.tmode[1] != TM_Turns && s.wins[0] >= s.lifebar.ro.match_wins[1]-1) {
-		s.decisiveRound[1] = true
+	// Decisive round check
+	for i := range s.decisiveRound {
+		neededWins := s.lifebar.ro.match_wins[i]
+		// If enemy is in Turns, then we must win "team size" rounds
+		if s.tmode[1-i] == TM_Turns {
+			neededWins = s.numTurns[1-i]
+		}
+		if s.wins[i] >= neededWins-1 {
+			s.decisiveRound[i] = true
+		}
 	}
 
 	var roundRef int32

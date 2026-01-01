@@ -2940,15 +2940,6 @@ func readLifeBarRound(is IniSection,
 	return ro
 }
 
-func (ro *LifeBarRound) isSingleRound() bool {
-	return !sys.sel.gameParams.PersistRounds && sys.round == 1 && sys.decisiveRound[0] && sys.decisiveRound[1]
-}
-
-func (ro *LifeBarRound) isFinalRound() bool {
-	return !sys.sel.gameParams.PersistRounds && sys.round > 1 && sys.decisiveRound[0] && sys.decisiveRound[1] &&
-		(sys.draws >= sys.lifebar.ro.match_maxdrawgames[0] || sys.draws >= sys.lifebar.ro.match_maxdrawgames[1])
-}
-
 // Check is sys.intro timer should step
 func (ro *LifeBarRound) act() bool {
 	// Reset FightScreenState trigger flags
@@ -3034,9 +3025,9 @@ func (ro *LifeBarRound) handleRoundIntro() {
 		}
 		// Sounds
 		if ro.waitSoundTimer[0] == 0 {
-			if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
+			if sys.roundIsSingle() && ro.round_single.snd[0] != -1 {
 				ro.snd.play(ro.round_single.snd, 100, 0, 0, 0, 0)
-			} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
+			} else if sys.roundIsFinal() && ro.round_final.snd[0] != -1 {
 				ro.snd.play(ro.round_final.snd, 100, 0, 0, 0, 0)
 			} else if int(roundNum) <= len(ro.round) && ro.round[roundNum-1].snd[0] != -1 {
 				ro.snd.play(ro.round[roundNum-1].snd, 100, 0, 0, 0, 0)
@@ -3049,7 +3040,7 @@ func (ro *LifeBarRound) handleRoundIntro() {
 		if ro.waitTimer[0] <= 0 {
 			ro.triggerRoundDisplay = true
 			ro.drawTimer[0]++
-			if ro.isSingleRound() && ro.round_single.snd[0] != -1 {
+			if sys.roundIsSingle() && ro.round_single.snd[0] != -1 {
 				if len(ro.round_single_top.anim.frames) > 0 {
 					ro.round_single_top.Action()
 				} else {
@@ -3067,7 +3058,7 @@ func (ro *LifeBarRound) handleRoundIntro() {
 					}
 				}
 				ro.roundCallOver = ro.round_single.End(ro.drawTimer[0], true) && ro.round_default.End(ro.drawTimer[0], true)
-			} else if ro.isFinalRound() && ro.round_final.snd[0] != -1 {
+			} else if sys.roundIsFinal() && ro.round_final.snd[0] != -1 {
 				if len(ro.round_final_top.anim.frames) > 0 {
 					ro.round_final_top.Action()
 				} else {
@@ -3413,7 +3404,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 		// Draw background and select round reference
 		switch {
-		case ro.isSingleRound() &&
+		case sys.roundIsSingle() &&
 			(ro.round_single.HasDrawable() || len(ro.round_single_bg) > 0 && ro.round_single_bg[0].HasAnim()):
 			// Single round
 			for i := range ro.round_single_bg {
@@ -3425,7 +3416,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 				)
 			}
 			round_ref = ro.round_single
-		case ro.isFinalRound() &&
+		case sys.roundIsFinal() &&
 			(ro.round_final.HasDrawable() || len(ro.round_final_bg) > 0 && ro.round_final_bg[0].HasAnim()):
 			// Final round
 			for i := range ro.round_final_bg {
@@ -3472,7 +3463,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 		// Draw top layer
 		switch {
-		case ro.isSingleRound() && ro.round_single_top.anim != nil && len(ro.round_single_top.anim.frames) > 0:
+		case sys.roundIsSingle() && ro.round_single_top.anim != nil && len(ro.round_single_top.anim.frames) > 0:
 			// Single round
 			ro.round_single_top.Draw(
 				float32(ro.pos[0])+sys.lifebar.offsetX,
@@ -3480,7 +3471,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 				layerno,
 				sys.lifebar.scale,
 			)
-		case ro.isFinalRound() && ro.round_final_top.anim != nil && len(ro.round_final_top.anim.frames) > 0:
+		case sys.roundIsFinal() && ro.round_final_top.anim != nil && len(ro.round_final_top.anim.frames) > 0:
 			// Final round
 			ro.round_final_top.Draw(
 				float32(ro.pos[0])+sys.lifebar.offsetX,

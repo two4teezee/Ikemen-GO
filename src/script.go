@@ -7274,7 +7274,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "decisiveround", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.decisiveRound[^sys.debugWC.playerNo&1]))
+		l.Push(lua.LBool(sys.decisiveRound[sys.debugWC.playerNo&1]))
 		return 1
 	})
 	luaRegister(l, "displayname", func(*lua.LState) int {

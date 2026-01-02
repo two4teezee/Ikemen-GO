@@ -231,7 +231,7 @@ type Config struct {
 func loadConfig(def string) (*Config, error) {
 	// Define load options if needed
 	// https://github.com/go-ini/ini/blob/main/ini.go
-	options := ini.LoadOptions{
+	baseOptions := ini.LoadOptions{
 		Insensitive: false,
 		//InsensitiveSections: true,
 		//InsensitiveKeys: true,
@@ -249,6 +249,10 @@ func loadConfig(def string) (*Config, error) {
 		//AllowDuplicateShadowValues: true,
 	}
 
+	// Preserve duplicates in user config so we can apply "first instance wins".
+	userOptions := baseOptions
+	userOptions.AllowShadows = true
+
 	// Choose default config source: prefer physical file, else embedded bytes.
 	var defaultSrc interface{}
 	if fp := FileExist("resources/defaultConfig.ini"); len(fp) != 0 {
@@ -261,29 +265,22 @@ func loadConfig(def string) (*Config, error) {
 	var defaultOnlyIni *ini.File
 	var userIniFile *ini.File
 	var err error
-	if fp := FileExist(def); len(fp) == 0 {
-		iniFile, err = ini.LoadSources(options, defaultSrc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read data: %v", err)
-		}
-		defaultOnlyIni, err = ini.LoadSources(options, defaultSrc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read defaults-only data: %v", err)
-		}
-		// no user file
-	} else {
-		iniFile, err = ini.LoadSources(options, defaultSrc, def)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read data: %v", err)
-		}
-		defaultOnlyIni, err = ini.LoadSources(options, defaultSrc)
-		if err != nil {
-			return nil, fmt.Errorf("failed to read defaults-only data: %v", err)
-		}
-		userIniFile, err = ini.LoadSources(options, def)
+	// Load defaults-only.
+	defaultOnlyIni, err = ini.LoadSources(baseOptions, defaultSrc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read defaults-only data: %v", err)
+	}
+	// Start merged INI as defaults, then overlay user (first-wins for duplicates).
+	iniFile, err = ini.LoadSources(baseOptions, defaultSrc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read base data: %v", err)
+	}
+	if fp := FileExist(def); len(fp) != 0 {
+		userIniFile, err = ini.LoadSources(userOptions, def)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read user data: %v", err)
 		}
+		overlayUserFirstWins(iniFile, userIniFile)
 	}
 	var c Config
 	c.Def = def
@@ -300,18 +297,14 @@ func loadConfig(def string) (*Config, error) {
 			}
 			for _, key := range section.Keys() {
 				keyName := key.Name()
-				values := key.ValueWithShadows()
-				// go-ini can return an empty slice here for keys with an empty value.
-				// We still want to process the key once so empty arrays can override defaults.
-				if len(values) == 0 {
-					values = []string{key.Value()}
+				value, dup := iniFirstValue(key)
+				if dup > 0 {
+					fmt.Printf("Warning: Duplicate key [%s] %s (%d duplicate(s) ignored)\n", sectionName, keyName, dup)
 				}
-				for _, value := range values {
-					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
-					keyParts := parseQueryPath(fullKey)
-					if err := assignField(&c, keyParts, value, def); err != nil {
-						fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
-					}
+				fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
+				keyParts := parseQueryPath(fullKey)
+				if err := assignField(&c, keyParts, value, def); err != nil {
+					fmt.Printf("Warning: Failed to assign key [%s]: %v\n", fullKey, err)
 				}
 			}
 		}

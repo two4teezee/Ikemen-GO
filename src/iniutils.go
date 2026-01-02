@@ -155,6 +155,44 @@ func splitLangPrefix(name string) (string, string, bool) {
 }
 
 // -------------------------------------------------------------------
+// Duplicate-key helpers (first instance wins)
+// -------------------------------------------------------------------
+
+// returns the first value for a key when duplicates exist (requires LoadOptions.AllowShadows = true).
+// dupCount is the number of additional duplicate values ignored; handles empty-value edge cases in go-ini.
+func iniFirstValue(k *ini.Key) (val string, dupCount int) {
+	if k == nil {
+		return "", 0
+	}
+	vs := k.ValueWithShadows()
+	if len(vs) == 0 {
+		// No shadows support or key had an empty value (go-ini quirk)
+		return k.Value(), 0
+	}
+	// First-defined value is the first element.
+	val = vs[0]
+	if len(vs) > 1 {
+		dupCount = len(vs) - 1
+	}
+	return val, dupCount
+}
+
+// overlayUserFirstWins overlays values from user into dst.
+// If user contains duplicate keys (AllowShadows=true), the first occurrence wins.
+func overlayUserFirstWins(dst, user *ini.File) {
+	if dst == nil || user == nil {
+		return
+	}
+	for _, us := range user.Sections() {
+		ds := dst.Section(us.Name()) // creates if missing
+		for _, uk := range us.Keys() {
+			v, _ := iniFirstValue(uk)
+			ds.Key(uk.Name()).SetValue(v)
+		}
+	}
+}
+
+// -------------------------------------------------------------------
 // Helper Functions
 // -------------------------------------------------------------------
 

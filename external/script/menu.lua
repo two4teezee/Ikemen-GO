@@ -637,16 +637,19 @@ end
 
 function menu.f_commandlistParse()
 	menu.t_movelists = {}
-	local t_uniqueRefs = {}
-	for player, tbl in ipairs({start.p[1].t_selected, start.p[2].t_selected}) do
+	for side, tbl in ipairs({start.p[1].t_selected, start.p[2].t_selected}) do
 		for member, sel in ipairs(tbl) do
-			if t_uniqueRefs[sel.ref] == nil then
-				t_uniqueRefs[sel.ref] = true
-				if sel.movelistLine == nil then
-					sel.movelistLine = 1
-				end
-				if start.f_getCharData(sel.ref).commandlist == nil then
-					local movelist = getCharMovelist(sel.ref)
+			if sel.movelistLine == nil then
+				sel.movelistLine = 1
+			end
+			local pn = side
+			if member > 1 then
+				pn = pn + (member - 1) * 2
+			end
+			if player(pn) and ailevel() == 0 then
+				local ref = selectno()
+				if start.f_getCharData(ref).commandlist == nil then
+					local movelist = getCharMovelist(ref)
 					if movelist ~= '' then
 						-- Replace glyph tokens with <token> for later lookup in motif.glyphs.
 						for k, v in main.f_sortKeys(motif.glyphs, function(t, a, b) return string.len(a) > string.len(b) end) do
@@ -682,21 +685,25 @@ function menu.f_commandlistParse()
 							table.insert(t, subt)
 						end
 						t[#t] = nil --blank line produced by regexp matching
-						start.f_getCharData(sel.ref).commandlist = t
+						start.f_getCharData(ref).commandlist = t
 					end
-				end
-				local pn = player
-				if member > 1 then
-					pn = pn + (member - 1) * 2
 				end
 				table.insert(menu.t_movelists, {
 					pn = pn,
-					name = start.f_getCharData(sel.ref).name,
+					name = start.f_getCharData(ref).name,
 					tbl = sel,
-					commandlist = start.f_getCharData(sel.ref).commandlist,
+					commandlist = start.f_getCharData(ref).commandlist,
 				})
 			end
 		end
+	end
+	if #menu.t_movelists == 0 then
+		table.insert(menu.t_movelists, {
+			pn = 1,
+			name = "",
+			tbl = {movelistLine = 1},
+			commandlist = nil,
+		})
 	end
 	if menu.movelistChar > #menu.t_movelists then
 		menu.movelistChar = 1

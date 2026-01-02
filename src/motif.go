@@ -4818,7 +4818,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Rank.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Rank.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Rank.Offset[1] + stepY*float32(i)
@@ -4851,7 +4851,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Result.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Result.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Result.Offset[1] + stepY*float32(i)
@@ -4891,7 +4891,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Name.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Name.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Name.Offset[1] + stepY*float32(i)

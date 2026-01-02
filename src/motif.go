@@ -254,7 +254,7 @@ type BoxCursorProperties struct {
 type OverlayProperties struct {
 	Col        [3]int32 `ini:"col"`
 	Alpha      [2]int32 `ini:"alpha" default:"0,255"`
-	Layerno    int16    `ini:"layerno" default:"0"`
+	Layerno    int16    `ini:"layerno" default:"1"`
 	Window     [4]int32 `ini:"window"`
 	Localcoord [2]int32 `ini:"localcoord"`
 	RectData   *Rect
@@ -3239,14 +3239,18 @@ func (ch *MotifChallenger) step(m *Motif) {
 }
 
 func (ch *MotifChallenger) draw(m *Motif, layerno int16) {
-	m.ChallengerInfo.Overlay.RectData.Draw(layerno)
+	// Background
 	if m.ChallengerBgDef.BgClearColor[0] >= 0 {
 		m.ChallengerBgDef.RectData.Draw(layerno)
 	}
 	m.ChallengerBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	// Overlay
+	m.ChallengerInfo.Overlay.RectData.Draw(layerno)
+	// Text
 	if ch.counter >= m.ChallengerInfo.Text.Displaytime {
 		m.ChallengerInfo.Text.TextSpriteData.Draw(layerno)
 	}
+	// Bg
 	if ch.counter >= m.ChallengerInfo.Bg.Displaytime {
 		m.ChallengerInfo.Bg.AnimData.Draw(layerno)
 	}
@@ -4818,7 +4822,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Rank.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Rank.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Rank.Offset[1] + stepY*float32(i)
@@ -4851,7 +4855,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Result.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Result.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Result.Offset[1] + stepY*float32(i)
@@ -4891,7 +4895,7 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				x := baseX + itemOffX + m.HiscoreInfo.Item.Name.Offset[0] +
 					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
 				stepY := float32(math.Round(float64(
-					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.yscl +
+					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Name.Spacing[1]),
 				)))
 				y := baseY + itemOffY + m.HiscoreInfo.Item.Name.Offset[1] + stepY*float32(i)
@@ -5111,6 +5115,10 @@ func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 		}
 		m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 	}
+	// Overlay
+	if !hi.noOverlay {
+		m.HiscoreInfo.Overlay.RectData.Draw(layerno)
+	}
 	// Title and subtitles
 	m.HiscoreInfo.Title.TextSpriteData.Draw(layerno)
 	m.HiscoreInfo.Title.Rank.TextSpriteData.Draw(layerno)
@@ -5164,11 +5172,6 @@ func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 	// Timer (only when enabled & during input)
 	if m.HiscoreInfo.Timer.Count != -1 && hi.input && m.HiscoreInfo.Timer.TextSpriteData != nil {
 		m.HiscoreInfo.Timer.TextSpriteData.Draw(layerno)
-	}
-
-	// Overlay
-	if !hi.noOverlay {
-		m.HiscoreInfo.Overlay.RectData.Draw(layerno)
 	}
 }
 
@@ -5867,23 +5870,19 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	})
 	// Overlay
 	m.VictoryScreen.Overlay.RectData.Draw(layerno)
-
 	// Background
 	if m.VictoryBgDef.BgClearColor[0] >= 0 {
 		m.VictoryBgDef.RectData.Draw(layerno)
 	}
 	m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
-
 	// Face2 portraits
 	for _, s := range slots {
 		s.p.Face2.AnimData.Draw(layerno)
 	}
-
 	// Face portraits
 	for _, s := range slots {
 		s.p.AnimData.Draw(layerno)
 	}
-
 	// Name
 	m.VictoryScreen.P1.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P2.Name.TextSpriteData.Draw(layerno)
@@ -5893,10 +5892,6 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	m.VictoryScreen.P6.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P7.Name.TextSpriteData.Draw(layerno)
 	m.VictoryScreen.P8.Name.TextSpriteData.Draw(layerno)
-	//for _, s := range slots {
-	//	s.p.Name.TextSpriteData.Draw(layerno)
-	//}
-
 	// Winner Name
 	m.VictoryScreen.WinName.TextSpriteData.Draw(layerno)
 	// Winquote
@@ -6314,7 +6309,7 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 	if wi.resultsScreen != nil {
 		bg := wi.resultsBgDef
 		rs := wi.resultsScreen
-
+		// Background
 		if bg != nil {
 			if bg.BgClearColor[0] >= 0 && bg.RectData != nil {
 				bg.RectData.Draw(layerno)
@@ -6323,22 +6318,26 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 				bg.BGDef.Draw(int32(layerno), 0, 0, 1)
 			}
 		}
+		// Overlay
 		if rs.Overlay.RectData != nil {
 			rs.Overlay.RectData.Draw(layerno)
 		}
+		// Text
 		if wi.counter >= rs.WinsText.DisplayTime && rs.WinsText.TextSpriteData != nil {
 			rs.WinsText.TextSpriteData.Draw(layerno)
 		}
 		return
 	}
-
 	// Fallback: normal win screen.
 	{
+		// Background
 		if m.WinBgDef.BgClearColor[0] >= 0 {
 			m.WinBgDef.RectData.Draw(layerno)
 		}
 		m.WinBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		// Overlay
 		m.WinScreen.Overlay.RectData.Draw(layerno)
+		// Text
 		if wi.counter >= m.WinScreen.WinText.DisplayTime {
 			m.WinScreen.WinText.TextSpriteData.Draw(layerno)
 		}

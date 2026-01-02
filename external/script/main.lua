@@ -1011,14 +1011,14 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 		clearColor(background.bgclearcolor[1], background.bgclearcolor[2], background.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(background.BGDef, 0)
+		--draw layerno = 1 backgrounds
+		bgDraw(background.BGDef, 1)
 		--draw overlay
 		rectDraw(overlay)
 		--draw title
 		textImgDraw(titleData)
 		--draw text
 		textImgDraw(textData)
-		--draw layerno = 1 backgrounds
-		bgDraw(background.BGDef, 1)
 		--end loop
 		refresh()
 	end
@@ -1044,6 +1044,8 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 		clearColor(background.bgclearcolor[1], background.bgclearcolor[2], background.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(background.BGDef, 0)
+		--draw layerno = 1 backgrounds
+		bgDraw(background.BGDef, 1)
 		--draw overlay
 		rectDraw(overlay)
 		--draw text
@@ -1051,8 +1053,6 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 		textImgSetText(textData, text)
 		textImgAddText(textData, '\\n\\n' .. input)
 		textImgDraw(textData)
-		--draw layerno = 1 backgrounds
-		bgDraw(background.BGDef, 1)
 		--end loop
 		main.f_cmdInput()
 		refresh()
@@ -2807,6 +2807,8 @@ function main.f_connect(server, str)
 		clearColor(motif[main.background].bgclearcolor[1], motif[main.background].bgclearcolor[2], motif[main.background].bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(motif[main.background].BGDef, 0)
+		--draw layerno = 1 backgrounds
+		bgDraw(motif[main.background].BGDef, 1)
 		--draw overlay
 		rectDraw(motif.title_info.connecting.overlay.RectData)
 		--draw text
@@ -2819,8 +2821,6 @@ function main.f_connect(server, str)
 			textImgSetText(motif.title_info.connecting.join.TextSpriteData, string.format(motif.title_info.connecting.join.text, server, str))
 			textImgDraw(motif.title_info.connecting.join.TextSpriteData)
 		end
-		--draw layerno = 1 backgrounds
-		bgDraw(motif[main.background].BGDef, 1)
 		main.f_cmdInput()
 		refresh()
 	end
@@ -2931,6 +2931,8 @@ function main.f_attractStart()
 		counter = counter + 1
 		--draw layerno = 0 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 0)
+		--draw layerno = 1 backgrounds
+		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw text
 		if credits() ~= 0 then
 			if motif.attract_mode.start.press.blinktime > 0 and not fadeOutStarted then
@@ -2994,8 +2996,6 @@ function main.f_attractStart()
 			main.menu.f()
 			return false
 		end
-		--draw layerno = 1 backgrounds
-		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
 		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and main.f_input(main.t_players, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
 			if credits() ~= 0 then
@@ -3316,9 +3316,13 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	if not skipClear then
 		clearColor(bg.bgclearcolor[1], bg.bgclearcolor[2], bg.bgclearcolor[3])
 	end
-
+	--draw layerno = 0 backgrounds
 	if not opts.skipBG0 then
 		bgDraw(bg.BGDef, 0)
+	end
+	--draw layerno = 1 backgrounds
+	if not opts.skipBG1 then
+		bgDraw(bg.BGDef, 1)
 	end
 
 	--draw menu box
@@ -3480,10 +3484,6 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		textImgReset(motif.attract_mode.credits.TextSpriteData)
 		textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, credits()))
 		textImgDraw(motif.attract_mode.credits.TextSpriteData)
-	end
-	--draw layerno = 1 backgrounds
-	if not opts.skipBG1 then
-		bgDraw(bg.BGDef, 1)
 	end
 	--draw footer
 	if sec.footer ~= nil then

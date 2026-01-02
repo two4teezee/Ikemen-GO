@@ -492,12 +492,15 @@ func (f *Fnt) drawChar(
 		return 0
 	}
 
-	// In case of mismatched color depth between bank palette and the sprite's own palette,
-	// Mugen 1.1 uses the latter, ignoring the bank
-	if len(f.palettes) != 0 && len(f.coldepth) > int(bank) &&
-		f.images[bt][c].img[0].coldepth != 32 &&
-		f.coldepth[bank] != f.images[bt][c].img[0].coldepth {
-		pal = f.images[bt][c].img[0].Pal[:] //palfx.getFxPal(f.images[bt][c].img[0].Pal[:], false)
+	// Only paletted sprites (<=8bpp) use palette mapping.
+	if spr.coldepth <= 8 {
+		// In case of mismatched color depth between bank palette and the sprite's own palette,
+		// Mugen 1.1 uses the latter, ignoring the bank
+		if len(f.palettes) != 0 && len(f.coldepth) > int(bank) &&
+			f.images[bt][c].img[0].coldepth != 32 &&
+			f.coldepth[bank] != f.images[bt][c].img[0].coldepth {
+			pal = f.images[bt][c].img[0].Pal[:] //palfx.getFxPal(f.images[bt][c].img[0].Pal[:], false)
+		}
 	}
 
 	x -= xscl * float32(spr.Offset[0])
@@ -526,7 +529,13 @@ func (f *Fnt) drawChar(
 
 	// Update only the render parameters that change between each character
 	rp.tex = spr.Tex
-	rp.paltex = f.paltex
+	if spr.coldepth <= 8 {
+		rp.paltex = f.paltex
+	} else {
+		// RGBA / truecolor glyphs must NOT use paltex.
+		// Leaving paltex non-nil here makes the renderer think the glyph is indexed.
+		rp.paltex = nil
+	}
 	rp.size = spr.Size
 	rp.x = -x * sys.widthScale
 	rp.y = -y * sys.heightScale

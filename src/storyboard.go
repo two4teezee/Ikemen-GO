@@ -127,7 +127,7 @@ type Storyboard struct {
 func loadStoryboard(def string) (*Storyboard, error) {
 	// Define load options if needed
 	// https://github.com/go-ini/ini/blob/main/ini.go
-	options := ini.LoadOptions{
+	baseOptions := ini.LoadOptions{
 		Insensitive:             false,
 		InsensitiveSections:     true,
 		InsensitiveKeys:         false,
@@ -145,19 +145,24 @@ func loadStoryboard(def string) (*Storyboard, error) {
 		//AllowDuplicateShadowValues: true,
 	}
 
-	// Load combined (for later font/music lookups), plus defaults-only and user-only
-	iniFile, err := ini.LoadSources(options, defaultStoryboard, def)
+	// Preserve duplicates in user config so we can apply "first instance wins".
+	userOptions := baseOptions
+	userOptions.AllowShadows = true
+
+	// Start merged INI as defaults, then overlay user (first-wins for duplicates).
+	iniFile, err := ini.LoadSources(baseOptions, defaultStoryboard)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load INI file: %w", err)
 	}
-	defaultOnlyIni, err := ini.LoadSources(options, defaultStoryboard)
+	defaultOnlyIni, err := ini.LoadSources(baseOptions, defaultStoryboard)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load defaults-only INI: %w", err)
 	}
-	userIniFile, err := ini.LoadSources(options, def)
+	userIniFile, err := ini.LoadSources(userOptions, def)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load user INI %s: %w", def, err)
 	}
+	overlayUserFirstWins(iniFile, userIniFile)
 
 	var s Storyboard
 	s.Def = def
@@ -223,7 +228,11 @@ func loadStoryboard(def string) (*Storyboard, error) {
 					existing := make(map[string]bool)
 					for _, k := range section.Keys() {
 						if ptr, ok := keysToCheck[strings.ToLower(k.Name())]; ok {
-							*ptr = k.Value()
+							v, dup := iniFirstValue(k)
+							if dup > 0 {
+								sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), k.Name(), dup)
+							}
+							*ptr = v
 							existing[strings.ToLower(k.Name())] = true
 						}
 					}
@@ -238,7 +247,10 @@ func loadStoryboard(def string) (*Storyboard, error) {
 
 				for _, key := range section.Keys() {
 					keyName := key.Name()
-					value := key.Value()
+					value, dup := iniFirstValue(key)
+					if dup > 0 {
+						sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), keyName, dup)
+					}
 					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
 					keyParts := parseQueryPath(fullKey)
 					if err := assignField(&s, keyParts, value, def); err != nil {

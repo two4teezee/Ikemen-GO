@@ -1532,7 +1532,7 @@ func loadMotif(def string) (*Motif, error) {
 	}
 	// Define load options if needed
 	// https://github.com/go-ini/ini/blob/main/ini.go
-	options := ini.LoadOptions{
+	baseOptions := ini.LoadOptions{
 		Insensitive:             false,
 		InsensitiveSections:     true,
 		InsensitiveKeys:         false,
@@ -1549,6 +1549,10 @@ func loadMotif(def string) (*Motif, error) {
 		//AllowNonUniqueSections: true,
 		//AllowDuplicateShadowValues: true,
 	}
+
+	// Preserve duplicates in user input so we can apply "first instance wins".
+	userOptions := baseOptions
+	userOptions.AllowShadows = true
 
 	// Load the INI file
 	var iniFile *ini.File
@@ -1575,35 +1579,46 @@ func loadMotif(def string) (*Motif, error) {
 			if err != nil {
 				return fmt.Errorf("Failed to load mod system.def from %s: %w", p, err)
 			}
-			modsConcat.WriteString(txt)
-			if !strings.HasSuffix(txt, "\n") {
+			nt := NormalizeNewlines(txt)
+			modsConcat.WriteString(nt)
+			if !strings.HasSuffix(nt, "\n") {
 				modsConcat.WriteString("\n")
 			}
 		}
 
 		// Preprocess and load INI sources from memory.
-		// Mods go on top so the motif file (last) can override them.
-		combined := modsConcat.String() + NormalizeNewlines(string(inputBytes))
+		// Motif file overrides mods
+		baseTxt := NormalizeNewlines(string(inputBytes))
+		modsTxt := modsConcat.String()
+		var combined string
+		if modsTxt != "" {
+			if baseTxt != "" && !strings.HasSuffix(baseTxt, "\n") {
+				baseTxt += "\n"
+			}
+			combined = baseTxt + modsTxt
+		} else {
+			combined = baseTxt
+		}
 		normalizedInput := []byte(preprocessINIContent(combined))
 		normalizedDefault := []byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif))))
 
-		// Load merged INI: defaults first, then user (user overrides)
-		iniFile, err = ini.LoadSources(options, normalizedDefault, normalizedInput)
-		if err != nil {
-			return fmt.Errorf("Failed to load INI sources (defaults + user) from memory: %w", err)
-		}
-
-		// Load defaults-only
-		defaultOnlyIni, err = ini.LoadSources(options, normalizedDefault)
+		// Defaults-only baseline
+		defaultOnlyIni, err = ini.LoadSources(baseOptions, normalizedDefault)
 		if err != nil {
 			return fmt.Errorf("Failed to load defaults-only INI from memory: %w", err)
 		}
 
-		// Load user-only
-		userIniFile, err = ini.LoadSources(options, normalizedInput)
+		// merged starts as defaults, then overlay user (first-wins for duplicates in user)
+		iniFile, err = ini.LoadSources(baseOptions, normalizedDefault)
+		if err != nil {
+			return fmt.Errorf("Failed to load merged baseline INI from memory: %w", err)
+		}
+
+		userIniFile, err = ini.LoadSources(userOptions, normalizedInput)
 		if err != nil {
 			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
 		}
+		overlayUserFirstWins(iniFile, userIniFile)
 
 		return nil
 	}); err != nil {
@@ -1686,7 +1701,10 @@ func loadMotif(def string) (*Motif, error) {
 					// handled in script.go to preserve order
 					continue
 				}
-				value := key.Value()
+				value, dup := iniFirstValue(key)
+				if dup > 0 {
+					sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", sectionName, keyName, dup)
+				}
 
 				// Normalize spaces
 				secNorm := strings.ReplaceAll(sectionName, " ", "_")
@@ -1825,9 +1843,11 @@ func (m *Motif) fixLocalcoordOverrides() {
 
 			// 1) If user explicitly sets this .localcoord (non-empty) in their motif, always respect it.
 			if userSec != nil {
-				if uk, err := userSec.GetKey(keyName); err == nil && uk != nil &&
-					strings.TrimSpace(uk.Value()) != "" {
-					continue
+				if uk, err := userSec.GetKey(keyName); err == nil && uk != nil {
+					uv, _ := iniFirstValue(uk)
+					if strings.TrimSpace(uv) != "" {
+						continue
+					}
 				}
 			}
 
@@ -1919,7 +1939,8 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 		if k == nil {
 			return "", false
 		}
-		return k.Value(), true
+		v, _ := iniFirstValue(k)
+		return v, true
 	}
 
 	shouldSkip := func(fullKeyLower string) bool {

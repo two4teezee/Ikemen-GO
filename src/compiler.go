@@ -3180,6 +3180,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_projvar_projanim
 		case "animelem":
 			opc = OC_ex2_projvar_animelem
+		case "attr":
+			opc = OC_ex2_projvar_attr
+			isFlag = true
 		case "drawpal":
 			c.token = c.tokenizer(in)
 
@@ -3339,14 +3342,21 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		bv3 := BytecodeInt(0)
 		if isFlag {
 			if err := eqne2(func(not bool) error {
-				if flg, err := flagSub(); err != nil {
-					return err
+				var flg int32
+				var err error
+				if opc == OC_ex2_projvar_attr {
+					flg, err = c.trgAttr(in) // Parses "SCA, AP"
 				} else {
-					if not {
-						bv3 = BytecodeInt(^flg)
-					} else {
-						bv3 = BytecodeInt(flg)
-					}
+					flg, err = flagSub() // Parses "HLA"
+				}
+				
+				if err != nil {
+					return err
+				}
+				if not {
+					bv3 = BytecodeInt(^flg)
+				} else {
+					bv3 = BytecodeInt(flg)
 				}
 				return nil
 			}); err != nil {

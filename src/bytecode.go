@@ -837,6 +837,7 @@ const (
 	OC_ex2_projvar_accel_y
 	OC_ex2_projvar_accel_z
 	OC_ex2_projvar_animelem
+	OC_ex2_projvar_attr
 	OC_ex2_projvar_drawpal_group
 	OC_ex2_projvar_drawpal_index
 	OC_ex2_projvar_facing
@@ -3645,6 +3646,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projvar_guardflag:
 		fallthrough
 	case OC_ex2_projvar_hitflag:
+		fallthrough
+	case OC_ex2_projvar_attr:
 		flg := sys.bcStack.Pop()
 		idx := sys.bcStack.Pop()
 		id := sys.bcStack.Pop()

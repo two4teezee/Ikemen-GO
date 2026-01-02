@@ -5259,6 +5259,8 @@ func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue,
 				v = BytecodeFloat(p.accel[2] * p.localscl)
 			case OC_ex2_projvar_animelem:
 				v = BytecodeInt(p.ani.curelem + 1)
+			case OC_ex2_projvar_attr:
+				v = BytecodeBool(p.hitdef.testAttr(fl))
 			case OC_ex2_projvar_drawpal_group:
 				v = BytecodeInt(c.projDrawPal(p)[0])
 			case OC_ex2_projvar_drawpal_index:

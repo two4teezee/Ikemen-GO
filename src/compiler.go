@@ -3219,7 +3219,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case "z":
 				opc = OC_ex2_projvar_pos_z
 			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar pos argument: %s", c.token))
 			}
 		case "projcancelanim":
 			opc = OC_ex2_projvar_projcancelanim
@@ -3331,14 +3331,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		}
 
-		// If bv1 is ever 0 Ikemen crashes.
-		// I do not know why this happens.
-		// It happened with clsnVar.
-		idx := bv1.ToI()
-		if idx >= 0 {
-			bv1.SetI(idx + 1)
-		}
-
 		bv3 := BytecodeInt(0)
 		if isFlag {
 			if err := eqne2(func(not bool) error {
@@ -3365,15 +3357,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 
 		be3.appendValue(bv3)
-		be2.appendValue(bv2)
-		be1.appendValue(bv1)
-
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
-		be1.append(be2...)
+		be1.appendValue(bv1) 
+		be1.append(be2...) 
+		be1.appendValue(bv2)
 		be1.append(be3...)
 
 		if rd {

@@ -3531,129 +3531,148 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		} else {
 			sys.bcStack.Push(v)
 		}
-	// BEGIN FALLTHROUGH (projvar)
-	case OC_ex2_projvar_accel_x:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_accel_y:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_accel_z:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_vel_x:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_vel_y:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_vel_z:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_projstagebound:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_projedgebound:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_lowbound:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_highbound:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_remvelocity_x:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_remvelocity_y:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_remvelocity_z:
-		correctScale = true
-		fallthrough
-	case OC_ex2_projvar_projremove:
-		fallthrough
-	case OC_ex2_projvar_projremovetime:
-		fallthrough
-	case OC_ex2_projvar_projshadow_r:
-		fallthrough
-	case OC_ex2_projvar_projshadow_g:
-		fallthrough
-	case OC_ex2_projvar_projshadow_b:
-		fallthrough
-	case OC_ex2_projvar_projmisstime:
-		fallthrough
-	case OC_ex2_projvar_projhits:
-		fallthrough
-	case OC_ex2_projvar_projhitsmax:
-		fallthrough
-	case OC_ex2_projvar_projpriority:
-		fallthrough
-	case OC_ex2_projvar_projhitanim:
-		fallthrough
-	case OC_ex2_projvar_projremanim:
-		fallthrough
-	case OC_ex2_projvar_projcancelanim:
-		fallthrough
-	case OC_ex2_projvar_velmul_x:
-		fallthrough
-	case OC_ex2_projvar_velmul_y:
-		fallthrough
-	case OC_ex2_projvar_velmul_z:
-		fallthrough
-	case OC_ex2_projvar_projscale_x:
-		fallthrough
-	case OC_ex2_projvar_projscale_y:
-		fallthrough
-	case OC_ex2_projvar_projangle:
-		fallthrough
-	case OC_ex2_projvar_projyangle:
-		fallthrough
-	case OC_ex2_projvar_projxangle:
-		fallthrough
-	case OC_ex2_projvar_projxshear:
-		fallthrough
-	case OC_ex2_projvar_projsprpriority:
-		fallthrough
-	case OC_ex2_projvar_projlayerno:
-		fallthrough
-	case OC_ex2_projvar_projanim:
-		fallthrough
-	case OC_ex2_projvar_animelem:
-		fallthrough
-	case OC_ex2_projvar_drawpal_group:
-		fallthrough
-	case OC_ex2_projvar_drawpal_index:
-		fallthrough
-	case OC_ex2_projvar_supermovetime:
-		fallthrough
-	case OC_ex2_projvar_projid:
-		fallthrough
-	case OC_ex2_projvar_teamside:
-		fallthrough
-	case OC_ex2_projvar_pausemovetime:
-		fallthrough
-	case OC_ex2_projvar_pos_x:
-		fallthrough
-	case OC_ex2_projvar_pos_y:
-		fallthrough
-	case OC_ex2_projvar_pos_z:
-		fallthrough
-	case OC_ex2_projvar_facing:
-		fallthrough
-	case OC_ex2_projvar_time:
-		fallthrough
-	case OC_ex2_projvar_guardflag:
-		fallthrough
-	case OC_ex2_projvar_hitflag:
-		fallthrough
-	case OC_ex2_projvar_attr:
+	// ProjVar
+	case OC_ex2_projvar_accel_x, OC_ex2_projvar_accel_y, OC_ex2_projvar_accel_z,
+		OC_ex2_projvar_animelem, OC_ex2_projvar_attr, OC_ex2_projvar_drawpal_group,
+		OC_ex2_projvar_drawpal_index, OC_ex2_projvar_facing, OC_ex2_projvar_guardflag,
+		OC_ex2_projvar_highbound, OC_ex2_projvar_hitflag, OC_ex2_projvar_lowbound,
+		OC_ex2_projvar_pausemovetime, OC_ex2_projvar_pos_x, OC_ex2_projvar_pos_y,
+		OC_ex2_projvar_pos_z, OC_ex2_projvar_projanim, OC_ex2_projvar_projangle,
+		OC_ex2_projvar_projcancelanim, OC_ex2_projvar_projedgebound, OC_ex2_projvar_projhitanim,
+		OC_ex2_projvar_projhits, OC_ex2_projvar_projhitsmax, OC_ex2_projvar_projid,
+		OC_ex2_projvar_projlayerno, OC_ex2_projvar_projmisstime, OC_ex2_projvar_projpriority,
+		OC_ex2_projvar_projremanim, OC_ex2_projvar_projremove, OC_ex2_projvar_projremovetime,
+		OC_ex2_projvar_projscale_x, OC_ex2_projvar_projscale_y, OC_ex2_projvar_projshadow_b,
+		OC_ex2_projvar_projshadow_g, OC_ex2_projvar_projshadow_r, OC_ex2_projvar_projsprpriority,
+		OC_ex2_projvar_projstagebound, OC_ex2_projvar_projxangle, OC_ex2_projvar_projxshear,
+		OC_ex2_projvar_projyangle, OC_ex2_projvar_remvelocity_x, OC_ex2_projvar_remvelocity_y,
+		OC_ex2_projvar_remvelocity_z, OC_ex2_projvar_supermovetime, OC_ex2_projvar_teamside,
+		OC_ex2_projvar_time, OC_ex2_projvar_vel_x, OC_ex2_projvar_vel_y,
+		OC_ex2_projvar_vel_z, OC_ex2_projvar_velmul_x, OC_ex2_projvar_velmul_y, OC_ex2_projvar_velmul_z:
+
+		// Common Inputs
 		flg := sys.bcStack.Pop()
-		idx := sys.bcStack.Pop()
-		id := sys.bcStack.Pop()
-		v := c.projVar(id, idx, flg, opc, oc)
-		sys.bcStack.Push(v)
-	// END FALLTHROUGH (projvar)
+		idx := int(sys.bcStack.Pop().ToI())
+		id := sys.bcStack.Pop().ToI()
+
+		// Find projectile
+		projs := c.getProjs(id)
+		var p *Projectile
+		if idx >= 0 && idx < len(projs) {
+			p = projs[idx]
+		}
+
+		// Handle Output
+		if p != nil {
+			switch opc {
+			case OC_ex2_projvar_accel_x:
+				sys.bcStack.PushF(p.accel[0] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_accel_y:
+				sys.bcStack.PushF(p.accel[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_accel_z:
+				sys.bcStack.PushF(p.accel[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_animelem:
+				sys.bcStack.PushI(p.ani.curelem + 1)
+			case OC_ex2_projvar_drawpal_group:
+				sys.bcStack.PushI(c.projDrawPal(p)[0])
+			case OC_ex2_projvar_drawpal_index:
+				sys.bcStack.PushI(c.projDrawPal(p)[1])
+			case OC_ex2_projvar_facing:
+				sys.bcStack.PushF(p.facing)
+			case OC_ex2_projvar_guardflag:
+				sys.bcStack.PushB(p.hitdef.guardflag&flg.ToI() != 0)
+			case OC_ex2_projvar_highbound:
+				sys.bcStack.PushI(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_hitflag:
+				sys.bcStack.PushB(p.hitdef.hitflag&flg.ToI() != 0)
+			case OC_ex2_projvar_attr:
+				sys.bcStack.PushB(p.hitdef.testAttr(flg.ToI()))
+			case OC_ex2_projvar_lowbound:
+				sys.bcStack.PushI(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_pausemovetime:
+				sys.bcStack.PushI(p.pausemovetime)
+			case OC_ex2_projvar_pos_x:
+				sys.bcStack.PushF((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
+			case OC_ex2_projvar_pos_y:
+				sys.bcStack.PushF(p.pos[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_pos_z:
+				sys.bcStack.PushF(p.pos[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_projanim:
+				sys.bcStack.PushI(p.anim)
+			case OC_ex2_projvar_projangle:
+				sys.bcStack.PushF(p.anglerot[0])
+			case OC_ex2_projvar_projyangle:
+				sys.bcStack.PushF(p.anglerot[2])
+			case OC_ex2_projvar_projxangle:
+				sys.bcStack.PushF(p.anglerot[1])
+			case OC_ex2_projvar_projcancelanim:
+				sys.bcStack.PushI(p.cancelanim)
+			case OC_ex2_projvar_projedgebound:
+				sys.bcStack.PushI(int32(float32(p.edgebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projhitanim:
+				sys.bcStack.PushI(p.hitanim)
+			case OC_ex2_projvar_projhits:
+				sys.bcStack.PushI(p.hits)
+			case OC_ex2_projvar_projhitsmax:
+				sys.bcStack.PushI(p.totalhits)
+			case OC_ex2_projvar_projid:
+				sys.bcStack.PushI(int32(p.id))
+			case OC_ex2_projvar_projlayerno:
+				sys.bcStack.PushI(p.layerno)
+			case OC_ex2_projvar_projmisstime:
+				sys.bcStack.PushI(p.curmisstime)
+			case OC_ex2_projvar_projpriority:
+				sys.bcStack.PushI(p.priority)
+			case OC_ex2_projvar_projremove:
+				sys.bcStack.PushB(p.remove)
+			case OC_ex2_projvar_projremanim:
+				sys.bcStack.PushI(p.remanim)
+			case OC_ex2_projvar_projremovetime:
+				sys.bcStack.PushI(p.removetime)
+			case OC_ex2_projvar_projscale_x:
+				sys.bcStack.PushF(p.scale[0])
+			case OC_ex2_projvar_projscale_y:
+				sys.bcStack.PushF(p.scale[1])
+			case OC_ex2_projvar_projshadow_b:
+				sys.bcStack.PushI(p.shadow[2])
+			case OC_ex2_projvar_projshadow_g:
+				sys.bcStack.PushI(p.shadow[1])
+			case OC_ex2_projvar_projshadow_r:
+				sys.bcStack.PushI(p.shadow[0])
+			case OC_ex2_projvar_projsprpriority:
+				sys.bcStack.PushI(p.sprpriority)
+			case OC_ex2_projvar_projstagebound:
+				sys.bcStack.PushI(int32(float32(p.stagebound) * p.localscl / oc.localscl))
+			case OC_ex2_projvar_projxshear:
+				sys.bcStack.PushF(p.xshear)
+			case OC_ex2_projvar_remvelocity_x:
+				sys.bcStack.PushF(p.remvelocity[0] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_y:
+				sys.bcStack.PushF(p.remvelocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_remvelocity_z:
+				sys.bcStack.PushF(p.remvelocity[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_supermovetime:
+				sys.bcStack.PushI(p.supermovetime)
+			case OC_ex2_projvar_teamside:
+				sys.bcStack.PushI(int32(p.hitdef.teamside))
+			case OC_ex2_projvar_time:
+				sys.bcStack.PushI(p.time)
+			case OC_ex2_projvar_vel_x:
+				sys.bcStack.PushF(p.velocity[0] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_vel_y:
+				sys.bcStack.PushF(p.velocity[1] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_vel_z:
+				sys.bcStack.PushF(p.velocity[2] * p.localscl / oc.localscl)
+			case OC_ex2_projvar_velmul_x:
+				sys.bcStack.PushF(p.velmul[0])
+			case OC_ex2_projvar_velmul_y:
+				sys.bcStack.PushF(p.velmul[1])
+			case OC_ex2_projvar_velmul_z:
+				sys.bcStack.PushF(p.velmul[2])
+			}
+		} else {
+			sys.bcStack.Push(BytecodeSF())
+		}
 	// FightScreenState
 	case OC_ex2_fightscreenstate_fightdisplay:
 		sys.bcStack.PushB(sys.lifebar.ro.triggerFightDisplay)

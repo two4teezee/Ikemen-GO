@@ -3632,8 +3632,35 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 		}
 
 		if ro.shutterTimer > 0 {
+			// shutterTimer is a countdown from (shutter_time*2) to 0:
+			// 2T -> open, T -> fully closed, 0 -> open
 			rect := sys.scrrect
-			rect[3] = ro.shutterTimer * ((sys.scrrect[3] + 1) >> 1) / ro.shutter_time
+			half := (sys.scrrect[3] + 1) >> 1
+			var cover int32
+			if ro.shutter_time > 0 {
+				if ro.shutterTimer > ro.shutter_time {
+					// Closing phase
+					t := ro.shutter_time*2 - ro.shutterTimer
+					if t < 0 {
+						t = 0
+					}
+					if t > ro.shutter_time {
+						t = ro.shutter_time
+					}
+					cover = t * half / ro.shutter_time
+				} else {
+					// Opening phase
+					t := ro.shutterTimer
+					if t < 0 {
+						t = 0
+					}
+					if t > ro.shutter_time {
+						t = ro.shutter_time
+					}
+					cover = t * half / ro.shutter_time
+				}
+			}
+			rect[3] = cover
 			ro.fadeIn.drawRect(rect, ro.shutter_col, 255)
 			rect[1] = sys.scrrect[3] - rect[3]
 			ro.fadeIn.drawRect(rect, ro.shutter_col, 255)

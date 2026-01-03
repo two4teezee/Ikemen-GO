@@ -3078,17 +3078,20 @@ func (mo *Motif) sprintf(format string, args ...interface{}) string {
 }
 
 type MotifMenu struct {
-	enabled     bool
-	active      bool
-	initialized bool
-	counter     int32
-	endTimer    int32
+	enabled        bool
+	active         bool
+	initialized    bool
+	counter        int32
+	endTimer       int32
+	closeRequested bool
+	reopenLock     bool
 }
 
 func (me *MotifMenu) reset(m *Motif) {
 	me.active = false
 	me.initialized = false
 	me.endTimer = -1
+	me.closeRequested = false
 	if !m.di.active {
 		sys.applyFightAspect()
 	}
@@ -3097,10 +3100,41 @@ func (me *MotifMenu) reset(m *Motif) {
 	}
 }
 
+// returns true if the pause/menu open input is still physically held.
+func (me *MotifMenu) menuOpenInputHeld(m *Motif) bool {
+	// Physical ESC hold
+	if sys.keyState != nil && sys.keyState[KeyEscape] {
+		return true
+	}
+	// Also respect configured menu cancel/open bindings
+	if m != nil && m.MenuInfo.Enabled {
+		if m.button(m.MenuInfo.Menu.Cancel.Key, -1) {
+			return true
+		}
+	}
+	return false
+}
+
+func (me *MotifMenu) requestClose(m *Motif) {
+	if me.endTimer != -1 {
+		return
+	}
+	me.closeRequested = true
+	startFadeOut(m.MenuInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	me.endTimer = me.counter + m.fadeOut.timeRemaining
+}
+
 func (me *MotifMenu) init(m *Motif) {
 	if !m.MenuInfo.Enabled || !me.enabled {
 		me.initialized = true
 		return
+	}
+	// Don't allow the menu to instantly re-open if the open/cancel key is still held after closing.
+	if me.reopenLock {
+		if me.menuOpenInputHeld(m) {
+			return
+		}
+		me.reopenLock = false
 	}
 	if (!sys.esc && !m.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
@@ -3115,12 +3149,14 @@ func (me *MotifMenu) init(m *Motif) {
 	me.counter = 0
 	me.active = true
 	me.initialized = true
+	me.closeRequested = false
+	me.endTimer = -1
 }
 
 func (me *MotifMenu) step(m *Motif) {
-	if me.endTimer == -1 && (sys.keyInput == KeyUnknown || sys.endMatch) {
-		startFadeOut(m.MenuInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
-		me.endTimer = me.counter + m.fadeOut.timeRemaining
+	// Close only when requested by Lua (menuRun() returned false) or when ending the match.
+	if me.endTimer == -1 && (me.closeRequested || sys.endMatch) {
+		me.requestClose(m)
 	}
 
 	// Check if the sequence has ended
@@ -3129,6 +3165,8 @@ func (me *MotifMenu) step(m *Motif) {
 			m.fadeOut.reset()
 		}
 		me.active = false
+		me.closeRequested = false
+		me.reopenLock = true
 		me.reset(m)
 		sys.paused = false
 		return
@@ -3140,13 +3178,15 @@ func (me *MotifMenu) step(m *Motif) {
 
 func (me *MotifMenu) draw(m *Motif, layerno int16) {
 	if layerno == 2 {
-		//if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
-		//	sys.luaLState.RaiseError("Error executing Lua function: %v\n", err.Error())
-		//} else if !ok {
-		//	me.reset(m)
-		//}
-		if err := sys.luaLState.DoString("menuRun()"); err != nil {
+		// Once closing has started, stop running the Lua menu loop so it can't keep drawing/flickering.
+		if me.endTimer != -1 {
+			return
+		}
+		if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
 			sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
+		} else if !ok {
+			// Lua requested to close the pause menu (menuRun returns main.pauseMenu).
+			me.requestClose(m)
 		}
 	}
 }

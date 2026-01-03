@@ -513,7 +513,7 @@ func (s *System) middleOfMatch() bool {
 
 func (s *System) skipMotifScaling() bool {
 	var local [2]int32
-	if !s.middleOfMatch() && !s.postMatchFlg {
+	if (!s.middleOfMatch() && !s.postMatchFlg) || s.stage == nil {
 		local = s.motif.Info.Localcoord
 	} else {
 		local = s.stage.stageCamera.localcoord

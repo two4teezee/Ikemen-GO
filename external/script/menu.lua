@@ -447,7 +447,7 @@ function menu.f_start()
 		--for _, v2 in pairs(v.sec.menu.item.active.bg) do
 		--	animSetWindow(v2.AnimData, w[1], w[2], w[3], w[4])
 		--end
-		if main.debugLog then main.f_printTable(menu[v.id], 'debug/t_' .. v.id .. 'Menu.txt') end
+		if gameOption('Debug.DumpLuaTables') then main.f_printTable(menu[v.id], 'debug/t_' .. v.id .. 'Menu.txt') end
 		-- Move list
 		if v.movelist then
 			local t = v.sec.movelist
@@ -708,7 +708,7 @@ function menu.f_commandlistParse()
 	if menu.movelistChar > #menu.t_movelists then
 		menu.movelistChar = 1
 	end
-	if main.debugLog then main.f_printTable(menu.t_movelists, "debug/t_movelists.txt") end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(menu.t_movelists, "debug/t_movelists.txt") end
 end
 
 function menu.f_commandlistRender(sec, t)

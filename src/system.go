@@ -483,31 +483,6 @@ func (s *System) shutdown() {
 	speaker.Close()
 }
 
-func (s *System) setGameSize(w, h int32) {
-	s.scrrect[2], s.scrrect[3] = w, h
-
-	// TODO: These ought to be system constants maybe
-	baseWidth := int32(320)
-	baseHeight := int32(240)
-
-	screenAspect := float32(w) / float32(h)
-	targetAspect := float32(baseWidth) / float32(baseHeight)
-
-	if screenAspect > targetAspect {
-		// Screen is wider than 4:3 - scale based on height
-		s.gameWidth = int32(float32(baseHeight) * screenAspect)
-		s.gameHeight = baseHeight
-	} else {
-		// Screen is taller than 4:3 - scale based on width
-		s.gameWidth = baseWidth
-		s.gameHeight = int32(float32(baseWidth) / screenAspect)
-	}
-
-	// Update scale
-	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
-	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
-}
-
 func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
 	fromRatio := srcW * dstH
 	toRatio := srcH * dstW
@@ -528,42 +503,81 @@ func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
 	return [4]float64{0, 0, srcW, srcH}
 }
 
-func (s *System) middleOfMatch() bool {
-	return s.matchTime != 0 && !s.postMatchFlg
+func (s *System) aspect(w, h int32) float32 {
+	return float32(w) / float32(h)
 }
 
-// This allows Char to access aspect ratio without going through Window, which can add errors
+func (s *System) middleOfMatch() bool {
+	return !s.fightLoopEnd && s.matchTime != 0 && !s.postMatchFlg
+}
+
+func (s *System) skipMotifScaling() bool {
+	var local [2]int32
+	if !s.middleOfMatch() && !s.postMatchFlg {
+		local = s.motif.Info.Localcoord
+	} else {
+		local = s.stage.stageCamera.localcoord
+	}
+	return s.aspect(local[0], local[1]) > s.getMotifAspect()
+}
+
 func (s *System) getFightAspect() float32 {
 	// Stage aspect ratio
 	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 && s.stage != nil {
 		coord := s.stage.stageCamera.localcoord
 		if coord[0] > 0 && coord[1] > 0 {
-			return float32(coord[0]) / float32(coord[1])
+			return s.aspect(coord[0], coord[1])
 		}
 	}
 
 	// Custom aspect ratio
 	if s.cfg.Video.FightAspectWidth > 0 && s.cfg.Video.FightAspectHeight > 0 {
-		return float32(s.cfg.Video.FightAspectWidth) / float32(s.cfg.Video.FightAspectHeight)
+		return s.aspect(s.cfg.Video.FightAspectWidth, s.cfg.Video.FightAspectHeight)
 	}
 
 	// Default
 	// Using video options directly has unwanted behavior if those options are changed without restarting Ikemen
 	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
-	return float32(s.scrrect[2]) / float32(s.scrrect[3])
+	return s.getMotifAspect()
 }
 
 func (s *System) getMotifAspect() float32 {
 	// Using options directly makes aspect change as soon as options are changed
 	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
-	return float32(s.scrrect[2]) / float32(s.scrrect[3])
+	return s.aspect(s.scrrect[2], s.scrrect[3])
 }
 
 func (s *System) getCurrentAspect() float32 {
-	if s.middleOfMatch() && !s.motif.me.active && !s.motif.di.active {
+	skip := s.skipMotifScaling()
+	if (s.postMatchFlg && skip) || (s.middleOfMatch() && (skip || (!s.motif.me.active && !s.motif.di.active))) {
 		return s.getFightAspect()
 	}
 	return s.getMotifAspect()
+}
+
+func (s *System) setGameSize(w, h int32) {
+	s.scrrect[2], s.scrrect[3] = w, h
+
+	// TODO: These ought to be system constants maybe
+	baseWidth := int32(320)
+	baseHeight := int32(240)
+
+	screenAspect := s.aspect(w, h)
+	targetAspect := s.aspect(baseWidth, baseHeight)
+
+	if screenAspect > targetAspect {
+		// Screen is wider than 4:3 - scale based on height
+		s.gameWidth = int32(float32(baseHeight) * screenAspect)
+		s.gameHeight = baseHeight
+	} else {
+		// Screen is taller than 4:3 - scale based on width
+		s.gameWidth = baseWidth
+		s.gameHeight = int32(float32(baseWidth) / screenAspect)
+	}
+
+	// Update scale
+	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
+	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
 }
 
 // Change aspect ratio at match start
@@ -576,22 +590,22 @@ func (s *System) applyFightAspect() {
 		// Stage aspect
 		// Get the next stage's localcoord
 		// We need this branch because here we check next stage instead of current one like getFightAspect()
-		var stageWidth, stageHeight float32
+		var stageWidth, stageHeight int32
 		if s.sel.selectedStageNo > 0 && s.sel.selectedStageNo <= len(s.sel.stagelist) {
 			def := strings.ToLower(filepath.Base(s.sel.stagelist[s.sel.selectedStageNo-1].def))
 			if coord, ok := s.stageLocalcoords[def]; ok && coord[0] > 0 && coord[1] > 0 {
-				stageWidth = float32(coord[0])
-				stageHeight = float32(coord[1])
+				stageWidth = int32(coord[0])
+				stageHeight = int32(coord[1])
 			}
 		}
 
 		// Calculate the stage's aspect ratio
 		if stageWidth > 0 && stageHeight > 0 {
-			aspectGame = stageWidth / stageHeight
+			aspectGame = s.aspect(stageWidth, stageHeight)
 		} else {
 			// Fallback
-			//aspectGame = float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
-			aspectGame = float32(s.scrrect[2]) / float32(s.scrrect[3])
+			//aspectGame = s.aspect(s.cfg.Video.GameWidth, s.cfg.Video.GameHeight)
+			aspectGame = s.getMotifAspect()
 		}
 	} else {
 		aspectGame = s.getFightAspect()

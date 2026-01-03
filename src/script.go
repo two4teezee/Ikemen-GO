@@ -2187,7 +2187,9 @@ func systemScriptInit(l *lua.LState) {
 				sys.gameRunning = false
 				sys.clearSpriteData()
 				sys.luaDiscardDrawQueue()
+				//if !sys.skipMotifScaling() {
 				sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+				//}
 				l.Push(lua.LNumber(winp))
 				l.Push(lua.LNumber(sys.motif.ch.controllerNo + 1))
 				return 2

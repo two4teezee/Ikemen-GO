@@ -2825,7 +2825,7 @@ type Char struct {
 	teamside       int
 	keyctrl        [4]bool
 	playerFlag     bool // Root and player type helpers
-	hprojectile    bool // Helper type projectile. Currently unused
+	hprojectile    bool // Helper type projectile. Dummied out but can be useful in triggers
 	animPN         int
 	spritePN       int
 	animNo         int32

@@ -625,14 +625,14 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			htstr := strings.ToLower(data)
 			switch {
 			case htstr == "normal":
-				ht = 0
-			case htstr == "player":
 				ht = 1
+			case htstr == "player":
+				ht = 2
 			case strings.HasPrefix(htstr, "proj"): // Mugen just seems to accept anything starting with "proj"
 				if c.zssMode && htstr != "projectile" { // But ZSS should require proper syntax like usual
 					return Error("Invalid helpertype: " + data)
 				}
-				ht = 2
+				ht = 3
 			default:
 				return Error("Invalid helpertype: " + data)
 			}

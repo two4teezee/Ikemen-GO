@@ -1284,7 +1284,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		return nil
 	}
-	eqne2 := func(f func(not bool) error) error {
+	eqne2 := func(f func(not bool) error) error { // Like eqne but the "not" operation must be handled manually
 		not, err := c.checkEquality(in)
 		if err != nil {
 			return err
@@ -2683,6 +2683,33 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		out.append(OC_ex_, OC_ex_helperindexexist)
+	case "helpervar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		param := strings.ToLower(c.token)
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		switch param {
+		case "clsnproxy":
+			out.append(OC_ex3_, OC_ex3_helpervar_clsnproxy)
+		case "id":
+			out.append(OC_ex3_, OC_ex3_helpervar_id)
+		case "helpertype":
+			out.append(OC_ex3_, OC_ex3_helpervar_helpertype)
+		case "keyctrl":
+			out.append(OC_ex3_, OC_ex3_helpervar_keyctrl)
+		case "ownclsnscale":
+			out.append(OC_ex3_, OC_ex3_helpervar_ownclsnscale)
+		case "ownpal":
+			out.append(OC_ex3_, OC_ex3_helpervar_ownpal)
+		case "preserve":
+			out.append(OC_ex3_, OC_ex3_helpervar_preserve)
+		default:
+			return bvNone(), Error("Invalid helpervar argument: " + param)
+		}
 	case "hitcount":
 		out.append(OC_hitcount)
 	case "hitbyattr":
@@ -2831,8 +2858,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ishelper)
 	case "ishometeam":
 		out.append(OC_ex_, OC_ex_ishometeam)
-	case "isclsnproxy":
-		out.append(OC_ex2_, OC_ex2_isclsnproxy)
 	case "index":
 		out.append(OC_ex2_, OC_ex2_index)
 	case "layerno":
@@ -4490,8 +4515,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_guardpoints)
 	case "guardpointsmax":
 		out.append(OC_ex_, OC_ex_guardpointsmax)
-	case "helperid":
-		out.append(OC_ex_, OC_ex_helperid)
 	case "helpername":
 		if err := nameSub(OC_ex_, OC_ex_helpername); err != nil {
 			return bvNone(), err

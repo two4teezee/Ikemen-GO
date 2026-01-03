@@ -240,6 +240,7 @@ const (
 	OC_st_
 	OC_ex_
 	OC_ex2_
+	OC_ex3_
 )
 const (
 	OC_const_data_life OpCode = iota
@@ -627,7 +628,6 @@ const (
 	OC_ex_guardbreak
 	OC_ex_guardpoints
 	OC_ex_guardpointsmax
-	OC_ex_helperid
 	OC_ex_helperindexexist
 	OC_ex_helpername
 	OC_ex_hitoverridden
@@ -791,7 +791,6 @@ const (
 	OC_ex2_clsnvar_top
 	OC_ex2_clsnvar_right
 	OC_ex2_clsnvar_bottom
-	OC_ex2_isclsnproxy
 	OC_ex2_debugmode_accel
 	OC_ex2_debugmode_clsndisplay
 	OC_ex2_debugmode_debugdisplay
@@ -984,6 +983,15 @@ const (
 	OC_ex2_analog_righty
 	OC_ex2_analog_lefttrigger
 	OC_ex2_analog_righttrigger
+)
+const (
+	OC_ex3_helpervar_clsnproxy OpCode = iota
+	OC_ex3_helpervar_helpertype
+	OC_ex3_helpervar_id
+	OC_ex3_helpervar_keyctrl
+	OC_ex3_helpervar_ownclsnscale
+	OC_ex3_helpervar_ownpal
+	OC_ex3_helpervar_preserve
 )
 
 type StringPool struct {
@@ -2020,6 +2028,8 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			be.run_ex(c, &i, oc)
 		case OC_ex2_:
 			be.run_ex2(c, &i, oc)
+		case OC_ex3_:
+			be.run_ex3(c, &i, oc)
 		case OC_var:
 			*sys.bcStack.Top() = c.varGet(sys.bcStack.Top().ToI())
 		case OC_sysvar:
@@ -3007,8 +3017,6 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.guardPoints)
 	case OC_ex_guardpointsmax:
 		sys.bcStack.PushI(c.guardPointsMax)
-	case OC_ex_helperid:
-		sys.bcStack.PushI(c.helperId)
 	case OC_ex_helpername:
 		sys.bcStack.PushB(c.helperIndex != 0 && strings.ToLower(c.name) ==
 			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
@@ -3258,8 +3266,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	switch opc {
 	case OC_ex2_index:
 		sys.bcStack.PushI(c.indexTrigger())
-	case OC_ex2_isclsnproxy:
-		sys.bcStack.PushB(c.isclsnproxy)
 	case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
@@ -3919,6 +3925,54 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.analogAxes[4])
 	case OC_ex2_analog_righttrigger:
 		sys.bcStack.PushF(c.analogAxes[5])
+	default:
+		sys.errLog.Printf("%v\n", be[*i-1])
+		c.panic()
+	}
+}
+
+func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
+	(*i)++
+	opc := be[*i-1]
+	switch opc {
+	// HelperVar
+	case OC_ex3_helpervar_clsnproxy, OC_ex3_helpervar_id, OC_ex3_helpervar_helpertype,
+		OC_ex3_helpervar_keyctrl, OC_ex3_helpervar_ownclsnscale, OC_ex3_helpervar_ownpal, 
+		OC_ex3_helpervar_preserve:
+		// If not a helper, return false immediately
+		if c.helperIndex == 0 {
+			sys.bcStack.Push(BytecodeSF())
+			break 
+		}
+		// Otherwise continue
+		switch opc {
+		case OC_ex3_helpervar_clsnproxy:
+			sys.bcStack.PushB(c.isclsnproxy)
+		case OC_ex3_helpervar_helpertype:
+			var ht int32
+			if c.helperIndex > 0 {
+				switch {	
+				if c.playerFlag {
+					ht = 2
+				} else if c.hprojectile {
+					ht = 3
+				} else {
+					ht = 1
+				}
+			}
+			sys.bcStack.PushI(ht)
+		case OC_ex3_helpervar_id:
+			sys.bcStack.PushI(c.helperId)
+		case OC_ex3_helpervar_keyctrl:
+			sys.bcStack.PushB(c.keyctrl[0])
+			// In Ikemen keyctrl has more than one value, but that feature is mostly obsolete and would complicate the syntax here for not much benefit
+		case OC_ex3_helpervar_ownclsnscale:
+			sys.bcStack.PushB(c.ownclsnscale)
+		case OC_ex3_helpervar_ownpal:
+			sys.bcStack.PushB(c.ownpal)
+		case OC_ex3_helpervar_preserve:
+			sys.bcStack.PushB(c.preserve)
+		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -5041,10 +5095,10 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 		case helper_helpertype:
 			ht := exp[0].evalI(c)
 			switch ht {
-			case 1:
-				h.playerFlag = true
 			case 2:
-				h.hprojectile = true // Currently unused
+				h.playerFlag = true
+			case 3:
+				h.hprojectile = true
 			}
 		case helper_name:
 			h.name = string(*(*[]byte)(unsafe.Pointer(&exp[0])))

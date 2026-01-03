@@ -199,6 +199,7 @@ options.t_itemname = {
 			--modifyGameOption('Debug.ClipboardRows', 2)
 			--modifyGameOption('Debug.ConsoleRows', 15)
 			--modifyGameOption('Debug.ClsnDarken', true)
+			--modifyGameOption('Debug.DumpLuaTables', false)
 			--modifyGameOption('Debug.Font', "font/debug.def")
 			--modifyGameOption('Debug.FontScale', 1.0)
 			--modifyGameOption('Debug.StartStage', "stages/stage0-720.def")
@@ -223,6 +224,7 @@ options.t_itemname = {
 			modifyGameOption('Video.EnableModel', true)
 			modifyGameOption('Video.EnableModelShadow', true)
 			--modifyGameOption('Sound.SampleRate', 44100)
+			--modifyGameOption('Sound.SoundFont', "sound/soundfont.sf2")
 			modifyGameOption('Sound.StereoEffects', true)
 			modifyGameOption('Sound.PanningRange', 30)
 			--modifyGameOption('Sound.WavChannels', 32)
@@ -241,6 +243,7 @@ options.t_itemname = {
 			--modifyGameOption('Input.SOCDResolution', 4)
 			--modifyGameOption('Input.ControllerStickSensitivity', 0.4)
 			--modifyGameOption('Input.XinputTriggerSensitivity', 0.5)
+			--modifyGameOption('Input.AnalogDeadTime', 20)
 
 			loadLifebar(motif.files.fight)
 			main.timeFramesPerCount = fightscreenvar("time.framespercount")
@@ -1839,7 +1842,7 @@ function options.f_start()
 			end
 		end
 	end
-	if main.debugLog then main.f_printTable(options.t_itemname, 'debug/t_optionsItemname.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(options.t_itemname, 'debug/t_optionsItemname.txt') end
 	-- create menu
 	options.menu = {title = main.f_itemnameUpper(motif.option_info.title.text, motif.option_info.menu.title.uppercase), submenu = {}, items = {}}
 	options.menu.loop = options.f_createMenu(options.menu, true)
@@ -1951,7 +1954,7 @@ function options.f_start()
 		animSetWindow(v.AnimData, kw[1], kw[2], kw[3], kw[4])
 	end
 	-- log
-	if main.debugLog then main.f_printTable(options.menu, 'debug/t_optionsMenu.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(options.menu, 'debug/t_optionsMenu.txt') end
 end
 
 --;===========================================================

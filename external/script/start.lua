@@ -145,7 +145,7 @@ function start.f_makeRoster(t_ret)
 			end
 		end
 	end
-	if main.debugLog then main.f_printTable(t_ret, 'debug/t_roster.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(t_ret, 'debug/t_roster.txt') end
 	return t_ret
 end
 
@@ -204,7 +204,7 @@ function start.f_aiRamp(currentMatch)
 			table.insert(t_aiRamp, endAI)
 		end
 	end
-	if main.debugLog then main.f_printTable(t_aiRamp, 'debug/t_aiRamp.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(t_aiRamp, 'debug/t_aiRamp.txt') end
 end
 --;===========================================================
 
@@ -1480,7 +1480,7 @@ for i = 1, motif.select_info.rows * motif.select_info.columns do
 		start.t_grid[row][col].skip = 1
 	end
 end
-if main.debugLog then main.f_printTable(start.t_grid, 'debug/t_grid.txt') end
+if gameOption('Debug.DumpLuaTables') then main.f_printTable(start.t_grid, 'debug/t_grid.txt') end
 
 -- return amount of life to recover
 local function f_lifeRecovery(lifeMax, ratioLevel)
@@ -1587,7 +1587,7 @@ end
 --start game
 function start.f_game(lua)
 	clearColor(0, 0, 0)
-	if main.debugLog and start ~= nil then main.f_printTable(start.p, 'debug/t_p.txt') end
+	if gameOption('Debug.DumpLuaTables') and start ~= nil then main.f_printTable(start.p, 'debug/t_p.txt') end
 	local p2In = main.t_pIn[2]
 	main.t_pIn[2] = 2
 	if lua ~= '' then
@@ -1610,7 +1610,7 @@ function start.f_game(lua)
 	local winner = -1
 	winner, start.challenger = game()
 
-	if main.debugLog then main.f_printTable(readGameStats(), 'debug/t_gameStats.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(readGameStats(), 'debug/t_gameStats.txt') end
 
 	main.f_restoreInput()
 	if lua ~= '' then
@@ -3586,7 +3586,7 @@ function start.f_selectLoading(musicParams)
 	addParam("persistmusic", main.persistMusic)
 	addParam("persistrounds", main.persistRounds)
 	local params = table.concat(parts, ", ")
-	if main.debugLog then main.f_printTable(params, "debug/loadStartParams.txt") end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(params, "debug/loadStartParams.txt") end
 	loadStart(params)
 end
 

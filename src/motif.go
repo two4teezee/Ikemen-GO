@@ -2881,7 +2881,7 @@ func (m *Motif) drawAspectBars() {
 
 func (m *Motif) draw(layerno int16) {
 	// Draw black bars if fight aspect and motif aspect differ.
-	if layerno == 1 && (!sys.middleOfMatch() || m.me.active || m.di.active) {
+	if layerno == 1 && (!sys.middleOfMatch() || m.me.active || m.di.active) && !sys.skipMotifScaling() {
 		m.drawAspectBars()
 	}
 	if m.ch.active {
@@ -3092,7 +3092,7 @@ func (me *MotifMenu) reset(m *Motif) {
 	me.initialized = false
 	me.endTimer = -1
 	me.closeRequested = false
-	if !m.di.active {
+	if !m.di.active && !sys.skipMotifScaling() {
 		sys.applyFightAspect()
 	}
 	if err := sys.luaLState.DoString("menuReset()"); err != nil {
@@ -3139,7 +3139,9 @@ func (me *MotifMenu) init(m *Motif) {
 	if (!sys.esc && !m.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	if !sys.skipMotifScaling() {
+		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	}
 
 	if err := sys.luaLState.DoString("menuInit()"); err != nil {
 		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
@@ -3206,7 +3208,9 @@ func (ch *MotifChallenger) reset(m *Motif) {
 	ch.initialized = false
 	ch.endTimer = -1
 	ch.controllerNo = -1
-	//sys.applyFightAspect()
+	//if !sys.skipMotifScaling() {
+	//	sys.applyFightAspect()
+	//}
 }
 
 func (ch *MotifChallenger) init(m *Motif) {
@@ -3220,7 +3224,9 @@ func (ch *MotifChallenger) init(m *Motif) {
 		return
 	}
 	ch.controllerNo = controllerNo
-	//sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	//if !sys.skipMotifScaling() {
+	//	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	//}
 
 	if m.AttractMode.Enabled && sys.credits > 0 {
 		sys.credits--
@@ -3318,7 +3324,9 @@ func (co *MotifContinue) reset(m *Motif) {
 	co.selected = false
 	co.endTimer = -1
 	co.showEndAnim = false
-	sys.applyFightAspect()
+	if !sys.skipMotifScaling() {
+		sys.applyFightAspect()
+	}
 }
 
 func (co *MotifContinue) extractAndSortKeysDescending(m *Motif) []string {
@@ -3343,7 +3351,9 @@ func (co *MotifContinue) init(m *Motif) {
 		co.initialized = true
 		return
 	}
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	if !sys.skipMotifScaling() {
+		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	}
 	co.pn = 1 // TODO: Initialize pn appropriately
 
 	// Extract and sort keys in descending order
@@ -3914,7 +3924,9 @@ func (di *MotifDialogue) reset(m *Motif) {
 		}
 	}
 
-	//sys.applyFightAspect()
+	//if !sys.skipMotifScaling() {
+	//	sys.applyFightAspect()
+	//}
 }
 
 func (di *MotifDialogue) clear(m *Motif) {
@@ -3934,7 +3946,9 @@ func (di *MotifDialogue) clear(m *Motif) {
 	if m.DialogueInfo.P2.Face.Active.AnimData != nil {
 		m.DialogueInfo.P2.Face.Active.AnimData.anim = nil
 	}
-	sys.applyFightAspect()
+	if !sys.skipMotifScaling() {
+		sys.applyFightAspect()
+	}
 }
 
 func (di *MotifDialogue) initDefaults(m *Motif) {
@@ -4025,7 +4039,9 @@ func (di *MotifDialogue) init(m *Motif) {
 	}
 
 	di.reset(m)
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	if !sys.skipMotifScaling() {
+		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	}
 
 	lines, pn, _ := di.getDialogueLines()
 	di.char = sys.chars[pn-1][0]
@@ -5479,7 +5495,9 @@ func (vi *MotifVictory) reset(m *Motif) {
 	m.VictoryScreen.WinQuote.TextSpriteData.textDelay = 0
 	vi.endTimer = -1
 	vi.clear(m)
-	sys.applyFightAspect()
+	if !sys.skipMotifScaling() {
+		sys.applyFightAspect()
+	}
 }
 
 func (vi *MotifVictory) clearProps(props *PlayerVictoryProperties) {
@@ -5745,7 +5763,9 @@ func (vi *MotifVictory) init(m *Motif) {
 		}
 	}
 
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	if !sys.skipMotifScaling() {
+		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	}
 
 	//fmt.Printf("[Victory] init: enabled=%v winnerTeam=%d cpu.enabled=%v p1.num=%d p2.num=%d\n", m.VictoryScreen.Enabled, sys.winnerTeam(), m.VictoryScreen.Cpu.Enabled, m.VictoryScreen.P1.Num, m.VictoryScreen.P2.Num)
 
@@ -6131,7 +6151,9 @@ func (wi *MotifWin) assignStates(p1, p1Teammate, p2, p2Teammate []int32) {
 	wi.p1TeammateState = p1Teammate
 	wi.p2State = p2
 	wi.p2TeammateState = p2Teammate
-	sys.applyFightAspect()
+	if !sys.skipMotifScaling() {
+		sys.applyFightAspect()
+	}
 }
 
 func (wi *MotifWin) reset(m *Motif) {
@@ -6168,7 +6190,9 @@ func (wi *MotifWin) init(m *Motif) {
 		wi.initialized = true
 		return
 	}
-	sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	if !sys.skipMotifScaling() {
+		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
+	}
 
 	if !wi.soundsEnabled {
 		sys.clearAllSound()

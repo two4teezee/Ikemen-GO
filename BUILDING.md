@@ -146,6 +146,8 @@ brew install ffmpeg
 BUILD_FFMPEG=no ./build/build.sh MacOSARM   # or MacOS
 ```
 
+---
+
 ## Android (from Linux or macOS host)
 Android NDK r27d is required. ***YOU MUST SET THE `ANDROID_NDK_HOME` ENVIRONMENT VARIABLE PRIOR TO BUILDING TO YOUR NDK PATH OR THIS WILL NOT WORK!!!***
 

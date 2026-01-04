@@ -3141,6 +3141,37 @@ func systemScriptInit(l *lua.LState) {
 		l.RaiseError("\nmodifyMotif: %v\n", err.Error())
 		return 0
 	})
+	luaRegister(l, "modifyStoryboard", func(l *lua.LState) int {
+		query := strArg(l, 1)
+		// Handle the second argument which can be nil, string, or a table
+		val := l.Get(2)
+		var value interface{}
+		if val.Type() == lua.LTBool {
+			// Convert Lua bools to native Go bools
+			value = lua.LVAsBool(val)
+		} else if val == lua.LNil {
+			// nil value means remove a map entry or clear an array depending on context
+			value = nil
+		} else if tbl, ok := val.(*lua.LTable); ok {
+			// If a table is provided, treat it as an array of strings
+			var arr []string
+			tbl.ForEach(func(k, v lua.LValue) {
+				arr = append(arr, v.String())
+			})
+			value = arr
+		} else {
+			// Otherwise, treat it as a string
+			value = val.String()
+		}
+
+		// Pass interface{} value
+		err := sys.storyboard.SetValueUpdate(query, value)
+		if err == nil {
+			return 0
+		}
+		l.RaiseError("\nmodifyMotif: %v\n", err.Error())
+		return 0
+	})
 	luaRegister(l, "mapSet", func(*lua.LState) int {
 		//map_name, value, map_type
 		var scType int32

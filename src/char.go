@@ -2824,8 +2824,7 @@ type Char struct {
 	playerNo       int
 	teamside       int
 	keyctrl        [4]bool
-	playerFlag     bool // Root and player type helpers
-	hprojectile    bool // Helper type projectile. Dummied out but can be useful in triggers
+	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
 	animPN         int
 	spritePN       int
 	animNo         int32
@@ -3003,11 +3002,11 @@ func (c *Char) init(n int, idx int32) {
 
 	// Set player or helper defaults
 	if idx == 0 {
-		c.playerFlag = true
+		c.helperType = 0
 		c.kovelocity = true
 		c.keyctrl = [4]bool{true, true, true, true}
 	} else {
-		c.playerFlag = false
+		c.helperType = 1
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
 	}
@@ -4314,7 +4313,7 @@ func (c *Char) scf(scf SystemCharFlag) bool {
 func (c *Char) setSCF(scf SystemCharFlag) {
 	c.systemFlag |= scf
 	// Clear enemy lists if changing flags that affect them
-	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+	if c.isPlayerType() && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
 		sys.charList.enemyNearChanged = true
 	}
 }
@@ -4322,7 +4321,7 @@ func (c *Char) setSCF(scf SystemCharFlag) {
 func (c *Char) unsetSCF(scf SystemCharFlag) {
 	c.systemFlag &^= scf
 	// Clear enemy lists if changing flags that affect them
-	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+	if c.isPlayerType() && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
 		sys.charList.enemyNearChanged = true
 	}
 }
@@ -5006,6 +5005,10 @@ func (c *Char) isHelper(id int32, idx int) bool {
 	}
 
 	return false
+}
+
+func (c *Char) isPlayerType() bool {
+	return c.helperIndex == 0 || c.helperType == 2
 }
 
 func (c *Char) isHost() bool {
@@ -6055,7 +6058,7 @@ func (c *Char) destroy() {
 			}
 		}
 		c.children = c.children[:0]
-		if c.playerFlag {
+		if c.isPlayerType() {
 			// sys.charList.p2enemyDelete(c)
 			sys.charList.enemyNearChanged = true
 		}
@@ -6585,7 +6588,7 @@ func (c *Char) setPosX(x float32, all bool) {
 	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
 	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
 	if c.pos[0] != x {
-		if c.playerFlag {
+		if c.isPlayerType() {
 			sys.charList.enemyNearChanged = true
 		} else {
 			c.enemyNearP2Clear()
@@ -6609,7 +6612,7 @@ func (c *Char) setPosY(y float32, all bool) { // This function mostly exists rig
 func (c *Char) setPosZ(z float32, all bool) {
 	// Z distance is also factored into enemy near lists
 	if c.pos[2] != z {
-		if c.playerFlag {
+		if c.isPlayerType() {
 			sys.charList.enemyNearChanged = true
 		} else {
 			c.enemyNearP2Clear()
@@ -7569,7 +7572,7 @@ func (c *Char) targetPowerAdd(tar []int32, power int32) {
 		return
 	}
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.playerFlag {
+		if t := sys.playerID(tid); t != nil && t.isPlayerType() {
 			t.powerAdd(power)
 		}
 	}
@@ -7613,7 +7616,7 @@ func (c *Char) targetScoreAdd(tar []int32, s float32) {
 		return
 	}
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.playerFlag {
+		if t := sys.playerID(tid); t != nil && t.isPlayerType() {
 			t.scoreAdd(s)
 		}
 	}
@@ -7827,7 +7830,7 @@ func (c *Char) lifeSet(life int32) {
 
 	if c.life == 0 {
 		// Check win type
-		if c.playerFlag && c.teamside != -1 {
+		if c.isPlayerType() && c.teamside != -1 {
 			if c.alive() && c.helperIndex == 0 {
 				if c.ss.moveType != MT_H {
 					if c.playerNo == c.ss.sb.playerNo {
@@ -8762,7 +8765,7 @@ func (c *Char) posUpdate() {
 				getter := sys.chars[i][j]
 
 				// Must be player type and hit by this char
-				if !getter.playerFlag || getter.ss.moveType != MT_H || getter.ghv.playerId != c.id {
+				if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerId != c.id {
 					continue
 				}
 
@@ -10379,13 +10382,13 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if hitResult > 0 {
 		if Abs(hitResult) == 1 {
 			c.powerAdd(hd.hitgetpower)
-			if getter.playerFlag {
+			if getter.isPlayerType() {
 				getter.powerAdd(hd.hitgivepower)
 				getter.ghv.power += hd.hitgivepower
 			}
 		} else {
 			c.powerAdd(hd.guardgetpower)
-			if getter.playerFlag {
+			if getter.isPlayerType() {
 				getter.powerAdd(hd.guardgivepower)
 				getter.ghv.power += hd.guardgivepower
 			}
@@ -10411,7 +10414,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			c.scoreAdd(hd.score[0])
 			getter.ghv.score = hd.score[0] // TODO: The gethitvar refers to the enemy's score, which is counterintuitive
 		}
-		if getter.playerFlag {
+		if getter.isPlayerType() {
 			if !math.IsNaN(float64(hd.score[1])) {
 				getter.scoreAdd(hd.score[1])
 			}
@@ -10625,7 +10628,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		// Cornerpush on hit
 		// In Mugen it is only set if the enemy is already in the corner before the hit
 		// In Ikemen it is set regardless, with corner distance being checked later
-		if hitResult > 0 && !isProjectile && getter.playerFlag {
+		if hitResult > 0 && !isProjectile && getter.isPlayerType() {
 			switch getter.ss.stateType {
 			case ST_S, ST_C:
 				c.cornerVelOff = hd.ground_cornerpush_veloff * c.facing
@@ -10637,7 +10640,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		}
 	}
 	// Cornerpush on block
-	if hitResult == 2 && !isProjectile && getter.playerFlag {
+	if hitResult == 2 && !isProjectile && getter.isPlayerType() {
 		switch getter.ss.stateType {
 		case ST_S, ST_C:
 			c.cornerVelOff = hd.guard_cornerpush_veloff * c.facing
@@ -10717,7 +10720,7 @@ func (c *Char) actionPrepare() {
 		if !c.hitPause() {
 			c.specialFlag = 0
 			c.setCSF(CSF_stagebound)
-			if c.playerFlag {
+			if c.isPlayerType() {
 				if c.alive() || c.ss.no != 5150 || c.numPartner() == 0 {
 					c.setCSF(CSF_screenbound | CSF_movecamera_x | CSF_movecamera_y)
 				}
@@ -10845,14 +10848,14 @@ func (c *Char) actionRun() {
 	if !c.pauseBool {
 		// Run state -3
 		c.minus = -3
-		if c.ss.sb.playerNo == c.playerNo && (c.playerFlag || c.keyctrl[2]) {
+		if c.ss.sb.playerNo == c.playerNo && (c.isPlayerType() || c.keyctrl[2]) {
 			if sb, ok := c.gi().states[-3]; ok {
 				sb.run(c)
 			}
 		}
 		// Run state -2
 		c.minus = -2
-		if c.playerFlag || c.keyctrl[1] {
+		if c.isPlayerType() || c.keyctrl[1] {
 			if sb, ok := c.gi().states[-2]; ok {
 				sb.run(c)
 			}
@@ -12950,7 +12953,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	// Gather all valid enemies
 	var enemies []*Char
 	for _, e := range cl.runOrder {
-		if e.playerFlag && c.isEnemyOf(e) {
+		if e.isPlayerType() && c.isEnemyOf(e) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				enemies = append(enemies, e)

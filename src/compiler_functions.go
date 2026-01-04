@@ -621,7 +621,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			if len(data) == 0 {
 				return Error("helpertype not specified")
 			}
-			var ht int32
+			ht := int32(1)
 			htstr := strings.ToLower(data)
 			switch {
 			case htstr == "normal":

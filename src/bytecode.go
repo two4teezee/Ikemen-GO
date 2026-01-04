@@ -3949,18 +3949,7 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 		case OC_ex3_helpervar_clsnproxy:
 			sys.bcStack.PushB(c.isclsnproxy)
 		case OC_ex3_helpervar_helpertype:
-			var ht int32
-			if c.helperIndex > 0 {
-				switch {	
-				if c.playerFlag {
-					ht = 2
-				} else if c.hprojectile {
-					ht = 3
-				} else {
-					ht = 1
-				}
-			}
-			sys.bcStack.PushI(ht)
+			sys.bcStack.PushI(c.helperType)
 		case OC_ex3_helpervar_id:
 			sys.bcStack.PushI(c.helperId)
 		case OC_ex3_helpervar_keyctrl:
@@ -5093,13 +5082,7 @@ func (sc helper) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case helper_helpertype:
-			ht := exp[0].evalI(c)
-			switch ht {
-			case 2:
-				h.playerFlag = true
-			case 3:
-				h.hprojectile = true
-			}
+			h.helperType = exp[0].evalI(c)
 		case helper_name:
 			h.name = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 		case helper_clsnproxy:
@@ -13519,7 +13502,7 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 			if ts >= -1 && ts <= 1 && ts != crun.teamside {
 				crun.teamside = ts
 				// Reevaluate alliances
-				if crun.playerFlag {
+				if crun.isPlayerType() {
 					sys.charList.enemyNearChanged = true
 				} else {
 					crun.enemyNearP2Clear()

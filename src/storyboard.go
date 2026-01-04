@@ -106,6 +106,7 @@ type Storyboard struct {
 			Skip   []string `ini:"skip"`
 			Cancel []string `ini:"cancel"`
 		} `ini:"key"`
+		StopMusic bool `ini:"stopmusic"`
 	} `ini:"scenedef"`
 	Scene         map[string]*SceneProperties `ini:"map:^(?i)scene_?[0-9]+$" lua:"scene"`
 	fntIndexByKey map[string]int
@@ -430,7 +431,7 @@ func (s *Storyboard) populateDataPointers() {
 }
 
 func (s *Storyboard) reset() {
-	if !sys.middleOfMatch() {
+	if s.SceneDef.StopMusic {
 		sys.bgm.Stop()
 	}
 	s.active = false
@@ -729,7 +730,7 @@ func (s *Storyboard) step() {
 		s.counter = 0
 		s.endTimer = -1
 		if s.currentSceneIndex >= len(s.sceneKeys) {
-			if s.musicPlaying {
+			if s.musicPlaying && s.SceneDef.StopMusic {
 				sys.bgm.Stop()
 			}
 			for _, cl := range sys.commandLists {

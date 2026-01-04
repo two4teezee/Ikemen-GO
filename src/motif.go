@@ -5690,7 +5690,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	targetFace2Spr := dst.Face2.Spr
 	targetFace2Anim := dst.Face2.Anim
 	faceBrightness := int32(256)
-    face2Brightness := int32(256)
+	face2Brightness := int32(256)
 
 	if isLoser {
 		if dst.Lose.Spr[0] != -1 {
@@ -5706,7 +5706,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 			targetFace2Anim = dst.Face2.Lose.Anim
 		}
 		faceBrightness = dst.Lose.Brightness
-        face2Brightness = dst.Face2.Lose.Brightness
+		face2Brightness = dst.Face2.Lose.Brightness
 	}
 	memberIdx := float32(e.memberNo)
 	// Main face

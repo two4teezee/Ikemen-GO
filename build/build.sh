@@ -115,11 +115,11 @@ check_deps() {
 			need gcc
 			need g++
 			need nasm
-			need yasm
 			need go
 			need gendef
 			need dlltool
 			if ((${#missing[@]})); then
+				echo "Missing package: ${missing[@]}" >&2
 				echo "Install from the MINGW64 shell:" >&2
 				echo "  pacman -Syu --noconfirm" >&2
 				echo "  pacman -S --noconfirm \\" >&2
@@ -404,7 +404,7 @@ function build_ffmpeg() {
 	echo "==> Building minimal FFmpeg to $FFMPEG_PREFIX (sources in $FFMPEG_SRCDIR)"
 	mkdir -p "$BUILDDIR"
 	rm -rf "$FFMPEG_SRCDIR"
-	git clone https://github.com/FFmpeg/FFmpeg.git "$FFMPEG_SRCDIR"
+	git clone --depth=1 -b "$FFMPEG_REV" https://github.com/FFmpeg/FFmpeg.git "$FFMPEG_SRCDIR"
 	pushd "$FFMPEG_SRCDIR" >/dev/null
 	git checkout "$FFMPEG_REV"
 

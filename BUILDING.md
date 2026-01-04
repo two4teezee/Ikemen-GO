@@ -164,7 +164,7 @@ Android Studio is required to make the APK.
 1. Run `git clone https://github.com/Jesuszilla/ikemen-droid.git`
 2. Place all the lib .so files from the `lib/` folder and the `build/libmain.so` into `src/main/jniLibs/arm64-v8a/` folder inside the repository.
 3. Place all the engine assets in `src/main/assets` exactly as defined in `src/main/assets/manifest.txt`. You may wish to generate your own manifest.txt for your own game files, but a default is included in the above repository.
-4. Open a terminal to the root of the ikenen-droid project in Android Studio.
+4. Open a terminal to the root of the ikemen-droid project in Android Studio.
 5. Run `./gradlew clean assembleDebug`
 6. The APK is now in `app/build/outputs/apk/debug/app-debug.apk`.
 7. (Optional) Install to your Android device by running the command `adb install -r app/build/outputs/apk/app-debug.apk`.

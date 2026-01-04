@@ -587,7 +587,7 @@ type PlayerVsProperties struct {
 
 type PlayerLoseProperties struct {
 	FaceProperties
-	Darken int32 `ini:"darken"`
+	Brightness int32 `ini:"brightness"`
 }
 
 type PlayerVictoryProperties struct {
@@ -5689,6 +5689,8 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	targetAnim := dst.Anim
 	targetFace2Spr := dst.Face2.Spr
 	targetFace2Anim := dst.Face2.Anim
+	faceBrightness := int32(256)
+    face2Brightness := int32(256)
 
 	if isLoser {
 		if dst.Lose.Spr[0] != -1 {
@@ -5703,11 +5705,15 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		if dst.Face2.Lose.Anim != -1 {
 			targetFace2Anim = dst.Face2.Lose.Anim
 		}
+		faceBrightness = dst.Lose.Brightness
+        face2Brightness = dst.Face2.Lose.Brightness
 	}
-
+	memberIdx := float32(e.memberNo)
 	// Main face
-	mainX := dst.Pos[0] + dst.Offset[0]
-	mainY := dst.Pos[1] + dst.Offset[1]
+	mainSpacingX := float32(dst.Spacing[0]) * memberIdx
+	mainSpacingY := float32(dst.Spacing[1]) * memberIdx
+	mainX := dst.Pos[0] + dst.Offset[0] + mainSpacingX
+	mainY := dst.Pos[1] + dst.Offset[1] + mainSpacingY
 	dst.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".main",
 		targetAnim, targetSpr,
@@ -5716,11 +5722,13 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.YAngle, dst.Projection, dst.Focallength,
 		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
-		e.pal, dst.Lose.Darken, e.c,
+		e.pal, faceBrightness, e.c,
 	)
 	// Face2
-	face2X := dst.Pos[0] + dst.Face2.Offset[0]
-	face2Y := dst.Pos[1] + dst.Face2.Offset[1]
+	face2SpacingX := float32(dst.Face2.Spacing[0]) * memberIdx
+	face2SpacingY := float32(dst.Face2.Spacing[1]) * memberIdx
+	face2X := dst.Pos[0] + dst.Face2.Offset[0] + face2SpacingX
+	face2Y := dst.Pos[1] + dst.Face2.Offset[1] + face2SpacingY
 	dst.Face2.AnimData = victoryPortraitAnim(
 		m, sc, slotName+".face2",
 		targetFace2Anim, targetFace2Spr,
@@ -5729,7 +5737,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength,
 		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
-		e.pal, dst.Face2.Lose.Darken, e.c,
+		e.pal, face2Brightness, e.c,
 	)
 	if dst.AnimData == nil && dst.Face2.AnimData == nil {
 		//fmt.Printf("[Victory] slot=%s -> WARNING: both main and face2 animations are nil\n", slotName)
@@ -6001,7 +6009,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	localcoord [2]int32, layerno int16, facing int32,
 	scale [2]float32, xshear float32, angle float32, xangle float32,
 	yangle float32, projection string, fLength float32, window [4]int32,
-	x, y float32, applyPal bool, pal int, darken int32, ownerC *Char) *Anim {
+	x, y float32, applyPal bool, pal int, brightness int32, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
@@ -6099,12 +6107,12 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 		//fmt.Printf("[Victory] slot=%s -> applied palette %d\n", slot, pal)
 	}
 
-	if darken > 0 && darken < 256 && a.anim != nil && a.anim.sff != nil {
+	if brightness > 0 && brightness < 256 && a.anim != nil && a.anim.sff != nil {
 		if !isCopied {
 			a = a.Copy()
 			isCopied = true
 		}
-		val := 256 - darken
+		val := brightness
 		if val < 0 {
 			val = 0
 		}

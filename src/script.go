@@ -2471,6 +2471,10 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.maxRoundTime))
 		return 1
 	})
+	luaRegister(l, "getRuntimeOS", func(l *lua.LState) int {
+		l.Push(lua.LString(runtime.GOOS))
+		return 1
+	})
 	luaRegister(l, "getStageInfo", func(*lua.LState) int {
 		c := sys.sel.GetStage(int(numArg(l, 1)))
 		tbl := l.NewTable()

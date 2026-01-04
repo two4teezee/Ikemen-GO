@@ -12,18 +12,18 @@ cd "$REPO_ROOT"
 # Fail fast on unsafe repo paths (MSYS2/Cygwin): only allow [A-Za-z0-9._/-]
 require_safe_path() {
   case "$OSTYPE" in
-    msys|cygwin)
-      if [[ "$REPO_ROOT" =~ [^A-Za-z0-9._/-] ]]; then
-        echo "ERROR: Repository path contains characters unsafe for MSYS2/autotools:" >&2
-        echo "  $REPO_ROOT" >&2
-        echo "Use only letters, digits, '_', '-', '.'" >&2
-        echo "Tip: move to something like: C:\dev\Ikemen-GO" >&2
-        exit 1
-      fi
-      if ((${#REPO_ROOT} > 220)); then
-        echo "WARNING: Very long path (${#REPO_ROOT} chars) may hit Windows MAX_PATH issues." >&2
-      fi
-      ;;
+	msys|cygwin)
+	  if [[ "$REPO_ROOT" =~ [^A-Za-z0-9._/-] ]]; then
+		echo "ERROR: Repository path contains characters unsafe for MSYS2/autotools:" >&2
+		echo "  $REPO_ROOT" >&2
+		echo "Use only letters, digits, '_', '-', '.'" >&2
+		echo "Tip: move to something like: C:\dev\Ikemen-GO" >&2
+		exit 1
+	  fi
+	  if ((${#REPO_ROOT} > 220)); then
+		echo "WARNING: Very long path (${#REPO_ROOT} chars) may hit Windows MAX_PATH issues." >&2
+	  fi
+	  ;;
   esac
 }
 
@@ -313,6 +313,10 @@ function main() {
 			varLinux
 			build
 		;;
+		[aA][nN][dD][rR][oO][iI][dD])
+			varAndroid
+			build
+		;;
 		*)
 			echo "Unknown target: ${targetOS}"
 			echo "Valid targets: Win64 Win32 MacOS MacOSARM Linux LinuxARM"
@@ -383,6 +387,25 @@ function varLinuxARM() {
 	export GOARCH=arm64
 	binName="Ikemen_GO_LinuxARM"
 }
+function varAndroid() {
+	local host_os="linux" # default to Linux as that's what the runner will be using
+	[[ "$OSTYPE" == "darwin"* ]] && host_os="darwin"
+	export GOOS=android
+	export GOARCH=arm64
+	export CGO_ENABLED=1
+	# ANDROID_NDK_HOME is an environment variable as its path can be different per platform.
+	export TOOLCHAIN="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/${host_os}-x86_64"
+	export TARGET="aarch64-linux-android34" # for Android 14
+	export CC="$TOOLCHAIN/bin/${TARGET}-clang"
+	export CXX="$TOOLCHAIN/bin/${TARGET}-clang++"
+	export ANDROID_DEPS_PATH="$REPO_ROOT/build/android-deps"
+	# Force pkg-config to ONLY look at the Android libraries
+	export PKG_CONFIG_LIBDIR="$ANDROID_DEPS_PATH/lib/pkgconfig"
+	export PKG_CONFIG_SYSROOT_DIR="$ANDROID_DEPS_PATH"
+	# Ensure we don't pick up host libraries by clearing this
+	export PKG_CONFIG_PATH=""
+	binName="libmain.so"
+}
 
 # --- FFmpeg detection / build ---
 function have_ffmpeg_pc() {
@@ -409,20 +432,55 @@ function build_ffmpeg() {
 	git checkout "$FFMPEG_REV"
 
 	echo "==> Starting configure..."
-	local configure_args=(
-		"--prefix=$FFMPEG_PREFIX"
-		"--install-name-dir=@rpath"
-		"--enable-shared" "--disable-static"
-		"--disable-gpl" "--disable-nonfree"
-		"--disable-debug" "--disable-doc" "--disable-programs" "--disable-everything"
-		"--disable-autodetect"
-		"--enable-avformat" "--enable-avcodec" "--enable-avutil" "--enable-swresample" "--enable-swscale"
-		"--enable-avfilter" "--enable-filter=buffer,buffersink,format,scale,pad,crop"
-		"--enable-protocol=file"
-		"--enable-demuxer=matroska,webm"
-		"--enable-decoder=vp8,vp9,opus,vorbis"
-		"--enable-parser=vp8,vp9,opus,vorbis"
+	if [[ "$GOOS" == "android" ]]; then
+		local arch="aarch64"
+		local api_level="34"
+		local prefix="$ANDROID_DEPS_PATH"
+		
+		# Path to the specific Android Clang
+		local cc_compiler="$TOOLCHAIN/bin/${arch}-linux-android${api_level}-clang"
+		local ar_tool="$TOOLCHAIN/bin/llvm-ar"
+		local nm_tool="$TOOLCHAIN/bin/llvm-nm"
+		local strip_tool="$TOOLCHAIN/bin/llvm-strip"
+		
+		local configure_args=(
+			"--prefix=$prefix"
+			"--enable-cross-compile"
+			"--target-os=android" "--arch=$arch"
+			"--cc=$cc_compiler" "--ar=$ar_tool" "--nm=$nm_tool" "--strip=$strip_tool"
+			"--extra-cflags=-fPIC"
+			"--extra-ldflags=-Wl,-z,max-page-size=16384"
+			"--enable-shared"
+			"--install-name-dir=@rpath"
+			"--enable-shared" "--disable-static"
+			"--disable-gpl" "--disable-nonfree"
+			"--disable-debug" "--disable-doc" "--disable-programs" "--disable-everything"
+			"--disable-autodetect"
+			"--enable-avformat" "--enable-avcodec" "--enable-avutil" "--enable-swresample" "--enable-swscale"
+			"--enable-avfilter" "--enable-filter=buffer,buffersink,format,scale,pad,crop"
+			"--enable-protocol=file"
+			"--enable-demuxer=matroska,webm"
+			"--enable-decoder=vp8,vp9,opus,vorbis"
+			"--enable-parser=vp8,vp9,opus,vorbis"
+			"--enable-jni" "--enable-mediacodec"
+			"--pkg-config=$(which pkg-config)"
+		)
+	else
+		local configure_args=(
+			"--prefix=$FFMPEG_PREFIX"
+			"--install-name-dir=@rpath"
+			"--enable-shared" "--disable-static"
+			"--disable-gpl" "--disable-nonfree"
+			"--disable-debug" "--disable-doc" "--disable-programs" "--disable-everything"
+			"--disable-autodetect"
+			"--enable-avformat" "--enable-avcodec" "--enable-avutil" "--enable-swresample" "--enable-swscale"
+			"--enable-avfilter" "--enable-filter=buffer,buffersink,format,scale,pad,crop"
+			"--enable-protocol=file"
+			"--enable-demuxer=matroska,webm"
+			"--enable-decoder=vp8,vp9,opus,vorbis"
+			"--enable-parser=vp8,vp9,opus,vorbis"
 	)
+	fi
 
 	# Creates $FFMPEG_SRCDIR/BUILDINFO.txt with revision, configure args, and compiler info.
 	local _cc="${CC:-cc}"
@@ -446,6 +504,91 @@ function build_ffmpeg() {
 	echo "==> FFmpeg pkg-config files installed to: $FFMPEG_PREFIX/lib/pkgconfig"
 	ls -l "$FFMPEG_PREFIX/lib/pkgconfig" || true
 	popd >/dev/null
+}
+
+function build_libxmp_android() {
+	echo "==> Building LibXMP for Android..."
+	local src="$BUILDDIR/libxmp-src"
+	[[ -d "$src" ]] || git clone https://github.com/libxmp/libxmp.git "$src"
+	
+	mkdir -p "$src/build-android"
+	pushd "$src/build-android" >/dev/null
+	
+	cmake .. \
+		-DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+		-DANDROID_ABI="arm64-v8a" \
+		-DANDROID_PLATFORM=android-21 \
+		-DCMAKE_INSTALL_PREFIX="$ANDROID_DEPS_PATH" \
+		-DBUILD_STATIC=OFF \
+		-DBUILD_SHARED=ON \
+		-DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384"
+
+	echo "==> Configure complete. Starting make..."
+	make -j"$(getconf _NPROCESSORS_ONLN || echo 2)"
+	echo "==> Build complete. Installing..."
+	make install
+	# sanity: show the produced pkg-config files so we can see them in logs
+	echo "==> LibXMP files installed to: $ANDROID_DEPS_PATH"
+	ls -l "$ANDROID_DEPS_PATH/lib/libxmp.so" || true
+	popd >/dev/null
+}
+
+function build_sdl2_android() {
+	echo "==> Building SDL2 for Android..."
+	local src="$BUILDDIR/sdl2-src"
+	[[ -d "$src" ]] || git clone https://github.com/libsdl-org/SDL.git "$src"
+
+	pushd "$src" >/dev/null
+	git fetch --tags
+	git checkout tags/release-2.32.10
+	popd >/dev/null
+	
+	mkdir -p "$src/build-android"
+	pushd "$src/build-android" >/dev/null
+	
+	cmake .. \
+		-DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake" \
+		-DANDROID_ABI="arm64-v8a" \
+		-DANDROID_PLATFORM=android-21 \
+		-DCMAKE_INSTALL_PREFIX="$ANDROID_DEPS_PATH" \
+		-DSDL_ANDROID_PACKAGE_NAME=org.ikemen_engine.ikemen_go \
+		-DSDL_STATIC=OFF \
+		-DSDL_SHARED=ON \
+		-DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=16384"
+
+	echo "==> Configure complete. Starting make..."
+	make -j"$(getconf _NPROCESSORS_ONLN || echo 2)"
+	echo "==> Build complete. Installing..."
+	make install
+	# sanity: show the produced pkg-config files so we can see them in logs
+	echo "==> SDL2 files installed to: $ANDROID_DEPS_PATH"
+	ls -l "$ANDROID_DEPS_PATH/lib/libSDL2.so" || true
+	popd >/dev/null
+}
+
+function create_dummy_gl_pc() {
+	local pc_dir="$ANDROID_DEPS_PATH/lib/pkgconfig"
+	mkdir -p "$pc_dir"
+	
+	local gl_pc="$pc_dir/gl.pc"
+	if [[ ! -f "$gl_pc" ]]; then
+		echo "==> Creating dummy gl.pc for Android..."
+		cat > "$gl_pc" <<EOF
+Name: gl
+Description: Android GLES fake
+Version: 1.0
+Libs:
+Cflags:
+EOF
+	fi
+}
+
+function prepare_android_deps() {
+	[[ "$GOOS" != "android" ]] && return 0
+	build_sdl2_android
+	build_libxmp_android
+	build_ffmpeg
+	create_dummy_gl_pc
 }
 
 function maybe_build_ffmpeg() {
@@ -505,31 +648,47 @@ function create_delay_import_libs_windows() {
 
 # --- Build functions ---
 function build() {
-	maybe_build_ffmpeg
-	export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
-	# Ensure libxmp is present
-	require_libxmp
-	# Ensure SDL2 is present
-	require_sdl2
-	# Pull dependency flags from pkg-config (FFmpeg + libxmp + SDL2)
-	export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2) ${CGO_CFLAGS:-}"
-	local deps_libs
-	deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2)"
-
-	# RPATH for local libs on *nix; macOS adds rpath to bundle/exec path
-	if [[ "$GOOS" == "linux" ]]; then
-		export CGO_LDFLAGS="${deps_libs} -lpthread -lm -ldl -lz -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/lib ${CGO_LDFLAGS:-}"
-	elif [[ "$GOOS" == "darwin" ]]; then
-		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks"
+	if [[ "$GOOS" == "android" ]]; then
+		prepare_android_deps
+		# MANUALLY define flags for Android to avoid pkg-config errors
+		export CGO_CFLAGS="-I$ANDROID_DEPS_PATH/include -I$ANDROID_DEPS_PATH/include/SDL2 ${CGO_CFLAGS:-}"
+		local deps_libs="-L$ANDROID_DEPS_PATH/lib -lSDL2 -lXmp -lavformat -lavcodec -lavutil -lswscale -lswresample -lavfilter"
+		# Link against Android system libraries (GLES, OpenSLES, Log)
+		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -lSDL2 -lGLESv2 -lOpenSLES -Wl,-z,max-page-size=16384"
+	else
+		maybe_build_ffmpeg
+		export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
+		# Ensure libxmp is present
+		require_libxmp
+		# Ensure SDL2 is present
+		require_sdl2
+		# Pull dependency flags from pkg-config (FFmpeg + libxmp + SDL2)
+		export CGO_CFLAGS="$($PKG_CONFIG --cflags libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2) ${CGO_CFLAGS:-}"
+		local deps_libs
+		deps_libs="$($PKG_CONFIG --libs libavformat libavcodec libavutil libswscale libswresample libavfilter libxmp sdl2)"
+		# RPATH for local libs on *nix; macOS adds rpath to bundle/exec path
+		if [[ "$GOOS" == "linux" ]]; then
+			export CGO_LDFLAGS="${deps_libs} -lpthread -lm -ldl -lz -Wl,-rpath,\$ORIGIN -Wl,-rpath,\$ORIGIN/lib ${CGO_LDFLAGS:-}"
+		elif [[ "$GOOS" == "darwin" ]]; then
+			export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -Wl,-rpath,@executable_path -Wl,-rpath,@executable_path/../Frameworks"
+		fi		
 	fi
 
 	# On macOS we require MoltenVK for the Vulkan renderer
 	require_moltenvk
 
 	echo "==> Building Go binary (this may take a while)..."
-	go build -trimpath -v \
-	  -ldflags "-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
-	  -o "$OUTDIR/$binName" ./src
+
+	# Android has slightly different steps.
+	if [[ "$GOOS" == "android" ]]; then
+		go build -buildmode=c-shared -trimpath -v -tags=android,gles2 \
+		-ldflags="-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}' -X 'runtime.godebugDefault=asyncpreemptoff=1,sigaltstack=0'" \
+		-o "$OUTDIR/$binName" ./src
+	else
+		go build -trimpath -v \
+		-ldflags "-s -w -X 'main.Version=${APP_VERSION}' -X 'main.BuildTime=${APP_BUILDTIME}'" \
+		-o "$OUTDIR/$binName" ./src
+	fi
 
 	# bundle libs
 	bundle_shared_libs
@@ -624,10 +783,10 @@ function stage_windows_resources() {
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
   <assemblyIdentity type="win32" name="${ASM_NAME}" version="${SXS_VERSION}" processorArchitecture="${ASM_ARCH}"/>
   <dependency>
-    <dependentAssembly>
-      <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls"
-        version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
-    </dependentAssembly>
+	<dependentAssembly>
+	  <assemblyIdentity type="win32" name="Microsoft.Windows.Common-Controls"
+		version="6.0.0.0" processorArchitecture="*" publicKeyToken="6595b64144ccf1df" language="*"/>
+	</dependentAssembly>
   </dependency>
 </assembly>
 EOF
@@ -652,25 +811,25 @@ VS_VERSION_INFO VERSIONINFO
  FILETYPE 0x1L
  FILESUBTYPE 0x0L
 BEGIN
-    BLOCK "StringFileInfo"
-    BEGIN
-        BLOCK "040904B0"
-        BEGIN
-            VALUE "CompanyName", "Ikemen GO\\0"
-            VALUE "FileDescription", "Ikemen GO\\0"
-            VALUE "FileVersion", "${SXS_VERSION}\\0"
-            VALUE "ProductName", "Ikemen GO\\0"
-            VALUE "ProductVersion", "${SXS_VERSION}\\0"
-            VALUE "OriginalFilename", "Ikemen_GO.exe\\0"
-            VALUE "InternalName", "Ikemen_GO\\0"
-            VALUE "BuildDate", "${APP_BUILDTIME}\\0"
-            VALUE "LegalCopyright", "${APP_COPYRIGHT}\\0"
-        END
-    END
-    BLOCK "VarFileInfo"
-    BEGIN
-        VALUE "Translation", 0x0409, 1200
-    END
+	BLOCK "StringFileInfo"
+	BEGIN
+		BLOCK "040904B0"
+		BEGIN
+			VALUE "CompanyName", "Ikemen GO\\0"
+			VALUE "FileDescription", "Ikemen GO\\0"
+			VALUE "FileVersion", "${SXS_VERSION}\\0"
+			VALUE "ProductName", "Ikemen GO\\0"
+			VALUE "ProductVersion", "${SXS_VERSION}\\0"
+			VALUE "OriginalFilename", "Ikemen_GO.exe\\0"
+			VALUE "InternalName", "Ikemen_GO\\0"
+			VALUE "BuildDate", "${APP_BUILDTIME}\\0"
+			VALUE "LegalCopyright", "${APP_COPYRIGHT}\\0"
+		END
+	END
+	BLOCK "VarFileInfo"
+	BEGIN
+		VALUE "Translation", 0x0409, 1200
+	END
 END
 EOF
 
@@ -709,7 +868,7 @@ function bundle_shared_libs() {
 			/mingw64/bin/SDL2*.dll ; do
 			cp -av "$d" "$dest_lib/" 2>/dev/null || true
 		done
-	elif [[ -d "$FFMPEG_PREFIX/lib" ]]; then
+	elif [[ -d "$FFMPEG_PREFIX/lib" && "$GOOS" != "android" ]]; then
 		# Linux & macOS
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.so* "$dest_lib/" 2>/dev/null || true
 		cp -av "$FFMPEG_PREFIX"/lib/lib*.dylib "$dest_lib/" 2>/dev/null || true
@@ -726,9 +885,14 @@ function bundle_shared_libs() {
 		fi
 		[[ -n "$mvk" ]] && cp -av "$mvk" "$dest_lib/" 2>/dev/null || true
 	fi
+	# Android specific bundling
+	if [[ "$GOOS" == "android" ]]; then
+		echo "==> Bundling Android dependencies from $ANDROID_DEPS_PATH..."
+		cp -av "$ANDROID_DEPS_PATH"/lib/*.so* "$dest_lib/" 2>/dev/null || true
+	fi
 	# Always try to bundle libxmp for portable runtime on Linux/macOS.
-	# (Windows was handled above.)
-	if [[ "$GOOS" != "windows" ]]; then
+	# (Windows and Android were handled above.)
+	if [[ "$GOOS" != "windows" && "$GOOS" != "android" ]]; then
 		# Prefer pkg-config to locate the correct lib directory.
 		local pc libdir libdir_sdl2
 		pc="${PKG_CONFIG:-pkg-config}"

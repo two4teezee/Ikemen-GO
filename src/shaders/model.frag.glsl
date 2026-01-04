@@ -1,172 +1,127 @@
 #if __VERSION__ >= 450
-#define ENABLE_SHADOW 
-#define COMPAT_TEXTURE texture
-#define COMPAT_TEXTURE_CUBE texture
-#define COMPAT_TEXTURE_CUBE_LOD textureLod
-#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
-#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
-struct Light
-{
-	vec3 direction;
-	float range;
+	// VULKAN PATH
+	#define COMPAT_TEXTURE texture
+	#define COMPAT_TEXTURE_CUBE texture
+	#define COMPAT_TEXTURE_CUBE_LOD textureLod
+	#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
+	#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+	struct Light {
+		vec3 direction; float range;
+		vec3 color; float intensity;
+		vec3 position; float innerConeCos;
+		float outerConeCos; int type;
+		float shadowBias; float shadowMapFar;
+	};
+	layout(binding = 0) uniform EnvironmentUniform {
+		layout(offset = 384) Light lights[4];
+		layout(offset = 640) mat3 environmentRotation;
+		layout(offset = 688) vec3 cameraPosition;
+		layout(offset = 700) float environmentIntensity;
+		layout(offset = 704) int mipCount;
+	};
+	layout(binding = 1) uniform MaterialUniform {
+		mat3 texTransform,normalMapTransform,metallicRoughnessMapTransform,ambientOcclusionMapTransform,emissionMapTransform;
+		vec4 baseColorFactor; vec3 emission; vec2 metallicRoughness;
+		float ambientOcclusionStrength; float alphaThreshold;
+		bool unlit; bool enableAlpha;
+	};
+	layout(binding = 2) uniform UniformBufferObject {
+		layout(offset = 192) float meshOutline;
+		layout(offset = 196) float gray;
+		layout(offset = 200) float hue;
+		layout(offset = 208) vec3 add;
+		layout(offset = 224) vec3 mult;
+		layout(offset = 240) int neg;
+	};
+	layout (constant_id = 6) const bool useTexture = false;
+	layout (constant_id = 7) const bool useNormalMap = false;
+	layout (constant_id = 8) const bool useMetallicRoughnessMap = false;
+	layout (constant_id = 9) const bool useEmissionMap = false;
+	layout (constant_id = 10) const bool useShadowMap = false;
+	layout(binding = 5) uniform samplerCube lambertianEnvSampler;
+	layout(binding = 6) uniform samplerCube GGXEnvSampler;
+	layout(binding = 7) uniform sampler2D GGXLUT;
+	layout(binding = 8) uniform sampler2D tex;
+	layout(binding = 9) uniform sampler2D normalMap;
+	layout(binding = 10) uniform sampler2D metallicRoughnessMap;
+	layout(binding = 11) uniform sampler2D ambientOcclusionMap;
+	layout(binding = 12) uniform sampler2D emissionMap;
+	layout(binding = 13) uniform samplerCubeArray shadowCubeMap;
 
-	vec3 color;
-	float intensity;
-
-	vec3 position;
-	float innerConeCos;
-
-	float outerConeCos;
-	int type;
-
-	float shadowBias;
-	float shadowMapFar;
-};
-layout(binding = 0) uniform EnvironmentUniform {
-	layout(offset = 384) Light lights[4];
-	layout(offset = 640) mat3 environmentRotation;
-	layout(offset = 688) vec3 cameraPosition;
-	layout(offset = 700) float environmentIntensity;
-	layout(offset = 704) int mipCount;
-};
-layout(binding = 1) uniform MaterialUniform {
-	mat3 texTransform,normalMapTransform,metallicRoughnessMapTransform,ambientOcclusionMapTransform,emissionMapTransform;
-	vec4 baseColorFactor;
-	vec3 emission;
-	vec2 metallicRoughness;
-	float ambientOcclusionStrength;
-	float alphaThreshold;
-	
-	bool unlit;
-	bool enableAlpha;
-};
-layout(binding = 2) uniform UniformBufferObject {
-	layout(offset = 192) float meshOutline;
-	layout(offset = 196) float gray;
-	layout(offset = 200) float hue;
-	layout(offset = 208) vec3 add;
-	layout(offset = 224) vec3 mult;
-	layout(offset = 240) int neg;
-
-};
-layout (constant_id = 6) const bool useTexture = false;
-layout (constant_id = 7) const bool useNormalMap = false;
-layout (constant_id = 8) const bool useMetallicRoughnessMap = false;
-layout (constant_id = 9) const bool useEmissionMap = false;
-// layout (constant_id = 10) const bool neg = false;
-layout (constant_id = 10) const bool useShadowMap = false;
-
-layout(binding = 5) uniform samplerCube lambertianEnvSampler;
-layout(binding = 6) uniform samplerCube GGXEnvSampler;
-layout(binding = 7) uniform sampler2D GGXLUT;
-
-layout(binding = 8) uniform sampler2D tex;
-layout(binding = 9) uniform sampler2D normalMap;
-layout(binding = 10) uniform sampler2D metallicRoughnessMap;
-layout(binding = 11) uniform sampler2D ambientOcclusionMap;
-layout(binding = 12) uniform sampler2D emissionMap;
-layout(binding = 13) uniform samplerCubeArray shadowCubeMap;
-
-layout(location = 0) in vec3 normal;
-layout(location = 1) in vec3 tangent;
-layout(location = 2) in vec3 bitangent;
-layout(location = 3) in vec2 texcoord;
-layout(location = 4) in vec4 vColor;
-layout(location = 5) in vec3 worldSpacePos;
-layout(location = 6) in vec4 lightSpacePos[4];
-layout(location = 0) out vec4 FragColor;
+	layout(location = 0) in vec3 normal;
+	layout(location = 1) in vec3 tangent;
+	layout(location = 2) in vec3 bitangent;
+	layout(location = 3) in vec2 texcoord;
+	layout(location = 4) in vec4 vColor;
+	layout(location = 5) in vec3 worldSpacePos;
+	layout(location = 6) in vec4 lightSpacePos[4];
+	layout(location = 0) out vec4 FragColor;
 #else
-#if __VERSION__ >= 130
-#extension GL_ARB_texture_cube_map_array : enable
-#define COMPAT_VARYING in
-#define COMPAT_TEXTURE texture
-#define COMPAT_TEXTURE_CUBE texture
-#define COMPAT_TEXTURE_CUBE_LOD textureLod
-out vec4 FragColor;
-#ifdef ENABLE_SHADOW
-uniform samplerCubeArray shadowCubeMap;
-#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
-#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
-#endif
-#else
-#extension GL_ARB_shader_texture_lod : enable
-#define COMPAT_VARYING varying
-#define FragColor gl_FragColor
-#define COMPAT_TEXTURE texture2D
-#define COMPAT_TEXTURE_CUBE textureCube
-#define COMPAT_TEXTURE_CUBE_LOD textureCubeLod
-#ifdef ENABLE_SHADOW
-//uniform sampler2D shadowMap[4];
-uniform samplerCube shadowCubeMap[4];
-#define COMPAT_SHADOW_MAP_TEXTURE() textureCube(shadowCubeMap[index],vec3(1.0, -(xy.y*2-1),-(xy.x*2-1))).r
-#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
-#endif
-#endif
-struct Light
-{
-	vec3 direction;
-	float range;
+	// GLES / OPENGL PATH
+	#if __VERSION__ >= 130 || defined(GL_ES)
+		#extension GL_ARB_texture_cube_map_array : enable
+		#define COMPAT_VARYING in
+		#define COMPAT_TEXTURE texture
+		#define COMPAT_TEXTURE_CUBE texture
+		#define COMPAT_TEXTURE_CUBE_LOD textureLod
+		#ifdef GL_ES
+			precision highp float;
+			precision highp int;
+		#endif
+		#ifdef ENABLE_SHADOW
+			uniform samplerCubeArray shadowCubeMap;
+			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
+			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+			const bool useShadowMap = true;
+		#else
+			#define COMPAT_SHADOW_MAP_TEXTURE() 1.0
+			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() 1.0
+			const bool useShadowMap = false;
+		#endif
+		out vec4 FragColor;
+	#else
+		#extension GL_ARB_shader_texture_lod : enable
+		#ifdef ENABLE_SHADOW
+			uniform samplerCube shadowCubeMap[4];
+			#define COMPAT_SHADOW_MAP_TEXTURE() textureCube(shadowCubeMap[index],vec3(1.0, -(xy.y*2-1),-(xy.x*2-1))).r
+			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
+			const bool useShadowMap = true;
+		#else
+			#define COMPAT_SHADOW_MAP_TEXTURE() 1.0
+			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() 1.0
+			const bool useShadowMap = false;
+		#endif
+		#define COMPAT_VARYING varying
+		#define FragColor gl_FragColor
+		#define COMPAT_TEXTURE texture2D
+		#define COMPAT_TEXTURE_CUBE textureCube
+		#define COMPAT_TEXTURE_CUBE_LOD textureCubeLod
+	#endif
 
-	vec3 color;
-	float intensity;
+	struct Light {
+		vec3 direction; float range;
+		vec3 color; float intensity;
+		vec3 position; float innerConeCos;
+		float outerConeCos; int type;
+		float shadowBias; float shadowMapFar;
+	};
 
-	vec3 position;
-	float innerConeCos;
+	uniform sampler2D tex, normalMap, metallicRoughnessMap, ambientOcclusionMap, emissionMap, GGXLUT;
+	uniform samplerCube lambertianEnvSampler, GGXEnvSampler;
+	uniform mat3 texTransform, normalMapTransform, metallicRoughnessMapTransform, ambientOcclusionMapTransform, emissionMapTransform;
+	uniform float environmentIntensity, gray, hue, alphaThreshold, meshOutline, ambientOcclusionStrength;
+	uniform mat3 environmentRotation;
+	uniform int mipCount, neg;
+	uniform vec3 cameraPosition, add, mult, emission;
+	uniform vec4 baseColorFactor;
+	uniform vec2 metallicRoughness;
+	uniform bool unlit, useTexture, useNormalMap, useMetallicRoughnessMap, useEmissionMap, enableAlpha;
+	uniform Light lights[4];
 
-	float outerConeCos;
-	int type;
-
-	float shadowBias;
-	float shadowMapFar;
-};
-uniform sampler2D tex;
-uniform mat3 texTransform;
-uniform sampler2D normalMap;
-uniform mat3 normalMapTransform;
-uniform sampler2D metallicRoughnessMap;
-uniform mat3 metallicRoughnessMapTransform;
-uniform sampler2D ambientOcclusionMap;
-uniform mat3 ambientOcclusionMapTransform;
-uniform sampler2D emissionMap;
-uniform mat3 emissionMapTransform;
-uniform samplerCube lambertianEnvSampler;
-uniform samplerCube GGXEnvSampler;
-uniform sampler2D GGXLUT;
-uniform float environmentIntensity;
-uniform mat3 environmentRotation;
-uniform int mipCount;
-
-uniform vec3 cameraPosition;
-
-uniform vec4 baseColorFactor;
-uniform vec2 metallicRoughness;
-uniform float ambientOcclusionStrength;
-uniform vec3 emission;
-uniform bool unlit;
-
-uniform Light lights[4];
-
-
-uniform vec3 add, mult;
-uniform float gray, hue;
-uniform bool useTexture;
-uniform bool useNormalMap;
-uniform bool useMetallicRoughnessMap;
-uniform bool useEmissionMap;
-uniform int neg;
-uniform bool enableAlpha;
-uniform float alphaThreshold;
-uniform float meshOutline;
-
-COMPAT_VARYING vec2 texcoord;
-COMPAT_VARYING vec4 vColor;
-COMPAT_VARYING vec3 normal;
-COMPAT_VARYING vec3 tangent;
-COMPAT_VARYING vec3 bitangent;
-COMPAT_VARYING vec3 worldSpacePos;
-COMPAT_VARYING vec4 lightSpacePos[4];
-
-const bool useShadowMap = true;
+	COMPAT_VARYING vec2 texcoord;
+	COMPAT_VARYING vec4 vColor;
+	COMPAT_VARYING vec3 normal, tangent, bitangent, worldSpacePos;
+	COMPAT_VARYING vec4 lightSpacePos[4];
 #endif
 
 
@@ -263,8 +218,8 @@ vec3 getNormal()
 	vec3 t_ = (uv_dy.t * dFdx(worldSpacePos) - uv_dx.t * dFdy(worldSpacePos)) /
 		(uv_dx.s * uv_dy.t - uv_dy.s * uv_dx.t);
 	vec3 n, t, b, ng;
-	if(normal.x+normal.y+normal.z != 0){
-		if(tangent.x+tangent.y+tangent.z != 0){
+	if(normal.x+normal.y+normal.z != 0.0){
+		if(tangent.x+tangent.y+tangent.z != 0.0){
 			t = normalize(tangent);
 			b = normalize(bitangent);
 			ng = normalize(normal);
@@ -423,10 +378,10 @@ vec3 ibl(vec3 n,vec3 v,float metallic,float roughness,vec3 albedo){
 	vec3 f_specular_dielectric = f_specular_metal;
 	vec3 f_metal_fresnel_ibl = getIBLGGXFresnel(n, v, roughness, albedo.rgb, 1.0);
 	vec3 f_metal_brdf_ibl = f_metal_fresnel_ibl * f_specular_metal;
-	vec3 f_dielectric_fresnel_ibl = getIBLGGXFresnel(n, v, roughness, vec3(0.04), 1);
-	vec3 f_dielectric_brdf_ibl = f_diffuse*(1-f_dielectric_fresnel_ibl) + f_specular_dielectric * f_dielectric_fresnel_ibl;
+	vec3 f_dielectric_fresnel_ibl = getIBLGGXFresnel(n, v, roughness, vec3(0.04), 1.0);
+	vec3 f_dielectric_brdf_ibl = f_diffuse*(1.0-f_dielectric_fresnel_ibl) + f_specular_dielectric * f_dielectric_fresnel_ibl;
 
-	vec3 color = f_dielectric_brdf_ibl*(1-metallic)+f_metal_brdf_ibl*metallic;
+	vec3 color = f_dielectric_brdf_ibl*(1.0-metallic)+f_metal_brdf_ibl*metallic;
 	return color;
 }
 vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float roughness,float ao){
@@ -436,12 +391,12 @@ vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float rough
 	float specularWeight = 1.0;
 	vec3 f_specular = vec3(0.0);
 	vec3 f_diffuse = vec3(0.0);
-	vec3 c_diff = albedo*(1-metallic);
+	vec3 c_diff = albedo*(1.0-metallic);
 
 	for(int i = 0; i < 4; ++i) 
 	{
-		if(lights[i].color.r+lights[i].color.g+lights[i].color.b > 0){
-			vec3 pointToLight = vec3(0);
+		if(lights[i].color.r+lights[i].color.g+lights[i].color.b > 0.0){
+			vec3 pointToLight = vec3(0.0);
 			if(lights[i].type == LightType_Directional){
 				pointToLight = -lights[i].direction;
 			}else{
@@ -459,7 +414,7 @@ vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float rough
 				vec3 l_specular = vec3(0.0);
 				l_diffuse += intensity * NdotL *  BRDF_lambertian(f0, f90, c_diff, specularWeight, VdotH);
 				l_specular += intensity * NdotL * BRDF_specularGGX(f0, f90, roughness*roughness, specularWeight, VdotH, NdotL, NdotV, NdotH);
-				float shadow = 1;
+				float shadow = 1.0;
 				if(lights[i].type == LightType_Point){
 					shadow = PointLightShadowCalculation(i,pointToLight,NdotL,lights[i].shadowMapFar,lights[i].shadowBias);
 				}else if(lights[i].type == LightType_Directional){
@@ -472,8 +427,8 @@ vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float rough
 			}
 		}
 	}   
-	vec3 f_ibl = vec3(0);
-	if(environmentIntensity > 0){
+	vec3 f_ibl = vec3(0.0);
+	if(environmentIntensity > 0.0){
 		f_ibl = ibl(n,v,metallic,roughness,albedo);
 	}
 	//vec3 color = clamp(f_diffuse+f_specular+ao*f_ibl,0,1);
@@ -483,14 +438,15 @@ vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float rough
 	//color = pow(color, vec3(1.0/2.2));
 	return color;
 }
+
+// Hue shift using unrolled matrix for GLES stability
 vec3 hue_shift(vec3 color, float dhue) {
 	float s = sin(dhue);
 	float c = cos(dhue);
-	return (color * c) + (color * s) * mat3(
-		vec3(0.167444, 0.329213, -0.496657),
-		vec3(-0.327948, 0.035669, 0.292279),
-		vec3(1.250268, -1.047561, -0.202707)
-	) + dot(vec3(0.299, 0.587, 0.114), color) * (1.0 - c);
+	vec3 row1 = vec3(0.167444, 0.329213, -0.496657);
+	vec3 row2 = vec3(-0.327948, 0.035669, 0.292279);
+	vec3 row3 = vec3(1.250268, -1.047561, -0.202707);
+	return (color * c) + (color * s) * vec3(dot(row1, color), dot(row2, color), dot(row3, color)) + dot(vec3(0.299, 0.587, 0.114), color) * (1.0 - c);
 }
 
 void main(void) {
@@ -502,8 +458,8 @@ void main(void) {
 	}
 	FragColor *= baseColorFactor;
 	FragColor *= vColor;
-	if(meshOutline > 0) {
-		FragColor.rgb = vec3(0,0,0);
+	if(meshOutline > 0.0) {
+		FragColor.rgb = vec3(0.0,0.0,0.0);
 	}else if(!unlit){
 		vec3 normalF = normal;
 		if(useNormalMap){
@@ -511,18 +467,18 @@ void main(void) {
 		}
 		vec2 metallicRoughnessF = metallicRoughness;
 		if(useMetallicRoughnessMap){
-			metallicRoughnessF = COMPAT_TEXTURE(metallicRoughnessMap, vec2(metallicRoughnessMapTransform*vec3(texcoord,1))).bg;
+			metallicRoughnessF = COMPAT_TEXTURE(metallicRoughnessMap, vec2(metallicRoughnessMapTransform*vec3(texcoord,1.0))).bg;
 		}
-		float ambientOcclusion = 1;
-		if(ambientOcclusionStrength > 0){
-			ambientOcclusion = 1+ambientOcclusionStrength*(COMPAT_TEXTURE(ambientOcclusionMap, vec2(ambientOcclusionMapTransform*vec3(texcoord,1))).r-1);
+		float ambientOcclusion = 1.0;
+		if(ambientOcclusionStrength > 0.0){
+			ambientOcclusion = 1.0+ambientOcclusionStrength*(COMPAT_TEXTURE(ambientOcclusionMap, vec2(ambientOcclusionMapTransform*vec3(texcoord,1.0))).r-1.0);
 		}
 		// PBR returns color in linear space
 		FragColor.rgb = pbr(worldSpacePos,normalize(cameraPosition - worldSpacePos),normalize(normalF),FragColor.rgb,metallicRoughnessF[0],metallicRoughnessF[1],ambientOcclusion);
 		
 		// Emission is also added in linear space
 		if(useEmissionMap){
-			FragColor.rgb += emission * pow(COMPAT_TEXTURE(emissionMap, vec2(emissionMapTransform*vec3(texcoord,1))).rgb,vec3(2.2));
+			FragColor.rgb += emission * pow(COMPAT_TEXTURE(emissionMap, vec2(emissionMapTransform*vec3(texcoord,1.0))).rgb,vec3(2.2));
 		}else{
 			FragColor.rgb += emission;
 		}
@@ -535,7 +491,7 @@ void main(void) {
 		if(FragColor.a < alphaThreshold){
 			discard;
 		}else{
-			FragColor.a = 1;
+			FragColor.a = 1.0;
 		}
 	}else if(FragColor.a<=0.0){
 		discard;
@@ -552,7 +508,7 @@ void main(void) {
 	
 	// Convert ADD uniform from sRGB space (assuming user input) to Linear
 	// We assume 'add' is defined in sRGB space.
-	vec3 linear_add = pow(add, vec3(2.2));
+	vec3 linear_add = sign(add) * pow(abs(add), vec3(2.2));
 
 	// Apply PalFX (All math in True Linear space)
 	if (hue != 0.0) {

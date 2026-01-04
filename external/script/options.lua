@@ -205,7 +205,13 @@ options.t_itemname = {
 			--modifyGameOption('Debug.StartStage', "stages/stage0-720.def")
 			--modifyGameOption('Debug.ForceStageZoomout', 0)
 			--modifyGameOption('Debug.ForceStageZoomin', 0)
-			modifyGameOption('Video.RenderMode', "OpenGL 3.2")
+			-- This is platform dependent now
+			local runtimeOS = getRuntimeOS()
+			if runtimeOS == 'android' then
+				modifyGameOption('Video.RenderMode', 'OpenGL ES 3.2')
+			else
+				modifyGameOption('Video.RenderMode', "OpenGL 3.2")
+			end
 			modifyGameOption('Video.GameWidth', 1280)
 			modifyGameOption('Video.GameHeight', 720)
 			--modifyGameOption('Video.WindowWidth', 0)
@@ -776,6 +782,17 @@ options.t_itemname = {
 			t.items[item].vardisplay = gameOption('Video.RenderMode')
 			options.modified = true
 			options.needReload = true
+		end
+		return true
+	end,
+	--gles32
+	['gles32'] = function(t, item, cursorPosY, moveTxt)
+		if main.f_input(main.t_players, motif.option_info.menu.done.key) then
+			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+			modifyGameOption('Video.RenderMode', "OpenGL ES 3.2")
+			options.modified = true
+			options.needReload = true
+			return false
 		end
 		return true
 	end,

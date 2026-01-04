@@ -1,4 +1,4 @@
-//go:build !raw
+//go:build !raw && !android
 
 package main
 
@@ -56,4 +56,26 @@ func LoadFntTtf(f *Fnt, fontfile string, filename string, height int32) {
 	for i := 0; i < 256; i++ {
 		f.palettes[0][i] = 0
 	}
+}
+
+func selectRenderer(cfgVal string) (Renderer, FontRenderer) {
+	var gfx Renderer
+	var gfxFont FontRenderer
+	// Now we proceed to init the render.
+	if cfgVal == "Vulkan 1.3" {
+		gfx = &Renderer_VK{}
+		gfxFont = &FontRenderer_VK{}
+	} else if cfgVal == "OpenGL 2.1" {
+		gfx = &Renderer_GL21{}
+		gfxFont = &FontRenderer_GL21{}
+	} else {
+		gfx = &Renderer_GL32{}
+		gfxFont = &FontRenderer_GL32{}
+	}
+
+	return gfx, gfxFont
+}
+
+func Logcat(s string) {
+	fmt.Println(s)
 }

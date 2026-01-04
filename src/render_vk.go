@@ -1,4 +1,4 @@
-//go:build !kinc
+//go:build !kinc && !android
 
 package main
 
@@ -247,6 +247,9 @@ func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
 		ImageOffset: imageOffset,
 		ImageExtent: imageExtent,
 	})
+}
+func (t *Texture_VK) SetSubDataStride(textureData []byte, x, y, width, height, stride int32) {
+
 }
 
 func (t *Texture_VK) SetDataG(textureData []byte, mag, min, ws, wt TextureSamplingParam) {

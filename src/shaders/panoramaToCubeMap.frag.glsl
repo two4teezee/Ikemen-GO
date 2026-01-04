@@ -8,39 +8,43 @@ layout(location = 0) in vec2 texcoord;
 layout(binding = 0) uniform sampler2D panorama;
 layout(location = 0) out vec4 FragColor;
 #else
-#if __VERSION__ >= 130
-#define COMPAT_VARYING in
-#define COMPAT_TEXTURE texture
-out vec4 FragColor;
-#else
-#define COMPAT_VARYING varying
-#define FragColor gl_FragColor
-#define COMPAT_TEXTURE texture2D
-#endif
-COMPAT_VARYING vec2 texcoord;
-uniform int currentFace;
-uniform sampler2D panorama;
+	#if __VERSION__ >= 130 || defined(GL_ES)
+		#define COMPAT_VARYING in
+		#define COMPAT_TEXTURE texture
+		#ifdef GL_ES
+			precision highp float;
+			precision highp int;
+		#endif
+		out vec4 FragColor;
+	#else
+		#define COMPAT_VARYING varying
+		#define FragColor gl_FragColor
+		#define COMPAT_TEXTURE texture2D
+	#endif
+	COMPAT_VARYING vec2 texcoord;
+	uniform int currentFace;
+	uniform sampler2D panorama;
 #endif
 
 vec3 uvToXYZ(int face, vec2 uv)
 {
 	if(face == 0)
-		return vec3(     1.f,   uv.y,    -uv.x);
+		return vec3(     1.0,   uv.y,    -uv.x);
 
 	else if(face == 1)
-		return vec3(    -1.f,   uv.y,     uv.x);
+		return vec3(    -1.0,   uv.y,     uv.x);
 
 	else if(face == 2)
-		return vec3(   +uv.x,   -1.f,    +uv.y);
+		return vec3(   +uv.x,   -1.0,    +uv.y);
 
 	else if(face == 3)
-		return vec3(   +uv.x,    1.f,    -uv.y);
+		return vec3(   +uv.x,    1.0,    -uv.y);
 
 	else if(face == 4)
-		return vec3(   +uv.x,   uv.y,      1.f);
+		return vec3(   +uv.x,   uv.y,      1.0);
 
 	else //if(face == 5)
-	{	return vec3(    -uv.x,  +uv.y,     -1.f);}
+	{	return vec3(    -uv.x,  +uv.y,     -1.0);}
 }
 
 vec2 dirToUV(vec3 dir)
@@ -65,7 +69,7 @@ vec3 panoramaToCubeMap(int face, vec2 texCoord)
 
 void main(void)
 {
-    FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+	FragColor = vec4(0.0, 0.0, 0.0, 1.0);
 
 	FragColor.rgb = panoramaToCubeMap(currentFace, texcoord);
 }

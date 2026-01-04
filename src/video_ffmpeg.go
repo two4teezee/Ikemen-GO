@@ -10,7 +10,6 @@ import (
 
 	"github.com/gopxl/beep/v2"
 	"github.com/gopxl/beep/v2/effects"
-	"github.com/gopxl/beep/v2/speaker"
 	"github.com/ikemen-engine/reisen"
 )
 

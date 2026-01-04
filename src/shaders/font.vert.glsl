@@ -6,39 +6,36 @@ layout(offset = 16) vec2 resolution;
 };
 layout(location = 0) out vec2 fragTexCoord;
 #else
-#if __VERSION__ >= 130
-#define COMPAT_VARYING out
-#define COMPAT_ATTRIBUTE in
-#define COMPAT_TEXTURE texture
-#else
-#define COMPAT_VARYING varying
-#define COMPAT_ATTRIBUTE attribute
-#define COMPAT_TEXTURE texture2D
-#endif
-//vertex position
-COMPAT_ATTRIBUTE vec2 vert;
+	#if __VERSION__ >= 130
+		#define COMPAT_VARYING out
+		#define COMPAT_ATTRIBUTE in
+	#else
+		#define COMPAT_VARYING varying
+		#define COMPAT_ATTRIBUTE attribute
+	#endif
 
-//pass through to fragTexCoord
-COMPAT_ATTRIBUTE vec2 vertTexCoord;
+	uniform vec2 resolution;
 
-//window res
-uniform vec2 resolution;
-
-//pass to frag
-COMPAT_VARYING vec2 fragTexCoord;
+	COMPAT_ATTRIBUTE vec2 vert;
+	COMPAT_ATTRIBUTE vec2 vertTexCoord;
+	COMPAT_VARYING vec2 fragTexCoord;
 #endif
 
 void main() {
-   // convert the rectangle from pixels to 0.0 to 1.0
-   vec2 zeroToOne = vert / resolution;
+	fragTexCoord = vertTexCoord;
 
-   // convert from 0->1 to 0->2
-   vec2 zeroToTwo = zeroToOne * 2.0;
+	// convert the rectangle from pixels to 0.0 to 1.0
+	vec2 res = resolution;
+	if(res.x < 1.0) res.x = 1.0;
+	if(res.y < 1.0) res.y = 1.0;
 
-   // convert from 0->2 to -1->+1 (clipspace)
-   vec2 clipSpace = zeroToTwo - 1.0;
+	vec2 zeroToOne = vert / res;
 
-   fragTexCoord = vertTexCoord;
+	// convert from 0->1 to 0->2
+	vec2 zeroToTwo = zeroToOne * 2.0;
 
-   gl_Position = vec4(clipSpace * vec2(1, -1), 0, 1);
+	// convert from 0->2 to -1->+1 (clipspace)
+	vec2 clipSpace = zeroToTwo - 1.0;
+
+	gl_Position = vec4(clipSpace * vec2(1.0, -1.0), 0.0, 1.0);
 }

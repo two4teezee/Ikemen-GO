@@ -169,7 +169,7 @@ Android Studio is required to make the APK.
 6. The APK is now in `app/build/outputs/apk/debug/app-debug.apk`.
 7. (Optional) Install to your Android device by running the command `adb install -r app/build/outputs/apk/app-debug.apk`.
 
-After running step 7, you can select I.K.E.M.E.N-Go from the Androud list of apps as usual, or you could run:
+After running step 7, you can select I.K.E.M.E.N-Go from the Android list of apps as usual, or you could run:
 ```bash
 adb shell am start -n org.ikemen_engine.ikemen_go/org.libsdl.app.SDLActivity`
 ```

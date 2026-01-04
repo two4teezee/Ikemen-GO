@@ -4,6 +4,7 @@ import (
 	"container/list"
 	_ "embed"
 	"math"
+	"runtime"
 
 	mgl "github.com/go-gl/mathgl/mgl32"
 )
@@ -11,6 +12,7 @@ import (
 type Texture interface {
 	SetData(data []byte)
 	SetSubData(data []byte, x, y, width, height int32)
+	SetSubDataStride(data []byte, x, y, width, height, stride int32)
 	SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam)
 	SetPixelData(data []float32)
 	IsValid() bool
@@ -696,6 +698,7 @@ type TextureAtlas struct {
 
 func CreateTextureAtlas(width, height int32, depth int32, filter bool) *TextureAtlas {
 	ta := &TextureAtlas{width: width, height: height, texture: gfx.newTexture(width, height, depth, filter), depth: depth, filter: filter, skyline: list.New(), resize: false}
+	ta.texture.SetData(nil) // ALLOCATE STORAGE NOW
 	ta.skyline.PushBack([2]int32{0, 0})
 	return ta
 }
@@ -722,6 +725,35 @@ func (ta *TextureAtlas) AddImage(width, height int32, data []byte) ([4]float32, 
 		}
 	}
 	ta.texture.SetSubData(data, x, y, width, height)
+	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
+}
+func (ta *TextureAtlas) AddImageStride(width, height, stride int32, data []byte) ([4]float32, bool) {
+	const maxWidth = 4096
+	if ta.resize {
+		if width > ta.width || height > ta.height {
+			if width > maxWidth/2 || height > maxWidth/2 {
+				return [4]float32{}, false
+			}
+			ta.Resize(width*2, height*2)
+		}
+	}
+	x, y, ok := ta.FindPlaceToInsert(width, height)
+	if !ok {
+		if ta.resize {
+			if ta.width != maxWidth && ta.height != maxWidth {
+				ta.Resize(ta.width*2, ta.height*2)
+			}
+			x, y, ok = ta.FindPlaceToInsert(width, height)
+		}
+		if !ok {
+			return [4]float32{}, false
+		}
+	}
+	if runtime.GOOS == "android" {
+		ta.texture.SetSubDataStride(data, x, y, width, height, stride)
+	} else {
+		ta.texture.SetSubData(data, x, y, width, height)
+	}
 	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
 }
 func (ta *TextureAtlas) FindPlaceToInsert(width, height int32) (int32, int32, bool) {

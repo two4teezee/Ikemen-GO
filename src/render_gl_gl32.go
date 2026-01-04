@@ -2,6 +2,8 @@
 // for GL 3.2 which is the minimum version that runs on modern
 // macOS (Intel and ARM). Work adapted from assemblaj/fantasma
 
+//go:build !android
+
 package main
 
 import (
@@ -290,6 +292,9 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height int32) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interp)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+}
+func (t *Texture_GL32) SetSubDataStride(textureData []byte, x, y, width, height, stride int32) {
+
 }
 func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 

@@ -9,26 +9,32 @@ layout(push_constant, std430) uniform u {
 };
 layout(binding = 0) uniform sampler2D tex;
 #else
-#if __VERSION__ >= 130
-#define COMPAT_VARYING in
-#define COMPAT_ATTRIBUTE in
-#define COMPAT_TEXTURE texture
-#define COMPAT_FRAGCOLOR FragColor
-out vec4 FragColor;
-#else
-#define COMPAT_VARYING varying
-#define COMPAT_ATTRIBUTE attribute
-#define COMPAT_TEXTURE texture2D
-#define COMPAT_FRAGCOLOR gl_FragColor
-#endif
-COMPAT_VARYING vec2 fragTexCoord;
-uniform vec4 textColor;
-uniform sampler2D tex;
+	#if __VERSION__ >= 130 || defined(GL_ES)
+		#ifdef GL_ES
+			precision highp float;
+			precision highp int;
+		#endif
+
+		#define COMPAT_VARYING in
+		#define COMPAT_TEXTURE texture
+		#define COMPAT_FRAGCOLOR FragColor
+		out vec4 FragColor;
+	#else
+		#define COMPAT_VARYING varying
+		#define COMPAT_TEXTURE texture2D
+		#define COMPAT_FRAGCOLOR gl_FragColor
+	#endif
+
+	// These must be STANDALONE for RegisterUniforms to work in GLES
+	uniform vec4 textColor;
+	uniform sampler2D tex;
+	COMPAT_VARYING vec2 fragTexCoord;
 #endif
 
 
 void main()
 {
-    vec4 sampled = vec4(1.0, 1.0, 1.0, COMPAT_TEXTURE(tex, fragTexCoord).r);
+	vec4 texColor = COMPAT_TEXTURE(tex, fragTexCoord);
+	vec4 sampled = vec4(1.0, 1.0, 1.0, texColor.r);
     COMPAT_FRAGCOLOR = min(textColor, vec4(1.0, 1.0, 1.0, 1.0)) * sampled;
 }

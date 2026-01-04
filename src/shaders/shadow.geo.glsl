@@ -1,24 +1,29 @@
 #if __VERSION__ >= 130
-#define COMPAT_POS_IN(i) gl_in[i].gl_Position
-layout(triangle_strip, max_vertices = 18) out;
-uniform int layerOffset;
-#define LAYER_OFFSET layerOffset
-layout(triangles) in;
-in float vColor[];
-in vec2 texcoord[];
-out vec4 FragPos;
-out float vColorAlpha;
-out vec2 texcoord0;
-#else
-#extension GL_EXT_geometry_shader4: enable
-#define COMPAT_POS_IN(i) gl_PositionIn[i]
-#define LAYER_OFFSET 0
+    #define COMPAT_POS_IN(i) gl_in[i].gl_Position
+    layout(triangle_strip, max_vertices = 18) out;
+    uniform int layerOffset;
+    #define LAYER_OFFSET layerOffset
+    layout(triangles) in;
+    
+    in float vColorIn[];
+    in vec2 texcoordIn[];
+    in vec4 FragPosIn[];
 
-varying in float vColor[3];
-varying in vec2 texcoord[3];
-varying out vec4 FragPos;
-varying out float vColorAlpha;
-varying out vec2 texcoord0;
+    out vec4 FragPos;
+    out float vColor;
+    out vec2 texcoord;
+#else
+    #extension GL_EXT_geometry_shader4: enable
+    #define COMPAT_POS_IN(i) gl_PositionIn[i]
+    #define LAYER_OFFSET 0
+
+    varying in float vColorIn[3];
+    varying in vec2 texcoordIn[3];
+    varying in vec4 FragPosIn[3];
+
+    varying out vec4 FragPos;
+    varying out float vColor;
+    varying out vec2 texcoord;
 #endif
 
 uniform int lightIndex;
@@ -54,10 +59,10 @@ void main() {
             gl_Layer = LAYER_OFFSET+face; // built-in variable that specifies to which face we render.
             for(int i = 0; i < 3; ++i) // for each triangle vertex
             {
-                FragPos = COMPAT_POS_IN(i);
-                texcoord0 = texcoord[i];
-                vColorAlpha = vColor[i];
-                gl_Position = lightMatrices[lightIndex*6+face] * COMPAT_POS_IN(i);
+                FragPos = FragPosIn[i];
+                texcoord = texcoordIn[i];
+                vColor = vColorIn[i];
+                gl_Position = lightMatrices[lightIndex*6+face] * FragPosIn[i];
                 EmitVertex();
             }    
             EndPrimitive();
@@ -66,10 +71,10 @@ void main() {
         gl_Layer = LAYER_OFFSET;
         for(int i = 0; i < 3; ++i) // for each triangle vertex
         {
-            FragPos = COMPAT_POS_IN(i);
-            texcoord0 = texcoord[i];
-            vColorAlpha = vColor[i];
-            gl_Position = lightMatrices[lightIndex*6] * COMPAT_POS_IN(i);
+            FragPos = FragPosIn[i];
+            texcoord = texcoordIn[i];
+            vColor = vColorIn[i];
+            gl_Position = lightMatrices[lightIndex*6] * FragPosIn[i];
             EmitVertex();
         }
         EndPrimitive();

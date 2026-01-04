@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"path"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
 
+	"github.com/veandco/go-sdl2/sdl"
 	lua "github.com/yuin/gopher-lua"
 )
 
@@ -16,7 +17,9 @@ var Version = "development"
 var BuildTime = "" // Set automatically by GitHub Actions
 
 func init() {
-	runtime.LockOSThread()
+	if runtime.GOOS != "android" {
+		runtime.LockOSThread()
+	}
 }
 
 // Checks if error is not null, if there is an error it displays a error dialogue box and crashes the program.
@@ -51,22 +54,71 @@ func closeLog(f *os.File) {
 }
 
 func main() {
+	realMain()
+}
 
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Println("Error getting executable path:", err)
-	} else {
-		// Change the context for Darwin if we're in an app bundle
-		if isRunningInsideAppBundle(exePath) {
-			os.Chdir(path.Dir(exePath))
-			os.Chdir("../../../")
+func realMain() {
+	if runtime.GOOS == "android" {
+		Logcat("Inside realMain...")
+		runtime.LockOSThread()
+		sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_ES)
+		sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
+		sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
+		sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
+		sdl.GLSetAttribute(sdl.GL_ALPHA_SIZE, 0)
+		sdl.GLSetAttribute(sdl.GL_DEPTH_SIZE, 24)
+		// sdl.SetHint("SDL_VIDEO_EXTERNAL_CONTEXT", "0")
+		// sdl.SetHint("SDL_HIDAPI_IGNORE_DEVICES", "1")
+		// sdl.SetHint("SDL_JOYSTICK_ALLOW_BACKGROUND_EVENTS", "1")
+		// sdl.SetHint(sdl.HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight")
+		// sdl.SetHint("SDL_ANDROID_TRAP_BACK_BUTTON", "1")
+		// sdl.SetHint("SDL_JOYSTICK_HIDAPI", "0")
+		// sdl.SetHint("SDL_ANDROID_SEPARATE_MOUSE_AND_TOUCH", "1")
+
+		if sys.baseDir == "" {
+			panic("FATAL: Android baseDir not set")
 		}
+
+		Logcat("sys.baseDir is: " + sys.baseDir)
+
+		// Check if the directory even exists to Go
+		if info, err := os.Stat(sys.baseDir); err != nil {
+			Logcat(fmt.Sprintf("LOG: STAT ERROR: %v\n", err))
+		} else {
+			Logcat(fmt.Sprintf("LOG: STAT OK: %s is a dir: %v\n", sys.baseDir, info.IsDir()))
+		}
+
+		// FIX 1: Explicitly initialize os.Args before processCommandLine
+		if os.Args == nil || len(os.Args) == 0 {
+			os.Args = []string{"ikemen-go"}
+		}
+
+		if err := os.Chdir(sys.baseDir); err != nil {
+			Logcat(fmt.Sprintf("LOG: CHDIR FAILED: %v\n", err))
+			// Don't panic yet, let's see if we can continue
+		} else {
+			Logcat("LOG: CHDIR SUCCESSFUL")
+		}
+
+		// Init SDL NOW
+		if err := sdl.Init(sdl.INIT_AUDIO | sdl.INIT_VIDEO | sdl.INIT_EVENTS | sdl.INIT_TIMER); err != nil {
+			Logcat("LOG: SDL Init Failed: " + err.Error())
+			return
+		}
+		Logcat("LOG: SDL Init SUCCESS")
+	} else {
+		sys.baseDir = "./"
 	}
 
-	// Make save directories, if they don't exist
-	os.Mkdir("save", os.ModeSticky|0755)
-	os.Mkdir("save/replays", os.ModeSticky|0755)
-	os.Mkdir("save/logs", os.ModeSticky|0755)
+	// 1. Handle Permissions and Directory Creation
+	permission := os.FileMode(0755)
+	if runtime.GOOS != "android" {
+		permission |= os.ModeSticky
+	}
+
+	// Create directories for ALL platforms
+	os.MkdirAll(filepath.Join(sys.baseDir, "save/replays"), permission)
+	os.MkdirAll(filepath.Join(sys.baseDir, "save/logs"), permission)
 
 	processCommandLine()
 
@@ -78,7 +130,7 @@ func main() {
 
 	// Stats file path
 	if _, ok := sys.cmdFlags["-stats"]; !ok {
-		sys.cmdFlags["-stats"] = "save/stats.json"
+		sys.cmdFlags["-stats"] = filepath.Join(sys.baseDir, "save/stats.json")
 	}
 
 	// Try reading stats
@@ -90,37 +142,52 @@ func main() {
 		chk(f.Close())
 	}
 
+	if runtime.GOOS == "android" {
+		sdl.InitSubSystem(sdl.INIT_JOYSTICK)
+		sdl.InitSubSystem(sdl.INIT_GAMECONTROLLER)
+		Logcat("LOG: Subsystems initialized!")
+	}
+
+	// Init the SDL LUT's
+	initLUTs()
+
 	// Config file path
-	if _, ok := sys.cmdFlags["-config"]; !ok {
-		sys.cmdFlags["-config"] = "save/config.ini"
-	}
-	if cfg, err := loadConfig(sys.cmdFlags["-config"]); err != nil {
-		chk(err)
-	} else {
-		sys.cfg = *cfg
+	configPath := "save/config.ini"
+	if val, ok := sys.cmdFlags["-config"]; ok {
+		configPath = val
 	}
 
-	// Check if the main lua file exists.
-	if ftemp, err1 := os.Open(sys.cfg.Config.System); err1 != nil {
-		//ftemp.Close()
-		var err2 = Error(
-			"Main lua file \"" + sys.cfg.Config.System + "\" error." +
-				"\n" + err1.Error(),
-		)
-		ShowErrorDialog(err2.Error())
-		panic(err2)
-	} else {
-		ftemp.Close()
+	// Logcat("LOG: Loading config from: " + configPath)
+	cfg, err := loadConfig(configPath)
+	if err != nil {
+		Logcat("LOG: loadConfig failed: " + err.Error())
+		// For Android, let's see exactly what failed
+		panic(err)
 	}
+	// Force to OpenGL ES 3.2 for Android
+	if runtime.GOOS == "android" {
+		cfg.Video.RenderMode = "OpenGL ES 3.2"
+	}
+	sys.cfg = *cfg
+	// Logcat("LOG: Config Loaded. System Script: " + sys.cfg.Config.System)
 
-	// Initialize game and create window
+	// 2. Check Lua file path
+	ftemp, err := os.Open(sys.cfg.Config.System)
+	if err != nil {
+		Logcat("LOG: LUA OPEN FAILED: " + err.Error())
+		panic(err)
+	}
+	ftemp.Close()
+
+	// 3. Initialize game and create window
+	// This is where the window is born!
 	sys.luaLState = sys.init(sys.gameWidth, sys.gameHeight)
 	defer sys.shutdown()
 
 	// Begin processing game using its lua scripts
 	if err := sys.luaLState.DoFile(sys.cfg.Config.System); err != nil {
 		// Display error logs.
-		errorLog := createLog("Ikemen.log")
+		errorLog := createLog("save/logs/Ikemen.log")
 		defer closeLog(errorLog)
 
 		// Write version and build time at the top

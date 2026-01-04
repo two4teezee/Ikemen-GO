@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/draw"
+	"runtime"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -19,100 +20,130 @@ type Window struct {
 func (s *System) newWindow(w, h int) (*Window, error) {
 	var err error
 	var window *sdl.Window
+	var x, y int32
+	var w2, h2 int32 = int32(w), int32(h)
+	var fullscreen bool
 
-	// Initialize SDL
-	chk(sdl.Init(sdl.INIT_VIDEO | sdl.INIT_JOYSTICK | sdl.INIT_EVENTS | sdl.INIT_GAMECONTROLLER | sdl.INIT_HAPTIC | sdl.INIT_TIMER))
+	if runtime.GOOS == "android" {
+		// On Android, we MUST use 0,0 or SDL ignores it anyway,
+		// but flags are the critical part.
+		window, err = sdl.CreateWindow(
+			s.cfg.Config.WindowTitle,
+			sdl.WINDOWPOS_UNDEFINED,
+			sdl.WINDOWPOS_UNDEFINED,
+			0, 0, // Android ignores these and uses screen size
+			sdl.WINDOW_SHOWN|sdl.WINDOW_OPENGL|sdl.WINDOW_FULLSCREEN,
+		)
 
-	mode, err := sdl.GetDesktopDisplayMode(0)
-	if err != nil {
-		return nil, fmt.Errorf("failed to obtain primary monitor")
-	}
-
-	// "-windowed" overrides the configuration setting but does not change it
-	_, forceWindowed := sys.cmdFlags["-windowed"]
-	fullscreen := s.cfg.Video.Fullscreen && !forceWindowed
-
-	// Calculate window size & offset it
-	var w2, h2 = int32(w), int32(h)
-	if sys.cfg.Video.WindowWidth > 0 || sys.cfg.Video.WindowHeight > 0 {
-		w2, h2 = int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight)
-	}
-	var x, y = (mode.W - w2) / 2, (mode.H - h2) / 2
-
-	window.SetResizable(true)
-	var windowFlags sdl.WindowFlags = sdl.WINDOW_INPUT_FOCUS
-
-	if sys.cfg.Video.RenderMode == "OpenGL 3.2" {
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE) // only GL 3.2 needs this
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, 1)
-		windowFlags |= sdl.WINDOW_OPENGL
-	} else if sys.cfg.Video.RenderMode == "OpenGL 2.1" {
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 2)
-		err = sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 1)
-		windowFlags |= sdl.WINDOW_OPENGL
-	} else {
-		windowFlags |= sdl.WINDOW_VULKAN
-		// Ensure core profile is NOT set for Vulkan
-		if err := sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, 0); err != nil {
-			return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("failed to create window: %w", err)
 		}
-		if err := sdl.GLSetAttribute(sdl.GL_CONTEXT_FLAGS, 0); err != nil {
-			return nil, err
-		}
-	}
-
-	// Create main window.
-	// NOTE: borderless fullscreen is in reality just a window without borders.
-	//       We want fake fullscreen so as not to mess with the users' other windows!
-	//       On Windows, true exclusive fullscreen can resize other windows and blank
-	//       the display if the game resolution is different from the desktop resolution.
-	//       On macOS, this can cause flickering behavior. "Fake" fullscreen prevents all
-	//       erratic behavior on all platforms.
-	if fullscreen {
-		windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
+		fullscreen = true
 	} else {
-		windowFlags |= sdl.WINDOW_SHOWN
-	}
 
-	// Because we ought to set these flags the same regardless of fullscreen or not.
-	// It makes no sense to have the resizable flag on a window without borders.
-	if !s.cfg.Video.Borderless {
-		windowFlags |= sdl.WINDOW_RESIZABLE
-	} else {
-		windowFlags |= sdl.WINDOW_BORDERLESS
-	}
+		var windowFlags sdl.WindowFlags = sdl.WINDOW_INPUT_FOCUS
 
-	window, err = sdl.CreateWindow(s.cfg.Config.WindowTitle, sdl.WINDOWPOS_CENTERED, sdl.WINDOWPOS_CENTERED, w2, h2, windowFlags)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create window: %w", err)
-	}
-
-	// Set window attributes
-	if fullscreen {
-		window.SetPosition(0, 0)
-		if s.cfg.Video.Borderless {
-			window.SetBordered(false)
-			window.SetSize(mode.W, mode.H)
-		}
-		sdl.ShowCursor(sdl.DISABLE)
-	} else {
-		if !s.cfg.Video.Borderless {
-			window.SetBordered(true)
+		// 1. INITIALIZATION & HINTS
+		if runtime.GOOS == "android" {
+			// Android ignores these anyway, but WINDOW_FULLSCREEN is the safest anchor
+			windowFlags |= sdl.WINDOW_FULLSCREEN | sdl.WINDOW_SHOWN
 		} else {
-			window.SetBordered(false)
+			chk(sdl.Init(sdl.INIT_AUDIO | sdl.INIT_VIDEO | sdl.INIT_JOYSTICK | sdl.INIT_EVENTS | sdl.INIT_GAMECONTROLLER | sdl.INIT_HAPTIC | sdl.INIT_TIMER))
 		}
-		window.SetSize(w2, h2)
-		sdl.ShowCursor(sdl.ENABLE)
-		if s.cfg.Video.WindowCentered {
-			window.SetPosition(x, y)
-		}
-	}
 
-	if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
-		// V-Sync
-		if s.cfg.Video.VSync >= 0 {
+		// 2. DISPLAY MODE (The Crash Point)
+		var desktopW, desktopH int32
+		if runtime.GOOS != "android" {
+			mode, err := sdl.GetDesktopDisplayMode(0)
+			if err != nil {
+				return nil, fmt.Errorf("failed to obtain primary monitor")
+			}
+			desktopW, desktopH = mode.W, mode.H
+		} else {
+			// On Android, we don't query the desktop. We let SDL fill the window to the surface.
+			desktopW, desktopH = w2, h2
+		}
+
+		// 3. CALCULATION
+		_, forceWindowed := sys.cmdFlags["-windowed"]
+		fullscreen := s.cfg.Video.Fullscreen && !forceWindowed
+
+		// Override default sizes if config specifies
+		if sys.cfg.Video.WindowWidth > 0 || sys.cfg.Video.WindowHeight > 0 {
+			w2, h2 = int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight)
+		}
+
+		if runtime.GOOS != "android" {
+			x, y = (desktopW-w2)/2, (desktopH-h2)/2
+		}
+
+		// 4. RENDERER PROFILE SETUP
+		if sys.cfg.Video.RenderMode == "OpenGL ES 3.2" {
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_ES)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
+			sdl.GLSetAttribute(sdl.GL_ALPHA_SIZE, 0)
+			sdl.GLSetAttribute(sdl.GL_DEPTH_SIZE, 24)
+			windowFlags |= sdl.WINDOW_OPENGL
+		} else if sys.cfg.Video.RenderMode == "OpenGL 3.2" {
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, 1)
+			windowFlags |= sdl.WINDOW_OPENGL
+		} else if sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 2)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 1)
+			windowFlags |= sdl.WINDOW_OPENGL
+		} else {
+			windowFlags |= sdl.WINDOW_VULKAN
+		}
+
+		// 5. WINDOW CREATION
+		if runtime.GOOS != "android" {
+			if fullscreen {
+				windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
+			} else {
+				windowFlags |= sdl.WINDOW_SHOWN
+			}
+			if !s.cfg.Video.Borderless {
+				windowFlags |= sdl.WINDOW_RESIZABLE
+			} else {
+				windowFlags |= sdl.WINDOW_BORDERLESS
+			}
+		}
+
+		// On Android, use 0,0 for pos and allow SDL to resize w2/h2 to match the device screen
+		posX, posY := x, y
+		if runtime.GOOS == "android" {
+			posX, posY = 0, 0
+		}
+
+		window, err = sdl.CreateWindow(s.cfg.Config.WindowTitle, posX, posY, w2, h2, windowFlags)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create window: %w", err)
+		}
+
+		// 6. POST-CREATION ATTRIBUTES
+		window.SetResizable(true)
+		if fullscreen {
+			window.SetPosition(0, 0)
+			if s.cfg.Video.Borderless {
+				window.SetBordered(false)
+				window.SetSize(desktopW, desktopH)
+			}
+			sdl.ShowCursor(sdl.DISABLE)
+		} else {
+			window.SetBordered(!s.cfg.Video.Borderless)
+			window.SetSize(w2, h2)
+			sdl.ShowCursor(sdl.ENABLE)
+			if s.cfg.Video.WindowCentered {
+				window.SetPosition(x, y)
+			}
+		}
+
+		// 7. V-SYNC
+		if sys.cfg.Video.RenderMode != "Vulkan" && s.cfg.Video.VSync >= 0 {
 			sdl.GLSetSwapInterval(s.cfg.Video.VSync)
 		}
 	}
@@ -121,8 +152,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		input.controllerstate[i] = &ControllerState{Buttons: make(map[sdl.GameControllerButton]byte)}
 	}
 
-	ret := &Window{window, s.cfg.Config.WindowTitle, int(x), int(y), w, h, fullscreen, false}
-	return ret, err
+	return &Window{window, s.cfg.Config.WindowTitle, int(x), int(y), w, h, fullscreen, false}, nil
 }
 
 func (w *Window) SwapBuffers() {

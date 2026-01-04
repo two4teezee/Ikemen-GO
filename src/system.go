@@ -19,7 +19,6 @@ import (
 	"unsafe"
 
 	"github.com/gopxl/beep/v2"
-	"github.com/gopxl/beep/v2/speaker"
 
 	//glfont "github.com/ikemen-engine/glfont"
 	lua "github.com/yuin/gopher-lua"
@@ -318,6 +317,9 @@ type System struct {
 
 	luaDrawPreOps   []func()
 	luaDrawLayerOps [3][]func()
+
+	// For Android support
+	baseDir string
 }
 
 // Check if the application is running inside a macOS app bundle
@@ -338,24 +340,28 @@ func (s *System) init(w, h int32) *lua.LState {
 	chk(err)
 
 	if strings.Contains(s.cfg.Video.RenderMode, "OpenGL") {
-		if _, err := s.window.GLCreateContext(); err != nil {
+		if ctx, err := s.window.GLCreateContext(); err != nil {
+			Logcat("GL Context Creation Failed: " + err.Error())
 			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
+		} else {
+			s.window.GLMakeCurrent(ctx)
 		}
 	}
 
-	exePath, err := os.Executable()
-	if err != nil {
-		fmt.Println("Error getting executable path:", err)
-	} else {
-		// Change the context for Darwin if we're in an app bundle
-		if isRunningInsideAppBundle(exePath) {
-			os.Chdir(path.Dir(exePath))
-			os.Chdir("../../../")
+	if runtime.GOOS != "android" {
+		exePath, err := os.Executable()
+		if err != nil {
+			fmt.Println("Error getting executable path:", err)
+		} else {
+			// Change the context for Darwin if we're in an app bundle
+			if isRunningInsideAppBundle(exePath) {
+				os.Chdir(path.Dir(exePath))
+				os.Chdir("../../../")
+			}
 		}
+		// Update the gamepad mappings with user mappings, if present.
+		input.UpdateGamepadMappings(sys.cfg.Config.GamepadMappings)
 	}
-
-	// Update the gamepad mappings with user mappings, if present.
-	input.UpdateGamepadMappings(sys.cfg.Config.GamepadMappings)
 
 	// Loading of external shader data.
 	// We need to do this before the render initialization at "gfx.Init()"
@@ -398,21 +404,17 @@ func (s *System) init(w, h int32) *lua.LState {
 	}
 	// PS: The "\x00" is what is know as Null Terminator.
 
-	// Now we proceed to init the render.
-	if s.cfg.Video.RenderMode == "Vulkan 1.3" {
-		gfx = &Renderer_VK{}
-		gfxFont = &FontRenderer_VK{}
-	} else if s.cfg.Video.RenderMode == "OpenGL 2.1" {
-		gfx = &Renderer_GL21{}
-		gfxFont = &FontRenderer_GL21{}
-	} else {
-		gfx = &Renderer_GL32{}
-		gfxFont = &FontRenderer_GL32{}
-	}
+	Logcat("Check A: Selecting Renderer")
+	// Now we need to init the renderer
+	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
+	Logcat("Check B: Initializing GFX")
 	gfx.Init()
+	Logcat("Check C: Initializing GFX Font")
 	gfxFont.Init(gfx)
+	Logcat("Check D: We are GOOD")
 	gfx.BeginFrame(false)
 	// And the audio.
+	speaker = &SDLSpeaker{}
 	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)
 	speaker.Play(NewNormalizer(s.soundMixer))
 	l := lua.NewState()
@@ -437,37 +439,38 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
-	// So now that we have a window we add an icon.
-	if len(s.cfg.Config.WindowIcon) > 0 {
-		// First we initialize arrays.
-		var f = make([]io.ReadCloser, len(s.cfg.Config.WindowIcon))
-		s.windowMainIcon = make([]image.Image, len(s.cfg.Config.WindowIcon))
-		// And then we load them.
-		for i, iconLocation := range s.cfg.Config.WindowIcon {
-			f[i], err = os.Open(iconLocation)
-			if err != nil {
-				var dErr = "Icon file can not be found.\nPanic: " + err.Error()
-				ShowErrorDialog(dErr)
-				panic(Error(dErr))
+	if runtime.GOOS != "android" {
+		// So now that we have a window we add an icon.
+		if len(s.cfg.Config.WindowIcon) > 0 {
+			// First we initialize arrays.
+			var f = make([]io.ReadCloser, len(s.cfg.Config.WindowIcon))
+			s.windowMainIcon = make([]image.Image, len(s.cfg.Config.WindowIcon))
+			// And then we load them.
+			for i, iconLocation := range s.cfg.Config.WindowIcon {
+				f[i], err = os.Open(iconLocation)
+				if err != nil {
+					var dErr = "Icon file can not be found.\nPanic: " + err.Error()
+					ShowErrorDialog(dErr)
+					panic(Error(dErr))
+				}
+				s.windowMainIcon[i], _, err = image.Decode(f[i])
 			}
-			s.windowMainIcon[i], _, err = image.Decode(f[i])
+			s.window.SetIcon(s.windowMainIcon)
+			chk(err)
 		}
-		s.window.SetIcon(s.windowMainIcon)
-		chk(err)
-	}
-	// [Icon add end]
 
-	// Error print?
-	go func() {
-		stdin := bufio.NewScanner(os.Stdin)
-		for stdin.Scan() {
-			if err := stdin.Err(); err != nil {
-				s.errLog.Println(err.Error())
-				return
+		// Error print?
+		go func() {
+			stdin := bufio.NewScanner(os.Stdin)
+			for stdin.Scan() {
+				if err := stdin.Err(); err != nil {
+					s.errLog.Println(err.Error())
+					return
+				}
+				s.commandLine <- stdin.Text()
 			}
-			s.commandLine <- stdin.Text()
-		}
-	}()
+		}()
+	}
 	return l
 }
 
@@ -480,7 +483,9 @@ func (s *System) shutdown() {
 	}
 	gfx.Close()
 	s.window.Close()
-	speaker.Close()
+	if speaker != nil {
+		speaker.Close()
+	}
 }
 
 func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
@@ -627,6 +632,7 @@ func (s *System) eventUpdate() bool {
 		v.Activate = false
 	}
 	s.window.pollEvents()
+	speaker.FillAudio() // fill the SDL audio buffer
 	s.gameEnd = s.window.shouldClose()
 	return !s.gameEnd
 }

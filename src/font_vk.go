@@ -1,3 +1,5 @@
+//go:build !kinc && !android
+
 package main
 
 import (

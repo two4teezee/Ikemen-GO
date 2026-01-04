@@ -148,6 +148,46 @@ BUILD_FFMPEG=no ./build/build.sh MacOSARM   # or MacOS
 
 ---
 
+## Android (from Linux or macOS host)
+Android NDK r27d is required. ***YOU MUST SET THE `ANDROID_NDK_HOME` ENVIRONMENT VARIABLE PRIOR TO BUILDING TO YOUR NDK PATH OR THIS WILL NOT WORK!!!***
+
+```bash
+export ANDROID_NDK_HOME=/path/to/androidndk
+./build/build.sh android
+```
+
+This will create the necessary .so files to place in `src/main/jniLibs/arm64-v8a` in both the `lib/` folder and `bin/libmain.so` file.
+To run it on Android, an APK must be created.
+
+### Creating the APK
+Android Studio is required to make the APK.
+1. Run `git clone https://github.com/Jesuszilla/ikemen-droid.git`
+2. Place all the lib .so files from the `lib/` folder and the `build/libmain.so` into `src/main/jniLibs/arm64-v8a/` folder inside the repository.
+3. Place all the engine assets in `src/main/assets` exactly as defined in `src/main/assets/manifest.txt`. You may wish to generate your own manifest.txt for your own game files, but a default is included in the above repository.
+4. Open a terminal to the root of the ikemen-droid project in Android Studio.
+5. Run `./gradlew clean assembleDebug`
+6. The APK is now in `app/build/outputs/apk/debug/app-debug.apk`.
+7. (Optional) Install to your Android device by running the command `adb install -r app/build/outputs/apk/app-debug.apk`.
+
+After running step 7, you can select I.K.E.M.E.N-Go from the Android list of apps as usual, or you could run:
+```bash
+adb shell am start -n org.ikemen_engine.ikemen_go/org.libsdl.app.SDLActivity`
+```
+
+### Adding additional content (Android)
+The default assets should be included in the APK and extracted on first run. For additional content, you can either hook up your Android device in File Transfer mode, or you could run:
+```bash
+adb push /path/to/src/file /sdcard/Android/data/org.ikemen_engine.ikemen_go/files/path/to/dst/file
+```
+
+e.g. to push a new options.lua from the `assets` folder from the root of the Android project, you'd do:
+```bash
+adb push app/src/main/assets/external/script/options.lua /sdcard/Android/data/org.ikemen_engine.ikemen_go/files/external/script/options.lua
+```
+
+
+---
+
 ## Assets required to run
 Place these folders **next to the executable or app bundle**:
 `data`, `external`, `font`, and a screenpack (see our Elecbyte screenpack repo).

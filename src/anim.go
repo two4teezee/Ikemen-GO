@@ -1723,6 +1723,7 @@ type Anim struct {
 	vel              [2]float32
 	maxDist          [2]float32
 	facing           float32
+	lastUpdateFrame  int32
 	// initial, unscaled values
 	offsetInit   [2]float32
 	scaleInit    [2]float32
@@ -1732,13 +1733,14 @@ type Anim struct {
 
 func NewAnim(sff *Sff, action string) *Anim {
 	a := &Anim{
-		window:     sys.scrrect,
-		xscl:       1,
-		yscl:       1,
-		palfx:      newPalFX(),
-		localScale: 1,
-		friction:   [2]float32{1.0, 1.0},
-		facing:     1,
+		window:          sys.scrrect,
+		xscl:            1,
+		yscl:            1,
+		palfx:           newPalFX(),
+		localScale:      1,
+		friction:        [2]float32{1.0, 1.0},
+		facing:          1,
+		lastUpdateFrame: -1,
 	}
 	if action != "" {
 		lines, i := SplitAndTrim(action, "\n"), 0
@@ -1800,6 +1802,7 @@ func (a *Anim) Copy() *Anim {
 	newAnim.projection = a.projection
 	newAnim.fLength = a.fLength
 	newAnim.palfx = a.palfx
+	newAnim.lastUpdateFrame = -1
 	// Copy current animation state (timing, loop, interpolation, etc.)
 	newAnim.anim.looptime = a.anim.looptime
 	newAnim.anim.loopstart = a.anim.loopstart
@@ -1975,10 +1978,15 @@ func (a *Anim) updateVel() {
 	}
 }
 
-func (a *Anim) Update() {
+func (a *Anim) Update(force bool) {
 	if a.anim == nil {
 		return
 	}
+	// Advance at most once per engine frame, unless forced.
+	if !force && a.lastUpdateFrame == sys.frameCounter {
+		return
+	}
+	a.lastUpdateFrame = sys.frameCounter
 	a.palfx.step()
 	a.anim.Action()
 	a.updateVel()
@@ -2020,6 +2028,7 @@ func (a *Anim) Reset() {
 	if a.palfx != nil {
 		a.palfx.clear()
 	}
+	a.lastUpdateFrame = -1
 }
 
 func (a *Anim) GetLength() int32 {

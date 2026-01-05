@@ -50,7 +50,7 @@ func (fa *Fade) step() {
 	}
 
 	if fa.animData != nil {
-		fa.animData.Update()
+		fa.animData.Update(false)
 	}
 	fa.timeRemaining--
 	if fa.timeRemaining < 0 {

@@ -166,7 +166,7 @@ type AnimationCharPreloadProperties struct {
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
 	ApplyPal    bool  `ini:"applypal" preload:"pal"` // not used by [Select Info] portrait
-	DrawOrder   int32 `ini:"draworder"` // not used by [Select Info] portrait
+	DrawOrder   int32 `ini:"draworder"`              // not used by [Select Info] portrait
 }
 
 type AnimationStagePreloadProperties struct {

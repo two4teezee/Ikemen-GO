@@ -2747,11 +2747,12 @@ func systemScriptInit(l *lua.LState) {
 				val := strings.TrimSpace(v)
 				if mode == "flat" {
 					k := strings.ReplaceAll(rest, ".", "_")
-					if onlyIfMissing && items.RawGetString(k) != lua.LNil {
+					// Empty-valued keys disable/remove the entry (override defaults).
+					if isEmpty(val) {
+						items.RawSetString(k, lua.LNil)
 						return
 					}
-					// Treat empty-valued keys as disabled/removed
-					if isEmpty(val) {
+					if onlyIfMissing && items.RawGetString(k) != lua.LNil {
 						return
 					}
 					items.RawSetString(k, lua.LString(val))
@@ -2762,19 +2763,23 @@ func systemScriptInit(l *lua.LState) {
 				if len(parts) >= 2 {
 					elem, field = parts[0], parts[1]
 				}
+				// Empty disables/removes the field from the existing elem table (override defaults).
+				if isEmpty(val) {
+					if t, ok := items.RawGetString(elem).(*lua.LTable); ok && t != nil {
+						t.RawSetString(field, lua.LNil)
+					}
+					return
+				}
 				t := ensureTbl(items, elem)
 				if onlyIfMissing && t.RawGetString(field) != lua.LNil {
 					return
 				}
-				if isEmpty(val) {
-					return
-				} // keep baseline
 				t.RawSetString(field, lua.LString(val))
 			}
 
 			// baseline from defaults
 			eachIniKeys(defIni, sec, pref, func(r, v string) { apply(r, v, false) })
-			// user overlays (non-empty only)
+			// user overlays (empty disables/removes)
 			eachIniKeys(sys.motif.UserIniFile, sec, pref, func(r, v string) { apply(r, v, false) })
 		}
 
@@ -2845,6 +2850,24 @@ func systemScriptInit(l *lua.LState) {
 			seenBase := map[string]bool{}     // leafs seen among added items (e.g. "arcade", "survival")
 			disabledFlat := map[string]bool{} // exact items disabled
 
+			// Pre-seed disabledFlat with user-disabled keys so descendant suppression works
+			// even if children appear before the disabled parent key in INI ordering.
+			for _, e := range user {
+				if e.disabled {
+					disabledFlat[e.flat] = true
+				}
+			}
+
+			// If a parent/submenu key is disabled, its descendants must be suppressed too.
+			isUnderDisabled := func(flat string) bool {
+				for p := range disabledFlat {
+					if strings.HasPrefix(flat, p+"_") {
+						return true
+					}
+				}
+				return false
+			}
+
 			var final []string
 			process := func(arr []entry, isDefault bool) {
 				for _, e := range arr {
@@ -2852,17 +2875,19 @@ func systemScriptInit(l *lua.LState) {
 						disabledFlat[e.flat] = true
 						continue
 					}
-					// Allow duplicates for separators (spacer, spacer1, spacer2, ...).
-					if disabledFlat[e.flat] || (seenFlat[e.flat] && !isSpacerKey(e.base)) {
+					// If this key is disabled (directly) or is a descendant of a disabled submenu, skip it.
+					if disabledFlat[e.flat] || isUnderDisabled(e.flat) {
+						continue
+					}
+					// Never include the same *exact* key twice (including spacers).
+					if seenFlat[e.flat] {
 						continue
 					}
 					// For defaults, suppress items whose leaf was already added from user entries (or earlier), but do not suppress back or spacer*
 					if isDefault && e.base != "back" && !isSpacerKey(e.base) && seenBase[e.base] {
 						continue
 					}
-					if !isSpacerKey(e.base) {
-						seenFlat[e.flat] = true
-					}
+					seenFlat[e.flat] = true
 					seenBase[e.base] = true
 					final = append(final, e.flat)
 				}

@@ -171,7 +171,11 @@ func realMain() {
 	sys.cfg = *cfg
 	// Logcat("LOG: Config Loaded. System Script: " + sys.cfg.Config.System)
 
-	// 2. Check Lua file path
+	if sys.cfg.Debug.DumpLuaTables {
+		os.MkdirAll(filepath.Join(sys.baseDir, "debug"), permission)
+	}
+
+	// Check Lua file path
 	ftemp, err := os.Open(sys.cfg.Config.System)
 	if err != nil {
 		Logcat("LOG: LUA OPEN FAILED: " + err.Error())
@@ -179,7 +183,7 @@ func realMain() {
 	}
 	ftemp.Close()
 
-	// 3. Initialize game and create window
+	// Initialize game and create window
 	// This is where the window is born!
 	sys.luaLState = sys.init(sys.gameWidth, sys.gameHeight)
 	defer sys.shutdown()

@@ -527,7 +527,7 @@ func (ir *InputReader) Reset() {
 	*ir = InputReader{}
 }
 
-func (ir *InputReader) LocalInput(in int, script bool) [14]bool {
+func (ir *InputReader) LocalInput(in int) [14]bool {
 	var U, D, L, R, a, b, c, x, y, z, s, d, w, m bool
 
 	// Keyboard
@@ -576,12 +576,8 @@ func (ir *InputReader) LocalInput(in int, script bool) [14]bool {
 
 	// Button assist is checked locally so that the sent inputs are already processed
 	if sys.cfg.Input.ButtonAssist {
-		if script {
-			ir.ButtonAssistBuffer = [9]bool{}
-		} else {
-			result := ir.ButtonAssistCheck([9]bool{a, b, c, x, y, z, s, d, w})
-			a, b, c, x, y, z, s, d, w = result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7], result[8]
-		}
+		result := ir.ButtonAssistCheck([9]bool{a, b, c, x, y, z, s, d, w})
+		a, b, c, x, y, z, s, d, w = result[0], result[1], result[2], result[3], result[4], result[5], result[6], result[7], result[8]
 	}
 
 	return [14]bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
@@ -749,26 +745,40 @@ func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) 
 }
 
 // Add extra frame of leniency when checking button presses
-func (ir *InputReader) ButtonAssistCheck(curr [9]bool) [9]bool {
+func (ir *InputReader) ButtonAssistCheck(current [9]bool) [9]bool {
 	var result [9]bool
 
-	// Check if any button was pressed in the previous frame
-	prev := false
+	// Disable assist during pauses and screenpack inputs
+	if sys.paused || !sys.middleOfMatch() {
+		// Consume any buffer leftovers so we don't drop inputs when pausing
+		// TODO: This will also mean pressing a button then opening the menu in the next frame can select an option. However that is a separate issue
+		// Disabling because this may bring more trouble than it's worth at the moment
+		//for i := range ir.ButtonAssistBuffer {
+		//	result[i] = current[i] || ir.ButtonAssistBuffer[i]
+		//	ir.ButtonAssistBuffer[i] = false
+		//}
+		//return result
+		ir.ButtonAssistBuffer = [9]bool{}
+		return current
+	}
+
+	// Check if any button was held in the previous frame
+	prevAny := false
 	for i := range ir.ButtonAssistBuffer {
 		if ir.ButtonAssistBuffer[i] {
-			prev = true
+			prevAny = true
 			break
 		}
 	}
 
-	// Check both current and previous frame if any button was pressed in the previous frame
-	// Otherwise just use the previous frame's buttons
+	// If any, check button inputs in both the current and previous frames
+	// Otherwise check only the previous frame
 	for i := range ir.ButtonAssistBuffer {
-		result[i] = ir.ButtonAssistBuffer[i] || (curr[i] && prev)
+		result[i] = ir.ButtonAssistBuffer[i] || (current[i] && prevAny)
 	}
 
 	// Save current frame's buttons to be checked in the next frame
-	ir.ButtonAssistBuffer = curr
+	ir.ButtonAssistBuffer = current
 
 	return result
 }
@@ -1989,7 +1999,7 @@ func (nb *NetBuffer) reset(time int32) {
 // Convert local player's key inputs into input bits for sending
 func (nb *NetBuffer) writeNetBuffer(in int) {
 	if nb.inpT-nb.curT < NETBUF_NUM_FRAMES {
-		nb.buf[nb.inpT&(NETBUF_NUM_FRAMES-1)].KeysToBits(nb.InputReader.LocalInput(in, false))
+		nb.buf[nb.inpT&(NETBUF_NUM_FRAMES-1)].KeysToBits(nb.InputReader.LocalInput(in))
 		nb.axisBuf[nb.inpT&(NETBUF_NUM_FRAMES-1)] = nb.InputReader.LocalAnalogInput(in)
 		nb.inpT++
 	}

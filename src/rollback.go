@@ -345,7 +345,7 @@ func writeI32(i32 int32) []byte {
 func (rs *RollbackSystem) getInputs(player int) []byte {
 	// Digital inputs
 	var ib InputBits
-	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(0, false))
+	ib.KeysToBits(rs.netConnection.buf[player].InputReader.LocalInput(0))
 	bytes := writeI16(int16(ib))
 
 	// Analog inputs

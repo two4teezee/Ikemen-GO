@@ -165,8 +165,8 @@ type AnimationCharPreloadProperties struct {
 	Window      [4]int32   `ini:"window"`
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
-	ApplyPal    bool  `ini:"applypal" preload:"pal"`
-	DrawOrder   int32 `ini:"draworder"`
+	ApplyPal    bool  `ini:"applypal" preload:"pal"` // not used by [Select Info] portrait
+	DrawOrder   int32 `ini:"draworder"` // not used by [Select Info] portrait
 }
 
 type AnimationStagePreloadProperties struct {
@@ -756,9 +756,9 @@ type SelectInfoProperties struct {
 		Key []string `ini:"key"`
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"cancel"`
-	Portrait AnimationProperties `ini:"portrait"`
-	Title    TextMapProperties   `ini:"title"`
-	Record   TextMapProperties   `ini:"record"`
+	Portrait AnimationCharPreloadProperties `ini:"portrait"`
+	Title    TextMapProperties              `ini:"title"`
+	Record   TextMapProperties              `ini:"record"`
 	TeamMenu struct {
 		Move struct {
 			Wrapping bool `ini:"wrapping"`

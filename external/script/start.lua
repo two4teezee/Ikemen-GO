@@ -760,7 +760,7 @@ function start.f_animGet(ref, side, member, paramsSide, params, loop, srcAnim)
 				animSetXAngle(a, params.xangle)
 				animSetYAngle(a, params.yangle)
 				animSetProjection(a, params.projection)
-				animSetfLength(a, params.focallength)
+				animSetFocalLength(a, params.focallength)
 				animSetWindow(a, params.window[1], params.window[2], params.window[3], params.window[4])
 				if srcAnim ~= nil then
 					animApplyVel(a, srcAnim)
@@ -1179,7 +1179,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 		animSetXAngle(a, getCellTransform(x, y, "xangle", params.xangle))
 		animSetYAngle(a, getCellTransform(x, y, "yangle", params.yangle))
 		animSetProjection(a, getCellTransform(x, y, "projection", params.projection))
-		animSetfLength(a, getCellTransform(x, y, "focallength", params.focallength))
+		animSetFocalLength(a, getCellTransform(x, y, "focallength", params.focallength))
 		animUpdate(a)
 	end
 	main.f_animPosDraw(
@@ -2848,22 +2848,22 @@ local function resolvePalConflict(side, charRef, pal)
 	end
 	-- if the chosen palette is not used, keep it
 	if not usedPals[pal] then
-		return ValidatePal(pal, charRef)
+		return validatePal(pal, charRef)
 	end
 	-- if it's in use, try to find the next free one
 	local maxPal = gameOption('Config.PaletteMax')
 	for i = pal + 1, maxPal do
 	if not usedPals[i] then
-			return ValidatePal(i, charRef)
+			return validatePal(i, charRef)
 		end
 	end
 	for i = 1, pal - 1 do
 		if not usedPals[i] then
-			return ValidatePal(i, charRef)
+			return validatePal(i, charRef)
 		end
 	end
 
-	return ValidatePal(pal, charRef)
+	return validatePal(pal, charRef)
 end
 
 local function applyPalette(sel, charData, palIndex)
@@ -2885,10 +2885,10 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 	local pn = 2 * (member - 1) + side
 	-- initialize palette list and index if character changed or not yet set
 	if st.validPalsCharRef ~= charRef or not st.validPals then
-		local valid, seen, cur = {}, {}, ValidatePal(1, charRef)
+		local valid, seen, cur = {}, {}, validatePal(1, charRef)
 		valid[1], seen[cur] = cur, true
 		for i = 1, #charData.pal do
-			local nextp = ValidatePal(cur + 1, charRef)
+			local nextp = validatePal(cur + 1, charRef)
 			if seen[nextp] then break end
 			table.insert(valid, nextp)
 			seen[nextp], cur = true, nextp

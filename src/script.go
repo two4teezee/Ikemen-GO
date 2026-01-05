@@ -1208,7 +1208,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "animSetfLength", func(*lua.LState) int {
+	luaRegister(l, "animSetFocalLength", func(*lua.LState) int {
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {
 			userDataError(l, 1, a)
@@ -1415,7 +1415,7 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(false))
 		return 1
 	})
-	luaRegister(l, "ValidatePal", func(l *lua.LState) int {
+	luaRegister(l, "validatePal", func(l *lua.LState) int {
 		palReq := int(numArg(l, 1))
 		charRef := int(numArg(l, 2))
 		valid := sys.sel.ValidatePalette(charRef, palReq)
@@ -4670,7 +4670,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "textImgSetfLength", func(*lua.LState) int {
+	luaRegister(l, "textImgSetFocalLength", func(*lua.LState) int {
 		ts, ok := toUserData(l, 1).(*TextSprite)
 		if !ok {
 			userDataError(l, 1, ts)

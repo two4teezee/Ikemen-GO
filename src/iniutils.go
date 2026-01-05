@@ -2062,7 +2062,7 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	a.rot.yangle = yangle
 	// animSetProjection
 	a.projection = projection
-	// animSetfLength
+	// animSetFocalLength
 	a.fLength = focallength
 	// animSetWindow
 	a.SetWindow(window)
@@ -2260,9 +2260,9 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	ts.rot.xangle = xangle
 	// textImgSetYAngle
 	ts.rot.yangle = yangle
-	// textSetProjection
+	// textImgSetProjection
 	ts.projection = projection
-	// textSetfLength
+	// textImgSetFocalLength
 	ts.fLength = focallength
 	// textImgSetWindow
 	ts.SetWindow(window)

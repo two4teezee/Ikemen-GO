@@ -1172,7 +1172,7 @@ function main.f_addChar(line, playable, loading, slot)
 					animSetXAngle(a, params.xangle)
 					animSetYAngle(a, params.yangle)
 					animSetProjection(a, params.projection)
-					animSetfLength(a, params.focallength)
+					animSetFocalLength(a, params.focallength)
 					animSetWindow(a, params.window[1], params.window[2], params.window[3], params.window[4])
 					animUpdate(a)
 					main.t_selChars[row].cell_data = a
@@ -1265,7 +1265,7 @@ function main.f_addStage(file, hidden, line)
 					animSetXAngle(a, params.xangle)
 					animSetYAngle(a, params.yangle)
 					animSetProjection(a, params.projection)
-					animSetfLength(a, params.focallength)
+					animSetFocalLength(a, params.focallength)
 					if params.window == nil or #params.window < 4 then
 						params.window = {0, 0, motif.info.localcoord[1], motif.info.localcoord[2]}
 					end

@@ -3262,7 +3262,7 @@ func (ch *MotifChallenger) step(m *Motif) {
 		m.Snd.play(m.ChallengerInfo.Snd.Snd, 100, 0, 0, 0, 0)
 	}
 	if ch.counter >= m.ChallengerInfo.Bg.Displaytime {
-		m.ChallengerInfo.Bg.AnimData.Update()
+		m.ChallengerInfo.Bg.AnimData.Update(false)
 	}
 
 	//if ch.endTimer != -1 && ch.counter + 2 >= ch.endTimer {
@@ -3377,7 +3377,7 @@ func (co *MotifContinue) init(m *Motif) {
 	m.ContinueScreen.No.Active.TextSpriteData.AddPos(m.ContinueScreen.Pos[0], m.ContinueScreen.Pos[1])
 
 	m.ContinueScreen.Counter.AnimData.Reset()
-	//m.ContinueScreen.Counter.AnimData.Update()
+	//m.ContinueScreen.Counter.AnimData.Update(false)
 
 	co.updateCreditsText(m)
 
@@ -3432,7 +3432,7 @@ func (co *MotifContinue) skipCounter(m *Motif) {
 		if co.counter < properties.SkipTime {
 			for co.counter < properties.SkipTime {
 				co.counter++
-				m.ContinueScreen.Counter.AnimData.Update()
+				m.ContinueScreen.Counter.AnimData.Update(true)
 			}
 			break
 		}
@@ -3463,7 +3463,7 @@ func (co *MotifContinue) step(m *Motif) {
 
 	// Keep the counter anim running while showing the integrated end/gameover tail.
 	if !co.selected || co.showEndAnim {
-		m.ContinueScreen.Counter.AnimData.Update()
+		m.ContinueScreen.Counter.AnimData.Update(false)
 	}
 
 	// If we're showing the integrated end/gameover tail (gameover.enabled = 0),
@@ -4176,7 +4176,7 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 		}
 	}
 	a.fLength = faceCfg.Focallength
-	a.Update()
+	a.Update(false)
 
 	return a
 }
@@ -4422,8 +4422,8 @@ func (di *MotifDialogue) step(m *Motif) {
 	}
 
 	// Update background animations
-	m.DialogueInfo.P1.Bg.AnimData.Update()
-	m.DialogueInfo.P2.Bg.AnimData.Update()
+	m.DialogueInfo.P1.Bg.AnimData.Update(false)
+	m.DialogueInfo.P2.Bg.AnimData.Update(false)
 
 	// Check if we haven't reached StartTime yet
 	if di.counter < m.DialogueInfo.StartTime {
@@ -4549,9 +4549,9 @@ func (di *MotifDialogue) step(m *Motif) {
 
 	// Update the active highlight for the current active side.
 	if di.activeSide == 1 {
-		m.DialogueInfo.P1.Active.AnimData.Update()
+		m.DialogueInfo.P1.Active.AnimData.Update(false)
 	} else if di.activeSide == 2 {
-		m.DialogueInfo.P2.Active.AnimData.Update()
+		m.DialogueInfo.P2.Active.AnimData.Update(false)
 	}
 
 	// If a side just changed talking state, reset its face anims so the next
@@ -4591,9 +4591,9 @@ func (di *MotifDialogue) step(m *Motif) {
 		p1Active = m.DialogueInfo.P1.Face.Active.AnimData
 	}
 	if di.talkingSide == 1 && p1Active != nil {
-		p1Active.Update()
+		p1Active.Update(false)
 	} else if p1Idle != nil {
-		p1Idle.Update()
+		p1Idle.Update(false)
 	}
 	// P2
 	p2Idle := m.DialogueInfo.P2.Face.AnimData
@@ -4602,9 +4602,9 @@ func (di *MotifDialogue) step(m *Motif) {
 		p2Active = m.DialogueInfo.P2.Face.Active.AnimData
 	}
 	if di.talkingSide == 2 && p2Active != nil {
-		p2Active.Update()
+		p2Active.Update(false)
 	} else if p2Idle != nil {
-		p2Idle.Update()
+		p2Idle.Update(false)
 	}
 
 	// Finally increment the global frame counter
@@ -5048,12 +5048,12 @@ func (hi *MotifHiscore) step(m *Motif) {
 		row := &hi.rows[i]
 		for _, bg := range row.bgs {
 			if bg != nil {
-				bg.Update()
+				bg.Update(false)
 			}
 		}
 		for _, face := range row.faces {
 			if face != nil {
-				face.Update()
+				face.Update(false)
 			}
 		}
 	}
@@ -5835,23 +5835,23 @@ func (vi *MotifVictory) step(m *Motif) {
 	prevLineFullyRendered := vi.lineFullyRendered
 	//fmt.Printf("[Victory] step: counter=%d time=%d endTimer=%d typedCnt=%d lineFullyRendered=%v cancel=%v skip=%v\n", vi.counter, m.VictoryScreen.Time, vi.endTimer, vi.typedCnt, vi.lineFullyRendered, cancelPressed, skipPressed)
 
-	m.VictoryScreen.P1.AnimData.Update()
-	m.VictoryScreen.P2.AnimData.Update()
-	m.VictoryScreen.P3.AnimData.Update()
-	m.VictoryScreen.P4.AnimData.Update()
-	m.VictoryScreen.P5.AnimData.Update()
-	m.VictoryScreen.P6.AnimData.Update()
-	m.VictoryScreen.P7.AnimData.Update()
-	m.VictoryScreen.P8.AnimData.Update()
+	m.VictoryScreen.P1.AnimData.Update(false)
+	m.VictoryScreen.P2.AnimData.Update(false)
+	m.VictoryScreen.P3.AnimData.Update(false)
+	m.VictoryScreen.P4.AnimData.Update(false)
+	m.VictoryScreen.P5.AnimData.Update(false)
+	m.VictoryScreen.P6.AnimData.Update(false)
+	m.VictoryScreen.P7.AnimData.Update(false)
+	m.VictoryScreen.P8.AnimData.Update(false)
 
-	m.VictoryScreen.P1.Face2.AnimData.Update()
-	m.VictoryScreen.P2.Face2.AnimData.Update()
-	m.VictoryScreen.P3.Face2.AnimData.Update()
-	m.VictoryScreen.P4.Face2.AnimData.Update()
-	m.VictoryScreen.P5.Face2.AnimData.Update()
-	m.VictoryScreen.P6.Face2.AnimData.Update()
-	m.VictoryScreen.P7.Face2.AnimData.Update()
-	m.VictoryScreen.P8.Face2.AnimData.Update()
+	m.VictoryScreen.P1.Face2.AnimData.Update(false)
+	m.VictoryScreen.P2.Face2.AnimData.Update(false)
+	m.VictoryScreen.P3.Face2.AnimData.Update(false)
+	m.VictoryScreen.P4.Face2.AnimData.Update(false)
+	m.VictoryScreen.P5.Face2.AnimData.Update(false)
+	m.VictoryScreen.P6.Face2.AnimData.Update(false)
+	m.VictoryScreen.P7.Face2.AnimData.Update(false)
+	m.VictoryScreen.P8.Face2.AnimData.Update(false)
 
 	// First press of Skip: fast-forward the text, but do NOT start fadeout yet.
 	if skipPressed && !prevLineFullyRendered {

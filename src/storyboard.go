@@ -458,7 +458,7 @@ func (s *Storyboard) reset() {
 				} else if layerProps.AnimData.palfx != nil {
 					layerProps.AnimData.palfx.clear()
 				}
-				layerProps.AnimData.Update()
+				layerProps.AnimData.Update(false)
 			}
 			if layerProps.TextSpriteData != nil {
 				layerProps.TextSpriteData.Reset()
@@ -688,7 +688,7 @@ func (s *Storyboard) step() {
 		// Update animations while the layer is actually visible.
 		if s.counter >= layerProps.StartTime && (s.counter < layerProps.EndTime || layerProps.EndTime <= 0) {
 			if layerProps.AnimData != nil {
-				layerProps.AnimData.Update()
+				layerProps.AnimData.Update(false)
 			}
 		}
 		if layerProps.TextSpriteData != nil && layerProps.Text != "" {

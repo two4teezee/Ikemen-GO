@@ -1221,7 +1221,11 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, a)
 		}
-		a.Update()
+		force := false
+		if !nilArg(l, 2) {
+			force = boolArg(l, 2)
+		}
+		a.Update(force)
 		return 0
 	})
 	luaRegister(l, "batchDraw", func(*lua.LState) int {

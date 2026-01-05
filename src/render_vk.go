@@ -181,6 +181,9 @@ func (r *Renderer_VK) newDummyCubeMapTexture() Texture {
 }
 
 func (t *Texture_VK) SetData(textureData []byte) {
+	if textureData == nil {
+		return
+	}
 	t.SetSubData(textureData, t.offset[0], t.offset[1], t.width, t.height)
 }
 func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
@@ -5000,8 +5003,10 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 	r.currentSpriteTexture.palTexture = r.dummyTexture
 	r.VKState.spriteTexture = r.dummyTexture
 	r.VKState.palTexture = r.dummyTexture
-	r.modelProgram.uniformOffsetMap = make(map[interface{}]uint32)
-	r.modelProgram.uniformBufferOffset = 0
+	if r.modelProgram != nil {
+		r.modelProgram.uniformOffsetMap = make(map[interface{}]uint32)
+		r.modelProgram.uniformBufferOffset = 0
+	}
 }
 
 func (r *Renderer_VK) BlendReset() {

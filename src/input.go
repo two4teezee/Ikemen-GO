@@ -3416,7 +3416,7 @@ func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32,
 			if controller < len(sys.inputRemap) {
 				in := sys.inputRemap[controller] // remapped input index/config
 				buttons = cl.Buffer.InputReader.LocalInput(in, script)
-					// Keep analog axes in sync with the same remap used for digital inputs
+				// Keep analog axes in sync with the same remap used for digital inputs
 				if in >= 0 && in < len(sys.joystickConfig) {
 					axes = input.GetJoystickAxes(sys.joystickConfig[in].Joy)
 				} else {

@@ -59,7 +59,11 @@
 #else
 	// GLES / OPENGL PATH
 	#if __VERSION__ >= 130 || defined(GL_ES)
-		#extension GL_ARB_texture_cube_map_array : enable
+		#ifdef GL_ES
+			#extension GL_EXT_texture_cube_map_array : enable
+		#else
+			#extension GL_ARB_texture_cube_map_array : enable
+		#endif
 		#define COMPAT_VARYING in
 		#define COMPAT_TEXTURE texture
 		#define COMPAT_TEXTURE_CUBE texture
@@ -67,10 +71,11 @@
 		#ifdef GL_ES
 			precision highp float;
 			precision highp int;
+			precision highp samplerCubeArray;
 		#endif
 		#ifdef ENABLE_SHADOW
 			uniform samplerCubeArray shadowCubeMap;
-			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2-1),-(xy.x*2-1),index)).r
+			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0),index)).r
 			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
 			const bool useShadowMap = true;
 		#else
@@ -83,7 +88,7 @@
 		#extension GL_ARB_shader_texture_lod : enable
 		#ifdef ENABLE_SHADOW
 			uniform samplerCube shadowCubeMap[4];
-			#define COMPAT_SHADOW_MAP_TEXTURE() textureCube(shadowCubeMap[index],vec3(1.0, -(xy.y*2-1),-(xy.x*2-1))).r
+			#define COMPAT_SHADOW_MAP_TEXTURE() textureCube(shadowCubeMap[index],vec3(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0))).r
 			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
 			const bool useShadowMap = true;
 		#else

@@ -128,7 +128,7 @@ func (r *Renderer_GLES32) compileShader(shaderType uint32, src string) (uint32, 
 	fullSrc := src
 	if !strings.HasPrefix(strings.TrimSpace(src), "#version") {
 		// Anchor to 300 es for best mobile compatibility
-		header := "#version 300 es\n"
+		header := "#version 310 es\n"
 		fullSrc = header + src
 	}
 

@@ -921,7 +921,7 @@ func (s *System) anyHardButton() bool {
 	hardButtonIdx := []int{4, 5, 6, 7, 8, 9}
 
 	for _, kc := range s.keyConfig {
-		buttons := GetControllerState(kc)
+		buttons := GetKeyboardState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true
@@ -930,7 +930,7 @@ func (s *System) anyHardButton() bool {
 	}
 
 	for _, kc := range s.joystickConfig {
-		buttons := GetControllerState(kc)
+		buttons := GetJoystickState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true

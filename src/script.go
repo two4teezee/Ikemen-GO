@@ -3993,25 +3993,25 @@ func systemScriptInit(l *lua.LState) {
 				case 4:
 					sys.keyConfig[pn-1].dR = btn
 				case 5:
-					sys.keyConfig[pn-1].kA = btn
+					sys.keyConfig[pn-1].bA = btn
 				case 6:
-					sys.keyConfig[pn-1].kB = btn
+					sys.keyConfig[pn-1].bB = btn
 				case 7:
-					sys.keyConfig[pn-1].kC = btn
+					sys.keyConfig[pn-1].bC = btn
 				case 8:
-					sys.keyConfig[pn-1].kX = btn
+					sys.keyConfig[pn-1].bX = btn
 				case 9:
-					sys.keyConfig[pn-1].kY = btn
+					sys.keyConfig[pn-1].bY = btn
 				case 10:
-					sys.keyConfig[pn-1].kZ = btn
+					sys.keyConfig[pn-1].bZ = btn
 				case 11:
-					sys.keyConfig[pn-1].kS = btn
+					sys.keyConfig[pn-1].bS = btn
 				case 12:
-					sys.keyConfig[pn-1].kD = btn
+					sys.keyConfig[pn-1].bD = btn
 				case 13:
-					sys.keyConfig[pn-1].kW = btn
+					sys.keyConfig[pn-1].bW = btn
 				case 14:
-					sys.keyConfig[pn-1].kM = btn
+					sys.keyConfig[pn-1].bM = btn
 				}
 			} else {
 				btn := StringToButtonLUT[lua.LVAsString(value)]
@@ -4025,25 +4025,25 @@ func systemScriptInit(l *lua.LState) {
 				case 4:
 					sys.joystickConfig[pn-1].dR = btn
 				case 5:
-					sys.joystickConfig[pn-1].kA = btn
+					sys.joystickConfig[pn-1].bA = btn
 				case 6:
-					sys.joystickConfig[pn-1].kB = btn
+					sys.joystickConfig[pn-1].bB = btn
 				case 7:
-					sys.joystickConfig[pn-1].kC = btn
+					sys.joystickConfig[pn-1].bC = btn
 				case 8:
-					sys.joystickConfig[pn-1].kX = btn
+					sys.joystickConfig[pn-1].bX = btn
 				case 9:
-					sys.joystickConfig[pn-1].kY = btn
+					sys.joystickConfig[pn-1].bY = btn
 				case 10:
-					sys.joystickConfig[pn-1].kZ = btn
+					sys.joystickConfig[pn-1].bZ = btn
 				case 11:
-					sys.joystickConfig[pn-1].kS = btn
+					sys.joystickConfig[pn-1].bS = btn
 				case 12:
-					sys.joystickConfig[pn-1].kD = btn
+					sys.joystickConfig[pn-1].bD = btn
 				case 13:
-					sys.joystickConfig[pn-1].kW = btn
+					sys.joystickConfig[pn-1].bW = btn
 				case 14:
-					sys.joystickConfig[pn-1].kM = btn
+					sys.joystickConfig[pn-1].bM = btn
 				}
 			}
 		})

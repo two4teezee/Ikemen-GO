@@ -50,7 +50,7 @@ vec3 hue_shift(vec3 color, float dhue) {
     vec3 row1 = vec3(0.167444, 0.329213, -0.496657);
     vec3 row2 = vec3(-0.327948, 0.035669, 0.292279);
     vec3 row3 = vec3(1.250268, -1.047561, -0.202707);
-    vec3 shifted = (color * c) + (color * s) * vec3(dot(row1, color), dot(row2, color), dot(row3, color));
+    vec3 shifted = (color * c) + s * vec3(dot(row1, color), dot(row2, color), dot(row3, color));
     return shifted + dot(vec3(0.299, 0.587, 0.114), color) * (1.0 - c);
 }
 

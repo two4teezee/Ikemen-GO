@@ -652,7 +652,7 @@ function build() {
 		prepare_android_deps
 		# MANUALLY define flags for Android to avoid pkg-config errors
 		export CGO_CFLAGS="-I$ANDROID_DEPS_PATH/include -I$ANDROID_DEPS_PATH/include/SDL2 ${CGO_CFLAGS:-}"
-		local deps_libs="-L$ANDROID_DEPS_PATH/lib -lSDL2 -lXmp -lavformat -lavcodec -lavutil -lswscale -lswresample -lavfilter"
+		local deps_libs="-L$ANDROID_DEPS_PATH/lib -lSDL2 -lxmp -lavformat -lavcodec -lavutil -lswscale -lswresample -lavfilter"
 		# Link against Android system libraries (GLES, OpenSLES, Log)
 		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -lSDL2 -lGLESv2 -lOpenSLES -Wl,-z,max-page-size=16384"
 	else

@@ -284,14 +284,15 @@ function main.f_printTable(t, toFile)
 			print_t_cache[tostring(t)] = true
 			if type(t) == 'table' then
 				for pos, val in pairs(t) do
+					local k = (type(pos) == 'string') and ('[' .. string.format('%q', pos) .. ']') or  ('[' .. tostring(pos) .. ']')
 					if type(val) == 'table' then
-						txt = txt .. indent .. '[' .. pos .. '] => ' .. tostring(t) .. ' {' .. '\n'
-						sub_print_t(val, indent .. string.rep(' ', string.len(tostring(pos)) + 8))
-						txt = txt .. indent .. string.rep(' ', string.len(tostring(pos)) + 6) .. '}' .. '\n'
+						txt = txt .. indent .. k .. ' => ' .. tostring(val) .. ' {' .. '\n'
+						sub_print_t(val, indent .. string.rep(' ', string.len(k) + 6))
+						txt = txt .. indent .. string.rep(' ', string.len(k) + 4) .. '}' .. '\n'
 					elseif type(val) == 'string' then
-						txt = txt .. indent .. '[' .. pos .. '] => "' .. val .. '"' .. '\n'
+						txt = txt .. indent .. k .. ' => "' .. val .. '"' .. '\n'
 					else
-						txt = txt .. indent .. '[' .. pos .. '] => ' .. tostring(val) ..'\n'
+						txt = txt .. indent .. k .. ' => ' .. tostring(val) ..'\n'
 					end
 				end
 			else

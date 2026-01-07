@@ -350,17 +350,45 @@ func toLValue(l *lua.LState, v interface{}) lua.LValue {
 
 	case reflect.Map:
 		table := l.NewTable()
-		/*for _, key := range rv.MapKeys() {
-			value := rv.MapIndex(key)
-			luaKey := lua.LString(fmt.Sprintf("%v", key.Interface())) // Convert map key to string
-			table.RawSet(luaKey, toLValue(l, value.Interface()))
-		}*/
-		// Deterministic key order
+		// Preserve numeric keys as numeric Lua keys
+		keyKind := rv.Type().Key().Kind()
 		keys := rv.MapKeys()
+
+		switch keyKind {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			ikeys := make([]int64, 0, len(keys))
+			valuesByKey := make(map[int64]reflect.Value, len(keys))
+			for _, k := range keys {
+				iv := k.Int()
+				ikeys = append(ikeys, iv)
+				valuesByKey[iv] = rv.MapIndex(k)
+			}
+			sort.Slice(ikeys, func(i, j int) bool { return ikeys[i] < ikeys[j] })
+			for _, iv := range ikeys {
+				table.RawSet(lua.LNumber(iv), toLValue(l, valuesByKey[iv].Interface()))
+			}
+			return table
+
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			ukeys := make([]uint64, 0, len(keys))
+			valuesByKey := make(map[uint64]reflect.Value, len(keys))
+			for _, k := range keys {
+				uv := k.Uint()
+				ukeys = append(ukeys, uv)
+				valuesByKey[uv] = rv.MapIndex(k)
+			}
+			sort.Slice(ukeys, func(i, j int) bool { return ukeys[i] < ukeys[j] })
+			for _, uv := range ukeys {
+				table.RawSet(lua.LNumber(uv), toLValue(l, valuesByKey[uv].Interface()))
+			}
+			return table
+		}
+
+		// Fallback: deterministic order via stringified keys
 		strKeys := make([]string, 0, len(keys))
 		valuesByKey := make(map[string]reflect.Value, len(keys))
 		for _, k := range keys {
-			sk := fmt.Sprintf("%v", k.Interface()) // stringify non-string keys if any
+			sk := fmt.Sprintf("%v", k.Interface())
 			strKeys = append(strKeys, sk)
 			valuesByKey[sk] = rv.MapIndex(k)
 		}

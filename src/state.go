@@ -82,7 +82,7 @@ func (gs *GameState) Checksum() int {
 }
 
 func (gs *GameState) String() (str string) {
-	str = fmt.Sprintf("MatchTime %d CurRoundTime: %d\n", gs.matchTime, gs.curRoundTime)
+	str = fmt.Sprintf("MatchTime %d CurRoundTime: %d CurPlayTime: %d\n", gs.matchTime, gs.curRoundTime, gs.curPlayTime)
 	str += fmt.Sprintf("bcStack: %v\n", gs.bcStack)
 	str += fmt.Sprintf("bcVarStack: %v\n", gs.bcVarStack)
 	str += fmt.Sprintf("bcVar: %v\n", gs.bcVar)
@@ -111,6 +111,7 @@ type GameState struct {
 	randseed     int32
 	matchTime    int32
 	curRoundTime int32
+	curPlayTime  int32
 
 	chars      [MaxPlayerNo][]*Char
 	charData   [MaxPlayerNo][]Char
@@ -203,6 +204,7 @@ type GameState struct {
 	joystickConfig  []KeyConfig
 	lifebar         Lifebar
 	motif           Motif
+	storyboard      Storyboard
 	cgi             [MaxPlayerNo]CharGlobalInfo
 
 	//accel                   float32
@@ -288,6 +290,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.randseed = gs.randseed
 	sys.matchTime = gs.matchTime
 	sys.curRoundTime = gs.curRoundTime // UIT
+	sys.curPlayTime = gs.curPlayTime
 
 	gs.loadCharData(a, gsp)
 	gs.loadExplodData(a, gsp)
@@ -416,6 +419,17 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.lifebar = gs.lifebar.Clone(a)
 	sys.motif = gs.motif.Clone(a)
 
+	// Storyboard: only rollback-touch it when it was actually running.
+	if gs.storyboard.active {
+		sys.storyboard = gs.storyboard.Clone(a)
+	} else {
+		// If storyboard started after the save point, prevent it from continuing after rollback.
+		sys.storyboard.active = false
+		sys.storyboard.initialized = false
+		sys.storyboard.dialogueLayers = nil
+		sys.storyboard.dialoguePos = 0
+	}
+
 	sys.cgi = gs.cgi
 
 	sys.timerStart = gs.timerStart
@@ -515,6 +529,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.randseed = sys.randseed
 	gs.matchTime = sys.matchTime
 	gs.curRoundTime = sys.curRoundTime
+	gs.curPlayTime = sys.curPlayTime
 
 	gs.saveCharData(a, gsp)
 	gs.saveExplodData(a, gsp)
@@ -639,6 +654,14 @@ func (gs *GameState) SaveState(stateID int) {
 
 	gs.lifebar = sys.lifebar.Clone(a)
 	gs.motif = sys.motif.Clone(a)
+
+	// Storyboard: only rollback-save while active.
+	if sys.storyboard.active {
+		gs.storyboard = sys.storyboard.Clone(a)
+	} else {
+		gs.storyboard = Storyboard{}
+		gs.storyboard.active = false
+	}
 
 	gs.timerStart = sys.timerStart
 	gs.timerRounds = arena.MakeSlice[int32](a, len(sys.timerRounds), len(sys.timerRounds))

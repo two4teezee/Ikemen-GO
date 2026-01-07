@@ -469,6 +469,9 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	if l.ro != nil {
 		result.ro = &LifeBarRound{} // Shallow copy
 		*result.ro = *l.ro
+		// Fade state
+		result.ro.fadeIn = l.ro.fadeIn.Clone(a)
+		result.ro.fadeOut = l.ro.fadeOut.Clone(a)
 	}
 
 	// Combo
@@ -597,32 +600,6 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 	return
 }
 
-func (m *Motif) Clone(a *arena.Arena) (result Motif) {
-	result = *m
-
-	// TextSprite
-	if m.textsprite != nil {
-		result.textsprite = make([]*TextSprite, len(m.textsprite))
-		for i, ts := range m.textsprite {
-			if ts != nil {
-				result.textsprite[i] = &TextSprite{}
-				*result.textsprite[i] = *ts
-
-				if ts.params != nil {
-					result.textsprite[i].params = make([]interface{}, len(ts.params))
-					copy(result.textsprite[i].params, ts.params)
-				}
-
-				if ts.palfx != nil {
-					result.textsprite[i].palfx = ts.palfx.Clone(a)
-				}
-			}
-		}
-	}
-
-	return
-}
-
 func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
 	result := &Stage{}
 	*result = *s
@@ -725,3 +702,348 @@ func (s *Stage) Clone(a *arena.Arena, gsp *GameStatePool) *Stage {
 
 	return result
 }*/
+
+func cloneTextSprite(a *arena.Arena, ts *TextSprite) *TextSprite {
+	if ts == nil {
+		return nil
+	}
+	dst := arena.New[TextSprite](a)
+	*dst = *ts
+
+	// Only copy references that shallow copy poorly, as needed.
+	if ts.params != nil {
+		dst.params = make([]interface{}, len(ts.params))
+		copy(dst.params, ts.params)
+	}
+	if ts.palfx != nil {
+		dst.palfx = ts.palfx.Clone(a)
+	}
+	return dst
+}
+
+func (fa *Fade) Clone(a *arena.Arena) *Fade {
+	if fa == nil {
+		return nil
+	}
+	result := arena.New[Fade](a)
+	*result = *fa
+	// Avoid sharing animation state between saved states.
+	if fa.animData != nil {
+		// Anim has Copy() in the codebase and is already used for UI anim duplication.
+		result.animData = fa.animData.Copy()
+	}
+	return result
+}
+
+/*func (me *MotifMenu) Clone(a *arena.Arena) (result MotifMenu) {
+	result = *me
+	return
+}*/
+
+/*func (ch *MotifChallenger) Clone(a *arena.Arena) (result MotifChallenger) {
+	result = *ch
+	return
+}*/
+
+func (co *MotifContinue) Clone(a *arena.Arena) (result MotifContinue) {
+	result = *co
+	if co.counts != nil {
+		result.counts = arena.MakeSlice[string](a, len(co.counts), len(co.counts))
+		copy(result.counts, co.counts)
+	}
+	return
+}
+
+func cloneDialogueToken(t DialogueToken) DialogueToken {
+	result := t
+	if t.value != nil {
+		result.value = make([]interface{}, len(t.value))
+		copy(result.value, t.value)
+	}
+	return result
+}
+
+func cloneDialogueParsedLine(a *arena.Arena, src DialogueParsedLine) (result DialogueParsedLine) {
+	result = src
+	if src.tokens != nil {
+		result.tokens = make(map[int][]DialogueToken, len(src.tokens))
+		for k, toks := range src.tokens {
+			if toks == nil {
+				continue
+			}
+			dst := arena.MakeSlice[DialogueToken](a, len(toks), len(toks))
+			for i := 0; i < len(toks); i++ {
+				dst[i] = cloneDialogueToken(toks[i])
+			}
+			result.tokens[k] = dst
+		}
+	}
+	return
+}
+
+/*func (de *MotifDemo) Clone(a *arena.Arena) (result MotifDemo) {
+	result = *de
+	return
+}*/
+
+func (di *MotifDialogue) Clone(a *arena.Arena) (result MotifDialogue) {
+	result = *di
+	if di.parsed != nil {
+		result.parsed = arena.MakeSlice[DialogueParsedLine](a, len(di.parsed), len(di.parsed))
+		for i := 0; i < len(di.parsed); i++ {
+			result.parsed[i] = cloneDialogueParsedLine(a, di.parsed[i])
+		}
+	}
+	return
+}
+
+/*func (vi *MotifVictory) Clone(a *arena.Arena) (result MotifVictory) {
+	result = *vi
+	return
+}*/
+
+func (rr *rankingRow) Clone(a *arena.Arena) (result rankingRow) {
+	result = *rr
+	if rr.pals != nil {
+		result.pals = arena.MakeSlice[int32](a, len(rr.pals), len(rr.pals))
+		copy(result.pals, rr.pals)
+	}
+	if rr.chars != nil {
+		result.chars = arena.MakeSlice[string](a, len(rr.chars), len(rr.chars))
+		copy(result.chars, rr.chars)
+	}
+	// Per-slot anim state must not be shared between saved states.
+	if rr.bgs != nil {
+		result.bgs = arena.MakeSlice[*Anim](a, len(rr.bgs), len(rr.bgs))
+		for i := 0; i < len(rr.bgs); i++ {
+			if rr.bgs[i] != nil {
+				result.bgs[i] = rr.bgs[i].Copy()
+			}
+		}
+	}
+	if rr.faces != nil {
+		result.faces = arena.MakeSlice[*Anim](a, len(rr.faces), len(rr.faces))
+		for i := 0; i < len(rr.faces); i++ {
+			if rr.faces[i] != nil {
+				result.faces[i] = rr.faces[i].Copy()
+			}
+		}
+	}
+	// Per-row TextSprites
+	result.rankData = cloneTextSprite(a, rr.rankData)
+	result.resultData = cloneTextSprite(a, rr.resultData)
+	result.nameData = cloneTextSprite(a, rr.nameData)
+	result.rankDataActive = cloneTextSprite(a, rr.rankDataActive)
+	result.rankDataActive2 = cloneTextSprite(a, rr.rankDataActive2)
+	result.resultDataActive = cloneTextSprite(a, rr.resultDataActive)
+	result.resultDataActive2 = cloneTextSprite(a, rr.resultDataActive2)
+	result.nameDataActive = cloneTextSprite(a, rr.nameDataActive)
+	result.nameDataActive2 = cloneTextSprite(a, rr.nameDataActive2)
+	return
+}
+
+func (hi *MotifHiscore) Clone(a *arena.Arena) (result MotifHiscore) {
+	result = *hi
+	if hi.rows != nil {
+		result.rows = arena.MakeSlice[rankingRow](a, len(hi.rows), len(hi.rows))
+		for i := 0; i < len(hi.rows); i++ {
+			result.rows[i] = hi.rows[i].Clone(a)
+		}
+	}
+	if hi.letters != nil {
+		result.letters = arena.MakeSlice[int](a, len(hi.letters), len(hi.letters))
+		copy(result.letters, hi.letters)
+	}
+	return
+}
+
+func (wi *MotifWin) Clone(a *arena.Arena) (result MotifWin) {
+	result = *wi
+
+	if wi.keyCancel != nil {
+		result.keyCancel = arena.MakeSlice[string](a, len(wi.keyCancel), len(wi.keyCancel))
+		copy(result.keyCancel, wi.keyCancel)
+	}
+	if wi.p1State != nil {
+		result.p1State = arena.MakeSlice[int32](a, len(wi.p1State), len(wi.p1State))
+		copy(result.p1State, wi.p1State)
+	}
+	if wi.p1TeammateState != nil {
+		result.p1TeammateState = arena.MakeSlice[int32](a, len(wi.p1TeammateState), len(wi.p1TeammateState))
+		copy(result.p1TeammateState, wi.p1TeammateState)
+	}
+	if wi.p2State != nil {
+		result.p2State = arena.MakeSlice[int32](a, len(wi.p2State), len(wi.p2State))
+		copy(result.p2State, wi.p2State)
+	}
+	if wi.p2TeammateState != nil {
+		result.p2TeammateState = arena.MakeSlice[int32](a, len(wi.p2TeammateState), len(wi.p2TeammateState))
+		copy(result.p2TeammateState, wi.p2TeammateState)
+	}
+	return
+}
+
+func (m *Motif) Clone(a *arena.Arena) (result Motif) {
+	result = *m
+
+	// Fade state
+	result.fadeIn = m.fadeIn.Clone(a)
+	result.fadeOut = m.fadeOut.Clone(a)
+
+	// Motif sub-state that contains reference types
+	// Dialogue can run during match, keep it rollback-safe.
+	//result.me = m.me.Clone(a)
+	//result.ch = m.ch.Clone(a)
+	//result.de = m.de.Clone(a)
+	result.di = m.di.Clone(a)
+
+	// Post-match-only motifs: don't waste time cloning them (and don't rollback-touch them)
+	// during a match when sys.postMatchFlg is false.
+	if sys.postMatchFlg {
+		result.co = m.co.Clone(a)
+		//result.vi = m.vi.Clone(a)
+		result.hi = m.hi.Clone(a)
+		result.wi = m.wi.Clone(a)
+	} else {
+		// Keep current runtime values so rollback loads during a match won't affect them.
+		result.co = sys.motif.co
+		result.vi = sys.motif.vi
+		result.hi = sys.motif.hi
+		result.wi = sys.motif.wi
+	}
+
+	// TextSprite
+	if m.textsprite != nil {
+		result.textsprite = arena.MakeSlice[*TextSprite](a, len(m.textsprite), len(m.textsprite))
+		for i := 0; i < len(m.textsprite); i++ {
+			result.textsprite[i] = cloneTextSprite(a, m.textsprite[i])
+		}
+	}
+
+	return
+}
+
+// Music tables are treated as immutable during a match; for storyboard we only need
+// to isolate map/slice headers so saved states don't alias if something rebuilds them.
+// The *bgMusic entries themselves are treated as immutable; copying pointers is enough.
+func cloneMusicMapShallow(a *arena.Arena, src Music) Music {
+	if src == nil {
+		return nil
+	}
+	dst := make(Music, len(src))
+	for k, lst := range src {
+		if lst == nil {
+			dst[k] = nil
+			continue
+		}
+		nlst := arena.MakeSlice[*bgMusic](a, len(lst), len(lst))
+		copy(nlst, lst)
+		dst[k] = nlst
+	}
+	return dst
+}
+
+// Storyboard.Clone:
+// - Only meant to be used when storyboard is active (caller gates it).
+// - Deep-copies runtime-mutated per-layer state (Anim/Text + typewriter fields).
+// - Keeps static resources shared (IniFile/Sff/Snd/Fnt/Model/At/etc).
+// - Rebuilds derived dialogue queue so pointers point into the cloned layer maps.
+func (s *Storyboard) Clone(a *arena.Arena) (result Storyboard) {
+	if s == nil {
+		return Storyboard{}
+	}
+
+	// Shallow copy keeps static resources shared.
+	result = *s
+
+	// sceneKeys is mutated/rebuilt; don't alias.
+	if s.sceneKeys != nil {
+		result.sceneKeys = arena.MakeSlice[string](a, len(s.sceneKeys), len(s.sceneKeys))
+		copy(result.sceneKeys, s.sceneKeys)
+	}
+
+	// We'll rebuild this cache after cloning.
+	result.dialogueLayers = nil
+
+	// Deep copy per-scene runtime state.
+	if s.Scene != nil {
+		result.Scene = make(map[string]*SceneProperties, len(s.Scene))
+		for sceneKey, sp := range s.Scene {
+			if sp == nil {
+				result.Scene[sceneKey] = nil
+				continue
+			}
+
+			nsp := &SceneProperties{}
+			*nsp = *sp
+
+			// Layer map (runtime state lives here)
+			if sp.Layer != nil {
+				nsp.Layer = make(map[string]*LayerProperties, len(sp.Layer))
+				for layerKey, lp := range sp.Layer {
+					if lp == nil {
+						nsp.Layer[layerKey] = nil
+						continue
+					}
+
+					nlp := &LayerProperties{}
+					*nlp = *lp
+
+					// Anim runtime state must not be shared across saved states.
+					if lp.AnimData != nil {
+						nlp.AnimData = lp.AnimData.Copy()
+					}
+
+					// TextSprite runtime state must not be shared across saved states.
+					nlp.TextSpriteData = cloneTextSprite(a, lp.TextSpriteData)
+
+					// typedLen/charDelayCounter/lineFullyRendered are plain fields copied above.
+					nsp.Layer[layerKey] = nlp
+				}
+			}
+
+			// Sound map isn't mutated during playback, but map header is a reference type.
+			if sp.Sound != nil {
+				nsp.Sound = make(map[string]*SoundProperties, len(sp.Sound))
+				for soundKey, sv := range sp.Sound {
+					if sv == nil {
+						nsp.Sound[soundKey] = nil
+						continue
+					}
+					ns := &SoundProperties{}
+					*ns = *sv
+					nsp.Sound[soundKey] = ns
+				}
+			}
+
+			// Per-scene music config (treat bgMusic entries as immutable).
+			nsp.Music = cloneMusicMapShallow(a, sp.Music)
+
+			if sp.Bg.BGDef != nil {
+				nbg := &BGDef{}
+				*nbg = *sp.Bg.BGDef
+				nsp.Bg.BGDef = nbg
+			}
+
+			result.Scene[sceneKey] = nsp
+		}
+	}
+
+	// Rebuild dialogue queue so it points into the cloned maps.
+	if len(result.sceneKeys) == 0 && result.Scene != nil {
+		result.sceneKeys = SortedKeys(result.Scene)
+	}
+	if len(result.sceneKeys) > 0 &&
+		result.currentSceneIndex >= 0 &&
+		result.currentSceneIndex < len(result.sceneKeys) {
+		sceneKey := result.sceneKeys[result.currentSceneIndex]
+		if sp, ok := result.Scene[sceneKey]; ok && sp != nil {
+			pos := result.dialoguePos
+			result.buildDialogueQueue(sp)
+			result.dialoguePos = pos
+			result.syncDialoguePosToTime()
+		}
+	}
+
+	return result
+}

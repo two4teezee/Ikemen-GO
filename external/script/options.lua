@@ -2154,7 +2154,7 @@ end
 function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	local t = t_keyCfg
 	-- Dynamically add/remove the "Rumble" option based on type
-	if motif.option_info.keymenu.menu.itemname.rumble ~= '' then
+	if motif.option_info.keymenu.menu.itemname.rumble ~= nil then
 		if cfgType ~= 'Joystick' then
 			for k,v in ipairs(t) do
 				if t[k].itemname == 'rumble' then

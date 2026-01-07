@@ -1062,8 +1062,7 @@ type OptionInfoProperties struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
 			Playerno   TextProperties `ini:"playerno"`
 		} `ini:"p2"`
-		Menu     MenuProperties    `ini:"menu"`
-		Itemname map[string]string `ini:"itemname"`
+		Menu MenuProperties `ini:"menu"`
 	} `ini:"keymenu"`
 	Itemname map[string]string `ini:"itemname"` // not used by [Option Info]
 }

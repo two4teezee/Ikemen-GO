@@ -3078,8 +3078,8 @@ func systemScriptInit(l *lua.LState) {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
 			buildFlatOrder(s.sec, s.path, "menu.itemname.", lTable)
 		}
-		populateItemName("Option Info", []string{"option_info", "keymenu"}, "keymenu.itemname.", "flat", lTable)
-		buildFlatOrder("Option Info", []string{"option_info", "keymenu"}, "keymenu.itemname.", lTable)
+		populateItemName("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", "flat", lTable)
+		buildFlatOrder("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", lTable)
 		populateItemName("Select Info", []string{"select_info", "teammenu"}, "teammenu.itemname.", "team", lTable)
 		buildTeamOrder("Select Info", []string{"select_info", "teammenu"}, lTable)
 

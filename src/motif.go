@@ -658,8 +658,7 @@ type TitleInfoProperties struct {
 		Overlay OverlayProperties `ini:"overlay"`
 	} `ini:"footer"`
 	Connecting struct {
-		Host    TextProperties    `ini:"host"`
-		Join    TextProperties    `ini:"join"`
+		TextMapProperties
 		Overlay OverlayProperties `ini:"overlay"`
 	} `ini:"connecting"`
 	TextInput struct {

@@ -2793,15 +2793,15 @@ function main.f_connect(server, str)
 		--draw overlay
 		rectDraw(motif.title_info.connecting.overlay.RectData)
 		--draw text
+		local txt = ''
 		if server == '' then
-			textImgReset(motif.title_info.connecting.host.TextSpriteData)
-			textImgSetText(motif.title_info.connecting.host.TextSpriteData, string.format(motif.title_info.connecting.host.text, str))
-			textImgDraw(motif.title_info.connecting.host.TextSpriteData)
+			txt = string.format(motif.title_info.connecting.text.host, str)
 		else
-			textImgReset(motif.title_info.connecting.join.TextSpriteData)
-			textImgSetText(motif.title_info.connecting.join.TextSpriteData, string.format(motif.title_info.connecting.join.text, server, str))
-			textImgDraw(motif.title_info.connecting.join.TextSpriteData)
+			txt = string.format(motif.title_info.connecting.text.join, server, str)
 		end
+		textImgReset(motif.title_info.connecting.TextSpriteData)
+		textImgSetText(motif.title_info.connecting.TextSpriteData, txt)
+		textImgDraw(motif.title_info.connecting.TextSpriteData)
 		main.f_cmdInput()
 		refresh()
 	end

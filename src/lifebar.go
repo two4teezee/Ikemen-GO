@@ -886,12 +886,17 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	}
 
 	// Level sounds
-	// TODO: These probably shouldn't play when the powerbar is invisible
-	if level > pbr.prevLevel {
+	// Skipped if the bar is invisible
+	if level > pbr.prevLevel && !sys.gsf(GSF_nobardisplay) && !refChar.powerOwner().asf(ASF_nopowerbardisplay) {
 		i := int(level - 1)
 		if i >= 0 && i < len(pb.level_snd) {
 			snd.play(pb.level_snd[i], 100, 0, 0, 0, 0)
 		}
+	}
+
+	// Reset PalFX if level number changes at all
+	// TODO: Maybe this should happen if the "multiple element" changes instead
+	if level != pbr.prevLevel {
 		for i := range pb.counter {
 			pb.counter[i].resetTxtPfx()
 		}
@@ -899,6 +904,8 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 			pb.value[i].resetTxtPfx()
 		}
 	}
+
+	// Save current level for reference in the next frame
 	pbr.prevLevel = level
 
 	// Multiple front elements
@@ -914,6 +921,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pb.bg2.Action()
 	pb.top.Action()
 	pb.mid.Action()
+
 	// Multiple front elements
 	var fv2 int32
 	for k := range pb.front {
@@ -933,6 +941,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 		}
 	}
 	pb.counter[cv].step()
+
 	// Multiple value fonts
 	var cv2 int32
 	for k := range pb.value {

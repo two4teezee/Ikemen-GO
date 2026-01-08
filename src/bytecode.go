@@ -12439,7 +12439,10 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_align:
 			ts.align = exp[0].evalI(c)
 		case text_textspacing:
-			ts.textSpacing = exp[0].evalF(c)
+			ts.textSpacing[0] = exp[0].evalF(c)
+			if len(exp) > 1 {
+				ts.textSpacing[1] = exp[1].evalF(c)
+			}
 		case text_textdelay:
 			ts.textDelay = exp[0].evalF(c)
 		case text_pos:
@@ -12730,10 +12733,16 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					ts.align = a
 				})
 			case text_textspacing:
-				ls := exp[0].evalF(c)
+				xs := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.textSpacing = ls
+					ts.textSpacing[0] = xs
 				})
+				if len(exp) > 1 {
+					ys := exp[1].evalF(c)
+					eachText(func(ts *TextSprite) {
+						ts.textSpacing[1] = ys
+					})
+				}
 			case text_textdelay:
 				td := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {

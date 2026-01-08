@@ -2113,7 +2113,7 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	localcoord := [2]float32{0, 0}
 	window := [4]float32{0, 0, 0, 0}
 	textDelay := float32(0)
-	textSpacing := float32(0)
+	textSpacing := [2]float32{0, 0}
 	textWrap := ""
 	velocity := [2]float32{0, 0}
 	maxDist := [2]float32{0, 0}
@@ -2201,8 +2201,9 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 			textDelay = float32(fv.Int())
 		}
 	}
-	if fv, ok := get("TextSpacing"); ok && (fv.Kind() == reflect.Float32 || fv.Kind() == reflect.Float64) {
-		textSpacing = float32(fv.Float())
+	if fv, ok := get("TextSpacing"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
+		textSpacing[0] = float32(fv.Index(0).Float())
+		textSpacing[1] = float32(fv.Index(1).Float())
 	}
 	if fv, ok := get("TextWrap"); ok && fv.Kind() == reflect.String {
 		textWrap = fv.String()
@@ -2271,7 +2272,7 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	// textImgSetTextDelay
 	ts.textDelay = textDelay
 	// textImgSetTextSpacing
-	ts.SetTextSpacing(textSpacing)
+	ts.SetTextSpacing(textSpacing[0], textSpacing[1])
 	// textImgSetTextWrap
 	ts.textWrap = textWrap == "w" || textWrap == "1"
 	// textImgSetVelocity

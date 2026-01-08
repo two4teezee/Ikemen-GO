@@ -626,9 +626,9 @@ type PlayerDialogueProperties struct {
 	Name TextProperties `ini:"name"`
 	Text struct {
 		TextProperties
-		TextSpacing float32 `ini:"textspacing"`
-		TextDelay   int32   `ini:"textdelay"`
-		TextWrap    string  `ini:"textwrap" default:"w"`
+		TextSpacing [2]float32 `ini:"textspacing"`
+		TextDelay   int32      `ini:"textdelay"`
+		TextWrap    string     `ini:"textwrap" default:"w"`
 	} `ini:"text"`
 	Active AnimationProperties `ini:"active"`
 }
@@ -959,10 +959,10 @@ type VictoryScreenProperties struct {
 	WinName  TextProperties `ini:"winname"`
 	WinQuote struct {
 		TextProperties
-		TextSpacing float32 `ini:"textspacing"`
-		TextDelay   int32   `ini:"textdelay"`
-		TextWrap    string  `ini:"textwrap" default:"w"`
-		DisplayTime int32   `ini:"displaytime"`
+		TextSpacing [2]float32 `ini:"textspacing"`
+		TextDelay   int32      `ini:"textdelay"`
+		TextWrap    string     `ini:"textwrap" default:"w"`
+		DisplayTime int32      `ini:"displaytime"`
 	} `ini:"winquote"`
 	Overlay OverlayProperties `ini:"overlay"`
 	Skip    struct {

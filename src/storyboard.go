@@ -38,7 +38,7 @@ type LayerProperties struct {
 	Text           string   `ini:"text"`
 	TextSpriteData *TextSprite
 	PalFx          PalFxProperties `ini:"palfx"`
-	TextSpacing    float32         `ini:"textspacing"`
+	TextSpacing    [2]float32      `ini:"textspacing"`
 	TextDelay      float32         `ini:"textdelay" default:"2"`
 	TextWrap       string          `ini:"textwrap" default:"w"`
 	TextWindow     [4]int32        `ini:"textwindow"`

@@ -20,9 +20,8 @@ type FontRenderer interface {
 type Font interface {
 	SetColor(red float32, green float32, blue float32, alpha float32)
 	UpdateResolution(windowWidth int, windowHeight int)
-	Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
-	//renderGlyphBatch(batchChars []*character, indices []rune, vertices []float32)
-	Width(scale float32, fs string, argv ...interface{}) float32
+	Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
+	Width(scale float32, spacingXAdd float32, fs string, argv ...interface{}) float32
 }
 
 type character struct {
@@ -61,8 +60,8 @@ type FntCharImage struct {
 // TtfFont implements TTF font rendering on supported platforms
 type TtfFont interface {
 	SetColor(red float32, green float32, blue float32, alpha float32)
-	Width(scale float32, fs string, argv ...interface{}) float32
-	Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
+	Width(scale float32, spacingXAdd float32, fs string, argv ...interface{}) float32
+	Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error
 	UpdateResolution(windowWidth int, windowHeight int)
 }
 
@@ -441,24 +440,34 @@ func (f *Fnt) CharWidth(c rune, bt int32) int32 {
 
 // TextWidth returns the width that has a specified text.
 // This depends on each char's width and font spacing
-func (f *Fnt) TextWidth(txt string, bank int32) (w int32) {
+func (f *Fnt) TextWidth(txt string, bank int32, spacingXAdd int32) (w int32) {
+	if len(txt) == 0 {
+		return 0
+	}
+	// TTF: ask renderer for width in one pass (and include spacingXAdd).
+	if f.Type == "truetype" {
+		if f.ttf == nil {
+			return 0
+		}
+		return int32(math.Round(float64(f.ttf.Width(1, float32(spacingXAdd), "%s", txt))))
+	}
 	if f.BankType != "sprite" {
 		bank = 0
 	}
-	for i, c := range txt {
-		if f.Type == "truetype" {
-			w += int32(f.ttf.Width(1, string(c)))
-		} else {
-			cw := f.CharWidth(c, bank)
-			// in mugen negative spacing matching char width seems to skip calc,
-			// even for 1 symbol string (which normally shouldn't use spacing)
-			if cw+f.Spacing[0] > 0 {
-				w += cw
-				if i < len(txt)-1 {
-					w += f.Spacing[0]
-				}
+	// Sprite fonts: avoid byte-index "last rune" bug by tracking rune index.
+	runeCount := utf8.RuneCountInString(txt)
+	ri := 0
+	for _, c := range txt {
+		cw := f.CharWidth(c, bank)
+		// in mugen negative spacing matching char width seems to skip calc,
+		// even for 1 symbol string (which normally shouldn't use spacing)
+		if cw+f.Spacing[0]+spacingXAdd > 0 {
+			w += cw
+			if ri < runeCount-1 {
+				w += f.Spacing[0] + spacingXAdd
 			}
 		}
+		ri++
 	}
 	return
 }
@@ -548,16 +557,16 @@ func (f *Fnt) Print(txt string, x, y, xscl, yscl, rxadd float32, rot Rotation, p
 	window *[4]int32, palfx *PalFX, frgba [4]float32) {
 	if !sys.frameSkip {
 		if f.Type == "truetype" {
-			f.DrawTtf(txt, x, y, xscl, yscl, align, true, window, frgba)
+			f.DrawTtf(txt, x, y, xscl, yscl, align, true, window, frgba, 0)
 		} else {
-			f.DrawText(txt, x, y, xscl, yscl, rxadd, rot, projectionMode, fLength, bank, align, window, palfx, frgba[3])
+			f.DrawText(txt, x, y, xscl, yscl, rxadd, rot, projectionMode, fLength, bank, align, window, palfx, frgba[3], 0)
 		}
 	}
 }
 
 // DrawText prints on screen a specified text with the current font sprites
 func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
-	rot Rotation, projectionMode int32, fLength float32, bank, align int32, window *[4]int32, palfx *PalFX, alpha float32) {
+	rot Rotation, projectionMode int32, fLength float32, bank, align int32, window *[4]int32, palfx *PalFX, alpha float32, spacingXAdd int32) {
 
 	if len(txt) == 0 || xscl == 0 || yscl == 0 {
 		return
@@ -598,9 +607,9 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 	}
 
 	if align == 0 {
-		x -= float32(f.TextWidth(txt, bank)) * xscl * 0.5
+		x -= float32(f.TextWidth(txt, bank, spacingXAdd)) * xscl * 0.5
 	} else if align < 0 {
-		x -= float32(f.TextWidth(txt, bank)) * xscl
+		x -= float32(f.TextWidth(txt, bank, spacingXAdd)) * xscl
 	}
 
 	var pal []uint32
@@ -654,12 +663,12 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 	}
 
 	for _, c := range txt {
-		x += f.drawChar(x, y, xscl, yscl, bank, bt, c, pal, rp) + xscl*float32(f.Spacing[0])
+		x += f.drawChar(x, y, xscl, yscl, bank, bt, c, pal, rp) + xscl*float32(f.Spacing[0]+spacingXAdd)
 	}
 }
 
 func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
-	blend bool, window *[4]int32, frgba [4]float32) {
+	blend bool, window *[4]int32, frgba [4]float32, spacingXAdd float32) {
 
 	if len(txt) == 0 {
 		return
@@ -676,7 +685,7 @@ func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
 		(*window)[2], (*window)[3]}
 
 	f.ttf.SetColor(frgba[0], frgba[1], frgba[2], frgba[3])
-	f.ttf.Printf(x, y, (xscl+yscl)/2, align, blend, win, "%s", txt) //x, y, scale, align, blend, window, string, printf args
+	f.ttf.Printf(x, y, (xscl+yscl)/2, spacingXAdd, align, blend, win, "%s", txt) //x, y, scale, spacingXAdd, align, blend, window, string, printf args
 }
 
 type TextSprite struct {
@@ -702,7 +711,7 @@ type TextSprite struct {
 	forcecolor       bool
 	removetime       int32 // text sctrl
 	elapsedTicks     float32
-	textSpacing      float32
+	textSpacing      [2]float32
 	textDelay        float32
 	textWrap         bool
 	friction         [2]float32
@@ -814,8 +823,8 @@ func (ts *TextSprite) SetColor(r, g, b, a int32) {
 		float32(b) / 255, float32(a) / 255}
 }
 
-func (ts *TextSprite) SetTextSpacing(textSpacing float32) {
-	ts.textSpacing = textSpacing // TODO: / ts.localScale?
+func (ts *TextSprite) SetTextSpacing(xs, ys float32) {
+	ts.textSpacing = [2]float32{xs, ys} // TODO: / ts.localScale?
 }
 
 func (ts *TextSprite) SetVelocity(xvel, yvel float32) {
@@ -844,6 +853,14 @@ func (ts *TextSprite) IsFullyTyped() bool {
 		return true
 	}
 	return false
+}
+
+func (ts *TextSprite) TextWidth(txt string) int32 {
+	if ts.fnt == nil {
+		return 0
+	}
+	spacingXAdd := int32(math.Round(float64(ts.textSpacing[0])))
+	return ts.fnt.TextWidth(txt, ts.bank, spacingXAdd)
 }
 
 func (ts *TextSprite) getLineLength(windowWrap bool) int32 {
@@ -965,6 +982,8 @@ func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 	// Determine the maximum line length based on alignment and window
 	lineLen := ts.getLineLength(true)
 
+	spacingXAdd := int32(math.Round(float64(ts.textSpacing[0])))
+
 	for _, w := range words {
 		if w == "\n" {
 			// Forced newline: commit currentLine to result and start a new line
@@ -986,7 +1005,7 @@ func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 
 		// Measure the width if we add this word to the current line
 		tentativeLine := currentLine.String() + candidate
-		tentativeWidth := int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank)) * float64(ts.xscl)))
+		tentativeWidth := int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank, spacingXAdd)) * float64(ts.xscl)))
 
 		if tentativeWidth > lineLen && currentLine.Len() > 0 {
 			// Current line is full; commit it and start a new line with the current word
@@ -997,7 +1016,7 @@ func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 			// Recalculate candidate without space prefix since it's a new line
 			candidate = w
 			tentativeLine = candidate
-			tentativeWidth = int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank)) * float64(ts.xscl)))
+			tentativeWidth = int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank, spacingXAdd)) * float64(ts.xscl)))
 			if tentativeWidth > lineLen {
 				// Optionally handle long words by splitting them
 				// For simplicity, we'll commit the long word to a new line as is
@@ -1202,6 +1221,8 @@ func (ts *TextSprite) Draw(ln int16) {
 
 	lines := strings.Split(text, "\n")
 
+	spacingXAdd := int32(math.Round(float64(ts.textSpacing[0])))
+
 	for i, line := range lines {
 		lineLength := len(line)
 
@@ -1211,7 +1232,7 @@ func (ts *TextSprite) Draw(ln int16) {
 			continue
 		}
 
-		newY := ts.y + float32(i)*((float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1])+ts.textSpacing)*ts.yscl)
+		newY := ts.y + float32(i)*((float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1])+ts.textSpacing[1])*ts.yscl)
 
 		// Xshear offset correction
 		xshear := -ts.xshear
@@ -1219,10 +1240,10 @@ func (ts *TextSprite) Draw(ln int16) {
 
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba)
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
 		} else {
 			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl,
-				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3])
+				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3], spacingXAdd)
 		}
 
 		totalCharsShown += charsToShow

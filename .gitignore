@@ -1,5 +1,6 @@
 # Dependencies
 go/*
+vendor/*
 
 # Runtime
 *.log
@@ -46,6 +47,9 @@ external/script/wip/*
 .idea/*
 
 # Binaries
+build/android-deps/
+build/libxmp-src/
+build/sdl2-src/
 build/ffmpeg-src/
 build/ffmpeg/
 build/delaylib/

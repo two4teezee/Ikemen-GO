@@ -926,6 +926,7 @@ function main.f_commandLine()
 		end
 		refresh()
 		synchronize()
+		main.f_resetShuffleTables()
 		math.randomseed(sszRandom())
 		main.f_cmdBufReset()
 		refresh()
@@ -2029,6 +2030,7 @@ main.t_itemname = {
 		sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2]) -- Needs manual sndPlay due to special menu behavior
 		if main.f_connect(gameOption('Netplay.IP.' .. t[item].displayname), t[item].displayname) then
 			synchronize()
+			main.f_resetShuffleTables()
 			math.randomseed(sszRandom())
 			main.f_cmdBufReset()
 			main.menu.submenu.server.loop()
@@ -2043,6 +2045,7 @@ main.t_itemname = {
 		sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2]) -- Needs manual sndPlay due to special menu behavior
 		if main.f_connect("", gameOption('Netplay.ListenPort')) then
 			synchronize()
+			main.f_resetShuffleTables()
 			math.randomseed(sszRandom())
 			main.f_cmdBufReset()
 			main.menu.submenu.server.loop()
@@ -2728,6 +2731,15 @@ function main.f_start()
 	if gameOption('Debug.DumpLuaTables') then main.f_printTable(main.menu, 'debug/t_mainMenu.txt') end
 end
 
+function main.f_resetShuffleTables()
+	start.shuffleChars = nil
+	start.shuffleStages = nil
+	start.shufflePals = nil
+	start.lastRandomChar = nil
+	start.lastRandomPal = nil
+	start.lastStageIdx = nil
+end
+
 --replay menu
 function main.f_replay()
 	local w = main.f_menuWindow(motif.replay_info.menu)
@@ -2766,6 +2778,7 @@ function main.f_replay()
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
 			enterReplay(t[item].itemname)
 			synchronize()
+			main.f_resetShuffleTables()
 			math.randomseed(sszRandom())
 			main.f_cmdBufReset()
 			main.menu.submenu.server.loop()

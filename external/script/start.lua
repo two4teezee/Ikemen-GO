@@ -429,10 +429,10 @@ function start.stageShuffleBag(id, pool)
 
 	-- safety check: prevent nil id
 	id = id or 'defaultStageBag'
-	start.shuffleBags = start.shuffleBags or {}
-	start.shuffleBags[id] = start.shuffleBags[id] or {}
+	start.shuffleStages = start.shuffleStages or {}
+	start.shuffleStages[id] = start.shuffleStages[id] or {}
 
-	if #start.shuffleBags[id] == 0 then
+	if #start.shuffleStages[id] == 0 then
 		local t = {}
 		for i = 1, #pool do
 			table.insert(t, i)
@@ -442,10 +442,10 @@ function start.stageShuffleBag(id, pool)
 		if start.lastStageIdx and #pool > 1 and t[#t] == start.lastStageIdx then
 			table.insert(t, 1, table.remove(t)) -- rotate
 		end
-		start.shuffleBags[id] = t
+		start.shuffleStages[id] = t
 	end
 
-	local idx = table.remove(start.shuffleBags[id])
+	local idx = table.remove(start.shuffleStages[id])
 	start.lastStageIdx = idx
 	local result = pool[idx]
 
@@ -480,13 +480,6 @@ function start.f_setStage(num, assigned)
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
 		else
 			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
-		end
-	end
-	if not num then -- extra fallback to prevent rare cases of nil num
-		if main.t_selectableStages and #main.t_selectableStages > 0 then
-			num = main.t_selectableStages[1]
-		else
-			num = 1
 		end
 	end
 	selectStage(num)
@@ -1359,9 +1352,9 @@ function start.f_randomChar(pn)
 	if #main.t_randomChars == 0 then
 		return nil
 	end
-	start.shuffleBags = start.shuffleBags or {}
+	start.shuffleChars = start.shuffleChars or {}
 
-	if not start.shuffleBags[pn] or #start.shuffleBags[pn] == 0 then
+	if not start.shuffleChars[pn] or #start.shuffleChars[pn] == 0 then
 		local last = start.lastRandomChar and start.lastRandomChar[pn]
 		local t = {}
 		for _, v in ipairs(main.t_randomChars) do
@@ -1370,10 +1363,10 @@ function start.f_randomChar(pn)
 			end
 		end
 		start.f_shuffleTable(t, last)
-		start.shuffleBags[pn] = t
+		start.shuffleChars[pn] = t
 	end
 	-- draw one char from the bag
-	local result = table.remove(start.shuffleBags[pn])
+	local result = table.remove(start.shuffleChars[pn])
 	-- store the last drawn value
 	start.lastRandomChar = start.lastRandomChar or {}
 	start.lastRandomChar[pn] = result

@@ -1398,7 +1398,7 @@ func preprocessINIContent(input string) string {
 	// Remove the [Infobox Text] section from the input
 	output := infoboxRegex.ReplaceAllString(input, "$2")
 	// Define a regex to find the [InfoBox] section header
-	infoBoxHeaderRegex := regexp.MustCompile(`(?m)(\[InfoBox\]\n)`)
+	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(\[InfoBox\]\n)`)
 	// Insert the new text.text line right after the [InfoBox] header
 	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
 	return output

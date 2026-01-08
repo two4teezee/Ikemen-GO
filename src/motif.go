@@ -658,8 +658,7 @@ type TitleInfoProperties struct {
 		Overlay OverlayProperties `ini:"overlay"`
 	} `ini:"footer"`
 	Connecting struct {
-		Host    TextProperties    `ini:"host"`
-		Join    TextProperties    `ini:"join"`
+		TextMapProperties
 		Overlay OverlayProperties `ini:"overlay"`
 	} `ini:"connecting"`
 	TextInput struct {
@@ -1063,8 +1062,7 @@ type OptionInfoProperties struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
 			Playerno   TextProperties `ini:"playerno"`
 		} `ini:"p2"`
-		Menu     MenuProperties    `ini:"menu"`
-		Itemname map[string]string `ini:"itemname"`
+		Menu MenuProperties `ini:"menu"`
 	} `ini:"keymenu"`
 	Itemname map[string]string `ini:"itemname"` // not used by [Option Info]
 }
@@ -1400,7 +1398,7 @@ func preprocessINIContent(input string) string {
 	// Remove the [Infobox Text] section from the input
 	output := infoboxRegex.ReplaceAllString(input, "$2")
 	// Define a regex to find the [InfoBox] section header
-	infoBoxHeaderRegex := regexp.MustCompile(`(?m)(\[InfoBox\]\n)`)
+	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(\[InfoBox\]\n)`)
 	// Insert the new text.text line right after the [InfoBox] header
 	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
 	return output

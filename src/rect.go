@@ -99,10 +99,19 @@ const (
 // - overrideBlack: treat caller as a user interruption and force immediate cut for FadeStop.
 // - policy: controls how an in-progress fade-in is handled.
 func startFadeOut(tmpl *Fade, dest *Fade, overrideBlack bool, policy FadeStartPolicy) {
+	if tmpl == nil || dest == nil {
+		return
+	}
+
+	// Never mutate the template fade (important for rollback and for re-use across screens).
+	use := tmpl
+	var tmp Fade
 	// On user interruption, force black/no-anim fade request.
 	if overrideBlack {
-		tmpl.col = [3]int32{0, 0, 0}
-		tmpl.animData = nil
+		tmp = *tmpl
+		tmp.col = [3]int32{0, 0, 0}
+		tmp.animData = nil
+		use = &tmp
 	}
 	fi := sys.motif.fadeIn
 
@@ -120,7 +129,9 @@ func startFadeOut(tmpl *Fade, dest *Fade, overrideBlack bool, policy FadeStartPo
 	}
 
 	// Helper to (re)start a full-length fade-out.
-	startFresh := func() { tmpl.init(dest, false) }
+	startFresh := func() {
+		use.init(dest, false)
+	}
 
 	// If no fade-in is active, all policies behave the same here: start now.
 	if fi == nil || !fi.isActive() {

@@ -5530,7 +5530,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			return err
 		}
 		if err := c.paramValue(is, sc, "textspacing",
-			text_textspacing, VT_Float, 1, false); err != nil {
+			text_textspacing, VT_Float, 2, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "textdelay",

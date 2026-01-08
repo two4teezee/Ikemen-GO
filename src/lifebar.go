@@ -2291,7 +2291,7 @@ func (co *LifeBarCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 		}
 		if co.counter[cv].font[0] >= 0 && co.autoalign {
 			if ff := getFont(f, co.counter[cv].font[0]); ff != nil {
-				x += float32(ff.TextWidth(counter, co.counter[cv].font[1])) *
+				x += float32(ff.TextWidth(counter, co.counter[cv].font[1], 0)) *
 					co.counter[cv].lay.scale[0] * sys.lifebar.fnt_scale
 			}
 		}
@@ -2321,7 +2321,7 @@ func (co *LifeBarCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 		for k, v := range strings.Split(text, "\\n") {
 			if side == 1 && co.autoalign {
 				if ff := getFont(f, co.text[tv].font[0]); ff != nil {
-					if lt := float32(ff.TextWidth(v, co.text[tv].font[1])) * co.text[tv].lay.scale[0] * sys.lifebar.fnt_scale; lt > length {
+					if lt := float32(ff.TextWidth(v, co.text[tv].font[1], 0)) * co.text[tv].lay.scale[0] * sys.lifebar.fnt_scale; lt > length {
 						length = lt
 					}
 				}
@@ -2341,7 +2341,7 @@ func (co *LifeBarCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 	if co.counter[cv].font[0] >= 0 && getFont(f, co.counter[cv].font[0]) != nil {
 		if side == 0 && co.autoalign {
 			if ff := getFont(f, co.counter[cv].font[0]); ff != nil {
-				length = float32(ff.TextWidth(counter, co.counter[cv].font[1])) * co.counter[cv].lay.scale[0] * sys.lifebar.fnt_scale
+				length = float32(ff.TextWidth(counter, co.counter[cv].font[1], 0)) * co.counter[cv].lay.scale[0] * sys.lifebar.fnt_scale
 			}
 		}
 

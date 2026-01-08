@@ -1971,18 +1971,6 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(tbl)
 		return 1
 	})
-	luaRegister(l, "fontGetTextWidth", func(*lua.LState) int {
-		fnt, ok := toUserData(l, 1).(*Fnt)
-		if !ok {
-			userDataError(l, 1, fnt)
-		}
-		var bank int32
-		if !nilArg(l, 3) {
-			bank = int32(numArg(l, 3))
-		}
-		l.Push(lua.LNumber(fnt.TextWidth(strArg(l, 2), bank)))
-		return 1
-	})
 	luaRegister(l, "fontNew", func(l *lua.LState) int {
 		var height int32 = -1
 		if !nilArg(l, 2) {
@@ -4445,6 +4433,14 @@ func systemScriptInit(l *lua.LState) {
 		})
 		return 0
 	})
+	luaRegister(l, "textImgGetTextWidth", func(*lua.LState) int {
+		ts, ok := toUserData(l, 1).(*TextSprite)
+		if !ok {
+			userDataError(l, 1, ts)
+		}
+		l.Push(lua.LNumber(ts.TextWidth(strArg(l, 2))))
+		return 1
+	})
 	luaRegister(l, "textImgNew", func(*lua.LState) int {
 		l.Push(newUserData(l, NewTextSprite()))
 		return 1
@@ -4616,7 +4612,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.SetTextSpacing(float32(numArg(l, 2)))
+		ts.SetTextSpacing(float32(numArg(l, 2)), float32(numArg(l, 3)))
 		return 0
 	})
 	luaRegister(l, "textImgSetTextWrap", func(*lua.LState) int {

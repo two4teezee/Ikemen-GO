@@ -818,7 +818,7 @@ function menu.f_commandlistRender(sec, t)
 					textImgSetText(sec.movelist.text.TextSpriteData, v.text)
 					textImgDraw(sec.movelist.text.TextSpriteData)
 					if k < #cmdList[n] then
-						width = fontGetTextWidth(motif.Fnt[sec.movelist.text.font[1]], v.text, sec.movelist.text.font[2]) * sec.movelist.text.scale[1] + sec.movelist.text.spacing[1]
+						width = textImgGetTextWidth(sec.movelist.text.TextSpriteData, v.text) * sec.movelist.text.scale[1] + sec.movelist.text.spacing[1]
 					end
 				end
 				if v.align == 0 then

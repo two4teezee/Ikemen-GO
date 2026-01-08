@@ -91,7 +91,7 @@ func (f *Font_GL21) UpdateResolution(windowWidth int, windowHeight int) {
 }
 
 // Printf draws a string to the screen, takes a list of arguments like printf
-func (f *Font_GL21) Printf(x, y float32, scale float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
+func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 
 	indices := []rune(fmt.Sprintf(fs, argv...))
 
@@ -125,11 +125,13 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, align int32, blend bool,
 
 	//calculate alignment position
 	if align == 0 {
-		x -= f.Width(scale, fs, argv...) * 0.5
+		x -= f.Width(scale, spacingXAdd, fs, argv...) * 0.5
 	} else if align < 0 {
-		x -= f.Width(scale, fs, argv...)
+		x -= f.Width(scale, spacingXAdd, fs, argv...)
 	}
 	textureID := int32(-1)
+	spacing := spacingXAdd * scale
+	renderedAny := false
 	// Iterate through all characters in string
 	for i := range indices {
 		//get rune
@@ -159,6 +161,10 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, align int32, blend bool,
 		}
 		textureID = int32(ch.textureID)
 
+		if renderedAny {
+			x += spacing
+		}
+
 		//calculate position and size for current rune
 		xpos := x + float32(ch.bearingH)*scale
 		ypos := y - float32(ch.height-ch.bearingV)*scale
@@ -177,6 +183,7 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, align int32, blend bool,
 		batchVertices = append(batchVertices, vertices...)
 		// Now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 		x += float32((ch.advance >> 6)) * scale // Bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
+		renderedAny = true
 	}
 
 	// Render any remaining glyphs in the batch
@@ -209,7 +216,7 @@ func (f *Font_GL21) renderGlyphBatch(indices []rune, vertices []float32, texture
 }
 
 // Width returns the width of a piece of text in pixels
-func (f *Font_GL21) Width(scale float32, fs string, argv ...interface{}) float32 {
+func (f *Font_GL21) Width(scale float32, spacingXAdd float32, fs string, argv ...interface{}) float32 {
 
 	var width float32
 
@@ -218,6 +225,9 @@ func (f *Font_GL21) Width(scale float32, fs string, argv ...interface{}) float32
 	if len(indices) == 0 {
 		return 0
 	}
+
+	spacing := spacingXAdd * scale
+	renderedAny := false
 
 	// Iterate through all characters in string
 	for i := range indices {
@@ -241,9 +251,13 @@ func (f *Font_GL21) Width(scale float32, fs string, argv ...interface{}) float32
 			continue
 		}
 
+		if renderedAny {
+			width += spacing
+		}
+
 		// Now advance cursors for next glyph (note that advance is number of 1/64 pixels)
 		width += float32((ch.advance >> 6)) * scale // Bitshift by 6 to get value in pixels (2^6 = 64 (divide amount of 1/64th pixels by 64 to get amount of pixels))
-
+		renderedAny = true
 	}
 
 	return width

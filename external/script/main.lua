@@ -744,7 +744,7 @@ function main.f_loadingRefresh()
 end
 
 main.pauseMenu = false
-require('external.script.global')
+require('external.script.debug')
 
 loadDebugFont(gameOption('Debug.Font'), gameOption('Debug.FontScale'))
 

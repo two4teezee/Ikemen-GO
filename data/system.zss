@@ -45,7 +45,7 @@ if !isHelper && roundTime = 0 {
 	map(_iksys_lifeRecoveryFlag) := 0;
 }
 
-if !isHelper && win && alive && roundState = 4 && map(_iksys_lifeRecoveryFlag) = 0
+if !isHelper && win && roundState = 4 && map(_iksys_lifeRecoveryFlag) = 0
 	&& (((teamMode = Turns || enemy,teamMode = Turns) && !matchOver) || gameVar(persistlife)) {
 	if ratioLevel > 0 {
 		let bonus = lifeMax * gameOption(options.ratio.recovery.bonus) / 100;

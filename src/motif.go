@@ -1305,7 +1305,7 @@ type Motif struct {
 	IniFile         *ini.File
 	UserIniFile     *ini.File
 	DefaultOnlyIni  *ini.File
-	At              AnimationTable
+	AnimTable       AnimationTable
 	Sff             *Sff
 	Snd             *Snd
 	Fnt             map[int]*Fnt
@@ -1767,7 +1767,7 @@ func loadMotif(def string) (*Motif, error) {
 		return nil, err
 	}
 	lines, i := SplitAndTrim(str, "\n"), 0
-	m.At = ReadAnimationTable(m.Sff, &m.Sff.palList, lines, &i)
+	m.AnimTable = ReadAnimationTable(m.Sff, &m.Sff.palList, lines, &i)
 	i = 0
 
 	m.overrideParams()

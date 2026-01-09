@@ -1844,6 +1844,16 @@ func (a *Anim) Copy() *Anim {
 	return newAnim
 }
 
+// Returns a shallow copy of an Animation.
+func (a *Animation) ShallowCopy() *Animation {
+	if a == nil {
+		return nil
+	}
+	ret := &Animation{}
+	*ret = *a
+	return ret
+}
+
 func (a *Anim) SetTile(x, y, sx, sy int32) {
 	a.anim.tile.xflag, a.anim.tile.yflag, a.anim.tile.xspacing, a.anim.tile.yspacing = x, y, sx, sy
 }

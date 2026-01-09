@@ -1893,7 +1893,7 @@ func getFieldFromHierarchy(primary, parent reflect.Value, name string) (reflect.
 	return reflect.Value{}, false
 }
 
-// SetAnim sets the Anim field generically for any struct that contains At and Sff fields.
+// SetAnim sets the Anim field generically for any struct that contains AnimTable and Sff fields.
 func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride *Sff) {
 	anim := int32(-1)
 	spr := [2]int32{-1, 0}
@@ -2009,7 +2009,7 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 
 	// Access obj fields generically
 	objVal := reflect.ValueOf(obj).Elem()
-	atField := objVal.FieldByName("At")
+	atField := objVal.FieldByName("AnimTable")
 
 	// Resolve SFF to use: override if provided, else obj.Sff
 	var sffPtr *Sff
@@ -2024,13 +2024,13 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	}
 
 	if !atField.IsValid() {
-		fmt.Println("Error: object does not have required At or Sff fields")
+		fmt.Println("Error: object does not have required AnimTable or Sff fields")
 		return
 	}
 
 	animMap, ok := atField.Interface().(AnimationTable)
 	if !ok {
-		fmt.Println("Error: At field is not of type AnimationTable")
+		fmt.Println("Error: AnimTable field is not of type AnimationTable")
 		return
 	}
 

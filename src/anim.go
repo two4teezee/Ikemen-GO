@@ -172,6 +172,7 @@ type Animation struct {
 	curtime                    int32
 	curelem                    int32
 	curelemtime                int32
+	lastActionFrame            int32
 	drawidx                    int32
 	totaltime                  int32
 	looptime                   int32
@@ -211,6 +212,7 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		newframe:                   true,
 		remap:                      make(RemapPreset),
 		start_scale:                [...]float32{1, 1},
+		lastActionFrame:            -1,
 	}
 }
 
@@ -1998,7 +2000,12 @@ func (a *Anim) Update(force bool) {
 	}
 	a.lastUpdateFrame = sys.frameCounter
 	a.palfx.step()
-	a.anim.Action()
+	// Advance the *shared* animation timeline at most once per engine frame,
+	// even if multiple Lua userdatas reference the same *Animation.
+	if force || a.anim.lastActionFrame != sys.frameCounter {
+		a.anim.Action()
+		a.anim.lastActionFrame = sys.frameCounter
+	}
 	a.updateVel()
 }
 
@@ -2039,6 +2046,9 @@ func (a *Anim) Reset() {
 		a.palfx.clear()
 	}
 	a.lastUpdateFrame = -1
+	if a.anim != nil {
+		a.anim.lastActionFrame = -1
+	}
 }
 
 func (a *Anim) GetLength() int32 {

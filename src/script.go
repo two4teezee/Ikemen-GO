@@ -1034,6 +1034,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		// Allow update immediately after swapping animations
 		a.lastUpdateFrame = -1
+		// If swapping to a shared Animation that may have advanced this frame elsewhere, clear the stamp
+		if a.anim != nil {
+			a.anim.lastActionFrame = -1
+		}
 		return 0
 	})
 	luaRegister(l, "animSetFriction", func(*lua.LState) int {

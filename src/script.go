@@ -2070,6 +2070,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "game", func(l *lua.LState) int {
 		sys.luaDiscardDrawQueue()
 		sys.gameRunning = true
+		sys.endMatch = false
 		// Anonymous function to load characters and stages, and/or wait for them to finish loading
 		load := func() error {
 			sys.loader.runTread()
@@ -2255,7 +2256,7 @@ func systemScriptInit(l *lua.LState) {
 
 			// If not restarting match
 			if winp != -2 {
-				sys.endMatch = false
+				//sys.endMatch = false
 				sys.esc = false
 				sys.keyInput = KeyUnknown
 				sys.statsLog.finalizeMatch()

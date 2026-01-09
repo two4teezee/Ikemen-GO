@@ -2743,16 +2743,19 @@ func (m *Motif) reset() {
 }
 
 func (m *Motif) step() {
-	if sys.paused && !sys.frameStepFlag {
-		return
-	}
-	sys.StepCommandLists()
 	if m.me.active {
 		m.me.step(m)
 	} else if sys.escExit() {
 		sys.endMatch = true
 		return
+	} else if sys.esc && sys.paused {
+		sys.paused = false
+		return
 	}
+	if sys.paused && !sys.frameStepFlag {
+		return
+	}
+	sys.StepCommandLists()
 	if m.ch.active {
 		m.ch.step(m)
 	}

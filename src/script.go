@@ -865,10 +865,37 @@ func systemScriptInit(l *lua.LState) {
 			s = newSff()
 			//userDataError(l, 1, s)
 		}
-		act := strArg(l, 2)
-		anim := NewAnim(s, act)
-		if anim == nil {
-			l.RaiseError("\nFailed to read the data: %v\n", act)
+		var anim *Anim
+		switch l.Get(2).Type() {
+		case lua.LTString:
+			// Parse inline AIR text
+			act := strArg(l, 2)
+			anim = NewAnim(s, act)
+			if anim == nil {
+				l.RaiseError("\nFailed to read the data: %v\n", act)
+			}
+		case lua.LTUserData:
+			// Accept *Animation
+			a2, ok := toUserData(l, 2).(*Animation)
+			if !ok {
+				userDataError(l, 2, a2)
+			}
+			anim = NewAnim(nil, "")
+			anim.anim = a2.ShallowCopy()
+			if anim.anim == nil {
+				l.RaiseError("\nanimNew: *Animation is nil\n")
+			}
+			// Ensure required pointers are present
+			if anim.anim.sff == nil {
+				anim.anim.sff = s
+			}
+			if anim.anim.palettedata == nil && anim.anim.sff != nil {
+				anim.anim.palettedata = &anim.anim.sff.palList
+			}
+			// Start from the beginning for a "new" Anim instance
+			anim.anim.Reset()
+		default:
+			l.RaiseError("\nanimNew: expected string or *Animation, got %v\n", l.Get(2).Type())
 		}
 		l.Push(newUserData(l, anim))
 		return 1
@@ -957,6 +984,56 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, a)
 		}
 		a.SetAlpha(int16(numArg(l, 2)), int16(numArg(l, 3)))
+		return 0
+	})
+	luaRegister(l, "animSetAnimation", func(*lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+
+		switch l.Get(2).Type() {
+		case lua.LTString:
+			act := strArg(l, 2)
+			// Need an SFF to parse AIR text.
+			var sff *Sff
+			if a.anim != nil {
+				sff = a.anim.sff
+			}
+			if sff == nil {
+				l.RaiseError("\nanimSetAnimation: cannot set from string without a valid SFF (create with animNew(sff, ...) or pass *Animation)\n")
+			}
+			tmp := NewAnim(sff, act)
+			if tmp == nil {
+				l.RaiseError("\nFailed to read the data: %v\n", act)
+			}
+			a.anim = tmp.anim
+			if a.anim != nil {
+				a.anim.Reset()
+			}
+		case lua.LTUserData:
+			a2, ok := toUserData(l, 2).(*Animation)
+			if !ok {
+				userDataError(l, 2, a2)
+			}
+			na := a2.ShallowCopy()
+			if na == nil {
+				l.RaiseError("\nanimSetAnimation: *Animation is nil\n")
+			}
+			// Preserve/repair required pointers if missing
+			if na.sff == nil && a.anim != nil && a.anim.sff != nil {
+				na.sff = a.anim.sff
+			}
+			if na.palettedata == nil && na.sff != nil {
+				na.palettedata = &na.sff.palList
+			}
+			na.Reset()
+			a.anim = na
+		default:
+			l.RaiseError("\nanimSetAnimation: expected string or *Animation, got %v\n", l.Get(2).Type())
+		}
+		// Allow update immediately after swapping animations
+		a.lastUpdateFrame = -1
 		return 0
 	})
 	luaRegister(l, "animSetFriction", func(*lua.LState) int {

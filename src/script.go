@@ -2716,6 +2716,54 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(sys.loader.state == LS_Loading))
 		return 1
 	})
+	luaRegister(l, "loadAnimTable", func(l *lua.LState) int {
+		def := ""
+		if !nilArg(l, 1) {
+			def = strArg(l, 1)
+		}
+		if def == "" {
+			l.RaiseError("loadAnimTable: expected animation file path")
+		}
+		// Arg2: SFF userdata (optional). If omitted/nil, we create an empty SFF.
+		var sff *Sff
+		if !nilArg(l, 2) {
+			if v, ok := toUserData(l, 2).(*Sff); ok && v != nil {
+				sff = v
+			} else {
+				// Be strict if provided but wrong type.
+				userDataError(l, 2, sff)
+				return 0
+			}
+		}
+		if sff == nil {
+			sff = newSff()
+		}
+		raw, err := LoadText(def)
+		if err != nil {
+			l.RaiseError("\nCan't load anim table %v: %v\n", def, err.Error())
+			return 0
+		}
+		lines, i := SplitAndTrim(NormalizeNewlines(raw), "\n"), 0
+		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
+		// Build Lua table with NUMERIC keys (so it prints like [110] => userdata ...)
+		tbl := l.NewTable()
+		// Deterministic iteration order
+		keys := make([]int, 0, len(at))
+		for k := range at {
+			keys = append(keys, int(k))
+		}
+		sort.Ints(keys)
+		for _, ki := range keys {
+			anim := at[int32(ki)]
+			if anim == nil {
+				continue
+			}
+			// toLValue will wrap *Animation into userdata
+			tbl.RawSetInt(ki, toLValue(l, anim))
+		}
+		l.Push(tbl)
+		return 1
+	})
 	luaRegister(l, "loadIni", func(l *lua.LState) int {
 		def := ""
 		if !nilArg(l, 1) {

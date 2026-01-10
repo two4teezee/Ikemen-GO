@@ -13443,8 +13443,8 @@ const (
 	modifyPlayer_teamside
 	modifyPlayer_displayname
 	modifyPlayer_lifebarname
-	modifyPlayer_helperid
 	modifyPlayer_helpername
+	modifyPlayer_helpervar_id
 	modifyPlayer_movehit
 	modifyPlayer_moveguarded
 	modifyPlayer_movereversed
@@ -13514,7 +13514,12 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 		case modifyPlayer_lifebarname:
 			ln := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			sys.cgi[crun.playerNo].lifebarname = ln
-		case modifyPlayer_helperid:
+		case modifyPlayer_helpername:
+			if crun.helperIndex != 0 {
+				hn := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
+				crun.name = hn
+			}
+		case modifyPlayer_helpervar_id:
 			if crun.helperIndex != 0 {
 				id := exp[0].evalI(c)
 				if id >= 0 {
@@ -13522,11 +13527,6 @@ func (sc modifyPlayer) Run(c *Char, _ []int32) bool {
 				} else {
 					crun.helperId = 0
 				}
-			}
-		case modifyPlayer_helpername:
-			if crun.helperIndex != 0 {
-				hn := string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-				crun.name = hn
 			}
 		case modifyPlayer_movehit:
 			crun.mctype = MC_Hit

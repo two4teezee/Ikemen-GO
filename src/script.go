@@ -5909,10 +5909,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.guardCount))
 		return 1
 	})
-	luaRegister(l, "helperid", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.helperId))
-		return 1
-	})
 	luaRegister(l, "hitbyattr", func(*lua.LState) int {
 		flg := int32(0)
 		input := strings.ToLower(strArg(l, 1))
@@ -6025,10 +6021,6 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "inguarddist", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.inguarddist))
-		return 1
-	})
-	luaRegister(l, "isclsnproxy", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.isclsnproxy))
 		return 1
 	})
 	luaRegister(l, "ishelper", func(l *lua.LState) int {
@@ -7375,6 +7367,33 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "helperindexexist", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.helperIndexExist(
 			BytecodeInt(int32(numArg(l, 1)))).ToB()))
+		return 1
+	})
+	luaRegister(l, "helpervar", func(l *lua.LState) int {
+		vname := strArg(l, 1)
+		var lv lua.LValue
+		c := sys.debugWC
+		if c.helperIndex > 0 {
+			switch strings.ToLower(vname) {
+			case "clsnproxy":
+				lv = lua.LBool(c.isclsnproxy)
+			case "helpertype":
+				lv = lua.LNumber(c.helperType)
+			case "id":
+				lv = lua.LNumber(c.helperId)
+			case "keyctrl":
+				lv = lua.LBool(c.keyctrl[0])
+			case "ownclsnscale":
+				lv = lua.LBool(c.ownclsnscale)
+			case "ownpal":
+				lv = lua.LBool(c.ownpal)
+			case "preserve":
+				lv = lua.LBool(c.preserve)
+			default:
+				l.RaiseError("\nInvalid helpervar property: %v\n", vname)
+			}
+		}
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "hitoverridden", func(*lua.LState) int {

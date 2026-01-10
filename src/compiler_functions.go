@@ -6253,10 +6253,6 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "helperid",
-			modifyPlayer_helperid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.stateParam(is, "helpername", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 				return Error("Helpername not enclosed in \"")
@@ -6266,7 +6262,10 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
-
+		if err := c.paramValue(is, sc, "helpervar.id",
+			modifyPlayer_helpervar_id, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "movehit",
 			modifyPlayer_movehit, VT_Int, 1, false); err != nil { // Formerly MoveHitSet
 			return err

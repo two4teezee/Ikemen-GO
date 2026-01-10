@@ -2848,8 +2848,8 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nCan't load ini %v: %v\n", def, err.Error())
 		}
 		opts := ini.LoadOptions{
-			SkipUnrecognizableLines: true,
-			PreserveSurroundedQuote: true,
+			SkipUnrecognizableLines:   true,
+			PreserveSurroundedQuote:   true,
 			UnescapeValueDoubleQuotes: false,
 		}
 		iniFile, err := ini.LoadSources(opts, []byte(NormalizeNewlines(raw)))

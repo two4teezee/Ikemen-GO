@@ -103,9 +103,8 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		if runtime.GOOS != "android" {
 			if fullscreen {
 				windowFlags |= sdl.WINDOW_FULLSCREEN_DESKTOP
-			} else {
-				windowFlags |= sdl.WINDOW_SHOWN
 			}
+			windowFlags |= sdl.WINDOW_SHOWN
 			if !s.cfg.Video.Borderless {
 				windowFlags |= sdl.WINDOW_RESIZABLE
 			} else {
@@ -261,14 +260,18 @@ func (w *Window) GetClipboardString() string {
 }
 
 func (w *Window) toggleFullscreen() {
-	// var mode, _ = sdl.GetDisplayMode(0, 0)
-
 	if w.fullscreen {
-		w.Window.SetBordered(false)
 		w.Window.SetFullscreen(0)
-		sdl.ShowCursor(sdl.ENABLE)
+		w.Window.SetBordered(!sys.cfg.Video.Borderless)
 		w.Window.SetSize(int32(w.w), int32(w.h))
-		w.Window.SetPosition(int32(w.x), int32(w.y))
+		if runtime.GOOS != "android" && sys.cfg.Video.WindowCentered {
+			displayIndex, err := w.Window.GetDisplayIndex()
+			if err != nil {
+				displayIndex = 0 // default to primary monitor if we have no success
+			}
+			w.Window.SetPosition(sdl.WINDOWPOS_CENTERED_MASK|int32(displayIndex), sdl.WINDOWPOS_CENTERED_MASK|int32(displayIndex))
+		}
+		sdl.ShowCursor(sdl.ENABLE)
 	} else {
 		x2, y2 := w.Window.GetPosition()
 		w2, h2 := w.Window.GetSize()
@@ -277,7 +280,6 @@ func (w *Window) toggleFullscreen() {
 		w.w, w.h = int(w2), int(h2)
 
 		w.Window.SetBordered(!sys.cfg.Video.Borderless)
-		w.Window.SetSize(int32(sys.cfg.Video.WindowWidth), int32(sys.cfg.Video.WindowHeight))
 		w.Window.SetFullscreen(uint32(sdl.WINDOW_FULLSCREEN_DESKTOP))
 		sdl.ShowCursor(sdl.DISABLE)
 	}

@@ -339,6 +339,10 @@ func (s *System) init(w, h int32) *lua.LState {
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
 	chk(err)
 
+	// Check if it's actually fullscreen. For some reason the constructor doesn't handle this properly.
+	_, forceWindowed := s.cmdFlags["-windowed"]
+	s.window.fullscreen = s.cfg.Video.Fullscreen && !forceWindowed
+
 	if strings.Contains(s.cfg.Video.RenderMode, "OpenGL") {
 		if ctx, err := s.window.GLCreateContext(); err != nil {
 			Logcat("GL Context Creation Failed: " + err.Error())

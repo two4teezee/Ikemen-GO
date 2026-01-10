@@ -2193,8 +2193,7 @@ func (p *Projectile) setAllPos(pos [3]float32) {
 	p.interPos = pos
 }
 
-func (p *Projectile) paused(playerNo int) bool {
-	//if !sys.chars[playerNo][0].pause() {
+func (p *Projectile) paused() bool {
 	if sys.supertime > 0 {
 		if p.supermovetime == 0 || p.supermovetime < -1 {
 			return true
@@ -2204,23 +2203,21 @@ func (p *Projectile) paused(playerNo int) bool {
 			return true
 		}
 	}
-	//}
 	return false
 }
 
 func (p *Projectile) update() {
 	// Check projectile removal conditions
-	if sys.tickFrame() && !p.paused(p.playerno) && p.hitpause == 0 {
+	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
 		if p.animNo >= 0 && !p.remflag {
 			remove := true
-			root := sys.chars[p.playerno][0]
 			if p.hits < 0 {
 				// Remove behavior
 				if p.hits == -1 && p.remove {
 					if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 						if p.hitanim == -1 {
 							p.anim = nil
-						} else if a := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+						} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
 							p.anim = a
 						}
 					}
@@ -2230,7 +2227,7 @@ func (p *Projectile) update() {
 					if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 						if p.cancelanim == -1 {
 							p.anim = nil
-						} else if a := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+						} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
 							p.anim = a
 						}
 					}
@@ -2249,7 +2246,7 @@ func (p *Projectile) update() {
 					if p.remanim != -2 {
 						if p.remanim == -1 {
 							p.anim = nil
-						} else if a := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+						} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
 							p.anim = a
 							// In Mugen, if remanim is invalid the projectile will keep the current one
 							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
@@ -2292,7 +2289,7 @@ func (p *Projectile) update() {
 			}
 		}
 	}
-	if p.paused(p.playerno) || p.hitpause > 0 || p.freezeflag {
+	if p.paused() || p.hitpause > 0 || p.freezeflag {
 		p.setAllPos(p.pos)
 		// There's a minor issue here where a projectile will lag behind one frame relative to Mugen if created during a pause
 	} else {
@@ -2325,11 +2322,10 @@ func (p *Projectile) update() {
 func (p *Projectile) flagProjCancel() {
 	p.hits = -2
 	if p.playerno >= 0 && p.playerno < len(sys.cgi) {
-		r := &sys.cgi[p.playerno]
-		if r != nil {
-			r.pctype = PC_Cancel
-			r.pctime = 0
-			r.pcid = p.id
+		if rgi := &sys.cgi[p.playerno]; rgi != nil {
+			rgi.pctype = PC_Cancel
+			rgi.pctime = 0
+			rgi.pcid = p.id
 		}
 	}
 }
@@ -2452,7 +2448,7 @@ func (p *Projectile) tick() {
 		}
 		p.hitdef.air_juggle = 0
 	}
-	if !p.paused(p.playerno) {
+	if !p.paused() {
 		if p.hitpause <= 0 {
 			p.time++ // Only used in ProjVar currently
 			if p.removetime > 0 {
@@ -2476,7 +2472,7 @@ func (p *Projectile) tick() {
 }
 
 func (p *Projectile) cueDraw() {
-	notpause := p.hitpause <= 0 && !p.paused(p.playerno)
+	notpause := p.hitpause <= 0 && !p.paused()
 	if sys.tickFrame() && p.anim != nil && notpause {
 		p.anim.UpdateSprite()
 	}
@@ -2499,7 +2495,7 @@ func (p *Projectile) cueDraw() {
 		}
 	}
 
-	if sys.tickNextFrame() && (notpause || !p.paused(p.playerno)) {
+	if sys.tickNextFrame() && (notpause || !p.paused()) {
 		if p.anim != nil && notpause {
 			p.anim.Action()
 		}
@@ -2563,7 +2559,7 @@ func (p *Projectile) cueDraw() {
 			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
 			rot:          rot,
 			screen:       false,
-			undarken:     sys.chars[p.playerno][0] != nil && sys.chars[p.playerno][0].ignoreDarkenTime > 0, //p.playerno == sys.superplayerno,
+			undarken:     p.owner() != nil && p.owner().ignoreDarkenTime > 0,
 			facing:       p.facing,
 			airOffsetFix: [2]float32{1, 1},
 			projection:   int32(p.projection),
@@ -2575,7 +2571,7 @@ func (p *Projectile) cueDraw() {
 		// Record afterimage
 		if p.aimg != nil {
 			if p.aimg.isActive() {
-				p.aimg.recAndCue(sd, p.playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
+				p.aimg.recAndCue(sd, p.owner().playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
 			} else {
 				p.aimg = nil
 			}
@@ -2606,6 +2602,10 @@ func (p *Projectile) cueDraw() {
 			})
 		}
 	}
+}
+
+func (p *Projectile) owner() *Char {
+	return sys.chars[p.playerno][0] // If this is out of bounds we should crash anyway
 }
 
 type MoveContact int32

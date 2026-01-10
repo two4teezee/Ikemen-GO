@@ -517,7 +517,7 @@ void main(void) {
 	
 	// Convert ADD uniform from sRGB space (assuming user input) to Linear
 	// We assume 'add' is defined in sRGB space.
-	vec3 linear_add = sign(add) * pow(abs(add), vec3(2.2));
+	// vec3 linear_add = sign(add) * pow(abs(add), vec3(2.2));
 
 	// Apply PalFX (All math in True Linear space)
 	if (hue != 0.0) {
@@ -530,7 +530,7 @@ void main(void) {
 	}
 	
 	// Grayscale / Add / Mult
-	c_linear = mix(c_linear, vec3((c_linear.r + c_linear.g + c_linear.b) / 3.0), gray) + linear_add;
+	c_linear = mix(c_linear, vec3((c_linear.r + c_linear.g + c_linear.b) / 3.0), gray) + add;
 	c_linear *= mult;
 	c_linear = clamp(c_linear, 0.0, 1.0);
 

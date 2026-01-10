@@ -2569,8 +2569,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_gethitvar_dizzypoints
 		case "guardpoints":
 			opc = OC_ex_gethitvar_guardpoints
-		case "id":
-			opc = OC_ex_gethitvar_id
+		case "playerid", "id":
+			opc = OC_ex_gethitvar_playerid
 		case "playerno":
 			opc = OC_ex_gethitvar_playerno
 		case "redlife":
@@ -2632,6 +2632,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			isFlag = 2
 		case "keepstate":
 			opc = OC_ex_gethitvar_keepstate
+		case "projid":
+			opct = OC_ex2_
+			opc = OC_ex2_gethitvar_projid
 		default:
 			return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
 		}

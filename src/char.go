@@ -532,7 +532,7 @@ const (
 )
 
 type HitDef struct {
-	isprojectile               bool // Projectile state controller
+	//isprojectile               bool // Projectile state controller
 	attr                       int32
 	reversal_attr              int32
 	hitflag                    int32
@@ -641,12 +641,13 @@ type HitDef struct {
 	fall_envshake_phase        float32
 	fall_envshake_mul          float32
 	fall_envshake_dir          float32
-	playerNo                   int
+	playerno                   int
+	playerid                   int32
+	projid                     int32
 	kill                       bool
 	guard_kill                 bool
 	forcenofall                bool
 	ltypehit                   bool
-	attackerID                 int32
 	dizzypoints                int32
 	guardpoints                int32
 	hitredlife                 int32
@@ -672,8 +673,10 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 	}
 
 	*hd = HitDef{
-		isprojectile:       false,
-		playerNo:           -1,
+		//isprojectile:       false,
+		playerno:           -1,
+		playerid:           -1,
+		projid:             -1,
 		hitflag:            int32(HF_H | HF_L | HF_A | HF_F),
 		guardflag:          0,
 		affectteam:         1,
@@ -808,6 +811,10 @@ func (hd *HitDef) testReversalAttr(attr int32) bool {
 	return attr&int32(ST_MASK) != 0 && attr&^int32(ST_MASK)&^(-1<<31) != 0
 }
 
+func (hd *HitDef) isProjectile() bool {
+	return hd.projid >= 0
+}
+
 type GetHitVar struct {
 	targetedBy          [][2]int32 // ID, current juggle
 	attr                int32
@@ -851,8 +858,9 @@ type GetHitVar struct {
 	fall_envshake_phase float32
 	fall_envshake_mul   float32
 	fall_envshake_dir   float32
-	playerId            int32
-	playerNo            int
+	playerid            int32
+	playerno            int
+	projid              int32
 	fallflag            bool
 	guarded             bool
 	p2getp1state        bool
@@ -887,6 +895,8 @@ type GetHitVar struct {
 	crouchfriction      float32
 }
 
+// This is called every time the char gets hit
+// When returning to idle each ghv has its own reset behavior
 func (ghv *GetHitVar) clear(c *Char) {
 	var originLs float32
 	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
@@ -903,7 +913,9 @@ func (ghv *GetHitVar) clear(c *Char) {
 		yoff:           ghv.yoff,
 		zoff:           ghv.zoff,
 		hitid:          -1,
-		playerNo:       -1,
+		playerno:       -2, // Because it returns with +1
+		playerid:       -1,
+		projid:         -1,
 		fall_animtype:  RA_Unknown,
 		fall_xvelocity: float32(math.NaN()),
 		fall_yvelocity: -4.5 / originLs,
@@ -1042,8 +1054,8 @@ type MoveHitVar struct {
 	cornerpush float32
 	frame      bool
 	overridden bool
-	playerId   int32
-	playerNo   int
+	playerid   int32
+	playerno   int
 	sparkxy    [2]float32
 }
 
@@ -2177,11 +2189,18 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 	// Initialize projectile Hitdef. Must be placed after its localscl is determined
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
 	p.hitdef.clear(c, p.localscl)
-	p.hitdef.isprojectile = true
-	p.hitdef.playerNo = sys.workingState.playerNo
+	//p.hitdef.isprojectile = true
+	p.hitdef.projid = 0 // Updated later
+	p.hitdef.playerno = sys.workingState.playerNo
 	p.hitdef.guard_dist_x = [2]float32{c.size.proj.attack.dist.width[0], c.size.proj.attack.dist.width[1]}
 	p.hitdef.guard_dist_y = [2]float32{c.size.proj.attack.dist.height[0], c.size.proj.attack.dist.height[1]}
 	p.hitdef.guard_dist_z = [2]float32{c.size.proj.attack.dist.depth[0], c.size.proj.attack.dist.depth[1]}
+
+	// This seems to be necessary for the chainID code. Otherwise we probably wouldn't need to save playerID in HitDefs at all
+	// TODO: Check if this is the only thing that needs to be forced to same as root
+	if c.helperIndex > 0 {
+		p.hitdef.playerid = c.root(false).id
+	}
 
 	return p
 }
@@ -2571,7 +2590,7 @@ func (p *Projectile) cueDraw() {
 		// Record afterimage
 		if p.aimg != nil {
 			if p.aimg.isActive() {
-				p.aimg.recAndCue(sd, p.owner().playerno, sys.tickNextFrame() && notpause, false, p.layerno, false)
+				p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false, p.layerno, false)
 			} else {
 				p.aimg = nil
 			}
@@ -6704,6 +6723,16 @@ func (c *Char) spawnProjectile() *Projectile {
 // Run final setup before projectile goes live
 func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz float32,
 	op bool, rpg, rpn int32, clsnscale bool) {
+	// Validate projID
+	if p.id < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("negative projID specified: %v", p.id))
+		p.id = 0
+	}
+
+	// Copy projID into Hitdef
+	// TODO: This will not automatically update in case of ModifyProjectile
+	p.hitdef.projid = p.id
+
 	// Set starting position
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
@@ -6779,10 +6808,10 @@ func (c *Char) getProjs(id int32) (projs []*Projectile) {
 }
 
 func (c *Char) setHitdefDefault(hd *HitDef) {
-	hd.playerNo = c.ss.sb.playerNo
-	hd.attackerID = c.id
+	hd.playerno = c.ss.sb.playerNo
+	hd.playerid = c.id
 
-	if !hd.isprojectile {
+	if !hd.isProjectile() {
 		c.hitdefTargets = c.hitdefTargets[:0]
 	}
 
@@ -6947,7 +6976,7 @@ func (c *Char) setHitdefDefault(hd *HitDef) {
 	// Ikemen characters can use it to update their StateDef juggle points
 	if hd.air_juggle == IErr {
 		hd.air_juggle = 0
-	} else if !hd.isprojectile && (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) {
+	} else if !hd.isProjectile() && (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) {
 		c.juggle = hd.air_juggle
 	}
 }
@@ -7839,9 +7868,9 @@ func (c *Char) lifeSet(life int32) {
 					} else if c.playerNo&1 == c.ss.sb.playerNo&1 {
 						sys.winType[^c.playerNo&1] = WT_Teammate
 					}
-				} else if c.playerNo == c.ghv.playerNo {
+				} else if c.playerNo == c.ghv.playerno {
 					sys.winType[^c.playerNo&1] = WT_Suicide
-				} else if c.ghv.playerNo >= 0 && c.playerNo&1 == c.ghv.playerNo&1 {
+				} else if c.ghv.playerno >= 0 && c.playerNo&1 == c.ghv.playerno&1 {
 					sys.winType[^c.playerNo&1] = WT_Teammate
 				} else if c.ghv.cheeseKO {
 					sys.winType[^c.playerNo&1] = WT_Cheese
@@ -7861,8 +7890,8 @@ func (c *Char) lifeSet(life int32) {
 		c.redLife = 0
 	}
 
-	if c.teamside != c.ghv.playerNo&1 && c.teamside != -1 && c.ghv.playerNo < MaxSimul*2 { // attacker and receiver from opposite teams
-		sys.lastHitter[^c.playerNo&1] = c.ghv.playerNo
+	if c.teamside != c.ghv.playerno&1 && c.teamside != -1 && c.ghv.playerno < MaxSimul*2 { // attacker and receiver from opposite teams
+		sys.lastHitter[^c.playerNo&1] = c.ghv.playerno
 	}
 
 	// Disable red life. Placing this here makes it never lag behind life
@@ -8766,7 +8795,7 @@ func (c *Char) posUpdate() {
 				getter := sys.chars[i][j]
 
 				// Must be player type and hit by this char
-				if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerId != c.id {
+				if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerid != c.id {
 					continue
 				}
 
@@ -9565,19 +9594,28 @@ func (c *Char) checkHitByAllSlots(getterno int, getterid, ghdattr, attrsca int32
 
 // Check if HitDef attributes can hit a player
 func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
+	// Unhittable time invalidates anything
+	if c.unhittableTime > 0 {
+		return false
+	}
 
 	// Invalid attributes
 	if ghd.attr <= 0 && ghd.reversal_attr <= 0 {
 		return false
 	}
 
-	// Unhittable and ChainID checks
-	if c.unhittableTime > 0 || ghd.chainid >= 0 && c.ghv.hitid != ghd.chainid && ghd.nochainid[0] == -1 {
+	// ChainID check
+	// In Mugen, chainID can chain from ID's set by other players. But nochainID from other players is ignored
+	// TODO: Perhaps Ikemen chars should pick one behavior and stick with it instead of being inconsistent
+	if ghd.chainid >= 0 && c.ghv.hitid != ghd.chainid { // && ghd.nochainid[0] == -1 {
 		return false
 	}
+
+	// NoChainID check
+	// TODO: In Mugen, if chainID and nochainID are the same, the attack will hit. Currently not reproduced in Ikemen
 	if (len(c.ghv.targetedBy) > 0 && c.ghv.targetedBy[len(c.ghv.targetedBy)-1][0] == getter.id) || c.ghv.hitshaketime > 0 { // https://github.com/ikemen-engine/Ikemen-GO/issues/320
 		for _, nci := range ghd.nochainid {
-			if nci >= 0 && c.ghv.hitid == nci && c.ghv.playerId == ghd.attackerID {
+			if nci >= 0 && c.ghv.hitid == nci && c.ghv.playerid == ghd.playerid {
 				return false
 			}
 		}
@@ -9776,7 +9814,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	}
 
 	// If using p2stateno but the enemy is already changing states
-	if getter.stchtmp && getter.ss.sb.playerNo != hd.playerNo {
+	if getter.stchtmp && getter.ss.sb.playerNo != hd.playerno {
 		if getter.csf(CSF_gethit) {
 			if hd.p2stateno >= 0 {
 				return 0
@@ -9787,7 +9825,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	}
 
 	// If using p1stateno but the char was already hit or is already changing states
-	if hd.p1stateno >= 0 && (c.csf(CSF_gethit) || c.stchtmp && c.ss.sb.playerNo != hd.playerNo) {
+	if hd.p1stateno >= 0 && (c.csf(CSF_gethit) || c.stchtmp && c.ss.sb.playerNo != hd.playerno) {
 		return 0
 	}
 
@@ -9930,7 +9968,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			if Abs(hitResult) == 1 && hd.p2stateno >= 0 {
 				pn := getter.playerNo
 				if hd.p2getp1state {
-					pn = hd.playerNo
+					pn = hd.playerno
 				}
 				if !hd.KeepState && getter.stateChange1(hd.p2stateno, pn) {
 					// In Mugen, using p2stateno forces movetype to H
@@ -9952,10 +9990,12 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	ghvset := !getter.csf(CSF_gethit) || !getter.stchtmp || p2s
 
 	// Variables that are set by default even if Hitdef type is "None"
+	// TODO: The fact we need to do this separately hints that our logic isn't quite right
 	if ghvset {
 		getter.ghv.hitid = hd.id
-		getter.ghv.playerNo = hd.playerNo
-		getter.ghv.playerId = hd.attackerID
+		getter.ghv.playerno = hd.playerno
+		getter.ghv.playerid = hd.playerid
+		getter.ghv.projid = hd.projid
 		getter.ghv.keepstate = hd.KeepState
 		getter.ghv.groundtype = hd.ground_type
 		getter.ghv.airtype = hd.air_type
@@ -10020,8 +10060,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			ghv.attr = hd.attr
 			ghv.guardflag = hd.guardflag
 			ghv.hitid = hd.id
-			ghv.playerNo = hd.playerNo
-			ghv.playerId = hd.attackerID
+			ghv.playerno = hd.playerno
+			ghv.playerid = hd.playerid
+			ghv.projid = hd.projid
 			ghv.xaccel = hd.xaccel * scaleratio * -byf
 			ghv.yaccel = hd.yaccel * scaleratio
 			ghv.zaccel = hd.zaccel * scaleratio
@@ -10593,7 +10634,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			getter.p1facing = 0
 		}
 		getter.ghv.facing = hd.p2facing
-		if hd.p1stateno >= 0 && c.stateChange1(hd.p1stateno, hd.playerNo) {
+		if hd.p1stateno >= 0 && c.stateChange1(hd.p1stateno, hd.playerno) {
 			c.setCtrl(false)
 		}
 		// Juggle points are subtracted if the target was falling either before or after the hit
@@ -11016,10 +11057,11 @@ func (c *Char) actionRun() {
 					// HitOverride KeepState used to freeze some GetHitVars around here to keep them from resetting instantly,
 					// but that no longer seems necessary with this being placed in actionRun()
 					c.ghv.hitshaketime = 0
-					c.ghv.attr = 0
-					c.ghv.guardflag = 0
-					c.ghv.playerId = 0
-					c.ghv.playerNo = -1
+					//c.ghv.playerno = -2 // In Mugen this sort of variables is not reset
+					//c.ghv.playerid = -1
+					//c.ghv.projid = -1
+					//c.ghv.attr = 0
+					//c.ghv.guardflag = 0
 					c.superDefenseMul = 1
 					c.superDefenseMulBuffer = 1
 					c.fallDefenseMul = 1
@@ -11228,8 +11270,8 @@ func (c *Char) update() {
 		if c.ss.moveType == MT_H {
 			// Set opposing team's First Attack flag
 			if sys.firstAttack[2] == 0 && (c.teamside == 0 || c.teamside == 1) {
-				if sys.firstAttack[1-c.teamside] < 0 && c.ghv.playerNo >= 0 && c.ghv.guarded == false {
-					sys.firstAttack[1-c.teamside] = c.ghv.playerNo
+				if sys.firstAttack[1-c.teamside] < 0 && c.ghv.playerno >= 0 && c.ghv.guarded == false {
+					sys.firstAttack[1-c.teamside] = c.ghv.playerno
 				}
 			}
 			// Cancel pause move times
@@ -11404,7 +11446,7 @@ func (c *Char) tick() {
 		//c.targetDrop(-1, false) // GitHub #1148
 		pn := c.playerNo
 		if c.ghv.p2getp1state && !c.ghv.guarded {
-			pn = c.ghv.playerNo
+			pn = c.ghv.playerno
 		}
 		if c.stchtmp {
 			// For Mugen compatibility, PrevStateNo returns these values if the character is hit into a custom state
@@ -12331,8 +12373,8 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								getter.mctime = -1
 								getter.hitdefContact = true
 								getter.mhv.frame = true
-								getter.mhv.playerId = c.id
-								getter.mhv.playerNo = c.playerNo
+								getter.mhv.playerid = c.id
+								getter.mhv.playerno = c.playerNo
 								getter.hitdef.hitonce = -1 // Neutralize Hitdef
 
 								if c.hitdef.unhittabletime[1] >= 0 {
@@ -12344,8 +12386,8 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 
 								getter.ghv.attr = c.hitdef.attr
 								getter.ghv.hitid = c.hitdef.id
-								getter.ghv.playerNo = c.playerNo
-								getter.ghv.playerId = c.id
+								getter.ghv.playerno = c.playerNo
+								getter.ghv.playerid = c.id
 								getter.fallTime = 0
 
 								// Fall flag
@@ -12412,8 +12454,8 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 						}
 						c.hitdefContact = true
 						c.mhv.frame = true
-						c.mhv.playerId = getter.id
-						c.mhv.playerNo = getter.playerNo
+						c.mhv.playerid = getter.id
+						c.mhv.playerno = getter.playerNo
 						if c.hitdef.unhittabletime[0] >= 0 {
 							c.unhittableTime = c.hitdef.unhittabletime[0]
 						}
@@ -12541,7 +12583,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				getter.projClsnCheck(p, 1, 2) &&
 				sys.zAxisOverlap(getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl,
 					p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl) {
-				if getter.hitdef.p1stateno >= 0 && getter.stateChange1(getter.hitdef.p1stateno, getter.hitdef.playerNo) {
+				if getter.hitdef.p1stateno >= 0 && getter.stateChange1(getter.hitdef.p1stateno, getter.hitdef.playerno) {
 					getter.setCtrl(false)
 				}
 				p.flagProjCancel()

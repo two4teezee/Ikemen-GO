@@ -6202,9 +6202,9 @@ func triggerFunctions(l *lua.LState) {
 		case "guardpoints":
 			ln = lua.LNumber(c.ghv.guardpoints)
 		case "id":
-			ln = lua.LNumber(c.ghv.playerId)
+			ln = lua.LNumber(c.ghv.playerid)
 		case "playerno":
-			ln = lua.LNumber(c.ghv.playerNo)
+			ln = lua.LNumber(c.ghv.playerno + 1)
 		case "redlife":
 			ln = lua.LNumber(c.ghv.redlife)
 		case "score":
@@ -6266,6 +6266,8 @@ func triggerFunctions(l *lua.LState) {
 			return 1
 		case "keepstate":
 			ln = lua.LNumber(Btoi(c.ghv.keepstate))
+		case "projid":
+			ln = lua.LNumber(c.ghv.projid)
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -6468,11 +6470,11 @@ func triggerFunctions(l *lua.LState) {
 		case "frame":
 			ln = lua.LNumber(Btoi(c.mhv.frame))
 		case "id":
-			ln = lua.LNumber(c.mhv.playerId)
+			ln = lua.LNumber(c.mhv.playerid)
 		case "overridden":
 			ln = lua.LNumber(Btoi(c.mhv.overridden))
 		case "playerno":
-			ln = lua.LNumber(c.mhv.playerNo)
+			ln = lua.LNumber(c.mhv.playerno + 1)
 		case "sparkx":
 			ln = lua.LNumber(c.mhv.sparkxy[0])
 		case "sparky":

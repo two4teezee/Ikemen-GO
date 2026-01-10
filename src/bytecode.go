@@ -558,7 +558,7 @@ const (
 	OC_ex_gethitvar_attr
 	OC_ex_gethitvar_dizzypoints
 	OC_ex_gethitvar_guardpoints
-	OC_ex_gethitvar_id
+	OC_ex_gethitvar_playerid
 	OC_ex_gethitvar_playerno
 	OC_ex_gethitvar_redlife
 	OC_ex_gethitvar_score
@@ -966,6 +966,7 @@ const (
 	OC_ex2_numstagebg
 	OC_ex2_envshakevar_dir
 	OC_ex2_gethitvar_fall_envshake_dir
+	OC_ex2_gethitvar_projid
 	OC_ex2_xshear
 	OC_ex2_zoomvar_scale
 	OC_ex2_zoomvar_pos_x
@@ -2816,10 +2817,10 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.ghv.dizzypoints)
 	case OC_ex_gethitvar_guardpoints:
 		sys.bcStack.PushI(c.ghv.guardpoints)
-	case OC_ex_gethitvar_id:
-		sys.bcStack.PushI(c.ghv.playerId)
+	case OC_ex_gethitvar_playerid:
+		sys.bcStack.PushI(c.ghv.playerid)
 	case OC_ex_gethitvar_playerno:
-		sys.bcStack.PushI(int32(c.ghv.playerNo) + 1)
+		sys.bcStack.PushI(int32(c.ghv.playerno) + 1)
 	case OC_ex_gethitvar_redlife:
 		sys.bcStack.PushI(c.ghv.redlife)
 	case OC_ex_gethitvar_score:
@@ -3106,11 +3107,11 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_movehitvar_frame:
 		sys.bcStack.PushB(c.mhv.frame)
 	case OC_ex_movehitvar_id:
-		sys.bcStack.PushI(c.mhv.playerId)
+		sys.bcStack.PushI(c.mhv.playerid)
 	case OC_ex_movehitvar_overridden:
 		sys.bcStack.PushB(c.mhv.overridden)
 	case OC_ex_movehitvar_playerno:
-		sys.bcStack.PushI(int32(c.mhv.playerNo))
+		sys.bcStack.PushI(int32(c.mhv.playerno) + 1)
 	case OC_ex_movehitvar_spark_x:
 		sys.bcStack.PushF(c.mhv.sparkxy[0] * (c.localscl / oc.localscl))
 	case OC_ex_movehitvar_spark_y:
@@ -3888,6 +3889,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex2_gethitvar_fall_envshake_dir:
 		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
+	case OC_ex2_gethitvar_projid: // TODO: Move these next to other gethitvar
+		sys.bcStack.PushI(c.ghv.projid)
 	case OC_ex2_xshear:
 		sys.bcStack.PushF(c.xshear)
 	case OC_ex2_zoomvar_scale:
@@ -7265,7 +7268,7 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 	}
 
 	crun.hitdef.clear(crun, crun.localscl)
-	crun.hitdef.playerNo = sys.workingState.playerNo
+	crun.hitdef.playerno = sys.workingState.playerNo
 
 	// Mugen 1.1 behavior if invertblend param is omitted
 	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -7310,7 +7313,7 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 	}
 
 	crun.hitdef.clear(crun, crun.localscl)
-	crun.hitdef.playerNo = sys.workingState.playerNo
+	crun.hitdef.playerno = sys.workingState.playerNo
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -13702,9 +13705,9 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 		case getHitVarSet_hitshaketime:
 			crun.ghv.hitshaketime = exp[0].evalI(c)
 		case getHitVarSet_id:
-			crun.ghv.playerId = exp[0].evalI(c)
+			crun.ghv.playerid = exp[0].evalI(c)
 		case getHitVarSet_playerno:
-			crun.ghv.playerNo = int(exp[0].evalI(c))
+			crun.ghv.playerno = int(exp[0].evalI(c))
 		case getHitVarSet_redlife:
 			crun.ghv.redlife = exp[0].evalI(c)
 		case getHitVarSet_slidetime:

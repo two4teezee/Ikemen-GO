@@ -401,6 +401,7 @@ var triggerMap = map[string]int{
 	"guardpoints":        1,
 	"guardpointsmax":     1,
 	"helperindexexist":   1,
+	"helpervar":          1,
 	"helpername":         1,
 	"hitoverridden":      1,
 	"ikemenversion":      1,

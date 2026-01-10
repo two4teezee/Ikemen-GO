@@ -463,6 +463,71 @@ func normalizeSectionName(name string) string {
 	return strings.Join(strings.Fields(name), "_")
 }
 
+// Splits a comma-separated INI value into tokens, but only on commas that are not inside single or double quotes.
+func splitIniListOutsideQuotes(s string) []string {
+	var out []string
+	var b strings.Builder
+	inSingle := false
+	inDouble := false
+	escaped := false
+	flush := func() {
+		tok := strings.TrimSpace(b.String())
+		b.Reset()
+		if tok != "" {
+			out = append(out, tok)
+		}
+	}
+	for _, r := range s {
+		if escaped {
+			// Keep escaped char as-is; escape handling is mainly to avoid incorrectly toggling quote state on \" or \'.
+			b.WriteRune(r)
+			escaped = false
+			continue
+		}
+		if r == '\\' && (inSingle || inDouble) {
+			escaped = true
+			b.WriteRune(r)
+			continue
+		}
+		switch r {
+		case '"':
+			if !inSingle {
+				inDouble = !inDouble
+			}
+			b.WriteRune(r)
+			continue
+		case '\'':
+			if !inDouble {
+				inSingle = !inSingle
+			}
+			b.WriteRune(r)
+			continue
+		case ',':
+			if !inSingle && !inDouble {
+				flush()
+				continue
+			}
+			b.WriteRune(r)
+			continue
+		default:
+			b.WriteRune(r)
+		}
+	}
+	flush()
+	// If we didn't actually split (i.e. no top-level commas), return the original value as a single token so callers can treat it as scalar.
+	trimmed := strings.TrimSpace(s)
+	if len(out) == 0 {
+		if trimmed == "" {
+			return nil
+		}
+		return []string{trimmed}
+	}
+	if len(out) == 1 && out[0] == trimmed {
+		return []string{trimmed}
+	}
+	return out
+}
+
 // Converts an INI value string into a typed Lua value
 func parseIniLuaValue(l *lua.LState, raw string) lua.LValue {
 	s := strings.TrimSpace(raw)
@@ -470,17 +535,9 @@ func parseIniLuaValue(l *lua.LState, raw string) lua.LValue {
 		// Empty stays as empty string (matches typical INI semantics)
 		return lua.LString("")
 	}
-	// 1) Quoted string wins over everything else
-	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
-		if unq, err := strconv.Unquote(s); err == nil {
-			return lua.LString(unq)
-		}
-		// Fallback: strip outer quotes if Unquote fails
-		return lua.LString(s[1 : len(s)-1])
-	}
-	// 2) Comma-separated list -> Lua array table
-	if strings.Contains(s, ",") {
-		parts := strings.Split(s, ",")
+	// 1) Comma-separated list (split only on commas OUTSIDE quotes) -> Lua array table
+	parts := splitIniListOutsideQuotes(s)
+	if len(parts) > 1 {
 		tbl := l.NewTable()
 		for _, p := range parts {
 			p = strings.TrimSpace(p)
@@ -490,6 +547,14 @@ func parseIniLuaValue(l *lua.LState, raw string) lua.LValue {
 			tbl.Append(parseIniLuaValue(l, p))
 		}
 		return tbl
+	}
+	// 2) Quoted string wins over bool/number when it's a single scalar token
+	if len(s) >= 2 && ((s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')) {
+		if unq, err := strconv.Unquote(s); err == nil {
+			return lua.LString(unq)
+		}
+		// Fallback: strip outer quotes if Unquote fails
+		return lua.LString(s[1 : len(s)-1])
 	}
 	// 3) Bool
 	switch strings.ToLower(s) {
@@ -2784,6 +2849,8 @@ func systemScriptInit(l *lua.LState) {
 		}
 		opts := ini.LoadOptions{
 			SkipUnrecognizableLines: true,
+			PreserveSurroundedQuote: true,
+			UnescapeValueDoubleQuotes: false,
 		}
 		iniFile, err := ini.LoadSources(opts, []byte(NormalizeNewlines(raw)))
 		if err != nil {

@@ -3937,12 +3937,12 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 	switch opc {
 	// HelperVar
 	case OC_ex3_helpervar_clsnproxy, OC_ex3_helpervar_id, OC_ex3_helpervar_helpertype,
-		OC_ex3_helpervar_keyctrl, OC_ex3_helpervar_ownclsnscale, OC_ex3_helpervar_ownpal, 
+		OC_ex3_helpervar_keyctrl, OC_ex3_helpervar_ownclsnscale, OC_ex3_helpervar_ownpal,
 		OC_ex3_helpervar_preserve:
 		// If not a helper, return false immediately
 		if c.helperIndex == 0 {
 			sys.bcStack.Push(BytecodeSF())
-			break 
+			break
 		}
 		// Otherwise continue
 		switch opc {

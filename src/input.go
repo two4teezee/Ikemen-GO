@@ -175,7 +175,7 @@ func OnTextEntered(s string) {
 // Return the state of all keyboard keys for a player
 func GetKeyboardState(kc KeyConfig) [14]bool {
 	var out [14]bool
-	
+
 	// If this config is for a joystick, return no input
 	if kc.Joy >= 0 {
 		return out
@@ -278,9 +278,9 @@ func GetJoystickState(kc KeyConfig) [14]bool {
 type KeyConfig struct {
 	Joy                                                    int
 	dU, dD, dL, dR, bA, bB, bC, bX, bY, bZ, bS, bD, bW, bM int
-	isInitialized                                               bool
-	rumbleOn                                                    bool
-	GUID                                                        string
+	isInitialized                                          bool
+	rumbleOn                                               bool
+	GUID                                                   string
 }
 
 func (kc *KeyConfig) swap(kc2 *KeyConfig) {

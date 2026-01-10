@@ -3359,7 +3359,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				} else {
 					flg, err = flagSub() // Parses "HLA"
 				}
-				
+
 				if err != nil {
 					return err
 				}
@@ -3375,8 +3375,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 
 		be3.appendValue(bv3)
-		be1.appendValue(bv1) 
-		be1.append(be2...) 
+		be1.appendValue(bv1)
+		be1.append(be2...)
 		be1.appendValue(bv2)
 		be1.append(be3...)
 
@@ -3612,7 +3612,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		// Output
-		be1.appendValue(bv1) 
+		be1.appendValue(bv1)
 		be1.append(be2...)
 		be1.appendValue(bv2)
 		if rd {

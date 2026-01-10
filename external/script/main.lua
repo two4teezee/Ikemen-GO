@@ -2818,7 +2818,7 @@ function main.f_connect(server, str)
 		main.f_cmdInput()
 		refresh()
 	end
-	replayRecord('save/replays/' .. os.date("%Y-%m-%d %I-%M%p-%Ss") .. '.replay')
+	replayRecord('save/replays/' .. os.date("%Y-%m-%d_%Hh%Mm%Ss") .. '.replay')
 	return true
 end
 

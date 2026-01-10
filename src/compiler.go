@@ -400,7 +400,6 @@ var triggerMap = map[string]int{
 	"guardcount":         1,
 	"guardpoints":        1,
 	"guardpointsmax":     1,
-	"helperid":           1,
 	"helperindexexist":   1,
 	"helpername":         1,
 	"hitoverridden":      1,
@@ -411,7 +410,6 @@ var triggerMap = map[string]int{
 	"inputtime":          1,
 	"introstate":         1,
 	"isasserted":         1,
-	"isclsnproxy":        1,
 	"ishost":             1,
 	"lastplayerid":       1,
 	"layerno":            1,
@@ -1284,7 +1282,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		return nil
 	}
-	eqne2 := func(f func(not bool) error) error {
+	eqne2 := func(f func(not bool) error) error { // Like eqne but the "not" operation must be handled manually
 		not, err := c.checkEquality(in)
 		if err != nil {
 			return err
@@ -1856,14 +1854,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
-		be2.appendValue(bv2)
 		be1.appendValue(bv1)
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
 		be1.append(be2...)
+		be1.appendValue(bv2)
 		be1.appendValue(bv3)
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))
@@ -2688,6 +2681,33 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		out.append(OC_ex_, OC_ex_helperindexexist)
+	case "helpervar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		param := strings.ToLower(c.token)
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		switch param {
+		case "clsnproxy":
+			out.append(OC_ex3_, OC_ex3_helpervar_clsnproxy)
+		case "id":
+			out.append(OC_ex3_, OC_ex3_helpervar_id)
+		case "helpertype":
+			out.append(OC_ex3_, OC_ex3_helpervar_helpertype)
+		case "keyctrl":
+			out.append(OC_ex3_, OC_ex3_helpervar_keyctrl)
+		case "ownclsnscale":
+			out.append(OC_ex3_, OC_ex3_helpervar_ownclsnscale)
+		case "ownpal":
+			out.append(OC_ex3_, OC_ex3_helpervar_ownpal)
+		case "preserve":
+			out.append(OC_ex3_, OC_ex3_helpervar_preserve)
+		default:
+			return bvNone(), Error("Invalid helpervar argument: " + param)
+		}
 	case "hitcount":
 		out.append(OC_hitcount)
 	case "hitbyattr":
@@ -2836,8 +2856,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ishelper)
 	case "ishometeam":
 		out.append(OC_ex_, OC_ex_ishometeam)
-	case "isclsnproxy":
-		out.append(OC_ex2_, OC_ex2_isclsnproxy)
 	case "index":
 		out.append(OC_ex2_, OC_ex2_index)
 	case "layerno":
@@ -3180,6 +3198,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex2_projvar_projanim
 		case "animelem":
 			opc = OC_ex2_projvar_animelem
+		case "attr":
+			opc = OC_ex2_projvar_attr
+			isFlag = true
 		case "drawpal":
 			c.token = c.tokenizer(in)
 
@@ -3216,7 +3237,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			case "z":
 				opc = OC_ex2_projvar_pos_z
 			default:
-				return bvNone(), Error(fmt.Sprint("Invalid ProjVar angle argument: %s", c.token))
+				return bvNone(), Error(fmt.Sprint("Invalid ProjVar pos argument: %s", c.token))
 			}
 		case "projcancelanim":
 			opc = OC_ex2_projvar_projcancelanim
@@ -3328,25 +3349,24 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		}
 
-		// If bv1 is ever 0 Ikemen crashes.
-		// I do not know why this happens.
-		// It happened with clsnVar.
-		idx := bv1.ToI()
-		if idx >= 0 {
-			bv1.SetI(idx + 1)
-		}
-
 		bv3 := BytecodeInt(0)
 		if isFlag {
 			if err := eqne2(func(not bool) error {
-				if flg, err := flagSub(); err != nil {
-					return err
+				var flg int32
+				var err error
+				if opc == OC_ex2_projvar_attr {
+					flg, err = c.trgAttr(in) // Parses "SCA, AP"
 				} else {
-					if not {
-						bv3 = BytecodeInt(^flg)
-					} else {
-						bv3 = BytecodeInt(flg)
-					}
+					flg, err = flagSub() // Parses "HLA"
+				}
+				
+				if err != nil {
+					return err
+				}
+				if not {
+					bv3 = BytecodeInt(^flg)
+				} else {
+					bv3 = BytecodeInt(flg)
 				}
 				return nil
 			}); err != nil {
@@ -3355,15 +3375,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 
 		be3.appendValue(bv3)
-		be2.appendValue(bv2)
-		be1.appendValue(bv1)
-
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
-		be1.append(be2...)
+		be1.appendValue(bv1) 
+		be1.append(be2...) 
+		be1.appendValue(bv2)
 		be1.append(be3...)
 
 		if rd {
@@ -3598,14 +3612,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		// Output
-		be2.appendValue(bv2)
-		be1.appendValue(bv1)
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
+		be1.appendValue(bv1) 
 		be1.append(be2...)
+		be1.appendValue(bv2)
+		if rd {
+			out.appendI32Op(OC_nordrun, int32(len(be1)))
+		}
 		be1.append(OC_ex2_, opc)
 		out.append(be1...)
 	case "stagevar":
@@ -4501,8 +4513,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_guardpoints)
 	case "guardpointsmax":
 		out.append(OC_ex_, OC_ex_guardpointsmax)
-	case "helperid":
-		out.append(OC_ex_, OC_ex_helperid)
 	case "helpername":
 		if err := nameSub(OC_ex_, OC_ex_helpername); err != nil {
 			return bvNone(), err

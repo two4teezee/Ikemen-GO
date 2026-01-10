@@ -124,7 +124,7 @@ type System struct {
 	home                    int
 	matchTime               int32
 	match                   int32
-	inputRemap              [MaxPlayerNo]int
+	inputRemap              [MaxPlayerNo]int // Ingame player number (index) to human player number (value) pairing
 	round                   int32
 	intro                   int32
 	curRoundTime            int32
@@ -135,6 +135,7 @@ type System struct {
 	matchWins, wins         [2]int32
 	roundsExisted           [2]int32
 	draws                   int32
+	effectiveLoss           [2]bool
 	loader                  Loader
 	chars                   [MaxPlayerNo][]*Char
 	charList                CharList
@@ -424,9 +425,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	l := lua.NewState()
 	l.Options.IncludeGoStackTrace = true
 	l.OpenLibs()
-	for i := range s.inputRemap {
-		s.inputRemap[i] = i
-	}
+	s.resetRemapInput()
 	for i := range s.stringPool {
 		s.stringPool[i] = *NewStringPool()
 	}
@@ -926,7 +925,7 @@ func (s *System) anyHardButton() bool {
 	hardButtonIdx := []int{4, 5, 6, 7, 8, 9}
 
 	for _, kc := range s.keyConfig {
-		buttons := GetControllerState(kc)
+		buttons := GetKeyboardState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true
@@ -935,7 +934,7 @@ func (s *System) anyHardButton() bool {
 	}
 
 	for _, kc := range s.joystickConfig {
-		buttons := GetControllerState(kc)
+		buttons := GetJoystickState(kc)
 		for _, idx := range hardButtonIdx {
 			if buttons[idx] {
 				return true
@@ -1300,6 +1299,18 @@ func (s *System) roundOver() bool {
 
 func (s *System) roundStateTicks() int32 {
 	return s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
+}
+
+// Check if the match consists of a single round
+func (s *System) roundIsSingle() bool {
+	return !s.sel.gameParams.PersistRounds && s.round == 1 && s.decisiveRound[0] && s.decisiveRound[1]
+}
+
+// This checks if a round is eligible for "Final Round" behavior, not if it's literally the final round
+// https://github.com/ikemen-engine/Ikemen-GO/issues/1659
+func (s *System) roundIsFinal() bool {
+	return !s.sel.gameParams.PersistRounds && s.round > 1 && s.decisiveRound[0] && s.decisiveRound[1] &&
+		(s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1])
 }
 
 func (s *System) winnerTeam() int32 {
@@ -1735,6 +1746,7 @@ func (s *System) resetRoundState() {
 	s.winTeam = -1
 	s.winType = [...]WinType{WT_Normal, WT_Normal}
 	s.winTrigger = [...]WinType{WT_Normal, WT_Normal}
+	s.effectiveLoss = [2]bool{false, false}
 	s.lastHitter = [2]int{-1, -1}
 	s.slowtime = s.lifebar.ro.slow_time
 	s.winposetime = s.lifebar.ro.over_wintime
@@ -1747,14 +1759,16 @@ func (s *System) resetRoundState() {
 	// Previously Ikemen reset it between rounds, but that creates the odd scenario where a new player in Turns mode will have the same ID as a previous player
 	//s.nextCharId = s.cfg.Config.HelperMax
 
-	if (s.tmode[0] == TM_Turns && s.wins[1] >= s.numTurns[0]-1) ||
-		(s.tmode[0] != TM_Turns && s.wins[1] >= s.lifebar.ro.match_wins[0]-1) {
-		s.decisiveRound[0] = true
-	}
-
-	if (s.tmode[1] == TM_Turns && s.wins[0] >= s.numTurns[1]-1) ||
-		(s.tmode[1] != TM_Turns && s.wins[0] >= s.lifebar.ro.match_wins[1]-1) {
-		s.decisiveRound[1] = true
+	// Decisive round check
+	for i := range s.decisiveRound {
+		neededWins := s.lifebar.ro.match_wins[i]
+		// If enemy is in Turns, then we must win "team size" rounds
+		if s.tmode[1-i] == TM_Turns {
+			neededWins = s.numTurns[1-i]
+		}
+		if s.wins[i] >= neededWins-1 {
+			s.decisiveRound[i] = true
+		}
 	}
 
 	var roundRef int32
@@ -2360,11 +2374,10 @@ func (s *System) stepRoundState() {
 
 		if s.intro == -s.lifebar.ro.over_hittime && s.finishType != FT_NotYet {
 			// Consecutive wins counter
-			winner := [...]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
+			winner := [2]bool{s.effectiveLoss[1], s.effectiveLoss[0]}
 			if !winner[0] || !winner[1] ||
 				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-				s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-				s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+				s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
 				for i, win := range winner {
 					if win {
 						s.wins[i]++
@@ -2430,16 +2443,15 @@ func (s *System) stepRoundState() {
 		// In the first frame of win poses only
 		if s.winposetime == 0 {
 			// Attribute the win icon
-			winner := [2]bool{!s.chars[1][0].win(), !s.chars[0][0].win()}
-			if !winner[0] || !winner[1] ||
-				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-				s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+			winner := [2]bool{s.effectiveLoss[1], s.effectiveLoss[0]}
+
+			if winner[0] || winner[1] {
 				for i, win := range winner {
 					if win {
 						s.lifebar.wi[i].add(s.winType[i])
 						if s.matchOver() {
 							// In a draw game both players go back to 0 wins
-							if winner[0] == winner[1] { // sys.winTeam < 0
+							if winner[0] == winner[1] {
 								s.lifebar.wc[0].wins = 0
 								s.lifebar.wc[1].wins = 0
 							} else {
@@ -2573,6 +2585,25 @@ func (s *System) roundEndDecision() bool {
 		} else {
 			s.finishType = FT_KO
 			s.winTeam = int(Btoi(ko[0]))
+		}
+	}
+
+	// Effective loss check
+	// Accounts for max draws unlike plain win/lose logic. Used for round progression
+	if s.winTeam < 0 {
+		for i := 0; i < 2; i++ {
+			// TODO: Turns mode could have special handling for balancing team sizes here
+			// For instance only allow draws if both teams are the same size
+			// In the meantime treating everything the same is the most impartial
+			if s.draws >= s.lifebar.ro.match_maxdrawgames[i] {
+				s.effectiveLoss[i] = true
+			} else {
+				s.effectiveLoss[i] = false
+			}
+		}
+	} else {
+		for i := range s.effectiveLoss {
+			s.effectiveLoss[i] = s.winTeam != i
 		}
 	}
 
@@ -3162,12 +3193,13 @@ func (s *System) runNextRound() bool {
 		s.statsLog.nextRound()
 		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
 
-		if !s.matchOver() && (s.tmode[0] != TM_Turns || s.chars[0][0].win()) &&
-			(s.tmode[1] != TM_Turns || s.chars[1][0].win()) {
+		if !s.matchOver() &&
+			!(s.tmode[0] == TM_Turns && s.effectiveLoss[0]) &&
+			!(s.tmode[1] == TM_Turns && s.effectiveLoss[1]) {
 			// Prepare for the next round
 			for i, p := range s.chars {
 				if len(p) > 0 {
-					if s.tmode[i&1] != TM_Turns || !p[0].win() {
+					if s.tmode[i&1] != TM_Turns || !s.effectiveLoss[i&1] {
 						p[0].life = p[0].lifeMax
 					} else if p[0].life <= 0 {
 						p[0].life = 1

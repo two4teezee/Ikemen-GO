@@ -2244,10 +2244,11 @@ func systemScriptInit(l *lua.LState) {
 
 				// Reset roundsExisted to 0 if the losing side is on turns mode
 				for i := 0; i < 2; i++ {
-					if !sys.chars[i][0].win() && sys.tmode[i] == TM_Turns {
+					if sys.tmode[i] == TM_Turns && sys.effectiveLoss[i] {
+						sys.roundsExisted[i] = 0
+						// Increment number of lifebar KO portraits to render
 						sys.lifebar.fa[TM_Turns][i].numko++
 						sys.lifebar.nm[TM_Turns][i].numko++
-						sys.roundsExisted[i] = 0
 					}
 				}
 
@@ -4113,25 +4114,25 @@ func systemScriptInit(l *lua.LState) {
 				case 4:
 					sys.keyConfig[pn-1].dR = btn
 				case 5:
-					sys.keyConfig[pn-1].kA = btn
+					sys.keyConfig[pn-1].bA = btn
 				case 6:
-					sys.keyConfig[pn-1].kB = btn
+					sys.keyConfig[pn-1].bB = btn
 				case 7:
-					sys.keyConfig[pn-1].kC = btn
+					sys.keyConfig[pn-1].bC = btn
 				case 8:
-					sys.keyConfig[pn-1].kX = btn
+					sys.keyConfig[pn-1].bX = btn
 				case 9:
-					sys.keyConfig[pn-1].kY = btn
+					sys.keyConfig[pn-1].bY = btn
 				case 10:
-					sys.keyConfig[pn-1].kZ = btn
+					sys.keyConfig[pn-1].bZ = btn
 				case 11:
-					sys.keyConfig[pn-1].kS = btn
+					sys.keyConfig[pn-1].bS = btn
 				case 12:
-					sys.keyConfig[pn-1].kD = btn
+					sys.keyConfig[pn-1].bD = btn
 				case 13:
-					sys.keyConfig[pn-1].kW = btn
+					sys.keyConfig[pn-1].bW = btn
 				case 14:
-					sys.keyConfig[pn-1].kM = btn
+					sys.keyConfig[pn-1].bM = btn
 				}
 			} else {
 				btn := StringToButtonLUT[lua.LVAsString(value)]
@@ -4145,25 +4146,25 @@ func systemScriptInit(l *lua.LState) {
 				case 4:
 					sys.joystickConfig[pn-1].dR = btn
 				case 5:
-					sys.joystickConfig[pn-1].kA = btn
+					sys.joystickConfig[pn-1].bA = btn
 				case 6:
-					sys.joystickConfig[pn-1].kB = btn
+					sys.joystickConfig[pn-1].bB = btn
 				case 7:
-					sys.joystickConfig[pn-1].kC = btn
+					sys.joystickConfig[pn-1].bC = btn
 				case 8:
-					sys.joystickConfig[pn-1].kX = btn
+					sys.joystickConfig[pn-1].bX = btn
 				case 9:
-					sys.joystickConfig[pn-1].kY = btn
+					sys.joystickConfig[pn-1].bY = btn
 				case 10:
-					sys.joystickConfig[pn-1].kZ = btn
+					sys.joystickConfig[pn-1].bZ = btn
 				case 11:
-					sys.joystickConfig[pn-1].kS = btn
+					sys.joystickConfig[pn-1].bS = btn
 				case 12:
-					sys.joystickConfig[pn-1].kD = btn
+					sys.joystickConfig[pn-1].bD = btn
 				case 13:
-					sys.joystickConfig[pn-1].kW = btn
+					sys.joystickConfig[pn-1].bW = btn
 				case 14:
-					sys.joystickConfig[pn-1].kM = btn
+					sys.joystickConfig[pn-1].bM = btn
 				}
 			}
 		})
@@ -5274,10 +5275,12 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "clsnoverlap", func(l *lua.LState) int {
+		arg1 := strArg(l, 1)
 		id := int32(numArg(l, 2))
+		arg3 := strArg(l, 3)
 		var c1, c2 int32
 		// Get box 1 type
-		switch strings.ToLower(strArg(l, 1)) {
+		switch strings.ToLower(arg1) {
 		case "clsn1":
 			c1 = 1
 		case "clsn2":
@@ -5285,10 +5288,10 @@ func triggerFunctions(l *lua.LState) {
 		case "size":
 			c1 = 3
 		default:
-			l.RaiseError("Invalid collision box type")
+			l.RaiseError("Invalid collision box type: %v", arg1)
 		}
 		// Get box 2 type
-		switch strings.ToLower(strArg(l, 3)) {
+		switch strings.ToLower(arg3) {
 		case "clsn1":
 			c2 = 1
 		case "clsn2":
@@ -5296,7 +5299,7 @@ func triggerFunctions(l *lua.LState) {
 		case "size":
 			c2 = 3
 		default:
-			l.RaiseError("Invalid collision box type")
+			l.RaiseError("Invalid collision box type: %v", arg3)
 		}
 		l.Push(lua.LBool(sys.debugWC.clsnOverlapTrigger(c1, id, c2)))
 		return 1
@@ -6035,10 +6038,6 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.guardCount))
 		return 1
 	})
-	luaRegister(l, "helperid", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.helperId))
-		return 1
-	})
 	luaRegister(l, "hitbyattr", func(*lua.LState) int {
 		flg := int32(0)
 		input := strings.ToLower(strArg(l, 1))
@@ -6110,46 +6109,11 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "hitdefattr", func(*lua.LState) int {
-		attr, str := sys.debugWC.hitdef.attr, ""
 		if sys.debugWC.ss.moveType == MT_A {
-			if attr&int32(ST_S) != 0 {
-				str += "S"
-			}
-			if attr&int32(ST_C) != 0 {
-				str += "C"
-			}
-			if attr&int32(ST_A) != 0 {
-				str += "A"
-			}
-			if attr&int32(AT_NA) != 0 {
-				str += ", NA"
-			}
-			if attr&int32(AT_NT) != 0 {
-				str += ", NT"
-			}
-			if attr&int32(AT_NP) != 0 {
-				str += ", NP"
-			}
-			if attr&int32(AT_SA) != 0 {
-				str += ", SA"
-			}
-			if attr&int32(AT_ST) != 0 {
-				str += ", ST"
-			}
-			if attr&int32(AT_SP) != 0 {
-				str += ", SP"
-			}
-			if attr&int32(AT_HA) != 0 {
-				str += ", HA"
-			}
-			if attr&int32(AT_HT) != 0 {
-				str += ", HT"
-			}
-			if attr&int32(AT_HP) != 0 {
-				str += ", HP"
-			}
+			l.Push(attrLStr(sys.debugWC.hitdef.attr))
+		} else {
+			l.Push(lua.LString(""))
 		}
-		l.Push(lua.LString(str))
 		return 1
 	})
 	luaRegister(l, "hitfall", func(*lua.LState) int {
@@ -6186,10 +6150,6 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "inguarddist", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.inguarddist))
-		return 1
-	})
-	luaRegister(l, "isclsnproxy", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.isclsnproxy))
 		return 1
 	})
 	luaRegister(l, "ishelper", func(l *lua.LState) int {
@@ -6667,116 +6627,121 @@ func triggerFunctions(l *lua.LState) {
 		id := int32(numArg(l, 1))
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
-
-		for i, p := range sys.debugWC.getProjs(id) {
-			if i == idx {
-				switch strings.ToLower(vname) {
-				case "accel x":
-					lv = lua.LNumber(p.accel[0])
-				case "accel y":
-					lv = lua.LNumber(p.accel[1])
-				case "accel z":
-					lv = lua.LNumber(p.accel[2])
-				case "anim":
-					lv = lua.LNumber(p.anim)
-				case "animelem":
-					lv = lua.LNumber(p.ani.curelem + 1)
-				case "angle":
-					lv = lua.LNumber(p.anglerot[0])
-				case "angle x":
-					lv = lua.LNumber(p.anglerot[1])
-				case "angle y":
-					lv = lua.LNumber(p.anglerot[2])
-				case "drawpal group":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
-				case "drawpal index":
-					lv = lua.LNumber(sys.debugWC.projDrawPal(p)[1])
-				case "facing":
-					lv = lua.LNumber(p.facing)
-				case "highbound":
-					lv = lua.LNumber(p.heightbound[1])
-				case "lowbound":
-					lv = lua.LNumber(p.heightbound[0])
-				case "pausemovetime":
-					lv = lua.LNumber(p.pausemovetime)
-				case "pos x":
-					lv = lua.LNumber(p.pos[0])
-				case "pos y":
-					lv = lua.LNumber(p.pos[1])
-				case "pos z":
-					lv = lua.LNumber(p.pos[2])
-				case "projcancelanim":
-					lv = lua.LNumber(p.cancelanim)
-				case "projedgebound":
-					lv = lua.LNumber(p.edgebound)
-				case "projhitanim":
-					lv = lua.LNumber(p.hitanim)
-				case "projhits":
-					lv = lua.LNumber(p.hits)
-				case "projhitsmax":
-					lv = lua.LNumber(p.totalhits)
-				case "projid":
-					lv = lua.LNumber(p.id)
-				case "projlayerno":
-					lv = lua.LNumber(p.layerno)
-				case "projmisstime":
-					lv = lua.LNumber(p.curmisstime)
-				case "projpriority":
-					lv = lua.LNumber(p.priority)
-				case "projremove":
-					lv = lua.LBool(p.remove)
-				case "projremanim":
-					lv = lua.LNumber(p.remanim)
-				case "projremovetime":
-					lv = lua.LNumber(p.removetime)
-				case "projsprpriority":
-					lv = lua.LNumber(p.sprpriority)
-				case "projstagebound":
-					lv = lua.LNumber(p.stagebound)
-				case "remvelocity x":
-					lv = lua.LNumber(p.remvelocity[0])
-				case "remvelocity y":
-					lv = lua.LNumber(p.remvelocity[1])
-				case "remvelocity z":
-					lv = lua.LNumber(p.remvelocity[2])
-				case "scale x":
-					lv = lua.LNumber(p.scale[0])
-				case "scale y":
-					lv = lua.LNumber(p.scale[1])
-				case "shadow b":
-					lv = lua.LNumber(p.shadow[0])
-				case "shadow g":
-					lv = lua.LNumber(p.shadow[0])
-				case "shadow r":
-					lv = lua.LNumber(p.shadow[0])
-				case "supermovetime":
-					lv = lua.LNumber(p.supermovetime)
-				case "teamside":
-					lv = lua.LNumber(p.hitdef.teamside)
-				case "time":
-					lv = lua.LNumber(p.time)
-				case "vel x":
-					lv = lua.LNumber(p.velocity[0])
-				case "vel y":
-					lv = lua.LNumber(p.velocity[1])
-				case "vel z":
-					lv = lua.LNumber(p.velocity[2])
-				case "velmul x":
-					lv = lua.LNumber(p.velmul[0])
-				case "velmul y":
-					lv = lua.LNumber(p.velmul[1])
-				case "velmul z":
-					lv = lua.LNumber(p.velmul[2])
-				case "xshear":
-					lv = lua.LNumber(p.xshear)
-				//case "guardflag":
-				//	lv = lua.LBool(p.hitdef.guardflag&fl != 0)
-				//case "hitflag":
-				//	lv = lua.LNumber(p.hitdef.hitflag&fl != 0)
-				default:
-					l.RaiseError("\nInvalid argument: %v\n", vname)
-				}
-				break
+		// Get projectile
+		projs := sys.debugWC.getProjs(id)
+		var p *Projectile
+		if idx >= 0 && idx < len(projs) {
+			p = projs[idx]
+		}
+		// Handle returns
+		if p != nil {
+			switch vname {
+			case "accel x":
+				lv = lua.LNumber(p.accel[0])
+			case "accel y":
+				lv = lua.LNumber(p.accel[1])
+			case "accel z":
+				lv = lua.LNumber(p.accel[2])
+			case "anim":
+				lv = lua.LNumber(p.animNo)
+			case "animelem":
+				lv = lua.LNumber(p.anim.curelem + 1)
+			case "angle":
+				lv = lua.LNumber(p.anglerot[0])
+			case "angle x":
+				lv = lua.LNumber(p.anglerot[1])
+			case "angle y":
+				lv = lua.LNumber(p.anglerot[2])
+			case "attr":
+				lv = attrLStr(p.hitdef.attr) // Return string like HitDefAttr
+			case "drawpal group":
+				lv = lua.LNumber(sys.debugWC.projDrawPal(p)[0])
+			case "drawpal index":
+				lv = lua.LNumber(sys.debugWC.projDrawPal(p)[1])
+			case "facing":
+				lv = lua.LNumber(p.facing)
+			case "guardflag":
+				lv = flagLStr(p.hitdef.guardflag) // Return string like HitDefVar
+			case "highbound":
+				lv = lua.LNumber(p.heightbound[1])
+			case "hitflag":
+				lv = flagLStr(p.hitdef.hitflag) // Return string like HitDefVar
+			case "lowbound":
+				lv = lua.LNumber(p.heightbound[0])
+			case "pausemovetime":
+				lv = lua.LNumber(p.pausemovetime)
+			case "pos x":
+				lv = lua.LNumber(p.pos[0])
+			case "pos y":
+				lv = lua.LNumber(p.pos[1])
+			case "pos z":
+				lv = lua.LNumber(p.pos[2])
+			case "projcancelanim":
+				lv = lua.LNumber(p.cancelanim)
+			case "projedgebound":
+				lv = lua.LNumber(p.edgebound)
+			case "projhitanim":
+				lv = lua.LNumber(p.hitanim)
+			case "projhits":
+				lv = lua.LNumber(p.hits)
+			case "projhitsmax":
+				lv = lua.LNumber(p.totalhits)
+			case "projid":
+				lv = lua.LNumber(p.id)
+			case "projlayerno":
+				lv = lua.LNumber(p.layerno)
+			case "projmisstime":
+				lv = lua.LNumber(p.curmisstime)
+			case "projpriority":
+				lv = lua.LNumber(p.priority)
+			case "projremove":
+				lv = lua.LBool(p.remove)
+			case "projremanim":
+				lv = lua.LNumber(p.remanim)
+			case "projremovetime":
+				lv = lua.LNumber(p.removetime)
+			case "projsprpriority":
+				lv = lua.LNumber(p.sprpriority)
+			case "projstagebound":
+				lv = lua.LNumber(p.stagebound)
+			case "remvelocity x":
+				lv = lua.LNumber(p.remvelocity[0])
+			case "remvelocity y":
+				lv = lua.LNumber(p.remvelocity[1])
+			case "remvelocity z":
+				lv = lua.LNumber(p.remvelocity[2])
+			case "scale x":
+				lv = lua.LNumber(p.scale[0])
+			case "scale y":
+				lv = lua.LNumber(p.scale[1])
+			case "shadow r":
+				lv = lua.LNumber(p.shadow[0])
+			case "shadow g":
+				lv = lua.LNumber(p.shadow[1])
+			case "shadow b":
+				lv = lua.LNumber(p.shadow[2])
+			case "supermovetime":
+				lv = lua.LNumber(p.supermovetime)
+			case "teamside":
+				lv = lua.LNumber(p.hitdef.teamside)
+			case "time":
+				lv = lua.LNumber(p.time)
+			case "vel x":
+				lv = lua.LNumber(p.velocity[0])
+			case "vel y":
+				lv = lua.LNumber(p.velocity[1])
+			case "vel z":
+				lv = lua.LNumber(p.velocity[2])
+			case "velmul x":
+				lv = lua.LNumber(p.velmul[0])
+			case "velmul y":
+				lv = lua.LNumber(p.velmul[1])
+			case "velmul z":
+				lv = lua.LNumber(p.velmul[2])
+			case "xshear":
+				lv = lua.LNumber(p.xshear)
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
 			}
 		}
 		l.Push(lv)
@@ -7402,7 +7367,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "decisiveround", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.decisiveRound[^sys.debugWC.playerNo&1]))
+		l.Push(lua.LBool(sys.decisiveRound[sys.debugWC.playerNo&1]))
 		return 1
 	})
 	luaRegister(l, "displayname", func(*lua.LState) int {
@@ -7531,6 +7496,33 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "helperindexexist", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.helperIndexExist(
 			BytecodeInt(int32(numArg(l, 1)))).ToB()))
+		return 1
+	})
+	luaRegister(l, "helpervar", func(l *lua.LState) int {
+		vname := strArg(l, 1)
+		var lv lua.LValue
+		c := sys.debugWC
+		if c.helperIndex > 0 {
+			switch strings.ToLower(vname) {
+			case "clsnproxy":
+				lv = lua.LBool(c.isclsnproxy)
+			case "helpertype":
+				lv = lua.LNumber(c.helperType)
+			case "id":
+				lv = lua.LNumber(c.helperId)
+			case "keyctrl":
+				lv = lua.LBool(c.keyctrl[0])
+			case "ownclsnscale":
+				lv = lua.LBool(c.ownclsnscale)
+			case "ownpal":
+				lv = lua.LBool(c.ownpal)
+			case "preserve":
+				lv = lua.LBool(c.preserve)
+			default:
+				l.RaiseError("\nInvalid helpervar property: %v\n", vname)
+			}
+		}
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "hitoverridden", func(*lua.LState) int {

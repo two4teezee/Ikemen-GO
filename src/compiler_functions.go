@@ -621,16 +621,18 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			if len(data) == 0 {
 				return Error("helpertype not specified")
 			}
-			var ht int32
-			switch strings.ToLower(data) {
-			case "normal":
-				ht = 0
-			case "player":
+			ht := int32(1)
+			htstr := strings.ToLower(data)
+			switch {
+			case htstr == "normal":
 				ht = 1
-			case "projectile":
+			case htstr == "player":
 				ht = 2
-			case "proj":
-				ht = 2
+			case strings.HasPrefix(htstr, "proj"): // Mugen just seems to accept anything starting with "proj"
+				if c.zssMode && htstr != "projectile" { // But ZSS should require proper syntax like usual
+					return Error("Invalid helpertype: " + data)
+				}
+				ht = 3
 			default:
 				return Error("Invalid helpertype: " + data)
 			}
@@ -688,19 +690,7 @@ func (c *Compiler) helper(is IniSection, sc *StateControllerBase, _ int8) (State
 			return err
 		}
 		if err := c.paramValue(is, sc, "size.height",
-			helper_size_height_stand, VT_Int, 1, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "size.height.crouch",
-			helper_size_height_crouch, VT_Int, 1, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "size.height.air",
-			helper_size_height_air, VT_Int, 2, false); err != nil {
-			return err
-		}
-		if err := c.paramValue(is, sc, "size.height.down",
-			helper_size_height_down, VT_Int, 1, false); err != nil {
+			helper_size_height, VT_Int, 1, false); err != nil {
 			return err
 		}
 		if err := c.paramValue(is, sc, "size.proj.doscale",
@@ -6263,10 +6253,6 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
-		if err := c.paramValue(is, sc, "helperid",
-			modifyPlayer_helperid, VT_Int, 1, false); err != nil {
-			return err
-		}
 		if err := c.stateParam(is, "helpername", false, func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 				return Error("Helpername not enclosed in \"")
@@ -6276,7 +6262,10 @@ func (c *Compiler) modifyPlayer(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
-
+		if err := c.paramValue(is, sc, "helpervar.id",
+			modifyPlayer_helpervar_id, VT_Int, 1, false); err != nil {
+			return err
+		}
 		if err := c.paramValue(is, sc, "movehit",
 			modifyPlayer_movehit, VT_Int, 1, false); err != nil { // Formerly MoveHitSet
 			return err

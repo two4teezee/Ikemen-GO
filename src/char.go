@@ -2059,7 +2059,7 @@ type Projectile struct {
 	playerno        int
 	hitdef          HitDef
 	id              int32
-	anim            int32
+	animNo          int32
 	anim_ffx        string
 	hitanim         int32
 	hitanim_ffx     string
@@ -2099,7 +2099,7 @@ type Projectile struct {
 	shadow          [3]int32
 	supermovetime   int32
 	pausemovetime   int32
-	ani             *Animation
+	anim            *Animation
 	curmisstime     int32
 	hitpause        int32
 	oldPos          [3]float32
@@ -2210,32 +2210,32 @@ func (p *Projectile) paused(playerNo int) bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused(p.playerno) && p.hitpause == 0 {
-		if p.anim >= 0 && !p.remflag {
+		if p.animNo >= 0 && !p.remflag {
 			remove := true
 			root := sys.chars[p.playerno][0]
 			if p.hits < 0 {
 				// Remove behavior
 				if p.hits == -1 && p.remove {
-					if p.hitanim != p.anim || p.hitanim_ffx != p.anim_ffx {
+					if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 						if p.hitanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+							p.anim = a
 						}
 					}
 				}
 				// Cancel behavior
 				if p.hits == -2 {
-					if p.cancelanim != p.anim || p.cancelanim_ffx != p.anim_ffx {
+					if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 						if p.cancelanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+							p.anim = a
 						}
 					}
 				}
 			} else if p.removetime == 0 ||
-				p.removetime <= -2 && (p.ani == nil || p.ani.loopend) ||
+				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
 				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
 				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
 				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
@@ -2244,12 +2244,12 @@ func (p *Projectile) update() {
 				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
 				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-				if p.remanim != p.anim || p.remanim_ffx != p.anim_ffx {
+				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
 					if p.remanim != -2 {
 						if p.remanim == -1 {
-							p.ani = nil
-						} else if ani := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); ani != nil {
-							p.ani = ani
+							p.anim = nil
+						} else if a := root.getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+							p.anim = a
 							// In Mugen, if remanim is invalid the projectile will keep the current one
 							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
 						}
@@ -2262,8 +2262,8 @@ func (p *Projectile) update() {
 			// Active to removing transition
 			if remove {
 				p.remflag = true
-				if p.ani != nil {
-					p.ani.UpdateSprite()
+				if p.anim != nil {
+					p.anim.UpdateSprite()
 				}
 				p.velocity = p.remvelocity
 				if p.facing == p.removefacing {
@@ -2273,7 +2273,7 @@ func (p *Projectile) update() {
 				}
 				p.accel = [3]float32{0, 0, 0}
 				p.velmul = [3]float32{1, 1, 1}
-				p.anim = -1
+				p.animNo = -1
 				// In Mugen, projectiles can hit even after their removetime expires
 				// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 				//if p.hits >= 0 {
@@ -2283,10 +2283,10 @@ func (p *Projectile) update() {
 		}
 		// Remove projectile
 		if p.remflag {
-			if p.ani != nil && (p.ani.totaltime <= 0 || p.ani.AnimTime() == 0) {
-				p.ani = nil
+			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
+				p.anim = nil
 			}
-			if p.ani == nil && p.id >= 0 {
+			if p.anim == nil && p.id >= 0 {
 				p.id = ^p.id
 			}
 		}
@@ -2309,7 +2309,7 @@ func (p *Projectile) update() {
 				p.velocity[i] += p.accel[i]
 				p.velocity[i] *= p.velmul[i]
 			}
-			if p.velocity[0] < 0 && p.anim != -1 {
+			if p.velocity[0] < 0 && p.animNo != -1 {
 				p.facing *= -1
 				p.velocity[0] *= -1
 				p.accel[0] *= -1
@@ -2363,7 +2363,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 	}
 
 	// Skip if this projectile can't run a collision check at all
-	if p.ani == nil || len(p.ani.frames) == 0 || p.ani.CurrentFrame().Clsn2 == nil {
+	if p.anim == nil || len(p.anim.frames) == 0 || p.anim.CurrentFrame().Clsn2 == nil {
 		return
 	}
 
@@ -2391,7 +2391,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Skip if other projectile can't run collision check
-			if pr.ani == nil || len(pr.ani.frames) == 0 || pr.ani.CurrentFrame().Clsn2 == nil {
+			if pr.anim == nil || len(pr.anim.frames) == 0 || pr.anim.CurrentFrame().Clsn2 == nil {
 				continue
 			}
 
@@ -2411,8 +2411,8 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			}
 
 			// Run Clsn check
-			clsn1 := p.ani.CurrentFrame().Clsn2 // Projectiles trade with their Clsn2 only
-			clsn2 := pr.ani.CurrentFrame().Clsn2
+			clsn1 := p.anim.CurrentFrame().Clsn2 // Projectiles trade with their Clsn2 only
+			clsn2 := pr.anim.CurrentFrame().Clsn2
 			if clsn1 != nil && clsn2 != nil {
 				if sys.clsnOverlap(clsn1,
 					[...]float32{p.clsnScale[0] * p.localscl, p.clsnScale[1] * p.localscl},
@@ -2476,13 +2476,13 @@ func (p *Projectile) tick() {
 
 func (p *Projectile) cueDraw() {
 	notpause := p.hitpause <= 0 && !p.paused(p.playerno)
-	if sys.tickFrame() && p.ani != nil && notpause {
-		p.ani.UpdateSprite()
+	if sys.tickFrame() && p.anim != nil && notpause {
+		p.anim.UpdateSprite()
 	}
 
 	// Projectile Clsn display
-	if sys.clsnDisplay && p.ani != nil {
-		if frm := p.ani.drawFrame(); frm != nil {
+	if sys.clsnDisplay && p.anim != nil {
+		if frm := p.anim.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
 					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
@@ -2499,8 +2499,8 @@ func (p *Projectile) cueDraw() {
 	}
 
 	if sys.tickNextFrame() && (notpause || !p.paused(p.playerno)) {
-		if p.ani != nil && notpause {
-			p.ani.Action()
+		if p.anim != nil && notpause {
+			p.anim.Action()
 		}
 	}
 
@@ -2550,10 +2550,10 @@ func (p *Projectile) cueDraw() {
 		p.window[3] * drawscale[1],
 	}
 
-	if p.ani != nil {
+	if p.anim != nil {
 		// Add sprite to draw list
 		sd := &SprData{
-			anim:         p.ani,
+			anim:         p.anim,
 			pfx:          p.palfx,
 			pos:          pos,
 			scl:          drawscale,
@@ -2824,8 +2824,7 @@ type Char struct {
 	playerNo       int
 	teamside       int
 	keyctrl        [4]bool
-	playerFlag     bool // Root and player type helpers
-	hprojectile    bool // Helper type projectile. Currently unused
+	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
 	animPN         int
 	spritePN       int
 	animNo         int32
@@ -3003,11 +3002,11 @@ func (c *Char) init(n int, idx int32) {
 
 	// Set player or helper defaults
 	if idx == 0 {
-		c.playerFlag = true
+		c.helperType = 0
 		c.kovelocity = true
 		c.keyctrl = [4]bool{true, true, true, true}
 	} else {
-		c.playerFlag = false
+		c.helperType = 1
 		c.kovelocity = false
 		c.keyctrl = [4]bool{false, false, false, true}
 	}
@@ -4314,7 +4313,7 @@ func (c *Char) scf(scf SystemCharFlag) bool {
 func (c *Char) setSCF(scf SystemCharFlag) {
 	c.systemFlag |= scf
 	// Clear enemy lists if changing flags that affect them
-	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+	if c.isPlayerType() && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
 		sys.charList.enemyNearChanged = true
 	}
 }
@@ -4322,7 +4321,7 @@ func (c *Char) setSCF(scf SystemCharFlag) {
 func (c *Char) unsetSCF(scf SystemCharFlag) {
 	c.systemFlag &^= scf
 	// Clear enemy lists if changing flags that affect them
-	if c.playerFlag && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
+	if c.isPlayerType() && (scf == SCF_disabled || scf == SCF_over_ko || scf == SCF_standby) {
 		sys.charList.enemyNearChanged = true
 	}
 }
@@ -5008,6 +5007,10 @@ func (c *Char) isHelper(id int32, idx int) bool {
 	return false
 }
 
+func (c *Char) isPlayerType() bool {
+	return c.helperIndex == 0 || c.helperType == 2
+}
+
 func (c *Char) isHost() bool {
 	// Local play has no host
 	if sys.netConnection == nil && sys.replayFile == nil && sys.rollback.session == nil {
@@ -5223,136 +5226,6 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 				v = BytecodeFloat(e.velocity[2])
 			case OC_ex2_explodvar_xshear:
 				v = BytecodeFloat(e.xshear)
-			}
-			break
-		}
-	}
-	return v
-}
-
-func (c *Char) projVar(pid BytecodeValue, idx BytecodeValue, flag BytecodeValue, vtype OpCode, oc *Char) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
-	}
-
-	// See compiler.go:ProjVar
-	var id int32 = pid.ToI()
-	if id > 0 {
-		id--
-	}
-
-	var i = idx.ToI()
-	var fl int32 = flag.ToI()
-	var v BytecodeValue
-	projs := c.getProjs(id)
-	if len(projs) == 0 {
-		return BytecodeSF()
-	}
-	for n, p := range projs {
-		if i == int32(n) {
-			switch vtype {
-			case OC_ex2_projvar_accel_x:
-				v = BytecodeFloat(p.accel[0] * p.localscl)
-			case OC_ex2_projvar_accel_y:
-				v = BytecodeFloat(p.accel[1] * p.localscl)
-			case OC_ex2_projvar_accel_z:
-				v = BytecodeFloat(p.accel[2] * p.localscl)
-			case OC_ex2_projvar_animelem:
-				v = BytecodeInt(p.ani.curelem + 1)
-			case OC_ex2_projvar_drawpal_group:
-				v = BytecodeInt(c.projDrawPal(p)[0])
-			case OC_ex2_projvar_drawpal_index:
-				v = BytecodeInt(c.projDrawPal(p)[1])
-			case OC_ex2_projvar_facing:
-				v = BytecodeFloat(p.facing)
-			case OC_ex2_projvar_guardflag:
-				v = BytecodeBool(p.hitdef.guardflag&fl != 0)
-			case OC_ex2_projvar_highbound:
-				v = BytecodeInt(int32(float32(p.heightbound[1]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_hitflag:
-				v = BytecodeBool(p.hitdef.hitflag&fl != 0)
-			case OC_ex2_projvar_lowbound:
-				v = BytecodeInt(int32(float32(p.heightbound[0]) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_pausemovetime:
-				v = BytecodeInt(p.pausemovetime)
-			case OC_ex2_projvar_pos_x:
-				v = BytecodeFloat((p.pos[0]*p.localscl - sys.cam.Pos[0]) / oc.localscl)
-			case OC_ex2_projvar_pos_y:
-				v = BytecodeFloat(p.pos[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_pos_z:
-				v = BytecodeFloat(p.pos[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_projanim:
-				v = BytecodeInt(p.anim)
-			case OC_ex2_projvar_projangle:
-				v = BytecodeFloat(p.anglerot[0])
-			case OC_ex2_projvar_projyangle:
-				v = BytecodeFloat(p.anglerot[2])
-			case OC_ex2_projvar_projxangle:
-				v = BytecodeFloat(p.anglerot[1])
-			case OC_ex2_projvar_projcancelanim:
-				v = BytecodeInt(p.cancelanim)
-			case OC_ex2_projvar_projedgebound:
-				v = BytecodeInt(int32(float32(p.edgebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projhitanim:
-				v = BytecodeInt(p.hitanim)
-			case OC_ex2_projvar_projhits:
-				v = BytecodeInt(p.hits)
-			case OC_ex2_projvar_projhitsmax:
-				v = BytecodeInt(p.totalhits)
-			case OC_ex2_projvar_projid:
-				v = BytecodeInt(int32(p.id))
-			case OC_ex2_projvar_projlayerno:
-				v = BytecodeInt(p.layerno)
-			case OC_ex2_projvar_projmisstime:
-				v = BytecodeInt(p.curmisstime)
-			case OC_ex2_projvar_projpriority:
-				v = BytecodeInt(p.priority)
-			case OC_ex2_projvar_projremove:
-				v = BytecodeBool(p.remove)
-			case OC_ex2_projvar_projremanim:
-				v = BytecodeInt(p.remanim)
-			case OC_ex2_projvar_projremovetime:
-				v = BytecodeInt(p.removetime)
-			case OC_ex2_projvar_projscale_x:
-				v = BytecodeFloat(p.scale[0])
-			case OC_ex2_projvar_projscale_y:
-				v = BytecodeFloat(p.scale[1])
-			case OC_ex2_projvar_projshadow_b:
-				v = BytecodeInt(p.shadow[2])
-			case OC_ex2_projvar_projshadow_g:
-				v = BytecodeInt(p.shadow[1])
-			case OC_ex2_projvar_projshadow_r:
-				v = BytecodeInt(p.shadow[0])
-			case OC_ex2_projvar_projsprpriority:
-				v = BytecodeInt(p.sprpriority)
-			case OC_ex2_projvar_projstagebound:
-				v = BytecodeInt(int32(float32(p.stagebound) * p.localscl / oc.localscl))
-			case OC_ex2_projvar_projxshear:
-				v = BytecodeFloat(p.xshear)
-			case OC_ex2_projvar_remvelocity_x:
-				v = BytecodeFloat(p.remvelocity[0] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_y:
-				v = BytecodeFloat(p.remvelocity[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_remvelocity_z:
-				v = BytecodeFloat(p.remvelocity[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_supermovetime:
-				v = BytecodeInt(p.supermovetime)
-			case OC_ex2_projvar_teamside:
-				v = BytecodeInt(int32(p.hitdef.teamside))
-			case OC_ex2_projvar_time:
-				v = BytecodeInt(p.time)
-			case OC_ex2_projvar_vel_x:
-				v = BytecodeFloat(p.velocity[0] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_vel_y:
-				v = BytecodeFloat(p.velocity[1] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_vel_z:
-				v = BytecodeFloat(p.velocity[2] * p.localscl / oc.localscl)
-			case OC_ex2_projvar_velmul_x:
-				v = BytecodeFloat(p.velmul[0])
-			case OC_ex2_projvar_velmul_y:
-				v = BytecodeFloat(p.velmul[1])
-			case OC_ex2_projvar_velmul_z:
-				v = BytecodeFloat(p.velmul[2])
 			}
 			break
 		}
@@ -6185,7 +6058,7 @@ func (c *Char) destroy() {
 			}
 		}
 		c.children = c.children[:0]
-		if c.playerFlag {
+		if c.isPlayerType() {
 			// sys.charList.p2enemyDelete(c)
 			sys.charList.enemyNearChanged = true
 		}
@@ -6715,7 +6588,7 @@ func (c *Char) setPosX(x float32, all bool) {
 	// Perhaps what it does is only calculate who "enemynear" is when the trigger is called?
 	// "P2" enemy reference is less sensitive than this however, and seems to update only once per frame
 	if c.pos[0] != x {
-		if c.playerFlag {
+		if c.isPlayerType() {
 			sys.charList.enemyNearChanged = true
 		} else {
 			c.enemyNearP2Clear()
@@ -6739,7 +6612,7 @@ func (c *Char) setPosY(y float32, all bool) { // This function mostly exists rig
 func (c *Char) setPosZ(z float32, all bool) {
 	// Z distance is also factored into enemy near lists
 	if c.pos[2] != z {
-		if c.playerFlag {
+		if c.isPlayerType() {
 			sys.charList.enemyNearChanged = true
 		} else {
 			c.enemyNearP2Clear()
@@ -6834,19 +6707,19 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
 
-	if p.anim < -1 {
-		p.anim = 0
+	if p.animNo < -1 {
+		p.animNo = 0
 	}
 
 	// Get animation with sprite context
-	p.ani = c.getSelfAnimSprite(p.anim, p.anim_ffx, true, true)
+	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
 
-	if p.ani == nil && c.anim != nil {
+	if p.anim == nil && c.anim != nil {
 		// Fallback: copy character's current animation
-		p.ani = &Animation{}
-		*p.ani = *c.anim
-		p.ani.SetAnimElem(1, 0)
-		p.anim = c.animNo
+		p.anim = &Animation{}
+		*p.anim = *c.anim
+		p.anim.SetAnimElem(1, 0)
+		p.animNo = c.animNo
 	}
 
 	// Save total hits for later use
@@ -7699,7 +7572,7 @@ func (c *Char) targetPowerAdd(tar []int32, power int32) {
 		return
 	}
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.playerFlag {
+		if t := sys.playerID(tid); t != nil && t.isPlayerType() {
 			t.powerAdd(power)
 		}
 	}
@@ -7743,7 +7616,7 @@ func (c *Char) targetScoreAdd(tar []int32, s float32) {
 		return
 	}
 	for _, tid := range tar {
-		if t := sys.playerID(tid); t != nil && t.playerFlag {
+		if t := sys.playerID(tid); t != nil && t.isPlayerType() {
 			t.scoreAdd(s)
 		}
 	}
@@ -7957,7 +7830,7 @@ func (c *Char) lifeSet(life int32) {
 
 	if c.life == 0 {
 		// Check win type
-		if c.playerFlag && c.teamside != -1 {
+		if c.isPlayerType() && c.teamside != -1 {
 			if c.alive() && c.helperIndex == 0 {
 				if c.ss.moveType != MT_H {
 					if c.playerNo == c.ss.sb.playerNo {
@@ -8852,30 +8725,88 @@ func (c *Char) gravity() {
 	c.vel[1] += c.gi().movement.yaccel * ((320 / c.localcoord) / c.localscl)
 }
 
-// Updates pos based on multiple factors
+func (c *Char) getStandFriction() float32 {
+	if c.ss.moveType == MT_H && !math.IsNaN(float64(c.ghv.standfriction)) {
+		return c.ghv.standfriction
+	}
+	return c.gi().movement.stand.friction
+}
+
+func (c *Char) getCrouchFriction() float32 {
+	if c.ss.moveType == MT_H && !math.IsNaN(float64(c.ghv.standfriction)) {
+		return c.ghv.crouchfriction
+	}
+	return c.gi().movement.crouch.friction
+}
+
+// Updates position based on multiple factors
 func (c *Char) posUpdate() {
-	// In WinMugen, the threshold for corner push to happen is 4 pixels from the corner
-	// In Mugen 1.0 and 1.1 this threshold is bugged, varying with game resolution
-	// In Ikemen, this threshold is obsolete
+	// Reset cornerpush
 	c.mhv.cornerpush = 0
-	pushmul := float32(0.7)
-	if c.cornerVelOff != 0 && sys.supertime == 0 {
-		for _, p := range sys.chars {
-			if len(p) > 0 && p[0].ss.moveType == MT_H && p[0].ghv.playerId == c.id {
-				npos := (p[0].pos[0] + p[0].vel[0]*p[0].facing) * p[0].localscl
-				if p[0].trackableByCamera() && p[0].csf(CSF_screenbound) && (npos <= sys.xmin || npos >= sys.xmax) {
-					c.mhv.cornerpush = c.cornerVelOff
+
+	// Determine if cornerpush should be applied
+	// In Mugen cornerpush is disabled during a superpause (but not during a regular pause)
+	pushApply := c.cornerVelOff != 0 && sys.supertime == 0
+	pushMul := float32(0.7)
+
+	if pushApply {
+		// Check if any targets should activate the player's cornerpush
+		// Mugen doesn't run any of these checks, instead only caring about the target during hit detection
+		var pushRef *Char
+
+		// Loop backwards so we use the last valid target as reference, as is usually the case
+		for i := len(sys.chars) - 1; i >= 0; i-- {
+			if len(sys.chars[i]) == 0 {
+				continue
+			}
+
+			// Check helpers as well because player type helpers can trigger cornerpush
+			for j := len(sys.chars[i]) - 1; j >= 0; j-- {
+				getter := sys.chars[i][j]
+
+				// Must be player type and hit by this char
+				if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerId != c.id {
+					continue
 				}
-				// In Mugen cornerpush friction is hardcoded at 0.7
-				// In Ikemen the cornerpush friction is defined by the target instead
-				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-					pushmul = 0.7
+
+				// Most fighting games indirectly check hitshaketime here
+				// Mugen doesn't so for instance during a trade the cornerpush will be applied immediately
+				// TODO: Maybe this version check is overzealous considering the rest of the code is already a bit different from Mugen anyway
+				if (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) && getter.ghv.hitshaketime > 0 {
+					continue
+				}
+
+				// Apply cornerpush only if the target is cornered and actually confined to the screen
+				// In WinMugen, the threshold for corner push to happen is 4 pixels from the corner
+				// In Mugen 1.0 and 1.1 this threshold is bugged, varying with game resolution
+				// In Ikemen, this threshold is obsolete
+				npos := (getter.pos[0] + getter.vel[0]*getter.facing) * getter.localscl
+				if !getter.trackableByCamera() || !getter.csf(CSF_screenbound) || npos > sys.xmin && npos < sys.xmax {
+					continue
+				}
+
+				pushRef = getter
+				break
+			}
+
+			if pushRef != nil {
+				break
+			}
+		}
+
+		// Activate cornerpush if a valid target was found
+		if pushRef != nil {
+			c.mhv.cornerpush = c.cornerVelOff
+
+			// In Mugen cornerpush friction is hardcoded at 0.7
+			// In Ikemen the cornerpush friction is defined by the target instead
+			if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+				pushMul = 0.7
+			} else {
+				if pushRef.ss.stateType == ST_C || pushRef.ss.stateType == ST_L {
+					pushMul = pushRef.getCrouchFriction()
 				} else {
-					if p[0].ss.stateType == ST_C || p[0].ss.stateType == ST_L {
-						pushmul = p[0].gi().movement.crouch.friction
-					} else {
-						pushmul = p[0].gi().movement.stand.friction
-					}
+					pushMul = pushRef.getStandFriction()
 				}
 			}
 		}
@@ -8925,32 +8856,26 @@ func (c *Char) posUpdate() {
 	// Apply physics types
 	switch c.ss.physics {
 	case ST_S:
-		standFriction := c.gi().movement.stand.friction
-		if !math.IsNaN(float64(c.ghv.standfriction)) {
-			standFriction = c.ghv.standfriction
-		}
-		c.vel[0] *= standFriction
+		friction := c.getStandFriction()
+		c.vel[0] *= friction
 		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
-		c.vel[2] *= standFriction
+		c.vel[2] *= friction
 		if AbsF(c.vel[2]) < 1/originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
-		crouchFriction := c.gi().movement.crouch.friction
-		if !math.IsNaN(float64(c.ghv.crouchfriction)) {
-			crouchFriction = c.ghv.crouchfriction
-		}
-		c.vel[0] *= crouchFriction
-		c.vel[2] *= crouchFriction
+		friction := c.getCrouchFriction()
+		c.vel[0] *= friction
+		c.vel[2] *= friction
 	case ST_A:
 		c.gravity()
 	}
 
-	// Apply friction to corner push
-	if sys.supertime == 0 {
-		c.cornerVelOff *= pushmul
+	// Apply friction to corner push only after positions are updated
+	if pushApply {
+		c.cornerVelOff *= pushMul
 		if AbsF(c.cornerVelOff) < 1/originLs {
 			c.cornerVelOff = 0
 		}
@@ -9349,7 +9274,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 
 func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
-	if p.ani == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+	if p.anim == nil || c.curFrame == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
 
@@ -9378,12 +9303,12 @@ func (c *Char) projClsnCheck(p *Projectile, cbox, pbox int32) bool {
 
 func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	// Safety checks
-	if p.ani == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+	if p.anim == nil || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 		return false
 	}
 
 	// Get projectile animation frame
-	frm := p.ani.CurrentFrame()
+	frm := p.anim.CurrentFrame()
 	if frm == nil {
 		return false
 	}
@@ -9870,6 +9795,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		return 0
 	}
 
+	// Check if getter was already being hit. For hitcount tracking
+	getterInCombo := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !getter.ghv.guarded
+
 	// Check if the enemy can guard this attack
 	// Unguardable flag also affects projectiles
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2367
@@ -10080,7 +10008,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			}
 		} else if ghvset {
 			ghv := &getter.ghv
-			cmb := (getter.ss.moveType == MT_H || getter.csf(CSF_gethit)) && !ghv.guarded
+
 			// Precompute localcoord conversion factor
 			scaleratio := c.localscl / getter.localscl
 
@@ -10205,7 +10133,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && ghv.hittime > 0 {
 					ghv.hittime += 1
 				}
-				if cmb {
+				if getterInCombo {
 					ghv.hitcount++
 				} else {
 					ghv.hitcount = 1
@@ -10454,13 +10382,13 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if hitResult > 0 {
 		if Abs(hitResult) == 1 {
 			c.powerAdd(hd.hitgetpower)
-			if getter.playerFlag {
+			if getter.isPlayerType() {
 				getter.powerAdd(hd.hitgivepower)
 				getter.ghv.power += hd.hitgivepower
 			}
 		} else {
 			c.powerAdd(hd.guardgetpower)
-			if getter.playerFlag {
+			if getter.isPlayerType() {
 				getter.powerAdd(hd.guardgivepower)
 				getter.ghv.power += hd.guardgivepower
 			}
@@ -10486,7 +10414,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			c.scoreAdd(hd.score[0])
 			getter.ghv.score = hd.score[0] // TODO: The gethitvar refers to the enemy's score, which is counterintuitive
 		}
-		if getter.playerFlag {
+		if getter.isPlayerType() {
 			if !math.IsNaN(float64(hd.score[1])) {
 				getter.scoreAdd(hd.score[1])
 			}
@@ -10700,7 +10628,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		// Cornerpush on hit
 		// In Mugen it is only set if the enemy is already in the corner before the hit
 		// In Ikemen it is set regardless, with corner distance being checked later
-		if hitResult > 0 && !isProjectile {
+		if hitResult > 0 && !isProjectile && getter.isPlayerType() {
 			switch getter.ss.stateType {
 			case ST_S, ST_C:
 				c.cornerVelOff = hd.ground_cornerpush_veloff * c.facing
@@ -10712,7 +10640,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		}
 	}
 	// Cornerpush on block
-	if hitResult == 2 && !isProjectile {
+	if hitResult == 2 && !isProjectile && getter.isPlayerType() {
 		switch getter.ss.stateType {
 		case ST_S, ST_C:
 			c.cornerVelOff = hd.guard_cornerpush_veloff * c.facing
@@ -10792,7 +10720,7 @@ func (c *Char) actionPrepare() {
 		if !c.hitPause() {
 			c.specialFlag = 0
 			c.setCSF(CSF_stagebound)
-			if c.playerFlag {
+			if c.isPlayerType() {
 				if c.alive() || c.ss.no != 5150 || c.numPartner() == 0 {
 					c.setCSF(CSF_screenbound | CSF_movecamera_x | CSF_movecamera_y)
 				}
@@ -10920,14 +10848,14 @@ func (c *Char) actionRun() {
 	if !c.pauseBool {
 		// Run state -3
 		c.minus = -3
-		if c.ss.sb.playerNo == c.playerNo && (c.playerFlag || c.keyctrl[2]) {
+		if c.ss.sb.playerNo == c.playerNo && (c.isPlayerType() || c.keyctrl[2]) {
 			if sb, ok := c.gi().states[-3]; ok {
 				sb.run(c)
 			}
 		}
 		// Run state -2
 		c.minus = -2
-		if c.playerFlag || c.keyctrl[1] {
+		if c.isPlayerType() || c.keyctrl[1] {
 			if sb, ok := c.gi().states[-2]; ok {
 				sb.run(c)
 			}
@@ -13025,7 +12953,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	// Gather all valid enemies
 	var enemies []*Char
 	for _, e := range cl.runOrder {
-		if e.playerFlag && c.isEnemyOf(e) {
+		if e.isPlayerType() && c.isEnemyOf(e) {
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				enemies = append(enemies, e)

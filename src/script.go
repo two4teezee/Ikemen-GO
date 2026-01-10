@@ -2814,6 +2814,9 @@ func systemScriptInit(l *lua.LState) {
 		}
 		sys.motif = *m
 
+		// Initialize the LUT for nokey (helps fix #3091 for all cases)
+		StringToButtonLUT[sys.motif.OptionInfo.Menu.Valuename["nokey"]] = 25
+
 		// defaults-only INI (for values baseline)
 		defIni, _ := ini.Load([]byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif)))))
 

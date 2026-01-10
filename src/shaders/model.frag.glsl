@@ -502,6 +502,10 @@ void main(void) {
 		discard;
 	}
 
+	// Final Gamma Correction (Required for Vulkan path rendering to an sRGB target)
+	// This happens *after* all linear operations and re-premultiplication.
+	FragColor.rgb = pow(FragColor.rgb, vec3(1.0/2.2));
+
 	vec3 c_linear = FragColor.rgb;
 	float alpha = FragColor.a;
 
@@ -532,8 +536,4 @@ void main(void) {
 
 	// Re-premultiply alpha
 	FragColor.rgb = c_linear * alpha;
-
-	// Final Gamma Correction (Required for Vulkan path rendering to an sRGB target)
-	// This happens *after* all linear operations and re-premultiplication.
-	FragColor.rgb = pow(FragColor.rgb, vec3(1.0/2.2));
 }

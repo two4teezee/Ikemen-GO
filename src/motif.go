@@ -540,7 +540,7 @@ type PlayerSelectProperties struct {
 		} `ini:"value"`
 		Preview struct {
 			AnimationCharPreloadProperties
-			Snd  [2]int32 `ini:"snd" default:"-1,0"`
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"preview"`
 		Number TextProperties      `ini:"number"`
 		Text   TextProperties      `ini:"text"`

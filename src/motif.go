@@ -282,9 +282,9 @@ type MenuProperties struct {
 	Tween TweenProperties `ini:"tween"`
 	Item  struct {
 		TextProperties
-		Uppercase bool                            `ini:"uppercase"`
-		Spacing   [2]float32                      `ini:"spacing"`
-		Tween     TweenProperties                 `ini:"tween"`
+		Uppercase bool                              `ini:"uppercase"`
+		Spacing   [2]float32                        `ini:"spacing"`
+		Tween     TweenProperties                   `ini:"tween"`
 		Bg        map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		Active    struct {
 			TextProperties
@@ -445,7 +445,7 @@ type PlayerSelectProperties struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"select"`
 	TeamMenu struct { // only used by P1-P2
-		Pos    [2]float32                      `ini:"pos"`
+		Pos    [2]float32                        `ini:"pos"`
 		Bg     map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		Active struct {
 			Bg map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`

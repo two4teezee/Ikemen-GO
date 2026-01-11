@@ -532,7 +532,11 @@ const (
 )
 
 type HitDef struct {
-	//isprojectile               bool // Projectile state controller
+	isprojectile               bool // Projectile state controller
+	statePN                    int // Owner of state where sctrl was called
+	playerno                   int
+	playerid                   int32
+	projid                     int32
 	attr                       int32
 	reversal_attr              int32
 	hitflag                    int32
@@ -641,9 +645,6 @@ type HitDef struct {
 	fall_envshake_phase        float32
 	fall_envshake_mul          float32
 	fall_envshake_dir          float32
-	playerno                   int
-	playerid                   int32
-	projid                     int32
 	kill                       bool
 	guard_kill                 bool
 	forcenofall                bool
@@ -663,17 +664,22 @@ type HitDef struct {
 	MissOnReversalDef          int32
 }
 
-func (hd *HitDef) clear(c *Char, localscl float32) {
+func (hd *HitDef) reset(c *Char, proj *Projectile) {
 	var originLs float32
 	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
 		originLs = 1
 	} else {
 		// Convert local scale back to 4:3 in order to keep values consistent in widescreen
-		originLs = c.localscl * (320 / float32(sys.gameWidth))
+		if proj != nil {
+			originLs = proj.localscl * (320 / float32(sys.gameWidth))
+		} else {
+			originLs = c.localscl * (320 / float32(sys.gameWidth))
+		}
 	}
 
 	*hd = HitDef{
-		//isprojectile:       false,
+		isprojectile:       proj != nil,
+		statePN:            -1,
 		playerno:           -1,
 		playerid:           -1,
 		projid:             -1,
@@ -732,8 +738,8 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		forcestand:          IErr,
 		forcecrouch:         IErr,
 		air_fall:            IErr,
-		guard_dist_x:        hd.guard_dist_x, // These default to no change
-		guard_dist_y:        hd.guard_dist_y, // They are reset when hitdefpersist = 0
+		guard_dist_x:        hd.guard_dist_x, // These default to no change. They are reset when hitdefpersist = 0
+		guard_dist_y:        hd.guard_dist_y,
 		guard_dist_z:        hd.guard_dist_z,
 		chainid:             -1,
 		nochainid:           [8]int32{-1, -1, -1, -1, -1, -1, -1, -1},
@@ -786,10 +792,205 @@ func (hd *HitDef) clear(c *Char, localscl float32) {
 		reversal_guardflag_not: IErr,
 	}
 
+	// Clear the char's HitDef targets
+	if proj == nil {
+		c.hitdefTargets = c.hitdefTargets[:0]
+		c.hitdefTargetsBuffer = c.hitdefTargetsBuffer[:0]
+	}
+
+	// Guard distance if projectile
+	if proj != nil {
+		hd.guard_dist_x = [2]float32{c.size.proj.attack.dist.width[0], c.size.proj.attack.dist.width[1]}
+		hd.guard_dist_y = [2]float32{c.size.proj.attack.dist.height[0], c.size.proj.attack.dist.height[1]}
+		hd.guard_dist_z = [2]float32{c.size.proj.attack.dist.depth[0], c.size.proj.attack.dist.depth[1]}
+	}
+
 	// PalFX
 	hd.palfx.mul = [3]int32{255, 255, 255}
 	hd.palfx.color = 1
 	hd.palfx.hue = 0
+}
+
+func (hd *HitDef) finalizeParams(c *Char, proj *Projectile) {
+	// Set up player references
+	if proj != nil {
+		hd.isprojectile = true
+		hd.statePN = sys.workingState.playerNo
+		hd.playerno = proj.playerno
+		hd.playerid = proj.owner().id // Required for chainID code. Otherwise this probably should've been -1
+		hd.projid = proj.id // TODO: Make this update if projID is modified
+	} else {
+		hd.isprojectile = false
+		hd.statePN = c.ss.sb.playerNo
+		hd.playerno = c.playerNo
+		hd.playerid = c.id
+	}
+
+	if hd.attr&^int32(ST_MASK) == 0 {
+		hd.attr = 0
+	}
+
+	// HitOnce defaults to true for throws
+	if hd.hitonce < 0 {
+		if hd.attr&int32(AT_AT) != 0 {
+			hd.hitonce = 1
+		} else {
+			hd.hitonce = 0
+		}
+	}
+
+	// Set a float parameter if it's undefined (NaN)
+	ifnanset := func(dst *float32, src float32) {
+		if math.IsNaN(float64(*dst)) {
+			*dst = src
+		}
+	}
+
+	// Set an int parameter if it's undefined (IErr)
+	ifierrset := func(dst *int32, src int32) bool {
+		if *dst == IErr {
+			*dst = src
+			return true
+		}
+		return false
+	}
+
+	ifierrset(&hd.guard_pausetime[0], hd.pausetime[0])
+	ifierrset(&hd.guard_pausetime[1], hd.pausetime[1])
+
+	// In Mugen this one acts diferent from the documentation
+	// Ikemen characters follow the documentation since it makes more sense
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		ifierrset(&hd.guard_hittime, hd.ground_slidetime)
+	} else {
+		ifierrset(&hd.guard_hittime, hd.ground_hittime)
+	}
+
+	ifierrset(&hd.guard_slidetime, hd.guard_hittime)
+	ifierrset(&hd.guard_ctrltime, hd.guard_slidetime)
+	ifierrset(&hd.airguard_ctrltime, hd.guard_ctrltime)
+
+	ifnanset(&hd.guard_velocity[0], hd.ground_velocity[0])
+	ifnanset(&hd.guard_velocity[2], hd.ground_velocity[2])
+	ifnanset(&hd.airguard_velocity[0], hd.air_velocity[0]*1.5)
+	ifnanset(&hd.airguard_velocity[1], hd.air_velocity[1]*0.5)
+	ifnanset(&hd.airguard_velocity[2], hd.air_velocity[2]*1.5)
+	ifnanset(&hd.down_velocity[0], hd.air_velocity[0])
+	ifnanset(&hd.down_velocity[1], hd.air_velocity[1])
+	ifnanset(&hd.down_velocity[2], hd.air_velocity[2])
+
+	ifierrset(&hd.fall_envshake_ampl, -4)
+	if hd.air_animtype == RA_Unknown {
+		hd.air_animtype = hd.animtype
+	}
+	if hd.fall_animtype == RA_Unknown {
+		if hd.air_animtype >= RA_Up {
+			hd.fall_animtype = hd.air_animtype
+		} else {
+			hd.fall_animtype = RA_Back
+		}
+	}
+	if hd.air_type == HT_Unknown {
+		hd.air_type = hd.ground_type
+	}
+
+	ifierrset(&hd.forcestand, Btoi(hd.ground_velocity[1] != 0)) // Having a Y velocity causes ForceStand
+	ifierrset(&hd.forcecrouch, 0)
+
+	ifierrset(&hd.air_fall, Btoi(hd.ground_fall))
+
+	// Cornerpush defaults to same as respective velocities if character has Ikemenversion, instead of Mugen magic numbers
+	if hd.attr&int32(ST_A) != 0 {
+		ifnanset(&hd.ground_cornerpush_veloff, 0)
+	} else {
+		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			ifnanset(&hd.ground_cornerpush_veloff, hd.guard_velocity[0]*1.3)
+		} else {
+			ifnanset(&hd.ground_cornerpush_veloff, hd.ground_velocity[0])
+		}
+	}
+	ifnanset(&hd.air_cornerpush_veloff, hd.ground_cornerpush_veloff)
+	ifnanset(&hd.down_cornerpush_veloff, hd.ground_cornerpush_veloff)
+	ifnanset(&hd.guard_cornerpush_veloff, hd.ground_cornerpush_veloff)
+	ifnanset(&hd.airguard_cornerpush_veloff, hd.ground_cornerpush_veloff)
+
+	// Super attack behaviour
+	if hd.attr&int32(AT_AH) != 0 {
+		ifierrset(&hd.hitgetpower,
+			int32(c.gi().constants["super.attack.lifetopowermul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.hitgivepower,
+			int32(c.gi().constants["super.gethit.lifetopowermul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.dizzypoints,
+			int32(c.gi().constants["super.lifetodizzypointsmul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.guardpoints,
+			int32(c.gi().constants["super.lifetoguardpointsmul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.hitredlife,
+			int32(c.gi().constants["super.lifetoredlifemul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.guardredlife,
+			int32(c.gi().constants["super.lifetoredlifemul"]*float32(hd.guarddamage)))
+	} else {
+		ifierrset(&hd.hitgetpower,
+			int32(c.gi().constants["default.attack.lifetopowermul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.hitgivepower,
+			int32(c.gi().constants["default.gethit.lifetopowermul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.dizzypoints,
+			int32(c.gi().constants["default.lifetodizzypointsmul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.guardpoints,
+			int32(c.gi().constants["default.lifetoguardpointsmul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.hitredlife,
+			int32(c.gi().constants["default.lifetoredlifemul"]*float32(hd.hitdamage)))
+		ifierrset(&hd.guardredlife,
+			int32(c.gi().constants["default.lifetoredlifemul"]*float32(hd.guarddamage)))
+	}
+
+	ifierrset(&hd.guardgetpower, int32(float32(hd.hitgetpower)*0.5))
+	ifierrset(&hd.guardgivepower, int32(float32(hd.hitgivepower)*0.5))
+
+	if !math.IsNaN(float64(hd.snap[0])) {
+		hd.maxdist[0], hd.mindist[0] = hd.snap[0], hd.snap[0]
+	}
+	if !math.IsNaN(float64(hd.snap[1])) {
+		hd.maxdist[1], hd.mindist[1] = hd.snap[1], hd.snap[1]
+	}
+	if !math.IsNaN(float64(hd.snap[2])) {
+		hd.maxdist[2], hd.mindist[2] = hd.snap[2], hd.snap[2]
+	}
+
+	if hd.teamside == -1 {
+		hd.teamside = c.teamside + 1
+	}
+
+	if hd.p2clsncheck < 0 {
+		if hd.reversal_attr != 0 {
+			hd.p2clsncheck = 1
+		} else {
+			hd.p2clsncheck = 2
+		}
+	}
+
+	if hd.unhittabletime[0] == IErr || hd.unhittabletime[1] == IErr {
+		extra := hd.pausetime[0] + 1
+		// In Mugen, Reversaldef makes the target invincible for 1 frame (but not the attacker)
+		if hd.reversal_attr != 0 {
+			hd.unhittabletime[1] = extra
+		}
+		// In Mugen, a throw attribute sets this to 1 for both p1 and p2
+		if hd.attr&int32(AT_AT) != 0 {
+			hd.unhittabletime[0] = extra
+			hd.unhittabletime[1] = extra
+		}
+		// Defaults
+		ifierrset(&hd.unhittabletime[0], -1)
+		ifierrset(&hd.unhittabletime[1], -1)
+	}
+
+	// In Mugen, only projectiles can use air.juggle
+	// Ikemen characters can use it to update their StateDef juggle points
+	if hd.air_juggle == IErr {
+		hd.air_juggle = 0
+	} else if !hd.isprojectile && (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) {
+		c.juggle = hd.air_juggle
+	}
 }
 
 // When a Hitdef connects, its statetype attribute will be updated to the character's current type
@@ -809,10 +1010,6 @@ func (hd *HitDef) testAttr(attr int32) bool {
 func (hd *HitDef) testReversalAttr(attr int32) bool {
 	attr &= hd.reversal_attr
 	return attr&int32(ST_MASK) != 0 && attr&^int32(ST_MASK)&^(-1<<31) != 0
-}
-
-func (hd *HitDef) isProjectile() bool {
-	return hd.projid >= 0
 }
 
 type GetHitVar struct {
@@ -2188,19 +2385,7 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 
 	// Initialize projectile Hitdef. Must be placed after its localscl is determined
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/2087
-	p.hitdef.clear(c, p.localscl)
-	//p.hitdef.isprojectile = true
-	p.hitdef.projid = 0 // Updated later
-	p.hitdef.playerno = sys.workingState.playerNo
-	p.hitdef.guard_dist_x = [2]float32{c.size.proj.attack.dist.width[0], c.size.proj.attack.dist.width[1]}
-	p.hitdef.guard_dist_y = [2]float32{c.size.proj.attack.dist.height[0], c.size.proj.attack.dist.height[1]}
-	p.hitdef.guard_dist_z = [2]float32{c.size.proj.attack.dist.depth[0], c.size.proj.attack.dist.depth[1]}
-
-	// This seems to be necessary for the chainID code. Otherwise we probably wouldn't need to save playerID in HitDefs at all
-	// TODO: Check if this is the only thing that needs to be forced to same as root
-	if c.helperIndex > 0 {
-		p.hitdef.playerid = c.root(false).id
-	}
+	p.hitdef.reset(c, p)
 
 	return p
 }
@@ -3041,7 +3226,7 @@ func (c *Char) init(n int, idx int32) {
 
 func (c *Char) clearState() {
 	c.ss.clear()
-	c.hitdef.clear(c, c.localscl)
+	c.hitdef.reset(c, nil)
 	c.ghv.clear(c)
 	c.ghv.clearOff()
 	c.mhv.clear()
@@ -4165,9 +4350,12 @@ func (c *Char) clearMoveHit() {
 	c.counterHit = false
 }
 
+// Only one place used this
+/*
 func (c *Char) clearHitDef() {
-	c.hitdef.clear(c, c.localscl)
+	c.hitdef.reset(c, nil)
 }
+*/
 
 func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
 	// Get the animation
@@ -6729,10 +6917,6 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 		p.id = 0
 	}
 
-	// Copy projID into Hitdef
-	// TODO: This will not automatically update in case of ModifyProjectile
-	p.hitdef.projid = p.id
-
 	// Set starting position
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
@@ -6805,180 +6989,6 @@ func (c *Char) getProjs(id int32) (projs []*Projectile) {
 	}
 
 	return
-}
-
-func (c *Char) setHitdefDefault(hd *HitDef) {
-	hd.playerno = c.ss.sb.playerNo
-	hd.playerid = c.id
-
-	if !hd.isProjectile() {
-		c.hitdefTargets = c.hitdefTargets[:0]
-	}
-
-	if hd.attr&^int32(ST_MASK) == 0 {
-		hd.attr = 0
-	}
-
-	if hd.hitonce < 0 {
-		if hd.attr&int32(AT_AT) != 0 {
-			hd.hitonce = 1
-		} else {
-			hd.hitonce = 0
-		}
-	}
-
-	// Set a parameter if it's Nan
-	ifnanset := func(dst *float32, src float32) {
-		if math.IsNaN(float64(*dst)) {
-			*dst = src
-		}
-	}
-
-	// Set a parameter if it's IErr
-	ifierrset := func(dst *int32, src int32) bool {
-		if *dst == IErr {
-			*dst = src
-			return true
-		}
-		return false
-	}
-
-	ifierrset(&hd.guard_pausetime[0], hd.pausetime[0])
-	ifierrset(&hd.guard_pausetime[1], hd.pausetime[1])
-
-	// In Mugen this one acts diferent from the documentation
-	// Ikemen characters follow the documentation since it makes more sense
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-		ifierrset(&hd.guard_hittime, hd.ground_slidetime)
-	} else {
-		ifierrset(&hd.guard_hittime, hd.ground_hittime)
-	}
-
-	ifierrset(&hd.guard_slidetime, hd.guard_hittime)
-	ifierrset(&hd.guard_ctrltime, hd.guard_slidetime)
-	ifierrset(&hd.airguard_ctrltime, hd.guard_ctrltime)
-
-	ifnanset(&hd.guard_velocity[0], hd.ground_velocity[0])
-	ifnanset(&hd.guard_velocity[2], hd.ground_velocity[2])
-	ifnanset(&hd.airguard_velocity[0], hd.air_velocity[0]*1.5)
-	ifnanset(&hd.airguard_velocity[1], hd.air_velocity[1]*0.5)
-	ifnanset(&hd.airguard_velocity[2], hd.air_velocity[2]*1.5)
-	ifnanset(&hd.down_velocity[0], hd.air_velocity[0])
-	ifnanset(&hd.down_velocity[1], hd.air_velocity[1])
-	ifnanset(&hd.down_velocity[2], hd.air_velocity[2])
-
-	ifierrset(&hd.fall_envshake_ampl, -4)
-	if hd.air_animtype == RA_Unknown {
-		hd.air_animtype = hd.animtype
-	}
-	if hd.fall_animtype == RA_Unknown {
-		if hd.air_animtype >= RA_Up {
-			hd.fall_animtype = hd.air_animtype
-		} else {
-			hd.fall_animtype = RA_Back
-		}
-	}
-	if hd.air_type == HT_Unknown {
-		hd.air_type = hd.ground_type
-	}
-
-	ifierrset(&hd.forcestand, Btoi(hd.ground_velocity[1] != 0)) // Having a Y velocity causes ForceStand
-	ifierrset(&hd.forcecrouch, 0)
-
-	ifierrset(&hd.air_fall, Btoi(hd.ground_fall))
-
-	// Cornerpush defaults to same as respective velocities if character has Ikemenversion, instead of Mugen magic numbers
-	if hd.attr&int32(ST_A) != 0 {
-		ifnanset(&hd.ground_cornerpush_veloff, 0)
-	} else {
-		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-			ifnanset(&hd.ground_cornerpush_veloff, hd.guard_velocity[0]*1.3)
-		} else {
-			ifnanset(&hd.ground_cornerpush_veloff, hd.ground_velocity[0])
-		}
-	}
-	ifnanset(&hd.air_cornerpush_veloff, hd.ground_cornerpush_veloff)
-	ifnanset(&hd.down_cornerpush_veloff, hd.ground_cornerpush_veloff)
-	ifnanset(&hd.guard_cornerpush_veloff, hd.ground_cornerpush_veloff)
-	ifnanset(&hd.airguard_cornerpush_veloff, hd.ground_cornerpush_veloff)
-
-	// Super attack behaviour
-	if hd.attr&int32(AT_AH) != 0 {
-		ifierrset(&hd.hitgetpower,
-			int32(c.gi().constants["super.attack.lifetopowermul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.hitgivepower,
-			int32(c.gi().constants["super.gethit.lifetopowermul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.dizzypoints,
-			int32(c.gi().constants["super.lifetodizzypointsmul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.guardpoints,
-			int32(c.gi().constants["super.lifetoguardpointsmul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.hitredlife,
-			int32(c.gi().constants["super.lifetoredlifemul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.guardredlife,
-			int32(c.gi().constants["super.lifetoredlifemul"]*float32(hd.guarddamage)))
-	} else {
-		ifierrset(&hd.hitgetpower,
-			int32(c.gi().constants["default.attack.lifetopowermul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.hitgivepower,
-			int32(c.gi().constants["default.gethit.lifetopowermul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.dizzypoints,
-			int32(c.gi().constants["default.lifetodizzypointsmul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.guardpoints,
-			int32(c.gi().constants["default.lifetoguardpointsmul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.hitredlife,
-			int32(c.gi().constants["default.lifetoredlifemul"]*float32(hd.hitdamage)))
-		ifierrset(&hd.guardredlife,
-			int32(c.gi().constants["default.lifetoredlifemul"]*float32(hd.guarddamage)))
-	}
-
-	ifierrset(&hd.guardgetpower, int32(float32(hd.hitgetpower)*0.5))
-	ifierrset(&hd.guardgivepower, int32(float32(hd.hitgivepower)*0.5))
-
-	if !math.IsNaN(float64(hd.snap[0])) {
-		hd.maxdist[0], hd.mindist[0] = hd.snap[0], hd.snap[0]
-	}
-	if !math.IsNaN(float64(hd.snap[1])) {
-		hd.maxdist[1], hd.mindist[1] = hd.snap[1], hd.snap[1]
-	}
-	if !math.IsNaN(float64(hd.snap[2])) {
-		hd.maxdist[2], hd.mindist[2] = hd.snap[2], hd.snap[2]
-	}
-
-	if hd.teamside == -1 {
-		hd.teamside = c.teamside + 1
-	}
-
-	if hd.p2clsncheck < 0 {
-		if hd.reversal_attr != 0 {
-			hd.p2clsncheck = 1
-		} else {
-			hd.p2clsncheck = 2
-		}
-	}
-
-	if hd.unhittabletime[0] == IErr || hd.unhittabletime[1] == IErr {
-		extra := hd.pausetime[0] + 1
-		// In Mugen, Reversaldef makes the target invincible for 1 frame (but not the attacker)
-		if hd.reversal_attr != 0 {
-			hd.unhittabletime[1] = extra
-		}
-		// In Mugen, a throw attribute sets this to 1 for both p1 and p2
-		if hd.attr&int32(AT_AT) != 0 {
-			hd.unhittabletime[0] = extra
-			hd.unhittabletime[1] = extra
-		}
-		// Defaults
-		ifierrset(&hd.unhittabletime[0], -1)
-		ifierrset(&hd.unhittabletime[1], -1)
-	}
-
-	// In Mugen, only projectiles can use air.juggle
-	// Ikemen characters can use it to update their StateDef juggle points
-	if hd.air_juggle == IErr {
-		hd.air_juggle = 0
-	} else if !hd.isProjectile() && (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) {
-		c.juggle = hd.air_juggle
-	}
 }
 
 func (c *Char) baseWidthFront() float32 {
@@ -9814,7 +9824,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	}
 
 	// If using p2stateno but the enemy is already changing states
-	if getter.stchtmp && getter.ss.sb.playerNo != hd.playerno {
+	if getter.stchtmp && getter.ss.sb.playerNo != hd.statePN {
 		if getter.csf(CSF_gethit) {
 			if hd.p2stateno >= 0 {
 				return 0
@@ -9825,7 +9835,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	}
 
 	// If using p1stateno but the char was already hit or is already changing states
-	if hd.p1stateno >= 0 && (c.csf(CSF_gethit) || c.stchtmp && c.ss.sb.playerNo != hd.playerno) {
+	if hd.p1stateno >= 0 && (c.csf(CSF_gethit) || c.stchtmp && c.ss.sb.playerNo != hd.statePN) {
 		return 0
 	}
 
@@ -9968,7 +9978,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			if Abs(hitResult) == 1 && hd.p2stateno >= 0 {
 				pn := getter.playerNo
 				if hd.p2getp1state {
-					pn = hd.playerno
+					pn = hd.statePN
 				}
 				if !hd.KeepState && getter.stateChange1(hd.p2stateno, pn) {
 					// In Mugen, using p2stateno forces movetype to H
@@ -10634,7 +10644,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			getter.p1facing = 0
 		}
 		getter.ghv.facing = hd.p2facing
-		if hd.p1stateno >= 0 && c.stateChange1(hd.p1stateno, hd.playerno) {
+		if hd.p1stateno >= 0 && c.stateChange1(hd.p1stateno, hd.statePN) {
 			c.setCtrl(false)
 		}
 		// Juggle points are subtracted if the target was falling either before or after the hit
@@ -12583,7 +12593,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 				getter.projClsnCheck(p, 1, 2) &&
 				sys.zAxisOverlap(getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl,
 					p.pos[2], p.hitdef.attack_depth[0], p.hitdef.attack_depth[1], p.localscl) {
-				if getter.hitdef.p1stateno >= 0 && getter.stateChange1(getter.hitdef.p1stateno, getter.hitdef.playerno) {
+				if getter.hitdef.p1stateno >= 0 && getter.stateChange1(getter.hitdef.p1stateno, getter.hitdef.statePN) {
 					getter.setCtrl(false)
 				}
 				p.flagProjCancel()

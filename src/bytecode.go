@@ -4373,7 +4373,8 @@ func (sc stateDef) Run(c *Char) {
 			}
 		case stateDef_hitdefpersist:
 			if !exp[0].evalB(c) {
-				c.clearHitDef()
+				//c.clearHitDef()
+				c.hitdef.reset(c, nil)
 				// Reset AttackDist
 				c.hitdef.guard_dist_x = [2]float32{c.size.attack.dist.width[0], c.size.attack.dist.width[1]}
 				c.hitdef.guard_dist_y = [2]float32{c.size.attack.dist.height[0], c.size.attack.dist.height[1]}
@@ -7267,8 +7268,7 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	crun.hitdef.clear(crun, crun.localscl)
-	crun.hitdef.playerno = sys.workingState.playerNo
+	crun.hitdef.reset(crun, nil)
 
 	// Mugen 1.1 behavior if invertblend param is omitted
 	if c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -7293,7 +7293,8 @@ func (sc hitDef) Run(c *Char, _ []int32) bool {
 	//	return false
 	//}
 
-	crun.setHitdefDefault(&crun.hitdef)
+	crun.hitdef.finalizeParams(crun, nil)
+
 	return false
 }
 
@@ -7312,8 +7313,7 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	crun.hitdef.clear(crun, crun.localscl)
-	crun.hitdef.playerno = sys.workingState.playerNo
+	crun.hitdef.reset(crun, nil)
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -7331,7 +7331,7 @@ func (sc reversalDef) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	crun.setHitdefDefault(&crun.hitdef)
+	crun.hitdef.finalizeParams(crun, nil)
 
 	return false
 }
@@ -7582,7 +7582,7 @@ func (sc projectile) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	crun.setHitdefDefault(&p.hitdef)
+	p.hitdef.finalizeParams(crun, p)
 
 	if p.hitanim == -1 {
 		p.hitanim_ffx = p.anim_ffx

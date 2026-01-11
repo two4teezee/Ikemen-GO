@@ -3363,13 +3363,13 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		local bgTable = isActive and sec.menu.item.active.bg or sec.menu.item.bg
 		local params = bgTable[itemData.paramname] or bgTable.default
 		-- draw background
-		main.f_animPosDraw(
-			params.AnimData,
-			-- TODO: pre 1.0 skipped spacing calc for bg elements, consider adding it
-			-- posX, posY
-			offx,
-			offy
-		)
+		local bgPosX = offx 
+		local bgPosY = offy
+		if params.spacing[1] ~= 0 or params.spacing[2] ~= 0 then
+			bgPosX = bgPosY + (i - 1) * params.spacing[1]
+			bgPosY = bgPosY + (i - 1) * params.spacing[2] - moveTxt
+		end
+		main.f_animPosDraw(params.AnimData, bgPosX, bgPosY)
 		-- text sprite for label
 		local labelSprite
 		if itemData.selected then

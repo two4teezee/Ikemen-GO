@@ -128,22 +128,13 @@ type AnimationProperties struct {
 	AnimData    *Anim
 }
 
+type BgAnimationProperties struct {
+	AnimationProperties
+	Spacing [2]int32 `ini:"spacing"`
+}
+
 type AnimationTextProperties struct {
-	Anim           int32      `ini:"anim" default:"-1"`
-	Spr            [2]int32   `ini:"spr" default:"-1,0"`
-	Offset         [2]float32 `ini:"offset"`
-	Facing         int32      `ini:"facing" default:"1"`
-	Scale          [2]float32 `ini:"scale" default:"1,1"`
-	Xshear         float32    `ini:"xshear"`
-	Angle          float32    `ini:"angle"`
-	XAngle         float32    `ini:"xangle"`
-	YAngle         float32    `ini:"yangle"`
-	Projection     string     `ini:"projection" default:"orthographic"`
-	Focallength    float32    `ini:"focallength" default:"2048"`
-	Layerno        int16      `ini:"layerno" default:"1"`
-	Window         [4]int32   `ini:"window"`
-	Localcoord     [2]int32   `ini:"localcoord"`
-	AnimData       *Anim
+	AnimationProperties
 	Font           [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
 	Text           string   `ini:"text"`
 	TextSpriteData *TextSprite
@@ -294,10 +285,10 @@ type MenuProperties struct {
 		Uppercase bool                            `ini:"uppercase"`
 		Spacing   [2]float32                      `ini:"spacing"`
 		Tween     TweenProperties                 `ini:"tween"`
-		Bg        map[string]*AnimationProperties `ini:"bg" flatten:"true"`
+		Bg        map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		Active    struct {
 			TextProperties
-			Bg map[string]*AnimationProperties `ini:"bg" flatten:"true"`
+			Bg map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		} `ini:"active"`
 		Selected struct { // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Attract Mode]
 			TextProperties
@@ -455,9 +446,9 @@ type PlayerSelectProperties struct {
 	} `ini:"select"`
 	TeamMenu struct { // only used by P1-P2
 		Pos    [2]float32                      `ini:"pos"`
-		Bg     map[string]*AnimationProperties `ini:"bg" flatten:"true"`
+		Bg     map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		Active struct {
-			Bg map[string]*AnimationProperties `ini:"bg" flatten:"true"`
+			Bg map[string]*BgAnimationProperties `ini:"bg" flatten:"true"`
 		} `ini:"active"`
 		SelfTitle struct {
 			AnimationTextProperties

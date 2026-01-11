@@ -539,9 +539,8 @@ type PlayerSelectProperties struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"value"`
 		Preview struct {
+			AnimationCharPreloadProperties
 			Snd  [2]int32 `ini:"snd" default:"-1,0"`
-			Anim int32    `ini:"anim" default:"-1" preload:"char"`
-			Spr  [2]int32 `ini:"spr" default:"-1,0" preload:"char"`
 		} `ini:"preview"`
 		Number TextProperties      `ini:"number"`
 		Text   TextProperties      `ini:"text"`
@@ -2079,6 +2078,8 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Select Info", SrcPrefix: "p1.face2.", DstSec: "Select Info", DstPrefix: "p1.face2.done."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.face.", DstSec: "Select Info", DstPrefix: "p2.face.done."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.face2.", DstSec: "Select Info", DstPrefix: "p2.face2.done."},
+		{SrcSec: "Select Info", SrcPrefix: "p1.face.", DstSec: "Select Info", DstPrefix: "p1.palmenu.preview."},
+		{SrcSec: "Select Info", SrcPrefix: "p2.face.", DstSec: "Select Info", DstPrefix: "p2.palmenu.preview."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p3."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p5."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p7."},

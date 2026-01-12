@@ -130,7 +130,7 @@ type AnimationProperties struct {
 
 type BgAnimationProperties struct {
 	AnimationProperties
-	Spacing [2]int32 `ini:"spacing"`
+	Spacing [2]float32 `ini:"spacing"`
 }
 
 type AnimationTextProperties struct {

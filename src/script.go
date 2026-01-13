@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -2494,8 +2493,8 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "getCharRandomPalette", func(*lua.LState) int {
 		c := sys.sel.GetChar(int(numArg(l, 1)))
 		if len(c.pal) > 0 {
-			n := rand.Int() % len(c.pal)
-			l.Push(lua.LNumber(c.pal[n]))
+			idx := int(RandI(0, int32(len(c.pal)-1)))
+			l.Push(lua.LNumber(c.pal[idx]))
 		} else {
 			l.Push(lua.LNumber(1))
 		}

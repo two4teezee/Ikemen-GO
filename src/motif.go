@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/fs"
 	"math"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -3883,7 +3882,8 @@ func (di *MotifDialogue) getDialogueLines() ([]string, int, error) {
 			}
 		}
 		if len(validPlayers) > 0 {
-			pn = validPlayers[rand.Int()%len(validPlayers)]
+			idx := int(RandI(0, int32(len(validPlayers)-1)))
+			pn = validPlayers[idx]
 		}
 	}
 	lines := []string{}
@@ -5554,7 +5554,8 @@ func (vi *MotifVictory) getVictoryQuote(m *Motif, p *Char) string {
 
 		// Select a random available quote if any exist
 		if len(availableQuotes) > 0 {
-			quoteIndex = availableQuotes[rand.Intn(len(availableQuotes))]
+			idx := int(RandI(0, int32(len(availableQuotes)-1)))
+			quoteIndex = availableQuotes[idx]
 		} else {
 			quoteIndex = -1
 		}

@@ -255,6 +255,8 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nopowerbardisplay)))
 			case "noredlifedamage":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noredlifedamage)))
+			case "noscore":
+				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_noscore)))
 			case "nostand":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nostand)))
 			case "nostunbardisplay":

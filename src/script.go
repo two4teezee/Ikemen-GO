@@ -2160,6 +2160,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.debugRef = [2]int{}
 			sys.roundsExisted = [2]int32{}
 			sys.matchWins = [2]int32{}
+			sys.scoreRounds = [][2]float32{}
 
 			// Reset lifebars
 			for i := range sys.lifebar.wi {
@@ -2330,7 +2331,7 @@ func systemScriptInit(l *lua.LState) {
 				sys.timerStart = 0
 				sys.timerRounds = []int32{}
 				sys.scoreStart = [2]float32{}
-				sys.scoreRounds = [][2]float32{}
+				//sys.scoreRounds = [][2]float32{}
 				sys.timerCount = []int32{}
 				sys.sel.cdefOverwrite = make(map[int]string)
 				sys.sel.sdefOverwrite = ""
@@ -7758,6 +7759,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nowinicondisplay)))
 		case "noredlifedamage":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_noredlifedamage)))
+		case "noscore":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_noscore)))
 		case "nostand":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nostand)))
 		case "noturntarget":

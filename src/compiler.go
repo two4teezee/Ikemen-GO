@@ -4694,6 +4694,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nopowerbardisplay))
 		case "noredlifedamage":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noredlifedamage))
+		case "noscore":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_noscore))
 		case "nostand":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nostand))
 		case "nostunbardisplay":

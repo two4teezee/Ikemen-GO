@@ -135,7 +135,7 @@ type backGround struct {
 	palfx                 *PalFX
 	anim                  *Animation
 	bga                   bgAction
-	video                 bgVideo
+	video                 *bgVideo
 	id                    int32
 	start                 [2]float32
 	xofs                  float32
@@ -212,6 +212,7 @@ func readBackGround(is IniSection, link *backGround,
 		bg._type = BG_Parallax
 	case 'V', 'v':
 		bg._type = BG_Video
+		bg.video = &bgVideo{}
 	case 'D', 'd':
 		bg._type = BG_Dummy
 	default:
@@ -222,6 +223,9 @@ func readBackGround(is IniSection, link *backGround,
 	bg.layerno += startlayer
 
 	if bg._type == BG_Video {
+		if bg.video == nil {
+			bg.video = &bgVideo{}
+		}
 		path := is["path"]
 		LoadFile(&path, []string{def, "", sys.motif.Def, "data/", "video/"}, func(filename string) error {
 			path = filename
@@ -677,6 +681,9 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	// Render background if it's within the screen area
 	if rect[0] < sys.scrrect[2] && rect[1] < sys.scrrect[3] && rect[0]+rect[2] > 0 && rect[1]+rect[3] > 0 {
 		if bg._type == BG_Video {
+			if bg.video == nil {
+				return
+			}
 			bg.video.Tick()
 			if bg.video.texture == nil {
 				return

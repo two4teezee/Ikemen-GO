@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -1911,11 +1912,17 @@ type NetConnection struct {
 	recording    *os.File
 	host         bool
 	preMatchTime int32
+	closing      chan struct{}
+	closeOnce    sync.Once
 }
 
 func NewNetConnection() *NetConnection {
-	nc := &NetConnection{st: NS_Stop,
-		sendEnd: make(chan bool, 1), recvEnd: make(chan bool, 1)}
+	nc := &NetConnection{
+		st:      NS_Stop,
+		sendEnd: make(chan bool, 1),
+		recvEnd: make(chan bool, 1),
+		closing: make(chan struct{}),
+	}
 	nc.sendEnd <- true
 	nc.recvEnd <- true
 
@@ -1926,7 +1933,32 @@ func NewNetConnection() *NetConnection {
 	return nc
 }
 
+func (nc *NetConnection) isClosing() bool {
+	if nc == nil || nc.closing == nil {
+		return true
+	}
+	select {
+	case <-nc.closing:
+		return true
+	default:
+		return false
+	}
+}
+
 func (nc *NetConnection) Close() {
+	if nc == nil {
+		return
+	}
+	// Ensure connect/accept goroutines stop retrying/handshaking.
+	nc.closeOnce.Do(func() {
+		if nc.closing != nil {
+			close(nc.closing)
+		}
+	})
+	// Ensure send/recv goroutines can exit even if they have nothing to write.
+	if nc.st == NS_Playing {
+		nc.st = NS_End
+	}
 	if nc.ln != nil {
 		nc.ln.Close()
 		nc.ln = nil
@@ -1984,20 +2016,32 @@ func (nc *NetConnection) Accept(port string) error {
 	nc.conn = nil // Make sure this is a new connection
 	nc.locIn, nc.remIn = nc.GetHostGuestRemap()
 
+	lnLocal := nc.ln
 	go func() {
-		defer nc.ln.Close()
+		defer lnLocal.Close()
 
-		tempConn, err := nc.ln.AcceptTCP()
+		tempConn, err := lnLocal.AcceptTCP()
 		if err != nil {
 			return
 		}
+
+		if nc.isClosing() {
+			tempConn.Close()
+			return
+		}
+
+		// Don't allow the handshake to block forever (important when shutting down).
+		_ = tempConn.SetDeadline(time.Now().Add(2 * time.Second))
 
 		if sys.cfg.Netplay.RollbackNetcode {
 			sys.rollback.session.remoteIp = tempConn.RemoteAddr().(*net.TCPAddr).IP.String()
 		}
 
 		//Send handshake
-		tempConn.Write([]byte("IKEMENGO"))
+		if _, err := tempConn.Write([]byte("IKEMENGO")); err != nil {
+			tempConn.Close()
+			return
+		}
 
 		// Wait for client acknowledgment
 		ack := make([]byte, 8) // Length of our "password"
@@ -2007,7 +2051,14 @@ func (nc *NetConnection) Accept(port string) error {
 			return
 		}
 
+		// Handshake complete; clear deadlines for normal play.
+		_ = tempConn.SetDeadline(time.Time{})
+
 		// Handshake complete. Make temp connection permanent
+		if nc.isClosing() {
+			tempConn.Close()
+			return
+		}
 		nc.conn = tempConn
 	}()
 
@@ -2020,14 +2071,25 @@ func (nc *NetConnection) Connect(server, port string) {
 	nc.remIn, nc.locIn = nc.GetHostGuestRemap()
 
 	go func() {
+		d := net.Dialer{Timeout: 1 * time.Second}
 		for {
-			tempConn, err := net.Dial("tcp", server+":"+port)
+			if nc.isClosing() {
+				return
+			}
+			tempConn, err := d.Dial("tcp", server+":"+port)
 			if err != nil {
 				time.Sleep(100 * time.Millisecond)
 				continue
 			}
 
 			tcpConn := tempConn.(*net.TCPConn)
+			if nc.isClosing() {
+				tcpConn.Close()
+				return
+			}
+
+			// Don't allow the handshake to block forever (important when shutting down).
+			_ = tcpConn.SetDeadline(time.Now().Add(2 * time.Second))
 
 			// Wait for host handshake
 			buf := make([]byte, 8)
@@ -2039,9 +2101,20 @@ func (nc *NetConnection) Connect(server, port string) {
 			}
 
 			// Send acknowledgment
-			tcpConn.Write([]byte("IKEMENGO"))
+			if _, err := tcpConn.Write([]byte("IKEMENGO")); err != nil {
+				tcpConn.Close()
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+
+			// Handshake complete; clear deadlines for normal play.
+			_ = tcpConn.SetDeadline(time.Time{})
 
 			// Handshake complete. Make temp connection permanent
+			if nc.isClosing() {
+				tcpConn.Close()
+				return
+			}
 			nc.conn = tcpConn
 			return
 		}

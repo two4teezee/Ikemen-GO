@@ -220,17 +220,15 @@ function main.f_input(p, ...)
 					end
 
 					-- Handle these exceptions to avoid double input errors
-					if (btn == "$D" or btn == "LS_Y+") and (main.lastAxis == "LS_Y+" or main.lastAxis == "$D") then return false end
-					if (btn == "$U" or btn == "LS_Y-") and (main.lastAxis == "LS_Y-" or main.lastAxis == "$U") then return false end
-					if (btn == "$B" or btn == "LS_X-") and (main.lastAxis == "LS_X-" or main.lastAxis == "$B") then return false end
-					if (btn == "$F" or btn == "LS_X+") and (main.lastAxis == "LS_X+" or main.lastAxis == "$F") then return false end
+					if (btn == "$D" and main.lastAxis == "LS_Y+") or (btn == "LS_Y+" and main.lastAxis == "$D") then return false end
+					if (btn == "$U" and main.lastAxis == "LS_Y-") or (btn == "LS_Y-" and main.lastAxis == "$U")  then return false end
+					if (btn == "$B" and main.lastAxis == "LS_X-") or (btn == "LS_X-" and main.lastAxis == "$B") then return false end
+					if (btn == "$F" and main.lastAxis == "LS_X+") or (btn == "LS_X+" and main.lastAxis == "$F") then return false end
 
 					if commandGetState(main.t_cmd[pn], btn) then
 						main.playerInput = pn
 						main.analogDeadTime = gameOption('Input.AnalogDeadTime')
-						if (btn == "$U" or btn == "LS_Y-" or btn == "$D" or btn == "LS_Y+" or btn == "$B" or btn == "LS_X-" or btn == "$F" or btn == "LS_X+") then
-							main.lastAxis = btn -- need this too
-						end
+						main.lastAxis = btn -- need this too
 						return true
 					elseif main.isJoystickAxis[btn] then
 						local key = getJoystickKey(pn - 1)

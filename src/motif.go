@@ -1448,6 +1448,11 @@ func applyCustomDefaults(m *Motif, iniFile *ini.File) {
 		_ = SetValue(m, "title_info.footer.version.offset", fmt.Sprintf("%d, %d", x, y))
 	}
 
+	// footer.version.text
+	if !hasUserKey(iniFile, sec, "footer.version.text") {
+		_ = SetValue(m, "title_info.footer.version.text", fmt.Sprintf("%s - %s", Version, BuildTime))
+	}
+
 	// footer.overlay.window = (0, H - 7, W, H)
 	if !hasUserKey(iniFile, sec, "footer.overlay.window") {
 		x1, y1, x2, y2 := 0, h-7, w, h

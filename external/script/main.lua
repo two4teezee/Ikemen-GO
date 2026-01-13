@@ -967,8 +967,6 @@ main.t_unlockLua = {chars = {}, stages = {}, modes = {}}
 motif = loadMotif()
 if gameOption('Debug.DumpLuaTables') then main.f_printTable(motif, "debug/loadMotif.txt") end
 
-textImgSetText(motif.title_info.footer.version.TextSpriteData, version())
-
 loadLifebar()
 main.f_loadingRefresh()
 main.timeFramesPerCount = fightscreenvar("time.framespercount")

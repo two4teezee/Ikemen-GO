@@ -1821,7 +1821,7 @@ func systemScriptInit(l *lua.LState) {
 			}
 		}
 		if sys.netConnection != nil {
-			sys.netConnection.Close()
+			sys.netConnection.end()
 			sys.netConnection = nil
 		}
 		return 0

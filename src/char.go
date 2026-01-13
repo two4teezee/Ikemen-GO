@@ -100,6 +100,7 @@ const (
 	ASF_nonamedisplay
 	ASF_nopowerbardisplay
 	ASF_noredlifedamage
+	ASF_noscore
 	ASF_nostand
 	ASF_nostunbardisplay
 	ASF_noturntarget
@@ -7979,7 +7980,7 @@ func (c *Char) score() float32 {
 }
 
 func (c *Char) scoreAdd(val float32) {
-	if val == 0 || c.teamside == -1 {
+	if val == 0 || c.teamside == -1 || c.asf(ASF_noscore) {
 		return
 	}
 	sys.lifebar.sc[c.teamside].scorePoints += val
@@ -10410,12 +10411,12 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				sys.lifebar.co[c.teamside].combo += hd.numhits
 			}
 		}
-		if !math.IsNaN(float64(hd.score[0])) {
+		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
 			c.scoreAdd(hd.score[0])
 			getter.ghv.score = hd.score[0] // TODO: The gethitvar refers to the enemy's score, which is counterintuitive
 		}
 		if getter.isPlayerType() {
-			if !math.IsNaN(float64(hd.score[1])) {
+			if !math.IsNaN(float64(hd.score[1])) && !getter.asf(ASF_noscore) {
 				getter.scoreAdd(hd.score[1])
 			}
 		}

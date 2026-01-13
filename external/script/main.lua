@@ -426,11 +426,16 @@ end
 -- * start.f_selectScreen: start.lua 'f_selectScreen' function (pre layerno=1)
 -- * start.f_selectVersus: start.lua 'f_selectVersus' function (pre layerno=1)
 -- * start.f_selectReset: start.lua 'f_selectReset' function (before returning)
--- * game.result: hook executed during match on win/results screen
--- * game.victory: hook executed during match on victory screen
--- * game.continue: hook executed during match on continue screen
--- * game.hiscore: hook executed during match on hiscore screen
--- * game.challenger: hook executed during match on challenger screen
+-- * game.result_init: hook executed on the 1st frame of win/results screen
+-- * game.result: hook executed from 2nd frame onward on win/results screen
+-- * game.victory_init: hook executed on the 1st frame of victory screen
+-- * game.victory: hook executed from 2nd frame onward on victory screen
+-- * game.continue_init: hook executed on the 1st frame of continue screen
+-- * game.continue: hook executed at the 2nd and later frames of continue screen
+-- * game.hiscore_init: hook executed on the 1st frame of hiscore screen
+-- * game.hiscore: hook executed from 2nd frame onward on hiscore screen
+-- * game.challenger_init: hook executed on the 1st frame of challenger screen
+-- * game.challenger: hook executed from 2nd frame onward on challenger screen
 -- More entry points may be added in future - let us know if your external
 -- module needs to hook code in place where it's not allowed yet.
 

@@ -20,9 +20,11 @@ pacman -S --noconfirm \
   mingw-w64-x86_64-tools-git mingw-w64-x86_64-libxmp \
   mingw-w64-x86_64-SDL2
 ```
+
 > On MSYS2 we auto-fix "trimmed" Go by setting `GOROOT=/mingw64/lib/go` if needed.
 
 ### Build 64-bit (Ikemen_GO.exe)
+
 ```bash
 git clone https://github.com/ikemen-engine/Ikemen-GO.git
 cd Ikemen-GO
@@ -33,8 +35,10 @@ make Ikemen_GO.exe
 ```
 
 ### Build 32-bit (Ikemen_GO_x86.exe)
+
 > Requires 32-bit MinGW cross tools in addition to the above:
 > `pacman -S --noconfirm mingw-w64-i686-toolchain mingw-w64-i686-pkg-config mingw-w64-i686-nasm mingw-w64-i686-yasm mingw-w64-i686-libxmp mingw-w64-i686-SDL2`
+
 ```bash
 # build.sh
 ./build/build.sh Win32
@@ -43,13 +47,16 @@ make Ikemen_GO_x86.exe
 ```
 
 ### Run (Windows)
+
 ```bash
 ./Ikemen_GO.exe          # 64-bit
 ./Ikemen_GO_x86.exe      # 32-bit
 ```
 
 ### Use system FFmpeg instead (optional)
+
 Install `mingw-w64-x86_64-ffmpeg` (and/or i686 variant for 32-bit), then:
+
 ```bash
 BUILD_FFMPEG=no ./build/build.sh Win64   # or Win32
 ```
@@ -59,6 +66,7 @@ BUILD_FFMPEG=no ./build/build.sh Win64   # or Win32
 ## Linux
 
 ### Dependencies (Debian/Ubuntu)
+
 ```bash
 sudo apt update && sudo apt install -y \
   golang-go git pkg-config make nasm yasm build-essential \
@@ -66,6 +74,7 @@ sudo apt update && sudo apt install -y \
 ```
 
 ### Build x86-64 (Ikemen_GO_Linux)
+
 ```bash
 git clone https://github.com/ikemen-engine/Ikemen-GO.git
 cd Ikemen-GO
@@ -76,25 +85,31 @@ make Ikemen_GO_Linux
 ```
 
 ### Build ARM64 on an ARM host (Ikemen_GO_LinuxARM)
+
 > On an **ARM64 (aarch64) machine**, the same dependencies apply.
+
 ```bash
 # build.sh
 ./build/build.sh LinuxARM
 # or make
 make Ikemen_GO_LinuxARM
 ```
+
 > Cross-compiling x86→ARM with CGO/FFmpeg requires an ARM cross toolchain and is not covered here.
 
 ### Run (Linux)
+
 ```bash
 ./Ikemen_GO_Linux        # x86-64
 ./Ikemen_GO_LinuxARM     # ARM64
 # If you need a GL fallback on some drivers:
 MESA_GL_VERSION_OVERRIDE=2.1 ./Ikemen_GO_Linux
 ```
+
 You can also double-click **`build/Ikemen_GO.command`** on Linux.
 
 ### Use system FFmpeg instead (optional)
+
 ```bash
 sudo apt install -y ffmpeg libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libswresample-dev libavfilter-dev
 BUILD_FFMPEG=no ./build/build.sh Linux      # or LinuxARM
@@ -105,12 +120,14 @@ BUILD_FFMPEG=no ./build/build.sh Linux      # or LinuxARM
 ## macOS (Apple Silicon by default; Intel supported)
 
 ### Dependencies (Homebrew)
+
 ```bash
 brew update && brew install git go pkg-config nasm libxmp sdl2 molten-vk
 # Optional: brew install yasm
 ```
 
 ### Build (Apple Silicon default)
+
 ```bash
 git clone https://github.com/ikemen-engine/Ikemen-GO.git
 cd Ikemen-GO
@@ -121,6 +138,7 @@ make Ikemen_GO_MacOSARM
 ```
 
 ### Build (Intel)
+
 ```bash
 ./build/build.sh MacOS
 # or
@@ -128,19 +146,23 @@ make Ikemen_GO_MacOS
 ```
 
 ### App bundle (optional)
+
 ```bash
 make appbundle BINNAME=bin/Ikemen_GO_MacOSARM   # or BINNAME=bin/Ikemen_GO_MacOS
 open I.K.E.M.E.N-Go.app
 ```
+
 You can also double-click **`build/Ikemen_GO.command`**; it starts the bundle or the binary.
 
 ### Run (raw binary)
+
 ```bash
 ./bin/Ikemen_GO_MacOSARM   # Apple Silicon
 ./bin/Ikemen_GO_MacOS      # Intel
 ```
 
 ### Use system FFmpeg instead (optional)
+
 ```bash
 brew install ffmpeg
 BUILD_FFMPEG=no ./build/build.sh MacOSARM   # or MacOS
@@ -148,47 +170,69 @@ BUILD_FFMPEG=no ./build/build.sh MacOSARM   # or MacOS
 
 ---
 
-## Android (from Linux or macOS host)
-Android NDK r27d is required. ***YOU MUST SET THE `ANDROID_NDK_HOME` ENVIRONMENT VARIABLE PRIOR TO BUILDING TO YOUR NDK PATH OR THIS WILL NOT WORK!!!***
+## Android (APK via Docker)
+
+This builds the engine **and** produces a ready-to-install **APK** inside Docker. No Android Studio required.
+
+### Requirements
+
+* Docker (Docker Desktop on Windows/macOS, or Docker Engine on Linux)
+
+### Build (from repo root)
+
+#### Option A: one-liner helper script
 
 ```bash
-export ANDROID_NDK_HOME=/path/to/androidndk
-./build/build.sh android
+./build/build_android.sh
 ```
 
-This will create the necessary .so files to place in `src/main/jniLibs/arm64-v8a` in both the `lib/` folder and `bin/libmain.so` file.
-To run it on Android, an APK must be created.
+This script wraps the docker compose commands and runs the Android build inside the container.
 
-### Creating the APK
-Android Studio is required to make the APK.
-1. Run `git clone https://github.com/Jesuszilla/ikemen-droid.git`
-2. Place all the lib .so files from the `lib/` folder and the `build/libmain.so` into `src/main/jniLibs/arm64-v8a/` folder inside the repository.
-3. Place all the engine assets in `src/main/assets` exactly as defined in `src/main/assets/manifest.txt`. You may wish to generate your own manifest.txt for your own game files, but a default is included in the above repository.
-4. Open a terminal to the root of the ikemen-droid project in Android Studio.
-5. Run `./gradlew clean assembleDebug`
-6. The APK is now in `app/build/outputs/apk/debug/app-debug.apk`.
-7. (Optional) Install to your Android device by running the command `adb install -r app/build/outputs/apk/app-debug.apk`.
+### Option B: run Docker Compose directly
 
-After running step 7, you can select I.K.E.M.E.N-Go from the Android list of apps as usual, or you could run:
 ```bash
-adb shell am start -n org.ikemen_engine.ikemen_go/org.libsdl.app.SDLActivity`
+docker compose -f build/docker/android/docker-compose.yml build
+docker compose -f build/docker/android/docker-compose.yml run --rm android-build
 ```
 
-### Adding additional content (Android)
-The default assets should be included in the APK and extracted on first run. For additional content, you can either hook up your Android device in File Transfer mode, or you could run:
+### Outputs
+
+After a successful run, these will exist in your repo:
+
+* `bin/ikemen-go.apk` (the APK)
+* `bin/libmain.so` and `bin/libmain.h` (engine shared library + header)
+* `lib/*.so` (Android runtime dependencies: SDL2, FFmpeg libs, libxmp, etc.)
+* `build/android-apk/ikemen-droid` (cloned Android wrapper project)
+
+### Configuration knobs (optional)
+
+You can override build metadata and wrapper source:
+
 ```bash
-adb push /path/to/src/file /sdcard/Android/data/org.ikemen_engine.ikemen_go/files/path/to/dst/file
+APP_VERSION=my-build APP_BUILDTIME=2026.01.13 \
+ANDROID_APK_REPO=https://github.com/Jesuszilla/ikemen-droid.git \
+ANDROID_APK_REF=main \
+docker compose -f build/docker/android/docker-compose.yml run --rm android-build
 ```
 
-e.g. to push a new options.lua from the `assets` folder from the root of the Android project, you'd do:
+To skip APK packaging (only build `.so` + deps):
+
 ```bash
-adb push app/src/main/assets/external/script/options.lua /sdcard/Android/data/org.ikemen_engine.ikemen_go/files/external/script/options.lua
+BUILD_ANDROID_APK=0 docker compose -f build/docker/android/docker-compose.yml run --rm android-build
 ```
 
+### Customizing the Android wrapper (package name, manifest, icons, etc.)
+
+The APK is built from the `ikemen-droid` wrapper project, which is cloned into:
+`build/android-apk/ikemen-droid`
+
+If you need changes in that wrapper, fork it and point the build to your fork via:
+`ANDROID_APK_REPO` and `ANDROID_APK_REF` (shown above).
 
 ---
 
-## Assets required to run
+## Assets required to run (desktop builds)
+
 Place these folders **next to the executable or app bundle**:
 `data`, `external`, `font`, and a screenpack (see our Elecbyte screenpack repo).
 The release CI bundles these automatically.
@@ -196,17 +240,19 @@ The release CI bundles these automatically.
 ---
 
 ## Notes & licensing
-- The minimal FFmpeg we build matches CI: shared libs only; `file` protocol; Matroska/WebM demuxers;
+
+* The minimal FFmpeg we build matches CI: shared libs only; `file` protocol; Matroska/WebM demuxers;
   VP9/Opus/Vorbis decoders and parsers; no FFmpeg CLI tools.
-- FFmpeg is used under **LGPL v2.1**; releases attach the corresponding source snapshot.
-- Ikemen GO sources are MIT; bundled screenpack assets have their own licenses.
+* FFmpeg is used under **LGPL v2.1**; releases attach the corresponding source snapshot.
+* Ikemen GO sources are MIT; bundled screenpack assets have their own licenses.
 
 ---
 
 ## Troubleshooting
-- **Missing tools**: re-run the dependency commands for your OS/arch.
-- **FFmpeg link errors**: use the default `build.sh` (auto-builds FFmpeg), or install system FFmpeg dev packages and run with `BUILD_FFMPEG=no`.
-- **libxmp not found**: install libxmp-dev (Linux), libxmp (macOS/Homebrew), or the MSYS2 package mingw-w64-*-libxmp on Windows.
-- **SDL2 not found / pkg-config errors**: if you see an error mentioning that the sdl2 package is missing from the pkg-config search path, install SDL2 development files.
-- **Windows DLLs**: verify `.\lib\*.dll` exists (local build places FFmpeg DLLs there).
-- **Linux GL compatibility**: try `MESA_GL_VERSION_OVERRIDE=2.1` for a fallback.
+
+* **Missing tools**: re-run the dependency commands for your OS/arch.
+* **FFmpeg link errors**: use the default `build.sh` (auto-builds FFmpeg), or install system FFmpeg dev packages and run with `BUILD_FFMPEG=no`.
+* **libxmp not found**: install libxmp-dev (Linux), libxmp (macOS/Homebrew), or the MSYS2 package mingw-w64-*-libxmp on Windows.
+* **SDL2 not found / pkg-config errors**: if you see an error mentioning that the sdl2 package is missing from the pkg-config search path, install SDL2 development files.
+* **Windows DLLs**: verify `.\lib\*.dll` exists (local build places FFmpeg DLLs there).
+* **Linux GL compatibility**: try `MESA_GL_VERSION_OVERRIDE=2.1` for a fallback.

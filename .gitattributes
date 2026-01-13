@@ -7,6 +7,8 @@
 *.mod text eol=lf
 *.sum text eol=lf
 *.ini text eol=lf
+*.yml text eol=lf
+Dockerfile text eol=lf
 
 # Syntax
 *.def linguist-language=ini

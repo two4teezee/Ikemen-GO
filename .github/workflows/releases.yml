@@ -1,6 +1,6 @@
 on:
   push:
-    branches: [ develop ]
+    branches: [ develop, ci-test ]
   workflow_dispatch:
     inputs:
       tag:
@@ -28,6 +28,11 @@ on:
         type: string
         required: false
         default: ''
+      buildAndroidApk:
+        description: 'Build Android APK.'
+        type: boolean
+        required: false
+        default: true
 
 permissions:
   checks: write
@@ -93,6 +98,14 @@ jobs:
             glibc: ''
             target: '10.7'
             build_target: MacOSARM # MacOS
+          - runner_os: android
+            os: ubuntu-22.04
+            goos: android
+            goarch: arm64
+            bin: ikemen-go.apk
+            glibc: ''
+            target: ''
+            build_target: Android
     runs-on: ${{ matrix.cfg.os }}
     steps:
       - uses: actions/checkout@v6
@@ -130,6 +143,7 @@ jobs:
           vulkan-components: Vulkan-Headers, Vulkan-Loader
           vulkan-use-cache: true
       - name: Install dependencies
+        if: ${{ matrix.cfg.runner_os != 'android' }}
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
@@ -149,8 +163,78 @@ jobs:
             )
           fi
 
+      - name: Generate LICENSES.txt
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # One LICENSES.txt for ALL platforms (including Android).
+          # Must exist BEFORE Android Docker Compose runs so it is visible in the bind-mounted workspace.
+          FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
+
+          SCREENPACK_LIC_MAIN="https://raw.githubusercontent.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack/main/LICENCE.txt"
+          SCREENPACK_LIC_MASTER="https://raw.githubusercontent.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack/master/LICENCE.txt"
+
+          FFMPEG_LGPL="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/COPYING.LGPLv2.1"
+          FFMPEG_LICENSE_MD="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/LICENSE.md"
+          FFMPEG_CREDITS="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/CREDITS"
+
+          LIBXMP_README="https://raw.githubusercontent.com/libxmp/libxmp/master/README"
+          SDL2_LICENSE="https://raw.githubusercontent.com/libsdl-org/SDL/main/LICENSE.txt"
+
+          {
+            echo "============================="
+            echo " Ikemen GO - LICENSES.txt"
+            echo "============================="
+            echo
+            echo "Section 1: Ikemen GO (MIT)"
+            echo "--------------------------"
+            cat LICENCE.txt
+            echo
+            echo "Section 2: Bundled Assets (Creative Commons)"
+            echo "-------------------------------------------"
+            echo "Screenpack license from Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt:"
+            echo
+            ( curl -fsSL "$SCREENPACK_LIC_MAIN" || curl -fsSL "$SCREENPACK_LIC_MASTER" )
+            echo
+            echo "Section 3: FFmpeg (LGPL v2.1) and Notices"
+            echo "-----------------------------------------"
+            echo "This program dynamically links FFmpeg under the GNU Lesser General Public License v2.1."
+            echo "The exact corresponding FFmpeg source is attached to the release page as:"
+            echo "  src_ffmpeg.tar.gz"
+            echo
+            echo "3.1 Full LGPL v2.1 license text:"
+            echo "--------------------------------"
+            curl -fsSL "$FFMPEG_LGPL"
+            echo
+            echo "3.2 FFmpeg LICENSE.md:"
+            echo "----------------------"
+            curl -fsSL "$FFMPEG_LICENSE_MD"
+            echo
+            echo "3.3 FFmpeg CREDITS:"
+            echo "-------------------"
+            curl -fsSL "$FFMPEG_CREDITS"
+            echo
+            echo "Section 4: libxmp and Notices"
+            echo "-----------------------------"
+            echo "Upstream: https://github.com/libxmp/libxmp"
+            echo
+            echo "libxmp README (contains license info):"
+            echo "-------------------------------------"
+            curl -fsSL "$LIBXMP_README"
+            echo
+            echo "Section 5: SDL2 and Notices"
+            echo "---------------------------"
+            echo "Upstream: https://github.com/libsdl-org/SDL"
+            echo
+            echo "SDL2 LICENSE (zlib):"
+            echo "--------------------"
+            curl -fsSL "$SDL2_LICENSE"
+            echo
+          } > LICENSES.txt
+
       - name: Build (POSIX)
-        if: ${{ runner.os != 'Windows' }}
+        if: ${{ runner.os != 'Windows' && matrix.cfg.runner_os != 'android' }}
         shell: bash
         env:
           BUILD_FFMPEG: "yes"
@@ -167,6 +251,29 @@ jobs:
           if [ "$RUNNER_OS" = "macOS" ]; then
             make appbundle BINNAME=bin/${{ matrix.cfg.bin }}
           fi
+
+      - name: Build Android (Docker Compose)
+        if: ${{ matrix.cfg.runner_os == 'android' && (github.event_name != 'workflow_dispatch' || github.event.inputs.buildAndroidApk != 'false') }}
+        shell: bash
+        env:
+          # Build APK is optional but enabled by default. If disabled, we skip this entire step.
+          BUILD_ANDROID_APK: ${{ (github.event_name != 'workflow_dispatch' || github.event.inputs.buildAndroidApk != 'false') && '1' || '0' }}
+          APP_VERSION: ${{ needs.tag.outputs.version }}
+          APP_BUILDTIME: ${{ needs.tag.outputs.buildTime }}
+        run: |
+          set -euo pipefail
+          echo "==> Docker sanity:"
+          docker version
+          docker compose version
+          echo
+          echo "==> Building Android (APK via Docker Compose)..."
+          chmod +x build/build_android.sh
+          ./build/build_android.sh
+          echo
+          echo "==> Outputs:"
+          ls -lah bin/ lib/ || true
+          test -f bin/libmain.so
+          test -f bin/ikemen-go.apk
 
       - name: Build (MSYS2)
         if: ${{ runner.os == 'Windows' }}
@@ -185,10 +292,12 @@ jobs:
           ./build/build.sh ${{ matrix.cfg.build_target }}
 
       - name: Prepare FFmpeg artifacts
-        # if: ${{ matrix.cfg.runner_os == 'windows' }}
+        if: ${{ matrix.cfg.runner_os == 'linux' }}
         id: artifacts_ffmpeg
         shell: bash
         run: |
+          # Android build runs in Docker and may create root-owned git dirs; allow them.
+          git config --global --add safe.directory "$GITHUB_WORKSPACE/build/ffmpeg-src" >/dev/null 2>&1 || true
           mkdir -p FFmpeg-CS
           # Export the *exact* tree
           ( cd build/ffmpeg-src && git archive --format=tar HEAD ) | tar -x -C FFmpeg-CS
@@ -199,11 +308,36 @@ jobs:
           echo "artifact_ffsrc=src_ffmpeg.tar.gz" >> "$GITHUB_OUTPUT"
 
       - name: Prepare release artifacts
+        if: ${{ matrix.cfg.runner_os != 'android' || (github.event_name != 'workflow_dispatch' || github.event.inputs.buildAndroidApk != 'false') }}
         id: artifacts
         shell: bash
         run: |
           echo "Preparing files for deployment"
           mkdir -p deploy
+
+          if [ "${{ matrix.cfg.runner_os }}" = "android" ]; then
+            echo "==> Preparing Android release artifact"
+            mkdir -p deploy/lib
+            cp -av bin/ikemen-go.apk deploy/ || true
+            cp -av bin/libmain.so bin/libmain.h deploy/ 2>/dev/null || true
+            cp -av lib/*.so* deploy/lib/ 2>/dev/null || true
+            cp README.md deploy/ 2>/dev/null || true
+
+            cp -av LICENSES.txt deploy/ 2>/dev/null || true
+
+            cd deploy
+            if [ "${{ github.event.inputs.tag }}" = "" ]; then
+              ARTIFACT_NAME=Ikemen_GO-dev-android.zip
+              echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+            else
+              ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-android.zip
+              echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+            fi
+            zip -r ../$ARTIFACT_NAME *
+            echo "Successfully prepared Android assets for deployment"
+            exit 0
+          fi
+
           mkdir -p deploy/data
 
           # 1) Put binary and shared libs generated by build.sh
@@ -233,73 +367,8 @@ jobs:
           # 3) Include readme
           cp README.md deploy/
 
-          # 4) Build a single LICENSES.txt dynamically
-          {
-            echo "============================="
-            echo " Ikemen GO - LICENSES.txt"
-            echo "============================="
-            echo
-            echo "Section 1: Ikemen GO (MIT)"
-            echo "--------------------------"
-            cat LICENCE.txt
-            echo
-            echo "Section 2: Bundled Assets (Creative Commons)"
-            echo "-------------------------------------------"
-            echo "Screenpack license from Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt:"
-            echo
-            cat Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt
-            echo
-            echo "Note: Some assets in the engine repo are under CC-BY 3.0 as noted in the MIT section above."
-            echo
-            echo "Section 3: FFmpeg (LGPL v2.1) and Notices"
-            echo "-----------------------------------------"
-            echo "This program dynamically links FFmpeg under the GNU Lesser General Public License v2.1."
-            echo "The FFmpeg shared libraries are included in this archive so the app runs out of the box."
-            echo "The exact corresponding FFmpeg source is attached to the release page as:"
-            echo "  src_ffmpeg.tar.gz"
-            echo
-            echo "3.1 Full LGPL v2.1 license text (from FFmpeg/COPYING.LGPLv2.1):"
-            echo "----------------------------------------------------------------"
-            cat build/ffmpeg-src/COPYING.LGPLv2.1
-            echo
-            echo "3.2 FFmpeg LICENSE.md:"
-            echo "----------------------"
-            cat build/ffmpeg-src/LICENSE.md
-            echo
-            echo "3.3 FFmpeg CREDITS:"
-            echo "-------------------"
-            cat build/ffmpeg-src/CREDITS
-            echo
-            echo "3.4 FFmpeg shared objects shipped in this archive:"
-            echo "-----------------------------------------------"
-            if [ "$RUNNER_OS" = "Windows" ]; then
-              ( cd deploy/lib 2>/dev/null && ls -1 *.dll 2>/dev/null || true )
-            elif [ "$RUNNER_OS" = "Linux" ]; then
-              ( cd deploy/lib 2>/dev/null && ls -1 *.so* 2>/dev/null || true )
-            else
-              ( cd deploy/I.K.E.M.E.N-Go.app/Contents/Frameworks 2>/dev/null && ls -1 *.dylib 2>/dev/null || true )
-            fi
-            echo
-            echo "Section 4: libxmp and Notices"
-            echo "-----------------------------"
-            echo "This program dynamically links libxmp for module music playback."
-            echo "Upstream: https://github.com/libxmp/libxmp"
-            echo
-            echo "libxmp LICENSE (fetched from upstream README at build time):"
-            echo "-----------------------------------------------------------"
-            set -o pipefail
-            curl -fsSL https://raw.githubusercontent.com/libxmp/libxmp/master/README | awk '/^LICENSE$/{p=1} p'
-            echo
-            echo "Section 5: SDL2 and Notices"
-            echo "---------------------------"
-            echo "This program uses SDL2 for windowing, input, controller support."
-            echo "Upstream: https://github.com/libsdl-org/SDL"
-            echo
-            echo "SDL2 LICENSE (zlib, fetched from upstream LICENSE.txt):"
-            echo "-------------------------------------------------------"
-            curl -fsSL https://raw.githubusercontent.com/libsdl-org/SDL/main/LICENSE.txt
-            echo
-          } > deploy/LICENSES.txt
+          # 4) Single LICENSES.txt
+          cp -av LICENSES.txt deploy/ 2>/dev/null || true
 
           # 5) Extra runtime db
           GAMEPAD_DB_URL="https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/refs/heads/master/gamecontrollerdb.txt"
@@ -347,13 +416,13 @@ jobs:
           echo "Successfully prepared assets for deployment"
 
       - name: Update dev release
-        if: "${{ github.event.inputs.tag == '' }}"
+        if: "${{ github.event.inputs.tag == '' && steps.artifacts.outputs.artifact != '' }}"
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.IKEMEN_TOKEN }}
           allowUpdates: true
           artifactErrorsFailBuild: true
-          artifacts: "${{ steps.artifacts.outputs.artifact }},${{ steps.artifacts_ffmpeg.outputs.artifact_ffsrc }}"
+          artifacts: "${{ steps.artifacts.outputs.artifact }}${{ matrix.cfg.runner_os == 'linux' && format(',{0}', steps.artifacts_ffmpeg.outputs.artifact_ffsrc) || '' }}"
           body: |
             The nightly release, or more precisely, the latest development version, is generated after each commit and always represents the most up-to-date iteration of the source code. It features the newest development version of the engine and screenpack files, making it ready for testing straightaway. Using it can eliminate the need to compile the source code for the latest, cutting-edge updates. However, as a consequence, it may sometimes contain regressions that were not yet discovered and/or outpace the documentation that corresponds to stable releases with version numbers like v x.x.x.
           discussionCategory: ""
@@ -375,13 +444,13 @@ jobs:
           updateOnlyUnreleased: false
 
       - name: Create Release
-        if: "${{ github.event.inputs.tag != '' }}"
+        if: "${{ github.event.inputs.tag != '' && steps.artifacts.outputs.artifact != '' }}"
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.IKEMEN_TOKEN }}
           allowUpdates: true
           artifactErrorsFailBuild: true
-          artifacts: "${{ steps.artifacts.outputs.artifact }},${{ steps.artifacts_ffmpeg.outputs.artifact_ffsrc }}"
+          artifacts: "${{ steps.artifacts.outputs.artifact }}${{ matrix.cfg.runner_os == 'linux' && format(',{0}', steps.artifacts_ffmpeg.outputs.artifact_ffsrc) || '' }}"
           # body: |
           #   ${{ needs.tag.outputs.changelog }}
           discussionCategory: ${{ github.event.inputs.discussionCategory }}

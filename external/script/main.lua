@@ -215,26 +215,28 @@ function main.f_input(p, ...)
 			local b = keyTables[i]
 			if type(b) == "table" then
 				for _, btn in ipairs(b) do
-					if main.isJoystickAxis[btn] then
+					if commandGetState(main.t_cmd[pn], btn) then
+						main.playerInput = pn
+						main.analogDeadTime = gameOption('Input.AnalogDeadTime')
+						return true
+					elseif main.isJoystickAxis[btn] then
 						local key = getJoystickKey(pn - 1)
 						local stickIsNeutral = (key == nil or key == '') and pn == main.playerInput
 						-- Handle analog axes
 						if stickIsNeutral then
 							main.lastAxis = nil
 						else
-							if main.analogDeadTime > 0 then
+							if main.analogDeadTime > 0 and pn == main.playerInput then
+								--commandBufReset(main.t_cmd[pn])
 								main.analogDeadTime = main.analogDeadTime - 1
-							end
-							if key == btn and main.analogDeadTime == 0 and key ~= main.lastAxis then
+							elseif key == btn and main.analogDeadTime <= 0 and key ~= main.lastAxis and (keyTables[btn] == nil) then
 								main.playerInput = pn
 								main.analogDeadTime = gameOption('Input.AnalogDeadTime')
 								main.lastAxis = key
+								commandBufReset(main.t_cmd[pn])
 								return true
 							end
 						end
-					elseif commandGetState(main.t_cmd[pn], btn) and main.analogDeadTime <= 0 then
-						main.playerInput = pn
-						return true
 					end
 				end
 			end

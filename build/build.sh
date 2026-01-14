@@ -11,6 +11,35 @@ tolower() {
   printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
 }
 
+# Portable in-place sed (GNU vs BSD sed)
+sed_inplace() {
+  local expr="$1" file="$2"
+  if sed --version >/dev/null 2>&1; then
+    # GNU sed
+    sed -i "$expr" "$file"
+  else
+    # BSD/macOS sed
+    sed -i '' "$expr" "$file"
+  fi
+}
+
+# For Android builds:
+# - If vendor/ exists, force -mod=vendor so we use the vendored (and patchable) copy.
+# - Otherwise, enable -modcacherw so the module cache can be patched (if needed).
+ensure_go_flags_android() {
+  [[ "${GOOS:-}" != "android" ]] && return 0
+
+  if [[ -f "$REPO_ROOT/vendor/modules.txt" ]]; then
+    if [[ " ${GOFLAGS:-} " != *" -mod=vendor "* ]]; then
+      export GOFLAGS="${GOFLAGS:-} -mod=vendor"
+    fi
+  else
+    if [[ " ${GOFLAGS:-} " != *" -modcacherw "* ]]; then
+      export GOFLAGS="${GOFLAGS:-} -modcacherw"
+    fi
+  fi
+}
+
 ## Resolve repo root _first_ so all path defaults are stable no matter where
 ## the script is invoked from (top dir, build dir, or elsewhere).
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
@@ -672,21 +701,48 @@ function patch_go_sdl2_android() {
 	# go-sdl2 has (in some versions) a build break on Android:
 	# it tries to convert SDL_bool (C enum) to Go bool directly.
 	# Fix: compare against SDL_FALSE instead.
-	local modver modcache moddir f
-	modver="$(go list -m -f '{{.Version}}' github.com/veandco/go-sdl2 2>/dev/null || true)"
-	[[ -z "$modver" ]] && return 0
+	local f=""
 
-	modcache="$(go env GOMODCACHE 2>/dev/null || true)"
-	[[ -z "$modcache" ]] && return 0
+	# 1) Prefer vendored copy (writable, deterministic)
+	local vendorf="$REPO_ROOT/vendor/github.com/veandco/go-sdl2/sdl/system_android.go"
+	if [[ -f "$vendorf" ]]; then
+		f="$vendorf"
+	else
+		# 2) Fallback to module cache (may be read-only unless -modcacherw is used)
+		local modver modcache moddir
+		modver="$(go list -m -f '{{.Version}}' github.com/veandco/go-sdl2 2>/dev/null || true)"
+		[[ -z "$modver" ]] && return 0
 
-	moddir="$modcache/github.com/veandco/go-sdl2@${modver}"
-	f="$moddir/sdl/system_android.go"
+		modcache="$(go env GOMODCACHE 2>/dev/null || true)"
+		[[ -z "$modcache" ]] && return 0
+
+		moddir="$modcache/github.com/veandco/go-sdl2@${modver}"
+		f="$moddir/sdl/system_android.go"
+	fi
+
 	[[ -f "$f" ]] || return 0
 
 	if grep -q "return bool(C.SDL_AndroidRequestPermission" "$f"; then
 		echo "==> Patching go-sdl2 AndroidRequestPermission() SDL_bool->bool conversion..."
+
+		# sed -i needs write permission to the DIRECTORY (temp file) and the file itself.
+		local d; d="$(dirname "$f")"
+		if [[ ! -w "$d" ]]; then
+			# Try to make it writable (works when cache is just chmod'd read-only)
+			chmod u+w "$d" 2>/dev/null || true
+		fi
+		if [[ ! -w "$d" ]]; then
+			echo "ERROR: Cannot patch go-sdl2; directory is not writable:" >&2
+			echo "  $d" >&2
+			echo "If you want to use vendor/, run 'go mod vendor' and re-run the build." >&2
+			echo "Otherwise, fix module cache perms (or build via Docker ./build/build_android.sh)." >&2
+			exit 1
+		fi
+
 		chmod u+w "$f" 2>/dev/null || true
-		sed -i 's/return bool(C.SDL_AndroidRequestPermission(_permission))/return C.SDL_AndroidRequestPermission(_permission) != C.SDL_FALSE/' "$f"
+		sed_inplace \
+			's/return bool(C.SDL_AndroidRequestPermission(_permission))/return C.SDL_AndroidRequestPermission(_permission) != C.SDL_FALSE/' \
+			"$f"
 	fi
 }
 
@@ -877,6 +933,7 @@ function create_delay_import_libs_windows() {
 # --- Build functions ---
 function build() {
 	if [[ "$GOOS" == "android" ]]; then
+		ensure_go_flags_android
 		prepare_android_deps
 		patch_go_sdl2_android
 		# MANUALLY define flags for Android to avoid pkg-config errors

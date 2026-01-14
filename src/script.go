@@ -1531,11 +1531,12 @@ func systemScriptInit(l *lua.LState) {
 		if !nilArg(l, 5) {
 			scl = float32(numArg(l, 5))
 		}
-		bgSnap := *bg
+		// BGDef.Draw mutates BGDef state (time/BGCtrl/anim). Copying BGDef makes those updates happen on the copy only. Keep a pointer to the live BGDef.
+		bgLocal := bg
 		layerLocal := layer
 		xLocal, yLocal, sclLocal := x, y, scl
 		sys.luaQueueLayerDraw(int(layerLocal), func() {
-			(&bgSnap).Draw(layerLocal, xLocal, yLocal, sclLocal)
+			bgLocal.Draw(layerLocal, xLocal, yLocal, sclLocal)
 		})
 		return 0
 	})

@@ -6,7 +6,8 @@ vendor/*
 *.log
 *.cmd
 *.bat
-*.sh
+/*.sh
+!build/**/*.sh
 *.png
 save/*
 Ikemen_GO.exe
@@ -45,6 +46,14 @@ external/script/wip/*
 .vscode/*
 .vs/*
 .idea/*
+
+# Android build outputs (generated)
+bin/*.apk
+bin/libmain.so
+bin/libmain.h
+lib/*.so
+lib/*.so.*
+build/android-apk/
 
 # Binaries
 build/android-deps/

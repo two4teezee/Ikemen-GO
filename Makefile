@@ -5,6 +5,7 @@ SHELL=/bin/bash
 # /src files
 srcFiles=src/resources/defaultConfig.ini \
 	src/anim.go \
+	src/audio_sdl.go \
 	src/bgdef.go \
 	src/bytecode.go \
 	src/camera.go \
@@ -15,28 +16,45 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/config.go \
 	src/dllsearch_windows.go \
 	src/font.go \
+	src/font_gl21.go \
+	src/font_gl32.go \
+	src/font_gles32.go \
+	src/font_vk.go \
+	src/hiscore_rank.go \
 	src/image.go \
 	src/iniutils.go \
 	src/input.go \
-	src/input_glfw.go \
+	src/input_sdl.go \
 	src/lifebar.go \
 	src/main.go \
+	src/motif.go \
+	src/music.go \
 	src/net.go \
+	src/rect.go \
 	src/render.go \
 	src/render_gl.go \
 	src/render_gl_gl32.go \
+	src/render_gl_gles32.go \
+	src/render_vk.go \
 	src/rollback.go \
 	src/script.go \
+	src/select_params.go \
 	src/sound.go \
+	src/sound_xm.go \
 	src/stage.go \
 	src/state.go \
 	src/state_clone.go \
+	src/stats.go \
 	src/stdout_windows.go \
+	src/storyboard.go \
 	src/system.go \
-	src/system_glfw.go \
+	src/system_sdl.go \
+	src/util_android.go \
+	src/util_darwin.go \
 	src/util_desktop.go \
-	src/util_js.go \
+	src/util_linux.go \
 	src/util_raw.go \
+	src/util_windows.go \
 	src/video_ffmpeg.go
 	
 
@@ -85,6 +103,10 @@ appbundle:
 	iconutil -c icns build/icontmp/icon.iconset -o build/icontmp/icon.icns
 	cp build/icontmp/icon.icns I.K.E.M.E.N-Go.app/Contents/Resources/icon.icns
 	rm -rf build/icontmp
+
+.PHONY: android-apk
+android-apk:
+	bash ./build/build_android.sh
 
 clean_appbundle:
 	rm -rf I.K.E.M.E.N-Go.app

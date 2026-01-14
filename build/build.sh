@@ -4,6 +4,13 @@
 set -o errtrace
 set -euo pipefail
 
+# Bash 3.2 (macOS/GitHub runners) does NOT support ${var,,}.
+# Use a portable helper instead.
+tolower() {
+  # no trailing newline
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 ## Resolve repo root _first_ so all path defaults are stable no matter where
 ## the script is invoked from (top dir, build dir, or elsewhere).
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
@@ -37,6 +44,18 @@ LIBDIR="lib"         # runtime libs live here at repo root
 BUILDDIR="build"
 DELAYLIB_DIR="$BUILDDIR/delaylib"
 FFMPEG_SRCDIR="$BUILDDIR/ffmpeg-src"
+
+# Elecbyte screenpack assets
+SCREENPACK_REPO="${SCREENPACK_REPO:-https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git}"
+SCREENPACK_REF="${SCREENPACK_REF:-master}"
+SCREENPACK_DIR="$REPO_ROOT/$BUILDDIR/elecbyte-screenpack"
+
+# Android APK packaging (ikemen-droid)
+BUILD_ANDROID_APK="${BUILD_ANDROID_APK:-1}"  # 1=yes, 0=no
+ANDROID_APK_REPO="${ANDROID_APK_REPO:-https://github.com/Jesuszilla/ikemen-droid.git}"
+ANDROID_APK_REF="${ANDROID_APK_REF:-main}"
+ANDROID_APK_DIR="$REPO_ROOT/$BUILDDIR/android-apk/ikemen-droid"
+ANDROID_APK_OUT="${ANDROID_APK_OUT:-$REPO_ROOT/bin/ikemen-go.apk}"
 
 # FFmpeg config
 FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
@@ -260,9 +279,15 @@ function main() {
 	# Decide output location:
 	# - Non-macOS: binary in top-level (.) and runtime libs in ./lib
 	# - macOS: app bundle uses bin/ later from Makefile
-	case "$OSTYPE" in
-		darwin*) OUTDIR="bin" ;;
-		*)       OUTDIR="."  ;;
+	# - Android: ALWAYS put outputs in bin/ (so we get bin/libmain.so + bin/libmain.h)
+	case "$(tolower "${targetOS}")" in
+		android) OUTDIR="bin" ;;
+		*)
+			case "$OSTYPE" in
+				darwin*) OUTDIR="bin" ;;
+				*)       OUTDIR="."  ;;
+			esac
+		;;
 	esac
 	mkdir -p "$OUTDIR"
 	mkdir -p "$LIBDIR"
@@ -329,7 +354,7 @@ function main() {
 function varWin32() {
 	export GOOS=windows
 	export GOARCH=386
-	if [[ "${currentOS,,}" != "win32" ]]; then
+	if [[ "$(tolower "${currentOS}")" != "win32" ]]; then
 		export CC=i686-w64-mingw32-gcc
 		export CXX=i686-w64-mingw32-g++
 	fi
@@ -339,7 +364,7 @@ function varWin32() {
 function varWin64() {
 	export GOOS=windows
 	export GOARCH=amd64
-	if [[ "${currentOS,,}" != "win64" ]]; then
+	if [[ "$(tolower "${currentOS}")" != "win64" ]]; then
 		export CC=x86_64-w64-mingw32-gcc
 		export CXX=x86_64-w64-mingw32-g++
 	fi
@@ -501,8 +526,12 @@ function build_ffmpeg() {
 	echo "==> Build complete. Installing..."
 	make install
 	# sanity: show the produced pkg-config files so we can see them in logs
-	echo "==> FFmpeg pkg-config files installed to: $FFMPEG_PREFIX/lib/pkgconfig"
-	ls -l "$FFMPEG_PREFIX/lib/pkgconfig" || true
+	local pcdir="$FFMPEG_PREFIX/lib/pkgconfig"
+	if [[ "$GOOS" == "android" ]]; then
+		pcdir="$ANDROID_DEPS_PATH/lib/pkgconfig"
+	fi
+	echo "==> FFmpeg pkg-config files installed to: $pcdir"
+	ls -l "$pcdir" || true
 	popd >/dev/null
 }
 
@@ -583,12 +612,211 @@ EOF
 	fi
 }
 
+download_file() {
+	local url="$1" out="$2"
+	mkdir -p "$(dirname "$out")"
+	if command -v curl >/dev/null 2>&1; then
+		curl -fsSL "$url" -o "$out"
+	elif command -v wget >/dev/null 2>&1; then
+		wget -qO "$out" "$url"
+	else
+		echo "ERROR: Need curl or wget to download: $url" >&2
+		return 1
+	fi
+}
+
+ensure_screenpack() {
+	mkdir -p "$(dirname "$SCREENPACK_DIR")"
+	if [[ ! -d "$SCREENPACK_DIR/.git" ]]; then
+		rm -rf "$SCREENPACK_DIR"
+		echo "==> Cloning Elecbyte screenpack: $SCREENPACK_REPO ($SCREENPACK_REF) -> $SCREENPACK_DIR"
+		git clone --depth=1 -b "$SCREENPACK_REF" "$SCREENPACK_REPO" "$SCREENPACK_DIR"
+	else
+		echo "==> Updating Elecbyte screenpack in $SCREENPACK_DIR ($SCREENPACK_REF)"
+		( cd "$SCREENPACK_DIR" \
+			&& git fetch --depth=1 origin "$SCREENPACK_REF" \
+			&& git checkout -f FETCH_HEAD )
+	fi
+	# Avoid "dubious ownership" on volume mounts
+	git config --system --add safe.directory "$SCREENPACK_DIR" >/dev/null 2>&1 || true
+}
+
+ensure_android_runtime_assets() {
+	[[ "$GOOS" != "android" ]] && return 0
+
+	# The Android APK must ship with the same runtime assets as desktop releases.
+	# If the engine repo doesn't contain them (CI), pull from the Elecbyte screenpack.
+	ensure_screenpack
+
+	# external/gamecontrollerdb.txt (referenced by Android manifest)
+	local db="$REPO_ROOT/external/gamecontrollerdb.txt"
+	if [[ ! -f "$db" ]]; then
+		echo "==> Downloading SDL GameController DB..."
+		download_file \
+			"https://raw.githubusercontent.com/mdqinc/SDL_GameControllerDB/refs/heads/master/gamecontrollerdb.txt" \
+			"$db"
+	fi
+
+	# data/system.base.def (referenced by Android manifest)
+	local sys="$REPO_ROOT/data/system.base.def"
+	if [[ ! -f "$sys" ]]; then
+		echo "==> Generating data/system.base.def from src/resources/defaultMotif.ini..."
+		mkdir -p "$REPO_ROOT/data"
+		cp -a "$REPO_ROOT/src/resources/defaultMotif.ini" "$sys"
+	fi
+}
+
+function patch_go_sdl2_android() {
+	[[ "$GOOS" != "android" ]] && return 0
+
+	# go-sdl2 has (in some versions) a build break on Android:
+	# it tries to convert SDL_bool (C enum) to Go bool directly.
+	# Fix: compare against SDL_FALSE instead.
+	local modver modcache moddir f
+	modver="$(go list -m -f '{{.Version}}' github.com/veandco/go-sdl2 2>/dev/null || true)"
+	[[ -z "$modver" ]] && return 0
+
+	modcache="$(go env GOMODCACHE 2>/dev/null || true)"
+	[[ -z "$modcache" ]] && return 0
+
+	moddir="$modcache/github.com/veandco/go-sdl2@${modver}"
+	f="$moddir/sdl/system_android.go"
+	[[ -f "$f" ]] || return 0
+
+	if grep -q "return bool(C.SDL_AndroidRequestPermission" "$f"; then
+		echo "==> Patching go-sdl2 AndroidRequestPermission() SDL_bool->bool conversion..."
+		chmod u+w "$f" 2>/dev/null || true
+		sed -i 's/return bool(C.SDL_AndroidRequestPermission(_permission))/return C.SDL_AndroidRequestPermission(_permission) != C.SDL_FALSE/' "$f"
+	fi
+}
+
 function prepare_android_deps() {
 	[[ "$GOOS" != "android" ]] && return 0
 	build_sdl2_android
 	build_libxmp_android
 	build_ffmpeg
 	create_dummy_gl_pc
+}
+
+function ensure_android_sdk_for_gradle() {
+	[[ "$GOOS" != "android" ]] && return 0
+
+	# Prefer ANDROID_SDK_ROOT, fall back to ANDROID_HOME
+	local sdk="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+	if [[ -z "$sdk" ]]; then
+		echo "ERROR: ANDROID_SDK_ROOT/ANDROID_HOME not set; required to build APK via Gradle." >&2
+		echo "       In Docker this should be provided by the image. If running locally, install Android SDK cmdline-tools and set ANDROID_SDK_ROOT." >&2
+		exit 1
+	fi
+	export ANDROID_SDK_ROOT="$sdk"
+	export ANDROID_HOME="$sdk"
+
+	# Make sure Gradle can find sdkmanager/aapt if needed
+	if [[ -x "$sdk/cmdline-tools/latest/bin/sdkmanager" ]]; then
+		export PATH="$sdk/cmdline-tools/latest/bin:$sdk/platform-tools:${PATH}"
+	fi
+}
+
+function sync_android_apk_repo() {
+	mkdir -p "$(dirname "$ANDROID_APK_DIR")"
+	if [[ ! -d "$ANDROID_APK_DIR/.git" ]]; then
+		rm -rf "$ANDROID_APK_DIR"
+		echo "==> Cloning ikemen-droid: $ANDROID_APK_REPO ($ANDROID_APK_REF) -> $ANDROID_APK_DIR"
+		git clone --depth=1 -b "$ANDROID_APK_REF" "$ANDROID_APK_REPO" "$ANDROID_APK_DIR"
+	else
+		echo "==> Updating ikemen-droid in $ANDROID_APK_DIR ($ANDROID_APK_REF)"
+		( cd "$ANDROID_APK_DIR" \
+			&& git fetch --depth=1 origin "$ANDROID_APK_REF" \
+			&& git checkout -f FETCH_HEAD )
+	fi
+	# Avoid "dubious ownership" on volume mounts
+	git config --system --add safe.directory "$ANDROID_APK_DIR" >/dev/null 2>&1 || true
+}
+
+function stage_android_apk_libs() {
+	local app_dir="$ANDROID_APK_DIR/app"
+	local abi_dir="$app_dir/libs/arm64-v8a"
+
+	mkdir -p "$abi_dir"
+	# Clean previous staged libs (but keep the dir)
+	rm -f "$abi_dir"/*.so* 2>/dev/null || true
+
+	echo "==> Staging native libs into: $abi_dir"
+	# Engine
+	cp -av "$REPO_ROOT/bin/libmain.so" "$abi_dir/"
+	# Deps (only .so, ignore Windows DLLs)
+	cp -av "$REPO_ROOT/lib/"*.so* "$abi_dir/" 2>/dev/null || true
+}
+
+function stage_android_apk_assets() {
+	local app_dir="$ANDROID_APK_DIR/app"
+	local assets_dir="$app_dir/src/main/assets"
+	local manifest="$assets_dir/manifest.txt"
+
+	if [[ ! -f "$manifest" ]]; then
+		echo "ERROR: ikemen-droid manifest not found at: $manifest" >&2
+		exit 1
+	fi
+
+	echo "==> Staging assets into: $assets_dir (from $manifest)"
+	local screenpack="$SCREENPACK_DIR"
+	# Remove everything except manifest.txt so the APK content matches your engine tree
+	find "$assets_dir" -mindepth 1 -maxdepth 1 ! -name "manifest.txt" -exec rm -rf {} + 2>/dev/null || true
+
+	# manifest.txt is whitespace-separated (often a single long line)
+	local p src dst
+	while read -r p; do
+		[[ -z "$p" ]] && continue
+		src="$REPO_ROOT/$p"
+		dst="$assets_dir/$p"
+
+		# If not present in the engine repo, fall back to the Elecbyte screenpack clone.
+		if [[ ! -e "$src" && -n "$screenpack" && -e "$screenpack/$p" ]]; then
+			src="$screenpack/$p"
+		fi
+
+		if [[ -d "$src" ]]; then
+			mkdir -p "$dst"
+			cp -a "$src/." "$dst/" 2>/dev/null || true
+		elif [[ -f "$src" ]]; then
+			mkdir -p "$(dirname "$dst")"
+			cp -a "$src" "$dst"
+		else
+			# If your tree doesn't include some optional paths from manifest, just warn.
+			echo "WARNING: Asset path missing in Ikemen-GO tree: $p" >&2
+		fi
+	done < <(tr -s '[:space:]' '\n' < "$manifest")
+}
+
+function build_android_apk() {
+	[[ "$GOOS" != "android" ]] && return 0
+	[[ "$BUILD_ANDROID_APK" == "0" ]] && { echo "==> BUILD_ANDROID_APK=0: skipping APK build"; return 0; }
+
+	ensure_android_sdk_for_gradle
+	sync_android_apk_repo
+	ensure_android_runtime_assets
+	stage_android_apk_libs
+	stage_android_apk_assets
+
+	echo "==> Building APK with Gradle (debug)..."
+	pushd "$ANDROID_APK_DIR" >/dev/null
+
+	# Ensure Gradle sees the SDK location
+	printf "sdk.dir=%s\n" "${ANDROID_SDK_ROOT}" > local.properties
+	chmod +x ./gradlew || true
+
+	./gradlew --no-daemon clean assembleDebug
+
+	local apk_src="$ANDROID_APK_DIR/app/build/outputs/apk/debug/app-debug.apk"
+	if [[ ! -f "$apk_src" ]]; then
+		echo "ERROR: Gradle finished but APK not found at: $apk_src" >&2
+		exit 1
+	fi
+	mkdir -p "$(dirname "$ANDROID_APK_OUT")"
+	cp -av "$apk_src" "$ANDROID_APK_OUT"
+
+	echo "==> APK ready: $ANDROID_APK_OUT"
+	popd >/dev/null
 }
 
 function maybe_build_ffmpeg() {
@@ -650,11 +878,12 @@ function create_delay_import_libs_windows() {
 function build() {
 	if [[ "$GOOS" == "android" ]]; then
 		prepare_android_deps
+		patch_go_sdl2_android
 		# MANUALLY define flags for Android to avoid pkg-config errors
 		export CGO_CFLAGS="-I$ANDROID_DEPS_PATH/include -I$ANDROID_DEPS_PATH/include/SDL2 ${CGO_CFLAGS:-}"
 		local deps_libs="-L$ANDROID_DEPS_PATH/lib -lSDL2 -lxmp -lavformat -lavcodec -lavutil -lswscale -lswresample -lavfilter"
-		# Link against Android system libraries (GLES, OpenSLES, Log)
-		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -lSDL2 -lGLESv2 -lOpenSLES -Wl,-z,max-page-size=16384"
+		# Link against Android system libraries (GLES, OpenSLES, log)
+		export CGO_LDFLAGS="${deps_libs} ${CGO_LDFLAGS:-} -lGLESv2 -lOpenSLES -llog -Wl,-z,max-page-size=16384"
 	else
 		maybe_build_ffmpeg
 		export PKG_CONFIG="${PKG_CONFIG:-pkg-config}"
@@ -692,6 +921,9 @@ function build() {
 
 	# bundle libs
 	bundle_shared_libs
+
+	# For Android, optionally build the APK via ikemen-droid
+	build_android_apk
 
 	echo "==> Build successful"
 	echo "    Binary: $OUTDIR/$binName"

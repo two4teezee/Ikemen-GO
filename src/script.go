@@ -3508,7 +3508,7 @@ func systemScriptInit(l *lua.LState) {
 				if s, ok := value.(lua.LString); ok {
 					bgm = string(s)
 					if bgm != "" {
-						bgm = SearchFile(bgm, []string{sys.stage.def, "", "sound/"})
+						bgm = SearchFile(bgm, []string{sys.motif.Def, "", "sound/"})
 						hasNewBGM = true
 					}
 				} else {

@@ -215,9 +215,20 @@ function main.f_input(p, ...)
 			local b = keyTables[i]
 			if type(b) == "table" then
 				for _, btn in ipairs(b) do
+					if main.analogDeadTime > 0 and pn == main.playerInput then
+						main.analogDeadTime = main.analogDeadTime - 1
+					end
+
+					-- Handle these exceptions to avoid double input errors
+					if (btn == "$D" and main.lastAxis == "LS_Y+") or (btn == "LS_Y+" and main.lastAxis == "$D") then return false end
+					if (btn == "$U" and main.lastAxis == "LS_Y-") or (btn == "LS_Y-" and main.lastAxis == "$U")  then return false end
+					if (btn == "$B" and main.lastAxis == "LS_X-") or (btn == "LS_X-" and main.lastAxis == "$B") then return false end
+					if (btn == "$F" and main.lastAxis == "LS_X+") or (btn == "LS_X+" and main.lastAxis == "$F") then return false end
+
 					if commandGetState(main.t_cmd[pn], btn) then
 						main.playerInput = pn
 						main.analogDeadTime = gameOption('Input.AnalogDeadTime')
+						main.lastAxis = btn -- need this too
 						return true
 					elseif main.isJoystickAxis[btn] then
 						local key = getJoystickKey(pn - 1)
@@ -225,17 +236,12 @@ function main.f_input(p, ...)
 						-- Handle analog axes
 						if stickIsNeutral then
 							main.lastAxis = nil
-						else
-							if main.analogDeadTime > 0 and pn == main.playerInput then
-								--commandBufReset(main.t_cmd[pn])
-								main.analogDeadTime = main.analogDeadTime - 1
-							elseif key == btn and main.analogDeadTime <= 0 and key ~= main.lastAxis and (keyTables[btn] == nil) then
-								main.playerInput = pn
-								main.analogDeadTime = gameOption('Input.AnalogDeadTime')
-								main.lastAxis = key
-								commandBufReset(main.t_cmd[pn])
-								return true
-							end
+						elseif key == btn and main.analogDeadTime <= 0 and key ~= main.lastAxis and (keyTables[btn] == nil) then
+							main.playerInput = pn
+							main.analogDeadTime = gameOption('Input.AnalogDeadTime')
+							main.lastAxis = key
+							commandBufReset(main.t_cmd[pn])
+							return true
 						end
 					end
 				end

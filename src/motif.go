@@ -1917,8 +1917,8 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 	merged := m.IniFile
 
 	isPreviewAnim := func(dstKey string) bool {
-    	l := strings.ToLower(dstKey)
-    	return strings.HasSuffix(l, ".palmenu.preview.anim")
+		l := strings.ToLower(dstKey)
+		return strings.HasSuffix(l, ".palmenu.preview.anim")
 	}
 
 	get := func(f *ini.File, sec, key string) (string, bool) {

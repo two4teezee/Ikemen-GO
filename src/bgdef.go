@@ -20,6 +20,7 @@ type BGDef struct {
 	bga          bgAction
 	time         int32
 	resetbg      bool
+	lastTick     int32
 	localscl     float32
 	scale        [2]float32
 	stageprops   StageProps
@@ -37,6 +38,7 @@ type BGDef struct {
 func newBGDef(def string) *BGDef {
 	s := &BGDef{def: def, localcoord: [...]float32{320, 240}, resetbg: true, localscl: 1, scale: [...]float32{1, 1}}
 	s.stageprops = newStageProps()
+	s.lastTick = -1
 	return s
 }
 
@@ -326,13 +328,12 @@ func (s *BGDef) action() {
 }
 
 func (s *BGDef) Draw(layer int32, x, y, scl float32) {
-	// Action will only happen once per frame even though this function is called more times
-	// TODO: Doing this in layer 0 is currently necessary for it to work in screenpacks, but it might be introducing a frame of delay in layer -1
-	if layer == 0 {
+	// Advance BGDef exactly once per engine tick, regardless of which layer gets drawn.
+	if s.lastTick != sys.frameCounter {
 		s.action()
 	}
 	if s.model != nil && s.sceneNumber >= 0 {
-		if layer == 0 {
+		if s.lastTick != sys.frameCounter {
 			s.model.calculateTextureTransform()
 		}
 		drawFOV := s.fov * math.Pi / 180
@@ -342,6 +343,7 @@ func (s *BGDef) Draw(layer int32, x, y, scl float32) {
 		view = view.Mul4(mgl.Scale3D(s.modelScale[0], s.modelScale[1], s.modelScale[2]))
 		s.model.draw(1, int(s.sceneNumber), int(layer), 0, s.modelOffset, proj, view, proj.Mul4(view), outlineConst)
 	}
+	s.lastTick = sys.frameCounter
 	//x, y = x/s.localscl, y/s.localscl
 	for _, b := range s.bg {
 		if b.layerno == layer && b.visible && b.enabled && (b.anim.spr != nil || b._type == BG_Video) {
@@ -356,4 +358,5 @@ func (s *BGDef) Reset() {
 		s.bg[i].reset()
 	}
 	s.time = 0
+	s.lastTick = -1
 }

@@ -2479,6 +2479,11 @@ local t_teamActiveState = {false, false}
 function start.f_teamMenu(side, t)
 	if #t == 0 then
 		start.p[side].teamEnd = true
+		-- Team menu has no renderable entries (e.g. itemname_order hides them).
+		-- Still allow character selection for this side if enabled.
+		if not start.p[side].selEnd and #start.p[side].t_selCmd == 0 then
+			table.insert(start.p[side].t_selCmd, {cmd = side, player = side, selectState = 0})
+		end
 		return
 	end
 	--skip selection if only 1 team mode is available and team size is fixed

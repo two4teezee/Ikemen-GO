@@ -398,6 +398,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	}
 	bgm.startPos = startPosition
 	sw := newSwapSeeker(bgm.streamer)
+	bgm.streamer = sw // fix pos not updating after swapping
 	streamer := newStreamLooper(sw, lc, bgmLoopStart, bgmLoopEnd)
 	// we're going to continue to use our own modified streamLooper because beep doesn't allow
 	// negative values for loopcount (no forever case)

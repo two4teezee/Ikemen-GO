@@ -75,6 +75,7 @@ var sys = System{
 	arenaSaveMap:     make(map[int]*arena.Arena),
 	arenaLoadMap:     make(map[int]*arena.Arena),
 	debugAccel:       1, // TODO: We probably shouldn't rely on this being initialized to 1
+	lastInputController: -1,
 }
 
 type TeamMode int32
@@ -318,6 +319,9 @@ type System struct {
 
 	luaDrawPreOps   []func()
 	luaDrawLayerOps [3][]func()
+
+	lastInputController int
+	uiLastInputToken string
 
 	// For Android support
 	baseDir string

@@ -3523,7 +3523,8 @@ function start.f_selectVersus(active, t_orderSelect)
 		--draw fadein / fadeout
 		for side = 1, 2 do
 			if not fadeOutStarted and (
-				counter >= motif.vs_screen.time
+				-- Wait for order select to finish before vs_screen.time can end the screen.
+				(counter >= motif.vs_screen.time and (not (t_orderSelect[1] or t_orderSelect[2]) or done))
 				or (not main.cpuSide[side] and main.f_input({side}, motif.vs_screen.skip.key))
 				or (done and main.f_input({side}, motif.vs_screen.done.key))
 				) then

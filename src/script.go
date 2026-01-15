@@ -2553,6 +2553,63 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.frameCounter))
 		return 1
 	})
+	luaRegister(l, "getGameParams", func(*lua.LState) int {
+		lv := toLValue(l, sys.sel.gameParams)
+		lTable, ok := lv.(*lua.LTable)
+		if !ok {
+			l.RaiseError("Error: 'lv' is not a *lua.LTable")
+			return 0
+		}
+		l.Push(lTable)
+		return 1
+	})
+	luaRegister(l, "getInput", func(l *lua.LState) int {
+		// Collect player numbers (1-based) from arg #1
+		players := make([]int, 0, 4)
+		switch v := l.Get(1).(type) {
+		case *lua.LTable:
+			v.ForEach(func(_ lua.LValue, val lua.LValue) {
+				if n, ok := val.(lua.LNumber); ok {
+					players = append(players, int(n))
+				}
+			})
+		case lua.LNumber:
+			players = append(players, int(v))
+		default:
+			l.Push(lua.LBool(false))
+			return 1
+		}
+		top := l.GetTop()
+		for _, pn := range players {
+			if pn <= 0 {
+				continue
+			}
+			controllerIdx := pn - 1 // 0-based for sys.commandLists
+			// Loop over all key tables passed
+			for ai := 2; ai <= top; ai++ {
+				arg := l.Get(ai)
+				var btns []string
+				switch t := arg.(type) {
+				case *lua.LTable:
+					t.ForEach(func(_ lua.LValue, v lua.LValue) {
+						if s, ok := v.(lua.LString); ok {
+							btns = append(btns, string(s))
+						}
+					})
+				case lua.LString:
+					btns = []string{string(t)}
+				default:
+					continue
+				}
+				if len(btns) > 0 && sys.motif.button(btns, controllerIdx) {
+					l.Push(lua.LBool(true))
+					return 1
+				}
+			}
+		}
+		l.Push(lua.LBool(false))
+		return 1
+	})
 	luaRegister(l, "getJoystickGUID", func(*lua.LState) int {
 		l.Push(lua.LString(input.GetJoystickGUID(int(numArg(l, 1)))))
 		return 1
@@ -2609,14 +2666,12 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LString(s))
 		return 1
 	})
-	luaRegister(l, "getGameParams", func(*lua.LState) int {
-		lv := toLValue(l, sys.sel.gameParams)
-		lTable, ok := lv.(*lua.LTable)
-		if !ok {
-			l.RaiseError("Error: 'lv' is not a *lua.LTable")
-			return 0
+	luaRegister(l, "getLastInputController", func(l *lua.LState) int {
+		if sys.lastInputController >= 0 {
+			l.Push(lua.LNumber(sys.lastInputController + 1))
+		} else {
+			l.Push(lua.LNumber(-1))
 		}
-		l.Push(lTable)
 		return 1
 	})
 	luaRegister(l, "getMatchMaxDrawGames", func(l *lua.LState) int {

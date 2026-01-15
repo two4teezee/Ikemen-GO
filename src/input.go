@@ -3248,11 +3248,7 @@ type CommandList struct {
 	DefaultBufferPauseEnd bool
 	DefaultBufferShared   bool
 	ControllerNo          int32
-	AnalogDeadTime        int
-	AnalogLastAxis        string
 }
-
-const analogDeadTimeFrames = 20
 
 func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
 	return &CommandList{
@@ -3266,8 +3262,6 @@ func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
 		DefaultBufferPauseEnd: true,
 		DefaultBufferShared:   true,
 		ControllerNo:          cn,
-		AnalogDeadTime:        analogDeadTimeFrames,
-		AnalogLastAxis:        "",
 	}
 }
 
@@ -3623,72 +3617,81 @@ func (cl *CommandList) CopyList(src CommandList) {
 	}
 }
 
-// Checks raw controller tokens (A/B/X/Y, LS_*, RS_*, LT/RT) using joystick state, with analog dead-time for axis-based tokens.
+// Checks raw controller tokens (A/B/X/Y, DP_*, LS_*, RS_*, LT/RT).
 // controllerIdx is the index in sys.commandLists (0-based).
 func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int) bool {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return false
 	}
-	// Only handle tokens that are known raw controller tokens.
-	if _, ok := StringToButtonLUT[token]; !ok {
-		return false
-	}
-	isAnalog := func(t string) bool {
-		switch t {
-		case "LS_X-", "LS_X+", "LS_Y-", "LS_Y+",
-			"RS_X-", "RS_X+", "RS_Y-", "RS_Y+",
-			"LT", "RT":
-			return true
-		}
-		return false
-	}
-	// Resolve logical controller index -> joystick index.
-	joyIdx := -1
-	if controllerIdx >= 0 {
-		if controllerIdx < len(sys.inputRemap) {
-			mapped := sys.inputRemap[controllerIdx]
-			if mapped >= 0 {
-				joyIdx = mapped
-			} else {
-				joyIdx = controllerIdx
-			}
-		} else {
-			joyIdx = controllerIdx
-		}
-	}
-	if isAnalog(token) {
-		key, _ := getJoystickKey(joyIdx)
-		stickIsNeutral := key == ""
-		if stickIsNeutral {
-			// When returning to neutral, forget last axis for this list.
-			cl.AnalogLastAxis = ""
-			return false
-		}
-		if cl.AnalogDeadTime > 0 {
-			cl.AnalogDeadTime--
-			return false
-		}
-		if key == token && key != cl.AnalogLastAxis {
-			cl.AnalogDeadTime = analogDeadTimeFrames
-			cl.AnalogLastAxis = key
-			return true
-		}
-		return false
-	}
-	// Non-analog controller tokens (A/B/X/Y/etc.): simple digital button check.
 	idx, ok := StringToButtonLUT[token]
-	if !ok || idx == 25 { // if not successful or "Not used" is ever returned
+	if !ok || idx == 25 { // "Not used"
 		return false
 	}
-	if joyIdx < 0 || joyIdx >= input.GetMaxJoystickCount() {
+	// Resolve controllerIdx -> physical joystick index
+	joyIdx := controllerIdx
+	if controllerIdx >= 0 {
+		in := controllerIdx
+		if controllerIdx < len(sys.inputRemap) {
+			m := sys.inputRemap[controllerIdx]
+			if m >= 0 {
+				in = m
+			}
+		}
+		if in >= 0 && in < len(sys.joystickConfig) && sys.joystickConfig[in].Joy >= 0 {
+			joyIdx = sys.joystickConfig[in].Joy
+		} else {
+			joyIdx = in
+		}
+	}
+
+	if joyIdx < 0 || joyIdx >= input.GetMaxJoystickCount() || !input.IsJoystickPresent(joyIdx) {
 		return false
 	}
+
+	// Axis tokens
+	if idx >= 15 && idx <= 24 {
+		axes := input.GetJoystickAxes(joyIdx)
+		btns := input.GetJoystickButtons(joyIdx)
+
+		// Determine active axis token (sticks first, then triggers), just like getJoystickKey().
+		active := CheckAxisForDpad(&axes, len(btns))
+		if active == "" {
+			active = CheckAxisForTrigger(&axes)
+		}
+
+		// When stick returns to neutral for the focused controller,
+		// clear last token so it can trigger again next time it leaves neutral.
+		if active == "" {
+			if controllerIdx == sys.lastInputController {
+				sys.uiLastInputToken = ""
+			}
+			return false
+		}
+
+		// Only accept if the currently active axis matches the token being queried.
+		if active != token {
+			return false
+		}
+
+		// Prevent repeats while still held (must go neutral or change axis).
+		if active == sys.uiLastInputToken {
+			return false
+		}
+
+		// Accept axis token.
+		sys.lastInputController = controllerIdx
+		sys.uiLastInputToken = active
+		// Match Lua: axis token acceptance resets the command buffer to avoid double triggers.
+		cl.BufReset()
+		return true
+	}
+
+	// Digital buttons / DPAD: direct state check.
 	buttons := input.GetJoystickButtons(joyIdx)
 	if len(buttons) == 0 {
 		return false
 	}
-	// Map button id (idx) to the correct slot in buttons slice via buttonOrder.
 	for i, b := range buttonOrder {
 		if int(b) == idx {
 			return i < len(buttons) && buttons[i] != 0

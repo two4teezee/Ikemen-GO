@@ -249,7 +249,6 @@ options.t_itemname = {
 			--modifyGameOption('Input.SOCDResolution', 4)
 			--modifyGameOption('Input.ControllerStickSensitivity', 0.4)
 			--modifyGameOption('Input.XinputTriggerSensitivity', 0.5)
-			--modifyGameOption('Input.AnalogDeadTime', 20)
 
 			loadLifebar(motif.files.fight)
 			main.timeFramesPerCount = fightscreenvar("time.framespercount")

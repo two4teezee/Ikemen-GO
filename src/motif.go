@@ -2580,49 +2580,62 @@ func (m *Motif) Save(file string) error {
 }
 
 func (m *Motif) button(btns []string, controllerNo int) bool {
-	for _, btn := range btns {
-		// First: raw controller tokens (A/B/X/Y, LS_*, RS_*, LT/RT) go through
-		// direct joystick checks (with analog dead-time for axis tokens).
-		if sys.isControllerButtonToken(btn) {
-			if controllerNo >= 0 {
-				if controllerNo < len(sys.commandLists) {
-					if cl := sys.commandLists[controllerNo]; cl != nil {
-						if cl.IsControllerButtonPressed(btn, controllerNo) {
-							return true
-						}
-					}
-				}
-			} else {
-				// controllerNo < 0: any controller.
-				for i := 0; i < len(sys.commandLists); i++ {
-					if cl := sys.commandLists[i]; cl != nil {
-						if cl.IsControllerButtonPressed(btn, i) {
-							return true
-						}
-					}
-				}
-			}
-			continue
+	checkConflict := func(btn, last string) bool {
+		if (btn == "$D" && last == "LS_Y+") || (btn == "LS_Y+" && last == "$D") {
+			return true
 		}
+		if (btn == "$U" && last == "LS_Y-") || (btn == "LS_Y-" && last == "$U") {
+			return true
+		}
+		if (btn == "$B" && last == "LS_X-") || (btn == "LS_X-" && last == "$B") {
+			return true
+		}
+		if (btn == "$F" && last == "LS_X+") || (btn == "LS_X+" && last == "$F") {
+			return true
+		}
+		return false
+	}
 
-		// Otherwise: use command-system state
-		// check command lists
-		if controllerNo >= 0 {
-			// specific controller
-			if controllerNo < len(sys.commandLists) {
-				if cl := sys.commandLists[controllerNo]; cl != nil {
-					if cl.GetState(btn) {
-						return true
-					}
-				}
+	checkOne := func(i int, cl *CommandList) bool {
+		if cl == nil {
+			return false
+		}
+		for _, btn := range btns {
+			// Handle conflict exceptions
+			if checkConflict(btn, sys.uiLastInputToken) {
+				return false
 			}
-		} else {
-			// any controller
-			for i := 0; i < len(sys.commandLists); i++ {
-				if cl := sys.commandLists[i]; cl != nil && cl.GetState(btn) {
+
+			// Raw controller tokens (A/B/X/Y, DP_*, LS_*, RS_*, LT/RT)
+			if sys.isControllerButtonToken(btn) {
+				if cl.IsControllerButtonPressed(btn, i) {
+					sys.lastInputController = i
+					sys.uiLastInputToken = btn
 					return true
 				}
+				continue
 			}
+
+			// Command-system state
+			if cl.GetState(btn) {
+				sys.lastInputController = i
+				sys.uiLastInputToken = btn
+				return true
+			}
+		}
+		return false
+	}
+
+	if controllerNo >= 0 {
+		if controllerNo < len(sys.commandLists) {
+			return checkOne(controllerNo, sys.commandLists[controllerNo])
+		}
+		return false
+	}
+
+	for i := 0; i < len(sys.commandLists); i++ {
+		if checkOne(i, sys.commandLists[i]) {
+			return true
 		}
 	}
 	return false

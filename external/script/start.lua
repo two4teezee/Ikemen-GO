@@ -3221,6 +3221,16 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			if not gameOption('Options.Team.Duplicates') then
 				t_reservedChars[side][start.c[player].selRef] = true
 			end
+			-- If we just confirmed a pick while hovering Random Select, force the random preview to advance for the next team member.
+			-- This prevents mashing select from picking the same random character repeatedly.
+			local cellIdx = (start.c[player].cell or -1) + 1
+			if cellIdx > 0 then
+				local g = start.f_selGrid(cellIdx)
+				if g.char == 'randomselect' or g.hidden == 3 then
+					start.c[player].randCnt = 0
+					start.c[player].randRef = nil
+				end
+			end
 			start.p[side].t_cursor[member] = {x = start.c[player].selX, y = start.c[player].selY}
 			if main.f_tableLength(start.p[side].t_selected) == start.p[side].numChars then --if all characters have been chosen
 				if side == 1 and main.cpuSide[2] and start.reset then --if player1 is allowed to select p2 characters

@@ -6465,8 +6465,8 @@ func triggerFunctions(l *lua.LState) {
 		c := sys.debugWC
 		var ln lua.LNumber
 		switch strings.ToLower(strArg(l, 1)) {
-		case "cornerpush":
-			ln = lua.LNumber(c.mhv.cornerpush)
+		case "cornerpush.veloff":
+			ln = lua.LNumber(c.mhv.cornerpush_veloff)
 		case "frame":
 			ln = lua.LNumber(Btoi(c.mhv.frame))
 		case "id":
@@ -7879,6 +7879,8 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nobrake)))
 		case "nocombodisplay":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocombodisplay)))
+		case "nocornerpush":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocornerpush)))
 		case "nocrouch":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_nocrouch)))
 		case "nodizzypointsdamage":

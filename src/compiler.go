@@ -4645,6 +4645,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nobrake))
 		case "nocombodisplay":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocombodisplay))
+		case "nocornerpush":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocornerpush))
 		case "nocrouch":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouch))
 		case "nodizzypointsdamage":
@@ -4845,8 +4847,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_ex_)
 		switch c.token {
-		case "cornerpush":
-			out.append(OC_ex_movehitvar_cornerpush)
+		case "cornerpush.veloff":
+			out.append(OC_ex_movehitvar_cornerpush_veloff)
 		case "frame":
 			out.append(OC_ex_movehitvar_frame)
 		case "id":

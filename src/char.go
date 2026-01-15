@@ -74,6 +74,7 @@ const (
 	ASF_noairjump
 	ASF_nobrake
 	ASF_nocombodisplay
+	ASF_nocornerpush
 	ASF_nocrouch
 	ASF_nodizzypointsdamage
 	ASF_nofacedisplay
@@ -1248,7 +1249,7 @@ func (ho *HitOverride) clear() {
 }
 
 type MoveHitVar struct {
-	cornerpush float32
+	cornerpush_veloff float32
 	frame      bool
 	overridden bool
 	playerid   int32
@@ -2978,7 +2979,6 @@ type CharSystemVar struct {
 	layerNo               int32
 	receivedDmg           int32
 	receivedHits          int32
-	cornerVelOff          float32
 	sizeWidth             [2]float32
 	edgeWidth             [2]float32
 	sizeHeight            [2]float32
@@ -8779,78 +8779,85 @@ func (c *Char) getCrouchFriction() float32 {
 	return c.gi().movement.crouch.friction
 }
 
+// Determine how much cornerpush to apply and how to update it
+func (c *Char) checkCornerPush() (pushDist float32, pushMul float32) {
+	// Default to no change
+	pushDist = 0
+	pushMul = 1
+
+	// In Mugen cornerpush is disabled during a superpause (but not during a regular pause)
+	if c.mhv.cornerpush_veloff == 0 || sys.supertime != 0 {
+		return
+	}
+
+	// Find a valid reference char for the cornerpush
+	// We check helpers as well because player type helpers can trigger cornerpush
+	// Loop backwards so we use the last valid target as reference, as is usually the case
+	var anyFound bool
+	for i := len(sys.charList.runOrder) - 1; i >= 0; i-- {
+		getter := sys.charList.runOrder[i]
+
+		// Must be player type and hit physically by this char
+		if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerid != c.id || getter.ghv.projid >= 0 {
+			continue
+		}
+
+		// At least one valid player was already found, even if not cornered
+		anyFound = true
+
+		// Most fighting games indirectly check hitshaketime here
+		// Mugen doesn't so for instance during a trade the cornerpush will be applied immediately
+		// TODO: Maybe this version check is overzealous considering the rest of the code is already a bit different from Mugen anyway
+		if (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) && getter.ghv.hitshaketime > 0 {
+			continue
+		}
+
+		// Determine friction based on enemy
+		// Mugen characters use hardcoded friction while Ikemen characters use the target's friction
+		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			pushMul = 0.7
+		} else {
+			if getter.ss.stateType == ST_C || getter.ss.stateType == ST_L {
+				pushMul = getter.getCrouchFriction()
+			} else {
+				pushMul = getter.getStandFriction()
+			}
+		}
+
+		// Apply cornerpush only if the target is cornered and actually confined to the screen
+		// In WinMugen, the threshold for corner push to happen is 4 pixels from the corner
+		// In Mugen 1.0 and 1.1 this threshold is bugged, varying with game resolution
+		// In Ikemen, this threshold is obsolete
+		getterNextPos := (getter.pos[0] + getter.vel[0]*getter.facing) * getter.localscl
+		getterCornered := getterNextPos <= sys.xmin || getterNextPos >= sys.xmax
+
+		if !getterCornered || !getter.trackableByCamera() || !getter.csf(CSF_screenbound) {
+			continue
+		}
+
+		// Determine distance based on current MoveHitVar value
+		// NoCornerPush only disables the effect of cornerpush. The variable still persists and friction is still applied to it
+		if !c.asf(ASF_nocornerpush) {
+			pushDist = c.mhv.cornerpush_veloff
+		}
+
+		// All checks passed so end the loop
+		return
+	}
+
+	// Signal a reset if no target was found at all
+	if !anyFound {
+		pushDist = 0
+		pushMul = 0
+	}
+
+	return
+}
+
 // Updates position based on multiple factors
 func (c *Char) posUpdate() {
-	// Reset cornerpush
-	c.mhv.cornerpush = 0
-
-	// Determine if cornerpush should be applied
-	// In Mugen cornerpush is disabled during a superpause (but not during a regular pause)
-	pushApply := c.cornerVelOff != 0 && sys.supertime == 0
-	pushMul := float32(0.7)
-
-	if pushApply {
-		// Check if any targets should activate the player's cornerpush
-		// Mugen doesn't run any of these checks, instead only caring about the target during hit detection
-		var pushRef *Char
-
-		// Loop backwards so we use the last valid target as reference, as is usually the case
-		for i := len(sys.chars) - 1; i >= 0; i-- {
-			if len(sys.chars[i]) == 0 {
-				continue
-			}
-
-			// Check helpers as well because player type helpers can trigger cornerpush
-			for j := len(sys.chars[i]) - 1; j >= 0; j-- {
-				getter := sys.chars[i][j]
-
-				// Must be player type and hit by this char
-				if !getter.isPlayerType() || getter.ss.moveType != MT_H || getter.ghv.playerid != c.id {
-					continue
-				}
-
-				// Most fighting games indirectly check hitshaketime here
-				// Mugen doesn't so for instance during a trade the cornerpush will be applied immediately
-				// TODO: Maybe this version check is overzealous considering the rest of the code is already a bit different from Mugen anyway
-				if (c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0) && getter.ghv.hitshaketime > 0 {
-					continue
-				}
-
-				// Apply cornerpush only if the target is cornered and actually confined to the screen
-				// In WinMugen, the threshold for corner push to happen is 4 pixels from the corner
-				// In Mugen 1.0 and 1.1 this threshold is bugged, varying with game resolution
-				// In Ikemen, this threshold is obsolete
-				npos := (getter.pos[0] + getter.vel[0]*getter.facing) * getter.localscl
-				if !getter.trackableByCamera() || !getter.csf(CSF_screenbound) || npos > sys.xmin && npos < sys.xmax {
-					continue
-				}
-
-				pushRef = getter
-				break
-			}
-
-			if pushRef != nil {
-				break
-			}
-		}
-
-		// Activate cornerpush if a valid target was found
-		if pushRef != nil {
-			c.mhv.cornerpush = c.cornerVelOff
-
-			// In Mugen cornerpush friction is hardcoded at 0.7
-			// In Ikemen the cornerpush friction is defined by the target instead
-			if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-				pushMul = 0.7
-			} else {
-				if pushRef.ss.stateType == ST_C || pushRef.ss.stateType == ST_L {
-					pushMul = pushRef.getCrouchFriction()
-				} else {
-					pushMul = pushRef.getStandFriction()
-				}
-			}
-		}
-	}
+	// Check cornerpush
+	pushDist, pushMul := c.checkCornerPush()
 
 	// Check if character is bound
 	nobind := [3]bool{c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])),
@@ -8877,11 +8884,11 @@ func (c *Char) posUpdate() {
 	// Apply velocity
 	if c.csf(CSF_posfreeze) {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0]+c.mhv.cornerpush, false) // PosFreeze does not disable cornerpush in Mugen
+			c.setPosX(c.oldPos[0]+pushDist, false) // PosFreeze does not disable cornerpush in Mugen
 		}
 	} else {
 		if nobind[0] {
-			c.setPosX(c.oldPos[0]+c.vel[0]*c.facing+c.mhv.cornerpush, false)
+			c.setPosX(c.oldPos[0]+c.vel[0]*c.facing+pushDist, false)
 		}
 		if nobind[1] {
 			c.setPosY(c.oldPos[1]+c.vel[1], false)
@@ -8914,10 +8921,10 @@ func (c *Char) posUpdate() {
 	}
 
 	// Apply friction to corner push only after positions are updated
-	if pushApply {
-		c.cornerVelOff *= pushMul
-		if AbsF(c.cornerVelOff) < 1/originLs {
-			c.cornerVelOff = 0
+	if c.mhv.cornerpush_veloff != 0 {
+		c.mhv.cornerpush_veloff *= pushMul
+		if AbsF(c.mhv.cornerpush_veloff) < 1/originLs { // In Mugen 1.1 this is actually 0.3333, but that would be different from normal friction
+			c.mhv.cornerpush_veloff = 0
 		}
 	}
 
@@ -10683,11 +10690,11 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if hitResult > 0 && !isProjectile && getter.isPlayerType() {
 			switch getter.ss.stateType {
 			case ST_S, ST_C:
-				c.cornerVelOff = hd.ground_cornerpush_veloff * c.facing
+				c.mhv.cornerpush_veloff = hd.ground_cornerpush_veloff * c.facing
 			case ST_A:
-				c.cornerVelOff = hd.air_cornerpush_veloff * c.facing
+				c.mhv.cornerpush_veloff = hd.air_cornerpush_veloff * c.facing
 			case ST_L:
-				c.cornerVelOff = hd.down_cornerpush_veloff * c.facing
+				c.mhv.cornerpush_veloff = hd.down_cornerpush_veloff * c.facing
 			}
 		}
 	}
@@ -10695,9 +10702,9 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if hitResult == 2 && !isProjectile && getter.isPlayerType() {
 		switch getter.ss.stateType {
 		case ST_S, ST_C:
-			c.cornerVelOff = hd.guard_cornerpush_veloff * c.facing
+			c.mhv.cornerpush_veloff = hd.guard_cornerpush_veloff * c.facing
 		case ST_A:
-			c.cornerVelOff = hd.airguard_cornerpush_veloff * c.facing
+			c.mhv.cornerpush_veloff = hd.airguard_cornerpush_veloff * c.facing
 		}
 	}
 	invertXvel(byf)

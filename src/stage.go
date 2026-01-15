@@ -501,6 +501,9 @@ func (bg *backGround) reset() {
 	bg.bga.sintime = bg.startsint
 	bg.bga.sinlooptime = bg.startsinlt
 
+	bg.visible = true
+	bg.enabled = true
+
 	if bg.anim != nil {
 		bg.anim.Reset()
 	}

@@ -81,6 +81,7 @@ SCREENPACK_DIR="$REPO_ROOT/$BUILDDIR/elecbyte-screenpack"
 
 # Android APK packaging (ikemen-droid)
 BUILD_ANDROID_APK="${BUILD_ANDROID_APK:-1}"  # 1=yes, 0=no
+# ANDROID_APK_REPO can be a git URL (default) OR a local directory path to an existing ikemen-droid checkout.
 ANDROID_APK_REPO="${ANDROID_APK_REPO:-https://github.com/Jesuszilla/ikemen-droid.git}"
 ANDROID_APK_REF="${ANDROID_APK_REF:-main}"
 ANDROID_APK_DIR="$REPO_ROOT/$BUILDDIR/android-apk/ikemen-droid"
@@ -775,6 +776,23 @@ function ensure_android_sdk_for_gradle() {
 
 function sync_android_apk_repo() {
 	mkdir -p "$(dirname "$ANDROID_APK_DIR")"
+
+	# Local repo support
+	if [[ -d "$ANDROID_APK_REPO" ]]; then
+		local src
+		src="$(cd "$ANDROID_APK_REPO" && pwd -P)"
+		if [[ "$src" != "$ANDROID_APK_DIR" ]]; then
+			rm -rf "$ANDROID_APK_DIR"
+			echo "==> Using local ikemen-droid checkout: $src -> $ANDROID_APK_DIR"
+			cp -a "$src" "$ANDROID_APK_DIR"
+		else
+			echo "==> Using local ikemen-droid checkout in-place: $ANDROID_APK_DIR"
+		fi
+		# Avoid "dubious ownership" on volume mounts
+		git config --system --add safe.directory "$ANDROID_APK_DIR" >/dev/null 2>&1 || true
+		return 0
+	fi
+
 	if [[ ! -d "$ANDROID_APK_DIR/.git" ]]; then
 		rm -rf "$ANDROID_APK_DIR"
 		echo "==> Cloning ikemen-droid: $ANDROID_APK_REPO ($ANDROID_APK_REF) -> $ANDROID_APK_DIR"

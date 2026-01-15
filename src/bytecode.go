@@ -10907,8 +10907,8 @@ func (sc forceFeedback) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if crun.controller >= 0 && crun.controller < len(sys.ffbparams) {
-		joy := crun.controller
+	if crun.controller >= 0 && sys.inputRemap[crun.controller] < len(sys.ffbparams) {
+		joy := sys.inputRemap[crun.controller]
 		if newAPI { // New API: just rumble straight away on the ultimately redirected character
 			input.RumbleController(joy, lo, hi, time)
 		} else { // Old API: fill out FFB params
@@ -10917,7 +10917,7 @@ func (sc forceFeedback) Run(c *Char, _ []int32) bool {
 				if crun = crun.p2(); crun == nil {
 					return false
 				}
-				joy = crun.controller
+				joy = sys.inputRemap[crun.controller]
 			}
 			// Don't rumble helpers.
 			if joy >= 0 && joy < len(sys.ffbparams) && crun.helperIndex == 0 {

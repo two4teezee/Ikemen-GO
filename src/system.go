@@ -54,27 +54,27 @@ var sys = System{
 	match:    1,
 	loader:   *newLoader(),
 	numSimul: [...]int32{2, 2}, numTurns: [...]int32{2, 2},
-	ignoreMostErrors: true,
-	stageList:        make(map[int32]*Stage),
-	stageLocalcoords: make(map[string][2]float32),
-	oldNextAddTime:   1,
-	commandLine:      make(chan string),
-	cam:              *newCamera(),
-	mainThreadTask:   make(chan func(), 65536),
-	workpal:          make([]uint32, 256),
-	errLog:           log.New(NewLogWriter(), "", log.LstdFlags),
-	keyInput:         KeyUnknown,
-	saveState:        NewGameState(),
-	statePool:        NewGameStatePool(),
-	savePool:         NewGameStatePool(),
-	loadPool:         NewGameStatePool(),
-	luaStringVars:    make(map[string]string),
-	luaNumVars:       make(map[string]float32),
-	luaTables:        make([]*lua.LTable, 0),
-	commandLists:     make([]*CommandList, 0),
-	arenaSaveMap:     make(map[int]*arena.Arena),
-	arenaLoadMap:     make(map[int]*arena.Arena),
-	debugAccel:       1, // TODO: We probably shouldn't rely on this being initialized to 1
+	ignoreMostErrors:    true,
+	stageList:           make(map[int32]*Stage),
+	stageLocalcoords:    make(map[string][2]float32),
+	oldNextAddTime:      1,
+	commandLine:         make(chan string),
+	cam:                 *newCamera(),
+	mainThreadTask:      make(chan func(), 65536),
+	workpal:             make([]uint32, 256),
+	errLog:              log.New(NewLogWriter(), "", log.LstdFlags),
+	keyInput:            KeyUnknown,
+	saveState:           NewGameState(),
+	statePool:           NewGameStatePool(),
+	savePool:            NewGameStatePool(),
+	loadPool:            NewGameStatePool(),
+	luaStringVars:       make(map[string]string),
+	luaNumVars:          make(map[string]float32),
+	luaTables:           make([]*lua.LTable, 0),
+	commandLists:        make([]*CommandList, 0),
+	arenaSaveMap:        make(map[int]*arena.Arena),
+	arenaLoadMap:        make(map[int]*arena.Arena),
+	debugAccel:          1, // TODO: We probably shouldn't rely on this being initialized to 1
 	lastInputController: -1,
 }
 
@@ -321,7 +321,7 @@ type System struct {
 	luaDrawLayerOps [3][]func()
 
 	lastInputController int
-	uiLastInputToken string
+	uiLastInputToken    string
 
 	// For Android support
 	baseDir string

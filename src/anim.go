@@ -1073,6 +1073,7 @@ type SprData struct {
 	window       [4]float32
 	syncId       int32 // Synchronization target ID
 	syncLayer    int32 // Layer for synchronized drawing
+	syncGroup    int // Used to group syncId's in chunks before drawing
 	xshear       float32
 }
 
@@ -1118,23 +1119,45 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		return
 	}
 
-	// Sort by descending sprpriority
+	// Assign a number to each group of syncId's
+	for i := range dl {
+		// Default to own index
+		dl[i].syncGroup = i
+		// If using syncId, find the first sprite with the same syncId and copy its index
+		if dl[i].syncId > 0 {
+			for j := 0; j < i; j++ {
+				if dl[j].syncId == dl[i].syncId {
+					dl[i].syncGroup = j
+					break 
+				}
+			}
+		}
+	}
+
+	// Sort the whole drawlist in order to determine how to layer the sprites
 	sort.SliceStable(dl, func(i, j int) bool {
+		// Sort by descending sprpriority
 		if dl[i].priority != dl[j].priority {
 			return dl[i].priority > dl[j].priority
 		}
-		// Then by SyncID to group synchronized sprites together
-		if dl[i].syncId != dl[j].syncId && dl[i].syncId > 0 && dl[j].syncId > 0 {
-			return dl[i].syncId < dl[j].syncId
+		// Separate sync groups from each other
+		if dl[i].syncGroup != dl[j].syncGroup {
+			return dl[i].syncGroup < dl[j].syncGroup
 		}
-		// Sort by syncLayer to ensure proper layering within a sync group
-		return dl[i].syncLayer > dl[j].syncLayer
+		// Order the same sync group by syncLayer
+		if dl[i].syncId > 0 && dl[i].syncId == dl[j].syncId {
+			if dl[i].syncLayer != dl[j].syncLayer {
+				return dl[i].syncLayer > dl[j].syncLayer
+			}
+		}
+		// Default to no change
+		return false
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	// Draw the entire list in reverse
+	// Draw the entire list in reverse so that the first sprites are on top
 	for i := len(dl) - 1; i >= 0; i-- {
 		s := dl[i]
 
@@ -1181,8 +1204,8 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		xshear := -s.xshear
 		xsoffset := xshear * (float32(s.anim.spr.Offset[1]) * s.scl[1] * cs)
 
-		drawwindow := &sys.scrrect
 		// Sprite window, which can be from the Char, Explod, or Projectile
+		drawwindow := &sys.scrrect
 		if s.window != [4]float32{0, 0, 0, 0} {
 			w := s.window
 			var window [4]int32

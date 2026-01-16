@@ -1943,43 +1943,46 @@ func (e *Explod) update(playerNo int) {
 		}
 	}
 	if e.syncId > 0 {
-		if syncChar := sys.playerID(e.syncId); syncChar != nil && e.syncParams {
-			e.sprpriority = syncChar.sprPriority
-			e.scale = [2]float32{syncChar.size.xscale * syncChar.angleDrawScale[0], syncChar.size.yscale * syncChar.angleDrawScale[1]}
-			if syncChar.csf(CSF_angledraw) {
-				e.anglerot = syncChar.anglerot
-			} else {
-				e.anglerot = [3]float32{0, 0, 0}
-			}
-			e.window = syncChar.window
-			e.xshear = syncChar.xshear
-			e.projection = syncChar.projection
-			e.fLength = syncChar.fLength
-
-			e.trans = syncChar.trans
-			e.alpha = syncChar.alpha
-			e.palfx = syncChar.getPalfx()
-			e.facing = syncChar.facing
-
-			if syncChar.aimg != nil && syncChar.aimg.time != 0 {
-				if e.aimg == nil {
-					e.aimg = newAfterImage()
+		if syncChar := sys.playerID(e.syncId); syncChar != nil {
+			syncChar.enableSyncId = true // Enable sync layering for this char
+			if e.syncParams {
+				e.sprpriority = syncChar.sprPriority
+				e.scale = [2]float32{syncChar.size.xscale * syncChar.angleDrawScale[0], syncChar.size.yscale * syncChar.angleDrawScale[1]}
+				if syncChar.csf(CSF_angledraw) {
+					e.anglerot = syncChar.anglerot
+				} else {
+					e.anglerot = [3]float32{0, 0, 0}
 				}
-				// Copy Afterimage settings, but not the state
-				e.aimg.time = syncChar.aimg.time
-				e.aimg.length = syncChar.aimg.length
-				e.aimg.timegap = syncChar.aimg.timegap
-				e.aimg.framegap = syncChar.aimg.framegap
-				e.aimg.add = syncChar.aimg.add
-				e.aimg.postbright = syncChar.aimg.postbright
-				e.aimg.mul = syncChar.aimg.mul
-				e.aimg.trans = syncChar.aimg.trans
-				e.aimg.alpha = syncChar.aimg.alpha
-				e.aimg.restgap = syncChar.aimg.restgap
-				e.aimg.timecount = syncChar.aimg.timecount
-				e.aimg.priority = syncChar.aimg.priority
-				e.aimg.ignorehitpause = syncChar.aimg.ignorehitpause
-				e.aimg.palfx[0] = syncChar.aimg.palfx[0] // Settings are in the first element
+				e.window = syncChar.window
+				e.xshear = syncChar.xshear
+				e.projection = syncChar.projection
+				e.fLength = syncChar.fLength
+
+				e.trans = syncChar.trans
+				e.alpha = syncChar.alpha
+				e.palfx = syncChar.getPalfx()
+				e.facing = syncChar.facing
+
+				if syncChar.aimg != nil && syncChar.aimg.time != 0 {
+					if e.aimg == nil {
+						e.aimg = newAfterImage()
+					}
+					// Copy Afterimage settings, but not the state
+					e.aimg.time = syncChar.aimg.time
+					e.aimg.length = syncChar.aimg.length
+					e.aimg.timegap = syncChar.aimg.timegap
+					e.aimg.framegap = syncChar.aimg.framegap
+					e.aimg.add = syncChar.aimg.add
+					e.aimg.postbright = syncChar.aimg.postbright
+					e.aimg.mul = syncChar.aimg.mul
+					e.aimg.trans = syncChar.aimg.trans
+					e.aimg.alpha = syncChar.aimg.alpha
+					e.aimg.restgap = syncChar.aimg.restgap
+					e.aimg.timecount = syncChar.aimg.timecount
+					e.aimg.priority = syncChar.aimg.priority
+					e.aimg.ignorehitpause = syncChar.aimg.ignorehitpause
+					e.aimg.palfx[0] = syncChar.aimg.palfx[0] // Settings are in the first element
+				}
 			}
 		}
 	}
@@ -3151,6 +3154,7 @@ type Char struct {
 	hitStateChangeIdx    int32
 	currentSctrlIndex    int32
 	analogAxes           [6]float32
+	enableSyncId         bool
 }
 
 // Add a new char to the game
@@ -11868,8 +11872,10 @@ func (c *Char) cueDraw() {
 			xshear:       c.xshear,
 			window:       cwin,
 		}
-		charSD.syncId = c.id // TODO: This overrides the natural layering of the drawlist
-		charSD.syncLayer = 0 // Character body is always at layer 0
+		if c.enableSyncId {
+			charSD.syncId = c.id
+			charSD.syncLayer = 0 // Character body is always at layer 0
+		}
 
 		// Record afterimage
 		if c.aimg != nil {
@@ -12943,7 +12949,7 @@ func (cl *CharList) tick() {
 }
 
 // Prepare characters for drawing
-// Drawing order also respects the processing order. TODO: This was broken by syncID feature
+// Drawing order also respects the processing order
 func (cl *CharList) cueDraw() {
 	for _, c := range cl.runOrder {
 		c.cueDraw()

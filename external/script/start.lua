@@ -1724,7 +1724,6 @@ function start.f_selectReset(hardReset)
 	setMatchNo(1)
 	setConsecutiveWins(1, 0)
 	setConsecutiveWins(2, 0)
-	main.f_cmdInput()
 	local col = 1
 	local row = 1
 	for i = 1, #main.t_selGrid do
@@ -2462,8 +2461,6 @@ function start.f_selectScreen()
 			main.f_cmdBufReset()
 			selScreenEnd = true
 			break --skip last frame rendering
-		else
-			main.f_cmdInput()
 		end
 		refresh()
 	end
@@ -3547,8 +3544,6 @@ function start.f_selectVersus(active, t_orderSelect)
 			main.f_cmdBufReset()
 			clearColor(motif.versusbgdef.bgclearcolor[1], motif.versusbgdef.bgclearcolor[2], motif.versusbgdef.bgclearcolor[3])
 			break --skip last frame rendering
-		else
-			main.f_cmdInput()
 		end
 		refresh()
 	end

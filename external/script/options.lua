@@ -1440,7 +1440,6 @@ function options.f_createMenu(tbl, bool_main)
 		while true do
 			if tbl.reset then
 				tbl.reset = false
-				main.f_cmdInput()
 			else
 				main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif.option_info, motif.optionbgdef, false)
 			end
@@ -2128,7 +2127,7 @@ end
 
 function options.f_keyCfgInit(cfgType, title)
 	resetKey()
-	main.f_cmdInput()
+	main.f_cmdBufReset()
 	cursorPosY = configall_start
 	item = configall_start
 	item_start = configall_start
@@ -2508,7 +2507,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		)
 		textImgDraw(motif.option_info.keymenu['p' .. i].playerno.TextSpriteData)
 	end
-	main.f_cmdInput()
 	if not skipClear then
 		refresh()
 	end

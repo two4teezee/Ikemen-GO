@@ -2601,7 +2601,7 @@ func systemScriptInit(l *lua.LState) {
 				default:
 					continue
 				}
-				if len(btns) > 0 && sys.motif.button(btns, controllerIdx) {
+				if len(btns) > 0 && sys.button(btns, controllerIdx) {
 					l.Push(lua.LBool(true))
 					return 1
 				}
@@ -3805,7 +3805,7 @@ func systemScriptInit(l *lua.LState) {
 			// On skipped frames, discard queued draws to avoid buildup.
 			sys.luaDiscardDrawQueue()
 		}
-		sys.StepCommandLists()
+		sys.stepCommandLists()
 		if !sys.update() {
 			l.RaiseError("<game end>")
 		}

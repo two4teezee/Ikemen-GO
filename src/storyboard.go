@@ -584,7 +584,7 @@ func (s *Storyboard) init() {
 }
 
 func (s *Storyboard) step() {
-	sys.StepCommandLists()
+	sys.stepCommandLists()
 	sceneKey := s.sceneKeys[s.currentSceneIndex]
 	sceneProps := s.Scene[sceneKey]
 
@@ -599,14 +599,14 @@ func (s *Storyboard) step() {
 
 	// Cancel handling
 	if sys.esc ||
-		(!sys.motif.AttractMode.Enabled && sys.motif.button(s.SceneDef.Key.Cancel, -1)) ||
+		(!sys.motif.AttractMode.Enabled && sys.button(s.SceneDef.Key.Cancel, -1)) ||
 		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0) {
 		sys.esc = false
 		s.cancel = true
 	}
 
 	// Skip handling
-	skipPressed := sys.motif.button(s.SceneDef.Key.Skip, -1)
+	skipPressed := sys.button(s.SceneDef.Key.Skip, -1)
 
 	// Keep dialogue cursor aligned with time progression.
 	s.syncDialoguePosToTime()

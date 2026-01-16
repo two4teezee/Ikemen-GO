@@ -2579,98 +2579,6 @@ func (m *Motif) Save(file string) error {
 	return SaveINI(m.IniFile, file)
 }
 
-func (m *Motif) button(btns []string, controllerNo int) bool {
-	// returns (kind, typ):
-	//   kind: 1=Down, 2=Up, 3=Back, 4=Forward
-	//   typ:  1=Dir token (D/U/B/F with optional '$'), 2=Axis token (LS_*)
-	conflictInfo := func(tok string) (kind uint8, typ uint8) {
-		switch tok {
-		case "LS_Y+":
-			return 1, 2 // Down
-		case "LS_Y-":
-			return 2, 2 // Up
-		case "LS_X-":
-			return 3, 2 // Back (left)
-		case "LS_X+":
-			return 4, 2 // Forward (right)
-		}
-		if len(tok) == 2 && tok[0] == '$' {
-			tok = tok[1:] // slice, no allocation
-		}
-		if len(tok) != 1 {
-			return 0, 0
-		}
-		switch tok[0] {
-		case 'D':
-			return 1, 1
-		case 'U':
-			return 2, 1
-		case 'B':
-			return 3, 1
-		case 'F':
-			return 4, 1
-		}
-		return 0, 0
-	}
-
-	checkOne := func(i int, cl *CommandList) bool {
-		if cl == nil {
-			return false
-		}
-		lastKind, lastType := conflictInfo(sys.uiLastInputToken)
-		for _, btn := range btns {
-			// Handle conflict exceptions
-			btnKind, btnType := conflictInfo(btn)
-			if btnKind != 0 && btnKind == lastKind && btnType != 0 && lastType != 0 && btnType != lastType {
-				return false
-			}
-
-			// Raw controller LS/RS axis directions
-			if sys.isControllerStickAxisToken(btn) {
-				if cl.IsControllerButtonPressed(btn, i) {
-					sys.lastInputController = i
-					sys.uiLastInputToken = btn
-					return true
-				}
-				continue
-			}
-
-			// Command-system state
-			if cl.GetState(btn) {
-				sys.lastInputController = i
-				sys.uiLastInputToken = btn
-				return true
-			}
-		}
-		return false
-	}
-
-	if controllerNo >= 0 {
-		if controllerNo < len(sys.commandLists) {
-			return checkOne(controllerNo, sys.commandLists[controllerNo])
-		}
-		return false
-	}
-
-	for i := 0; i < len(sys.commandLists); i++ {
-		if checkOne(i, sys.commandLists[i]) {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *Motif) buttonController(btns []string) int {
-	for _, btn := range btns {
-		for i, cl := range sys.commandLists {
-			if cl != nil && cl.GetState(btn) {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
 func (mo *Motif) processStateChange(c *Char, states []int32) bool {
 	for _, stateNo := range states {
 		if c.selfStatenoExist(BytecodeInt(stateNo)) == BytecodeBool(true) {
@@ -2796,7 +2704,7 @@ func (m *Motif) step() {
 		sys.paused = false
 		return
 	}
-	sys.StepCommandLists()
+	sys.stepCommandLists()
 	if sys.paused && !sys.frameStepFlag {
 		return
 	}
@@ -3153,7 +3061,7 @@ func (me *MotifMenu) menuOpenInputHeld(m *Motif) bool {
 	}
 	// Also respect configured menu cancel/open bindings
 	if m != nil && m.MenuInfo.Enabled {
-		if m.button(m.MenuInfo.Menu.Cancel.Key, -1) {
+		if sys.button(m.MenuInfo.Menu.Cancel.Key, -1) {
 			return true
 		}
 	}
@@ -3181,7 +3089,7 @@ func (me *MotifMenu) init(m *Motif) {
 		}
 		me.reopenLock = false
 	}
-	if (!sys.esc && !m.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
+	if (!sys.esc && !sys.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
 	if !sys.skipMotifScaling() {
@@ -3264,7 +3172,7 @@ func (ch *MotifChallenger) init(m *Motif) {
 		return
 	}
 
-	controllerNo := m.buttonController(m.ChallengerInfo.Key)
+	controllerNo := sys.buttonController(m.ChallengerInfo.Key)
 	if controllerNo == -1 || controllerNo == sys.chars[0][0].controller {
 		return
 	}
@@ -3534,19 +3442,19 @@ func (co *MotifContinue) step(m *Motif) {
 
 	if !co.selected {
 		if m.ContinueScreen.LegacyMode.Enabled {
-			if m.button(m.ContinueScreen.Move.Key, co.pn-1) {
+			if sys.button(m.ContinueScreen.Move.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Move.Snd, 100, 0, 0, 0, 0)
 				co.yesSide = !co.yesSide
-			} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) || m.button(m.ContinueScreen.Done.Key, co.pn-1) {
+			} else if sys.button(m.ContinueScreen.Skip.Key, co.pn-1) || sys.button(m.ContinueScreen.Done.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 				co.processSelection(m, co.yesSide)
 			}
 		} else {
 			if co.counter < m.ContinueScreen.Counter.End.SkipTime {
-				if (sys.credits == -1 || sys.credits > 0) && m.button(m.ContinueScreen.Done.Key, co.pn-1) {
+				if (sys.credits == -1 || sys.credits > 0) && sys.button(m.ContinueScreen.Done.Key, co.pn-1) {
 					m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 					co.processSelection(m, true)
-				} else if m.button(m.ContinueScreen.Skip.Key, co.pn-1) &&
+				} else if sys.button(m.ContinueScreen.Skip.Key, co.pn-1) &&
 					co.counter >= m.ContinueScreen.Counter.StartTime+m.ContinueScreen.Counter.SkipStart {
 					co.skipCounter(m)
 				}
@@ -3654,7 +3562,7 @@ func (de *MotifDemo) init(m *Motif) {
 
 func (de *MotifDemo) step(m *Motif) {
 	if de.endTimer == -1 {
-		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && m.button(m.DemoMode.Cancel.Key, -1))
+		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && sys.button(m.DemoMode.Cancel.Key, -1))
 		if de.counter == m.DemoMode.Fight.EndTime || cancel {
 			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, cancel, m.fadePolicy)
 			de.endTimer = de.counter + sys.lifebar.ro.fadeOut.timeRemaining
@@ -4473,7 +4381,7 @@ func (di *MotifDialogue) step(m *Motif) {
 	}
 
 	// If user presses "cancel", end the dialogue
-	if m.button(m.DialogueInfo.Cancel.Key, -1) {
+	if sys.button(m.DialogueInfo.Cancel.Key, -1) {
 		di.active = false
 		di.clear(m)
 		return
@@ -4521,7 +4429,7 @@ func (di *MotifDialogue) step(m *Motif) {
 
 	// Handle "skip" key (only after SkipTime)
 	if di.counter >= m.DialogueInfo.SkipTime {
-		if m.button(m.DialogueInfo.Skip.Key, -1) {
+		if sys.button(m.DialogueInfo.Skip.Key, -1) {
 			if !di.lineFullyRendered {
 				currentLine.typedCnt = utf8.RuneCountInString(currentLine.text)
 				di.lineFullyRendered = true
@@ -5094,8 +5002,8 @@ func (hi *MotifHiscore) step(m *Motif) {
 	}
 	// Begin fade-out on cancel or when time elapses.
 	if hi.endTimer == -1 {
-		cancel := sys.esc || m.button(m.HiscoreInfo.Cancel.Key, -1) ||
-			(!hi.input && m.button(m.HiscoreInfo.Done.Key, -1)) ||
+		cancel := sys.esc || sys.button(m.HiscoreInfo.Cancel.Key, -1) ||
+			(!hi.input && sys.button(m.HiscoreInfo.Done.Key, -1)) ||
 			(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
 		if cancel || (!hi.input && hi.counter == hi.endTime) {
 			if !hi.noFade {
@@ -5159,7 +5067,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 				maxLen := initialsWidth(m.HiscoreInfo.Item.Name.Text["default"])
 				glyphCount := len(m.HiscoreInfo.Glyphs)
 				// Previous glyph
-				if m.button(m.HiscoreInfo.Previous.Key, controller) {
+				if sys.button(m.HiscoreInfo.Previous.Key, controller) {
 					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
 					if len(hi.letters) == 0 {
 						hi.letters = []int{1}
@@ -5172,7 +5080,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 					}
 					updateRowNameFromLetters(m, row, hi.letters)
 					// Next glyph
-				} else if m.button(m.HiscoreInfo.Next.Key, controller) {
+				} else if sys.button(m.HiscoreInfo.Next.Key, controller) {
 					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
 					if len(hi.letters) == 0 {
 						hi.letters = []int{1}
@@ -5185,7 +5093,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 					}
 					updateRowNameFromLetters(m, row, hi.letters)
 					// Confirm / Add / Backspace
-				} else if m.button(m.HiscoreInfo.Done.Key, controller) {
+				} else if sys.button(m.HiscoreInfo.Done.Key, controller) {
 					// Current glyph meaning
 					curGlyph := currentGlyph(m, hi.letters)
 					if curGlyph == "<" {
@@ -5900,8 +5808,8 @@ func (vi *MotifVictory) step(m *Motif) {
 			sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.victory", err.Error())
 		}
 	}
-	cancelPressed := sys.esc || m.button(m.VictoryScreen.Cancel.Key, -1)
-	skipPressed := m.button(m.VictoryScreen.Skip.Key, -1)
+	cancelPressed := sys.esc || sys.button(m.VictoryScreen.Cancel.Key, -1)
+	skipPressed := sys.button(m.VictoryScreen.Skip.Key, -1)
 	prevLineFullyRendered := vi.lineFullyRendered
 	//fmt.Printf("[Victory] step: counter=%d time=%d endTimer=%d typedCnt=%d lineFullyRendered=%v cancel=%v skip=%v\n", vi.counter, m.VictoryScreen.Time, vi.endTimer, vi.typedCnt, vi.lineFullyRendered, cancelPressed, skipPressed)
 
@@ -6422,7 +6330,7 @@ func (wi *MotifWin) step(m *Motif) {
 		}
 	}
 	if wi.endTimer == -1 {
-		cancel := sys.esc || m.button(wi.keyCancel, -1)
+		cancel := sys.esc || sys.button(wi.keyCancel, -1)
 		if cancel || wi.counter == wi.time {
 			startFadeOut(wi.fadeOut, m.fadeOut, cancel, m.fadePolicy)
 			wi.endTimer = wi.counter + m.fadeOut.timeRemaining

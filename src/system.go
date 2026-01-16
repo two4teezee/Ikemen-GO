@@ -962,83 +962,105 @@ func (s *System) anyButton() bool {
 	return s.anyHardButton()
 }
 
-// initializes commandLists so that there is one CommandList per configured player.
-func (s *System) EnsureCommandLists() {
-	players := int(s.cfg.Config.Players)
-	if players <= 0 {
-		return
-	}
-
-	// Grow slice if needed
-	if len(s.commandLists) < players {
-		tmp := make([]*CommandList, players)
-		copy(tmp, s.commandLists)
-		s.commandLists = tmp
-	}
-
-	// Create missing CommandLists
-	for i := 0; i < players; i++ {
-		if s.commandLists[i] == nil {
-			controllerNo := int32(i + 1) // controller numbers are 1-based
-			cl := NewCommandList(NewInputBuffer(), controllerNo)
-			s.commandLists[i] = cl
+func (s *System) button(btns []string, controllerNo int) bool {
+	// Direction token -> matching LS axis token.
+	dirOf := func(tok string) byte {
+		if len(tok) == 2 && tok[0] == '$' {
+			tok = tok[1:]
+		}
+		if len(tok) != 1 {
+			return 0
+		}
+		switch tok[0] {
+		case 'D', 'U', 'B', 'F':
+			return tok[0]
+		default:
+			return 0
 		}
 	}
-}
+	axisOf := func(dir byte) string {
+		switch dir {
+		case 'D':
+			return "LS_Y+"
+		case 'U':
+			return "LS_Y-"
+		case 'B':
+			return "LS_X-"
+		case 'F':
+			return "LS_X+"
+		default:
+			return ""
+		}
+	}
 
-func (s *System) isControllerStickAxisToken(cmdstr string) bool {
-	cmd := strings.TrimSpace(cmdstr)
-	if cmd == "" {
-		return false
+	lastAxis := ""
+	switch s.uiLastInputToken {
+	case "LS_Y+", "LS_Y-", "LS_X-", "LS_X+":
+		lastAxis = s.uiLastInputToken
 	}
-	id, ok := StringToButtonLUT[cmd]
-	if !ok {
-		return false
-	}
+	lastDir := dirOf(s.uiLastInputToken)
 
-	// Only LS/RS axis directions:
-	// 15: LS_Y-  16: LS_X-  17: LS_X+  18: LS_Y+
-	// 21: RS_Y-  22: RS_X-  23: RS_X+  24: RS_Y+
-	switch id {
-	case 15, 16, 17, 18, 21, 22, 23, 24:
-		return true
-	default:
-		return false
-	}
-}
-
-// Compiles the given command string and adds it to every initialized CommandList.
-func (s *System) AddCommandToLists(cmdstr string) {
-	if s.isControllerStickAxisToken(cmdstr) {
-		return
-	}
-	s.EnsureCommandLists()
-	for _, cl := range s.commandLists {
+	checkOne := func(i int, cl *CommandList) bool {
 		if cl == nil {
-			continue
+			return false
 		}
-		time := cl.DefaultTime
-		buftime := cl.DefaultBufferTime
-		bufferHitpause := cl.DefaultBufferHitpause
-		bufferPauseend := cl.DefaultBufferPauseEnd
-		steptime := cl.DefaultStepTime
-		if err := cl.AddCommand(
-			cmdstr, // name
-			cmdstr, // cmdstr
-			time,
-			buftime,
-			bufferHitpause,
-			bufferPauseend,
-			steptime,
-		); err != nil && s.errLog != nil {
-			// Don't panic the engine on bad user config; just log.
-			s.errLog.Printf("Failed to parse command '%s': %v", cmdstr, err)
+		for _, btn := range btns {
+			// Command-system state
+			dir := dirOf(btn)
+			if cl.GetState(btn) {
+				// Avoid "same direction, different type" conflict (axis->dir) on the same controller.
+				if dir != 0 && s.lastInputController == i && lastAxis == axisOf(dir) {
+					return false
+				}
+				s.lastInputController = i
+				s.uiLastInputToken = btn
+				return true
+			}
+
+			// Also allow LS axis for D/U/B/F (and $D/$U/$B/$F).
+			if dir != 0 {
+				axisTok := axisOf(dir)
+				if axisTok != "" {
+					// Avoid "same direction, different type" conflict (dir->axis) on the same controller.
+					if s.lastInputController == i && lastDir == dir {
+						return false
+					}
+					if cl.IsControllerButtonPressed(axisTok, i) {
+						return true
+					}
+				}
+			}
+		}
+		return false
+	}
+
+	if controllerNo >= 0 {
+		if controllerNo < len(s.commandLists) {
+			return checkOne(controllerNo, s.commandLists[controllerNo])
+		}
+		return false
+	}
+
+	for i := 0; i < len(s.commandLists); i++ {
+		if checkOne(i, s.commandLists[i]) {
+			return true
 		}
 	}
+	return false
 }
 
-// equivalent of Lua commandInput
-func (s *System) StepCommandLists() {
+func (s *System) buttonController(btns []string) int {
+	for _, btn := range btns {
+		for i, cl := range s.commandLists {
+			if cl != nil && cl.GetState(btn) {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func (s *System) stepCommandLists() {
 	for i, cl := range s.commandLists {
 		if cl == nil || cl.Buffer == nil {
 			continue
@@ -1056,7 +1078,7 @@ func (s *System) netplay() bool {
 }
 
 func (s *System) escExit() bool {
-	return (sys.gameMode == "demo" && (sys.esc || sys.motif.button([]string{"m"}, -1))) ||
+	return (sys.gameMode == "demo" && (sys.esc || sys.button([]string{"m"}, -1))) ||
 		(sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" || (sys.motif.AttractMode.Enabled && sys.credits == 0)))
 }
 

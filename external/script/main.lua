@@ -39,30 +39,11 @@ function main.f_fileWrite(path, str, mode)
 	file:close()
 end
 
---add default commands
-main.t_commands = {
-	{name = "$U", input = "$U"},
-	{name = "$D", input = "$D"},
-	{name = "$B", input = "$B"},
-	{name = "$F", input = "$F"},
-	{name = "a",  input = "a"},
-	{name = "b",  input = "b"},
-	{name = "c",  input = "c"},
-	{name = "x",  input = "x"},
-	{name = "y",  input = "y"},
-	{name = "z",  input = "z"},
-	{name = "s",  input = "s"},
-	{name = "d",  input = "d"},
-	{name = "w",  input = "w"},
-	{name = "m",  input = "m"},
-	{name = "/s", input = "/s"},
-	{name = "/d", input = "/d"},
-	{name = "/w", input = "/w"},
-}
+main.t_commands = {}
 function main.f_commandNew(controllerNo)
 	local c = commandNew(controllerNo)
-	for _, v in ipairs(main.t_commands) do
-		commandAdd(c, v.name, v.input)
+	for k, v in pairs(main.t_commands) do
+		commandAdd(c, k, v[1], v[2], v[3])
 	end
 	return c
 end
@@ -152,7 +133,7 @@ function main.f_commandAdd(name, cmd, tim, buf)
 	for i = 1, #main.t_cmd do
 		commandAdd(main.t_cmd[i], name, cmd, tim or 15, buf or 1)
 	end
-	main.t_commands[name] = 0
+	main.t_commands[name] = {cmd, tim, buf}
 end
 --main.f_commandAdd("KonamiCode", "~U,U,D,D,B,F,B,F,b,a,s", 300, 1)
 
@@ -913,6 +894,30 @@ main.t_unlockLua = {chars = {}, stages = {}, modes = {}}
 
 motif = loadMotif()
 if gameOption('Debug.DumpLuaTables') then main.f_printTable(motif, "debug/loadMotif.txt") end
+
+-- Recursively scan motif for fields named "key" and register their commands.
+local function addAllKeyCommands(root)
+	-- Avoid infinite loops on cyclic tables (weak keys so GC can collect)
+	local visited = setmetatable({}, { __mode = 'k' })
+	local function visit(t)
+		if type(t) ~= 'table' or visited[t] then return end
+		visited[t] = true
+		for k, v in pairs(t) do
+			if k == 'key' and type(v) == 'table' then
+				for _, cmd in ipairs(v) do
+					if type(cmd) == 'string' and cmd ~= '' then
+						main.f_commandAdd(cmd, cmd)
+					end
+				end
+			end
+			if type(v) == 'table' then
+				visit(v)
+			end
+		end
+	end
+	visit(root)
+end
+addAllKeyCommands(motif)
 
 loadLifebar()
 main.f_loadingRefresh()

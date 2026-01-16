@@ -2796,10 +2796,10 @@ func (m *Motif) step() {
 		sys.paused = false
 		return
 	}
+	sys.StepCommandLists()
 	if sys.paused && !sys.frameStepFlag {
 		return
 	}
-	sys.StepCommandLists()
 	if m.ch.active {
 		m.ch.step(m)
 	}

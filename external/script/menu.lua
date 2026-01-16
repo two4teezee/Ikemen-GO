@@ -280,7 +280,6 @@ function menu.f_createMenu(tbl, sec, bg, bool_main)
 		local t = tbl.items
 		if tbl.reset then
 			tbl.reset = false
-			main.f_cmdInput()
 		else
 			main.f_menuCommonDraw(t, tbl.item, tbl.cursorPosY, tbl.moveTxt, sec, bg, true)
 		end
@@ -712,7 +711,6 @@ function menu.f_commandlistParse()
 end
 
 function menu.f_commandlistRender(sec, t)
-	main.f_cmdInput()
 	local cmdList = {}
 	if t.commandlist ~= nil then
 		cmdList = t.commandlist

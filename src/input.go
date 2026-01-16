@@ -130,13 +130,20 @@ func (sk ShortcutKey) Test(k Key, m ModifierKey) bool {
 func OnKeyReleased(key Key, mk ModifierKey) {
 	if key != KeyUnknown {
 		sys.keyState[key] = false
-		sys.keyInput = KeyUnknown
-		sys.keyString = ""
+		// sys.keyInput is used as an edge-triggered "new key press" signal for Lua (getKey()).
+		if sys.keyInput == key {
+			sys.keyInput = KeyUnknown
+			sys.keyString = ""
+		}
 	}
 }
 
 func OnKeyPressed(key Key, mk ModifierKey) {
 	if key != KeyUnknown {
+		// Treat sys.keyInput as edge-triggered. Ignore repeats.
+		if sys.keyState[key] {
+			return
+		}
 		sys.keyState[key] = true
 		sys.keyInput = key
 		sys.esc = sys.esc ||

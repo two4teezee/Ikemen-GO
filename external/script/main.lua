@@ -156,27 +156,16 @@ function main.f_commandAdd(name, cmd, tim, buf)
 end
 --main.f_commandAdd("KonamiCode", "~U,U,D,D,B,F,B,F,b,a,s", 300, 1)
 
---sends inputs to buffer
-function main.f_cmdInput()
-	for i = 1, gameOption('Config.Players') do
-		if main.t_pIn[i] > 0 then
-			commandInput(main.t_cmd[i], main.t_pIn[i])
-		end
-	end
-end
-
 --resets command buffer
 function main.f_cmdBufReset(pn)
 	esc(false)
 	if pn ~= nil then
 		commandBufReset(main.t_cmd[pn])
-		main.f_cmdInput()
 		return
 	end
 	for i = 1, gameOption('Config.Players') do
 		commandBufReset(main.t_cmd[i])
 	end
-	main.f_cmdInput()
 end
 
 --returns value depending on button pressed (a = 1; a + start = 7 etc.)
@@ -941,8 +930,8 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 	textImgSetText(textData, text)
 	resetKey()
 	esc(false)
+	main.f_cmdBufReset()
 	while true do
-		main.f_cmdInput()
 		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
 			esc(false)
 			sndPlay(motif.Snd, cancel_snd[1], cancel_snd[2])
@@ -999,10 +988,8 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 		textImgAddText(textData, '\\n\\n' .. input)
 		textImgDraw(textData)
 		--end loop
-		main.f_cmdInput()
 		refresh()
 	end
-	main.f_cmdInput()
 	return input
 end
 
@@ -1616,7 +1603,6 @@ function main.f_hiscore(mode, place)
 		if not runHiscore(mode, place) then
 			break
 		end
-		main.f_cmdInput()
 		refresh()
 	end
 end
@@ -2469,7 +2455,6 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		while true do
 			if tbl.reset then
 				tbl.reset = false
-				main.f_cmdInput()
 			else
 				main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif[main.group], motif[main.background], false)
 			end
@@ -2793,7 +2778,6 @@ function main.f_connect(server, str)
 		textImgReset(motif.title_info.connecting.TextSpriteData)
 		textImgSetText(motif.title_info.connecting.TextSpriteData, txt)
 		textImgDraw(motif.title_info.connecting.TextSpriteData)
-		main.f_cmdInput()
 		refresh()
 	end
 	replayRecord('save/replays/' .. os.date("%Y-%m-%d_%Hh%Mm%Ss") .. '.replay')
@@ -2992,7 +2976,6 @@ function main.f_attractStart()
 		end
 		main.f_fadeAnim(motif.attract_mode)
 		--frame transition
-		main.f_cmdInput()
 		if esc() --[[or main.f_input(main.t_players, motif.attract_mode.menu.cancel.key)]] then
 			esc(false)
 			return false
@@ -3286,7 +3269,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	--   skipBG0, skipBG1         : skip bg layer 0 / 1
 	--   skipTitle                : skip drawing the title
 	--   forceInactive            : treat "selected" row as inactive (no highlight, no cursor)
-	--   skipInput                : do not call main.f_cmdInput() inside this function
+	--   skipInput                : do not call main.f_cmdBufReset() inside this function
 	opts = opts or {}
 	local offx = opts.offx or 0
 	local offy = opts.offy or 0
@@ -3487,8 +3470,6 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		elseif main.fadeType == 'fadeout' then
 			main.f_cmdBufReset()
 			return --skip last frame rendering
-		else
-			main.f_cmdInput()
 		end
 	end
 	if not skipClear then

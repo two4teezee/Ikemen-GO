@@ -3022,7 +3022,6 @@ type Char struct {
 	ss             StateState
 	controller     int
 	id             int32
-	runorder       int32
 	helperId       int32
 	helperIndex    int32
 	parentIndex    int32
@@ -3183,7 +3182,6 @@ func (c *Char) init(n int, idx int32) {
 		analogAxes:    [6]float32{},
 		animPN:        n,
 		id:            -1,
-		runorder:      -1,
 		parentIndex:   IErr,
 		hoverIdx:      -1,
 		mctype:        MC_Hit,
@@ -5124,6 +5122,15 @@ func (c *Char) getPlayerID(pn int) int32 {
 		return sys.chars[pn-1][0].id
 	}
 	return 0
+}
+
+func (c *Char) runOrderTrigger() int32 {
+	for i, ref := range sys.charList.runOrder {
+		if ref == c {
+			return int32(i + 1)
+		}
+	}
+	return -1
 }
 
 // Handle power sharing
@@ -11861,7 +11868,7 @@ func (c *Char) cueDraw() {
 			xshear:       c.xshear,
 			window:       cwin,
 		}
-		charSD.syncId = c.id
+		charSD.syncId = c.id // TODO: This overrides the natural layering of the drawlist
 		charSD.syncLayer = 0 // Character body is always at layer 0
 
 		// Record afterimage
@@ -12154,87 +12161,82 @@ func (cl *CharList) commandUpdate() {
 	}
 }
 
-// Sort all characters into a list based on their processing order
-func (cl *CharList) sortActionRunOrder() []int {
-	// Temp sorting list
-	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
-
+func (cl *CharList) updateRunOrder() {
 	// Decide priority of each player
-	for i, c := range cl.runOrder {
-		var pr int                                      // Fallback priority of 0
-		if c.asf(ASF_runfirst) && !c.asf(ASF_runlast) { // Any character with runfirst flag
-			pr = 100
-		} else if c.asf(ASF_runlast) && !c.asf(ASF_runfirst) { // Any character with runlast flag
-			pr = -100
-		} else if c.ss.moveType == MT_A { // Attacking players and helpers
-			pr = 5
-		} else if c.helperIndex == 0 {
-			if c.ss.moveType == MT_I { // Idle players
-				pr = 4
-			} else { // Remaining players
-				pr = 3
-			}
-		} else {
-			if c.ss.moveType == MT_I { // Idle helpers
-				pr = 2
-			} else { // Remaining helpers
-				pr = 1
-			}
+	getPriority := func(c *Char) int {
+		// Any character with runfirst flag
+		if c.asf(ASF_runfirst) && !c.asf(ASF_runlast) {
+			return 100
 		}
-		sorting[i] = [2]int{i, pr}
+		// Any character with runlast flag
+		if c.asf(ASF_runlast) && !c.asf(ASF_runfirst) {
+			return -100
+		}
+		// Attacking players and helpers
+		if c.ss.moveType == MT_A {
+			return 5
+		}
+		// Players
+		if c.helperIndex == 0 {
+			// Idle players
+			if c.ss.moveType == MT_I {
+				return 4
+			}
+			// Remaining players
+			return 3
+		}
+		// Idle helpers
+		if c.ss.moveType == MT_I {
+			return 2
+		}
+		// Remaining helpers
+		return 1
 	}
 
 	// Sort by priority
-	sort.SliceStable(sorting, func(i, j int) bool {
-		return sorting[i][1] > sorting[j][1]
+	sort.SliceStable(cl.runOrder, func(i, j int) bool {
+		pri := getPriority(cl.runOrder[i])
+		prj := getPriority(cl.runOrder[j])
+		// If priorities are different, sort by priority
+		if pri != prj {
+			return pri > prj
+		}
+		// Otherwise run lower ID first
+		// This makes the order more predictable
+		return cl.runOrder[i].id < cl.runOrder[j].id
 	})
 
-	// Create new sorted list and update each char's runOrder
-	sortedOrder := make([]int, len(sorting))
-	for i := 0; i < len(sorting); i++ {
-		sortedOrder[i] = sorting[i][0]
-		cl.runOrder[sorting[i][0]].runorder = int32(i + 1)
-	}
-
 	// Reset priority flags as they are only needed during this function
-	for i := range cl.runOrder {
-		cl.runOrder[i].unsetASF(ASF_runfirst | ASF_runlast)
+	for _, c := range cl.runOrder {
+		c.unsetASF(ASF_runfirst | ASF_runlast)
 	}
-
-	return sortedOrder
 }
 
 func (cl *CharList) action() {
+	// Reorder the slice so the following loop hits characters in priority order
+	// Sorting the characters first makes new helpers wait for their turn and allows RunOrder trigger accuracy
+	cl.updateRunOrder()
+
 	// Update commands for all chars
 	cl.commandUpdate()
 
 	// Prepare characters before performing their actions
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionPrepare()
+	for _, c := range cl.runOrder {
+		c.actionPrepare()
 	}
 
 	// Run actions for each character in the sorted list
-	// Sorting the characters first makes new helpers wait for their turn and allows RunOrder trigger accuracy
-	sortedOrder := cl.sortActionRunOrder()
-	for i := 0; i < len(sortedOrder); i++ {
-		if sortedOrder[i] < len(cl.runOrder) {
-			cl.runOrder[sortedOrder[i]].actionRun()
-		}
-	}
-
-	// Run actions for anyone missed (new helpers)
-	extra := len(sortedOrder) + 1
+	// We use an index-based loop instead of a range so that appended helpers are also processed
 	for i := 0; i < len(cl.runOrder); i++ {
-		if cl.runOrder[i].runorder < 0 {
-			cl.runOrder[i].runorder = int32(extra)
-			cl.runOrder[i].actionRun()
-			extra++
+		c := cl.runOrder[i]
+		if !c.csf(CSF_destroy) {
+			c.actionRun()
 		}
 	}
 
 	// Finish performing character actions
-	for i := 0; i < len(cl.runOrder); i++ {
-		cl.runOrder[i].actionFinish()
+	for _, c := range cl.runOrder {
+		c.actionFinish()
 	}
 }
 
@@ -12941,22 +12943,10 @@ func (cl *CharList) tick() {
 }
 
 // Prepare characters for drawing
-// We once again check the movetype to minimize the difference between player sides
+// Drawing order also respects the processing order. TODO: This was broken by syncID feature
 func (cl *CharList) cueDraw() {
 	for _, c := range cl.runOrder {
-		if c != nil && c.ss.moveType == MT_A {
-			c.cueDraw()
-		}
-	}
-	for _, c := range cl.runOrder {
-		if c != nil && c.ss.moveType == MT_I {
-			c.cueDraw()
-		}
-	}
-	for _, c := range cl.runOrder {
-		if c != nil && c.ss.moveType == MT_H {
-			c.cueDraw()
-		}
+		c.cueDraw()
 	}
 }
 

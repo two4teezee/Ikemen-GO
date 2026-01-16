@@ -6997,7 +6997,7 @@ func triggerFunctions(l *lua.LState) {
 	//	return 1
 	//})
 	luaRegister(l, "runorder", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.runorder))
+		l.Push(lua.LNumber(sys.debugWC.runOrderTrigger()))
 		return 1
 	})
 	luaRegister(l, "reversaldefattr", func(*lua.LState) int {

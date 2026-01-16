@@ -3272,7 +3272,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_layerno:
 		sys.bcStack.PushI(c.layerNo)
 	case OC_ex2_runorder:
-		sys.bcStack.PushI(c.runorder)
+		sys.bcStack.PushI(c.runOrderTrigger())
 	case OC_ex2_palfxvar_time:
 		sys.bcStack.PushI(c.palfxvar(0))
 	case OC_ex2_palfxvar_addr:

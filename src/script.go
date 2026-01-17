@@ -4548,6 +4548,10 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "setPlayers", func(l *lua.LState) int {
 		total := int(numArg(l, 1))
 
+		if total < len(sys.commandLists) {
+			sys.commandLists = sys.commandLists[:total]
+		}
+
 		// Resize sys.keyConfig
 		if len(sys.keyConfig) > total {
 			sys.keyConfig = sys.keyConfig[:total]

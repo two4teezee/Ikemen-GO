@@ -83,6 +83,7 @@ main.t_defaultJoystickMapping = {
 }
 
 --prepare players/command tables
+main.t_cmd = {}
 function main.f_setPlayers()
 	local n = gameOption('Config.Players')
 	setPlayers(n)
@@ -110,13 +111,12 @@ function main.f_setPlayers()
 			end
 		end
 	end
+	for i = #main.t_cmd + 1, n do
+		table.insert(main.t_cmd, main.f_commandNew(i))
+	end
 	main.t_players = {}
-	main.t_lastInputs = {}
-	main.t_cmd = {}
 	for i = 1, n do
 		table.insert(main.t_players, i)
-		table.insert(main.t_lastInputs, {})
-		table.insert(main.t_cmd, main.f_commandNew(i))
 	end
 end
 main.f_setPlayers()

@@ -2179,9 +2179,6 @@ main.t_itemname = {
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
 		main.resetScore = true
-		if main.roundTime == -1 then
-			main.roundTime = 99
-		end
 		main.stageOrder = true
 		main.storyboard.credits = true
 		main.storyboard.gameover = true

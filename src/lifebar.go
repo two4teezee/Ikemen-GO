@@ -3765,7 +3765,7 @@ func (tr *LifeBarTimer) bgDraw(layerno int16) {
 
 func (tr *LifeBarTimer) draw(layerno int16, f map[int]*Fnt) {
 	if tr.active && sys.lifebar.ti.framespercount > 0 &&
-		tr.text.font[0] >= 0 && getFont(f, tr.text.font[0]) != nil && sys.curRoundTime >= 0 {
+		tr.text.font[0] >= 0 && getFont(f, tr.text.font[0]) != nil {
 		text := tr.text.text
 		totalSec := float64(sys.timeTotal()) / 60
 		h := math.Floor(totalSec / 3600)

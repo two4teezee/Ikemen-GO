@@ -273,7 +273,7 @@ function start.f_remapAI(ai)
 			for i = side, #start.p[side].t_selected * 2 do
 				if not t_ex[i] and (i - 1) % 2 + 1 == side then
 					if (getCommandInputSource(side) == side and not main.cpuSide[side] and not main.coop) or start.challenger > 0 then
-						remapInput(i, main.t_remaps[side]) --P1/3/5/7 => P1 controls, P2/4/6/8 => P2 controls
+						remapInput(i, getRemapInput(side)) --P1/3/5/7 => P1 controls, P2/4/6/8 => P2 controls
 						setCom(i, 0)
 					else
 						setCom(i, ai or start.f_difficulty(i, offset))
@@ -1809,14 +1809,11 @@ function start.f_selectChallenger()
 	local t_p_sav = main.f_tableCopy(start.p)
 	local t_c_sav = main.f_tableCopy(start.c)
 	local matchNo_sav = matchno()
-	local p1cmd = main.t_remaps[1]
-	local p2cmd = main.t_remaps[start.challenger]
 	local p1ConsecutiveWins = getConsecutiveWins(1)
 	local p2ConsecutiveWins = getConsecutiveWins(2)
 	--start challenger match
 	main.f_default()
-	main.f_playerInput(p1cmd, 1)
-	remapInput(2, p2cmd)
+	remapInput(2, getRemapInput(start.challenger))
 	main.t_itemname.versus()
 	start.f_selectReset(false)
 	if not start.f_selectScreen() then
@@ -1826,7 +1823,7 @@ function start.f_selectChallenger()
 	local ok = launchFight{challenger = true}
 	--restore values
 	main.f_default()
-	main.playerInput = p1cmd -- main.f_playerInput called via main.t_itemname.arcade()
+	main.playerInput = getRemapInput(1)
 	main.t_itemname.arcade()
 	if not ok then
 		return false

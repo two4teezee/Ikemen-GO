@@ -111,12 +111,10 @@ function main.f_setPlayers()
 		end
 	end
 	main.t_players = {}
-	main.t_remaps = {}
 	main.t_lastInputs = {}
 	main.t_cmd = {}
 	for i = 1, n do
 		table.insert(main.t_players, i)
-		table.insert(main.t_remaps, i)
 		table.insert(main.t_lastInputs, {})
 		table.insert(main.t_cmd, main.f_commandNew(i))
 	end
@@ -171,24 +169,19 @@ function main.f_input(p, ...)
 	return ok
 end
 
---remap active players input
-function main.f_playerInput(src, dst)
-	main.t_remaps[src] = dst
-	main.t_remaps[dst] = src
-	remapInput(src, dst)
-	remapInput(dst, src)
-end
-
 --restore screenpack remapped inputs
 function main.f_restoreInput()
 	if start.challenger > 0 then
 		return
 	end
 	resetRemapInput()
-	for k, v in ipairs(main.t_remaps) do
+	local remaps = {}
+	for i = 1, gameOption('Config.Players') do
+		table.insert(remaps, getRemapInput(i))
+	end
+	for k, v in ipairs(remaps) do
 		if k ~= v then
 			remapInput(k, v)
-			remapInput(v, k)
 		end
 	end
 end
@@ -1632,9 +1625,6 @@ else
 end
 
 function main.f_default()
-	for i = 1, gameOption('Config.Players') do
-		main.t_remaps[i] = i
-	end
 	main.aiRamp = false --if AI ramping should be active
 	main.charparam = { --which select.def charparam should be used
 		ai = false,
@@ -1736,7 +1726,6 @@ end
 main.t_itemname = {
 	--ARCADE / TEAM ARCADE
 	['arcade'] = function(t, item)
-		main.f_playerInput(main.playerInput, 1)
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.arcadepath = true
@@ -1785,6 +1774,7 @@ main.t_itemname = {
 			
 		end
 		main.f_setCredits()
+		remapInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		setGameMode('arcade')
 		hook.run("main.t_itemname")
@@ -1795,7 +1785,6 @@ main.t_itemname = {
 	end,
 	--BONUS CHAR
 	['bonus'] = function(t, item)
-		main.f_playerInput(main.playerInput, 1)
 		main.charparam.ai = true
 		main.charparam.music = true
 		main.charparam.rounds = true
@@ -1807,6 +1796,7 @@ main.t_itemname = {
 		main.teamMenu[1].single = true
 		main.teamMenu[2].single = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.bonus)
+		remapInput(main.playerInput, 1)
 		setGameMode('bonus')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -1817,7 +1807,6 @@ main.t_itemname = {
 	end,
 	--FREE BATTLE (QUICK VS)
 	['freebattle'] = function()
-		main.f_playerInput(main.playerInput, 1)
 		--main.lifebar.p1score = true
 		--main.lifebar.p2ailevel = true
 		main.motif.versusscreen = true
@@ -1837,6 +1826,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.freebattle)
+		remapInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		setGameMode('freebattle')
 		hook.run("main.t_itemname")
@@ -2024,7 +2014,6 @@ main.t_itemname = {
 	end,
 	--STORY MODE ARC
 	['storyarc'] = function(t, item)
-		main.f_playerInput(main.playerInput, 1)
 		main.motif.continuescreen = true
 		main.selectMenu[1] = false
 		for _, v in ipairs(main.t_selStoryMode) do
@@ -2033,13 +2022,13 @@ main.t_itemname = {
 				break
 			end
 		end
+		remapInput(main.playerInput, 1)
 		setGameMode(t[item].itemname)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
 	end,
 	--SURVIVAL
 	['survival'] = function()
-		main.f_playerInput(main.playerInput, 1)
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.music = true
@@ -2079,6 +2068,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
+		remapInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
@@ -2169,7 +2159,6 @@ main.t_itemname = {
 	end,
 	--TIME ATTACK
 	['timeattack'] = function()
-		main.f_playerInput(main.playerInput, 1)
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.music = true
@@ -2208,6 +2197,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		main.f_setCredits()
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.timeattack)
+		remapInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		setGameMode('timeattack')
 		hook.run("main.t_itemname")
@@ -2216,7 +2206,6 @@ main.t_itemname = {
 	--TRAINING
 	['training'] = function()
 		setHomeTeam(1)
-		main.f_playerInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		if main.t_charDef[gameOption('Config.TrainingChar'):lower()] ~= nil then
 			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
@@ -2239,6 +2228,7 @@ main.t_itemname = {
 		main.matchWins.single = {0, 0}
 		main.matchWins.tag = {0, 0}
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.training)
+		remapInput(main.playerInput, 1)
 		setGameMode('training')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2313,7 +2303,6 @@ main.t_itemname = {
 	--WATCH
 	['watch'] = function()
 		setHomeTeam(1)
-		main.f_playerInput(main.playerInput, 1)
 		main.cpuSide[1] = true
 		--main.lifebar.p1ailevel = true
 		--main.lifebar.p2ailevel = true
@@ -2332,6 +2321,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.watch)
+		remapInput(main.playerInput, 1)
 		setCommandInputSource(2, 1)
 		setGameMode('watch')
 		hook.run("main.t_itemname")

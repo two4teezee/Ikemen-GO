@@ -2779,6 +2779,14 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.lifebar.ro.match_wins[tn-1]))
 		return 1
 	})
+	luaRegister(l, "getRemapInput", func(l *lua.LState) int {
+		pn := int(numArg(l, 1))
+		if pn < 1 || pn > len(sys.inputRemap) {
+			l.RaiseError("\nInvalid player number: %v\n", pn)
+		}
+		l.Push(lua.LNumber(sys.inputRemap[pn-1] + 1))
+		return 1
+	})
 	luaRegister(l, "getRoundTime", func(l *lua.LState) int {
 		l.Push(lua.LNumber(sys.maxRoundTime))
 		return 1

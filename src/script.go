@@ -1757,6 +1757,41 @@ func systemScriptInit(l *lua.LState) {
 		cl.BufReset()
 		return 0
 	})
+	luaRegister(l, "commandDebug", func(*lua.LState) int {
+		cl, ok := toUserData(l, 1).(*CommandList)
+		if !ok || cl == nil {
+			userDataError(l, 1, cl)
+			return 0
+		}
+		str := ""
+		if !nilArg(l, 2) {
+			str = strArg(l, 2)
+		}
+		var buf *InputBuffer
+		if cl.Buffer != nil {
+			buf = cl.Buffer
+		}
+		fmt.Printf("%s *CommandList=%p ControllerNo=%d Names=%d Groups=%d Buffer=%p\n",
+			str, cl, cl.ControllerNo, len(cl.Names), len(cl.Commands), buf)
+		for name, idx := range cl.Names {
+			if idx < 0 || idx >= len(cl.Commands) {
+				fmt.Printf("%s  %q idx=%d (out of range)\n", str, name, idx)
+				continue
+			}
+			fmt.Printf("%s  %q idx=%d variants=%d\n", str, name, idx, len(cl.Commands[idx]))
+			for j := range cl.Commands[idx] {
+				c := &cl.Commands[idx][j]
+				fmt.Printf("%s    %d: time=%d buftime=%d steptime=%d hitpause=%v pauseend=%v shared=%v autogreater=%v\n",
+					str, j,
+					c.maxtime, c.maxbuftime, c.maxsteptime,
+					c.buffer_hitpause, c.buffer_pauseend, c.buffer_shared,
+					c.autogreater,
+				)
+			}
+		}
+		fmt.Printf("%s *Buffer=%p %+v\n", str, buf, *buf)
+		return 0
+	})
 	luaRegister(l, "commandGetState", func(l *lua.LState) int {
 		cl, ok := toUserData(l, 1).(*CommandList)
 		if !ok || cl == nil {
@@ -2582,6 +2617,14 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
 		l.Push(lua.LNumber(sys.consecutiveWins[tn-1]))
+		return 1
+	})
+	luaRegister(l, "getCommandInputSource", func(l *lua.LState) int {
+		pn := int(numArg(l, 1))
+		if pn < 1 || pn > len(sys.commandInputSource) {
+			l.RaiseError("\nInvalid player number: %v\n", pn)
+		}
+		l.Push(lua.LNumber(sys.commandInputSource[pn-1] + 1))
 		return 1
 	})
 	luaRegister(l, "getDirectoryFiles", func(*lua.LState) int {
@@ -3995,6 +4038,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
+	luaRegister(l, "resetCommandInputSource", func(l *lua.LState) int {
+		sys.resetCommandInputSource()
+		return 0
+	})
 	luaRegister(l, "resetKey", func(*lua.LState) int {
 		sys.keyInput = KeyUnknown
 		sys.keyString = ""
@@ -4231,6 +4278,15 @@ func systemScriptInit(l *lua.LState) {
 		} else {
 			sys.aiLevel[pn-1] = 0
 		}
+		return 0
+	})
+	luaRegister(l, "setCommandInputSource", func(l *lua.LState) int {
+		pn, src := int(numArg(l, 1)), int(numArg(l, 2))
+		if pn < 1 || pn > len(sys.commandInputSource) ||
+			src < 1 || src > len(sys.commandInputSource) {
+			l.RaiseError("\nInvalid player number: %v, %v\n", pn, src)
+		}
+		sys.commandInputSource[pn-1] = src - 1
 		return 0
 	})
 	luaRegister(l, "setConsecutiveWins", func(l *lua.LState) int {
@@ -4520,6 +4576,7 @@ func systemScriptInit(l *lua.LState) {
 			}
 		}
 
+		sys.resetCommandInputSource()
 		return 0
 	})
 	luaRegister(l, "setPower", func(*lua.LState) int {

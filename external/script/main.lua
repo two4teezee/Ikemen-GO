@@ -114,13 +114,11 @@ function main.f_setPlayers()
 	main.t_remaps = {}
 	main.t_lastInputs = {}
 	main.t_cmd = {}
-	main.t_pIn = {}
 	for i = 1, n do
 		table.insert(main.t_players, i)
 		table.insert(main.t_remaps, i)
 		table.insert(main.t_lastInputs, {})
 		table.insert(main.t_cmd, main.f_commandNew(i))
-		table.insert(main.t_pIn, i)
 	end
 end
 main.f_setPlayers()
@@ -1635,7 +1633,6 @@ end
 
 function main.f_default()
 	for i = 1, gameOption('Config.Players') do
-		main.t_pIn[i] = i
 		main.t_remaps[i] = i
 	end
 	main.aiRamp = false --if AI ramping should be active
@@ -1713,6 +1710,7 @@ function main.f_default()
 		{ratio = false, simul = false, single = false, tag = false, turns = false}, --which team modes should be selectable by P2 side
 	}
 	resetAILevel()
+	resetCommandInputSource()
 	resetRemapInput()
 	if not motif.attract_mode.enabled and start.challenger == 0 then
 		setCredits(-1) --amount of credits from the start (-1 = disabled)
@@ -1739,7 +1737,6 @@ main.t_itemname = {
 	--ARCADE / TEAM ARCADE
 	['arcade'] = function(t, item)
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.arcadepath = true
@@ -1788,6 +1785,7 @@ main.t_itemname = {
 			
 		end
 		main.f_setCredits()
+		setCommandInputSource(2, 1)
 		setGameMode('arcade')
 		hook.run("main.t_itemname")
 		if start.challenger == 0 then
@@ -1820,7 +1818,6 @@ main.t_itemname = {
 	--FREE BATTLE (QUICK VS)
 	['freebattle'] = function()
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
 		--main.lifebar.p1score = true
 		--main.lifebar.p2ailevel = true
 		main.motif.versusscreen = true
@@ -1840,6 +1837,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.freebattle)
+		setCommandInputSource(2, 1)
 		setGameMode('freebattle')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2042,7 +2040,6 @@ main.t_itemname = {
 	--SURVIVAL
 	['survival'] = function()
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.music = true
@@ -2082,6 +2079,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
+		setCommandInputSource(2, 1)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2172,7 +2170,6 @@ main.t_itemname = {
 	--TIME ATTACK
 	['timeattack'] = function()
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
 		main.aiRamp = true
 		main.charparam.ai = true
 		main.charparam.music = true
@@ -2211,6 +2208,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		main.f_setCredits()
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.timeattack)
+		setCommandInputSource(2, 1)
 		setGameMode('timeattack')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2219,7 +2217,7 @@ main.t_itemname = {
 	['training'] = function()
 		setHomeTeam(1)
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
+		setCommandInputSource(2, 1)
 		if main.t_charDef[gameOption('Config.TrainingChar'):lower()] ~= nil then
 			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
 		end
@@ -2251,9 +2249,6 @@ main.t_itemname = {
 	--VS MODE / TEAM VERSUS
 	['versus'] = function(t, item)
 		setHomeTeam(1)
-		if start.challenger > 0 then
-			main.t_pIn[2] = start.challenger
-		end
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
@@ -2281,8 +2276,10 @@ main.t_itemname = {
 			textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.teamversus)
 		end
 		if start.challenger > 0 then
+			setCommandInputSource(2, start.challenger)
 			setGameMode('challenger')
 		else
+			setCommandInputSource(2, 2)
 			setGameMode('versus')
 		end
 		hook.run("main.t_itemname")
@@ -2317,7 +2314,6 @@ main.t_itemname = {
 	['watch'] = function()
 		setHomeTeam(1)
 		main.f_playerInput(main.playerInput, 1)
-		main.t_pIn[2] = 1
 		main.cpuSide[1] = true
 		--main.lifebar.p1ailevel = true
 		--main.lifebar.p2ailevel = true
@@ -2336,6 +2332,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.watch)
+		setCommandInputSource(2, 1)
 		setGameMode('watch')
 		hook.run("main.t_itemname")
 		return start.f_selectMode

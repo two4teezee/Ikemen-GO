@@ -555,11 +555,13 @@ const (
 	OC_ex_gethitvar_fall_envshake_ampl
 	OC_ex_gethitvar_fall_envshake_phase
 	OC_ex_gethitvar_fall_envshake_mul
+	OC_ex_gethitvar_fall_envshake_dir
 	OC_ex_gethitvar_attr
 	OC_ex_gethitvar_dizzypoints
 	OC_ex_gethitvar_guardpoints
 	OC_ex_gethitvar_playerid
 	OC_ex_gethitvar_playerno
+	OC_ex_gethitvar_projid
 	OC_ex_gethitvar_redlife
 	OC_ex_gethitvar_score
 	OC_ex_gethitvar_hitdamage
@@ -593,6 +595,7 @@ const (
 	OC_ex_gethitvar_stand_friction
 	OC_ex_gethitvar_crouch_friction
 	OC_ex_gethitvar_keepstate
+	OC_ex_gethitvar_guardko
 	OC_ex_ailevelf
 	OC_ex_animelemvar_alphadest
 	OC_ex_animelemvar_angle
@@ -713,6 +716,7 @@ const (
 	OC_ex_envshakevar_time
 	OC_ex_envshakevar_freq
 	OC_ex_envshakevar_ampl
+	OC_ex_envshakevar_dir
 	OC_ex_angle
 	OC_ex_scale_x
 	OC_ex_scale_y
@@ -722,22 +726,23 @@ const (
 	OC_ex_alpha_s
 	OC_ex_alpha_d
 	OC_ex_selfcommand
-	OC_ex_fightscreenvar_info_author
-	OC_ex_fightscreenvar_info_localcoord_x
-	OC_ex_fightscreenvar_info_localcoord_y
-	OC_ex_fightscreenvar_info_name
-	OC_ex_fightscreenvar_round_ctrl_time
-	OC_ex_fightscreenvar_round_over_hittime
-	OC_ex_fightscreenvar_round_over_time
-	OC_ex_fightscreenvar_round_over_waittime
-	OC_ex_fightscreenvar_round_over_wintime
-	OC_ex_fightscreenvar_round_slow_time
-	OC_ex_fightscreenvar_round_start_waittime
-	OC_ex_fightscreenvar_round_callfight_time
-	OC_ex_fightscreenvar_time_framespercount
+
 )
 const (
 	OC_ex2_index OpCode = iota
+	OC_ex2_fightscreenvar_info_author
+	OC_ex2_fightscreenvar_info_localcoord_x
+	OC_ex2_fightscreenvar_info_localcoord_y
+	OC_ex2_fightscreenvar_info_name
+	OC_ex2_fightscreenvar_round_ctrl_time
+	OC_ex2_fightscreenvar_round_over_hittime
+	OC_ex2_fightscreenvar_round_over_time
+	OC_ex2_fightscreenvar_round_over_waittime
+	OC_ex2_fightscreenvar_round_over_wintime
+	OC_ex2_fightscreenvar_round_slow_time
+	OC_ex2_fightscreenvar_round_start_waittime
+	OC_ex2_fightscreenvar_round_callfight_time
+	OC_ex2_fightscreenvar_time_framespercount
 	OC_ex2_groundlevel
 	OC_ex2_layerno
 	OC_ex2_runorder
@@ -964,9 +969,6 @@ const (
 	OC_ex2_stagebgvar_velocity_x
 	OC_ex2_stagebgvar_velocity_y
 	OC_ex2_numstagebg
-	OC_ex2_envshakevar_dir
-	OC_ex2_gethitvar_fall_envshake_dir
-	OC_ex2_gethitvar_projid
 	OC_ex2_xshear
 	OC_ex2_zoomvar_scale
 	OC_ex2_zoomvar_pos_x
@@ -978,15 +980,16 @@ const (
 	OC_ex2_defencemul
 	OC_ex2_guardcount
 	OC_ex2_airjumpcount
-	OC_ex2_analog_leftx
-	OC_ex2_analog_lefty
-	OC_ex2_analog_rightx
-	OC_ex2_analog_righty
-	OC_ex2_analog_lefttrigger
-	OC_ex2_analog_righttrigger
+
 )
 const (
-	OC_ex3_helpervar_clsnproxy OpCode = iota
+	OC_ex3_analog_leftx OpCode = iota
+	OC_ex3_analog_lefty
+	OC_ex3_analog_rightx
+	OC_ex3_analog_righty
+	OC_ex3_analog_lefttrigger
+	OC_ex3_analog_righttrigger
+	OC_ex3_helpervar_clsnproxy
 	OC_ex3_helpervar_helpertype
 	OC_ex3_helpervar_id
 	OC_ex3_helpervar_keyctrl
@@ -2700,6 +2703,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*sys.bcStack.Top() = c.constp(1280, sys.bcStack.Top().ToF())
 	case OC_ex_const1080p:
 		*sys.bcStack.Top() = c.constp(1920, sys.bcStack.Top().ToF())
+	// GetHitVar
 	case OC_ex_gethitvar_animtype:
 		sys.bcStack.PushI(int32(c.ghv.animtype))
 	case OC_ex_gethitvar_air_animtype:
@@ -2808,6 +2812,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.ghv.fall_envshake_phase)
 	case OC_ex_gethitvar_fall_envshake_mul:
 		sys.bcStack.PushF(c.ghv.fall_envshake_mul)
+	case OC_ex_gethitvar_fall_envshake_dir:
+		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
 	case OC_ex_gethitvar_attr:
 		attr := (*(*int32)(unsafe.Pointer(&be[*i])))
 		// same as c.hitDefAttr()
@@ -2821,6 +2827,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.ghv.playerid)
 	case OC_ex_gethitvar_playerno:
 		sys.bcStack.PushI(int32(c.ghv.playerno) + 1)
+	case OC_ex_gethitvar_projid:
+		sys.bcStack.PushI(c.ghv.projid)
 	case OC_ex_gethitvar_redlife:
 		sys.bcStack.PushI(c.ghv.redlife)
 	case OC_ex_gethitvar_score:
@@ -2883,6 +2891,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		*i += 4
 	case OC_ex_gethitvar_keepstate:
 		sys.bcStack.PushB(c.ghv.keepstate)
+	case OC_ex_gethitvar_guardko:
+		sys.bcStack.PushB(c.ghv.guardko)
 	case OC_ex_ailevelf:
 		if c.asf(ASF_noailevel) {
 			sys.bcStack.PushI(0)
@@ -2969,36 +2979,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.envShake.freq / float32(math.Pi) * 180)
 	case OC_ex_envshakevar_ampl:
 		sys.bcStack.PushF(float32(math.Abs(float64(sys.envShake.ampl / oc.localscl))))
-	case OC_ex_fightscreenvar_info_author:
-		sys.bcStack.PushB(sys.lifebar.authorLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
-		*i += 4
-	case OC_ex_fightscreenvar_info_localcoord_x:
-		sys.bcStack.PushI(sys.lifebar.localcoord[0])
-	case OC_ex_fightscreenvar_info_localcoord_y:
-		sys.bcStack.PushI(sys.lifebar.localcoord[1])
-	case OC_ex_fightscreenvar_info_name:
-		sys.bcStack.PushB(sys.lifebar.nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
-		*i += 4
-	case OC_ex_fightscreenvar_round_ctrl_time:
-		sys.bcStack.PushI(sys.lifebar.ro.ctrl_time)
-	case OC_ex_fightscreenvar_round_over_hittime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_hittime)
-	case OC_ex_fightscreenvar_round_over_time:
-		sys.bcStack.PushI(sys.lifebar.ro.over_time)
-	case OC_ex_fightscreenvar_round_over_waittime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_waittime)
-	case OC_ex_fightscreenvar_round_over_wintime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_wintime)
-	case OC_ex_fightscreenvar_round_slow_time:
-		sys.bcStack.PushI(sys.lifebar.ro.slow_time)
-	case OC_ex_fightscreenvar_round_start_waittime:
-		sys.bcStack.PushI(sys.lifebar.ro.start_waittime)
-	case OC_ex_fightscreenvar_round_callfight_time:
-		sys.bcStack.PushI(sys.lifebar.ro.callfight_time)
-	case OC_ex_fightscreenvar_time_framespercount:
-		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
+	case OC_ex_envshakevar_dir:
+		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
 	case OC_ex_fighttime:
 		sys.bcStack.PushI(sys.matchTime)
 	case OC_ex_firstattack:
@@ -3267,6 +3249,36 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	switch opc {
 	case OC_ex2_index:
 		sys.bcStack.PushI(c.indexTrigger())
+	case OC_ex2_fightscreenvar_info_author:
+		sys.bcStack.PushB(sys.lifebar.authorLow ==
+			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		*i += 4
+	case OC_ex2_fightscreenvar_info_localcoord_x:
+		sys.bcStack.PushI(sys.lifebar.localcoord[0])
+	case OC_ex2_fightscreenvar_info_localcoord_y:
+		sys.bcStack.PushI(sys.lifebar.localcoord[1])
+	case OC_ex2_fightscreenvar_info_name:
+		sys.bcStack.PushB(sys.lifebar.nameLow ==
+			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		*i += 4
+	case OC_ex2_fightscreenvar_round_ctrl_time:
+		sys.bcStack.PushI(sys.lifebar.ro.ctrl_time)
+	case OC_ex2_fightscreenvar_round_over_hittime:
+		sys.bcStack.PushI(sys.lifebar.ro.over_hittime)
+	case OC_ex2_fightscreenvar_round_over_time:
+		sys.bcStack.PushI(sys.lifebar.ro.over_time)
+	case OC_ex2_fightscreenvar_round_over_waittime:
+		sys.bcStack.PushI(sys.lifebar.ro.over_waittime)
+	case OC_ex2_fightscreenvar_round_over_wintime:
+		sys.bcStack.PushI(sys.lifebar.ro.over_wintime)
+	case OC_ex2_fightscreenvar_round_slow_time:
+		sys.bcStack.PushI(sys.lifebar.ro.slow_time)
+	case OC_ex2_fightscreenvar_round_start_waittime:
+		sys.bcStack.PushI(sys.lifebar.ro.start_waittime)
+	case OC_ex2_fightscreenvar_round_callfight_time:
+		sys.bcStack.PushI(sys.lifebar.ro.callfight_time)
+	case OC_ex2_fightscreenvar_time_framespercount:
+		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
 	case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
@@ -3885,12 +3897,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 	case OC_ex2_numstagebg:
 		*sys.bcStack.Top() = c.numStageBG(*sys.bcStack.Top())
-	case OC_ex2_envshakevar_dir:
-		sys.bcStack.PushF(sys.envShake.dir / float32(math.Pi) * 180)
-	case OC_ex2_gethitvar_fall_envshake_dir:
-		sys.bcStack.PushF(c.ghv.fall_envshake_dir)
-	case OC_ex2_gethitvar_projid: // TODO: Move these next to other gethitvar
-		sys.bcStack.PushI(c.ghv.projid)
 	case OC_ex2_xshear:
 		sys.bcStack.PushF(c.xshear)
 	case OC_ex2_zoomvar_scale:
@@ -3916,18 +3922,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.guardCount)
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
-	case OC_ex2_analog_leftx:
-		sys.bcStack.PushF(c.analogAxes[0])
-	case OC_ex2_analog_lefty:
-		sys.bcStack.PushF(c.analogAxes[1])
-	case OC_ex2_analog_rightx:
-		sys.bcStack.PushF(c.analogAxes[2])
-	case OC_ex2_analog_righty:
-		sys.bcStack.PushF(c.analogAxes[3])
-	case OC_ex2_analog_lefttrigger:
-		sys.bcStack.PushF(c.analogAxes[4])
-	case OC_ex2_analog_righttrigger:
-		sys.bcStack.PushF(c.analogAxes[5])
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
 		c.panic()
@@ -3938,6 +3932,18 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 	(*i)++
 	opc := be[*i-1]
 	switch opc {
+	case OC_ex3_analog_leftx:
+		sys.bcStack.PushF(c.analogAxes[0])
+	case OC_ex3_analog_lefty:
+		sys.bcStack.PushF(c.analogAxes[1])
+	case OC_ex3_analog_rightx:
+		sys.bcStack.PushF(c.analogAxes[2])
+	case OC_ex3_analog_righty:
+		sys.bcStack.PushF(c.analogAxes[3])
+	case OC_ex3_analog_lefttrigger:
+		sys.bcStack.PushF(c.analogAxes[4])
+	case OC_ex3_analog_righttrigger:
+		sys.bcStack.PushF(c.analogAxes[5])
 	// HelperVar
 	case OC_ex3_helpervar_clsnproxy, OC_ex3_helpervar_id, OC_ex3_helpervar_helpertype,
 		OC_ex3_helpervar_keyctrl, OC_ex3_helpervar_ownclsnscale, OC_ex3_helpervar_ownpal,

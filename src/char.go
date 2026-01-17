@@ -1084,7 +1084,7 @@ type GetHitVar struct {
 	guard_velocity      [3]float32
 	airguard_velocity   [3]float32
 	frame               bool
-	cheeseKO            bool
+	guardko             bool
 	down_recover        bool
 	down_recovertime    int32
 	guardflag           int32
@@ -1095,7 +1095,7 @@ type GetHitVar struct {
 
 // This is called every time the char gets hit
 // When returning to idle each ghv has its own reset behavior
-func (ghv *GetHitVar) clear(c *Char) {
+func (ghv *GetHitVar) reset(c *Char) {
 	var originLs float32
 	if c.gi().constants["default.legacyfallyvelyaccel"] == 1 {
 		originLs = 1
@@ -1124,12 +1124,12 @@ func (ghv *GetHitVar) clear(c *Char) {
 	}
 }
 
-// In Mugen, Hitdef and Reversaldef do not clear GetHitVars at all between successive hits
+// In Mugen, Hitdef and Reversaldef do not reset GetHitVars at all between successive hits
 // However, this approach helps ensure that the hit properties from one move do not bleed into other moves
 // https://github.com/ikemen-engine/Ikemen-GO/issues/1891
-func (ghv *GetHitVar) selectiveClear(c *Char) {
+func (ghv *GetHitVar) selectiveReset(c *Char) {
 	// Save variables that should persist or stack
-	cheeseKO := ghv.cheeseKO
+	guardko := ghv.guardko
 	damage := ghv.damage
 	dizzypoints := ghv.dizzypoints
 	down_recovertime := ghv.down_recovertime
@@ -1147,10 +1147,10 @@ func (ghv *GetHitVar) selectiveClear(c *Char) {
 	kill := ghv.kill
 	power := ghv.power
 
-	ghv.clear(c)
+	ghv.reset(c)
 
 	// Restore variables
-	ghv.cheeseKO = cheeseKO
+	ghv.guardko = guardko
 	ghv.damage = damage
 	ghv.dizzypoints = dizzypoints
 	ghv.down_recovertime = down_recovertime
@@ -3229,7 +3229,7 @@ func (c *Char) init(n int, idx int32) {
 func (c *Char) clearState() {
 	c.ss.clear()
 	c.hitdef.reset(c, nil)
-	c.ghv.clear(c)
+	c.ghv.reset(c)
 	c.ghv.clearOff()
 	c.mhv.clear()
 	for i := range c.hitby {
@@ -7893,7 +7893,7 @@ func (c *Char) lifeSet(life int32) {
 					sys.winType[^c.playerNo&1] = WT_Suicide
 				} else if c.ghv.playerno >= 0 && c.playerNo&1 == c.ghv.playerno&1 {
 					sys.winType[^c.playerNo&1] = WT_Teammate
-				} else if c.ghv.cheeseKO {
+				} else if c.ghv.guardko {
 					sys.winType[^c.playerNo&1] = WT_Cheese
 				} else if c.ghv.attr&int32(AT_AH) != 0 {
 					sys.winType[^c.playerNo&1] = WT_Hyper
@@ -9900,7 +9900,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 				sys.gsf(GSF_globalnoko) || getter.asf(ASF_noko) || getter.asf(ASF_noguardko) {
 				hitResult = 2
 			} else {
-				getter.ghv.cheeseKO = true // TODO: find a better name then expose this variable
+				getter.ghv.guardko = true
 			}
 		}
 	}
@@ -10083,7 +10083,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 			// Clear GetHitVars while stacking those that need it
 			// Skipping this step makes the test case in #1891 work, but for different reasons than in Mugen
-			ghv.selectiveClear(getter)
+			ghv.selectiveReset(getter)
 
 			ghv.attr = hd.attr
 			ghv.guardflag = hd.guardflag
@@ -12407,7 +12407,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								}
 
 								// Clear GetHitVars while stacking those that need it
-								getter.ghv.selectiveClear(getter)
+								getter.ghv.selectiveReset(getter)
 
 								getter.ghv.attr = c.hitdef.attr
 								getter.ghv.hitid = c.hitdef.id

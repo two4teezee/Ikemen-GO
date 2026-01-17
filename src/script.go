@@ -1278,6 +1278,48 @@ func systemScriptInit(l *lua.LState) {
 		a.SetPos(x, y)
 		return 0
 	})
+    luaRegister(l, "animPaletteGet", func(*lua.LState) int {
+        a, ok := toUserData(l, 1).(*Anim)
+        if !ok {
+            userDataError(l, 1, a)
+        }
+        pal := a.anim.palettedata.palettes[int(numArg(l, 2)) - 1]
+        tbl := l.NewTable()
+        for k, v := range pal {
+            col := l.NewTable()
+            // R, G, B, A
+            col.RawSetInt(1, lua.LNumber(v & 0x000000FF))
+            col.RawSetInt(2, lua.LNumber(v & 0x0000FF00 >> 8))
+            col.RawSetInt(3, lua.LNumber(v & 0x00FF0000 >> 16))
+            col.RawSetInt(4, lua.LNumber(v & 0xFF000000 >> 24))
+            tbl.RawSetInt(k+1, col)
+        }
+        l.Push(tbl)
+        return 1
+    })
+    luaRegister(l, "animPaletteSet", func(*lua.LState) int {
+        a, ok := toUserData(l, 1).(*Anim)
+        if !ok {
+            userDataError(l, 1, a)
+        }
+        pal := int(numArg(l, 2)) - 1
+        palData := a.anim.palettedata.palettes[pal]
+        tableArg(l, 3).ForEach(func(key, value lua.LValue){
+            var color uint32
+            switch v := value.(type) {
+                case *lua.LTable:
+                    // animPaletteGet to uint32
+                    color += uint32((int(lua.LVAsNumber(v.RawGetInt(1))) & 0xff))
+                    color += uint32((int(lua.LVAsNumber(v.RawGetInt(2))) & 0xff) << 8)
+                    color += uint32((int(lua.LVAsNumber(v.RawGetInt(3))) & 0xff) << 16)
+                    color += uint32((int(lua.LVAsNumber(v.RawGetInt(4))) & 0xff) << 24)
+                    palData[int(lua.LVAsNumber(key))-1] = color
+            }
+        })
+        a.anim.palettedata.SetSource(pal, palData)
+		a.anim.palettedata.PalTex[pal] = PaletteToTexture(palData)
+        return 0
+    })
 	luaRegister(l, "animSetScale", func(*lua.LState) int {
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {
@@ -4136,6 +4178,10 @@ func systemScriptInit(l *lua.LState) {
 			l.Push(newUserData(l, newSff()))
 		}
 		return 1
+	})
+	luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
+		removeSFFCache(strArg(l, 1))
+		return 0
 	})
 	luaRegister(l, "modelNew", func(l *lua.LState) int {
 		if !nilArg(l, 1) {

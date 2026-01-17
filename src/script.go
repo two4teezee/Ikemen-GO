@@ -1279,6 +1279,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
     luaRegister(l, "animPaletteGet", func(*lua.LState) int {
+		// Userdata
         a, ok := toUserData(l, 1).(*Anim)
         if !ok {
             userDataError(l, 1, a)
@@ -1298,6 +1299,7 @@ func systemScriptInit(l *lua.LState) {
         return 1
     })
     luaRegister(l, "animPaletteSet", func(*lua.LState) int {
+		// Userdata
         a, ok := toUserData(l, 1).(*Anim)
         if !ok {
             userDataError(l, 1, a)

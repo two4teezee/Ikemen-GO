@@ -5917,8 +5917,8 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 			s = c.gi().snd.Get([...]int32{g, n})
 		}
 	} else {
-		if sys.ffx[current_ffx] != nil && sys.ffx[current_ffx].fsnd != nil {
-			s = sys.ffx[current_ffx].fsnd.Get([...]int32{g, n})
+		if sys.ffx[current_ffx] != nil && sys.ffx[current_ffx].snd != nil {
+			s = sys.ffx[current_ffx].snd.Get([...]int32{g, n})
 		}
 	}
 	if s == nil {
@@ -6684,8 +6684,8 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 	}
 
 	if current_ffx != "" && current_ffx != "s" {
-		if sys.ffx[current_ffx] != nil && sys.ffx[current_ffx].fat != nil {
-			a = sys.ffx[current_ffx].fat.get(n)
+		if sys.ffx[current_ffx] != nil && sys.ffx[current_ffx].animTable != nil {
+			a = sys.ffx[current_ffx].animTable.get(n)
 		}
 	} else {
 		a = c.gi().animTable.get(n)
@@ -6734,7 +6734,7 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 
 	if a.isCommonFX() {
 		for _, fx := range sys.ffx { // A little redundant since isCommonFX also does this loop, but easier to read
-			if fx.fsff == a.sff {
+			if fx.sff == a.sff {
 				// Calculate scale
 				// With the addition of variable viewport, we should now calculate the scale each time instead of precomputing it
 				scale := fx.fx_scale
@@ -8661,8 +8661,8 @@ func (c *Char) appendLifebarAction(text, s_ffx, a_ffx string, snd, spr [2]int32,
 
 	// Play sound
 	if snd[0] != -1 && snd[1] != -1 {
-		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].fsnd != nil {
-			s := sys.ffx[s_ffx].fsnd.Get(snd) //Common FX
+		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].snd != nil {
+			s := sys.ffx[s_ffx].snd.Get(snd) //Common FX
 			if s != nil {
 				sys.soundChannels.Play(s, snd[0], snd[1], 100, 0, 0, 0, 0)
 			}
@@ -8732,12 +8732,12 @@ func (c *Char) appendLifebarAction(text, s_ffx, a_ffx string, snd, spr [2]int32,
 		teammsg.is[fmt.Sprintf("team%v.front.spr", c.teamside+1)] = fmt.Sprintf("%v,%v", spr[0], spr[1])
 	}
 	// Read background
-	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.animTable, 2)
 	// Read front
 	if a_ffx != "" && a_ffx != "s" { //Common FX
-		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.ffx[a_ffx].fsff, sys.ffx[a_ffx].fat, 2)
+		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.ffx[a_ffx].sff, sys.ffx[a_ffx].animTable, 2)
 	} else {
-		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.at, 2)
+		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.animTable, 2)
 	}
 
 	// Insert new message

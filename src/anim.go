@@ -380,7 +380,7 @@ func (a *Animation) isBlank() bool {
 
 func (a *Animation) isCommonFX() bool {
 	for _, fx := range sys.ffx {
-		if fx.fsff == a.sff {
+		if fx.sff == a.sff { // TODO: This may be a problem in the very unlikely scenario that the same SFF is used in a char and in common FX
 			return true
 		}
 	}

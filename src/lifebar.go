@@ -49,10 +49,10 @@ func (wt *WinType) SetPerfect() {
 }
 
 type FightFx struct {
-	fat        AnimationTable
+	animTable  AnimationTable
 	fileName   string
-	fsff       *Sff
-	fsnd       *Snd
+	sff        *Sff
+	snd        *Snd
 	fx_scale   float32
 	localcoord [2]float32
 	refCount   int
@@ -61,7 +61,7 @@ type FightFx struct {
 
 func newFightFx() *FightFx {
 	return &FightFx{
-		fsff:       &Sff{},
+		sff:       &Sff{},
 		fx_scale:   1.0,
 		localcoord: [2]float32{float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1])},
 	}
@@ -127,7 +127,7 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 						if err != nil {
 							return err
 						}
-						*ffx.fsff = *s
+						*ffx.sff = *s
 						return nil
 					}); err != nil {
 					return err
@@ -139,14 +139,14 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 							return err
 						}
 						lines, i := SplitAndTrim(str, "\n"), 0
-						ffx.fat = ReadAnimationTable(ffx.fsff, &ffx.fsff.palList, lines, &i)
+						ffx.animTable = ReadAnimationTable(ffx.sff, &ffx.sff.palList, lines, &i)
 						return nil
 					}); err != nil {
 					return err
 				}
 				if is.LoadFile("snd", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						ffx.fsnd, err = LoadSnd(filename)
+						ffx.snd, err = LoadSnd(filename)
 						return err
 					}); err != nil {
 					return err
@@ -156,7 +156,7 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 	}
 	// Set fx scale to anims
 	// Now calculated in each animation call
-	//for _, a := range ffx.fat {
+	//for _, a := range ffx.animTable {
 	//	a.start_scale = [...]float32{ffx.fx_scale, ffx.fx_scale}
 	//}
 	// Adding used prefixes to a list is no longer necessary
@@ -4152,7 +4152,7 @@ type Lifebar struct {
 	offsetY       float32
 	scale         float32
 	portraitScale float32
-	at            AnimationTable
+	animTable     AnimationTable
 	sff           *Sff
 	snd           *Snd
 	fnt           map[int]*Fnt
@@ -4246,7 +4246,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 		}
 	}
 	lines, i := SplitAndTrim(str, "\n"), 0
-	l.at = ReadAnimationTable(l.sff, &l.sff.palList, lines, &i)
+	l.animTable = ReadAnimationTable(l.sff, &l.sff.palList, lines, &i)
 	i = 0
 	filesflg := true
 
@@ -4331,7 +4331,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 						if err != nil {
 							return err
 						}
-						*ffx.fsff = *s
+						*ffx.sff = *s
 						return nil
 					}); err != nil {
 					return nil, err
@@ -4343,14 +4343,14 @@ func loadLifebar(def string) (*Lifebar, error) {
 							return err
 						}
 						lines, i := SplitAndTrim(str, "\n"), 0
-						ffx.fat = ReadAnimationTable(ffx.fsff, &ffx.fsff.palList, lines, &i)
+						ffx.animTable = ReadAnimationTable(ffx.sff, &ffx.sff.palList, lines, &i)
 						return nil
 					}); err != nil {
 					return nil, err
 				}
 				if is.LoadFile("common.snd", []string{def, sys.motif.Def, "", "data/"},
 					func(filename string) error {
-						ffx.fsnd, err = LoadSnd(filename)
+						ffx.snd, err = LoadSnd(filename)
 						return err
 					}); err != nil {
 					return nil, err
@@ -4426,90 +4426,90 @@ func loadLifebar(def string) (*Lifebar, error) {
 			is.ReadF32("scale", &ffx.fx_scale)
 		case "lifebar":
 			if l.hb[0][0] == nil {
-				l.hb[0][0] = readHealthBar("p1.", is, l.sff, l.at, l.fnt)
+				l.hb[0][0] = readHealthBar("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.hb[0][1] == nil {
-				l.hb[0][1] = readHealthBar("p2.", is, l.sff, l.at, l.fnt)
+				l.hb[0][1] = readHealthBar("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "powerbar":
 			if l.pb[0][0] == nil {
-				l.pb[0][0] = readPowerBar("p1.", is, l.sff, l.at, l.fnt)
+				l.pb[0][0] = readPowerBar("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.pb[0][1] == nil {
-				l.pb[0][1] = readPowerBar("p2.", is, l.sff, l.at, l.fnt)
+				l.pb[0][1] = readPowerBar("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "guardbar":
 			if l.gb[0][0] == nil {
-				l.gb[0][0] = readGuardBar("p1.", is, l.sff, l.at, l.fnt)
+				l.gb[0][0] = readGuardBar("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.gb[0][1] == nil {
-				l.gb[0][1] = readGuardBar("p2.", is, l.sff, l.at, l.fnt)
+				l.gb[0][1] = readGuardBar("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "stunbar":
 			if l.sb[0][0] == nil {
-				l.sb[0][0] = readStunBar("p1.", is, l.sff, l.at, l.fnt)
+				l.sb[0][0] = readStunBar("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.sb[0][1] == nil {
-				l.sb[0][1] = readStunBar("p2.", is, l.sff, l.at, l.fnt)
+				l.sb[0][1] = readStunBar("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "face":
 			if l.fa[0][0] == nil {
-				l.fa[0][0] = readLifeBarFace("p1.", is, l.sff, l.at)
+				l.fa[0][0] = readLifeBarFace("p1.", is, l.sff, l.animTable)
 			}
 			if l.fa[0][1] == nil {
-				l.fa[0][1] = readLifeBarFace("p2.", is, l.sff, l.at)
+				l.fa[0][1] = readLifeBarFace("p2.", is, l.sff, l.animTable)
 			}
 		case "name":
 			if l.nm[0][0] == nil {
-				l.nm[0][0] = readLifeBarName("p1.", is, l.sff, l.at, l.fnt)
+				l.nm[0][0] = readLifeBarName("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.nm[0][1] == nil {
-				l.nm[0][1] = readLifeBarName("p2.", is, l.sff, l.at, l.fnt)
+				l.nm[0][1] = readLifeBarName("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "turns ":
 			subname = strings.ToLower(subname)
 			switch {
 			case len(subname) >= 7 && subname[:7] == "lifebar":
 				if l.hb[2][0] == nil {
-					l.hb[2][0] = readHealthBar("p1.", is, l.sff, l.at, l.fnt)
+					l.hb[2][0] = readHealthBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[2][1] == nil {
-					l.hb[2][1] = readHealthBar("p2.", is, l.sff, l.at, l.fnt)
+					l.hb[2][1] = readHealthBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 			case len(subname) >= 8 && subname[:8] == "powerbar":
 				if l.pb[2][0] == nil {
-					l.pb[2][0] = readPowerBar("p1.", is, l.sff, l.at, l.fnt)
+					l.pb[2][0] = readPowerBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[2][1] == nil {
-					l.pb[2][1] = readPowerBar("p2.", is, l.sff, l.at, l.fnt)
+					l.pb[2][1] = readPowerBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 			case len(subname) >= 8 && subname[:8] == "guardbar":
 				if l.gb[2][0] == nil {
-					l.gb[2][0] = readGuardBar("p1.", is, l.sff, l.at, l.fnt)
+					l.gb[2][0] = readGuardBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[2][1] == nil {
-					l.gb[2][1] = readGuardBar("p2.", is, l.sff, l.at, l.fnt)
+					l.gb[2][1] = readGuardBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 			case len(subname) >= 7 && subname[:7] == "stunbar":
 				if l.sb[2][0] == nil {
-					l.sb[2][0] = readStunBar("p1.", is, l.sff, l.at, l.fnt)
+					l.sb[2][0] = readStunBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[2][1] == nil {
-					l.sb[2][1] = readStunBar("p2.", is, l.sff, l.at, l.fnt)
+					l.sb[2][1] = readStunBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 			case len(subname) >= 4 && subname[:4] == "face":
 				if l.fa[2][0] == nil {
-					l.fa[2][0] = readLifeBarFace("p1.", is, l.sff, l.at)
+					l.fa[2][0] = readLifeBarFace("p1.", is, l.sff, l.animTable)
 				}
 				if l.fa[2][1] == nil {
-					l.fa[2][1] = readLifeBarFace("p2.", is, l.sff, l.at)
+					l.fa[2][1] = readLifeBarFace("p2.", is, l.sff, l.animTable)
 				}
 			case len(subname) >= 4 && subname[:4] == "name":
 				if l.nm[2][0] == nil {
-					l.nm[2][0] = readLifeBarName("p1.", is, l.sff, l.at, l.fnt)
+					l.nm[2][0] = readLifeBarName("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[2][1] == nil {
-					l.nm[2][1] = readLifeBarName("p2.", is, l.sff, l.at, l.fnt)
+					l.nm[2][1] = readLifeBarName("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 			}
 		case "simul ", "simul_3p ", "simul_4p ", "tag ", "tag_3p ", "tag_4p ":
@@ -4530,191 +4530,191 @@ func loadLifebar(def string) (*Lifebar, error) {
 			switch {
 			case len(subname) >= 7 && subname[:7] == "lifebar":
 				if l.hb[i][0] == nil {
-					l.hb[i][0] = readHealthBar("p1.", is, l.sff, l.at, l.fnt)
+					l.hb[i][0] = readHealthBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[i][1] == nil {
-					l.hb[i][1] = readHealthBar("p2.", is, l.sff, l.at, l.fnt)
+					l.hb[i][1] = readHealthBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[i][2] == nil {
-					l.hb[i][2] = readHealthBar("p3.", is, l.sff, l.at, l.fnt)
+					l.hb[i][2] = readHealthBar("p3.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[i][3] == nil {
-					l.hb[i][3] = readHealthBar("p4.", is, l.sff, l.at, l.fnt)
+					l.hb[i][3] = readHealthBar("p4.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[i][4] == nil {
-					l.hb[i][4] = readHealthBar("p5.", is, l.sff, l.at, l.fnt)
+					l.hb[i][4] = readHealthBar("p5.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.hb[i][5] == nil {
-					l.hb[i][5] = readHealthBar("p6.", is, l.sff, l.at, l.fnt)
+					l.hb[i][5] = readHealthBar("p6.", is, l.sff, l.animTable, l.fnt)
 				}
 				if i != 4 && i != 6 {
 					if l.hb[i][6] == nil {
-						l.hb[i][6] = readHealthBar("p7.", is, l.sff, l.at, l.fnt)
+						l.hb[i][6] = readHealthBar("p7.", is, l.sff, l.animTable, l.fnt)
 					}
 					if l.hb[i][7] == nil {
-						l.hb[i][7] = readHealthBar("p8.", is, l.sff, l.at, l.fnt)
+						l.hb[i][7] = readHealthBar("p8.", is, l.sff, l.animTable, l.fnt)
 					}
 				}
 			case len(subname) >= 8 && subname[:8] == "powerbar":
 				if l.pb[i][0] == nil {
-					l.pb[i][0] = readPowerBar("p1.", is, l.sff, l.at, l.fnt)
+					l.pb[i][0] = readPowerBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[i][1] == nil {
-					l.pb[i][1] = readPowerBar("p2.", is, l.sff, l.at, l.fnt)
+					l.pb[i][1] = readPowerBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[i][2] == nil {
-					l.pb[i][2] = readPowerBar("p3.", is, l.sff, l.at, l.fnt)
+					l.pb[i][2] = readPowerBar("p3.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[i][3] == nil {
-					l.pb[i][3] = readPowerBar("p4.", is, l.sff, l.at, l.fnt)
+					l.pb[i][3] = readPowerBar("p4.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[i][4] == nil {
-					l.pb[i][4] = readPowerBar("p5.", is, l.sff, l.at, l.fnt)
+					l.pb[i][4] = readPowerBar("p5.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.pb[i][5] == nil {
-					l.pb[i][5] = readPowerBar("p6.", is, l.sff, l.at, l.fnt)
+					l.pb[i][5] = readPowerBar("p6.", is, l.sff, l.animTable, l.fnt)
 				}
 				if i != 4 && i != 6 {
 					if l.pb[i][6] == nil {
-						l.pb[i][6] = readPowerBar("p7.", is, l.sff, l.at, l.fnt)
+						l.pb[i][6] = readPowerBar("p7.", is, l.sff, l.animTable, l.fnt)
 					}
 					if l.pb[i][7] == nil {
-						l.pb[i][7] = readPowerBar("p8.", is, l.sff, l.at, l.fnt)
+						l.pb[i][7] = readPowerBar("p8.", is, l.sff, l.animTable, l.fnt)
 					}
 				}
 			case len(subname) >= 8 && subname[:8] == "guardbar":
 				if l.gb[i][0] == nil {
-					l.gb[i][0] = readGuardBar("p1.", is, l.sff, l.at, l.fnt)
+					l.gb[i][0] = readGuardBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[i][1] == nil {
-					l.gb[i][1] = readGuardBar("p2.", is, l.sff, l.at, l.fnt)
+					l.gb[i][1] = readGuardBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[i][2] == nil {
-					l.gb[i][2] = readGuardBar("p3.", is, l.sff, l.at, l.fnt)
+					l.gb[i][2] = readGuardBar("p3.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[i][3] == nil {
-					l.gb[i][3] = readGuardBar("p4.", is, l.sff, l.at, l.fnt)
+					l.gb[i][3] = readGuardBar("p4.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[i][4] == nil {
-					l.gb[i][4] = readGuardBar("p5.", is, l.sff, l.at, l.fnt)
+					l.gb[i][4] = readGuardBar("p5.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.gb[i][5] == nil {
-					l.gb[i][5] = readGuardBar("p6.", is, l.sff, l.at, l.fnt)
+					l.gb[i][5] = readGuardBar("p6.", is, l.sff, l.animTable, l.fnt)
 				}
 				if i != 4 && i != 6 {
 					if l.gb[i][6] == nil {
-						l.gb[i][6] = readGuardBar("p7.", is, l.sff, l.at, l.fnt)
+						l.gb[i][6] = readGuardBar("p7.", is, l.sff, l.animTable, l.fnt)
 					}
 					if l.gb[i][7] == nil {
-						l.gb[i][7] = readGuardBar("p8.", is, l.sff, l.at, l.fnt)
+						l.gb[i][7] = readGuardBar("p8.", is, l.sff, l.animTable, l.fnt)
 					}
 				}
 			case len(subname) >= 7 && subname[:7] == "stunbar":
 				if l.sb[i][0] == nil {
-					l.sb[i][0] = readStunBar("p1.", is, l.sff, l.at, l.fnt)
+					l.sb[i][0] = readStunBar("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[i][1] == nil {
-					l.sb[i][1] = readStunBar("p2.", is, l.sff, l.at, l.fnt)
+					l.sb[i][1] = readStunBar("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[i][2] == nil {
-					l.sb[i][2] = readStunBar("p3.", is, l.sff, l.at, l.fnt)
+					l.sb[i][2] = readStunBar("p3.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[i][3] == nil {
-					l.sb[i][3] = readStunBar("p4.", is, l.sff, l.at, l.fnt)
+					l.sb[i][3] = readStunBar("p4.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[i][4] == nil {
-					l.sb[i][4] = readStunBar("p5.", is, l.sff, l.at, l.fnt)
+					l.sb[i][4] = readStunBar("p5.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.sb[i][5] == nil {
-					l.sb[i][5] = readStunBar("p6.", is, l.sff, l.at, l.fnt)
+					l.sb[i][5] = readStunBar("p6.", is, l.sff, l.animTable, l.fnt)
 				}
 				if i != 4 && i != 6 {
 					if l.sb[i][6] == nil {
-						l.sb[i][6] = readStunBar("p7.", is, l.sff, l.at, l.fnt)
+						l.sb[i][6] = readStunBar("p7.", is, l.sff, l.animTable, l.fnt)
 					}
 					if l.sb[i][7] == nil {
-						l.sb[i][7] = readStunBar("p8.", is, l.sff, l.at, l.fnt)
+						l.sb[i][7] = readStunBar("p8.", is, l.sff, l.animTable, l.fnt)
 					}
 				}
 			case len(subname) >= 4 && subname[:4] == "face":
 				if l.fa[i][0] == nil {
-					l.fa[i][0] = readLifeBarFace("p1.", is, l.sff, l.at)
+					l.fa[i][0] = readLifeBarFace("p1.", is, l.sff, l.animTable)
 				}
 				if l.fa[i][1] == nil {
-					l.fa[i][1] = readLifeBarFace("p2.", is, l.sff, l.at)
+					l.fa[i][1] = readLifeBarFace("p2.", is, l.sff, l.animTable)
 				}
 				if l.fa[i][2] == nil {
-					l.fa[i][2] = readLifeBarFace("p3.", is, l.sff, l.at)
+					l.fa[i][2] = readLifeBarFace("p3.", is, l.sff, l.animTable)
 				}
 				if l.fa[i][3] == nil {
-					l.fa[i][3] = readLifeBarFace("p4.", is, l.sff, l.at)
+					l.fa[i][3] = readLifeBarFace("p4.", is, l.sff, l.animTable)
 				}
 				if l.fa[i][4] == nil {
-					l.fa[i][4] = readLifeBarFace("p5.", is, l.sff, l.at)
+					l.fa[i][4] = readLifeBarFace("p5.", is, l.sff, l.animTable)
 				}
 				if l.fa[i][5] == nil {
-					l.fa[i][5] = readLifeBarFace("p6.", is, l.sff, l.at)
+					l.fa[i][5] = readLifeBarFace("p6.", is, l.sff, l.animTable)
 				}
 				if i != 4 && i != 6 {
 					if l.fa[i][6] == nil {
-						l.fa[i][6] = readLifeBarFace("p7.", is, l.sff, l.at)
+						l.fa[i][6] = readLifeBarFace("p7.", is, l.sff, l.animTable)
 					}
 					if l.fa[i][7] == nil {
-						l.fa[i][7] = readLifeBarFace("p8.", is, l.sff, l.at)
+						l.fa[i][7] = readLifeBarFace("p8.", is, l.sff, l.animTable)
 					}
 				}
 			case len(subname) >= 4 && subname[:4] == "name":
 				if l.nm[i][0] == nil {
-					l.nm[i][0] = readLifeBarName("p1.", is, l.sff, l.at, l.fnt)
+					l.nm[i][0] = readLifeBarName("p1.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[i][1] == nil {
-					l.nm[i][1] = readLifeBarName("p2.", is, l.sff, l.at, l.fnt)
+					l.nm[i][1] = readLifeBarName("p2.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[i][2] == nil {
-					l.nm[i][2] = readLifeBarName("p3.", is, l.sff, l.at, l.fnt)
+					l.nm[i][2] = readLifeBarName("p3.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[i][3] == nil {
-					l.nm[i][3] = readLifeBarName("p4.", is, l.sff, l.at, l.fnt)
+					l.nm[i][3] = readLifeBarName("p4.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[i][4] == nil {
-					l.nm[i][4] = readLifeBarName("p5.", is, l.sff, l.at, l.fnt)
+					l.nm[i][4] = readLifeBarName("p5.", is, l.sff, l.animTable, l.fnt)
 				}
 				if l.nm[i][5] == nil {
-					l.nm[i][5] = readLifeBarName("p6.", is, l.sff, l.at, l.fnt)
+					l.nm[i][5] = readLifeBarName("p6.", is, l.sff, l.animTable, l.fnt)
 				}
 				if i != 4 && i != 6 {
 					if l.nm[i][6] == nil {
-						l.nm[i][6] = readLifeBarName("p7.", is, l.sff, l.at, l.fnt)
+						l.nm[i][6] = readLifeBarName("p7.", is, l.sff, l.animTable, l.fnt)
 					}
 					if l.nm[i][7] == nil {
-						l.nm[i][7] = readLifeBarName("p8.", is, l.sff, l.at, l.fnt)
+						l.nm[i][7] = readLifeBarName("p8.", is, l.sff, l.animTable, l.fnt)
 					}
 				}
 			}
 		case "winicon":
 			if l.wi[0] == nil {
-				l.wi[0] = readLifeBarWinIcon("p1.", is, l.sff, l.at, l.fnt)
+				l.wi[0] = readLifeBarWinIcon("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.wi[1] == nil {
-				l.wi[1] = readLifeBarWinIcon("p2.", is, l.sff, l.at, l.fnt)
+				l.wi[1] = readLifeBarWinIcon("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "time":
 			if l.ti == nil {
-				l.ti = readLifeBarTime(is, l.sff, l.at, l.fnt)
+				l.ti = readLifeBarTime(is, l.sff, l.animTable, l.fnt)
 			}
 		case "combo":
 			if l.co[0] == nil {
 				if _, ok := is["team1.pos"]; ok {
-					l.co[0] = readLifeBarCombo("team1.", is, l.sff, l.at, l.fnt, 0)
+					l.co[0] = readLifeBarCombo("team1.", is, l.sff, l.animTable, l.fnt, 0)
 				} else {
-					l.co[0] = readLifeBarCombo("", is, l.sff, l.at, l.fnt, 0)
+					l.co[0] = readLifeBarCombo("", is, l.sff, l.animTable, l.fnt, 0)
 				}
 			}
 			if l.co[1] == nil {
 				if _, ok := is["team2.pos"]; ok {
-					l.co[1] = readLifeBarCombo("team2.", is, l.sff, l.at, l.fnt, 1)
+					l.co[1] = readLifeBarCombo("team2.", is, l.sff, l.animTable, l.fnt, 1)
 				} else {
-					l.co[1] = readLifeBarCombo("", is, l.sff, l.at, l.fnt, 1)
+					l.co[1] = readLifeBarCombo("", is, l.sff, l.animTable, l.fnt, 1)
 				}
 			}
 		case "action":
@@ -4726,47 +4726,47 @@ func loadLifebar(def string) (*Lifebar, error) {
 			}
 		case "round":
 			if l.ro == nil {
-				l.ro = readLifeBarRound(is, l.sff, l.at, l.snd, l.fnt)
+				l.ro = readLifeBarRound(is, l.sff, l.animTable, l.snd, l.fnt)
 			}
 		case "ratio":
 			if l.ra[0] == nil {
-				l.ra[0] = readLifeBarRatio("p1.", is, l.sff, l.at)
+				l.ra[0] = readLifeBarRatio("p1.", is, l.sff, l.animTable)
 			}
 			if l.ra[1] == nil {
-				l.ra[1] = readLifeBarRatio("p2.", is, l.sff, l.at)
+				l.ra[1] = readLifeBarRatio("p2.", is, l.sff, l.animTable)
 			}
 		case "timer":
 			if l.tr == nil {
-				l.tr = readLifeBarTimer(is, l.sff, l.at, l.fnt)
+				l.tr = readLifeBarTimer(is, l.sff, l.animTable, l.fnt)
 			}
 		case "score":
 			if l.sc[0] == nil {
-				l.sc[0] = readLifeBarScore("p1.", is, l.sff, l.at, l.fnt)
+				l.sc[0] = readLifeBarScore("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.sc[1] == nil {
-				l.sc[1] = readLifeBarScore("p2.", is, l.sff, l.at, l.fnt)
+				l.sc[1] = readLifeBarScore("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "match":
 			if l.ma == nil {
-				l.ma = readLifeBarMatch(is, l.sff, l.at, l.fnt)
+				l.ma = readLifeBarMatch(is, l.sff, l.animTable, l.fnt)
 			}
 		case "ailevel":
 			if l.ai[0] == nil {
-				l.ai[0] = readLifeBarAiLevel("p1.", is, l.sff, l.at, l.fnt)
+				l.ai[0] = readLifeBarAiLevel("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.ai[1] == nil {
-				l.ai[1] = readLifeBarAiLevel("p2.", is, l.sff, l.at, l.fnt)
+				l.ai[1] = readLifeBarAiLevel("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "wincount":
 			if l.wc[0] == nil {
-				l.wc[0] = readLifeBarWinCount("p1.", is, l.sff, l.at, l.fnt)
+				l.wc[0] = readLifeBarWinCount("p1.", is, l.sff, l.animTable, l.fnt)
 			}
 			if l.wc[1] == nil {
-				l.wc[1] = readLifeBarWinCount("p2.", is, l.sff, l.at, l.fnt)
+				l.wc[1] = readLifeBarWinCount("p2.", is, l.sff, l.animTable, l.fnt)
 			}
 		case "mode":
 			if l.mo == nil {
-				l.mo = readLifeBarMode(is, l.sff, l.at, l.fnt)
+				l.mo = readLifeBarMode(is, l.sff, l.animTable, l.fnt)
 			}
 		}
 	}
@@ -4776,7 +4776,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 	//	sys.ffx["f"].fx_scale = float32(l.localcoord[0]) / 320
 	//}
 	// Now calculated in each animation call
-	//for _, a := range sys.ffx["f"].fat {
+	//for _, a := range sys.ffx["f"].animTable {
 	//	a.start_scale = [...]float32{sys.ffx["f"].fx_scale, sys.ffx["f"].fx_scale}
 	//}
 	// Iterate over map in a stable iteration order

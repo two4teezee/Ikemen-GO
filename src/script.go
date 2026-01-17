@@ -5905,87 +5905,90 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "explodvar", func(*lua.LState) int {
-		ln := lua.LNumber(math.NaN())
+		var lv lua.LValue
 		id := int32(numArg(l, 1))
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
-
-		for i, e := range sys.debugWC.getExplods(id) {
-			if i == idx {
-				switch strings.ToLower(vname) {
-				case "accel x":
-					ln = lua.LNumber(e.accel[0])
-				case "accel y":
-					ln = lua.LNumber(e.accel[1])
-				case "accel z":
-					ln = lua.LNumber(e.accel[2])
-				case "anim":
-					ln = lua.LNumber(e.animNo)
-				case "angle":
-					ln = lua.LNumber(e.anglerot[0] + e.interpolate_angle[0])
-				case "angle x":
-					ln = lua.LNumber(e.anglerot[1] + e.interpolate_angle[1])
-				case "angle y":
-					ln = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
-				case "animelem":
-					ln = lua.LNumber(e.anim.curelem + 1)
-				case "animelemtime":
-					ln = lua.LNumber(e.anim.curelemtime)
-				case "animplayerno":
-					ln = lua.LNumber(e.animPN + 1)
-				case "spriteplayerno":
-					ln = lua.LNumber(e.spritePN + 1)
-				case "bindtime":
-					ln = lua.LNumber(e.bindtime)
-				case "drawpal group":
-					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[0])
-				case "drawpal index":
-					ln = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
-				case "facing":
-					ln = lua.LNumber(e.facing)
-				case "friction x":
-					ln = lua.LNumber(e.friction[0])
-				case "friction y":
-					ln = lua.LNumber(e.friction[1])
-				case "friction z":
-					ln = lua.LNumber(e.friction[2])
-				case "id":
-					ln = lua.LNumber(e.id)
-				case "layerno":
-					ln = lua.LNumber(e.layerno)
-				case "pausemovetime":
-					ln = lua.LNumber(e.pausemovetime)
-				case "pos x":
-					ln = lua.LNumber(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-				case "pos y":
-					ln = lua.LNumber(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-				case "pos z":
-					ln = lua.LNumber(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-				case "removetime":
-					ln = lua.LNumber(e.removetime)
-				case "scale x":
-					ln = lua.LNumber(e.scale[0] * e.interpolate_scale[0])
-				case "scale y":
-					ln = lua.LNumber(e.scale[1] * e.interpolate_scale[1])
-				case "sprpriority":
-					ln = lua.LNumber(e.sprpriority)
-				case "time":
-					ln = lua.LNumber(e.time)
-				case "vel x":
-					ln = lua.LNumber(e.velocity[0])
-				case "vel y":
-					ln = lua.LNumber(e.velocity[1])
-				case "vel z":
-					ln = lua.LNumber(e.velocity[2])
-				case "xshear":
-					ln = lua.LNumber(e.xshear)
-				default:
-					l.RaiseError("\nInvalid argument: %v\n", vname)
-				}
-				break
+		// Get explod
+		explods := sys.debugWC.getExplods(id)
+		var e *Explod
+		if idx >= 0 && idx < len(explods) {
+			e = explods[idx]
+		}
+		// Handle returns
+		if e != nil {
+			switch strings.ToLower(vname) {
+			case "accel x":
+				lv = lua.LNumber(e.accel[0])
+			case "accel y":
+				lv = lua.LNumber(e.accel[1])
+			case "accel z":
+				lv = lua.LNumber(e.accel[2])
+			case "anim":
+				lv = lua.LNumber(e.animNo)
+			case "angle":
+				lv = lua.LNumber(e.anglerot[0] + e.interpolate_angle[0])
+			case "angle x":
+				lv = lua.LNumber(e.anglerot[1] + e.interpolate_angle[1])
+			case "angle y":
+				lv = lua.LNumber(e.anglerot[2] + e.interpolate_angle[2])
+			case "animelem":
+				lv = lua.LNumber(e.anim.curelem + 1)
+			case "animelemtime":
+				lv = lua.LNumber(e.anim.curelemtime)
+			case "animplayerno":
+				lv = lua.LNumber(e.animPN + 1)
+			case "spriteplayerno":
+				lv = lua.LNumber(e.spritePN + 1)
+			case "bindtime":
+				lv = lua.LNumber(e.bindtime)
+			case "drawpal group":
+				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[0])
+			case "drawpal index":
+				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
+			case "facing":
+				lv = lua.LNumber(e.facing)
+			case "friction x":
+				lv = lua.LNumber(e.friction[0])
+			case "friction y":
+				lv = lua.LNumber(e.friction[1])
+			case "friction z":
+				lv = lua.LNumber(e.friction[2])
+			case "id":
+				lv = lua.LNumber(e.id)
+			case "layerno":
+				lv = lua.LNumber(e.layerno)
+			case "pausemovetime":
+				lv = lua.LNumber(e.pausemovetime)
+			case "pos x":
+				lv = lua.LNumber(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+			case "pos y":
+				lv = lua.LNumber(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+			case "pos z":
+				lv = lua.LNumber(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+			case "removetime":
+				lv = lua.LNumber(e.removetime)
+			case "scale x":
+				lv = lua.LNumber(e.scale[0] * e.interpolate_scale[0])
+			case "scale y":
+				lv = lua.LNumber(e.scale[1] * e.interpolate_scale[1])
+			case "sprpriority":
+				lv = lua.LNumber(e.sprpriority)
+			case "time":
+				lv = lua.LNumber(e.time)
+			case "vel x":
+				lv = lua.LNumber(e.velocity[0])
+			case "vel y":
+				lv = lua.LNumber(e.velocity[1])
+			case "vel z":
+				lv = lua.LNumber(e.velocity[2])
+			case "xshear":
+				lv = lua.LNumber(e.xshear)
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
 			}
 		}
-		l.Push(ln)
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "facing", func(*lua.LState) int {
@@ -6080,198 +6083,194 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "gethitvar", func(*lua.LState) int {
 		c := sys.debugWC
-		var ln lua.LNumber
+		var lv lua.LValue
 		switch strings.ToLower(strArg(l, 1)) {
 		case "fall.envshake.dir":
-			ln = lua.LNumber(c.ghv.fall_envshake_dir)
+			lv = lua.LNumber(c.ghv.fall_envshake_dir)
 		case "animtype":
-			ln = lua.LNumber(c.gethitAnimtype())
+			lv = lua.LNumber(c.gethitAnimtype())
 		case "air.animtype":
-			ln = lua.LNumber(c.ghv.airanimtype)
+			lv = lua.LNumber(c.ghv.airanimtype)
 		case "ground.animtype":
-			ln = lua.LNumber(c.ghv.groundanimtype)
+			lv = lua.LNumber(c.ghv.groundanimtype)
 		case "fall.animtype":
-			ln = lua.LNumber(c.ghv.fall_animtype)
+			lv = lua.LNumber(c.ghv.fall_animtype)
 		case "type":
-			ln = lua.LNumber(c.ghv._type)
+			lv = lua.LNumber(c.ghv._type)
 		case "airtype":
-			ln = lua.LNumber(c.ghv.airtype)
+			lv = lua.LNumber(c.ghv.airtype)
 		case "groundtype":
-			ln = lua.LNumber(c.ghv.groundtype)
+			lv = lua.LNumber(c.ghv.groundtype)
 		case "damage":
-			ln = lua.LNumber(c.ghv.damage)
+			lv = lua.LNumber(c.ghv.damage)
 		case "guardcount":
-			ln = lua.LNumber(c.ghv.guardcount)
+			lv = lua.LNumber(c.ghv.guardcount)
 		case "hitcount":
-			ln = lua.LNumber(c.ghv.hitcount)
+			lv = lua.LNumber(c.ghv.hitcount)
 		case "fallcount":
-			ln = lua.LNumber(c.ghv.fallcount)
+			lv = lua.LNumber(c.ghv.fallcount)
 		case "hitshaketime":
-			ln = lua.LNumber(c.ghv.hitshaketime)
+			lv = lua.LNumber(c.ghv.hitshaketime)
 		case "hittime":
-			ln = lua.LNumber(c.ghv.hittime)
+			lv = lua.LNumber(c.ghv.hittime)
 		case "stand.friction":
 			sf := c.ghv.standfriction
 			if math.IsNaN(float64(sf)) {
 				sf = c.gi().movement.stand.friction
 			}
-			ln = lua.LNumber(sf)
+			lv = lua.LNumber(sf)
 		case "crouch.friction":
 			cf := c.ghv.crouchfriction
 			if math.IsNaN(float64(cf)) {
 				cf = c.gi().movement.crouch.friction
 			}
-			ln = lua.LNumber(cf)
+			lv = lua.LNumber(cf)
 		case "slidetime":
-			ln = lua.LNumber(c.ghv.slidetime)
+			lv = lua.LNumber(c.ghv.slidetime)
 		case "ctrltime":
-			ln = lua.LNumber(c.ghv.ctrltime)
+			lv = lua.LNumber(c.ghv.ctrltime)
 		case "recovertime", "down.recovertime": // Added second term for consistency
-			ln = lua.LNumber(c.ghv.down_recovertime)
+			lv = lua.LNumber(c.ghv.down_recovertime)
 		case "xoff":
-			ln = lua.LNumber(c.ghv.xoff)
+			lv = lua.LNumber(c.ghv.xoff)
 		case "yoff":
-			ln = lua.LNumber(c.ghv.yoff)
+			lv = lua.LNumber(c.ghv.yoff)
 		case "zoff":
-			ln = lua.LNumber(c.ghv.zoff)
+			lv = lua.LNumber(c.ghv.zoff)
 		case "xvel":
-			ln = lua.LNumber(c.ghv.xvel)
+			lv = lua.LNumber(c.ghv.xvel)
 		case "yvel":
-			ln = lua.LNumber(c.ghv.yvel)
+			lv = lua.LNumber(c.ghv.yvel)
 		case "zvel":
-			ln = lua.LNumber(c.ghv.zvel)
+			lv = lua.LNumber(c.ghv.zvel)
 		case "xaccel":
-			ln = lua.LNumber(c.ghv.xaccel)
+			lv = lua.LNumber(c.ghv.xaccel)
 		case "yaccel":
-			ln = lua.LNumber(c.ghv.yaccel)
+			lv = lua.LNumber(c.ghv.yaccel)
 		case "zaccel":
-			ln = lua.LNumber(c.ghv.zaccel)
+			lv = lua.LNumber(c.ghv.zaccel)
 		case "xveladd":
-			ln = lua.LNumber(c.ghv.xveladd)
+			lv = lua.LNumber(c.ghv.xveladd)
 		case "yveladd":
-			ln = lua.LNumber(c.ghv.yveladd)
+			lv = lua.LNumber(c.ghv.yveladd)
 		case "hitid", "chainid":
-			ln = lua.LNumber(c.ghv.chainId())
+			lv = lua.LNumber(c.ghv.chainId())
 		case "guarded":
-			ln = lua.LNumber(Btoi(c.ghv.guarded))
+			lv = lua.LBool(c.ghv.guarded)
 		case "isbound":
-			ln = lua.LNumber(Btoi(c.isTargetBound()))
+			lv = lua.LBool(c.isTargetBound())
 		case "fall":
-			ln = lua.LNumber(Btoi(c.ghv.fallflag))
+			lv = lua.LBool(c.ghv.fallflag)
 		case "fall.damage":
-			ln = lua.LNumber(c.ghv.fall_damage)
+			lv = lua.LNumber(c.ghv.fall_damage)
 		case "fall.xvel":
 			if math.IsNaN(float64(c.ghv.fall_xvelocity)) {
-				ln = lua.LNumber(-32760) // Winmugen behavior
+				lv = lua.LNumber(-32760) // Winmugen behavior
 			} else {
-				ln = lua.LNumber(c.ghv.fall_xvelocity)
+				lv = lua.LNumber(c.ghv.fall_xvelocity)
 			}
 		case "fall.yvel":
-			ln = lua.LNumber(c.ghv.fall_yvelocity)
+			lv = lua.LNumber(c.ghv.fall_yvelocity)
 		case "fall.zvel":
 			if math.IsNaN(float64(c.ghv.fall_zvelocity)) {
-				ln = lua.LNumber(-32760) // Winmugen behavior
+				lv = lua.LNumber(-32760) // Winmugen behavior
 			} else {
-				ln = lua.LNumber(c.ghv.fall_zvelocity)
+				lv = lua.LNumber(c.ghv.fall_zvelocity)
 			}
 		case "fall.recover":
-			ln = lua.LNumber(Btoi(c.ghv.fall_recover))
+			lv = lua.LBool(c.ghv.fall_recover)
 		case "fall.time":
-			ln = lua.LNumber(c.fallTime)
+			lv = lua.LNumber(c.fallTime)
 		case "fall.recovertime":
-			ln = lua.LNumber(c.ghv.fall_recovertime)
+			lv = lua.LNumber(c.ghv.fall_recovertime)
 		case "fall.kill":
-			ln = lua.LNumber(Btoi(c.ghv.fall_kill))
+			lv = lua.LBool(c.ghv.fall_kill)
 		case "fall.envshake.time":
-			ln = lua.LNumber(c.ghv.fall_envshake_time)
+			lv = lua.LNumber(c.ghv.fall_envshake_time)
 		case "fall.envshake.freq":
-			ln = lua.LNumber(c.ghv.fall_envshake_freq)
+			lv = lua.LNumber(c.ghv.fall_envshake_freq)
 		case "fall.envshake.ampl":
-			ln = lua.LNumber(c.ghv.fall_envshake_ampl)
+			lv = lua.LNumber(c.ghv.fall_envshake_ampl)
 		case "fall.envshake.phase":
-			ln = lua.LNumber(c.ghv.fall_envshake_phase)
+			lv = lua.LNumber(c.ghv.fall_envshake_phase)
 		case "fall.envshake.mul":
-			ln = lua.LNumber(c.ghv.fall_envshake_mul)
+			lv = lua.LNumber(c.ghv.fall_envshake_mul)
 		case "attr":
-			// return here, because ln is a
-			// LNumber (we have a LString)
-			l.Push(attrLStr(c.ghv.attr))
-			return 1
+			lv = attrLStr(c.ghv.attr)
 		case "dizzypoints":
-			ln = lua.LNumber(c.ghv.dizzypoints)
+			lv = lua.LNumber(c.ghv.dizzypoints)
 		case "guardpoints":
-			ln = lua.LNumber(c.ghv.guardpoints)
+			lv = lua.LNumber(c.ghv.guardpoints)
 		case "id":
-			ln = lua.LNumber(c.ghv.playerid)
+			lv = lua.LNumber(c.ghv.playerid)
 		case "playerno":
-			ln = lua.LNumber(c.ghv.playerno + 1)
+			lv = lua.LNumber(c.ghv.playerno + 1)
 		case "redlife":
-			ln = lua.LNumber(c.ghv.redlife)
+			lv = lua.LNumber(c.ghv.redlife)
 		case "score":
-			ln = lua.LNumber(c.ghv.score)
+			lv = lua.LNumber(c.ghv.score)
 		case "hitdamage":
-			ln = lua.LNumber(c.ghv.hitdamage)
+			lv = lua.LNumber(c.ghv.hitdamage)
 		case "guarddamage":
-			ln = lua.LNumber(c.ghv.guarddamage)
+			lv = lua.LNumber(c.ghv.guarddamage)
 		case "power":
-			ln = lua.LNumber(c.ghv.power)
+			lv = lua.LNumber(c.ghv.power)
 		case "hitpower":
-			ln = lua.LNumber(c.ghv.hitpower)
+			lv = lua.LNumber(c.ghv.hitpower)
 		case "guardpower":
-			ln = lua.LNumber(c.ghv.guardpower)
+			lv = lua.LNumber(c.ghv.guardpower)
 		case "kill":
-			ln = lua.LNumber(Btoi(c.ghv.kill))
+			lv = lua.LBool(c.ghv.kill)
 		case "priority":
-			ln = lua.LNumber(c.ghv.priority)
+			lv = lua.LNumber(c.ghv.priority)
 		case "facing":
-			ln = lua.LNumber(c.ghv.facing)
+			lv = lua.LNumber(c.ghv.facing)
 		case "ground.velocity.x":
-			ln = lua.LNumber(c.ghv.ground_velocity[0])
+			lv = lua.LNumber(c.ghv.ground_velocity[0])
 		case "ground.velocity.y":
-			ln = lua.LNumber(c.ghv.ground_velocity[1])
+			lv = lua.LNumber(c.ghv.ground_velocity[1])
 		case "ground.velocity.z":
-			ln = lua.LNumber(c.ghv.ground_velocity[2])
+			lv = lua.LNumber(c.ghv.ground_velocity[2])
 		case "air.velocity.x":
-			ln = lua.LNumber(c.ghv.air_velocity[0])
+			lv = lua.LNumber(c.ghv.air_velocity[0])
 		case "air.velocity.y":
-			ln = lua.LNumber(c.ghv.air_velocity[1])
+			lv = lua.LNumber(c.ghv.air_velocity[1])
 		case "air.velocity.z":
-			ln = lua.LNumber(c.ghv.air_velocity[2])
+			lv = lua.LNumber(c.ghv.air_velocity[2])
 		case "down.velocity.x":
-			ln = lua.LNumber(c.ghv.down_velocity[0])
+			lv = lua.LNumber(c.ghv.down_velocity[0])
 		case "down.velocity.y":
-			ln = lua.LNumber(c.ghv.down_velocity[1])
+			lv = lua.LNumber(c.ghv.down_velocity[1])
 		case "down.velocity.z":
-			ln = lua.LNumber(c.ghv.down_velocity[2])
+			lv = lua.LNumber(c.ghv.down_velocity[2])
 		case "guard.velocity.x":
-			ln = lua.LNumber(c.ghv.guard_velocity[0])
+			lv = lua.LNumber(c.ghv.guard_velocity[0])
 		case "guard.velocity.y":
-			ln = lua.LNumber(c.ghv.guard_velocity[1])
+			lv = lua.LNumber(c.ghv.guard_velocity[1])
 		case "guard.velocity.z":
-			ln = lua.LNumber(c.ghv.guard_velocity[2])
+			lv = lua.LNumber(c.ghv.guard_velocity[2])
 		case "airguard.velocity.x":
-			ln = lua.LNumber(c.ghv.airguard_velocity[0])
+			lv = lua.LNumber(c.ghv.airguard_velocity[0])
 		case "airguard.velocity.y":
-			ln = lua.LNumber(c.ghv.airguard_velocity[1])
+			lv = lua.LNumber(c.ghv.airguard_velocity[1])
 		case "airguard.velocity.z":
-			ln = lua.LNumber(c.ghv.airguard_velocity[2])
+			lv = lua.LNumber(c.ghv.airguard_velocity[2])
 		case "frame":
-			ln = lua.LNumber(Btoi(c.ghv.frame))
+			lv = lua.LBool(c.ghv.frame)
 		case "down.recover":
-			ln = lua.LNumber(Btoi(c.ghv.down_recover))
+			lv = lua.LBool(c.ghv.down_recover)
 		case "guardflag":
-			// return here, because ln is a
-			// LNumber (we have a LString)
-			l.Push(flagLStr(c.ghv.guardflag))
-			return 1
+			lv = flagLStr(c.ghv.guardflag)
 		case "keepstate":
-			ln = lua.LNumber(Btoi(c.ghv.keepstate))
+			lv = lua.LBool(c.ghv.keepstate)
 		case "projid":
-			ln = lua.LNumber(c.ghv.projid)
+			lv = lua.LNumber(c.ghv.projid)
+		case "guardko":
+			lv = lua.LBool(c.ghv.guardko)
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
-		l.Push(ln)
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "groundlevel", func(*lua.LState) int {
@@ -6463,28 +6462,28 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "movehitvar", func(*lua.LState) int {
 		c := sys.debugWC
-		var ln lua.LNumber
+		var lv lua.LValue
 		switch strings.ToLower(strArg(l, 1)) {
 		case "cornerpush.veloff":
-			ln = lua.LNumber(c.mhv.cornerpush_veloff)
+			lv = lua.LNumber(c.mhv.cornerpush_veloff)
 		case "frame":
-			ln = lua.LNumber(Btoi(c.mhv.frame))
+			lv = lua.LBool(c.mhv.frame)
 		case "id":
-			ln = lua.LNumber(c.mhv.playerid)
+			lv = lua.LNumber(c.mhv.playerid)
 		case "overridden":
-			ln = lua.LNumber(Btoi(c.mhv.overridden))
+			lv = lua.LBool(c.mhv.overridden)
 		case "playerno":
-			ln = lua.LNumber(c.mhv.playerno + 1)
+			lv = lua.LNumber(c.mhv.playerno + 1)
 		case "sparkx":
-			ln = lua.LNumber(c.mhv.sparkxy[0])
+			lv = lua.LNumber(c.mhv.sparkxy[0])
 		case "sparky":
-			ln = lua.LNumber(c.mhv.sparkxy[1])
+			lv = lua.LNumber(c.mhv.sparkxy[1])
 		case "uniqhit":
-			ln = lua.LNumber(len(c.hitdefTargets))
+			lv = lua.LNumber(len(c.hitdefTargets))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
-		l.Push(ln)
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "movetype", func(*lua.LState) int {
@@ -7528,45 +7527,45 @@ func triggerFunctions(l *lua.LState) {
 	})
 	luaRegister(l, "animelemvar", func(l *lua.LState) int {
 		vname := strings.ToLower(strArg(l, 1))
-		var ln lua.LNumber
+		var lv lua.LValue
 		// Because the char's animation steps at the end of each frame, before the scripts run,
 		// AnimElemVar Lua version uses curFrame instead of anim.CurrentFrame()
 		f := sys.debugWC.curFrame
 		if f != nil {
 			switch vname {
 			case "alphadest":
-				ln = lua.LNumber(f.DstAlpha)
+				lv = lua.LNumber(f.DstAlpha)
 			case "alphasource":
-				ln = lua.LNumber(f.SrcAlpha)
+				lv = lua.LNumber(f.SrcAlpha)
 			case "angle":
-				ln = lua.LNumber(f.Angle)
+				lv = lua.LNumber(f.Angle)
 			case "group":
-				ln = lua.LNumber(f.Group)
+				lv = lua.LNumber(f.Group)
 			case "hflip":
-				ln = lua.LNumber(Btoi(f.Hscale < 0))
+				lv = lua.LBool(f.Hscale < 0)
 			case "image":
-				ln = lua.LNumber(f.Number)
+				lv = lua.LNumber(f.Number)
 			case "numclsn1":
-				ln = lua.LNumber(len(f.Clsn1))
+				lv = lua.LNumber(len(f.Clsn1))
 			case "numclsn2":
-				ln = lua.LNumber(len(f.Clsn2))
+				lv = lua.LNumber(len(f.Clsn2))
 			case "time":
-				ln = lua.LNumber(f.Time)
+				lv = lua.LNumber(f.Time)
 			case "vflip":
-				ln = lua.LNumber(Btoi(f.Vscale < 0))
+				lv = lua.LBool(f.Vscale < 0)
 			case "xoffset":
-				ln = lua.LNumber(f.Xoffset)
+				lv = lua.LNumber(f.Xoffset)
 			case "xscale":
-				ln = lua.LNumber(f.Xscale)
+				lv = lua.LNumber(f.Xscale)
 			case "yoffset":
-				ln = lua.LNumber(f.Yoffset)
+				lv = lua.LNumber(f.Yoffset)
 			case "yscale":
-				ln = lua.LNumber(f.Yscale)
+				lv = lua.LNumber(f.Yscale)
 			default:
 				l.RaiseError("\nInvalid argument: %v\n", vname)
 			}
 		}
-		l.Push(ln)
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "animlength", func(*lua.LState) int {
@@ -7763,7 +7762,7 @@ func triggerFunctions(l *lua.LState) {
 			case "preserve":
 				lv = lua.LBool(c.preserve)
 			default:
-				l.RaiseError("\nInvalid helpervar property: %v\n", vname)
+				l.RaiseError("\nInvalid argument: %v\n", vname)
 			}
 		}
 		l.Push(lv)

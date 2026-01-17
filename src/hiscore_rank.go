@@ -179,7 +179,11 @@ func rankingWouldPlace(mode string) bool {
 	}
 	rType = strings.ToLower(strings.TrimSpace(rType))
 	tal := tallyRun()
+	cleared := modeCleared(mode, len(sys.statsLog.Matches))
 	// Ranking exceptions
+	if rType == "time" && !cleared {
+		return false
+	}
 	if rType == "score" && tal.scoreP1 == 0 {
 		return false
 	}
@@ -331,8 +335,13 @@ func computeAndSaveRanking(mode string) (bool, int32) {
 		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 		return cleared, 0
 	}
+	rType = strings.ToLower(strings.TrimSpace(rType))
 
-	// Ranking exceptions (match Lua behavior)
+	// Ranking exceptions
+	if rType == "time" && !cleared {
+		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
+		return cleared, 0
+	}
 	if rType == "score" && tal.scoreP1 == 0 {
 		_ = writeStatsPretty(sys.cmdFlags["-stats"], data)
 		return cleared, 0

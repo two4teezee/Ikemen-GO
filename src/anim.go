@@ -1073,7 +1073,7 @@ type SprData struct {
 	window       [4]float32
 	syncId       int32 // Synchronization target ID
 	syncLayer    int32 // Layer for synchronized drawing
-	syncGroup    int // Used to group syncId's in chunks before drawing
+	syncGroup    int   // Used to group syncId's in chunks before drawing
 	xshear       float32
 }
 
@@ -1128,7 +1128,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 			for j := 0; j < i; j++ {
 				if dl[j].syncId == dl[i].syncId {
 					dl[i].syncGroup = j
-					break 
+					break
 				}
 			}
 		}

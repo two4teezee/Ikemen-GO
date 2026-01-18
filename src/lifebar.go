@@ -61,7 +61,7 @@ type FightFx struct {
 
 func newFightFx() *FightFx {
 	return &FightFx{
-		sff:       &Sff{},
+		sff:        &Sff{},
 		fx_scale:   1.0,
 		localcoord: [2]float32{float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1])},
 	}

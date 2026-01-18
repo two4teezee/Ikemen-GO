@@ -726,7 +726,6 @@ const (
 	OC_ex_alpha_s
 	OC_ex_alpha_d
 	OC_ex_selfcommand
-
 )
 const (
 	OC_ex2_index OpCode = iota
@@ -980,7 +979,6 @@ const (
 	OC_ex2_defencemul
 	OC_ex2_guardcount
 	OC_ex2_airjumpcount
-
 )
 const (
 	OC_ex3_analog_leftx OpCode = iota

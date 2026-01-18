@@ -534,7 +534,7 @@ const (
 
 type HitDef struct {
 	isprojectile               bool // Projectile state controller
-	statePN                    int // Owner of state where sctrl was called
+	statePN                    int  // Owner of state where sctrl was called
 	playerno                   int
 	playerid                   int32
 	projid                     int32
@@ -819,7 +819,7 @@ func (hd *HitDef) finalizeParams(c *Char, proj *Projectile) {
 		hd.statePN = sys.workingState.playerNo
 		hd.playerno = proj.playerno
 		hd.playerid = proj.owner().id // Required for chainID code. Otherwise this probably should've been -1
-		hd.projid = proj.id // TODO: Make this update if projID is modified
+		hd.projid = proj.id           // TODO: Make this update if projID is modified
 	} else {
 		hd.isprojectile = false
 		hd.statePN = c.ss.sb.playerNo
@@ -1250,11 +1250,11 @@ func (ho *HitOverride) clear() {
 
 type MoveHitVar struct {
 	cornerpush_veloff float32
-	frame      bool
-	overridden bool
-	playerid   int32
-	playerno   int
-	sparkxy    [2]float32
+	frame             bool
+	overridden        bool
+	playerid          int32
+	playerno          int
+	sparkxy           [2]float32
 }
 
 func (mhv *MoveHitVar) clear() {

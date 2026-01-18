@@ -4529,8 +4529,8 @@ func (l *Loader) load() {
 			continue
 		}
 		if ffx.refCount <= 0 {
-			if ffx.fsff != nil {
-				removeSFFCache(ffx.fsff.filename)
+			if ffx.sff != nil {
+				removeSFFCache(ffx.sff.filename)
 			}
 			delete(sys.ffx, prefix)
 			//sys.errLog.Printf("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)

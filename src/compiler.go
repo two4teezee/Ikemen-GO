@@ -1692,17 +1692,17 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 
 		switch c.token {
 		case "leftx":
-			opc = OC_ex2_analog_leftx
+			opc = OC_ex3_analog_leftx
 		case "lefty":
-			opc = OC_ex2_analog_lefty
+			opc = OC_ex3_analog_lefty
 		case "rightx":
-			opc = OC_ex2_analog_rightx
+			opc = OC_ex3_analog_rightx
 		case "righty":
-			opc = OC_ex2_analog_righty
+			opc = OC_ex3_analog_righty
 		case "lefttrigger":
-			opc = OC_ex2_analog_lefttrigger
+			opc = OC_ex3_analog_lefttrigger
 		case "righttrigger":
-			opc = OC_ex2_analog_righttrigger
+			opc = OC_ex3_analog_righttrigger
 		default:
 			return bvNone(), Error(fmt.Sprintf("Invalid Analog axis: %s", c.token))
 		}
@@ -1712,7 +1712,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
-		out.append(OC_ex2_, opc)
+		out.append(OC_ex3_, opc)
 	case "anim":
 		out.append(OC_anim)
 	case "animelemno":
@@ -2464,7 +2464,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
-		opct := OC_ex_
 		isFlag := 0
 		switch c.token {
 		case "animtype":
@@ -2560,8 +2559,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "fall.envshake.mul":
 			opc = OC_ex_gethitvar_fall_envshake_mul
 		case "fall.envshake.dir":
-			opct = OC_ex2_
-			opc = OC_ex2_gethitvar_fall_envshake_dir
+			opc = OC_ex_gethitvar_fall_envshake_dir
 		case "attr":
 			opc = OC_ex_gethitvar_attr
 			isFlag = 1
@@ -2569,8 +2567,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_gethitvar_dizzypoints
 		case "guardpoints":
 			opc = OC_ex_gethitvar_guardpoints
-		case "id":
-			opc = OC_ex_gethitvar_id
+		case "playerid", "id": // "ID" is deprecated
+			opc = OC_ex_gethitvar_playerid
 		case "playerno":
 			opc = OC_ex_gethitvar_playerno
 		case "redlife":
@@ -2632,6 +2630,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			isFlag = 2
 		case "keepstate":
 			opc = OC_ex_gethitvar_keepstate
+		case "projid":
+			opc = OC_ex_gethitvar_projid
+		case "guardko":
+			opc = OC_ex_gethitvar_guardko
 		default:
 			return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
 		}
@@ -2646,7 +2648,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if attr, err := c.trgAttr(in); err != nil {
 					return err
 				} else {
-					out.append(opct)
+					out.append(OC_ex_)
 					out.appendI32Op(opc, attr)
 				}
 				return nil
@@ -2660,7 +2662,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if flg, err := flagSub(); err != nil {
 					return err
 				} else {
-					out.append(opct)
+					out.append(OC_ex_)
 					out.appendI32Op(opc, flg)
 					return nil
 				}
@@ -2670,9 +2672,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		case 0:
 			// no flag
-			out.append(opct, opc)
+			out.append(OC_ex_, opc)
 		}
-		// no-op (for y/xveladd and fall.envshake.dir)
 	case "groundlevel":
 		out.append(OC_ex2_, OC_ex2_groundlevel)
 	case "guardcount":
@@ -4375,7 +4376,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
-		opct := OC_ex_
 		switch c.token {
 		case "time":
 			opc = OC_ex_envshakevar_time
@@ -4384,12 +4384,11 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		case "ampl":
 			opc = OC_ex_envshakevar_ampl
 		case "dir":
-			opct = OC_ex2_
-			opc = OC_ex2_envshakevar_dir
+			opc = OC_ex_envshakevar_dir
 		default:
 			return bvNone(), Error("Invalid EnvShakeVar argument: " + c.token)
 		}
-		out.append(opct, opc)
+		out.append(OC_ex_, opc)
 		c.token = c.tokenizer(in)
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
@@ -4429,42 +4428,42 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		isStr := false
 		switch fsvname {
 		case "info.author":
-			opc = OC_ex_fightscreenvar_info_author
+			opc = OC_ex2_fightscreenvar_info_author
 			isStr = true
 		case "info.localcoord.x":
-			opc = OC_ex_fightscreenvar_info_localcoord_x
+			opc = OC_ex2_fightscreenvar_info_localcoord_x
 		case "info.localcoord.y":
-			opc = OC_ex_fightscreenvar_info_localcoord_y
+			opc = OC_ex2_fightscreenvar_info_localcoord_y
 		case "info.name":
-			opc = OC_ex_fightscreenvar_info_name
+			opc = OC_ex2_fightscreenvar_info_name
 			isStr = true
 		case "round.ctrl.time":
-			opc = OC_ex_fightscreenvar_round_ctrl_time
+			opc = OC_ex2_fightscreenvar_round_ctrl_time
 		case "round.over.hittime":
-			opc = OC_ex_fightscreenvar_round_over_hittime
+			opc = OC_ex2_fightscreenvar_round_over_hittime
 		case "round.over.time":
-			opc = OC_ex_fightscreenvar_round_over_time
+			opc = OC_ex2_fightscreenvar_round_over_time
 		case "round.over.waittime":
-			opc = OC_ex_fightscreenvar_round_over_waittime
+			opc = OC_ex2_fightscreenvar_round_over_waittime
 		case "round.over.wintime":
-			opc = OC_ex_fightscreenvar_round_over_wintime
+			opc = OC_ex2_fightscreenvar_round_over_wintime
 		case "round.slow.time":
-			opc = OC_ex_fightscreenvar_round_slow_time
+			opc = OC_ex2_fightscreenvar_round_slow_time
 		case "round.start.waittime":
-			opc = OC_ex_fightscreenvar_round_start_waittime
+			opc = OC_ex2_fightscreenvar_round_start_waittime
 		case "round.callfight.time":
-			opc = OC_ex_fightscreenvar_round_callfight_time
+			opc = OC_ex2_fightscreenvar_round_callfight_time
 		case "time.framespercount":
-			opc = OC_ex_fightscreenvar_time_framespercount
+			opc = OC_ex2_fightscreenvar_time_framespercount
 		default:
 			return bvNone(), Error("Invalid FightScreenVar argument: " + fsvname)
 		}
 		if isStr {
-			if err := nameSub(OC_ex_, opc); err != nil {
+			if err := nameSub(OC_ex2_, opc); err != nil {
 				return bvNone(), err
 			}
 		} else {
-			out.append(OC_ex_)
+			out.append(OC_ex2_)
 			out.append(opc)
 		}
 	case "fighttime":
@@ -4642,6 +4641,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nobrake))
 		case "nocombodisplay":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocombodisplay))
+		case "nocornerpush":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocornerpush))
 		case "nocrouch":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nocrouch))
 		case "nodizzypointsdamage":
@@ -4842,12 +4843,12 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		}
 		out.append(OC_ex_)
 		switch c.token {
-		case "cornerpush":
-			out.append(OC_ex_movehitvar_cornerpush)
+		case "cornerpush.veloff":
+			out.append(OC_ex_movehitvar_cornerpush_veloff)
 		case "frame":
 			out.append(OC_ex_movehitvar_frame)
-		case "id":
-			out.append(OC_ex_movehitvar_id)
+		case "playerid", "id": // "ID" is deprecated
+			out.append(OC_ex_movehitvar_playerid)
 		case "overridden":
 			out.append(OC_ex_movehitvar_overridden)
 		case "playerno":

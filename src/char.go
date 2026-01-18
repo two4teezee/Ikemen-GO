@@ -5398,69 +5398,70 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 		return BytecodeSF()
 	}
 	var id = eid.ToI()
-	var i = idx.ToI()
+	var i = int(idx.ToI())
 	var v BytecodeValue
-	for n, e := range c.getExplods(id) {
-		if i == int32(n) {
-			switch vtype {
-			case OC_ex2_explodvar_anim:
-				v = BytecodeInt(e.animNo)
-			case OC_ex2_explodvar_angle:
-				v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
-			case OC_ex2_explodvar_angle_x:
-				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
-			case OC_ex2_explodvar_angle_y:
-				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
-			case OC_ex2_explodvar_animelem:
-				v = BytecodeInt(e.anim.curelem + 1)
-			case OC_ex2_explodvar_animelemtime:
-				v = BytecodeInt(e.anim.curelemtime)
-			case OC_ex2_explodvar_animplayerno:
-				v = BytecodeInt(int32(e.animPN) + 1)
-			case OC_ex2_explodvar_spriteplayerno:
-				v = BytecodeInt(int32(e.spritePN) + 1)
-			case OC_ex2_explodvar_bindtime:
-				v = BytecodeInt(e.bindtime)
-			case OC_ex2_explodvar_drawpal_group:
-				v = BytecodeInt(c.explodDrawPal(e)[0])
-			case OC_ex2_explodvar_drawpal_index:
-				v = BytecodeInt(c.explodDrawPal(e)[1])
-			case OC_ex2_explodvar_facing:
-				v = BytecodeInt(int32(e.facing))
-			case OC_ex2_explodvar_id:
-				v = BytecodeInt(e.id)
-			case OC_ex2_explodvar_layerno:
-				v = BytecodeInt(e.layerno)
-			case OC_ex2_explodvar_pausemovetime:
-				v = BytecodeInt(e.pausemovetime)
-			case OC_ex2_explodvar_pos_x:
-				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-			case OC_ex2_explodvar_pos_y:
-				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-			case OC_ex2_explodvar_pos_z:
-				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-			case OC_ex2_explodvar_removetime:
-				v = BytecodeInt(e.removetime)
-			case OC_ex2_explodvar_scale_x:
-				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
-			case OC_ex2_explodvar_scale_y:
-				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
-			case OC_ex2_explodvar_sprpriority:
-				v = BytecodeInt(e.sprpriority)
-			case OC_ex2_explodvar_time:
-				v = BytecodeInt(e.time)
-			case OC_ex2_explodvar_vel_x:
-				v = BytecodeFloat(e.velocity[0])
-			case OC_ex2_explodvar_vel_y:
-				v = BytecodeFloat(e.velocity[1])
-			case OC_ex2_explodvar_vel_z:
-				v = BytecodeFloat(e.velocity[2])
-			case OC_ex2_explodvar_xshear:
-				v = BytecodeFloat(e.xshear)
-			}
-			break
+
+	e := c.getSingleExplod(id, i, true)
+
+	if e != nil {
+		switch vtype {
+		case OC_ex2_explodvar_anim:
+			v = BytecodeInt(e.animNo)
+		case OC_ex2_explodvar_angle:
+			v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
+		case OC_ex2_explodvar_angle_x:
+			v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
+		case OC_ex2_explodvar_angle_y:
+			v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
+		case OC_ex2_explodvar_animelem:
+			v = BytecodeInt(e.anim.curelem + 1)
+		case OC_ex2_explodvar_animelemtime:
+			v = BytecodeInt(e.anim.curelemtime)
+		case OC_ex2_explodvar_animplayerno:
+			v = BytecodeInt(int32(e.animPN) + 1)
+		case OC_ex2_explodvar_spriteplayerno:
+			v = BytecodeInt(int32(e.spritePN) + 1)
+		case OC_ex2_explodvar_bindtime:
+			v = BytecodeInt(e.bindtime)
+		case OC_ex2_explodvar_drawpal_group:
+			v = BytecodeInt(c.explodDrawPal(e)[0])
+		case OC_ex2_explodvar_drawpal_index:
+			v = BytecodeInt(c.explodDrawPal(e)[1])
+		case OC_ex2_explodvar_facing:
+			v = BytecodeInt(int32(e.facing))
+		case OC_ex2_explodvar_id:
+			v = BytecodeInt(e.id)
+		case OC_ex2_explodvar_layerno:
+			v = BytecodeInt(e.layerno)
+		case OC_ex2_explodvar_pausemovetime:
+			v = BytecodeInt(e.pausemovetime)
+		case OC_ex2_explodvar_pos_x:
+			v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+		case OC_ex2_explodvar_pos_y:
+			v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+		case OC_ex2_explodvar_pos_z:
+			v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+		case OC_ex2_explodvar_removetime:
+			v = BytecodeInt(e.removetime)
+		case OC_ex2_explodvar_scale_x:
+			v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
+		case OC_ex2_explodvar_scale_y:
+			v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
+		case OC_ex2_explodvar_sprpriority:
+			v = BytecodeInt(e.sprpriority)
+		case OC_ex2_explodvar_time:
+			v = BytecodeInt(e.time)
+		case OC_ex2_explodvar_vel_x:
+			v = BytecodeFloat(e.velocity[0])
+		case OC_ex2_explodvar_vel_y:
+			v = BytecodeFloat(e.velocity[1])
+		case OC_ex2_explodvar_vel_z:
+			v = BytecodeFloat(e.velocity[2])
+		case OC_ex2_explodvar_xshear:
+			v = BytecodeFloat(e.xshear)
 		}
 	}
+
 	return v
 }
 
@@ -6498,14 +6499,55 @@ func (c *Char) spawnExplod() (*Explod, int) {
 	return e, idx
 }
 
-func (c *Char) getExplods(id int32) (expls []*Explod) {
-	for i := range sys.explods[c.playerNo] {
-		e := sys.explods[c.playerNo][i]
-		if e.matchId(id, c.id) {
-			expls = append(expls, e)
+// Get multiple explods for ModifyExplod, etc
+func (c *Char) getMultipleExplods(id int32, idx int, log bool) (expls []*Explod) {
+	// Filter explods with the specified ID
+	if idx < len(sys.explods[c.playerNo]) { // Includes negative indexes (all)
+		matchCount := 0
+		for i := range sys.explods[c.playerNo] {
+			e := sys.explods[c.playerNo][i]
+			if e.matchId(id, c.id) {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*Explod{e}
+					}
+				} else {
+					// Append all matches
+					expls = append(expls, e)
+				}
+				matchCount++
+			}
 		}
 	}
-	return
+
+	if len(expls) > 0 {
+		return expls
+	}
+
+	// No valid explods found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no explod with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
+// Get a single explod for ExplodVar, etc
+func (c *Char) getSingleExplod(id int32, idx int, log bool) *Explod {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "explod index cannot be negative")
+		}
+		return nil
+	}
+
+	explods := c.getMultipleExplods(id, idx, log)
+	if len(explods) > 0 {
+		return explods[0]
+	}
+
+	return nil
 }
 
 func (c *Char) explodDrawPal(e *Explod) [2]int32 {
@@ -7004,14 +7046,56 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 	return c.getDrawPal(p.palfx.remap[0])
 }
 
-func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for _, p := range sys.projs[c.playerNo] {
-		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
-			projs = append(projs, p)
+// Get multiple projectiles for ModifyProjectile, etc
+func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
+	// Filter projectiles with the specified ID
+	if idx < len(sys.projs[c.playerNo]) { // Includes negative indexes (all)
+		matchCount := 0
+		for _, p := range sys.projs[c.playerNo] {
+			// Only check active projectiles (p.id >= 0)
+			if p.id >= 0 && (id < 0 || p.id == id) {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*Projectile{p}
+					}
+				} else {
+					// Append all matches
+					projs = append(projs, p)
+				}
+				matchCount++
+			}
 		}
 	}
 
-	return
+	// Return all matches
+	if len(projs) > 0 {
+		return projs
+	}
+
+	// No valid projectiles found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no projectile with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
+// Get a single projectile for ProjVar, etc
+func (c *Char) getSingleProj(id int32, idx int, log bool) *Projectile {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "projectile index cannot be negative")
+		}
+		return nil
+	}
+
+	projs := c.getMultipleProjs(id, idx, log)
+	if len(projs) > 0 {
+		return projs[0]
+	}
+
+	return nil
 }
 
 func (c *Char) baseWidthFront() float32 {
@@ -7438,51 +7522,29 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
-// Get stage BG elements for StageBGVar trigger
-func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
-	// Invalid index
-	if idx < 0 {
-		if log {
-			sys.appendToConsole(c.warn() + "stage BG element index cannot be negative")
-		}
-		return nil
-	}
-
-	// Filter background elements with the specified ID
-	var filteredBg []*backGround
-	for _, bg := range sys.stage.bg {
-		if id < 0 || id == bg.id {
-			filteredBg = append(filteredBg, bg)
-			// Background element found at requested index
-			if idx >= 0 && len(filteredBg) == idx+1 {
-				return filteredBg[idx]
-			}
-		}
-	}
-
-	// No valid background element found
-	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("found no stage BG element with ID %v and index %v", id, idx))
-	}
-	return nil
-}
-
 // Get multiple stage BG elements for ModifyStageBG sctrl
-func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
+func (c *Char) getMultipleStageBg(id int32, idx int, log bool) (filteredBg []*backGround) {
 	// Filter background elements with the specified ID
-	var filteredBg []*backGround
-	for _, bg := range sys.stage.bg {
-		if id < 0 || id == bg.id {
-			filteredBg = append(filteredBg, bg)
-			// If idx is valid and we've reached the requested index, return the single element
-			if idx >= 0 && len(filteredBg) == idx+1 {
-				return []*backGround{filteredBg[idx]}
+	if idx < len(sys.stage.bg) { // Includes negative indexes (all)
+		matchCount := 0
+		for _, bg := range sys.stage.bg {
+			if id < 0 || id == bg.id {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*backGround{bg}
+					}
+				} else {
+					// Append all matches (wildcard mode)
+					filteredBg = append(filteredBg, bg)
+				}
+				matchCount++
 			}
 		}
 	}
 
-	// Return multiple instances if idx is negative
-	if idx < 0 {
+	// Return all matches
+	if len(filteredBg) > 0 {
 		return filteredBg
 	}
 
@@ -7493,6 +7555,24 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
 	return nil
 }
 
+// Get stage BG element for StageBGVar trigger
+func (c *Char) getSingleStageBg(id int32, idx int, log bool) *backGround {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "stage BG element index cannot be negative")
+		}
+		return nil
+	}
+
+	bgs := c.getMultipleStageBg(id, idx, log)
+	if len(bgs) > 0 {
+		return bgs[0]
+	}
+
+	return nil
+}
+
 // For NumStageBG trigger
 func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
@@ -7500,16 +7580,16 @@ func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
 	}
 
 	bid := id.ToI()
-	n := 0
+	matchCount := 0
 
 	// We do this instead of getMultipleStageBg because that one returns actual BG pointers
 	for _, bg := range sys.stage.bg {
 		if bid < 0 || bid == bg.id {
-			n++
+			matchCount++
 		}
 	}
 
-	return BytecodeInt(int32(n))
+	return BytecodeInt(int32(matchCount))
 }
 
 // Get list of targets for the Target state controllers
@@ -9455,13 +9535,11 @@ func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	)
 }
 
-func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
-	projs := c.getProjs(-1)
-
-	if index < 0 || int(index) >= len(projs) {
+func (c *Char) projClsnOverlapTrigger(index int, targetID, boxType int32) bool {
+	proj := c.getSingleProj(-1, index, true)
+	if proj == nil {
 		return false
 	}
-	proj := projs[index]
 
 	target := sys.playerID(targetID)
 	if target == nil {

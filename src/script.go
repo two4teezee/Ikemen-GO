@@ -5920,11 +5920,7 @@ func triggerFunctions(l *lua.LState) {
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
 		// Get explod
-		explods := sys.debugWC.getExplods(id)
-		var e *Explod
-		if idx >= 0 && idx < len(explods) {
-			e = explods[idx]
-		}
+		e := sys.debugWC.getSingleExplod(id, idx, true)
 		// Handle returns
 		if e != nil {
 			switch strings.ToLower(vname) {
@@ -6843,7 +6839,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "projclsnoverlap", func(l *lua.LState) int {
-		idx := int32(numArg(l, 1))
+		idx := int(numArg(l, 1))
 		pid := int32(numArg(l, 2))
 		cboxStr := strings.ToLower(strArg(l, 3))
 
@@ -6881,11 +6877,7 @@ func triggerFunctions(l *lua.LState) {
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
 		// Get projectile
-		projs := sys.debugWC.getProjs(id)
-		var p *Projectile
-		if idx >= 0 && idx < len(projs) {
-			p = projs[idx]
-		}
+		p := sys.debugWC.getSingleProj(id, idx, true)
 		// Handle returns
 		if p != nil {
 			switch vname {
@@ -7204,7 +7196,7 @@ func triggerFunctions(l *lua.LState) {
 		vname := strArg(l, 3)
 		var ln lua.LNumber
 		// Get stage background element
-		bg := sys.debugWC.getStageBg(id, idx, false)
+		bg := sys.debugWC.getSingleStageBg(id, idx, true)
 		// Handle returns
 		if bg != nil {
 			switch strings.ToLower(vname) {

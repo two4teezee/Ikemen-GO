@@ -2567,7 +2567,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_gethitvar_dizzypoints
 		case "guardpoints":
 			opc = OC_ex_gethitvar_guardpoints
-		case "playerid", "id":
+		case "playerid", "id": // "ID" is deprecated
 			opc = OC_ex_gethitvar_playerid
 		case "playerno":
 			opc = OC_ex_gethitvar_playerno
@@ -4847,8 +4847,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.append(OC_ex_movehitvar_cornerpush_veloff)
 		case "frame":
 			out.append(OC_ex_movehitvar_frame)
-		case "id":
-			out.append(OC_ex_movehitvar_id)
+		case "playerid", "id": // "ID" is deprecated
+			out.append(OC_ex_movehitvar_playerid)
 		case "overridden":
 			out.append(OC_ex_movehitvar_overridden)
 		case "playerno":

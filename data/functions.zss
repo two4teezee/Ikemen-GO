@@ -208,7 +208,7 @@ ignoreHitPause{
 ignoreHitPause{
 	let ret = 0;
 	if receivedDamage != map(_iksys_receivedDamageCurr) {
-		if receivedDamage > 0 && getHitVar(playerNo) != 0 && playerId(getHitVar(id)),teamSide != teamSide {
+		if receivedDamage > 0 && getHitVar(playerNo) != 0 && playerId(getHitVar(playerId)),teamSide != teamSide {
 			map(_iksys_receivedDamageRet) := receivedDamage - map(_iksys_receivedDamageCurr);
 			map(_iksys_receivedDamageFlag) := gameTime;
 		}

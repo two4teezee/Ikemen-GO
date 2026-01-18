@@ -6201,7 +6201,7 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.ghv.dizzypoints)
 		case "guardpoints":
 			lv = lua.LNumber(c.ghv.guardpoints)
-		case "id":
+		case "playerid":
 			lv = lua.LNumber(c.ghv.playerid)
 		case "playerno":
 			lv = lua.LNumber(c.ghv.playerno + 1)
@@ -6468,7 +6468,7 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.mhv.cornerpush_veloff)
 		case "frame":
 			lv = lua.LBool(c.mhv.frame)
-		case "id":
+		case "playerid":
 			lv = lua.LNumber(c.mhv.playerid)
 		case "overridden":
 			lv = lua.LBool(c.mhv.overridden)

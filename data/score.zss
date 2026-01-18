@@ -83,7 +83,7 @@ ignoreHitPause if !const(Default.Enable.Score) || teamSide = 0 {
 			let dmgMul = 8;
 		}
 		if $dmgMul > 0 {
-			scoreAdd{value: round($ret * $dmgMul, -2); redirectid: getHitVar(id)}
+			scoreAdd{value: round($ret * $dmgMul, -2); redirectid: getHitVar(playerId)}
 		}
 	}	
 	# code executed only by P1 and P2

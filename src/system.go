@@ -3236,12 +3236,6 @@ func (s *System) SetupCharRoundStart() {
 
 func (s *System) runNextRound() bool {
 	if s.roundOver() && !s.fightLoopEnd {
-		s.round++
-
-		for i := range s.roundsExisted {
-			s.roundsExisted[i]++
-		}
-
 		s.clearAllSound()
 		s.statsLog.nextRound()
 		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})
@@ -3250,6 +3244,10 @@ func (s *System) runNextRound() bool {
 			!(s.tmode[0] == TM_Turns && s.effectiveLoss[0]) &&
 			!(s.tmode[1] == TM_Turns && s.effectiveLoss[1]) {
 			// Prepare for the next round
+			s.round++
+			for i := range s.roundsExisted {
+				s.roundsExisted[i]++
+			}
 			for i, p := range s.chars {
 				if len(p) > 0 {
 					if s.tmode[i&1] != TM_Turns || !s.effectiveLoss[i&1] {
@@ -3279,6 +3277,10 @@ func (s *System) runNextRound() bool {
 			// If match isn't over, presumably this is turns mode,
 			// so break to restart fight for the next character
 			if !s.matchOver() {
+				s.round++
+				for i := range s.roundsExisted {
+					s.roundsExisted[i]++
+				}
 				return false
 			}
 

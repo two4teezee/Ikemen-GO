@@ -416,17 +416,27 @@ func (bgv *bgVideo) Tick() error {
 	// Non-blocking receive so render loop never stalls
 	select {
 	case frame, ok := <-bgv.frameBuffer:
-		if ok {
-			// Upload the (possibly FFmpeg-scaled/padded) frame as-is.
-			rect := frame.Bounds()
-			w := int32(rect.Dx())
-			h := int32(rect.Dy())
-			if bgv.texture == nil || w != bgv.texture.GetWidth() || h != bgv.texture.GetHeight() {
-				bgv.texture = gfx.newTexture(w, h, 32, true)
+		if !ok {
+			// Decoder finished (loop=0). Do not keep rendering a stale/blank texture.
+			bgv.texture = nil
+			bgv.lastFrame = nil
+			// Keep audio path paused if it exists.
+			if bgv.videoCtrl != nil {
+				speaker.Lock()
+				bgv.videoCtrl.Paused = true
+				speaker.Unlock()
 			}
-			bgv.texture.SetData(frame.Pix)
-			bgv.lastFrame = frame
+			return nil
 		}
+		// Upload the (possibly FFmpeg-scaled/padded) frame as-is.
+		rect := frame.Bounds()
+		w := int32(rect.Dx())
+		h := int32(rect.Dy())
+		if bgv.texture == nil || w != bgv.texture.GetWidth() || h != bgv.texture.GetHeight() {
+			bgv.texture = gfx.newTexture(w, h, 32, true)
+		}
+		bgv.texture.SetData(frame.Pix)
+		bgv.lastFrame = frame
 	default:
 		// No new frame right now. Re-upload last to keep video visible.
 		if bgv.lastFrame != nil {
@@ -445,6 +455,21 @@ func (bgv *bgVideo) Tick() error {
 
 // SetPlaying toggles decode/audio production and (re)anchors the pacing clock.
 func (bgv *bgVideo) SetPlaying(on bool) {
+	// If the decode goroutine has already exited (EOF or Close), do not try to
+	// "resume" a dead stream (can happen on pause/unpause or BGCtrl toggles).
+	if bgv.done != nil {
+		select {
+		case <-bgv.done:
+			bgv.playing = false
+			if bgv.videoCtrl != nil {
+				speaker.Lock()
+				bgv.videoCtrl.Paused = true
+				speaker.Unlock()
+			}
+			return
+		default:
+		}
+	}
 	if on == bgv.playing {
 		return
 	}

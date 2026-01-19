@@ -1881,7 +1881,7 @@ func (s *Stage) action() {
 	// Always (every frame) sync decoder run state to global pause + Enable.
 	// This prevents the decoder clock from advancing during pause.
 	for i := range s.bg {
-		if s.bg[i]._type == BG_Video {
+		if s.bg[i]._type == BG_Video && s.bg[i].video != nil {
 			shouldPlay := s.bg[i].enabled && canStep
 			// Apply visibility first so there's no frame-0 audio when Visible=0.
 			s.bg[i].video.SetVisible(s.bg[i].visible)
@@ -2032,7 +2032,7 @@ func (s *Stage) reset() {
 	for i := range s.bg {
 		s.bg[i].reset()
 		// Ensure videos start paused, then rewind.
-		if s.bg[i]._type == BG_Video {
+		if s.bg[i]._type == BG_Video && s.bg[i].video != nil {
 			s.bg[i].video.SetPlaying(false)
 			s.bg[i].video.Reset()
 		}
@@ -2046,7 +2046,7 @@ func (s *Stage) reset() {
 // destroy stops any background video media so the stage can be safely discarded.
 func (s *Stage) destroy() {
 	for _, b := range s.bg {
-		if b != nil && b._type == BG_Video {
+		if b != nil && b._type == BG_Video && b.video != nil {
 			b.video.Close()
 		}
 	}

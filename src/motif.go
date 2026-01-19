@@ -31,9 +31,11 @@ var defaultMotif []byte
 //    holds only user values, and iniFile is a merged view used for saving/lookup.
 // 3. Values from defaultOnlyIni are assigned first, then values from userIniFile
 //    overwrite them. INI section/key names are mapped to struct fields using `ini`
-//    tags (including maps, pattern maps and flattening). After that, additional
-//    passes (custom defaults, inheritance, localcoord fixes, font resolution,
-//    PopulateDataPointers, etc.) adjust the final runtime data.
+//    tags (including maps, pattern maps and flattening). Map fields can also opt
+//    into "key-first" access using `keyfirst:"true"`, allowing "<key>.<field>"
+//    to be treated as "<field>.<key>". After that, additional passes (custom
+//    defaults, inheritance, localcoord fixes, font resolution, PopulateDataPointers,
+//    etc.) adjust the final runtime data.
 
 type PalFxProperties struct {
 	Time        int32    `ini:"time" default:"-1"`
@@ -204,7 +206,7 @@ type TextMapProperties struct {
 	YAngle         float32           `ini:"yangle"`
 	Projection     string            `ini:"projection" default:"orthographic"`
 	Focallength    float32           `ini:"focallength" default:"2048"`
-	Text           map[string]string `ini:"text"`
+	Text           map[string]string `ini:"text" keyfirst:"true"`
 	Layerno        int16             `ini:"layerno" default:"1"`
 	Window         [4]int32          `ini:"window"`
 	Localcoord     [2]int32          `ini:"localcoord"`
@@ -632,9 +634,8 @@ type TitleInfoProperties struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"move"`
 		Done struct {
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
+			Snd map[string][2]int32 `ini:"snd" default:"-1,0" keyfirst:"true"`
 		} `ini:"done"`
-		Snd map[string][2]int32 `ini:"snd"`
 	} `ini:"cursor"`
 	Cancel struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
@@ -1140,7 +1141,7 @@ type AttractModeProperties struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"move"`
 		Done struct {
-			Snd [2]int32 `ini:"snd" default:"-1,0"`
+			Snd map[string][2]int32 `ini:"snd" default:"-1,0" keyfirst:"true"`
 		} `ini:"done"`
 		Snd map[string][2]int32 `ini:"snd"`
 	} `ini:"cursor"`

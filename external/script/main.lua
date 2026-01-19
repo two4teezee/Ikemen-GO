@@ -1852,7 +1852,7 @@ main.t_itemname = {
 				motif[main.group].textinput.overlay.RectData
 			)
 			if address:match('^[0-9%.]+$') then
-				sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
+				sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 				modifyGameOption('Netplay.IP.' .. name, address)
 				table.insert(t, #t, {itemname = 'ip_' .. name, displayname = name})
 				saveGameOption(getCommandLineValue("-config"))
@@ -1984,7 +1984,8 @@ main.t_itemname = {
 	end,
 	--SERVER CONNECT
 	['serverconnect'] = function(t, item)
-		sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2]) -- Needs manual sndPlay due to special menu behavior
+		local doneSnd = motif[main.group].cursor.done.snd.serverconnect or motif[main.group].cursor.done.snd.default
+		sndPlay(motif.Snd, doneSnd[1], doneSnd[2])
 		if main.f_connect(gameOption('Netplay.IP.' .. t[item].displayname), t[item].displayname) then
 			synchronize()
 			main.f_clearShuffleTables()
@@ -1999,7 +2000,8 @@ main.t_itemname = {
 	end,
 	--SERVER HOST
 	['serverhost'] = function(t, item)
-		sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2]) -- Needs manual sndPlay due to special menu behavior
+		local doneSnd = motif[main.group].cursor.done.snd.serverhost or motif[main.group].cursor.done.snd.default
+		sndPlay(motif.Snd, doneSnd[1], doneSnd[2])
 		if main.f_connect("", gameOption('Netplay.ListenPort')) then
 			synchronize()
 			main.f_clearShuffleTables()
@@ -2502,7 +2504,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 				elseif motif.attract_mode.enabled and getKey(motif.attract_mode.options.keycode) then
 					main.f_default()
 					main.menu.f = main.t_itemname.options()
-					sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
+					sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 					main.f_fadeReset('fadeout', motif[main.group])
 					resetKey()
 				elseif bool_del and getKey('DELETE') then
@@ -2533,11 +2535,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 								call_t_override = single_t2
 								call_item_override = 1
 							else
-								if motif.title_info.cursor[f] ~= nil and motif.title_info.cursor[f].snd ~= nil then
-									sndPlay(motif.Snd, motif.title_info.cursor[f].snd[1], motif.title_info.cursor[f].snd[2])
-								else
-									sndPlay(motif.Snd, motif.title_info.cursor.done.snd[1], motif.title_info.cursor.done.snd[2])
-								end
+								local doneSnd = motif[main.group].cursor.done.snd[f] or motif[main.group].cursor.done.snd.default
+								sndPlay(motif.Snd, doneSnd[1], doneSnd[2])
 								tbl.submenu[f].loop()
 								f = ''
 								main.f_menuSnap(motif[main.group])
@@ -2558,11 +2557,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 						call_t_override = nil
 						call_item_override = nil
 						if main.menu.f ~= nil then
-							if motif.title_info.cursor[f] ~= nil and motif.title_info.cursor[f].snd ~= nil then
-								sndPlay(motif.Snd, motif.title_info.cursor[f].snd[1], motif.title_info.cursor[f].snd[2])
-							else
-								sndPlay(motif.Snd, motif.title_info.cursor.done.snd[1], motif.title_info.cursor.done.snd[2])
-							end
+							local doneSnd = motif[main.group].cursor.done.snd[f] or motif[main.group].cursor.done.snd.default
+							sndPlay(motif.Snd, doneSnd[1], doneSnd[2])
 							main.f_fadeReset('fadeout', motif[main.group])
 						end
 					end
@@ -2727,7 +2723,7 @@ function main.f_replay()
 			main.f_fadeReset('fadeout', motif.replay_info)
 			main.close = true
 		elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
-			sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
+			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 			enterReplay(t[item].itemname)
 			synchronize()
 			main.f_clearShuffleTables()
@@ -2864,7 +2860,7 @@ function main.f_hiscoreDisplay(itemname)
 		return false
 	end
 	main.f_cmdBufReset()
-	sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
+	sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 	main.f_hiscore(itemname, -1)
 	--main.f_fadeReset('fadein', motif[main.group])
 	playBgm({source = "motif.title", interrupt = true})
@@ -2948,7 +2944,8 @@ function main.f_attractStart()
 		if motif.attract_mode.enabled and getKey(motif.attract_mode.options.keycode) then
 			main.f_default()
 			main.menu.f = main.t_itemname.options()
-			sndPlay(motif.Snd, motif[main.group].cursor.done.snd[1], motif[main.group].cursor.done.snd[2])
+			local doneSnd = motif[main.group].cursor.done.snd.options or motif[main.group].cursor.done.snd.default
+			sndPlay(motif.Snd, doneSnd[1], doneSnd[2])
 			main.f_fadeReset('fadeout', motif[main.group])
 			fadeOutStarted = true
 			resetKey()

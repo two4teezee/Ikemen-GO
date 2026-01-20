@@ -11341,10 +11341,12 @@ func (c *Char) update() {
 		return
 	}
 	if sys.tickFrame() {
+		/*
 		if c.csf(CSF_destroy) {
 			c.destroy()
 			return
 		}
+		*/
 		if !c.pause() && !c.isTargetBound() {
 			c.bind()
 		}
@@ -12329,20 +12331,42 @@ func (cl *CharList) action() {
 }
 
 func (cl *CharList) xScreenBound() {
-	ro := make([]*Char, len(cl.runOrder))
-	copy(ro, cl.runOrder)
-	for _, c := range ro {
+	for _, c := range cl.runOrder {
 		c.xScreenBound()
 	}
 }
 
-// This function runs every tick
+/*
 func (cl *CharList) update() {
 	ro := make([]*Char, len(cl.runOrder))
 	copy(ro, cl.runOrder)
 	for _, c := range ro {
 		c.update()
 		c.track()
+	}
+}
+*/
+
+// This function runs every tick, since it also handles interpolation, etc
+func (cl *CharList) update() {
+	// Prune character list first
+	// Previously, we needed to iterate a copy of runOrder because update() was also deleting characters from it
+	if sys.tickFrame() {
+		// Loop backwards so we don't skip any disappearing indexes
+		for i := len(cl.runOrder) - 1; i >= 0; i-- {
+			c := cl.runOrder[i]
+			if c.csf(CSF_destroy) {
+				c.destroy()
+			}
+		}
+	}
+
+	// Run update() for the remaining characters
+	for _, c := range cl.runOrder {
+		if !c.scf(SCF_disabled) {
+			c.update()
+			c.track()
+		}
 	}
 }
 

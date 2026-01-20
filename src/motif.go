@@ -123,7 +123,7 @@ type AnimationProperties struct {
 	YAngle      float32    `ini:"yangle"`
 	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
-	Layerno     int16      `ini:"layerno" default:"1"`
+	Layerno     int16      `ini:"layerno"`
 	Window      [4]int32   `ini:"window"`
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
@@ -153,7 +153,7 @@ type AnimationCharPreloadProperties struct {
 	YAngle      float32    `ini:"yangle"`
 	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
-	Layerno     int16      `ini:"layerno" default:"1"`
+	Layerno     int16      `ini:"layerno"`
 	Window      [4]int32   `ini:"window"`
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
@@ -173,7 +173,7 @@ type AnimationStagePreloadProperties struct {
 	YAngle      float32    `ini:"yangle"`
 	Projection  string     `ini:"projection" default:"orthographic"`
 	Focallength float32    `ini:"focallength" default:"2048"`
-	Layerno     int16      `ini:"layerno" default:"1"`
+	Layerno     int16      `ini:"layerno"`
 	Window      [4]int32   `ini:"window"`
 	Localcoord  [2]int32   `ini:"localcoord"`
 	AnimData    *Anim
@@ -190,7 +190,7 @@ type TextProperties struct {
 	Projection     string     `ini:"projection" default:"orthographic"`
 	Focallength    float32    `ini:"focallength" default:"2048"`
 	Text           string     `ini:"text"`
-	Layerno        int16      `ini:"layerno" default:"1"`
+	Layerno        int16      `ini:"layerno"`
 	Window         [4]int32   `ini:"window"`
 	Localcoord     [2]int32   `ini:"localcoord"`
 	TextSpriteData *TextSprite
@@ -207,7 +207,7 @@ type TextMapProperties struct {
 	Projection     string            `ini:"projection" default:"orthographic"`
 	Focallength    float32           `ini:"focallength" default:"2048"`
 	Text           map[string]string `ini:"text" keyfirst:"true"`
-	Layerno        int16             `ini:"layerno" default:"1"`
+	Layerno        int16             `ini:"layerno"`
 	Window         [4]int32          `ini:"window"`
 	Localcoord     [2]int32          `ini:"localcoord"`
 	TextSpriteData *TextSprite
@@ -217,7 +217,7 @@ type BoxBgProperties struct {
 	Visible    bool     `ini:"visible"`
 	Col        [3]int32 `ini:"col"`
 	Alpha      [2]int32 `ini:"alpha" default:"0,255"`
-	Layerno    int16    `ini:"layerno" default:"1"`
+	Layerno    int16    `ini:"layerno"`
 	Localcoord [2]int32 `ini:"localcoord"`
 	RectData   *Rect
 }
@@ -234,7 +234,7 @@ type BoxCursorProperties struct {
 	Visible    bool     `ini:"visible"`
 	Coords     [4]int32 `ini:"coords"`
 	Col        [3]int32 `ini:"col"`
-	Layerno    int16    `ini:"layerno" default:"1"`
+	Layerno    int16    `ini:"layerno"`
 	Localcoord [2]int32 `ini:"localcoord"`
 	Pulse      [3]int32 `ini:"pulse"`
 	//Alpha      [2]int32 `ini:"alpha" default:"0,255"`
@@ -246,7 +246,7 @@ type BoxCursorProperties struct {
 type OverlayProperties struct {
 	Col        [3]int32 `ini:"col"`
 	Alpha      [2]int32 `ini:"alpha" default:"0,255"`
-	Layerno    int16    `ini:"layerno" default:"1"`
+	Layerno    int16    `ini:"layerno"`
 	Window     [4]int32 `ini:"window"`
 	Localcoord [2]int32 `ini:"localcoord"`
 	RectData   *Rect
@@ -271,7 +271,7 @@ type GlyphProperties struct {
 	Scale [2]float32 `ini:"scale" default:"1,1"`
 	//Xshear     float32    `ini:"xshear"`
 	//Angle      float32    `ini:"angle"`
-	Layerno int16 `ini:"layerno" default:"1"`
+	Layerno int16 `ini:"layerno"`
 	//Window     [4]int32   `ini:"window"`
 	Localcoord [2]int32 `ini:"localcoord"`
 	AnimData   *Anim
@@ -1110,7 +1110,7 @@ type MenuInfoProperties struct {
 		Glyphs struct {
 			Offset     [2]float32 `ini:"offset"`
 			Scale      [2]float32 `ini:"scale" default:"1,1"`
-			Layerno    int16      `ini:"layerno" default:"1"`
+			Layerno    int16      `ini:"layerno"`
 			Localcoord [2]int32   `ini:"localcoord"`
 			Spacing    [2]float32 `ini:"spacing"`
 		} `ini:"glyphs"`
@@ -3249,7 +3249,9 @@ func (ch *MotifChallenger) draw(m *Motif, layerno int16) {
 	if m.ChallengerBgDef.BgClearColor[0] >= 0 {
 		m.ChallengerBgDef.RectData.Draw(layerno)
 	}
-	m.ChallengerBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	if layerno <= 1 {
+		m.ChallengerBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	}
 	// Overlay
 	m.ChallengerInfo.Overlay.RectData.Draw(layerno)
 	// Text
@@ -3259,6 +3261,10 @@ func (ch *MotifChallenger) draw(m *Motif, layerno int16) {
 	// Bg
 	if ch.counter >= m.ChallengerInfo.Bg.Displaytime {
 		m.ChallengerInfo.Bg.AnimData.Draw(layerno)
+	}
+	// Top background
+	if layerno == 2 {
+		m.ChallengerBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 	}
 }
 
@@ -3518,7 +3524,9 @@ func (co *MotifContinue) draw(m *Motif, layerno int16) {
 	if m.ContinueBgDef.BgClearColor[0] >= 0 {
 		m.ContinueBgDef.RectData.Draw(layerno)
 	}
-	m.ContinueBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	if layerno <= 1 {
+		m.ContinueBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	}
 	// Mugen style
 	if m.ContinueScreen.LegacyMode.Enabled {
 		co.drawLegacyMode(m, layerno)
@@ -3529,6 +3537,10 @@ func (co *MotifContinue) draw(m *Motif, layerno int16) {
 	// Credits
 	if sys.credits != -1 && co.counter >= m.ContinueScreen.Counter.SkipStart {
 		m.ContinueScreen.Credits.TextSpriteData.Draw(layerno)
+	}
+	// Top background
+	if layerno == 2 {
+		m.ContinueBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 	}
 }
 
@@ -5142,7 +5154,9 @@ func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 		if m.HiscoreBgDef.BgClearColor[0] >= 0 {
 			m.HiscoreBgDef.RectData.Draw(layerno)
 		}
-		m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		if layerno <= 1 {
+			m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		}
 	}
 	// Overlay
 	if !hi.noOverlay {
@@ -5201,6 +5215,10 @@ func (hi *MotifHiscore) draw(m *Motif, layerno int16) {
 	// Timer (only when enabled & during input)
 	if m.HiscoreInfo.Timer.Count != -1 && hi.input && m.HiscoreInfo.Timer.TextSpriteData != nil {
 		m.HiscoreInfo.Timer.TextSpriteData.Draw(layerno)
+	}
+	// Top background
+	if !hi.noBgs && layerno == 2 {
+		m.HiscoreBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 	}
 }
 
@@ -5921,7 +5939,9 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	if m.VictoryBgDef.BgClearColor[0] >= 0 {
 		m.VictoryBgDef.RectData.Draw(layerno)
 	}
-	m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	if layerno <= 1 {
+		m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	}
 	// Face2 portraits
 	for _, s := range slots {
 		s.p.Face2.AnimData.Draw(layerno)
@@ -5943,6 +5963,10 @@ func (vi *MotifVictory) draw(m *Motif, layerno int16) {
 	m.VictoryScreen.WinName.TextSpriteData.Draw(layerno)
 	// Winquote
 	m.VictoryScreen.WinQuote.TextSpriteData.Draw(layerno)
+	// Top background
+	if layerno == 2 {
+		m.VictoryBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+	}
 }
 
 // buildSingleFrameFromSFF creates a 1-frame Animation from a raw sprite (grp, idx).
@@ -6370,7 +6394,7 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 			if bg.BgClearColor[0] >= 0 && bg.RectData != nil {
 				bg.RectData.Draw(layerno)
 			}
-			if bg.BGDef != nil {
+			if bg.BGDef != nil && layerno <= 1 {
 				bg.BGDef.Draw(int32(layerno), 0, 0, 1)
 			}
 		}
@@ -6382,6 +6406,10 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 		if wi.counter >= rs.WinsText.DisplayTime && rs.WinsText.TextSpriteData != nil {
 			rs.WinsText.TextSpriteData.Draw(layerno)
 		}
+		// Top background
+		if bg.BGDef != nil && layerno == 2 {
+			bg.BGDef.Draw(int32(layerno), 0, 0, 1)
+		}
 		return
 	}
 	// Fallback: normal win screen.
@@ -6390,12 +6418,17 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 		if m.WinBgDef.BgClearColor[0] >= 0 {
 			m.WinBgDef.RectData.Draw(layerno)
 		}
-		m.WinBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		if layerno <= 1 {
+			m.WinBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
+		}
 		// Overlay
 		m.WinScreen.Overlay.RectData.Draw(layerno)
 		// Text
 		if wi.counter >= m.WinScreen.WinText.DisplayTime {
 			m.WinScreen.WinText.TextSpriteData.Draw(layerno)
+		}
+		if layerno == 2 {
+			m.WinBgDef.BGDef.Draw(int32(layerno), 0, 0, 1)
 		}
 	}
 }

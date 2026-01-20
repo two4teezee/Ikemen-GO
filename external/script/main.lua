@@ -407,8 +407,9 @@ function main.f_fadeAnim(fadeGroup)
 		main.fadeCnt = main.fadeCnt - 1
 	end
 	--play fade snd
-	if main.fadeStart == getFrameCount() then
+	if not main.fadeSnd then
 		sndPlay(motif.Snd, fadeGroup[main.fadeType].snd[1], fadeGroup[main.fadeType].snd[2])
+		main.fadeSnd = true
 	end
 	--draw fadein / fadeout
 	main.fadeActive = fadeColor(
@@ -427,6 +428,7 @@ function main.f_fadeReset(fadeType, fadeGroup)
 	main.fadeType = fadeType
 	main.fadeGroup = fadeGroup
 	main.fadeStart = getFrameCount()
+	main.fadeSnd = false
 	main.fadeCnt = 0
 	if fadeGroup[fadeType].AnimData ~= nil then
 		animReset(fadeGroup[fadeType].AnimData)

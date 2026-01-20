@@ -3154,7 +3154,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					end
 					-- face2 "done" anim
 					if face2_anim ~= done_anim and canShow2 and done_anim2 ~= -1 then
-						setDoneAnim(start.c[player].selRef, side, member, motif.select_info['p' .. pn].face2.done, motif.select_info['p' .. pm].face2, 'face2_data')
+						setDoneAnim(start.c[player].selRef, side, member, motif.select_info['p' .. pn].face2.done, motif.select_info['p' .. pn].face2, 'face2_data')
 					end
 
 					start.p[side].t_selTemp[member].ref = start.c[player].selRef

@@ -5110,30 +5110,37 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.debugModeAllowed() {
 			return 0
 		}
+		// Shift+D behavior: just toggle without cycling players
 		if !nilArg(l, 1) {
 			sys.debugDisplay = !sys.debugDisplay
 			return 0
 		}
-		if !sys.debugDisplay {
+		// Make a copy of runOrder
+		sorted := make([]*Char, len(sys.charList.runOrder))
+		copy(sorted, sys.charList.runOrder)
+		// Sort the copy by player ID's
+		sort.Slice(sorted, func(i, j int) bool {
+			return sorted[i].id < sorted[j].id
+		})
+		// Find the next character by ID
+		var nextChar *Char
+		for _, c := range sorted {
+			if c.id > sys.debugLastID {
+				nextChar = c
+				break
+			}
+		}
+		// Update debug reference or disable debug
+		if nextChar != nil {
+			sys.debugRef[0] = nextChar.playerNo
+			sys.debugRef[1] = int(nextChar.helperIndex)
+			sys.debugLastID = nextChar.id
 			sys.debugDisplay = true
 		} else {
-			idx := 0
-			// Find index of current debug player
-			for i := 0; i < len(sys.charList.runOrder); i++ {
-				ro := sys.charList.runOrder[i]
-				if ro.playerNo == sys.debugRef[0] && ro.helperIndex == int32(sys.debugRef[1]) {
-					idx = i + 1 // Then check the next one
-					break
-				}
-			}
-			if idx == 0 || idx >= len(sys.charList.runOrder) {
-				sys.debugRef[0] = 0
-				sys.debugRef[1] = 0
-				sys.debugDisplay = false
-			} else {
-				sys.debugRef[0] = sys.charList.runOrder[idx].playerNo
-				sys.debugRef[1] = int(sys.charList.runOrder[idx].helperIndex)
-			}
+			sys.debugRef[0] = 0
+			sys.debugRef[1] = 0
+			sys.debugLastID = -1
+			sys.debugDisplay = false
 		}
 		return 0
 	})

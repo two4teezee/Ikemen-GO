@@ -210,7 +210,9 @@ func tagInsensitiveKeys(sf reflect.StructField) bool {
 }
 
 // tagKeyFirstMap returns true if a map field opts into "key-first" query syntax:
-//   "<key>.<mapField>[.<subfield>...]"  ->  "<mapField>.<key>[.<subfield>...]"
+//
+//	"<key>.<mapField>[.<subfield>...]"  ->  "<mapField>.<key>[.<subfield>...]"
+//
 // Enable with: keyfirst:"true".
 func tagKeyFirstMap(sf reflect.StructField) bool {
 	v := strings.TrimSpace(strings.ToLower(sf.Tag.Get("keyfirst")))

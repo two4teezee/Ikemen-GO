@@ -4163,22 +4163,55 @@ func (c *Char) loadPalette() {
 			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
 	} else {
-		for i := 0; i < maxPal; i++ {
-			pal := gi.palInfo[i]
-			_, pal.exists = gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
-			gi.palInfo[i] = pal
-		}
 		if gi.sff.header.NumberOfPalettes > 0 {
 			numPals := int(gi.sff.header.NumberOfPalettes)
 			if len(gi.palettedata.palList.PalTex) < numPals {
 				gi.palettedata.palList.PalTex = make([]Texture, numPals)
 			}
 			for i := 0; i < numPals; i++ {
-				pal := gi.sff.palList.Get(i)
-				if pal != nil {
-					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pal)
+				pData := gi.sff.palList.Get(i)
+				if pData != nil {
+					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pData)
 				}
 			}
+		}
+
+		for i := 0; i < maxPal; i++ {
+			pal := gi.palInfo[i]
+			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
+			
+			var f io.ReadSeekCloser
+			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
+				var err error
+				f, err = OpenFile(file)
+				return err
+			}) == nil {
+				pl := make([]uint32, 256)
+				for j := 255; j >= 0; j-- {
+					var rgb [3]byte
+					io.ReadFull(f, rgb[:])
+					var alpha byte = 255
+					if j == 0 { alpha = 0 }
+					pl[j] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+				}
+				f.Close()
+
+				if existsInSff && pIdx >= 0 {
+					// Overwrite existing SFFv2 slot with ACT data
+					gi.palettedata.palList.PalTex[pIdx] = PaletteToTexture(pl)
+				} else {
+					// Create a new isolated index for the ACT to prevent crashes
+					newIdx := len(gi.palettedata.palList.palettes) 
+					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
+					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
+					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, PaletteToTexture(pl))
+					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
+				}
+				pal.exists = true
+			} else {
+				pal.exists = existsInSff
+			}
+			gi.palInfo[i] = pal
 		}
 	}
 

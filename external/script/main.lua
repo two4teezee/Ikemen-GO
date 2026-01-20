@@ -3277,10 +3277,6 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	if not opts.skipBG0 then
 		bgDraw(bg.BGDef, 0)
 	end
-	--draw layerno = 1 backgrounds
-	if not opts.skipBG1 then
-		bgDraw(bg.BGDef, 1)
-	end
 
 	--draw menu box
 	if sec.menu.boxbg.visible then
@@ -3441,6 +3437,10 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		textImgReset(motif.attract_mode.credits.TextSpriteData)
 		textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, credits()))
 		textImgDraw(motif.attract_mode.credits.TextSpriteData)
+	end
+	--draw layerno = 1 backgrounds
+	if not opts.skipBG1 then
+		bgDraw(bg.BGDef, 1)
 	end
 	--draw footer
 	if sec.footer ~= nil then

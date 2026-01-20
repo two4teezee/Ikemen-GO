@@ -1322,7 +1322,7 @@ func removeSFFCache(filename string) {
 	}
 }
 
-func loadSff(filename string, char bool, isMainThread bool) (*Sff, error) {
+func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff, error) {
 	// If this SFF is already in the cache, just return a copy
 	if cached, ok := SffCache[filename]; ok {
 		cached.refCount++
@@ -1436,6 +1436,12 @@ func loadSff(filename string, char bool, isMainThread bool) (*Sff, error) {
 				if err := spriteList[i].read(f, &s.header, shofs+32, size,
 					xofs, prev, &s.palList); err != nil {
 					return nil, err
+				}
+				if isActPal {
+					if (spriteList[i].Group == 0 && spriteList[i].Number == 0) {
+						spriteList[i].Pal = nil
+						spriteList[i].palidx = 0
+					}
 				}
 			case 2:
 				if err := spriteList[i].readV2(f, int64(xofs), size); err != nil {

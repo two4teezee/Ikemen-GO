@@ -4226,7 +4226,11 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "sffNew", func(l *lua.LState) int {
 		if !nilArg(l, 1) {
-			sff, err := loadSff(strArg(l, 1), false, true)
+			isActPal := false
+			if l.GetTop() >= 2 {
+				isActPal = boolArg(l, 2)
+			}
+			sff, err := loadSff(strArg(l, 1), false, true, isActPal)
 			if err != nil {
 				l.RaiseError("\nCan't load %v: %v\n", strArg(l, 1), err.Error())
 			}

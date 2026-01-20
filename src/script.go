@@ -1472,7 +1472,8 @@ func systemScriptInit(l *lua.LState) {
 			y := float32(lua.LVAsNumber(item.RawGetString("y")))
 			facing := float32(lua.LVAsNumber(item.RawGetString("facing")))
 
-			anim.SetPos(x, y)
+			anim.SetPos(anim.offsetInit[0], anim.offsetInit[1])
+			anim.AddPos(x, y)
 			anim.facing = facing
 
 			aSnap := *anim

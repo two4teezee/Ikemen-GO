@@ -724,9 +724,6 @@ function menu.f_commandlistRender(sec, t)
 	elseif main.f_input(main.t_players, sec.menu.done.key) then
 		sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 		menu.itemname = ''
-		togglePause(false)
-		main.pauseMenu = false
-		menu.currentMenu[1] = menu.currentMenu[2]
 		return
 	elseif main.f_input(main.t_players, sec.menu.subtract.key) and #menu.t_movelists > 1 then
 		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])

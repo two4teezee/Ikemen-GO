@@ -209,6 +209,14 @@ func tagInsensitiveKeys(sf reflect.StructField) bool {
 	return !(v == "false" || v == "0" || v == "no")
 }
 
+// tagKeyFirstMap returns true if a map field opts into "key-first" query syntax:
+//   "<key>.<mapField>[.<subfield>...]"  ->  "<mapField>.<key>[.<subfield>...]"
+// Enable with: keyfirst:"true".
+func tagKeyFirstMap(sf reflect.StructField) bool {
+	v := strings.TrimSpace(strings.ToLower(sf.Tag.Get("keyfirst")))
+	return v == "true" || v == "1" || v == "yes"
+}
+
 // returns true if root has a top-level ini:"<sec>" field with `literal:"yes"`.
 func isLiteralSectionFor(root interface{}, sec string) bool {
 	v := reflect.ValueOf(root)
@@ -1295,12 +1303,13 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 				continue
 			}
 
-			// Handle Text map fields: rewrite "<key>.text" to "text.<key>" and re-dispatch.
-			if i+1 < len(parts) && strings.EqualFold(parts[i+1].name, "text") {
-				if fieldValText, _, foundText := findFieldByINITag(v, "text"); foundText &&
-					fieldValText.Kind() == reflect.Map &&
-					fieldValText.Type().Key().Kind() == reflect.String &&
-					fieldValText.Type().Elem().Kind() == reflect.String {
+			// Handle key-first map fields:
+			// rewrite "<key>.<mapField>[...]" to "<mapField>.<key>[...]" when the map field has `keyfirst:"true"`.
+			if i+1 < len(parts) {
+				if fieldValMap, sfMap, foundMap := findFieldByINITag(v, parts[i+1].name); foundMap &&
+					fieldValMap.Kind() == reflect.Map &&
+					fieldValMap.Type().Key().Kind() == reflect.String &&
+					tagKeyFirstMap(sfMap) {
 					newParts := make([]queryPart, len(parts))
 					copy(newParts, parts)
 					newParts[i], newParts[i+1] = newParts[i+1], newParts[i]
@@ -1484,6 +1493,18 @@ func updateINIFile(obj interface{}, iniFile *ini.File, query string, value strin
 				i++
 
 			} else {
+				// Key-first map syntax support:
+				// If the next token names a map field tagged `keyfirst:"true"`, swap and retry.
+				// Example: "<key>.text" -> "text.<key>" (but generalized to any tagged map field).
+				if i+1 < len(parts) {
+					if fvMap, sfMap, ok := findFieldByINITag(currentValue, parts[i+1].name); ok &&
+						fvMap.Kind() == reflect.Map &&
+						fvMap.Type().Key().Kind() == reflect.String &&
+						tagKeyFirstMap(sfMap) {
+						parts[i], parts[i+1] = parts[i+1], parts[i]
+						continue
+					}
+				}
 				// Not a direct field -> check if it's a direct map field with the same tag
 				mapFieldVal, _, mapFound := findMapFieldWithTag(currentValue, part.name)
 				if mapFound && mapFieldVal.Kind() == reflect.Map {
@@ -1684,6 +1705,18 @@ func GetValue(structPtr interface{}, query string) (interface{}, error) {
 				if matched {
 					current = mapVal
 				} else {
+					// Key-first map syntax support (read path):
+					// If the next token names a map field tagged `keyfirst:"true"`, swap and retry.
+					if i+1 < len(parts) {
+						if fvMap, sfMap, ok := findFieldByINITag(current, parts[i+1].name); ok &&
+							fvMap.Kind() == reflect.Map &&
+							fvMap.Type().Key().Kind() == reflect.String &&
+							tagKeyFirstMap(sfMap) {
+							parts[i], parts[i+1] = parts[i+1], parts[i]
+							i--
+							continue
+						}
+					}
 					return nil, fmt.Errorf("field '%s' not found in struct or pattern map for query '%s'", part.name, query)
 				}
 			}

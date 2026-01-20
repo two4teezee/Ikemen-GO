@@ -7428,89 +7428,61 @@ func (c *Char) sysFvarAdd(i int32, v float32) BytecodeValue {
 	return BytecodeFloat(c.cnssysfvar[i])
 }
 
-func (c *Char) varRangeSet(first, last, val int32) {
+// Due to the use of generics this one technically isn't a Char method
+func varRangeSetSub[T int32 | float32](c *Char, m *map[int32]T, first, last int32, val T) {
 	if first < 0 || first > last {
 		return
 	}
 
+	// Just clear the whole map if full range is set to 0
+	if val == 0 && first == 0 && last >= math.MaxInt32 {
+		*m = make(map[int32]T)
+		return
+	}
+
 	loopCount := 0
+
 	if val == 0 {
-		// Delete existing maps within range. Don't make new ones
-		for k := range c.cnsvar {
+		// Delete specific keys. Optimized for sparse maps
+		for k := range *m {
 			if k >= first && k <= last {
-				delete(c.cnsvar, k)
+				delete(*m, k)
 				loopCount++
 				if loopCount >= MaxLoop {
-					sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
 					break
 				}
 			}
 		}
 	} else {
-		// Set entire map range to value
+		// Set values. Must iterate the specified range
 		for i := first; i <= last; i++ {
-			c.cnsvar[i] = val
+			(*m)[i] = val
 			loopCount++
-			if loopCount >= MaxLoop {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+			if loopCount >= MaxLoop || i == math.MaxInt32 { // Prevents overflow when i++
 				break
 			}
 		}
 	}
+
+	if loopCount >= MaxLoop {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+	}
+}
+
+func (c *Char) varRangeSet(first, last, val int32) {
+	varRangeSetSub(c, &c.cnsvar, first, last, val)
 }
 
 func (c *Char) fvarRangeSet(first, last int32, val float32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnsfvar {
-			if k >= first && k <= last {
-				delete(c.cnsfvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnsfvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnsfvar, first, last, val)
 }
 
 func (c *Char) sysVarRangeSet(first, last, val int32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnssysvar {
-			if k >= first && k <= last {
-				delete(c.cnssysvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnssysvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnssysvar, first, last, val)
 }
 
 func (c *Char) sysFvarRangeSet(first, last int32, val float32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnssysfvar {
-			if k >= first && k <= last {
-				delete(c.cnssysfvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnssysfvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnssysfvar, first, last, val)
 }
 
 func (c *Char) setFacing(f float32) {

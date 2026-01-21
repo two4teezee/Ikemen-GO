@@ -2259,8 +2259,6 @@ function start.f_selectScreen()
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(motif.selectbgdef.BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(motif.selectbgdef.BGDef, 1)
 		--draw title
 		textImgDraw(motif.select_info.title.TextSpriteData)
 		--draw portraits
@@ -2453,6 +2451,8 @@ function start.f_selectScreen()
 		end
 		-- hook
 		hook.run("start.f_selectScreen")
+		--draw layerno = 1 backgrounds
+		bgDraw(motif.selectbgdef.BGDef, 1)
 		--draw fadein / fadeout
 		main.f_fadeAnim(motif.select_info)
 		--frame transition
@@ -3456,8 +3456,6 @@ function start.f_selectVersus(active, t_orderSelect)
 		clearColor(motif.versusbgdef.bgclearcolor[1], motif.versusbgdef.bgclearcolor[2], motif.versusbgdef.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(motif.versusbgdef.BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(motif.versusbgdef.BGDef, 1)
 		--draw portraits and order icons
 		for side = 1, 2 do
 			start.f_drawPortraits(main.f_remapTable(start.p[side].t_selTemp, start.t_orderRemap[side]), side, motif.vs_screen, '', false, t_icon[side])
@@ -3526,6 +3524,8 @@ function start.f_selectVersus(active, t_orderSelect)
 		if not done and motif.vs_screen.timer.count ~= -1 and timerActive and counter >= 0 then
 			timerCount, timerActive = main.f_drawTimer(timerCount, motif.vs_screen.timer)
 		end
+		--draw layerno = 1 backgrounds
+		bgDraw(motif.versusbgdef.BGDef, 1)
 		-- hook
 		hook.run("start.f_selectVersus")
 		--draw fadein / fadeout

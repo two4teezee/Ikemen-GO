@@ -187,7 +187,7 @@ loadDebugStatus('statusInfo')
 --;===========================================================
 function customState()
 	if not incustomstate() then return "" end
-	return " (in " .. stateownername() .. " " .. stateownerid() .. "'s state)"
+	return " (in " .. stateownername() .. ", Player " .. stateownerplayerno() .. "'s state)"
 end
 
 function boolToInt(bool)
@@ -200,7 +200,7 @@ function engineInfo()
 end
 
 function playerInfo()
-	return string.format('%s %d%s', name(), id(), customState())
+	return string.format('%s, Player %d, ID %d%s', name(), playerno(), id(), customState())
 end
 
 function actionInfo()

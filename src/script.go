@@ -5118,17 +5118,28 @@ func systemScriptInit(l *lua.LState) {
 		// Make a copy of runOrder
 		sorted := make([]*Char, len(sys.charList.runOrder))
 		copy(sorted, sys.charList.runOrder)
-		// Sort the copy by player ID's
+		// Sort the copy by player number and ID
 		sort.Slice(sorted, func(i, j int) bool {
+			if sorted[i].playerNo != sorted[j].playerNo {
+				return sorted[i].playerNo < sorted[j].playerNo
+			}
 			return sorted[i].id < sorted[j].id
 		})
-		// Find the next character by ID
+		// Find reference char
 		var nextChar *Char
-		for _, c := range sorted {
-			if c.id > sys.debugLastID {
-				nextChar = c
-				break
+		if sys.debugDisplay {
+			// Search for the first character that comes after the current one
+			for _, c := range sorted {
+				isLaterPlayer := c.playerNo > sys.debugRef[0]
+				isSamePlayerNewerID := c.playerNo == sys.debugRef[0] && c.id > sys.debugLastID
+				if isLaterPlayer || isSamePlayerNewerID {
+					nextChar = c
+					break
+				}
 			}
+		} else if len(sorted) > 0 {
+			// If display was off, start at the beginning of the sorted list
+			nextChar = sorted[0]
 		}
 		// Update debug reference or disable debug
 		if nextChar != nil {
@@ -5137,6 +5148,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.debugLastID = nextChar.id
 			sys.debugDisplay = true
 		} else {
+			// If no "next" character exists in the remainder of the list, reset and close
 			sys.debugRef[0] = 0
 			sys.debugRef[1] = 0
 			sys.debugLastID = -1

@@ -11845,11 +11845,12 @@ func (c *Char) cueDebugDraw() {
 			sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
 		}
 		// Targets
-		for _, tid := range c.targets {
-			if t := sys.playerID(tid); t != nil {
+		for _, tpid := range c.targets {
+			if t := sys.playerID(tpid); t != nil {
 				y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-				jg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
-				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target %d: %d", tid, jg), r: 255, g: 191, b: 255, a: 255})
+				thid := t.ghv.hitid
+				tjg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
+				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
 			}
 		}
 	}

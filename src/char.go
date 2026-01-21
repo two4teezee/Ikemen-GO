@@ -4104,75 +4104,67 @@ func (c *Char) loadPalette() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
 
+	readAct := func(palPtr *PalInfo) ([]uint32, bool) {
+		var f io.ReadSeekCloser
+		if LoadFile(&palPtr.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
+			var err error
+			f, err = OpenFile(file)
+			return err
+		}) == nil {
+			defer f.Close()
+			pl := make([]uint32, 256)
+			for i := 255; i >= 0; i-- {
+				var rgb [3]byte
+				if _, err := io.ReadFull(f, rgb[:]); err != nil {
+					return nil, false
+				}
+				var alpha byte = 255
+				if i == 0 { alpha = 0 }
+				pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+			}
+			return pl, true
+		}
+		return nil, false
+	}
+
 	if gi.sff.header.Ver0 == 1 {
 		gi.palettedata.palList.ResetRemap()
 		tmp := 0
 		for i := 0; i < maxPal; i++ {
-			pl := gi.palettedata.palList.Get(i)
-			var f io.ReadSeekCloser
-			var err error
-
 			pal := gi.palInfo[i]
-
-			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
-				f, err = OpenFile(file)
-				return err
-			}) == nil {
-				gi.palInfo[i] = pal
-
-				for i := 255; i >= 0; i-- {
-					var rgb [3]byte
-					if _, err = io.ReadFull(f, rgb[:]); err != nil {
-						break
-					}
-					var alpha byte = 255
-					if i == 0 {
-						alpha = 0
-					}
-					pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+			if pl, ok := readAct(&pal); ok {
+				targetPal := gi.palettedata.palList.Get(i)
+				copy(targetPal, pl)
+				if tmp == 0 && i > 0 {
+					copy(gi.palettedata.palList.Get(0), pl)
 				}
-				chk(f.Close())
-				if err == nil {
-					if tmp == 0 && i > 0 {
-						copy(gi.palettedata.palList.Get(0), pl)
-					}
-					pal.exists = true
-					gi.palInfo[i] = pal
-					// Palette Texture Generation
-					if len(gi.palettedata.palList.PalTex) <= i {
-						newLen := i + 1
-						newSlice := make([]Texture, newLen)
-						copy(newSlice, gi.palettedata.palList.PalTex)
-						gi.palettedata.palList.PalTex = newSlice
-					}
-					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
-					tmp = i + 1
+				pal.exists = true
+				if len(gi.palettedata.palList.PalTex) <= i {
+					newSlice := make([]Texture, i+1)
+					copy(newSlice, gi.palettedata.palList.PalTex)
+					gi.palettedata.palList.PalTex = newSlice
 				}
-			} else if f != nil {
-				chk(f.Close())
-			}
-			if err != nil {
+				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
+				tmp = i + 1
+			} else {
 				pal.exists = false
-				gi.palInfo[i] = pal
 				if i > 0 {
 					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
 				}
 			}
+			gi.palInfo[i] = pal
 		}
 		if tmp == 0 {
 			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
 	} else {
-		if gi.sff.header.NumberOfPalettes > 0 {
-			numPals := int(gi.sff.header.NumberOfPalettes)
-			if len(gi.palettedata.palList.PalTex) < numPals {
-				gi.palettedata.palList.PalTex = make([]Texture, numPals)
-			}
-			for i := 0; i < numPals; i++ {
-				pData := gi.sff.palList.Get(i)
-				if pData != nil {
-					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pData)
-				}
+		numPals := int(gi.sff.header.NumberOfPalettes)
+		if len(gi.palettedata.palList.PalTex) < numPals {
+			gi.palettedata.palList.PalTex = make([]Texture, numPals)
+		}
+		for i := 0; i < numPals; i++ {
+			if pData := gi.sff.palList.Get(i); pData != nil {
+				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pData)
 			}
 		}
 
@@ -4180,28 +4172,13 @@ func (c *Char) loadPalette() {
 			pal := gi.palInfo[i]
 			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
 			
-			var f io.ReadSeekCloser
-			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
-				var err error
-				f, err = OpenFile(file)
-				return err
-			}) == nil {
-				pl := make([]uint32, 256)
-				for j := 255; j >= 0; j-- {
-					var rgb [3]byte
-					io.ReadFull(f, rgb[:])
-					var alpha byte = 255
-					if j == 0 { alpha = 0 }
-					pl[j] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
-				}
-				f.Close()
-
+			if pl, ok := readAct(&pal); ok {
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
 					gi.palettedata.palList.PalTex[pIdx] = PaletteToTexture(pl)
 				} else {
 					// Create a new isolated index for the ACT to prevent crashes
-					newIdx := len(gi.palettedata.palList.palettes) 
+					newIdx := len(gi.palettedata.palList.palettes)
 					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
 					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
 					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, PaletteToTexture(pl))
@@ -8539,9 +8516,12 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Init palette remap if needed
 	if pfx.remap == nil {
-		pfx.remap = plist.GetPalMap()
+		pfx.remap = make([]int, len(plist.paletteMap))
+        // This ensures that SFFv2 unique palettes are preserved
+		for i := range pfx.remap {
+			pfx.remap[i] = i
+		}
 	}
-
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
 		plist.Remap(si, di)
@@ -8569,17 +8549,34 @@ func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
 	}
 
 	// Get new palette
-	di, ok := c.gi().palettedata.palList.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
+	plist := c.gi().palettedata.palList
+	di, ok := plist.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		return
 	}
 
 	// Clear previous remaps
-	pfx.remap = make([]int, len(c.gi().palettedata.palList.paletteMap))
-
+	pfx.remap = make([]int, len(plist.paletteMap))
 	// Apply the new remap
+	if c.gi().sff.header.Ver0 == 1 {
+		for i := range pfx.remap {
+			pfx.remap[i] = di
+		}
+		return
+	}
+
+	// SFFv2: Use selective remapping to preserve unique palettes
 	for i := range pfx.remap {
-		pfx.remap[i] = di
+		pfx.remap[i] = i
+	}
+
+	maxPal := sys.cfg.Config.PaletteMax
+	for i := 1; i <= maxPal; i++ {
+		if idx, exists := plist.PalTable[[...]uint16{1, uint16(i)}]; exists {
+			if idx >= 0 && int(idx) < len(pfx.remap) {
+				pfx.remap[idx] = di
+			}
+		}
 	}
 }
 

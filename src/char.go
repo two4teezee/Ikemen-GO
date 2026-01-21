@@ -3024,11 +3024,11 @@ type Char struct {
 	cmd            []CommandList
 	ss             StateState
 	controller     int
+	playerNo       int // Location in sys.chars[]
+	helperIndex    int // Location in sys.chars[][]
 	id             int32
 	helperId       int32
-	helperIndex    int32
 	parentIndex    int32
-	playerNo       int
 	teamside       int
 	keyctrl        [4]bool
 	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
@@ -3158,7 +3158,7 @@ type Char struct {
 }
 
 // Add a new char to the game
-func newChar(n int, idx int32) (c *Char) {
+func newChar(n, idx int) (c *Char) {
 	c = &Char{}
 	c.init(n, idx)
 	return c
@@ -3177,7 +3177,7 @@ func (c *Char) panic() {
 		sys.cgi[c.ss.sb.playerNo].def, c.ss)
 }
 
-func (c *Char) init(n int, idx int32) {
+func (c *Char) init(n int, idx int) {
 	// Reset struct with defaults
 	*c = Char{
 		playerNo:      n,
@@ -6331,28 +6331,28 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 // Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
 	// Start at index 1, skipping the root
-	i := int32(1)
+	hidx := int(1)
 
 	// If any existing helper entry is available for overwriting, use it
-	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
-		if sys.chars[c.playerNo][i].helperIndex < 0 {
-			h = sys.chars[c.playerNo][i]
-			h.init(c.playerNo, i)
+	for ; hidx < len(sys.chars[c.playerNo]); hidx++ {
+		if sys.chars[c.playerNo][hidx].helperIndex < 0 {
+			h = sys.chars[c.playerNo][hidx]
+			h.init(c.playerNo, hidx)
 			break
 		}
 	}
 
 	// Otherwise append to the end
-	if int(i) >= len(sys.chars[c.playerNo]) {
+	if hidx >= len(sys.chars[c.playerNo]) {
 		// Check helper limit
-		if i > sys.cfg.Config.HelperMax { // Do not count index 0
+		if int32(hidx) > sys.cfg.Config.HelperMax { // Do not count index 0
 			root := sys.chars[c.playerNo][0]
 			sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v helpers. Helper creation skipped", sys.cfg.Config.HelperMax))
 			return
 		}
 
 		// Add helper if allowed
-		h = newChar(c.playerNo, i)
+		h = newChar(c.playerNo, hidx)
 		sys.chars[c.playerNo] = append(sys.chars[c.playerNo], h)
 	}
 
@@ -6367,7 +6367,7 @@ func (c *Char) newHelper() (h *Char) {
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
-	h.parentIndex = c.helperIndex
+	h.parentIndex = int32(c.helperIndex)
 	h.controller = c.controller
 	h.teamside = c.teamside
 	h.size = c.size
@@ -12137,7 +12137,7 @@ func (cl *CharList) add(c *Char) {
 	cl.idMap[c.id] = c
 }
 
-func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
+func (cl *CharList) replace(dc *Char, pn, idx int) bool {
 	var ok bool
 
 	// Replace in runOrder
@@ -12813,6 +12813,9 @@ func (cl *CharList) pushDetection(getter *Char) {
 		}
 
 		// X-axis check
+		// It looks like Mugen uses an undocumented minimum overlap of 10 or such
+		// There's no particularly good reason for us to do the same
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3164
 		cposx := c.pos[0] * c.localscl
 		cxleft := cbox[0] * c.localscl
 		cxright := cbox[2] * c.localscl

@@ -2427,8 +2427,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	end
 	--draw layerno = 0 backgrounds
 	bgDraw(bg.BGDef, 0)
-	--draw layerno = 1 backgrounds
-	bgDraw(bg.BGDef, 1)
 	--draw title
 	textImgDraw(motif.option_info.title.TextSpriteData)
 	-- Build per-pane item arrays with correct vardisplay/infodisplay and conflict flags
@@ -2507,6 +2505,8 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		)
 		textImgDraw(motif.option_info.keymenu['p' .. i].playerno.TextSpriteData)
 	end
+	--draw layerno = 1 backgrounds
+	bgDraw(bg.BGDef, 1)
 	if not skipClear then
 		refresh()
 	end

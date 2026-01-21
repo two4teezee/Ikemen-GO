@@ -911,6 +911,7 @@ local function addAllKeyCommands(root)
 	visit(root)
 end
 addAllKeyCommands(motif)
+main.f_commandAdd('/s', '/s')
 
 loadLifebar()
 main.f_loadingRefresh()
@@ -943,14 +944,14 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 		clearColor(background.bgclearcolor[1], background.bgclearcolor[2], background.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(background.BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(background.BGDef, 1)
 		--draw overlay
 		rectDraw(overlay)
 		--draw title
 		textImgDraw(titleData)
 		--draw text
 		textImgDraw(textData)
+		--draw layerno = 1 backgrounds
+		bgDraw(background.BGDef, 1)
 		--end loop
 		refresh()
 	end
@@ -976,8 +977,6 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 		clearColor(background.bgclearcolor[1], background.bgclearcolor[2], background.bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(background.BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(background.BGDef, 1)
 		--draw overlay
 		rectDraw(overlay)
 		--draw text
@@ -985,6 +984,8 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 		textImgSetText(textData, text)
 		textImgAddText(textData, '\\n\\n' .. input)
 		textImgDraw(textData)
+		--draw layerno = 1 backgrounds
+		bgDraw(background.BGDef, 1)
 		--end loop
 		refresh()
 	end
@@ -2751,8 +2752,6 @@ function main.f_connect(server, str)
 		clearColor(motif[main.background].bgclearcolor[1], motif[main.background].bgclearcolor[2], motif[main.background].bgclearcolor[3])
 		--draw layerno = 0 backgrounds
 		bgDraw(motif[main.background].BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(motif[main.background].BGDef, 1)
 		--draw overlay
 		rectDraw(motif.title_info.connecting.overlay.RectData)
 		--draw text
@@ -2765,6 +2764,8 @@ function main.f_connect(server, str)
 		textImgReset(motif.title_info.connecting.TextSpriteData)
 		textImgSetText(motif.title_info.connecting.TextSpriteData, txt)
 		textImgDraw(motif.title_info.connecting.TextSpriteData)
+		--draw layerno = 1 backgrounds
+		bgDraw(motif[main.background].BGDef, 1)
 		refresh()
 	end
 	replayRecord('save/replays/' .. os.date("%Y-%m-%d_%Hh%Mm%Ss") .. '.replay')
@@ -2888,8 +2889,6 @@ function main.f_attractStart()
 		counter = counter + 1
 		--draw layerno = 0 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 0)
-		--draw layerno = 1 backgrounds
-		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw text
 		if credits() ~= 0 then
 			if motif.attract_mode.start.press.blinktime > 0 and not fadeOutStarted then
@@ -2954,6 +2953,8 @@ function main.f_attractStart()
 			main.menu.f()
 			return false
 		end
+		--draw layerno = 1 backgrounds
+		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
 		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and main.f_input(main.t_players, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
 			if credits() ~= 0 then
@@ -3325,7 +3326,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		local bgPosX = offx 
 		local bgPosY = offy
 		if params.spacing[1] ~= 0 or params.spacing[2] ~= 0 then
-			bgPosX = bgPosY + (i - 1) * params.spacing[1]
+			bgPosX = bgPosX + (i - 1) * params.spacing[1]
 			bgPosY = bgPosY + (i - 1) * params.spacing[2] - moveTxt
 		end
 		main.f_animPosDraw(params.AnimData, bgPosX, bgPosY)

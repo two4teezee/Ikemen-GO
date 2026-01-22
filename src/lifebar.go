@@ -2413,7 +2413,7 @@ func insertLbMsg(array []*LbMsg, value *LbMsg, index int) []*LbMsg {
 }
 
 func removeLbMsg(array []*LbMsg, index int) []*LbMsg {
-	return append(array[:index], array[index+1:]...)
+	return SliceDelete(array, index)
 }
 
 type LifeBarAction struct {

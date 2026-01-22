@@ -1769,12 +1769,10 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		if forceDestroy {
 			p.children = p.children[:0]
 		} else {
-			for i, ch := range p.children {
-				if ch != nil {
-					//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
-					if !ch.preserve {
-						p.children[i] = nil
-					}
+			for i := len(p.children) - 1; i >= 0; i-- {
+				//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
+				if p.children[i] != nil && !p.children[i].preserve {
+					p.children = SliceDelete(p.children, i)
 				}
 			}
 		}

@@ -1202,7 +1202,7 @@ func (ghv *GetHitVar) dropId(id int32) {
 	for i, v := range ghv.targetedBy {
 		if v[0] == id {
 			ghv.targetedBy = append(ghv.targetedBy[:i], ghv.targetedBy[i+1:]...)
-			break
+			return
 		}
 	}
 }
@@ -6292,7 +6292,8 @@ func (c *Char) destroy() {
 			if p := c.parent(false); p != nil {
 				for i, ch := range p.children {
 					if ch == c {
-						p.children[i] = nil
+						p.children = SliceDelete(p.children, i)
+						break
 					}
 				}
 			}
@@ -6348,6 +6349,8 @@ func (c *Char) newHelper() (h *Char) {
 	hidx := int(1)
 
 	// If any existing helper entry is available for overwriting, use it
+	// TODO: When the higher indexes are seldom used, this is inefficient
+	// It can also leave helper indexes out of order with newer helpers having lower index than older ones
 	for ; hidx < len(sys.chars[c.playerNo]); hidx++ {
 		if sys.chars[c.playerNo][hidx].helperIndex < 0 {
 			h = sys.chars[c.playerNo][hidx]
@@ -9263,7 +9266,7 @@ func (c *Char) removeTarget(pid int32) {
 	for i, t := range c.targets {
 		if t == pid {
 			c.targets = append(c.targets[:i], c.targets[i+1:]...)
-			break
+			return
 		}
 	}
 }
@@ -12173,11 +12176,14 @@ func (cl *CharList) replace(dc *Char, pn, idx int) bool {
 }
 
 func (cl *CharList) delete(dc *Char) {
+	// Remove char from idMap
+	delete(cl.idMap, dc.id)
+
+	// Remove char from runOrder
 	for i, c := range cl.runOrder {
 		if c == dc {
-			delete(cl.idMap, c.id)
-			cl.runOrder = append(cl.runOrder[:i], cl.runOrder[i+1:]...)
-			break
+			cl.runOrder = SliceDelete(cl.runOrder, i)
+			return
 		}
 	}
 	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper

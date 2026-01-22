@@ -1552,3 +1552,13 @@ func LowercaseNoExtension(filename string) string {
 	}
 	return strings.ToLower(nameOnly)
 }
+
+// Similar to slice.delete but more thorough because it also nils the removed item
+func SliceDelete[T any](slice []*T, i int) []*T {
+	if i < 0 || i >= len(slice) {
+		return slice
+	}
+	copy(slice[i:], slice[i+1:])
+	slice[len(slice)-1] = nil
+	return slice[:len(slice)-1]
+}

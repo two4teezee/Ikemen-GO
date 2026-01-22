@@ -2869,7 +2869,7 @@ func (m *Motif) draw(layerno int16) {
 		m.me.draw(m, layerno)
 	}
 	// Screen fading
-	if layerno == 2 {
+	if layerno == 3 {
 		if m.fadeOut.isActive() {
 			m.fadeOut.draw()
 		} else if m.fadeIn.isActive() {

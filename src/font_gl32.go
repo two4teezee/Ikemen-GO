@@ -150,7 +150,7 @@ func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32, ali
 			ch, ok = f.fontChar[runeIndex]
 		}
 
-		//skip runes that are not in font chacter range
+		//skip runes that are not in font character range
 		if !ok {
 			//fmt.Printf("%c %d\n", runeIndex, runeIndex)
 			continue
@@ -248,7 +248,7 @@ func (f *Font_GL32) Width(scale float32, spacingXAdd float32, fs string, argv ..
 			ch, ok = f.fontChar[runeIndex]
 		}
 
-		//skip runes that are not in font chacter range
+		//skip runes that are not in font character range
 		if !ok {
 			//fmt.Printf("%c %d\n", runeIndex, runeIndex)
 			continue
@@ -266,7 +266,7 @@ func (f *Font_GL32) Width(scale float32, spacingXAdd float32, fs string, argv ..
 	return width
 }
 
-// GenerateGlyphs builds a set of textures based on a ttf files gylphs
+// GenerateGlyphs builds a set of textures based on a ttf files glyphs
 func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 	//create a freetype context for drawing
 	c := freetype.NewContext()
@@ -282,7 +282,11 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		Hinting: font.HintingFull,
 	})
 
-	//make each gylph
+	// Add padding to prevent cropping
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3085
+	padding := 2
+
+	//make each glyph
 	for ch := low; ch <= high; ch++ {
 		char := new(character)
 
@@ -294,7 +298,7 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		gh := int32((gBnd.Max.Y - gBnd.Min.Y) >> 6)
 		gw := int32((gBnd.Max.X - gBnd.Min.X) >> 6)
 
-		//if gylph has no dimensions set to a max value
+		//if glyph has no dimensions set to a max value
 		if gw == 0 || gh == 0 {
 			gBnd = f.ttf.Bounds(fixed.Int26_6(f.scale))
 			gw = int32((gBnd.Max.X - gBnd.Min.X) >> 6)
@@ -312,21 +316,27 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		gdescent := int(gBnd.Max.Y) >> 6
 
 		//set w,h and adv, bearing V and bearing H in char
-		char.width = int(gw)
-		char.height = int(gh)
+		//char.width = int(gw)
+		//char.height = int(gh)
+		char.width = int(gw) + (padding * 2)
+		char.height = int(gh) + (padding * 2)
 		char.advance = int(gAdv)
 		char.bearingV = gdescent
-		char.bearingH = (int(gBnd.Min.X) >> 6)
+		//char.bearingH = (int(gBnd.Min.X) >> 6)
+		char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 
 		//create image to draw glyph
 		fg, bg := image.White, image.Black
-		rect := image.Rect(0, 0, int(gw), int(gh))
+		//rect := image.Rect(0, 0, int(gw), int(gh))
+		rect := image.Rect(0, 0, char.width, char.height)
 		rgba := image.NewRGBA(rect)
 		draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
 
 		//set the glyph dot
-		px := 0 - (int(gBnd.Min.X) >> 6)
-		py := (gAscent)
+		//px := 0 - (int(gBnd.Min.X) >> 6)
+		//py := (gAscent)
+		px := padding - (int(gBnd.Min.X) >> 6)
+		py := padding + gAscent
 		pt := freetype.Pt(px, py)
 
 		// Draw the text from mask to image
@@ -348,16 +358,16 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		}
 
 		texAtlas := f.textures[textureIndex]
-		aw := float32(texAtlas.width)
-		ah := float32(texAtlas.height)
 
-		off_u := 0.5 / aw
-		off_v := 0.5 / ah
-
-		uv[0] += off_u
-		uv[1] += off_v
-		uv[2] -= off_u
-		uv[3] -= off_v
+		// This block is no longer necessary after the padding fix and actually introduces blur
+		// aw := float32(texAtlas.width)
+		// ah := float32(texAtlas.height)
+		// off_u := 0.5 / aw
+		// off_v := 0.5 / ah
+		// uv[0] += off_u
+		// uv[1] += off_v
+		// uv[2] -= off_u
+		// uv[3] -= off_v
 
 		char.uv = uv
 		char.textureID = texAtlas.texture.(*Texture_GL32).handle

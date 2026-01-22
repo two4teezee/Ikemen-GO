@@ -1096,6 +1096,9 @@ type MenuInfoProperties struct {
 	Enter struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"enter"`
+	Exit struct {
+		Snd [2]int32 `ini:"snd" default:"-1,0"`
+	} `ini:"exit"`
 	Overlay  OverlayProperties `ini:"overlay"`
 	Movelist struct {
 		Pos   [2]float32 `ini:"pos"`

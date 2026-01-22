@@ -2881,7 +2881,10 @@ func (m *Motif) draw(layerno int16) {
 
 func (m *Motif) isDialogueSet() bool {
 	if sys.dialogueForce != 0 {
-		return false
+		pn := sys.dialogueForce
+		return pn >= 1 && pn <= len(sys.chars) &&
+			len(sys.chars[pn-1]) > 0 &&
+			len(sys.chars[pn-1][0].dialogue) > 0
 	}
 	for _, p := range sys.chars {
 		if len(p) > 0 && len(p[0].dialogue) > 0 {
@@ -2935,10 +2938,15 @@ func (m *Motif) act() {
 		if !m.ch.initialized {
 			m.ch.init(m)
 		}
-		// TODO: Hiscore is initialized explicitly when we want to show it
+		// TODO: Hiscore
+
 		// Dialogue
-		if !m.di.initialized && ((sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time) ||
-			(sys.roundStateTicks() == sys.lifebar.ro.fadeOut.time && sys.matchOver())) && m.isDialogueSet() {
+		// Normal start: right before "Fight" in round 1, or at match end.
+		normalStart := (sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time) ||
+			(sys.roundStateTicks() == sys.lifebar.ro.fadeOut.time && sys.matchOver())
+		// Forced start: ignore normal timing.
+		forcedStart := sys.dialogueForce != 0
+		if !m.di.initialized && (forcedStart || normalStart) && m.isDialogueSet() {
 			m.di.init(m)
 		}
 	}

@@ -98,7 +98,7 @@ menu.t_itemname = {
 	['back'] = function(t, item, cursorPosY, moveTxt, sec)
 		if main.f_input(main.t_players, sec.menu.done.key) then
 			if menu.currentMenu[1] == menu.currentMenu[2] then
-				sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
+				sndPlay(motif.Snd, sec.exit.snd[1], sec.exit.snd[2])
 				togglePause(false)
 				main.pauseMenu = false
 			else
@@ -288,6 +288,7 @@ function menu.f_createMenu(tbl, sec, bg, bool_main)
 		textImgSetText(sec.title.TextSpriteData, tbl.title)
 		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
 			if bool_main then
+				sndPlay(motif.Snd, sec.exit.snd[1], sec.exit.snd[2])
 				togglePause(false)
 				main.pauseMenu = false
 			else
@@ -717,12 +718,8 @@ function menu.f_commandlistRender(sec, t)
 	else
 		table.insert(cmdList, {{glyph = false, text = sec.movelist.text.text, align = 1, col = {}}})
 	end
-	if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+	if esc() or main.f_input(main.t_players, sec.menu.cancel.key, sec.menu.done.key) then
 		sndPlay(motif.Snd, sec.cancel.snd[1], sec.cancel.snd[2])
-		menu.itemname = ''
-		return
-	elseif main.f_input(main.t_players, sec.menu.done.key) then
-		sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 		menu.itemname = ''
 		return
 	elseif main.f_input(main.t_players, sec.menu.subtract.key) and #menu.t_movelists > 1 then

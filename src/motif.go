@@ -5712,6 +5712,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Localcoord, dst.Layerno, dst.Facing,
 		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle,
 		dst.YAngle, dst.Projection, dst.Focallength,
+		dst.Velocity, dst.MaxDist, dst.Accel, dst.Friction,
 		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
 		e.pal, faceBrightness, e.c,
@@ -5727,6 +5728,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
 		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle,
 		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength,
+		dst.Face2.Velocity, dst.Face2.MaxDist, dst.Face2.Accel, dst.Face2.Friction,
 		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
 		e.pal, face2Brightness, e.c,
@@ -6011,8 +6013,9 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	animNo int32, spr [2]int32,
 	localcoord [2]int32, layerno int16, facing int32,
 	scale [2]float32, xshear float32, angle float32, xangle float32,
-	yangle float32, projection string, fLength float32, window [4]int32,
-	x, y float32, applyPal bool, pal int, brightness int32, ownerC *Char) *Anim {
+	yangle float32, projection string, fLength float32,
+	velocity [2]float32, maxDist [2]float32, accel [2]float32, friction [2]float32,
+	window [4]int32, x, y float32, applyPal bool, pal int, brightness int32, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
@@ -6099,6 +6102,11 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 		}
 	}
 	a.fLength = fLength
+	// Movement
+	a.SetVelocity(velocity[0], velocity[1])
+	a.SetMaxDist(maxDist[0], maxDist[1])
+	a.SetAccel(accel[0], accel[1])
+	a.friction = friction
 	// Palette for non-loaded (or force-apply if requested)
 	isCopied := false
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {

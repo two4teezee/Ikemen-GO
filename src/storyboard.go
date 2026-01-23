@@ -321,7 +321,7 @@ func (s *Storyboard) loadFiles() {
 	LoadFile(&s.SceneDef.Spr, []string{s.SceneDef.Spr}, func(filename string) error {
 		if filename != "" {
 			var err error
-			s.Sff, err = loadSff(filename, false, true)
+			s.Sff, err = loadSff(filename, false, true, false)
 			if err != nil {
 				sys.errLog.Printf("Failed to load %v: %v", filename, err)
 			}

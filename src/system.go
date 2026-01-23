@@ -3950,7 +3950,38 @@ func (s *Select) AddChar(def string) *SelectChar {
 			for k_spr := range s.charSpritePreload {
 				sc.anims.addSprite(sc.sff, k_spr[0], k_spr[1])
 			}
-			if len(sc.pal) == 0 {
+			// Synchronize SFFv2 internal palettes with DEF declarations
+			if sc.sff.header.Ver0 != 1 {
+				defPals := make(map[int32]bool)
+				for _, p := range sc.pal {
+					defPals[p] = true
+				}
+				// Map DEF palette files to their intended slots
+				maxPalSlots := sys.cfg.Config.PaletteMax
+				newPalFiles := make([]string, maxPalSlots)
+				for i, pIdx := range sc.pal {
+					if pIdx >= 1 && int(pIdx) <= maxPalSlots {
+						newPalFiles[pIdx-1] = sc.pal_files[i]
+					}
+				}
+				// Rebuild sc.pal and sc.pal_files in sequential order
+				sc.pal = nil
+				sc.pal_files = nil
+				for i := 1; i <= maxPalSlots; i++ {
+					existsInSff := false
+					for _, sIdx := range selPal {
+						if sIdx == int32(i) {
+							existsInSff = true
+							break
+						}
+					}
+					// Include palette if it exists in either the SFFv2 or the DEF
+					if defPals[int32(i)] || existsInSff {
+						sc.pal = append(sc.pal, int32(i))
+						sc.pal_files = append(sc.pal_files, newPalFiles[i-1])
+					}
+				}
+			} else if len(sc.pal) == 0 {
 				sc.pal = selPal
 			}
 			return nil

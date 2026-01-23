@@ -1340,7 +1340,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	if sectionExists {
 		sectionExists = false
 		if sec[0].LoadFile("spr", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
-			sff, err := loadSff(filename, false, false)
+			sff, err := loadSff(filename, false, false, false)
 			if err != nil {
 				return err
 			}

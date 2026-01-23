@@ -28,7 +28,7 @@ func (cs Char) String() string {
 	Id                  :%d
 	HelperId            :%d
 	HelperIndex         :%d
-	ParentIndex         :%d
+	ParentId            :%d
 	PlayerNo            :%d
 	Teamside            :%d
 	AnimPN              :%d
@@ -42,7 +42,7 @@ func (cs Char) String() string {
 	HoIdx               :%d
 	Mctime              :%d
 	Targets             :%v
-	TargetsOfHitdef     :%v
+	HitdefTargets       :%v
 	Atktmp              :%d
 	Hittmp              :%d
 	Acttmp              :%d
@@ -55,9 +55,9 @@ func (cs Char) String() string {
 	Offset              :%v`,
 		cs.name, cs.redLife, cs.juggle, cs.life, cs.controller, cs.localcoord,
 		cs.localscl, cs.pos, cs.interPos, cs.oldPos, cs.vel, cs.facing,
-		cs.id, cs.helperId, cs.helperIndex, cs.parentIndex, cs.playerNo,
+		cs.id, cs.helperId, cs.helperIndex, cs.parentId, cs.playerNo,
 		cs.teamside, cs.animPN, cs.animNo, cs.lifeMax, cs.powerMax, cs.dizzyPoints,
-		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargetsBuffer,
+		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargets,
 		cs.atktmp, cs.hittmp, cs.acttmp, cs.minus, cs.groundAngle, cs.inheritJuggle,
 		cs.preserve, cs.cnsvar, cs.cnsfvar, cs.offset)
 	return str

@@ -3028,7 +3028,7 @@ type Char struct {
 	helperIndex    int // Location in sys.chars[][]
 	id             int32
 	helperId       int32
-	parentIndex    int32
+	parentId       int32
 	teamside       int
 	keyctrl        [4]bool
 	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
@@ -3186,7 +3186,7 @@ func (c *Char) init(n int, idx int) {
 		analogAxes:    [6]float32{},
 		animPN:        n,
 		id:            -1,
-		parentIndex:   IErr,
+		parentId:      -1,
 		hoverIdx:      -1,
 		mctype:        MC_Hit,
 		ownpal:        true,
@@ -4573,7 +4573,7 @@ func (c *Char) unsetASF(asf AssertSpecialFlag) {
 }
 
 func (c *Char) parent(log bool) *Char {
-	if c.parentIndex == IErr {
+	if c.helperIndex == 0 {
 		if log {
 			sys.appendToConsole(c.warn() + "has no parent")
 		}
@@ -4582,7 +4582,8 @@ func (c *Char) parent(log bool) *Char {
 
 	// In Mugen, after the original parent has been destroyed, "parent" can still be valid if a new helper ends up occupying the same slot
 	// That is undesirable behavior however, and is probably only used by exploit characters, which already don't work correctly anyway
-	if c.parentIndex < 0 {
+	p, ok := sys.charList.idMap[c.parentId]
+	if !ok {
 		if log {
 			sys.appendToConsole(c.warn() + "parent has already been destroyed")
 			if !sys.ignoreMostErrors {
@@ -4592,7 +4593,7 @@ func (c *Char) parent(log bool) *Char {
 		return nil
 	}
 
-	return sys.chars[c.playerNo][c.parentIndex]
+	return p
 }
 
 func (c *Char) root(log bool) *Char {
@@ -4639,15 +4640,15 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	return nil
 }
 
-func (c *Char) getHelperIndex(idx int32) *Char {
+func (c *Char) getHelperChainIndex(idx int32) *Char {
 	if idx <= 0 {
 		return c
 	}
 
-	var t []int32
+	var found []*Char
 
 	// Find all helpers in parent-child chain
-	for j, h := range sys.charList.runOrder {
+	for _, h := range sys.charList.runOrder {
 		// Check only the relevant player number
 		if h.playerNo != c.playerNo {
 			continue
@@ -4657,7 +4658,7 @@ func (c *Char) getHelperIndex(idx int32) *Char {
 				// Helpers created by the root. Direct check
 				hr := h.root(false)
 				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
-					t = append(t, int32(j))
+					found = append(found, h)
 				}
 			} else {
 				// Helpers created by other helpers
@@ -4672,7 +4673,7 @@ func (c *Char) getHelperIndex(idx int32) *Char {
 				for hp != nil {
 					// Original player found to be this helper's (grand)parent. Add helper to list
 					if hp.id == c.id {
-						t = append(t, int32(j))
+						found = append(found, h)
 						break
 					}
 					// Search further up the parent chain for a relation to the original player
@@ -4683,18 +4684,15 @@ func (c *Char) getHelperIndex(idx int32) *Char {
 	}
 
 	// Return the Nth helper we found
-	for i := 0; i < len(t); i++ {
-		ch := sys.charList.runOrder[int32(t[i])]
-		if (idx-1) == int32(i) && ch != nil {
-			return ch
-		}
+	if idx > 0 && int(idx-1) < len(found) {
+		return found[idx-1]
 	}
 
 	return nil
 }
 
 func (c *Char) helperIndexTrigger(idx int32) *Char {
-	ch := c.getHelperIndex(idx)
+	ch := c.getHelperChainIndex(idx)
 
 	if ch == nil {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("has no helper with index: %v", idx))
@@ -4707,7 +4705,7 @@ func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(c.getHelperIndex(id.ToI()) != nil)
+	return BytecodeBool(c.getHelperChainIndex(id.ToI()) != nil)
 }
 
 func (c *Char) indexTrigger() int32 {
@@ -6277,42 +6275,46 @@ func (c *Char) selfState(no, anim, readplayerid, ctrl int32, ffx string) {
 }
 
 func (c *Char) destroy() {
-	if c.helperIndex > 0 {
-		c.exitTarget()
-		c.receivedDmg = 0
-		c.receivedHits = 0
-		// Remove ID from target's GetHitVars
-		for _, tid := range c.targets {
-			if t := sys.playerID(tid); t != nil {
-				t.ghv.dropId(c.id)
-			}
-		}
-		// Remove ID from parent's children list
-		if c.parentIndex >= 0 {
-			if p := c.parent(false); p != nil {
-				for i, ch := range p.children {
-					if ch == c {
-						p.children = SliceDelete(p.children, i)
-						break
-					}
-				}
-			}
-		}
-		// Remove ID from children
-		for _, ch := range c.children {
-			if ch != nil && ch.parentIndex > 0 {
-				ch.parentIndex *= -1
-			}
-		}
-		c.children = c.children[:0]
-		if c.isPlayerType() {
-			// sys.charList.p2enemyDelete(c)
-			sys.charList.enemyNearChanged = true
-		}
-		sys.charList.delete(c)
-		c.helperIndex = -1
-		c.setCSF(CSF_destroy)
+	if c.helperIndex == 0 {
+		return
 	}
+
+	c.exitTarget()
+	c.receivedDmg = 0
+	c.receivedHits = 0
+
+	// Remove ID from target's GetHitVars
+	for _, tid := range c.targets {
+		if t := sys.playerID(tid); t != nil {
+			t.ghv.dropId(c.id)
+		}
+	}
+
+	// Remove ID from parent's children list
+	if p := c.parent(false); p != nil {
+		for i, ch := range p.children {
+			if ch == c {
+				p.children = SliceDelete(p.children, i)
+				break
+			}
+		}
+	}
+
+	// Remove ID from children
+	// This is no longer strictly necessary but it makes extra sure the helper will never end up with a different parent
+	for i, ch := range c.children {
+		ch.parentId = -1
+		c.children[i] = nil // Kill the pointer so the GC can work
+	}
+	c.children = c.children[:0]
+
+	if c.isPlayerType() {
+		// sys.charList.p2enemyDelete(c)
+		sys.charList.enemyNearChanged = true
+	}
+	sys.charList.delete(c)
+	c.helperIndex = -1
+	c.setCSF(CSF_destroy)
 }
 
 // Mugen clears the helper ID here, before fully removing the helper (c.helperID = 0)
@@ -6334,9 +6336,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 
 	if recursive {
 		for _, ch := range c.children {
-			if ch != nil {
-				ch.destroySelf(recursive, removeexplods, removetexts)
-			}
+			ch.destroySelf(recursive, removeexplods, removetexts)
 		}
 	}
 
@@ -6384,7 +6384,7 @@ func (c *Char) newHelper() (h *Char) {
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
-	h.parentIndex = int32(c.helperIndex)
+	h.parentId = c.id
 	h.controller = c.controller
 	h.teamside = c.teamside
 	h.size = c.size
@@ -8428,14 +8428,15 @@ func (c *Char) setSuperPauseTime(pausetime, movetime int32, unhittable bool, p2d
 }
 
 func (c *Char) getPalfx() *PalFX {
+	// Try existing PalFX
 	if c.palfx != nil {
 		return c.palfx
 	}
-	if c.parentIndex >= 0 {
-		if p := c.parent(false); p != nil {
-			return p.getPalfx()
-		}
+	// Try parent's PalFX
+	if p := c.parent(false); p != nil {
+		return p.getPalfx()
 	}
+	// Make a new PalFX
 	c.palfx = newPalFX()
 	// Mugen 1.1 behavior if invertblend param is omitted (only if char mugenversion = 1.1)
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && c.stWgi().mugenver[0] == 1 && c.stWgi().mugenver[1] == 1 && c.palfx != nil {

@@ -4085,6 +4085,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {
 		sys.roundResetFlg = true
+		sys.roundResetMatchStart = true
 		return 0
 	})
 	luaRegister(l, "runStoryboard", func(*lua.LState) int {

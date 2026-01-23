@@ -181,6 +181,7 @@ type GameState struct {
 	zmin, zmax              float32
 	winskipped              bool
 	roundResetFlg           bool
+	roundResetMatchStart    bool
 	reloadFlg               bool
 	reloadStageFlg          bool
 	reloadLifebarFlg        bool
@@ -410,6 +411,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.zmax = gs.zmax
 	sys.winskipped = gs.winskipped
 	sys.roundResetFlg = gs.roundResetFlg
+	sys.roundResetMatchStart = gs.roundResetMatchStart
 	sys.reloadFlg = gs.reloadFlg
 	sys.reloadStageFlg = gs.reloadStageFlg
 	sys.reloadLifebarFlg = gs.reloadLifebarFlg
@@ -647,6 +649,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.zmax = sys.zmax
 	gs.winskipped = sys.winskipped
 	gs.roundResetFlg = sys.roundResetFlg
+	gs.roundResetMatchStart = sys.roundResetMatchStart
 	gs.reloadFlg = sys.reloadFlg
 	gs.reloadStageFlg = sys.reloadStageFlg
 	gs.reloadLifebarFlg = sys.reloadLifebarFlg

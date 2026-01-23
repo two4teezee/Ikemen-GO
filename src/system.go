@@ -189,6 +189,7 @@ type System struct {
 	winskipped              bool
 	paused, frameStepFlag   bool
 	roundResetFlg           bool
+	roundResetMatchStart    bool
 	reloadFlg               bool
 	reloadStageFlg          bool
 	reloadLifebarFlg        bool
@@ -3063,7 +3064,11 @@ func (s *System) runMatch() (reload bool) {
 			continue
 		}
 
-		// F4 pressed to restart round
+		if s.roundResetMatchStart && sys.tickCount == 1 {
+			s.roundResetMatchStart = false
+		}
+
+		// F4 pressed to reset round
 		if s.roundResetFlg && !s.postMatchFlg {
 			s.resetRound()
 		}

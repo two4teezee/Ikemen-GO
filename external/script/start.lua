@@ -2213,6 +2213,7 @@ function start.f_selectScreen()
 	local blinkCount = 0
 	local counter = 0 - motif.select_info.fadein.time
 	local timerReset = false
+	local stageTextData = motif.select_info.stage.active.TextSpriteData
 	-- generate team mode items table
 	for side = 1, 2 do
 		-- read display names for the current gamemode (or default)
@@ -2417,17 +2418,17 @@ function start.f_selectScreen()
 				if not stageEnd then
 					if main.f_input(main.t_players, motif.select_info.done.key) or timerSelect == -1 then
 						sndPlay(motif.Snd, motif.select_info.stage.done.snd[1], motif.select_info.stage.done.snd[2])
-						textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.done.font)
+						stageTextData = motif.select_info.stage.done.TextSpriteData
 						stageEnd = true
 					elseif stageActiveCount < motif.select_info.stage.active.switchtime then --delay change
 						stageActiveCount = stageActiveCount + 1
 					else
 						if stageActiveState then
 							stageActiveState = false
-							textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.active2.font)
+							stageTextData = motif.select_info.stage.active2.TextSpriteData
 						else
 							stageActiveState = true
-							textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.active.font)
+							stageTextData = motif.select_info.stage.active.TextSpriteData
 						end
 						stageActiveCount = 0
 					end
@@ -2437,9 +2438,9 @@ function start.f_selectScreen()
 				if stageListNo ~= 0 then
 					stage_text = main.f_formatBySpec(motif.select_info.stage.text, {i = stageListNo, s = main.t_selStages[main.t_selectableStages[stageListNo]].name})
 				end
-				textImgReset(motif.select_info.stage.TextSpriteData)
-				textImgSetText(motif.select_info.stage.TextSpriteData, stage_text)
-				textImgDraw(motif.select_info.stage.TextSpriteData)
+				textImgReset(stageTextData)
+				textImgSetText(stageTextData, stage_text)
+				textImgDraw(stageTextData)
 			end
 		else
 			--draw record text
@@ -2608,17 +2609,21 @@ function start.f_teamMenu(side, t)
 			(start.p[side].teamMenu - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
 			(start.p[side].teamMenu - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
 		)
+		local teammenu = motif.select_info['p' .. side].teammenu
+		local itemCfg = teammenu.item
+		local valueCfg = teammenu.value
+		local spacingX, spacingY = itemCfg.spacing[1], itemCfg.spacing[2]
+		local uppercase = itemCfg.uppercase
+		local gm = gamemode()
 		for i = 1, #t do
-			textImgReset(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
-			textImgAddPos(
-				motif.select_info['p' .. side].teammenu.item.TextSpriteData,
-				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
-				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
-			)
-			textImgSetText(motif.select_info['p' .. side].teammenu.item.TextSpriteData, main.f_itemnameUpper(t[i].displayname, motif.select_info['p' .. side].teammenu.item.uppercase))
+			local x = (i - 1) * spacingX
+			local y = (i - 1) * spacingY
+			local itemname = t[i].itemname
+			local itemText = main.f_itemnameUpper(t[i].displayname, uppercase)
+			local textData = itemCfg.TextSpriteData
 			--Draw team items
 			if i == start.p[side].teamMenu then
-				if t_teamActiveCount[side] < motif.select_info['p' .. side].teammenu.item.active.switchtime then --delay change
+				if t_teamActiveCount[side] < itemCfg.active.switchtime then --delay change
 					t_teamActiveCount[side] = t_teamActiveCount[side] + 1
 				else
 					if t_teamActiveState[side] then
@@ -2629,84 +2634,63 @@ function start.f_teamMenu(side, t)
 					t_teamActiveCount[side] = 0
 				end
 				--Draw team active item background
-				if motif.select_info['p' .. side].teammenu.active.bg[gamemode() .. '-' .. t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.active.bg[gamemode() .. '-' .. t[i].itemname].AnimData)
-				elseif motif.select_info['p' .. side].teammenu.active.bg[t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.active.bg[t[i].itemname].AnimData)
+				if teammenu.active.bg[gm .. '-' .. itemname] ~= nil then
+					main.f_animPosDraw(teammenu.active.bg[gm .. '-' .. itemname].AnimData)
+				elseif teammenu.active.bg[itemname] ~= nil then
+					main.f_animPosDraw(teammenu.active.bg[itemname].AnimData)
 				end
 				--Draw team active item font
 				if t_teamActiveState[side] then
-					textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.active2.font)
+					textData = itemCfg.active2.TextSpriteData
 				else
-					textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.active.font)
+					textData = itemCfg.active.TextSpriteData
 				end
-				textImgDraw(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
 			else
 				--Draw team not active item background
-				if motif.select_info['p' .. side].teammenu.bg[gamemode() .. '-' .. t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.bg[gamemode() .. '-' .. t[i].itemname].AnimData)
-				elseif motif.select_info['p' .. side].teammenu.bg[t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.bg[t[i].itemname].AnimData)
+				if teammenu.bg[gm .. '-' .. itemname] ~= nil then
+					main.f_animPosDraw(teammenu.bg[gm .. '-' .. itemname].AnimData)
+				elseif teammenu.bg[itemname] ~= nil then
+					main.f_animPosDraw(teammenu.bg[itemname].AnimData)
 				end
-				--Draw team not active item font
-				textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.font)
-				textImgDraw(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
 			end
+			--Draw item font
+			textImgReset(textData)
+			textImgAddPos(textData, x, y)
+			textImgSetText(textData, itemText)
+			textImgDraw(textData)
 			--Draw team icons
-			if t[i].itemname == 'simul' then
+			if itemname == 'simul' then
 				for j = 1, main.numSimul[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numSimul then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'turns' then
+			elseif itemname == 'turns' then
 				for j = 1, main.numTurns[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numTurns then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'tag' then
+			elseif itemname == 'tag' then
 				for j = 1, main.numTag[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numTag then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'ratio' and start.p[side].teamMenu == i and main.selectMenu[side] then
-				main.f_animPosDraw(
-					motif.select_info['p' .. side].teammenu['ratio' .. start.p[side].numRatio].icon.AnimData,
-					(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
-					(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
-				)
+			elseif itemname == 'ratio' and start.p[side].teamMenu == i and main.selectMenu[side] then
+				main.f_animPosDraw(teammenu['ratio' .. start.p[side].numRatio].icon.AnimData, x, y)
 			end
 		end
 		--Confirmed team selection

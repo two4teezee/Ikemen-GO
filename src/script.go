@@ -4752,21 +4752,6 @@ func systemScriptInit(l *lua.LState) {
 		ts.text = fmt.Sprintf(ts.text+"%v", strArg(l, 2))
 		return 0
 	})
-	luaRegister(l, "textImgApplyFontTuple", func(*lua.LState) int {
-		ts, ok := toUserData(l, 1).(*TextSprite)
-		if !ok {
-			userDataError(l, 1, ts)
-		}
-		tbl := tableArg(l, 2)
-		font := [8]int32{-1, 0, 0, 255, 255, 255, 255, -1}
-		for i := 1; i <= 8; i++ {
-			if n, ok := tbl.RawGetInt(i).(lua.LNumber); ok {
-				font[i-1] = int32(n)
-			}
-		}
-		ts.ApplyFontTuple(font, sys.motif.Fnt)
-		return 0
-	})
 	luaRegister(l, "textImgApplyVel", func(*lua.LState) int {
 		ts, ok := toUserData(l, 1).(*TextSprite)
 		if !ok {

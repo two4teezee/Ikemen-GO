@@ -8225,6 +8225,36 @@ func triggerFunctions(l *lua.LState) {
 			BytecodeInt(int32(numArg(l, 1)))).ToB()))
 		return 1
 	})
+	luaRegister(l, "spritevar", func(l *lua.LState) int {
+		vname := strings.ToLower(strArg(l, 1))
+		var lv lua.LValue
+		// Check for valid sprite
+		var spr *Sprite
+		if sys.debugWC.anim != nil {
+			spr = sys.debugWC.anim.spr
+		}
+		// Handle output
+		if spr != nil {
+			switch vname {
+			case "group":
+				lv = lua.LNumber(spr.Group)
+			case "height":
+				lv = lua.LNumber(spr.Size[1])
+			case "image":
+				lv = lua.LNumber(spr.Number)
+			case "width":
+				lv = lua.LNumber(spr.Size[0])
+			case "xoffset":
+				lv = lua.LNumber(spr.Offset[0])
+			case "yoffset":
+				lv = lua.LNumber(spr.Offset[1])
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
+			}
+		}
+		l.Push(lv)
+		return 1
+	})
 	luaRegister(l, "sprpriority", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.sprPriority))
 		return 1

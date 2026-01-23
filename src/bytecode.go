@@ -994,6 +994,12 @@ const (
 	OC_ex3_helpervar_ownclsnscale
 	OC_ex3_helpervar_ownpal
 	OC_ex3_helpervar_preserve
+	OC_ex3_spritevar_group
+	OC_ex3_spritevar_height
+	OC_ex3_spritevar_image
+	OC_ex3_spritevar_width
+	OC_ex3_spritevar_xoffset
+	OC_ex3_spritevar_yoffset
 )
 
 type StringPool struct {
@@ -3964,6 +3970,33 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushB(c.ownpal)
 		case OC_ex3_helpervar_preserve:
 			sys.bcStack.PushB(c.preserve)
+		}
+	// SpriteVar
+	case OC_ex3_spritevar_group, OC_ex3_spritevar_height, OC_ex3_spritevar_width,
+	OC_ex3_spritevar_xoffset, OC_ex3_spritevar_yoffset:
+		// Check for valid sprite
+		var spr *Sprite
+		if c.anim != nil {
+			spr = c.anim.spr
+		}
+		// Handle output
+		if spr != nil {
+			switch opc {
+			case OC_ex3_spritevar_group:
+				sys.bcStack.PushI(int32(spr.Group))
+			case OC_ex3_spritevar_height:
+				sys.bcStack.PushF(float32(spr.Size[1]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_image:
+				sys.bcStack.PushI(int32(spr.Number))
+			case OC_ex3_spritevar_width:
+				sys.bcStack.PushF(float32(spr.Size[0]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_xoffset:
+				sys.bcStack.PushF(float32(spr.Offset[0]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_yoffset:
+				sys.bcStack.PushF(float32(spr.Offset[1]) * (c.localscl / oc.localscl))
+			}
+		} else {
+			sys.bcStack.Push(BytecodeSF())
 		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])

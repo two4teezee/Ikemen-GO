@@ -460,6 +460,7 @@ var triggerMap = map[string]int{
 	"selfstatenoexist":   1,
 	"sign":               1,
 	"soundvar":           1,
+	"spritevar":          1,
 	"sprpriority":        1,
 	"stagebackedgedist":  1,
 	"stageconst":         1,
@@ -4926,7 +4927,32 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		out.append(OC_ex_, OC_ex_selfstatenoexist)
-	case "sprpriority":
+	case "spritevar":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		out.append(OC_ex3_)
+		switch c.token {
+		case "group":
+			out.append(OC_ex3_spritevar_group)
+		case "height":
+			out.append(OC_ex3_spritevar_height)
+		case "image":
+			out.append(OC_ex3_spritevar_image)
+		case "width":
+			out.append(OC_ex3_spritevar_width)
+		case "xoffset":
+			out.append(OC_ex3_spritevar_xoffset)
+		case "yoffset":
+			out.append(OC_ex3_spritevar_yoffset)
+		default:
+			return bvNone(), Error("Invalid SpriteVar argument: " + c.token)
+		}
+		c.token = c.tokenizer(in)
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+	case "sprpriority": // TODO: This conflicts with sctrl name
 		out.append(OC_ex_, OC_ex_sprpriority)
 	case "stagebackedgedist", "stagebackedge": // Latter is deprecated
 		out.append(OC_ex_, OC_ex_stagebackedgedist)

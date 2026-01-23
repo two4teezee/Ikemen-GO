@@ -665,8 +665,8 @@ end
 main.nextRefresh = os.clock() + 0.02
 function main.f_loadingRefresh()
 	if os.clock() >= main.nextRefresh then
-		refresh()
 		textImgDraw(motif.title_info.loading.TextSpriteData)
+		refresh()
 		main.nextRefresh = os.clock() + 0.02
 	end
 end

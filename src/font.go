@@ -1264,17 +1264,3 @@ func (ts *TextSprite) Reset() {
 	}
 	ts.elapsedTicks = 0
 }
-
-func (ts *TextSprite) ApplyFontTuple(font [8]int32, fnt map[int]*Fnt) {
-	// font[0] = font id
-	if font[0] >= 0 {
-		if f, ok := fnt[int(font[0])]; ok && f != nil {
-			ts.fnt = f
-		}
-	}
-	// font[1] = bank, font[2] = align
-	ts.bank = font[1]
-	ts.align = font[2]
-	// font[3],font[4],font[5] = R,G,B,A
-	ts.SetColor(font[3], font[4], font[5], font[6])
-}

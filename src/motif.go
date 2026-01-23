@@ -395,12 +395,10 @@ type ItemProperties struct {
 	Spacing [2]float32      `ini:"spacing"`
 	Tween   TweenProperties `ini:"tween"`
 	Active  struct {
-		Font       [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-		Switchtime int32    `ini:"switchtime"`
+		TextMapProperties
+		Switchtime int32 `ini:"switchtime"`
 	} `ini:"active"`
-	Active2 struct {
-		Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-	} `ini:"active2"`
+	Active2   TextMapProperties   `ini:"active2"`
 	Cursor    AnimationProperties `ini:"cursor"`    // only used by [Select Info].pX.teammenu.item
 	Uppercase bool                `ini:"uppercase"` // only used by [Hiscore Info].item.name
 }
@@ -719,15 +717,13 @@ type SelectInfoProperties struct {
 		} `ini:"random"`
 		Randomselect int32 `ini:"randomselect"`
 		Active       struct {
-			Font       [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-			Switchtime int32    `ini:"switchtime"`
+			TextProperties
+			Switchtime int32 `ini:"switchtime"`
 		} `ini:"active"`
-		Active2 struct {
-			Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-		} `ini:"active2"`
-		Done struct {
-			Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-			Snd  [2]int32 `ini:"snd" default:"-1,0"`
+		Active2 TextProperties `ini:"active2"`
+		Done    struct {
+			TextProperties
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"done"`
 		Move struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
@@ -2095,12 +2091,19 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Select Info", SrcPrefix: "p2.face2.", DstSec: "Select Info", DstPrefix: "p2.face2.done."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.face.", DstSec: "Select Info", DstPrefix: "p1.palmenu.preview."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.face.", DstSec: "Select Info", DstPrefix: "p2.palmenu.preview."},
+		{SrcSec: "Select Info", SrcPrefix: "p1.teammenu.item.", DstSec: "Select Info", DstPrefix: "p1.teammenu.item.active."},
+		{SrcSec: "Select Info", SrcPrefix: "p1.teammenu.item.", DstSec: "Select Info", DstPrefix: "p1.teammenu.item.active2."},
+		{SrcSec: "Select Info", SrcPrefix: "p2.teammenu.item.", DstSec: "Select Info", DstPrefix: "p2.teammenu.item.active."},
+		{SrcSec: "Select Info", SrcPrefix: "p2.teammenu.item.", DstSec: "Select Info", DstPrefix: "p2.teammenu.item.active2."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p3."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p5."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p7."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p4."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p6."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p8."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.active."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.active2."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.done."},
 		// [VS Screen]
 		{SrcSec: "VS Screen", SrcPrefix: "p1.", DstSec: "VS Screen", DstPrefix: "p1.done."},
 		{SrcSec: "VS Screen", SrcPrefix: "p1.face2.", DstSec: "VS Screen", DstPrefix: "p1.face2.done."},
@@ -2122,6 +2125,13 @@ func (m *Motif) overrideParams() {
 		// [Dialogue Info]
 		{SrcSec: "Dialogue Info", SrcPrefix: "p1.face.", DstSec: "Dialogue Info", DstPrefix: "p1.face.active."},
 		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
+		// [Hiscore Info]
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.rank.", DstSec: "Hiscore Info", DstPrefix: "item.rank.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.rank.", DstSec: "Hiscore Info", DstPrefix: "item.rank.active2."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.result.", DstSec: "Hiscore Info", DstPrefix: "item.result.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.result.", DstSec: "Hiscore Info", DstPrefix: "item.result.active2."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active2."},
 	}
 	m.mergeWithInheritance(specs)
 	// Inheritance may add new font filenames; rerun resolver to map them to deduped font indices.
@@ -2395,7 +2405,8 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		// Titles & base text
 		offsetAnims(tm.Pos[0], tm.Pos[1], tm.SelfTitle.AnimData, tm.EnemyTitle.AnimData)
 		offsetTexts(tm.Pos[0], tm.Pos[1], tm.SelfTitle.TextSpriteData, tm.EnemyTitle.TextSpriteData)
-		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData)
+		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData, tm.Item.Active.TextSpriteData, tm.Item.Active2.TextSpriteData)
+
 		// Icons at (Pos + Item.Offset)
 		offX := tm.Pos[0] + tm.Item.Offset[0]
 		offY := tm.Pos[1] + tm.Item.Offset[1]
@@ -2429,11 +2440,11 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		adjustSelect(ps)
 	}
 
-	// Select Screen: Stage portrait
+	// Select Screen: Stage
 	{
 		st := &m.SelectInfo.Stage
 		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData, st.Portrait.Random.AnimData)
-		textSetPos(st.TextSpriteData, st.Pos[0], st.Pos[1])
+		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData, st.Active.TextSpriteData, st.Active2.TextSpriteData, st.Done.TextSpriteData)
 	}
 
 	// Menus
@@ -2493,6 +2504,12 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		st := &m.VsScreen.Stage
 		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData)
 		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData)
+	}
+
+	// Hiscore
+	{
+		hi := &m.HiscoreInfo
+		offsetTexts(hi.Pos[0], hi.Pos[1], hi.Item.Rank.TextSpriteData, hi.Item.Result.TextSpriteData, hi.Item.Name.TextSpriteData)
 	}
 }
 
@@ -4763,6 +4780,19 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.haveSaved = false
 }
 
+func (hi *MotifHiscore) makeRowTextSprite(tpl *TextSprite, x, y float32, text string) *TextSprite {
+	if tpl == nil {
+		return nil
+	}
+	ts := tpl.Copy()
+	if ts == nil {
+		return nil
+	}
+	ts.SetPos(x, y)
+	ts.text = text
+	return ts
+}
+
 func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs, noOverlay bool) {
 	//if !m.HiscoreInfo.Enabled || !hi.enabled {
 	//	hi.initialized = true
@@ -4869,14 +4899,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Rank.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Rank.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Rank.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Rank.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Rank.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Rank.Offset[0], rowYBase+m.HiscoreInfo.Item.Rank.Offset[1])
 				rankKey := Itoa(i + 1)
 				fmtStr, ok := m.HiscoreInfo.Item.Rank.Text[rankKey]
 				if !ok || fmtStr == "" {
@@ -4887,14 +4916,22 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				if m.HiscoreInfo.Item.Rank.Uppercase {
 					ts.text = strings.ToUpper(ts.text)
 				}
-			}
-			row.rankData = ts
-		}
-		// If this is the highlighted row, prepare Active/Active2 clones (same pos/text)
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.rankData != nil {
-				row.rankDataActive = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active.Font, m.Fnt)
-				row.rankDataActive2 = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active2.Font, m.Fnt)
+				row.rankData = ts
+				// If this is the highlighted row, prepare Active/Active2 from their own templates
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.rankDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Rank.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Rank.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Rank.Active.Offset[1],
+						ts.text,
+					)
+					row.rankDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Rank.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Rank.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Rank.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 
@@ -4902,14 +4939,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Result.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Result.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Result.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Result.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Result.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Result.Offset[0], rowYBase+m.HiscoreInfo.Item.Result.Offset[1])
 
 				fmtStr := m.HiscoreInfo.Item.Result.Text[dataType]
 				fmtStr = m.replaceFormatSpecifiers(fmtStr)
@@ -4928,13 +4964,21 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 					fmtStr = strings.ToUpper(fmtStr)
 				}
 				ts.text = fmtStr
-			}
-			row.resultData = ts
-		}
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.resultData != nil {
-				row.resultDataActive = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active.Font, m.Fnt)
-				row.resultDataActive2 = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active2.Font, m.Fnt)
+				row.resultData = ts
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.resultDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Result.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Result.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Result.Active.Offset[1],
+						ts.text,
+					)
+					row.resultDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Result.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Result.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Result.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 
@@ -4942,14 +4986,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Name.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Name.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Name.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Name.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Name.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Name.Offset[0], rowYBase+m.HiscoreInfo.Item.Name.Offset[1])
 				// If highlighted & input, start with glyph-based editable text; else use row.name from stats
 				if hi.input && int(hi.place-1) == i {
 					row.name = "" // TODO: this shouldn't be needed if we're appending new row
@@ -4963,13 +5006,21 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				if m.HiscoreInfo.Item.Name.Uppercase {
 					ts.text = strings.ToUpper(ts.text)
 				}
-			}
-			row.nameData = ts
-		}
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.nameData != nil {
-				row.nameDataActive = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active.Font, m.Fnt)
-				row.nameDataActive2 = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active2.Font, m.Fnt)
+				row.nameData = ts
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.nameDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Name.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Name.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Name.Active.Offset[1],
+						ts.text,
+					)
+					row.nameDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Name.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Name.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Name.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 	}
@@ -5393,15 +5444,6 @@ func parseRankingRows(path, mode string) []rankingRow {
 		return true
 	})
 	return out
-}
-
-func cloneWithFont(src *TextSprite, font [8]int32, fnt map[int]*Fnt) *TextSprite {
-	if src == nil {
-		return nil
-	}
-	dst := src.Copy()
-	dst.ApplyFontTuple(font, fnt)
-	return dst
 }
 
 func initialsWidth(fmtStr string) int {

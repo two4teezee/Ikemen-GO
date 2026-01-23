@@ -11461,6 +11461,7 @@ func (sc matchRestart) Run(c *Char, _ []int32) bool {
 			sys.reloadFlg = true
 		} else {
 			sys.roundResetFlg = true
+			sys.roundResetMatchStart = true
 		}
 	}
 	return false

@@ -1438,7 +1438,7 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 					return nil, err
 				}
 				if isActPal {
-					if (spriteList[i].Group == 0 && spriteList[i].Number == 0) {
+					if spriteList[i].Group == 0 && spriteList[i].Number == 0 {
 						spriteList[i].Pal = nil
 						spriteList[i].palidx = 0
 					}
@@ -1572,7 +1572,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 	// and lacks the engine's palInfo/cgi logic to properly isolate palette remapping during rendering.
 	parts := strings.SplitAfterN(c.def, "/", -1)
 	pathname := strings.Join(parts[:len(parts)-1], "")
-	
+
 	for x := 0; x < len(c.pal_files) && x < len(c.pal); x++ {
 		if c.pal_files[x] == "" {
 			continue

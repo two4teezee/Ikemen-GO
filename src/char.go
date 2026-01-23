@@ -4119,7 +4119,9 @@ func (c *Char) loadPalette() {
 					return nil, false
 				}
 				var alpha byte = 255
-				if i == 0 { alpha = 0 }
+				if i == 0 {
+					alpha = 0
+				}
 				pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
 			}
 			return pl, true
@@ -4171,7 +4173,7 @@ func (c *Char) loadPalette() {
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
-			
+
 			if pl, ok := readAct(&pal); ok {
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
@@ -8517,7 +8519,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 	// Init palette remap if needed
 	if pfx.remap == nil {
 		pfx.remap = make([]int, len(plist.paletteMap))
-        // This ensures that SFFv2 unique palettes are preserved
+		// This ensures that SFFv2 unique palettes are preserved
 		for i := range pfx.remap {
 			pfx.remap[i] = i
 		}

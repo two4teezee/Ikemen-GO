@@ -4256,7 +4256,7 @@ func (di *MotifDialogue) applyTokens(m *Motif, line *DialogueParsedLine) {
 				applied := di.applyToken(m, line, token, i)
 				if applied {
 					// remove token
-					tokenList = append(tokenList[:idx], tokenList[idx+1:]...)
+					tokenList = SliceDelete(tokenList, idx)
 				}
 			}
 			line.tokens[i] = tokenList

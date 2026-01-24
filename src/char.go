@@ -1198,10 +1198,10 @@ func (ghv GetHitVar) getJuggle(id, defaultJuggle int32) int32 {
 	return defaultJuggle
 }
 
-func (ghv *GetHitVar) dropId(id int32) {
+func (ghv *GetHitVar) dropPlayerId(id int32) {
 	for i, v := range ghv.targetedBy {
 		if v[0] == id {
-			ghv.targetedBy = append(ghv.targetedBy[:i], ghv.targetedBy[i+1:]...)
+			ghv.targetedBy = SliceDelete(ghv.targetedBy, i)
 			return
 		}
 	}
@@ -1209,7 +1209,7 @@ func (ghv *GetHitVar) dropId(id int32) {
 
 func (ghv *GetHitVar) addId(id, juggle int32) {
 	juggle = ghv.getJuggle(id, juggle)
-	ghv.dropId(id)
+	ghv.dropPlayerId(id)
 	ghv.targetedBy = append(ghv.targetedBy, [...]int32{id, juggle})
 }
 
@@ -6286,7 +6286,7 @@ func (c *Char) destroy() {
 	// Remove ID from target's GetHitVars
 	for _, tid := range c.targets {
 		if t := sys.playerID(tid); t != nil {
-			t.ghv.dropId(c.id)
+			t.ghv.dropPlayerId(c.id)
 		}
 	}
 
@@ -6960,6 +6960,7 @@ func (c *Char) spawnProjectile() *Projectile {
 	playerProjs := &sys.projs[c.playerNo]
 
 	// Reuse inactive projectile slot if available
+	// TODO: We could keep this slice compact like with explods
 	for i := range *playerProjs {
 		if (*playerProjs)[i].id < 0 {
 			p = (*playerProjs)[i]
@@ -7833,7 +7834,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 					tg = append(tg, tid)
 				} else {
 					t.gethitBindClear()
-					t.ghv.dropId(c.id)
+					t.ghv.dropPlayerId(c.id)
 				}
 			}
 		}
@@ -7850,7 +7851,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 					tg = append(tg, tid)
 				} else {
 					t.gethitBindClear()
-					t.ghv.dropId(c.id)
+					t.ghv.dropPlayerId(c.id)
 				}
 			}
 		}
@@ -7872,7 +7873,7 @@ func (c *Char) targetDrop(excludeid int32, excludechar int32, keepone bool) {
 					}
 					t.setBindTime(0)
 				}
-				t.ghv.dropId(c.id)
+				t.ghv.dropPlayerId(c.id)
 			}
 		}
 	} else {
@@ -9266,7 +9267,7 @@ func (c *Char) dropTargets() {
 func (c *Char) removeTarget(pid int32) {
 	for i, t := range c.targets {
 		if t == pid {
-			c.targets = append(c.targets[:i], c.targets[i+1:]...)
+			c.targets = SliceDelete(c.targets, i)
 			return
 		}
 	}
@@ -9398,7 +9399,7 @@ func (c *Char) getClsn(group int32) [][4]float32 {
 			if mod.index == -1 {
 				final = final[:0]
 			} else if mod.index >= 0 && mod.index < len(final) {
-				final = append(final[:mod.index], final[mod.index+1:]...)
+				final = SliceDelete(final, mod.index)
 			}
 
 		// Modify all existing boxes
@@ -10733,7 +10734,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					jg = v[1]
 				}
 			}
-			getter.ghv.dropId(origin.id)
+			getter.ghv.dropPlayerId(origin.id)
 			getter.ghv.targetedBy = append(getter.ghv.targetedBy, [...]int32{origin.id, jg - c.juggle})
 		}
 		if c.inheritJuggle == 1 && c.parent(false) != nil {

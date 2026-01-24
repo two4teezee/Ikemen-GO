@@ -1758,29 +1758,36 @@ func (s *System) clearAllSound() {
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds
 func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	if len(s.chars[pn]) > 0 {
-		p := s.chars[pn][0]
+		// These aren't "assets" but we'll do it here
+		for _, c := range s.chars[pn] {
+			c.targets = c.targets[:0]
+			c.soundChannels.SetSize(0)
+		}
+
+		// Destroy helpers
 		for _, h := range s.chars[pn][1:] {
-			h.soundChannels.SetSize(0)
+			// F4 now destroys "preserve" helpers when reloading round start backup
 			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
-			if !h.preserve || forceDestroy { // F4 now destroys "preserve" helpers when reloading round start backup
+			if !h.preserve || forceDestroy {
 				h.destroy()
 			}
 		}
-		if forceDestroy {
-			p.children = p.children[:0]
-		} else {
-			for i := len(p.children) - 1; i >= 0; i-- {
-				//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
-				if p.children[i] != nil && !p.children[i].preserve {
-					p.children = SliceDelete(p.children, i)
+
+		// Clear children "family tree"
+		// We only do this because helpers may be preserved
+		for _, c := range s.chars[pn] {
+			// Iterate backwards since we're removing items
+			for i := len(c.children) - 1; i >= 0; i-- {
+				if c.children[i].helperIndex < 0 {
+					c.children = SliceDelete(c.children, i)
 				}
 			}
 		}
-		p.targets = p.targets[:0]
-		p.soundChannels.SetSize(0)
 	}
-	s.projs[pn] = s.projs[pn][:0]
-	s.explods[pn] = s.explods[pn][:0]
+
+	// Clear projectiiles and explods
+	s.projs[pn] = PointerSliceReset(s.projs[pn])
+	s.explods[pn] = PointerSliceReset(s.explods[pn])
 }
 
 func (s *System) resetRoundState() {
@@ -2017,7 +2024,7 @@ func (s *System) charUpdate() {
 		for _, p := range s.projs[i] {
 			if p.id >= 0 {
 				p.playerno = i // Safeguard
-				p.update()
+				p.update() // TODO: We could prune inactive projectiles around here like with explods
 			}
 		}
 	}
@@ -2087,6 +2094,7 @@ func (s *System) runIntroSkip() {
 	}
 }
 
+// TODO: Maybe these could get a more thorough clear between matches, to prevent holding onto previous character sprites
 func (s *System) clearSpriteData() {
 	// Main sprites
 	s.spritesLayerN1 = s.spritesLayerN1[:0]
@@ -3001,7 +3009,8 @@ func (s *System) runMatch() (reload bool) {
 		s.allPalFX.enable = false
 		for i, p := range s.chars {
 			if len(p) > 0 {
-				s.clearPlayerAssets(i, s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0))
+				forceDestroy := s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0)
+				s.clearPlayerAssets(i, forceDestroy)
 			}
 		}
 	}()

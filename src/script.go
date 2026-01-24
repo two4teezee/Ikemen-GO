@@ -3124,16 +3124,8 @@ func systemScriptInit(l *lua.LState) {
 				return nil
 			}
 			exclude := map[string]bool{
-				"pause menu":      true,
+				"pause menu":          true,
 				"training pause menu": true,
-				"title info":      true,
-				"option info":     true,
-				"replay info":     true,
-				"select info":     true,
-				"challenger info": true,
-				"dialogue info":   true,
-				"warning info":    true,
-				"hiscore info":    true,
 			}
 			seen := map[string]bool{}
 			var out []string

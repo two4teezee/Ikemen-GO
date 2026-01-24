@@ -280,8 +280,6 @@ type GlyphProperties struct {
 
 type MenuProperties struct {
 	Pos   [2]float32      `ini:"pos" default:"1000,900"`
-	// When set, force menu elements to use motif localcoord defaults.
-	UseLocalcoord bool           `ini:"uselocalcoord"`
 	Tween TweenProperties `ini:"tween"`
 	Item  struct {
 		TextProperties
@@ -1294,71 +1292,71 @@ type WarningInfoProperties struct {
 }
 
 type Motif struct {
-	IniFile         *ini.File
-	UserIniFile     *ini.File
-	DefaultOnlyIni  *ini.File
-	AnimTable       AnimationTable
-	Sff             *Sff
-	Snd             *Snd
-	Fnt             map[int]*Fnt
-	GlyphsSff       *Sff
-	Model           *Model
-	Music           Music
-	Def             string                              `ini:"def"`
-	Info            InfoProperties                      `ini:"info"`
-	Files           FilesProperties                     `ini:"files"`
-	Languages       map[string]string                   `ini:"languages"`
-	TitleInfo       TitleInfoProperties                 `ini:"title_info"`
-	TitleBgDef      BgDefProperties                     `ini:"titlebgdef"`
-	InfoBox         InfoBoxProperties                   `ini:"infobox"`
-	SelectInfo      SelectInfoProperties                `ini:"select_info"`
-	SelectBgDef     BgDefProperties                     `ini:"selectbgdef"`
-	VsScreen        VsScreenProperties                  `ini:"vs_screen"`
-	VersusBgDef     BgDefProperties                     `ini:"versusbgdef"`
-	DemoMode        DemoModeProperties                  `ini:"demo_mode"`
-	ContinueScreen  ContinueScreenProperties            `ini:"continue_screen"`
-	ContinueBgDef   BgDefProperties                     `ini:"continuebgdef"`
-	GameOverScreen  StoryboardProperties                `ini:"game_over_screen"`
-	VictoryScreen   VictoryScreenProperties             `ini:"victory_screen"`
-	VictoryBgDef    BgDefProperties                     `ini:"victorybgdef"`
-	WinScreen       WinScreenProperties                 `ini:"win_screen"`
-	WinBgDef        BgDefProperties                     `ini:"winbgdef"`
-	DefaultEnding   StoryboardProperties                `ini:"default_ending"`
-	EndCredits      StoryboardProperties                `ini:"end_credits"`
-	ResultsScreen   map[string]*ResultsScreenProperties `ini:"map:^(?i).+results.*screen$" lua:"results_screen"`
-	ResultsBgDef    map[string]*BgDefProperties         `ini:"map:^(?i).+resultsbgdef$" lua:"resultsbgdef"`
-	OptionInfo      OptionInfoProperties                `ini:"option_info"`
-	OptionBgDef     BgDefProperties                     `ini:"optionbgdef"`
-	ReplayInfo      ReplayInfoProperties                `ini:"replay_info"`
-	ReplayBgDef     BgDefProperties                     `ini:"replaybgdef"`
-	MenuInfo            MenuInfoProperties                  `ini:"pause_menu" lua:"pause_menu"`
-	PauseMenuBgDef      BgDefProperties                     `ini:"pausemenubgdef"`
-	TrainingInfo        MenuInfoProperties                  `ini:"training_pause_menu" lua:"training_pause_menu"`
-	TrainingPauseBgDef  BgDefProperties                     `ini:"trainingpausemenubgdef"`
-	PauseMenuInfo       map[string]*MenuInfoProperties      `ini:"map:^(?i).+_pause_menu$" lua:"pause_menus"`
-	PauseMenuBgDefMap   map[string]*BgDefProperties         `ini:"map:^(?i).+pausemenubgdef$" lua:"pause_menu_bgdef"`
-	AttractMode     AttractModeProperties               `ini:"attract_mode"`
-	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
-	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
-	ChallengerBgDef BgDefProperties                     `ini:"challengerbgdef"`
-	DialogueInfo    DialogueInfoProperties              `ini:"dialogue_info"`
-	HiscoreInfo     HiscoreInfoProperties               `ini:"hiscore_info"`
-	HiscoreBgDef    BgDefProperties                     `ini:"hiscorebgdef"`
-	WarningInfo     WarningInfoProperties               `ini:"warning_info"`
-	Glyphs          map[string]*GlyphProperties         `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
-	fntIndexByKey   map[string]int                      // filepath|height -> index
-	ch              MotifChallenger
-	co              MotifContinue
-	de              MotifDemo
-	di              MotifDialogue
-	vi              MotifVictory
-	wi              MotifWin
-	hi              MotifHiscore
-	me              MotifMenu
-	fadeIn          *Fade
-	fadeOut         *Fade
-	fadePolicy      FadeStartPolicy
-	textsprite      []*TextSprite
+	IniFile            *ini.File
+	UserIniFile        *ini.File
+	DefaultOnlyIni     *ini.File
+	AnimTable          AnimationTable
+	Sff                *Sff
+	Snd                *Snd
+	Fnt                map[int]*Fnt
+	GlyphsSff          *Sff
+	Model              *Model
+	Music              Music
+	Def                string                              `ini:"def"`
+	Info               InfoProperties                      `ini:"info"`
+	Files              FilesProperties                     `ini:"files"`
+	Languages          map[string]string                   `ini:"languages"`
+	TitleInfo          TitleInfoProperties                 `ini:"title_info"`
+	TitleBgDef         BgDefProperties                     `ini:"titlebgdef"`
+	InfoBox            InfoBoxProperties                   `ini:"infobox"`
+	SelectInfo         SelectInfoProperties                `ini:"select_info"`
+	SelectBgDef        BgDefProperties                     `ini:"selectbgdef"`
+	VsScreen           VsScreenProperties                  `ini:"vs_screen"`
+	VersusBgDef        BgDefProperties                     `ini:"versusbgdef"`
+	DemoMode           DemoModeProperties                  `ini:"demo_mode"`
+	ContinueScreen     ContinueScreenProperties            `ini:"continue_screen"`
+	ContinueBgDef      BgDefProperties                     `ini:"continuebgdef"`
+	GameOverScreen     StoryboardProperties                `ini:"game_over_screen"`
+	VictoryScreen      VictoryScreenProperties             `ini:"victory_screen"`
+	VictoryBgDef       BgDefProperties                     `ini:"victorybgdef"`
+	WinScreen          WinScreenProperties                 `ini:"win_screen"`
+	WinBgDef           BgDefProperties                     `ini:"winbgdef"`
+	DefaultEnding      StoryboardProperties                `ini:"default_ending"`
+	EndCredits         StoryboardProperties                `ini:"end_credits"`
+	ResultsScreen      map[string]*ResultsScreenProperties `ini:"map:^(?i).+results.*screen$" lua:"results_screen"`
+	ResultsBgDef       map[string]*BgDefProperties         `ini:"map:^(?i).+resultsbgdef$" lua:"resultsbgdef"`
+	OptionInfo         OptionInfoProperties                `ini:"option_info"`
+	OptionBgDef        BgDefProperties                     `ini:"optionbgdef"`
+	ReplayInfo         ReplayInfoProperties                `ini:"replay_info"`
+	ReplayBgDef        BgDefProperties                     `ini:"replaybgdef"`
+	MenuInfo           MenuInfoProperties                  `ini:"pause_menu" lua:"pause_menu"`
+	PauseMenuBgDef     BgDefProperties                     `ini:"pausemenubgdef"`
+	TrainingInfo       MenuInfoProperties                  `ini:"training_pause_menu" lua:"training_pause_menu"`
+	TrainingPauseBgDef BgDefProperties                     `ini:"trainingpausemenubgdef"`
+	PauseMenuInfo      map[string]*MenuInfoProperties      `ini:"map:^(?i).+_pause_menu$" lua:"pause_menus"`
+	PauseMenuBgDefMap  map[string]*BgDefProperties         `ini:"map:^(?i).+pausemenubgdef$" lua:"pause_menu_bgdef"`
+	AttractMode        AttractModeProperties               `ini:"attract_mode"`
+	AttractBgDef       BgDefProperties                     `ini:"attractbgdef"`
+	ChallengerInfo     ChallengerInfoProperties            `ini:"challenger_info"`
+	ChallengerBgDef    BgDefProperties                     `ini:"challengerbgdef"`
+	DialogueInfo       DialogueInfoProperties              `ini:"dialogue_info"`
+	HiscoreInfo        HiscoreInfoProperties               `ini:"hiscore_info"`
+	HiscoreBgDef       BgDefProperties                     `ini:"hiscorebgdef"`
+	WarningInfo        WarningInfoProperties               `ini:"warning_info"`
+	Glyphs             map[string]*GlyphProperties         `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
+	fntIndexByKey      map[string]int                      // filepath|height -> index
+	ch                 MotifChallenger
+	co                 MotifContinue
+	de                 MotifDemo
+	di                 MotifDialogue
+	vi                 MotifVictory
+	wi                 MotifWin
+	hi                 MotifHiscore
+	me                 MotifMenu
+	fadeIn             *Fade
+	fadeOut            *Fade
+	fadePolicy         FadeStartPolicy
+	textsprite         []*TextSprite
 }
 
 // hasUserKey returns true if the given key exists in `section` of the INI.
@@ -1652,10 +1650,6 @@ func loadMotif(def string) (*Motif, error) {
 						continue
 					}
 				}
-				// For legacy pause menu sections, ensure menu.uselocalcoord defaults on the alias.
-				if strings.EqualFold(oldBase, "Menu Info") && !newSec.HasKey("menu.uselocalcoord") {
-					_, _ = newSec.NewKey("menu.uselocalcoord", "1")
-				}
 			}
 			return found
 		}
@@ -1671,6 +1665,59 @@ func loadMotif(def string) (*Motif, error) {
 		if aliasSection(userIniFile, "TrainingBgDef", "TrainingPauseMenuBGdef") {
 			sys.errLog.Printf("Legacy section [TrainingBgDef] detected; use [TrainingPauseMenuBGdef] instead.")
 		}
+		// Seed defaults for custom [<gamemode> Pause Menu] sections before merging user values.
+		seedPauseMenuDefaults := func(user, defaults, merged *ini.File) {
+			if user == nil || defaults == nil || merged == nil {
+				return
+			}
+			baseDefaults, err := defaults.GetSection("Pause Menu")
+			if err != nil || baseDefaults == nil {
+				return
+			}
+			isCustomPauseMenu := func(name string) (string, bool) {
+				if name == ini.DEFAULT_SECTION {
+					return "", false
+				}
+				lang, base, _ := splitLangPrefix(name)
+				base = strings.TrimSpace(base)
+				lower := strings.ToLower(base)
+				if !strings.HasSuffix(lower, " pause menu") {
+					return "", false
+				}
+				if lower == "pause menu" || lower == "training pause menu" {
+					return "", false
+				}
+				if lang != "" {
+					return lang + "." + base, true
+				}
+				return base, true
+			}
+			copySection := func(dst *ini.File, secName string) {
+				if _, err := dst.GetSection(secName); err == nil {
+					return
+				}
+				newSec, err := dst.NewSection(secName)
+				if err != nil || newSec == nil {
+					return
+				}
+				for _, k := range baseDefaults.Keys() {
+					if newSec.HasKey(k.Name()) {
+						continue
+					}
+					_, _ = newSec.NewKey(k.Name(), k.Value())
+				}
+			}
+			for _, s := range user.Sections() {
+				name := s.Name()
+				secName, ok := isCustomPauseMenu(name)
+				if !ok {
+					continue
+				}
+				copySection(defaults, secName)
+				copySection(merged, secName)
+			}
+		}
+		seedPauseMenuDefaults(userIniFile, defaultOnlyIni, iniFile)
 		overlayUserFirstWins(iniFile, userIniFile)
 
 		return nil
@@ -1827,7 +1874,6 @@ func loadMotif(def string) (*Motif, error) {
 
 	m.overrideParams()
 	m.fixLocalcoordOverrides()
-	m.applyMenuUseLocalcoord()
 	m.applyGlyphDefaultsFromMovelist()
 	m.populateDataPointers()
 	m.applyPostParsePosAdjustments()
@@ -1962,62 +2008,6 @@ func (m *Motif) fixLocalcoordOverrides() {
 
 // applyMenuUseLocalcoord forces menu-related localcoord keys to inherit motif localcoord
 // when menu.uselocalcoord is enabled in a section.
-func (m *Motif) applyMenuUseLocalcoord() {
-	if m == nil {
-		return
-	}
-	zeroLocalcoord := func(mi *MenuInfoProperties) {
-		if mi == nil {
-			return
-		}
-		mi.Title.Localcoord = [2]int32{0, 0}
-		mi.Overlay.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Active.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Selected.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Selected.Active.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Value.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Value.Active.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Value.Conflict.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Info.Localcoord = [2]int32{0, 0}
-		mi.Menu.Item.Info.Active.Localcoord = [2]int32{0, 0}
-		for _, ap := range mi.Menu.Item.Bg {
-			if ap != nil {
-				ap.Localcoord = [2]int32{0, 0}
-			}
-		}
-		for _, ap := range mi.Menu.Item.Active.Bg {
-			if ap != nil {
-				ap.Localcoord = [2]int32{0, 0}
-			}
-		}
-		mi.Menu.BoxCursor.Localcoord = [2]int32{0, 0}
-		mi.Menu.BoxBg.Localcoord = [2]int32{0, 0}
-		mi.Menu.Arrow.Up.Localcoord = [2]int32{0, 0}
-		mi.Menu.Arrow.Down.Localcoord = [2]int32{0, 0}
-
-		mi.Movelist.Title.Localcoord = [2]int32{0, 0}
-		mi.Movelist.Text.Localcoord = [2]int32{0, 0}
-		mi.Movelist.Glyphs.Localcoord = [2]int32{0, 0}
-		mi.Movelist.Overlay.Localcoord = [2]int32{0, 0}
-		mi.Movelist.Arrow.Up.Localcoord = [2]int32{0, 0}
-		mi.Movelist.Arrow.Down.Localcoord = [2]int32{0, 0}
-	}
-
-	if m.MenuInfo.Menu.UseLocalcoord {
-		zeroLocalcoord(&m.MenuInfo)
-	}
-	if m.TrainingInfo.Menu.UseLocalcoord {
-		zeroLocalcoord(&m.TrainingInfo)
-	}
-	if m.PauseMenuInfo != nil {
-		for _, pm := range m.PauseMenuInfo {
-			if pm != nil && pm.Menu.UseLocalcoord {
-				zeroLocalcoord(pm)
-			}
-		}
-	}
-}
 
 // InheritSpec describes how to inherit keys from one prefix to another inside the given INI sections.
 // Example: srcSec="Option Info", srcPrefix="menu.", dstSec="Option Info", dstPrefix="keymenu.menu."
@@ -2253,18 +2243,9 @@ func (m *Motif) customPauseMenuSections() []string {
 		return nil
 	}
 	// Sections ending with " Pause Menu" (case-insensitive) are considered pause menus
-	// unless they are known built-in sections.
 	exclude := map[string]bool{
-		"pause menu":     true,
+		"pause menu":          true,
 		"training pause menu": true,
-		"title info":     true,
-		"option info":    true,
-		"replay info":    true,
-		"select info":    true,
-		"challenger info": true,
-		"dialogue info":  true,
-		"warning info":   true,
-		"hiscore info":   true,
 	}
 	seen := map[string]bool{}
 	var out []string

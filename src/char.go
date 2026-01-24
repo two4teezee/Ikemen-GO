@@ -5383,7 +5383,7 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = textid.ToI(), 0
-	for _, ts := range sys.motif.textsprite {
+	for _, ts := range sys.chartexts {
 		if ts.id == id && ts.ownerid == c.id {
 			n++
 		}
@@ -6331,7 +6331,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if removetexts {
-		sys.motif.removeText(-1, -1, c.id)
+		sys.removeCharText(-1, -1, c.id)
 	}
 
 	if recursive {

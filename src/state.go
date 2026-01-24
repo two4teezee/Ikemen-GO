@@ -117,6 +117,7 @@ type GameState struct {
 	charData   [MaxPlayerNo][]Char
 	projs      [MaxPlayerNo][]*Projectile
 	explods    [MaxPlayerNo][]*Explod
+	chartexts  []*TextSprite
 	aiInput    [MaxPlayerNo]AiInput
 	ffbParams  [MaxPlayerNo]ForceFeedbackParams
 	inputRemap [MaxPlayerNo]int
@@ -295,14 +296,15 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.curPlayTime = gs.curPlayTime
 
 	gs.loadCharData(a, gsp)
+	gs.loadProjectileData(a, gsp)
 	gs.loadExplodData(a, gsp)
+	gs.loadCharTextData(a, gsp)
 	sys.cam = gs.cam
 
 	gs.loadPauseData()
 	gs.loadSuperPauseData()
 
 	gs.loadPalFX(a)
-	gs.loadProjectileData(a, gsp)
 	sys.aiLevel = gs.aiLevel
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
@@ -536,14 +538,15 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.curPlayTime = sys.curPlayTime
 
 	gs.saveCharData(a, gsp)
+	gs.saveProjectileData(a, gsp)
 	gs.saveExplodData(a, gsp)
+	gs.saveCharTextData(a)
 	gs.cam = sys.cam
 
 	gs.savePauseData()
 	gs.saveSuperPauseData()
 
 	gs.savePalFX(a)
-	gs.saveProjectileData(a, gsp)
 
 	gs.aiLevel = sys.aiLevel
 	gs.envShake = sys.envShake
@@ -813,6 +816,13 @@ func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 	}
 }
 
+func (gs *GameState) saveCharTextData(a *arena.Arena) {
+	gs.chartexts = arena.MakeSlice[*TextSprite](a, len(sys.chartexts), len(sys.chartexts))
+	for i := range sys.chartexts {
+		gs.chartexts[i] = cloneTextSprite(a, sys.chartexts[i])
+	}
+}
+
 func (gs *GameState) loadPalFX(a *arena.Arena) {
 	sys.allPalFX = gs.allPalFX.Clone(a)
 	sys.bgPalFX = gs.bgPalFX.Clone(a)
@@ -865,6 +875,15 @@ func (gs *GameState) loadPauseData() {
 	sys.pauseplayerno = gs.pauseplayerno
 }
 
+func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
+	for i := range gs.projs {
+		sys.projs[i] = arena.MakeSlice[*Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
+		for j := range gs.projs[i] {
+			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
+		}
+	}
+}
+
 func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.explods {
 		sys.explods[i] = arena.MakeSlice[*Explod](a, len(gs.explods[i]), len(gs.explods[i]))
@@ -874,12 +893,10 @@ func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	}
 }
 
-func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
-	for i := range gs.projs {
-		sys.projs[i] = arena.MakeSlice[*Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
-		for j := range gs.projs[i] {
-			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
-		}
+func (gs *GameState) loadCharTextData(a *arena.Arena, gsp *GameStatePool) {
+	sys.chartexts = arena.MakeSlice[*TextSprite](a, len(gs.chartexts), len(gs.chartexts))
+	for i := range gs.chartexts {
+		sys.chartexts[i] = cloneTextSprite(a, gs.chartexts[i])
 	}
 }
 

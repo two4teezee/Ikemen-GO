@@ -12457,13 +12457,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// Do nothing if text limit reached
-	if len(sys.motif.textsprite) >= sys.cfg.Config.TextMax {
+	if len(sys.chartexts) >= sys.cfg.Config.TextMax {
 		return false
 	}
 
 	ts := NewTextSprite()
 	ts.ownerid = crun.id
-	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
+	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3])) // TODO: Default to char localcoord instead
 	ts.params = []interface{}{}
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
@@ -12614,7 +12614,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
-	sys.motif.textsprite = append(sys.motif.textsprite, ts)
+	sys.chartexts = append(sys.chartexts, ts)
 	return false
 }
 
@@ -12729,7 +12729,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			return true
 		default:
 			if len(texts) == 0 {
-				for _, ts := range sys.motif.textsprite {
+				for _, ts := range sys.chartexts {
 					if ts.ownerid != crun.id {
 						continue
 					}
@@ -12973,6 +12973,7 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 
 	tid := int32(-1)
 	idx := int32(-1)
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case removetext_id:
@@ -12982,7 +12983,8 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	sys.motif.removeText(tid, idx, crun.id)
+
+	sys.removeCharText(tid, idx, crun.id)
 	return false
 }
 

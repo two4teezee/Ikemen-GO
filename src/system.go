@@ -215,6 +215,7 @@ type System struct {
 	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
+	chartexts               []*TextSprite // From text sctrl. TODO: We could split this one by player as well
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -1801,6 +1802,7 @@ func (s *System) resetRoundState() {
 
 	s.resetGblEffect()
 	s.lifebar.reset()
+	s.chartexts = []*TextSprite{}
 	s.motif.reset()
 	s.saveStateFlag = false
 	s.loadStateFlag = false
@@ -2259,6 +2261,7 @@ func (s *System) action() {
 
 	s.charList.cueDraw()
 	s.explodUpdate()
+	s.UpdateCharTexts()
 
 	// Adjust game speed
 	if s.tickNextFrame() {
@@ -2327,6 +2330,51 @@ func (s *System) explodUpdate() {
 		}
 		s.explods[i] = tempSlice
 	}
+}
+
+func (s *System) UpdateCharTexts() {
+	// Explod timers update at this time, so we'll do the same here
+	if sys.tickFrame() {
+		tempSlice := s.chartexts[:0]
+
+		for _, ts := range s.chartexts {
+			ts.Update()
+			if ts.removetime != 0 {
+				tempSlice = append(tempSlice, ts) // Keep this text
+				if ts.removetime > 0 {
+					ts.removetime--
+				}
+			}
+		}
+
+		s.chartexts = tempSlice
+	}
+}
+
+func (s *System) removeCharText(id, index, ownerid int32) {
+	n := int32(0)
+
+	// Mark matching texts invalid
+	for _, ts := range s.chartexts {
+		if (id == -1 && ts.ownerid == ownerid) || (id != -1 && ts.id == id && ts.ownerid == ownerid) {
+			if index < 0 || index == n {
+				ts.id = IErr
+				if index == n {
+					break
+				}
+			}
+			n++
+		}
+	}
+
+	// Compact the slice to remove invalid texts
+	tempSlice := s.chartexts[:0] // Reuse backing array
+	for _, ts := range s.chartexts {
+		if ts.id != IErr {
+			tempSlice = append(tempSlice, ts)
+		}
+	}
+	s.chartexts = tempSlice
 }
 
 func (s *System) globalTick() {
@@ -2703,8 +2751,6 @@ func (s *System) roundEndDecision() bool {
 }
 
 func (s *System) draw(x, y, scl float32) {
-	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
-
 	s.brightnessOld = s.brightness
 	//s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
 	s.brightness = 1.0
@@ -2713,11 +2759,13 @@ func (s *System) draw(x, y, scl float32) {
 	}
 
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
+
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
 	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
 	//}
+
 	if s.envcol_time == 0 {
-		c := uint32(0)
+		fcol := uint32(0)
 
 		// Draw stage background fill if stage is disabled
 		if s.gsf(GSF_nobg) {
@@ -2729,9 +2777,9 @@ func (s *System) draw(x, y, scl float32) {
 				for i, v := range rgb {
 					rgb[i] = Clamp((v+s.allPalFX.eAdd[i])*s.allPalFX.eMul[i]>>8, 0, 0xff)
 				}
-				c = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
+				fcol = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
 			}
-			FillRect(s.scrrect, c, [2]int32{255, 0})
+			FillRect(s.scrrect, fcol, [2]int32{255, 0})
 		}
 
 		// Draw normal stage background fill and elements with layerNo == -1
@@ -2739,8 +2787,8 @@ func (s *System) draw(x, y, scl float32) {
 			if s.stage.debugbg {
 				FillRect(s.scrrect, 0xff00ff, [2]int32{255, 0})
 			} else {
-				c = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
-				FillRect(s.scrrect, c, [2]int32{255, 0})
+				fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
+				FillRect(s.scrrect, fcol, [2]int32{255, 0})
 			}
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
@@ -2767,6 +2815,9 @@ func (s *System) draw(x, y, scl float32) {
 
 		// Draw lifebar layer -1
 		s.lifebar.draw(-1)
+
+		// Draw char texts layer -1
+		s.drawCharTexts(-1)
 
 		// Draw motif layer -1
 		s.motif.draw(-1)
@@ -2818,11 +2869,17 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw lifebar layer 0
 		s.lifebar.draw(0)
 
+		// Draw char texts layer 0
+		s.drawCharTexts(0)
+
 		// Draw motif layer 0
 		s.motif.draw(0)
 	}
+
+
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
+		ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
 		FillRect(s.scrrect, ecol, [2]int32{255, 0})
 	}
 
@@ -2837,6 +2894,9 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw lifebar layer 1
 	s.lifebar.draw(1)
 
+	// Draw char texts layer 1
+	s.drawCharTexts(1)
+
 	// Draw motif layer 1
 	s.motif.draw(1)
 
@@ -2846,11 +2906,22 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw lifebar layer 2
 	s.lifebar.draw(2)
 
+	// Draw char texts layer 2
+	s.drawCharTexts(2)
+
 	// Draw motif layer 2
 	s.motif.draw(2)
 
 	// Draw motif layer 3
 	s.motif.draw(3)
+}
+
+// TODO: These seem to draw twice at lower game speeds
+// Possibly because they are drawn directly instead of using draw lists
+func (s *System) drawCharTexts(layerno int16) {
+	for _, ts := range s.chartexts {
+		ts.Draw(layerno)
+	}
 }
 
 func (s *System) drawTop() {

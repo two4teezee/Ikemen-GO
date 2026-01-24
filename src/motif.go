@@ -1353,7 +1353,6 @@ type Motif struct {
 	fadeIn          *Fade
 	fadeOut         *Fade
 	fadePolicy      FadeStartPolicy
-	textsprite      []*TextSprite
 }
 
 // hasUserKey returns true if the given key exists in `section` of the INI.
@@ -2842,7 +2841,6 @@ func (mo *Motif) processStateTransitionsBySide(p1State, p1TeammateState, p2State
 }
 
 func (m *Motif) reset() {
-	m.textsprite = []*TextSprite{}
 	if m.IniFile == nil {
 		return
 	}
@@ -2896,55 +2894,9 @@ func (m *Motif) step() {
 	if m.co.active {
 		m.co.step(m)
 	}
-	m.UpdateText()
 	if sys.storyboard.active {
 		sys.storyboard.step()
 	}
-}
-
-func (m *Motif) UpdateText() {
-	// Explod timers update at this time, so we'll do the same here
-	if sys.tickNextFrame() {
-		tempSlice := m.textsprite[:0]
-
-		for _, ts := range m.textsprite {
-			ts.Update()
-			if ts.removetime != 0 {
-				tempSlice = append(tempSlice, ts) // Keep this text
-				if ts.removetime > 0 {
-					ts.removetime--
-				}
-			}
-		}
-
-		m.textsprite = tempSlice
-	}
-}
-
-func (m *Motif) removeText(id, index, ownerid int32) {
-	n := int32(0)
-
-	// Mark matching texts invalid
-	for _, ts := range m.textsprite {
-		if (id == -1 && ts.ownerid == ownerid) || (id != -1 && ts.id == id && ts.ownerid == ownerid) {
-			if index < 0 || index == n {
-				ts.id = IErr
-				if index == n {
-					break
-				}
-			}
-			n++
-		}
-	}
-
-	// Compact the slice to remove invalid texts
-	tempSlice := m.textsprite[:0] // Reuse backing array
-	for _, ts := range m.textsprite {
-		if ts.id != IErr {
-			tempSlice = append(tempSlice, ts)
-		}
-	}
-	m.textsprite = tempSlice
 }
 
 // drawAspectBars renders black bars when the fight aspect and motif aspect differ.
@@ -3024,9 +2976,6 @@ func (m *Motif) draw(layerno int16) {
 	}
 	if m.co.active {
 		m.co.draw(m, layerno)
-	}
-	for _, v := range m.textsprite {
-		v.Draw(layerno)
 	}
 	if sys.storyboard.active {
 		sys.storyboard.draw(layerno)

@@ -912,14 +912,6 @@ func (m *Motif) Clone(a *arena.Arena) (result Motif) {
 		result.wi = sys.motif.wi
 	}
 
-	// TextSprite
-	if m.textsprite != nil {
-		result.textsprite = arena.MakeSlice[*TextSprite](a, len(m.textsprite), len(m.textsprite))
-		for i := 0; i < len(m.textsprite); i++ {
-			result.textsprite[i] = cloneTextSprite(a, m.textsprite[i])
-		}
-	}
-
 	return
 }
 

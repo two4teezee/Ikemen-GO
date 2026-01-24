@@ -1191,7 +1191,7 @@ func (ts *TextSprite) Update() {
 }
 
 func (ts *TextSprite) Draw(ln int16) {
-	if sys.frameSkip || ts.fnt == nil || len(ts.text) == 0 || ts.layerno != ln {
+	if sys.frameSkip || ts.layerno != ln || ts.fnt == nil || len(ts.text) == 0 {
 		return
 	}
 

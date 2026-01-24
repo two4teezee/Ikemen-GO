@@ -280,6 +280,8 @@ type GlyphProperties struct {
 
 type MenuProperties struct {
 	Pos   [2]float32      `ini:"pos" default:"1000,900"`
+	// When set, force menu elements to use motif localcoord defaults.
+	UseLocalcoord bool           `ini:"uselocalcoord"`
 	Tween TweenProperties `ini:"tween"`
 	Item  struct {
 		TextProperties
@@ -1333,6 +1335,7 @@ type Motif struct {
 	MenuBgDef       BgDefProperties                     `ini:"menubgdef"`
 	TrainingInfo    MenuInfoProperties                  `ini:"training_info"`
 	TrainingBgDef   BgDefProperties                     `ini:"trainingbgdef"`
+	PauseMenuInfo   map[string]*MenuInfoProperties      `ini:"map:^(?i).+_info$" lua:"pause_menu_info"`
 	AttractMode     AttractModeProperties               `ini:"attract_mode"`
 	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
 	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
@@ -1767,6 +1770,7 @@ func loadMotif(def string) (*Motif, error) {
 
 	m.overrideParams()
 	m.fixLocalcoordOverrides()
+	m.applyMenuUseLocalcoord()
 	m.applyGlyphDefaultsFromMovelist()
 	m.populateDataPointers()
 	m.applyPostParsePosAdjustments()
@@ -1894,6 +1898,65 @@ func (m *Motif) fixLocalcoordOverrides() {
 
 			if err := m.SetValueUpdate(query, "0, 0"); err != nil {
 				fmt.Printf("Warning: failed to reset localcoord for %s: %v\n", query, err)
+			}
+		}
+	}
+}
+
+// applyMenuUseLocalcoord forces menu-related localcoord keys to inherit motif localcoord
+// when menu.uselocalcoord is enabled in a section.
+func (m *Motif) applyMenuUseLocalcoord() {
+	if m == nil {
+		return
+	}
+	zeroLocalcoord := func(mi *MenuInfoProperties) {
+		if mi == nil {
+			return
+		}
+		mi.Title.Localcoord = [2]int32{0, 0}
+		mi.Overlay.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Active.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Selected.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Selected.Active.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Value.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Value.Active.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Value.Conflict.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Info.Localcoord = [2]int32{0, 0}
+		mi.Menu.Item.Info.Active.Localcoord = [2]int32{0, 0}
+		for _, ap := range mi.Menu.Item.Bg {
+			if ap != nil {
+				ap.Localcoord = [2]int32{0, 0}
+			}
+		}
+		for _, ap := range mi.Menu.Item.Active.Bg {
+			if ap != nil {
+				ap.Localcoord = [2]int32{0, 0}
+			}
+		}
+		mi.Menu.BoxCursor.Localcoord = [2]int32{0, 0}
+		mi.Menu.BoxBg.Localcoord = [2]int32{0, 0}
+		mi.Menu.Arrow.Up.Localcoord = [2]int32{0, 0}
+		mi.Menu.Arrow.Down.Localcoord = [2]int32{0, 0}
+
+		mi.Movelist.Title.Localcoord = [2]int32{0, 0}
+		mi.Movelist.Text.Localcoord = [2]int32{0, 0}
+		mi.Movelist.Glyphs.Localcoord = [2]int32{0, 0}
+		mi.Movelist.Overlay.Localcoord = [2]int32{0, 0}
+		mi.Movelist.Arrow.Up.Localcoord = [2]int32{0, 0}
+		mi.Movelist.Arrow.Down.Localcoord = [2]int32{0, 0}
+	}
+
+	if m.MenuInfo.Menu.UseLocalcoord {
+		zeroLocalcoord(&m.MenuInfo)
+	}
+	if m.TrainingInfo.Menu.UseLocalcoord {
+		zeroLocalcoord(&m.TrainingInfo)
+	}
+	if m.PauseMenuInfo != nil {
+		for _, pm := range m.PauseMenuInfo {
+			if pm != nil && pm.Menu.UseLocalcoord {
+				zeroLocalcoord(pm)
 			}
 		}
 	}
@@ -2120,9 +2183,58 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Dialogue Info", SrcPrefix: "p1.face.", DstSec: "Dialogue Info", DstPrefix: "p1.face.active."},
 		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
 	}
+	for _, sec := range m.customPauseMenuSections() {
+		specs = append(specs, InheritSpec{SrcSec: "Menu Info", SrcPrefix: "", DstSec: sec, DstPrefix: ""})
+	}
 	m.mergeWithInheritance(specs)
 	// Inheritance may add new font filenames; rerun resolver to map them to deduped font indices.
 	//resolveInlineFonts(m.IniFile, m.Def, m.Fnt, m.fntIndexByKey, m.SetValueUpdate)
+}
+
+func (m *Motif) customPauseMenuSections() []string {
+	if m == nil || m.UserIniFile == nil {
+		return nil
+	}
+	// Sections ending with " Info" (case-insensitive) are considered pause menus
+	// unless they are known built-in sections.
+	exclude := map[string]bool{
+		"menu info":      true,
+		"training info":  true,
+		"title info":     true,
+		"option info":    true,
+		"replay info":    true,
+		"select info":    true,
+		"challenger info": true,
+		"dialogue info":  true,
+		"warning info":   true,
+		"hiscore info":   true,
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range m.UserIniFile.Sections() {
+		raw := s.Name()
+		if raw == ini.DEFAULT_SECTION {
+			continue
+		}
+		_, base, _ := splitLangPrefix(raw)
+		base = strings.TrimSpace(base)
+		if base == "" {
+			continue
+		}
+		lower := strings.ToLower(base)
+		if !strings.HasSuffix(lower, " info") {
+			continue
+		}
+		if exclude[lower] {
+			continue
+		}
+		if seen[lower] {
+			continue
+		}
+		seen[lower] = true
+		out = append(out, base)
+	}
+	return out
 }
 
 // Initialize struct
@@ -2380,6 +2492,14 @@ func (m *Motif) applyPostParsePosAdjustments() {
 			animSetPos(ap.AnimData, dx, dy)
 		}
 	}
+	shiftMovelist := func(mv *MenuInfoProperties) {
+		if mv == nil {
+			return
+		}
+		ml := &mv.Movelist
+		offsetAnims(ml.Pos[0], ml.Pos[1], ml.Arrow.Up.AnimData, ml.Arrow.Down.AnimData)
+		offsetTexts(ml.Pos[0], ml.Pos[1], ml.Title.TextSpriteData, ml.Text.TextSpriteData)
+	}
 	adjustSelect := func(ps *PlayerSelectProperties) {
 		tm := &ps.TeamMenu
 		// TeamMenu backgrounds
@@ -2445,6 +2565,14 @@ func (m *Motif) applyPostParsePosAdjustments() {
 	} {
 		shiftMenu(me)
 	}
+	if m.PauseMenuInfo != nil {
+		for _, pm := range m.PauseMenuInfo {
+			if pm == nil {
+				continue
+			}
+			shiftMenu(&pm.Menu)
+		}
+	}
 
 	// KeyMenu
 	{
@@ -2455,13 +2583,13 @@ func (m *Motif) applyPostParsePosAdjustments() {
 
 	// Movelists (MenuInfo, TrainingInfo)
 	{
-		mv := &m.MenuInfo.Movelist
-		offsetAnims(mv.Pos[0], mv.Pos[1], mv.Arrow.Up.AnimData, mv.Arrow.Down.AnimData)
-		offsetTexts(mv.Pos[0], mv.Pos[1], mv.Title.TextSpriteData, mv.Text.TextSpriteData)
-
-		mv2 := &m.TrainingInfo.Movelist
-		offsetAnims(mv2.Pos[0], mv2.Pos[1], mv2.Arrow.Up.AnimData, mv2.Arrow.Down.AnimData)
-		offsetTexts(mv2.Pos[0], mv2.Pos[1], mv2.Title.TextSpriteData, mv2.Text.TextSpriteData)
+		shiftMovelist(&m.MenuInfo)
+		shiftMovelist(&m.TrainingInfo)
+		if m.PauseMenuInfo != nil {
+			for _, pm := range m.PauseMenuInfo {
+				shiftMovelist(pm)
+			}
+		}
 	}
 
 	// VS Screen: player name positions

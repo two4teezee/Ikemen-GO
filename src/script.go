@@ -3101,6 +3101,64 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		}
+		hasIniPrefix := func(file *ini.File, sec, pref string) bool {
+			if file == nil || sec == "" {
+				return false
+			}
+			lp := strings.ToLower(pref)
+			for _, secName := range ResolveLangSectionNames(file, sec, SelectedLanguage()) {
+				s, err := file.GetSection(secName)
+				if err != nil || s == nil {
+					continue
+				}
+				for _, k := range s.Keys() {
+					if strings.HasPrefix(strings.ToLower(k.Name()), lp) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+		customPauseMenuSections := func(file *ini.File) []string {
+			if file == nil {
+				return nil
+			}
+			exclude := map[string]bool{
+				"menu info":       true,
+				"training info":   true,
+				"title info":      true,
+				"option info":     true,
+				"replay info":     true,
+				"select info":     true,
+				"challenger info": true,
+				"dialogue info":   true,
+				"warning info":    true,
+				"hiscore info":    true,
+			}
+			seen := map[string]bool{}
+			var out []string
+			for _, s := range file.Sections() {
+				raw := s.Name()
+				if raw == ini.DEFAULT_SECTION {
+					continue
+				}
+				_, base, _ := splitLangPrefix(raw)
+				base = strings.TrimSpace(base)
+				if base == "" {
+					continue
+				}
+				lower := strings.ToLower(base)
+				if !strings.HasSuffix(lower, " info") {
+					continue
+				}
+				if exclude[lower] || seen[lower] {
+					continue
+				}
+				seen[lower] = true
+				out = append(out, base)
+			}
+			return out
+		}
 
 		// values: defaults baseline + non-empty user overlays
 		populateItemName := func(sec string, path []string, pref, mode string, root *lua.LTable) {
@@ -3420,6 +3478,17 @@ func systemScriptInit(l *lua.LState) {
 		for _, s := range mi {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
 			buildFlatOrder(s.sec, s.path, "menu.itemname.", lTable)
+		}
+		for _, sec := range customPauseMenuSections(sys.motif.UserIniFile) {
+			key := normalizeSectionName(sec)
+			path := []string{"pause_menu_info", key, "menu"}
+			if hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
+				populateItemName(sec, path, "menu.itemname.", "flat", lTable)
+				buildFlatOrder(sec, path, "menu.itemname.", lTable)
+			} else {
+				populateItemName("Menu Info", path, "menu.itemname.", "flat", lTable)
+				buildFlatOrder("Menu Info", path, "menu.itemname.", lTable)
+			}
 		}
 		populateItemName("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", "flat", lTable)
 		buildFlatOrder("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", lTable)

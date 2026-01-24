@@ -361,9 +361,55 @@ menu.t_menus = {
 	{id = 'menu', sec = motif.menu_info, bg = motif.menubgdef, movelist = true},
 	{id = 'training', sec = motif.training_info, bg = motif.trainingbgdef, movelist = true},
 }
+menu.t_menuIndex = {}
+
+local function f_pauseMenuKey(gamemodeName)
+	gamemodeName = tostring(gamemodeName or ''):lower()
+	gamemodeName = gamemodeName:gsub('%s+', '_')
+	if gamemodeName == '' then
+		return ''
+	end
+	return gamemodeName .. '_info'
+end
+
+local function f_pauseMenuIdFromKey(key)
+	key = tostring(key or ''):lower()
+	if key:sub(-5) == '_info' then
+		key = key:sub(1, -6)
+	end
+	return key
+end
+
+local function f_registerPauseMenu(id, sec, bg, movelist)
+	if id == '' or sec == nil then
+		return
+	end
+	for i = 1, #menu.t_menus do
+		if menu.t_menus[i].id == id then
+			return
+		end
+	end
+	table.insert(menu.t_menus, {id = id, sec = sec, bg = bg, movelist = movelist})
+end
+
+local function f_indexPauseMenus()
+	menu.t_menuIndex = {}
+	for i = 1, #menu.t_menus do
+		menu.t_menuIndex[menu.t_menus[i].id] = menu.t_menus[i]
+	end
+end
 
 -- Dynamically generates all menus and submenus
 function menu.f_start()
+	if motif.pause_menu_info ~= nil then
+		for k, sec in pairs(motif.pause_menu_info) do
+			local id = f_pauseMenuIdFromKey(k)
+			if id ~= '' then
+				f_registerPauseMenu(id, sec, motif.menubgdef, true)
+			end
+		end
+	end
+	f_indexPauseMenus()
 	for k, v in ipairs(menu.t_menus) do
 		menu[v.id] = {
 			title = main.f_itemnameUpper(v.sec.title.text, v.sec.menu.title.uppercase),
@@ -487,26 +533,53 @@ function menu.f_init()
 	togglePause(true)
 	main.pauseMenu = true
 	bgReset(motif.optionbgdef.BGDef)
+	local id = 'menu'
 	if gamemode('training') then
-		sndPlay(motif.Snd, motif.training_info.enter.snd[1], motif.training_info.enter.snd[2])
-		bgReset(motif.trainingbgdef.BGDef)
-		main.f_fadeReset('fadein', motif.training_info)
-		menu.currentMenu = {menu.training.loop, menu.training.loop}
+		id = 'training'
+	else
+		local key = f_pauseMenuKey(gamemode())
+		if key ~= '' and motif.pause_menu_info ~= nil and motif.pause_menu_info[key] ~= nil then
+			id = f_pauseMenuIdFromKey(key)
+		end
+	end
+	if menu.t_menuIndex ~= nil and menu.t_menuIndex[id] ~= nil then
+		local entry = menu.t_menuIndex[id]
+		sndPlay(motif.Snd, entry.sec.enter.snd[1], entry.sec.enter.snd[2])
+		bgReset(entry.bg.BGDef)
+		main.f_fadeReset('fadein', entry.sec)
+		if menu[id] ~= nil and menu[id].loop ~= nil then
+			menu.currentMenu = {menu[id].loop, menu[id].loop}
+			menu.currentMenuId = id
+		else
+			menu.currentMenu = {menu.menu.loop, menu.menu.loop}
+			menu.currentMenuId = 'menu'
+		end
 	else
 		sndPlay(motif.Snd, motif.menu_info.enter.snd[1], motif.menu_info.enter.snd[2])
 		bgReset(motif.menubgdef.BGDef)
 		main.f_fadeReset('fadein', motif.menu_info)
-		--menu.menu.cursorPosY = 1
-		--menu.menu.moveTxt = 0
-		--menu.menu.item = 1
 		menu.currentMenu = {menu.menu.loop, menu.menu.loop}
+		menu.currentMenuId = 'menu'
 	end
 end
 
 function menu.f_run()
+	local entry = nil
+	if menu.t_menuIndex ~= nil then
+		if menu.currentMenuId ~= nil and menu.t_menuIndex[menu.currentMenuId] ~= nil then
+			entry = menu.t_menuIndex[menu.currentMenuId]
+		elseif gamemode('training') and menu.t_menuIndex['training'] ~= nil then
+			entry = menu.t_menuIndex['training']
+		elseif menu.t_menuIndex['menu'] ~= nil then
+			entry = menu.t_menuIndex['menu']
+		end
+	end
 	local sec = motif.menu_info
 	local bg = motif.menubgdef
-	if gamemode('training') then
+	if entry ~= nil and entry.sec ~= nil and entry.bg ~= nil then
+		sec = entry.sec
+		bg = entry.bg
+	elseif gamemode('training') then
 		sec = motif.training_info
 		bg = motif.trainingbgdef
 	end
@@ -560,13 +633,20 @@ function menu.f_reset()
 	-- Reset movelist selector (command list screen)
 	menu.movelistChar = 1
 	-- Reset tween caches
-	motif.menu_info.menuTweenData = nil
-	motif.menu_info.boxCursorData = nil
-	motif.training_info.menuTweenData = nil
-	motif.training_info.boxCursorData = nil
+	if menu.t_menus ~= nil then
+		for i = 1, #menu.t_menus do
+			local sec = menu.t_menus[i].sec
+			if sec ~= nil then
+				sec.menuTweenData = nil
+				sec.boxCursorData = nil
+			end
+		end
+	end
 	-- Determine which root menu is active and reset its cursor/item/scroll (and all submenus)
 	if menu.currentMenu ~= nil and menu.currentMenu[2] ~= nil then
-		if menu.training ~= nil and menu.training.loop ~= nil and menu.currentMenu[2] == menu.training.loop then
+		if menu.currentMenuId ~= nil and menu[menu.currentMenuId] ~= nil then
+			f_resetMenuState(menu[menu.currentMenuId])
+		elseif menu.training ~= nil and menu.training.loop ~= nil and menu.currentMenu[2] == menu.training.loop then
 			f_resetMenuState(menu.training)
 		else
 			f_resetMenuState(menu.menu)

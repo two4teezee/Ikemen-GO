@@ -356,7 +356,7 @@ function menu.f_vardisplay(itemname)
 end
 
 -- Table storing arrays with data used for different pause menu types generation.
--- Can be appended via external module.
+-- Can be appended via external module but not necessary - can specify gamemode-specific [<gamemode> Pause Menu] sections in `system.def` instead.
 menu.t_menus = {
 	{id = 'menu', sec = motif.pause_menu, bg = motif.pausemenubgdef, movelist = true},
 	{id = 'training', sec = motif.training_pause_menu, bg = motif.trainingpausemenubgdef, movelist = true},

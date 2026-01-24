@@ -215,7 +215,7 @@ type System struct {
 	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
-	chartexts               []*TextSprite // From text sctrl. TODO: We could split this one by player as well
+	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -1786,9 +1786,10 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		}
 	}
 
-	// Clear projectiiles and explods
+	// Clear projectiles, explods and text sprites
 	s.projs[pn] = PointerSliceReset(s.projs[pn])
 	s.explods[pn] = PointerSliceReset(s.explods[pn])
+	s.chartexts[pn] = PointerSliceReset(s.chartexts[pn])
 }
 
 func (s *System) resetRoundState() {
@@ -1802,7 +1803,6 @@ func (s *System) resetRoundState() {
 
 	s.resetGblEffect()
 	s.lifebar.reset()
-	s.chartexts = []*TextSprite{}
 	s.motif.reset()
 	s.saveStateFlag = false
 	s.loadStateFlag = false
@@ -2261,7 +2261,7 @@ func (s *System) action() {
 
 	s.charList.cueDraw()
 	s.explodUpdate()
-	s.UpdateCharTexts()
+	s.charTextsUpdate()
 
 	// Adjust game speed
 	if s.tickNextFrame() {
@@ -2332,12 +2332,17 @@ func (s *System) explodUpdate() {
 	}
 }
 
-func (s *System) UpdateCharTexts() {
+func (s *System) charTextsUpdate() {
 	// Explod timers update at this time, so we'll do the same here
-	if sys.tickFrame() {
-		tempSlice := s.chartexts[:0]
+	//if !sys.tickNextFrame() {
+	// It looks like updating them at that time makes them flicker at lower game speeds
+	if !sys.tickFrame() {
+		return
+	}
 
-		for _, ts := range s.chartexts {
+	for i, playerTexts := range s.chartexts {
+		tempSlice := playerTexts[:0]
+		for _, ts := range playerTexts {
 			ts.Update()
 			if ts.removetime != 0 {
 				tempSlice = append(tempSlice, ts) // Keep this text
@@ -2347,34 +2352,8 @@ func (s *System) UpdateCharTexts() {
 			}
 		}
 
-		s.chartexts = tempSlice
+		s.chartexts[i] = tempSlice
 	}
-}
-
-func (s *System) removeCharText(id, index, ownerid int32) {
-	n := int32(0)
-
-	// Mark matching texts invalid
-	for _, ts := range s.chartexts {
-		if (id == -1 && ts.ownerid == ownerid) || (id != -1 && ts.id == id && ts.ownerid == ownerid) {
-			if index < 0 || index == n {
-				ts.id = IErr
-				if index == n {
-					break
-				}
-			}
-			n++
-		}
-	}
-
-	// Compact the slice to remove invalid texts
-	tempSlice := s.chartexts[:0] // Reuse backing array
-	for _, ts := range s.chartexts {
-		if ts.id != IErr {
-			tempSlice = append(tempSlice, ts)
-		}
-	}
-	s.chartexts = tempSlice
 }
 
 func (s *System) globalTick() {
@@ -2916,11 +2895,11 @@ func (s *System) draw(x, y, scl float32) {
 	s.motif.draw(3)
 }
 
-// TODO: These seem to draw twice at lower game speeds
-// Possibly because they are drawn directly instead of using draw lists
 func (s *System) drawCharTexts(layerno int16) {
-	for _, ts := range s.chartexts {
-		ts.Draw(layerno)
+	for _, playerTexts := range s.chartexts {
+		for _, ts := range playerTexts {
+			ts.Draw(layerno)
+		}
 	}
 }
 

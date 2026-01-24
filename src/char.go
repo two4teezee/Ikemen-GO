@@ -5383,7 +5383,7 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 		return BytecodeSF()
 	}
 	var id, n int32 = textid.ToI(), 0
-	for _, ts := range sys.chartexts {
+	for _, ts := range sys.chartexts[c.playerNo] {
 		if ts.id == id && ts.ownerid == c.id {
 			n++
 		}
@@ -6331,7 +6331,7 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if removetexts {
-		sys.removeCharText(-1, -1, c.id)
+		c.removeText(-1, -1)
 	}
 
 	if recursive {
@@ -6668,7 +6668,7 @@ func (c *Char) removeExplod(id, idx int32) {
 	playerExplods := &sys.explods[c.playerNo]
 	n := int32(0)
 
-	// Mark matching explods invalid
+	// Mark matching explods as invalid
 	for _, e := range *playerExplods {
 		if e.matchId(id, c.id) {
 			if idx < 0 || idx == n {
@@ -6689,6 +6689,36 @@ func (c *Char) removeExplod(id, idx int32) {
 		}
 	}
 	*playerExplods = tempSlice
+}
+
+func (c *Char) removeText(id, index int32) {
+	playerTexts := &sys.chartexts[c.playerNo]
+	n := int32(0)
+
+	// Mark matching texts as invalid
+	for _, ts := range *playerTexts {
+		if ts.ownerid != c.id {
+			continue
+		}
+		if id < 0 || ts.id == id {
+			if index < 0 || index == n {
+				ts.id = IErr
+				if index == n {
+					break
+				}
+			}
+			n++
+		}
+	}
+
+	// Compact the slice to remove invalid texts
+	tempSlice := (*playerTexts)[:0] 
+	for _, ts := range *playerTexts {
+		if ts.id != IErr {
+			tempSlice = append(tempSlice, ts)
+		}
+	}
+	*playerTexts = tempSlice
 }
 
 // Get animation and apply sprite owner properties to it

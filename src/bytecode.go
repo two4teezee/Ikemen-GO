@@ -12457,14 +12457,16 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// Do nothing if text limit reached
-	if len(sys.chartexts) >= sys.cfg.Config.TextMax {
+	if len(sys.chartexts[crun.playerNo]) >= sys.cfg.Config.TextMax {
 		return false
 	}
 
 	ts := NewTextSprite()
 	ts.ownerid = crun.id
-	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3])) // TODO: Default to char localcoord instead
+	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
+	//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1]) // Not crun here // TODO: No point in making this change until localcoord is fixed
 	ts.params = []interface{}{}
+
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
 
@@ -12502,13 +12504,14 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
+					// TODO: These localcoord operations also affect the coordinate space (position etc)
 					switch fflg {
 					case "f":
 						ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
 					case "m":
 						ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
 					default:
-						//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+						//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
 					}
 				} else {
 					fnt = -1
@@ -12522,9 +12525,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				y = exp[1].evalF(c)
 			}
-			if x > 0 && y > 0 { // TODO: Maybe this safeguard could be in SetLocalcoord instead
-				ts.SetLocalcoord(x, y)
-			}
+			ts.SetLocalcoord(x, y)
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -12601,6 +12602,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	ts.SetPos(x, y)
 	ts.SetScale(xscl, yscl)
 	ts.SetVelocity(xvel, yvel)
@@ -12614,7 +12616,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
-	sys.chartexts = append(sys.chartexts, ts)
+
+	sys.chartexts[crun.playerNo] = append(sys.chartexts[crun.playerNo], ts)
 	return false
 }
 
@@ -12729,7 +12732,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			return true
 		default:
 			if len(texts) == 0 {
-				for _, ts := range sys.chartexts {
+				for _, ts := range sys.chartexts[crun.playerNo] {
 					if ts.ownerid != crun.id {
 						continue
 					}
@@ -12797,7 +12800,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 							case "m":
 								ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
 							default:
-								//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+								//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
 							}
 						})
 					}
@@ -12984,7 +12987,7 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	sys.removeCharText(tid, idx, crun.id)
+	crun.removeText(tid, idx)
 	return false
 }
 

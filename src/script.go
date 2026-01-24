@@ -3124,8 +3124,8 @@ func systemScriptInit(l *lua.LState) {
 				return nil
 			}
 			exclude := map[string]bool{
-				"menu info":       true,
-				"training info":   true,
+				"pause menu":      true,
+				"training pause menu": true,
 				"title info":      true,
 				"option info":     true,
 				"replay info":     true,
@@ -3148,7 +3148,7 @@ func systemScriptInit(l *lua.LState) {
 					continue
 				}
 				lower := strings.ToLower(base)
-				if !strings.HasSuffix(lower, " info") {
+				if !strings.HasSuffix(lower, " pause menu") {
 					continue
 				}
 				if exclude[lower] || seen[lower] {
@@ -3472,8 +3472,8 @@ func systemScriptInit(l *lua.LState) {
 			{"Attract Mode", []string{"attract_mode", "menu"}},
 			{"Option Info", []string{"option_info", "menu"}},
 			{"Replay Info", []string{"replay_info", "menu"}},
-			{"Menu Info", []string{"menu_info", "menu"}},
-			{"Training Info", []string{"training_info", "menu"}},
+			{"Pause Menu", []string{"pause_menu", "menu"}},
+			{"Training Pause Menu", []string{"training_pause_menu", "menu"}},
 		}
 		for _, s := range mi {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
@@ -3481,13 +3481,13 @@ func systemScriptInit(l *lua.LState) {
 		}
 		for _, sec := range customPauseMenuSections(sys.motif.UserIniFile) {
 			key := normalizeSectionName(sec)
-			path := []string{"pause_menu_info", key, "menu"}
+			path := []string{"pause_menus", key, "menu"}
 			if hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
 				populateItemName(sec, path, "menu.itemname.", "flat", lTable)
 				buildFlatOrder(sec, path, "menu.itemname.", lTable)
 			} else {
-				populateItemName("Menu Info", path, "menu.itemname.", "flat", lTable)
-				buildFlatOrder("Menu Info", path, "menu.itemname.", lTable)
+				populateItemName("Pause Menu", path, "menu.itemname.", "flat", lTable)
+				buildFlatOrder("Pause Menu", path, "menu.itemname.", lTable)
 			}
 		}
 		populateItemName("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", "flat", lTable)

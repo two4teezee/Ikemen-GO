@@ -302,7 +302,7 @@ type MenuProperties struct {
 			Active   TextProperties `ini:"active"`
 			Conflict TextProperties `ini:"conflict"`
 		} `ini:"value"`
-		Info struct { // not used by [Title Info], [Replay Info], [Menu Info], [Attract Mode]
+		Info struct { // not used by [Title Info], [Replay Info], [Pause Menu], [Attract Mode]
 			TextProperties
 			Active TextProperties `ini:"active"`
 		} `ini:"info"`
@@ -328,10 +328,10 @@ type MenuProperties struct {
 	Previous struct {
 		Key []string `ini:"key"`
 	} `ini:"previous"`
-	Add struct { // only used by [Option Info], [Menu Info], [Training Info]
+	Add struct { // only used by [Option Info], [Pause Menu], [Training Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"add"`
-	Subtract struct { // only used by [Option Info], [Menu Info], [Training Info]
+	Subtract struct { // only used by [Option Info], [Pause Menu], [Training Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"subtract"`
 	Cancel struct {
@@ -340,11 +340,11 @@ type MenuProperties struct {
 	Done struct {
 		Key []string `ini:"key"`
 	} `ini:"done"`
-	Hiscore struct { // not used by [Option Info], [Option Info].keymenu, [Replay Info], [Menu Info]
+	Hiscore struct { // not used by [Option Info], [Option Info].keymenu, [Replay Info], [Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"hiscore"`
-	Unlock    map[string]string `ini:"unlock"`    // not used by [Option Info].keymenu, [Replay Info], [Menu Info]
-	Valuename map[string]string `ini:"valuename"` // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Menu Info], [Attract Mode]
+	Unlock    map[string]string `ini:"unlock"`    // not used by [Option Info].keymenu, [Replay Info], [Pause Menu]
+	Valuename map[string]string `ini:"valuename"` // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Pause Menu], [Attract Mode]
 	Itemname  map[string]string `ini:"itemname"`
 }
 
@@ -1331,11 +1331,12 @@ type Motif struct {
 	OptionBgDef     BgDefProperties                     `ini:"optionbgdef"`
 	ReplayInfo      ReplayInfoProperties                `ini:"replay_info"`
 	ReplayBgDef     BgDefProperties                     `ini:"replaybgdef"`
-	MenuInfo        MenuInfoProperties                  `ini:"menu_info"`
-	MenuBgDef       BgDefProperties                     `ini:"menubgdef"`
-	TrainingInfo    MenuInfoProperties                  `ini:"training_info"`
-	TrainingBgDef   BgDefProperties                     `ini:"trainingbgdef"`
-	PauseMenuInfo   map[string]*MenuInfoProperties      `ini:"map:^(?i).+_info$" lua:"pause_menu_info"`
+	MenuInfo            MenuInfoProperties                  `ini:"pause_menu" lua:"pause_menu"`
+	PauseMenuBgDef      BgDefProperties                     `ini:"pausemenubgdef"`
+	TrainingInfo        MenuInfoProperties                  `ini:"training_pause_menu" lua:"training_pause_menu"`
+	TrainingPauseBgDef  BgDefProperties                     `ini:"trainingpausemenubgdef"`
+	PauseMenuInfo       map[string]*MenuInfoProperties      `ini:"map:^(?i).+_pause_menu$" lua:"pause_menus"`
+	PauseMenuBgDefMap   map[string]*BgDefProperties         `ini:"map:^(?i).+pausemenubgdef$" lua:"pause_menu_bgdef"`
 	AttractMode     AttractModeProperties               `ini:"attract_mode"`
 	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
 	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
@@ -1613,6 +1614,62 @@ func loadMotif(def string) (*Motif, error) {
 		userIniFile, err = ini.LoadSources(userOptions, normalizedInput)
 		if err != nil {
 			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
+		}
+		// Backward-compat section aliases: [Menu Info] -> [Pause Menu], [Training Info] -> [Training Pause Menu]
+		aliasSection := func(f *ini.File, oldBase, newBase string) bool {
+			if f == nil {
+				return false
+			}
+			found := false
+			oldLower := strings.ToLower(oldBase)
+			for _, s := range f.Sections() {
+				name := s.Name()
+				if name == ini.DEFAULT_SECTION {
+					continue
+				}
+				lang, base, hasLang := splitLangPrefix(name)
+				if strings.ToLower(strings.TrimSpace(base)) != oldLower {
+					continue
+				}
+				found = true
+				newName := newBase
+				if hasLang {
+					newName = lang + "." + newBase
+				}
+				if _, err := f.GetSection(newName); err == nil {
+					continue
+				}
+				newSec, err := f.NewSection(newName)
+				if err != nil || newSec == nil {
+					continue
+				}
+				for _, k := range s.Keys() {
+					if newSec.HasKey(k.Name()) {
+						continue
+					}
+					if _, err := newSec.NewKey(k.Name(), k.Value()); err != nil {
+						// Ignore copy errors; best-effort compatibility
+						continue
+					}
+				}
+				// For legacy pause menu sections, ensure menu.uselocalcoord defaults on the alias.
+				if strings.EqualFold(oldBase, "Menu Info") && !newSec.HasKey("menu.uselocalcoord") {
+					_, _ = newSec.NewKey("menu.uselocalcoord", "1")
+				}
+			}
+			return found
+		}
+		if aliasSection(userIniFile, "Menu Info", "Pause Menu") {
+			sys.errLog.Printf("Legacy section [Menu Info] detected; use [Pause Menu] instead.")
+		}
+		if aliasSection(userIniFile, "Training Info", "Training Pause Menu") {
+			sys.errLog.Printf("Legacy section [Training Info] detected; use [Training Pause Menu] instead.")
+		}
+		if aliasSection(userIniFile, "MenuBgDef", "PauseMenuBGdef") {
+			sys.errLog.Printf("Legacy section [MenuBgDef] detected; use [PauseMenuBGdef] instead.")
+		}
+		if aliasSection(userIniFile, "TrainingBgDef", "TrainingPauseMenuBGdef") {
+			sys.errLog.Printf("Legacy section [TrainingBgDef] detected; use [TrainingPauseMenuBGdef] instead.")
 		}
 		overlayUserFirstWins(iniFile, userIniFile)
 
@@ -2144,8 +2201,8 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 func (m *Motif) overrideParams() {
 	// Define inheritance rules (section/prefix based).
 	specs := []InheritSpec{
-		// [Training Info]
-		{SrcSec: "Menu Info", SrcPrefix: "", DstSec: "Training Info", DstPrefix: ""},
+		// [Training Pause Menu]
+		{SrcSec: "Pause Menu", SrcPrefix: "", DstSec: "Training Pause Menu", DstPrefix: ""},
 		// [Option Info]
 		{SrcSec: "Option Info", SrcPrefix: "menu.", DstSec: "Option Info", DstPrefix: "keymenu.menu."},
 		// [Select Info]
@@ -2184,7 +2241,7 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
 	}
 	for _, sec := range m.customPauseMenuSections() {
-		specs = append(specs, InheritSpec{SrcSec: "Menu Info", SrcPrefix: "", DstSec: sec, DstPrefix: ""})
+		specs = append(specs, InheritSpec{SrcSec: "Pause Menu", SrcPrefix: "", DstSec: sec, DstPrefix: ""})
 	}
 	m.mergeWithInheritance(specs)
 	// Inheritance may add new font filenames; rerun resolver to map them to deduped font indices.
@@ -2195,11 +2252,11 @@ func (m *Motif) customPauseMenuSections() []string {
 	if m == nil || m.UserIniFile == nil {
 		return nil
 	}
-	// Sections ending with " Info" (case-insensitive) are considered pause menus
+	// Sections ending with " Pause Menu" (case-insensitive) are considered pause menus
 	// unless they are known built-in sections.
 	exclude := map[string]bool{
-		"menu info":      true,
-		"training info":  true,
+		"pause menu":     true,
+		"training pause menu": true,
 		"title info":     true,
 		"option info":    true,
 		"replay info":    true,
@@ -2222,7 +2279,7 @@ func (m *Motif) customPauseMenuSections() []string {
 			continue
 		}
 		lower := strings.ToLower(base)
-		if !strings.HasSuffix(lower, " info") {
+		if !strings.HasSuffix(lower, " pause menu") {
 			continue
 		}
 		if exclude[lower] {
@@ -2350,11 +2407,20 @@ func (m *Motif) loadFiles() {
 	} else {
 		m.ReplayBgDef = m.TitleBgDef
 	}
-	m.loadBgDefProperties(&m.MenuBgDef, "menubg", m.Files.Spr)
-	if _, err := m.UserIniFile.GetSection("TrainingBgDef"); err == nil {
-		m.loadBgDefProperties(&m.TrainingBgDef, "trainingbg", m.Files.Spr)
+	m.loadBgDefProperties(&m.PauseMenuBgDef, "pausemenubg", m.Files.Spr)
+	if _, err := m.UserIniFile.GetSection("TrainingPauseMenuBGdef"); err == nil {
+		m.loadBgDefProperties(&m.TrainingPauseBgDef, "trainingpausemenubg", m.Files.Spr)
 	} else {
-		m.TrainingBgDef = m.MenuBgDef
+		m.TrainingPauseBgDef = m.PauseMenuBgDef
+	}
+	// Load all PauseMenuBgDef map entries (any mode that defines <mode>PauseMenuBGdef).
+	for secKey, bg := range m.PauseMenuBgDefMap {
+		if bg == nil {
+			continue
+		}
+		key := strings.ToLower(secKey)
+		bgName := strings.TrimSuffix(key, "def")
+		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
 	}
 	if _, err := m.UserIniFile.GetSection("AttractBgDef"); err == nil {
 		m.loadBgDefProperties(&m.AttractBgDef, "attractbg", m.Files.Spr)

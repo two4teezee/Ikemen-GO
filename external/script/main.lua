@@ -3038,41 +3038,49 @@ function main.f_demo()
 	main.menu.f = main.t_itemname.demo()
 end
 
---prevents mirrored palette in demo mode mirror matches
-function main.f_getUniquePalette(ch, prev)
+-- prevents mirrored palette in demo mode / randomtest mirror matches
+function main.f_getUniquePalette(ch, state)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
+	state = state or {}
+	state.used = state.used or {}
+	state.used[ch] = state.used[ch] or {}
+	local used = state.used[ch]
 
-	if not prev or ch ~= prev.ch then
-		return pals[sszRandom() % #pals + 1]
-	end
-
+	-- build list of palettes not yet used for this character
 	local available = {}
 	for _, p in ipairs(pals) do
-		if p ~= prev.pal then
+		if not used[p] then
 			table.insert(available, p)
 		end
 	end
 
-	if #available > 0 then
-		return available[sszRandom() % #available + 1]
-	else
-		return prev.pal
+	-- If we've exhausted all palettes, start cycling again for this character
+	if #available == 0 then
+		used = {}
+		state.used[ch] = used
+		for _, p in ipairs(pals) do
+			table.insert(available, p)
+		end
 	end
+
+	local pal = available[sszRandom() % #available + 1]
+	used[pal] = true
+	state.last = {ch = ch, pal = pal}
+	return pal
 end
 
 function main.f_demoStart()
 	main.f_default()
+	local palState = {}
 	setLifebarElements({bars = motif.demo_mode.fight.bars.display})
 	setGameMode('demo')
-	for i = 1, 2 do
-		setCom(i, 8)
-		setTeamMode(i, 0, 1)
+	for side = 1, 2 do
+		setTeamMode(side, 0, 1)
+		setCom(side, 8)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		local pal = main.f_getUniquePalette(ch, prev)
-
-		selectChar(i, ch, pal)
-		prev = {ch = ch, pal = pal}
+		local pal = main.f_getUniquePalette(ch, palState)
+		selectChar(side, ch, pal)
 	end
 	start.f_setStage()
 	if motif.demo_mode.fight.stopbgm then
@@ -3105,13 +3113,24 @@ end
 function main.f_randomtest()
 	main.f_default()
 	while true do
-		for i = 1, 2 do
-			setCom(i, 8)
-			setTeamMode(i, 0, 1)
-			local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-			local pal = main.f_getUniquePalette(ch, prev)
-			selectChar(i, ch, pal)
-			prev = {ch = ch, pal = pal}
+		local palState = {}
+		local teamMode = math.random(0, 3)
+		local numChars = 1
+		if teamMode == 1 then
+			numChars = math.random(gameOption('Options.Simul.Min'), gameOption('Options.Simul.Max'))
+		elseif teamMode == 2 then
+			numChars = math.random(gameOption('Options.Turns.Min'), gameOption('Options.Turns.Max'))
+		elseif teamMode == 3 then
+			numChars = math.random(gameOption('Options.Tag.Min'), gameOption('Options.Tag.Max'))
+		end
+		for side = 1, 2 do
+			setTeamMode(side, teamMode, numChars)
+			for i = 1, numChars do
+				setCom((side - 1) * numChars + i, 8)
+				local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
+				local pal = main.f_getUniquePalette(ch, palState)
+				selectChar(side, ch, pal)
+			end
 		end
 		start.f_setStage()
 		loadStart()

@@ -205,6 +205,9 @@ options.t_itemname = {
 			--modifyGameOption('Debug.StartStage', "stages/stage0-720.def")
 			--modifyGameOption('Debug.ForceStageZoomout', 0)
 			--modifyGameOption('Debug.ForceStageZoomin', 0)
+			--modifyGameOption('Debug.KeepSpritesOnReload', 0)
+			--modifyGameOption('Debug.MacOSUseCommandKey', 0)
+			--modifyGameOption('Debug.SpeedTest', 100)
 			-- This is platform dependent now
 			local runtimeOS = getRuntimeOS()
 			if runtimeOS == 'android' then

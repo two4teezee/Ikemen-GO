@@ -2587,6 +2587,8 @@ type LifeBarRound struct {
 	drawTimer           [4]int32
 	roundCallOver       bool
 	fightCallOver       bool
+	koScreenOver        bool
+	winDisplayOver      bool
 	timerActive         bool
 	winType             [WT_NumTypes * 2]LbBgTextSnd
 	fadeIn              *Fade
@@ -3003,6 +3005,7 @@ func (ro *LifeBarRound) act() bool {
 	return sys.tickNextFrame()
 }
 
+/*
 // Check if current round animation can be skipped
 // This prevents cutting an animation after it's already running
 func (ro *LifeBarRound) canSkipPhase(phase int) bool {
@@ -3011,6 +3014,7 @@ func (ro *LifeBarRound) canSkipPhase(phase int) bool {
 	}
 	return false
 }
+*/
 
 // Consists of round and fight calls
 func (ro *LifeBarRound) handleRoundIntro() {
@@ -3022,11 +3026,13 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	//	sys.introSkipped = false
 	//}
 
-	// Round call
-	if sys.gsf(GSF_skiprounddisplay) && ro.canSkipPhase(0) { // Skip
+	// Skip round call
+	if sys.gsf(GSF_skiprounddisplay) {
 		ro.roundCallOver = true
 		ro.waitTimer[1] = 0
 	}
+
+	// Round call
 	if !ro.roundCallOver {
 		roundNum := sys.round
 		if sys.sel.gameParams.PersistRounds {
@@ -3105,21 +3111,23 @@ func (ro *LifeBarRound) handleRoundIntro() {
 		ro.waitTimer[0]--
 	}
 
-	// Fight call
 	endFightCall := func() {
 		ro.current = 2
 		ro.waitTimer[2], ro.waitSoundTimer[2], ro.drawTimer[2] = ro.ko_time, ro.ko_sndtime, 0
 		ro.waitTimer[3], ro.waitSoundTimer[3], ro.drawTimer[3] = ro.win_time, ro.win_sndtime, 0
 		ro.fightCallOver = true
 	}
+
 	// Skip fight call
 	// Cannot be skipped unless round call is finished or also skipped
-	if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) && ro.canSkipPhase(1) {
+	if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) {
 		endFightCall()
 		if sys.intro > 1 {
 			sys.intro = 1 // Skip ctrl waiting time
 		}
 	}
+
+	// Fight call
 	if !ro.fightCallOver {
 		if ro.current == 0 {
 			if ro.waitTimer[1] == 0 {
@@ -3193,8 +3201,13 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		ro.waitTimer[t]--
 	}
 
+	// Skip KO screen
+	if sys.gsf(GSF_skipkodisplay) {
+		ro.koScreenOver = true // Only used for skipping
+	}
+
 	// KO screen
-	if !(sys.gsf(GSF_skipkodisplay) && ro.canSkipPhase(2)) {
+	if !ro.koScreenOver {
 		switch sys.finishType {
 		case FT_KO:
 			ro.ko_top.Action()
@@ -3217,8 +3230,13 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		}
 	}
 
+	// Skip winner announcement
+	if sys.gsf(GSF_skipwindisplay) {
+		ro.winDisplayOver = true // Only used for skipping
+	}
+
 	// Winner announcement
-	if sys.intro < -(ro.over_waittime) && !(sys.gsf(GSF_skipwindisplay) && ro.canSkipPhase(3)) {
+	if !ro.winDisplayOver && sys.intro < -(ro.over_waittime) {
 		wt := sys.winTeam
 		if wt < 0 {
 			wt = 0
@@ -3384,6 +3402,8 @@ func (ro *LifeBarRound) reset() {
 	ro.drawTimer = [4]int32{}
 	ro.roundCallOver = false
 	ro.fightCallOver = false
+	ro.koScreenOver = false
+	ro.winDisplayOver = false
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
@@ -3510,7 +3530,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 	if ro.current == 2 {
 		// KO animations
-		if ro.waitTimer[2] < 0 {
+		if !ro.koScreenOver && ro.waitTimer[2] < 0 {
 			switch sys.finishType {
 			case FT_KO:
 				for i := range ro.ko_bg {
@@ -3533,7 +3553,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 			}
 		}
 		// Winner announcement
-		if ro.waitTimer[3] < 0 {
+		if !ro.winDisplayOver && ro.waitTimer[3] < 0 {
 			wt := sys.winTeam
 			if wt < 0 {
 				wt = 0

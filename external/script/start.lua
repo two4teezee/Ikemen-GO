@@ -1073,6 +1073,22 @@ function getCellOffset(col, row)
 	return {0, 0}
 end
 
+function getCellSpacing(col, row)
+	local override = getCellOverride(col, row)
+	if override ~= nil and override.spacing ~= nil then
+		if override.spacing[1] ~= 0 then
+			if override.spacing[2] == 0 then
+				return {override.spacing[1], override.spacing[1]}
+			end
+			return override.spacing
+		end
+		if override.spacing[2] ~= 0 then
+			return override.spacing
+		end
+	end
+	return motif.select_info.cell.spacing
+end
+
 function getCellTransform(col, row, paramName, default)
 	local override = getCellOverride(col, row)
 	if override ~= nil then
@@ -1118,9 +1134,15 @@ function start.f_drawCursor(pn, x, y, param, done)
 	end
 	local cd = store[pn]
 
-	-- calculate target cell coordinates
-	local baseX = motif.select_info.pos[1] + x * (motif.select_info.cell.size[1] + motif.select_info.cell.spacing[1]) + getCellOffset(x, y)[1]
-	local baseY = motif.select_info.pos[2] + y * (motif.select_info.cell.size[2] + motif.select_info.cell.spacing[2]) + getCellOffset(x, y)[2]
+	-- calculate target cell coordinates using the pre-calculated grid
+	local cellData = start.t_grid[y + 1] and start.t_grid[y + 1][x + 1]
+	local baseX, baseY
+
+	if cellData then
+		-- cellData already includes all spacing accumulations and offsets
+		baseX = motif.select_info.pos[1] + cellData.x
+		baseY = motif.select_info.pos[2] + cellData.y
+	end
 
 	-- initialization or snap: set cursor directly
 	if not cd.init or done or cd.snap then
@@ -1460,9 +1482,11 @@ for i = 1, motif.select_info.rows * motif.select_info.columns do
 		start.t_grid[row] = {}
 	end
 	col = #start.t_grid[row] + 1
+	local cell_spacing = getCellSpacing(col - 1, row - 1)
+	local cell_offset = getCellOffset(col - 1, row - 1)
 	start.t_grid[row][col] = {
-		x = (col - 1) * (motif.select_info.cell.size[1] + motif.select_info.cell.spacing[1]) + getCellOffset(col - 1, row - 1)[1],
-		y = (row - 1) * (motif.select_info.cell.size[2] + motif.select_info.cell.spacing[2]) + getCellOffset(col - 1, row - 1)[2]
+		x = (col - 1) * (motif.select_info.cell.size[1] + cell_spacing[1]) + cell_offset[1],
+		y = (row - 1) * (motif.select_info.cell.size[2] + cell_spacing[2]) + cell_offset[2]
 	}
 	if start.f_selGrid(i).char ~= nil then
 		start.t_grid[row][col].char = start.f_selGrid(i).char

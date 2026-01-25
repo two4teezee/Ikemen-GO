@@ -1139,7 +1139,7 @@ function start.f_drawCursor(pn, x, y, param, done)
 	local baseX, baseY
 
 	if cellData then
-		-- cellData already includes all spacing accumulations and offsets
+		-- cellData already includes all spacing and offsets
 		baseX = motif.select_info.pos[1] + cellData.x
 		baseY = motif.select_info.pos[2] + cellData.y
 	end

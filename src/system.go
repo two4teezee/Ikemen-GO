@@ -2019,17 +2019,7 @@ func (s *System) resetMatchData(assets bool) {
 func (s *System) charUpdate() {
 	s.charList.update()
 
-	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
-	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
-	// Update: Projectiles now work based on pointers, so we can go back to old loop format
-	for i := range s.projs {
-		for _, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.playerno = i // Safeguard
-				p.update() // TODO: We could prune inactive projectiles around here like with explods
-			}
-		}
-	}
+	s.projectileUpdate()
 
 	// Set global First Attack flag if either team got it
 	if s.firstAttack[0] >= 0 || s.firstAttack[1] >= 0 {
@@ -2041,9 +2031,7 @@ func (s *System) charUpdate() {
 func (s *System) globalCollision() {
 	for i := range s.projs {
 		for j, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.tradeDetection(i, j)
-			}
+			p.tradeDetection(i, j)
 		}
 	}
 
@@ -2253,9 +2241,7 @@ func (s *System) action() {
 
 	for i := range s.projs {
 		for _, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.cueDraw()
-			}
+			p.cueDraw()
 		}
 	}
 
@@ -2317,6 +2303,24 @@ func (s *System) action() {
 	return
 }
 
+// Update all projectiles for all players
+func (s *System) projectileUpdate() {
+	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
+	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
+	// Update: Projectiles now work based on pointers, so we can go back to old loop format
+	for i, playerProjs := range s.projs {
+		tempSlice := playerProjs[:0]
+		for _, p := range playerProjs {
+			p.update()
+			// Keep only valid projectiles in the slice
+			if p.id >= 0 {
+				tempSlice = append(tempSlice, p)
+			}
+		}
+		s.projs[i] = tempSlice
+	}
+}
+
 // Update all explods for all players
 func (s *System) explodUpdate() {
 	for i, playerExplods := range s.explods {
@@ -2362,9 +2366,7 @@ func (s *System) globalTick() {
 
 	for i := range s.projs {
 		for _, p := range s.projs[i] {
-			if p.id != IErr {
-				p.tick()
-			}
+			p.tick()
 		}
 	}
 

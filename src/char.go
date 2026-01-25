@@ -2492,8 +2492,8 @@ func (p *Projectile) update() {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
 			}
-			if p.anim == nil && p.id >= 0 {
-				p.id = ^p.id
+			if p.anim == nil { // && p.id >= 0 {
+				p.id = IErr // ^p.id
 			}
 		}
 	}
@@ -2563,7 +2563,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 
 	// Skip if this projectile can't trade at all
 	// Projectiles can trade even if they are spawned with 0 hits
-	if p.remflag || p.hits < 0 || p.id < 0 {
+	if p.hits < 0 || p.remflag {
 		return
 	}
 
@@ -5617,7 +5617,7 @@ func (c *Char) numProj() int32 {
 	n := int32(0)
 
 	for _, p := range sys.projs[c.playerNo] {
-		if p.id >= 0 && !((p.hits < 0 && p.remove) || p.remflag) {
+		if !((p.hits < 0 && p.remove) || p.remflag) {
 			n++
 		}
 	}
@@ -7100,8 +7100,7 @@ func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectil
 	if idx < len(sys.projs[c.playerNo]) { // Includes negative indexes (all)
 		matchCount := 0
 		for _, p := range sys.projs[c.playerNo] {
-			// Only check active projectiles (p.id >= 0)
-			if p.id >= 0 && (id < 0 || p.id == id) {
+			if id < 0 || p.id == id {
 				if idx >= 0 {
 					// Count the matches but only return one
 					if matchCount == idx {
@@ -12676,7 +12675,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 			p := sys.projs[i][j]
 
 			// Skip if projectile can't hit
-			if p.id < 0 || p.hits <= 0 {
+			if p.hits <= 0 {
 				continue
 			}
 

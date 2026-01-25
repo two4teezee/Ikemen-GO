@@ -150,7 +150,7 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 			ch, ok = f.fontChar[runeIndex]
 		}
 
-		//skip runes that are not in font chacter range
+		//skip runes that are not in font character range
 		if !ok {
 			//fmt.Printf("%c %d\n", runeIndex, runeIndex)
 			continue
@@ -169,9 +169,10 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 		}
 
 		//calculate position and size for current rune
-		padding := float32(2)
+		//padding := float32(2)
 		xpos := x + float32(ch.bearingH)*scale
-		ypos := y - (float32(ch.height-ch.bearingV)-padding)*scale
+		//ypos := y - (float32(ch.height-ch.bearingV)-padding)*scale
+		ypos := y - float32(ch.height-ch.bearingV)*scale
 		w := float32(ch.width) * scale
 		h := float32(ch.height) * scale
 		vertices := []float32{
@@ -249,7 +250,7 @@ func (f *Font_GLES32) Width(scale float32, spacingXAdd float32, fs string, argv 
 			ch, ok = f.fontChar[runeIndex]
 		}
 
-		//skip runes that are not in font chacter range
+		//skip runes that are not in font character range
 		if !ok {
 			//fmt.Printf("%c %d\n", runeIndex, runeIndex)
 			continue
@@ -267,22 +268,28 @@ func (f *Font_GLES32) Width(scale float32, spacingXAdd float32, fs string, argv 
 	return width
 }
 
+// GenerateGlyphs builds a set of textures based on a ttf files glyphs
 func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
+	//create a freetype context for drawing
 	c := freetype.NewContext()
 	c.SetDPI(72)
 	c.SetFont(f.ttf)
 	c.SetFontSize(float64(f.scale))
 	c.SetHinting(font.HintingFull)
 
+	//create new face to measure glyph dimensions
 	ttfFace := truetype.NewFace(f.ttf, &truetype.Options{
 		Size:    float64(f.scale),
 		DPI:     72,
 		Hinting: font.HintingFull,
 	})
 
-	//make each gylph
-	for ch := low; ch <= high; ch++ {
+	// Add padding to prevent cropping
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3085
+	padding := 2
 
+	//make each glyph
+	for ch := low; ch <= high; ch++ {
 		char := new(character)
 
 		gBnd, gAdv, ok := ttfFace.GlyphBounds(ch)
@@ -293,7 +300,7 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		gh := int32((gBnd.Max.Y - gBnd.Min.Y) >> 6)
 		gw := int32((gBnd.Max.X - gBnd.Min.X) >> 6)
 
-		//if gylph has no dimensions set to a max value
+		//if glyph has no dimensions set to a max value
 		if gw == 0 || gh == 0 {
 			gBnd = f.ttf.Bounds(fixed.Int26_6(f.scale))
 			gw = int32((gBnd.Max.X - gBnd.Min.X) >> 6)
@@ -311,22 +318,27 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		gdescent := int(gBnd.Max.Y) >> 6
 
 		//set w,h and adv, bearing V and bearing H in char
-		char.width = int(gw)
-		char.height = int(gh)
+		//char.width = int(gw)
+		//char.height = int(gh)
+		char.width = int(gw) + (padding * 2)
+		char.height = int(gh) + (padding * 2)
 		char.advance = int(gAdv)
 		char.bearingV = gdescent
-		char.bearingH = (int(gBnd.Min.X) >> 6)
+		//char.bearingH = (int(gBnd.Min.X) >> 6)
+		char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 
 		//create image to draw glyph
-		padding := 2
 		fg, bg := image.NewUniform(colour.RGBA{255, 255, 255, 255}), image.NewUniform(colour.RGBA{0, 0, 0, 255})
-		rect := image.Rect(0, 0, int(gw)+padding*2, int(gh)+padding*2)
+		//rect := image.Rect(0, 0, int(gw)+padding*2, int(gh)+padding*2)
+		rect := image.Rect(0, 0, char.width, char.height)
 		rgba := image.NewRGBA(rect)
 		draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
 
 		//set the glyph dot
-		px := 0 - (int(gBnd.Min.X) >> 6) + padding
-		py := gAscent + padding
+		//px := 0 - (int(gBnd.Min.X) >> 6) + padding
+		//py := gAscent + padding
+		px := padding - (int(gBnd.Min.X) >> 6)
+		py := padding + gAscent
 		pt := freetype.Pt(px, py)
 
 		// Draw the text from mask to image
@@ -344,9 +356,9 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		textureIndex := 0
 		stride := int32(rgba.Stride)
 
-		char.width = rect.Dx()  // Use the actual image width (with padding)
-		char.height = rect.Dy() // Use the actual image height (with padding)
-		char.bearingH = (int(gBnd.Min.X) >> 6) - padding
+		//char.width = rect.Dx()  // Use the actual image width (with padding)
+		//char.height = rect.Dy() // Use the actual image height (with padding)
+		//char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 		for uv, ok = f.textures[textureIndex].AddImageStride(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, rgba.Pix); !ok; uv, ok = f.textures[textureIndex].AddImageStride(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, rgba.Pix) {
 			textureIndex += 1
 			if textureIndex >= len(f.textures) {
@@ -355,16 +367,16 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		}
 
 		texAtlas := f.textures[textureIndex]
-		aw := float32(texAtlas.width)
-		ah := float32(texAtlas.height)
 
-		off_u := 0.5 / aw
-		off_v := 0.5 / ah
-
-		uv[0] += off_u
-		uv[1] += off_v
-		uv[2] -= off_u
-		uv[3] -= off_v
+		// This block is no longer necessary after the padding fix and actually introduces blur
+		// aw := float32(texAtlas.width)
+		// ah := float32(texAtlas.height)
+		// off_u := 0.5 / aw
+		// off_v := 0.5 / ah
+		// uv[0] += off_u
+		// uv[1] += off_v
+		// uv[2] -= off_u
+		// uv[3] -= off_v
 
 		char.uv = uv
 		char.textureID = texAtlas.texture.(*Texture_GLES32).handle

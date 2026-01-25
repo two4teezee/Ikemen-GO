@@ -103,6 +103,7 @@ type System struct {
 	debugFont               *TextSprite
 	debugDisplay            bool
 	debugRef                [2]int // player number, helper index
+	debugLastID             int32
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
 	soundChannels           *SoundChannels
@@ -2907,6 +2908,7 @@ func (s *System) drawDebugText() {
 		// Data
 		y = float32(s.gameHeight) - float32(s.debugFont.fnt.Size[1])*sys.debugFont.yscl/s.heightScale*
 			(float32(len(s.listLFunc))+float32(s.cfg.Debug.ClipboardRows)) - 1*s.heightScale
+		// Get debug char reference. Default to player 1 if out of bounds
 		pn := s.debugRef[0]
 		hn := s.debugRef[1]
 		if pn >= len(s.chars) || hn >= len(s.chars[pn]) {
@@ -2929,7 +2931,7 @@ func (s *System) drawDebugText() {
 					Protect: true}) == nil {
 					s, ok := s.luaLState.Get(-1).(lua.LString)
 					if ok && len(s) > 0 {
-						if i == 1 && (sys.debugWC == nil || sys.debugWC.csf(CSF_destroy)) {
+						if i == 1 && (sys.debugWC == nil || sys.debugWC.csf(CSF_destroy)) { // TODO: A nil check this late would still crash
 							put(&x, &y, string(s)+" disabled")
 							break
 						}

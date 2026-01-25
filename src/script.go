@@ -5110,30 +5110,49 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.debugModeAllowed() {
 			return 0
 		}
+		// Shift+D behavior: just toggle without cycling players
 		if !nilArg(l, 1) {
 			sys.debugDisplay = !sys.debugDisplay
 			return 0
 		}
-		if !sys.debugDisplay {
-			sys.debugDisplay = true
-		} else {
-			idx := 0
-			// Find index of current debug player
-			for i := 0; i < len(sys.charList.runOrder); i++ {
-				ro := sys.charList.runOrder[i]
-				if ro.playerNo == sys.debugRef[0] && ro.helperIndex == int32(sys.debugRef[1]) {
-					idx = i + 1 // Then check the next one
+		// Make a copy of runOrder
+		sorted := make([]*Char, len(sys.charList.runOrder))
+		copy(sorted, sys.charList.runOrder)
+		// Sort the copy by player number and ID
+		sort.Slice(sorted, func(i, j int) bool {
+			if sorted[i].playerNo != sorted[j].playerNo {
+				return sorted[i].playerNo < sorted[j].playerNo
+			}
+			return sorted[i].id < sorted[j].id
+		})
+		// Find reference char
+		var nextChar *Char
+		if sys.debugDisplay {
+			// Search for the first character that comes after the current one
+			for _, c := range sorted {
+				isLaterPlayer := c.playerNo > sys.debugRef[0]
+				isSamePlayerNewerID := c.playerNo == sys.debugRef[0] && c.id > sys.debugLastID
+				if isLaterPlayer || isSamePlayerNewerID {
+					nextChar = c
 					break
 				}
 			}
-			if idx == 0 || idx >= len(sys.charList.runOrder) {
-				sys.debugRef[0] = 0
-				sys.debugRef[1] = 0
-				sys.debugDisplay = false
-			} else {
-				sys.debugRef[0] = sys.charList.runOrder[idx].playerNo
-				sys.debugRef[1] = int(sys.charList.runOrder[idx].helperIndex)
-			}
+		} else if len(sorted) > 0 {
+			// If display was off, start at the beginning of the sorted list
+			nextChar = sorted[0]
+		}
+		// Update debug reference or disable debug
+		if nextChar != nil {
+			sys.debugRef[0] = nextChar.playerNo
+			sys.debugRef[1] = int(nextChar.helperIndex)
+			sys.debugLastID = nextChar.id
+			sys.debugDisplay = true
+		} else {
+			// If no "next" character exists in the remainder of the list, reset and close
+			sys.debugRef[0] = 0
+			sys.debugRef[1] = 0
+			sys.debugLastID = -1
+			sys.debugDisplay = false
 		}
 		return 0
 	})
@@ -5920,11 +5939,7 @@ func triggerFunctions(l *lua.LState) {
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
 		// Get explod
-		explods := sys.debugWC.getExplods(id)
-		var e *Explod
-		if idx >= 0 && idx < len(explods) {
-			e = explods[idx]
-		}
+		e := sys.debugWC.getSingleExplod(id, idx, true)
 		// Handle returns
 		if e != nil {
 			switch strings.ToLower(vname) {
@@ -6843,7 +6858,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "projclsnoverlap", func(l *lua.LState) int {
-		idx := int32(numArg(l, 1))
+		idx := int(numArg(l, 1))
 		pid := int32(numArg(l, 2))
 		cboxStr := strings.ToLower(strArg(l, 3))
 
@@ -6881,11 +6896,7 @@ func triggerFunctions(l *lua.LState) {
 		idx := int(numArg(l, 2))
 		vname := strArg(l, 3)
 		// Get projectile
-		projs := sys.debugWC.getProjs(id)
-		var p *Projectile
-		if idx >= 0 && idx < len(projs) {
-			p = projs[idx]
-		}
+		p := sys.debugWC.getSingleProj(id, idx, true)
 		// Handle returns
 		if p != nil {
 			switch vname {
@@ -7204,7 +7215,7 @@ func triggerFunctions(l *lua.LState) {
 		vname := strArg(l, 3)
 		var ln lua.LNumber
 		// Get stage background element
-		bg := sys.debugWC.getStageBg(id, idx, false)
+		bg := sys.debugWC.getSingleStageBg(id, idx, true)
 		// Handle returns
 		if bg != nil {
 			switch strings.ToLower(vname) {
@@ -8212,6 +8223,36 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "selfstatenoexist", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.selfStatenoExist(
 			BytecodeInt(int32(numArg(l, 1)))).ToB()))
+		return 1
+	})
+	luaRegister(l, "spritevar", func(l *lua.LState) int {
+		vname := strings.ToLower(strArg(l, 1))
+		var lv lua.LValue
+		// Check for valid sprite
+		var spr *Sprite
+		if sys.debugWC.anim != nil {
+			spr = sys.debugWC.anim.spr
+		}
+		// Handle output
+		if spr != nil {
+			switch vname {
+			case "group":
+				lv = lua.LNumber(spr.Group)
+			case "height":
+				lv = lua.LNumber(spr.Size[1])
+			case "image":
+				lv = lua.LNumber(spr.Number)
+			case "width":
+				lv = lua.LNumber(spr.Size[0])
+			case "xoffset":
+				lv = lua.LNumber(spr.Offset[0])
+			case "yoffset":
+				lv = lua.LNumber(spr.Offset[1])
+			default:
+				l.RaiseError("\nInvalid argument: %v\n", vname)
+			}
+		}
+		l.Push(lv)
 		return 1
 	})
 	luaRegister(l, "sprpriority", func(*lua.LState) int {

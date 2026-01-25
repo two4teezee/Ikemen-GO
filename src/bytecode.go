@@ -994,6 +994,12 @@ const (
 	OC_ex3_helpervar_ownclsnscale
 	OC_ex3_helpervar_ownpal
 	OC_ex3_helpervar_preserve
+	OC_ex3_spritevar_group
+	OC_ex3_spritevar_height
+	OC_ex3_spritevar_image
+	OC_ex3_spritevar_width
+	OC_ex3_spritevar_xoffset
+	OC_ex3_spritevar_yoffset
 )
 
 type StringPool struct {
@@ -3573,11 +3579,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		id := sys.bcStack.Pop().ToI()
 
 		// Find projectile
-		projs := c.getProjs(id)
-		var p *Projectile
-		if idx >= 0 && idx < len(projs) {
-			p = projs[idx]
-		}
+		p := c.getSingleProj(id, idx, true)
 
 		// Handle Output
 		if p != nil {
@@ -3859,7 +3861,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		// Common inputs
 		idx := int(sys.bcStack.Pop().ToI())
 		id := sys.bcStack.Pop().ToI()
-		bg := oc.getStageBg(id, idx, true)
+		bg := oc.getSingleStageBg(id, idx, true)
 		// Handle output
 		if bg != nil {
 			switch opc {
@@ -3910,7 +3912,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_projclsnoverlap:
 		boxType := sys.bcStack.Pop().ToI()
 		targetID := sys.bcStack.Pop().ToI()
-		index := sys.bcStack.Pop().ToI()
+		index := int(sys.bcStack.Pop().ToI())
 		sys.bcStack.PushB(c.projClsnOverlapTrigger(index, targetID, boxType))
 	case OC_ex2_attackmul:
 		sys.bcStack.PushF(c.attackMul[0])
@@ -3968,6 +3970,33 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushB(c.ownpal)
 		case OC_ex3_helpervar_preserve:
 			sys.bcStack.PushB(c.preserve)
+		}
+	// SpriteVar
+	case OC_ex3_spritevar_group, OC_ex3_spritevar_height, OC_ex3_spritevar_width,
+	OC_ex3_spritevar_xoffset, OC_ex3_spritevar_yoffset:
+		// Check for valid sprite
+		var spr *Sprite
+		if c.anim != nil {
+			spr = c.anim.spr
+		}
+		// Handle output
+		if spr != nil {
+			switch opc {
+			case OC_ex3_spritevar_group:
+				sys.bcStack.PushI(int32(spr.Group))
+			case OC_ex3_spritevar_height:
+				sys.bcStack.PushF(float32(spr.Size[1]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_image:
+				sys.bcStack.PushI(int32(spr.Number))
+			case OC_ex3_spritevar_width:
+				sys.bcStack.PushF(float32(spr.Size[0]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_xoffset:
+				sys.bcStack.PushF(float32(spr.Offset[0]) * (c.localscl / oc.localscl))
+			case OC_ex3_spritevar_yoffset:
+				sys.bcStack.PushF(float32(spr.Offset[1]) * (c.localscl / oc.localscl))
+			}
+		} else {
+			sys.bcStack.Push(BytecodeSF())
 		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
@@ -5980,7 +6009,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 	eid := int32(-1)
-	idx := int32(-1)
+	idx := int(-1)
 	var expls []*Explod
 	rp := [2]int32{-1, 0}
 	remap := false
@@ -6001,7 +6030,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 					f(e)
 				}
 			}
-		} else if idx < int32(len(expls)) {
+		} else if idx < len(expls) {
 			f(expls[idx])
 		}
 	}
@@ -6021,12 +6050,12 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 		case explod_id:
 			eid = exp[0].evalI(c)
 		case modifyexplod_index:
-			idx = exp[0].evalI(c)
+			idx = int(exp[0].evalI(c))
 		case modifyexplod_redirectid:
 			return true // Already handled. Avoid default
 		default:
 			if len(expls) == 0 {
-				expls = crun.getExplods(eid)
+				expls = crun.getMultipleExplods(eid, idx, false) // We could print a warning here but Mugen doesn't
 				if len(expls) == 0 {
 					return false
 				}
@@ -7689,7 +7718,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 
 	redirscale := c.localscl / crun.localscl
 	mpid := int32(-1)
-	mpidx := int32(-1)
+	mpidx := int(-1)
 	var projs []*Projectile
 
 	eachProj := func(f func(p *Projectile)) {
@@ -7697,7 +7726,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 			for _, p := range projs {
 				f(p)
 			}
-		} else if mpidx < int32(len(projs)) {
+		} else if mpidx < len(projs) {
 			f(projs[mpidx])
 		}
 	}
@@ -7707,7 +7736,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 		case modifyProjectile_id: // ID's to modify
 			mpid = exp[0].evalI(c)
 		case modifyProjectile_index: // index to modify
-			mpidx = exp[0].evalI(c)
+			mpidx = int(exp[0].evalI(c))
 		case modifyProjectile_redirectid:
 			return true // Already handled. Avoid default
 		default:
@@ -7715,7 +7744,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				return false
 			}
 			if len(projs) == 0 {
-				projs = crun.getProjs(mpid)
+				projs = crun.getMultipleProjs(mpid, mpidx, true)
 				if len(projs) == 0 {
 					return false
 				}

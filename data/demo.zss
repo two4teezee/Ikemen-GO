@@ -12,10 +12,9 @@ ignoreHitPause if gameMode = "demo" && !isHelper {
 		flag5: skipWinDisplay;
 		flag6: globalNoKO;
 	}
-	let txtId = floor(Const(DemoTextId));
-	if !player(1),numText($txtId) {
+	if playerNo = 1 {
 		text{
-			removetime: -1;
+			removetime: 1;
 			localcoord: fightScreenVar(info.localcoord.x), fightScreenVar(info.localcoord.y);
 			layerno: 2;
 			textspacing: 0, 25;
@@ -24,7 +23,6 @@ ignoreHitPause if gameMode = "demo" && !isHelper {
 			bank: 0;
 			align: 0;
 			pos: fightScreenVar(info.localcoord.x) / 2, fightScreenVar(info.localcoord.y) - 48.0;
-			id: $txtId;
 		}
 	}
 }

@@ -354,6 +354,7 @@ type InfoBoxProperties struct {
 
 type CellOverrideProperties struct {
 	Offset      [2]float32 `ini:"offset"`
+	Spacing     [2]float32 `ini:"spacing"`
 	Facing      int32      `ini:"facing" default:"1"`
 	Skip        bool       `ini:"skip"`
 	Scale       [2]float32 `ini:"scale"`

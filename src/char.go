@@ -291,8 +291,8 @@ func (cd *CharData) init() {
 	cd.guardsound_channel = -1
 	cd.ko.echo = 0
 	cd.volume = 256
-	cd.intpersistindex = int32(math.MaxInt32)
-	cd.floatpersistindex = int32(math.MaxInt32)
+	cd.intpersistindex = math.MaxInt32
+	cd.floatpersistindex = math.MaxInt32
 }
 
 type CharSize struct {
@@ -6705,6 +6705,29 @@ func (c *Char) removeExplod(id, idx int32) {
 		}
 	}
 	*playerExplods = tempSlice
+}
+
+// Always appends to preserve insertion order
+func (c *Char) spawnText() *TextSprite {
+	playerTexts := &sys.chartexts[c.playerNo]
+
+	// Do nothing if text limit reached
+	if len(*playerTexts) >= sys.cfg.Config.TextMax {
+		return nil
+	}
+
+	// Check if we have any ghosted texts sitting outside the current slice length
+	ts := GetGhostPointer(*playerTexts)
+
+	if ts != nil {
+		ts.Clear()
+	} else {
+		ts = NewTextSprite()
+	}
+
+	*playerTexts = append(*playerTexts, ts)
+
+	return ts
 }
 
 func (c *Char) removeText(id, index int32) {

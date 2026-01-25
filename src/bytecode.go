@@ -12457,15 +12457,15 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// Do nothing if text limit reached
-	if len(sys.chartexts[crun.playerNo]) >= sys.cfg.Config.TextMax {
+	ts := crun.spawnText()
+	if ts == nil {
 		return false
 	}
 
-	ts := NewTextSprite()
 	ts.ownerid = crun.id
 	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
 	//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1]) // Not crun here // TODO: No point in making this change until localcoord is fixed
-	ts.params = []interface{}{}
+	//ts.params = []interface{}{} // Handled in loadDefaults
 
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
@@ -12617,7 +12617,6 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
 
-	sys.chartexts[crun.playerNo] = append(sys.chartexts[crun.playerNo], ts)
 	return false
 }
 

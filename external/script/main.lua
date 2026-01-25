@@ -3116,6 +3116,7 @@ function main.f_randomtest()
 		start.f_setStage()
 		loadStart()
 		game()
+		refresh()
 		if winnerteam() == -1 then
 			break
 		end

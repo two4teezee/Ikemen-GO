@@ -2161,21 +2161,21 @@ function start.updateDrawList()
 
 			if t.skip ~= 1 then
 				local charData = start.f_selGrid(cellIndex)
-				local function getTransforms(defaultFacing)
+				local function getTransforms(base)
 					return {
-						facing      = getCellFacing(defaultFacing, c, r),
-						scale       = getCellTransform(c, r, "scale", nil),
-						xshear      = getCellTransform(c, r, "xshear", nil),
-						angle       = getCellTransform(c, r, "angle", nil),
-						xangle      = getCellTransform(c, r, "xangle", nil),
-						yangle      = getCellTransform(c, r, "yangle", nil),
-						projection  = getCellTransform(c, r, "projection", nil),
-						focallength = getCellTransform(c, r, "focallength", nil)
+						facing      = getCellFacing(base.facing, c, r),
+						scale       = getCellTransform(c, r, "scale", base.scale),
+						xshear      = getCellTransform(c, r, "xshear", base.xshear),
+						angle       = getCellTransform(c, r, "angle", base.angle),
+						xangle      = getCellTransform(c, r, "xangle", base.xangle),
+						yangle      = getCellTransform(c, r, "yangle", base.yangle),
+						projection  = getCellTransform(c, r, "projection", base.projection),
+						focallength = getCellTransform(c, r, "focallength", base.focallength)
 					}
 				end
 
 				if (charData and charData.char ~= nil and (charData.hidden == 0 or charData.hidden == 3)) or motif.select_info.showemptyboxes then
-					local item = getTransforms(motif.select_info.cell.bg.facing)
+					local item = getTransforms(motif.select_info.cell.bg)
 					item.anim = motif.select_info.cell.bg.AnimData
 					item.x = motif.select_info.pos[1] + t.x
 					item.y = motif.select_info.pos[2] + t.y
@@ -2183,7 +2183,7 @@ function start.updateDrawList()
 				end
 
 				if charData and (charData.char == 'randomselect' or charData.hidden == 3) then
-					local item = getTransforms(motif.select_info.cell.random.facing)
+					local item = getTransforms(motif.select_info.cell.random)
 					item.anim = motif.select_info.cell.random.AnimData
 					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
 					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
@@ -2191,7 +2191,7 @@ function start.updateDrawList()
 				end
 
 				if charData and charData.char_ref ~= nil and charData.hidden == 0 then
-					local item = getTransforms(motif.select_info.portrait.facing)
+					local item = getTransforms(motif.select_info.portrait)
 					item.anim = charData.cell_data
 					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
 					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]

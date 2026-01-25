@@ -1531,6 +1531,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.luaQueueLayerDraw(int(layerLocal), func() {
 				(&aSnap).Draw(layerLocal)
 			})
+			aSnap.Update(true)
 		})
 		return 0
 	})
@@ -2652,17 +2653,31 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "getInput", func(l *lua.LState) int {
+		var players []int
 		// Collect player numbers (1-based) from arg #1
-		players := make([]int, 0, 4)
 		switch v := l.Get(1).(type) {
 		case *lua.LTable:
 			v.ForEach(func(_ lua.LValue, val lua.LValue) {
-				if n, ok := val.(lua.LNumber); ok {
-					players = append(players, int(n))
+				n, ok := val.(lua.LNumber)
+				if !ok {
+					return
 				}
+				pn := int(n)
+				if pn < 1 || pn > len(sys.commandLists) {
+					return
+				}
+				players = append(players, pn)
 			})
 		case lua.LNumber:
-			players = append(players, int(v))
+			pn := int(v)
+			if pn == -1 {
+				players = make([]int, 0, len(sys.commandLists))
+				for i := 1; i <= len(sys.commandLists); i++ {
+					players = append(players, i)
+				}
+			} else {
+				players = append(players, pn)
+			}
 		default:
 			l.Push(lua.LBool(false))
 			return 1
@@ -4085,6 +4100,7 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {
 		sys.roundResetFlg = true
+		sys.roundResetMatchStart = true
 		return 0
 	})
 	luaRegister(l, "runStoryboard", func(*lua.LState) int {
@@ -4410,6 +4426,10 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		})
+		return 0
+	})
+	luaRegister(l, "setLastInputController", func(l *lua.LState) int {
+		sys.lastInputController = int(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setLife", func(*lua.LState) int {
@@ -4753,21 +4773,6 @@ func systemScriptInit(l *lua.LState) {
 			userDataError(l, 1, ts)
 		}
 		ts.text = fmt.Sprintf(ts.text+"%v", strArg(l, 2))
-		return 0
-	})
-	luaRegister(l, "textImgApplyFontTuple", func(*lua.LState) int {
-		ts, ok := toUserData(l, 1).(*TextSprite)
-		if !ok {
-			userDataError(l, 1, ts)
-		}
-		tbl := tableArg(l, 2)
-		font := [8]int32{-1, 0, 0, 255, 255, 255, 255, -1}
-		for i := 1; i <= 8; i++ {
-			if n, ok := tbl.RawGetInt(i).(lua.LNumber); ok {
-				font[i-1] = int32(n)
-			}
-		}
-		ts.ApplyFontTuple(font, sys.motif.Fnt)
 		return 0
 	})
 	luaRegister(l, "textImgApplyVel", func(*lua.LState) int {

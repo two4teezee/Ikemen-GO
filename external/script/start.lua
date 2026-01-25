@@ -906,7 +906,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 	local tmpX = selX
 	local tmpY = selY
 	local found = false
-	if main.f_input({cmd}, motif.select_info.cell.up.key) or dir == 'U' then
+	if getInput({cmd}, motif.select_info.cell.up.key) or dir == 'U' then
 		for i = 1, motif.select_info.rows do
 			selY = selY - 1
 			if selY < 0 then
@@ -927,7 +927,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				break
 			end
 		end
-	elseif main.f_input({cmd}, motif.select_info.cell.down.key) or dir == 'D' then
+	elseif getInput({cmd}, motif.select_info.cell.down.key) or dir == 'D' then
 		for i = 1, motif.select_info.rows do
 			selY = selY + 1
 			if selY >= motif.select_info.rows then
@@ -948,7 +948,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				break
 			end
 		end
-	elseif main.f_input({cmd}, motif.select_info.cell.left.key) or dir == 'B' then
+	elseif getInput({cmd}, motif.select_info.cell.left.key) or dir == 'B' then
 		if dir ~= nil then
 			found, selX = start.f_searchEmptyBoxes(selX, selY, side, -1)
 		else
@@ -966,7 +966,7 @@ function start.f_cellMovement(selX, selY, cmd, side, snd, dir)
 				end
 			end
 		end
-	elseif main.f_input({cmd}, motif.select_info.cell.right.key) or dir == 'F' then
+	elseif getInput({cmd}, motif.select_info.cell.right.key) or dir == 'F' then
 		if dir ~= nil then
 			found, selX = start.f_searchEmptyBoxes(selX, selY, side, 1)
 		else
@@ -1073,6 +1073,22 @@ function getCellOffset(col, row)
 	return {0, 0}
 end
 
+function getCellSpacing(col, row)
+	local override = getCellOverride(col, row)
+	if override ~= nil and override.spacing ~= nil then
+		if override.spacing[1] ~= 0 then
+			if override.spacing[2] == 0 then
+				return {override.spacing[1], override.spacing[1]}
+			end
+			return override.spacing
+		end
+		if override.spacing[2] ~= 0 then
+			return override.spacing
+		end
+	end
+	return motif.select_info.cell.spacing
+end
+
 function getCellTransform(col, row, paramName, default)
 	local override = getCellOverride(col, row)
 	if override ~= nil then
@@ -1118,9 +1134,15 @@ function start.f_drawCursor(pn, x, y, param, done)
 	end
 	local cd = store[pn]
 
-	-- calculate target cell coordinates
-	local baseX = motif.select_info.pos[1] + x * (motif.select_info.cell.size[1] + motif.select_info.cell.spacing[1]) + getCellOffset(x, y)[1]
-	local baseY = motif.select_info.pos[2] + y * (motif.select_info.cell.size[2] + motif.select_info.cell.spacing[2]) + getCellOffset(x, y)[2]
+	-- calculate target cell coordinates using the pre-calculated grid
+	local cellData = start.t_grid[y + 1] and start.t_grid[y + 1][x + 1]
+	local baseX, baseY
+
+	if cellData then
+		-- cellData already includes all spacing and offsets
+		baseX = motif.select_info.pos[1] + cellData.x
+		baseY = motif.select_info.pos[2] + cellData.y
+	end
 
 	-- initialization or snap: set cursor directly
 	if not cd.init or done or cd.snap then
@@ -1387,7 +1409,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 		for _, cmdType in ipairs({'select', 'next', 'previous'}) do
 			if main.t_selGrid[cell][cmdType] ~= nil then
 				for k, v in pairs(main.t_selGrid[cell][cmdType]) do
-					if main.f_input({cmd}, {k}) then
+					if getInput({cmd}, {k}) then
 						if cmdType == 'next' then
 							local ok = false
 							for i = main.t_selGrid[cell].slot + 1, #v do
@@ -1460,9 +1482,11 @@ for i = 1, motif.select_info.rows * motif.select_info.columns do
 		start.t_grid[row] = {}
 	end
 	col = #start.t_grid[row] + 1
+	local cell_spacing = getCellSpacing(col - 1, row - 1)
+	local cell_offset = getCellOffset(col - 1, row - 1)
 	start.t_grid[row][col] = {
-		x = (col - 1) * (motif.select_info.cell.size[1] + motif.select_info.cell.spacing[1]) + getCellOffset(col - 1, row - 1)[1],
-		y = (row - 1) * (motif.select_info.cell.size[2] + motif.select_info.cell.spacing[2]) + getCellOffset(col - 1, row - 1)[2]
+		x = (col - 1) * (motif.select_info.cell.size[1] + cell_spacing[1]) + cell_offset[1],
+		y = (row - 1) * (motif.select_info.cell.size[2] + cell_spacing[2]) + cell_offset[2]
 	}
 	if start.f_selGrid(i).char ~= nil then
 		start.t_grid[row][col].char = start.f_selGrid(i).char
@@ -1827,7 +1851,7 @@ function start.f_selectChallenger()
 	local ok = launchFight{challenger = true}
 	--restore values
 	main.f_default()
-	main.playerInput = getRemapInput(1)
+	setLastInputController(getRemapInput(1))
 	main.t_itemname.arcade()
 	if not ok then
 		return false
@@ -2116,7 +2140,7 @@ function codeInput(name)
 	if main.t_commands[name] == nil then
 		return false
 	end
-	if commandGetState(main.t_cmd[main.playerInput], name) then
+	if commandGetState(main.t_cmd[getLastInputController()], name) then
 		return true
 	end
 	return false
@@ -2137,21 +2161,21 @@ function start.updateDrawList()
 
 			if t.skip ~= 1 then
 				local charData = start.f_selGrid(cellIndex)
-				local function getTransforms(defaultFacing)
+				local function getTransforms(base)
 					return {
-						facing      = getCellFacing(defaultFacing, c, r),
-						scale       = getCellTransform(c, r, "scale", nil),
-						xshear      = getCellTransform(c, r, "xshear", nil),
-						angle       = getCellTransform(c, r, "angle", nil),
-						xangle      = getCellTransform(c, r, "xangle", nil),
-						yangle      = getCellTransform(c, r, "yangle", nil),
-						projection  = getCellTransform(c, r, "projection", nil),
-						focallength = getCellTransform(c, r, "focallength", nil)
+						facing      = getCellFacing(base.facing, c, r),
+						scale       = getCellTransform(c, r, "scale", base.scale),
+						xshear      = getCellTransform(c, r, "xshear", base.xshear),
+						angle       = getCellTransform(c, r, "angle", base.angle),
+						xangle      = getCellTransform(c, r, "xangle", base.xangle),
+						yangle      = getCellTransform(c, r, "yangle", base.yangle),
+						projection  = getCellTransform(c, r, "projection", base.projection),
+						focallength = getCellTransform(c, r, "focallength", base.focallength)
 					}
 				end
 
 				if (charData and charData.char ~= nil and (charData.hidden == 0 or charData.hidden == 3)) or motif.select_info.showemptyboxes then
-					local item = getTransforms(motif.select_info.cell.bg.facing)
+					local item = getTransforms(motif.select_info.cell.bg)
 					item.anim = motif.select_info.cell.bg.AnimData
 					item.x = motif.select_info.pos[1] + t.x
 					item.y = motif.select_info.pos[2] + t.y
@@ -2159,7 +2183,7 @@ function start.updateDrawList()
 				end
 
 				if charData and (charData.char == 'randomselect' or charData.hidden == 3) then
-					local item = getTransforms(motif.select_info.cell.random.facing)
+					local item = getTransforms(motif.select_info.cell.random)
 					item.anim = motif.select_info.cell.random.AnimData
 					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
 					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
@@ -2167,7 +2191,7 @@ function start.updateDrawList()
 				end
 
 				if charData and charData.char_ref ~= nil and charData.hidden == 0 then
-					local item = getTransforms(motif.select_info.portrait.facing)
+					local item = getTransforms(motif.select_info.portrait)
 					item.anim = charData.cell_data
 					item.x = motif.select_info.pos[1] + t.x + motif.select_info.portrait.offset[1]
 					item.y = motif.select_info.pos[2] + t.y + motif.select_info.portrait.offset[2]
@@ -2213,6 +2237,7 @@ function start.f_selectScreen()
 	local blinkCount = 0
 	local counter = 0 - motif.select_info.fadein.time
 	local timerReset = false
+	local stageTextData = motif.select_info.stage.active.TextSpriteData
 	-- generate team mode items table
 	for side = 1, 2 do
 		-- read display names for the current gamemode (or default)
@@ -2317,7 +2342,7 @@ function start.f_selectScreen()
 						start.needUpdateDrawList = DrawUpdateflag
 					end
 					--not in palmenu
-					if v.selectState == 0 and not main.f_input(main.t_players, motif.select_info.cancel.key) then
+					if v.selectState == 0 and not getInput(-1, motif.select_info.cancel.key) then
 						start.p[side].inPalMenu = false
 					end
 					--draw active cursor
@@ -2348,7 +2373,7 @@ function start.f_selectScreen()
 			end
 			--delayed screen transition for the duration of face_done_anim or selection sound
 			if start.p[side].screenDelay > 0 then
-				if main.f_input(main.t_players, motif.select_info.done.key) and not start.p[side].inPalMenu then
+				if getInput(-1, motif.select_info.done.key) and not start.p[side].inPalMenu then
 					start.p[side].screenDelay = 0
 				else
 					start.p[side].screenDelay = start.p[side].screenDelay - 1
@@ -2356,7 +2381,7 @@ function start.f_selectScreen()
 			end
 			--exit select screen
 			for _, v in ipairs(start.p[side].t_selCmd) do
-				if not start.escFlag and (esc() or (main.f_input({v.cmd}, motif.select_info.cancel.key) and not start.p[side].inPalMenu)) then
+				if not start.escFlag and (esc() or (getInput({v.cmd}, motif.select_info.cancel.key) and not start.p[side].inPalMenu)) then
 					main.f_fadeReset('fadeout', motif.select_info)
 					fadeOutStarted = true
 					start.escFlag = true
@@ -2415,19 +2440,19 @@ function start.f_selectScreen()
 					)
 				end
 				if not stageEnd then
-					if main.f_input(main.t_players, motif.select_info.done.key) or timerSelect == -1 then
+					if getInput(-1, motif.select_info.done.key) or timerSelect == -1 then
 						sndPlay(motif.Snd, motif.select_info.stage.done.snd[1], motif.select_info.stage.done.snd[2])
-						textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.done.font)
+						stageTextData = motif.select_info.stage.done.TextSpriteData
 						stageEnd = true
 					elseif stageActiveCount < motif.select_info.stage.active.switchtime then --delay change
 						stageActiveCount = stageActiveCount + 1
 					else
 						if stageActiveState then
 							stageActiveState = false
-							textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.active2.font)
+							stageTextData = motif.select_info.stage.active2.TextSpriteData
 						else
 							stageActiveState = true
-							textImgApplyFontTuple(motif.select_info.stage.TextSpriteData, motif.select_info.stage.active.font)
+							stageTextData = motif.select_info.stage.active.TextSpriteData
 						end
 						stageActiveCount = 0
 					end
@@ -2437,9 +2462,9 @@ function start.f_selectScreen()
 				if stageListNo ~= 0 then
 					stage_text = main.f_formatBySpec(motif.select_info.stage.text, {i = stageListNo, s = main.t_selStages[main.t_selectableStages[stageListNo]].name})
 				end
-				textImgReset(motif.select_info.stage.TextSpriteData)
-				textImgSetText(motif.select_info.stage.TextSpriteData, stage_text)
-				textImgDraw(motif.select_info.stage.TextSpriteData)
+				textImgReset(stageTextData)
+				textImgSetText(stageTextData, stage_text)
+				textImgDraw(stageTextData)
 			end
 		else
 			--draw record text
@@ -2514,7 +2539,7 @@ function start.f_teamMenu(side, t)
 		if start.p[side].teamMenu > #t then
 			start.p[side].teamMenu = 1
 		end
-		if #t > 1 and main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.previous.key) then
+		if #t > 1 and getInput(t_cmd, motif.select_info['p' .. side].teammenu.previous.key) then
 			if start.p[side].teamMenu > 1 then
 				sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.move.snd[1], motif.select_info['p' .. side].teammenu.move.snd[2])
 				start.p[side].teamMenu = start.p[side].teamMenu - 1
@@ -2522,7 +2547,7 @@ function start.f_teamMenu(side, t)
 				sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.move.snd[1], motif.select_info['p' .. side].teammenu.move.snd[2])
 				start.p[side].teamMenu = #t
 			end
-		elseif #t > 1 and main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.next.key) then
+		elseif #t > 1 and getInput(t_cmd, motif.select_info['p' .. side].teammenu.next.key) then
 			if start.p[side].teamMenu < #t then
 				sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.move.snd[1], motif.select_info['p' .. side].teammenu.move.snd[2])
 				start.p[side].teamMenu = start.p[side].teamMenu + 1
@@ -2532,50 +2557,50 @@ function start.f_teamMenu(side, t)
 			end
 		else
 			if t[start.p[side].teamMenu].itemname == 'simul' then
-				if main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
+				if getInput(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
 					if start.p[side].numSimul > main.numSimul[1] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numSimul = start.p[side].numSimul - 1
 					end
-				elseif main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
+				elseif getInput(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
 					if start.p[side].numSimul < main.numSimul[2] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numSimul = start.p[side].numSimul + 1
 					end
 				end
 			elseif t[start.p[side].teamMenu].itemname == 'turns' then
-				if main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
+				if getInput(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
 					if start.p[side].numTurns > main.numTurns[1] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numTurns = start.p[side].numTurns - 1
 					end
-				elseif main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
+				elseif getInput(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
 					if start.p[side].numTurns < main.numTurns[2] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numTurns = start.p[side].numTurns + 1
 					end
 				end
 			elseif t[start.p[side].teamMenu].itemname == 'tag' then
-				if main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
+				if getInput(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) then
 					if start.p[side].numTag > main.numTag[1] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numTag = start.p[side].numTag - 1
 					end
-				elseif main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
+				elseif getInput(t_cmd, motif.select_info['p' .. side].teammenu.add.key) then
 					if start.p[side].numTag < main.numTag[2] then
 						sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 						start.p[side].numTag = start.p[side].numTag + 1
 					end
 				end
 			elseif t[start.p[side].teamMenu].itemname == 'ratio' then
-				if main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) and main.selectMenu[side] then
+				if getInput(t_cmd, motif.select_info['p' .. side].teammenu.subtract.key) and main.selectMenu[side] then
 					sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 					if start.p[side].numRatio > 1 then
 						start.p[side].numRatio = start.p[side].numRatio - 1
 					else
 						start.p[side].numRatio = 7
 					end
-				elseif main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.add.key) and main.selectMenu[side] then
+				elseif getInput(t_cmd, motif.select_info['p' .. side].teammenu.add.key) and main.selectMenu[side] then
 					sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.value.snd[1], motif.select_info['p' .. side].teammenu.value.snd[2])
 					if start.p[side].numRatio < 7 then
 						start.p[side].numRatio = start.p[side].numRatio + 1
@@ -2586,7 +2611,7 @@ function start.f_teamMenu(side, t)
 			end
 		end
 		--Exit during team menu
-		if not start.escFlag and (esc() or main.f_input(main.t_players, motif.select_info.cancel.key)) then
+		if not start.escFlag and (esc() or getInput(-1, motif.select_info.cancel.key)) then
 			esc(false)
 			main.f_fadeReset('fadeout', motif.select_info)
 			fadeOutStarted = true
@@ -2608,17 +2633,21 @@ function start.f_teamMenu(side, t)
 			(start.p[side].teamMenu - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
 			(start.p[side].teamMenu - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
 		)
+		local teammenu = motif.select_info['p' .. side].teammenu
+		local itemCfg = teammenu.item
+		local valueCfg = teammenu.value
+		local spacingX, spacingY = itemCfg.spacing[1], itemCfg.spacing[2]
+		local uppercase = itemCfg.uppercase
+		local gm = gamemode()
 		for i = 1, #t do
-			textImgReset(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
-			textImgAddPos(
-				motif.select_info['p' .. side].teammenu.item.TextSpriteData,
-				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
-				(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
-			)
-			textImgSetText(motif.select_info['p' .. side].teammenu.item.TextSpriteData, main.f_itemnameUpper(t[i].displayname, motif.select_info['p' .. side].teammenu.item.uppercase))
+			local x = (i - 1) * spacingX
+			local y = (i - 1) * spacingY
+			local itemname = t[i].itemname
+			local itemText = main.f_itemnameUpper(t[i].displayname, uppercase)
+			local textData = itemCfg.TextSpriteData
 			--Draw team items
 			if i == start.p[side].teamMenu then
-				if t_teamActiveCount[side] < motif.select_info['p' .. side].teammenu.item.active.switchtime then --delay change
+				if t_teamActiveCount[side] < itemCfg.active.switchtime then --delay change
 					t_teamActiveCount[side] = t_teamActiveCount[side] + 1
 				else
 					if t_teamActiveState[side] then
@@ -2629,88 +2658,67 @@ function start.f_teamMenu(side, t)
 					t_teamActiveCount[side] = 0
 				end
 				--Draw team active item background
-				if motif.select_info['p' .. side].teammenu.active.bg[gamemode() .. '-' .. t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.active.bg[gamemode() .. '-' .. t[i].itemname].AnimData)
-				elseif motif.select_info['p' .. side].teammenu.active.bg[t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.active.bg[t[i].itemname].AnimData)
+				if teammenu.active.bg[gm .. '-' .. itemname] ~= nil then
+					main.f_animPosDraw(teammenu.active.bg[gm .. '-' .. itemname].AnimData)
+				elseif teammenu.active.bg[itemname] ~= nil then
+					main.f_animPosDraw(teammenu.active.bg[itemname].AnimData)
 				end
 				--Draw team active item font
 				if t_teamActiveState[side] then
-					textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.active2.font)
+					textData = itemCfg.active2.TextSpriteData
 				else
-					textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.active.font)
+					textData = itemCfg.active.TextSpriteData
 				end
-				textImgDraw(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
 			else
 				--Draw team not active item background
-				if motif.select_info['p' .. side].teammenu.bg[gamemode() .. '-' .. t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.bg[gamemode() .. '-' .. t[i].itemname].AnimData)
-				elseif motif.select_info['p' .. side].teammenu.bg[t[i].itemname] ~= nil then
-					main.f_animPosDraw(motif.select_info['p' .. side].teammenu.bg[t[i].itemname].AnimData)
+				if teammenu.bg[gm .. '-' .. itemname] ~= nil then
+					main.f_animPosDraw(teammenu.bg[gm .. '-' .. itemname].AnimData)
+				elseif teammenu.bg[itemname] ~= nil then
+					main.f_animPosDraw(teammenu.bg[itemname].AnimData)
 				end
-				--Draw team not active item font
-				textImgApplyFontTuple(motif.select_info['p' .. side].teammenu.item.TextSpriteData, motif.select_info['p' .. side].teammenu.item.font)
-				textImgDraw(motif.select_info['p' .. side].teammenu.item.TextSpriteData)
 			end
+			--Draw item font
+			textImgReset(textData)
+			textImgAddPos(textData, x, y)
+			textImgSetText(textData, itemText)
+			textImgDraw(textData)
 			--Draw team icons
-			if t[i].itemname == 'simul' then
+			if itemname == 'simul' then
 				for j = 1, main.numSimul[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numSimul then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'turns' then
+			elseif itemname == 'turns' then
 				for j = 1, main.numTurns[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numTurns then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'tag' then
+			elseif itemname == 'tag' then
 				for j = 1, main.numTag[2] do
+					local vx = x + (j - 1) * valueCfg.spacing[1]
+					local vy = y + (j - 1) * valueCfg.spacing[2]
 					if j <= start.p[side].numTag then
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.icon.AnimData, vx, vy)
 					else
-						main.f_animPosDraw(
-							motif.select_info['p' .. side].teammenu.value.empty.icon.AnimData,
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[1],
-							(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2] + (j - 1) * motif.select_info['p' .. side].teammenu.value.spacing[2]
-						)
+						main.f_animPosDraw(valueCfg.empty.icon.AnimData, vx, vy)
 					end
 				end
-			elseif t[i].itemname == 'ratio' and start.p[side].teamMenu == i and main.selectMenu[side] then
-				main.f_animPosDraw(
-					motif.select_info['p' .. side].teammenu['ratio' .. start.p[side].numRatio].icon.AnimData,
-					(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[1],
-					(i - 1) * motif.select_info['p' .. side].teammenu.item.spacing[2]
-				)
+			elseif itemname == 'ratio' and start.p[side].teamMenu == i and main.selectMenu[side] then
+				main.f_animPosDraw(teammenu['ratio' .. start.p[side].numRatio].icon.AnimData, x, y)
 			end
 		end
 		--Confirmed team selection
-		if main.f_input(t_cmd, motif.select_info['p' .. side].teammenu.done.key) or timerSelect == -1 then
+		if getInput(t_cmd, motif.select_info['p' .. side].teammenu.done.key) or timerSelect == -1 then
 			timerSelect = motif.select_info.timer.displaytime
 			sndPlay(motif.Snd, motif.select_info['p' .. side].teammenu.done.snd[1], motif.select_info['p' .. side].teammenu.done.snd[2])
 			if t[start.p[side].teamMenu].itemname == 'single' then
@@ -2905,7 +2913,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 	start.p[side].inPalMenu = true
 
 	-- accept selection
-	if main.f_input({cmd}, motif.select_info['p' .. side].palmenu.done.key) or timerSelect == -1 then
+	if getInput({cmd}, motif.select_info['p' .. side].palmenu.done.key) or timerSelect == -1 then
 		pal = (curIdx == maxIdx) and (start.c[player].randPalPreview or start.f_randomPal(charRef, validPals)) or validPals[curIdx]
 		st.pal, st.currentIdx = pal, curIdx
 
@@ -2937,7 +2945,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side].select.snd[1], motif.select_info['p' .. side].select.snd[2])
 		sndPlay(motif.Snd, motif.select_info['p' .. side].palmenu.done.snd[1], motif.select_info['p' .. side].palmenu.done.snd[2])
 	 -- next palette
-	elseif main.f_input({cmd}, motif.select_info['p' .. side].palmenu.next.key) then
+	elseif getInput({cmd}, motif.select_info['p' .. side].palmenu.next.key) then
 		curIdx = (curIdx == maxIdx) and 1 or curIdx + 1
 		st.currentIdx = curIdx
 		if curIdx < maxIdx then
@@ -2945,7 +2953,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		end
 		sndPlay(motif.Snd, motif.select_info['p' .. side].palmenu.value.snd[1], motif.select_info['p' .. side].palmenu.value.snd[2])
 	-- previous palette
-	elseif main.f_input({cmd}, motif.select_info['p' .. side].palmenu.previous.key) then
+	elseif getInput({cmd}, motif.select_info['p' .. side].palmenu.previous.key) then
 		curIdx = (curIdx == 1) and maxIdx or curIdx - 1
 		st.currentIdx = curIdx
 		if curIdx < maxIdx then
@@ -2953,7 +2961,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		end
 		sndPlay(motif.Snd, motif.select_info['p' .. side].palmenu.value.snd[1], motif.select_info['p' .. side].palmenu.value.snd[2])
 	-- cancel
-	elseif main.f_input({cmd}, motif.select_info['p' .. side].palmenu.cancel.key) then
+	elseif getInput({cmd}, motif.select_info['p' .. side].palmenu.cancel.key) then
 		st.face_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info['p' .. pn].face, nil, true, st.face_data)
 		st.face2_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info['p' .. pn].face2, nil, true, st.face2_data)
 		selectState = 0
@@ -2966,7 +2974,7 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		sndPlay(motif.Snd, motif.select_info['p' .. side].palmenu.cancel.snd[1], motif.select_info['p' .. side].palmenu.cancel.snd[2])
 	end
 	-- random hotkey
-	if main.f_input({cmd}, motif.select_info['p' .. side].palmenu.random.key) then
+	if getInput({cmd}, motif.select_info['p' .. side].palmenu.random.key) then
 		curIdx, st.currentIdx = maxIdx, maxIdx
 	end
 	-- random preview update
@@ -3296,21 +3304,21 @@ function start.f_stageMenu()
 	local stageListMinIdx = r.min
 	local stageListMaxIdx = #main.t_selectableStages
 
-	if main.f_input(main.t_players, motif.select_info.cell.left.key) then
+	if getInput(-1, motif.select_info.cell.left.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		stageListNo = stageListNo - 1
 		if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
-	elseif main.f_input(main.t_players, motif.select_info.cell.right.key) then
+	elseif getInput(-1, motif.select_info.cell.right.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		stageListNo = stageListNo + 1
 		if stageListNo > stageListMaxIdx then stageListNo = stageListMinIdx end
-	elseif main.f_input(main.t_players, motif.select_info.cell.up.key) then
+	elseif getInput(-1, motif.select_info.cell.up.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo - 1
 			if stageListNo < stageListMinIdx then stageListNo = stageListMaxIdx end
 		end
-	elseif main.f_input(main.t_players, motif.select_info.cell.down.key) then
+	elseif getInput(-1, motif.select_info.cell.down.key) then
 		sndPlay(motif.Snd, motif.select_info.stage.move.snd[1], motif.select_info.stage.move.snd[2])
 		for i = 1, 10 do
 			stageListNo = stageListNo + 1
@@ -3403,7 +3411,7 @@ function start.f_selectVersus(active, t_orderSelect)
 								snd = true
 							end
 						end
-					elseif main.f_input({side}, motif.vs_screen['p' .. pn].key) or (#start.p[side].t_selected == #t_order[side] + 1) then
+					elseif getInput({side}, motif.vs_screen['p' .. pn].key) or (#start.p[side].t_selected == #t_order[side] + 1) then
 						table.insert(t_order[side], k)
 						-- confirm char selection (starts loading immediately if gameOption('Config.BackgroundLoading') is true)
 						selectChar(side, v.ref, v.pal)
@@ -3533,8 +3541,8 @@ function start.f_selectVersus(active, t_orderSelect)
 			if not fadeOutStarted and (
 				-- Wait for order select to finish before vs_screen.time can end the screen.
 				(counter >= motif.vs_screen.time and (not (t_orderSelect[1] or t_orderSelect[2]) or done))
-				or (not main.cpuSide[side] and main.f_input({side}, motif.vs_screen.skip.key))
-				or (done and main.f_input({side}, motif.vs_screen.done.key))
+				or (not main.cpuSide[side] and getInput({side}, motif.vs_screen.skip.key))
+				or (done and getInput({side}, motif.vs_screen.done.key))
 				) then
 				main.f_fadeReset('fadeout', motif.vs_screen)
 				fadeOutStarted = true
@@ -3543,7 +3551,7 @@ function start.f_selectVersus(active, t_orderSelect)
 		end
 		main.f_fadeAnim(motif.vs_screen)
 		--frame transition
-		if not escFlag and (esc() or main.f_input(main.t_players, motif.vs_screen.cancel.key)) then
+		if not escFlag and (esc() or getInput(-1, motif.vs_screen.cancel.key)) then
 			esc(false)
 			main.f_fadeReset('fadeout', motif.vs_screen)
 			fadeOutStarted = true

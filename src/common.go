@@ -1572,3 +1572,11 @@ func PointerSliceReset[T any](slice []*T) []*T {
 	}
 	return slice[:0]
 }
+
+// Pull a pointer from outside the slice's current length but within its capacity
+func GetGhostPointer[T any](s []*T) *T {
+	if len(s) < cap(s) {
+		return s[:len(s)+1][len(s)]
+	}
+	return nil
+}

@@ -1660,6 +1660,10 @@ func newExplod() *Explod {
 	return &Explod{}
 }
 
+func (e *Explod) clear() {
+    *e = Explod{}
+}
+
 // Set default values according to char who creates the explod
 func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
@@ -2338,6 +2342,10 @@ type Projectile struct {
 
 func newProjectile() *Projectile {
 	return &Projectile{}
+}
+
+func (p *Projectile) clear() {
+	*p = Projectile{}
 }
 
 // Set defaults according to projectile owner
@@ -6499,7 +6507,7 @@ func (c *Char) helperPos(pt PosType, pos [3]float32, facing int32,
 	return
 }
 
-// Always append to preserve insertion order
+// Always appends to preserve insertion order
 func (c *Char) spawnExplod() (*Explod, int) {
 	playerExplods := &sys.explods[c.playerNo]
 
@@ -6508,7 +6516,15 @@ func (c *Char) spawnExplod() (*Explod, int) {
 		return nil, -1
 	}
 
-	e := newExplod()
+	// Check if we have any ghosted explods sitting outside the current slice length
+	e := GetGhostPointer(*playerExplods)
+
+	if e != nil {
+		e.clear()
+	} else {
+		e = newExplod()
+	}
+
 	*playerExplods = append(*playerExplods, e)
 	idx := len(*playerExplods) - 1
 
@@ -6985,38 +7001,29 @@ func (c *Char) hitAdd(h int32) {
 	}
 }
 
+// Always appends to preserve insertion order
 func (c *Char) spawnProjectile() *Projectile {
-	var p *Projectile
 	playerProjs := &sys.projs[c.playerNo]
 
-	// Reuse inactive projectile slot if available
-	// TODO: We could keep this slice compact like with explods
-	for i := range *playerProjs {
-		if (*playerProjs)[i].id < 0 {
-			p = (*playerProjs)[i]
-			break
-		}
+	// Check projectile limit
+	if len(*playerProjs) >= sys.cfg.Config.ProjectileMax {
+		root := sys.chars[c.playerNo][0]
+		sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v projectiles. New projectile creation skipped", sys.cfg.Config.ProjectileMax))
+		return nil
 	}
 
-	// If no inactive projectile was found, append a new one within the max limit
-	if p == nil {
-		// Check projectile limit
-		if len(*playerProjs) >= sys.cfg.Config.ProjectileMax {
-			root := sys.chars[c.playerNo][0]
-			sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v projectiles. New projectile creation skipped", sys.cfg.Config.ProjectileMax))
-			return nil
-		}
+	// Check if we have any ghosted projectiles sitting outside the current slice length
+	p := GetGhostPointer(*playerProjs)
 
-		// Add projectile if allowed
-		newP := newProjectile()
-		*playerProjs = append(*playerProjs, newP)
-		p = newP
-	}
-
-	// Set default values
 	if p != nil {
-		p.initFromChar(c)
+		p.clear()
+	} else {
+		p = newProjectile()
 	}
+
+	*playerProjs = append(*playerProjs, p)
+
+	p.initFromChar(c)
 
 	return p
 }

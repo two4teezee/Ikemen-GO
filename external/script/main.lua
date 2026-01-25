@@ -114,10 +114,6 @@ function main.f_setPlayers()
 	for i = #main.t_cmd + 1, n do
 		table.insert(main.t_cmd, main.f_commandNew(i))
 	end
-	main.t_players = {}
-	for i = 1, n do
-		table.insert(main.t_players, i)
-	end
 end
 main.f_setPlayers()
 
@@ -153,20 +149,6 @@ function main.f_btnPalNo(p)
 		if commandGetState(main.t_cmd[p], k) then return i + s end
 	end
 	return 0
-end
-
---return bool based on command input
-main.playerInput = 1
-function main.f_input(p, ...)
-	-- Centralized input read (Go-side), shared with motif.button()
-	local ok = getInput(p, ...)
-	if ok then
-		local li = getLastInputController()
-		if li ~= nil and li > 0 then
-			main.playerInput = li
-		end
-	end
-	return ok
 end
 
 --restore screenpack remapped inputs
@@ -294,7 +276,7 @@ if getCommandLineValue("-speed") ~= nil then
 	end
 end
 if getCommandLineValue("-speedtest") ~= nil then
-	setGameSpeed(100)
+	setGameSpeed(gameOption('Debug.SpeedTest'))
 end
 if getCommandLineValue("-nosound") ~= nil then
 	modifyGameOption('Sound.MasterVolume', 0)
@@ -931,11 +913,11 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 	esc(false)
 	main.f_cmdBufReset()
 	while true do
-		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+		if esc() or getInput(-1, sec.menu.cancel.key) then
 			esc(false)
 			sndPlay(motif.Snd, cancel_snd[1], cancel_snd[2])
 			return false
-		elseif getKey() ~= '' or main.f_input(main.t_players, sec.menu.done.key) then
+		elseif getKey() ~= '' or getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, done_snd[1], done_snd[2])
 			resetKey()
 			return true
@@ -961,7 +943,7 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 	local input = ''
 	resetKey()
 	while true do
-		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+		if esc() or getInput(-1, sec.menu.cancel.key) then
 			input = ''
 			break
 		end
@@ -1777,7 +1759,7 @@ main.t_itemname = {
 			
 		end
 		main.f_setCredits()
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('arcade')
 		hook.run("main.t_itemname")
@@ -1799,7 +1781,7 @@ main.t_itemname = {
 		main.teamMenu[1].single = true
 		main.teamMenu[2].single = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.bonus)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode('bonus')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -1829,7 +1811,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.freebattle)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('freebattle')
 		hook.run("main.t_itemname")
@@ -1981,6 +1963,12 @@ main.t_itemname = {
 		hook.run("main.t_itemname")
 		return options.menu.loop
 	end,
+	--RANDOMTEST
+	['randomtest'] = function()
+		setGameMode('randomtest')
+		hook.run("main.t_itemname")
+		return main.f_randomtest
+	end,
 	--REPLAY
 	['replay'] = function()
 		return main.f_replay
@@ -2027,7 +2015,7 @@ main.t_itemname = {
 				break
 			end
 		end
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode(t[item].itemname)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2073,7 +2061,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
@@ -2199,7 +2187,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		main.f_setCredits()
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.timeattack)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('timeattack')
 		hook.run("main.t_itemname")
@@ -2230,7 +2218,7 @@ main.t_itemname = {
 		main.matchWins.single = {0, 0}
 		main.matchWins.tag = {0, 0}
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.training)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode('training')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2323,7 +2311,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.watch)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('watch')
 		hook.run("main.t_itemname")
@@ -2470,7 +2458,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 					introWaitCycles = 0
 				end
-				if esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) then
+				if esc() or getInput(-1, motif[main.group].menu.cancel.key) then
 					if not bool_main then
 						sndPlay(motif.Snd, motif[main.group].cancel.snd[1], motif[main.group].cancel.snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then
@@ -2512,9 +2500,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					resetKey()
 				elseif bool_del and getKey('DELETE') then
 					tbl.items = main.f_deleteIP(item, t)
-				elseif main.f_input(main.t_players, motif[main.group].menu.hiscore.key) and main.f_hiscoreDisplay(t[item].itemname) then
+				elseif getInput(-1, motif[main.group].menu.hiscore.key) and main.f_hiscoreDisplay(t[item].itemname) then
 					demoFrameCounter = 0
-				elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
+				elseif getInput(-1, motif[main.group].menu.done.key) then
 					demoFrameCounter = 0
 					local f = t[item].itemname
 					if f == 'back' then
@@ -2721,11 +2709,11 @@ function main.f_replay()
 			playBgm({source = "motif.title", interrupt = true})
 			main.close = false
 			break
-		elseif esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and main.f_input(main.t_players, motif[main.group].menu.done.key)) then
+		elseif esc() or getInput(-1, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and getInput(-1, motif[main.group].menu.done.key)) then
 			sndPlay(motif.Snd, motif.replay_info.cancel.snd[1], motif.replay_info.cancel.snd[2])
 			main.f_fadeReset('fadeout', motif.replay_info)
 			main.close = true
-		elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
+		elseif getInput(-1, motif[main.group].menu.done.key) then
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 			enterReplay(t[item].itemname)
 			synchronize()
@@ -2743,7 +2731,7 @@ end
 function main.f_connect(server, str)
 	enterNetPlay(server)
 	while not connected() do
-		if esc() or main.f_input(main.t_players, motif.title_info.menu.cancel.key) then
+		if esc() or getInput(-1, motif.title_info.menu.cancel.key) then
 			sndPlay(motif.Snd, motif.title_info.cancel.snd[1], motif.title_info.cancel.snd[2])
 			exitNetPlay()
 			return false
@@ -2956,7 +2944,7 @@ function main.f_attractStart()
 		--draw layerno = 1 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
-		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and main.f_input(main.t_players, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
+		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and getInput(-1, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
 			if credits() ~= 0 then
 				sndPlay(motif.Snd, motif.attract_mode.start.done.snd[1], motif.attract_mode.start.done.snd[2])
 			end
@@ -2965,7 +2953,7 @@ function main.f_attractStart()
 		end
 		main.f_fadeAnim(motif.attract_mode)
 		--frame transition
-		if esc() --[[or main.f_input(main.t_players, motif.attract_mode.menu.cancel.key)]] then
+		if esc() --[[or getInput(-1, motif.attract_mode.menu.cancel.key)]] then
 			esc(false)
 			return false
 		end
@@ -3051,7 +3039,7 @@ function main.f_demo()
 end
 
 --prevents mirrored palette in demo mode mirror matches
-local function getUniquePalette(ch, prev)
+function main.f_getUniquePalette(ch, prev)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
 
@@ -3081,7 +3069,7 @@ function main.f_demoStart()
 		setCom(i, 8)
 		setTeamMode(i, 0, 1)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		local pal = getUniquePalette(ch, prev)
+		local pal = main.f_getUniquePalette(ch, prev)
 
 		selectChar(i, ch, pal)
 		prev = {ch = ch, pal = pal}
@@ -3111,6 +3099,27 @@ function main.f_demoStart()
 		end
 	end
 	main.f_fadeReset('fadein', motif.demo_mode)
+end
+
+--randomtest
+function main.f_randomtest()
+	main.f_default()
+	while true do
+		for i = 1, 2 do
+			setCom(i, 8)
+			setTeamMode(i, 0, 1)
+			local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
+			local pal = main.f_getUniquePalette(ch, prev)
+			selectChar(i, ch, pal)
+			prev = {ch = ch, pal = pal}
+		end
+		start.f_setStage()
+		loadStart()
+		game()
+		if winnerteam() == -1 then
+			break
+		end
+	end
 end
 
 --calculate menu.tween and boxcursor.tween
@@ -3153,9 +3162,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 	local moveDir = 0
 	if forcedDir ~= nil then
 		moveDir = forcedDir
-	elseif main.f_input(main.t_players, sec.menu.next.key) then
+	elseif getInput(-1, sec.menu.next.key) then
 		moveDir = 1
-	elseif main.f_input(main.t_players, sec.menu.previous.key) then
+	elseif getInput(-1, sec.menu.previous.key) then
 		moveDir = -1
 	end
 	if moveDir == 1 then

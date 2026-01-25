@@ -2653,17 +2653,31 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "getInput", func(l *lua.LState) int {
+		var players []int
 		// Collect player numbers (1-based) from arg #1
-		players := make([]int, 0, 4)
 		switch v := l.Get(1).(type) {
 		case *lua.LTable:
 			v.ForEach(func(_ lua.LValue, val lua.LValue) {
-				if n, ok := val.(lua.LNumber); ok {
-					players = append(players, int(n))
+				n, ok := val.(lua.LNumber)
+				if !ok {
+					return
 				}
+				pn := int(n)
+				if pn < 1 || pn > len(sys.commandLists) {
+					return
+				}
+				players = append(players, pn)
 			})
 		case lua.LNumber:
-			players = append(players, int(v))
+			pn := int(v)
+			if pn == -1 {
+				players = make([]int, 0, len(sys.commandLists))
+				for i := 1; i <= len(sys.commandLists); i++ {
+					players = append(players, i)
+				}
+			} else {
+				players = append(players, pn)
+			}
 		default:
 			l.Push(lua.LBool(false))
 			return 1
@@ -4412,6 +4426,10 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		})
+		return 0
+	})
+	luaRegister(l, "setLastInputController", func(l *lua.LState) int {
+		sys.lastInputController = int(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setLife", func(*lua.LState) int {

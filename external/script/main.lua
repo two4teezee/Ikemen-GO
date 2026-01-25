@@ -1981,6 +1981,12 @@ main.t_itemname = {
 		hook.run("main.t_itemname")
 		return options.menu.loop
 	end,
+	--RANDOMTEST
+	['randomtest'] = function()
+		setGameMode('randomtest')
+		hook.run("main.t_itemname")
+		return main.f_randomtest
+	end,
 	--REPLAY
 	['replay'] = function()
 		return main.f_replay
@@ -3051,7 +3057,7 @@ function main.f_demo()
 end
 
 --prevents mirrored palette in demo mode mirror matches
-local function getUniquePalette(ch, prev)
+function main.f_getUniquePalette(ch, prev)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
 
@@ -3081,7 +3087,7 @@ function main.f_demoStart()
 		setCom(i, 8)
 		setTeamMode(i, 0, 1)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		local pal = getUniquePalette(ch, prev)
+		local pal = main.f_getUniquePalette(ch, prev)
 
 		selectChar(i, ch, pal)
 		prev = {ch = ch, pal = pal}
@@ -3111,6 +3117,27 @@ function main.f_demoStart()
 		end
 	end
 	main.f_fadeReset('fadein', motif.demo_mode)
+end
+
+--randomtest
+function main.f_randomtest()
+	main.f_default()
+	while true do
+		for i = 1, 2 do
+			setCom(i, 8)
+			setTeamMode(i, 0, 1)
+			local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
+			local pal = main.f_getUniquePalette(ch, prev)
+			selectChar(i, ch, pal)
+			prev = {ch = ch, pal = pal}
+		end
+		start.f_setStage()
+		loadStart()
+		game()
+		if winnerteam() == -1 then
+			break
+		end
+	end
 end
 
 --calculate menu.tween and boxcursor.tween

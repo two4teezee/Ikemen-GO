@@ -11342,10 +11342,10 @@ func (c *Char) update() {
 	}
 	if sys.tickFrame() {
 		/*
-		if c.csf(CSF_destroy) {
-			c.destroy()
-			return
-		}
+			if c.csf(CSF_destroy) {
+				c.destroy()
+				return
+			}
 		*/
 		if !c.pause() && !c.isTargetBound() {
 			c.bind()

@@ -3973,7 +3973,7 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 		}
 	// SpriteVar
 	case OC_ex3_spritevar_group, OC_ex3_spritevar_height, OC_ex3_spritevar_width,
-	OC_ex3_spritevar_xoffset, OC_ex3_spritevar_yoffset:
+		OC_ex3_spritevar_xoffset, OC_ex3_spritevar_yoffset:
 		// Check for valid sprite
 		var spr *Sprite
 		if c.anim != nil {

@@ -387,7 +387,7 @@ func (t *Texture_GLES32) SetSubDataStride(data []byte, x, y, width, height, stri
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
-	gl.Flush()
+	// gl.Flush()
 }
 func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 

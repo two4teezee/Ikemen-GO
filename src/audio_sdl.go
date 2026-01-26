@@ -4,6 +4,7 @@ package main
 
 import (
 	"sync"
+	"time"
 
 	"github.com/gopxl/beep/v2"
 	"github.com/veandco/go-sdl2/sdl"
@@ -59,6 +60,15 @@ func (s *SDLSpeaker) Init(sampleRate beep.SampleRate, bufferSize int) error {
 	s.dev = dev
 	sdl.ClearQueuedAudio(s.dev)
 	sdl.PauseAudioDevice(s.dev, false)
+
+	// Start the audio pushing thread
+	go func() {
+		for true {
+			s.FillAudio()
+			time.Sleep(time.Millisecond * 17) // prevents fans from going crazy on Android handhelds
+		}
+	}()
+
 	return nil
 }
 

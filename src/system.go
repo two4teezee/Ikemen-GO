@@ -642,7 +642,6 @@ func (s *System) eventUpdate() bool {
 		v.Activate = false
 	}
 	s.window.pollEvents()
-	speaker.FillAudio() // fill the SDL audio buffer
 	s.gameEnd = s.window.shouldClose()
 	return !s.gameEnd
 }

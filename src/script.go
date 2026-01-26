@@ -4431,7 +4431,13 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setLastInputController", func(l *lua.LState) int {
-		sys.lastInputController = int(numArg(l, 1))
+		// Lua-facing controller indices are 1-based
+		n := int(numArg(l, 1))
+		if n >= 1 {
+			sys.lastInputController = n - 1
+		} else {
+			sys.lastInputController = -1
+		}
 		return 0
 	})
 	luaRegister(l, "setLife", func(*lua.LState) int {

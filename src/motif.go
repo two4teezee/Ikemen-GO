@@ -6471,7 +6471,7 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 			rs.WinsText.TextSpriteData.Draw(layerno)
 		}
 		// Top background
-		if bg.BGDef != nil && layerno == 2 {
+		if bg != nil && bg.BGDef != nil && layerno == 2 {
 			bg.BGDef.Draw(int32(layerno), 0, 0, 1)
 		}
 		return

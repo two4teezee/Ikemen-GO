@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -2024,7 +2023,8 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 			// palmenu.preview only inherits when palmenu.preview.anim is defined
 			if isPreviewAnim(dstKey) {
 				if v, ok := get(user, sp.DstSec, dstKey); ok {
-					if iv, err := strconv.Atoi(strings.TrimSpace(v)); err != nil || iv < 0 {
+					tv := strings.TrimSpace(v)
+					if !IsInt(tv) || Atoi(tv) < 0 {
 						continue
 					}
 				} else {
@@ -3731,11 +3731,11 @@ func (di *MotifDialogue) dialogueRedirection(redirect string) int {
 
 func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
 	tag = strings.TrimSpace(tag)
-	pOnlyRe := regexp.MustCompile(`^p(\d+)$`)
+	pOnlyRe := regexp.MustCompile(`(?i)^p(\d+)$`)
 	if pOnlyRe.MatchString(tag) {
 		matches := pOnlyRe.FindStringSubmatch(tag)
 		if len(matches) == 2 {
-			pnValue, _ := strconv.Atoi(matches[1])
+			pnValue := int(Atoi(matches[1]))
 			return []DialogueToken{{
 				param: "p",
 				side:  -1,
@@ -3747,31 +3747,34 @@ func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
 	if equalIndex == -1 {
 		return nil
 	}
-	paramPart := tag[:equalIndex]
-	valuePart := tag[equalIndex+1:]
+	paramPart := strings.TrimSpace(tag[:equalIndex])
+	valuePart := strings.TrimSpace(tag[equalIndex+1:])
 	side := -1
 	param := paramPart
 	redirection := ""
 	pn := -1
 	numValues := []interface{}{}
-	pPrefixRe := regexp.MustCompile(`^p(\d+)([a-zA-Z]+)$`)
+	pPrefixRe := regexp.MustCompile(`(?i)^p(\d+)([a-zA-Z]+)$`)
 	if pPrefixRe.MatchString(paramPart) {
 		subMatches := pPrefixRe.FindStringSubmatch(paramPart)
 		if len(subMatches) == 3 {
-			s, _ := strconv.Atoi(subMatches[1])
-			side = s
+			side = int(Atoi(subMatches[1]))
 			param = subMatches[2]
 		}
 	}
+	param = strings.ToLower(strings.TrimSpace(param))
 	parts := strings.Split(valuePart, ",")
 	if len(parts) > 0 {
-		if _, err := strconv.Atoi(parts[0]); err != nil {
-			redirection = parts[0]
+		head := strings.TrimSpace(parts[0])
+		parts[0] = head
+		if !IsInt(head) {
+			redirection = head
 			parts = parts[1:]
 		}
 		for _, p := range parts {
-			if val, err := strconv.ParseFloat(p, 32); err == nil {
-				numValues = append(numValues, float32(val))
+			p = strings.TrimSpace(p)
+			if IsNumeric(p) {
+				numValues = append(numValues, float32(Atof(p)))
 			} else {
 				numValues = append(numValues, p)
 			}
@@ -3839,7 +3842,7 @@ func (di *MotifDialogue) parseAll(lines []string) []DialogueParsedLine {
 
 func (di *MotifDialogue) preprocessNames(lines []string) []string {
 	result := make([]string, len(lines))
-	nameRe := regexp.MustCompile(`<(displayname|name)=([^>]+)>`)
+	nameRe := regexp.MustCompile(`(?i)<(displayname|name)=([^>]+)>`)
 	for i, line := range lines {
 		newLine := line
 		for {
@@ -3848,7 +3851,7 @@ func (di *MotifDialogue) preprocessNames(lines []string) []string {
 				break
 			}
 			fullMatch := newLine[loc[0]:loc[1]]
-			paramType := newLine[loc[2]:loc[3]]
+			paramType := strings.ToLower(newLine[loc[2]:loc[3]])
 			redirectionValue := newLine[loc[4]:loc[5]]
 			resolvedPn := di.dialogueRedirection(redirectionValue)
 			replacementText := ""
@@ -4178,8 +4181,8 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 	case "orthographic":
 		// default, we don't need to do nothing
 	default:
-		if i, err := strconv.Atoi(v); err == nil {
-			a.projection = int32(i)
+		if IsInt(v) {
+			a.projection = Atoi(v)
 		}
 	}
 	a.fLength = faceCfg.Focallength
@@ -6150,8 +6153,8 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	case "orthographic":
 		// default, we don't need to do nothing
 	default:
-		if i, err := strconv.Atoi(v); err == nil {
-			a.projection = int32(i)
+		if IsInt(v) {
+			a.projection = Atoi(v)
 		}
 	}
 	a.fLength = fLength

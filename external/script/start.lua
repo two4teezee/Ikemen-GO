@@ -2276,6 +2276,7 @@ function start.f_selectScreen()
 	textImgSetText(motif.select_info.record.TextSpriteData, start.f_getRecordText())
 
 	local staticDrawList = start.updateDrawList()
+	local stageResetInput = false
 	start.needUpdateDrawList = false
 
 	while not selScreenEnd do
@@ -2415,6 +2416,10 @@ function start.f_selectScreen()
 		if start.p[1].selEnd and start.p[2].selEnd and start.p[1].teamEnd and start.p[2].teamEnd then
 			restoreCursor = true
 			if main.stageMenu and not stageEnd then --Stage select
+				if not stageResetInput then
+					main.f_cmdBufReset()
+					stageResetInput = true
+				end
 				start.f_stageMenu()
 				if not timerReset then
 					timerSelect = motif.select_info.timer.displaytime
@@ -3581,6 +3586,13 @@ function start.f_selectLoading(musicParams)
 		if v == nil then return end
 		parts[#parts + 1] = k .. "=" .. tostring(v)
 	end
+	addParam("charparam.ai", main.charparam.ai)
+	addParam("charparam.arcadepath", main.charparam.arcadepath)
+	addParam("charparam.music", main.charparam.music)
+	addParam("charparam.rounds", main.charparam.rounds)
+	addParam("charparam.single", main.charparam.single)
+	addParam("charparam.stage", main.charparam.stage)
+	addParam("charparam.time", main.charparam.time)
 	for side = 1, 2 do
 		for member, v in ipairs(start.p[side].t_selected) do
 			if not v.loading then

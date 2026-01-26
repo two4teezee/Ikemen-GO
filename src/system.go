@@ -1899,7 +1899,16 @@ func (s *System) resetRoundState() {
 		// Append select.def stage music parameters
 		s.cgi[i].music.Append(sys.stage.si().music)
 		// Override with select.def char music parameters
-		s.cgi[i].music.Override(p[0].si().music)
+		useCharMusic := false
+		if sys.sel.gameParams != nil {
+			useCharMusic = sys.sel.gameParams.CharParamMusic
+		}
+		// In Versus modes, round/final/life music shouldn't override stage music; victory.music still can.
+		if useCharMusic {
+			s.cgi[i].music.Override(p[0].si().music)
+		} else if v, ok := p[0].si().music[normalizeMusicPrefix("victory")]; ok {
+			s.cgi[i].music.Override(Music{normalizeMusicPrefix("victory"): v})
+		}
 		// Override with music with launchFight parameters
 		s.cgi[i].music.Override(sys.sel.music)
 		// Debug dump of merged music.

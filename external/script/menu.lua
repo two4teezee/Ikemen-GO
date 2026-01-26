@@ -277,6 +277,10 @@ end
 function menu.f_createMenu(tbl, sec, bg, bool_main)
 	return function()
 		hook.run("menu.menu.loop")
+		if menu._lastMenuTbl ~= tbl then
+			menu._lastMenuTbl = tbl
+			main.f_menuItemBgAnimReset(sec)
+		end
 		local t = tbl.items
 		if tbl.reset then
 			tbl.reset = false

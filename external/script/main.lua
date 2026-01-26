@@ -2399,6 +2399,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		local call_item_override = nil
 		--skip showing menu if there is only 1 valid item
 		main.f_menuSnap(motif[main.group])
+		-- Reset menu item background animations
+		main.f_menuItemBgAnimReset(motif[main.group])
 		-- Only auto-run here for menus that are entered directly (no parent submenu), so the fadeout is handled in the caller for submenus.
 		local single_f, single_t = main.f_getSingleMenuAction(tbl)
 		if single_f ~= nil and bool_bgreset then
@@ -2531,6 +2533,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 								tbl.submenu[f].loop()
 								f = ''
 								main.f_menuSnap(motif[main.group])
+								main.f_menuItemBgAnimReset(motif[main.group])
 							end
 						else
 							break
@@ -3038,41 +3041,49 @@ function main.f_demo()
 	main.menu.f = main.t_itemname.demo()
 end
 
---prevents mirrored palette in demo mode mirror matches
-function main.f_getUniquePalette(ch, prev)
+-- prevents mirrored palette in demo mode / randomtest mirror matches
+function main.f_getUniquePalette(ch, state)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
+	state = state or {}
+	state.used = state.used or {}
+	state.used[ch] = state.used[ch] or {}
+	local used = state.used[ch]
 
-	if not prev or ch ~= prev.ch then
-		return pals[sszRandom() % #pals + 1]
-	end
-
+	-- build list of palettes not yet used for this character
 	local available = {}
 	for _, p in ipairs(pals) do
-		if p ~= prev.pal then
+		if not used[p] then
 			table.insert(available, p)
 		end
 	end
 
-	if #available > 0 then
-		return available[sszRandom() % #available + 1]
-	else
-		return prev.pal
+	-- If we've exhausted all palettes, start cycling again for this character
+	if #available == 0 then
+		used = {}
+		state.used[ch] = used
+		for _, p in ipairs(pals) do
+			table.insert(available, p)
+		end
 	end
+
+	local pal = available[sszRandom() % #available + 1]
+	used[pal] = true
+	state.last = {ch = ch, pal = pal}
+	return pal
 end
 
 function main.f_demoStart()
 	main.f_default()
+	local palState = {}
 	setLifebarElements({bars = motif.demo_mode.fight.bars.display})
 	setGameMode('demo')
-	for i = 1, 2 do
-		setCom(i, 8)
-		setTeamMode(i, 0, 1)
+	for side = 1, 2 do
+		setTeamMode(side, 0, 1)
+		setCom(side, 8)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		local pal = main.f_getUniquePalette(ch, prev)
-
-		selectChar(i, ch, pal)
-		prev = {ch = ch, pal = pal}
+		local pal = main.f_getUniquePalette(ch, palState)
+		selectChar(side, ch, pal)
 	end
 	start.f_setStage()
 	if motif.demo_mode.fight.stopbgm then
@@ -3105,17 +3116,29 @@ end
 function main.f_randomtest()
 	main.f_default()
 	while true do
-		for i = 1, 2 do
-			setCom(i, 8)
-			setTeamMode(i, 0, 1)
-			local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-			local pal = main.f_getUniquePalette(ch, prev)
-			selectChar(i, ch, pal)
-			prev = {ch = ch, pal = pal}
+		local palState = {}
+		local teamMode = math.random(0, 3)
+		local numChars = 1
+		if teamMode == 1 then
+			numChars = math.random(gameOption('Options.Simul.Min'), gameOption('Options.Simul.Max'))
+		elseif teamMode == 2 then
+			numChars = math.random(gameOption('Options.Turns.Min'), gameOption('Options.Turns.Max'))
+		elseif teamMode == 3 then
+			numChars = math.random(gameOption('Options.Tag.Min'), gameOption('Options.Tag.Max'))
+		end
+		for side = 1, 2 do
+			setTeamMode(side, teamMode, numChars)
+			for i = 1, numChars do
+				setCom((side - 1) * numChars + i, 8)
+				local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
+				local pal = main.f_getUniquePalette(ch, palState)
+				selectChar(side, ch, pal)
+			end
 		end
 		start.f_setStage()
 		loadStart()
 		game()
+		refresh()
 		if winnerteam() == -1 then
 			break
 		end
@@ -3144,6 +3167,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			slideOffset = 0
 		}
 	end
+	local item_before = item
 	local startItem = 1
 	for _, v in ipairs(t) do
 		if not v.itemname:match("^spacer%d*$") then
@@ -3217,6 +3241,17 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
+	end
+	-- Reset active background animation when cursor selection changes
+	if item_before ~= item and t ~= nil and t[item] ~= nil then
+		local bgTable = sec.menu and sec.menu.item and sec.menu.item.active and sec.menu.item.active.bg
+		if bgTable ~= nil then
+			local params = bgTable[t[item].paramname] or bgTable.default
+			if params ~= nil and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
 	local spacing = sec.menu.item.spacing[2]
@@ -3334,9 +3369,9 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		-- draw background
 		local bgPosX = offx 
 		local bgPosY = offy
-		if params.spacing[1] ~= 0 or params.spacing[2] ~= 0 then
-			bgPosX = bgPosX + (i - 1) * params.spacing[1]
-			bgPosY = bgPosY + (i - 1) * params.spacing[2] - moveTxt
+		if bgTable.default.spacing[1] ~= 0 or bgTable.default.spacing[2] ~= 0 then
+			bgPosX = bgPosX + (i - 1) * bgTable.default.spacing[1]
+			bgPosY = bgPosY + (i - 1) * bgTable.default.spacing[2] - moveTxt
 		end
 		main.f_animPosDraw(params.AnimData, bgPosX, bgPosY)
 		-- text sprite for label
@@ -3480,6 +3515,29 @@ function main.f_menuSnap(sec)
 	main.menuSnap = true
 	if sec.boxCursorData then
 		sec.boxCursorData.snap = sec.menu.boxcursor.tween.snap
+	end
+end
+
+-- Reset all menu item background animations
+function main.f_menuItemBgAnimReset(sec)
+	if sec == nil or sec.menu == nil or sec.menu.item == nil then
+		return
+	end
+	local function resetBgTable(bgTable)
+		if type(bgTable) ~= 'table' then return end
+		for _, params in pairs(bgTable) do
+			if type(params) == 'table' and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
+	end
+	-- reset both inactive and active item backgrounds
+	if sec.menu.item.bg ~= nil then
+		resetBgTable(sec.menu.item.bg)
+	end
+	if sec.menu.item.active ~= nil and sec.menu.item.active.bg ~= nil then
+		resetBgTable(sec.menu.item.active.bg)
 	end
 end
 

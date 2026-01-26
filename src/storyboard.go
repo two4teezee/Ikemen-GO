@@ -85,6 +85,7 @@ type SceneProperties struct {
 	} `ini:"bg"`
 	Bgm   BgmProperties `ini:"bgm"`
 	Music Music
+	Jump *int `ini:"jump"`
 }
 
 type Storyboard struct {
@@ -725,7 +726,11 @@ func (s *Storyboard) step() {
 		if s.cancel {
 			s.currentSceneIndex = len(s.sceneKeys)
 		} else {
-			s.currentSceneIndex++
+			if sceneProps.Jump != nil && *sceneProps.Jump != s.currentSceneIndex {
+				s.currentSceneIndex = *sceneProps.Jump
+			} else {
+				s.currentSceneIndex++
+			}
 		}
 		s.counter = 0
 		s.endTimer = -1

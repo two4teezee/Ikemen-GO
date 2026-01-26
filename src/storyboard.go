@@ -85,7 +85,7 @@ type SceneProperties struct {
 	} `ini:"bg"`
 	Bgm   BgmProperties `ini:"bgm"`
 	Music Music
-	Jump *int `ini:"jump"`
+	Jump  *int `ini:"jump"`
 }
 
 type Storyboard struct {
@@ -107,7 +107,7 @@ type Storyboard struct {
 			Skip   []string `ini:"skip"`
 			Cancel []string `ini:"cancel"`
 		} `ini:"key"`
-		StopMusic bool `ini:"stopmusic"`
+		StopMusic     bool `ini:"stopmusic"`
 		DisableCancel bool `ini:"disablecancel"`
 	} `ini:"scenedef"`
 	Scene         map[string]*SceneProperties `ini:"map:^(?i)scene_?[0-9]+$" lua:"scene"`

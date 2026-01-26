@@ -4120,6 +4120,14 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(sys.storyboard.active))
 		return 1
 	})
+	luaRegister(l, "getStoryboardScene", func(l *lua.LState) int {
+		if sys.storyboard.active {
+			l.Push(lua.LNumber(sys.storyboard.currentSceneIndex))
+		} else {
+			l.Push(lua.LNil)
+		}
+		return 1
+	})
 	luaRegister(l, "runHiscore", func(*lua.LState) int {
 		if !sys.paused || sys.frameStepFlag {
 			if !sys.motif.hi.initialized {

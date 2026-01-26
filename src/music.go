@@ -398,6 +398,7 @@ func (m Music) act() {
 
 			// Round Start
 			if c.teamside == sys.home &&
+				c.playerNo == c.teamLeader()-1 &&
 				(sys.stage.bgmState == BGMStateIdle || sys.tickCount == 0) &&
 				sys.tickCount == 0 {
 				switch {

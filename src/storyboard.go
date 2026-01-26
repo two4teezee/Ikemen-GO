@@ -108,6 +108,7 @@ type Storyboard struct {
 			Cancel []string `ini:"cancel"`
 		} `ini:"key"`
 		StopMusic bool `ini:"stopmusic"`
+		DisableCancel bool `ini:"disablecancel"`
 	} `ini:"scenedef"`
 	Scene         map[string]*SceneProperties `ini:"map:^(?i)scene_?[0-9]+$" lua:"scene"`
 	fntIndexByKey map[string]int
@@ -599,9 +600,9 @@ func (s *Storyboard) step() {
 	}
 
 	// Cancel handling
-	if sys.esc ||
+	if !s.SceneDef.DisableCancel && (sys.esc ||
 		(!sys.motif.AttractMode.Enabled && sys.button(s.SceneDef.Key.Cancel, -1)) ||
-		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0) {
+		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)) {
 		sys.esc = false
 		s.cancel = true
 	}
@@ -723,6 +724,8 @@ func (s *Storyboard) step() {
 		if sys.motif.fadeOut != nil {
 			sys.motif.fadeOut.reset()
 		}
+		s.counter = 0
+		s.endTimer = -1
 		if s.cancel {
 			s.currentSceneIndex = len(s.sceneKeys)
 		} else {
@@ -732,8 +735,6 @@ func (s *Storyboard) step() {
 				s.currentSceneIndex++
 			}
 		}
-		s.counter = 0
-		s.endTimer = -1
 		if s.currentSceneIndex >= len(s.sceneKeys) {
 			if s.musicPlaying && s.SceneDef.StopMusic {
 				sys.bgm.Stop()

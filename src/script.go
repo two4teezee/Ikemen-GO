@@ -3455,13 +3455,15 @@ func systemScriptInit(l *lua.LState) {
 		if sys.sel.selectedStageNo == -1 {
 			l.RaiseError("\nStage not selected for load\n")
 		}
+		// Always reset per-launch params; they must not leak across matches/modes.
+		if sys.sel.gameParams == nil {
+			sys.sel.gameParams = newGameParams()
+		} else {
+			sys.sel.gameParams.Reset()
+		}
+		sys.sel.music = make(Music)
 		if !nilArg(l, 1) {
 			entries := SplitAndTrim(strArg(l, 1), ",")
-			if sys.sel.gameParams == nil {
-				sys.sel.gameParams = newGameParams()
-			} else {
-				sys.sel.gameParams.Reset()
-			}
 			sys.sel.gameParams.AppendParams(entries)
 			// Feed normalized music params to Music.
 			sys.sel.music.AppendParams(sys.sel.gameParams.MusicEntries())

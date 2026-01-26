@@ -3562,6 +3562,13 @@ function start.f_selectLoading(musicParams)
 		if v == nil then return end
 		parts[#parts + 1] = k .. "=" .. tostring(v)
 	end
+	addParam("charparam.ai", main.charparam.ai)
+	addParam("charparam.arcadepath", main.charparam.arcadepath)
+	addParam("charparam.music", main.charparam.music)
+	addParam("charparam.rounds", main.charparam.rounds)
+	addParam("charparam.single", main.charparam.single)
+	addParam("charparam.stage", main.charparam.stage)
+	addParam("charparam.time", main.charparam.time)
 	for side = 1, 2 do
 		for member, v in ipairs(start.p[side].t_selected) do
 			if not v.loading then

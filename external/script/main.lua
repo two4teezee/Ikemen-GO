@@ -2399,6 +2399,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		local call_item_override = nil
 		--skip showing menu if there is only 1 valid item
 		main.f_menuSnap(motif[main.group])
+		-- Reset menu item background animations
+		main.f_menuItemBgAnimReset(motif[main.group])
 		-- Only auto-run here for menus that are entered directly (no parent submenu), so the fadeout is handled in the caller for submenus.
 		local single_f, single_t = main.f_getSingleMenuAction(tbl)
 		if single_f ~= nil and bool_bgreset then
@@ -2531,6 +2533,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 								tbl.submenu[f].loop()
 								f = ''
 								main.f_menuSnap(motif[main.group])
+								main.f_menuItemBgAnimReset(motif[main.group])
 							end
 						else
 							break
@@ -3164,6 +3167,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			slideOffset = 0
 		}
 	end
+	local item_before = item
 	local startItem = 1
 	for _, v in ipairs(t) do
 		if not v.itemname:match("^spacer%d*$") then
@@ -3237,6 +3241,17 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
+	end
+	-- Reset active background animation when cursor selection changes
+	if item_before ~= item and t ~= nil and t[item] ~= nil then
+		local bgTable = sec.menu and sec.menu.item and sec.menu.item.active and sec.menu.item.active.bg
+		if bgTable ~= nil then
+			local params = bgTable[t[item].paramname] or bgTable.default
+			if params ~= nil and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
 	local spacing = sec.menu.item.spacing[2]
@@ -3500,6 +3515,29 @@ function main.f_menuSnap(sec)
 	main.menuSnap = true
 	if sec.boxCursorData then
 		sec.boxCursorData.snap = sec.menu.boxcursor.tween.snap
+	end
+end
+
+-- Reset all menu item background animations
+function main.f_menuItemBgAnimReset(sec)
+	if sec == nil or sec.menu == nil or sec.menu.item == nil then
+		return
+	end
+	local function resetBgTable(bgTable)
+		if type(bgTable) ~= 'table' then return end
+		for _, params in pairs(bgTable) do
+			if type(params) == 'table' and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
+	end
+	-- reset both inactive and active item backgrounds
+	if sec.menu.item.bg ~= nil then
+		resetBgTable(sec.menu.item.bg)
+	end
+	if sec.menu.item.active ~= nil and sec.menu.item.active.bg ~= nil then
+		resetBgTable(sec.menu.item.active.bg)
 	end
 end
 

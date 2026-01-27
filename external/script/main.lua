@@ -276,7 +276,7 @@ if getCommandLineValue("-speed") ~= nil then
 	end
 end
 if getCommandLineValue("-speedtest") ~= nil then
-	setGameSpeed(gameOption('Debug.SpeedTest'))
+	setGameSpeed(math.floor(60 * (gameOption('Debug.SpeedTest') - 1) / gameOption('Options.GameSpeedStep') + 0.5))
 end
 if getCommandLineValue("-nosound") ~= nil then
 	modifyGameOption('Sound.MasterVolume', 0)

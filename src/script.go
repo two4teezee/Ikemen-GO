@@ -5979,6 +5979,8 @@ func triggerFunctions(l *lua.LState) {
 				lv = lua.LNumber(e.anim.curelemtime)
 			case "animplayerno":
 				lv = lua.LNumber(e.animPN + 1)
+			case "animtime":
+				lv = lua.LNumber(e.anim.AnimTime())
 			case "spriteplayerno":
 				lv = lua.LNumber(e.spritePN + 1)
 			case "bindtime":
@@ -5988,7 +5990,7 @@ func triggerFunctions(l *lua.LState) {
 			case "drawpal index":
 				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
 			case "facing":
-				lv = lua.LNumber(e.facing)
+				lv = lua.LNumber(e.facing * e.relativef)
 			case "friction x":
 				lv = lua.LNumber(e.friction[0])
 			case "friction y":

@@ -813,6 +813,7 @@ const (
 	OC_ex2_explodvar_animelem
 	OC_ex2_explodvar_animelemtime
 	OC_ex2_explodvar_animplayerno
+	OC_ex2_explodvar_animtime
 	OC_ex2_explodvar_spriteplayerno
 	OC_ex2_explodvar_bindtime
 	OC_ex2_explodvar_drawpal_group

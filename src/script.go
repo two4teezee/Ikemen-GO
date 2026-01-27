@@ -6068,7 +6068,7 @@ func triggerFunctions(l *lua.LState) {
 			case "drawpal index":
 				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
 			case "facing":
-				lv = lua.LNumber(e.facing * e.relativef)
+				lv = lua.LNumber(e.trueFacing())
 			case "friction x":
 				lv = lua.LNumber(e.friction[0])
 			case "friction y":
@@ -6589,10 +6589,10 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.mhv.cornerpush_veloff)
 		case "frame":
 			lv = lua.LBool(c.mhv.frame)
-		case "playerid":
-			lv = lua.LNumber(c.mhv.playerid)
 		case "overridden":
 			lv = lua.LBool(c.mhv.overridden)
+		case "playerid":
+			lv = lua.LNumber(c.mhv.playerid)
 		case "playerno":
 			lv = lua.LNumber(c.mhv.playerno + 1)
 		case "sparkx":

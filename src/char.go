@@ -2001,7 +2001,7 @@ func (e *Explod) update(playerNo int) {
 		}
 	}
 
-	var trueFacing float32 = e.facing * e.relativef
+	facing := e.trueFacing()
 	//if e.lockSpriteFacing {
 	//	facing = -1
 	//}
@@ -2039,7 +2039,7 @@ func (e *Explod) update(playerNo int) {
 	if alp[0] < 0 {
 		alp[0] = -1
 	}
-	if (trueFacing < 0) != (e.vfacing < 0) {
+	if (facing < 0) != (e.vfacing < 0) {
 		anglerot[0] *= -1
 		anglerot[2] *= -1
 	}
@@ -2101,7 +2101,7 @@ func (e *Explod) update(playerNo int) {
 		rot:          rot,
 		screen:       e.space == Space_screen,
 		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		facing:       trueFacing,
+		facing:       facing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
 		fLength:      fLength,
@@ -2271,6 +2271,10 @@ func (e *Explod) resetInterpolation(pfd *PalFXDef) {
 		e.interpolate_fLength[i] = e.fLength
 		e.interpolate_xshear[i] = e.xshear
 	}
+}
+
+func (e *Explod) trueFacing() float32 {
+	return e.facing * e.relativef
 }
 
 type Projectile struct {
@@ -5442,7 +5446,7 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 		case OC_ex2_explodvar_drawpal_index:
 			v = BytecodeInt(c.explodDrawPal(e)[1])
 		case OC_ex2_explodvar_facing:
-			v = BytecodeInt(int32(e.facing * e.relativef))
+			v = BytecodeInt(int32(e.trueFacing()))
 		case OC_ex2_explodvar_friction_x:
 			v = BytecodeFloat(e.friction[0])
 		case OC_ex2_explodvar_friction_y:

@@ -5579,7 +5579,7 @@ func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 		sys.bgPalFX.invertblend = -3
 	} else {
 		// Apply to specific elements
-		backgrounds := c.getMultipleStageBg(bgid, bgidx, false)
+		backgrounds := c.getMultipleStageBg(bgid, bgidx, true)
 		for _, bg := range backgrounds {
 			bg.palfx.clear()
 			bg.palfx.PalFXDef = pfx
@@ -6056,7 +6056,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			return true // Already handled. Avoid default
 		default:
 			if len(expls) == 0 {
-				expls = crun.getMultipleExplods(eid, idx, false) // We could print a warning here but Mugen doesn't
+				logMissing := c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0
+				expls = crun.getMultipleExplods(eid, idx, logMissing)
 				if len(expls) == 0 {
 					return false
 				}
@@ -6085,7 +6086,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						}
 						e.space = Space_none
 						// Defaulting facing too makes some explods face the wrong way
-						//if e.facing*e.relativef >= 0 { // See below
+						//if e.trueFacing() >= 0 { // See below
 						//	e.relativef = 1
 						//}
 					})
@@ -6113,7 +6114,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						// There's a bug in Mugen 1.1 where an explod that is facing left can't be flipped
 						// https://github.com/ikemen-engine/Ikemen-GO/issues/1252
 						// Ikemen chars just work as supposed to
-						if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || e.facing*e.relativef >= 0 {
+						if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || e.trueFacing() >= 0 {
 							e.relativef = rf
 						}
 					})
@@ -13934,7 +13935,7 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 		default:
 			// Get BG's to modify
 			if len(backgrounds) == 0 {
-				backgrounds = c.getMultipleStageBg(bgid, bgidx, false)
+				backgrounds = c.getMultipleStageBg(bgid, bgidx, true)
 				if len(backgrounds) == 0 {
 					return false
 				}

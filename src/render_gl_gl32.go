@@ -429,7 +429,7 @@ func (r *Renderer_GL32) InitModelShader() error {
 	if err != nil {
 		return err
 	}
-	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
+	r.modelShader.RegisterAttributes("inVertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
 		"metallicRoughness", "ambientOcclusionStrength", "emission", "environmentIntensity", "mipCount", "meshOutline",
@@ -448,7 +448,7 @@ func (r *Renderer_GL32) InitModelShader() error {
 		if err != nil {
 			return err
 		}
-		r.shadowMapShader.RegisterAttributes("vertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
+		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
 			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
@@ -973,7 +973,7 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
 
-	loc := r.shadowMapShader.a["vertexId"]
+	loc := r.shadowMapShader.a["inVertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1058,7 +1058,7 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 }
 
 func (r *Renderer_GL32) ReleaseShadowPipeline() {
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
@@ -1174,7 +1174,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	r.SetCullFace(doubleSided)
 	r.SetBlending(eq, src, dst)
 
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1298,7 +1298,7 @@ func (r *Renderer_GL32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline 
 	gl.Uniform1f(loc, meshOutline)
 }
 func (r *Renderer_GL32) ReleaseModelPipeline() {
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))

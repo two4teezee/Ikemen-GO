@@ -6715,6 +6715,7 @@ func (c *Char) explodBindTime(id, time int32) {
 // Marks matching explods invalid and prunes the slice immediately
 func (c *Char) removeExplod(id, idx int32) {
 	playerExplods := &sys.explods[c.playerNo]
+	removedAny := false
 	n := int32(0)
 
 	// Mark matching explods as invalid
@@ -6722,6 +6723,8 @@ func (c *Char) removeExplod(id, idx int32) {
 		if e.matchId(id, c.id) {
 			if idx < 0 || idx == n {
 				e.id = IErr
+
+				removedAny = true
 				if idx == n {
 					break
 				}
@@ -6730,14 +6733,10 @@ func (c *Char) removeExplod(id, idx int32) {
 		}
 	}
 
-	// Compact the slice to remove invalid explods
-	tempSlice := (*playerExplods)[:0] // Reuse backing array
-	for _, e := range *playerExplods {
-		if e.id != IErr {
-			tempSlice = append(tempSlice, e)
-		}
+	// Remove invalid explods right away
+	if removedAny {
+		sys.explodPrune(c.playerNo)
 	}
-	*playerExplods = tempSlice
 }
 
 // Always appends to preserve insertion order
@@ -6765,6 +6764,7 @@ func (c *Char) spawnText() *TextSprite {
 
 func (c *Char) removeText(id, index int32) {
 	playerTexts := &sys.chartexts[c.playerNo]
+	removedAny := false
 	n := int32(0)
 
 	// Mark matching texts as invalid
@@ -6774,7 +6774,10 @@ func (c *Char) removeText(id, index int32) {
 		}
 		if id < 0 || ts.id == id {
 			if index < 0 || index == n {
-				ts.id = IErr
+				ts.id = IErr // Texts are filtered by removetime but we might as well do this too
+				ts.removetime = 0
+
+				removedAny = true
 				if index == n {
 					break
 				}
@@ -6783,14 +6786,10 @@ func (c *Char) removeText(id, index int32) {
 		}
 	}
 
-	// Compact the slice to remove invalid texts
-	tempSlice := (*playerTexts)[:0] 
-	for _, ts := range *playerTexts {
-		if ts.id != IErr {
-			tempSlice = append(tempSlice, ts)
-		}
+	// Remove invalid texts right away
+	if removedAny {
+		sys.charTextsPrune(c.playerNo)
 	}
-	*playerTexts = tempSlice
 }
 
 // Get animation and apply sprite owner properties to it

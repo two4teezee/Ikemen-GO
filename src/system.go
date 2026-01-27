@@ -2308,34 +2308,69 @@ func (s *System) projectileUpdate() {
 	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
 	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
 	// Update: Projectiles now work based on pointers, so we can go back to old loop format
-	for i, playerProjs := range s.projs {
-		tempSlice := playerProjs[:0]
-		for _, p := range playerProjs {
+	for i := range s.projs {
+		for _, p := range s.projs[i] {
 			p.update()
-			// Keep only valid projectiles in the slice
-			if p.id >= 0 {
-				tempSlice = append(tempSlice, p)
-			}
 		}
-		s.projs[i] = tempSlice
 	}
+
+	// Cleanup
+	for i := range s.projs {
+		s.projectilePrune(i)
+	}
+}
+
+// Remove a player's inactive projectiles
+// This method avoids pointer duplication bugs caused by the old "tempSlice" method
+func (s *System) projectilePrune(pn int) {
+	playerProjs := s.projs[pn]
+	writeIdx := 0
+
+	for j := 0; j < len(playerProjs); j++ {
+		// Keep only valid projectiles
+		if playerProjs[j].id >= 0 {
+			// Stable swap. Move live projectiles forward while respecting the original order
+			playerProjs[writeIdx], playerProjs[j] = playerProjs[j], playerProjs[writeIdx]
+			writeIdx++
+		}
+	}
+
+	// Shrink the slice to the new length
+	s.projs[pn] = playerProjs[:writeIdx]
 }
 
 // Update all explods for all players
 func (s *System) explodUpdate() {
-	for i, playerExplods := range s.explods {
-		tempSlice := playerExplods[:0] // Reuse backing array
-		for _, e := range playerExplods {
+	// Logic
+	for i := range s.explods {
+		for _, e := range s.explods[i] {
 			e.update(i)
-			// Keep only valid explods in the slice
-			if e.id != IErr {
-				tempSlice = append(tempSlice, e)
-			}
 		}
-		s.explods[i] = tempSlice
+	}
+
+	// Cleanup
+	for i := range s.explods {
+		s.explodPrune(i)
 	}
 }
 
+// Remove a player's inactive explods
+func (s *System) explodPrune(pn int) {
+	playerExplods := s.explods[pn]
+	writeIdx := 0
+
+	for j := 0; j < len(playerExplods); j++ {
+		// Keep only valid explods
+		if playerExplods[j].id != IErr {
+			playerExplods[writeIdx], playerExplods[j] = playerExplods[j], playerExplods[writeIdx]
+			writeIdx++
+		}
+	}
+
+	s.explods[pn] = playerExplods[:writeIdx]
+}
+
+// Update all texts for all players
 func (s *System) charTextsUpdate() {
 	// Explod timers update at this time, so we'll do the same here
 	//if !sys.tickNextFrame() {
@@ -2344,20 +2379,35 @@ func (s *System) charTextsUpdate() {
 		return
 	}
 
-	for i, playerTexts := range s.chartexts {
-		tempSlice := playerTexts[:0]
-		for _, ts := range playerTexts {
+	for i := range s.chartexts {
+		for _, ts := range s.chartexts[i] {
 			ts.Update()
-			if ts.removetime != 0 {
-				tempSlice = append(tempSlice, ts) // Keep this text
-				if ts.removetime > 0 {
-					ts.removetime--
-				}
+			if ts.removetime > 0 {
+				ts.removetime--
 			}
 		}
-
-		s.chartexts[i] = tempSlice
 	}
+
+	// Cleanup
+	for i := range s.chartexts {
+		s.charTextsPrune(i)
+	}
+}
+
+// Remove a player's inactive texts
+func (s *System) charTextsPrune(pn int) {
+	playerTexts := s.chartexts[pn]
+	writeIdx := 0
+	
+	for j := 0; j < len(playerTexts); j++ {
+		// Keep only valid texts
+		if playerTexts[j].removetime != 0 {
+			playerTexts[writeIdx], playerTexts[j] = playerTexts[j], playerTexts[writeIdx]
+			writeIdx++
+		}
+	}
+
+	s.chartexts[pn] = playerTexts[:writeIdx]
 }
 
 func (s *System) globalTick() {

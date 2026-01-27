@@ -8,55 +8,55 @@ local menu = {}
 -- Can be appended via external module.
 menu.t_valuename = {
 	dummycontrol = {
-		{itemname = 'cooperative', displayname = motif.training_pause_menu.menu.valuename.dummycontrol_cooperative},
-		{itemname = 'ai', displayname = motif.training_pause_menu.menu.valuename.dummycontrol_ai},
-		{itemname = 'manual', displayname = motif.training_pause_menu.menu.valuename.dummycontrol_manual},
+		{itemname = 'cooperative', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummycontrol_cooperative},
+		{itemname = 'ai', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummycontrol_ai},
+		{itemname = 'manual', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummycontrol_manual},
 	},
 	ailevel = {
-		{itemname = '1', displayname = motif.training_pause_menu.menu.valuename.ailevel_1},
-		{itemname = '2', displayname = motif.training_pause_menu.menu.valuename.ailevel_2},
-		{itemname = '3', displayname = motif.training_pause_menu.menu.valuename.ailevel_3},
-		{itemname = '4', displayname = motif.training_pause_menu.menu.valuename.ailevel_4},
-		{itemname = '5', displayname = motif.training_pause_menu.menu.valuename.ailevel_5},
-		{itemname = '6', displayname = motif.training_pause_menu.menu.valuename.ailevel_6},
-		{itemname = '7', displayname = motif.training_pause_menu.menu.valuename.ailevel_7},
-		{itemname = '8', displayname = motif.training_pause_menu.menu.valuename.ailevel_8},
+		{itemname = '1', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_1},
+		{itemname = '2', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_2},
+		{itemname = '3', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_3},
+		{itemname = '4', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_4},
+		{itemname = '5', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_5},
+		{itemname = '6', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_6},
+		{itemname = '7', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_7},
+		{itemname = '8', displayname = motif.pause_menu.training_pause_menu.menu.valuename.ailevel_8},
 	},
 	dummymode = {
-		{itemname = 'stand', displayname = motif.training_pause_menu.menu.valuename.dummymode_stand},
-		{itemname = 'crouch', displayname = motif.training_pause_menu.menu.valuename.dummymode_crouch},
-		{itemname = 'jump', displayname = motif.training_pause_menu.menu.valuename.dummymode_jump},
-		{itemname = 'wjump', displayname = motif.training_pause_menu.menu.valuename.dummymode_wjump},
+		{itemname = 'stand', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummymode_stand},
+		{itemname = 'crouch', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummymode_crouch},
+		{itemname = 'jump', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummymode_jump},
+		{itemname = 'wjump', displayname = motif.pause_menu.training_pause_menu.menu.valuename.dummymode_wjump},
 	},
 	guardmode = {
-		{itemname = 'none', displayname = motif.training_pause_menu.menu.valuename.guardmode_none},
-		{itemname = 'auto', displayname = motif.training_pause_menu.menu.valuename.guardmode_auto},
-		{itemname = 'all', displayname = motif.training_pause_menu.menu.valuename.guardmode_all},
-		{itemname = 'random', displayname = motif.training_pause_menu.menu.valuename.guardmode_random},
+		{itemname = 'none', displayname = motif.pause_menu.training_pause_menu.menu.valuename.guardmode_none},
+		{itemname = 'auto', displayname = motif.pause_menu.training_pause_menu.menu.valuename.guardmode_auto},
+		{itemname = 'all', displayname = motif.pause_menu.training_pause_menu.menu.valuename.guardmode_all},
+		{itemname = 'random', displayname = motif.pause_menu.training_pause_menu.menu.valuename.guardmode_random},
 	},
 	fallrecovery = {
-		{itemname = 'none', displayname = motif.training_pause_menu.menu.valuename.fallrecovery_none},
-		{itemname = 'ground', displayname = motif.training_pause_menu.menu.valuename.fallrecovery_ground},
-		{itemname = 'air', displayname = motif.training_pause_menu.menu.valuename.fallrecovery_air},
-		{itemname = 'random', displayname = motif.training_pause_menu.menu.valuename.fallrecovery_random},
+		{itemname = 'none', displayname = motif.pause_menu.training_pause_menu.menu.valuename.fallrecovery_none},
+		{itemname = 'ground', displayname = motif.pause_menu.training_pause_menu.menu.valuename.fallrecovery_ground},
+		{itemname = 'air', displayname = motif.pause_menu.training_pause_menu.menu.valuename.fallrecovery_air},
+		{itemname = 'random', displayname = motif.pause_menu.training_pause_menu.menu.valuename.fallrecovery_random},
 	},
 	distance = {
-		{itemname = 'any', displayname = motif.training_pause_menu.menu.valuename.distance_any},
-		{itemname = 'close', displayname = motif.training_pause_menu.menu.valuename.distance_close},
-		{itemname = 'medium', displayname = motif.training_pause_menu.menu.valuename.distance_medium},
-		{itemname = 'far', displayname = motif.training_pause_menu.menu.valuename.distance_far},
+		{itemname = 'any', displayname = motif.pause_menu.training_pause_menu.menu.valuename.distance_any},
+		{itemname = 'close', displayname = motif.pause_menu.training_pause_menu.menu.valuename.distance_close},
+		{itemname = 'medium', displayname = motif.pause_menu.training_pause_menu.menu.valuename.distance_medium},
+		{itemname = 'far', displayname = motif.pause_menu.training_pause_menu.menu.valuename.distance_far},
 	},
 	buttonjam = {
-		{itemname = 'none', displayname = motif.training_pause_menu.menu.valuename.buttonjam_none},
-		{itemname = 'a', displayname = motif.training_pause_menu.menu.valuename.buttonjam_a},
-		{itemname = 'b', displayname = motif.training_pause_menu.menu.valuename.buttonjam_b},
-		{itemname = 'c', displayname = motif.training_pause_menu.menu.valuename.buttonjam_c},
-		{itemname = 'x', displayname = motif.training_pause_menu.menu.valuename.buttonjam_x},
-		{itemname = 'y', displayname = motif.training_pause_menu.menu.valuename.buttonjam_y},
-		{itemname = 'z', displayname = motif.training_pause_menu.menu.valuename.buttonjam_z},
-		{itemname = 's', displayname = motif.training_pause_menu.menu.valuename.buttonjam_s},
-		{itemname = 'd', displayname = motif.training_pause_menu.menu.valuename.buttonjam_d},
-		{itemname = 'w', displayname = motif.training_pause_menu.menu.valuename.buttonjam_w},
+		{itemname = 'none', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_none},
+		{itemname = 'a', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_a},
+		{itemname = 'b', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_b},
+		{itemname = 'c', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_c},
+		{itemname = 'x', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_x},
+		{itemname = 'y', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_y},
+		{itemname = 'z', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_z},
+		{itemname = 's', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_s},
+		{itemname = 'd', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_d},
+		{itemname = 'w', displayname = motif.pause_menu.training_pause_menu.menu.valuename.buttonjam_w},
 	},
 }
 
@@ -358,8 +358,8 @@ end
 -- Table storing arrays with data used for different pause menu types generation.
 -- Can be appended via external module but not necessary - can specify gamemode-specific [<gamemode> Pause Menu] sections in `system.def` instead.
 menu.t_menus = {
-	{id = 'menu', sec = motif.pause_menu, bg = motif.pausemenubgdef, movelist = true},
-	{id = 'training', sec = motif.training_pause_menu, bg = motif.trainingpausemenubgdef, movelist = true},
+	{id = 'menu', sec = motif.pause_menu.pause_menu, bg = motif.pausebgdef.pausebgdef, movelist = true},
+	{id = 'training', sec = motif.pause_menu.training_pause_menu, bg = motif.pausebgdef.trainingpausebgdef, movelist = true},
 }
 menu.t_menuIndex = {}
 
@@ -386,7 +386,7 @@ local function f_pauseMenuBgKey(gamemodeName)
 	if gamemodeName == '' then
 		return ''
 	end
-	return gamemodeName .. 'pausemenubgdef'
+	return gamemodeName .. 'pausebgdef'
 end
 
 local function f_registerPauseMenu(id, sec, bg, movelist)
@@ -410,16 +410,14 @@ end
 
 -- Dynamically generates all menus and submenus
 function menu.f_start()
-	if motif.pause_menus ~= nil then
-		for k, sec in pairs(motif.pause_menus) do
+	if motif.pause_menu ~= nil then
+		for k, sec in pairs(motif.pause_menu) do
 			local id = f_pauseMenuIdFromKey(k)
-			if id ~= '' then
-				local bg = motif.pausemenubgdef
-				if motif.pause_menu_bgdef ~= nil then
-					local bgKey = f_pauseMenuBgKey(id)
-					if bgKey ~= '' and motif.pause_menu_bgdef[bgKey] ~= nil then
-						bg = motif.pause_menu_bgdef[bgKey]
-					end
+			if id ~= '' and id ~= 'pause_menu' then
+				local bg = motif.pausebgdef.pausebgdef
+				local bgKey = f_pauseMenuBgKey(id)
+				if bgKey ~= '' and motif.pausebgdef ~= nil and motif.pausebgdef[bgKey] ~= nil then
+					bg = motif.pausebgdef[bgKey]
 				end
 				f_registerPauseMenu(id, sec, bg, true)
 			end
@@ -566,9 +564,9 @@ function menu.f_init()
 			menu.currentMenuId = 'menu'
 		end
 	else
-		sndPlay(motif.Snd, motif.pause_menu.enter.snd[1], motif.pause_menu.enter.snd[2])
-		bgReset(motif.pausemenubgdef.BGDef)
-		main.f_fadeReset('fadein', motif.pause_menu)
+		sndPlay(motif.Snd, motif.pause_menu.pause_menu.enter.snd[1], motif.pause_menu.pause_menu.enter.snd[2])
+		bgReset(motif.pausebgdef.pausebgdef.BGDef)
+		main.f_fadeReset('fadein', motif.pause_menu.pause_menu)
 		menu.currentMenu = {menu.menu.loop, menu.menu.loop}
 		menu.currentMenuId = 'menu'
 	end
@@ -588,8 +586,8 @@ function menu.f_run()
 			end
 		end
 	end
-	local sec = motif.pause_menu
-	local bg = motif.pausemenubgdef
+	local sec = motif.pause_menu.pause_menu
+	local bg = motif.pausebgdef.pausebgdef
 	if entry ~= nil and entry.sec ~= nil and entry.bg ~= nil then
 		sec = entry.sec
 		bg = entry.bg

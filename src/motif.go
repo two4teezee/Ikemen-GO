@@ -1075,6 +1075,14 @@ type ReplayInfoProperties struct {
 	} `ini:"cancel"`
 }
 
+type MovelistGlyphsProperties struct {
+	Offset     [2]float32 `ini:"offset"`
+	Scale      [2]float32 `ini:"scale" default:"1,1"`
+	Layerno    int16      `ini:"layerno"`
+	Localcoord [2]int32   `ini:"localcoord"`
+	Spacing    [2]float32 `ini:"spacing"`
+}
+
 type MenuInfoProperties struct {
 	Enabled  bool           `ini:"enabled"`
 	FadeIn   FadeProperties `ini:"fadein"`
@@ -1107,13 +1115,7 @@ type MenuInfoProperties struct {
 			TextProperties
 			Spacing [2]float32 `ini:"spacing"`
 		} `ini:"text"`
-		Glyphs struct {
-			Offset     [2]float32 `ini:"offset"`
-			Scale      [2]float32 `ini:"scale" default:"1,1"`
-			Layerno    int16      `ini:"layerno"`
-			Localcoord [2]int32   `ini:"localcoord"`
-			Spacing    [2]float32 `ini:"spacing"`
-		} `ini:"glyphs"`
+		Glyphs MovelistGlyphsProperties `ini:"glyphs"`
 		Window struct {
 			Margins struct {
 				Y [2]float32 `ini:"y"`
@@ -1292,71 +1294,67 @@ type WarningInfoProperties struct {
 }
 
 type Motif struct {
-	IniFile            *ini.File
-	UserIniFile        *ini.File
-	DefaultOnlyIni     *ini.File
-	AnimTable          AnimationTable
-	Sff                *Sff
-	Snd                *Snd
-	Fnt                map[int]*Fnt
-	GlyphsSff          *Sff
-	Model              *Model
-	Music              Music
-	Def                string                              `ini:"def"`
-	Info               InfoProperties                      `ini:"info"`
-	Files              FilesProperties                     `ini:"files"`
-	Languages          map[string]string                   `ini:"languages"`
-	TitleInfo          TitleInfoProperties                 `ini:"title_info"`
-	TitleBgDef         BgDefProperties                     `ini:"titlebgdef"`
-	InfoBox            InfoBoxProperties                   `ini:"infobox"`
-	SelectInfo         SelectInfoProperties                `ini:"select_info"`
-	SelectBgDef        BgDefProperties                     `ini:"selectbgdef"`
-	VsScreen           VsScreenProperties                  `ini:"vs_screen"`
-	VersusBgDef        BgDefProperties                     `ini:"versusbgdef"`
-	DemoMode           DemoModeProperties                  `ini:"demo_mode"`
-	ContinueScreen     ContinueScreenProperties            `ini:"continue_screen"`
-	ContinueBgDef      BgDefProperties                     `ini:"continuebgdef"`
-	GameOverScreen     StoryboardProperties                `ini:"game_over_screen"`
-	VictoryScreen      VictoryScreenProperties             `ini:"victory_screen"`
-	VictoryBgDef       BgDefProperties                     `ini:"victorybgdef"`
-	WinScreen          WinScreenProperties                 `ini:"win_screen"`
-	WinBgDef           BgDefProperties                     `ini:"winbgdef"`
-	DefaultEnding      StoryboardProperties                `ini:"default_ending"`
-	EndCredits         StoryboardProperties                `ini:"end_credits"`
-	ResultsScreen      map[string]*ResultsScreenProperties `ini:"map:^(?i).+results.*screen$" lua:"results_screen"`
-	ResultsBgDef       map[string]*BgDefProperties         `ini:"map:^(?i).+resultsbgdef$" lua:"resultsbgdef"`
-	OptionInfo         OptionInfoProperties                `ini:"option_info"`
-	OptionBgDef        BgDefProperties                     `ini:"optionbgdef"`
-	ReplayInfo         ReplayInfoProperties                `ini:"replay_info"`
-	ReplayBgDef        BgDefProperties                     `ini:"replaybgdef"`
-	MenuInfo           MenuInfoProperties                  `ini:"pause_menu" lua:"pause_menu"`
-	PauseMenuBgDef     BgDefProperties                     `ini:"pausemenubgdef"`
-	TrainingInfo       MenuInfoProperties                  `ini:"training_pause_menu" lua:"training_pause_menu"`
-	TrainingPauseBgDef BgDefProperties                     `ini:"trainingpausemenubgdef"`
-	PauseMenuInfo      map[string]*MenuInfoProperties      `ini:"map:^(?i).+_pause_menu$" lua:"pause_menus"`
-	PauseMenuBgDefMap  map[string]*BgDefProperties         `ini:"map:^(?i).+pausemenubgdef$" lua:"pause_menu_bgdef"`
-	AttractMode        AttractModeProperties               `ini:"attract_mode"`
-	AttractBgDef       BgDefProperties                     `ini:"attractbgdef"`
-	ChallengerInfo     ChallengerInfoProperties            `ini:"challenger_info"`
-	ChallengerBgDef    BgDefProperties                     `ini:"challengerbgdef"`
-	DialogueInfo       DialogueInfoProperties              `ini:"dialogue_info"`
-	HiscoreInfo        HiscoreInfoProperties               `ini:"hiscore_info"`
-	HiscoreBgDef       BgDefProperties                     `ini:"hiscorebgdef"`
-	WarningInfo        WarningInfoProperties               `ini:"warning_info"`
-	Glyphs             map[string]*GlyphProperties         `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
-	fntIndexByKey      map[string]int                      // filepath|height -> index
-	ch                 MotifChallenger
-	co                 MotifContinue
-	de                 MotifDemo
-	di                 MotifDialogue
-	vi                 MotifVictory
-	wi                 MotifWin
-	hi                 MotifHiscore
-	me                 MotifMenu
-	fadeIn             *Fade
-	fadeOut            *Fade
-	fadePolicy         FadeStartPolicy
-	textsprite         []*TextSprite
+	IniFile         *ini.File
+	UserIniFile     *ini.File
+	DefaultOnlyIni  *ini.File
+	AnimTable       AnimationTable
+	Sff             *Sff
+	Snd             *Snd
+	Fnt             map[int]*Fnt
+	GlyphsSff       *Sff
+	Model           *Model
+	Music           Music
+	Def             string                              `ini:"def"`
+	Info            InfoProperties                      `ini:"info"`
+	Files           FilesProperties                     `ini:"files"`
+	Languages       map[string]string                   `ini:"languages"`
+	TitleInfo       TitleInfoProperties                 `ini:"title_info"`
+	TitleBgDef      BgDefProperties                     `ini:"titlebgdef"`
+	InfoBox         InfoBoxProperties                   `ini:"infobox"`
+	SelectInfo      SelectInfoProperties                `ini:"select_info"`
+	SelectBgDef     BgDefProperties                     `ini:"selectbgdef"`
+	VsScreen        VsScreenProperties                  `ini:"vs_screen"`
+	VersusBgDef     BgDefProperties                     `ini:"versusbgdef"`
+	DemoMode        DemoModeProperties                  `ini:"demo_mode"`
+	ContinueScreen  ContinueScreenProperties            `ini:"continue_screen"`
+	ContinueBgDef   BgDefProperties                     `ini:"continuebgdef"`
+	GameOverScreen  StoryboardProperties                `ini:"game_over_screen"`
+	VictoryScreen   VictoryScreenProperties             `ini:"victory_screen"`
+	VictoryBgDef    BgDefProperties                     `ini:"victorybgdef"`
+	WinScreen       WinScreenProperties                 `ini:"win_screen"`
+	WinBgDef        BgDefProperties                     `ini:"winbgdef"`
+	DefaultEnding   StoryboardProperties                `ini:"default_ending"`
+	EndCredits      StoryboardProperties                `ini:"end_credits"`
+	ResultsScreen   map[string]*ResultsScreenProperties `ini:"map:^(?i).+results.*screen$" lua:"results_screen"`
+	ResultsBgDef    map[string]*BgDefProperties         `ini:"map:^(?i).+resultsbgdef$" lua:"resultsbgdef"`
+	OptionInfo      OptionInfoProperties                `ini:"option_info"`
+	OptionBgDef     BgDefProperties                     `ini:"optionbgdef"`
+	ReplayInfo      ReplayInfoProperties                `ini:"replay_info"`
+	ReplayBgDef     BgDefProperties                     `ini:"replaybgdef"`
+	PauseMenu       map[string]*MenuInfoProperties      `ini:"map:^(?i).*pause.*menu$" lua:"pause_menu"`
+	PauseBgDef      map[string]*BgDefProperties         `ini:"map:^(?i).*pausebgdef$" lua:"pausebgdef"`
+	AttractMode     AttractModeProperties               `ini:"attract_mode"`
+	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
+	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
+	ChallengerBgDef BgDefProperties                     `ini:"challengerbgdef"`
+	DialogueInfo    DialogueInfoProperties              `ini:"dialogue_info"`
+	HiscoreInfo     HiscoreInfoProperties               `ini:"hiscore_info"`
+	HiscoreBgDef    BgDefProperties                     `ini:"hiscorebgdef"`
+	WarningInfo     WarningInfoProperties               `ini:"warning_info"`
+	Glyphs          map[string]*GlyphProperties         `ini:"glyphs" literal:"true" insensitivekeys:"false" sff:"GlyphsSff"`
+	fntIndexByKey   map[string]int                      // filepath|height -> index
+	ch              MotifChallenger
+	co              MotifContinue
+	de              MotifDemo
+	di              MotifDialogue
+	vi              MotifVictory
+	wi              MotifWin
+	hi              MotifHiscore
+	me              MotifMenu
+	fadeIn          *Fade
+	fadeOut         *Fade
+	fadePolicy      FadeStartPolicy
+	textsprite      []*TextSprite
 }
 
 // hasUserKey returns true if the given key exists in `section` of the INI.
@@ -1613,58 +1611,6 @@ func loadMotif(def string) (*Motif, error) {
 		if err != nil {
 			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
 		}
-		// Backward-compat section aliases: [Menu Info] -> [Pause Menu], [Training Info] -> [Training Pause Menu]
-		aliasSection := func(f *ini.File, oldBase, newBase string) bool {
-			if f == nil {
-				return false
-			}
-			found := false
-			oldLower := strings.ToLower(oldBase)
-			for _, s := range f.Sections() {
-				name := s.Name()
-				if name == ini.DEFAULT_SECTION {
-					continue
-				}
-				lang, base, hasLang := splitLangPrefix(name)
-				if strings.ToLower(strings.TrimSpace(base)) != oldLower {
-					continue
-				}
-				found = true
-				newName := newBase
-				if hasLang {
-					newName = lang + "." + newBase
-				}
-				if _, err := f.GetSection(newName); err == nil {
-					continue
-				}
-				newSec, err := f.NewSection(newName)
-				if err != nil || newSec == nil {
-					continue
-				}
-				for _, k := range s.Keys() {
-					if newSec.HasKey(k.Name()) {
-						continue
-					}
-					if _, err := newSec.NewKey(k.Name(), k.Value()); err != nil {
-						// Ignore copy errors; best-effort compatibility
-						continue
-					}
-				}
-			}
-			return found
-		}
-		if aliasSection(userIniFile, "Menu Info", "Pause Menu") {
-			sys.errLog.Printf("Legacy section [Menu Info] detected; use [Pause Menu] instead.")
-		}
-		if aliasSection(userIniFile, "Training Info", "Training Pause Menu") {
-			sys.errLog.Printf("Legacy section [Training Info] detected; use [Training Pause Menu] instead.")
-		}
-		if aliasSection(userIniFile, "MenuBgDef", "PauseMenuBGdef") {
-			sys.errLog.Printf("Legacy section [MenuBgDef] detected; use [PauseMenuBGdef] instead.")
-		}
-		if aliasSection(userIniFile, "TrainingBgDef", "TrainingPauseMenuBGdef") {
-			sys.errLog.Printf("Legacy section [TrainingBgDef] detected; use [TrainingPauseMenuBGdef] instead.")
-		}
 		// Seed defaults for custom [<gamemode> Pause Menu] sections before merging user values.
 		seedPauseMenuDefaults := func(user, defaults, merged *ini.File) {
 			if user == nil || defaults == nil || merged == nil {
@@ -1766,7 +1712,7 @@ func loadMotif(def string) (*Motif, error) {
 			for _, p := range []string{
 				"titlebg", "selectbg", "versusbg", "continuebg",
 				"victorybg", "winbg",
-				"optionbg", "replaybg", "menubg", "trainingbg", "attractbg",
+				"optionbg", "replaybg", "attractbg",
 				"challengerbg", "hiscorebg",
 			} {
 				if strings.HasPrefix(lb, p) {
@@ -1893,7 +1839,23 @@ func (m *Motif) applyGlyphDefaultsFromMovelist() {
 		return
 	}
 
-	mg := m.MenuInfo.Movelist.Glyphs
+	// Use [Pause Menu] movelist glyph defaults as the global baseline.
+	var mg MovelistGlyphsProperties
+	if m.PauseMenu != nil {
+		if pm := m.PauseMenu["pause_menu"]; pm != nil {
+			mg = pm.Movelist.Glyphs
+		} else {
+			// Best-effort fallback: first available pause menu entry.
+			for _, pm := range m.PauseMenu {
+				if pm != nil {
+					mg = pm.Movelist.Glyphs
+					break
+				}
+			}
+		}
+	} else {
+		return
+	}
 	for _, g := range m.Glyphs {
 		if g == nil {
 			continue
@@ -2388,19 +2350,13 @@ func (m *Motif) loadFiles() {
 	} else {
 		m.ReplayBgDef = m.TitleBgDef
 	}
-	m.loadBgDefProperties(&m.PauseMenuBgDef, "pausemenubg", m.Files.Spr)
-	if _, err := m.UserIniFile.GetSection("TrainingPauseMenuBGdef"); err == nil {
-		m.loadBgDefProperties(&m.TrainingPauseBgDef, "trainingpausemenubg", m.Files.Spr)
-	} else {
-		m.TrainingPauseBgDef = m.PauseMenuBgDef
-	}
-	// Load all PauseMenuBgDef map entries (any mode that defines <mode>PauseMenuBGdef).
-	for secKey, bg := range m.PauseMenuBgDefMap {
+	// Load all PauseBgDef entries (any mode that defines <mode>PauseBgDef).
+	for secKey, bg := range m.PauseBgDef {
 		if bg == nil {
 			continue
 		}
 		key := strings.ToLower(secKey)
-		bgName := strings.TrimSuffix(key, "def")
+		bgName := strings.TrimSuffix(key, "def") // e.g. "pausebgdef" -> "pausebg"
 		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
 	}
 	if _, err := m.UserIniFile.GetSection("AttractBgDef"); err == nil {
@@ -2606,18 +2562,15 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		&m.OptionInfo.Menu,
 		&m.ReplayInfo.Menu,
 		&m.AttractMode.Menu,
-		&m.MenuInfo.Menu,
-		&m.TrainingInfo.Menu,
 		&m.OptionInfo.KeyMenu.Menu,
 	} {
 		shiftMenu(me)
 	}
-	if m.PauseMenuInfo != nil {
-		for _, pm := range m.PauseMenuInfo {
-			if pm == nil {
-				continue
+	if m.PauseMenu != nil {
+		for _, pm := range m.PauseMenu {
+			if pm != nil {
+				shiftMenu(&pm.Menu)
 			}
-			shiftMenu(&pm.Menu)
 		}
 	}
 
@@ -2628,12 +2581,10 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		textSetPos(km.P2.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P2.MenuOffset[0], km.Menu.Pos[1]+km.P2.MenuOffset[1])
 	}
 
-	// Movelists (MenuInfo, TrainingInfo)
+	// Movelists (all pause menus)
 	{
-		shiftMovelist(&m.MenuInfo)
-		shiftMovelist(&m.TrainingInfo)
-		if m.PauseMenuInfo != nil {
-			for _, pm := range m.PauseMenuInfo {
+		if m.PauseMenu != nil {
+			for _, pm := range m.PauseMenu {
 				shiftMovelist(pm)
 			}
 		}
@@ -3236,12 +3187,29 @@ func (me *MotifMenu) menuOpenInputHeld(m *Motif) bool {
 		return true
 	}
 	// Also respect configured menu cancel/open bindings
-	if m != nil && m.MenuInfo.Enabled {
-		if sys.button(m.MenuInfo.Menu.Cancel.Key, -1) {
-			return true
+	if m != nil && m.PauseMenu != nil {
+		if pm := m.PauseMenu["pause_menu"]; pm != nil && pm.Enabled {
+			if sys.button(pm.Menu.Cancel.Key, -1) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func (me *MotifMenu) pauseMenuBase(m *Motif) *MenuInfoProperties {
+	if m == nil || m.PauseMenu == nil {
+		return nil
+	}
+	if pm := m.PauseMenu["pause_menu"]; pm != nil {
+		return pm
+	}
+	for _, pm := range m.PauseMenu {
+		if pm != nil {
+			return pm
+		}
+	}
+	return nil
 }
 
 func (me *MotifMenu) requestClose(m *Motif) {
@@ -3249,12 +3217,15 @@ func (me *MotifMenu) requestClose(m *Motif) {
 		return
 	}
 	me.closeRequested = true
-	startFadeOut(m.MenuInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	if pm := me.pauseMenuBase(m); pm != nil {
+		startFadeOut(pm.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	}
 	me.endTimer = me.counter + m.fadeOut.timeRemaining
 }
 
 func (me *MotifMenu) init(m *Motif) {
-	if !m.MenuInfo.Enabled || !me.enabled {
+	pm := me.pauseMenuBase(m)
+	if pm == nil || !pm.Enabled || !me.enabled {
 		me.initialized = true
 		return
 	}
@@ -3265,7 +3236,7 @@ func (me *MotifMenu) init(m *Motif) {
 		}
 		me.reopenLock = false
 	}
-	if (!sys.esc && !sys.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
+	if (!sys.esc && !sys.button(pm.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
 	if !sys.skipMotifScaling() {
@@ -3276,7 +3247,7 @@ func (me *MotifMenu) init(m *Motif) {
 		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
 	}
 
-	m.MenuInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	pm.FadeIn.FadeData.init(m.fadeIn, true)
 	me.counter = 0
 	me.active = true
 	me.initialized = true

@@ -1846,7 +1846,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "endMatch", func(*lua.LState) int {
-		sys.motif.MenuInfo.FadeOut.FadeData.init(sys.motif.fadeOut, false)
+		sys.motif.PauseMenu["pause_menu"].FadeOut.FadeData.init(sys.motif.fadeOut, false)
 		sys.endMatch = true
 		return 0
 	})
@@ -3464,8 +3464,8 @@ func systemScriptInit(l *lua.LState) {
 			{"Attract Mode", []string{"attract_mode", "menu"}},
 			{"Option Info", []string{"option_info", "menu"}},
 			{"Replay Info", []string{"replay_info", "menu"}},
-			{"Pause Menu", []string{"pause_menu", "menu"}},
-			{"Training Pause Menu", []string{"training_pause_menu", "menu"}},
+			{"Pause Menu", []string{"pause_menu", "pause_menu", "menu"}},
+			{"Training Pause Menu", []string{"pause_menu", "training_pause_menu", "menu"}},
 		}
 		for _, s := range mi {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
@@ -3473,7 +3473,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		for _, sec := range customPauseMenuSections(sys.motif.UserIniFile) {
 			key := normalizeSectionName(sec)
-			path := []string{"pause_menus", key, "menu"}
+			path := []string{"pause_menu", key, "menu"}
 			if hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
 				populateItemName(sec, path, "menu.itemname.", "flat", lTable)
 				buildFlatOrder(sec, path, "menu.itemname.", lTable)

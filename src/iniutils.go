@@ -1140,6 +1140,12 @@ func assignField(structPtr interface{}, parts []queryPart, value interface{}, ba
 
 				return fmt.Errorf("field '%s' not found in struct or pattern map field", part.name)
 			} else if v.Kind() == reflect.Map {
+				if v.IsNil() {
+					if !v.CanSet() {
+						return fmt.Errorf("cannot assign into nil map at '%s' (map is not settable)", strings.Join(extractNames(parts), "."))
+					}
+					v.Set(reflect.MakeMap(v.Type()))
+				}
 				if value == nil {
 					keyName := part.name
 					if currentMapInsensitiveKeys {

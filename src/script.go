@@ -5979,6 +5979,8 @@ func triggerFunctions(l *lua.LState) {
 				lv = lua.LNumber(e.anim.curelemtime)
 			case "animplayerno":
 				lv = lua.LNumber(e.animPN + 1)
+			case "animtime":
+				lv = lua.LNumber(e.anim.AnimTime())
 			case "spriteplayerno":
 				lv = lua.LNumber(e.spritePN + 1)
 			case "bindtime":

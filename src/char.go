@@ -5405,6 +5405,12 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 
 	if e != nil {
 		switch vtype {
+		case OC_ex2_explodvar_accel_x:
+			v = BytecodeFloat(e.accel[0])
+		case OC_ex2_explodvar_accel_y:
+			v = BytecodeFloat(e.accel[1])
+		case OC_ex2_explodvar_accel_z:
+			v = BytecodeFloat(e.accel[2])
 		case OC_ex2_explodvar_anim:
 			v = BytecodeInt(e.animNo)
 		case OC_ex2_explodvar_angle:
@@ -5428,7 +5434,13 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 		case OC_ex2_explodvar_drawpal_index:
 			v = BytecodeInt(c.explodDrawPal(e)[1])
 		case OC_ex2_explodvar_facing:
-			v = BytecodeInt(int32(e.facing))
+			v = BytecodeInt(int32(e.facing * e.relativef))
+		case OC_ex2_explodvar_friction_x:
+			v = BytecodeFloat(e.friction[0])
+		case OC_ex2_explodvar_friction_y:
+			v = BytecodeFloat(e.friction[1])
+		case OC_ex2_explodvar_friction_z:
+			v = BytecodeFloat(e.friction[2])
 		case OC_ex2_explodvar_id:
 			v = BytecodeInt(e.id)
 		case OC_ex2_explodvar_layerno:

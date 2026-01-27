@@ -5988,7 +5988,7 @@ func triggerFunctions(l *lua.LState) {
 			case "drawpal index":
 				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
 			case "facing":
-				lv = lua.LNumber(e.facing)
+				lv = lua.LNumber(e.facing * e.relativef)
 			case "friction x":
 				lv = lua.LNumber(e.friction[0])
 			case "friction y":

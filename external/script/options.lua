@@ -2156,6 +2156,7 @@ end
 
 function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	local t = t_keyCfg
+	local side_before = side
 	-- Dynamically add/remove the "Rumble" option based on type
 	if motif.option_info.keymenu.menu.itemname.rumble ~= nil then
 		if cfgType ~= 'Joystick' then
@@ -2411,6 +2412,19 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		end
 		resetKey()
 	end
+
+	-- Reset active background animation when switching side
+	if side_before ~= side and t ~= nil and t[item] ~= nil then
+		local bgTable = motif.option_info.keymenu.menu.item.active.bg
+		if bgTable ~= nil then
+			local params = bgTable[t[item].paramname] or bgTable.default
+			if params ~= nil and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
+	end
+
 	-- standard / forced menu movement (up/down)
 	-- When Config all is active, movement is driven by forcedDir (0 = locked, 1 = down).
 	cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info.keymenu, motif.option_info.cursor, forcedDir)

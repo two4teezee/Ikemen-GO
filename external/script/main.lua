@@ -1538,7 +1538,6 @@ end
 --returns table storing menu window coordinates
 function main.f_menuWindow(t, offset)
 	local offset = offset or {0, 0}
-	-- If margins are set, keep legacy vertical-only clamp.
 	if t.window.margins.y[1] ~= 0 or t.window.margins.y[2] ~= 0 then
 		return {
 			0,
@@ -1547,17 +1546,7 @@ function main.f_menuWindow(t, offset)
 			t.pos[2] + offset[2] + (t.window.visibleitems - 1) * t.item.spacing[2] + t.window.margins.y[2]
 		}
 	end
-	-- Margins 0,0 => clamp tightly to the menu box (both axes).
-	local x1 = t.pos[1] + offset[1] + t.boxcursor.coords[1]
-	local y1 = t.pos[2] + offset[2] + t.boxcursor.coords[2]
-	local w  = t.boxcursor.coords[3] - t.boxcursor.coords[1] + 1
-	local h  = t.boxcursor.coords[4] - t.boxcursor.coords[2] + 1
-	-- Height grows with visible rows; using visibleitems is enough for clipping.
-	local winLeft   = math.max(0, x1)
-	local winTop    = math.max(0, y1)
-	local winRight  = math.min(x1 + w, motif.info.localcoord[1])
-	local winBottom = math.min(y1 + h + (t.window.visibleitems - 1) * t.item.spacing[2], motif.info.localcoord[2])
-	return {winLeft, winTop, winRight, winBottom}
+	return {0, 0, motif.info.localcoord[1], motif.info.localcoord[2]}
 end
 
 function main.f_storyboard(path)

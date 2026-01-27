@@ -2001,7 +2001,7 @@ func (e *Explod) update(playerNo int) {
 		}
 	}
 
-	var facing float32 = e.facing * e.relativef
+	var trueFacing float32 = e.facing * e.relativef
 	//if e.lockSpriteFacing {
 	//	facing = -1
 	//}
@@ -2039,7 +2039,7 @@ func (e *Explod) update(playerNo int) {
 	if alp[0] < 0 {
 		alp[0] = -1
 	}
-	if (e.facing*e.relativef < 0) != (e.vfacing < 0) {
+	if (trueFacing < 0) != (e.vfacing < 0) {
 		anglerot[0] *= -1
 		anglerot[2] *= -1
 	}
@@ -2101,7 +2101,7 @@ func (e *Explod) update(playerNo int) {
 		rot:          rot,
 		screen:       e.space == Space_screen,
 		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		facing:       facing,
+		facing:       trueFacing,
 		airOffsetFix: [2]float32{1, 1},
 		projection:   int32(e.projection),
 		fLength:      fLength,
@@ -6417,6 +6417,7 @@ func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	h.setPosY(p[1], true)
 	h.setPosZ(p[2], true)
 	h.vel = [3]float32{}
+
 	if h.ownpal {
 		h.palfx = newPalFX()
 		if c.getPalfx().remap == nil {
@@ -6429,21 +6430,53 @@ func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
 	} else {
 		h.palfx = c.getPalfx()
 	}
+
+	// Copy parent maps
 	if extmap {
 		for key, value := range c.mapArray {
 			h.mapArray[key] = value
 		}
 	}
+
 	// Mugen 1.1 behavior if invertblend param is omitted(Only if char mugenversion = 1.1)
 	if h.stWgi().mugenver[0] == 1 && h.stWgi().mugenver[1] == 1 && h.stWgi().ikemenver[0] == 0 && h.stWgi().ikemenver[1] == 0 {
 		h.palfx.invertblend = -2
 	}
 	h.changeStateEx(st, c.playerNo, 0, 1, "")
+
 	// Helper ID must be positive
 	if h.helperId < 0 {
 		sys.appendToConsole(h.warn() + fmt.Sprintf("has negative Helper ID"))
 		h.helperId = 0
 	}
+
+	// Enforce minimum width constants
+	// Mugen does not actually do this. Instead, it secretly uses these limits when calculating player overlap for pushing
+	// But doing it this way is more transparent and causes less pollution in our code
+	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+		minwidth := 5.0 / h.localscl // TODO: Check if localscl is necessary
+		var changedAny bool
+		if h.size.standbox[0] > -minwidth {
+			h.size.standbox[0] = -minwidth
+			changedAny = true
+		}
+		if h.size.standbox[2] < minwidth {
+			h.size.standbox[2] = minwidth
+			changedAny = true
+		}
+		if h.size.airbox[0] > -minwidth {
+			h.size.airbox[0] = -minwidth
+			changedAny = true
+		}
+		if h.size.airbox[2] < minwidth {
+			h.size.airbox[2] = minwidth
+			changedAny = true
+		}
+		if changedAny {
+			sys.appendToConsole(h.warn() + fmt.Sprintf("clamped invalid width constants to %v", minwidth))
+		}
+	}
+
 	// Prepare newly created helper so it can be successfully run later via actionRun() in charList.action()
 	h.actionPrepare()
 }

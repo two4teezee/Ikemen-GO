@@ -2888,6 +2888,7 @@ type CharGlobalInfo struct {
 	music                   Music
 	attackBase              int32
 	defenceBase             int32
+	canMutateStage          bool // Determines if the stage should be included in save states
 }
 
 func (cgi *CharGlobalInfo) clearPCTime() {

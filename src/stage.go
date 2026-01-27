@@ -4233,6 +4233,7 @@ func drawNodeShadow(mdl *Model, scene *Scene, n *Node, camOffset [3]float32, dra
 		}
 	}
 }
+
 func (model *Model) drawShadow(bufferIndex uint32, sceneNumber int, offset [3]float32) {
 	scene := model.scenes[sceneNumber]
 	gfx.prepareShadowMapPipeline(bufferIndex)
@@ -4369,6 +4370,7 @@ func (model *Model) drawShadow(bufferIndex uint32, sceneNumber int, offset [3]fl
 	}
 	gfx.ReleaseShadowPipeline()
 }
+
 func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, defaultLayerNumber int, offset [3]float32, proj, view, viewProjMatrix mgl.Mat4, outlineConst float32) {
 	if sceneNumber < 0 || sceneNumber >= len(model.scenes) {
 		return

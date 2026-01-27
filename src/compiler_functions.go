@@ -4670,6 +4670,7 @@ func (c *Compiler) loadFile(is IniSection, sc *StateControllerBase, _ int8) (Sta
 	})
 	return *ret, err
 }
+
 func (c *Compiler) loadState(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*loadState)(sc), c.stateSec(is, func() error {
 		sc.add(loadState_, nil)
@@ -6126,6 +6127,7 @@ func (c *Compiler) modifyStageVar(is IniSection, sc *StateControllerBase, _ int8
 		}
 		return nil
 	})
+	sys.cgi[c.playerNo].canMutateStage = true
 	return *ret, err
 }
 
@@ -6762,6 +6764,7 @@ func (c *Compiler) modifyStageBG(is IniSection, sc *StateControllerBase, _ int8)
 		}
 		return nil
 	})
+	sys.cgi[c.playerNo].canMutateStage = true
 	return *ret, err
 }
 

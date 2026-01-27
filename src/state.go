@@ -318,11 +318,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.bcVar = arena.MakeSlice[BytecodeValue](a, len(gs.bcVar), len(gs.bcVar))
 	copy(sys.bcVar, gs.bcVar)
 
-	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		if sys.cfg.Netplay.Rollback.SaveStageData {
-			sys.stage = gs.stage.Clone(a, gsp)
-		}
-	} else {
+	// Only try loading the stage if it was saved
+	if gs.stage != nil {
 		sys.stage = gs.stage.Clone(a, gsp)
 	}
 
@@ -561,11 +558,13 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.bcVar = arena.MakeSlice[BytecodeValue](a, len(sys.bcVar), len(sys.bcVar))
 	copy(gs.bcVar, sys.bcVar)
 
+	// We only save the stage's state if any existing characters can modify it
 	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		if sys.cfg.Netplay.Rollback.SaveStageData {
+		if gs.stageCanMutate() || sys.cfg.Netplay.Rollback.SaveStageData {
 			gs.stage = sys.stage.Clone(a, gsp)
 		}
 	} else {
+		// Save anyway if using debug keys
 		gs.stage = sys.stage.Clone(a, gsp)
 	}
 
@@ -903,6 +902,15 @@ func (gs *GameState) loadCharTextData(a *arena.Arena) {
 			sys.chartexts[i][j] = cloneTextSprite(a, gs.chartexts[i][j])
 		}
 	}
+}
+
+func (gs *GameState) stageCanMutate() bool {
+	for i := range sys.cgi {
+		if sys.cgi[i].canMutateStage {
+			return true
+		}
+	}
+	return false
 }
 
 func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {

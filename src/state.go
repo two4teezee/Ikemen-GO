@@ -224,7 +224,7 @@ type GameState struct {
 	scoreRounds     [][2]float32
 	decisiveRound   [2]bool
 	sel             Select
-	stringPool      [MaxPlayerNo]StringPool
+	//stringPool      [MaxPlayerNo]StringPool // Only mutated while compiling
 	dialogueFlg     bool
 	gameMode        string
 	consecutiveWins [2]int32
@@ -453,9 +453,9 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.decisiveRound = gs.decisiveRound
 
 	//sys.sel = gs.sel.Clone(a)
-	for i := 0; i < len(sys.stringPool); i++ {
-		sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
-	}
+	// for i := 0; i < len(sys.stringPool); i++ {
+	// 	sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
+	// }
 
 	sys.motif.di.active = gs.dialogueFlg
 	sys.gameMode = gs.gameMode
@@ -681,10 +681,11 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.scoreRounds = arena.MakeSlice[[2]float32](a, len(sys.scoreRounds), len(sys.scoreRounds))
 	copy(gs.scoreRounds, sys.scoreRounds)
 	gs.decisiveRound = sys.decisiveRound
+
 	//gs.sel = sys.sel.Clone(a)
-	for i := 0; i < len(sys.stringPool); i++ {
-		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
-	}
+	// for i := 0; i < len(sys.stringPool); i++ {
+	//		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
+	// }
 
 	gs.dialogueFlg = sys.motif.di.active
 	gs.gameMode = sys.gameMode

@@ -119,6 +119,7 @@ func (af *AnimFrame) Clone(a *arena.Arena) (result *AnimFrame) {
 	return
 }
 
+/*
 func (sp StringPool) Clone(a *arena.Arena, gsp *GameStatePool) (result StringPool) {
 	result = sp
 	result.List = arena.MakeSlice[string](a, len(sp.List), len(sp.List))
@@ -131,6 +132,7 @@ func (sp StringPool) Clone(a *arena.Arena, gsp *GameStatePool) (result StringPoo
 	}
 	return
 }
+*/
 
 func (b *StateBlock) Clone(a *arena.Arena) (result StateBlock) {
 	result = *b

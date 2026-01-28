@@ -1748,6 +1748,7 @@ end
 --resets various data
 function start.f_selectReset(hardReset)
 	esc(false)
+	main.f_cmdBufReset()
 	resetGameStats()
 	setMatchNo(1)
 	setConsecutiveWins(1, 0)

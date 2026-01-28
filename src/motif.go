@@ -2741,7 +2741,14 @@ func (m *Motif) Save(file string) error {
 
 func (mo *Motif) processStateChange(c *Char, states []int32) bool {
 	for _, stateNo := range states {
+		// Negative state numbers are treated as hide/disable this character.
+		if stateNo < 0 {
+			c.setSCF(SCF_disabled)
+			return true
+		}
 		if c.selfStatenoExist(BytecodeInt(stateNo)) == BytecodeBool(true) {
+			// If the character was previously hidden/disabled, re-enable it when a valid state transition is requested.
+			c.unsetSCF(SCF_disabled)
 			c.changeState(int32(stateNo), -1, -1, "")
 			return true
 		}

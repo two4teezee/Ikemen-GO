@@ -3129,6 +3129,9 @@ function main.f_randomtest()
 		game()
 		refresh()
 		if winnerteam() == -1 then
+			bgReset(motif[main.background].BGDef)
+			playBgm({source = "motif.title", interrupt = true})
+			main.f_fadeReset('fadein', motif[main.group])
 			break
 		end
 	end

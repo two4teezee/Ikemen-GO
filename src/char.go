@@ -3024,11 +3024,11 @@ type Char struct {
 	cmd            []CommandList
 	ss             StateState
 	controller     int
+	playerNo       int // Location in sys.chars[]
+	helperIndex    int // Location in sys.chars[][]
 	id             int32
 	helperId       int32
-	helperIndex    int32
 	parentIndex    int32
-	playerNo       int
 	teamside       int
 	keyctrl        [4]bool
 	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
@@ -3158,7 +3158,7 @@ type Char struct {
 }
 
 // Add a new char to the game
-func newChar(n int, idx int32) (c *Char) {
+func newChar(n, idx int) (c *Char) {
 	c = &Char{}
 	c.init(n, idx)
 	return c
@@ -3177,7 +3177,7 @@ func (c *Char) panic() {
 		sys.cgi[c.ss.sb.playerNo].def, c.ss)
 }
 
-func (c *Char) init(n int, idx int32) {
+func (c *Char) init(n int, idx int) {
 	// Reset struct with defaults
 	*c = Char{
 		playerNo:      n,
@@ -4010,7 +4010,7 @@ func (c *Char) load(def string) error {
 		sprite_resolved := resolvePathRelativeToDef(sprite)
 		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			var err_sff error
-			gi.sff, err_sff = loadSff(filename, true, false) // loadSff uses OpenFile
+			gi.sff, err_sff = loadSff(filename, true, false, false) // loadSff uses OpenFile
 			return err_sff
 		}); err != nil {
 			return err
@@ -4104,81 +4104,93 @@ func (c *Char) loadPalette() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
 
+	readAct := func(palPtr *PalInfo) ([]uint32, bool) {
+		var f io.ReadSeekCloser
+		if LoadFile(&palPtr.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
+			var err error
+			f, err = OpenFile(file)
+			return err
+		}) == nil {
+			defer f.Close()
+			pl := make([]uint32, 256)
+			for i := 255; i >= 0; i-- {
+				var rgb [3]byte
+				if _, err := io.ReadFull(f, rgb[:]); err != nil {
+					return nil, false
+				}
+				var alpha byte = 255
+				if i == 0 {
+					alpha = 0
+				}
+				pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+			}
+			return pl, true
+		}
+		return nil, false
+	}
+
 	if gi.sff.header.Ver0 == 1 {
 		gi.palettedata.palList.ResetRemap()
 		tmp := 0
 		for i := 0; i < maxPal; i++ {
-			pl := gi.palettedata.palList.Get(i)
-			var f io.ReadSeekCloser
-			var err error
-
 			pal := gi.palInfo[i]
-
-			if LoadFile(&pal.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
-				f, err = OpenFile(file)
-				return err
-			}) == nil {
-				gi.palInfo[i] = pal
-
-				for i := 255; i >= 0; i-- {
-					var rgb [3]byte
-					if _, err = io.ReadFull(f, rgb[:]); err != nil {
-						break
-					}
-					var alpha byte = 255
-					if i == 0 {
-						alpha = 0
-					}
-					pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+			if pl, ok := readAct(&pal); ok {
+				targetPal := gi.palettedata.palList.Get(i)
+				copy(targetPal, pl)
+				if tmp == 0 && i > 0 {
+					copy(gi.palettedata.palList.Get(0), pl)
 				}
-				chk(f.Close())
-				if err == nil {
-					if tmp == 0 && i > 0 {
-						copy(gi.palettedata.palList.Get(0), pl)
-					}
-					pal.exists = true
-					gi.palInfo[i] = pal
-					// Palette Texture Generation
-					if len(gi.palettedata.palList.PalTex) <= i {
-						newLen := i + 1
-						newSlice := make([]Texture, newLen)
-						copy(newSlice, gi.palettedata.palList.PalTex)
-						gi.palettedata.palList.PalTex = newSlice
-					}
-					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
-					tmp = i + 1
+				pal.exists = true
+				if len(gi.palettedata.palList.PalTex) <= i {
+					newSlice := make([]Texture, i+1)
+					copy(newSlice, gi.palettedata.palList.PalTex)
+					gi.palettedata.palList.PalTex = newSlice
 				}
-			} else if f != nil {
-				chk(f.Close())
-			}
-			if err != nil {
+				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
+				tmp = i + 1
+			} else {
 				pal.exists = false
-				gi.palInfo[i] = pal
 				if i > 0 {
 					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
 				}
 			}
+			gi.palInfo[i] = pal
 		}
 		if tmp == 0 {
 			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
 	} else {
+		numPals := int(gi.sff.header.NumberOfPalettes)
+		if len(gi.palettedata.palList.PalTex) < numPals {
+			gi.palettedata.palList.PalTex = make([]Texture, numPals)
+		}
+		for i := 0; i < numPals; i++ {
+			if pData := gi.sff.palList.Get(i); pData != nil {
+				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pData)
+			}
+		}
+
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
-			_, pal.exists = gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
-			gi.palInfo[i] = pal
-		}
-		if gi.sff.header.NumberOfPalettes > 0 {
-			numPals := int(gi.sff.header.NumberOfPalettes)
-			if len(gi.palettedata.palList.PalTex) < numPals {
-				gi.palettedata.palList.PalTex = make([]Texture, numPals)
-			}
-			for i := 0; i < numPals; i++ {
-				pal := gi.sff.palList.Get(i)
-				if pal != nil {
-					gi.palettedata.palList.PalTex[i] = PaletteToTexture(pal)
+			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
+
+			if pl, ok := readAct(&pal); ok {
+				if existsInSff && pIdx >= 0 {
+					// Overwrite existing SFFv2 slot with ACT data
+					gi.palettedata.palList.PalTex[pIdx] = PaletteToTexture(pl)
+				} else {
+					// Create a new isolated index for the ACT to prevent crashes
+					newIdx := len(gi.palettedata.palList.palettes)
+					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
+					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
+					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, PaletteToTexture(pl))
+					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
 				}
+				pal.exists = true
+			} else {
+				pal.exists = existsInSff
 			}
+			gi.palInfo[i] = pal
 		}
 	}
 
@@ -5386,69 +5398,84 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 		return BytecodeSF()
 	}
 	var id = eid.ToI()
-	var i = idx.ToI()
+	var i = int(idx.ToI())
 	var v BytecodeValue
-	for n, e := range c.getExplods(id) {
-		if i == int32(n) {
-			switch vtype {
-			case OC_ex2_explodvar_anim:
-				v = BytecodeInt(e.animNo)
-			case OC_ex2_explodvar_angle:
-				v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
-			case OC_ex2_explodvar_angle_x:
-				v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
-			case OC_ex2_explodvar_angle_y:
-				v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
-			case OC_ex2_explodvar_animelem:
-				v = BytecodeInt(e.anim.curelem + 1)
-			case OC_ex2_explodvar_animelemtime:
-				v = BytecodeInt(e.anim.curelemtime)
-			case OC_ex2_explodvar_animplayerno:
-				v = BytecodeInt(int32(e.animPN) + 1)
-			case OC_ex2_explodvar_spriteplayerno:
-				v = BytecodeInt(int32(e.spritePN) + 1)
-			case OC_ex2_explodvar_bindtime:
-				v = BytecodeInt(e.bindtime)
-			case OC_ex2_explodvar_drawpal_group:
-				v = BytecodeInt(c.explodDrawPal(e)[0])
-			case OC_ex2_explodvar_drawpal_index:
-				v = BytecodeInt(c.explodDrawPal(e)[1])
-			case OC_ex2_explodvar_facing:
-				v = BytecodeInt(int32(e.facing))
-			case OC_ex2_explodvar_id:
-				v = BytecodeInt(e.id)
-			case OC_ex2_explodvar_layerno:
-				v = BytecodeInt(e.layerno)
-			case OC_ex2_explodvar_pausemovetime:
-				v = BytecodeInt(e.pausemovetime)
-			case OC_ex2_explodvar_pos_x:
-				v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
-			case OC_ex2_explodvar_pos_y:
-				v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
-			case OC_ex2_explodvar_pos_z:
-				v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
-			case OC_ex2_explodvar_removetime:
-				v = BytecodeInt(e.removetime)
-			case OC_ex2_explodvar_scale_x:
-				v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
-			case OC_ex2_explodvar_scale_y:
-				v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
-			case OC_ex2_explodvar_sprpriority:
-				v = BytecodeInt(e.sprpriority)
-			case OC_ex2_explodvar_time:
-				v = BytecodeInt(e.time)
-			case OC_ex2_explodvar_vel_x:
-				v = BytecodeFloat(e.velocity[0])
-			case OC_ex2_explodvar_vel_y:
-				v = BytecodeFloat(e.velocity[1])
-			case OC_ex2_explodvar_vel_z:
-				v = BytecodeFloat(e.velocity[2])
-			case OC_ex2_explodvar_xshear:
-				v = BytecodeFloat(e.xshear)
-			}
-			break
+
+	e := c.getSingleExplod(id, i, true)
+
+	if e != nil {
+		switch vtype {
+		case OC_ex2_explodvar_accel_x:
+			v = BytecodeFloat(e.accel[0])
+		case OC_ex2_explodvar_accel_y:
+			v = BytecodeFloat(e.accel[1])
+		case OC_ex2_explodvar_accel_z:
+			v = BytecodeFloat(e.accel[2])
+		case OC_ex2_explodvar_anim:
+			v = BytecodeInt(e.animNo)
+		case OC_ex2_explodvar_angle:
+			v = BytecodeFloat(e.anglerot[0] + e.interpolate_angle[0])
+		case OC_ex2_explodvar_angle_x:
+			v = BytecodeFloat(e.anglerot[1] + e.interpolate_angle[1])
+		case OC_ex2_explodvar_angle_y:
+			v = BytecodeFloat(e.anglerot[2] + e.interpolate_angle[2])
+		case OC_ex2_explodvar_animelem:
+			v = BytecodeInt(e.anim.curelem + 1)
+		case OC_ex2_explodvar_animelemtime:
+			v = BytecodeInt(e.anim.curelemtime)
+		case OC_ex2_explodvar_animplayerno:
+			v = BytecodeInt(int32(e.animPN) + 1)
+		case OC_ex2_explodvar_animtime:
+			v = BytecodeInt(e.anim.AnimTime())
+		case OC_ex2_explodvar_spriteplayerno:
+			v = BytecodeInt(int32(e.spritePN) + 1)
+		case OC_ex2_explodvar_bindtime:
+			v = BytecodeInt(e.bindtime)
+		case OC_ex2_explodvar_drawpal_group:
+			v = BytecodeInt(c.explodDrawPal(e)[0])
+		case OC_ex2_explodvar_drawpal_index:
+			v = BytecodeInt(c.explodDrawPal(e)[1])
+		case OC_ex2_explodvar_facing:
+			v = BytecodeInt(int32(e.facing * e.relativef))
+		case OC_ex2_explodvar_friction_x:
+			v = BytecodeFloat(e.friction[0])
+		case OC_ex2_explodvar_friction_y:
+			v = BytecodeFloat(e.friction[1])
+		case OC_ex2_explodvar_friction_z:
+			v = BytecodeFloat(e.friction[2])
+		case OC_ex2_explodvar_id:
+			v = BytecodeInt(e.id)
+		case OC_ex2_explodvar_layerno:
+			v = BytecodeInt(e.layerno)
+		case OC_ex2_explodvar_pausemovetime:
+			v = BytecodeInt(e.pausemovetime)
+		case OC_ex2_explodvar_pos_x:
+			v = BytecodeFloat(e.pos[0] + e.offset[0] + e.relativePos[0] + e.interpolate_pos[0])
+		case OC_ex2_explodvar_pos_y:
+			v = BytecodeFloat(e.pos[1] + e.offset[1] + e.relativePos[1] + e.interpolate_pos[1])
+		case OC_ex2_explodvar_pos_z:
+			v = BytecodeFloat(e.pos[2] + e.offset[2] + e.relativePos[2] + e.interpolate_pos[2])
+		case OC_ex2_explodvar_removetime:
+			v = BytecodeInt(e.removetime)
+		case OC_ex2_explodvar_scale_x:
+			v = BytecodeFloat(e.scale[0] * e.interpolate_scale[0])
+		case OC_ex2_explodvar_scale_y:
+			v = BytecodeFloat(e.scale[1] * e.interpolate_scale[1])
+		case OC_ex2_explodvar_sprpriority:
+			v = BytecodeInt(e.sprpriority)
+		case OC_ex2_explodvar_time:
+			v = BytecodeInt(e.time)
+		case OC_ex2_explodvar_vel_x:
+			v = BytecodeFloat(e.velocity[0])
+		case OC_ex2_explodvar_vel_y:
+			v = BytecodeFloat(e.velocity[1])
+		case OC_ex2_explodvar_vel_z:
+			v = BytecodeFloat(e.velocity[2])
+		case OC_ex2_explodvar_xshear:
+			v = BytecodeFloat(e.xshear)
 		}
 	}
+
 	return v
 }
 
@@ -6318,28 +6345,28 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 // Make a new helper before reading the bytecode parameters
 func (c *Char) newHelper() (h *Char) {
 	// Start at index 1, skipping the root
-	i := int32(1)
+	hidx := int(1)
 
 	// If any existing helper entry is available for overwriting, use it
-	for ; int(i) < len(sys.chars[c.playerNo]); i++ {
-		if sys.chars[c.playerNo][i].helperIndex < 0 {
-			h = sys.chars[c.playerNo][i]
-			h.init(c.playerNo, i)
+	for ; hidx < len(sys.chars[c.playerNo]); hidx++ {
+		if sys.chars[c.playerNo][hidx].helperIndex < 0 {
+			h = sys.chars[c.playerNo][hidx]
+			h.init(c.playerNo, hidx)
 			break
 		}
 	}
 
 	// Otherwise append to the end
-	if int(i) >= len(sys.chars[c.playerNo]) {
+	if hidx >= len(sys.chars[c.playerNo]) {
 		// Check helper limit
-		if i > sys.cfg.Config.HelperMax { // Do not count index 0
+		if int32(hidx) > sys.cfg.Config.HelperMax { // Do not count index 0
 			root := sys.chars[c.playerNo][0]
 			sys.appendToConsole(root.warn() + fmt.Sprintf("Reached limit of %v helpers. Helper creation skipped", sys.cfg.Config.HelperMax))
 			return
 		}
 
 		// Add helper if allowed
-		h = newChar(c.playerNo, i)
+		h = newChar(c.playerNo, hidx)
 		sys.chars[c.playerNo] = append(sys.chars[c.playerNo], h)
 	}
 
@@ -6354,7 +6381,7 @@ func (c *Char) newHelper() (h *Char) {
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
-	h.parentIndex = c.helperIndex
+	h.parentIndex = int32(c.helperIndex)
 	h.controller = c.controller
 	h.teamside = c.teamside
 	h.size = c.size
@@ -6486,14 +6513,55 @@ func (c *Char) spawnExplod() (*Explod, int) {
 	return e, idx
 }
 
-func (c *Char) getExplods(id int32) (expls []*Explod) {
-	for i := range sys.explods[c.playerNo] {
-		e := sys.explods[c.playerNo][i]
-		if e.matchId(id, c.id) {
-			expls = append(expls, e)
+// Get multiple explods for ModifyExplod, etc
+func (c *Char) getMultipleExplods(id int32, idx int, log bool) (expls []*Explod) {
+	// Filter explods with the specified ID
+	if idx < len(sys.explods[c.playerNo]) { // Includes negative indexes (all)
+		matchCount := 0
+		for i := range sys.explods[c.playerNo] {
+			e := sys.explods[c.playerNo][i]
+			if e.matchId(id, c.id) {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*Explod{e}
+					}
+				} else {
+					// Append all matches
+					expls = append(expls, e)
+				}
+				matchCount++
+			}
 		}
 	}
-	return
+
+	if len(expls) > 0 {
+		return expls
+	}
+
+	// No valid explods found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no explod with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
+// Get a single explod for ExplodVar, etc
+func (c *Char) getSingleExplod(id int32, idx int, log bool) *Explod {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "explod index cannot be negative")
+		}
+		return nil
+	}
+
+	explods := c.getMultipleExplods(id, idx, log)
+	if len(explods) > 0 {
+		return explods[0]
+	}
+
+	return nil
 }
 
 func (c *Char) explodDrawPal(e *Explod) [2]int32 {
@@ -6992,14 +7060,56 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 	return c.getDrawPal(p.palfx.remap[0])
 }
 
-func (c *Char) getProjs(id int32) (projs []*Projectile) {
-	for _, p := range sys.projs[c.playerNo] {
-		if p.id >= 0 && (id < 0 || p.id == id) { // Removed projectiles have negative ID
-			projs = append(projs, p)
+// Get multiple projectiles for ModifyProjectile, etc
+func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
+	// Filter projectiles with the specified ID
+	if idx < len(sys.projs[c.playerNo]) { // Includes negative indexes (all)
+		matchCount := 0
+		for _, p := range sys.projs[c.playerNo] {
+			// Only check active projectiles (p.id >= 0)
+			if p.id >= 0 && (id < 0 || p.id == id) {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*Projectile{p}
+					}
+				} else {
+					// Append all matches
+					projs = append(projs, p)
+				}
+				matchCount++
+			}
 		}
 	}
 
-	return
+	// Return all matches
+	if len(projs) > 0 {
+		return projs
+	}
+
+	// No valid projectiles found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no projectile with ID %v and index %v", id, idx))
+	}
+	return nil
+}
+
+// Get a single projectile for ProjVar, etc
+func (c *Char) getSingleProj(id int32, idx int, log bool) *Projectile {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "projectile index cannot be negative")
+		}
+		return nil
+	}
+
+	projs := c.getMultipleProjs(id, idx, log)
+	if len(projs) > 0 {
+		return projs[0]
+	}
+
+	return nil
 }
 
 func (c *Char) baseWidthFront() float32 {
@@ -7332,89 +7442,61 @@ func (c *Char) sysFvarAdd(i int32, v float32) BytecodeValue {
 	return BytecodeFloat(c.cnssysfvar[i])
 }
 
-func (c *Char) varRangeSet(first, last, val int32) {
+// Due to the use of generics this one technically isn't a Char method
+func varRangeSetSub[T int32 | float32](c *Char, m *map[int32]T, first, last int32, val T) {
 	if first < 0 || first > last {
 		return
 	}
 
+	// Just clear the whole map if full range is set to 0
+	if val == 0 && first == 0 && last >= math.MaxInt32 {
+		*m = make(map[int32]T)
+		return
+	}
+
 	loopCount := 0
+
 	if val == 0 {
-		// Delete existing maps within range. Don't make new ones
-		for k := range c.cnsvar {
+		// Delete specific keys. Optimized for sparse maps
+		for k := range *m {
 			if k >= first && k <= last {
-				delete(c.cnsvar, k)
+				delete(*m, k)
 				loopCount++
 				if loopCount >= MaxLoop {
-					sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
 					break
 				}
 			}
 		}
 	} else {
-		// Set entire map range to value
+		// Set values. Must iterate the specified range
 		for i := first; i <= last; i++ {
-			c.cnsvar[i] = val
+			(*m)[i] = val
 			loopCount++
-			if loopCount >= MaxLoop {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+			if loopCount >= MaxLoop || i == math.MaxInt32 { // Prevents overflow when i++
 				break
 			}
 		}
 	}
+
+	if loopCount >= MaxLoop {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("VarRangeSet limit reached after setting %v variables", loopCount))
+	}
+}
+
+func (c *Char) varRangeSet(first, last, val int32) {
+	varRangeSetSub(c, &c.cnsvar, first, last, val)
 }
 
 func (c *Char) fvarRangeSet(first, last int32, val float32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnsfvar {
-			if k >= first && k <= last {
-				delete(c.cnsfvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnsfvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnsfvar, first, last, val)
 }
 
 func (c *Char) sysVarRangeSet(first, last, val int32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnssysvar {
-			if k >= first && k <= last {
-				delete(c.cnssysvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnssysvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnssysvar, first, last, val)
 }
 
 func (c *Char) sysFvarRangeSet(first, last int32, val float32) {
-	if first < 0 || first > last {
-		return
-	}
-
-	if val == 0 {
-		for k := range c.cnssysfvar {
-			if k >= first && k <= last {
-				delete(c.cnssysfvar, k)
-			}
-		}
-	} else {
-		for i := first; i <= last; i++ {
-			c.cnssysfvar[i] = val
-		}
-	}
+	varRangeSetSub(c, &c.cnssysfvar, first, last, val)
 }
 
 func (c *Char) setFacing(f float32) {
@@ -7426,51 +7508,29 @@ func (c *Char) setFacing(f float32) {
 	}
 }
 
-// Get stage BG elements for StageBGVar trigger
-func (c *Char) getStageBg(id int32, idx int, log bool) *backGround {
-	// Invalid index
-	if idx < 0 {
-		if log {
-			sys.appendToConsole(c.warn() + "stage BG element index cannot be negative")
-		}
-		return nil
-	}
-
-	// Filter background elements with the specified ID
-	var filteredBg []*backGround
-	for _, bg := range sys.stage.bg {
-		if id < 0 || id == bg.id {
-			filteredBg = append(filteredBg, bg)
-			// Background element found at requested index
-			if idx >= 0 && len(filteredBg) == idx+1 {
-				return filteredBg[idx]
-			}
-		}
-	}
-
-	// No valid background element found
-	if log {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("found no stage BG element with ID %v and index %v", id, idx))
-	}
-	return nil
-}
-
 // Get multiple stage BG elements for ModifyStageBG sctrl
-func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
+func (c *Char) getMultipleStageBg(id int32, idx int, log bool) (filteredBg []*backGround) {
 	// Filter background elements with the specified ID
-	var filteredBg []*backGround
-	for _, bg := range sys.stage.bg {
-		if id < 0 || id == bg.id {
-			filteredBg = append(filteredBg, bg)
-			// If idx is valid and we've reached the requested index, return the single element
-			if idx >= 0 && len(filteredBg) == idx+1 {
-				return []*backGround{filteredBg[idx]}
+	if idx < len(sys.stage.bg) { // Includes negative indexes (all)
+		matchCount := 0
+		for _, bg := range sys.stage.bg {
+			if id < 0 || id == bg.id {
+				if idx >= 0 {
+					// Count the matches but only return one
+					if matchCount == idx {
+						return []*backGround{bg}
+					}
+				} else {
+					// Append all matches (wildcard mode)
+					filteredBg = append(filteredBg, bg)
+				}
+				matchCount++
 			}
 		}
 	}
 
-	// Return multiple instances if idx is negative
-	if idx < 0 {
+	// Return all matches
+	if len(filteredBg) > 0 {
 		return filteredBg
 	}
 
@@ -7481,6 +7541,24 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) []*backGround {
 	return nil
 }
 
+// Get stage BG element for StageBGVar trigger
+func (c *Char) getSingleStageBg(id int32, idx int, log bool) *backGround {
+	// Invalid index
+	if idx < 0 {
+		if log {
+			sys.appendToConsole(c.warn() + "stage BG element index cannot be negative")
+		}
+		return nil
+	}
+
+	bgs := c.getMultipleStageBg(id, idx, log)
+	if len(bgs) > 0 {
+		return bgs[0]
+	}
+
+	return nil
+}
+
 // For NumStageBG trigger
 func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
 	if id.IsSF() {
@@ -7488,16 +7566,16 @@ func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
 	}
 
 	bid := id.ToI()
-	n := 0
+	matchCount := 0
 
 	// We do this instead of getMultipleStageBg because that one returns actual BG pointers
 	for _, bg := range sys.stage.bg {
 		if bid < 0 || bid == bg.id {
-			n++
+			matchCount++
 		}
 	}
 
-	return BytecodeInt(int32(n))
+	return BytecodeInt(int32(matchCount))
 }
 
 // Get list of targets for the Target state controllers
@@ -8506,9 +8584,12 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Init palette remap if needed
 	if pfx.remap == nil {
-		pfx.remap = plist.GetPalMap()
+		pfx.remap = make([]int, len(plist.paletteMap))
+		// This ensures that SFFv2 unique palettes are preserved
+		for i := range pfx.remap {
+			pfx.remap[i] = i
+		}
 	}
-
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
 		plist.Remap(si, di)
@@ -8536,17 +8617,34 @@ func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
 	}
 
 	// Get new palette
-	di, ok := c.gi().palettedata.palList.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
+	plist := c.gi().palettedata.palList
+	di, ok := plist.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		return
 	}
 
 	// Clear previous remaps
-	pfx.remap = make([]int, len(c.gi().palettedata.palList.paletteMap))
-
+	pfx.remap = make([]int, len(plist.paletteMap))
 	// Apply the new remap
+	if c.gi().sff.header.Ver0 == 1 {
+		for i := range pfx.remap {
+			pfx.remap[i] = di
+		}
+		return
+	}
+
+	// SFFv2: Use selective remapping to preserve unique palettes
 	for i := range pfx.remap {
-		pfx.remap[i] = di
+		pfx.remap[i] = i
+	}
+
+	maxPal := sys.cfg.Config.PaletteMax
+	for i := 1; i <= maxPal; i++ {
+		if idx, exists := plist.PalTable[[...]uint16{1, uint16(i)}]; exists {
+			if idx >= 0 && int(idx) < len(pfx.remap) {
+				pfx.remap[idx] = di
+			}
+		}
 	}
 }
 
@@ -9423,13 +9521,11 @@ func (c *Char) projClsnCheckSingle(p *Projectile, cbox, pbox int32) bool {
 	)
 }
 
-func (c *Char) projClsnOverlapTrigger(index, targetID, boxType int32) bool {
-	projs := c.getProjs(-1)
-
-	if index < 0 || int(index) >= len(projs) {
+func (c *Char) projClsnOverlapTrigger(index int, targetID, boxType int32) bool {
+	proj := c.getSingleProj(-1, index, true)
+	if proj == nil {
 		return false
 	}
-	proj := projs[index]
 
 	target := sys.playerID(targetID)
 	if target == nil {
@@ -11259,10 +11355,12 @@ func (c *Char) update() {
 		return
 	}
 	if sys.tickFrame() {
-		if c.csf(CSF_destroy) {
-			c.destroy()
-			return
-		}
+		/*
+			if c.csf(CSF_destroy) {
+				c.destroy()
+				return
+			}
+		*/
 		if !c.pause() && !c.isTargetBound() {
 			c.bind()
 		}
@@ -11753,19 +11851,20 @@ func (c *Char) cueDebugDraw() {
 		x = (x-sys.cam.Pos[0])*sys.cam.Scale + ((320-float32(sys.gameWidth))/2 + 1) + float32(sys.gameWidth)/2
 		y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel() + 1 // "1" is just for spacing
 		y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-		// Name and ID
-		sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d", c.name, c.id), r: 255, g: 255, b: 255, a: 255})
+		// Name, PlayerNo and ID
+		sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
 		// NotHitBy
 		if nhbtxt != "" {
 			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 			sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
 		}
 		// Targets
-		for _, tid := range c.targets {
-			if t := sys.playerID(tid); t != nil {
+		for _, tpid := range c.targets {
+			if t := sys.playerID(tpid); t != nil {
 				y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-				jg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
-				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target %d: %d", tid, jg), r: 255, g: 191, b: 255, a: 255})
+				thid := t.ghv.hitid
+				tjg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
+				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
 			}
 		}
 	}
@@ -12053,7 +12152,7 @@ func (cl *CharList) add(c *Char) {
 	cl.idMap[c.id] = c
 }
 
-func (cl *CharList) replace(dc *Char, pn int, idx int32) bool {
+func (cl *CharList) replace(dc *Char, pn, idx int) bool {
 	var ok bool
 
 	// Replace in runOrder
@@ -12247,20 +12346,42 @@ func (cl *CharList) action() {
 }
 
 func (cl *CharList) xScreenBound() {
-	ro := make([]*Char, len(cl.runOrder))
-	copy(ro, cl.runOrder)
-	for _, c := range ro {
+	for _, c := range cl.runOrder {
 		c.xScreenBound()
 	}
 }
 
-// This function runs every tick
+/*
 func (cl *CharList) update() {
 	ro := make([]*Char, len(cl.runOrder))
 	copy(ro, cl.runOrder)
 	for _, c := range ro {
 		c.update()
 		c.track()
+	}
+}
+*/
+
+// This function runs every tick, since it also handles interpolation, etc
+func (cl *CharList) update() {
+	// Prune character list first
+	// Previously, we needed to iterate a copy of runOrder because update() was also deleting characters from it
+	if sys.tickFrame() {
+		// Loop backwards so we don't skip any disappearing indexes
+		for i := len(cl.runOrder) - 1; i >= 0; i-- {
+			c := cl.runOrder[i]
+			if c.csf(CSF_destroy) {
+				c.destroy()
+			}
+		}
+	}
+
+	// Run update() for the remaining characters
+	for _, c := range cl.runOrder {
+		if !c.scf(SCF_disabled) {
+			c.update()
+			c.track()
+		}
 	}
 }
 
@@ -12707,6 +12828,9 @@ func (cl *CharList) pushDetection(getter *Char) {
 		}
 
 		// X-axis check
+		// It looks like Mugen uses an undocumented minimum overlap of 10 or such
+		// There's no particularly good reason for us to do the same
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3164
 		cposx := c.pos[0] * c.localscl
 		cxleft := cbox[0] * c.localscl
 		cxright := cbox[2] * c.localscl

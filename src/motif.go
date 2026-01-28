@@ -10,7 +10,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -354,6 +353,7 @@ type InfoBoxProperties struct {
 
 type CellOverrideProperties struct {
 	Offset      [2]float32 `ini:"offset"`
+	Spacing     [2]float32 `ini:"spacing"`
 	Facing      int32      `ini:"facing" default:"1"`
 	Skip        bool       `ini:"skip"`
 	Scale       [2]float32 `ini:"scale"`
@@ -395,12 +395,10 @@ type ItemProperties struct {
 	Spacing [2]float32      `ini:"spacing"`
 	Tween   TweenProperties `ini:"tween"`
 	Active  struct {
-		Font       [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-		Switchtime int32    `ini:"switchtime"`
+		TextMapProperties
+		Switchtime int32 `ini:"switchtime"`
 	} `ini:"active"`
-	Active2 struct {
-		Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-	} `ini:"active2"`
+	Active2   TextMapProperties   `ini:"active2"`
 	Cursor    AnimationProperties `ini:"cursor"`    // only used by [Select Info].pX.teammenu.item
 	Uppercase bool                `ini:"uppercase"` // only used by [Hiscore Info].item.name
 }
@@ -719,15 +717,13 @@ type SelectInfoProperties struct {
 		} `ini:"random"`
 		Randomselect int32 `ini:"randomselect"`
 		Active       struct {
-			Font       [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-			Switchtime int32    `ini:"switchtime"`
+			TextProperties
+			Switchtime int32 `ini:"switchtime"`
 		} `ini:"active"`
-		Active2 struct {
-			Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-		} `ini:"active2"`
-		Done struct {
-			Font [8]int32 `ini:"font" default:"-1,0,0,255,255,255,255,-1"`
-			Snd  [2]int32 `ini:"snd" default:"-1,0"`
+		Active2 TextProperties `ini:"active2"`
+		Done    struct {
+			TextProperties
+			Snd [2]int32 `ini:"snd" default:"-1,0"`
 		} `ini:"done"`
 		Move struct {
 			Snd [2]int32 `ini:"snd" default:"-1,0"`
@@ -1104,6 +1100,9 @@ type MenuInfoProperties struct {
 	Enter struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"enter"`
+	Exit struct {
+		Snd [2]int32 `ini:"snd" default:"-1,0"`
+	} `ini:"exit"`
 	Overlay  OverlayProperties `ini:"overlay"`
 	Movelist struct {
 		Pos   [2]float32 `ini:"pos"`
@@ -2114,7 +2113,8 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 			// palmenu.preview only inherits when palmenu.preview.anim is defined
 			if isPreviewAnim(dstKey) {
 				if v, ok := get(user, sp.DstSec, dstKey); ok {
-					if iv, err := strconv.Atoi(strings.TrimSpace(v)); err != nil || iv < 0 {
+					tv := strings.TrimSpace(v)
+					if !IsInt(tv) || Atoi(tv) < 0 {
 						continue
 					}
 				} else {
@@ -2179,12 +2179,19 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Select Info", SrcPrefix: "p2.face2.", DstSec: "Select Info", DstPrefix: "p2.face2.done."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.face.", DstSec: "Select Info", DstPrefix: "p1.palmenu.preview."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.face.", DstSec: "Select Info", DstPrefix: "p2.palmenu.preview."},
+		{SrcSec: "Select Info", SrcPrefix: "p1.teammenu.item.", DstSec: "Select Info", DstPrefix: "p1.teammenu.item.active."},
+		{SrcSec: "Select Info", SrcPrefix: "p1.teammenu.item.", DstSec: "Select Info", DstPrefix: "p1.teammenu.item.active2."},
+		{SrcSec: "Select Info", SrcPrefix: "p2.teammenu.item.", DstSec: "Select Info", DstPrefix: "p2.teammenu.item.active."},
+		{SrcSec: "Select Info", SrcPrefix: "p2.teammenu.item.", DstSec: "Select Info", DstPrefix: "p2.teammenu.item.active2."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p3."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p5."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.", DstSec: "Select Info", DstPrefix: "p7."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p4."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p6."},
 		{SrcSec: "Select Info", SrcPrefix: "p2.", DstSec: "Select Info", DstPrefix: "p8."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.active."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.active2."},
+		{SrcSec: "Select Info", SrcPrefix: "stage.", DstSec: "Select Info", DstPrefix: "stage.done."},
 		// [VS Screen]
 		{SrcSec: "VS Screen", SrcPrefix: "p1.", DstSec: "VS Screen", DstPrefix: "p1.done."},
 		{SrcSec: "VS Screen", SrcPrefix: "p1.face2.", DstSec: "VS Screen", DstPrefix: "p1.face2.done."},
@@ -2206,6 +2213,13 @@ func (m *Motif) overrideParams() {
 		// [Dialogue Info]
 		{SrcSec: "Dialogue Info", SrcPrefix: "p1.face.", DstSec: "Dialogue Info", DstPrefix: "p1.face.active."},
 		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
+		// [Hiscore Info]
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.rank.", DstSec: "Hiscore Info", DstPrefix: "item.rank.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.rank.", DstSec: "Hiscore Info", DstPrefix: "item.rank.active2."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.result.", DstSec: "Hiscore Info", DstPrefix: "item.result.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.result.", DstSec: "Hiscore Info", DstPrefix: "item.result.active2."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active."},
+		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active2."},
 	}
 	// Apply [Pause Menu] inheritance to every other [* Pause Menu]
 	for _, sec := range m.customPauseMenuSections() {
@@ -2266,7 +2280,7 @@ func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) 
 		LoadFile(&bgDef.Spr, []string{bgDef.Spr, m.Def, "", "data/"}, func(filename string) error {
 			if filename != "" {
 				var err error
-				bgDef.Sff, err = loadSff(filename, false, true)
+				bgDef.Sff, err = loadSff(filename, false, true, false)
 				if err != nil {
 					sys.errLog.Printf("Failed to load %v: %v", filename, err)
 				}
@@ -2294,7 +2308,7 @@ func (m *Motif) loadFiles() {
 	LoadFile(&m.Files.Spr, []string{m.Files.Spr}, func(filename string) error {
 		if filename != "" {
 			var err error
-			m.Sff, err = loadSff(filename, false, true)
+			m.Sff, err = loadSff(filename, false, true, false)
 			if err != nil {
 				sys.errLog.Printf("Failed to load %v: %v", filename, err)
 			}
@@ -2309,7 +2323,7 @@ func (m *Motif) loadFiles() {
 	LoadFile(&m.Files.Glyphs, []string{m.Files.Glyphs}, func(filename string) error {
 		if filename != "" {
 			var err error
-			m.GlyphsSff, err = loadSff(filename, false, true)
+			m.GlyphsSff, err = loadSff(filename, false, true, false)
 			if err != nil {
 				sys.errLog.Printf("Failed to load %v: %v", filename, err)
 			}
@@ -2527,7 +2541,8 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		// Titles & base text
 		offsetAnims(tm.Pos[0], tm.Pos[1], tm.SelfTitle.AnimData, tm.EnemyTitle.AnimData)
 		offsetTexts(tm.Pos[0], tm.Pos[1], tm.SelfTitle.TextSpriteData, tm.EnemyTitle.TextSpriteData)
-		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData)
+		offsetTexts(tm.Pos[0], tm.Pos[1], tm.Item.TextSpriteData, tm.Item.Active.TextSpriteData, tm.Item.Active2.TextSpriteData)
+
 		// Icons at (Pos + Item.Offset)
 		offX := tm.Pos[0] + tm.Item.Offset[0]
 		offY := tm.Pos[1] + tm.Item.Offset[1]
@@ -2561,11 +2576,11 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		adjustSelect(ps)
 	}
 
-	// Select Screen: Stage portrait
+	// Select Screen: Stage
 	{
 		st := &m.SelectInfo.Stage
 		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData, st.Portrait.Random.AnimData)
-		textSetPos(st.TextSpriteData, st.Pos[0], st.Pos[1])
+		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData, st.Active.TextSpriteData, st.Active2.TextSpriteData, st.Done.TextSpriteData)
 	}
 
 	// Menus
@@ -2628,6 +2643,12 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		st := &m.VsScreen.Stage
 		offsetAnims(st.Pos[0], st.Pos[1], st.Portrait.Bg.AnimData)
 		offsetTexts(st.Pos[0], st.Pos[1], st.TextSpriteData)
+	}
+
+	// Hiscore
+	{
+		hi := &m.HiscoreInfo
+		offsetTexts(hi.Pos[0], hi.Pos[1], hi.Item.Rank.TextSpriteData, hi.Item.Result.TextSpriteData, hi.Item.Name.TextSpriteData)
 	}
 }
 
@@ -3019,7 +3040,10 @@ func (m *Motif) draw(layerno int16) {
 
 func (m *Motif) isDialogueSet() bool {
 	if sys.dialogueForce != 0 {
-		return false
+		pn := sys.dialogueForce
+		return pn >= 1 && pn <= len(sys.chars) &&
+			len(sys.chars[pn-1]) > 0 &&
+			len(sys.chars[pn-1][0].dialogue) > 0
 	}
 	for _, p := range sys.chars {
 		if len(p) > 0 && len(p[0].dialogue) > 0 {
@@ -3073,10 +3097,15 @@ func (m *Motif) act() {
 		if !m.ch.initialized {
 			m.ch.init(m)
 		}
-		// TODO: Hiscore is initialized explicitly when we want to show it
+		// TODO: Hiscore
+
 		// Dialogue
-		if !m.di.initialized && ((sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time) ||
-			(sys.roundStateTicks() == sys.lifebar.ro.fadeOut.time && sys.matchOver())) && m.isDialogueSet() {
+		// Normal start: right before "Fight" in round 1, or at match end.
+		normalStart := (sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time) ||
+			(sys.roundStateTicks() == sys.lifebar.ro.fadeOut.time && sys.matchOver())
+		// Forced start: ignore normal timing.
+		forcedStart := sys.dialogueForce != 0
+		if !m.di.initialized && (forcedStart || normalStart) && m.isDialogueSet() {
 			m.di.init(m)
 		}
 	}
@@ -3861,11 +3890,11 @@ func (di *MotifDialogue) dialogueRedirection(redirect string) int {
 
 func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
 	tag = strings.TrimSpace(tag)
-	pOnlyRe := regexp.MustCompile(`^p(\d+)$`)
+	pOnlyRe := regexp.MustCompile(`(?i)^p(\d+)$`)
 	if pOnlyRe.MatchString(tag) {
 		matches := pOnlyRe.FindStringSubmatch(tag)
 		if len(matches) == 2 {
-			pnValue, _ := strconv.Atoi(matches[1])
+			pnValue := int(Atoi(matches[1]))
 			return []DialogueToken{{
 				param: "p",
 				side:  -1,
@@ -3877,31 +3906,34 @@ func (di *MotifDialogue) parseTag(tag string) []DialogueToken {
 	if equalIndex == -1 {
 		return nil
 	}
-	paramPart := tag[:equalIndex]
-	valuePart := tag[equalIndex+1:]
+	paramPart := strings.TrimSpace(tag[:equalIndex])
+	valuePart := strings.TrimSpace(tag[equalIndex+1:])
 	side := -1
 	param := paramPart
 	redirection := ""
 	pn := -1
 	numValues := []interface{}{}
-	pPrefixRe := regexp.MustCompile(`^p(\d+)([a-zA-Z]+)$`)
+	pPrefixRe := regexp.MustCompile(`(?i)^p(\d+)([a-zA-Z]+)$`)
 	if pPrefixRe.MatchString(paramPart) {
 		subMatches := pPrefixRe.FindStringSubmatch(paramPart)
 		if len(subMatches) == 3 {
-			s, _ := strconv.Atoi(subMatches[1])
-			side = s
+			side = int(Atoi(subMatches[1]))
 			param = subMatches[2]
 		}
 	}
+	param = strings.ToLower(strings.TrimSpace(param))
 	parts := strings.Split(valuePart, ",")
 	if len(parts) > 0 {
-		if _, err := strconv.Atoi(parts[0]); err != nil {
-			redirection = parts[0]
+		head := strings.TrimSpace(parts[0])
+		parts[0] = head
+		if !IsInt(head) {
+			redirection = head
 			parts = parts[1:]
 		}
 		for _, p := range parts {
-			if val, err := strconv.ParseFloat(p, 32); err == nil {
-				numValues = append(numValues, float32(val))
+			p = strings.TrimSpace(p)
+			if IsNumeric(p) {
+				numValues = append(numValues, float32(Atof(p)))
 			} else {
 				numValues = append(numValues, p)
 			}
@@ -3969,7 +4001,7 @@ func (di *MotifDialogue) parseAll(lines []string) []DialogueParsedLine {
 
 func (di *MotifDialogue) preprocessNames(lines []string) []string {
 	result := make([]string, len(lines))
-	nameRe := regexp.MustCompile(`<(displayname|name)=([^>]+)>`)
+	nameRe := regexp.MustCompile(`(?i)<(displayname|name)=([^>]+)>`)
 	for i, line := range lines {
 		newLine := line
 		for {
@@ -3978,7 +4010,7 @@ func (di *MotifDialogue) preprocessNames(lines []string) []string {
 				break
 			}
 			fullMatch := newLine[loc[0]:loc[1]]
-			paramType := newLine[loc[2]:loc[3]]
+			paramType := strings.ToLower(newLine[loc[2]:loc[3]])
 			redirectionValue := newLine[loc[4]:loc[5]]
 			resolvedPn := di.dialogueRedirection(redirectionValue)
 			replacementText := ""
@@ -4308,8 +4340,8 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 	case "orthographic":
 		// default, we don't need to do nothing
 	default:
-		if i, err := strconv.Atoi(v); err == nil {
-			a.projection = int32(i)
+		if IsInt(v) {
+			a.projection = Atoi(v)
 		}
 	}
 	a.fLength = faceCfg.Focallength
@@ -4910,6 +4942,19 @@ func (hi *MotifHiscore) reset(m *Motif) {
 	hi.haveSaved = false
 }
 
+func (hi *MotifHiscore) makeRowTextSprite(tpl *TextSprite, x, y float32, text string) *TextSprite {
+	if tpl == nil {
+		return nil
+	}
+	ts := tpl.Copy()
+	if ts == nil {
+		return nil
+	}
+	ts.SetPos(x, y)
+	ts.text = text
+	return ts
+}
+
 func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs, noOverlay bool) {
 	//if !m.HiscoreInfo.Enabled || !hi.enabled {
 	//	hi.initialized = true
@@ -5016,14 +5061,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Rank.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Rank.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Rank.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Rank.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Rank.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Rank.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Rank.Offset[0], rowYBase+m.HiscoreInfo.Item.Rank.Offset[1])
 				rankKey := Itoa(i + 1)
 				fmtStr, ok := m.HiscoreInfo.Item.Rank.Text[rankKey]
 				if !ok || fmtStr == "" {
@@ -5034,14 +5078,22 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				if m.HiscoreInfo.Item.Rank.Uppercase {
 					ts.text = strings.ToUpper(ts.text)
 				}
-			}
-			row.rankData = ts
-		}
-		// If this is the highlighted row, prepare Active/Active2 clones (same pos/text)
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.rankData != nil {
-				row.rankDataActive = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active.Font, m.Fnt)
-				row.rankDataActive2 = cloneWithFont(row.rankData, m.HiscoreInfo.Item.Rank.Active2.Font, m.Fnt)
+				row.rankData = ts
+				// If this is the highlighted row, prepare Active/Active2 from their own templates
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.rankDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Rank.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Rank.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Rank.Active.Offset[1],
+						ts.text,
+					)
+					row.rankDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Rank.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Rank.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Rank.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 
@@ -5049,14 +5101,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Result.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Result.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Result.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Result.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Result.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Result.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Result.Offset[0], rowYBase+m.HiscoreInfo.Item.Result.Offset[1])
 
 				fmtStr := m.HiscoreInfo.Item.Result.Text[dataType]
 				fmtStr = m.replaceFormatSpecifiers(fmtStr)
@@ -5075,13 +5126,21 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 					fmtStr = strings.ToUpper(fmtStr)
 				}
 				ts.text = fmtStr
-			}
-			row.resultData = ts
-		}
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.resultData != nil {
-				row.resultDataActive = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active.Font, m.Fnt)
-				row.resultDataActive2 = cloneWithFont(row.resultData, m.HiscoreInfo.Item.Result.Active2.Font, m.Fnt)
+				row.resultData = ts
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.resultDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Result.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Result.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Result.Active.Offset[1],
+						ts.text,
+					)
+					row.resultDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Result.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Result.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Result.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 
@@ -5089,14 +5148,13 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 		if m.HiscoreInfo.Item.Name.TextSpriteData != nil {
 			ts := m.HiscoreInfo.Item.Name.TextSpriteData.Copy()
 			if ts != nil {
-				x := baseX + itemOffX + m.HiscoreInfo.Item.Name.Offset[0] +
-					float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
+				rowXBase := baseX + itemOffX + float32(i)*(m.HiscoreInfo.Item.Spacing[0]+m.HiscoreInfo.Item.Name.Spacing[0])
 				stepY := float32(math.Round(float64(
 					(float32(ts.fnt.Size[1])+float32(ts.fnt.Spacing[1]))*ts.scaleInit[1] +
 						(m.HiscoreInfo.Item.Spacing[1] + m.HiscoreInfo.Item.Name.Spacing[1]),
 				)))
-				y := baseY + itemOffY + m.HiscoreInfo.Item.Name.Offset[1] + stepY*float32(i)
-				ts.SetPos(x, y)
+				rowYBase := baseY + itemOffY + stepY*float32(i)
+				ts.SetPos(rowXBase+m.HiscoreInfo.Item.Name.Offset[0], rowYBase+m.HiscoreInfo.Item.Name.Offset[1])
 				// If highlighted & input, start with glyph-based editable text; else use row.name from stats
 				if hi.input && int(hi.place-1) == i {
 					row.name = "" // TODO: this shouldn't be needed if we're appending new row
@@ -5110,13 +5168,21 @@ func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade
 				if m.HiscoreInfo.Item.Name.Uppercase {
 					ts.text = strings.ToUpper(ts.text)
 				}
-			}
-			row.nameData = ts
-		}
-		if hi.place > 0 && int(hi.place-1) == i {
-			if row.nameData != nil {
-				row.nameDataActive = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active.Font, m.Fnt)
-				row.nameDataActive2 = cloneWithFont(row.nameData, m.HiscoreInfo.Item.Name.Active2.Font, m.Fnt)
+				row.nameData = ts
+				if hi.place > 0 && int(hi.place-1) == i {
+					row.nameDataActive = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Name.Active.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Name.Active.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Name.Active.Offset[1],
+						ts.text,
+					)
+					row.nameDataActive2 = hi.makeRowTextSprite(
+						m.HiscoreInfo.Item.Name.Active2.TextSpriteData,
+						rowXBase+m.HiscoreInfo.Item.Name.Active2.Offset[0],
+						rowYBase+m.HiscoreInfo.Item.Name.Active2.Offset[1],
+						ts.text,
+					)
+				}
 			}
 		}
 	}
@@ -5542,15 +5608,6 @@ func parseRankingRows(path, mode string) []rankingRow {
 	return out
 }
 
-func cloneWithFont(src *TextSprite, font [8]int32, fnt map[int]*Fnt) *TextSprite {
-	if src == nil {
-		return nil
-	}
-	dst := src.Copy()
-	dst.ApplyFontTuple(font, fnt)
-	return dst
-}
-
 func initialsWidth(fmtStr string) int {
 	// Extract %<N>s (default 3)
 	re := regexp.MustCompile(`%([0-9]+)s`)
@@ -5870,6 +5927,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Localcoord, dst.Layerno, dst.Facing,
 		dst.Scale, dst.Xshear, dst.Angle, dst.XAngle,
 		dst.YAngle, dst.Projection, dst.Focallength,
+		dst.Velocity, dst.MaxDist, dst.Accel, dst.Friction,
 		dst.Window, mainX, mainY,
 		dst.ApplyPal || e.c == nil,
 		e.pal, faceBrightness, e.c,
@@ -5885,6 +5943,7 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 		dst.Face2.Localcoord, dst.Face2.Layerno, dst.Face2.Facing,
 		dst.Face2.Scale, dst.Face2.Xshear, dst.Face2.Angle, dst.Face2.XAngle,
 		dst.Face2.YAngle, dst.Face2.Projection, dst.Face2.Focallength,
+		dst.Face2.Velocity, dst.Face2.MaxDist, dst.Face2.Accel, dst.Face2.Friction,
 		dst.Face2.Window, face2X, face2Y,
 		dst.Face2.ApplyPal || e.c == nil,
 		e.pal, face2Brightness, e.c,
@@ -6169,8 +6228,9 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	animNo int32, spr [2]int32,
 	localcoord [2]int32, layerno int16, facing int32,
 	scale [2]float32, xshear float32, angle float32, xangle float32,
-	yangle float32, projection string, fLength float32, window [4]int32,
-	x, y float32, applyPal bool, pal int, brightness int32, ownerC *Char) *Anim {
+	yangle float32, projection string, fLength float32,
+	velocity [2]float32, maxDist [2]float32, accel [2]float32, friction [2]float32,
+	window [4]int32, x, y float32, applyPal bool, pal int, brightness int32, ownerC *Char) *Anim {
 
 	//fmt.Printf("[Victory] buildPortrait slot=%s scNil=%v animNo=%d spr=(%d,%d) pos=(%.1f,%.1f) scale=(%.3f,%.3f) localcoord=(%d,%d) window=(%d,%d,%d,%d) applyPal=%v pal=%d\n", slot, sc == nil, animNo, spr[0], spr[1], x, y, scale[0], scale[1], localcoord[0], localcoord[1], window[0], window[1], window[2], window[3], applyPal, pal)
 
@@ -6252,11 +6312,16 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	case "orthographic":
 		// default, we don't need to do nothing
 	default:
-		if i, err := strconv.Atoi(v); err == nil {
-			a.projection = int32(i)
+		if IsInt(v) {
+			a.projection = Atoi(v)
 		}
 	}
 	a.fLength = fLength
+	// Movement
+	a.SetVelocity(velocity[0], velocity[1])
+	a.SetMaxDist(maxDist[0], maxDist[1])
+	a.SetAccel(accel[0], accel[1])
+	a.friction = friction
 	// Palette for non-loaded (or force-apply if requested)
 	isCopied := false
 	if applyPal && pal > 0 && a.anim != nil && a.anim.sff != nil {
@@ -6565,7 +6630,7 @@ func (wi *MotifWin) draw(m *Motif, layerno int16) {
 			rs.WinsText.TextSpriteData.Draw(layerno)
 		}
 		// Top background
-		if bg.BGDef != nil && layerno == 2 {
+		if bg != nil && bg.BGDef != nil && layerno == 2 {
 			bg.BGDef.Draw(int32(layerno), 0, 0, 1)
 		}
 		return

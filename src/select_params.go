@@ -56,6 +56,9 @@ func parseBoolLoose(s string) (bool, bool) {
 
 func isMusicKey(key string) bool {
 	kl := strings.ToLower(strings.TrimSpace(key))
+	if strings.HasPrefix(kl, "charparam") {
+		return false
+	}
 	return strings.HasPrefix(kl, "music") ||
 		strings.Contains(kl, ".music") ||
 		strings.Contains(kl, ".bgm") ||
@@ -332,21 +335,28 @@ func newOverrideCharData() *OverrideCharData {
 }
 
 type GameParams struct {
-	musicEntries  []string `ini:"musicentries"`
-	Continue      bool     `ini:"continue"`
-	QuickContinue bool     `ini:"quickcontinue"`
-	Order         int32    `ini:"order"`
-	Stage         string   `ini:"stage"`
-	AI            float32  `ini:"ai"`
-	Time          int32    `ini:"time"`
-	VsScreen      bool     `ini:"vsscreen"`
-	VictoryScreen bool     `ini:"victoryscreen"`
-	LuaCode       string   `ini:"luacode"`
-	PersistLife   bool     `ini:"persistlife"`
-	PersistMusic  bool     `ini:"persistmusic"`
-	PersistRounds bool     `ini:"persistrounds"`
-	ocd           [3][]OverrideCharData
-	Raw           []string
+	musicEntries        []string `ini:"musicentries"`
+	Continue            bool     `ini:"continue"`
+	QuickContinue       bool     `ini:"quickcontinue"`
+	Order               int32    `ini:"order"`
+	Stage               string   `ini:"stage"`
+	AI                  float32  `ini:"ai"`
+	Time                int32    `ini:"time"`
+	VsScreen            bool     `ini:"vsscreen"`
+	VictoryScreen       bool     `ini:"victoryscreen"`
+	LuaCode             string   `ini:"luacode"`
+	PersistLife         bool     `ini:"persistlife"`
+	PersistMusic        bool     `ini:"persistmusic"`
+	PersistRounds       bool     `ini:"persistrounds"`
+	CharParamAI         bool     `ini:"charparam.ai"`
+	CharParamArcadePath bool     `ini:"charparam.arcadepath"`
+	CharParamMusic      bool     `ini:"charparam.music"`
+	CharParamRounds     bool     `ini:"charparam.rounds"`
+	CharParamSingle     bool     `ini:"charparam.single"`
+	CharParamStage      bool     `ini:"charparam.stage"`
+	CharParamTime       bool     `ini:"charparam.time"`
+	ocd                 [3][]OverrideCharData
+	Raw                 []string
 }
 
 func newGameParams() *GameParams {
@@ -426,6 +436,34 @@ func (p *GameParams) AppendParams(entries []string) {
 		}
 
 		switch kl {
+		case "charparam.ai":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamAI = b
+			}
+		case "charparam.arcadepath":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamArcadePath = b
+			}
+		case "charparam.music":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamMusic = b
+			}
+		case "charparam.rounds":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamRounds = b
+			}
+		case "charparam.single":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamSingle = b
+			}
+		case "charparam.stage":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamStage = b
+			}
+		case "charparam.time":
+			if b, ok := parseBoolLoose(val); ok {
+				p.CharParamTime = b
+			}
 		case "continue":
 			if b, ok := parseBoolLoose(val); ok {
 				p.Continue = b

@@ -299,6 +299,21 @@ func convertI16toI8(val int16) (converted int8) {
 	}
 }
 
+// Zero out controller state and ensure maps stay allocated so stale values do not leak between devices.
+func resetControllerState(idx int) {
+	if idx < 0 || idx >= len(input.controllerstate) {
+		return
+	}
+	if input.controllerstate[idx] == nil {
+		input.controllerstate[idx] = &ControllerState{Buttons: make(map[sdl.GameControllerButton]byte)}
+	}
+	input.controllerstate[idx].Axes = [6]int8{}
+	for k := range input.controllerstate[idx].Buttons {
+		delete(input.controllerstate[idx].Buttons, k)
+	}
+	input.controllerstate[idx].HasRumble = false
+}
+
 // Helper to find the array index based on the SDL Instance ID
 func findControllerIndex(instanceID sdl.JoystickID) int {
 	for i, ctrl := range input.controllers {
@@ -314,8 +329,40 @@ func findControllerIndex(instanceID sdl.JoystickID) int {
 	return -1
 }
 
+// Finds the first free slot in the controller array.
+func findFreeControllerSlot() int {
+	for i, ctrl := range input.controllers {
+		if ctrl == nil {
+			return i
+		}
+	}
+	return -1
+}
+
+// Open the SDL device index and attach it to the first available slot.
+func attachController(deviceIndex int) {
+	controller := sdl.GameControllerOpen(deviceIndex)
+	if controller == nil {
+		return
+	}
+
+	// If SDL reuses an existing instance ID, reuse its slot; otherwise, pick the first free one.
+	slot := findControllerIndex(controller.Joystick().InstanceID())
+	if slot == -1 {
+		slot = findFreeControllerSlot()
+	}
+
+	if slot == -1 {
+		controller.Close()
+		return
+	}
+
+	input.controllers[slot] = controller
+	resetControllerState(slot)
+	input.controllerstate[slot].HasRumble = controller.HasRumble()
+}
+
 func (w *Window) pollEvents() {
-	const MAX_VALUE float32 = 32768.0
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch t := event.(type) {
 		case sdl.ControllerAxisEvent:
@@ -350,20 +397,14 @@ func (w *Window) pollEvents() {
 				OnTextEntered(t.Text)
 			}
 		case sdl.JoyDeviceAddedEvent:
-			// t.Which here IS the device index (0, 1, 2...), so this is safe
-			joyS := int(t.Which)
-			if joyS < len(input.controllers) {
-				input.controllers[joyS] = sdl.GameControllerOpen(joyS)
-				if input.controllers[joyS] != nil {
-					input.controllerstate[joyS].HasRumble = input.controllers[joyS].HasRumble()
-				}
-			}
+			attachController(int(t.Which))
 		case sdl.JoyDeviceRemovedEvent:
 			// FIX: Map Instance ID (t.Which) to Array Index
 			if idx := findControllerIndex(t.Which); idx != -1 {
 				if controller := input.controllers[idx]; controller != nil {
 					controller.Close()
 					input.controllers[idx] = nil // Clear the reference
+					resetControllerState(idx)
 				}
 			}
 		}

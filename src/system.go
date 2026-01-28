@@ -103,6 +103,7 @@ type System struct {
 	debugFont               *TextSprite
 	debugDisplay            bool
 	debugRef                [2]int // player number, helper index
+	debugLastID             int32
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
 	soundChannels           *SoundChannels
@@ -189,6 +190,7 @@ type System struct {
 	winskipped              bool
 	paused, frameStepFlag   bool
 	roundResetFlg           bool
+	roundResetMatchStart    bool
 	reloadFlg               bool
 	reloadStageFlg          bool
 	reloadLifebarFlg        bool
@@ -640,7 +642,6 @@ func (s *System) eventUpdate() bool {
 		v.Activate = false
 	}
 	s.window.pollEvents()
-	speaker.FillAudio() // fill the SDL audio buffer
 	s.gameEnd = s.window.shouldClose()
 	return !s.gameEnd
 }
@@ -1898,7 +1899,16 @@ func (s *System) resetRoundState() {
 		// Append select.def stage music parameters
 		s.cgi[i].music.Append(sys.stage.si().music)
 		// Override with select.def char music parameters
-		s.cgi[i].music.Override(p[0].si().music)
+		useCharMusic := false
+		if sys.sel.gameParams != nil {
+			useCharMusic = sys.sel.gameParams.CharParamMusic
+		}
+		// In Versus modes, round/final/life music shouldn't override stage music; victory.music still can.
+		if useCharMusic {
+			s.cgi[i].music.Override(p[0].si().music)
+		} else if v, ok := p[0].si().music[normalizeMusicPrefix("victory")]; ok {
+			s.cgi[i].music.Override(Music{normalizeMusicPrefix("victory"): v})
+		}
 		// Override with music with launchFight parameters
 		s.cgi[i].music.Override(sys.sel.music)
 		// Debug dump of merged music.
@@ -2906,6 +2916,7 @@ func (s *System) drawDebugText() {
 		// Data
 		y = float32(s.gameHeight) - float32(s.debugFont.fnt.Size[1])*sys.debugFont.yscl/s.heightScale*
 			(float32(len(s.listLFunc))+float32(s.cfg.Debug.ClipboardRows)) - 1*s.heightScale
+		// Get debug char reference. Default to player 1 if out of bounds
 		pn := s.debugRef[0]
 		hn := s.debugRef[1]
 		if pn >= len(s.chars) || hn >= len(s.chars[pn]) {
@@ -2928,7 +2939,7 @@ func (s *System) drawDebugText() {
 					Protect: true}) == nil {
 					s, ok := s.luaLState.Get(-1).(lua.LString)
 					if ok && len(s) > 0 {
-						if i == 1 && (sys.debugWC == nil || sys.debugWC.csf(CSF_destroy)) {
+						if i == 1 && (sys.debugWC == nil || sys.debugWC.csf(CSF_destroy)) { // TODO: A nil check this late would still crash
 							put(&x, &y, string(s)+" disabled")
 							break
 						}
@@ -3063,7 +3074,11 @@ func (s *System) runMatch() (reload bool) {
 			continue
 		}
 
-		// F4 pressed to restart round
+		if s.roundResetMatchStart && sys.tickCount == 1 {
+			s.roundResetMatchStart = false
+		}
+
+		// F4 pressed to reset round
 		if s.roundResetFlg && !s.postMatchFlg {
 			s.resetRound()
 		}
@@ -3950,7 +3965,38 @@ func (s *Select) AddChar(def string) *SelectChar {
 			for k_spr := range s.charSpritePreload {
 				sc.anims.addSprite(sc.sff, k_spr[0], k_spr[1])
 			}
-			if len(sc.pal) == 0 {
+			// Synchronize SFFv2 internal palettes with DEF declarations
+			if sc.sff.header.Ver0 != 1 {
+				defPals := make(map[int32]bool)
+				for _, p := range sc.pal {
+					defPals[p] = true
+				}
+				// Map DEF palette files to their intended slots
+				maxPalSlots := sys.cfg.Config.PaletteMax
+				newPalFiles := make([]string, maxPalSlots)
+				for i, pIdx := range sc.pal {
+					if pIdx >= 1 && int(pIdx) <= maxPalSlots {
+						newPalFiles[pIdx-1] = sc.pal_files[i]
+					}
+				}
+				// Rebuild sc.pal and sc.pal_files in sequential order
+				sc.pal = nil
+				sc.pal_files = nil
+				for i := 1; i <= maxPalSlots; i++ {
+					existsInSff := false
+					for _, sIdx := range selPal {
+						if sIdx == int32(i) {
+							existsInSff = true
+							break
+						}
+					}
+					// Include palette if it exists in either the SFFv2 or the DEF
+					if defPals[int32(i)] || existsInSff {
+						sc.pal = append(sc.pal, int32(i))
+						sc.pal_files = append(sc.pal_files, newPalFiles[i-1])
+					}
+				}
+			} else if len(sc.pal) == 0 {
 				sc.pal = selPal
 			}
 			return nil

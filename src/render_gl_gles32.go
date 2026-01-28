@@ -387,7 +387,7 @@ func (t *Texture_GLES32) SetSubDataStride(data []byte, x, y, width, height, stri
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
-	gl.Flush()
+	// gl.Flush()
 }
 func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 
@@ -539,7 +539,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 		if err != nil {
 			return err
 		}
-		r.shadowMapShader.RegisterAttributes("vertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
+		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
 			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
@@ -1076,7 +1076,7 @@ func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, use
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
 
-	loc := r.shadowMapShader.a["vertexId"]
+	loc := r.shadowMapShader.a["inVertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1161,7 +1161,7 @@ func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, use
 }
 
 func (r *Renderer_GLES32) ReleaseShadowPipeline() {
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
@@ -1277,7 +1277,7 @@ func (r *Renderer_GLES32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc,
 	r.SetCullFace(doubleSided)
 	r.SetBlending(eq, src, dst)
 
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1401,7 +1401,7 @@ func (r *Renderer_GLES32) SetMeshOulinePipeline(invertFrontFace bool, meshOutlin
 	gl.Uniform1f(loc, meshOutline)
 }
 func (r *Renderer_GLES32) ReleaseModelPipeline() {
-	loc := r.modelShader.a["vertexId"]
+	loc := r.modelShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))

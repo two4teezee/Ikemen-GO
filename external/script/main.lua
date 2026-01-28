@@ -114,10 +114,6 @@ function main.f_setPlayers()
 	for i = #main.t_cmd + 1, n do
 		table.insert(main.t_cmd, main.f_commandNew(i))
 	end
-	main.t_players = {}
-	for i = 1, n do
-		table.insert(main.t_players, i)
-	end
 end
 main.f_setPlayers()
 
@@ -153,20 +149,6 @@ function main.f_btnPalNo(p)
 		if commandGetState(main.t_cmd[p], k) then return i + s end
 	end
 	return 0
-end
-
---return bool based on command input
-main.playerInput = 1
-function main.f_input(p, ...)
-	-- Centralized input read (Go-side), shared with motif.button()
-	local ok = getInput(p, ...)
-	if ok then
-		local li = getLastInputController()
-		if li ~= nil and li > 0 then
-			main.playerInput = li
-		end
-	end
-	return ok
 end
 
 --restore screenpack remapped inputs
@@ -294,7 +276,7 @@ if getCommandLineValue("-speed") ~= nil then
 	end
 end
 if getCommandLineValue("-speedtest") ~= nil then
-	setGameSpeed(100)
+	setGameSpeed(math.floor(60 * (gameOption('Debug.SpeedTest') - 1) / gameOption('Options.GameSpeedStep') + 0.5))
 end
 if getCommandLineValue("-nosound") ~= nil then
 	modifyGameOption('Sound.MasterVolume', 0)
@@ -931,11 +913,11 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 	esc(false)
 	main.f_cmdBufReset()
 	while true do
-		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+		if esc() or getInput(-1, sec.menu.cancel.key) then
 			esc(false)
 			sndPlay(motif.Snd, cancel_snd[1], cancel_snd[2])
 			return false
-		elseif getKey() ~= '' or main.f_input(main.t_players, sec.menu.done.key) then
+		elseif getKey() ~= '' or getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, done_snd[1], done_snd[2])
 			resetKey()
 			return true
@@ -961,7 +943,7 @@ function main.f_drawInput(textData, text, sec, background, overlay)
 	local input = ''
 	resetKey()
 	while true do
-		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+		if esc() or getInput(-1, sec.menu.cancel.key) then
 			input = ''
 			break
 		end
@@ -1556,7 +1538,6 @@ end
 --returns table storing menu window coordinates
 function main.f_menuWindow(t, offset)
 	local offset = offset or {0, 0}
-	-- If margins are set, keep legacy vertical-only clamp.
 	if t.window.margins.y[1] ~= 0 or t.window.margins.y[2] ~= 0 then
 		return {
 			0,
@@ -1565,17 +1546,7 @@ function main.f_menuWindow(t, offset)
 			t.pos[2] + offset[2] + (t.window.visibleitems - 1) * t.item.spacing[2] + t.window.margins.y[2]
 		}
 	end
-	-- Margins 0,0 => clamp tightly to the menu box (both axes).
-	local x1 = t.pos[1] + offset[1] + t.boxcursor.coords[1]
-	local y1 = t.pos[2] + offset[2] + t.boxcursor.coords[2]
-	local w  = t.boxcursor.coords[3] - t.boxcursor.coords[1] + 1
-	local h  = t.boxcursor.coords[4] - t.boxcursor.coords[2] + 1
-	-- Height grows with visible rows; using visibleitems is enough for clipping.
-	local winLeft   = math.max(0, x1)
-	local winTop    = math.max(0, y1)
-	local winRight  = math.min(x1 + w, motif.info.localcoord[1])
-	local winBottom = math.min(y1 + h + (t.window.visibleitems - 1) * t.item.spacing[2], motif.info.localcoord[2])
-	return {winLeft, winTop, winRight, winBottom}
+	return {0, 0, motif.info.localcoord[1], motif.info.localcoord[2]}
 end
 
 function main.f_storyboard(path)
@@ -1777,7 +1748,7 @@ main.t_itemname = {
 			
 		end
 		main.f_setCredits()
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('arcade')
 		hook.run("main.t_itemname")
@@ -1799,7 +1770,7 @@ main.t_itemname = {
 		main.teamMenu[1].single = true
 		main.teamMenu[2].single = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.bonus)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode('bonus')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -1829,7 +1800,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.freebattle)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('freebattle')
 		hook.run("main.t_itemname")
@@ -1981,6 +1952,12 @@ main.t_itemname = {
 		hook.run("main.t_itemname")
 		return options.menu.loop
 	end,
+	--RANDOMTEST
+	['randomtest'] = function()
+		setGameMode('randomtest')
+		hook.run("main.t_itemname")
+		return main.f_randomtest
+	end,
 	--REPLAY
 	['replay'] = function()
 		return main.f_replay
@@ -2027,7 +2004,7 @@ main.t_itemname = {
 				break
 			end
 		end
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode(t[item].itemname)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2073,7 +2050,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
@@ -2199,7 +2176,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		main.f_setCredits()
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.timeattack)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('timeattack')
 		hook.run("main.t_itemname")
@@ -2230,7 +2207,7 @@ main.t_itemname = {
 		main.matchWins.single = {0, 0}
 		main.matchWins.tag = {0, 0}
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.training)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setGameMode('training')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2323,7 +2300,7 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.watch)
-		remapInput(main.playerInput, 1)
+		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('watch')
 		hook.run("main.t_itemname")
@@ -2411,6 +2388,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 		local call_item_override = nil
 		--skip showing menu if there is only 1 valid item
 		main.f_menuSnap(motif[main.group])
+		-- Reset menu item background animations
+		main.f_menuItemBgAnimReset(motif[main.group])
 		-- Only auto-run here for menus that are entered directly (no parent submenu), so the fadeout is handled in the caller for submenus.
 		local single_f, single_t = main.f_getSingleMenuAction(tbl)
 		if single_f ~= nil and bool_bgreset then
@@ -2470,7 +2449,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 					introWaitCycles = 0
 				end
-				if esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) then
+				if esc() or getInput(-1, motif[main.group].menu.cancel.key) then
 					if not bool_main then
 						sndPlay(motif.Snd, motif[main.group].cancel.snd[1], motif[main.group].cancel.snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then
@@ -2512,9 +2491,9 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					resetKey()
 				elseif bool_del and getKey('DELETE') then
 					tbl.items = main.f_deleteIP(item, t)
-				elseif main.f_input(main.t_players, motif[main.group].menu.hiscore.key) and main.f_hiscoreDisplay(t[item].itemname) then
+				elseif getInput(-1, motif[main.group].menu.hiscore.key) and main.f_hiscoreDisplay(t[item].itemname) then
 					demoFrameCounter = 0
-				elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
+				elseif getInput(-1, motif[main.group].menu.done.key) then
 					demoFrameCounter = 0
 					local f = t[item].itemname
 					if f == 'back' then
@@ -2543,6 +2522,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 								tbl.submenu[f].loop()
 								f = ''
 								main.f_menuSnap(motif[main.group])
+								main.f_menuItemBgAnimReset(motif[main.group])
 							end
 						else
 							break
@@ -2721,11 +2701,11 @@ function main.f_replay()
 			playBgm({source = "motif.title", interrupt = true})
 			main.close = false
 			break
-		elseif esc() or main.f_input(main.t_players, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and main.f_input(main.t_players, motif[main.group].menu.done.key)) then
+		elseif esc() or getInput(-1, motif[main.group].menu.cancel.key) or (t[item].itemname == 'back' and getInput(-1, motif[main.group].menu.done.key)) then
 			sndPlay(motif.Snd, motif.replay_info.cancel.snd[1], motif.replay_info.cancel.snd[2])
 			main.f_fadeReset('fadeout', motif.replay_info)
 			main.close = true
-		elseif main.f_input(main.t_players, motif[main.group].menu.done.key) then
+		elseif getInput(-1, motif[main.group].menu.done.key) then
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 			enterReplay(t[item].itemname)
 			synchronize()
@@ -2743,7 +2723,7 @@ end
 function main.f_connect(server, str)
 	enterNetPlay(server)
 	while not connected() do
-		if esc() or main.f_input(main.t_players, motif.title_info.menu.cancel.key) then
+		if esc() or getInput(-1, motif.title_info.menu.cancel.key) then
 			sndPlay(motif.Snd, motif.title_info.cancel.snd[1], motif.title_info.cancel.snd[2])
 			exitNetPlay()
 			return false
@@ -2956,7 +2936,7 @@ function main.f_attractStart()
 		--draw layerno = 1 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
-		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and main.f_input(main.t_players, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
+		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and getInput(-1, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
 			if credits() ~= 0 then
 				sndPlay(motif.Snd, motif.attract_mode.start.done.snd[1], motif.attract_mode.start.done.snd[2])
 			end
@@ -2965,7 +2945,7 @@ function main.f_attractStart()
 		end
 		main.f_fadeAnim(motif.attract_mode)
 		--frame transition
-		if esc() --[[or main.f_input(main.t_players, motif.attract_mode.menu.cancel.key)]] then
+		if esc() --[[or getInput(-1, motif.attract_mode.menu.cancel.key)]] then
 			esc(false)
 			return false
 		end
@@ -3050,41 +3030,49 @@ function main.f_demo()
 	main.menu.f = main.t_itemname.demo()
 end
 
---prevents mirrored palette in demo mode mirror matches
-local function getUniquePalette(ch, prev)
+-- prevents mirrored palette in demo mode / randomtest mirror matches
+function main.f_getUniquePalette(ch, state)
 	local charData = start.f_getCharData(ch)
 	local pals = charData and charData.pal or {1}
+	state = state or {}
+	state.used = state.used or {}
+	state.used[ch] = state.used[ch] or {}
+	local used = state.used[ch]
 
-	if not prev or ch ~= prev.ch then
-		return pals[sszRandom() % #pals + 1]
-	end
-
+	-- build list of palettes not yet used for this character
 	local available = {}
 	for _, p in ipairs(pals) do
-		if p ~= prev.pal then
+		if not used[p] then
 			table.insert(available, p)
 		end
 	end
 
-	if #available > 0 then
-		return available[sszRandom() % #available + 1]
-	else
-		return prev.pal
+	-- If we've exhausted all palettes, start cycling again for this character
+	if #available == 0 then
+		used = {}
+		state.used[ch] = used
+		for _, p in ipairs(pals) do
+			table.insert(available, p)
+		end
 	end
+
+	local pal = available[sszRandom() % #available + 1]
+	used[pal] = true
+	state.last = {ch = ch, pal = pal}
+	return pal
 end
 
 function main.f_demoStart()
 	main.f_default()
+	local palState = {}
 	setLifebarElements({bars = motif.demo_mode.fight.bars.display})
 	setGameMode('demo')
-	for i = 1, 2 do
-		setCom(i, 8)
-		setTeamMode(i, 0, 1)
+	for side = 1, 2 do
+		setTeamMode(side, 0, 1)
+		setCom(side, 8)
 		local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
-		local pal = getUniquePalette(ch, prev)
-
-		selectChar(i, ch, pal)
-		prev = {ch = ch, pal = pal}
+		local pal = main.f_getUniquePalette(ch, palState)
+		selectChar(side, ch, pal)
 	end
 	start.f_setStage()
 	if motif.demo_mode.fight.stopbgm then
@@ -3113,6 +3101,39 @@ function main.f_demoStart()
 	main.f_fadeReset('fadein', motif.demo_mode)
 end
 
+--randomtest
+function main.f_randomtest()
+	main.f_default()
+	while true do
+		local palState = {}
+		local teamMode = math.random(0, 3)
+		local numChars = 1
+		if teamMode == 1 then
+			numChars = math.random(gameOption('Options.Simul.Min'), gameOption('Options.Simul.Max'))
+		elseif teamMode == 2 then
+			numChars = math.random(gameOption('Options.Turns.Min'), gameOption('Options.Turns.Max'))
+		elseif teamMode == 3 then
+			numChars = math.random(gameOption('Options.Tag.Min'), gameOption('Options.Tag.Max'))
+		end
+		for side = 1, 2 do
+			setTeamMode(side, teamMode, numChars)
+			for i = 1, numChars do
+				setCom((side - 1) * numChars + i, 8)
+				local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
+				local pal = main.f_getUniquePalette(ch, palState)
+				selectChar(side, ch, pal)
+			end
+		end
+		start.f_setStage()
+		loadStart()
+		game()
+		refresh()
+		if winnerteam() == -1 then
+			break
+		end
+	end
+end
+
 --calculate menu.tween and boxcursor.tween
 local function f_tweenStep(val, target, factor)
 	if not factor or factor <= 0 then
@@ -3135,6 +3156,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			slideOffset = 0
 		}
 	end
+	local item_before = item
 	local startItem = 1
 	for _, v in ipairs(t) do
 		if not v.itemname:match("^spacer%d*$") then
@@ -3153,9 +3175,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 	local moveDir = 0
 	if forcedDir ~= nil then
 		moveDir = forcedDir
-	elseif main.f_input(main.t_players, sec.menu.next.key) then
+	elseif getInput(-1, sec.menu.next.key) then
 		moveDir = 1
-	elseif main.f_input(main.t_players, sec.menu.previous.key) then
+	elseif getInput(-1, sec.menu.previous.key) then
 		moveDir = -1
 	end
 	if moveDir == 1 then
@@ -3208,6 +3230,17 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
+	end
+	-- Reset active background animation when cursor selection changes
+	if item_before ~= item and t ~= nil and t[item] ~= nil then
+		local bgTable = sec.menu and sec.menu.item and sec.menu.item.active and sec.menu.item.active.bg
+		if bgTable ~= nil then
+			local params = bgTable[t[item].paramname] or bgTable.default
+			if params ~= nil and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
 	local spacing = sec.menu.item.spacing[2]
@@ -3325,9 +3358,9 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		-- draw background
 		local bgPosX = offx 
 		local bgPosY = offy
-		if params.spacing[1] ~= 0 or params.spacing[2] ~= 0 then
-			bgPosX = bgPosX + (i - 1) * params.spacing[1]
-			bgPosY = bgPosY + (i - 1) * params.spacing[2] - moveTxt
+		if bgTable.default.spacing[1] ~= 0 or bgTable.default.spacing[2] ~= 0 then
+			bgPosX = bgPosX + (i - 1) * bgTable.default.spacing[1]
+			bgPosY = bgPosY + (i - 1) * bgTable.default.spacing[2] - moveTxt
 		end
 		main.f_animPosDraw(params.AnimData, bgPosX, bgPosY)
 		-- text sprite for label
@@ -3471,6 +3504,29 @@ function main.f_menuSnap(sec)
 	main.menuSnap = true
 	if sec.boxCursorData then
 		sec.boxCursorData.snap = sec.menu.boxcursor.tween.snap
+	end
+end
+
+-- Reset all menu item background animations
+function main.f_menuItemBgAnimReset(sec)
+	if sec == nil or sec.menu == nil or sec.menu.item == nil then
+		return
+	end
+	local function resetBgTable(bgTable)
+		if type(bgTable) ~= 'table' then return end
+		for _, params in pairs(bgTable) do
+			if type(params) == 'table' and params.AnimData ~= nil then
+				animReset(params.AnimData)
+				animUpdate(params.AnimData)
+			end
+		end
+	end
+	-- reset both inactive and active item backgrounds
+	if sec.menu.item.bg ~= nil then
+		resetBgTable(sec.menu.item.bg)
+	end
+	if sec.menu.item.active ~= nil and sec.menu.item.active.bg ~= nil then
+		resetBgTable(sec.menu.item.active.bg)
 	end
 end
 

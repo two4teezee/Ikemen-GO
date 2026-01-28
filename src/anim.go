@@ -1838,6 +1838,9 @@ func (a *Anim) Copy() *Anim {
 	newAnim.scaleInit = a.scaleInit
 	newAnim.windowInit = a.windowInit
 	newAnim.velocityInit = a.velocityInit
+	newAnim.xvel = a.xvel
+	newAnim.yvel = a.yvel
+	newAnim.vel = a.vel
 	newAnim.maxDist = a.maxDist
 	newAnim.facing = a.facing
 	newAnim.window = a.window

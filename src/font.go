@@ -367,7 +367,7 @@ func loadDefInfo(f *Fnt, filename string, is IniSection, height int32) {
 
 func LoadFntSff(f *Fnt, fontfile string, filename string) {
 	fileDir := SearchFile(filename, []string{fontfile, "font/", sys.motif.Def, "", "data/"})
-	sff, err := loadSff(fileDir, false, false)
+	sff, err := loadSff(fileDir, false, false, false)
 
 	if err != nil {
 		panic(err)
@@ -1263,18 +1263,4 @@ func (ts *TextSprite) Reset() {
 		ts.palfx.clear()
 	}
 	ts.elapsedTicks = 0
-}
-
-func (ts *TextSprite) ApplyFontTuple(font [8]int32, fnt map[int]*Fnt) {
-	// font[0] = font id
-	if font[0] >= 0 {
-		if f, ok := fnt[int(font[0])]; ok && f != nil {
-			ts.fnt = f
-		}
-	}
-	// font[1] = bank, font[2] = align
-	ts.bank = font[1]
-	ts.align = font[2]
-	// font[3],font[4],font[5] = R,G,B,A
-	ts.SetColor(font[3], font[4], font[5], font[6])
 }

@@ -67,9 +67,9 @@ menu.t_valuename = {
 function menu.f_valueChanged(t, sec)
 	local valueitem = menu[t.itemname] or 1
 	local chk = valueitem
-	if main.f_input(main.t_players, sec.menu.add.key) then
+	if getInput(-1, sec.menu.add.key) then
 		valueitem = valueitem + 1
-	elseif main.f_input(main.t_players, sec.menu.subtract.key) then
+	elseif getInput(-1, sec.menu.subtract.key) then
 		valueitem = valueitem - 1
 	end
 	if valueitem > #menu.t_valuename[t.itemname] then
@@ -96,9 +96,9 @@ menu.itemname = ''
 menu.t_itemname = {
 	--Back
 	['back'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			if menu.currentMenu[1] == menu.currentMenu[2] then
-				sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
+				sndPlay(motif.Snd, sec.exit.snd[1], sec.exit.snd[2])
 				togglePause(false)
 				main.pauseMenu = false
 			else
@@ -180,7 +180,7 @@ menu.t_itemname = {
 	end,
 	--Key Config
 	['keyboard'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) --[[or getKey('F1')]] then
+		if getInput(-1, sec.menu.done.key) --[[or getKey('F1')]] then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			options.f_keyCfgInit('Keys', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
@@ -189,7 +189,7 @@ menu.t_itemname = {
 	end,
 	--Joystick Config
 	['gamepad'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) --[[or getKey('F2')]] then
+		if getInput(-1, sec.menu.done.key) --[[or getKey('F2')]] then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			options.f_keyCfgInit('Joystick', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
@@ -198,7 +198,7 @@ menu.t_itemname = {
 	end,
 	--Default
 	['inputdefault'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			options.f_keyDefault()
 			options.f_setKeyConfig('Keys')
@@ -211,7 +211,7 @@ menu.t_itemname = {
 	end,
 	--Round Reset
 	['reset'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
 			roundReset()
@@ -222,7 +222,7 @@ menu.t_itemname = {
 	end,
 	--Reload (Rematch)
 	['reload'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
 			reload()
@@ -233,7 +233,7 @@ menu.t_itemname = {
 	end,
 	--Command List
 	['commandlist'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			menu.f_commandlistParse()
 			menu.itemname = t.items[item].itemname
@@ -242,7 +242,7 @@ menu.t_itemname = {
 	end,
 	--Character Change
 	['characterchange'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
 			endMatch()
@@ -254,7 +254,7 @@ menu.t_itemname = {
 	end,
 	--Exit
 	['exit'] = function(t, item, cursorPosY, moveTxt, sec)
-		if main.f_input(main.t_players, sec.menu.done.key) then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
 			endMatch()
@@ -277,6 +277,10 @@ end
 function menu.f_createMenu(tbl, sec, bg, bool_main)
 	return function()
 		hook.run("menu.menu.loop")
+		if menu._lastMenuTbl ~= tbl then
+			menu._lastMenuTbl = tbl
+			main.f_menuItemBgAnimReset(sec)
+		end
 		local t = tbl.items
 		if tbl.reset then
 			tbl.reset = false
@@ -286,8 +290,9 @@ function menu.f_createMenu(tbl, sec, bg, bool_main)
 		tbl.cursorPosY, tbl.moveTxt, tbl.item = main.f_menuCommonCalc(t, tbl.item, tbl.cursorPosY, tbl.moveTxt, sec, sec.cursor)
 		textImgReset(sec.title.TextSpriteData)
 		textImgSetText(sec.title.TextSpriteData, tbl.title)
-		if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+		if esc() or getInput(-1, sec.menu.cancel.key) then
 			if bool_main then
+				sndPlay(motif.Snd, sec.exit.snd[1], sec.exit.snd[2])
 				togglePause(false)
 				main.pauseMenu = false
 			else
@@ -302,7 +307,7 @@ function menu.f_createMenu(tbl, sec, bg, bool_main)
 			if not menu.t_itemname[t[tbl.item].itemname](tbl, tbl.item, tbl.cursorPosY, tbl.moveTxt, sec) then
 				return
 			end
-		elseif main.f_input(main.t_players, sec.menu.done.key) then
+		elseif getInput(-1, sec.menu.done.key) then
 			local f = t[tbl.item].itemname
 			if tbl.submenu[f].loop ~= nil then
 				sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
@@ -806,30 +811,26 @@ function menu.f_commandlistRender(sec, t)
 	else
 		table.insert(cmdList, {{glyph = false, text = sec.movelist.text.text, align = 1, col = {}}})
 	end
-	if esc() or main.f_input(main.t_players, sec.menu.cancel.key) then
+	if esc() or getInput(-1, sec.menu.cancel.key, sec.menu.done.key) then
 		sndPlay(motif.Snd, sec.cancel.snd[1], sec.cancel.snd[2])
 		menu.itemname = ''
 		return
-	elseif main.f_input(main.t_players, sec.menu.done.key) then
-		sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
-		menu.itemname = ''
-		return
-	elseif main.f_input(main.t_players, sec.menu.subtract.key) and #menu.t_movelists > 1 then
+	elseif getInput(-1, sec.menu.subtract.key) and #menu.t_movelists > 1 then
 		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
 		menu.movelistChar = menu.movelistChar - 1
 		if menu.movelistChar < 1 then
 			menu.movelistChar = #menu.t_movelists
 		end
-	elseif main.f_input(main.t_players, sec.menu.add.key) and #menu.t_movelists > 1 then
+	elseif getInput(-1, sec.menu.add.key) and #menu.t_movelists > 1 then
 		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
 		menu.movelistChar = menu.movelistChar + 1
 		if menu.movelistChar > #menu.t_movelists then
 			menu.movelistChar = 1
 		end
-	elseif main.f_input(main.t_players, sec.menu.previous.key) and t.tbl.movelistLine > 1 then
+	elseif getInput(-1, sec.menu.previous.key) and t.tbl.movelistLine > 1 then
 		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
 		t.tbl.movelistLine = t.tbl.movelistLine - 1
-	elseif main.f_input(main.t_players, sec.menu.next.key) and t.tbl.movelistLine <= #cmdList - sec.movelist.window.visibleitems then
+	elseif getInput(-1, sec.menu.next.key) and t.tbl.movelistLine <= #cmdList - sec.movelist.window.visibleitems then
 		sndPlay(motif.Snd, sec.cursor.move.snd[1], sec.cursor.move.snd[2])
 		t.tbl.movelistLine = t.tbl.movelistLine + 1
 	end

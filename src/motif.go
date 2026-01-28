@@ -1611,16 +1611,16 @@ func loadMotif(def string) (*Motif, error) {
 		if err != nil {
 			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
 		}
-		// Seed defaults for custom [<gamemode> Pause Menu] sections before merging user values.
+		// Seed defaults for all derived [<gamemode> Pause Menu] sections before merging user values.
 		seedPauseMenuDefaults := func(user, defaults, merged *ini.File) {
-			if user == nil || defaults == nil || merged == nil {
+			if defaults == nil || merged == nil {
 				return
 			}
 			baseDefaults, err := defaults.GetSection("Pause Menu")
 			if err != nil || baseDefaults == nil {
 				return
 			}
-			isCustomPauseMenu := func(name string) (string, bool) {
+			isDerivedPauseMenu := func(name string) (string, bool) {
 				if name == ini.DEFAULT_SECTION {
 					return "", false
 				}
@@ -1630,7 +1630,8 @@ func loadMotif(def string) (*Motif, error) {
 				if !strings.HasSuffix(lower, " pause menu") {
 					return "", false
 				}
-				if lower == "pause menu" || lower == "training pause menu" {
+				// [Pause Menu] is the root; every other [* Pause Menu] should be derived from it.
+				if lower == "pause menu" {
 					return "", false
 				}
 				if lang != "" {
@@ -1638,29 +1639,45 @@ func loadMotif(def string) (*Motif, error) {
 				}
 				return base, true
 			}
-			copySection := func(dst *ini.File, secName string) {
-				if _, err := dst.GetSection(secName); err == nil {
+			seedSection := func(dst *ini.File, secName string) {
+				if dst == nil {
 					return
 				}
-				newSec, err := dst.NewSection(secName)
-				if err != nil || newSec == nil {
-					return
+				sec, err := dst.GetSection(secName)
+				if err != nil || sec == nil {
+					sec, err = dst.NewSection(secName)
+					if err != nil || sec == nil {
+						return
+					}
 				}
+				// Top-up missing keys from [Pause Menu] (do not override existing values).
 				for _, k := range baseDefaults.Keys() {
-					if newSec.HasKey(k.Name()) {
+					if sec.HasKey(k.Name()) {
 						continue
 					}
-					_, _ = newSec.NewKey(k.Name(), k.Value())
+					_, _ = sec.NewKey(k.Name(), k.Value())
 				}
 			}
-			for _, s := range user.Sections() {
-				name := s.Name()
-				secName, ok := isCustomPauseMenu(name)
-				if !ok {
+
+			// Seed derived pause menus found in either defaults or user input.
+			seen := map[string]bool{}
+			for _, f := range []*ini.File{defaults, user} {
+				if f == nil {
 					continue
 				}
-				copySection(defaults, secName)
-				copySection(merged, secName)
+				for _, s := range f.Sections() {
+					secName, ok := isDerivedPauseMenu(s.Name())
+					if !ok {
+						continue
+					}
+					l := strings.ToLower(secName)
+					if seen[l] {
+						continue
+					}
+					seen[l] = true
+					seedSection(defaults, secName)
+					seedSection(merged, secName)
+				}
 			}
 		}
 		seedPauseMenuDefaults(userIniFile, defaultOnlyIni, iniFile)
@@ -2153,8 +2170,6 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 func (m *Motif) overrideParams() {
 	// Define inheritance rules (section/prefix based).
 	specs := []InheritSpec{
-		// [Training Pause Menu]
-		{SrcSec: "Pause Menu", SrcPrefix: "", DstSec: "Training Pause Menu", DstPrefix: ""},
 		// [Option Info]
 		{SrcSec: "Option Info", SrcPrefix: "menu.", DstSec: "Option Info", DstPrefix: "keymenu.menu."},
 		// [Select Info]
@@ -2192,6 +2207,7 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Dialogue Info", SrcPrefix: "p1.face.", DstSec: "Dialogue Info", DstPrefix: "p1.face.active."},
 		{SrcSec: "Dialogue Info", SrcPrefix: "p2.face.", DstSec: "Dialogue Info", DstPrefix: "p2.face.active."},
 	}
+	// Apply [Pause Menu] inheritance to every other [* Pause Menu]
 	for _, sec := range m.customPauseMenuSections() {
 		specs = append(specs, InheritSpec{SrcSec: "Pause Menu", SrcPrefix: "", DstSec: sec, DstPrefix: ""})
 	}
@@ -2201,17 +2217,13 @@ func (m *Motif) overrideParams() {
 }
 
 func (m *Motif) customPauseMenuSections() []string {
-	if m == nil || m.UserIniFile == nil {
+	if m == nil || m.IniFile == nil {
 		return nil
 	}
 	// Sections ending with " Pause Menu" (case-insensitive) are considered pause menus
-	exclude := map[string]bool{
-		"pause menu":          true,
-		"training pause menu": true,
-	}
 	seen := map[string]bool{}
 	var out []string
-	for _, s := range m.UserIniFile.Sections() {
+	for _, s := range m.IniFile.Sections() {
 		raw := s.Name()
 		if raw == ini.DEFAULT_SECTION {
 			continue
@@ -2225,7 +2237,7 @@ func (m *Motif) customPauseMenuSections() []string {
 		if !strings.HasSuffix(lower, " pause menu") {
 			continue
 		}
-		if exclude[lower] {
+		if lower == "pause menu" {
 			continue
 		}
 		if seen[lower] {

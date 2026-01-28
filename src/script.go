@@ -3040,7 +3040,10 @@ func systemScriptInit(l *lua.LState) {
 		StringToButtonLUT[sys.motif.OptionInfo.Menu.Valuename["nokey"]] = 25
 
 		// defaults-only INI (for values baseline)
-		defIni, _ := ini.Load([]byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif)))))
+		defIni := sys.motif.DefaultOnlyIni
+		if defIni == nil {
+			defIni, _ = ini.Load([]byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif)))))
+		}
 
 		getTbl := func(t *lua.LTable, path []string) *lua.LTable {
 			cur := t
@@ -3123,10 +3126,6 @@ func systemScriptInit(l *lua.LState) {
 			if file == nil {
 				return nil
 			}
-			exclude := map[string]bool{
-				"pause menu":          true,
-				"training pause menu": true,
-			}
 			seen := map[string]bool{}
 			var out []string
 			for _, s := range file.Sections() {
@@ -3143,7 +3142,8 @@ func systemScriptInit(l *lua.LState) {
 				if !strings.HasSuffix(lower, " pause menu") {
 					continue
 				}
-				if exclude[lower] || seen[lower] {
+				// root; all other [* Pause Menu] are derived
+				if lower == "pause menu" || seen[lower] {
 					continue
 				}
 				seen[lower] = true
@@ -3465,22 +3465,23 @@ func systemScriptInit(l *lua.LState) {
 			{"Option Info", []string{"option_info", "menu"}},
 			{"Replay Info", []string{"replay_info", "menu"}},
 			{"Pause Menu", []string{"pause_menu", "pause_menu", "menu"}},
-			{"Training Pause Menu", []string{"pause_menu", "training_pause_menu", "menu"}},
 		}
 		for _, s := range mi {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
 			buildFlatOrder(s.sec, s.path, "menu.itemname.", lTable)
 		}
-		for _, sec := range customPauseMenuSections(sys.motif.UserIniFile) {
+		// Handle every derived [* Pause Menu]
+		for _, sec := range customPauseMenuSections(sys.motif.IniFile) {
 			key := normalizeSectionName(sec)
 			path := []string{"pause_menu", key, "menu"}
-			if hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
-				populateItemName(sec, path, "menu.itemname.", "flat", lTable)
-				buildFlatOrder(sec, path, "menu.itemname.", lTable)
-			} else {
-				populateItemName("Pause Menu", path, "menu.itemname.", "flat", lTable)
-				buildFlatOrder("Pause Menu", path, "menu.itemname.", lTable)
+			// Normally defaults seeding ensures derived sections have a baseline.
+			// Keep a conservative fallback to [Pause Menu] if itemname is truly absent.
+			src := sec
+			if !hasIniPrefix(defIni, sec, "menu.itemname.") && !hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
+				src = "Pause Menu"
 			}
+			populateItemName(src, path, "menu.itemname.", "flat", lTable)
+			buildFlatOrder(src, path, "menu.itemname.", lTable)
 		}
 		populateItemName("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", "flat", lTable)
 		buildFlatOrder("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", lTable)

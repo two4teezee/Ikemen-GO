@@ -32,7 +32,7 @@ type Renderer interface {
 	IsModelEnabled() bool
 	IsShadowEnabled() bool
 
-	BlendReset()
+	//BlendReset()
 	SetPipeline(eq BlendEquation, src, dst BlendFunc)
 	ReleasePipeline()
 	prepareShadowMapPipeline(bufferIndex uint32)
@@ -489,9 +489,12 @@ func initRenderSpriteQuad(rp *RenderParams) {
 	rp.y += rp.rcy
 }
 
+// We relied too much on this, which hurt performance a little
+/*
 func BlendReset() {
 	gfx.BlendReset()
 }
+*/
 
 func RenderSprite(rp RenderParams) {
 	if !rp.IsValid() {
@@ -702,6 +705,7 @@ func CreateTextureAtlas(width, height int32, depth int32, filter bool) *TextureA
 	ta.skyline.PushBack([2]int32{0, 0})
 	return ta
 }
+
 func (ta *TextureAtlas) AddImage(width, height int32, data []byte) ([4]float32, bool) {
 	const maxWidth = 4096
 	if ta.resize {
@@ -727,6 +731,7 @@ func (ta *TextureAtlas) AddImage(width, height int32, data []byte) ([4]float32, 
 	ta.texture.SetSubData(data, x, y, width, height)
 	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
 }
+
 func (ta *TextureAtlas) AddImageStride(width, height, stride int32, data []byte) ([4]float32, bool) {
 	const maxWidth = 4096
 	if ta.resize {
@@ -756,6 +761,7 @@ func (ta *TextureAtlas) AddImageStride(width, height, stride int32, data []byte)
 	}
 	return [4]float32{float32(x) / float32(ta.width), float32(y) / float32(ta.height), float32(x+width) / float32(ta.width), float32(y+height) / float32(ta.height)}, true
 }
+
 func (ta *TextureAtlas) FindPlaceToInsert(width, height int32) (int32, int32, bool) {
 	//leave 1px space
 	space := int32(1)

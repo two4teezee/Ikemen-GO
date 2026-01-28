@@ -2379,6 +2379,13 @@ func (s *System) charTextsUpdate() {
 		return
 	}
 
+	// With texts we run the cleanup first. Otherwise a removetime of 1 disappears immediately
+	// The reason this is different from explods is that texts don't use a DrawList to buffer the sprites
+	for i := range s.chartexts {
+		s.charTextsPrune(i)
+	}
+
+	// Logic
 	for i := range s.chartexts {
 		for _, ts := range s.chartexts[i] {
 			ts.Update()
@@ -2386,11 +2393,6 @@ func (s *System) charTextsUpdate() {
 				ts.removetime--
 			}
 		}
-	}
-
-	// Cleanup
-	for i := range s.chartexts {
-		s.charTextsPrune(i)
 	}
 }
 
@@ -2956,7 +2958,7 @@ func (s *System) drawCharTexts(layerno int16) {
 }
 
 func (s *System) drawTop() {
-	BlendReset()
+	//BlendReset()
 
 	s.brightness = s.brightnessOld
 	// Draw Clsn boxes

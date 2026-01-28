@@ -90,8 +90,8 @@ func (f *Font_GLES32) UpdateResolution(windowWidth int, windowHeight int) {
 
 // Printf draws a string to the screen, takes a list of arguments like printf
 func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
-
 	indices := []rune(fmt.Sprintf(fs, argv...))
+	r := gfx.(*Renderer_GL32)
 
 	if len(indices) == 0 {
 		return nil
@@ -101,10 +101,7 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 	batchSize := Min(250, int32(len(indices)))
 	batchVertices := make([]float32, 0, batchSize*6*4)
 	//setup blending mode
-	gl.Enable(gl.BLEND)
-	if blend {
-		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	}
+	r.SetBlending(blend, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
 
 	//restrict drawing to a certain part of the window
 	// gl.Enable(gl.SCISSOR_TEST)
@@ -112,7 +109,7 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 
 	// Activate corresponding render state
 	program := gfxFont.(*FontRenderer_GLES32).shaderProgram
-	gl.UseProgram(program.program)
+	r.UseProgram(program.program)
 
 	// Set texture location
 	texLoc := gl.GetUniformLocation(program.program, gl.Str("tex\x00"))
@@ -199,8 +196,8 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 	//clear opengl textures and programs
 	gl.BindVertexArray(0)
 	gl.BindTexture(gl.TEXTURE_2D, 0)
-	gl.UseProgram(0)
-	gl.Disable(gl.BLEND)
+	//gl.UseProgram(0)
+	//gl.Disable(gl.BLEND)
 	gl.Disable(gl.SCISSOR_TEST)
 
 	return nil

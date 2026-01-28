@@ -1039,12 +1039,14 @@ func (at AnimationTable) readAction(sff *Sff, pal *PaletteList,
 	}
 	return nil
 }
+
 func ReadAnimationTable(sff *Sff, pal *PaletteList, lines []string, i *int) AnimationTable {
 	at := NewAnimationTable()
 	for at.readAction(sff, pal, lines, i) != nil {
 	}
 	return at
 }
+
 func (at AnimationTable) get(no int32) *Animation {
 	a := at[no]
 	if a == nil {
@@ -1237,7 +1239,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		// Restore system brightness
 		sys.brightness = oldBright
 	}
-	BlendReset()
+	//BlendReset()
 }
 
 type ShadowSprite struct {

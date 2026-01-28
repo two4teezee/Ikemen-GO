@@ -3984,11 +3984,11 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.frameSkip {
 			sys.luaFlushDrawQueue()
 			if sys.motif.fadeIn.isActive() {
-				BlendReset()
+				//BlendReset()
 				sys.motif.fadeIn.step()
 				sys.motif.fadeIn.draw()
 			} else if sys.motif.fadeOut.isActive() {
-				BlendReset()
+				//BlendReset()
 				sys.motif.fadeOut.step()
 				sys.motif.fadeOut.draw()
 			}

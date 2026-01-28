@@ -1742,12 +1742,17 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 		// Get texture
 		if far.face.coldepth <= 8 {
-			far.face.Pal = nil
-			if far.face.PalTex != nil {
-				far.face.PalTex = far.face.GetPalTex(&sys.cgi[ref].palettedata.palList)
-			} else {
-				far.face.Pal = far.face.GetPal(&sys.cgi[ref].palettedata.palList)
-			}
+			// This method created a large hot spot in the profile
+			// It was throwing away good textures because of bad GetPalTex returns
+			//far.face.Pal = nil
+			//if far.face.PalTex != nil {
+			//	far.face.PalTex = far.face.GetPalTex(&sys.cgi[ref].palettedata.palList)
+			//} else {
+			//	far.face.Pal = far.face.GetPal(&sys.cgi[ref].palettedata.palList)
+			//}
+
+			// Now we just update the palette data and let the engine figure it out
+			far.face.Pal = far.face.GetPal(&sys.cgi[ref].palettedata.palList)
 		}
 
 		// Revert palette maps to initial state

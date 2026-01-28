@@ -202,12 +202,12 @@ func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	}
 }
 
+// Draw the whole list of a specific type of debug Clsn
 func (cr ClsnRect) draw(blendAlpha [2]int32) {
-	paltex := PaletteToTexture(sys.clsnSpr.Pal)
 	for _, c := range cr {
 		params := RenderParams{
 			tex:            sys.clsnSpr.Tex,
-			paltex:         paltex,
+			paltex:         sys.clsnSpr.PalTex,
 			size:           sys.clsnSpr.Size,
 			x:              -c[0] * sys.widthScale,
 			y:              -c[1] * sys.heightScale,
@@ -4159,7 +4159,7 @@ func (c *Char) loadPalette() {
 					copy(newSlice, gi.palettedata.palList.PalTex)
 					gi.palettedata.palList.PalTex = newSlice
 				}
-				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pl)
+				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pl)
 				tmp = i + 1
 			} else {
 				pal.exists = false
@@ -4179,7 +4179,7 @@ func (c *Char) loadPalette() {
 		}
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
-				gi.palettedata.palList.PalTex[i] = PaletteToTexture(pData)
+				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pData)
 			}
 		}
 
@@ -4190,13 +4190,13 @@ func (c *Char) loadPalette() {
 			if pl, ok := readAct(&pal); ok {
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
-					gi.palettedata.palList.PalTex[pIdx] = PaletteToTexture(pl)
+					gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
 				} else {
 					// Create a new isolated index for the ACT to prevent crashes
 					newIdx := len(gi.palettedata.palList.palettes)
 					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
 					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
-					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, PaletteToTexture(pl))
+					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, NewTextureFromPalette(pl))
 					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
 				}
 				pal.exists = true

@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/gopxl/beep/v2"
 
@@ -446,7 +445,7 @@ func (s *System) init(w, h int32) *lua.LState {
 		whitepal[i] = 0xffffffff // White (and full alpha)
 	}
 	s.whitePalTex = gfx.newPaletteTexture()
-	s.whitePalTex.SetData(pal32ToBytes(whitepal))
+	s.whitePalTex.SetData(Pal32ToBytes(whitepal))
 
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
@@ -2961,28 +2960,44 @@ func (s *System) drawTop() {
 	//BlendReset()
 
 	s.brightness = s.brightnessOld
+
 	// Draw Clsn boxes
 	if s.clsnDisplay {
 		alpha := [2]int32{255, 255}
-		s.clsnSpr.Pal[0] = 0xff0000ff
+		// Change the first color of the Clsn sprite
+		setColor := func(color uint32) {
+			s.clsnSpr.Pal[0] = color
+			s.clsnSpr.updatePaletteTexture(s.clsnSpr.Pal)
+		}
+		// Clsn1 HitDef
+		setColor(0xff0000ff)
 		s.debugc1hit.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff0040c0
+		// Clsn1 ReversalDef
+		setColor(0xff0040c0)
 		s.debugc1rev.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff000080
+		// Clsn1 Inactive
+		setColor(0xff000080)
 		s.debugc1not.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffff0000
+		// Clsn2
+		setColor(0xffff0000)
 		s.debugc2.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff808000
+		// Clsn2 HitBy
+		setColor(0xff808000)
 		s.debugc2hb.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff004000
+		// Clsn2 Invincible
+		setColor(0xff004000)
 		s.debugc2mtk.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffc00040
+		// Clsn2 Guarding
+		setColor(0xffc00040)
 		s.debugc2grd.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff404040
+		// Clsn2 Standby
+		setColor(0xff404040)
 		s.debugc2stb.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff303030
+		// Size
+		setColor(0xff303030)
 		s.debugcsize.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffffffff
+		// Crosshair
+		setColor(0xffffffff)
 		s.debugch.draw(alpha)
 	}
 }
@@ -4843,8 +4858,4 @@ func (es *EnvShake) getOffset() [2]float32 {
 			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
-}
-
-func pal32ToBytes(pal []uint32) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
 }

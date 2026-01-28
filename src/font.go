@@ -530,7 +530,7 @@ func (f *Fnt) drawChar(
 			f.lastPalBase = base
 		} else {
 			// first time seeing this palette: upload once and reuse
-			f.paltex = PaletteToTexture(pal)
+			f.paltex = NewTextureFromPalette(pal)
 			f.paltexCache[base] = f.paltex
 			f.lastPalBase = base
 		}

@@ -449,7 +449,14 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 	return true
 }
 
-func PaletteToTexture(pal []uint32) Texture {
+func Pal32ToBytes(pal []uint32) []byte {
+    if len(pal) == 0 {
+        return nil
+    }
+    return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
+}
+
+func NewTextureFromPalette(pal []uint32) Texture {
 	tx := gfx.newPaletteTexture()
 
 	// Safely handle invalid palettes
@@ -458,7 +465,7 @@ func PaletteToTexture(pal []uint32) Texture {
 		tx.SetData(nil)
 		return tx
 	} else {
-		tx.SetData(unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4))
+		tx.SetData(Pal32ToBytes(pal))
 		return tx
 	}
 }
@@ -1229,31 +1236,20 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 	// If cached texture is invalid, update or replace it
 	if !match {
 		// Previously we were always generating a new texture in this branch
-		//s.PalTex = PaletteToTexture(pal)
+		//s.PalTex = NewTextureFromPalette(pal)
 		s.PalTex = s.updatePaletteTexture(pal)
 		s.paltemp = append([]uint32{}, pal...)
 	}
 	return s.PalTex
 }
 
-// Update existing texture if provided. Create a new one if not
+// Updates an existing texture or creates a missing one
 func (s *Sprite) updatePaletteTexture(pal []uint32) Texture {
-    // If we already have a texture, just update the pixels
-    if s.PalTex != nil {
-        if len(pal) > 0 {
-            s.PalTex.SetData(unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4))
-        } else {
-            s.PalTex.SetData(nil)
-        }
-        return s.PalTex
-    }
-
-    // Otherwise create a new one
-    tx := gfx.newPaletteTexture()
-    if len(pal) > 0 {
-        tx.SetData(unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4))
-    }
-    return tx
+	if s.PalTex == nil {
+		s.PalTex = gfx.newPaletteTexture()
+	}
+	s.PalTex.SetData(Pal32ToBytes(pal))
+	return s.PalTex
 }
 
 func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, projectionMode int32, fLength float32, fx *PalFX, window *[4]int32) {

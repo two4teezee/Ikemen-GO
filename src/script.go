@@ -1319,7 +1319,7 @@ func systemScriptInit(l *lua.LState) {
 			}
 		})
 		a.anim.palettedata.SetSource(pal, palData)
-		a.anim.palettedata.PalTex[pal] = PaletteToTexture(palData)
+		a.anim.palettedata.PalTex[pal] = NewTextureFromPalette(palData)
 		return 0
 	})
 	luaRegister(l, "animSetScale", func(*lua.LState) int {

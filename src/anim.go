@@ -973,7 +973,7 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 	//			}
 	//		}
 	//	}
-	//	rp.paltex = PaletteToTexture(pal[:])
+	//	rp.paltex = NewTextureFromPalette(pal[:])
 	//}
 
 	if a.spr.coldepth <= 8 && (color != 0 || intensity > 0) {

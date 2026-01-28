@@ -404,7 +404,7 @@ function start.f_prefightHUD()
 	local acc = start.f_accStats(prev)
 	local t_score = {acc.score.total[1], acc.score.total[2]}
 	local timer = acc.time.total
-	if start.challenger > 0 and gamemode('teamversus') then
+	if start.challenger > 0 and gamemode('versus') then
 		return 0, {0, 0}
 	end
 	-- emulate resetScore-on-loss behavior for the next match HUD

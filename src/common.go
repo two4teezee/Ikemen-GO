@@ -1573,10 +1573,28 @@ func PointerSliceReset[T any](slice []*T) []*T {
 	return slice[:0]
 }
 
-// Pull a pointer from outside the slice's current length but within its capacity
-func GetGhostPointer[T any](s []*T) *T {
-	if len(s) < cap(s) {
-		return s[:len(s)+1][len(s)]
+// Recovers a ghosted pointer from the slice capacity if available. Otherwise appends a new one
+// Effectively makes the capacity work as a pool of items
+func RecoverOrAppend[T any](slicePtr *[]*T, clearFunc func(*T), newFunc func() *T) *T {
+	slice := *slicePtr
+
+	// Try to recover ghost
+	if len(slice) < cap(slice) {
+		ghost := slice[:len(slice)+1][len(slice)]
+
+		if ghost != nil {
+			// Found a valid ghost. Reslice to recover it
+			*slicePtr = slice[:len(slice)+1]
+
+			// Clean it up for reuse
+			clearFunc(ghost)
+
+			return ghost
+		}
 	}
-	return nil
+
+	// Create new one and append
+	item := newFunc()
+	*slicePtr = append(*slicePtr, item)
+	return item
 }

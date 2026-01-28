@@ -4258,6 +4258,7 @@ func (c *Char) loadPalette() {
 
 	gi.remappedpal = [2]int32{1, gi.palno}
 }
+
 func (c *Char) loadFx(def string) error {
 	gi := c.gi()
 	gi.fxPath = []string{} // Always initialize before loading.
@@ -4366,6 +4367,7 @@ func (c *Char) loadFx(def string) error {
 	}
 	return nil
 }
+
 func (c *Char) clearHitCount() {
 	c.hitCount = 0
 	c.uniqHitCount = 0
@@ -6220,6 +6222,7 @@ func (c *Char) persistentChangeStateHitpauseCorrection(sbc *StateBytecode) {
 		}
 	}
 }
+
 func (c *Char) stateChange2() bool {
 	if c.stchtmp && !c.hitPause() {
 		c.ss.sb.init(c)
@@ -6554,16 +6557,9 @@ func (c *Char) spawnExplod() (*Explod, int) {
 		return nil, -1
 	}
 
-	// Check if we have any ghosted explods sitting outside the current slice length
-	e := GetGhostPointer(*playerExplods)
+	// Recover a ghosted explod or make a new one
+	e := RecoverOrAppend(playerExplods, func(e *Explod) { e.clear() }, newExplod)
 
-	if e != nil {
-		e.clear()
-	} else {
-		e = newExplod()
-	}
-
-	*playerExplods = append(*playerExplods, e)
 	idx := len(*playerExplods) - 1
 
 	e.initFromChar(c)
@@ -6753,16 +6749,8 @@ func (c *Char) spawnText() *TextSprite {
 		return nil
 	}
 
-	// Check if we have any ghosted texts sitting outside the current slice length
-	ts := GetGhostPointer(*playerTexts)
-
-	if ts != nil {
-		ts.Clear()
-	} else {
-		ts = NewTextSprite()
-	}
-
-	*playerTexts = append(*playerTexts, ts)
+	// Recover a ghosted text or make a new one
+	ts := RecoverOrAppend(playerTexts, func(ts *TextSprite) { ts.Clear() }, NewTextSprite)
 
 	return ts
 }
@@ -7072,16 +7060,8 @@ func (c *Char) spawnProjectile() *Projectile {
 		return nil
 	}
 
-	// Check if we have any ghosted projectiles sitting outside the current slice length
-	p := GetGhostPointer(*playerProjs)
-
-	if p != nil {
-		p.clear()
-	} else {
-		p = newProjectile()
-	}
-
-	*playerProjs = append(*playerProjs, p)
+	// Recover a ghosted projectile or make a new one
+	p := RecoverOrAppend(playerProjs, func(p *Projectile) { p.clear() }, newProjectile)
 
 	p.initFromChar(c)
 

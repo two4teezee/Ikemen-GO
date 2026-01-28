@@ -299,7 +299,7 @@ type MenuProperties struct {
 			Active   TextProperties `ini:"active"`
 			Conflict TextProperties `ini:"conflict"`
 		} `ini:"value"`
-		Info struct { // not used by [Title Info], [Replay Info], [Menu Info], [Attract Mode]
+		Info struct { // not used by [Title Info], [Replay Info], [Pause Menu], [Attract Mode]
 			TextProperties
 			Active TextProperties `ini:"active"`
 		} `ini:"info"`
@@ -325,10 +325,10 @@ type MenuProperties struct {
 	Previous struct {
 		Key []string `ini:"key"`
 	} `ini:"previous"`
-	Add struct { // only used by [Option Info], [Menu Info], [Training Info]
+	Add struct { // only used by [Option Info], [Pause Menu], [Training Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"add"`
-	Subtract struct { // only used by [Option Info], [Menu Info], [Training Info]
+	Subtract struct { // only used by [Option Info], [Pause Menu], [Training Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"subtract"`
 	Cancel struct {
@@ -337,11 +337,11 @@ type MenuProperties struct {
 	Done struct {
 		Key []string `ini:"key"`
 	} `ini:"done"`
-	Hiscore struct { // not used by [Option Info], [Option Info].keymenu, [Replay Info], [Menu Info]
+	Hiscore struct { // not used by [Option Info], [Option Info].keymenu, [Replay Info], [Pause Menu]
 		Key []string `ini:"key"`
 	} `ini:"hiscore"`
-	Unlock    map[string]string `ini:"unlock"`    // not used by [Option Info].keymenu, [Replay Info], [Menu Info]
-	Valuename map[string]string `ini:"valuename"` // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Menu Info], [Attract Mode]
+	Unlock    map[string]string `ini:"unlock"`    // not used by [Option Info].keymenu, [Replay Info], [Pause Menu]
+	Valuename map[string]string `ini:"valuename"` // not used by [Title Info], [Option Info].keymenu, [Replay Info], [Pause Menu], [Attract Mode]
 	Itemname  map[string]string `ini:"itemname"`
 }
 
@@ -1071,6 +1071,14 @@ type ReplayInfoProperties struct {
 	} `ini:"cancel"`
 }
 
+type MovelistGlyphsProperties struct {
+	Offset     [2]float32 `ini:"offset"`
+	Scale      [2]float32 `ini:"scale" default:"1,1"`
+	Layerno    int16      `ini:"layerno"`
+	Localcoord [2]int32   `ini:"localcoord"`
+	Spacing    [2]float32 `ini:"spacing"`
+}
+
 type MenuInfoProperties struct {
 	Enabled  bool           `ini:"enabled"`
 	FadeIn   FadeProperties `ini:"fadein"`
@@ -1106,13 +1114,7 @@ type MenuInfoProperties struct {
 			TextProperties
 			Spacing [2]float32 `ini:"spacing"`
 		} `ini:"text"`
-		Glyphs struct {
-			Offset     [2]float32 `ini:"offset"`
-			Scale      [2]float32 `ini:"scale" default:"1,1"`
-			Layerno    int16      `ini:"layerno"`
-			Localcoord [2]int32   `ini:"localcoord"`
-			Spacing    [2]float32 `ini:"spacing"`
-		} `ini:"glyphs"`
+		Glyphs MovelistGlyphsProperties `ini:"glyphs"`
 		Window struct {
 			Margins struct {
 				Y [2]float32 `ini:"y"`
@@ -1328,10 +1330,8 @@ type Motif struct {
 	OptionBgDef     BgDefProperties                     `ini:"optionbgdef"`
 	ReplayInfo      ReplayInfoProperties                `ini:"replay_info"`
 	ReplayBgDef     BgDefProperties                     `ini:"replaybgdef"`
-	MenuInfo        MenuInfoProperties                  `ini:"menu_info"`
-	MenuBgDef       BgDefProperties                     `ini:"menubgdef"`
-	TrainingInfo    MenuInfoProperties                  `ini:"training_info"`
-	TrainingBgDef   BgDefProperties                     `ini:"trainingbgdef"`
+	PauseMenu       map[string]*MenuInfoProperties      `ini:"map:^(?i).*pause.*menu$" lua:"pause_menu"`
+	PauseBgDef      map[string]*BgDefProperties         `ini:"map:^(?i).*pausebgdef$" lua:"pausebgdef"`
 	AttractMode     AttractModeProperties               `ini:"attract_mode"`
 	AttractBgDef    BgDefProperties                     `ini:"attractbgdef"`
 	ChallengerInfo  ChallengerInfoProperties            `ini:"challenger_info"`
@@ -1610,6 +1610,76 @@ func loadMotif(def string) (*Motif, error) {
 		if err != nil {
 			return fmt.Errorf("Failed to load user INI source from memory: %w", err)
 		}
+		// Seed defaults for all derived [<gamemode> Pause Menu] sections before merging user values.
+		seedPauseMenuDefaults := func(user, defaults, merged *ini.File) {
+			if defaults == nil || merged == nil {
+				return
+			}
+			baseDefaults, err := defaults.GetSection("Pause Menu")
+			if err != nil || baseDefaults == nil {
+				return
+			}
+			isDerivedPauseMenu := func(name string) (string, bool) {
+				if name == ini.DEFAULT_SECTION {
+					return "", false
+				}
+				lang, base, _ := splitLangPrefix(name)
+				base = strings.TrimSpace(base)
+				lower := strings.ToLower(base)
+				if !strings.HasSuffix(lower, " pause menu") {
+					return "", false
+				}
+				// [Pause Menu] is the root; every other [* Pause Menu] should be derived from it.
+				if lower == "pause menu" {
+					return "", false
+				}
+				if lang != "" {
+					return lang + "." + base, true
+				}
+				return base, true
+			}
+			seedSection := func(dst *ini.File, secName string) {
+				if dst == nil {
+					return
+				}
+				sec, err := dst.GetSection(secName)
+				if err != nil || sec == nil {
+					sec, err = dst.NewSection(secName)
+					if err != nil || sec == nil {
+						return
+					}
+				}
+				// Top-up missing keys from [Pause Menu] (do not override existing values).
+				for _, k := range baseDefaults.Keys() {
+					if sec.HasKey(k.Name()) {
+						continue
+					}
+					_, _ = sec.NewKey(k.Name(), k.Value())
+				}
+			}
+
+			// Seed derived pause menus found in either defaults or user input.
+			seen := map[string]bool{}
+			for _, f := range []*ini.File{defaults, user} {
+				if f == nil {
+					continue
+				}
+				for _, s := range f.Sections() {
+					secName, ok := isDerivedPauseMenu(s.Name())
+					if !ok {
+						continue
+					}
+					l := strings.ToLower(secName)
+					if seen[l] {
+						continue
+					}
+					seen[l] = true
+					seedSection(defaults, secName)
+					seedSection(merged, secName)
+				}
+			}
+		}
+		seedPauseMenuDefaults(userIniFile, defaultOnlyIni, iniFile)
 		overlayUserFirstWins(iniFile, userIniFile)
 
 		return nil
@@ -1658,7 +1728,7 @@ func loadMotif(def string) (*Motif, error) {
 			for _, p := range []string{
 				"titlebg", "selectbg", "versusbg", "continuebg",
 				"victorybg", "winbg",
-				"optionbg", "replaybg", "menubg", "trainingbg", "attractbg",
+				"optionbg", "replaybg", "attractbg",
 				"challengerbg", "hiscorebg",
 			} {
 				if strings.HasPrefix(lb, p) {
@@ -1785,7 +1855,23 @@ func (m *Motif) applyGlyphDefaultsFromMovelist() {
 		return
 	}
 
-	mg := m.MenuInfo.Movelist.Glyphs
+	// Use [Pause Menu] movelist glyph defaults as the global baseline.
+	var mg MovelistGlyphsProperties
+	if m.PauseMenu != nil {
+		if pm := m.PauseMenu["pause_menu"]; pm != nil {
+			mg = pm.Movelist.Glyphs
+		} else {
+			// Best-effort fallback: first available pause menu entry.
+			for _, pm := range m.PauseMenu {
+				if pm != nil {
+					mg = pm.Movelist.Glyphs
+					break
+				}
+			}
+		}
+	} else {
+		return
+	}
 	for _, g := range m.Glyphs {
 		if g == nil {
 			continue
@@ -1897,6 +1983,9 @@ func (m *Motif) fixLocalcoordOverrides() {
 		}
 	}
 }
+
+// applyMenuUseLocalcoord forces menu-related localcoord keys to inherit motif localcoord
+// when menu.uselocalcoord is enabled in a section.
 
 // InheritSpec describes how to inherit keys from one prefix to another inside the given INI sections.
 // Example: srcSec="Option Info", srcPrefix="menu.", dstSec="Option Info", dstPrefix="keymenu.menu."
@@ -2081,8 +2170,6 @@ func (m *Motif) mergeWithInheritance(specs []InheritSpec) {
 func (m *Motif) overrideParams() {
 	// Define inheritance rules (section/prefix based).
 	specs := []InheritSpec{
-		// [Training Info]
-		{SrcSec: "Menu Info", SrcPrefix: "", DstSec: "Training Info", DstPrefix: ""},
 		// [Option Info]
 		{SrcSec: "Option Info", SrcPrefix: "menu.", DstSec: "Option Info", DstPrefix: "keymenu.menu."},
 		// [Select Info]
@@ -2134,9 +2221,46 @@ func (m *Motif) overrideParams() {
 		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active."},
 		{SrcSec: "Hiscore Info", SrcPrefix: "item.name.", DstSec: "Hiscore Info", DstPrefix: "item.name.active2."},
 	}
+	// Apply [Pause Menu] inheritance to every other [* Pause Menu]
+	for _, sec := range m.customPauseMenuSections() {
+		specs = append(specs, InheritSpec{SrcSec: "Pause Menu", SrcPrefix: "", DstSec: sec, DstPrefix: ""})
+	}
 	m.mergeWithInheritance(specs)
 	// Inheritance may add new font filenames; rerun resolver to map them to deduped font indices.
 	//resolveInlineFonts(m.IniFile, m.Def, m.Fnt, m.fntIndexByKey, m.SetValueUpdate)
+}
+
+func (m *Motif) customPauseMenuSections() []string {
+	if m == nil || m.IniFile == nil {
+		return nil
+	}
+	// Sections ending with " Pause Menu" (case-insensitive) are considered pause menus
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range m.IniFile.Sections() {
+		raw := s.Name()
+		if raw == ini.DEFAULT_SECTION {
+			continue
+		}
+		_, base, _ := splitLangPrefix(raw)
+		base = strings.TrimSpace(base)
+		if base == "" {
+			continue
+		}
+		lower := strings.ToLower(base)
+		if !strings.HasSuffix(lower, " pause menu") {
+			continue
+		}
+		if lower == "pause menu" {
+			continue
+		}
+		if seen[lower] {
+			continue
+		}
+		seen[lower] = true
+		out = append(out, base)
+	}
+	return out
 }
 
 // Initialize struct
@@ -2252,11 +2376,14 @@ func (m *Motif) loadFiles() {
 	} else {
 		m.ReplayBgDef = m.TitleBgDef
 	}
-	m.loadBgDefProperties(&m.MenuBgDef, "menubg", m.Files.Spr)
-	if _, err := m.UserIniFile.GetSection("TrainingBgDef"); err == nil {
-		m.loadBgDefProperties(&m.TrainingBgDef, "trainingbg", m.Files.Spr)
-	} else {
-		m.TrainingBgDef = m.MenuBgDef
+	// Load all PauseBgDef entries (any mode that defines <mode>PauseBgDef).
+	for secKey, bg := range m.PauseBgDef {
+		if bg == nil {
+			continue
+		}
+		key := strings.ToLower(secKey)
+		bgName := strings.TrimSuffix(key, "def") // e.g. "pausebgdef" -> "pausebg"
+		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
 	}
 	if _, err := m.UserIniFile.GetSection("AttractBgDef"); err == nil {
 		m.loadBgDefProperties(&m.AttractBgDef, "attractbg", m.Files.Spr)
@@ -2394,6 +2521,14 @@ func (m *Motif) applyPostParsePosAdjustments() {
 			animSetPos(ap.AnimData, dx, dy)
 		}
 	}
+	shiftMovelist := func(mv *MenuInfoProperties) {
+		if mv == nil {
+			return
+		}
+		ml := &mv.Movelist
+		offsetAnims(ml.Pos[0], ml.Pos[1], ml.Arrow.Up.AnimData, ml.Arrow.Down.AnimData)
+		offsetTexts(ml.Pos[0], ml.Pos[1], ml.Title.TextSpriteData, ml.Text.TextSpriteData)
+	}
 	adjustSelect := func(ps *PlayerSelectProperties) {
 		tm := &ps.TeamMenu
 		// TeamMenu backgrounds
@@ -2454,11 +2589,16 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		&m.OptionInfo.Menu,
 		&m.ReplayInfo.Menu,
 		&m.AttractMode.Menu,
-		&m.MenuInfo.Menu,
-		&m.TrainingInfo.Menu,
 		&m.OptionInfo.KeyMenu.Menu,
 	} {
 		shiftMenu(me)
+	}
+	if m.PauseMenu != nil {
+		for _, pm := range m.PauseMenu {
+			if pm != nil {
+				shiftMenu(&pm.Menu)
+			}
+		}
 	}
 
 	// KeyMenu
@@ -2468,15 +2608,13 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		textSetPos(km.P2.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P2.MenuOffset[0], km.Menu.Pos[1]+km.P2.MenuOffset[1])
 	}
 
-	// Movelists (MenuInfo, TrainingInfo)
+	// Movelists (all pause menus)
 	{
-		mv := &m.MenuInfo.Movelist
-		offsetAnims(mv.Pos[0], mv.Pos[1], mv.Arrow.Up.AnimData, mv.Arrow.Down.AnimData)
-		offsetTexts(mv.Pos[0], mv.Pos[1], mv.Title.TextSpriteData, mv.Text.TextSpriteData)
-
-		mv2 := &m.TrainingInfo.Movelist
-		offsetAnims(mv2.Pos[0], mv2.Pos[1], mv2.Arrow.Up.AnimData, mv2.Arrow.Down.AnimData)
-		offsetTexts(mv2.Pos[0], mv2.Pos[1], mv2.Title.TextSpriteData, mv2.Text.TextSpriteData)
+		if m.PauseMenu != nil {
+			for _, pm := range m.PauseMenu {
+				shiftMovelist(pm)
+			}
+		}
 	}
 
 	// VS Screen: player name positions
@@ -3090,12 +3228,29 @@ func (me *MotifMenu) menuOpenInputHeld(m *Motif) bool {
 		return true
 	}
 	// Also respect configured menu cancel/open bindings
-	if m != nil && m.MenuInfo.Enabled {
-		if sys.button(m.MenuInfo.Menu.Cancel.Key, -1) {
-			return true
+	if m != nil && m.PauseMenu != nil {
+		if pm := m.PauseMenu["pause_menu"]; pm != nil && pm.Enabled {
+			if sys.button(pm.Menu.Cancel.Key, -1) {
+				return true
+			}
 		}
 	}
 	return false
+}
+
+func (me *MotifMenu) pauseMenuBase(m *Motif) *MenuInfoProperties {
+	if m == nil || m.PauseMenu == nil {
+		return nil
+	}
+	if pm := m.PauseMenu["pause_menu"]; pm != nil {
+		return pm
+	}
+	for _, pm := range m.PauseMenu {
+		if pm != nil {
+			return pm
+		}
+	}
+	return nil
 }
 
 func (me *MotifMenu) requestClose(m *Motif) {
@@ -3103,12 +3258,15 @@ func (me *MotifMenu) requestClose(m *Motif) {
 		return
 	}
 	me.closeRequested = true
-	startFadeOut(m.MenuInfo.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	if pm := me.pauseMenuBase(m); pm != nil {
+		startFadeOut(pm.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+	}
 	me.endTimer = me.counter + m.fadeOut.timeRemaining
 }
 
 func (me *MotifMenu) init(m *Motif) {
-	if !m.MenuInfo.Enabled || !me.enabled {
+	pm := me.pauseMenuBase(m)
+	if pm == nil || !pm.Enabled || !me.enabled {
 		me.initialized = true
 		return
 	}
@@ -3119,7 +3277,7 @@ func (me *MotifMenu) init(m *Motif) {
 		}
 		me.reopenLock = false
 	}
-	if (!sys.esc && !sys.button(m.MenuInfo.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
+	if (!sys.esc && !sys.button(pm.Menu.Cancel.Key, -1)) || m.ch.active || sys.postMatchFlg {
 		return
 	}
 	if !sys.skipMotifScaling() {
@@ -3130,7 +3288,7 @@ func (me *MotifMenu) init(m *Motif) {
 		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
 	}
 
-	m.MenuInfo.FadeIn.FadeData.init(m.fadeIn, true)
+	pm.FadeIn.FadeData.init(m.fadeIn, true)
 	me.counter = 0
 	me.active = true
 	me.initialized = true

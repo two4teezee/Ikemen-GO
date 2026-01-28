@@ -1847,7 +1847,7 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "endMatch", func(*lua.LState) int {
-		sys.motif.MenuInfo.FadeOut.FadeData.init(sys.motif.fadeOut, false)
+		sys.motif.PauseMenu["pause_menu"].FadeOut.FadeData.init(sys.motif.fadeOut, false)
 		sys.endMatch = true
 		return 0
 	})
@@ -3055,7 +3055,10 @@ func systemScriptInit(l *lua.LState) {
 		StringToButtonLUT[sys.motif.OptionInfo.Menu.Valuename["nokey"]] = 25
 
 		// defaults-only INI (for values baseline)
-		defIni, _ := ini.Load([]byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif)))))
+		defIni := sys.motif.DefaultOnlyIni
+		if defIni == nil {
+			defIni, _ = ini.Load([]byte(preprocessINIContent(NormalizeNewlines(string(defaultMotif)))))
+		}
 
 		getTbl := func(t *lua.LTable, path []string) *lua.LTable {
 			cur := t
@@ -3115,6 +3118,53 @@ func systemScriptInit(l *lua.LState) {
 					}
 				}
 			}
+		}
+		hasIniPrefix := func(file *ini.File, sec, pref string) bool {
+			if file == nil || sec == "" {
+				return false
+			}
+			lp := strings.ToLower(pref)
+			for _, secName := range ResolveLangSectionNames(file, sec, SelectedLanguage()) {
+				s, err := file.GetSection(secName)
+				if err != nil || s == nil {
+					continue
+				}
+				for _, k := range s.Keys() {
+					if strings.HasPrefix(strings.ToLower(k.Name()), lp) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+		customPauseMenuSections := func(file *ini.File) []string {
+			if file == nil {
+				return nil
+			}
+			seen := map[string]bool{}
+			var out []string
+			for _, s := range file.Sections() {
+				raw := s.Name()
+				if raw == ini.DEFAULT_SECTION {
+					continue
+				}
+				_, base, _ := splitLangPrefix(raw)
+				base = strings.TrimSpace(base)
+				if base == "" {
+					continue
+				}
+				lower := strings.ToLower(base)
+				if !strings.HasSuffix(lower, " pause menu") {
+					continue
+				}
+				// root; all other [* Pause Menu] are derived
+				if lower == "pause menu" || seen[lower] {
+					continue
+				}
+				seen[lower] = true
+				out = append(out, base)
+			}
+			return out
 		}
 
 		// values: defaults baseline + non-empty user overlays
@@ -3429,12 +3479,24 @@ func systemScriptInit(l *lua.LState) {
 			{"Attract Mode", []string{"attract_mode", "menu"}},
 			{"Option Info", []string{"option_info", "menu"}},
 			{"Replay Info", []string{"replay_info", "menu"}},
-			{"Menu Info", []string{"menu_info", "menu"}},
-			{"Training Info", []string{"training_info", "menu"}},
+			{"Pause Menu", []string{"pause_menu", "pause_menu", "menu"}},
 		}
 		for _, s := range mi {
 			populateItemName(s.sec, s.path, "menu.itemname.", "flat", lTable)
 			buildFlatOrder(s.sec, s.path, "menu.itemname.", lTable)
+		}
+		// Handle every derived [* Pause Menu]
+		for _, sec := range customPauseMenuSections(sys.motif.IniFile) {
+			key := normalizeSectionName(sec)
+			path := []string{"pause_menu", key, "menu"}
+			// Normally defaults seeding ensures derived sections have a baseline.
+			// Keep a conservative fallback to [Pause Menu] if itemname is truly absent.
+			src := sec
+			if !hasIniPrefix(defIni, sec, "menu.itemname.") && !hasIniPrefix(sys.motif.UserIniFile, sec, "menu.itemname.") {
+				src = "Pause Menu"
+			}
+			populateItemName(src, path, "menu.itemname.", "flat", lTable)
+			buildFlatOrder(src, path, "menu.itemname.", lTable)
 		}
 		populateItemName("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", "flat", lTable)
 		buildFlatOrder("Option Info", []string{"option_info", "keymenu", "menu"}, "keymenu.menu.itemname.", lTable)

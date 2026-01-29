@@ -1661,7 +1661,7 @@ func newExplod() *Explod {
 }
 
 func (e *Explod) clear() {
-    *e = Explod{}
+	*e = Explod{}
 }
 
 // Set default values according to char who creates the explod
@@ -2411,6 +2411,14 @@ func (p *Projectile) setAllPos(pos [3]float32) {
 	p.oldPos = pos
 	p.newPos = pos
 	p.interPos = pos
+}
+
+// This is used for numProj triggers
+func (p *Projectile) isCountable() bool {
+	if p.remflag || (p.hits < 0 && p.remove) {
+		return false
+	}
+	return true
 }
 
 func (p *Projectile) paused() bool {
@@ -5364,18 +5372,17 @@ func (c *Char) numEnemy() int32 {
 	return n
 }
 
+// For NumExplod trigger
 func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
 	if eid.IsSF() {
 		return BytecodeSF()
 	}
-	var id, n int32 = eid.ToI(), 0
-	for i := range sys.explods[c.playerNo] {
-		e := sys.explods[c.playerNo][i]
-		if e.matchId(id, c.id) {
-			n++
-		}
-	}
-	return BytecodeInt(n)
+
+	id := eid.ToI()
+	expls := c.getMultipleExplods(id, -1, false)
+	total := int32(len(expls))
+
+	return BytecodeInt(total)
 }
 
 func (c *Char) numPlayer() int32 {
@@ -5393,17 +5400,17 @@ func (c *Char) numPlayer() int32 {
 	//return int32(len(sys.charList.runOrder))
 }
 
+// For NumText trigger
 func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 	if textid.IsSF() {
 		return BytecodeSF()
 	}
-	var id, n int32 = textid.ToI(), 0
-	for _, ts := range sys.chartexts[c.playerNo] {
-		if ts.id == id && ts.ownerid == c.id {
-			n++
-		}
-	}
-	return BytecodeInt(n)
+
+	id := textid.ToI()
+	texts := c.getMultipleTexts(id, -1, false)
+	total := int32(len(texts))
+
+	return BytecodeInt(total)
 }
 
 func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) BytecodeValue {
@@ -5632,7 +5639,7 @@ func (c *Char) numProj() int32 {
 	n := int32(0)
 
 	for _, p := range sys.projs[c.playerNo] {
-		if !((p.hits < 0 && p.remove) || p.remflag) {
+		if p.isCountable() {
 			n++
 		}
 	}
@@ -5650,10 +5657,17 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 		return BytecodeInt(0)
 	}
 
-	var id, n int32 = Max(0, pid.ToI()), 0
+	// Validate ID
+	id := pid.ToI()
+	if id < 0 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("negative projID %v clamped to 0", id))
+		id = 0
+	}
+
+	var n int32 = 0
 
 	for _, p := range sys.projs[c.playerNo] {
-		if p.id == id && !((p.hits < 0 && p.remove) || p.remflag) {
+		if p.id == id && p.isCountable() {
 			n++
 		}
 	}
@@ -7107,7 +7121,7 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	op bool, rpg, rpn int32, clsnscale bool) {
 	// Validate projID
 	if p.id < 0 {
-		sys.appendToConsole(c.warn() + fmt.Sprintf("negative projID specified: %v", p.id))
+		sys.appendToConsole(c.warn() + fmt.Sprintf("negative projID %v clamped to 0", p.id))
 		p.id = 0
 	}
 
@@ -7176,6 +7190,7 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 }
 
 // Get multiple projectiles for ModifyProjectile, etc
+// TODO: The filtering logic here is different from numProj. It's probably best if they're the same
 func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
 	// No use searching if index is impossible
 	if len(sys.projs[c.playerNo]) > 0 && idx < len(sys.projs[c.playerNo]) {
@@ -7682,16 +7697,10 @@ func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
 	}
 
 	bid := id.ToI()
-	matchCount := 0
+	bgs := c.getMultipleStageBg(bid, -1, false)
+	total := int32(len(bgs))
 
-	// We do this instead of getMultipleStageBg because that one returns actual BG pointers
-	for _, bg := range sys.stage.bg {
-		if bid < 0 || bid == bg.id {
-			matchCount++
-		}
-	}
-
-	return BytecodeInt(int32(matchCount))
+	return BytecodeInt(total)
 }
 
 // Get list of targets for the Target state controllers

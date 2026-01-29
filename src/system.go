@@ -1134,9 +1134,9 @@ func (s *System) playerIndex(idx int32) *Char {
 		return nil
 	}
 
-	// We will ignore destroyed helpers here, like Mugen redirections
+	// We will ignore destroyed helpers here, like Mugen redirections do
 	var searchIdx int32
-	for _, p := range sys.charList.runOrder {
+	for _, p := range sys.charList.creationOrder {
 		if p != nil && !p.csf(CSF_destroy) {
 			if searchIdx == idx {
 				return p

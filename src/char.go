@@ -4638,7 +4638,7 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 	}
 
 	var count int
-	for _, h := range sys.charList.runOrder {
+	for _, h := range sys.charList.creationOrder {
 		// Skip roots, helpers from other players and destroyed helpers
 		// Mugen confirmed to skip helpers under DestroySelf in the same frame
 		if h.helperIndex == 0 || h.playerNo != c.playerNo || h.csf(CSF_destroy) {
@@ -4671,7 +4671,7 @@ func (c *Char) getHelperChainIndex(idx int32) *Char {
 	var found []*Char
 
 	// Find all helpers in parent-child chain
-	for _, h := range sys.charList.runOrder {
+	for _, h := range sys.charList.creationOrder {
 		// Check only the relevant player number
 		if h.playerNo != c.playerNo {
 			continue
@@ -4734,7 +4734,7 @@ func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
 func (c *Char) indexTrigger() int32 {
 	// Ignore destroyed helpers for the sake of consistency
 	var searchIdx int32
-	for _, p := range sys.charList.runOrder {
+	for _, p := range sys.charList.creationOrder {
 		if p != nil && !p.csf(CSF_destroy) {
 			if c == p {
 				return searchIdx
@@ -5227,7 +5227,7 @@ func (c *Char) isHelper(id int32, idx int) bool {
 
 	// Check specific ID or index
 	var count int
-	for _, h := range sys.charList.runOrder {
+	for _, h := range sys.charList.creationOrder {
 		// Skip roots, helpers from other players and destroyed helpers
 		// Mugen does not skip DestroySelf helpers here. What it does is clear helperId when DestroySelf is called
 		// However, skipping them is more consistent with the other helper triggers
@@ -5389,7 +5389,7 @@ func (c *Char) numPlayer() int32 {
 	var count int32
 
 	// Ignore destroyed helpers for the sake of consistency
-	for _, ch := range sys.charList.runOrder {
+	for _, ch := range sys.charList.creationOrder {
 		if !ch.csf(CSF_destroy) {
 			count++
 		}
@@ -5615,6 +5615,7 @@ func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
 
 	// Mugen confirmed to skip helpers under DestroySelf in the same frame
 	for _, h := range sys.chars[c.playerNo][1:] {
+		// For some reason Mugen uses 0 for "any" here, instead of -1
 		if !h.csf(CSF_destroy) && (id <= 0 || h.helperId == id) {
 			count++
 		}
@@ -12245,7 +12246,8 @@ func (c *Char) cueDraw() {
 }
 
 type CharList struct {
-	runOrder         []*Char
+	creationOrder    []*Char // Sorted by age
+	runOrder         []*Char // Sorted by process priority
 	idMap            map[int32]*Char
 	enemyNearChanged bool
 }
@@ -12271,36 +12273,45 @@ func (cl *CharList) clear() {
 }
 
 func (cl *CharList) add(c *Char) {
-	// Append to run order
+	// Append to slices
+	cl.creationOrder = append(cl.creationOrder, c)
 	cl.runOrder = append(cl.runOrder, c)
 
 	// Update char ID map for fast lookup
 	cl.idMap[c.id] = c
 }
 
-func (cl *CharList) replace(dc *Char, pn, idx int) bool {
-	var ok bool
-
-	// Replace in runOrder
-	for i, c := range cl.runOrder {
+func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
+	// Find the old character occupying the slow
+	var oldChar *Char
+	for _, c := range cl.creationOrder {
 		if c.playerNo == pn && c.helperIndex == idx {
-			cl.runOrder[i] = dc
-			ok = true
+			oldChar = c
 			break
 		}
 	}
 
-	if ok {
-		// Update ID map
-		cl.idMap[dc.id] = dc
+	// Remove old character and add new character
+	if oldChar != nil {
+		cl.delete(oldChar)
+		cl.add(newChar)
+		return true
 	}
 
-	return ok
+	return false
 }
 
 func (cl *CharList) delete(dc *Char) {
 	// Remove char from idMap
 	delete(cl.idMap, dc.id)
+
+	// Remove char from creationOrder
+	for i, c := range cl.creationOrder {
+		if c == dc {
+			cl.creationOrder = SliceDelete(cl.creationOrder, i)
+			break 
+		}
+	}
 
 	// Remove char from runOrder
 	for i, c := range cl.runOrder {

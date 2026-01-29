@@ -3151,6 +3151,7 @@ end
 
 --common menu calculations
 function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, forcedDir)
+	local m = sec.menu or sec
 	-- persistent scroll tween per section
 	if not sec.menuTweenData then
 		sec.menuTweenData = {
@@ -3169,18 +3170,18 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 	end
 	-- effective visible-items: treat 0 / nil as "all items"
 	local visible = #t
-	if sec.menu and sec.menu.window and sec.menu.window.visibleitems ~= nil then
-		if sec.menu.window.visibleitems > 0 then
-			visible = sec.menu.window.visibleitems
+	if m.window and m.window.visibleitems ~= nil then
+		if m.window.visibleitems > 0 then
+			visible = m.window.visibleitems
 		end
 	end
 	-- movement: forcedDir: 1 = next (down), -1 = previous (up), 0/nil = no forced move
 	local moveDir = 0
 	if forcedDir ~= nil then
 		moveDir = forcedDir
-	elseif getInput(-1, sec.menu.next.key) then
+	elseif getInput(-1, m.next.key) then
 		moveDir = 1
-	elseif getInput(-1, sec.menu.previous.key) then
+	elseif getInput(-1, m.previous.key) then
 		moveDir = -1
 	end
 	if moveDir == 1 then
@@ -3214,7 +3215,7 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			item = item + 1
 		end
 		cursorPosY = item
-		if sec.menu.tween.wrap.snap then
+		if m.tween.wrap.snap then
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
@@ -3229,14 +3230,14 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 		else
 			cursorPosY = item
 		end
-		if sec.menu.tween.wrap.snap then
+		if m.tween.wrap.snap then
 			main.menuSnap = true
 		end
 		main.menuWrapped = true
 	end
 	-- Reset active background animation when cursor selection changes
 	if item_before ~= item and t ~= nil and t[item] ~= nil then
-		local bgTable = sec.menu and sec.menu.item and sec.menu.item.active and sec.menu.item.active.bg
+		local bgTable = m.item and m.item.active and m.item.active.bg
 		if bgTable ~= nil then
 			local params = bgTable[t[item].paramname] or bgTable.default
 			if params ~= nil and params.AnimData ~= nil then
@@ -3246,10 +3247,10 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 		end
 	end
 	-- compute target: determine first visible item to keep cursor at row `cursorPosY`, clamp to valid range, and convert to pixel offset
-	local spacing = sec.menu.item.spacing[2]
+	local spacing = m.item.spacing[2]
 	-- max index that can appear at the top of the window
 	local maxFirst = math.max(1, #t - visible + 1)
-	local t_factor = sec.menu.tween.factor
+	local t_factor = m.tween.factor
 
 	-- which list index should be drawn on the very first row
 	local desiredFirst = item - cursorPosY + 1
@@ -3289,6 +3290,7 @@ end
 
 --common menu draw
 function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear, opts)
+	local m = sec.menu or sec
 	-- opts:
 	--   offx, offy               : per-call offsets
 	--   skipBG0, skipBG1         : skip bg layer 0 / 1
@@ -3302,7 +3304,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	local skipInput = (opts.skipInput == true)
 
 	-- effective visible-items: treat 0 or 'unlimitedItems' as "all"
-	local visible = (sec.menu and sec.menu.window and sec.menu.window.visibleitems) or #t
+	local visible = (m.window and m.window.visibleitems) or #t
 	if not visible or visible <= 0 then
 		visible = #t
 	end
@@ -3316,15 +3318,15 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	end
 
 	--draw menu box
-	if sec.menu.boxbg.visible then
-		local x1 = offx + sec.menu.pos[1] + sec.menu.boxcursor.coords[1]
-		local y1 = offy + sec.menu.pos[2] + sec.menu.boxcursor.coords[2]
-		local w  = sec.menu.boxcursor.coords[3] - sec.menu.boxcursor.coords[1] + 1
-		local h  = sec.menu.boxcursor.coords[4] - sec.menu.boxcursor.coords[2] + 1
-			+ (math.min(#t, visible) - 1) * sec.menu.item.spacing[2]
-		rectSetWindow(sec.menu.boxbg.RectData, x1, y1, x1 + w, y1 + h)
-		rectUpdate(sec.menu.boxbg.RectData)
-		rectDraw(sec.menu.boxbg.RectData)
+	if m.boxbg.visible then
+		local x1 = offx + m.pos[1] + m.boxcursor.coords[1]
+		local y1 = offy + m.pos[2] + m.boxcursor.coords[2]
+		local w  = m.boxcursor.coords[3] - m.boxcursor.coords[1] + 1
+		local h  = m.boxcursor.coords[4] - m.boxcursor.coords[2] + 1
+			+ (math.min(#t, visible) - 1) * m.item.spacing[2]
+		rectSetWindow(m.boxbg.RectData, x1, y1, x1 + w, y1 + h)
+		rectUpdate(m.boxbg.RectData)
+		rectDraw(m.boxbg.RectData)
 	end
 	--draw title
 	if not opts.skipTitle and sec.title and sec.title.TextSpriteData then
@@ -3348,15 +3350,15 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	local function drawItem(i, isActive)
 		local itemData = t[i]
 		-- display name
-		local displayname = main.f_itemnameUpper(itemData.displayname, sec.menu.item.uppercase)
+		local displayname = main.f_itemnameUpper(itemData.displayname, m.item.uppercase)
 		if itemData.itemname:match("^spacer%d*$") then
 			displayname = ""
 		end
 		-- shared position
-		local posX = offx + (i - 1) * sec.menu.item.spacing[1]
-		local posY = offy + (i - 1) * sec.menu.item.spacing[2] - moveTxt
+		local posX = offx + (i - 1) * m.item.spacing[1]
+		local posY = offy + (i - 1) * m.item.spacing[2] - moveTxt
 		-- background params
-		local bgTable = isActive and sec.menu.item.active.bg or sec.menu.item.bg
+		local bgTable = isActive and m.item.active.bg or m.item.bg
 		local params = bgTable[itemData.paramname] or bgTable.default
 		-- draw background
 		local bgPosX = offx 
@@ -3369,9 +3371,9 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		-- text sprite for label
 		local labelSprite
 		if itemData.selected then
-			labelSprite = isActive and sec.menu.item.selected.active.TextSpriteData or sec.menu.item.selected.TextSpriteData
+			labelSprite = isActive and m.item.selected.active.TextSpriteData or m.item.selected.TextSpriteData
 		else
-			labelSprite = isActive and sec.menu.item.active.TextSpriteData or sec.menu.item.TextSpriteData
+			labelSprite = isActive and m.item.active.TextSpriteData or m.item.TextSpriteData
 		end
 		textImgReset(labelSprite)
 		textImgAddPos(labelSprite, posX, posY)
@@ -3379,21 +3381,21 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		textImgDraw(labelSprite)
 		-- value / info sprites
 		if itemData.vardisplay ~= nil then
-			if itemData.conflict and sec.menu.item.value.conflict and sec.menu.item.value.conflict.TextSpriteData then
-				local spr = sec.menu.item.value.conflict.TextSpriteData
+			if itemData.conflict and m.item.value.conflict and m.item.value.conflict.TextSpriteData then
+				local spr = m.item.value.conflict.TextSpriteData
 				textImgReset(spr)
 				textImgAddPos(spr, posX, posY)
 				textImgSetText(spr, itemData.vardisplay)
 				textImgDraw(spr)
 			else
-				local spr = isActive and sec.menu.item.value.active.TextSpriteData or sec.menu.item.value.TextSpriteData
+				local spr = isActive and m.item.value.active.TextSpriteData or m.item.value.TextSpriteData
 				textImgReset(spr)
 				textImgAddPos(spr, posX, posY)
 				textImgSetText(spr, itemData.vardisplay)
 				textImgDraw(spr)
 			end
 		elseif itemData.infodisplay ~= nil then
-			local spr = isActive and sec.menu.item.info.active.TextSpriteData or sec.menu.item.info.TextSpriteData
+			local spr = isActive and m.item.info.active.TextSpriteData or m.item.info.TextSpriteData
 			textImgReset(spr)
 			textImgAddPos(spr, posX, posY)
 			textImgSetText(spr, itemData.infodisplay)
@@ -3427,15 +3429,15 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		}
 	end
 	--calculate target Y position for cursor
-	local targetY = offy + sec.menu.pos[2] + sec.menu.boxcursor.coords[2] + (cursorPosY - 1) * sec.menu.item.spacing[2]
-	local t_factor = sec.menu.boxcursor.tween.factor
+	local targetY = offy + m.pos[2] + m.boxcursor.coords[2] + (cursorPosY - 1) * m.item.spacing[2]
+	local t_factor = m.boxcursor.tween.factor
 	--snap cursor immediately if first use or snap enabled
 	if sec.boxCursorData.snap == 1 or not sec.boxCursorData.init then
 		sec.boxCursorData.offsetY = targetY
 		sec.boxCursorData.init = true
 		sec.boxCursorData.snap = -1
 	end
-	if sec.menu.boxcursor.tween.wrap.snap and main.menuWrapped then
+	if m.boxcursor.tween.wrap.snap and main.menuWrapped then
 		sec.boxCursorData.offsetY = targetY
 	end
 	--apply tween if enabled, otherwise snap to target
@@ -3445,28 +3447,28 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		sec.boxCursorData.offsetY = targetY
 	end
 	--draw menu cursor
-	if sec.menu.boxcursor.visible and not main.fadeActive and not forceInactive then
-		local x1 = offx + sec.menu.pos[1] + sec.menu.boxcursor.coords[1] + (cursorPosY - 1) * sec.menu.item.spacing[1]
+	if m.boxcursor.visible and not main.fadeActive and not forceInactive then
+		local x1 = offx + m.pos[1] + m.boxcursor.coords[1] + (cursorPosY - 1) * m.item.spacing[1]
 		local y1 = sec.boxCursorData.offsetY
-		local w  = sec.menu.boxcursor.coords[3] - sec.menu.boxcursor.coords[1] + 1
-		local h  = sec.menu.boxcursor.coords[4] - sec.menu.boxcursor.coords[2] + 1
-		rectSetWindow(sec.menu.boxcursor.RectData, x1, y1, x1 + w, y1 + h)
-		rectUpdate(sec.menu.boxcursor.RectData)
-		rectDraw(sec.menu.boxcursor.RectData)
+		local w  = m.boxcursor.coords[3] - m.boxcursor.coords[1] + 1
+		local h  = m.boxcursor.coords[4] - m.boxcursor.coords[2] + 1
+		rectSetWindow(m.boxcursor.RectData, x1, y1, x1 + w, y1 + h)
+		rectUpdate(m.boxcursor.RectData)
+		rectDraw(m.boxcursor.RectData)
 	end
 	--draw scroll arrows
 	if #t > visible then
 		if item > cursorPosY then
-			animReset(sec.menu.arrow.up.AnimData, {'pos'})
-			animAddPos(sec.menu.arrow.up.AnimData, offx, offy)
-			animUpdate(sec.menu.arrow.up.AnimData)
-			animDraw(sec.menu.arrow.up.AnimData)
+			animReset(m.arrow.up.AnimData, {'pos'})
+			animAddPos(m.arrow.up.AnimData, offx, offy)
+			animUpdate(m.arrow.up.AnimData)
+			animDraw(m.arrow.up.AnimData)
 		end
 		if item >= cursorPosY and item + visible - cursorPosY < #t then
-			animReset(sec.menu.arrow.down.AnimData, {'pos'})
-			animAddPos(sec.menu.arrow.down.AnimData, offx, offy)
-			animUpdate(sec.menu.arrow.down.AnimData)
-			animDraw(sec.menu.arrow.down.AnimData)
+			animReset(m.arrow.down.AnimData, {'pos'})
+			animAddPos(m.arrow.down.AnimData, offx, offy)
+			animUpdate(m.arrow.down.AnimData)
+			animDraw(m.arrow.down.AnimData)
 		end
 	end
 	--draw credits text

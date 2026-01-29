@@ -1048,7 +1048,7 @@ type OptionInfoProperties struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
 			Playerno   TextProperties `ini:"playerno"`
 		} `ini:"p2"`
-		Menu MenuProperties `ini:"menu"`
+		MenuProperties
 	} `ini:"keymenu"`
 	Itemname map[string]string `ini:"itemname"` // not used by [Option Info]
 }
@@ -2171,7 +2171,7 @@ func (m *Motif) overrideParams() {
 	// Define inheritance rules (section/prefix based).
 	specs := []InheritSpec{
 		// [Option Info]
-		{SrcSec: "Option Info", SrcPrefix: "menu.", DstSec: "Option Info", DstPrefix: "keymenu.menu."},
+		{SrcSec: "Option Info", SrcPrefix: "menu.", DstSec: "Option Info", DstPrefix: "keymenu."},
 		// [Select Info]
 		{SrcSec: "Select Info", SrcPrefix: "p1.face.", DstSec: "Select Info", DstPrefix: "p1.face.done."},
 		{SrcSec: "Select Info", SrcPrefix: "p1.face2.", DstSec: "Select Info", DstPrefix: "p1.face2.done."},
@@ -2589,7 +2589,7 @@ func (m *Motif) applyPostParsePosAdjustments() {
 		&m.OptionInfo.Menu,
 		&m.ReplayInfo.Menu,
 		&m.AttractMode.Menu,
-		&m.OptionInfo.KeyMenu.Menu,
+		&m.OptionInfo.KeyMenu.MenuProperties,
 	} {
 		shiftMenu(me)
 	}
@@ -2604,8 +2604,8 @@ func (m *Motif) applyPostParsePosAdjustments() {
 	// KeyMenu
 	{
 		km := &m.OptionInfo.KeyMenu
-		textSetPos(km.P1.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P1.MenuOffset[0], km.Menu.Pos[1]+km.P1.MenuOffset[1])
-		textSetPos(km.P2.Playerno.TextSpriteData, km.Menu.Pos[0]+km.P2.MenuOffset[0], km.Menu.Pos[1]+km.P2.MenuOffset[1])
+		textSetPos(km.P1.Playerno.TextSpriteData, km.Pos[0]+km.P1.MenuOffset[0], km.Pos[1]+km.P1.MenuOffset[1])
+		textSetPos(km.P2.Playerno.TextSpriteData, km.Pos[0]+km.P2.MenuOffset[0], km.Pos[1]+km.P2.MenuOffset[1])
 	}
 
 	// Movelists (all pause menus)

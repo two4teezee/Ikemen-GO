@@ -6568,11 +6568,11 @@ func (c *Char) spawnExplod() (*Explod, int) {
 
 // Get multiple explods for ModifyExplod, etc
 func (c *Char) getMultipleExplods(id int32, idx int, log bool) (expls []*Explod) {
-	// Filter explods with the specified ID
-	if idx < len(sys.explods[c.playerNo]) { // Includes negative indexes (all)
+	// No use searching if index is impossible
+	if len(sys.explods[c.playerNo]) > 0 && idx < len(sys.explods[c.playerNo]) {
+		// Filter explods with the specified ID
 		matchCount := 0
-		for i := range sys.explods[c.playerNo] {
-			e := sys.explods[c.playerNo][i]
+		for _, e := range sys.explods[c.playerNo] {
 			if e.matchId(id, c.id) {
 				if idx >= 0 {
 					// Count the matches but only return one
@@ -6586,10 +6586,10 @@ func (c *Char) getMultipleExplods(id int32, idx int, log bool) (expls []*Explod)
 				matchCount++
 			}
 		}
-	}
 
-	if len(expls) > 0 {
-		return expls
+		if len(expls) > 0 {
+			return expls
+		}
 	}
 
 	// No valid explods found
@@ -6753,6 +6753,40 @@ func (c *Char) spawnText() *TextSprite {
 	ts := RecoverOrAppend(playerTexts, func(ts *TextSprite) { ts.Clear() }, NewTextSprite)
 
 	return ts
+}
+
+// Get multiple text sprites for ModifyText
+func (c *Char) getMultipleTexts(id int32, idx int, log bool) (texts []*TextSprite) {
+	// No use searching if index is impossible
+	if len(sys.chartexts[c.playerNo]) > 0 && idx < len(sys.chartexts[c.playerNo]) {
+		// Filter texts with the specified ID
+		matchCount := 0
+		for _, ts := range sys.chartexts[c.playerNo] {
+			// Check owner and ID match
+			if ts.ownerid == c.id && (id == -1 || ts.id == id) {
+				if idx >= 0 {
+					// Count the matches but only return the specific one
+					if matchCount == idx {
+						return []*TextSprite{ts}
+					}
+				} else {
+					// Append all matches
+					texts = append(texts, ts)
+				}
+				matchCount++
+			}
+		}
+
+		if len(texts) > 0 {
+			return texts
+		}
+	}
+
+	// No valid texts found
+	if log {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("found no texts with ID %v and index %v", id, idx))
+	}
+	return nil
 }
 
 func (c *Char) removeText(id, index int32) {
@@ -7143,8 +7177,9 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 
 // Get multiple projectiles for ModifyProjectile, etc
 func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
-	// Filter projectiles with the specified ID
-	if idx < len(sys.projs[c.playerNo]) { // Includes negative indexes (all)
+	// No use searching if index is impossible
+	if len(sys.projs[c.playerNo]) > 0 && idx < len(sys.projs[c.playerNo]) {
+		// Filter projectiles with the specified ID
 		matchCount := 0
 		for _, p := range sys.projs[c.playerNo] {
 			if id < 0 || p.id == id {
@@ -7160,11 +7195,11 @@ func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectil
 				matchCount++
 			}
 		}
-	}
 
-	// Return all matches
-	if len(projs) > 0 {
-		return projs
+		// Return all matches
+		if len(projs) > 0 {
+			return projs
+		}
 	}
 
 	// No valid projectiles found
@@ -7590,8 +7625,9 @@ func (c *Char) setFacing(f float32) {
 
 // Get multiple stage BG elements for ModifyStageBG sctrl
 func (c *Char) getMultipleStageBg(id int32, idx int, log bool) (filteredBg []*backGround) {
-	// Filter background elements with the specified ID
-	if idx < len(sys.stage.bg) { // Includes negative indexes (all)
+	// No use searching if index is impossible
+	if len(sys.stage.bg) > 0 && idx < len(sys.stage.bg) {
+		// Filter background elements with the specified ID
 		matchCount := 0
 		for _, bg := range sys.stage.bg {
 			if id < 0 || id == bg.id {
@@ -7601,17 +7637,17 @@ func (c *Char) getMultipleStageBg(id int32, idx int, log bool) (filteredBg []*ba
 						return []*backGround{bg}
 					}
 				} else {
-					// Append all matches (wildcard mode)
+					// Append all matches
 					filteredBg = append(filteredBg, bg)
 				}
 				matchCount++
 			}
 		}
-	}
 
-	// Return all matches
-	if len(filteredBg) > 0 {
-		return filteredBg
+		// Return all matches
+		if len(filteredBg) > 0 {
+			return filteredBg
+		}
 	}
 
 	// No valid background element found

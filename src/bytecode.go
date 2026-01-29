@@ -6011,7 +6011,6 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	redirscale := c.localscl / crun.localscl
 	eid := int32(-1)
 	idx := int(-1)
-	var expls []*Explod
 	rp := [2]int32{-1, 0}
 	remap := false
 	ptexists := false
@@ -6024,15 +6023,10 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 		return c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && !ptexists
 	}
 
+	var expls []*Explod
 	eachExpl := func(f func(e *Explod)) {
-		if idx < 0 {
-			for _, e := range expls {
-				if idx < 0 {
-					f(e)
-				}
-			}
-		} else if idx < len(expls) {
-			f(expls[idx])
+		for _, e := range expls {
+			f(e)
 		}
 	}
 
@@ -7721,15 +7715,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 	redirscale := c.localscl / crun.localscl
 	mpid := int32(-1)
 	mpidx := int(-1)
-	var projs []*Projectile
 
+	var projs []*Projectile
 	eachProj := func(f func(p *Projectile)) {
-		if mpidx < 0 {
-			for _, p := range projs {
-				f(p)
-			}
-		} else if mpidx < len(projs) {
-			f(projs[mpidx])
+		for _, p := range projs {
+			f(p)
 		}
 	}
 
@@ -12709,16 +12699,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 	}
 
 	tid := int32(-1)
-	idx := int32(-1)
-	var texts []*TextSprite
+	idx := int(-1)
 
+	var texts []*TextSprite
 	eachText := func(f func(ts *TextSprite)) {
-		if idx < 0 {
-			for _, ts := range texts {
-				f(ts)
-			}
-		} else if idx >= 0 && idx < int32(len(texts)) {
-			f(texts[idx])
+		for _, ts := range texts {
+			f(ts)
 		}
 	}
 
@@ -12727,19 +12713,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 		case text_id:
 			tid = exp[0].evalI(c)
 		case modifytext_index:
-			idx = exp[0].evalI(c)
+			idx = int(exp[0].evalI(c))
 		case modifytext_redirectid:
 			return true
 		default:
 			if len(texts) == 0 {
-				for _, ts := range sys.chartexts[crun.playerNo] {
-					if ts.ownerid != crun.id {
-						continue
-					}
-					if tid == -1 || ts.id == tid {
-						texts = append(texts, ts)
-					}
-				}
+				texts = crun.getMultipleTexts(tid, idx, true)
 				if len(texts) == 0 {
 					return false
 				}
@@ -13917,9 +13896,9 @@ const (
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 	bgid := int32(-1)
 	bgidx := int(-1)
-	var backgrounds []*backGround
 
 	// Helper function to modify each BG
+	var backgrounds []*backGround
 	eachBg := func(f func(bg *backGround)) {
 		for _, bg := range backgrounds {
 			f(bg)

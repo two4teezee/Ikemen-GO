@@ -1950,27 +1950,27 @@ function options.f_start()
 	-- The first entry in t_keyCfg is a "spacer" row. We want that row to sit *above* the visible clipping area.
 	-- To do that we keep the same window height, but slide the window down by one row of keymenu item spacing.
 	-- Only the Y offset matters here (X uses full screen width).
-	local keyWinOffsetY = motif.option_info.keymenu.p1.menuoffset[2] + motif.option_info.keymenu.menu.item.spacing[2]
-	local kw = main.f_menuWindow(motif.option_info.keymenu.menu, {0, keyWinOffsetY})
+	local keyWinOffsetY = motif.option_info.keymenu.p1.menuoffset[2] + motif.option_info.keymenu.item.spacing[2]
+	local kw = main.f_menuWindow(motif.option_info.keymenu, {0, keyWinOffsetY})
 	-- keep the window shifted down, but crop one row at the bottom
-	kw[4] = kw[4] - motif.option_info.keymenu.menu.item.spacing[2]
+	kw[4] = kw[4] - motif.option_info.keymenu.item.spacing[2]
 	-- base / selected label text
-	textImgSetWindow(motif.option_info.keymenu.menu.item.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.selected.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.selected.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
 	-- value text (normal / active / conflict)
-	textImgSetWindow(motif.option_info.keymenu.menu.item.value.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.value.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.value.conflict.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.info.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.info.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.value.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.value.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.value.conflict.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.info.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.info.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
 	-- selected / active label variants
-	textImgSetWindow(motif.option_info.keymenu.menu.item.selected.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-	textImgSetWindow(motif.option_info.keymenu.menu.item.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
-		-- item backgrounds share the same clipping window
-	for _, v in pairs(motif.option_info.keymenu.menu.item.bg) do
+	textImgSetWindow(motif.option_info.keymenu.item.selected.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	textImgSetWindow(motif.option_info.keymenu.item.active.TextSpriteData, kw[1], kw[2], kw[3], kw[4])
+	-- item backgrounds share the same clipping window
+	for _, v in pairs(motif.option_info.keymenu.item.bg) do
 		animSetWindow(v.AnimData, kw[1], kw[2], kw[3], kw[4])
 	end
-	for _, v in pairs(motif.option_info.keymenu.menu.item.active.bg) do
+	for _, v in pairs(motif.option_info.keymenu.item.active.bg) do
 		animSetWindow(v.AnimData, kw[1], kw[2], kw[3], kw[4])
 	end
 	-- log
@@ -1982,9 +1982,9 @@ end
 --;===========================================================
 local t_keyCfg = {}
 table.insert(t_keyCfg, {itemname = 'spacer', displayname = '-', paramname = 'spacer'})
-for _, v in ipairs(motif.option_info.keymenu.menu.itemname_order or {}) do
+for _, v in ipairs(motif.option_info.keymenu.itemname_order or {}) do
 	if main.t_defaultKeysMapping[v] ~= nil or v == "configall" then
-		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.menu.itemname[v] or '', paramname = v, infodisplay = ''})
+		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.itemname[v] or '', paramname = v, infodisplay = ''})
 	end
 end
 table.insert(t_keyCfg, {itemname = 'page', displayname = '', paramname = 'page', infodisplay = ''})
@@ -2158,7 +2158,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	local t = t_keyCfg
 	local side_before = side
 	-- Dynamically add/remove the "Rumble" option based on type
-	if motif.option_info.keymenu.menu.itemname.rumble ~= nil then
+	if motif.option_info.keymenu.itemname.rumble ~= nil then
 		if cfgType ~= 'Joystick' then
 			for k,v in ipairs(t) do
 				if t[k].itemname == 'rumble' then
@@ -2175,7 +2175,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				end
 			end
 			if not found then
-				table.insert(t, #t, {itemname = 'rumble', displayname = motif.option_info.keymenu.menu.itemname.rumble, paramname = 'rumble', infodisplay = ''})
+				table.insert(t, #t, {itemname = 'rumble', displayname = motif.option_info.keymenu.itemname.rumble, paramname = 'rumble', infodisplay = ''})
 				options.f_keyCfgReset(cfgType)
 			end
 		end
@@ -2312,7 +2312,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 	else
 		key = getKey()
 		--back
-		if esc() or getInput(-1, motif.option_info.menu.cancel.key) or (t[item].itemname == 'page' and (side == 1 or gameOption('Config.Players') <= 2) and getInput(-1, motif.option_info.keymenu.menu.done.key)) then
+		if esc() or getInput(-1, motif.option_info.menu.cancel.key) or (t[item].itemname == 'page' and (side == 1 or gameOption('Config.Players') <= 2) and getInput(-1, motif.option_info.keymenu.done.key)) then
 			if t_conflict[joyNum] then
 				if not main.f_warning(motif.warning_info.text.text.keys, motif.option_info, motif.optionbgdef) then
 					for i = 1, gameOption('Config.Players') do
@@ -2329,7 +2329,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				return false
 			end
 		--switch page
-		elseif gameOption('Config.Players') > 2 and ((t[item].itemname == 'page' and side == 2 and getInput(-1, motif.option_info.keymenu.menu.done.key)) or key == 'TAB') then
+		elseif gameOption('Config.Players') > 2 and ((t[item].itemname == 'page' and side == 2 and getInput(-1, motif.option_info.keymenu.done.key)) or key == 'TAB') then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			player = player + 2
 			if player > gameOption('Config.Players') then
@@ -2357,7 +2357,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				pn = tonumber(pn)
 				key = ''
 			end
-			if getInput(-1, motif.option_info.keymenu.menu.done.key) or (pn ~= nil and pn >= 1 and pn <= gameOption('Config.Players')) then
+			if getInput(-1, motif.option_info.keymenu.done.key) or (pn ~= nil and pn >= 1 and pn <= gameOption('Config.Players')) then
 				sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
 				if pn ~= nil then
 					player = pn
@@ -2378,7 +2378,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				end
 			end
 		-- Single-button assignment
-		elseif t_btnEnabled[t[item].itemname] and getInput(-1, motif.option_info.keymenu.menu.done.key) then
+		elseif t_btnEnabled[t[item].itemname] and getInput(-1, motif.option_info.keymenu.done.key) then
 			if cfgType == 'Joystick' and getJoystickPresent(joyNum) == false then
 				-- same behaviour as Config all when no gamepad is connected
 				main.f_warning(motif.warning_info.text.text.pad, motif.option_info, motif.optionbgdef)
@@ -2401,7 +2401,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			end
 		-- Rumble toggle
 		elseif t[item].itemname == 'rumble' then
-			if getInput(-1, motif.option_info.keymenu.menu.done.key) then
+			if getInput(-1, motif.option_info.keymenu.done.key) then
 				sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
 				local rgo = cfgType .. '_P' .. player .. '.RumbleOn'
 				local rumble = gameOption(rgo)
@@ -2415,7 +2415,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 
 	-- Reset active background animation when switching side
 	if side_before ~= side and t ~= nil and t[item] ~= nil then
-		local bgTable = motif.option_info.keymenu.menu.item.active.bg
+		local bgTable = motif.option_info.keymenu.item.active.bg
 		if bgTable ~= nil then
 			local params = bgTable[t[item].paramname] or bgTable.default
 			if params ~= nil and params.AnimData ~= nil then
@@ -2468,14 +2468,14 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				row.infodisplay = string.format(motif.option_info.menu.valuename.f, pane + player - side)
 			elseif base.itemname == 'page' then
 				if pane == 1 then
-					row.displayname = motif.option_info.keymenu.menu.itemname.back
+					row.displayname = motif.option_info.keymenu.itemname.back
 					row.infodisplay = motif.option_info.menu.valuename.esc
 				else
 					if gameOption('Config.Players') > 2 then
-						row.displayname = motif.option_info.keymenu.menu.itemname.page
+						row.displayname = motif.option_info.keymenu.itemname.page
 						row.infodisplay = motif.option_info.menu.valuename.page
 					else
-						row.displayname = motif.option_info.keymenu.menu.itemname.back
+						row.displayname = motif.option_info.keymenu.itemname.back
 						row.infodisplay = motif.option_info.menu.valuename.esc
 					end
 				end

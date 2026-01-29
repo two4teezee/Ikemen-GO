@@ -3284,12 +3284,24 @@ func systemScriptInit(l *lua.LState) {
 			seenFlat := map[string]bool{}     // exact items we've added (e.g. "menuversus_back")
 			seenBase := map[string]bool{}     // leafs seen among added items (e.g. "arcade", "survival")
 			disabledFlat := map[string]bool{} // exact items disabled
+			disabledBase := map[string]bool{} // leaf/suffix disabled via any user empty assignment
 
 			// Pre-seed disabledFlat with user-disabled keys so descendant suppression works
 			// even if children appear before the disabled parent key in INI ordering.
+			enabledBase := map[string]bool{}
+			userDisabledBase := map[string]bool{}
 			for _, e := range user {
 				if e.disabled {
 					disabledFlat[e.flat] = true
+					userDisabledBase[e.base] = true
+				} else {
+					enabledBase[e.base] = true
+				}
+			}
+			for b := range userDisabledBase {
+				// Only treat the leaf as globally disabled if the non-empty value for the same leaf is not defined somewhere else.
+				if !enabledBase[b] {
+					disabledBase[b] = true
 				}
 			}
 
@@ -3308,6 +3320,10 @@ func systemScriptInit(l *lua.LState) {
 				for _, e := range arr {
 					if e.disabled {
 						disabledFlat[e.flat] = true
+						continue
+					}
+					// If the user disabled this leaf via any suffix match, suppress default entries for it.
+					if isDefault && disabledBase[e.base] {
 						continue
 					}
 					// If this key is disabled (directly) or is a descendant of a disabled submenu, skip it.

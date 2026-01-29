@@ -2067,26 +2067,35 @@ func (e *Explod) update(playerNo int) {
 	// Set drawing position
 	drawpos := [2]float32{e.interPos[0] * e.localscl, e.interPos[1] * e.localscl}
 
-	// Set scale
-	// Mugen uses "localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord
-	drawscale := [2]float32{
-		facing * scale[0] * (320 / e.localcoord),
-		e.vfacing * scale[1] * (320 / e.localcoord),
-	}
+	// Init z-scale. Explods only need a local variable for this
+	// TODO: ExplodVar zscale?
+	zscale := float32(1.0)
 
 	// Apply Z axis perspective
 	if e.space == Space_stage && sys.zEnabled() {
-		zscale := sys.updateZScale(e.interPos[2], e.localscl)
+		zscale = sys.updateZScale(e.interPos[2], e.localscl)
 		drawpos = sys.drawposXYfromZ(drawpos, e.localscl, e.interPos[2], zscale)
-		drawscale[0] *= zscale
-		drawscale[1] *= zscale
 	}
 
+	// Calculate base scale
+	// Mugen uses "e.localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord
+	basescale := [2]float32{
+		(320 / e.localcoord) * zscale * facing,
+		(320 / e.localcoord) * zscale * e.vfacing, // Just for consistency with horizontal facing
+	}
+
+	// Calculate draw scale
+	drawscale := [2]float32{
+		basescale[0] * scale[0],
+		basescale[1] * scale[1],
+	}
+
+	// Calculate window scale
 	var ewin = [4]float32{
-		e.window[0] * drawscale[0],
-		e.window[1] * drawscale[1],
-		e.window[2] * drawscale[0],
-		e.window[3] * drawscale[1],
+		e.window[0] * basescale[0],
+		e.window[1] * basescale[1],
+		e.window[2] * basescale[0],
+		e.window[3] * basescale[1],
 	}
 
 	// Add sprite to draw list
@@ -2710,14 +2719,14 @@ func (p *Projectile) cueDraw() {
 		if frm := p.anim.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
-					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
-					p.clsnScale[1]*p.localscl*p.zScale,
+					p.clsnScale[0]*p.localscl*p.facing,
+					p.clsnScale[1]*p.localscl,
 					p.clsnAngle*p.facing)
 			}
 			if clsn := frm.Clsn2; clsn != nil && len(clsn) > 0 {
 				sys.debugc2hb.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
-					p.clsnScale[0]*p.localscl*p.facing*p.zScale,
-					p.clsnScale[1]*p.localscl*p.zScale,
+					p.clsnScale[0]*p.localscl*p.facing,
+					p.clsnScale[1]*p.localscl,
 					p.clsnAngle*p.facing)
 			}
 		}
@@ -2732,11 +2741,17 @@ func (p *Projectile) cueDraw() {
 	// Set position
 	pos := [2]float32{p.interPos[0] * p.localscl, p.interPos[1] * p.localscl}
 
-	// Set scale
-	// Mugen uses "localscl" instead of "320 / e.localcoord" but that makes the scale jump in custom states of different localcoord
+	// Calculate base scale
+	// Mugen uses "p.localscl" instead of "320 / p.localcoord" but that makes the scale jump in custom states of different localcoord
+	basescale := [2]float32{
+		(320 / p.localcoord) * p.zScale * p.facing,
+		(320 / p.localcoord) * p.zScale,
+	}
+
+	// Calculate draw scale
 	drawscale := [2]float32{
-		p.facing * p.scale[0] * p.zScale * (320 / p.localcoord),
-		p.scale[1] * p.zScale * (320 / p.localcoord),
+		basescale[0] * p.scale[0],
+		basescale[1] * p.scale[1],
 	}
 
 	// Apply Z axis perspective
@@ -2769,10 +2784,10 @@ func (p *Projectile) cueDraw() {
 	}
 
 	var pwin = [4]float32{
-		p.window[0] * drawscale[0],
-		p.window[1] * drawscale[1],
-		p.window[2] * drawscale[0],
-		p.window[3] * drawscale[1],
+		p.window[0] * basescale[0],
+		p.window[1] * basescale[1],
+		p.window[2] * basescale[0],
+		p.window[3] * basescale[1],
 	}
 
 	if p.anim != nil {
@@ -7350,18 +7365,18 @@ func (c *Char) updateClsnScale() {
 	// Update base scale
 	if c.ownclsnscale && c.animPN == c.playerNo {
 		// Helper parameter. Use own scale instead of animation owner's
-		c.clsnBaseScale = [...]float32{c.size.xscale, c.size.yscale}
+		c.clsnBaseScale = [2]float32{c.size.xscale, c.size.yscale}
 	} else if c.animPN >= 0 && c.animPN < len(sys.chars) && len(sys.chars[c.animPN]) > 0 {
 		// Index range checks. Prevents crashing if chars don't have animations
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/1982
 		// The char's base Clsn scale is based on the animation owner's scale constants
-		c.clsnBaseScale = [...]float32{
+		c.clsnBaseScale = [2]float32{
 			sys.chars[c.animPN][0].size.xscale,
 			sys.chars[c.animPN][0].size.yscale,
 		}
 	} else {
 		// Normally not used. Just a safeguard
-		c.clsnBaseScale = [...]float32{1.0, 1.0}
+		c.clsnBaseScale = [2]float32{1.0, 1.0}
 	}
 	// Calculate final scale
 	// Clsn and size box scale used to factor zScale here, but they shouldn't
@@ -12009,9 +12024,17 @@ func (c *Char) cueDraw() {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
 			c.interPos[1]*c.localscl + c.offsetY()*c.localscl}
 
+		// Calculate base scale
+		// The scale that exists even in a blank slate character
+		basescale := [2]float32{
+			(320 / c.localcoord) * c.zScale * c.facing,
+			(320 / c.localcoord) * c.zScale,
+		}
+
+		// Calculate draw scale
 		drawscale := [2]float32{
-			c.facing * c.size.xscale * c.angleDrawScale[0] * c.zScale * (320 / c.localcoord),
-			c.size.yscale * c.angleDrawScale[1] * c.zScale * (320 / c.localcoord),
+			basescale[0] * c.size.xscale * c.angleDrawScale[0],
+			basescale[1] * c.size.yscale * c.angleDrawScale[1],
 		}
 
 		// Apply Z axis perspective
@@ -12067,10 +12090,10 @@ func (c *Char) cueDraw() {
 		}
 
 		var cwin = [4]float32{
-			c.window[0] * drawscale[0],
-			c.window[1] * drawscale[1],
-			c.window[2] * drawscale[0],
-			c.window[3] * drawscale[1],
+			c.window[0] * basescale[0],
+			c.window[1] * basescale[1],
+			c.window[2] * basescale[0],
+			c.window[3] * basescale[1],
 		}
 
 		// Use animation backup if char used ChangeAnim during hitpause

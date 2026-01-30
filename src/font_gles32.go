@@ -91,7 +91,7 @@ func (f *Font_GLES32) UpdateResolution(windowWidth int, windowHeight int) {
 // Printf draws a string to the screen, takes a list of arguments like printf
 func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 	indices := []rune(fmt.Sprintf(fs, argv...))
-	r := gfx.(*Renderer_GL32)
+	r := gfx.(*Renderer_GLES32)
 
 	if len(indices) == 0 {
 		return nil

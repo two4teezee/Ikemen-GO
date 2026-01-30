@@ -450,10 +450,10 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 }
 
 func Pal32ToBytes(pal []uint32) []byte {
-    if len(pal) == 0 {
-        return nil
-    }
-    return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
+	if len(pal) == 0 {
+		return nil
+	}
+	return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
 }
 
 func NewTextureFromPalette(pal []uint32) Texture {
@@ -718,7 +718,7 @@ func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 		return s.Pal
 	}
 	// Fetch from the global palette list
-	return pl.Get(int(s.palidx)) 
+	return pl.Get(int(s.palidx))
 }
 
 // Returns the shared global texture

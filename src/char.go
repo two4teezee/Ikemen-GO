@@ -12332,7 +12332,7 @@ func (cl *CharList) delete(dc *Char) {
 	for i, c := range cl.creationOrder {
 		if c == dc {
 			cl.creationOrder = SliceDelete(cl.creationOrder, i)
-			break 
+			break
 		}
 	}
 

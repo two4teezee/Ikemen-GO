@@ -2400,7 +2400,7 @@ func (s *System) charTextsUpdate() {
 func (s *System) charTextsPrune(pn int) {
 	playerTexts := s.chartexts[pn]
 	writeIdx := 0
-	
+
 	for j := 0; j < len(playerTexts); j++ {
 		// Keep only valid texts
 		if playerTexts[j].removetime != 0 {
@@ -2908,7 +2908,6 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw motif layer 0
 		s.motif.draw(0)
 	}
-
 
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {

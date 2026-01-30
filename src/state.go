@@ -215,15 +215,15 @@ type GameState struct {
 	//debugDisplay            bool
 
 	// New 11/04/2022 all UIT
-	timerStart      int32
-	timerRounds     []int32
-	teamLeader      [2]int
-	stage           *Stage
-	postMatchFlg    bool
-	scoreStart      [2]float32
-	scoreRounds     [][2]float32
-	decisiveRound   [2]bool
-	sel             Select
+	timerStart    int32
+	timerRounds   []int32
+	teamLeader    [2]int
+	stage         *Stage
+	postMatchFlg  bool
+	scoreStart    [2]float32
+	scoreRounds   [][2]float32
+	decisiveRound [2]bool
+	sel           Select
 	//stringPool      [MaxPlayerNo]StringPool // Only mutated while compiling
 	dialogueFlg     bool
 	gameMode        string

@@ -1084,7 +1084,8 @@ func (s *System) stepCommandLists() {
 		if i >= 0 && i < len(s.commandInputSource) {
 			controller = s.commandInputSource[i]
 		}
-		if cl.InputUpdate(nil, controller, 0, true) {
+		// Step commands only if the buffer has already stepped. Prevents rapid fire inputs
+		if cl.InputUpdate(nil, controller) {
 			cl.Step(false, false, false, false, 0)
 		}
 	}

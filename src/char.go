@@ -12384,7 +12384,7 @@ func (cl *CharList) commandUpdate() {
 					continue
 				}
 				if (c.helperIndex == 0 || c.helperIndex > 0 && &c.cmd[0] != &root.cmd[0]) &&
-					c.cmd[0].InputUpdate(c, c.controller, sys.aiLevel[i], false) {
+					c.cmd[0].InputUpdate(c, c.controller) {
 					// Clear input buffers and skip the rest of the loop
 					// This used to apply only to the root, but that caused some issues with helper-based custom input systems
 					if c.inputWait() || c.asf(ASF_noinput) {

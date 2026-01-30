@@ -1773,8 +1773,8 @@ func systemScriptInit(l *lua.LState) {
 		if cl.Buffer != nil {
 			buf = cl.Buffer
 		}
-		fmt.Printf("%s *CommandList=%p ControllerNo=%d Names=%d Groups=%d Buffer=%p\n",
-			str, cl, cl.ControllerNo, len(cl.Names), len(cl.Commands), buf)
+		fmt.Printf("%s *CommandList=%p Names=%d Groups=%d Buffer=%p\n",
+			str, cl, len(cl.Names), len(cl.Commands), buf)
 		for name, idx := range cl.Names {
 			if idx < 0 || idx >= len(cl.Commands) {
 				fmt.Printf("%s  %q idx=%d (out of range)\n", str, name, idx)
@@ -1811,19 +1811,19 @@ func systemScriptInit(l *lua.LState) {
 			return 0 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		controller := int(numArg(l, 2)) - 1
-		if cl.InputUpdate(nil, controller, 0, true) {
+		if cl.InputUpdate(nil, controller) {
 			cl.Step(false, false, false, false, 0)
 		}
 		return 0
 	})
 	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		var controllerNo int32
+		var controllerNo int
 		if !nilArg(l, 1) {
-			controllerNo = int32(numArg(l, 1))
+			controllerNo = int(numArg(l, 1))
 		}
-		cl := NewCommandList(NewInputBuffer(), controllerNo)
+		cl := NewCommandList(NewInputBuffer())
 		if controllerNo > 0 {
-			idx := int(controllerNo - 1) // 0-based index
+			idx := controllerNo - 1 // 0-based index
 			// Grow sys.commandLists if needed
 			if idx >= len(sys.commandLists) {
 				tmp := make([]*CommandList, idx+1)

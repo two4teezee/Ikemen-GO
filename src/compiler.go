@@ -7782,14 +7782,16 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	lines, i = SplitAndTrim(str, "\n"), 0
 
 	// Initialize command list data
-	if sys.chars[pn][0].cmd == nil {
-		sys.chars[pn][0].cmd = make([]CommandList, MaxPlayerNo)
-		b := NewInputBuffer()
-		for i := range sys.chars[pn][0].cmd {
-			sys.chars[pn][0].cmd[i] = *NewCommandList(b, -1)
+	char := sys.chars[pn][0]
+	if char.cmd == nil {
+		char.cmd = make([]CommandList, MaxPlayerNo)
+		// Create one single input buffer and link it to all command lists
+		buffer := NewInputBuffer()
+		for i := range char.cmd {
+			char.cmd[i] = *NewCommandList(buffer)
 		}
 	}
-	c.cmdl = &sys.chars[pn][0].cmd[pn]
+	c.cmdl = &char.cmd[pn]
 	remap, defaults, ckr := true, true, NewCommandKeyRemap()
 
 	var cmds []IniSection

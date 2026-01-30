@@ -1734,10 +1734,8 @@ func (s *System) restoreAllVolume() {
 	}
 }
 
-func (s *System) clearAllSound() {
-	s.soundChannels.StopAll()
+func (s *System) clearMatchSound() {
 	s.stopAllCharSound()
-	s.soundMixer.Clear()
 	// Quiesce stage videos so no background decoding continues while mixer is empty,
 	// and mark them as detached so SetPlaying(true) can re-attach next frame.
 	if s.stage != nil {
@@ -1749,6 +1747,12 @@ func (s *System) clearAllSound() {
 			}
 		}
 	}
+}
+
+func (s *System) clearAllSound() {
+	s.soundChannels.StopAll()
+	s.soundMixer.Clear()
+	s.clearMatchSound()
 }
 
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds
@@ -2755,12 +2759,11 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw character sprites with special under flag
 		s.spritesLayerU.draw(x, y, scl*s.cam.BaseScale())
 
-		// Draw lifebar layers -1 and 0
+		// Draw lifebar layer -1
 		s.lifebar.draw(-1)
-		s.lifebar.draw(0)
 
-		// Draw motif layer 0
-		s.motif.draw(0)
+		// Draw motif layer -1
+		s.motif.draw(-1)
 
 		// Draw shadows
 		// Draw reflections on layer 0
@@ -2805,6 +2808,12 @@ func (s *System) draw(x, y, scl float32) {
 		//	rect[0] = s.scrrect[2] - rect[2]
 		//	fade(rect, 0, 255)
 		//}
+
+		// Draw lifebar layer 0
+		s.lifebar.draw(0)
+
+		// Draw motif layer 0
+		s.motif.draw(0)
 	}
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {

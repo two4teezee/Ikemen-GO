@@ -1734,10 +1734,8 @@ func (s *System) restoreAllVolume() {
 	}
 }
 
-func (s *System) clearAllSound() {
-	s.soundChannels.StopAll()
+func (s *System) clearMatchSound() {
 	s.stopAllCharSound()
-	s.soundMixer.Clear()
 	// Quiesce stage videos so no background decoding continues while mixer is empty,
 	// and mark them as detached so SetPlaying(true) can re-attach next frame.
 	if s.stage != nil {
@@ -1749,6 +1747,12 @@ func (s *System) clearAllSound() {
 			}
 		}
 	}
+}
+
+func (s *System) clearAllSound() {
+	s.soundChannels.StopAll()
+	s.soundMixer.Clear()
+	s.clearMatchSound()
 }
 
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds

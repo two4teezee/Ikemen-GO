@@ -2420,7 +2420,7 @@ func systemScriptInit(l *lua.LState) {
 					sys.bgm.Stop()
 					sys.playBgmFlg = false
 				}
-				sys.clearAllSound()
+				sys.clearMatchSound()
 				sys.allPalFX = newPalFX()
 				sys.bgPalFX = newPalFX()
 				sys.resetGblEffect()

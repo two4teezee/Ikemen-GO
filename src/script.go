@@ -1319,7 +1319,7 @@ func systemScriptInit(l *lua.LState) {
 			}
 		})
 		a.anim.palettedata.SetSource(pal, palData)
-		a.anim.palettedata.PalTex[pal] = PaletteToTexture(palData)
+		a.anim.palettedata.PalTex[pal] = NewTextureFromPalette(palData)
 		return 0
 	})
 	luaRegister(l, "animSetScale", func(*lua.LState) int {
@@ -1773,8 +1773,8 @@ func systemScriptInit(l *lua.LState) {
 		if cl.Buffer != nil {
 			buf = cl.Buffer
 		}
-		fmt.Printf("%s *CommandList=%p ControllerNo=%d Names=%d Groups=%d Buffer=%p\n",
-			str, cl, cl.ControllerNo, len(cl.Names), len(cl.Commands), buf)
+		fmt.Printf("%s *CommandList=%p Names=%d Groups=%d Buffer=%p\n",
+			str, cl, len(cl.Names), len(cl.Commands), buf)
 		for name, idx := range cl.Names {
 			if idx < 0 || idx >= len(cl.Commands) {
 				fmt.Printf("%s  %q idx=%d (out of range)\n", str, name, idx)
@@ -1811,19 +1811,19 @@ func systemScriptInit(l *lua.LState) {
 			return 0 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
 		controller := int(numArg(l, 2)) - 1
-		if cl.InputUpdate(nil, controller, 0, true) {
+		if cl.InputUpdate(nil, controller) {
 			cl.Step(false, false, false, false, 0)
 		}
 		return 0
 	})
 	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		var controllerNo int32
+		var controllerNo int
 		if !nilArg(l, 1) {
-			controllerNo = int32(numArg(l, 1))
+			controllerNo = int(numArg(l, 1))
 		}
-		cl := NewCommandList(NewInputBuffer(), controllerNo)
+		cl := NewCommandList(NewInputBuffer())
 		if controllerNo > 0 {
-			idx := int(controllerNo - 1) // 0-based index
+			idx := controllerNo - 1 // 0-based index
 			// Grow sys.commandLists if needed
 			if idx >= len(sys.commandLists) {
 				tmp := make([]*CommandList, idx+1)
@@ -3984,11 +3984,11 @@ func systemScriptInit(l *lua.LState) {
 		if !sys.frameSkip {
 			sys.luaFlushDrawQueue()
 			if sys.motif.fadeIn.isActive() {
-				BlendReset()
+				//BlendReset()
 				sys.motif.fadeIn.step()
 				sys.motif.fadeIn.draw()
 			} else if sys.motif.fadeOut.isActive() {
-				BlendReset()
+				//BlendReset()
 				sys.motif.fadeOut.step()
 				sys.motif.fadeOut.draw()
 			}
@@ -6068,7 +6068,7 @@ func triggerFunctions(l *lua.LState) {
 			case "drawpal index":
 				lv = lua.LNumber(sys.debugWC.explodDrawPal(e)[1])
 			case "facing":
-				lv = lua.LNumber(e.facing * e.relativef)
+				lv = lua.LNumber(e.trueFacing())
 			case "friction x":
 				lv = lua.LNumber(e.friction[0])
 			case "friction y":
@@ -6589,10 +6589,10 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.mhv.cornerpush_veloff)
 		case "frame":
 			lv = lua.LBool(c.mhv.frame)
-		case "playerid":
-			lv = lua.LNumber(c.mhv.playerid)
 		case "overridden":
 			lv = lua.LBool(c.mhv.overridden)
+		case "playerid":
+			lv = lua.LNumber(c.mhv.playerid)
 		case "playerno":
 			lv = lua.LNumber(c.mhv.playerno + 1)
 		case "sparkx":

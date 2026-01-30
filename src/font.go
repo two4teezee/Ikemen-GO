@@ -530,7 +530,7 @@ func (f *Fnt) drawChar(
 			f.lastPalBase = base
 		} else {
 			// first time seeing this palette: upload once and reuse
-			f.paltex = PaletteToTexture(pal)
+			f.paltex = NewTextureFromPalette(pal)
 			f.paltexCache[base] = f.paltex
 			f.lastPalBase = base
 		}
@@ -726,21 +726,42 @@ type TextSprite struct {
 }
 
 func NewTextSprite() *TextSprite {
-	ts := &TextSprite{
+	ts := &TextSprite{}
+	ts.loadDefaults()
+	return ts
+}
+
+// More like a reset but that name is taken
+func (ts *TextSprite) Clear() {
+	ts.loadDefaults()
+}
+
+func (ts *TextSprite) loadDefaults() {
+	pfx := ts.palfx
+	prm := ts.params[:0]
+
+	*ts = TextSprite{
 		id:         -1,
 		align:      1,
 		xscl:       1,
 		yscl:       1,
 		window:     sys.scrrect,
-		palfx:      newPalFX(),
 		frgba:      [...]float32{1.0, 1.0, 1.0, 1.0},
 		removetime: 1,
 		localScale: 1,
 		friction:   [2]float32{1.0, 1.0},
 		scaleInit:  [2]float32{1.0, 1.0},
 	}
+
+	ts.params = prm
+
+	if pfx == nil {
+		ts.palfx = newPalFX()
+	} else {
+		ts.palfx = pfx
+		ts.palfx.clear()
+	}
 	ts.palfx.setColor(255, 255, 255)
-	return ts
 }
 
 // Creates a shallow copy with independent palette mapping
@@ -1191,7 +1212,7 @@ func (ts *TextSprite) Update() {
 }
 
 func (ts *TextSprite) Draw(ln int16) {
-	if sys.frameSkip || ts.fnt == nil || len(ts.text) == 0 || ts.layerno != ln {
+	if sys.frameSkip || ts.layerno != ln || ts.fnt == nil || len(ts.text) == 0 {
 		return
 	}
 

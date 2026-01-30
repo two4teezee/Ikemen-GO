@@ -691,7 +691,7 @@ func OldSprintf(f string, a ...interface{}) (s string) {
 			b[i] = 'd'
 		}
 		for i := len(lIdx) - 1; i >= 0; i-- {
-			b = append(b[:lIdx[i]], b[lIdx[i]+1:]...)
+			b = SliceDelete(b, lIdx[i])
 		}
 		f = string(b)
 	}
@@ -1551,4 +1551,50 @@ func LowercaseNoExtension(filename string) string {
 		nameOnly = basename[0 : len(basename)-len(ext)]
 	}
 	return strings.ToLower(nameOnly)
+}
+
+// Similar to slices.delete but more thorough because it also nils/zeroes the removed item
+func SliceDelete[T any](slice []T, i int) []T {
+	if i < 0 || i >= len(slice) {
+		return slice
+	}
+	copy(slice[i:], slice[i+1:])
+	var zero T
+	slice[len(slice)-1] = zero // This only matters for pointers
+	return slice[:len(slice)-1]
+}
+
+// Nils out all elements and returns a zero-length slice while preserving the underlying capacity
+// This is better than plain [:0] because we ensure data from previous characters is GC'd
+func PointerSliceReset[T any](slice []*T) []*T {
+	for i := range slice {
+		slice[i] = nil
+	}
+	return slice[:0]
+}
+
+// Recovers a ghosted pointer from the slice capacity if available. Otherwise appends a new one
+// Effectively makes the capacity work as a pool of items
+func RecoverOrAppend[T any](slicePtr *[]*T, clearFunc func(*T), newFunc func() *T) *T {
+	slice := *slicePtr
+
+	// Try to recover ghost
+	if len(slice) < cap(slice) {
+		ghost := slice[:len(slice)+1][len(slice)]
+
+		if ghost != nil {
+			// Found a valid ghost. Reslice to recover it
+			*slicePtr = slice[:len(slice)+1]
+
+			// Clean it up for reuse
+			clearFunc(ghost)
+
+			return ghost
+		}
+	}
+
+	// Create new one and append
+	item := newFunc()
+	*slicePtr = append(*slicePtr, item)
+	return item
 }

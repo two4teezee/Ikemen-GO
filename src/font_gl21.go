@@ -94,6 +94,7 @@ func (f *Font_GL21) UpdateResolution(windowWidth int, windowHeight int) {
 func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 
 	indices := []rune(fmt.Sprintf(fs, argv...))
+	r := gfx.(*Renderer_GL21)
 
 	if len(indices) == 0 {
 		return nil
@@ -102,11 +103,9 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, ali
 	// Buffer to store vertex data for multiple glyphs
 	batchSize := Min(250, int32(len(indices)))
 	batchVertices := make([]float32, 0, batchSize*6*4)
+
 	//setup blending mode
-	gl.Enable(gl.BLEND)
-	if blend {
-		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
-	}
+	r.SetBlending(blend, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
 
 	//restrict drawing to a certain part of the window
 	gl.Enable(gl.SCISSOR_TEST)
@@ -114,7 +113,7 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, ali
 
 	// Activate corresponding render state
 	program := gfxFont.(*FontRenderer_GL21).shaderProgram
-	gl.UseProgram(program.program)
+	r.UseProgram(program.program)
 	//set text color
 	gl.Uniform4f(program.u["textColor"], f.color.r, f.color.g, f.color.b, f.color.a)
 	//set screen resolution
@@ -194,8 +193,8 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, ali
 	//clear opengl textures and programs
 	gl.BindVertexArray(0)
 	gl.BindTexture(gl.TEXTURE_2D, 0)
-	gl.UseProgram(0)
-	gl.Disable(gl.BLEND)
+	//gl.UseProgram(0)
+	//gl.Disable(gl.BLEND)
 	gl.Disable(gl.SCISSOR_TEST)
 
 	return nil

@@ -16,7 +16,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unsafe"
 
 	"github.com/gopxl/beep/v2"
 
@@ -215,6 +214,7 @@ type System struct {
 	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
+	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
 	spritesLayerN1          DrawList
 	spritesLayerU           DrawList
@@ -445,7 +445,7 @@ func (s *System) init(w, h int32) *lua.LState {
 		whitepal[i] = 0xffffffff // White (and full alpha)
 	}
 	s.whitePalTex = gfx.newPaletteTexture()
-	s.whitePalTex.SetData(pal32ToBytes(whitepal))
+	s.whitePalTex.SetData(Pal32ToBytes(whitepal))
 
 	systemScriptInit(l)
 	s.shortcutScripts = make(map[ShortcutKey]*ShortcutScript)
@@ -1084,7 +1084,8 @@ func (s *System) stepCommandLists() {
 		if i >= 0 && i < len(s.commandInputSource) {
 			controller = s.commandInputSource[i]
 		}
-		if cl.InputUpdate(nil, controller, 0, true) {
+		// Step commands only if the buffer has already stepped. Prevents rapid fire inputs
+		if cl.InputUpdate(nil, controller) {
 			cl.Step(false, false, false, false, 0)
 		}
 	}
@@ -1134,9 +1135,9 @@ func (s *System) playerIndex(idx int32) *Char {
 		return nil
 	}
 
-	// We will ignore destroyed helpers here, like Mugen redirections
+	// We will ignore destroyed helpers here, like Mugen redirections do
 	var searchIdx int32
-	for _, p := range sys.charList.runOrder {
+	for _, p := range sys.charList.creationOrder {
 		if p != nil && !p.csf(CSF_destroy) {
 			if searchIdx == idx {
 				return p
@@ -1758,31 +1759,37 @@ func (s *System) clearAllSound() {
 // Remove the player's explods, projectiles and (optionally) helpers as well as stopping their sounds
 func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	if len(s.chars[pn]) > 0 {
-		p := s.chars[pn][0]
+		// These aren't "assets" but we'll do it here
+		for _, c := range s.chars[pn] {
+			c.targets = c.targets[:0]
+			c.soundChannels.SetSize(0)
+		}
+
+		// Destroy helpers
 		for _, h := range s.chars[pn][1:] {
-			h.soundChannels.SetSize(0)
+			// F4 now destroys "preserve" helpers when reloading round start backup
 			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
-			if !h.preserve || forceDestroy { // F4 now destroys "preserve" helpers when reloading round start backup
+			if !h.preserve || forceDestroy {
 				h.destroy()
 			}
 		}
-		if forceDestroy {
-			p.children = p.children[:0]
-		} else {
-			for i, ch := range p.children {
-				if ch != nil {
-					//if ch.preserve == 0 || (s.roundResetFlg && ch.preserve == s.round) {
-					if !ch.preserve {
-						p.children[i] = nil
-					}
+
+		// Clear children "family tree"
+		// We only do this because helpers may be preserved
+		for _, c := range s.chars[pn] {
+			// Iterate backwards since we're removing items
+			for i := len(c.children) - 1; i >= 0; i-- {
+				if c.children[i].helperIndex < 0 {
+					c.children = SliceDelete(c.children, i)
 				}
 			}
 		}
-		p.targets = p.targets[:0]
-		p.soundChannels.SetSize(0)
 	}
-	s.projs[pn] = s.projs[pn][:0]
-	s.explods[pn] = s.explods[pn][:0]
+
+	// Clear projectiles, explods and text sprites
+	s.projs[pn] = PointerSliceReset(s.projs[pn])
+	s.explods[pn] = PointerSliceReset(s.explods[pn])
+	s.chartexts[pn] = PointerSliceReset(s.chartexts[pn])
 }
 
 func (s *System) resetRoundState() {
@@ -2012,17 +2019,7 @@ func (s *System) resetMatchData(assets bool) {
 func (s *System) charUpdate() {
 	s.charList.update()
 
-	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
-	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
-	// Update: Projectiles now work based on pointers, so we can go back to old loop format
-	for i := range s.projs {
-		for _, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.playerno = i // Safeguard
-				p.update()
-			}
-		}
-	}
+	s.projectileUpdate()
 
 	// Set global First Attack flag if either team got it
 	if s.firstAttack[0] >= 0 || s.firstAttack[1] >= 0 {
@@ -2034,9 +2031,7 @@ func (s *System) charUpdate() {
 func (s *System) globalCollision() {
 	for i := range s.projs {
 		for j, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.tradeDetection(i, j)
-			}
+			p.tradeDetection(i, j)
 		}
 	}
 
@@ -2089,6 +2084,7 @@ func (s *System) runIntroSkip() {
 	}
 }
 
+// TODO: Maybe these could get a more thorough clear between matches, to prevent holding onto previous character sprites
 func (s *System) clearSpriteData() {
 	// Main sprites
 	s.spritesLayerN1 = s.spritesLayerN1[:0]
@@ -2245,14 +2241,13 @@ func (s *System) action() {
 
 	for i := range s.projs {
 		for _, p := range s.projs[i] {
-			if p.id >= 0 {
-				p.cueDraw()
-			}
+			p.cueDraw()
 		}
 	}
 
 	s.charList.cueDraw()
 	s.explodUpdate()
+	s.charTextsUpdate()
 
 	// Adjust game speed
 	if s.tickNextFrame() {
@@ -2308,19 +2303,113 @@ func (s *System) action() {
 	return
 }
 
+// Update all projectiles for all players
+func (s *System) projectileUpdate() {
+	// Because sys.projs has actual values rather than pointers like sys.chars does, it's important to not copy its contents with range
+	// https://github.com/ikemen-engine/Ikemen-GO/discussions/1707
+	// Update: Projectiles now work based on pointers, so we can go back to old loop format
+	for i := range s.projs {
+		for _, p := range s.projs[i] {
+			p.update()
+		}
+	}
+
+	// Cleanup
+	for i := range s.projs {
+		s.projectilePrune(i)
+	}
+}
+
+// Remove a player's inactive projectiles
+// This method avoids pointer duplication bugs caused by the old "tempSlice" method
+func (s *System) projectilePrune(pn int) {
+	playerProjs := s.projs[pn]
+	writeIdx := 0
+
+	for j := 0; j < len(playerProjs); j++ {
+		// Keep only valid projectiles
+		if playerProjs[j].id >= 0 {
+			// Stable swap. Move live projectiles forward while respecting the original order
+			playerProjs[writeIdx], playerProjs[j] = playerProjs[j], playerProjs[writeIdx]
+			writeIdx++
+		}
+	}
+
+	// Shrink the slice to the new length
+	s.projs[pn] = playerProjs[:writeIdx]
+}
+
 // Update all explods for all players
 func (s *System) explodUpdate() {
-	for i, playerExplods := range s.explods {
-		tempSlice := playerExplods[:0] // Reuse backing array
-		for _, e := range playerExplods {
+	// Logic
+	for i := range s.explods {
+		for _, e := range s.explods[i] {
 			e.update(i)
-			// Keep only valid explods in the slice
-			if e.id != IErr {
-				tempSlice = append(tempSlice, e)
+		}
+	}
+
+	// Cleanup
+	for i := range s.explods {
+		s.explodPrune(i)
+	}
+}
+
+// Remove a player's inactive explods
+func (s *System) explodPrune(pn int) {
+	playerExplods := s.explods[pn]
+	writeIdx := 0
+
+	for j := 0; j < len(playerExplods); j++ {
+		// Keep only valid explods
+		if playerExplods[j].id != IErr {
+			playerExplods[writeIdx], playerExplods[j] = playerExplods[j], playerExplods[writeIdx]
+			writeIdx++
+		}
+	}
+
+	s.explods[pn] = playerExplods[:writeIdx]
+}
+
+// Update all texts for all players
+func (s *System) charTextsUpdate() {
+	// Explod timers update at this time, so we'll do the same here
+	//if !sys.tickNextFrame() {
+	// It looks like updating them at that time makes them flicker at lower game speeds
+	if !sys.tickFrame() {
+		return
+	}
+
+	// With texts we run the cleanup first. Otherwise a removetime of 1 disappears immediately
+	// The reason this is different from explods is that texts don't use a DrawList to buffer the sprites
+	for i := range s.chartexts {
+		s.charTextsPrune(i)
+	}
+
+	// Logic
+	for i := range s.chartexts {
+		for _, ts := range s.chartexts[i] {
+			ts.Update()
+			if ts.removetime > 0 {
+				ts.removetime--
 			}
 		}
-		s.explods[i] = tempSlice
 	}
+}
+
+// Remove a player's inactive texts
+func (s *System) charTextsPrune(pn int) {
+	playerTexts := s.chartexts[pn]
+	writeIdx := 0
+	
+	for j := 0; j < len(playerTexts); j++ {
+		// Keep only valid texts
+		if playerTexts[j].removetime != 0 {
+			playerTexts[writeIdx], playerTexts[j] = playerTexts[j], playerTexts[writeIdx]
+			writeIdx++
+		}
+	}
+
+	s.chartexts[pn] = playerTexts[:writeIdx]
 }
 
 func (s *System) globalTick() {
@@ -2329,9 +2418,7 @@ func (s *System) globalTick() {
 
 	for i := range s.projs {
 		for _, p := range s.projs[i] {
-			if p.id != IErr {
-				p.tick()
-			}
+			p.tick()
 		}
 	}
 
@@ -2697,8 +2784,6 @@ func (s *System) roundEndDecision() bool {
 }
 
 func (s *System) draw(x, y, scl float32) {
-	ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
-
 	s.brightnessOld = s.brightness
 	//s.brightness = 0x100 >> uint(Btoi(s.supertime > 0 && s.superdarken))
 	s.brightness = 1.0
@@ -2707,11 +2792,13 @@ func (s *System) draw(x, y, scl float32) {
 	}
 
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
+
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
 	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
 	//}
+
 	if s.envcol_time == 0 {
-		c := uint32(0)
+		fcol := uint32(0)
 
 		// Draw stage background fill if stage is disabled
 		if s.gsf(GSF_nobg) {
@@ -2723,9 +2810,9 @@ func (s *System) draw(x, y, scl float32) {
 				for i, v := range rgb {
 					rgb[i] = Clamp((v+s.allPalFX.eAdd[i])*s.allPalFX.eMul[i]>>8, 0, 0xff)
 				}
-				c = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
+				fcol = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
 			}
-			FillRect(s.scrrect, c, [2]int32{255, 0})
+			FillRect(s.scrrect, fcol, [2]int32{255, 0})
 		}
 
 		// Draw normal stage background fill and elements with layerNo == -1
@@ -2733,8 +2820,8 @@ func (s *System) draw(x, y, scl float32) {
 			if s.stage.debugbg {
 				FillRect(s.scrrect, 0xff00ff, [2]int32{255, 0})
 			} else {
-				c = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
-				FillRect(s.scrrect, c, [2]int32{255, 0})
+				fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
+				FillRect(s.scrrect, fcol, [2]int32{255, 0})
 			}
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
@@ -2761,6 +2848,9 @@ func (s *System) draw(x, y, scl float32) {
 
 		// Draw lifebar layer -1
 		s.lifebar.draw(-1)
+
+		// Draw char texts layer -1
+		s.drawCharTexts(-1)
 
 		// Draw motif layer -1
 		s.motif.draw(-1)
@@ -2812,11 +2902,17 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw lifebar layer 0
 		s.lifebar.draw(0)
 
+		// Draw char texts layer 0
+		s.drawCharTexts(0)
+
 		// Draw motif layer 0
 		s.motif.draw(0)
 	}
+
+
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
+		ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
 		FillRect(s.scrrect, ecol, [2]int32{255, 0})
 	}
 
@@ -2831,6 +2927,9 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw lifebar layer 1
 	s.lifebar.draw(1)
 
+	// Draw char texts layer 1
+	s.drawCharTexts(1)
+
 	// Draw motif layer 1
 	s.motif.draw(1)
 
@@ -2840,6 +2939,9 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw lifebar layer 2
 	s.lifebar.draw(2)
 
+	// Draw char texts layer 2
+	s.drawCharTexts(2)
+
 	// Draw motif layer 2
 	s.motif.draw(2)
 
@@ -2847,32 +2949,56 @@ func (s *System) draw(x, y, scl float32) {
 	s.motif.draw(3)
 }
 
+func (s *System) drawCharTexts(layerno int16) {
+	for _, playerTexts := range s.chartexts {
+		for _, ts := range playerTexts {
+			ts.Draw(layerno)
+		}
+	}
+}
+
 func (s *System) drawTop() {
-	BlendReset()
+	//BlendReset()
 
 	s.brightness = s.brightnessOld
+
 	// Draw Clsn boxes
 	if s.clsnDisplay {
 		alpha := [2]int32{255, 255}
-		s.clsnSpr.Pal[0] = 0xff0000ff
+		// Change the first color of the Clsn sprite
+		setColor := func(color uint32) {
+			s.clsnSpr.Pal[0] = color
+			s.clsnSpr.updatePaletteTexture(s.clsnSpr.Pal)
+		}
+		// Clsn1 HitDef
+		setColor(0xff0000ff)
 		s.debugc1hit.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff0040c0
+		// Clsn1 ReversalDef
+		setColor(0xff0040c0)
 		s.debugc1rev.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff000080
+		// Clsn1 Inactive
+		setColor(0xff000080)
 		s.debugc1not.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffff0000
+		// Clsn2
+		setColor(0xffff0000)
 		s.debugc2.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff808000
+		// Clsn2 HitBy
+		setColor(0xff808000)
 		s.debugc2hb.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff004000
+		// Clsn2 Invincible
+		setColor(0xff004000)
 		s.debugc2mtk.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffc00040
+		// Clsn2 Guarding
+		setColor(0xffc00040)
 		s.debugc2grd.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff404040
+		// Clsn2 Standby
+		setColor(0xff404040)
 		s.debugc2stb.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xff303030
+		// Size
+		setColor(0xff303030)
 		s.debugcsize.draw(alpha)
-		s.clsnSpr.Pal[0] = 0xffffffff
+		// Crosshair
+		setColor(0xffffffff)
 		s.debugch.draw(alpha)
 	}
 }
@@ -3003,7 +3129,8 @@ func (s *System) runMatch() (reload bool) {
 		s.allPalFX.enable = false
 		for i, p := range s.chars {
 			if len(p) > 0 {
-				s.clearPlayerAssets(i, s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0))
+				forceDestroy := s.matchOver() || (s.tmode[i&1] == TM_Turns && p[0].life <= 0)
+				s.clearPlayerAssets(i, forceDestroy)
 			}
 		}
 	}()
@@ -4732,8 +4859,4 @@ func (es *EnvShake) getOffset() [2]float32 {
 			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
-}
-
-func pal32ToBytes(pal []uint32) []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
 }

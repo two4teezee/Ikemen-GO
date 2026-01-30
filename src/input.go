@@ -3244,7 +3244,7 @@ func (c *Command) Step(ibuf *InputBuffer, ai, isHelper, hpbuf, pausebuf bool, ex
 // Command List refers to the entire set of a character's commands
 // Each player has multiple lists: one with its own commands, and a copy of each other player's lists
 type CommandList struct {
-	Buffer                *InputBuffer // TODO: This should exist higher up in the character. Is probably here because of current menu implementation
+	Buffer                *InputBuffer
 	Names                 map[string]int
 	Commands              [][]Command // [name][commands]
 	DefaultTime           int32
@@ -3254,21 +3254,19 @@ type CommandList struct {
 	DefaultBufferHitpause bool
 	DefaultBufferPauseEnd bool
 	DefaultBufferShared   bool
-	ControllerNo          int32
 }
 
-func NewCommandList(cb *InputBuffer, cn int32) *CommandList {
+func NewCommandList(cb *InputBuffer) *CommandList {
 	return &CommandList{
 		Buffer:                cb,
 		Names:                 make(map[string]int),
 		DefaultTime:           15,
-		DefaultStepTime:       -1, // Undefined. Later defaults to same as time. Maybe this should be 15 as well
+		DefaultStepTime:       -1, // Undefined. Later defaults to same as time
 		DefaultAutoGreater:    true,
 		DefaultBufferTime:     1,
 		DefaultBufferHitpause: true,
 		DefaultBufferPauseEnd: true,
 		DefaultBufferShared:   true,
-		ControllerNo:          cn,
 	}
 }
 
@@ -3307,54 +3305,28 @@ func (cl *CommandList) AddCommand(
 }
 
 // Read inputs from the correct source (local, AI, net or replay) in order to update the input buffer
-func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32, script bool) bool {
+func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 	if cl.Buffer == nil {
 		return false
 	}
 
-	var aijam, flipbf bool
-	var ibit InputBits
-	var shifting [][2]int
-
-	// Get char parameters
-	if owner != nil {
-		//controller := owner.controller // We need this one as an argument because of currect script architecture
-		flipbf = owner.fbFlip
-		aijam = !owner.asf(ASF_noaibuttonjam)
-		ibit = owner.inputFlag
-		shifting = owner.inputShift
-	}
-
-	// With scripts we bypass most flags
-	if script {
-		flipbf = false
-		aijam = false
-		ibit = 0
-		shifting = nil
-	}
-
-	// This check is currently needed to prevent screenpack inputs from rapid firing
-	// Previously it was checked outside of screenpacks as well, but that caused 1 frame delay in several places of the code
-	// Such as making players wait one frame after creation to input anything or a continuous NoInput flag only resetting the buffer every two frames
-	// https://github.com/ikemen-engine/Ikemen-GO/issues/1201 and https://github.com/ikemen-engine/Ikemen-GO/issues/2203
-	step := true
-	if script {
-		step = cl.Buffer.Bb != 0
-	}
-
 	isAI := controller < 0
+
+	// Needed for motif
+	hadStepped := cl.Buffer.Ub != 0 || cl.Buffer.Db != 0 || cl.Buffer.Lb != 0 || cl.Buffer.Rb != 0
 
 	var buttons [14]bool
 	var axes [6]float32
 
 	if isAI {
-		if aijam {
+		if char != nil && !char.asf(ASF_noaibuttonjam) {
 			// Since AI inputs use random numbers, we handle them locally to avoid desync
 			idx := ^controller
 			if idx >= 0 && idx < len(sys.aiInput) {
+				aiLevel := sys.aiLevel[char.playerNo]
 				sys.aiInput[idx].Update(aiLevel)
 				buttons = sys.aiInput[idx].Buttons()
-				owner.analogAxes = [6]float32{0, 0, 0, 0, 0, 0}
+				char.analogAxes = [6]float32{0, 0, 0, 0, 0, 0}
 			}
 		}
 	} else if sys.replayFile != nil {
@@ -3390,92 +3362,101 @@ func (cl *CommandList) InputUpdate(owner *Char, controller int, aiLevel float32,
 	a, b, c := buttons[4], buttons[5], buttons[6]
 	x, y, z := buttons[7], buttons[8], buttons[9]
 	s, d, w, m := buttons[10], buttons[11], buttons[12], buttons[13]
+	B, F := L, R
 
-	// AssertInput flags
-	// Skips button assist. Respects SOCD
-	if ibit > 0 {
-		U = U || ibit&IB_PU != 0
-		D = D || ibit&IB_PD != 0
-		L = L || ibit&IB_PL != 0
-		R = R || ibit&IB_PR != 0
-		a = a || ibit&IB_A != 0
-		b = b || ibit&IB_B != 0
-		c = c || ibit&IB_C != 0
-		x = x || ibit&IB_X != 0
-		y = y || ibit&IB_Y != 0
-		z = z || ibit&IB_Z != 0
-		s = s || ibit&IB_S != 0
-		d = d || ibit&IB_D != 0
-		w = w || ibit&IB_W != 0
-		m = m || ibit&IB_M != 0
-	}
-
-	// Apply ShiftInput
-	if shifting != nil {
-		// Collect current input states and prepare remap states
-		inputs := []bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
-		output := make([]bool, len(inputs))
-
-		// Use a map for fast lookup
-		swapMap := make(map[int]int)
-		for _, pair := range shifting {
-			src, dst := pair[0], pair[1]
-			swapMap[src] = dst
+	// Character-specific features
+	if char != nil {
+		// AssertInput flags
+		// Skips button assist. Respects SOCD
+		ibit := char.inputFlag
+		if ibit > 0 {
+			U = U || ibit&IB_PU != 0
+			D = D || ibit&IB_PD != 0
+			L = L || ibit&IB_PL != 0
+			R = R || ibit&IB_PR != 0
+			a = a || ibit&IB_A != 0
+			b = b || ibit&IB_B != 0
+			c = c || ibit&IB_C != 0
+			x = x || ibit&IB_X != 0
+			y = y || ibit&IB_Y != 0
+			z = z || ibit&IB_Z != 0
+			s = s || ibit&IB_S != 0
+			d = d || ibit&IB_D != 0
+			w = w || ibit&IB_W != 0
+			m = m || ibit&IB_M != 0
 		}
 
-		// Apply remapping logic to active keys
-		for i, active := range inputs {
-			if !active {
-				continue
+		// Apply ShiftInput
+		if char.inputShift != nil {
+			// Collect current input states and prepare remap states
+			inputs := []bool{U, D, L, R, a, b, c, x, y, z, s, d, w, m}
+			output := make([]bool, len(inputs))
+
+			// Use a map for fast lookup
+			swapMap := make(map[int]int)
+			for _, pair := range char.inputShift {
+				src, dst := pair[0], pair[1]
+				swapMap[src] = dst
 			}
-			// If current key has a remap, use it
-			if dst, ok := swapMap[i]; ok {
-				if dst >= 0 && dst < len(output) {
-					output[dst] = true // Apply remap to output
+
+			// Apply remapping logic to active keys
+			for i, active := range inputs {
+				if !active {
+					continue
 				}
-				// Negative dest disables input, so do nothing
-			} else {
-				output[i] = true // No remap, retain original input
+				// If current key has a remap, use it
+				if dst, ok := swapMap[i]; ok {
+					if dst >= 0 && dst < len(output) {
+						output[dst] = true // Apply remap to output
+					}
+					// Negative dest disables input, so do nothing
+				} else {
+					output[i] = true // No remap, retain original input
+				}
 			}
+
+			// Assign back to input variables
+			U, D, L, R = output[0], output[1], output[2], output[3]
+			a, b, c, x, y, z = output[4], output[5], output[6], output[7], output[8], output[9]
+			s, d, w, m = output[10], output[11], output[12], output[13]
 		}
 
-		// Assign back to input variables
-		U, D, L, R = output[0], output[1], output[2], output[3]
-		a, b, c, x, y, z = output[4], output[5], output[6], output[7], output[8], output[9]
-		s, d, w, m = output[10], output[11], output[12], output[13]
-	}
+		// Get B and F from L and R for SOCD resolution
+		if char.fbFlip {
+			B, F = R, L
+		} else {
+			B, F = L, R
+		}
 
-	// Get B and F from L and R for SOCD resolution
-	var B, F bool
-	if flipbf {
-		B, F = R, L
-	} else {
-		B, F = L, R
-	}
+		// Resolve SOCD for U/D and B/F
+		U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
 
-	// Resolve SOCD for U/D and B/F
-	U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
+		// Get L and R back from B and F
+		if char.fbFlip {
+			L, R = F, B
+		} else {
+			L, R = B, F
+		}
 
-	// Get L and R back from B and F
-	if flipbf {
-		L, R = F, B
-	} else {
-		L, R = B, F
+		// Update analog axes
+		for i := 0; i < len(axes); i++ {
+			char.analogAxes[i] = axes[i]
+		}
 	}
 
 	// Send final inputs to buffer
 	cl.Buffer.updateInputTime(U, D, L, R, B, F, a, b, c, x, y, z, s, d, w, m)
 
-	// Update analog axes
-	if owner != nil {
-		for i := 0; i < len(axes); i++ {
-			owner.analogAxes[i] = axes[i]
-		}
+	// This check is currently needed to prevent screenpack inputs from rapid firing
+	// It forces the command list update to wait one frame after a buffer reset
+	// Previously it was checked outside of screenpacks as well, but that caused 1 frame delay in several places of the code
+	// Such as making players wait one frame after creation to input anything or a continuous NoInput flag only resetting the buffer every two frames
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1201 and https://github.com/ikemen-engine/Ikemen-GO/issues/2203
+	if char == nil {
+		return hadStepped
 	}
 
-	// Decide whether commands should be updated
-	// Normally they should, but script inputs need this check
-	return step
+	return true
 }
 
 // Normalize from [-32768,32767] to [-1.0,1.0]

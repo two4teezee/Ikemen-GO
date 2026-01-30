@@ -5579,7 +5579,7 @@ func (sc bgPalFX) Run(c *Char, _ []int32) bool {
 		sys.bgPalFX.invertblend = -3
 	} else {
 		// Apply to specific elements
-		backgrounds := c.getMultipleStageBg(bgid, bgidx, false)
+		backgrounds := c.getMultipleStageBg(bgid, bgidx, true)
 		for _, bg := range backgrounds {
 			bg.palfx.clear()
 			bg.palfx.PalFXDef = pfx
@@ -6011,7 +6011,6 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 	redirscale := c.localscl / crun.localscl
 	eid := int32(-1)
 	idx := int(-1)
-	var expls []*Explod
 	rp := [2]int32{-1, 0}
 	remap := false
 	ptexists := false
@@ -6024,15 +6023,10 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 		return c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 && !ptexists
 	}
 
+	var expls []*Explod
 	eachExpl := func(f func(e *Explod)) {
-		if idx < 0 {
-			for _, e := range expls {
-				if idx < 0 {
-					f(e)
-				}
-			}
-		} else if idx < len(expls) {
-			f(expls[idx])
+		for _, e := range expls {
+			f(e)
 		}
 	}
 
@@ -6056,7 +6050,8 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 			return true // Already handled. Avoid default
 		default:
 			if len(expls) == 0 {
-				expls = crun.getMultipleExplods(eid, idx, false) // We could print a warning here but Mugen doesn't
+				logMissing := c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0
+				expls = crun.getMultipleExplods(eid, idx, logMissing)
 				if len(expls) == 0 {
 					return false
 				}
@@ -6085,7 +6080,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						}
 						e.space = Space_none
 						// Defaulting facing too makes some explods face the wrong way
-						//if e.facing*e.relativef >= 0 { // See below
+						//if e.trueFacing() >= 0 { // See below
 						//	e.relativef = 1
 						//}
 					})
@@ -6113,7 +6108,7 @@ func (sc modifyExplod) Run(c *Char, _ []int32) bool {
 						// There's a bug in Mugen 1.1 where an explod that is facing left can't be flipped
 						// https://github.com/ikemen-engine/Ikemen-GO/issues/1252
 						// Ikemen chars just work as supposed to
-						if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || e.facing*e.relativef >= 0 {
+						if c.stWgi().ikemenver[0] != 0 || c.stWgi().ikemenver[1] != 0 || e.trueFacing() >= 0 {
 							e.relativef = rf
 						}
 					})
@@ -7720,15 +7715,11 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 	redirscale := c.localscl / crun.localscl
 	mpid := int32(-1)
 	mpidx := int(-1)
-	var projs []*Projectile
 
+	var projs []*Projectile
 	eachProj := func(f func(p *Projectile)) {
-		if mpidx < 0 {
-			for _, p := range projs {
-				f(p)
-			}
-		} else if mpidx < len(projs) {
-			f(projs[mpidx])
+		for _, p := range projs {
+			f(p)
 		}
 	}
 
@@ -12457,14 +12448,16 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// Do nothing if text limit reached
-	if len(sys.motif.textsprite) >= sys.cfg.Config.TextMax {
+	ts := crun.spawnText()
+	if ts == nil {
 		return false
 	}
 
-	ts := NewTextSprite()
 	ts.ownerid = crun.id
 	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
-	ts.params = []interface{}{}
+	//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1]) // Not crun here // TODO: No point in making this change until localcoord is fixed
+	//ts.params = []interface{}{} // Handled in loadDefaults
+
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
 
@@ -12502,13 +12495,14 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
+					// TODO: These localcoord operations also affect the coordinate space (position etc)
 					switch fflg {
 					case "f":
 						ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
 					case "m":
 						ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
 					default:
-						//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+						//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
 					}
 				} else {
 					fnt = -1
@@ -12522,9 +12516,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				y = exp[1].evalF(c)
 			}
-			if x > 0 && y > 0 { // TODO: Maybe this safeguard could be in SetLocalcoord instead
-				ts.SetLocalcoord(x, y)
-			}
+			ts.SetLocalcoord(x, y)
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -12601,6 +12593,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
 	ts.SetPos(x, y)
 	ts.SetScale(xscl, yscl)
 	ts.SetVelocity(xvel, yvel)
@@ -12614,7 +12607,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
-	sys.motif.textsprite = append(sys.motif.textsprite, ts)
+
 	return false
 }
 
@@ -12706,16 +12699,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 	}
 
 	tid := int32(-1)
-	idx := int32(-1)
-	var texts []*TextSprite
+	idx := int(-1)
 
+	var texts []*TextSprite
 	eachText := func(f func(ts *TextSprite)) {
-		if idx < 0 {
-			for _, ts := range texts {
-				f(ts)
-			}
-		} else if idx >= 0 && idx < int32(len(texts)) {
-			f(texts[idx])
+		for _, ts := range texts {
+			f(ts)
 		}
 	}
 
@@ -12724,19 +12713,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 		case text_id:
 			tid = exp[0].evalI(c)
 		case modifytext_index:
-			idx = exp[0].evalI(c)
+			idx = int(exp[0].evalI(c))
 		case modifytext_redirectid:
 			return true
 		default:
 			if len(texts) == 0 {
-				for _, ts := range sys.motif.textsprite {
-					if ts.ownerid != crun.id {
-						continue
-					}
-					if tid == -1 || ts.id == tid {
-						texts = append(texts, ts)
-					}
-				}
+				texts = crun.getMultipleTexts(tid, idx, true)
 				if len(texts) == 0 {
 					return false
 				}
@@ -12797,7 +12779,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 							case "m":
 								ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
 							default:
-								//ts.SetLocalcoord(c.stOgi().localcoord[0], c.stOgi().localcoord[1])
+								//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
 							}
 						})
 					}
@@ -12973,6 +12955,7 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 
 	tid := int32(-1)
 	idx := int32(-1)
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case removetext_id:
@@ -12982,7 +12965,8 @@ func (sc removeText) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	sys.motif.removeText(tid, idx, crun.id)
+
+	crun.removeText(tid, idx)
 	return false
 }
 
@@ -13912,9 +13896,9 @@ const (
 func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 	bgid := int32(-1)
 	bgidx := int(-1)
-	var backgrounds []*backGround
 
 	// Helper function to modify each BG
+	var backgrounds []*backGround
 	eachBg := func(f func(bg *backGround)) {
 		for _, bg := range backgrounds {
 			f(bg)
@@ -13930,7 +13914,7 @@ func (sc modifyStageBG) Run(c *Char, _ []int32) bool {
 		default:
 			// Get BG's to modify
 			if len(backgrounds) == 0 {
-				backgrounds = c.getMultipleStageBg(bgid, bgidx, false)
+				backgrounds = c.getMultipleStageBg(bgid, bgidx, true)
 				if len(backgrounds) == 0 {
 					return false
 				}

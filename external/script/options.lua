@@ -182,7 +182,7 @@ options.t_itemname = {
 			modifyGameOption('Config.HelperMax', 56)
 			modifyGameOption('Config.ProjectileMax', 256)
 			modifyGameOption('Config.PaletteMax', 100)
-			modifyGameOption('Config.TextMax', 256)
+			modifyGameOption('Config.TextMax', 128)
 			--modifyGameOption('Config.ZoomActive', true)
 			--modifyGameOption('Config.EscOpensMenu', true)
 			--modifyGameOption('Config.BackgroundLoading', false) --TODO: not implemented

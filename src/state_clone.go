@@ -119,6 +119,7 @@ func (af *AnimFrame) Clone(a *arena.Arena) (result *AnimFrame) {
 	return
 }
 
+/*
 func (sp StringPool) Clone(a *arena.Arena, gsp *GameStatePool) (result StringPool) {
 	result = sp
 	result.List = arena.MakeSlice[string](a, len(sp.List), len(sp.List))
@@ -131,6 +132,7 @@ func (sp StringPool) Clone(a *arena.Arena, gsp *GameStatePool) (result StringPoo
 	}
 	return
 }
+*/
 
 func (b *StateBlock) Clone(a *arena.Arena) (result StateBlock) {
 	result = *b
@@ -910,14 +912,6 @@ func (m *Motif) Clone(a *arena.Arena) (result Motif) {
 		result.vi = sys.motif.vi
 		result.hi = sys.motif.hi
 		result.wi = sys.motif.wi
-	}
-
-	// TextSprite
-	if m.textsprite != nil {
-		result.textsprite = arena.MakeSlice[*TextSprite](a, len(m.textsprite), len(m.textsprite))
-		for i := 0; i < len(m.textsprite); i++ {
-			result.textsprite[i] = cloneTextSprite(a, m.textsprite[i])
-		}
 	}
 
 	return

@@ -449,7 +449,14 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 	return true
 }
 
-func PaletteToTexture(pal []uint32) Texture {
+func Pal32ToBytes(pal []uint32) []byte {
+    if len(pal) == 0 {
+        return nil
+    }
+    return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
+}
+
+func NewTextureFromPalette(pal []uint32) Texture {
 	tx := gfx.newPaletteTexture()
 
 	// Safely handle invalid palettes
@@ -458,7 +465,7 @@ func PaletteToTexture(pal []uint32) Texture {
 		tx.SetData(nil)
 		return tx
 	} else {
-		tx.SetData(unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4))
+		tx.SetData(Pal32ToBytes(pal))
 		return tx
 	}
 }
@@ -704,13 +711,17 @@ func (s *Sprite) shareCopy(src *Sprite) {
 	//s.PalTex = src.PalTex
 }
 
+// Returns the raw palette colors
 func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 	if len(s.Pal) > 0 || s.coldepth > 8 {
+		// Use the sprite's own palette
 		return s.Pal
 	}
-	return pl.Get(int(s.palidx)) //pl.palettes[pl.paletteMap[int(s.palidx)]]
+	// Fetch from the global palette list
+	return pl.Get(int(s.palidx)) 
 }
 
+// Returns the shared global texture
 func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
 	if s.coldepth > 8 {
 		return nil
@@ -1211,22 +1222,33 @@ func (s *Sprite) readV2(f io.ReadSeeker, offset int64, datasize uint32) error {
 // Compare current palette to previous one and reuse if possible
 // This saves a lot of palette operations when the same player has many sprites on screen
 func (s *Sprite) CachePalette(pal []uint32) Texture {
-	hasPalette := true
+	match := true
 	if s.PalTex == nil || len(pal) != len(s.paltemp) {
-		hasPalette = false
+		match = false
 	} else {
 		for i := range pal {
 			if pal[i] != s.paltemp[i] {
-				hasPalette = false
+				match = false
 				break
 			}
 		}
 	}
-	// If cached texture is invalid, generate a new one and cache it
-	if !hasPalette {
-		s.PalTex = PaletteToTexture(pal)
+	// If cached texture is invalid, update or replace it
+	if !match {
+		// Previously we were always generating a new texture in this branch
+		//s.PalTex = NewTextureFromPalette(pal)
+		s.PalTex = s.updatePaletteTexture(pal)
 		s.paltemp = append([]uint32{}, pal...)
 	}
+	return s.PalTex
+}
+
+// Updates an existing texture or creates a missing one
+func (s *Sprite) updatePaletteTexture(pal []uint32) Texture {
+	if s.PalTex == nil {
+		s.PalTex = gfx.newPaletteTexture()
+	}
+	s.PalTex.SetData(Pal32ToBytes(pal))
 	return s.PalTex
 }
 

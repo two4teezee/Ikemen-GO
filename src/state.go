@@ -28,7 +28,7 @@ func (cs Char) String() string {
 	Id                  :%d
 	HelperId            :%d
 	HelperIndex         :%d
-	ParentIndex         :%d
+	ParentId            :%d
 	PlayerNo            :%d
 	Teamside            :%d
 	AnimPN              :%d
@@ -42,7 +42,7 @@ func (cs Char) String() string {
 	HoIdx               :%d
 	Mctime              :%d
 	Targets             :%v
-	TargetsOfHitdef     :%v
+	HitdefTargets       :%v
 	Atktmp              :%d
 	Hittmp              :%d
 	Acttmp              :%d
@@ -55,9 +55,9 @@ func (cs Char) String() string {
 	Offset              :%v`,
 		cs.name, cs.redLife, cs.juggle, cs.life, cs.controller, cs.localcoord,
 		cs.localscl, cs.pos, cs.interPos, cs.oldPos, cs.vel, cs.facing,
-		cs.id, cs.helperId, cs.helperIndex, cs.parentIndex, cs.playerNo,
+		cs.id, cs.helperId, cs.helperIndex, cs.parentId, cs.playerNo,
 		cs.teamside, cs.animPN, cs.animNo, cs.lifeMax, cs.powerMax, cs.dizzyPoints,
-		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargetsBuffer,
+		cs.guardPoints, cs.fallTime, cs.clsnScale, cs.hoverIdx, cs.mctime, cs.targets, cs.hitdefTargets,
 		cs.atktmp, cs.hittmp, cs.acttmp, cs.minus, cs.groundAngle, cs.inheritJuggle,
 		cs.preserve, cs.cnsvar, cs.cnsfvar, cs.offset)
 	return str
@@ -117,6 +117,7 @@ type GameState struct {
 	charData   [MaxPlayerNo][]Char
 	projs      [MaxPlayerNo][]*Projectile
 	explods    [MaxPlayerNo][]*Explod
+	chartexts  [MaxPlayerNo][]*TextSprite
 	aiInput    [MaxPlayerNo]AiInput
 	ffbParams  [MaxPlayerNo]ForceFeedbackParams
 	inputRemap [MaxPlayerNo]int
@@ -223,7 +224,7 @@ type GameState struct {
 	scoreRounds     [][2]float32
 	decisiveRound   [2]bool
 	sel             Select
-	stringPool      [MaxPlayerNo]StringPool
+	//stringPool      [MaxPlayerNo]StringPool // Only mutated while compiling
 	dialogueFlg     bool
 	gameMode        string
 	consecutiveWins [2]int32
@@ -295,14 +296,15 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.curPlayTime = gs.curPlayTime
 
 	gs.loadCharData(a, gsp)
+	gs.loadProjectileData(a, gsp)
 	gs.loadExplodData(a, gsp)
+	gs.loadCharTextData(a)
 	sys.cam = gs.cam
 
 	gs.loadPauseData()
 	gs.loadSuperPauseData()
 
 	gs.loadPalFX(a)
-	gs.loadProjectileData(a, gsp)
 	sys.aiLevel = gs.aiLevel
 	sys.envShake = gs.envShake
 	sys.envcol_time = gs.envcol_time
@@ -316,11 +318,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.bcVar = arena.MakeSlice[BytecodeValue](a, len(gs.bcVar), len(gs.bcVar))
 	copy(sys.bcVar, gs.bcVar)
 
-	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		if sys.cfg.Netplay.Rollback.SaveStageData {
-			sys.stage = gs.stage.Clone(a, gsp)
-		}
-	} else {
+	// Only try loading the stage if it was saved
+	if gs.stage != nil {
 		sys.stage = gs.stage.Clone(a, gsp)
 	}
 
@@ -451,9 +450,9 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.decisiveRound = gs.decisiveRound
 
 	//sys.sel = gs.sel.Clone(a)
-	for i := 0; i < len(sys.stringPool); i++ {
-		sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
-	}
+	// for i := 0; i < len(sys.stringPool); i++ {
+	// 	sys.stringPool[i] = gs.stringPool[i].Clone(a, gsp)
+	// }
 
 	sys.motif.di.active = gs.dialogueFlg
 	sys.gameMode = gs.gameMode
@@ -536,14 +535,15 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.curPlayTime = sys.curPlayTime
 
 	gs.saveCharData(a, gsp)
+	gs.saveProjectileData(a, gsp)
 	gs.saveExplodData(a, gsp)
+	gs.saveCharTextData(a)
 	gs.cam = sys.cam
 
 	gs.savePauseData()
 	gs.saveSuperPauseData()
 
 	gs.savePalFX(a)
-	gs.saveProjectileData(a, gsp)
 
 	gs.aiLevel = sys.aiLevel
 	gs.envShake = sys.envShake
@@ -558,11 +558,13 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.bcVar = arena.MakeSlice[BytecodeValue](a, len(sys.bcVar), len(sys.bcVar))
 	copy(gs.bcVar, sys.bcVar)
 
+	// We only save the stage's state if any existing characters can modify it
 	if sys.rollback.session != nil || sys.cfg.Netplay.Rollback.DesyncTestFrames > 0 {
-		if sys.cfg.Netplay.Rollback.SaveStageData {
+		if gs.stageCanMutate() || sys.cfg.Netplay.Rollback.SaveStageData {
 			gs.stage = sys.stage.Clone(a, gsp)
 		}
 	} else {
+		// Save anyway if using debug keys
 		gs.stage = sys.stage.Clone(a, gsp)
 	}
 
@@ -678,10 +680,11 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.scoreRounds = arena.MakeSlice[[2]float32](a, len(sys.scoreRounds), len(sys.scoreRounds))
 	copy(gs.scoreRounds, sys.scoreRounds)
 	gs.decisiveRound = sys.decisiveRound
+
 	//gs.sel = sys.sel.Clone(a)
-	for i := 0; i < len(sys.stringPool); i++ {
-		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
-	}
+	// for i := 0; i < len(sys.stringPool); i++ {
+	//		gs.stringPool[i] = sys.stringPool[i].Clone(a, gsp)
+	// }
 
 	gs.dialogueFlg = sys.motif.di.active
 	gs.gameMode = sys.gameMode
@@ -813,6 +816,15 @@ func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
 	}
 }
 
+func (gs *GameState) saveCharTextData(a *arena.Arena) {
+	for i := range sys.chartexts {
+		gs.chartexts[i] = arena.MakeSlice[*TextSprite](a, len(sys.chartexts[i]), len(sys.chartexts[i]))
+		for j := range sys.chartexts[i] {
+			gs.chartexts[i][j] = cloneTextSprite(a, sys.chartexts[i][j])
+		}
+	}
+}
+
 func (gs *GameState) loadPalFX(a *arena.Arena) {
 	sys.allPalFX = gs.allPalFX.Clone(a)
 	sys.bgPalFX = gs.bgPalFX.Clone(a)
@@ -865,6 +877,15 @@ func (gs *GameState) loadPauseData() {
 	sys.pauseplayerno = gs.pauseplayerno
 }
 
+func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
+	for i := range gs.projs {
+		sys.projs[i] = arena.MakeSlice[*Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
+		for j := range gs.projs[i] {
+			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
+		}
+	}
+}
+
 func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	for i := range gs.explods {
 		sys.explods[i] = arena.MakeSlice[*Explod](a, len(gs.explods[i]), len(gs.explods[i]))
@@ -874,13 +895,22 @@ func (gs *GameState) loadExplodData(a *arena.Arena, gsp *GameStatePool) {
 	}
 }
 
-func (gs *GameState) loadProjectileData(a *arena.Arena, gsp *GameStatePool) {
-	for i := range gs.projs {
-		sys.projs[i] = arena.MakeSlice[*Projectile](a, len(gs.projs[i]), len(gs.projs[i]))
-		for j := range gs.projs[i] {
-			sys.projs[i][j] = gs.projs[i][j].clone(a, gsp)
+func (gs *GameState) loadCharTextData(a *arena.Arena) {
+	for i := range gs.chartexts {
+		sys.chartexts[i] = arena.MakeSlice[*TextSprite](a, len(gs.chartexts[i]), len(gs.chartexts[i]))
+		for j := range gs.chartexts[i] {
+			sys.chartexts[i][j] = cloneTextSprite(a, gs.chartexts[i][j])
 		}
 	}
+}
+
+func (gs *GameState) stageCanMutate() bool {
+	for i := range sys.cgi {
+		if sys.cgi[i].canMutateStage {
+			return true
+		}
+	}
+	return false
 }
 
 func (gsp *GameStatePool) Get(item interface{}) (result interface{}) {

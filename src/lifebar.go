@@ -2683,6 +2683,7 @@ type LifeBarRound struct {
 	shutter_time        int32
 	shutter_col         uint32
 	callfight_time      int32
+	clutch_threshold    int32
 	triggerRoundDisplay bool // FightScreenState trigger
 	triggerFightDisplay bool
 	triggerKODisplay    bool
@@ -2706,6 +2707,7 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_time:          210,
 		shutter_time:       15,
 		callfight_time:     60,
+		clutch_threshold:   10,
 	}
 }
 
@@ -3031,6 +3033,7 @@ func readLifeBarRound(is IniSection,
 	ro.fadeOut = readLbFade("fadeout.", is, sff, at)
 	ro.over_time = Max(ro.fadeOut.time, ro.over_time)
 	is.ReadI32("shutter.time", &ro.shutter_time)
+	is.ReadI32("clutch.threshold", &ro.clutch_threshold)
 	var col [3]int32
 	if is.ReadI32("shutter.col", &col[0], &col[1], &col[2]) {
 		ro.shutter_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)

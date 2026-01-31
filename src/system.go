@@ -2675,7 +2675,7 @@ func (s *System) roundEndDecision() bool {
 	}
 
 	checkClutch := func(team int) bool {
-		clutchRatio := float32(0.10)
+		clutchRatio := float32(s.lifebar.ro.clutch_threshold) / 100.0
 		for i := team; i < MaxSimul*2; i += 2 {
 			if len(s.chars[i]) > 0 {
 				char := s.chars[i][0]

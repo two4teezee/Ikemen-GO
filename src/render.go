@@ -48,7 +48,7 @@ type Renderer interface {
 	newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) (t Texture)
 
 	ReadPixels(data []uint8, width, height int)
-	Scissor(x, y, width, height int32)
+	EnableScissor(x, y, width, height int32)
 	DisableScissor()
 
 	SetUniformI(name string, val int)
@@ -505,7 +505,7 @@ func RenderSprite(rp RenderParams) {
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 
-	gfx.Scissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
+	gfx.EnableScissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
 
 	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		gfx.SetPipeline(eq, src, dst)

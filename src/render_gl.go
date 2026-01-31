@@ -1363,7 +1363,7 @@ func (r *Renderer_GL21) ReadPixels(data []uint8, width, height int) {
 	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 }
 
-func (r *Renderer_GL21) Scissor(x, y, width, height int32) {
+func (r *Renderer_GL21) EnableScissor(x, y, width, height int32) {
 	gl.Enable(gl.SCISSOR_TEST)
 	gl.Scissor(x, sys.scrrect[3]-(y+height), width, height)
 }

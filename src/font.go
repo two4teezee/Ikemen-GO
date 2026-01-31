@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 )
 
+const MaxFontBatchSize = 250
+
 type FontRenderer interface {
 	Init(renderer interface{})
 	LoadFont(file string, scale int32, windowWidth int, windowHeight int) (interface{}, error)

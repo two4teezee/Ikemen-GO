@@ -5605,7 +5605,7 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 	vk.FreeMemory(r.device, imageMemory, nil)
 }
 
-func (r *Renderer_VK) Scissor(x, y, width, height int32) {
+func (r *Renderer_VK) EnableScissor(x, y, width, height int32) {
 	r.VKState.scissor = vk.Rect2D{
 		Offset: vk.Offset2D{
 			X: int32(MaxI(int(x), 0)),

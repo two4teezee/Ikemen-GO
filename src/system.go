@@ -2706,7 +2706,7 @@ func (s *System) roundEndDecision() bool {
 			if checkPerfect(loser ^ 1) {
 				s.winType[loser^1].SetPerfect()
 			} else if checkClutch(loser ^ 1) {
-					s.winType[loser^1].SetClutch()
+				s.winType[loser^1].SetClutch()
 			}
 		}
 	}

@@ -1952,18 +1952,18 @@ func (nm *LifeBarName) draw(layerno int16, ref int, f map[int]*Fnt, side int) {
 }
 
 type LifeBarWinIcon struct {
-	pos           [2]int32
-	iconoffset    [2]int32
-	useiconupto   int32
-	counter       LbText
-	bg0           AnimLayout
-	top           AnimLayout
-	icon          [WT_NumTypes]AnimLayout
-	wins          []WinType
-	numWins       int
-	added         *Animation
-	addedP        *Animation
-	addedC        *Animation
+	pos         [2]int32
+	iconoffset  [2]int32
+	useiconupto int32
+	counter     LbText
+	bg0         AnimLayout
+	top         AnimLayout
+	icon        [WT_NumTypes]AnimLayout
+	wins        []WinType
+	numWins     int
+	added       *Animation
+	addedP      *Animation
+	addedC      *Animation
 }
 
 func newLifeBarWinIcon() *LifeBarWinIcon {
@@ -2068,9 +2068,9 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
 				wt -= WT_PNormal
 				p = true
 			} else if wt >= WT_CNormal {
-					wt -= WT_CNormal
-					c = true
-			}			
+				wt -= WT_CNormal
+				c = true
+			}
 			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			if p {

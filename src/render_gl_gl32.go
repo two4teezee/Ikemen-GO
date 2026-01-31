@@ -728,10 +728,6 @@ func (r *Renderer_GL32) BeginFrame(clearColor bool) {
 	}
 }
 
-func (r *Renderer_GL32) BlendReset() {
-	r.SetBlending(true, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
-}
-
 func (r *Renderer_GL32) EndFrame() {
 	if len(r.fbo_pp) == 0 {
 		return
@@ -955,14 +951,6 @@ func (r *Renderer_GL32) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
 	loc = r.spriteShader.a["uv"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 8)
-}
-
-func (r *Renderer_GL32) ReleasePipeline() {
-	loc := r.spriteShader.a["position"]
-	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.spriteShader.a["uv"]
-	gl.DisableVertexAttribArray(uint32(loc))
-	//gl.Disable(gl.BLEND)
 }
 
 func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {

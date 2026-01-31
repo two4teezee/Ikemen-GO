@@ -1239,7 +1239,6 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 		// Restore system brightness
 		sys.brightness = oldBright
 	}
-	//BlendReset()
 }
 
 type ShadowSprite struct {

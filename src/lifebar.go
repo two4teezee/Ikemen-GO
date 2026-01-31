@@ -3781,7 +3781,6 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 			ro.fadeIn.drawRect(rect, ro.shutter_col, 255)
 		}
 	}
-	//BlendReset()
 }
 
 type LifeBarRatio struct {
@@ -5381,7 +5380,6 @@ func (l *Lifebar) draw(layerno int16) {
 		// LifeBarRound
 		l.ro.draw(layerno, l.fnt)
 	}
-	//BlendReset()
 }
 
 func (l *Lifebar) setLifebarScale() {

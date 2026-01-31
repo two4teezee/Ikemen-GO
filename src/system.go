@@ -2974,8 +2974,6 @@ func (s *System) drawCharTexts(layerno int16) {
 }
 
 func (s *System) drawTop() {
-	//BlendReset()
-
 	s.brightness = s.brightnessOld
 
 	// Draw Clsn boxes

@@ -32,9 +32,7 @@ type Renderer interface {
 	IsModelEnabled() bool
 	IsShadowEnabled() bool
 
-	//BlendReset()
 	SetPipeline(eq BlendEquation, src, dst BlendFunc)
-	ReleasePipeline()
 	prepareShadowMapPipeline(bufferIndex uint32)
 	setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
 	ReleaseShadowPipeline()
@@ -489,13 +487,6 @@ func initRenderSpriteQuad(rp *RenderParams) {
 	rp.y += rp.rcy
 }
 
-// We relied too much on this, which hurt performance a little
-/*
-func BlendReset() {
-	gfx.BlendReset()
-}
-*/
-
 func RenderSprite(rp RenderParams) {
 	if !rp.IsValid() {
 		return
@@ -540,8 +531,6 @@ func RenderSprite(rp RenderParams) {
 		gfx.SetUniformF("alpha", a)
 
 		renderSpriteQuad(modelview, rp)
-
-		gfx.ReleasePipeline()
 	}
 
 	renderWithBlending(render, rp.blendMode, rp.blendAlpha, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
@@ -683,7 +672,6 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 		gfx.SetUniformI("isFlat", 1)
 		gfx.SetUniformF("tint", r, g, b, a)
 		gfx.RenderQuad()
-		gfx.ReleasePipeline()
 	}
 
 	renderWithBlending(render, TT_add, alpha, true, 0, nil, nil, nil, false)

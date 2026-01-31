@@ -2982,7 +2982,7 @@ func (s *System) drawTop() {
 		// Change the first color of the Clsn sprite
 		setColor := func(color uint32) {
 			s.clsnSpr.Pal[0] = color
-			s.clsnSpr.updatePaletteTexture(s.clsnSpr.Pal)
+			s.clsnSpr.PalTex = s.clsnSpr.CachePalTex(s.clsnSpr.Pal)
 		}
 		// Clsn1 HitDef
 		setColor(0xff0000ff)

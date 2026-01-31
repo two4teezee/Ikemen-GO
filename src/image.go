@@ -463,11 +463,11 @@ func NewTextureFromPalette(pal []uint32) Texture {
 	if len(pal) == 0 {
 		sys.errLog.Printf("Invalid palette texture. Defaulting to none")
 		tx.SetData(nil)
-		return tx
 	} else {
 		tx.SetData(Pal32ToBytes(pal))
-		return tx
 	}
+
+	return tx
 }
 
 type SffHeader struct {
@@ -731,7 +731,7 @@ func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 	return pl.Get(int(s.palidx))
 }
 
-// Returns the shared global texture
+// Returns the sprite's original palette texture from the global list
 func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
 	if s.coldepth > 8 {
 		return nil
@@ -1229,9 +1229,10 @@ func (s *Sprite) readV2(f io.ReadSeeker, offset int64, datasize uint32) error {
 	return nil
 }
 
-// Compare current palette to previous one and reuse if possible
-// This saves a lot of palette operations when the same player has many sprites on screen
-func (s *Sprite) CachePalette(pal []uint32) Texture {
+// Update the cached palette for the sprite then return it
+// Next time the sprite is drawn, it will only need a new texture if the reference changed
+// This should always be called when updating a PalTex
+func (s *Sprite) CachePalTex(pal []uint32) Texture {
 	match := true
 	if s.PalTex == nil || len(pal) != len(s.paltemp) {
 		match = false
@@ -1243,23 +1244,47 @@ func (s *Sprite) CachePalette(pal []uint32) Texture {
 			}
 		}
 	}
-	// If cached texture is invalid, update or replace it
+	// If cached texture doesn't match, update or replace it
 	if !match {
 		// Previously we were always generating a new texture in this branch
-		//s.PalTex = NewTextureFromPalette(pal)
-		s.PalTex = s.updatePaletteTexture(pal)
+		if s.PalTex == nil {
+			s.PalTex = NewTextureFromPalette(pal)
+		} else {
+			s.PalTex.SetData(Pal32ToBytes(pal))
+		}
+		// Update cache reference for the next comparison
 		s.paltemp = append([]uint32{}, pal...)
 	}
 	return s.PalTex
 }
 
-// Updates an existing texture or creates a missing one
-func (s *Sprite) updatePaletteTexture(pal []uint32) Texture {
-	if s.PalTex == nil {
-		s.PalTex = gfx.newPaletteTexture()
+// Updates the palette texture only if the palette data has changed
+func (s *Sprite) SyncPalette(pal []uint32) {
+	// 2. The "Gatekeeper" - Check if we can skip the work
+	match := true
+	if s.PalTex == nil || len(pal) != len(s.paltemp) {
+		match = false
+	} else {
+		for i := range pal {
+			if pal[i] != s.paltemp[i] {
+				match = false
+				break
+			}
+		}
 	}
-	s.PalTex.SetData(Pal32ToBytes(pal))
-	return s.PalTex
+
+	// 3. The "Worker" - Update if data is dirty or texture is missing
+	if !match {
+		if s.PalTex == nil {
+			s.PalTex = gfx.newPaletteTexture()
+		}
+		
+		// Upload to VRAM
+		s.PalTex.SetData(Pal32ToBytes(pal))
+		
+		// Refresh CPU-side cache (using a fresh clone)
+		s.paltemp = append([]uint32(nil), pal...)
+	}
 }
 
 func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, projectionMode int32, fLength float32, fx *PalFX, window *[4]int32) {

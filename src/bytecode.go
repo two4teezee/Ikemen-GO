@@ -496,6 +496,7 @@ const (
 	OC_ex_win
 	OC_ex_winko
 	OC_ex_wintime
+	OC_ex_winclutch
 	OC_ex_winperfect
 	OC_ex_winspecial
 	OC_ex_winhyper
@@ -2674,6 +2675,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.winKO())
 	case OC_ex_wintime:
 		sys.bcStack.PushB(c.winTime())
+	case OC_ex_winclutch:
+		sys.bcStack.PushB(c.winClutch())
 	case OC_ex_winperfect:
 		sys.bcStack.PushB(c.winPerfect())
 	case OC_ex_winspecial:

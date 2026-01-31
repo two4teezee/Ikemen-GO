@@ -2674,6 +2674,19 @@ func (s *System) roundEndDecision() bool {
 		return false
 	}
 
+	checkClutch := func(team int) bool {
+		clutchRatio := float32(0.10)
+		for i := team; i < MaxSimul*2; i += 2 {
+			if len(s.chars[i]) > 0 {
+				char := s.chars[i][0]
+				if float32(char.life) > float32(char.lifeMax)*clutchRatio {
+					return false
+				}
+			}
+		}
+		return true
+	}
+
 	// KO check
 	ko := [2]bool{true, true}
 	for loser := range ko {
@@ -2692,6 +2705,8 @@ func (s *System) roundEndDecision() bool {
 		if ko[loser] {
 			if checkPerfect(loser ^ 1) {
 				s.winType[loser^1].SetPerfect()
+			} else if checkClutch(loser ^ 1) {
+					s.winType[loser^1].SetClutch()
 			}
 		}
 	}
@@ -2722,6 +2737,8 @@ func (s *System) roundEndDecision() bool {
 			}
 			if checkPerfect(winner) {
 				s.winType[winner].SetPerfect()
+			} else if checkClutch(winner) {
+				s.winType[winner].SetClutch()
 			}
 			s.finishType = FT_TO
 			s.winTeam = winner

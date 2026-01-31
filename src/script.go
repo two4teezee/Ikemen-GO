@@ -7588,6 +7588,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LBool(sys.debugWC.winTime()))
 		return 1
 	})
+	luaRegister(l, "winclutch", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.debugWC.winClutch()))
+		return 1
+	})
 	luaRegister(l, "winperfect", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.debugWC.winPerfect()))
 		return 1

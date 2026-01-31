@@ -31,6 +31,7 @@ const (
 	WT_Suicide
 	WT_Teammate
 	WT_Perfect
+	WT_Clutch
 	WT_NumTypes
 	WT_PNormal
 	WT_PSpecial
@@ -40,11 +41,25 @@ const (
 	WT_PThrow
 	WT_PSuicide
 	WT_PTeammate
+	WT_CNormal
+	WT_CSpecial
+	WT_CHyper
+	WT_CCheese
+	WT_CTime
+	WT_CThrow
+	WT_CSuicide
+	WT_CTeammate
 )
 
 func (wt *WinType) SetPerfect() {
 	if *wt >= WT_Normal && *wt < WT_Perfect {
 		*wt += WT_PNormal - WT_Normal
+	}
+}
+
+func (wt *WinType) SetClutch() {
+	if *wt >= WT_Normal && *wt < WT_Perfect {
+		*wt += WT_CNormal - WT_Normal
 	}
 }
 
@@ -1946,7 +1961,9 @@ type LifeBarWinIcon struct {
 	icon          [WT_NumTypes]AnimLayout
 	wins          []WinType
 	numWins       int
-	added, addedP *Animation
+	added         *Animation
+	addedP        *Animation
+	addedC        *Animation
 }
 
 func newLifeBarWinIcon() *LifeBarWinIcon {
@@ -1971,16 +1988,22 @@ func readLifeBarWinIcon(pre string, is IniSection, sff *Sff, at AnimationTable, 
 	wi.icon[WT_Suicide] = ReadAnimLayout(pre+"suicide.", is, sff, at, 0)
 	wi.icon[WT_Teammate] = ReadAnimLayout(pre+"teammate.", is, sff, at, 0)
 	wi.icon[WT_Perfect] = ReadAnimLayout(pre+"perfect.", is, sff, at, 0)
+	wi.icon[WT_Clutch] = ReadAnimLayout(pre+"clutch.", is, sff, at, 0)
 	return wi
 }
 
 func (wi *LifeBarWinIcon) add(wt WinType) {
 	wi.wins = append(wi.wins, wt)
-	if wt >= WT_PNormal {
+	if wt >= WT_PNormal && wt < WT_CNormal {
 		wi.addedP = &Animation{}
 		wi.addedP = wi.icon[WT_Perfect].anim
 		wi.addedP.Reset()
 		wt -= WT_PNormal
+	} else if wt >= WT_CNormal {
+		wi.addedC = &Animation{}
+		wi.addedC = wi.icon[WT_Clutch].anim
+		wi.addedC.Reset()
+		wt -= WT_CNormal
 	}
 	wi.added = &Animation{}
 	wi.added = wi.icon[wt].anim
@@ -2003,6 +2026,9 @@ func (wi *LifeBarWinIcon) step(numwin int32) {
 	if wi.addedP != nil {
 		wi.addedP.Action()
 	}
+	if wi.addedC != nil {
+		wi.addedC.Action()
+	}
 }
 
 func (wi *LifeBarWinIcon) reset() {
@@ -2012,7 +2038,7 @@ func (wi *LifeBarWinIcon) reset() {
 		wi.icon[i].Reset()
 	}
 	wi.numWins = len(wi.wins)
-	wi.added, wi.addedP = nil, nil
+	wi.added, wi.addedP, wi.addedC = nil, nil, nil
 }
 
 func (wi *LifeBarWinIcon) clear() {
@@ -2037,23 +2063,33 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
 	} else {
 		i := 0
 		for ; i < wi.numWins; i++ {
-			wt, p := wi.wins[i], false
-			if wt >= WT_PNormal {
+			wt, p, c := wi.wins[i], false, false
+			if wt >= WT_PNormal && wt < WT_CNormal {
 				wt -= WT_PNormal
 				p = true
-			}
+			} else if wt >= WT_CNormal {
+					wt -= WT_CNormal
+					c = true
+			}			
 			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			if p {
 				wi.icon[WT_Perfect].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			}
+			if c {
+				wi.icon[WT_Clutch].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
+			}
 		}
 		if wi.added != nil {
-			wt, p := wi.wins[i], false
+			wt, p, c := wi.wins[i], false, false
 			if wi.addedP != nil {
 				wt -= WT_PNormal
 				p = true
+			} else if wi.addedC != nil {
+				wt -= WT_CNormal
+				c = true
 			}
 			wi.icon[wt].lay.DrawAnim(&wi.icon[wt].lay.window,
 				float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
@@ -2062,6 +2098,11 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
 				wi.icon[WT_Perfect].lay.DrawAnim(&wi.icon[WT_Perfect].lay.window,
 					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedP, nil)
+			}
+			if c {
+				wi.icon[WT_Clutch].lay.DrawAnim(&wi.icon[WT_Clutch].lay.window,
+					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedC, nil)
 			}
 		}
 	}
@@ -2975,6 +3016,7 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Suicide] = readLbBgTextSnd("p1.suicide.", is, sff, at, 0, f)
 	ro.winType[WT_Teammate] = readLbBgTextSnd("p1.teammate.", is, sff, at, 0, f)
 	ro.winType[WT_Perfect] = readLbBgTextSnd("p1.perfect.", is, sff, at, 0, f)
+	ro.winType[WT_Clutch] = readLbBgTextSnd("p1.clutch.", is, sff, at, 0, f)
 	ro.winType[WT_Normal+WT_NumTypes] = readLbBgTextSnd("p2.n.", is, sff, at, 0, f)
 	ro.winType[WT_Special+WT_NumTypes] = readLbBgTextSnd("p2.s.", is, sff, at, 0, f)
 	ro.winType[WT_Hyper+WT_NumTypes] = readLbBgTextSnd("p2.h.", is, sff, at, 0, f)
@@ -2984,6 +3026,7 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Suicide+WT_NumTypes] = readLbBgTextSnd("p2.suicide.", is, sff, at, 0, f)
 	ro.winType[WT_Teammate+WT_NumTypes] = readLbBgTextSnd("p2.teammate.", is, sff, at, 0, f)
 	ro.winType[WT_Perfect+WT_NumTypes] = readLbBgTextSnd("p2.perfect.", is, sff, at, 0, f)
+	ro.winType[WT_Clutch+WT_NumTypes] = readLbBgTextSnd("p2.clutch.", is, sff, at, 0, f)
 	ro.fadeIn = readLbFade("fadein.", is, sff, at)
 	ro.fadeOut = readLbFade("fadeout.", is, sff, at)
 	ro.over_time = Max(ro.fadeOut.time, ro.over_time)
@@ -3324,16 +3367,18 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		// Perfect and other special win types
 		if sys.winTeam >= 0 {
 			index := sys.winType[sys.winTeam]
-			if index > WT_NumTypes {
-				if sys.winTeam == 0 {
-					ro.winType[WT_Perfect].step(ro.snd)
-					index = index - WT_NumTypes - 1
-				} else {
-					ro.winType[WT_Perfect+WT_NumTypes].step(ro.snd)
-					index = index - 1
-				}
+			p2offset := WinType(0)
+			if sys.winTeam == 1 {
+				p2offset = WT_NumTypes
 			}
-			ro.winType[index].step(ro.snd)
+			if index >= WT_CNormal {
+				ro.winType[WT_Clutch+p2offset].step(ro.snd)
+				index -= (WT_CNormal - WT_Normal)
+			} else if index >= WT_PNormal {
+				ro.winType[WT_Perfect+p2offset].step(ro.snd)
+				index -= (WT_PNormal - WT_Normal)
+			}
+			ro.winType[index+p2offset].step(ro.snd)
 		}
 	}
 }
@@ -3659,26 +3704,28 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 			// Perfect and other special win types
 			if sys.winTeam >= 0 {
 				index := sys.winType[sys.winTeam]
-				perfect := false
-				if index > WT_NumTypes {
-					if sys.winTeam == 0 {
-						index = index - WT_NumTypes - 1
-					} else {
-						index = index - 1
-					}
+				clutch, perfect := false, false
+
+				if index >= WT_CNormal {
+					clutch = true
+					index -= (WT_CNormal - WT_Normal)
+				} else if index >= WT_PNormal {
 					perfect = true
+					index -= (WT_PNormal - WT_Normal)
 				}
-				if perfect {
-					if sys.winTeam == 0 {
-						ro.winType[WT_Perfect].bgDraw(layerno)
-						ro.winType[WT_Perfect].draw(layerno, f)
-					} else {
-						ro.winType[WT_Perfect+WT_NumTypes].bgDraw(layerno)
-						ro.winType[WT_Perfect+WT_NumTypes].draw(layerno, f)
-					}
+				p2offset := WinType(0)
+				if sys.winTeam == 1 {
+					p2offset = WT_NumTypes
 				}
-				ro.winType[index].bgDraw(layerno)
-				ro.winType[index].draw(layerno, f)
+				if clutch {
+					ro.winType[WT_Clutch+p2offset].bgDraw(layerno)
+					ro.winType[WT_Clutch+p2offset].draw(layerno, f)
+				} else if perfect {
+					ro.winType[WT_Perfect+p2offset].bgDraw(layerno)
+					ro.winType[WT_Perfect+p2offset].draw(layerno, f)
+				}
+				ro.winType[index+p2offset].bgDraw(layerno)
+				ro.winType[index+p2offset].draw(layerno, f)
 			}
 		}
 	}

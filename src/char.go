@@ -5959,7 +5959,11 @@ func (c *Char) winTime() bool {
 }
 
 func (c *Char) winPerfect() bool {
-	return c.win() && sys.winType[c.playerNo&1] >= WT_PNormal
+	return c.win() && sys.winType[c.playerNo&1] >= WT_PNormal && sys.winType[c.playerNo&1] < WT_CNormal
+}
+
+func (c *Char) winClutch() bool {
+	return c.win() && sys.winType[c.playerNo&1] >= WT_CNormal
 }
 
 func (c *Char) winType(wt WinType) bool {

@@ -145,6 +145,16 @@ ignoreHitPause{
 	}
 }
 
+# Win Clutch
+[Function IkSys_WinClutch() ret]
+ignoreHitPause{
+	let ret = 0;
+	if winClutch && (map(_iksys_winFlag) = 0 || map(_iksys_winFlag) = gameTime) {
+		let ret = 1;
+		map(_iksys_winFlag) := gameTime;
+	}
+}
+
 # Win Perfect
 [Function IkSys_WinPerfect() ret]
 ignoreHitPause{

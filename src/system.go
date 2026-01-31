@@ -1896,7 +1896,7 @@ func (s *System) resetRoundState() {
 		}
 		if s.roundsExisted[i&1] == 0 {
 			s.cgi[i].palettedata.palList.ResetRemap()
-			if s.cgi[i].sff.header.Ver0 == 1 {
+			if s.cgi[i].sff.header.Version[0] == 1 {
 				p[0].remapPal(p[0].getPalfx(),
 					[...]int32{1, 1}, [...]int32{1, s.cgi[i].palno})
 			}
@@ -4117,7 +4117,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 				sc.anims.addSprite(sc.sff, k_spr[0], k_spr[1])
 			}
 			// Synchronize SFFv2 internal palettes with DEF declarations
-			if sc.sff.header.Ver0 != 1 {
+			if sc.sff.header.Version[0] != 1 {
 				defPals := make(map[int32]bool)
 				for _, p := range sc.pal {
 					defPals[p] = true

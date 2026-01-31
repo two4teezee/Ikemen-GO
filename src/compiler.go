@@ -472,6 +472,7 @@ var triggerMap = map[string]int{
 	"timeelapsed":        1,
 	"timeremaining":      1,
 	"timetotal":          1,
+	"winclutch":          1,
 	"winhyper":           1,
 	"winspecial":         1,
 	"xshear":             1,
@@ -3857,6 +3858,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(OC_ex_, OC_ex_wintime)
 	case "winperfect":
 		out.append(OC_ex_, OC_ex_winperfect)
+	case "winclutch":
+		out.append(OC_ex_, OC_ex_winclutch)
 	case "winspecial":
 		out.append(OC_ex_, OC_ex_winspecial)
 	case "winhyper":

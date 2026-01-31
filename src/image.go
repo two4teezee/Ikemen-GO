@@ -1672,7 +1672,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 	preloadRef := make(map[int]bool)
 	headerXofs := make([]uint32, len(spriteList))
 	headerSize := make([]uint32, len(spriteList))
-	headerShofs32 := make([]int64, len(spriteList)) // só usado em Ver0 == 1
+	headerShofs32 := make([]int64, len(spriteList)) // only used with Ver0 == 1
 
 	//set various variables that let us know if a sprite should use it's own palette
 	paletteState := 0

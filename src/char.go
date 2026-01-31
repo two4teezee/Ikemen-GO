@@ -5959,7 +5959,11 @@ func (c *Char) winTime() bool {
 }
 
 func (c *Char) winPerfect() bool {
-	return c.win() && sys.winType[c.playerNo&1] >= WT_PNormal
+	return c.win() && sys.winType[c.playerNo&1] >= WT_PNormal && sys.winType[c.playerNo&1] < WT_CNormal
+}
+
+func (c *Char) winClutch() bool {
+	return c.win() && sys.winType[c.playerNo&1] >= WT_CNormal
 }
 
 func (c *Char) winType(wt WinType) bool {
@@ -8726,11 +8730,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Init palette remap if needed
 	if pfx.remap == nil {
-		pfx.remap = make([]int, len(plist.paletteMap))
-		// This ensures that SFFv2 unique palettes are preserved
-		for i := range pfx.remap {
-			pfx.remap[i] = i
-		}
+		pfx.remap = plist.GetPalMap()
 	}
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
@@ -8759,34 +8759,17 @@ func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
 	}
 
 	// Get new palette
-	plist := c.gi().palettedata.palList
-	di, ok := plist.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
+	di, ok := c.gi().palettedata.palList.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		return
 	}
 
 	// Clear previous remaps
-	pfx.remap = make([]int, len(plist.paletteMap))
+	pfx.remap = make([]int, len(c.gi().palettedata.palList.paletteMap))
+
 	// Apply the new remap
-	if c.gi().sff.header.Ver0 == 1 {
-		for i := range pfx.remap {
-			pfx.remap[i] = di
-		}
-		return
-	}
-
-	// SFFv2: Use selective remapping to preserve unique palettes
 	for i := range pfx.remap {
-		pfx.remap[i] = i
-	}
-
-	maxPal := sys.cfg.Config.PaletteMax
-	for i := 1; i <= maxPal; i++ {
-		if idx, exists := plist.PalTable[[...]uint16{1, uint16(i)}]; exists {
-			if idx >= 0 && int(idx) < len(pfx.remap) {
-				pfx.remap[idx] = di
-			}
-		}
+		pfx.remap[i] = di
 	}
 }
 

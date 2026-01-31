@@ -31,6 +31,7 @@ const (
 	WT_Suicide
 	WT_Teammate
 	WT_Perfect
+	WT_Clutch
 	WT_NumTypes
 	WT_PNormal
 	WT_PSpecial
@@ -40,11 +41,25 @@ const (
 	WT_PThrow
 	WT_PSuicide
 	WT_PTeammate
+	WT_CNormal
+	WT_CSpecial
+	WT_CHyper
+	WT_CCheese
+	WT_CTime
+	WT_CThrow
+	WT_CSuicide
+	WT_CTeammate
 )
 
 func (wt *WinType) SetPerfect() {
 	if *wt >= WT_Normal && *wt < WT_Perfect {
 		*wt += WT_PNormal - WT_Normal
+	}
+}
+
+func (wt *WinType) SetClutch() {
+	if *wt >= WT_Normal && *wt < WT_Perfect {
+		*wt += WT_CNormal - WT_Normal
 	}
 }
 
@@ -777,9 +792,11 @@ type PowerBar struct {
 	value            map[int32]*LbText
 	value_rounding   int32
 	level_snd        [9][2]int32
+	levelmax_snd     [2]int32
 	midpower         float32
 	midpowerMin      float32
 	prevLevel        int32
+	prevPower        int32
 	levelbars        bool
 	scalefill        bool
 }
@@ -792,6 +809,7 @@ func newPowerBar() *PowerBar {
 		counter_rounding: 1000,
 		value:            make(map[int32]*LbText),
 		value_rounding:   1,
+		levelmax_snd:     [2]int32{-1, -1},
 	}
 	// Default power level sounds to -1,-1
 	for i := range newBar.level_snd {
@@ -807,7 +825,54 @@ func readPowerBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map[
 	is.ReadI32(pre+"range.x", &pb.range_x[0], &pb.range_x[1])
 	is.ReadI32(pre+"range.y", &pb.range_y[0], &pb.range_y[1])
 
-	pb.bg0 = readMultipleValues(pre, "bg0", is, sff, at)
+	readPBKeys := func(name string) map[int32]string {
+		result := make(map[int32]string)
+		prefix := strings.ToLower(pre + name)
+		for k := range is {
+			kl := strings.ToLower(k)
+			if !strings.HasPrefix(kl, prefix) {
+				continue
+			}
+			rest := k[len(pre+name):]
+			dot := strings.Index(rest, ".")
+			if dot <= 0 {
+				continue
+			}
+			keyStr := rest[:dot]
+			if strings.EqualFold(keyStr, "max") {
+				result[-1] = keyStr
+			} else if IsNumeric(keyStr) {
+				key := Atoi(keyStr)
+				if _, ok := result[key]; !ok {
+					result[key] = keyStr
+				}
+			}
+		}
+		return result
+	}
+
+	readMultipeAnimLayouts := func(name string) map[int32]*AnimLayout {
+		result := make(map[int32]*AnimLayout)
+		keys := readPBKeys(name)
+
+		for k, keyStr := range keys {
+			tmp := ReadAnimLayout(pre+name+keyStr+".", is, sff, at, 0)
+			result[k] = &tmp
+		}
+		return result
+	}
+
+	readMultipleLbTexts := func(name, fmtstr string) map[int32]*LbText {
+		result := make(map[int32]*LbText)
+		keys := readPBKeys(name)
+
+		for k, keyStr := range keys {
+			result[k] = readLbText(pre+name+keyStr+".", is, fmtstr, 0, f, 0)
+		}
+		return result
+	}
+
+	pb.bg0 = readMultipeAnimLayouts("bg0")
 	if _, ok := pb.bg0[0]; !ok {
 		tmp := ReadAnimLayout(pre+"bg0.", is, sff, at, 0)
 		pb.bg0[0] = &tmp
@@ -818,7 +883,7 @@ func readPowerBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map[
 	pb.mid = ReadAnimLayout(pre+"mid.", is, sff, at, 0)
 	pb.top = ReadAnimLayout(pre+"top.", is, sff, at, 0)
 
-	pb.front = readMultipleValues(pre, "front", is, sff, at)
+	pb.front = readMultipeAnimLayouts("front")
 	if _, ok := pb.front[0]; !ok {
 		tmp := ReadAnimLayout(pre+"front.", is, sff, at, 0)
 		pb.front[0] = &tmp
@@ -827,11 +892,11 @@ func readPowerBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map[
 	// Lifebar power counter
 	pb.shift = ReadAnimLayout(pre+"shift.", is, sff, at, 0)
 	pb.counter[0] = readLbText(pre+"counter.", is, "%i", 0, f, 0)
-	for k, v := range readMultipleLbText(pre, "counter", is, "%i", 0, f, 0) {
+	for k, v := range readMultipleLbTexts("counter", "%i") {
 		pb.counter[k] = v
 	}
 	pb.value[0] = readLbText(pre+"value.", is, "%d", 0, f, 0)
-	for k, v := range readMultipleLbText(pre, "value", is, "%d", 0, f, 0) {
+	for k, v := range readMultipleLbTexts("value", "%d") {
 		pb.value[k] = v
 	}
 
@@ -854,10 +919,33 @@ func readPowerBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map[
 		}
 	}
 
+	// Level max sound.
+	if !is.ReadI32(pre+"levelmax.snd", &pb.levelmax_snd[0], &pb.levelmax_snd[1]) {
+		is.ReadI32("levelmax.snd", &pb.levelmax_snd[0], &pb.levelmax_snd[1])
+	}
+
 	is.ReadBool(pre+"levelbars", &pb.levelbars)
 	is.ReadBool(pre+"scalefill", &pb.scalefill)
 
 	return pb
+}
+
+func resolvePBKey[T any](m map[int32]T, pbval int32, max int32) int32 {
+	var choice int32
+	hasMax := false
+	for k := range m {
+		if k == -1 {
+			hasMax = true
+			continue
+		}
+		if k > choice && pbval >= k {
+			choice = k
+		}
+	}
+	if hasMax && pbval >= max {
+		return -1
+	}
+	return choice
 }
 
 func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
@@ -887,7 +975,12 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 
 	// Level sounds
 	// Skipped if the bar is invisible
-	if level > pbr.prevLevel && !sys.gsf(GSF_nobardisplay) && !refChar.powerOwner().asf(ASF_nopowerbardisplay) {
+	canPlaySnd := !sys.gsf(GSF_nobardisplay) && !refChar.powerOwner().asf(ASF_nopowerbardisplay)
+	if pbval >= refChar.powerMax && pbr.prevPower < refChar.powerMax && pb.levelmax_snd[0] != -1 {
+		if canPlaySnd {
+			snd.play(pb.levelmax_snd, 100, 0, 0, 0, 0)
+		}
+	} else if level > pbr.prevLevel && canPlaySnd {
 		i := int(level - 1)
 		if i >= 0 && i < len(pb.level_snd) {
 			snd.play(pb.level_snd[i], 100, 0, 0, 0, 0)
@@ -907,14 +1000,10 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 
 	// Save current level for reference in the next frame
 	pbr.prevLevel = level
+	pbr.prevPower = pbval
 
 	// Multiple front elements
-	var fv1 int32
-	for k := range pb.bg0 {
-		if k > fv1 && pbval >= k {
-			fv1 = k
-		}
-	}
+	fv1 := resolvePBKey(pb.bg0, pbval, refChar.powerMax)
 	pb.bg0[fv1].Action()
 
 	pb.bg1.Action()
@@ -923,32 +1012,17 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	pb.mid.Action()
 
 	// Multiple front elements
-	var fv2 int32
-	for k := range pb.front {
-		if k > fv2 && pbval >= k {
-			fv2 = k
-		}
-	}
+	fv2 := resolvePBKey(pb.front, pbval, refChar.powerMax)
 	pb.front[fv2].Action()
 
 	pb.shift.Action()
 
 	// Multiple counter fonts
-	var cv int32
-	for k := range pb.counter {
-		if k > cv && pbval >= k {
-			cv = k
-		}
-	}
+	cv := resolvePBKey(pb.counter, pbval, refChar.powerMax)
 	pb.counter[cv].step()
 
 	// Multiple value fonts
-	var cv2 int32
-	for k := range pb.value {
-		if k > cv2 && pbval >= k {
-			cv2 = k
-		}
-	}
+	cv2 := resolvePBKey(pb.value, pbval, refChar.powerMax)
 	pb.value[cv2].step()
 }
 
@@ -972,12 +1046,8 @@ func (pb *PowerBar) reset() {
 
 func (pb *PowerBar) bgDraw(layerno int16, ref int) {
 	pbval := sys.chars[ref][0].getPower()
-	var fv int32
-	for k := range pb.bg0 {
-		if k > fv && pbval >= k {
-			fv = k
-		}
-	}
+	refChar := sys.chars[ref][0]
+	fv := resolvePBKey(pb.bg0, pbval, refChar.powerMax)
 	pb.bg0[fv].Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	pb.bg1.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	pb.bg2.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
@@ -1041,12 +1111,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) 
 		layerno, pb.mid.anim, pb.mid.palfx)
 
 	// Multiple front elements
-	var fv int32
-	for k := range pb.front {
-		if k > fv && pbval >= k {
-			fv = k
-		}
-	}
+	fv := resolvePBKey(pb.front, pbval, refChar.powerMax)
 	pb.front[fv].lay.DrawAnim(&pr, float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, sys.lifebar.scale, pxs, pys,
 		layerno, pb.front[fv].anim, pb.front[fv].palfx)
 
@@ -1056,12 +1121,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) 
 	// Powerbar text.
 	if pb.counter[0].font[0] >= 0 && getFont(f, pb.counter[0].font[0]) != nil {
 		// Multiple counter fonts according to powerbar level
-		var cv int32
-		for k := range pb.counter {
-			if k > cv && pbval >= k {
-				cv = k
-			}
-		}
+		cv := resolvePBKey(pb.counter, pbval, refChar.powerMax)
 
 		pb.counter[cv].lay.DrawText(
 			float32(pb.pos[0])+sys.lifebar.offsetX,
@@ -1080,12 +1140,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) 
 	// Per-level powerbar text.
 	if pb.value[0].font[0] >= 0 && getFont(f, pb.value[0].font[0]) != nil {
 		// Multiple value fonts according to powerbar level
-		var cv2 int32
-		for k := range pb.value {
-			if k > cv2 && pbval >= k {
-				cv2 = k
-			}
-		}
+		cv2 := resolvePBKey(pb.counter, pbval, refChar.powerMax)
 		text := strings.Replace(pb.value[cv2].text, "%d", fmt.Sprintf("%v", pbval/pb.value_rounding), 1)
 		text = strings.Replace(text, "%p", fmt.Sprintf("%v", math.Round(float64(power)*100)), 1)
 
@@ -1906,7 +1961,9 @@ type LifeBarWinIcon struct {
 	icon          [WT_NumTypes]AnimLayout
 	wins          []WinType
 	numWins       int
-	added, addedP *Animation
+	added         *Animation
+	addedP        *Animation
+	addedC        *Animation
 }
 
 func newLifeBarWinIcon() *LifeBarWinIcon {
@@ -1931,16 +1988,22 @@ func readLifeBarWinIcon(pre string, is IniSection, sff *Sff, at AnimationTable, 
 	wi.icon[WT_Suicide] = ReadAnimLayout(pre+"suicide.", is, sff, at, 0)
 	wi.icon[WT_Teammate] = ReadAnimLayout(pre+"teammate.", is, sff, at, 0)
 	wi.icon[WT_Perfect] = ReadAnimLayout(pre+"perfect.", is, sff, at, 0)
+	wi.icon[WT_Clutch] = ReadAnimLayout(pre+"clutch.", is, sff, at, 0)
 	return wi
 }
 
 func (wi *LifeBarWinIcon) add(wt WinType) {
 	wi.wins = append(wi.wins, wt)
-	if wt >= WT_PNormal {
+	if wt >= WT_PNormal && wt < WT_CNormal {
 		wi.addedP = &Animation{}
 		wi.addedP = wi.icon[WT_Perfect].anim
 		wi.addedP.Reset()
 		wt -= WT_PNormal
+	} else if wt >= WT_CNormal {
+		wi.addedC = &Animation{}
+		wi.addedC = wi.icon[WT_Clutch].anim
+		wi.addedC.Reset()
+		wt -= WT_CNormal
 	}
 	wi.added = &Animation{}
 	wi.added = wi.icon[wt].anim
@@ -1963,6 +2026,9 @@ func (wi *LifeBarWinIcon) step(numwin int32) {
 	if wi.addedP != nil {
 		wi.addedP.Action()
 	}
+	if wi.addedC != nil {
+		wi.addedC.Action()
+	}
 }
 
 func (wi *LifeBarWinIcon) reset() {
@@ -1972,7 +2038,7 @@ func (wi *LifeBarWinIcon) reset() {
 		wi.icon[i].Reset()
 	}
 	wi.numWins = len(wi.wins)
-	wi.added, wi.addedP = nil, nil
+	wi.added, wi.addedP, wi.addedC = nil, nil, nil
 }
 
 func (wi *LifeBarWinIcon) clear() {
@@ -1997,23 +2063,33 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
 	} else {
 		i := 0
 		for ; i < wi.numWins; i++ {
-			wt, p := wi.wins[i], false
-			if wt >= WT_PNormal {
+			wt, p, c := wi.wins[i], false, false
+			if wt >= WT_PNormal && wt < WT_CNormal {
 				wt -= WT_PNormal
 				p = true
-			}
+			} else if wt >= WT_CNormal {
+					wt -= WT_CNormal
+					c = true
+			}			
 			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			if p {
 				wi.icon[WT_Perfect].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			}
+			if c {
+				wi.icon[WT_Clutch].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
+			}
 		}
 		if wi.added != nil {
-			wt, p := wi.wins[i], false
+			wt, p, c := wi.wins[i], false, false
 			if wi.addedP != nil {
 				wt -= WT_PNormal
 				p = true
+			} else if wi.addedC != nil {
+				wt -= WT_CNormal
+				c = true
 			}
 			wi.icon[wt].lay.DrawAnim(&wi.icon[wt].lay.window,
 				float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
@@ -2022,6 +2098,11 @@ func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
 				wi.icon[WT_Perfect].lay.DrawAnim(&wi.icon[WT_Perfect].lay.window,
 					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedP, nil)
+			}
+			if c {
+				wi.icon[WT_Clutch].lay.DrawAnim(&wi.icon[WT_Clutch].lay.window,
+					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
+					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedC, nil)
 			}
 		}
 	}
@@ -2602,6 +2683,7 @@ type LifeBarRound struct {
 	shutter_time        int32
 	shutter_col         uint32
 	callfight_time      int32
+	clutch_threshold    int32
 	triggerRoundDisplay bool // FightScreenState trigger
 	triggerFightDisplay bool
 	triggerKODisplay    bool
@@ -2625,6 +2707,7 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_time:          210,
 		shutter_time:       15,
 		callfight_time:     60,
+		clutch_threshold:   10,
 	}
 }
 
@@ -2935,6 +3018,7 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Suicide] = readLbBgTextSnd("p1.suicide.", is, sff, at, 0, f)
 	ro.winType[WT_Teammate] = readLbBgTextSnd("p1.teammate.", is, sff, at, 0, f)
 	ro.winType[WT_Perfect] = readLbBgTextSnd("p1.perfect.", is, sff, at, 0, f)
+	ro.winType[WT_Clutch] = readLbBgTextSnd("p1.clutch.", is, sff, at, 0, f)
 	ro.winType[WT_Normal+WT_NumTypes] = readLbBgTextSnd("p2.n.", is, sff, at, 0, f)
 	ro.winType[WT_Special+WT_NumTypes] = readLbBgTextSnd("p2.s.", is, sff, at, 0, f)
 	ro.winType[WT_Hyper+WT_NumTypes] = readLbBgTextSnd("p2.h.", is, sff, at, 0, f)
@@ -2944,10 +3028,12 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Suicide+WT_NumTypes] = readLbBgTextSnd("p2.suicide.", is, sff, at, 0, f)
 	ro.winType[WT_Teammate+WT_NumTypes] = readLbBgTextSnd("p2.teammate.", is, sff, at, 0, f)
 	ro.winType[WT_Perfect+WT_NumTypes] = readLbBgTextSnd("p2.perfect.", is, sff, at, 0, f)
+	ro.winType[WT_Clutch+WT_NumTypes] = readLbBgTextSnd("p2.clutch.", is, sff, at, 0, f)
 	ro.fadeIn = readLbFade("fadein.", is, sff, at)
 	ro.fadeOut = readLbFade("fadeout.", is, sff, at)
 	ro.over_time = Max(ro.fadeOut.time, ro.over_time)
 	is.ReadI32("shutter.time", &ro.shutter_time)
+	is.ReadI32("clutch.threshold", &ro.clutch_threshold)
 	var col [3]int32
 	if is.ReadI32("shutter.col", &col[0], &col[1], &col[2]) {
 		ro.shutter_col = uint32(col[0]&0xff<<16 | col[1]&0xff<<8 | col[2]&0xff)
@@ -3284,16 +3370,18 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		// Perfect and other special win types
 		if sys.winTeam >= 0 {
 			index := sys.winType[sys.winTeam]
-			if index > WT_NumTypes {
-				if sys.winTeam == 0 {
-					ro.winType[WT_Perfect].step(ro.snd)
-					index = index - WT_NumTypes - 1
-				} else {
-					ro.winType[WT_Perfect+WT_NumTypes].step(ro.snd)
-					index = index - 1
-				}
+			p2offset := WinType(0)
+			if sys.winTeam == 1 {
+				p2offset = WT_NumTypes
 			}
-			ro.winType[index].step(ro.snd)
+			if index >= WT_CNormal {
+				ro.winType[WT_Clutch+p2offset].step(ro.snd)
+				index -= (WT_CNormal - WT_Normal)
+			} else if index >= WT_PNormal {
+				ro.winType[WT_Perfect+p2offset].step(ro.snd)
+				index -= (WT_PNormal - WT_Normal)
+			}
+			ro.winType[index+p2offset].step(ro.snd)
 		}
 	}
 }
@@ -3619,26 +3707,28 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 			// Perfect and other special win types
 			if sys.winTeam >= 0 {
 				index := sys.winType[sys.winTeam]
-				perfect := false
-				if index > WT_NumTypes {
-					if sys.winTeam == 0 {
-						index = index - WT_NumTypes - 1
-					} else {
-						index = index - 1
-					}
+				clutch, perfect := false, false
+
+				if index >= WT_CNormal {
+					clutch = true
+					index -= (WT_CNormal - WT_Normal)
+				} else if index >= WT_PNormal {
 					perfect = true
+					index -= (WT_PNormal - WT_Normal)
 				}
-				if perfect {
-					if sys.winTeam == 0 {
-						ro.winType[WT_Perfect].bgDraw(layerno)
-						ro.winType[WT_Perfect].draw(layerno, f)
-					} else {
-						ro.winType[WT_Perfect+WT_NumTypes].bgDraw(layerno)
-						ro.winType[WT_Perfect+WT_NumTypes].draw(layerno, f)
-					}
+				p2offset := WinType(0)
+				if sys.winTeam == 1 {
+					p2offset = WT_NumTypes
 				}
-				ro.winType[index].bgDraw(layerno)
-				ro.winType[index].draw(layerno, f)
+				if clutch {
+					ro.winType[WT_Clutch+p2offset].bgDraw(layerno)
+					ro.winType[WT_Clutch+p2offset].draw(layerno, f)
+				} else if perfect {
+					ro.winType[WT_Perfect+p2offset].bgDraw(layerno)
+					ro.winType[WT_Perfect+p2offset].draw(layerno, f)
+				}
+				ro.winType[index+p2offset].bgDraw(layerno)
+				ro.winType[index+p2offset].draw(layerno, f)
 			}
 		}
 	}

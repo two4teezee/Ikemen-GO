@@ -3112,9 +3112,9 @@ type Char struct {
 	targets             []int32
 	hitdefTargets       []int32
 	hitdefTargetsBuffer []int32
-	enemyNearList       []*Char // Enemies retrieved by EnemyNear
-	p2EnemyList         []*Char // Enemies retrieved by P2, P4, P6 and P8
-	p2EnemyBackup       *Char   // Backup of last valid P2 enemy
+	enemyNearList       []int32 // Enemies retrieved by EnemyNear
+	p2EnemyList         []int32 // Enemies retrieved by P2, P4, P6 and P8
+	p2EnemyBackup       int32   // Backup of last valid P2 enemy
 	pos                 [3]float32
 	interPos            [3]float32 // Interpolated position. For the visuals when game and logic speed are different
 	oldPos              [3]float32
@@ -4873,7 +4873,7 @@ func (c *Char) p2() *Char {
 	// Cache last valid P2 enemy
 	// Mugen seems to do this for the sake of auto turning before win poses
 	if p != nil {
-		c.p2EnemyBackup = p
+		c.p2EnemyBackup = p.id
 	}
 	return p
 }
@@ -6077,7 +6077,7 @@ func (c *Char) updateFBFlip() {
 		// See shouldFaceP2()
 		e := c.p2()
 		if e == nil {
-			e = c.p2EnemyBackup
+			e = sys.playerID(c.p2EnemyBackup)
 		}
 		if e != nil {
 			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
@@ -6101,7 +6101,7 @@ func (c *Char) shouldFaceP2() bool {
 	// If P2 was not found, fall back to the last valid one
 	// Maybe this should only happen during win poses?
 	if e == nil {
-		e = c.p2EnemyBackup
+		e = sys.playerID(c.p2EnemyBackup)
 	}
 
 	if e != nil && !e.asf(ASF_noturntarget) {
@@ -9388,6 +9388,7 @@ func (c *Char) dropTargets() {
 	}
 }
 
+// Remove a target from the char's own list
 func (c *Char) removeTarget(pid int32) {
 	for i, t := range c.targets {
 		if t == pid {
@@ -13260,74 +13261,68 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 
 	// Clear every player's lists if something changed
 	if cl.enemyNearChanged {
-		for _, c := range cl.runOrder {
-			c.enemyNearP2Clear()
+		for _, char := range cl.runOrder {
+			char.enemyNearP2Clear()
 		}
 		cl.enemyNearChanged = false
 	}
 
 	// Select EnemyNear or P2 cache
-	var cache *[]*Char
+	var cache *[]int32
 	if p2list { // List for P2 redirects as well as P4, P6 and P8 triggers
 		cache = &c.p2EnemyList
 	} else {
 		cache = &c.enemyNearList
 	}
 
-	// If we already have the Nth enemy cached, then return it
+	// If we already have the Nth enemy cached, then return it via ID lookup
 	if int(n) < len(*cache) {
-		return (*cache)[n]
+		return sys.playerID((*cache)[n])
 	}
 
 	// Else reset the cache and start over
 	*cache = (*cache)[:0]
 
-	// Gather all valid enemies
-	var enemies []*Char
+	// Local struct for sorting
+	type enemyDist struct {
+		id   int32
+		dist float32
+	}
+	pairs := make([]enemyDist, 0, MaxPlayerNo) 
+
+	// Gather all valid enemies and calculate distances
 	for _, e := range cl.runOrder {
 		if e.isPlayerType() && c.isEnemyOf(e) {
+			valid := false
 			// P2 checks for alive enemies even if they are player type helpers
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
-				enemies = append(enemies, e)
+				valid = true
 			}
 			// EnemyNear checks for dead or alive root players
 			if !p2list && e.helperIndex == 0 {
-				enemies = append(enemies, e)
+				valid = true
+			}
+
+			if valid {
+				// Factor x distance first
+				distX := c.distX(e, c) * c.facing
+				dist := distX
+				// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
+				if p2list && distX < 0 {
+					dist -= 30.0
+				}
+				// Factor z distance if applicable
+				if sys.zEnabled() {
+					distZ := c.distZ(e, c) * 4.0
+					if p2list {
+						distZ *= 4.0
+					}
+					dist = float32(math.Hypot(float64(distX), float64(distZ)))
+				}
+				// Append this enemy and their distance
+				pairs = append(pairs, enemyDist{id: e.id, dist: dist})
 			}
 		}
-	}
-
-	// Calculate distances between all valid enemies and the player
-	type enemyDist struct {
-		enemy *Char
-		dist  float32
-	}
-	pairs := make([]enemyDist, 0, len(enemies))
-
-	for _, e := range enemies {
-		// Factor x distance first
-		distX := c.distX(e, c) * c.facing
-		dist := distX
-		// If an enemy is behind the player, an extra distance buffer is added for the "P2" list
-		// This makes the player turn less frequently when surrounded
-		// Mugen uses a hardcoded value of 30 pixels. Maybe it could be a character constant instead in Ikemen
-		if p2list && distX < 0 {
-			dist -= 30.0
-		}
-		// Factor z distance if applicable
-		if sys.zEnabled() {
-			distZ := c.distZ(e, c) * 4.0
-			if p2list {
-				// We'll arbitrarily give more weight to the z axis, so that the player doesn't turn as easily to enemies on a different plane
-				// 4.0 is a magic number, roughly based on default x and z size ratio
-				// TODO: Calculate z weight like in distzadj in player pushing, or add a global var for x/z ratio
-				distZ *= 4.0
-			}
-			// Calculate the hypotenuse between both
-			dist = float32(math.Hypot(float64(distX), float64(distZ)))
-		}
-		// Append this enemy and their distance
-		pairs = append(pairs, enemyDist{enemy: e, dist: dist})
 	}
 
 	// Sort enemies by shortest absolute distance
@@ -13336,9 +13331,8 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	})
 
 	// Rebuild cache
-	*cache = PointerSliceReset(*cache) // Nil everything instead of using make
-	for _, pair := range pairs {
-		*cache = append(*cache, pair.enemy)
+	for _, p := range pairs {
+		*cache = append(*cache, p.id)
 	}
 
 	// If reference exceeds number of valid enemies
@@ -13350,7 +13344,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	}
 
 	// Return Nth enemy
-	return (*cache)[n]
+	return sys.playerID((*cache)[n])
 }
 
 type Platform struct {

@@ -2226,7 +2226,7 @@ func systemScriptInit(l *lua.LState) {
 				} else if sys.loader.state == LS_Cancel {
 					return nil
 				}
-				sys.await(sys.cfg.Config.Framerate)
+				sys.await(sys.cfg.Video.Framerate)
 			}
 			runtime.GC()
 			return nil

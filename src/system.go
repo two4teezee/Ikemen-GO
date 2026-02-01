@@ -839,19 +839,19 @@ func (s *System) update() bool {
 
 	if s.replayFile != nil {
 		if s.anyHardButton() {
-			s.await(s.cfg.Config.Framerate * 4)
+			s.await(s.cfg.Video.Framerate * 4)
 		} else {
-			s.await(s.cfg.Config.Framerate)
+			s.await(s.cfg.Video.Framerate)
 		}
 		return s.replayFile.Update()
 	}
 
 	if s.netConnection != nil {
-		s.await(s.cfg.Config.Framerate)
+		s.await(s.cfg.Video.Framerate)
 		return s.netConnection.Update()
 	}
 
-	return s.await(s.cfg.Config.Framerate)
+	return s.await(s.cfg.Video.Framerate)
 }
 
 func (s *System) tickSound() {
@@ -1973,11 +1973,16 @@ func (s *System) tickNextFrame() bool {
 
 // This divides a frame into fractions for the purpose of drawing position interpolation
 func (s *System) tickInterpolation() float32 {
+	// Always synchronize here
 	if s.tickNextFrame() {
 		return 1
-	} else {
-		return s.tickCountF - s.lastTick + s.nextAddTime
 	}
+	// Apply interpolation if enabled
+	if sys.cfg.Config.TickInterpolation {
+		progress := s.tickCountF - s.lastTick + s.nextAddTime
+		return ClampF(progress, 0, 1)
+	}
+	return 1
 }
 
 func (s *System) addFrameTime(t float32) bool {
@@ -3468,7 +3473,7 @@ func (s *System) gameLogicSpeed() int32 {
 }
 
 func (s *System) gameRenderSpeed() int32 {
-	spd := int32(s.cfg.Config.Framerate)
+	spd := int32(s.cfg.Video.Framerate)
 	return Max(1, spd)
 }
 

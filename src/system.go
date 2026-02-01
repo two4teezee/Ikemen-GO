@@ -2197,21 +2197,6 @@ func (s *System) action() {
 	// Allows a combo to still end if a character is hit in the same frame where it exits movetype H
 	s.lifebar.step()
 
-	// Update motif
-	s.motif.step()
-
-	// Run motif
-	s.motif.act()
-
-	// Common Lua calls
-	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
-		for _, v := range sys.cfg.Common.Lua[key] {
-			if err := sys.luaLState.DoString(v); err != nil {
-				sys.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
-			}
-		}
-	}
-
 	if s.tickNextFrame() {
 		s.globalCollision() // This could perhaps happen during "tick frame" instead? Would need more testing
 		s.globalTick()
@@ -2305,6 +2290,25 @@ func (s *System) action() {
 			}
 		}
 	}
+
+	// Update motif
+	// Needs to happen at the very end or pause toggles will get out of sync
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3080
+	s.motif.step()
+
+	// Run motif
+	s.motif.act()
+
+	// Common Lua calls
+	// Needs to happens after motif update or motif inputs will lag 1 frame
+	for _, key := range SortedKeys(sys.cfg.Common.Lua) {
+		for _, v := range sys.cfg.Common.Lua[key] {
+			if err := sys.luaLState.DoString(v); err != nil {
+				sys.luaLState.RaiseError("Error executing Lua code: %s\n%v", v, err.Error())
+			}
+		}
+	}
+
 	s.tickSound()
 	return
 }

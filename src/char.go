@@ -1580,6 +1580,8 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 
 type Explod struct {
 	id                  int32
+	playerno            int
+	playerId            int32
 	time                int32
 	postype             PosType
 	space               Space
@@ -1627,7 +1629,6 @@ type Explod struct {
 	oldPos              [3]float32
 	newPos              [3]float32
 	interPos            [3]float32
-	playerId            int32
 	palfx               *PalFX
 	palfxdef            PalFXDef
 	window              [4]float32
@@ -1654,6 +1655,7 @@ type Explod struct {
 	interpolate_angle    [6]float32
 	interpolate_fLength  [2]float32
 	interpolate_xshear   [2]float32
+	timestamp            int32 // Determines run order
 }
 
 func newExplod() *Explod {
@@ -1668,6 +1670,7 @@ func (e *Explod) clear() {
 func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
 		id:           -1,
+		playerno:     c.playerNo,
 		playerId:     c.id,
 		animPN:       c.playerNo,
 		spritePN:     c.playerNo,
@@ -1699,6 +1702,7 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		interpolate_scale: [4]float32{1, 1, 0, 0},
 		friction:          [3]float32{1, 1, 1},
 		remappal:          [2]int32{-1, 0},
+		timestamp:         sys.matchTime,
 		//aimg:              *newAfterImage(),
 	}
 
@@ -1871,7 +1875,7 @@ func (e *Explod) setAnimElem() {
 	}
 }
 
-func (e *Explod) update(playerNo int) {
+func (e *Explod) update() {
 	if e.anim == nil {
 		e.id = IErr
 	}
@@ -1882,7 +1886,7 @@ func (e *Explod) update(playerNo int) {
 	}
 
 	parent := sys.playerID(e.playerId)
-	root := sys.chars[playerNo][0]
+	root := sys.chars[e.playerno][0]
 
 	if root.scf(SCF_disabled) {
 		return
@@ -2125,7 +2129,7 @@ func (e *Explod) update(playerNo int) {
 	// Record afterimage
 	if e.aimg != nil {
 		if e.aimg.isActive() {
-			e.aimg.recAndCue(sd, playerNo, sys.tickNextFrame() && act,
+			e.aimg.recAndCue(sd, e.playerno, sys.tickNextFrame() && act,
 				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
 				e.layerno, e.space == Space_screen)
 		} else {

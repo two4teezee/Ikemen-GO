@@ -214,6 +214,7 @@ type System struct {
 	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
+	explodRunOrder          []*Explod
 	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
 	spritesLayerN1          DrawList
@@ -1791,6 +1792,9 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	s.projs[pn] = PointerSliceReset(s.projs[pn])
 	s.explods[pn] = PointerSliceReset(s.explods[pn])
 	s.chartexts[pn] = PointerSliceReset(s.chartexts[pn])
+
+	// Clear explod run order so that no reference is left to this char
+	s.explodRunOrder = PointerSliceReset(s.explodRunOrder)
 }
 
 func (s *System) resetRoundState() {
@@ -2011,13 +2015,13 @@ func (s *System) resetFrameTime() {
 	s.nextAddTime, s.oldNextAddTime = 1, 1
 }
 
-func (s *System) resetMatchData(assets bool) {
+func (s *System) resetMatchData(forceDestroy bool) {
 	sys.allPalFX = newPalFX()
 	sys.bgPalFX = newPalFX()
 	sys.resetGblEffect()
 	for i, p := range sys.chars {
 		if len(p) > 0 {
-			sys.clearPlayerAssets(i, assets)
+			sys.clearPlayerAssets(i, forceDestroy)
 		}
 	}
 }
@@ -2351,11 +2355,26 @@ func (s *System) projectilePrune(pn int) {
 
 // Update all explods for all players
 func (s *System) explodUpdate() {
-	// Logic
+	// Reset sorting list
+	s.explodRunOrder = s.explodRunOrder[:0]
+
+	// Flatten all explods into the sorting list
+	// Using this list makes the drawing order fairer instead of prioritizing player 1
+	// Mugen probably just used a single array for explods instead of organizing them by player, so it skipped this issue
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1099
 	for i := range s.explods {
-		for _, e := range s.explods[i] {
-			e.update(i)
-		}
+		s.explodRunOrder = append(s.explodRunOrder, s.explods[i]...)
+	}
+
+	// Sort by age
+	// Older explods run first
+	sort.Slice(s.explodRunOrder, func(i, j int) bool {
+		return s.explodRunOrder[i].timestamp < s.explodRunOrder[j].timestamp
+	})
+
+	// Update logic
+	for _, e := range s.explodRunOrder {
+		e.update()
 	}
 
 	// Cleanup

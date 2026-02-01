@@ -1687,5 +1687,6 @@ func (r *Renderer_GL21) NewWorkerThread() bool {
 	return false
 }
 
-func (r *Renderer_GL21) SetVSync() {
+func (r *Renderer_GL21) SetVSync(interval int) {
+	sdl.GLSetSwapInterval(interval)
 }

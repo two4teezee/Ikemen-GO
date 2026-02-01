@@ -1798,5 +1798,6 @@ func (r *Renderer_GLES32) NewWorkerThread() bool {
 	return false
 }
 
-func (r *Renderer_GLES32) SetVSync() {
+func (r *Renderer_GLES32) SetVSync(interval int) {
+	sdl.GLSetSwapInterval(interval)
 }

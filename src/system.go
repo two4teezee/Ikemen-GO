@@ -421,6 +421,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
 	Logcat("Check B: Initializing GFX")
 	gfx.Init()
+	s.window.SetSwapInterval(s.cfg.Video.VSync) // VSync must be set after gfx, or our config will be ignored
 	Logcat("Check C: Initializing GFX Font")
 	gfxFont.Init(gfx)
 	Logcat("Check D: We are GOOD")

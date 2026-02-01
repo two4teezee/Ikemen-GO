@@ -7580,6 +7580,7 @@ func (r *Renderer_VK) AllocateImageMemory(img vk.Image, memoryProperty vk.Memory
 	return imageMemory
 }
 
-func (r *Renderer_VK) SetVSync() {
+func (r *Renderer_VK) SetVSync(interval int) {
+	// We just ignore the interval here and force it on
 	r.setVSync = true
 }

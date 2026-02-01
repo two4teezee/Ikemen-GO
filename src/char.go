@@ -13336,9 +13336,9 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 	})
 
 	// Rebuild cache
-	*cache = make([]*Char, len(pairs))
-	for i, pair := range pairs {
-		(*cache)[i] = pair.enemy
+	*cache = PointerSliceReset(*cache) // Nil everything instead of using make
+	for _, pair := range pairs {
+		*cache = append(*cache, pair.enemy)
 	}
 
 	// If reference exceeds number of valid enemies

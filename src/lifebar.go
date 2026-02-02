@@ -1785,7 +1785,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 	if far.face != nil {
 		// Get player current PalFX if applicable
-		var pfx *PalFX 
+		var pfx *PalFX
 		if far.palfxshare {
 			pfx = refChar.getPalfx()
 		}
@@ -1793,7 +1793,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		// Update portrait palette
 		if far.face.coldepth <= 8 {
 			// Check the player's current palette
-			palIdx := far.face.palidx 
+			palIdx := far.face.palidx
 			if far.palshare {
 				remap := refChar.getPalfx().remap
 				if int(palIdx) < len(remap) {

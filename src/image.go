@@ -509,7 +509,7 @@ func (sh *SffHeader) Read(r io.Reader, lofs *uint32, tofs *uint32) error {
 	if err := read(&sh.Version[0]); err != nil {
 		return err
 	}
-	
+
 	var dummy uint32
 	if err := read(&dummy); err != nil {
 		return err
@@ -1278,10 +1278,10 @@ func (s *Sprite) SyncPalette(pal []uint32) {
 		if s.PalTex == nil {
 			s.PalTex = gfx.newPaletteTexture()
 		}
-		
+
 		// Upload to VRAM
 		s.PalTex.SetData(Pal32ToBytes(pal))
-		
+
 		// Refresh CPU-side cache (using a fresh clone)
 		s.paltemp = append([]uint32(nil), pal...)
 	}
@@ -1992,7 +1992,7 @@ func (s *Sff) ReadPalette(f io.ReadSeeker, offset int64, size uint32) ([]uint32,
 	// Read the actual data
 	// Loop through the entire allocated palette, not just the colors found in the file
 	for i := 0; i < len(pal); i++ {
-		var rgba [4]byte 
+		var rgba [4]byte
 
 		// Only read from file while within bounds
 		// If len(pal) > rawCount the rest will default to 0's
@@ -2000,7 +2000,7 @@ func (s *Sff) ReadPalette(f io.ReadSeeker, offset int64, size uint32) ([]uint32,
 			if err := binary.Read(f, binary.LittleEndian, rgba[:]); err != nil {
 				return nil, err
 			}
-		} 
+		}
 
 		// Fill in the alpha values
 		if s.header.Version[2] == 0 { // Version 2.0.0.0 only? i.e. exclude 1.0.1.0 and 2.0.1.0?

@@ -3072,6 +3072,7 @@ type Char struct {
 	teamside       int
 	keyctrl        [4]bool
 	helperType     int32 // 0 root, 1 normal, 2 player, 3 projectile (dummied)
+	isclsnproxy    bool
 	animPN         int
 	spritePN       int
 	animNo         int32
@@ -3107,8 +3108,7 @@ type Char struct {
 	hoverKeepState      bool
 	mctype              MoveContact
 	mctime              int32
-	children            []*Char
-	isclsnproxy         bool
+	children            []int32
 	targets             []int32
 	hitdefTargets       []int32
 	hitdefTargetsBuffer []int32
@@ -3296,6 +3296,8 @@ func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
 	return c.clsnCheck(getter, box1, box2, false)
 }
 
+/*
+// We're just appending at the end now so this function became useless
 func (c *Char) addChild(ch *Char) {
 	for i, chi := range c.children {
 		if chi == nil {
@@ -3305,6 +3307,7 @@ func (c *Char) addChild(ch *Char) {
 	}
 	c.children = append(c.children, ch)
 }
+*/
 
 // Clear EnemyNear and P2 lists. For instance when player positions change
 // A new list will be built the next time the redirect is called
@@ -6346,26 +6349,27 @@ func (c *Char) destroy() {
 
 	// Remove ID from parent's children list
 	if p := c.parent(false); p != nil {
-		for i, ch := range p.children {
-			if ch == c {
+		for i, childID := range p.children {
+			if childID == c.id {
 				p.children = SliceDelete(p.children, i)
 				break
 			}
 		}
 	}
 
-	// Remove ID from children
+	// Remove parent ID from children
 	// This is no longer strictly necessary but it makes extra sure the helper will never end up with a different parent
-	for i, ch := range c.children {
-		ch.parentId = -1
-		c.children[i] = nil // Kill the pointer so the GC can work
+	for _, childID := range c.children {
+		if child := sys.playerID(childID); child != nil {
+			child.parentId = -1
+		}
 	}
 	c.children = c.children[:0]
 
 	if c.isPlayerType() {
-		// sys.charList.p2enemyDelete(c)
 		sys.charList.enemyNearChanged = true
 	}
+
 	sys.charList.delete(c)
 	c.helperIndex = -1
 	c.setCSF(CSF_destroy)
@@ -6389,8 +6393,10 @@ func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
 	}
 
 	if recursive {
-		for _, ch := range c.children {
-			ch.destroySelf(recursive, removeexplods, removetexts)
+		for _, childID := range c.children {
+			if child := sys.playerID(childID); child != nil {
+				child.destroySelf(recursive, removeexplods, removetexts)
+			}
 		}
 	}
 
@@ -6450,14 +6456,13 @@ func (c *Char) newHelper() (h *Char) {
 	h.prepareNextRound()
 
 	// Add to player lists
-	c.addChild(h)
+	c.children = append(c.children, h.id)
 	sys.charList.add(h)
 	return
 }
 
 // Init helper after reading the bytecode parameters
-func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32,
-	facing int32, rp [2]int32, extmap bool) {
+func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32, facing int32, rp [2]int32, extmap bool) {
 	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
 	h.setPosX(p[0], true)
 	h.setPosY(p[1], true)
@@ -9427,21 +9432,19 @@ func (c *Char) offsetY() float32 {
 
 // Gather the character as well as all its proxy children (and their proxy children) in a flat slice
 func (c *Char) flattenClsnProxies() []*Char {
-	var list []*Char
+	list := make([]*Char, 0, 8)
 
-	// Start with the base character
-	queue := []*Char{c}
+	// Start from our character
+	list = append(list, c)
 
-	// Process the queue until all characters (base + proxies) have been handled
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-
-		list = append(list, current)
-
-		for _, child := range current.children {
-			if child != nil && child.isclsnproxy {
-				queue = append(queue, child)
+	// Process the list for as long as it keeps growing
+	for i := 0; i < len(list); i++ {
+		// Switch working char
+		branch := list[i]
+		// Append all the children of this char that are proxies
+		for _, childID := range branch.children {
+			if child := sys.playerID(childID); child != nil && child.isclsnproxy {
+				list = append(list, child)
 			}
 		}
 	}

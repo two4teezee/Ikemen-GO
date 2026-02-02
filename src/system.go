@@ -1770,20 +1770,8 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		// Destroy helpers
 		for _, h := range s.chars[pn][1:] {
 			// F4 now destroys "preserve" helpers when reloading round start backup
-			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
 			if !h.preserve || forceDestroy {
 				h.destroy()
-			}
-		}
-
-		// Clear children "family tree"
-		// We only do this because helpers may be preserved
-		for _, c := range s.chars[pn] {
-			// Iterate backwards since we're removing items
-			for i := len(c.children) - 1; i >= 0; i-- {
-				if c.children[i].helperIndex < 0 {
-					c.children = SliceDelete(c.children, i)
-				}
 			}
 		}
 	}

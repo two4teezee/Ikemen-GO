@@ -300,7 +300,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	// Pointers, slices, maps, functions, channels etc
 	result.ghv = *c.ghv.Clone(a)
 
-	result.children = arena.MakeSlice[*Char](a, len(c.children), len(c.children))
+	result.children = arena.MakeSlice[int32](a, len(c.children), len(c.children))
 	copy(result.children, c.children)
 
 	result.targets = arena.MakeSlice[int32](a, len(c.targets), len(c.targets))

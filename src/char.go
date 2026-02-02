@@ -4686,51 +4686,60 @@ func (c *Char) helperTrigger(id int32, idx int) *Char {
 }
 
 func (c *Char) getHelperChainIndex(idx int32) *Char {
+	// Index 0 refers to the char itself
 	if idx <= 0 {
 		return c
 	}
 
-	var found []*Char
+	count := int32(0)
 
 	// Find all helpers in parent-child chain
 	for _, h := range sys.charList.creationOrder {
-		// Check only the relevant player number
+		// Skip self
+		if h.id == c.id {
+			continue
+		}
+		// Filter by player number
 		if h.playerNo != c.playerNo {
 			continue
 		}
-		if c.id != h.id {
-			if c.helperIndex == 0 {
-				// Helpers created by the root. Direct check
-				hr := h.root(false)
-				if h.helperIndex != 0 && hr != nil && c.id == hr.id {
-					found = append(found, h)
-				}
-			} else {
-				// Helpers created by other helpers
-				hp := h.parent(false)
 
-				// Track checked helpers to prevent infinite loops when parentIndex repeats itself
-				// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
-				// This should no longer be necessary now that destroyed helpers are no longer valid parents
-				//checked := make(map[*Char]bool)
+		isDescendant := false
 
-				// Iterate until reaching the root or some error
-				for hp != nil {
-					// Original player found to be this helper's (grand)parent. Add helper to list
-					if hp.id == c.id {
-						found = append(found, h)
-						break
-					}
-					// Search further up the parent chain for a relation to the original player
-					hp = hp.parent(false)
+		if c.helperIndex == 0 {
+			// Helpers created by the root. Direct check
+			if hr := h.root(false); hr != nil && hr.id == c.id {
+				isDescendant = true
+			}
+		} else {
+			// Helpers created by other helpers
+			// Iterate until reaching the root or some error
+			hp := h.parent(false)
+
+			// Track checked helpers to prevent infinite loops when parentIndex repeats itself
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/2462
+			// This should no longer be necessary now that destroyed helpers are no longer valid parents
+			//checked := make(map[*Char]bool)
+
+			for hp != nil {
+				// Original char found to be this helper's (grand)parent. Add helper to list
+				if hp.id == c.id {
+					isDescendant = true
+					break
 				}
+				// Search further up the parent chain for a relation to the original player
+				hp = hp.parent(false)
 			}
 		}
-	}
 
-	// Return the Nth helper we found
-	if idx > 0 && int(idx-1) < len(found) {
-		return found[idx-1]
+		if isDescendant {
+			// Increment first because index 1 is the first helper found
+			count++
+			// Return the Nth helper we found
+			if count == idx {
+				return h
+			}
+		}
 	}
 
 	return nil
@@ -4783,14 +4792,15 @@ func (c *Char) targetTrigger(id int32, idx int) *Char {
 	}
 
 	// Filter targets with the specified ID
-	var filteredTargets []*Char
+	count := 0
 	for _, tid := range c.targets {
-		if t := sys.playerID(tid); t != nil && (id < 0 || id == t.ghv.hitid) {
-			filteredTargets = append(filteredTargets, t)
+		t := sys.playerID(tid)
+		if t != nil && (id < 0 || id == t.ghv.hitid) {
 			// Target found at requested index
-			if idx >= 0 && len(filteredTargets) == idx+1 {
-				return filteredTargets[idx]
+			if count == idx {
+				return t
 			}
+			count++
 		}
 	}
 
@@ -12512,17 +12522,6 @@ func (cl *CharList) xScreenBound() {
 		c.xScreenBound()
 	}
 }
-
-/*
-func (cl *CharList) update() {
-	ro := make([]*Char, len(cl.runOrder))
-	copy(ro, cl.runOrder)
-	for _, c := range ro {
-		c.update()
-		c.track()
-	}
-}
-*/
 
 // This function runs every tick, since it also handles interpolation, etc
 func (cl *CharList) update() {

@@ -4877,12 +4877,20 @@ func (c *Char) enemy(n int32) *Char {
 
 // This is only used to simplify the redirection call
 func (c *Char) enemyNearTrigger(n int32) *Char {
-	return sys.charList.enemyNear(c, n, false, true)
+	// Search enemy at requested index
+	e := sys.charList.enemyNear(c, n, false)
+
+	// Log invalid return
+	if e == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
+	}
+
+	return e
 }
 
 // Get the "P2" enemy reference
 func (c *Char) p2() *Char {
-	p := sys.charList.enemyNear(c, 0, true, false)
+	p := sys.charList.enemyNear(c, 0, true)
 	// Cache last valid P2 enemy
 	// Mugen seems to do this for the sake of auto turning before win poses
 	if p != nil {
@@ -13258,12 +13266,9 @@ func (cl *CharList) cueDraw() {
 // Update enemy near or "P2" lists and return specified index
 // The current approach makes the distance calculation loops only be done when necessary, using cached enemies the rest of the time
 // In Mugen the P2 enemy reference seems to only refresh at the start of each frame instead
-func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
-	// Invalid reference
+func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
+	// Invalid index
 	if n < 0 {
-		if log {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
-		}
 		return nil
 	}
 
@@ -13343,11 +13348,8 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list, log bool) *Char {
 		*cache = append(*cache, p.id)
 	}
 
-	// If reference exceeds number of valid enemies
+	// Bounds check
 	if int(n) >= len(*cache) {
-		if log {
-			sys.appendToConsole(c.warn() + fmt.Sprintf("has no nearest enemy: %v", n))
-		}
 		return nil
 	}
 

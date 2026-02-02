@@ -12286,6 +12286,12 @@ func (cl *CharList) clear() {
 }
 
 func (cl *CharList) add(c *Char) {
+	// A char ID conflict would be catastrophic for the game logic, so we might as well crash
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2856
+	if _, exist := cl.idMap[c.id]; exist {
+		panic(Error("Attempted to overwrite an active Char in CharList"))
+	}
+
 	// Append to slices
 	cl.creationOrder = append(cl.creationOrder, c)
 	cl.runOrder = append(cl.runOrder, c)

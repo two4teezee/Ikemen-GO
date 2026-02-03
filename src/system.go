@@ -2174,9 +2174,8 @@ func (s *System) action() {
 			s.specialFlag = 0
 		} else {
 			// These flags persist even during pauses
-			// "Intro" seems to have been deliberately added. Does not persist in Mugen 1.1
 			// "NoKOSlow" added to facilitate custom slowdown. In Mugen that flag only needs to be asserted in first frame of KO slowdown
-			s.specialFlag = (s.specialFlag&GSF_intro | s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
+			s.specialFlag = (s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
 		}
 		s.charList.action()
 		s.nomusic = s.gsf(GSF_nomusic) && !sys.postMatchFlg

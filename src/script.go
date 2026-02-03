@@ -2217,7 +2217,10 @@ func systemScriptInit(l *lua.LState) {
 		sys.luaDiscardDrawQueue()
 		sys.gameRunning = true
 		sys.endMatch = false
-		// Anonymous function to load characters and stages, and/or wait for them to finish loading
+
+		// Synchronize timing to prevent speed fluctuations when changing FPS (entering matches)
+		sys.resetFrameTime()
+
 		load := func() error {
 			sys.loader.runTread()
 			for sys.loader.state != LS_Complete {
@@ -2226,7 +2229,7 @@ func systemScriptInit(l *lua.LState) {
 				} else if sys.loader.state == LS_Cancel {
 					return nil
 				}
-				sys.await(sys.cfg.Video.Framerate)
+				sys.await(sys.gameRenderSpeed())
 			}
 			runtime.GC()
 			return nil

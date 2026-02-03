@@ -713,11 +713,14 @@ func (s *System) await(fps int) bool {
 	var waitDuration time.Duration
 
 	if s.rollback.session != nil {
+		// Use rollback backend value
 		waitDuration = s.rollback.session.loopTimer.usToWaitThisLoop()
 	} else {
+		// Use the given argument
 		waitDuration = time.Second / time.Duration(fps)
 	}
 
+	// Increment the deadline
 	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(waitDuration)
 
 	switch {
@@ -730,6 +733,7 @@ func (s *System) await(fps int) bool {
 		s.redrawWait.lastDraw = now
 		s.frameSkip = false
 	default:
+		// If we are lagging behind by more than 150ms, don't try to speed up. Just reset the schedule to now
 		if diff < -150*time.Millisecond {
 			s.redrawWait.nextTime = now.Add(waitDuration)
 		}
@@ -841,19 +845,19 @@ func (s *System) update() bool {
 
 	if s.replayFile != nil {
 		if s.anyHardButton() {
-			s.await(s.cfg.Video.Framerate * 4)
+			s.await(s.gameRenderSpeed() * 4)
 		} else {
-			s.await(s.cfg.Video.Framerate)
+			s.await(s.gameRenderSpeed())
 		}
 		return s.replayFile.Update()
 	}
 
 	if s.netConnection != nil {
-		s.await(s.cfg.Video.Framerate)
+		s.await(s.gameRenderSpeed())
 		return s.netConnection.Update()
 	}
 
-	return s.await(s.cfg.Video.Framerate)
+	return s.await(s.gameRenderSpeed())
 }
 
 func (s *System) tickSound() {
@@ -2001,6 +2005,9 @@ func (s *System) addFrameTime(t float32) bool {
 func (s *System) resetFrameTime() {
 	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
 	s.nextAddTime, s.oldNextAddTime = 1, 1
+
+	s.redrawWait.nextTime = time.Now()
+	s.redrawWait.lastDraw = time.Now()
 }
 
 func (s *System) resetMatchData(forceDestroy bool) {
@@ -2255,9 +2262,12 @@ func (s *System) action() {
 			spd = 1
 		}
 
+		// Save result
 		s.turbo = spd
+	}
 
-		// Force Feedback (legacy)
+	// Force Feedback (legacy)
+	if s.tickNextFrame() {
 		for i := 0; i < len(s.ffbparams); i++ {
 			if s.ffbparams[i].timer > 0 {
 				start := s.ffbparams[i].start
@@ -3194,6 +3204,9 @@ func (s *System) runMatch() (reload bool) {
 	}
 
 	s.resetRound()
+	
+	// Reset the clock right before entering the loop to ensure we start with a clean timeline
+	s.resetFrameTime()
 
 	// Now switch to rollback if applicable
 	// TODO: More merging so we don't hijack this function at all
@@ -3214,7 +3227,7 @@ func (s *System) runMatch() (reload bool) {
 		}
 
 		// Save/load state
-		// TODO: Confirm at which exaact point rollback does its own save/restore and match that
+		// TODO: Confirm at which exact point rollback does its own save/restore and match that
 		if s.saveStateFlag {
 			s.saveState.SaveState(0)
 		} else if s.loadStateFlag {
@@ -3228,6 +3241,7 @@ func (s *System) runMatch() (reload bool) {
 			break
 		}
 
+		// TODO: These probably ought to be in action() as well
 		s.bgPalFX.step()
 		s.stage.action()
 
@@ -3235,6 +3249,7 @@ func (s *System) runMatch() (reload bool) {
 		s.action()
 
 		debugInput()
+
 		if !s.addFrameTime(s.turbo) {
 			if !s.eventUpdate() {
 				return false
@@ -3484,9 +3499,18 @@ func (s *System) gameLogicSpeed() int32 {
 	return Max(1, spd)
 }
 
-func (s *System) gameRenderSpeed() int32 {
-	spd := int32(s.cfg.Video.Framerate)
-	return Max(1, spd)
+func (s *System) gameRenderSpeed() int {
+	var spd int32
+	if !s.gameRunning || s.rollback.session != nil {
+		// Currently, rendering the motif above 60fps breaks many things, so we'll patch it here
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2131
+		// Rollback is likewise locked to 60fps anyway, so we'll make it consistent here
+		// TODO: Fix both properly. Motif could interpolate. Rollback should render at Framerate but sync at Gamespeed
+		spd = 60
+	} else {
+		spd = int32(s.cfg.Video.Framerate)
+	}
+	return int(Max(1, spd))
 }
 
 func (s *System) debugModeAllowed() bool {

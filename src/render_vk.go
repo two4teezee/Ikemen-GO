@@ -4866,15 +4866,7 @@ func (r *Renderer_VK) DestroyResources(queueLength int) {
 }
 
 func (r *Renderer_VK) BeginFrame(clearColor bool) {
-	sys.absTickCountF++
-	now := sdl.GetPerformanceCounter()
-	firstFrame := sys.prevTimestamp == 0
-	diff := float32(now - sys.prevTimestamp)
-	if diff*float32(sdl.GetPerformanceFrequency()) >= 1 {
-		sys.gameFPS = float32(sdl.GetPerformanceFrequency()) / diff
-		sys.absTickCountF = 0
-		sys.prevTimestamp = now
-	}
+	firstFrame := sys.gameFPSprevcount == 0
 	if !firstFrame {
 		vk.WaitForFences(r.device, 1, r.fences[:1], vk.True, 10*1000*1000*1000)
 	}

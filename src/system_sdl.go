@@ -151,14 +151,6 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 
 func (w *Window) SwapBuffers() {
 	w.Window.GLSwap()
-	// Retrieve GL timestamp now
-	now := sdl.GetPerformanceCounter()
-	diff := float32(now - sys.prevTimestamp)
-	if diff*float32(sdl.GetPerformanceFrequency()) >= 1 {
-		sys.gameFPS = float32(sdl.GetPerformanceFrequency()) / diff
-		sys.absTickCountF = 0
-		sys.prevTimestamp = now
-	}
 }
 
 func (w *Window) imageToSurface(img image.Image) (*sdl.Surface, error) {
@@ -351,6 +343,20 @@ func attachController(deviceIndex int) {
 	input.controllers[slot] = controller
 	resetControllerState(slot)
 	input.controllerstate[slot].HasRumble = controller.HasRumble()
+}
+
+func (w *Window) UpdateDebugFPS() {
+	now := sdl.GetPerformanceCounter()
+	freq := float32(sdl.GetPerformanceFrequency())
+	diff := float32(now - sys.gameFPSprevcount)
+
+	if diff > 0 {
+		instantFPS := freq / diff
+		// Use an EMA to apply smoothing
+		sys.gameFPS = (sys.gameFPS * 0.95) + (float32(instantFPS) * 0.05)
+	}
+
+	sys.gameFPSprevcount = now
 }
 
 func (w *Window) pollEvents() {

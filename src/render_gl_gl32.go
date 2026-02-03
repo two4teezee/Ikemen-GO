@@ -500,9 +500,6 @@ func (r *Renderer_GL32) Init() {
 		sys.msaa = maxSamples
 	}
 
-	// Store current timestamp
-	sys.prevTimestamp = sdl.GetPerformanceCounter()
-
 	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.cfg.Video.ExternalShaders))
 
 	// Data buffers for rendering
@@ -717,7 +714,6 @@ func (r *Renderer_GL32) IsShadowEnabled() bool {
 }
 
 func (r *Renderer_GL32) BeginFrame(clearColor bool) {
-	sys.absTickCountF++
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])

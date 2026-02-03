@@ -307,9 +307,8 @@ type System struct {
 	roundBackup  RoundStartBackup
 
 	// for avg. FPS calculations
-	gameFPS       float32
-	prevTimestamp uint64
-	absTickCountF float32
+	gameFPS          float32
+	gameFPSprevcount uint64
 
 	// screenshot deferral
 	isTakingScreenshot bool
@@ -696,6 +695,7 @@ func (s *System) await(fps int) bool {
 		} else {
 			gfx.Await()
 		}
+		s.window.UpdateDebugFPS()
 		if s.isTakingScreenshot {
 			defer captureScreen()
 			s.isTakingScreenshot = false
@@ -2003,7 +2003,7 @@ func (s *System) addFrameTime(t float32) bool {
 }
 
 func (s *System) resetFrameTime() {
-	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
+	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick = 0, -1, 0, 0
 	s.nextAddTime, s.oldNextAddTime = 1, 1
 
 	s.redrawWait.nextTime = time.Now()

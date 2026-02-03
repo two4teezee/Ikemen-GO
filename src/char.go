@@ -9450,6 +9450,19 @@ func (c *Char) offsetY() float32 {
 
 // Gather the character as well as all its proxy children (and their proxy children) in a flat slice
 func (c *Char) flattenClsnProxies() []*Char {
+	// Fast path if char has no children
+	hasProxy := false
+	for _, childID := range c.children {
+		if child := sys.playerID(childID); child != nil && child.isclsnproxy {
+			hasProxy = true
+			break
+		}
+	}
+	if !hasProxy {
+		return []*Char{c}
+	}
+
+	// Slow path if char has proxies
 	list := make([]*Char, 0, 8)
 
 	// Start from our character

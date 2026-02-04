@@ -508,6 +508,8 @@ type GLES32State struct {
 	blendEquation       BlendEquation
 	blendSrc            BlendFunc
 	blendDst            BlendFunc
+	scissorRect         [4]int32
+	scissorEnabled      bool
 	useUV               bool
 	useNormal           bool
 	useTangent          bool
@@ -1474,12 +1476,30 @@ func (r *Renderer_GLES32) ReadPixels(data []uint8, width, height int) {
 }
 
 func (r *Renderer_GLES32) EnableScissor(x, y, width, height int32) {
-	gl.Enable(gl.SCISSOR_TEST)
-	gl.Scissor(x, sys.scrrect[3]-(y+height), width, height)
+	// Flip Y to OpenGL convention
+	realY := sys.scrrect[3] - (y + height)
+
+	if r.scissorEnabled &&
+		r.scissorRect[0] == x && r.scissorRect[1] == realY &&
+		r.scissorRect[2] == width && r.scissorRect[3] == height {
+		return
+	}
+
+	if !r.scissorEnabled {
+		gl.Enable(gl.SCISSOR_TEST)
+		r.scissorEnabled = true
+	}
+
+	gl.Scissor(x, realY, width, height)
+	r.scissorRect = [4]int32{x, realY, width, height}
 }
 
 func (r *Renderer_GLES32) DisableScissor() {
-	gl.Disable(gl.SCISSOR_TEST)
+	if r.scissorEnabled {
+		gl.Disable(gl.SCISSOR_TEST)
+		r.scissorEnabled = false
+		r.scissorRect = [4]int32{0, 0, 0, 0}
+	}
 }
 
 func (r *Renderer_GLES32) SetUniformI(name string, val int) {

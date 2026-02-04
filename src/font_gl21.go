@@ -30,11 +30,16 @@ type Font_GL21 struct {
 type FontRenderer_GL21 struct {
 	shaderProgram *ShaderProgram_GL21
 	vbo           uint32
+	vLoc          uint32
+	tLoc          uint32
 	//vao           uint32
 }
 
 func (r *FontRenderer_GL21) Init(renderer interface{}) {
 	r.newProgram(120, vertexFontShader, fragmentFontShader)
+
+	r.vLoc = uint32(gl.GetAttribLocation(r.shaderProgram.program, gl.Str("vert\x00")))
+	r.tLoc = uint32(gl.GetAttribLocation(r.shaderProgram.program, gl.Str("vertTexCoord\x00")))
 
 	gl.GenBuffers(1, &r.vbo)
 
@@ -180,31 +185,27 @@ func (f *Font_GL21) Printf(x, y float32, scale float32, spacingXAdd float32, ali
 	return nil
 }
 
-// Helper function to render a batch of glyphs
 func (f *Font_GL21) renderGlyphBatch(vertices []float32, textureID uint32) {
-	program := gfxFont.(*FontRenderer_GL21).shaderProgram
+	// Access the renderer instance
+	fr := gfxFont.(*FontRenderer_GL21)
 
 	// Bind the buffer and update its data
-	gl.BindBuffer(gl.ARRAY_BUFFER, gfxFont.(*FontRenderer_GL21).vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, fr.vbo)
 	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertices)*4, gl.Ptr(vertices))
 
 	// Manually set pointers because there's no VAO to remember them between frames
-	vLoc := uint32(gl.GetAttribLocation(program.program, gl.Str("vert\x00")))
-	tLoc := uint32(gl.GetAttribLocation(program.program, gl.Str("vertTexCoord\x00")))
+	gl.EnableVertexAttribArray(fr.vLoc)
+	gl.VertexAttribPointer(fr.vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
 
-	gl.EnableVertexAttribArray(vLoc)
-	gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
+	gl.EnableVertexAttribArray(fr.tLoc)
+	gl.VertexAttribPointer(fr.tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 
-	gl.EnableVertexAttribArray(tLoc)
-	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
-
-	// Bind the texture
 	gl.BindTexture(gl.TEXTURE_2D, textureID)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(vertices))/4)
 
 	// Cleanup
-	gl.DisableVertexAttribArray(vLoc)
-	gl.DisableVertexAttribArray(tLoc)
+	gl.DisableVertexAttribArray(fr.vLoc)
+	gl.DisableVertexAttribArray(fr.tLoc)
 }
 
 // Width returns the width of a piece of text in pixels

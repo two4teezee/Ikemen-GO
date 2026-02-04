@@ -423,6 +423,11 @@ type GL32State struct {
 	scissorRect         [4]int32
 	scissorEnabled      bool
 	lastSpriteTexture   [8]uint32 // Technically [2] should be enough right now
+	uniformICache       map[uint32]int32
+	uniformF1Cache      map[uint32]float32
+	uniformF2Cache      map[uint32][2]float32
+	uniformF3Cache      map[uint32][3]float32
+	uniformF4Cache      map[uint32][4]float32
 	useNormal           bool
 	useTangent          bool
 	useVertColor        bool
@@ -733,7 +738,20 @@ func (r *Renderer_GL32) Init() {
 		}
 		gl.GenFramebuffers(1, &r.fbo_env)
 	}
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
+
+	// Initialize uniform cache
+	r.uniformICache = make(map[uint32]int32, 32)
+	r.uniformF1Cache = make(map[uint32]float32, 32)
+	r.uniformF2Cache = make(map[uint32][2]float32, 32)
+	r.uniformF3Cache = make(map[uint32][3]float32, 32)
+	r.uniformF4Cache = make(map[uint32][4]float32, 32)
+
+	// Initialize texture cache
+	for i := range r.lastSpriteTexture {
+		r.lastSpriteTexture[i] = 0xFFFFFFFF
+	}
 }
 
 func (r *Renderer_GL32) Close() {
@@ -936,16 +954,31 @@ func (r *Renderer_GL32) SetCullFace(doubleSided bool) {
 	}
 }
 
-func (r *Renderer_GL32) UseProgram(program uint32) {
-	if r.program != program {
-		gl.UseProgram(program)
-		r.program = program
-
-		// Clear cache between shaders
-		for i := range r.lastSpriteTexture {
-			r.lastSpriteTexture[i] = 0
-		}
+func (r *Renderer_GL32) UseProgram(prog uint32) {
+	if r.program == prog {
+		return
 	}
+
+	// Switch program
+	gl.UseProgram(prog)
+	r.program = prog
+
+	// Clear cache between shaders
+	for i := range r.lastSpriteTexture {
+		r.lastSpriteTexture[i] = 0xFFFFFFFF
+	}
+	/*
+	// No need to reset these anymore since the cache is now keyed to the spriteShader
+	for i := range r.uniformICache {
+		r.uniformICache[i] = -1e9
+	}
+	for i := range r.uniformF1Cache {
+		r.uniformF1Cache[i] = -1e9
+	}
+	for i := range r.uniformF3Cache {
+		r.uniformF3Cache[i] = -1e9
+	}
+	*/
 }
 
 func (r *Renderer_GL32) SetBlending(enable bool, eq BlendEquation, src, dst BlendFunc) {
@@ -1430,14 +1463,64 @@ func (r *Renderer_GL32) DisableScissor() {
 	}
 }
 
-func (r *Renderer_GL32) SetUniformI(name string, val int) {
-	loc := r.spriteShader.u[name]
-	gl.Uniform1i(loc, int32(val))
+func (r *Renderer_GL32) SetUniformISub(loc int32, val int32) {
+	if loc < 0 {
+		return
+	}
+
+	// Only cache for the sprite shader
+	if r.program == r.spriteShader.program {
+		key := (r.program << 16) | uint32(loc)
+		if old, exists := r.uniformICache[key]; exists && old == val {
+			return
+		}
+		r.uniformICache[key] = val
+	}
+
+	gl.Uniform1i(loc, val)
 }
 
-func (r *Renderer_GL32) SetUniformF(name string, values ...float32) {
-	loc := r.spriteShader.u[name]
-	switch len(values) {
+func (r *Renderer_GL32) SetUniformFSub(loc int32, values ...float32) {
+	if loc < 0 || len(values) == 0 {
+		return
+	}
+	vLen := len(values)
+
+	// Cached sprite shader branch
+	if r.program == r.spriteShader.program {
+		key := (r.program << 16) | uint32(loc)
+
+		switch vLen {
+		case 1:
+			if old, exists := r.uniformF1Cache[key]; exists && old == values[0] {
+				return
+			}
+			r.uniformF1Cache[key] = values[0]
+		case 2:
+			v2 := [2]float32{values[0], values[1]}
+			if old, exists := r.uniformF2Cache[key]; exists && old == v2 {
+				return
+			}
+			r.uniformF2Cache[key] = v2
+			gl.Uniform2fv(loc, 1, &values[0])
+			return
+		case 3:
+			v3 := [3]float32{values[0], values[1], values[2]}
+			if old, exists := r.uniformF3Cache[key]; exists && old == v3 {
+				return
+			}
+			r.uniformF3Cache[key] = v3
+		case 4:
+			v4 := [4]float32{values[0], values[1], values[2], values[3]}
+			if old, exists := r.uniformF4Cache[key]; exists && old == v4 {
+				return
+			}
+			r.uniformF4Cache[key] = v4
+		}
+	}
+
+	// Other shaders
+	switch vLen {
 	case 1:
 		gl.Uniform1f(loc, values[0])
 	case 2:
@@ -1446,71 +1529,49 @@ func (r *Renderer_GL32) SetUniformF(name string, values ...float32) {
 		gl.Uniform3f(loc, values[0], values[1], values[2])
 	case 4:
 		gl.Uniform4f(loc, values[0], values[1], values[2], values[3])
+	default:
+		gl.Uniform1fv(loc, int32(vLen), &values[0])
 	}
+}
+
+func (r *Renderer_GL32) SetUniformFvSub(loc int32, values []float32) {
+	r.SetUniformFSub(loc, values...)
+}
+
+func (r *Renderer_GL32) SetUniformI(name string, val int) {
+	loc := r.spriteShader.u[name]
+	r.SetUniformISub(loc, int32(val))
+}
+
+func (r *Renderer_GL32) SetUniformF(name string, values ...float32) {
+	loc := r.spriteShader.u[name]
+	r.SetUniformFSub(loc, values...)
 }
 
 func (r *Renderer_GL32) SetUniformFv(name string, values []float32) {
 	loc := r.spriteShader.u[name]
-	switch len(values) {
-	case 2:
-		gl.Uniform2fv(loc, 1, &values[0])
-	case 3:
-		gl.Uniform3fv(loc, 1, &values[0])
-	case 4:
-		gl.Uniform4fv(loc, 1, &values[0])
-	}
+	r.SetUniformFvSub(loc, values)
 }
 
+// Caching matrices is as expensive as direct function calls
 func (r *Renderer_GL32) SetUniformMatrix(name string, value []float32) {
 	loc := r.spriteShader.u[name]
 	gl.UniformMatrix4fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetTexture(name string, tex Texture) {
-	t := tex.(*Texture_GL32)
-	loc, unit := r.spriteShader.u[name], r.spriteShader.t[name]
-
-	if r.lastSpriteTexture[unit] == t.handle {
-		return
-	}
-
-	r.lastSpriteTexture[unit] = t.handle
-	gl.ActiveTexture(uint32(gl.TEXTURE0 + unit))
-	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	gl.Uniform1i(loc, int32(unit))
-}
-
 func (r *Renderer_GL32) SetModelUniformI(name string, val int) {
 	loc := r.modelShader.u[name]
-	gl.Uniform1i(loc, int32(val))
+	r.SetUniformISub(loc, int32(val))
 }
 
 func (r *Renderer_GL32) SetModelUniformF(name string, values ...float32) {
 	loc := r.modelShader.u[name]
-	switch len(values) {
-	case 1:
-		gl.Uniform1f(loc, values[0])
-	case 2:
-		gl.Uniform2f(loc, values[0], values[1])
-	case 3:
-		gl.Uniform3f(loc, values[0], values[1], values[2])
-	case 4:
-		gl.Uniform4f(loc, values[0], values[1], values[2], values[3])
-	}
+	r.SetUniformFSub(loc, values...)
 }
 
 func (r *Renderer_GL32) SetModelUniformFv(name string, values []float32) {
 	loc := r.modelShader.u[name]
-	switch len(values) {
-	case 2:
-		gl.Uniform2fv(loc, 1, &values[0])
-	case 3:
-		gl.Uniform3fv(loc, 1, &values[0])
-	case 4:
-		gl.Uniform4fv(loc, 1, &values[0])
-	case 8:
-		gl.Uniform4fv(loc, 2, &values[0])
-	}
+	r.SetUniformFvSub(loc, values)
 }
 
 func (r *Renderer_GL32) SetModelUniformMatrix(name string, value []float32) {
@@ -1523,45 +1584,19 @@ func (r *Renderer_GL32) SetModelUniformMatrix3(name string, value []float32) {
 	gl.UniformMatrix3fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetModelTexture(name string, tex Texture) {
-	t := tex.(*Texture_GL32)
-	loc, unit := r.modelShader.u[name], r.modelShader.t[name]
-	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
-	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	gl.Uniform1i(loc, int32(unit))
-}
-
 func (r *Renderer_GL32) SetShadowMapUniformI(name string, val int) {
 	loc := r.shadowMapShader.u[name]
-	gl.Uniform1i(loc, int32(val))
+	r.SetUniformISub(loc, int32(val))
 }
 
 func (r *Renderer_GL32) SetShadowMapUniformF(name string, values ...float32) {
 	loc := r.shadowMapShader.u[name]
-	switch len(values) {
-	case 1:
-		gl.Uniform1f(loc, values[0])
-	case 2:
-		gl.Uniform2f(loc, values[0], values[1])
-	case 3:
-		gl.Uniform3f(loc, values[0], values[1], values[2])
-	case 4:
-		gl.Uniform4f(loc, values[0], values[1], values[2], values[3])
-	}
+	r.SetUniformFSub(loc, values...)
 }
 
 func (r *Renderer_GL32) SetShadowMapUniformFv(name string, values []float32) {
 	loc := r.shadowMapShader.u[name]
-	switch len(values) {
-	case 2:
-		gl.Uniform2fv(loc, 1, &values[0])
-	case 3:
-		gl.Uniform3fv(loc, 1, &values[0])
-	case 4:
-		gl.Uniform4fv(loc, 1, &values[0])
-	case 8:
-		gl.Uniform4fv(loc, 2, &values[0])
-	}
+	r.SetUniformFvSub(loc, values)
 }
 
 func (r *Renderer_GL32) SetShadowMapUniformMatrix(name string, value []float32) {
@@ -1574,12 +1609,38 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32)
 	gl.UniformMatrix3fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetShadowMapTexture(name string, tex Texture) {
+func (r *Renderer_GL32) SetTextureSub(uMap map[string]int32, tMap map[string]int, name string, tex Texture) {
 	t := tex.(*Texture_GL32)
-	loc, unit := r.shadowMapShader.u[name], r.shadowMapShader.t[name]
-	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
+	loc, unit := uMap[name], uint32(tMap[name])
+
+	// Only use the binding cache for the sprite shader
+	if r.program == r.spriteShader.program {
+		// Check cache
+		if r.lastSpriteTexture[unit] == t.handle {
+			// Even if texture is cached, we must ensure the uniform is set
+			r.SetUniformISub(loc, int32(unit))
+			return
+		}
+		// Update cache
+		r.lastSpriteTexture[unit] = t.handle
+	}
+
+	gl.ActiveTexture(gl.TEXTURE0 + unit)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	gl.Uniform1i(loc, int32(unit))
+
+	r.SetUniformISub(loc, int32(unit))
+}
+
+func (r *Renderer_GL32) SetTexture(name string, tex Texture) {
+	r.SetTextureSub(r.spriteShader.u, r.spriteShader.t, name, tex)
+}
+
+func (r *Renderer_GL32) SetModelTexture(name string, tex Texture) {
+    r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
+}
+
+func (r *Renderer_GL32) SetShadowMapTexture(name string, tex Texture) {
+    r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
 }
 
 func (r *Renderer_GL32) SetShadowFrameTexture(i uint32) {

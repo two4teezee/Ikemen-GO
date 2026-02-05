@@ -449,11 +449,23 @@ func (pl *PaletteList) SwapPalMap(palMap *[]int) bool {
 	return true
 }
 
+// Convert palette color slice into the format used in textures
 func Pal32ToBytes(pal []uint32) []byte {
 	if len(pal) == 0 {
 		return nil
 	}
-	return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), len(pal)*4)
+
+	// Fast path if palette is already 256 colors
+	if len(pal) == 256 {
+		return unsafe.Slice((*byte)(unsafe.Pointer(&pal[0])), 1024)
+	}
+
+	// Otherwise add padding because the GPU expects 256 colors
+	// Extra colors will just be invisible because of the 0 alpha
+	padded := make([]uint32, 256)
+	copy(padded, pal) 
+
+	return unsafe.Slice((*byte)(unsafe.Pointer(&padded[0])), 1024)
 }
 
 func NewTextureFromPalette(pal []uint32) Texture {
@@ -1258,35 +1270,6 @@ func (s *Sprite) CachePalTex(pal []uint32) Texture {
 	return s.PalTex
 }
 
-// Updates the palette texture only if the palette data has changed
-func (s *Sprite) SyncPalette(pal []uint32) {
-	// 2. The "Gatekeeper" - Check if we can skip the work
-	match := true
-	if s.PalTex == nil || len(pal) != len(s.paltemp) {
-		match = false
-	} else {
-		for i := range pal {
-			if pal[i] != s.paltemp[i] {
-				match = false
-				break
-			}
-		}
-	}
-
-	// 3. The "Worker" - Update if data is dirty or texture is missing
-	if !match {
-		if s.PalTex == nil {
-			s.PalTex = gfx.newPaletteTexture()
-		}
-
-		// Upload to VRAM
-		s.PalTex.SetData(Pal32ToBytes(pal))
-
-		// Refresh CPU-side cache (using a fresh clone)
-		s.paltemp = append([]uint32(nil), pal...)
-	}
-}
-
 func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation, projectionMode int32, fLength float32, fx *PalFX, window *[4]int32) {
 	x += float32(sys.gameWidth-320)/2 - xscale*float32(s.Offset[0])
 	y += float32(sys.gameHeight-240) - yscale*float32(s.Offset[1])
@@ -1985,8 +1968,7 @@ func (s *Sff) ReadPalette(f io.ReadSeeker, offset int64, size uint32) ([]uint32,
 	}
 
 	// Allocate only what we need
-	// Previously Ikemen always allocated 256 colors, so the check in SwapPalMap always passed
-	// https://github.com/ikemen-engine/Ikemen-GO/issues/2408
+	// Previously Ikemen always allocated 256 colors, but because of RemapPal we must respect the original color count
 	pal := make([]uint32, depth)
 
 	// Read the actual data

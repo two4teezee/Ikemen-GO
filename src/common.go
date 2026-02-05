@@ -1139,11 +1139,11 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, 
 		drawwindow := &sys.scrrect
 
 		if r != nil {
-			if r == &l.window { 
+			if r == &l.window {
 				rect := l.calcLBRect(*r)
 				drawwindow = &rect
 			} else {
-				drawwindow = r 
+				drawwindow = r
 			}
 		}
 		// TODO: test "phantom pixel"

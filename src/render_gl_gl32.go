@@ -418,7 +418,7 @@ type GL32State struct {
 	blendDst            BlendFunc
 	scissorRect         [4]int32
 	scissorEnabled      bool
-	lastTexUnits        [8]uint32
+	lastSpriteTexture   [8]uint32
 	useUV               bool
 	useNormal           bool
 	useTangent          bool
@@ -909,6 +909,11 @@ func (r *Renderer_GL32) UseProgram(program uint32) {
 	if r.program != program {
 		gl.UseProgram(program)
 		r.program = program
+
+		// Clear cache between shaders
+		for i := range r.lastSpriteTexture {
+			r.lastSpriteTexture[i] = 0
+		}
 	}
 }
 
@@ -1438,7 +1443,13 @@ func (r *Renderer_GL32) SetUniformMatrix(name string, value []float32) {
 func (r *Renderer_GL32) SetTexture(name string, tex Texture) {
 	t := tex.(*Texture_GL32)
 	loc, unit := r.spriteShader.u[name], r.spriteShader.t[name]
-	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
+
+	if r.lastSpriteTexture[unit] == t.handle {
+		return
+	}
+
+	r.lastSpriteTexture[unit] = t.handle
+	gl.ActiveTexture(uint32(gl.TEXTURE0 + unit))
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.Uniform1i(loc, int32(unit))
 }

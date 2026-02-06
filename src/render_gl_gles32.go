@@ -511,13 +511,13 @@ type GLES32State struct {
 	scissorRect         [4]int32
 	scissorEnabled      bool
 	lastSpriteTexture   [8]uint32
-	useUV               bool
 	useNormal           bool
 	useTangent          bool
 	useVertColor        bool
 	useJoint0           bool
 	useJoint1           bool
 	useOutlineAttribute bool
+	//useUV               bool // Safer not to cache this one because sprites also use it
 }
 
 func (r *Renderer_GLES32) GetName() string {
@@ -535,7 +535,21 @@ func (r *Renderer_GLES32) InitModelShader() error {
 	if err != nil {
 		return err
 	}
-	r.modelShader.RegisterAttributes("inVertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
+
+	r.modelShader.RegisterAttributes(
+		"position", // Same position as spriteShader
+		"uv", // Same position as spriteShader
+		"inVertexId",
+		"normalIn",
+		"tangentIn",
+		"vertColor",
+		"joints_0",
+		"joints_1",
+		"weights_0",
+		"weights_1",
+		"outlineAttributeIn", // Not in shadowMapShader
+	)
+
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
 		"metallicRoughness", "ambientOcclusionStrength", "emission", "environmentIntensity", "mipCount", "meshOutline",
@@ -554,7 +568,20 @@ func (r *Renderer_GLES32) InitModelShader() error {
 		if err != nil {
 			return err
 		}
-		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
+
+		r.shadowMapShader.RegisterAttributes(
+			"position", // Same position as spriteShader
+			"uv", // Same position as spriteShader
+			"inVertexId",
+			"normalIn",
+			"tangentIn",
+			"vertColor",
+			"joints_0",
+			"joints_1",
+			"weights_0",
+			"weights_1",
+		)
+
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
 			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
@@ -1053,9 +1080,11 @@ func (r *Renderer_GLES32) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
 
 	// Must bind buffer before enabling attributes
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
+
 	loc := r.spriteShader.a["position"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 0)
+
 	loc = r.spriteShader.a["uv"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 8)
@@ -1109,18 +1138,17 @@ func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, use
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
+
+	loc = r.shadowMapShader.a["uv"]
 	if useUV {
-		r.useUV = true
-		loc = r.shadowMapShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else if r.useUV {
-		r.useUV = false
-		loc = r.shadowMapShader.a["uv"]
+	} else {
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
+
 	if useNormal {
 		offset += 12 * numVertices
 	}
@@ -1212,7 +1240,6 @@ func (r *Renderer_GLES32) ReleaseShadowPipeline() {
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
-	r.useUV = false
 	r.useJoint0 = false
 	r.useJoint1 = false
 }
@@ -1313,18 +1340,17 @@ func (r *Renderer_GLES32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc,
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
+
+	loc = r.modelShader.a["uv"]
 	if useUV {
-		r.useUV = true
-		loc = r.modelShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else if r.useUV {
-		r.useUV = false
-		loc = r.modelShader.a["uv"]
+	} else {
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
+
 	if useNormal {
 		r.useNormal = true
 		loc = r.modelShader.a["normalIn"]
@@ -1465,7 +1491,6 @@ func (r *Renderer_GLES32) ReleaseModelPipeline() {
 	gl.DepthMask(true)
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Disable(gl.CULL_FACE)
-	r.useUV = false
 	r.useNormal = false
 	r.useTangent = false
 	r.useVertColor = false

@@ -6753,14 +6753,6 @@ func (c *Char) commitExplod(i int) {
 		}
 	}
 
-	// Emulate legacy ontop behavior
-	// Move from the end of the slice to the beginning to invert drawing order
-	if e.ontop {
-		playerExplods := &sys.explods[c.playerNo]
-		copy((*playerExplods)[1:i+1], (*playerExplods)[0:i])
-		(*playerExplods)[0] = e
-	}
-
 	// Explod ready
 	e.anim.UpdateSprite()
 }
@@ -8755,10 +8747,33 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 		return
 	}
 
-	// Init palette remap if needed
+	// Get both palettes so we can compare them
+	srcPal := plist.Get(si)
+	dstPal := plist.Get(di)
+
+	// Ensure palettes exist
+	if srcPal == nil || dstPal == nil {
+		return
+	}
+
+	// Check the actual color depths
+	srcDepth := len(srcPal)
+	dstDepth := len(dstPal)
+
+	// Color depths must match
+	// TODO: Now that this actually works, we could make it optional via a new parameter
+	if srcDepth != dstDepth {
+		sys.appendToConsole(c.warn() + fmt.Sprintf(
+			" RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)", 
+			src[0], src[1], srcDepth, dst[0], dst[1], dstDepth))
+		return
+	}
+
+	// Init remaps if needed
 	if pfx.remap == nil {
 		pfx.remap = plist.GetPalMap()
 	}
+
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
 		plist.Remap(si, di)
@@ -8785,18 +8800,34 @@ func (c *Char) forceRemapPal(pfx *PalFX, dst [2]int32) {
 		return
 	}
 
-	// Get new palette
-	di, ok := c.gi().palettedata.palList.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
+	plist := c.gi().palettedata.palList
+
+	// Look up the destination palette
+	di, ok := plist.PalTable[[...]uint16{uint16(dst[0]), uint16(dst[1])}]
 	if !ok || di < 0 {
 		return
 	}
 
-	// Clear previous remaps
-	pfx.remap = make([]int, len(c.gi().palettedata.palList.paletteMap))
+	// Get the depth of the destination palette
+	dstDepth := len(plist.palettes[di])
 
-	// Apply the new remap
+	// Initialize or clear the remap table
+	pfx.remap = make([]int, len(plist.paletteMap))
 	for i := range pfx.remap {
-		pfx.remap[i] = di
+		// TODO: Confirm if this should be reset or not touched at all
+		pfx.remap[i] = i
+	}
+
+	// Selective remap only if color depths match
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/2408
+	for i := 0; i < len(pfx.remap); i++ {
+		// Get the palette at this index
+		if i < len(plist.palettes) && plist.palettes[i] != nil {
+			srcDepth := len(plist.palettes[i])
+			if srcDepth == dstDepth {
+				pfx.remap[i] = di
+			}
+		}
 	}
 }
 

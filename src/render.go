@@ -494,33 +494,40 @@ func RenderSprite(rp RenderParams) {
 
 	initRenderSpriteQuad(&rp)
 
+	// PalFX and color setup
 	neg, grayscale, padd, pmul, invblend, hue := false, float32(0), [3]float32{0, 0, 0}, [3]float32{1, 1, 1}, int32(0), float32(0)
-	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
-		float32(rp.tint>>16&0xff) / 255, float32(rp.tint>>24&0xff) / 255}
-
 	if rp.pfx != nil {
 		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(false, rp.blendAlpha)
 	}
 
+	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
+		float32(rp.tint>>16&0xff) / 255, float32(rp.tint>>24&0xff) / 255}
+
+	// Global matrix and state
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 
+	// These parameters stay the same between passes
 	gfx.EnableScissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
 
+	// Bind the main texture once
+	gfx.SetTexture("tex", rp.tex)
+
+	// Bind the palette once
+	if rp.paltex != nil {
+		gfx.SetTexture("pal", rp.paltex)
+	}
+
+	// Local function called for each blending pass
 	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		gfx.SetPipeline(eq, src, dst)
 
+		// Must update uniforms after calling SetPipeline
 		gfx.SetUniformMatrix("projection", proj[:])
-		gfx.SetTexture("tex", rp.tex)
-		if rp.paltex == nil {
-			gfx.SetUniformI("isRgba", 1)
-		} else {
-			gfx.SetTexture("pal", rp.paltex)
-			gfx.SetUniformI("isRgba", 0)
-		}
+
+		gfx.SetUniformI("isFlat", 0)
 		gfx.SetUniformI("mask", int(rp.mask))
 		gfx.SetUniformI("isTrapez", int(Btoi(AbsF(AbsF(rp.xts)-AbsF(rp.xbs)) > 0.001)))
-		gfx.SetUniformI("isFlat", 0)
 
 		gfx.SetUniformI("neg", int(Btoi(neg)))
 		gfx.SetUniformF("gray", grayscale)
@@ -529,6 +536,13 @@ func RenderSprite(rp RenderParams) {
 		gfx.SetUniformFv("mult", pmul[:])
 		gfx.SetUniformFv("tint", tint[:])
 		gfx.SetUniformF("alpha", a)
+
+		// Update palette instructions
+		if rp.paltex == nil {
+			gfx.SetUniformI("isRgba", 1)
+		} else {
+			gfx.SetUniformI("isRgba", 0)
+		}
 
 		renderSpriteQuad(modelview, rp)
 	}
@@ -656,21 +670,26 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 
+
 	x1, y1 := float32(rect[0]), -float32(rect[1])
 	x2, y2 := float32(rect[0]+rect[2]), -float32(rect[1]+rect[3])
 
+	gfx.SetVertexData(
+		x2, y2, 1, 1,
+		x2, y1, 1, 0,
+		x1, y2, 0, 1,
+		x1, y1, 0, 0,
+	)
+
 	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		gfx.SetPipeline(eq, src, dst)
-		gfx.SetVertexData(
-			x2, y2, 1, 1,
-			x2, y1, 1, 0,
-			x1, y2, 0, 1,
-			x1, y1, 0, 0,
-		)
+
 		gfx.SetUniformMatrix("modelview", modelview[:])
 		gfx.SetUniformMatrix("projection", proj[:])
+
 		gfx.SetUniformI("isFlat", 1)
 		gfx.SetUniformF("tint", r, g, b, a)
+
 		gfx.RenderQuad()
 	}
 

@@ -3224,7 +3224,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 		moveDir = -1
 	end
 	if moveDir == 1 then
-		sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
+		if forcedDir == nil then
+			sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
+		end
 		while true do
 			item = item + 1
 			if cursorPosY < visible then
@@ -3235,7 +3237,9 @@ function main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, sec, cursorParams, 
 			end
 		end
 	elseif moveDir == -1 then
-		sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
+		if forcedDir == nil then
+			sndPlay(motif.Snd, cursorParams.move.snd[1], cursorParams.move.snd[2])
+		end
 		while true do
 			item = item - 1
 			if cursorPosY > startItem then

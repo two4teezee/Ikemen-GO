@@ -388,6 +388,7 @@ type PlayerCursorProperties struct {
 	SwitchTime int32           `ini:"switchtime"` // only used by P2
 	Tween      TweenProperties `ini:"tween"`
 	Reset      bool            `ini:"reset"`
+	Persist    bool            `ini:"persist"`    // only used by P1 and P2
 }
 
 type ItemProperties struct {

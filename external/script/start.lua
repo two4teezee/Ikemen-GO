@@ -2302,7 +2302,9 @@ function start.f_selectScreen()
 		batchDraw(staticDrawList)
 		--draw done cursors
 		for side = 1, 2 do
-			for _, v in pairs(start.p[side].t_selected) do
+			local persist = motif.select_info['p' .. side].cursor.persist 
+			local totalSelected = #start.p[side].t_selected
+			for k, v in pairs(start.p[side].t_selected) do
 				if v.cursor ~= nil then
 					--get cell coordinates
 					local x = v.cursor[1]
@@ -2317,7 +2319,16 @@ function start.f_selectScreen()
 					--end
 					--render only if cell is not hidden
 					if t.hidden ~= 1 and t.hidden ~= 2 then
-						start.f_drawCursor(v.pn, x, y, 'done', true)
+						local shouldDraw = false
+						if main.coop or persist then
+							shouldDraw = true
+						end
+						if start.p[side].selEnd and k == totalSelected then
+							shouldDraw = true
+						end
+						if shouldDraw then
+							start.f_drawCursor(v.pn, x, y, 'done', true)
+						end
 					end
 				end
 			end
@@ -2363,13 +2374,13 @@ function start.f_selectScreen()
 							start.c[v.player].blink = false
 						end
 					end
+					local cursorState = 'active'
+					if v.selectState > 0 and motif.select_info.paletteselect > 0 then
+						--cursorState when palmenu is active
+						cursorState = 'done'
+					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
-						if v.selectState > 0 and motif.select_info.paletteselect > 0 then --draw done cursor when palmenu is active
-							start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, 'done', false)
-						else
-							start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, 'active', false)
-						end
-
+						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, cursorState, false)
 					end
 				end
 			end

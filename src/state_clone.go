@@ -381,6 +381,9 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 func (cl *CharList) Clone(a *arena.Arena, gsp *GameStatePool) (result CharList) {
 	result = *cl
 
+	result.creationOrder = arena.MakeSlice[*Char](a, len(cl.creationOrder), len(cl.creationOrder))
+	copy(result.creationOrder, cl.creationOrder)
+
 	result.runOrder = arena.MakeSlice[*Char](a, len(cl.runOrder), len(cl.runOrder))
 	copy(result.runOrder, cl.runOrder)
 

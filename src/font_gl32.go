@@ -344,11 +344,23 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 
 		var uv [4]float32
 		textureIndex := 0
-		for uv, ok = f.textures[textureIndex].AddImage(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), rgba.Pix); !ok; uv, ok = f.textures[textureIndex].AddImage(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), rgba.Pix) {
-			textureIndex += 1
+		w, h := int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy())
+		pix := rgba.Pix
+		stride := int32(rgba.Stride) // This was added to unify desktop and Android
+
+		for {
 			if textureIndex >= len(f.textures) {
 				f.textures = append(f.textures, CreateTextureAtlas(256, 256, 32, true))
 			}
+
+			var inserted bool
+			uv, inserted = f.textures[textureIndex].AddImage(w, h, stride, pix)
+			
+			if inserted {
+				break
+			}
+
+			textureIndex++
 		}
 
 		texAtlas := f.textures[textureIndex]

@@ -349,16 +349,27 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 
 		var uv [4]float32
 		textureIndex := 0
-		stride := int32(rgba.Stride)
+		w, h := int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy())
+		pix := rgba.Pix
+		stride := int32(rgba.Stride) // This was added to unify desktop and Android
 
 		//char.width = rect.Dx()  // Use the actual image width (with padding)
 		//char.height = rect.Dy() // Use the actual image height (with padding)
 		//char.bearingH = (int(gBnd.Min.X) >> 6) - padding
-		for uv, ok = f.textures[textureIndex].AddImageStride(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, rgba.Pix); !ok; uv, ok = f.textures[textureIndex].AddImageStride(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, rgba.Pix) {
-			textureIndex += 1
+
+		for {
 			if textureIndex >= len(f.textures) {
 				f.textures = append(f.textures, CreateTextureAtlas(256, 256, 32, true))
 			}
+
+			var inserted bool
+			uv, inserted = f.textures[textureIndex].AddImage(w, h, stride, pix)
+			
+			if inserted {
+				break
+			}
+
+			textureIndex++
 		}
 
 		texAtlas := f.textures[textureIndex]

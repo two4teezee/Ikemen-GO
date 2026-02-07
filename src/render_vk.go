@@ -184,9 +184,10 @@ func (t *Texture_VK) SetData(textureData []byte) {
 	if textureData == nil {
 		return
 	}
-	t.SetSubData(textureData, t.offset[0], t.offset[1], t.width, t.height)
+	t.SetSubData(textureData, t.offset[0], t.offset[1], t.width, t.height, 0)
 }
-func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
+
+func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height, stride int32) {
 	size := uint32(width * height * t.depth / 8)
 	bufferOffset := gfx.(*Renderer_VK).CopyToStagingBuffer(size, textureData)
 	imageExtent := vk.Extent3D{
@@ -250,9 +251,6 @@ func (t *Texture_VK) SetSubData(textureData []byte, x, y, width, height int32) {
 		ImageOffset: imageOffset,
 		ImageExtent: imageExtent,
 	})
-}
-func (t *Texture_VK) SetSubDataStride(textureData []byte, x, y, width, height, stride int32) {
-
 }
 
 func (t *Texture_VK) SetDataG(textureData []byte, mag, min, ws, wt TextureSamplingParam) {

@@ -328,6 +328,8 @@ func (t *Texture_GLES32) SetData(data []byte) {
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+
 	if data != nil {
 		gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, uploadFormat, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	} else {
@@ -340,36 +342,14 @@ func (t *Texture_GLES32) SetData(data []byte) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 
-func (t *Texture_GLES32) SetSubData(data []byte, x, y, width, height int32) {
+func (t *Texture_GLES32) SetSubData(data []byte, x, y, width, height, stride int32) {
 	var interp int32 = gl.NEAREST
 	if t.filter {
 		interp = gl.LINEAR
 	}
 
-	uploadFormat := t.MapInternalFormat(Max(t.depth, 8))
-
-	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-
-	if data != nil {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(uploadFormat), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
-	} else {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(uploadFormat), gl.UNSIGNED_BYTE, nil)
-	}
-
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interp)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interp)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-	// gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
-}
-
-func (t *Texture_GLES32) SetSubDataStride(data []byte, x, y, width, height, stride int32) {
-	var interp int32 = gl.NEAREST
-	if t.filter {
-		interp = gl.LINEAR
-	}
+	format := t.MapInternalFormat(Max(t.depth, 8))
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
@@ -378,30 +358,33 @@ func (t *Texture_GLES32) SetSubDataStride(data []byte, x, y, width, height, stri
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/4)
 
 	if data != nil {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	} else {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, gl.RGBA, gl.UNSIGNED_BYTE, nil)
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, nil)
 	}
 
 	if err := gl.GetError(); err != 0 {
 		Logcat(fmt.Sprintf("GL ERROR in SetSubDataStride: %v | w:%d h:%d s:%d", err, width, height, stride))
 	}
 
+	// We can't trust Android to do this. Best to also assert it in all other texture uploads
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interp)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interp)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
-	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	// gl.Flush()
 }
 
 func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
-
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, format, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, int32(mag))
@@ -411,13 +394,15 @@ func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingP
 }
 
 func (t *Texture_GLES32) SetPixelData(data []float32) {
-
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, t.width, t.height, 0, gl.RGBA, gl.FLOAT, unsafe.Pointer(&data[0]))
 }
 
 func (t Texture_GLES32) CopyData(src *Texture) {
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, 0) // Unbind whatever is currently bound
 	srcES := (*src).(*Texture_GLES32)
 	var fbo uint32
@@ -433,11 +418,16 @@ func (t Texture_GLES32) CopyData(src *Texture) {
 	gl.DeleteFramebuffers(1, &fbo)
 }
 
+/*
+// Not called anywhere
 func (t *Texture_GLES32) SetRGBPixelData(data []float32) {
+	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGB32F, t.width, t.height, 0, gl.RGB, gl.FLOAT, unsafe.Pointer(&data[0]))
 }
+*/
 
 // Return whether texture has a valid handle
 func (t *Texture_GLES32) IsValid() bool {
@@ -510,7 +500,7 @@ type GLES32State struct {
 	blendDst            BlendFunc
 	scissorRect         [4]int32
 	scissorEnabled      bool
-	lastSpriteTexture   [8]uint32
+	lastSpriteTexture   [8]uint32 // Technically [2] should be enough right now
 	useNormal           bool
 	useTangent          bool
 	useVertColor        bool
@@ -1763,12 +1753,15 @@ func (r *Renderer_GLES32) RenderFilteredCubeMap(distribution int32, cubeTex Text
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
 	r.UseProgram(r.cubemapFilteringShader.program)
-	loc := r.cubemapFilteringShader.a["VertCoord"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
+
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+
+	loc := r.cubemapFilteringShader.a["VertCoord"]
+	gl.EnableVertexAttribArray(uint32(loc))
+	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
+
 	loc, unit := r.cubemapFilteringShader.u["cubeMap"], r.cubemapFilteringShader.t["cubeMap"]
 	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
 	gl.BindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture.handle)
@@ -1804,12 +1797,15 @@ func (r *Renderer_GLES32) RenderLUT(distribution int32, cubeTex Texture, lutTex 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 	r.UseProgram(r.cubemapFilteringShader.program)
-	loc := r.cubemapFilteringShader.a["VertCoord"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
+
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+
+	loc := r.cubemapFilteringShader.a["VertCoord"]
+	gl.EnableVertexAttribArray(uint32(loc))
+	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
+
 	loc, unit := r.cubemapFilteringShader.u["cubeMap"], r.cubemapFilteringShader.t["cubeMap"]
 	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
 	gl.BindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture.handle)

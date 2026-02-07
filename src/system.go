@@ -214,6 +214,7 @@ type System struct {
 	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
+	explodRunOrder          []*Explod
 	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
 	spritesLayerN1          DrawList
@@ -306,9 +307,8 @@ type System struct {
 	roundBackup  RoundStartBackup
 
 	// for avg. FPS calculations
-	gameFPS       float32
-	prevTimestamp uint64
-	absTickCountF float32
+	gameFPS          float32
+	gameFPSprevcount uint64
 
 	// screenshot deferral
 	isTakingScreenshot bool
@@ -695,6 +695,7 @@ func (s *System) await(fps int) bool {
 		} else {
 			gfx.Await()
 		}
+		s.window.UpdateDebugFPS()
 		if s.isTakingScreenshot {
 			defer captureScreen()
 			s.isTakingScreenshot = false
@@ -712,11 +713,14 @@ func (s *System) await(fps int) bool {
 	var waitDuration time.Duration
 
 	if s.rollback.session != nil {
+		// Use rollback backend value
 		waitDuration = s.rollback.session.loopTimer.usToWaitThisLoop()
 	} else {
+		// Use the given argument
 		waitDuration = time.Second / time.Duration(fps)
 	}
 
+	// Increment the deadline
 	s.redrawWait.nextTime = s.redrawWait.nextTime.Add(waitDuration)
 
 	switch {
@@ -729,6 +733,7 @@ func (s *System) await(fps int) bool {
 		s.redrawWait.lastDraw = now
 		s.frameSkip = false
 	default:
+		// If we are lagging behind by more than 150ms, don't try to speed up. Just reset the schedule to now
 		if diff < -150*time.Millisecond {
 			s.redrawWait.nextTime = now.Add(waitDuration)
 		}
@@ -840,19 +845,19 @@ func (s *System) update() bool {
 
 	if s.replayFile != nil {
 		if s.anyHardButton() {
-			s.await(s.cfg.Video.Framerate * 4)
+			s.await(s.gameRenderSpeed() * 4)
 		} else {
-			s.await(s.cfg.Video.Framerate)
+			s.await(s.gameRenderSpeed())
 		}
 		return s.replayFile.Update()
 	}
 
 	if s.netConnection != nil {
-		s.await(s.cfg.Video.Framerate)
+		s.await(s.gameRenderSpeed())
 		return s.netConnection.Update()
 	}
 
-	return s.await(s.cfg.Video.Framerate)
+	return s.await(s.gameRenderSpeed())
 }
 
 func (s *System) tickSound() {
@@ -1769,20 +1774,8 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		// Destroy helpers
 		for _, h := range s.chars[pn][1:] {
 			// F4 now destroys "preserve" helpers when reloading round start backup
-			//if forceDestroy || h.preserve == 0 || (s.roundResetFlg && h.preserve <= s.round) {
 			if !h.preserve || forceDestroy {
 				h.destroy()
-			}
-		}
-
-		// Clear children "family tree"
-		// We only do this because helpers may be preserved
-		for _, c := range s.chars[pn] {
-			// Iterate backwards since we're removing items
-			for i := len(c.children) - 1; i >= 0; i-- {
-				if c.children[i].helperIndex < 0 {
-					c.children = SliceDelete(c.children, i)
-				}
 			}
 		}
 	}
@@ -1791,6 +1784,9 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 	s.projs[pn] = PointerSliceReset(s.projs[pn])
 	s.explods[pn] = PointerSliceReset(s.explods[pn])
 	s.chartexts[pn] = PointerSliceReset(s.chartexts[pn])
+
+	// Clear explod run order so that no reference is left to this char
+	s.explodRunOrder = PointerSliceReset(s.explodRunOrder)
 }
 
 func (s *System) resetRoundState() {
@@ -2007,17 +2003,20 @@ func (s *System) addFrameTime(t float32) bool {
 }
 
 func (s *System) resetFrameTime() {
-	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick, s.absTickCountF = 0, -1, 0, 0, 0
+	s.tickCount, s.oldTickCount, s.tickCountF, s.lastTick = 0, -1, 0, 0
 	s.nextAddTime, s.oldNextAddTime = 1, 1
+
+	s.redrawWait.nextTime = time.Now()
+	s.redrawWait.lastDraw = time.Now()
 }
 
-func (s *System) resetMatchData(assets bool) {
+func (s *System) resetMatchData(forceDestroy bool) {
 	sys.allPalFX = newPalFX()
 	sys.bgPalFX = newPalFX()
 	sys.resetGblEffect()
 	for i, p := range sys.chars {
 		if len(p) > 0 {
-			sys.clearPlayerAssets(i, assets)
+			sys.clearPlayerAssets(i, forceDestroy)
 		}
 	}
 }
@@ -2175,9 +2174,8 @@ func (s *System) action() {
 			s.specialFlag = 0
 		} else {
 			// These flags persist even during pauses
-			// "Intro" seems to have been deliberately added. Does not persist in Mugen 1.1
 			// "NoKOSlow" added to facilitate custom slowdown. In Mugen that flag only needs to be asserted in first frame of KO slowdown
-			s.specialFlag = (s.specialFlag&GSF_intro | s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
+			s.specialFlag = (s.specialFlag&GSF_nokoslow | s.specialFlag&GSF_timerfreeze)
 		}
 		s.charList.action()
 		s.nomusic = s.gsf(GSF_nomusic) && !sys.postMatchFlg
@@ -2263,9 +2261,12 @@ func (s *System) action() {
 			spd = 1
 		}
 
+		// Save result
 		s.turbo = spd
+	}
 
-		// Force Feedback (legacy)
+	// Force Feedback (legacy)
+	if s.tickNextFrame() {
 		for i := 0; i < len(s.ffbparams); i++ {
 			if s.ffbparams[i].timer > 0 {
 				start := s.ffbparams[i].start
@@ -2351,11 +2352,26 @@ func (s *System) projectilePrune(pn int) {
 
 // Update all explods for all players
 func (s *System) explodUpdate() {
-	// Logic
+	// Reset sorting list
+	s.explodRunOrder = s.explodRunOrder[:0]
+
+	// Flatten all explods into the sorting list
+	// Using this list makes the drawing order fairer instead of prioritizing player 1
+	// Mugen probably just used a single array for explods instead of organizing them by player, so it skipped this issue
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1099
 	for i := range s.explods {
-		for _, e := range s.explods[i] {
-			e.update(i)
-		}
+		s.explodRunOrder = append(s.explodRunOrder, s.explods[i]...)
+	}
+
+	// Sort by age
+	// Older explods run first
+	sort.Slice(s.explodRunOrder, func(i, j int) bool {
+		return s.explodRunOrder[i].timestamp < s.explodRunOrder[j].timestamp
+	})
+
+	// Update logic
+	for _, e := range s.explodRunOrder {
+		e.update()
 	}
 
 	// Cleanup
@@ -3187,6 +3203,9 @@ func (s *System) runMatch() (reload bool) {
 	}
 
 	s.resetRound()
+	
+	// Reset the clock right before entering the loop to ensure we start with a clean timeline
+	s.resetFrameTime()
 
 	// Now switch to rollback if applicable
 	// TODO: More merging so we don't hijack this function at all
@@ -3207,7 +3226,7 @@ func (s *System) runMatch() (reload bool) {
 		}
 
 		// Save/load state
-		// TODO: Confirm at which exaact point rollback does its own save/restore and match that
+		// TODO: Confirm at which exact point rollback does its own save/restore and match that
 		if s.saveStateFlag {
 			s.saveState.SaveState(0)
 		} else if s.loadStateFlag {
@@ -3221,6 +3240,7 @@ func (s *System) runMatch() (reload bool) {
 			break
 		}
 
+		// TODO: These probably ought to be in action() as well
 		s.bgPalFX.step()
 		s.stage.action()
 
@@ -3228,6 +3248,7 @@ func (s *System) runMatch() (reload bool) {
 		s.action()
 
 		debugInput()
+
 		if !s.addFrameTime(s.turbo) {
 			if !s.eventUpdate() {
 				return false
@@ -3477,9 +3498,18 @@ func (s *System) gameLogicSpeed() int32 {
 	return Max(1, spd)
 }
 
-func (s *System) gameRenderSpeed() int32 {
-	spd := int32(s.cfg.Video.Framerate)
-	return Max(1, spd)
+func (s *System) gameRenderSpeed() int {
+	var spd int32
+	if !s.gameRunning || s.rollback.session != nil {
+		// Currently, rendering the motif above 60fps breaks many things, so we'll patch it here
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2131
+		// Rollback is likewise locked to 60fps anyway, so we'll make it consistent here
+		// TODO: Fix both properly. Motif could interpolate. Rollback should render at Framerate but sync at Gamespeed
+		spd = 60
+	} else {
+		spd = int32(s.cfg.Video.Framerate)
+	}
+	return int(Max(1, spd))
 }
 
 func (s *System) debugModeAllowed() bool {

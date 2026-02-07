@@ -601,9 +601,6 @@ func (r *Renderer_GLES32) Init() {
 	sys.msaa = 0
 	Logcat("GLES: Past MSAA check")
 
-	// Store current timestamp
-	sys.prevTimestamp = sdl.GetPerformanceCounter()
-
 	r.postShaderSelect = make([]*ShaderProgram_GLES32, 1+len(sys.cfg.Video.ExternalShaders))
 
 	// Data buffers for rendering
@@ -823,7 +820,6 @@ func (r *Renderer_GLES32) IsShadowEnabled() bool {
 }
 
 func (r *Renderer_GLES32) BeginFrame(clearColor bool) {
-	sys.absTickCountF++
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])

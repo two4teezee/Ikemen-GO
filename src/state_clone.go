@@ -300,7 +300,7 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	// Pointers, slices, maps, functions, channels etc
 	result.ghv = *c.ghv.Clone(a)
 
-	result.children = arena.MakeSlice[*Char](a, len(c.children), len(c.children))
+	result.children = arena.MakeSlice[int32](a, len(c.children), len(c.children))
 	copy(result.children, c.children)
 
 	result.targets = arena.MakeSlice[int32](a, len(c.targets), len(c.targets))
@@ -312,10 +312,10 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	result.hitdefTargetsBuffer = arena.MakeSlice[int32](a, len(c.hitdefTargetsBuffer), len(c.hitdefTargetsBuffer))
 	copy(result.hitdefTargetsBuffer, c.hitdefTargetsBuffer)
 
-	result.enemyNearList = arena.MakeSlice[*Char](a, len(c.enemyNearList), len(c.enemyNearList))
+	result.enemyNearList = arena.MakeSlice[int32](a, len(c.enemyNearList), len(c.enemyNearList))
 	copy(result.enemyNearList, c.enemyNearList)
 
-	result.p2EnemyList = arena.MakeSlice[*Char](a, len(c.p2EnemyList), len(c.p2EnemyList))
+	result.p2EnemyList = arena.MakeSlice[int32](a, len(c.p2EnemyList), len(c.p2EnemyList))
 	copy(result.p2EnemyList, c.p2EnemyList)
 
 	//if c.p2EnemyBackup != nil {
@@ -323,7 +323,8 @@ func (c *Char) Clone(a *arena.Arena, gsp *GameStatePool) (result Char) {
 	//	result.p2EnemyBackup = &tmp
 	//}
 	// This ought to be enough
-	result.p2EnemyBackup = c.p2EnemyBackup
+	//result.p2EnemyBackup = c.p2EnemyBackup
+	// Converted to an ID so the shallow copy now gets it
 
 	result.inputShift = arena.MakeSlice[[2]int](a, len(c.inputShift), len(c.inputShift))
 	copy(result.inputShift, c.inputShift)

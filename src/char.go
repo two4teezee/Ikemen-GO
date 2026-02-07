@@ -6753,14 +6753,6 @@ func (c *Char) commitExplod(i int) {
 		}
 	}
 
-	// Emulate legacy ontop behavior
-	// Move from the end of the slice to the beginning to invert drawing order
-	if e.ontop {
-		playerExplods := &sys.explods[c.playerNo]
-		copy((*playerExplods)[1:i+1], (*playerExplods)[0:i])
-		(*playerExplods)[0] = e
-	}
-
 	// Explod ready
 	e.anim.UpdateSprite()
 }

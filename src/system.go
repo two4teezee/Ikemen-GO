@@ -2363,10 +2363,27 @@ func (s *System) explodUpdate() {
 		s.explodRunOrder = append(s.explodRunOrder, s.explods[i]...)
 	}
 
-	// Sort by age
-	// Older explods run first
-	sort.Slice(s.explodRunOrder, func(i, j int) bool {
-		return s.explodRunOrder[i].timestamp < s.explodRunOrder[j].timestamp
+	// Sort explods by age
+	// For the sake of backward compatibility we must also open exceptions for the ontop parameter
+	sort.SliceStable(s.explodRunOrder, func(i, j int) bool {
+		a, b := s.explodRunOrder[i], s.explodRunOrder[j]
+		// All ontop explods come before the rest
+		if a.ontop != b.ontop {
+			return a.ontop 
+		}
+		// If both are ontop the normal logic is inverted (old index shift trick)
+		if a.ontop && b.ontop {
+			if a.timestamp != b.timestamp {
+				return a.timestamp > b.timestamp
+			}
+			return true 
+		}
+		// Normal case: older timestamps come first
+		if a.timestamp != b.timestamp {
+			return a.timestamp < b.timestamp
+		}
+		// Same timestamp: do nothing
+		return false
 	})
 
 	// Update logic

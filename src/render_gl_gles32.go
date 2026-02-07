@@ -1181,26 +1181,26 @@ func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, use
 }
 
 func (r *Renderer_GLES32) ReleaseShadowPipeline() {
-	loc := r.modelShader.a["inVertexId"]
+	loc := r.shadowMapShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.modelShader.a["position"]
+	loc = r.shadowMapShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.modelShader.a["uv"]
+	loc = r.shadowMapShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib2f(uint32(loc), 0, 0)
-	loc = r.modelShader.a["vertColor"]
+	loc = r.shadowMapShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
-	loc = r.modelShader.a["joints_0"]
+	loc = r.shadowMapShader.a["joints_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["weights_0"]
+	loc = r.shadowMapShader.a["weights_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["joints_1"]
+	loc = r.shadowMapShader.a["joints_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["weights_1"]
+	loc = r.shadowMapShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)

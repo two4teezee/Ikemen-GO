@@ -1003,13 +1003,13 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	offset += 12 * numVertices
 	if useUV {
 		r.useUV = true
-		loc = r.modelShader.a["uv"]
+		loc = r.shadowMapShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
 	} else if r.useUV {
 		r.useUV = false
-		loc = r.modelShader.a["uv"]
+		loc = r.shadowMapShader.a["uv"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
@@ -1031,72 +1031,72 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	}
 	if useJoint0 {
 		r.useJoint0 = true
-		loc = r.modelShader.a["joints_0"]
+		loc = r.shadowMapShader.a["joints_0"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
-		loc = r.modelShader.a["weights_0"]
+		loc = r.shadowMapShader.a["weights_0"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 16 * numVertices
 		if useJoint1 {
 			r.useJoint1 = true
-			loc = r.modelShader.a["joints_1"]
+			loc = r.shadowMapShader.a["joints_1"]
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 			offset += 16 * numVertices
-			loc = r.modelShader.a["weights_1"]
+			loc = r.shadowMapShader.a["weights_1"]
 			gl.EnableVertexAttribArray(uint32(loc))
 			gl.VertexAttribPointerWithOffset(uint32(loc), 4, gl.FLOAT, false, 0, uintptr(offset))
 			offset += 16 * numVertices
 		} else if r.useJoint1 {
 			r.useJoint1 = false
-			loc = r.modelShader.a["joints_1"]
+			loc = r.shadowMapShader.a["joints_1"]
 			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-			loc = r.modelShader.a["weights_1"]
+			loc = r.shadowMapShader.a["weights_1"]
 			gl.DisableVertexAttribArray(uint32(loc))
 			gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 		}
 	} else if r.useJoint0 {
 		r.useJoint0 = false
 		r.useJoint1 = false
-		loc = r.modelShader.a["joints_0"]
+		loc = r.shadowMapShader.a["joints_0"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.modelShader.a["weights_0"]
+		loc = r.shadowMapShader.a["weights_0"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.modelShader.a["joints_1"]
+		loc = r.shadowMapShader.a["joints_1"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-		loc = r.modelShader.a["weights_1"]
+		loc = r.shadowMapShader.a["weights_1"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	}
 }
 
 func (r *Renderer_GL32) ReleaseShadowPipeline() {
-	loc := r.modelShader.a["inVertexId"]
+	loc := r.shadowMapShader.a["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.modelShader.a["position"]
+	loc = r.shadowMapShader.a["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.modelShader.a["uv"]
+	loc = r.shadowMapShader.a["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib2f(uint32(loc), 0, 0)
-	loc = r.modelShader.a["vertColor"]
+	loc = r.shadowMapShader.a["vertColor"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 1, 1, 1, 1)
-	loc = r.modelShader.a["joints_0"]
+	loc = r.shadowMapShader.a["joints_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["weights_0"]
+	loc = r.shadowMapShader.a["weights_0"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["joints_1"]
+	loc = r.shadowMapShader.a["joints_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
-	loc = r.modelShader.a["weights_1"]
+	loc = r.shadowMapShader.a["weights_1"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)

@@ -13314,7 +13314,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 		id   int32
 		dist float32
 	}
-	pairs := make([]enemyDist, 0, MaxPlayerNo) 
+	pairs := make([]enemyDist, 0, MaxPlayerNo)
 
 	// Gather all valid enemies and calculate distances
 	for _, e := range cl.runOrder {

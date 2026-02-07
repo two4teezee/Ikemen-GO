@@ -3203,7 +3203,7 @@ func (s *System) runMatch() (reload bool) {
 	}
 
 	s.resetRound()
-	
+
 	// Reset the clock right before entering the loop to ensure we start with a clean timeline
 	s.resetFrameTime()
 

@@ -1656,6 +1656,7 @@ type Explod struct {
 	interpolate_fLength  [2]float32
 	interpolate_xshear   [2]float32
 	timestamp            int32 // Determines run order
+	sortindex            int // For faster run order sorting
 }
 
 func newExplod() *Explod {
@@ -12523,16 +12524,19 @@ func (cl *CharList) updateRunOrder() {
 	}
 
 	// Sort by priority
-	sort.SliceStable(cl.runOrder, func(i, j int) bool {
-		pri := getPriority(cl.runOrder[i])
-		prj := getPriority(cl.runOrder[j])
+	sort.Slice(cl.runOrder, func(i, j int) bool {
+		chari := cl.runOrder[i]
+		charj := cl.runOrder[j]
+		pri := getPriority(chari)
+		prj := getPriority(charj)
 		// If priorities are different, sort by priority
 		if pri != prj {
 			return pri > prj
 		}
 		// Otherwise run lower ID first
 		// This makes the order more predictable
-		return cl.runOrder[i].id < cl.runOrder[j].id
+		// The fact we have ID's to fall back on also means we don't need SliceStable
+		return chari.id < charj.id
 	})
 
 	// Reset priority flags as they are only needed during this function
@@ -13231,33 +13235,39 @@ func (cl *CharList) pushDetection(getter *Char) {
 }
 
 func (cl *CharList) collisionDetection() {
-	// Temp sorting list
-	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
+	// Temp slice for sorting
+	sortedOrder := make([]int, len(cl.runOrder))
+	for i := range sortedOrder {
+		sortedOrder[i] = i
+	}
 
-	// Decide priority of each player
+	// Helper to decide the hit detection priority of each player
 	// TODO: Maybe this could also be affected by runfirst/runlast
-	for i, c := range cl.runOrder {
-		var pr int
+	getPr := func(c *Char) int {
 		if c.hitdef.reversal_attr > 0 { // ReversalDef first
-			pr = 2
-		} else if c.hitdef.attr > 0 { // Then HitDef
-			pr = 1
-		} else { // Everyone else
-			pr = 0
+			return 2
 		}
-		sorting[i] = [2]int{i, pr}
+		if c.hitdef.attr > 0 { // Then HitDef
+			return 1
+		}
+		return 0
 	}
 
-	// Sort by priority
-	sort.SliceStable(sorting, func(i, j int) bool {
-		return sorting[i][1] > sorting[j][1]
+	// Sort players by priority
+	// Using runOrder or creationOrder here probably has the same result
+	sort.Slice(sortedOrder, func(i, j int) bool {
+		chari := cl.runOrder[sortedOrder[i]]
+		charj := cl.runOrder[sortedOrder[j]]
+		pri := getPr(chari)
+		prj := getPr(charj)
+
+		if pri != prj {
+			return pri > prj
+		}
+
+		// Fallback to ID's
+		return chari.id < charj.id
 	})
-
-	// Create the new sorted list
-	sortedOrder := make([]int, len(sorting))
-	for i := 0; i < len(sorting); i++ {
-		sortedOrder[i] = sorting[i][0]
-	}
 
 	// Push detection for players
 	// This must happen before hit detection

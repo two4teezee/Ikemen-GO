@@ -2359,14 +2359,22 @@ func (s *System) explodUpdate() {
 	// Using this list makes the drawing order fairer instead of prioritizing player 1
 	// Mugen probably just used a single array for explods instead of organizing them by player, so it skipped this issue
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1099
+	count := 0
 	for i := range s.explods {
-		s.explodRunOrder = append(s.explodRunOrder, s.explods[i]...)
+		for j := range s.explods[i] {
+			e := s.explods[i][j]
+			e.sortindex = count // Unique reference for this frame
+			s.explodRunOrder = append(s.explodRunOrder, e)
+			count++
+		}
 	}
 
 	// Sort explods by age
 	// For the sake of backward compatibility we must also open exceptions for the ontop parameter
-	sort.SliceStable(s.explodRunOrder, func(i, j int) bool {
+	// The sortindex variable saves us from needing the more expensive SliceStable
+	sort.Slice(s.explodRunOrder, func(i, j int) bool {
 		a, b := s.explodRunOrder[i], s.explodRunOrder[j]
+
 		// All ontop explods come before the rest
 		if a.ontop != b.ontop {
 			return a.ontop
@@ -2374,16 +2382,16 @@ func (s *System) explodUpdate() {
 		// If both are ontop the normal logic is inverted (old index shift trick)
 		if a.ontop && b.ontop {
 			if a.timestamp != b.timestamp {
-				return a.timestamp > b.timestamp
+				return a.timestamp >= b.timestamp
 			}
-			return true
+			return a.sortindex >= b.sortindex
 		}
 		// Normal case: older timestamps come first
 		if a.timestamp != b.timestamp {
 			return a.timestamp < b.timestamp
 		}
-		// Same timestamp: do nothing
-		return false
+		// Same timestamp: keep original order
+		return a.sortindex < b.sortindex
 	})
 
 	// Update logic

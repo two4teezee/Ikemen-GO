@@ -8764,7 +8764,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 	// TODO: Now that this actually works, we could make it optional via a new parameter
 	if srcDepth != dstDepth {
 		sys.appendToConsole(c.warn() + fmt.Sprintf(
-			" RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)", 
+			" RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)",
 			src[0], src[1], srcDepth, dst[0], dst[1], dstDepth))
 		return
 	}

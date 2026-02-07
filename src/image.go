@@ -463,7 +463,7 @@ func Pal32ToBytes(pal []uint32) []byte {
 	// Otherwise add padding because the GPU expects 256 colors
 	// Extra colors will just be invisible because of the 0 alpha
 	padded := make([]uint32, 256)
-	copy(padded, pal) 
+	copy(padded, pal)
 
 	return unsafe.Slice((*byte)(unsafe.Pointer(&padded[0])), 1024)
 }

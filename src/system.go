@@ -2369,14 +2369,14 @@ func (s *System) explodUpdate() {
 		a, b := s.explodRunOrder[i], s.explodRunOrder[j]
 		// All ontop explods come before the rest
 		if a.ontop != b.ontop {
-			return a.ontop 
+			return a.ontop
 		}
 		// If both are ontop the normal logic is inverted (old index shift trick)
 		if a.ontop && b.ontop {
 			if a.timestamp != b.timestamp {
 				return a.timestamp > b.timestamp
 			}
-			return true 
+			return true
 		}
 		// Normal case: older timestamps come first
 		if a.timestamp != b.timestamp {

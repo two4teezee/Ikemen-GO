@@ -670,7 +670,6 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 
-
 	x1, y1 := float32(rect[0]), -float32(rect[1])
 	x2, y2 := float32(rect[0]+rect[2]), -float32(rect[1]+rect[3])
 

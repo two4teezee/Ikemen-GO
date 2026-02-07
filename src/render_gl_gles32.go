@@ -538,7 +538,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 
 	r.modelShader.RegisterAttributes(
 		"position", // Same position as spriteShader
-		"uv", // Same position as spriteShader
+		"uv",       // Same position as spriteShader
 		"inVertexId",
 		"normalIn",
 		"tangentIn",
@@ -571,7 +571,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 
 		r.shadowMapShader.RegisterAttributes(
 			"position", // Same position as spriteShader
-			"uv", // Same position as spriteShader
+			"uv",       // Same position as spriteShader
 			"inVertexId",
 			"normalIn",
 			"tangentIn",

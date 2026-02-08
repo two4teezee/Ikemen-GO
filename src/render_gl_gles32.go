@@ -510,7 +510,9 @@ type GLES32State struct {
 	blendDst            BlendFunc
 	scissorRect         [4]int32
 	scissorEnabled      bool
-	lastSpriteTexture   [8]uint32 // Technically [2] should be enough right now
+	texCacheTexHandle   []uint32 // Unit to handle. Sized per GPU
+	texCacheLastUsed    []uint64 // Timer value when the slot was last used. Sized per GPU
+	texCacheTimer       uint64 // Increments on every texture access
 	uniformICache       map[uint32]int32
 	uniformF1Cache      map[uint32]float32
 	uniformF2Cache      map[uint32][2]float32
@@ -522,6 +524,7 @@ type GLES32State struct {
 	useJoint0           bool
 	useJoint1           bool
 	useOutlineAttribute bool
+
 	//useUV               bool // Safer not to cache this one because sprites also use it
 }
 
@@ -843,6 +846,19 @@ func (r *Renderer_GLES32) Init() {
 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
+	// Check hardware texture limit
+	// TODO: Maybe clamp the result
+	var maxTex int32
+	gl.GetIntegerv(gl.MAX_TEXTURE_IMAGE_UNITS, &maxTex)
+
+	//if r.debugMode {
+	//	fmt.Printf("[GL Debug] GPU supports up to %d textures\n", maxTex)
+	//}
+
+	// Initialize sprite texture cache
+	r.texCacheTexHandle = make([]uint32, maxTex)
+    r.texCacheLastUsed = make([]uint64, maxTex)
+
 	// Initialize uniform cache
 	r.uniformICache = make(map[uint32]int32, 32)
 	r.uniformF1Cache = make(map[uint32]float32, 32)
@@ -1062,10 +1078,14 @@ func (r *Renderer_GLES32) UseProgram(prog uint32) {
 	gl.UseProgram(prog)
 	r.program = prog
 
-	// Clear cache between shaders
-	for i := range r.lastSpriteTexture {
-		r.lastSpriteTexture[i] = 0
+	// Reset texure cache
+	for i := range r.texCacheTexHandle {
+		r.texCacheTexHandle[i] = 0xFFFFFFFF
+		r.texCacheLastUsed[i] = 0
 	}
+	r.texCacheTimer = 1
+
+	// Clear cache between shaders
 	for i := range r.uniformICache {
 		r.uniformICache[i] = -1e9
 	}
@@ -1563,7 +1583,7 @@ func (r *Renderer_GLES32) SetUniformISub(loc int32, val int32) {
 		return
 	}
 
-	// Only cache for the sprite shader
+	// Cached path for the sprite shader
 	if r.program == r.spriteShader.program {
 		key := (r.program << 16) | uint32(loc)
 		if old, exists := r.uniformICache[key]; exists && old == val {
@@ -1581,7 +1601,7 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 	}
 	vLen := len(values)
 
-	// Cached sprite shader branch
+	// Cached path for the sprite shader
 	if r.program == r.spriteShader.program {
 		key := (r.program << 16) | uint32(loc)
 
@@ -1614,7 +1634,7 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 		}
 	}
 
-	// Other shaders
+	// Uncached path
 	switch vLen {
 	case 1:
 		gl.Uniform1f(loc, values[0])
@@ -1704,12 +1724,65 @@ func (r *Renderer_GLES32) SetShadowMapUniformMatrix3(name string, value []float3
 	gl.UniformMatrix3fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GLES32) SetShadowMapTexture(name string, tex Texture) {
-	t := tex.(*Texture_GLES32)
-	unit := r.shadowMapShader.t[name]
-	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
+func (r *Renderer_GLES32) SetTextureSub(uMap map[string]int32, tMap map[string]int, name string, tex Texture) {
+	t := tex.(*Texture_GL32)
+	loc := uMap[name]
+
+	// Cached path for the sprite shader
+	// Note: The cache doesn't care if a texture is "tex" or "pal"
+	if r.program == r.spriteShader.program {
+		// Increment reference timer
+		r.texCacheTimer++
+
+		var oldestUnit int32 = 0
+		var minTime uint64 = math.MaxUint64
+		
+		// Look for a hit or the oldest slot
+		for i := range r.texCacheTexHandle {
+			// If we find the texture already bound, that's a hit
+			if r.texCacheTexHandle[i] == t.handle {
+				r.texCacheLastUsed[i] = r.texCacheTimer
+				r.SetUniformISub(loc, int32(i))
+				return
+			}
+			
+			// While searching, track the oldest slot in case we miss
+			if r.texCacheLastUsed[i] < minTime {
+				minTime = r.texCacheLastUsed[i]
+				oldestUnit = int32(i)
+			}
+		}
+
+		// Cache miss
+		gl.ActiveTexture(gl.TEXTURE0 + uint32(oldestUnit))
+		gl.BindTexture(gl.TEXTURE_2D, t.handle)
+
+		// Update cache state
+		r.texCacheTexHandle[oldestUnit] = t.handle
+		r.texCacheLastUsed[oldestUnit] = r.texCacheTimer
+
+		// Update uniform
+		r.SetUniformISub(loc, oldestUnit)
+		return
+	}
+
+	// Uncached path
+	fixedUnit := uint32(tMap[name])
+	gl.ActiveTexture(gl.TEXTURE0 + fixedUnit)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-	r.SetShadowMapUniformI(name, int(unit))
+	r.SetUniformISub(loc, int32(fixedUnit))
+}
+
+func (r *Renderer_GLES32) SetTexture(name string, tex Texture) {
+	r.SetTextureSub(r.spriteShader.u, r.spriteShader.t, name, tex)
+}
+
+func (r *Renderer_GLES32) SetModelTexture(name string, tex Texture) {
+    r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
+}
+
+func (r *Renderer_GLES32) SetShadowMapTexture(name string, tex Texture) {
+    r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
 }
 
 func (r *Renderer_GLES32) SetShadowFrameTexture(i uint32) {

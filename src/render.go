@@ -30,7 +30,9 @@ type Renderer interface {
 	IsModelEnabled() bool
 	IsShadowEnabled() bool
 
-	SetPipeline(eq BlendEquation, src, dst BlendFunc)
+	SetPipeline()
+	SetBlending(blend bool, eq BlendEquation, src, dst BlendFunc)
+
 	prepareShadowMapPipeline(bufferIndex uint32)
 	setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
 	ReleaseShadowPipeline()
@@ -501,46 +503,47 @@ func RenderSprite(rp RenderParams) {
 	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
 		float32(rp.tint>>16&0xff) / 255, float32(rp.tint>>24&0xff) / 255}
 
-	// Global matrix and state
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 
-	// These parameters stay the same between passes
+	// Heavy state change
+	// Because renderWithBlending() sometimes needs 2 passes, we'll do most of the setup outside of render()
+	gfx.SetPipeline()
 	gfx.EnableScissor(rp.window[0], rp.window[1], rp.window[2], rp.window[3])
 
-	// Bind the main texture once
-	gfx.SetTexture("tex", rp.tex)
+	// Static uniforms
+	gfx.SetUniformMatrix("projection", proj[:])
+	gfx.SetUniformI("isFlat", 0)
+	gfx.SetUniformI("mask", int(rp.mask))
+	gfx.SetUniformI("isTrapez", int(Btoi(AbsF(AbsF(rp.xts)-AbsF(rp.xbs)) > 0.001)))
+	
+	gfx.SetUniformF("gray", grayscale)
+	gfx.SetUniformF("hue", hue)
+	gfx.SetUniformFv("tint", tint[:])
 
-	// Bind the palette once
+	if rp.paltex == nil {
+		gfx.SetUniformI("isRgba", 1)
+	} else {
+		gfx.SetUniformI("isRgba", 0)
+	}
+
+	// Texture binding
+	gfx.SetTexture("tex", rp.tex)
 	if rp.paltex != nil {
 		gfx.SetTexture("pal", rp.paltex)
 	}
 
 	// Local function called for each blending pass
 	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
-		gfx.SetPipeline(eq, src, dst)
+		// Lightweight state change
+		gfx.SetBlending(true, eq, src, dst)
 
-		// Must update uniforms after calling SetPipeline
-		gfx.SetUniformMatrix("projection", proj[:])
-
-		gfx.SetUniformI("isFlat", 0)
-		gfx.SetUniformI("mask", int(rp.mask))
-		gfx.SetUniformI("isTrapez", int(Btoi(AbsF(AbsF(rp.xts)-AbsF(rp.xbs)) > 0.001)))
-
+		// Dynamic uniforms
+		// We must include the parameters that renderWithBlending() may have changed
 		gfx.SetUniformI("neg", int(Btoi(neg)))
-		gfx.SetUniformF("gray", grayscale)
-		gfx.SetUniformF("hue", hue)
 		gfx.SetUniformFv("add", padd[:])
 		gfx.SetUniformFv("mult", pmul[:])
-		gfx.SetUniformFv("tint", tint[:])
 		gfx.SetUniformF("alpha", a)
-
-		// Update palette instructions
-		if rp.paltex == nil {
-			gfx.SetUniformI("isRgba", 1)
-		} else {
-			gfx.SetUniformI("isRgba", 0)
-		}
 
 		renderSpriteQuad(modelview, rp)
 	}
@@ -671,6 +674,10 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	x1, y1 := float32(rect[0]), -float32(rect[1])
 	x2, y2 := float32(rect[0]+rect[2]), -float32(rect[1]+rect[3])
 
+	// Prepare the heavy state
+	gfx.SetPipeline()
+
+	// Set geometry
 	gfx.SetVertexData(
 		x2, y2, 1, 1,
 		x2, y1, 1, 0,
@@ -678,13 +685,15 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 		x1, y1, 0, 0,
 	)
 
+	// Static uniforms
+	gfx.SetUniformMatrix("modelview", modelview[:])
+	gfx.SetUniformMatrix("projection", proj[:])
+	gfx.SetUniformI("isFlat", 1)
+
+	// Local function called for each blending pass
 	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
-		gfx.SetPipeline(eq, src, dst)
-
-		gfx.SetUniformMatrix("modelview", modelview[:])
-		gfx.SetUniformMatrix("projection", proj[:])
-
-		gfx.SetUniformI("isFlat", 1)
+		// Update only the dynamic state
+		gfx.SetBlending(true, eq, src, dst)
 		gfx.SetUniformF("tint", r, g, b, a)
 
 		gfx.RenderQuad()
@@ -741,7 +750,7 @@ func (ta *TextureAtlas) AddImage(width, height, stride int32, data []byte) ([4]f
 		float32(x) / float32(ta.width),
 		float32(y) / float32(ta.height),
 		float32(x+width) / float32(ta.width),
-		float32(y+height) / float32(ta.height)
+		float32(y+height) / float32(ta.height),
 	}, true
 }
 

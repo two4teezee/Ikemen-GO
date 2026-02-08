@@ -104,6 +104,7 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32, a
 	// Buffer to store vertex data for multiple glyphs
 	batchSize := Min(MaxFontBatchSize, int32(len(indices)))
 	batchVertices := make([]float32, 0, batchSize*6*4)
+
 	//setup blending mode
 	r.SetBlending(blend, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
 

@@ -5270,7 +5270,12 @@ func (r *Renderer_VK) Await() {
 	vk.QueueWaitIdle(r.queue)
 }
 
-func (r *Renderer_VK) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
+func (r *Renderer_VK) SetPipeline() {
+	// Do nothing
+}
+
+// Vulkan currently never uses this path to disable blending
+func (r *Renderer_VK) SetBlending(blend bool, eq BlendEquation, src, dst BlendFunc) {
 	r.VKState.VulkanPipelineState.VulkanBlendState.op = eq
 	r.VKState.VulkanPipelineState.VulkanBlendState.src = src
 	r.VKState.VulkanPipelineState.VulkanBlendState.dst = dst

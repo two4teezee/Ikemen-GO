@@ -958,7 +958,6 @@ func (r *Renderer_GL32) SetBlending(enable bool, eq BlendEquation, src, dst Blen
 			gl.Disable(gl.BLEND)
 		}
 	}
-
 	if enable {
 		if eq != r.blendEquation {
 			r.blendEquation = eq
@@ -972,22 +971,20 @@ func (r *Renderer_GL32) SetBlending(enable bool, eq BlendEquation, src, dst Blen
 	}
 }
 
-func (r *Renderer_GL32) SetPipeline(eq BlendEquation, src, dst BlendFunc) {
+func (r *Renderer_GL32) SetPipeline() {
 	gl.BindVertexArray(r.vao)
 
 	r.UseProgram(r.spriteShader.program)
-	r.SetBlending(true, eq, src, dst)
 
-	// Must bind buffer before enabling attributes
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 
-	loc := r.spriteShader.a["position"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 0)
+	locPos := r.spriteShader.a["position"]
+	gl.EnableVertexAttribArray(uint32(locPos))
+	gl.VertexAttribPointerWithOffset(uint32(locPos), 2, gl.FLOAT, false, 16, 0)
 
-	loc = r.spriteShader.a["uv"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 16, 8)
+	locUV := r.spriteShader.a["uv"]
+	gl.EnableVertexAttribArray(uint32(locUV))
+	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
 }
 
 func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {

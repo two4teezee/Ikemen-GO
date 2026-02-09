@@ -3077,8 +3077,14 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			else
 				local updateAnim = false
 				local slotSelected,slotChanged = start.f_slotSelected(start.c[player].cell + 1, side, cmd, player, start.c[player].selX, start.c[player].selY)
+				local timerExpired = motif.select_info.timer.count ~= -1 and timerSelect == -1
 				needUpdateDrawList = slotChanged
 				local velCopy = false
+				if timerExpired then
+					if start.c[player].selRef == nil or main.t_selChars[start.c[player].selRef + 1] == nil then
+						start.c[player].selRef = start.f_randomChar(side)
+					end
+				end
 				-- cursor changed position or character change within current slot
 				if start.p[side].t_selTemp[member].cell ~= start.c[player].cell or start.p[side].t_selTemp[member].ref ~= start.c[player].selRef then
 					--start.p[side].t_selTemp[member].pal = 1
@@ -3139,7 +3145,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].face2_data = start.f_animGet(start.c[player].selRef, side, member, motif.select_info['p' .. pn].face2, nil, true, face2_data)
 				end
 				-- cell selected or select screen timer reached 0
-				if (slotSelected and start.f_selGrid(start.c[player].cell + 1).char ~= nil and start.f_selGrid(start.c[player].cell + 1).hidden ~= 2) or (motif.select_info.timer.count ~= -1 and timerSelect == -1) then
+				if (slotSelected and start.f_selGrid(start.c[player].cell + 1).char ~= nil and start.f_selGrid(start.c[player].cell + 1).hidden ~= 2) or timerExpired then
 					if motif.select_info.paletteselect ~= 0 then
 						timerSelect = motif.select_info.timer.displaytime
 					end

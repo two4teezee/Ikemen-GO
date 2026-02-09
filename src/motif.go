@@ -5992,7 +5992,35 @@ func (vi *MotifVictory) init(m *Motif) {
 		sys.noSoundFlg = true
 	}
 
-	m.Music.Play("victory", sys.motif.Def)
+	// If match/stage/select.def defines victory.music, it should keep playing
+	// into the victory screen. Only fall back to motif victory BGM when the
+	// match has no victory entry at all.
+	pn := -1
+	if leader != nil {
+		pn = leader.playerNo
+	}
+	if pn < 0 {
+		pn = sys.lastHitter[winnerSide]
+		if pn < 0 {
+			pn = sys.teamLeader[winnerSide]
+		}
+	}
+	if pn < 0 || pn >= len(sys.cgi) {
+		// Fallback: find any loaded player on the winner side.
+		for i := 0; i < MaxPlayerNo; i++ {
+			if len(sys.chars[i]) == 0 || sys.chars[i][0] == nil {
+				continue
+			}
+			if int(sys.chars[i][0].teamside) == winnerSide {
+				pn = i
+				break
+			}
+		}
+	}
+	matchHasVictory := pn >= 0 && pn < len(sys.cgi) && sys.cgi[pn].music.HasPrefix("victory")
+	if !matchHasVictory {
+		m.Music.Play("victory", sys.motif.Def)
+	}
 
 	m.VictoryScreen.FadeIn.FadeData.init(m.fadeIn, true)
 	vi.counter = 0

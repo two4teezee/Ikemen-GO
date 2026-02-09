@@ -1655,7 +1655,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		}
 
 		normalizedPalPath := strings.ReplaceAll(c.pal_files[x], "\\", "/")
-		
+
 		pal, err := readActPalette(pathname + normalizedPalPath)
 		if err != nil {
 			fmt.Println("Error reading " + c.pal_files[x])

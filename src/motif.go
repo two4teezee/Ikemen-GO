@@ -1368,7 +1368,7 @@ func hasUserKey(iniFile *ini.File, section, key string) bool {
 // preprocessINIContent removes or modifies specific sections before parsing.
 func preprocessINIContent(input string) string {
 	// Define a regex to find the [Infobox Text] section
-	infoboxRegex := regexp.MustCompile(`(?s)\[Infobox Text\]\n(.*?)(\n\[|$)`)
+	infoboxRegex := regexp.MustCompile(`(?is)\[\s*infobox\s+text\s*\]\s*\n(.*?)(\n\s*\[|$)`)
 	// Extract the content of [Infobox Text]
 	matches := infoboxRegex.FindStringSubmatch(input)
 	if len(matches) < 3 {
@@ -1387,9 +1387,16 @@ func preprocessINIContent(input string) string {
 	// Remove the [Infobox Text] section from the input
 	output := infoboxRegex.ReplaceAllString(input, "$2")
 	// Define a regex to find the [InfoBox] section header
-	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(\[InfoBox\]\n)`)
-	// Insert the new text.text line right after the [InfoBox] header
-	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
+	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(^\[(?i:infobox)\]\s*\n)`)
+	// Insert the new text.text line right after the [InfoBox] header.
+	if infoBoxHeaderRegex.MatchString(output) {
+		output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
+	} else {
+		if !strings.HasSuffix(output, "\n") {
+			output += "\n"
+		}
+		output += "[InfoBox]\n" + newTextLine
+	}
 	return output
 }
 

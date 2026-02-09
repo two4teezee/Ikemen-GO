@@ -358,6 +358,11 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		//char.height = rect.Dy() // Use the actual image height (with padding)
 		//char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 
+		// Immediate exit if the glyph will never fit the atlas
+		if w > 256 || h > 256 {
+			return fmt.Errorf("glyph '%c' is too large (%dx%d) for the 256x256 texture atlas", ch, w, h)
+		}
+
 		for {
 			if textureIndex >= len(f.textures) {
 				f.textures = append(f.textures, CreateTextureAtlas(256, 256, 32, true))

@@ -344,6 +344,11 @@ func (f *Font_GL21) GenerateGlyphs(low, high rune) error {
 		pix := rgba.Pix
 		stride := int32(rgba.Stride) // This was added to unify desktop and Android
 
+		// Immediate exit if the glyph will never fit the atlas
+		if w > 256 || h > 256 {
+			return fmt.Errorf("glyph '%c' is too large (%dx%d) for the 256x256 texture atlas", ch, w, h)
+		}
+
 		for {
 			if textureIndex >= len(f.textures) {
 				f.textures = append(f.textures, CreateTextureAtlas(256, 256, 32, true))

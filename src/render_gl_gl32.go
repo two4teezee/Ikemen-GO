@@ -289,7 +289,13 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/4)
+
+	// Doing this respects both Linux and Android requirements
+	if stride > 0 && stride != width*4 {
+		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/4)
+	} else {
+		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+	}
 
 	if data != nil {
 		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))

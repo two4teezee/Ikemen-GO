@@ -2877,14 +2877,18 @@ function main.f_unlockStage(num, bool)
 	end
 end
 
+main.t_hiscoreMap = {
+	teamarcade = 'arcade',
+}
 function main.f_hiscoreDisplay(itemname)
 	local stats = jsonDecode(getCommandLineValue("-stats"))
-	if not motif.hiscore_info.enabled or stats.modes == nil or stats.modes[itemname] == nil or stats.modes[itemname].ranking == nil then
+	local mode = main.t_hiscoreMap[itemname] or itemname
+	if not motif.hiscore_info.enabled or stats.modes == nil or stats.modes[mode] == nil or stats.modes[mode].ranking == nil then
 		return false
 	end
 	main.f_cmdBufReset()
 	sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
-	main.f_hiscore(itemname, -1)
+	main.f_hiscore(mode, -1)
 	--main.f_fadeReset('fadein', motif[main.group])
 	playBgm({source = "motif.title", interrupt = true})
 	return true

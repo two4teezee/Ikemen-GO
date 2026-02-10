@@ -24,9 +24,9 @@ layout (constant_id = 3) const bool useTangent = false;
 layout (constant_id = 4) const bool useVertColor = false;
 layout (constant_id = 5) const bool useOutlineAttribute = false;
 
-layout(location = 0) in int vertexId;
-layout(location = 1) in vec3 position;
-layout(location = 2) in vec2 uv;
+layout(location = 0) in vec3 position;
+layout(location = 1) in vec2 uv;
+layout(location = 2) in int inVertexId;
 layout(location = 3) in vec3 normalIn;
 layout(location = 4) in vec4 tangentIn;
 layout(location = 5) in vec4 vertColor;
@@ -35,6 +35,7 @@ layout(location = 7) in vec4 weights_0;
 layout(location = 8) in vec4 joints_1;
 layout(location = 9) in vec4 weights_1;
 layout(location = 10) in vec4 outlineAttributeIn;
+
 layout(location = 0) out vec3 normal;
 layout(location = 1) out vec3 tangent;
 layout(location = 2) out vec3 bitangent;
@@ -42,6 +43,7 @@ layout(location = 3) out vec2 texcoord;
 layout(location = 4) out vec4 vColor;
 layout(location = 5) out vec3 worldSpacePos;
 layout(location = 6) out vec4 lightSpacePos[4];
+
 #else
 	// GLES 3.2 / ANDROID PATH - Standard Uniforms
 	#if __VERSION__ >= 130 || defined(GL_ES)
@@ -63,7 +65,8 @@ layout(location = 6) out vec4 lightSpacePos[4];
 	uniform mat4 lightMatrices[4];
 	uniform sampler2D jointMatrices, morphTargetValues;
 	uniform int numJoints, numTargets, morphTargetTextureDimension, numVertices;
-	uniform vec4 morphTargetWeight[2], morphTargetOffset;
+	uniform float morphTargetWeight[8]; // uniform vec4 caused OpenGL errors
+	uniform vec4 morphTargetOffset;
 	uniform float meshOutline;
 	uniform vec3 cameraPosition;
 
@@ -77,8 +80,6 @@ layout(location = 6) out vec4 lightSpacePos[4];
 	COMPAT_VARYING vec2 texcoord;
 	COMPAT_VARYING vec4 vColor, lightSpacePos[4];
 
-	#define vertexId inVertexId
-	
 	#define useJoint0 (weights_0.x+weights_0.y+weights_0.z+weights_0.w+weights_1.x+weights_1.y+weights_1.z+weights_1.w > 0.001)
 	#define useJoint1 (weights_1.x+weights_1.y+weights_1.z+weights_1.w > 0.001)
 	#define useNormal true
@@ -152,22 +153,28 @@ void main(void) {
 	normal = useNormal?normalIn:vec3(0.0,0.0,0.0);
 	tangent = useTangent?vec3(tangentIn):vec3(0.0,0.0,0.0);
 	vec4 outlineAttribute = useOutlineAttribute?outlineAttributeIn:vec4(0);
-	if(morphTargetWeight[0][0] != 0.0){
+
+	// Check the first weight directly
+	if(morphTargetWeight[0] != 0.0) {
 		for(int idx = 0; idx < numTargets; ++idx)
 		{
 			float fIdx = float(idx);
-			float i = fIdx * float(numVertices) + vertexId;
+			float i = fIdx * float(numVertices) + inVertexId;
 			vec2 xy = vec2((i+0.5)/float(morphTargetTextureDimension)-floor(i/float(morphTargetTextureDimension)),(floor(i/float(morphTargetTextureDimension))+0.5)/float(morphTargetTextureDimension));
-			
+
 			// Mali-safe weight selection
-			vec4 w = (idx < 4) ? morphTargetWeight[0] : morphTargetWeight[1];
+			//vec4 w = (idx < 4) ? morphTargetWeight[0] : morphTargetWeight[1];
 
 			// Need to do this for OpenGL 2.1
-			int m = idx - (idx / 4) * 4;
-			float weight = (m == 0) ? w.x : (m == 1) ? w.y : (m == 2) ? w.z : w.w;
+			//int m = idx - (idx / 4) * 4;
+			//float weight = (m == 0) ? w.x : (m == 1) ? w.y : (m == 2) ? w.z : w.w;
+
+			// Update: Access morphTargetWeight as a simple float array
+			float weight = morphTargetWeight[idx];
 
 			vec4 mSample = COMPAT_TEXTURE(morphTargetValues, xy);
 
+			// Standard morphing logic continues
 			if(fIdx < morphTargetOffset[0]) pos += weight * mSample;
 			else if(fIdx < morphTargetOffset[1]) normal += weight * mSample.xyz;
 			else if(fIdx < morphTargetOffset[2]) tangent += weight * mSample.xyz;
@@ -175,6 +182,7 @@ void main(void) {
 			else vColor += weight * mSample;
 		}
 	}
+
 	if(useJoint0){
 		
 		mat4 jointMatrix = getJointMatrix();

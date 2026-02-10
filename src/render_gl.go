@@ -126,13 +126,17 @@ func (r *Renderer_GL21) linkProgram(params ...uint32) (program uint32, err error
 	for _, param := range params {
 		gl.AttachShader(program, param)
 	}
+
+	// Geometry Shader Params
+	// Only OpenGL 2.1 needs this in the Go side
 	if len(params) > 2 {
-		// Geometry Shader Params
 		gl.ProgramParameteriARB(program, gl.GEOMETRY_INPUT_TYPE_ARB, gl.TRIANGLES)
 		gl.ProgramParameteriARB(program, gl.GEOMETRY_OUTPUT_TYPE_ARB, gl.TRIANGLE_STRIP)
 		gl.ProgramParameteriARB(program, gl.GEOMETRY_VERTICES_OUT_ARB, 3*6)
 	}
+
 	gl.LinkProgram(program)
+
 	// Mark shaders for deletion when the program is deleted
 	for _, param := range params {
 		gl.DeleteShader(param)
@@ -291,14 +295,19 @@ func (t *Texture_GL21) SetSubData(data []byte, x, y, width, height, stride int32
 		interp = gl.LINEAR
 	}
 
-	format := t.MapInternalFormat(Max(t.depth, 8))
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
-	// Doing this respects both Linux and Android requirements
-	if stride > 0 && stride != width*4 {
-		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/4)
+	format := t.MapInternalFormat(Max(t.depth, 8))
+	bytesPerPixel := t.depth / 8 
+	if bytesPerPixel < 1 {
+		bytesPerPixel = 1
+	}
+
+	// Doing this should respect both Linux and Android requirements
+	if stride > 0 && stride != width*bytesPerPixel {
+		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/bytesPerPixel)
 	} else {
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	}
@@ -1722,9 +1731,12 @@ func (r *Renderer_GL21) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	envTexture := envTex.(*Texture_GL21)
 	cubeTexture := cubeTex.(*Texture_GL21)
 	textureSize := cubeTexture.width
+
+	r.UseProgram(r.panoramaToCubeMapShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
-	r.UseProgram(r.panoramaToCubeMapShader.program)
+
 	loc := r.panoramaToCubeMapShader.a["VertCoord"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
@@ -1754,9 +1766,11 @@ func (r *Renderer_GL21) RenderFilteredCubeMap(distribution int32, cubeTex Textur
 	filteredTexture := filteredTex.(*Texture_GL21)
 	textureSize := filteredTexture.width
 	currentTextureSize := textureSize >> mipmapLevel
+
+	r.UseProgram(r.cubemapFilteringShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
-	r.UseProgram(r.cubemapFilteringShader.program)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
@@ -1798,9 +1812,11 @@ func (r *Renderer_GL21) RenderLUT(distribution int32, cubeTex Texture, lutTex Te
 	cubeTexture := cubeTex.(*Texture_GL21)
 	lutTexture := lutTex.(*Texture_GL21)
 	textureSize := lutTexture.width
+
+	r.UseProgram(r.cubemapFilteringShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
-	r.UseProgram(r.cubemapFilteringShader.program)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)

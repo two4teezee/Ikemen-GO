@@ -4246,7 +4246,8 @@ func (model *Model) drawShadow(bufferIndex uint32, sceneNumber int, offset [3]fl
 	var lightTypes [4]LightType
 	for i := 0; i < 4; i++ {
 		if i >= len(scene.lightNodes) {
-			gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0)
+			//gfx.SetShadowMapUniformI("lightType["+strconv.Itoa(i)+"]", 0) OpenGL error
+			gfx.SetShadowMapUniformI("lights["+strconv.Itoa(i)+"].type", 0)
 			continue
 		}
 		numLights += 1

@@ -348,16 +348,21 @@ func (t *Texture_GLES32) SetSubData(data []byte, x, y, width, height, stride int
 		interp = gl.LINEAR
 	}
 
-	format := t.MapInternalFormat(Max(t.depth, 8))
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
-	// THIS IS THE FIX:
-	// Tell GLES the source buffer has 'stride' pixels per row
-	// Doing this respects both Linux and Android requirements
-	if stride > 0 && stride != width*4 {
-		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/4)
+	format := t.MapInternalFormat(Max(t.depth, 8))
+	bytesPerPixel := t.depth / 8 
+	if bytesPerPixel < 1 {
+		bytesPerPixel = 1
+	}
+
+	// Doing this should respect both Linux and Android requirements
+	if stride > 0 && stride != width*bytesPerPixel {
+		// THIS IS THE FIX:
+		// Tell GLES the source buffer has 'stride' pixels per row
+		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/bytesPerPixel)
 	} else {
 		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	}
@@ -1258,6 +1263,7 @@ func (r *Renderer_GLES32) ReleaseShadowPipeline() {
 	gl.Disable(gl.DEPTH_TEST)
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
+	r.useVertColor = false
 	r.useJoint0 = false
 	r.useJoint1 = false
 }
@@ -1749,9 +1755,12 @@ func (r *Renderer_GLES32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	envTexture := envTex.(*Texture_GLES32)
 	cubeTexture := cubeTex.(*Texture_GLES32)
 	textureSize := cubeTexture.width
+
+	r.UseProgram(r.panoramaToCubeMapShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
-	r.UseProgram(r.panoramaToCubeMapShader.program)
+
 	loc := r.panoramaToCubeMapShader.a["VertCoord"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
@@ -1781,9 +1790,11 @@ func (r *Renderer_GLES32) RenderFilteredCubeMap(distribution int32, cubeTex Text
 	filteredTexture := filteredTex.(*Texture_GLES32)
 	textureSize := filteredTexture.width
 	currentTextureSize := textureSize >> mipmapLevel
+
+	r.UseProgram(r.cubemapFilteringShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
-	r.UseProgram(r.cubemapFilteringShader.program)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
@@ -1825,9 +1836,11 @@ func (r *Renderer_GLES32) RenderLUT(distribution int32, cubeTex Texture, lutTex 
 	cubeTexture := cubeTex.(*Texture_GLES32)
 	lutTexture := lutTex.(*Texture_GLES32)
 	textureSize := lutTexture.width
+
+	r.UseProgram(r.cubemapFilteringShader.program)
+
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
-	r.UseProgram(r.cubemapFilteringShader.program)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)

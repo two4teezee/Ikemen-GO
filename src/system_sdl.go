@@ -90,6 +90,10 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, 1)
+			// Only load debug context if we will use it, so we avoid useless overhead
+			if sys.cfg.Video.RendererDebugMode {
+				sdl.GLSetAttribute(sdl.GL_CONTEXT_FLAGS, sdl.GL_CONTEXT_DEBUG_FLAG)
+			}
 			windowFlags |= sdl.WINDOW_OPENGL
 		} else if sys.cfg.Video.RenderMode == "OpenGL 2.1" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 2)

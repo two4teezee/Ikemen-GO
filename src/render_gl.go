@@ -61,6 +61,12 @@ func (r *Renderer_GL21) newShaderProgram(vert, frag, geo, id string, crashWhenFa
 	s.a = make(map[string]int32)
 	s.u = make(map[string]int32)
 	s.t = make(map[string]int)
+
+	// Debug
+	if r.debugMode {
+		fmt.Printf("[DEBUG] Linked shader '%s' as Program ID: %d\n", id, prog)
+	}
+
 	return s, nil
 }
 
@@ -414,6 +420,7 @@ type Renderer_GL21 struct {
 
 	enableModel  bool
 	enableShadow bool
+	debugMode    bool
 	GL21State
 }
 
@@ -538,6 +545,11 @@ func (r *Renderer_GL21) InitModelShader() error {
 func (r *Renderer_GL21) Init() {
 	r.enableModel = sys.cfg.Video.EnableModel
 	r.enableShadow = sys.cfg.Video.EnableModelShadow
+
+	if sys.cfg.Video.RendererDebugMode {
+		r.EnableDebug()
+	}
+
 	chk(gl.Init())
 	sys.errLog.Printf("Using OpenGL %v (%v)", gl.GetString(gl.VERSION), gl.GetString(gl.RENDERER))
 
@@ -740,6 +752,14 @@ func (r *Renderer_GL21) Init() {
 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
+	// Initialize the new texture cache
+	r.texCacheSlotMap = make(map[uint32]int32, 16)
+	for i := range r.texCacheTexHandle {
+		r.texCacheTexHandle[i] = 0xFFFFFFFF
+		r.texCacheLastUsed[i] = 0
+	}
+	r.texCacheTimer = 1
+
 	// Initialize uniform cache
 	r.uniformICache = make(map[uint32]int32, 32)
 	r.uniformF1Cache = make(map[uint32]float32, 32)
@@ -749,6 +769,56 @@ func (r *Renderer_GL21) Init() {
 }
 
 func (r *Renderer_GL21) Close() {
+}
+
+func (r *Renderer_GL21) EnableDebug() {
+	r.debugMode = true
+	fmt.Printf("[GL DEBUG] Debug mode enabled\n")
+}
+
+func (r *Renderer_GL21) CheckErrors(label string) {
+	if !r.debugMode {
+		return
+	}
+	// Read error queue
+	for {
+		err := gl.GetError()
+		if err == gl.NO_ERROR {
+			break
+		}
+
+		var name, description string
+		switch err {
+		case gl.INVALID_ENUM:
+			name = "GL_INVALID_ENUM"
+			description = "An unacceptable value was passed to an enum argument."
+		case gl.INVALID_VALUE:
+			name = "GL_INVALID_VALUE"
+			description = "A numeric argument is out of range."
+		case gl.INVALID_OPERATION:
+			name = "GL_INVALID_OPERATION"
+			description = "The command is not allowed in the current state."
+		case gl.STACK_OVERFLOW:
+			name = "GL_STACK_OVERFLOW"
+			description = "Command would cause a stack overflow."
+		case gl.STACK_UNDERFLOW:
+			name = "GL_STACK_UNDERFLOW"
+			description = "Command would cause a stack underflow."
+		case gl.OUT_OF_MEMORY:
+			name = "GL_OUT_OF_MEMORY"
+			description = "There is not enough memory left to execute the command."
+		case 0x0506:
+			name = "GL_INVALID_FRAMEBUFFER_OPERATION"
+			description = "The framebuffer object is not complete."
+		default:
+			name = ""
+			description = "Consult provider documentation for this specific code."
+		}
+
+		// Log the error with a label so we know where it happened
+		// Format: [GL DEBUG] [Label]: 1281 (0x0501) GL_INVALID_VALUE - Description
+		fmt.Printf("[GL DEBUG] [%s]: %d (0x%04X) %s - %s\n", label, err, err, name, description)
+	}
 }
 
 func (r *Renderer_GL21) IsModelEnabled() bool {
@@ -863,6 +933,8 @@ func (r *Renderer_GL21) EndFrame() {
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 		gl.DisableVertexAttribArray(uint32(loc))
 	}
+
+	r.CheckErrors("EndFrame")
 }
 
 func (r *Renderer_GL21) Await() {

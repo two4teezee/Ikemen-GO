@@ -553,6 +553,10 @@ func (r *Renderer_GL32) Init() {
 	r.enableModel = sys.cfg.Video.EnableModel
 	r.enableShadow = sys.cfg.Video.EnableModelShadow
 
+	if sys.cfg.Video.RendererDebugMode {
+		r.EnableDebug()
+	}
+
 	gl.GenVertexArrays(1, &r.vao)
 	gl.BindVertexArray(r.vao)
 
@@ -747,20 +751,46 @@ func (r *Renderer_GL32) Init() {
 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
+	// Initialize the new texture cache
+	r.texSlotMap = make(map[uint32]int32, 16)
+
 	// Initialize uniform cache
 	r.uniformICache = make(map[uint32]int32, 32)
 	r.uniformF1Cache = make(map[uint32]float32, 32)
 	r.uniformF2Cache = make(map[uint32][2]float32, 32)
 	r.uniformF3Cache = make(map[uint32][3]float32, 32)
 	r.uniformF4Cache = make(map[uint32][4]float32, 32)
-
-	// Initialize texture cache
-	for i := range r.lastSpriteTexture {
-		r.lastSpriteTexture[i] = 0xFFFFFFFF
-	}
 }
 
 func (r *Renderer_GL32) Close() {
+}
+
+func (r *Renderer_GL32) EnableDebug() {
+	gl.Enable(gl.DEBUG_OUTPUT)
+	gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
+	
+	gl.DebugMessageCallback(func(
+		source uint32,
+		gltype uint32,
+		id uint32,
+		severity uint32,
+		length int32,
+		message string,
+		userParam unsafe.Pointer) {
+
+		if severity == gl.DEBUG_SEVERITY_NOTIFICATION {
+			return
+		}
+
+		log.Printf("[GL DEBUG] %s\n", message)
+
+		// Crash here so the log catches it
+		if severity == gl.DEBUG_SEVERITY_HIGH {
+			panic("Critical OpenGL Error Detected!")
+		}
+	}, nil)
+
+	fmt.Printf("[GL DEBUG] Debug mode enabled\n")
 }
 
 func (r *Renderer_GL32) IsModelEnabled() bool {

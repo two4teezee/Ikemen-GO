@@ -849,6 +849,10 @@ func (r *Renderer_GLES32) Init() {
 func (r *Renderer_GLES32) Close() {
 }
 
+func (r *Renderer_GLES32) EnableDebug() {
+	// Do nothing yet
+}
+
 func (r *Renderer_GLES32) IsModelEnabled() bool {
 	return r.enableModel
 }

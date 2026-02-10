@@ -1089,6 +1089,14 @@ function getCellSpacing(col, row)
 	return motif.select_info.cell.spacing
 end
 
+function getCellSkip(col, row)
+	local override = getCellOverride(col, row)
+	if override ~= nil then
+		return override.skip
+	end
+	return false
+end
+
 function getCellTransform(col, row, paramName, default)
 	local override = getCellOverride(col, row)
 	if override ~= nil then
@@ -1497,7 +1505,8 @@ for i = 1, motif.select_info.rows * motif.select_info.columns do
 			start.f_selGrid(i, j).col = col
 		end
 	end
-	if start.f_selGrid(i).skip == 1 then
+	local overrideSkip = getCellSkip(col - 1, row - 1)
+	if start.f_selGrid(i).skip == 1 or overrideSkip then
 		start.t_grid[row][col].skip = 1
 	end
 end

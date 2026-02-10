@@ -1922,7 +1922,6 @@ main.t_itemname = {
 	end,
 	--NETPLAY VERSUS
 	['netplayversus'] = function()
-		setHomeTeam(1)
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
@@ -1944,6 +1943,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.netplayversus)
 		setGameMode('netplayversus')
+		setHomeTeam(1)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
 	end,
@@ -2184,8 +2184,6 @@ main.t_itemname = {
 	end,
 	--TRAINING
 	['training'] = function()
-		setHomeTeam(1)
-		setCommandInputSource(2, 1)
 		if main.t_charDef[gameOption('Config.TrainingChar'):lower()] ~= nil then
 			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
 		end
@@ -2208,7 +2206,10 @@ main.t_itemname = {
 		main.matchWins.tag = {0, 0}
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.training)
 		remapInput(1, getLastInputController())
+		remapInput(getLastInputController(), 1)
+		setCommandInputSource(2, 1)
 		setGameMode('training')
+		setHomeTeam(1)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
 	end,
@@ -2217,7 +2218,6 @@ main.t_itemname = {
 	end,
 	--VS MODE / TEAM VERSUS
 	['versus'] = function(t, item)
-		setHomeTeam(1)
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
@@ -2251,6 +2251,7 @@ main.t_itemname = {
 			setCommandInputSource(2, 2)
 			setGameMode('versus')
 		end
+		setHomeTeam(1)
 		hook.run("main.t_itemname")
 		if start.challenger == 0 then
 			return start.f_selectMode
@@ -2259,7 +2260,6 @@ main.t_itemname = {
 	end,
 	--VERSUS CO-OP
 	['versuscoop'] = function()
-		setHomeTeam(1)
 		main.coop = true
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
@@ -2276,12 +2276,12 @@ main.t_itemname = {
 		main.teamMenu[2].tag = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.versuscoop)
 		setGameMode('versuscoop')
+		setHomeTeam(1)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
 	end,
 	--WATCH
 	['watch'] = function()
-		setHomeTeam(1)
 		main.cpuSide[1] = true
 		--main.lifebar.p1ailevel = true
 		--main.lifebar.p2ailevel = true
@@ -2303,6 +2303,7 @@ main.t_itemname = {
 		remapInput(1, getLastInputController())
 		setCommandInputSource(2, 1)
 		setGameMode('watch')
+		setHomeTeam(1)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
 	end,

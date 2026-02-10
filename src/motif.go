@@ -1723,7 +1723,7 @@ func loadMotif(def string) (*Motif, error) {
 			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
 			lb := strings.ToLower(logical)
 			// Skip BG element sections like [XResultsBg] (but still allow *BgDef sections).
-			if strings.Contains(lb, "resultsbg") {
+			if strings.Contains(lb, "resultsbg") || strings.Contains(lb, "pausebg") {
 				if !strings.HasSuffix(lb, "bgdef") {
 					goto nextSection
 				}
@@ -2383,12 +2383,23 @@ func (m *Motif) loadFiles() {
 	} else {
 		m.ReplayBgDef = m.TitleBgDef
 	}
+
+	basePause := m.PauseBgDef["pausebgdef"]
+	m.loadBgDefProperties(basePause, "pausebg", m.Files.Spr)
 	// Load all PauseBgDef entries (any mode that defines <mode>PauseBgDef).
 	for secKey, bg := range m.PauseBgDef {
 		if bg == nil {
 			continue
 		}
 		key := strings.ToLower(secKey)
+		if key == "pausebgdef" {
+			continue
+		}
+		// If the user did not declare this section, fall back to [PauseBGdef].
+		if _, err := m.UserIniFile.GetSection(secKey); err != nil {
+			*bg = *basePause
+			continue
+		}
 		bgName := strings.TrimSuffix(key, "def") // e.g. "pausebgdef" -> "pausebg"
 		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
 	}

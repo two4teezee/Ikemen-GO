@@ -775,7 +775,7 @@ func (r *Renderer_GL21) Init() {
 
 	// Initialize sprite texture cache
 	r.texCacheTexHandle = make([]uint32, maxTex)
-    r.texCacheLastUsed = make([]uint64, maxTex)
+	r.texCacheLastUsed = make([]uint64, maxTex)
 
 	// Initialize uniform cache
 	r.uniformICache = make(map[uint32]int32, 32)
@@ -1081,6 +1081,11 @@ func (r *Renderer_GL21) SetBlending(enable bool, eq BlendEquation, src, dst Blen
 }
 
 func (r *Renderer_GL21) SetPipeline() {
+	// Do nothing if we were already using the sprite shader
+	if r.program == r.spriteShader.program {
+		return
+	}
+
 	r.UseProgram(r.spriteShader.program)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
@@ -1743,11 +1748,11 @@ func (r *Renderer_GL21) SetTexture(name string, tex Texture) {
 }
 
 func (r *Renderer_GL21) SetModelTexture(name string, tex Texture) {
-    r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
+	r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
 }
 
 func (r *Renderer_GL21) SetShadowMapTexture(name string, tex Texture) {
-    r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
+	r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
 }
 
 func (r *Renderer_GL21) SetShadowFrameTexture(i uint32) {

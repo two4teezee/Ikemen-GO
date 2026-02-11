@@ -784,7 +784,7 @@ func (r *Renderer_GL32) Init() {
 
 	// Initialize sprite texture cache
 	r.texCacheTexHandle = make([]uint32, maxTex)
-    r.texCacheLastUsed = make([]uint64, maxTex)
+	r.texCacheLastUsed = make([]uint64, maxTex)
 
 	// Initialize uniform cache
 	r.uniformICache = make(map[uint32]int32, 32)
@@ -1077,6 +1077,11 @@ func (r *Renderer_GL32) SetBlending(enable bool, eq BlendEquation, src, dst Blen
 }
 
 func (r *Renderer_GL32) SetPipeline() {
+	// Do nothing if we were already using the sprite shader
+	if r.program == r.spriteShader.program {
+		return
+	}
+
 	r.UseProgram(r.spriteShader.program)
 
 	gl.BindVertexArray(r.vao)
@@ -1085,9 +1090,9 @@ func (r *Renderer_GL32) SetPipeline() {
 	// Disable all active attributes
 	// Prevents "vertex shader is being recompiled" errors
 	// Note: We use 11 attributes tops. This may need to be updated in the future
-	for i := uint32(0); i < 11; i++ {
-		gl.DisableVertexAttribArray(i)
-	}
+	//for i := uint32(0); i < 11; i++ {
+	//	gl.DisableVertexAttribArray(i)
+	//}
 
 	locPos := r.spriteShader.a["position"]
 	gl.EnableVertexAttribArray(uint32(locPos))
@@ -1813,11 +1818,11 @@ func (r *Renderer_GL32) SetTexture(name string, tex Texture) {
 }
 
 func (r *Renderer_GL32) SetModelTexture(name string, tex Texture) {
-    r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
+	r.SetTextureSub(r.modelShader.u, r.modelShader.t, name, tex)
 }
 
 func (r *Renderer_GL32) SetShadowMapTexture(name string, tex Texture) {
-    r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
+	r.SetTextureSub(r.shadowMapShader.u, r.shadowMapShader.t, name, tex)
 }
 
 func (r *Renderer_GL32) SetShadowFrameTexture(i uint32) {

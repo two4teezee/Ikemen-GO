@@ -1016,8 +1016,47 @@ function start.f_searchEmptyBoxes(x, y, side, direction)
 	end
 end
 
---calculate cursor.tween
-local function f_cursorTween(val, target, factor)
+-- Returns player cursor data
+function start.f_getCursorData(pn)
+	if main.coop then
+		return motif.select_info['p' .. pn]
+	end
+	return motif.select_info['p' .. (pn - 1) % 2 + 1]
+end
+
+-- Reset cursor animation for a specific slot only
+local function resetCursorData(pn, store, param)
+	local pData = start.f_getCursorData(pn)
+	local cursorCfg = pData.cursor[param]
+	local key = start.c[pn].selX .. '-' .. start.c[pn].selY
+	local cursorParams = cursorCfg.default
+	if cursorCfg[key] then
+		cursorParams = cursorCfg[key]
+	end
+	local src = cursorParams.AnimData
+	if not src then
+		return
+	end
+	store[pn] = store[pn] or {}
+	local cd = store[pn]
+	cd.animCache = cd.animCache or {}
+	local cache = cd.animCache[param]
+	if cache == nil or cache.src ~= src then
+		cache = {src = src, anim = animCopy(src)}
+		cd.animCache[param] = cache
+		if cache.anim then
+			animReset(cache.anim)
+			animUpdate(cache.anim)
+		end
+	end
+	if cache.anim then
+		animReset(cache.anim)
+		animUpdate(cache.anim)
+	end
+end
+
+-- Calculate cursor.tween
+local function cursorTween(val, target, factor)
 	if not factor or not target then
 		return val
 	end
@@ -1027,14 +1066,6 @@ local function f_cursorTween(val, target, factor)
 		val[i] = val[i] + (t - val[i]) * f
 	end
 	return val
-end
-
---returns player cursor data
-function start.f_getCursorData(pn)
-	if main.coop and motif.select_info['p' .. pn] ~= nil then
-		return motif.select_info['p' .. pn]
-	end
-	return motif.select_info['p' .. (pn - 1) % 2 + 1]
 end
 
 local function getCellOverride(col, row)
@@ -1123,35 +1154,27 @@ end
 
 --draw cursor
 function start.f_drawCursor(pn, x, y, param, done)
-	-- in non-coop modes only p1 and p2 cursors are used
-	if not main.coop then
-		pn = (pn - 1) % 2 + 1
-	end
-
+	local pData = start.f_getCursorData(pn)
 	-- select appropriate cursor table and initialize if needed
 	local store = done and cursorDone or cursorActive
-	if store[pn] == nil then
-		store[pn] = {
-			currentPos  = {0, 0},
-			targetPos   = {0, 0},
-			startPos    = {0, 0},
-			slideOffset = {0, 0},
-			init        = false,
-			snap        = false -- only used by active cursors
-		}
-	end
+	store[pn] = store[pn] or {}
 	local cd = store[pn]
-
+	cd.currentPos  = cd.currentPos  or {0, 0}
+	cd.targetPos   = cd.targetPos   or {0, 0}
+	cd.startPos    = cd.startPos    or {0, 0}
+	cd.slideOffset = cd.slideOffset or {0, 0}
+	cd.init        = cd.init or false
+	if not done then
+		cd.snap = cd.snap or false -- only used by active cursors
+	end
 	-- calculate target cell coordinates using the pre-calculated grid
 	local cellData = start.t_grid[y + 1] and start.t_grid[y + 1][x + 1]
 	local baseX, baseY
-
 	if cellData then
 		-- cellData already includes all spacing and offsets
 		baseX = motif.select_info.pos[1] + cellData.x
 		baseY = motif.select_info.pos[2] + cellData.y
 	end
-
 	-- initialization or snap: set cursor directly
 	if not cd.init or done or cd.snap then
 		for i = 1, 2 do
@@ -1169,17 +1192,16 @@ function start.f_drawCursor(pn, x, y, param, done)
 		cd.slideOffset[2] = cd.startPos[2] - baseY
 	end
 	local t_factor = {
-		motif.select_info['p' .. pn].cursor.tween.factor[1],
-		motif.select_info['p' .. pn].cursor.tween.factor[2]
+		pData.cursor.tween.factor[1],
+		pData.cursor.tween.factor[2]
 	}
 	-- apply tween if enabled, otherwise snap to target
 	if not done and t_factor[1] > 0 and t_factor[2] > 0 then
-		f_cursorTween(cd.slideOffset, {0, 0}, t_factor)
+		cursorTween(cd.slideOffset, {0, 0}, t_factor)
 	else
 		cd.slideOffset[1], cd.slideOffset[2] = 0, 0
 	end
-
-	if motif.select_info['p' .. pn].cursor.tween.wrap.snap then
+	if pData.cursor.tween.wrap.snap then
 		local dx = cd.targetPos[1] - cd.startPos[1]
 		local dy = cd.targetPos[2] - cd.startPos[2]
 		if math.abs(dx) > motif.select_info.cell.size[1] * (motif.select_info.columns - 1) or math.abs(dy) > motif.select_info.cell.size[2] * (motif.select_info.rows - 1) then
@@ -1189,32 +1211,34 @@ function start.f_drawCursor(pn, x, y, param, done)
 	-- update final cursor position
 	cd.currentPos[1] = cd.targetPos[1] + cd.slideOffset[1]
 	cd.currentPos[2] = cd.targetPos[2] + cd.slideOffset[2]
-
 	-- draw
-	local params = motif.select_info['p' .. pn].cursor[param].default
+	local params = pData.cursor[param].default
 	local key = x .. '-' .. y
-	if motif.select_info['p' .. pn].cursor[param][key] ~= nil then
-		params = motif.select_info['p' .. pn].cursor[param][key]
+	if pData.cursor[param][key] ~= nil then
+		params = pData.cursor[param][key]
 	end
 	local a = params.AnimData
-	if a then -- inherit cell transformation
-		animSetFacing(a, getCellFacing(params.facing, x, y))
-		local scale = getCellTransform(x, y, "scale", params.scale)
-		animSetScale(a, scale[1], scale[2])
-		animSetXShear(a, getCellTransform(x, y, "xshear", params.xshear))
-		animSetAngle(a, getCellTransform(x, y, "angle", params.angle))
-		animSetXAngle(a, getCellTransform(x, y, "xangle", params.xangle))
-		animSetYAngle(a, getCellTransform(x, y, "yangle", params.yangle))
-		animSetProjection(a, getCellTransform(x, y, "projection", params.projection))
-		animSetFocalLength(a, getCellTransform(x, y, "focallength", params.focallength))
-		animUpdate(a)
+	cd.animCache = cd.animCache or {}
+	local cache = cd.animCache[param]
+	if cache == nil or cache.src ~= a then
+		cache = {src = a, anim = animCopy(a)}
+		cd.animCache[param] = cache
+		if cache.anim then
+			animReset(cache.anim)
+		end
 	end
-	main.f_animPosDraw(
-		a,
-		cd.currentPos[1],
-		cd.currentPos[2],
-		getCellFacing(params.facing, x, y)
-	)
+	a = cache.anim
+	animSetFacing(a, getCellFacing(params.facing, x, y))
+	local scale = getCellTransform(x, y, "scale", params.scale)
+	animSetScale(a, scale[1], scale[2])
+	animSetXShear(a, getCellTransform(x, y, "xshear", params.xshear))
+	animSetAngle(a, getCellTransform(x, y, "angle", params.angle))
+	animSetXAngle(a, getCellTransform(x, y, "xangle", params.xangle))
+	animSetYAngle(a, getCellTransform(x, y, "yangle", params.yangle))
+	animSetProjection(a, getCellTransform(x, y, "projection", params.projection))
+	animSetFocalLength(a, getCellTransform(x, y, "focallength", params.focallength))
+	animUpdate(a)
+	main.f_animPosDraw(a, cd.currentPos[1], cd.currentPos[2], getCellFacing(params.facing, x, y))
 end
 
 -- snaps the cursor instantly to its target cell
@@ -1833,6 +1857,8 @@ function start.f_selectReset(hardReset)
 	selScreenEnd = false
 	stageEnd = false
 	t_reservedChars = {{}, {}}
+	cursorActive = {}
+	cursorDone = {}
 	if start.challenger == 0 then
 		start.t_roster = {}
 		start.reset = true
@@ -2993,10 +3019,6 @@ function start.f_palMenu(side, cmd, player, member, selectState)
 		selectState = 0
 		st.currentIdx = nil
 		st.validPals = nil
-		local key = start.c[player].selX .. '-' .. start.c[player].selY
-		if start.f_getCursorData(player).cursor.done[key] ~= nil then
-			animReset(start.f_getCursorData(player).cursor.done[key].AnimData)
- 		end
 		sndPlay(motif.Snd, motif.select_info['p' .. side].palmenu.cancel.snd[1], motif.select_info['p' .. side].palmenu.cancel.snd[2])
 	end
 	-- random hotkey
@@ -3102,12 +3124,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					start.p[side].t_selTemp[member].face_anim = motif.select_info['p' .. pn].face.anim
 					start.p[side].t_selTemp[member].face2_anim = motif.select_info['p' .. pn].face2.anim
 					if motif.select_info['p' .. player].cursor.reset then
-						local cursorParams = start.f_getCursorData(player).cursor.active.default
-						local key = start.c[player].selX .. '-' .. start.c[player].selY
-						if start.f_getCursorData(player).cursor.active[key] ~= nil then
-							cursorParams = start.f_getCursorData(player).cursor.active[key]
- 						end
-						animReset(cursorParams.AnimData)
+						resetCursorData(player, cursorActive, 'active')
 					end
 					updateAnim = true
 				end
@@ -3161,6 +3178,9 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 					sndPlay(motif.Snd, start.f_getCursorData(player).cursor.done.default.snd[1], start.f_getCursorData(player).cursor.done.default.snd[2])
 					if motif.select_info.paletteselect == 0 then
 						start.f_playWave(start.c[player].selRef, 'cursor', motif.select_info['p' .. side].select.snd[1], motif.select_info['p' .. side].select.snd[2])
+					end
+					if motif.select_info.paletteselect > 0 then
+						resetCursorData(player, cursorActive, 'done')
 					end
 					start.p[side].t_selTemp[member].pal = main.f_btnPalNo(cmd)
 					start.p[side].t_selTemp[member].inRandom = false

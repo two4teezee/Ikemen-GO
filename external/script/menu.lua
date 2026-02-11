@@ -539,8 +539,7 @@ function menu.f_start()
 	end
 end
 
--- Called from global.lua loop() function, at the start of first round, to reset
--- training menu values and p2 settings for a new match
+-- Called from start.lua right before game() function to reset training menu values and p2 settings for a new match
 function menu.f_trainingReset()
 	for k, _ in pairs(menu.t_valuename) do
 		menu[k] = 1

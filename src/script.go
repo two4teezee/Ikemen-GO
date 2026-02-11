@@ -805,6 +805,18 @@ func systemScriptInit(l *lua.LState) {
 		a.vel = src.vel
 		return 0
 	})
+	luaRegister(l, "animCopy", func(l *lua.LState) int {
+		a, ok := toUserData(l, 1).(*Anim)
+		if !ok {
+			userDataError(l, 1, a)
+		}
+		if a == nil {
+			l.Push(lua.LNil)
+			return 1
+		}
+		l.Push(newUserData(l, a.Copy()))
+		return 1
+	})
 	luaRegister(l, "animDebug", func(*lua.LState) int {
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {

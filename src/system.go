@@ -1029,7 +1029,7 @@ func (s *System) button(btns []string, controllerNo int) bool {
 			if cl.GetState(btn) {
 				// Avoid "same direction, different type" conflict (axis->dir) on the same controller.
 				if dir != 0 && s.lastInputController == src && lastAxis == axisOf(dir) {
-					return false
+					continue
 				}
 				s.lastInputController = src
 				s.uiLastInputToken = btn
@@ -1042,7 +1042,7 @@ func (s *System) button(btns []string, controllerNo int) bool {
 				if axisTok != "" {
 					// Avoid "same direction, different type" conflict (dir->axis) on the same controller.
 					if s.lastInputController == src && lastDir == dir {
-						return false
+						continue
 					}
 					if cl.IsControllerButtonPressed(axisTok, src) {
 						return true

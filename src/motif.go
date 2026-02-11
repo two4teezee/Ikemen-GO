@@ -1368,7 +1368,7 @@ func hasUserKey(iniFile *ini.File, section, key string) bool {
 // preprocessINIContent removes or modifies specific sections before parsing.
 func preprocessINIContent(input string) string {
 	// Define a regex to find the [Infobox Text] section
-	infoboxRegex := regexp.MustCompile(`(?s)\[Infobox Text\]\n(.*?)(\n\[|$)`)
+	infoboxRegex := regexp.MustCompile(`(?is)\[\s*infobox\s+text\s*\]\s*\n(.*?)(\n\s*\[|$)`)
 	// Extract the content of [Infobox Text]
 	matches := infoboxRegex.FindStringSubmatch(input)
 	if len(matches) < 3 {
@@ -1387,9 +1387,16 @@ func preprocessINIContent(input string) string {
 	// Remove the [Infobox Text] section from the input
 	output := infoboxRegex.ReplaceAllString(input, "$2")
 	// Define a regex to find the [InfoBox] section header
-	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(\[InfoBox\]\n)`)
-	// Insert the new text.text line right after the [InfoBox] header
-	output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
+	infoBoxHeaderRegex := regexp.MustCompile(`(?im)(^\[(?i:infobox)\]\s*\n)`)
+	// Insert the new text.text line right after the [InfoBox] header.
+	if infoBoxHeaderRegex.MatchString(output) {
+		output = infoBoxHeaderRegex.ReplaceAllString(output, "${1}"+newTextLine)
+	} else {
+		if !strings.HasSuffix(output, "\n") {
+			output += "\n"
+		}
+		output += "[InfoBox]\n" + newTextLine
+	}
 	return output
 }
 
@@ -1716,7 +1723,7 @@ func loadMotif(def string) (*Motif, error) {
 			// Backgrounds and [Begin Action] blocks are skipped (case-insensitive).
 			lb := strings.ToLower(logical)
 			// Skip BG element sections like [XResultsBg] (but still allow *BgDef sections).
-			if strings.Contains(lb, "resultsbg") {
+			if strings.Contains(lb, "resultsbg") || strings.Contains(lb, "pausebg") {
 				if !strings.HasSuffix(lb, "bgdef") {
 					goto nextSection
 				}
@@ -2376,12 +2383,23 @@ func (m *Motif) loadFiles() {
 	} else {
 		m.ReplayBgDef = m.TitleBgDef
 	}
+
+	basePause := m.PauseBgDef["pausebgdef"]
+	m.loadBgDefProperties(basePause, "pausebg", m.Files.Spr)
 	// Load all PauseBgDef entries (any mode that defines <mode>PauseBgDef).
 	for secKey, bg := range m.PauseBgDef {
 		if bg == nil {
 			continue
 		}
 		key := strings.ToLower(secKey)
+		if key == "pausebgdef" {
+			continue
+		}
+		// If the user did not declare this section, fall back to [PauseBGdef].
+		if _, err := m.UserIniFile.GetSection(secKey); err != nil {
+			*bg = *basePause
+			continue
+		}
 		bgName := strings.TrimSuffix(key, "def") // e.g. "pausebgdef" -> "pausebg"
 		m.loadBgDefProperties(bg, bgName, m.Files.Spr)
 	}
@@ -5985,7 +6003,35 @@ func (vi *MotifVictory) init(m *Motif) {
 		sys.noSoundFlg = true
 	}
 
-	m.Music.Play("victory", sys.motif.Def)
+	// If match/stage/select.def defines victory.music, it should keep playing
+	// into the victory screen. Only fall back to motif victory BGM when the
+	// match has no victory entry at all.
+	pn := -1
+	if leader != nil {
+		pn = leader.playerNo
+	}
+	if pn < 0 {
+		pn = sys.lastHitter[winnerSide]
+		if pn < 0 {
+			pn = sys.teamLeader[winnerSide]
+		}
+	}
+	if pn < 0 || pn >= len(sys.cgi) {
+		// Fallback: find any loaded player on the winner side.
+		for i := 0; i < MaxPlayerNo; i++ {
+			if len(sys.chars[i]) == 0 || sys.chars[i][0] == nil {
+				continue
+			}
+			if int(sys.chars[i][0].teamside) == winnerSide {
+				pn = i
+				break
+			}
+		}
+	}
+	matchHasVictory := pn >= 0 && pn < len(sys.cgi) && sys.cgi[pn].music.HasPrefix("victory")
+	if !matchHasVictory {
+		m.Music.Play("victory", sys.motif.Def)
+	}
 
 	m.VictoryScreen.FadeIn.FadeData.init(m.fadeIn, true)
 	vi.counter = 0

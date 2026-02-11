@@ -2551,6 +2551,45 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 	end
 end
 
+-- Recursively remove pruned items/submenus.
+function main.f_pruneMenu(tbl, excluded)
+	if type(tbl) ~= 'table' or type(excluded) ~= 'table' then
+		return
+	end
+	-- Remove items
+	if type(tbl.items) == 'table' then
+		for i = #tbl.items, 1, -1 do
+			local it = tbl.items[i]
+			if type(it) == 'table' and excluded[it.itemname] then
+				table.remove(tbl.items, i)
+			end
+		end
+	end
+	-- Remove / recurse submenus
+	if type(tbl.submenu) == 'table' then
+		for k, sub in pairs(tbl.submenu) do
+			if excluded[k] then
+				tbl.submenu[k] = nil
+			else
+				main.f_pruneMenu(sub, excluded)
+			end
+		end
+	end
+end
+
+-- Remove vardisplay pointer entries for items that were pruned from the menu.
+function main.f_prunePointers(ptrs, excluded)
+	if type(ptrs) ~= 'table' or type(excluded) ~= 'table' then
+		return
+	end
+	for i = #ptrs, 1, -1 do
+		local v = ptrs[i]
+		if type(v) == 'table' and excluded[v.itemname] then
+			table.remove(ptrs, i)
+		end
+	end
+end
+
 -- Dynamically generates all menus and submenus
 function main.f_start()
 	main.menu = {title = main.f_itemnameUpper(motif[main.group].title.text, motif[main.group].menu.title.uppercase), submenu = {}, items = {}}

@@ -500,6 +500,13 @@ function menu.f_start()
 				lastNum = j
 			end
 		end
+		-- Runtime platform filtering
+		if getRuntimeOS() == 'android' then
+			local excluded = {keyboard = true}
+			main.f_pruneMenu(menu[v.id], excluded)
+			main.f_prunePointers(menu.t_vardisplayPointers, excluded)
+		end
+		-- Menu windows
 		textImgSetWindow(v.sec.menu.item.selected.active.TextSpriteData, w[1], w[2], w[3], w[4])
 		textImgSetWindow(v.sec.menu.item.active.TextSpriteData, w[1], w[2], w[3], w[4])
 		textImgSetWindow(v.sec.menu.item.value.active.TextSpriteData, w[1], w[2], w[3], w[4])

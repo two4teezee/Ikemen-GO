@@ -870,21 +870,15 @@ func (wi *MotifWin) Clone(a *arena.Arena) (result MotifWin) {
 		result.keyCancel = arena.MakeSlice[string](a, len(wi.keyCancel), len(wi.keyCancel))
 		copy(result.keyCancel, wi.keyCancel)
 	}
-	if wi.p1State != nil {
-		result.p1State = arena.MakeSlice[int32](a, len(wi.p1State), len(wi.p1State))
-		copy(result.p1State, wi.p1State)
-	}
-	if wi.p1TeammateState != nil {
-		result.p1TeammateState = arena.MakeSlice[int32](a, len(wi.p1TeammateState), len(wi.p1TeammateState))
-		copy(result.p1TeammateState, wi.p1TeammateState)
-	}
-	if wi.p2State != nil {
-		result.p2State = arena.MakeSlice[int32](a, len(wi.p2State), len(wi.p2State))
-		copy(result.p2State, wi.p2State)
-	}
-	if wi.p2TeammateState != nil {
-		result.p2TeammateState = arena.MakeSlice[int32](a, len(wi.p2TeammateState), len(wi.p2TeammateState))
-		copy(result.p2TeammateState, wi.p2TeammateState)
+	for i := 0; i < 4; i++ {
+		if wi.p1States[i] != nil {
+			result.p1States[i] = arena.MakeSlice[int32](a, len(wi.p1States[i]), len(wi.p1States[i]))
+			copy(result.p1States[i], wi.p1States[i])
+		}
+		if wi.p2States[i] != nil {
+			result.p2States[i] = arena.MakeSlice[int32](a, len(wi.p2States[i]), len(wi.p2States[i]))
+			copy(result.p2States[i], wi.p2States[i])
+		}
 	}
 	return
 }

@@ -64,7 +64,7 @@ func (r *Renderer_GL32) newShaderProgram(vert, frag, geo, id string, crashWhenFa
 
 	// Debug
 	if r.debugMode {
-		fmt.Printf("[DEBUG] Linked shader '%s' as Program ID: %d\n", id, prog)
+		fmt.Printf("[GL Debug] Linked shader '%s' as Program ID: %d\n", id, prog)
 	}
 
 	return s, nil
@@ -779,7 +779,7 @@ func (r *Renderer_GL32) Init() {
 	gl.GetIntegerv(gl.MAX_TEXTURE_IMAGE_UNITS, &maxTex)
 
 	if r.debugMode {
-		fmt.Printf("[DEBUG] GPU supports up to %d textures\n", maxTex)
+		fmt.Printf("[GL Debug] GPU supports up to %d textures\n", maxTex)
 	}
 
 	// Initialize sprite texture cache
@@ -815,7 +815,7 @@ func (r *Renderer_GL32) EnableDebug() {
 			return
 		}
 
-		fmt.Printf("[GL DEBUG] %s\n", message)
+		fmt.Printf("[GL Debug] %s\n", message)
 
 		// Crash here so the log catches it
 		if severity == gl.DEBUG_SEVERITY_HIGH {
@@ -823,7 +823,7 @@ func (r *Renderer_GL32) EnableDebug() {
 		}
 	}, nil)
 
-	fmt.Printf("[GL DEBUG] Debug mode enabled\n")
+	fmt.Printf("[GL Debug] Debug mode enabled\n")
 }
 
 func (r *Renderer_GL32) IsModelEnabled() bool {
@@ -849,9 +849,6 @@ func (r *Renderer_GL32) EndFrame() {
 	if len(r.fbo_pp) == 0 {
 		return
 	}
-	// tell GL to use our vertex array object
-	// this'll be where our quad is stored
-	gl.BindVertexArray(r.vao)
 
 	x, y, width, height := int32(0), int32(0), int32(sys.scrrect[2]), int32(sys.scrrect[3])
 	time := sdl.GetPerformanceCounter() // consistent time across all shaders
@@ -921,7 +918,11 @@ func (r *Renderer_GL32) EndFrame() {
 		}
 
 		// tell GL we want to use our shader program
-		r.UseProgram(postShader.program)
+		r.ChangeProgram(postShader.program)
+
+		// tell GL to use our vertex array object
+		// this'll be where our quad is stored
+		gl.BindVertexArray(r.vao)
 
 		// set post-processing parameters
 		gl.Uniform1i(postShader.u["Texture_GL32"], 0)
@@ -1023,16 +1024,24 @@ func (r *Renderer_GL32) SetCullFace(doubleSided bool) {
 	}
 }
 
-func (r *Renderer_GL32) UseProgram(prog uint32) {
+// This should be called instead of gl.UseProgram()
+func (r *Renderer_GL32) ChangeProgram(prog uint32) {
+	// Program already in use
 	if r.program == prog {
 		return
+	}
+
+	// Lazy release of sprite pipeline
+	// We can't tell if the next thing we will draw is also a sprite, so this prevents releasing the pipeline after every single sprite
+	if r.program == r.spriteShader.program {
+		r.ReleasePipeline()
 	}
 
 	// Switch program
 	gl.UseProgram(prog)
 	r.program = prog
 
-	// Reset texure cache
+	// Reset sprite texture cache
 	for i := range r.texCacheTexHandle {
 		r.texCacheTexHandle[i] = 0xFFFFFFFF
 		r.texCacheLastUsed[i] = 0
@@ -1082,7 +1091,7 @@ func (r *Renderer_GL32) SetPipeline() {
 		return
 	}
 
-	r.UseProgram(r.spriteShader.program)
+	r.ChangeProgram(r.spriteShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
@@ -1103,8 +1112,16 @@ func (r *Renderer_GL32) SetPipeline() {
 	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
 }
 
+func (r *Renderer_GL32) ReleasePipeline() {
+	loc := r.spriteShader.a["position"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	loc = r.spriteShader.a["uv"]
+	gl.DisableVertexAttribArray(uint32(loc))
+	//gl.Disable(gl.BLEND)
+}
+
 func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
-	r.UseProgram(r.shadowMapShader.program)
+	r.ChangeProgram(r.shadowMapShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
@@ -1263,7 +1280,7 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 }
 
 func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environment) {
-	r.UseProgram(r.modelShader.program)
+	r.ChangeProgram(r.modelShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
@@ -1658,7 +1675,7 @@ func (r *Renderer_GL32) SetModelUniformI(name string, val int) {
 	loc, ok := r.modelShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Model uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1669,7 +1686,7 @@ func (r *Renderer_GL32) SetModelUniformF(name string, values ...float32) {
 	loc, ok := r.modelShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Model uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1680,7 +1697,7 @@ func (r *Renderer_GL32) SetModelUniformFv(name string, values []float32) {
 	loc, ok := r.modelShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Model uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1691,7 +1708,7 @@ func (r *Renderer_GL32) SetModelUniformMatrix(name string, value []float32) {
 	loc, ok := r.modelShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Model uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1702,7 +1719,7 @@ func (r *Renderer_GL32) SetModelUniformMatrix3(name string, value []float32) {
 	loc, ok := r.modelShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Model uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1713,7 +1730,7 @@ func (r *Renderer_GL32) SetShadowMapUniformI(name string, val int) {
 	loc, ok := r.shadowMapShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Shadow uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1724,7 +1741,7 @@ func (r *Renderer_GL32) SetShadowMapUniformF(name string, values ...float32) {
 	loc, ok := r.shadowMapShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Shadow uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1735,7 +1752,7 @@ func (r *Renderer_GL32) SetShadowMapUniformFv(name string, values []float32) {
 	loc, ok := r.shadowMapShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Shadow uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1746,7 +1763,7 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix(name string, value []float32) 
 	loc, ok := r.shadowMapShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Shadow uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1757,7 +1774,7 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32)
 	loc, ok := r.shadowMapShader.u[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[DEBUG] Shadow uniform '%s' not registered\n", name)
+			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
 		}
 		return
 	}
@@ -1870,7 +1887,7 @@ func (r *Renderer_GL32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	cubeTexture := cubeTex.(*Texture_GL32)
 	textureSize := cubeTexture.width
 
-	r.UseProgram(r.panoramaToCubeMapShader.program)
+	r.ChangeProgram(r.panoramaToCubeMapShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
@@ -1906,7 +1923,7 @@ func (r *Renderer_GL32) RenderFilteredCubeMap(distribution int32, cubeTex Textur
 	textureSize := filteredTexture.width
 	currentTextureSize := textureSize >> mipmapLevel
 
-	r.UseProgram(r.cubemapFilteringShader.program)
+	r.ChangeProgram(r.cubemapFilteringShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
@@ -1953,7 +1970,7 @@ func (r *Renderer_GL32) RenderLUT(distribution int32, cubeTex Texture, lutTex Te
 	lutTexture := lutTex.(*Texture_GL32)
 	textureSize := lutTexture.width
 
-	r.UseProgram(r.cubemapFilteringShader.program)
+	r.ChangeProgram(r.cubemapFilteringShader.program)
 
 	gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)

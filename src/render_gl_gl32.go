@@ -567,8 +567,6 @@ func (r *Renderer_GL32) Init() {
 		sys.msaa = maxSamples
 	}
 
-	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.cfg.Video.ExternalShaders))
-
 	// Data buffers for rendering
 	postVertData := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 
@@ -605,25 +603,25 @@ func (r *Renderer_GL32) Init() {
 	}
 
 	// Compile postprocessing shaders
+	// Because we only have one VAO, the attributes will only be set in EndFrame()
 
-	// Calculate total amount of shaders loaded.
-	r.postShaderSelect = make([]*ShaderProgram_GL32, 1+len(sys.cfg.Video.ExternalShaders))
+	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
+	r.postShaderSelect = make([]*ShaderProgram_GL32, len(sys.cfg.Video.ExternalShaders)+1)
 
 	// External Shaders
 	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
-		r.postShaderSelect[i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00",
-			string(sys.externalShaders[1][i])+"\x00", "", fmt.Sprintf("Postprocess Shader #%v", i), true)
+		r.postShaderSelect[i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00", string(sys.externalShaders[1][i])+"\x00",
+			"", fmt.Sprintf("Postprocess Shader #%v", i), true)
 		r.postShaderSelect[i].RegisterAttributes("VertCoord", "TexCoord")
-		loc := r.postShaderSelect[i].a["TexCoord"]
-		gl.VertexAttribPointer(uint32(loc), 3, gl.FLOAT, false, 5*4, gl.PtrOffset(2*4))
-		gl.EnableVertexAttribArray(uint32(loc))
 		r.postShaderSelect[i].RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime")
 	}
 
-	// Ident shader (no postprocessing). This is the last one
+	// Identity shader (no postprocessing)
 	identShader, _ := r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
 	identShader.RegisterAttributes("VertCoord", "TexCoord")
 	identShader.RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime")
+
+	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
 
 	if sys.msaa > 0 {
@@ -936,13 +934,29 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
 
 		// construct the UVs of the quad
-		loc := postShader.a["VertCoord"]
-		gl.EnableVertexAttribArray(uint32(loc))
-		gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+		// VertCoord is the primary position attribute
+		if loc, ok := postShader.a["VertCoord"]; ok && loc >= 0 {
+			vLoc := uint32(loc)
+			gl.EnableVertexAttribArray(vLoc)
+			gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 0, nil)
+		}
+
+		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
+		if loc, ok := postShader.a["TexCoord"]; ok && loc >= 0 {
+			tLoc := uint32(loc)
+			gl.EnableVertexAttribArray(tLoc)
+			gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
+		}
 
 		// construct the quad and draw it
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
-		gl.DisableVertexAttribArray(uint32(loc))
+
+		// Disable attributes after use
+		for _, loc := range postShader.a {
+			if loc >= 0 {
+				gl.DisableVertexAttribArray(uint32(loc))
+			}
+		}
 	}
 }
 

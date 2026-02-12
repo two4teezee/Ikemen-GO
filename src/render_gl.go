@@ -572,8 +572,6 @@ func (r *Renderer_GL21) Init() {
 		sys.msaa = maxSamples
 	}
 
-	r.postShaderSelect = make([]*ShaderProgram_GL21, 1+len(sys.cfg.Video.ExternalShaders))
-
 	// Data buffers for rendering
 	postVertData := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 
@@ -600,19 +598,24 @@ func (r *Renderer_GL21) Init() {
 
 	// Compile postprocessing shaders
 
-	// Calculate total amount of shaders loaded.
+	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
 	r.postShaderSelect = make([]*ShaderProgram_GL21, 1+len(sys.cfg.Video.ExternalShaders))
 
-	// Ident shader (no postprocessing)
-	r.postShaderSelect[0], _ = r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
-	r.postShaderSelect[0].RegisterAttributes("VertCoord")
-	r.postShaderSelect[0].RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
+	// Identity shader (no postprocessing)
+	identShader, _ := r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
+	identShader.RegisterAttributes("VertCoord", "TexCoord")
+	identShader.RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
+
+	// It should be the first one in OpenGL 2.1
+	r.postShaderSelect[0] = identShader
 
 	// External Shaders
 	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
-		r.postShaderSelect[1+i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00",
-			string(sys.externalShaders[1][i])+"\x00", "", fmt.Sprintf("Postprocess Shader #%v", i+1), true)
-		r.postShaderSelect[1+i].RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
+		idx := i + 1
+		r.postShaderSelect[idx], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00", string(sys.externalShaders[1][i])+"\x00",
+			"", fmt.Sprintf("Postprocess Shader #%v", idx), true)
+		r.postShaderSelect[idx].RegisterAttributes("VertCoord", "TexCoord")
+		r.postShaderSelect[idx].RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
 	}
 
 	if sys.msaa > 0 {
@@ -942,13 +945,29 @@ func (r *Renderer_GL21) EndFrame() {
 		gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
 
 		// construct the UVs of the quad
-		loc := postShader.a["VertCoord"]
-		gl.EnableVertexAttribArray(uint32(loc))
-		gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+		// VertCoord is the primary position attribute
+		if loc, ok := postShader.a["VertCoord"]; ok && loc >= 0 {
+			vLoc := uint32(loc)
+			gl.EnableVertexAttribArray(vLoc)
+			gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 0, nil)
+		}
+
+		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
+		if loc, ok := postShader.a["TexCoord"]; ok && loc >= 0 {
+			tLoc := uint32(loc)
+			gl.EnableVertexAttribArray(tLoc)
+			gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
+		}
 
 		// construct the quad and draw it
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
-		gl.DisableVertexAttribArray(uint32(loc))
+
+		// Disable attributes after use
+		for _, loc := range postShader.a {
+			if loc >= 0 {
+				gl.DisableVertexAttribArray(uint32(loc))
+			}
+		}
 	}
 
 	r.CheckErrors("EndFrame")

@@ -1106,6 +1106,12 @@ func (s *System) escExit() bool {
 		(sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" || (sys.motif.AttractMode.Enabled && sys.credits == 0)))
 }
 
+func (s *System) matchOver() bool {
+	// We must check if wins are greater than 0 because modes like Training may have "0 rounds to win"
+	return s.wins[0] > 0 && s.wins[0] >= s.matchWins[0] ||
+		s.wins[1] > 0 && s.wins[1] >= s.matchWins[1]
+}
+
 func (s *System) anyChar() *Char {
 	for i := range s.chars {
 		for j := range s.chars[i] {
@@ -1129,11 +1135,20 @@ func (s *System) playerID(id int32) *Char {
 	}
 
 	// Mugen skips DestroySelf helpers here
+	// Note: This will also skip destroyed helpers in the engine's internal ID lookups
 	if ch.csf(CSF_destroy) {
 		return nil
 	}
 
 	return ch
+}
+
+func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
+	if id.IsSF() {
+		return BytecodeSF()
+	}
+	char := s.playerID(id.ToI())
+	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerIndex(idx int32) *Char {
@@ -1159,26 +1174,14 @@ func (s *System) playerIndex(idx int32) *Char {
 	return nil
 }
 
-// We must check if wins are greater than 0 because modes like Training may have "0 rounds to win"
-func (s *System) matchOver() bool {
-	return s.wins[0] > 0 && s.wins[0] >= s.matchWins[0] ||
-		s.wins[1] > 0 && s.wins[1] >= s.matchWins[1]
-}
-
-func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
-	}
-	return BytecodeBool(s.playerID(id.ToI()) != nil)
-}
-
 // TODO: This is redundant since the index always exists if "NumPlayer >= idx-1"
 // Maybe remove it or make it ignore destroyed helpers at least
 func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
 	if idx.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(s.playerIndex(idx.ToI()) != nil)
+	char := s.playerIndex(idx.ToI())
+	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
@@ -1646,12 +1649,12 @@ func (s *System) initPlayerID() {
 func (s *System) pruneCharId() {
 	s.lastCharId = Max(0, sys.cfg.Config.HelperMax-1)
 
+	// At this point we're still checking the previous round's player ID's
+	// However that works out well for Turns mode because it means a joining player won't reuse the ID of a defeated player
 	for _, p := range s.chars {
 		if len(p) > 0 && p[0] != nil && p[0].id > s.lastCharId {
 			s.lastCharId = p[0].id
 		}
-		// At this point we're still checking the previous round's player ID's
-		// However that works out well for Turns mode because it means a joining player won't reuse the ID of a defeated player
 	}
 }
 
@@ -1661,6 +1664,16 @@ func (s *System) newCharId() int32 {
 
 	// Check if the next ID is already being used
 	// This is needed because helpers may be preserved between rounds
+	// Directly check the idMap as it is the source of truth for player ID's
+	for {
+		if _, conflict := s.charList.idMap[newid]; !conflict {
+			break
+		}
+		newid++
+	}
+
+	/*
+	// This method scanned sys.chars instead but that's worse
 	for {
 		conflict := false
 		for _, p := range s.chars {
@@ -1680,6 +1693,7 @@ func (s *System) newCharId() int32 {
 			break
 		}
 	}
+	*/
 
 	s.lastCharId = newid
 	return newid
@@ -3558,6 +3572,7 @@ type RoundStartBackup struct {
 	oldWins       [2]int32
 	oldDraws      int32
 	oldTeamLeader [2]int
+	lastCharId    int32
 }
 
 func (bk *RoundStartBackup) Save() {
@@ -3620,6 +3635,9 @@ func (bk *RoundStartBackup) Save() {
 	// Match info
 	bk.oldWins, bk.oldDraws = sys.wins, sys.draws
 	bk.oldTeamLeader = sys.teamLeader
+
+	// Save last char ID so F4 won't keep incrementing helper ID's
+	bk.lastCharId = sys.lastCharId
 }
 
 func (bk *RoundStartBackup) Restore() {
@@ -3704,6 +3722,9 @@ func (bk *RoundStartBackup) Restore() {
 	// Restore match info
 	sys.wins, sys.draws = bk.oldWins, bk.oldDraws
 	sys.teamLeader = bk.oldTeamLeader
+
+	// Restore other info
+	sys.lastCharId = bk.lastCharId
 }
 
 type SelectChar struct {

@@ -12366,14 +12366,42 @@ func (cl *CharList) add(c *Char) {
 	cl.idMap[c.id] = c
 }
 
-func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
-	// Find the old character occupying the slow
-	var oldChar *Char
-	for _, c := range cl.creationOrder {
-		if c.playerNo == pn && c.helperIndex == idx {
-			oldChar = c
-			break
+func (cl *CharList) delete(dc *Char) {
+	// Remove the char pointer from the idMap directly
+	// This is safer than removing by ID
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3247
+	for k, v := range sys.charList.idMap {
+		if v == dc {
+			delete(sys.charList.idMap, k)
+			// Just in case, don't break so we also remove eventual duplicates
+			//break
 		}
+	}
+
+	// Remove char from creationOrder
+	for i, c := range cl.creationOrder {
+		if c == dc {
+			cl.creationOrder = SliceDelete(cl.creationOrder, i)
+			//break
+		}
+	}
+
+	// Remove char from runOrder
+	for i, c := range cl.runOrder {
+		if c == dc {
+			cl.runOrder = SliceDelete(cl.runOrder, i)
+			//break
+		}
+	}
+	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper
+	// However not reusing it creates a more predictable drawing order
+}
+
+func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
+	// Find the old character occupying the slot
+	var oldChar *Char
+	if pn >= 0 && pn < len(sys.chars) && idx >= 0 && idx < len(sys.chars[pn]) {
+		oldChar = sys.chars[pn][idx]
 	}
 
 	// Remove old character and add new character
@@ -12384,29 +12412,6 @@ func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
 	}
 
 	return false
-}
-
-func (cl *CharList) delete(dc *Char) {
-	// Remove char from idMap
-	delete(cl.idMap, dc.id)
-
-	// Remove char from creationOrder
-	for i, c := range cl.creationOrder {
-		if c == dc {
-			cl.creationOrder = SliceDelete(cl.creationOrder, i)
-			break
-		}
-	}
-
-	// Remove char from runOrder
-	for i, c := range cl.runOrder {
-		if c == dc {
-			cl.runOrder = SliceDelete(cl.runOrder, i)
-			return
-		}
-	}
-	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper
-	// However not reusing it creates a more predictable drawing order
 }
 
 func (cl *CharList) commandUpdate() {

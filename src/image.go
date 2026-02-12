@@ -91,9 +91,9 @@ func (pf *PalFX) clear() {
 	pf.clearWithNeg(false)
 }
 
-func (pf *PalFX) getSynFx(alpha [2]int32) *PalFX {
+func (pf *PalFX) getSynFx(blendMode TransType, alpha [2]int32) *PalFX {
 	if pf == nil || !pf.enable {
-		if alpha[0] == -2 && sys.allPalFX.enable { // Sub magic number
+		if blendMode == TT_sub && sys.allPalFX.enable {
 			if pf == nil {
 				pf = newPalFX()
 			}
@@ -111,12 +111,12 @@ func (pf *PalFX) getSynFx(alpha [2]int32) *PalFX {
 		return pf
 	}
 	synth := *pf
-	synth.synthesize(sys.allPalFX, alpha)
+	synth.synthesize(sys.allPalFX, blendMode, alpha)
 	return &synth
 }
 
-func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
-	p := pf.getSynFx([2]int32{0, 0})
+func (pf *PalFX) getFxPal(blendMode TransType, pal []uint32, neg bool) []uint32 {
+	p := pf.getSynFx(blendMode, [2]int32{0, 0})
 	if !p.enable {
 		return pal
 	}
@@ -167,9 +167,10 @@ func (pf *PalFX) getFxPal(pal []uint32, neg bool) []uint32 {
 	return sys.workpal
 }
 
-func (pf *PalFX) getFcPalFx(transNeg bool, alpha [2]int32) (neg bool, grayscale float32,
+func (pf *PalFX) getFcPalFx(blendMode TransType, alpha [2]int32) (neg bool, grayscale float32,
 	add, mul [3]float32, invblend int32, hue float32) {
-	p := pf.getSynFx(alpha)
+
+	p := pf.getSynFx(blendMode, alpha)
 	if !p.enable {
 		neg = false
 		grayscale = 0
@@ -185,12 +186,13 @@ func (pf *PalFX) getFcPalFx(transNeg bool, alpha [2]int32) (neg bool, grayscale 
 	grayscale = 1 - p.eColor
 	invblend = p.eInvertblend
 	hue = -(p.eHue * 180.0) * (math.Pi / 180.0)
-	if !p.eAllowNeg {
-		transNeg = false
-	}
+
+	// Determine if we use negative color math based on blendMode
+	useNeg := blendMode == TT_sub && p.eAllowNeg
+
 	for i, v := range p.eAdd {
 		add[i] = float32(v) / 255
-		if transNeg {
+		if useNeg {
 			//add[i] *= -1
 			mul[i] = float32(p.eMul[(i+1)%3]+p.eMul[(i+2)%3]) / 512
 		} else {
@@ -305,8 +307,8 @@ func (pf *PalFX) step() {
 	}
 }
 
-func (pf *PalFX) synthesize(pfx *PalFX, alpha [2]int32) {
-	if alpha[0] == -2 { // Sub magic number
+func (pf *PalFX) synthesize(pfx *PalFX, blendMode TransType, alpha [2]int32) {
+	if blendMode == TT_sub {
 		for i, a := range pfx.eAdd {
 			pf.eAdd[i] = Clamp(pf.eAdd[i]-Abs(a), 0, 255)
 			pf.eMul[i] = Clamp(pf.eMul[i]-a, 0, 255)

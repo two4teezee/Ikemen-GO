@@ -497,7 +497,7 @@ func RenderSprite(rp RenderParams) {
 	// PalFX and color setup
 	neg, grayscale, padd, pmul, invblend, hue := false, float32(0), [3]float32{0, 0, 0}, [3]float32{1, 1, 1}, int32(0), float32(0)
 	if rp.pfx != nil {
-		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(false, rp.blendAlpha)
+		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(rp.blendMode, rp.blendAlpha)
 	}
 
 	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,

@@ -3991,12 +3991,23 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		return
 	}
 
-	negTrans := (n.trans == TransReverseSubtract)
+	// Convert to our sprite blend modes for PalFX synthesis
+	var blendMode TransType
+	switch n.trans {
+	case TransReverseSubtract:
+		blendMode = TT_sub // The one that matters right now
+	case TransAdd, TransMul:
+		blendMode = TT_add
+	default:
+		blendMode = TT_none
+	}
+
 	alpha := [2]int32{255, 255}
 	if n.trans == TransNone {
 		alpha = [2]int32{255, 0}
 	}
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(negTrans, alpha)
+
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(blendMode, alpha)
 
 	blendEq := BlendAdd
 	src := BlendOne

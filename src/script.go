@@ -6608,6 +6608,8 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.mhv.playerid)
 		case "playerno":
 			lv = lua.LNumber(c.mhv.playerno + 1)
+		case "power":
+			lv = lua.LNumber(c.mhv.power)
 		case "sparkx":
 			lv = lua.LNumber(c.mhv.sparkxy[0])
 		case "sparky":

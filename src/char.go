@@ -1249,6 +1249,7 @@ func (ho *HitOverride) clear() {
 }
 
 type MoveHitVar struct {
+	power             int32
 	cornerpush_veloff float32
 	frame             bool
 	overridden        bool
@@ -10743,15 +10744,13 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	// Power management
 	if hitResult > 0 {
 		if Abs(hitResult) == 1 {
-			c.powerAdd(hd.hitgetpower)
+			c.mhv.power += hd.hitgetpower
 			if getter.isPlayerType() {
-				getter.powerAdd(hd.hitgivepower)
 				getter.ghv.power += hd.hitgivepower
 			}
 		} else {
-			c.powerAdd(hd.guardgetpower)
+			c.mhv.power += hd.guardgetpower
 			if getter.isPlayerType() {
-				getter.powerAdd(hd.guardgivepower)
 				getter.ghv.power += hd.guardgivepower
 			}
 		}
@@ -11352,7 +11351,6 @@ func (c *Char) actionRun() {
 		}
 		c.ghv.hitdamage = 0
 		c.ghv.guarddamage = 0
-		c.ghv.power = 0
 		c.ghv.hitpower = 0
 		c.ghv.guardpower = 0
 		c.ghv.keepstate = false
@@ -11429,6 +11427,16 @@ func (c *Char) actionRun() {
 			c.gi().pctime++
 		}
 		c.makeDustSpacing++
+	}
+	// In Mugen these happen instantly instead of in the next frame
+	// This way is more consistent with damage, however
+	if c.ghv.power != 0 {
+		c.powerAdd(c.ghv.power)
+		c.ghv.power = 0
+	}
+	if c.mhv.power != 0 {
+		c.powerAdd(c.mhv.power)
+		c.mhv.power = 0
 	}
 	c.xScreenBound()
 	c.zDepthBound()
@@ -12730,7 +12738,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 							}
 							// Successful ReversalDef
 							if c.hitdef.reversal_attr > 0 {
-								c.powerAdd(c.hitdef.hitgetpower)
+								c.mhv.power += c.hitdef.hitgetpower
 
 								// Precompute localcoord conversion factor
 								scaleratio := c.localscl / getter.localscl

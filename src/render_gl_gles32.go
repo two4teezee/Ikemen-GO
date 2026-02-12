@@ -1083,6 +1083,11 @@ func (r *Renderer_GLES32) ChangeProgram(prog uint32) {
 		r.ReleasePipeline()
 	}
 
+	// Same for TTF fonts
+	if r.program == gfxFont.(*FontRenderer_GLES32).shaderProgram.program {
+		gfxFont.(*FontRenderer_GLES32).ReleaseFontPipeline()
+	}
+
 	// Switch program
 	gl.UseProgram(prog)
 	r.program = prog

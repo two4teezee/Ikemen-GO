@@ -327,8 +327,8 @@ func handlePanic(r interface{}) {
 	version := fmt.Sprintf("Version: %s", Version)
 	buildTime := fmt.Sprintf("Build Time: %s", BuildTime)
 	platform := fmt.Sprintf("Platform: %s (%s)", runtime.GOOS, runtime.GOARCH)
-	render := fmt.Sprintf("Render Mode: %s", sys.cfg.Video.RenderMode)
-	
+	render := gfx.GetName()
+
 	// Prepare stats
 	memory := fmt.Sprintf("RAM in Use: %v MB / OS Reserved: %v MB", mem.Alloc/1024/1024, mem.Sys/1024/1024)
 	threads := fmt.Sprintf("Active Goroutines: %d", runtime.NumGoroutine())

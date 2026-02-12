@@ -78,14 +78,15 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		}
 
 		// 4. RENDERER PROFILE SETUP
-		if sys.cfg.Video.RenderMode == "OpenGL ES 3.2" {
+		renderName := gfx.GetName()
+		if renderName == "OpenGL ES 3.2" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_ES)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
 			sdl.GLSetAttribute(sdl.GL_ALPHA_SIZE, 0)
 			sdl.GLSetAttribute(sdl.GL_DEPTH_SIZE, 24)
 			windowFlags |= sdl.WINDOW_OPENGL
-		} else if sys.cfg.Video.RenderMode == "OpenGL 3.2" {
+		} else if renderName == "OpenGL 3.2" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
@@ -95,7 +96,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 				sdl.GLSetAttribute(sdl.GL_CONTEXT_FLAGS, sdl.GL_CONTEXT_DEBUG_FLAG)
 			}
 			windowFlags |= sdl.WINDOW_OPENGL
-		} else if sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+		} else if renderName == "OpenGL 2.1" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 2)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 1)
 			windowFlags |= sdl.WINDOW_OPENGL
@@ -386,7 +387,8 @@ func (w *Window) pollEvents() {
 			}
 		case sdl.WindowEvent:
 			if t.Event == sdl.WINDOWEVENT_EXPOSED {
-				if sys.cfg.Video.RenderMode == "OpenGL 3.2" || sys.cfg.Video.RenderMode == "OpenGL 2.1" {
+				renderName := gfx.GetName()
+				if renderName == "OpenGL 3.2" || renderName == "OpenGL 2.1" {
 					gfx.EndFrame()
 					w.SwapBuffers()
 				}

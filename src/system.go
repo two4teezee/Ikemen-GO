@@ -338,11 +338,21 @@ func isRunningInsideAppBundle(exePath string) bool {
 
 // Initialize stuff, this is called after the config int at main.go
 func (s *System) init(w, h int32) *lua.LState {
+	var err error
+
 	s.setGameSize(w, h)
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
-	var err error
+
+	// Select the renderer first so we can fall back to default before doing anything
+	// This is the only time we should check s.cfg.Video.RenderMode
+	Logcat("Check A: Selecting Renderer")
+	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
+
+	// Check the actual render name in case the config file was set up incorrectly
+	renderName := gfx.GetName()
+
 	// Create a system window.
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
 	chk(err)
@@ -351,7 +361,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	_, forceWindowed := s.cmdFlags["-windowed"]
 	s.window.fullscreen = s.cfg.Video.Fullscreen && !forceWindowed
 
-	if strings.Contains(s.cfg.Video.RenderMode, "OpenGL") {
+	if strings.HasPrefix(renderName, "OpenGL") {
 		if ctx, err := s.window.GLCreateContext(); err != nil {
 			Logcat("GL Context Creation Failed: " + err.Error())
 			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
@@ -388,7 +398,7 @@ func (s *System) init(w, h int32) *lua.LState {
 			// Create names.
 			shaderLocation = strings.Replace(shaderLocation, "\\", "/", -1)
 
-			if s.cfg.Video.RenderMode != "Vulkan 1.3" {
+			if strings.HasPrefix(renderName, "OpenGL") {
 				// Load vert shaders.
 				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert")
 				if err != nil {
@@ -400,7 +410,7 @@ func (s *System) init(w, h int32) *lua.LState {
 				if err != nil {
 					chk(err)
 				}
-			} else {
+			} else if strings.HasPrefix(renderName, "Vulkan") {
 				// Load spv shaders
 				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert.spv")
 				if err != nil {
@@ -416,16 +426,16 @@ func (s *System) init(w, h int32) *lua.LState {
 	}
 	// PS: The "\x00" is what is know as Null Terminator.
 
-	Logcat("Check A: Selecting Renderer")
-	// Now we need to init the renderer
-	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
+	// Init renderer
 	Logcat("Check B: Initializing GFX")
 	gfx.Init()
-	s.window.SetSwapInterval(s.cfg.Video.VSync) // VSync must be set after gfx, or our config will be ignored
+	s.window.SetSwapInterval(s.cfg.Video.VSync) // VSync must be set after Init(), or our config.ini will be ignored
+
 	Logcat("Check C: Initializing GFX Font")
 	gfxFont.Init(gfx)
 	Logcat("Check D: We are GOOD")
 	gfx.BeginFrame(false)
+
 	// And the audio.
 	speaker = &SDLSpeaker{}
 	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)

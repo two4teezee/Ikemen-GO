@@ -1678,7 +1678,7 @@ type LifeBarFace struct {
 	old_spr           [2]int32
 	old_pal           [2]int32
 	face_pfx          *PalFX
-	teammate_face_pfx *PalFX // This will probably need to be a slice when we make them use the selected palette
+	teammate_face_pfx []*PalFX
 }
 
 func newLifeBarFace() *LifeBarFace {
@@ -1687,7 +1687,7 @@ func newLifeBarFace() *LifeBarFace {
 		teammate_face_spr: [2]int32{-1},
 		palshare:          true,
 		face_pfx:          newPalFX(),
-		//teammate_pfx:      newPalFX(), // Do lazy allocation when we actually have teammates
+		teammate_face_pfx: nil, // Allocated later
 	}
 }
 
@@ -1843,6 +1843,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 			y -= float32(fa.teammate_spacing[1] * fa.numko)
 		}
 
+		// Loop starting from the last member
 		for ; i >= 0; i-- {
 			if i != fa.numko {
 				// Skip in case of KO hiding
@@ -1858,14 +1859,16 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 				fa.teammate_bg1.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 				fa.teammate_bg2.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 
-				// Lazy face PalFX allocation
-				if fa.teammate_face_pfx == nil {
-					fa.teammate_face_pfx = newPalFX()
-				}
+				// Fetch the PalFX for this member
+				pfx := fa.teammate_face_pfx[i]
+
+				// TODO: Defeated PalFX
+				//if pfx != nil && i < fa.numko {
+				//}
 
 				// Draw face
 				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebar.offsetX)*sys.lifebar.scale, y*sys.lifebar.scale, layerno,
-					far.teammate_face[i], fa.teammate_face_pfx, far.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
+					far.teammate_face[i], pfx, far.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
 
 				// Draw KO layer
 				if i < fa.numko {

@@ -4723,21 +4723,61 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	} else {
 		// Get palette number from select screen choice
 		sys.cgi[pn].palno = int32(sys.sel.selected[pn&1][memberNo][1])
-		// Prepare lifebar portraits
+
+		// Prepare lifebar portraits for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
-			fa.numko = 0
-			fa.teammate_face = make([]*Sprite, nsel)
-			fa.teammate_scale = make([]float32, nsel)
-			sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
-			for i, ci := range idx {
-				fa.teammate_scale[i] = sys.sel.charlist[ci].portraitscale * 320 / sys.sel.charlist[ci].localcoord[0]
-				fa.teammate_face[i] = sys.sel.charlist[ci].sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
-			}
+			l.prepareTurnsFaces(pn, fa, idx)
 		}
 	}
 
 	return 1
+}
+
+func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
+	// Reset face and name KO's
+	fa.numko = 0
+	sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
+
+	// Pre-allocate
+	nsel := len(idx)
+	fa.teammate_face = make([]*Sprite, nsel)
+	fa.teammate_scale = make([]float32, nsel)
+	fa.teammate_face_pfx = make([]*PalFX, nsel)
+
+	// Iterate all selected partners
+	for i, ci := range idx {
+		sc := &sys.sel.charlist[ci]
+
+		// Calculate portrait scale
+		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
+
+		// Get the sprite from the teammate's SFF
+		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
+		if origSpr == nil {
+			continue
+		}
+
+		// Create an independent clone of the sprite to avoid mutating the SFF
+		spr := *origSpr
+		if spr.coldepth <= 8 {
+			// Pull selected palette index (1-based)
+			palIdx := sys.sel.selected[pn&1][i][1]
+
+			// Reset specific fields to force a unique texture upload for this clone
+			// Using make/copy prevents pointer aliasing on the slice
+			spr.paltemp = make([]uint32, len(origSpr.paltemp))
+			copy(spr.paltemp, origSpr.paltemp)
+			spr.PalTex = nil
+
+			// Map the palette
+			spr.Pal = sc.sff.palList.Get(int(palIdx) - 1)
+		}
+
+		// Commit sprite and init PalFX
+		fa.teammate_face[i] = &spr
+		fa.teammate_face_pfx[i] = newPalFX()
+	}
 }
 
 func (l *Loader) loadStage() bool {

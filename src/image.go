@@ -167,7 +167,7 @@ func (pf *PalFX) getFxPal(blendMode TransType, pal []uint32, neg bool) []uint32 
 	return sys.workpal
 }
 
-func (pf *PalFX) getFcPalFx(blendMode TransType, alpha [2]int32) (neg bool, grayscale float32,
+func (pf *PalFX) getFinalPalFx(blendMode TransType, alpha [2]int32) (neg bool, grayscale float32,
 	add, mul [3]float32, invblend int32, hue float32) {
 
 	p := pf.getSynFx(blendMode, alpha)

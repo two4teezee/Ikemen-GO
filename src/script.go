@@ -1707,7 +1707,7 @@ func systemScriptInit(l *lua.LState) {
 		colLocal := col
 		srcLocal, dstLocal := src, dst
 		sys.luaQueuePreDraw(func() {
-			FillRect(sys.scrrect, colLocal, [2]int32{srcLocal, dstLocal})
+			FillRect(sys.scrrect, colLocal, [2]int32{srcLocal, dstLocal}, nil)
 		})
 		return 0
 	})
@@ -1980,7 +1980,7 @@ func systemScriptInit(l *lua.LState) {
 		}
 		col := uint32(int32(b)&0xff | int32(g)&0xff<<8 | int32(r)&0xff<<16)
 		sys.luaQueueLayerDraw(2, func() {
-			FillRect(sys.scrrect, col, [2]int32{src, dst})
+			FillRect(sys.scrrect, col, [2]int32{src, dst}, nil)
 		})
 		l.Push(lua.LBool(true))
 		return 1

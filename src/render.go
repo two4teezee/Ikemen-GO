@@ -497,7 +497,7 @@ func RenderSprite(rp RenderParams) {
 	// PalFX and color setup
 	neg, grayscale, padd, pmul, invblend, hue := false, float32(0), [3]float32{0, 0, 0}, [3]float32{1, 1, 1}, int32(0), float32(0)
 	if rp.pfx != nil {
-		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFcPalFx(rp.blendMode, rp.blendAlpha)
+		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFinalPalFx(rp.blendMode, rp.blendAlpha)
 	}
 
 	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
@@ -516,7 +516,7 @@ func RenderSprite(rp RenderParams) {
 	gfx.SetUniformI("isFlat", 0)
 	gfx.SetUniformI("mask", int(rp.mask))
 	gfx.SetUniformI("isTrapez", int(Btoi(AbsF(AbsF(rp.xts)-AbsF(rp.xbs)) > 0.001)))
-	
+
 	gfx.SetUniformF("gray", grayscale)
 	gfx.SetUniformF("hue", hue)
 	gfx.SetUniformFv("tint", tint[:])
@@ -534,7 +534,7 @@ func RenderSprite(rp RenderParams) {
 	}
 
 	// Local function called for each blending pass
-	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
+	renderPass := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		// Lightweight state change
 		gfx.SetBlending(true, eq, src, dst)
 
@@ -548,7 +548,7 @@ func RenderSprite(rp RenderParams) {
 		renderSpriteQuad(modelview, rp)
 	}
 
-	renderWithBlending(render, rp.blendMode, rp.blendAlpha, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
+	renderWithBlending(renderPass, rp.blendMode, rp.blendAlpha, rp.paltex != nil, invblend, &neg, &padd, &pmul, rp.paltex == nil)
 	gfx.DisableScissor()
 }
 
@@ -663,10 +663,16 @@ func renderWithBlending(
 	}
 }
 
-func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
+func FillRect(rect [4]int32, color uint32, alpha [2]int32, fx *PalFX) {
 	r := float32(color>>16&0xff) / 255
 	g := float32(color>>8&0xff) / 255
 	b := float32(color&0xff) / 255
+
+	// PalFX setup
+	neg, grayscale, padd, pmul, invblend, hue := false, float32(0), [3]float32{0, 0, 0}, [3]float32{1, 1, 1}, int32(0), float32(0)
+
+	// This call is safe even if fx is nil. Defaults to just AllPalFX
+	neg, grayscale, padd, pmul, invblend, hue = fx.getFinalPalFx(TT_add, alpha)
 
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
@@ -688,18 +694,23 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32) {
 	// Static uniforms
 	gfx.SetUniformMatrix("modelview", modelview[:])
 	gfx.SetUniformMatrix("projection", proj[:])
+	gfx.SetUniformF("gray", grayscale)
+	gfx.SetUniformF("hue", hue)
 	gfx.SetUniformI("isFlat", 1)
 
 	// Local function called for each blending pass
-	render := func(eq BlendEquation, src, dst BlendFunc, a float32) {
+	renderPass := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		// Update only the dynamic state
 		gfx.SetBlending(true, eq, src, dst)
 		gfx.SetUniformF("tint", r, g, b, a)
+		gfx.SetUniformI("neg", int(Btoi(neg)))
+		gfx.SetUniformFv("add", padd[:])
+		gfx.SetUniformFv("mult", pmul[:])
 
 		gfx.RenderQuad()
 	}
 
-	renderWithBlending(render, TT_add, alpha, true, 0, nil, nil, nil, false)
+	renderWithBlending(renderPass, TT_add, alpha, true, invblend, &neg, &padd, &pmul, true)
 }
 
 type TextureAtlas struct {

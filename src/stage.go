@@ -4007,7 +4007,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		alpha = [2]int32{255, 0}
 	}
 
-	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFcPalFx(blendMode, alpha)
+	neg, grayscale, padd, pmul, invblend, hue := mdl.pfx.getFinalPalFx(blendMode, alpha)
 
 	blendEq := BlendAdd
 	src := BlendOne

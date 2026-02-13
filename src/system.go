@@ -2886,35 +2886,31 @@ func (s *System) draw(x, y, scl float32) {
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
 
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
-	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
+	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128, nil)
 	//}
 
 	if s.envcol_time == 0 {
-		fcol := uint32(0)
-
-		// Draw stage background fill if stage is disabled
+		// Determine fill color
+		var fcol uint32
 		if s.gsf(GSF_nobg) {
-			if s.allPalFX.enable {
-				var rgb [3]int32
-				if s.allPalFX.eInvertall {
-					rgb = [...]int32{0xff, 0xff, 0xff}
-				}
-				for i, v := range rgb {
-					rgb[i] = Clamp((v+s.allPalFX.eAdd[i])*s.allPalFX.eMul[i]>>8, 0, 0xff)
-				}
-				fcol = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
-			}
-			FillRect(s.scrrect, fcol, [2]int32{255, 0})
+			fcol = 0
+		} else if s.stage.debugbg {
+			fcol = 0xff00ff
+		} else {
+			fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
 		}
 
-		// Draw normal stage background fill and elements with layerNo == -1
+		// Apply BGPalFX to fill color
+		// Mugen doesn't do this, but it makes sense
+		//if !s.gsf(GSF_nobg) && s.bgPalFX.enable {
+		//	fcol = s.bgPalFX.SynthesizeColor(TransType(TT_none), fcol)
+		//}
+
+		// Draw the background fill
+		FillRect(s.scrrect, fcol, [2]int32{255, 0}, nil)
+
+		// Draw stage elements with layerNo == -1
 		if !s.gsf(GSF_nobg) {
-			if s.stage.debugbg {
-				FillRect(s.scrrect, 0xff00ff, [2]int32{255, 0})
-			} else {
-				fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
-				FillRect(s.scrrect, fcol, [2]int32{255, 0})
-			}
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
 			}
@@ -3004,7 +3000,7 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
 		ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
-		FillRect(s.scrrect, ecol, [2]int32{255, 0})
+		FillRect(s.scrrect, ecol, [2]int32{255, 0}, nil)
 	}
 
 	// Draw character sprites in layer 0

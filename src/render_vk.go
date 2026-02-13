@@ -5815,7 +5815,9 @@ func (r *Renderer_VK) SetModelUniformFv(name string, values []float32) {
 	switch name {
 	case "morphTargetWeight":
 		copy(r.VKState.VulkanModelProgramUniformBufferObject2.morphTargetWeight[0][:], values)
-		copy(r.VKState.VulkanModelProgramUniformBufferObject2.morphTargetWeight[1][4:], values)
+		if len(values) > 4 {
+			copy(r.VKState.VulkanModelProgramUniformBufferObject2.morphTargetWeight[1][:], values[4:])
+		}
 		break
 	case "add":
 		copy(r.VKState.VulkanModelProgramUniformBufferObject2.modelAdd[:], values)
@@ -5943,7 +5945,9 @@ func (r *Renderer_VK) SetShadowMapUniformFv(name string, values []float32) {
 	switch name {
 	case "morphTargetWeight":
 		copy(r.VKState.VulkanShadowMapProgramUniformBufferObject2.morphTargetWeight[0][:], values)
-		copy(r.VKState.VulkanShadowMapProgramUniformBufferObject2.morphTargetWeight[1][4:], values)
+		if len(values) > 4 {
+			copy(r.VKState.VulkanShadowMapProgramUniformBufferObject2.morphTargetWeight[1][:], values[4:])
+		}
 		break
 	case "baseColorFactor":
 		copy(r.VKState.VulkanShadowMapProgramUniformBufferObject1.baseColorFactor[:], values)

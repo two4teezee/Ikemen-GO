@@ -435,11 +435,6 @@ func (f *Font_VK) GenerateGlyphs(low, high rune) error {
 		textureIndex := 0
 		stride := int32(rgba.Rect.Dx()) // This was added to unify desktop and Android
 
-		// Immediate exit if the glyph will never fit the atlas
-		if char.width > 256 || char.height > 256 {
-			return fmt.Errorf("glyph '%c' is too large (%dx%d) for the 256x256 texture atlas.", ch, char.width, char.height)
-		}
-
 		for uv, ok = f.textures[textureIndex].AddImage(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, pix); !ok; uv, ok = f.textures[textureIndex].AddImage(int32(rgba.Rect.Dx()), int32(rgba.Rect.Dy()), stride, pix) {
 			textureIndex += 1
 			if textureIndex >= len(f.textures) {

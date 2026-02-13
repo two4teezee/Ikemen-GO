@@ -518,14 +518,13 @@ type GLES32State struct {
 	uniformF2Cache      map[uint32][2]float32
 	uniformF3Cache      map[uint32][3]float32
 	uniformF4Cache      map[uint32][4]float32
+	useUV               bool
 	useNormal           bool
 	useTangent          bool
 	useVertColor        bool
 	useJoint0           bool
 	useJoint1           bool
 	useOutlineAttribute bool
-
-	//useUV               bool // Safer not to cache this one because sprites also use it
 }
 
 func (r *Renderer_GLES32) GetName() string {
@@ -544,19 +543,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 		return err
 	}
 
-	r.modelShader.RegisterAttributes(
-		"position", // Same position as spriteShader
-		"uv",       // Same position as spriteShader
-		"inVertexId",
-		"normalIn",
-		"tangentIn",
-		"vertColor",
-		"joints_0",
-		"joints_1",
-		"weights_0",
-		"weights_1",
-		"outlineAttributeIn", // Not in shadowMapShader
-	)
+	r.modelShader.RegisterAttributes("inVertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
 
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
@@ -577,18 +564,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 			return err
 		}
 
-		r.shadowMapShader.RegisterAttributes(
-			"position", // Same position as spriteShader
-			"uv",       // Same position as spriteShader
-			"inVertexId",
-			"normalIn",
-			"tangentIn",
-			"vertColor",
-			"joints_0",
-			"joints_1",
-			"weights_0",
-			"weights_1",
-		)
+		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
@@ -1214,12 +1190,15 @@ func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, use
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
 
-	loc = r.shadowMapShader.a["uv"]
 	if useUV {
+		r.useUV = true
+		loc = r.shadowMapShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else {
+	} else if r.useUV {
+		r.useUV = false
+		loc = r.shadowMapShader.a["uv"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
@@ -1417,12 +1396,15 @@ func (r *Renderer_GLES32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc,
 	gl.VertexAttribPointerWithOffset(uint32(loc), 3, gl.FLOAT, false, 0, uintptr(offset))
 	offset += 12 * numVertices
 
-	loc = r.modelShader.a["uv"]
 	if useUV {
+		r.useUV = true
+		loc = r.modelShader.a["uv"]
 		gl.EnableVertexAttribArray(uint32(loc))
 		gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, uintptr(offset))
 		offset += 8 * numVertices
-	} else {
+	} else if r.useUV {
+		r.useUV = false
+		loc = r.modelShader.a["uv"]
 		gl.DisableVertexAttribArray(uint32(loc))
 		gl.VertexAttrib2f(uint32(loc), 0, 0)
 	}
@@ -1631,13 +1613,12 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 	if loc < 0 || len(values) == 0 {
 		return
 	}
-	vLen := len(values)
 
 	// Cached path for the sprite shader
 	if r.program == r.spriteShader.program {
 		key := (r.program << 16) | uint32(loc)
 
-		switch vLen {
+		switch len(values) {
 		case 1:
 			if old, exists := r.uniformF1Cache[key]; exists && old == values[0] {
 				return
@@ -1649,8 +1630,6 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 				return
 			}
 			r.uniformF2Cache[key] = v2
-			gl.Uniform2fv(loc, 1, &values[0])
-			return
 		case 3:
 			v3 := [3]float32{values[0], values[1], values[2]}
 			if old, exists := r.uniformF3Cache[key]; exists && old == v3 {
@@ -1667,7 +1646,7 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 	}
 
 	// Uncached path
-	switch vLen {
+	switch len(values) {
 	case 1:
 		gl.Uniform1f(loc, values[0])
 	case 2:
@@ -1676,13 +1655,22 @@ func (r *Renderer_GLES32) SetUniformFSub(loc int32, values ...float32) {
 		gl.Uniform3f(loc, values[0], values[1], values[2])
 	case 4:
 		gl.Uniform4f(loc, values[0], values[1], values[2], values[3])
-	default:
-		gl.Uniform1fv(loc, int32(vLen), &values[0])
 	}
 }
 
 func (r *Renderer_GLES32) SetUniformFvSub(loc int32, values []float32) {
-	r.SetUniformFSub(loc, values...)
+	if loc < 0 || len(values) == 0 {
+		return
+	}
+
+	switch len(values) {
+	case 1, 2, 3, 4:
+		r.SetUniformFSub(loc, values...)
+	case 8:
+		gl.Uniform4fv(loc, 2, &values[0])
+	default:
+		gl.Uniform1fv(loc, int32(len(values)), &values[0])
+	}
 }
 
 func (r *Renderer_GLES32) SetUniformI(name string, val int) {

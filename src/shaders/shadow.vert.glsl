@@ -43,16 +43,14 @@ layout(push_constant, std430) uniform u {
 };
 
 //gl_VertexID is not available in 1.2
-layout(location = 0) in vec3 position;           
-layout(location = 1) in vec2 uv;                 
-layout(location = 2) in int inVertexId;
-layout(location = 3) in vec3 normalIn;
-layout(location = 4) in vec4 tangentIn;
-layout(location = 5) in vec4 vertColor;
-layout(location = 6) in vec4 joints_0;
-layout(location = 7) in vec4 joints_1;
-layout(location = 8) in vec4 weights_0;
-layout(location = 9) in vec4 weights_1;
+layout(location = 0) in int inVertexId;
+layout(location = 1) in vec3 position;
+layout(location = 2) in vec2 uv;
+layout(location = 3) in vec4 vertColor;
+layout(location = 4) in vec4 joints_0;
+layout(location = 5) in vec4 joints_1;
+layout(location = 6) in vec4 weights_0;
+layout(location = 7) in vec4 weights_1;
 
 layout(location = 0) out vec4 FragPos;
 layout(location = 1) out float vColor;
@@ -84,10 +82,8 @@ layout(location = 3) out flat int lightIndex;
 	uniform sampler2D jointMatrices;
 	uniform sampler2D morphTargetValues;
 	uniform int morphTargetTextureDimension, numJoints, numTargets, numVertices;
-	uniform float morphTargetWeight[8]; // uniform vec4 caused OpenGL errors
+	uniform vec4 morphTargetWeight[2];
 	uniform vec4 morphTargetOffset;
-	uniform float meshOutline;
-	uniform vec3 cameraPosition;
 
 	COMPAT_ATTRIBUTE float inVertexId;
 	COMPAT_ATTRIBUTE vec3 position;
@@ -157,12 +153,11 @@ void main() {
 		{
 			float i = float(idx)*float(numVertices)+inVertexId;
 			vec2 xy = vec2((i+0.5)/float(morphTargetTextureDimension)-floor(i/float(morphTargetTextureDimension)),(floor(i/float(morphTargetTextureDimension))+0.5)/float(morphTargetTextureDimension));
-			
-			// Use direct indexing now that it's a float array
+
 			if(float(idx) < morphTargetOffset[0]){
-				pos += morphTargetWeight[idx] * COMPAT_TEXTURE(morphTargetValues,xy);
+				pos += morphTargetWeight[idx/4][idx%4] * COMPAT_TEXTURE(morphTargetValues,xy);
 			}else if(float(idx) >= morphTargetOffset[2] && float(idx) < morphTargetOffset[3]){
-				GS_IN(texcoord) += morphTargetWeight[idx] * vec2(COMPAT_TEXTURE(morphTargetValues,xy));
+				GS_IN(texcoord) += morphTargetWeight[idx/4][idx%4] * vec2(COMPAT_TEXTURE(morphTargetValues,xy));
 			}
 		}
 	}

@@ -75,6 +75,7 @@ var sys = System{
 	arenaLoadMap:        make(map[int]*arena.Arena),
 	debugAccel:          1, // TODO: We probably shouldn't rely on this being initialized to 1
 	lastInputController: -1,
+	charVarsBackup:      make(map[int]CharVarBackup),
 }
 
 type TeamMode int32
@@ -252,39 +253,41 @@ type System struct {
 	credits                 int32
 	gameRunning             bool
 
-	msaa            int32
-	externalShaders [][][]byte
-	windowMainIcon  []image.Image
-	gameMode        string
-	frameCounter    int32
-	preMatchTime    int32
-	captureNum      int
-	decisiveRound   [2]bool
-	timerStart      int32
-	timerRounds     []int32
-	curPlayTime     int32
-	scoreStart      [2]float32
-	scoreRounds     [][2]float32
-	statsLog        StatsLog
-	consecutiveWins [2]int32
-	firstAttack     [3]int
-	teamLeader      [2]int
-	maxPowerMode    bool
-	clsnText        []ClsnText
-	consoleText     []string
-	luaLState       *lua.LState
-	statusLFunc     *lua.LFunction
-	listLFunc       []*lua.LFunction
-	introSkipCall   bool
-	endMatch        bool
-	continueFlg     bool
-	dialogueForce   int
-	dialogueBarsFlg bool
-	noSoundFlg      bool
-	postMatchFlg    bool
-	playBgmFlg      bool
-	loopBreak       bool
-	loopContinue    bool
+	msaa               int32
+	externalShaders    [][][]byte
+	windowMainIcon     []image.Image
+	gameMode           string
+	frameCounter       int32
+	preMatchTime       int32
+	captureNum         int
+	decisiveRound      [2]bool
+	timerStart         int32
+	timerRounds        []int32
+	curPlayTime        int32
+	scoreStart         [2]float32
+	scoreRounds        [][2]float32
+	statsLog           StatsLog
+	consecutiveWins    [2]int32
+	firstAttack        [3]int
+	teamLeader         [2]int
+	maxPowerMode       bool
+	clsnText           []ClsnText
+	consoleText        []string
+	luaLState          *lua.LState
+	statusLFunc        *lua.LFunction
+	listLFunc          []*lua.LFunction
+	introSkipCall      bool
+	endMatch           bool
+	continueFlg        bool
+	dialogueForce      int
+	dialogueBarsFlg    bool
+	noSoundFlg         bool
+	postMatchFlg       bool
+	playBgmFlg         bool
+	loopBreak          bool
+	loopContinue       bool
+	reloadPreserveVars [MaxPlayerNo]bool
+	charVarsBackup     map[int]CharVarBackup
 
 	statePool       GameStatePool
 	luaStringVars   map[string]string
@@ -303,8 +306,10 @@ type System struct {
 	loadStateFlag   bool
 
 	// Match loop variables
-	fightLoopEnd bool
-	roundBackup  RoundStartBackup
+	fightLoopEnd  bool
+	roundBackup   RoundStartBackup
+	matchBackup   RoundStartBackup
+	matchResetFlg bool
 
 	// for avg. FPS calculations
 	gameFPS          float32
@@ -1791,6 +1796,7 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 
 func (s *System) resetRoundState() {
 	s.roundBackup.Restore()
+
 	s.resetFrameTime()
 
 	s.paused = false
@@ -1888,6 +1894,11 @@ func (s *System) resetRoundState() {
 		p[0].prepareNextRound()
 		p[0].varRangeSet(0, s.cgi[i].data.intpersistindex-1, 0)
 		p[0].fvarRangeSet(0, s.cgi[i].data.floatpersistindex-1, 0)
+		if s.reloadPreserveVars[i] {
+			s.restoreCharVars(p[0])
+			s.reloadPreserveVars[i] = false
+		}
+
 		for j := range p[0].cmd {
 			p[0].cmd[j].BufReset()
 		}
@@ -3207,6 +3218,10 @@ func (s *System) runMatch() (reload bool) {
 	// Make a new backup once everything is initialized
 	s.roundBackup.Save()
 
+	if s.round == 1 {
+		s.matchBackup.Save()
+	}
+
 	// Default debug/scripts to any found char
 	s.debugWC = s.anyChar()
 	debugInput := func() {
@@ -3277,8 +3292,44 @@ func (s *System) runMatch() (reload bool) {
 			s.roundResetMatchStart = false
 		}
 
+		if s.matchResetFlg {
+			s.matchResetFlg = false
+			// If a member has already been changed in Turns mode
+			// the char in memory is different from the char in the backup, so restoration with reload=0 is impossible
+			canReset := true
+			for i := 0; i < 2; i++ {
+				if s.tmode[i] == TM_Turns && s.wins[i] > 0 {
+					canReset = false
+					break
+				}
+			}
+			if !canReset {
+				s.appendToConsole("Warning: MatchRestart with resetmatch=1 is disabled in Turns mode after character switch")
+			} else {
+				for i := 0; i < MaxPlayerNo; i++ {
+					if s.reloadPreserveVars[i] {
+						s.saveCharVars(i)
+					}
+				}
+				s.round = 1
+				s.roundsExisted = [2]int32{}
+
+				s.statsLog.abortMatch()
+				s.statsLog.startMatch()
+
+				s.roundBackup = s.matchBackup
+				s.resetRound()
+				s.roundResetFlg = false
+			}
+		}
+
 		// F4 pressed to reset round
 		if s.roundResetFlg && !s.postMatchFlg {
+			for i := 0; i < MaxPlayerNo; i++ {
+				if s.reloadPreserveVars[i] {
+					s.saveCharVars(i)
+				}
+			}
 			s.resetRound()
 		}
 
@@ -3765,6 +3816,7 @@ type Select struct {
 	charSpritePreload  map[[2]uint16]bool
 	stageSpritePreload map[[2]uint16]bool
 	cdefOverwrite      map[int]string
+	palOverwrite       map[int]int
 	sdefOverwrite      string
 	music              Music
 	gameParams         *GameParams
@@ -3778,6 +3830,7 @@ func newSelect() *Select {
 		charSpritePreload: map[[2]uint16]bool{[...]uint16{9000, 0}: true,
 			[...]uint16{9000, 1}: true},
 		stageSpritePreload: make(map[[2]uint16]bool),
+		palOverwrite:       make(map[int]int),
 		cdefOverwrite:      make(map[int]string),
 		music:              make(Music),
 		gameParams:         newGameParams(),
@@ -4683,11 +4736,16 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	if attached {
-		sys.cgi[pn].palno = 1
-	} else {
+	selectPalno := 1
+	if pal, ok := sys.sel.palOverwrite[pn]; ok && pal > 0 {
+		selectPalno = pal
+	} else if !attached {
 		// Get palette number from select screen choice
-		sys.cgi[pn].palno = int32(sys.sel.selected[pn&1][memberNo][1])
+		selectPalno = sys.sel.selected[pn&1][memberNo][1]
+	}
+	sys.cgi[pn].palno = int32(selectPalno)
+
+	if !attached {
 		// Prepare lifebar portraits
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
@@ -4930,4 +4988,56 @@ func (es *EnvShake) getOffset() [2]float32 {
 			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
+}
+
+type CharVarBackup struct {
+	cnsvar   map[int32]int32
+	cnsfvar  map[int32]float32
+	mapArray map[string]float32
+}
+
+func (s *System) saveCharVars(pn int) {
+	if len(s.chars[pn]) == 0 {
+		return
+	}
+	c := s.chars[pn][0]
+
+	bk := CharVarBackup{
+		cnsvar:   make(map[int32]int32),
+		cnsfvar:  make(map[int32]float32),
+		mapArray: make(map[string]float32),
+	}
+
+	for k, v := range c.cnsvar {
+		bk.cnsvar[k] = v
+	}
+	for k, v := range c.cnsfvar {
+		bk.cnsfvar[k] = v
+	}
+	for k, v := range c.mapArray {
+		bk.mapArray[k] = v
+	}
+
+	s.charVarsBackup[pn] = bk
+}
+
+func (s *System) restoreCharVars(c *Char) {
+	bk, ok := s.charVarsBackup[c.playerNo]
+	if !ok {
+		return
+	}
+
+	for k, v := range bk.cnsvar {
+		c.cnsvar[k] = v
+		println(k, v)
+	}
+	for k, v := range bk.cnsfvar {
+		c.cnsfvar[k] = v
+	}
+	c.mapArray = make(map[string]float32, len(bk.mapArray))
+	for k, v := range bk.mapArray {
+		c.mapArray[k] = v
+	}
+
+	delete(s.charVarsBackup, c.playerNo)
 }

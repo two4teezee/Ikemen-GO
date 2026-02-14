@@ -5780,14 +5780,8 @@ func (sc explod) Run(c *Char, _ []int32) bool {
 			}
 		case explod_supermovetime:
 			e.supermovetime = exp[0].evalI(c)
-			if e.supermovetime >= 0 {
-				e.supermovetime = Max(e.supermovetime, e.supermovetime+1)
-			}
 		case explod_pausemovetime:
 			e.pausemovetime = exp[0].evalI(c)
-			if e.pausemovetime >= 0 {
-				e.pausemovetime = Max(e.pausemovetime, e.pausemovetime+1)
-			}
 		case explod_sprpriority:
 			e.sprpriority = exp[0].evalI(c)
 		case explod_layerno:
@@ -11434,11 +11428,24 @@ const (
 	matchRestart_p6def
 	matchRestart_p7def
 	matchRestart_p8def
+	matchRestart_preserveVars
+	matchRestart_p1pal
+	matchRestart_p2pal
+	matchRestart_p3pal
+	matchRestart_p4pal
+	matchRestart_p5pal
+	matchRestart_p6pal
+	matchRestart_p7pal
+	matchRestart_p8pal
+	matchRestart_resetMatch
 )
 
 func (sc matchRestart) Run(c *Char, _ []int32) bool {
 	var s string
 	reloadFlag := false
+	for i := range sys.reloadPreserveVars {
+		sys.reloadPreserveVars[i] = false
+	}
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case matchRestart_reload:
@@ -11477,16 +11484,47 @@ func (sc matchRestart) Run(c *Char, _ []int32) bool {
 		case matchRestart_p8def:
 			s = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
 			sys.sel.cdefOverwrite[7] = SearchFile(s, []string{c.gi().def})
+		case matchRestart_preserveVars:
+			for i, p := range exp {
+				if i < len(sys.reloadPreserveVars) {
+					sys.reloadPreserveVars[i] = p.evalB(c)
+				}
+			}
+		case matchRestart_p1pal:
+			sys.sel.palOverwrite[0] = int(exp[0].evalI(c))
+		case matchRestart_p2pal:
+			sys.sel.palOverwrite[1] = int(exp[0].evalI(c))
+		case matchRestart_p3pal:
+			sys.sel.palOverwrite[2] = int(exp[0].evalI(c))
+		case matchRestart_p4pal:
+			sys.sel.palOverwrite[3] = int(exp[0].evalI(c))
+		case matchRestart_p5pal:
+			sys.sel.palOverwrite[4] = int(exp[0].evalI(c))
+		case matchRestart_p6pal:
+			sys.sel.palOverwrite[5] = int(exp[0].evalI(c))
+		case matchRestart_p7pal:
+			sys.sel.palOverwrite[6] = int(exp[0].evalI(c))
+		case matchRestart_p8pal:
+			sys.sel.palOverwrite[7] = int(exp[0].evalI(c))
+		case matchRestart_resetMatch:
+			if exp[0].evalB(c) {
+				sys.matchResetFlg = true
+			}
 		}
 		return true
 	})
 	if sys.netConnection == nil && sys.replayFile == nil {
 		if reloadFlag {
 			sys.reloadFlg = true
-		} else {
+		} else if !sys.matchResetFlg {
 			sys.roundResetFlg = true
 			sys.roundResetMatchStart = true
 		}
+	}
+	if !sys.reloadFlg {
+		sys.sel.cdefOverwrite = make(map[int]string)
+		sys.sel.palOverwrite = make(map[int]int)
+		sys.sel.sdefOverwrite = ""
 	}
 	return false
 }

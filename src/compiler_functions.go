@@ -4931,6 +4931,54 @@ func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) 
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "preservevars",
+			matchRestart_preserveVars, VT_Bool, MaxPlayerNo, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p1palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p1pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p2palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p2pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p3palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p3pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p4palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p4pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p5palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p5pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p6palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p6pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p7palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p7pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "p8palette", false, func(data string) error {
+			return c.scAdd(sc, matchRestart_p8pal, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "resetmatch",
+			matchRestart_resetMatch, VT_Bool, 1, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

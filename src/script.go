@@ -4935,7 +4935,125 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "textImgNew", func(*lua.LState) int {
-		l.Push(newUserData(l, NewTextSprite()))
+		ts := NewTextSprite()
+
+		// Arg 1: Optional font
+		if !nilArg(l, 1) {
+			fnt, ok := toUserData(l, 1).(*Fnt)
+			if !ok {
+				userDataError(l, 1, fnt)
+			}
+			ts.fnt = fnt
+		}
+
+		// Arg 2: Optional table with properties
+		if !nilArg(l, 2) {
+			tableArg(l, 2).ForEach(func(key, value lua.LValue) {
+				switch k := key.(type) {
+				case lua.LString:
+					switch strings.ToLower(string(k)) {
+					case "text":
+						ts.text = lua.LVAsString(value)
+						ts.textInit = ts.text
+					case "bank":
+						ts.bank = int32(lua.LVAsNumber(value))
+					case "align":
+						ts.align = int32(lua.LVAsNumber(value))
+					case "pos":
+						if tbl, ok := value.(*lua.LTable); ok {
+							x := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							y := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetPos(x, y)
+						}
+					case "scale":
+						if tbl, ok := value.(*lua.LTable); ok {
+							xscl := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							yscl := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetScale(xscl, yscl)
+						}
+					case "color":
+						if tbl, ok := value.(*lua.LTable); ok {
+							r := int32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							g := int32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							b := int32(lua.LVAsNumber(tbl.RawGetInt(3)))
+							a := int32(255) // default alpha
+							if av := tbl.RawGetInt(4); av != lua.LNil {
+								a = int32(lua.LVAsNumber(av))
+							}
+							ts.SetColor(r, g, b, a)
+						}
+					case "localcoord":
+						if tbl, ok := value.(*lua.LTable); ok {
+							w := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							h := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetLocalcoord(w, h)
+						}
+					case "window":
+						if tbl, ok := value.(*lua.LTable); ok {
+							var win [4]float32
+							win[0] = float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							win[1] = float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							win[2] = float32(lua.LVAsNumber(tbl.RawGetInt(3)))
+							win[3] = float32(lua.LVAsNumber(tbl.RawGetInt(4)))
+							ts.SetWindow(win)
+						}
+					case "layerno":
+						ts.layerno = int16(lua.LVAsNumber(value))
+					case "xshear":
+						ts.xshear = float32(lua.LVAsNumber(value))
+					case "angle":
+						ts.rot.angle = float32(lua.LVAsNumber(value))
+					case "xangle":
+						ts.rot.xangle = float32(lua.LVAsNumber(value))
+					case "yangle":
+						ts.rot.yangle = float32(lua.LVAsNumber(value))
+					case "projection":
+						ts.projection = int32(lua.LVAsNumber(value))
+					case "focallength":
+						ts.fLength = float32(lua.LVAsNumber(value))
+					case "velocity":
+						if tbl, ok := value.(*lua.LTable); ok {
+							x := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							y := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetVelocity(x, y)
+						}
+					case "accel":
+						if tbl, ok := value.(*lua.LTable); ok {
+							x := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							y := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetAccel(x, y)
+						}
+					case "friction":
+						if tbl, ok := value.(*lua.LTable); ok {
+							ts.friction[0] = float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							ts.friction[1] = float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+						}
+					case "maxdist":
+						if tbl, ok := value.(*lua.LTable); ok {
+							x := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							y := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetMaxDist(x, y)
+						}
+					case "textdelay":
+						ts.textDelay = float32(lua.LVAsNumber(value))
+					case "textspacing":
+						if tbl, ok := value.(*lua.LTable); ok {
+							x := float32(lua.LVAsNumber(tbl.RawGetInt(1)))
+							y := float32(lua.LVAsNumber(tbl.RawGetInt(2)))
+							ts.SetTextSpacing(x, y)
+						}
+					case "textwrap":
+						ts.textWrap = lua.LVAsBool(value)
+					default:
+						l.RaiseError("\ntextImgNew: invalid table key: %v\n", k)
+					}
+				default:
+					l.RaiseError("\ntextImgNew: invalid table key type: %T\n", key)
+				}
+			})
+		}
+
+		l.Push(newUserData(l, ts))
 		return 1
 	})
 	luaRegister(l, "textImgReset", func(*lua.LState) int {

@@ -2623,6 +2623,12 @@ func (ac *LifeBarAction) draw(layerno int16, f map[int]*Fnt, side int) {
 	}
 }
 
+type ResultAnnouncement struct {
+	text [2]AnimTextSnd
+	top  [2]AnimLayout
+	bg   [2][32]AnimLayout
+}
+
 type LifeBarRound struct {
 	snd                 *Snd
 	pos                 [2]int32
@@ -2666,12 +2672,11 @@ type LifeBarRound struct {
 	over_time           int32
 	win_time            int32
 	win_sndtime         int32
-	win, win2           [2]AnimTextSnd
-	win_top, win2_top   [2]AnimLayout
-	win_bg, win2_bg     [2][32]AnimLayout
-	win3, win4          [2]AnimTextSnd
-	win3_top, win4_top  [2]AnimLayout
-	win3_bg, win4_bg    [2][32]AnimLayout
+	win                 [4]ResultAnnouncement
+	aiLose              [4]ResultAnnouncement
+	aiWin               [4]ResultAnnouncement
+	aiWinExists         [2][4]bool
+	aiLoseExists        [2][4]bool
 	drawgame            AnimTextSnd
 	drawgame_top        AnimLayout
 	drawgame_bg         [32]AnimLayout
@@ -2840,176 +2845,68 @@ func readLifeBarRound(is IniSection,
 	ro.win_sndtime = ro.win_time
 	is.ReadI32("win.sndtime", &ro.win_sndtime)
 
+	sectionExists := func(pre string) bool {
+		_, okT := is[pre+"text"]
+		_, okS := is[pre+"spr"]
+		_, okA := is[pre+"anim"]
+		return okT || okS || okA
+	}
+	readATS := func(pPre, pre string) AnimTextSnd {
+		if sectionExists(pPre) {
+			return *ReadAnimTextSnd(pPre, is, sff, at, 1, f)
+		}
+		return *ReadAnimTextSnd(pre, is, sff, at, 1, f)
+	}
+	readLayout := func(pPre, pre string) AnimLayout {
+		if sectionExists(pPre) {
+			return ReadAnimLayout(pPre, is, sff, at, 1)
+		}
+		return ReadAnimLayout(pre, is, sff, at, 1)
+	}
+	readBGs := func(target *[32]AnimLayout, pPre, pre string) {
+		for j := range target {
+			pBg, bg := fmt.Sprintf("%vbg%v.", pPre, j), fmt.Sprintf("%vbg%v.", pre, j)
+			if sectionExists(pBg) || sectionExists(bg) {
+				target[j] = readLayout(pBg, bg)
+			}
+		}
+	}
+
 	for i := 0; i < 2; i++ {
-		var ok, bg bool
-		// win
-		if _, ok = is[fmt.Sprintf("p%v.win.text", i+1)]; !ok {
-			if _, ok = is[fmt.Sprintf("p%v.win.spr", i+1)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win.anim", i+1)]
-			}
+		p := fmt.Sprintf("p%v.", i+1)
+		suffixes := []string{"", "2", "3", "4"}
+
+		keys := []struct {
+			name   string
+            data   *[4]ResultAnnouncement
+            exists *[4]bool
+		}{
+			{"win", &ro.win, nil},
+            {"ai.win", &ro.aiWin, &ro.aiWinExists[i]},
+            {"ai.lose", &ro.aiLose, &ro.aiLoseExists[i]},
 		}
-		if ok {
-			ro.win[i] = *ReadAnimTextSnd(fmt.Sprintf("p%v.win.", i+1), is, sff, at, 1, f)
-		} else {
-			ro.win[i] = *ReadAnimTextSnd("win.", is, sff, at, 1, f)
-		}
-		if _, ok = is[fmt.Sprintf("p%v.win.top.anim", i+1)]; !ok {
-			_, ok = is[fmt.Sprintf("p%v.win.top.spr", i+1)]
-		}
-		if ok {
-			ro.win_top[i] = ReadAnimLayout(fmt.Sprintf("p%v.win.top.", i+1), is, sff, at, 1)
-		} else {
-			ro.win_top[i] = ReadAnimLayout("win.top.", is, sff, at, 1)
-		}
-		for j := range ro.win_bg[i] {
-			if _, ok = is[fmt.Sprintf("p%v.win.bg%v.anim", i+1, j)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win.bg%v.spr", i+1, j)]
-			}
-			if ok {
-				ro.win_bg[i][j] = ReadAnimLayout(fmt.Sprintf("p%v.win.bg%v.", i+1, j), is, sff, at, 1)
-			} else {
-				ro.win_bg[i][j] = ReadAnimLayout(fmt.Sprintf("win.bg%v.", j), is, sff, at, 1)
-			}
-		}
-		// win2
-		if _, ok = is[fmt.Sprintf("p%v.win2.text", i+1)]; !ok {
-			if _, ok = is[fmt.Sprintf("p%v.win2.spr", i+1)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win2.anim", i+1)]
-			}
-		}
-		if ok {
-			ro.win2[i] = *ReadAnimTextSnd(fmt.Sprintf("p%v.win2.", i+1), is, sff, at, 1, f)
-		} else {
-			ro.win2[i] = *ReadAnimTextSnd("win2.", is, sff, at, 1, f)
-		}
-		if _, ok = is[fmt.Sprintf("p%v.win2.top.anim", i+1)]; !ok {
-			_, ok = is[fmt.Sprintf("p%v.win2.top.spr", i+1)]
-		}
-		if ok {
-			ro.win2_top[i] = ReadAnimLayout(fmt.Sprintf("p%v.win2.top.", i+1), is, sff, at, 1)
-		} else {
-			ro.win2_top[i] = ReadAnimLayout("win2.top.", is, sff, at, 1)
-		}
-		for j := range ro.win2_bg[i] {
-			if _, ok = is[fmt.Sprintf("p%v.win2.bg%v.anim", i+1, j)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win2.bg%v.spr", i+1, j)]
-			}
-			if ok {
-				ro.win2_bg[i][j] = ReadAnimLayout(fmt.Sprintf("p%v.win2.bg%v.", i+1, j), is, sff, at, 1)
-			} else {
-				ro.win2_bg[i][j] = ReadAnimLayout(fmt.Sprintf("win2.bg%v.", j), is, sff, at, 1)
-			}
-		}
-		// win3
-		if _, ok = is[fmt.Sprintf("p%v.win3.text", i+1)]; !ok {
-			if _, ok = is[fmt.Sprintf("p%v.win3.spr", i+1)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win3.anim", i+1)]
-			}
-		}
-		if ok {
-			ro.win3[i] = *ReadAnimTextSnd(fmt.Sprintf("p%v.win3.", i+1), is, sff, at, 1, f)
-		} else {
-			if _, ok = is["win3.text"]; !ok {
-				if _, ok = is["win3.spr"]; !ok {
-					_, ok = is["win3.anim"]
+
+		for _, key := range keys {
+			for idx, s := range suffixes {
+				pre := fmt.Sprintf("%v%v.", key.name, s)
+				pPre := fmt.Sprintf("%v%v%v.", p, key.name, s)
+				exists := sectionExists(pPre) || sectionExists(pre)
+				current := &key.data[idx]
+
+				if idx >= 2 && !exists {
+					*current = key.data[1]
+					if key.exists != nil {
+						key.exists[idx] = key.exists[1]
+					}
+				} else {
+					if exists && key.exists != nil {
+						key.exists[idx] = true
+					}
+					current.text[i] = readATS(pPre, pre)
+					current.top[i] = readLayout(pPre+"top.", pre+"top.")
+					readBGs(&current.bg[i], pPre, pre)
 				}
 			}
-			if ok {
-				ro.win3[i] = *ReadAnimTextSnd("win3.", is, sff, at, 1, f)
-			} else {
-				ro.win3[i] = ro.win2[i]
-			}
-		}
-		if _, ok = is[fmt.Sprintf("p%v.win3.top.anim", i+1)]; !ok {
-			_, ok = is[fmt.Sprintf("p%v.win3.top.spr", i+1)]
-		}
-		if ok {
-			ro.win3_top[i] = ReadAnimLayout(fmt.Sprintf("p%v.win3.top.", i+1), is, sff, at, 1)
-		} else {
-			if _, ok = is["win3.top.anim"]; !ok {
-				_, ok = is["win3.top.spr"]
-			}
-			if ok {
-				ro.win3_top[i] = ReadAnimLayout("win3.top.", is, sff, at, 1)
-			} else {
-				ro.win3_top[i] = ro.win2_top[i]
-			}
-		}
-		for j := range ro.win3_bg[i] {
-			if _, ok = is[fmt.Sprintf("p%v.win3.bg%v.anim", i+1, j)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win3.bg%v.spr", i+1, j)]
-			}
-			if ok {
-				ro.win3_bg[i][j] = ReadAnimLayout(fmt.Sprintf("p%v.win3.bg%v.", i+1, j), is, sff, at, 1)
-				bg = true
-			} else {
-				if _, ok = is[fmt.Sprintf("win3.bg%v.anim", j)]; !ok {
-					_, ok = is[fmt.Sprintf("win3.bg%v.spr", j)]
-				}
-				if ok {
-					ro.win3_bg[i][j] = ReadAnimLayout(fmt.Sprintf("win3.bg%v.", j), is, sff, at, 1)
-					bg = true
-				}
-			}
-		}
-		if !bg {
-			ro.win3_bg[i] = ro.win2_bg[i]
-		}
-		bg = false
-		// win4
-		if _, ok = is[fmt.Sprintf("p%v.win4.text", i+1)]; !ok {
-			if _, ok = is[fmt.Sprintf("p%v.win4.spr", i+1)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win4.anim", i+1)]
-			}
-		}
-		if ok {
-			ro.win4[i] = *ReadAnimTextSnd(fmt.Sprintf("p%v.win4.", i+1), is, sff, at, 1, f)
-		} else {
-			if _, ok = is["win4.text"]; !ok {
-				if _, ok = is["win4.spr"]; !ok {
-					_, ok = is["win4.anim"]
-				}
-			}
-			if ok {
-				ro.win4[i] = *ReadAnimTextSnd("win4.", is, sff, at, 1, f)
-			} else {
-				ro.win4[i] = ro.win2[i]
-			}
-		}
-		if _, ok = is[fmt.Sprintf("p%v.win4.top.anim", i+1)]; !ok {
-			_, ok = is[fmt.Sprintf("p%v.win4.top.spr", i+1)]
-		}
-		if ok {
-			ro.win4_top[i] = ReadAnimLayout(fmt.Sprintf("p%v.win4.top.", i+1), is, sff, at, 1)
-		} else {
-			if _, ok = is["win4.top.anim"]; !ok {
-				_, ok = is["win4.top.spr"]
-			}
-			if ok {
-				ro.win4_top[i] = ReadAnimLayout("win4.top.", is, sff, at, 1)
-			} else {
-				ro.win4_top[i] = ro.win2_top[i]
-			}
-		}
-		for j := range ro.win4_bg[i] {
-			if _, ok = is[fmt.Sprintf("p%v.win4.bg%v.anim", i+1, j)]; !ok {
-				_, ok = is[fmt.Sprintf("p%v.win4.bg%v.spr", i+1, j)]
-			}
-			if ok {
-				ro.win4_bg[i][j] = ReadAnimLayout(fmt.Sprintf("p%v.win4.bg%v.", i+1, j), is, sff, at, 1)
-				bg = true
-			} else {
-				if _, ok = is[fmt.Sprintf("win4.bg%v.anim", j)]; !ok {
-					_, ok = is[fmt.Sprintf("win4.bg%v.spr", j)]
-				}
-				if ok {
-					ro.win4_bg[i][j] = ReadAnimLayout(fmt.Sprintf("win4.bg%v.", j), is, sff, at, 1)
-					bg = true
-				}
-			}
-		}
-		if !bg {
-			ro.win4_bg[i] = ro.win2_bg[i]
 		}
 	}
 	ro.drawgame = *ReadAnimTextSnd("draw.", is, sff, at, 1, f)
@@ -3340,39 +3237,57 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		if wt < 0 {
 			wt = 0
 		}
+		lt := wt ^ 1
 		if sys.finishType == FT_TODraw {
 			ro.drawgame_top.Action()
 			steptimers(&ro.drawgame, 3, 0, "win")
 			for i := len(ro.drawgame_bg) - 1; i >= 0; i-- {
 				ro.drawgame_bg[i].Action()
 			}
-		} else if sys.winTeam >= 0 { // Skip if draw game (double KO)
-			if sys.tmode[sys.winTeam] == TM_Simul || sys.tmode[sys.winTeam] == TM_Tag {
-				if sys.numSimul[sys.winTeam] == 2 {
-					ro.win2_top[wt].Action()
-					steptimers(&ro.win2[wt], 3, 0, "win")
-					for i := len(ro.win2_bg[wt]) - 1; i >= 0; i-- {
-						ro.win2_bg[wt][i].Action()
-					}
-				} else if sys.numSimul[sys.winTeam] == 3 {
-					ro.win3_top[wt].Action()
-					steptimers(&ro.win3[wt], 3, 0, "win")
-					for i := len(ro.win3_bg[wt]) - 1; i >= 0; i-- {
-						ro.win3_bg[wt][i].Action()
-					}
-				} else {
-					ro.win4_top[wt].Action()
-					steptimers(&ro.win4[wt], 3, 0, "win")
-					for i := len(ro.win4_bg[wt]) - 1; i >= 0; i-- {
-						ro.win4_bg[wt][i].Action()
-					}
+		} else if sys.winTeam >= 0 {
+			isPlayerWin, isAiWin := false, false
+			for i := wt; i < len(sys.chars); i += 2 {
+				if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+					isPlayerWin = true
+					break
 				}
+			}
+			for i := lt; i < len(sys.chars); i += 2 {
+				if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+					isAiWin = true
+					break
+				}
+			}
+			var res *ResultAnnouncement
+			activeTeam := wt
+			timerName := "win"
+
+			idxL := sys.numSimul[lt] - 1
+			if idxL < 0 {
+				idxL = 0
+			}
+
+			idxW := sys.numSimul[wt] - 1
+			if idxW < 0 {
+				idxW = 0
+			}
+			if isAiWin && !isPlayerWin && ro.aiWinExists[lt][idxL] {
+				// player lose vs ai opponent
+				activeTeam = lt
+				res = &ro.aiWin[idxL]
+				timerName = "aiWin" 
+			} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
+				// player win vs ai opponent
+				res = &ro.aiLose[idxW]
+				timerName = "win"
 			} else {
-				ro.win_top[wt].Action()
-				steptimers(&ro.win[wt], 3, 0, "win")
-				for i := len(ro.win_bg[wt]) - 1; i >= 0; i-- {
-					ro.win_bg[wt][i].Action()
-				}
+				// default win
+				res = &ro.win[idxW]
+			}
+			res.top[activeTeam].Action()
+			steptimers(&res.text[activeTeam], 3, 0, timerName)
+			for i := len(res.bg[activeTeam]) - 1; i >= 0; i-- {
+				res.bg[activeTeam][i].Action()
 			}
 		}
 		// Perfect and other special win types
@@ -3399,112 +3314,57 @@ func (ro *LifeBarRound) reset() {
 	ro.shutterTimer = 0
 	ro.fadeOut.reset()
 	ro.fadeIn.init(ro.fadeIn, true)
-	// Round animations
-	ro.round_default.Reset()
-	ro.round_default_top.Reset()
-	for i := range ro.round_default_bg {
-		ro.round_default_bg[i].Reset()
+
+	resetElement := func(main *AnimTextSnd, top *AnimLayout, bgs []AnimLayout) {
+        main.Reset()
+        top.Reset()
+        for i := range bgs {
+            bgs[i].Reset()
+        }
+    }
+	resetResults := func(res *[4]ResultAnnouncement) {
+		for i := range res {
+			for j := 0; j < 2; j++ {
+				res[i].text[j].Reset()
+				res[i].top[j].Reset()
+				for k := range res[i].bg[j] {
+					res[i].bg[j][k].Reset()
+				}
+			}
+		}
 	}
+	// Round animations
+	resetElement(&ro.round_default, &ro.round_default_top, ro.round_default_bg[:])
 	for i := range ro.round {
 		ro.round[i].Reset()
 	}
 	// Single round animations
-	ro.round_single.Reset()
-	ro.round_single_top.Reset()
-	for i := range ro.round_single_bg {
-		ro.round_single_bg[i].Reset()
-	}
+	resetElement(&ro.round_single, &ro.round_single_top, ro.round_single_bg[:])
 	// Final round animations
-	ro.round_final.Reset()
-	ro.round_final_top.Reset()
-	for i := range ro.round_final_bg {
-		ro.round_final_bg[i].Reset()
-	}
+	resetElement(&ro.round_final, &ro.round_final_top, ro.round_final_bg[:])
 	// Fight call animations
-	ro.fight.Reset()
-	ro.fight_top.Reset()
-	for i := range ro.fight_bg {
-		ro.fight_bg[i].Reset()
-	}
+	resetElement(&ro.fight, &ro.fight_top, ro.fight_bg[:])
 	// KO animations
-	ro.ko.Reset()
-	ro.ko_top.Reset()
-	for i := range ro.ko_bg {
-		ro.ko_bg[i].Reset()
-	}
-	ro.dko.Reset()
-	ro.dko_top.Reset()
-	for i := range ro.dko_bg {
-		ro.dko_bg[i].Reset()
-	}
+	resetElement(&ro.ko, &ro.ko_top, ro.ko_bg[:])
+	resetElement(&ro.dko, &ro.dko_top, ro.dko_bg[:])
 	// Time Over animations
-	ro.to.Reset()
-	ro.to_top.Reset()
-	for i := range ro.to_bg {
-		ro.to_bg[i].Reset()
-	}
-	for i := range ro.win {
-		ro.win[i].Reset()
-	}
-	for i := range ro.win_top {
-		ro.win_top[i].Reset()
-	}
-	for i := range ro.win_bg {
-		for j := range ro.win_bg[i] {
-			ro.win_bg[i][j].Reset()
-		}
-	}
-	for i := range ro.win2 {
-		ro.win2[i].Reset()
-	}
-	for i := range ro.win2_top {
-		ro.win2_top[i].Reset()
-	}
-	for i := range ro.win2_bg {
-		for j := range ro.win2_bg[i] {
-			ro.win2_bg[i][j].Reset()
-		}
-	}
-	for i := range ro.win3 {
-		ro.win3[i].Reset()
-	}
-	for i := range ro.win3_top {
-		ro.win3_top[i].Reset()
-	}
-	for i := range ro.win3_bg {
-		for j := range ro.win3_bg[i] {
-			ro.win3_bg[i][j].Reset()
-		}
-	}
-	for i := range ro.win4 {
-		ro.win4[i].Reset()
-	}
-	for i := range ro.win4_top {
-		ro.win4_top[i].Reset()
-	}
-	for i := range ro.win4_bg {
-		for j := range ro.win4_bg[i] {
-			ro.win4_bg[i][j].Reset()
-		}
-	}
+	resetElement(&ro.to, &ro.to_top, ro.to_bg[:])
 	// Draw game
-	ro.drawgame.Reset()
-	ro.drawgame_top.Reset()
-	for i := range ro.drawgame_bg {
-		ro.drawgame_bg[i].Reset()
-	}
+	resetElement(&ro.drawgame, &ro.drawgame_top, ro.drawgame_bg[:])
+
+	// Winner Annoucement
+	resetResults(&ro.win)
+	// Player Win vs AI Annoucement
+	resetResults(&ro.aiLose)
+	// Player Lose vs AI Annoucement
+	resetResults(&ro.aiWin)
 	// Win types
 	for i := range ro.winType {
 		ro.winType[i].reset()
 	}
 	// Reset action timers
-	ro.waitTimer = [4]int32{}
-	ro.waitSoundTimer = [4]int32{}
-	ro.drawTimer = [4]int32{}
-	ro.roundCallOver = false
-	ro.fightCallOver = false
-	ro.koScreenOver = false
-	ro.winDisplayOver = false
+	ro.waitTimer, ro.waitSoundTimer, ro.drawTimer = [4]int32{}, [4]int32{}, [4]int32{}
+	ro.roundCallOver, ro.fightCallOver, ro.koScreenOver, ro.winDisplayOver = false, false, false, false
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
@@ -3659,58 +3519,70 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 			if wt < 0 {
 				wt = 0
 			}
+			lt := wt ^ 1
 			if sys.finishType == FT_TODraw {
 				for i := range ro.drawgame_bg {
 					ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
 				ro.drawgame.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
 				ro.drawgame_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-			} else if sys.winTeam >= 0 { // Skip if draw game (double KO)
-				if sys.tmode[sys.winTeam] == TM_Simul || sys.tmode[sys.winTeam] == TM_Tag {
-					var inter []interface{}
-					for i := sys.winTeam; i < len(sys.chars); i += 2 {
-						if len(sys.chars[i]) > 0 {
-							inter = append(inter, sys.cgi[i].displayname)
-						}
+			} else if sys.winTeam >= 0 {
+				isPlayerWin, isAiWin := false, false
+				for i := wt; i < len(sys.chars); i += 2 {
+					if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+						isPlayerWin = true
+						break
 					}
-					if sys.numSimul[sys.winTeam] == 2 {
-						tmp := ro.win2[wt].text.text
-						for i := range ro.win2_bg[wt] {
-							ro.win2_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-						}
-						ro.win2[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win2[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-						ro.win2[wt].text.text = tmp
-						ro.win2_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					} else if sys.numSimul[sys.winTeam] == 3 {
-						tmp := ro.win3[wt].text.text
-						for i := range ro.win3_bg[wt] {
-							ro.win3_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-						}
-						ro.win3[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win3[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-						ro.win3[wt].text.text = tmp
-						ro.win3_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					} else {
-						tmp := ro.win4[wt].text.text
-						for i := range ro.win4_bg[wt] {
-							ro.win4_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-						}
-						ro.win4[wt].text.text = OldSprintf(tmp, inter...)
-						ro.win4[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-						ro.win4[wt].text.text = tmp
-						ro.win4_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					}
-				} else if sys.winTeam >= 0 {
-					tmp := ro.win[wt].text.text
-					for i := range ro.win_bg[wt] {
-						ro.win_bg[wt][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					}
-					ro.win[wt].text.text = OldSprintf(tmp, sys.cgi[sys.winTeam].displayname)
-					ro.win[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-					ro.win[wt].text.text = tmp
-					ro.win_top[wt].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
+				for i := lt; i < len(sys.chars); i += 2 {
+					if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+						isAiWin = true
+						break
+					}
+				}
+				var res *ResultAnnouncement
+				activeTeam := wt
+
+				idxL := sys.numSimul[lt] - 1
+				if idxL < 0 {
+					idxL = 0
+				}
+
+				idxW := sys.numSimul[wt] - 1
+				if idxW < 0 {
+					idxW = 0
+				}
+
+				if isAiWin && !isPlayerWin && ro.aiWinExists[lt][idxL] {
+					// player lose vs ai opponent
+					activeTeam = lt
+					res = &ro.aiWin[idxL]
+				} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
+					// player win vs ai opponent
+					res = &ro.aiLose[idxW]
+				} else {
+					// default win
+					res = &ro.win[idxW]
+				}
+				var displayNames []interface{}
+				for i := activeTeam; i < len(sys.chars); i += 2 {
+					if len(sys.chars[i]) > 0 {
+						displayNames = append(displayNames, sys.cgi[i].displayname)
+					}
+				}
+				// BGs
+				for i := range res.bg[activeTeam] {
+					res.bg[activeTeam][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+				}
+				// Text
+				oldTxt := res.text[activeTeam].text.text
+				if len(displayNames) > 0 {
+					res.text[activeTeam].text.text = OldSprintf(oldTxt, displayNames...)
+				}
+				res.text[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				res.text[activeTeam].text.text = oldTxt
+				// Top
+				res.top[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			}
 			// Perfect and other special win types
 			if sys.winTeam >= 0 {

@@ -34,11 +34,13 @@ type ShaderProgram_GLES32 struct {
 	u map[string]int32
 	// Texture_GLES32 units
 	t map[string]int
+	// Name for debugging
+	name string
 }
 
 var shaderCompileMutex sync.Mutex
 
-func (r *Renderer_GLES32) newShaderProgram(vert, frag, geo, id string, crashWhenFail bool) (s *ShaderProgram_GLES32, err error) {
+func (r *Renderer_GLES32) newShaderProgram(vert, frag, geo, name string, crashWhenFail bool) (s *ShaderProgram_GLES32, err error) {
 	// LOCK THE THREAD HERE
 	shaderCompileMutex.Lock()
 	defer shaderCompileMutex.Unlock()
@@ -46,28 +48,28 @@ func (r *Renderer_GLES32) newShaderProgram(vert, frag, geo, id string, crashWhen
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	Logcat("GLES: [LOCKED] Starting: " + id)
+	Logcat("GLES: [LOCKED] Starting: " + name)
 	var vertObj, fragObj, prog uint32
 
 	vertObj, err = r.compileShader(gl.VERTEX_SHADER, vert)
 	if err != nil {
 		return nil, err
 	}
-	Logcat("GLES: Vertex Obj created: " + id)
+	Logcat("GLES: Vertex Obj created: " + name)
 
 	fragObj, err = r.compileShader(gl.FRAGMENT_SHADER, frag)
 	if err != nil {
 		return nil, err
 	}
-	Logcat("GLES: Frag Obj created: " + id)
+	Logcat("GLES: Frag Obj created: " + name)
 
 	// IMPORTANT: Geometry shaders are very unstable on GLES 3.2 mobile.
 	// For now, let's force skip them to see if we can reach the main menu.
 	if false && len(geo) > 0 {
-		if geoObj, err := r.compileShader(gl.GEOMETRY_SHADER, geo); chkEX(err, "Shader compliation error on "+id+"\n", crashWhenFail) {
+		if geoObj, err := r.compileShader(gl.GEOMETRY_SHADER, geo); chkEX(err, "Shader compliation error on "+name+"\n", crashWhenFail) {
 			return nil, err
 		} else {
-			if prog, err = r.linkProgram(vertObj, fragObj, geoObj); chkEX(err, "Link program error on "+id+"\n", crashWhenFail) {
+			if prog, err = r.linkProgram(vertObj, fragObj, geoObj); chkEX(err, "Link program error on "+name+"\n", crashWhenFail) {
 				return nil, err
 			}
 		}
@@ -80,12 +82,12 @@ func (r *Renderer_GLES32) newShaderProgram(vert, frag, geo, id string, crashWhen
 	}
 
 	Logcat("GLES: Program linked, creating struct...")
-	s = &ShaderProgram_GLES32{program: prog}
+	s = &ShaderProgram_GLES32{program: prog, name: name}
 	s.a = make(map[string]int32)
 	s.u = make(map[string]int32)
 	s.t = make(map[string]int)
 
-	Logcat("GLES: Shader initialization complete for: " + id)
+	Logcat("GLES: Shader initialization complete for: " + name)
 	return s, nil
 }
 
@@ -664,6 +666,7 @@ func (r *Renderer_GLES32) Init() {
 
 	// Compile postprocessing shaders
 	// Because we only have one VAO, the attributes will only be set in EndFrame()
+	// TODO: We have a casing mismatch in the attributes
 
 	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
 	r.postShaderSelect = make([]*ShaderProgram_GLES32, len(sys.cfg.Video.ExternalShaders)+1)
@@ -678,8 +681,8 @@ func (r *Renderer_GLES32) Init() {
 
 	// Identity shader (no postprocessing). This should be the last one in modern OpenGL
 	identShader, _ := r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
-	identShader.RegisterAttributes("VertCoord", "TexCoord")
-	identShader.RegisterUniforms("Texture_GLES32", "TextureSize", "CurrentTime")
+	identShader.RegisterAttributes("VertCoord", "texcoord")
+	//identShader.RegisterUniforms("Texture_GLES32", "TextureSize", "CurrentTime") // None of these are used
 
 	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
@@ -903,11 +906,21 @@ func (r *Renderer_GLES32) EndFrame() {
 		fbo_texture = r.fbo_f_texture.handle
 	}
 
-	// disable blending
+	// Reset global state
+	r.DisableScissor()
 	r.SetBlending(false, 0, 0, 0)
+	r.SetDepthTest(false)
+	r.SetDepthMask(false)
 
 	for i := 0; i < len(r.postShaderSelect); i++ {
 		postShader := r.postShaderSelect[i]
+
+		// tell GL we want to use our shader program
+		r.ChangeProgram(postShader.program)
+
+		// tell GL to use our vertex array object
+		// this'll be where our quad is stored
+		gl.BindVertexArray(r.vao)
 
 		// this is here because it is undefined
 		// behavior to write to the same FBO
@@ -939,17 +952,17 @@ func (r *Renderer_GLES32) EndFrame() {
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		}
 
-		// tell GL we want to use our shader program
-		r.ChangeProgram(postShader.program)
-
-		// tell GL to use our vertex array object
-		// this'll be where our quad is stored
-		gl.BindVertexArray(r.vao)
-
 		// set post-processing parameters
-		gl.Uniform1i(postShader.u["Texture_GLES32"], 0)
-		gl.Uniform2f(postShader.u["TextureSize"], float32(width), float32(height))
-		gl.Uniform1f(postShader.u["CurrentTime"], float32(time))
+		if loc, ok := postShader.u["Texture_GLES32"]; ok && loc >= 0 {
+			r.SetUniformISub(loc, 0)
+		}
+		if loc, ok := postShader.u["TextureSize"]; ok && loc >= 0 {
+			r.SetUniformFSub(loc, float32(width), float32(height))
+		}
+		if loc, ok := postShader.u["CurrentTime"]; ok && loc >= 0 {
+			r.SetUniformFSub(loc, float32(time))
+		}
+
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, scaleMode)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, scaleMode)
 
@@ -966,7 +979,7 @@ func (r *Renderer_GLES32) EndFrame() {
 		}
 
 		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
-		if loc, ok := postShader.a["TexCoord"]; ok && loc >= 0 {
+		if loc, ok := postShader.a["texcoord"]; ok && loc >= 0 {
 			tLoc := uint32(loc)
 			gl.EnableVertexAttribArray(tLoc)
 			gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
@@ -1030,6 +1043,7 @@ func (r *Renderer_GLES32) SetDepthTest(depthTest bool) {
 	}
 }
 
+// Note: This one defaults to enable so we must sync the cache early
 func (r *Renderer_GLES32) SetDepthMask(depthMask bool) {
 	if depthMask != r.depthMask {
 		r.depthMask = depthMask
@@ -1147,9 +1161,8 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.Viewport(0, 0, 1024, 1024)
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Disable(gl.BLEND)
-	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LESS)
-	gl.DepthMask(true)
+	r.SetDepthTest(true)
+	r.SetDepthMask(true)
 	gl.BlendEquation(gl.FUNC_ADD)
 	gl.BlendFunc(gl.ONE, gl.ZERO)
 	if r.invertFrontFace {
@@ -1163,8 +1176,8 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	} else {
 		gl.Disable(gl.CULL_FACE)
 	}
-	r.depthTest = true
-	r.depthMask = true
+	//r.depthTest = true
+	//r.depthMask = true
 	r.blendEquation = BlendAdd
 	r.blendSrc = BlendOne
 	r.blendDst = BlendZero
@@ -1290,8 +1303,8 @@ func (r *Renderer_GLES32) ReleaseShadowPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
-	gl.DepthMask(true)
-	gl.Disable(gl.DEPTH_TEST)
+	r.SetDepthMask(true)
+	r.SetDepthTest(false)
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
 	r.useVertColor = false
@@ -1308,13 +1321,17 @@ func (r *Renderer_GLES32) prepareModelPipeline(bufferIndex uint32, env *Environm
 	gl.Enable(gl.TEXTURE_CUBE_MAP)
 	gl.Enable(gl.BLEND)
 
+	/*
+	// These should be redundant now
 	if r.depthTest {
-		gl.Enable(gl.DEPTH_TEST)
+		r.SetDepthTest(true)
 		gl.DepthFunc(gl.LESS)
 	} else {
-		gl.Disable(gl.DEPTH_TEST)
+		r.SetDepthTest(false)
 	}
-	gl.DepthMask(r.depthMask)
+	r.SetDepthMask(r.depthMask)
+	*/
+
 	if r.invertFrontFace {
 		gl.FrontFace(gl.CW)
 	} else {
@@ -1546,8 +1563,8 @@ func (r *Renderer_GLES32) ReleaseModelPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
-	gl.DepthMask(true)
-	gl.Disable(gl.DEPTH_TEST)
+	r.SetDepthMask(true)
+	r.SetDepthTest(false)
 	gl.Disable(gl.CULL_FACE)
 	r.useNormal = false
 	r.useTangent = false

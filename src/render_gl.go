@@ -35,36 +35,38 @@ type ShaderProgram_GL21 struct {
 	u map[string]int32
 	// Texture_GL21 units
 	t map[string]int
+	// Name for debugging
+	name string
 }
 
-func (r *Renderer_GL21) newShaderProgram(vert, frag, geo, id string, crashWhenFail bool) (s *ShaderProgram_GL21, err error) {
+func (r *Renderer_GL21) newShaderProgram(vert, frag, geo, name string, crashWhenFail bool) (s *ShaderProgram_GL21, err error) {
 	var vertObj, fragObj, geoObj, prog uint32
-	if vertObj, err = r.compileShader(gl.VERTEX_SHADER, vert); chkEX(err, "Shader compilation error on "+id+"\n", crashWhenFail) {
+	if vertObj, err = r.compileShader(gl.VERTEX_SHADER, vert); chkEX(err, "Shader compilation error on "+name+"\n", crashWhenFail) {
 		return nil, err
 	}
-	if fragObj, err = r.compileShader(gl.FRAGMENT_SHADER, frag); chkEX(err, "Shader compilation error on "+id+"\n", crashWhenFail) {
+	if fragObj, err = r.compileShader(gl.FRAGMENT_SHADER, frag); chkEX(err, "Shader compilation error on "+name+"\n", crashWhenFail) {
 		return nil, err
 	}
 	if len(geo) > 0 {
-		if geoObj, err = r.compileShader(gl.GEOMETRY_SHADER_EXT, geo); chkEX(err, "Shader compilation error on "+id+"\n", crashWhenFail) {
+		if geoObj, err = r.compileShader(gl.GEOMETRY_SHADER_EXT, geo); chkEX(err, "Shader compilation error on "+name+"\n", crashWhenFail) {
 			return nil, err
 		}
-		if prog, err = r.linkProgram(vertObj, fragObj, geoObj); chkEX(err, "Link program error on "+id+"\n", crashWhenFail) {
+		if prog, err = r.linkProgram(vertObj, fragObj, geoObj); chkEX(err, "Link program error on "+name+"\n", crashWhenFail) {
 			return nil, err
 		}
 	} else {
-		if prog, err = r.linkProgram(vertObj, fragObj); chkEX(err, "Link program error on "+id+"\n", crashWhenFail) {
+		if prog, err = r.linkProgram(vertObj, fragObj); chkEX(err, "Link program error on "+name+"\n", crashWhenFail) {
 			return nil, err
 		}
 	}
-	s = &ShaderProgram_GL21{program: prog}
+	s = &ShaderProgram_GL21{program: prog, name: name}
 	s.a = make(map[string]int32)
 	s.u = make(map[string]int32)
 	s.t = make(map[string]int)
 
 	// Debug
 	if r.debugMode {
-		fmt.Printf("[GL Debug] Linked shader '%s' as Program ID: %d\n", id, prog)
+		fmt.Printf("[GL Debug] Linked shader '%s' as Program ID: %d\n", name, prog)
 	}
 
 	return s, nil
@@ -75,21 +77,39 @@ func (r *ShaderProgram_GL21) glStr(s string) *uint8 {
 }
 
 func (s *ShaderProgram_GL21) RegisterAttributes(names ...string) {
+	r := gfx.(*Renderer_GL21)
 	for _, name := range names {
-		s.a[name] = gl.GetAttribLocation(s.program, s.glStr(name))
+		loc := gl.GetAttribLocation(s.program, s.glStr(name))
+		s.a[name] = loc
+
+		if r.debugMode && loc == -1 {
+			fmt.Printf("[GL Debug] Shader %v: Attribute '%s' not found!\n", s.name, name)
+		}
 	}
 }
 
 func (s *ShaderProgram_GL21) RegisterUniforms(names ...string) {
+	r := gfx.(*Renderer_GL21)
 	for _, name := range names {
-		s.u[name] = gl.GetUniformLocation(s.program, s.glStr(name))
+		loc := gl.GetUniformLocation(s.program, s.glStr(name))
+		s.u[name] = loc
+
+		if r.debugMode && loc == -1 {
+			fmt.Printf("[GL Debug] Shader %v: Uniform '%s' not found!\n", s.name, name)
+		}
 	}
 }
 
 func (s *ShaderProgram_GL21) RegisterTextures(names ...string) {
+	r := gfx.(*Renderer_GL21)
 	for _, name := range names {
-		s.u[name] = gl.GetUniformLocation(s.program, s.glStr(name))
+		loc := gl.GetUniformLocation(s.program, s.glStr(name))
+		s.u[name] = loc
 		s.t[name] = len(s.t)
+
+		if r.debugMode && loc == -1 {
+			fmt.Printf("[GL Debug] Shader %v: Texture uniform '%s' not found or optimized out!\n", s.name, name)
+		}
 	}
 }
 
@@ -573,14 +593,15 @@ func (r *Renderer_GL21) Init() {
 	}
 
 	// Compile postprocessing shaders
+	// TODO: We have a casing mismatch in the attributes
 
 	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
 	r.postShaderSelect = make([]*ShaderProgram_GL21, 1+len(sys.cfg.Video.ExternalShaders))
 
 	// Identity shader (no postprocessing)
 	identShader, _ := r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
-	identShader.RegisterAttributes("VertCoord", "TexCoord")
-	identShader.RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
+	identShader.RegisterAttributes("VertCoord")
+	//identShader.RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime") // None of these are used
 
 	// It should be the first one in OpenGL 2.1
 	r.postShaderSelect[0] = identShader
@@ -590,7 +611,7 @@ func (r *Renderer_GL21) Init() {
 		idx := i + 1
 		r.postShaderSelect[idx], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00", string(sys.externalShaders[1][i])+"\x00",
 			"", fmt.Sprintf("Postprocess Shader #%v", idx), true)
-		r.postShaderSelect[idx].RegisterAttributes("VertCoord", "TexCoord")
+		r.postShaderSelect[idx].RegisterAttributes("VertCoord")
 		r.postShaderSelect[idx].RegisterUniforms("Texture_GL21", "TextureSize", "CurrentTime")
 	}
 
@@ -772,6 +793,20 @@ func (r *Renderer_GL21) EnableDebug() {
 	fmt.Printf("[GL Debug] Debug mode enabled\n")
 }
 
+func (r *Renderer_GL21) DebugCheckLeaks(nextprog uint32) {
+	var enabled int32
+	leaked := []int{}
+	for slot := uint32(0); slot < 16; slot++ {
+		gl.GetVertexAttribiv(slot, gl.VERTEX_ATTRIB_ARRAY_ENABLED, &enabled)
+		if enabled != 0 {
+			leaked = append(leaked, int(slot))
+		}
+	}
+	if len(leaked) > 0 {
+		fmt.Printf("[GL Debug] Changing to program %d with program %d's attributes %v enabled.\n", nextprog, r.program, leaked)
+	}
+}
+
 func (r *Renderer_GL21) CheckErrors(label string) {
 	if !r.debugMode {
 		return
@@ -870,11 +905,17 @@ func (r *Renderer_GL21) EndFrame() {
 		fbo_texture = r.fbo_f_texture.handle
 	}
 
-	// disable blending
+	// Reset global state
+	r.DisableScissor()
 	r.SetBlending(false, 0, 0, 0)
+	r.SetDepthTest(false)
+	r.SetDepthMask(false)
 
 	for i := 0; i < len(r.postShaderSelect); i++ {
 		postShader := r.postShaderSelect[i]
+
+		// tell GL we want to use our shader program
+		r.ChangeProgram(postShader.program)
 
 		// this is here because it is undefined
 		// behavior to write to the same FBO
@@ -906,13 +947,17 @@ func (r *Renderer_GL21) EndFrame() {
 			gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		}
 
-		// tell GL we want to use our shader program
-		r.ChangeProgram(postShader.program)
-
 		// set post-processing parameters
-		gl.Uniform1i(postShader.u["Texture_GL21"], 0)
-		gl.Uniform2f(postShader.u["TextureSize"], float32(width), float32(height))
-		gl.Uniform1f(postShader.u["CurrentTime"], float32(time))
+		if loc, ok := postShader.u["Texture_GL21"]; ok && loc >= 0 {
+			r.SetUniformISub(loc, 0)
+		}
+		if loc, ok := postShader.u["TextureSize"]; ok && loc >= 0 {
+			r.SetUniformFSub(loc, float32(width), float32(height))
+		}
+		if loc, ok := postShader.u["CurrentTime"]; ok && loc >= 0 {
+			r.SetUniformFSub(loc, float32(time))
+		}
+
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, scaleMode)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, scaleMode)
 
@@ -929,7 +974,7 @@ func (r *Renderer_GL21) EndFrame() {
 		}
 
 		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
-		if loc, ok := postShader.a["TexCoord"]; ok && loc >= 0 {
+		if loc, ok := postShader.a["texcoord"]; ok && loc >= 0 {
 			tLoc := uint32(loc)
 			gl.EnableVertexAttribArray(tLoc)
 			gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
@@ -997,6 +1042,7 @@ func (r *Renderer_GL21) SetDepthTest(depthTest bool) {
 	}
 }
 
+// Note: This one defaults to enable so we must sync the cache early
 func (r *Renderer_GL21) SetDepthMask(depthMask bool) {
 	if depthMask != r.depthMask {
 		r.depthMask = depthMask
@@ -1043,6 +1089,12 @@ func (r *Renderer_GL21) ChangeProgram(prog uint32) {
 	// Same for TTF fonts
 	if r.program == gfxFont.(*FontRenderer_GL21).shaderProgram.program {
 		gfxFont.(*FontRenderer_GL21).ReleaseFontPipeline()
+	}
+
+	// State leak detector
+	// TODO: Just move to separate VAO's if we drop GL2.1
+	if r.debugMode {
+		r.DebugCheckLeaks(prog)
 	}
 
 	// Switch program
@@ -1113,9 +1165,8 @@ func (r *Renderer_GL21) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.Viewport(0, 0, 1024, 1024)
 	gl.Enable(gl.TEXTURE_2D)
 	gl.Disable(gl.BLEND)
-	gl.Enable(gl.DEPTH_TEST)
-	gl.DepthFunc(gl.LESS)
-	gl.DepthMask(true)
+	r.SetDepthTest(true)
+	r.SetDepthMask(true)
 	gl.BlendEquation(gl.FUNC_ADD)
 	gl.BlendFunc(gl.ONE, gl.ZERO)
 	if r.invertFrontFace {
@@ -1129,8 +1180,8 @@ func (r *Renderer_GL21) prepareShadowMapPipeline(bufferIndex uint32) {
 	} else {
 		gl.Disable(gl.CULL_FACE)
 	}
-	r.depthTest = true
-	r.depthMask = true
+	//r.depthTest = true
+	//r.depthMask = true
 	r.blendEquation = BlendAdd
 	r.blendSrc = BlendOne
 	r.blendDst = BlendZero
@@ -1253,8 +1304,8 @@ func (r *Renderer_GL21) ReleaseShadowPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
-	gl.DepthMask(true)
-	gl.Disable(gl.DEPTH_TEST)
+	r.SetDepthMask(true)
+	r.SetDepthTest(false)
 	gl.Disable(gl.CULL_FACE)
 	gl.Disable(gl.BLEND)
 	r.useJoint0 = false
@@ -1270,13 +1321,17 @@ func (r *Renderer_GL21) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	gl.Enable(gl.TEXTURE_CUBE_MAP)
 	gl.Enable(gl.BLEND)
 
+	/*
+	// These should be redundant now
 	if r.depthTest {
-		gl.Enable(gl.DEPTH_TEST)
+		r.SetDepthTest(true)
 		gl.DepthFunc(gl.LESS)
 	} else {
-		gl.Disable(gl.DEPTH_TEST)
+		r.SetDepthTest(false)
 	}
-	gl.DepthMask(r.depthMask)
+	r.SetDepthMask(r.depthMask)
+	*/
+
 	if r.invertFrontFace {
 		gl.FrontFace(gl.CW)
 	} else {
@@ -1507,8 +1562,8 @@ func (r *Renderer_GL21) ReleaseModelPipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	gl.VertexAttrib4f(uint32(loc), 0, 0, 0, 0)
 	//gl.Disable(gl.TEXTURE_2D)
-	gl.DepthMask(true)
-	gl.Disable(gl.DEPTH_TEST)
+	r.SetDepthMask(true)
+	r.SetDepthTest(false)
 	gl.Disable(gl.CULL_FACE)
 	r.useNormal = false
 	r.useTangent = false

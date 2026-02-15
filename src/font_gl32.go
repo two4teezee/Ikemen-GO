@@ -50,11 +50,11 @@ func (r *FontRenderer_GL32) Init(renderer interface{}) {
 	gl.BufferData(gl.ARRAY_BUFFER, MaxFontBatchSize*6*4*4, nil, gl.DYNAMIC_DRAW)
 
 	// Configure attributes
-	vLoc := uint32(r.shaderProgram.a["vert"])
+	vLoc := uint32(r.shaderProgram.attributes["vert"])
 	gl.EnableVertexAttribArray(vLoc)
 	gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
 
-	tLoc := uint32(r.shaderProgram.a["vertTexCoord"])
+	tLoc := uint32(r.shaderProgram.attributes["vertTexCoord"])
 	gl.EnableVertexAttribArray(tLoc)
 	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 
@@ -110,11 +110,11 @@ func (r *FontRenderer_GL32) SetFontPipeline() {
 	gl.BindVertexArray(r.vao)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vbo)
 
-	vLoc := uint32(r.shaderProgram.a["vert"])
+	vLoc := uint32(r.shaderProgram.attributes["vert"])
 	gl.EnableVertexAttribArray(vLoc)
 	gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
 
-	tLoc := uint32(r.shaderProgram.a["vertTexCoord"])
+	tLoc := uint32(r.shaderProgram.attributes["vertTexCoord"])
 	gl.EnableVertexAttribArray(tLoc)
 	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 }
@@ -146,13 +146,13 @@ func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32,
 	r.EnableScissor(window[0], window[1], window[2], window[3])
 
 	// Set texture location
-	r.SetUniformISub(program.u["tex"], 0)
+	r.SetUniformISub(program.uniforms["tex"], 0)
 
 	//set text color
-	r.SetUniformFSub(program.u["textColor"], f.color.r, f.color.g, f.color.b, f.color.a)
+	r.SetUniformFSub(program.uniforms["textColor"], f.color.r, f.color.g, f.color.b, f.color.a)
 
 	//set screen resolution
-	r.SetUniformFSub(program.u["resolution"], float32(f.windowWidth), float32(f.windowHeight))
+	r.SetUniformFSub(program.uniforms["resolution"], float32(f.windowWidth), float32(f.windowHeight))
 
 	gl.ActiveTexture(gl.TEXTURE0)
 	//gl.BindVertexArray(gfxFont.(*FontRenderer_GL32).vao)
@@ -235,7 +235,7 @@ func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32,
 func (f *Font_GL32) renderGlyphBatch(vertices []float32, textureID uint32) {
 	fr := gfxFont.(*FontRenderer_GL32)
 
-	gl.BindBuffer(gl.ARRAY_BUFFER, fr.vbo) 
+	gl.BindBuffer(gl.ARRAY_BUFFER, fr.vbo)
 	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertices)*4, gl.Ptr(vertices))
 
 	gl.BindTexture(gl.TEXTURE_2D, textureID)
@@ -243,9 +243,9 @@ func (f *Font_GL32) renderGlyphBatch(vertices []float32, textureID uint32) {
 }
 
 func (r *FontRenderer_GL32) ReleaseFontPipeline() {
-	locVert := r.shaderProgram.a["vert"]
+	locVert := r.shaderProgram.attributes["vert"]
 	gl.DisableVertexAttribArray(uint32(locVert))
-	locTex := r.shaderProgram.a["vertTexCoord"]
+	locTex := r.shaderProgram.attributes["vertTexCoord"]
 	gl.DisableVertexAttribArray(uint32(locTex))
 
 	//gl.BindVertexArray(0)
@@ -388,11 +388,6 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		pix := rgba.Pix
 		stride := int32(rgba.Stride) // This was added to unify desktop and Android
 
-		// Immediate exit if the glyph will never fit the atlas
-		if w > 256 || h > 256 {
-			return fmt.Errorf("glyph '%c' is too large (%dx%d) for the 256x256 texture atlas", ch, w, h)
-		}
-
 		for {
 			if textureIndex >= len(f.textures) {
 				f.textures = append(f.textures, CreateTextureAtlas(256, 256, 32, true))
@@ -400,7 +395,7 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 
 			var inserted bool
 			uv, inserted = f.textures[textureIndex].AddImage(w, h, stride, pix)
-			
+
 			if inserted {
 				break
 			}

@@ -1249,6 +1249,7 @@ func (ho *HitOverride) clear() {
 }
 
 type MoveHitVar struct {
+	power             int32
 	cornerpush_veloff float32
 	frame             bool
 	overridden        bool
@@ -1656,6 +1657,7 @@ type Explod struct {
 	interpolate_fLength  [2]float32
 	interpolate_xshear   [2]float32
 	timestamp            int32 // Determines run order
+	sortindex            int // For faster run order sorting
 }
 
 func newExplod() *Explod {
@@ -10742,15 +10744,13 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	// Power management
 	if hitResult > 0 {
 		if Abs(hitResult) == 1 {
-			c.powerAdd(hd.hitgetpower)
+			c.mhv.power += hd.hitgetpower
 			if getter.isPlayerType() {
-				getter.powerAdd(hd.hitgivepower)
 				getter.ghv.power += hd.hitgivepower
 			}
 		} else {
-			c.powerAdd(hd.guardgetpower)
+			c.mhv.power += hd.guardgetpower
 			if getter.isPlayerType() {
-				getter.powerAdd(hd.guardgivepower)
 				getter.ghv.power += hd.guardgivepower
 			}
 		}
@@ -11351,7 +11351,6 @@ func (c *Char) actionRun() {
 		}
 		c.ghv.hitdamage = 0
 		c.ghv.guarddamage = 0
-		c.ghv.power = 0
 		c.ghv.hitpower = 0
 		c.ghv.guardpower = 0
 		c.ghv.keepstate = false
@@ -11428,6 +11427,16 @@ func (c *Char) actionRun() {
 			c.gi().pctime++
 		}
 		c.makeDustSpacing++
+	}
+	// In Mugen these happen instantly instead of in the next frame
+	// This way is more consistent with damage, however
+	if c.ghv.power != 0 {
+		c.powerAdd(c.ghv.power)
+		c.ghv.power = 0
+	}
+	if c.mhv.power != 0 {
+		c.powerAdd(c.mhv.power)
+		c.mhv.power = 0
 	}
 	c.xScreenBound()
 	c.zDepthBound()
@@ -12365,8 +12374,40 @@ func (cl *CharList) add(c *Char) {
 	cl.idMap[c.id] = c
 }
 
+func (cl *CharList) delete(dc *Char) {
+	// Remove the char pointer from the idMap directly
+	// This is safer than removing by ID
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3247
+	for k, v := range sys.charList.idMap {
+		if v == dc {
+			delete(sys.charList.idMap, k)
+			// Just in case, don't break so we also remove eventual duplicates
+			//break
+		}
+	}
+
+	// Remove char from creationOrder
+	for i, c := range cl.creationOrder {
+		if c == dc {
+			cl.creationOrder = SliceDelete(cl.creationOrder, i)
+			//break
+		}
+	}
+
+	// Remove char from runOrder
+	for i, c := range cl.runOrder {
+		if c == dc {
+			cl.runOrder = SliceDelete(cl.runOrder, i)
+			//break
+		}
+	}
+	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper
+	// However not reusing it creates a more predictable drawing order
+}
+
 func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
-	// Find the old character occupying the slow
+	// Find the old character occupying the slot
+	// We cannot look at sys.chars directly because that has already been updated to the new char
 	var oldChar *Char
 	for _, c := range cl.creationOrder {
 		if c.playerNo == pn && c.helperIndex == idx {
@@ -12383,29 +12424,6 @@ func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
 	}
 
 	return false
-}
-
-func (cl *CharList) delete(dc *Char) {
-	// Remove char from idMap
-	delete(cl.idMap, dc.id)
-
-	// Remove char from creationOrder
-	for i, c := range cl.creationOrder {
-		if c == dc {
-			cl.creationOrder = SliceDelete(cl.creationOrder, i)
-			break
-		}
-	}
-
-	// Remove char from runOrder
-	for i, c := range cl.runOrder {
-		if c == dc {
-			cl.runOrder = SliceDelete(cl.runOrder, i)
-			return
-		}
-	}
-	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper
-	// However not reusing it creates a more predictable drawing order
 }
 
 func (cl *CharList) commandUpdate() {
@@ -12523,16 +12541,19 @@ func (cl *CharList) updateRunOrder() {
 	}
 
 	// Sort by priority
-	sort.SliceStable(cl.runOrder, func(i, j int) bool {
-		pri := getPriority(cl.runOrder[i])
-		prj := getPriority(cl.runOrder[j])
+	sort.Slice(cl.runOrder, func(i, j int) bool {
+		chari := cl.runOrder[i]
+		charj := cl.runOrder[j]
+		pri := getPriority(chari)
+		prj := getPriority(charj)
 		// If priorities are different, sort by priority
 		if pri != prj {
 			return pri > prj
 		}
 		// Otherwise run lower ID first
 		// This makes the order more predictable
-		return cl.runOrder[i].id < cl.runOrder[j].id
+		// The fact we have ID's to fall back on also means we don't need SliceStable
+		return chari.id < charj.id
 	})
 
 	// Reset priority flags as they are only needed during this function
@@ -12721,7 +12742,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 							}
 							// Successful ReversalDef
 							if c.hitdef.reversal_attr > 0 {
-								c.powerAdd(c.hitdef.hitgetpower)
+								c.mhv.power += c.hitdef.hitgetpower
 
 								// Precompute localcoord conversion factor
 								scaleratio := c.localscl / getter.localscl
@@ -13231,33 +13252,39 @@ func (cl *CharList) pushDetection(getter *Char) {
 }
 
 func (cl *CharList) collisionDetection() {
-	// Temp sorting list
-	sorting := make([][2]int, len(cl.runOrder)) // [2]int{index, priority}
+	// Temp slice for sorting
+	sortedOrder := make([]int, len(cl.runOrder))
+	for i := range sortedOrder {
+		sortedOrder[i] = i
+	}
 
-	// Decide priority of each player
+	// Helper to decide the hit detection priority of each player
 	// TODO: Maybe this could also be affected by runfirst/runlast
-	for i, c := range cl.runOrder {
-		var pr int
+	getPr := func(c *Char) int {
 		if c.hitdef.reversal_attr > 0 { // ReversalDef first
-			pr = 2
-		} else if c.hitdef.attr > 0 { // Then HitDef
-			pr = 1
-		} else { // Everyone else
-			pr = 0
+			return 2
 		}
-		sorting[i] = [2]int{i, pr}
+		if c.hitdef.attr > 0 { // Then HitDef
+			return 1
+		}
+		return 0
 	}
 
-	// Sort by priority
-	sort.SliceStable(sorting, func(i, j int) bool {
-		return sorting[i][1] > sorting[j][1]
+	// Sort players by priority
+	// Using runOrder or creationOrder here probably has the same result
+	sort.Slice(sortedOrder, func(i, j int) bool {
+		chari := cl.runOrder[sortedOrder[i]]
+		charj := cl.runOrder[sortedOrder[j]]
+		pri := getPr(chari)
+		prj := getPr(charj)
+
+		if pri != prj {
+			return pri > prj
+		}
+
+		// Fallback to ID's
+		return chari.id < charj.id
 	})
-
-	// Create the new sorted list
-	sortedOrder := make([]int, len(sorting))
-	for i := 0; i < len(sorting); i++ {
-		sortedOrder[i] = sorting[i][0]
-	}
 
 	// Push detection for players
 	// This must happen before hit detection

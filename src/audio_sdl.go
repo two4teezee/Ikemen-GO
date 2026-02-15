@@ -62,12 +62,12 @@ func (s *SDLSpeaker) Init(sampleRate beep.SampleRate, bufferSize int) error {
 	sdl.PauseAudioDevice(s.dev, false)
 
 	// Start the audio pushing thread
-	go func() {
+	SafeGo(func() {
 		for true {
 			s.FillAudio()
 			time.Sleep(time.Millisecond * 17) // prevents fans from going crazy on Android handhelds
 		}
-	}()
+	})
 
 	return nil
 }

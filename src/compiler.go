@@ -7536,6 +7536,7 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 	c.lines, c.i = SplitAndTrim(src, "\n"), 0
 	c.linechan = make(chan *string)
 	endchan := make(chan bool, 1)
+
 	stop := func() int {
 		if c.linechan == nil {
 			return 0
@@ -7553,7 +7554,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 		}
 	}
 	defer stop()
-	go func() {
+
+	SafeGo(func() {
 		i := c.i
 		for {
 			select {
@@ -7572,7 +7574,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 			}
 			c.linechan <- sp
 		}
-	}()
+	})
+
 	errmes := func(err error) error {
 		return Error(fmt.Sprintf("%v:%v:\n%v", filename, stop(), err.Error()))
 	}

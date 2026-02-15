@@ -486,7 +486,7 @@ func (s *System) init(w, h int32) *lua.LState {
 		}
 
 		// Error print?
-		go func() {
+		SafeGo(func() {
 			stdin := bufio.NewScanner(os.Stdin)
 			for stdin.Scan() {
 				if err := stdin.Err(); err != nil {
@@ -495,7 +495,7 @@ func (s *System) init(w, h int32) *lua.LState {
 				}
 				s.commandLine <- stdin.Text()
 			}
-		}()
+		})
 	}
 	return l
 }

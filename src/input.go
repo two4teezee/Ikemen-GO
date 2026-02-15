@@ -2024,7 +2024,7 @@ func (nc *NetConnection) Accept(port string) error {
 	nc.locIn, nc.remIn = nc.GetHostGuestRemap()
 
 	lnLocal := nc.ln
-	go func() {
+	SafeGo(func() {
 		defer lnLocal.Close()
 
 		tempConn, err := lnLocal.AcceptTCP()
@@ -2067,7 +2067,7 @@ func (nc *NetConnection) Accept(port string) error {
 			return
 		}
 		nc.conn = tempConn
-	}()
+	})
 
 	return nil
 }
@@ -2077,7 +2077,7 @@ func (nc *NetConnection) Connect(server, port string) {
 	nc.conn = nil // Make sure this is a new connection
 	nc.remIn, nc.locIn = nc.GetHostGuestRemap()
 
-	go func() {
+	SafeGo(func() {
 		d := net.Dialer{Timeout: 1 * time.Second}
 		for {
 			if nc.isClosing() {
@@ -2125,7 +2125,7 @@ func (nc *NetConnection) Connect(server, port string) {
 			nc.conn = tcpConn
 			return
 		}
-	}()
+	})
 }
 
 func (nc *NetConnection) IsConnected() bool {

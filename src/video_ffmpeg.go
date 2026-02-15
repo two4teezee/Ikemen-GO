@@ -205,7 +205,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 	bgv.haveBasePTS = false
 
 	// Decode loop. When EOF is reached and loop==true, rewind to t=0 and continue.
-	go func() {
+	SafeGo(func() {
 		defer close(bgv.done)
 		for {
 			// Allow external shutdown.
@@ -273,7 +273,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 		close(bgv.frameBuffer)
 		close(bgv.audioBuffer)
 		close(bgv.errs)
-	}()
+	})
 
 	return nil
 }

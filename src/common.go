@@ -1637,3 +1637,16 @@ func RecoverOrAppend[T any](slicePtr *[]*T, clearFunc func(*T), newFunc func() *
 	*slicePtr = append(*slicePtr, item)
 	return item
 }
+
+// Ensures panics in a separate goroutine are caught and logged
+// Should be used in place of "go func()"
+func SafeGo(f func()) {
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				handlePanic(r)
+			}
+		}()
+		f()
+	}()
+}

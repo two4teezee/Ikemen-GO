@@ -370,7 +370,7 @@ func handlePanic(r interface{}) {
 	os.MkdirAll(logDir, 0755)
 	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644); err == nil {
 		fmt.Fprintf(f, "%s\n%s\n%s\n%s\n%s\nTimestamp: %s\n\n%s\n\nError: %s\n\n%s",
-			version, platform, render, memory, threads,
+			version, buildTime, platform, render, memory, threads,
 			now.Format("2006-01-02 15:04:05"), crashType, errStr, goStack)
 		f.Close()
 	}

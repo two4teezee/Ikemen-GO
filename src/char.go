@@ -12381,11 +12381,11 @@ func (cl *CharList) delete(dc *Char) {
 	// Remove the char pointer from the idMap directly
 	// This is safer than removing by ID
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/3247
-	for k, v := range sys.charList.idMap {
+	for k, v := range cl.idMap {
 		if v == dc {
-			delete(sys.charList.idMap, k)
+			delete(cl.idMap, k)
 			// Just in case, don't break so we also remove eventual duplicates
-			//break
+			break
 		}
 	}
 
@@ -12393,7 +12393,7 @@ func (cl *CharList) delete(dc *Char) {
 	for i, c := range cl.creationOrder {
 		if c == dc {
 			cl.creationOrder = SliceDelete(cl.creationOrder, i)
-			//break
+			break
 		}
 	}
 
@@ -12401,7 +12401,7 @@ func (cl *CharList) delete(dc *Char) {
 	for i, c := range cl.runOrder {
 		if c == dc {
 			cl.runOrder = SliceDelete(cl.runOrder, i)
-			//break
+			break
 		}
 	}
 	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper

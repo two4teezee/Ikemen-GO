@@ -1057,7 +1057,7 @@ func (at AnimationTable) get(no int32) *Animation {
 	return ret
 }
 
-type SprData struct {
+type SpriteData struct {
 	anim         *Animation
 	pfx          *PalFX
 	pos          [2]float32
@@ -1072,20 +1072,40 @@ type SprData struct {
 	airOffsetFix [2]float32 // posLocalscl replacement
 	projection   int32
 	fLength      float32
+	xshear       float32
 	window       [4]float32
 	syncId       int32 // Synchronization target ID
 	syncLayer    int32 // Layer for synchronized drawing
 	syncGroup    int   // Used to group syncId's in chunks before drawing
-	xshear       float32
 }
 
-func (sd *SprData) isBlank() bool {
+func newSpriteData() *SpriteData {
+	return &SpriteData{
+		trans:        TT_default,
+		alpha:        [2]int32{255, 0},
+		airOffsetFix: [2]float32{1, 1},
+	}
+}
+
+func (sd *SpriteData) isBlank() bool {
 	return sd.scl[0] == 0 || sd.scl[1] == 0 || sd.anim == nil || sd.anim.isBlank()
 }
 
-type DrawList []*SprData
+func (sd *SpriteData) AddToDrawlist(layer int32, under bool) {
+	if layer > 0 {
+		sys.spritesLayer1.add(sd)
+	} else if layer < 0 {
+		sys.spritesLayerN1.add(sd)
+	} else if under {
+		sys.spritesLayerU.add(sd)
+	} else {
+		sys.spritesLayer0.add(sd)
+	}
+}
 
-func (dl *DrawList) add(sd *SprData) {
+type DrawList []*SpriteData
+
+func (dl *DrawList) add(sd *SpriteData) {
 	// Ignore if skipping the frame or adding a blank sprite
 	if sys.frameSkip || sd == nil || sd.isBlank() {
 		return
@@ -1163,7 +1183,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 	for i := len(dl) - 1; i >= 0; i-- {
 		s := dl[i]
 
-		// Skip blank SprData
+		// Skip blank SpriteData
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433
 		if s.isBlank() {
 			continue
@@ -1242,7 +1262,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 }
 
 type ShadowSprite struct {
-	*SprData
+	*SpriteData
 	groundLevel         float32
 	shadowColor         int32
 	shadowAlpha         int32
@@ -1258,11 +1278,21 @@ type ShadowSprite struct {
 	shadowfLength       float32
 }
 
+func newShadowSprite() *ShadowSprite {
+	return &ShadowSprite{
+		shadowColor:         -1,
+		shadowAlpha:         255,
+		shadowIntensity:     -1,
+		shadowKeeptransform: true,
+		shadowProjection:    -1,
+	}
+}
+
 type ShadowList []*ShadowSprite
 
 func (sl *ShadowList) add(ss *ShadowSprite) {
 	// Ignore if skipping the frame or adding a blank sprite
-	if sys.frameSkip || ss.SprData == nil || ss.SprData.isBlank() {
+	if sys.frameSkip || ss.SpriteData == nil || ss.SpriteData.isBlank() {
 		return
 	}
 
@@ -1490,7 +1520,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 }
 
 type ReflectionSprite struct {
-	*SprData
+	*SpriteData
 	groundLevel          float32
 	reflectColor         int32
 	reflectIntensity     int32
@@ -1505,10 +1535,19 @@ type ReflectionSprite struct {
 	reflectfLength       float32
 }
 
+func newReflectionSprite() *ReflectionSprite {
+	return &ReflectionSprite{
+		reflectColor:         -1,
+		reflectIntensity:     -1,
+		reflectKeeptransform: true,
+		reflectProjection:    -1,
+	}
+}
+
 type ReflectionList []*ReflectionSprite
 
 func (rl *ReflectionList) add(rs *ReflectionSprite) {
-	if sys.frameSkip || rs.SprData == nil || rs.SprData.isBlank() {
+	if sys.frameSkip || rs.SpriteData == nil || rs.SpriteData.isBlank() {
 		return
 	}
 

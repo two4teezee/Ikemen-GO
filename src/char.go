@@ -1462,7 +1462,7 @@ func (ai *AfterImage) setup(c *Char) {
 	ai.needsetup = false
 }
 
-func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
+func (ai *AfterImage) recAfterImg(sd *SpriteData, hitpause bool) {
 	if ai.time == 0 {
 		ai.reccount, ai.timegap = 0, 0
 		return
@@ -1516,15 +1516,7 @@ func (ai *AfterImage) isActive() bool {
 	return true
 }
 
-func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
-	// Decide layering
-	sprs := &sys.spritesLayer0
-	if layer > 0 {
-		sprs = &sys.spritesLayer1
-	} else if layer < 0 {
-		sprs = &sys.spritesLayerN1
-	}
-
+func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
 	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
@@ -1549,24 +1541,28 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 			}
 
 			ai.palfx[step].remap = sd.pfx.remap
-			sprs.add(&SprData{
-				anim:         img.anim,
-				pfx:          ai.palfx[step],
-				pos:          img.pos,
-				scl:          img.scl,
-				trans:        ai.trans,
-				alpha:        ai.alpha,
-				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
-				rot:          img.rot,
-				screen:       screen_space,
-				undarken:     sd.undarken,
-				facing:       sd.facing,
-				airOffsetFix: sd.airOffsetFix,
-				projection:   img.projection,
-				fLength:      img.fLength,
-				window:       sd.window,
-				xshear:       sd.xshear,
-			})
+
+			// Prepare AfterImage sprite data
+			imgsd := newSpriteData()
+			imgsd.anim = img.anim
+			imgsd.pfx = ai.palfx[step]
+			imgsd.pos = img.pos
+			imgsd.scl = img.scl
+			imgsd.trans = ai.trans
+			imgsd.alpha = ai.alpha
+			imgsd.priority = img.priority - step // Afterimages decrease in sprpriority over time
+			imgsd.rot = img.rot
+			imgsd.screen = screen_space
+			imgsd.undarken = sd.undarken
+			imgsd.facing = sd.facing
+			imgsd.airOffsetFix = sd.airOffsetFix
+			imgsd.projection = img.projection
+			imgsd.fLength = img.fLength
+			imgsd.window = sd.window
+			imgsd.xshear = sd.xshear
+
+			// Add sprite to the appropriate layer's drawlist
+			sd.AddToDrawlist(layer, false)
 
 			// Track number of afterimage sprites used by this player
 			sys.afterImageCount[playerNo]++
@@ -1879,11 +1875,8 @@ func (e *Explod) setAnimElem() {
 }
 
 func (e *Explod) update() {
-	if e.anim == nil {
+	if e.id == IErr || e.anim == nil {
 		e.id = IErr
-	}
-
-	if e.id == IErr {
 		e.anim = nil
 		return
 	}
@@ -2017,15 +2010,6 @@ func (e *Explod) update() {
 		e.anim.UpdateSprite()
 	}
 
-	sprs := &sys.spritesLayer0
-	if e.layerno > 0 {
-		sprs = &sys.spritesLayer1
-	} else if e.layerno < 0 {
-		sprs = &sys.spritesLayerN1
-	} else if e.under {
-		sprs = &sys.spritesLayerU
-	}
-
 	var pfx *PalFX
 	if e.palfx != nil && (!e.anim.isCommonFX() || e.ownpal) {
 		pfx = e.palfx
@@ -2105,25 +2089,24 @@ func (e *Explod) update() {
 		e.window[3] * basescale[1],
 	}
 
-	// Add sprite to draw list
-	sd := &SprData{
-		anim:         e.anim,
-		pfx:          pfx,
-		pos:          drawpos,
-		scl:          drawscale,
-		trans:        e.trans,
-		alpha:        alp,
-		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
-		rot:          rot,
-		screen:       e.space == Space_screen,
-		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		facing:       facing,
-		airOffsetFix: [2]float32{1, 1},
-		projection:   int32(e.projection),
-		fLength:      fLength,
-		window:       ewin,
-		xshear:       xshear,
-	}
+	// Prepare sprite data
+	sd := newSpriteData()
+	sd.anim = e.anim
+	sd.pfx = pfx
+	sd.pos = drawpos
+	sd.scl = drawscale
+	sd.trans = e.trans
+	sd.alpha = alp
+	sd.priority = e.sprpriority + int32(e.interPos[2]*e.localscl)
+	sd.rot = rot
+	sd.screen = e.space == Space_screen
+	sd.undarken = parent != nil && parent.ignoreDarkenTime > 0
+	sd.facing = facing
+	sd.projection = int32(e.projection)
+	sd.fLength = fLength
+	sd.window = ewin
+	sd.xshear = xshear
+
 	if e.syncId > 0 {
 		sd.syncId = e.syncId
 		sd.syncLayer = e.syncLayer
@@ -2140,12 +2123,13 @@ func (e *Explod) update() {
 		}
 	}
 
-	// Add to drawlist
-	sprs.add(sd)
+	// Add sprite to the appropriate layer's drawlist
+	sd.AddToDrawlist(e.layerno, e.under)
 
-	// Add shadow if color is not 0
+	// Determine shadow color
 	sdwclr := e.shadow[0]<<16 | e.shadow[1]&0xff<<8 | e.shadow[2]&0xff
 
+	// Add shadow if color is not 0
 	if sdwclr != 0 {
 		sdwalp := 255 - alp[1]
 		if sdwalp < 0 {
@@ -2153,23 +2137,25 @@ func (e *Explod) update() {
 		}
 		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
 
-		// Add shadow sprite
-		sys.shadows.add(&ShadowSprite{
-			SprData:      sd,
-			shadowColor:  sdwclr,
-			shadowAlpha:  sdwalp,
-			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			groundLevel:  drawZoff,
-		})
+		// Prepare shadow sprite
+		ss := newShadowSprite()
+		ss.SpriteData = sd
+		ss.shadowColor = sdwclr
+		ss.shadowAlpha = sdwalp
+		ss.shadowOffset = [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff}
+		ss.groundLevel = drawZoff
 
-		// Add reflection sprite
-		sys.reflections.add(&ReflectionSprite{
-			SprData:       sd,
-			reflectColor:     -1,
-			reflectIntensity: -1,
-			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			groundLevel:   drawZoff,
-		})
+		// Add shadow to list
+		sys.shadows.add(ss)
+
+		// Prepare reflection sprite
+		rs := newReflectionSprite()
+		rs.SpriteData = sd
+		rs.reflectOffset = [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff}
+		rs.groundLevel = drawZoff
+
+		// Add reflection to list
+		sys.reflections.add(rs)
 	}
 
 	if sys.tickNextFrame() {
@@ -2718,13 +2704,18 @@ func (p *Projectile) tick() {
 }
 
 func (p *Projectile) cueDraw() {
+	// Nothing to draw here. Not even debug
+	if p.anim == nil {
+		return
+	}
+
 	notpause := p.hitpause <= 0 && !p.paused()
-	if sys.tickFrame() && p.anim != nil && notpause {
+	if notpause && sys.tickFrame() {
 		p.anim.UpdateSprite()
 	}
 
 	// Projectile Clsn display
-	if sys.clsnDisplay && p.anim != nil {
+	if sys.clsnDisplay {
 		if frm := p.anim.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
@@ -2742,8 +2733,8 @@ func (p *Projectile) cueDraw() {
 	}
 
 	if sys.tickNextFrame() && (notpause || !p.paused()) {
-		if p.anim != nil && notpause {
-			p.anim.Action()
+		if notpause {
+			p.anim.Action() // TODO: Placing this in cueDraw is a bit unusual. Confirm if it's right
 		}
 	}
 
@@ -2785,13 +2776,6 @@ func (p *Projectile) cueDraw() {
 	rot.xangle = anglerot[1]
 	rot.yangle = anglerot[2]
 
-	sprs := &sys.spritesLayer0
-	if p.layerno > 0 {
-		sprs = &sys.spritesLayer1
-	} else if p.layerno < 0 {
-		sprs = &sys.spritesLayerN1
-	}
-
 	var pwin = [4]float32{
 		p.window[0] * basescale[0],
 		p.window[1] * basescale[1],
@@ -2799,62 +2783,60 @@ func (p *Projectile) cueDraw() {
 		p.window[3] * basescale[1],
 	}
 
-	if p.anim != nil {
-		// Add sprite to draw list
-		sd := &SprData{
-			anim:         p.anim,
-			pfx:          p.palfx,
-			pos:          pos,
-			scl:          drawscale,
-			trans:        TT_default,
-			alpha:        [2]int32{-1, 0},
-			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
-			rot:          rot,
-			screen:       false,
-			undarken:     p.owner() != nil && p.owner().ignoreDarkenTime > 0,
-			facing:       p.facing,
-			airOffsetFix: [2]float32{1, 1},
-			projection:   int32(p.projection),
-			fLength:      fLength,
-			window:       pwin,
-			xshear:       p.xshear,
+	// Prepare sprite data
+	sd := newSpriteData()
+	sd.anim = p.anim
+	sd.pfx = p.palfx
+	sd.pos = pos
+	sd.scl = drawscale
+	sd.trans = TT_default
+	sd.alpha = [2]int32{-1, 0}
+	sd.priority = p.sprpriority + int32(p.pos[2]*p.localscl)
+	sd.rot = rot
+	sd.undarken = p.owner() != nil && p.owner().ignoreDarkenTime > 0
+	sd.facing = p.facing
+	sd.projection = int32(p.projection)
+	sd.fLength = fLength
+	sd.window = pwin
+	sd.xshear = p.xshear
+
+	// Add sprite to the appropriate layer's drawlist
+	sd.AddToDrawlist(p.layerno, false)
+
+	// Record afterimage
+	if p.aimg != nil {
+		if p.aimg.isActive() {
+			p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false, p.layerno, false)
+		} else {
+			p.aimg = nil
 		}
+	}
 
-		// Record afterimage
-		if p.aimg != nil {
-			if p.aimg.isActive() {
-				p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false, p.layerno, false)
-			} else {
-				p.aimg = nil
-			}
-		}
+	// Determine shadow color
+	sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 
-		sprs.add(sd)
+	// Add a shadow if color is not 0
+	if sdwclr != 0 {
+		drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
 
-		// Add a shadow if color is not 0
-		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
+		// Prepare shadow sprite
+		ss := newShadowSprite()
+		ss.SpriteData = sd
+		ss.shadowColor = sdwclr
+		ss.shadowOffset = [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff}
+		ss.groundLevel = drawZoff
 
-		if sdwclr != 0 {
-			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
+		// Add shadow to list
+		sys.shadows.add(ss)
 
-			// Add shadow
-			sys.shadows.add(&ShadowSprite{
-				SprData:      sd,
-				shadowColor:  sdwclr,
-				shadowAlpha:  255,
-				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-				groundLevel:  drawZoff,
-			})
+		// Prepare reflection sprite
+		rs := newReflectionSprite()
+		rs.SpriteData = sd
+		rs.reflectOffset = [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff}
+		rs.groundLevel = drawZoff
 
-			// Add reflection
-			sys.reflections.add(&ReflectionSprite{
-				SprData:       sd,
-				reflectColor:     -1,
-				reflectIntensity: -1,
-				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-				groundLevel:   drawZoff,
-			})
-		}
+		// Add reflection to list
+		sys.reflections.add(rs)
 	}
 }
 
@@ -12088,8 +12070,10 @@ func (c *Char) cueDraw() {
 	if c.helperIndex < 0 || c.scf(SCF_disabled) {
 		return
 	}
+
 	// Add debug info
 	c.cueDebugDraw()
+
 	// Add char sprite
 	if c.anim != nil {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
@@ -12173,25 +12157,24 @@ func (c *Char) cueDraw() {
 			anim = c.animBackup
 		}
 
-		// Define sprite data
-		charSD := &SprData{
-			anim:         anim,
-			pfx:          c.getPalfx(),
-			pos:          pos,
-			scl:          drawscale,
-			trans:        c.trans,
-			alpha:        c.alpha,
-			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
-			rot:          rot,
-			screen:       false,
-			undarken:     c.ignoreDarkenTime > 0,
-			facing:       c.facing,
-			airOffsetFix: airOffsetFix,
-			projection:   int32(c.projection),
-			fLength:      fLength,
-			xshear:       c.xshear,
-			window:       cwin,
-		}
+		// Prepare sprite data
+		charSD := newSpriteData()
+		charSD.anim = anim
+		charSD.pfx = c.getPalfx()
+		charSD.pos = pos
+		charSD.scl = drawscale
+		charSD.trans = c.trans
+		charSD.alpha = c.alpha
+		charSD.priority = c.sprPriority + int32(c.pos[2]*c.localscl)
+		charSD.rot = rot
+		charSD.undarken = c.ignoreDarkenTime > 0
+		charSD.facing = c.facing
+		charSD.airOffsetFix = airOffsetFix
+		charSD.projection = int32(c.projection)
+		charSD.fLength = fLength
+		charSD.xshear = c.xshear
+		charSD.window = cwin
+
 		if c.enableSyncId {
 			charSD.syncId = c.id
 			charSD.syncLayer = 0 // Character body is always at layer 0
@@ -12211,19 +12194,10 @@ func (c *Char) cueDraw() {
 			charSD.pos[0] -= c.facing
 		}
 
-		// Draw char according to layer number
-		sprs := &sys.spritesLayer0
-		if c.layerNo > 0 {
-			sprs = &sys.spritesLayer1
-		} else if c.layerNo < 0 {
-			sprs = &sys.spritesLayerN1
-		} else if c.asf(ASF_drawunder) {
-			sprs = &sys.spritesLayerU
-		}
-
 		if !c.asf(ASF_invisible) {
-			// Add sprite to draw list
-			sprs.add(charSD)
+
+			// Add sprite to the appropriate layer's drawlist
+			sd.AddToDrawlist(c.layerno, c.asf(ASF_drawunder))
 
 			// Add shadow and reflection
 			if !c.asf(ASF_noshadow) {
@@ -12237,9 +12211,6 @@ func (c *Char) cueDraw() {
 					shadowSDcopy.anim.curelem = c.shadowAnimelem
 					shadowSD = &shadowSDcopy
 				}
-				// Shadow modifiers
-				sdwalp := 255 - c.alpha[1]
-				sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
 
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
 				// That doesn't seem to actually happen in either Winmugen or Mugen 1.1
@@ -12253,42 +12224,47 @@ func (c *Char) cueDraw() {
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
 
+				// Determine shadow scale
 				// Get the Yscale defined by ModifyShadow/Reflection or keep the one from the stage
+				sdwXscale := sys.stage.sdw.xscale
 				sdwYscale := sys.stage.sdw.yscale
 				if c.shadowYscale != 0 {
 					sdwYscale = c.shadowYscale
 				}
-
-				refYscale := sys.stage.reflection.yscale
-				if c.reflectYscale != 0 {
-					refYscale = c.reflectYscale
+				if c.shadowXscale != 0 {
+					sdwXscale = c.shadowXscale
 				}
 
-				sdwKeeptransform := c.shadowKeeptransform
-				if !c.shadowKeeptransform {
-					sdwKeeptransform = false
+				// Prepare shadow sprite
+				ss := newShadowSprite()
+				ss.SpriteData = shadowSD
+				ss.shadowAlpha = 255 - c.alpha[1]
+				ss.shadowOffset = [2]float32{
+					c.shadowOffset[0] * c.localscl,
+					(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 				}
+				ss.groundLevel = c.offsetY() + drawZoff
 
-				// Add shadow to shadow list
-				sys.shadows.add(&ShadowSprite{
-					SprData:             shadowSD,
-					shadowColor:         sdwclr,
-					shadowAlpha:         sdwalp,
-					shadowIntensity:     c.shadowIntensity,
-					shadowKeeptransform: sdwKeeptransform,
-					shadowOffset: [2]float32{
-						c.shadowOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
-					},
-					shadowWindow:     c.shadowWindow,
-					shadowXscale:     c.shadowXscale,
-					shadowXshear:     c.shadowXshear,
-					shadowYscale:     c.shadowYscale,
-					shadowRot:        c.shadowRot,
-					shadowProjection: int32(c.shadowProjection),
-					shadowfLength:    c.shadowfLength,
-					groundLevel:      c.offsetY() + drawZoff,
-				})
+				// Apply shadow overrides
+				if c.shadowColor[0] >= 0 {
+					ss.shadowColor = c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+				}
+				if c.shadowIntensity >= 0 {
+					ss.shadowIntensity = c.shadowIntensity
+				}
+				ss.shadowXscale = sdwXscale
+				ss.shadowYscale = sdwYscale
+				ss.shadowKeeptransform = c.shadowKeeptransform
+				ss.shadowWindow = c.shadowWindow
+				ss.shadowXshear = c.shadowXshear
+				ss.shadowRot = c.shadowRot
+				if c.shadowProjection != -1 {
+					ss.shadowProjection = int32(c.shadowProjection)
+				}
+				ss.shadowfLength = c.shadowfLength
+
+				// Add shadow to list
+				sys.shadows.add(ss)
 
 				// Default reflection to same sprite data as char
 				reflectSD := charSD
@@ -12301,33 +12277,45 @@ func (c *Char) cueDraw() {
 					reflectSD = &reflectSDcopy
 				}
 
-				// Reflection modifiers
-				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
-
-				reflectKeeptransform := c.reflectKeeptransform
-				if !c.reflectKeeptransform {
-					reflectKeeptransform = false
+				// Determine reflection scale
+				refXscale := sys.stage.reflection.xscale
+				refYscale := sys.stage.reflection.yscale
+				if c.reflectXscale != 0 {
+					refXscale = c.reflectXscale
+				}
+				if c.reflectYscale != 0 {
+					refYscale = c.reflectYscale
 				}
 
-				// Add reflection to reflection list
-				sys.reflections.add(&ReflectionSprite{
-					SprData:              reflectSD,
-					reflectColor:         reflectclr,
-					reflectIntensity:     c.reflectIntensity,
-					reflectKeeptransform: reflectKeeptransform,
-					reflectOffset: [2]float32{
-						c.reflectOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
-					},
-					reflectWindow:     c.reflectWindow,
-					reflectXscale:     c.reflectXscale,
-					reflectXshear:     c.reflectXshear,
-					reflectYscale:     c.reflectYscale,
-					reflectRot:        c.reflectRot,
-					reflectProjection: int32(c.reflectProjection),
-					reflectfLength:    c.reflectfLength,
-					groundLevel:       c.offsetY() + drawZoff,
-				})
+				// Prepare reflection sprite
+				rs := newReflectionSprite()
+				rs.SpriteData = reflectSD
+				rs.reflectOffset = [2]float32{
+					c.reflectOffset[0] * c.localscl,
+					(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
+				}
+				rs.groundLevel = c.offsetY() + drawZoff
+
+				// Apply reflection overrides
+				if c.reflectColor[0] >= 0 {
+					rs.reflectColor = c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
+				}
+				if c.reflectIntensity >= 0 {
+					rs.reflectIntensity = c.reflectIntensity
+				}
+				rs.reflectXscale = refXscale
+				rs.reflectYscale = refYscale
+				rs.reflectKeeptransform = c.reflectKeeptransform
+				rs.reflectRot = c.reflectRot
+				rs.reflectWindow = c.reflectWindow
+				rs.reflectXshear = c.reflectXshear
+				if c.reflectProjection != -1 {
+					rs.reflectProjection = int32(c.reflectProjection)
+				}
+				rs.reflectfLength = c.reflectfLength
+
+				// Add reflection to list
+				sys.reflections.add(rs)
 			}
 		}
 	}

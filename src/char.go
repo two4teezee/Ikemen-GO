@@ -12407,9 +12407,13 @@ func (cl *CharList) delete(dc *Char) {
 
 func (cl *CharList) replace(newChar *Char, pn, idx int) bool {
 	// Find the old character occupying the slot
+	// We cannot look at sys.chars directly because that has already been updated to the new char
 	var oldChar *Char
-	if pn >= 0 && pn < len(sys.chars) && idx >= 0 && idx < len(sys.chars[pn]) {
-		oldChar = sys.chars[pn][idx]
+	for _, c := range cl.creationOrder {
+		if c.playerNo == pn && c.helperIndex == idx {
+			oldChar = c
+			break
+		}
 	}
 
 	// Remove old character and add new character

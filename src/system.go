@@ -218,12 +218,9 @@ type System struct {
 	explodRunOrder          []*Explod
 	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
-	spritesLayerN1          DrawList
-	spritesLayerU           DrawList
-	spritesLayer0           DrawList
-	spritesLayer1           DrawList
-	shadows                 ShadowList
-	reflections             ReflectionList
+	spriteList              DrawList
+	shadowList              ShadowList
+	reflectionList          ReflectionList
 	afterImageCount         [MaxPlayerNo]int32
 	debugc1hit              ClsnRect
 	debugc1rev              ClsnRect
@@ -2137,14 +2134,11 @@ func (s *System) runIntroSkip() {
 // TODO: Maybe these could get a more thorough clear between matches, to prevent holding onto previous character sprites
 func (s *System) clearSpriteData() {
 	// Main sprites
-	s.spritesLayerN1 = s.spritesLayerN1[:0]
-	s.spritesLayerU = s.spritesLayerU[:0]
-	s.spritesLayer0 = s.spritesLayer0[:0]
-	s.spritesLayer1 = s.spritesLayer1[:0]
+	s.spriteList = s.spriteList[:0]
 
 	// Shadows and reflections
-	s.shadows = s.shadows[:0]
-	s.reflections = s.reflections[:0]
+	s.shadowList = s.shadowList[:0]
+	s.reflectionList = s.reflectionList[:0]
 
 	// Debug sprites
 	s.debugc1hit = s.debugc1hit[:0]
@@ -2940,12 +2934,12 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw reflections on layer -1
 		if !s.gsf(GSF_globalnoshadow) {
 			if s.stage.reflection.layerno < 0 {
-				s.reflections.draw(x, y, scl*s.cam.BaseScale())
+				s.reflectionList.draw(x, y, scl*s.cam.BaseScale())
 			}
 		}
 
 		// Draw character sprites with layerNo == -1
-		s.spritesLayerN1.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(-1, false, x, y, scl*s.cam.BaseScale())
 
 		// Draw stage elements with layerNo == 0
 		if !s.gsf(GSF_nobg) {
@@ -2953,7 +2947,7 @@ func (s *System) draw(x, y, scl float32) {
 		}
 
 		// Draw character sprites with special under flag
-		s.spritesLayerU.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(0, true, x, y, scl*s.cam.BaseScale())
 
 		// Draw lifebar layer -1
 		s.lifebar.draw(-1)
@@ -2969,9 +2963,9 @@ func (s *System) draw(x, y, scl float32) {
 		// TODO: Make shadows render in same layers as their sources?
 		if !s.gsf(GSF_globalnoshadow) {
 			if s.stage.reflection.layerno >= 0 {
-				s.reflections.draw(x, y, scl*s.cam.BaseScale())
+				s.reflectionList.draw(x, y, scl*s.cam.BaseScale())
 			}
-			s.shadows.draw(x, y, scl*s.cam.BaseScale())
+			s.shadowList.draw(x, y, scl*s.cam.BaseScale())
 		}
 
 		//off := s.envShake.getOffset()
@@ -3026,7 +3020,7 @@ func (s *System) draw(x, y, scl float32) {
 
 	// Draw character sprites in layer 0
 	if s.envcol_time == 0 || s.envcol_under {
-		s.spritesLayer0.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(0, false, x, y, scl*s.cam.BaseScale())
 		if s.envcol_time == 0 && !s.gsf(GSF_nofg) {
 			s.stage.draw(1, bgx, bgy, scl)
 		}
@@ -3042,7 +3036,7 @@ func (s *System) draw(x, y, scl float32) {
 	s.motif.draw(1)
 
 	// Draw character sprites in layer 1 (old "ontop")
-	s.spritesLayer1.draw(x, y, scl*s.cam.BaseScale())
+	s.spriteList.draw(1, false, x, y, scl*s.cam.BaseScale())
 
 	// Draw lifebar layer 2
 	s.lifebar.draw(2)

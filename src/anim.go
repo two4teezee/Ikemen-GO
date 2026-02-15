@@ -1064,6 +1064,7 @@ type SpriteData struct {
 	scl          [2]float32
 	trans        TransType
 	alpha        [2]int32
+	layerno      int32
 	priority     int32
 	rot          Rotation
 	screen       bool
@@ -1077,6 +1078,8 @@ type SpriteData struct {
 	syncId       int32 // Synchronization target ID
 	syncLayer    int32 // Layer for synchronized drawing
 	syncGroup    int   // Used to group syncId's in chunks before drawing
+	sortindex    int   // For faster sorting
+	under        bool
 }
 
 func newSpriteData() *SpriteData {
@@ -1091,18 +1094,6 @@ func (sd *SpriteData) isBlank() bool {
 	return sd.scl[0] == 0 || sd.scl[1] == 0 || sd.anim == nil || sd.anim.isBlank()
 }
 
-func (sd *SpriteData) AddToDrawlist(layer int32, under bool) {
-	if layer > 0 {
-		sys.spritesLayer1.add(sd)
-	} else if layer < 0 {
-		sys.spritesLayerN1.add(sd)
-	} else if under {
-		sys.spritesLayerU.add(sd)
-	} else {
-		sys.spritesLayer0.add(sd)
-	}
-}
-
 type DrawList []*SpriteData
 
 func (dl *DrawList) add(sd *SpriteData) {
@@ -1111,77 +1102,80 @@ func (dl *DrawList) add(sd *SpriteData) {
 		return
 	}
 
-	// Before: sort every time we add a sprite
-	// After: add all sprites first then sort before drawing
-	/*
-		i, start := 0, 0
-		for l := len(*dl); l > 0; {
-			i = start + l>>1
-			if sd.priority <= (*dl)[i].priority {
-				l = i - start
-			} else if i == start {
-				i++
-				l = 0
-			} else {
-				l -= i - start
-				start = i
-			}
-		}
-		*dl = append(*dl, nil)
-		copy((*dl)[i+1:], (*dl)[i:])
-		(*dl)[i] = sd
-	*/
+	// Save current index so we can use sort.Slice later
+	sd.sortindex = len(*dl)
 
 	// Just append. We will sort everything later in one go
 	*dl = append(*dl, sd)
 }
 
-func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
+func (dl DrawList) draw(layerno int32, under bool, cameraX, cameraY, cameraScl float32) {
 	if len(dl) == 0 {
 		return
 	}
 
+	// Filter the sprites matching this specific pass
+	sortList := make([]int, 0, len(dl))
+	for i, s := range dl {
+		if s.layerno != layerno {
+			continue
+		}
+		// Under flag only matters in layer 0
+		if layerno == 0 && s.under != under {
+			continue
+		}
+		sortList = append(sortList, i)
+	}
+
+	// Nothing to draw
+	if len(sortList) == 0 {
+		return
+	}
+
 	// Assign a number to each group of syncId's
-	for i := range dl {
+	for i, curIdx := range sortList {
+		s := dl[curIdx]
 		// Default to own index
-		dl[i].syncGroup = i
-		// If using syncId, find the first sprite with the same syncId and copy its index
-		if dl[i].syncId > 0 {
+		s.syncGroup = i 
+		// If using syncId, find the first sprite with the same syncId and copy its group
+		if s.syncId > 0 {
 			for j := 0; j < i; j++ {
-				if dl[j].syncId == dl[i].syncId {
-					dl[i].syncGroup = j
+				prevIdx := sortList[j]
+				if dl[prevIdx].syncId == s.syncId {
+					s.syncGroup = dl[prevIdx].syncGroup
 					break
 				}
 			}
 		}
 	}
 
-	// Sort the whole drawlist in order to determine how to layer the sprites
-	sort.SliceStable(dl, func(i, j int) bool {
-		// Sort by descending sprpriority
-		if dl[i].priority != dl[j].priority {
-			return dl[i].priority > dl[j].priority
+	// Sort the filtered items in order to determine how to layer the sprites
+	sort.Slice(sortList, func(i, j int) bool {
+		a, b := dl[sortList[i]], dl[sortList[j]]
+		// Sort by ascending sprpriority
+		if a.priority != b.priority {
+			return a.priority < b.priority
 		}
 		// Separate sync groups from each other
-		if dl[i].syncGroup != dl[j].syncGroup {
-			return dl[i].syncGroup < dl[j].syncGroup
+		if a.syncGroup != b.syncGroup {
+			return a.syncGroup > b.syncGroup
 		}
 		// Order the same sync group by syncLayer
-		if dl[i].syncId > 0 && dl[i].syncId == dl[j].syncId {
-			if dl[i].syncLayer != dl[j].syncLayer {
-				return dl[i].syncLayer > dl[j].syncLayer
+		if a.syncId > 0 && a.syncId == b.syncId {
+			if a.syncLayer != b.syncLayer {
+				return a.syncLayer < b.syncLayer
 			}
 		}
-		// Default to no change
-		return false
+		// Place newer sprites first
+		return a.sortindex > b.sortindex
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	// Draw the entire list in reverse so that the first sprites are on top
-	for i := len(dl) - 1; i >= 0; i-- {
-		s := dl[i]
+	// Draw only the filtered items
+	for _, idx := range sortList {
+		s := dl[idx]
 
 		// Skip blank SpriteData
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433

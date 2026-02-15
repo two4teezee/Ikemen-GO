@@ -1516,7 +1516,7 @@ func (ai *AfterImage) isActive() bool {
 	return true
 }
 
-func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
+func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool, screen_space bool) {
 	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
@@ -1560,9 +1560,10 @@ func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause
 			imgsd.fLength = img.fLength
 			imgsd.window = sd.window
 			imgsd.xshear = sd.xshear
+			imgsd.layerno = sd.layerno
 
 			// Add sprite to the appropriate layer's drawlist
-			sd.AddToDrawlist(layer, false)
+			sys.spriteList.add(imgsd)
 
 			// Track number of afterimage sprites used by this player
 			sys.afterImageCount[playerNo]++
@@ -2097,6 +2098,7 @@ func (e *Explod) update() {
 	sd.scl = drawscale
 	sd.trans = e.trans
 	sd.alpha = alp
+	sd.layerno = e.layerno
 	sd.priority = e.sprpriority + int32(e.interPos[2]*e.localscl)
 	sd.rot = rot
 	sd.screen = e.space == Space_screen
@@ -2124,7 +2126,7 @@ func (e *Explod) update() {
 	}
 
 	// Add sprite to the appropriate layer's drawlist
-	sd.AddToDrawlist(e.layerno, e.under)
+	sys.spriteList.add(sd)
 
 	// Determine shadow color
 	sdwclr := e.shadow[0]<<16 | e.shadow[1]&0xff<<8 | e.shadow[2]&0xff
@@ -2146,7 +2148,7 @@ func (e *Explod) update() {
 		ss.groundLevel = drawZoff
 
 		// Add shadow to list
-		sys.shadows.add(ss)
+		sys.shadowList.add(ss)
 
 		// Prepare reflection sprite
 		rs := newReflectionSprite()
@@ -2155,7 +2157,7 @@ func (e *Explod) update() {
 		rs.groundLevel = drawZoff
 
 		// Add reflection to list
-		sys.reflections.add(rs)
+		sys.reflectionList.add(rs)
 	}
 
 	if sys.tickNextFrame() {
@@ -2791,6 +2793,7 @@ func (p *Projectile) cueDraw() {
 	sd.scl = drawscale
 	sd.trans = TT_default
 	sd.alpha = [2]int32{-1, 0}
+	sd.layerno = p.layerno
 	sd.priority = p.sprpriority + int32(p.pos[2]*p.localscl)
 	sd.rot = rot
 	sd.undarken = p.owner() != nil && p.owner().ignoreDarkenTime > 0
@@ -2801,7 +2804,7 @@ func (p *Projectile) cueDraw() {
 	sd.xshear = p.xshear
 
 	// Add sprite to the appropriate layer's drawlist
-	sd.AddToDrawlist(p.layerno, false)
+	sys.spriteList.add(sd)
 
 	// Record afterimage
 	if p.aimg != nil {
@@ -2827,7 +2830,7 @@ func (p *Projectile) cueDraw() {
 		ss.groundLevel = drawZoff
 
 		// Add shadow to list
-		sys.shadows.add(ss)
+		sys.shadowList.add(ss)
 
 		// Prepare reflection sprite
 		rs := newReflectionSprite()
@@ -2836,7 +2839,7 @@ func (p *Projectile) cueDraw() {
 		rs.groundLevel = drawZoff
 
 		// Add reflection to list
-		sys.reflections.add(rs)
+		sys.reflectionList.add(rs)
 	}
 }
 
@@ -12165,6 +12168,7 @@ func (c *Char) cueDraw() {
 		charSD.scl = drawscale
 		charSD.trans = c.trans
 		charSD.alpha = c.alpha
+		charSD.layerno = c.layerNo
 		charSD.priority = c.sprPriority + int32(c.pos[2]*c.localscl)
 		charSD.rot = rot
 		charSD.undarken = c.ignoreDarkenTime > 0
@@ -12197,7 +12201,7 @@ func (c *Char) cueDraw() {
 		if !c.asf(ASF_invisible) {
 
 			// Add sprite to the appropriate layer's drawlist
-			sd.AddToDrawlist(c.layerno, c.asf(ASF_drawunder))
+			sys.spriteList.add(charSD)
 
 			// Add shadow and reflection
 			if !c.asf(ASF_noshadow) {
@@ -12264,7 +12268,7 @@ func (c *Char) cueDraw() {
 				ss.shadowfLength = c.shadowfLength
 
 				// Add shadow to list
-				sys.shadows.add(ss)
+				sys.shadowList.add(ss)
 
 				// Default reflection to same sprite data as char
 				reflectSD := charSD
@@ -12315,7 +12319,7 @@ func (c *Char) cueDraw() {
 				rs.reflectfLength = c.reflectfLength
 
 				// Add reflection to list
-				sys.reflections.add(rs)
+				sys.reflectionList.add(rs)
 			}
 		}
 	}

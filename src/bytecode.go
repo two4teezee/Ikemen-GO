@@ -657,6 +657,7 @@ const (
 	OC_ex_movehitvar_overridden
 	OC_ex_movehitvar_playerid
 	OC_ex_movehitvar_playerno
+	OC_ex_movehitvar_power
 	OC_ex_movehitvar_spark_x
 	OC_ex_movehitvar_spark_y
 	OC_ex_movehitvar_uniqhit
@@ -3098,6 +3099,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.mhv.frame)
 	case OC_ex_movehitvar_playerid:
 		sys.bcStack.PushI(c.mhv.playerid)
+	case OC_ex_movehitvar_power:
+		sys.bcStack.PushI(c.mhv.power)
 	case OC_ex_movehitvar_overridden:
 		sys.bcStack.PushB(c.mhv.overridden)
 	case OC_ex_movehitvar_playerno:

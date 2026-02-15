@@ -2761,7 +2761,7 @@ func (m *Motif) drawLoading() {
 		// Start a one-off frame
 		gfx.BeginFrame(true)
 
-		FillRect(sys.scrrect, 0x000000, [2]int32{255, 0})
+		FillRect(sys.scrrect, 0x000000, [2]int32{255, 0}, nil)
 
 		ts.Draw(ts.layerno)
 
@@ -2997,7 +2997,7 @@ func (m *Motif) drawAspectBars() {
 	for _, r := range rects {
 		if r[2] > 0 && r[3] > 0 {
 			// 0x000000 = black, fully opaque.
-			FillRect(r, 0x000000, [2]int32{255, 0})
+			FillRect(r, 0x000000, [2]int32{255, 0}, nil)
 		}
 	}
 }

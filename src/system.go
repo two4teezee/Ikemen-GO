@@ -343,11 +343,21 @@ func isRunningInsideAppBundle(exePath string) bool {
 
 // Initialize stuff, this is called after the config int at main.go
 func (s *System) init(w, h int32) *lua.LState {
+	var err error
+
 	s.setGameSize(w, h)
 	for i := range sys.cgi {
 		sys.cgi[i].palInfo = make(map[int]PalInfo)
 	}
-	var err error
+
+	// Select the renderer first so we can fall back to default before doing anything
+	// This is the only time we should check s.cfg.Video.RenderMode
+	Logcat("Check A: Selecting Renderer")
+	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
+
+	// Check the actual render name in case the config file was set up incorrectly
+	renderName := gfx.GetName()
+
 	// Create a system window.
 	s.window, err = s.newWindow(int(s.scrrect[2]), int(s.scrrect[3]))
 	chk(err)
@@ -356,7 +366,7 @@ func (s *System) init(w, h int32) *lua.LState {
 	_, forceWindowed := s.cmdFlags["-windowed"]
 	s.window.fullscreen = s.cfg.Video.Fullscreen && !forceWindowed
 
-	if strings.Contains(s.cfg.Video.RenderMode, "OpenGL") {
+	if strings.HasPrefix(renderName, "OpenGL") {
 		if ctx, err := s.window.GLCreateContext(); err != nil {
 			Logcat("GL Context Creation Failed: " + err.Error())
 			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
@@ -393,7 +403,7 @@ func (s *System) init(w, h int32) *lua.LState {
 			// Create names.
 			shaderLocation = strings.Replace(shaderLocation, "\\", "/", -1)
 
-			if s.cfg.Video.RenderMode != "Vulkan 1.3" {
+			if strings.HasPrefix(renderName, "OpenGL") {
 				// Load vert shaders.
 				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert")
 				if err != nil {
@@ -405,7 +415,7 @@ func (s *System) init(w, h int32) *lua.LState {
 				if err != nil {
 					chk(err)
 				}
-			} else {
+			} else if strings.HasPrefix(renderName, "Vulkan") {
 				// Load spv shaders
 				s.externalShaders[0][i], err = os.ReadFile(shaderLocation + ".vert.spv")
 				if err != nil {
@@ -421,16 +431,16 @@ func (s *System) init(w, h int32) *lua.LState {
 	}
 	// PS: The "\x00" is what is know as Null Terminator.
 
-	Logcat("Check A: Selecting Renderer")
-	// Now we need to init the renderer
-	gfx, gfxFont = selectRenderer(s.cfg.Video.RenderMode)
+	// Init renderer
 	Logcat("Check B: Initializing GFX")
 	gfx.Init()
-	s.window.SetSwapInterval(s.cfg.Video.VSync) // VSync must be set after gfx, or our config will be ignored
+	s.window.SetSwapInterval(s.cfg.Video.VSync) // VSync must be set after Init(), or our config.ini will be ignored
+
 	Logcat("Check C: Initializing GFX Font")
 	gfxFont.Init(gfx)
 	Logcat("Check D: We are GOOD")
 	gfx.BeginFrame(false)
+
 	// And the audio.
 	speaker = &SDLSpeaker{}
 	speaker.Init(beep.SampleRate(sys.cfg.Sound.SampleRate), audioOutLen)
@@ -1111,6 +1121,12 @@ func (s *System) escExit() bool {
 		(sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" || (sys.motif.AttractMode.Enabled && sys.credits == 0)))
 }
 
+func (s *System) matchOver() bool {
+	// We must check if wins are greater than 0 because modes like Training may have "0 rounds to win"
+	return s.wins[0] > 0 && s.wins[0] >= s.matchWins[0] ||
+		s.wins[1] > 0 && s.wins[1] >= s.matchWins[1]
+}
+
 func (s *System) anyChar() *Char {
 	for i := range s.chars {
 		for j := range s.chars[i] {
@@ -1134,11 +1150,20 @@ func (s *System) playerID(id int32) *Char {
 	}
 
 	// Mugen skips DestroySelf helpers here
+	// Note: This will also skip destroyed helpers in the engine's internal ID lookups
 	if ch.csf(CSF_destroy) {
 		return nil
 	}
 
 	return ch
+}
+
+func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
+	if id.IsSF() {
+		return BytecodeSF()
+	}
+	char := s.playerID(id.ToI())
+	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerIndex(idx int32) *Char {
@@ -1164,26 +1189,14 @@ func (s *System) playerIndex(idx int32) *Char {
 	return nil
 }
 
-// We must check if wins are greater than 0 because modes like Training may have "0 rounds to win"
-func (s *System) matchOver() bool {
-	return s.wins[0] > 0 && s.wins[0] >= s.matchWins[0] ||
-		s.wins[1] > 0 && s.wins[1] >= s.matchWins[1]
-}
-
-func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
-	}
-	return BytecodeBool(s.playerID(id.ToI()) != nil)
-}
-
 // TODO: This is redundant since the index always exists if "NumPlayer >= idx-1"
 // Maybe remove it or make it ignore destroyed helpers at least
 func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
 	if idx.IsSF() {
 		return BytecodeSF()
 	}
-	return BytecodeBool(s.playerIndex(idx.ToI()) != nil)
+	char := s.playerIndex(idx.ToI())
+	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
@@ -1651,12 +1664,12 @@ func (s *System) initPlayerID() {
 func (s *System) pruneCharId() {
 	s.lastCharId = Max(0, sys.cfg.Config.HelperMax-1)
 
+	// At this point we're still checking the previous round's player ID's
+	// However that works out well for Turns mode because it means a joining player won't reuse the ID of a defeated player
 	for _, p := range s.chars {
 		if len(p) > 0 && p[0] != nil && p[0].id > s.lastCharId {
 			s.lastCharId = p[0].id
 		}
-		// At this point we're still checking the previous round's player ID's
-		// However that works out well for Turns mode because it means a joining player won't reuse the ID of a defeated player
 	}
 }
 
@@ -1666,25 +1679,36 @@ func (s *System) newCharId() int32 {
 
 	// Check if the next ID is already being used
 	// This is needed because helpers may be preserved between rounds
+	// Directly check the idMap as it is the source of truth for player ID's
 	for {
-		conflict := false
-		for _, p := range s.chars {
-			for _, c := range p {
-				if c != nil && c.id == newid && !c.csf(CSF_destroy) {
-					// Note: We only recycle destroyed helper ID's because the ID's refresh each round, unlike Mugen
-					conflict = true
-					newid++
+		if _, conflict := s.charList.idMap[newid]; !conflict {
+			break
+		}
+		newid++
+	}
+
+	/*
+		// This method scanned sys.chars instead but that's worse
+		for {
+			conflict := false
+			for _, p := range s.chars {
+				for _, c := range p {
+					if c != nil && c.id == newid && !c.csf(CSF_destroy) {
+						// Note: We only recycle destroyed helper ID's because the ID's refresh each round, unlike Mugen
+						conflict = true
+						newid++
+						break
+					}
+				}
+				if conflict {
 					break
 				}
 			}
-			if conflict {
+			if !conflict {
 				break
 			}
 		}
-		if !conflict {
-			break
-		}
-	}
+	*/
 
 	s.lastCharId = newid
 	return newid
@@ -2370,14 +2394,22 @@ func (s *System) explodUpdate() {
 	// Using this list makes the drawing order fairer instead of prioritizing player 1
 	// Mugen probably just used a single array for explods instead of organizing them by player, so it skipped this issue
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/1099
+	count := 0
 	for i := range s.explods {
-		s.explodRunOrder = append(s.explodRunOrder, s.explods[i]...)
+		for j := range s.explods[i] {
+			e := s.explods[i][j]
+			e.sortindex = count // Unique reference for this frame
+			s.explodRunOrder = append(s.explodRunOrder, e)
+			count++
+		}
 	}
 
 	// Sort explods by age
 	// For the sake of backward compatibility we must also open exceptions for the ontop parameter
-	sort.SliceStable(s.explodRunOrder, func(i, j int) bool {
+	// The sortindex variable saves us from needing the more expensive SliceStable
+	sort.Slice(s.explodRunOrder, func(i, j int) bool {
 		a, b := s.explodRunOrder[i], s.explodRunOrder[j]
+
 		// All ontop explods come before the rest
 		if a.ontop != b.ontop {
 			return a.ontop
@@ -2385,16 +2417,16 @@ func (s *System) explodUpdate() {
 		// If both are ontop the normal logic is inverted (old index shift trick)
 		if a.ontop && b.ontop {
 			if a.timestamp != b.timestamp {
-				return a.timestamp > b.timestamp
+				return a.timestamp >= b.timestamp
 			}
-			return true
+			return a.sortindex >= b.sortindex
 		}
 		// Normal case: older timestamps come first
 		if a.timestamp != b.timestamp {
 			return a.timestamp < b.timestamp
 		}
-		// Same timestamp: do nothing
-		return false
+		// Same timestamp: keep original order
+		return a.sortindex < b.sortindex
 	})
 
 	// Update logic
@@ -2865,35 +2897,31 @@ func (s *System) draw(x, y, scl float32) {
 	bgx, bgy := x/s.stage.localscl, y/s.stage.localscl
 
 	//fade := func(rect [4]int32, color uint32, alpha int32) {
-	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128)
+	//	FillRect(rect, color, alpha>>uint(Btoi(s.clsnDisplay))+Btoi(s.clsnDisplay)*128, nil)
 	//}
 
 	if s.envcol_time == 0 {
-		fcol := uint32(0)
-
-		// Draw stage background fill if stage is disabled
+		// Determine fill color
+		var fcol uint32
 		if s.gsf(GSF_nobg) {
-			if s.allPalFX.enable {
-				var rgb [3]int32
-				if s.allPalFX.eInvertall {
-					rgb = [...]int32{0xff, 0xff, 0xff}
-				}
-				for i, v := range rgb {
-					rgb[i] = Clamp((v+s.allPalFX.eAdd[i])*s.allPalFX.eMul[i]>>8, 0, 0xff)
-				}
-				fcol = uint32(rgb[2] | rgb[1]<<8 | rgb[0]<<16)
-			}
-			FillRect(s.scrrect, fcol, [2]int32{255, 0})
+			fcol = 0
+		} else if s.stage.debugbg {
+			fcol = 0xff00ff
+		} else {
+			fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
 		}
 
-		// Draw normal stage background fill and elements with layerNo == -1
+		// Apply BGPalFX to fill color
+		// Mugen doesn't do this, but it makes sense
+		//if !s.gsf(GSF_nobg) && s.bgPalFX.enable {
+		//	fcol = s.bgPalFX.SynthesizeColor(TransType(TT_none), fcol)
+		//}
+
+		// Draw the background fill
+		FillRect(s.scrrect, fcol, [2]int32{255, 0}, nil)
+
+		// Draw stage elements with layerNo == -1
 		if !s.gsf(GSF_nobg) {
-			if s.stage.debugbg {
-				FillRect(s.scrrect, 0xff00ff, [2]int32{255, 0})
-			} else {
-				fcol = uint32(s.stage.bgclearcolor[2]&0xff | s.stage.bgclearcolor[1]&0xff<<8 | s.stage.bgclearcolor[0]&0xff<<16)
-				FillRect(s.scrrect, fcol, [2]int32{255, 0})
-			}
 			if s.stage.ikemenver[0] != 0 || s.stage.ikemenver[1] != 0 { // This layer did not render in Mugen
 				s.stage.draw(-1, bgx, bgy, scl)
 			}
@@ -2983,7 +3011,7 @@ func (s *System) draw(x, y, scl float32) {
 	// Draw EnvColor effect
 	if s.envcol_time != 0 {
 		ecol := uint32(s.envcol[2]&0xff | s.envcol[1]&0xff<<8 | s.envcol[0]&0xff<<16)
-		FillRect(s.scrrect, ecol, [2]int32{255, 0})
+		FillRect(s.scrrect, ecol, [2]int32{255, 0}, nil)
 	}
 
 	// Draw character sprites in layer 0
@@ -3601,6 +3629,7 @@ type RoundStartBackup struct {
 	oldWins       [2]int32
 	oldDraws      int32
 	oldTeamLeader [2]int
+	lastCharId    int32
 }
 
 func (bk *RoundStartBackup) Save() {
@@ -3663,6 +3692,9 @@ func (bk *RoundStartBackup) Save() {
 	// Match info
 	bk.oldWins, bk.oldDraws = sys.wins, sys.draws
 	bk.oldTeamLeader = sys.teamLeader
+
+	// Save last char ID so F4 won't keep incrementing helper ID's
+	bk.lastCharId = sys.lastCharId
 }
 
 func (bk *RoundStartBackup) Restore() {
@@ -3747,6 +3779,9 @@ func (bk *RoundStartBackup) Restore() {
 	// Restore match info
 	sys.wins, sys.draws = bk.oldWins, bk.oldDraws
 	sys.teamLeader = bk.oldTeamLeader
+
+	// Restore other info
+	sys.lastCharId = bk.lastCharId
 }
 
 type SelectChar struct {
@@ -4746,21 +4781,60 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.cgi[pn].palno = int32(selectPalno)
 
 	if !attached {
-		// Prepare lifebar portraits
+		// Prepare lifebar portraits for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
-			fa.numko = 0
-			fa.teammate_face = make([]*Sprite, nsel)
-			fa.teammate_scale = make([]float32, nsel)
-			sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
-			for i, ci := range idx {
-				fa.teammate_scale[i] = sys.sel.charlist[ci].portraitscale * 320 / sys.sel.charlist[ci].localcoord[0]
-				fa.teammate_face[i] = sys.sel.charlist[ci].sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
-			}
+			l.prepareTurnsFaces(pn, fa, idx)
 		}
 	}
 
 	return 1
+}
+
+func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
+	// Reset face and name KO's
+	fa.numko = 0
+	sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
+
+	// Pre-allocate
+	nsel := len(idx)
+	fa.teammate_face = make([]*Sprite, nsel)
+	fa.teammate_scale = make([]float32, nsel)
+	fa.teammate_face_pfx = make([]*PalFX, nsel)
+
+	// Iterate all selected partners
+	for i, ci := range idx {
+		sc := &sys.sel.charlist[ci]
+
+		// Calculate portrait scale
+		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
+
+		// Get the sprite from the teammate's SFF
+		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
+		if origSpr == nil {
+			continue
+		}
+
+		// Create an independent clone of the sprite to avoid mutating the SFF
+		spr := *origSpr
+		if spr.coldepth <= 8 {
+			// Pull selected palette index (1-based)
+			palIdx := sys.sel.selected[pn&1][i][1]
+
+			// Reset specific fields to force a unique texture upload for this clone
+			// Using make/copy prevents pointer aliasing on the slice
+			spr.paltemp = make([]uint32, len(origSpr.paltemp))
+			copy(spr.paltemp, origSpr.paltemp)
+			spr.PalTex = nil
+
+			// Map the palette
+			spr.Pal = sc.sff.palList.Get(int(palIdx) - 1)
+		}
+
+		// Commit sprite and init PalFX
+		fa.teammate_face[i] = &spr
+		fa.teammate_face_pfx[i] = newPalFX()
+	}
 }
 
 func (l *Loader) loadStage() bool {

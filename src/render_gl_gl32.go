@@ -461,7 +461,7 @@ type GL32State struct {
 	scissorEnabled      bool
 	texCacheTexHandle   []uint32 // Unit to handle. Sized per GPU
 	texCacheLastUsed    []uint64 // Timer value when the slot was last used. Sized per GPU
-	texCacheTimer       uint64 // Increments on every texture access
+	texCacheTimer       uint64   // Increments on every texture access
 	uniformICache       map[uint32]int32
 	uniformF1Cache      map[uint32]float32
 	uniformF2Cache      map[uint32][2]float32
@@ -1093,16 +1093,16 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	r.texCacheTimer = 1
 
 	/*
-	// No need to reset these anymore since the cache is now keyed to the spriteShader
-	for i := range r.uniformICache {
-		r.uniformICache[i] = -1e9
-	}
-	for i := range r.uniformF1Cache {
-		r.uniformF1Cache[i] = -1e9
-	}
-	for i := range r.uniformF3Cache {
-		r.uniformF3Cache[i] = -1e9
-	}
+		// No need to reset these anymore since the cache is now keyed to the spriteShader
+		for i := range r.uniformICache {
+			r.uniformICache[i] = -1e9
+		}
+		for i := range r.uniformF1Cache {
+			r.uniformF1Cache[i] = -1e9
+		}
+		for i := range r.uniformF3Cache {
+			r.uniformF3Cache[i] = -1e9
+		}
 	*/
 }
 
@@ -1338,14 +1338,14 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	gl.Enable(gl.BLEND)
 
 	/*
-	// These should be redundant now
-	if r.depthTest {
-		r.SetDepthTest(true)
-		gl.DepthFunc(gl.LESS)
-	} else {
-		r.SetDepthTest(false)
-	}
-	r.SetDepthMask(r.depthMask)
+		// These should be redundant now
+		if r.depthTest {
+			r.SetDepthTest(true)
+			gl.DepthFunc(gl.LESS)
+		} else {
+			r.SetDepthTest(false)
+		}
+		r.SetDepthMask(r.depthMask)
 	*/
 
 	if r.invertFrontFace {

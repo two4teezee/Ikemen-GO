@@ -312,8 +312,8 @@ Debug Options:
 
 // Exit program without any errors
 func handleExit() {
-    sys.shutdown()
-    os.Exit(0)
+	sys.shutdown()
+	os.Exit(0)
 }
 
 // Always attempt to show and log error messages when crashing

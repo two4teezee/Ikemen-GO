@@ -1657,7 +1657,7 @@ type Explod struct {
 	interpolate_fLength  [2]float32
 	interpolate_xshear   [2]float32
 	timestamp            int32 // Determines run order
-	sortindex            int // For faster run order sorting
+	sortindex            int   // For faster run order sorting
 }
 
 func newExplod() *Explod {

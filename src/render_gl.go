@@ -462,7 +462,7 @@ type GL21State struct {
 	scissorEnabled      bool
 	texCacheTexHandle   []uint32 // Unit to handle. Sized per GPU
 	texCacheLastUsed    []uint64 // Timer value when the slot was last used. Sized per GPU
-	texCacheTimer       uint64 // Increments on every texture access
+	texCacheTimer       uint64   // Increments on every texture access
 	uniformICache       map[uint32]int32
 	uniformF1Cache      map[uint32]float32
 	uniformF2Cache      map[uint32][2]float32
@@ -1316,14 +1316,14 @@ func (r *Renderer_GL21) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	gl.Enable(gl.BLEND)
 
 	/*
-	// These should be redundant now
-	if r.depthTest {
-		r.SetDepthTest(true)
-		gl.DepthFunc(gl.LESS)
-	} else {
-		r.SetDepthTest(false)
-	}
-	r.SetDepthMask(r.depthMask)
+		// These should be redundant now
+		if r.depthTest {
+			r.SetDepthTest(true)
+			gl.DepthFunc(gl.LESS)
+		} else {
+			r.SetDepthTest(false)
+		}
+		r.SetDepthMask(r.depthMask)
 	*/
 
 	if r.invertFrontFace {
@@ -1609,7 +1609,6 @@ func (r *Renderer_GL21) DisableScissor() {
 		r.scissorRect = [4]int32{0, 0, 0, 0}
 	}
 }
-
 
 func (r *Renderer_GL21) SetUniformISub(loc int32, val int32) {
 	if loc < 0 {

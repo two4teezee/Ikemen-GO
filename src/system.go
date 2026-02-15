@@ -1683,26 +1683,26 @@ func (s *System) newCharId() int32 {
 	}
 
 	/*
-	// This method scanned sys.chars instead but that's worse
-	for {
-		conflict := false
-		for _, p := range s.chars {
-			for _, c := range p {
-				if c != nil && c.id == newid && !c.csf(CSF_destroy) {
-					// Note: We only recycle destroyed helper ID's because the ID's refresh each round, unlike Mugen
-					conflict = true
-					newid++
+		// This method scanned sys.chars instead but that's worse
+		for {
+			conflict := false
+			for _, p := range s.chars {
+				for _, c := range p {
+					if c != nil && c.id == newid && !c.csf(CSF_destroy) {
+						// Note: We only recycle destroyed helper ID's because the ID's refresh each round, unlike Mugen
+						conflict = true
+						newid++
+						break
+					}
+				}
+				if conflict {
 					break
 				}
 			}
-			if conflict {
+			if !conflict {
 				break
 			}
 		}
-		if !conflict {
-			break
-		}
-	}
 	*/
 
 	s.lastCharId = newid

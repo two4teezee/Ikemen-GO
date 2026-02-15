@@ -1263,6 +1263,7 @@ func (mhv *MoveHitVar) clear() {
 	*mhv = MoveHitVar{}
 }
 
+/*
 type aimgImage struct {
 	anim       *Animation
 	pos        [2]float32
@@ -1272,6 +1273,7 @@ type aimgImage struct {
 	projection int32
 	fLength    float32
 }
+*/
 
 type AfterImage struct {
 	time           int32
@@ -1284,7 +1286,7 @@ type AfterImage struct {
 	trans          TransType
 	alpha          [2]int32
 	palfx          []*PalFX
-	imgs           []aimgImage
+	imgs           []SpriteData // []aimgImage
 	imgidx         int32
 	restgap        int32
 	reccount       int32
@@ -1315,7 +1317,7 @@ func newAfterImage() *AfterImage {
 
 	// Allocate slices with maximum capacity but length 1
 	ai.palfx = make([]*PalFX, 1, MaxAimgLength)
-	ai.imgs = make([]aimgImage, 1, MaxAimgLength)
+	ai.imgs = make([]SpriteData, 1, MaxAimgLength)
 
 	// Initialize PalFX
 	for i := range ai.palfx {
@@ -1416,7 +1418,7 @@ func (ai *AfterImage) setup(c *Char) {
 
 	// Resize image buffer
 	if len(ai.imgs) < need {
-		ai.imgs = append(ai.imgs, make([]aimgImage, need-len(ai.imgs))...)
+		ai.imgs = append(ai.imgs, make([]SpriteData, need-len(ai.imgs))...)
 	} else {
 		ai.imgs = ai.imgs[:need]
 	}
@@ -1471,12 +1473,21 @@ func (ai *AfterImage) recAfterImg(sd *SpriteData, hitpause bool) {
 	if ai.restgap <= 0 {
 		img := &ai.imgs[ai.imgidx]
 
+		// Start from a shallow copy
+		*img = *sd
+
+		// Clear sync parameters so the sprite won't try to sync with the present
+		img.syncId = 0
+
+		// Deep copy the animation
 		if sd.anim != nil {
 			img.anim = &Animation{}
 			*img.anim = *sd.anim
 			if sd.anim.spr != nil {
 				img.anim.spr = newSprite()
 				*img.anim.spr = *sd.anim.spr
+
+				// Apply palette baking logic
 				if sd.anim.palettedata != nil {
 					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
@@ -1491,11 +1502,7 @@ func (ai *AfterImage) recAfterImg(sd *SpriteData, hitpause bool) {
 			img.anim = nil
 		}
 
-		img.pos = sd.pos
-		img.scl = sd.scl
-		img.rot = sd.rot
-		img.projection = sd.projection
-		img.fLength = sd.fLength
+		// Apply AfterImage specific overrides
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 
 		ai.imgidx = (ai.imgidx + 1) % int32(len(ai.imgs))
@@ -1516,7 +1523,7 @@ func (ai *AfterImage) isActive() bool {
 	return true
 }
 
-func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool, screen_space bool) {
+func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool) {
 	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
@@ -1525,16 +1532,16 @@ func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause
 			break
 		}
 
-		// Save images in ring buffer
+		// Retrieve history
 		ringsize := int32(len(ai.imgs))
 		img := &ai.imgs[(ai.imgidx-i+ringsize)%ringsize]
 
-		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
+		// Avoid layering the afterimage on top of the char
+		if img.priority >= sd.priority {
 			img.priority = sd.priority - 2
 		}
 
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
-
 			step := i/ai.framegap - 1
 			if step < 0 || step >= int32(len(ai.palfx)) {
 				continue
@@ -1543,27 +1550,16 @@ func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause
 			ai.palfx[step].remap = sd.pfx.remap
 
 			// Prepare AfterImage sprite data
-			imgsd := newSpriteData()
-			imgsd.anim = img.anim
+			imgsd := *img
+
+			// Apply the dynamic effects
 			imgsd.pfx = ai.palfx[step]
-			imgsd.pos = img.pos
-			imgsd.scl = img.scl
 			imgsd.trans = ai.trans
 			imgsd.alpha = ai.alpha
 			imgsd.priority = img.priority - step // Afterimages decrease in sprpriority over time
-			imgsd.rot = img.rot
-			imgsd.screen = screen_space
-			imgsd.undarken = sd.undarken
-			imgsd.facing = sd.facing
-			imgsd.airOffsetFix = sd.airOffsetFix
-			imgsd.projection = img.projection
-			imgsd.fLength = img.fLength
-			imgsd.window = sd.window
-			imgsd.xshear = sd.xshear
-			imgsd.layerno = sd.layerno
 
-			// Add sprite to the appropriate layer's drawlist
-			sys.spriteList.add(imgsd)
+			// Add to list
+			sys.spriteList.add(&imgsd)
 
 			// Track number of afterimage sprites used by this player
 			sys.afterImageCount[playerNo]++
@@ -1691,7 +1687,6 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		window:       [4]float32{0, 0, 0, 0},
 		animelem:     1,
 		animelemtime: 0,
-		//blendmode:         0,
 		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
@@ -2118,8 +2113,7 @@ func (e *Explod) update() {
 	if e.aimg != nil {
 		if e.aimg.isActive() {
 			e.aimg.recAndCue(sd, e.playerno, sys.tickNextFrame() && act,
-				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
-				e.layerno, e.space == Space_screen)
+				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0))
 		} else {
 			e.aimg = nil
 		}
@@ -2809,7 +2803,7 @@ func (p *Projectile) cueDraw() {
 	// Record afterimage
 	if p.aimg != nil {
 		if p.aimg.isActive() {
-			p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false, p.layerno, false)
+			p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false)
 		} else {
 			p.aimg = nil
 		}
@@ -12187,7 +12181,7 @@ func (c *Char) cueDraw() {
 		// Record afterimage
 		if c.aimg != nil {
 			if c.aimg.isActive() {
-				c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+				c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause())
 			} else {
 				c.aimg = nil
 			}

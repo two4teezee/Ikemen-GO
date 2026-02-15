@@ -2165,6 +2165,8 @@ func (e *Explod) update() {
 		// Add reflection sprite
 		sys.reflections.add(&ReflectionSprite{
 			SprData:       sd,
+			reflectColor:     -1,
+			reflectIntensity: -1,
 			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
 			groundLevel:   drawZoff,
 		})
@@ -2847,6 +2849,8 @@ func (p *Projectile) cueDraw() {
 			// Add reflection
 			sys.reflections.add(&ReflectionSprite{
 				SprData:       sd,
+				reflectColor:     -1,
+				reflectIntensity: -1,
 				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
 				groundLevel:   drawZoff,
 			})

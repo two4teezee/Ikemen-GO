@@ -111,7 +111,6 @@ const (
 	ASF_runfirst
 	ASF_runlast
 	ASF_sizepushonly
-	ASF_teampush
 	ASF_nodestroyself
 )
 
@@ -3193,6 +3192,7 @@ type Char struct {
 	reflectfLength       float32
 	ownclsnscale         bool
 	pushPriority         int32
+	pushAffectTeam       int32
 	prevfallflag         bool
 	makeDustSpacing      int
 	hitStateChangeIdx    int32
@@ -3266,7 +3266,7 @@ func (c *Char) init(n int, idx int) {
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
 	}
-
+	c.pushAffectTeam = 1
 	c.clearState()
 }
 
@@ -11095,6 +11095,7 @@ func (c *Char) actionPrepare() {
 			}
 			// Reset player pushing priority
 			c.pushPriority = 0
+			c.pushAffectTeam = 1
 			// HitBy timers
 			// In Mugen this seems to happen at the end of each frame instead
 			for i := range c.hitby {
@@ -13037,8 +13038,17 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 	for _, c := range cl.runOrder {
 		// Stop current iteration if char won't push
-		if !c.csf(CSF_playerpush) || (c.teamside == getter.teamside && !getter.asf(ASF_teampush) && !c.asf(ASF_teampush)) ||
-			c.scf(SCF_standby) || c.scf(SCF_disabled) {
+		interact := false
+		if c.teamside == getter.teamside {
+			if c.pushAffectTeam <= 0 {
+				interact = true
+			}
+		} else {
+			if c.pushAffectTeam >= 0 && getter.pushAffectTeam >= 0 {
+				interact = true
+			}
+		}
+		if !c.csf(CSF_playerpush) || !interact || c.scf(SCF_standby) || c.scf(SCF_disabled) {
 			continue
 		}
 

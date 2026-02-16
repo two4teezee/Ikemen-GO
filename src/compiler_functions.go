@@ -277,8 +277,6 @@ func (c *Compiler) assertSpecial(is IniSection, sc *StateControllerBase, _ int8)
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_runlast)))
 			case "sizepushonly":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_sizepushonly)))
-			case "teampush":
-				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_teampush)))
 			case "nodestroyself":
 				sc.add(assertSpecial_flag, sc.i64ToExp(int64(ASF_nodestroyself)))
 			// Ikemen global flags
@@ -3508,6 +3506,27 @@ func (c *Compiler) playerPush(is IniSection, sc *StateControllerBase, _ int8) (S
 		if err := c.stateParam(is, "priority", false, func(data string) error {
 			any = true
 			return c.scAdd(sc, playerPush_priority, data, VT_Int, 1)
+		}); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "affectteam", false, func(data string) error {
+			any = true
+			if len(data) == 0 {
+				return Error("affectteam not specified")
+			}
+			var at int32
+			switch strings.ToUpper(data)[0] {
+			case 'E':
+				at = 1
+			case 'F':
+				at = -1
+			case 'B':
+				at = 0
+			default:
+				return Error("Invalid affectteam: " + data)
+			}
+			sc.add(playerPush_affectteam, sc.iToExp(at))
+			return nil
 		}); err != nil {
 			return err
 		}

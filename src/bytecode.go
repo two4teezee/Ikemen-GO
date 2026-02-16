@@ -9754,6 +9754,7 @@ type playerPush StateControllerBase
 const (
 	playerPush_value byte = iota
 	playerPush_priority
+	playerPush_affectteam
 	playerPush_redirectid
 )
 
@@ -9773,6 +9774,8 @@ func (sc playerPush) Run(c *Char, _ []int32) bool {
 			}
 		case playerPush_priority:
 			crun.pushPriority = exp[0].evalI(c)
+		case playerPush_affectteam:
+			crun.pushAffectTeam = exp[0].evalI(c)
 		}
 		return true
 	})

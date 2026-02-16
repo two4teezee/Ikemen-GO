@@ -8095,6 +8095,10 @@ func triggerFunctions(l *lua.LState) {
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_runlast)))
 		case "sizepushonly":
 			l.Push(lua.LBool(sys.debugWC.asf(ASF_sizepushonly)))
+		case "teampush":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_teampush)))
+		case "nodestroyself":
+			l.Push(lua.LBool(sys.debugWC.asf(ASF_nodestroyself)))
 		// GlobalSpecialFlag (Mugen)
 		case "globalnoko":
 			l.Push(lua.LBool(sys.gsf(GSF_globalnoko)))

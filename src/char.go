@@ -111,6 +111,8 @@ const (
 	ASF_runfirst
 	ASF_runlast
 	ASF_sizepushonly
+	ASF_teampush
+	ASF_nodestroyself
 )
 
 type GlobalSpecialFlag uint32
@@ -6398,7 +6400,7 @@ func (c *Char) destroy() {
 // Mugen clears the helper ID here, before fully removing the helper (c.helperID = 0)
 // We don't so that all helper triggers behave the same
 func (c *Char) destroySelf(recursive, removeexplods, removetexts bool) bool {
-	if c.helperIndex <= 0 {
+	if c.helperIndex <= 0 || c.asf(ASF_nodestroyself) {
 		return false
 	}
 
@@ -13035,7 +13037,8 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 	for _, c := range cl.runOrder {
 		// Stop current iteration if char won't push
-		if !c.csf(CSF_playerpush) || c.teamside == getter.teamside || c.scf(SCF_standby) || c.scf(SCF_disabled) {
+		if !c.csf(CSF_playerpush) || (c.teamside == getter.teamside && !getter.asf(ASF_teampush) && !c.asf(ASF_teampush)) ||
+			c.scf(SCF_standby) || c.scf(SCF_disabled) {
 			continue
 		}
 

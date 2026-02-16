@@ -5103,7 +5103,6 @@ func (s *System) restoreCharVars(c *Char) {
 
 	for k, v := range bk.cnsvar {
 		c.cnsvar[k] = v
-		println(k, v)
 	}
 	for k, v := range bk.cnsfvar {
 		c.cnsfvar[k] = v

@@ -4721,6 +4721,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_runlast))
 		case "sizepushonly":
 			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_sizepushonly))
+		case "teampush":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_teampush))
+		case "nodestroyself":
+			out.appendI64Op(OC_ex_isassertedchar, int64(ASF_nodestroyself))
 		// Ikemen global flags
 		case "camerafreeze":
 			out.appendI32Op(OC_ex_isassertedglobal, int32(GSF_camerafreeze))

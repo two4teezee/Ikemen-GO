@@ -6,7 +6,7 @@ import (
 	"container/list"
 	"fmt"
 	"image"
-	"image/draw"
+	//"image/draw"
 	"io"
 	"io/ioutil"
 	"os"
@@ -404,11 +404,12 @@ func (f *Font_VK) GenerateGlyphs(low, high rune) error {
 		char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 
 		//create image to draw glyph
-		fg, bg := image.White, image.Black
+		//fg, bg := image.White, image.Black // No need to fill in the background
+		fg := image.White
 		//rect := image.Rect(0, 0, int(gw), int(gh))
 		rect := image.Rect(0, 0, char.width, char.height)
 		rgba := image.NewRGBA(rect)
-		draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
+		//draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src) // No need to fill in the background
 
 		//set the glyph dot
 		//px := 0 - (int(gBnd.Min.X) >> 6)

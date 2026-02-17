@@ -430,7 +430,7 @@ func (t *Texture_GL32) MapUploadFormat(i int32) uint32 {
 		return gl.RGBA
 	}
 }
-	
+
 func (t *Texture_GL32) MapSizedInternalFormat(i int32) uint32 {
 	switch i {
 	case 8:

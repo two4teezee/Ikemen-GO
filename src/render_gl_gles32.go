@@ -509,9 +509,9 @@ type Renderer_GLES32 struct {
 	fbo_f         uint32
 	fbo_f_texture *Texture_GLES32
 	// Shadow Map
-	fbo_shadow              uint32
+	fbo_shadow               uint32
 	fbo_shadow_cube_textures [4]uint32
-	fbo_env                 uint32
+	fbo_env                  uint32
 	// Postprocessing FBOs
 	fbo_pp         []uint32
 	fbo_pp_texture []uint32

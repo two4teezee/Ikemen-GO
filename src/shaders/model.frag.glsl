@@ -71,16 +71,15 @@
 		#ifdef GL_ES
 			precision highp float;
 			precision highp int;
-			precision highp samplerCubeArray;
 		#endif
 		#ifdef ENABLE_SHADOW
-			uniform samplerCubeArray shadowCubeMap;
-			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0),index)).r
-			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+			// Avoid sampler-array dynamic indexing on GLES by declaring 4 separate samplers
+			uniform samplerCube shadowCubeMap0;
+			uniform samplerCube shadowCubeMap1;
+			uniform samplerCube shadowCubeMap2;
+			uniform samplerCube shadowCubeMap3;
 			const bool useShadowMap = true;
 		#else
-			#define COMPAT_SHADOW_MAP_TEXTURE() 1.0
-			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() 1.0
 			const bool useShadowMap = false;
 		#endif
 		out vec4 FragColor;
@@ -153,7 +152,19 @@ float DirectionalLightShadowCalculation(int index, vec4 lightSpacePos,float Ndot
 	// get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
 	float epsilon = 1.0 / 1024.0;
 	vec2 xy = vec2(clamp(projCoords.x,epsilon,1.0-epsilon),clamp(projCoords.y,epsilon,1.0-epsilon));
-	float closestDepth = COMPAT_SHADOW_MAP_TEXTURE(); 
+	float closestDepth;
+	#if __VERSION__ >= 450
+		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
+	#elif __VERSION__ >= 130 || defined(GL_ES)
+		// sample using separate samplers with dynamic branch (avoids sampler array indexing)
+		vec3 coord0 = vec3(1.0, -(xy.y*2.0-1.0), -(xy.x*2.0-1.0));
+		if(index == 0) closestDepth = texture(shadowCubeMap0, coord0).r;
+		else if(index == 1) closestDepth = texture(shadowCubeMap1, coord0).r;
+		else if(index == 2) closestDepth = texture(shadowCubeMap2, coord0).r;
+		else closestDepth = texture(shadowCubeMap3, coord0).r;
+	#else
+		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
+	#endif
 	// get depth of current fragment from light's perspective
 	float currentDepth = projCoords.z;
 	// check whether current frag pos is in shadow
@@ -173,7 +184,18 @@ float SpotLightShadowCalculation(int index, vec3 pointToLight, vec4 lightSpacePo
 	}
 	float epsilon = 1.0 / 1024.0;
 	vec2 xy = vec2(clamp(lightSpacePos.x,epsilon,1.0-epsilon),clamp(lightSpacePos.y,epsilon,1.0-epsilon));
-	float closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
+	float closestDepth;
+	#if __VERSION__ >= 450
+		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
+	#elif __VERSION__ >= 130 || defined(GL_ES)
+		vec3 coord0 = vec3(1.0, -(xy.y*2.0-1.0), -(xy.x*2.0-1.0));
+		if(index == 0) closestDepth = texture(shadowCubeMap0, coord0).r;
+		else if(index == 1) closestDepth = texture(shadowCubeMap1, coord0).r;
+		else if(index == 2) closestDepth = texture(shadowCubeMap2, coord0).r;
+		else closestDepth = texture(shadowCubeMap3, coord0).r;
+	#else
+		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
+	#endif
 	// it is currently in linear range between [0,1]. Re-transform back to original value
 	closestDepth *= farPlane;
 	// get depth of current fragment from light's perspective
@@ -193,7 +215,17 @@ float PointLightShadowCalculation(int index, vec3 pointToLight,float NdotL,float
 		return 1.0;
 	}
 	vec3 xyz = -pointToLight;
-	float closestDepth = COMPAT_SHADOW_CUBE_MAP_TEXTURE();
+	float closestDepth;
+	#if __VERSION__ >= 450
+		closestDepth = COMPAT_SHADOW_CUBE_MAP_TEXTURE();
+	#elif __VERSION__ >= 130 || defined(GL_ES)
+		if(index == 0) closestDepth = texture(shadowCubeMap0, xyz).r;
+		else if(index == 1) closestDepth = texture(shadowCubeMap1, xyz).r;
+		else if(index == 2) closestDepth = texture(shadowCubeMap2, xyz).r;
+		else closestDepth = texture(shadowCubeMap3, xyz).r;
+	#else
+		closestDepth = COMPAT_SHADOW_CUBE_MAP_TEXTURE();
+	#endif
 	// it is currently in linear range between [0,1]. Re-transform back to original value
 	closestDepth *= farPlane;
 	// now get current linear depth as the length between the fragment and light position
@@ -220,8 +252,8 @@ vec3 getNormal()
 	if (length(uv_dy) <= 1e-2) {
 	  uv_dy = vec2(0.0, 1.0);
 	}
-	vec3 t_ = (uv_dy.t * dFdx(worldSpacePos) - uv_dx.t * dFdy(worldSpacePos)) /
-		(uv_dx.s * uv_dy.t - uv_dy.s * uv_dx.t);
+	vec3 t_ = (uv_dy.y * dFdx(worldSpacePos) - uv_dx.y * dFdy(worldSpacePos)) /
+		(uv_dx.x * uv_dy.y - uv_dy.x * uv_dx.y);
 	vec3 n, t, b, ng;
 	if(normal.x+normal.y+normal.z != 0.0){
 		if(tangent.x+tangent.y+tangent.z != 0.0){
@@ -348,6 +380,13 @@ vec4 getSpecularSample(vec3 reflection, float lod)
 {
 	return COMPAT_TEXTURE_CUBE_LOD(GGXEnvSampler, environmentRotation * reflection, lod) * environmentIntensity;
 }
+
+// --- Forward declarations
+vec3 getLighIntensity(Light light, vec3 pointToLight);
+vec3 BRDF_lambertian(vec3 f0, vec3 f90, vec3 diffuseColor, float specularWeight, float VdotH);
+vec3 BRDF_specularGGX(vec3 f0, vec3 f90, float alphaRoughness, float specularWeight, float VdotH, float NdotL, float NdotV, float NdotH);
+// --- end forward declarations
+
 vec3 getIBLGGXFresnel(vec3 n, vec3 v, float roughness, vec3 F0, float specularWeight)
 {
 	// see https://bruop.github.io/ibl/#single_scattering_results at Single Scattering Results

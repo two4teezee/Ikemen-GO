@@ -316,21 +316,19 @@ func (t *Texture_GLES32) SetData(data []byte) {
 		interp = gl.LINEAR
 	}
 
-	format := t.MapInternalFormat(Max(t.depth, 8))
-
-	var uploadFormat uint32 = gl.RGBA
-	if t.depth == 8 {
-		uploadFormat = gl.RED
-	}
+	bits := Max(t.depth, 8)
+	internalFormat := t.MapSizedInternalFormat(bits)
+	uploadFormat := t.MapUploadFormat(bits)
+	uploadType := t.MapUploadType(bits)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 
 	if data != nil {
-		gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, uploadFormat, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
+		gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, unsafe.Pointer(&data[0]))
 	} else {
-		gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, uploadFormat, gl.UNSIGNED_BYTE, nil)
+		gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, nil)
 	}
 
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interp)
@@ -349,50 +347,57 @@ func (t *Texture_GLES32) SetSubData(data []byte, x, y, width, height, stride int
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
-	format := t.MapInternalFormat(Max(t.depth, 8))
+	bits := Max(t.depth, 8)
+	uploadFormat := t.MapUploadFormat(bits)
+	uploadType := t.MapUploadType(bits)
 	bytesPerPixel := t.depth / 8
 	if bytesPerPixel < 1 {
 		bytesPerPixel = 1
 	}
 
-	// Doing this should respect both Linux and Android requirements
-	if stride > 0 && stride != width*bytesPerPixel {
-		// THIS IS THE FIX:
-		// Tell GLES the source buffer has 'stride' pixels per row
-		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, stride/bytesPerPixel)
-	} else {
-		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+	var rowLength int32 = 0
+	if stride != width*bytesPerPixel {
+		rowLength = stride / bytesPerPixel
+	}
+
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, rowLength)
+
+	ptr := unsafe.Pointer(nil)
+	if data != nil {
+		ptr = unsafe.Pointer(&data[0])
 	}
 
 	if data != nil {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(uploadFormat), uploadType, ptr)
 	} else {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, nil)
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(uploadFormat), uploadType, nil)
 	}
 
 	if err := gl.GetError(); err != 0 {
-		Logcat(fmt.Sprintf("GL ERROR in SetSubDataStride: %v | w:%d h:%d s:%d", err, width, height, stride))
+		Logcat(fmt.Sprintf("GL ERROR in SetSubData: %v | w:%d h:%d s:%d", err, width, height, stride))
 	}
 
-	// We can't trust Android to do this. Best to also assert it in all other texture uploads
-	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+	if rowLength != 0 {
+		gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
+	}
 
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, interp)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, interp)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-
-	// gl.Flush()
 }
 
 func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
-	format := t.MapInternalFormat(Max(t.depth, 8))
+	bits := Max(t.depth, 8)
+	internalFormat := t.MapSizedInternalFormat(bits)
+	uploadFormat := t.MapUploadFormat(bits)
+	uploadType := t.MapUploadType(bits)
 
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, format, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, unsafe.Pointer(&data[0]))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, int32(mag))
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, int32(min))
@@ -449,13 +454,47 @@ func (t *Texture_GLES32) GetHeight() int32 {
 	return t.height
 }
 
-func (t *Texture_GLES32) MapInternalFormat(i int32) uint32 {
-	var InternalFormatLUT = map[int32]uint32{
-		8:  gl.RED,
-		24: gl.RGB,
-		32: gl.RGBA,
+func (t *Texture_GLES32) MapUploadType(i int32) uint32 {
+	switch i {
+	case 96, 128:
+		return gl.FLOAT
+	default:
+		return gl.UNSIGNED_BYTE
 	}
-	return InternalFormatLUT[i]
+}
+
+func (t *Texture_GLES32) MapUploadFormat(i int32) uint32 {
+	switch i {
+	case 8:
+		return gl.RED
+	case 24:
+		return gl.RGB
+	case 32:
+		return gl.RGBA
+	case 96:
+		return gl.RGB
+	case 128:
+		return gl.RGBA
+	default:
+		return gl.RGBA
+	}
+}
+
+func (t *Texture_GLES32) MapSizedInternalFormat(i int32) uint32 {
+	switch i {
+	case 8:
+		return gl.R8
+	case 24:
+		return gl.RGB8
+	case 32:
+		return gl.RGBA8
+	case 96:
+		return gl.RGB32F
+	case 128:
+		return gl.RGBA32F
+	default:
+		return gl.RGBA8
+	}
 }
 
 // ------------------------------------------------------------------
@@ -471,7 +510,7 @@ type Renderer_GLES32 struct {
 	fbo_f_texture *Texture_GLES32
 	// Shadow Map
 	fbo_shadow              uint32
-	fbo_shadow_cube_texture uint32
+	fbo_shadow_cube_textures [4]uint32
 	fbo_env                 uint32
 	// Postprocessing FBOs
 	fbo_pp         []uint32
@@ -552,8 +591,12 @@ func (r *Renderer_GLES32) InitModelShader() error {
 		"lights[2].direction", "lights[2].range", "lights[2].color", "lights[2].intensity", "lights[2].position", "lights[2].innerConeCos", "lights[2].outerConeCos", "lights[2].type", "lights[2].shadowBias", "lights[2].shadowMapFar",
 		"lights[3].direction", "lights[3].range", "lights[3].color", "lights[3].intensity", "lights[3].position", "lights[3].innerConeCos", "lights[3].outerConeCos", "lights[3].type", "lights[3].shadowBias", "lights[3].shadowMapFar",
 	)
-	r.modelShader.RegisterTextures("tex", "morphTargetValues", "jointMatrices", "normalMap", "metallicRoughnessMap", "ambientOcclusionMap", "emissionMap", "lambertianEnvSampler", "GGXEnvSampler", "GGXLUT",
-		"shadowCubeMap")
+	r.modelShader.RegisterTextures(
+		"tex", "morphTargetValues", "jointMatrices",
+		"normalMap", "metallicRoughnessMap", "ambientOcclusionMap", "emissionMap",
+		"lambertianEnvSampler", "GGXEnvSampler", "GGXLUT",
+		"shadowCubeMap0", "shadowCubeMap1", "shadowCubeMap2", "shadowCubeMap3",
+	)
 
 	if r.enableShadow {
 		r.shadowMapShader, err = r.newShaderProgram(shadowVertShader, shadowFragShader, shadowGeoShader, "Shadow Map Shader", false)
@@ -563,10 +606,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 
 		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 
-		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
-			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
-			"lightMatrices[12]", "lightMatrices[13]", "lightMatrices[14]", "lightMatrices[15]", "lightMatrices[16]", "lightMatrices[17]",
-			"lightMatrices[18]", "lightMatrices[19]", "lightMatrices[20]", "lightMatrices[21]", "lightMatrices[22]", "lightMatrices[23]",
+		r.shadowMapShader.RegisterUniforms("model", "lightMatrix",
 			"lights[0].type", "lights[1].type", "lights[2].type", "lights[3].type", "lights[0].position", "lights[1].position", "lights[2].position", "lights[3].position",
 			"lights[0].shadowMapFar", "lights[1].shadowMapFar", "lights[2].shadowMapFar", "lights[3].shadowMapFar", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension",
 			"numTargets", "numVertices", "enableAlpha", "alphaThreshold", "baseColorFactor", "useTexture", "texTransform", "layerOffset", "lightIndex")
@@ -597,9 +637,9 @@ func (r *Renderer_GLES32) Init() {
 		return eglGetProcAddress(name)
 	}))
 	if runtime.GOOS != "android" {
-		sys.errLog.Printf("Using OpenGL %v (%v)", gl.GetString(gl.VERSION), gl.GetString(gl.RENDERER))
+		sys.errLog.Printf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
 	} else {
-		Logcat(fmt.Sprintf("Using OpenGL %v (%v)", gl.GetString(gl.VERSION), gl.GetString(gl.RENDERER)))
+		Logcat(fmt.Sprintf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER))))
 	}
 
 	// Logcat("GLES: Querying Max Samples")
@@ -787,30 +827,44 @@ func (r *Renderer_GLES32) Init() {
 	// create an FBO for our model stuff
 	if r.enableModel {
 		if r.enableShadow {
+			// create FBO for shadow rendering
 			gl.GenFramebuffers(1, &r.fbo_shadow)
-			gl.ActiveTexture(gl.TEXTURE0)
-			gl.GenTextures(1, &r.fbo_shadow_cube_texture)
 
-			gl.BindTexture(gl.TEXTURE_CUBE_MAP_ARRAY, r.fbo_shadow_cube_texture)
-			gl.TexStorage3D(gl.TEXTURE_CUBE_MAP_ARRAY, 1, gl.DEPTH_COMPONENT24, 1024, 1024, 4*6)
-			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+			// create 4 separate GL_TEXTURE_CUBE_MAP textures (one per shadow caster/light)
+			gl.GenTextures(4, &r.fbo_shadow_cube_textures[0])
 
-			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
+			for i := 0; i < 4; i++ {
+				// bind and allocate each cube-map's 6 faces as depth textures
+				gl.ActiveTexture(uint32(gl.TEXTURE0 + uint32(i)))
+				gl.BindTexture(gl.TEXTURE_CUBE_MAP, r.fbo_shadow_cube_textures[i])
 
-			// Actually attach the texture to the FBO
-			gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
+				// Allocate depth storage for each face
+				for face := 0; face < 6; face++ {
+					gl.TexImage2D(
+						uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X)+uint32(face),
+						0,
+						gl.DEPTH_COMPONENT24,
+						1024, 1024,
+						0,
+						gl.DEPTH_COMPONENT,
+						gl.UNSIGNED_INT,
+						nil,
+					)
+				}
 
-			// gl.DrawBuffer(gl.NONE)
-			bufs := []uint32{gl.NONE}
-			gl.DrawBuffers(1, &bufs[0])
-			gl.ReadBuffer(gl.NONE)
-			if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-				Logcat(fmt.Sprintf("[GLES32] framebuffer create failed: 0x%x", status))
-				sys.errLog.Printf("[GLES32] framebuffer create failed: 0x%x", status)
+				gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+				gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+				gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+				gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
+				// Note: GL_TEXTURE_WRAP_R can also be set if desired:
+				// gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE)
 			}
+
+			// Create (empty) FBO. We'll attach the proper cube-face when rendering each face.
+			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
+			// Leave the depth attachment empty here — attach per-face with FramebufferTexture2D()
+			// Restore default framebuffer binding
+			gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 		}
 		gl.GenFramebuffers(1, &r.fbo_env)
 	}
@@ -1153,7 +1207,8 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	r.ChangeProgram(r.shadowMapShader.program)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
 	gl.Viewport(0, 0, 1024, 1024)
-	gl.Enable(gl.TEXTURE_2D)
+
+	// Removed gl.Enable(gl.TEXTURE_2D) — not needed / invalid in GLES3 core
 	gl.Disable(gl.BLEND)
 	r.SetDepthTest(true)
 	r.SetDepthMask(true)
@@ -1170,8 +1225,7 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	} else {
 		gl.Disable(gl.CULL_FACE)
 	}
-	//r.depthTest = true
-	//r.depthMask = true
+
 	r.blendEquation = BlendAdd
 	r.blendSrc = BlendOne
 	r.blendDst = BlendZero
@@ -1179,8 +1233,9 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 
-	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
-	gl.Clear(gl.DEPTH_BUFFER_BIT)
+	// Don't attach a depth texture here: attach the specific cube-face with
+	// SetShadowFrameCubeTexture(...) before rendering each face.
+	// Clearing must be done after the correct face is attached.
 }
 
 func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
@@ -1342,11 +1397,17 @@ func (r *Renderer_GLES32) prepareModelPipeline(bufferIndex uint32, env *Environm
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
+	// Bind the 4 cube-map textures to the corresponding sampler uniforms/units
 	if r.enableShadow {
-		loc, unit := r.modelShader.uniforms["shadowCubeMap"], r.modelShader.textures["shadowCubeMap"]
-		gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
-		gl.BindTexture(gl.TEXTURE_CUBE_MAP_ARRAY, r.fbo_shadow_cube_texture)
-		gl.Uniform1i(loc, int32(unit))
+		for i := 0; i < 4; i++ {
+			name := fmt.Sprintf("shadowCubeMap%d", i)
+			loc := r.modelShader.uniforms[name]
+			unit := r.modelShader.textures[name] // texture unit assigned by RegisterTextures
+
+			gl.ActiveTexture(uint32(gl.TEXTURE0 + unit))
+			gl.BindTexture(gl.TEXTURE_CUBE_MAP, r.fbo_shadow_cube_textures[i])
+			gl.Uniform1i(loc, int32(unit))
+		}
 	}
 	if env != nil {
 		loc, unit := r.modelShader.uniforms["lambertianEnvSampler"], r.modelShader.textures["lambertianEnvSampler"]
@@ -1816,11 +1877,44 @@ func (r *Renderer_GLES32) SetShadowMapTexture(name string, tex Texture) {
 }
 
 func (r *Renderer_GLES32) SetShadowFrameTexture(i uint32) {
-	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
+	// Backwards-compatible alias: treat i as combined index (light*6 + face)
+	r.SetShadowFrameCubeTexture(i)
 }
 
 func (r *Renderer_GLES32) SetShadowFrameCubeTexture(i uint32) {
-	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
+	// Interpret i as a combined index: lightIndex = i / 6, faceIndex = i % 6
+	lightIndex := int(i / 6)
+	faceIndex := int(i % 6)
+
+	// clamp lightIndex to available range
+	if lightIndex < 0 {
+		lightIndex = 0
+	}
+	if lightIndex >= len(r.fbo_shadow_cube_textures) {
+		lightIndex = len(r.fbo_shadow_cube_textures) - 1
+	}
+	if faceIndex < 0 {
+		faceIndex = 0
+	}
+	if faceIndex > 5 {
+		faceIndex = 5
+	}
+
+	tex := r.fbo_shadow_cube_textures[lightIndex]
+
+	// Attach the requested face of the cube map as the framebuffer depth attachment.
+	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
+
+	target := uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X) + uint32(faceIndex)
+	gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, target, tex, 0)
+
+	// Make sure draw/read buffers are set appropriately (depth-only FBO)
+	bufs := []uint32{gl.NONE}
+	gl.DrawBuffers(1, &bufs[0])
+	gl.ReadBuffer(gl.NONE)
+
+	// Clear the depth buffer for this face before rendering
+	gl.Clear(gl.DEPTH_BUFFER_BIT)
 }
 
 func (r *Renderer_GLES32) SetVertexData(values ...float32) {

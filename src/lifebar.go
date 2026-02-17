@@ -1784,20 +1784,22 @@ func (fa *LifeBarFace) bgDraw(layerno int16) {
 	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
+func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 	refChar := sys.chars[ref][0]
 
-	if far.face != nil {
+	if refFace.face != nil {
 		// Get player current PalFX if applicable
-		if far.palfxshare {
+		// These flags should check "fa" instead of "refFace"
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
+		if fa.palfxshare {
 			*fa.face_pfx = *refChar.getPalfx()
 		}
 
 		// Update portrait palette
-		if far.face.coldepth <= 8 {
+		if refFace.face.coldepth <= 8 {
 			// Check the player's current palette
-			palIdx := far.face.palidx
-			if far.palshare {
+			palIdx := refFace.face.palidx
+			if fa.palshare {
 				remap := refChar.getPalfx().remap
 				if int(palIdx) < len(remap) {
 					palIdx = remap[palIdx]
@@ -1807,8 +1809,8 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 			palList := &sys.cgi[ref].palettedata.palList
 			charPal := palList.Get(palIdx)
 			// Update portrait palette and cache
-			far.face.Pal = charPal
-			far.face.PalTex = far.face.CachePalTex(charPal)
+			refFace.face.Pal = charPal
+			refFace.face.PalTex = refFace.face.CachePalTex(charPal)
 		}
 
 		// TODO: PalFX sharing has a bug in Tag in that it uses the parameter from the char's original placement in the team
@@ -1823,7 +1825,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 		// Draw the actual face sprite
 		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebar.offsetX)*sys.lifebar.scale, float32(fa.pos[1])*sys.lifebar.scale, layerno,
-			far.face, fa.face_pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
+			refFace.face, fa.face_pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
 
 		// Draw KO layer
 		if !refChar.alive() {
@@ -1834,7 +1836,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 		sys.brightness = oldBright
 
 		// Turns mode teammates
-		i := int32(len(far.teammate_face)) - 1
+		i := int32(len(refFace.teammate_face)) - 1
 		x := float32(fa.teammate_pos[0] + fa.teammate_spacing[0]*(i-1))
 		y := float32(fa.teammate_pos[1] + fa.teammate_spacing[1]*(i-1))
 
@@ -1868,7 +1870,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 				// Draw face
 				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebar.offsetX)*sys.lifebar.scale, y*sys.lifebar.scale, layerno,
-					far.teammate_face[i], pfx, far.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
+					refFace.teammate_face[i], pfx, refFace.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
 
 				// Draw KO layer
 				if i < fa.numko {

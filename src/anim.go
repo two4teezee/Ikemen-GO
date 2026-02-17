@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -196,6 +197,7 @@ type Animation struct {
 	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
 	phantomPixel               bool
+	copyAction                 int32
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -213,6 +215,7 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		remap:                      make(RemapPreset),
 		start_scale:                [...]float32{1, 1},
 		lastActionFrame:            -1,
+		copyAction:                 -1,
 	}
 }
 
@@ -229,6 +232,20 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 		}
 		line := strings.ToLower(strings.TrimSpace(
 			strings.SplitN(lines[*i], ";", 2)[0]))
+
+		// Copy Action
+		if len(line) >= 12 && line[:12] == "copy action " { // Trailing space here
+			numStr := strings.TrimSpace(line[12:])
+			id, err := strconv.ParseInt(numStr, 10, 32)
+			if err != nil || numStr == "" {
+				// Mark for deletion if number is invalid
+				a.copyAction = -1
+			} else {
+				a.copyAction = int32(id)
+			}
+			return a
+		}
+
 		af := ReadAnimFrame(line)
 		switch {
 		case af != nil:
@@ -1021,11 +1038,16 @@ func (at AnimationTable) readAction(sff *Sff, pal *PaletteList,
 	for *i < len(lines) {
 		no, a := ReadAction(sff, pal, lines, i)
 		if a != nil {
-			if tmp := at[no]; tmp != nil {
-				return tmp
+			// In case of duplicate action numbers, just use the first one
+			// Even if first one is "Copy Action"
+			if existing := at[no]; existing != nil {
+				return existing
 			}
+			// Store the new animation in the table.
 			at[no] = a
-			for len(a.frames) == 0 && *i < len(lines) {
+			// Recursive logic until we find a non-empty animation
+			// If the current action is empty, we attempt to copy the very next action found in the file
+			for len(a.frames) == 0 && *i < len(lines) && a.copyAction < 0 {
 				if a2 := at.readAction(sff, pal, lines, i); a2 != nil {
 					*a = *a2
 					break
@@ -1034,6 +1056,7 @@ func (at AnimationTable) readAction(sff *Sff, pal *PaletteList,
 			}
 			return a
 		} else {
+			// No action found on this line, advance to the next one
 			(*i)++
 		}
 	}
@@ -1044,6 +1067,7 @@ func ReadAnimationTable(sff *Sff, pal *PaletteList, lines []string, i *int) Anim
 	at := NewAnimationTable()
 	for at.readAction(sff, pal, lines, i) != nil {
 	}
+	at.resolveCopyAction()
 	return at
 }
 
@@ -1055,6 +1079,47 @@ func (at AnimationTable) get(no int32) *Animation {
 	ret := &Animation{}
 	*ret = *a
 	return ret
+}
+
+// Duplicate all actions with "Copy Action" parameter
+func (at AnimationTable) resolveCopyAction() {
+	// Track actions that fail to resolve
+	var toDelete []int32
+
+	for no, a := range at {
+		// Limit the chain depth to 8 to prevent infinite loops from circular references
+		for loops := 0; a.copyAction >= 0 && loops < 8; loops++ {
+			target := at[a.copyAction]
+
+			// If the target is missing or it's a self-reference, break the link to stop
+			if target == nil || target == a {
+				break
+			}
+
+			// If the target is also shared, jump to the next link
+			if target.copyAction >= 0 {
+				a.copyAction = target.copyAction
+				continue
+			}
+
+			// Perform shallow copy
+			*a = *target
+
+			// Mark this action as resolved so we don't process it again
+			a.copyAction = -1
+			break
+		}
+
+		// If Copy Action could not be resolved, do not keep the action at all
+		if a.copyAction >= 0 {
+			toDelete = append(toDelete, no)
+		}
+	}
+
+	// Purge the ghost animations from the table
+	for _, no := range toDelete {
+		delete(at, no)
+	}
 }
 
 type SpriteData struct {
@@ -1136,7 +1201,7 @@ func (dl DrawList) draw(layerno int32, under bool, cameraX, cameraY, cameraScl f
 	for i, curIdx := range sortList {
 		s := dl[curIdx]
 		// Default to own index
-		s.syncGroup = i 
+		s.syncGroup = i
 		// If using syncId, find the first sprite with the same syncId and copy its group
 		if s.syncId > 0 {
 			for j := 0; j < i; j++ {

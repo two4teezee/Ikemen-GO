@@ -2424,8 +2424,14 @@ function start.f_selectScreen()
 					end
 					local cursorState = 'active'
 					if v.selectState > 0 and motif.select_info.paletteselect > 0 then
+					local cursorData = motif.select_info['p' .. side].cursor
+						if cursorData.preview and cursorData.preview.default and 
+						(cursorData.preview.default.anim ~= -1 or cursorData.preview.default.spr[1] ~= -1) then
 						--cursorState when palmenu is active
-						cursorState = 'done'
+							cursorState = 'preview'
+						else
+							cursorState = 'done'
+						end
 					end
 					if v.selectState < 4 and start.f_selGrid(start.c[v.player].cell + 1).hidden ~= 1 and not start.c[v.player].blink then
 						start.f_drawCursor(v.player, start.c[v.player].selX, start.c[v.player].selY, cursorState, false)

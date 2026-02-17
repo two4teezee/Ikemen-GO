@@ -175,40 +175,59 @@ const (
 	SaveData_fvar
 )
 
-// Debug Clsn text
-type ClsnText struct {
+type DebugClsnText struct {
 	x, y       float32
 	text       string
 	r, g, b, a int32
 }
 
-// Debug Clsn display
-type ClsnRect [][7]float32
+type DebugClsn struct {
+	rects  [][7]float32
+	palTex Texture // Reusable texture with the Clsn color
+}
 
-func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
+func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	x = (x - sys.cam.Pos[0]) * sys.cam.Scale
 	y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel()
 	xs *= sys.cam.Scale
 	ys *= sys.cam.Scale
 	sw := float32(sys.gameWidth)
-	sh := float32(0) //float32(sys.gameHeight)
+	sh := float32(0) 
+
 	for i := 0; i < len(clsn); i++ {
 		offx := sw / 2
 		offy := sh
-		rect := [...]float32{
-			AbsF(xs) * clsn[i][0], AbsF(ys) * clsn[i][1],
-			xs * (clsn[i][2] - clsn[i][0]), ys * (clsn[i][3] - clsn[i][1]),
-			(x + offx) * sys.widthScale, (y + offy) * sys.heightScale, angle}
-		*cr = append(*cr, rect)
+		rect := [7]float32{
+			AbsF(xs) * clsn[i][0],          // [0] x position (left)
+			AbsF(ys) * clsn[i][1],          // [1] y position (top)
+			xs * (clsn[i][2] - clsn[i][0]), // [2] width
+			ys * (clsn[i][3] - clsn[i][1]), // [3] height
+			(x + offx) * sys.widthScale,    // [4] rotation center x
+			(y + offy) * sys.heightScale,   // [5] rotation center y
+			angle,                          // [6] rotation angle
+		}
+
+		dc.rects = append(dc.rects, rect)
 	}
 }
 
 // Draw the whole list of a specific type of debug Clsn
-func (cr ClsnRect) draw(blendAlpha [2]int32) {
-	for _, c := range cr {
+func (dc *DebugClsn) draw(color uint32, blendAlpha [2]int32) {
+	if len(dc.rects) == 0 {
+		return
+	}
+
+	// Initialize the palette texture for this specific rect type if it doesn't exist yet
+	if dc.palTex == nil {
+		pal := make([]uint32, 256)
+		pal[0] = color
+		dc.palTex = NewTextureFromPalette(pal)
+	}
+
+	for _, c := range dc.rects {
 		params := RenderParams{
 			tex:            sys.clsnSpr.Tex,
-			paltex:         sys.clsnSpr.PalTex,
+			paltex:         dc.palTex,
 			size:           sys.clsnSpr.Size,
 			x:              -c[0] * sys.widthScale,
 			y:              -c[1] * sys.heightScale,
@@ -12182,16 +12201,18 @@ func (c *Char) cueDebugDraw() {
 	}
 	// Prepare information for debug text
 	if sys.debugDisplay {
-		// Add debug clsnText
+		// Add debug Clsn text
 		x = (x-sys.cam.Pos[0])*sys.cam.Scale + ((320-float32(sys.gameWidth))/2 + 1) + float32(sys.gameWidth)/2
 		y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel() + 1 // "1" is just for spacing
 		y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 		// Name, PlayerNo and ID
-		sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
+		sys.debugClsnText = append(sys.debugClsnText,
+			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
 		// NotHitBy
 		if nhbtxt != "" {
 			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-			sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
+			sys.debugClsnText = append(sys.debugClsnText,
+				DebugClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
 		}
 		// Targets
 		for _, tpid := range c.targets {
@@ -12199,7 +12220,8 @@ func (c *Char) cueDebugDraw() {
 				y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 				thid := t.ghv.hitid
 				tjg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
-				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
+				sys.debugClsnText = append(sys.debugClsnText,
+					DebugClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
 			}
 		}
 	}

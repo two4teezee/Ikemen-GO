@@ -4786,23 +4786,25 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.cgi[pn].palno = int32(selectPalno)
 
 	if !attached {
-		// Prepare lifebar portraits for Turns mode
+		// Prepare lifebar portraits and names for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
-			l.prepareTurnsFaces(pn, fa, idx)
+			nm := sys.lifebar.nm[sys.tmode[pn&1]][pn]
+			l.prepareTurnsFaces(pn, fa, nm, idx)
 		}
 	}
 
 	return 1
 }
 
-func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
+func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, idx []int) {
 	// Reset face and name KO's
 	fa.numko = 0
 	sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
 
 	// Pre-allocate
 	nsel := len(idx)
+	nm.teammate_name_strings = make([]string, nsel)
 	fa.teammate_face = make([]*Sprite, nsel)
 	fa.teammate_scale = make([]float32, nsel)
 	fa.teammate_face_pfx = make([]*PalFX, nsel)
@@ -4810,6 +4812,9 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
 	// Iterate all selected partners
 	for i, ci := range idx {
 		sc := &sys.sel.charlist[ci]
+
+		// Save the name
+		nm.teammate_name_strings[i] = sc.lifebarname
 
 		// Calculate portrait scale
 		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]

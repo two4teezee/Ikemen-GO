@@ -1857,21 +1857,34 @@ func (fa *LifeBarFace) drawTeammates(layerno int16, ref int) {
 		sys.brightness = 1.0
 	}
 
-	// Determine the first teammate that should be drawn, in case of KO hiding
-	startIdx := int32(0)
+	teamSize := int32(len(fa.teammate_face))
+
+	// Determine how many teammates to draw
+	visibleCount := teamSize - 1
 	if fa.teammate_ko_hide {
-		startIdx = fa.numko
+		visibleCount -= fa.numko
 	}
 
-	// Calculate the total number of teammates to actually draw
-	visibleCount := int32(len(fa.teammate_face)) - startIdx
+	if visibleCount <= 0 {
+		sys.brightness = oldBright
+		return
+	}
 
-	// Calculate starting offset since we will iterate from the last teammate
+	// Calculate starting offset for the furthest teammate slot
 	x := float32(fa.teammate_pos[0] + fa.teammate_spacing[0]*(visibleCount-1))
 	y := float32(fa.teammate_pos[1] + fa.teammate_spacing[1]*(visibleCount-1))
 
-	// Loop backwards and only through the members that aren't hidden
-	for i := int32(len(fa.teammate_face)) - 1; i >= startIdx; i-- {
+	// Loop backwards through the visible slots
+	for j := visibleCount - 1; j >= 0; j-- {
+		// Round-robin rotation
+		// Start after active player, wrap around to dead players so they appear last
+		i := (j + fa.numko + 1) % teamSize
+
+		// Skip the active player (numko) if the modulo lands on them
+		if i == fa.numko {
+			i = (i + 1) % teamSize
+		}
+
 		// Draw backgrounds
 		fa.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 		fa.teammate_bg0.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
@@ -1894,7 +1907,7 @@ func (fa *LifeBarFace) drawTeammates(layerno int16, ref int) {
 			fa.teammate_ko.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
 		}
 
-		// Move the offset for the next visible teammate
+		// Shift offset back toward the anchor
 		x -= float32(fa.teammate_spacing[0])
 		y -= float32(fa.teammate_spacing[1])
 	}
@@ -1911,8 +1924,10 @@ type LifeBarName struct {
 	teammate_pos     [2]int32
 	teammate_spacing [2]int32
 	teammate_name    LbText
+	teammate_name_strings []string
 	teammate_bg      AnimLayout
 	numko            int32
+	teammate_ko_hide bool
 }
 
 func newLifeBarName() *LifeBarName {
@@ -1925,12 +1940,14 @@ func readLifeBarName(pre string, is IniSection, sff *Sff, at AnimationTable, f m
 	is.ReadI32(pre+"pos", &nm.pos[0], &nm.pos[1])
 	nm.name = *readLbText(pre+"name.", is, "", 0, f, 0)
 	nm.bg = ReadAnimLayout(pre+"bg.", is, sff, at, 0)
+	nm.top = ReadAnimLayout(pre+"top.", is, sff, at, 0)
+
+	// Teammates
 	is.ReadI32(pre+"teammate.pos", &nm.teammate_pos[0], &nm.teammate_pos[1])
-	is.ReadI32(pre+"teammate.spacing", &nm.teammate_spacing[0],
-		&nm.teammate_spacing[1])
+	is.ReadI32(pre+"teammate.spacing", &nm.teammate_spacing[0], &nm.teammate_spacing[1])
 	nm.teammate_name = *readLbText(pre+"teammate.name.", is, "", 0, f, 0)
 	nm.teammate_bg = ReadAnimLayout(pre+"teammate.bg.", is, sff, at, 0)
-	nm.top = ReadAnimLayout(pre+"top.", is, sff, at, 0)
+	is.ReadBool(pre+"teammate.ko.hide", &nm.teammate_ko_hide)
 	return nm
 }
 
@@ -1957,23 +1974,57 @@ func (nm *LifeBarName) draw(layerno int16, ref int, f map[int]*Fnt, side int) {
 		nm.name.lay.DrawText((float32(nm.pos[0]) + sys.lifebar.offsetX), float32(nm.pos[1]), sys.lifebar.scale, layerno,
 			sys.cgi[ref].lifebarname, getFont(f, nm.name.font[0]), nm.name.font[1], nm.name.font[2], nm.name.palfx, nm.name.frgba)
 	}
-	// Get Turns mode partner names from system
-	if sys.tmode[side] == TM_Turns {
-		i := int32(len(sys.sel.selected[side])) - 1
-		x := float32(nm.teammate_pos[0] + nm.teammate_spacing[0]*(i-nm.numko-1))
-		y := float32(nm.teammate_pos[1] + nm.teammate_spacing[1]*(i-nm.numko-1))
-		for ; i >= nm.numko+1; i-- {
-			nm.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-			if nm.teammate_name.font[0] >= 0 && getFont(f, nm.teammate_name.font[0]) != nil {
-				nm.teammate_name.lay.DrawText((float32(x) + sys.lifebar.offsetX), float32(y), sys.lifebar.scale, layerno,
-					sys.sel.GetChar(sys.sel.selected[side][i][0]).lifebarname, getFont(f, nm.teammate_name.font[0]), nm.teammate_name.font[1],
-					nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
-			}
-			x -= float32(nm.teammate_spacing[0])
-			y -= float32(nm.teammate_spacing[1])
-		}
-	}
+
 	nm.top.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
+}
+
+func (nm *LifeBarName) drawTeammates(layerno int16, ref int, f map[int]*Fnt, side int) {
+	if len(nm.teammate_name_strings) == 0 {
+		return
+	}
+
+	teamSize := int32(len(nm.teammate_name_strings))
+
+	// Determine how many names to draw
+	visibleCount := teamSize - 1
+	if nm.teammate_ko_hide {
+		visibleCount -= nm.numko
+	}
+
+	if visibleCount <= 0 {
+		return
+	}
+
+	// Calculate starting offset for the furthest teammate slot
+	x := float32(nm.teammate_pos[0] + nm.teammate_spacing[0]*(visibleCount-1))
+	y := float32(nm.teammate_pos[1] + nm.teammate_spacing[1]*(visibleCount-1))
+
+	// Loop backwards through visible slots
+	for j := visibleCount - 1; j >= 0; j-- {
+		// Round-robin rotation
+		// Start after active player, wrap around to dead players so they appear last
+		i := (j + nm.numko + 1) % teamSize
+
+		if i == nm.numko {
+			i = (i + 1) % teamSize
+		}
+
+		// Draw background
+		nm.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+
+		// Draw pre-compiled name text
+		if nm.teammate_name.font[0] >= 0 && getFont(f, nm.teammate_name.font[0]) != nil {
+			nm.teammate_name.lay.DrawText((x + sys.lifebar.offsetX), y, sys.lifebar.scale, layerno,
+				nm.teammate_name_strings[i], getFont(f, nm.teammate_name.font[0]), 
+				nm.teammate_name.font[1], nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
+		}
+
+		// Shift offset back toward the anchor
+		x -= float32(nm.teammate_spacing[0])
+		y -= float32(nm.teammate_spacing[1])
+	}
+
+	// TODO: Confirm it teammates are really supposed to not have "top" layer
 }
 
 type LifeBarWinIcon struct {
@@ -5207,6 +5258,7 @@ func (l *Lifebar) draw(layerno int16) {
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
 					if !sys.chars[v][0].asf(ASF_nofacedisplay) {
+						// Draw active players
 						index := i*2 + ti
 						l.fa[l.ref[ti]][index].bgDraw(layerno)
 						l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
@@ -5221,10 +5273,16 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarName
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					index := i*2 + ti
 					if !sys.chars[v][0].asf(ASF_nonamedisplay) {
+						// Draw active players
+						index := i*2 + ti
 						l.nm[l.ref[ti]][index].bgDraw(layerno)
 						l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt, ti)
+
+						// Draw Turns teammates from the first bar only
+						if i == 0 && len(l.nm[l.ref[ti]]) > 0 {
+							l.nm[l.ref[ti]][ti].drawTeammates(layerno, v, l.fnt, ti)
+						}
 					}
 				}
 			}

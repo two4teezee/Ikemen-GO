@@ -7387,7 +7387,12 @@ func (r *Renderer_VK) FlushTempCommands() {
 	r.tempCommands = r.tempCommands[:0]
 	return
 }
+
 func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize {
+	// Ensures the value we return is always a multiple of 16
+	if r.stagingBufferOffset%16 > 0 {
+		r.stagingBufferOffset += 16 - (r.stagingBufferOffset % 16)
+	}
 	if size > uint32(r.stagingBuffers[r.stagingBufferIndex].size) {
 		r.FlushTempCommands()
 		if size > uint32(r.stagingBuffers[r.stagingBufferIndex].size) {
@@ -7407,13 +7412,15 @@ func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize
 		log.Println("[WARN] failed to copy image data")
 	}
 	ret := vk.DeviceSize(r.stagingBufferOffset)
-	if size%16 > 0 {
-		r.stagingBufferOffset += size + 16 - (size % 16)
-	} else {
-		r.stagingBufferOffset += size
-	}
+	//if size%16 > 0 {
+	//	r.stagingBufferOffset += size + 16 - (size % 16)
+	//} else {
+	//	r.stagingBufferOffset += size
+	//}
+	r.stagingBufferOffset += size
 	return ret
 }
+
 func (r *Renderer_VK) ResizeStagingBuffer(size uint32) {
 	r.stagingBufferFences[r.stagingBufferIndex] = false
 	r.destroyResourceQueues[r.destroyResourceQueueIndex] <- VulkanResource{

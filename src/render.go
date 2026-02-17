@@ -733,28 +733,55 @@ func CreateTextureAtlas(width, height int32, depth int32, filter bool) *TextureA
 func (ta *TextureAtlas) AddImage(width, height, stride int32, data []byte) ([4]float32, bool) {
 	const maxWidth = 4096
 
+	// Initial check for images larger than the atlas's current size
 	if ta.resize {
 		if width > ta.width || height > ta.height {
+			// If the image itself is bigger than half the max size, we can't fit it reliably
 			if width > maxWidth/2 || height > maxWidth/2 {
 				return [4]float32{}, false
 			}
+			// Attempt to grow to accommodate the large image immediately
 			ta.Resize(width*2, height*2)
 		}
 	}
 
 	x, y, ok := ta.FindPlaceToInsert(width, height)
+
+	// If insertion failed, we need to try resizing the atlas
 	if !ok {
 		if ta.resize {
-			if ta.width != maxWidth && ta.height != maxWidth {
-				ta.Resize(ta.width*2, ta.height*2)
+			// Check if either dimension still has room to grow
+			//if ta.width != maxWidth && ta.height != maxWidth {
+			if ta.width < maxWidth || ta.height < maxWidth {
+				// Calculate target dimensions
+				newW := ta.width * 2
+				newH := ta.height * 2
+
+				// Ensure we never exceed maxWidth
+				if newW > maxWidth {
+					newW = maxWidth
+				}
+				if newH > maxWidth {
+					newH = maxWidth
+				}
+
+				// Only perform the resize if the dimensions actually changed
+				if newW != ta.width || newH != ta.height {
+					ta.Resize(newW, newH)
+
+					// Retry insertion with the new larger atlas
+					x, y, ok = ta.FindPlaceToInsert(width, height)
+				}
 			}
-			x, y, ok = ta.FindPlaceToInsert(width, height)
 		}
+
+		// If it still fails, return false
 		if !ok {
 			return [4]float32{}, false
 		}
 	}
 
+	// Otherwise upload and return
 	ta.texture.SetSubData(data, x, y, width, height, stride)
 
 	return [4]float32{

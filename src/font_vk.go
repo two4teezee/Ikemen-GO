@@ -396,7 +396,9 @@ func (f *Font_VK) GenerateGlyphs(low, high rune) error {
 		//set w,h and adv, bearing V and bearing H in char
 		//char.width = int(gw)
 		//char.height = int(gh)
-		char.width = int(gw) + (padding * 2)
+		//char.width = int(gw) + (padding * 2)
+		paddedWidth := int(gw) + (padding * 2)
+		char.width = (paddedWidth + 3) &^ 3 // Force 4-byte alignment
 		char.height = int(gh) + (padding * 2)
 		char.advance = int(gAdv)
 		char.bearingV = gdescent

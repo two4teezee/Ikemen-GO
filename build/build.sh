@@ -479,6 +479,12 @@ function ensure_pkg_config_path() {
 }
 
 function build_ffmpeg() {
+	# check $FFMPEG_SRCDIR first so we don't build if sources are already there (e.g. from a previous build or manual clone)
+	if [[ -d "$FFMPEG_SRCDIR" ]]; then
+		echo "==> FFmpeg sources already exist in $FFMPEG_SRCDIR, skipping clone and build (delete that directory to force rebuild)"
+		ensure_pkg_config_path
+		return 0
+	fi
 	echo "==> Building minimal FFmpeg to $FFMPEG_PREFIX (sources in $FFMPEG_SRCDIR)"
 	mkdir -p "$BUILDDIR"
 	rm -rf "$FFMPEG_SRCDIR"
@@ -566,8 +572,14 @@ function build_ffmpeg() {
 }
 
 function build_libxmp_android() {
-	echo "==> Building LibXMP for Android..."
+	# check $BUILDDIR/libxmp-src first so we don't build if sources are already there (e.g. from a previous build or manual clone)
 	local src="$BUILDDIR/libxmp-src"
+	if [[ -d "$src" ]]; then
+		echo "==> LibXMP sources already exist in $src, skipping clone and build (delete that directory to force rebuild)"
+		ensure_pkg_config_path
+		return 0
+	fi
+	echo "==> Building LibXMP for Android..."
 	[[ -d "$src" ]] || git clone https://github.com/libxmp/libxmp.git "$src"
 	
 	mkdir -p "$src/build-android"
@@ -593,6 +605,13 @@ function build_libxmp_android() {
 }
 
 function build_sdl2_android() {
+	# check $BUILDDIR/sdl2-src first so we don't build if sources are already there (e.g. from a previous build or manual clone)
+	local src="$BUILDDIR/sdl2-src"
+	if [[ -d "$src/build-android" ]]; then
+		echo "==> SDL2 Android build already exists in $src/build-android, skipping clone and build (delete that directory to force rebuild)"
+		ensure_pkg_config_path
+		return 0
+	fi
 	echo "==> Building SDL2 for Android..."
 	local src="$BUILDDIR/sdl2-src"
 	[[ -d "$src" ]] || git clone https://github.com/libsdl-org/SDL.git "$src"

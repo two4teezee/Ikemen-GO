@@ -78,7 +78,7 @@ layout(location = 3) out flat int lightIndex;
 	#endif
 
 	uniform mat4 model;
-	uniform mat4 lightMatrices[24];
+	uniform mat4 lightMatrix;
 	uniform sampler2D jointMatrices;
 	uniform sampler2D morphTargetValues;
 	uniform int morphTargetTextureDimension, numJoints, numTargets, numVertices;
@@ -174,6 +174,6 @@ void main() {
 	#else
 		// GLES PATH: Apply the light matrix and set the final gl_Position
 		// We assume layerIndex is passed as a uniform for GLES
-		gl_Position = lightMatrices[0] * GS_IN(FragPos);
+		gl_Position = lightMatrix * GS_IN(FragPos);
 	#endif
 }

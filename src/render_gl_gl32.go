@@ -194,12 +194,9 @@ func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) (t T
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
 	t = &Texture_GL32{width, height, depth, filter, h}
-	bits := Max(depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
+	format := t.(*Texture_GL32).MapInternalFormat(Max(depth, 8))
 	gl.BindTexture(gl.TEXTURE_2D, h)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), width, height, 0, uploadFormat, uploadType, nil)
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), width, height, 0, format, gl.UNSIGNED_BYTE, nil)
 	gl.BindTexture(gl.TEXTURE_2D, 0)
 	runtime.SetFinalizer(t, func(t *Texture_GL32) {
 		sys.mainThreadTask <- func() {
@@ -222,17 +219,13 @@ func (r *Renderer_GL32) newDataTexture(width, height int32) (t Texture) {
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
 	t = &Texture_GL32{width, height, 128, false, h}
-	bits := Max(t.depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
 	runtime.SetFinalizer(t, func(t *Texture_GL32) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
 		}
 	})
 	gl.BindTexture(gl.TEXTURE_2D, h)
-	//gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, nil)
+	//gl.TexImage2D(gl.TEXTURE_2D, 0, 32, t.width, t.height, 0, 36, gl.FLOAT, nil)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
@@ -251,11 +244,7 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) (t Texture) {
 		}
 	})
 	gl.BindTexture(gl.TEXTURE_2D, h)
-	bits := Max(t.depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, nil)
+
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
@@ -275,11 +264,7 @@ func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowest
 	})
 	gl.BindTexture(gl.TEXTURE_CUBE_MAP, h)
 	for i := 0; i < 6; i++ {
-		bits := Max(t.depth, 8)
-		internalFormat := t.MapSizedInternalFormat(bits)
-		uploadFormat := t.MapUploadFormat(bits)
-		uploadType := t.MapUploadType(bits)
-		gl.TexImage2D(uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), 0, int32(internalFormat), widthHeight, widthHeight, 0, uploadFormat, uploadType, nil)
+		gl.TexImage2D(uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), 0, gl.RGB32F, widthHeight, widthHeight, 0, gl.RGB, gl.FLOAT, nil)
 	}
 	if mipmap {
 		gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
@@ -329,10 +314,7 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
-	bits := Max(t.depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
+	format := t.MapInternalFormat(Max(t.depth, 8))
 	bytesPerPixel := t.depth / 8
 	if bytesPerPixel < 1 {
 		bytesPerPixel = 1
@@ -346,9 +328,9 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 	}
 
 	if data != nil {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uploadFormat, uploadType, unsafe.Pointer(&data[0]))
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	} else {
-		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uploadFormat, uploadType, nil)
+		gl.TexSubImage2D(gl.TEXTURE_2D, 0, x, y, width, height, uint32(format), gl.UNSIGNED_BYTE, nil)
 	}
 
 	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
@@ -360,15 +342,12 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 }
 
 func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
-	bits := Max(t.depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
+	format := t.MapInternalFormat(Max(t.depth, 8))
 
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, unsafe.Pointer(&data[0]))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, format, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, t.MapTextureSamplingParam(mag))
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, t.MapTextureSamplingParam(min))
@@ -377,15 +356,13 @@ func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingPar
 }
 
 func (t *Texture_GL32) SetPixelData(data []float32) {
-	bits := Max(t.depth, 8)
-	internalFormat := t.MapSizedInternalFormat(bits)
-	uploadFormat := t.MapUploadFormat(bits)
-	uploadType := t.MapUploadType(bits)
+	format := t.MapInternalFormat(Max(t.depth/4, 8))
+	internalFormat := t.MapInternalFormat(Max(t.depth, 8))
 
 	gl.ActiveTexture(gl.TEXTURE0)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
-	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uploadFormat, uploadType, unsafe.Pointer(&data[0]))
+	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uint32(format), gl.FLOAT, unsafe.Pointer(&data[0]))
 }
 
 func (t Texture_GL32) CopyData(src *Texture) {
@@ -405,47 +382,15 @@ func (t *Texture_GL32) GetHeight() int32 {
 	return t.height
 }
 
-func (t *Texture_GL32) MapUploadType(i int32) uint32 {
-	switch i {
-	case 96, 128:
-		return gl.FLOAT
-	default:
-		return gl.UNSIGNED_BYTE
+func (t *Texture_GL32) MapInternalFormat(i int32) uint32 {
+	var InternalFormatLUT = map[int32]uint32{
+		8:   gl.RED,
+		24:  gl.RGB,
+		32:  gl.RGBA,
+		96:  gl.RGB32F,
+		128: gl.RGBA32F,
 	}
-}
-
-func (t *Texture_GL32) MapUploadFormat(i int32) uint32 {
-	switch i {
-	case 8:
-		return gl.RED
-	case 24:
-		return gl.RGB
-	case 32:
-		return gl.RGBA
-	case 96:
-		return gl.RGB
-	case 128:
-		return gl.RGBA
-	default:
-		return gl.RGBA
-	}
-}
-
-func (t *Texture_GL32) MapSizedInternalFormat(i int32) uint32 {
-	switch i {
-	case 8:
-		return gl.R8
-	case 24:
-		return gl.RGB8
-	case 32:
-		return gl.RGBA8
-	case 96:
-		return gl.RGB32F
-	case 128:
-		return gl.RGBA32F
-	default:
-		return gl.RGBA8
-	}
+	return InternalFormatLUT[i]
 }
 
 func (t *Texture_GL32) MapTextureSamplingParam(i TextureSamplingParam) int32 {

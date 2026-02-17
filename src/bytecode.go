@@ -4779,6 +4779,7 @@ const (
 	tagIn_ctrl
 	tagIn_partnerctrl
 	tagIn_leader
+	tagIn_memberno
 	tagIn_redirectid
 )
 
@@ -4792,6 +4793,7 @@ func (sc tagIn) Run(c *Char, _ []int32) bool {
 	var partnerNo int32 = -1
 	var partnerStateNo int32 = -1
 	var partnerCtrlSetting int32 = -1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case tagIn_stateno:
@@ -4810,6 +4812,9 @@ func (sc tagIn) Run(c *Char, _ []int32) bool {
 			} else {
 				return false
 			}
+		case tagIn_memberno:
+			mn := int(exp[0].evalI(c)) - 1
+			crun.changeTagOrder(mn)
 		case tagIn_self:
 			tagSCF = Btoi(exp[0].evalB(c))
 		case tagIn_partner:
@@ -4828,15 +4833,12 @@ func (sc tagIn) Run(c *Char, _ []int32) bool {
 		case tagIn_partnerctrl:
 			partnerCtrlSetting = Btoi(exp[0].evalB(c))
 		case tagIn_leader:
-			if crun.teamside != -1 {
-				ld := int(exp[0].evalI(c)) - 1
-				if ld&1 == crun.playerNo&1 && ld >= crun.teamside && ld <= int(sys.numSimul[crun.teamside])*2-^crun.teamside&1-1 {
-					sys.teamLeader[crun.playerNo&1] = ld
-				}
-			}
+			ld := int(exp[0].evalI(c)) - 1
+			crun.changeTagLeader(ld)
 		}
 		return true
 	})
+
 	// Data adjustments
 	if tagSCF == -1 && partnerNo == -1 {
 		tagSCF = 1
@@ -4844,6 +4846,7 @@ func (sc tagIn) Run(c *Char, _ []int32) bool {
 	if tagSCF == 1 {
 		crun.unsetSCF(SCF_standby)
 	}
+
 	// Partner
 	if partnerNo != -1 && crun.partnerTag(partnerNo) != nil {
 		partner := crun.partnerTag(partnerNo)
@@ -4859,6 +4862,7 @@ func (sc tagIn) Run(c *Char, _ []int32) bool {
 			}
 		}
 	}
+
 	return false
 }
 
@@ -4869,6 +4873,7 @@ const (
 	tagOut_partner
 	tagOut_stateno
 	tagOut_partnerstateno
+	tagOut_memberno
 	tagOut_redirectid
 )
 
@@ -4881,6 +4886,7 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 	var tagSCF int32 = -1
 	var partnerNo int32 = -1
 	var partnerStateNo int32 = -1
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case tagOut_self:
@@ -4895,6 +4901,9 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 			} else {
 				return false
 			}
+		case tagOut_memberno:
+			mn := int(exp[0].evalI(c)) - 1
+			crun.changeTagOrder(mn)
 		case tagOut_partner:
 			pti := exp[0].evalI(c)
 			if pti >= 0 {
@@ -4911,6 +4920,8 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
+
+	// Data adjustments
 	if tagSCF == -1 && partnerNo == -1 && partnerStateNo == -1 {
 		tagSCF = 1
 	}
@@ -4918,6 +4929,8 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 		crun.setSCF(SCF_standby)
 		// sys.charList.p2enemyDelete(crun)
 	}
+
+	// Partner
 	if partnerNo != -1 && crun.partnerTag(partnerNo) != nil {
 		partner := crun.partnerTag(partnerNo)
 		partner.setSCF(SCF_standby)
@@ -4926,6 +4939,7 @@ func (sc tagOut) Run(c *Char, _ []int32) bool {
 		}
 		// sys.charList.p2enemyDelete(partner)
 	}
+
 	return false
 }
 

@@ -742,6 +742,7 @@ func sliceContains(s []string, str string, lower bool) bool {
 	return false
 }
 
+/*
 func sliceInsertInt(array []int, value int, index int) []int {
 	return append(array[:index], append([]int{value}, array[index:]...)...)
 }
@@ -753,6 +754,20 @@ func sliceRemoveInt(array []int, index int) []int {
 func sliceMoveInt(array []int, srcIndex int, dstIndex int) []int {
 	value := array[srcIndex]
 	return sliceInsertInt(sliceRemoveInt(array, srcIndex), value, dstIndex)
+}
+*/
+
+// Unified function for the above. Accepts any value type
+func sliceMove[T any](array []T, srcIndex int, dstIndex int) []T {
+	if srcIndex == dstIndex {
+		return array
+	}
+	// Skip bounds check. Just panic if used wrong
+	value := array[srcIndex]
+	// Remove
+	array = append(array[:srcIndex], array[srcIndex+1:]...)
+	// Insert
+	return append(array[:dstIndex], append([]T{value}, array[dstIndex:]...)...)
 }
 
 // We save an array for precise checking, and a float for triggers

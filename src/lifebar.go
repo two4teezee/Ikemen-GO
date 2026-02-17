@@ -4921,6 +4921,8 @@ func (l *Lifebar) step() {
 	if sys.paused && !sys.frameStepFlag {
 		return
 	}
+	/*
+	// Team order swapping moved to dedicated Tag functions
 	for ti, tm := range sys.tmode {
 		if tm == TM_Tag {
 			for i, v := range l.order[ti] {
@@ -4943,6 +4945,7 @@ func (l *Lifebar) step() {
 			}
 		}
 	}
+	*/
 	for ti := range sys.tmode {
 		for i, v := range l.order[ti] {
 			// HealthBar

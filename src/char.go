@@ -5939,6 +5939,149 @@ func (c *Char) teamSize() int32 {
 	return sys.numSimul[c.playerNo&1]
 }
 
+// Returns a slice based on current memberNo variables of all players in a team
+func (c *Char) getTeamOrder() []int {
+	// Determine team size and allocate the temp slice
+	count := int(sys.numSimul[c.teamside])
+	team := make([]int, 0, count)
+
+	// Gather all the players in the team
+	side := c.playerNo&1
+	for i := 0; i < count; i++ {
+		pno := side + i*2
+		if len(sys.chars[pno]) > 0 {
+			team = append(team, pno)
+		}
+	}
+
+	// Sort the slice by memberNo. First index is first member player number and so on
+	sort.Slice(team, func(i, j int) bool {
+		return sys.chars[team[i]][0].memberNo < sys.chars[team[j]][0].memberNo
+	})
+
+	return team
+}
+
+// Saves a new team order to all partners and their lifebars
+// Note: Ikemen has never reset the team leader between rounds, so we won't reset the order either
+// In the future we might need to however 
+func (c *Char) updateTeamOrder(team []int) {
+	if len(team) == 0 {
+		return
+	}
+
+	// Update memberNo for all players in the team
+	// Note: does not change team leader
+	for i, pno := range team {
+		sys.chars[pno][0].memberNo = i
+	}
+
+	// Update lifebar order within its bounds
+	side := c.playerNo&1
+	for i := range sys.lifebar.order[side] {
+		if i < len(team) {
+			sys.lifebar.order[side][i] = team[i]
+		}
+	}
+}
+
+// Perform a direct order swap between the player and another team member
+func (c *Char) changeTagOrder(targetMN int) {
+	// Tag mode only
+	if sys.tmode[c.teamside] != TM_Tag {
+		return
+	}
+
+	team := c.getTeamOrder()
+	currentMN := c.memberNo
+
+	// If current memberNo is somehow invalid, treat it like the last slot
+	if currentMN < 0 || currentMN >= len(team) {
+		currentMN = len(team) - 1
+	}
+
+	// Validate destination
+	if targetMN < 0 || targetMN >= len(team) {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("invalid member number for order swap: %v", targetMN+1))
+		return
+	}
+
+	// Swap positions
+	team[currentMN], team[targetMN] = team[targetMN], team[currentMN]
+
+	// Synchronize team
+	c.updateTeamOrder(team)
+}
+
+// TagLeader brings a new leader to the front of the team and updates everyone else's positions
+func (c *Char) changeTagLeader(nextLeaderPN int) {
+	// Tag mode only
+	if sys.tmode[c.teamside] != TM_Tag {
+		return
+	}
+
+	// Must be on same team
+	if nextLeaderPN&1 != c.playerNo&1 {
+		return
+	}
+
+	// Validate next leader
+	if nextLeaderPN < 0 || nextLeaderPN >= len(sys.chars) || len(sys.chars[nextLeaderPN]) == 0 {
+		return
+	}
+
+	nextLeader := sys.chars[nextLeaderPN][0]
+
+	team := c.getTeamOrder()
+	nextLeaderPos := nextLeader.memberNo
+
+	// Rotate team if leader was found and is not already at point
+	if nextLeaderPos > 0 && nextLeaderPos < len(team) {
+		// Find the last living member to determine the rotation anchor
+		lastAlive := 0
+		for n := len(team) - 1; n >= 0; n-- {
+			if sys.chars[team[n]][0].alive() {
+				lastAlive = n
+				break
+			}
+		}
+
+		// Decide rotation type
+		// Use a reverse rotation if swapping with the last living member
+		if nextLeaderPos >= lastAlive {
+			// Reverse rotation: Simply pull the back-most to the front
+			team = sliceMove(team, nextLeaderPos, 0)
+		} else {
+			// Move the new leader to the front
+			team = sliceMove(team, nextLeaderPos, 0)
+			// Push the old leader to the last living spot
+			if lastAlive > 1 {
+				team = sliceMove(team, 1, lastAlive)
+			}
+		}
+	}
+
+	// Sink dead members to the end of the list instead of rotating them
+	// TODO: Maybe this shouldn't be hardcoded?
+	processed := 0
+	size := len(team)
+	for i := 1; i < size && processed < size; i++ {
+		processed++
+		if !sys.chars[team[i]][0].alive() {
+			pIdx := team[i]
+			team = append(team[:i], team[i+1:]...)
+			team = append(team, pIdx)
+			i--
+		}
+	}
+
+	// Update the official team leader
+	sys.teamLeader[c.teamside] = team[0]
+
+	// Synchronize team
+	c.updateTeamOrder(team)
+}
+
 func (c *Char) time() int32 {
 	return c.ss.time
 }

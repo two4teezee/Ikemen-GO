@@ -654,7 +654,23 @@ func (s *Storyboard) step() {
 	}
 
 	// Auto-end logic must use >= because skip can fast-forward time past end.time.
-	reachedEndTime := (s.counter >= sceneProps.End.Time)
+	endTime := sceneProps.End.Time
+	startFadeAt := int32(-1)
+	if endTime > 0 {
+		fadeLen := int32(0)
+		if sceneProps.FadeOut.FadeData != nil {
+			fadeLen = sceneProps.FadeOut.FadeData.time
+		}
+		if fadeLen > 0 {
+			startFadeAt = endTime - fadeLen
+		} else {
+			startFadeAt = endTime - 1
+		}
+		if startFadeAt < 0 {
+			startFadeAt = 0
+		}
+	}
+	reachedEndTime := endTime <= 0 || (startFadeAt >= 0 && s.counter >= startFadeAt)
 
 	if s.endTimer == -1 && (reachedEndTime || s.cancel || skipAdvancesScene) {
 		userInterrupt := s.cancel || skipAdvancesScene

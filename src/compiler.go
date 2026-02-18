@@ -7230,66 +7230,110 @@ func (c *Compiler) callFunc(line *string, root bool,
 	ctrls *[]StateController, ret []uint8) error {
 	var cf callFunction
 	var ok bool
-	cf.bytecodeFunction, ok = c.funcs[c.scan(line)]
+
+	// Scan the function name
+	cf.name = c.scan(line)
+	if cf.name == "" || cf.name == "(" {
+		return c.wrongClosureToken()
+	}
+
+	// Lookup function definition
+	bf, ok := c.funcs[cf.name]
 	cf.ret = ret
-	if !ok {
-		if c.token == "" || c.token == "(" {
-			return c.wrongClosureToken()
-		}
-		return Error("Undefined function: " + c.token)
-	}
-	c.funcUsed[c.token] = true
-	if len(ret) > 0 && len(ret) != int(cf.numRets) {
-		return Error(fmt.Sprintf("Mismatch in number of assignments and return values: %v = %v",
-			len(ret), cf.numRets))
-	}
+
+	// Consume opening parenthesis
 	c.scan(line)
 	if err := c.needToken("("); err != nil {
 		return err
 	}
+
+	// Read the arguments content
 	expr, _, err := c.readSentence(line)
 	if err != nil {
 		return err
 	}
 	otk := c.token
-	if cf.numArgs == 0 {
-		c.token = c.tokenizer(&expr)
-		if c.token == "" {
-			c.token = otk
-		}
-		if err := c.needToken(")"); err != nil {
-			return err
-		}
-	} else {
-		for i := 0; i < int(cf.numArgs); i++ {
-			var be BytecodeExp
-			if i < int(cf.numArgs)-1 {
-				if be, err = c.argExpression(&expr, VT_SFalse); err != nil {
+
+	if !ok {
+		// Undefined function path
+		// We parse arguments blindly until we hit ')' to ensure the instruction is valid, even without a definition
+		tmp := expr
+		if c.tokenizer(&tmp) == ")" {
+			c.tokenizer(&expr) // Consume empty ')'
+		} else {
+			for {
+				// Parse arguments
+				be, err := c.typedExp(c.expBoolOr, &expr, VT_SFalse)
+				if err != nil {
 					return err
 				}
-				if c.token == "" {
-					c.token = otk
+				cf.arg.append(be...)
+
+				// Stop at ')' or expect ','
+				if c.token == ")" {
+					break
 				}
-				if err := c.needToken(","); err != nil {
-					return err
-				}
-			} else {
-				if be, err = c.typedExp(c.expBoolOr, &expr, VT_SFalse); err != nil {
-					return err
-				}
-				if c.token == "" {
-					c.token = otk
-				}
-				if err := c.needToken(")"); err != nil {
-					return err
+				if c.token != "," {
+					return Error("Invalid argument list")
 				}
 			}
-			cf.arg.append(be...)
+		}
+	} else {
+		// Defined function path
+		c.funcUsed[cf.name] = true
+
+		// Validate return values
+		if len(ret) > 0 && len(ret) != int(bf.numRets) {
+			return Error(fmt.Sprintf("Mismatch in number of assignments and return values: %v = %v",
+				len(ret), bf.numRets))
+		}
+
+		// Parse arguments based on known count
+		if bf.numArgs == 0 {
+			c.token = c.tokenizer(&expr)
+			if c.token == "" {
+				c.token = otk
+			}
+			if err := c.needToken(")"); err != nil {
+				return err
+			}
+		} else {
+			for i := 0; i < int(bf.numArgs); i++ {
+				var be BytecodeExp
+				if i < int(bf.numArgs)-1 {
+					// Argument followed by ','
+					if be, err = c.argExpression(&expr, VT_SFalse); err != nil {
+						return err
+					}
+					if c.token == "" {
+						c.token = otk
+					}
+					if err := c.needToken(","); err != nil {
+						return err
+					}
+				} else {
+					// Last argument followed by ')'
+					if be, err = c.typedExp(c.expBoolOr, &expr, VT_SFalse); err != nil {
+						return err
+					}
+					if c.token == "" {
+						c.token = otk
+					}
+					if err := c.needToken(")"); err != nil {
+						return err
+					}
+				}
+				cf.arg.append(be...)
+			}
 		}
 	}
+
+	// Ensure no extra tokens exist after ')'
 	if c.token = c.tokenizer(&expr); c.token != "" {
 		return c.wrongClosureToken()
 	}
+
+	// Handle statement termination
 	c.token = otk
 	if err := c.needToken(";"); err != nil {
 		return err
@@ -7299,6 +7343,9 @@ func (c *Compiler) callFunc(line *string, root bool,
 			return err
 		}
 	}
+
+	// Append the instruction
+	// Even if undefined, we append it so it can be resolved at runtime
 	*ctrls = append(*ctrls, cf)
 	c.scan(line)
 	return nil
@@ -7526,12 +7573,12 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 }
 
 // Compile a ZSS state
-func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
-	filename, src string, constants map[string]float32) error {
+func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src string, constants map[string]float32) error {
 	defer func(oime bool) {
 		sys.ignoreMostErrors = oime
 	}(sys.ignoreMostErrors)
 	sys.ignoreMostErrors = false
+
 	c.block = nil
 	c.lines, c.i = SplitAndTrim(src, "\n"), 0
 	c.linechan = make(chan *string)
@@ -7647,14 +7694,45 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 			if err := c.varNameCheck(name); err != nil {
 				return errmes(err)
 			}
+
+			// Check if function is already defined in the current file
 			if funcExistInThisFile[name] {
 				return errmes(Error("Function already defined in the same file: " + name))
 			}
 			funcExistInThisFile[name] = true
+
+			// Check if defined in a previous file
+			// We will allow this one because of common files
+			_, duplicate := c.funcs[name]
+
 			c.scan(&line)
 			if err := c.needToken("("); err != nil {
 				return errmes(err)
 			}
+
+			// If it's a duplicate, we parse the content into dummies to skip the code safely
+			if duplicate {
+				// Consume arguments, return names, and the body controllers
+				if _, err := c.varNames(")", &line); err != nil {
+					return errmes(err)
+				}
+				if _, err := c.varNames("]", &line); err != nil {
+					return errmes(err)
+				}
+
+				// Create dummy variables to satisfy the pointer requirements of stateBlock
+				dummyCtrls := []StateController{}
+				var dummyVars int32
+
+				// stateBlock consumes the body until '}' or next '[' and discards the result
+				if err := c.stateBlock(&line, nil, true, nil, &dummyCtrls, &dummyVars); err != nil {
+					return errmes(err)
+				}
+				// Skip the map assignment entirely. The first definition remains in c.funcs
+				continue 
+			}
+
+			// First definition found: compile normally
 			fun := bytecodeFunction{}
 			c.vars = make(map[string]uint8)
 			if args, err := c.varNames(")", &line); err != nil {
@@ -7689,12 +7767,9 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode,
 				nil, &fun.ctrls, &fun.numVars); err != nil {
 				return errmes(err)
 			}
-			if _, ok := c.funcs[name]; ok {
-				continue
-				//return errmes(Error("Function already defined in other file: " + name))
-			}
+
+			// Store the blueprint in the compiler's temporary map
 			c.funcs[name] = fun
-			//c.funcUsed[name] = true
 		default:
 			return errmes(Error("Unrecognized section (group) name: " + c.token))
 		}
@@ -7959,5 +8034,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			}
 		}
 	}
+	// Store functions in Global Info (static data), accessible to all instances
+	sys.cgi[pn].callFuncs = c.funcs
 	return states, nil
 }

@@ -2905,6 +2905,7 @@ type CharGlobalInfo struct {
 	velocity                CharVelocity
 	movement                CharMovement
 	states                  map[int32]StateBytecode
+	callFuncs               map[string]bytecodeFunction
 	hitPauseToggleFlagCount int32
 	pctype                  ProjContact
 	pctime, pcid            int32

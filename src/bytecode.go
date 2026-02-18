@@ -4082,16 +4082,29 @@ func (bf bytecodeFunction) run(c *Char, ret []uint8) (changeState bool) {
 }
 
 type callFunction struct {
-	bytecodeFunction
-	arg BytecodeExp
-	ret []uint8
+	//bytecodeFunction // Moved to CharGlobalInfo
+	name string
+	arg  BytecodeExp
+	ret  []uint8
 }
 
 func (cf callFunction) Run(c *Char, _ []int32) (changeState bool) {
+	// Check if the function exists
+	bf, ok := c.gi().callFuncs[cf.name]
+
+	// If undefined, treat as no-op and log error
+	if !ok {
+		sys.appendToConsole(c.warn() + "called undefined function: " + cf.name)
+		return false
+	}
+
+	// Push bytecode onto the stack
 	if len(cf.arg) > 0 {
 		sys.bcStack.Push(cf.arg.run(c))
 	}
-	return cf.run(c, cf.ret)
+
+	// Execute the function and map return values back to the designated variables
+	return bf.run(c, cf.ret)
 }
 
 type StateBlock struct {

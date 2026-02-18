@@ -4346,42 +4346,19 @@ func (model *Model) drawShadow(bufferIndex uint32, sceneNumber int, offset [3]fl
 		}
 		gfx.SetShadowMapUniformF("lights["+strconv.Itoa(i)+"].shadowMapFar", shadowMapFar)
 		gfx.SetShadowMapUniformF("lights["+strconv.Itoa(i)+"].position", lightNode.worldTransform[12], lightNode.worldTransform[13], lightNode.worldTransform[14])
-		if gfx.GetName() == "OpenGL 2.1" {
-			if light.lightType == PointLight {
-				gfx.SetShadowFrameCubeTexture(uint32(i))
-			} else {
-				gfx.SetShadowFrameTexture(uint32(i))
-			}
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
-			}
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, scene, model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
-			}
-			if len(model.scenes) > 1 {
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, i, 1, lightMatrices[:], lightTypes[:])
-				}
-				for _, index := range scene.nodes {
-					drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, i, 1, lightMatrices[:], lightTypes[:])
-				}
-			}
-		}
 	}
-	if gfx.GetName() != "OpenGL 2.1" {
+	for _, index := range scene.nodes {
+		drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
+	}
+	for _, index := range scene.nodes {
+		drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
+	}
+	if len(model.scenes) > 1 {
 		for _, index := range scene.nodes {
-			drawNodeShadow(model, scene, model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
+			drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
 		}
 		for _, index := range scene.nodes {
-			drawNodeShadow(model, scene, model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
-		}
-		if len(model.scenes) > 1 {
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, false, 0, numLights, lightMatrices[:], lightTypes[:])
-			}
-			for _, index := range scene.nodes {
-				drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
-			}
+			drawNodeShadow(model, model.scenes[1], model.nodes[index], offset, true, 0, numLights, lightMatrices[:], lightTypes[:])
 		}
 	}
 	gfx.ReleaseShadowPipeline()

@@ -958,6 +958,11 @@ function maybe_build_ffmpeg() {
 # Generate delay-load import libraries for MinGW (Windows)
 function create_delay_import_libs_windows() {
 	[[ "$GOOS" != "windows" ]] && return 0
+	#check $DELAYLIB_DIR first so we don't regenerate if already done (e.g. from a previous build)
+	if compgen -G "$DELAYLIB_DIR/*.dll.a" > /dev/null 2>/dev/null; then
+		echo "==> Delay-load import libs already exist in $DELAYLIB_DIR, skipping generation (delete that directory to force regeneration)"
+		return 0
+	fi
 	mkdir -p "$DELAYLIB_DIR"
 	shopt -s nullglob
 	local d base name libname
@@ -1187,6 +1192,11 @@ EOF
 # Copy FFmpeg shared libs next to produced binary for easy runtime
 function bundle_shared_libs() {
 	local dest_lib="$LIBDIR"
+	#check dest_lib first so we don't re-copy if already done (e.g. from a previous build)
+	if compgen -G "$dest_lib/*" > /dev/null 2>/dev/null; then
+		echo "==> Shared libs already bundled in $dest_lib, skipping copy (delete that directory to force re-copy)"
+		return 0
+	fi
 	mkdir -p "$dest_lib"
 	if [[ -d "$FFMPEG_PREFIX/bin" ]]; then
 		# Windows

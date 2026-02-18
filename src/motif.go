@@ -378,8 +378,8 @@ type PlayerCursorStateProperties struct {
 }
 
 type PlayerCursorProperties struct {
-	StartCell [2]int32                               `ini:"startcell"`
-	Active    map[string]*AnimationProperties        `ini:"active"`
+	StartCell [2]int32                                `ini:"startcell"`
+	Active    map[string]*AnimationProperties         `ini:"active"`
 	Done      map[string]*PlayerCursorStateProperties `ini:"done"`
 	Preview   map[string]*PlayerCursorStateProperties `ini:"preview"`
 	Move      struct {

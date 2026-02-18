@@ -2878,12 +2878,12 @@ func readLifeBarRound(is IniSection,
 
 		keys := []struct {
 			name   string
-            data   *[4]ResultAnnouncement
-            exists *[4]bool
+			data   *[4]ResultAnnouncement
+			exists *[4]bool
 		}{
 			{"win", &ro.win, nil},
-            {"ai.win", &ro.aiWin, &ro.aiWinExists[i]},
-            {"ai.lose", &ro.aiLose, &ro.aiLoseExists[i]},
+			{"ai.win", &ro.aiWin, &ro.aiWinExists[i]},
+			{"ai.lose", &ro.aiLose, &ro.aiLoseExists[i]},
 		}
 
 		for _, key := range keys {
@@ -3275,7 +3275,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 				// player lose vs ai opponent
 				activeTeam = lt
 				res = &ro.aiWin[idxL]
-				timerName = "aiWin" 
+				timerName = "aiWin"
 			} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
 				// player win vs ai opponent
 				res = &ro.aiLose[idxW]
@@ -3316,12 +3316,12 @@ func (ro *LifeBarRound) reset() {
 	ro.fadeIn.init(ro.fadeIn, true)
 
 	resetElement := func(main *AnimTextSnd, top *AnimLayout, bgs []AnimLayout) {
-        main.Reset()
-        top.Reset()
-        for i := range bgs {
-            bgs[i].Reset()
-        }
-    }
+		main.Reset()
+		top.Reset()
+		for i := range bgs {
+			bgs[i].Reset()
+		}
+	}
 	resetResults := func(res *[4]ResultAnnouncement) {
 		for i := range res {
 			for j := 0; j < 2; j++ {

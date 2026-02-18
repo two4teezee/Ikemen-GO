@@ -131,6 +131,9 @@ var vertexFontShader string
 var gfx Renderer
 var gfxFont FontRenderer
 
+// Counter for unique texture cache serial numbers
+var textureSerialNumber uint64
+
 // Blend constants
 type BlendFunc int
 

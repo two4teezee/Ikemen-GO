@@ -219,21 +219,43 @@ type Texture_GLES32 struct {
 	height int32
 	depth  int32
 	filter bool
-	handle uint32
+	handle uint32 // GL side handle
+	serial uint64 // Go side serial number
 }
 
-// Generate a new texture name
-func (r *Renderer_GLES32) newTexture(width, height, depth int32, filter bool) (t Texture) {
+// Helper that wraps the actual GL call to generate a texture
+func (r *Renderer_GLES32) generateTexture(width, height, depth int32, filter bool) *Texture_GLES32 {
 	var h uint32
-	gl.ActiveTexture(gl.TEXTURE0)
 	gl.GenTextures(1, &h)
-	t = &Texture_GLES32{width, height, depth, filter, h}
-	runtime.SetFinalizer(t, func(t *Texture_GLES32) {
+
+	// Ensure a unique ID even if GL reuses the handle
+	textureSerialNumber++
+
+	tex := &Texture_GLES32{
+		width:  width,
+		height: height,
+		depth:  depth,
+		filter: filter,
+		handle: h,
+		serial: textureSerialNumber,
+	}
+
+	runtime.SetFinalizer(tex, func(t *Texture_GLES32) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
 		}
 	})
-	return
+
+	return tex
+}
+
+// Creates a generic texture
+func (r *Renderer_GLES32) newTexture(width, height, depth int32, filter bool) Texture {
+	gl.ActiveTexture(gl.TEXTURE0)
+
+	t := r.generateTexture(width, height, depth, filter)
+
+	return t
 }
 
 func (r *Renderer_GLES32) newPaletteTexture() Texture {
@@ -244,58 +266,39 @@ func (r *Renderer_GLES32) newModelTexture(width, height, depth int32, filter boo
 	return r.newTexture(width, height, depth, filter)
 }
 
-func (r *Renderer_GLES32) newDataTexture(width, height int32) (t Texture) {
-	var h uint32
+func (r *Renderer_GLES32) newDataTexture(width, height int32) Texture {
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, &h)
-	t = &Texture_GLES32{width, height, 32, false, h}
-	runtime.SetFinalizer(t, func(t *Texture_GLES32) {
-		sys.mainThreadTask <- func() {
-			gl.DeleteTextures(1, &t.handle)
-		}
-	})
-	gl.BindTexture(gl.TEXTURE_2D, h)
-	//gl.TexImage2D(gl.TEXTURE_2D, 0, 32, t.width, t.height, 0, 36, gl.FLOAT, nil)
+	t := r.generateTexture(width, height, 32, false)
+
+	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	return
+	return t
 }
 
-func (r *Renderer_GLES32) newHDRTexture(width, height int32) (t Texture) {
-	var h uint32
+func (r *Renderer_GLES32) newHDRTexture(width, height int32) Texture {
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, &h)
-	t = &Texture_GLES32{width, height, 24, false, h}
-	runtime.SetFinalizer(t, func(t *Texture_GLES32) {
-		sys.mainThreadTask <- func() {
-			gl.DeleteTextures(1, &t.handle)
-		}
-	})
-	gl.BindTexture(gl.TEXTURE_2D, h)
+	t := r.generateTexture(width, height, 24, false)
 
+	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.MIRRORED_REPEAT)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.MIRRORED_REPEAT)
-	return
+	return t
 }
 
-func (r *Renderer_GLES32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) (t Texture) {
-	var h uint32
+func (r *Renderer_GLES32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
 	gl.ActiveTexture(gl.TEXTURE0)
-	gl.GenTextures(1, &h)
-	t = &Texture_GLES32{widthHeight, widthHeight, 24, false, h}
-	runtime.SetFinalizer(t, func(t *Texture_GLES32) {
-		sys.mainThreadTask <- func() {
-			gl.DeleteTextures(1, &t.handle)
-		}
-	})
-	gl.BindTexture(gl.TEXTURE_CUBE_MAP, h)
+	t := r.generateTexture(widthHeight, widthHeight, 24, false)
+
+	gl.BindTexture(gl.TEXTURE_CUBE_MAP, t.handle)
 	for i := 0; i < 6; i++ {
 		gl.TexImage2D(uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), 0, gl.RGB32F, widthHeight, widthHeight, 0, gl.RGB, gl.FLOAT, nil)
 	}
+	
 	if mipmap {
 		gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
 		gl.GenerateMipmap(gl.TEXTURE_CUBE_MAP)
@@ -306,7 +309,7 @@ func (r *Renderer_GLES32) newCubeMapTexture(widthHeight int32, mipmap bool, lowe
 	gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
 	gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
 	gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-	return
+	return t
 }
 
 // Bind a texture and upload texel data to it
@@ -546,7 +549,7 @@ type GLES32State struct {
 	blendDst            BlendFunc
 	scissorRect         [4]int32
 	scissorEnabled      bool
-	texCacheTexHandle   []uint32 // Unit to handle. Sized per GPU
+	texCacheTexSerial   []uint64 // Unit to serial number. Sized per GPU
 	texCacheLastUsed    []uint64 // Timer value when the slot was last used. Sized per GPU
 	texCacheTimer       uint64   // Increments on every texture access
 	uniformICache       map[uint32]int32
@@ -725,6 +728,7 @@ func (r *Renderer_GLES32) Init() {
 
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
+	textureSerialNumber++
 
 	gl.BindTexture(gl.TEXTURE_2D, r.fbo_texture)
 
@@ -756,6 +760,8 @@ func (r *Renderer_GLES32) Init() {
 	// r.fbo_pp_texture
 	for i := 0; i < 2; i++ {
 		gl.GenTextures(1, &(r.fbo_pp_texture[i]))
+		textureSerialNumber++
+
 		gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture[i])
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
@@ -832,6 +838,7 @@ func (r *Renderer_GLES32) Init() {
 
 			// create 4 separate GL_TEXTURE_CUBE_MAP textures (one per shadow caster/light)
 			gl.GenTextures(4, &r.fbo_shadow_cube_textures[0])
+			textureSerialNumber++
 
 			for i := 0; i < 4; i++ {
 				// bind and allocate each cube-map's 6 faces as depth textures
@@ -881,7 +888,7 @@ func (r *Renderer_GLES32) Init() {
 	//}
 
 	// Initialize sprite texture cache
-	r.texCacheTexHandle = make([]uint32, maxTex)
+	r.texCacheTexSerial = make([]uint64, maxTex)
 	r.texCacheLastUsed = make([]uint64, maxTex)
 
 	// Initialize uniform cache
@@ -1145,8 +1152,8 @@ func (r *Renderer_GLES32) ChangeProgram(prog uint32) {
 	r.program = prog
 
 	// Reset sprite texture cache
-	for i := range r.texCacheTexHandle {
-		r.texCacheTexHandle[i] = 0xFFFFFFFF
+	for i := range r.texCacheTexSerial {
+		r.texCacheTexSerial[i] = 0
 		r.texCacheLastUsed[i] = 0
 	}
 	r.texCacheTimer = 1
@@ -1829,9 +1836,9 @@ func (r *Renderer_GLES32) SetTextureSub(uMap map[string]int32, tMap map[string]i
 		var minTime uint64 = math.MaxUint64
 
 		// Look for a hit or the oldest slot
-		for i := range r.texCacheTexHandle {
+		for i := range r.texCacheTexSerial {
 			// If we find the texture already bound, that's a hit
-			if r.texCacheTexHandle[i] == t.handle {
+			if r.texCacheTexSerial[i] == t.serial {
 				r.texCacheLastUsed[i] = r.texCacheTimer
 				r.SetUniformISub(loc, int32(i))
 				return
@@ -1849,7 +1856,7 @@ func (r *Renderer_GLES32) SetTextureSub(uMap map[string]int32, tMap map[string]i
 		gl.BindTexture(gl.TEXTURE_2D, t.handle)
 
 		// Update cache state
-		r.texCacheTexHandle[oldestUnit] = t.handle
+		r.texCacheTexSerial[oldestUnit] = t.serial
 		r.texCacheLastUsed[oldestUnit] = r.texCacheTimer
 
 		// Update uniform

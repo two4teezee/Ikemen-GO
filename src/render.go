@@ -31,7 +31,8 @@ type Renderer interface {
 	IsShadowEnabled() bool
 
 	SetPipeline()
-	SetBlending(blend bool, eq BlendEquation, src, dst BlendFunc)
+	EnableBlending(eq BlendEquation, src, dst BlendFunc)
+	DisableBlending()
 
 	prepareShadowMapPipeline(bufferIndex uint32)
 	setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32)
@@ -543,7 +544,7 @@ func RenderSprite(rp RenderParams) {
 	// Local function called for each blending pass
 	renderPass := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		// Lightweight state change
-		gfx.SetBlending(true, eq, src, dst)
+		gfx.EnableBlending(eq, src, dst)
 
 		// Dynamic uniforms
 		// We must include the parameters that renderWithBlending() may have changed
@@ -715,7 +716,7 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32, fx *PalFX) {
 	// Local function called for each blending pass
 	renderPass := func(eq BlendEquation, src, dst BlendFunc, a float32) {
 		// Update only the dynamic state
-		gfx.SetBlending(true, eq, src, dst)
+		gfx.EnableBlending(eq, src, dst)
 		gfx.SetUniformF("tint", r, g, b, a)
 		gfx.SetUniformI("neg", int(Btoi(neg)))
 		gfx.SetUniformFv("add", padd[:])

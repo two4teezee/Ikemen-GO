@@ -217,7 +217,7 @@ func (r *Renderer_GL32) generateTexture(width, height, depth int32, filter bool)
 
 // Creates a generic texture
 func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) Texture {
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, depth, filter)
 
@@ -238,7 +238,8 @@ func (r *Renderer_GL32) newModelTexture(width, height, depth int32, filter bool)
 }
 
 func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	t := r.generateTexture(width, height, 128, false)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
@@ -250,7 +251,8 @@ func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	t := r.generateTexture(width, height, 96, false)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
@@ -262,14 +264,15 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	t := r.generateTexture(widthHeight, widthHeight, 24, false)
 
 	gl.BindTexture(gl.TEXTURE_CUBE_MAP, t.handle)
 	for i := 0; i < 6; i++ {
 		gl.TexImage2D(uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), 0, gl.RGB32F, widthHeight, widthHeight, 0, gl.RGB, gl.FLOAT, nil)
 	}
-	
+
 	if mipmap {
 		gl.TexParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
 		gl.GenerateMipmap(gl.TEXTURE_CUBE_MAP)
@@ -291,6 +294,9 @@ func (t *Texture_GL32) SetData(data []byte) {
 	}
 
 	format := t.MapInternalFormat(Max(t.depth, 8))
+
+	r := gfx.(*Renderer_GL32)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -314,7 +320,9 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 		interp = gl.LINEAR
 	}
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL32)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
 
@@ -348,9 +356,12 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL32)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(format), t.width, t.height, 0, format, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 	gl.GenerateMipmap(gl.TEXTURE_2D)
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, t.MapTextureSamplingParam(mag))
@@ -363,9 +374,12 @@ func (t *Texture_GL32) SetPixelData(data []float32) {
 	format := t.MapInternalFormat(Max(t.depth/4, 8))
 	internalFormat := t.MapInternalFormat(Max(t.depth, 8))
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL32)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
+	gl.PixelStorei(gl.UNPACK_ROW_LENGTH, 0)
 	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uint32(format), gl.FLOAT, unsafe.Pointer(&data[0]))
 }
 
@@ -509,8 +523,12 @@ func (r *Renderer_GL32) InitModelShader() error {
 		"lights[3].direction", "lights[3].range", "lights[3].color", "lights[3].intensity", "lights[3].position", "lights[3].innerConeCos", "lights[3].outerConeCos", "lights[3].type", "lights[3].shadowBias", "lights[3].shadowMapFar",
 	)
 
-	r.modelShader.RegisterTextures("tex", "morphTargetValues", "jointMatrices", "normalMap", "metallicRoughnessMap", "ambientOcclusionMap", "emissionMap", "lambertianEnvSampler", "GGXEnvSampler", "GGXLUT",
-		"shadowCubeMap")
+	r.modelShader.RegisterTextures(
+		"tex", "morphTargetValues", "jointMatrices",
+		"normalMap", "metallicRoughnessMap", "ambientOcclusionMap", "emissionMap",
+		"lambertianEnvSampler", "GGXEnvSampler", "GGXLUT",
+		"shadowCubeMap",
+	)
 
 	if r.enableShadow {
 		r.shadowMapShader, err = r.newShaderProgram(shadowVertShader, shadowFragShader, shadowGeoShader, "Shadow Map Shader", false)
@@ -518,7 +536,7 @@ func (r *Renderer_GL32) InitModelShader() error {
 			return err
 		}
 
-		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
+		r.shadowMapShader.RegisterAttributes("vertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
@@ -618,26 +636,30 @@ func (r *Renderer_GL32) Init() {
 	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
 
+	// Toggle MSAA first
 	if sys.msaa > 0 {
 		gl.Enable(gl.MULTISAMPLE)
+	} else {
+		gl.Disable(gl.MULTISAMPLE)
 	}
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
 
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
 	textureSerialNumber++
 
+	// Match texture storage type to the MSAA setting
 	if sys.msaa > 0 {
 		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture)
+		// Multisample textures do not support TexParameteri
 	} else {
 		gl.BindTexture(gl.TEXTURE_2D, r.fbo_texture)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
+		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 	}
-
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
 	// Don't change this from gl.RGBA.
 	// It breaks mixing between subtractive and additive.
@@ -673,6 +695,7 @@ func (r *Renderer_GL32) Init() {
 	for i := 0; i < 2; i++ {
 		gl.GenTextures(1, &(r.fbo_pp_texture[i]))
 		textureSerialNumber++
+
 		gl.BindTexture(gl.TEXTURE_2D, r.fbo_pp_texture[i])
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
@@ -692,7 +715,11 @@ func (r *Renderer_GL32) Init() {
 	}
 
 	// done with r.fbo_texture, unbind it
-	gl.BindTexture(gl.TEXTURE_2D, 0)
+	if sys.msaa > 0 {
+		gl.BindTexture(gl.TEXTURE_2D_MULTISAMPLE, 0)
+	} else {
+		gl.BindTexture(gl.TEXTURE_2D, 0)
+	}
 
 	//r.rbo_depth = gl.CreateRenderbuffer()
 	gl.GenRenderbuffers(1, &r.rbo_depth)
@@ -745,7 +772,7 @@ func (r *Renderer_GL32) Init() {
 	if r.enableModel {
 		if r.enableShadow {
 			gl.GenFramebuffers(1, &r.fbo_shadow)
-			gl.ActiveTexture(gl.TEXTURE0)
+			r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
 			gl.GenTextures(1, &r.fbo_shadow_cube_texture)
 			textureSerialNumber++
 
@@ -768,9 +795,30 @@ func (r *Renderer_GL32) Init() {
 
 	gl.BindFramebuffer(gl.FRAMEBUFFER, 0)
 
-	// Sync real depth mask with cache
-	gl.DepthMask(false)
-	r.depthMask = false
+	r.InitStateCache()
+}
+
+func (r *Renderer_GL32) Close() {
+}
+
+func (r *Renderer_GL32) InitStateCache() {
+	// Match standard OpenGL hardware defaults
+	r.program = 0
+	r.depthTest = false
+	r.depthMask = true
+	r.doubleSided = true
+	r.invertFrontFace = false
+	r.blendEnabled = false
+	r.scissorEnabled = false
+
+	// Force hardware synchronization
+	gl.UseProgram(0)
+	gl.Disable(gl.DEPTH_TEST)
+	gl.DepthMask(true)
+	gl.Disable(gl.CULL_FACE)
+	gl.FrontFace(gl.CCW)
+	gl.Disable(gl.BLEND)
+	gl.Disable(gl.SCISSOR_TEST)
 
 	// Check hardware texture limit
 	// TODO: Maybe clamp the result
@@ -791,9 +839,6 @@ func (r *Renderer_GL32) Init() {
 	r.uniformF2Cache = make(map[uint32][2]float32, 32)
 	r.uniformF3Cache = make(map[uint32][3]float32, 32)
 	r.uniformF4Cache = make(map[uint32][4]float32, 32)
-}
-
-func (r *Renderer_GL32) Close() {
 }
 
 func (r *Renderer_GL32) EnableDebug() {
@@ -837,6 +882,97 @@ func (r *Renderer_GL32) DebugCheckLeaks(nextprog uint32) {
 	if len(leaked) > 0 {
 		fmt.Printf("[GL Debug] Changing to program %d with program %d's attributes %v enabled.\n", nextprog, r.program, leaked)
 	}
+}
+
+func (r *Renderer_GL32) DebugVerifyCache() {
+	if !r.debugMode {
+		return
+	}
+
+	// Program and global toggle states
+	var hwProg int32
+	gl.GetIntegerv(gl.CURRENT_PROGRAM, &hwProg)
+	if uint32(hwProg) != r.program {
+		fmt.Printf("[GL Cache Error] Program mismatch! Cache: %d, HW: %d\n", r.program, hwProg)
+	}
+
+	if gl.IsEnabled(gl.DEPTH_TEST) != r.depthTest {
+		fmt.Printf("[GL Cache Error] DepthTest mismatch! Cache: %v, HW: %v\n", r.depthTest, !r.depthTest)
+	}
+
+	var depthMask bool
+	gl.GetBooleanv(gl.DEPTH_WRITEMASK, &depthMask)
+	if depthMask != r.depthMask {
+		fmt.Printf("[GL Cache Error] DepthMask mismatch! Cache: %v, HW: %v\n", r.depthMask, depthMask)
+	}
+
+	// doubleSided = true means CULL_FACE is DISABLED
+	if (gl.IsEnabled(gl.CULL_FACE) == false) != r.doubleSided {
+		fmt.Printf("[GL Cache Error] DoubleSided mismatch! Cache: %v, HW: %v\n", r.doubleSided, !r.doubleSided)
+	}
+
+	var frontFace int32
+	gl.GetIntegerv(gl.FRONT_FACE, &frontFace)
+	if (frontFace == gl.CW) != r.invertFrontFace {
+		fmt.Printf("[GL Cache Error] FrontFace mismatch! Cache: %v, HW: %v\n", r.invertFrontFace, frontFace == gl.CW)
+	}
+
+	if gl.IsEnabled(gl.BLEND) != r.blendEnabled {
+		fmt.Printf("[GL Cache Error] BlendEnabled mismatch! Cache: %v, HW: %v\n", r.blendEnabled, !r.blendEnabled)
+	}
+
+	if gl.IsEnabled(gl.SCISSOR_TEST) != r.scissorEnabled {
+		fmt.Printf("[GL Cache Error] ScissorEnabled mismatch! Cache: %v, HW: %v\n", r.scissorEnabled, !r.scissorEnabled)
+	}
+
+	// We only care about these if the corresponding test is enabled.
+	if r.blendEnabled {
+		var eq, src, dst int32
+		gl.GetIntegerv(gl.BLEND_EQUATION_RGB, &eq)
+		gl.GetIntegerv(gl.BLEND_SRC_RGB, &src)
+		gl.GetIntegerv(gl.BLEND_DST_RGB, &dst)
+		if uint32(eq) != r.MapBlendEquation(r.blendEquation) {
+			fmt.Printf("[GL Cache Error] BlendEquation mismatch!\n")
+		}
+		if uint32(src) != r.MapBlendFunction(r.blendSrc) || uint32(dst) != r.MapBlendFunction(r.blendDst) {
+			fmt.Printf("[GL Cache Error] BlendFunc mismatch!\n")
+		}
+	}
+
+	if r.scissorEnabled {
+		var hwScissor [4]int32
+		gl.GetIntegerv(gl.SCISSOR_BOX, &hwScissor[0])
+		if hwScissor != r.scissorRect {
+			fmt.Printf("[GL Cache Error] ScissorRect mismatch! Cache: %v, HW: %v\n", r.scissorRect, hwScissor)
+		}
+	}
+
+	// Attributes
+	checkAttr := func(flag bool, attrKey string) {
+		var shader *ShaderProgram_GL32
+		if r.program == r.modelShader.program {
+			shader = r.modelShader
+		} else if r.program == r.shadowMapShader.program {
+			shader = r.shadowMapShader
+		} else {
+			return
+		}
+		if loc, ok := shader.attributes[attrKey]; ok && loc >= 0 {
+			var enabled int32
+			gl.GetVertexAttribiv(uint32(loc), gl.VERTEX_ATTRIB_ARRAY_ENABLED, &enabled)
+			if (enabled != 0) != flag {
+				fmt.Printf("[GL Cache Error] %s mismatch! Cache: %v, HW: %v\n", attrKey, flag, enabled != 0)
+			}
+		}
+	}
+
+	checkAttr(r.useUV, "uv")
+	checkAttr(r.useNormal, "normalIn")
+	checkAttr(r.useTangent, "tangentIn")
+	checkAttr(r.useVertColor, "vertColor")
+	checkAttr(r.useJoint0, "joints_0")
+	checkAttr(r.useJoint1, "joints_1")
+	checkAttr(r.useOutlineAttribute, "outlineAttributeIn")
 }
 
 func (r *Renderer_GL32) IsModelEnabled() bool {
@@ -887,7 +1023,7 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
-	gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
+	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
 	if sys.msaa > 0 {
@@ -896,7 +1032,7 @@ func (r *Renderer_GL32) EndFrame() {
 
 	// Reset global state
 	r.DisableScissor()
-	r.SetBlending(false, 0, 0, 0)
+	r.DisableBlending()
 	r.SetDepthTest(false)
 	r.SetDepthMask(false)
 
@@ -1086,6 +1222,7 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	// TODO: Just move to separate VAO's if we drop GL2.1
 	if r.debugMode {
 		r.DebugCheckLeaks(prog)
+		r.DebugVerifyCache()
 	}
 
 	// Switch program
@@ -1113,26 +1250,29 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	*/
 }
 
-func (r *Renderer_GL32) SetBlending(enable bool, eq BlendEquation, src, dst BlendFunc) {
-	if enable != r.blendEnabled {
-		if enable {
-			r.blendEnabled = true
-			gl.Enable(gl.BLEND)
-		} else {
-			r.blendEnabled = false
-			gl.Disable(gl.BLEND)
-		}
+func (r *Renderer_GL32) EnableBlending(eq BlendEquation, src, dst BlendFunc) {
+	if !r.blendEnabled {
+		gl.Enable(gl.BLEND)
+		r.blendEnabled = true
 	}
-	if enable {
-		if eq != r.blendEquation {
-			r.blendEquation = eq
-			gl.BlendEquation(r.MapBlendEquation(eq))
-		}
-		if src != r.blendSrc || dst != r.blendDst {
-			r.blendSrc = src
-			r.blendDst = dst
-			gl.BlendFunc(r.MapBlendFunction(src), r.MapBlendFunction(dst))
-		}
+
+	if eq != r.blendEquation {
+		r.blendEquation = eq
+		gl.BlendEquation(r.MapBlendEquation(eq))
+	}
+
+	if src != r.blendSrc || dst != r.blendDst {
+		r.blendSrc = src
+		r.blendDst = dst
+		gl.BlendFunc(r.MapBlendFunction(src), r.MapBlendFunction(dst))
+	}
+}
+
+func (r *Renderer_GL32) DisableBlending() {
+	if r.blendEnabled {
+		gl.Disable(gl.BLEND)
+		r.blendEnabled = false
+		// Do not update blend equation cache because the hardware doesn't
 	}
 }
 
@@ -1168,7 +1308,7 @@ func (r *Renderer_GL32) ReleasePipeline() {
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.spriteShader.attributes["uv"]
 	gl.DisableVertexAttribArray(uint32(loc))
-	//gl.Disable(gl.BLEND)
+	//r.DisableBlending()
 }
 
 func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
@@ -1179,27 +1319,13 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 
 	gl.Viewport(0, 0, 1024, 1024)
 	//gl.Enable(gl.TEXTURE_2D) // Causes OpenGL error
-	gl.Disable(gl.BLEND)
+
+	// Set global state
 	r.SetDepthTest(true)
 	r.SetDepthMask(true)
-	gl.BlendEquation(gl.FUNC_ADD)
-	gl.BlendFunc(gl.ONE, gl.ZERO)
-	if r.invertFrontFace {
-		gl.FrontFace(gl.CW)
-	} else {
-		gl.FrontFace(gl.CCW)
-	}
-	if !r.doubleSided {
-		gl.Enable(gl.CULL_FACE)
-		gl.CullFace(gl.BACK)
-	} else {
-		gl.Disable(gl.CULL_FACE)
-	}
-	//r.depthTest = true
-	//r.depthMask = true
-	r.blendEquation = BlendAdd
-	r.blendSrc = BlendOne
-	r.blendDst = BlendZero
+	r.DisableBlending()
+	r.SetFrontFace(r.invertFrontFace)
+	r.SetCullFace(r.doubleSided)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
@@ -1207,14 +1333,14 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
 
-	loc := r.shadowMapShader.attributes["inVertexId"]
+	loc := r.shadowMapShader.attributes["vertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1301,7 +1427,7 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 }
 
 func (r *Renderer_GL32) ReleaseShadowPipeline() {
-	loc := r.shadowMapShader.attributes["inVertexId"]
+	loc := r.shadowMapShader.attributes["vertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.shadowMapShader.attributes["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
@@ -1326,8 +1452,10 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 	//gl.Disable(gl.TEXTURE_2D)
 	r.SetDepthMask(true)
 	r.SetDepthTest(false)
-	gl.Disable(gl.CULL_FACE)
-	gl.Disable(gl.BLEND)
+	//gl.Disable(gl.CULL_FACE)
+	r.SetCullFace(true)
+	r.DisableBlending()
+	r.useUV = false
 	r.useJoint0 = false
 	r.useJoint1 = false
 }
@@ -1342,32 +1470,13 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 	//gl.Enable(gl.TEXTURE_2D) // Causes OpenGL error
 	//gl.Enable(gl.TEXTURE_CUBE_MAP) // Causes OpenGL error
-	gl.Enable(gl.BLEND)
 
-	/*
-		// These should be redundant now
-		if r.depthTest {
-			r.SetDepthTest(true)
-			gl.DepthFunc(gl.LESS)
-		} else {
-			r.SetDepthTest(false)
-		}
-		r.SetDepthMask(r.depthMask)
-	*/
-
-	if r.invertFrontFace {
-		gl.FrontFace(gl.CW)
-	} else {
-		gl.FrontFace(gl.CCW)
-	}
-	if !r.doubleSided {
-		gl.Enable(gl.CULL_FACE)
-		gl.CullFace(gl.BACK)
-	} else {
-		gl.Disable(gl.CULL_FACE)
-	}
-	gl.BlendEquation(r.MapBlendEquation(r.blendEquation))
-	gl.BlendFunc(r.MapBlendFunction(r.blendSrc), r.MapBlendFunction(r.blendDst))
+	// Set global state
+	r.EnableBlending(r.blendEquation, r.blendSrc, r.blendDst)
+	r.SetDepthTest(true)
+	r.SetDepthMask(true)
+	r.SetFrontFace(r.invertFrontFace)
+	r.SetCullFace(r.doubleSided)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
@@ -1417,7 +1526,7 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 		gl.Uniform1f(loc, 0)
 	}
 
-	gl.ActiveTexture(gl.TEXTURE0)
+	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace,
@@ -1426,7 +1535,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	r.SetDepthMask(depthMask)
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
-	r.SetBlending(true, eq, src, dst)
+	r.EnableBlending(eq, src, dst)
 
 	loc := r.modelShader.attributes["inVertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
@@ -1590,7 +1699,9 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	//gl.Disable(gl.TEXTURE_2D)
 	r.SetDepthMask(true)
 	r.SetDepthTest(false)
-	gl.Disable(gl.CULL_FACE)
+	//gl.Disable(gl.CULL_FACE)
+	r.SetCullFace(true)
+	r.useUV = false
 	r.useNormal = false
 	r.useTangent = false
 	r.useVertColor = false
@@ -1629,7 +1740,7 @@ func (r *Renderer_GL32) DisableScissor() {
 	if r.scissorEnabled {
 		gl.Disable(gl.SCISSOR_TEST)
 		r.scissorEnabled = false
-		r.scissorRect = [4]int32{0, 0, 0, 0}
+		// Do not zero r.scissorRect here because the hardware retains the last rect even when the test is off
 	}
 }
 
@@ -1847,6 +1958,17 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32)
 	gl.UniformMatrix3fv(loc, 1, false, &value[0])
 }
 
+// Selects texture unit 0 as active and tells the cache it's dirty
+// Prevents the sprite renderer from desyncing during texture maintenance
+func (r *Renderer_GL32) UseScratchUnit() {
+	gl.ActiveTexture(gl.TEXTURE0)
+
+	if len(r.texCacheTexSerial) > 0 {
+		r.texCacheTexSerial[0] = 0
+		r.texCacheLastUsed[0] = 0
+	}
+}
+
 func (r *Renderer_GL32) SetTextureSub(uMap map[string]int32, tMap map[string]int, name string, tex Texture) {
 	t := tex.(*Texture_GL32)
 	loc := uMap[name]
@@ -1893,7 +2015,6 @@ func (r *Renderer_GL32) SetTextureSub(uMap map[string]int32, tMap map[string]int
 	fixedUnit := uint32(tMap[name])
 	gl.ActiveTexture(gl.TEXTURE0 + fixedUnit)
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
-
 	r.SetUniformISub(loc, int32(fixedUnit))
 }
 
@@ -1920,8 +2041,9 @@ func (r *Renderer_GL32) SetShadowFrameCubeTexture(i uint32) {
 func (r *Renderer_GL32) SetVertexData(values ...float32) {
 	data := f32.Bytes(binary.LittleEndian, values...)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
-	//gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
-	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STREAM_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+	// STREAM_DRAW was attempted here, but some users might be havign trouble with it
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/3292
 }
 
 func (r *Renderer_GL32) SetModelVertexData(bufferIndex uint32, values []byte) {

@@ -493,7 +493,7 @@ func (r *Renderer_GL21) InitModelShader() error {
 		return err
 	}
 
-	r.modelShader.RegisterAttributes("inVertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
+	r.modelShader.RegisterAttributes("vertexId", "position", "uv", "normalIn", "tangentIn", "vertColor", "joints_0", "joints_1", "weights_0", "weights_1", "outlineAttributeIn")
 
 	r.modelShader.RegisterUniforms("model", "view", "projection", "normalMatrix", "unlit", "baseColorFactor", "add", "mult", "useTexture", "useNormalMap", "useMetallicRoughnessMap", "useEmissionMap", "neg", "gray", "hue",
 		"enableAlpha", "alphaThreshold", "numJoints", "morphTargetWeight", "morphTargetOffset", "morphTargetTextureDimension", "numTargets", "numVertices",
@@ -514,7 +514,7 @@ func (r *Renderer_GL21) InitModelShader() error {
 			return err
 		}
 
-		r.shadowMapShader.RegisterAttributes("inVertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
+		r.shadowMapShader.RegisterAttributes("vertexId", "position", "vertColor", "uv", "joints_0", "joints_1", "weights_0", "weights_1")
 
 		r.shadowMapShader.RegisterUniforms("model", "lightMatrices[0]", "lightMatrices[1]", "lightMatrices[2]", "lightMatrices[3]", "lightMatrices[4]", "lightMatrices[5]",
 			"lightMatrices[6]", "lightMatrices[7]", "lightMatrices[8]", "lightMatrices[9]", "lightMatrices[10]", "lightMatrices[11]",
@@ -1188,7 +1188,7 @@ func (r *Renderer_GL21) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
 
-	loc := r.shadowMapShader.attributes["inVertexId"]
+	loc := r.shadowMapShader.attributes["vertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1275,7 +1275,7 @@ func (r *Renderer_GL21) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 }
 
 func (r *Renderer_GL21) ReleaseShadowPipeline() {
-	loc := r.shadowMapShader.attributes["inVertexId"]
+	loc := r.shadowMapShader.attributes["vertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.shadowMapShader.attributes["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
@@ -1399,7 +1399,7 @@ func (r *Renderer_GL21) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	r.SetCullFace(doubleSided)
 	r.SetBlending(true, eq, src, dst)
 
-	loc := r.modelShader.attributes["inVertexId"]
+	loc := r.modelShader.attributes["vertexId"]
 	gl.EnableVertexAttribArray(uint32(loc))
 	gl.VertexAttribPointerWithOffset(uint32(loc), 1, gl.INT, false, 0, uintptr(vertAttrOffset))
 	offset := vertAttrOffset + 4*numVertices
@@ -1524,7 +1524,7 @@ func (r *Renderer_GL21) SetMeshOulinePipeline(invertFrontFace bool, meshOutline 
 }
 
 func (r *Renderer_GL21) ReleaseModelPipeline() {
-	loc := r.modelShader.attributes["inVertexId"]
+	loc := r.modelShader.attributes["vertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.attributes["position"]
 	gl.DisableVertexAttribArray(uint32(loc))
@@ -1835,9 +1835,12 @@ func (r *Renderer_GL21) SetShadowFrameCubeTexture(i uint32) {
 }
 
 func (r *Renderer_GL21) SetVertexData(values ...float32) {
-	data := f32.Bytes(binary.LittleEndian, values...)
+	//data := f32.Bytes(binary.LittleEndian, values...)
+	//gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
+	//gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STREAM_DRAW)
+	size := len(values) * 4
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+	gl.BufferData(gl.ARRAY_BUFFER, size, unsafe.Pointer(&values[0]), gl.STREAM_DRAW)
 }
 
 func (r *Renderer_GL21) SetModelVertexData(bufferIndex uint32, values []byte) {

@@ -24,7 +24,7 @@ layout (constant_id = 3) const bool useTangent = false;
 layout (constant_id = 4) const bool useVertColor = false;
 layout (constant_id = 5) const bool useOutlineAttribute = false;
 
-layout(location = 0) in int inVertexId;
+layout(location = 0) in int vertexId;
 layout(location = 1) in vec3 position;
 layout(location = 2) in vec2 uv;
 layout(location = 3) in vec3 normalIn;
@@ -77,6 +77,8 @@ layout(location = 6) out vec4 lightSpacePos[4];
 	COMPAT_VARYING vec3 normal, tangent, bitangent, worldSpacePos;
 	COMPAT_VARYING vec2 texcoord;
 	COMPAT_VARYING vec4 vColor, lightSpacePos[4];
+
+	#define vertexId inVertexId
 
 	#define useJoint0 (weights_0.x+weights_0.y+weights_0.z+weights_0.w+weights_1.x+weights_1.y+weights_1.z+weights_1.w > 0.001)
 	#define useJoint1 (weights_1.x+weights_1.y+weights_1.z+weights_1.w > 0.001)
@@ -155,7 +157,7 @@ void main(void) {
 		for(int idx = 0; idx < numTargets; ++idx)
 		{
 			float fIdx = float(idx);
-			float i = fIdx * float(numVertices) + inVertexId;
+			float i = fIdx * float(numVertices) + vertexId;
 			vec2 xy = vec2((i+0.5)/float(morphTargetTextureDimension)-floor(i/float(morphTargetTextureDimension)),(floor(i/float(morphTargetTextureDimension))+0.5)/float(morphTargetTextureDimension));
 
 			// Mali-safe weight selection

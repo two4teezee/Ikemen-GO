@@ -138,7 +138,11 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32,
 	program := fr.shaderProgram
 
 	//setup blending mode
-	r.SetBlending(blend, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
+	if blend {
+		r.EnableBlending(BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
+	} else {
+		r.DisableBlending()
+	}
 
 	//restrict drawing to a certain part of the window
 	r.EnableScissor(window[0], window[1], window[2], window[3])

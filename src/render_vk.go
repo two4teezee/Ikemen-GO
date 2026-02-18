@@ -2536,8 +2536,8 @@ func (r *Renderer_VK) GetShadowMapPipeline(state *VulkanShadowMapPipelineState) 
 	addVertexAttribute(2, 2, state.useUV)
 	addVertexAttribute(4, 3, state.useVertColor)
 	addVertexAttribute(4, 4, state.useJoint0)
-	addVertexAttribute(4, 5, state.useJoint0)
-	addVertexAttribute(4, 6, state.useJoint1)
+	addVertexAttribute(4, 5, state.useJoint1)
+	addVertexAttribute(4, 6, state.useJoint0)
 	addVertexAttribute(4, 7, state.useJoint1)
 
 	vertexInputState := vk.PipelineVertexInputStateCreateInfo{
@@ -5286,11 +5286,18 @@ func (r *Renderer_VK) SetPipeline() {
 	// Do nothing
 }
 
-// Vulkan currently never uses this path to disable blending
-func (r *Renderer_VK) SetBlending(blend bool, eq BlendEquation, src, dst BlendFunc) {
+// Vulkan doesn't really use these two at the moment
+func (r *Renderer_VK) EnableBlending(eq BlendEquation, src, dst BlendFunc) {
 	r.VKState.VulkanPipelineState.VulkanBlendState.op = eq
 	r.VKState.VulkanPipelineState.VulkanBlendState.src = src
 	r.VKState.VulkanPipelineState.VulkanBlendState.dst = dst
+}
+
+func (r *Renderer_VK) DisableBlending() {
+	r.VKState.VulkanBlendState.op = BlendAdd
+	r.VKState.VulkanBlendState.src = BlendSrcAlpha
+	r.VKState.VulkanBlendState.dst = BlendOneMinusSrcAlpha
+	// Same as old BlendReset()(
 }
 
 func (r *Renderer_VK) prepareShadowMapPipeline(bufferIndex uint32) {

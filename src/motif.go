@@ -372,7 +372,7 @@ type TimerProperties struct {
 	Displaytime    int32 `ini:"displaytime"`
 }
 
-type PlayerCursorDoneProperties struct {
+type PlayerCursorStateProperties struct {
 	AnimationProperties
 	Snd [2]int32 `ini:"snd" default:"-1,0"`
 }
@@ -380,7 +380,8 @@ type PlayerCursorDoneProperties struct {
 type PlayerCursorProperties struct {
 	StartCell [2]int32                               `ini:"startcell"`
 	Active    map[string]*AnimationProperties        `ini:"active"`
-	Done      map[string]*PlayerCursorDoneProperties `ini:"done"`
+	Done      map[string]*PlayerCursorStateProperties `ini:"done"`
+	Preview   map[string]*PlayerCursorStateProperties `ini:"preview"`
 	Move      struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"move"`

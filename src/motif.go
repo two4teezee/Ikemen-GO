@@ -3504,7 +3504,7 @@ func (co *MotifContinue) updateCreditsText(m *Motif) {
 }
 
 func (co *MotifContinue) init(m *Motif) {
-	if (!m.ContinueScreen.Enabled || !co.enabled || sys.cfg.Options.QuickContinue) ||
+	if (!m.ContinueScreen.Enabled || !co.enabled) ||
 		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
 		!sys.sel.gameParams.Continue {
 		co.initialized = true

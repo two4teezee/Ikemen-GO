@@ -841,7 +841,7 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 	end
 	table.sort(order, function(a, b)
 		if a.o == b.o then
-			return a.m < b.m -- stable legacy tie-break (invertorder=0 behavior)
+			return a.m > b.m
 		end
 		return a.o < b.o
 	end)

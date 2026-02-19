@@ -4055,13 +4055,14 @@ func (bf bytecodeFunction) run(c *Char, ret []uint8) (changeState bool) {
 	copy(sys.bcVar, sys.bcStack)
 	sys.bcStack.Clear()
 	for _, sc := range bf.ctrls {
-		switch sc.(type) {
-		case StateBlock:
-		default:
-			if c.hitPause() {
-				continue
-			}
-		}
+		// Do not check ignorehitpause here. The function call already did it
+		//switch sc.(type) {
+		//case StateBlock:
+		//default:
+		//	if c.hitPause() {
+		//		continue
+		//	}
+		//}
 		if sc.Run(c, nil) {
 			changeState = true
 			break

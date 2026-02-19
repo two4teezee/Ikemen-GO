@@ -6978,6 +6978,11 @@ func (c *Compiler) blockAttribSet(line *string, bl *StateBlock, sbc *StateByteco
 
 func (c *Compiler) subBlock(line *string, root bool,
 	sbc *StateBytecode, numVars *int32, inheritIhp, nestedInLoop bool) (*StateBlock, error) {
+	// Inject ignorehitpause property into functions (nil sbc)
+	if sbc == nil {
+		inheritIhp = true
+	}
+
 	bl := newStateBlock()
 	if err := c.blockAttribSet(line, bl, sbc, inheritIhp, nestedInLoop); err != nil {
 		return nil, err

@@ -216,6 +216,21 @@ func processCommandLine() {
 	// If there are command line arguments
 	if len(os.Args[1:]) > 0 {
 		sys.cmdFlags = make(map[string]string)
+		// PowerShell can split an unquoted native-arg that starts with '-' at the first '.'
+		rawArgs := os.Args[1:]
+		args := make([]string, 0, len(rawArgs))
+		rPnum := regexp.MustCompile(`^-p[0-9]+$`)
+		// Only join simple ".suffix" tokens (no slashes/backslashes), to avoid breaking paths.
+		rDotSuffix := regexp.MustCompile(`^\.[A-Za-z][A-Za-z0-9]*$`)
+		for i := 0; i < len(rawArgs); i++ {
+			a := rawArgs[i]
+			if rPnum.MatchString(a) && i+1 < len(rawArgs) && rDotSuffix.MatchString(rawArgs[i+1]) {
+				args = append(args, a+rawArgs[i+1])
+				i++
+				continue
+			}
+			args = append(args, a)
+		}
 		boolFlags := map[string]bool{
 			"-windowed":       true,
 			"-togglelifebars": true,
@@ -232,7 +247,7 @@ func processCommandLine() {
 		r1, _ := regexp.Compile("^-[h%?]$")
 		r2, _ := regexp.Compile("^-")
 		// Loop through arguments
-		for _, a := range os.Args[1:] {
+		for _, a := range args {
 			// Check if the current argument 'a' is a flag (starts with '-')
 			// Check if 'a' is a number (could be negative)
 			_, err := strconv.ParseFloat(a, 64)

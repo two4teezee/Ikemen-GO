@@ -4622,9 +4622,9 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	idx := make([]int, nsel)
-	for i := range idx {
-		idx[i] = sys.sel.selected[pn&1][i][0]
+	teamChars := make([]int, nsel)
+	for i := range teamChars {
+		teamChars[i] = sys.sel.selected[pn&1][i][0]
 	}
 
 	// Prepare loading time clipboard message
@@ -4661,7 +4661,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		if sys.sel.cdefOverwrite[cdefOWnumber] != "" {
 			cdef = sys.sel.cdefOverwrite[cdefOWnumber]
 		} else {
-			cdef = sys.sel.charlist[idx[memberNo]].def
+			cdef = sys.sel.charlist[teamChars[memberNo]].def
 		}
 	}
 
@@ -4776,28 +4776,28 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
 			nm := sys.lifebar.nm[sys.tmode[pn&1]][pn]
-			l.prepareTurnsFaces(pn, fa, nm, idx)
+			l.prepareTurnsFaces(pn, fa, nm, teamChars)
 		}
 	}
 
 	return 1
 }
 
-func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, idx []int) {
+func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, teamChars []int) {
 	// Reset face and name KO's
 	fa.numko = 0
-	sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
+	nm.numko = 0
 
 	// Pre-allocate
-	nsel := len(idx)
+	nsel := len(teamChars)
 	nm.teammate_name_strings = make([]string, nsel)
 	fa.teammate_face = make([]*Sprite, nsel)
 	fa.teammate_scale = make([]float32, nsel)
 	fa.teammate_face_pfx = make([]*PalFX, nsel)
 
-	// Iterate all selected partners
-	for i, ci := range idx {
-		sc := &sys.sel.charlist[ci]
+	// Iterate all selected characters
+	for i, charIdx := range teamChars {
+		sc := &sys.sel.charlist[charIdx]
 
 		// Save the name
 		nm.teammate_name_strings[i] = sc.lifebarname
@@ -4813,7 +4813,20 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, idx
 
 		// Create an independent clone of the sprite to avoid mutating the SFF
 		spr := *origSpr
+		
+		// Check if the sprite uses or shares palette 1, 1
+		usesPal11 := false
 		if spr.coldepth <= 8 {
+			pal11Idx, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+			if has11 && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
+				if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
+					usesPal11 = true
+				}
+			}
+		}
+
+		// Apply selected color only if the sprite shares the base palette
+		if usesPal11 {
 			// Pull selected palette index (1-based)
 			palIdx := sys.sel.selected[pn&1][i][1]
 
@@ -4821,9 +4834,11 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, idx
 			// Using make/copy prevents pointer aliasing on the slice
 			spr.paltemp = make([]uint32, len(origSpr.paltemp))
 			copy(spr.paltemp, origSpr.paltemp)
+			
+			// Force lazy loading for unique recolored texture
 			spr.PalTex = nil
 
-			// Map the palette
+			// Assign the selected palette
 			spr.Pal = sc.sff.palList.Get(int(palIdx) - 1)
 		}
 

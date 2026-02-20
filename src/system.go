@@ -4805,9 +4805,15 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Calculate portrait scale
 		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
 
-		// Load char palettes if the select screen didn't already load them for "applypal"
+		// Check if palettes are already loaded
+		// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
-		if !sc.sff.palList.loaded {
+		palIdx := sys.sel.selected[pn&1][i][1]
+		_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
+		_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+
+		// Only load palettes if necessary
+		if !hasTarget || !has11 {
 			loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
 		}
 
@@ -4819,12 +4825,12 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 
 		// Create an independent clone of the sprite to avoid mutating the SFF
 		spr := *origSpr
-		
+
 		// Check if the sprite uses or shares palette 1, 1
 		usesPal11 := false
 		if spr.coldepth <= 8 {
-			pal11Idx, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
-			if has11 && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
+			pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+			if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
 				if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
 					usesPal11 = true
 				}
@@ -4834,18 +4840,19 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Apply selected color only if the sprite shares the base palette
 		if usesPal11 {
 			// Pull selected palette index (1-based)
-			palIdx := sys.sel.selected[pn&1][i][1]
+			targetPal := sc.sff.palList.Get(int(palIdx) - 1)
+			if targetPal != nil {
+				// Decouple clone from global SFF palettes
+				spr.Pal = make([]uint32, len(targetPal))
+				copy(spr.Pal, targetPal)
+				
+				spr.paltemp = make([]uint32, len(targetPal))
+				copy(spr.paltemp, targetPal)
 
-			// Reset specific fields to force a unique texture upload for this clone
-			// Using make/copy prevents pointer aliasing on the slice
-			spr.paltemp = make([]uint32, len(origSpr.paltemp))
-			copy(spr.paltemp, origSpr.paltemp)
-			
-			// Force lazy loading for unique recolored texture
-			spr.PalTex = nil
-
-			// Assign the selected palette
-			spr.Pal = sc.sff.palList.Get(int(palIdx) - 1)
+				// Force lazy loading for unique recolored texture
+				spr.PalTex = nil
+				spr.palidx = -1 
+			}
 		}
 
 		// Commit sprite and init PalFX

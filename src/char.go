@@ -4185,35 +4185,42 @@ func (c *Char) loadPalette() {
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			if pl, ok := readAct(&pal); ok {
-				targetPal := gi.palettedata.palList.Get(i)
-				copy(targetPal, pl)
+				// Allocate space if necessary
+				gi.palettedata.palList.SetSource(i, pl)
+				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = i
+
 				if tmp == 0 && i > 0 {
-					copy(gi.palettedata.palList.Get(0), pl)
+					// Backward compatibility: first loaded ACT also overwrites default
+					if len(gi.palettedata.palList.palettes) > 0 {
+						if gi.palettedata.palList.palettes[0] == nil {
+							gi.palettedata.palList.SetSource(0, pl)
+						} else {
+							copy(gi.palettedata.palList.palettes[0], pl)
+							if gi.palettedata.palList.PalTex[0] != nil {
+								gi.palettedata.palList.PalTex[0].SetData(Pal32ToBytes(pl))
+							}
+						}
+					}
 				}
 				pal.exists = true
-				if len(gi.palettedata.palList.PalTex) <= i {
-					newSlice := make([]Texture, i+1)
-					copy(newSlice, gi.palettedata.palList.PalTex)
-					gi.palettedata.palList.PalTex = newSlice
-				}
-				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pl)
 				tmp = i + 1
 			} else {
 				pal.exists = false
-				if i > 0 {
-					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
-				}
 			}
 			gi.palInfo[i] = pal
 		}
-		if tmp == 0 {
-			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
+		
+		// Ensure [1, 1] exists in the PalTable so RemapPal works
+		// If no ACTs were loaded, the sprite uses its internal palette at index 0
+		if _, ok := gi.palettedata.palList.PalTable[[...]uint16{1, 1}]; !ok {
+			gi.palettedata.palList.PalTable[[...]uint16{1, 1}] = 0
 		}
 	} else {
 		numPals := int(gi.sff.header.NumberOfPalettes)
 		if len(gi.palettedata.palList.PalTex) < numPals {
 			gi.palettedata.palList.PalTex = make([]Texture, numPals)
 		}
+		// Sync GPU textures for internal SFFv2 palettes
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
 				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pData)
@@ -4227,13 +4234,16 @@ func (c *Char) loadPalette() {
 			if pl, ok := readAct(&pal); ok {
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
-					gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
+					gi.palettedata.palList.palettes[pIdx] = pl
+					if gi.palettedata.palList.PalTex[pIdx] != nil {
+						gi.palettedata.palList.PalTex[pIdx].SetData(Pal32ToBytes(pl))
+					} else {
+						gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
+					}
 				} else {
-					// Create a new isolated index for the ACT to prevent crashes
+					// Create a new isolated index for the ACT using dynamic growth
 					newIdx := len(gi.palettedata.palList.palettes)
-					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
-					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
-					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, NewTextureFromPalette(pl))
+					gi.palettedata.palList.SetSource(newIdx, pl)
 					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
 				}
 				pal.exists = true
@@ -4273,11 +4283,14 @@ func (c *Char) loadPalette() {
 			}
 		}
 	}
+	
 	// Validate palno
 	palIdx := gi.palno - 1
 	if palIdx < 0 {
 		palIdx = 0
 	}
+	
+	// If the requested palette doesn't exist, roll over to the first available one
 	if p, ok := gi.palInfo[int(palIdx)]; !ok || !p.exists {
 		found := false
 		for i := 0; i < maxPal; i++ {

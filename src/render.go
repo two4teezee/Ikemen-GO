@@ -503,8 +503,12 @@ func RenderSprite(rp RenderParams) {
 		neg, grayscale, padd, pmul, invblend, hue = rp.pfx.getFinalPalFx(rp.blendMode, rp.blendAlpha)
 	}
 
-	tint := [4]float32{float32(rp.tint&0xff) / 255, float32(rp.tint>>8&0xff) / 255,
-		float32(rp.tint>>16&0xff) / 255, float32(rp.tint>>24&0xff) / 255}
+	tint := [4]float32{
+		float32(rp.tint&0xff) / 255,
+		float32(rp.tint>>8&0xff) / 255,
+		float32(rp.tint>>16&0xff) / 255,
+		float32(rp.tint>>24&0xff) / 255,
+	}
 
 	proj := gfx.OrthographicProjectionMatrix(0, float32(sys.scrrect[2]), 0, float32(sys.scrrect[3]), -65535, 65535)
 	modelview := mgl.Translate3D(0, float32(sys.scrrect[3]), 0)
@@ -697,9 +701,16 @@ func FillRect(rect [4]int32, color uint32, alpha [2]int32, fx *PalFX) {
 	// Static uniforms
 	gfx.SetUniformMatrix("modelview", modelview[:])
 	gfx.SetUniformMatrix("projection", proj[:])
+	gfx.SetUniformI("isFlat", 1)
+	gfx.SetUniformI("isTrapez", 0)
+	gfx.SetUniformI("mask", 0)
+	gfx.SetUniformI("isRgba", 1)
 	gfx.SetUniformF("gray", grayscale)
 	gfx.SetUniformF("hue", hue)
-	gfx.SetUniformI("isFlat", 1)
+
+	// Alpha is determined by tint, so we reset it here
+	// TODO: Maybe the shader shouldn't have a duplicate alpha component inside "tint"
+	gfx.SetUniformF("alpha", 1.0)
 
 	// Local function called for each blending pass
 	renderPass := func(eq BlendEquation, src, dst BlendFunc, a float32) {

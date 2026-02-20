@@ -387,6 +387,7 @@ type PaletteList struct {
 	PalTable   map[[2]uint16]int
 	numcols    map[[2]uint16]int
 	PalTex     []Texture
+	loaded     bool
 }
 
 func (pl *PaletteList) init() {
@@ -1325,9 +1326,9 @@ type Sff struct {
 	header  SffHeader
 	sprites map[[2]uint16]*Sprite
 	palList PaletteList
-	// This is the sffCache key
-	filename string
+	filename       string // This is the sffCache key
 }
+
 type Palette struct {
 	palList PaletteList
 }
@@ -1665,6 +1666,10 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		sff.palList.PalTable[[2]uint16{1, palSlot}] = targetIdx
 		sff.palList.numcols[[2]uint16{1, palSlot}] = 256
 	}
+
+	// Mark palettes as loaded
+	// This way is more reliable because of pre-allocation
+	sff.palList.loaded = true
 
 	return nil
 }

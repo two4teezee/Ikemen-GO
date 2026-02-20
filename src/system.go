@@ -4805,6 +4805,12 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Calculate portrait scale
 		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
 
+		// Load char palettes if the select screen didn't already load them for "applypal"
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
+		if !sc.sff.palList.loaded {
+			loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
+		}
+
 		// Get the sprite from the teammate's SFF
 		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
 		if origSpr == nil {

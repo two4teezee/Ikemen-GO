@@ -3569,18 +3569,18 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 					res.bg[activeTeam][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
 				// Text
+				oldTxt := res.text[activeTeam].text.text
 				var args []interface{}
 				for i := activeTeam; i < len(sys.chars); i += 2 {
 					if len(sys.chars[i]) > 0 {
-						args = append(args, i+1) // playerNum
+						if strings.Contains(oldTxt, "%d") {
+							args = append(args, i+1) // playerNum
+						}
+						if strings.Contains(oldTxt, "%s") {
+							args = append(args, sys.cgi[i].displayname)
+						}
 					}
 				}
-				for i := activeTeam; i < len(sys.chars); i += 2 {
-					if len(sys.chars[i]) > 0 {
-						args = append(args, sys.cgi[i].displayname)
-					}
-				}
-				oldTxt := res.text[activeTeam].text.text
 				if len(args) > 0 {
 					res.text[activeTeam].text.text = OldSprintf(oldTxt, args...)
 				}

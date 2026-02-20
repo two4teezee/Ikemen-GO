@@ -3572,7 +3572,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 				var args []interface{}
 				for i := activeTeam; i < len(sys.chars); i += 2 {
 					if len(sys.chars[i]) > 0 {
-						args = append(args, i + 1) // playerNum
+						args = append(args, i+1) // playerNum
 					}
 				}
 				for i := activeTeam; i < len(sys.chars); i += 2 {

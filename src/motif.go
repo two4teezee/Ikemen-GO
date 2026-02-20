@@ -3281,7 +3281,7 @@ func (me *MotifMenu) init(m *Motif) {
 	if m.ch.active || sys.postMatchFlg {
 		return
 	}
-	
+
 	// Don't allow the menu to instantly re-open if the open/cancel key is still held after closing.
 	if me.reopenLock {
 		if me.menuOpenInputHeld(m) {
@@ -3290,7 +3290,7 @@ func (me *MotifMenu) init(m *Motif) {
 		me.reopenLock = false
 	}
 	openPressed := sys.esc || sys.button(pm.Menu.Cancel.Key, -1)
-	
+
 	if sys.escExit() || (sys.netplay() && openPressed) {
 		if sys.netplay() {
 			sys.esc = true

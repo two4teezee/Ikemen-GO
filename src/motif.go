@@ -3277,11 +3277,20 @@ func (me *MotifMenu) init(m *Motif) {
 		me.initialized = true
 		return
 	}
-	openPressed := sys.esc || sys.button(pm.Menu.Cancel.Key, -1)
 	// Don't run during challenger / post-match screens.
 	if m.ch.active || sys.postMatchFlg {
 		return
 	}
+	
+	// Don't allow the menu to instantly re-open if the open/cancel key is still held after closing.
+	if me.reopenLock {
+		if me.menuOpenInputHeld(m) {
+			return
+		}
+		me.reopenLock = false
+	}
+	openPressed := sys.esc || sys.button(pm.Menu.Cancel.Key, -1)
+	
 	if sys.escExit() || (sys.netplay() && openPressed) {
 		if sys.netplay() {
 			sys.esc = true
@@ -3292,13 +3301,6 @@ func (me *MotifMenu) init(m *Motif) {
 	// If nothing requested opening, do nothing.
 	if !openPressed {
 		return
-	}
-	// Don't allow the menu to instantly re-open if the open/cancel key is still held after closing.
-	if me.reopenLock {
-		if me.menuOpenInputHeld(m) {
-			return
-		}
-		me.reopenLock = false
 	}
 	if !sys.skipMotifScaling() {
 		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])

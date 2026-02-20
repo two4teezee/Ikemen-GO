@@ -1117,8 +1117,18 @@ func (s *System) netplay() bool {
 }
 
 func (s *System) escExit() bool {
-	return (sys.gameMode == "demo" && (sys.esc || sys.button([]string{"m"}, -1))) ||
-		(sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" || (sys.motif.AttractMode.Enabled && sys.credits == 0)))
+	if sys.gameMode == "demo" || sys.netplay() {
+		if sys.button([]string{"m"}, -1) {
+			if sys.netplay() {
+				sys.esc = true
+			}
+			if sys.gameMode == "demo" {
+				return true
+			}
+		}
+	}
+	return sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" ||
+		(sys.motif.AttractMode.Enabled && sys.credits == 0))
 }
 
 func (s *System) matchOver() bool {

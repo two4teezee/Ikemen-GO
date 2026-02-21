@@ -73,11 +73,17 @@
 			precision highp int;
 		#endif
 		#ifdef ENABLE_SHADOW
+			#ifdef GL_ES
 			// Avoid sampler-array dynamic indexing on GLES by declaring 4 separate samplers
 			uniform samplerCube shadowCubeMap0;
 			uniform samplerCube shadowCubeMap1;
 			uniform samplerCube shadowCubeMap2;
 			uniform samplerCube shadowCubeMap3;
+			#else
+			uniform samplerCubeArray shadowCubeMap;
+			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0),index)).r
+			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+			#endif
 			const bool useShadowMap = true;
 		#else
 			const bool useShadowMap = false;
@@ -153,9 +159,7 @@ float DirectionalLightShadowCalculation(int index, vec4 lightSpacePos,float Ndot
 	float epsilon = 1.0 / 1024.0;
 	vec2 xy = vec2(clamp(projCoords.x,epsilon,1.0-epsilon),clamp(projCoords.y,epsilon,1.0-epsilon));
 	float closestDepth;
-	#if __VERSION__ >= 450
-		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
-	#elif __VERSION__ >= 130 || defined(GL_ES)
+	#if defined(GL_ES)
 		// sample using separate samplers with dynamic branch (avoids sampler array indexing)
 		vec3 coord0 = vec3(1.0, -(xy.y*2.0-1.0), -(xy.x*2.0-1.0));
 		if(index == 0) closestDepth = texture(shadowCubeMap0, coord0).r;
@@ -185,9 +189,7 @@ float SpotLightShadowCalculation(int index, vec3 pointToLight, vec4 lightSpacePo
 	float epsilon = 1.0 / 1024.0;
 	vec2 xy = vec2(clamp(lightSpacePos.x,epsilon,1.0-epsilon),clamp(lightSpacePos.y,epsilon,1.0-epsilon));
 	float closestDepth;
-	#if __VERSION__ >= 450
-		closestDepth = COMPAT_SHADOW_MAP_TEXTURE();
-	#elif __VERSION__ >= 130 || defined(GL_ES)
+	#if defined(GL_ES)
 		vec3 coord0 = vec3(1.0, -(xy.y*2.0-1.0), -(xy.x*2.0-1.0));
 		if(index == 0) closestDepth = texture(shadowCubeMap0, coord0).r;
 		else if(index == 1) closestDepth = texture(shadowCubeMap1, coord0).r;
@@ -216,9 +218,7 @@ float PointLightShadowCalculation(int index, vec3 pointToLight,float NdotL,float
 	}
 	vec3 xyz = -pointToLight;
 	float closestDepth;
-	#if __VERSION__ >= 450
-		closestDepth = COMPAT_SHADOW_CUBE_MAP_TEXTURE();
-	#elif __VERSION__ >= 130 || defined(GL_ES)
+	#if defined(GL_ES)
 		if(index == 0) closestDepth = texture(shadowCubeMap0, xyz).r;
 		else if(index == 1) closestDepth = texture(shadowCubeMap1, xyz).r;
 		else if(index == 2) closestDepth = texture(shadowCubeMap2, xyz).r;

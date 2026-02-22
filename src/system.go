@@ -48,10 +48,10 @@ var sys = System{
 	bgPalFX:       newPalFX(),
 	ffx:           make(map[string]*FightFx),
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
-	sel:      *newSelect(),
-	keyState: make(map[Key]bool),
-	match:    1,
-	loader:   *newLoader(),
+	sel:                 *newSelect(),
+	keyState:            make(map[Key]bool),
+	match:               1,
+	loader:              *newLoader(),
 	numSimul:            [...]int32{2, 2},
 	numTurns:            [...]int32{2, 2},
 	ignoreMostErrors:    true,
@@ -4845,13 +4845,13 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 				// Decouple clone from global SFF palettes
 				spr.Pal = make([]uint32, len(targetPal))
 				copy(spr.Pal, targetPal)
-				
+
 				spr.paltemp = make([]uint32, len(targetPal))
 				copy(spr.paltemp, targetPal)
 
 				// Force lazy loading for unique recolored texture
 				spr.PalTex = nil
-				spr.palidx = -1 
+				spr.palidx = -1
 			}
 		}
 

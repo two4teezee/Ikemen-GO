@@ -774,7 +774,7 @@ func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
 	if mapIdx < 0 || mapIdx >= len(pl.PalTex) {
 		return nil
 	}
-	
+
 	return pl.PalTex[mapIdx]
 }
 
@@ -1344,10 +1344,10 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 }
 
 type Sff struct {
-	header  SffHeader
-	sprites map[[2]uint16]*Sprite
-	palList PaletteList
-	filename       string // This is the sffCache key
+	header   SffHeader
+	sprites  map[[2]uint16]*Sprite
+	palList  PaletteList
+	filename string // This is the sffCache key
 }
 
 type Palette struct {

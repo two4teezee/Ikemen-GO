@@ -1237,16 +1237,16 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	r.texCacheTimer = 1
 
 	/*
-	// No need to reset these anymore since the cache is now keyed to the spriteShader
-	for i := range r.uniformICache {
-		r.uniformICache[i] = -1e9
-	}
-	for i := range r.uniformF1Cache {
-		r.uniformF1Cache[i] = -1e9
-	}
-	for i := range r.uniformF3Cache {
-		r.uniformF3Cache[i] = -1e9
-	}
+		// No need to reset these anymore since the cache is now keyed to the spriteShader
+		for i := range r.uniformICache {
+			r.uniformICache[i] = -1e9
+		}
+		for i := range r.uniformF1Cache {
+			r.uniformF1Cache[i] = -1e9
+		}
+		for i := range r.uniformF3Cache {
+			r.uniformF3Cache[i] = -1e9
+		}
 	*/
 }
 

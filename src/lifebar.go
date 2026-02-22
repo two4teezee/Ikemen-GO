@@ -1917,17 +1917,17 @@ func (fa *LifeBarFace) drawTeammates(layerno int16, ref int) {
 }
 
 type LifeBarName struct {
-	pos              [2]int32
-	name             LbText
-	bg               AnimLayout
-	top              AnimLayout
-	teammate_pos     [2]int32
-	teammate_spacing [2]int32
-	teammate_name    LbText
+	pos                   [2]int32
+	name                  LbText
+	bg                    AnimLayout
+	top                   AnimLayout
+	teammate_pos          [2]int32
+	teammate_spacing      [2]int32
+	teammate_name         LbText
 	teammate_name_strings []string
-	teammate_bg      AnimLayout
-	numko            int32
-	teammate_ko_hide bool
+	teammate_bg           AnimLayout
+	numko                 int32
+	teammate_ko_hide      bool
 }
 
 func newLifeBarName() *LifeBarName {
@@ -2015,7 +2015,7 @@ func (nm *LifeBarName) drawTeammates(layerno int16, ref int, f map[int]*Fnt, sid
 		// Draw pre-compiled name text
 		if nm.teammate_name.font[0] >= 0 && getFont(f, nm.teammate_name.font[0]) != nil {
 			nm.teammate_name.lay.DrawText((x + sys.lifebar.offsetX), y, sys.lifebar.scale, layerno,
-				nm.teammate_name_strings[i], getFont(f, nm.teammate_name.font[0]), 
+				nm.teammate_name_strings[i], getFont(f, nm.teammate_name.font[0]),
 				nm.teammate_name.font[1], nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
 		}
 
@@ -4990,29 +4990,29 @@ func (l *Lifebar) step() {
 		return
 	}
 	/*
-	// Team order swapping moved to dedicated Tag functions
-	for ti, tm := range sys.tmode {
-		if tm == TM_Tag {
-			for i, v := range l.order[ti] {
-				if sys.teamLeader[sys.chars[v][0].teamside] == sys.chars[v][0].playerNo && sys.chars[v][0].alive() {
-					if i != 0 {
-						if i == len(l.order[ti])-1 {
-							l.order[ti] = sliceMoveInt(l.order[ti], i, 0)
-						} else {
-							last := len(l.order[ti]) - 1
-							for n := last; n > 0; n-- {
-								if !sys.chars[l.order[ti][n]][0].alive() {
-									last -= 1
+		// Team order swapping moved to dedicated Tag functions
+		for ti, tm := range sys.tmode {
+			if tm == TM_Tag {
+				for i, v := range l.order[ti] {
+					if sys.teamLeader[sys.chars[v][0].teamside] == sys.chars[v][0].playerNo && sys.chars[v][0].alive() {
+						if i != 0 {
+							if i == len(l.order[ti])-1 {
+								l.order[ti] = sliceMoveInt(l.order[ti], i, 0)
+							} else {
+								last := len(l.order[ti]) - 1
+								for n := last; n > 0; n-- {
+									if !sys.chars[l.order[ti][n]][0].alive() {
+										last -= 1
+									}
 								}
+								l.order[ti] = sliceMoveInt(l.order[ti], 0, last)
 							}
-							l.order[ti] = sliceMoveInt(l.order[ti], 0, last)
 						}
+						break
 					}
-					break
 				}
 			}
 		}
-	}
 	*/
 	for ti := range sys.tmode {
 		for i, v := range l.order[ti] {

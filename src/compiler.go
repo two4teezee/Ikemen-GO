@@ -7734,7 +7734,7 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 					return errmes(err)
 				}
 				// Skip the map assignment entirely. The first definition remains in c.funcs
-				continue 
+				continue
 			}
 
 			// First definition found: compile normally

@@ -192,7 +192,7 @@ func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	xs *= sys.cam.Scale
 	ys *= sys.cam.Scale
 	sw := float32(sys.gameWidth)
-	sh := float32(0) 
+	sh := float32(0)
 
 	for i := 0; i < len(clsn); i++ {
 		offx := sw / 2
@@ -1684,28 +1684,28 @@ func (e *Explod) clear() {
 // Set default values according to char who creates the explod
 func (e *Explod) initFromChar(c *Char) *Explod {
 	*e = Explod{
-		id:           -1,
-		playerno:     c.playerNo,
-		playerId:     c.id,
-		animPN:       c.playerNo,
-		spritePN:     c.playerNo,
-		layerno:      c.layerNo,
-		palfx:        c.getPalfx(),   // Safeguard. Overridden later
-		palfxdef:     *newPalFXDef(), // Actual PalFX handled later
-		bindtime:     1,              // Not documented but confirmed
-		scale:        [2]float32{1, 1},
-		removetime:   -2,
-		postype:      PT_P1,
-		space:        Space_none,
-		relativef:    1,
-		facing:       1,
-		vfacing:      1,
-		localscl:     c.localscl,
-		localcoord:   c.localcoord,
-		projection:   Projection_Orthographic,
-		window:       [4]float32{0, 0, 0, 0},
-		animelem:     1,
-		animelemtime: 0,
+		id:                -1,
+		playerno:          c.playerNo,
+		playerId:          c.id,
+		animPN:            c.playerNo,
+		spritePN:          c.playerNo,
+		layerno:           c.layerNo,
+		palfx:             c.getPalfx(),   // Safeguard. Overridden later
+		palfxdef:          *newPalFXDef(), // Actual PalFX handled later
+		bindtime:          1,              // Not documented but confirmed
+		scale:             [2]float32{1, 1},
+		removetime:        -2,
+		postype:           PT_P1,
+		space:             Space_none,
+		relativef:         1,
+		facing:            1,
+		vfacing:           1,
+		localscl:          c.localscl,
+		localcoord:        c.localcoord,
+		projection:        Projection_Orthographic,
+		window:            [4]float32{0, 0, 0, 0},
+		animelem:          1,
+		animelemtime:      0,
 		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
@@ -4209,7 +4209,7 @@ func (c *Char) loadPalette() {
 			}
 			gi.palInfo[i] = pal
 		}
-		
+
 		// Ensure [1, 1] exists in the PalTable so RemapPal works
 		// If no ACTs were loaded, the sprite uses its internal palette at index 0
 		if _, ok := gi.palettedata.palList.PalTable[[...]uint16{1, 1}]; !ok {
@@ -4283,13 +4283,13 @@ func (c *Char) loadPalette() {
 			}
 		}
 	}
-	
+
 	// Validate palno
 	palIdx := gi.palno - 1
 	if palIdx < 0 {
 		palIdx = 0
 	}
-	
+
 	// If the requested palette doesn't exist, roll over to the first available one
 	if p, ok := gi.palInfo[int(palIdx)]; !ok || !p.exists {
 		found := false
@@ -5979,7 +5979,7 @@ func (c *Char) getTeamOrder() []int {
 	team := make([]int, 0, count)
 
 	// Gather all the players in the team
-	side := c.playerNo&1
+	side := c.playerNo & 1
 	for i := 0; i < count; i++ {
 		pno := side + i*2
 		if len(sys.chars[pno]) > 0 {
@@ -5997,7 +5997,7 @@ func (c *Char) getTeamOrder() []int {
 
 // Saves a new team order to all partners and their lifebars
 // Note: Ikemen has never reset the team leader between rounds, so we won't reset the order either
-// In the future we might need to however 
+// In the future we might need to however
 func (c *Char) updateTeamOrder(team []int) {
 	if len(team) == 0 {
 		return
@@ -6010,7 +6010,7 @@ func (c *Char) updateTeamOrder(team []int) {
 	}
 
 	// Update lifebar order within its bounds
-	side := c.playerNo&1
+	side := c.playerNo & 1
 	for i := range sys.lifebar.order[side] {
 		if i < len(team) {
 			sys.lifebar.order[side][i] = team[i]

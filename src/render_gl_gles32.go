@@ -1906,7 +1906,6 @@ func (r *Renderer_GLES32) SetShadowMapUniformMatrix3(name string, value []float3
 
 // Selects texture unit 0 as active and tells the cache it's dirty
 // Prevents the sprite renderer from desyncing during texture maintenance
-func (r *Renderer_GL32) UseScratchUnit() { ... }
 func (r *Renderer_GLES32) UseScratchUnit() {
 	gl.ActiveTexture(gl.TEXTURE0)
 

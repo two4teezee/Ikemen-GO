@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -196,6 +197,7 @@ type Animation struct {
 	isParallax                 bool
 	isVideo                    bool // Because videos are rendered through Animation.Draw()
 	phantomPixel               bool
+	copyAction                 int32
 }
 
 func newAnimation(sff *Sff, pal *PaletteList) *Animation {
@@ -213,6 +215,7 @@ func newAnimation(sff *Sff, pal *PaletteList) *Animation {
 		remap:                      make(RemapPreset),
 		start_scale:                [...]float32{1, 1},
 		lastActionFrame:            -1,
+		copyAction:                 -1,
 	}
 }
 
@@ -229,6 +232,20 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 		}
 		line := strings.ToLower(strings.TrimSpace(
 			strings.SplitN(lines[*i], ";", 2)[0]))
+
+		// Copy Action
+		if len(line) >= 12 && line[:12] == "copy action " { // Trailing space here
+			numStr := strings.TrimSpace(line[12:])
+			id, err := strconv.ParseInt(numStr, 10, 32)
+			if err != nil || numStr == "" {
+				// Mark for deletion if number is invalid
+				a.copyAction = -1
+			} else {
+				a.copyAction = int32(id)
+			}
+			return a
+		}
+
 		af := ReadAnimFrame(line)
 		switch {
 		case af != nil:
@@ -1021,11 +1038,16 @@ func (at AnimationTable) readAction(sff *Sff, pal *PaletteList,
 	for *i < len(lines) {
 		no, a := ReadAction(sff, pal, lines, i)
 		if a != nil {
-			if tmp := at[no]; tmp != nil {
-				return tmp
+			// In case of duplicate action numbers, just use the first one
+			// Even if first one is "Copy Action"
+			if existing := at[no]; existing != nil {
+				return existing
 			}
+			// Store the new animation in the table.
 			at[no] = a
-			for len(a.frames) == 0 && *i < len(lines) {
+			// Recursive logic until we find a non-empty animation
+			// If the current action is empty, we attempt to copy the very next action found in the file
+			for len(a.frames) == 0 && *i < len(lines) && a.copyAction < 0 {
 				if a2 := at.readAction(sff, pal, lines, i); a2 != nil {
 					*a = *a2
 					break
@@ -1034,6 +1056,7 @@ func (at AnimationTable) readAction(sff *Sff, pal *PaletteList,
 			}
 			return a
 		} else {
+			// No action found on this line, advance to the next one
 			(*i)++
 		}
 	}
@@ -1044,6 +1067,7 @@ func ReadAnimationTable(sff *Sff, pal *PaletteList, lines []string, i *int) Anim
 	at := NewAnimationTable()
 	for at.readAction(sff, pal, lines, i) != nil {
 	}
+	at.resolveCopyAction()
 	return at
 }
 
@@ -1057,13 +1081,55 @@ func (at AnimationTable) get(no int32) *Animation {
 	return ret
 }
 
-type SprData struct {
+// Duplicate all actions with "Copy Action" parameter
+func (at AnimationTable) resolveCopyAction() {
+	// Track actions that fail to resolve
+	var toDelete []int32
+
+	for no, a := range at {
+		// Limit the chain depth to 8 to prevent infinite loops from circular references
+		for loops := 0; a.copyAction >= 0 && loops < 8; loops++ {
+			target := at[a.copyAction]
+
+			// If the target is missing or it's a self-reference, break the link to stop
+			if target == nil || target == a {
+				break
+			}
+
+			// If the target is also shared, jump to the next link
+			if target.copyAction >= 0 {
+				a.copyAction = target.copyAction
+				continue
+			}
+
+			// Perform shallow copy
+			*a = *target
+
+			// Mark this action as resolved so we don't process it again
+			a.copyAction = -1
+			break
+		}
+
+		// If Copy Action could not be resolved, do not keep the action at all
+		if a.copyAction >= 0 {
+			toDelete = append(toDelete, no)
+		}
+	}
+
+	// Purge the ghost animations from the table
+	for _, no := range toDelete {
+		delete(at, no)
+	}
+}
+
+type SpriteData struct {
 	anim         *Animation
 	pfx          *PalFX
 	pos          [2]float32
 	scl          [2]float32
 	trans        TransType
 	alpha        [2]int32
+	layerno      int32
 	priority     int32
 	rot          Rotation
 	screen       bool
@@ -1072,98 +1138,111 @@ type SprData struct {
 	airOffsetFix [2]float32 // posLocalscl replacement
 	projection   int32
 	fLength      float32
+	xshear       float32
 	window       [4]float32
 	syncId       int32 // Synchronization target ID
 	syncLayer    int32 // Layer for synchronized drawing
 	syncGroup    int   // Used to group syncId's in chunks before drawing
-	xshear       float32
+	sortindex    int   // For faster sorting
+	under        bool
 }
 
-func (sd *SprData) isBlank() bool {
+func newSpriteData() *SpriteData {
+	return &SpriteData{
+		trans:        TT_default,
+		alpha:        [2]int32{255, 0},
+		airOffsetFix: [2]float32{1, 1},
+	}
+}
+
+func (sd *SpriteData) isBlank() bool {
 	return sd.scl[0] == 0 || sd.scl[1] == 0 || sd.anim == nil || sd.anim.isBlank()
 }
 
-type DrawList []*SprData
+type DrawList []*SpriteData
 
-func (dl *DrawList) add(sd *SprData) {
+func (dl *DrawList) add(sd *SpriteData) {
 	// Ignore if skipping the frame or adding a blank sprite
 	if sys.frameSkip || sd == nil || sd.isBlank() {
 		return
 	}
 
-	// Before: sort every time we add a sprite
-	// After: add all sprites first then sort before drawing
-	/*
-		i, start := 0, 0
-		for l := len(*dl); l > 0; {
-			i = start + l>>1
-			if sd.priority <= (*dl)[i].priority {
-				l = i - start
-			} else if i == start {
-				i++
-				l = 0
-			} else {
-				l -= i - start
-				start = i
-			}
-		}
-		*dl = append(*dl, nil)
-		copy((*dl)[i+1:], (*dl)[i:])
-		(*dl)[i] = sd
-	*/
+	// Save current index so we can use sort.Slice later
+	sd.sortindex = len(*dl)
 
 	// Just append. We will sort everything later in one go
 	*dl = append(*dl, sd)
 }
 
-func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
+func (dl DrawList) draw(layerno int32, under bool, cameraX, cameraY, cameraScl float32) {
 	if len(dl) == 0 {
 		return
 	}
 
+	// Filter the sprites matching this specific pass
+	sortList := make([]int, 0, len(dl))
+	for i, s := range dl {
+		if s.layerno != layerno {
+			continue
+		}
+		// Under flag only matters in layer 0
+		if layerno == 0 && s.under != under {
+			continue
+		}
+		sortList = append(sortList, i)
+	}
+
+	// Nothing to draw
+	if len(sortList) == 0 {
+		return
+	}
+
 	// Assign a number to each group of syncId's
-	for i := range dl {
+	for i, curIdx := range sortList {
+		s := dl[curIdx]
 		// Default to own index
-		dl[i].syncGroup = i
-		// If using syncId, find the first sprite with the same syncId and copy its index
-		if dl[i].syncId > 0 {
+		s.syncGroup = i
+		// If using syncId, find the first sprite with the same syncId and copy its group
+		if s.syncId > 0 {
 			for j := 0; j < i; j++ {
-				if dl[j].syncId == dl[i].syncId {
-					dl[i].syncGroup = j
+				prevIdx := sortList[j]
+				if dl[prevIdx].syncId == s.syncId {
+					s.syncGroup = dl[prevIdx].syncGroup
 					break
 				}
 			}
 		}
 	}
 
-	// Sort the whole drawlist in order to determine how to layer the sprites
-	sort.SliceStable(dl, func(i, j int) bool {
-		// Sort by descending sprpriority
-		if dl[i].priority != dl[j].priority {
-			return dl[i].priority > dl[j].priority
+	// Sort the filtered items in order to determine how to layer the sprites
+	sort.Slice(sortList, func(i, j int) bool {
+		a, b := dl[sortList[i]], dl[sortList[j]]
+		// Sort by ascending sprpriority
+		if a.priority != b.priority {
+			return a.priority < b.priority
 		}
 		// Separate sync groups from each other
-		if dl[i].syncGroup != dl[j].syncGroup {
-			return dl[i].syncGroup < dl[j].syncGroup
+		if a.syncGroup != b.syncGroup {
+			return a.syncGroup > b.syncGroup
 		}
 		// Order the same sync group by syncLayer
-		if dl[i].syncId > 0 && dl[i].syncId == dl[j].syncId {
-			if dl[i].syncLayer != dl[j].syncLayer {
-				return dl[i].syncLayer > dl[j].syncLayer
+		if a.syncId > 0 && a.syncId == b.syncId {
+			if a.syncLayer != b.syncLayer {
+				return a.syncLayer < b.syncLayer
 			}
 		}
-		// Default to no change
-		return false
+		// Place newer sprites first
+		return a.sortindex > b.sortindex
 	})
 
 	// Common variables
 	shake := sys.envShake.getOffset()
 
-	// Draw the entire list in reverse so that the first sprites are on top
-	for i := len(dl) - 1; i >= 0; i-- {
-		s := dl[i]
+	// Draw only the filtered items
+	for _, idx := range sortList {
+		s := dl[idx]
 
-		// Skip blank SprData
+		// Skip blank SpriteData
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2433
 		if s.isBlank() {
 			continue
@@ -1242,7 +1321,7 @@ func (dl DrawList) draw(cameraX, cameraY, cameraScl float32) {
 }
 
 type ShadowSprite struct {
-	*SprData
+	*SpriteData
 	groundLevel         float32
 	shadowColor         int32
 	shadowAlpha         int32
@@ -1258,11 +1337,21 @@ type ShadowSprite struct {
 	shadowfLength       float32
 }
 
+func newShadowSprite() *ShadowSprite {
+	return &ShadowSprite{
+		shadowColor:         -1,
+		shadowAlpha:         255,
+		shadowIntensity:     -1,
+		shadowKeeptransform: true,
+		shadowProjection:    -1,
+	}
+}
+
 type ShadowList []*ShadowSprite
 
 func (sl *ShadowList) add(ss *ShadowSprite) {
 	// Ignore if skipping the frame or adding a blank sprite
-	if sys.frameSkip || ss.SprData == nil || ss.SprData.isBlank() {
+	if sys.frameSkip || ss.SpriteData == nil || ss.SpriteData.isBlank() {
 		return
 	}
 
@@ -1490,7 +1579,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 }
 
 type ReflectionSprite struct {
-	*SprData
+	*SpriteData
 	groundLevel          float32
 	reflectColor         int32
 	reflectIntensity     int32
@@ -1505,10 +1594,19 @@ type ReflectionSprite struct {
 	reflectfLength       float32
 }
 
+func newReflectionSprite() *ReflectionSprite {
+	return &ReflectionSprite{
+		reflectColor:         -1,
+		reflectIntensity:     -1,
+		reflectKeeptransform: true,
+		reflectProjection:    -1,
+	}
+}
+
 type ReflectionList []*ReflectionSprite
 
 func (rl *ReflectionList) add(rs *ReflectionSprite) {
-	if sys.frameSkip || rs.SprData == nil || rs.SprData.isBlank() {
+	if sys.frameSkip || rs.SpriteData == nil || rs.SpriteData.isBlank() {
 		return
 	}
 

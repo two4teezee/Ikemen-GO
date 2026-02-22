@@ -64,9 +64,6 @@ func selectRenderer(cfgVal string) (Renderer, FontRenderer) {
 
 	// Now we proceed to init the render.
 	switch cfgVal {
-	case "OpenGL 2.1":
-		gfx = &Renderer_GL21{}
-		gfxFont = &FontRenderer_GL21{}
 	case "OpenGL 3.2":
 		gfx = &Renderer_GL32{}
 		gfxFont = &FontRenderer_GL32{}

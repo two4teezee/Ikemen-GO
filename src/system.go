@@ -52,7 +52,8 @@ var sys = System{
 	keyState: make(map[Key]bool),
 	match:    1,
 	loader:   *newLoader(),
-	numSimul: [...]int32{2, 2}, numTurns: [...]int32{2, 2},
+	numSimul:            [...]int32{2, 2},
+	numTurns:            [...]int32{2, 2},
 	ignoreMostErrors:    true,
 	stageList:           make(map[int32]*Stage),
 	stageLocalcoords:    make(map[string][2]float32),
@@ -218,23 +219,20 @@ type System struct {
 	explodRunOrder          []*Explod
 	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
 	changeStateNest         int32
-	spritesLayerN1          DrawList
-	spritesLayerU           DrawList
-	spritesLayer0           DrawList
-	spritesLayer1           DrawList
-	shadows                 ShadowList
-	reflections             ReflectionList
+	spriteList              DrawList
+	shadowList              ShadowList
+	reflectionList          ReflectionList
 	afterImageCount         [MaxPlayerNo]int32
-	debugc1hit              ClsnRect
-	debugc1rev              ClsnRect
-	debugc1not              ClsnRect
-	debugc2                 ClsnRect
-	debugc2hb               ClsnRect
-	debugc2mtk              ClsnRect
-	debugc2grd              ClsnRect
-	debugc2stb              ClsnRect
-	debugcsize              ClsnRect
-	debugch                 ClsnRect
+	debugc1hit              DebugClsn
+	debugc1rev              DebugClsn
+	debugc1not              DebugClsn
+	debugc2                 DebugClsn
+	debugc2hb               DebugClsn
+	debugc2mtk              DebugClsn
+	debugc2grd              DebugClsn
+	debugc2stb              DebugClsn
+	debugcsize              DebugClsn
+	debugch                 DebugClsn
 	debugAccel              float32
 	clsnSpr                 Sprite
 	clsnDisplay             bool
@@ -271,7 +269,7 @@ type System struct {
 	firstAttack        [3]int
 	teamLeader         [2]int
 	maxPowerMode       bool
-	clsnText           []ClsnText
+	debugClsnText      []DebugClsnText
 	consoleText        []string
 	luaLState          *lua.LState
 	statusLFunc        *lua.LFunction
@@ -486,7 +484,7 @@ func (s *System) init(w, h int32) *lua.LState {
 		}
 
 		// Error print?
-		go func() {
+		SafeGo(func() {
 			stdin := bufio.NewScanner(os.Stdin)
 			for stdin.Scan() {
 				if err := stdin.Err(); err != nil {
@@ -495,7 +493,7 @@ func (s *System) init(w, h int32) *lua.LState {
 				}
 				s.commandLine <- stdin.Text()
 			}
-		}()
+		})
 	}
 	return l
 }
@@ -2137,27 +2135,24 @@ func (s *System) runIntroSkip() {
 // TODO: Maybe these could get a more thorough clear between matches, to prevent holding onto previous character sprites
 func (s *System) clearSpriteData() {
 	// Main sprites
-	s.spritesLayerN1 = s.spritesLayerN1[:0]
-	s.spritesLayerU = s.spritesLayerU[:0]
-	s.spritesLayer0 = s.spritesLayer0[:0]
-	s.spritesLayer1 = s.spritesLayer1[:0]
+	s.spriteList = s.spriteList[:0]
 
 	// Shadows and reflections
-	s.shadows = s.shadows[:0]
-	s.reflections = s.reflections[:0]
+	s.shadowList = s.shadowList[:0]
+	s.reflectionList = s.reflectionList[:0]
 
 	// Debug sprites
-	s.debugc1hit = s.debugc1hit[:0]
-	s.debugc1rev = s.debugc1rev[:0]
-	s.debugc1not = s.debugc1not[:0]
-	s.debugc2 = s.debugc2[:0]
-	s.debugc2hb = s.debugc2hb[:0]
-	s.debugc2mtk = s.debugc2mtk[:0]
-	s.debugc2grd = s.debugc2grd[:0]
-	s.debugc2stb = s.debugc2stb[:0]
-	s.debugcsize = s.debugcsize[:0]
-	s.debugch = s.debugch[:0]
-	s.clsnText = nil
+	s.debugc1hit.rects = s.debugc1hit.rects[:0]
+	s.debugc1rev.rects = s.debugc1rev.rects[:0]
+	s.debugc1not.rects = s.debugc1not.rects[:0]
+	s.debugc2.rects = s.debugc2.rects[:0]
+	s.debugc2hb.rects = s.debugc2hb.rects[:0]
+	s.debugc2mtk.rects = s.debugc2mtk.rects[:0]
+	s.debugc2grd.rects = s.debugc2grd.rects[:0]
+	s.debugc2stb.rects = s.debugc2stb.rects[:0]
+	s.debugcsize.rects = s.debugcsize.rects[:0]
+	s.debugch.rects = s.debugch.rects[:0]
+	s.debugClsnText = nil
 
 	// Reset afterimage tracker
 	for i := range s.afterImageCount {
@@ -2940,12 +2935,12 @@ func (s *System) draw(x, y, scl float32) {
 		// Draw reflections on layer -1
 		if !s.gsf(GSF_globalnoshadow) {
 			if s.stage.reflection.layerno < 0 {
-				s.reflections.draw(x, y, scl*s.cam.BaseScale())
+				s.reflectionList.draw(x, y, scl*s.cam.BaseScale())
 			}
 		}
 
 		// Draw character sprites with layerNo == -1
-		s.spritesLayerN1.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(-1, false, x, y, scl*s.cam.BaseScale())
 
 		// Draw stage elements with layerNo == 0
 		if !s.gsf(GSF_nobg) {
@@ -2953,7 +2948,7 @@ func (s *System) draw(x, y, scl float32) {
 		}
 
 		// Draw character sprites with special under flag
-		s.spritesLayerU.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(0, true, x, y, scl*s.cam.BaseScale())
 
 		// Draw lifebar layer -1
 		s.lifebar.draw(-1)
@@ -2969,9 +2964,9 @@ func (s *System) draw(x, y, scl float32) {
 		// TODO: Make shadows render in same layers as their sources?
 		if !s.gsf(GSF_globalnoshadow) {
 			if s.stage.reflection.layerno >= 0 {
-				s.reflections.draw(x, y, scl*s.cam.BaseScale())
+				s.reflectionList.draw(x, y, scl*s.cam.BaseScale())
 			}
-			s.shadows.draw(x, y, scl*s.cam.BaseScale())
+			s.shadowList.draw(x, y, scl*s.cam.BaseScale())
 		}
 
 		//off := s.envShake.getOffset()
@@ -3026,7 +3021,7 @@ func (s *System) draw(x, y, scl float32) {
 
 	// Draw character sprites in layer 0
 	if s.envcol_time == 0 || s.envcol_under {
-		s.spritesLayer0.draw(x, y, scl*s.cam.BaseScale())
+		s.spriteList.draw(0, false, x, y, scl*s.cam.BaseScale())
 		if s.envcol_time == 0 && !s.gsf(GSF_nofg) {
 			s.stage.draw(1, bgx, bgy, scl)
 		}
@@ -3042,7 +3037,7 @@ func (s *System) draw(x, y, scl float32) {
 	s.motif.draw(1)
 
 	// Draw character sprites in layer 1 (old "ontop")
-	s.spritesLayer1.draw(x, y, scl*s.cam.BaseScale())
+	s.spriteList.draw(1, false, x, y, scl*s.cam.BaseScale())
 
 	// Draw lifebar layer 2
 	s.lifebar.draw(2)
@@ -3071,41 +3066,27 @@ func (s *System) drawTop() {
 	// Draw Clsn boxes
 	if s.clsnDisplay {
 		alpha := [2]int32{255, 255}
-		// Change the first color of the Clsn sprite
-		setColor := func(color uint32) {
-			s.clsnSpr.Pal[0] = color
-			s.clsnSpr.PalTex = s.clsnSpr.CachePalTex(s.clsnSpr.Pal)
-		}
+
 		// Clsn1 HitDef
-		setColor(0xff0000ff)
-		s.debugc1hit.draw(alpha)
+		s.debugc1hit.draw(0xff0000ff, alpha)
 		// Clsn1 ReversalDef
-		setColor(0xff0040c0)
-		s.debugc1rev.draw(alpha)
+		s.debugc1rev.draw(0xff0040c0, alpha)
 		// Clsn1 Inactive
-		setColor(0xff000080)
-		s.debugc1not.draw(alpha)
+		s.debugc1not.draw(0xff000080, alpha)
 		// Clsn2
-		setColor(0xffff0000)
-		s.debugc2.draw(alpha)
+		s.debugc2.draw(0xffff0000, alpha)
 		// Clsn2 HitBy
-		setColor(0xff808000)
-		s.debugc2hb.draw(alpha)
+		s.debugc2hb.draw(0xff808000, alpha)
 		// Clsn2 Invincible
-		setColor(0xff004000)
-		s.debugc2mtk.draw(alpha)
+		s.debugc2mtk.draw(0xff004000, alpha)
 		// Clsn2 Guarding
-		setColor(0xffc00040)
-		s.debugc2grd.draw(alpha)
+		s.debugc2grd.draw(0xffc00040, alpha)
 		// Clsn2 Standby
-		setColor(0xff404040)
-		s.debugc2stb.draw(alpha)
+		s.debugc2stb.draw(0xff404040, alpha)
 		// Size
-		setColor(0xff303030)
-		s.debugcsize.draw(alpha)
+		s.debugcsize.draw(0xff303030, alpha)
 		// Crosshair
-		setColor(0xffffffff)
-		s.debugch.draw(alpha)
+		s.debugch.draw(0xffffffff, alpha)
 	}
 }
 
@@ -3200,7 +3181,7 @@ func (s *System) drawDebugText() {
 	// Draw Clsn text
 	// Unlike Mugen, this is drawn separately from the Clsn boxes themselves, making debug more flexible
 	//if s.clsnDisplay {
-	for _, t := range s.clsnText {
+	for _, t := range s.debugClsnText {
 		s.debugFont.SetColor(t.r, t.g, t.b, t.a)
 		s.debugFont.fnt.Print(t.text, t.x, t.y, s.debugFont.xscl/s.widthScale,
 			s.debugFont.yscl/s.heightScale, 0, Rotation{0, 0, 0}, 0, 0, 0, 0, &s.scrrect,
@@ -4641,9 +4622,9 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	idx := make([]int, nsel)
-	for i := range idx {
-		idx[i] = sys.sel.selected[pn&1][i][0]
+	teamChars := make([]int, nsel)
+	for i := range teamChars {
+		teamChars[i] = sys.sel.selected[pn&1][i][0]
 	}
 
 	// Prepare loading time clipboard message
@@ -4680,7 +4661,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		if sys.sel.cdefOverwrite[cdefOWnumber] != "" {
 			cdef = sys.sel.cdefOverwrite[cdefOWnumber]
 		} else {
-			cdef = sys.sel.charlist[idx[memberNo]].def
+			cdef = sys.sel.charlist[teamChars[memberNo]].def
 		}
 	}
 
@@ -4791,33 +4772,50 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.cgi[pn].palno = int32(selectPalno)
 
 	if !attached {
-		// Prepare lifebar portraits for Turns mode
+		// Prepare lifebar portraits and names for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
-			l.prepareTurnsFaces(pn, fa, idx)
+			nm := sys.lifebar.nm[sys.tmode[pn&1]][pn]
+			l.prepareTurnsFaces(pn, fa, nm, teamChars)
 		}
 	}
 
 	return 1
 }
 
-func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
+func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, teamChars []int) {
 	// Reset face and name KO's
 	fa.numko = 0
-	sys.lifebar.nm[sys.tmode[pn&1]][pn].numko = 0
+	nm.numko = 0
 
 	// Pre-allocate
-	nsel := len(idx)
+	nsel := len(teamChars)
+	nm.teammate_name_strings = make([]string, nsel)
 	fa.teammate_face = make([]*Sprite, nsel)
 	fa.teammate_scale = make([]float32, nsel)
 	fa.teammate_face_pfx = make([]*PalFX, nsel)
 
-	// Iterate all selected partners
-	for i, ci := range idx {
-		sc := &sys.sel.charlist[ci]
+	// Iterate all selected characters
+	for i, charIdx := range teamChars {
+		sc := &sys.sel.charlist[charIdx]
+
+		// Save the name
+		nm.teammate_name_strings[i] = sc.lifebarname
 
 		// Calculate portrait scale
 		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
+
+		// Check if palettes are already loaded
+		// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
+		palIdx := sys.sel.selected[pn&1][i][1]
+		_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
+		_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+
+		// Only load palettes if necessary
+		if !hasTarget || !has11 {
+			loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
+		}
 
 		// Get the sprite from the teammate's SFF
 		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
@@ -4827,18 +4825,34 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, idx []int) {
 
 		// Create an independent clone of the sprite to avoid mutating the SFF
 		spr := *origSpr
+
+		// Check if the sprite uses or shares palette 1, 1
+		usesPal11 := false
 		if spr.coldepth <= 8 {
+			pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+			if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
+				if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
+					usesPal11 = true
+				}
+			}
+		}
+
+		// Apply selected color only if the sprite shares the base palette
+		if usesPal11 {
 			// Pull selected palette index (1-based)
-			palIdx := sys.sel.selected[pn&1][i][1]
+			targetPal := sc.sff.palList.Get(int(palIdx) - 1)
+			if targetPal != nil {
+				// Decouple clone from global SFF palettes
+				spr.Pal = make([]uint32, len(targetPal))
+				copy(spr.Pal, targetPal)
+				
+				spr.paltemp = make([]uint32, len(targetPal))
+				copy(spr.paltemp, targetPal)
 
-			// Reset specific fields to force a unique texture upload for this clone
-			// Using make/copy prevents pointer aliasing on the slice
-			spr.paltemp = make([]uint32, len(origSpr.paltemp))
-			copy(spr.paltemp, origSpr.paltemp)
-			spr.PalTex = nil
-
-			// Map the palette
-			spr.Pal = sc.sff.palList.Get(int(palIdx) - 1)
+				// Force lazy loading for unique recolored texture
+				spr.PalTex = nil
+				spr.palidx = -1 
+			}
 		}
 
 		// Commit sprite and init PalFX

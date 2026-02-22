@@ -1654,9 +1654,11 @@ func systemScriptInit(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "changeColorPalette", func(*lua.LState) int {
-		//Changes the actual color of the palette
+		// Changes the actual color of the palette
 		a, _ := toUserData(l, 1).(*Anim)
-		a.anim.palettedata.paletteMap[0] = int(numArg(l, 2)) - 1
+		if len(a.anim.palettedata.paletteMap) > 0 {
+			a.anim.palettedata.paletteMap[0] = int(numArg(l, 2)) - 1
+		}
 		l.Push(newUserData(l, a))
 		return 1
 	})

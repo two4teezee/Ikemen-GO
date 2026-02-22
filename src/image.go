@@ -398,23 +398,24 @@ func (pl *PaletteList) init() {
 }
 
 func (pl *PaletteList) SetSource(i int, p []uint32) {
-	if i < len(pl.paletteMap) {
-		pl.paletteMap[i] = i
-	} else {
-		for i > len(pl.paletteMap) {
-			pl.paletteMap = append(pl.paletteMap, len(pl.paletteMap))
-		}
-		pl.paletteMap = append(pl.paletteMap, i)
+	if i < 0 {
+		return
 	}
-	if i < len(pl.palettes) {
-		pl.palettes[i] = p
-	} else {
-		for i > len(pl.palettes) {
-			pl.palettes = append(pl.palettes, nil)
-		}
-		pl.palettes = append(pl.palettes, p)
+
+	// Allocate capacity everywhere
+	for len(pl.palettes) <= i {
+		pl.palettes = append(pl.palettes, nil)
+	}
+	for len(pl.paletteMap) <= i {
+		pl.paletteMap = append(pl.paletteMap, len(pl.paletteMap))
+	}
+	for len(pl.PalTex) <= i {
 		pl.PalTex = append(pl.PalTex, nil)
 	}
+
+	// Now that all three are guaranteed, assign the data
+	pl.palettes[i] = p
+	pl.paletteMap[i] = i
 }
 
 func (pl *PaletteList) NewPal() (i int, p []uint32) {
@@ -424,6 +425,12 @@ func (pl *PaletteList) NewPal() (i int, p []uint32) {
 }
 
 func (pl *PaletteList) Get(i int) []uint32 {
+	if len(pl.paletteMap) == 0 {
+		return nil
+	}
+	if i < 0 || i >= len(pl.paletteMap) {
+		i = 0
+	}
 	return pl.palettes[pl.paletteMap[i]]
 }
 
@@ -747,13 +754,28 @@ func (s *Sprite) GetPal(pl *PaletteList) []uint32 {
 
 // Returns the sprite's original palette texture from the global list
 func (s *Sprite) GetPalTex(pl *PaletteList) Texture {
-	if s.coldepth > 8 {
+	// If true color or no palettes exist, return nothing
+	if s.coldepth > 8 || len(pl.paletteMap) == 0 {
 		return nil
 	}
-	if s.palidx < 0 || int(s.palidx) >= len(pl.paletteMap) {
-		s.palidx = 0
+
+	// Determine which logical palette index to use
+	idx := int(s.palidx)
+
+	// Fallback to first palette if out of bounds
+	if idx < 0 || idx >= len(pl.paletteMap) {
+		idx = 0
 	}
-	return pl.PalTex[pl.paletteMap[int(s.palidx)]]
+
+	// Get the internal index into the texture array
+	mapIdx := pl.paletteMap[idx]
+
+	// Check if the texture actually exists
+	if mapIdx < 0 || mapIdx >= len(pl.PalTex) {
+		return nil
+	}
+	
+	return pl.PalTex[mapIdx]
 }
 
 func (s *Sprite) SetPxl(px []byte) {
@@ -1325,9 +1347,9 @@ type Sff struct {
 	header  SffHeader
 	sprites map[[2]uint16]*Sprite
 	palList PaletteList
-	// This is the sffCache key
-	filename string
+	filename       string // This is the sffCache key
 }
+
 type Palette struct {
 	palList PaletteList
 }
@@ -1335,18 +1357,20 @@ type Palette struct {
 func newSff() (s *Sff) {
 	s = &Sff{sprites: make(map[[2]uint16]*Sprite)}
 	s.palList.init()
-	for i := uint16(1); i <= uint16(sys.cfg.Config.PaletteMax); i++ {
-		s.palList.PalTable[[...]uint16{1, i}], _ = s.palList.NewPal()
-	}
+	// Pre-allocation creates false positives when checking if a palette exists
+	//for i := uint16(1); i <= uint16(sys.cfg.Config.PaletteMax); i++ {
+	//	s.palList.PalTable[[...]uint16{1, i}], _ = s.palList.NewPal()
+	//}
 	return
 }
 
 func newPaldata() (p *Palette) {
 	p = &Palette{}
 	p.palList.init()
-	for i := uint16(1); i <= uint16(sys.cfg.Config.PaletteMax); i++ {
-		p.palList.PalTable[[...]uint16{1, i}], _ = p.palList.NewPal()
-	}
+	// Pre-allocation creates false positives when checking if a palette exists
+	//for i := uint16(1); i <= uint16(sys.cfg.Config.PaletteMax); i++ {
+	//	p.palList.PalTable[[...]uint16{1, i}], _ = p.palList.NewPal()
+	//}
 	return
 }
 
@@ -1632,6 +1656,8 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			loaded[destIdx] = true
 			uniquePals[[2]uint16{gn_[0], gn_[1]}] = destIdx
 			sff.palList.PalTable[[2]uint16{gn_[0], gn_[1]}] = destIdx
+			// Number of colors as specified in the SFF
+			// We use a length check later instead because that's more reliable
 			sff.palList.numcols[[2]uint16{gn_[0], gn_[1]}] = int(gn_[2])
 		}
 	}
@@ -1661,9 +1687,12 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			continue
 		}
 
+		// Force expansion and data placement in the dynamic list
 		sff.palList.SetSource(targetIdx, pal)
+
+		// Update the PalTable mapping
 		sff.palList.PalTable[[2]uint16{1, palSlot}] = targetIdx
-		sff.palList.numcols[[2]uint16{1, palSlot}] = 256
+		sff.palList.numcols[[2]uint16{1, palSlot}] = 256 // ACT files are always 256 colors
 	}
 
 	return nil

@@ -1728,7 +1728,7 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 	return fa
 }
 
-func (fa *LifeBarFace) step(ref int, far *LifeBarFace) {
+func (fa *LifeBarFace) step(ref int, refFace *LifeBarFace) {
 	refChar := sys.chars[ref][0]
 	group, number := fa.face_spr[0], fa.face_spr[1]
 	if refChar != nil && refChar.anim != nil {
@@ -1738,12 +1738,15 @@ func (fa *LifeBarFace) step(ref int, far *LifeBarFace) {
 			}
 		}
 	}
-	if far.old_spr[0] != group || far.old_spr[1] != number ||
-		far.old_pal[0] != sys.cgi[ref].remappedpal[0] || far.old_pal[1] != sys.cgi[ref].remappedpal[1] {
-		far.face = sys.cgi[ref].sff.getOwnPalSprite(uint16(group), uint16(number), &sys.cgi[ref].palettedata.palList)
-		far.old_spr = [...]int32{group, number}
-		far.old_pal = [...]int32{sys.cgi[ref].remappedpal[0], sys.cgi[ref].remappedpal[1]}
+
+	// Update sprite only when necessary
+	if refFace.old_spr[0] != group || refFace.old_spr[1] != number ||
+		refFace.old_pal[0] != sys.cgi[ref].remappedpal[0] || refFace.old_pal[1] != sys.cgi[ref].remappedpal[1] {
+		refFace.face = sys.cgi[ref].sff.getOwnPalSprite(uint16(group), uint16(number), &sys.cgi[ref].palettedata.palList)
+		refFace.old_spr = [...]int32{group, number}
+		refFace.old_pal = [...]int32{sys.cgi[ref].remappedpal[0], sys.cgi[ref].remappedpal[1]}
 	}
+
 	fa.bg.Action()
 	fa.bg0.Action()
 	fa.bg1.Action()
@@ -1784,20 +1787,22 @@ func (fa *LifeBarFace) bgDraw(layerno int16) {
 	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
+func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 	refChar := sys.chars[ref][0]
 
-	if far.face != nil {
+	if refFace.face != nil {
 		// Get player current PalFX if applicable
-		if far.palfxshare {
+		// These flags should check "fa" instead of "refFace"
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
+		if fa.palfxshare {
 			*fa.face_pfx = *refChar.getPalfx()
 		}
 
 		// Update portrait palette
-		if far.face.coldepth <= 8 {
+		if refFace.face.coldepth <= 8 {
 			// Check the player's current palette
-			palIdx := far.face.palidx
-			if far.palshare {
+			palIdx := refFace.face.palidx
+			if fa.palshare {
 				remap := refChar.getPalfx().remap
 				if int(palIdx) < len(remap) {
 					palIdx = remap[palIdx]
@@ -1807,23 +1812,19 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 			palList := &sys.cgi[ref].palettedata.palList
 			charPal := palList.Get(palIdx)
 			// Update portrait palette and cache
-			far.face.Pal = charPal
-			far.face.PalTex = far.face.CachePalTex(charPal)
+			refFace.face.Pal = charPal
+			refFace.face.PalTex = refFace.face.CachePalTex(charPal)
 		}
-
-		// TODO: PalFX sharing has a bug in Tag in that it uses the parameter from the char's original placement in the team
-		// For instance if player 3 tags in, they will use p3 palette options instead of p1
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
 
 		// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
 		oldBright := sys.brightness
-		if refChar.ignoreDarkenTime > 0 { //ref == sys.superplayerno
+		if refChar.ignoreDarkenTime > 0 {
 			sys.brightness = 1.0
 		}
 
 		// Draw the actual face sprite
 		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebar.offsetX)*sys.lifebar.scale, float32(fa.pos[1])*sys.lifebar.scale, layerno,
-			far.face, fa.face_pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
+			refFace.face, fa.face_pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
 
 		// Draw KO layer
 		if !refChar.alive() {
@@ -1832,58 +1833,87 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, far *LifeBarFace) {
 
 		// Restore original system brightness
 		sys.brightness = oldBright
-
-		// Turns mode teammates
-		i := int32(len(far.teammate_face)) - 1
-		x := float32(fa.teammate_pos[0] + fa.teammate_spacing[0]*(i-1))
-		y := float32(fa.teammate_pos[1] + fa.teammate_spacing[1]*(i-1))
-
-		if fa.teammate_ko_hide {
-			x -= float32(fa.teammate_spacing[0] * fa.numko)
-			y -= float32(fa.teammate_spacing[1] * fa.numko)
-		}
-
-		// Loop starting from the last member
-		for ; i >= 0; i-- {
-			if i != fa.numko {
-				// Skip in case of KO hiding
-				if i < fa.numko && fa.teammate_ko_hide == true {
-					x -= float32(fa.teammate_spacing[0])
-					y -= float32(fa.teammate_spacing[1])
-					continue
-				}
-
-				// Draw background
-				fa.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-				fa.teammate_bg0.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-				fa.teammate_bg1.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-				fa.teammate_bg2.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-
-				// Fetch the PalFX for this member
-				pfx := fa.teammate_face_pfx[i]
-
-				// TODO: Defeated PalFX
-				//if pfx != nil && i < fa.numko {
-				//}
-
-				// Draw face
-				fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebar.offsetX)*sys.lifebar.scale, y*sys.lifebar.scale, layerno,
-					far.teammate_face[i], pfx, far.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
-
-				// Draw KO layer
-				if i < fa.numko {
-					fa.teammate_ko.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-				}
-
-				// Add spacing
-				x -= float32(fa.teammate_spacing[0])
-				y -= float32(fa.teammate_spacing[1])
-			}
-		}
 	}
 
 	// Draw top layer
 	fa.top.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
+}
+
+func (fa *LifeBarFace) drawTeammates(layerno int16, ref int) {
+	if len(fa.teammate_face) == 0 {
+		return
+	}
+
+	// We could check this, but not checking it forces our code to be cleaner
+	//if sys.tmode[sys.chars[ref][0].teamside] != TM_Turns {
+	//	return
+	//}
+
+	refChar := sys.chars[ref][0]
+
+	// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
+	oldBright := sys.brightness
+	if refChar.ignoreDarkenTime > 0 {
+		sys.brightness = 1.0
+	}
+
+	teamSize := int32(len(fa.teammate_face))
+
+	// Determine how many teammates to draw
+	visibleCount := teamSize - 1
+	if fa.teammate_ko_hide {
+		visibleCount -= fa.numko
+	}
+
+	if visibleCount <= 0 {
+		sys.brightness = oldBright
+		return
+	}
+
+	// Calculate starting offset for the furthest teammate slot
+	x := float32(fa.teammate_pos[0] + fa.teammate_spacing[0]*(visibleCount-1))
+	y := float32(fa.teammate_pos[1] + fa.teammate_spacing[1]*(visibleCount-1))
+
+	// Loop backwards through the visible slots
+	for j := visibleCount - 1; j >= 0; j-- {
+		// Round-robin rotation
+		// Start after active player, wrap around to dead players so they appear last
+		i := (j + fa.numko + 1) % teamSize
+
+		// Skip the active player (numko) if the modulo lands on them
+		if i == fa.numko {
+			i = (i + 1) % teamSize
+		}
+
+		// Draw backgrounds
+		fa.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+		fa.teammate_bg0.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+		fa.teammate_bg1.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+		fa.teammate_bg2.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+
+		// Fetch the PalFX for this member
+		pfx := fa.teammate_face_pfx[i]
+
+		// TODO: Defeated PalFX
+		//if pfx != nil && i < fa.numko {
+		//}
+
+		// Draw face
+		fa.teammate_face_lay.DrawFaceSprite((x+sys.lifebar.offsetX)*sys.lifebar.scale, y*sys.lifebar.scale, layerno,
+			fa.teammate_face[i], pfx, fa.teammate_scale[i]*sys.lifebar.portraitScale, &fa.teammate_face_lay.window)
+
+		// Draw KO layer
+		if i < fa.numko {
+			fa.teammate_ko.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+		}
+
+		// Shift offset back toward the anchor
+		x -= float32(fa.teammate_spacing[0])
+		y -= float32(fa.teammate_spacing[1])
+	}
+
+	// Restore original system brightness
+	sys.brightness = oldBright
 }
 
 type LifeBarName struct {
@@ -1894,8 +1924,10 @@ type LifeBarName struct {
 	teammate_pos     [2]int32
 	teammate_spacing [2]int32
 	teammate_name    LbText
+	teammate_name_strings []string
 	teammate_bg      AnimLayout
 	numko            int32
+	teammate_ko_hide bool
 }
 
 func newLifeBarName() *LifeBarName {
@@ -1908,12 +1940,14 @@ func readLifeBarName(pre string, is IniSection, sff *Sff, at AnimationTable, f m
 	is.ReadI32(pre+"pos", &nm.pos[0], &nm.pos[1])
 	nm.name = *readLbText(pre+"name.", is, "", 0, f, 0)
 	nm.bg = ReadAnimLayout(pre+"bg.", is, sff, at, 0)
+	nm.top = ReadAnimLayout(pre+"top.", is, sff, at, 0)
+
+	// Teammates
 	is.ReadI32(pre+"teammate.pos", &nm.teammate_pos[0], &nm.teammate_pos[1])
-	is.ReadI32(pre+"teammate.spacing", &nm.teammate_spacing[0],
-		&nm.teammate_spacing[1])
+	is.ReadI32(pre+"teammate.spacing", &nm.teammate_spacing[0], &nm.teammate_spacing[1])
 	nm.teammate_name = *readLbText(pre+"teammate.name.", is, "", 0, f, 0)
 	nm.teammate_bg = ReadAnimLayout(pre+"teammate.bg.", is, sff, at, 0)
-	nm.top = ReadAnimLayout(pre+"top.", is, sff, at, 0)
+	is.ReadBool(pre+"teammate.ko.hide", &nm.teammate_ko_hide)
 	return nm
 }
 
@@ -1940,23 +1974,57 @@ func (nm *LifeBarName) draw(layerno int16, ref int, f map[int]*Fnt, side int) {
 		nm.name.lay.DrawText((float32(nm.pos[0]) + sys.lifebar.offsetX), float32(nm.pos[1]), sys.lifebar.scale, layerno,
 			sys.cgi[ref].lifebarname, getFont(f, nm.name.font[0]), nm.name.font[1], nm.name.font[2], nm.name.palfx, nm.name.frgba)
 	}
-	// Get Turns mode partner names from system
-	if sys.tmode[side] == TM_Turns {
-		i := int32(len(sys.sel.selected[side])) - 1
-		x := float32(nm.teammate_pos[0] + nm.teammate_spacing[0]*(i-nm.numko-1))
-		y := float32(nm.teammate_pos[1] + nm.teammate_spacing[1]*(i-nm.numko-1))
-		for ; i >= nm.numko+1; i-- {
-			nm.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
-			if nm.teammate_name.font[0] >= 0 && getFont(f, nm.teammate_name.font[0]) != nil {
-				nm.teammate_name.lay.DrawText((float32(x) + sys.lifebar.offsetX), float32(y), sys.lifebar.scale, layerno,
-					sys.sel.GetChar(sys.sel.selected[side][i][0]).lifebarname, getFont(f, nm.teammate_name.font[0]), nm.teammate_name.font[1],
-					nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
-			}
-			x -= float32(nm.teammate_spacing[0])
-			y -= float32(nm.teammate_spacing[1])
-		}
-	}
+
 	nm.top.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
+}
+
+func (nm *LifeBarName) drawTeammates(layerno int16, ref int, f map[int]*Fnt, side int) {
+	if len(nm.teammate_name_strings) == 0 {
+		return
+	}
+
+	teamSize := int32(len(nm.teammate_name_strings))
+
+	// Determine how many names to draw
+	visibleCount := teamSize - 1
+	if nm.teammate_ko_hide {
+		visibleCount -= nm.numko
+	}
+
+	if visibleCount <= 0 {
+		return
+	}
+
+	// Calculate starting offset for the furthest teammate slot
+	x := float32(nm.teammate_pos[0] + nm.teammate_spacing[0]*(visibleCount-1))
+	y := float32(nm.teammate_pos[1] + nm.teammate_spacing[1]*(visibleCount-1))
+
+	// Loop backwards through visible slots
+	for j := visibleCount - 1; j >= 0; j-- {
+		// Round-robin rotation
+		// Start after active player, wrap around to dead players so they appear last
+		i := (j + nm.numko + 1) % teamSize
+
+		if i == nm.numko {
+			i = (i + 1) % teamSize
+		}
+
+		// Draw background
+		nm.teammate_bg.Draw((x + sys.lifebar.offsetX), y, layerno, sys.lifebar.scale)
+
+		// Draw pre-compiled name text
+		if nm.teammate_name.font[0] >= 0 && getFont(f, nm.teammate_name.font[0]) != nil {
+			nm.teammate_name.lay.DrawText((x + sys.lifebar.offsetX), y, sys.lifebar.scale, layerno,
+				nm.teammate_name_strings[i], getFont(f, nm.teammate_name.font[0]), 
+				nm.teammate_name.font[1], nm.teammate_name.font[2], nm.teammate_name.palfx, nm.teammate_name.frgba)
+		}
+
+		// Shift offset back toward the anchor
+		x -= float32(nm.teammate_spacing[0])
+		y -= float32(nm.teammate_spacing[1])
+	}
+
+	// TODO: Confirm it teammates are really supposed to not have "top" layer
 }
 
 type LifeBarWinIcon struct {
@@ -4921,6 +4989,8 @@ func (l *Lifebar) step() {
 	if sys.paused && !sys.frameStepFlag {
 		return
 	}
+	/*
+	// Team order swapping moved to dedicated Tag functions
 	for ti, tm := range sys.tmode {
 		if tm == TM_Tag {
 			for i, v := range l.order[ti] {
@@ -4943,6 +5013,7 @@ func (l *Lifebar) step() {
 			}
 		}
 	}
+	*/
 	for ti := range sys.tmode {
 		for i, v := range l.order[ti] {
 			// HealthBar
@@ -5186,20 +5257,32 @@ func (l *Lifebar) draw(layerno int16) {
 			// LifeBarFace
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					index := i*2 + ti
 					if !sys.chars[v][0].asf(ASF_nofacedisplay) {
+						// Draw active players
+						index := i*2 + ti
 						l.fa[l.ref[ti]][index].bgDraw(layerno)
 						l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
+
+						// Draw Turns teammates from the first bar only
+						if i == 0 && len(l.fa[l.ref[ti]]) > 0 {
+							l.fa[l.ref[ti]][ti].drawTeammates(layerno, v)
+						}
 					}
 				}
 			}
 			// LifeBarName
 			for ti := range sys.tmode {
 				for i, v := range l.order[ti] {
-					index := i*2 + ti
 					if !sys.chars[v][0].asf(ASF_nonamedisplay) {
+						// Draw active players
+						index := i*2 + ti
 						l.nm[l.ref[ti]][index].bgDraw(layerno)
 						l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt, ti)
+
+						// Draw Turns teammates from the first bar only
+						if i == 0 && len(l.nm[l.ref[ti]]) > 0 {
+							l.nm[l.ref[ti]][ti].drawTeammates(layerno, v, l.fnt, ti)
+						}
 					}
 				}
 			}

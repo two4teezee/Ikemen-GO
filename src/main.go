@@ -362,6 +362,10 @@ func handlePanic(r interface{}) {
 	// Capture Go stack trace
 	goStack := fmt.Sprintf("Go stack traceback:\n%s", debug.Stack())
 
+	// Optional: print error to terminal
+	// We have to do this manually now because we recover() from the actual panic
+	fmt.Fprintf(os.Stderr, "Panic: %s\n\n%s\n", errStr, goStack)
+
 	// Write to log file
 	logDir := filepath.Join(sys.baseDir, "save", "logs")
 	timestamp := now.Format("2006-01-02_15-04-05")
@@ -369,8 +373,8 @@ func handlePanic(r interface{}) {
 
 	os.MkdirAll(logDir, 0755)
 	if f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644); err == nil {
-		fmt.Fprintf(f, "%s\n%s\n%s\n%s\n%s\nTimestamp: %s\n\n%s\n\nError: %s\n\n%s",
-			version, platform, render, memory, threads,
+		fmt.Fprintf(f, "%s\n%s\n%s\n%s\n%s\n%s\nTimestamp: %s\n\n%s\n\nError: %s\n\n%s",
+			version, buildTime, platform, render, memory, threads,
 			now.Format("2006-01-02 15:04:05"), crashType, errStr, goStack)
 		f.Close()
 	}

@@ -175,40 +175,59 @@ const (
 	SaveData_fvar
 )
 
-// Debug Clsn text
-type ClsnText struct {
+type DebugClsnText struct {
 	x, y       float32
 	text       string
 	r, g, b, a int32
 }
 
-// Debug Clsn display
-type ClsnRect [][7]float32
+type DebugClsn struct {
+	rects  [][7]float32
+	palTex Texture // Reusable texture with the Clsn color
+}
 
-func (cr *ClsnRect) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
+func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 	x = (x - sys.cam.Pos[0]) * sys.cam.Scale
 	y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel()
 	xs *= sys.cam.Scale
 	ys *= sys.cam.Scale
 	sw := float32(sys.gameWidth)
-	sh := float32(0) //float32(sys.gameHeight)
+	sh := float32(0) 
+
 	for i := 0; i < len(clsn); i++ {
 		offx := sw / 2
 		offy := sh
-		rect := [...]float32{
-			AbsF(xs) * clsn[i][0], AbsF(ys) * clsn[i][1],
-			xs * (clsn[i][2] - clsn[i][0]), ys * (clsn[i][3] - clsn[i][1]),
-			(x + offx) * sys.widthScale, (y + offy) * sys.heightScale, angle}
-		*cr = append(*cr, rect)
+		rect := [7]float32{
+			AbsF(xs) * clsn[i][0],          // [0] x position (left)
+			AbsF(ys) * clsn[i][1],          // [1] y position (top)
+			xs * (clsn[i][2] - clsn[i][0]), // [2] width
+			ys * (clsn[i][3] - clsn[i][1]), // [3] height
+			(x + offx) * sys.widthScale,    // [4] rotation center x
+			(y + offy) * sys.heightScale,   // [5] rotation center y
+			angle,                          // [6] rotation angle
+		}
+
+		dc.rects = append(dc.rects, rect)
 	}
 }
 
 // Draw the whole list of a specific type of debug Clsn
-func (cr ClsnRect) draw(blendAlpha [2]int32) {
-	for _, c := range cr {
+func (dc *DebugClsn) draw(color uint32, blendAlpha [2]int32) {
+	if len(dc.rects) == 0 {
+		return
+	}
+
+	// Initialize the palette texture for this specific rect type if it doesn't exist yet
+	if dc.palTex == nil {
+		pal := make([]uint32, 256)
+		pal[0] = color
+		dc.palTex = NewTextureFromPalette(pal)
+	}
+
+	for _, c := range dc.rects {
 		params := RenderParams{
 			tex:            sys.clsnSpr.Tex,
-			paltex:         sys.clsnSpr.PalTex,
+			paltex:         dc.palTex,
 			size:           sys.clsnSpr.Size,
 			x:              -c[0] * sys.widthScale,
 			y:              -c[1] * sys.heightScale,
@@ -1263,6 +1282,7 @@ func (mhv *MoveHitVar) clear() {
 	*mhv = MoveHitVar{}
 }
 
+/*
 type aimgImage struct {
 	anim       *Animation
 	pos        [2]float32
@@ -1272,6 +1292,7 @@ type aimgImage struct {
 	projection int32
 	fLength    float32
 }
+*/
 
 type AfterImage struct {
 	time           int32
@@ -1284,7 +1305,7 @@ type AfterImage struct {
 	trans          TransType
 	alpha          [2]int32
 	palfx          []*PalFX
-	imgs           []aimgImage
+	imgs           []SpriteData // []aimgImage
 	imgidx         int32
 	restgap        int32
 	reccount       int32
@@ -1315,7 +1336,7 @@ func newAfterImage() *AfterImage {
 
 	// Allocate slices with maximum capacity but length 1
 	ai.palfx = make([]*PalFX, 1, MaxAimgLength)
-	ai.imgs = make([]aimgImage, 1, MaxAimgLength)
+	ai.imgs = make([]SpriteData, 1, MaxAimgLength)
 
 	// Initialize PalFX
 	for i := range ai.palfx {
@@ -1416,7 +1437,7 @@ func (ai *AfterImage) setup(c *Char) {
 
 	// Resize image buffer
 	if len(ai.imgs) < need {
-		ai.imgs = append(ai.imgs, make([]aimgImage, need-len(ai.imgs))...)
+		ai.imgs = append(ai.imgs, make([]SpriteData, need-len(ai.imgs))...)
 	} else {
 		ai.imgs = ai.imgs[:need]
 	}
@@ -1462,7 +1483,7 @@ func (ai *AfterImage) setup(c *Char) {
 	ai.needsetup = false
 }
 
-func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
+func (ai *AfterImage) recAfterImg(sd *SpriteData, hitpause bool) {
 	if ai.time == 0 {
 		ai.reccount, ai.timegap = 0, 0
 		return
@@ -1471,12 +1492,21 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 	if ai.restgap <= 0 {
 		img := &ai.imgs[ai.imgidx]
 
+		// Start from a shallow copy
+		*img = *sd
+
+		// Clear sync parameters so the sprite won't try to sync with the present
+		img.syncId = 0
+
+		// Deep copy the animation
 		if sd.anim != nil {
 			img.anim = &Animation{}
 			*img.anim = *sd.anim
 			if sd.anim.spr != nil {
 				img.anim.spr = newSprite()
 				*img.anim.spr = *sd.anim.spr
+
+				// Apply palette baking logic
 				if sd.anim.palettedata != nil {
 					sd.anim.palettedata.SwapPalMap(&sd.pfx.remap)
 					img.anim.spr.Pal = sd.anim.spr.GetPal(sd.anim.palettedata)
@@ -1491,11 +1521,7 @@ func (ai *AfterImage) recAfterImg(sd *SprData, hitpause bool) {
 			img.anim = nil
 		}
 
-		img.pos = sd.pos
-		img.scl = sd.scl
-		img.rot = sd.rot
-		img.projection = sd.projection
-		img.fLength = sd.fLength
+		// Apply AfterImage specific overrides
 		img.priority = sd.priority - 2 // Starting afterimage sprpriority offset
 
 		ai.imgidx = (ai.imgidx + 1) % int32(len(ai.imgs))
@@ -1516,15 +1542,7 @@ func (ai *AfterImage) isActive() bool {
 	return true
 }
 
-func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bool, layer int32, screen_space bool) {
-	// Decide layering
-	sprs := &sys.spritesLayer0
-	if layer > 0 {
-		sprs = &sys.spritesLayer1
-	} else if layer < 0 {
-		sprs = &sys.spritesLayerN1
-	}
-
+func (ai *AfterImage) recAndCue(sd *SpriteData, playerNo int, rec bool, hitpause bool) {
 	end := (Min(Min(ai.reccount, int32(len(ai.imgs))), ai.length) / ai.framegap) * ai.framegap
 
 	for i := ai.framegap; i <= end; i += ai.framegap {
@@ -1533,40 +1551,34 @@ func (ai *AfterImage) recAndCue(sd *SprData, playerNo int, rec bool, hitpause bo
 			break
 		}
 
-		// Save images in ring buffer
+		// Retrieve history
 		ringsize := int32(len(ai.imgs))
 		img := &ai.imgs[(ai.imgidx-i+ringsize)%ringsize]
 
-		if img.priority >= sd.priority { // Maximum afterimage sprpriority offset
+		// Avoid layering the afterimage on top of the char
+		if img.priority >= sd.priority {
 			img.priority = sd.priority - 2
 		}
 
 		if ai.time < 0 || (ai.timecount/ai.timegap-i) < (ai.time-2)/ai.timegap+1 {
-
 			step := i/ai.framegap - 1
 			if step < 0 || step >= int32(len(ai.palfx)) {
 				continue
 			}
 
 			ai.palfx[step].remap = sd.pfx.remap
-			sprs.add(&SprData{
-				anim:         img.anim,
-				pfx:          ai.palfx[step],
-				pos:          img.pos,
-				scl:          img.scl,
-				trans:        ai.trans,
-				alpha:        ai.alpha,
-				priority:     img.priority - step, // Afterimages decrease in sprpriority over time
-				rot:          img.rot,
-				screen:       screen_space,
-				undarken:     sd.undarken,
-				facing:       sd.facing,
-				airOffsetFix: sd.airOffsetFix,
-				projection:   img.projection,
-				fLength:      img.fLength,
-				window:       sd.window,
-				xshear:       sd.xshear,
-			})
+
+			// Prepare AfterImage sprite data
+			imgsd := *img
+
+			// Apply the dynamic effects
+			imgsd.pfx = ai.palfx[step]
+			imgsd.trans = ai.trans
+			imgsd.alpha = ai.alpha
+			imgsd.priority = img.priority - step // Afterimages decrease in sprpriority over time
+
+			// Add to list
+			sys.spriteList.add(&imgsd)
 
 			// Track number of afterimage sprites used by this player
 			sys.afterImageCount[playerNo]++
@@ -1694,7 +1706,6 @@ func (e *Explod) initFromChar(c *Char) *Explod {
 		window:       [4]float32{0, 0, 0, 0},
 		animelem:     1,
 		animelemtime: 0,
-		//blendmode:         0,
 		trans:             TT_default,
 		alpha:             [2]int32{-1, 0},
 		bindId:            -2,
@@ -1879,11 +1890,8 @@ func (e *Explod) setAnimElem() {
 }
 
 func (e *Explod) update() {
-	if e.anim == nil {
+	if e.id == IErr || e.anim == nil {
 		e.id = IErr
-	}
-
-	if e.id == IErr {
 		e.anim = nil
 		return
 	}
@@ -2017,15 +2025,6 @@ func (e *Explod) update() {
 		e.anim.UpdateSprite()
 	}
 
-	sprs := &sys.spritesLayer0
-	if e.layerno > 0 {
-		sprs = &sys.spritesLayer1
-	} else if e.layerno < 0 {
-		sprs = &sys.spritesLayerN1
-	} else if e.under {
-		sprs = &sys.spritesLayerU
-	}
-
 	var pfx *PalFX
 	if e.palfx != nil && (!e.anim.isCommonFX() || e.ownpal) {
 		pfx = e.palfx
@@ -2105,25 +2104,25 @@ func (e *Explod) update() {
 		e.window[3] * basescale[1],
 	}
 
-	// Add sprite to draw list
-	sd := &SprData{
-		anim:         e.anim,
-		pfx:          pfx,
-		pos:          drawpos,
-		scl:          drawscale,
-		trans:        e.trans,
-		alpha:        alp,
-		priority:     e.sprpriority + int32(e.interPos[2]*e.localscl),
-		rot:          rot,
-		screen:       e.space == Space_screen,
-		undarken:     parent != nil && parent.ignoreDarkenTime > 0,
-		facing:       facing,
-		airOffsetFix: [2]float32{1, 1},
-		projection:   int32(e.projection),
-		fLength:      fLength,
-		window:       ewin,
-		xshear:       xshear,
-	}
+	// Prepare sprite data
+	sd := newSpriteData()
+	sd.anim = e.anim
+	sd.pfx = pfx
+	sd.pos = drawpos
+	sd.scl = drawscale
+	sd.trans = e.trans
+	sd.alpha = alp
+	sd.layerno = e.layerno
+	sd.priority = e.sprpriority + int32(e.interPos[2]*e.localscl)
+	sd.rot = rot
+	sd.screen = e.space == Space_screen
+	sd.undarken = parent != nil && parent.ignoreDarkenTime > 0
+	sd.facing = facing
+	sd.projection = int32(e.projection)
+	sd.fLength = fLength
+	sd.window = ewin
+	sd.xshear = xshear
+
 	if e.syncId > 0 {
 		sd.syncId = e.syncId
 		sd.syncLayer = e.syncLayer
@@ -2133,19 +2132,19 @@ func (e *Explod) update() {
 	if e.aimg != nil {
 		if e.aimg.isActive() {
 			e.aimg.recAndCue(sd, e.playerno, sys.tickNextFrame() && act,
-				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0),
-				e.layerno, e.space == Space_screen)
+				sys.tickNextFrame() && e.ignorehitpause && (e.supermovetime != 0 || e.pausemovetime != 0))
 		} else {
 			e.aimg = nil
 		}
 	}
 
-	// Add to drawlist
-	sprs.add(sd)
+	// Add sprite to the appropriate layer's drawlist
+	sys.spriteList.add(sd)
 
-	// Add shadow if color is not 0
+	// Determine shadow color
 	sdwclr := e.shadow[0]<<16 | e.shadow[1]&0xff<<8 | e.shadow[2]&0xff
 
+	// Add shadow if color is not 0
 	if sdwclr != 0 {
 		sdwalp := 255 - alp[1]
 		if sdwalp < 0 {
@@ -2153,21 +2152,25 @@ func (e *Explod) update() {
 		}
 		drawZoff := sys.posZtoYoffset(e.interPos[2], e.localscl)
 
-		// Add shadow sprite
-		sys.shadows.add(&ShadowSprite{
-			SprData:      sd,
-			shadowColor:  sdwclr,
-			shadowAlpha:  sdwalp,
-			shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-			groundLevel:  drawZoff,
-		})
+		// Prepare shadow sprite
+		ss := newShadowSprite()
+		ss.SpriteData = sd
+		ss.shadowColor = sdwclr
+		ss.shadowAlpha = sdwalp
+		ss.shadowOffset = [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff}
+		ss.groundLevel = drawZoff
 
-		// Add reflection sprite
-		sys.reflections.add(&ReflectionSprite{
-			SprData:       sd,
-			reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-			groundLevel:   drawZoff,
-		})
+		// Add shadow to list
+		sys.shadowList.add(ss)
+
+		// Prepare reflection sprite
+		rs := newReflectionSprite()
+		rs.SpriteData = sd
+		rs.reflectOffset = [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff}
+		rs.groundLevel = drawZoff
+
+		// Add reflection to list
+		sys.reflectionList.add(rs)
 	}
 
 	if sys.tickNextFrame() {
@@ -2716,13 +2719,18 @@ func (p *Projectile) tick() {
 }
 
 func (p *Projectile) cueDraw() {
+	// Nothing to draw here. Not even debug
+	if p.anim == nil {
+		return
+	}
+
 	notpause := p.hitpause <= 0 && !p.paused()
-	if sys.tickFrame() && p.anim != nil && notpause {
+	if notpause && sys.tickFrame() {
 		p.anim.UpdateSprite()
 	}
 
 	// Projectile Clsn display
-	if sys.clsnDisplay && p.anim != nil {
+	if sys.clsnDisplay {
 		if frm := p.anim.drawFrame(); frm != nil {
 			if clsn := frm.Clsn1; clsn != nil && len(clsn) > 0 {
 				sys.debugc1hit.Add(clsn, p.pos[0]*p.localscl, p.pos[1]*p.localscl,
@@ -2740,8 +2748,8 @@ func (p *Projectile) cueDraw() {
 	}
 
 	if sys.tickNextFrame() && (notpause || !p.paused()) {
-		if p.anim != nil && notpause {
-			p.anim.Action()
+		if notpause {
+			p.anim.Action() // TODO: Placing this in cueDraw is a bit unusual. Confirm if it's right
 		}
 	}
 
@@ -2783,13 +2791,6 @@ func (p *Projectile) cueDraw() {
 	rot.xangle = anglerot[1]
 	rot.yangle = anglerot[2]
 
-	sprs := &sys.spritesLayer0
-	if p.layerno > 0 {
-		sprs = &sys.spritesLayer1
-	} else if p.layerno < 0 {
-		sprs = &sys.spritesLayerN1
-	}
-
 	var pwin = [4]float32{
 		p.window[0] * basescale[0],
 		p.window[1] * basescale[1],
@@ -2797,60 +2798,61 @@ func (p *Projectile) cueDraw() {
 		p.window[3] * basescale[1],
 	}
 
-	if p.anim != nil {
-		// Add sprite to draw list
-		sd := &SprData{
-			anim:         p.anim,
-			pfx:          p.palfx,
-			pos:          pos,
-			scl:          drawscale,
-			trans:        TT_default,
-			alpha:        [2]int32{-1, 0},
-			priority:     p.sprpriority + int32(p.pos[2]*p.localscl),
-			rot:          rot,
-			screen:       false,
-			undarken:     p.owner() != nil && p.owner().ignoreDarkenTime > 0,
-			facing:       p.facing,
-			airOffsetFix: [2]float32{1, 1},
-			projection:   int32(p.projection),
-			fLength:      fLength,
-			window:       pwin,
-			xshear:       p.xshear,
+	// Prepare sprite data
+	sd := newSpriteData()
+	sd.anim = p.anim
+	sd.pfx = p.palfx
+	sd.pos = pos
+	sd.scl = drawscale
+	sd.trans = TT_default
+	sd.alpha = [2]int32{-1, 0}
+	sd.layerno = p.layerno
+	sd.priority = p.sprpriority + int32(p.pos[2]*p.localscl)
+	sd.rot = rot
+	sd.undarken = p.owner() != nil && p.owner().ignoreDarkenTime > 0
+	sd.facing = p.facing
+	sd.projection = int32(p.projection)
+	sd.fLength = fLength
+	sd.window = pwin
+	sd.xshear = p.xshear
+
+	// Add sprite to the appropriate layer's drawlist
+	sys.spriteList.add(sd)
+
+	// Record afterimage
+	if p.aimg != nil {
+		if p.aimg.isActive() {
+			p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false)
+		} else {
+			p.aimg = nil
 		}
+	}
 
-		// Record afterimage
-		if p.aimg != nil {
-			if p.aimg.isActive() {
-				p.aimg.recAndCue(sd, p.owner().playerNo, sys.tickNextFrame() && notpause, false, p.layerno, false)
-			} else {
-				p.aimg = nil
-			}
-		}
+	// Determine shadow color
+	sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
 
-		sprs.add(sd)
+	// Add a shadow if color is not 0
+	if sdwclr != 0 {
+		drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
 
-		// Add a shadow if color is not 0
-		sdwclr := p.shadow[0]<<16 | p.shadow[1]&0xff<<8 | p.shadow[2]&0xff
+		// Prepare shadow sprite
+		ss := newShadowSprite()
+		ss.SpriteData = sd
+		ss.shadowColor = sdwclr
+		ss.shadowOffset = [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff}
+		ss.groundLevel = drawZoff
 
-		if sdwclr != 0 {
-			drawZoff := sys.posZtoYoffset(p.interPos[2], p.localscl)
+		// Add shadow to list
+		sys.shadowList.add(ss)
 
-			// Add shadow
-			sys.shadows.add(&ShadowSprite{
-				SprData:      sd,
-				shadowColor:  sdwclr,
-				shadowAlpha:  255,
-				shadowOffset: [2]float32{0, sys.stage.sdw.yscale*drawZoff + drawZoff},
-				groundLevel:  drawZoff,
-			})
+		// Prepare reflection sprite
+		rs := newReflectionSprite()
+		rs.SpriteData = sd
+		rs.reflectOffset = [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff}
+		rs.groundLevel = drawZoff
 
-			// Add reflection
-			sys.reflections.add(&ReflectionSprite{
-				SprData:       sd,
-				reflectOffset: [2]float32{0, sys.stage.reflection.yscale*drawZoff + drawZoff},
-				groundLevel:   drawZoff,
-			})
-		}
+		// Add reflection to list
+		sys.reflectionList.add(rs)
 	}
 }
 
@@ -2903,6 +2905,7 @@ type CharGlobalInfo struct {
 	velocity                CharVelocity
 	movement                CharMovement
 	states                  map[int32]StateBytecode
+	callFuncs               map[string]bytecodeFunction
 	hitPauseToggleFlagCount int32
 	pctype                  ProjContact
 	pctime, pcid            int32
@@ -4182,35 +4185,42 @@ func (c *Char) loadPalette() {
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			if pl, ok := readAct(&pal); ok {
-				targetPal := gi.palettedata.palList.Get(i)
-				copy(targetPal, pl)
+				// Allocate space if necessary
+				gi.palettedata.palList.SetSource(i, pl)
+				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = i
+
 				if tmp == 0 && i > 0 {
-					copy(gi.palettedata.palList.Get(0), pl)
+					// Backward compatibility: first loaded ACT also overwrites default
+					if len(gi.palettedata.palList.palettes) > 0 {
+						if gi.palettedata.palList.palettes[0] == nil {
+							gi.palettedata.palList.SetSource(0, pl)
+						} else {
+							copy(gi.palettedata.palList.palettes[0], pl)
+							if gi.palettedata.palList.PalTex[0] != nil {
+								gi.palettedata.palList.PalTex[0].SetData(Pal32ToBytes(pl))
+							}
+						}
+					}
 				}
 				pal.exists = true
-				if len(gi.palettedata.palList.PalTex) <= i {
-					newSlice := make([]Texture, i+1)
-					copy(newSlice, gi.palettedata.palList.PalTex)
-					gi.palettedata.palList.PalTex = newSlice
-				}
-				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pl)
 				tmp = i + 1
 			} else {
 				pal.exists = false
-				if i > 0 {
-					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
-				}
 			}
 			gi.palInfo[i] = pal
 		}
-		if tmp == 0 {
-			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
+		
+		// Ensure [1, 1] exists in the PalTable so RemapPal works
+		// If no ACTs were loaded, the sprite uses its internal palette at index 0
+		if _, ok := gi.palettedata.palList.PalTable[[...]uint16{1, 1}]; !ok {
+			gi.palettedata.palList.PalTable[[...]uint16{1, 1}] = 0
 		}
 	} else {
 		numPals := int(gi.sff.header.NumberOfPalettes)
 		if len(gi.palettedata.palList.PalTex) < numPals {
 			gi.palettedata.palList.PalTex = make([]Texture, numPals)
 		}
+		// Sync GPU textures for internal SFFv2 palettes
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
 				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pData)
@@ -4224,13 +4234,16 @@ func (c *Char) loadPalette() {
 			if pl, ok := readAct(&pal); ok {
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
-					gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
+					gi.palettedata.palList.palettes[pIdx] = pl
+					if gi.palettedata.palList.PalTex[pIdx] != nil {
+						gi.palettedata.palList.PalTex[pIdx].SetData(Pal32ToBytes(pl))
+					} else {
+						gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
+					}
 				} else {
-					// Create a new isolated index for the ACT to prevent crashes
+					// Create a new isolated index for the ACT using dynamic growth
 					newIdx := len(gi.palettedata.palList.palettes)
-					gi.palettedata.palList.palettes = append(gi.palettedata.palList.palettes, pl)
-					gi.palettedata.palList.paletteMap = append(gi.palettedata.palList.paletteMap, newIdx)
-					gi.palettedata.palList.PalTex = append(gi.palettedata.palList.PalTex, NewTextureFromPalette(pl))
+					gi.palettedata.palList.SetSource(newIdx, pl)
 					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
 				}
 				pal.exists = true
@@ -4270,11 +4283,14 @@ func (c *Char) loadPalette() {
 			}
 		}
 	}
+	
 	// Validate palno
 	palIdx := gi.palno - 1
 	if palIdx < 0 {
 		palIdx = 0
 	}
+	
+	// If the requested palette doesn't exist, roll over to the first available one
 	if p, ok := gi.palInfo[int(palIdx)]; !ok || !p.exists {
 		found := false
 		for i := 0; i < maxPal; i++ {
@@ -5954,6 +5970,149 @@ func (c *Char) teamSize() int32 {
 		return sys.numTurns[c.playerNo&1]
 	}
 	return sys.numSimul[c.playerNo&1]
+}
+
+// Returns a slice based on current memberNo variables of all players in a team
+func (c *Char) getTeamOrder() []int {
+	// Determine team size and allocate the temp slice
+	count := int(sys.numSimul[c.teamside])
+	team := make([]int, 0, count)
+
+	// Gather all the players in the team
+	side := c.playerNo&1
+	for i := 0; i < count; i++ {
+		pno := side + i*2
+		if len(sys.chars[pno]) > 0 {
+			team = append(team, pno)
+		}
+	}
+
+	// Sort the slice by memberNo. First index is first member player number and so on
+	sort.Slice(team, func(i, j int) bool {
+		return sys.chars[team[i]][0].memberNo < sys.chars[team[j]][0].memberNo
+	})
+
+	return team
+}
+
+// Saves a new team order to all partners and their lifebars
+// Note: Ikemen has never reset the team leader between rounds, so we won't reset the order either
+// In the future we might need to however 
+func (c *Char) updateTeamOrder(team []int) {
+	if len(team) == 0 {
+		return
+	}
+
+	// Update memberNo for all players in the team
+	// Note: does not change team leader
+	for i, pno := range team {
+		sys.chars[pno][0].memberNo = i
+	}
+
+	// Update lifebar order within its bounds
+	side := c.playerNo&1
+	for i := range sys.lifebar.order[side] {
+		if i < len(team) {
+			sys.lifebar.order[side][i] = team[i]
+		}
+	}
+}
+
+// Perform a direct order swap between the player and another team member
+func (c *Char) changeTagOrder(targetMN int) {
+	// Tag mode only
+	if sys.tmode[c.teamside] != TM_Tag {
+		return
+	}
+
+	team := c.getTeamOrder()
+	currentMN := c.memberNo
+
+	// If current memberNo is somehow invalid, treat it like the last slot
+	if currentMN < 0 || currentMN >= len(team) {
+		currentMN = len(team) - 1
+	}
+
+	// Validate destination
+	if targetMN < 0 || targetMN >= len(team) {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("invalid member number for order swap: %v", targetMN+1))
+		return
+	}
+
+	// Swap positions
+	team[currentMN], team[targetMN] = team[targetMN], team[currentMN]
+
+	// Synchronize team
+	c.updateTeamOrder(team)
+}
+
+// TagLeader brings a new leader to the front of the team and updates everyone else's positions
+func (c *Char) changeTagLeader(nextLeaderPN int) {
+	// Tag mode only
+	if sys.tmode[c.teamside] != TM_Tag {
+		return
+	}
+
+	// Must be on same team
+	if nextLeaderPN&1 != c.playerNo&1 {
+		return
+	}
+
+	// Validate next leader
+	if nextLeaderPN < 0 || nextLeaderPN >= len(sys.chars) || len(sys.chars[nextLeaderPN]) == 0 {
+		return
+	}
+
+	nextLeader := sys.chars[nextLeaderPN][0]
+
+	team := c.getTeamOrder()
+	nextLeaderPos := nextLeader.memberNo
+
+	// Rotate team if leader was found and is not already at point
+	if nextLeaderPos > 0 && nextLeaderPos < len(team) {
+		// Find the last living member to determine the rotation anchor
+		lastAlive := 0
+		for n := len(team) - 1; n >= 0; n-- {
+			if sys.chars[team[n]][0].alive() {
+				lastAlive = n
+				break
+			}
+		}
+
+		// Decide rotation type
+		// Use a reverse rotation if swapping with the last living member
+		if nextLeaderPos >= lastAlive {
+			// Reverse rotation: Simply pull the back-most to the front
+			team = sliceMove(team, nextLeaderPos, 0)
+		} else {
+			// Move the new leader to the front
+			team = sliceMove(team, nextLeaderPos, 0)
+			// Push the old leader to the last living spot
+			if lastAlive > 1 {
+				team = sliceMove(team, 1, lastAlive)
+			}
+		}
+	}
+
+	// Sink dead members to the end of the list instead of rotating them
+	// TODO: Maybe this shouldn't be hardcoded?
+	processed := 0
+	size := len(team)
+	for i := 1; i < size && processed < size; i++ {
+		processed++
+		if !sys.chars[team[i]][0].alive() {
+			pIdx := team[i]
+			team = append(team[:i], team[i+1:]...)
+			team = append(team, pIdx)
+			i--
+		}
+	}
+
+	// Update the official team leader
+	sys.teamLeader[c.teamside] = team[0]
+
+	// Synchronize team
+	c.updateTeamOrder(team)
 }
 
 func (c *Char) time() int32 {
@@ -12056,16 +12215,18 @@ func (c *Char) cueDebugDraw() {
 	}
 	// Prepare information for debug text
 	if sys.debugDisplay {
-		// Add debug clsnText
+		// Add debug Clsn text
 		x = (x-sys.cam.Pos[0])*sys.cam.Scale + ((320-float32(sys.gameWidth))/2 + 1) + float32(sys.gameWidth)/2
 		y = (y*sys.cam.Scale - sys.cam.Pos[1]) + sys.cam.GroundLevel() + 1 // "1" is just for spacing
 		y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 		// Name, PlayerNo and ID
-		sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
+		sys.debugClsnText = append(sys.debugClsnText,
+			DebugClsnText{x: x, y: y, text: fmt.Sprintf("%s, %d, %d", c.name, c.playerNo+1, c.id), r: 255, g: 255, b: 255, a: 255})
 		// NotHitBy
 		if nhbtxt != "" {
 			y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
-			sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
+			sys.debugClsnText = append(sys.debugClsnText,
+				DebugClsnText{x: x, y: y, text: fmt.Sprintf(nhbtxt), r: 191, g: 255, b: 255, a: 255})
 		}
 		// Targets
 		for _, tpid := range c.targets {
@@ -12073,7 +12234,8 @@ func (c *Char) cueDebugDraw() {
 				y += float32(sys.debugFont.fnt.Size[1]) * sys.debugFont.yscl / sys.heightScale
 				thid := t.ghv.hitid
 				tjg := t.ghv.getJuggle(c.id, c.gi().data.airjuggle)
-				sys.clsnText = append(sys.clsnText, ClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
+				sys.debugClsnText = append(sys.debugClsnText,
+					DebugClsnText{x: x, y: y, text: fmt.Sprintf("Target: %d, %d, %d", tpid, thid, tjg), r: 255, g: 191, b: 255, a: 255})
 			}
 		}
 	}
@@ -12084,8 +12246,10 @@ func (c *Char) cueDraw() {
 	if c.helperIndex < 0 || c.scf(SCF_disabled) {
 		return
 	}
+
 	// Add debug info
 	c.cueDebugDraw()
+
 	// Add char sprite
 	if c.anim != nil {
 		pos := [2]float32{c.interPos[0]*c.localscl + c.offsetX()*c.localscl,
@@ -12169,25 +12333,25 @@ func (c *Char) cueDraw() {
 			anim = c.animBackup
 		}
 
-		// Define sprite data
-		charSD := &SprData{
-			anim:         anim,
-			pfx:          c.getPalfx(),
-			pos:          pos,
-			scl:          drawscale,
-			trans:        c.trans,
-			alpha:        c.alpha,
-			priority:     c.sprPriority + int32(c.pos[2]*c.localscl),
-			rot:          rot,
-			screen:       false,
-			undarken:     c.ignoreDarkenTime > 0,
-			facing:       c.facing,
-			airOffsetFix: airOffsetFix,
-			projection:   int32(c.projection),
-			fLength:      fLength,
-			xshear:       c.xshear,
-			window:       cwin,
-		}
+		// Prepare sprite data
+		charSD := newSpriteData()
+		charSD.anim = anim
+		charSD.pfx = c.getPalfx()
+		charSD.pos = pos
+		charSD.scl = drawscale
+		charSD.trans = c.trans
+		charSD.alpha = c.alpha
+		charSD.layerno = c.layerNo
+		charSD.priority = c.sprPriority + int32(c.pos[2]*c.localscl)
+		charSD.rot = rot
+		charSD.undarken = c.ignoreDarkenTime > 0
+		charSD.facing = c.facing
+		charSD.airOffsetFix = airOffsetFix
+		charSD.projection = int32(c.projection)
+		charSD.fLength = fLength
+		charSD.xshear = c.xshear
+		charSD.window = cwin
+
 		if c.enableSyncId {
 			charSD.syncId = c.id
 			charSD.syncLayer = 0 // Character body is always at layer 0
@@ -12196,7 +12360,7 @@ func (c *Char) cueDraw() {
 		// Record afterimage
 		if c.aimg != nil {
 			if c.aimg.isActive() {
-				c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause(), c.layerNo, false)
+				c.aimg.recAndCue(charSD, c.playerNo, rec, sys.tickNextFrame() && c.hitPause())
 			} else {
 				c.aimg = nil
 			}
@@ -12207,19 +12371,10 @@ func (c *Char) cueDraw() {
 			charSD.pos[0] -= c.facing
 		}
 
-		// Draw char according to layer number
-		sprs := &sys.spritesLayer0
-		if c.layerNo > 0 {
-			sprs = &sys.spritesLayer1
-		} else if c.layerNo < 0 {
-			sprs = &sys.spritesLayerN1
-		} else if c.asf(ASF_drawunder) {
-			sprs = &sys.spritesLayerU
-		}
-
 		if !c.asf(ASF_invisible) {
-			// Add sprite to draw list
-			sprs.add(charSD)
+
+			// Add sprite to the appropriate layer's drawlist
+			sys.spriteList.add(charSD)
 
 			// Add shadow and reflection
 			if !c.asf(ASF_noshadow) {
@@ -12233,9 +12388,6 @@ func (c *Char) cueDraw() {
 					shadowSDcopy.anim.curelem = c.shadowAnimelem
 					shadowSD = &shadowSDcopy
 				}
-				// Shadow modifiers
-				sdwalp := 255 - c.alpha[1]
-				sdwclr := c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
 
 				// Previously Ikemen applied a multiplier of 1.5 to c.size.shadowoffset for Winmugen chars
 				// That doesn't seem to actually happen in either Winmugen or Mugen 1.1
@@ -12249,42 +12401,47 @@ func (c *Char) cueDraw() {
 				// Ikemen works differently and as you'd expect it to
 				drawZoff := sys.posZtoYoffset(c.interPos[2], c.localscl)
 
+				// Determine shadow scale
 				// Get the Yscale defined by ModifyShadow/Reflection or keep the one from the stage
+				sdwXscale := sys.stage.sdw.xscale
 				sdwYscale := sys.stage.sdw.yscale
 				if c.shadowYscale != 0 {
 					sdwYscale = c.shadowYscale
 				}
-
-				refYscale := sys.stage.reflection.yscale
-				if c.reflectYscale != 0 {
-					refYscale = c.reflectYscale
+				if c.shadowXscale != 0 {
+					sdwXscale = c.shadowXscale
 				}
 
-				sdwKeeptransform := c.shadowKeeptransform
-				if !c.shadowKeeptransform {
-					sdwKeeptransform = false
+				// Prepare shadow sprite
+				ss := newShadowSprite()
+				ss.SpriteData = shadowSD
+				ss.shadowAlpha = 255 - c.alpha[1]
+				ss.shadowOffset = [2]float32{
+					c.shadowOffset[0] * c.localscl,
+					(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
 				}
+				ss.groundLevel = c.offsetY() + drawZoff
 
-				// Add shadow to shadow list
-				sys.shadows.add(&ShadowSprite{
-					SprData:             shadowSD,
-					shadowColor:         sdwclr,
-					shadowAlpha:         sdwalp,
-					shadowIntensity:     c.shadowIntensity,
-					shadowKeeptransform: sdwKeeptransform,
-					shadowOffset: [2]float32{
-						c.shadowOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.shadowOffset[1])*c.localscl + sdwYscale*drawZoff + drawZoff,
-					},
-					shadowWindow:     c.shadowWindow,
-					shadowXscale:     c.shadowXscale,
-					shadowXshear:     c.shadowXshear,
-					shadowYscale:     c.shadowYscale,
-					shadowRot:        c.shadowRot,
-					shadowProjection: int32(c.shadowProjection),
-					shadowfLength:    c.shadowfLength,
-					groundLevel:      c.offsetY() + drawZoff,
-				})
+				// Apply shadow overrides
+				if c.shadowColor[0] >= 0 {
+					ss.shadowColor = c.shadowColor[0]<<16 | c.shadowColor[1]<<8 | c.shadowColor[2]
+				}
+				if c.shadowIntensity >= 0 {
+					ss.shadowIntensity = c.shadowIntensity
+				}
+				ss.shadowXscale = sdwXscale
+				ss.shadowYscale = sdwYscale
+				ss.shadowKeeptransform = c.shadowKeeptransform
+				ss.shadowWindow = c.shadowWindow
+				ss.shadowXshear = c.shadowXshear
+				ss.shadowRot = c.shadowRot
+				if c.shadowProjection != -1 {
+					ss.shadowProjection = int32(c.shadowProjection)
+				}
+				ss.shadowfLength = c.shadowfLength
+
+				// Add shadow to list
+				sys.shadowList.add(ss)
 
 				// Default reflection to same sprite data as char
 				reflectSD := charSD
@@ -12297,33 +12454,45 @@ func (c *Char) cueDraw() {
 					reflectSD = &reflectSDcopy
 				}
 
-				// Reflection modifiers
-				reflectclr := c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
-
-				reflectKeeptransform := c.reflectKeeptransform
-				if !c.reflectKeeptransform {
-					reflectKeeptransform = false
+				// Determine reflection scale
+				refXscale := sys.stage.reflection.xscale
+				refYscale := sys.stage.reflection.yscale
+				if c.reflectXscale != 0 {
+					refXscale = c.reflectXscale
+				}
+				if c.reflectYscale != 0 {
+					refYscale = c.reflectYscale
 				}
 
-				// Add reflection to reflection list
-				sys.reflections.add(&ReflectionSprite{
-					SprData:              reflectSD,
-					reflectColor:         reflectclr,
-					reflectIntensity:     c.reflectIntensity,
-					reflectKeeptransform: reflectKeeptransform,
-					reflectOffset: [2]float32{
-						c.reflectOffset[0] * c.localscl,
-						(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
-					},
-					reflectWindow:     c.reflectWindow,
-					reflectXscale:     c.reflectXscale,
-					reflectXshear:     c.reflectXshear,
-					reflectYscale:     c.reflectYscale,
-					reflectRot:        c.reflectRot,
-					reflectProjection: int32(c.reflectProjection),
-					reflectfLength:    c.reflectfLength,
-					groundLevel:       c.offsetY() + drawZoff,
-				})
+				// Prepare reflection sprite
+				rs := newReflectionSprite()
+				rs.SpriteData = reflectSD
+				rs.reflectOffset = [2]float32{
+					c.reflectOffset[0] * c.localscl,
+					(c.size.shadowoffset+c.reflectOffset[1])*c.localscl + refYscale*drawZoff + drawZoff,
+				}
+				rs.groundLevel = c.offsetY() + drawZoff
+
+				// Apply reflection overrides
+				if c.reflectColor[0] >= 0 {
+					rs.reflectColor = c.reflectColor[0]<<16 | c.reflectColor[1]<<8 | c.reflectColor[2]
+				}
+				if c.reflectIntensity >= 0 {
+					rs.reflectIntensity = c.reflectIntensity
+				}
+				rs.reflectXscale = refXscale
+				rs.reflectYscale = refYscale
+				rs.reflectKeeptransform = c.reflectKeeptransform
+				rs.reflectRot = c.reflectRot
+				rs.reflectWindow = c.reflectWindow
+				rs.reflectXshear = c.reflectXshear
+				if c.reflectProjection != -1 {
+					rs.reflectProjection = int32(c.reflectProjection)
+				}
+				rs.reflectfLength = c.reflectfLength
+
+				// Add reflection to list
+				sys.reflectionList.add(rs)
 			}
 		}
 	}
@@ -12381,11 +12550,11 @@ func (cl *CharList) delete(dc *Char) {
 	// Remove the char pointer from the idMap directly
 	// This is safer than removing by ID
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/3247
-	for k, v := range sys.charList.idMap {
+	for k, v := range cl.idMap {
 		if v == dc {
-			delete(sys.charList.idMap, k)
+			delete(cl.idMap, k)
 			// Just in case, don't break so we also remove eventual duplicates
-			//break
+			break
 		}
 	}
 
@@ -12393,7 +12562,7 @@ func (cl *CharList) delete(dc *Char) {
 	for i, c := range cl.creationOrder {
 		if c == dc {
 			cl.creationOrder = SliceDelete(cl.creationOrder, i)
-			//break
+			break
 		}
 	}
 
@@ -12401,7 +12570,7 @@ func (cl *CharList) delete(dc *Char) {
 	for i, c := range cl.runOrder {
 		if c == dc {
 			cl.runOrder = SliceDelete(cl.runOrder, i)
-			//break
+			break
 		}
 	}
 	// Mugen and older versions of Ikemen could reuse the drawing order of an old removed helper for a new helper

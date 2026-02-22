@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"image"
 	colour "image/color"
-	"image/draw"
+	//"image/draw"
 	"io"
 	"io/ioutil"
 	"os"
@@ -138,7 +138,11 @@ func (f *Font_GLES32) Printf(x, y float32, scale float32, spacingXAdd float32,
 	program := fr.shaderProgram
 
 	//setup blending mode
-	r.SetBlending(blend, BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
+	if blend {
+		r.EnableBlending(BlendAdd, BlendSrcAlpha, BlendOneMinusSrcAlpha)
+	} else {
+		r.DisableBlending()
+	}
 
 	//restrict drawing to a certain part of the window
 	r.EnableScissor(window[0], window[1], window[2], window[3])
@@ -360,11 +364,12 @@ func (f *Font_GLES32) GenerateGlyphs(low, high rune) error {
 		char.bearingH = (int(gBnd.Min.X) >> 6) - padding
 
 		//create image to draw glyph
-		fg, bg := image.NewUniform(colour.RGBA{255, 255, 255, 255}), image.NewUniform(colour.RGBA{0, 0, 0, 255})
+		//fg, bg := image.NewUniform(colour.RGBA{255, 255, 255, 255}), image.NewUniform(colour.RGBA{0, 0, 0, 255}) // No need to fill in the background
+		fg := image.NewUniform(colour.RGBA{255, 255, 255, 255})
 		//rect := image.Rect(0, 0, int(gw)+padding*2, int(gh)+padding*2)
 		rect := image.Rect(0, 0, char.width, char.height)
 		rgba := image.NewRGBA(rect)
-		draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src)
+		//draw.Draw(rgba, rgba.Bounds(), bg, image.ZP, draw.Src) // No need to fill in the background
 
 		//set the glyph dot
 		//px := 0 - (int(gBnd.Min.X) >> 6) + padding

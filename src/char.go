@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"math"
 	"path/filepath"
 	"sort"
@@ -4150,104 +4149,99 @@ func (c *Char) load(def string) error {
 	return nil
 }
 
-func (c *Char) loadPalette() {
+func (c *Char) initPalettes() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
 
 	readAct := func(palPtr *PalInfo) ([]uint32, bool) {
-		var f io.ReadSeekCloser
-		if LoadFile(&palPtr.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
+		var pl []uint32
+		var success bool
+		LoadFile(&palPtr.filename, []string{gi.def, "", sys.motif.Def, "data/"}, func(file string) error {
 			var err error
-			f, err = OpenFile(file)
-			return err
-		}) == nil {
-			defer f.Close()
-			pl := make([]uint32, 256)
-			for i := 255; i >= 0; i-- {
-				var rgb [3]byte
-				if _, err := io.ReadFull(f, rgb[:]); err != nil {
-					return nil, false
-				}
-				var alpha byte = 255
-				if i == 0 {
-					alpha = 0
-				}
-				pl[i] = uint32(alpha)<<24 | uint32(rgb[2])<<16 | uint32(rgb[1])<<8 | uint32(rgb[0])
+			pl, err = readActPalette(file)
+			if err == nil {
+				success = true
 			}
-			return pl, true
-		}
-		return nil, false
+			return err
+		})
+		return pl, success
 	}
 
 	if gi.sff.header.Version[0] == 1 {
+		// SFFv1 logic
 		gi.palettedata.palList.ResetRemap()
 		tmp := 0
+
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			if pl, ok := readAct(&pal); ok {
-				// Allocate space if necessary
-				gi.palettedata.palList.SetSource(i, pl)
-				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = i
+				// Append instead of overwriting
+				targetIdx := len(gi.palettedata.palList.palettes)
 
+				// Allocate space if necessary
+				gi.palettedata.palList.SetSource(targetIdx, pl)
+				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = targetIdx
+
+				// Redirect index 0 without destroying the unique SFFv1 palette at physical index 0
 				if tmp == 0 && i > 0 {
-					// Backward compatibility: first loaded ACT also overwrites default
-					if len(gi.palettedata.palList.palettes) > 0 {
-						if gi.palettedata.palList.palettes[0] == nil {
-							gi.palettedata.palList.SetSource(0, pl)
-						} else {
-							copy(gi.palettedata.palList.palettes[0], pl)
-							if gi.palettedata.palList.PalTex[0] != nil {
-								gi.palettedata.palList.PalTex[0].SetData(Pal32ToBytes(pl))
-							}
-						}
-					}
+					gi.palettedata.palList.Remap(0, targetIdx)
 				}
 				pal.exists = true
+
+				gi.palettedata.palList.PalTex[targetIdx] = NewTextureFromPalette(pl)
 				tmp = i + 1
 			} else {
+				// If the ACT file doesn't exist, mark it as invalid
 				pal.exists = false
+				// Clean up the PalTable mapping so the engine doesn't try to use a ghost palette
+				if i > 0 {
+					delete(gi.palettedata.palList.PalTable, [...]uint16{1, uint16(i + 1)})
+				}
 			}
 			gi.palInfo[i] = pal
 		}
 
-		// Ensure [1, 1] exists in the PalTable so RemapPal works
-		// If no ACTs were loaded, the sprite uses its internal palette at index 0
-		if _, ok := gi.palettedata.palList.PalTable[[...]uint16{1, 1}]; !ok {
-			gi.palettedata.palList.PalTable[[...]uint16{1, 1}] = 0
+		// If no ACT files were successfully loaded, remove the default [1, 1] mapping
+		if tmp == 0 {
+			delete(gi.palettedata.palList.PalTable, [...]uint16{1, 1})
 		}
 	} else {
+		// SFFv2 logic
 		numPals := int(gi.sff.header.NumberOfPalettes)
-		if len(gi.palettedata.palList.PalTex) < numPals {
-			gi.palettedata.palList.PalTex = make([]Texture, numPals)
-		}
-		// Sync GPU textures for internal SFFv2 palettes
+
+		// Ensure GPU textures are ready for all internal SFFv2 palettes
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
+				// SetSource ensures allocation exists
+				gi.palettedata.palList.SetSource(i, pData)
 				gi.palettedata.palList.PalTex[i] = NewTextureFromPalette(pData)
 			}
 		}
 
+		// Process external ACT overrides up to the PaletteMax limit
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
 
 			if pl, ok := readAct(&pal); ok {
+				// Determine index where ACT file should go
+				var targetIdx int
 				if existsInSff && pIdx >= 0 {
 					// Overwrite existing SFFv2 slot with ACT data
-					gi.palettedata.palList.palettes[pIdx] = pl
-					if gi.palettedata.palList.PalTex[pIdx] != nil {
-						gi.palettedata.palList.PalTex[pIdx].SetData(Pal32ToBytes(pl))
-					} else {
-						gi.palettedata.palList.PalTex[pIdx] = NewTextureFromPalette(pl)
-					}
+					targetIdx = pIdx
 				} else {
-					// Create a new isolated index for the ACT using dynamic growth
-					newIdx := len(gi.palettedata.palList.palettes)
-					gi.palettedata.palList.SetSource(newIdx, pl)
-					gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = newIdx
+					// Add a new slot
+					targetIdx = len(gi.palettedata.palList.palettes)
 				}
+
+				// Assign the new palette
+				gi.palettedata.palList.SetSource(targetIdx, pl)
+				gi.palettedata.palList.PalTex[targetIdx] = NewTextureFromPalette(pl)
+				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = targetIdx
+
 				pal.exists = true
 			} else {
+				// If no external ACT file is found, fallback to whether the palette natively exists inside the SFF
 				pal.exists = existsInSff
 			}
 			gi.palInfo[i] = pal
@@ -4300,12 +4294,15 @@ func (c *Char) loadPalette() {
 				break
 			}
 		}
+		// If no palettes are valid, force a fallback to palette 1
 		if !found {
 			gi.palno = 1
 			gi.palInfo[0] = PalInfo{exists: true, selectable: true}
 		}
 	}
 
+	// Update RemapPal to selected palette
+	// TODO: Confirm if this is true for all characters in Mugen. Defaulting to color 1 would be useless, regardless
 	gi.remappedpal = [2]int32{1, gi.palno}
 }
 

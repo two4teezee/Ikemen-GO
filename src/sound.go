@@ -95,6 +95,13 @@ func (n *NormalizerLR) process(mul float64, sam *float64) float64 {
 	return mul
 }
 
+// Safe wrapper for streamer operations
+func WithSpeakerLock(f func()) {
+	speaker.Lock()
+	defer speaker.Unlock()
+	f()
+}
+
 // ------------------------------------------------------------------
 // SwapSeeker - beep.StreamSeeker that can be swapped to in-memory
 // copy at runtime.
@@ -309,9 +316,9 @@ func newBgm() *Bgm {
 
 func (bgm *Bgm) Stop() {
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	bgm.filename = ""
 }
@@ -332,9 +339,9 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	bgm.freqmul = freqmul
 	// Starve the current music streamer
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	// Special value "" is used to stop music
 	if filename == "" {
@@ -532,9 +539,9 @@ func (bgm *Bgm) SetPaused(pause bool) {
 	if bgm.ctrl == nil || bgm.ctrl.Paused == pause {
 		return
 	}
-	speaker.Lock()
-	bgm.ctrl.Paused = pause
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		bgm.ctrl.Paused = pause
+	})
 }
 
 func (bgm *Bgm) UpdateVolume() {
@@ -556,10 +563,10 @@ func (bgm *Bgm) UpdateVolume() {
 		volume = 1
 	}
 	silent := volume <= -5
-	speaker.Lock()
-	bgm.volctrl.Volume = volume
-	bgm.volctrl.Silent = silent
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		bgm.volctrl.Volume = volume
+		bgm.volctrl.Silent = silent
+	})
 }
 
 func (bgm *Bgm) SetFreqMul(freqmul float32) {
@@ -574,10 +581,10 @@ func (bgm *Bgm) SetFreqMul(freqmul float32) {
 			srcRate := bgm.sampleRate
 			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := bgm.ctrl.Streamer.(*beep.Resampler); ok {
-				speaker.Lock()
-				resampler.SetRatio(float64(srcRate) / float64(dstRate))
-				bgm.freqmul = freqmul
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					resampler.SetRatio(float64(srcRate) / float64(dstRate))
+					bgm.freqmul = freqmul
+				})
 			}
 		}
 	}
@@ -603,9 +610,9 @@ func (bgm *Bgm) OpenFromStreamer(stream beep.Streamer, srcSampleRate beep.Sample
 
 	// Starve the current music streamer
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	// Honor CLI flags just like normal Open()
 	if _, ok := sys.cmdFlags["-nomusic"]; ok {
@@ -627,23 +634,23 @@ func (bgm *Bgm) OpenFromStreamer(stream beep.Streamer, srcSampleRate beep.Sample
 }
 
 func (bgm *Bgm) SetLoopPoints(bgmLoopStart int, bgmLoopEnd int) {
-	// Set both at once, why not
 	if sl, ok := bgm.volctrl.Streamer.(*StreamLooper); ok {
 		if sl.loopstart != bgmLoopStart && sl.loopend != bgmLoopEnd {
-			speaker.Lock()
-			sl.loopstart = bgmLoopStart
-			sl.loopend = bgmLoopEnd
-			speaker.Unlock()
-			// Set one at a time
-		} else {
-			if sl.loopstart != bgmLoopStart {
-				speaker.Lock()
+			// Set both at once, why not
+			WithSpeakerLock(func() {
 				sl.loopstart = bgmLoopStart
-				speaker.Unlock()
-			} else if sl.loopend != bgmLoopEnd {
-				speaker.Lock()
 				sl.loopend = bgmLoopEnd
-				speaker.Unlock()
+			})
+		} else {
+			// Set one at a time
+			if sl.loopstart != bgmLoopStart {
+				WithSpeakerLock(func() {
+					sl.loopstart = bgmLoopStart
+				})
+			} else if sl.loopend != bgmLoopEnd {
+				WithSpeakerLock(func() {
+					sl.loopend = bgmLoopEnd
+				})
 			}
 		}
 	}
@@ -654,13 +661,13 @@ func (bgm *Bgm) Seek(positionSample int) {
 	if bgm.streamer == nil {
 		return
 	}
-	speaker.Lock()
 	// Reset to 0 if out of range
-	if positionSample < 0 || positionSample > bgm.streamer.Len() {
-		positionSample = 0
-	}
-	_ = bgm.streamer.Seek(positionSample)
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		if positionSample < 0 || positionSample > bgm.streamer.Len() {
+			positionSample = 0
+		}
+		_ = bgm.streamer.Seek(positionSample)
+	})
 }
 
 // ------------------------------------------------------------------
@@ -936,7 +943,10 @@ func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul flo
 	resampler := beep.Resample(audioResampleQuality, srcRate, dstRate, s.sfx)
 	s.ctrl = &beep.Ctrl{Streamer: resampler}
 	s.streamer.Seek(startPosition)
-	sys.soundMixer.Add(s.ctrl)
+
+	WithSpeakerLock(func() {
+		sys.soundMixer.Add(s.ctrl)
+	})
 }
 
 func (s *SoundChannel) IsPlaying() bool {
@@ -947,16 +957,16 @@ func (s *SoundChannel) SetPaused(pause bool) {
 	if s.ctrl == nil || s.ctrl.Paused == pause {
 		return
 	}
-	speaker.Lock()
-	s.ctrl.Paused = pause
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		s.ctrl.Paused = pause
+	})
 }
 
 func (s *SoundChannel) Stop() {
 	if s.ctrl != nil {
-		speaker.Lock()
-		s.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			s.ctrl.Streamer = nil
+		})
 	}
 	s.sound = nil
 }
@@ -999,10 +1009,10 @@ func (s *SoundChannel) SetFreqMul(freqmul float32) {
 			srcRate := s.sound.format.SampleRate
 			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := s.ctrl.Streamer.(*beep.Resampler); ok {
-				speaker.Lock()
-				resampler.SetRatio(float64(srcRate) / float64(dstRate))
-				s.sfx.freqmul = freqmul
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					resampler.SetRatio(float64(srcRate) / float64(dstRate))
+					s.sfx.freqmul = freqmul
+				})
 			}
 		}
 	}
@@ -1012,20 +1022,20 @@ func (s *SoundChannel) SetLoopPoints(loopstart, loopend int) {
 	// Set both at once, why not
 	if sl, ok := s.sfx.streamer.(*StreamLooper); ok {
 		if sl.loopstart != loopstart && sl.loopend != loopend {
-			speaker.Lock()
-			sl.loopstart = loopstart
-			sl.loopend = loopend
-			speaker.Unlock()
+			WithSpeakerLock(func() {
+				sl.loopstart = loopstart
+				sl.loopend = loopend
+			})
 			// Set one at a time
 		} else {
 			if sl.loopstart != loopstart {
-				speaker.Lock()
-				sl.loopstart = loopstart
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					sl.loopstart = loopstart
+				})
 			} else if sl.loopend != loopend {
-				speaker.Lock()
-				sl.loopend = loopend
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					sl.loopend = loopend
+				})
 			}
 		}
 	}

@@ -2297,9 +2297,9 @@ func systemScriptInit(l *lua.LState) {
 							}
 						}
 
-						// Init palettes if character is just joining the match
+						// Load palettes if character is just joining the match
 						if c[0].roundsExisted() == 0 {
-							c[0].initPalettes()
+							c[0].loadPalettes()
 						}
 
 						// Copy each other's command lists

@@ -2113,6 +2113,7 @@ func (e *Explod) update() {
 	sd.alpha = alp
 	sd.layerno = e.layerno
 	sd.priority = e.sprpriority + int32(e.interPos[2]*e.localscl)
+	sd.under = e.under
 	sd.rot = rot
 	sd.screen = e.space == Space_screen
 	sd.undarken = parent != nil && parent.ignoreDarkenTime > 0
@@ -4149,7 +4150,7 @@ func (c *Char) load(def string) error {
 	return nil
 }
 
-func (c *Char) initPalettes() {
+func (c *Char) loadPalettes() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
 
@@ -4209,7 +4210,7 @@ func (c *Char) initPalettes() {
 		// SFFv2 logic
 		numPals := int(gi.sff.header.NumberOfPalettes)
 
-		// Ensure GPU textures are ready for all internal SFFv2 palettes
+		// Ensure textures are ready for all internal SFFv2 palettes
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
 				// SetSource ensures allocation exists
@@ -12340,6 +12341,7 @@ func (c *Char) cueDraw() {
 		charSD.alpha = c.alpha
 		charSD.layerno = c.layerNo
 		charSD.priority = c.sprPriority + int32(c.pos[2]*c.localscl)
+		charSD.under = c.asf(ASF_drawunder)
 		charSD.rot = rot
 		charSD.undarken = c.ignoreDarkenTime > 0
 		charSD.facing = c.facing

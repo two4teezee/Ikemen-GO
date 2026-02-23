@@ -217,7 +217,7 @@ func (r *Renderer_GL32) generateTexture(width, height, depth int32, filter bool)
 
 // Creates a generic texture
 func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, depth, filter)
 
@@ -238,7 +238,7 @@ func (r *Renderer_GL32) newModelTexture(width, height, depth int32, filter bool)
 }
 
 func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 128, false)
 
@@ -251,7 +251,7 @@ func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 96, false)
 
@@ -264,7 +264,7 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(widthHeight, widthHeight, 24, false)
 
@@ -296,7 +296,7 @@ func (t *Texture_GL32) SetData(data []byte) {
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
 	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -321,7 +321,7 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 	}
 
 	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -357,7 +357,7 @@ func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingPar
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
 	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -375,7 +375,7 @@ func (t *Texture_GL32) SetPixelData(data []float32) {
 	internalFormat := t.MapInternalFormat(Max(t.depth, 8))
 
 	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -643,7 +643,7 @@ func (r *Renderer_GL32) Init() {
 		gl.Disable(gl.MULTISAMPLE)
 	}
 
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
@@ -772,7 +772,7 @@ func (r *Renderer_GL32) Init() {
 	if r.enableModel {
 		if r.enableShadow {
 			gl.GenFramebuffers(1, &r.fbo_shadow)
-			r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+			r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 			gl.GenTextures(1, &r.fbo_shadow_cube_texture)
 			textureSerialNumber++
 
@@ -1023,7 +1023,7 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
 	if sys.msaa > 0 {
@@ -1333,7 +1333,7 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
@@ -1526,7 +1526,7 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 		gl.Uniform1f(loc, 0)
 	}
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace,
@@ -1655,7 +1655,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	}
 }
 
-func (r *Renderer_GL32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32) {
+func (r *Renderer_GL32) SetMeshOutlinePipeline(invertFrontFace bool, meshOutline float32) {
 	r.SetFrontFace(invertFrontFace)
 	r.SetDepthTest(true)
 	r.SetDepthMask(true)
@@ -1960,7 +1960,7 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32)
 
 // Selects texture unit 0 as active and tells the cache it's dirty
 // Prevents the sprite renderer from desyncing during texture maintenance
-func (r *Renderer_GL32) UseScratchUnit() {
+func (r *Renderer_GL32) SetActiveTexture0() {
 	gl.ActiveTexture(gl.TEXTURE0)
 
 	if len(r.texCacheTexSerial) > 0 {

@@ -12244,7 +12244,7 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 				snd.stopOnGetHit = stopgh != 0
 			}
 			if stopcs >= 0 {
-				snd.stopOnChangeState = stopgh != 0
+				snd.stopOnChangeState = stopcs != 0
 			}
 		}
 	}

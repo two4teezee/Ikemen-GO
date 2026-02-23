@@ -382,9 +382,9 @@ func (pf *PalFX) setColor(r, g, b int32) {
 }
 
 type PaletteList struct {
-	palettes   [][]uint32
-	paletteMap []int
-	PalTable   map[[2]uint16]int
+	palettes   [][]uint32        // The actual (unordered) palettes
+	paletteMap []int             // Logical index to actual index mapping. For remapping
+	PalTable   map[[2]uint16]int // Group/index key to original index value
 	numcols    map[[2]uint16]int
 	PalTex     []Texture
 }

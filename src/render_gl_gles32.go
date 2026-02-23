@@ -251,7 +251,7 @@ func (r *Renderer_GLES32) generateTexture(width, height, depth int32, filter boo
 
 // Creates a generic texture
 func (r *Renderer_GLES32) newTexture(width, height, depth int32, filter bool) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, depth, filter)
 
@@ -267,7 +267,7 @@ func (r *Renderer_GLES32) newModelTexture(width, height, depth int32, filter boo
 }
 
 func (r *Renderer_GLES32) newDataTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 32, false)
 
@@ -280,7 +280,7 @@ func (r *Renderer_GLES32) newDataTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GLES32) newHDRTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 24, false)
 
@@ -293,7 +293,7 @@ func (r *Renderer_GLES32) newHDRTexture(width, height int32) Texture {
 }
 
 func (r *Renderer_GLES32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(widthHeight, widthHeight, 24, false)
 
@@ -328,7 +328,7 @@ func (t *Texture_GLES32) SetData(data []byte) {
 	uploadType := t.MapUploadType(bits)
 
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -353,7 +353,7 @@ func (t *Texture_GLES32) SetSubData(data []byte, x, y, width, height, stride int
 	}
 
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -405,7 +405,7 @@ func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingP
 	uploadType := t.MapUploadType(bits)
 
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -420,7 +420,7 @@ func (t *Texture_GLES32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingP
 
 func (t *Texture_GLES32) SetPixelData(data []float32) {
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -430,7 +430,7 @@ func (t *Texture_GLES32) SetPixelData(data []float32) {
 
 func (t Texture_GLES32) CopyData(src *Texture) {
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, 0) // Unbind whatever is currently bound
 	srcES := (*src).(*Texture_GLES32)
@@ -451,7 +451,7 @@ func (t Texture_GLES32) CopyData(src *Texture) {
 // Not called anywhere
 func (t *Texture_GLES32) SetRGBPixelData(data []float32) {
 	r := gfx.(*Renderer_GLES32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -740,7 +740,7 @@ func (r *Renderer_GLES32) Init() {
 	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
 
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
@@ -851,7 +851,7 @@ func (r *Renderer_GLES32) Init() {
 		if r.enableShadow {
 			// create FBO for shadow rendering
 			gl.GenFramebuffers(1, &r.fbo_shadow)
-			r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+			r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 			// create 4 separate GL_TEXTURE_CUBE_MAP textures (one per shadow caster/light)
 			gl.GenTextures(4, &r.fbo_shadow_cube_textures[0])
@@ -993,7 +993,7 @@ func (r *Renderer_GLES32) EndFrame() {
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
 	if sys.msaa > 0 {
@@ -1274,7 +1274,7 @@ func (r *Renderer_GLES32) prepareShadowMapPipeline(bufferIndex uint32) {
 	// SetShadowFrameCubeTexture(...) before rendering each face.
 	// Clearing must be done after the correct face is attached.
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GLES32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
@@ -1472,7 +1472,7 @@ func (r *Renderer_GLES32) prepareModelPipeline(bufferIndex uint32, env *Environm
 		gl.Uniform1f(loc, 0)
 	}
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
 func (r *Renderer_GLES32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace,
@@ -1601,7 +1601,7 @@ func (r *Renderer_GLES32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc,
 	}
 }
 
-func (r *Renderer_GLES32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32) {
+func (r *Renderer_GLES32) SetMeshOutlinePipeline(invertFrontFace bool, meshOutline float32) {
 	r.SetFrontFace(invertFrontFace)
 	r.SetDepthTest(true)
 	r.SetDepthMask(true)
@@ -1906,7 +1906,7 @@ func (r *Renderer_GLES32) SetShadowMapUniformMatrix3(name string, value []float3
 
 // Selects texture unit 0 as active and tells the cache it's dirty
 // Prevents the sprite renderer from desyncing during texture maintenance
-func (r *Renderer_GLES32) UseScratchUnit() {
+func (r *Renderer_GLES32) SetActiveTexture0() {
 	gl.ActiveTexture(gl.TEXTURE0)
 
 	if len(r.texCacheTexSerial) > 0 {

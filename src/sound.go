@@ -47,7 +47,7 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 	// really long time and the below streamer.Stream method does not
 	// do a nil check. This should at least prevent crashes, but may
 	// lead to sound glitches.
-	if len(samples) <= 0 {
+	if n.streamer == nil || len(samples) <= 0 {
 		return 0, false
 	}
 	s, ok = n.streamer.Stream(samples)
@@ -64,6 +64,9 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 }
 
 func (n *Normalizer) Err() error {
+	if n.streamer == nil {
+		return nil
+	}
 	return n.streamer.Err()
 }
 

@@ -1596,6 +1596,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 	}
 	maxPal := int(sys.cfg.Config.PaletteMax)
 	c := sys.sel.charlist[ref]
+
 	// SFF v2
 	uniquePals := make(map[[2]uint16]int)
 	loaded := make(map[int]bool)
@@ -1661,11 +1662,13 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			sff.palList.numcols[[2]uint16{gn_[0], gn_[1]}] = int(gn_[2])
 		}
 	}
+
 	// SFFv1 and Act Overrides
 	// TODO: External .ACTs on SFFv2 without palette slots may cause color bleeding,
 	// on sprites with unique palettes if a SFFv2 with Acts is loaded by sffNew, since is a simplified utility
 	// and lacks the engine's palInfo/cgi logic to properly isolate palette remapping during rendering.
-	searchDirs := []string{c.def}
+	parts := strings.SplitAfterN(c.def, "/", -1)
+	pathname := strings.Join(parts[:len(parts)-1], "")
 
 	// Read ACT palettes
 	for x := 0; x < len(c.pal_files) && x < len(c.pal); x++ {
@@ -1680,17 +1683,19 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			continue
 		}
 
-		palPath := SearchFile(c.pal_files[x], searchDirs)
-		pal, err := readActPalette(palPath)
+		pal, err := readActPalette(pathname + c.pal_files[x])
 		if err != nil {
-			fmt.Println("Error reading " + palPath)
+			fmt.Println("Error reading " + c.pal_files[x])
 			continue
 		}
 
-		// Force expansion and data placement in the dynamic list
-		sff.palList.SetSource(targetIdx, pal)
+		// For SFFv1, append the ACT palettes so they don't overwrite the unique unshared ones
+		if h.Version[0] == 1 {
+			targetIdx = len(sff.palList.palettes)
+		}
 
 		// Update the PalTable mapping
+		sff.palList.SetSource(targetIdx, pal)
 		sff.palList.PalTable[[2]uint16{1, palSlot}] = targetIdx
 		sff.palList.numcols[[2]uint16{1, palSlot}] = 256 // ACT files are always 256 colors
 	}

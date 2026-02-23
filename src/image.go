@@ -1663,14 +1663,13 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		}
 	}
 
+	// Get char directory
+	chardir, _ := SplitPath(c.def)
+
 	// SFFv1 and Act Overrides
 	// TODO: External .ACTs on SFFv2 without palette slots may cause color bleeding,
 	// on sprites with unique palettes if a SFFv2 with Acts is loaded by sffNew, since is a simplified utility
 	// and lacks the engine's palInfo/cgi logic to properly isolate palette remapping during rendering.
-	parts := strings.SplitAfterN(c.def, "/", -1)
-	pathname := strings.Join(parts[:len(parts)-1], "")
-
-	// Read ACT palettes
 	for x := 0; x < len(c.pal_files) && x < len(c.pal); x++ {
 		if c.pal_files[x] == "" {
 			continue
@@ -1683,7 +1682,7 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			continue
 		}
 
-		pal, err := readActPalette(pathname + c.pal_files[x])
+		pal, err := readActPalette(chardir + c.pal_files[x])
 		if err != nil {
 			fmt.Println("Error reading " + c.pal_files[x])
 			continue
@@ -1691,7 +1690,12 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 
 		// For SFFv1, append the ACT palettes so they don't overwrite the unique unshared ones
 		if h.Version[0] == 1 {
-			targetIdx = len(sff.palList.palettes)
+			// But only append if this specific slot isn't already mapped
+			if existingIdx, exists := sff.palList.PalTable[[2]uint16{1, palSlot}]; exists {
+				targetIdx = existingIdx
+			} else {
+				targetIdx = len(sff.palList.palettes)
+			}
 		}
 
 		// Update the PalTable mapping

@@ -730,6 +730,8 @@ func (t *Texture_VK) MapInternalFormat(i int32) vk.Format {
 // Renderer_VK
 
 type Renderer_VK struct {
+	firstFrame bool
+
 	destroyResourceQueues     [2]chan VulkanResource
 	destroyResourceQueueIndex uint32
 	enableModel               bool
@@ -4688,6 +4690,7 @@ func (r *Renderer_VK) CreatePipelineCache() error {
 // Render initialization.
 // Creates the default shaders, the framebuffer and enables MSAA.
 func (r *Renderer_VK) Init() {
+	r.firstFrame = true
 	r.allocatedImageMemory = 0
 	r.enableModel = sys.cfg.Video.EnableModel
 	r.enableShadow = sys.cfg.Video.EnableModelShadow
@@ -4876,9 +4879,10 @@ func (r *Renderer_VK) DestroyResources(queueLength int) {
 }
 
 func (r *Renderer_VK) BeginFrame(clearColor bool) {
-	firstFrame := sys.gameFPSprevcount == 0
-	if !firstFrame {
+	if !r.firstFrame {
 		vk.WaitForFences(r.device, 1, r.fences[:1], vk.True, 10*1000*1000*1000)
+	} else {
+		r.firstFrame = false
 	}
 	vk.ResetFences(r.device, 1, r.fences[:1])
 	r.destroyResourceQueueIndex = (r.destroyResourceQueueIndex + 1) % 2

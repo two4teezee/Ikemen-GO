@@ -74,10 +74,10 @@ BUILDDIR="build"
 DELAYLIB_DIR="$BUILDDIR/delaylib"
 FFMPEG_SRCDIR="$BUILDDIR/ffmpeg-src"
 
-# Elecbyte screenpack assets
-SCREENPACK_REPO="${SCREENPACK_REPO:-https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git}"
+# Screenpack assets
+SCREENPACK_REPO="${SCREENPACK_REPO:-https://github.com/ikemen-engine/Ikemen-GO-Screenpack.git}"
 SCREENPACK_REF="${SCREENPACK_REF:-master}"
-SCREENPACK_DIR="$REPO_ROOT/$BUILDDIR/elecbyte-screenpack"
+SCREENPACK_DIR="$REPO_ROOT/$BUILDDIR/screenpack"
 
 # Android APK packaging (ikemen-droid)
 BUILD_ANDROID_APK="${BUILD_ANDROID_APK:-1}"  # 1=yes, 0=no

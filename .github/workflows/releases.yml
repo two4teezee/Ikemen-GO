@@ -172,8 +172,8 @@ jobs:
           # Must exist BEFORE Android Docker Compose runs so it is visible in the bind-mounted workspace.
           FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
 
-          SCREENPACK_LIC_MAIN="https://raw.githubusercontent.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack/main/LICENCE.txt"
-          SCREENPACK_LIC_MASTER="https://raw.githubusercontent.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack/master/LICENCE.txt"
+          SCREENPACK_LIC_MAIN="https://raw.githubusercontent.com/ikemen-engine/Ikemen-GO-Screenpack/main/LICENCE.txt"
+          SCREENPACK_LIC_MASTER="https://raw.githubusercontent.com/ikemen-engine/Ikemen-GO-Screenpack/master/LICENCE.txt"
 
           FFMPEG_LGPL="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/COPYING.LGPLv2.1"
           FFMPEG_LICENSE_MD="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/LICENSE.md"
@@ -193,7 +193,7 @@ jobs:
             echo
             echo "Section 2: Bundled Assets (Creative Commons)"
             echo "-------------------------------------------"
-            echo "Screenpack license from Ikemen_GO-Elecbyte-Screenpack/LICENCE.txt:"
+            echo "Screenpack license from Ikemen-GO-Screenpack/LICENCE.txt:"
             echo
             ( curl -fsSL "$SCREENPACK_LIC_MAIN" || curl -fsSL "$SCREENPACK_LIC_MASTER" )
             echo
@@ -354,14 +354,14 @@ jobs:
           fi
 
           # 2) Bring in runtime assets
-          git clone https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack.git
+          git clone https://github.com/ikemen-engine/Ikemen-GO-Screenpack.git
           cp -r data font external \
-                Ikemen_GO-Elecbyte-Screenpack/chars \
-                Ikemen_GO-Elecbyte-Screenpack/data \
-                Ikemen_GO-Elecbyte-Screenpack/font \
-                Ikemen_GO-Elecbyte-Screenpack/sound \
-                Ikemen_GO-Elecbyte-Screenpack/stages \
-                Ikemen_GO-Elecbyte-Screenpack/video \
+                Ikemen-GO-Screenpack/chars \
+                Ikemen-GO-Screenpack/data \
+                Ikemen-GO-Screenpack/font \
+                Ikemen-GO-Screenpack/sound \
+                Ikemen-GO-Screenpack/stages \
+                Ikemen-GO-Screenpack/video \
                 deploy/
 
           # 3) Include readme

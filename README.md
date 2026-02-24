@@ -24,7 +24,7 @@ For setup and platform-specific steps, see [BUILDING.md](./BUILDING.md).
 It covers Windows, Linux (including ARM64), macOS (Apple Silicon and Intel), and Android (APK via Docker).
 
 ### Debugging
-In order to run the compiled Ikemen GO executable, you will need to download the [engine dependencies](https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack) and unpack them into the Ikemen-GO source directory. After that, you can use [Goland](https://www.jetbrains.com/go/) or [Visual Studio Code](https://code.visualstudio.com/) to debug.
+In order to run the compiled Ikemen GO executable, you will need to download the [engine dependencies](https://github.com/ikemen-engine/Ikemen-GO-Screenpack) and unpack them into the Ikemen-GO source directory. After that, you can use [Goland](https://www.jetbrains.com/go/) or [Visual Studio Code](https://code.visualstudio.com/) to debug.
 
 ## Troubleshooting
 If you run into any issues with Ikemen Go, you can report it on our [issue tracker](https://github.com/ikemen-engine/Ikemen-GO/issues). It is recommend to read [this page](https://github.com/ikemen-engine/Ikemen-GO/blob/develop/CONTRIBUTING.md) before submitting a bug report.
@@ -32,7 +32,7 @@ If you run into any issues with Ikemen Go, you can report it on our [issue track
 ## References
 - [The original reposity of Ikemen GO.](https://osdn.net/users/supersuehiro/pf/ikemen_go/) This project was forked from this repository due to its original author seemingly abandoning the project.
 
-- [The default motif bundled with the engine.](https://github.com/ikemen-engine/Ikemen_GO-Elecbyte-Screenpack) Note that this motif is licensed under CC-BY 3 rather than Ikemen GO's source, which is MIT.
+- [The default motif bundled with the engine.](https://github.com/ikemen-engine/Ikemen-GO-Screenpack) Note that this motif is licensed under CC-BY 3 rather than Ikemen GO's source, which is MIT.
 
 ## Name
 "Ikemen" is an acronym of:

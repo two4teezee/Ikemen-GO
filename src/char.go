@@ -4776,8 +4776,8 @@ func (c *Char) helperIndexTrigger(idx int32) *Char {
 }
 
 func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	return BytecodeBool(c.getHelperChainIndex(id.ToI()) != nil)
 }
@@ -5004,19 +5004,19 @@ func (c *Char) animElemNo(time int32) BytecodeValue {
 	if c.anim != nil && time >= -c.anim.curtime {
 		return BytecodeInt(c.anim.AnimElemNo(time))
 	}
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) animElemTime(elem int32) BytecodeValue {
 	if elem >= 1 && c.anim != nil && int(elem) <= len(c.anim.frames) {
 		return BytecodeInt(c.anim.AnimElemTime(elem))
 	}
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) animExist(wc *Char, anim BytecodeValue) BytecodeValue {
-	if anim.IsSF() {
-		return BytecodeSF()
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	if c != wc {
 		return c.selfAnimExist(anim)
@@ -5434,8 +5434,8 @@ func (c *Char) numEnemy() int32 {
 
 // For NumExplod trigger
 func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
-	if eid.IsSF() {
-		return BytecodeSF()
+	if eid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	id := eid.ToI()
@@ -5462,8 +5462,8 @@ func (c *Char) numPlayer() int32 {
 
 // For NumText trigger
 func (c *Char) numText(textid BytecodeValue) BytecodeValue {
-	if textid.IsSF() {
-		return BytecodeSF()
+	if textid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	id := textid.ToI()
@@ -5474,8 +5474,8 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) BytecodeValue {
-	if eid.IsSF() {
-		return BytecodeSF()
+	if eid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id = eid.ToI()
 	var i = int(idx.ToI())
@@ -5560,8 +5560,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 }
 
 func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
-	if chid.IsSF() {
-		return BytecodeSF()
+	if chid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	var id = chid.ToI()
@@ -5660,12 +5660,12 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeFloat(0)
 	}
 
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
+	if hid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id, count int32 = hid.ToI(), 0
 
@@ -5705,8 +5705,8 @@ func (c *Char) numProj() int32 {
 }
 
 func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	// Helpers cannot own projectiles
@@ -5733,8 +5733,8 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
+	if hid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id, n int32 = hid.ToI(), 0
 	for _, tid := range c.targets {
@@ -5811,8 +5811,8 @@ func (c *Char) pauseTimeTrigger() int32 {
 }
 
 func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Cancel || c.helperIndex > 0 {
@@ -5822,8 +5822,8 @@ func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype == PC_Cancel || c.helperIndex > 0 {
@@ -5833,8 +5833,8 @@ func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Guarded || c.helperIndex > 0 {
@@ -5844,8 +5844,8 @@ func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projHitTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Hit || c.helperIndex > 0 {
@@ -5903,15 +5903,15 @@ func (c *Char) screenWidth() float32 {
 }
 
 func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
-	if anim.IsSF() {
-		return BytecodeSF()
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
-	if stateno.IsSF() {
-		return BytecodeSF()
+	if stateno.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	_, ok := c.gi().states[stateno.ToI()]
 	return BytecodeBool(ok)
@@ -7632,7 +7632,7 @@ func (c *Char) initCnsVar() {
 func (c *Char) varGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	// Check var (map)
 	val, ok := c.cnsvar[i]
@@ -7647,7 +7647,7 @@ func (c *Char) varGet(i int32) BytecodeValue {
 func (c *Char) fvarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnsfvar[i]
@@ -7660,7 +7660,7 @@ func (c *Char) fvarGet(i int32) BytecodeValue {
 func (c *Char) sysVarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnssysvar[i]
@@ -7673,7 +7673,7 @@ func (c *Char) sysVarGet(i int32) BytecodeValue {
 func (c *Char) sysFvarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnssysfvar[i]
@@ -7686,7 +7686,7 @@ func (c *Char) sysFvarGet(i int32) BytecodeValue {
 func (c *Char) varSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnsvar[i] = v // Create or update the key
@@ -7696,7 +7696,7 @@ func (c *Char) varSet(i, v int32) BytecodeValue {
 func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnsfvar[i] = v
@@ -7706,7 +7706,7 @@ func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
 func (c *Char) sysVarSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnssysvar[i] = v
@@ -7716,7 +7716,7 @@ func (c *Char) sysVarSet(i, v int32) BytecodeValue {
 func (c *Char) sysFvarSet(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnssysfvar[i] = v
@@ -7726,7 +7726,7 @@ func (c *Char) sysFvarSet(i int32, v float32) BytecodeValue {
 func (c *Char) varAdd(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnsvar[i]; ok {
@@ -7740,7 +7740,7 @@ func (c *Char) varAdd(i, v int32) BytecodeValue {
 func (c *Char) fvarAdd(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnsfvar[i]; ok {
@@ -7754,7 +7754,7 @@ func (c *Char) fvarAdd(i int32, v float32) BytecodeValue {
 func (c *Char) sysVarAdd(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnssysvar[i]; ok {
@@ -7768,7 +7768,7 @@ func (c *Char) sysVarAdd(i, v int32) BytecodeValue {
 func (c *Char) sysFvarAdd(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnssysfvar[i]; ok {
@@ -7899,8 +7899,8 @@ func (c *Char) getSingleStageBg(id int32, idx int, log bool) *backGround {
 
 // For NumStageBG trigger
 func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	bid := id.ToI()
@@ -8635,7 +8635,7 @@ func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
 
 func (c *Char) rdDistX(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.facing * c.distX(rd, oc)
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -8649,7 +8649,7 @@ func (c *Char) rdDistX(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.distY(rd, oc)
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -8663,7 +8663,7 @@ func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) rdDistZ(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.distZ(rd, oc)
 	return BytecodeFloat(dist)
@@ -8671,7 +8671,7 @@ func (c *Char) rdDistZ(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else {
 		dist := c.facing * c.bodyDistX(p2, oc)
 		if c.stWgi().mugenver[0] != 1 {
@@ -8683,7 +8683,7 @@ func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistY(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else if oc.stWgi().ikemenver[0] == 0 && oc.stWgi().ikemenver[1] == 0 {
 		return c.rdDistY(c.p2(), oc) // In Mugen, P2BodyDist Y simply does the same as P2Dist Y
 	} else {
@@ -8693,7 +8693,7 @@ func (c *Char) p2BodyDistY(oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistZ(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else {
 		return BytecodeFloat(c.bodyDistZ(p2, oc))
 	}
@@ -9044,7 +9044,7 @@ func (c *Char) remapSpritePreset(preset string) {
 // MapSet() sets a map to a specific value.
 func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	if s == "" {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	key := strings.ToLower(s)
 	switch scType {

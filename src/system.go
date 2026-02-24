@@ -1415,8 +1415,8 @@ func (s *System) playerID(id int32) *Char {
 }
 
 func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	char := s.playerID(id.ToI())
 	return BytecodeBool(char != nil)
@@ -1448,16 +1448,16 @@ func (s *System) playerIndex(idx int32) *Char {
 // TODO: This is redundant since the index always exists if "NumPlayer >= idx-1"
 // Maybe remove it or make it ignore destroyed helpers at least
 func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
-	if idx.IsSF() {
-		return BytecodeSF()
+	if idx.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	char := s.playerIndex(idx.ToI())
 	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
-	if no.IsSF() {
-		return BytecodeSF()
+	if no.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	exist := false
 	number := int(no.ToI() - 1)

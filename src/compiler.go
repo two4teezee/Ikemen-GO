@@ -7246,7 +7246,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 		} else {
 			for {
 				// Parse arguments
-				be, err := c.typedExp(c.expBoolOr, &expr, VT_SFalse)
+				be, err := c.typedExp(c.expBoolOr, &expr, VT_Undefined)
 				if err != nil {
 					return err
 				}
@@ -7285,7 +7285,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 				var be BytecodeExp
 				if i < int(bf.numArgs)-1 {
 					// Argument followed by ','
-					if be, err = c.argExpression(&expr, VT_SFalse); err != nil {
+					if be, err = c.argExpression(&expr, VT_Undefined); err != nil {
 						return err
 					}
 					if c.token == "" {
@@ -7296,7 +7296,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 					}
 				} else {
 					// Last argument followed by ')'
-					if be, err = c.typedExp(c.expBoolOr, &expr, VT_SFalse); err != nil {
+					if be, err = c.typedExp(c.expBoolOr, &expr, VT_Undefined); err != nil {
 						return err
 					}
 					if c.token == "" {
@@ -7364,7 +7364,7 @@ func (c *Compiler) letAssign(line *string, root bool,
 		for i, n := range names {
 			var be BytecodeExp
 			if i < len(names)-1 {
-				be, err = c.argExpression(&expr, VT_SFalse)
+				be, err = c.argExpression(&expr, VT_Undefined)
 				if err != nil {
 					return err
 				}
@@ -7375,7 +7375,7 @@ func (c *Compiler) letAssign(line *string, root bool,
 					return err
 				}
 			} else {
-				if be, err = c.fullExpression(&expr, VT_SFalse); err != nil {
+				if be, err = c.fullExpression(&expr, VT_Undefined); err != nil {
 					return err
 				}
 			}
@@ -7529,7 +7529,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				}
 				expr = otk + " " + expr
 				otk = c.token
-				if stex, err := c.fullExpression(&expr, VT_SFalse); err != nil {
+				if stex, err := c.fullExpression(&expr, VT_Undefined); err != nil {
 					return err
 				} else {
 					*ctrls = append(*ctrls, StateExpr(stex))

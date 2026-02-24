@@ -1,5 +1,6 @@
 #if __VERSION__ >= 450
 	// VULKAN PATH
+	#define ENABLE_SHADOW
 	#define COMPAT_TEXTURE texture
 	#define COMPAT_TEXTURE_CUBE texture
 	#define COMPAT_TEXTURE_CUBE_LOD textureLod

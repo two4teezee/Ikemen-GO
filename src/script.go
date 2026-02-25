@@ -2720,7 +2720,7 @@ func systemScriptInit(l *lua.LState) {
 				default:
 					continue
 				}
-				if len(btns) > 0 && sys.button(btns, controllerIdx) {
+				if len(btns) > 0 && sys.rawInput(btns, controllerIdx) {
 					l.Push(lua.LBool(true))
 					return 1
 				}
@@ -4515,6 +4515,9 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		})
+		sys.uiConsumeInputFrame = sys.frameCounter + 1
+		sys.uiLastInputToken = ""
+		sys.lastInputController = -1
 		return 0
 	})
 	luaRegister(l, "setLastInputController", func(l *lua.LState) int {

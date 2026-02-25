@@ -327,6 +327,7 @@ type System struct {
 
 	lastInputController int
 	uiLastInputToken    string
+	uiConsumeInputFrame int32
 
 	// For Android support
 	baseDir string
@@ -982,12 +983,36 @@ func (s *System) anyButton() bool {
 	return s.anyHardButton()
 }
 
-func (s *System) button(btns []string, controllerNo int) bool {
+func (s *System) buttonController(btns []string) int {
+	for _, btn := range btns {
+		for i, cl := range s.commandLists {
+			if cl != nil && cl.GetState(btn) {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+func (s *System) stepCommandLists() {
+	for i, cl := range s.commandLists {
+		if cl == nil || cl.Buffer == nil {
+			continue
+		}
+		// Step commands only if the buffer has already stepped. Prevents rapid fire inputs
+		if cl.InputUpdate(nil, i) {
+			cl.Step(false, false, false, false, 0)
+		}
+	}
+}
+
+// rawInput checks the per-controller raw input buffer (InputBuffer) instead of command states.
+// Returns true if any of the provided keys were pressed this frame (buffer time == 1).
+// Supported keys: B, D, F, U, L, R, a, b, c, x, y, z, s, d, w, m
+// D/U/B/F also recognize LS axis tokens: D -> LS_Y+, U -> LS_Y-, B -> LS_X-, F -> LS_X+.
+func (s *System) rawInput(btns []string, controllerIdx int) bool {
 	// Direction token -> matching LS axis token.
 	dirOf := func(tok string) byte {
-		if len(tok) == 2 && tok[0] == '$' {
-			tok = tok[1:]
-		}
 		if len(tok) != 1 {
 			return 0
 		}
@@ -1012,33 +1037,75 @@ func (s *System) button(btns []string, controllerNo int) bool {
 			return ""
 		}
 	}
-
 	lastAxis := ""
 	switch s.uiLastInputToken {
 	case "LS_Y+", "LS_Y-", "LS_X-", "LS_X+":
 		lastAxis = s.uiLastInputToken
 	}
 	lastDir := dirOf(s.uiLastInputToken)
-
 	checkOne := func(i int, cl *CommandList) bool {
-		if cl == nil {
+		if cl == nil || cl.Buffer == nil {
 			return false
 		}
-		// Resolve which controller slot should feed this command list.
-		for _, btn := range btns {
-			// Command-system state
-			dir := dirOf(btn)
-			if cl.GetState(btn) {
+		ib := cl.Buffer
+		for _, raw := range btns {
+			raw = strings.TrimSpace(raw)
+			if raw == "" {
+				continue
+			}
+			tok := raw
+			dir := dirOf(raw)
+			// 1) Digital/raw-buffer check (pressed this frame == 1)
+			pressedThisFrame := false
+			switch tok {
+			case "B":
+				if ib.Bb == 1 { pressedThisFrame = true; ib.Bb = 2 }
+			case "D":
+				if ib.Db == 1 { pressedThisFrame = true; ib.Db = 2 }
+			case "F":
+				if ib.Fb == 1 { pressedThisFrame = true; ib.Fb = 2 }
+			case "U":
+				if ib.Ub == 1 { pressedThisFrame = true; ib.Ub = 2 }
+			case "L":
+				if ib.Lb == 1 { pressedThisFrame = true; ib.Lb = 2 }
+			case "R":
+				if ib.Rb == 1 { pressedThisFrame = true; ib.Rb = 2 }
+			case "a":
+				if ib.ab == 1 { pressedThisFrame = true; ib.ab = 2 }
+			case "b":
+				if ib.bb == 1 { pressedThisFrame = true; ib.bb = 2 }
+			case "c":
+				if ib.cb == 1 { pressedThisFrame = true; ib.cb = 2 }
+			case "x":
+				if ib.xb == 1 { pressedThisFrame = true; ib.xb = 2 }
+			case "y":
+				if ib.yb == 1 { pressedThisFrame = true; ib.yb = 2 }
+			case "z":
+				if ib.zb == 1 { pressedThisFrame = true; ib.zb = 2 }
+			case "s":
+				if ib.sb == 1 { pressedThisFrame = true; ib.sb = 2 }
+			case "d":
+				if ib.db == 1 { pressedThisFrame = true; ib.db = 2 }
+			case "w":
+				if ib.wb == 1 { pressedThisFrame = true; ib.wb = 2 }
+			case "m":
+				if ib.mb == 1 { pressedThisFrame = true; ib.mb = 2 }
+			default:
+				pressedThisFrame = false
+			}
+			if pressedThisFrame {
+				if s.uiConsumeInputFrame != 0 && s.frameCounter == s.uiConsumeInputFrame {
+					continue
+				}
 				// Avoid "same direction, different type" conflict (axis->dir) on the same controller.
 				if dir != 0 && s.lastInputController == i && lastAxis == axisOf(dir) {
 					continue
 				}
 				s.lastInputController = i
-				s.uiLastInputToken = btn
+				s.uiLastInputToken = raw
 				return true
 			}
-
-			// Also allow LS axis for D/U/B/F (and $D/$U/$B/$F).
+			// 2) LS axis fallback for D/U/B/F
 			if dir != 0 {
 				axisTok := axisOf(dir)
 				if axisTok != "" {
@@ -1046,7 +1113,12 @@ func (s *System) button(btns []string, controllerNo int) bool {
 					if s.lastInputController == i && lastDir == dir {
 						continue
 					}
+					// Note: IsControllerButtonPressed sets sys.lastInputController/uiLastInputToken itself
+					// and handles neutral-gating; it also resets the buffer to prevent double triggers.
 					if cl.IsControllerButtonPressed(axisTok, i) {
+						if s.uiConsumeInputFrame != 0 && s.frameCounter == s.uiConsumeInputFrame {
+							continue
+						}
 						return true
 					}
 				}
@@ -1054,43 +1126,19 @@ func (s *System) button(btns []string, controllerNo int) bool {
 		}
 		return false
 	}
-
-	if controllerNo >= 0 {
-		if controllerNo < len(s.commandLists) {
-			return checkOne(controllerNo, s.commandLists[controllerNo])
+	if controllerIdx >= 0 {
+		if controllerIdx < len(s.commandLists) {
+			return checkOne(controllerIdx, s.commandLists[controllerIdx])
 		}
 		return false
 	}
-
+	found := false
 	for i := 0; i < len(s.commandLists); i++ {
 		if checkOne(i, s.commandLists[i]) {
-			return true
+			found = true
 		}
 	}
-	return false
-}
-
-func (s *System) buttonController(btns []string) int {
-	for _, btn := range btns {
-		for i, cl := range s.commandLists {
-			if cl != nil && cl.GetState(btn) {
-				return i
-			}
-		}
-	}
-	return -1
-}
-
-func (s *System) stepCommandLists() {
-	for i, cl := range s.commandLists {
-		if cl == nil || cl.Buffer == nil {
-			continue
-		}
-		// Step commands only if the buffer has already stepped. Prevents rapid fire inputs
-		if cl.InputUpdate(nil, i) {
-			cl.Step(false, false, false, false, 0)
-		}
-	}
+	return found
 }
 
 func (s *System) netplay() bool {
@@ -1099,7 +1147,7 @@ func (s *System) netplay() bool {
 
 func (s *System) escExit() bool {
 	if sys.gameMode == "demo" || sys.netplay() {
-		if sys.button([]string{"m"}, -1) || sys.esc {
+		if sys.rawInput([]string{"m"}, -1) || sys.esc {
 			if sys.netplay() {
 				sys.esc = true
 			}

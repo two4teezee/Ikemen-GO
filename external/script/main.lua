@@ -129,18 +129,6 @@ function main.f_commandAdd(name, cmd, tim, buf)
 end
 --main.f_commandAdd("KonamiCode", "~U,U,D,D,B,F,B,F,b,a,s", 300, 1)
 
---resets command buffer
-function main.f_cmdBufReset(pn)
-	esc(false)
-	if pn ~= nil then
-		commandBufReset(main.t_cmd[pn])
-		return
-	end
-	for i = 1, gameOption('Config.Players') do
-		commandBufReset(main.t_cmd[i])
-	end
-end
-
 --returns value depending on button pressed (a = 1; a + start = 7 etc.)
 function main.f_btnPalNo(p)
 	local s = 0
@@ -418,6 +406,24 @@ function main.f_fadeReset(fadeType, fadeGroup)
 			main.fadeStart = main.fadeStart + main.fadeCnt - fadeGroup[fadeType].time
 		end
 	end
+end
+
+function main.f_fadeSkip(controller, key)
+	if esc() or getInput(-1, motif[main.group].menu.cancel.key) then
+		-- consume the input so it doesn't also act as "back" after the fade is skipped
+		esc(false)
+		resetKey()
+		-- fast-forward fade to completion
+		main.fadeCnt = 0
+		if main.fadeGroup ~= nil and main.fadeType ~= nil
+			and main.fadeGroup[main.fadeType] ~= nil
+			and main.fadeGroup[main.fadeType].time ~= nil then
+			main.fadeStart = getFrameCount() - main.fadeGroup[main.fadeType].time - 1
+		end
+		main.fadeActive = false
+		return true
+	end
+	return false
 end
 
 --copy table content into new table
@@ -836,7 +842,6 @@ function main.f_commandLine()
 		synchronize()
 		main.f_clearShuffleTables()
 		math.randomseed(sszRandom())
-		main.f_cmdBufReset()
 		refresh()
 	end
 	local params = table.concat(t_params, ", ")
@@ -909,7 +914,6 @@ function main.f_warning(text, sec, background, overlay, titleData, textData, can
 	textImgSetText(textData, text)
 	resetKey()
 	esc(false)
-	main.f_cmdBufReset()
 	while true do
 		if esc() or getInput(-1, sec.menu.cancel.key) then
 			esc(false)
@@ -1687,7 +1691,6 @@ function main.f_default()
 	setWinCount(1, 0)
 	setWinCount(2, 0)
 	textImgReset(motif.select_info.title.TextSpriteData)
-	main.f_cmdBufReset()
 	demoFrameCounter = 0
 	hook.run("main.f_default")
 end
@@ -1834,7 +1837,6 @@ main.t_itemname = {
 		else
 			sndPlay(motif.Snd, motif[main.group].cancel.snd[1], motif[main.group].cancel.snd[2])
 		end
-		main.f_cmdBufReset()
 		return t
 	end,
 	--NETPLAY SURVIVAL
@@ -1968,7 +1970,9 @@ main.t_itemname = {
 			synchronize()
 			main.f_clearShuffleTables()
 			math.randomseed(sszRandom())
-			main.f_cmdBufReset()
+			main.f_menuSnap(motif[main.group])
+			main.f_menuItemBgAnimReset(motif[main.group])
+			main.f_fadeReset('fadein', motif[main.group])
 			main.menu.submenu.server.loop()
 			replayStop()
 			exitNetPlay()
@@ -1984,7 +1988,9 @@ main.t_itemname = {
 			synchronize()
 			main.f_clearShuffleTables()
 			math.randomseed(sszRandom())
-			main.f_cmdBufReset()
+			main.f_menuSnap(motif[main.group])
+			main.f_menuItemBgAnimReset(motif[main.group])
+			main.f_fadeReset('fadein', motif[main.group])
 			main.menu.submenu.server.loop()
 			replayStop()
 			exitNetPlay()
@@ -2428,7 +2434,10 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 			else
 				main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif[main.group], motif[main.background], false)
 			end
-			if main.menu.f ~= nil and not main.fadeActive then
+			-- While fading, ignore normal menu inputs, but still allow ESC / menu-cancel to skip the fade.
+			if main.fadeActive then
+				main.f_fadeSkip(-1, motif[main.group].menu.cancel.key)
+			elseif main.menu.f ~= nil then
 				main.f_unlock(false)
 				main.menu.f()
 				main.f_default()
@@ -2479,7 +2488,6 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 						motif.infobox.title.TextSpriteData,
 						motif.infobox.text.TextSpriteData
 					)
-					main.f_cmdBufReset()
 				elseif motif.attract_mode.enabled and getKey(motif.attract_mode.options.keycode) then
 					main.f_default()
 					main.menu.f = main.t_itemname.options()
@@ -2747,7 +2755,6 @@ function main.f_replay()
 			synchronize()
 			main.f_clearShuffleTables()
 			math.randomseed(sszRandom())
-			main.f_cmdBufReset()
 			main.menu.submenu.server.loop()
 			replayStop()
 			exitNetPlay()
@@ -2882,7 +2889,6 @@ function main.f_hiscoreDisplay(itemname)
 	if not motif.hiscore_info.enabled or stats.modes == nil or stats.modes[mode] == nil or stats.modes[mode].ranking == nil then
 		return false
 	end
-	main.f_cmdBufReset()
 	sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 	main.f_hiscore(mode, -1)
 	--main.f_fadeReset('fadein', motif[main.group])
@@ -2898,7 +2904,6 @@ function main.f_attractStart()
 	local press_blinktime, insert_blinktime = 0, 0
 	local press_switched, insert_switched = false, false
 	local drawPress, drawInsert = true, true
-	main.f_cmdBufReset()
 	clearColor(motif.attractbgdef.bgclearcolor[1], motif.attractbgdef.bgclearcolor[2], motif.attractbgdef.bgclearcolor[3])
 	bgReset(motif.attractbgdef.BGDef)
 	main.f_fadeReset('fadein', motif.attract_mode)
@@ -3066,6 +3071,7 @@ function main.f_demo()
 	if demoFrameCounter < motif.demo_mode.title.waittime then
 		return
 	end
+	demoFrameCounter = 0
 	main.f_fadeReset('fadeout', motif.demo_mode)
 	main.menu.f = main.t_itemname.demo()
 end
@@ -3340,7 +3346,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	--   skipBG0, skipBG1         : skip bg layer 0 / 1
 	--   skipTitle                : skip drawing the title
 	--   forceInactive            : treat "selected" row as inactive (no highlight, no cursor)
-	--   skipInput                : do not call main.f_cmdBufReset() inside this function
+	--   skipInput                : 
 	opts = opts or {}
 	local offx = opts.offx or 0
 	local offy = opts.offy or 0
@@ -3536,10 +3542,7 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 	main.f_fadeAnim(main.fadeGroup)
 	--frame transition
 	if not skipInput then
-		if main.fadeActive or main.fadeCnt > 0 then
-			main.f_cmdBufReset()
-		elseif main.fadeType == 'fadeout' then
-			main.f_cmdBufReset()
+		if (not main.fadeActive and main.fadeCnt <= 0) and main.fadeType == 'fadeout' then
 			return --skip last frame rendering
 		end
 	end

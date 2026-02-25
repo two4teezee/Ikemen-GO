@@ -1437,42 +1437,47 @@ function options.f_createMenu(tbl, bool_main)
 			else
 				main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, motif.option_info, motif.optionbgdef, false)
 			end
-			cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info, motif.option_info.cursor)
-			textImgReset(motif.option_info.title.TextSpriteData)
-			textImgSetText(motif.option_info.title.TextSpriteData, tbl.title)
-			if main.close and not main.fadeActive then
-				bgReset(motif[main.background].BGDef)
-				main.f_fadeReset('fadein', motif[main.group])
-				playBgm({source = "motif.title", interrupt = true})
-				main.close = false
-				break
-			elseif (esc() or getInput(-1, motif.option_info.menu.cancel.key)) and not main.fadeActive then
-				sndPlay(motif.Snd, motif.option_info.cancel.snd[1], motif.option_info.cancel.snd[2])
-				if bool_main then
-					if options.modified then
-						--options.f_saveCfg(options.needReload)
+			-- While fading, ignore normal option-menu inputs, but still allow ESC / menu-cancel to skip the fade.
+			if main.fadeActive then
+				main.f_fadeSkip(-1, motif.option_info.menu.cancel.key)
+			else
+				cursorPosY, moveTxt, item = main.f_menuCommonCalc(t, item, cursorPosY, moveTxt, motif.option_info, motif.option_info.cursor)
+				textImgReset(motif.option_info.title.TextSpriteData)
+				textImgSetText(motif.option_info.title.TextSpriteData, tbl.title)
+				if main.close then
+					bgReset(motif[main.background].BGDef)
+					main.f_fadeReset('fadein', motif[main.group])
+					playBgm({source = "motif.title", interrupt = true})
+					main.close = false
+					break
+				elseif esc() or getInput(-1, motif.option_info.menu.cancel.key) then
+					sndPlay(motif.Snd, motif.option_info.cancel.snd[1], motif.option_info.cancel.snd[2])
+					if bool_main then
+						if options.modified then
+							--options.f_saveCfg(options.needReload)
+						end
+						if options.needReload then
+							main.f_warning(motif.warning_info.text.text.noreload, motif.option_info, motif.optionbgdef)
+						end
+						main.f_fadeReset('fadeout', motif.option_info)
+						main.close = true
+					else
+						break
 					end
-					if options.needReload then
-						main.f_warning(motif.warning_info.text.text.noreload, motif.option_info, motif.optionbgdef)
+				elseif options.t_itemname[t[item].itemname] ~= nil then
+					if not options.t_itemname[t[item].itemname](tbl, item, cursorPosY, moveTxt) then
+						break
 					end
-					main.f_fadeReset('fadeout', motif.option_info)
-					main.close = true
-				else
-					break
-				end
-			elseif options.t_itemname[t[item].itemname] ~= nil then
-				if not options.t_itemname[t[item].itemname](tbl, item, cursorPosY, moveTxt) then
-					break
-				end
-			elseif getInput(-1, motif.option_info.menu.done.key) then
-				local f = t[item].itemname
-				if tbl.submenu[f].loop ~= nil then
-					sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
-					tbl.submenu[f].loop()
-					main.f_menuSnap(motif.option_info)
-					main.f_menuItemBgAnimReset(motif.option_info)
-				elseif not options.t_itemname[f](tbl, item, cursorPosY, moveTxt) then
-					break
+				elseif getInput(-1, motif.option_info.menu.done.key) then
+					local f = t[item].itemname
+					if tbl.submenu[f].loop ~= nil then
+						sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
+						tbl.submenu[f].loop()
+						main.f_menuSnap(motif.option_info)
+						main.f_menuItemBgAnimReset(motif.option_info)
+					elseif not options.t_itemname[f](tbl, item, cursorPosY, moveTxt) then
+						break
+					end
 				end
 			end
 		end
@@ -2131,7 +2136,6 @@ end
 
 function options.f_keyCfgInit(cfgType, title)
 	resetKey()
-	main.f_cmdBufReset()
 	cursorPosY = configall_start
 	item = configall_start
 	item_start = configall_start
@@ -2205,7 +2209,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 			captureActive = false
 			item = resetIndex
 			cursorPosY = resetIndex
-			main.f_cmdBufReset()
 		--spacebar (disable key)
 		elseif getKey('SPACE') then
 			key = 'SPACE'
@@ -2288,7 +2291,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 					captureActive = false
 					captureMode = nil
 					options.f_setKeyConfig(cfgType)
-					main.f_cmdBufReset()
 					forcedDir = 0 -- keep cursor where we reset it
 				else
 					-- continue Config all: simulate one "down" press so scrolling / wrapping is handled by common menu code
@@ -2299,7 +2301,6 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				captureActive = false
 				captureMode = nil
 				options.f_setKeyConfig(cfgType)
-				main.f_cmdBufReset()
 				forcedDir = 0
 			end
 			key = ''

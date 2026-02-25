@@ -1796,7 +1796,6 @@ end
 --resets various data
 function start.f_selectReset(hardReset)
 	esc(false)
-	main.f_cmdBufReset()
 	resetGameStats()
 	setMatchNo(1)
 	setConsecutiveWins(1, 0)
@@ -2369,7 +2368,6 @@ function start.f_selectScreen()
 	textImgSetText(motif.select_info.record.TextSpriteData, start.f_getRecordText())
 
 	local staticDrawList = start.updateDrawList()
-	local stageResetInput = false
 	start.needUpdateDrawList = false
 
 	while not selScreenEnd do
@@ -2526,10 +2524,6 @@ function start.f_selectScreen()
 		if start.p[1].selEnd and start.p[2].selEnd and start.p[1].teamEnd and start.p[2].teamEnd then
 			restoreCursor = true
 			if main.stageMenu and not stageEnd then --Stage select
-				if not stageResetInput then
-					main.f_cmdBufReset()
-					stageResetInput = true
-				end
 				start.f_stageMenu()
 				if not timerReset then
 					timerSelect = motif.select_info.timer.displaytime
@@ -2596,10 +2590,7 @@ function start.f_selectScreen()
 		--draw fadein / fadeout
 		main.f_fadeAnim(motif.select_info)
 		--frame transition
-		if main.fadeActive or main.fadeCnt > 0 then
-			main.f_cmdBufReset()
-		elseif fadeOutStarted or start.escFlag then
-			main.f_cmdBufReset()
+		if (not main.fadeActive and main.fadeCnt <= 0) and (fadeOutStarted or start.escFlag) then
 			selScreenEnd = true
 			break --skip last frame rendering
 		end
@@ -2860,7 +2851,6 @@ function start.f_teamMenu(side, t)
 				start.p[side].ratio = true
 			end
 			start.p[side].teamEnd = true
-			main.f_cmdBufReset(start.f_menuCmd(side))
 		end
 	end
 	--t_selCmd table appending once team mode selection is finished
@@ -3320,7 +3310,6 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 							animUpdate(start.p[side].t_selTemp[member].face2_data)
 						end
 					end
-					main.f_cmdBufReset(cmd)
 					selectState = 1
 				end
 			end
@@ -3544,8 +3533,6 @@ function start.f_selectVersus(active, t_orderSelect)
 							sndPlay(motif.Snd, motif.vs_screen['p' .. side].value.snd[1], motif.vs_screen['p' .. side].value.snd[2])
 							snd = true
 						end
-						-- reset pressed button to prevent remapped P2 from registering P1 input
-						main.f_cmdBufReset(side)
 					end
 				end
 			end
@@ -3678,10 +3665,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			fadeOutStarted = true
 			escFlag = true
 		end
-		if main.fadeActive or main.fadeCnt > 0 then
-			main.f_cmdBufReset()
-		elseif fadeOutStarted or start.escFlag then
-			main.f_cmdBufReset()
+		if (not main.fadeActive and main.fadeCnt <= 0) and (fadeOutStarted or start.escFlag) then
 			clearColor(motif.versusbgdef.bgclearcolor[1], motif.versusbgdef.bgclearcolor[2], motif.versusbgdef.bgclearcolor[3])
 			break --skip last frame rendering
 		end

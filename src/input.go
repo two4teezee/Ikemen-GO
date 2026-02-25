@@ -1921,6 +1921,7 @@ type NetConnection struct {
 	preMatchTime int32
 	closing      chan struct{}
 	closeOnce    sync.Once
+	uiInputDebounced bool
 }
 
 func NewNetConnection() *NetConnection {
@@ -1984,6 +1985,7 @@ func (nc *NetConnection) Close() {
 		nc.recvEnd = nil
 	}
 	nc.conn = nil
+	nc.uiInputDebounced = false
 }
 
 func (nc *NetConnection) GetHostGuestRemap() (host, guest int) {
@@ -2129,7 +2131,20 @@ func (nc *NetConnection) Connect(server, port string) {
 }
 
 func (nc *NetConnection) IsConnected() bool {
-	return nc != nil && nc.conn != nil
+	if nc == nil {
+		return false
+	}
+	connected := nc.conn != nil
+	// Stop a held button from registering as a fresh press and auto-accepting the first menu.
+	if connected && !nc.uiInputDebounced {
+		nc.uiInputDebounced = true
+		sys.uiConsumeInputFrame = sys.frameCounter + 1
+		sys.uiLastInputToken = ""
+		sys.lastInputController = -1
+	} else if !connected {
+		nc.uiInputDebounced = false
+	}
+	return connected
 }
 
 func (nc *NetConnection) readNetInput(i int) [14]bool {

@@ -601,14 +601,14 @@ func (s *Storyboard) step() {
 
 	// Cancel handling
 	if !s.SceneDef.DisableCancel && (sys.esc ||
-		(!sys.motif.AttractMode.Enabled && sys.button(s.SceneDef.Key.Cancel, -1)) ||
+		(!sys.motif.AttractMode.Enabled && sys.rawInput(s.SceneDef.Key.Cancel, -1)) ||
 		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)) {
 		sys.esc = false
 		s.cancel = true
 	}
 
 	// Skip handling
-	skipPressed := sys.button(s.SceneDef.Key.Skip, -1)
+	skipPressed := sys.rawInput(s.SceneDef.Key.Skip, -1)
 
 	// Keep dialogue cursor aligned with time progression.
 	s.syncDialoguePosToTime()
@@ -754,11 +754,6 @@ func (s *Storyboard) step() {
 		if s.currentSceneIndex >= len(s.sceneKeys) {
 			if s.musicPlaying && s.SceneDef.StopMusic {
 				sys.bgm.Stop()
-			}
-			for _, cl := range sys.commandLists {
-				if cl != nil {
-					cl.BufReset()
-				}
 			}
 			s.active = false
 			// Do not force-reset fadeOut here; it will self-reset after its last draw.

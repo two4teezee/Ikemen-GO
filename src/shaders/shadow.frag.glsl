@@ -15,37 +15,34 @@ struct Light
 	float shadowBias;
 	float shadowMapFar;
 };
+
 #if __VERSION__ >= 450
-#define COMPAT_TEXTURE texture
-layout (constant_id = 3) const bool useTexture = false;
-layout(binding = 0) uniform EnvironmentUniform {
-	layout(offset = 1536) Light lights[4];
-};
-layout(binding = 1) uniform MaterialUniform {
-	mat3 texTransform;
-	vec4 baseColorFactor;
-	float ambientOcclusionStrength;
-	float alphaThreshold;
-	bool enableAlpha;
-};
-layout(binding = 5) uniform sampler2D tex;
-layout(location = 0) in vec4 FragPos;
-layout(location = 1) in float vColor;
-layout(location = 2) in vec2 texcoord;
-layout(location = 3) in flat int lightIndex;
+	// VULKAN PATH
+	#define COMPAT_TEXTURE texture
+	layout (constant_id = 3) const bool useTexture = false;
+	layout(binding = 0) uniform EnvironmentUniform {
+		layout(offset = 1536) Light lights[4];
+	};
+	layout(binding = 1) uniform MaterialUniform {
+		mat3 texTransform;
+		vec4 baseColorFactor;
+		float ambientOcclusionStrength;
+		float alphaThreshold;
+		bool enableAlpha;
+	};
+	layout(binding = 5) uniform sampler2D tex;
+	layout(location = 0) in vec4 FragPos;
+	layout(location = 1) in float vColor;
+	layout(location = 2) in vec2 texcoord;
+	layout(location = 3) in flat int lightIndex;
 #else
-	// GLES / OPENGL PATH
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE texture
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-			precision highp sampler2DArray;
-		#endif
-	#else
-		#define COMPAT_VARYING varying
-		#define COMPAT_TEXTURE texture2D
+	// OPENGL / GLES PATH
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE texture
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
+		precision highp sampler2DArray;
 	#endif
 
 	uniform sampler2D tex;

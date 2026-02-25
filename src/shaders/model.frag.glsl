@@ -58,56 +58,37 @@
 	layout(location = 6) in vec4 lightSpacePos[4];
 	layout(location = 0) out vec4 FragColor;
 #else
-	// GLES / OPENGL PATH
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#ifdef GL_ES
-			#extension GL_EXT_texture_cube_map_array : enable
-		#else
-			#extension GL_ARB_texture_cube_map_array : enable
-		#endif
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE texture
-		#define COMPAT_TEXTURE_CUBE texture
-		#define COMPAT_TEXTURE_CUBE_LOD textureLod
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-		#endif
-		#ifdef ENABLE_SHADOW
-			#ifdef GL_ES
-			// Avoid sampler-array dynamic indexing on GLES by declaring 4 separate samplers
-			uniform samplerCube shadowCubeMap0;
-			uniform samplerCube shadowCubeMap1;
-			uniform samplerCube shadowCubeMap2;
-			uniform samplerCube shadowCubeMap3;
-			#else
-			uniform samplerCubeArray shadowCubeMap;
-			#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0),index)).r
-			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
-			#endif
-			const bool useShadowMap = true;
-		#else
-			const bool useShadowMap = false;
-		#endif
-		out vec4 FragColor;
+	// OPENGL / GLES PATH
+	#ifdef GL_ES
+		#extension GL_EXT_texture_cube_map_array : enable
 	#else
-		#extension GL_ARB_shader_texture_lod : enable
-		#ifdef ENABLE_SHADOW
-			uniform samplerCube shadowCubeMap[4];
-			#define COMPAT_SHADOW_MAP_TEXTURE() textureCube(shadowCubeMap[index],vec3(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0))).r
-			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() textureCube(shadowCubeMap[index],xyz).r
-			const bool useShadowMap = true;
-		#else
-			#define COMPAT_SHADOW_MAP_TEXTURE() 1.0
-			#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() 1.0
-			const bool useShadowMap = false;
-		#endif
-		#define COMPAT_VARYING varying
-		#define FragColor gl_FragColor
-		#define COMPAT_TEXTURE texture2D
-		#define COMPAT_TEXTURE_CUBE textureCube
-		#define COMPAT_TEXTURE_CUBE_LOD textureCubeLod
+		#extension GL_ARB_texture_cube_map_array : enable
 	#endif
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE texture
+	#define COMPAT_TEXTURE_CUBE texture
+	#define COMPAT_TEXTURE_CUBE_LOD textureLod
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
+	#endif
+	#ifdef ENABLE_SHADOW
+		#ifdef GL_ES
+		// Avoid sampler-array dynamic indexing on GLES by declaring 4 separate samplers
+		uniform samplerCube shadowCubeMap0;
+		uniform samplerCube shadowCubeMap1;
+		uniform samplerCube shadowCubeMap2;
+		uniform samplerCube shadowCubeMap3;
+		#else
+		uniform samplerCubeArray shadowCubeMap;
+		#define COMPAT_SHADOW_MAP_TEXTURE() texture(shadowCubeMap,vec4(1.0, -(xy.y*2.0-1.0),-(xy.x*2.0-1.0),index)).r
+		#define COMPAT_SHADOW_CUBE_MAP_TEXTURE() texture(shadowCubeMap,vec4(xyz,index)).r
+		#endif
+		const bool useShadowMap = true;
+	#else
+		const bool useShadowMap = false;
+	#endif
+	out vec4 FragColor;
 
 	struct Light {
 		vec3 direction; float range;

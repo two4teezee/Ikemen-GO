@@ -1,36 +1,31 @@
 #define MATH_PI 3.1415926535897932384626433832795
 
 #if __VERSION__ >= 450
-#extension GL_EXT_multiview : enable
-#define currentFace gl_ViewIndex
-layout(binding = 0)uniform samplerCube cubeMap;
-#define COMPAT_TEXTURE_CUBE_LOD textureLod
-layout(push_constant, std430) uniform u {
-	int sampleCount;
-	int distribution;
-	int width;
-	float roughness;
-	float intensityScale;
-	bool isLUT;
-};
-layout(location = 0) in vec2 texcoord;
-layout(location = 0) out vec4 FragColor;
+	// VULKAN PATH
+	#extension GL_EXT_multiview : enable
+	#define currentFace gl_ViewIndex
+	layout(binding = 0)uniform samplerCube cubeMap;
+	#define COMPAT_TEXTURE_CUBE_LOD textureLod
+	layout(push_constant, std430) uniform u {
+		int sampleCount;
+		int distribution;
+		int width;
+		float roughness;
+		float intensityScale;
+		bool isLUT;
+	};
+	layout(location = 0) in vec2 texcoord;
+	layout(location = 0) out vec4 FragColor;
 #else
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE_CUBE_LOD textureLod
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-		#endif
-		out vec4 FragColor;
-	#else
-		#extension GL_EXT_gpu_shader4 : enable
-		#extension GL_ARB_shader_texture_lod : enable
-		#define COMPAT_VARYING varying
-		#define FragColor gl_FragColor
-		#define COMPAT_TEXTURE_CUBE_LOD textureCubeLod
+	// OPENGL / GLES PATH
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE_CUBE_LOD textureLod
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
 	#endif
+	out vec4 FragColor;
+
 	uniform samplerCube cubeMap;
 	uniform int sampleCount, distribution, width, currentFace;
 	uniform float roughness, intensityScale;
@@ -131,7 +126,7 @@ MicrofacetDistributionSample Lambertian(vec2 xi, float roughness)
 
 	return lambertian;
 }
-#if __VERSION__ >= 130
+
 // Hammersley Points on the Hemisphere
 // CC BY 3.0 (Holger Dammertz)
 // http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html
@@ -148,23 +143,7 @@ float radicalInverse_VdC(uint bits)
 vec2 hammersley2d(int i, int N) {
 	return vec2(float(i)/float(N), radicalInverse_VdC(uint(i)));
 }
-#else
-float radicalInverse(int n, int base) {
-	float invBase = 1.0 / float(base);
-	float reversedDigits = 0.0;
-	float invBaseN = 1.0;
-	while (n > 0) {
-		int nextDigit = n % base;
-		reversedDigits = reversedDigits * base + float(nextDigit);
-		n = n / base;
-		invBaseN *= invBase;
-	}
-	return reversedDigits * invBaseN;
-}
-vec2 hammersley2d(int i, int N) {
-	return vec2(float(i)/float(N), radicalInverse(i, 2));
-}
-#endif
+
 // TBN generates a tangent bitangent normal coordinate frame from the normal
 // (the normal must be normalized)
 mat3 generateTBN(vec3 normal)

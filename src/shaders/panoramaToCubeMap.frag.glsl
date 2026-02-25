@@ -1,26 +1,24 @@
 #define MATH_PI 3.1415926535897932384626433832795
 #define MATH_INV_PI (1.0 / MATH_PI)
+
 #if __VERSION__ >= 450
-#extension GL_EXT_multiview : enable
-#define COMPAT_TEXTURE texture
-#define currentFace gl_ViewIndex
-layout(location = 0) in vec2 texcoord;
-layout(binding = 0) uniform sampler2D panorama;
-layout(location = 0) out vec4 FragColor;
+	// VULKAN PATH
+	#extension GL_EXT_multiview : enable
+	#define COMPAT_TEXTURE texture
+	#define currentFace gl_ViewIndex
+	layout(location = 0) in vec2 texcoord;
+	layout(binding = 0) uniform sampler2D panorama;
+	layout(location = 0) out vec4 FragColor;
 #else
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE texture
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-		#endif
-		out vec4 FragColor;
-	#else
-		#define COMPAT_VARYING varying
-		#define FragColor gl_FragColor
-		#define COMPAT_TEXTURE texture2D
+	// OPENGL / GLES PATH
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE texture
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
 	#endif
+	out vec4 FragColor;
+
 	COMPAT_VARYING vec2 texcoord;
 	uniform int currentFace;
 	uniform sampler2D panorama;

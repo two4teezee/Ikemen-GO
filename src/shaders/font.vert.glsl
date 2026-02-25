@@ -1,18 +1,15 @@
 #if __VERSION__ >= 450
-layout(location = 0) in vec2 vert;
-layout(location = 1) in vec2 vertTexCoord;
-layout(push_constant, std430) uniform u {
-layout(offset = 16) vec2 resolution;
-};
-layout(location = 0) out vec2 fragTexCoord;
+	// VULKAN PATH
+	layout(location = 0) in vec2 vert;
+	layout(location = 1) in vec2 vertTexCoord;
+	layout(push_constant, std430) uniform u {
+	layout(offset = 16) vec2 resolution;
+	};
+	layout(location = 0) out vec2 fragTexCoord;
 #else
-	#if __VERSION__ >= 130
-		#define COMPAT_VARYING out
-		#define COMPAT_ATTRIBUTE in
-	#else
-		#define COMPAT_VARYING varying
-		#define COMPAT_ATTRIBUTE attribute
-	#endif
+	// OPENGL / GLES PATH
+	#define COMPAT_VARYING out
+	#define COMPAT_ATTRIBUTE in
 
 	uniform vec2 resolution;
 

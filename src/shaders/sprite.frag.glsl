@@ -19,19 +19,13 @@
 	layout(location = 0) out vec4 FragColor;
 #else
 	// OPENGL / GLES PATH
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE texture
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-		#endif
-		out vec4 FragColor;
-	#else
-		#define COMPAT_VARYING varying
-		#define FragColor gl_FragColor
-		#define COMPAT_TEXTURE texture2D
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE texture
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
 	#endif
+	out vec4 FragColor;
 
 	uniform sampler2D tex;
 	uniform sampler2D pal;

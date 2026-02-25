@@ -1116,7 +1116,7 @@ func (s *System) netplay() bool {
 
 func (s *System) escExit() bool {
 	if sys.gameMode == "demo" || sys.netplay() {
-		if sys.button([]string{"m"}, -1) {
+		if sys.button([]string{"m"}, -1) || sys.esc {
 			if sys.netplay() {
 				sys.esc = true
 			}

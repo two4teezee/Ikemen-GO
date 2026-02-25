@@ -457,7 +457,9 @@ type Renderer_GL32 struct {
 	cubemapFilteringShader  *ShaderProgram_GL32
 	modelVertexBuffer       [2]uint32
 	modelIndexBuffer        [2]uint32
-	vao                     uint32
+	spriteVAO               uint32
+	modelVAO                uint32
+	postVAO                 uint32
 
 	enableModel  bool
 	enableShadow bool
@@ -589,17 +591,23 @@ func (r *Renderer_GL32) Init() {
 		r.EnableDebug()
 	}
 
-	gl.GenVertexArrays(1, &r.vao)
-	gl.BindVertexArray(r.vao)
+	// Generate VAO's
+	gl.GenVertexArrays(1, &r.spriteVAO)
+	gl.GenVertexArrays(1, &r.modelVAO)
+	gl.GenVertexArrays(1, &r.postVAO)
 
-	gl.GenBuffers(1, &r.postVertBuffer)
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, len(postVertData), unsafe.Pointer(&postVertData[0]), gl.STATIC_DRAW)
-
+	// Generate buffers
 	gl.GenBuffers(1, &r.vertexBuffer)
 	gl.GenBuffers(2, &r.modelVertexBuffer[0])
 	gl.GenBuffers(2, &r.modelIndexBuffer[0])
+	gl.GenBuffers(1, &r.postVertBuffer)
+
+	// Initialize post-processing vertex buffer
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
+	gl.BufferData(gl.ARRAY_BUFFER, len(postVertData), unsafe.Pointer(&postVertData[0]), gl.STATIC_DRAW)
+
+	// Unbind for safety
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 	// Sprite shader
 	r.spriteShader, _ = r.newShaderProgram(vertShader, fragShader, "", "Main Shader", true)
@@ -607,6 +615,21 @@ func (r *Renderer_GL32) Init() {
 	r.spriteShader.RegisterUniforms("modelview", "projection", "x1x2x4x3",
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue")
 	r.spriteShader.RegisterTextures("pal", "tex")
+
+	// Configure spriteVAO
+	gl.BindVertexArray(r.spriteVAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
+
+	locPos := r.spriteShader.attributes["position"]
+	gl.EnableVertexAttribArray(uint32(locPos))
+	gl.VertexAttribPointerWithOffset(uint32(locPos), 2, gl.FLOAT, false, 16, 0)
+
+	locUV := r.spriteShader.attributes["uv"]
+	gl.EnableVertexAttribArray(uint32(locUV))
+	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
+
+	// Unbind for safety
+	gl.BindVertexArray(0)
 
 	if r.enableModel {
 		if err := r.InitModelShader(); err != nil {
@@ -620,12 +643,22 @@ func (r *Renderer_GL32) Init() {
 	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
 	r.postShaderSelect = make([]*ShaderProgram_GL32, len(sys.cfg.Video.ExternalShaders)+1)
 
+	// Configure postVAO
+	gl.BindVertexArray(r.postVAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
+
 	// External Shaders
 	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
 		r.postShaderSelect[i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00", string(sys.externalShaders[1][i])+"\x00",
 			"", fmt.Sprintf("Postprocess Shader #%v", i), true)
 		r.postShaderSelect[i].RegisterAttributes("VertCoord") // "TexCoord" was registered but never used
 		r.postShaderSelect[i].RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime")
+
+		// Configure postVAO for this specific shader's attribute location
+		if loc, ok := r.postShaderSelect[i].attributes["VertCoord"]; ok && loc >= 0 {
+			gl.EnableVertexAttribArray(uint32(loc))
+			gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+		}
 	}
 
 	// Identity shader (no postprocessing)
@@ -633,8 +666,18 @@ func (r *Renderer_GL32) Init() {
 	identShader.RegisterAttributes("VertCoord")
 	//identShader.RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime") // None of these are used
 
+	// Configure postVAO for the identity shader's attribute location
+	if loc, ok := identShader.attributes["VertCoord"]; ok && loc >= 0 {
+		gl.EnableVertexAttribArray(uint32(loc))
+		gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+	}
+
 	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
+
+	// Unbind for safety
+	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 	// Toggle MSAA first
 	if sys.msaa > 0 {
@@ -870,9 +913,18 @@ func (r *Renderer_GL32) EnableDebug() {
 	fmt.Printf("[GL Debug] Debug mode enabled\n")
 }
 
+/*
 func (r *Renderer_GL32) DebugCheckLeaks(nextprog uint32) {
+	// Only query attributes if a VAO is bound
+	var currentVAO int32
+	gl.GetIntegerv(gl.VERTEX_ARRAY_BINDING, &currentVAO)
+	if currentVAO == 0 {
+		return 
+	}
+
 	var enabled int32
 	leaked := []int{}
+	// Only check up to the hardware limit
 	for slot := uint32(0); slot < 16; slot++ {
 		gl.GetVertexAttribiv(slot, gl.VERTEX_ATTRIB_ARRAY_ENABLED, &enabled)
 		if enabled != 0 {
@@ -880,9 +932,10 @@ func (r *Renderer_GL32) DebugCheckLeaks(nextprog uint32) {
 		}
 	}
 	if len(leaked) > 0 {
-		fmt.Printf("[GL Debug] Changing to program %d with program %d's attributes %v enabled.\n", nextprog, r.program, leaked)
+		fmt.Printf("[GL Debug] Changing to program %d with attributes %v enabled in VAO %d.\n", nextprog, leaked, currentVAO)
 	}
 }
+*/
 
 func (r *Renderer_GL32) DebugVerifyCache() {
 	if !r.debugMode {
@@ -984,7 +1037,7 @@ func (r *Renderer_GL32) IsShadowEnabled() bool {
 }
 
 func (r *Renderer_GL32) BeginFrame(clearColor bool) {
-	gl.BindVertexArray(r.vao)
+	//gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])
 	if clearColor {
@@ -1044,7 +1097,7 @@ func (r *Renderer_GL32) EndFrame() {
 
 		// tell GL to use our vertex array object
 		// this'll be where our quad is stored
-		gl.BindVertexArray(r.vao)
+		gl.BindVertexArray(r.postVAO)
 
 		// this is here because it is undefined
 		// behavior to write to the same FBO
@@ -1090,34 +1143,8 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, scaleMode)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, scaleMode)
 
-		// this actually draws the image to the FBO
-		// by constructing a quad (2 tris)
-		gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
-
-		// construct the UVs of the quad
-		// VertCoord is the primary position attribute
-		if loc, ok := postShader.attributes["VertCoord"]; ok && loc >= 0 {
-			vLoc := uint32(loc)
-			gl.EnableVertexAttribArray(vLoc)
-			gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 0, nil)
-		}
-
-		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
-		//if loc, ok := postShader.attributes["TexCoord"]; ok && loc >= 0 {
-		//	tLoc := uint32(loc)
-		//	gl.EnableVertexAttribArray(tLoc)
-		//	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
-		//}
-
 		// construct the quad and draw it
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
-
-		// Disable attributes after use
-		for _, loc := range postShader.attributes {
-			if loc >= 0 {
-				gl.DisableVertexAttribArray(uint32(loc))
-			}
-		}
 	}
 }
 
@@ -1221,7 +1248,7 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	// State leak detector
 	// TODO: Just move to separate VAO's if we drop GL2.1
 	if r.debugMode {
-		r.DebugCheckLeaks(prog)
+		//r.DebugCheckLeaks(prog)
 		r.DebugVerifyCache()
 	}
 
@@ -1284,37 +1311,18 @@ func (r *Renderer_GL32) SetPipeline() {
 
 	r.ChangeProgram(r.spriteShader.program)
 
-	gl.BindVertexArray(r.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
-
-	// Disable all active attributes
-	// Prevents "vertex shader is being recompiled" errors
-	// Note: We use 11 attributes tops. This may need to be updated in the future
-	//for i := uint32(0); i < 11; i++ {
-	//	gl.DisableVertexAttribArray(i)
-	//}
-
-	locPos := r.spriteShader.attributes["position"]
-	gl.EnableVertexAttribArray(uint32(locPos))
-	gl.VertexAttribPointerWithOffset(uint32(locPos), 2, gl.FLOAT, false, 16, 0)
-
-	locUV := r.spriteShader.attributes["uv"]
-	gl.EnableVertexAttribArray(uint32(locUV))
-	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
+	gl.BindVertexArray(r.spriteVAO)
 }
 
 func (r *Renderer_GL32) ReleasePipeline() {
-	loc := r.spriteShader.attributes["position"]
-	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.spriteShader.attributes["uv"]
-	gl.DisableVertexAttribArray(uint32(loc))
+	gl.BindVertexArray(0)
 	//r.DisableBlending()
 }
 
 func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	r.ChangeProgram(r.shadowMapShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
 
 	gl.Viewport(0, 0, 1024, 1024)
@@ -1463,7 +1471,7 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environment) {
 	r.ChangeProgram(r.modelShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])
@@ -2078,7 +2086,7 @@ func (r *Renderer_GL32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 
 	r.ChangeProgram(r.panoramaToCubeMapShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 
@@ -2114,7 +2122,7 @@ func (r *Renderer_GL32) RenderFilteredCubeMap(distribution int32, cubeTex Textur
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
 
@@ -2161,7 +2169,7 @@ func (r *Renderer_GL32) RenderLUT(distribution int32, cubeTex Texture, lutTex Te
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 

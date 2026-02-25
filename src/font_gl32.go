@@ -58,9 +58,9 @@ func (r *FontRenderer_GL32) Init(renderer interface{}) {
 	gl.EnableVertexAttribArray(tLoc)
 	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 
-	// Clean up binding state, but not attribute state
-	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	// Unbind for safety
 	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 }
 
 // LoadFont loads the specified font at the given scale.
@@ -107,16 +107,11 @@ func (r *FontRenderer_GL32) SetFontPipeline() {
 
 	mr.ChangeProgram(r.shaderProgram.program)
 
+	// Bind VAO
 	gl.BindVertexArray(r.vao)
+
+	// We need to bind VBO here as well
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vbo)
-
-	vLoc := uint32(r.shaderProgram.attributes["vert"])
-	gl.EnableVertexAttribArray(vLoc)
-	gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
-
-	tLoc := uint32(r.shaderProgram.attributes["vertTexCoord"])
-	gl.EnableVertexAttribArray(tLoc)
-	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 }
 
 // Printf draws a string to the screen, takes a list of arguments like printf
@@ -247,13 +242,8 @@ func (f *Font_GL32) renderGlyphBatch(vertices []float32, textureID uint32) {
 }
 
 func (r *FontRenderer_GL32) ReleaseFontPipeline() {
-	locVert := r.shaderProgram.attributes["vert"]
-	gl.DisableVertexAttribArray(uint32(locVert))
-	locTex := r.shaderProgram.attributes["vertTexCoord"]
-	gl.DisableVertexAttribArray(uint32(locTex))
-
-	//gl.BindVertexArray(0)
-	//gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 }
 
 // Width returns the width of a piece of text in pixels

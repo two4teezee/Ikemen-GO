@@ -213,7 +213,7 @@ options.t_itemname = {
 			if runtimeOS == 'android' then
 				modifyGameOption('Video.RenderMode', 'OpenGL ES 3.2')
 			else
-				modifyGameOption('Video.RenderMode', "OpenGL 3.2")
+				modifyGameOption('Video.RenderMode', "OpenGL 3.3")
 			end
 			modifyGameOption('Video.GameWidth', 1280)
 			modifyGameOption('Video.GameHeight', 720)
@@ -805,7 +805,7 @@ options.t_itemname = {
 	['gl32'] = function(t, item, cursorPosY, moveTxt)
 		if getInput(-1, motif.option_info.menu.done.key) then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Video.RenderMode', "OpenGL 3.2")
+			modifyGameOption('Video.RenderMode', "OpenGL 3.3")
 			options.modified = true
 			options.needReload = true
 			return false

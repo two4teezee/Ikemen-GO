@@ -1672,7 +1672,6 @@ function main.f_default()
 		{ratio = false, simul = false, single = false, tag = false, turns = false}, --which team modes should be selectable by P2 side
 	}
 	resetAILevel()
-	resetCommandInputSource()
 	resetRemapInput()
 	if not motif.attract_mode.enabled and start.challenger == 0 then
 		setCredits(-1) --amount of credits from the start (-1 = disabled)
@@ -1748,7 +1747,6 @@ main.t_itemname = {
 		main.f_setCredits()
 		remapInput(1, getLastInputController())
 		remapInput(getLastInputController(), 1)
-		setCommandInputSource(2, 1)
 		setGameMode('arcade')
 		hook.run("main.t_itemname")
 		if start.challenger == 0 then
@@ -1770,6 +1768,7 @@ main.t_itemname = {
 		main.teamMenu[2].single = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.bonus)
 		remapInput(1, getLastInputController())
+		remapInput(getLastInputController(), 1)
 		setGameMode('bonus')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -1800,7 +1799,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.freebattle)
 		remapInput(1, getLastInputController())
-		setCommandInputSource(2, 1)
+		remapInput(getLastInputController(), 1)
 		setGameMode('freebattle')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2004,6 +2003,7 @@ main.t_itemname = {
 			end
 		end
 		remapInput(1, getLastInputController())
+		remapInput(getLastInputController(), 1)
 		setGameMode(t[item].itemname)
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2050,7 +2050,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.survival)
 		remapInput(1, getLastInputController())
-		setCommandInputSource(2, 1)
+		remapInput(getLastInputController(), 1)
 		setGameMode('survival')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2176,7 +2176,7 @@ main.t_itemname = {
 		main.f_setCredits()
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.timeattack)
 		remapInput(1, getLastInputController())
-		setCommandInputSource(2, 1)
+		remapInput(getLastInputController(), 1)
 		setGameMode('timeattack')
 		hook.run("main.t_itemname")
 		return start.f_selectMode
@@ -2206,7 +2206,6 @@ main.t_itemname = {
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.training)
 		remapInput(1, getLastInputController())
 		remapInput(getLastInputController(), 1)
-		setCommandInputSource(2, 1)
 		setGameMode('training')
 		setHomeTeam(1)
 		hook.run("main.t_itemname")
@@ -2244,10 +2243,8 @@ main.t_itemname = {
 			textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.teamversus)
 		end
 		if start.challenger > 0 then
-			setCommandInputSource(2, start.challenger)
 			setGameMode('challenger')
 		else
-			setCommandInputSource(2, 2)
 			setGameMode('versus')
 		end
 		setHomeTeam(1)
@@ -2300,7 +2297,7 @@ main.t_itemname = {
 		main.teamMenu[2].turns = true
 		textImgSetText(motif.select_info.title.TextSpriteData, motif.select_info.title.text.watch)
 		remapInput(1, getLastInputController())
-		setCommandInputSource(2, 1)
+		remapInput(getLastInputController(), 1)
 		setGameMode('watch')
 		setHomeTeam(1)
 		hook.run("main.t_itemname")

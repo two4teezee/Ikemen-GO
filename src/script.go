@@ -2645,14 +2645,6 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[tn-1]))
 		return 1
 	})
-	luaRegister(l, "getCommandInputSource", func(l *lua.LState) int {
-		pn := int(numArg(l, 1))
-		if pn < 1 || pn > len(sys.commandInputSource) {
-			l.RaiseError("\nInvalid player number: %v\n", pn)
-		}
-		l.Push(lua.LNumber(sys.commandInputSource[pn-1] + 1))
-		return 1
-	})
 	luaRegister(l, "getDirectoryFiles", func(*lua.LState) int {
 		dir := l.NewTable()
 		filepath.Walk(strArg(l, 1), func(path string, info os.FileInfo, err error) error {
@@ -4164,10 +4156,6 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "resetCommandInputSource", func(l *lua.LState) int {
-		sys.resetCommandInputSource()
-		return 0
-	})
 	luaRegister(l, "resetKey", func(*lua.LState) int {
 		sys.keyInput = KeyUnknown
 		sys.keyString = ""
@@ -4417,15 +4405,6 @@ func systemScriptInit(l *lua.LState) {
 		} else {
 			sys.aiLevel[pn-1] = 0
 		}
-		return 0
-	})
-	luaRegister(l, "setCommandInputSource", func(l *lua.LState) int {
-		pn, src := int(numArg(l, 1)), int(numArg(l, 2))
-		if pn < 1 || pn > len(sys.commandInputSource) ||
-			src < 1 || src > len(sys.commandInputSource) {
-			l.RaiseError("\nInvalid player number: %v, %v\n", pn, src)
-		}
-		sys.commandInputSource[pn-1] = src - 1
 		return 0
 	})
 	luaRegister(l, "setConsecutiveWins", func(l *lua.LState) int {
@@ -4728,8 +4707,6 @@ func systemScriptInit(l *lua.LState) {
 				sys.cfg.IniFile.DeleteSection(fmt.Sprintf("Joystick_P%d", num))
 			}
 		}
-
-		sys.resetCommandInputSource()
 		return 0
 	})
 	luaRegister(l, "setPower", func(*lua.LState) int {

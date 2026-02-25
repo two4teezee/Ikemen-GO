@@ -127,8 +127,7 @@ type System struct {
 	home                    int
 	matchTime               int32
 	match                   int32
-	inputRemap              [MaxPlayerNo]int // Ingame player number (index) to human player number (value) pairing
-	commandInputSource      [MaxPlayerNo]int // command list index to controller index to read inputs from
+	inputRemap              [MaxPlayerNo]int
 	round                   int32
 	intro                   int32
 	curRoundTime            int32
@@ -901,12 +900,6 @@ func (s *System) tickSound() {
 	}
 }
 
-func (s *System) resetCommandInputSource() {
-	for i := range s.commandInputSource {
-		s.commandInputSource[i] = i
-	}
-}
-
 func (s *System) resetRemapInput() {
 	for i := range s.inputRemap {
 		s.inputRemap[i] = i
@@ -1032,19 +1025,15 @@ func (s *System) button(btns []string, controllerNo int) bool {
 			return false
 		}
 		// Resolve which controller slot should feed this command list.
-		src := i
-		if i >= 0 && i < len(s.commandInputSource) {
-			src = s.commandInputSource[i]
-		}
 		for _, btn := range btns {
 			// Command-system state
 			dir := dirOf(btn)
 			if cl.GetState(btn) {
 				// Avoid "same direction, different type" conflict (axis->dir) on the same controller.
-				if dir != 0 && s.lastInputController == src && lastAxis == axisOf(dir) {
+				if dir != 0 && s.lastInputController == i && lastAxis == axisOf(dir) {
 					continue
 				}
-				s.lastInputController = src
+				s.lastInputController = i
 				s.uiLastInputToken = btn
 				return true
 			}
@@ -1054,10 +1043,10 @@ func (s *System) button(btns []string, controllerNo int) bool {
 				axisTok := axisOf(dir)
 				if axisTok != "" {
 					// Avoid "same direction, different type" conflict (dir->axis) on the same controller.
-					if s.lastInputController == src && lastDir == dir {
+					if s.lastInputController == i && lastDir == dir {
 						continue
 					}
-					if cl.IsControllerButtonPressed(axisTok, src) {
+					if cl.IsControllerButtonPressed(axisTok, i) {
 						return true
 					}
 				}
@@ -1097,14 +1086,8 @@ func (s *System) stepCommandLists() {
 		if cl == nil || cl.Buffer == nil {
 			continue
 		}
-		// controller index is 0-based here.
-		// Allow overriding the input source per command list
-		controller := i
-		if i >= 0 && i < len(s.commandInputSource) {
-			controller = s.commandInputSource[i]
-		}
 		// Step commands only if the buffer has already stepped. Prevents rapid fire inputs
-		if cl.InputUpdate(nil, controller) {
+		if cl.InputUpdate(nil, i) {
 			cl.Step(false, false, false, false, 0)
 		}
 	}

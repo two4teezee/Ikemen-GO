@@ -1078,7 +1078,7 @@ func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundCh
 	if ch >= 0 && ch < sys.cfg.Sound.WavChannels {
 		for i := s.count() - 1; i >= 0; i-- {
 			if s.channels[i].IsPlaying() && s.channels[i].sfx.channel == ch {
-				if (lowpriority && priority <= s.channels[i].sfx.priority) || priority < s.channels[i].sfx.priority {
+				if lowpriority || priority < s.channels[i].sfx.priority {
 					return nil
 				}
 				s.channels[i].Stop()

@@ -3657,19 +3657,34 @@ func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int
 		axes := input.GetJoystickAxes(joyIdx)
 		btns := input.GetJoystickButtons(joyIdx)
 
-		// Determine active axis token (sticks first, then triggers), just like getJoystickKey().
+		// Determine active axis token (sticks first, then triggers)
 		active := CheckAxisForDpad(&axes, len(btns))
 		if active == "" {
 			active = CheckAxisForTrigger(&axes)
 		}
 
-		// When stick returns to neutral for the focused controller,
-		// clear last token so it can trigger again next time it leaves neutral.
+		// When axis returns to neutral, clear hold state for this controller
+		// so it can trigger again next time it leaves neutral.
 		if active == "" {
+			if controllerIdx == sys.uiAxisHoldController {
+				sys.uiAxisHoldController = -1
+				sys.uiAxisHoldToken = ""
+				sys.uiAxisHoldStartFrame = 0
+				sys.uiAxisNextRepeatFrame = 0
+			}
 			if controllerIdx == sys.lastInputController {
 				sys.uiLastInputToken = ""
 			}
 			return false
+		}
+
+		// Track which axis token is currently being held (per last-used controller).
+		// If it changed (direction swap without neutral), restart timing.
+		if sys.uiAxisHoldController != controllerIdx || sys.uiAxisHoldToken != active {
+			sys.uiAxisHoldController = controllerIdx
+			sys.uiAxisHoldToken = active
+			sys.uiAxisHoldStartFrame = sys.frameCounter
+			sys.uiAxisNextRepeatFrame = 0
 		}
 
 		// Only accept if the currently active axis matches the token being queried.
@@ -3677,8 +3692,18 @@ func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int
 			return false
 		}
 
-		// Prevent repeats while still held (must go neutral or change axis).
-		if active == sys.uiLastInputToken {
+		// Fire immediately on the activation frame then according to UI repeat timings while still held
+		fire := false
+		if sys.frameCounter == sys.uiAxisHoldStartFrame {
+			fire = true
+		} else {
+			// Align held counter with the digital buffer path (which bumps 1->2 on consume).
+			held := (sys.frameCounter - sys.uiAxisHoldStartFrame) + 2
+			if uiRepeatShouldFire(held) {
+				fire = true
+			}
+		}
+		if !fire {
 			return false
 		}
 

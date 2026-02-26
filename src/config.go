@@ -227,10 +227,8 @@ type Config struct {
 		SOCDResolution             int     `ini:"SOCDResolution"`
 		ControllerStickSensitivity float32 `ini:"ControllerStickSensitivity"`
 		XinputTriggerSensitivity   float32 `ini:"XinputTriggerSensitivity"`
-		UiRepeatDelayFrames        int32   `ini:"UiRepeatDelayFrames"`
-		UiRepeatSlowInterval       int32   `ini:"UiRepeatSlowInterval"`
-		UiRepeatFastAfterFrames    int32   `ini:"UiRepeatFastAfterFrames"`
-		UiRepeatFastInterval       int32   `ini:"UiRepeatFastInterval"`
+		UiRepeatDelay              int32   `ini:"UiRepeatDelay"`
+		UiRepeatRate               int32   `ini:"UiRepeatRate"`
 	} `ini:"Input"`
 	Keys     map[string]*KeysProperties `ini:"map:^(?i)Keys_P[0-9]+$" lua:"Keys"`
 	Joystick map[string]*KeysProperties `ini:"map:^(?i)Joystick_P[0-9]+$" lua:"Joystick"`
@@ -371,10 +369,8 @@ func (c *Config) normalize() {
 	}
 
 	c.SetValueUpdate("Input.SOCDResolution", int(Clamp(int32(c.Input.SOCDResolution), 0, 4)))
-	c.SetValueUpdate("Input.UiRepeatDelayFrames", int(Max(int32(c.Input.UiRepeatDelayFrames), 0)))
-	c.SetValueUpdate("Input.UiRepeatSlowInterval", int(Max(int32(c.Input.UiRepeatSlowInterval), 1)))
-	c.SetValueUpdate("Input.UiRepeatFastAfterFrames", int(Max(int32(c.Input.UiRepeatFastAfterFrames), 0)))
-	c.SetValueUpdate("Input.UiRepeatFastInterval", int(Max(int32(c.Input.UiRepeatFastInterval), 1)))
+	c.SetValueUpdate("Input.UiRepeatDelay", int(Max(int32(c.Input.UiRepeatDelay), 0)))
+	c.SetValueUpdate("Input.UiRepeatRate", int(Max(int32(c.Input.UiRepeatRate), 1)))
 	c.SetValueUpdate("Sound.MaxBGMVolume", int(Clamp(int32(c.Sound.MaxBGMVolume), 100, 250)))
 	c.SetValueUpdate("Sound.PanningRange", ClampF(c.Sound.PanningRange, 0, 100))
 	c.SetValueUpdate("Sound.PauseMasterVolume", int(Clamp(int32(c.Sound.PauseMasterVolume), 0, 100)))

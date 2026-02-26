@@ -340,7 +340,6 @@ type System struct {
 	uiAxisHoldToken      string
 	uiAxisHoldController int
 	uiAxisHoldStartFrame int32
-	uiAxisNextRepeatFrame int32
 
 	// For Android support
 	baseDir string
@@ -1024,20 +1023,11 @@ func uiRepeatShouldFire(held int32) bool {
 	if held <= 1 {
 		return false
 	}
-	if held < 1+sys.cfg.Input.UiRepeatDelayFrames {
+	// Wait for initial delay, then repeat every UiRepeatRate frames.
+	if held < 1+sys.cfg.Input.UiRepeatDelay {
 		return false
 	}
-	if held < 1+sys.cfg.Input.UiRepeatFastAfterFrames {
-		return (held-(1+sys.cfg.Input.UiRepeatDelayFrames))%sys.cfg.Input.UiRepeatSlowInterval == 0
-	}
-	return (held-(1+sys.cfg.Input.UiRepeatFastAfterFrames))%sys.cfg.Input.UiRepeatFastInterval == 0
-}
-
-func uiRepeatIntervalForHeld(held int32) int32 {
-	if held >= 1+sys.cfg.Input.UiRepeatFastAfterFrames {
-		return sys.cfg.Input.UiRepeatFastInterval
-	}
-	return sys.cfg.Input.UiRepeatSlowInterval
+	return (held-(1+sys.cfg.Input.UiRepeatDelay))%sys.cfg.Input.UiRepeatRate == 0
 }
 
 func (s *System) uiConsumeTokenThisFrame(controller int, tok string) bool {

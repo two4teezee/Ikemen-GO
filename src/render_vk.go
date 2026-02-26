@@ -5164,7 +5164,7 @@ func (r *Renderer_VK) EndFrame() {
 		}
 		vk.CmdBeginRenderPass(r.commandBuffers[0], &renderPassBeginInfo, vk.SubpassContentsInline)
 		vk.CmdBindPipeline(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.postProcessingProgram.pipelines[i])
-		vk.CmdBindDescriptorSets(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.postProcessingProgram.pipelineLayout, 0, 1, []vk.DescriptorSet{r.renderTargets[i].descriptorSet}, 0, nil)
+		vk.CmdBindDescriptorSets(r.commandBuffers[0], vk.PipelineBindPointGraphics, r.postProcessingProgram.pipelineLayout, 0, 1, []vk.DescriptorSet{r.renderTargets[i%2].descriptorSet}, 0, nil)
 		viewports := []vk.Viewport{{
 			MinDepth: 0.0,
 			MaxDepth: 1.0,

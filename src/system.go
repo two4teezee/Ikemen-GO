@@ -48,37 +48,37 @@ var sys = System{
 	bgPalFX:       newPalFX(),
 	ffx:           make(map[string]*FightFx),
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
-	sel:                 *newSelect(),
-	keyState:            make(map[Key]bool),
-	match:               1,
-	loader:              *newLoader(),
-	numSimul:            [...]int32{2, 2},
-	numTurns:            [...]int32{2, 2},
-	ignoreMostErrors:    true,
-	stageList:           make(map[int32]*Stage),
-	stageLocalcoords:    make(map[string][2]float32),
-	oldNextAddTime:      1,
-	commandLine:         make(chan string),
-	cam:                 *newCamera(),
-	mainThreadTask:      make(chan func(), 65536),
-	workpal:             make([]uint32, 256),
-	errLog:              log.New(NewLogWriter(), "", log.LstdFlags),
-	keyInput:            KeyUnknown,
-	saveState:           NewGameState(),
-	statePool:           NewGameStatePool(),
-	savePool:            NewGameStatePool(),
-	loadPool:            NewGameStatePool(),
-	luaStringVars:       make(map[string]string),
-	luaNumVars:          make(map[string]float32),
-	luaTables:           make([]*lua.LTable, 0),
-	commandLists:        make([]*CommandList, 0),
-	arenaSaveMap:        make(map[int]*arena.Arena),
-	arenaLoadMap:        make(map[int]*arena.Arena),
-	debugAccel:          1, // TODO: We probably shouldn't rely on this being initialized to 1
-	lastInputController: -1,
-	uiRepeatController:  -1,
+	sel:                  *newSelect(),
+	keyState:             make(map[Key]bool),
+	match:                1,
+	loader:               *newLoader(),
+	numSimul:             [...]int32{2, 2},
+	numTurns:             [...]int32{2, 2},
+	ignoreMostErrors:     true,
+	stageList:            make(map[int32]*Stage),
+	stageLocalcoords:     make(map[string][2]float32),
+	oldNextAddTime:       1,
+	commandLine:          make(chan string),
+	cam:                  *newCamera(),
+	mainThreadTask:       make(chan func(), 65536),
+	workpal:              make([]uint32, 256),
+	errLog:               log.New(NewLogWriter(), "", log.LstdFlags),
+	keyInput:             KeyUnknown,
+	saveState:            NewGameState(),
+	statePool:            NewGameStatePool(),
+	savePool:             NewGameStatePool(),
+	loadPool:             NewGameStatePool(),
+	luaStringVars:        make(map[string]string),
+	luaNumVars:           make(map[string]float32),
+	luaTables:            make([]*lua.LTable, 0),
+	commandLists:         make([]*CommandList, 0),
+	arenaSaveMap:         make(map[int]*arena.Arena),
+	arenaLoadMap:         make(map[int]*arena.Arena),
+	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
+	lastInputController:  -1,
+	uiRepeatController:   -1,
 	uiAxisHoldController: -1,
-	charVarsBackup:      make(map[int]CharVarBackup),
+	charVarsBackup:       make(map[int]CharVarBackup),
 }
 
 type TeamMode int32
@@ -337,9 +337,9 @@ type System struct {
 	uiRepeatFrame      int32
 
 	// UI repeat state for axis tokens (LS_*/DP_* etc)
-	uiAxisHoldToken      string
-	uiAxisHoldController int
-	uiAxisHoldStartFrame int32
+	uiAxisHoldToken       string
+	uiAxisHoldController  int
+	uiAxisHoldStartFrame  int32
 	uiAxisNextRepeatFrame int32
 
 	// For Android support
@@ -1163,25 +1163,55 @@ func (s *System) rawInput(btns []string, controllerIdx int) bool {
 					trigger = true
 				}
 			case "a":
-				if ib.ab == 1 { trigger = true; ib.ab = 2 }
+				if ib.ab == 1 {
+					trigger = true
+					ib.ab = 2
+				}
 			case "b":
-				if ib.bb == 1 { trigger = true; ib.bb = 2 }
+				if ib.bb == 1 {
+					trigger = true
+					ib.bb = 2
+				}
 			case "c":
-				if ib.cb == 1 { trigger = true; ib.cb = 2 }
+				if ib.cb == 1 {
+					trigger = true
+					ib.cb = 2
+				}
 			case "x":
-				if ib.xb == 1 { trigger = true; ib.xb = 2 }
+				if ib.xb == 1 {
+					trigger = true
+					ib.xb = 2
+				}
 			case "y":
-				if ib.yb == 1 { trigger = true; ib.yb = 2 }
+				if ib.yb == 1 {
+					trigger = true
+					ib.yb = 2
+				}
 			case "z":
-				if ib.zb == 1 { trigger = true; ib.zb = 2 }
+				if ib.zb == 1 {
+					trigger = true
+					ib.zb = 2
+				}
 			case "s":
-				if ib.sb == 1 { trigger = true; ib.sb = 2 }
+				if ib.sb == 1 {
+					trigger = true
+					ib.sb = 2
+				}
 			case "d":
-				if ib.db == 1 { trigger = true; ib.db = 2 }
+				if ib.db == 1 {
+					trigger = true
+					ib.db = 2
+				}
 			case "w":
-				if ib.wb == 1 { trigger = true; ib.wb = 2 }
+				if ib.wb == 1 {
+					trigger = true
+					ib.wb = 2
+				}
 			case "m":
-				if ib.mb == 1 { trigger = true; ib.mb = 2 }
+				if ib.mb == 1 {
+					trigger = true
+					ib.mb = 2
+				}
 			default:
 				trigger = false
 			}

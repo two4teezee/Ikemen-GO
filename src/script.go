@@ -4968,7 +4968,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
-		sys.stopAllCharSound()
+		sys.stopAllCharSounds()
 		return 0
 	})
 	luaRegister(l, "stopBgm", func(l *lua.LState) int {

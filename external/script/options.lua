@@ -253,10 +253,8 @@ options.t_itemname = {
 			--modifyGameOption('Input.SOCDResolution', 4)
 			--modifyGameOption('Input.ControllerStickSensitivity', 0.4)
 			--modifyGameOption('Input.XinputTriggerSensitivity', 0.5)
-			--modifyGameOption('Input.UiRepeatDelayFrames', 20)
-			--modifyGameOption('Input.UiRepeatSlowInterval', 4)
-			--modifyGameOption('Input.UiRepeatFastAfterFrames', 60)
-			--modifyGameOption('Input.UiRepeatFastInterval', 2)
+			--modifyGameOption('Input.UiRepeatDelay', 30)
+			--modifyGameOption('Input.UiRepeatRate', 4)
 
 			loadLifebar(motif.files.fight)
 			main.timeFramesPerCount = fightscreenvar("time.framespercount")

@@ -3670,7 +3670,6 @@ func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int
 				sys.uiAxisHoldController = -1
 				sys.uiAxisHoldToken = ""
 				sys.uiAxisHoldStartFrame = 0
-				sys.uiAxisNextRepeatFrame = 0
 			}
 			if controllerIdx == sys.lastInputController {
 				sys.uiLastInputToken = ""
@@ -3684,7 +3683,6 @@ func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int
 			sys.uiAxisHoldController = controllerIdx
 			sys.uiAxisHoldToken = active
 			sys.uiAxisHoldStartFrame = sys.frameCounter
-			sys.uiAxisNextRepeatFrame = 0
 		}
 
 		// Only accept if the currently active axis matches the token being queried.

@@ -1905,22 +1905,22 @@ func (nb *NetBuffer) readNetBufferAnalog() [6]int8 {
 
 // NetConnection manages the communication between players
 type NetConnection struct {
-	ln           *net.TCPListener
-	conn         *net.TCPConn
-	st           NetState
-	sendEnd      chan bool
-	recvEnd      chan bool
-	buf          [MaxSimul * 2]NetBuffer // We skip attached characters here because they never have human inputs
-	locIn        int
-	remIn        int
-	time         int32
-	stoppedcnt   int32
-	delay        int32
-	recording    *os.File
-	host         bool
-	preMatchTime int32
-	closing      chan struct{}
-	closeOnce    sync.Once
+	ln               *net.TCPListener
+	conn             *net.TCPConn
+	st               NetState
+	sendEnd          chan bool
+	recvEnd          chan bool
+	buf              [MaxSimul * 2]NetBuffer // We skip attached characters here because they never have human inputs
+	locIn            int
+	remIn            int
+	time             int32
+	stoppedcnt       int32
+	delay            int32
+	recording        *os.File
+	host             bool
+	preMatchTime     int32
+	closing          chan struct{}
+	closeOnce        sync.Once
 	uiInputDebounced bool
 }
 

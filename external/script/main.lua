@@ -1613,7 +1613,7 @@ function main.f_default()
 	}
 	main.coop = false --if mode should be recognized as coop
 	main.cpuSide = {false, true} --which side is controlled by CPU
-	main.dropDefeated = false --if defeated members should be removed from team
+	main.dropDefeated = false --if defeated turns members should be skipped in the next match
 	main.elimination = false --if single lose should stop further lua execution
 	main.exitSelect = false --if "clearing" the mode (matchno == -1) should go back to main menu
 	main.forceChar = {nil, nil} --predefined P1/P2 characters

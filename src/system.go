@@ -4770,7 +4770,25 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 
 		if sys.tmode[pn&1] == TM_Turns {
-			memberNo = int(sys.wins[^pn&1])
+			off := int32(0)
+			if sys.sel.gameParams != nil {
+				off = sys.sel.gameParams.TurnsOffset[pn&1]
+			}
+			if off < 0 {
+				off = 0
+			}
+			// Clamp numTurns if Lua sent inconsistent values.
+			// In Survival Turns we expect: totalSelected == off + numTurns.
+			if int(off) > nsel {
+				off = int32(nsel)
+			}
+			if sys.numTurns[pn&1] < 0 {
+				sys.numTurns[pn&1] = 0
+			}
+			if int(off)+int(sys.numTurns[pn&1]) > nsel {
+				sys.numTurns[pn&1] = int32(nsel) - off
+			}
+			memberNo = int(off) + int(sys.wins[^pn&1])
 		}
 
 		if nsel <= memberNo {
@@ -4941,8 +4959,25 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 
 func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, teamChars []int) {
 	// Reset face and name KO's
-	fa.numko = 0
-	nm.numko = 0
+	off := int32(0)
+	if sys.sel.gameParams != nil {
+		off = sys.sel.gameParams.TurnsOffset[pn&1]
+	}
+	if off < 0 {
+		off = 0
+	}
+	// Clamp to valid range so lifebar teammate rotation doesn't misbehave
+	if len(teamChars) == 0 {
+		fa.numko = 0
+		nm.numko = 0
+	} else {
+		maxOff := int32(len(teamChars) - 1)
+		if off > maxOff {
+			off = maxOff
+		}
+		fa.numko = off
+		nm.numko = off
+	}
 
 	// Pre-allocate
 	nsel := len(teamChars)

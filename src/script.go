@@ -4186,6 +4186,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "resetGameStats", func(*lua.LState) int {
 		sys.statsLog.reset()
 		sys.continueFlg = false
+		sys.persistRoundCount = 0
 		return 0
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {

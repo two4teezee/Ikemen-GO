@@ -129,6 +129,7 @@ type System struct {
 	home                    int
 	matchTime               int32
 	match                   int32
+	persistRoundCount       int32
 	inputRemap              [MaxPlayerNo]int
 	round                   int32
 	intro                   int32
@@ -1984,6 +1985,10 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 
 func (s *System) resetRoundState() {
 	s.roundBackup.Restore()
+
+	if s.sel.gameParams.PersistRounds && !s.roundResetFlg {
+		s.persistRoundCount++
+	}
 
 	s.resetFrameTime()
 

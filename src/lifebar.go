@@ -3100,7 +3100,7 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	if !ro.roundCallOver {
 		roundNum := sys.round
 		if sys.sel.gameParams.PersistRounds {
-			roundNum = sys.match
+			roundNum = sys.persistRoundCount
 		}
 		// Sounds
 		if ro.waitSoundTimer[0] == 0 {
@@ -3457,7 +3457,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 		var round_ref AnimTextSnd
 		roundNum := sys.round
 		if sys.sel.gameParams.PersistRounds {
-			roundNum = sys.match
+			roundNum = sys.persistRoundCount
 		}
 
 		// Draw background and select round reference

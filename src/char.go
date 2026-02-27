@@ -4150,6 +4150,7 @@ func (c *Char) load(def string) error {
 	return nil
 }
 
+// Loads all of the character's palettes. Selectable or not
 func (c *Char) loadPalettes() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
@@ -4173,10 +4174,10 @@ func (c *Char) loadPalettes() {
 		gi.palettedata.palList.ResetRemap()
 		tmp := 0
 
+		// Append ACT palettes instead of overwriting
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			if pl, ok := readAct(&pal); ok {
-				// Append instead of overwriting
 				targetIdx := len(gi.palettedata.palList.palettes)
 
 				// Allocate space if necessary
@@ -4219,7 +4220,7 @@ func (c *Char) loadPalettes() {
 			}
 		}
 
-		// Process external ACT overrides up to the PaletteMax limit
+		// Overwrite SFF palettes with ACT palettes
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
@@ -4238,7 +4239,8 @@ func (c *Char) loadPalettes() {
 				// Assign the new palette
 				gi.palettedata.palList.SetSource(targetIdx, pl)
 				gi.palettedata.palList.PalTex[targetIdx] = NewTextureFromPalette(pl)
-				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = targetIdx
+				gi.palettedata.palList.PalTable[[2]uint16{1, uint16(i + 1)}] = targetIdx
+				gi.palettedata.palList.numcols[[2]uint16{1, uint16(i + 1)}] = 256 // ACT files are always 256 colors
 
 				pal.exists = true
 			} else {

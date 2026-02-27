@@ -6171,6 +6171,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 	if _, ok := sys.cmdFlags["-nosound"]; ok {
 		return
 	}
+
 	var s *Sound
 	if current_ffx == "" || current_ffx == "s" {
 		if c.gi().snd != nil {
@@ -6200,27 +6201,34 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		}
 		return
 	}
+
+	// Handle channel inheritance
 	crun := c
 	if c.inheritChannels == 1 && c.parent(false) != nil {
 		crun = c.parent(false)
 	} else if c.inheritChannels == 2 && c.root(false) != nil {
 		crun = c.root(false)
 	}
-	if ch := crun.soundChannels.New(chNo, lowpriority, priority); ch != nil {
+
+	if ch := crun.soundChannels.Request(chNo, lowpriority, priority); ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
 		vol = Clamp(vol, -25600, 25600)
+
+		//ch.channelNo = chNo // Handled by Request()
+
 		//if c.gi().mugenver[0] == 1 {
 		if current_ffx != "" {
 			ch.SetVolume(float32(vol * 64 / 25))
 		} else {
 			ch.SetVolume(float32(c.gi().data.volume * vol / 100))
 		}
+
 		if chNo >= 0 {
-			ch.SetChannel(chNo)
 			if priority != 0 {
-				ch.SetPriority(priority)
+				ch.SetPriority(priority) // TODO: We can probably allow priority in channel -1 now
 			}
 		}
+
 		//} else {
 		//	if f {
 		//		ch.SetVolume(float32(vol + 256))
@@ -6228,6 +6236,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		//		ch.SetVolume(float32(c.gi().data.volume + vol))
 		//	}
 		//}
+
 		ch.stopOnGetHit = stopgh
 		ch.stopOnChangeState = stopcs
 		ch.SetPan(p*c.facing, ls, x)

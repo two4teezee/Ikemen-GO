@@ -5562,11 +5562,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeSF()
 	}
 
-	// See compiler.go:SoundVar
 	var id = chid.ToI()
-	if id > 0 {
-		id--
-	}
 	var ch *SoundChannel
 
 	// First, grab a channel.
@@ -5603,7 +5599,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		}
 		return BytecodeFloat(1)
 	case OC_ex2_soundvar_isplaying:
-		if ch != nil && ch.sfx != nil {
+		if ch != nil {
 			return BytecodeBool(ch.IsPlaying())
 		}
 		return BytecodeBool(false)

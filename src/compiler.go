@@ -1911,17 +1911,15 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		if err := c.checkClosingParenthesis(); err != nil {
 			return bvNone(), err
 		}
-		be2.appendValue(bv2)
-		be1.appendValue(bv1)
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
-		be1.append(be2...)
+
+		be1.appendValue(bv1) 
+		be1.append(be2...) 
+		be1.appendValue(bv2) 
+
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))
 		}
+		
 		// Just in case anybody else bangs their head against a wall with redirects:
 		// it is imperative that the be1.append(opcodetype, opcode) comes after the
 		// rd out.appendI32Op(OC_nordrun, int32(len(be1)))
@@ -2422,14 +2420,10 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			}
 		}
 
-		be2.appendValue(bv2)
 		be1.appendValue(bv1)
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
 		be1.append(be2...)
+		be1.appendValue(bv2)
+
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))
 		}
@@ -3493,23 +3487,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 
-		// If bv1 is ever 0 Ikemen crashes.
-		// I do not know why this happens.
-		// It happened with clsnVar.
-		idx := bv1.ToI()
-		if idx >= 0 {
-			bv1.SetI(idx + 1)
-		}
-
-		be2.appendValue(bv2)
 		be1.appendValue(bv1)
-
-		if len(be2) > int(math.MaxUint8-1) {
-			be1.appendI32Op(OC_jz, int32(len(be2)+1))
-		} else {
-			be1.append(OC_jz8, OpCode(len(be2)+1))
-		}
-		be1.append(be2...)
 
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))

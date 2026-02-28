@@ -1283,6 +1283,7 @@ func (BytecodeExp) neg(v *BytecodeValue) {
 }
 
 func (BytecodeExp) not(v *BytecodeValue) {
+	// The opposite of undefined is still undefined
 	if v.IsUndefined() {
 		return
 	}
@@ -1486,6 +1487,7 @@ func (BytecodeExp) and(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) xor(v1 *BytecodeValue, v2 BytecodeValue) {
+	// XOR always requires both operands to be known
 	if v1.IsUndefined() || v2.IsUndefined() {
 		*v1 = BytecodeUndefined()
 		return
@@ -1494,8 +1496,18 @@ func (BytecodeExp) xor(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) or(v1 *BytecodeValue, v2 BytecodeValue) {
+	// If one is undefined, use short-circuiting logic
 	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
+		switch {
+		case v1.IsUndefined() && v2.IsUndefined():
+			*v1 = BytecodeUndefined()
+		case !v1.IsUndefined() && v1.ToI() != 0:
+			v1.SetI(v1.ToI())
+		case !v2.IsUndefined() && v2.ToI() != 0:
+			v1.SetI(v2.ToI())
+		default:
+			*v1 = BytecodeUndefined()
+		}
 		return
 	}
 	v1.SetI(v1.ToI() | v2.ToI())
@@ -1519,7 +1531,16 @@ func (BytecodeExp) blxor(v1 *BytecodeValue, v2 BytecodeValue) {
 
 func (BytecodeExp) blor(v1 *BytecodeValue, v2 BytecodeValue) {
 	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
+		switch {
+		case v1.IsUndefined() && v2.IsUndefined():
+			*v1 = BytecodeUndefined()
+		case !v1.IsUndefined() && v1.ToB():
+			v1.SetB(true)
+		case !v2.IsUndefined() && v2.ToB():
+			v1.SetB(true)
+		default:
+			*v1 = BytecodeUndefined()
+		}
 		return
 	}
 	v1.SetB(v1.ToB() || v2.ToB())

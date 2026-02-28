@@ -185,7 +185,11 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 			dst := beep.SampleRate(sys.cfg.Sound.SampleRate)
 			resampler := beep.Resample(audioResampleQuality, bgv.audioSampleRate, dst, bgv.videoVol)
 			bgv.videoCtrl = &beep.Ctrl{Streamer: resampler, Paused: true} // start paused until SetPlaying(true)
-			sys.soundMixer.Add(bgv.videoCtrl)
+
+			WithSpeakerLock(func() {
+				sys.soundMixer.Add(bgv.videoCtrl)
+			})
+
 			bgv.inMixer = true
 			bgv.volume = volume
 			bgv.updateAudioVolume()
@@ -265,9 +269,9 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 		}
 		// Detach from mixer
 		if bgv.videoCtrl != nil {
-			speaker.Lock()
-			bgv.videoCtrl.Streamer = nil
-			speaker.Unlock()
+			WithSpeakerLock(func() {
+				bgv.videoCtrl.Streamer = nil
+			})
 		}
 		bgv.inMixer = false
 		close(bgv.frameBuffer)
@@ -422,9 +426,9 @@ func (bgv *bgVideo) Tick() error {
 			bgv.lastFrame = nil
 			// Keep audio path paused if it exists.
 			if bgv.videoCtrl != nil {
-				speaker.Lock()
-				bgv.videoCtrl.Paused = true
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					bgv.videoCtrl.Paused = true
+				})
 			}
 			return nil
 		}
@@ -462,9 +466,9 @@ func (bgv *bgVideo) SetPlaying(on bool) {
 		case <-bgv.done:
 			bgv.playing = false
 			if bgv.videoCtrl != nil {
-				speaker.Lock()
-				bgv.videoCtrl.Paused = true
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					bgv.videoCtrl.Paused = true
+				})
 			}
 			return
 		default:
@@ -476,7 +480,9 @@ func (bgv *bgVideo) SetPlaying(on bool) {
 	if on {
 		// Ensure we're attached to the mixer (it may have been cleared).
 		if bgv.videoCtrl != nil && !bgv.inMixer {
-			sys.soundMixer.Add(bgv.videoCtrl)
+			WithSpeakerLock(func() {
+				sys.soundMixer.Add(bgv.videoCtrl)
+			})
 			bgv.inMixer = true
 		}
 		// If we have not established a baseline PTS in this decode epoch,
@@ -493,9 +499,9 @@ func (bgv *bgVideo) SetPlaying(on bool) {
 	}
 	// Also pause/unpause the mixer-side ctrl for CPU savings.
 	if bgv.videoCtrl != nil {
-		speaker.Lock()
-		bgv.videoCtrl.Paused = !on
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgv.videoCtrl.Paused = !on
+		})
 	}
 }
 
@@ -674,10 +680,10 @@ func (bgv *bgVideo) updateAudioVolume() {
 		vol = 1
 	}
 	silent := vol <= -5
-	speaker.Lock()
-	bgv.videoVol.Volume = vol
-	bgv.videoVol.Silent = silent
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		bgv.videoVol.Volume = vol
+		bgv.videoVol.Silent = silent
+	})
 }
 
 // MixerCleared should be called when sys.soundMixer.Clear() is executed,

@@ -10486,14 +10486,22 @@ func (sc stopSnd) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case stopSnd_channel:
-			if ch := Min(255, exp[0].evalI(c)); ch < 0 {
-				sys.stopAllCharSound()
-			} else if c := crun.soundChannels.Get(ch); c != nil {
-				c.Stop()
+			val := exp[0].evalI(c)
+			switch {
+			case val <= -2:
+				crun.soundChannels.StopAll()
+			case val == -1:
+				// Backward compatibility: stop sounds for all players
+				sys.stopAllCharSounds()
+			default:
+				if s := crun.soundChannels.Get(val); s != nil {
+					s.Stop()
+				}
 			}
 		}
 		return true
 	})
+
 	return false
 }
 
@@ -12244,7 +12252,7 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 				snd.stopOnGetHit = stopgh != 0
 			}
 			if stopcs >= 0 {
-				snd.stopOnChangeState = stopgh != 0
+				snd.stopOnChangeState = stopcs != 0
 			}
 		}
 	}

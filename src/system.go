@@ -1889,10 +1889,20 @@ func (s *System) resetGblEffect() {
 	s.specialFlag = 0
 }
 
-func (s *System) stopAllCharSound() {
+// Hard reset. Used between rounds
+func (s *System) clearAllCharSounds() {
 	for _, p := range s.chars {
 		for _, c := range p {
 			c.soundChannels.SetSize(0)
+		}
+	}
+}
+
+// Soft reset. Used during gameplay
+func (s *System) stopAllCharSounds() {
+	for _, p := range s.chars {
+		for _, c := range p {
+			c.soundChannels.StopAll()
 		}
 	}
 }
@@ -1936,7 +1946,7 @@ func (s *System) restoreAllVolume() {
 }
 
 func (s *System) clearMatchSound() {
-	s.stopAllCharSound()
+	s.clearAllCharSounds()
 	// Quiesce stage videos so no background decoding continues while mixer is empty,
 	// and mark them as detached so SetPlaying(true) can re-attach next frame.
 	if s.stage != nil {

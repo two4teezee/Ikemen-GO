@@ -1,79 +1,73 @@
 #if __VERSION__ >= 450
-#define GS_IN(x) x
-#extension GL_ARB_shader_viewport_layer_array  : enable
-#define COMPAT_TEXTURE texture
-layout (constant_id = 0) const bool useJoint0 = false;
-layout (constant_id = 1) const bool useJoint1 = false;
-layout (constant_id = 2) const bool useVertColor = false;
-struct Light
-{
-	vec3 direction;
-	float range;
+	// VULKAN PATH
+	#define GS_IN(x) x
+	#extension GL_ARB_shader_viewport_layer_array  : enable
+	#define COMPAT_TEXTURE texture
+	layout (constant_id = 0) const bool useJoint0 = false;
+	layout (constant_id = 1) const bool useJoint1 = false;
+	layout (constant_id = 2) const bool useVertColor = false;
 
-	vec3 color;
-	float intensity;
+	struct Light
+	{
+		vec3 direction;
+		float range;
 
-	vec3 position;
-	float innerConeCos;
+		vec3 color;
+		float intensity;
 
-	float outerConeCos;
-	int type;
+		vec3 position;
+		float innerConeCos;
 
-	float shadowBias;
-	float shadowMapFar;
-};
-layout(binding = 0) uniform UniformBufferObject0 {
-	mat4 lightMatrices[24];
-	Light lights[4];
-	vec4 layers[6];
-};
+		float outerConeCos;
+		int type;
 
-layout(binding = 2) uniform UniformBufferObject2 {
-	vec4 morphTargetWeight[2];
-	vec4 morphTargetOffset;
-	int numJoints,numTargets,morphTargetTextureDimension;
-};
+		float shadowBias;
+		float shadowMapFar;
+	};
+	layout(binding = 0) uniform UniformBufferObject0 {
+		mat4 lightMatrices[24];
+		Light lights[4];
+		vec4 layers[6];
+	};
 
-layout(binding = 3) uniform sampler2D jointMatrices;
-layout(binding = 4) uniform sampler2D morphTargetValues;
+	layout(binding = 2) uniform UniformBufferObject2 {
+		vec4 morphTargetWeight[2];
+		vec4 morphTargetOffset;
+		int numJoints,numTargets,morphTargetTextureDimension;
+	};
 
-layout(push_constant, std430) uniform u {
-	mat4 model;
-	int numVertices;
-};
+	layout(binding = 3) uniform sampler2D jointMatrices;
+	layout(binding = 4) uniform sampler2D morphTargetValues;
 
-//gl_VertexID is not available in 1.2
-layout(location = 0) in int vertexId;
-layout(location = 1) in vec3 position;
-layout(location = 2) in vec2 uv;
-layout(location = 3) in vec4 vertColor;
-layout(location = 4) in vec4 joints_0;
-layout(location = 5) in vec4 joints_1;
-layout(location = 6) in vec4 weights_0;
-layout(location = 7) in vec4 weights_1;
+	layout(push_constant, std430) uniform u {
+		mat4 model;
+		int numVertices;
+	};
 
-layout(location = 0) out vec4 FragPos;
-layout(location = 1) out float vColor;
-layout(location = 2) out vec2 texcoord;
-layout(location = 3) out flat int lightIndex;
+	//gl_VertexID is not available in 1.2
+	layout(location = 0) in int vertexId;
+	layout(location = 1) in vec3 position;
+	layout(location = 2) in vec2 uv;
+	layout(location = 3) in vec4 vertColor;
+	layout(location = 4) in vec4 joints_0;
+	layout(location = 5) in vec4 joints_1;
+	layout(location = 6) in vec4 weights_0;
+	layout(location = 7) in vec4 weights_1;
+
+	layout(location = 0) out vec4 FragPos;
+	layout(location = 1) out float vColor;
+	layout(location = 2) out vec2 texcoord;
+	layout(location = 3) out flat int lightIndex;
 
 #else
-	// GLES / OPENGL PATH
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING out
-		#define COMPAT_ATTRIBUTE in
-		#define COMPAT_TEXTURE texture
-		#ifdef GL_ES
-			precision highp float;
-			#define GS_IN(x) x
-		#else
-			#define GS_IN(x) x##In
-		#endif
+	// OPENGL / GLES PATH
+	#define COMPAT_VARYING out
+	#define COMPAT_ATTRIBUTE in
+	#define COMPAT_TEXTURE texture
+	#ifdef GL_ES
+		precision highp float;
+		#define GS_IN(x) x
 	#else
-		#extension GL_EXT_gpu_shader4 : enable
-		#define COMPAT_VARYING varying 
-		#define COMPAT_ATTRIBUTE attribute 
-		#define COMPAT_TEXTURE texture2D
 		#define GS_IN(x) x##In
 	#endif
 
@@ -134,6 +128,7 @@ mat4 getJointMatrix(){
 	}
 	return ret;
 }
+
 void main() {
 	GS_IN(texcoord) = uv;
 	#if __VERSION__ >= 450

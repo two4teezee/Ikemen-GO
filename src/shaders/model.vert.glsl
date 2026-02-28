@@ -1,63 +1,58 @@
 #if __VERSION__ >= 450
-#define COMPAT_TEXTURE texture
-layout(binding = 0) uniform UniformBufferObject0 {
-	mat4 view, projection;
-	mat4 lightMatrices[4];
-	layout(offset = 688) vec3 cameraPosition;
-};
+	// VULKAN PATH
+	#define COMPAT_TEXTURE texture
+	layout(binding = 0) uniform UniformBufferObject0 {
+		mat4 view, projection;
+		mat4 lightMatrices[4];
+		layout(offset = 688) vec3 cameraPosition;
+	};
 
-layout(binding = 2) uniform UniformBufferObject2 {
-	mat4 model,normalMatrix;
-	int numJoints,numTargets,morphTargetTextureDimension,numVertices;
-	vec4 morphTargetWeight[2];
-	vec4 morphTargetOffset;
-	float meshOutline;
-};
+	layout(binding = 2) uniform UniformBufferObject2 {
+		mat4 model,normalMatrix;
+		int numJoints,numTargets,morphTargetTextureDimension,numVertices;
+		vec4 morphTargetWeight[2];
+		vec4 morphTargetOffset;
+		float meshOutline;
+	};
 
-layout(binding = 3) uniform sampler2D jointMatrices;
-layout(binding = 4) uniform sampler2D morphTargetValues;
+	layout(binding = 3) uniform sampler2D jointMatrices;
+	layout(binding = 4) uniform sampler2D morphTargetValues;
 
-layout (constant_id = 0) const bool useJoint0 = false;
-layout (constant_id = 1) const bool useJoint1 = false;
-layout (constant_id = 2) const bool useNormal = false;
-layout (constant_id = 3) const bool useTangent = false;
-layout (constant_id = 4) const bool useVertColor = false;
-layout (constant_id = 5) const bool useOutlineAttribute = false;
+	layout (constant_id = 0) const bool useJoint0 = false;
+	layout (constant_id = 1) const bool useJoint1 = false;
+	layout (constant_id = 2) const bool useNormal = false;
+	layout (constant_id = 3) const bool useTangent = false;
+	layout (constant_id = 4) const bool useVertColor = false;
+	layout (constant_id = 5) const bool useOutlineAttribute = false;
 
-layout(location = 0) in int vertexId;
-layout(location = 1) in vec3 position;
-layout(location = 2) in vec2 uv;
-layout(location = 3) in vec3 normalIn;
-layout(location = 4) in vec4 tangentIn;
-layout(location = 5) in vec4 vertColor;
-layout(location = 6) in vec4 joints_0;
-layout(location = 7) in vec4 weights_0;
-layout(location = 8) in vec4 joints_1;
-layout(location = 9) in vec4 weights_1;
-layout(location = 10) in vec4 outlineAttributeIn;
+	layout(location = 0) in int vertexId;
+	layout(location = 1) in vec3 position;
+	layout(location = 2) in vec2 uv;
+	layout(location = 3) in vec3 normalIn;
+	layout(location = 4) in vec4 tangentIn;
+	layout(location = 5) in vec4 vertColor;
+	layout(location = 6) in vec4 joints_0;
+	layout(location = 7) in vec4 weights_0;
+	layout(location = 8) in vec4 joints_1;
+	layout(location = 9) in vec4 weights_1;
+	layout(location = 10) in vec4 outlineAttributeIn;
 
-layout(location = 0) out vec3 normal;
-layout(location = 1) out vec3 tangent;
-layout(location = 2) out vec3 bitangent;
-layout(location = 3) out vec2 texcoord;
-layout(location = 4) out vec4 vColor;
-layout(location = 5) out vec3 worldSpacePos;
-layout(location = 6) out vec4 lightSpacePos[4];
+	layout(location = 0) out vec3 normal;
+	layout(location = 1) out vec3 tangent;
+	layout(location = 2) out vec3 bitangent;
+	layout(location = 3) out vec2 texcoord;
+	layout(location = 4) out vec4 vColor;
+	layout(location = 5) out vec3 worldSpacePos;
+	layout(location = 6) out vec4 lightSpacePos[4];
 #else
-	// GLES 3.2 / ANDROID PATH - Standard Uniforms
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#define COMPAT_VARYING out
-		#define COMPAT_ATTRIBUTE in
-		#define COMPAT_TEXTURE texture
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-			precision highp sampler2D;
-		#endif
-	#else
-		#define COMPAT_VARYING varying 
-		#define COMPAT_ATTRIBUTE attribute 
-		#define COMPAT_TEXTURE texture2D
+	// OPENGL / GLES PATH - Standard Uniforms
+	#define COMPAT_VARYING out
+	#define COMPAT_ATTRIBUTE in
+	#define COMPAT_TEXTURE texture
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
+		precision highp sampler2D;
 	#endif
 
 	uniform mat4 model, view, projection, normalMatrix;

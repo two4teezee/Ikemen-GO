@@ -16,7 +16,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/config.go \
 	src/dllsearch_windows.go \
 	src/font.go \
-	src/font_gl32.go \
+	src/font_gl33.go \
 	src/font_gles32.go \
 	src/font_vk.go \
 	src/hiscore_rank.go \
@@ -31,8 +31,8 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/net.go \
 	src/rect.go \
 	src/render.go \
-	src/render_gl_gl32.go \
-	src/render_gl_gles32.go \
+	src/render_gl33.go \
+	src/render_gles32.go \
 	src/render_vk.go \
 	src/rollback.go \
 	src/script.go \

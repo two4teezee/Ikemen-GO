@@ -5487,7 +5487,7 @@ func (r *Renderer_VK) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, dep
 	r.VKState.VulkanModelPipelineState.useVertColor = useVertColor
 	r.VKState.modelVertAttrOffset = vertAttrOffset
 }
-func (r *Renderer_VK) SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32) {
+func (r *Renderer_VK) SetMeshOutlinePipeline(invertFrontFace bool, meshOutline float32) {
 	r.VKState.VulkanModelPipelineState.invertFrontFace = invertFrontFace
 	r.VKState.VulkanModelPipelineState.depthTest = true
 	r.VKState.VulkanModelPipelineState.depthMask = true

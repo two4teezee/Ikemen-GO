@@ -1,7 +1,3 @@
-// This is almost identical to render_gl.go except it uses a VAO
-// for GL 3.2 which is the minimum version that runs on modern
-// macOS (Intel and ARM). Work adapted from assemblaj/fantasma
-
 //go:build !android
 
 package main
@@ -15,18 +11,13 @@ import (
 	"runtime"
 	"unsafe"
 
-	gl "github.com/go-gl/gl/v3.2-core/gl"
+	gl "github.com/go-gl/gl/v3.3-core/gl"
 	mgl "github.com/go-gl/mathgl/mgl32"
 	"github.com/veandco/go-sdl2/sdl"
 	"golang.org/x/mobile/exp/f32"
 )
 
-//const GL_SHADER_VER = 150 // OpenGL 3.2
-
-// ------------------------------------------------------------------
-// ShaderProgram_GL32
-
-type ShaderProgram_GL32 struct {
+type ShaderProgram_GL33 struct {
 	program    uint32           // OpenGL handle
 	attributes map[string]int32 // Attribute name to location
 	uniforms   map[string]int32 // Uniform name to location
@@ -34,7 +25,7 @@ type ShaderProgram_GL32 struct {
 	name       string           // For debugging
 }
 
-func (r *Renderer_GL32) newShaderProgram(vert, frag, geo, name string, crashWhenFail bool) (s *ShaderProgram_GL32, err error) {
+func (r *Renderer_GL33) newShaderProgram(vert, frag, geo, name string, crashWhenFail bool) (s *ShaderProgram_GL33, err error) {
 	var vertObj, fragObj, geoObj, prog uint32
 	if vertObj, err = r.compileShader(gl.VERTEX_SHADER, vert); chkEX(err, "Shader compilation error on "+name+"\n", crashWhenFail) {
 		return nil, err
@@ -54,7 +45,7 @@ func (r *Renderer_GL32) newShaderProgram(vert, frag, geo, name string, crashWhen
 			return nil, err
 		}
 	}
-	s = &ShaderProgram_GL32{program: prog, name: name}
+	s = &ShaderProgram_GL33{program: prog, name: name}
 	s.attributes = make(map[string]int32)
 	s.uniforms = make(map[string]int32)
 	s.textures = make(map[string]int)
@@ -67,12 +58,12 @@ func (r *Renderer_GL32) newShaderProgram(vert, frag, geo, name string, crashWhen
 	return s, nil
 }
 
-func (r *ShaderProgram_GL32) glStr(s string) *uint8 {
+func (r *ShaderProgram_GL33) glStr(s string) *uint8 {
 	return gl.Str(s + "\x00")
 }
 
-func (s *ShaderProgram_GL32) RegisterAttributes(names ...string) {
-	r := gfx.(*Renderer_GL32)
+func (s *ShaderProgram_GL33) RegisterAttributes(names ...string) {
+	r := gfx.(*Renderer_GL33)
 	for _, name := range names {
 		loc := gl.GetAttribLocation(s.program, s.glStr(name))
 		s.attributes[name] = loc
@@ -83,8 +74,8 @@ func (s *ShaderProgram_GL32) RegisterAttributes(names ...string) {
 	}
 }
 
-func (s *ShaderProgram_GL32) RegisterUniforms(names ...string) {
-	r := gfx.(*Renderer_GL32)
+func (s *ShaderProgram_GL33) RegisterUniforms(names ...string) {
+	r := gfx.(*Renderer_GL33)
 	for _, name := range names {
 		loc := gl.GetUniformLocation(s.program, s.glStr(name))
 		s.uniforms[name] = loc
@@ -95,8 +86,8 @@ func (s *ShaderProgram_GL32) RegisterUniforms(names ...string) {
 	}
 }
 
-func (s *ShaderProgram_GL32) RegisterTextures(names ...string) {
-	r := gfx.(*Renderer_GL32)
+func (s *ShaderProgram_GL33) RegisterTextures(names ...string) {
+	r := gfx.(*Renderer_GL33)
 	for _, name := range names {
 		loc := gl.GetUniformLocation(s.program, s.glStr(name))
 		s.uniforms[name] = loc
@@ -108,13 +99,16 @@ func (s *ShaderProgram_GL32) RegisterTextures(names ...string) {
 	}
 }
 
-func (r *Renderer_GL32) compileShader(shaderType uint32, src string) (shader uint32, err error) {
+func (r *Renderer_GL33) compileShader(shaderType uint32, src string) (shader uint32, err error) {
 	shader = gl.CreateShader(shaderType)
-	src = "#version 150\n" + src + "\x00"
-	s, _ := gl.Strs(src)
-	var l int32 = int32(len(src) - 1)
-	gl.ShaderSource(shader, 1, s, &l)
+
+	src = "#version 330 core\n" + src + "\x00" 
+	s, free := gl.Strs(src)
+	defer free()
+
+	gl.ShaderSource(shader, 1, s, nil)
 	gl.CompileShader(shader)
+
 	var ok int32
 	gl.GetShaderiv(shader, gl.COMPILE_STATUS, &ok)
 	if ok == 0 {
@@ -136,13 +130,13 @@ func (r *Renderer_GL32) compileShader(shaderType uint32, src string) (shader uin
 	return shader, nil
 }
 
-func (r *Renderer_GL32) linkProgram(params ...uint32) (program uint32, err error) {
+func (r *Renderer_GL33) linkProgram(params ...uint32) (program uint32, err error) {
 	program = gl.CreateProgram()
 	for _, param := range params {
 		gl.AttachShader(program, param)
 	}
 
-	// In GL3.2 this must be in the shader file
+	// In GL3.3 this must be in the shader file
 	//if len(params) > 2 {
 	//	// Geometry Shader Params
 	//	gl.ProgramParameteri(program, gl.GEOMETRY_INPUT_TYPE, gl.TRIANGLES)
@@ -177,10 +171,7 @@ func (r *Renderer_GL32) linkProgram(params ...uint32) (program uint32, err error
 	return program, nil
 }
 
-// ------------------------------------------------------------------
-// Texture_GL32
-
-type Texture_GL32 struct {
+type Texture_GL33 struct {
 	width  int32
 	height int32
 	depth  int32
@@ -190,14 +181,14 @@ type Texture_GL32 struct {
 }
 
 // Helper that wraps the actual GL call to generate a texture
-func (r *Renderer_GL32) generateTexture(width, height, depth int32, filter bool) *Texture_GL32 {
+func (r *Renderer_GL33) generateTexture(width, height, depth int32, filter bool) *Texture_GL33 {
 	var h uint32
 	gl.GenTextures(1, &h)
 
 	// Ensure a unique ID even if GL reuses the handle
 	textureSerialNumber++
 
-	tex := &Texture_GL32{
+	tex := &Texture_GL33{
 		width:  width,
 		height: height,
 		depth:  depth,
@@ -206,7 +197,7 @@ func (r *Renderer_GL32) generateTexture(width, height, depth int32, filter bool)
 		serial: textureSerialNumber,
 	}
 
-	runtime.SetFinalizer(tex, func(t *Texture_GL32) {
+	runtime.SetFinalizer(tex, func(t *Texture_GL33) {
 		sys.mainThreadTask <- func() {
 			gl.DeleteTextures(1, &t.handle)
 		}
@@ -216,8 +207,8 @@ func (r *Renderer_GL32) generateTexture(width, height, depth int32, filter bool)
 }
 
 // Creates a generic texture
-func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+func (r *Renderer_GL33) newTexture(width, height, depth int32, filter bool) Texture {
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, depth, filter)
 
@@ -229,16 +220,16 @@ func (r *Renderer_GL32) newTexture(width, height, depth int32, filter bool) Text
 	return t
 }
 
-func (r *Renderer_GL32) newPaletteTexture() Texture {
+func (r *Renderer_GL33) newPaletteTexture() Texture {
 	return r.newTexture(256, 1, 32, false)
 }
 
-func (r *Renderer_GL32) newModelTexture(width, height, depth int32, filter bool) Texture {
+func (r *Renderer_GL33) newModelTexture(width, height, depth int32, filter bool) Texture {
 	return r.newTexture(width, height, depth, filter)
 }
 
-func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+func (r *Renderer_GL33) newDataTexture(width, height int32) Texture {
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 128, false)
 
@@ -250,8 +241,8 @@ func (r *Renderer_GL32) newDataTexture(width, height int32) Texture {
 	return t
 }
 
-func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+func (r *Renderer_GL33) newHDRTexture(width, height int32) Texture {
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(width, height, 96, false)
 
@@ -263,8 +254,8 @@ func (r *Renderer_GL32) newHDRTexture(width, height int32) Texture {
 	return t
 }
 
-func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+func (r *Renderer_GL33) newCubeMapTexture(widthHeight int32, mipmap bool, lowestMipLevel int32) Texture {
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	t := r.generateTexture(widthHeight, widthHeight, 24, false)
 
@@ -287,7 +278,7 @@ func (r *Renderer_GL32) newCubeMapTexture(widthHeight int32, mipmap bool, lowest
 }
 
 // Bind a texture and upload texel data to it
-func (t *Texture_GL32) SetData(data []byte) {
+func (t *Texture_GL33) SetData(data []byte) {
 	var interp int32 = gl.NEAREST
 	if t.filter {
 		interp = gl.LINEAR
@@ -295,8 +286,8 @@ func (t *Texture_GL32) SetData(data []byte) {
 
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
-	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL33)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -314,14 +305,14 @@ func (t *Texture_GL32) SetData(data []byte) {
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 
-func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32) {
+func (t *Texture_GL33) SetSubData(data []byte, x, y, width, height, stride int32) {
 	var interp int32 = gl.NEAREST
 	if t.filter {
 		interp = gl.LINEAR
 	}
 
-	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL33)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -353,11 +344,11 @@ func (t *Texture_GL32) SetSubData(data []byte, x, y, width, height, stride int32
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 }
 
-func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
+func (t *Texture_GL33) SetDataG(data []byte, mag, min, ws, wt TextureSamplingParam) {
 	format := t.MapInternalFormat(Max(t.depth, 8))
 
-	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL33)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -370,12 +361,12 @@ func (t *Texture_GL32) SetDataG(data []byte, mag, min, ws, wt TextureSamplingPar
 	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, t.MapTextureSamplingParam(wt))
 }
 
-func (t *Texture_GL32) SetPixelData(data []float32) {
+func (t *Texture_GL33) SetPixelData(data []float32) {
 	format := t.MapInternalFormat(Max(t.depth/4, 8))
 	internalFormat := t.MapInternalFormat(Max(t.depth, 8))
 
-	r := gfx.(*Renderer_GL32)
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r := gfx.(*Renderer_GL33)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	gl.BindTexture(gl.TEXTURE_2D, t.handle)
 	gl.PixelStorei(gl.UNPACK_ALIGNMENT, 1)
@@ -383,24 +374,24 @@ func (t *Texture_GL32) SetPixelData(data []float32) {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, int32(internalFormat), t.width, t.height, 0, uint32(format), gl.FLOAT, unsafe.Pointer(&data[0]))
 }
 
-func (t Texture_GL32) CopyData(src *Texture) {
+func (t Texture_GL33) CopyData(src *Texture) {
 
 }
 
 // Return whether texture has a valid handle
-func (t *Texture_GL32) IsValid() bool {
+func (t *Texture_GL33) IsValid() bool {
 	return t.width != 0 && t.height != 0 && t.handle != 0
 }
 
-func (t *Texture_GL32) GetWidth() int32 {
+func (t *Texture_GL33) GetWidth() int32 {
 	return t.width
 }
 
-func (t *Texture_GL32) GetHeight() int32 {
+func (t *Texture_GL33) GetHeight() int32 {
 	return t.height
 }
 
-func (t *Texture_GL32) MapInternalFormat(i int32) uint32 {
+func (t *Texture_GL33) MapInternalFormat(i int32) uint32 {
 	var InternalFormatLUT = map[int32]uint32{
 		8:   gl.RED,
 		24:  gl.RGB,
@@ -411,7 +402,7 @@ func (t *Texture_GL32) MapInternalFormat(i int32) uint32 {
 	return InternalFormatLUT[i]
 }
 
-func (t *Texture_GL32) MapTextureSamplingParam(i TextureSamplingParam) int32 {
+func (t *Texture_GL33) MapTextureSamplingParam(i TextureSamplingParam) int32 {
 	var SamplingParam = map[TextureSamplingParam]int32{
 		TextureSamplingFilterNearest:              gl.NEAREST,
 		TextureSamplingFilterLinear:               gl.LINEAR,
@@ -426,46 +417,45 @@ func (t *Texture_GL32) MapTextureSamplingParam(i TextureSamplingParam) int32 {
 	return SamplingParam[i]
 }
 
-// ------------------------------------------------------------------
-// Renderer_GL32
-
-type Renderer_GL32 struct {
+type Renderer_GL33 struct {
 	fbo         uint32
 	fbo_texture uint32
 	// Normal rendering
 	rbo_depth uint32
 	// MSAA rendering
 	fbo_f         uint32
-	fbo_f_texture *Texture_GL32
+	fbo_f_texture *Texture_GL33
 	// Shadow Map
 	fbo_shadow              uint32
 	fbo_shadow_cube_texture uint32
 	fbo_env                 uint32
-	// Postprocessing FBOs
+	// Post-processing FBOs
 	fbo_pp         []uint32
 	fbo_pp_texture []uint32
 	// Post-processing shaders
 	postVertBuffer   uint32
-	postShaderSelect []*ShaderProgram_GL32
+	postShaderSelect []*ShaderProgram_GL33
 	// Shader and vertex data for primitive rendering
-	spriteShader *ShaderProgram_GL32
+	spriteShader *ShaderProgram_GL33
 	vertexBuffer uint32
 	// Shader and index data for 3D model rendering
-	shadowMapShader         *ShaderProgram_GL32
-	modelShader             *ShaderProgram_GL32
-	panoramaToCubeMapShader *ShaderProgram_GL32
-	cubemapFilteringShader  *ShaderProgram_GL32
+	shadowMapShader         *ShaderProgram_GL33
+	modelShader             *ShaderProgram_GL33
+	panoramaToCubeMapShader *ShaderProgram_GL33
+	cubemapFilteringShader  *ShaderProgram_GL33
 	modelVertexBuffer       [2]uint32
 	modelIndexBuffer        [2]uint32
-	vao                     uint32
+	spriteVAO               uint32
+	modelVAO                uint32
+	postVAO                 uint32
 
 	enableModel  bool
 	enableShadow bool
 	debugMode    bool
-	GL32State
+	GL33State
 }
 
-type GL32State struct {
+type GL33State struct {
 	program             uint32
 	depthTest           bool
 	depthMask           bool
@@ -494,12 +484,12 @@ type GL32State struct {
 	useOutlineAttribute bool
 }
 
-func (r *Renderer_GL32) GetName() string {
-	return "OpenGL 3.2"
+func (r *Renderer_GL33) GetName() string {
+	return "OpenGL 3.3"
 }
 
 // init 3D model shader
-func (r *Renderer_GL32) InitModelShader() error {
+func (r *Renderer_GL33) InitModelShader() error {
 	var err error
 	if r.enableShadow {
 		r.modelShader, err = r.newShaderProgram(modelVertShader, "#define ENABLE_SHADOW\n"+modelFragShader, "", "Model Shader", false)
@@ -568,7 +558,7 @@ func (r *Renderer_GL32) InitModelShader() error {
 
 // Render initialization.
 // Creates the default shaders, the framebuffer and enables MSAA.
-func (r *Renderer_GL32) Init() {
+func (r *Renderer_GL33) Init() {
 	chk(gl.Init())
 	sys.errLog.Printf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
 
@@ -589,17 +579,23 @@ func (r *Renderer_GL32) Init() {
 		r.EnableDebug()
 	}
 
-	gl.GenVertexArrays(1, &r.vao)
-	gl.BindVertexArray(r.vao)
+	// Generate VAO's
+	gl.GenVertexArrays(1, &r.spriteVAO)
+	gl.GenVertexArrays(1, &r.modelVAO)
+	gl.GenVertexArrays(1, &r.postVAO)
 
-	gl.GenBuffers(1, &r.postVertBuffer)
-
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
-	gl.BufferData(gl.ARRAY_BUFFER, len(postVertData), unsafe.Pointer(&postVertData[0]), gl.STATIC_DRAW)
-
+	// Generate buffers
 	gl.GenBuffers(1, &r.vertexBuffer)
 	gl.GenBuffers(2, &r.modelVertexBuffer[0])
 	gl.GenBuffers(2, &r.modelIndexBuffer[0])
+	gl.GenBuffers(1, &r.postVertBuffer)
+
+	// Initialize post-processing vertex buffer
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
+	gl.BufferData(gl.ARRAY_BUFFER, len(postVertData), unsafe.Pointer(&postVertData[0]), gl.STATIC_DRAW)
+
+	// Unbind for safety
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 	// Sprite shader
 	r.spriteShader, _ = r.newShaderProgram(vertShader, fragShader, "", "Main Shader", true)
@@ -608,33 +604,68 @@ func (r *Renderer_GL32) Init() {
 		"alpha", "tint", "mask", "neg", "gray", "add", "mult", "isFlat", "isRgba", "isTrapez", "hue")
 	r.spriteShader.RegisterTextures("pal", "tex")
 
+	// Configure spriteVAO
+	gl.BindVertexArray(r.spriteVAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
+
+	locPos := r.spriteShader.attributes["position"]
+	gl.EnableVertexAttribArray(uint32(locPos))
+	gl.VertexAttribPointerWithOffset(uint32(locPos), 2, gl.FLOAT, false, 16, 0)
+
+	locUV := r.spriteShader.attributes["uv"]
+	gl.EnableVertexAttribArray(uint32(locUV))
+	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
+
+	// Unbind for safety
+	gl.BindVertexArray(0)
+
 	if r.enableModel {
 		if err := r.InitModelShader(); err != nil {
 			r.enableModel = false
 		}
 	}
 
-	// Compile postprocessing shaders
+	// Compile post-processing shaders
 	// Because we only have one VAO, the attributes will only be set in EndFrame()
 
 	// Pre-allocate the shader slice to accommodate all external shaders plus the identity shader
-	r.postShaderSelect = make([]*ShaderProgram_GL32, len(sys.cfg.Video.ExternalShaders)+1)
+	r.postShaderSelect = make([]*ShaderProgram_GL33, len(sys.cfg.Video.ExternalShaders)+1)
+
+	// Configure postVAO
+	gl.BindVertexArray(r.postVAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
 
 	// External Shaders
 	for i := 0; i < len(sys.cfg.Video.ExternalShaders); i++ {
 		r.postShaderSelect[i], _ = r.newShaderProgram(string(sys.externalShaders[0][i])+"\x00", string(sys.externalShaders[1][i])+"\x00",
 			"", fmt.Sprintf("Postprocess Shader #%v", i), true)
 		r.postShaderSelect[i].RegisterAttributes("VertCoord") // "TexCoord" was registered but never used
-		r.postShaderSelect[i].RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime")
+		r.postShaderSelect[i].RegisterUniforms("Texture_GL33", "TextureSize", "CurrentTime")
+
+		// Configure postVAO for this specific shader's attribute location
+		if loc, ok := r.postShaderSelect[i].attributes["VertCoord"]; ok && loc >= 0 {
+			gl.EnableVertexAttribArray(uint32(loc))
+			gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+		}
 	}
 
-	// Identity shader (no postprocessing)
+	// Identity shader (no post-processing)
 	identShader, _ := r.newShaderProgram(identVertShader, identFragShader, "", "Identity Postprocess", true)
 	identShader.RegisterAttributes("VertCoord")
-	//identShader.RegisterUniforms("Texture_GL32", "TextureSize", "CurrentTime") // None of these are used
+	//identShader.RegisterUniforms("Texture_GL33", "TextureSize", "CurrentTime") // None of these are used
+
+	// Configure postVAO for the identity shader's attribute location
+	if loc, ok := identShader.attributes["VertCoord"]; ok && loc >= 0 {
+		gl.EnableVertexAttribArray(uint32(loc))
+		gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+	}
 
 	// It should be the last one in modern OpenGL
 	r.postShaderSelect[len(r.postShaderSelect)-1] = identShader
+
+	// Unbind for safety
+	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 
 	// Toggle MSAA first
 	if sys.msaa > 0 {
@@ -643,7 +674,7 @@ func (r *Renderer_GL32) Init() {
 		gl.Disable(gl.MULTISAMPLE)
 	}
 
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 
 	// create a texture for r.fbo
 	gl.GenTextures(1, &r.fbo_texture)
@@ -733,7 +764,7 @@ func (r *Renderer_GL32) Init() {
 	}
 	gl.BindRenderbuffer(gl.RENDERBUFFER, 0)
 	if sys.msaa > 0 {
-		r.fbo_f_texture = r.newTexture(sys.scrrect[2], sys.scrrect[3], 32, false).(*Texture_GL32)
+		r.fbo_f_texture = r.newTexture(sys.scrrect[2], sys.scrrect[3], 32, false).(*Texture_GL33)
 		r.fbo_f_texture.SetData(nil)
 	} else {
 		//r.rbo_depth = gl.CreateRenderbuffer()
@@ -761,7 +792,7 @@ func (r *Renderer_GL32) Init() {
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 	}
 
-	// create our two FBOs for our postprocessing needs
+	// create our two FBOs for our post-processing needs
 	for i := 0; i < 2; i++ {
 		gl.GenFramebuffers(1, &(r.fbo_pp[i]))
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
@@ -772,7 +803,7 @@ func (r *Renderer_GL32) Init() {
 	if r.enableModel {
 		if r.enableShadow {
 			gl.GenFramebuffers(1, &r.fbo_shadow)
-			r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0)
+			r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0)
 			gl.GenTextures(1, &r.fbo_shadow_cube_texture)
 			textureSerialNumber++
 
@@ -798,10 +829,10 @@ func (r *Renderer_GL32) Init() {
 	r.InitStateCache()
 }
 
-func (r *Renderer_GL32) Close() {
+func (r *Renderer_GL33) Close() {
 }
 
-func (r *Renderer_GL32) InitStateCache() {
+func (r *Renderer_GL33) InitStateCache() {
 	// Match standard OpenGL hardware defaults
 	r.program = 0
 	r.depthTest = false
@@ -841,7 +872,7 @@ func (r *Renderer_GL32) InitStateCache() {
 	r.uniformF4Cache = make(map[uint32][4]float32, 32)
 }
 
-func (r *Renderer_GL32) EnableDebug() {
+func (r *Renderer_GL33) EnableDebug() {
 	r.debugMode = true
 	gl.Enable(gl.DEBUG_OUTPUT)
 	gl.Enable(gl.DEBUG_OUTPUT_SYNCHRONOUS)
@@ -870,9 +901,18 @@ func (r *Renderer_GL32) EnableDebug() {
 	fmt.Printf("[GL Debug] Debug mode enabled\n")
 }
 
-func (r *Renderer_GL32) DebugCheckLeaks(nextprog uint32) {
+/*
+func (r *Renderer_GL33) DebugCheckLeaks(nextprog uint32) {
+	// Only query attributes if a VAO is bound
+	var currentVAO int32
+	gl.GetIntegerv(gl.VERTEX_ARRAY_BINDING, &currentVAO)
+	if currentVAO == 0 {
+		return 
+	}
+
 	var enabled int32
 	leaked := []int{}
+	// Only check up to the hardware limit
 	for slot := uint32(0); slot < 16; slot++ {
 		gl.GetVertexAttribiv(slot, gl.VERTEX_ATTRIB_ARRAY_ENABLED, &enabled)
 		if enabled != 0 {
@@ -880,11 +920,12 @@ func (r *Renderer_GL32) DebugCheckLeaks(nextprog uint32) {
 		}
 	}
 	if len(leaked) > 0 {
-		fmt.Printf("[GL Debug] Changing to program %d with program %d's attributes %v enabled.\n", nextprog, r.program, leaked)
+		fmt.Printf("[GL Debug] Changing to program %d with attributes %v enabled in VAO %d.\n", nextprog, leaked, currentVAO)
 	}
 }
+*/
 
-func (r *Renderer_GL32) DebugVerifyCache() {
+func (r *Renderer_GL33) DebugVerifyCache() {
 	if !r.debugMode {
 		return
 	}
@@ -949,7 +990,7 @@ func (r *Renderer_GL32) DebugVerifyCache() {
 
 	// Attributes
 	checkAttr := func(flag bool, attrKey string) {
-		var shader *ShaderProgram_GL32
+		var shader *ShaderProgram_GL33
 		if r.program == r.modelShader.program {
 			shader = r.modelShader
 		} else if r.program == r.shadowMapShader.program {
@@ -975,16 +1016,16 @@ func (r *Renderer_GL32) DebugVerifyCache() {
 	checkAttr(r.useOutlineAttribute, "outlineAttributeIn")
 }
 
-func (r *Renderer_GL32) IsModelEnabled() bool {
+func (r *Renderer_GL33) IsModelEnabled() bool {
 	return r.enableModel
 }
 
-func (r *Renderer_GL32) IsShadowEnabled() bool {
+func (r *Renderer_GL33) IsShadowEnabled() bool {
 	return r.enableShadow
 }
 
-func (r *Renderer_GL32) BeginFrame(clearColor bool) {
-	gl.BindVertexArray(r.vao)
+func (r *Renderer_GL33) BeginFrame(clearColor bool) {
+	//gl.BindVertexArray(r.vao)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])
 	if clearColor {
@@ -994,7 +1035,7 @@ func (r *Renderer_GL32) BeginFrame(clearColor bool) {
 	}
 }
 
-func (r *Renderer_GL32) EndFrame() {
+func (r *Renderer_GL33) EndFrame() {
 	if len(r.fbo_pp) == 0 {
 		return
 	}
@@ -1023,7 +1064,7 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_pp[i])
 		gl.Clear(gl.COLOR_BUFFER_BIT)
 	}
-	r.UseScratchUnit() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
+	r.SetActiveTexture0() //gl.ActiveTexture(gl.TEXTURE0) // later referred to by Texture_GL
 
 	fbo_texture := r.fbo_texture
 	if sys.msaa > 0 {
@@ -1044,7 +1085,7 @@ func (r *Renderer_GL32) EndFrame() {
 
 		// tell GL to use our vertex array object
 		// this'll be where our quad is stored
-		gl.BindVertexArray(r.vao)
+		gl.BindVertexArray(r.postVAO)
 
 		// this is here because it is undefined
 		// behavior to write to the same FBO
@@ -1077,7 +1118,7 @@ func (r *Renderer_GL32) EndFrame() {
 		}
 
 		// set post-processing parameters
-		if loc, ok := postShader.uniforms["Texture_GL32"]; ok && loc >= 0 {
+		if loc, ok := postShader.uniforms["Texture_GL33"]; ok && loc >= 0 {
 			r.SetUniformISub(loc, 0)
 		}
 		if loc, ok := postShader.uniforms["TextureSize"]; ok && loc >= 0 {
@@ -1090,42 +1131,16 @@ func (r *Renderer_GL32) EndFrame() {
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, scaleMode)
 		gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, scaleMode)
 
-		// this actually draws the image to the FBO
-		// by constructing a quad (2 tris)
-		gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
-
-		// construct the UVs of the quad
-		// VertCoord is the primary position attribute
-		if loc, ok := postShader.attributes["VertCoord"]; ok && loc >= 0 {
-			vLoc := uint32(loc)
-			gl.EnableVertexAttribArray(vLoc)
-			gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 0, nil)
-		}
-
-		// Some external shaders may use a separate TexCoord attribute instead of calculating it from VertCoord
-		//if loc, ok := postShader.attributes["TexCoord"]; ok && loc >= 0 {
-		//	tLoc := uint32(loc)
-		//	gl.EnableVertexAttribArray(tLoc)
-		//	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 0, nil)
-		//}
-
 		// construct the quad and draw it
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
-
-		// Disable attributes after use
-		for _, loc := range postShader.attributes {
-			if loc >= 0 {
-				gl.DisableVertexAttribArray(uint32(loc))
-			}
-		}
 	}
 }
 
-func (r *Renderer_GL32) Await() {
+func (r *Renderer_GL33) Await() {
 	gl.Finish()
 }
 
-func (r *Renderer_GL32) MapBlendEquation(i BlendEquation) uint32 {
+func (r *Renderer_GL33) MapBlendEquation(i BlendEquation) uint32 {
 	var BlendEquationLUT = map[BlendEquation]uint32{
 		BlendAdd:             gl.FUNC_ADD,
 		BlendReverseSubtract: gl.FUNC_REVERSE_SUBTRACT,
@@ -1133,7 +1148,7 @@ func (r *Renderer_GL32) MapBlendEquation(i BlendEquation) uint32 {
 	return BlendEquationLUT[i]
 }
 
-func (r *Renderer_GL32) MapBlendFunction(i BlendFunc) uint32 {
+func (r *Renderer_GL33) MapBlendFunction(i BlendFunc) uint32 {
 	var BlendFunctionLUT = map[BlendFunc]uint32{
 		BlendOne:              gl.ONE,
 		BlendZero:             gl.ZERO,
@@ -1145,7 +1160,7 @@ func (r *Renderer_GL32) MapBlendFunction(i BlendFunc) uint32 {
 	return BlendFunctionLUT[i]
 }
 
-func (r *Renderer_GL32) MapPrimitiveMode(i PrimitiveMode) uint32 {
+func (r *Renderer_GL33) MapPrimitiveMode(i PrimitiveMode) uint32 {
 	var PrimitiveModeLUT = map[PrimitiveMode]uint32{
 		LINES:          gl.LINES,
 		LINE_LOOP:      gl.LINE_LOOP,
@@ -1157,7 +1172,7 @@ func (r *Renderer_GL32) MapPrimitiveMode(i PrimitiveMode) uint32 {
 	return PrimitiveModeLUT[i]
 }
 
-func (r *Renderer_GL32) SetDepthTest(depthTest bool) {
+func (r *Renderer_GL33) SetDepthTest(depthTest bool) {
 	if depthTest != r.depthTest {
 		r.depthTest = depthTest
 		if depthTest {
@@ -1170,14 +1185,14 @@ func (r *Renderer_GL32) SetDepthTest(depthTest bool) {
 }
 
 // Note: This one defaults to enable so we must sync the cache early
-func (r *Renderer_GL32) SetDepthMask(depthMask bool) {
+func (r *Renderer_GL33) SetDepthMask(depthMask bool) {
 	if depthMask != r.depthMask {
 		r.depthMask = depthMask
 		gl.DepthMask(depthMask)
 	}
 }
 
-func (r *Renderer_GL32) SetFrontFace(invertFrontFace bool) {
+func (r *Renderer_GL33) SetFrontFace(invertFrontFace bool) {
 	if invertFrontFace != r.invertFrontFace {
 		r.invertFrontFace = invertFrontFace
 		if invertFrontFace {
@@ -1188,7 +1203,7 @@ func (r *Renderer_GL32) SetFrontFace(invertFrontFace bool) {
 	}
 }
 
-func (r *Renderer_GL32) SetCullFace(doubleSided bool) {
+func (r *Renderer_GL33) SetCullFace(doubleSided bool) {
 	if doubleSided != r.doubleSided {
 		r.doubleSided = doubleSided
 		if !doubleSided {
@@ -1201,7 +1216,7 @@ func (r *Renderer_GL32) SetCullFace(doubleSided bool) {
 }
 
 // This should be called instead of gl.UseProgram()
-func (r *Renderer_GL32) ChangeProgram(prog uint32) {
+func (r *Renderer_GL33) ChangeProgram(prog uint32) {
 	// Program already in use
 	if r.program == prog {
 		return
@@ -1214,14 +1229,14 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	}
 
 	// Same for TTF fonts
-	if r.program == gfxFont.(*FontRenderer_GL32).shaderProgram.program {
-		gfxFont.(*FontRenderer_GL32).ReleaseFontPipeline()
+	if r.program == gfxFont.(*FontRenderer_GL33).shaderProgram.program {
+		gfxFont.(*FontRenderer_GL33).ReleaseFontPipeline()
 	}
 
 	// State leak detector
 	// TODO: Just move to separate VAO's if we drop GL2.1
 	if r.debugMode {
-		r.DebugCheckLeaks(prog)
+		//r.DebugCheckLeaks(prog)
 		r.DebugVerifyCache()
 	}
 
@@ -1250,7 +1265,7 @@ func (r *Renderer_GL32) ChangeProgram(prog uint32) {
 	*/
 }
 
-func (r *Renderer_GL32) EnableBlending(eq BlendEquation, src, dst BlendFunc) {
+func (r *Renderer_GL33) EnableBlending(eq BlendEquation, src, dst BlendFunc) {
 	if !r.blendEnabled {
 		gl.Enable(gl.BLEND)
 		r.blendEnabled = true
@@ -1268,7 +1283,7 @@ func (r *Renderer_GL32) EnableBlending(eq BlendEquation, src, dst BlendFunc) {
 	}
 }
 
-func (r *Renderer_GL32) DisableBlending() {
+func (r *Renderer_GL33) DisableBlending() {
 	if r.blendEnabled {
 		gl.Disable(gl.BLEND)
 		r.blendEnabled = false
@@ -1276,7 +1291,7 @@ func (r *Renderer_GL32) DisableBlending() {
 	}
 }
 
-func (r *Renderer_GL32) SetPipeline() {
+func (r *Renderer_GL33) SetPipeline() {
 	// Do nothing if we were already using the sprite shader
 	if r.program == r.spriteShader.program {
 		return
@@ -1284,37 +1299,18 @@ func (r *Renderer_GL32) SetPipeline() {
 
 	r.ChangeProgram(r.spriteShader.program)
 
-	gl.BindVertexArray(r.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
-
-	// Disable all active attributes
-	// Prevents "vertex shader is being recompiled" errors
-	// Note: We use 11 attributes tops. This may need to be updated in the future
-	//for i := uint32(0); i < 11; i++ {
-	//	gl.DisableVertexAttribArray(i)
-	//}
-
-	locPos := r.spriteShader.attributes["position"]
-	gl.EnableVertexAttribArray(uint32(locPos))
-	gl.VertexAttribPointerWithOffset(uint32(locPos), 2, gl.FLOAT, false, 16, 0)
-
-	locUV := r.spriteShader.attributes["uv"]
-	gl.EnableVertexAttribArray(uint32(locUV))
-	gl.VertexAttribPointerWithOffset(uint32(locUV), 2, gl.FLOAT, false, 16, 8)
+	gl.BindVertexArray(r.spriteVAO)
 }
 
-func (r *Renderer_GL32) ReleasePipeline() {
-	loc := r.spriteShader.attributes["position"]
-	gl.DisableVertexAttribArray(uint32(loc))
-	loc = r.spriteShader.attributes["uv"]
-	gl.DisableVertexAttribArray(uint32(loc))
+func (r *Renderer_GL33) ReleasePipeline() {
+	gl.BindVertexArray(0)
 	//r.DisableBlending()
 }
 
-func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
+func (r *Renderer_GL33) prepareShadowMapPipeline(bufferIndex uint32) {
 	r.ChangeProgram(r.shadowMapShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
 
 	gl.Viewport(0, 0, 1024, 1024)
@@ -1333,10 +1329,10 @@ func (r *Renderer_GL32) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
-func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
+func (r *Renderer_GL33) setShadowMapPipeline(doubleSided, invertFrontFace, useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1 bool, numVertices, vertAttrOffset uint32) {
 	r.SetFrontFace(invertFrontFace)
 	r.SetCullFace(doubleSided)
 
@@ -1426,7 +1422,7 @@ func (r *Renderer_GL32) setShadowMapPipeline(doubleSided, invertFrontFace, useUV
 	}
 }
 
-func (r *Renderer_GL32) ReleaseShadowPipeline() {
+func (r *Renderer_GL33) ReleaseShadowPipeline() {
 	loc := r.shadowMapShader.attributes["vertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.shadowMapShader.attributes["position"]
@@ -1460,10 +1456,10 @@ func (r *Renderer_GL32) ReleaseShadowPipeline() {
 	r.useJoint1 = false
 }
 
-func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environment) {
+func (r *Renderer_GL33) prepareModelPipeline(bufferIndex uint32, env *Environment) {
 	r.ChangeProgram(r.modelShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 
 	gl.Viewport(0, 0, sys.scrrect[2], sys.scrrect[3])
@@ -1489,15 +1485,15 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 	if env != nil {
 		loc, unit := r.modelShader.uniforms["lambertianEnvSampler"], r.modelShader.textures["lambertianEnvSampler"]
 		gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
-		gl.BindTexture(gl.TEXTURE_CUBE_MAP, env.lambertianTexture.tex.(*Texture_GL32).handle)
+		gl.BindTexture(gl.TEXTURE_CUBE_MAP, env.lambertianTexture.tex.(*Texture_GL33).handle)
 		gl.Uniform1i(loc, int32(unit))
 		loc, unit = r.modelShader.uniforms["GGXEnvSampler"], r.modelShader.textures["GGXEnvSampler"]
 		gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
-		gl.BindTexture(gl.TEXTURE_CUBE_MAP, env.GGXTexture.tex.(*Texture_GL32).handle)
+		gl.BindTexture(gl.TEXTURE_CUBE_MAP, env.GGXTexture.tex.(*Texture_GL33).handle)
 		gl.Uniform1i(loc, int32(unit))
 		loc, unit = r.modelShader.uniforms["GGXLUT"], r.modelShader.textures["GGXLUT"]
 		gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
-		gl.BindTexture(gl.TEXTURE_2D, env.GGXLUT.tex.(*Texture_GL32).handle)
+		gl.BindTexture(gl.TEXTURE_2D, env.GGXLUT.tex.(*Texture_GL33).handle)
 		gl.Uniform1i(loc, int32(unit))
 
 		loc = r.modelShader.uniforms["environmentIntensity"]
@@ -1526,10 +1522,10 @@ func (r *Renderer_GL32) prepareModelPipeline(bufferIndex uint32, env *Environmen
 		gl.Uniform1f(loc, 0)
 	}
 
-	r.UseScratchUnit() // gl.ActiveTexture(gl.TEXTURE0)
+	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
 }
 
-func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace,
+func (r *Renderer_GL33) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, depthTest, depthMask, doubleSided, invertFrontFace,
 	useUV, useNormal, useTangent, useVertColor, useJoint0, useJoint1, useOutlineAttribute bool, numVertices, vertAttrOffset uint32) {
 	r.SetDepthTest(depthTest)
 	r.SetDepthMask(depthMask)
@@ -1655,7 +1651,7 @@ func (r *Renderer_GL32) SetModelPipeline(eq BlendEquation, src, dst BlendFunc, d
 	}
 }
 
-func (r *Renderer_GL32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline float32) {
+func (r *Renderer_GL33) SetMeshOutlinePipeline(invertFrontFace bool, meshOutline float32) {
 	r.SetFrontFace(invertFrontFace)
 	r.SetDepthTest(true)
 	r.SetDepthMask(true)
@@ -1664,7 +1660,7 @@ func (r *Renderer_GL32) SetMeshOulinePipeline(invertFrontFace bool, meshOutline 
 	gl.Uniform1f(loc, meshOutline)
 }
 
-func (r *Renderer_GL32) ReleaseModelPipeline() {
+func (r *Renderer_GL33) ReleaseModelPipeline() {
 	loc := r.modelShader.attributes["inVertexId"]
 	gl.DisableVertexAttribArray(uint32(loc))
 	loc = r.modelShader.attributes["position"]
@@ -1710,14 +1706,14 @@ func (r *Renderer_GL32) ReleaseModelPipeline() {
 	r.useOutlineAttribute = false
 }
 
-func (r *Renderer_GL32) ReadPixels(data []uint8, width, height int) {
+func (r *Renderer_GL33) ReadPixels(data []uint8, width, height int) {
 	// we defer the EndFrame(), SwapBuffers(), and BeginFrame() calls that were previously below now to
 	// a single spot in order to prevent the blank screenshot bug on single digit FPS
 	gl.BindFramebuffer(gl.READ_FRAMEBUFFER, 0)
 	gl.ReadPixels(0, 0, int32(width), int32(height), gl.RGBA, gl.UNSIGNED_BYTE, unsafe.Pointer(&data[0]))
 }
 
-func (r *Renderer_GL32) EnableScissor(x, y, width, height int32) {
+func (r *Renderer_GL33) EnableScissor(x, y, width, height int32) {
 	// Flip Y to OpenGL convention
 	realY := sys.scrrect[3] - (y + height)
 
@@ -1736,7 +1732,7 @@ func (r *Renderer_GL32) EnableScissor(x, y, width, height int32) {
 	r.scissorRect = [4]int32{x, realY, width, height}
 }
 
-func (r *Renderer_GL32) DisableScissor() {
+func (r *Renderer_GL33) DisableScissor() {
 	if r.scissorEnabled {
 		gl.Disable(gl.SCISSOR_TEST)
 		r.scissorEnabled = false
@@ -1744,7 +1740,7 @@ func (r *Renderer_GL32) DisableScissor() {
 	}
 }
 
-func (r *Renderer_GL32) SetUniformISub(loc int32, val int32) {
+func (r *Renderer_GL33) SetUniformISub(loc int32, val int32) {
 	if loc < 0 {
 		return
 	}
@@ -1761,7 +1757,7 @@ func (r *Renderer_GL32) SetUniformISub(loc int32, val int32) {
 	gl.Uniform1i(loc, val)
 }
 
-func (r *Renderer_GL32) SetUniformFSub(loc int32, values ...float32) {
+func (r *Renderer_GL33) SetUniformFSub(loc int32, values ...float32) {
 	if loc < 0 || len(values) == 0 {
 		return
 	}
@@ -1810,7 +1806,7 @@ func (r *Renderer_GL32) SetUniformFSub(loc int32, values ...float32) {
 	}
 }
 
-func (r *Renderer_GL32) SetUniformFvSub(loc int32, values []float32) {
+func (r *Renderer_GL33) SetUniformFvSub(loc int32, values []float32) {
 	if loc < 0 || len(values) == 0 {
 		return
 	}
@@ -1825,30 +1821,30 @@ func (r *Renderer_GL32) SetUniformFvSub(loc int32, values []float32) {
 	}
 }
 
-func (r *Renderer_GL32) SetUniformI(name string, val int) {
+func (r *Renderer_GL33) SetUniformI(name string, val int) {
 	loc := r.spriteShader.uniforms[name]
 	r.SetUniformISub(loc, int32(val))
 }
 
-func (r *Renderer_GL32) SetUniformF(name string, values ...float32) {
+func (r *Renderer_GL33) SetUniformF(name string, values ...float32) {
 	loc := r.spriteShader.uniforms[name]
 	r.SetUniformFSub(loc, values...)
 }
 
-func (r *Renderer_GL32) SetUniformFv(name string, values []float32) {
+func (r *Renderer_GL33) SetUniformFv(name string, values []float32) {
 	loc := r.spriteShader.uniforms[name]
 	r.SetUniformFvSub(loc, values)
 }
 
 // Caching matrices is as expensive as direct function calls
-func (r *Renderer_GL32) SetUniformMatrix(name string, value []float32) {
+func (r *Renderer_GL33) SetUniformMatrix(name string, value []float32) {
 	loc, ok := r.spriteShader.uniforms[name]
 	if ok && loc >= 0 {
 		gl.UniformMatrix4fv(loc, 1, false, &value[0])
 	}
 }
 
-func (r *Renderer_GL32) SetModelUniformI(name string, val int) {
+func (r *Renderer_GL33) SetModelUniformI(name string, val int) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1859,7 +1855,7 @@ func (r *Renderer_GL32) SetModelUniformI(name string, val int) {
 	r.SetUniformISub(loc, int32(val))
 }
 
-func (r *Renderer_GL32) SetModelUniformF(name string, values ...float32) {
+func (r *Renderer_GL33) SetModelUniformF(name string, values ...float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1870,7 +1866,7 @@ func (r *Renderer_GL32) SetModelUniformF(name string, values ...float32) {
 	r.SetUniformFSub(loc, values...)
 }
 
-func (r *Renderer_GL32) SetModelUniformFv(name string, values []float32) {
+func (r *Renderer_GL33) SetModelUniformFv(name string, values []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1881,7 +1877,7 @@ func (r *Renderer_GL32) SetModelUniformFv(name string, values []float32) {
 	r.SetUniformFvSub(loc, values)
 }
 
-func (r *Renderer_GL32) SetModelUniformMatrix(name string, value []float32) {
+func (r *Renderer_GL33) SetModelUniformMatrix(name string, value []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1892,7 +1888,7 @@ func (r *Renderer_GL32) SetModelUniformMatrix(name string, value []float32) {
 	gl.UniformMatrix4fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetModelUniformMatrix3(name string, value []float32) {
+func (r *Renderer_GL33) SetModelUniformMatrix3(name string, value []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1903,7 +1899,7 @@ func (r *Renderer_GL32) SetModelUniformMatrix3(name string, value []float32) {
 	gl.UniformMatrix3fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetShadowMapUniformI(name string, val int) {
+func (r *Renderer_GL33) SetShadowMapUniformI(name string, val int) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1914,7 +1910,7 @@ func (r *Renderer_GL32) SetShadowMapUniformI(name string, val int) {
 	r.SetUniformISub(loc, int32(val))
 }
 
-func (r *Renderer_GL32) SetShadowMapUniformF(name string, values ...float32) {
+func (r *Renderer_GL33) SetShadowMapUniformF(name string, values ...float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1925,7 +1921,7 @@ func (r *Renderer_GL32) SetShadowMapUniformF(name string, values ...float32) {
 	r.SetUniformFSub(loc, values...)
 }
 
-func (r *Renderer_GL32) SetShadowMapUniformFv(name string, values []float32) {
+func (r *Renderer_GL33) SetShadowMapUniformFv(name string, values []float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1936,7 +1932,7 @@ func (r *Renderer_GL32) SetShadowMapUniformFv(name string, values []float32) {
 	r.SetUniformFvSub(loc, values)
 }
 
-func (r *Renderer_GL32) SetShadowMapUniformMatrix(name string, value []float32) {
+func (r *Renderer_GL33) SetShadowMapUniformMatrix(name string, value []float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1947,7 +1943,7 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix(name string, value []float32) 
 	gl.UniformMatrix4fv(loc, 1, false, &value[0])
 }
 
-func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32) {
+func (r *Renderer_GL33) SetShadowMapUniformMatrix3(name string, value []float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
@@ -1960,7 +1956,7 @@ func (r *Renderer_GL32) SetShadowMapUniformMatrix3(name string, value []float32)
 
 // Selects texture unit 0 as active and tells the cache it's dirty
 // Prevents the sprite renderer from desyncing during texture maintenance
-func (r *Renderer_GL32) UseScratchUnit() {
+func (r *Renderer_GL33) SetActiveTexture0() {
 	gl.ActiveTexture(gl.TEXTURE0)
 
 	if len(r.texCacheTexSerial) > 0 {
@@ -1969,8 +1965,8 @@ func (r *Renderer_GL32) UseScratchUnit() {
 	}
 }
 
-func (r *Renderer_GL32) SetTextureSub(uMap map[string]int32, tMap map[string]int, name string, tex Texture) {
-	t := tex.(*Texture_GL32)
+func (r *Renderer_GL33) SetTextureSub(uMap map[string]int32, tMap map[string]int, name string, tex Texture) {
+	t := tex.(*Texture_GL33)
 	loc := uMap[name]
 
 	// Cached path for the sprite shader
@@ -2018,27 +2014,27 @@ func (r *Renderer_GL32) SetTextureSub(uMap map[string]int32, tMap map[string]int
 	r.SetUniformISub(loc, int32(fixedUnit))
 }
 
-func (r *Renderer_GL32) SetTexture(name string, tex Texture) {
+func (r *Renderer_GL33) SetTexture(name string, tex Texture) {
 	r.SetTextureSub(r.spriteShader.uniforms, r.spriteShader.textures, name, tex)
 }
 
-func (r *Renderer_GL32) SetModelTexture(name string, tex Texture) {
+func (r *Renderer_GL33) SetModelTexture(name string, tex Texture) {
 	r.SetTextureSub(r.modelShader.uniforms, r.modelShader.textures, name, tex)
 }
 
-func (r *Renderer_GL32) SetShadowMapTexture(name string, tex Texture) {
+func (r *Renderer_GL33) SetShadowMapTexture(name string, tex Texture) {
 	r.SetTextureSub(r.shadowMapShader.uniforms, r.shadowMapShader.textures, name, tex)
 }
 
-func (r *Renderer_GL32) SetShadowFrameTexture(i uint32) {
+func (r *Renderer_GL33) SetShadowFrameTexture(i uint32) {
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 }
 
-func (r *Renderer_GL32) SetShadowFrameCubeTexture(i uint32) {
+func (r *Renderer_GL33) SetShadowFrameCubeTexture(i uint32) {
 	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 }
 
-func (r *Renderer_GL32) SetVertexData(values ...float32) {
+func (r *Renderer_GL33) SetVertexData(values ...float32) {
 	data := f32.Bytes(binary.LittleEndian, values...)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
@@ -2046,12 +2042,12 @@ func (r *Renderer_GL32) SetVertexData(values ...float32) {
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/3292
 }
 
-func (r *Renderer_GL32) SetModelVertexData(bufferIndex uint32, values []byte) {
+func (r *Renderer_GL33) SetModelVertexData(bufferIndex uint32, values []byte) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BufferData(gl.ARRAY_BUFFER, len(values), unsafe.Pointer(&values[0]), gl.STATIC_DRAW)
 }
 
-func (r *Renderer_GL32) SetModelIndexData(bufferIndex uint32, values ...uint32) {
+func (r *Renderer_GL33) SetModelIndexData(bufferIndex uint32, values ...uint32) {
 	data := new(bytes.Buffer)
 	binary.Write(data, binary.LittleEndian, values)
 
@@ -2059,26 +2055,26 @@ func (r *Renderer_GL32) SetModelIndexData(bufferIndex uint32, values ...uint32) 
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(values)*4, unsafe.Pointer(&data.Bytes()[0]), gl.STATIC_DRAW)
 }
 
-func (r *Renderer_GL32) RenderQuad() {
+func (r *Renderer_GL33) RenderQuad() {
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 }
 
-func (r *Renderer_GL32) RenderElements(mode PrimitiveMode, count, offset int) {
+func (r *Renderer_GL33) RenderElements(mode PrimitiveMode, count, offset int) {
 	gl.DrawElementsWithOffset(r.MapPrimitiveMode(mode), int32(count), gl.UNSIGNED_INT, uintptr(offset))
 }
 
-func (r *Renderer_GL32) RenderShadowMapElements(mode PrimitiveMode, count, offset int) {
+func (r *Renderer_GL33) RenderShadowMapElements(mode PrimitiveMode, count, offset int) {
 	r.RenderElements(mode, count, offset)
 }
 
-func (r *Renderer_GL32) RenderCubeMap(envTex Texture, cubeTex Texture) {
-	envTexture := envTex.(*Texture_GL32)
-	cubeTexture := cubeTex.(*Texture_GL32)
+func (r *Renderer_GL33) RenderCubeMap(envTex Texture, cubeTex Texture) {
+	envTexture := envTex.(*Texture_GL33)
+	cubeTexture := cubeTex.(*Texture_GL33)
 	textureSize := cubeTexture.width
 
 	r.ChangeProgram(r.panoramaToCubeMapShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 
@@ -2106,15 +2102,15 @@ func (r *Renderer_GL32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 	gl.GenerateMipmap(gl.TEXTURE_CUBE_MAP)
 }
 
-func (r *Renderer_GL32) RenderFilteredCubeMap(distribution int32, cubeTex Texture, filteredTex Texture, mipmapLevel, sampleCount int32, roughness float32) {
-	cubeTexture := cubeTex.(*Texture_GL32)
-	filteredTexture := filteredTex.(*Texture_GL32)
+func (r *Renderer_GL33) RenderFilteredCubeMap(distribution int32, cubeTex Texture, filteredTex Texture, mipmapLevel, sampleCount int32, roughness float32) {
+	cubeTexture := cubeTex.(*Texture_GL33)
+	filteredTexture := filteredTex.(*Texture_GL33)
 	textureSize := filteredTexture.width
 	currentTextureSize := textureSize >> mipmapLevel
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
 
@@ -2154,14 +2150,14 @@ func (r *Renderer_GL32) RenderFilteredCubeMap(distribution int32, cubeTex Textur
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 }
 
-func (r *Renderer_GL32) RenderLUT(distribution int32, cubeTex Texture, lutTex Texture, sampleCount int32) {
-	cubeTexture := cubeTex.(*Texture_GL32)
-	lutTexture := lutTex.(*Texture_GL32)
+func (r *Renderer_GL33) RenderLUT(distribution int32, cubeTex Texture, lutTex Texture, sampleCount int32) {
+	cubeTexture := cubeTex.(*Texture_GL33)
+	lutTexture := lutTex.(*Texture_GL33)
 	textureSize := lutTexture.width
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.vao)
+	gl.BindVertexArray(r.modelVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 
@@ -2201,19 +2197,19 @@ func (r *Renderer_GL32) RenderLUT(distribution int32, cubeTex Texture, lutTex Te
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 }
 
-func (r *Renderer_GL32) PerspectiveProjectionMatrix(angle, aspect, near, far float32) mgl.Mat4 {
+func (r *Renderer_GL33) PerspectiveProjectionMatrix(angle, aspect, near, far float32) mgl.Mat4 {
 	return mgl.Perspective(angle, aspect, near, far)
 }
 
-func (r *Renderer_GL32) OrthographicProjectionMatrix(left, right, bottom, top, near, far float32) mgl.Mat4 {
+func (r *Renderer_GL33) OrthographicProjectionMatrix(left, right, bottom, top, near, far float32) mgl.Mat4 {
 	ret := mgl.Ortho(left, right, bottom, top, near, far)
 	return ret
 }
 
-func (r *Renderer_GL32) NewWorkerThread() bool {
+func (r *Renderer_GL33) NewWorkerThread() bool {
 	return false
 }
 
-func (r *Renderer_GL32) SetVSync(interval int) {
+func (r *Renderer_GL33) SetVSync(interval int) {
 	sdl.GLSetSwapInterval(interval)
 }

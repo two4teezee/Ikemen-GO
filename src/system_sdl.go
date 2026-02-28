@@ -86,7 +86,7 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 			sdl.GLSetAttribute(sdl.GL_ALPHA_SIZE, 0)
 			sdl.GLSetAttribute(sdl.GL_DEPTH_SIZE, 24)
 			windowFlags |= sdl.WINDOW_OPENGL
-		} else if renderName == "OpenGL 3.2" {
+		} else if renderName == "OpenGL 3.3" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
@@ -384,7 +384,7 @@ func (w *Window) pollEvents() {
 		case sdl.WindowEvent:
 			if t.Event == sdl.WINDOWEVENT_EXPOSED {
 				renderName := gfx.GetName()
-				if renderName == "OpenGL 3.2" {
+				if renderName == "OpenGL 3.3" {
 					gfx.EndFrame()
 					w.SwapBuffers()
 				}

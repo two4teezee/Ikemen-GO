@@ -47,7 +47,7 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 	// really long time and the below streamer.Stream method does not
 	// do a nil check. This should at least prevent crashes, but may
 	// lead to sound glitches.
-	if len(samples) <= 0 {
+	if n.streamer == nil || len(samples) <= 0 {
 		return 0, false
 	}
 	s, ok = n.streamer.Stream(samples)
@@ -64,6 +64,9 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 }
 
 func (n *Normalizer) Err() error {
+	if n.streamer == nil {
+		return nil
+	}
 	return n.streamer.Err()
 }
 
@@ -90,6 +93,13 @@ func (n *NormalizerLR) process(mul float64, sam *float64) float64 {
 	n.edge = float64(ClampF(float32(n.edge+n.edgeDelta), 0, 1))
 	*sam = s
 	return mul
+}
+
+// Safe wrapper for streamer operations
+func WithSpeakerLock(f func()) {
+	speaker.Lock()
+	defer speaker.Unlock()
+	f()
 }
 
 // ------------------------------------------------------------------
@@ -306,9 +316,9 @@ func newBgm() *Bgm {
 
 func (bgm *Bgm) Stop() {
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	bgm.filename = ""
 }
@@ -329,9 +339,9 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	bgm.freqmul = freqmul
 	// Starve the current music streamer
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	// Special value "" is used to stop music
 	if filename == "" {
@@ -529,9 +539,9 @@ func (bgm *Bgm) SetPaused(pause bool) {
 	if bgm.ctrl == nil || bgm.ctrl.Paused == pause {
 		return
 	}
-	speaker.Lock()
-	bgm.ctrl.Paused = pause
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		bgm.ctrl.Paused = pause
+	})
 }
 
 func (bgm *Bgm) UpdateVolume() {
@@ -553,10 +563,10 @@ func (bgm *Bgm) UpdateVolume() {
 		volume = 1
 	}
 	silent := volume <= -5
-	speaker.Lock()
-	bgm.volctrl.Volume = volume
-	bgm.volctrl.Silent = silent
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		bgm.volctrl.Volume = volume
+		bgm.volctrl.Silent = silent
+	})
 }
 
 func (bgm *Bgm) SetFreqMul(freqmul float32) {
@@ -571,10 +581,10 @@ func (bgm *Bgm) SetFreqMul(freqmul float32) {
 			srcRate := bgm.sampleRate
 			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := bgm.ctrl.Streamer.(*beep.Resampler); ok {
-				speaker.Lock()
-				resampler.SetRatio(float64(srcRate) / float64(dstRate))
-				bgm.freqmul = freqmul
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					resampler.SetRatio(float64(srcRate) / float64(dstRate))
+					bgm.freqmul = freqmul
+				})
 			}
 		}
 	}
@@ -600,9 +610,9 @@ func (bgm *Bgm) OpenFromStreamer(stream beep.Streamer, srcSampleRate beep.Sample
 
 	// Starve the current music streamer
 	if bgm.ctrl != nil {
-		speaker.Lock()
-		bgm.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			bgm.ctrl.Streamer = nil
+		})
 	}
 	// Honor CLI flags just like normal Open()
 	if _, ok := sys.cmdFlags["-nomusic"]; ok {
@@ -624,23 +634,23 @@ func (bgm *Bgm) OpenFromStreamer(stream beep.Streamer, srcSampleRate beep.Sample
 }
 
 func (bgm *Bgm) SetLoopPoints(bgmLoopStart int, bgmLoopEnd int) {
-	// Set both at once, why not
 	if sl, ok := bgm.volctrl.Streamer.(*StreamLooper); ok {
 		if sl.loopstart != bgmLoopStart && sl.loopend != bgmLoopEnd {
-			speaker.Lock()
-			sl.loopstart = bgmLoopStart
-			sl.loopend = bgmLoopEnd
-			speaker.Unlock()
-			// Set one at a time
-		} else {
-			if sl.loopstart != bgmLoopStart {
-				speaker.Lock()
+			// Set both at once, why not
+			WithSpeakerLock(func() {
 				sl.loopstart = bgmLoopStart
-				speaker.Unlock()
-			} else if sl.loopend != bgmLoopEnd {
-				speaker.Lock()
 				sl.loopend = bgmLoopEnd
-				speaker.Unlock()
+			})
+		} else {
+			// Set one at a time
+			if sl.loopstart != bgmLoopStart {
+				WithSpeakerLock(func() {
+					sl.loopstart = bgmLoopStart
+				})
+			} else if sl.loopend != bgmLoopEnd {
+				WithSpeakerLock(func() {
+					sl.loopend = bgmLoopEnd
+				})
 			}
 		}
 	}
@@ -651,13 +661,13 @@ func (bgm *Bgm) Seek(positionSample int) {
 	if bgm.streamer == nil {
 		return
 	}
-	speaker.Lock()
 	// Reset to 0 if out of range
-	if positionSample < 0 || positionSample > bgm.streamer.Len() {
-		positionSample = 0
-	}
-	_ = bgm.streamer.Seek(positionSample)
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		if positionSample < 0 || positionSample > bgm.streamer.Len() {
+			positionSample = 0
+		}
+		_ = bgm.streamer.Seek(positionSample)
+	})
 }
 
 // ------------------------------------------------------------------
@@ -858,7 +868,6 @@ type SoundEffect struct {
 	ls, p    float32
 	x        *float32
 	priority int32
-	channel  int32
 	loop     int32
 	freqmul  float32
 	startPos int
@@ -900,6 +909,7 @@ type SoundChannel struct {
 	sfx               *SoundEffect
 	ctrl              *beep.Ctrl
 	sound             *Sound
+	channelNo         int32 // Logical channel assigned by char code
 	stopOnGetHit      bool
 	stopOnChangeState bool
 	group             int32
@@ -927,13 +937,16 @@ func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul flo
 
 	// going to continue using our streamLooper which is now modified from beep.Loop2
 	looper := newStreamLooper(s.streamer, loopCount, loopStart, loopEnd)
-	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0, channel: -1, loop: int32(loopCount), freqmul: freqmul, startPos: startPosition}
+	s.sfx = &SoundEffect{streamer: looper, volume: 256, priority: 0, loop: int32(loopCount), freqmul: freqmul, startPos: startPosition}
 	srcRate := s.sound.format.SampleRate
 	dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / s.sfx.freqmul)
 	resampler := beep.Resample(audioResampleQuality, srcRate, dstRate, s.sfx)
 	s.ctrl = &beep.Ctrl{Streamer: resampler}
 	s.streamer.Seek(startPosition)
-	sys.soundMixer.Add(s.ctrl)
+
+	WithSpeakerLock(func() {
+		sys.soundMixer.Add(s.ctrl)
+	})
 }
 
 func (s *SoundChannel) IsPlaying() bool {
@@ -944,16 +957,16 @@ func (s *SoundChannel) SetPaused(pause bool) {
 	if s.ctrl == nil || s.ctrl.Paused == pause {
 		return
 	}
-	speaker.Lock()
-	s.ctrl.Paused = pause
-	speaker.Unlock()
+	WithSpeakerLock(func() {
+		s.ctrl.Paused = pause
+	})
 }
 
 func (s *SoundChannel) Stop() {
 	if s.ctrl != nil {
-		speaker.Lock()
-		s.ctrl.Streamer = nil
-		speaker.Unlock()
+		WithSpeakerLock(func() {
+			s.ctrl.Streamer = nil
+		})
 	}
 	s.sound = nil
 }
@@ -978,12 +991,6 @@ func (s *SoundChannel) SetPriority(priority int32) {
 	}
 }
 
-func (s *SoundChannel) SetChannel(channel int32) {
-	if s.ctrl != nil {
-		s.sfx.channel = channel
-	}
-}
-
 func (s *SoundChannel) SetFreqMul(freqmul float32) {
 	if s.ctrl != nil {
 		if s.sound != nil {
@@ -996,10 +1003,10 @@ func (s *SoundChannel) SetFreqMul(freqmul float32) {
 			srcRate := s.sound.format.SampleRate
 			dstRate := beep.SampleRate(float32(sys.cfg.Sound.SampleRate) / freqmul)
 			if resampler, ok := s.ctrl.Streamer.(*beep.Resampler); ok {
-				speaker.Lock()
-				resampler.SetRatio(float64(srcRate) / float64(dstRate))
-				s.sfx.freqmul = freqmul
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					resampler.SetRatio(float64(srcRate) / float64(dstRate))
+					s.sfx.freqmul = freqmul
+				})
 			}
 		}
 	}
@@ -1009,20 +1016,20 @@ func (s *SoundChannel) SetLoopPoints(loopstart, loopend int) {
 	// Set both at once, why not
 	if sl, ok := s.sfx.streamer.(*StreamLooper); ok {
 		if sl.loopstart != loopstart && sl.loopend != loopend {
-			speaker.Lock()
-			sl.loopstart = loopstart
-			sl.loopend = loopend
-			speaker.Unlock()
+			WithSpeakerLock(func() {
+				sl.loopstart = loopstart
+				sl.loopend = loopend
+			})
 			// Set one at a time
 		} else {
 			if sl.loopstart != loopstart {
-				speaker.Lock()
-				sl.loopstart = loopstart
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					sl.loopstart = loopstart
+				})
 			} else if sl.loopend != loopend {
-				speaker.Lock()
-				sl.loopend = loopend
-				speaker.Unlock()
+				WithSpeakerLock(func() {
+					sl.loopend = loopend
+				})
 			}
 		}
 	}
@@ -1043,15 +1050,28 @@ func newSoundChannels(size int32) *SoundChannels {
 }
 
 func (s *SoundChannels) SetSize(size int32) {
-	if size > s.count() {
-		c := make([]SoundChannel, size-s.count())
-		v := make([]float32, size-s.count())
+	currentSize := s.count()
+
+	switch {
+	case size > currentSize:
+		// Add new channels
+		newSlotsCount := size - currentSize
+		c := make([]SoundChannel, newSlotsCount)
+		v := make([]float32, newSlotsCount)
+
+		// Initialize the new slots
+		for i := range c {
+			c[i].channelNo = -1
+		}
+
 		s.channels = append(s.channels, c...)
 		s.volResume = append(s.volResume, v...)
-	} else if size < s.count() {
-		for i := s.count() - 1; i >= size; i-- {
+	case size < currentSize:
+		// Remove channels
+		for i := currentSize - 1; i >= size; i-- {
 			s.channels[i].Stop()
 		}
+
 		s.channels = s.channels[:size]
 		s.volResume = s.volResume[:size]
 	}
@@ -1061,26 +1081,89 @@ func (s *SoundChannels) count() int32 {
 	return int32(len(s.channels))
 }
 
-func (s *SoundChannels) New(ch int32, lowpriority bool, priority int32) *SoundChannel {
-	if ch >= 0 && ch < sys.cfg.Sound.WavChannels {
-		for i := s.count() - 1; i >= 0; i-- {
-			if s.channels[i].IsPlaying() && s.channels[i].sfx.channel == ch {
-				if (lowpriority && priority <= s.channels[i].sfx.priority) || priority < s.channels[i].sfx.priority {
-					return nil
-				}
-				s.channels[i].Stop()
-				return &s.channels[i]
-			}
-		}
-	}
+// Returns a channel with the requested logical ID
+func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *SoundChannel {
+	// Ensure capacity
 	if s.count() < sys.cfg.Sound.WavChannels {
 		s.SetSize(sys.cfg.Sound.WavChannels)
 	}
-	for i := sys.cfg.Sound.WavChannels - 1; i >= 0; i-- {
-		if !s.channels[i].IsPlaying() {
-			return &s.channels[i]
+
+	// Specific channel request
+	if chNo >= 0 && chNo < sys.cfg.Sound.WavChannels {
+		for i := range s.channels {
+			ch := &s.channels[i]
+			if ch.channelNo == chNo {
+				if ch.IsPlaying() {
+					// If slot is playing, check priority first
+					if lowpriority || ch.sfx != nil && priority < ch.sfx.priority {
+						return nil
+					}
+					ch.Stop()
+				}
+				ch.channelNo = chNo // Redundant but explicit
+				return ch
+			}
 		}
 	}
+
+	// Negative or invalid channel
+	// Look for any empty channel starting from the back
+	for i := int(s.count()) - 1; i >= 0; i-- {
+		ch := &s.channels[i]
+		if !ch.IsPlaying() {
+			ch.channelNo = -1 // Mark channel as undefined
+			return ch
+		}
+	}
+
+	// If "lowpriority" we don't even need to run the replacement code
+	if lowpriority {
+		return nil
+	}
+
+	// All channels full
+	// Replace the oldest sound. Negative channels are more likely to be replaced
+	var oldestNegativeIdx int = -1
+	var minTimeNegative int32 = math.MaxInt32
+	var oldestPositiveIdx int = -1
+	var minTimePositive int32 = math.MaxInt32
+
+	for i := 0; i < int(s.count()); i++ {
+		ch := &s.channels[i]
+		// We still take priority into account here
+		if ch.IsPlaying() && ch.sfx != nil && priority < ch.sfx.priority {
+			continue
+		}
+
+		if ch.channelNo < 0 {
+			if ch.timeStamp < minTimeNegative {
+				minTimeNegative = ch.timeStamp
+				oldestNegativeIdx = i
+			}
+		} else {
+			if ch.timeStamp < minTimePositive {
+				minTimePositive = ch.timeStamp
+				oldestPositiveIdx = i
+			}
+		}
+	}
+
+	// Kick out the oldest negative channel first
+	if oldestNegativeIdx != -1 {
+		ch := &s.channels[oldestNegativeIdx]
+		ch.Stop()
+		ch.channelNo = -1
+		return ch
+	} 
+	
+	// If no negative channels can be evicted, try the oldest positive one
+	if oldestPositiveIdx != -1 { 
+		ch := &s.channels[oldestPositiveIdx]
+		ch.Stop()
+		ch.channelNo = -1
+		return ch
+	}
+
 	return nil
 }
 
@@ -1096,7 +1179,7 @@ func (s *SoundChannels) reserveChannel() *SoundChannel {
 func (s *SoundChannels) Get(ch int32) *SoundChannel {
 	if ch >= 0 && ch < s.count() {
 		for i := range s.channels {
-			if s.channels[i].IsPlaying() && s.channels[i].sfx != nil && s.channels[i].sfx.channel == ch {
+			if s.channels[i].IsPlaying() && s.channels[i].sfx != nil && s.channels[i].channelNo == ch {
 				return &s.channels[i]
 			}
 		}

@@ -10,14 +10,14 @@ import (
 	"io/ioutil"
 	"os"
 
-	gl "github.com/go-gl/gl/v3.2-core/gl"
+	gl "github.com/go-gl/gl/v3.3-core/gl"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
 
-type Font_GL32 struct {
+type Font_GL33 struct {
 	fontChar     map[rune]*character
 	ttf          *truetype.Font
 	scale        int32
@@ -27,13 +27,13 @@ type Font_GL32 struct {
 	color        color
 }
 
-type FontRenderer_GL32 struct {
-	shaderProgram *ShaderProgram_GL32
+type FontRenderer_GL33 struct {
+	shaderProgram *ShaderProgram_GL33
 	vao           uint32
 	vbo           uint32
 }
 
-func (r *FontRenderer_GL32) Init(renderer interface{}) {
+func (r *FontRenderer_GL33) Init(renderer interface{}) {
 	// Configure the default font vertex and fragment shaders
 	r.newProgram(150, vertexFontShader, fragmentFontShader)
 
@@ -58,13 +58,13 @@ func (r *FontRenderer_GL32) Init(renderer interface{}) {
 	gl.EnableVertexAttribArray(tLoc)
 	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 
-	// Clean up binding state, but not attribute state
-	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+	// Unbind for safety
 	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 }
 
 // LoadFont loads the specified font at the given scale.
-func (r *FontRenderer_GL32) LoadFont(file string, scale int32, windowWidth int, windowHeight int) (interface{}, error) {
+func (r *FontRenderer_GL33) LoadFont(file string, scale int32, windowWidth int, windowHeight int) (interface{}, error) {
 	fd, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -85,20 +85,20 @@ func (r *FontRenderer_GL32) LoadFont(file string, scale int32, windowWidth int, 
 }
 
 // SetColor allows you to set the text color to be used when you draw the text
-func (f *Font_GL32) SetColor(red float32, green float32, blue float32, alpha float32) {
+func (f *Font_GL33) SetColor(red float32, green float32, blue float32, alpha float32) {
 	f.color.r = red
 	f.color.g = green
 	f.color.b = blue
 	f.color.a = alpha
 }
 
-func (f *Font_GL32) UpdateResolution(windowWidth int, windowHeight int) {
+func (f *Font_GL33) UpdateResolution(windowWidth int, windowHeight int) {
 	f.windowWidth = windowWidth
 	f.windowHeight = windowHeight
 }
 
-func (r *FontRenderer_GL32) SetFontPipeline() {
-	mr := gfx.(*Renderer_GL32)
+func (r *FontRenderer_GL33) SetFontPipeline() {
+	mr := gfx.(*Renderer_GL33)
 
 	// Do nothing if we were already using the font shader
 	if mr.program == r.shaderProgram.program {
@@ -107,25 +107,20 @@ func (r *FontRenderer_GL32) SetFontPipeline() {
 
 	mr.ChangeProgram(r.shaderProgram.program)
 
+	// Bind VAO
 	gl.BindVertexArray(r.vao)
+
+	// We need to bind VBO here as well
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vbo)
-
-	vLoc := uint32(r.shaderProgram.attributes["vert"])
-	gl.EnableVertexAttribArray(vLoc)
-	gl.VertexAttribPointer(vLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
-
-	tLoc := uint32(r.shaderProgram.attributes["vertTexCoord"])
-	gl.EnableVertexAttribArray(tLoc)
-	gl.VertexAttribPointer(tLoc, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
 }
 
 // Printf draws a string to the screen, takes a list of arguments like printf
-func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32,
+func (f *Font_GL33) Printf(x, y float32, scale float32, spacingXAdd float32,
 	align int32, blend bool, window [4]int32, fs string, argv ...interface{}) error {
 
 	indices := []rune(fmt.Sprintf(fs, argv...))
-	r := gfx.(*Renderer_GL32)
-	fr := gfxFont.(*FontRenderer_GL32)
+	r := gfx.(*Renderer_GL33)
+	fr := gfxFont.(*FontRenderer_GL33)
 
 	if len(indices) == 0 {
 		return nil
@@ -159,7 +154,7 @@ func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32,
 	r.SetUniformFSub(program.uniforms["resolution"], float32(f.windowWidth), float32(f.windowHeight))
 
 	gl.ActiveTexture(gl.TEXTURE0)
-	//gl.BindVertexArray(gfxFont.(*FontRenderer_GL32).vao)
+	//gl.BindVertexArray(gfxFont.(*FontRenderer_GL33).vao)
 
 	//calculate alignment position
 	if align == 0 {
@@ -236,8 +231,8 @@ func (f *Font_GL32) Printf(x, y float32, scale float32, spacingXAdd float32,
 }
 
 // Helper function to render a batch of glyphs
-func (f *Font_GL32) renderGlyphBatch(vertices []float32, textureID uint32) {
-	fr := gfxFont.(*FontRenderer_GL32)
+func (f *Font_GL33) renderGlyphBatch(vertices []float32, textureID uint32) {
+	fr := gfxFont.(*FontRenderer_GL33)
 
 	gl.BindBuffer(gl.ARRAY_BUFFER, fr.vbo)
 	gl.BufferSubData(gl.ARRAY_BUFFER, 0, len(vertices)*4, gl.Ptr(vertices))
@@ -246,18 +241,13 @@ func (f *Font_GL32) renderGlyphBatch(vertices []float32, textureID uint32) {
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(vertices))/4)
 }
 
-func (r *FontRenderer_GL32) ReleaseFontPipeline() {
-	locVert := r.shaderProgram.attributes["vert"]
-	gl.DisableVertexAttribArray(uint32(locVert))
-	locTex := r.shaderProgram.attributes["vertTexCoord"]
-	gl.DisableVertexAttribArray(uint32(locTex))
-
-	//gl.BindVertexArray(0)
-	//gl.BindBuffer(gl.ARRAY_BUFFER, 0)
+func (r *FontRenderer_GL33) ReleaseFontPipeline() {
+	gl.BindVertexArray(0)
+	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 }
 
 // Width returns the width of a piece of text in pixels
-func (f *Font_GL32) Width(scale float32, spacingXAdd float32, fs string, argv ...interface{}) float32 {
+func (f *Font_GL33) Width(scale float32, spacingXAdd float32, fs string, argv ...interface{}) float32 {
 
 	var width float32
 
@@ -305,7 +295,7 @@ func (f *Font_GL32) Width(scale float32, spacingXAdd float32, fs string, argv ..
 }
 
 // GenerateGlyphs builds a set of textures based on a ttf files glyphs
-func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
+func (f *Font_GL33) GenerateGlyphs(low, high rune) error {
 	//create a freetype context for drawing
 	c := freetype.NewContext()
 	c.SetDPI(72)
@@ -421,7 +411,7 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 		// uv[3] -= off_v
 
 		char.uv = uv
-		char.textureID = texAtlas.texture.(*Texture_GL32).handle
+		char.textureID = texAtlas.texture.(*Texture_GL33).handle
 
 		//add char to fontChar list
 		f.fontChar[ch] = char
@@ -432,7 +422,7 @@ func (f *Font_GL32) GenerateGlyphs(low, high rune) error {
 }
 
 // LoadTrueTypeFont builds OpenGL buffers and glyph textures based on a ttf file
-func (r *FontRenderer_GL32) LoadTrueTypeFont(reader io.Reader, scale int32, low, high rune, dir Direction) (*Font_GL32, error) {
+func (r *FontRenderer_GL33) LoadTrueTypeFont(reader io.Reader, scale int32, low, high rune, dir Direction) (*Font_GL33, error) {
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, err
@@ -445,7 +435,7 @@ func (r *FontRenderer_GL32) LoadTrueTypeFont(reader io.Reader, scale int32, low,
 	}
 
 	//make Font stuct type
-	f := new(Font_GL32)
+	f := new(Font_GL33)
 	f.fontChar = make(map[rune]*character)
 	f.ttf = ttf
 	f.scale = scale
@@ -461,8 +451,8 @@ func (r *FontRenderer_GL32) LoadTrueTypeFont(reader io.Reader, scale int32, low,
 }
 
 // newProgram links the frag and vertex shader programs
-func (r *FontRenderer_GL32) newProgram(GLSLVersion uint, vertexShaderSource, fragmentShaderSource string) {
-	shaderProgram, _ := gfx.(*Renderer_GL32).newShaderProgram(vertexShaderSource, fragmentShaderSource, "", "font shader", true)
+func (r *FontRenderer_GL33) newProgram(GLSLVersion uint, vertexShaderSource, fragmentShaderSource string) {
+	shaderProgram, _ := gfx.(*Renderer_GL33).newShaderProgram(vertexShaderSource, fragmentShaderSource, "", "font shader", true)
 	r.shaderProgram = shaderProgram
 	r.shaderProgram.RegisterUniforms("textColor", "resolution", "tex")
 }

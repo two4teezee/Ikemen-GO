@@ -2297,9 +2297,9 @@ func systemScriptInit(l *lua.LState) {
 							}
 						}
 
-						// Init palettes if character is just joining the match
+						// Load palettes if character is just joining the match
 						if c[0].roundsExisted() == 0 {
-							c[0].initPalettes()
+							c[0].loadPalettes()
 						}
 
 						// Copy each other's command lists
@@ -4968,7 +4968,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
-		sys.stopAllCharSound()
+		sys.stopAllCharSounds()
 		return 0
 	})
 	luaRegister(l, "stopBgm", func(l *lua.LState) int {

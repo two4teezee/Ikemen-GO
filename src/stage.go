@@ -4153,7 +4153,7 @@ func drawNode(mdl *Model, scene *Scene, layerNumber int, defaultLayerNumber int,
 		gfx.SetModelUniformF("meshOutline", 0)
 		gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
 		if meshOutline > 0 {
-			gfx.SetMeshOulinePipeline(!reverseCull, meshOutline*outlineConst)
+			gfx.SetMeshOutlinePipeline(!reverseCull, meshOutline*outlineConst)
 			gfx.RenderElements(mode, int(p.numIndices), int(p.elementBufferOffset))
 		}
 

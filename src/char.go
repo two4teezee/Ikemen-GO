@@ -2113,6 +2113,7 @@ func (e *Explod) update() {
 	sd.alpha = alp
 	sd.layerno = e.layerno
 	sd.priority = e.sprpriority + int32(e.interPos[2]*e.localscl)
+	sd.under = e.under
 	sd.rot = rot
 	sd.screen = e.space == Space_screen
 	sd.undarken = parent != nil && parent.ignoreDarkenTime > 0
@@ -4149,7 +4150,8 @@ func (c *Char) load(def string) error {
 	return nil
 }
 
-func (c *Char) initPalettes() {
+// Loads all of the character's palettes. Selectable or not
+func (c *Char) loadPalettes() {
 	gi := c.gi()
 	maxPal := sys.cfg.Config.PaletteMax
 
@@ -4172,10 +4174,10 @@ func (c *Char) initPalettes() {
 		gi.palettedata.palList.ResetRemap()
 		tmp := 0
 
+		// Append ACT palettes instead of overwriting
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			if pl, ok := readAct(&pal); ok {
-				// Append instead of overwriting
 				targetIdx := len(gi.palettedata.palList.palettes)
 
 				// Allocate space if necessary
@@ -4209,7 +4211,7 @@ func (c *Char) initPalettes() {
 		// SFFv2 logic
 		numPals := int(gi.sff.header.NumberOfPalettes)
 
-		// Ensure GPU textures are ready for all internal SFFv2 palettes
+		// Ensure textures are ready for all internal SFFv2 palettes
 		for i := 0; i < numPals; i++ {
 			if pData := gi.sff.palList.Get(i); pData != nil {
 				// SetSource ensures allocation exists
@@ -4218,7 +4220,7 @@ func (c *Char) initPalettes() {
 			}
 		}
 
-		// Process external ACT overrides up to the PaletteMax limit
+		// Overwrite SFF palettes with ACT palettes
 		for i := 0; i < maxPal; i++ {
 			pal := gi.palInfo[i]
 			pIdx, existsInSff := gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}]
@@ -4237,7 +4239,8 @@ func (c *Char) initPalettes() {
 				// Assign the new palette
 				gi.palettedata.palList.SetSource(targetIdx, pl)
 				gi.palettedata.palList.PalTex[targetIdx] = NewTextureFromPalette(pl)
-				gi.palettedata.palList.PalTable[[...]uint16{1, uint16(i + 1)}] = targetIdx
+				gi.palettedata.palList.PalTable[[2]uint16{1, uint16(i + 1)}] = targetIdx
+				gi.palettedata.palList.numcols[[2]uint16{1, uint16(i + 1)}] = 256 // ACT files are always 256 colors
 
 				pal.exists = true
 			} else {
@@ -5561,11 +5564,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeSF()
 	}
 
-	// See compiler.go:SoundVar
 	var id = chid.ToI()
-	if id > 0 {
-		id--
-	}
 	var ch *SoundChannel
 
 	// First, grab a channel.
@@ -5602,7 +5601,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		}
 		return BytecodeFloat(1)
 	case OC_ex2_soundvar_isplaying:
-		if ch != nil && ch.sfx != nil {
+		if ch != nil {
 			return BytecodeBool(ch.IsPlaying())
 		}
 		return BytecodeBool(false)
@@ -6170,6 +6169,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 	if _, ok := sys.cmdFlags["-nosound"]; ok {
 		return
 	}
+
 	var s *Sound
 	if current_ffx == "" || current_ffx == "s" {
 		if c.gi().snd != nil {
@@ -6199,27 +6199,34 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		}
 		return
 	}
+
+	// Handle channel inheritance
 	crun := c
 	if c.inheritChannels == 1 && c.parent(false) != nil {
 		crun = c.parent(false)
 	} else if c.inheritChannels == 2 && c.root(false) != nil {
 		crun = c.root(false)
 	}
-	if ch := crun.soundChannels.New(chNo, lowpriority, priority); ch != nil {
+
+	if ch := crun.soundChannels.Request(chNo, lowpriority, priority); ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
 		vol = Clamp(vol, -25600, 25600)
+
+		//ch.channelNo = chNo // Handled by Request()
+
 		//if c.gi().mugenver[0] == 1 {
 		if current_ffx != "" {
 			ch.SetVolume(float32(vol * 64 / 25))
 		} else {
 			ch.SetVolume(float32(c.gi().data.volume * vol / 100))
 		}
+
 		if chNo >= 0 {
-			ch.SetChannel(chNo)
 			if priority != 0 {
-				ch.SetPriority(priority)
+				ch.SetPriority(priority) // TODO: We can probably allow priority in channel -1 now
 			}
 		}
+
 		//} else {
 		//	if f {
 		//		ch.SetVolume(float32(vol + 256))
@@ -6227,6 +6234,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		//		ch.SetVolume(float32(c.gi().data.volume + vol))
 		//	}
 		//}
+
 		ch.stopOnGetHit = stopgh
 		ch.stopOnChangeState = stopcs
 		ch.SetPan(p*c.facing, ls, x)
@@ -12340,6 +12348,7 @@ func (c *Char) cueDraw() {
 		charSD.alpha = c.alpha
 		charSD.layerno = c.layerNo
 		charSD.priority = c.sprPriority + int32(c.pos[2]*c.localscl)
+		charSD.under = c.asf(ASF_drawunder)
 		charSD.rot = rot
 		charSD.undarken = c.ignoreDarkenTime > 0
 		charSD.facing = c.facing

@@ -1,29 +1,25 @@
 #if __VERSION__ >= 450
-#define COMPAT_TEXTURE texture
-#define COMPAT_FRAGCOLOR FragColor
-layout(location = 0) out vec4 FragColor;
-layout(location = 0) in vec2 fragTexCoord;
+	// VULKAN PATH
+	#define COMPAT_TEXTURE texture
+	#define COMPAT_FRAGCOLOR FragColor
+	layout(location = 0) out vec4 FragColor;
+	layout(location = 0) in vec2 fragTexCoord;
 
-layout(push_constant, std430) uniform u {
-	vec4 textColor;
-};
-layout(binding = 0) uniform sampler2D tex;
+	layout(push_constant, std430) uniform u {
+		vec4 textColor;
+	};
+	layout(binding = 0) uniform sampler2D tex;
 #else
-	#if __VERSION__ >= 130 || defined(GL_ES)
-		#ifdef GL_ES
-			precision highp float;
-			precision highp int;
-		#endif
-
-		#define COMPAT_VARYING in
-		#define COMPAT_TEXTURE texture
-		#define COMPAT_FRAGCOLOR FragColor
-		out vec4 FragColor;
-	#else
-		#define COMPAT_VARYING varying
-		#define COMPAT_TEXTURE texture2D
-		#define COMPAT_FRAGCOLOR gl_FragColor
+	// OPENGL / GLES PATH
+	#ifdef GL_ES
+		precision highp float;
+		precision highp int;
 	#endif
+
+	#define COMPAT_VARYING in
+	#define COMPAT_TEXTURE texture
+	#define COMPAT_FRAGCOLOR FragColor
+	out vec4 FragColor;
 
 	// These must be STANDALONE for RegisterUniforms to work in GLES
 	uniform vec4 textColor;

@@ -2734,7 +2734,7 @@ func systemScriptInit(l *lua.LState) {
 		key := strArg(l, 2)
 		// pn == -1 => last controller (0-based) + 1
 		if pn == -1 && sys.lastInputController >= 0 {
-		pn = sys.lastInputController + 1
+			pn = sys.lastInputController + 1
 		}
 		controllerIdx := pn - 1
 		// Axis tokens (LS_*/RS_*/LT/RT) are tracked by the UI axis-hold state.

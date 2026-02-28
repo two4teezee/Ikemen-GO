@@ -102,7 +102,7 @@ func (s *ShaderProgram_GL33) RegisterTextures(names ...string) {
 func (r *Renderer_GL33) compileShader(shaderType uint32, src string) (shader uint32, err error) {
 	shader = gl.CreateShader(shaderType)
 
-	src = "#version 330 core\n" + src + "\x00" 
+	src = "#version 330 core\n" + src + "\x00"
 	s, free := gl.Strs(src)
 	defer free()
 
@@ -907,7 +907,7 @@ func (r *Renderer_GL33) DebugCheckLeaks(nextprog uint32) {
 	var currentVAO int32
 	gl.GetIntegerv(gl.VERTEX_ARRAY_BINDING, &currentVAO)
 	if currentVAO == 0 {
-		return 
+		return
 	}
 
 	var enabled int32

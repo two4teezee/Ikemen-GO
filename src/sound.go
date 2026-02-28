@@ -1154,10 +1154,10 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 		ch.Stop()
 		ch.channelNo = -1
 		return ch
-	} 
-	
+	}
+
 	// If no negative channels can be evicted, try the oldest positive one
-	if oldestPositiveIdx != -1 { 
+	if oldestPositiveIdx != -1 {
 		ch := &s.channels[oldestPositiveIdx]
 		ch.Stop()
 		ch.channelNo = -1

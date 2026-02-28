@@ -1912,14 +1912,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 
-		be1.appendValue(bv1) 
-		be1.append(be2...) 
-		be1.appendValue(bv2) 
+		be1.appendValue(bv1)
+		be1.append(be2...)
+		be1.appendValue(bv2)
 
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))
 		}
-		
+
 		// Just in case anybody else bangs their head against a wall with redirects:
 		// it is imperative that the be1.append(opcodetype, opcode) comes after the
 		// rd out.appendI32Op(OC_nordrun, int32(len(be1)))

@@ -962,13 +962,25 @@ func (s *SoundChannel) SetPaused(pause bool) {
 	})
 }
 
+// This is now pretty much a reset()
 func (s *SoundChannel) Stop() {
 	if s.ctrl != nil {
 		WithSpeakerLock(func() {
 			s.ctrl.Streamer = nil
 		})
 	}
+
+	s.streamer = nil
+	s.sfx = nil
+	s.ctrl = nil
 	s.sound = nil
+
+	s.channelNo = -1
+	s.stopOnGetHit = false
+	s.stopOnChangeState = false
+	s.group = 0
+	s.number = 0
+	s.timeStamp = 0
 }
 
 func (s *SoundChannel) SetVolume(vol float32) {
@@ -1088,13 +1100,18 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 		s.SetSize(sys.cfg.Sound.WavChannels)
 	}
 
+	// Normalize channel number
+	if chNo < 0 || chNo >= sys.cfg.Sound.WavChannels {
+		chNo = -1
+	}
+
 	// Specific channel request
-	if chNo >= 0 && chNo < sys.cfg.Sound.WavChannels {
+	// Try to use the same index if it's active
+	if chNo >= 0 {
 		for i := range s.channels {
 			ch := &s.channels[i]
 			if ch.channelNo == chNo {
 				if ch.IsPlaying() {
-					// If slot is playing, check priority first
 					if lowpriority || ch.sfx != nil && priority < ch.sfx.priority {
 						return nil
 					}
@@ -1106,12 +1123,12 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 		}
 	}
 
-	// Negative or invalid channel
-	// Look for any empty channel starting from the back
-	for i := int(s.count()) - 1; i >= 0; i-- {
+	// If same channel was not found or if channel was not specified
+	// Look for any free index
+	for i := range s.channels {
 		ch := &s.channels[i]
 		if !ch.IsPlaying() {
-			ch.channelNo = -1 // Mark channel as undefined
+			ch.channelNo = chNo
 			return ch
 		}
 	}
@@ -1152,7 +1169,7 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	if oldestNegativeIdx != -1 {
 		ch := &s.channels[oldestNegativeIdx]
 		ch.Stop()
-		ch.channelNo = -1
+		ch.channelNo = chNo
 		return ch
 	}
 
@@ -1160,7 +1177,7 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	if oldestPositiveIdx != -1 {
 		ch := &s.channels[oldestPositiveIdx]
 		ch.Stop()
-		ch.channelNo = -1
+		ch.channelNo = chNo
 		return ch
 	}
 
@@ -1233,8 +1250,8 @@ func (s *SoundChannels) Tick() {
 	for i := range s.channels {
 		v := &s.channels[i]
 		if v.IsPlaying() {
-			if v.streamer.Position() >= v.sound.length && v.sfx.loop != -1 { // End the sound
-				v.sound = nil
+			if v.streamer.Position() >= v.sound.length && v.sfx.loop != -1 { // End of sound
+				v.Stop()
 			}
 		}
 	}

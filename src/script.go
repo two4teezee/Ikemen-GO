@@ -2729,6 +2729,80 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(false))
 		return 1
 	})
+	luaRegister(l, "getInputTime", func(l *lua.LState) int {
+		pn := int(numArg(l, 1))
+		key := strArg(l, 2)
+		// pn == -1 => last controller (0-based) + 1
+		if pn == -1 && sys.lastInputController >= 0 {
+		pn = sys.lastInputController + 1
+		}
+		controllerIdx := pn - 1
+		// Axis tokens (LS_*/RS_*/LT/RT) are tracked by the UI axis-hold state.
+		// Return 0 if not currently held / not matching this controller.
+		if (len(key) >= 3 && (key[:3] == "LS_" || key[:3] == "RS_")) || key == "LT" || key == "RT" {
+			if controllerIdx >= 0 && controllerIdx == sys.uiAxisHoldController && sys.uiAxisHoldToken == key {
+				l.Push(lua.LNumber(int32(sys.frameCounter-sys.uiAxisHoldStartFrame) + 1))
+				return 1
+			}
+			l.Push(lua.LNumber(0))
+			return 1
+		}
+		if controllerIdx < 0 || controllerIdx >= len(sys.commandLists) ||
+			sys.commandLists[controllerIdx] == nil || sys.commandLists[controllerIdx].Buffer == nil {
+			l.Push(lua.LNumber(0))
+			return 1
+		}
+		ib := sys.commandLists[controllerIdx].Buffer
+		var v int32
+		switch key {
+		case "B":
+			v = ib.Bb
+		case "D":
+			v = ib.Db
+		case "F":
+			v = ib.Fb
+		case "U":
+			v = ib.Ub
+		case "L":
+			v = ib.Lb
+		case "R":
+			v = ib.Rb
+		case "a":
+			v = ib.ab
+		case "b":
+			v = ib.bb
+		case "c":
+			v = ib.cb
+		case "x":
+			v = ib.xb
+		case "y":
+			v = ib.yb
+		case "z":
+			v = ib.zb
+		case "s":
+			v = ib.sb
+		case "d":
+			v = ib.db
+		case "w":
+			v = ib.wb
+		case "m":
+			v = ib.mb
+		default:
+			l.RaiseError("\nInvalid argument: %v\n", key)
+			return 1
+		}
+		// 0 if < 0, otherwise 1+
+		var out int32
+		if v < 0 {
+			out = 0
+		} else if v == 0 {
+			out = 1
+		} else {
+			out = v
+		}
+		l.Push(lua.LNumber(out))
+		return 1
+	})
 	luaRegister(l, "getJoystickGUID", func(*lua.LState) int {
 		l.Push(lua.LString(input.GetJoystickGUID(int(numArg(l, 1)))))
 		return 1
@@ -4186,6 +4260,7 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "resetGameStats", func(*lua.LState) int {
 		sys.statsLog.reset()
 		sys.continueFlg = false
+		sys.persistRoundCount = 0
 		return 0
 	})
 	luaRegister(l, "roundReset", func(*lua.LState) int {

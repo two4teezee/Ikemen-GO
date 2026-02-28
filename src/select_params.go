@@ -355,6 +355,7 @@ type GameParams struct {
 	CharParamSingle     bool     `ini:"charparam.single"`
 	CharParamStage      bool     `ini:"charparam.stage"`
 	CharParamTime       bool     `ini:"charparam.time"`
+	TurnsOffset         [2]int32
 	ocd                 [3][]OverrideCharData
 	Raw                 []string
 }
@@ -436,6 +437,20 @@ func (p *GameParams) AppendParams(entries []string) {
 		}
 
 		switch kl {
+		case "p1.turnsoffset":
+			v := int32(Atoi(val))
+			if v < 0 {
+				v = 0
+			}
+			p.TurnsOffset[0] = v
+			continue
+		case "p2.turnsoffset":
+			v := int32(Atoi(val))
+			if v < 0 {
+				v = 0
+			}
+			p.TurnsOffset[1] = v
+			continue
 		case "charparam.ai":
 			if b, ok := parseBoolLoose(val); ok {
 				p.CharParamAI = b

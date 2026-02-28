@@ -1580,10 +1580,9 @@ function start.f_matchPersistence()
 				end
 			end
 		end
-
-		-- if defeated members should be removed from team, or if life should be maintained
+		-- if defeated members should be skipped from next match, or if life should be maintained
 		if main.dropDefeated or main.persistLife then
-			local t_removeMembers = {}
+			local turnsOffset = start.p[1].turnsOffset or 0
 			-- Turns
 			if start.p[1].teamMode == 2 then
 				--for each round in the last match
@@ -1595,9 +1594,13 @@ function start.f_matchPersistence()
 							local memberIdx = (f1.MemberNo or 0) + 1
 							-- if defeated
 							if f1.KO and (f1.Life or 0) <= 0 then
-								-- remove character from team
+								-- Keep full roster for lifebar faces + hiscore, but advance turnsOffset
+								-- so defeated members are skipped in the next match.
 								if main.dropDefeated then
-									t_removeMembers[memberIdx] = true
+									turnsOffset = math.max(turnsOffset, memberIdx)
+									if start.p[1].t_selected[memberIdx] ~= nil then
+										start.p[1].t_selected[memberIdx].life = 0
+									end
 								-- or resurrect and recover character's life
 								elseif main.persistLife then
 									start.p[1].t_selected[memberIdx].life = math.max(1, f_lifeRecovery(f1.LifeMax or 0, f1.RatioLevel or 0))
@@ -1608,6 +1611,11 @@ function start.f_matchPersistence()
 							end
 						end
 					end
+				end
+				if main.dropDefeated then
+					start.p[1].turnsOffset = turnsOffset
+					local total = #start.p[1].t_selected
+					start.p[1].numChars = math.max(0, total - turnsOffset)
 				end
 			-- Single / Simul / Tag
 			else
@@ -1622,11 +1630,7 @@ function start.f_matchPersistence()
 								local memberIdx = (f.MemberNo or 0) + 1
 								-- if defeated
 								if f.KO and (f.Life or 0) <= 0 then
-									-- remove character from team
-									if main.dropDefeated then
-										t_removeMembers[memberIdx] = true
-									-- or resurrect and recover character's life
-									elseif main.persistLife then
+									if main.persistLife then
 										start.p[1].t_selected[memberIdx].life = math.max(1, f_lifeRecovery(f.LifeMax or 0, f.RatioLevel or 0))
 									end
 								-- otherwise maintain character's life
@@ -1636,14 +1640,6 @@ function start.f_matchPersistence()
 							end
 						end
 					end
-				end
-			end
-			-- drop defeated characters
-			for i = #start.p[1].t_selected, 1, -1 do
-				if t_removeMembers[i] then
-					table.remove(start.p[1].t_selected, i)
-					table.remove(start.p[1].t_selTemp, i)
-					start.p[1].numChars = start.p[1].numChars - 1
 				end
 			end
 		end
@@ -1864,6 +1860,9 @@ function start.f_selectReset(hardReset)
 		start.p[side].t_selected = {}
 		start.p[side].t_selTemp = {}
 		start.p[side].t_selCmd = {}
+		-- Tracks how many leading Turns members are already defeated across matches.
+		-- Used by Survival Turns to skip them without removing from roster.
+		start.p[side].turnsOffset = 0
 	end
 	for _, v in ipairs(start.c) do
 		v.cell = -1
@@ -2444,10 +2443,6 @@ function start.f_selectScreen()
 					if start.needUpdateDrawList == false then
 						start.needUpdateDrawList = DrawUpdateflag
 					end
-					--not in palmenu
-					if v.selectState == 0 and not getInput(-1, motif.select_info.cancel.key) then
-						start.p[side].inPalMenu = false
-					end
 					--draw active cursor
 					if side == 2 and motif.select_info.p2.cursor.blink then
 						local sameCell = false
@@ -2494,6 +2489,20 @@ function start.f_selectScreen()
 					main.f_fadeReset('fadeout', motif.select_info)
 					fadeOutStarted = true
 					start.escFlag = true
+				end
+			end
+			if start.p[side].inPalMenu then
+				local palActive = false
+				if motif.select_info.paletteselect and motif.select_info.paletteselect > 0 then
+					for _, sv in ipairs(start.p[side].t_selCmd) do
+						if sv.selectState == 1 then
+							palActive = true
+							break
+						end
+					end
+				end
+				if not palActive then
+					start.p[side].inPalMenu = false
 				end
 			end
 		end
@@ -3451,6 +3460,11 @@ function start.f_selectVersus(active, t_orderSelect)
 		-- prevent order select if not enabled in screenpack or if team size = 1
 		if t_orderSelect[side] then
 			t_orderSelect[side] = motif.vs_screen.orderselect.enabled and #start.p[side].t_selected > 1
+			-- In Turns Survival after any defeats, order selection would break the invariant that
+			-- defeated members are a prefix of the roster, so should be disabled.
+			if start.p[side].teamMode == 2 and (start.p[side].turnsOffset or 0) > 0 then
+				t_orderSelect[side] = false
+			end
 		end
 		-- reset loading flags
 		for _, v in ipairs(start.p[side].t_selected) do
@@ -3693,6 +3707,10 @@ function start.f_selectLoading(musicParams)
 	addParam("charparam.single", main.charparam.single)
 	addParam("charparam.stage", main.charparam.stage)
 	addParam("charparam.time", main.charparam.time)
+	-- Tell the engine how many leading Turns members are already defeated.
+	-- This keeps full roster for lifebar/hiscore while skipping defeated members in gameplay.
+	addParam("p1.turnsoffset", start.p[1].turnsOffset or 0)
+	addParam("p2.turnsoffset", start.p[2].turnsOffset or 0)
 	for side = 1, 2 do
 		for member, v in ipairs(start.p[side].t_selected) do
 			if not v.loading then

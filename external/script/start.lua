@@ -2443,10 +2443,6 @@ function start.f_selectScreen()
 					if start.needUpdateDrawList == false then
 						start.needUpdateDrawList = DrawUpdateflag
 					end
-					--not in palmenu
-					if v.selectState == 0 and not getInput(-1, motif.select_info.cancel.key) then
-						start.p[side].inPalMenu = false
-					end
 					--draw active cursor
 					if side == 2 and motif.select_info.p2.cursor.blink then
 						local sameCell = false
@@ -2493,6 +2489,20 @@ function start.f_selectScreen()
 					main.f_fadeReset('fadeout', motif.select_info)
 					fadeOutStarted = true
 					start.escFlag = true
+				end
+			end
+			if start.p[side].inPalMenu then
+				local palActive = false
+				if motif.select_info.paletteselect and motif.select_info.paletteselect > 0 then
+					for _, sv in ipairs(start.p[side].t_selCmd) do
+						if sv.selectState == 1 then
+							palActive = true
+							break
+						end
+					end
+				end
+				if not palActive then
+					start.p[side].inPalMenu = false
 				end
 			end
 		end

@@ -6462,8 +6462,8 @@ func (c *Char) stateChange2() bool {
 		// Stop flagged sound channels
 		for i := range c.soundChannels.channels {
 			if c.soundChannels.channels[i].stopOnChangeState {
-				c.soundChannels.channels[i].Stop()
-				c.soundChannels.channels[i].stopOnChangeState = false
+				c.soundChannels.channels[i].Reset()
+				c.soundChannels.channels[i].stopOnChangeState = false // Now redundant but still foolproof
 			}
 		}
 		c.stchtmp = false
@@ -10519,8 +10519,8 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if hitResult == 1 {
 			for i := range getter.soundChannels.channels {
 				if getter.soundChannels.channels[i].stopOnGetHit {
-					getter.soundChannels.channels[i].Stop()
-					getter.soundChannels.channels[i].stopOnGetHit = false
+					getter.soundChannels.channels[i].Reset()
+					getter.soundChannels.channels[i].stopOnGetHit = false // Now redundant but still foolproof
 				}
 			}
 		}

@@ -496,7 +496,7 @@ func (gs *GameState) LoadState(stateID int) {
 	for i := range sys.soundChannels.channels {
 		ch := &sys.soundChannels.channels[i]
 		if ch.timeStamp > sys.gameTime() {
-			ch.Stop()
+			ch.Reset()
 		}
 	}
 	for _, p := range sys.chars {
@@ -504,7 +504,7 @@ func (gs *GameState) LoadState(stateID int) {
 			for i := range c.soundChannels.channels {
 				ch := &c.soundChannels.channels[i]
 				if ch.timeStamp > sys.gameTime() {
-					ch.Stop()
+					ch.Reset()
 				}
 			}
 		}

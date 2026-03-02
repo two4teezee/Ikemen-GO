@@ -3133,7 +3133,6 @@ type Char struct {
 	cnssysfvar          map[int32]float32
 	CharSystemVar
 	aimg                 *AfterImage
-	soundChannels        SoundChannels
 	p1facing             float32
 	cpucmd               int32
 	offset               [2]float32
@@ -3202,6 +3201,7 @@ type Char struct {
 	currentSctrlIndex    int32
 	analogAxes           [6]float32
 	enableSyncId         bool
+	//soundChannels        SoundChannels // Moved to system
 }
 
 // Add a new char to the game
@@ -5569,16 +5569,14 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 
 	// First, grab a channel.
 	if id >= 0 {
-		ch = c.soundChannels.Get(id)
+		ch = sys.charSoundChannels[c.playerNo].Get(c.id, id)
 	} else {
-		if c != nil && c.soundChannels.channels != nil {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				if c.soundChannels.channels[i].sfx != nil {
-					if c.soundChannels.channels[i].IsPlaying() {
-						ch = &c.soundChannels.channels[i]
-						break
-					}
-				}
+		// For negative channel we just check any sound we get
+		for i := range sys.charSoundChannels[c.playerNo] {
+			v := &sys.charSoundChannels[c.playerNo][i]
+			if v.sfx != nil && v.IsPlaying() {
+				ch = v
+				break
 			}
 		}
 	}
@@ -5633,7 +5631,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeInt64(0)
 	case OC_ex2_soundvar_pan:
 		if ch != nil && ch.sfx != nil {
-			return BytecodeFloat(ch.sfx.p)
+			return BytecodeFloat(ch.sfx.pan)
 		}
 		return BytecodeFloat(0)
 	case OC_ex2_soundvar_position:
@@ -6154,6 +6152,20 @@ func (c *Char) winType(wt WinType) bool {
 	return c.win() && sys.winTrigger[c.playerNo&1] == wt
 }
 
+// Searches the player's shared sound channels and returns those belonging to this specific char/helper
+// Similar to SoundChannels.Get() but as a Char method. Used for state controllers and similar operations
+func (c *Char) getOwnChannels(chNo int32) (found []*SoundChannel) {
+	for i := range sys.charSoundChannels[c.playerNo] {
+		ch := &sys.charSoundChannels[c.playerNo][i]
+
+		if ch.playerID == c.id && (chNo < 0 || ch.channelNo == chNo) && ch.IsPlaying() {
+			found = append(found, ch)
+		}
+	}
+
+	return found
+}
+
 func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, chNo, vol int32,
 	p, freqmul, ls float32, x *float32, log bool, priority int32, loopstart, loopend, startposition int, stopgh, stopcs bool) {
 	if g < 0 {
@@ -6208,7 +6220,11 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		crun = c.root(false)
 	}
 
-	if ch := crun.soundChannels.Request(chNo, lowpriority, priority); ch != nil {
+	// Request a sound channel
+	ch := sys.charSoundChannels[crun.playerNo].Request(crun.id, chNo, lowpriority, priority)
+
+	// Play the sound in it
+	if ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
 		vol = Clamp(vol, -25600, 25600)
 
@@ -6460,10 +6476,10 @@ func (c *Char) stateChange2() bool {
 			}
 		}
 		// Stop flagged sound channels
-		for i := range c.soundChannels.channels {
-			if c.soundChannels.channels[i].stopOnChangeState {
-				c.soundChannels.channels[i].Reset()
-				c.soundChannels.channels[i].stopOnChangeState = false // Now redundant but still foolproof
+		for _, ch := range c.getOwnChannels(-1) {
+			if ch.stopOnChangeState {
+				ch.Reset()
+				ch.stopOnChangeState = false // Now redundant but still foolproof
 			}
 		}
 		c.stchtmp = false
@@ -10517,10 +10533,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if hitResult > 0 {
 		// Stop enemy's flagged sounds. In Mugen this only happens with channel 0
 		if hitResult == 1 {
-			for i := range getter.soundChannels.channels {
-				if getter.soundChannels.channels[i].stopOnGetHit {
-					getter.soundChannels.channels[i].Reset()
-					getter.soundChannels.channels[i].stopOnGetHit = false // Now redundant but still foolproof
+			for _, gch := range getter.getOwnChannels(-1) {
+				if gch.stopOnGetHit {
+					gch.Reset()
+					gch.stopOnGetHit = false // Now redundant but still foolproof
 				}
 			}
 		}

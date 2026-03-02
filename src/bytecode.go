@@ -10676,15 +10676,12 @@ func (sc stopSnd) Run(c *Char, _ []int32) bool {
 		switch paramID {
 		case stopSnd_channel:
 			val := exp[0].evalI(c)
-			switch {
-			case val <= -2:
-				crun.soundChannels.StopAll()
-			case val == -1:
+			if val == -1 {
 				// Backward compatibility: stop sounds for all players
 				sys.stopAllCharSounds()
-			default:
-				if s := crun.soundChannels.Get(val); s != nil {
-					s.Reset()
+			} else {
+				for _, ch := range crun.getOwnChannels(val) {
+					ch.Reset()
 				}
 			}
 		}
@@ -10723,9 +10720,12 @@ func (sc sndPan) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if c := crun.soundChannels.Get(ch); c != nil {
-		c.SetPan(pan*crun.facing, crun.localscl, x)
+
+	// TODO: Check if Mugen allowed negative (all) channels here. Ikemen didn't
+	for _, s := range crun.getOwnChannels(ch) {
+		s.SetPan(pan*crun.facing, crun.localscl, x)
 	}
+
 	return false
 }
 
@@ -12414,7 +12414,6 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 
 	x := &crun.pos[0]
 	ls := crun.localscl
-	var snd *SoundChannel
 	var ch, pri int32 = -1, 0
 	var stopgh, stopcs int32 = -1, -1 // Undefined bools
 	var vo, fr float32 = 100, 1.0
@@ -12482,68 +12481,60 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	// Grab the correct sound channel now
-	channelCount := 1
-	if ch < 0 {
-		channelCount = len(crun.soundChannels.channels)
-	}
-	for i := channelCount - 1; i >= 0; i-- {
-		if ch < 0 {
-			snd = &crun.soundChannels.channels[i]
-		} else {
-			snd = crun.soundChannels.Get(ch)
+	// Iterate the requested channel(s)
+	for _, snd := range crun.getOwnChannels(ch) {
+		if snd.sfx == nil {
+			continue
 		}
 
-		if snd != nil && snd.sfx != nil {
-			// If we didn't set the values, default them to current values.
-			if !freqMulSet {
-				fr = snd.sfx.freqmul
-			}
-			if !volumeSet {
-				vo = snd.sfx.volume
-			}
-			if !prioritySet {
-				pri = snd.sfx.priority
-			}
-			if !panSet {
-				p = snd.sfx.p
-				ls = snd.sfx.ls
-				x = snd.sfx.x
-			}
+		// If we didn't set the values, default them to current values.
+		if !freqMulSet {
+			fr = snd.sfx.freqmul
+		}
+		if !volumeSet {
+			vo = snd.sfx.volume
+		}
+		if !prioritySet {
+			pri = snd.sfx.priority
+		}
+		if !panSet {
+			p = snd.sfx.pan
+			ls = snd.sfx.localscl
+			x = snd.sfx.x
+		}
 
-			// Now set the values if they're different
-			if snd.sfx.freqmul != fr {
-				snd.SetFreqMul(fr)
-			}
-			if pri != snd.sfx.priority {
-				snd.SetPriority(pri)
-			}
-			if posSet {
-				snd.streamer.Seek(position)
-			}
-			if lcSet || loopSet {
-				if sl, ok := snd.sfx.streamer.(*StreamLooper); ok {
-					sl.loopcount = lc
-				}
-			}
+		// Now set the values if they're different
+		if snd.sfx.freqmul != fr {
+			snd.SetFreqMul(fr)
+		}
+		if pri != snd.sfx.priority {
+			snd.SetPriority(pri)
+		}
+		if posSet {
+			snd.streamer.Seek(position)
+		}
+		if lcSet || loopSet {
 			if sl, ok := snd.sfx.streamer.(*StreamLooper); ok {
-				if (loopStartSet && sl.loopstart != loopstart) || (loopEndSet && sl.loopend != loopend) {
-					snd.SetLoopPoints(loopstart, loopend)
-				}
+				sl.loopcount = lc
 			}
-			if p != snd.sfx.p || ls != snd.sfx.ls || x != snd.sfx.x {
-				snd.SetPan(p*crun.facing, ls, x)
+		}
+		if sl, ok := snd.sfx.streamer.(*StreamLooper); ok {
+			if (loopStartSet && sl.loopstart != loopstart) || (loopEndSet && sl.loopend != loopend) {
+				snd.SetLoopPoints(loopstart, loopend)
 			}
-			if vo != snd.sfx.volume {
-				snd.SetVolume(vo)
-			}
-			// These flags can be updated regardless since there are no calculations involved
-			if stopgh >= 0 {
-				snd.stopOnGetHit = stopgh != 0
-			}
-			if stopcs >= 0 {
-				snd.stopOnChangeState = stopcs != 0
-			}
+		}
+		if p != snd.sfx.pan || ls != snd.sfx.localscl || x != snd.sfx.x {
+			snd.SetPan(p*crun.facing, ls, x)
+		}
+		if vo != snd.sfx.volume {
+			snd.SetVolume(vo)
+		}
+		// These flags can be updated regardless since there are no calculations involved
+		if stopgh >= 0 {
+			snd.stopOnGetHit = stopgh != 0
+		}
+		if stopcs >= 0 {
+			snd.stopOnChangeState = stopcs != 0
 		}
 	}
 	return false

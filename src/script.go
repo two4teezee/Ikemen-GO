@@ -5063,7 +5063,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopSnd", func(l *lua.LState) int {
-		sys.debugWC.soundChannels.SetSize(0)
+		sys.charSoundChannels[sys.debugWC.playerNo].SetSize(0) // TODO: Why does this use the hard reset?
 		return 0
 	})
 	luaRegister(l, "synchronize", func(*lua.LState) int {
@@ -7443,17 +7443,18 @@ func triggerFunctions(l *lua.LState) {
 		id := int32(numArg(l, 1))
 		vname := strArg(l, 2)
 		var ch *SoundChannel
+		c := sys.debugWC
 
-		if id < 0 {
-			for _, ch := range sys.debugWC.soundChannels.channels {
-				if ch.sfx != nil {
-					if ch.IsPlaying() {
-						break
-					}
+		if id >= 0 {
+			ch = sys.charSoundChannels[c.playerNo].Get(c.id, id)
+		} else {
+			for i := range sys.charSoundChannels[c.playerNo] {
+				v := &sys.charSoundChannels[c.playerNo][i]
+				if v.sfx != nil && v.IsPlaying() {
+					ch = v
+					break
 				}
 			}
-		} else {
-			ch = sys.debugWC.soundChannels.Get(id)
 		}
 
 		if ch != nil && ch.sfx != nil {
@@ -7491,7 +7492,7 @@ func triggerFunctions(l *lua.LState) {
 					lv = lua.LNumber(0)
 				}
 			case "pan":
-				lv = lua.LNumber(ch.sfx.p)
+				lv = lua.LNumber(ch.sfx.pan)
 			case "position":
 				if sl, ok := ch.sfx.streamer.(*StreamLooper); ok {
 					lv = lua.LNumber(sl.Position())

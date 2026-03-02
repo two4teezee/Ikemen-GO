@@ -496,19 +496,17 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.loopContinue = gs.loopContinue
 
 	// Stop all sounds if they started playing after the point of the save state
-	for i := range sys.soundChannels.channels {
-		ch := &sys.soundChannels.channels[i]
+	for i := range sys.soundChannels {
+		ch := &sys.soundChannels[i]
 		if ch.timeStamp > sys.gameTime() {
 			ch.Reset()
 		}
 	}
-	for _, p := range sys.chars {
-		for _, c := range p {
-			for i := range c.soundChannels.channels {
-				ch := &c.soundChannels.channels[i]
-				if ch.timeStamp > sys.gameTime() {
-					ch.Reset()
-				}
+	for i := range sys.charSoundChannels {
+		for j := range sys.charSoundChannels[i] {
+			ch := &sys.charSoundChannels[i][j]
+			if ch.IsPlaying() && ch.timeStamp > sys.gameTime() {
+				ch.Reset()
 			}
 		}
 	}

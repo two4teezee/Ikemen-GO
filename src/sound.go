@@ -871,7 +871,8 @@ func loadFromSnd(filename string, g, s int32, max uint32) (*Sound, error) {
 type SoundEffect struct {
 	streamer beep.Streamer
 	volume   float32
-	ls, p    float32
+	localscl float32
+	pan      float32
 	x        *float32
 	priority int32
 	loop     int32
@@ -882,12 +883,12 @@ type SoundEffect struct {
 func (s *SoundEffect) Stream(samples [][2]float64) (n int, ok bool) {
 	// TODO: Test mugen panning in relation to PanningWidth and zoom settings
 	lv, rv := s.volume, s.volume
-	if sys.cfg.Sound.StereoEffects && (s.x != nil || s.p != 0) {
+	if sys.cfg.Sound.StereoEffects && (s.x != nil || s.pan != 0) {
 		var r float32
 		if s.x != nil { // pan
-			r = ((sys.xmax - s.ls**s.x) - s.p) / (sys.xmax - sys.xmin)
+			r = ((sys.xmax - s.localscl**s.x) - s.pan) / (sys.xmax - sys.xmin)
 		} else { // abspan
-			r = ((sys.xmax-sys.xmin)/2 - s.p) / (sys.xmax - sys.xmin)
+			r = ((sys.xmax-sys.xmin)/2 - s.pan) / (sys.xmax - sys.xmin)
 		}
 		sc := sys.cfg.Sound.PanningRange / 100
 		of := (100 - sys.cfg.Sound.PanningRange) / 200
@@ -915,12 +916,14 @@ type SoundChannel struct {
 	sfx               *SoundEffect
 	ctrl              *beep.Ctrl
 	sound             *Sound
+	playerID          int32
 	channelNo         int32 // Logical channel assigned by char code
 	stopOnGetHit      bool
 	stopOnChangeState bool
 	group             int32
 	number            int32
 	timeStamp         int32
+	volResume         float32 // For pausing/unpausing
 }
 
 // The old Stop() plus more
@@ -936,6 +939,7 @@ func (s *SoundChannel) Reset() {
 	s.ctrl = nil
 	s.sound = nil
 
+	s.playerID = -1
 	s.channelNo = -1
 	s.stopOnGetHit = false
 	s.stopOnChangeState = false
@@ -997,9 +1001,9 @@ func (s *SoundChannel) SetVolume(vol float32) {
 
 func (s *SoundChannel) SetPan(p, ls float32, x *float32) {
 	if s.ctrl != nil {
-		s.sfx.ls = ls
+		s.sfx.localscl = ls
 		s.sfx.x = x
-		s.sfx.p = p * ls
+		s.sfx.pan = p * ls
 	}
 }
 
@@ -1056,57 +1060,51 @@ func (s *SoundChannel) SetLoopPoints(loopstart, loopend int) {
 // ------------------------------------------------------------------
 // SoundChannels (collection of prioritised sound channels)
 
-type SoundChannels struct {
-	channels  []SoundChannel
-	volResume []float32
-}
+type SoundChannels []SoundChannel
 
+/*
 func newSoundChannels(size int32) *SoundChannels {
 	s := &SoundChannels{}
 	s.SetSize(size)
 	return s
 }
+*/
 
 func (s *SoundChannels) SetSize(size int32) {
-	currentSize := s.count()
+	currentSize := int32(len(*s))
 
 	switch {
 	case size > currentSize:
 		// Add new channels
 		newSlotsCount := size - currentSize
-		c := make([]SoundChannel, newSlotsCount)
-		v := make([]float32, newSlotsCount)
+		newSlots := make([]SoundChannel, newSlotsCount)
 
 		// Initialize the new slots
-		for i := range c {
-			c[i].Reset()
+		for i := range newSlots {
+			newSlots[i].Reset()
 		}
 
-		s.channels = append(s.channels, c...)
-		s.volResume = append(s.volResume, v...)
+		*s = append(*s, newSlots...)
+
 	case size < currentSize:
 		// Remove channels safely
 		for i := currentSize - 1; i >= size; i-- {
-			s.channels[i].Reset()
+			(*s)[i].Reset()
 		}
 
-		s.channels = s.channels[:size]
-		s.volResume = s.volResume[:size]
+		*s = (*s)[:size]
 	}
 }
 
-func (s *SoundChannels) count() int32 {
-	return int32(len(s.channels))
-}
-
 // Returns a channel with the requested logical ID
-func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *SoundChannel {
+func (s *SoundChannels) Request(pid int32, chNo int32, lowpriority bool, priority int32) *SoundChannel {
 	// Ensure capacity
-	if s.count() < sys.cfg.Sound.WavChannels {
+	if len(*s) < int(sys.cfg.Sound.WavChannels) {
 		s.SetSize(sys.cfg.Sound.WavChannels)
 	}
 
 	// Normalize channel number
+	// Since channels are just ID's there's no practical reason to have this limit, but Mugen does it
 	if chNo < 0 || chNo >= sys.cfg.Sound.WavChannels {
 		chNo = -1
 	}
@@ -1114,16 +1112,17 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	// Specific channel request
 	// Try to use the same index if it's active
 	if chNo >= 0 {
-		for i := range s.channels {
-			ch := &s.channels[i]
-			if ch.channelNo == chNo {
+		for i := range *s {
+			ch := &(*s)[i]
+			if ch.playerID == pid && ch.channelNo == chNo {
 				if ch.IsPlaying() {
 					if lowpriority || ch.sfx != nil && priority < ch.sfx.priority {
 						return nil
 					}
 					ch.Reset()
 				}
-				ch.channelNo = chNo // Redundant but explicit
+				ch.playerID = pid
+				ch.channelNo = chNo
 				return ch
 			}
 		}
@@ -1131,9 +1130,10 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 
 	// If same channel was not found or if channel was not specified
 	// Look for any free index
-	for i := range s.channels {
-		ch := &s.channels[i]
+	for i := range *s {
+		ch := &(*s)[i]
 		if !ch.IsPlaying() {
+			ch.playerID = pid
 			ch.channelNo = chNo
 			return ch
 		}
@@ -1151,8 +1151,9 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	var oldestPositiveIdx int = -1
 	var minTimePositive int32 = math.MaxInt32
 
-	for i := 0; i < int(s.count()); i++ {
-		ch := &s.channels[i]
+	for i := range *s {
+		ch := &(*s)[i]
+
 		// We still take priority into account here
 		if ch.IsPlaying() && ch.sfx != nil && priority < ch.sfx.priority {
 			continue
@@ -1173,16 +1174,18 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 
 	// Kick out the oldest negative channel first
 	if oldestNegativeIdx != -1 {
-		ch := &s.channels[oldestNegativeIdx]
+		ch := &(*s)[oldestNegativeIdx]
 		ch.Reset()
+		ch.playerID = pid
 		ch.channelNo = chNo
 		return ch
 	}
 
 	// If no negative channels can be evicted, try the oldest positive one
 	if oldestPositiveIdx != -1 {
-		ch := &s.channels[oldestPositiveIdx]
+		ch := &(*s)[oldestPositiveIdx]
 		ch.Reset()
+		ch.playerID = pid
 		ch.channelNo = chNo
 		return ch
 	}
@@ -1190,6 +1193,8 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	return nil
 }
 
+/*
+// This is just a simplified Request(), so we will call that one instead
 func (s *SoundChannels) reserveChannel() *SoundChannel {
 	for i := range s.channels {
 		if !s.channels[i].IsPlaying() {
@@ -1198,15 +1203,26 @@ func (s *SoundChannels) reserveChannel() *SoundChannel {
 	}
 	return nil
 }
+*/
 
-func (s *SoundChannels) Get(ch int32) *SoundChannel {
-	if ch >= 0 && ch < s.count() {
-		for i := range s.channels {
-			if s.channels[i].IsPlaying() && s.channels[i].sfx != nil && s.channels[i].channelNo == ch {
-				return &s.channels[i]
+func (s *SoundChannels) Get(pid int32, ch int32) *SoundChannel {
+	// Dereference once
+	channels := *s
+
+	// Only consider channels with a specific ID
+	if ch >= 0 && ch < int32(len(channels)) {
+		for i := range channels {
+			// Match logical channel number
+			if channels[i].channelNo == ch {
+				// Match player ID. System sounds use a negative ID
+				if (pid < 0 && channels[i].playerID < 0) || (pid >= 0 && channels[i].playerID == pid) {
+					if channels[i].IsPlaying() {
+						return &channels[i]
+					}
+				}
 			}
 		}
-		//return &s.channels[ch]
+		//return &channels[ch]
 	}
 	return nil
 }
@@ -1215,7 +1231,7 @@ func (s *SoundChannels) Play(sound *Sound, group, number, volumescale int32, pan
 	if sound == nil {
 		return false
 	}
-	c := s.reserveChannel()
+	c := s.Request(-1, -1, false, 0)
 	if c == nil {
 		return false
 	}
@@ -1225,19 +1241,24 @@ func (s *SoundChannels) Play(sound *Sound, group, number, volumescale int32, pan
 	return true
 }
 
+// Checks if a specific sound is playing in any channel
 func (s *SoundChannels) IsPlaying(sound *Sound) bool {
-	for i := range s.channels {
-		v := &s.channels[i]
+	channels := *s
+	for i := range channels {
+		v := &channels[i]
 		if v.sound != nil && v.sound == sound {
-			return true
+			if v.IsPlaying() {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func (s *SoundChannels) Stop(sound *Sound) {
-	for i := range s.channels {
-		v := &s.channels[i]
+	channels := *s
+	for i := range channels {
+		v := &channels[i]
 		if v.sound != nil && v.sound == sound {
 			v.Reset()
 		}
@@ -1245,16 +1266,18 @@ func (s *SoundChannels) Stop(sound *Sound) {
 }
 
 func (s *SoundChannels) StopAll() {
-	for i := range s.channels {
-		if s.channels[i].sound != nil {
-			s.channels[i].Reset()
+	channels := *s
+	for i := range channels {
+		if channels[i].sound != nil {
+			channels[i].Reset()
 		}
 	}
 }
 
 func (s *SoundChannels) Tick() {
-	for i := range s.channels {
-		v := &s.channels[i]
+	channels := *s
+	for i := range channels {
+		v := &channels[i]
 		if v.IsPlaying() {
 			if v.streamer.Position() >= v.sound.length && v.sfx.loop != -1 { // End of sound
 				v.Reset()

@@ -43,7 +43,7 @@ var sys = System{
 	maxRoundTime:  -1,
 	soundMixer:    &beep.Mixer{},
 	bgm:           *newBgm(),
-	soundChannels: newSoundChannels(16),
+	//soundChannels: newSoundChannels(16), // Lazy allocation in Request()
 	allPalFX:      newPalFX(),
 	bgPalFX:       newPalFX(),
 	ffx:           make(map[string]*FightFx),
@@ -108,7 +108,8 @@ type System struct {
 	debugLastID             int32
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
-	soundChannels           *SoundChannels
+	soundChannels           SoundChannels // System sounds. Lifebars etc
+	charSoundChannels       [MaxPlayerNo]SoundChannels
 	allPalFX                *PalFX
 	bgPalFX                 *PalFX
 	lifebar                 Lifebar
@@ -891,10 +892,8 @@ func (s *System) update() bool {
 func (s *System) tickSound() {
 	s.soundChannels.Tick()
 	if !s.noSoundFlg {
-		for _, ch := range s.chars {
-			for _, c := range ch {
-				c.soundChannels.Tick()
-			}
+		for i := range sys.charSoundChannels {
+			sys.charSoundChannels[i].Tick()
 		}
 	}
 
@@ -1982,35 +1981,32 @@ func (s *System) resetGblEffect() {
 
 // Hard reset. Used between rounds
 func (s *System) clearAllCharSounds() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			c.soundChannels.SetSize(0)
-		}
+	for i := range s.charSoundChannels {
+		s.charSoundChannels[i].SetSize(0)
 	}
 }
 
 // Soft reset. Used during gameplay
 func (s *System) stopAllCharSounds() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			c.soundChannels.StopAll()
-		}
+	for i := range s.charSoundChannels {
+		s.charSoundChannels[i].StopAll()
 	}
 }
 
 func (s *System) softenAllSound() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				// Temporarily store the volume so it can be recalled later.
-				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
-					c.soundChannels.volResume[i] = c.soundChannels.channels[i].sfx.volume
-					c.soundChannels.channels[i].SetVolume(float32(c.gi().data.volume * int32(s.cfg.Sound.PauseMasterVolume) / 100))
+	for i := range s.charSoundChannels {
+		for j := range s.charSoundChannels[i] {
+			ch := &s.charSoundChannels[i][j]
 
-					// Pause if pause master volume is 0
-					if s.cfg.Sound.PauseMasterVolume == 0 {
-						c.soundChannels.channels[i].SetPaused(true)
-					}
+			// Temporarily store the volume so it can be recalled later.
+			if ch.IsPlaying() && ch.sfx != nil && ch.ctrl != nil {
+				ch.volResume = ch.sfx.volume
+				softVolume := ch.sfx.volume * (float32(s.cfg.Sound.PauseMasterVolume) / 100.0)
+				ch.SetVolume(softVolume)
+
+				// Pause if pause master volume is 0
+				if s.cfg.Sound.PauseMasterVolume == 0 {
+					ch.SetPaused(true)
 				}
 			}
 		}
@@ -2019,17 +2015,17 @@ func (s *System) softenAllSound() {
 }
 
 func (s *System) restoreAllVolume() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				// Restore the volume we had.
-				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
-					c.soundChannels.channels[i].SetVolume(c.soundChannels.volResume[i])
+	for i := range s.charSoundChannels {
+		for j := range s.charSoundChannels[i] {
+			ch := &s.charSoundChannels[i][j]
 
-					// Unpause only those whose freqmul > 0
-					if c.soundChannels.channels[i].ctrl.Paused && c.soundChannels.channels[i].sfx.freqmul > 0 {
-						c.soundChannels.channels[i].SetPaused(false)
-					}
+			// Restore the volume we had.
+			if ch.sfx != nil && ch.ctrl != nil {
+				ch.SetVolume(ch.volResume)
+
+				// Unpause only those whose freqmul > 0
+				if ch.ctrl.Paused && ch.sfx.freqmul > 0 {
+					ch.SetPaused(false)
 				}
 			}
 		}
@@ -2063,7 +2059,6 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		// These aren't "assets" but we'll do it here
 		for _, c := range s.chars[pn] {
 			c.targets = c.targets[:0]
-			c.soundChannels.SetSize(0)
 		}
 
 		// Destroy helpers
@@ -2074,6 +2069,9 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 			}
 		}
 	}
+
+	// Clear sounds
+	s.charSoundChannels[pn].SetSize(0)
 
 	// Clear projectiles, explods and text sprites
 	s.projs[pn] = PointerSliceReset(s.projs[pn])
@@ -3975,14 +3973,15 @@ func (bk *RoundStartBackup) Restore() {
 				continue
 			}
 
+			// We no longer need the live sounds workaround because sounds now belong to system
 			// Save live sounds before overwriting
-			liveSounds := c.soundChannels
+			//liveSounds := c.soundChannels
 
 			// Restore shallow copy from backup
 			*c = *bkup
 
 			// Restore live sounds
-			c.soundChannels = liveSounds
+			//c.soundChannels = liveSounds
 
 			// Remake the CNS variable maps
 			// Then restore only var and fvar (losing sysvar and sysfvar)

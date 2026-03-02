@@ -1766,6 +1766,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandBufReset", func(l *lua.LState) int {
+		if nilArg(l, 1) {
+			for _, cl := range sys.commandLists {
+				if cl == nil {
+					continue
+				}
+				cl.BufReset()
+			}
+			return 0
+		}
 		cl, ok := toUserData(l, 1).(*CommandList)
 		if !ok {
 			userDataError(l, 1, cl)

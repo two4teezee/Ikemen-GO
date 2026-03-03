@@ -2778,10 +2778,8 @@ function main.f_connect(server, str)
 		--draw overlay
 		rectDraw(motif.title_info.connecting.overlay.RectData)
 		--draw text
-		local txt = ''
-		if server == '' then
-			txt = string.format(motif.title_info.connecting.text.host, str)
-		else
+		local txt = string.format(motif.title_info.connecting.text.default, str)
+		if server ~= '' then
 			txt = string.format(motif.title_info.connecting.text.join, server, str)
 		end
 		textImgReset(motif.title_info.connecting.TextSpriteData)

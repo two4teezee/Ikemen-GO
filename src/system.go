@@ -77,7 +77,6 @@ var sys = System{
 	debugAccel:           1, // TODO: We probably shouldn't rely on this being initialized to 1
 	lastInputController:  -1,
 	uiRepeatController:   -1,
-	uiAxisHoldController: -1,
 	charVarsBackup:       make(map[int]CharVarBackup),
 }
 
@@ -336,11 +335,6 @@ type System struct {
 	uiRepeatToken      string
 	uiRepeatController int
 	uiRepeatFrame      int32
-
-	// UI repeat state for axis tokens (LS_*/DP_* etc)
-	uiAxisHoldToken      string
-	uiAxisHoldController int
-	uiAxisHoldStartFrame int32
 
 	// For Android support
 	baseDir string
@@ -1031,6 +1025,16 @@ func uiRepeatShouldFire(held int32) bool {
 	return (held-(1+sys.cfg.Input.UiRepeatDelay))%sys.cfg.Input.UiRepeatRate == 0
 }
 
+func (s *System) uiControllerKey(controllerIdx int) int {
+	if controllerIdx < 0 {
+		return controllerIdx
+	}
+	if controllerIdx < len(s.inputRemap) && s.inputRemap[controllerIdx] >= 0 {
+		return s.inputRemap[controllerIdx]
+	}
+	return controllerIdx
+}
+
 func (s *System) uiConsumeTokenThisFrame(controller int, tok string) bool {
 	if s.uiRepeatFrame == s.frameCounter && s.uiRepeatController == controller && s.uiRepeatToken == tok {
 		return true
@@ -1046,42 +1050,12 @@ func (s *System) uiConsumeTokenThisFrame(controller int, tok string) bool {
 // Supported keys: B, D, F, U, L, R, a, b, c, x, y, z, s, d, w, m
 // D/U/B/F also recognize LS axis tokens: D -> LS_Y+, U -> LS_Y-, B -> LS_X-, F -> LS_X+.
 func (s *System) rawInput(btns []string, controllerIdx int) bool {
-	// Direction token -> matching LS axis token.
-	dirOf := func(tok string) byte {
-		if len(tok) != 1 {
-			return 0
-		}
-		switch tok[0] {
-		case 'D', 'U', 'B', 'F':
-			return tok[0]
-		default:
-			return 0
-		}
-	}
-	axisOf := func(dir byte) string {
-		switch dir {
-		case 'D':
-			return "LS_Y+"
-		case 'U':
-			return "LS_Y-"
-		case 'B', 'L':
-			return "LS_X-"
-		case 'F', 'R':
-			return "LS_X+"
-		default:
-			return ""
-		}
-	}
-	lastAxis := ""
-	switch s.uiLastInputToken {
-	case "LS_Y+", "LS_Y-", "LS_X-", "LS_X+":
-		lastAxis = s.uiLastInputToken
-	}
-	lastDir := dirOf(s.uiLastInputToken)
+
 	checkOne := func(i int, cl *CommandList) bool {
 		if cl == nil || cl.Buffer == nil {
 			return false
 		}
+		controllerKey := s.uiControllerKey(i)
 
 		// True for raw controller axis tokens (LS_*, RS_*, LT/RT).
 		// Used when a screenpack uses e.g. getInput(pn, "LS_Y+") directly.
@@ -1106,108 +1080,57 @@ func (s *System) rawInput(btns []string, controllerIdx int) bool {
 			if raw == "" {
 				continue
 			}
+			// Canonicalize UI stick-direction tokens to the digital directions.
 			tok := raw
-			dir := dirOf(raw)
+			switch tok {
+			case "LS_Y+":
+				tok = "D"
+			case "LS_Y-":
+				tok = "U"
+			case "LS_X-":
+				tok = "B"
+			case "LS_X+":
+				tok = "F"
+			}
 			// Digital/raw-buffer check (pressed this frame == 1) + UI repeat while held
 			trigger := false
 			switch tok {
 			case "B":
-				if ib.Bb == 1 {
-					trigger = true
-					ib.Bb = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Bb)) {
-					trigger = true
-				}
+				trigger = ib.Bb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Bb)))
 			case "D":
-				if ib.Db == 1 {
-					trigger = true
-					ib.Db = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Db)) {
-					trigger = true
-				}
+				trigger = ib.Db == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Db)))
 			case "F":
-				if ib.Fb == 1 {
-					trigger = true
-					ib.Fb = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Fb)) {
-					trigger = true
-				}
+				trigger = ib.Fb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Fb)))
 			case "U":
-				if ib.Ub == 1 {
-					trigger = true
-					ib.Ub = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Ub)) {
-					trigger = true
-				}
+				trigger = ib.Ub == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Ub)))
 			case "L":
-				if ib.Lb == 1 {
-					trigger = true
-					ib.Lb = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Lb)) {
-					trigger = true
-				}
+				trigger = ib.Lb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Lb)))
 			case "R":
-				if ib.Rb == 1 {
-					trigger = true
-					ib.Rb = 2
-				} else if repeatable(tok) && uiRepeatShouldFire(int32(ib.Rb)) {
-					trigger = true
-				}
+				trigger = ib.Rb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Rb)))
 			case "a":
-				if ib.ab == 1 {
-					trigger = true
-					ib.ab = 2
-				}
+				trigger = ib.ab == 1
 			case "b":
-				if ib.bb == 1 {
-					trigger = true
-					ib.bb = 2
-				}
+				trigger = ib.bb == 1
 			case "c":
-				if ib.cb == 1 {
-					trigger = true
-					ib.cb = 2
-				}
+				trigger = ib.cb == 1
 			case "x":
-				if ib.xb == 1 {
-					trigger = true
-					ib.xb = 2
-				}
+				trigger = ib.xb == 1
 			case "y":
-				if ib.yb == 1 {
-					trigger = true
-					ib.yb = 2
-				}
+				trigger = ib.yb == 1
 			case "z":
-				if ib.zb == 1 {
-					trigger = true
-					ib.zb = 2
-				}
+				trigger = ib.zb == 1
 			case "s":
-				if ib.sb == 1 {
-					trigger = true
-					ib.sb = 2
-				}
+				trigger = ib.sb == 1
 			case "d":
-				if ib.db == 1 {
-					trigger = true
-					ib.db = 2
-				}
+				trigger = ib.db == 1
 			case "w":
-				if ib.wb == 1 {
-					trigger = true
-					ib.wb = 2
-				}
+				trigger = ib.wb == 1
 			case "m":
-				if ib.mb == 1 {
-					trigger = true
-					ib.mb = 2
-				}
-			default:
-				trigger = false
+				trigger = ib.mb == 1
 			}
 			// Raw axis tokens (LS_*/RS_*/LT/RT) when used directly in Lua.
-			// Repeat timing is handled inside IsControllerButtonPressed.
+			// LS axis directions are handled above as D/U/B/F aliases.
+			// Other axis tokens are treated as "held" here.
 			if !trigger && isAxisToken(tok) && cl.IsControllerButtonPressed(tok, i) {
 				trigger = true
 			}
@@ -1216,38 +1139,12 @@ func (s *System) rawInput(btns []string, controllerIdx int) bool {
 					continue
 				}
 				// Guard: don't fire same token more than once per frame (repeat-safe).
-				if s.uiConsumeTokenThisFrame(i, raw) {
+				if s.uiConsumeTokenThisFrame(controllerKey, tok) {
 					continue
 				}
-				// Avoid "same direction, different type" conflict (axis->dir) on the same controller.
-				if dir != 0 && s.lastInputController == i && lastAxis == axisOf(dir) {
-					continue
-				}
-				s.lastInputController = i
-				s.uiLastInputToken = raw
+				s.lastInputController = controllerKey
+				s.uiLastInputToken = tok
 				return true
-			}
-			// LS axis fallback for D/U/B/F (axis repeat handled inside IsControllerButtonPressed)
-			if dir != 0 {
-				axisTok := axisOf(dir)
-				if axisTok != "" {
-					// Avoid "same direction, different type" conflict (dir->axis) on the same controller.
-					if s.lastInputController == i && lastDir == dir {
-						continue
-					}
-					// Note: IsControllerButtonPressed sets sys.lastInputController/uiLastInputToken itself
-					// and handles neutral-gating; it also resets the buffer to prevent double triggers.
-					if cl.IsControllerButtonPressed(axisTok, i) {
-						if s.uiConsumeInputFrame != 0 && s.frameCounter == s.uiConsumeInputFrame {
-							continue
-						}
-						// Guard: repeat-safe for axis-triggered inputs too.
-						if s.uiConsumeTokenThisFrame(i, axisTok) {
-							continue
-						}
-						return true
-					}
-				}
 			}
 		}
 		return false

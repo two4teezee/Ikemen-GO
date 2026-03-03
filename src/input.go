@@ -3363,7 +3363,10 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 				in := sys.inputRemap[controller] // remapped input index/config
 				buttons = cl.Buffer.InputReader.LocalInput(in)
 				// Keep analog axes in sync with the same remap used for digital inputs
-				if in >= 0 && in < len(sys.joystickConfig) {
+				if in >= 0 && in < len(sys.joystickConfig) &&
+					sys.joystickConfig[in].Joy >= 0 &&
+					sys.joystickConfig[in].Joy < input.GetMaxJoystickCount() &&
+					input.IsJoystickPresent(sys.joystickConfig[in].Joy) {
 					axes = input.GetJoystickAxes(sys.joystickConfig[in].Joy)
 				} else {
 					axes = [6]float32{0, 0, 0, 0, 0, 0}
@@ -3378,6 +3381,26 @@ func (cl *CommandList) InputUpdate(char *Char, controller int) bool {
 	x, y, z := buttons[7], buttons[8], buttons[9]
 	s, d, w, m := buttons[10], buttons[11], buttons[12], buttons[13]
 	B, F := L, R
+
+	// UI-only: let Left Stick drive U/D/L/R even if the player's config uses DPAD.
+	if char == nil {
+		thr := sys.cfg.Input.ControllerStickSensitivity
+		// LS_X (axes[0]), LS_Y (axes[1])
+		if axes[1] > thr {
+			D = true
+		} else if axes[1] < -thr {
+			U = true
+		}
+		if axes[0] > thr {
+			R = true
+		} else if axes[0] < -thr {
+			L = true
+		}
+		//B, F = L, R
+		// Apply SOCD resolution for UI too (same helper used for characters).
+		//U, D, B, F = cl.Buffer.InputReader.SocdResolution(U, D, B, F)
+		//L, R = B, F
+	}
 
 	// Character-specific features
 	if char != nil {
@@ -3656,61 +3679,13 @@ func (cl *CommandList) IsControllerButtonPressed(token string, controllerIdx int
 	if idx >= 15 && idx <= 24 {
 		axes := input.GetJoystickAxes(joyIdx)
 		btns := input.GetJoystickButtons(joyIdx)
-
 		// Determine active axis token (sticks first, then triggers)
 		active := CheckAxisForDpad(&axes, len(btns))
 		if active == "" {
 			active = CheckAxisForTrigger(&axes)
 		}
-
-		// When axis returns to neutral, clear hold state for this controller
-		// so it can trigger again next time it leaves neutral.
-		if active == "" {
-			if controllerIdx == sys.uiAxisHoldController {
-				sys.uiAxisHoldController = -1
-				sys.uiAxisHoldToken = ""
-				sys.uiAxisHoldStartFrame = 0
-			}
-			if controllerIdx == sys.lastInputController {
-				sys.uiLastInputToken = ""
-			}
-			return false
-		}
-
-		// Track which axis token is currently being held (per last-used controller).
-		// If it changed (direction swap without neutral), restart timing.
-		if sys.uiAxisHoldController != controllerIdx || sys.uiAxisHoldToken != active {
-			sys.uiAxisHoldController = controllerIdx
-			sys.uiAxisHoldToken = active
-			sys.uiAxisHoldStartFrame = sys.frameCounter
-		}
-
-		// Only accept if the currently active axis matches the token being queried.
-		if active != token {
-			return false
-		}
-
-		// Fire immediately on the activation frame then according to UI repeat timings while still held
-		fire := false
-		if sys.frameCounter == sys.uiAxisHoldStartFrame {
-			fire = true
-		} else {
-			// Align held counter with the digital buffer path (which bumps 1->2 on consume).
-			held := (sys.frameCounter - sys.uiAxisHoldStartFrame) + 2
-			if uiRepeatShouldFire(held) {
-				fire = true
-			}
-		}
-		if !fire {
-			return false
-		}
-
-		// Accept axis token.
-		sys.lastInputController = controllerIdx
-		sys.uiLastInputToken = active
-		// Match Lua: axis token acceptance resets the command buffer to avoid double triggers.
-		cl.BufReset()
-		return true
+		// Axis tokens are treated as "held" state checks here.
+		return active != "" && active == token
 	}
 
 	// Digital buttons / DPAD: direct state check.

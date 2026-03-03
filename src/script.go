@@ -2770,22 +2770,36 @@ func systemScriptInit(l *lua.LState) {
 		// Helper to compute the hold time for a key token on a given controller index.
 		keyTime := func(controllerIdx int, key string) int32 {
 			if controllerIdx == -2 && sys.lastInputController >= 0 {
-				controllerIdx = sys.lastInputController
-			}
-			// Axis tokens (LS_*/RS_*/LT/RT) are tracked by the UI axis-hold state.
-			// Return 0 if not currently held / not matching this controller.
-			if (len(key) >= 3 && (key[:3] == "LS_" || key[:3] == "RS_")) || key == "LT" || key == "RT" {
-				if controllerIdx >= 0 && controllerIdx == sys.uiAxisHoldController && sys.uiAxisHoldToken == key {
-					return int32(sys.frameCounter-sys.uiAxisHoldStartFrame) + 1
+				want := sys.lastInputController
+				controllerIdx = -1
+				for i := 0; i < len(sys.commandLists); i++ {
+					if sys.uiControllerKey(i) == want {
+						controllerIdx = i
+						break
+					}
 				}
-				return 0
+				if controllerIdx < 0 {
+					return 0
+				}
 			}
 			if controllerIdx < 0 || controllerIdx >= len(sys.commandLists) ||
 				sys.commandLists[controllerIdx] == nil || sys.commandLists[controllerIdx].Buffer == nil {
 				return 0
 			}
+			cl := sys.commandLists[controllerIdx]
 			ib := sys.commandLists[controllerIdx].Buffer
 			var v int32
+			// Treat LS direction tokens as aliases for D/U/B/F.
+			switch key {
+			case "LS_Y+":
+				key = "D"
+			case "LS_Y-":
+				key = "U"
+			case "LS_X-":
+				key = "B"
+			case "LS_X+":
+				key = "F"
+			}
 			switch key {
 			case "B":
 				v = ib.Bb
@@ -2820,6 +2834,13 @@ func systemScriptInit(l *lua.LState) {
 			case "m":
 				v = ib.mb
 			default:
+				// Other raw controller tokens (RS_*, LT/RT, etc): just report held (1) or not (0).
+				if idx, ok := StringToButtonLUT[key]; ok && idx != 25 {
+					if cl.IsControllerButtonPressed(key, controllerIdx) {
+						return 1
+					}
+					return 0
+				}
 				l.RaiseError("\nInvalid argument: %v\n", key)
 				return 0
 			}

@@ -1454,7 +1454,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 		for _, cmdType in ipairs({'select', 'next', 'previous'}) do
 			if main.t_selGrid[cell][cmdType] ~= nil then
 				for k, v in pairs(main.t_selGrid[cell][cmdType]) do
-					if getInput({cmd}, {k}) then
+					if commandGetState(main.t_cmd[cmd], k) then
 						if cmdType == 'next' then
 							local ok = false
 							for i = main.t_selGrid[cell].slot + 1, #v do

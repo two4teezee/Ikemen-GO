@@ -549,6 +549,7 @@ type Renderer_GLES32 struct {
 	modelIndexBuffer        [2]uint32
 	spriteVAO               uint32
 	modelVAO                uint32
+	modelEnvVAO             uint32
 	postVAO                 uint32
 
 	enableModel  bool
@@ -633,6 +634,7 @@ func (r *Renderer_GLES32) InitModelShader() error {
 			"numTargets", "numVertices", "enableAlpha", "alphaThreshold", "baseColorFactor", "useTexture", "texTransform", "layerOffset", "lightIndex")
 		r.shadowMapShader.RegisterTextures("morphTargetValues", "jointMatrices", "tex")
 	}
+
 	r.panoramaToCubeMapShader, err = r.newShaderProgram(identVertShader, panoramaToCubeMapFragShader, "", "Panorama To Cubemap Shader", false)
 	if err != nil {
 		return err
@@ -648,6 +650,19 @@ func (r *Renderer_GLES32) InitModelShader() error {
 	r.cubemapFilteringShader.RegisterAttributes("VertCoord")
 	r.cubemapFilteringShader.RegisterUniforms("sampleCount", "distribution", "width", "currentFace", "roughness", "intensityScale", "isLUT")
 	r.cubemapFilteringShader.RegisterTextures("cubeMap")
+
+	// Configure modelEnvVAO
+	gl.BindVertexArray(r.modelEnvVAO)
+	gl.BindBuffer(gl.ARRAY_BUFFER, r.postVertBuffer)
+
+	if loc, ok := r.cubemapFilteringShader.attributes["VertCoord"]; ok && loc >= 0 {
+		gl.EnableVertexAttribArray(uint32(loc))
+		gl.VertexAttribPointer(uint32(loc), 2, gl.FLOAT, false, 0, nil)
+	}
+
+	// Unbind for safety
+	gl.BindVertexArray(0)
+
 	return nil
 }
 
@@ -682,6 +697,7 @@ func (r *Renderer_GLES32) Init() {
 	// Generate VAO's
 	gl.GenVertexArrays(1, &r.spriteVAO)
 	gl.GenVertexArrays(1, &r.modelVAO)
+	gl.GenVertexArrays(1, &r.modelEnvVAO)
 	gl.GenVertexArrays(1, &r.postVAO)
 	Logcat("GLES: Sprite, model and post VAO's generated")
 
@@ -2063,20 +2079,19 @@ func (r *Renderer_GLES32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 
 	r.ChangeProgram(r.panoramaToCubeMapShader.program)
 
-	gl.BindVertexArray(r.modelVAO)
+	gl.BindVertexArray(r.modelEnvVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 
-	loc := r.panoramaToCubeMapShader.attributes["VertCoord"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
+
 	loc, unit := r.panoramaToCubeMapShader.uniforms["panorama"], r.panoramaToCubeMapShader.textures["panorama"]
 	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
 	gl.BindTexture(gl.TEXTURE_2D, envTexture.handle)
 	gl.Uniform1i(loc, int32(unit))
+
 	for i := 0; i < 6; i++ {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), cubeTexture.handle, 0)
 
@@ -2086,6 +2101,8 @@ func (r *Renderer_GLES32) RenderCubeMap(envTex Texture, cubeTex Texture) {
 
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 	}
+
+	gl.BindVertexArray(0)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 	gl.BindTexture(gl.TEXTURE_CUBE_MAP, cubeTexture.handle)
 	gl.GenerateMipmap(gl.TEXTURE_CUBE_MAP)
@@ -2099,17 +2116,13 @@ func (r *Renderer_GLES32) RenderFilteredCubeMap(distribution int32, cubeTex Text
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.modelVAO)
+	gl.BindVertexArray(r.modelEnvVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, currentTextureSize, currentTextureSize)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
-
-	loc := r.cubemapFilteringShader.attributes["VertCoord"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
 
 	loc, unit := r.cubemapFilteringShader.uniforms["cubeMap"], r.cubemapFilteringShader.textures["cubeMap"]
 	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
@@ -2127,6 +2140,7 @@ func (r *Renderer_GLES32) RenderFilteredCubeMap(distribution int32, cubeTex Text
 	gl.Uniform1f(loc, 1)
 	loc = r.cubemapFilteringShader.uniforms["isLUT"]
 	gl.Uniform1i(loc, 0)
+
 	for i := 0; i < 6; i++ {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, uint32(gl.TEXTURE_CUBE_MAP_POSITIVE_X+i), filteredTexture.handle, mipmapLevel)
 
@@ -2136,6 +2150,8 @@ func (r *Renderer_GLES32) RenderFilteredCubeMap(distribution int32, cubeTex Text
 
 		gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
 	}
+
+	gl.BindVertexArray(0)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 }
 
@@ -2146,17 +2162,13 @@ func (r *Renderer_GLES32) RenderLUT(distribution int32, cubeTex Texture, lutTex 
 
 	r.ChangeProgram(r.cubemapFilteringShader.program)
 
-	gl.BindVertexArray(r.modelVAO)
+	gl.BindVertexArray(r.modelEnvVAO)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_env)
 	gl.Viewport(0, 0, textureSize, textureSize)
 
 	data := f32.Bytes(binary.LittleEndian, -1, -1, 1, -1, -1, 1, 1, 1)
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.vertexBuffer)
 	gl.BufferData(gl.ARRAY_BUFFER, len(data), unsafe.Pointer(&data[0]), gl.STATIC_DRAW)
-
-	loc := r.cubemapFilteringShader.attributes["VertCoord"]
-	gl.EnableVertexAttribArray(uint32(loc))
-	gl.VertexAttribPointerWithOffset(uint32(loc), 2, gl.FLOAT, false, 0, 0)
 
 	loc, unit := r.cubemapFilteringShader.uniforms["cubeMap"], r.cubemapFilteringShader.textures["cubeMap"]
 	gl.ActiveTexture((uint32(gl.TEXTURE0 + unit)))
@@ -2183,6 +2195,8 @@ func (r *Renderer_GLES32) RenderLUT(distribution int32, cubeTex Texture, lutTex 
 	gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, lutTexture.handle, 0)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 	gl.DrawArrays(gl.TRIANGLE_STRIP, 0, 4)
+
+	gl.BindVertexArray(0)
 	gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo)
 }
 

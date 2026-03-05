@@ -2382,7 +2382,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					resetKey()
 				elseif bool_del and getKey('DELETE') then
 					tbl.items = main.f_deleteIP(item, t)
-				elseif getInput(-1, motif[main.group].menu.hiscore.key) and main.f_hiscoreDisplay(t[item].itemname) then
+				elseif main.f_hiscoreDisplay(t[item].itemname) then
 					demoFrameCounter = 0
 				elseif getInput(-1, motif[main.group].menu.done.key) then
 					demoFrameCounter = 0
@@ -2771,6 +2771,9 @@ function main.f_hiscoreDisplay(itemname)
 	local stats = jsonDecode(getCommandLineValue("-stats"))
 	local mode = main.t_hiscoreMap[itemname] or itemname
 	if not motif.hiscore_info.enabled or stats.modes == nil or stats.modes[mode] == nil or stats.modes[mode].ranking == nil then
+		return false
+	end
+	if not getInput(-1, motif[main.group].menu.hiscore.key) then
 		return false
 	end
 	sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])

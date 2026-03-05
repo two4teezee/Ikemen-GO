@@ -43,7 +43,7 @@ type Config struct {
 	Def            string
 	IniFile        *ini.File
 	DefaultOnlyIni *ini.File
-	Common  struct {
+	Common         struct {
 		Air     map[string][]string `ini:"map:^(?i)Air[0-9]*$" lua:"Air"`
 		Cmd     map[string][]string `ini:"map:^(?i)Cmd[0-9]*$" lua:"Cmd"`
 		Const   map[string][]string `ini:"map:^(?i)Const[0-9]*$" lua:"Const"`

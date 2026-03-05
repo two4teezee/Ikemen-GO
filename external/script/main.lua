@@ -39,102 +39,12 @@ function main.f_fileWrite(path, str, mode)
 	file:close()
 end
 
-main.t_commands = {}
-function main.f_commandNew(controllerNo)
-	local c = commandNew(controllerNo)
-	for k, v in pairs(main.t_commands) do
-		commandAdd(c, k, v[1], v[2], v[3])
-	end
-	return c
-end
-
-main.t_defaultKeysMapping = {
-	up = 'Not used',
-	down = 'Not used',
-	left = 'Not used',
-	right = 'Not used',
-	a = 'Not used',
-	b = 'Not used',
-	c = 'Not used',
-	x = 'Not used',
-	y = 'Not used',
-	z = 'Not used',
-	start = 'Not used',
-	d = 'Not used',
-	w = 'Not used',
-	menu = 'Not used',
-}
-
-main.t_defaultJoystickMapping = {
-	up = 'DP_U',
-	down = 'DP_D',
-	left = 'DP_L',
-	right = 'DP_R',
-	a = 'A',
-	b = 'B',
-	c = 'RT',
-	x = 'X',
-	y = 'Y',
-	z = 'RB',
-	start = 'START',
-	d = 'LB',
-	w = 'LT',
-	menu = 'BACK',
-}
-
---prepare players/command tables
-main.t_cmd = {}
-function main.f_setPlayers()
-	local n = gameOption('Config.Players')
-	setPlayers(n)
-	for i = 3, n do
-		if gameOption('Keys_P' .. i .. '.Joystick') == 0 then
-			local c = {Joystick = -1, GUID = ""}
-			for k, v in pairs(main.t_defaultKeysMapping) do
-				c[k] = v
-			end
-			setKeyConfig(i, c.Joystick, {c.up, c.down, c.left, c.right, c.a, c.b, c.c, c.x, c.y, c.z, c.start, c.d, c.w, c.menu})
-			for k, v in pairs(c) do
-				modifyGameOption('Keys_P' .. i .. '.' .. k, v)
-			end
-		end
-		if getCommandLineValue("-nojoy") == nil then
-			if gameOption('Joystick_P' .. i .. '.Joystick') == 0 then
-				local c = {Joystick = i - 1, GUID = ""}
-				for k, v in pairs(main.t_defaultJoystickMapping) do
-					c[k] = v
-				end
-				setKeyConfig(i, c.Joystick, {c.up, c.down, c.left, c.right, c.a, c.b, c.c, c.x, c.y, c.z, c.start, c.d, c.w, c.menu})
-				for k, v in pairs(c) do
-					modifyGameOption('Joystick_P' .. i .. '.' .. k, v)
-				end
-			end
-		end
-	end
-	for i = #main.t_cmd + 1, n do
-		table.insert(main.t_cmd, main.f_commandNew(i))
-	end
-end
-main.f_setPlayers()
-
---add new commands
-function main.f_commandAdd(name, cmd, tim, buf)
-	if main.t_commands[name] ~= nil then
-		return
-	end
-	for i = 1, #main.t_cmd do
-		commandAdd(main.t_cmd[i], name, cmd, tim or 15, buf or 1)
-	end
-	main.t_commands[name] = {cmd, tim, buf}
-end
---main.f_commandAdd("KonamiCode", "~U,U,D,D,B,F,B,F,b,a,s", 300, 1)
-
 --returns value depending on button pressed (a = 1; a + start = 7 etc.)
 function main.f_btnPalNo(p)
 	local s = 0
-	if commandGetState(main.t_cmd[p], '/s') then s = 6 end
-	for i, k in pairs({'a', 'b', 'c', 'x', 'y', 'z'}) do
-		if commandGetState(main.t_cmd[p], k) then return i + s end
+	if commandGetState(p, '/s') then s = 6 end
+	for i, k in ipairs({'a', 'b', 'c', 'x', 'y', 'z'}) do
+		if commandGetState(p, k) then return i + s end
 	end
 	return 0
 end
@@ -873,31 +783,6 @@ main.t_unlockLua = {chars = {}, stages = {}, modes = {}}
 motif = loadMotif()
 if gameOption('Debug.DumpLuaTables') then main.f_printTable(motif, "debug/loadMotif.txt") end
 
--- Recursively scan motif for fields named "key" and register their commands.
-local function addAllKeyCommands(root)
-	-- Avoid infinite loops on cyclic tables (weak keys so GC can collect)
-	local visited = setmetatable({}, { __mode = 'k' })
-	local function visit(t)
-		if type(t) ~= 'table' or visited[t] then return end
-		visited[t] = true
-		for k, v in pairs(t) do
-			if k == 'key' and type(v) == 'table' then
-				for _, cmd in ipairs(v) do
-					if type(cmd) == 'string' and cmd ~= '' then
-						main.f_commandAdd(cmd, cmd)
-					end
-				end
-			end
-			if type(v) == 'table' then
-				visit(v)
-			end
-		end
-	end
-	visit(root)
-end
-addAllKeyCommands(motif)
-main.f_commandAdd('/s', '/s')
-
 loadLifebar()
 main.f_loadingRefresh()
 main.timeFramesPerCount = fightscreenvar("time.framespercount")
@@ -1127,7 +1012,7 @@ function main.f_addChar(line, playable, loading, slot)
 	end
 	for _, v in ipairs({'next', 'previous', 'select'}) do
 		if main.t_selChars[row][v] ~= nil then
-			main.f_commandAdd(main.t_selChars[row][v], main.t_selChars[row][v])
+			commandAdd(main.t_selChars[row][v], main.t_selChars[row][v])
 			if main.t_selGrid[#main.t_selGrid][v] == nil then
 				main.t_selGrid[#main.t_selGrid][v] = {}
 			end
@@ -1266,7 +1151,6 @@ for line in content:gmatch('[^\r\n]+') do
 		lanStory = true
 	end
 end
-
 
 for line in content:gmatch('[^\r\n]+') do
 --for line in io.lines("data/select.def") do
@@ -1578,6 +1462,8 @@ function main.f_hiscore(mode, place)
 		refresh()
 	end
 end
+
+setPlayers()
 
 --Load additional scripts
 start = require('external.script.start')

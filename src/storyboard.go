@@ -601,14 +601,14 @@ func (s *Storyboard) step() {
 
 	// Cancel handling
 	if !s.SceneDef.DisableCancel && (sys.esc ||
-		(!sys.motif.AttractMode.Enabled && sys.rawInput(s.SceneDef.Key.Cancel, -1)) ||
+		(!sys.motif.AttractMode.Enabled && sys.uiRawInput(s.SceneDef.Key.Cancel, -1)) ||
 		(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)) {
 		sys.esc = false
 		s.cancel = true
 	}
 
 	// Skip handling
-	skipPressed := sys.rawInput(s.SceneDef.Key.Skip, -1)
+	skipPressed := sys.uiRawInput(s.SceneDef.Key.Skip, -1)
 
 	// Keep dialogue cursor aligned with time progression.
 	s.syncDialoguePosToTime()

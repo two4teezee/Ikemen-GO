@@ -40,8 +40,9 @@ type KeysProperties struct {
 
 // Motif represents the top-level config structure.
 type Config struct {
-	Def     string
-	IniFile *ini.File
+	Def            string
+	IniFile        *ini.File
+	DefaultOnlyIni *ini.File
 	Common  struct {
 		Air     map[string][]string `ini:"map:^(?i)Air[0-9]*$" lua:"Air"`
 		Cmd     map[string][]string `ini:"map:^(?i)Cmd[0-9]*$" lua:"Cmd"`
@@ -271,6 +272,7 @@ func loadConfig(def string) (*Config, error) {
 	var iniFile *ini.File
 	var defaultOnlyIni *ini.File
 	var userIniFile *ini.File
+
 	var err error
 	// Load defaults-only.
 	defaultOnlyIni, err = ini.LoadSources(baseOptions, defaultSrc)
@@ -322,6 +324,7 @@ func loadConfig(def string) (*Config, error) {
 	assignFrom(userIniFile)
 
 	c.IniFile = iniFile
+	c.DefaultOnlyIni = defaultOnlyIni
 	c.normalize()
 	c.sysSet()
 	c.Save(def)

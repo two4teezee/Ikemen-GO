@@ -3237,7 +3237,7 @@ func (me *MotifMenu) menuOpenInputHeld(m *Motif) bool {
 	// Also respect configured menu cancel/open bindings
 	if m != nil && m.PauseMenu != nil {
 		if pm := m.PauseMenu["pause_menu"]; pm != nil && pm.Enabled {
-			if sys.rawInput(pm.Menu.Cancel.Key, -1) {
+			if sys.uiRawInput(pm.Menu.Cancel.Key, -1) {
 				return true
 			}
 		}
@@ -3289,7 +3289,7 @@ func (me *MotifMenu) init(m *Motif) {
 		}
 		me.reopenLock = false
 	}
-	openPressed := sys.esc || sys.rawInput(pm.Menu.Cancel.Key, -1)
+	openPressed := sys.esc || sys.uiRawInput(pm.Menu.Cancel.Key, -1)
 
 	if sys.escExit() || (sys.netplay() && openPressed) {
 		if sys.netplay() {
@@ -3657,19 +3657,19 @@ func (co *MotifContinue) step(m *Motif) {
 
 	if !co.selected {
 		if m.ContinueScreen.LegacyMode.Enabled {
-			if sys.rawInput(m.ContinueScreen.Move.Key, co.pn-1) {
+			if sys.uiRawInput(m.ContinueScreen.Move.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Move.Snd, 100, 0, 0, 0, 0)
 				co.yesSide = !co.yesSide
-			} else if sys.rawInput(m.ContinueScreen.Skip.Key, co.pn-1) || sys.rawInput(m.ContinueScreen.Done.Key, co.pn-1) {
+			} else if sys.uiRawInput(m.ContinueScreen.Skip.Key, co.pn-1) || sys.uiRawInput(m.ContinueScreen.Done.Key, co.pn-1) {
 				m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 				co.processSelection(m, co.yesSide)
 			}
 		} else {
 			if co.counter < m.ContinueScreen.Counter.End.SkipTime {
-				if (sys.credits == -1 || sys.credits > 0) && sys.rawInput(m.ContinueScreen.Done.Key, co.pn-1) {
+				if (sys.credits == -1 || sys.credits > 0) && sys.uiRawInput(m.ContinueScreen.Done.Key, co.pn-1) {
 					m.Snd.play(m.ContinueScreen.Done.Snd, 100, 0, 0, 0, 0)
 					co.processSelection(m, true)
-				} else if sys.rawInput(m.ContinueScreen.Skip.Key, co.pn-1) &&
+				} else if sys.uiRawInput(m.ContinueScreen.Skip.Key, co.pn-1) &&
 					co.counter >= m.ContinueScreen.Counter.StartTime+m.ContinueScreen.Counter.SkipStart {
 					co.skipCounter(m)
 				}
@@ -3781,7 +3781,7 @@ func (de *MotifDemo) init(m *Motif) {
 
 func (de *MotifDemo) step(m *Motif) {
 	if de.endTimer == -1 {
-		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && sys.rawInput(m.DemoMode.Cancel.Key, -1))
+		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && sys.uiRawInput(m.DemoMode.Cancel.Key, -1))
 		if de.counter == m.DemoMode.Fight.EndTime || cancel {
 			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, cancel, m.fadePolicy)
 			de.endTimer = de.counter + sys.lifebar.ro.fadeOut.timeRemaining
@@ -4603,7 +4603,7 @@ func (di *MotifDialogue) step(m *Motif) {
 	}
 
 	// If user presses "cancel", end the dialogue
-	if sys.rawInput(m.DialogueInfo.Cancel.Key, -1) {
+	if sys.uiRawInput(m.DialogueInfo.Cancel.Key, -1) {
 		di.active = false
 		di.clear(m)
 		return
@@ -4651,7 +4651,7 @@ func (di *MotifDialogue) step(m *Motif) {
 
 	// Handle "skip" key (only after SkipTime)
 	if di.counter >= m.DialogueInfo.SkipTime {
-		if sys.rawInput(m.DialogueInfo.Skip.Key, -1) {
+		if sys.uiRawInput(m.DialogueInfo.Skip.Key, -1) {
 			if !di.lineFullyRendered {
 				currentLine.typedCnt = utf8.RuneCountInString(currentLine.text)
 				di.lineFullyRendered = true
@@ -5258,8 +5258,8 @@ func (hi *MotifHiscore) step(m *Motif) {
 	}
 	// Begin fade-out on cancel or when time elapses.
 	if hi.endTimer == -1 {
-		cancel := sys.esc || sys.rawInput(m.HiscoreInfo.Cancel.Key, -1) ||
-			(!hi.input && sys.rawInput(m.HiscoreInfo.Done.Key, -1)) ||
+		cancel := sys.esc || sys.uiRawInput(m.HiscoreInfo.Cancel.Key, -1) ||
+			(!hi.input && sys.uiRawInput(m.HiscoreInfo.Done.Key, -1)) ||
 			(!sys.gameRunning && sys.motif.AttractMode.Enabled && sys.credits > 0)
 		if cancel || (!hi.input && hi.counter == hi.endTime) {
 			if !hi.noFade {
@@ -5323,7 +5323,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 				maxLen := initialsWidth(m.HiscoreInfo.Item.Name.Text["default"])
 				glyphCount := len(m.HiscoreInfo.Glyphs)
 				// Previous glyph
-				if sys.rawInput(m.HiscoreInfo.Previous.Key, controller) {
+				if sys.uiRawInput(m.HiscoreInfo.Previous.Key, controller) {
 					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
 					if len(hi.letters) == 0 {
 						hi.letters = []int{1}
@@ -5336,7 +5336,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 					}
 					updateRowNameFromLetters(m, row, hi.letters)
 					// Next glyph
-				} else if sys.rawInput(m.HiscoreInfo.Next.Key, controller) {
+				} else if sys.uiRawInput(m.HiscoreInfo.Next.Key, controller) {
 					m.Snd.play(m.HiscoreInfo.Move.Snd, 100, 0, 0, 0, 0)
 					if len(hi.letters) == 0 {
 						hi.letters = []int{1}
@@ -5349,7 +5349,7 @@ func (hi *MotifHiscore) step(m *Motif) {
 					}
 					updateRowNameFromLetters(m, row, hi.letters)
 					// Confirm / Add / Backspace
-				} else if sys.rawInput(m.HiscoreInfo.Done.Key, controller) {
+				} else if sys.uiRawInput(m.HiscoreInfo.Done.Key, controller) {
 					// Current glyph meaning
 					curGlyph := currentGlyph(m, hi.letters)
 					if curGlyph == "<" {
@@ -6097,8 +6097,8 @@ func (vi *MotifVictory) step(m *Motif) {
 			sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.victory", err.Error())
 		}
 	}
-	cancelPressed := sys.esc || sys.rawInput(m.VictoryScreen.Cancel.Key, -1)
-	skipPressed := sys.rawInput(m.VictoryScreen.Skip.Key, -1)
+	cancelPressed := sys.esc || sys.uiRawInput(m.VictoryScreen.Cancel.Key, -1)
+	skipPressed := sys.uiRawInput(m.VictoryScreen.Skip.Key, -1)
 	prevLineFullyRendered := vi.lineFullyRendered
 	//fmt.Printf("[Victory] step: counter=%d time=%d endTimer=%d typedCnt=%d lineFullyRendered=%v cancel=%v skip=%v\n", vi.counter, m.VictoryScreen.Time, vi.endTimer, vi.typedCnt, vi.lineFullyRendered, cancelPressed, skipPressed)
 
@@ -6645,7 +6645,7 @@ func (wi *MotifWin) step(m *Motif) {
 		}
 	}
 	if wi.endTimer == -1 {
-		cancel := sys.esc || sys.rawInput(wi.keyCancel, -1)
+		cancel := sys.esc || sys.uiRawInput(wi.keyCancel, -1)
 		if cancel || wi.counter == wi.time {
 			startFadeOut(wi.fadeOut, m.fadeOut, cancel, m.fadePolicy)
 			wi.endTimer = wi.counter + m.fadeOut.timeRemaining

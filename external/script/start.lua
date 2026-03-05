@@ -1454,7 +1454,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 		for _, cmdType in ipairs({'select', 'next', 'previous'}) do
 			if main.t_selGrid[cell][cmdType] ~= nil then
 				for k, v in pairs(main.t_selGrid[cell][cmdType]) do
-					if commandGetState(main.t_cmd[cmd], k) then
+					if commandGetState(cmd, k) then
 						if cmdType == 'next' then
 							local ok = false
 							for i = main.t_selGrid[cell].slot + 1, #v do
@@ -2228,13 +2228,7 @@ function launchStoryboard(path)
 end
 
 function codeInput(name)
-	if main.t_commands[name] == nil then
-		return false
-	end
-	if commandGetState(main.t_cmd[getLastInputController()], name) then
-		return true
-	end
-	return false
+	return commandGetState(getLastInputController(), name)
 end
 
 --;===========================================================

@@ -1454,7 +1454,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 		for _, cmdType in ipairs({'select', 'next', 'previous'}) do
 			if main.t_selGrid[cell][cmdType] ~= nil then
 				for k, v in pairs(main.t_selGrid[cell][cmdType]) do
-					if commandGetState(main.t_cmd[cmd], k) then
+					if commandGetState(cmd, k) then
 						if cmdType == 'next' then
 							local ok = false
 							for i = main.t_selGrid[cell].slot + 1, #v do
@@ -2228,13 +2228,7 @@ function launchStoryboard(path)
 end
 
 function codeInput(name)
-	if main.t_commands[name] == nil then
-		return false
-	end
-	if commandGetState(main.t_cmd[getLastInputController()], name) then
-		return true
-	end
-	return false
+	return commandGetState(getLastInputController(), name)
 end
 
 --;===========================================================
@@ -2462,7 +2456,7 @@ function start.f_selectScreen()
 					end
 					local cursorState = 'active'
 					if v.selectState > 0 and motif.select_info.paletteselect > 0 then
-					local cursorData = motif.select_info['p' .. side].cursor
+						local cursorData = motif.select_info['p' .. side].cursor
 						if cursorData.preview and cursorData.preview.default and 
 						(cursorData.preview.default.anim ~= -1 or cursorData.preview.default.spr[1] ~= -1) then
 						--cursorState when palmenu is active
@@ -2494,7 +2488,7 @@ function start.f_selectScreen()
 			end
 			if start.p[side].inPalMenu then
 				local palActive = false
-				if motif.select_info.paletteselect and motif.select_info.paletteselect > 0 then
+				if motif.select_info.paletteselect > 0 then
 					for _, sv in ipairs(start.p[side].t_selCmd) do
 						if sv.selectState == 1 then
 							palActive = true
@@ -3371,7 +3365,9 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			start.p[side].t_cursor[member] = {x = start.c[player].selX, y = start.c[player].selY}
 			if main.f_tableLength(start.p[side].t_selected) == start.p[side].numChars then --if all characters have been chosen
 				if side == 1 and main.cpuSide[2] and start.reset then --if player1 is allowed to select p2 characters
-					commandBufReset()
+					if motif.select_info.paletteselect > 0 then
+						commandBufReset()
+					end
 					if timerSelect == -1 then
 						start.p[2].teamMode = start.p[1].teamMode
 						start.p[2].numChars = start.p[1].numChars

@@ -1722,45 +1722,48 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandAdd", func(l *lua.LState) int {
-		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
-			userDataError(l, 1, cl)
+		name := strArg(l, 1)
+		cmdstr := strArg(l, 2)
+		// Pull defaults from an existing CommandList (or fall back to constructor defaults).
+		dcl := (*CommandList)(nil)
+		for _, cl := range sys.commandLists {
+			if cl != nil {
+				dcl = cl
+				break
+			}
 		}
-
-		name := strArg(l, 2)
-		cmdstr := strArg(l, 3)
-
-		time := cl.DefaultTime
-		buftime := cl.DefaultBufferTime
-		bufferHitpause := cl.DefaultBufferHitpause
-		bufferPauseend := cl.DefaultBufferPauseEnd
-		steptime := cl.DefaultStepTime
-
+		if dcl == nil {
+			dcl = NewCommandList(nil)
+		}
+		time := dcl.DefaultTime
+		buftime := dcl.DefaultBufferTime
+		bufferHitpause := dcl.DefaultBufferHitpause
+		bufferPauseend := dcl.DefaultBufferPauseEnd
+		steptime := dcl.DefaultStepTime
+		if !nilArg(l, 3) {
+			time = int32(numArg(l, 3))
+		}
 		if !nilArg(l, 4) {
-			time = int32(numArg(l, 4))
+			buftime = Max(1, int32(numArg(l, 4)))
 		}
 		if !nilArg(l, 5) {
-			buftime = Max(1, int32(numArg(l, 5)))
+			bufferHitpause = boolArg(l, 5)
 		}
 		if !nilArg(l, 6) {
-			bufferHitpause = boolArg(l, 6)
+			bufferPauseend = boolArg(l, 6)
 		}
 		if !nilArg(l, 7) {
-			bufferPauseend = boolArg(l, 7)
+			steptime = int32(numArg(l, 7))
 		}
-		if !nilArg(l, 8) {
-			steptime = int32(numArg(l, 8))
+		spec := CommandSpec{
+			Cmd:            cmdstr,
+			Time:           time,
+			BufTime:        buftime,
+			BufferHitpause: bufferHitpause,
+			BufferPauseend: bufferPauseend,
+			StepTime:       steptime,
 		}
-
-		if err := cl.AddCommand(
-			name,
-			cmdstr,
-			time,
-			buftime,
-			bufferHitpause,
-			bufferPauseend,
-			steptime,
-		); err != nil {
+		if err := sys.uiRegisterCommand(name, spec); err != nil {
 			l.RaiseError(err.Error())
 		}
 		return 0
@@ -1775,19 +1778,18 @@ func systemScriptInit(l *lua.LState) {
 			}
 			return 0
 		}
-		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok {
-			userDataError(l, 1, cl)
+		pn := int(numArg(l, 1))
+		if pn >= 1 && pn <= len(sys.commandLists) && sys.commandLists[pn-1] != nil {
+			sys.commandLists[pn-1].BufReset()
 		}
-		cl.BufReset()
 		return 0
 	})
 	luaRegister(l, "commandDebug", func(*lua.LState) int {
-		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok || cl == nil {
-			userDataError(l, 1, cl)
+		pn := int(numArg(l, 1))
+		if pn < 1 || pn > len(sys.commandLists) || sys.commandLists[pn-1] == nil {
 			return 0
 		}
+		cl := sys.commandLists[pn-1]
 		str := ""
 		if !nilArg(l, 2) {
 			str = strArg(l, 2)
@@ -1818,44 +1820,12 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "commandGetState", func(l *lua.LState) int {
-		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok || cl == nil {
-			userDataError(l, 1, cl)
+		pn := int(numArg(l, 1))
+		if pn < 1 || pn > len(sys.commandLists) || sys.commandLists[pn-1] == nil {
 			l.Push(lua.LBool(false))
 			return 1 // Attempt to fix a rare registry overflow error while the window is unfocused
 		}
-		l.Push(lua.LBool(cl.GetState(strArg(l, 2))))
-		return 1
-	})
-	luaRegister(l, "commandInput", func(l *lua.LState) int {
-		cl, ok := toUserData(l, 1).(*CommandList)
-		if !ok || cl == nil {
-			userDataError(l, 1, cl)
-			return 0 // Attempt to fix a rare registry overflow error while the window is unfocused
-		}
-		controller := int(numArg(l, 2)) - 1
-		if cl.InputUpdate(nil, controller) {
-			cl.Step(false, false, false, false, 0)
-		}
-		return 0
-	})
-	luaRegister(l, "commandNew", func(l *lua.LState) int {
-		var controllerNo int
-		if !nilArg(l, 1) {
-			controllerNo = int(numArg(l, 1))
-		}
-		cl := NewCommandList(NewInputBuffer())
-		if controllerNo > 0 {
-			idx := controllerNo - 1 // 0-based index
-			// Grow sys.commandLists if needed
-			if idx >= len(sys.commandLists) {
-				tmp := make([]*CommandList, idx+1)
-				copy(tmp, sys.commandLists)
-				sys.commandLists = tmp
-			}
-			sys.commandLists[idx] = cl
-		}
-		l.Push(newUserData(l, cl))
+		l.Push(lua.LBool(sys.commandLists[pn-1].GetState(strArg(l, 2))))
 		return 1
 	})
 	luaRegister(l, "computeRanking", func(l *lua.LState) int {
@@ -2729,7 +2699,7 @@ func systemScriptInit(l *lua.LState) {
 				default:
 					continue
 				}
-				if len(btns) > 0 && sys.rawInput(btns, controllerIdx) {
+				if len(btns) > 0 && sys.uiRawInput(btns, controllerIdx) {
 					l.Push(lua.LBool(true))
 					return 1
 				}
@@ -3035,6 +3005,10 @@ func systemScriptInit(l *lua.LState) {
 			l.RaiseError(err.Error())
 		}
 		l.Push(newUserData(l, w))
+		return 1
+	})
+	luaRegister(l, "isUIKeyAction", func(l *lua.LState) int {
+		l.Push(lua.LBool(sys.uiIsKeyAction(strArg(l, 1))))
 		return 1
 	})
 	luaRegister(l, "jsonDecode", func(*lua.LState) int {
@@ -4579,6 +4553,36 @@ func systemScriptInit(l *lua.LState) {
 		sys.credits = int32(numArg(l, 1))
 		return 0
 	})
+	luaRegister(l, "setDefaultConfig", func(l *lua.LState) int {
+		cfgType := strArg(l, 1)
+		pn := int(numArg(l, 2))
+		var enabled map[string]bool
+		if !nilArg(l, 3) {
+			enabled = make(map[string]bool, 16)
+			tableArg(l, 3).ForEach(func(k, v lua.LValue) {
+				// map-style: enabled["up"]=true
+				if ks, ok := k.(lua.LString); ok {
+					if lua.LVAsBool(v) {
+						enabled[string(ks)] = true
+					}
+					return
+				}
+				// array-style: {"up","down",...}
+				if vs, ok := v.(lua.LString); ok {
+					enabled[string(vs)] = true
+				}
+			})
+		}
+		switch cfgType {
+		case "Keys":
+			sys.uiSetConfigDefaults(pn, false, enabled)
+		case "Joystick":
+			sys.uiSetConfigDefaults(pn, true, enabled)
+		default:
+			l.RaiseError("\nInvalid config type: %v\n", cfgType)
+		}
+		return 0
+	})
 	luaRegister(l, "setDizzyPoints", func(*lua.LState) int {
 		sys.debugWC.dizzyPointsSet(int32(numArg(l, 1)))
 		return 0
@@ -4675,9 +4679,7 @@ func systemScriptInit(l *lua.LState) {
 				}
 			}
 		})
-		sys.uiConsumeInputFrame = sys.frameCounter + 1
-		sys.uiLastInputToken = ""
-		sys.lastInputController = -1
+		sys.uiResetTokenGuard()
 		return 0
 	})
 	luaRegister(l, "setLastInputController", func(l *lua.LState) int {
@@ -4829,12 +4831,10 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setPlayers", func(l *lua.LState) int {
-		total := int(numArg(l, 1))
-
-		if total < len(sys.commandLists) {
-			sys.commandLists = sys.commandLists[:total]
+		total := sys.cfg.Config.Players
+		if err := sys.uiEnsureCommandLists(total); err != nil {
+			l.RaiseError("\nuiEnsureCommandLists: %v\n", err.Error())
 		}
-
 		// Resize sys.keyConfig
 		if len(sys.keyConfig) > total {
 			sys.keyConfig = sys.keyConfig[:total]
@@ -4843,7 +4843,6 @@ func systemScriptInit(l *lua.LState) {
 				sys.keyConfig = append(sys.keyConfig, KeyConfig{})
 			}
 		}
-
 		// Cleanup sys.cfg.Keys
 		for key := range sys.cfg.Keys {
 			var num int
@@ -4852,7 +4851,6 @@ func systemScriptInit(l *lua.LState) {
 				sys.cfg.IniFile.DeleteSection(fmt.Sprintf("Keys_P%d", num))
 			}
 		}
-
 		// Resize sys.joystickConfig
 		if len(sys.joystickConfig) > total {
 			sys.joystickConfig = sys.joystickConfig[:total]
@@ -4861,7 +4859,6 @@ func systemScriptInit(l *lua.LState) {
 				sys.joystickConfig = append(sys.joystickConfig, KeyConfig{})
 			}
 		}
-
 		// Cleanup sys.cfg.Joystick
 		for key := range sys.cfg.Joystick {
 			var num int
@@ -4870,6 +4867,20 @@ func systemScriptInit(l *lua.LState) {
 				sys.cfg.IniFile.DeleteSection(fmt.Sprintf("Joystick_P%d", num))
 			}
 		}
+		// Defaults for newly added players
+		_, noJoy := sys.cmdFlags["-nojoy"]
+		for pn := 1; pn <= total; pn++ {
+			// Keyboard: apply defaults only if Keys_Pn section is missing.
+			if kp, ok := sys.cfg.Keys[fmt.Sprintf("keys_p%d", pn)]; !ok || kp == nil {
+				sys.uiSetConfigDefaults(pn, false, nil)
+			}
+			if !noJoy {
+				if jp, ok := sys.cfg.Joystick[fmt.Sprintf("joystick_p%d", pn)]; !ok || jp == nil {
+					sys.uiSetConfigDefaults(pn, true, nil)
+				}
+			}
+		}
+		sys.uiResetTokenGuard()
 		return 0
 	})
 	luaRegister(l, "setPower", func(*lua.LState) int {

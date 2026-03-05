@@ -259,7 +259,7 @@ options.t_itemname = {
 			loadLifebar(motif.files.fight)
 			main.timeFramesPerCount = fightscreenvar("time.framespercount")
 			main.f_updateRoundsNum()
-			main.f_setPlayers()
+			setPlayers()
 			for _, v in ipairs(options.t_vardisplayPointers) do
 				v.vardisplay = options.f_vardisplay(v.itemname)
 			end
@@ -1235,13 +1235,13 @@ options.t_itemname = {
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			modifyGameOption('Config.Players', math.min(8, gameOption('Config.Players') + 2))
 			t.items[item].vardisplay = gameOption('Config.Players')
-			main.f_setPlayers()
+			setPlayers()
 			options.modified = true
 		elseif getInput(-1, motif.option_info.menu.subtract.key) and gameOption('Config.Players') > 2 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
 			modifyGameOption('Config.Players', math.max(2, gameOption('Config.Players') - 2))
 			t.items[item].vardisplay = gameOption('Config.Players')
-			main.f_setPlayers()
+			setPlayers()
 			options.modified = true
 		end
 		return true
@@ -1989,7 +1989,7 @@ end
 local t_keyCfg = {}
 table.insert(t_keyCfg, {itemname = 'spacer', displayname = '-', paramname = 'spacer'})
 for _, v in ipairs(motif.option_info.keymenu.itemname_order or {}) do
-	if main.t_defaultKeysMapping[v] ~= nil or v == "configall" then
+	if isUIKeyAction(v) or v == "configall" then
 		table.insert(t_keyCfg, {itemname = v, displayname = motif.option_info.keymenu.itemname[v] or '', paramname = v, infodisplay = ''})
 	end
 end
@@ -2028,7 +2028,7 @@ local t_keyCfgFields = {
 
 local t_btnEnabled = {}
 for _, row in ipairs(t_keyCfg) do
-	if main.t_defaultKeysMapping[row.itemname] then
+	if isUIKeyAction(row.itemname) then
 		t_btnEnabled[row.itemname] = true
 	end
 end
@@ -2049,56 +2049,8 @@ end
 
 function options.f_keyDefault()
 	for i = 1, gameOption('Config.Players') do
-		local defaultKeys = main.t_defaultKeysMapping
-		if i == 1 then
-			defaultKeys = {
-				up = 'UP',
-				down = 'DOWN',
-				left = 'LEFT',
-				right = 'RIGHT',
-				a = 'z',
-				b = 'x',
-				c = 'c',
-				x = 'a',
-				y = 's',
-				z = 'd',
-				start = 'RETURN',
-				d = 'q',
-				w = 'w',
-				menu = 'Not used',
-			}
-		elseif i == 2 then
-			defaultKeys = {
-				up = 'i',
-				down = 'k',
-				left = 'j',
-				right = 'l',
-				a = 'f',
-				b = 'g',
-				c = 'h',
-				x = 'r',
-				y = 't',
-				z = 'y',
-				start = 'RSHIFT',
-				d = 'LEFTBRACKET',
-				w = 'RIGHTBRACKET',
-				menu = 'Not used',
-			}
-		end
-		for action, button in pairs(defaultKeys) do
-			if not t_btnEnabled[action] then
-				modifyGameOption('Keys_P' .. i .. '.' .. action, tostring(motif.option_info.menu.valuename.nokey))
-			else
-				modifyGameOption('Keys_P' .. i .. '.' .. action, button)
-			end
-		end
-		for action, button in pairs(main.t_defaultJoystickMapping) do
-			if not t_btnEnabled[action] then
-				modifyGameOption('Joystick_P' .. i .. '.' .. action, tostring(motif.option_info.menu.valuename.nokey))
-			else
-				modifyGameOption('Joystick_P' .. i .. '.' .. action, button)
-			end
-		end
+		setDefaultConfig('Keys', i, t_btnEnabled)
+		setDefaultConfig('Joystick', i, t_btnEnabled)
 	end
 	resetRemapInput()
 end

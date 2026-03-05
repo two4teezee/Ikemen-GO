@@ -283,12 +283,38 @@ func GetJoystickState(kc KeyConfig) [14]bool {
 	return out
 }
 
+type CommandSpec struct {
+	Cmd            string
+	Time           int32
+	BufTime        int32
+	BufferHitpause bool
+	BufferPauseend bool
+	StepTime       int32
+}
+
 type KeyConfig struct {
 	Joy                                                    int
 	dU, dD, dL, dR, bA, bB, bC, bX, bY, bZ, bS, bD, bW, bM int
 	isInitialized                                          bool
 	rumbleOn                                               bool
 	GUID                                                   string
+}
+
+func (kc *KeyConfig) set(v [14]int) {
+	kc.dU = v[0]
+	kc.dD = v[1]
+	kc.dL = v[2]
+	kc.dR = v[3]
+	kc.bA = v[4]
+	kc.bB = v[5]
+	kc.bC = v[6]
+	kc.bX = v[7]
+	kc.bY = v[8]
+	kc.bZ = v[9]
+	kc.bS = v[10]
+	kc.bD = v[11]
+	kc.bW = v[12]
+	kc.bM = v[13]
 }
 
 func (kc *KeyConfig) swap(kc2 *KeyConfig) {
@@ -2138,9 +2164,7 @@ func (nc *NetConnection) IsConnected() bool {
 	// Stop a held button from registering as a fresh press and auto-accepting the first menu.
 	if connected && !nc.uiInputDebounced {
 		nc.uiInputDebounced = true
-		sys.uiConsumeInputFrame = sys.frameCounter + 1
-		sys.uiLastInputToken = ""
-		sys.lastInputController = -1
+		sys.uiResetTokenGuard()
 	} else if !connected {
 		nc.uiInputDebounced = false
 	}
@@ -3285,18 +3309,13 @@ func NewCommandList(cb *InputBuffer) *CommandList {
 	}
 }
 
-// Compiles a command string and adds it to this CommandList using the provided timing/buffering settings.
-func (cl *CommandList) AddCommand(
-	name, cmdstr string,
-	time, buftime int32,
-	bufferHitpause, bufferPauseend bool,
-	steptime int32,
-) error {
+// Compiles a command string and adds it to this CommandList using the provided spec.
+func (cl *CommandList) AddCommand(name string, spec CommandSpec) error {
 	if cl == nil {
 		return fmt.Errorf("AddCommand called on nil CommandList")
 	}
 
-	cmdstr = strings.TrimSpace(cmdstr)
+	cmdstr := strings.TrimSpace(spec.Cmd)
 	if cmdstr == "" {
 		// Nothing to add, but not an error.
 		return nil
@@ -3309,11 +3328,11 @@ func (cl *CommandList) AddCommand(
 		return err
 	}
 
-	cm.maxtime = time
-	cm.maxbuftime = buftime
-	cm.buffer_hitpause = bufferHitpause
-	cm.buffer_pauseend = bufferPauseend
-	cm.maxsteptime = steptime
+	cm.maxtime = spec.Time
+	cm.maxbuftime = spec.BufTime
+	cm.buffer_hitpause = spec.BufferHitpause
+	cm.buffer_pauseend = spec.BufferPauseend
+	cm.maxsteptime = spec.StepTime
 
 	cl.Add(*cm)
 	return nil

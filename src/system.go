@@ -336,6 +336,9 @@ type System struct {
 	uiRepeatController int
 	uiRepeatFrame      int32
 
+	// UI command registry. Ensures new players get the full command set.
+	uiCommandRegistry map[string]CommandSpec
+
 	// For Android support
 	baseDir string
 }
@@ -1013,16 +1016,23 @@ func (s *System) stepCommandLists() {
 	}
 }
 
-func uiRepeatShouldFire(held int32) bool {
+// Avoid immediate UI token reuse right after defaults/config/player changes.
+func (s *System) uiResetTokenGuard() {
+	s.uiConsumeInputFrame = s.frameCounter + 1
+	s.uiLastInputToken = ""
+	s.lastInputController = -1
+}
+
+func (s *System) uiRepeatShouldFire(held int32) bool {
 	// held: 1 = pressed this frame, 2+ = held
 	if held <= 1 {
 		return false
 	}
 	// Wait for initial delay, then repeat every UiRepeatRate frames.
-	if held < 1+sys.cfg.Input.UiRepeatDelay {
+	if held < 1+s.cfg.Input.UiRepeatDelay {
 		return false
 	}
-	return (held-(1+sys.cfg.Input.UiRepeatDelay))%sys.cfg.Input.UiRepeatRate == 0
+	return (held-(1+s.cfg.Input.UiRepeatDelay))%s.cfg.Input.UiRepeatRate == 0
 }
 
 func (s *System) uiControllerKey(controllerIdx int) int {
@@ -1045,12 +1055,11 @@ func (s *System) uiConsumeTokenThisFrame(controller int, tok string) bool {
 	return false
 }
 
-// rawInput checks the per-controller raw input buffer (InputBuffer) instead of command states.
+// Checks the per-controller raw input buffer (InputBuffer) instead of command states.
 // Returns true if any of the provided keys were pressed this frame (buffer time == 1).
 // Supported keys: B, D, F, U, L, R, a, b, c, x, y, z, s, d, w, m
 // D/U/B/F also recognize LS axis tokens: D -> LS_Y+, U -> LS_Y-, B -> LS_X-, F -> LS_X+.
-func (s *System) rawInput(btns []string, controllerIdx int) bool {
-
+func (s *System) uiRawInput(btns []string, controllerIdx int) bool {
 	checkOne := func(i int, cl *CommandList) bool {
 		if cl == nil || cl.Buffer == nil {
 			return false
@@ -1096,17 +1105,17 @@ func (s *System) rawInput(btns []string, controllerIdx int) bool {
 			trigger := false
 			switch tok {
 			case "B":
-				trigger = ib.Bb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Bb)))
+				trigger = ib.Bb == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Bb)))
 			case "D":
-				trigger = ib.Db == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Db)))
+				trigger = ib.Db == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Db)))
 			case "F":
-				trigger = ib.Fb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Fb)))
+				trigger = ib.Fb == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Fb)))
 			case "U":
-				trigger = ib.Ub == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Ub)))
+				trigger = ib.Ub == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Ub)))
 			case "L":
-				trigger = ib.Lb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Lb)))
+				trigger = ib.Lb == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Lb)))
 			case "R":
-				trigger = ib.Rb == 1 || (repeatable(tok) && uiRepeatShouldFire(int32(ib.Rb)))
+				trigger = ib.Rb == 1 || (repeatable(tok) && s.uiRepeatShouldFire(int32(ib.Rb)))
 			case "a":
 				trigger = ib.ab == 1
 			case "b":
@@ -1155,13 +1164,193 @@ func (s *System) rawInput(btns []string, controllerIdx int) bool {
 		}
 		return false
 	}
-	found := false
+	//found := false
 	for i := 0; i < len(s.commandLists); i++ {
 		if checkOne(i, s.commandLists[i]) {
-			found = true
+			//found = true
+			return true
 		}
 	}
-	return found
+	//return found
+	return false
+}
+
+func (s *System) uiIsKeyAction(name string) bool {
+	switch name {
+	case "up", "down", "left", "right",
+		"a", "b", "c", "x", "y", "z",
+		"start", "d", "w", "menu":
+		return true
+	default:
+		return false
+	}
+}
+
+func (s *System) uiDefaultTokens(pn int, joystick bool) []string {
+	defaultNoKey := s.cfg.DefaultOnlyIni.Section("Keys_P3").Key("menu").String()
+	sectionName := "Keys_P3"
+	if pn == 1 || pn == 2 {
+		sectionName = "Keys_P" + Itoa(pn)
+	}
+	if joystick {
+		sectionName = "Joystick_P1"
+	}
+	get := func(k string) string {
+		v := s.cfg.DefaultOnlyIni.Section(sectionName).Key(k).String()
+		if v == defaultNoKey {
+			return s.motif.OptionInfo.Menu.Valuename["nokey"]
+		}
+		return v
+	}
+	return []string{
+		get("up"), get("down"), get("left"), get("right"),
+		get("a"), get("b"), get("c"),
+		get("x"), get("y"), get("z"),
+		get("start"), get("d"), get("w"), get("menu"),
+	}
+}
+
+func (s *System) uiSetConfigDefaults(pn int, joystick bool, enabled map[string]bool) {
+	if pn < 1 {
+		return
+	}
+	var (
+		kc     *KeyConfig
+		base   string
+		joyVal int
+		toInt  func(string) int
+	)
+	if joystick {
+		if pn > len(s.joystickConfig) {
+			return
+		}
+		joyVal = pn - 1
+		kc = &s.joystickConfig[pn-1]
+		base = fmt.Sprintf("Joystick_P%d.", pn)
+		toInt = func(tok string) int { return int(StringToButtonLUT[tok]) }
+	} else {
+		if pn > len(s.keyConfig) {
+			return
+		}
+		joyVal = -1
+		kc = &s.keyConfig[pn-1]
+		base = fmt.Sprintf("Keys_P%d.", pn)
+		toInt = func(tok string) int { return int(StringToKey(tok)) }
+	}
+	kc.Joy = joyVal
+	kc.GUID = ""
+	kc.rumbleOn = false
+	// Build & apply tokens (respect enabled set).
+	def := s.uiDefaultTokens(pn, joystick)
+	var uiPlayerFields = [...]string{
+		"up", "down", "left", "right",
+		"a", "b", "c",
+		"x", "y", "z",
+		"start", "d", "w", "menu",
+	}
+	var v [len(uiPlayerFields)]int
+	for i, f := range uiPlayerFields {
+		tok := def[i]
+		if enabled != nil && !enabled[f] {
+			tok = s.motif.OptionInfo.Menu.Valuename["nokey"]
+		}
+		v[i] = toInt(tok)
+		_ = s.cfg.SetValueUpdate(base+f, tok)
+	}
+	kc.set(v)
+	_ = s.cfg.SetValueUpdate(base+"Joystick", joyVal)
+	_ = s.cfg.SetValueUpdate(base+"GUID", "")
+	if joystick {
+		_ = s.cfg.SetValueUpdate(base+"RumbleOn", false)
+	}
+	s.uiResetTokenGuard()
+}
+
+func (s *System) uiRegisterCommand(name string, spec CommandSpec) error {
+	name = strings.TrimSpace(name)
+	spec.Cmd = strings.TrimSpace(spec.Cmd)
+	if name == "" || spec.Cmd == "" {
+		return nil
+	}
+	if s.uiCommandRegistry == nil {
+		s.uiCommandRegistry = make(map[string]CommandSpec, 32)
+	}
+	// Already registered -> no-op.
+	if _, ok := s.uiCommandRegistry[name]; ok {
+		return nil
+	}
+	s.uiCommandRegistry[name] = spec
+	// Add to existing UI command lists (skip if already present).
+	for _, cl := range s.commandLists {
+		if cl == nil {
+			continue
+		}
+		if _, exists := cl.Names[name]; exists {
+			continue
+		}
+		if err := cl.AddCommand(name, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *System) uiApplyCommandRegistry(cl *CommandList) error {
+	if cl == nil || len(s.uiCommandRegistry) == 0 {
+		return nil
+	}
+	for name, spec := range s.uiCommandRegistry {
+		if _, exists := cl.Names[name]; exists {
+			continue
+		}
+		if err := cl.AddCommand(name, spec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *System) uiEnsureCommandLists(total int) error {
+	// Ensure UI commands exist.
+	def := []string{"D", "U", "L", "R", "a", "b", "c", "x", "y", "z", "s", "d", "w", "m", "/s"}
+	dcl := NewCommandList(nil)
+	defSpec := CommandSpec{
+		Time:           dcl.DefaultTime,
+		BufTime:        dcl.DefaultBufferTime,
+		BufferHitpause: dcl.DefaultBufferHitpause,
+		BufferPauseend: dcl.DefaultBufferPauseEnd,
+		StepTime:       dcl.DefaultStepTime,
+	}
+	for _, k := range def {
+		spec := defSpec
+		spec.Cmd = k
+		if err := s.uiRegisterCommand(k, spec); err != nil && s.errLog != nil {
+			s.errLog.Printf("uiSeedDefaultCommands: %q: %v", k, err)
+		}
+	}
+	// Trim if needed.
+	if total < len(s.commandLists) {
+		s.commandLists = s.commandLists[:total]
+	}
+	// Grow.
+	for len(s.commandLists) < total {
+		cl := NewCommandList(NewInputBuffer())
+		if err := s.uiApplyCommandRegistry(cl); err != nil {
+			return fmt.Errorf("command registry apply failed: %w", err)
+		}
+		s.commandLists = append(s.commandLists, cl)
+	}
+	// Repair nil/bufferless entries.
+	for i := 0; i < total; i++ {
+		if s.commandLists[i] == nil || s.commandLists[i].Buffer == nil {
+			cl := NewCommandList(NewInputBuffer())
+			if err := s.uiApplyCommandRegistry(cl); err != nil {
+				return fmt.Errorf("command registry apply failed: %w", err)
+			}
+			s.commandLists[i] = cl
+		}
+	}
+	return nil
 }
 
 func (s *System) netplay() bool {
@@ -1170,7 +1359,7 @@ func (s *System) netplay() bool {
 
 func (s *System) escExit() bool {
 	if sys.gameMode == "demo" || sys.netplay() {
-		if sys.rawInput([]string{"m"}, -1) || sys.esc {
+		if sys.uiRawInput([]string{"m"}, -1) || sys.esc {
 			if sys.netplay() {
 				sys.esc = true
 			}

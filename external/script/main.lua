@@ -64,6 +64,14 @@ function main.f_restoreInput()
 	end
 end
 
+-- capture current remap state as the "base" mapping restored after each match
+function main.f_saveBaseRemapInput()
+	main.t_baseRemapInput = {}
+	for i = 1, gameOption('Config.Players') do
+		main.t_baseRemapInput[i] = getRemapInput(i)
+	end
+end
+
 --check if file exists
 function main.f_fileExists(file)
 	if file == '' then

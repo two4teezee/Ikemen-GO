@@ -2374,8 +2374,8 @@ func systemScriptInit(l *lua.LState) {
 				if winp, err = fight(); err != nil {
 					l.RaiseError(err.Error())
 				}
-				// Hard reset: drop the incomplete or challenger match stats and start a fresh one
-				if winp == -2 || sys.gameMode == "challenger" {
+				// Hard reset: drop the incomplete match stats and start a fresh one
+				if winp == -2 {
 					sys.statsLog.abortMatch()
 					sys.statsLog.startMatch()
 				}
@@ -2404,10 +2404,13 @@ func systemScriptInit(l *lua.LState) {
 
 			// If not restarting match
 			if winp != -2 {
-				//sys.endMatch = false
 				sys.esc = false
 				sys.keyInput = KeyUnknown
-				sys.statsLog.finalizeMatch()
+				if sys.gameMode == "challenger" {
+					sys.statsLog.discardCurrentMatch()
+				} else {
+					sys.statsLog.finalizeMatch()
+				}
 				// Cleanup
 				sys.timerStart = 0
 				sys.timerRounds = []int32{}
@@ -4128,6 +4131,31 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "readGameStats", func(*lua.LState) int {
 		l.Push(toLValue(l, sys.statsLog))
 		return 1
+	})
+	luaRegister(l, "readGameStatsJson", func(l *lua.LState) int {
+		s := GameStatsSnapshot{
+			StatsLog:          sys.statsLog,
+			ContinueFlg:       sys.continueFlg,
+			PersistRoundCount: sys.persistRoundCount,
+		}
+		data, err := json.Marshal(s)
+		if err != nil {
+			l.RaiseError("readGameStatsJson: %v", err)
+			return 0
+		}
+		l.Push(lua.LString(data))
+		return 1
+	})
+	luaRegister(l, "setGameStatsJson", func(l *lua.LState) int {
+		var s GameStatsSnapshot
+		if err := json.Unmarshal([]byte(strArg(l, 1)), &s); err != nil {
+			l.RaiseError("setGameStatsJson: %v", err)
+			return 0
+		}
+		sys.statsLog = s.StatsLog
+		sys.continueFlg = s.ContinueFlg
+		sys.persistRoundCount = s.PersistRoundCount
+		return 0
 	})
 	luaRegister(l, "refresh", func(*lua.LState) int {
 		sys.tickSound()

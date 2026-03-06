@@ -2250,9 +2250,6 @@ function launchFight(data)
 		main.motif.victoryscreen = victoryScreen
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		if start.exit or start.characterchange then
-			if start.characterchange then
-				clearAllSound()
-			end
 			start.characterchange = false
 			break
 		-- here comes a new challenger

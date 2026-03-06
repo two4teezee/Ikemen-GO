@@ -1776,12 +1776,14 @@ func systemScriptInit(l *lua.LState) {
 				}
 				cl.BufReset()
 			}
+			sys.uiResetTokenGuard()
 			return 0
 		}
 		pn := int(numArg(l, 1))
 		if pn >= 1 && pn <= len(sys.commandLists) && sys.commandLists[pn-1] != nil {
 			sys.commandLists[pn-1].BufReset()
 		}
+		sys.uiResetTokenGuard()
 		return 0
 	})
 	luaRegister(l, "commandDebug", func(*lua.LState) int {

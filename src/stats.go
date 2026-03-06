@@ -1,5 +1,11 @@
 package main
 
+type GameStatsSnapshot struct {
+	StatsLog          StatsLog `json:"statsLog"`
+	ContinueFlg       bool     `json:"continueFlg"`
+	PersistRoundCount int32    `json:"persistRoundCount"`
+}
+
 // StatsFighterState captures an end-of-round snapshot for a fighter on one side.
 type StatsFighterState struct {
 	// Identity / selection
@@ -163,6 +169,14 @@ func (s *StatsLog) abortMatch() {
 	if len(last.Rounds) == 0 {
 		s.Matches = s.Matches[:len(s.Matches)-1]
 	}
+}
+
+// discardCurrentMatch removes the most recent match, even if it already contains rounds.
+func (s *StatsLog) discardCurrentMatch() {
+	if len(s.Matches) == 0 {
+		return
+	}
+	s.Matches = s.Matches[:len(s.Matches)-1]
 }
 
 func (s *StatsLog) nextRound() {

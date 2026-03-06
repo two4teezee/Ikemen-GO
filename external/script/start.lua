@@ -1688,7 +1688,7 @@ function start.f_game(lua)
 		clearColor(0, 0, 0)
 		os.exit()
 	end
-	return winner, tbl
+	return winner
 end
 
 --;===========================================================
@@ -1708,10 +1708,7 @@ function start.f_selectMode()
 		--first match
 		if start.reset then
 			-- Save current remap state. main.f_restoreInput() should restore to this.
-			main.t_baseRemapInput = {}
-			for i = 1, gameOption('Config.Players') do
-				main.t_baseRemapInput[i] = getRemapInput(i)
-			end
+			main.f_saveBaseRemapInput()
 			main.t_availableChars = main.f_tableCopy(main.t_orderChars)
 			--generate default roster
 			if main.makeRoster then
@@ -1790,12 +1787,14 @@ function start.f_selectMode()
 end
 
 --resets various data
-function start.f_selectReset(hardReset)
+function start.f_selectReset(hardReset, preserveProgress)
 	esc(false)
-	resetGameStats()
-	setMatchNo(1)
-	setConsecutiveWins(1, 0)
-	setConsecutiveWins(2, 0)
+	if not preserveProgress then
+		resetGameStats()
+		setMatchNo(1)
+		setConsecutiveWins(1, 0)
+		setConsecutiveWins(2, 0)
+	end
 	local col = 1
 	local row = 1
 	for i = 1, #main.t_selGrid do
@@ -1872,7 +1871,7 @@ function start.f_selectReset(hardReset)
 	t_reservedChars = {{}, {}}
 	cursorActive = {}
 	cursorDone = {}
-	if start.challenger == 0 then
+	if start.challenger == 0 and not preserveProgress then
 		start.t_roster = {}
 		start.reset = true
 	end
@@ -1888,16 +1887,63 @@ function start.f_menuCmd(side)
 	return side
 end
 
-function start.f_selectChallenger()
+local function makeChallengerResumeSnapshot(pendingFightData, stageNo)
+	local resume = {
+		p = main.f_tableCopy(start.p),
+		c = main.f_tableCopy(start.c),
+		roster = main.f_tableCopy(start.t_roster),
+		availableChars = main.f_tableCopy(main.t_availableChars),
+		pendingFight = main.f_tableCopy(pendingFightData or {}),
+		matchNo = matchno(),
+		p1ConsecutiveWins = getConsecutiveWins(1),
+		p2ConsecutiveWins = getConsecutiveWins(2),
+		gameStatsJson = readGameStatsJson(),
+		teamarcade = main.teamarcade,
+	}
+	if stageNo ~= nil then
+		resume.pendingFight.stageNo = stageNo
+	end
+	return resume
+end
+
+local function applyWinnerSelectMemory(resume, winnerSide, challengerState)
+	if resume == nil or challengerState == nil or winnerSide < 1 or winnerSide > 2 then
+		return
+	end
+	resume.p = resume.p or {{}, {}}
+	resume.c = resume.c or {}
+	local srcSide = challengerState.p and challengerState.p[winnerSide] or nil
+	if srcSide ~= nil then
+		resume.p[1] = resume.p[1] or {}
+		-- Preserve the winner's last confirmed selection cells / team menu state.
+		resume.p[1].t_cursor = main.f_tableCopy(srcSide.t_cursor or {})
+		if srcSide.teamMenu ~= nil then resume.p[1].teamMenu = srcSide.teamMenu end
+		if srcSide.teamMode ~= nil then resume.p[1].teamMode = srcSide.teamMode end
+		if srcSide.numSimul ~= nil then resume.p[1].numSimul = srcSide.numSimul end
+		if srcSide.numTag ~= nil then resume.p[1].numTag = srcSide.numTag end
+		if srcSide.numTurns ~= nil then resume.p[1].numTurns = srcSide.numTurns end
+		if srcSide.numRatio ~= nil then resume.p[1].numRatio = srcSide.numRatio end
+	end
+	if challengerState.c ~= nil then
+		-- Promote the winner-side cursor slots onto the new arcade P1 slots:
+		-- side 1: 1/3/5/7 -> 1/3/5/7
+		-- side 2: 2/4/6/8 -> 1/3/5/7
+		for srcPn = winnerSide, gameOption('Config.Players'), 2 do
+			if challengerState.c[srcPn] ~= nil then
+				local dstPn = srcPn
+				if winnerSide == 2 then
+					dstPn = srcPn - 1
+				end
+				resume.c[dstPn] = main.f_tableCopy(challengerState.c[srcPn])
+			end
+		end
+	end
+end
+
+function start.f_selectChallenger(resume)
 	esc(false)
-	-- Save values
-	local t_p_sav = main.f_tableCopy(start.p)
-	local t_c_sav = main.f_tableCopy(start.c)
-	local matchNo_sav = matchno()
-	local p1ConsecutiveWins = getConsecutiveWins(1)
-	local p2ConsecutiveWins = getConsecutiveWins(2)
+	resume = resume or makeChallengerResumeSnapshot()
 	local challengerCmd = start.challenger
-	-- Capture which physical controller slots are currently driving arcade P1 and the challenger.
 	local arcadeP1Controller = getRemapInput(1)
 	local challengerController = getRemapInput(challengerCmd)
 
@@ -1934,25 +1980,60 @@ function start.f_selectChallenger()
 	start.f_selectReset(false)
 	if not start.f_selectScreen() then
 		start.exit = true
+		start.challenger = 0
+		main.f_restoreInput()
 		return false
 	end
 	local ok = launchFight{challenger = true}
+	local challengerSelectState = {
+		p = main.f_tableCopy(start.p),
+		c = main.f_tableCopy(start.c),
+	}
+	local challengerWinner = winnerteam()
 
-	-- Restore back to arcade.
 	start.challenger = 0
-	main.f_default()
-	-- Force arcade() to rebuild the original P1 swap correctly.
-	setLastInputController(arcadeP1Controller)
-	main.t_itemname.arcade()
-	if not ok then
+	if not ok or challengerWinner < 1 or challengerWinner > 2 or start.exit or esc() then
+		main.f_restoreInput()
 		return false
 	end
-	start.p = t_p_sav
-	start.c = t_c_sav
-	setMatchNo(matchNo_sav)
-	setConsecutiveWins(1, p1ConsecutiveWins)
-	setConsecutiveWins(2, p2ConsecutiveWins)
-	return true
+	-- Winner of the challenger match becomes the new arcade P1 owner.
+	local resumeController = arcadeP1Controller
+	if challengerWinner == 2 then
+		resumeController = challengerController
+	end
+
+	-- Rebuild arcade mode with the winner's controller mapped to P1.
+	main.teamarcade = resume.teamarcade
+	main.f_default()
+	setLastInputController(resumeController)
+	main.t_itemname.arcade()
+	main.f_saveBaseRemapInput()
+
+	-- Restore interrupted arcade progress before going back to select screen.
+	applyWinnerSelectMemory(resume, challengerWinner, challengerSelectState)
+	start.p = main.f_tableCopy(resume.p)
+	start.c = main.f_tableCopy(resume.c)
+	start.t_roster = main.f_tableCopy(resume.roster)
+	main.t_availableChars = main.f_tableCopy(resume.availableChars)
+	setGameStatsJson(resume.gameStatsJson)
+	setMatchNo(resume.matchNo)
+	setConsecutiveWins(1, resume.p1ConsecutiveWins)
+	setConsecutiveWins(2, resume.p2ConsecutiveWins)
+	start.reset = false
+	start.exit = false
+
+	-- Preserve the arcade progress, but clear the temporary select state so the
+	-- winner can pick a fresh character/team for the interrupted run.
+	start.f_selectReset(false, true)
+	start.reset = false
+
+	if not start.f_selectScreen() then
+		start.exit = true
+		return false
+	end
+
+	-- Resume the exact interrupted arcade fight using the original caller args.
+	return launchFight(resume.pendingFight)
 end
 
 local function buildMusicParams(data)
@@ -1985,6 +2066,7 @@ local function buildMusicParams(data)
 end
 
 function launchFight(data)
+	local data = data or {}
 	local t = {}
 	if continue() then -- on rematch all arguments are ignored and values are restored from last match
 		t = main.f_tableCopy(start.launchFightSav)
@@ -2017,6 +2099,8 @@ function launchFight(data)
 		t.roundtime = data.time or nil
 		t.lua = data.lua or ''
 		t.stageNo = start.f_getStageRef(t.stage)
+		t.stageAssigned = data.stageNo ~= nil or t.stage ~= ''
+		t.stageNo = data.stageNo or start.f_getStageRef(t.stage)
 		start.p[1].numChars = data.p1numchars or math.max(start.p[1].numChars, #t.p1char)
 		start.p[1].teamMode = start.f_stringToTeamMode(data.p1teammode) or start.p[1].teamMode
 		start.p[2].numChars = data.p2numchars or math.max(start.p[2].numChars, #t.p2char)
@@ -2148,7 +2232,12 @@ function launchFight(data)
 		setTeamMode(2, start.p[2].teamMode, start.p[2].numChars)
 		start.f_remapAI(t.ai)
 		start.f_setRounds(t.roundtime, {t.p1rounds, t.p2rounds})
-		t.stageNo = start.f_setStage(t.stageNo, t.stage ~= '' or continue() or loopCount > 0)
+		t.stageNo = start.f_setStage(t.stageNo, t.stageAssigned or continue() or loopCount > 0)
+		local challengerResume = nil
+		if not t.challenger then
+			-- Snapshot before game() runs. If a challenger interrupts the fight, this is the last clean arcade state.
+			challengerResume = makeChallengerResumeSnapshot(data, t.stageNo)
+		end
 		if not start.f_selectVersus(t.vsscreen, t.orderselect) then break end
 		start.f_selectLoading(t.musicParams)
 		local continueScreen = main.motif.continuescreen
@@ -2171,9 +2260,8 @@ function launchFight(data)
 			if t.challenger then -- end function called by f_arcadeChallenger() regardless of outcome
 				ok = not start.exit and not esc()
 				break
-			elseif not start.f_selectChallenger() then
-				start.challenger = 0
-				break
+			else
+				return start.f_selectChallenger(challengerResume)
 			end
 		-- player exit the game via ESC
 		elseif winnerteam() == -1 then

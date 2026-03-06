@@ -2161,6 +2161,9 @@ function launchFight(data)
 		main.motif.victoryscreen = victoryScreen
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		if start.exit or start.characterchange then
+			if start.characterchange then
+				clearAllSound()
+			end
 			start.characterchange = false
 			break
 		-- here comes a new challenger
@@ -2303,6 +2306,36 @@ function start.updateDrawList()
 	return drawList
 end
 
+local function tickScreenDelay(side)
+	if start.p[side].screenDelay <= 0 then
+		return
+	end
+	-- Once this side has already finished selection, do not consume DONE here.
+	-- The next phase (P2 team menu / stage menu / fadeout) must receive it.
+	if not start.p[side].selEnd and not start.p[side].inPalMenu then
+		local owners = {}
+		local seen = {}
+		if main.coop and (side == 1 or gamemode('versuscoop')) then
+			for _, v in ipairs(start.p[side].t_selCmd) do
+				if v.cmd ~= nil and not seen[v.cmd] then
+					table.insert(owners, v.cmd)
+					seen[v.cmd] = true
+				end
+			end
+		else
+			local cmd = start.f_menuCmd(side)
+			if cmd ~= nil then
+				table.insert(owners, cmd)
+			end
+		end
+		if #owners > 0 and getInput(owners, motif.select_info.done.key) then
+			start.p[side].screenDelay = 0
+			return
+		end
+	end
+	start.p[side].screenDelay = start.p[side].screenDelay - 1
+end
+
 start.needUpdateDrawList = false
 function start.f_selectScreen()
 	if (not main.selectMenu[1] and not main.selectMenu[2]) or selScreenEnd then
@@ -2323,7 +2356,6 @@ function start.f_selectScreen()
 	local counter = 0 - motif.select_info.fadein.time
 	local timerReset = false
 	local stageTextData = motif.select_info.stage.active.TextSpriteData
-	local stageDoOnce = false
 	-- generate team mode items table
 	for side = 1, 2 do
 		-- read display names for the current gamemode (or default)
@@ -2471,13 +2503,7 @@ function start.f_selectScreen()
 				end
 			end
 			--delayed screen transition for the duration of face_done_anim or selection sound
-			if start.p[side].screenDelay > 0 then
-				if getInput(-1, motif.select_info.done.key) and not start.p[side].inPalMenu then
-					start.p[side].screenDelay = 0
-				else
-					start.p[side].screenDelay = start.p[side].screenDelay - 1
-				end
-			end
+			tickScreenDelay(side)
 			--exit select screen
 			for _, v in ipairs(start.p[side].t_selCmd) do
 				if not start.escFlag and (esc() or (getInput({v.cmd}, motif.select_info.cancel.key) and not start.p[side].inPalMenu)) then
@@ -2528,10 +2554,6 @@ function start.f_selectScreen()
 		if start.p[1].selEnd and start.p[2].selEnd and start.p[1].teamEnd and start.p[2].teamEnd then
 			restoreCursor = true
 			if main.stageMenu and not stageEnd then --Stage select
-				if not stageDoOnce then
-					commandBufReset()
-					stageDoOnce = true
-				end
 				start.f_stageMenu()
 				if not timerReset then
 					timerSelect = motif.select_info.timer.displaytime
@@ -3365,9 +3387,6 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			start.p[side].t_cursor[member] = {x = start.c[player].selX, y = start.c[player].selY}
 			if main.f_tableLength(start.p[side].t_selected) == start.p[side].numChars then --if all characters have been chosen
 				if side == 1 and main.cpuSide[2] and start.reset then --if player1 is allowed to select p2 characters
-					if motif.select_info.paletteselect > 0 then
-						commandBufReset()
-					end
 					if timerSelect == -1 then
 						start.p[2].teamMode = start.p[1].teamMode
 						start.p[2].numChars = start.p[1].numChars

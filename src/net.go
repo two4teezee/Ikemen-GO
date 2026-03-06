@@ -6,12 +6,10 @@ import (
 	"hash/crc32"
 	"log"
 	"os"
-	"sort"
 	"strings"
 	"time"
 
 	ggpo "github.com/assemblaj/ggpo"
-	"golang.org/x/exp/maps"
 )
 
 type RollbackLogger struct {
@@ -83,10 +81,12 @@ type RollbackSession struct {
 	log                 RollbackLogger
 	timestamp           string
 	netTime             int32
-	replayBuffer        [][MaxPlayerNo]InputBits
+	replayInputs        [][REPLAY_NUM_INPUTS]InputBits
+	replayAnalogInputs  [][REPLAY_NUM_INPUTS][6]int8
 	lastConfirmedInput  [MaxPlayerNo]InputBits
 	inputBits           []InputBits
 	inRollback          bool
+	replaySaved         bool
 }
 
 func (rs *RollbackSession) SetInput(time int32, player int, input InputBits, axes [6]int8) {
@@ -102,40 +102,87 @@ func (rs *RollbackSession) SetInput(time int32, player int, input InputBits, axe
 	rs.analogInputs[int(time)] = analogInputs
 }
 
-func (rs *RollbackSession) SaveReplay() {
-	if rs.recording != nil && len(rs.inputs) > 0 {
-		frames := maps.Keys(rs.inputs)
-		sort.Ints(frames)
-		lastFrame := frames[len(frames)-1]
+func (rs *RollbackSession) ensureReplayFrame(frame int) {
+	if frame < len(rs.replayInputs) {
+		return
+	}
+	if frame > len(rs.replayInputs) {
+		log.Printf("Rollback replay frame gap detected: expected frame %d, got %d; padding missing frames with zeros", len(rs.replayInputs), frame)
+	}
+	missing := frame - len(rs.replayInputs) + 1
+	rs.replayInputs = append(rs.replayInputs, make([][REPLAY_NUM_INPUTS]InputBits, missing)...)
+	rs.replayAnalogInputs = append(rs.replayAnalogInputs, make([][REPLAY_NUM_INPUTS][6]int8, missing)...)
+}
 
-		size := lastFrame * (MaxPlayerNo) * 4
-		buf := make([]byte, size)
-		offset := 0
+func (rs *RollbackSession) RecordReplayFrame(time int32, inputs []InputBits, axes [][6]int8) {
+	if rs == nil || time < 0 {
+		return
+	}
+	frame := int(time)
+	rs.ensureReplayFrame(frame)
 
-		for i := 0; i < lastFrame; i++ {
-			if _, ok := rs.inputs[i]; ok {
-				inputBuf := rs.inputToBytes(i)
-				copy(buf[offset:offset+len(inputBuf)], inputBuf)
-				offset += len(inputBuf)
-			} else {
-				inputBuf := []byte{}
-				for i := 0; i < MaxSimul*2+MaxAttachedChar; i++ {
-					inputBuf = append(inputBuf, writeI32(int32(0))...)
-				}
-				copy(buf[offset:offset+len(inputBuf)], inputBuf)
-				offset += len(inputBuf)
-			}
+	// Always clear the frame first so any overwritten rollback frame keeps zeroes in slots not present in the current input payload.
+	rs.replayInputs[frame] = [REPLAY_NUM_INPUTS]InputBits{}
+	rs.replayAnalogInputs[frame] = [REPLAY_NUM_INPUTS][6]int8{}
+
+	for i := 0; i < REPLAY_NUM_INPUTS; i++ {
+		if i < len(inputs) {
+			rs.replayInputs[frame][i] = inputs[i]
 		}
-		rs.recording.Write(buf)
+
+		if i < len(axes) {
+			rs.replayAnalogInputs[frame][i] = axes[i]
+		}
 	}
 }
 
-func (rs *RollbackSession) inputToBytes(time int) []byte {
-	buf := []byte{}
-	for i := 0; i < MaxSimul*2+MaxAttachedChar; i++ {
-		buf = append(buf, writeI16(int16(rs.inputs[time][i]))...)
+func (rs *RollbackSession) TruncateReplayFrom(time int32) {
+	if rs == nil {
+		return
 	}
-	return buf
+	frame := int(time)
+	if frame < 0 {
+		frame = 0
+	}
+	if frame < len(rs.replayInputs) {
+		rs.replayInputs = rs.replayInputs[:frame]
+	}
+	if frame < len(rs.replayAnalogInputs) {
+		rs.replayAnalogInputs = rs.replayAnalogInputs[:frame]
+	}
+}
+
+func (rs *RollbackSession) SaveReplay() {
+	if rs == nil || rs.recording == nil || rs.replaySaved {
+		return
+	}
+
+	// Never append the same rollback replay twice.
+	rs.replaySaved = true
+
+	frameCount := int(rs.netTime)
+	if frameCount <= 0 {
+		return
+	}
+
+	if len(rs.replayInputs) < frameCount || len(rs.replayAnalogInputs) < frameCount {
+		frameCount = len(rs.replayInputs)
+		if len(rs.replayAnalogInputs) < frameCount {
+			frameCount = len(rs.replayAnalogInputs)
+		}
+		log.Printf("Missing rollback replay frames after frame %d; truncating replay at this point", frameCount)
+	}
+
+	for frame := 0; frame < frameCount; frame++ {
+		inputFrame := rs.replayInputs[frame]
+		axisFrame := rs.replayAnalogInputs[frame]
+		for i := 0; i < REPLAY_NUM_INPUTS; i++ {
+			if err := writeReplayInput(rs.recording, inputFrame[i], axisFrame[i]); err != nil {
+				log.Printf("Error while writing rollback replay frame %d controller %d: %v", frame, i, err)
+				return
+			}
+		}
+	}
 }
 
 type LoopTimer struct {
@@ -273,16 +320,14 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 	// Get the confirmed inputs from the GGPO backend for the frame being simulated
 	var disconnectFlags int
 	inputs, ggpoerr := r.backend.SyncInput(&disconnectFlags)
-	sys.rollback.ggpoInputs, sys.rollback.ggpoAnalogInputs = decodeInputs(inputs)
-
-	if r.recording != nil {
-		r.SetInput(r.netTime, 0, sys.rollback.ggpoInputs[0], sys.rollback.ggpoAnalogInputs[0])
-		r.SetInput(r.netTime, 1, sys.rollback.ggpoInputs[1], sys.rollback.ggpoAnalogInputs[1])
-		r.netTime++
-	}
 
 	// Run frame again using confirmed inputs
 	if ggpoerr == nil {
+		sys.rollback.ggpoInputs, sys.rollback.ggpoAnalogInputs = decodeInputs(inputs)
+		if r.recording != nil {
+			r.RecordReplayFrame(r.netTime, sys.rollback.ggpoInputs, sys.rollback.ggpoAnalogInputs)
+			r.netTime++
+		}
 		if !sys.rollback.simulateFrame(&sys) {
 			return
 		}
@@ -354,7 +399,8 @@ func NewRollbackSession(config RollbackProperties) RollbackSession {
 	r.loopTimer = NewLoopTimer(60, 100)
 	r.timestamp = time.Now().Format("2006-01-02_03-04PM-05s")
 	r.log = NewRollbackLogger(r.timestamp)
-	r.replayBuffer = make([][MaxPlayerNo]InputBits, 0)
+	r.replayInputs = make([][REPLAY_NUM_INPUTS]InputBits, 0)
+	r.replayAnalogInputs = make([][REPLAY_NUM_INPUTS][6]int8, 0)
 	r.inputs = make(map[int][MaxPlayerNo]InputBits)
 	r.analogInputs = make(map[int][MaxPlayerNo][6]int8)
 	return r

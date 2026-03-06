@@ -2308,11 +2308,10 @@ end
 
 local function tickScreenDelay(side)
 	if start.p[side].screenDelay <= 0 then
-		return
+		return false
 	end
-	-- Once this side has already finished selection, do not consume DONE here.
-	-- The next phase (P2 team menu / stage menu / fadeout) must receive it.
-	if not start.p[side].selEnd and not start.p[side].inPalMenu then
+	local selectComplete = start.p[1].selEnd and start.p[2].selEnd and start.p[1].teamEnd and start.p[2].teamEnd
+	if not start.p[side].inPalMenu and (not start.p[side].selEnd or selectComplete) then
 		local owners = {}
 		local seen = {}
 		if main.coop and (side == 1 or gamemode('versuscoop')) then
@@ -2330,10 +2329,11 @@ local function tickScreenDelay(side)
 		end
 		if #owners > 0 and getInput(owners, motif.select_info.done.key) then
 			start.p[side].screenDelay = 0
-			return
+			return true
 		end
 	end
 	start.p[side].screenDelay = start.p[side].screenDelay - 1
+	return false
 end
 
 start.needUpdateDrawList = false
@@ -2455,6 +2455,7 @@ function start.f_selectScreen()
 		else
 			blinkCount = 0
 		end
+		local screenDelayInterrupted = false
 		for side = 1, 2 do
 			if not start.p[side].teamEnd then
 				start.f_teamMenu(side, t_teamMenu[side])
@@ -2503,7 +2504,9 @@ function start.f_selectScreen()
 				end
 			end
 			--delayed screen transition for the duration of face_done_anim or selection sound
-			tickScreenDelay(side)
+			if tickScreenDelay(side) then
+				screenDelayInterrupted = true
+			end
 			--exit select screen
 			for _, v in ipairs(start.p[side].t_selCmd) do
 				if not start.escFlag and (esc() or (getInput({v.cmd}, motif.select_info.cancel.key) and not start.p[side].inPalMenu)) then
@@ -2579,7 +2582,7 @@ function start.f_selectScreen()
 					)
 				end
 				if not stageEnd then
-					if getInput(-1, motif.select_info.done.key) or timerSelect == -1 then
+					if (getInput(-1, motif.select_info.done.key) and not screenDelayInterrupted) or timerSelect == -1 then
 						sndPlay(motif.Snd, motif.select_info.stage.done.snd[1], motif.select_info.stage.done.snd[2])
 						stageTextData = motif.select_info.stage.done.TextSpriteData
 						stageEnd = true

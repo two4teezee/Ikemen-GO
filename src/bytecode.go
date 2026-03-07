@@ -2088,7 +2088,8 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 		*sys.bcStack.Top() = c.sysFvarAdd(sys.bcStack.Top().ToI(), v)
 	case OC_st_map:
 		v := sys.bcStack.Pop().ToF()
-		sys.bcStack.Push(c.mapSet(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))], v, 0))
+		mapName := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.Push(c.mapSet(mapName, v, 0))
 		*i += 4
 	}
 }
@@ -2371,74 +2372,68 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_movement_down_friction_threshold:
 		sys.bcStack.PushF(c.gi().movement.down.friction_threshold * ((320 / c.localcoord) / oc.localscl))
 	case OC_const_authorname:
-		sys.bcStack.PushB(c.gi().authorLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		authStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(c.gi().authorLow == authStr)
 		*i += 4
 	case OC_const_displayname:
-		sys.bcStack.PushB(c.gi().displaynameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(c.gi().displaynameLow == nameStr)
 		*i += 4
 	case OC_const_name:
-		sys.bcStack.PushB(c.gi().nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(c.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p2name:
 		p2 := c.p2()
-		sys.bcStack.PushB(p2 != nil &&
-			p2.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p2 != nil && p2.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p3name:
 		p3 := c.partner(0, false)
-		sys.bcStack.PushB(p3 != nil &&
-			p3.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p3 != nil && p3.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p4name:
 		p4 := sys.charList.enemyNear(c, 1, true)
-		sys.bcStack.PushB(p4 != nil &&
-			p4.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p4 != nil && p4.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p5name:
 		p5 := c.partner(1, false)
-		sys.bcStack.PushB(p5 != nil &&
-			p5.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p5 != nil && p5.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p6name:
 		p6 := sys.charList.enemyNear(c, 2, true)
-		sys.bcStack.PushB(p6 != nil &&
-			p6.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p6 != nil && p6.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p7name:
 		p7 := c.partner(2, false)
-		sys.bcStack.PushB(p7 != nil &&
-			p7.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p7 != nil && p7.gi().nameLow == nameStr)
 		*i += 4
 	case OC_const_p8name:
 		p8 := sys.charList.enemyNear(c, 3, true)
-		sys.bcStack.PushB(p8 != nil &&
-			p8.gi().nameLow == sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(p8 != nil && p8.gi().nameLow == nameStr)
 		*i += 4
 	// StageVar
 	case OC_const_stagevar_info_author:
-		sys.bcStack.PushB(sys.stage.authorLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		authStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.stage.authorLow == authStr)
 		*i += 4
 	case OC_const_stagevar_info_displayname:
-		sys.bcStack.PushB(sys.stage.displaynameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.stage.displaynameLow == nameStr)
 		*i += 4
 	case OC_const_stagevar_info_ikemenversion:
 		sys.bcStack.PushF(sys.stage.ikemenverF)
 	case OC_const_stagevar_info_mugenversion:
 		sys.bcStack.PushF(sys.stage.mugenverF)
 	case OC_const_stagevar_info_name:
-		sys.bcStack.PushB(sys.stage.nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.stage.nameLow == nameStr)
 		*i += 4
 	case OC_const_stagevar_camera_autocenter:
 		sys.bcStack.PushB(sys.stage.stageCamera.autocenter)
@@ -2581,8 +2576,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_stagevar_reflection_color_b:
 		sys.bcStack.PushI(int32(sys.stage.reflection.color & 0xFF))
 	case OC_const_gameoption:
-		value, err := sys.cfg.GetValue(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-			unsafe.Pointer(&be[*i]))])
+		optStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		value, err := sys.cfg.GetValue(optStr)
 		if err == nil {
 			switch v := value.(type) {
 			case bool:
@@ -2605,8 +2600,8 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		}
 		*i += 4
 	case OC_const_motifvar:
-		value, err := sys.motif.GetValue(sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-			unsafe.Pointer(&be[*i]))])
+		varStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		value, err := sys.motif.GetValue(varStr)
 		if err == nil {
 			switch v := value.(type) {
 			case bool:
@@ -2629,12 +2624,12 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		}
 		*i += 4
 	case OC_const_constants:
-		sys.bcStack.PushF(c.gi().constants[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-			unsafe.Pointer(&be[*i]))]])
+		constName := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushF(c.gi().constants[constName])
 		*i += 4
 	case OC_const_stage_constants:
-		sys.bcStack.PushF(sys.stage.constants[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-			unsafe.Pointer(&be[*i]))]])
+		constName := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushF(sys.stage.constants[constName])
 		*i += 4
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
@@ -2997,9 +2992,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_float:
 		*sys.bcStack.Top() = BytecodeFloat(sys.bcStack.Top().ToF())
 	case OC_ex_gamemode:
-		sys.bcStack.PushB(strings.ToLower(sys.gameMode) ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		modeStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(strings.ToLower(sys.gameMode) == modeStr)
 		*i += 4
 	case OC_ex_groundangle:
 		sys.bcStack.PushF(c.groundAngle)
@@ -3010,9 +3004,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_guardpointsmax:
 		sys.bcStack.PushI(c.guardPointsMax)
 	case OC_ex_helpername:
-		sys.bcStack.PushB(c.helperIndex != 0 && strings.ToLower(c.name) ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(c.helperIndex != 0 && strings.ToLower(c.name) == nameStr)
 		*i += 4
 	case OC_ex_helperindexexist:
 		*sys.bcStack.Top() = c.helperIndexExist(*sys.bcStack.Top())
@@ -3085,7 +3078,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 	case OC_ex_localcoord_y:
 		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[1])
 	case OC_ex_maparray:
-		sys.bcStack.PushF(c.mapArray[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]])
+		mapName := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushF(c.mapArray[mapName])
 		*i += 4
 	case OC_ex_max:
 		v2 := sys.bcStack.Pop()
@@ -3240,7 +3234,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		if c.cmd == nil {
 			sys.bcStack.PushB(false)
 		} else {
-			cmd, ok := c.cmd[sys.workingState.playerNo].Names[sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]]
+			cmdStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+			cmd, ok := c.cmd[sys.workingState.playerNo].Names[cmdStr]
 			ok = ok && c.command(sys.workingState.playerNo, cmd)
 			sys.bcStack.PushB(ok)
 		}
@@ -3261,16 +3256,16 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_index:
 		sys.bcStack.PushI(c.indexTrigger())
 	case OC_ex2_fightscreenvar_info_author:
-		sys.bcStack.PushB(sys.lifebar.authorLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		authStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.lifebar.authorLow == authStr)
 		*i += 4
 	case OC_ex2_fightscreenvar_info_localcoord_x:
 		sys.bcStack.PushI(sys.lifebar.localcoord[0])
 	case OC_ex2_fightscreenvar_info_localcoord_y:
 		sys.bcStack.PushI(sys.lifebar.localcoord[1])
 	case OC_ex2_fightscreenvar_info_name:
-		sys.bcStack.PushB(sys.lifebar.nameLow ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.lifebar.nameLow == nameStr)
 		*i += 4
 	case OC_ex2_fightscreenvar_round_ctrl_time:
 		sys.bcStack.PushI(sys.lifebar.ro.ctrl_time)
@@ -3377,9 +3372,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushF(0)
 		}
 	case OC_ex2_bgmvar_filename:
-		sys.bcStack.PushB(sys.bgm.filename ==
-			sys.stringPool[sys.workingState.playerNo].List[*(*int32)(
-				unsafe.Pointer(&be[*i]))])
+		nameStr := sys.stringPool[sys.workingState.playerNo].List[*(*int32)(unsafe.Pointer(&be[*i]))]
+		sys.bcStack.PushB(sys.bgm.filename == nameStr)
 		*i += 4
 	case OC_ex2_bgmvar_freqmul:
 		sys.bcStack.PushF(sys.bgm.freqmul)
@@ -10495,7 +10489,7 @@ func (sc stopSnd) Run(c *Char, _ []int32) bool {
 				sys.stopAllCharSounds()
 			default:
 				if s := crun.soundChannels.Get(val); s != nil {
-					s.Stop()
+					s.Reset()
 				}
 			}
 		}
@@ -12147,7 +12141,9 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 			p = exp[0].evalF(c)
 			panSet = true
 		case modifySnd_volume:
-			vo = (vo + float32(exp[0].evalI(c))*(25.0/64.0)) * (64.0 / 25.0)
+			// Same patch as PlaySnd
+			// https://github.com/ikemen-engine/Ikemen-GO/pull/2880
+			vo = (vo + float32(exp[0].evalI(c))*(25.0/128.0)) * (128.0 / 25.0)
 			volumeSet = true
 		case modifySnd_volumescale:
 			vo = float32(crun.gi().data.volume * exp[0].evalI(c) / 100)

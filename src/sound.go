@@ -917,6 +917,27 @@ type SoundChannel struct {
 	timeStamp         int32
 }
 
+// The old Stop() plus more
+func (s *SoundChannel) Reset() {
+	if s.ctrl != nil {
+		WithSpeakerLock(func() {
+			s.ctrl.Streamer = nil
+		})
+	}
+
+	s.streamer = nil
+	s.sfx = nil
+	s.ctrl = nil
+	s.sound = nil
+
+	s.channelNo = -1
+	s.stopOnGetHit = false
+	s.stopOnChangeState = false
+	s.group = -1
+	s.number = -1
+	s.timeStamp = -1
+}
+
 func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul float32, loopStart, loopEnd, startPosition int) {
 	if sound == nil {
 		return
@@ -960,27 +981,6 @@ func (s *SoundChannel) SetPaused(pause bool) {
 	WithSpeakerLock(func() {
 		s.ctrl.Paused = pause
 	})
-}
-
-// This is now pretty much a reset()
-func (s *SoundChannel) Stop() {
-	if s.ctrl != nil {
-		WithSpeakerLock(func() {
-			s.ctrl.Streamer = nil
-		})
-	}
-
-	s.streamer = nil
-	s.sfx = nil
-	s.ctrl = nil
-	s.sound = nil
-
-	s.channelNo = -1
-	s.stopOnGetHit = false
-	s.stopOnChangeState = false
-	s.group = 0
-	s.number = 0
-	s.timeStamp = 0
 }
 
 func (s *SoundChannel) SetVolume(vol float32) {
@@ -1073,15 +1073,15 @@ func (s *SoundChannels) SetSize(size int32) {
 
 		// Initialize the new slots
 		for i := range c {
-			c[i].channelNo = -1
+			c[i].Reset()
 		}
 
 		s.channels = append(s.channels, c...)
 		s.volResume = append(s.volResume, v...)
 	case size < currentSize:
-		// Remove channels
+		// Remove channels safely
 		for i := currentSize - 1; i >= size; i-- {
-			s.channels[i].Stop()
+			s.channels[i].Reset()
 		}
 
 		s.channels = s.channels[:size]
@@ -1115,7 +1115,7 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 					if lowpriority || ch.sfx != nil && priority < ch.sfx.priority {
 						return nil
 					}
-					ch.Stop()
+					ch.Reset()
 				}
 				ch.channelNo = chNo // Redundant but explicit
 				return ch
@@ -1168,7 +1168,7 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	// Kick out the oldest negative channel first
 	if oldestNegativeIdx != -1 {
 		ch := &s.channels[oldestNegativeIdx]
-		ch.Stop()
+		ch.Reset()
 		ch.channelNo = chNo
 		return ch
 	}
@@ -1176,7 +1176,7 @@ func (s *SoundChannels) Request(chNo int32, lowpriority bool, priority int32) *S
 	// If no negative channels can be evicted, try the oldest positive one
 	if oldestPositiveIdx != -1 {
 		ch := &s.channels[oldestPositiveIdx]
-		ch.Stop()
+		ch.Reset()
 		ch.channelNo = chNo
 		return ch
 	}
@@ -1233,7 +1233,7 @@ func (s *SoundChannels) Stop(sound *Sound) {
 	for i := range s.channels {
 		v := &s.channels[i]
 		if v.sound != nil && v.sound == sound {
-			v.Stop()
+			v.Reset()
 		}
 	}
 }
@@ -1241,7 +1241,7 @@ func (s *SoundChannels) Stop(sound *Sound) {
 func (s *SoundChannels) StopAll() {
 	for i := range s.channels {
 		if s.channels[i].sound != nil {
-			s.channels[i].Stop()
+			s.channels[i].Reset()
 		}
 	}
 }
@@ -1251,7 +1251,7 @@ func (s *SoundChannels) Tick() {
 		v := &s.channels[i]
 		if v.IsPlaying() {
 			if v.streamer.Position() >= v.sound.length && v.sfx.loop != -1 { // End of sound
-				v.Stop()
+				v.Reset()
 			}
 		}
 	}

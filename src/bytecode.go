@@ -1284,6 +1284,17 @@ func (be BytecodeExp) ReadPoolStringAt(i *int) string {
 	return sys.stringPool[sys.workingState.playerNo].List[idx]
 }
 
+// Reads the expression length header at the current pointer
+func (be BytecodeExp) PeekLength(i int) int {
+	return int(*(*int32)(unsafe.Pointer(&be[i])))
+}
+
+// Calculates how far to skip and moves the pointer past that entire section
+// Used for example when a redirection is invalid
+func (be BytecodeExp) JumpToNext(i *int) {
+	*i += be.PeekLength(*i) + 4
+}
+
 func (BytecodeExp) neg(v *BytecodeValue) {
 	if v.IsUndefined() {
 		return
@@ -1809,28 +1820,30 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			}
 			fallthrough
 		case OC_jmp:
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_player:
 			if c = sys.playerID(c.getPlayerID(int(sys.bcStack.Pop().ToI()))); c != nil {
+				// Valid: Move past the length header and enter the block
 				i += 4
 				continue
 			}
+			// Invalid: Push undefined and use the length header to jump over the block
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_parent:
 			if c = c.parent(true); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_root:
 			if c = c.root(true); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_helper:
 			v2 := sys.bcStack.Pop().ToI()
 			v1 := sys.bcStack.Pop().ToI()
@@ -1839,7 +1852,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_target:
 			v2 := sys.bcStack.Pop().ToI()
 			v1 := sys.bcStack.Pop().ToI()
@@ -1848,73 +1861,74 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_partner:
 			if c = c.partner(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_enemy:
 			if c = c.enemy(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_enemynear:
 			if c = c.enemyNearTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_playerid:
 			if c = c.playerIDTrigger(sys.bcStack.Pop().ToI(), true); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_playerindex:
 			if c = c.playerIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_p2:
 			if c = c.p2(); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_stateowner:
 			if c = sys.chars[c.ss.sb.playerNo][0]; c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_helperindex:
 			if c = c.helperIndexTrigger(sys.bcStack.Pop().ToI()); c != nil {
 				i += 4
 				continue
 			}
 			sys.bcStack.Push(BytecodeUndefined())
-			i += int(*(*int32)(unsafe.Pointer(&be[i]))) + 4
+			be.JumpToNext(&i)
 		case OC_rdreset:
 			// NOP
 		case OC_run:
-			l := int(*(*int32)(unsafe.Pointer(&be[i])))
-			sys.bcStack.Push(be[i+4 : i+4+l].run(c))
-			i += 4 + l
+			l := be.PeekLength(i)
+			sys.bcStack.Push(be[i+4 : i+4+l].run(c)) // Run from c (with redirections)
+			be.JumpToNext(&i)
+			continue
 		case OC_nordrun:
-			l := int(*(*int32)(unsafe.Pointer(&be[i])))
-			sys.bcStack.Push(be[i+4 : i+4+l].run(oc))
-			i += 4 + l
+			l := be.PeekLength(i)
+			sys.bcStack.Push(be[i+4 : i+4+l].run(oc)) // Run from oc (without redirections)
+			be.JumpToNext(&i)
 			continue
 		case OC_int8:
 			sys.bcStack.PushI(int32(int8(be[i])))

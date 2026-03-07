@@ -45,11 +45,15 @@ jobs:
     if: ${{ github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     outputs:
-      version: ${{ env.version }}
-      buildTime: ${{ env.buildTime }}
+      version: ${{ steps.meta.outputs.version }}
+      releaseTag: ${{ steps.meta.outputs.releaseTag }}
+      releaseKind: ${{ steps.meta.outputs.releaseKind }}
+      buildTime: ${{ steps.meta.outputs.buildTime }}
       #previousTag: ${{ steps.previousTag.outputs.tag }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       #- name: Get previous tag
       #  id: previousTag
@@ -58,14 +62,34 @@ jobs:
       #    semver_only: true
 
       - name: Set version
+        id: meta
         shell: bash
         run: |
+          set -euo pipefail
+
+          ref_name="${GITHUB_REF_NAME}"
+          safe_ref="$(echo "$ref_name" | tr '/[:space:]' '-' | tr -cd '[:alnum:]._-' )"
+
           if [ "${{ github.event.inputs.tag }}" != "" ]; then
-            echo "version=${{ github.event.inputs.tag }}" >> $GITHUB_ENV
+            version="${{ github.event.inputs.tag }}"
+            release_tag="${{ github.event.inputs.tag }}"
+            release_kind="tagged"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && \
+               [ "$ref_name" != "develop" ] && \
+               [ "$ref_name" != "ci-test" ]; then
+            version="$safe_ref"
+            release_tag="$safe_ref"
+            release_kind="branch"
           else
-            echo "version=nightly" >> $GITHUB_ENV
+            version="nightly"
+            release_tag="nightly"
+            release_kind="nightly"
           fi
-          echo "buildTime=$(date '+%Y.%m.%d')" >> $GITHUB_ENV
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "releaseTag=$release_tag" >> "$GITHUB_OUTPUT"
+          echo "releaseKind=$release_kind" >> "$GITHUB_OUTPUT"
+          echo "buildTime=$(date '+%Y.%m.%d')" >> "$GITHUB_OUTPUT"
 
   build:
     name: prepare release
@@ -109,6 +133,8 @@ jobs:
     runs-on: ${{ matrix.cfg.os }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.ref }}
 
       - name: Setup Golang with cache
         uses: magnetikonline/action-golang-cache@v5
@@ -326,11 +352,11 @@ jobs:
             cp -av LICENSES.txt deploy/ 2>/dev/null || true
 
             cd deploy
-            if [ "${{ github.event.inputs.tag }}" = "" ]; then
+            if [ "${{ needs.tag.outputs.releaseKind }}" = "nightly" ]; then
               ARTIFACT_NAME=Ikemen_GO-dev-android.zip
               echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
             else
-              ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-android.zip
+              ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.releaseTag }}-android.zip
               echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
             fi
             zip -r ../$ARTIFACT_NAME *
@@ -400,11 +426,11 @@ jobs:
           EOF
           fi
 
-          if [ "${{ github.event.inputs.tag }}" = "" ]; then
+          if [ "${{ needs.tag.outputs.releaseKind }}" = "nightly" ]; then
             ARTIFACT_NAME=Ikemen_GO-dev-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
           else
-            ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.version }}-${{ matrix.cfg.runner_os }}.zip
+            ARTIFACT_NAME=Ikemen_GO-${{ needs.tag.outputs.releaseTag }}-${{ matrix.cfg.runner_os }}.zip
             echo "artifact=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
           fi
           if [ "$RUNNER_OS" = "Windows" ]; then
@@ -416,7 +442,7 @@ jobs:
           echo "Successfully prepared assets for deployment"
 
       - name: Update dev release
-        if: "${{ github.event.inputs.tag == '' && steps.artifacts.outputs.artifact != '' }}"
+        if: "${{ needs.tag.outputs.releaseKind == 'nightly' && steps.artifacts.outputs.artifact != '' }}"
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.IKEMEN_TOKEN }}
@@ -444,7 +470,7 @@ jobs:
           updateOnlyUnreleased: false
 
       - name: Create Release
-        if: "${{ github.event.inputs.tag != '' && steps.artifacts.outputs.artifact != '' }}"
+        if: "${{ needs.tag.outputs.releaseKind != 'nightly' && steps.artifacts.outputs.artifact != '' }}"
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.IKEMEN_TOKEN }}
@@ -456,17 +482,17 @@ jobs:
           discussionCategory: ${{ github.event.inputs.discussionCategory }}
           draft: ${{ github.event.inputs.draft }}
           generateReleaseNotes: true
-          makeLatest: ${{ github.event.inputs.makeLatest }}
-          name: ${{ needs.tag.outputs.version }}
+          makeLatest: ${{ needs.tag.outputs.releaseKind == 'tagged' && github.event.inputs.makeLatest }}
+          name: ${{ needs.tag.outputs.releaseTag }}
           omitBody: false
           omitBodyDuringUpdate: true
           omitDraftDuringUpdate: true
           omitName: false
           omitNameDuringUpdate: true
           omitPrereleaseDuringUpdate: true
-          prerelease: ${{ github.event.inputs.prerelease }}
+          prerelease: ${{ needs.tag.outputs.releaseKind == 'branch' || github.event.inputs.prerelease }}
           removeArtifacts: false
           replacesArtifacts: true
           skipIfReleaseExists: false
-          tag: ${{ needs.tag.outputs.version }}
+          tag: ${{ needs.tag.outputs.releaseTag }}
           updateOnlyUnreleased: false

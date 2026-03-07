@@ -68,7 +68,6 @@ jobs:
           set -euo pipefail
 
           ref_name="${GITHUB_REF_NAME}"
-          safe_ref="$(echo "$ref_name" | tr '/[:space:]' '-' | tr -cd '[:alnum:]._-' )"
 
           if [ "${{ github.event.inputs.tag }}" != "" ]; then
             version="${{ github.event.inputs.tag }}"
@@ -77,8 +76,8 @@ jobs:
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && \
                [ "$ref_name" != "develop" ] && \
                [ "$ref_name" != "ci-test" ]; then
-            version="$safe_ref"
-            release_tag="$safe_ref"
+            version="$ref_name"
+            release_tag="$ref_name"
             release_kind="branch"
           else
             version="nightly"
@@ -481,7 +480,7 @@ jobs:
           #   ${{ needs.tag.outputs.changelog }}
           discussionCategory: ${{ github.event.inputs.discussionCategory }}
           draft: ${{ github.event.inputs.draft }}
-          generateReleaseNotes: true
+          generateReleaseNotes: ${{ needs.tag.outputs.releaseKind == 'tagged' }}
           makeLatest: ${{ needs.tag.outputs.releaseKind == 'tagged' && github.event.inputs.makeLatest }}
           name: ${{ needs.tag.outputs.releaseTag }}
           omitBody: false

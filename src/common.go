@@ -1528,17 +1528,6 @@ func (zmfr *zipMemFileReader) Close() error {
 	return zmfr.zipArchive.Close()
 }
 
-// Standardizes slashes then returns the directory and filename. Necessary for Unix systems
-// https://github.com/ikemen-engine/Ikemen-GO/issues/3126
-func SplitPath(p string) (dir, file string) {
-	p = strings.ReplaceAll(p, "\\", "/")
-	idx := strings.LastIndex(p, "/")
-	if idx < 0 {
-		return "", p // Local file, no directory
-	}
-	return p[:idx+1], p[idx+1:]
-}
-
 // OpenFile opens a regular file or a file within a zip archive.
 // For zip files, it reads the entire entry into memory to ensure full io.Seeker compatibility.
 // It returns an io.ReadSeekCloser that must be closed by the caller.

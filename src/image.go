@@ -638,13 +638,13 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 		}
 	}
 
-	// Get char directory
-	chardir, _ := SplitPath(c.def)
-
 	// SFFv1 and Act Overrides
 	// TODO: External .ACTs on SFFv2 without palette slots may cause color bleeding,
 	// on sprites with unique palettes if a SFFv2 with Acts is loaded by sffNew, since is a simplified utility
 	// and lacks the engine's palInfo/cgi logic to properly isolate palette remapping during rendering.
+	searchDirs := []string{c.def}
+
+	// Read ACT palettes
 	for x := 0; x < len(c.pal_files) && x < len(c.pal); x++ {
 		if c.pal_files[x] == "" {
 			continue
@@ -657,9 +657,10 @@ func loadCharPalettes(sff *Sff, filename string, ref int) error {
 			continue
 		}
 
-		pal, err := readActPalette(chardir + c.pal_files[x])
+		palPath := SearchFile(c.pal_files[x], searchDirs)
+		pal, err := readActPalette(palPath)
 		if err != nil {
-			fmt.Println("Error reading " + c.pal_files[x])
+			fmt.Println("Error reading " + palPath)
 			continue
 		}
 

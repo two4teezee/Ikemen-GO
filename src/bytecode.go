@@ -2831,7 +2831,7 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(sys.stage.constants[constName])
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
-		c.panic()
+		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
 
@@ -3434,7 +3434,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
-		c.panic()
+		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
 
@@ -4112,7 +4112,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.airJumpCount)
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
-		c.panic()
+		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
 
@@ -4188,7 +4188,7 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 		}
 	default:
 		sys.errLog.Printf("%v\n", be[*i-1])
-		c.panic()
+		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
 
@@ -4230,9 +4230,12 @@ type bytecodeFunction struct {
 func (bf bytecodeFunction) run(c *Char, ret []uint8) (changeState bool) {
 	oldv, oldvslen := sys.bcVar, len(sys.bcVarStack)
 	sys.bcVar = sys.bcVarStack.Alloc(int(bf.numVars))
+
 	if len(sys.bcStack) != int(bf.numArgs) {
-		c.panic()
+		// This should only happen during development
+		c.panic("Bytecode stack size mismatch or arguments read incorrectly")
 	}
+
 	copy(sys.bcVar, sys.bcStack)
 	sys.bcStack.Clear()
 	for _, sc := range bf.ctrls {
@@ -4252,7 +4255,7 @@ func (bf bytecodeFunction) run(c *Char, ret []uint8) (changeState bool) {
 	if !changeState {
 		if len(ret) > 0 {
 			if len(ret) != int(bf.numRets) {
-				c.panic()
+				c.panic("Mismatch in number of bytecode returns")
 			}
 			for i, r := range ret {
 				oldv[r] = sys.bcVar[int(bf.numArgs)+i]
@@ -14734,7 +14737,7 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 		for _, v := range sys.bcStack {
 			sys.errLog.Printf("%+v\n", v)
 		}
-		c.panic()
+		c.panic("Bytecode stack not empty after execution")
 	}
 	sys.bcVarStack.Clear()
 	return

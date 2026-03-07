@@ -3215,13 +3215,13 @@ func (c *Char) warn() string {
 	return fmt.Sprintf("%v: WARNING: %v (%v) in state %v: ", sys.tickCount, c.name, c.id, c.ss.no)
 }
 
-func (c *Char) panic() {
-	if sys.workingState != &c.ss.sb {
-		sys.errLog.Panicf("%v\n%v\n%v\n%+v\n", c.gi().def, c.name,
-			sys.cgi[sys.workingState.playerNo].def, sys.workingState)
+func (c *Char) panic(msg string) {
+	st := &c.ss.sb
+	if sys.workingState != st {
+		st = sys.workingState
 	}
-	sys.errLog.Panicf("%v\n%v\n%v\n%+v\n", c.gi().def, c.name,
-		sys.cgi[c.ss.sb.playerNo].def, c.ss)
+	sys.errLog.Panicf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
+		msg, c.name, sys.cgi[st.playerNo].def, st)
 }
 
 func (c *Char) init(n int, idx int) {

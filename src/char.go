@@ -4768,11 +4768,13 @@ func (c *Char) enemyNearTrigger(n int32) *Char {
 // Get the "P2" enemy reference
 func (c *Char) p2() *Char {
 	p := sys.charList.enemyNear(c, 0, true)
-	// Cache last valid P2 enemy
+
+	// Cache the last valid P2 enemy ID
 	// Mugen seems to do this for the sake of auto turning before win poses
 	if p != nil {
 		c.p2EnemyBackup = p.id
 	}
+
 	return p
 }
 
@@ -6135,23 +6137,25 @@ func (c *Char) autoTurn() {
 func (c *Char) updateFBFlip() {
 	setting := c.gi().constants["input.fbflipenemydistance"]
 
-	if setting >= 0 {
-		// See shouldFaceP2()
-		e := c.p2()
-		if e == nil {
-			e = sys.playerID(c.p2EnemyBackup)
-		}
-		if e != nil {
-			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+	// Default behavior
+	c.fbFlip = c.facing < 0
 
-			if c.facing > 0 {
-				c.fbFlip = distX < -setting
-			} else {
-				c.fbFlip = distX > -setting
-			}
-		}
+	if setting < 0 {
+		return
+	}
+
+	// If the constant is defined, flipping is determined by distance to P2
+	e := c.p2()
+	if e == nil {
+		return
+	}
+
+	distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+
+	if c.facing < 0 {
+		c.fbFlip = distX > -setting
 	} else {
-		c.fbFlip = (c.facing < 0)
+		c.fbFlip = distX < -setting
 	}
 }
 
@@ -13541,9 +13545,6 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 		return sys.playerID((*cache)[n])
 	}
 
-	// Else reset the cache and start over
-	*cache = (*cache)[:0]
-
 	// Local struct for sorting
 	type enemyDist struct {
 		id   int32
@@ -13556,6 +13557,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 		if e.isPlayerType() && c.isEnemyOf(e) {
 			valid := false
 			// P2 checks for alive enemies even if they are player type helpers
+			// Checking for e.alive() here would be a bit more practical, but less consistent with Mugen and the rest of our code
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				valid = true
 			}
@@ -13587,11 +13589,17 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 	}
 
 	// Sort enemies by shortest absolute distance
-	sort.SliceStable(pairs, func(i, j int) bool {
-		return AbsF(pairs[i].dist) < AbsF(pairs[j].dist)
+	sort.Slice(pairs, func(i, j int) bool {
+		di, dj := Abs(pairs[i].dist), Abs(pairs[j].dist)
+		if di != dj {
+			return di < dj
+		}
+		// Use player ID as tiebreaker (replaces sort.SliceStable)
+		return pairs[i].id < pairs[j].id
 	})
 
-	// Rebuild cache
+	// Rebuild the cache
+	*cache = (*cache)[:0]
 	for _, p := range pairs {
 		*cache = append(*cache, p.id)
 	}

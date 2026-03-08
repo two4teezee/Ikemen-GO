@@ -7693,31 +7693,11 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				return errmes(err)
 			}
 
-			// If it's a duplicate, we parse the content into dummies to skip the code safely
-			if duplicate {
-				// Consume arguments, return names, and the body controllers
-				if _, err := c.varNames(")", &line); err != nil {
-					return errmes(err)
-				}
-				if _, err := c.varNames("]", &line); err != nil {
-					return errmes(err)
-				}
-
-				// Create dummy variables to satisfy the pointer requirements of stateBlock
-				dummyCtrls := []StateController{}
-				var dummyVars int32
-
-				// stateBlock consumes the body until '}' or next '[' and discards the result
-				if err := c.stateBlock(&line, nil, true, nil, &dummyCtrls, &dummyVars); err != nil {
-					return errmes(err)
-				}
-				// Skip the map assignment entirely. The first definition remains in c.funcs
-				continue
-			}
-
-			// First definition found: compile normally
+			// Start compiling
 			fun := bytecodeFunction{}
 			c.vars = make(map[string]uint8)
+
+			// Parse arguments
 			if args, err := c.varNames(")", &line); err != nil {
 				return errmes(err)
 			} else {
@@ -7729,6 +7709,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				}
 				fun.numArgs = int32(len(args))
 			}
+
+			// Parse return values
 			if rets, err := c.varNames("]", &line); err != nil {
 				return errmes(err)
 			} else {
@@ -7746,13 +7728,17 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				}
 				fun.numRets = int32(len(rets))
 			}
-			if err := c.stateBlock(&line, nil, true,
-				nil, &fun.ctrls, &fun.numVars); err != nil {
+
+			// Parse the body
+			if err := c.stateBlock(&line, nil, true, nil, &fun.ctrls, &fun.numVars); err != nil {
 				return errmes(err)
 			}
 
-			// Store the blueprint in the compiler's temporary map
-			c.funcs[name] = fun
+			// Function is only actually saved if it's the first time we've seen this function name
+			// Otherwise the temp "fun" just goes out of scope and is garbage collected
+			if !duplicate {
+				c.funcs[name] = fun
+			}
 		default:
 			return errmes(Error("Unrecognized section (group) name: " + c.token))
 		}

@@ -2482,16 +2482,21 @@ func (m *Motif) loadFiles() {
 					sys.errLog.Printf("Failed to load %v: %v", filename, err)
 				}
 			}
+
 			if m.Fnt[i] == nil {
 				m.Fnt[i] = newFnt()
 			}
+
+			// Set font localcoord to the same as the motif
+			m.Fnt[i].localcoord[0] = float32(sys.motif.Info.Localcoord[0])
+			m.Fnt[i].localcoord[1] = float32(sys.motif.Info.Localcoord[1])
+
 			// Populate extended properties from the loaded font
-			if m.Fnt[i] != nil {
-				fnt.Type = m.Fnt[i].Type
-				fnt.Size = m.Fnt[i].Size
-				fnt.Spacing = m.Fnt[i].Spacing
-				fnt.Offset = m.Fnt[i].offset
-			}
+			fnt.Type = m.Fnt[i].Type
+			fnt.Size = m.Fnt[i].Size
+			fnt.Spacing = m.Fnt[i].Spacing
+			fnt.Offset = m.Fnt[i].offset
+			
 			return nil
 		})
 		sys.keepAlive()
@@ -2728,6 +2733,11 @@ func (m *Motif) drawLoading() {
 				}
 				m.Fnt[int(fontIdx)] = f
 				registerFontIndex(m.fntIndexByKey, fp.Font, fp.Height, int(fontIdx))
+
+				// Set font localcoord to the same as the motif
+				m.Fnt[int(fontIdx)].localcoord[0] = float32(sys.motif.Info.Localcoord[0])
+				m.Fnt[int(fontIdx)].localcoord[1] = float32(sys.motif.Info.Localcoord[1])
+
 				fp.Type = f.Type
 				fp.Size = f.Size
 				fp.Spacing = f.Spacing

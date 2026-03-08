@@ -4541,6 +4541,9 @@ func loadLifebar(def string) (*Lifebar, error) {
 							} else {
 								l.fnt[i] = fnt
 							}
+							// Set font localcoord to the same as the lifebar
+							l.fnt[i].localcoord[0] = float32(l.localcoord[0])
+							l.fnt[i].localcoord[1] = float32(l.localcoord[1])
 							return nil
 						},
 					)

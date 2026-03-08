@@ -4143,6 +4143,8 @@ func (c *Char) load(def string) error {
 				} else {
 					gi.fnt[i] = fnt
 				}
+				// Set font localcoord to the same as the char
+				gi.fnt[i].localcoord = gi.localcoord
 			}
 			return nil
 		})
@@ -6988,6 +6990,13 @@ func (c *Char) spawnText() *TextSprite {
 
 	// Recover a ghosted text or make a new one
 	ts := RecoverOrAppend(playerTexts, func(ts *TextSprite) { ts.Clear() }, NewTextSprite)
+
+	// Init the text
+	ts.ownerid = c.id
+
+	// Negate font draw function offsets and shift coordinate origin to where the screen edge is, regardless of aspect ratio
+	extraScreen := (320 * float32(sys.gameWidth) / (float32(sys.gameHeight) * 4 / 3)) - 320
+	ts.offsetX = -int32(extraScreen / 2)
 
 	return ts
 }

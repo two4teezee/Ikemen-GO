@@ -12821,16 +12821,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	// Do nothing if text limit reached
 	ts := crun.spawnText()
 	if ts == nil {
 		return false
 	}
 
-	ts.ownerid = crun.id
-	ts.SetLocalcoord(float32(sys.scrrect[2]), float32(sys.scrrect[3]))
-	//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1]) // Not crun here // TODO: No point in making this change until localcoord is fixed
-	//ts.params = []interface{}{} // Handled in loadDefaults
+	// We skip SetLocalcoord for char texts
+	ts.localScale = c.gi().localcoord[0] / 320 // Not crun here
 
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
@@ -12856,29 +12853,20 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			fflg := exp[0].evalS()
 			fnt = int(exp[1].evalI(c))
 			fntList := crun.gi().fnt
+
 			switch fflg {
 			case "f":
 				fntList = sys.lifebar.fnt
 			case "m":
 				fntList = sys.motif.Fnt
 			}
+
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
-					// TODO: These localcoord operations also affect the coordinate space (position etc)
-					switch fflg {
-					case "f":
-						ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
-					case "m":
-						ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
-					default:
-						//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
-					}
 				} else {
 					fnt = -1
 				}
-			} else {
-				fnt = -1
 			}
 		case text_localcoord:
 			var x, y float32
@@ -12886,7 +12874,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				y = exp[1].evalF(c)
 			}
-			ts.SetLocalcoord(x, y)
+			if x > 0 && y > 0 {
+				ts.localScale = 320 / x
+			}
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -12969,11 +12959,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	ts.SetVelocity(xvel, yvel)
 	ts.SetMaxDist(xmaxdist, ymaxdist)
 	ts.SetAccel(xacc, yacc)
-	if fnt == -1 {
+
+	if fnt < 0 {
 		ts.fnt = sys.debugFont.fnt
 		ts.xscl *= sys.debugFont.xscl
 		ts.yscl *= sys.debugFont.yscl
 	}
+
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
@@ -13125,6 +13117,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case text_font:
+				// TODO: Modifying font source should also have the same localcoord fix as in the Text sctrl
 				fnt := int(exp[1].evalI(c))
 				fflg := exp[0].evalS()
 				fntList := crun.gi().fnt
@@ -13157,7 +13150,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 				}
 				if x > 0 && y > 0 {
 					eachText(func(ts *TextSprite) {
-						ts.SetLocalcoord(x, y)
+						ts.localScale = 320 / x
 					})
 				}
 			case text_bank:

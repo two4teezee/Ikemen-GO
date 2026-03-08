@@ -84,6 +84,7 @@ type Fnt struct {
 	lastPalBank int32
 	lastPalBase *uint32
 	paltexCache map[*uint32]Texture
+	localcoord  [2]float32 // Determined by the player/lifebar/motif that owns the font
 }
 
 func newFnt() *Fnt {
@@ -92,6 +93,7 @@ func newFnt() *Fnt {
 		BankType:    "palette",
 		lastPalBank: -1,
 		paltexCache: make(map[*uint32]Texture),
+		localcoord:  [2]float32{320, 240},
 	}
 }
 
@@ -699,14 +701,15 @@ type TextSprite struct {
 	params           []interface{}
 	fnt              *Fnt
 	bank, align      int32
-	x, y, xscl, yscl float32
+	x, y             float32
+	xscl, yscl       float32
 	window           [4]int32
 	xshear           float32
 	rot              Rotation
 	projection       int32
 	fLength          float32
 	xvel, yvel       float32
-	localScale       float32
+	localScale       float32 // For coordinate space only. Draw scale calculated from font localcoord
 	offsetX          int32
 	layerno          int16
 	palfx            *PalFX
@@ -1262,11 +1265,15 @@ func (ts *TextSprite) Draw(ln int16) {
 		xshear := -ts.xshear
 		xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
 
+		// Adjust draw scale to the font's original localcoord
+		// We only multiply by localScale here because SetScale divides by it
+		scaleRatio := 320.0 / ts.fnt.localcoord[0] * ts.localScale
+
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
 		} else {
-			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl,
+			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio,
 				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3], spacingXAdd)
 		}
 

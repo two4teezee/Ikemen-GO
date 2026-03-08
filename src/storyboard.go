@@ -394,13 +394,17 @@ func (s *Storyboard) loadFiles() {
 			if s.Fnt[i] == nil {
 				s.Fnt[i] = newFnt()
 			}
+
+			// Set font localcoord to the same as the storyboard
+			s.Fnt[i].localcoord[0] = float32(s.Info.Localcoord[0])
+			s.Fnt[i].localcoord[1] = float32(s.Info.Localcoord[1])
+
 			// Populate extended properties from the loaded font
-			if s.Fnt[i] != nil {
-				fnt.Type = s.Fnt[i].Type
-				fnt.Size = s.Fnt[i].Size
-				fnt.Spacing = s.Fnt[i].Spacing
-				fnt.Offset = s.Fnt[i].offset
-			}
+			fnt.Type = s.Fnt[i].Type
+			fnt.Size = s.Fnt[i].Size
+			fnt.Spacing = s.Fnt[i].Spacing
+			fnt.Offset = s.Fnt[i].offset
+
 			return nil
 		})
 	}

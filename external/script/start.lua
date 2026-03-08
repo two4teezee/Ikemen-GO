@@ -295,7 +295,7 @@ function start.f_setRounds(roundTime, t_rounds)
 	main.motif.winscreen = winscreen
 	setLifebarElements(main.lifebar)
 	-- Round time
-	local frames = main.timeFramesPerCount
+	local frames = fightscreenvar("time.framespercount")
 	local p1FramesMul = 1
 	local p2FramesMul = 1
 	if start.p[1].teamMode == 3 then -- Tag

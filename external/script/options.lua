@@ -257,8 +257,6 @@ options.t_itemname = {
 			--modifyGameOption('Input.UiRepeatRate', 4)
 
 			loadLifebar(motif.files.fight)
-			main.timeFramesPerCount = fightscreenvar("time.framespercount")
-			main.f_updateRoundsNum()
 			setPlayers()
 			for _, v in ipairs(options.t_vardisplayPointers) do
 				v.vardisplay = options.f_vardisplay(v.itemname)
@@ -359,16 +357,14 @@ options.t_itemname = {
 	end,
 	--Rounds to Win (Single)
 	['roundsnumsingle'] = function(t, item, cursorPosY, moveTxt)
-		if getInput(-1, motif.option_info.menu.add.key) and main.roundsNumSingle[1] < 10 then
+		if getInput(-1, motif.option_info.menu.add.key) and gameOption('Options.Match.Wins') < 10 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Match.Wins', main.roundsNumSingle[1] + 1)
-			main.roundsNumSingle = {gameOption('Options.Match.Wins'), gameOption('Options.Match.Wins')}
+			modifyGameOption('Options.Match.Wins', gameOption('Options.Match.Wins') + 1)
 			t.items[item].vardisplay = gameOption('Options.Match.Wins')
 			options.modified = true
-		elseif getInput(-1, motif.option_info.menu.subtract.key) and main.roundsNumSingle[1] > 1 then
+		elseif getInput(-1, motif.option_info.menu.subtract.key) and gameOption('Options.Match.Wins') > 1 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Match.Wins', main.roundsNumSingle[1] - 1)
-			main.roundsNumSingle = {gameOption('Options.Match.Wins'), gameOption('Options.Match.Wins')}
+			modifyGameOption('Options.Match.Wins', gameOption('Options.Match.Wins') - 1)
 			t.items[item].vardisplay = gameOption('Options.Match.Wins')
 			options.modified = true
 		end
@@ -376,16 +372,14 @@ options.t_itemname = {
 	end,
 	--Max Draw Games
 	['maxdrawgames'] = function(t, item, cursorPosY, moveTxt)
-		if getInput(-1, motif.option_info.menu.add.key) and main.maxDrawGames[1] < 10 then
+		if getInput(-1, motif.option_info.menu.add.key) and gameOption('Options.Match.MaxDrawGames') < 10 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Match.MaxDrawGames', main.maxDrawGames[1] + 1)
-			main.maxDrawGames = {gameOption('Options.Match.MaxDrawGames'), gameOption('Options.Match.MaxDrawGames')}
+			modifyGameOption('Options.Match.MaxDrawGames', gameOption('Options.Match.MaxDrawGames') + 1)
 			t.items[item].vardisplay = gameOption('Options.Match.MaxDrawGames')
 			options.modified = true
-		elseif getInput(-1, motif.option_info.menu.subtract.key) and main.maxDrawGames[1] > 0 then
+		elseif getInput(-1, motif.option_info.menu.subtract.key) and gameOption('Options.Match.MaxDrawGames') > 0 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Match.MaxDrawGames', main.maxDrawGames[1] - 1)
-			main.maxDrawGames = {gameOption('Options.Match.MaxDrawGames'), gameOption('Options.Match.MaxDrawGames')}
+			modifyGameOption('Options.Match.MaxDrawGames', gameOption('Options.Match.MaxDrawGames') - 1)
 			t.items[item].vardisplay = gameOption('Options.Match.MaxDrawGames')
 			options.modified = true
 		end
@@ -562,16 +556,14 @@ options.t_itemname = {
 	end,
 	--Rounds to Win (Tag)
 	['roundsnumtag'] = function(t, item, cursorPosY, moveTxt)
-		if getInput(-1, motif.option_info.menu.add.key) and main.roundsNumTag[1] < 10 then
+		if getInput(-1, motif.option_info.menu.add.key) and gameOption('Options.Tag.Match.Wins') < 10 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Tag.Match.Wins', main.roundsNumTag[1] + 1)
-			main.roundsNumTag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')}
+			modifyGameOption('Options.Tag.Match.Wins', gameOption('Options.Tag.Match.Wins') + 1)
 			t.items[item].vardisplay = gameOption('Options.Tag.Match.Wins')
 			options.modified = true
-		elseif getInput(-1, motif.option_info.menu.subtract.key) and main.roundsNumTag[1] > 1 then
+		elseif getInput(-1, motif.option_info.menu.subtract.key) and gameOption('Options.Tag.Match.Wins') > 1 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Tag.Match.Wins', main.roundsNumTag[1] - 1)
-			main.roundsNumTag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')}
+			modifyGameOption('Options.Tag.Match.Wins', gameOption('Options.Tag.Match.Wins') - 1)
 			t.items[item].vardisplay = gameOption('Options.Tag.Match.Wins')
 			options.modified = true
 		end
@@ -623,16 +615,14 @@ options.t_itemname = {
 	end,
 	--Rounds to Win (Simul)
 	['roundsnumsimul'] = function(t, item, cursorPosY, moveTxt)
-		if getInput(-1, motif.option_info.menu.add.key) and main.roundsNumSimul[1] < 10 then
+		if getInput(-1, motif.option_info.menu.add.key) and gameOption('Options.Simul.Match.Wins') < 10 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Simul.Match.Wins', main.roundsNumSimul[1] + 1)
-			main.roundsNumSimul = {gameOption('Options.Simul.Match.Wins'), gameOption('Options.Simul.Match.Wins')}
+			modifyGameOption('Options.Simul.Match.Wins', gameOption('Options.Simul.Match.Wins') + 1)
 			t.items[item].vardisplay = gameOption('Options.Simul.Match.Wins')
 			options.modified = true
-		elseif getInput(-1, motif.option_info.menu.subtract.key) and main.roundsNumSimul[1] > 1 then
+		elseif getInput(-1, motif.option_info.menu.subtract.key) and gameOption('Options.Simul.Match.Wins') > 1 then
 			sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
-			modifyGameOption('Options.Simul.Match.Wins', main.roundsNumSimul[1] - 1)
-			main.roundsNumSimul = {gameOption('Options.Simul.Match.Wins'), gameOption('Options.Simul.Match.Wins')}
+			modifyGameOption('Options.Simul.Match.Wins', gameOption('Options.Simul.Match.Wins') - 1)
 			t.items[item].vardisplay = gameOption('Options.Simul.Match.Wins')
 			options.modified = true
 		end
@@ -1588,7 +1578,7 @@ options.t_vardisplay = {
 		return gameOption('Sound.MasterVolume') .. '%'
 	end,
 	['maxdrawgames'] = function()
-		return main.maxDrawGames[1]
+		return gameOption('Options.Match.MaxDrawGames')
 	end,
 	['maxsimul'] = function()
 		return gameOption('Options.Simul.Max')
@@ -1669,13 +1659,13 @@ options.t_vardisplay = {
 		return gameOption('Video.GameWidth') .. 'x' .. gameOption('Video.GameHeight')
 	end,
 	['roundsnumsimul'] = function()
-		return main.roundsNumSimul[1]
+		return gameOption('Options.Simul.Match.Wins')
 	end,
 	['roundsnumsingle'] = function()
-		return main.roundsNumSingle[1]
+		return gameOption('Options.Match.Wins')
 	end,
 	['roundsnumtag'] = function()
-		return main.roundsNumTag[1]
+		return gameOption('Options.Tag.Match.Wins')
 	end,
 	['roundtime'] = function()
 		return options.f_definedDisplay(gameOption('Options.Time'), {[-1] = motif.option_info.menu.valuename.none}, gameOption('Options.Time'))

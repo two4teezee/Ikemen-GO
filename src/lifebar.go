@@ -69,7 +69,7 @@ type FightFx struct {
 	sff        *Sff
 	snd        *Snd
 	fx_scale   float32
-	localcoord [2]float32
+	localcoord [2]int32
 	refCount   int
 	isGlobal   bool
 }
@@ -78,7 +78,7 @@ func newFightFx() *FightFx {
 	return &FightFx{
 		sff:        &Sff{},
 		fx_scale:   1.0,
-		localcoord: [2]float32{float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1])},
+		localcoord: sys.lifebar.localcoord,
 	}
 }
 
@@ -130,7 +130,7 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 					return nil
 				}
 				is.ReadF32("fx.scale", &ffx.fx_scale)
-				is.ReadF32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1])
+				is.ReadI32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1])
 			}
 		case "files":
 			// Read files section
@@ -4321,8 +4321,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Lifebar{localcoord: [...]int32{320, 240}, scale: 1, portraitScale: 1,
-		sff: &Sff{}, snd: &Snd{},
+	l := &Lifebar{
+		localcoord: [2]int32{320, 240},
+		scale: 1,
+		portraitScale: 1,
+		sff: &Sff{},
+		nd: &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -4341,7 +4345,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 		nm: [...][]*LifeBarName{make([]*LifeBarName, 2), make([]*LifeBarName, 8),
 			make([]*LifeBarName, 2), make([]*LifeBarName, 8), make([]*LifeBarName, 6),
 			make([]*LifeBarName, 8), make([]*LifeBarName, 6), make([]*LifeBarName, 8)},
-		active: true, bars: true, mode: true, fnt_scale: 1, fx_limit: 3}
+		active: true,
+		bars: true,
+		mode: true,
+		fnt_scale: 1,
+		x_limit: 3,
+	}
 	l.fnt = make(map[int]*Fnt)
 	l.missing = map[string]int{
 		"[tag lifebar]": 3, "[simul_3p lifebar]": 4, "[simul_4p lifebar]": 5,
@@ -4542,8 +4551,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 								l.fnt[i] = fnt
 							}
 							// Set font localcoord to the same as the lifebar
-							l.fnt[i].localcoord[0] = float32(l.localcoord[0])
-							l.fnt[i].localcoord[1] = float32(l.localcoord[1])
+							l.fnt[i].localcoord = l.localcoord
 							return nil
 						},
 					)

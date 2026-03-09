@@ -1665,3 +1665,8 @@ func SafeGo(f func()) {
 		f()
 	}()
 }
+
+// Simple aspect ratio calculator that casts the inputs itself
+func CalculateAspect[T int | int32 | float32 | float64](w, h T) float32 {
+	return float32(w) / float32(h)
+}

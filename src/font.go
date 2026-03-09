@@ -84,7 +84,7 @@ type Fnt struct {
 	lastPalBank int32
 	lastPalBase *uint32
 	paltexCache map[*uint32]Texture
-	localcoord  [2]float32 // Determined by the player/lifebar/motif that owns the font
+	localcoord  [2]int32 // Determined by the player/lifebar/motif that owns the font
 }
 
 func newFnt() *Fnt {
@@ -93,7 +93,7 @@ func newFnt() *Fnt {
 		BankType:    "palette",
 		lastPalBank: -1,
 		paltexCache: make(map[*uint32]Texture),
-		localcoord:  [2]float32{320, 240},
+		localcoord:  [2]int32{320, 240},
 	}
 }
 
@@ -709,7 +709,7 @@ type TextSprite struct {
 	projection       int32
 	fLength          float32
 	xvel, yvel       float32
-	localScale       float32 // For coordinate space only. Draw scale calculated from font localcoord
+	localScale       float32
 	offsetX          int32
 	layerno          int16
 	palfx            *PalFX
@@ -788,16 +788,16 @@ func (ts *TextSprite) Copy() *TextSprite {
 	return nt
 }
 
-func (ts *TextSprite) SetLocalcoord(lx, ly float32) {
+func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 	if lx <= 0 || ly <= 0 {
 		return
 	}
-	v := lx
+	v := float64(lx)
 	if lx*3 > ly*4 {
-		v = ly * 4 / 3
+		v = float64(ly) * 4 / 3
 	}
 	ts.localScale = float32(v / 320)
-	ts.offsetX = -int32(math.Floor(float64(lx)/(float64(v)/320)-320) / 2)
+	ts.offsetX = -int32(math.Floor(float64(lx)/(v/320)-320) / 2)
 }
 
 func (ts *TextSprite) SetPos(x, y float32) {
@@ -1267,7 +1267,7 @@ func (ts *TextSprite) Draw(ln int16) {
 
 		// Adjust draw scale to the font's original localcoord
 		// We only multiply by localScale here because SetScale divides by it
-		scaleRatio := 320.0 / ts.fnt.localcoord[0] * ts.localScale
+		scaleRatio := 320.0 / float32(ts.fnt.localcoord[0]) * ts.localScale
 
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {

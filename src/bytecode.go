@@ -3282,9 +3282,9 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		v1 := sys.bcStack.Pop()
 		sys.bcStack.PushI(c.jugglePoints(v1.ToI()))
 	case OC_ex_localcoord_x:
-		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[0])
+		sys.bcStack.PushI(sys.cgi[c.playerNo].localcoord[0])
 	case OC_ex_localcoord_y:
-		sys.bcStack.PushF(sys.cgi[c.playerNo].localcoord[1])
+		sys.bcStack.PushI(sys.cgi[c.playerNo].localcoord[1])
 	case OC_ex_maparray:
 		mapName := be.ReadPoolStringAt(i)
 		sys.bcStack.PushF(c.mapArray[mapName])
@@ -12827,7 +12827,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// We skip SetLocalcoord for char texts
-	ts.localScale = c.gi().localcoord[0] / 320 // Not crun here
+	ts.localScale = float32(c.gi().localcoord[0]) / 320 // Not crun here
 
 	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
 	var fnt int = -1
@@ -13133,9 +13133,9 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 							ts.fnt = f
 							switch fflg {
 							case "f":
-								ts.SetLocalcoord(float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1]))
+								ts.SetLocalcoord(sys.lifebar.localcoord[0], sys.lifebar.localcoord[1])
 							case "m":
-								ts.SetLocalcoord(float32(sys.motif.Info.Localcoord[0]), float32(sys.motif.Info.Localcoord[1]))
+								ts.SetLocalcoord(sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1])
 							default:
 								//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
 							}

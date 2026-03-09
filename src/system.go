@@ -56,7 +56,7 @@ var sys = System{
 	numTurns:            [...]int32{2, 2},
 	ignoreMostErrors:    true,
 	stageList:           make(map[int32]*Stage),
-	stageLocalcoords:    make(map[string][2]float32),
+	stageLocalcoords:    make(map[string][2]int32),
 	oldNextAddTime:      1,
 	commandLine:         make(chan string),
 	cam:                 *newCamera(),
@@ -177,7 +177,7 @@ type System struct {
 	stageList               map[int32]*Stage
 	stageLoop               bool
 	stageLoopNo             int
-	stageLocalcoords        map[string][2]float32
+	stageLocalcoords        map[string][2]int32
 	wireframeDisplay        bool
 	lastCharId              int32
 	tickCount               int
@@ -548,22 +548,18 @@ func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
 	return [4]float64{0, 0, srcW, srcH}
 }
 
-func (s *System) aspect(w, h int32) float32 {
-	return float32(w) / float32(h)
-}
-
 func (s *System) middleOfMatch() bool {
 	return !s.fightLoopEnd && s.matchTime != 0 && !s.postMatchFlg
 }
 
 func (s *System) skipMotifScaling() bool {
-	var local [2]int32
+	var lc [2]int32
 	if (!s.middleOfMatch() && !s.postMatchFlg) || s.stage == nil {
-		local = s.motif.Info.Localcoord
+		lc = s.motif.Info.Localcoord
 	} else {
-		local = s.stage.stageCamera.localcoord
+		lc = s.stage.stageCamera.localcoord
 	}
-	return s.aspect(local[0], local[1]) > s.getMotifAspect()
+	return CalculateAspect(lc[0], lc[1]) > s.getMotifAspect()
 }
 
 func (s *System) getFightAspect() float32 {
@@ -571,13 +567,13 @@ func (s *System) getFightAspect() float32 {
 	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 && s.stage != nil {
 		coord := s.stage.stageCamera.localcoord
 		if coord[0] > 0 && coord[1] > 0 {
-			return s.aspect(coord[0], coord[1])
+			return CalculateAspect(coord[0], coord[1])
 		}
 	}
 
 	// Custom aspect ratio
 	if s.cfg.Video.FightAspectWidth > 0 && s.cfg.Video.FightAspectHeight > 0 {
-		return s.aspect(s.cfg.Video.FightAspectWidth, s.cfg.Video.FightAspectHeight)
+		return CalculateAspect(s.cfg.Video.FightAspectWidth, s.cfg.Video.FightAspectHeight)
 	}
 
 	// Default
@@ -589,7 +585,7 @@ func (s *System) getFightAspect() float32 {
 func (s *System) getMotifAspect() float32 {
 	// Using options directly makes aspect change as soon as options are changed
 	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
-	return s.aspect(s.scrrect[2], s.scrrect[3])
+	return CalculateAspect(s.scrrect[2], s.scrrect[3])
 }
 
 func (s *System) getCurrentAspect() float32 {
@@ -607,8 +603,8 @@ func (s *System) setGameSize(w, h int32) {
 	baseWidth := int32(320)
 	baseHeight := int32(240)
 
-	screenAspect := s.aspect(w, h)
-	targetAspect := s.aspect(baseWidth, baseHeight)
+	screenAspect := CalculateAspect(w, h)
+	targetAspect := CalculateAspect(baseWidth, baseHeight)
 
 	if screenAspect > targetAspect {
 		// Screen is wider than 4:3 - scale based on height
@@ -646,10 +642,10 @@ func (s *System) applyFightAspect() {
 
 		// Calculate the stage's aspect ratio
 		if stageWidth > 0 && stageHeight > 0 {
-			aspectGame = s.aspect(stageWidth, stageHeight)
+			aspectGame = CalculateAspect(stageWidth, stageHeight)
 		} else {
 			// Fallback
-			//aspectGame = s.aspect(s.cfg.Video.GameWidth, s.cfg.Video.GameHeight)
+			//aspectGame = CalculateAspect(s.cfg.Video.GameWidth, s.cfg.Video.GameHeight)
 			aspectGame = s.getMotifAspect()
 		}
 	} else {
@@ -4051,7 +4047,7 @@ type SelectChar struct {
 	pal_defaults  []int32
 	pal_keymap    []int32
 	pal_files     []string
-	localcoord    [2]float32
+	localcoord    [2]int32
 	portraitscale float32
 	cns_scale     [2]float32
 	anims         PreloadedAnims
@@ -4062,7 +4058,7 @@ type SelectChar struct {
 
 func newSelectChar() *SelectChar {
 	return &SelectChar{
-		localcoord:    [2]float32{320, 240},
+		localcoord:    [2]int32{320, 240},
 		portraitscale: 1,
 		cns_scale:     [2]float32{1, 1},
 		anims:         NewPreloadedAnims(),
@@ -4075,7 +4071,7 @@ type SelectStage struct {
 	def             string
 	name            string
 	attachedchardef []string
-	localcoord      [2]float32
+	localcoord      [2]int32
 	portraitscale   float32
 	anims           PreloadedAnims
 	sff             *Sff
@@ -4085,7 +4081,7 @@ type SelectStage struct {
 
 func newSelectStage() *SelectStage {
 	return &SelectStage{
-		localcoord:    [2]float32{320, 240},
+		localcoord:    [2]int32{320, 240},
 		portraitscale: 1,
 		anims:         NewPreloadedAnims(),
 		music:         make(Music),
@@ -4338,7 +4334,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 				}
 				sc.author, _, _ = isec.getText("author")
 				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
+				isec.ReadI32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
 				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
 		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
@@ -4354,7 +4350,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 				}
 				sc.author, _, _ = isec.getText("author")
 				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
+				isec.ReadI32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
 				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
 		case "files":
@@ -4461,10 +4457,10 @@ func (s *Select) AddChar(def string) *SelectChar {
 			switch name {
 			case "size":
 				if ok := is.ReadF32("xscale", &sc.cns_scale[0]); !ok {
-					sc.cns_scale[0] = 320 / sc.localcoord[0]
+					sc.cns_scale[0] = 320 / float32(sc.localcoord[0])
 				}
 				if ok := is.ReadF32("yscale", &sc.cns_scale[1]); !ok {
-					sc.cns_scale[1] = 320 / sc.localcoord[0]
+					sc.cns_scale[1] = 320 / float32(sc.localcoord[0])
 				}
 				return nil
 			}
@@ -4724,7 +4720,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		case "stageinfo":
 			if stageinfo {
 				stageinfo = false
-				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				is.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
 				is.ReadF32("portraitscale", &ss.portraitscale)
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
@@ -4735,7 +4731,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 			if lanStageinfo {
 				stageinfo = false
 				lanStageinfo = false
-				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				is.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
 				is.ReadF32("portraitscale", &ss.portraitscale)
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
@@ -5099,7 +5095,7 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		nm.teammate_name_strings[i] = sc.lifebarname
 
 		// Calculate portrait scale
-		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
+		fa.teammate_scale[i] = sc.portraitscale * 320 / float32(sc.localcoord[0])
 
 		// Check if palettes are already loaded
 		// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
@@ -5223,7 +5219,7 @@ func (l *Loader) load() {
 	// Update cached character scaling
 	for _, p := range sys.chars {
 		if len(p) > 0 {
-			p[0].localcoord = p[0].gi().localcoord[0] / (float32(sys.gameWidth) / 320)
+			p[0].localcoord = float32(p[0].gi().localcoord[0]) / (float32(sys.gameWidth) / 320)
 			p[0].localscl = 320 / p[0].localcoord
 		}
 	}

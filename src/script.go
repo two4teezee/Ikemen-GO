@@ -5276,7 +5276,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.SetLocalcoord(float32(numArg(l, 2)), float32(numArg(l, 3)))
+		ts.SetLocalcoord(int32(numArg(l, 2)), int32(numArg(l, 3)))
 		return 0
 	})
 	luaRegister(l, "textImgSetMaxDist", func(*lua.LState) int {

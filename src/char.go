@@ -2914,7 +2914,7 @@ type CharGlobalInfo struct {
 	constants               map[string]float32
 	remapPreset             map[string]RemapPreset
 	remappedpal             [2]int32
-	localcoord              [2]float32
+	localcoord              [2]int32
 	fnt                     map[int]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
@@ -3490,7 +3490,7 @@ func (c *Char) load(def string) error {
 	lines, i := SplitAndTrim(str, "\n"), 0
 	cns, sprite, anim, sound := "", "", "", ""
 	info, files, keymap, mapArray, lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true, true, true, true, true
-	gi.localcoord = [...]float32{320, 240}
+	gi.localcoord = [2]int32{320, 240}
 	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
 	c.localscl = 320 / c.localcoord
 	gi.portraitscale = 1
@@ -3545,9 +3545,9 @@ func (c *Char) load(def string) error {
 				gi.nameLow = strings.ToLower(c.name)
 				gi.displaynameLow = strings.ToLower(gi.displayname)
 				gi.authorLow = strings.ToLower(gi.author)
-				if is.ReadF32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
-					gi.portraitscale = 320 / gi.localcoord[0]
-					c.localcoord = gi.localcoord[0] / (float32(sys.gameWidth) / 320)
+				if is.ReadI32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
+					gi.portraitscale = 320 / float32(gi.localcoord[0])
+					c.localcoord =float32(gi.localcoord[0]) / (float32(sys.gameWidth) / 320)
 					c.localscl = 320 / c.localcoord
 				}
 				is.ReadF32("portraitscale", &gi.portraitscale)
@@ -3606,9 +3606,9 @@ func (c *Char) load(def string) error {
 				gi.nameLow = strings.ToLower(c.name)
 				gi.displaynameLow = strings.ToLower(gi.displayname)
 				gi.authorLow = strings.ToLower(gi.author)
-				if is.ReadF32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
-					gi.portraitscale = 320 / gi.localcoord[0]
-					c.localcoord = gi.localcoord[0] / (float32(sys.gameWidth) / 320)
+				if is.ReadI32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
+					gi.portraitscale = 320 / float32(gi.localcoord[0])
+					c.localcoord = float32(gi.localcoord[0]) / (float32(sys.gameWidth) / 320)
 					c.localscl = 320 / c.localcoord
 				}
 				is.ReadF32("portraitscale", &gi.portraitscale)
@@ -5169,7 +5169,7 @@ func (c *Char) assertCommand(name string, time int32) {
 }
 
 func (c *Char) constp(coordinate, value float32) BytecodeValue {
-	return BytecodeFloat(c.stOgi().localcoord[0] / coordinate * value)
+	return BytecodeFloat(float32(c.stOgi().localcoord[0]) / coordinate * value)
 }
 
 func (c *Char) ctrl() bool {
@@ -5892,14 +5892,14 @@ func (c *Char) screenHeight() float32 {
 	aspect := sys.getCurrentAspect()
 
 	// Compute height from width
-	height := c.stOgi().localcoord[0] / aspect
+	height := float32(c.stOgi().localcoord[0]) / aspect
 
 	// Round to nearest integer
 	return float32(int32(height + 0.5))
 }
 
 func (c *Char) screenWidth() float32 {
-	return c.stOgi().localcoord[0]
+	return float32(c.stOgi().localcoord[0])
 }
 
 func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
@@ -7184,7 +7184,7 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 				// With the addition of variable viewport, we should now calculate the scale each time instead of precomputing it
 				scale := fx.fx_scale
 				if fx.localcoord[0] > 0 {
-					scale = fx.fx_scale * 320 / fx.localcoord[0]
+					scale = fx.fx_scale * 320 / float32(fx.localcoord[0])
 				}
 
 				// Apply char localcoord

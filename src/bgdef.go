@@ -12,7 +12,7 @@ import (
 // TODO: We could probably merge them better with stages
 type BGDef struct {
 	def          string
-	localcoord   [2]float32
+	localcoord   [2]int32
 	sff          *Sff
 	animTable    AnimationTable
 	bg           []*backGround
@@ -36,7 +36,7 @@ type BGDef struct {
 }
 
 func newBGDef(def string) *BGDef {
-	s := &BGDef{def: def, localcoord: [...]float32{320, 240}, resetbg: true, localscl: 1, scale: [...]float32{1, 1}}
+	s := &BGDef{def: def, localcoord: [2]int32{320, 240}, resetbg: true, localscl: 1, scale: [...]float32{1, 1}}
 	s.stageprops = newStageProps()
 	s.lastTick = -1
 	return s
@@ -63,7 +63,7 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string, startlayer int
 	}
 	i = 0
 	if sec := defmap["info"]; len(sec) > 0 {
-		sec[0].readF32ForStage("localcoord", &s.localcoord[0], &s.localcoord[1])
+		sec[0].readI32ForStage("localcoord", &s.localcoord[0], &s.localcoord[1])
 	}
 	if sec := defmap[fmt.Sprintf("%sdef", bgname)]; len(sec) > 0 {
 		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
@@ -142,7 +142,7 @@ func loadBGDef(sff *Sff, model *Model, def string, bgname string, startlayer int
 			s.bgc = append(s.bgc, *bgc)
 		}
 	}
-	s.localscl = 240 / s.localcoord[1]
+	s.localscl = 240 / float32(s.localcoord[1])
 	return s, nil
 }
 

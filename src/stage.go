@@ -1001,6 +1001,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		return nil, err
 	}
 	s.sff = &Sff{}
+
 	lines, i := SplitAndTrim(str, "\n"), 0
 	s.animTable = ReadAnimationTable(s.sff, &s.sff.palList, lines, &i)
 	i = 0
@@ -1016,42 +1017,44 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 	}
 
-	var sec []IniSection
-	sectionExists := false
+	// Helper to get localized section or fallback to default
+	// TODO: This looks cleaner than what's used in char.go. Maybe standardize it
+	getSection := func(baseName string) (IniSection, string) {
+		langKey := fmt.Sprintf("%v.%v", sys.cfg.Config.Language, baseName)
+		if secList, ok := defmap[langKey]; ok && len(secList) > 0 {
+			return secList[0], langKey
+		}
+		if secList, ok := defmap[baseName]; ok && len(secList) > 0 {
+			return secList[0], baseName
+		}
+		return nil, ""
+	}
 
 	// Info group
-	if sec = defmap[fmt.Sprintf("%v.info", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["info"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
+	if sec, _ := getSection("info"); sec != nil {
 		var ok bool
-		s.name, ok, _ = sec[0].getText("name")
+		s.name, ok, _ = sec.getText("name")
 		if !ok {
 			s.name = def
 		}
-		s.displayname, ok, _ = sec[0].getText("displayname")
+		s.displayname, ok, _ = sec.getText("displayname")
 		if !ok {
 			s.displayname = s.name
 		}
-		s.author, _, _ = sec[0].getText("author")
+		s.author, _, _ = sec.getText("author")
 		s.nameLow = strings.ToLower(s.name)
 		s.displaynameLow = strings.ToLower(s.displayname)
 		s.authorLow = strings.ToLower(s.author)
 		// Clear then read MugenVersion
 		s.mugenver = [2]uint16{}
 		s.mugenverF = 0
-		if str, ok := sec[0]["mugenversion"]; ok {
-			s.mugenver, s.mugenverF = parseMugenVersion(str)
+		if str, ok := sec["mugenversion"]; ok {
+			s.mugenver, s.mugenverF = ParseMugenVersion(str)
 		}
 		// Clear then read IkemenVersion
 		s.ikemenver = [3]uint16{}
-		if str, ok := sec[0]["ikemenversion"]; ok {
-			s.ikemenver, s.ikemenverF = parseIkemenVersion(str)
+		if str, ok := sec["ikemenversion"]; ok {
+			s.ikemenver, s.ikemenverF = ParseIkemenVersion(str)
 		}
 		// If the MUGEN version is lower than 1.0, default to camera pixel rounding (floor)
 		if s.ikemenver[0] == 0 && s.ikemenver[1] == 0 && s.mugenver[0] != 1 {
@@ -1059,7 +1062,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		// AttachedChars
 		ac := 0
-		for i := range sec[0] {
+		for i := range sec {
 			if !strings.HasPrefix(i, "attachedchar") {
 				continue
 			}
@@ -1072,7 +1075,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				sys.appendToConsole(fmt.Sprintf("Warning: You can only define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
 				continue
 			}
-			if err := sec[0].LoadFile(i, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+			if err := sec.LoadFile(i, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 				// Ensure slice has correct length
 				for len(s.attachedchardef) <= ac {
 					s.attachedchardef = append(s.attachedchardef, "")
@@ -1086,7 +1089,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		// RoundXdef
 		if maindef {
 			r, _ := regexp.Compile("^round[0-9]+def$")
-			for k, v := range sec[0] {
+			for k, v := range sec {
 				if r.MatchString(k) {
 					re := regexp.MustCompile("[0-9]+")
 					submatchall := re.FindAllString(k, -1)
@@ -1102,29 +1105,21 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 					}
 				}
 			}
-			sec[0].ReadBool("roundloop", &sys.stageLoop)
+			sec.ReadBool("roundloop", &sys.stageLoop)
 		}
 	}
 
 	// StageInfo group. Needs to be read before most other groups so that localcoord is known
-	if sec = defmap[fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["stageinfo"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		sec[0].ReadI32("zoffset", &s.stageCamera.zoffset)
-		sec[0].ReadI32("zoffsetlink", &s.zoffsetlink)
-		sec[0].ReadBool("hires", &s.hires)
-		sec[0].ReadBool("autoturn", &s.autoturn)
-		sec[0].ReadBool("resetbg", &s.resetbg)
-		sec[0].readI32ForStage("localcoord", &s.stageCamera.localcoord[0],
+	if sec, _ := getSection("stageinfo"); sec != nil {
+		sec.ReadI32("zoffset", &s.stageCamera.zoffset)
+		sec.ReadI32("zoffsetlink", &s.zoffsetlink)
+		sec.ReadBool("hires", &s.hires)
+		sec.ReadBool("autoturn", &s.autoturn)
+		sec.ReadBool("resetbg", &s.resetbg)
+		sec.readI32ForStage("localcoord", &s.stageCamera.localcoord[0],
 			&s.stageCamera.localcoord[1])
-		sec[0].ReadF32("xscale", &s.scale[0])
-		sec[0].ReadF32("yscale", &s.scale[1])
+		sec.ReadF32("xscale", &s.scale[0])
+		sec.ReadF32("yscale", &s.scale[1])
 	}
 	if math.IsNaN(float64(s.scale[0])) {
 		s.scale[0] = 1
@@ -1151,64 +1146,32 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Constants group
-	if sec = defmap[fmt.Sprintf("%v.constants", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["constants"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		for key, value := range sec[0] {
+	if sec, _ := getSection("constants"); sec != nil {
+		for key, value := range sec {
 			s.constants[key] = float32(Atof(value))
 		}
 	}
 
 	// Scaling group
-	if sec = defmap[fmt.Sprintf("%v.scaling", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["scaling"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
+	if sec, _ := getSection("scaling"); sec != nil {
 		if s.mugenver[0] != 1 || s.ikemenver[0] >= 1 { // mugen 1.0+ removed support for z-axis, IKEMEN-Go 1.0 adds it back
-			sec[0].ReadF32("topz", &s.stageCamera.topz)
-			sec[0].ReadF32("botz", &s.stageCamera.botz)
-			sec[0].ReadF32("topscale", &s.stageCamera.ztopscale)
-			sec[0].ReadF32("botscale", &s.stageCamera.zbotscale)
-			sec[0].ReadF32("depthtoscreen", &s.stageCamera.depthtoscreen)
+			sec.ReadF32("topz", &s.stageCamera.topz)
+			sec.ReadF32("botz", &s.stageCamera.botz)
+			sec.ReadF32("topscale", &s.stageCamera.ztopscale)
+			sec.ReadF32("botscale", &s.stageCamera.zbotscale)
+			sec.ReadF32("depthtoscreen", &s.stageCamera.depthtoscreen)
 		}
 	}
 
 	// Bound group
-	if sec = defmap[fmt.Sprintf("%v.bound", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["bound"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		sec[0].ReadI32("screenleft", &s.screenleft)
-		sec[0].ReadI32("screenright", &s.screenright)
+	if sec, _ := getSection("bound"); sec != nil {
+		sec.ReadI32("screenleft", &s.screenleft)
+		sec.ReadI32("screenright", &s.screenright)
 	}
 
 	// PlayerInfo Group
-	if sec = defmap[fmt.Sprintf("%v.playerinfo", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["playerinfo"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		sec[0].ReadI32("partnerspacing", &s.partnerspacing)
+	if sec, _ := getSection("playerinfo"); sec != nil {
+		sec.ReadI32("partnerspacing", &s.partnerspacing)
 		for i := range s.p {
 			// Defaults
 			if i >= 2 {
@@ -1218,47 +1181,47 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.p[i].facing = int32(1 - 2*(i%2))                                  // By team side
 			}
 			// pXstartx
-			sec[0].ReadI32(fmt.Sprintf("p%dstartx", i+1), &s.p[i].startx)
+			sec.ReadI32(fmt.Sprintf("p%dstartx", i+1), &s.p[i].startx)
 			// pXstarty
-			sec[0].ReadI32(fmt.Sprintf("p%dstarty", i+1), &s.p[i].starty)
+			sec.ReadI32(fmt.Sprintf("p%dstarty", i+1), &s.p[i].starty)
 			// pXstartz
-			sec[0].ReadI32(fmt.Sprintf("p%dstartz", i+1), &s.p[i].startz)
+			sec.ReadI32(fmt.Sprintf("p%dstartz", i+1), &s.p[i].startz)
 			// pXfacing
-			sec[0].ReadI32(fmt.Sprintf("p%dfacing", i+1), &s.p[i].facing)
+			sec.ReadI32(fmt.Sprintf("p%dfacing", i+1), &s.p[i].facing)
 		}
-		sec[0].ReadF32("leftbound", &s.leftbound)
-		sec[0].ReadF32("rightbound", &s.rightbound)
-		sec[0].ReadF32("topbound", &s.topbound)
-		sec[0].ReadF32("botbound", &s.botbound)
+		sec.ReadF32("leftbound", &s.leftbound)
+		sec.ReadF32("rightbound", &s.rightbound)
+		sec.ReadF32("topbound", &s.topbound)
+		sec.ReadF32("botbound", &s.botbound)
 	}
 
 	// Camera group
-	if sec := defmap["camera"]; len(sec) > 0 {
-		sec[0].ReadI32("startx", &s.stageCamera.startx)
-		sec[0].ReadI32("starty", &s.stageCamera.starty)
-		sec[0].ReadI32("boundleft", &s.stageCamera.boundleft)
-		sec[0].ReadI32("boundright", &s.stageCamera.boundright)
-		sec[0].ReadI32("boundhigh", &s.stageCamera.boundhigh)
-		sec[0].ReadI32("boundlow", &s.stageCamera.boundlow)
-		sec[0].ReadF32("verticalfollow", &s.stageCamera.verticalfollow)
-		sec[0].ReadI32("floortension", &s.stageCamera.floortension)
-		sec[0].ReadI32("tension", &s.stageCamera.tension)
-		sec[0].ReadF32("tensionvel", &s.stageCamera.tensionvel)
-		sec[0].ReadI32("overdrawhigh", &s.stageCamera.overdrawhigh) // TODO: not implemented
-		sec[0].ReadI32("overdrawlow", &s.stageCamera.overdrawlow)
-		sec[0].ReadI32("cuthigh", &s.stageCamera.cuthigh)
-		sec[0].ReadI32("cutlow", &s.stageCamera.cutlow)
-		sec[0].ReadF32("startzoom", &s.stageCamera.startzoom)
-		sec[0].ReadF32("fov", &s.stageCamera.fov)
-		sec[0].ReadF32("yshift", &s.stageCamera.yshift)
-		sec[0].ReadF32("near", &s.stageCamera.near)
-		sec[0].ReadF32("far", &s.stageCamera.far)
-		sec[0].ReadBool("autocenter", &s.stageCamera.autocenter)
-		sec[0].ReadF32("yscrollspeed", &s.stageCamera.yscrollspeed)
-		sec[0].ReadF32("verticalfollowzoomdelta", &s.stageCamera.verticalfollowzoomdelta)
-		sec[0].ReadBool("lowestcap", &s.stageCamera.lowestcap)
-		sec[0].ReadF32("zoomin", &s.stageCamera.zoomin)
-		sec[0].ReadF32("zoomout", &s.stageCamera.zoomout)
+	if sec, _ := getSection("camera"); sec != nil {
+		sec.ReadI32("startx", &s.stageCamera.startx)
+		sec.ReadI32("starty", &s.stageCamera.starty)
+		sec.ReadI32("boundleft", &s.stageCamera.boundleft)
+		sec.ReadI32("boundright", &s.stageCamera.boundright)
+		sec.ReadI32("boundhigh", &s.stageCamera.boundhigh)
+		sec.ReadI32("boundlow", &s.stageCamera.boundlow)
+		sec.ReadF32("verticalfollow", &s.stageCamera.verticalfollow)
+		sec.ReadI32("floortension", &s.stageCamera.floortension)
+		sec.ReadI32("tension", &s.stageCamera.tension)
+		sec.ReadF32("tensionvel", &s.stageCamera.tensionvel)
+		sec.ReadI32("overdrawhigh", &s.stageCamera.overdrawhigh) // TODO: not implemented
+		sec.ReadI32("overdrawlow", &s.stageCamera.overdrawlow)
+		sec.ReadI32("cuthigh", &s.stageCamera.cuthigh)
+		sec.ReadI32("cutlow", &s.stageCamera.cutlow)
+		sec.ReadF32("startzoom", &s.stageCamera.startzoom)
+		sec.ReadF32("fov", &s.stageCamera.fov)
+		sec.ReadF32("yshift", &s.stageCamera.yshift)
+		sec.ReadF32("near", &s.stageCamera.near)
+		sec.ReadF32("far", &s.stageCamera.far)
+		sec.ReadBool("autocenter", &s.stageCamera.autocenter)
+		sec.ReadF32("yscrollspeed", &s.stageCamera.yscrollspeed)
+		sec.ReadF32("verticalfollowzoomdelta", &s.stageCamera.verticalfollowzoomdelta)
+		sec.ReadBool("lowestcap", &s.stageCamera.lowestcap)
+		sec.ReadF32("zoomin", &s.stageCamera.zoomin)
+		sec.ReadF32("zoomout", &s.stageCamera.zoomout)
 		if s.stageCamera.zoomin == 1 && s.stageCamera.zoomout == 1 {
 			if sys.cfg.Debug.ForceStageZoomin > 0 {
 				s.stageCamera.zoomin = sys.cfg.Debug.ForceStageZoomin
@@ -1267,12 +1230,12 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.stageCamera.zoomout = sys.cfg.Debug.ForceStageZoomout
 			}
 		}
-		anchor, zoomanchorOk, _ := sec[0].getText("zoomanchor")
+		anchor, zoomanchorOk, _ := sec.getText("zoomanchor")
 		if strings.ToLower(anchor) == "bottom" {
 			s.stageCamera.zoomanchor = true
 		}
 
-		autoZoomExisted := sec[0].ReadBool("autozoom", &s.stageCamera.autoZoom)
+		autoZoomExisted := sec.ReadBool("autozoom", &s.stageCamera.autoZoom)
 		if sys.cfg.Debug.ForceStageAutoZoom && !autoZoomExisted &&
 			(s.stageCamera.zoomin == 1 || sys.cfg.Debug.ForceStageZoomin > 0) && (s.stageCamera.zoomout == 1 || sys.cfg.Debug.ForceStageZoomout > 0) {
 			s.stageCamera.autoZoom = true
@@ -1293,13 +1256,13 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			s.stageCamera.zoomoutspeed = 0.4
 			s.stageCamera.boundhighzoomdelta = 1.0
 		}
-		sec[0].ReadF32("zoomindelay", &s.stageCamera.zoomindelay)
-		sec[0].ReadF32("zoominspeed", &s.stageCamera.zoominspeed)
-		sec[0].ReadF32("zoomoutspeed", &s.stageCamera.zoomoutspeed)
-		sec[0].ReadF32("boundhighzoomdelta", &s.stageCamera.boundhighzoomdelta)
-		if sec[0].ReadI32("tensionlow", &s.stageCamera.tensionlow) {
+		sec.ReadF32("zoomindelay", &s.stageCamera.zoomindelay)
+		sec.ReadF32("zoominspeed", &s.stageCamera.zoominspeed)
+		sec.ReadF32("zoomoutspeed", &s.stageCamera.zoomoutspeed)
+		sec.ReadF32("boundhighzoomdelta", &s.stageCamera.boundhighzoomdelta)
+		if sec.ReadI32("tensionlow", &s.stageCamera.tensionlow) {
 			s.stageCamera.ytensionenable = true
-			sec[0].ReadI32("tensionhigh", &s.stageCamera.tensionhigh)
+			sec.ReadI32("tensionhigh", &s.stageCamera.tensionhigh)
 		}
 		// Camera group warnings
 		// Warn when camera boundaries are smaller than player boundaries
@@ -1309,42 +1272,25 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Music group
-	musicSection := "music"
-	if sec = defmap[fmt.Sprintf("%v.music", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-		musicSection = fmt.Sprintf("%v.music", sys.cfg.Config.Language)
-	} else {
-		if sec = defmap["music"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
+	if sec, secName := getSection("music"); sec != nil {
 		iniFile, err := ini.LoadSources(ini.LoadOptions{
 			Insensitive:             true,
 			SkipUnrecognizableLines: true,
 		}, []byte(str))
+		
 		if err != nil {
 			fmt.Printf("Failed to load INI file: %v\n", err)
 			return nil, err
 		}
 
-		sec[0].ReadF32("bgmratio", &s.bgmratio)
-		s.music = parseMusicSection(iniFile.Section(musicSection))
-		s.music.DebugDump(fmt.Sprintf("Stage %s [Music]", def))
+		sec.ReadF32("bgmratio", &s.bgmratio)
+		s.music = parseMusicSection(iniFile.Section(secName))
+		s.music.DebugDump(fmt.Sprintf("Stage %s [%s]", def, secName))
 	}
 
 	// BGDef group
-	if sec = defmap[fmt.Sprintf("%v.bgdef", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["bgdef"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		if sec[0].LoadFile("spr", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+	if sec, _ := getSection("bgdef"); sec != nil {
+		if sec.LoadFile("spr", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			sff, err := loadSff(filename, false, false, false)
 			if err != nil {
 				return err
@@ -1359,7 +1305,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}); err != nil {
 			return nil, err
 		}
-		if err = sec[0].LoadFile("model", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+		if err = sec.LoadFile("model", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			model, err := loadglTFModel(filename)
 			if err != nil {
 				return err
@@ -1378,22 +1324,14 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}); err != nil {
 			return nil, err
 		}
-		sec[0].ReadBool("debugbg", &s.debugbg)
-		sec[0].readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
-		sec[0].ReadBool("roundpos", &s.stageprops.roundpos)
+		sec.ReadBool("debugbg", &s.debugbg)
+		sec.readI32ForStage("bgclearcolor", &s.bgclearcolor[0], &s.bgclearcolor[1], &s.bgclearcolor[2])
+		sec.ReadBool("roundpos", &s.stageprops.roundpos)
 	}
 
 	// Model group
-	if sec = defmap[fmt.Sprintf("%v.model", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["model"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
-		if str, ok := sec[0]["offset"]; ok {
+	if sec, _ := getSection("model"); sec != nil {
+		if str, ok := sec["offset"]; ok {
 			for k, v := range SplitAndTrim(str, ",") {
 				if k >= len(s.model.offset) {
 					break
@@ -1407,7 +1345,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		}
 		posMul := float32(math.Tan(float64(s.stageCamera.fov*math.Pi/180)/2)) * -s.model.offset[2] / (float32(s.stageCamera.localcoord[1]) / 2)
 		s.stageCamera.zoffset = int32(float32(s.stageCamera.localcoord[1])/2 - s.model.offset[1]/posMul - s.stageCamera.yshift*float32(sys.scrrect[3]/2)/float32(sys.gameHeight)*float32(s.stageCamera.localcoord[1])/sys.heightScale)
-		if str, ok := sec[0]["scale"]; ok {
+		if str, ok := sec["scale"]; ok {
 			for k, v := range SplitAndTrim(str, ",") {
 				if k >= len(s.model.scale) {
 					break
@@ -1419,13 +1357,13 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				}
 			}
 		}
-		if err = sec[0].LoadFile("environment", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+		if err = sec.LoadFile("environment", []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 			env, err := loadEnvironment(filename)
 			if err != nil {
 				return err
 			}
 			var intensity float32
-			if sec[0].ReadF32("environmentintensity", &intensity) {
+			if sec.ReadF32("environmentintensity", &intensity) {
 				env.environmentIntensity = intensity
 			}
 			s.model.environment = env
@@ -1436,36 +1374,28 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Shadow group
-	if sec = defmap[fmt.Sprintf("%v.shadow", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["shadow"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
+	if sec, _ := getSection("shadow"); sec != nil {
 		var tmp int32
-		if sec[0].ReadI32("intensity", &tmp) {
+		if sec.ReadI32("intensity", &tmp) {
 			s.sdw.intensity = Clamp(tmp, 0, 255)
 		}
 		var r, g, b int32
-		sec[0].readI32ForStage("color", &r, &g, &b)
+		sec.readI32ForStage("color", &r, &g, &b)
 		r, g, b = Clamp(r, 0, 255), Clamp(g, 0, 255), Clamp(b, 0, 255)
 		// Disable color parameter specifically in Mugen 1.1 stages
 		if s.ikemenver[0] == 0 && s.ikemenver[1] == 0 && s.mugenver[0] == 1 && s.mugenver[1] == 1 {
 			r, g, b = 0, 0, 0
 		}
 		s.sdw.color = uint32(r<<16 | g<<8 | b)
-		sec[0].ReadF32("xscale", &s.sdw.xscale)
-		sec[0].ReadF32("yscale", &s.sdw.yscale)
-		sec[0].readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
-		sec[0].ReadF32("xshear", &s.sdw.xshear)
-		sec[0].ReadF32("angle", &s.sdw.rot.angle)
-		sec[0].ReadF32("xangle", &s.sdw.rot.xangle)
-		sec[0].ReadF32("yangle", &s.sdw.rot.yangle)
-		sec[0].ReadF32("focallength", &s.sdw.fLength)
-		if str, ok := sec[0]["projection"]; ok {
+		sec.ReadF32("xscale", &s.sdw.xscale)
+		sec.ReadF32("yscale", &s.sdw.yscale)
+		sec.readI32ForStage("fade.range", &s.sdw.fadeend, &s.sdw.fadebgn)
+		sec.ReadF32("xshear", &s.sdw.xshear)
+		sec.ReadF32("angle", &s.sdw.rot.angle)
+		sec.ReadF32("xangle", &s.sdw.rot.xangle)
+		sec.ReadF32("yangle", &s.sdw.rot.yangle)
+		sec.ReadF32("focallength", &s.sdw.fLength)
+		if str, ok := sec["projection"]; ok {
 			switch strings.ToLower(strings.TrimSpace(str)) {
 			case "orthographic":
 				s.sdw.projection = Projection_Orthographic
@@ -1475,9 +1405,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.sdw.projection = Projection_Perspective2
 			}
 		}
-		sec[0].readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
-		sec[0].readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
-		sec[0].ReadF32("ydelta", &s.sdw.ydelta)
+		sec.readF32ForStage("offset", &s.sdw.offset[0], &s.sdw.offset[1])
+		sec.readF32ForStage("window", &s.sdw.window[0], &s.sdw.window[1], &s.sdw.window[2], &s.sdw.window[3])
+		sec.ReadF32("ydelta", &s.sdw.ydelta)
 		// Shadow group warnings
 		if s.sdw.fadeend > s.sdw.fadebgn {
 			sys.appendToConsole("Warning: Stage shadow fade.range defined incorrectly")
@@ -1485,37 +1415,29 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	// Reflection group
-	if sec = defmap[fmt.Sprintf("%v.reflection", sys.cfg.Config.Language)]; len(sec) > 0 {
-		sectionExists = true
-	} else {
-		if sec = defmap["reflection"]; len(sec) > 0 {
-			sectionExists = true
-		}
-	}
-	if sectionExists {
-		sectionExists = false
+	if sec, _ := getSection("reflection"); sec != nil {
 		s.reflection.color = 0xFFFFFF
 		var tmp int32
-		//sec[0].ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
-		if sec[0].ReadI32("intensity", &tmp) {
+		//sec.ReadBool("reflect", &reflect) // This parameter is documented in Mugen but doesn't do anything
+		if sec.ReadI32("intensity", &tmp) {
 			s.reflection.intensity = Clamp(tmp, 0, 255)
 		}
 		var r, g, b int32 = 0, 0, 0
-		sec[0].readI32ForStage("color", &r, &g, &b)
+		sec.readI32ForStage("color", &r, &g, &b)
 		r, g, b = Clamp(r, 0, 255), Clamp(g, 0, 255), Clamp(b, 0, 255)
 		s.reflection.color = uint32(r<<16 | g<<8 | b)
-		if sec[0].ReadI32("layerno", &tmp) {
+		if sec.ReadI32("layerno", &tmp) {
 			s.reflection.layerno = Clamp(tmp, -1, 0)
 		}
-		sec[0].ReadF32("xscale", &s.reflection.xscale)
-		sec[0].ReadF32("yscale", &s.reflection.yscale)
-		sec[0].readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
-		sec[0].ReadF32("xshear", &s.reflection.xshear)
-		sec[0].ReadF32("angle", &s.reflection.rot.angle)
-		sec[0].ReadF32("xangle", &s.reflection.rot.xangle)
-		sec[0].ReadF32("yangle", &s.reflection.rot.yangle)
-		sec[0].ReadF32("focallength", &s.reflection.fLength)
-		if str, ok := sec[0]["projection"]; ok {
+		sec.ReadF32("xscale", &s.reflection.xscale)
+		sec.ReadF32("yscale", &s.reflection.yscale)
+		sec.readI32ForStage("fade.range", &s.reflection.fadeend, &s.reflection.fadebgn)
+		sec.ReadF32("xshear", &s.reflection.xshear)
+		sec.ReadF32("angle", &s.reflection.rot.angle)
+		sec.ReadF32("xangle", &s.reflection.rot.xangle)
+		sec.ReadF32("yangle", &s.reflection.rot.yangle)
+		sec.ReadF32("focallength", &s.reflection.fLength)
+		if str, ok := sec["projection"]; ok {
 			switch strings.ToLower(strings.TrimSpace(str)) {
 			case "orthographic":
 				s.reflection.projection = Projection_Orthographic
@@ -1525,9 +1447,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				s.reflection.projection = Projection_Perspective2
 			}
 		}
-		sec[0].readF32ForStage("offset", &s.reflection.offset[0], &s.reflection.offset[1])
-		sec[0].readF32ForStage("window", &s.reflection.window[0], &s.reflection.window[1], &s.reflection.window[2], &s.reflection.window[3])
-		sec[0].ReadF32("ydelta", &s.reflection.ydelta)
+		sec.readF32ForStage("offset", &s.reflection.offset[0], &s.reflection.offset[1])
+		sec.readF32ForStage("window", &s.reflection.window[0], &s.reflection.window[1], &s.reflection.window[2], &s.reflection.window[3])
+		sec.ReadF32("ydelta", &s.reflection.ydelta)
 	}
 
 	// BG group
@@ -1556,9 +1478,9 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 	}
 
 	bgcdef := *newBgCtrl()
-	i = 0
-	for i < len(lines) {
-		is, name, _ := ReadIniSection(lines, &i)
+	lnidx := 0
+	for lnidx < len(lines) {
+		is, name, _ := ReadIniSection(lines, &lnidx)
 		if len(name) > 0 && name[len(name)-1] == ' ' {
 			name = name[:len(name)-1]
 		}

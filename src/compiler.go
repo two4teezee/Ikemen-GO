@@ -7756,12 +7756,13 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	if err != nil {
 		return nil, err
 	}
-	lines, i, cmd, stcommon := SplitAndTrim(str, "\n"), 0, "", ""
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
+	cmd, stcommon := "", ""
 	var st []string
 	info, files := true, true
-	for i < len(lines) {
+	for lnidx < len(lines) {
 		// Parse each ini section
-		is, name, _ := ReadIniSection(lines, &i)
+		is, name, _ := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "info":
 			// Read info section for the Mugen/Ikemen version of the character
@@ -7773,13 +7774,13 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				sys.cgi[pn].mugenver = [2]uint16{}
 				sys.cgi[pn].mugenverF = 0
 				if str, ok = is["mugenversion"]; ok {
-					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = parseMugenVersion(str)
+					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = ParseMugenVersion(str)
 				}
 				// Clear then read IkemenVersion
 				sys.cgi[pn].ikemenver = [3]uint16{}
 				sys.cgi[pn].ikemenverF = 0
 				if str, ok = is["ikemenversion"]; ok {
-					sys.cgi[pn].ikemenver, sys.cgi[pn].ikemenverF = parseIkemenVersion(str)
+					sys.cgi[pn].ikemenver, sys.cgi[pn].ikemenverF = ParseIkemenVersion(str)
 				}
 				// Ikemen characters adopt Mugen 1.1 version as a safeguard
 				if sys.cgi[pn].ikemenver[0] != 0 || sys.cgi[pn].ikemenver[1] != 0 {
@@ -7833,7 +7834,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			}
 		}
 	}
-	lines, i = SplitAndTrim(str, "\n"), 0
+
+	lines, lnidx = SplitAndTrim(str, "\n"), 0
 
 	// Initialize command list data
 	char := sys.chars[pn][0]
@@ -7849,9 +7851,9 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	remap, defaults, ckr := true, true, NewCommandKeyRemap()
 
 	var cmds []IniSection
-	for i < len(lines) {
+	for lnidx < len(lines) {
 		// Read ini sections of command file
-		is, name, _ := ReadIniSection(lines, &i)
+		is, name, _ := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "remap":
 			// Read button remapping

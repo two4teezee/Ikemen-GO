@@ -4317,14 +4317,28 @@ func (s *Select) AddChar(def string) *SelectChar {
 	var cns_orig, sprite_orig, anim_orig, movelist_orig string
 	var fnt_orig [10][2]string
 
-	lines, i, info, files, keymap, arcade, lanInfo, lanFiles, lanKeymap, lanArcade := SplitAndTrim(charDefContent, "\n"), 0, true, true, true, true, true, true, true, true
+	lines, lnidx := SplitAndTrim(charDefContent, "\n"), 0
+	info, files, keymap, arcade := true, true, true, true
+	lanInfo, lanFiles, lanKeymap, lanArcade := true, true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 
-	for i < len(lines) {
-		isec, name, subname := ReadIniSection(lines, &i)
-		switch name {
+	for lnidx < len(lines) {
+		isec, name, subname := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+				
 				var ok bool
 				if sc.name, ok, _ = isec.getText("displayname"); !ok {
 					sc.name, _, _ = isec.getText("name")
@@ -4337,102 +4351,63 @@ func (s *Select) AddChar(def string) *SelectChar {
 				isec.ReadI32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
 				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				var ok bool
-				if sc.name, ok, _ = isec.getText("displayname"); !ok {
-					sc.name, _, _ = isec.getText("name")
-				}
-				if sc.lifebarname, ok, _ = isec.getText("lifebarname"); !ok {
-					sc.lifebarname = sc.name
-				}
-				sc.author, _, _ = isec.getText("author")
-				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadI32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
-				isec.ReadF32("portraitscale", &sc.portraitscale)
-			}
+
 		case "files":
-			if files {
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
+
 				cns_orig = decodeShiftJIS(isec["cns"])
 				sprite_orig = decodeShiftJIS(isec["sprite"])
 				anim_orig = decodeShiftJIS(isec["anim"])
 				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
-					if isec[fmt.Sprintf("pal%v", i)] != "" {
-						sc.pal = append(sc.pal, int32(i))
-						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
+				
+				// Clear and rebuild palettes to ensure localized files can overwrite defaults
+				sc.pal = nil
+				sc.pal_files = nil
+				for pIdx := 1; pIdx <= sys.cfg.Config.PaletteMax; pIdx++ {
+					if palFile := isec[fmt.Sprintf("pal%v", pIdx)]; palFile != "" {
+						sc.pal = append(sc.pal, int32(pIdx))
+						sc.pal_files = append(sc.pal_files, palFile)
 					}
 				}
+				
 				movelist_orig = decodeShiftJIS(isec["movelist"])
-				for i_fnt := range fnt_orig {
-					fnt_orig[i_fnt][0] = isec[fmt.Sprintf("font%v", i_fnt)]
-					fnt_orig[i_fnt][1] = isec[fmt.Sprintf("fnt_height%v", i_fnt)]
+				for fIdx := range fnt_orig {
+					fnt_orig[fIdx][0] = isec[fmt.Sprintf("font%v", fIdx)]
+					fnt_orig[fIdx][1] = isec[fmt.Sprintf("fnt_height%v", fIdx)]
 				}
 			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
-				files = false
-				lanFiles = false
-				cns_orig = decodeShiftJIS(isec["cns"])
-				sprite_orig = decodeShiftJIS(isec["sprite"])
-				anim_orig = decodeShiftJIS(isec["anim"])
-				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
-					if isec[fmt.Sprintf("pal%v", i)] != "" {
-						sc.pal = append(sc.pal, int32(i))
-						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
-					}
-				}
-				movelist_orig = decodeShiftJIS(isec["movelist"])
-				for i := range fnt_orig {
-					fnt_orig[i][0] = isec[fmt.Sprintf("font%v", i)]
-					fnt_orig[i][1] = isec[fmt.Sprintf("fnt_height%v", i)]
-				}
-			}
+
 		case "palette ": // Note space
-			if keymap && len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
+			isKeymap := len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap"
+			if isKeymap && ((isLan && lanKeymap) || (!isLan && keymap)) {
+				if isLan {
+					lanKeymap = false
+				}
 				keymap = false
+
 				sc.pal_keymap = make([]int32, 12)
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				for kIdx, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap[i] = i32
+						sc.pal_keymap[kIdx] = i32
 					} else {
-						sc.pal_keymap[i] = int32(i + 1) // default
+						sc.pal_keymap[kIdx] = int32(kIdx + 1) // default
 					}
 				}
 			}
-		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
-			if lanKeymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
-				keymap = false
-				sc.pal_keymap = make([]int32, 12)
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
-					"a2", "b2", "c2", "x2", "y2", "z2"} {
-					var i32 int32
-					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap[i] = i32
-					} else {
-						sc.pal_keymap[i] = int32(i + 1)
-					}
-				}
-			}
+
 		case "arcade":
-			if arcade {
+			if (isLan && lanArcade) || (!isLan && arcade) {
+				if isLan {
+					lanArcade = false
+				}
 				arcade = false
-				sc.intro, _, _ = isec.getText("intro.storyboard")
-				sc.ending, _, _ = isec.getText("ending.storyboard")
-				sc.arcadepath, _, _ = isec.getText("arcadepath")
-				sc.ratiopath, _, _ = isec.getText("ratiopath")
-			}
-		case fmt.Sprintf("%v.arcade", sys.cfg.Config.Language):
-			if lanArcade {
-				arcade = false
-				lanArcade = false
+
 				sc.intro, _, _ = isec.getText("intro.storyboard")
 				sc.ending, _, _ = isec.getText("ending.storyboard")
 				sc.arcadepath, _, _ = isec.getText("arcadepath")
@@ -4440,6 +4415,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 			}
 		}
 	}
+
 	listSpr := make(map[[2]uint16]bool)
 	for k := range s.charSpritePreload {
 		listSpr[k] = true
@@ -4451,9 +4427,9 @@ func (s *Select) AddChar(def string) *SelectChar {
 		if err != nil {
 			return err
 		}
-		lines, i := SplitAndTrim(str, "\n"), 0
-		for i < len(lines) {
-			is, name, _ := ReadIniSection(lines, &i)
+		lines, lnidx := SplitAndTrim(str, "\n"), 0
+		for lnidx < len(lines) {
+			is, name, _ := ReadIniSection(lines, &lnidx)
 			switch name {
 			case "size":
 				if ok := is.ReadF32("xscale", &sc.cns_scale[0]); !ok {
@@ -4475,8 +4451,8 @@ func (s *Select) AddChar(def string) *SelectChar {
 			if err != nil {
 				return err
 			}
-			lines, i := SplitAndTrim(str, "\n"), 0
-			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &i) // SFF here is temporary
+			lines, lnidx := SplitAndTrim(str, "\n"), 0
+			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &lnidx) // SFF here is temporary
 			for v_anim := range s.charAnimPreload {
 				if animation := at.get(v_anim); animation != nil {
 					sc.anims.addAnim(animation, v_anim)
@@ -4644,95 +4620,79 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		sys.errLog.Printf("Failed to add stage, file not found: %s: %v\n", finalDefPath, err)
 		return nil, err
 	}
+
 	tstr = fmt.Sprintf("Stage added: %v", finalDefPath)
-	i, info, bgdef, stageinfo, lanInfo, lanBgdef, lanStageinfo := 0, true, true, true, true, true, true
+
+	lnidx, info, bgdef, stageinfo := 0, true, true, true
+	lanInfo, lanBgdef, lanStageinfo := true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 	var spr string
+
 	s.stagelist = append(s.stagelist, *newSelectStage())
 	ss := &s.stagelist[len(s.stagelist)-1]
 	ss.def = finalDefPath
-	for i < len(lines) {
-		is, name, _ := ReadIniSection(lines, &i)
-		switch name {
+
+	for lnidx < len(lines) {
+		isec, name, _ := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+
 				var ok bool
-				if ss.name, ok, _ = is.getText("displayname"); !ok {
-					if ss.name, ok, _ = is.getText("name"); !ok {
+				if ss.name, ok, _ = isec.getText("displayname"); !ok {
+					if ss.name, ok, _ = isec.getText("name"); !ok {
 						ss.name = def
 					}
 				}
-				for i := 0; i < MaxAttachedChar; i++ {
+
+				for idx := 0; idx < MaxAttachedChar; idx++ {
 					key := "attachedchar"
-					if i > 0 {
-						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
+					if idx > 0 {
+						key += fmt.Sprint(idx + 1) // attachedchar2, attachedchar3, attachedchar4
 					}
-					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+
+					if err := isec.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 						// Ensure slice has correct length
-						for len(ss.attachedchardef) <= i {
+						for len(ss.attachedchardef) <= idx {
 							ss.attachedchardef = append(ss.attachedchardef, "")
 						}
-						ss.attachedchardef[i] = filename
+						ss.attachedchardef[idx] = filename
 						return nil
 					}); err != nil {
 						continue
 					}
 				}
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				var ok bool
-				if ss.name, ok, _ = is.getText("displayname"); !ok {
-					if ss.name, ok, _ = is.getText("name"); !ok {
-						ss.name = def
-					}
-				}
-				for i := 0; i < MaxAttachedChar; i++ {
-					key := "attachedchar"
-					if i > 0 {
-						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
-					}
-					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
-						// Ensure slice has correct length (fill gaps)
-						for len(ss.attachedchardef) <= i {
-							ss.attachedchardef = append(ss.attachedchardef, "")
-						}
-						ss.attachedchardef[i] = filename
-						return nil
-					}); err != nil {
-						continue
-					}
-				}
-			}
+
 		case "bgdef":
-			if bgdef {
+			if (isLan && lanBgdef) || (!isLan && bgdef) {
+				if isLan { lanBgdef = false }
 				bgdef = false
-				spr = is["spr"]
+				spr = isec["spr"]
 			}
-		case fmt.Sprintf("%v.bgdef", sys.cfg.Config.Language):
-			if lanBgdef {
-				bgdef = false
-				lanBgdef = false
-				spr = is["spr"]
-			}
+
 		case "stageinfo":
-			if stageinfo {
-				stageinfo = false
-				is.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
-				is.ReadF32("portraitscale", &ss.portraitscale)
-				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
-					key := strings.ToLower(filepath.Base(ss.def))
-					sys.stageLocalcoords[key] = ss.localcoord // Store localcoords for StageFit
+			if (isLan && lanStageinfo) || (!isLan && stageinfo) {
+				if isLan {
+					lanStageinfo = false
 				}
-			}
-		case fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language):
-			if lanStageinfo {
 				stageinfo = false
-				lanStageinfo = false
-				is.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
-				is.ReadF32("portraitscale", &ss.portraitscale)
+
+				isec.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				isec.ReadF32("portraitscale", &ss.portraitscale)
+				
+				// Cache localcoords for stage fitting
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
 					sys.stageLocalcoords[key] = ss.localcoord
@@ -4747,8 +4707,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		}
 		sff := newSff()
 		// preload animations
-		i = 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
+		atidx := 0
+		at := ReadAnimationTable(sff, &sff.palList, lines, &atidx)
 		for v := range s.stageAnimPreload {
 			if anim := at.get(v); anim != nil {
 				ss.anims.addAnim(anim, v)

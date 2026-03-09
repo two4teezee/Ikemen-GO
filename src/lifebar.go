@@ -4326,7 +4326,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 		scale: 1,
 		portraitScale: 1,
 		sff: &Sff{},
-		nd: &Snd{},
+		snd: &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -4349,7 +4349,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 		bars: true,
 		mode: true,
 		fnt_scale: 1,
-		x_limit: 3,
+		fx_limit: 3,
 	}
 	l.fnt = make(map[int]*Fnt)
 	l.missing = map[string]int{
@@ -4378,9 +4378,10 @@ func loadLifebar(def string) (*Lifebar, error) {
 			str += "\n" + k
 		}
 	}
-	lines, i := SplitAndTrim(str, "\n"), 0
-	l.animTable = ReadAnimationTable(l.sff, &l.sff.palList, lines, &i)
-	i = 0
+
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
+	l.animTable = ReadAnimationTable(l.sff, &l.sff.palList, lines, &lnidx)
+	lnidx = 0
 	filesflg := true
 
 	// Pre-scan [info] to initialize lifebar localcoord/scale before any FightFX load
@@ -4420,8 +4421,8 @@ func loadLifebar(def string) (*Lifebar, error) {
 	ffx := newFightFx()
 	ffx.isGlobal = true
 
-	for i < len(lines) {
-		is, name, subname := ReadIniSection(lines, &i)
+	for lnidx < len(lines) {
+		is, name, subname := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "info":
 			var b bool

@@ -3487,13 +3487,18 @@ func (c *Char) load(def string) error {
 	if err != nil {
 		return err
 	}
-	lines, i := SplitAndTrim(str, "\n"), 0
+
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
 	cns, sprite, anim, sound := "", "", "", ""
-	info, files, keymap, mapArray, lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true, true, true, true, true
+	info, files, keymap, mapArray := true, true, true, true
+	lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true
+
+	// Defaults
 	gi.localcoord = [2]int32{320, 240}
 	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
 	c.localscl = 320 / c.localcoord
 	gi.portraitscale = 1
+
 	// Collect arbitrary number of fonts
 	type fontSpec struct {
 		path   string
@@ -3527,12 +3532,28 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
-	for i < len(lines) {
-		is, name, subname := ReadIniSection(lines, &i)
-		switch name {
+
+	langPrefix := sys.cfg.Config.Language + "."
+
+	for lnidx < len(lines) {
+		is, name, subname := ReadIniSection(lines, &lnidx)
+
+		// Determine if this is a localized section and get the base name
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			// Process the localized override or the default section
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+
 				c.name, _, _ = is.getText("name")
 				var ok bool
 				if gi.displayname, ok, _ = is.getText("displayname"); !ok {
@@ -3545,67 +3566,7 @@ func (c *Char) load(def string) error {
 				gi.nameLow = strings.ToLower(c.name)
 				gi.displaynameLow = strings.ToLower(gi.displayname)
 				gi.authorLow = strings.ToLower(gi.author)
-				if is.ReadI32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
-					gi.portraitscale = 320 / float32(gi.localcoord[0])
-					c.localcoord =float32(gi.localcoord[0]) / (float32(sys.gameWidth) / 320)
-					c.localscl = 320 / c.localcoord
-				}
-				is.ReadF32("portraitscale", &gi.portraitscale)
-			}
-		case "files":
-			if files {
-				files = false
-				cns = decodeShiftJIS(is["cns"])
-				sprite = decodeShiftJIS(is["sprite"])
-				anim = decodeShiftJIS(is["anim"])
-				sound = decodeShiftJIS(is["sound"])
-				for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
-					pal := gi.palInfo[i]
-					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
-					gi.palInfo[i] = pal
-				}
-				parseFonts(is)
-			}
-		case "palette ":
-			if keymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
-				keymap = false
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
-					"a2", "b2", "c2", "x2", "y2", "z2"} {
-					var i32 int32
-					if is.ReadI32(v, &i32) {
-						if i32 < 1 || int(i32) > sys.cfg.Config.PaletteMax {
-							i32 = 1
-						}
-						pal := gi.palInfo[i]
-						pal.keyMap = i32 - 1
-						gi.palInfo[i] = pal
-					}
-				}
-			}
-		case "map":
-			if mapArray {
-				mapArray = false
-				for key, value := range is {
-					c.mapDefault[key] = float32(Atof(value))
-				}
-			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				c.name, _, _ = is.getText("name")
-				var ok bool
-				if gi.displayname, ok, _ = is.getText("displayname"); !ok {
-					gi.displayname = c.name
-				}
-				if gi.lifebarname, ok, _ = is.getText("lifebarname"); !ok {
-					gi.lifebarname = gi.displayname
-				}
-				gi.author, _, _ = is.getText("author")
-				gi.nameLow = strings.ToLower(c.name)
-				gi.displaynameLow = strings.ToLower(gi.displayname)
-				gi.authorLow = strings.ToLower(gi.author)
+				// In Mugen localcoord is clamped to 1. But that's already unplayable anyway so such a safeguard is useless
 				if is.ReadI32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
 					gi.portraitscale = 320 / float32(gi.localcoord[0])
 					c.localcoord = float32(gi.localcoord[0]) / (float32(sys.gameWidth) / 320)
@@ -3613,10 +3574,14 @@ func (c *Char) load(def string) error {
 				}
 				is.ReadF32("portraitscale", &gi.portraitscale)
 			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
+
+		case "files":
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
-				lanFiles = false
+
 				cns = decodeShiftJIS(is["cns"])
 				sprite = decodeShiftJIS(is["sprite"])
 				anim = decodeShiftJIS(is["anim"])
@@ -3628,11 +3593,15 @@ func (c *Char) load(def string) error {
 				}
 				parseFonts(is)
 			}
-		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
-			if lanKeymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
-				lanKeymap = false
+
+		case "palette ":
+			isKeymap := len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap"
+			if isKeymap && ((isLan && lanKeymap) || (!isLan && keymap)) {
+				if isLan {
+					lanKeymap = false
+				}
 				keymap = false
+
 				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
@@ -3646,10 +3615,14 @@ func (c *Char) load(def string) error {
 					}
 				}
 			}
-		case fmt.Sprintf("%v.map", sys.cfg.Config.Language):
-			if lanMapArray {
+
+		case "map":
+			if (isLan && lanMapArray) || (!isLan && mapArray) {
+				if isLan {
+					lanMapArray = false
+				}
 				mapArray = false
-				lanMapArray = false
+
 				for key, value := range is {
 					c.mapDefault[key] = float32(Atof(value))
 				}
@@ -3684,7 +3657,7 @@ func (c *Char) load(def string) error {
 				if err != nil {
 					return err
 				}
-				lines, i = SplitAndTrim(str, "\n"), 0
+				lines, i := SplitAndTrim(str, "\n"), 0
 				is, _, _ := ReadIniSection(lines, &i)
 				for key, value := range is {
 					gi.constants[key] = float32(Atof(value))
@@ -3795,10 +3768,18 @@ func (c *Char) load(def string) error {
 			if err != nil {
 				return err
 			}
-			lines, i = SplitAndTrim(str, "\n"), 0
-			for i < len(lines) {
-				is, name, subname := ReadIniSection(lines, &i)
-				switch name {
+			lines, lnidx = SplitAndTrim(str, "\n"), 0
+			for lnidx < len(lines) {
+				is, name, subname := ReadIniSection(lines, &lnidx)
+				
+				// Normalize for the sake of the quotes section
+				isLan := strings.HasPrefix(name, langPrefix)
+				baseName := name
+				if isLan {
+					baseName = name[len(langPrefix):]
+				}
+
+				switch baseName {
 				case "data":
 					if data {
 						data = false
@@ -4002,19 +3983,11 @@ func (c *Char) load(def string) error {
 							&gi.movement.down.gethit.offset[1])
 					}
 				case "quotes":
-					if quotes {
-						quotes = false
-						for i := range gi.quotes {
-							if is[fmt.Sprintf("victory%v", i)] != "" {
-								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
-								gi.quotes[i] = decodeShiftJIS(victoryQuotes)
-							}
+					if (isLan && lanQuotes) || (!isLan && quotes) {
+						if isLan {
+							lanQuotes = false
 						}
-					}
-				case fmt.Sprintf("%v.quotes", sys.cfg.Config.Language):
-					if lanQuotes {
 						quotes = false
-						lanQuotes = false
 						for i := range gi.quotes {
 							if is[fmt.Sprintf("victory%v", i)] != "" {
 								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
@@ -4110,7 +4083,7 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
-	lines, i = SplitAndTrim(str, "\n"), 0
+	lines, i := SplitAndTrim(str, "\n"), 0
 	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
@@ -4344,73 +4317,62 @@ func (c *Char) loadFx(def string) error {
 		return pathInDefFile
 	}
 
-	lines, i := SplitAndTrim(charDefContent, "\n"), 0
+	lines, lnidx := SplitAndTrim(charDefContent, "\n"), 0
 	info, files, lanInfo, lanFiles := true, true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 
-	for i < len(lines) {
-		isec, name, _ := ReadIniSection(lines, &i)
-		switch name {
+	for lnidx < len(lines) {
+		isec, name, _ := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
 				fightfxPrefixName, _, _ := isec.getText("fightfx.prefix")
 				gi.fightfxPrefix = strings.ToLower(fightfxPrefixName)
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				fightfxPrefixName, _, _ := isec.getText("fightfx.prefix")
-				gi.fightfxPrefix = strings.ToLower(fightfxPrefixName)
-			}
+
 		case "files":
-			if files {
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
+
 				if fx_paths_str, ok := isec["fx"]; ok {
 					for _, fx_path := range strings.Split(fx_paths_str, ",") {
 						fx_path = strings.TrimSpace(fx_path)
 						if fx_path == "" {
 							continue
 						}
+						
 						resolved_path := resolvePathRelativeToDef(fx_path)
+						found_path := ""
 
-						if found_path := FileExist(resolved_path); found_path != "" {
+						// Check direct existence, then search engine paths
+						if exists := FileExist(resolved_path); exists != "" {
+							found_path = exists
+						} else {
+							found_path = SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"})
+						}
+
+						if found_path != "" {
 							if err := loadFightFx(found_path, false, false); err != nil {
 								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path, def, err)
 							} else {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"}); found_path_fallback != "" {
-								if err := loadFightFx(found_path_fallback, false, false); err != nil {
-									sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path_fallback, def, err)
-								} else {
-									gi.fxPath = append(gi.fxPath, found_path_fallback)
-								}
-							} else {
-								sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
-							}
-						}
-					}
-				}
-			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
-				files = false
-				lanFiles = false
-				if fx_paths_str, ok := isec["fx"]; ok {
-					for _, fx_path := range strings.Split(fx_paths_str, ",") {
-						fx_path = strings.TrimSpace(fx_path)
-						if fx_path == "" {
-							continue
-						}
-						resolved_fx_path := resolvePathRelativeToDef(fx_path)
-						if resolved_fx_path != "" {
-							if err := loadFightFx(resolved_fx_path, false, false); err != nil {
-								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", resolved_fx_path, def, err)
-							} else {
-								gi.fxPath = append(gi.fxPath, resolved_fx_path)
-							}
+							sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
 						}
 					}
 				}

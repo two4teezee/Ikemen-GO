@@ -771,7 +771,7 @@ func sliceMove[T any](array []T, srcIndex int, dstIndex int) []T {
 }
 
 // We save an array for precise checking, and a float for triggers
-func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
+func ParseIkemenVersion(versionStr string) ([3]uint16, float32) {
 	var ver [3]uint16
 	parts := SplitAndTrim(versionStr, ".")
 	for i, s := range parts {
@@ -801,7 +801,7 @@ func parseIkemenVersion(versionStr string) ([3]uint16, float32) {
 	return ver, verF
 }
 
-func parseMugenVersion(versionStr string) ([2]uint16, float32) {
+func ParseMugenVersion(versionStr string) ([2]uint16, float32) {
 	var ver [2]uint16
 	var verF float32
 

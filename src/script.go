@@ -2501,7 +2501,8 @@ func systemScriptInit(l *lua.LState) {
 		if err != nil {
 			return 0
 		}
-		lines, i, info, files, name, sound := SplitAndTrim(str, "\n"), 0, true, true, "", ""
+		lines, i := SplitAndTrim(str, "\n"), 0
+		info, files, name, sound := true, true, "", ""
 		for i < len(lines) {
 			var is IniSection
 			is, name, _ = ReadIniSection(lines, &i)

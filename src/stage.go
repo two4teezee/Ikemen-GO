@@ -1072,7 +1072,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 				}
 			}
 			if ac >= MaxAttachedChar {
-				sys.appendToConsole(fmt.Sprintf("Warning: You can only define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
+				sys.appendToConsole(s.warn() + fmt.Sprintf("Can only define up to %d attachedchar(s). '%s' ignored.", MaxAttachedChar, i))
 				continue
 			}
 			if err := sec.LoadFile(i, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -1267,7 +1267,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		// Camera group warnings
 		// Warn when camera boundaries are smaller than player boundaries
 		if int32(s.leftbound) > s.stageCamera.boundleft || int32(s.rightbound) < s.stageCamera.boundright {
-			sys.appendToConsole("Warning: Stage player boundaries defined incorrectly")
+			sys.appendToConsole(s.warn() + "Player boundaries defined incorrectly")
 		}
 	}
 
@@ -1410,7 +1410,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 		sec.ReadF32("ydelta", &s.sdw.ydelta)
 		// Shadow group warnings
 		if s.sdw.fadeend > s.sdw.fadebgn {
-			sys.appendToConsole("Warning: Stage shadow fade.range defined incorrectly")
+			sys.appendToConsole(s.warn() + "Shadow fade.range defined incorrectly")
 		}
 	}
 
@@ -1976,6 +1976,10 @@ func (s *Stage) destroy() {
 			b.video.Close()
 		}
 	}
+}
+
+func (s *Stage) warn() string {
+	return fmt.Sprintf("%v: WARNING: Stage %v: ", sys.tickCount, s.name)
 }
 
 func (s *Stage) modifyBGCtrl(id int32, t, v [3]int32, x, y float32, src, dst [2]int32,

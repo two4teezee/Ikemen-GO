@@ -5155,9 +5155,17 @@ func (l *Loader) loadStage() bool {
 		sys.stageList = make(map[int32]*Stage)
 		sys.stageLoop = false
 		sys.stageList[0], l.err = loadStage(def, true)
+
+		// Add the stage's name to the error stack
+		if l.err != nil {
+			l.err = fmt.Errorf("\nError loading %v: %v", def, l.err)
+			return false 
+		}
+
 		sys.stage = sys.stageList[0]
 		tstr = fmt.Sprintf("New stage loaded: %v", def)
 	}
+
 	return l.err == nil
 }
 

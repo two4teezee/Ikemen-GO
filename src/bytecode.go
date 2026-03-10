@@ -11294,13 +11294,17 @@ func (sc guardPointsSet) Run(c *Char, _ []int32) bool {
 type lifebarAction StateControllerBase
 
 const (
-	lifebarAction_top byte = iota
+	lifebarAction_top byte = iota + palFX_last + 1
 	lifebarAction_time
 	lifebarAction_timemul
 	lifebarAction_anim
 	lifebarAction_spr
 	lifebarAction_snd
 	lifebarAction_text
+	lifebarAction_fontno
+	lifebarAction_fontbank
+	lifebarAction_fontalign
+	lifebarAction_fontcolor
 	lifebarAction_redirectid
 )
 
@@ -11309,10 +11313,15 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
-
 	var top bool
 	var text string
 	var timemul float32 = 1
+	var fontno int32 = -1
+	var fontbank int32 = -1
+	var fontalign int32 = IErr
+	fontcolor := [4]int32{255, 255, 255, 255}
+	var colorSet bool
+	var palfx *PalFX
 	var time, anim int32 = -1, -1
 	s_ffx, a_ffx := "", ""
 	spr := [2]int32{-1, 0}
@@ -11342,10 +11351,104 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 			}
 		case lifebarAction_text:
 			text = string(*(*[]byte)(unsafe.Pointer(&exp[0])))
-		}
-		return true
-	})
-	crun.appendLifebarAction(text, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
+		case lifebarAction_fontno:
+			fontno = exp[0].evalI(c)
+		case lifebarAction_fontbank:
+			fontbank = exp[0].evalI(c)
+		case lifebarAction_fontalign:
+			fontalign = exp[0].evalI(c)
+		case lifebarAction_fontcolor:
+			fontcolor[0] = exp[0].evalI(c)
+			if len(exp) > 1 {
+				fontcolor[1] = exp[1].evalI(c)
+				if len(exp) > 2 {
+					fontcolor[2] = exp[2].evalI(c)
+					if len(exp) > 3 {
+						fontcolor[3] = exp[3].evalI(c)
+					}
+				}
+			}
+			colorSet = true
+		case lifebarAction_redirectid:
+			return true
+		default:
+			if palfx == nil {
+				palfx = newPalFX()
+				palfx.clear()
+				palfx.time = -1
+			}
+			switch paramID {
+			case palFX_time:
+				palfx.time = exp[0].evalI(c)
+			case palFX_color:
+				palfx.color = exp[0].evalF(c) / 256
+			case palFX_hue:
+				palfx.hue = exp[0].evalF(c) / 256
+			case palFX_add:
+				palfx.add[0] = exp[0].evalI(c)
+				palfx.add[1] = exp[1].evalI(c)
+				palfx.add[2] = exp[2].evalI(c)
+			case palFX_mul:
+				palfx.mul[0] = exp[0].evalI(c)
+				palfx.mul[1] = exp[1].evalI(c)
+				palfx.mul[2] = exp[2].evalI(c)
+			case palFX_sinadd:
+				var side int32 = 1
+				if len(exp) > 3 {
+					if exp[3].evalI(c) < 0 {
+						palfx.cycletime[0] = -exp[3].evalI(c)
+						side = -1
+					} else {
+						palfx.cycletime[0] = exp[3].evalI(c)
+					}
+				}
+				palfx.sinadd[0] = exp[0].evalI(c) * side
+				palfx.sinadd[1] = exp[1].evalI(c) * side
+				palfx.sinadd[2] = exp[2].evalI(c) * side
+			case palFX_sinmul:
+				var side int32 = 1
+				if len(exp) > 3 {
+					if exp[3].evalI(c) < 0 {
+						palfx.cycletime[1] = -exp[3].evalI(c)
+						side = -1
+					} else {
+						palfx.cycletime[1] = exp[3].evalI(c)
+					}
+				}
+				palfx.sinmul[0] = exp[0].evalI(c) * side
+				palfx.sinmul[1] = exp[1].evalI(c) * side
+				palfx.sinmul[2] = exp[2].evalI(c) * side
+			case palFX_sincolor:
+				var side int32 = 1
+				if len(exp) > 1 {
+					if exp[1].evalI(c) < 0 {
+						palfx.cycletime[2] = -exp[1].evalI(c)
+						side = -1
+					} else {
+						palfx.cycletime[2] = exp[1].evalI(c)
+					}
+				}
+				palfx.sincolor = exp[0].evalI(c) * side
+			case palFX_sinhue:
+				var side int32 = 1
+				if len(exp) > 1 {
+					if exp[1].evalI(c) < 0 {
+						palfx.cycletime[3] = -exp[1].evalI(c)
+						side = -1
+					} else {
+						palfx.cycletime[3] = exp[1].evalI(c)
+					}
+				}
+				palfx.sinhue = exp[0].evalI(c) * side
+			case palFX_invertall:
+				palfx.invertall = exp[0].evalB(c)
+			case palFX_invertblend:
+				palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
+			}
+ 		}
+ 		return true
+ 	})
+	crun.appendLifebarAction(text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
 	return false
 }
 

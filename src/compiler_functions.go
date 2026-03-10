@@ -4672,6 +4672,25 @@ func (c *Compiler) lifebarAction(is IniSection, sc *StateControllerBase, _ int8)
 		}); err != nil {
 			return err
 		}
+		if err := c.paramValue(is, sc, "font.no",
+			lifebarAction_fontno, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "font.bank",
+			lifebarAction_fontbank, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "font.align",
+			lifebarAction_fontalign, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.palFXSub(is, sc, "palfx."); err != nil {
+			return err
+		}
+		if err := c.paramValue(is, sc, "font.color",
+			lifebarAction_fontcolor, VT_Int, 4, false); err != nil {
+			return err
+		}
 		return nil
 	})
 	return *ret, err

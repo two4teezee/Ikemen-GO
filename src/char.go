@@ -9100,7 +9100,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	return BytecodeFloat(Value)
 }
 
-func (c *Char) appendLifebarAction(text, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
+func (c *Char) appendLifebarAction(text string, fontno, fontbank, fontalign int32, fontcolor [4]int32, colorSet bool, palfx *PalFX, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
 	if c.teamside == -1 {
 		return
 	}
@@ -9168,7 +9168,7 @@ func (c *Char) appendLifebarAction(text, s_ffx, a_ffx string, snd, spr [2]int32,
 	}
 
 	// Prepare contents of new message
-	msg := newLbMsg(text, int32(float32(time)*timemul), c.teamside)
+	msg := newLbMsg(text, int32(float32(time)*timemul), c.teamside, fontno, fontbank, fontalign, fontcolor, colorSet, palfx)
 	delete(teammsg.is, fmt.Sprintf("team%v.front.anim", c.teamside+1))
 	delete(teammsg.is, fmt.Sprintf("team%v.front.spr", c.teamside+1))
 

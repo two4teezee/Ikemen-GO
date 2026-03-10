@@ -3563,7 +3563,7 @@ end
 --;===========================================================
 --; VERSUS SCREEN / ORDER SELECTION
 --;===========================================================
-local function orderSkipPressed(done)
+local function orderSkipPressed(done, t_orderSelect)
 	local p1Skip = not main.cpuSide[1] and getInput(1, motif.vs_screen.skip.key)
 	local p2Skip = not main.cpuSide[2] and getInput(2, motif.vs_screen.skip.key)
 	-- While order selection is still active, require both human sides to skip.
@@ -3786,7 +3786,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			if not fadeOutStarted and (
 				-- Wait for order select to finish before vs_screen.time can end the screen.
 				(counter >= motif.vs_screen.time and (not (t_orderSelect[1] or t_orderSelect[2]) or done))
-				or orderSkipPressed(done)
+				or orderSkipPressed(done, t_orderSelect)
 				or (done and getInput(side, motif.vs_screen.done.key))
 				) then
 				main.f_fadeReset('fadeout', motif.vs_screen)

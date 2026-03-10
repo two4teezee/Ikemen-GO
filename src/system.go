@@ -5057,18 +5057,6 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Calculate portrait scale
 		fa.teammate_scale[i] = sc.portraitscale * 320 / float32(sc.localcoord[0])
 
-		// Check if palettes are already loaded
-		// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
-		palIdx := sys.sel.selected[pn&1][i][1]
-		_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
-		_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
-
-		// Only load palettes if necessary
-		if !hasTarget || !has11 {
-			loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
-		}
-
 		// Get the sprite from the teammate's SFF
 		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
 		if origSpr == nil {
@@ -5078,32 +5066,47 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Create an independent clone of the sprite to avoid mutating the SFF
 		spr := *origSpr
 
-		// Check if the sprite uses or shares palette 1, 1
-		usesPal11 := false
-		if spr.coldepth <= 8 {
-			pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
-			if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
-				if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
-					usesPal11 = true
+		// Run palette replacement if applicable
+		if fa.teammate_face_palshare {
+			// Check if palettes are already loaded
+			// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
+			palIdx := sys.sel.selected[pn&1][i][1]
+			_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
+			_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+
+			// Only load palettes if necessary
+			if !hasTarget || !has11 {
+				loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
+			}
+
+			// Check if the sprite uses or shares palette 1, 1
+			usesPal11 := false
+			if spr.coldepth <= 8 {
+				pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+				if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
+					if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
+						usesPal11 = true
+					}
 				}
 			}
-		}
 
-		// Apply selected color only if the sprite shares the base palette
-		if usesPal11 {
-			// Pull selected palette index (1-based)
-			targetPal := sc.sff.palList.Get(int(palIdx) - 1)
-			if targetPal != nil {
-				// Decouple clone from global SFF palettes
-				spr.Pal = make([]uint32, len(targetPal))
-				copy(spr.Pal, targetPal)
+			// Apply selected color only if the sprite shares the base palette
+			if usesPal11 {
+				// Pull selected palette index (1-based)
+				targetPal := sc.sff.palList.Get(int(palIdx) - 1)
+				if targetPal != nil {
+					// Decouple clone from global SFF palettes
+					spr.Pal = make([]uint32, len(targetPal))
+					copy(spr.Pal, targetPal)
 
-				spr.paltemp = make([]uint32, len(targetPal))
-				copy(spr.paltemp, targetPal)
+					spr.paltemp = make([]uint32, len(targetPal))
+					copy(spr.paltemp, targetPal)
 
-				// Force lazy loading for unique recolored texture
-				spr.PalTex = nil
-				spr.palidx = -1
+					// Force lazy loading for unique recolored texture
+					spr.PalTex = nil
+					spr.palidx = -1
+				}
 			}
 		}
 

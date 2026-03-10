@@ -1659,8 +1659,8 @@ type LifeBarFace struct {
 	face_spr          [2]int32
 	face              *Sprite
 	face_lay          Layout
-	palshare          bool
-	palfxshare        bool
+	face_palshare          bool
+	face_palfxshare        bool
 	teammate_pos      [2]int32
 	teammate_spacing  [2]int32
 	teammate_bg       AnimLayout
@@ -1674,6 +1674,7 @@ type LifeBarFace struct {
 	teammate_face_lay Layout
 	teammate_scale    []float32
 	teammate_ko_hide  bool
+	teammate_face_palshare bool
 	numko             int32
 	old_spr           [2]int32
 	old_pal           [2]int32
@@ -1685,8 +1686,9 @@ func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{
 		face_spr:          [2]int32{-1},
 		teammate_face_spr: [2]int32{-1},
-		palshare:          true,
+		face_palshare:          true,
 		face_pfx:          newPalFX(),
+		teammate_face_palshare: true,
 		teammate_face_pfx: nil, // Allocated later
 	}
 }
@@ -1704,8 +1706,8 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 
 	is.ReadI32(pre+"face.spr", &fa.face_spr[0], &fa.face_spr[1])
 	fa.face_lay = *ReadLayout(pre+"face.", is, 0)
-	is.ReadBool(pre+"face.palshare", &fa.palshare)
-	is.ReadBool(pre+"face.palfxshare", &fa.palfxshare)
+	is.ReadBool(pre+"face.palshare", &fa.face_palshare)
+	is.ReadBool(pre+"face.palfxshare", &fa.face_palfxshare)
 
 	// Teammates
 	is.ReadI32(pre+"teammate.pos", &fa.teammate_pos[0], &fa.teammate_pos[1])
@@ -1724,6 +1726,7 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 	}
 	fa.teammate_face_lay = *ReadLayout(pre+"teammate.face.", is, 0)
 	is.ReadBool(pre+"teammate.ko.hide", &fa.teammate_ko_hide)
+	is.ReadBool(pre+"teammate.face.palshare", &fa.teammate_face_palshare)
 
 	return fa
 }
@@ -1794,7 +1797,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 		// Get player current PalFX if applicable
 		// These flags should check "fa" instead of "refFace"
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
-		if fa.palfxshare {
+		if fa.face_palfxshare {
 			*fa.face_pfx = *refChar.getPalfx()
 		}
 
@@ -1802,7 +1805,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 		if refFace.face.coldepth <= 8 {
 			// Check the player's current palette
 			palIdx := refFace.face.palidx
-			if fa.palshare {
+			if fa.face_palshare {
 				remap := refChar.getPalfx().remap
 				if int(palIdx) < len(remap) {
 					palIdx = remap[palIdx]

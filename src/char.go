@@ -3414,22 +3414,34 @@ func (c *Char) ocd() *OverrideCharData {
 
 func (c *Char) load(def string) error {
 	gi := &sys.cgi[c.playerNo]
-	gi.def, gi.displayname, gi.lifebarname, gi.author = def, "", "", ""
-	gi.sff, gi.palettedata, gi.snd, gi.quotes = nil, nil, nil, [MaxQuotes]string{}
+
+	// Keep SFF if debug option is enabled and we're loading the same character in the same player number
+	keepsff := sys.cfg.Debug.KeepSpritesOnReload && def == gi.def
+	if !keepsff {
+		gi.sff = nil
+	}
+
+	// Reset global info
+	gi.def = def
+	gi.displayname, gi.lifebarname, gi.author = "", "", ""
+	gi.palettedata, gi.snd, gi.quotes = nil, nil, [MaxQuotes]string{}
 	gi.animTable = NewAnimationTable()
 	gi.fnt = make(map[int]*Fnt)
+	gi.portraitscale = 1
+
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
 		pal := gi.palInfo[i]
 		pal.keyMap = int32(i)
 		gi.palInfo[i] = pal
 	}
+
+	// Reset DEF file maps
 	c.mapDefault = make(map[string]float32)
 
-	// Defaults
+	// Default localcoord
 	gi.localcoord = [2]int32{320, 240}
 	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
 	c.localscl = 320 / c.localcoord
-	gi.portraitscale = 1
 
 	// Helper to resolve paths relative to the .def file's logical location
 	resolvePathRelativeToDef := func(pathInDefFile string) string {

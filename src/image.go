@@ -10,7 +10,6 @@ import (
 	"math"
 	"os"
 	"regexp"
-	"runtime"
 	"strings"
 	"unsafe"
 )
@@ -1530,7 +1529,7 @@ type Sff struct {
 	header   SffHeader
 	sprites  map[[2]uint16]*Sprite
 	palList  PaletteList
-	filename string // This is the sffCache key
+	filename string
 }
 
 func newSff() (s *Sff) {
@@ -1543,6 +1542,7 @@ func newSff() (s *Sff) {
 	return
 }
 
+/*
 // A simple SFF cache storing shallow copies
 type SffCacheEntry struct {
 	sffData  Sff
@@ -1556,14 +1556,37 @@ func removeSFFCache(filename string) {
 		delete(SffCache, filename)
 	}
 }
+*/
+
+// Find an already loaded SFF we can borrow. Replaces SFF caching
+func findActiveSff(filename string) *Sff {
+	// Scan characters
+	for i := range sys.cgi {
+		if sys.cgi[i].sff != nil && sys.cgi[i].sff.filename == filename {
+			return sys.cgi[i].sff
+		}
+	}
+
+	// Scan stage
+	if sys.stage != nil && sys.stage.sff != nil && sys.stage.sff.filename == filename {
+		return sys.stage.sff
+	}
+
+	// Scan common FX
+	for _, ffx := range sys.ffx {
+		if ffx != nil && ffx.sff != nil && ffx.sff.filename == filename {
+			return ffx.sff
+		}
+	}
+
+	return nil
+}
 
 // Loads the full SFF file
 func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff, error) {
-	// If this SFF is already in the cache, just return a copy
-	if cached, ok := SffCache[filename]; ok {
-		cached.refCount++
-		s := cached.sffData
-		return &s, nil
+	// Borrow an existing SFF if possible
+	if s := findActiveSff(filename); s != nil {
+		return s, nil
 	}
 
 	s := newSff()
@@ -1574,7 +1597,9 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 		return nil, err
 	}
 
-	defer func() { chk(f.Close()) }()
+	defer func() {
+		chk(f.Close())
+	}()
 
 	var lofs, tofs uint32
 	if err := s.header.Read(f, &lofs, &tofs); err != nil {
@@ -1698,6 +1723,8 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			sys.runMainThreadTask()
 		}
 	}
+
+	/*
 	SffCache[filename] = &SffCacheEntry{*s, 1}
 	runtime.SetFinalizer(s, func(s *Sff) {
 		if cached, ok := SffCache[filename]; ok {
@@ -1707,6 +1734,8 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			}
 		}
 	})
+	*/
+
 	return s, nil
 }
 

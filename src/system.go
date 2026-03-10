@@ -4918,8 +4918,6 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	p := newChar(pn, 0)
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
-	sys.cgi[pn].sff = nil
-	sys.cgi[pn].palettedata = nil
 	if len(sys.chars[pn]) > 0 {
 		p.power = sys.chars[pn][0].power
 		p.guardPoints = sys.chars[pn][0].guardPoints
@@ -5178,6 +5176,9 @@ func (l *Loader) load() {
 	// Update lifebar scale
 	sys.lifebar.setLifebarScale()
 	//sys.motif.setMotifScale()
+
+	/*
+	// This should now be handled by loadSff()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {
@@ -5192,6 +5193,7 @@ func (l *Loader) load() {
 		}
 	}
 	sys.loadMutex.Unlock()
+	*/
 
 	charDone, stageDone := make([]bool, len(sys.chars)), false
 

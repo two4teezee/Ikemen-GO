@@ -2344,16 +2344,16 @@ func systemScriptInit(l *lua.LState) {
 					// Match is restarting
 					for i, b := range sys.reloadCharSlot {
 						if b {
-							if !sys.cfg.Debug.KeepSpritesOnReload {
-								if s := sys.cgi[i].sff; s != nil {
-									removeSFFCache(s.filename)
-								}
-							}
+							//if !sys.cfg.Debug.KeepSpritesOnReload {
+							//	if s := sys.cgi[i].sff; s != nil {
+							//		removeSFFCache(s.filename)
+							//	}
+							//}
 							if sys.reloadPreserveVars[i] {
 								sys.saveCharVars(i)
 							}
 							sys.chars[i] = []*Char{}
-							b = false
+							sys.reloadCharSlot[i] = false
 						}
 					}
 					if sys.reloadStageFlg {
@@ -4536,10 +4536,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
-		removeSFFCache(strArg(l, 1))
-		return 0
-	})
+	//luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
+	//	removeSFFCache(strArg(l, 1))
+	//	return 0
+	//})
 	luaRegister(l, "modelNew", func(l *lua.LState) int {
 		if !nilArg(l, 1) {
 			mdl, err := loadglTFModel(strArg(l, 1))

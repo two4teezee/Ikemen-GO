@@ -745,17 +745,44 @@ func (s *Sound) GetStreamer() beep.StreamSeeker {
 type Snd struct {
 	table     map[[2]int32]*Sound
 	ver, ver2 uint16
+	filename  string
 }
 
 func newSnd() *Snd {
 	return &Snd{table: make(map[[2]int32]*Sound)}
 }
 
+// Try to reuse a sound file if it's already loaded somewhere else
+// This doesn't impact loading times as much as SFF, but it saves memory without any work
+func findActiveSnd(filename string) *Snd {
+	// Check characters
+	for i := range sys.cgi {
+		if sys.cgi[i].snd != nil && sys.cgi[i].snd.filename == filename {
+			return sys.cgi[i].snd
+		}
+	}
+
+	// Check common FX
+	for _, ffx := range sys.ffx {
+		if ffx != nil && ffx.snd != nil && ffx.snd.filename == filename {
+			return ffx.snd
+		}
+	}
+
+	return nil
+}
+
 func LoadSnd(filename string) (*Snd, error) {
+	if s := findActiveSnd(filename); s != nil {
+		return s, nil
+	}
+
 	s, err := LoadSndFiltered(filename, func(gn [2]int32) bool { return gn[0] >= 0 && gn[1] >= 0 }, 0)
 	if err != nil {
 		return nil, Error(fmt.Sprintf("LoadSnd failed: %v\n%v", filename, err))
 	}
+
+	s.filename = filename
 	return s, nil
 }
 

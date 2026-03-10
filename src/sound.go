@@ -51,13 +51,19 @@ func (n *Normalizer) Stream(samples [][2]float64) (s int, ok bool) {
 		return 0, false
 	}
 	s, ok = n.streamer.Stream(samples)
+	wavVolumeMul := 0.5 * (float64(sys.cfg.Sound.WavVolume) * float64(sys.cfg.Sound.MasterVolume) * 0.0001)
 	for i := range samples[:s] {
-		lmul := n.l.process(n.mul, &samples[i][0])
-		rmul := n.r.process(n.mul, &samples[i][1])
 		if sys.cfg.Sound.AudioDucking {
+			lmul := n.l.process(n.mul, &samples[i][0])
+			rmul := n.r.process(n.mul, &samples[i][1])
+			// AudioDucking controls the adaptive gain only. User-configured WAV/master volume must still be applied.
+			samples[i][0] *= wavVolumeMul
+			samples[i][1] *= wavVolumeMul
 			n.mul = math.Min(16.0, math.Min(lmul, rmul))
 		} else {
-			n.mul = 0.5 * (float64(sys.cfg.Sound.WavVolume) * float64(sys.cfg.Sound.MasterVolume) * 0.0001)
+			// Apply the configured WAV/master volume directly through the normalizer path.
+			n.l.process(wavVolumeMul, &samples[i][0])
+			n.r.process(wavVolumeMul, &samples[i][1])
 		}
 	}
 	return s, ok

@@ -2524,20 +2524,32 @@ func (co *LifeBarCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 }
 
 type LbMsg struct {
-	resttime int32
-	agetimer int32
-	counterX float32
-	text     string
-	bg       AnimLayout
-	front    AnimLayout
-	del      bool
+	resttime     int32
+ 	agetimer     int32
+ 	counterX     float32
+ 	text         string
+ 	fontNo       int32
+ 	fontBank     int32
+ 	fontAlign    int32
+	fontColor    [4]int32
+	fontColorSet bool
+	palfx        *PalFX
+	bg           AnimLayout
+	front        AnimLayout
+	del          bool
 }
 
-func newLbMsg(text string, time int32, side int) *LbMsg {
+func newLbMsg(text string, time int32, side int, fontNo, fontBank, fontAlign int32, fontColor [4]int32, fontColorSet bool, palfx *PalFX) *LbMsg {
 	return &LbMsg{
-		resttime: time,
-		counterX: sys.lifebar.ac[side].start_x * 2,
-		text:     text,
+		resttime:     time,
+		counterX:     sys.lifebar.ac[side].start_x * 2,
+		text:         text,
+		fontNo:       fontNo,
+ 		fontBank:     fontBank,
+		fontAlign:    fontAlign,
+		fontColor:    fontColor,
+		fontColorSet: fontColorSet,
+		palfx:        palfx,
 	}
 }
 
@@ -2627,6 +2639,9 @@ func (ac *LifeBarAction) step(leader int) {
 	for _, v := range ac.messages {
 		v.bg.Action()
 		v.front.Action()
+		if v.palfx != nil {
+			v.palfx.step()
+		}
 		if v.resttime > 0 {
 			v.counterX -= v.counterX / ac.showspeed
 		} else {
@@ -2682,11 +2697,53 @@ func (ac *LifeBarAction) draw(layerno int16, f map[int]*Fnt, side int) {
 				layerno, sys.lifebar.scale)
 		}
 		// Draw text
-		if v.text != "" && ac.text.font[0] >= 0 && getFont(f, ac.text.font[0]) != nil {
-			ac.text.lay.DrawText(x+sys.lifebar.offsetX+float32(k)*float32(ac.spacing[0]),
-				float32(ac.pos[1])+float32(k)*float32(ac.spacing[1]),
-				sys.lifebar.scale, layerno, v.text, getFont(f, ac.text.font[0]), ac.text.font[1], ac.text.font[2],
-				ac.text.palfx, ac.text.frgba)
+		if v.text != "" && ac.text.font[0] >= 0 {
+			fontno := ac.text.font[0]
+			if v.fontNo >= 0 {
+				fontno = v.fontNo
+			}
+
+			ff := getFont(f, fontno)
+			if ff != nil {
+				bank := ac.text.font[1]
+				if v.fontBank >= 0 {
+					bank = v.fontBank
+				}
+				align := ac.text.font[2]
+				if v.fontAlign != IErr {
+					align = v.fontAlign
+				}
+				palfx := ac.text.palfx
+
+				if v.palfx != nil {
+					palfx = v.palfx
+				}
+
+				frgba := ac.text.frgba
+				if v.fontColorSet {
+					r := Clamp(v.fontColor[0], 0, 255)
+					g := Clamp(v.fontColor[1], 0, 255)
+					b := Clamp(v.fontColor[2], 0, 255)
+					a := Clamp(v.fontColor[3], 0, 255)
+
+					frgba[0] = float32(r) / 255
+					frgba[1] = float32(g) / 255
+					frgba[2] = float32(b) / 255
+					frgba[3] = float32(a) / 255
+
+					pf := newPalFX()
+					if palfx != nil {
+						*pf = *palfx
+					}
+					pf.setColor(r, g, b)
+					palfx = pf
+				}
+
+				ac.text.lay.DrawText(x+sys.lifebar.offsetX+float32(k)*float32(ac.spacing[0]),
+					float32(ac.pos[1])+float32(k)*float32(ac.spacing[1]),
+					sys.lifebar.scale, layerno, v.text, ff, bank, align,
+					palfx, frgba)
+			}
 		}
 	}
 }

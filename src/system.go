@@ -4915,31 +4915,15 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	var p *Char
+	p := newChar(pn, 0)
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
-	// Reuse existing character or create a new one
-	if len(sys.chars[pn]) > 0 && cdef == sys.cgi[pn].def {
-		p = sys.chars[pn][0]
-		if !attached {
-			p.controller = pn
-			if sys.aiLevel[pn] != 0 {
-				p.controller ^= -1
-			}
-		}
-		p.clearCachedData()
-		if l.err = p.loadFx(cdef); l.err != nil {
-			sys.errLog.Printf("Error reloading FX for %s: %v", cdef, l.err)
-		}
-	} else {
-		p = newChar(pn, 0)
-		sys.cgi[pn].sff = nil
-		sys.cgi[pn].palettedata = nil
-		if len(sys.chars[pn]) > 0 {
-			p.power = sys.chars[pn][0].power
-			p.guardPoints = sys.chars[pn][0].guardPoints
-			p.dizzyPoints = sys.chars[pn][0].dizzyPoints
-		}
+	sys.cgi[pn].sff = nil
+	sys.cgi[pn].palettedata = nil
+	if len(sys.chars[pn]) > 0 {
+		p.power = sys.chars[pn][0].power
+		p.guardPoints = sys.chars[pn][0].guardPoints
+		p.dizzyPoints = sys.chars[pn][0].dizzyPoints
 	}
 
 	// Set new character parameters
@@ -4964,37 +4948,33 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.chars[pn] = make([]*Char, 1)
 	sys.chars[pn][0] = p
 
-	// Load new SFF if previous one was not cached
-	if sys.cgi[pn].sff == nil {
-		if l.err = p.load(cdef); l.err != nil {
-			sys.chars[pn] = nil
-			if attached {
-				tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
-			} else {
-				tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
-			}
-			return -1
-		}
-		if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
-			sys.chars[pn] = nil
-			if attached {
-				tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
-			} else {
-				tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
-			}
-			return -1
-		}
+	// Load character
+	if l.err = p.load(cdef); l.err != nil {
+		sys.chars[pn] = nil
 		if attached {
-			tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
+			tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
 		} else {
-			tstr = fmt.Sprintf("New char loaded: %v", cdef)
+			tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
 		}
+		return -1
+	}
+
+	// Compile character states
+	if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
+		sys.chars[pn] = nil
+		if attached {
+			tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+		}
+		return -1
+	}
+
+	// Prepare success message
+	if attached {
+		tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
 	} else {
-		if attached {
-			tstr = fmt.Sprintf("Cached attached char loaded: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("Cached char loaded: %v", cdef)
-		}
+		tstr = fmt.Sprintf("New char loaded: %v", cdef)
 	}
 
 	selectPalno := 1

@@ -3369,38 +3369,6 @@ func (c *Char) prepareNextRound() {
 	c.cpucmd = -1
 }
 
-// Clear data when loading a new instance of the same character
-func (c *Char) clearCachedData() {
-	c.anim = nil
-	c.animBackup = nil
-	c.curFrame = nil
-	c.hoverIdx = -1
-	c.mctype, c.mctime = MC_Hit, 0
-	c.counterHit = false
-	c.fallTime = 0
-	c.superDefenseMul = 1
-	c.superDefenseMulBuffer = 1
-	c.fallDefenseMul = 1
-	c.customDefense = 1
-	c.defenseMulDelay = false
-	c.ownpal = true
-	c.preserve = true // Just in case
-	c.animPN = -1
-	c.spritePN = -1
-	c.animNo = 0
-	c.prevAnimNo = 0
-	c.stchtmp = false
-	c.inguarddist = false
-	c.p1facing = 0
-	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
-	c.winquote = -1
-	c.mapArray = make(map[string]float32)
-	c.remapSpr = make(RemapPreset)
-	c.gi().attackBase = c.gi().data.attack
-	c.gi().defenceBase = c.gi().data.defence
-}
-
 // Return Char Global Info normally
 func (c *Char) gi() *CharGlobalInfo {
 	return &sys.cgi[c.playerNo]

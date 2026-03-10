@@ -3424,6 +3424,13 @@ func (c *Char) load(def string) error {
 		gi.palInfo[i] = pal
 	}
 	c.mapDefault = make(map[string]float32)
+
+	// Defaults
+	gi.localcoord = [2]int32{320, 240}
+	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
+	c.localscl = 320 / c.localcoord
+	gi.portraitscale = 1
+
 	// Helper to resolve paths relative to the .def file's logical location
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
 		isZipDef, zipArchiveOfDef, defSubPathInZip := IsZipPath(gi.def)
@@ -3448,9 +3455,11 @@ func (c *Char) load(def string) error {
 		}
 		return pathInDefFile
 	}
+
 	if err := c.loadFx(def); err != nil {
 		sys.errLog.Printf("Error loading FX for %s: %v", def, err)
 	}
+
 	str, err := LoadText(def)
 	if err != nil {
 		return err
@@ -3460,12 +3469,6 @@ func (c *Char) load(def string) error {
 	cns, sprite, anim, sound := "", "", "", ""
 	info, files, keymap, mapArray := true, true, true, true
 	lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true
-
-	// Defaults
-	gi.localcoord = [2]int32{320, 240}
-	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
-	c.localscl = 320 / c.localcoord
-	gi.portraitscale = 1
 
 	// Collect arbitrary number of fonts
 	type fontSpec struct {
@@ -3503,6 +3506,7 @@ func (c *Char) load(def string) error {
 
 	langPrefix := sys.cfg.Config.Language + "."
 
+	// Load DEF file
 	for lnidx < len(lines) {
 		is, name, subname := ReadIniSection(lines, &lnidx)
 
@@ -3598,26 +3602,10 @@ func (c *Char) load(def string) error {
 		}
 	}
 
-	gi.constants = make(map[string]float32)
+	// Set constants to defaults
+	c.initConstants()
 
-	// Init default values to ensure we have these maps
-	gi.constants["default.attack.lifetopowermul"] = 0.7
-	gi.constants["super.attack.lifetopowermul"] = 0
-	gi.constants["default.gethit.lifetopowermul"] = 0.6
-	gi.constants["super.gethit.lifetopowermul"] = 0.6
-	gi.constants["super.targetdefencemul"] = 1.5
-	gi.constants["default.lifetoguardpointsmul"] = 1.5
-	gi.constants["super.lifetoguardpointsmul"] = -0.33
-	gi.constants["default.lifetodizzypointsmul"] = 1.8
-	gi.constants["super.lifetodizzypointsmul"] = 0
-	gi.constants["default.lifetoredlifemul"] = 0.75
-	gi.constants["super.lifetoredlifemul"] = 0.75
-	gi.constants["default.legacygamedistancespec"] = 0
-	gi.constants["default.legacyfallyvelyaccel"] = 0
-	//gi.constants["default.ignoredefeatedenemies"] = 0
-	gi.constants["input.pauseonhitpause"] = 1
-	gi.constants["input.fbflipenemydistance"] = -1
-
+	// Load common constants
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
 			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
@@ -3637,98 +3625,11 @@ func (c *Char) load(def string) error {
 		}
 	}
 
-	// Init constants
-	// Correct engine default values to character's own localcoord
-	gi.data.init()
-	c.size.init()
-	gi.attackBase = 100
-	gi.defenceBase = 100
-
-	coordRatio := float32(c.gi().localcoord[0]) / 320
-
-	if coordRatio != 1 {
-		for i := 0; i < 4; i++ {
-			c.size.standbox[i] *= coordRatio
-			c.size.crouchbox[i] *= coordRatio
-			c.size.airbox[i] *= coordRatio
-			c.size.downbox[i] *= coordRatio
-		}
-		c.size.attack.dist.width[0] *= coordRatio
-		c.size.attack.dist.width[1] *= coordRatio
-		c.size.attack.dist.height[0] *= coordRatio
-		c.size.attack.dist.height[1] *= coordRatio
-		c.size.attack.dist.depth[0] *= coordRatio
-		c.size.attack.dist.depth[1] *= coordRatio
-		c.size.proj.attack.dist.width[0] *= coordRatio
-		c.size.proj.attack.dist.width[1] *= coordRatio
-		c.size.proj.attack.dist.height[0] *= coordRatio
-		c.size.proj.attack.dist.height[1] *= coordRatio
-		c.size.proj.attack.dist.depth[0] *= coordRatio
-		c.size.proj.attack.dist.depth[1] *= coordRatio
-		c.size.head.pos[0] *= coordRatio
-		c.size.head.pos[1] *= coordRatio
-		c.size.mid.pos[0] *= coordRatio
-		c.size.mid.pos[1] *= coordRatio
-		c.size.shadowoffset *= coordRatio
-		c.size.draw.offset[0] *= coordRatio
-		c.size.draw.offset[1] *= coordRatio
-		c.size.depth[0] *= coordRatio
-		c.size.depth[1] *= coordRatio
-		c.size.attack.depth[0] *= coordRatio
-		c.size.attack.depth[1] *= coordRatio
-	}
-
-	gi.velocity.init()
-
-	if coordRatio != 1 {
-		gi.velocity.air.gethit.groundrecover[0] *= coordRatio
-		gi.velocity.air.gethit.groundrecover[1] *= coordRatio
-		gi.velocity.air.gethit.airrecover.add[0] *= coordRatio
-		gi.velocity.air.gethit.airrecover.add[1] *= coordRatio
-		gi.velocity.air.gethit.airrecover.back *= coordRatio
-		gi.velocity.air.gethit.airrecover.fwd *= coordRatio
-		gi.velocity.air.gethit.airrecover.up *= coordRatio
-		gi.velocity.air.gethit.airrecover.down *= coordRatio
-
-		gi.velocity.airjump.neu[0] *= coordRatio
-		gi.velocity.airjump.neu[1] *= coordRatio
-		gi.velocity.airjump.back *= coordRatio
-		gi.velocity.airjump.fwd *= coordRatio
-
-		gi.velocity.air.gethit.ko.add[0] *= coordRatio
-		gi.velocity.air.gethit.ko.add[1] *= coordRatio
-		gi.velocity.air.gethit.ko.ymin *= coordRatio
-		gi.velocity.ground.gethit.ko.add[0] *= coordRatio
-		gi.velocity.ground.gethit.ko.add[1] *= coordRatio
-		gi.velocity.ground.gethit.ko.ymin *= coordRatio
-	}
-
-	gi.movement.init()
-
-	if coordRatio != 1 {
-		gi.movement.airjump.height *= coordRatio
-		gi.movement.yaccel *= coordRatio
-		gi.movement.stand.friction_threshold *= coordRatio
-		gi.movement.crouch.friction_threshold *= coordRatio
-		gi.movement.air.gethit.groundlevel *= coordRatio
-		gi.movement.air.gethit.groundrecover.ground.threshold *= coordRatio
-		gi.movement.air.gethit.groundrecover.groundlevel *= coordRatio
-		gi.movement.air.gethit.airrecover.threshold *= coordRatio
-		gi.movement.air.gethit.airrecover.yaccel *= coordRatio
-		gi.movement.air.gethit.trip.groundlevel *= coordRatio
-		gi.movement.down.bounce.offset[0] *= coordRatio
-		gi.movement.down.bounce.offset[1] *= coordRatio
-		gi.movement.down.bounce.yaccel *= coordRatio
-		gi.movement.down.bounce.groundlevel *= coordRatio
-		gi.movement.down.gethit.offset[0] *= coordRatio
-		gi.movement.down.gethit.offset[1] *= coordRatio
-		gi.movement.down.friction_threshold *= coordRatio
-	}
-
 	gi.remapPreset = make(map[string]RemapPreset)
 
 	data, size, velocity, movement, quotes, lanQuotes, constants := true, true, true, true, true, true, true
 
+	// Load constants
 	if len(cns) > 0 {
 		cns_resolved := resolvePathRelativeToDef(cns)
 		if err := LoadFile(&cns_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -3997,6 +3898,7 @@ func (c *Char) load(def string) error {
 		}
 	}
 
+	// Load SFF
 	if len(sprite) > 0 {
 		sprite_resolved := resolvePathRelativeToDef(sprite)
 		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -4009,6 +3911,8 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.sff = newSff()
 	}
+
+	// Load palettes
 	gi.palettedata = newPaldata()
 	gi.palettedata.palList = PaletteList{
 		palettes:   append([][]uint32{}, gi.sff.palList.palettes...),
@@ -4023,6 +3927,8 @@ func (c *Char) load(def string) error {
 	for key, value := range gi.sff.palList.numcols {
 		gi.palettedata.palList.numcols[key] = value
 	}
+
+	// Read animations
 	str = ""
 	if len(anim) > 0 {
 		anim_resolved := resolvePathRelativeToDef(anim)
@@ -4037,6 +3943,8 @@ func (c *Char) load(def string) error {
 			return err
 		}
 	}
+
+	// Append common animations
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
 			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
@@ -4051,8 +3959,12 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
+
+	// Load animations
 	lines, i := SplitAndTrim(str, "\n"), 0
 	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
+
+	// Load sounds
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
 		if LoadFile(&sound_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -4065,6 +3977,7 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.snd = newSnd()
 	}
+
 	// Load each declared font index into the font map.
 	for idx, spec := range fntSpecs {
 		if len(spec.path) == 0 {
@@ -7575,6 +7488,115 @@ func (c *Char) gethitAnimtype() Reaction {
 
 func (c *Char) isTargetBound() bool {
 	return c.ghv.idMatch(c.bindToId)
+}
+
+func (c *Char) initConstants() {
+	gi := c.gi()
+	gi.data.init()
+	gi.attackBase = 100
+	gi.defenceBase = 100
+
+	c.size.init()
+	gi.velocity.init()
+	gi.movement.init()
+
+	// Scale defaults to the character's own localcoord
+	coordRatio := float32(c.gi().localcoord[0]) / 320
+
+	if coordRatio != 1 {
+		// Size
+		for i := 0; i < 4; i++ {
+			c.size.standbox[i] *= coordRatio
+			c.size.crouchbox[i] *= coordRatio
+			c.size.airbox[i] *= coordRatio
+			c.size.downbox[i] *= coordRatio
+		}
+		c.size.attack.dist.width[0] *= coordRatio
+		c.size.attack.dist.width[1] *= coordRatio
+		c.size.attack.dist.height[0] *= coordRatio
+		c.size.attack.dist.height[1] *= coordRatio
+		c.size.attack.dist.depth[0] *= coordRatio
+		c.size.attack.dist.depth[1] *= coordRatio
+		c.size.proj.attack.dist.width[0] *= coordRatio
+		c.size.proj.attack.dist.width[1] *= coordRatio
+		c.size.proj.attack.dist.height[0] *= coordRatio
+		c.size.proj.attack.dist.height[1] *= coordRatio
+		c.size.proj.attack.dist.depth[0] *= coordRatio
+		c.size.proj.attack.dist.depth[1] *= coordRatio
+		c.size.head.pos[0] *= coordRatio
+		c.size.head.pos[1] *= coordRatio
+		c.size.mid.pos[0] *= coordRatio
+		c.size.mid.pos[1] *= coordRatio
+		c.size.shadowoffset *= coordRatio
+		c.size.draw.offset[0] *= coordRatio
+		c.size.draw.offset[1] *= coordRatio
+		c.size.depth[0] *= coordRatio
+		c.size.depth[1] *= coordRatio
+		c.size.attack.depth[0] *= coordRatio
+		c.size.attack.depth[1] *= coordRatio
+
+		// Velocity
+		gi.velocity.air.gethit.groundrecover[0] *= coordRatio
+		gi.velocity.air.gethit.groundrecover[1] *= coordRatio
+		gi.velocity.air.gethit.airrecover.add[0] *= coordRatio
+		gi.velocity.air.gethit.airrecover.add[1] *= coordRatio
+		gi.velocity.air.gethit.airrecover.back *= coordRatio
+		gi.velocity.air.gethit.airrecover.fwd *= coordRatio
+		gi.velocity.air.gethit.airrecover.up *= coordRatio
+		gi.velocity.air.gethit.airrecover.down *= coordRatio
+
+		gi.velocity.airjump.neu[0] *= coordRatio
+		gi.velocity.airjump.neu[1] *= coordRatio
+		gi.velocity.airjump.back *= coordRatio
+		gi.velocity.airjump.fwd *= coordRatio
+
+		gi.velocity.air.gethit.ko.add[0] *= coordRatio
+		gi.velocity.air.gethit.ko.add[1] *= coordRatio
+		gi.velocity.air.gethit.ko.ymin *= coordRatio
+		gi.velocity.ground.gethit.ko.add[0] *= coordRatio
+		gi.velocity.ground.gethit.ko.add[1] *= coordRatio
+		gi.velocity.ground.gethit.ko.ymin *= coordRatio
+
+		// Movement
+		gi.movement.airjump.height *= coordRatio
+		gi.movement.yaccel *= coordRatio
+		gi.movement.stand.friction_threshold *= coordRatio
+		gi.movement.crouch.friction_threshold *= coordRatio
+		gi.movement.air.gethit.groundlevel *= coordRatio
+		gi.movement.air.gethit.groundrecover.ground.threshold *= coordRatio
+		gi.movement.air.gethit.groundrecover.groundlevel *= coordRatio
+		gi.movement.air.gethit.airrecover.threshold *= coordRatio
+		gi.movement.air.gethit.airrecover.yaccel *= coordRatio
+		gi.movement.air.gethit.trip.groundlevel *= coordRatio
+		gi.movement.down.bounce.offset[0] *= coordRatio
+		gi.movement.down.bounce.offset[1] *= coordRatio
+		gi.movement.down.bounce.yaccel *= coordRatio
+		gi.movement.down.bounce.groundlevel *= coordRatio
+		gi.movement.down.gethit.offset[0] *= coordRatio
+		gi.movement.down.gethit.offset[1] *= coordRatio
+		gi.movement.down.friction_threshold *= coordRatio
+	}
+
+	// Init custom constants
+	gi.constants = make(map[string]float32)
+
+	// Init default values to ensure we have these maps
+	gi.constants["default.attack.lifetopowermul"] = 0.7
+	gi.constants["super.attack.lifetopowermul"] = 0
+	gi.constants["default.gethit.lifetopowermul"] = 0.6
+	gi.constants["super.gethit.lifetopowermul"] = 0.6
+	gi.constants["super.targetdefencemul"] = 1.5
+	gi.constants["default.lifetoguardpointsmul"] = 1.5
+	gi.constants["super.lifetoguardpointsmul"] = -0.33
+	gi.constants["default.lifetodizzypointsmul"] = 1.8
+	gi.constants["super.lifetodizzypointsmul"] = 0
+	gi.constants["default.lifetoredlifemul"] = 0.75
+	gi.constants["super.lifetoredlifemul"] = 0.75
+	gi.constants["default.legacygamedistancespec"] = 0
+	gi.constants["default.legacyfallyvelyaccel"] = 0
+	//gi.constants["default.ignoredefeatedenemies"] = 0
+	gi.constants["input.pauseonhitpause"] = 1
+	gi.constants["input.fbflipenemydistance"] = -1
 }
 
 func (c *Char) initCnsVar() {

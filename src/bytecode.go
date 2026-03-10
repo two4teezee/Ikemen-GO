@@ -11445,9 +11445,9 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 			case palFX_invertblend:
 				palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
 			}
- 		}
- 		return true
- 	})
+		}
+		return true
+	})
 	crun.appendLifebarAction(text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
 	return false
 }

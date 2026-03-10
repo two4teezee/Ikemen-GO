@@ -2525,12 +2525,12 @@ func (co *LifeBarCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 
 type LbMsg struct {
 	resttime     int32
- 	agetimer     int32
- 	counterX     float32
- 	text         string
- 	fontNo       int32
- 	fontBank     int32
- 	fontAlign    int32
+	agetimer     int32
+	counterX     float32
+	text         string
+	fontNo       int32
+	fontBank     int32
+	fontAlign    int32
 	fontColor    [4]int32
 	fontColorSet bool
 	palfx        *PalFX
@@ -2545,7 +2545,7 @@ func newLbMsg(text string, time int32, side int, fontNo, fontBank, fontAlign int
 		counterX:     sys.lifebar.ac[side].start_x * 2,
 		text:         text,
 		fontNo:       fontNo,
- 		fontBank:     fontBank,
+		fontBank:     fontBank,
 		fontAlign:    fontAlign,
 		fontColor:    fontColor,
 		fontColorSet: fontColorSet,

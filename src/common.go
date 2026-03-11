@@ -62,8 +62,8 @@ func RandF(x, y float32) float32 {
 	return x + float32(Random())*(y-x)/float32(IMax)
 }
 
-func Min(arg ...int32) (min int32) {
-	for i, x := range arg {
+func Min[T int | int32 | int64 | float32 | float64](args ...T) (min T) {
+	for i, x := range args {
 		if i == 0 || x < min {
 			min = x
 		}
@@ -71,8 +71,8 @@ func Min(arg ...int32) (min int32) {
 	return
 }
 
-func Max(arg ...int32) (max int32) {
-	for i, x := range arg {
+func Max[T int | int32 | int64 | float32 | float64](args ...T) (max T) {
+	for i, x := range args {
 		if i == 0 || x > max {
 			max = x
 		}
@@ -80,50 +80,14 @@ func Max(arg ...int32) (max int32) {
 	return
 }
 
-func MinF(arg ...float32) (min float32) {
-	for i, x := range arg {
-		if i == 0 || x < min {
-			min = x
-		}
+func Clamp[T int | int32 | int64 | float32 | float64](val, low, high T) T {
+	if val < low {
+		return low
 	}
-	return
-}
-
-func MaxF(arg ...float32) (max float32) {
-	for i, x := range arg {
-		if i == 0 || x > max {
-			max = x
-		}
+	if val > high {
+		return high
 	}
-	return
-}
-
-func MinI(arg ...int) (min int) {
-	for i, x := range arg {
-		if i == 0 || x < min {
-			min = x
-		}
-	}
-	return
-}
-
-func MaxI(arg ...int) (max int) {
-	for i, x := range arg {
-		if i == 0 || x > max {
-			max = x
-		}
-	}
-	return
-}
-
-func Clamp[T int | int32 | int64 | float32 | float64](x, a, b T) T {
-	if x < a {
-		return a
-	}
-	if x > b {
-		return b
-	}
-	return x
+	return val
 }
 
 func Rad(f float32) float32 {
@@ -142,38 +106,20 @@ func Sin(f float32) float32 {
 	return float32(math.Sin(float64(f)))
 }
 
-func Sign(i int32) int32 {
-	if i < 0 {
+func Sign[T int | int32 | int64 | float32 | float64](val T) (sig T) {
+	if val < 0 {
 		return -1
-	} else if i > 0 {
+	} else if val > 0 {
 		return 1
-	} else {
-		return 0
 	}
+	return 0
 }
 
-func SignF(f float32) float32 {
-	if f < 0 {
-		return -1
-	} else if f > 0 {
-		return 1
-	} else {
-		return 0
+func Abs[T int | int32 | int64 | float32 | float64](val T) (res T) {
+	if val < 0 {
+		return -val
 	}
-}
-
-func Abs(i int32) int32 {
-	if i < 0 {
-		return -i
-	}
-	return i
-}
-
-func AbsF(f float32) float32 {
-	if f < 0 {
-		return -f
-	}
-	return f
+	return val
 }
 
 func Pow(x, y float32) float32 {

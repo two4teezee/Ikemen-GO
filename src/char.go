@@ -197,8 +197,8 @@ func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 		offx := sw / 2
 		offy := sh
 		rect := [7]float32{
-			AbsF(xs) * clsn[i][0],          // [0] x position (left)
-			AbsF(ys) * clsn[i][1],          // [1] y position (top)
+			Abs(xs) * clsn[i][0],          // [0] x position (left)
+			Abs(ys) * clsn[i][1],          // [1] y position (top)
 			xs * (clsn[i][2] - clsn[i][0]), // [2] width
 			ys * (clsn[i][3] - clsn[i][1]), // [3] height
 			(x + offx) * sys.widthScale,    // [4] rotation center x
@@ -5777,11 +5777,11 @@ func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
 func (c *Char) stageFrontEdgeDist() float32 {
 	corner := float32(0)
 	if c.facing < 0 {
-		corner = MaxF(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
+		corner = Max(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
 			sys.stage.leftbound*sys.stage.localscl/c.localscl)
 		return c.pos[0] - corner
 	} else {
-		corner = MinF(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
+		corner = Min(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
 			sys.stage.rightbound*sys.stage.localscl/c.localscl)
 		return corner - c.pos[0]
 	}
@@ -5790,11 +5790,11 @@ func (c *Char) stageFrontEdgeDist() float32 {
 func (c *Char) stageBackEdgeDist() float32 {
 	corner := float32(0)
 	if c.facing < 0 {
-		corner = MinF(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
+		corner = Min(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
 			sys.stage.rightbound*sys.stage.localscl/c.localscl)
 		return corner - c.pos[0]
 	} else {
-		corner = MaxF(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
+		corner = Max(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
 			sys.stage.leftbound*sys.stage.localscl/c.localscl)
 		return c.pos[0] - corner
 	}
@@ -8519,7 +8519,7 @@ func (c *Char) distX(opp *Char, oc *Char) float32 {
 			if bt := sys.playerID(c.bindToId); bt != nil {
 				f := bt.facing
 				// We only need to correct for target binds (and snaps)
-				if AbsF(c.bindFacing) == 2 {
+				if Abs(c.bindFacing) == 2 {
 					f = c.bindFacing / 2
 				}
 				cpos = bt.pos[0]*bt.localscl + f*(c.bindPos[0]+c.bindPosAdd[0])*c.localscl
@@ -8527,7 +8527,7 @@ func (c *Char) distX(opp *Char, oc *Char) float32 {
 		}
 	}
 	dist := (opos - cpos) / oc.localscl
-	if AbsF(dist) < 0.0001 {
+	if Abs(dist) < 0.0001 {
 		dist = 0
 	}
 	return dist
@@ -9354,11 +9354,11 @@ func (c *Char) posUpdate() {
 	case ST_S:
 		friction := c.getStandFriction()
 		c.vel[0] *= friction
-		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
+		if Abs(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
 		c.vel[2] *= friction
-		if AbsF(c.vel[2]) < 1/originLs {
+		if Abs(c.vel[2]) < 1/originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
@@ -9372,7 +9372,7 @@ func (c *Char) posUpdate() {
 	// Apply friction to corner push only after positions are updated
 	if c.mhv.cornerpush_veloff != 0 {
 		c.mhv.cornerpush_veloff *= pushMul
-		if AbsF(c.mhv.cornerpush_veloff) < 1/originLs { // In Mugen 1.1 this is actually 0.3333, but that would be different from normal friction
+		if Abs(c.mhv.cornerpush_veloff) < 1/originLs { // In Mugen 1.1 this is actually 0.3333, but that would be different from normal friction
 			c.mhv.cornerpush_veloff = 0
 		}
 	}
@@ -9480,7 +9480,7 @@ func (c *Char) bind() {
 		if !math.IsNaN(float64(c.bindPos[0])) {
 			f := bt.facing
 			// We only need to correct for target binds (and snaps)
-			if AbsF(c.bindFacing) == 2 {
+			if Abs(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
 			c.setPosX(bt.pos[0]*bt.localscl/c.localscl+f*(c.bindPos[0]+c.bindPosAdd[0]), true)
@@ -9501,7 +9501,7 @@ func (c *Char) bind() {
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
 		}
-		if AbsF(c.bindFacing) == 1 {
+		if Abs(c.bindFacing) == 1 {
 			if c.bindFacing > 0 {
 				c.setFacing(bt.facing)
 			} else {
@@ -10863,7 +10863,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					starty := getter.ghv.yvel
 					if getter.ss.stateType == ST_A {
 						if getter.ghv.xvel != 0 {
-							getter.ghv.xvel += getter.gi().velocity.air.gethit.ko.add[0] * SignF(getter.ghv.xvel) * -1
+							getter.ghv.xvel += getter.gi().velocity.air.gethit.ko.add[0] * Sign(getter.ghv.xvel) * -1
 						}
 						if getter.ghv.yvel <= 0 {
 							getter.ghv.yvel += getter.gi().velocity.air.gethit.ko.add[1]
@@ -10876,7 +10876,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 							getter.ghv.xvel *= getter.gi().velocity.ground.gethit.ko.xmul
 						}
 						if getter.ghv.xvel != 0 {
-							getter.ghv.xvel += getter.gi().velocity.ground.gethit.ko.add[0] * SignF(getter.ghv.xvel) * -1
+							getter.ghv.xvel += getter.gi().velocity.ground.gethit.ko.add[0] * Sign(getter.ghv.xvel) * -1
 						}
 						if getter.ghv.yvel <= 0 {
 							getter.ghv.yvel += getter.gi().velocity.ground.gethit.ko.add[1]
@@ -11702,8 +11702,8 @@ func (c *Char) track() {
 
 		// Y axis
 		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
-			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
-			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)
+			sys.cam.highest = Min(c.interPos[1]*c.localscl, sys.cam.highest)
+			sys.cam.lowest = Max(c.interPos[1]*c.localscl, sys.cam.lowest)
 			//sys.cam.Pos[1] = 0 // This doesn't seem necessary in the current state of the code
 			// Mugen ignores characters that have infinite position
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/1917
@@ -11751,7 +11751,7 @@ func (c *Char) update() {
 			// Moved to system.zss
 			//if sys.supertime == 0 && sys.pausetime == 0 &&
 			//	((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
-			//	c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
+			//	c.pos[1] == 0 && (Abs(c.pos[0]-c.dustOldPos[0]) >= 1 || Abs(c.pos[2]-c.dustOldPos[2]) >= 1) {
 			//	c.makeDust(0, 0, 0, 3) // Default spacing of 3
 			//}
 		}
@@ -13233,7 +13233,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gytop := (getter.pos[1] + gbox[1]) * getter.localscl
 		gybot := (getter.pos[1] + gbox[3]) * getter.localscl
 
-		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
+		overlapY := Min(cybot, gybot) - Max(cytop, gytop)
 		if overlapY <= 0 {
 			continue
 		}
@@ -13260,7 +13260,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gxleft += gposx
 		gxright += gposx
 
-		overlapX := MinF(gxright, cxright) - MaxF(gxleft, cxleft)
+		overlapX := Min(gxright, cxright) - Max(gxleft, cxleft)
 
 		// X-axis fail
 		if overlapX <= 0 {
@@ -13277,7 +13277,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gztop := gposz - getter.sizeDepth[0]*getter.localscl
 		gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
-		overlapZ := MinF(gzbot, czbot) - MaxF(gztop, cztop)
+		overlapZ := Min(gzbot, czbot) - Max(gztop, cztop)
 
 		// Z-axis fail
 		if overlapZ <= 0 {
@@ -13312,13 +13312,13 @@ func (cl *CharList) pushDetection(getter *Char) {
 			var pushx, pushz bool
 			if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
 				// Get distances in both axes
-				distx := AbsF(gposx - cposx)
-				distz := AbsF(gposz - cposz)
+				distx := Abs(gposx - cposx)
+				distz := Abs(gposz - cposz)
 
 				// Check how much each axis should weigh on the decision
 				// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
-				xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
-				ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
+				xtotal := Abs(gxleft-gxright) + Abs(cxleft-cxright)
+				ztotal := Abs(gztop-gzbot) + Abs(cztop-czbot)
 				distzadj := distz
 				if ztotal != 0 {
 					distzadj = (xtotal / ztotal) * distz
@@ -13326,7 +13326,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Push farthest axis or both if distances are similar
 				similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
-				if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
+				if distzadj != 0 && Abs(distx/distzadj) > similar && Abs(distx/distzadj) < (1/similar) {
 					pushx = true
 					pushz = true
 				} else if distx >= distzadj {

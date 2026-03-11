@@ -267,7 +267,7 @@ func (l *StreamLooper) Stream(samples [][2]float64) (n int, ok bool) {
 				continue
 			}
 			// Stream only up to the end of the loop.
-			toStream = MinI(samplesUntilEnd, toStream)
+			toStream = Min(samplesUntilEnd, toStream)
 		}
 
 		sn, sok := l.s.Stream(samples[:toStream])
@@ -394,7 +394,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	lc := 0
 	if loop != 0 {
 		if loopcount >= 0 {
-			lc = MaxI(0, loopcount-1)
+			lc = Max(0, loopcount-1)
 		} else {
 			lc = -1
 		}
@@ -510,7 +510,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 			if memSeeker.Len() > 0 {
 				// There can sometimes be a sample mismatch with re-decoding MIDI so this takes care of that
 				if sl, ok := streamer.(*StreamLooper); ok {
-					sl.loopend = MinI(memSeeker.Len(), sl.loopend)
+					sl.loopend = Min(memSeeker.Len(), sl.loopend)
 				}
 
 				for {
@@ -990,7 +990,7 @@ func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul flo
 	if loop < 0 {
 		loopCount = -1
 	} else {
-		loopCount = MaxI(0, int(loop-1))
+		loopCount = Max(0, int(loop-1))
 	}
 
 	// going to continue using our streamLooper which is now modified from beep.Loop2

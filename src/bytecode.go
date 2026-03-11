@@ -2612,7 +2612,7 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 	case OC_const_p2name:
 		p2 := c.p2()
 		nameStr := be.ReadPoolStringAt(i)
-		sys.bcStack.PushB(p2 != nil && p2.gi().nameLow == nameStr)
+		sys.bcStack.PushB(p2 != nil && p2.gi().nameLow == nameStr) // These return true or false. Never "undefined"
 	case OC_const_p3name:
 		p3 := c.partner(0, false)
 		nameStr := be.ReadPoolStringAt(i)
@@ -7438,7 +7438,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 	case hitDef_envshake_ampl:
 		hd.envshake_ampl = exp[0].evalI(c)
 	case hitDef_envshake_freq:
-		hd.envshake_freq = MaxF(0, exp[0].evalF(c))
+		hd.envshake_freq = Max(0, exp[0].evalF(c))
 	case hitDef_envshake_phase:
 		hd.envshake_phase = exp[0].evalF(c)
 	case hitDef_envshake_mul:
@@ -7450,7 +7450,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 	case hitDef_fall_envshake_ampl:
 		hd.fall_envshake_ampl = exp[0].evalI(c)
 	case hitDef_fall_envshake_freq:
-		hd.fall_envshake_freq = MaxF(0, exp[0].evalF(c))
+		hd.fall_envshake_freq = Max(0, exp[0].evalF(c))
 	case hitDef_fall_envshake_phase:
 		hd.fall_envshake_phase = exp[0].evalF(c)
 	case hitDef_fall_envshake_mul:
@@ -8809,7 +8809,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.hitdef.envshake_ampl = v1
 				})
 			case hitDef_envshake_freq:
-				v1 := MaxF(0, exp[0].evalF(c))
+				v1 := Max(0, exp[0].evalF(c))
 				eachProj(func(p *Projectile) {
 					p.hitdef.envshake_freq = v1
 				})
@@ -8839,7 +8839,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 					p.hitdef.fall_envshake_ampl = v1
 				})
 			case hitDef_fall_envshake_freq:
-				v1 := MaxF(0, exp[0].evalF(c))
+				v1 := Max(0, exp[0].evalF(c))
 				eachProj(func(p *Projectile) {
 					p.hitdef.fall_envshake_freq = v1
 				})
@@ -9703,13 +9703,13 @@ func (sc envShake) Run(c *Char, _ []int32) bool {
 			// Because of how localscl works, the amplitude will be slightly smaller during widescreen
 			// This also happens in Mugen however
 		case envShake_freq:
-			sys.envShake.freq = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
+			sys.envShake.freq = Max(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		case envShake_phase:
-			sys.envShake.phase = MaxF(-180*float32(math.Pi)/180, exp[0].evalF(c)*float32(math.Pi)/180)
+			sys.envShake.phase = Max(-180*float32(math.Pi)/180, exp[0].evalF(c)*float32(math.Pi)/180)
 		case envShake_mul:
 			sys.envShake.mul = exp[0].evalF(c)
 		case envShake_dir:
-			sys.envShake.dir = MaxF(0, exp[0].evalF(c)*float32(math.Pi)/180)
+			sys.envShake.dir = Max(0, exp[0].evalF(c)*float32(math.Pi)/180)
 		}
 		return true
 	})
@@ -10369,22 +10369,22 @@ func (sc attackDist) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case attackDist_x:
-			crun.hitdef.guard_dist_x[0] = MaxF(0, exp[0].evalF(c)*redirscale)
+			crun.hitdef.guard_dist_x[0] = Max(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_x[1] = MaxF(0, exp[1].evalF(c)*redirscale)
+				crun.hitdef.guard_dist_x[1] = Max(0, exp[1].evalF(c)*redirscale)
 			}
 			// It used to be that Ikemen AttackDist used a separate variable
 			// However it was found that Mugen AttackDist modifies the HitDef directly just like this
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/2358
 		case attackDist_y:
-			crun.hitdef.guard_dist_y[0] = MaxF(0, exp[0].evalF(c)*redirscale)
+			crun.hitdef.guard_dist_y[0] = Max(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_y[1] = MaxF(0, exp[1].evalF(c)*redirscale)
+				crun.hitdef.guard_dist_y[1] = Max(0, exp[1].evalF(c)*redirscale)
 			}
 		case attackDist_z:
-			crun.hitdef.guard_dist_z[0] = MaxF(0, exp[0].evalF(c)*redirscale)
+			crun.hitdef.guard_dist_z[0] = Max(0, exp[0].evalF(c)*redirscale)
 			if len(exp) > 1 {
-				crun.hitdef.guard_dist_z[1] = MaxF(0, exp[1].evalF(c)*redirscale)
+				crun.hitdef.guard_dist_z[1] = Max(0, exp[1].evalF(c)*redirscale)
 			}
 		}
 		return true
@@ -12480,7 +12480,7 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 			if tmp < 0 {
 				lc = -1
 			} else {
-				lc = MaxI(tmp-1, 0)
+				lc = Max(tmp-1, 0)
 			}
 			lcSet = true
 		case modifySnd_stopongethit:

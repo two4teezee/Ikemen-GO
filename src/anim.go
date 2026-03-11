@@ -872,11 +872,11 @@ func (a *Animation) Draw(window *[4]int32, x, y, xcs, ycs, xs, xbs, ys,
 			}
 		}
 		rcx, rcy = rcx*sys.widthScale, 0
-		x = -x + AbsF(xs)*float32(a.spr.Offset[0])
-		y = -y + AbsF(ys)*float32(a.spr.Offset[1])
+		x = -x + Abs(xs)*float32(a.spr.Offset[0])
+		y = -y + Abs(ys)*float32(a.spr.Offset[1])
 	} else {
 		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
-		x, y = AbsF(xs)*float32(a.spr.Offset[0]), AbsF(ys)*float32(a.spr.Offset[1])
+		x, y = Abs(xs)*float32(a.spr.Offset[0]), Abs(ys)*float32(a.spr.Offset[1])
 		fLength *= ycs
 	}
 
@@ -946,8 +946,8 @@ func (a *Animation) ShadowDraw(window *[4]int32, x, y, xscl, yscl, vscl, rxadd f
 		tex:            a.spr.Tex,
 		paltex:         nil,
 		size:           a.spr.Size,
-		x:              AbsF(xscl*h) * float32(a.spr.Offset[0]) * sys.widthScale,
-		y:              AbsF(yscl*v) * float32(a.spr.Offset[1]) * sys.heightScale,
+		x:              Abs(xscl*h) * float32(a.spr.Offset[0]) * sys.widthScale,
+		y:              Abs(yscl*v) * float32(a.spr.Offset[1]) * sys.heightScale,
 		tile:           a.tile,
 		xts:            xscl * h * sys.widthScale,
 		xbs:            xscl * h * sys.widthScale,
@@ -1476,7 +1476,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 		offsetY := s.shadowOffset[1] + sys.stage.sdw.offset[1]
 
 		// Rotation offset. Only shadow scale sign
-		xrotoff := xshear * SignF(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
+		xrotoff := xshear * Sign(yscale) * (float32(s.anim.spr.Offset[1]) * s.scl[1])
 
 		// Add custom or stage shadow rotation to original sprite rotation
 		addRot := func(baseAngle float32, customAngle float32, stageAngle float32) float32 {
@@ -1515,7 +1515,7 @@ func (sl ShadowList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1] + s.groundLevel) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.groundLevel) * xshear * Sign(yscale)
 		}
 
 		var projection int32
@@ -1562,9 +1562,9 @@ func (sl ShadowList) draw(x, y, scl float32) {
 			}
 
 			window[0] = int32(((sys.cam.Offset[0] - shake[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - shake[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - shake[1]) - y + w[1]*Sign(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
-			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
+			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * Sign(yscale))
 
 			drawwindow = &window
 		}
@@ -1785,7 +1785,7 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 
 		// With a shearing effect, the Y position should also affect the X position when not grounded
 		if xshear != 0 && s.pos[1] != 0 {
-			offsetX += (-s.pos[1] + s.groundLevel) * xshear * SignF(yscale)
+			offsetX += (-s.pos[1] + s.groundLevel) * xshear * Sign(yscale)
 		}
 
 		var projection int32
@@ -1832,9 +1832,9 @@ func (rl ReflectionList) draw(x, y, scl float32) {
 			}
 
 			window[0] = int32(((sys.cam.Offset[0] - shake[0]) - (x * scl) + w[0]*scl + float32(sys.gameWidth)/2) * sys.widthScale)
-			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - shake[1]) - y + w[1]*SignF(yscale)*scl) * sys.heightScale)
+			window[1] = int32((sys.cam.GroundLevel() + (sys.cam.Offset[1] - shake[1]) - y + w[1]*Sign(yscale)*scl) * sys.heightScale)
 			window[2] = int32(scl * (w[2] - w[0]) * sys.widthScale)
-			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * SignF(yscale))
+			window[3] = int32(scl * (w[3] - w[1]) * sys.heightScale * Sign(yscale))
 
 			drawwindow = &window
 		}

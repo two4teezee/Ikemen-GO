@@ -553,14 +553,14 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	if bg._type == BG_Parallax && (bg.width[0] != 0 || bg.width[1] != 0) && bg.anim.spr != nil {
 		bg.xscale[0] = float32(bg.width[0]) / float32(bg.anim.spr.Size[0])
 		bg.xscale[1] = float32(bg.width[1]) / float32(bg.anim.spr.Size[0])
-		scalestartX = AbsF(scalestartX)
+		scalestartX = Abs(scalestartX)
 		bg.xofs = scalestartX * ((-float32(bg.width[0]) / 2) + float32(bg.anim.spr.Offset[0])*bg.xscale[0])
 		bg.anim.isParallax = true
 	}
 
 	// Calculate raster x ratio and base x scale
 	xras := (bg.rasterx[1] - bg.rasterx[0]) / bg.rasterx[0]
-	xbs, dx := bg.xscale[1], MaxF(0, bg.delta[0]*bgscl)
+	xbs, dx := bg.xscale[1], Max(0, bg.delta[0]*bgscl)
 
 	// Initialize local scaling factors
 	var sclx_recip, sclx, scly float32 = 1, 1, 1
@@ -576,20 +576,20 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 			sclx_recip = 1 + bg.zoomdelta[0]*((1/(sclx*lscl[0])*lscl[0])-1)
 		}
 	} else {
-		sclx = MaxF(0, drawscl+(1-drawscl)*(1-dx))
-		scly = MaxF(0, drawscl+(1-drawscl)*(1-MaxF(0, bg.delta[1]*bgscl)))
-		Yzoomdelta = MaxF(0, bg.delta[1]*bgscl)
+		sclx = Max(0, drawscl+(1-drawscl)*(1-dx))
+		scly = Max(0, drawscl+(1-drawscl)*(1-Max(0, bg.delta[1]*bgscl)))
+		Yzoomdelta = Max(0, bg.delta[1]*bgscl)
 	}
 
 	// Adjust x scale and x bottom zoom if autoresizeparallax is enabled
 	if sclx != 0 && bg.autoresizeparallax {
 		tmp := 1 / sclx
 		if bg.xbottomzoomdelta != math.MaxFloat32 {
-			xbs *= MaxF(0, drawscl+(1-drawscl)*(1-bg.xbottomzoomdelta*(xbs/bg.xscale[0]))) * tmp
+			xbs *= Max(0, drawscl+(1-drawscl)*(1-bg.xbottomzoomdelta*(xbs/bg.xscale[0]))) * tmp
 		} else {
-			xbs *= MaxF(0, drawscl+(1-drawscl)*(1-dx*(xbs/bg.xscale[0]))) * tmp
+			xbs *= Max(0, drawscl+(1-drawscl)*(1-dx*(xbs/bg.xscale[0]))) * tmp
 		}
-		tmp *= MaxF(0, drawscl+(1-drawscl)*(1-dx*(xras+1)))
+		tmp *= Max(0, drawscl+(1-drawscl)*(1-dx*(xras+1)))
 		xras -= tmp - 1
 		xbs *= tmp
 	}
@@ -648,9 +648,9 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 	var wscl [2]float32
 	for i := range wscl {
 		if bg.zoomdelta[i] != math.MaxFloat32 {
-			wscl[i] = MaxF(0, drawscl+(1-drawscl)*(1-MaxF(0, bg.zoomdelta[i]))) * bgscl * lscl[i]
+			wscl[i] = Max(0, drawscl+(1-drawscl)*(1-Max(0, bg.zoomdelta[i]))) * bgscl * lscl[i]
 		} else {
-			wscl[i] = MaxF(0, drawscl+(1-drawscl)*(1-MaxF(0, bg.windowdelta[i]*bgscl))) * bgscl * lscl[i]
+			wscl[i] = Max(0, drawscl+(1-drawscl)*(1-Max(0, bg.windowdelta[i]*bgscl))) * bgscl * lscl[i]
 		}
 	}
 
@@ -713,7 +713,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		}
 
 		// Xshear offset correction
-		xsoffset := -bg.xshear * SignF(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
+		xsoffset := -bg.xshear * Sign(bg.scalestart[1]) * (float32(bg.anim.spr.Offset[1]) * scly)
 
 		if bg.rot.angle != 0 {
 			xsoffset /= bg.rot.angle
@@ -728,7 +728,7 @@ func (bg backGround) draw(pos [2]float32, drawscl, bgscl, stglscl float32,
 		bg.anim.Draw(&rect, x-xsoffset, y, sclx, scly,
 			bg.xscale[0]*bgscl*(scalestartX+xs)*xs3,
 			xbs*bgscl*(scalestartX+xs)*xs3,
-			ys*ys3, xras*x/(AbsF(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
+			ys*ys3, xras*x/(Abs(ys*ys3)*lscl[1]*float32(bg.anim.spr.Size[1])*bg.scalestart[1])*sclx_recip*bg.scalestart[1]-bg.xshear,
 			bg.rot, rcx, bg.palfx, 1, [2]float32{1, 1}, int32(bg.projection), bg.fLength, 0, false)
 	}
 }
@@ -4321,7 +4321,7 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 		gfx.SetModelUniformF("lights["+strconv.Itoa(idx)+"].color", 0, 0, 0)
 	}
 	if len(scene.lightNodes) > 0 {
-		for idx := 0; idx < MinI(len(scene.lightNodes), 4); idx++ {
+		for idx := 0; idx < Min(len(scene.lightNodes), 4); idx++ {
 			lightNode := model.nodes[scene.lightNodes[idx]]
 			light := model.lights[*lightNode.lightIndex]
 			shadowMapNear := float32(0.1)

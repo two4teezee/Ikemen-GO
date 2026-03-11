@@ -781,7 +781,7 @@ func (s *System) renderFrame() {
 				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
 			}
 			if s.zoomStageBound {
-				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+				dscl = Max(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
 				if s.zoomCameraBound {
 					zoomedViewWidth := float32(s.gameWidth) / s.drawScale
 					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
@@ -2431,10 +2431,10 @@ func (s *System) action() {
 			s.xmin = (s.xmin + s.xmax) / 2
 			s.xmax = s.xmin
 		}
-		if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+		if Abs(s.cam.maxRight-s.xmax) < 0.0001 {
 			s.xmax = s.cam.maxRight
 		}
-		if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+		if Abs(s.cam.minLeft-s.xmin) < 0.0001 {
 			s.xmin = s.cam.minLeft
 		}
 		// Z axis player limits
@@ -2516,10 +2516,10 @@ func (s *System) action() {
 		s.xmin = (s.xmin + s.xmax) / 2
 		s.xmax = s.xmin
 	}
-	if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+	if Abs(s.cam.maxRight-s.xmax) < 0.0001 {
 		s.xmax = s.cam.maxRight
 	}
-	if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+	if Abs(s.cam.minLeft-s.xmin) < 0.0001 {
 		s.xmin = s.cam.minLeft
 	}
 	s.charList.xScreenBound()
@@ -3244,7 +3244,7 @@ func (s *System) draw(x, y, scl float32) {
 		//	rect[1] = s.scrrect[3] - rect[3]
 		//	fade(rect, 0, 255)
 		//}
-		//bl, br := MinF(x, s.cam.boundL), MaxF(x, s.cam.boundR)
+		//bl, br := Min(x, s.cam.boundL), Max(x, s.cam.boundR)
 		//xofs := float32(s.gameWidth) * (1/scl - 1) / 2
 		//rect = s.scrrect
 		//if x-xofs < bl {
@@ -3387,7 +3387,7 @@ func (s *System) drawDebugText() {
 			}
 		}
 		// Console
-		y = MaxF(y, 48+240-float32(s.gameHeight))
+		y = Max(y, 48+240-float32(s.gameHeight))
 		s.debugFont.SetColor(255, 255, 255, 255)
 		for _, s := range s.consoleText {
 			put(&x, &y, s)

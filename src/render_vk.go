@@ -72,7 +72,7 @@ func (r *Renderer_VK) newTexture(width, height, depth int32, filter bool) Textur
 func (r *Renderer_VK) newModelTexture(width, height, depth int32, filter bool) Texture {
 	t := &Texture_VK{width, height, depth, filter, 1, [2]int32{0, 0}, [4]float32{0, 0, 1, 1}, nil, nil, nil}
 	format := t.MapInternalFormat(Max(t.depth, 8))
-	t.mipLevels = uint32(math.Floor(math.Log2(float64(MaxI(int(width), int(height))))) + 1)
+	t.mipLevels = uint32(math.Floor(math.Log2(float64(Max(int(width), int(height))))) + 1)
 	t.img = r.CreateImage(uint32(t.width), uint32(t.height), format, t.mipLevels, 1, vk.ImageUsageFlags(vk.ImageUsageTransferSrcBit|vk.ImageUsageTransferDstBit|vk.ImageUsageSampledBit), 1, vk.ImageTilingOptimal, false)
 	imageMemory := r.AllocateImageMemory(t.img, vk.MemoryPropertyDeviceLocalBit)
 	t.imageView = r.CreateImageView(t.img, format, 0, t.mipLevels, 1, false)
@@ -1867,7 +1867,7 @@ func (r *Renderer_VK) CreateSpriteProgram() (*VulkanProgramInfo, error) {
 	var uniformBufferMemory vk.DeviceMemory
 	var err error
 	minAlignment := r.minUniformBufferOffsetAlignment
-	uniformSize := uint32(MaxI(int(unsafe.Sizeof(VulkanSpriteProgramVertUniformBufferObject{})), int(unsafe.Sizeof(VulkanSpriteProgramFragUniformBufferObject{}))))
+	uniformSize := uint32(Max(int(unsafe.Sizeof(VulkanSpriteProgramVertUniformBufferObject{})), int(unsafe.Sizeof(VulkanSpriteProgramFragUniformBufferObject{}))))
 	if uniformSize < minAlignment {
 		uniformSize = minAlignment
 	} else if uniformSize > minAlignment && minAlignment > 0 && uniformSize%minAlignment != 0 {
@@ -2238,7 +2238,7 @@ func (r *Renderer_VK) CreateShadowMapProgram() (*VulkanProgramInfo, error) {
 	program := &VulkanProgramInfo{}
 	var uniformBufferMemory vk.DeviceMemory
 	var err error
-	uniformSize := r.AlignUniformSize(uint32(MaxI(VulkanShadowMapUniform1Size, VulkanShadowMapUniform2Size)))
+	uniformSize := r.AlignUniformSize(uint32(Max(VulkanShadowMapUniform1Size, VulkanShadowMapUniform2Size)))
 	program.uniformBuffers = make([]VulkanBuffer, 1)
 	program.uniformBuffers[0].size = uintptr(2000 * uniformSize)
 	program.uniformSize = uniformSize
@@ -2683,7 +2683,7 @@ func (r *Renderer_VK) CreateModelProgram() (*VulkanProgramInfo, error) {
 	var uniformBufferMemory vk.DeviceMemory
 	var err error
 	minAlignment := r.minUniformBufferOffsetAlignment
-	uniformSize := uint32(MaxI(VulkanModelUniform0Size, MaxI(VulkanModelUniform1Size, VulkanModelUniform2Size)))
+	uniformSize := uint32(Max(VulkanModelUniform0Size, Max(VulkanModelUniform1Size, VulkanModelUniform2Size)))
 	if uniformSize < minAlignment {
 		uniformSize = minAlignment
 	} else if uniformSize > minAlignment && minAlignment > 0 && uniformSize%minAlignment != 0 {
@@ -5626,8 +5626,8 @@ func (r *Renderer_VK) ReadPixels(data []uint8, width, height int) {
 func (r *Renderer_VK) EnableScissor(x, y, width, height int32) {
 	r.VKState.scissor = vk.Rect2D{
 		Offset: vk.Offset2D{
-			X: int32(MaxI(int(x), 0)),
-			Y: int32(MaxI(int(y), 0)),
+			X: int32(Max(int(x), 0)),
+			Y: int32(Max(int(y), 0)),
 		},
 		Extent: vk.Extent2D{
 			Width:  uint32(width),

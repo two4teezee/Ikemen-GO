@@ -5223,7 +5223,7 @@ func systemScriptInit(l *lua.LState) {
 		// Default alpha to 255 for compatibility
 		a := int32(255)
 		if !nilArg(l, 5) {
-			a = int32(MinI(255, int(numArg(l, 5))))
+			a = int32(Min(255, int(numArg(l, 5))))
 		}
 		ts.SetColor(int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4)), a)
 		return 0
@@ -7926,8 +7926,10 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "clamp", func(*lua.LState) int {
-		v1, v2, v3, retv := float32(numArg(l, 1)), float32(numArg(l, 2)), float32(numArg(l, 3)), float32(0)
-		retv = MaxF(v2, MinF(v1, v3))
+		v1 := float32(numArg(l, 1))
+		v2 := float32(numArg(l, 2))
+		v3 := float32(numArg(l, 3))
+		retv := Clamp(v1, v2, v3)
 		l.Push(lua.LNumber(retv))
 		return 1
 	})
@@ -8372,8 +8374,10 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "lerp", func(*lua.LState) int {
-		a, b, amount, retv := float32(numArg(l, 1)), float32(numArg(l, 2)), float32(numArg(l, 3)), float32(0)
-		retv = float32(a + (b-a)*MaxF(0, MinF(amount, 1)))
+		a := float32(numArg(l, 1))
+		b := float32(numArg(l, 2))
+		amount := float32(numArg(l, 3))
+		retv := a + (b-a)*Clamp(amount, 0, 1)
 		l.Push(lua.LNumber(retv))
 		return 1
 	})

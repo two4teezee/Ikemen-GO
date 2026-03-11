@@ -495,7 +495,7 @@ func readHealthBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map
 	is.ReadI32("mid.delay", &hb.mid_delay)
 	is.ReadF32("mid.mult", &hb.mid_mult)
 	is.ReadF32("mid.steps", &hb.mid_steps)
-	hb.mid_steps = MaxF(1, hb.mid_steps)
+	hb.mid_steps = Max(1, hb.mid_steps)
 
 	is.ReadI32(pre+"warn.range", &hb.warn_range[0], &hb.warn_range[1])
 	is.ReadBool(pre+"scalefill", &hb.scalefill)
@@ -549,7 +549,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 		hbr.oldlife = life
 	}
 
-	mlmin := MaxF(hbr.midlifeMin, life)
+	mlmin := Max(hbr.midlifeMin, life)
 	if hbr.midlife < mlmin {
 		hbr.midlife += (mlmin - hbr.midlife) / 2
 	}
@@ -956,7 +956,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	level := pbval / 1000
 
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
+		power = float32(pbval)/1000 - Min(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	// Element shifting gradient
@@ -1060,7 +1060,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) 
 	level := pbval / 1000
 
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
+		power = float32(pbval)/1000 - Min(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	var MidPosX = (float32(sys.gameWidth-320) / 2)
@@ -2343,7 +2343,7 @@ func readLifeBarCombo(pre string, is IniSection,
 	co.top = ReadAnimLayout(pre+"top.", is, sff, at, 2)
 	is.ReadI32(pre+"displaytime", &co.displaytime)
 	is.ReadF32(pre+"showspeed", &co.showspeed)
-	co.showspeed = MaxF(1, co.showspeed)
+	co.showspeed = Max(1, co.showspeed)
 	is.ReadF32(pre+"hidespeed", &co.hidespeed)
 	co.separator, _, _ = is.getText("format.decimal.separator")
 	is.ReadI32("format.decimal.places", &co.places)
@@ -2375,7 +2375,7 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 		co.shaketime--
 	}
 
-	if AbsF(co.counterX) < 1 && !dizzy {
+	if Abs(co.counterX) < 1 && !dizzy {
 		co.resttime--
 	}
 
@@ -2629,7 +2629,7 @@ func readLifeBarAction(pre string, is IniSection, f map[int]*Fnt) *LifeBarAction
 	ac.text = *readLbText(pre+"text.", is, "", 2, f, 0)
 	is.ReadI32(pre+"displaytime", &ac.displaytime)
 	is.ReadF32(pre+"showspeed", &ac.showspeed)
-	ac.showspeed = MaxF(1, ac.showspeed)
+	ac.showspeed = Max(1, ac.showspeed)
 	is.ReadF32(pre+"hidespeed", &ac.hidespeed)
 	is.ReadI32(pre+"max", &ac.max)
 	return ac
@@ -2653,7 +2653,7 @@ func (ac *LifeBarAction) step(leader int) {
 				v.del = true
 			}
 		}
-		if AbsF(v.counterX) < 1 {
+		if Abs(v.counterX) < 1 {
 			v.resttime--
 		}
 		v.agetimer++

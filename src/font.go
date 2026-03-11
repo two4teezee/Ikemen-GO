@@ -607,7 +607,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 		rcx, rcy = rcx*sys.widthScale, 0
 	} else {
 		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
-		x, y = AbsF(xscl)*float32(f.offset[0]), AbsF(yscl)*float32(f.offset[1])
+		x, y = Abs(xscl)*float32(f.offset[0]), Abs(yscl)*float32(f.offset[1])
 	}
 
 	if align == 0 {

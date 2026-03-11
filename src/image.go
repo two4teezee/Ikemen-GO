@@ -1400,7 +1400,7 @@ func (s *Sprite) Draw(x, y, xscale, yscale float32, rxadd float32, rot Rotation,
 		rcx, rcy = rcx*sys.widthScale, 0
 	} else {
 		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
-		x, y = AbsF(xscale)*float32(s.Offset[0]), AbsF(yscale)*float32(s.Offset[1])
+		x, y = Abs(xscale)*float32(s.Offset[0]), Abs(yscale)*float32(s.Offset[1])
 	}
 
 	rp := RenderParams{

@@ -260,7 +260,7 @@ func (c *Camera) ScaleBound(scl, sclmul float32) float32 {
 }
 
 func (c *Camera) XBound(scl, x float32) float32 {
-	return ClampF(x,
+	return Clamp(x,
 		c.boundL-c.halfWidth+c.halfWidth/scl,
 		c.boundR+c.halfWidth-c.halfWidth/scl)
 }

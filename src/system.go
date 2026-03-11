@@ -787,7 +787,7 @@ func (s *System) renderFrame() {
 					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
 					maxCamX := x + (s.cam.halfWidth/scl - zoomedViewWidth/2)
 					intermediateTargetX := x + s.zoomPosXLag/scl
-					dx = ClampF(intermediateTargetX, minCamX, maxCamX)
+					dx = Clamp(intermediateTargetX, minCamX, maxCamX)
 				} else {
 					dx = x + s.zoomPosXLag/scl
 				}
@@ -2276,7 +2276,7 @@ func (s *System) tickInterpolation() float32 {
 	// Apply interpolation if enabled
 	if sys.cfg.Config.TickInterpolation {
 		progress := s.tickCountF - s.lastTick + s.nextAddTime
-		return ClampF(progress, 0, 1)
+		return Clamp(progress, 0, 1)
 	}
 	return 1
 }

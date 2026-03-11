@@ -9527,11 +9527,11 @@ func (c *Char) xScreenBound() {
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
-		x = ClampF(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		x = Clamp(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 	}
 
 	if c.csf(CSF_stagebound) {
-		x = ClampF(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
+		x = Clamp(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
 	}
 
 	// Only update interpolation etc if necessary
@@ -9547,7 +9547,7 @@ func (c *Char) zDepthBound() {
 	if c.csf(CSF_stagebound) {
 		min := c.edgeDepth[0]
 		max := -c.edgeDepth[1]
-		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
+		posz = Clamp(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 
 	if posz != before {
@@ -9562,7 +9562,7 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
-		x = ClampF(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
+		x = Clamp(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
 	}
 	c.setPosX(x, true)
 	c.xScreenBound()
@@ -11668,7 +11668,7 @@ func (c *Char) track() {
 
 		// This doesn't seem necessary currently. Handled by xScreenBound()
 		//if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-		//	c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		//	c.interPos[0] = Clamp(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 		//}
 
 		// X axis

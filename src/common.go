@@ -116,12 +116,14 @@ func MaxI(arg ...int) (max int) {
 	return
 }
 
-func Clamp(x, a, b int32) int32 {
-	return Max(a, Min(x, b))
-}
-
-func ClampF(x, a, b float32) float32 {
-	return MaxF(a, MinF(x, b))
+func Clamp[T int | int32 | int64 | float32 | float64](x, a, b T) T {
+	if x < a {
+		return a
+	}
+	if x > b {
+		return b
+	}
+	return x
 }
 
 func Rad(f float32) float32 {
@@ -179,7 +181,7 @@ func Pow(x, y float32) float32 {
 }
 
 func Lerp(x, y, a float32) float32 {
-	//return float32(x + (y - x) * ClampF(a, 0, 1))
+	//return float32(x + (y - x) * Clamp(a, 0, 1))
 	return float32((1-a)*x + a*y)
 }
 

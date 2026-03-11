@@ -96,7 +96,7 @@ func (n *NormalizerLR) process(mul float64, sam *float64) float64 {
 	}
 	n.gain += (1.0 - n.gain*(math.Abs(s)+1/32.0)) / (float64(sys.cfg.Sound.SampleRate) * 2)
 	n.average += (math.Abs(s) - n.average) / (float64(sys.cfg.Sound.SampleRate) * 2)
-	n.edge = float64(ClampF(float32(n.edge+n.edgeDelta), 0, 1))
+	n.edge = float64(Clamp(float32(n.edge+n.edgeDelta), 0, 1))
 	*sam = s
 	return mul
 }
@@ -919,8 +919,8 @@ func (s *SoundEffect) Stream(samples [][2]float64) (n int, ok bool) {
 		}
 		sc := sys.cfg.Sound.PanningRange / 100
 		of := (100 - sys.cfg.Sound.PanningRange) / 200
-		lv = ClampF(s.volume*2*(r*sc+of), 0, 512)
-		rv = ClampF(s.volume*2*((1-r)*sc+of), 0, 512)
+		lv = Clamp(s.volume*2*(r*sc+of), 0, 512)
+		rv = Clamp(s.volume*2*((1-r)*sc+of), 0, 512)
 	}
 
 	n, ok = s.streamer.Stream(samples)
@@ -1022,7 +1022,7 @@ func (s *SoundChannel) SetPaused(pause bool) {
 
 func (s *SoundChannel) SetVolume(vol float32) {
 	if s.ctrl != nil {
-		s.sfx.volume = ClampF(vol, 0, 512)
+		s.sfx.volume = Clamp(vol, 0, 512)
 	}
 }
 

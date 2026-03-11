@@ -4877,7 +4877,7 @@ func (sc playSnd) Run(c *Char, _ []int32) bool {
 			vo = exp[0].evalI(c)
 			vscaleflg = true
 		case playSnd_freqmul:
-			fr = ClampF(exp[0].evalF(c), 0.01, 5)
+			fr = Clamp(exp[0].evalF(c), 0.01, 5)
 		case playSnd_loop:
 			lp = exp[0].evalB(c)
 		case playSnd_priority:
@@ -9883,7 +9883,7 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 			}
 		case superPause_brightness:
 			sys.superbrightness = (exp[0].evalF(c)) / 256
-			sys.superbrightness = ClampF(sys.superbrightness, 0, 1)
+			sys.superbrightness = Clamp(sys.superbrightness, 0, 1)
 		case superPause_anim:
 			fx_ffx = exp[0].evalS()
 			fx_anim = exp[1].evalI(c)
@@ -11253,17 +11253,17 @@ func (sc assertAnalogVector) Run(c *Char, _ []int32) bool {
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case assertAnalogVector_leftx:
-			axes[0] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+			axes[0] = Clamp(exp[0].evalF(c), -1.0, 1.0)
 		case assertAnalogVector_lefty:
-			axes[1] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+			axes[1] = Clamp(exp[0].evalF(c), -1.0, 1.0)
 		case assertAnalogVector_rightx:
-			axes[2] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+			axes[2] = Clamp(exp[0].evalF(c), -1.0, 1.0)
 		case assertAnalogVector_righty:
-			axes[3] = ClampF(exp[0].evalF(c), -1.0, 1.0)
+			axes[3] = Clamp(exp[0].evalF(c), -1.0, 1.0)
 		case assertAnalogVector_lefttrigger:
-			axes[4] = ClampF(exp[0].evalF(c), 0, 1.0)
+			axes[4] = Clamp(exp[0].evalF(c), 0, 1.0)
 		case assertAnalogVector_righttrigger:
-			axes[5] = ClampF(exp[0].evalF(c), 0, 1.0)
+			axes[5] = Clamp(exp[0].evalF(c), 0, 1.0)
 		}
 		return true
 	})
@@ -12452,7 +12452,7 @@ func (sc modifySnd) Run(c *Char, _ []int32) bool {
 			vo = float32(crun.gi().data.volume * exp[0].evalI(c) / 100)
 			volumeSet = true
 		case modifySnd_freqmul:
-			fr = ClampF(exp[0].evalF(c), 0.01, 5)
+			fr = Clamp(exp[0].evalF(c), 0.01, 5)
 			freqMulSet = true
 		case modifySnd_priority:
 			pri = exp[0].evalI(c)

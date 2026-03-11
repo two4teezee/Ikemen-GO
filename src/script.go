@@ -1975,7 +1975,7 @@ func systemScriptInit(l *lua.LState) {
 		} else if strArg(l, 1) == "fadein" {
 			alpha = math.Floor(255 - 255*(frame-1)/length)
 		}
-		alpha = float64(ClampF(float32(alpha), 0, 255))
+		alpha = float64(Clamp(alpha, 0, 255))
 		src := int32(alpha)
 		dst := 255 - src
 		if !nilArg(l, 6) {

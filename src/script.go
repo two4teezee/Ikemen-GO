@@ -5655,76 +5655,6 @@ func systemScriptInit(l *lua.LState) {
 func triggerRedirection(l *lua.LState) {
 	// Create a temporary dummy character to avoid possible nil checks
 	sys.debugWC = newChar(0, 0)
-	luaRegister(l, "player", func(*lua.LState) int {
-		pn := int(numArg(l, 1))
-		ret := false
-		if pn >= 1 && pn <= len(sys.chars) && len(sys.chars[pn-1]) > 0 {
-			sys.debugWC, ret = sys.chars[pn-1][0], true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
-	luaRegister(l, "parent", func(*lua.LState) int {
-		ret := false
-		if c := sys.debugWC.parent(true); c != nil {
-			sys.debugWC, ret = c, true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
-	luaRegister(l, "root", func(*lua.LState) int {
-		ret := false
-		if c := sys.debugWC.root(true); c != nil {
-			sys.debugWC, ret = c, true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
-	luaRegister(l, "helper", func(l *lua.LState) int {
-		ret := false
-		id, index := int32(-1), 0
-		// Check if ID is provided
-		if !nilArg(l, 1) {
-			id = int32(numArg(l, 1))
-		}
-		// Check if index is provided
-		if !nilArg(l, 2) {
-			index = int(numArg(l, 2))
-		}
-		if c := sys.debugWC.helperTrigger(id, index); c != nil {
-			sys.debugWC, ret = c, true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
-	luaRegister(l, "target", func(l *lua.LState) int {
-		ret := false
-		id, index := int32(-1), 0
-		// Check if ID is provided
-		if !nilArg(l, 1) {
-			id = int32(numArg(l, 1))
-		}
-		// Check if index is provided
-		if !nilArg(l, 2) {
-			index = int(numArg(l, 2))
-		}
-		if c := sys.debugWC.targetTrigger(id, index); c != nil {
-			sys.debugWC, ret = c, true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
-	luaRegister(l, "partner", func(*lua.LState) int {
-		ret, n := false, int32(0)
-		if !nilArg(l, 1) {
-			n = int32(numArg(l, 1))
-		}
-		if c := sys.debugWC.partner(n, true); c != nil {
-			sys.debugWC, ret = c, true
-		}
-		l.Push(lua.LBool(ret))
-		return 1
-	})
 	luaRegister(l, "enemy", func(*lua.LState) int {
 		ret, n := false, int32(0)
 		if !nilArg(l, 1) {
@@ -5747,6 +5677,70 @@ func triggerRedirection(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
+	luaRegister(l, "helper", func(l *lua.LState) int {
+		ret := false
+		id, index := int32(-1), 0
+		// Check if ID is provided
+		if !nilArg(l, 1) {
+			id = int32(numArg(l, 1))
+		}
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		if c := sys.debugWC.helperTrigger(id, index); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
+	luaRegister(l, "helperindex", func(*lua.LState) int {
+		ret, idx := false, int32(0)
+		if !nilArg(l, 1) {
+			idx = int32(numArg(l, 1))
+		}
+		if c := sys.debugWC.helperIndexTrigger(idx); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
+	luaRegister(l, "p2", func(*lua.LState) int {
+		ret := false
+		if c := sys.debugWC.p2(); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
+	luaRegister(l, "parent", func(*lua.LState) int {
+		ret := false
+		if c := sys.debugWC.parent(true); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
+	luaRegister(l, "partner", func(*lua.LState) int {
+		ret, n := false, int32(0)
+		if !nilArg(l, 1) {
+			n = int32(numArg(l, 1))
+		}
+		if c := sys.debugWC.partner(n, true); c != nil {
+			sys.debugWC, ret = c, true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
+	luaRegister(l, "player", func(*lua.LState) int {
+		pn := int(numArg(l, 1))
+		ret := false
+		if pn >= 1 && pn <= len(sys.chars) && len(sys.chars[pn-1]) > 0 {
+			sys.debugWC, ret = sys.chars[pn-1][0], true
+		}
+		l.Push(lua.LBool(ret))
+		return 1
+	})
 	luaRegister(l, "playerid", func(*lua.LState) int {
 		ret := false
 		// Script version doesn't log errors because debug mode uses it
@@ -5765,9 +5759,9 @@ func triggerRedirection(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-	luaRegister(l, "p2", func(*lua.LState) int {
+	luaRegister(l, "root", func(*lua.LState) int {
 		ret := false
-		if c := sys.debugWC.p2(); c != nil {
+		if c := sys.debugWC.root(true); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -5781,12 +5775,18 @@ func triggerRedirection(l *lua.LState) {
 		l.Push(lua.LBool(ret))
 		return 1
 	})
-	luaRegister(l, "helperindex", func(*lua.LState) int {
-		ret, idx := false, int32(0)
+	luaRegister(l, "target", func(l *lua.LState) int {
+		ret := false
+		id, index := int32(-1), 0
+		// Check if ID is provided
 		if !nilArg(l, 1) {
-			idx = int32(numArg(l, 1))
+			id = int32(numArg(l, 1))
 		}
-		if c := sys.debugWC.helperIndexTrigger(idx); c != nil {
+		// Check if index is provided
+		if !nilArg(l, 2) {
+			index = int(numArg(l, 2))
+		}
+		if c := sys.debugWC.targetTrigger(id, index); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))

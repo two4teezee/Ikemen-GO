@@ -4597,28 +4597,15 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "setAILevel", func(*lua.LState) int {
-		level := float32(numArg(l, 1))
-		sys.aiLevel[sys.debugWC.playerNo] = level
-		for _, c := range sys.chars[sys.debugWC.playerNo] {
-			if level == 0 {
-				c.controller = sys.debugWC.playerNo
-			} else {
-				c.controller = ^sys.debugWC.playerNo
-			}
-		}
+		sys.debugWC.setAILevel(Clamp(float32(numArg(l, 1)), 0, 8))
 		return 0
 	})
 	luaRegister(l, "setCom", func(*lua.LState) int {
 		pn := int(numArg(l, 1))
-		ailv := float32(numArg(l, 2))
 		if pn < 1 || pn > MaxPlayerNo {
 			l.RaiseError("\nInvalid player number: %v\n", pn)
 		}
-		if ailv > 0 {
-			sys.aiLevel[pn-1] = ailv
-		} else {
-			sys.aiLevel[pn-1] = 0
-		}
+		sys.aiLevel[pn-1] = Clamp(float32(numArg(l, 2)), 0, 8)
 		return 0
 	})
 	luaRegister(l, "setConsecutiveWins", func(l *lua.LState) int {

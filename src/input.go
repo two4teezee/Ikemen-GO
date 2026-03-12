@@ -67,16 +67,6 @@ func (ck CommandStepKey) IsButtonRelease() bool {
 	return ck.tilde && ck.key >= CK_a && ck.key <= CK_m
 }
 
-type NetState int
-
-const (
-	NS_Stop NetState = iota
-	NS_Playing
-	NS_End
-	NS_Stopped
-	NS_Error
-)
-
 type ShortcutScript struct {
 	Activate bool
 	Script   string

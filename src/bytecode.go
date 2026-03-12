@@ -11572,6 +11572,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
+
 	var top bool
 	var text string
 	var timemul float32 = 1
@@ -11585,6 +11586,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	s_ffx, a_ffx := "", ""
 	spr := [2]int32{-1, 0}
 	snd := [2]int32{-1, 0}
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case lifebarAction_top:
@@ -11631,83 +11633,20 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 		case lifebarAction_redirectid:
 			return true
 		default:
-			if palfx == nil {
-				palfx = newPalFX()
-				palfx.clear()
-				palfx.time = -1
+			if isPalFXParam(paramID) {
+				if palfx == nil {
+					palfx = newPalFX()
+					palfx.clear()
+					palfx.time = -1
+				}
+				palFX(sc).runSub(c, &palfx.PalFXDef, paramID, exp)
 			}
-			switch paramID {
-			case palFX_time:
-				palfx.time = exp[0].evalI(c)
-			case palFX_color:
-				palfx.color = exp[0].evalF(c) / 256
-			case palFX_hue:
-				palfx.hue = exp[0].evalF(c) / 256
-			case palFX_add:
-				palfx.add[0] = exp[0].evalI(c)
-				palfx.add[1] = exp[1].evalI(c)
-				palfx.add[2] = exp[2].evalI(c)
-			case palFX_mul:
-				palfx.mul[0] = exp[0].evalI(c)
-				palfx.mul[1] = exp[1].evalI(c)
-				palfx.mul[2] = exp[2].evalI(c)
-			case palFX_sinadd:
-				var side int32 = 1
-				if len(exp) > 3 {
-					if exp[3].evalI(c) < 0 {
-						palfx.cycletime[0] = -exp[3].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[0] = exp[3].evalI(c)
-					}
-				}
-				palfx.sinadd[0] = exp[0].evalI(c) * side
-				palfx.sinadd[1] = exp[1].evalI(c) * side
-				palfx.sinadd[2] = exp[2].evalI(c) * side
-			case palFX_sinmul:
-				var side int32 = 1
-				if len(exp) > 3 {
-					if exp[3].evalI(c) < 0 {
-						palfx.cycletime[1] = -exp[3].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[1] = exp[3].evalI(c)
-					}
-				}
-				palfx.sinmul[0] = exp[0].evalI(c) * side
-				palfx.sinmul[1] = exp[1].evalI(c) * side
-				palfx.sinmul[2] = exp[2].evalI(c) * side
-			case palFX_sincolor:
-				var side int32 = 1
-				if len(exp) > 1 {
-					if exp[1].evalI(c) < 0 {
-						palfx.cycletime[2] = -exp[1].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[2] = exp[1].evalI(c)
-					}
-				}
-				palfx.sincolor = exp[0].evalI(c) * side
-			case palFX_sinhue:
-				var side int32 = 1
-				if len(exp) > 1 {
-					if exp[1].evalI(c) < 0 {
-						palfx.cycletime[3] = -exp[1].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[3] = exp[1].evalI(c)
-					}
-				}
-				palfx.sinhue = exp[0].evalI(c) * side
-			case palFX_invertall:
-				palfx.invertall = exp[0].evalB(c)
-			case palFX_invertblend:
-				palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
-			}
+			return true
 		}
 		return true
 	})
-	crun.appendLifebarAction(text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
+
+	sys.lifebar.appendAction(crun, text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
 	return false
 }
 
@@ -13004,8 +12943,8 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_redirectid:
 			return true // Already handled. Avoid default
 		default:
-			if applyTextPalFX(ts, paramID, exp, c) {
-				break
+			if isPalFXParam(paramID) {
+				palFX(sc).runSub(c, &ts.palfx.PalFXDef, paramID, exp)
 			}
 		}
 		return true
@@ -13027,80 +12966,6 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
 
-	return false
-}
-
-func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
-	switch paramID {
-	case palFX_time:
-		ts.palfx.time = exp[0].evalI(c)
-	case palFX_color:
-		ts.palfx.color = exp[0].evalF(c) / 256
-	case palFX_hue:
-		ts.palfx.hue = exp[0].evalF(c) / 256
-	case palFX_add:
-		ts.palfx.add[0] = exp[0].evalI(c)
-		ts.palfx.add[1] = exp[1].evalI(c)
-		ts.palfx.add[2] = exp[2].evalI(c)
-	case palFX_mul:
-		ts.palfx.mul[0] = exp[0].evalI(c)
-		ts.palfx.mul[1] = exp[1].evalI(c)
-		ts.palfx.mul[2] = exp[2].evalI(c)
-	case palFX_sinadd:
-		var side int32 = 1
-		if len(exp) > 3 {
-			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[0] = -exp[3].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[0] = exp[3].evalI(c)
-			}
-		}
-		ts.palfx.sinadd[0] = exp[0].evalI(c) * side
-		ts.palfx.sinadd[1] = exp[1].evalI(c) * side
-		ts.palfx.sinadd[2] = exp[2].evalI(c) * side
-	case palFX_sinmul:
-		var side int32 = 1
-		if len(exp) > 3 {
-			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[1] = -exp[3].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[1] = exp[3].evalI(c)
-			}
-		}
-		ts.palfx.sinmul[0] = exp[0].evalI(c) * side
-		ts.palfx.sinmul[1] = exp[1].evalI(c) * side
-		ts.palfx.sinmul[2] = exp[2].evalI(c) * side
-	case palFX_sincolor:
-		var side int32 = 1
-		if len(exp) > 1 {
-			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[2] = -exp[1].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[2] = exp[1].evalI(c)
-			}
-		}
-		ts.palfx.sincolor = exp[0].evalI(c) * side
-	case palFX_sinhue:
-		var side int32 = 1
-		if len(exp) > 1 {
-			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[3] = -exp[1].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[3] = exp[1].evalI(c)
-			}
-		}
-		ts.palfx.sinhue = exp[0].evalI(c) * side
-	case palFX_invertall:
-		ts.palfx.invertall = exp[0].evalB(c)
-	case palFX_invertblend:
-		ts.palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
-	default:
-		return false
-	}
 	return false
 }
 
@@ -13344,9 +13209,11 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					ts.xshear = xs
 				})
 			default:
-				eachText(func(ts *TextSprite) {
-					applyTextPalFX(ts, paramID, exp, c)
-				})
+				if isPalFXParam(paramID) {
+					eachText(func(ts *TextSprite) {
+						palFX(sc).runSub(c, &ts.palfx.PalFXDef, paramID, exp)
+					})
+				}
 			}
 		}
 		return true

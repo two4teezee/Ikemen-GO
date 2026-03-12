@@ -5505,3 +5505,103 @@ func (l *Lifebar) resolvePath() {
 	}
 	l.def = v
 }
+
+func (l *Lifebar) appendAction(c *Char, text string, fontno, fontbank, fontalign int32,
+	fontcolor [4]int32, colorSet bool, palfx *PalFX, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
+
+	if c.teamside == -1 {
+		return
+	}
+	if _, ok := l.missing["[action]"]; ok {
+		return
+	}
+
+	// Play sound
+	if snd[0] != -1 && snd[1] != -1 {
+		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].snd != nil {
+			s := sys.ffx[s_ffx].snd.Get(snd) // Common FX
+			if s != nil {
+				sys.soundChannels.Play(s, snd[0], snd[1], 100, 0, 0, 0, 0)
+			}
+		} else {
+			l.snd.play(snd, 100, 0, 0, 0, 0)
+		}
+	}
+
+	// If sound only, we can stop here
+	if anim == -1 && (spr[0] == -1 || spr[1] == -1) && text == "" {
+		return
+	}
+
+	// Target the specific action controller for this team
+	teammsg := l.ac[c.teamside]
+
+	// If adding a new message while exceeding the maximum number allowed, make the oldest message go away faster
+	var count int32
+	for _, v := range teammsg.messages {
+		if !v.del {
+			count++
+		}
+	}
+	if count >= teammsg.max {
+		var oldest int
+		var oldesttimer int32
+		for i, msg := range teammsg.messages {
+			if !msg.del && msg.resttime > 0 && msg.agetimer > oldesttimer {
+				oldest = i
+				oldesttimer = msg.agetimer
+			}
+		}
+		if oldest < len(teammsg.messages) {
+			teammsg.messages[oldest].resttime = 0
+		}
+	}
+
+	// Use index 0 if "top", otherwise find the first free message slot
+	index := 0
+	if !top {
+		for k, v := range teammsg.messages {
+			if v.del {
+				teammsg.messages = removeLbMsg(teammsg.messages, k)
+				break
+			}
+			index++
+		}
+	}
+
+	// Get default display time from the lifebar
+	if time < 0 {
+		time = teammsg.displaytime
+	}
+
+	// Prepare contents of new message
+	msg := newLbMsg(text, int32(float32(time)*timemul), c.teamside, fontno, fontbank, fontalign, fontcolor, colorSet, palfx)
+	
+	// Layout logic
+	prefix := fmt.Sprintf("team%v.front.", c.teamside+1)
+	delete(teammsg.is, prefix+"anim")
+	delete(teammsg.is, prefix+"spr")
+
+	// Read animation
+	if anim != -1 {
+		teammsg.is[prefix+"anim"] = fmt.Sprintf("%v", anim)
+	}
+
+	// Read sprite
+	if spr[0] != -1 && spr[1] != -1 {
+		teammsg.is[prefix+"spr"] = fmt.Sprintf("%v,%v", spr[0], spr[1])
+	}
+
+	// Read background
+	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, l.sff, l.animTable, 2)
+
+	// Read front
+	sff, at := l.sff, l.animTable
+	if a_ffx != "" && a_ffx != "s" && sys.ffx[a_ffx] != nil { // Common FX
+		sff, at = sys.ffx[a_ffx].sff, sys.ffx[a_ffx].animTable
+	}
+	msg.front = ReadAnimLayout(prefix, teammsg.is, sff, at, 2)
+
+	// Insert new message
+	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)
+}

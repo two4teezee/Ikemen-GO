@@ -765,9 +765,8 @@ func (ts *TextSprite) loadDefaults() {
 		ts.palfx = newPalFX()
 	} else {
 		ts.palfx = pfx
-		ts.palfx.clear()
 	}
-	ts.palfx.setColor(255, 255, 255)
+	ts.palfx.clear()
 }
 
 // Creates a shallow copy with independent palette mapping

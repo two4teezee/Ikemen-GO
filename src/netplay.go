@@ -30,6 +30,16 @@ const (
 	replayMagic                = "IKRPLCFG"
 )
 
+type NetState int
+
+const (
+	NS_Stop NetState = iota
+	NS_Playing
+	NS_End
+	NS_Stopped
+	NS_Error
+)
+
 type SyncScope string
 
 const (

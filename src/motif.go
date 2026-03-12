@@ -3383,7 +3383,7 @@ func (ch *MotifChallenger) init(m *Motif) {
 	}
 
 	controllerNo := sys.buttonController(m.ChallengerInfo.Key)
-	if controllerNo == -1 || controllerNo == sys.chars[0][0].controller {
+	if controllerNo == -1 || sys.uiControllerKey(controllerNo) == sys.uiControllerKey(0) {
 		return
 	}
 	ch.controllerNo = controllerNo

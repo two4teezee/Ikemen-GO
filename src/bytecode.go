@@ -11574,18 +11574,14 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	}
 
 	var top bool
-	var text string
 	var timemul float32 = 1
-	var fontno int32 = -1
-	var fontbank int32 = -1
-	var fontalign int32 = IErr
-	fontcolor := [4]int32{255, 255, 255, 255}
-	var colorSet bool
-	var palfx *PalFX
-	var time, anim int32 = -1, -1
+	var anim int32 = -1
 	s_ffx, a_ffx := "", ""
 	spr := [2]int32{-1, 0}
 	snd := [2]int32{-1, 0}
+
+	// Initialize a text message with defaults
+	msg := newLbMsg(crun.teamside)
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -11594,7 +11590,20 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 		case lifebarAction_timemul:
 			timemul = exp[0].evalF(c)
 		case lifebarAction_time:
-			time = exp[0].evalI(c)
+			msg.resttime = exp[0].evalI(c)
+		case lifebarAction_text:
+			msg.text = exp[0].evalS()
+		case lifebarAction_fontno:
+			msg.fontNo = exp[0].evalI(c)
+		case lifebarAction_fontbank:
+			msg.fontBank = exp[0].evalI(c)
+		case lifebarAction_fontalign:
+			msg.fontAlign = exp[0].evalI(c)
+		case lifebarAction_fontcolor:
+			for i := 0; i < len(exp) && i < 4; i++ {
+				msg.fontColor[i] = exp[i].evalI(c)
+			}
+			msg.fontColorSet = true
 		case lifebarAction_anim:
 			a_ffx = exp[0].evalS()
 			anim = exp[1].evalI(c)
@@ -11610,43 +11619,25 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 			if len(exp) > 2 {
 				snd[1] = exp[2].evalI(c)
 			}
-		case lifebarAction_text:
-			text = exp[0].evalS()
-		case lifebarAction_fontno:
-			fontno = exp[0].evalI(c)
-		case lifebarAction_fontbank:
-			fontbank = exp[0].evalI(c)
-		case lifebarAction_fontalign:
-			fontalign = exp[0].evalI(c)
-		case lifebarAction_fontcolor:
-			fontcolor[0] = exp[0].evalI(c)
-			if len(exp) > 1 {
-				fontcolor[1] = exp[1].evalI(c)
-				if len(exp) > 2 {
-					fontcolor[2] = exp[2].evalI(c)
-					if len(exp) > 3 {
-						fontcolor[3] = exp[3].evalI(c)
-					}
-				}
-			}
-			colorSet = true
-		case lifebarAction_redirectid:
-			return true
 		default:
 			if isPalFXParam(paramID) {
-				if palfx == nil {
-					palfx = newPalFX()
-					palfx.clear()
-					palfx.time = -1
+				if msg.palfx == nil {
+					msg.palfx = newPalFX()
+					msg.palfx.clear()
+					msg.palfx.time = -1
 				}
-				palFX(sc).runSub(c, &palfx.PalFXDef, paramID, exp)
+				palFX(sc).runSub(c, &msg.palfx.PalFXDef, paramID, exp)
 			}
-			return true
 		}
 		return true
 	})
 
-	sys.lifebar.appendAction(crun, text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
+	if msg.resttime < 0 {
+		msg.resttime = sys.lifebar.ac[crun.teamside].displaytime
+	}
+	msg.resttime = int32(float32(msg.resttime) * timemul)
+
+	sys.lifebar.appendAction(crun, msg, s_ffx, a_ffx, snd, spr, anim, top)
 	return false
 }
 

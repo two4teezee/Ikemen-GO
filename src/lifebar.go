@@ -2546,17 +2546,14 @@ type LbMsg struct {
 	del          bool
 }
 
-func newLbMsg(text string, time int32, side int, fontNo, fontBank, fontAlign int32, fontColor [4]int32, fontColorSet bool, palfx *PalFX) *LbMsg {
+func newLbMsg(side int) *LbMsg {
 	return &LbMsg{
-		resttime:     time,
-		counterX:     sys.lifebar.ac[side].start_x * 2,
-		text:         text,
-		fontNo:       fontNo,
-		fontBank:     fontBank,
-		fontAlign:    fontAlign,
-		fontColor:    fontColor,
-		fontColorSet: fontColorSet,
-		palfx:        palfx,
+		resttime:  -1,
+		counterX:  sys.lifebar.ac[side].start_x * 2,
+		fontNo:    -1,
+		fontBank:  -1,
+		fontAlign: IErr, // Default to the font's
+		fontColor: [4]int32{255, 255, 255, 255},
 	}
 }
 
@@ -5506,10 +5503,8 @@ func (l *Lifebar) resolvePath() {
 	l.def = v
 }
 
-func (l *Lifebar) appendAction(c *Char, text string, fontno, fontbank, fontalign int32,
-	fontcolor [4]int32, colorSet bool, palfx *PalFX, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
-
-	if c.teamside == -1 {
+func (l *Lifebar) appendAction(c *Char, msg *LbMsg, s_ffx, a_ffx string, snd, spr [2]int32, anim int32, top bool) {
+	if c.teamside < 0 {
 		return
 	}
 	if _, ok := l.missing["[action]"]; ok {
@@ -5529,11 +5524,11 @@ func (l *Lifebar) appendAction(c *Char, text string, fontno, fontbank, fontalign
 	}
 
 	// If sound only, we can stop here
-	if anim == -1 && (spr[0] == -1 || spr[1] == -1) && text == "" {
+	if anim == -1 && (spr[0] == -1 || spr[1] == -1) && msg.text == "" {
 		return
 	}
 
-	// Target the specific action controller for this team
+	// Select side of screen
 	teammsg := l.ac[c.teamside]
 
 	// If adding a new message while exceeding the maximum number allowed, make the oldest message go away faster
@@ -5569,14 +5564,6 @@ func (l *Lifebar) appendAction(c *Char, text string, fontno, fontbank, fontalign
 		}
 	}
 
-	// Get default display time from the lifebar
-	if time < 0 {
-		time = teammsg.displaytime
-	}
-
-	// Prepare contents of new message
-	msg := newLbMsg(text, int32(float32(time)*timemul), c.teamside, fontno, fontbank, fontalign, fontcolor, colorSet, palfx)
-	
 	// Layout logic
 	prefix := fmt.Sprintf("team%v.front.", c.teamside+1)
 	delete(teammsg.is, prefix+"anim")
@@ -5595,9 +5582,11 @@ func (l *Lifebar) appendAction(c *Char, text string, fontno, fontbank, fontalign
 	// Read background
 	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, l.sff, l.animTable, 2)
 
-	// Read front
+	// Default to lifebar assets
 	sff, at := l.sff, l.animTable
-	if a_ffx != "" && a_ffx != "s" && sys.ffx[a_ffx] != nil { // Common FX
+
+	// Use common FX if specified
+	if a_ffx != "" && a_ffx != "s" && sys.ffx[a_ffx] != nil {
 		sff, at = sys.ffx[a_ffx].sff, sys.ffx[a_ffx].animTable
 	}
 	msg.front = ReadAnimLayout(prefix, teammsg.is, sff, at, 2)

@@ -5583,13 +5583,33 @@ func (l *Lifebar) appendAction(c *Char, msg *LbMsg, s_ffx, a_ffx string, snd, sp
 	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, l.sff, l.animTable, 2)
 
 	// Default to lifebar assets
-	sff, at := l.sff, l.animTable
+	sff := l.sff
+	at := l.animTable
+	var alscale float32 = 1.0
 
-	// Use common FX if specified
-	if a_ffx != "" && a_ffx != "s" && sys.ffx[a_ffx] != nil {
-		sff, at = sys.ffx[a_ffx].sff, sys.ffx[a_ffx].animTable
+	// Use animation prefixes to change asset source
+	if a_ffx != "" {
+		if a_ffx == "s" {
+			// Use the character
+			sff = sys.cgi[c.playerNo].sff
+			at = sys.cgi[c.playerNo].animTable
+			alscale = float32(sys.lifebar.localcoord[0]) / float32(sys.chars[c.playerNo][0].localcoord)
+		} else if sys.ffx[a_ffx] != nil {
+			// Use common FX
+			fx := sys.ffx[a_ffx]
+			sff = fx.sff
+			at = fx.animTable
+			alscale = fx.fx_scale * float32(sys.lifebar.localcoord[0]) / float32(fx.localcoord[0])
+		}
 	}
+
 	msg.front = ReadAnimLayout(prefix, teammsg.is, sff, at, 2)
+
+	// Normalize localcoord scaling across different asset sources
+	if msg.front.anim != nil && alscale != 1.0 {
+		msg.front.anim.start_scale[0] *= alscale
+		msg.front.anim.start_scale[1] *= alscale
+	}
 
 	// Insert new message
 	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)

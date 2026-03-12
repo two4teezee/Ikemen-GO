@@ -214,7 +214,7 @@ menu.t_itemname = {
 		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			--togglePause(false)
-			roundReset()
+			resetRound()
 			main.pauseMenu = false
 			return false
 		end
@@ -746,7 +746,7 @@ function menu.f_commandlistParse()
 				pn = pn + (member - 1) * 2
 			end
 			if player(pn) and ailevel() == 0 then
-				local ref = selectno()
+				local ref = getSelectNo()
 				if start.f_getCharData(ref).commandlist == nil then
 					local movelist = getCharMovelist(ref)
 					if movelist ~= '' then

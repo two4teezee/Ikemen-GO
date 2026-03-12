@@ -35,7 +35,7 @@ addHotkey('F2', true, false, false, false, true, 'kill(1,1); kill(3,1); kill(5,1
 addHotkey('F2', false, false, true, false, true, 'kill(2,1); kill(4,1); kill(6,1); kill(8,1)')
 addHotkey('F3', false, false, false, false, true, 'powMax(1); powMax(2)')
 addHotkey('F3', true, false, true, false, true, 'toggleMaxPowerMode()')
-addHotkey('F4', false, false, false, false, true, 'roundReset(); closeMenu(); trainingReset()')
+addHotkey('F4', false, false, false, false, true, 'resetRound(); closeMenu(); trainingReset()')
 addHotkey('F4', false, false, true, false, true, 'reload(); closeMenu(); trainingReset()')
 addHotkey('F5', false, false, false, false, true, 'setTime(0)')
 addHotkey('F9', false, false, false, true, false, 'loadState()')
@@ -142,8 +142,8 @@ function powMaxAll()
 	powMax(2)
 end
 
-function roundResetNow()
-	roundReset()
+function resetRoundNow()
+	resetRound()
 	closeMenu()
 end
 
@@ -192,7 +192,7 @@ loadDebugStatus('statusInfo')
 --;===========================================================
 function customState()
 	if not incustomstate() then return "" end
-	return " (in " .. stateownername() .. ", Player " .. stateownerplayerno() .. "'s state)"
+	return " (in " .. getStateOwnerName() .. ", Player " .. getStateOwnerPlayerNo() .. "'s state)"
 end
 
 function boolToInt(bool)
@@ -201,7 +201,7 @@ function boolToInt(bool)
 end
 
 function engineInfo()
-	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.1f', roundtime(), gameOption('Video.VSync'), tickspersecond(), gamespeed(), gamefps())
+	return string.format('Frames: %d, VSync: %d; Speed: %d/%d%%; FPS: %.1f', roundtime(), gameOption('Video.VSync'), tickspersecond(), getGameSpeed(), getGameFPS())
 end
 
 function playerInfo()
@@ -211,14 +211,14 @@ end
 function actionInfo()
 	return string.format(
 		'ActionID: %d (P%d); SPR: %d,%d; ElemNo: %d/%d; Time: %d/%d (%d/%d)',
-		anim(), animplayerno(), spritevar("group"), spritevar("image"), animelemno(0), animelemcount(), animelemtime(animelemno(0)), animelemvar("time"), animtimesum(), animlength()
+		anim(), animplayerno(), spritevar("group"), spritevar("image"), animelemno(0), getAnimElemCount(), animelemtime(animelemno(0)), animelemvar("time"), getAnimTimeSum(), animlength()
 	)
 end
 
 function stateInfo()
 	return string.format(
 		'State No: %d (P%d); CTRL: %s; Type: %s; MoveType: %s; Physics: %s; Time: %d',
-		stateno(), stateownerplayerno(), boolToInt(ctrl()), statetype(), movetype(), physics(), time()-1
+		stateno(), getStateOwnerPlayerNo(), boolToInt(ctrl()), statetype(), movetype(), physics(), time()-1
 	)
 end
 

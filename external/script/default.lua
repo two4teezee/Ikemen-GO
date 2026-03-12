@@ -4,7 +4,7 @@ if not main.makeRoster then
 	return
 end
 
-if main.storyboard.intro and matchno() == 1 and not continue() then
+if main.storyboard.intro and matchno() == 1 and not continued() then
 	launchStoryboard(start.f_getCharData(start.p[1].t_selected[1].ref).intro)
 end
 

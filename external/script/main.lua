@@ -739,7 +739,7 @@ function main.f_commandLine()
 			os.exit()
 		end
 		main.f_clearShuffleTables()
-		math.randomseed(sszRandom())
+		math.randomseed(getRandom())
 		refresh()
 	end
 	local params = table.concat(t_params, ", ")
@@ -753,7 +753,7 @@ function main.f_commandLine()
 	end
 	local winner = game()
 	if flags['-log'] ~= nil then
-		main.f_printTable(readGameStats().Matches[matchno()], flags['-log'])
+		main.f_printTable(getGameStats().Matches[matchno()], flags['-log'])
 	end
 	os.exit()
 end
@@ -1855,7 +1855,7 @@ main.t_itemname = {
 		if main.f_connect(gameOption('Netplay.IP.' .. t[item].displayname), t[item].displayname) then
 			if synchronize() then
 				main.f_clearShuffleTables()
-				math.randomseed(sszRandom())
+				math.randomseed(getRandom())
 				main.f_menuSnap(motif[main.group])
 				main.f_menuItemBgAnimReset(motif[main.group])
 				main.f_fadeReset('fadein', motif[main.group])
@@ -1875,7 +1875,7 @@ main.t_itemname = {
 		if main.f_connect("", gameOption('Netplay.ListenPort')) then
 			if synchronize() then
 				main.f_clearShuffleTables()
-				math.randomseed(sszRandom())
+				math.randomseed(getRandom())
 				main.f_menuSnap(motif[main.group])
 				main.f_menuItemBgAnimReset(motif[main.group])
 				main.f_fadeReset('fadein', motif[main.group])
@@ -2740,7 +2740,7 @@ function main.f_replay()
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 			if enterReplay(t[item].itemname) and synchronize() then
 				main.f_clearShuffleTables()
-				math.randomseed(sszRandom())
+				math.randomseed(getRandom())
 				main.menu.submenu.server.loop()
 			end
 			replayStop()
@@ -2887,7 +2887,7 @@ end
 
 --attract mode start screen
 function main.f_attractStart()
-	local timerActive = credits() ~= 0
+	local timerActive = getCredits() ~= 0
 	local timer = 0
 	local counter = 0 - motif.attract_mode.fadein.time
 	local press_blinktime, insert_blinktime = 0, 0
@@ -2898,13 +2898,13 @@ function main.f_attractStart()
 	main.f_fadeReset('fadein', motif.attract_mode)
 	local fadeOutStarted = false
 	playBgm({source = "motif.title", interrupt = true})
-	local creditsCnt = credits()
+	local creditsCnt = getCredits()
 	while true do
 		counter = counter + 1
 		--draw layerno = 0 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 0)
 		--draw text
-		if credits() ~= 0 then
+		if getCredits() ~= 0 then
 			if motif.attract_mode.start.press.blinktime > 0 and not fadeOutStarted then
 				if press_blinktime < motif.attract_mode.start.press.blinktime then
 					press_blinktime = press_blinktime + 1
@@ -2944,16 +2944,16 @@ function main.f_attractStart()
 			timer, timerActive = main.f_drawTimer(timer, motif.attract_mode.start.timer)
 		end
 		--draw credits text
-		if credits() ~= -1 then
+		if getCredits() ~= -1 then
 			textImgReset(motif.attract_mode.credits.TextSpriteData)
-			textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, credits()))
+			textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, getCredits()))
 			textImgDraw(motif.attract_mode.credits.TextSpriteData)
 		end
 		--credits
-		if creditsCnt ~= credits() then
+		if creditsCnt ~= getCredits() then
 			timerActive = true
 			timer = motif.attract_mode.start.timer.displaytime
-			creditsCnt = credits()
+			creditsCnt = getCredits()
 		end
 		--options
 		if motif.attract_mode.enabled and getKey(motif.attract_mode.options.keycode) then
@@ -2970,8 +2970,8 @@ function main.f_attractStart()
 		--draw layerno = 1 backgrounds
 		bgDraw(motif.attractbgdef.BGDef, 1)
 		--draw fadein / fadeout
-		if not fadeOutStarted and not main.fadeActive and ((credits() ~= 0 and getInput(-1, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
-			if credits() ~= 0 then
+		if not fadeOutStarted and not main.fadeActive and ((getCredits() ~= 0 and getInput(-1, motif.attract_mode.start.press.key)) or (not timerActive and counter >= motif.attract_mode.start.time)) then
+			if getCredits() ~= 0 then
 				sndPlay(motif.Snd, motif.attract_mode.start.done.snd[1], motif.attract_mode.start.done.snd[2])
 			end
 			main.f_fadeReset('fadeout', motif.attract_mode)
@@ -2984,7 +2984,7 @@ function main.f_attractStart()
 			return false
 		end
 		if fadeOutStarted and not main.fadeActive then
-			return credits() ~= 0
+			return getCredits() ~= 0
 		end
 		refresh()
 	end
@@ -3006,10 +3006,10 @@ function main.f_attractMode()
 			end
 			--demo
 			main.f_demoStart()
-			if credits() > 0 then break end
+			if getCredits() > 0 then break end
 			--hiscores
 			main.f_hiscore("arcade", -1)
-			if credits() > 0 then break end
+			if getCredits() > 0 then break end
 			--start
 			if main.f_attractStart() then
 				startScreen = true
@@ -3017,10 +3017,10 @@ function main.f_attractMode()
 			end
 			--demo
 			main.f_demoStart()
-			if credits() > 0 then break end
+			if getCredits() > 0 then break end
 			--hiscores
 			main.f_hiscore("arcade", -1)
-			if credits() > 0 then break end
+			if getCredits() > 0 then break end
 		end
 		if startScreen or main.f_attractStart() then
 			--attract storyboard
@@ -3028,13 +3028,13 @@ function main.f_attractMode()
 				main.f_storyboard(motif.attract_mode.start.storyboard)
 			end
 			--eat credit
-			if credits() > 0 then
-				setCredits(credits() - 1)
+			if getCredits() > 0 then
+				setCredits(getCredits() - 1)
 			end
 			--enter menu
 			main.menu.loop()
-		elseif credits() > 0 then
-			setCredits(credits() - 1)
+		elseif getCredits() > 0 then
+			setCredits(getCredits() - 1)
 		end
 	end
 end
@@ -3091,7 +3091,7 @@ function main.f_getUniquePalette(ch, state)
 		end
 	end
 
-	local pal = available[sszRandom() % #available + 1]
+	local pal = available[getRandom() % #available + 1]
 	used[pal] = true
 	state.last = {ch = ch, pal = pal}
 	return pal
@@ -3163,7 +3163,7 @@ function main.f_randomtest()
 		loadStart()
 		game()
 		refresh()
-		if winnerteam() == -1 then
+		if getWinnerTeam() == -1 then
 			bgReset(motif[main.background].BGDef)
 			playBgm({source = "motif.title", interrupt = true})
 			main.f_fadeReset('fadein', motif[main.group])
@@ -3511,9 +3511,9 @@ function main.f_menuCommonDraw(t, item, cursorPosY, moveTxt, sec, bg, skipClear,
 		end
 	end
 	--draw credits text
-	if motif.attract_mode.enabled and credits() ~= -1 then
+	if motif.attract_mode.enabled and getCredits() ~= -1 then
 		textImgReset(motif.attract_mode.credits.TextSpriteData)
-		textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, credits()))
+		textImgSetText(motif.attract_mode.credits.TextSpriteData, string.format(motif.attract_mode.credits.text, getCredits()))
 		textImgDraw(motif.attract_mode.credits.TextSpriteData)
 	end
 	--draw layerno = 1 backgrounds

@@ -1177,6 +1177,15 @@ func systemScriptInit(l *lua.LState) {
 		a.SetColorKey(int16(numArg(l, 2)))
 		return 0
 	})
+	luaRegister(l, "animSetColorPalette", func(*lua.LState) int {
+		// Changes the actual color of the palette
+		a, _ := toUserData(l, 1).(*Anim)
+		if len(a.anim.palettedata.paletteMap) > 0 {
+			a.anim.palettedata.paletteMap[0] = int(numArg(l, 2)) - 1
+		}
+		l.Push(newUserData(l, a))
+		return 1
+	})
 	luaRegister(l, "animSetFacing", func(*lua.LState) int {
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {
@@ -1647,15 +1656,6 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LBool(false))
 		return 1
 	})
-	luaRegister(l, "changeColorPalette", func(*lua.LState) int {
-		// Changes the actual color of the palette
-		a, _ := toUserData(l, 1).(*Anim)
-		if len(a.anim.palettedata.paletteMap) > 0 {
-			a.anim.palettedata.paletteMap[0] = int(numArg(l, 2)) - 1
-		}
-		l.Push(newUserData(l, a))
-		return 1
-	})
 	luaRegister(l, "changeState", func(l *lua.LState) int {
 		//state_no
 		st := int32(numArg(l, 1))
@@ -1831,6 +1831,10 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "connected", func(*lua.LState) int {
 		l.Push(lua.LBool(sys.netConnection.IsConnected())) // No need to check rollback here as this deals with the main menu connection
+		return 1
+	})
+	luaRegister(l, "continued", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.continueFlg))
 		return 1
 	})
 	luaRegister(l, "endMatch", func(*lua.LState) int {
@@ -2473,6 +2477,18 @@ func systemScriptInit(l *lua.LState) {
 			}
 		}
 	})
+	luaRegister(l, "gameRunning", func(l *lua.LState) int {
+		l.Push(lua.LBool(sys.gameRunning))
+		return 1
+	})
+	luaRegister(l, "getAnimElemCount", func(*lua.LState) int {
+		l.Push(lua.LNumber(len(sys.debugWC.anim.frames)))
+		return 1
+	})
+	luaRegister(l, "getAnimTimeSum", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.anim.curtime))
+		return 1
+	})
 	luaRegister(l, "getCharAttachedInfo", func(*lua.LState) int {
 		def := strArg(l, 1)
 		idx := strings.Index(def, "/")
@@ -2650,6 +2666,10 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.consecutiveWins[tn-1]))
 		return 1
 	})
+	luaRegister(l, "getCredits", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.credits))
+		return 1
+	})
 	luaRegister(l, "getDirectoryFiles", func(*lua.LState) int {
 		dir := l.NewTable()
 		filepath.Walk(strArg(l, 1), func(path string, info os.FileInfo, err error) error {
@@ -2663,6 +2683,10 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LNumber(sys.frameCounter))
 		return 1
 	})
+	luaRegister(l, "getGameFPS", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.gameFPS))
+		return 1
+	})
 	luaRegister(l, "getGameParams", func(*lua.LState) int {
 		lv := toLValue(l, sys.sel.gameParams)
 		lTable, ok := lv.(*lua.LTable)
@@ -2671,6 +2695,28 @@ func systemScriptInit(l *lua.LState) {
 			return 0
 		}
 		l.Push(lTable)
+		return 1
+	})
+	luaRegister(l, "getGameSpeed", func(*lua.LState) int {
+		l.Push(lua.LNumber(100 * sys.gameLogicSpeed() / 60))
+		return 1
+	})
+	luaRegister(l, "getGameStats", func(*lua.LState) int {
+		l.Push(toLValue(l, sys.statsLog))
+		return 1
+	})
+	luaRegister(l, "getGameStatsJson", func(l *lua.LState) int {
+		s := GameStatsSnapshot{
+			StatsLog:          sys.statsLog,
+			ContinueFlg:       sys.continueFlg,
+			PersistRoundCount: sys.persistRoundCount,
+		}
+		data, err := json.Marshal(s)
+		if err != nil {
+			l.RaiseError("readGameStatsJson: %v", err)
+			return 0
+		}
+		l.Push(lua.LString(data))
 		return 1
 	})
 	luaRegister(l, "getInput", func(l *lua.LState) int {
@@ -2950,6 +2996,18 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "getMatchTime", func(*lua.LState) int {
+		var ti int32
+		for _, v := range sys.timerRounds {
+			ti += v
+		}
+		l.Push(lua.LNumber(ti))
+		return 1
+	})
+	luaRegister(l, "getRandom", func(l *lua.LState) int {
+		l.Push(lua.LNumber(Random()))
+		return 1
+	})
 	luaRegister(l, "getRemapInput", func(l *lua.LState) int {
 		pn := int(numArg(l, 1))
 		if pn < 1 || pn > len(sys.inputRemap) {
@@ -2964,6 +3022,10 @@ func systemScriptInit(l *lua.LState) {
 	})
 	luaRegister(l, "getRuntimeOS", func(l *lua.LState) int {
 		l.Push(lua.LString(runtime.GOOS))
+		return 1
+	})
+	luaRegister(l, "getSelectNo", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.selectNo))
 		return 1
 	})
 	luaRegister(l, "getSessionWarning", func(*lua.LState) int {
@@ -3000,6 +3062,18 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lTable)
 		return 1
 	})
+	luaRegister(l, "getStateOwnerId", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.chars[sys.debugWC.ss.sb.playerNo][0].id))
+		return 1
+	})
+	luaRegister(l, "getStateOwnerName", func(*lua.LState) int {
+		l.Push(lua.LString(sys.chars[sys.debugWC.ss.sb.playerNo][0].name))
+		return 1
+	})
+	luaRegister(l, "getStateOwnerPlayerNo", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.debugWC.ss.sb.playerNo + 1))
+		return 1
+	})
 	luaRegister(l, "getStoryboardScene", func(l *lua.LState) int {
 		if sys.storyboard.active {
 			l.Push(lua.LNumber(sys.storyboard.currentSceneIndex))
@@ -3016,17 +3090,8 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(lua.LString(time.Now().Format(format)))
 		return 1
 	})
-	luaRegister(l, "getWaveData", func(*lua.LState) int {
-		// path, group, sound, loops before give up searching for group/sound pair (optional)
-		var max uint32
-		if !nilArg(l, 4) {
-			max = uint32(numArg(l, 4))
-		}
-		w, err := loadFromSnd(strArg(l, 1), int32(numArg(l, 2)), int32(numArg(l, 3)), max)
-		if err != nil {
-			l.RaiseError(err.Error())
-		}
-		l.Push(newUserData(l, w))
+	luaRegister(l, "getWinnerTeam", func(*lua.LState) int {
+		l.Push(lua.LNumber(sys.winnerTeam()))
 		return 1
 	})
 	luaRegister(l, "isUIKeyAction", func(l *lua.LState) int {
@@ -3861,9 +3926,17 @@ func systemScriptInit(l *lua.LState) {
 		l.RaiseError("\nmodifyStoryboard: %v\n", err.Error())
 		return 0
 	})
+	luaRegister(l, "netPlay", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.netplay()))
+		return 1
+	})
 	luaRegister(l, "panicError", func(*lua.LState) int {
 		l.RaiseError(strArg(l, 1))
 		return 0
+	})
+	luaRegister(l, "paused", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.paused && !sys.frameStepFlag))
+		return 1
 	})
 	luaRegister(l, "playBgm", func(l *lua.LState) int {
 		t := tableArg(l, 1)
@@ -4132,6 +4205,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
+	luaRegister(l, "postMatch", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.postMatchFlg))
+		return 1
+	})
 	luaRegister(l, "preloadListChar", func(*lua.LState) int {
 		if !nilArg(l, 2) {
 			sys.sel.charSpritePreload[[...]uint16{uint16(numArg(l, 1)), uint16(numArg(l, 2))}] = true
@@ -4160,24 +4237,6 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "puts", func(*lua.LState) int {
 		fmt.Println(strArg(l, 1))
 		return 0
-	})
-	luaRegister(l, "readGameStats", func(*lua.LState) int {
-		l.Push(toLValue(l, sys.statsLog))
-		return 1
-	})
-	luaRegister(l, "readGameStatsJson", func(l *lua.LState) int {
-		s := GameStatsSnapshot{
-			StatsLog:          sys.statsLog,
-			ContinueFlg:       sys.continueFlg,
-			PersistRoundCount: sys.persistRoundCount,
-		}
-		data, err := json.Marshal(s)
-		if err != nil {
-			l.RaiseError("readGameStatsJson: %v", err)
-			return 0
-		}
-		l.Push(lua.LString(data))
-		return 1
 	})
 	luaRegister(l, "rectDebug", func(*lua.LState) int {
 		r, ok := toUserData(l, 1).(*Rect)
@@ -4367,6 +4426,11 @@ func systemScriptInit(l *lua.LState) {
 		sys.resetRemapInput()
 		return 0
 	})
+	luaRegister(l, "resetRound", func(*lua.LState) int {
+		sys.roundResetFlg = true
+		sys.roundResetMatchStart = true
+		return 0
+	})
 	luaRegister(l, "resetScore", func(*lua.LState) int {
 		tn := int(numArg(l, 1))
 		if tn < 1 || tn > 2 {
@@ -4379,10 +4443,13 @@ func systemScriptInit(l *lua.LState) {
 		sys.uiResetTokenGuard()
 		return 0
 	})
-	luaRegister(l, "roundReset", func(*lua.LState) int {
-		sys.roundResetFlg = true
-		sys.roundResetMatchStart = true
-		return 0
+	luaRegister(l, "roundOver", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.roundOver()))
+		return 1
+	})
+	luaRegister(l, "roundStart", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.tickCount == 1))
+		return 1
 	})
 	luaRegister(l, "runHiscore", func(*lua.LState) int {
 		if !sys.paused || sys.frameStepFlag {
@@ -4983,6 +5050,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
+	luaRegister(l, "shutdown", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.gameEnd))
+		return 1
+	})
 	luaRegister(l, "sleep", func(l *lua.LState) int {
 		time.Sleep(time.Duration((numArg(l, 1))) * time.Second)
 		return 0
@@ -5041,11 +5112,7 @@ func systemScriptInit(l *lua.LState) {
 		s.stop([...]int32{int32(numArg(l, 2)), int32(numArg(l, 3))})
 		return 0
 	})
-	luaRegister(l, "sszRandom", func(l *lua.LState) int {
-		l.Push(lua.LNumber(Random()))
-		return 1
-	})
-	luaRegister(l, "stopAllSound", func(l *lua.LState) int {
+	luaRegister(l, "stopAllCharSounds", func(l *lua.LState) int {
 		sys.stopAllCharSounds()
 		return 0
 	})
@@ -5565,6 +5632,19 @@ func systemScriptInit(l *lua.LState) {
 	luaRegister(l, "version", func(l *lua.LState) int {
 		ver := fmt.Sprintf("%s - %s", Version, BuildTime)
 		l.Push(lua.LString(ver))
+		return 1
+	})
+	luaRegister(l, "waveNew", func(*lua.LState) int {
+		// path, group, sound, loops before give up searching for group/sound pair (optional)
+		var max uint32
+		if !nilArg(l, 4) {
+			max = uint32(numArg(l, 4))
+		}
+		w, err := loadFromSnd(strArg(l, 1), int32(numArg(l, 2)), int32(numArg(l, 3)), max)
+		if err != nil {
+			l.RaiseError(err.Error())
+		}
+		l.Push(newUserData(l, w))
 		return 1
 	})
 	luaRegister(l, "wavePlay", func(l *lua.LState) int {
@@ -8651,87 +8731,6 @@ func triggerFunctions(l *lua.LState) {
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
 		l.Push(ln)
-		return 1
-	})
-	// lua/debug only triggers
-	luaRegister(l, "animelemcount", func(*lua.LState) int {
-		l.Push(lua.LNumber(len(sys.debugWC.anim.frames)))
-		return 1
-	})
-	luaRegister(l, "animtimesum", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.anim.curtime))
-		return 1
-	})
-	luaRegister(l, "continue", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.continueFlg))
-		return 1
-	})
-	luaRegister(l, "credits", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.credits))
-		return 1
-	})
-	luaRegister(l, "gameend", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.gameEnd))
-		return 1
-	})
-	luaRegister(l, "gamefps", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.gameFPS))
-		return 1
-	})
-	luaRegister(l, "gamespeed", func(*lua.LState) int {
-		l.Push(lua.LNumber(100 * sys.gameLogicSpeed() / 60))
-		return 1
-	})
-	luaRegister(l, "gameRunning", func(l *lua.LState) int {
-		l.Push(lua.LBool(sys.gameRunning))
-		return 1
-	})
-	luaRegister(l, "matchtime", func(*lua.LState) int {
-		var ti int32
-		for _, v := range sys.timerRounds {
-			ti += v
-		}
-		l.Push(lua.LNumber(ti))
-		return 1
-	})
-	luaRegister(l, "network", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.netplay()))
-		return 1
-	})
-	luaRegister(l, "paused", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.paused && !sys.frameStepFlag))
-		return 1
-	})
-	luaRegister(l, "postmatch", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.postMatchFlg))
-		return 1
-	})
-	luaRegister(l, "roundover", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.roundOver()))
-		return 1
-	})
-	luaRegister(l, "roundstart", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.tickCount == 1))
-		return 1
-	})
-	luaRegister(l, "selectno", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.selectNo))
-		return 1
-	})
-	luaRegister(l, "stateownerid", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.chars[sys.debugWC.ss.sb.playerNo][0].id))
-		return 1
-	})
-	luaRegister(l, "stateownername", func(*lua.LState) int {
-		l.Push(lua.LString(sys.chars[sys.debugWC.ss.sb.playerNo][0].name))
-		return 1
-	})
-	luaRegister(l, "stateownerplayerno", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.debugWC.ss.sb.playerNo + 1))
-		return 1
-	})
-	luaRegister(l, "winnerteam", func(*lua.LState) int {
-		l.Push(lua.LNumber(sys.winnerTeam()))
 		return 1
 	})
 }

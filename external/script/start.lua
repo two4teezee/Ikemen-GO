@@ -363,7 +363,7 @@ function start.f_accStats(upto)
 		score = { total = {0,0}, matches = {} },
 		consecutive = {0,0},
 	}
-	local gameStats = readGameStats()
+	local gameStats = getGameStats()
 	local matches = (gameStats and gameStats.Matches) or {}
 	local n = math.min(upto or #matches, #matches)
 	local streak = {0,0}
@@ -408,7 +408,7 @@ function start.f_prefightHUD()
 		return 0, {0, 0}
 	end
 	-- emulate resetScore-on-loss behavior for the next match HUD
-	local gameStats = readGameStats()
+	local gameStats = getGameStats()
 	local last = (gameStats and gameStats.Matches and gameStats.Matches[prev]) or nil
 	if last and main.resetScore and matchno() ~= -1 then
 		if last.WinSide == 2 then
@@ -642,7 +642,7 @@ function start.f_getRatio(player, ratio)
 	if ratio ~= nil then
 		return ratio
 	end
-	if not continue() and not main.selectMenu[2] and #start.p[2].t_selected == 0 then
+	if not continued() and not main.selectMenu[2] and #start.p[2].t_selected == 0 then
 		if start.p[2].numChars == 3 then
 			start.p[2].numRatio = math.random(1, 3)
 		elseif start.p[2].numChars == 2 then
@@ -1370,7 +1370,7 @@ function start.f_playWave(ref, name, g, n, loops)
 			return 0
 		end
 		if main.t_selStages[ref][name .. '_wave_data'] == nil then
-			main.t_selStages[ref][name .. '_wave_data'] = getWaveData(a.dir .. a.sound, g, n, loops or -1)
+			main.t_selStages[ref][name .. '_wave_data'] = waveNew(a.dir .. a.sound, g, n, loops or -1)
 		end
 		wavePlay(main.t_selStages[ref][name .. '_wave_data'], g, n)
 	else
@@ -1381,7 +1381,7 @@ function start.f_playWave(ref, name, g, n, loops)
 		local key = name .. '_wave_data_' .. g .. '_' .. n
 		if start.f_getCharData(ref)[key] == nil then
 			start.f_getCharData(ref)[key] =
-				getWaveData(start.f_getCharData(ref).dir .. start.f_getCharData(ref).sound, g, n, loops or -1)
+				waveNew(start.f_getCharData(ref).dir .. start.f_getCharData(ref).sound, g, n, loops or -1)
 		end
 		wavePlay(start.f_getCharData(ref)[key], g, n)
 	end
@@ -1407,13 +1407,13 @@ end
 --shuffles a table in-place (using synced RNG)
 function start.f_shuffleTable(t, last)
 	for i = #t, 2, -1 do
-		local j = (sszRandom() % i) + 1
+		local j = (getRandom() % i) + 1
 		t[i], t[j] = t[j], t[i]
 	end
 	-- prevent first element from repeating the last of previous cycle
 	if last and #t > 1 and t[#t] == last then
 		-- swap the first element with a random other position
-		local swap = (sszRandom() % (#t - 1)) + 1
+		local swap = (getRandom() % (#t - 1)) + 1
 		t[#t], t[swap] = t[swap], t[#t]
 	end
 end
@@ -1498,7 +1498,7 @@ function start.f_slotSelected(cell, side, cmd, player, x, y)
 								sndPlay(motif.Snd, motif.select_info['p' .. side].swap.snd[1], motif.select_info['p' .. side].swap.snd[2])
 							end
 						else --select
-							main.t_selGrid[cell].slot = v[(sszRandom() % #v) + 1]
+							main.t_selGrid[cell].slot = v[(getRandom() % #v) + 1]
 							start.c[player].selRef = start.f_selGrid(cell).char_ref
 						end
 						start.t_grid[y + 1][x + 1].char = start.f_selGrid(cell).char
@@ -1564,7 +1564,7 @@ end
 function start.f_matchPersistence()
 	-- checked only after at least 1 match
 	if matchno() >= 2 then
-		local gameStats = readGameStats()
+		local gameStats = getGameStats()
 		local roundStats = gameStats.Matches[matchno()-1].Rounds
 		-- set 'existed' flag (decides if var/fvar should be persistent between matches)
 		if roundStats then
@@ -1671,7 +1671,7 @@ function start.f_game(lua)
 	local winner = -1
 	winner, start.challenger = game()
 
-	if gameOption('Debug.DumpLuaTables') then main.f_printTable(readGameStats(), 'debug/t_gameStats.txt') end
+	if gameOption('Debug.DumpLuaTables') then main.f_printTable(getGameStats(), 'debug/t_gameStats.txt') end
 
 	main.f_restoreInput()
 	if lua ~= '' then
@@ -1684,7 +1684,7 @@ function start.f_game(lua)
 		end
 		modifyGameOption('Common.Lua', t)
 	end
-	if gameend() then
+	if shutdown() then
 		clearColor(0, 0, 0)
 		os.exit()
 	end
@@ -1758,7 +1758,7 @@ function start.f_selectMode()
 				end
 				--game over
 				if main.storyboard.gameover and motif.game_over_screen.enabled and main.f_fileExists(motif.game_over_screen.storyboard) then
-					if cleared or not main.motif.continuescreen or (not continue() and motif.continue_screen.gameover.enabled) then
+					if cleared or not main.motif.continuescreen or (not continued() and motif.continue_screen.gameover.enabled) then
 						main.f_storyboard(motif.game_over_screen.storyboard)
 					end
 				end
@@ -1777,7 +1777,7 @@ function start.f_selectMode()
 				start.exit = false
 				return
 			end
-			if not continue() or esc() then
+			if not continued() or esc() then
 				start.f_selectReset(false)
 			else
 				t_reservedChars = {{}, {}}
@@ -1897,7 +1897,7 @@ local function makeChallengerResumeSnapshot(pendingFightData, stageNo)
 		matchNo = matchno(),
 		p1ConsecutiveWins = getConsecutiveWins(1),
 		p2ConsecutiveWins = getConsecutiveWins(2),
-		gameStatsJson = readGameStatsJson(),
+		gameStatsJson = getGameStatsJson(),
 		teamarcade = main.teamarcade,
 	}
 	if stageNo ~= nil then
@@ -1989,7 +1989,7 @@ function start.f_selectChallenger(resume)
 		p = main.f_tableCopy(start.p),
 		c = main.f_tableCopy(start.c),
 	}
-	local challengerWinner = winnerteam()
+	local challengerWinner = getWinnerTeam()
 
 	start.challenger = 0
 	if not ok or challengerWinner < 1 or challengerWinner > 2 or start.exit or esc() then
@@ -2068,7 +2068,7 @@ end
 function launchFight(data)
 	local data = data or {}
 	local t = {}
-	if continue() then -- on rematch all arguments are ignored and values are restored from last match
+	if continued() then -- on rematch all arguments are ignored and values are restored from last match
 		t = main.f_tableCopy(start.launchFightSav)
 		start.p[2].t_selTemp = {} -- in case it's not cleaned already (preserved p2 side during select screen)
 	else -- otherwise take all arguments and settings into account
@@ -2232,7 +2232,7 @@ function launchFight(data)
 		setTeamMode(2, start.p[2].teamMode, start.p[2].numChars)
 		start.f_remapAI(t.ai)
 		start.f_setRounds(t.roundtime, {t.p1rounds, t.p2rounds})
-		t.stageNo = start.f_setStage(t.stageNo, t.stageAssigned or continue() or loopCount > 0)
+		t.stageNo = start.f_setStage(t.stageNo, t.stageAssigned or continued() or loopCount > 0)
 		local challengerResume = nil
 		if not t.challenger then
 			-- Snapshot before game() runs. If a challenger interrupts the fight, this is the last clean arcade state.
@@ -2261,24 +2261,24 @@ function launchFight(data)
 				return start.f_selectChallenger(challengerResume)
 			end
 		-- player exit the game via ESC
-		elseif winnerteam() == -1 then
+		elseif getWinnerTeam() == -1 then
 			if not main.selectMenu[1] and not main.selectMenu[2] then
 				setMatchNo(-1)
 			end
 			break
 		-- player lost in modes that ends after 1 lose
-		elseif winnerteam() ~= 1 and main.elimination then
+		elseif getWinnerTeam() ~= 1 and main.elimination then
 			setMatchNo(-1)
 			break
 		-- player won or continuing is disabled
-		elseif winnerteam() == 1 or not t.continue then
+		elseif getWinnerTeam() == 1 or not t.continue then
 			start.p[2].t_selected = {}
 			start.p[2].t_selTemp = {}
 			setMatchNo(matchno() + 1)
 			ok = true -- continue lua code execution
 			break
 		-- continue = no
-		elseif not continue() then
+		elseif not continued() then
 			setMatchNo(-1)
 			break
 		-- continue = yes
@@ -3017,7 +3017,7 @@ function start.loadPalettes(a, ref, pal)
 	local srcAnim = a
 	a = animPrepare(a, ref)
 	animApplyVel(a, srcAnim)
-	a = changeColorPalette(a, pal)
+	a = animSetColorPalette(a, pal)
 	return a
 end
 
@@ -3101,11 +3101,11 @@ end
 local function applyPalette(sel, charData, palIndex)
 	if sel.face_data then
 		local srcAnim = sel.face_data
-		sel.face_data = changeColorPalette(sel.face_data, palIndex)
+		sel.face_data = animSetColorPalette(sel.face_data, palIndex)
 	end
 	if sel.face2_data then
 		local srcAnim = sel.face2_data
-		sel.face2_data = changeColorPalette(sel.face2_data, palIndex)
+		sel.face2_data = animSetColorPalette(sel.face2_data, palIndex)
 	end
 end
 

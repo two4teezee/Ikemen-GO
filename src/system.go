@@ -43,7 +43,7 @@ var sys = System{
 	maxRoundTime:  -1,
 	soundMixer:    &beep.Mixer{},
 	bgm:           *newBgm(),
-	soundChannels: newSoundChannels(16),
+	//soundChannels: newSoundChannels(16), // Lazy allocation in Request()
 	allPalFX:      newPalFX(),
 	bgPalFX:       newPalFX(),
 	ffx:           make(map[string]*FightFx),
@@ -56,7 +56,7 @@ var sys = System{
 	numTurns:            [...]int32{2, 2},
 	ignoreMostErrors:    true,
 	stageList:           make(map[int32]*Stage),
-	stageLocalcoords:    make(map[string][2]float32),
+	stageLocalcoords:    make(map[string][2]int32),
 	oldNextAddTime:      1,
 	commandLine:         make(chan string),
 	cam:                 *newCamera(),
@@ -108,7 +108,8 @@ type System struct {
 	debugLastID             int32
 	soundMixer              *beep.Mixer
 	bgm                     Bgm
-	soundChannels           *SoundChannels
+	soundChannels           SoundChannels // System sounds. Lifebars etc
+	charSoundChannels       [MaxPlayerNo]SoundChannels
 	allPalFX                *PalFX
 	bgPalFX                 *PalFX
 	lifebar                 Lifebar
@@ -176,7 +177,7 @@ type System struct {
 	stageList               map[int32]*Stage
 	stageLoop               bool
 	stageLoopNo             int
-	stageLocalcoords        map[string][2]float32
+	stageLocalcoords        map[string][2]int32
 	wireframeDisplay        bool
 	lastCharId              int32
 	tickCount               int
@@ -547,22 +548,18 @@ func getViewport(srcW, srcH, dstW, dstH float64) [4]float64 {
 	return [4]float64{0, 0, srcW, srcH}
 }
 
-func (s *System) aspect(w, h int32) float32 {
-	return float32(w) / float32(h)
-}
-
 func (s *System) middleOfMatch() bool {
 	return !s.fightLoopEnd && s.matchTime != 0 && !s.postMatchFlg
 }
 
 func (s *System) skipMotifScaling() bool {
-	var local [2]int32
+	var lc [2]int32
 	if (!s.middleOfMatch() && !s.postMatchFlg) || s.stage == nil {
-		local = s.motif.Info.Localcoord
+		lc = s.motif.Info.Localcoord
 	} else {
-		local = s.stage.stageCamera.localcoord
+		lc = s.stage.stageCamera.localcoord
 	}
-	return s.aspect(local[0], local[1]) > s.getMotifAspect()
+	return CalculateAspect(lc[0], lc[1]) > s.getMotifAspect()
 }
 
 func (s *System) getFightAspect() float32 {
@@ -570,13 +567,13 @@ func (s *System) getFightAspect() float32 {
 	if s.cfg.Video.FightAspectWidth < 0 && s.cfg.Video.FightAspectHeight < 0 && s.stage != nil {
 		coord := s.stage.stageCamera.localcoord
 		if coord[0] > 0 && coord[1] > 0 {
-			return s.aspect(coord[0], coord[1])
+			return CalculateAspect(coord[0], coord[1])
 		}
 	}
 
 	// Custom aspect ratio
 	if s.cfg.Video.FightAspectWidth > 0 && s.cfg.Video.FightAspectHeight > 0 {
-		return s.aspect(s.cfg.Video.FightAspectWidth, s.cfg.Video.FightAspectHeight)
+		return CalculateAspect(s.cfg.Video.FightAspectWidth, s.cfg.Video.FightAspectHeight)
 	}
 
 	// Default
@@ -588,7 +585,7 @@ func (s *System) getFightAspect() float32 {
 func (s *System) getMotifAspect() float32 {
 	// Using options directly makes aspect change as soon as options are changed
 	//return float32(s.cfg.Video.GameWidth) / float32(s.cfg.Video.GameHeight)
-	return s.aspect(s.scrrect[2], s.scrrect[3])
+	return CalculateAspect(s.scrrect[2], s.scrrect[3])
 }
 
 func (s *System) getCurrentAspect() float32 {
@@ -606,8 +603,8 @@ func (s *System) setGameSize(w, h int32) {
 	baseWidth := int32(320)
 	baseHeight := int32(240)
 
-	screenAspect := s.aspect(w, h)
-	targetAspect := s.aspect(baseWidth, baseHeight)
+	screenAspect := CalculateAspect(w, h)
+	targetAspect := CalculateAspect(baseWidth, baseHeight)
 
 	if screenAspect > targetAspect {
 		// Screen is wider than 4:3 - scale based on height
@@ -645,10 +642,10 @@ func (s *System) applyFightAspect() {
 
 		// Calculate the stage's aspect ratio
 		if stageWidth > 0 && stageHeight > 0 {
-			aspectGame = s.aspect(stageWidth, stageHeight)
+			aspectGame = CalculateAspect(stageWidth, stageHeight)
 		} else {
 			// Fallback
-			//aspectGame = s.aspect(s.cfg.Video.GameWidth, s.cfg.Video.GameHeight)
+			//aspectGame = CalculateAspect(s.cfg.Video.GameWidth, s.cfg.Video.GameHeight)
 			aspectGame = s.getMotifAspect()
 		}
 	} else {
@@ -784,13 +781,13 @@ func (s *System) renderFrame() {
 				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
 			}
 			if s.zoomStageBound {
-				dscl = MaxF(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
+				dscl = Max(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
 				if s.zoomCameraBound {
 					zoomedViewWidth := float32(s.gameWidth) / s.drawScale
 					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
 					maxCamX := x + (s.cam.halfWidth/scl - zoomedViewWidth/2)
 					intermediateTargetX := x + s.zoomPosXLag/scl
-					dx = ClampF(intermediateTargetX, minCamX, maxCamX)
+					dx = Clamp(intermediateTargetX, minCamX, maxCamX)
 				} else {
 					dx = x + s.zoomPosXLag/scl
 				}
@@ -891,10 +888,8 @@ func (s *System) update() bool {
 func (s *System) tickSound() {
 	s.soundChannels.Tick()
 	if !s.noSoundFlg {
-		for _, ch := range s.chars {
-			for _, c := range ch {
-				c.soundChannels.Tick()
-			}
+		for i := range sys.charSoundChannels {
+			sys.charSoundChannels[i].Tick()
 		}
 	}
 
@@ -1415,8 +1410,8 @@ func (s *System) playerID(id int32) *Char {
 }
 
 func (s *System) playerIDExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	char := s.playerID(id.ToI())
 	return BytecodeBool(char != nil)
@@ -1448,16 +1443,16 @@ func (s *System) playerIndex(idx int32) *Char {
 // TODO: This is redundant since the index always exists if "NumPlayer >= idx-1"
 // Maybe remove it or make it ignore destroyed helpers at least
 func (s *System) playerIndexExist(idx BytecodeValue) BytecodeValue {
-	if idx.IsSF() {
-		return BytecodeSF()
+	if idx.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	char := s.playerIndex(idx.ToI())
 	return BytecodeBool(char != nil)
 }
 
 func (s *System) playerNoExist(no BytecodeValue) BytecodeValue {
-	if no.IsSF() {
-		return BytecodeSF()
+	if no.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	exist := false
 	number := int(no.ToI() - 1)
@@ -1982,35 +1977,32 @@ func (s *System) resetGblEffect() {
 
 // Hard reset. Used between rounds
 func (s *System) clearAllCharSounds() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			c.soundChannels.SetSize(0)
-		}
+	for i := range s.charSoundChannels {
+		s.charSoundChannels[i].SetSize(0)
 	}
 }
 
 // Soft reset. Used during gameplay
 func (s *System) stopAllCharSounds() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			c.soundChannels.StopAll()
-		}
+	for i := range s.charSoundChannels {
+		s.charSoundChannels[i].StopAll()
 	}
 }
 
 func (s *System) softenAllSound() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				// Temporarily store the volume so it can be recalled later.
-				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
-					c.soundChannels.volResume[i] = c.soundChannels.channels[i].sfx.volume
-					c.soundChannels.channels[i].SetVolume(float32(c.gi().data.volume * int32(s.cfg.Sound.PauseMasterVolume) / 100))
+	for i := range s.charSoundChannels {
+		for j := range s.charSoundChannels[i] {
+			ch := &s.charSoundChannels[i][j]
 
-					// Pause if pause master volume is 0
-					if s.cfg.Sound.PauseMasterVolume == 0 {
-						c.soundChannels.channels[i].SetPaused(true)
-					}
+			// Temporarily store the volume so it can be recalled later.
+			if ch.IsPlaying() && ch.sfx != nil && ch.ctrl != nil {
+				ch.volResume = ch.sfx.volume
+				softVolume := ch.sfx.volume * (float32(s.cfg.Sound.PauseMasterVolume) / 100.0)
+				ch.SetVolume(softVolume)
+
+				// Pause if pause master volume is 0
+				if s.cfg.Sound.PauseMasterVolume == 0 {
+					ch.SetPaused(true)
 				}
 			}
 		}
@@ -2019,17 +2011,17 @@ func (s *System) softenAllSound() {
 }
 
 func (s *System) restoreAllVolume() {
-	for _, p := range s.chars {
-		for _, c := range p {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				// Restore the volume we had.
-				if c.soundChannels.channels[i].sfx != nil && c.soundChannels.channels[i].ctrl != nil {
-					c.soundChannels.channels[i].SetVolume(c.soundChannels.volResume[i])
+	for i := range s.charSoundChannels {
+		for j := range s.charSoundChannels[i] {
+			ch := &s.charSoundChannels[i][j]
 
-					// Unpause only those whose freqmul > 0
-					if c.soundChannels.channels[i].ctrl.Paused && c.soundChannels.channels[i].sfx.freqmul > 0 {
-						c.soundChannels.channels[i].SetPaused(false)
-					}
+			// Restore the volume we had.
+			if ch.sfx != nil && ch.ctrl != nil {
+				ch.SetVolume(ch.volResume)
+
+				// Unpause only those whose freqmul > 0
+				if ch.ctrl.Paused && ch.sfx.freqmul > 0 {
+					ch.SetPaused(false)
 				}
 			}
 		}
@@ -2063,7 +2055,6 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 		// These aren't "assets" but we'll do it here
 		for _, c := range s.chars[pn] {
 			c.targets = c.targets[:0]
-			c.soundChannels.SetSize(0)
 		}
 
 		// Destroy helpers
@@ -2074,6 +2065,9 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 			}
 		}
 	}
+
+	// Clear sounds
+	s.charSoundChannels[pn].SetSize(0)
 
 	// Clear projectiles, explods and text sprites
 	s.projs[pn] = PointerSliceReset(s.projs[pn])
@@ -2282,7 +2276,7 @@ func (s *System) tickInterpolation() float32 {
 	// Apply interpolation if enabled
 	if sys.cfg.Config.TickInterpolation {
 		progress := s.tickCountF - s.lastTick + s.nextAddTime
-		return ClampF(progress, 0, 1)
+		return Clamp(progress, 0, 1)
 	}
 	return 1
 }
@@ -2437,10 +2431,10 @@ func (s *System) action() {
 			s.xmin = (s.xmin + s.xmax) / 2
 			s.xmax = s.xmin
 		}
-		if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+		if Abs(s.cam.maxRight-s.xmax) < 0.0001 {
 			s.xmax = s.cam.maxRight
 		}
-		if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+		if Abs(s.cam.minLeft-s.xmin) < 0.0001 {
 			s.xmin = s.cam.minLeft
 		}
 		// Z axis player limits
@@ -2522,10 +2516,10 @@ func (s *System) action() {
 		s.xmin = (s.xmin + s.xmax) / 2
 		s.xmax = s.xmin
 	}
-	if AbsF(s.cam.maxRight-s.xmax) < 0.0001 {
+	if Abs(s.cam.maxRight-s.xmax) < 0.0001 {
 		s.xmax = s.cam.maxRight
 	}
-	if AbsF(s.cam.minLeft-s.xmin) < 0.0001 {
+	if Abs(s.cam.minLeft-s.xmin) < 0.0001 {
 		s.xmin = s.cam.minLeft
 	}
 	s.charList.xScreenBound()
@@ -3250,7 +3244,7 @@ func (s *System) draw(x, y, scl float32) {
 		//	rect[1] = s.scrrect[3] - rect[3]
 		//	fade(rect, 0, 255)
 		//}
-		//bl, br := MinF(x, s.cam.boundL), MaxF(x, s.cam.boundR)
+		//bl, br := Min(x, s.cam.boundL), Max(x, s.cam.boundR)
 		//xofs := float32(s.gameWidth) * (1/scl - 1) / 2
 		//rect = s.scrrect
 		//if x-xofs < bl {
@@ -3393,7 +3387,7 @@ func (s *System) drawDebugText() {
 			}
 		}
 		// Console
-		y = MaxF(y, 48+240-float32(s.gameHeight))
+		y = Max(y, 48+240-float32(s.gameHeight))
 		s.debugFont.SetColor(255, 255, 255, 255)
 		for _, s := range s.consoleText {
 			put(&x, &y, s)
@@ -3975,14 +3969,15 @@ func (bk *RoundStartBackup) Restore() {
 				continue
 			}
 
+			// We no longer need the live sounds workaround because sounds now belong to system
 			// Save live sounds before overwriting
-			liveSounds := c.soundChannels
+			//liveSounds := c.soundChannels
 
 			// Restore shallow copy from backup
 			*c = *bkup
 
 			// Restore live sounds
-			c.soundChannels = liveSounds
+			//c.soundChannels = liveSounds
 
 			// Remake the CNS variable maps
 			// Then restore only var and fvar (losing sysvar and sysfvar)
@@ -4052,7 +4047,7 @@ type SelectChar struct {
 	pal_defaults  []int32
 	pal_keymap    []int32
 	pal_files     []string
-	localcoord    [2]float32
+	localcoord    [2]int32
 	portraitscale float32
 	cns_scale     [2]float32
 	anims         PreloadedAnims
@@ -4063,7 +4058,7 @@ type SelectChar struct {
 
 func newSelectChar() *SelectChar {
 	return &SelectChar{
-		localcoord:    [2]float32{320, 240},
+		localcoord:    [2]int32{320, 240},
 		portraitscale: 1,
 		cns_scale:     [2]float32{1, 1},
 		anims:         NewPreloadedAnims(),
@@ -4076,7 +4071,7 @@ type SelectStage struct {
 	def             string
 	name            string
 	attachedchardef []string
-	localcoord      [2]float32
+	localcoord      [2]int32
 	portraitscale   float32
 	anims           PreloadedAnims
 	sff             *Sff
@@ -4086,7 +4081,7 @@ type SelectStage struct {
 
 func newSelectStage() *SelectStage {
 	return &SelectStage{
-		localcoord:    [2]float32{320, 240},
+		localcoord:    [2]int32{320, 240},
 		portraitscale: 1,
 		anims:         NewPreloadedAnims(),
 		music:         make(Music),
@@ -4322,14 +4317,28 @@ func (s *Select) AddChar(def string) *SelectChar {
 	var cns_orig, sprite_orig, anim_orig, movelist_orig string
 	var fnt_orig [10][2]string
 
-	lines, i, info, files, keymap, arcade, lanInfo, lanFiles, lanKeymap, lanArcade := SplitAndTrim(charDefContent, "\n"), 0, true, true, true, true, true, true, true, true
+	lines, lnidx := SplitAndTrim(charDefContent, "\n"), 0
+	info, files, keymap, arcade := true, true, true, true
+	lanInfo, lanFiles, lanKeymap, lanArcade := true, true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 
-	for i < len(lines) {
-		isec, name, subname := ReadIniSection(lines, &i)
-		switch name {
+	for lnidx < len(lines) {
+		isec, name, subname := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+				
 				var ok bool
 				if sc.name, ok, _ = isec.getText("displayname"); !ok {
 					sc.name, _, _ = isec.getText("name")
@@ -4339,105 +4348,66 @@ func (s *Select) AddChar(def string) *SelectChar {
 				}
 				sc.author, _, _ = isec.getText("author")
 				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
+				isec.ReadI32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
 				isec.ReadF32("portraitscale", &sc.portraitscale)
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				var ok bool
-				if sc.name, ok, _ = isec.getText("displayname"); !ok {
-					sc.name, _, _ = isec.getText("name")
-				}
-				if sc.lifebarname, ok, _ = isec.getText("lifebarname"); !ok {
-					sc.lifebarname = sc.name
-				}
-				sc.author, _, _ = isec.getText("author")
-				sc.pal_defaults = isec.readI32CsvForStage("pal.defaults")
-				isec.ReadF32("localcoord", &sc.localcoord[0], &sc.localcoord[1])
-				isec.ReadF32("portraitscale", &sc.portraitscale)
-			}
+
 		case "files":
-			if files {
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
+
 				cns_orig = decodeShiftJIS(isec["cns"])
 				sprite_orig = decodeShiftJIS(isec["sprite"])
 				anim_orig = decodeShiftJIS(isec["anim"])
 				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
-					if isec[fmt.Sprintf("pal%v", i)] != "" {
-						sc.pal = append(sc.pal, int32(i))
-						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
+				
+				// Clear and rebuild palettes to ensure localized files can overwrite defaults
+				sc.pal = nil
+				sc.pal_files = nil
+				for pIdx := 1; pIdx <= sys.cfg.Config.PaletteMax; pIdx++ {
+					if palFile := isec[fmt.Sprintf("pal%v", pIdx)]; palFile != "" {
+						sc.pal = append(sc.pal, int32(pIdx))
+						sc.pal_files = append(sc.pal_files, palFile)
 					}
 				}
+				
 				movelist_orig = decodeShiftJIS(isec["movelist"])
-				for i_fnt := range fnt_orig {
-					fnt_orig[i_fnt][0] = isec[fmt.Sprintf("font%v", i_fnt)]
-					fnt_orig[i_fnt][1] = isec[fmt.Sprintf("fnt_height%v", i_fnt)]
+				for fIdx := range fnt_orig {
+					fnt_orig[fIdx][0] = isec[fmt.Sprintf("font%v", fIdx)]
+					fnt_orig[fIdx][1] = isec[fmt.Sprintf("fnt_height%v", fIdx)]
 				}
 			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
-				files = false
-				lanFiles = false
-				cns_orig = decodeShiftJIS(isec["cns"])
-				sprite_orig = decodeShiftJIS(isec["sprite"])
-				anim_orig = decodeShiftJIS(isec["anim"])
-				sc.sound = decodeShiftJIS(isec["sound"])
-				for i := 1; i <= sys.cfg.Config.PaletteMax; i++ {
-					if isec[fmt.Sprintf("pal%v", i)] != "" {
-						sc.pal = append(sc.pal, int32(i))
-						sc.pal_files = append(sc.pal_files, isec[fmt.Sprintf("pal%v", i)])
-					}
-				}
-				movelist_orig = decodeShiftJIS(isec["movelist"])
-				for i := range fnt_orig {
-					fnt_orig[i][0] = isec[fmt.Sprintf("font%v", i)]
-					fnt_orig[i][1] = isec[fmt.Sprintf("fnt_height%v", i)]
-				}
-			}
+
 		case "palette ": // Note space
-			if keymap && len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
+			isKeymap := len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap"
+			if isKeymap && ((isLan && lanKeymap) || (!isLan && keymap)) {
+				if isLan {
+					lanKeymap = false
+				}
 				keymap = false
+
 				sc.pal_keymap = make([]int32, 12)
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
+				for kIdx, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
 					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap[i] = i32
+						sc.pal_keymap[kIdx] = i32
 					} else {
-						sc.pal_keymap[i] = int32(i + 1) // default
+						sc.pal_keymap[kIdx] = int32(kIdx + 1) // default
 					}
 				}
 			}
-		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
-			if lanKeymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
-				keymap = false
-				sc.pal_keymap = make([]int32, 12)
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
-					"a2", "b2", "c2", "x2", "y2", "z2"} {
-					var i32 int32
-					if isec.ReadI32(v, &i32) {
-						sc.pal_keymap[i] = i32
-					} else {
-						sc.pal_keymap[i] = int32(i + 1)
-					}
-				}
-			}
+
 		case "arcade":
-			if arcade {
+			if (isLan && lanArcade) || (!isLan && arcade) {
+				if isLan {
+					lanArcade = false
+				}
 				arcade = false
-				sc.intro, _, _ = isec.getText("intro.storyboard")
-				sc.ending, _, _ = isec.getText("ending.storyboard")
-				sc.arcadepath, _, _ = isec.getText("arcadepath")
-				sc.ratiopath, _, _ = isec.getText("ratiopath")
-			}
-		case fmt.Sprintf("%v.arcade", sys.cfg.Config.Language):
-			if lanArcade {
-				arcade = false
-				lanArcade = false
+
 				sc.intro, _, _ = isec.getText("intro.storyboard")
 				sc.ending, _, _ = isec.getText("ending.storyboard")
 				sc.arcadepath, _, _ = isec.getText("arcadepath")
@@ -4445,6 +4415,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 			}
 		}
 	}
+
 	listSpr := make(map[[2]uint16]bool)
 	for k := range s.charSpritePreload {
 		listSpr[k] = true
@@ -4456,16 +4427,16 @@ func (s *Select) AddChar(def string) *SelectChar {
 		if err != nil {
 			return err
 		}
-		lines, i := SplitAndTrim(str, "\n"), 0
-		for i < len(lines) {
-			is, name, _ := ReadIniSection(lines, &i)
+		lines, lnidx := SplitAndTrim(str, "\n"), 0
+		for lnidx < len(lines) {
+			is, name, _ := ReadIniSection(lines, &lnidx)
 			switch name {
 			case "size":
 				if ok := is.ReadF32("xscale", &sc.cns_scale[0]); !ok {
-					sc.cns_scale[0] = 320 / sc.localcoord[0]
+					sc.cns_scale[0] = 320 / float32(sc.localcoord[0])
 				}
 				if ok := is.ReadF32("yscale", &sc.cns_scale[1]); !ok {
-					sc.cns_scale[1] = 320 / sc.localcoord[0]
+					sc.cns_scale[1] = 320 / float32(sc.localcoord[0])
 				}
 				return nil
 			}
@@ -4480,8 +4451,8 @@ func (s *Select) AddChar(def string) *SelectChar {
 			if err != nil {
 				return err
 			}
-			lines, i := SplitAndTrim(str, "\n"), 0
-			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &i) // SFF here is temporary
+			lines, lnidx := SplitAndTrim(str, "\n"), 0
+			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &lnidx) // SFF here is temporary
 			for v_anim := range s.charAnimPreload {
 				if animation := at.get(v_anim); animation != nil {
 					sc.anims.addAnim(animation, v_anim)
@@ -4649,95 +4620,79 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		sys.errLog.Printf("Failed to add stage, file not found: %s: %v\n", finalDefPath, err)
 		return nil, err
 	}
+
 	tstr = fmt.Sprintf("Stage added: %v", finalDefPath)
-	i, info, bgdef, stageinfo, lanInfo, lanBgdef, lanStageinfo := 0, true, true, true, true, true, true
+
+	lnidx, info, bgdef, stageinfo := 0, true, true, true
+	lanInfo, lanBgdef, lanStageinfo := true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 	var spr string
+
 	s.stagelist = append(s.stagelist, *newSelectStage())
 	ss := &s.stagelist[len(s.stagelist)-1]
 	ss.def = finalDefPath
-	for i < len(lines) {
-		is, name, _ := ReadIniSection(lines, &i)
-		switch name {
+
+	for lnidx < len(lines) {
+		isec, name, _ := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+
 				var ok bool
-				if ss.name, ok, _ = is.getText("displayname"); !ok {
-					if ss.name, ok, _ = is.getText("name"); !ok {
+				if ss.name, ok, _ = isec.getText("displayname"); !ok {
+					if ss.name, ok, _ = isec.getText("name"); !ok {
 						ss.name = def
 					}
 				}
-				for i := 0; i < MaxAttachedChar; i++ {
+
+				for idx := 0; idx < MaxAttachedChar; idx++ {
 					key := "attachedchar"
-					if i > 0 {
-						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
+					if idx > 0 {
+						key += fmt.Sprint(idx + 1) // attachedchar2, attachedchar3, attachedchar4
 					}
-					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
+
+					if err := isec.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
 						// Ensure slice has correct length
-						for len(ss.attachedchardef) <= i {
+						for len(ss.attachedchardef) <= idx {
 							ss.attachedchardef = append(ss.attachedchardef, "")
 						}
-						ss.attachedchardef[i] = filename
+						ss.attachedchardef[idx] = filename
 						return nil
 					}); err != nil {
 						continue
 					}
 				}
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				var ok bool
-				if ss.name, ok, _ = is.getText("displayname"); !ok {
-					if ss.name, ok, _ = is.getText("name"); !ok {
-						ss.name = def
-					}
-				}
-				for i := 0; i < MaxAttachedChar; i++ {
-					key := "attachedchar"
-					if i > 0 {
-						key += fmt.Sprint(i + 1) // attachedchar2, attachedchar3, attachedchar4
-					}
-					if err := is.LoadFile(key, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
-						// Ensure slice has correct length (fill gaps)
-						for len(ss.attachedchardef) <= i {
-							ss.attachedchardef = append(ss.attachedchardef, "")
-						}
-						ss.attachedchardef[i] = filename
-						return nil
-					}); err != nil {
-						continue
-					}
-				}
-			}
+
 		case "bgdef":
-			if bgdef {
+			if (isLan && lanBgdef) || (!isLan && bgdef) {
+				if isLan { lanBgdef = false }
 				bgdef = false
-				spr = is["spr"]
+				spr = isec["spr"]
 			}
-		case fmt.Sprintf("%v.bgdef", sys.cfg.Config.Language):
-			if lanBgdef {
-				bgdef = false
-				lanBgdef = false
-				spr = is["spr"]
-			}
+
 		case "stageinfo":
-			if stageinfo {
-				stageinfo = false
-				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
-				is.ReadF32("portraitscale", &ss.portraitscale)
-				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
-					key := strings.ToLower(filepath.Base(ss.def))
-					sys.stageLocalcoords[key] = ss.localcoord // Store localcoords for StageFit
+			if (isLan && lanStageinfo) || (!isLan && stageinfo) {
+				if isLan {
+					lanStageinfo = false
 				}
-			}
-		case fmt.Sprintf("%v.stageinfo", sys.cfg.Config.Language):
-			if lanStageinfo {
 				stageinfo = false
-				lanStageinfo = false
-				is.ReadF32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
-				is.ReadF32("portraitscale", &ss.portraitscale)
+
+				isec.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
+				isec.ReadF32("portraitscale", &ss.portraitscale)
+				
+				// Cache localcoords for stage fitting
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
 					sys.stageLocalcoords[key] = ss.localcoord
@@ -4752,8 +4707,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		}
 		sff := newSff()
 		// preload animations
-		i = 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
+		atidx := 0
+		at := ReadAnimationTable(sff, &sff.palList, lines, &atidx)
 		for v := range s.stageAnimPreload {
 			if anim := at.get(v); anim != nil {
 				ss.anims.addAnim(anim, v)
@@ -4960,31 +4915,13 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	var p *Char
+	p := newChar(pn, 0)
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
-	// Reuse existing character or create a new one
-	if len(sys.chars[pn]) > 0 && cdef == sys.cgi[pn].def {
-		p = sys.chars[pn][0]
-		if !attached {
-			p.controller = pn
-			if sys.aiLevel[pn] != 0 {
-				p.controller ^= -1
-			}
-		}
-		p.clearCachedData()
-		if l.err = p.loadFx(cdef); l.err != nil {
-			sys.errLog.Printf("Error reloading FX for %s: %v", cdef, l.err)
-		}
-	} else {
-		p = newChar(pn, 0)
-		sys.cgi[pn].sff = nil
-		sys.cgi[pn].palettedata = nil
-		if len(sys.chars[pn]) > 0 {
-			p.power = sys.chars[pn][0].power
-			p.guardPoints = sys.chars[pn][0].guardPoints
-			p.dizzyPoints = sys.chars[pn][0].dizzyPoints
-		}
+	if len(sys.chars[pn]) > 0 {
+		p.power = sys.chars[pn][0].power
+		p.guardPoints = sys.chars[pn][0].guardPoints
+		p.dizzyPoints = sys.chars[pn][0].dizzyPoints
 	}
 
 	// Set new character parameters
@@ -5009,37 +4946,33 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.chars[pn] = make([]*Char, 1)
 	sys.chars[pn][0] = p
 
-	// Load new SFF if previous one was not cached
-	if sys.cgi[pn].sff == nil {
-		if l.err = p.load(cdef); l.err != nil {
-			sys.chars[pn] = nil
-			if attached {
-				tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
-			} else {
-				tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
-			}
-			return -1
-		}
-		if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
-			sys.chars[pn] = nil
-			if attached {
-				tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
-			} else {
-				tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
-			}
-			return -1
-		}
+	// Load character
+	if l.err = p.load(cdef); l.err != nil {
+		sys.chars[pn] = nil
 		if attached {
-			tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
+			tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
 		} else {
-			tstr = fmt.Sprintf("New char loaded: %v", cdef)
+			tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
 		}
+		return -1
+	}
+
+	// Compile character states
+	if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
+		sys.chars[pn] = nil
+		if attached {
+			tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+		}
+		return -1
+	}
+
+	// Prepare success message
+	if attached {
+		tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
 	} else {
-		if attached {
-			tstr = fmt.Sprintf("Cached attached char loaded: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("Cached char loaded: %v", cdef)
-		}
+		tstr = fmt.Sprintf("New char loaded: %v", cdef)
 	}
 
 	selectPalno := 1
@@ -5100,19 +5033,7 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		nm.teammate_name_strings[i] = sc.lifebarname
 
 		// Calculate portrait scale
-		fa.teammate_scale[i] = sc.portraitscale * 320 / sc.localcoord[0]
-
-		// Check if palettes are already loaded
-		// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
-		// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
-		palIdx := sys.sel.selected[pn&1][i][1]
-		_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
-		_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
-
-		// Only load palettes if necessary
-		if !hasTarget || !has11 {
-			loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
-		}
+		fa.teammate_scale[i] = sc.portraitscale * 320 / float32(sc.localcoord[0])
 
 		// Get the sprite from the teammate's SFF
 		origSpr := sc.sff.GetSprite(uint16(fa.teammate_face_spr[0]), uint16(fa.teammate_face_spr[1]))
@@ -5123,32 +5044,47 @@ func (l *Loader) prepareTurnsFaces(pn int, fa *LifeBarFace, nm *LifeBarName, tea
 		// Create an independent clone of the sprite to avoid mutating the SFF
 		spr := *origSpr
 
-		// Check if the sprite uses or shares palette 1, 1
-		usesPal11 := false
-		if spr.coldepth <= 8 {
-			pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
-			if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
-				if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
-					usesPal11 = true
+		// Run palette replacement if applicable
+		if fa.teammate_face_palshare {
+			// Check if palettes are already loaded
+			// They won't be unless the select screen used "applypal" (or if the character was already used before maybe)
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/3300
+			palIdx := sys.sel.selected[pn&1][i][1]
+			_, hasTarget := sc.sff.palList.PalTable[[...]uint16{1, uint16(palIdx)}]
+			_, has11 := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+
+			// Only load palettes if necessary
+			if !hasTarget || !has11 {
+				loadCharPalettes(sc.sff, sc.sff.filename, charIdx)
+			}
+
+			// Check if the sprite uses or shares palette 1, 1
+			usesPal11 := false
+			if spr.coldepth <= 8 {
+				pal11Idx, ok := sc.sff.palList.PalTable[[...]uint16{1, 1}]
+				if ok && spr.palidx >= 0 && int(spr.palidx) < len(sc.sff.palList.paletteMap) && pal11Idx < len(sc.sff.palList.paletteMap) {
+					if sc.sff.palList.paletteMap[spr.palidx] == sc.sff.palList.paletteMap[pal11Idx] {
+						usesPal11 = true
+					}
 				}
 			}
-		}
 
-		// Apply selected color only if the sprite shares the base palette
-		if usesPal11 {
-			// Pull selected palette index (1-based)
-			targetPal := sc.sff.palList.Get(int(palIdx) - 1)
-			if targetPal != nil {
-				// Decouple clone from global SFF palettes
-				spr.Pal = make([]uint32, len(targetPal))
-				copy(spr.Pal, targetPal)
+			// Apply selected color only if the sprite shares the base palette
+			if usesPal11 {
+				// Pull selected palette index (1-based)
+				targetPal := sc.sff.palList.Get(int(palIdx) - 1)
+				if targetPal != nil {
+					// Decouple clone from global SFF palettes
+					spr.Pal = make([]uint32, len(targetPal))
+					copy(spr.Pal, targetPal)
 
-				spr.paltemp = make([]uint32, len(targetPal))
-				copy(spr.paltemp, targetPal)
+					spr.paltemp = make([]uint32, len(targetPal))
+					copy(spr.paltemp, targetPal)
 
-				// Force lazy loading for unique recolored texture
-				spr.PalTex = nil
-				spr.palidx = -1
+					// Force lazy loading for unique recolored texture
+					spr.PalTex = nil
+					spr.palidx = -1
+				}
 			}
 		}
 
@@ -5200,9 +5136,17 @@ func (l *Loader) loadStage() bool {
 		sys.stageList = make(map[int32]*Stage)
 		sys.stageLoop = false
 		sys.stageList[0], l.err = loadStage(def, true)
+
+		// Add the stage's name to the error stack
+		if l.err != nil {
+			l.err = fmt.Errorf("\nError loading %v: %v", def, l.err)
+			return false 
+		}
+
 		sys.stage = sys.stageList[0]
 		tstr = fmt.Sprintf("New stage loaded: %v", def)
 	}
+
 	return l.err == nil
 }
 
@@ -5224,7 +5168,7 @@ func (l *Loader) load() {
 	// Update cached character scaling
 	for _, p := range sys.chars {
 		if len(p) > 0 {
-			p[0].localcoord = p[0].gi().localcoord[0] / (float32(sys.gameWidth) / 320)
+			p[0].localcoord = float32(p[0].gi().localcoord[0]) / (float32(sys.gameWidth) / 320)
 			p[0].localscl = 320 / p[0].localcoord
 		}
 	}
@@ -5232,6 +5176,9 @@ func (l *Loader) load() {
 	// Update lifebar scale
 	sys.lifebar.setLifebarScale()
 	//sys.motif.setMotifScale()
+
+	/*
+	// This should now be handled by loadSff()
 	sys.loadMutex.Lock()
 	for prefix, ffx := range sys.ffx {
 		if ffx.isGlobal {
@@ -5246,6 +5193,7 @@ func (l *Loader) load() {
 		}
 	}
 	sys.loadMutex.Unlock()
+	*/
 
 	charDone, stageDone := make([]bool, len(sys.chars)), false
 

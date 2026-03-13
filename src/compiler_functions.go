@@ -3762,7 +3762,7 @@ func (c *Compiler) displayToClipboardSub(is IniSection,
 		return err
 	}
 	if err := c.stateParam(is, "params", false, func(data string) error {
-		bes, err := c.exprs(data, VT_SFalse, 100000)
+		bes, err := c.exprs(data, VT_Undefined, 100000)
 		if err != nil {
 			return err
 		}
@@ -5569,7 +5569,7 @@ func (c *Compiler) text(is IniSection, sc *StateControllerBase, _ int8) (StateCo
 			return err
 		}
 		if err := c.stateParam(is, "params", false, func(data string) error {
-			bes, err := c.exprs(data, VT_SFalse, 100000)
+			bes, err := c.exprs(data, VT_Undefined, 100000)
 			if err != nil {
 				return err
 			}
@@ -5711,7 +5711,7 @@ func (c *Compiler) modifyText(is IniSection, sc *StateControllerBase, _ int8) (S
 			return err
 		}
 		if err := c.stateParam(is, "params", false, func(data string) error {
-			bes, err := c.exprs(data, VT_SFalse, 100000)
+			bes, err := c.exprs(data, VT_Undefined, 100000)
 			if err != nil {
 				return err
 			}

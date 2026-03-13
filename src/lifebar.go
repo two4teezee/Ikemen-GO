@@ -69,7 +69,7 @@ type FightFx struct {
 	sff        *Sff
 	snd        *Snd
 	fx_scale   float32
-	localcoord [2]float32
+	localcoord [2]int32
 	refCount   int
 	isGlobal   bool
 }
@@ -78,7 +78,7 @@ func newFightFx() *FightFx {
 	return &FightFx{
 		sff:        &Sff{},
 		fx_scale:   1.0,
-		localcoord: [2]float32{float32(sys.lifebar.localcoord[0]), float32(sys.lifebar.localcoord[1])},
+		localcoord: sys.lifebar.localcoord,
 	}
 }
 
@@ -130,7 +130,7 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 					return nil
 				}
 				is.ReadF32("fx.scale", &ffx.fx_scale)
-				is.ReadF32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1])
+				is.ReadI32("localcoord", &ffx.localcoord[0], &ffx.localcoord[1])
 			}
 		case "files":
 			// Read files section
@@ -495,7 +495,7 @@ func readHealthBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map
 	is.ReadI32("mid.delay", &hb.mid_delay)
 	is.ReadF32("mid.mult", &hb.mid_mult)
 	is.ReadF32("mid.steps", &hb.mid_steps)
-	hb.mid_steps = MaxF(1, hb.mid_steps)
+	hb.mid_steps = Max(1, hb.mid_steps)
 
 	is.ReadI32(pre+"warn.range", &hb.warn_range[0], &hb.warn_range[1])
 	is.ReadBool(pre+"scalefill", &hb.scalefill)
@@ -549,7 +549,7 @@ func (hb *HealthBar) step(ref int, hbr *HealthBar) {
 		hbr.oldlife = life
 	}
 
-	mlmin := MaxF(hbr.midlifeMin, life)
+	mlmin := Max(hbr.midlifeMin, life)
 	if hbr.midlife < mlmin {
 		hbr.midlife += (mlmin - hbr.midlife) / 2
 	}
@@ -956,7 +956,7 @@ func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
 	level := pbval / 1000
 
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
+		power = float32(pbval)/1000 - Min(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	// Element shifting gradient
@@ -1060,7 +1060,7 @@ func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) 
 	level := pbval / 1000
 
 	if pb.levelbars {
-		power = float32(pbval)/1000 - MinF(float32(level), float32(refChar.powerMax)/1000-1)
+		power = float32(pbval)/1000 - Min(float32(level), float32(refChar.powerMax)/1000-1)
 	}
 
 	var MidPosX = (float32(sys.gameWidth-320) / 2)
@@ -1659,8 +1659,8 @@ type LifeBarFace struct {
 	face_spr          [2]int32
 	face              *Sprite
 	face_lay          Layout
-	palshare          bool
-	palfxshare        bool
+	face_palshare          bool
+	face_palfxshare        bool
 	teammate_pos      [2]int32
 	teammate_spacing  [2]int32
 	teammate_bg       AnimLayout
@@ -1674,6 +1674,7 @@ type LifeBarFace struct {
 	teammate_face_lay Layout
 	teammate_scale    []float32
 	teammate_ko_hide  bool
+	teammate_face_palshare bool
 	numko             int32
 	old_spr           [2]int32
 	old_pal           [2]int32
@@ -1685,8 +1686,9 @@ func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{
 		face_spr:          [2]int32{-1},
 		teammate_face_spr: [2]int32{-1},
-		palshare:          true,
+		face_palshare:          true,
 		face_pfx:          newPalFX(),
+		teammate_face_palshare: true,
 		teammate_face_pfx: nil, // Allocated later
 	}
 }
@@ -1704,8 +1706,8 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 
 	is.ReadI32(pre+"face.spr", &fa.face_spr[0], &fa.face_spr[1])
 	fa.face_lay = *ReadLayout(pre+"face.", is, 0)
-	is.ReadBool(pre+"face.palshare", &fa.palshare)
-	is.ReadBool(pre+"face.palfxshare", &fa.palfxshare)
+	is.ReadBool(pre+"face.palshare", &fa.face_palshare)
+	is.ReadBool(pre+"face.palfxshare", &fa.face_palfxshare)
 
 	// Teammates
 	is.ReadI32(pre+"teammate.pos", &fa.teammate_pos[0], &fa.teammate_pos[1])
@@ -1724,6 +1726,7 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 	}
 	fa.teammate_face_lay = *ReadLayout(pre+"teammate.face.", is, 0)
 	is.ReadBool(pre+"teammate.ko.hide", &fa.teammate_ko_hide)
+	is.ReadBool(pre+"teammate.face.palshare", &fa.teammate_face_palshare)
 
 	return fa
 }
@@ -1794,7 +1797,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 		// Get player current PalFX if applicable
 		// These flags should check "fa" instead of "refFace"
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/2269
-		if fa.palfxshare {
+		if fa.face_palfxshare {
 			*fa.face_pfx = *refChar.getPalfx()
 		}
 
@@ -1802,7 +1805,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 		if refFace.face.coldepth <= 8 {
 			// Check the player's current palette
 			palIdx := refFace.face.palidx
-			if fa.palshare {
+			if fa.face_palshare {
 				remap := refChar.getPalfx().remap
 				if int(palIdx) < len(remap) {
 					palIdx = remap[palIdx]
@@ -2340,7 +2343,7 @@ func readLifeBarCombo(pre string, is IniSection,
 	co.top = ReadAnimLayout(pre+"top.", is, sff, at, 2)
 	is.ReadI32(pre+"displaytime", &co.displaytime)
 	is.ReadF32(pre+"showspeed", &co.showspeed)
-	co.showspeed = MaxF(1, co.showspeed)
+	co.showspeed = Max(1, co.showspeed)
 	is.ReadF32(pre+"hidespeed", &co.hidespeed)
 	co.separator, _, _ = is.getText("format.decimal.separator")
 	is.ReadI32("format.decimal.places", &co.places)
@@ -2372,7 +2375,7 @@ func (co *LifeBarCombo) step(combo, damage int32, percentage float32, dizzy bool
 		co.shaketime--
 	}
 
-	if AbsF(co.counterX) < 1 && !dizzy {
+	if Abs(co.counterX) < 1 && !dizzy {
 		co.resttime--
 	}
 
@@ -2626,7 +2629,7 @@ func readLifeBarAction(pre string, is IniSection, f map[int]*Fnt) *LifeBarAction
 	ac.text = *readLbText(pre+"text.", is, "", 2, f, 0)
 	is.ReadI32(pre+"displaytime", &ac.displaytime)
 	is.ReadF32(pre+"showspeed", &ac.showspeed)
-	ac.showspeed = MaxF(1, ac.showspeed)
+	ac.showspeed = Max(1, ac.showspeed)
 	is.ReadF32(pre+"hidespeed", &ac.hidespeed)
 	is.ReadI32(pre+"max", &ac.max)
 	return ac
@@ -2650,7 +2653,7 @@ func (ac *LifeBarAction) step(leader int) {
 				v.del = true
 			}
 		}
-		if AbsF(v.counterX) < 1 {
+		if Abs(v.counterX) < 1 {
 			v.resttime--
 		}
 		v.agetimer++
@@ -4321,8 +4324,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := &Lifebar{localcoord: [...]int32{320, 240}, scale: 1, portraitScale: 1,
-		sff: &Sff{}, snd: &Snd{},
+	l := &Lifebar{
+		localcoord: [2]int32{320, 240},
+		scale: 1,
+		portraitScale: 1,
+		sff: &Sff{},
+		snd: &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -4341,7 +4348,12 @@ func loadLifebar(def string) (*Lifebar, error) {
 		nm: [...][]*LifeBarName{make([]*LifeBarName, 2), make([]*LifeBarName, 8),
 			make([]*LifeBarName, 2), make([]*LifeBarName, 8), make([]*LifeBarName, 6),
 			make([]*LifeBarName, 8), make([]*LifeBarName, 6), make([]*LifeBarName, 8)},
-		active: true, bars: true, mode: true, fnt_scale: 1, fx_limit: 3}
+		active: true,
+		bars: true,
+		mode: true,
+		fnt_scale: 1,
+		fx_limit: 3,
+	}
 	l.fnt = make(map[int]*Fnt)
 	l.missing = map[string]int{
 		"[tag lifebar]": 3, "[simul_3p lifebar]": 4, "[simul_4p lifebar]": 5,
@@ -4369,9 +4381,10 @@ func loadLifebar(def string) (*Lifebar, error) {
 			str += "\n" + k
 		}
 	}
-	lines, i := SplitAndTrim(str, "\n"), 0
-	l.animTable = ReadAnimationTable(l.sff, &l.sff.palList, lines, &i)
-	i = 0
+
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
+	l.animTable = ReadAnimationTable(l.sff, &l.sff.palList, lines, &lnidx)
+	lnidx = 0
 	filesflg := true
 
 	// Pre-scan [info] to initialize lifebar localcoord/scale before any FightFX load
@@ -4411,8 +4424,8 @@ func loadLifebar(def string) (*Lifebar, error) {
 	ffx := newFightFx()
 	ffx.isGlobal = true
 
-	for i < len(lines) {
-		is, name, subname := ReadIniSection(lines, &i)
+	for lnidx < len(lines) {
+		is, name, subname := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "info":
 			var b bool
@@ -4541,6 +4554,8 @@ func loadLifebar(def string) (*Lifebar, error) {
 							} else {
 								l.fnt[i] = fnt
 							}
+							// Set font localcoord to the same as the lifebar
+							l.fnt[i].localcoord = l.localcoord
 							return nil
 						},
 					)

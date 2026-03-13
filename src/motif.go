@@ -2482,16 +2482,20 @@ func (m *Motif) loadFiles() {
 					sys.errLog.Printf("Failed to load %v: %v", filename, err)
 				}
 			}
+
 			if m.Fnt[i] == nil {
 				m.Fnt[i] = newFnt()
 			}
+
+			// Set font localcoord to the same as the motif
+			m.Fnt[i].localcoord = sys.motif.Info.Localcoord
+
 			// Populate extended properties from the loaded font
-			if m.Fnt[i] != nil {
-				fnt.Type = m.Fnt[i].Type
-				fnt.Size = m.Fnt[i].Size
-				fnt.Spacing = m.Fnt[i].Spacing
-				fnt.Offset = m.Fnt[i].offset
-			}
+			fnt.Type = m.Fnt[i].Type
+			fnt.Size = m.Fnt[i].Size
+			fnt.Spacing = m.Fnt[i].Spacing
+			fnt.Offset = m.Fnt[i].offset
+			
 			return nil
 		})
 		sys.keepAlive()
@@ -2728,6 +2732,10 @@ func (m *Motif) drawLoading() {
 				}
 				m.Fnt[int(fontIdx)] = f
 				registerFontIndex(m.fntIndexByKey, fp.Font, fp.Height, int(fontIdx))
+
+				// Set font localcoord to the same as the motif
+				m.Fnt[int(fontIdx)].localcoord = sys.motif.Info.Localcoord
+
 				fp.Type = f.Type
 				fp.Size = f.Size
 				fp.Spacing = f.Spacing
@@ -2747,7 +2755,7 @@ func (m *Motif) drawLoading() {
 	if ts == nil {
 		return
 	}
-	ts.SetLocalcoord(float32(m.Info.Localcoord[0]), float32(m.Info.Localcoord[1]))
+	ts.SetLocalcoord(m.Info.Localcoord[0], m.Info.Localcoord[1])
 	ts.SetWindow([4]float32{
 		0, 0,
 		float32(m.Info.Localcoord[0]),
@@ -4339,8 +4347,8 @@ func (di *MotifDialogue) buildFaceAnim(m *Motif, side, pn, grp, idx int, faceCfg
 	// respect character localcoord and portraitscale when SelectChar data exists.
 	sx, sy := faceCfg.Scale[0], faceCfg.Scale[1]
 	if sc != nil && sc.localcoord[0] != 0 {
-		sx = faceCfg.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
-		sy = faceCfg.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		sx = faceCfg.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / float32(sc.localcoord[0])
+		sy = faceCfg.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / float32(sc.localcoord[0])
 	}
 	a.SetScale(sx, sy)
 
@@ -5560,8 +5568,8 @@ func hiscorePortraitAnim(defKey string, m *Motif, x, y float32) *Anim {
 		lc := m.HiscoreInfo.Item.Face.Localcoord
 		a.SetLocalcoord(float32(lc[0]), float32(lc[1]))
 		a.SetPos(x, y)
-		sx := m.HiscoreInfo.Item.Face.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
-		sy := m.HiscoreInfo.Item.Face.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		sx := m.HiscoreInfo.Item.Face.Scale[0] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / float32(sc.localcoord[0])
+		sy := m.HiscoreInfo.Item.Face.Scale[1] * sc.portraitscale * float32(sys.motif.Info.Localcoord[0]) / float32(sc.localcoord[0])
 		a.SetScale(sx, sy)
 		a.facing = float32(m.HiscoreInfo.Item.Face.Facing)
 		w := m.HiscoreInfo.Item.Face.Window
@@ -6346,7 +6354,7 @@ func victoryPortraitAnim(m *Motif, sc *SelectChar, slot string,
 	sx, sy := scale[0], scale[1]
 	// Only apply SelectChar scaling if sc is present and has valid localcoord.
 	if sc != nil && sc.localcoord[0] > 0 {
-		base := float32(sys.motif.Info.Localcoord[0]) / sc.localcoord[0]
+		base := float32(sys.motif.Info.Localcoord[0]) / float32(sc.localcoord[0])
 		sx = scale[0] * sc.portraitscale * base
 		sy = scale[1] * sc.portraitscale * base
 	}

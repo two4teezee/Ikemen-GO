@@ -1975,7 +1975,7 @@ func systemScriptInit(l *lua.LState) {
 		} else if strArg(l, 1) == "fadein" {
 			alpha = math.Floor(255 - 255*(frame-1)/length)
 		}
-		alpha = float64(ClampF(float32(alpha), 0, 255))
+		alpha = float64(Clamp(alpha, 0, 255))
 		src := int32(alpha)
 		dst := 255 - src
 		if !nilArg(l, 6) {
@@ -2344,16 +2344,16 @@ func systemScriptInit(l *lua.LState) {
 					// Match is restarting
 					for i, b := range sys.reloadCharSlot {
 						if b {
-							if !sys.cfg.Debug.KeepSpritesOnReload {
-								if s := sys.cgi[i].sff; s != nil {
-									removeSFFCache(s.filename)
-								}
-							}
+							//if !sys.cfg.Debug.KeepSpritesOnReload {
+							//	if s := sys.cgi[i].sff; s != nil {
+							//		removeSFFCache(s.filename)
+							//	}
+							//}
 							if sys.reloadPreserveVars[i] {
 								sys.saveCharVars(i)
 							}
 							sys.chars[i] = []*Char{}
-							b = false
+							sys.reloadCharSlot[i] = false
 						}
 					}
 					if sys.reloadStageFlg {
@@ -2501,7 +2501,8 @@ func systemScriptInit(l *lua.LState) {
 		if err != nil {
 			return 0
 		}
-		lines, i, info, files, name, sound := SplitAndTrim(str, "\n"), 0, true, true, "", ""
+		lines, i := SplitAndTrim(str, "\n"), 0
+		info, files, name, sound := true, true, "", ""
 		for i < len(lines) {
 			var is IniSection
 			is, name, _ = ReadIniSection(lines, &i)
@@ -4535,10 +4536,10 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 1
 	})
-	luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
-		removeSFFCache(strArg(l, 1))
-		return 0
-	})
+	//luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
+	//	removeSFFCache(strArg(l, 1))
+	//	return 0
+	//})
 	luaRegister(l, "modelNew", func(l *lua.LState) int {
 		if !nilArg(l, 1) {
 			mdl, err := loadglTFModel(strArg(l, 1))
@@ -5063,7 +5064,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "stopSnd", func(l *lua.LState) int {
-		sys.debugWC.soundChannels.SetSize(0)
+		sys.charSoundChannels[sys.debugWC.playerNo].SetSize(0) // TODO: Why does this use the hard reset?
 		return 0
 	})
 	luaRegister(l, "synchronize", func(*lua.LState) int {
@@ -5222,7 +5223,7 @@ func systemScriptInit(l *lua.LState) {
 		// Default alpha to 255 for compatibility
 		a := int32(255)
 		if !nilArg(l, 5) {
-			a = int32(MinI(255, int(numArg(l, 5))))
+			a = int32(Min(255, int(numArg(l, 5))))
 		}
 		ts.SetColor(int32(numArg(l, 2)), int32(numArg(l, 3)), int32(numArg(l, 4)), a)
 		return 0
@@ -5276,7 +5277,7 @@ func systemScriptInit(l *lua.LState) {
 		if !ok {
 			userDataError(l, 1, ts)
 		}
-		ts.SetLocalcoord(float32(numArg(l, 2)), float32(numArg(l, 3)))
+		ts.SetLocalcoord(int32(numArg(l, 2)), int32(numArg(l, 3)))
 		return 0
 	})
 	luaRegister(l, "textImgSetMaxDist", func(*lua.LState) int {
@@ -7443,17 +7444,18 @@ func triggerFunctions(l *lua.LState) {
 		id := int32(numArg(l, 1))
 		vname := strArg(l, 2)
 		var ch *SoundChannel
+		c := sys.debugWC
 
-		if id < 0 {
-			for _, ch := range sys.debugWC.soundChannels.channels {
-				if ch.sfx != nil {
-					if ch.IsPlaying() {
-						break
-					}
+		if id >= 0 {
+			ch = sys.charSoundChannels[c.playerNo].Get(c.id, id)
+		} else {
+			for i := range sys.charSoundChannels[c.playerNo] {
+				v := &sys.charSoundChannels[c.playerNo][i]
+				if v.sfx != nil && v.IsPlaying() {
+					ch = v
+					break
 				}
 			}
-		} else {
-			ch = sys.debugWC.soundChannels.Get(id)
 		}
 
 		if ch != nil && ch.sfx != nil {
@@ -7491,7 +7493,7 @@ func triggerFunctions(l *lua.LState) {
 					lv = lua.LNumber(0)
 				}
 			case "pan":
-				lv = lua.LNumber(ch.sfx.p)
+				lv = lua.LNumber(ch.sfx.pan)
 			case "position":
 				if sl, ok := ch.sfx.streamer.(*StreamLooper); ok {
 					lv = lua.LNumber(sl.Position())
@@ -7924,8 +7926,10 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "clamp", func(*lua.LState) int {
-		v1, v2, v3, retv := float32(numArg(l, 1)), float32(numArg(l, 2)), float32(numArg(l, 3)), float32(0)
-		retv = MaxF(v2, MinF(v1, v3))
+		v1 := float32(numArg(l, 1))
+		v2 := float32(numArg(l, 2))
+		v3 := float32(numArg(l, 3))
+		retv := Clamp(v1, v2, v3)
 		l.Push(lua.LNumber(retv))
 		return 1
 	})
@@ -8370,8 +8374,10 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "lerp", func(*lua.LState) int {
-		a, b, amount, retv := float32(numArg(l, 1)), float32(numArg(l, 2)), float32(numArg(l, 3)), float32(0)
-		retv = float32(a + (b-a)*MaxF(0, MinF(amount, 1)))
+		a := float32(numArg(l, 1))
+		b := float32(numArg(l, 2))
+		amount := float32(numArg(l, 3))
+		retv := a + (b-a)*Clamp(amount, 0, 1)
 		l.Push(lua.LNumber(retv))
 		return 1
 	})

@@ -197,8 +197,8 @@ func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 		offx := sw / 2
 		offy := sh
 		rect := [7]float32{
-			AbsF(xs) * clsn[i][0],          // [0] x position (left)
-			AbsF(ys) * clsn[i][1],          // [1] y position (top)
+			Abs(xs) * clsn[i][0],          // [0] x position (left)
+			Abs(ys) * clsn[i][1],          // [1] y position (top)
 			xs * (clsn[i][2] - clsn[i][0]), // [2] width
 			ys * (clsn[i][3] - clsn[i][1]), // [3] height
 			(x + offx) * sys.widthScale,    // [4] rotation center x
@@ -2914,7 +2914,7 @@ type CharGlobalInfo struct {
 	constants               map[string]float32
 	remapPreset             map[string]RemapPreset
 	remappedpal             [2]int32
-	localcoord              [2]float32
+	localcoord              [2]int32
 	fnt                     map[int]*Fnt
 	fightfxPrefix           string
 	fxPath                  []string
@@ -3133,7 +3133,6 @@ type Char struct {
 	cnssysfvar          map[int32]float32
 	CharSystemVar
 	aimg                 *AfterImage
-	soundChannels        SoundChannels
 	p1facing             float32
 	cpucmd               int32
 	offset               [2]float32
@@ -3202,6 +3201,7 @@ type Char struct {
 	currentSctrlIndex    int32
 	analogAxes           [6]float32
 	enableSyncId         bool
+	//soundChannels        SoundChannels // Moved to system
 }
 
 // Add a new char to the game
@@ -3215,13 +3215,13 @@ func (c *Char) warn() string {
 	return fmt.Sprintf("%v: WARNING: %v (%v) in state %v: ", sys.tickCount, c.name, c.id, c.ss.no)
 }
 
-func (c *Char) panic() {
-	if sys.workingState != &c.ss.sb {
-		sys.errLog.Panicf("%v\n%v\n%v\n%+v\n", c.gi().def, c.name,
-			sys.cgi[sys.workingState.playerNo].def, sys.workingState)
+func (c *Char) panic(msg string) {
+	st := &c.ss.sb
+	if sys.workingState != st {
+		st = sys.workingState
 	}
-	sys.errLog.Panicf("%v\n%v\n%v\n%+v\n", c.gi().def, c.name,
-		sys.cgi[c.ss.sb.playerNo].def, c.ss)
+	sys.errLog.Panicf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
+		msg, c.name, sys.cgi[st.playerNo].def, st)
 }
 
 func (c *Char) init(n int, idx int) {
@@ -3369,38 +3369,6 @@ func (c *Char) prepareNextRound() {
 	c.cpucmd = -1
 }
 
-// Clear data when loading a new instance of the same character
-func (c *Char) clearCachedData() {
-	c.anim = nil
-	c.animBackup = nil
-	c.curFrame = nil
-	c.hoverIdx = -1
-	c.mctype, c.mctime = MC_Hit, 0
-	c.counterHit = false
-	c.fallTime = 0
-	c.superDefenseMul = 1
-	c.superDefenseMulBuffer = 1
-	c.fallDefenseMul = 1
-	c.customDefense = 1
-	c.defenseMulDelay = false
-	c.ownpal = true
-	c.preserve = true // Just in case
-	c.animPN = -1
-	c.spritePN = -1
-	c.animNo = 0
-	c.prevAnimNo = 0
-	c.stchtmp = false
-	c.inguarddist = false
-	c.p1facing = 0
-	c.pushed = false
-	c.atktmp, c.hittmp, c.acttmp, c.minus = 0, 0, 0, 3
-	c.winquote = -1
-	c.mapArray = make(map[string]float32)
-	c.remapSpr = make(RemapPreset)
-	c.gi().attackBase = c.gi().data.attack
-	c.gi().defenceBase = c.gi().data.defence
-}
-
 // Return Char Global Info normally
 func (c *Char) gi() *CharGlobalInfo {
 	return &sys.cgi[c.playerNo]
@@ -3446,16 +3414,35 @@ func (c *Char) ocd() *OverrideCharData {
 
 func (c *Char) load(def string) error {
 	gi := &sys.cgi[c.playerNo]
-	gi.def, gi.displayname, gi.lifebarname, gi.author = def, "", "", ""
-	gi.sff, gi.palettedata, gi.snd, gi.quotes = nil, nil, nil, [MaxQuotes]string{}
+
+	// Keep SFF if debug option is enabled and we're loading the same character in the same player number
+	keepsff := sys.cfg.Debug.KeepSpritesOnReload && def == gi.def
+	if !keepsff {
+		gi.sff = nil
+	}
+
+	// Reset global info
+	gi.def = def
+	gi.displayname, gi.lifebarname, gi.author = "", "", ""
+	gi.palettedata, gi.snd, gi.quotes = nil, nil, [MaxQuotes]string{}
 	gi.animTable = NewAnimationTable()
 	gi.fnt = make(map[int]*Fnt)
+	gi.portraitscale = 1
+
 	for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
 		pal := gi.palInfo[i]
 		pal.keyMap = int32(i)
 		gi.palInfo[i] = pal
 	}
+
+	// Reset DEF file maps
 	c.mapDefault = make(map[string]float32)
+
+	// Default localcoord
+	gi.localcoord = [2]int32{320, 240}
+	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
+	c.localscl = 320 / c.localcoord
+
 	// Helper to resolve paths relative to the .def file's logical location
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
 		isZipDef, zipArchiveOfDef, defSubPathInZip := IsZipPath(gi.def)
@@ -3480,20 +3467,21 @@ func (c *Char) load(def string) error {
 		}
 		return pathInDefFile
 	}
+
 	if err := c.loadFx(def); err != nil {
 		sys.errLog.Printf("Error loading FX for %s: %v", def, err)
 	}
+
 	str, err := LoadText(def)
 	if err != nil {
 		return err
 	}
-	lines, i := SplitAndTrim(str, "\n"), 0
+
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
 	cns, sprite, anim, sound := "", "", "", ""
-	info, files, keymap, mapArray, lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true, true, true, true, true
-	gi.localcoord = [...]float32{320, 240}
-	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
-	c.localscl = 320 / c.localcoord
-	gi.portraitscale = 1
+	info, files, keymap, mapArray := true, true, true, true
+	lanInfo, lanFiles, lanKeymap, lanMapArray := true, true, true, true
+
 	// Collect arbitrary number of fonts
 	type fontSpec struct {
 		path   string
@@ -3527,12 +3515,29 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
-	for i < len(lines) {
-		is, name, subname := ReadIniSection(lines, &i)
-		switch name {
+
+	langPrefix := sys.cfg.Config.Language + "."
+
+	// Load DEF file
+	for lnidx < len(lines) {
+		is, name, subname := ReadIniSection(lines, &lnidx)
+
+		// Determine if this is a localized section and get the base name
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			// Process the localized override or the default section
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
+
 				c.name, _, _ = is.getText("name")
 				var ok bool
 				if gi.displayname, ok, _ = is.getText("displayname"); !ok {
@@ -3545,16 +3550,22 @@ func (c *Char) load(def string) error {
 				gi.nameLow = strings.ToLower(c.name)
 				gi.displaynameLow = strings.ToLower(gi.displayname)
 				gi.authorLow = strings.ToLower(gi.author)
-				if is.ReadF32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
-					gi.portraitscale = 320 / gi.localcoord[0]
-					c.localcoord = gi.localcoord[0] / (float32(sys.gameWidth) / 320)
+				// In Mugen localcoord is clamped to 1. But that's already unplayable anyway so such a safeguard is useless
+				if is.ReadI32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
+					gi.portraitscale = 320 / float32(gi.localcoord[0])
+					c.localcoord = float32(gi.localcoord[0]) / (float32(sys.gameWidth) / 320)
 					c.localscl = 320 / c.localcoord
 				}
 				is.ReadF32("portraitscale", &gi.portraitscale)
 			}
+
 		case "files":
-			if files {
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
+
 				cns = decodeShiftJIS(is["cns"])
 				sprite = decodeShiftJIS(is["sprite"])
 				anim = decodeShiftJIS(is["anim"])
@@ -3566,10 +3577,15 @@ func (c *Char) load(def string) error {
 				}
 				parseFonts(is)
 			}
+
 		case "palette ":
-			if keymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
+			isKeymap := len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap"
+			if isKeymap && ((isLan && lanKeymap) || (!isLan && keymap)) {
+				if isLan {
+					lanKeymap = false
+				}
 				keymap = false
+
 				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
 					"a2", "b2", "c2", "x2", "y2", "z2"} {
 					var i32 int32
@@ -3583,73 +3599,14 @@ func (c *Char) load(def string) error {
 					}
 				}
 			}
+
 		case "map":
-			if mapArray {
+			if (isLan && lanMapArray) || (!isLan && mapArray) {
+				if isLan {
+					lanMapArray = false
+				}
 				mapArray = false
-				for key, value := range is {
-					c.mapDefault[key] = float32(Atof(value))
-				}
-			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				c.name, _, _ = is.getText("name")
-				var ok bool
-				if gi.displayname, ok, _ = is.getText("displayname"); !ok {
-					gi.displayname = c.name
-				}
-				if gi.lifebarname, ok, _ = is.getText("lifebarname"); !ok {
-					gi.lifebarname = gi.displayname
-				}
-				gi.author, _, _ = is.getText("author")
-				gi.nameLow = strings.ToLower(c.name)
-				gi.displaynameLow = strings.ToLower(gi.displayname)
-				gi.authorLow = strings.ToLower(gi.author)
-				if is.ReadF32("localcoord", &gi.localcoord[0], &gi.localcoord[1]) {
-					gi.portraitscale = 320 / gi.localcoord[0]
-					c.localcoord = gi.localcoord[0] / (float32(sys.gameWidth) / 320)
-					c.localscl = 320 / c.localcoord
-				}
-				is.ReadF32("portraitscale", &gi.portraitscale)
-			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
-				files = false
-				lanFiles = false
-				cns = decodeShiftJIS(is["cns"])
-				sprite = decodeShiftJIS(is["sprite"])
-				anim = decodeShiftJIS(is["anim"])
-				sound = decodeShiftJIS(is["sound"])
-				for i := 0; i < sys.cfg.Config.PaletteMax; i++ {
-					pal := gi.palInfo[i]
-					pal.filename = decodeShiftJIS(is[fmt.Sprintf("pal%v", i+1)])
-					gi.palInfo[i] = pal
-				}
-				parseFonts(is)
-			}
-		case fmt.Sprintf("%v.palette ", sys.cfg.Config.Language):
-			if lanKeymap &&
-				len(subname) >= 6 && strings.ToLower(subname[:6]) == "keymap" {
-				lanKeymap = false
-				keymap = false
-				for i, v := range [12]string{"a", "b", "c", "x", "y", "z",
-					"a2", "b2", "c2", "x2", "y2", "z2"} {
-					var i32 int32
-					if is.ReadI32(v, &i32) {
-						if i32 < 1 || int(i32) > sys.cfg.Config.PaletteMax {
-							i32 = 1
-						}
-						pal := gi.palInfo[i]
-						pal.keyMap = i32 - 1
-						gi.palInfo[i] = pal
-					}
-				}
-			}
-		case fmt.Sprintf("%v.map", sys.cfg.Config.Language):
-			if lanMapArray {
-				mapArray = false
-				lanMapArray = false
+
 				for key, value := range is {
 					c.mapDefault[key] = float32(Atof(value))
 				}
@@ -3657,26 +3614,10 @@ func (c *Char) load(def string) error {
 		}
 	}
 
-	gi.constants = make(map[string]float32)
+	// Set constants to defaults
+	c.initConstants()
 
-	// Init default values to ensure we have these maps
-	gi.constants["default.attack.lifetopowermul"] = 0.7
-	gi.constants["super.attack.lifetopowermul"] = 0
-	gi.constants["default.gethit.lifetopowermul"] = 0.6
-	gi.constants["super.gethit.lifetopowermul"] = 0.6
-	gi.constants["super.targetdefencemul"] = 1.5
-	gi.constants["default.lifetoguardpointsmul"] = 1.5
-	gi.constants["super.lifetoguardpointsmul"] = -0.33
-	gi.constants["default.lifetodizzypointsmul"] = 1.8
-	gi.constants["super.lifetodizzypointsmul"] = 0
-	gi.constants["default.lifetoredlifemul"] = 0.75
-	gi.constants["super.lifetoredlifemul"] = 0.75
-	gi.constants["default.legacygamedistancespec"] = 0
-	gi.constants["default.legacyfallyvelyaccel"] = 0
-	//gi.constants["default.ignoredefeatedenemies"] = 0
-	gi.constants["input.pauseonhitpause"] = 1
-	gi.constants["input.fbflipenemydistance"] = -1
-
+	// Load common constants
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
 			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
@@ -3684,7 +3625,7 @@ func (c *Char) load(def string) error {
 				if err != nil {
 					return err
 				}
-				lines, i = SplitAndTrim(str, "\n"), 0
+				lines, i := SplitAndTrim(str, "\n"), 0
 				is, _, _ := ReadIniSection(lines, &i)
 				for key, value := range is {
 					gi.constants[key] = float32(Atof(value))
@@ -3696,98 +3637,11 @@ func (c *Char) load(def string) error {
 		}
 	}
 
-	// Init constants
-	// Correct engine default values to character's own localcoord
-	gi.data.init()
-	c.size.init()
-	gi.attackBase = 100
-	gi.defenceBase = 100
-
-	coordRatio := float32(c.gi().localcoord[0]) / 320
-
-	if coordRatio != 1 {
-		for i := 0; i < 4; i++ {
-			c.size.standbox[i] *= coordRatio
-			c.size.crouchbox[i] *= coordRatio
-			c.size.airbox[i] *= coordRatio
-			c.size.downbox[i] *= coordRatio
-		}
-		c.size.attack.dist.width[0] *= coordRatio
-		c.size.attack.dist.width[1] *= coordRatio
-		c.size.attack.dist.height[0] *= coordRatio
-		c.size.attack.dist.height[1] *= coordRatio
-		c.size.attack.dist.depth[0] *= coordRatio
-		c.size.attack.dist.depth[1] *= coordRatio
-		c.size.proj.attack.dist.width[0] *= coordRatio
-		c.size.proj.attack.dist.width[1] *= coordRatio
-		c.size.proj.attack.dist.height[0] *= coordRatio
-		c.size.proj.attack.dist.height[1] *= coordRatio
-		c.size.proj.attack.dist.depth[0] *= coordRatio
-		c.size.proj.attack.dist.depth[1] *= coordRatio
-		c.size.head.pos[0] *= coordRatio
-		c.size.head.pos[1] *= coordRatio
-		c.size.mid.pos[0] *= coordRatio
-		c.size.mid.pos[1] *= coordRatio
-		c.size.shadowoffset *= coordRatio
-		c.size.draw.offset[0] *= coordRatio
-		c.size.draw.offset[1] *= coordRatio
-		c.size.depth[0] *= coordRatio
-		c.size.depth[1] *= coordRatio
-		c.size.attack.depth[0] *= coordRatio
-		c.size.attack.depth[1] *= coordRatio
-	}
-
-	gi.velocity.init()
-
-	if coordRatio != 1 {
-		gi.velocity.air.gethit.groundrecover[0] *= coordRatio
-		gi.velocity.air.gethit.groundrecover[1] *= coordRatio
-		gi.velocity.air.gethit.airrecover.add[0] *= coordRatio
-		gi.velocity.air.gethit.airrecover.add[1] *= coordRatio
-		gi.velocity.air.gethit.airrecover.back *= coordRatio
-		gi.velocity.air.gethit.airrecover.fwd *= coordRatio
-		gi.velocity.air.gethit.airrecover.up *= coordRatio
-		gi.velocity.air.gethit.airrecover.down *= coordRatio
-
-		gi.velocity.airjump.neu[0] *= coordRatio
-		gi.velocity.airjump.neu[1] *= coordRatio
-		gi.velocity.airjump.back *= coordRatio
-		gi.velocity.airjump.fwd *= coordRatio
-
-		gi.velocity.air.gethit.ko.add[0] *= coordRatio
-		gi.velocity.air.gethit.ko.add[1] *= coordRatio
-		gi.velocity.air.gethit.ko.ymin *= coordRatio
-		gi.velocity.ground.gethit.ko.add[0] *= coordRatio
-		gi.velocity.ground.gethit.ko.add[1] *= coordRatio
-		gi.velocity.ground.gethit.ko.ymin *= coordRatio
-	}
-
-	gi.movement.init()
-
-	if coordRatio != 1 {
-		gi.movement.airjump.height *= coordRatio
-		gi.movement.yaccel *= coordRatio
-		gi.movement.stand.friction_threshold *= coordRatio
-		gi.movement.crouch.friction_threshold *= coordRatio
-		gi.movement.air.gethit.groundlevel *= coordRatio
-		gi.movement.air.gethit.groundrecover.ground.threshold *= coordRatio
-		gi.movement.air.gethit.groundrecover.groundlevel *= coordRatio
-		gi.movement.air.gethit.airrecover.threshold *= coordRatio
-		gi.movement.air.gethit.airrecover.yaccel *= coordRatio
-		gi.movement.air.gethit.trip.groundlevel *= coordRatio
-		gi.movement.down.bounce.offset[0] *= coordRatio
-		gi.movement.down.bounce.offset[1] *= coordRatio
-		gi.movement.down.bounce.yaccel *= coordRatio
-		gi.movement.down.bounce.groundlevel *= coordRatio
-		gi.movement.down.gethit.offset[0] *= coordRatio
-		gi.movement.down.gethit.offset[1] *= coordRatio
-		gi.movement.down.friction_threshold *= coordRatio
-	}
-
 	gi.remapPreset = make(map[string]RemapPreset)
 
 	data, size, velocity, movement, quotes, lanQuotes, constants := true, true, true, true, true, true, true
 
+	// Load constants
 	if len(cns) > 0 {
 		cns_resolved := resolvePathRelativeToDef(cns)
 		if err := LoadFile(&cns_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -3795,10 +3649,18 @@ func (c *Char) load(def string) error {
 			if err != nil {
 				return err
 			}
-			lines, i = SplitAndTrim(str, "\n"), 0
-			for i < len(lines) {
-				is, name, subname := ReadIniSection(lines, &i)
-				switch name {
+			lines, lnidx = SplitAndTrim(str, "\n"), 0
+			for lnidx < len(lines) {
+				is, name, subname := ReadIniSection(lines, &lnidx)
+				
+				// Normalize for the sake of the quotes section
+				isLan := strings.HasPrefix(name, langPrefix)
+				baseName := name
+				if isLan {
+					baseName = name[len(langPrefix):]
+				}
+
+				switch baseName {
 				case "data":
 					if data {
 						data = false
@@ -4002,19 +3864,11 @@ func (c *Char) load(def string) error {
 							&gi.movement.down.gethit.offset[1])
 					}
 				case "quotes":
-					if quotes {
-						quotes = false
-						for i := range gi.quotes {
-							if is[fmt.Sprintf("victory%v", i)] != "" {
-								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
-								gi.quotes[i] = decodeShiftJIS(victoryQuotes)
-							}
+					if (isLan && lanQuotes) || (!isLan && quotes) {
+						if isLan {
+							lanQuotes = false
 						}
-					}
-				case fmt.Sprintf("%v.quotes", sys.cfg.Config.Language):
-					if lanQuotes {
 						quotes = false
-						lanQuotes = false
 						for i := range gi.quotes {
 							if is[fmt.Sprintf("victory%v", i)] != "" {
 								victoryQuotes, _, _ := is.getText(fmt.Sprintf("victory%v", i))
@@ -4056,6 +3910,7 @@ func (c *Char) load(def string) error {
 		}
 	}
 
+	// Load SFF
 	if len(sprite) > 0 {
 		sprite_resolved := resolvePathRelativeToDef(sprite)
 		if err := LoadFile(&sprite_resolved, []string{gi.def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -4068,6 +3923,8 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.sff = newSff()
 	}
+
+	// Load palettes
 	gi.palettedata = newPaldata()
 	gi.palettedata.palList = PaletteList{
 		palettes:   append([][]uint32{}, gi.sff.palList.palettes...),
@@ -4082,6 +3939,8 @@ func (c *Char) load(def string) error {
 	for key, value := range gi.sff.palList.numcols {
 		gi.palettedata.palList.numcols[key] = value
 	}
+
+	// Read animations
 	str = ""
 	if len(anim) > 0 {
 		anim_resolved := resolvePathRelativeToDef(anim)
@@ -4096,6 +3955,8 @@ func (c *Char) load(def string) error {
 			return err
 		}
 	}
+
+	// Append common animations
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
 			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
@@ -4110,8 +3971,12 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
-	lines, i = SplitAndTrim(str, "\n"), 0
+
+	// Load animations
+	lines, i := SplitAndTrim(str, "\n"), 0
 	gi.animTable = ReadAnimationTable(gi.sff, &gi.palettedata.palList, lines, &i)
+
+	// Load sounds
 	if len(sound) > 0 {
 		sound_resolved := resolvePathRelativeToDef(sound)
 		if LoadFile(&sound_resolved, []string{def, "", sys.motif.Def, "data/"}, func(filename string) error {
@@ -4124,6 +3989,7 @@ func (c *Char) load(def string) error {
 	} else {
 		gi.snd = newSnd()
 	}
+
 	// Load each declared font index into the font map.
 	for idx, spec := range fntSpecs {
 		if len(spec.path) == 0 {
@@ -4143,6 +4009,8 @@ func (c *Char) load(def string) error {
 				} else {
 					gi.fnt[i] = fnt
 				}
+				// Set font localcoord to the same as the char
+				gi.fnt[i].localcoord = gi.localcoord
 			}
 			return nil
 		})
@@ -4342,73 +4210,62 @@ func (c *Char) loadFx(def string) error {
 		return pathInDefFile
 	}
 
-	lines, i := SplitAndTrim(charDefContent, "\n"), 0
+	lines, lnidx := SplitAndTrim(charDefContent, "\n"), 0
 	info, files, lanInfo, lanFiles := true, true, true, true
+	langPrefix := sys.cfg.Config.Language + "."
 
-	for i < len(lines) {
-		isec, name, _ := ReadIniSection(lines, &i)
-		switch name {
+	for lnidx < len(lines) {
+		isec, name, _ := ReadIniSection(lines, &lnidx)
+
+		isLan := strings.HasPrefix(name, langPrefix)
+		baseName := name
+		if isLan {
+			baseName = name[len(langPrefix):]
+		}
+
+		switch baseName {
 		case "info":
-			if info {
+			if (isLan && lanInfo) || (!isLan && info) {
+				if isLan {
+					lanInfo = false
+				}
 				info = false
 				fightfxPrefixName, _, _ := isec.getText("fightfx.prefix")
 				gi.fightfxPrefix = strings.ToLower(fightfxPrefixName)
 			}
-		case fmt.Sprintf("%v.info", sys.cfg.Config.Language):
-			if lanInfo {
-				info = false
-				lanInfo = false
-				fightfxPrefixName, _, _ := isec.getText("fightfx.prefix")
-				gi.fightfxPrefix = strings.ToLower(fightfxPrefixName)
-			}
+
 		case "files":
-			if files {
+			if (isLan && lanFiles) || (!isLan && files) {
+				if isLan {
+					lanFiles = false
+				}
 				files = false
+
 				if fx_paths_str, ok := isec["fx"]; ok {
 					for _, fx_path := range strings.Split(fx_paths_str, ",") {
 						fx_path = strings.TrimSpace(fx_path)
 						if fx_path == "" {
 							continue
 						}
+						
 						resolved_path := resolvePathRelativeToDef(fx_path)
+						found_path := ""
 
-						if found_path := FileExist(resolved_path); found_path != "" {
+						// Check direct existence, then search engine paths
+						if exists := FileExist(resolved_path); exists != "" {
+							found_path = exists
+						} else {
+							found_path = SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"})
+						}
+
+						if found_path != "" {
 							if err := loadFightFx(found_path, false, false); err != nil {
 								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path, def, err)
 							} else {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							if found_path_fallback := SearchFile(fx_path, []string{def, "", sys.motif.Def, "data/"}); found_path_fallback != "" {
-								if err := loadFightFx(found_path_fallback, false, false); err != nil {
-									sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path_fallback, def, err)
-								} else {
-									gi.fxPath = append(gi.fxPath, found_path_fallback)
-								}
-							} else {
-								sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
-							}
-						}
-					}
-				}
-			}
-		case fmt.Sprintf("%v.files", sys.cfg.Config.Language):
-			if lanFiles {
-				files = false
-				lanFiles = false
-				if fx_paths_str, ok := isec["fx"]; ok {
-					for _, fx_path := range strings.Split(fx_paths_str, ",") {
-						fx_path = strings.TrimSpace(fx_path)
-						if fx_path == "" {
-							continue
-						}
-						resolved_fx_path := resolvePathRelativeToDef(fx_path)
-						if resolved_fx_path != "" {
-							if err := loadFightFx(resolved_fx_path, false, false); err != nil {
-								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", resolved_fx_path, def, err)
-							} else {
-								gi.fxPath = append(gi.fxPath, resolved_fx_path)
-							}
+							sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
 						}
 					}
 				}
@@ -4776,8 +4633,8 @@ func (c *Char) helperIndexTrigger(idx int32) *Char {
 }
 
 func (c *Char) helperIndexExist(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	return BytecodeBool(c.getHelperChainIndex(id.ToI()) != nil)
 }
@@ -4911,11 +4768,13 @@ func (c *Char) enemyNearTrigger(n int32) *Char {
 // Get the "P2" enemy reference
 func (c *Char) p2() *Char {
 	p := sys.charList.enemyNear(c, 0, true)
-	// Cache last valid P2 enemy
+
+	// Cache the last valid P2 enemy ID
 	// Mugen seems to do this for the sake of auto turning before win poses
 	if p != nil {
 		c.p2EnemyBackup = p.id
 	}
+
 	return p
 }
 
@@ -5004,19 +4863,19 @@ func (c *Char) animElemNo(time int32) BytecodeValue {
 	if c.anim != nil && time >= -c.anim.curtime {
 		return BytecodeInt(c.anim.AnimElemNo(time))
 	}
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) animElemTime(elem int32) BytecodeValue {
 	if elem >= 1 && c.anim != nil && int(elem) <= len(c.anim.frames) {
 		return BytecodeInt(c.anim.AnimElemTime(elem))
 	}
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) animExist(wc *Char, anim BytecodeValue) BytecodeValue {
-	if anim.IsSF() {
-		return BytecodeSF()
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	if c != wc {
 		return c.selfAnimExist(anim)
@@ -5167,7 +5026,7 @@ func (c *Char) assertCommand(name string, time int32) {
 }
 
 func (c *Char) constp(coordinate, value float32) BytecodeValue {
-	return BytecodeFloat(c.stOgi().localcoord[0] / coordinate * value)
+	return BytecodeFloat(float32(c.stOgi().localcoord[0]) / coordinate * value)
 }
 
 func (c *Char) ctrl() bool {
@@ -5434,8 +5293,8 @@ func (c *Char) numEnemy() int32 {
 
 // For NumExplod trigger
 func (c *Char) numExplod(eid BytecodeValue) BytecodeValue {
-	if eid.IsSF() {
-		return BytecodeSF()
+	if eid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	id := eid.ToI()
@@ -5462,8 +5321,8 @@ func (c *Char) numPlayer() int32 {
 
 // For NumText trigger
 func (c *Char) numText(textid BytecodeValue) BytecodeValue {
-	if textid.IsSF() {
-		return BytecodeSF()
+	if textid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	id := textid.ToI()
@@ -5474,8 +5333,8 @@ func (c *Char) numText(textid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) BytecodeValue {
-	if eid.IsSF() {
-		return BytecodeSF()
+	if eid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id = eid.ToI()
 	var i = int(idx.ToI())
@@ -5560,8 +5419,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 }
 
 func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
-	if chid.IsSF() {
-		return BytecodeSF()
+	if chid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	var id = chid.ToI()
@@ -5569,16 +5428,14 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 
 	// First, grab a channel.
 	if id >= 0 {
-		ch = c.soundChannels.Get(id)
+		ch = sys.charSoundChannels[c.playerNo].Get(c.id, id)
 	} else {
-		if c != nil && c.soundChannels.channels != nil {
-			for i := 0; i < int(c.soundChannels.count()); i++ {
-				if c.soundChannels.channels[i].sfx != nil {
-					if c.soundChannels.channels[i].IsPlaying() {
-						ch = &c.soundChannels.channels[i]
-						break
-					}
-				}
+		// For negative channel we just check any sound we get
+		for i := range sys.charSoundChannels[c.playerNo] {
+			v := &sys.charSoundChannels[c.playerNo][i]
+			if v.sfx != nil && v.IsPlaying() {
+				ch = v
+				break
 			}
 		}
 	}
@@ -5633,7 +5490,7 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeInt64(0)
 	case OC_ex2_soundvar_pan:
 		if ch != nil && ch.sfx != nil {
-			return BytecodeFloat(ch.sfx.p)
+			return BytecodeFloat(ch.sfx.pan)
 		}
 		return BytecodeFloat(0)
 	case OC_ex2_soundvar_position:
@@ -5660,12 +5517,12 @@ func (c *Char) soundVar(chid BytecodeValue, vtype OpCode) BytecodeValue {
 		return BytecodeFloat(0)
 	}
 
-	return BytecodeSF()
+	return BytecodeUndefined()
 }
 
 func (c *Char) numHelper(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
+	if hid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id, count int32 = hid.ToI(), 0
 
@@ -5705,8 +5562,8 @@ func (c *Char) numProj() int32 {
 }
 
 func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	// Helpers cannot own projectiles
@@ -5733,8 +5590,8 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
-	if hid.IsSF() {
-		return BytecodeSF()
+	if hid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	var id, n int32 = hid.ToI(), 0
 	for _, tid := range c.targets {
@@ -5811,8 +5668,8 @@ func (c *Char) pauseTimeTrigger() int32 {
 }
 
 func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Cancel || c.helperIndex > 0 {
@@ -5822,8 +5679,8 @@ func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype == PC_Cancel || c.helperIndex > 0 {
@@ -5833,8 +5690,8 @@ func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Guarded || c.helperIndex > 0 {
@@ -5844,8 +5701,8 @@ func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
 }
 
 func (c *Char) projHitTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsSF() {
-		return BytecodeSF()
+	if pid.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	id := pid.ToI()
 	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Hit || c.helperIndex > 0 {
@@ -5892,26 +5749,26 @@ func (c *Char) screenHeight() float32 {
 	aspect := sys.getCurrentAspect()
 
 	// Compute height from width
-	height := c.stOgi().localcoord[0] / aspect
+	height := float32(c.stOgi().localcoord[0]) / aspect
 
 	// Round to nearest integer
 	return float32(int32(height + 0.5))
 }
 
 func (c *Char) screenWidth() float32 {
-	return c.stOgi().localcoord[0]
+	return float32(c.stOgi().localcoord[0])
 }
 
 func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
-	if anim.IsSF() {
-		return BytecodeSF()
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
-	if stateno.IsSF() {
-		return BytecodeSF()
+	if stateno.IsUndefined() {
+		return BytecodeUndefined()
 	}
 	_, ok := c.gi().states[stateno.ToI()]
 	return BytecodeBool(ok)
@@ -5922,11 +5779,11 @@ func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
 func (c *Char) stageFrontEdgeDist() float32 {
 	corner := float32(0)
 	if c.facing < 0 {
-		corner = MaxF(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
+		corner = Max(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
 			sys.stage.leftbound*sys.stage.localscl/c.localscl)
 		return c.pos[0] - corner
 	} else {
-		corner = MinF(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
+		corner = Min(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
 			sys.stage.rightbound*sys.stage.localscl/c.localscl)
 		return corner - c.pos[0]
 	}
@@ -5935,11 +5792,11 @@ func (c *Char) stageFrontEdgeDist() float32 {
 func (c *Char) stageBackEdgeDist() float32 {
 	corner := float32(0)
 	if c.facing < 0 {
-		corner = MinF(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
+		corner = Min(sys.cam.XMax/c.localscl-sys.screenright/c.localscl,
 			sys.stage.rightbound*sys.stage.localscl/c.localscl)
 		return corner - c.pos[0]
 	} else {
-		corner = MaxF(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
+		corner = Max(sys.cam.XMin/c.localscl+sys.screenleft/c.localscl,
 			sys.stage.leftbound*sys.stage.localscl/c.localscl)
 		return c.pos[0] - corner
 	}
@@ -6154,6 +6011,20 @@ func (c *Char) winType(wt WinType) bool {
 	return c.win() && sys.winTrigger[c.playerNo&1] == wt
 }
 
+// Searches the player's shared sound channels and returns those belonging to this specific char/helper
+// Similar to SoundChannels.Get() but as a Char method. Used for state controllers and similar operations
+func (c *Char) getOwnChannels(chNo int32) (found []*SoundChannel) {
+	for i := range sys.charSoundChannels[c.playerNo] {
+		ch := &sys.charSoundChannels[c.playerNo][i]
+
+		if ch.playerID == c.id && (chNo < 0 || ch.channelNo == chNo) && ch.IsPlaying() {
+			found = append(found, ch)
+		}
+	}
+
+	return found
+}
+
 func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, chNo, vol int32,
 	p, freqmul, ls float32, x *float32, log bool, priority int32, loopstart, loopend, startposition int, stopgh, stopcs bool) {
 	if g < 0 {
@@ -6208,7 +6079,11 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 		crun = c.root(false)
 	}
 
-	if ch := crun.soundChannels.Request(chNo, lowpriority, priority); ch != nil {
+	// Request a sound channel
+	ch := sys.charSoundChannels[crun.playerNo].Request(crun.id, chNo, lowpriority, priority)
+
+	// Play the sound in it
+	if ch != nil {
 		ch.Play(s, g, n, loopCount, freqmul, loopstart, loopend, startposition)
 		vol = Clamp(vol, -25600, 25600)
 
@@ -6262,23 +6137,25 @@ func (c *Char) autoTurn() {
 func (c *Char) updateFBFlip() {
 	setting := c.gi().constants["input.fbflipenemydistance"]
 
-	if setting >= 0 {
-		// See shouldFaceP2()
-		e := c.p2()
-		if e == nil {
-			e = sys.playerID(c.p2EnemyBackup)
-		}
-		if e != nil {
-			distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+	// Default behavior
+	c.fbFlip = c.facing < 0
 
-			if c.facing > 0 {
-				c.fbFlip = distX < -setting
-			} else {
-				c.fbFlip = distX > -setting
-			}
-		}
+	if setting < 0 {
+		return
+	}
+
+	// If the constant is defined, flipping is determined by distance to P2
+	e := c.p2()
+	if e == nil {
+		return
+	}
+
+	distX := c.rdDistX(e, c).ToF() // Already in the char's localcoord
+
+	if c.facing < 0 {
+		c.fbFlip = distX > -setting
 	} else {
-		c.fbFlip = (c.facing < 0)
+		c.fbFlip = distX < -setting
 	}
 }
 
@@ -6460,10 +6337,10 @@ func (c *Char) stateChange2() bool {
 			}
 		}
 		// Stop flagged sound channels
-		for i := range c.soundChannels.channels {
-			if c.soundChannels.channels[i].stopOnChangeState {
-				c.soundChannels.channels[i].Reset()
-				c.soundChannels.channels[i].stopOnChangeState = false // Now redundant but still foolproof
+		for _, ch := range c.getOwnChannels(-1) {
+			if ch.stopOnChangeState {
+				ch.Reset()
+				ch.stopOnChangeState = false // Now redundant but still foolproof
 			}
 		}
 		c.stchtmp = false
@@ -6973,6 +6850,13 @@ func (c *Char) spawnText() *TextSprite {
 	// Recover a ghosted text or make a new one
 	ts := RecoverOrAppend(playerTexts, func(ts *TextSprite) { ts.Clear() }, NewTextSprite)
 
+	// Init the text
+	ts.ownerid = c.id
+
+	// Negate font draw function offsets and shift coordinate origin to where the screen edge is, regardless of aspect ratio
+	extraScreen := (320 * float32(sys.gameWidth) / (float32(sys.gameHeight) * 4 / 3)) - 320
+	ts.offsetX = -int32(extraScreen / 2)
+
 	return ts
 }
 
@@ -7159,7 +7043,7 @@ func (c *Char) animSpriteSetup(a *Animation, spritePN int, ffx string, ownpal bo
 				// With the addition of variable viewport, we should now calculate the scale each time instead of precomputing it
 				scale := fx.fx_scale
 				if fx.localcoord[0] > 0 {
-					scale = fx.fx_scale * 320 / fx.localcoord[0]
+					scale = fx.fx_scale * 320 / float32(fx.localcoord[0])
 				}
 
 				// Apply char localcoord
@@ -7622,6 +7506,115 @@ func (c *Char) isTargetBound() bool {
 	return c.ghv.idMatch(c.bindToId)
 }
 
+func (c *Char) initConstants() {
+	gi := c.gi()
+	gi.data.init()
+	gi.attackBase = 100
+	gi.defenceBase = 100
+
+	c.size.init()
+	gi.velocity.init()
+	gi.movement.init()
+
+	// Scale defaults to the character's own localcoord
+	coordRatio := float32(c.gi().localcoord[0]) / 320
+
+	if coordRatio != 1 {
+		// Size
+		for i := 0; i < 4; i++ {
+			c.size.standbox[i] *= coordRatio
+			c.size.crouchbox[i] *= coordRatio
+			c.size.airbox[i] *= coordRatio
+			c.size.downbox[i] *= coordRatio
+		}
+		c.size.attack.dist.width[0] *= coordRatio
+		c.size.attack.dist.width[1] *= coordRatio
+		c.size.attack.dist.height[0] *= coordRatio
+		c.size.attack.dist.height[1] *= coordRatio
+		c.size.attack.dist.depth[0] *= coordRatio
+		c.size.attack.dist.depth[1] *= coordRatio
+		c.size.proj.attack.dist.width[0] *= coordRatio
+		c.size.proj.attack.dist.width[1] *= coordRatio
+		c.size.proj.attack.dist.height[0] *= coordRatio
+		c.size.proj.attack.dist.height[1] *= coordRatio
+		c.size.proj.attack.dist.depth[0] *= coordRatio
+		c.size.proj.attack.dist.depth[1] *= coordRatio
+		c.size.head.pos[0] *= coordRatio
+		c.size.head.pos[1] *= coordRatio
+		c.size.mid.pos[0] *= coordRatio
+		c.size.mid.pos[1] *= coordRatio
+		c.size.shadowoffset *= coordRatio
+		c.size.draw.offset[0] *= coordRatio
+		c.size.draw.offset[1] *= coordRatio
+		c.size.depth[0] *= coordRatio
+		c.size.depth[1] *= coordRatio
+		c.size.attack.depth[0] *= coordRatio
+		c.size.attack.depth[1] *= coordRatio
+
+		// Velocity
+		gi.velocity.air.gethit.groundrecover[0] *= coordRatio
+		gi.velocity.air.gethit.groundrecover[1] *= coordRatio
+		gi.velocity.air.gethit.airrecover.add[0] *= coordRatio
+		gi.velocity.air.gethit.airrecover.add[1] *= coordRatio
+		gi.velocity.air.gethit.airrecover.back *= coordRatio
+		gi.velocity.air.gethit.airrecover.fwd *= coordRatio
+		gi.velocity.air.gethit.airrecover.up *= coordRatio
+		gi.velocity.air.gethit.airrecover.down *= coordRatio
+
+		gi.velocity.airjump.neu[0] *= coordRatio
+		gi.velocity.airjump.neu[1] *= coordRatio
+		gi.velocity.airjump.back *= coordRatio
+		gi.velocity.airjump.fwd *= coordRatio
+
+		gi.velocity.air.gethit.ko.add[0] *= coordRatio
+		gi.velocity.air.gethit.ko.add[1] *= coordRatio
+		gi.velocity.air.gethit.ko.ymin *= coordRatio
+		gi.velocity.ground.gethit.ko.add[0] *= coordRatio
+		gi.velocity.ground.gethit.ko.add[1] *= coordRatio
+		gi.velocity.ground.gethit.ko.ymin *= coordRatio
+
+		// Movement
+		gi.movement.airjump.height *= coordRatio
+		gi.movement.yaccel *= coordRatio
+		gi.movement.stand.friction_threshold *= coordRatio
+		gi.movement.crouch.friction_threshold *= coordRatio
+		gi.movement.air.gethit.groundlevel *= coordRatio
+		gi.movement.air.gethit.groundrecover.ground.threshold *= coordRatio
+		gi.movement.air.gethit.groundrecover.groundlevel *= coordRatio
+		gi.movement.air.gethit.airrecover.threshold *= coordRatio
+		gi.movement.air.gethit.airrecover.yaccel *= coordRatio
+		gi.movement.air.gethit.trip.groundlevel *= coordRatio
+		gi.movement.down.bounce.offset[0] *= coordRatio
+		gi.movement.down.bounce.offset[1] *= coordRatio
+		gi.movement.down.bounce.yaccel *= coordRatio
+		gi.movement.down.bounce.groundlevel *= coordRatio
+		gi.movement.down.gethit.offset[0] *= coordRatio
+		gi.movement.down.gethit.offset[1] *= coordRatio
+		gi.movement.down.friction_threshold *= coordRatio
+	}
+
+	// Init custom constants
+	gi.constants = make(map[string]float32)
+
+	// Init default values to ensure we have these maps
+	gi.constants["default.attack.lifetopowermul"] = 0.7
+	gi.constants["super.attack.lifetopowermul"] = 0
+	gi.constants["default.gethit.lifetopowermul"] = 0.6
+	gi.constants["super.gethit.lifetopowermul"] = 0.6
+	gi.constants["super.targetdefencemul"] = 1.5
+	gi.constants["default.lifetoguardpointsmul"] = 1.5
+	gi.constants["super.lifetoguardpointsmul"] = -0.33
+	gi.constants["default.lifetodizzypointsmul"] = 1.8
+	gi.constants["super.lifetodizzypointsmul"] = 0
+	gi.constants["default.lifetoredlifemul"] = 0.75
+	gi.constants["super.lifetoredlifemul"] = 0.75
+	gi.constants["default.legacygamedistancespec"] = 0
+	gi.constants["default.legacyfallyvelyaccel"] = 0
+	//gi.constants["default.ignoredefeatedenemies"] = 0
+	gi.constants["input.pauseonhitpause"] = 1
+	gi.constants["input.fbflipenemydistance"] = -1
+}
+
 func (c *Char) initCnsVar() {
 	c.cnsvar = make(map[int32]int32)
 	c.cnsfvar = make(map[int32]float32)
@@ -7632,7 +7625,7 @@ func (c *Char) initCnsVar() {
 func (c *Char) varGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	// Check var (map)
 	val, ok := c.cnsvar[i]
@@ -7647,7 +7640,7 @@ func (c *Char) varGet(i int32) BytecodeValue {
 func (c *Char) fvarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnsfvar[i]
@@ -7660,7 +7653,7 @@ func (c *Char) fvarGet(i int32) BytecodeValue {
 func (c *Char) sysVarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnssysvar[i]
@@ -7673,7 +7666,7 @@ func (c *Char) sysVarGet(i int32) BytecodeValue {
 func (c *Char) sysFvarGet(i int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	val, ok := c.cnssysfvar[i]
@@ -7686,7 +7679,7 @@ func (c *Char) sysFvarGet(i int32) BytecodeValue {
 func (c *Char) varSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnsvar[i] = v // Create or update the key
@@ -7696,7 +7689,7 @@ func (c *Char) varSet(i, v int32) BytecodeValue {
 func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnsfvar[i] = v
@@ -7706,7 +7699,7 @@ func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
 func (c *Char) sysVarSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnssysvar[i] = v
@@ -7716,7 +7709,7 @@ func (c *Char) sysVarSet(i, v int32) BytecodeValue {
 func (c *Char) sysFvarSet(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	c.cnssysfvar[i] = v
@@ -7726,7 +7719,7 @@ func (c *Char) sysFvarSet(i int32, v float32) BytecodeValue {
 func (c *Char) varAdd(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnsvar[i]; ok {
@@ -7740,7 +7733,7 @@ func (c *Char) varAdd(i, v int32) BytecodeValue {
 func (c *Char) fvarAdd(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("fvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnsfvar[i]; ok {
@@ -7754,7 +7747,7 @@ func (c *Char) fvarAdd(i int32, v float32) BytecodeValue {
 func (c *Char) sysVarAdd(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnssysvar[i]; ok {
@@ -7768,7 +7761,7 @@ func (c *Char) sysVarAdd(i, v int32) BytecodeValue {
 func (c *Char) sysFvarAdd(i int32, v float32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("sysfvar index %v must be positive", i))
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 
 	if _, ok := c.cnssysfvar[i]; ok {
@@ -7899,8 +7892,8 @@ func (c *Char) getSingleStageBg(id int32, idx int, log bool) *backGround {
 
 // For NumStageBG trigger
 func (c *Char) numStageBG(id BytecodeValue) BytecodeValue {
-	if id.IsSF() {
-		return BytecodeSF()
+	if id.IsUndefined() {
+		return BytecodeUndefined()
 	}
 
 	bid := id.ToI()
@@ -8530,7 +8523,7 @@ func (c *Char) distX(opp *Char, oc *Char) float32 {
 			if bt := sys.playerID(c.bindToId); bt != nil {
 				f := bt.facing
 				// We only need to correct for target binds (and snaps)
-				if AbsF(c.bindFacing) == 2 {
+				if Abs(c.bindFacing) == 2 {
 					f = c.bindFacing / 2
 				}
 				cpos = bt.pos[0]*bt.localscl + f*(c.bindPos[0]+c.bindPosAdd[0])*c.localscl
@@ -8538,7 +8531,7 @@ func (c *Char) distX(opp *Char, oc *Char) float32 {
 		}
 	}
 	dist := (opos - cpos) / oc.localscl
-	if AbsF(dist) < 0.0001 {
+	if Abs(dist) < 0.0001 {
 		dist = 0
 	}
 	return dist
@@ -8635,7 +8628,7 @@ func (c *Char) bodyDistZ(opp *Char, oc *Char) float32 {
 
 func (c *Char) rdDistX(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.facing * c.distX(rd, oc)
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -8649,7 +8642,7 @@ func (c *Char) rdDistX(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.distY(rd, oc)
 	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
@@ -8663,7 +8656,7 @@ func (c *Char) rdDistY(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) rdDistZ(rd *Char, oc *Char) BytecodeValue {
 	if rd == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	dist := c.distZ(rd, oc)
 	return BytecodeFloat(dist)
@@ -8671,7 +8664,7 @@ func (c *Char) rdDistZ(rd *Char, oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else {
 		dist := c.facing * c.bodyDistX(p2, oc)
 		if c.stWgi().mugenver[0] != 1 {
@@ -8683,7 +8676,7 @@ func (c *Char) p2BodyDistX(oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistY(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else if oc.stWgi().ikemenver[0] == 0 && oc.stWgi().ikemenver[1] == 0 {
 		return c.rdDistY(c.p2(), oc) // In Mugen, P2BodyDist Y simply does the same as P2Dist Y
 	} else {
@@ -8693,7 +8686,7 @@ func (c *Char) p2BodyDistY(oc *Char) BytecodeValue {
 
 func (c *Char) p2BodyDistZ(oc *Char) BytecodeValue {
 	if p2 := c.p2(); p2 == nil {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	} else {
 		return BytecodeFloat(c.bodyDistZ(p2, oc))
 	}
@@ -9044,7 +9037,7 @@ func (c *Char) remapSpritePreset(preset string) {
 // MapSet() sets a map to a specific value.
 func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	if s == "" {
-		return BytecodeSF()
+		return BytecodeUndefined()
 	}
 	key := strings.ToLower(s)
 	switch scType {
@@ -9365,11 +9358,11 @@ func (c *Char) posUpdate() {
 	case ST_S:
 		friction := c.getStandFriction()
 		c.vel[0] *= friction
-		if AbsF(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
+		if Abs(c.vel[0]) < 1/originLs { // TODO: These probably shouldn't be hardcoded
 			c.vel[0] = 0
 		}
 		c.vel[2] *= friction
-		if AbsF(c.vel[2]) < 1/originLs {
+		if Abs(c.vel[2]) < 1/originLs {
 			c.vel[2] = 0
 		}
 	case ST_C:
@@ -9383,7 +9376,7 @@ func (c *Char) posUpdate() {
 	// Apply friction to corner push only after positions are updated
 	if c.mhv.cornerpush_veloff != 0 {
 		c.mhv.cornerpush_veloff *= pushMul
-		if AbsF(c.mhv.cornerpush_veloff) < 1/originLs { // In Mugen 1.1 this is actually 0.3333, but that would be different from normal friction
+		if Abs(c.mhv.cornerpush_veloff) < 1/originLs { // In Mugen 1.1 this is actually 0.3333, but that would be different from normal friction
 			c.mhv.cornerpush_veloff = 0
 		}
 	}
@@ -9491,7 +9484,7 @@ func (c *Char) bind() {
 		if !math.IsNaN(float64(c.bindPos[0])) {
 			f := bt.facing
 			// We only need to correct for target binds (and snaps)
-			if AbsF(c.bindFacing) == 2 {
+			if Abs(c.bindFacing) == 2 {
 				f = c.bindFacing / 2
 			}
 			c.setPosX(bt.pos[0]*bt.localscl/c.localscl+f*(c.bindPos[0]+c.bindPosAdd[0]), true)
@@ -9512,7 +9505,7 @@ func (c *Char) bind() {
 			c.oldPos[2] += bt.oldPos[2] - bt.pos[2]
 			c.ghv.zoff = 0
 		}
-		if AbsF(c.bindFacing) == 1 {
+		if Abs(c.bindFacing) == 1 {
 			if c.bindFacing > 0 {
 				c.setFacing(bt.facing)
 			} else {
@@ -9538,11 +9531,11 @@ func (c *Char) xScreenBound() {
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
-		x = ClampF(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		x = Clamp(x, min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 	}
 
 	if c.csf(CSF_stagebound) {
-		x = ClampF(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
+		x = Clamp(x, sys.stage.leftbound*sys.stage.localscl/c.localscl, sys.stage.rightbound*sys.stage.localscl/c.localscl)
 	}
 
 	// Only update interpolation etc if necessary
@@ -9558,7 +9551,7 @@ func (c *Char) zDepthBound() {
 	if c.csf(CSF_stagebound) {
 		min := c.edgeDepth[0]
 		max := -c.edgeDepth[1]
-		posz = ClampF(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
+		posz = Clamp(posz, min+sys.zmin/c.localscl, max+sys.zmax/c.localscl)
 	}
 
 	if posz != before {
@@ -9573,7 +9566,7 @@ func (c *Char) xPlatformBound(pxmin, pxmax float32) {
 		if c.facing > 0 {
 			min, max = -max, -min
 		}
-		x = ClampF(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
+		x = Clamp(x, min+pxmin/c.localscl, max+pxmax/c.localscl)
 	}
 	c.setPosX(x, true)
 	c.xScreenBound()
@@ -10517,10 +10510,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 	if hitResult > 0 {
 		// Stop enemy's flagged sounds. In Mugen this only happens with channel 0
 		if hitResult == 1 {
-			for i := range getter.soundChannels.channels {
-				if getter.soundChannels.channels[i].stopOnGetHit {
-					getter.soundChannels.channels[i].Reset()
-					getter.soundChannels.channels[i].stopOnGetHit = false // Now redundant but still foolproof
+			for _, gch := range getter.getOwnChannels(-1) {
+				if gch.stopOnGetHit {
+					gch.Reset()
+					gch.stopOnGetHit = false // Now redundant but still foolproof
 				}
 			}
 		}
@@ -10874,7 +10867,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 					starty := getter.ghv.yvel
 					if getter.ss.stateType == ST_A {
 						if getter.ghv.xvel != 0 {
-							getter.ghv.xvel += getter.gi().velocity.air.gethit.ko.add[0] * SignF(getter.ghv.xvel) * -1
+							getter.ghv.xvel += getter.gi().velocity.air.gethit.ko.add[0] * Sign(getter.ghv.xvel) * -1
 						}
 						if getter.ghv.yvel <= 0 {
 							getter.ghv.yvel += getter.gi().velocity.air.gethit.ko.add[1]
@@ -10887,7 +10880,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 							getter.ghv.xvel *= getter.gi().velocity.ground.gethit.ko.xmul
 						}
 						if getter.ghv.xvel != 0 {
-							getter.ghv.xvel += getter.gi().velocity.ground.gethit.ko.add[0] * SignF(getter.ghv.xvel) * -1
+							getter.ghv.xvel += getter.gi().velocity.ground.gethit.ko.add[0] * Sign(getter.ghv.xvel) * -1
 						}
 						if getter.ghv.yvel <= 0 {
 							getter.ghv.yvel += getter.gi().velocity.ground.gethit.ko.add[1]
@@ -11679,7 +11672,7 @@ func (c *Char) track() {
 
 		// This doesn't seem necessary currently. Handled by xScreenBound()
 		//if !sys.cam.roundstart && c.csf(CSF_screenbound) && !c.scf(SCF_standby) {
-		//	c.interPos[0] = ClampF(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
+		//	c.interPos[0] = Clamp(c.interPos[0], min+sys.xmin/c.localscl, max+sys.xmax/c.localscl)
 		//}
 
 		// X axis
@@ -11713,8 +11706,8 @@ func (c *Char) track() {
 
 		// Y axis
 		if c.csf(CSF_movecamera_y) && !c.scf(SCF_standby) && !math.IsInf(float64(c.pos[1]), 0) {
-			sys.cam.highest = MinF(c.interPos[1]*c.localscl, sys.cam.highest)
-			sys.cam.lowest = MaxF(c.interPos[1]*c.localscl, sys.cam.lowest)
+			sys.cam.highest = Min(c.interPos[1]*c.localscl, sys.cam.highest)
+			sys.cam.lowest = Max(c.interPos[1]*c.localscl, sys.cam.lowest)
 			//sys.cam.Pos[1] = 0 // This doesn't seem necessary in the current state of the code
 			// Mugen ignores characters that have infinite position
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/1917
@@ -11762,7 +11755,7 @@ func (c *Char) update() {
 			// Moved to system.zss
 			//if sys.supertime == 0 && sys.pausetime == 0 &&
 			//	((c.ss.moveType == MT_H && (c.ss.stateType == ST_S || c.ss.stateType == ST_C)) || c.ss.no == 52) &&
-			//	c.pos[1] == 0 && (AbsF(c.pos[0]-c.dustOldPos[0]) >= 1 || AbsF(c.pos[2]-c.dustOldPos[2]) >= 1) {
+			//	c.pos[1] == 0 && (Abs(c.pos[0]-c.dustOldPos[0]) >= 1 || Abs(c.pos[2]-c.dustOldPos[2]) >= 1) {
 			//	c.makeDust(0, 0, 0, 3) // Default spacing of 3
 			//}
 		}
@@ -13244,7 +13237,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gytop := (getter.pos[1] + gbox[1]) * getter.localscl
 		gybot := (getter.pos[1] + gbox[3]) * getter.localscl
 
-		overlapY := MinF(cybot, gybot) - MaxF(cytop, gytop)
+		overlapY := Min(cybot, gybot) - Max(cytop, gytop)
 		if overlapY <= 0 {
 			continue
 		}
@@ -13271,7 +13264,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gxleft += gposx
 		gxright += gposx
 
-		overlapX := MinF(gxright, cxright) - MaxF(gxleft, cxleft)
+		overlapX := Min(gxright, cxright) - Max(gxleft, cxleft)
 
 		// X-axis fail
 		if overlapX <= 0 {
@@ -13288,7 +13281,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 		gztop := gposz - getter.sizeDepth[0]*getter.localscl
 		gzbot := gposz + getter.sizeDepth[1]*getter.localscl
 
-		overlapZ := MinF(gzbot, czbot) - MaxF(gztop, cztop)
+		overlapZ := Min(gzbot, czbot) - Max(gztop, cztop)
 
 		// Z-axis fail
 		if overlapZ <= 0 {
@@ -13323,13 +13316,13 @@ func (cl *CharList) pushDetection(getter *Char) {
 			var pushx, pushz bool
 			if sys.zEnabled() && gposz != cposz { // If tied on Z axis we fall back to X pushing
 				// Get distances in both axes
-				distx := AbsF(gposx - cposx)
-				distz := AbsF(gposz - cposz)
+				distx := Abs(gposx - cposx)
+				distz := Abs(gposz - cposz)
 
 				// Check how much each axis should weigh on the decision
 				// Adjust z-distance to same scale as x-distance, since character depths are usually smaller than widths
-				xtotal := AbsF(gxleft-gxright) + AbsF(cxleft-cxright)
-				ztotal := AbsF(gztop-gzbot) + AbsF(cztop-czbot)
+				xtotal := Abs(gxleft-gxright) + Abs(cxleft-cxright)
+				ztotal := Abs(gztop-gzbot) + Abs(cztop-czbot)
 				distzadj := distz
 				if ztotal != 0 {
 					distzadj = (xtotal / ztotal) * distz
@@ -13337,7 +13330,7 @@ func (cl *CharList) pushDetection(getter *Char) {
 
 				// Push farthest axis or both if distances are similar
 				similar := float32(0.75) // Ratio at which distances are considered similar. Arbitrary number. Maybe there's a better way
-				if distzadj != 0 && AbsF(distx/distzadj) > similar && AbsF(distx/distzadj) < (1/similar) {
+				if distzadj != 0 && Abs(distx/distzadj) > similar && Abs(distx/distzadj) < (1/similar) {
 					pushx = true
 					pushz = true
 				} else if distx >= distzadj {
@@ -13552,9 +13545,6 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 		return sys.playerID((*cache)[n])
 	}
 
-	// Else reset the cache and start over
-	*cache = (*cache)[:0]
-
 	// Local struct for sorting
 	type enemyDist struct {
 		id   int32
@@ -13567,6 +13557,7 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 		if e.isPlayerType() && c.isEnemyOf(e) {
 			valid := false
 			// P2 checks for alive enemies even if they are player type helpers
+			// Checking for e.alive() here would be a bit more practical, but less consistent with Mugen and the rest of our code
 			if p2list && !e.scf(SCF_standby) && !e.scf(SCF_over_ko) {
 				valid = true
 			}
@@ -13598,11 +13589,17 @@ func (cl *CharList) enemyNear(c *Char, n int32, p2list bool) *Char {
 	}
 
 	// Sort enemies by shortest absolute distance
-	sort.SliceStable(pairs, func(i, j int) bool {
-		return AbsF(pairs[i].dist) < AbsF(pairs[j].dist)
+	sort.Slice(pairs, func(i, j int) bool {
+		di, dj := Abs(pairs[i].dist), Abs(pairs[j].dist)
+		if di != dj {
+			return di < dj
+		}
+		// Use player ID as tiebreaker (replaces sort.SliceStable)
+		return pairs[i].id < pairs[j].id
 	})
 
-	// Rebuild cache
+	// Rebuild the cache
+	*cache = (*cache)[:0]
 	for _, p := range pairs {
 		*cache = append(*cache, p.id)
 	}

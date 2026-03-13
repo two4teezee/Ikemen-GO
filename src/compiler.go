@@ -7246,7 +7246,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 		} else {
 			for {
 				// Parse arguments
-				be, err := c.typedExp(c.expBoolOr, &expr, VT_SFalse)
+				be, err := c.typedExp(c.expBoolOr, &expr, VT_Undefined)
 				if err != nil {
 					return err
 				}
@@ -7285,7 +7285,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 				var be BytecodeExp
 				if i < int(bf.numArgs)-1 {
 					// Argument followed by ','
-					if be, err = c.argExpression(&expr, VT_SFalse); err != nil {
+					if be, err = c.argExpression(&expr, VT_Undefined); err != nil {
 						return err
 					}
 					if c.token == "" {
@@ -7296,7 +7296,7 @@ func (c *Compiler) callFunc(line *string, root bool,
 					}
 				} else {
 					// Last argument followed by ')'
-					if be, err = c.typedExp(c.expBoolOr, &expr, VT_SFalse); err != nil {
+					if be, err = c.typedExp(c.expBoolOr, &expr, VT_Undefined); err != nil {
 						return err
 					}
 					if c.token == "" {
@@ -7364,7 +7364,7 @@ func (c *Compiler) letAssign(line *string, root bool,
 		for i, n := range names {
 			var be BytecodeExp
 			if i < len(names)-1 {
-				be, err = c.argExpression(&expr, VT_SFalse)
+				be, err = c.argExpression(&expr, VT_Undefined)
 				if err != nil {
 					return err
 				}
@@ -7375,7 +7375,7 @@ func (c *Compiler) letAssign(line *string, root bool,
 					return err
 				}
 			} else {
-				if be, err = c.fullExpression(&expr, VT_SFalse); err != nil {
+				if be, err = c.fullExpression(&expr, VT_Undefined); err != nil {
 					return err
 				}
 			}
@@ -7529,7 +7529,7 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 				}
 				expr = otk + " " + expr
 				otk = c.token
-				if stex, err := c.fullExpression(&expr, VT_SFalse); err != nil {
+				if stex, err := c.fullExpression(&expr, VT_Undefined); err != nil {
 					return err
 				} else {
 					*ctrls = append(*ctrls, StateExpr(stex))
@@ -7693,31 +7693,11 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				return errmes(err)
 			}
 
-			// If it's a duplicate, we parse the content into dummies to skip the code safely
-			if duplicate {
-				// Consume arguments, return names, and the body controllers
-				if _, err := c.varNames(")", &line); err != nil {
-					return errmes(err)
-				}
-				if _, err := c.varNames("]", &line); err != nil {
-					return errmes(err)
-				}
-
-				// Create dummy variables to satisfy the pointer requirements of stateBlock
-				dummyCtrls := []StateController{}
-				var dummyVars int32
-
-				// stateBlock consumes the body until '}' or next '[' and discards the result
-				if err := c.stateBlock(&line, nil, true, nil, &dummyCtrls, &dummyVars); err != nil {
-					return errmes(err)
-				}
-				// Skip the map assignment entirely. The first definition remains in c.funcs
-				continue
-			}
-
-			// First definition found: compile normally
+			// Start compiling
 			fun := bytecodeFunction{}
 			c.vars = make(map[string]uint8)
+
+			// Parse arguments
 			if args, err := c.varNames(")", &line); err != nil {
 				return errmes(err)
 			} else {
@@ -7729,6 +7709,8 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				}
 				fun.numArgs = int32(len(args))
 			}
+
+			// Parse return values
 			if rets, err := c.varNames("]", &line); err != nil {
 				return errmes(err)
 			} else {
@@ -7746,13 +7728,17 @@ func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src s
 				}
 				fun.numRets = int32(len(rets))
 			}
-			if err := c.stateBlock(&line, nil, true,
-				nil, &fun.ctrls, &fun.numVars); err != nil {
+
+			// Parse the body
+			if err := c.stateBlock(&line, nil, true, nil, &fun.ctrls, &fun.numVars); err != nil {
 				return errmes(err)
 			}
 
-			// Store the blueprint in the compiler's temporary map
-			c.funcs[name] = fun
+			// Function is only actually saved if it's the first time we've seen this function name
+			// Otherwise the temp "fun" just goes out of scope and is garbage collected
+			if !duplicate {
+				c.funcs[name] = fun
+			}
 		default:
 			return errmes(Error("Unrecognized section (group) name: " + c.token))
 		}
@@ -7770,12 +7756,13 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	if err != nil {
 		return nil, err
 	}
-	lines, i, cmd, stcommon := SplitAndTrim(str, "\n"), 0, "", ""
+	lines, lnidx := SplitAndTrim(str, "\n"), 0
+	cmd, stcommon := "", ""
 	var st []string
 	info, files := true, true
-	for i < len(lines) {
+	for lnidx < len(lines) {
 		// Parse each ini section
-		is, name, _ := ReadIniSection(lines, &i)
+		is, name, _ := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "info":
 			// Read info section for the Mugen/Ikemen version of the character
@@ -7787,13 +7774,13 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 				sys.cgi[pn].mugenver = [2]uint16{}
 				sys.cgi[pn].mugenverF = 0
 				if str, ok = is["mugenversion"]; ok {
-					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = parseMugenVersion(str)
+					sys.cgi[pn].mugenver, sys.cgi[pn].mugenverF = ParseMugenVersion(str)
 				}
 				// Clear then read IkemenVersion
 				sys.cgi[pn].ikemenver = [3]uint16{}
 				sys.cgi[pn].ikemenverF = 0
 				if str, ok = is["ikemenversion"]; ok {
-					sys.cgi[pn].ikemenver, sys.cgi[pn].ikemenverF = parseIkemenVersion(str)
+					sys.cgi[pn].ikemenver, sys.cgi[pn].ikemenverF = ParseIkemenVersion(str)
 				}
 				// Ikemen characters adopt Mugen 1.1 version as a safeguard
 				if sys.cgi[pn].ikemenver[0] != 0 || sys.cgi[pn].ikemenver[1] != 0 {
@@ -7847,7 +7834,8 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 			}
 		}
 	}
-	lines, i = SplitAndTrim(str, "\n"), 0
+
+	lines, lnidx = SplitAndTrim(str, "\n"), 0
 
 	// Initialize command list data
 	char := sys.chars[pn][0]
@@ -7863,9 +7851,9 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	remap, defaults, ckr := true, true, NewCommandKeyRemap()
 
 	var cmds []IniSection
-	for i < len(lines) {
+	for lnidx < len(lines) {
 		// Read ini sections of command file
-		is, name, _ := ReadIniSection(lines, &i)
+		is, name, _ := ReadIniSection(lines, &lnidx)
 		switch name {
 		case "remap":
 			// Read button remapping

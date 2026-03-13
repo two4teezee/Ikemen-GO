@@ -84,6 +84,7 @@ type Fnt struct {
 	lastPalBank int32
 	lastPalBase *uint32
 	paltexCache map[*uint32]Texture
+	localcoord  [2]int32 // Determined by the player/lifebar/motif that owns the font
 }
 
 func newFnt() *Fnt {
@@ -92,6 +93,7 @@ func newFnt() *Fnt {
 		BankType:    "palette",
 		lastPalBank: -1,
 		paltexCache: make(map[*uint32]Texture),
+		localcoord:  [2]int32{320, 240},
 	}
 }
 
@@ -605,7 +607,7 @@ func (f *Fnt) DrawText(txt string, x, y, xscl, yscl, rxadd float32,
 		rcx, rcy = rcx*sys.widthScale, 0
 	} else {
 		rcx, rcy = (x+rcx)*sys.widthScale, y*sys.heightScale
-		x, y = AbsF(xscl)*float32(f.offset[0]), AbsF(yscl)*float32(f.offset[1])
+		x, y = Abs(xscl)*float32(f.offset[0]), Abs(yscl)*float32(f.offset[1])
 	}
 
 	if align == 0 {
@@ -699,7 +701,8 @@ type TextSprite struct {
 	params           []interface{}
 	fnt              *Fnt
 	bank, align      int32
-	x, y, xscl, yscl float32
+	x, y             float32
+	xscl, yscl       float32
 	window           [4]int32
 	xshear           float32
 	rot              Rotation
@@ -785,16 +788,16 @@ func (ts *TextSprite) Copy() *TextSprite {
 	return nt
 }
 
-func (ts *TextSprite) SetLocalcoord(lx, ly float32) {
+func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 	if lx <= 0 || ly <= 0 {
 		return
 	}
-	v := lx
+	v := float64(lx)
 	if lx*3 > ly*4 {
-		v = ly * 4 / 3
+		v = float64(ly) * 4 / 3
 	}
 	ts.localScale = float32(v / 320)
-	ts.offsetX = -int32(math.Floor(float64(lx)/(float64(v)/320)-320) / 2)
+	ts.offsetX = -int32(math.Floor(float64(lx)/(v/320)-320) / 2)
 }
 
 func (ts *TextSprite) SetPos(x, y float32) {
@@ -1262,11 +1265,15 @@ func (ts *TextSprite) Draw(ln int16) {
 		xshear := -ts.xshear
 		xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
 
+		// Adjust draw scale to the font's original localcoord
+		// We only multiply by localScale here because SetScale divides by it
+		scaleRatio := 320.0 / float32(ts.fnt.localcoord[0]) * ts.localScale
+
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
 		} else {
-			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl,
+			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio,
 				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3], spacingXAdd)
 		}
 

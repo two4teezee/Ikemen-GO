@@ -239,7 +239,7 @@ func applyRotation(modelview mgl.Mat4, rp RenderParams) mgl.Mat4 {
 			Mat4()
 	}
 
-	if AbsF(aspectGame-aspectWindow) > 0.01 {
+	if Abs(aspectGame-aspectWindow) > 0.01 {
 		if aspectWindow > aspectGame {
 			// Window wider: normalize X
 			scaleX := aspectWindow / aspectGame
@@ -299,8 +299,8 @@ func renderSpriteHTile(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, w
 	//   p1         p2
 	topdist := (x3 - x4) * (((float32(rp.tile.xspacing) + width) / rp.xas) / width)
 	botdist := (x2 - x1) * (((float32(rp.tile.xspacing) + width) / rp.xas) / width)
-	if AbsF(topdist) >= 0.01 {
-		db := (x4 - rp.rcx) * (botdist - topdist) / AbsF(topdist)
+	if Abs(topdist) >= 0.01 {
+		db := (x4 - rp.rcx) * (botdist - topdist) / Abs(topdist)
 		x1 += db
 		x2 += db
 	}
@@ -313,19 +313,19 @@ func renderSpriteHTile(modelview mgl.Mat4, x1, y1, x2, y2, x3, y3, x4, y4, dy, w
 			// Original culling logic (only when no projection)
 			if topdist >= 0.01 {
 				if x1 > x2 {
-					left = 1 - int32(math.Ceil(float64(MaxF(x4/topdist, x1/botdist))))
-					right = int32(math.Ceil(float64(MaxF((xmax-x3)/topdist, (xmax-x2)/botdist))))
+					left = 1 - int32(math.Ceil(float64(Max(x4/topdist, x1/botdist))))
+					right = int32(math.Ceil(float64(Max((xmax-x3)/topdist, (xmax-x2)/botdist))))
 				} else {
-					left = 1 - int32(math.Ceil(float64(MaxF(x3/topdist, x2/botdist))))
-					right = int32(math.Ceil(float64(MaxF((xmax-x4)/topdist, (xmax-x1)/botdist))))
+					left = 1 - int32(math.Ceil(float64(Max(x3/topdist, x2/botdist))))
+					right = int32(math.Ceil(float64(Max((xmax-x4)/topdist, (xmax-x1)/botdist))))
 				}
 			} else if topdist <= -0.01 {
 				if x1 > x2 {
-					left = 1 - int32(math.Ceil(float64(MaxF((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
-					right = int32(math.Ceil(float64(MaxF(x4/-topdist, x1/-botdist))))
+					left = 1 - int32(math.Ceil(float64(Max((xmax-x3)/-topdist, (xmax-x2)/-botdist))))
+					right = int32(math.Ceil(float64(Max(x4/-topdist, x1/-botdist))))
 				} else {
-					left = 1 - int32(math.Ceil(float64(MaxF((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
-					right = int32(math.Ceil(float64(MaxF(x3/-topdist, x2/-botdist))))
+					left = 1 - int32(math.Ceil(float64(Max((xmax-x4)/-topdist, (xmax-x1)/-botdist))))
+					right = int32(math.Ceil(float64(Max(x3/-topdist, x2/-botdist))))
 				}
 			}
 			if rp.tile.xflag != 1 {
@@ -361,10 +361,10 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 	x3, y3 := rp.x+rp.xts*float32(rp.size[0]), rp.rcy+(rp.y-rp.rcy)*rp.vs
 	x4, y4 := rp.x, y3
 	//var pers float32
-	//if AbsF(rp.xts) < AbsF(rp.xbs) {
-	//	pers = AbsF(rp.xts) / AbsF(rp.xbs)
+	//if Abs(rp.xts) < Abs(rp.xbs) {
+	//	pers = Abs(rp.xts) / Abs(rp.xbs)
 	//} else {
-	//	pers = AbsF(rp.xbs) / AbsF(rp.xts)
+	//	pers = Abs(rp.xbs) / Abs(rp.xts)
 	//}
 	if !rp.rot.IsZero() && rp.tile.xflag == 0 && rp.tile.yflag == 0 {
 
@@ -402,7 +402,7 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 			x3d = x4d - rp.rxadd*rp.ys*float32(rp.size[1]) + (rp.xts/rp.xbs)*(x3d-x4d)
 			y3d = y2d + rp.ys*rp.vs*float32(rp.size[1])
 			x4d = x4d - rp.rxadd*rp.ys*float32(rp.size[1])
-			if AbsF(y3d-y4d) < 0.01 {
+			if Abs(y3d-y4d) < 0.01 {
 				break
 			}
 			y4d = y3d
@@ -455,7 +455,7 @@ func renderSpriteQuad(modelview mgl.Mat4, rp RenderParams) {
 			x2 = x1 + rp.rxadd*rp.ys*float32(rp.size[1]) + (rp.xbs/rp.xts)*(x2-x1)
 			y2 = y3 - rp.ys*rp.vs*float32(rp.size[1])
 			x1 = x1 + rp.rxadd*rp.ys*float32(rp.size[1])
-			if AbsF(y1-y2) < 0.01 {
+			if Abs(y1-y2) < 0.01 {
 				break
 			}
 			y1 = y2
@@ -523,7 +523,7 @@ func RenderSprite(rp RenderParams) {
 	gfx.SetUniformMatrix("projection", proj[:])
 	gfx.SetUniformI("isFlat", 0)
 	gfx.SetUniformI("mask", int(rp.mask))
-	gfx.SetUniformI("isTrapez", int(Btoi(AbsF(AbsF(rp.xts)-AbsF(rp.xbs)) > 0.001)))
+	gfx.SetUniformI("isTrapez", int(Btoi(Abs(Abs(rp.xts)-Abs(rp.xbs)) > 0.001)))
 
 	gfx.SetUniformF("gray", grayscale)
 	gfx.SetUniformF("hue", hue)
@@ -657,8 +657,8 @@ func renderWithBlending(
 				}
 				if !isrgba && (invblend >= 2 || invblend <= -1) && acolor != nil && mcolor != nil && src < 255 {
 					// Sum of add components
-					gc := AbsF(acolor[0]) + AbsF(acolor[1]) + AbsF(acolor[2])
-					v3, ml, al := MaxF((gc*255)-float32(dst+src), 512)/128, (float32(src) / 255), (float32(src+dst) / 255)
+					gc := Abs(acolor[0]) + Abs(acolor[1]) + Abs(acolor[2])
+					v3, ml, al := Max((gc*255)-float32(dst+src), 512)/128, (float32(src) / 255), (float32(src+dst) / 255)
 					rM, gM, bM := mcolor[0]*ml, mcolor[1]*ml, mcolor[2]*ml
 					(*mcolor)[0], (*mcolor)[1], (*mcolor)[2] = rM, gM, bM
 					render(Blend, blendSourceFactor, BlendOne, al*Pow(v3, 3))

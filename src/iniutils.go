@@ -2151,7 +2151,7 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 	projection := int32(0)
 	text := ""
 	layerno := int16(1)
-	localcoord := [2]float32{0, 0}
+	localcoord := [2]int32{0, 0}
 	window := [4]float32{0, 0, 0, 0}
 	textDelay := float32(0)
 	textSpacing := [2]float32{0, 0}
@@ -2231,8 +2231,8 @@ func SetTextSprite(obj interface{}, fVal, structVal, parent reflect.Value) {
 		}
 	}
 	if fv, ok := get("Localcoord"); ok && fv.Kind() == reflect.Array && fv.Len() == 2 {
-		localcoord[0] = float32(fv.Index(0).Int())
-		localcoord[1] = float32(fv.Index(1).Int())
+		localcoord[0] = int32(fv.Index(0).Int())
+		localcoord[1] = int32(fv.Index(1).Int())
 	}
 	if fv, ok := get("TextDelay"); ok {
 		switch fv.Kind() {

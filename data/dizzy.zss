@@ -1,18 +1,4 @@
-# Dizzy code adapted from Shiyo Kakuge's add004
-#===============================================================================
-# Functions
-#===============================================================================
-# Dizzy Hit Ground Explod (direct copy from common1)
-[Function IkSys_DizzyHitGroundExplod(vely)]
-explod{
-	anim: F (60 + ($vely > const240p(5)) + ($vely > const240p(14)));
-	postype: p1;
-	pos: 0, 0;
-	facing: facing;
-	sprpriority: ifElse($vely <= const240p(14), -10, 10);
-}
-playSnd{value: F7, ($vely > const240p(5)) + ($vely > const240p(14))}
-
+# Dizzy code originally adapted from Shiyo Kakuge's add004
 #===============================================================================
 # StateDizzyBirdsHelper [helper]
 #===============================================================================

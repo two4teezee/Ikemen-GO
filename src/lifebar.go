@@ -1649,47 +1649,47 @@ func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f map[int]*Fnt) {
 }
 
 type LifeBarFace struct {
-	pos               [2]int32
-	bg                AnimLayout
-	bg0               AnimLayout
-	bg1               AnimLayout
-	bg2               AnimLayout
-	top               AnimLayout
-	ko                AnimLayout
-	face_spr          [2]int32
-	face              *Sprite
-	face_lay          Layout
+	pos                    [2]int32
+	bg                     AnimLayout
+	bg0                    AnimLayout
+	bg1                    AnimLayout
+	bg2                    AnimLayout
+	top                    AnimLayout
+	ko                     AnimLayout
+	face_spr               [2]int32
+	face                   *Sprite
+	face_lay               Layout
 	face_palshare          bool
 	face_palfxshare        bool
-	teammate_pos      [2]int32
-	teammate_spacing  [2]int32
-	teammate_bg       AnimLayout
-	teammate_bg0      AnimLayout
-	teammate_bg1      AnimLayout
-	teammate_bg2      AnimLayout
-	teammate_top      AnimLayout
-	teammate_ko       AnimLayout
-	teammate_face_spr [2]int32
-	teammate_face     []*Sprite
-	teammate_face_lay Layout
-	teammate_scale    []float32
-	teammate_ko_hide  bool
+	teammate_pos           [2]int32
+	teammate_spacing       [2]int32
+	teammate_bg            AnimLayout
+	teammate_bg0           AnimLayout
+	teammate_bg1           AnimLayout
+	teammate_bg2           AnimLayout
+	teammate_top           AnimLayout
+	teammate_ko            AnimLayout
+	teammate_face_spr      [2]int32
+	teammate_face          []*Sprite
+	teammate_face_lay      Layout
+	teammate_scale         []float32
+	teammate_ko_hide       bool
 	teammate_face_palshare bool
-	numko             int32
-	old_spr           [2]int32
-	old_pal           [2]int32
-	face_pfx          *PalFX
-	teammate_face_pfx []*PalFX
+	numko                  int32
+	old_spr                [2]int32
+	old_pal                [2]int32
+	face_pfx               *PalFX
+	teammate_face_pfx      []*PalFX
 }
 
 func newLifeBarFace() *LifeBarFace {
 	return &LifeBarFace{
-		face_spr:          [2]int32{-1},
-		teammate_face_spr: [2]int32{-1},
+		face_spr:               [2]int32{-1},
+		teammate_face_spr:      [2]int32{-1},
 		face_palshare:          true,
-		face_pfx:          newPalFX(),
+		face_pfx:               newPalFX(),
 		teammate_face_palshare: true,
-		teammate_face_pfx: nil, // Allocated later
+		teammate_face_pfx:      nil, // Allocated later
 	}
 }
 
@@ -4325,11 +4325,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 		return nil, err
 	}
 	l := &Lifebar{
-		localcoord: [2]int32{320, 240},
-		scale: 1,
+		localcoord:    [2]int32{320, 240},
+		scale:         1,
 		portraitScale: 1,
-		sff: &Sff{},
-		snd: &Snd{},
+		sff:           &Sff{},
+		snd:           &Snd{},
 		hb: [...][]*HealthBar{make([]*HealthBar, 2), make([]*HealthBar, 8),
 			make([]*HealthBar, 2), make([]*HealthBar, 8), make([]*HealthBar, 6),
 			make([]*HealthBar, 8), make([]*HealthBar, 6), make([]*HealthBar, 8)},
@@ -4348,11 +4348,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 		nm: [...][]*LifeBarName{make([]*LifeBarName, 2), make([]*LifeBarName, 8),
 			make([]*LifeBarName, 2), make([]*LifeBarName, 8), make([]*LifeBarName, 6),
 			make([]*LifeBarName, 8), make([]*LifeBarName, 6), make([]*LifeBarName, 8)},
-		active: true,
-		bars: true,
-		mode: true,
+		active:    true,
+		bars:      true,
+		mode:      true,
 		fnt_scale: 1,
-		fx_limit: 3,
+		fx_limit:  3,
 	}
 	l.fnt = make(map[int]*Fnt)
 	l.missing = map[string]int{

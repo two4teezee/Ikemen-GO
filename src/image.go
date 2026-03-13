@@ -1725,15 +1725,15 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 	}
 
 	/*
-	SffCache[filename] = &SffCacheEntry{*s, 1}
-	runtime.SetFinalizer(s, func(s *Sff) {
-		if cached, ok := SffCache[filename]; ok {
-			cached.refCount--
-			if cached.refCount == 0 {
-				delete(SffCache, filename)
+		SffCache[filename] = &SffCacheEntry{*s, 1}
+		runtime.SetFinalizer(s, func(s *Sff) {
+			if cached, ok := SffCache[filename]; ok {
+				cached.refCount--
+				if cached.refCount == 0 {
+					delete(SffCache, filename)
+				}
 			}
-		}
-	})
+		})
 	*/
 
 	return s, nil

@@ -33,20 +33,20 @@ const (
 // The only instance of a System struct.
 // Do not create more than 1.
 var sys = System{
-	randseed:      int32(time.Now().UnixNano()),
-	scrrect:       [...]int32{0, 0, 320, 240},
-	gameWidth:     320,
-	gameHeight:    240,
-	widthScale:    1,
-	heightScale:   1,
-	brightness:    1,
-	maxRoundTime:  -1,
-	soundMixer:    &beep.Mixer{},
-	bgm:           *newBgm(),
+	randseed:     int32(time.Now().UnixNano()),
+	scrrect:      [...]int32{0, 0, 320, 240},
+	gameWidth:    320,
+	gameHeight:   240,
+	widthScale:   1,
+	heightScale:  1,
+	brightness:   1,
+	maxRoundTime: -1,
+	soundMixer:   &beep.Mixer{},
+	bgm:          *newBgm(),
 	//soundChannels: newSoundChannels(16), // Lazy allocation in Request()
-	allPalFX:      newPalFX(),
-	bgPalFX:       newPalFX(),
-	ffx:           make(map[string]*FightFx),
+	allPalFX: newPalFX(),
+	bgPalFX:  newPalFX(),
+	ffx:      make(map[string]*FightFx),
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
 	sel:                 *newSelect(),
 	keyState:            make(map[Key]bool),
@@ -4338,7 +4338,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 					lanInfo = false
 				}
 				info = false
-				
+
 				var ok bool
 				if sc.name, ok, _ = isec.getText("displayname"); !ok {
 					sc.name, _, _ = isec.getText("name")
@@ -4363,7 +4363,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 				sprite_orig = decodeShiftJIS(isec["sprite"])
 				anim_orig = decodeShiftJIS(isec["anim"])
 				sc.sound = decodeShiftJIS(isec["sound"])
-				
+
 				// Clear and rebuild palettes to ensure localized files can overwrite defaults
 				sc.pal = nil
 				sc.pal_files = nil
@@ -4373,7 +4373,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 						sc.pal_files = append(sc.pal_files, palFile)
 					}
 				}
-				
+
 				movelist_orig = decodeShiftJIS(isec["movelist"])
 				for fIdx := range fnt_orig {
 					fnt_orig[fIdx][0] = isec[fmt.Sprintf("font%v", fIdx)]
@@ -4677,7 +4677,9 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 
 		case "bgdef":
 			if (isLan && lanBgdef) || (!isLan && bgdef) {
-				if isLan { lanBgdef = false }
+				if isLan {
+					lanBgdef = false
+				}
 				bgdef = false
 				spr = isec["spr"]
 			}
@@ -4691,7 +4693,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 
 				isec.ReadI32("localcoord", &ss.localcoord[0], &ss.localcoord[1])
 				isec.ReadF32("portraitscale", &ss.portraitscale)
-				
+
 				// Cache localcoords for stage fitting
 				if _, ok := sys.stageLocalcoords[ss.def]; !ok {
 					key := strings.ToLower(filepath.Base(ss.def))
@@ -5140,7 +5142,7 @@ func (l *Loader) loadStage() bool {
 		// Add the stage's name to the error stack
 		if l.err != nil {
 			l.err = fmt.Errorf("\nError loading %v: %v", def, l.err)
-			return false 
+			return false
 		}
 
 		sys.stage = sys.stageList[0]
@@ -5178,21 +5180,21 @@ func (l *Loader) load() {
 	//sys.motif.setMotifScale()
 
 	/*
-	// This should now be handled by loadSff()
-	sys.loadMutex.Lock()
-	for prefix, ffx := range sys.ffx {
-		if ffx.isGlobal {
-			continue
-		}
-		if ffx.refCount <= 0 {
-			if ffx.sff != nil {
-				removeSFFCache(ffx.sff.filename)
+		// This should now be handled by loadSff()
+		sys.loadMutex.Lock()
+		for prefix, ffx := range sys.ffx {
+			if ffx.isGlobal {
+				continue
 			}
-			delete(sys.ffx, prefix)
-			//sys.errLog.Printf("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
+			if ffx.refCount <= 0 {
+				if ffx.sff != nil {
+					removeSFFCache(ffx.sff.filename)
+				}
+				delete(sys.ffx, prefix)
+				//sys.errLog.Printf("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
+			}
 		}
-	}
-	sys.loadMutex.Unlock()
+		sys.loadMutex.Unlock()
 	*/
 
 	charDone, stageDone := make([]bool, len(sys.chars)), false

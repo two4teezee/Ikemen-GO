@@ -1277,7 +1277,7 @@ func loadStage(def string, maindef bool) (*Stage, error) {
 			Insensitive:             true,
 			SkipUnrecognizableLines: true,
 		}, []byte(str))
-		
+
 		if err != nil {
 			fmt.Printf("Failed to load INI file: %v\n", err)
 			return nil, err

@@ -2495,7 +2495,7 @@ func (m *Motif) loadFiles() {
 			fnt.Size = m.Fnt[i].Size
 			fnt.Spacing = m.Fnt[i].Spacing
 			fnt.Offset = m.Fnt[i].offset
-			
+
 			return nil
 		})
 		sys.keepAlive()

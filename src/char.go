@@ -197,8 +197,8 @@ func (dc *DebugClsn) Add(clsn [][4]float32, x, y, xs, ys, angle float32) {
 		offx := sw / 2
 		offy := sh
 		rect := [7]float32{
-			Abs(xs) * clsn[i][0],          // [0] x position (left)
-			Abs(ys) * clsn[i][1],          // [1] y position (top)
+			Abs(xs) * clsn[i][0],           // [0] x position (left)
+			Abs(ys) * clsn[i][1],           // [1] y position (top)
 			xs * (clsn[i][2] - clsn[i][0]), // [2] width
 			ys * (clsn[i][3] - clsn[i][1]), // [3] height
 			(x + offx) * sys.widthScale,    // [4] rotation center x
@@ -3652,7 +3652,7 @@ func (c *Char) load(def string) error {
 			lines, lnidx = SplitAndTrim(str, "\n"), 0
 			for lnidx < len(lines) {
 				is, name, subname := ReadIniSection(lines, &lnidx)
-				
+
 				// Normalize for the sake of the quotes section
 				isLan := strings.HasPrefix(name, langPrefix)
 				baseName := name
@@ -4247,7 +4247,7 @@ func (c *Char) loadFx(def string) error {
 						if fx_path == "" {
 							continue
 						}
-						
+
 						resolved_path := resolvePathRelativeToDef(fx_path)
 						found_path := ""
 

@@ -694,36 +694,36 @@ func (f *Fnt) DrawTtf(txt string, x, y, xscl, yscl float32, align int32,
 }
 
 type TextSprite struct {
-	ownerid          int32
-	id               int32
-	text, textInit   string
-	template         string
-	params           []interface{}
-	fnt              *Fnt
-	bank, align      int32
-	x, y             float32
-	xscl, yscl       float32
-	window           [4]int32
-	xshear           float32
-	rot              Rotation
-	projection       int32
-	fLength          float32
-	xvel, yvel       float32
-	localScale       float32
-	offsetX          int32
-	layerno          int16
-	palfx            *PalFX
-	frgba            [4]float32 // ttf fonts
-	forcecolor       bool
-	removetime       int32 // text sctrl
-	elapsedTicks     float32
-	textSpacing      [2]float32
-	textDelay        float32
-	textWrap         bool
-	friction         [2]float32
-	accel            [2]float32
-	vel              [2]float32
-	maxDist          [2]float32
+	ownerid        int32
+	id             int32
+	text, textInit string
+	template       string
+	params         []interface{}
+	fnt            *Fnt
+	bank, align    int32
+	x, y           float32
+	xscl, yscl     float32
+	window         [4]int32
+	xshear         float32
+	rot            Rotation
+	projection     int32
+	fLength        float32
+	xvel, yvel     float32
+	localScale     float32
+	offsetX        int32
+	layerno        int16
+	palfx          *PalFX
+	frgba          [4]float32 // ttf fonts
+	forcecolor     bool
+	removetime     int32 // text sctrl
+	elapsedTicks   float32
+	textSpacing    [2]float32
+	textDelay      float32
+	textWrap       bool
+	friction       [2]float32
+	accel          [2]float32
+	vel            [2]float32
+	maxDist        [2]float32
 	// initial, unscaled values
 	offsetInit   [2]float32
 	scaleInit    [2]float32

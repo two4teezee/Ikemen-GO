@@ -1267,13 +1267,15 @@ func (ts *TextSprite) Draw(ln int16) {
 
 		// Adjust draw scale to the font's original localcoord
 		// We only multiply by localScale here because SetScale divides by it
-		scaleRatio := 320.0 / float32(ts.fnt.localcoord[0]) * ts.localScale
+		//fntwscl := float32(ts.fnt.localcoord[0]) / (float32(sys.gameWidth) / 320)
+		//scaleRatio := 320.0 / fntwscl * ts.localScale
+		assetscale := float32(sys.gameWidth) / float32(ts.fnt.localcoord[0]) * ts.localScale
 
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl*assetscale, ts.yscl*assetscale, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
 		} else {
-			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl*scaleRatio, ts.yscl*scaleRatio,
+			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl*assetscale, ts.yscl*assetscale,
 				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3], spacingXAdd)
 		}
 

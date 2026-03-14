@@ -656,9 +656,11 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f map[int]*Fnt
 		return r
 	}
 
-	if len(hb.mid.anim.frames) == 0 || life > hbr.midlife {
-		life = hbr.midlife
-	}
+	// This is already handled by step()
+	// It makes the mid layer misbehave between rounds
+	//if len(hb.mid.anim.frames) == 0 || life > hbr.midlife {
+	//	life = hbr.midlife
+	//}
 
 	// Draw the three rectangles: top, mid, and red
 	lr, mr, rr := getBarClipRect(hbr.toplife), getBarClipRect(hbr.midlife), getBarClipRect(redlife)
@@ -678,15 +680,17 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f map[int]*Fnt
 		if hb.range_y != [2]int32{0, 0} {
 			if hb.range_y[0] < hb.range_y[1] {
 				mr[1] += lr[3]
+				rr[1] += lr[3]
 			}
 			mr[3] -= Min(mr[3], lr[3])
+			rr[3] -= Min(rr[3], lr[3])
 		} else {
 			if hb.range_x[0] < hb.range_x[1] {
 				mr[0] += lr[2]
-				//rr[0] += lr[2]
+				rr[0] += lr[2]
 			}
 			mr[2] -= Min(mr[2], lr[2])
-			//rr[2] -= Min(rr[2], lr[2])
+			rr[2] -= Min(rr[2], lr[2])
 		}
 	}
 
@@ -5278,7 +5282,8 @@ func (l *Lifebar) draw(layerno int16) {
 	if !sys.lifebarHide && l.active && !sys.dialogueBarsFlg && (!sys.motif.me.active || !sys.motif.PauseMenu["pause_menu"].HideBars) {
 		if !sys.gsf(GSF_nobardisplay) && l.bars {
 			// HealthBar
-			for ti := range sys.tmode {
+			// We will iterate all of these backwards so that player 1 is drawn last and on top
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
 					if !sys.chars[v][0].asf(ASF_nolifebardisplay) {
@@ -5288,7 +5293,8 @@ func (l *Lifebar) draw(layerno int16) {
 				}
 			}
 			// PowerBar
-			for ti, tm := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
+				tm := sys.tmode[ti]
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
 					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
@@ -5307,7 +5313,7 @@ func (l *Lifebar) draw(layerno int16) {
 				}
 			}
 			// GuardBar
-			for ti := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
 					if sys.chars[v][0].guardBreakEnabled() && !sys.chars[v][0].asf(ASF_noguardbardisplay) {
@@ -5317,7 +5323,7 @@ func (l *Lifebar) draw(layerno int16) {
 				}
 			}
 			// StunBar
-			for ti := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
 				for i, v := range l.order[ti] {
 					index := i*2 + ti
 					if sys.chars[v][0].dizzyEnabled() && !sys.chars[v][0].asf(ASF_nostunbardisplay) {
@@ -5327,34 +5333,32 @@ func (l *Lifebar) draw(layerno int16) {
 				}
 			}
 			// LifeBarFace
-			for ti := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
 				for i, v := range l.order[ti] {
 					if !sys.chars[v][0].asf(ASF_nofacedisplay) {
-						// Draw active players
-						index := i*2 + ti
-						l.fa[l.ref[ti]][index].bgDraw(layerno)
-						l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
-
 						// Draw Turns teammates from the first bar only
 						if i == 0 && len(l.fa[l.ref[ti]]) > 0 {
 							l.fa[l.ref[ti]][ti].drawTeammates(layerno, v)
 						}
+						// Draw active players
+						index := i*2 + ti
+						l.fa[l.ref[ti]][index].bgDraw(layerno)
+						l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
 					}
 				}
 			}
 			// LifeBarName
-			for ti := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
 				for i, v := range l.order[ti] {
 					if !sys.chars[v][0].asf(ASF_nonamedisplay) {
-						// Draw active players
-						index := i*2 + ti
-						l.nm[l.ref[ti]][index].bgDraw(layerno)
-						l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt, ti)
-
 						// Draw Turns teammates from the first bar only
 						if i == 0 && len(l.nm[l.ref[ti]]) > 0 {
 							l.nm[l.ref[ti]][ti].drawTeammates(layerno, v, l.fnt, ti)
 						}
+						// Draw active players
+						index := i*2 + ti
+						l.nm[l.ref[ti]][index].bgDraw(layerno)
+						l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt, ti)
 					}
 				}
 			}
@@ -5362,13 +5366,14 @@ func (l *Lifebar) draw(layerno int16) {
 			l.ti.bgDraw(layerno)
 			l.ti.draw(layerno, l.fnt)
 			// LifeBarWinIcon
-			for i := range l.wi {
+			for i := len(l.wi) - 1; i >= 0; i-- {
 				if !sys.chars[i][0].asf(ASF_nowinicondisplay) {
 					l.wi[i].draw(layerno, l.fnt, i)
 				}
 			}
 			// LifeBarRatio
-			for ti, tm := range sys.tmode {
+			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
+				tm := sys.tmode[ti]
 				if tm == TM_Turns {
 					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 && !sys.chars[ti][0].asf(ASF_nofacedisplay) {
 						l.ra[ti].bgDraw(layerno)
@@ -5380,7 +5385,7 @@ func (l *Lifebar) draw(layerno int16) {
 			l.tr.bgDraw(layerno)
 			l.tr.draw(layerno, l.fnt)
 			// LifeBarScore
-			for i := range l.sc {
+			for i := len(l.sc) - 1; i >= 0; i-- {
 				l.sc[i].bgDraw(layerno)
 				l.sc[i].draw(layerno, l.fnt, i)
 			}
@@ -5388,24 +5393,24 @@ func (l *Lifebar) draw(layerno int16) {
 			l.ma.bgDraw(layerno)
 			l.ma.draw(layerno, l.fnt)
 			// LifeBarAiLevel
-			for i := range l.ai {
+			for i := len(l.ai) - 1; i >= 0; i-- {
 				l.ai[i].bgDraw(layerno)
 				l.ai[i].draw(layerno, l.fnt, sys.aiLevel[sys.chars[i][0].playerNo])
 			}
 			// LifeBarWinCount
-			for i := range l.wc {
+			for i := len(l.wc) - 1; i >= 0; i-- {
 				l.wc[i].bgDraw(layerno)
 				l.wc[i].draw(layerno, l.fnt, i)
 			}
 		}
 		// LifeBarCombo
-		for i := range l.co {
+		for i := len(l.co) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nocombodisplay) {
 				l.co[i].draw(layerno, l.fnt, i)
 			}
 		}
 		// LifeBarAction
-		for i := range l.ac {
+		for i := len(l.ac) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nolifebaraction) {
 				l.ac[i].draw(layerno, l.fnt, i)
 			}

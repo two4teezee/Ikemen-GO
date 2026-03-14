@@ -656,9 +656,11 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f map[int]*Fnt
 		return r
 	}
 
-	if len(hb.mid.anim.frames) == 0 || life > hbr.midlife {
-		life = hbr.midlife
-	}
+	// This is already handled by step()
+	// It makes the mid layer misbehave between rounds
+	//if len(hb.mid.anim.frames) == 0 || life > hbr.midlife {
+	//	life = hbr.midlife
+	//}
 
 	// Draw the three rectangles: top, mid, and red
 	lr, mr, rr := getBarClipRect(hbr.toplife), getBarClipRect(hbr.midlife), getBarClipRect(redlife)
@@ -678,15 +680,17 @@ func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f map[int]*Fnt
 		if hb.range_y != [2]int32{0, 0} {
 			if hb.range_y[0] < hb.range_y[1] {
 				mr[1] += lr[3]
+				rr[1] += lr[3]
 			}
 			mr[3] -= Min(mr[3], lr[3])
+			rr[3] -= Min(rr[3], lr[3])
 		} else {
 			if hb.range_x[0] < hb.range_x[1] {
 				mr[0] += lr[2]
-				//rr[0] += lr[2]
+				rr[0] += lr[2]
 			}
 			mr[2] -= Min(mr[2], lr[2])
-			//rr[2] -= Min(rr[2], lr[2])
+			rr[2] -= Min(rr[2], lr[2])
 		}
 	}
 

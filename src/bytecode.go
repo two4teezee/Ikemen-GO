@@ -12883,7 +12883,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	// We skip SetLocalcoord for char texts
 	// Text logic assumes a 4:3 layout, so we add a correction factor for widescreen
 	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
-	ts.localScale = float32(c.gi().localcoord[0]) / 320.0 / aspectCorrection
+	ts.localScale = (320.0 / float32(c.gi().localcoord[0])) / aspectCorrection // Not crun here
 
 	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
 	var xscl, yscl float32 = 1, 1
@@ -12932,8 +12932,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				lcy = exp[1].evalF(c)
 			}
 			if lcx > 0 && lcy > 0 {
-				// Texts local scale is actually completely different characters
-				ts.localScale = lcx / 320
+				ts.localScale = (320 / lcx) / aspectCorrection
 			}
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
@@ -13208,7 +13207,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 				}
 				if x > 0 && y > 0 {
 					eachText(func(ts *TextSprite) {
-						ts.localScale = 320 / x
+						ts.localScale = x / 320
 					})
 				}
 			case text_bank:
@@ -13240,34 +13239,34 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_pos:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.x = x/ts.localScale + float32(ts.offsetX)
+					ts.x = x * ts.localScale + float32(ts.offsetX)
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.y = y / ts.localScale
+						ts.y = y * ts.localScale
 					})
 				}
 			case text_velocity:
 				velx := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xvel = velx / ts.localScale
+					ts.xvel = velx * ts.localScale
 				})
 				if len(exp) > 1 {
 					vely := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yvel = vely / ts.localScale
+						ts.yvel = vely * ts.localScale
 					})
 				}
 			case text_maxdist:
 				xmaxdist := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.maxDist[0] = xmaxdist / ts.localScale
+					ts.maxDist[0] = xmaxdist * ts.localScale
 				})
 				if len(exp) > 1 {
 					ymaxdist := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.maxDist[1] = ymaxdist / ts.localScale
+						ts.maxDist[1] = ymaxdist * ts.localScale
 					})
 				}
 			case text_friction:
@@ -13283,12 +13282,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_accel:
 				ax := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.accel[0] = ax / ts.localScale
+					ts.accel[0] = ax * ts.localScale
 				})
 				if len(exp) > 1 {
 					ay := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.accel[1] = ay / ts.localScale
+						ts.accel[1] = ay * ts.localScale
 					})
 				}
 			case text_angle:
@@ -13317,12 +13316,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_scale:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xscl = x / ts.localScale
+					ts.xscl = x * ts.localScale
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yscl = y / ts.localScale
+						ts.yscl = y * ts.localScale
 					})
 				}
 			case text_color:

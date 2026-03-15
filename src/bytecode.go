@@ -1296,9 +1296,9 @@ func (be BytecodeExp) JumpToNext(i *int) {
 }
 
 func (BytecodeExp) neg(v *BytecodeValue) {
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	if v.vtype == VT_Float {
 		v.value *= -1
 	} else {
@@ -1308,16 +1308,16 @@ func (BytecodeExp) neg(v *BytecodeValue) {
 
 func (BytecodeExp) not(v *BytecodeValue) {
 	// The opposite of undefined is still undefined
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	v.SetI(^v.ToI())
 }
 
 func (BytecodeExp) blnot(v *BytecodeValue) {
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	v.SetB(!v.ToB())
 }
 
@@ -1327,10 +1327,10 @@ func (BytecodeExp) blnot(v *BytecodeValue) {
 // These bugs are not reproduced in Ikemen
 // TODO: Perhaps Ikemen characters should treat 0**-1 the same as 1/0
 func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float || v2.ToF() < 0 {
 		// Float power
 		v1.SetF(Pow(v1.ToF(), v2.ToF()))
@@ -1364,10 +1364,10 @@ func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
 }
 
 func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() * v2.ToF())
 	} else {
@@ -1376,10 +1376,10 @@ func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v2.ToF() == 0 {
 		// Division by 0
 		*v1 = BytecodeUndefined()
@@ -1394,10 +1394,10 @@ func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v2.ToI() == 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Modulus by 0")
@@ -1407,10 +1407,10 @@ func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) add(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() + v2.ToF())
 	} else {
@@ -1419,10 +1419,10 @@ func (BytecodeExp) add(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) sub(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() - v2.ToF())
 	} else {
@@ -1431,10 +1431,10 @@ func (BytecodeExp) sub(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) gt(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() > v2.ToF())
 	} else {
@@ -1443,10 +1443,10 @@ func (BytecodeExp) gt(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) ge(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() >= v2.ToF())
 	} else {
@@ -1455,10 +1455,10 @@ func (BytecodeExp) ge(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) lt(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() < v2.ToF())
 	} else {
@@ -1467,10 +1467,10 @@ func (BytecodeExp) lt(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() <= v2.ToF())
 	} else {
@@ -1479,10 +1479,10 @@ func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() == v2.ToF())
 	} else {
@@ -1491,10 +1491,10 @@ func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) ne(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() != v2.ToF())
 	} else {
@@ -1503,70 +1503,71 @@ func (BytecodeExp) ne(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) and(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	// TODO: Ikemen characters could probably use these commented out logic branches instead of arbitrarily handling what "undefined" means
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetI(v1.ToI() & v2.ToI())
 }
 
 func (BytecodeExp) xor(v1 *BytecodeValue, v2 BytecodeValue) {
 	// XOR always requires both operands to be known
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetI(v1.ToI() ^ v2.ToI())
 }
 
 func (BytecodeExp) or(v1 *BytecodeValue, v2 BytecodeValue) {
 	// If one is undefined, use short-circuiting logic
-	if v1.IsUndefined() || v2.IsUndefined() {
-		switch {
-		case v1.IsUndefined() && v2.IsUndefined():
-			*v1 = BytecodeUndefined()
-		case !v1.IsUndefined() && v1.ToI() != 0:
-			v1.SetI(v1.ToI())
-		case !v2.IsUndefined() && v2.ToI() != 0:
-			v1.SetI(v2.ToI())
-		default:
-			*v1 = BytecodeUndefined()
-		}
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	switch {
+	//	case v1.IsUndefined() && v2.IsUndefined():
+	//		*v1 = BytecodeUndefined()
+	//	case !v1.IsUndefined() && v1.ToI() != 0:
+	//		v1.SetI(v1.ToI())
+	//	case !v2.IsUndefined() && v2.ToI() != 0:
+	//		v1.SetI(v2.ToI())
+	//	default:
+	//		*v1 = BytecodeUndefined()
+	//	}
+	//	return
+	//}
 	v1.SetI(v1.ToI() | v2.ToI())
 }
 
 func (BytecodeExp) bland(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetB(v1.ToB() && v2.ToB())
 }
 
 func (BytecodeExp) blxor(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetB(v1.ToB() != v2.ToB())
 }
 
 func (BytecodeExp) blor(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		switch {
-		case v1.IsUndefined() && v2.IsUndefined():
-			*v1 = BytecodeUndefined()
-		case !v1.IsUndefined() && v1.ToB():
-			v1.SetB(true)
-		case !v2.IsUndefined() && v2.ToB():
-			v1.SetB(true)
-		default:
-			*v1 = BytecodeUndefined()
-		}
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	switch {
+	//	case v1.IsUndefined() && v2.IsUndefined():
+	//		*v1 = BytecodeUndefined()
+	//	case !v1.IsUndefined() && v1.ToB():
+	//		v1.SetB(true)
+	//	case !v2.IsUndefined() && v2.ToB():
+	//		v1.SetB(true)
+	//	default:
+	//		*v1 = BytecodeUndefined()
+	//	}
+	//	return
+	//}
 	v1.SetB(v1.ToB() || v2.ToB())
 }
 
@@ -1582,16 +1583,16 @@ func (BytecodeExp) abs(v1 *BytecodeValue) {
 }
 
 func (BytecodeExp) exp(v1 *BytecodeValue) {
-	if v1.IsUndefined() {
-		return
-	}
+	//if v1.IsUndefined() {
+	//	return
+	//}
 	v1.SetF(float32(math.Exp(v1.value)))
 }
 
 func (BytecodeExp) ln(v1 *BytecodeValue) {
-	if v1.IsUndefined() {
-		return
-	}
+	//if v1.IsUndefined() {
+	//	return
+	//}
 	if v1.value <= 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Invalid logarithm")
@@ -1601,10 +1602,10 @@ func (BytecodeExp) ln(v1 *BytecodeValue) {
 }
 
 func (BytecodeExp) log(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v1.value <= 0 || v2.value <= 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Invalid logarithm")
@@ -1924,7 +1925,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			l := be.PeekLength(i)
 			sys.bcStack.Push(be[i+4 : i+4+l].run(c)) // Run from c (with redirections)
 			be.JumpToNext(&i)
-			continue
 		case OC_nordrun:
 			l := be.PeekLength(i)
 			sys.bcStack.Push(be[i+4 : i+4+l].run(oc)) // Run from oc (without redirections)
@@ -2037,9 +2037,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			v3 := sys.bcStack.Pop()
 			v2 := sys.bcStack.Pop()
 			cond := sys.bcStack.Top()
-			if cond.IsUndefined() {
-				*cond = BytecodeUndefined()
-			} else if cond.ToB() {
+			if cond.ToB() {
 				*cond = v2
 			} else {
 				*cond = v3

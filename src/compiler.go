@@ -1608,8 +1608,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return bvNone(), _var(true, false)
 	case "sysfvar":
 		return bvNone(), _var(true, true)
-	case "ifelse", "cond":
-		cond := c.token == "cond"
+	case "ifelse":
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
@@ -1617,22 +1616,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if c.token != "," {
-			if cond {
-				return bvNone(), Error("Missing ',' in Cond")
-			} else {
-				return bvNone(), Error("Missing ',' in IfElse")
-			}
+			return bvNone(), Error("Missing ',' in IfElse")
 		}
 		c.token = c.tokenizer(in)
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
 		if c.token != "," {
-			if cond {
-				return bvNone(), Error("Missing ',' in Cond")
-			} else {
-				return bvNone(), Error("Missing ',' in IfElse")
-			}
+			return bvNone(), Error("Missing ',' in IfElse")
 		}
 		c.token = c.tokenizer(in)
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
@@ -1642,29 +1633,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
-			if cond {
-				be3.appendValue(bv3)
-				be2.appendValue(bv2)
-				if len(be3) > int(math.MaxUint8-1) {
-					be2.appendI32Op(OC_jmp, int32(len(be3)+1))
-				} else {
-					be2.append(OC_jmp8, OpCode(len(be3)+1))
-				}
-				be1.appendValue(bv1)
-				if len(be2) > int(math.MaxUint8-1) {
-					be1.appendI32Op(OC_jz, int32(len(be2)+1))
-				} else {
-					be1.append(OC_jz8, OpCode(len(be2)+1))
-				}
-				be1.append(OC_pop)
-				be1.append(be2...)
-				be1.append(OC_pop)
-				be1.append(be3...)
-				if rd {
-					out.appendI32Op(OC_run, int32(len(be1)))
-				}
-				out.append(be1...)
-			} else {
 				if rd {
 					out.append(OC_rdreset)
 				}
@@ -1675,9 +1643,65 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				out.append(be3...)
 				out.appendValue(bv3)
 				out.append(OC_ifelse)
-			}
 		} else {
 			if bv1.ToB() {
+				bv = bv2
+			} else {
+				bv = bv3
+			}
+		}
+	case "cond":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		if bv1, err = c.expBoolOr(&be1, in); err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ',' in Cond")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expBoolOr(&be2, in); err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+				return bvNone(), Error("Missing ',' in Cond")
+		}
+		c.token = c.tokenizer(in)
+		if bv3, err = c.expBoolOr(&be3, in); err != nil {
+			return bvNone(), err
+		}
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
+			// TODO: Cond is supposed to return undefined if the condition is undefined
+			// At the moment we have it returning the second option like IfElse does
+			be3.appendValue(bv3)
+			be2.appendValue(bv2)
+			if len(be3) > int(math.MaxUint8-1) {
+				be2.appendI32Op(OC_jmp, int32(len(be3)+1))
+			} else {
+				be2.append(OC_jmp8, OpCode(len(be3)+1))
+			}
+			be1.appendValue(bv1)
+			if len(be2) > int(math.MaxUint8-1) {
+				be1.appendI32Op(OC_jz, int32(len(be2)+1))
+			} else {
+				be1.append(OC_jz8, OpCode(len(be2)+1))
+			}
+			be1.append(OC_pop)
+			be1.append(be2...)
+			be1.append(OC_pop)
+			be1.append(be3...)
+			if rd {
+				out.appendI32Op(OC_run, int32(len(be1)))
+			}
+			out.append(be1...)
+		} else {
+			if bv1.IsUndefined() {
+				bv = bv1
+			} else if bv1.ToB() {
 				bv = bv2
 			} else {
 				bv = bv3

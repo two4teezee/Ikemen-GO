@@ -2345,7 +2345,8 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					demoFrameCounter = 0
 					introWaitCycles = 0
 				end
-				if esc() or getInput(-1, motif[main.group].menu.cancel.key) then
+				local cancelInputTime = getInputTime(-1, motif[main.group].menu.cancel.key)
+				if esc() or cancelInputTime > 0 then
 					if not bool_main then
 						sndPlay(motif.Snd, motif[main.group].cancel.snd[1], motif[main.group].cancel.snd[2])
 					elseif not esc() and t[item].itemname ~= 'exit' then
@@ -2361,6 +2362,17 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 								break
 							end
 						end
+					end
+					-- If held for 30 frames or longer, show info text
+					if cancelInputTime > 30 then
+						main.f_warning(
+							motif.infobox.text.text,
+							motif[main.group],
+							motif[main.background],
+							motif.infobox.overlay.RectData,
+							motif.infobox.title.TextSpriteData,
+							motif.infobox.text.TextSpriteData
+						)
 					end
 					if not bool_main or esc() then
 						break

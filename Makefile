@@ -28,7 +28,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/main.go \
 	src/motif.go \
 	src/music.go \
-	src/net.go \
+	src/netplay.go \
 	src/rect.go \
 	src/render.go \
 	src/render_gl33.go \

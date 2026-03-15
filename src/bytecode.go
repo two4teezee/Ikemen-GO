@@ -12881,9 +12881,12 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// We skip SetLocalcoord for char texts
-	ts.localScale = float32(c.gi().localcoord[0]) / 320 // Not crun here
+	// Text logic assumes a 4:3 layout, so we add a correction factor for widescreen
+	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
+	ts.localScale = float32(c.gi().localcoord[0]) / 320.0 / aspectCorrection
 
-	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
+	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
+	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -12923,13 +12926,14 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case text_localcoord:
-			var x, y float32
-			x = exp[0].evalF(c)
+			var lcx, lcy float32
+			lcx = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
+				lcy = exp[1].evalF(c)
 			}
-			if x > 0 && y > 0 {
-				ts.localScale = 320 / x
+			if lcx > 0 && lcy > 0 {
+				// Texts local scale is actually completely different characters
+				ts.localScale = lcx / 320
 			}
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
@@ -12943,9 +12947,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_textdelay:
 			ts.textDelay = exp[0].evalF(c)
 		case text_pos:
-			x = exp[0].evalF(c)
+			xpos = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
+				ypos = exp[1].evalF(c)
 			}
 		case text_velocity:
 			xvel = exp[0].evalF(c)
@@ -13008,7 +13012,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	ts.SetPos(x, y)
+	ts.SetPos(xpos, ypos)
 	ts.SetScale(xscl, yscl)
 	ts.SetVelocity(xvel, yvel)
 	ts.SetMaxDist(xmaxdist, ymaxdist)

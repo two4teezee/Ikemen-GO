@@ -113,12 +113,16 @@ const (
 	OC_jmp
 	OC_jz
 	OC_jnz
-	OC_eq
-	OC_ne
-	OC_gt
-	OC_ge
-	OC_lt
-	OC_le
+	OC_eq // =
+	OC_ne // !=
+	OC_gt // >
+	OC_ge // >=
+	OC_lt // <
+	OC_le // <=
+	OC_range_ii // []
+	OC_range_ie // [)
+	OC_range_ei // (]
+	OC_range_ee // ()
 	OC_neg
 	OC_blnot
 	OC_bland
@@ -1478,6 +1482,53 @@ func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
 	}
 }
 
+// For some reason Mugen respects "undefined" in this one but not in greater/less than
+func (BytecodeExp) rangeCheck(v1 *BytecodeValue, min BytecodeValue, max BytecodeValue, op OpCode) {
+	if v1.IsUndefined() || min.IsUndefined() || max.IsUndefined() {
+		*v1 = BytecodeUndefined()
+		return
+	}
+
+	var minPass, maxPass bool
+
+	// Check if any of the values are floats to determine the precision needed
+	if ValueType(Min(int32(v1.vtype), Min(int32(min.vtype), int32(max.vtype)))) == VT_Float {
+		vF := v1.ToF()
+		minF := min.ToF()
+		maxF := max.ToF()
+
+		if op == OC_range_ii || op == OC_range_ie {
+			minPass = vF >= minF
+		} else {
+			minPass = vF > minF
+		}
+
+		if op == OC_range_ii || op == OC_range_ei {
+			maxPass = vF <= maxF
+		} else {
+			maxPass = vF < maxF
+		}
+	} else {
+		vI := v1.ToI()
+		minI := min.ToI()
+		maxI := max.ToI()
+
+		if op == OC_range_ii || op == OC_range_ie {
+			minPass = vI >= minI
+		} else {
+			minPass = vI > minI
+		}
+
+		if op == OC_range_ii || op == OC_range_ei {
+			maxPass = vI <= maxI
+		} else {
+			maxPass = vI < maxI
+		}
+	}
+
+	v1.SetB(minPass && maxPass)
+}
+
 func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
 	//if v1.IsUndefined() || v2.IsUndefined() {
 	//	*v1 = BytecodeUndefined()
@@ -1791,7 +1842,8 @@ func (BytecodeExp) lerp(v1 *BytecodeValue, v2 BytecodeValue, v3 BytecodeValue) {
 func (be BytecodeExp) run(c *Char) BytecodeValue {
 	oc := c
 	for i := 1; i <= len(be); i++ {
-		switch be[i-1] {
+		opc := be[i-1]
+		switch opc {
 		case OC_jsf8:
 			if sys.bcStack.Top().IsUndefined() {
 				if be[i] == 0 {
@@ -1803,7 +1855,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				i++
 			}
 		case OC_jz8, OC_jnz8:
-			if sys.bcStack.Top().ToB() == (be[i-1] == OC_jz8) {
+			if sys.bcStack.Top().ToB() == (opc == OC_jz8) {
 				i++
 				break
 			}
@@ -1815,7 +1867,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				i += int(uint8(be[i])) + 1
 			}
 		case OC_jz, OC_jnz:
-			if sys.bcStack.Top().ToB() == (be[i-1] == OC_jz) {
+			if sys.bcStack.Top().ToB() == (opc == OC_jz) {
 				i += 4
 				break
 			}
@@ -1984,6 +2036,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_le:
 			v2 := sys.bcStack.Pop()
 			be.le(sys.bcStack.Top(), v2)
+		case OC_range_ii, OC_range_ie, OC_range_ei, OC_range_ee:
+			v3 := sys.bcStack.Pop()
+			v2 := sys.bcStack.Pop()
+			be.rangeCheck(sys.bcStack.Top(), v2, v3, opc)
 		case OC_eq:
 			v2 := sys.bcStack.Pop()
 			be.eq(sys.bcStack.Top(), v2)

@@ -3265,11 +3265,14 @@ func (c *Char) init(n int, idx int) {
 		c.keyctrl = [4]bool{false, false, false, true}
 	}
 
+	// Initialize CNS variables
+	// TODO: If we make maps persist between matches, they should be here as well
+	c.initCnsVar()
+
 	// Set controller to CPU if applicable
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
 	}
-	c.pushAffectTeam = 1
 	c.clearState()
 }
 
@@ -3292,6 +3295,7 @@ func (c *Char) clearState() {
 	c.fallTime = 0
 	c.makeDustSpacing = 0
 	c.hitStateChangeIdx = -1
+	c.pushAffectTeam = 1
 }
 
 func (c *Char) clsnOverlapTrigger(box1, pid, box2 int32) bool {
@@ -6502,7 +6506,6 @@ func (c *Char) newHelper() (h *Char) {
 	h.helperId = 0
 	h.ownpal = false
 	h.preserve = false
-	h.initCnsVar()
 	h.mapArray = make(map[string]float32)
 	h.remapSpr = make(RemapPreset)
 

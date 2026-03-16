@@ -2171,6 +2171,7 @@ func (s *System) resetRoundState() {
 	}
 	s.cam.ResetZoomdelay()
 
+	// Reset characters
 	for i, p := range s.chars {
 		if len(p) == 0 {
 			continue
@@ -4917,14 +4918,36 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	p := newChar(pn, 0)
+	var p *Char
+	var cachestr = "New"
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
-	if len(sys.chars[pn]) > 0 {
-		p.power = sys.chars[pn][0].power
-		p.guardPoints = sys.chars[pn][0].guardPoints
-		p.dizzyPoints = sys.chars[pn][0].dizzyPoints
+	// Same character from a previous match
+	if sys.chars[pn] != nil && len(sys.chars[pn]) > 0 {
+		if sys.chars[pn][0].gi().def == cdef && sys.chars[pn][0].ocd().existed {
+			p = sys.chars[pn][0]
+			cachestr = "Cached" // Actually more like "same"
+		}
 	}
+
+	// Brand new character
+	if p == nil {
+		p = newChar(pn, 0)
+
+		// These are already in char.load()
+		//sys.cgi[pn].sff = nil
+		//sys.cgi[pn].palettedata = nil
+
+		// TODO: Why do we do this here?
+		if len(sys.chars[pn]) > 0 {
+			p.power = sys.chars[pn][0].power
+			p.guardPoints = sys.chars[pn][0].guardPoints // And why do these two persist?
+			p.dizzyPoints = sys.chars[pn][0].dizzyPoints
+		}
+	}
+
+	// Flag "existed" just in case
+	p.ocd().existed = true
 
 	// Set new character parameters
 	if attached {
@@ -4940,11 +4963,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		p.teamside = p.playerNo & 1
 	}
 
-	if !p.ocd().existed {
-		p.initCnsVar()
-		p.ocd().existed = true
-	}
-
+	// Commit character to system
 	sys.chars[pn] = make([]*Char, 1)
 	sys.chars[pn][0] = p
 
@@ -4972,9 +4991,9 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 
 	// Prepare success message
 	if attached {
-		tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
+		tstr = fmt.Sprintf("%s attached char loaded: %v", cachestr, cdef)
 	} else {
-		tstr = fmt.Sprintf("New char loaded: %v", cdef)
+		tstr = fmt.Sprintf("%s char loaded: %v", cachestr, cdef)
 	}
 
 	selectPalno := 1

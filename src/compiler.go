@@ -1629,16 +1629,16 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
-				if rd {
-					out.append(OC_rdreset)
-				}
-				out.append(be1...)
-				out.appendValue(bv1)
-				out.append(be2...)
-				out.appendValue(bv2)
-				out.append(be3...)
-				out.appendValue(bv3)
-				out.append(OC_ifelse)
+			if rd {
+				out.append(OC_rdreset)
+			}
+			out.append(be1...)
+			out.appendValue(bv1)
+			out.append(be2...)
+			out.appendValue(bv2)
+			out.append(be3...)
+			out.appendValue(bv3)
+			out.append(OC_ifelse)
 		} else {
 			if bv1.ToB() {
 				bv = bv2
@@ -1661,7 +1661,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if c.token != "," {
-				return bvNone(), Error("Missing ',' in Cond")
+			return bvNone(), Error("Missing ',' in Cond")
 		}
 		c.token = c.tokenizer(in)
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
@@ -5344,7 +5344,7 @@ func (c *Compiler) expRange(out *BytecodeExp, in *string,
 		return false, Error("Missing ']' or ')'")
 	}
 	c.token = c.tokenizer(in)
-if bv.IsNone() || bv2.IsNone() || bv3.IsNone() {
+	if bv.IsNone() || bv2.IsNone() || bv3.IsNone() {
 		out.appendValue(*bv)
 		out.append(be2...)
 		out.appendValue(bv2)

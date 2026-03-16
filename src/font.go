@@ -803,7 +803,7 @@ func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 func (ts *TextSprite) SetPos(x, y float32) {
 	ts.offsetInit[0] = x
 	ts.offsetInit[1] = y
-	ts.x = x * ts.localScale + float32(ts.offsetX)
+	ts.x = x*ts.localScale + float32(ts.offsetX)
 	ts.y = y * ts.localScale
 }
 
@@ -824,7 +824,7 @@ func (ts *TextSprite) SetWindow(window [4]float32) {
 		return
 	}
 	ts.windowInit = window
-	x := window[0] * ts.localScale + float32(ts.offsetX)
+	x := window[0]*ts.localScale + float32(ts.offsetX)
 	y := window[1] * ts.localScale
 	w := (window[2] - window[0]) * ts.localScale
 	h := (window[3] - window[1]) * ts.localScale
@@ -905,8 +905,8 @@ func (ts *TextSprite) getLineLength(windowWrap bool) int32 {
 	var left, right float32
 	if windowWrap && ts.windowInit != [4]float32{0, 0, 0, 0} && ts.localScale > 0 {
 		// windowInit is in motif localcoords; convert to text space.
-		left = ts.windowInit[0] * ts.localScale + float32(ts.offsetX)
-		right = ts.windowInit[2] * ts.localScale + float32(ts.offsetX)
+		left = ts.windowInit[0]*ts.localScale + float32(ts.offsetX)
+		right = ts.windowInit[2]*ts.localScale + float32(ts.offsetX)
 	} else {
 		// No explicit window: use the whole localcoord width.
 		left = float32(ts.offsetX)

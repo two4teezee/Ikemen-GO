@@ -113,12 +113,16 @@ const (
 	OC_jmp
 	OC_jz
 	OC_jnz
-	OC_eq
-	OC_ne
-	OC_gt
-	OC_ge
-	OC_lt
-	OC_le
+	OC_eq // =
+	OC_ne // !=
+	OC_gt // >
+	OC_ge // >=
+	OC_lt // <
+	OC_le // <=
+	OC_range_ii // []
+	OC_range_ie // [)
+	OC_range_ei // (]
+	OC_range_ee // ()
 	OC_neg
 	OC_blnot
 	OC_bland
@@ -1296,9 +1300,9 @@ func (be BytecodeExp) JumpToNext(i *int) {
 }
 
 func (BytecodeExp) neg(v *BytecodeValue) {
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	if v.vtype == VT_Float {
 		v.value *= -1
 	} else {
@@ -1308,16 +1312,16 @@ func (BytecodeExp) neg(v *BytecodeValue) {
 
 func (BytecodeExp) not(v *BytecodeValue) {
 	// The opposite of undefined is still undefined
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	v.SetI(^v.ToI())
 }
 
 func (BytecodeExp) blnot(v *BytecodeValue) {
-	if v.IsUndefined() {
-		return
-	}
+	//if v.IsUndefined() {
+	//	return
+	//}
 	v.SetB(!v.ToB())
 }
 
@@ -1327,10 +1331,10 @@ func (BytecodeExp) blnot(v *BytecodeValue) {
 // These bugs are not reproduced in Ikemen
 // TODO: Perhaps Ikemen characters should treat 0**-1 the same as 1/0
 func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float || v2.ToF() < 0 {
 		// Float power
 		v1.SetF(Pow(v1.ToF(), v2.ToF()))
@@ -1364,10 +1368,10 @@ func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
 }
 
 func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() * v2.ToF())
 	} else {
@@ -1376,10 +1380,10 @@ func (BytecodeExp) mul(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v2.ToF() == 0 {
 		// Division by 0
 		*v1 = BytecodeUndefined()
@@ -1394,10 +1398,10 @@ func (BytecodeExp) div(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v2.ToI() == 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Modulus by 0")
@@ -1407,10 +1411,10 @@ func (BytecodeExp) mod(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) add(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() + v2.ToF())
 	} else {
@@ -1419,10 +1423,10 @@ func (BytecodeExp) add(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) sub(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetF(v1.ToF() - v2.ToF())
 	} else {
@@ -1431,10 +1435,10 @@ func (BytecodeExp) sub(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) gt(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() > v2.ToF())
 	} else {
@@ -1443,10 +1447,10 @@ func (BytecodeExp) gt(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) ge(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() >= v2.ToF())
 	} else {
@@ -1455,10 +1459,10 @@ func (BytecodeExp) ge(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) lt(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() < v2.ToF())
 	} else {
@@ -1467,10 +1471,10 @@ func (BytecodeExp) lt(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() <= v2.ToF())
 	} else {
@@ -1478,11 +1482,58 @@ func (BytecodeExp) le(v1 *BytecodeValue, v2 BytecodeValue) {
 	}
 }
 
-func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
+// For some reason Mugen respects "undefined" in this one but not in greater/less than
+func (BytecodeExp) rangeCheck(v1 *BytecodeValue, min BytecodeValue, max BytecodeValue, op OpCode) {
+	if v1.IsUndefined() || min.IsUndefined() || max.IsUndefined() {
 		*v1 = BytecodeUndefined()
 		return
 	}
+
+	var minPass, maxPass bool
+
+	// Check if any of the values are floats to determine the precision needed
+	if ValueType(Min(int32(v1.vtype), Min(int32(min.vtype), int32(max.vtype)))) == VT_Float {
+		vF := v1.ToF()
+		minF := min.ToF()
+		maxF := max.ToF()
+
+		if op == OC_range_ii || op == OC_range_ie {
+			minPass = vF >= minF
+		} else {
+			minPass = vF > minF
+		}
+
+		if op == OC_range_ii || op == OC_range_ei {
+			maxPass = vF <= maxF
+		} else {
+			maxPass = vF < maxF
+		}
+	} else {
+		vI := v1.ToI()
+		minI := min.ToI()
+		maxI := max.ToI()
+
+		if op == OC_range_ii || op == OC_range_ie {
+			minPass = vI >= minI
+		} else {
+			minPass = vI > minI
+		}
+
+		if op == OC_range_ii || op == OC_range_ei {
+			maxPass = vI <= maxI
+		} else {
+			maxPass = vI < maxI
+		}
+	}
+
+	v1.SetB(minPass && maxPass)
+}
+
+func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() == v2.ToF())
 	} else {
@@ -1491,10 +1542,10 @@ func (BytecodeExp) eq(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) ne(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if ValueType(Min(int32(v1.vtype), int32(v2.vtype))) == VT_Float {
 		v1.SetB(v1.ToF() != v2.ToF())
 	} else {
@@ -1503,70 +1554,71 @@ func (BytecodeExp) ne(v1 *BytecodeValue, v2 BytecodeValue) {
 }
 
 func (BytecodeExp) and(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	// TODO: Ikemen characters could probably use these commented out logic branches instead of arbitrarily handling what "undefined" means
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetI(v1.ToI() & v2.ToI())
 }
 
 func (BytecodeExp) xor(v1 *BytecodeValue, v2 BytecodeValue) {
 	// XOR always requires both operands to be known
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetI(v1.ToI() ^ v2.ToI())
 }
 
 func (BytecodeExp) or(v1 *BytecodeValue, v2 BytecodeValue) {
 	// If one is undefined, use short-circuiting logic
-	if v1.IsUndefined() || v2.IsUndefined() {
-		switch {
-		case v1.IsUndefined() && v2.IsUndefined():
-			*v1 = BytecodeUndefined()
-		case !v1.IsUndefined() && v1.ToI() != 0:
-			v1.SetI(v1.ToI())
-		case !v2.IsUndefined() && v2.ToI() != 0:
-			v1.SetI(v2.ToI())
-		default:
-			*v1 = BytecodeUndefined()
-		}
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	switch {
+	//	case v1.IsUndefined() && v2.IsUndefined():
+	//		*v1 = BytecodeUndefined()
+	//	case !v1.IsUndefined() && v1.ToI() != 0:
+	//		v1.SetI(v1.ToI())
+	//	case !v2.IsUndefined() && v2.ToI() != 0:
+	//		v1.SetI(v2.ToI())
+	//	default:
+	//		*v1 = BytecodeUndefined()
+	//	}
+	//	return
+	//}
 	v1.SetI(v1.ToI() | v2.ToI())
 }
 
 func (BytecodeExp) bland(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetB(v1.ToB() && v2.ToB())
 }
 
 func (BytecodeExp) blxor(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	v1.SetB(v1.ToB() != v2.ToB())
 }
 
 func (BytecodeExp) blor(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		switch {
-		case v1.IsUndefined() && v2.IsUndefined():
-			*v1 = BytecodeUndefined()
-		case !v1.IsUndefined() && v1.ToB():
-			v1.SetB(true)
-		case !v2.IsUndefined() && v2.ToB():
-			v1.SetB(true)
-		default:
-			*v1 = BytecodeUndefined()
-		}
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	switch {
+	//	case v1.IsUndefined() && v2.IsUndefined():
+	//		*v1 = BytecodeUndefined()
+	//	case !v1.IsUndefined() && v1.ToB():
+	//		v1.SetB(true)
+	//	case !v2.IsUndefined() && v2.ToB():
+	//		v1.SetB(true)
+	//	default:
+	//		*v1 = BytecodeUndefined()
+	//	}
+	//	return
+	//}
 	v1.SetB(v1.ToB() || v2.ToB())
 }
 
@@ -1582,16 +1634,16 @@ func (BytecodeExp) abs(v1 *BytecodeValue) {
 }
 
 func (BytecodeExp) exp(v1 *BytecodeValue) {
-	if v1.IsUndefined() {
-		return
-	}
+	//if v1.IsUndefined() {
+	//	return
+	//}
 	v1.SetF(float32(math.Exp(v1.value)))
 }
 
 func (BytecodeExp) ln(v1 *BytecodeValue) {
-	if v1.IsUndefined() {
-		return
-	}
+	//if v1.IsUndefined() {
+	//	return
+	//}
 	if v1.value <= 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Invalid logarithm")
@@ -1601,10 +1653,10 @@ func (BytecodeExp) ln(v1 *BytecodeValue) {
 }
 
 func (BytecodeExp) log(v1 *BytecodeValue, v2 BytecodeValue) {
-	if v1.IsUndefined() || v2.IsUndefined() {
-		*v1 = BytecodeUndefined()
-		return
-	}
+	//if v1.IsUndefined() || v2.IsUndefined() {
+	//	*v1 = BytecodeUndefined()
+	//	return
+	//}
 	if v1.value <= 0 || v2.value <= 0 {
 		*v1 = BytecodeUndefined()
 		sys.printBytecodeError("Invalid logarithm")
@@ -1790,7 +1842,8 @@ func (BytecodeExp) lerp(v1 *BytecodeValue, v2 BytecodeValue, v3 BytecodeValue) {
 func (be BytecodeExp) run(c *Char) BytecodeValue {
 	oc := c
 	for i := 1; i <= len(be); i++ {
-		switch be[i-1] {
+		opc := be[i-1]
+		switch opc {
 		case OC_jsf8:
 			if sys.bcStack.Top().IsUndefined() {
 				if be[i] == 0 {
@@ -1802,7 +1855,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				i++
 			}
 		case OC_jz8, OC_jnz8:
-			if sys.bcStack.Top().ToB() == (be[i-1] == OC_jz8) {
+			if sys.bcStack.Top().ToB() == (opc == OC_jz8) {
 				i++
 				break
 			}
@@ -1814,7 +1867,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 				i += int(uint8(be[i])) + 1
 			}
 		case OC_jz, OC_jnz:
-			if sys.bcStack.Top().ToB() == (be[i-1] == OC_jz) {
+			if sys.bcStack.Top().ToB() == (opc == OC_jz) {
 				i += 4
 				break
 			}
@@ -1924,7 +1977,6 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			l := be.PeekLength(i)
 			sys.bcStack.Push(be[i+4 : i+4+l].run(c)) // Run from c (with redirections)
 			be.JumpToNext(&i)
-			continue
 		case OC_nordrun:
 			l := be.PeekLength(i)
 			sys.bcStack.Push(be[i+4 : i+4+l].run(oc)) // Run from oc (without redirections)
@@ -1984,6 +2036,10 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_le:
 			v2 := sys.bcStack.Pop()
 			be.le(sys.bcStack.Top(), v2)
+		case OC_range_ii, OC_range_ie, OC_range_ei, OC_range_ee:
+			v3 := sys.bcStack.Pop()
+			v2 := sys.bcStack.Pop()
+			be.rangeCheck(sys.bcStack.Top(), v2, v3, opc)
 		case OC_eq:
 			v2 := sys.bcStack.Pop()
 			be.eq(sys.bcStack.Top(), v2)
@@ -2037,9 +2093,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			v3 := sys.bcStack.Pop()
 			v2 := sys.bcStack.Pop()
 			cond := sys.bcStack.Top()
-			if cond.IsUndefined() {
-				*cond = BytecodeUndefined()
-			} else if cond.ToB() {
+			if cond.ToB() {
 				*cond = v2
 			} else {
 				*cond = v3
@@ -12827,9 +12881,12 @@ func (sc text) Run(c *Char, _ []int32) bool {
 	}
 
 	// We skip SetLocalcoord for char texts
-	ts.localScale = float32(c.gi().localcoord[0]) / 320 // Not crun here
+	// Text logic assumes a 4:3 layout, so we add a correction factor for widescreen
+	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
+	ts.localScale = (320.0 / float32(c.gi().localcoord[0])) / aspectCorrection // Not crun here
 
-	var x, y, xscl, yscl, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 1, 1, 0, 0, 0, 0, 0, 0
+	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
+	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
@@ -12869,13 +12926,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 				}
 			}
 		case text_localcoord:
-			var x, y float32
-			x = exp[0].evalF(c)
+			var lcx, lcy float32
+			lcx = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
+				lcy = exp[1].evalF(c)
 			}
-			if x > 0 && y > 0 {
-				ts.localScale = 320 / x
+			if lcx > 0 && lcy > 0 {
+				ts.localScale = (320 / lcx) / aspectCorrection
 			}
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
@@ -12889,9 +12946,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_textdelay:
 			ts.textDelay = exp[0].evalF(c)
 		case text_pos:
-			x = exp[0].evalF(c)
+			xpos = exp[0].evalF(c)
 			if len(exp) > 1 {
-				y = exp[1].evalF(c)
+				ypos = exp[1].evalF(c)
 			}
 		case text_velocity:
 			xvel = exp[0].evalF(c)
@@ -12954,7 +13011,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
-	ts.SetPos(x, y)
+	ts.SetPos(xpos, ypos)
 	ts.SetScale(xscl, yscl)
 	ts.SetVelocity(xvel, yvel)
 	ts.SetMaxDist(xmaxdist, ymaxdist)
@@ -13150,7 +13207,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 				}
 				if x > 0 && y > 0 {
 					eachText(func(ts *TextSprite) {
-						ts.localScale = 320 / x
+						ts.localScale = x / 320
 					})
 				}
 			case text_bank:
@@ -13182,34 +13239,34 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_pos:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.x = x/ts.localScale + float32(ts.offsetX)
+					ts.x = x * ts.localScale + float32(ts.offsetX)
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.y = y / ts.localScale
+						ts.y = y * ts.localScale
 					})
 				}
 			case text_velocity:
 				velx := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xvel = velx / ts.localScale
+					ts.xvel = velx * ts.localScale
 				})
 				if len(exp) > 1 {
 					vely := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yvel = vely / ts.localScale
+						ts.yvel = vely * ts.localScale
 					})
 				}
 			case text_maxdist:
 				xmaxdist := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.maxDist[0] = xmaxdist / ts.localScale
+					ts.maxDist[0] = xmaxdist * ts.localScale
 				})
 				if len(exp) > 1 {
 					ymaxdist := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.maxDist[1] = ymaxdist / ts.localScale
+						ts.maxDist[1] = ymaxdist * ts.localScale
 					})
 				}
 			case text_friction:
@@ -13225,12 +13282,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_accel:
 				ax := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.accel[0] = ax / ts.localScale
+					ts.accel[0] = ax * ts.localScale
 				})
 				if len(exp) > 1 {
 					ay := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.accel[1] = ay / ts.localScale
+						ts.accel[1] = ay * ts.localScale
 					})
 				}
 			case text_angle:
@@ -13259,12 +13316,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_scale:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xscl = x / ts.localScale
+					ts.xscl = x * ts.localScale
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yscl = y / ts.localScale
+						ts.yscl = y * ts.localScale
 					})
 				}
 			case text_color:

@@ -796,27 +796,27 @@ func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 	if lx*3 > ly*4 {
 		v = float64(ly) * 4 / 3
 	}
-	ts.localScale = float32(v / 320)
+	ts.localScale = float32(320 / v)
 	ts.offsetX = -int32(math.Floor(float64(lx)/(v/320)-320) / 2)
 }
 
 func (ts *TextSprite) SetPos(x, y float32) {
 	ts.offsetInit[0] = x
 	ts.offsetInit[1] = y
-	ts.x = x/ts.localScale + float32(ts.offsetX)
-	ts.y = y / ts.localScale
+	ts.x = x * ts.localScale + float32(ts.offsetX)
+	ts.y = y * ts.localScale
 }
 
 func (ts *TextSprite) AddPos(x, y float32) {
-	ts.x += x / ts.localScale
-	ts.y += y / ts.localScale
+	ts.x += x * ts.localScale
+	ts.y += y * ts.localScale
 }
 
 func (ts *TextSprite) SetScale(xscl, yscl float32) {
 	ts.scaleInit[0] = xscl
 	ts.scaleInit[1] = yscl
-	ts.xscl = xscl / ts.localScale
-	ts.yscl = yscl / ts.localScale
+	ts.xscl = xscl * ts.localScale
+	ts.yscl = yscl * ts.localScale
 }
 
 func (ts *TextSprite) SetWindow(window [4]float32) {
@@ -824,10 +824,10 @@ func (ts *TextSprite) SetWindow(window [4]float32) {
 		return
 	}
 	ts.windowInit = window
-	x := window[0]/ts.localScale + float32(ts.offsetX)
-	y := window[1] / ts.localScale
-	w := (window[2] - window[0]) / ts.localScale
-	h := (window[3] - window[1]) / ts.localScale
+	x := window[0] * ts.localScale + float32(ts.offsetX)
+	y := window[1] * ts.localScale
+	w := (window[2] - window[0]) * ts.localScale
+	h := (window[3] - window[1]) * ts.localScale
 	ts.window[0] = int32((x + float32(sys.gameWidth-320)/2) * sys.widthScale)
 	// TODO: test if this truetype adjustment is needed
 	//ts.window[1] = int32((y + float32(sys.gameHeight-240)) * sys.heightScale)
@@ -857,19 +857,19 @@ func (ts *TextSprite) SetTextSpacing(xs, ys float32) {
 func (ts *TextSprite) SetVelocity(xvel, yvel float32) {
 	ts.velocityInit[0] = xvel
 	ts.velocityInit[1] = yvel
-	ts.xvel = xvel / ts.localScale
-	ts.yvel = yvel / ts.localScale
+	ts.xvel = xvel * ts.localScale
+	ts.yvel = yvel * ts.localScale
 	ts.vel = [2]float32{}
 }
 
 func (ts *TextSprite) SetMaxDist(x, y float32) {
-	ts.maxDist[0] = x / ts.localScale
-	ts.maxDist[1] = y / ts.localScale
+	ts.maxDist[0] = x * ts.localScale
+	ts.maxDist[1] = y * ts.localScale
 }
 
 func (ts *TextSprite) SetAccel(xacc, yacc float32) {
-	ts.accel[0] = xacc / ts.localScale
-	ts.accel[1] = yacc / ts.localScale
+	ts.accel[0] = xacc * ts.localScale
+	ts.accel[1] = yacc * ts.localScale
 }
 
 func (ts *TextSprite) IsFullyTyped() bool {
@@ -899,14 +899,14 @@ func (ts *TextSprite) getLineLength(windowWrap bool) int32 {
 	// Base "full screen" width in text space.
 	lcWidth := float32(sys.motif.Info.Localcoord[0])
 	if ts.localScale > 0 {
-		lcWidth = lcWidth / ts.localScale
+		lcWidth = lcWidth * ts.localScale
 	}
 	// Window boundaries expressed in text space.
 	var left, right float32
 	if windowWrap && ts.windowInit != [4]float32{0, 0, 0, 0} && ts.localScale > 0 {
 		// windowInit is in motif localcoords; convert to text space.
-		left = ts.windowInit[0]/ts.localScale + float32(ts.offsetX)
-		right = ts.windowInit[2]/ts.localScale + float32(ts.offsetX)
+		left = ts.windowInit[0] * ts.localScale + float32(ts.offsetX)
+		right = ts.windowInit[2] * ts.localScale + float32(ts.offsetX)
 	} else {
 		// No explicit window: use the whole localcoord width.
 		left = float32(ts.offsetX)
@@ -1243,7 +1243,7 @@ func (ts *TextSprite) Draw(ln int16) {
 	// "phantom pixel" adjustment to match mugen flipping behavior (extra pixel)
 	var phantomX float32
 	if ts.align == -1 {
-		phantomX = 1 / ts.localScale
+		phantomX = 1 * ts.localScale
 	}
 
 	lines := strings.Split(text, "\n")
@@ -1266,10 +1266,11 @@ func (ts *TextSprite) Draw(ln int16) {
 		xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
 
 		// Adjust draw scale to the font's original localcoord
-		// We only multiply by localScale here because SetScale divides by it
-		//fntwscl := float32(ts.fnt.localcoord[0]) / (float32(sys.gameWidth) / 320)
-		//scaleRatio := 320.0 / fntwscl * ts.localScale
-		assetscale := float32(sys.gameWidth) / float32(ts.fnt.localcoord[0]) * ts.localScale
+		// TODO: There's a minor issue here where for instance if a 4:3 motif is used in 16:9 the fonts will still be scaled to 16:9
+		assetscale := float32(sys.gameWidth) / float32(ts.fnt.localcoord[0])
+
+		// We only divide by localScale here because SetScale multiplies by it
+		assetscale /= ts.localScale
 
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {

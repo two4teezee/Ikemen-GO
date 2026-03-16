@@ -2733,15 +2733,14 @@ func (m *Motif) drawLoading() {
 				m.Fnt[int(fontIdx)] = f
 				registerFontIndex(m.fntIndexByKey, fp.Font, fp.Height, int(fontIdx))
 
-				// Set font localcoord to the same as the motif
-				m.Fnt[int(fontIdx)].localcoord = sys.motif.Info.Localcoord
-
 				fp.Type = f.Type
 				fp.Size = f.Size
 				fp.Spacing = f.Spacing
 				fp.Offset = f.offset
 			}
 		}
+		// Set font localcoord to the same as the motif
+		m.Fnt[int(fontIdx)].localcoord = m.Info.Localcoord // Use the placeholder "m" data
 	}
 
 	// Build directly from the struct values so we don't need to populate everything.

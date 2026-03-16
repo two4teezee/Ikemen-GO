@@ -925,8 +925,7 @@ func (c *Compiler) checkEquality(in *string) (not bool, err error) {
 	return
 }
 
-func (c *Compiler) intRange(in *string) (minop OpCode, maxop OpCode,
-	min, max int32, err error) {
+func (c *Compiler) intRange(in *string) (minop OpCode, maxop OpCode, min, max int32, err error) {
 	switch c.token {
 	case "(":
 		minop = OC_gt
@@ -1052,29 +1051,26 @@ func (c *Compiler) evaluateComparison(out *BytecodeExp, in *string,
 			if err != nil {
 				return err
 			}
-			if opc == OC_ne {
-				if minop == OC_gt {
-					minop = OC_le
-				} else {
-					minop = OC_lt
-				}
-				if maxop == OC_lt {
-					minop = OC_ge
-				} else {
-					minop = OC_gt
-				}
-			}
-			out.append(OC_dup)
+
 			out.appendValue(BytecodeInt(min))
-			out.append(minop)
-			out.append(OC_swap)
 			out.appendValue(BytecodeInt(max))
-			out.append(maxop)
-			if opc == OC_ne {
-				out.append(OC_blor)
+
+			var rop OpCode
+			if minop == OC_ge && maxop == OC_le {
+				rop = OC_range_ii
+			} else if minop == OC_ge && maxop == OC_lt {
+				rop = OC_range_ie
+			} else if minop == OC_gt && maxop == OC_le {
+				rop = OC_range_ei
 			} else {
-				out.append(OC_bland)
+				rop = OC_range_ee
 			}
+			out.append(rop)
+
+			if opc == OC_ne {
+				out.append(OC_blnot)
+			}
+
 			c.reverseOrder = comma || compare
 			return nil
 		}
@@ -1608,8 +1604,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		return bvNone(), _var(true, false)
 	case "sysfvar":
 		return bvNone(), _var(true, true)
-	case "ifelse", "cond":
-		cond := c.token == "cond"
+	case "ifelse":
 		if err := c.checkOpeningParenthesis(in); err != nil {
 			return bvNone(), err
 		}
@@ -1617,22 +1612,14 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if c.token != "," {
-			if cond {
-				return bvNone(), Error("Missing ',' in Cond")
-			} else {
-				return bvNone(), Error("Missing ',' in IfElse")
-			}
+			return bvNone(), Error("Missing ',' in IfElse")
 		}
 		c.token = c.tokenizer(in)
 		if bv2, err = c.expBoolOr(&be2, in); err != nil {
 			return bvNone(), err
 		}
 		if c.token != "," {
-			if cond {
-				return bvNone(), Error("Missing ',' in Cond")
-			} else {
-				return bvNone(), Error("Missing ',' in IfElse")
-			}
+			return bvNone(), Error("Missing ',' in IfElse")
 		}
 		c.token = c.tokenizer(in)
 		if bv3, err = c.expBoolOr(&be3, in); err != nil {
@@ -1642,29 +1629,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
-			if cond {
-				be3.appendValue(bv3)
-				be2.appendValue(bv2)
-				if len(be3) > int(math.MaxUint8-1) {
-					be2.appendI32Op(OC_jmp, int32(len(be3)+1))
-				} else {
-					be2.append(OC_jmp8, OpCode(len(be3)+1))
-				}
-				be1.appendValue(bv1)
-				if len(be2) > int(math.MaxUint8-1) {
-					be1.appendI32Op(OC_jz, int32(len(be2)+1))
-				} else {
-					be1.append(OC_jz8, OpCode(len(be2)+1))
-				}
-				be1.append(OC_pop)
-				be1.append(be2...)
-				be1.append(OC_pop)
-				be1.append(be3...)
-				if rd {
-					out.appendI32Op(OC_run, int32(len(be1)))
-				}
-				out.append(be1...)
-			} else {
 				if rd {
 					out.append(OC_rdreset)
 				}
@@ -1675,9 +1639,65 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				out.append(be3...)
 				out.appendValue(bv3)
 				out.append(OC_ifelse)
-			}
 		} else {
 			if bv1.ToB() {
+				bv = bv2
+			} else {
+				bv = bv3
+			}
+		}
+	case "cond":
+		if err := c.checkOpeningParenthesis(in); err != nil {
+			return bvNone(), err
+		}
+		if bv1, err = c.expBoolOr(&be1, in); err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+			return bvNone(), Error("Missing ',' in Cond")
+		}
+		c.token = c.tokenizer(in)
+		if bv2, err = c.expBoolOr(&be2, in); err != nil {
+			return bvNone(), err
+		}
+		if c.token != "," {
+				return bvNone(), Error("Missing ',' in Cond")
+		}
+		c.token = c.tokenizer(in)
+		if bv3, err = c.expBoolOr(&be3, in); err != nil {
+			return bvNone(), err
+		}
+		if err := c.checkClosingParenthesis(); err != nil {
+			return bvNone(), err
+		}
+		if bv1.IsNone() || bv2.IsNone() || bv3.IsNone() {
+			// TODO: Cond is supposed to return undefined if the condition is undefined
+			// At the moment we have it returning the second option like IfElse does
+			be3.appendValue(bv3)
+			be2.appendValue(bv2)
+			if len(be3) > int(math.MaxUint8-1) {
+				be2.appendI32Op(OC_jmp, int32(len(be3)+1))
+			} else {
+				be2.append(OC_jmp8, OpCode(len(be3)+1))
+			}
+			be1.appendValue(bv1)
+			if len(be2) > int(math.MaxUint8-1) {
+				be1.appendI32Op(OC_jz, int32(len(be2)+1))
+			} else {
+				be1.append(OC_jz8, OpCode(len(be2)+1))
+			}
+			be1.append(OC_pop)
+			be1.append(be2...)
+			be1.append(OC_pop)
+			be1.append(be3...)
+			if rd {
+				out.appendI32Op(OC_run, int32(len(be1)))
+			}
+			out.append(be1...)
+		} else {
+			if bv1.IsUndefined() {
+				bv = bv1
+			} else if bv1.ToB() {
 				bv = bv2
 			} else {
 				bv = bv3
@@ -5324,57 +5344,58 @@ func (c *Compiler) expRange(out *BytecodeExp, in *string,
 		return false, Error("Missing ']' or ')'")
 	}
 	c.token = c.tokenizer(in)
-	if bv.IsNone() || bv2.IsNone() || bv3.IsNone() {
-		var op1, op2, op3 OpCode
-		if opc == OC_ne {
-			if open == "(" {
-				op1 = OC_le
-			} else {
-				op1 = OC_lt
-			}
-			if close == ")" {
-				op2 = OC_ge
-			} else {
-				op2 = OC_gt
-			}
-			op3 = OC_blor
-		} else {
-			if open == "(" {
-				op1 = OC_gt
-			} else {
-				op1 = OC_ge
-			}
-			if close == ")" {
-				op2 = OC_lt
-			} else {
-				op2 = OC_le
-			}
-			op3 = OC_bland
-		}
+if bv.IsNone() || bv2.IsNone() || bv3.IsNone() {
 		out.appendValue(*bv)
-		out.append(OC_dup)
 		out.append(be2...)
 		out.appendValue(bv2)
-		out.append(op1)
-		out.append(OC_swap)
 		out.append(be3...)
 		out.appendValue(bv3)
-		out.append(op2)
-		out.append(op3)
+
+		var rop OpCode
+		if open == "[" && close == "]" {
+			rop = OC_range_ii
+		} else if open == "[" && close == ")" {
+			rop = OC_range_ie
+		} else if open == "(" && close == "]" {
+			rop = OC_range_ei
+		} else {
+			rop = OC_range_ee
+		}
+		out.append(rop)
+
+		if opc == OC_ne {
+			out.append(OC_blnot)
+		}
 		*bv = bvNone()
 	} else {
 		tmp := *bv
-		if open == "(" {
-			out.gt(&tmp, bv2)
+		var minPass, maxPass bool
+
+		if tmp.vtype == VT_Float || bv2.vtype == VT_Float || bv3.vtype == VT_Float {
+			if open == "[" {
+				minPass = tmp.ToF() >= bv2.ToF()
+			} else {
+				minPass = tmp.ToF() > bv2.ToF()
+			}
+			if close == "]" {
+				maxPass = tmp.ToF() <= bv3.ToF()
+			} else {
+				maxPass = tmp.ToF() < bv3.ToF()
+			}
 		} else {
-			out.ge(&tmp, bv2)
+			if open == "[" {
+				minPass = tmp.ToI() >= bv2.ToI()
+			} else {
+				minPass = tmp.ToI() > bv2.ToI()
+			}
+			if close == "]" {
+				maxPass = tmp.ToI() <= bv3.ToI()
+			} else {
+				maxPass = tmp.ToI() < bv3.ToI()
+			}
 		}
-		if close == ")" {
-			out.lt(bv, bv3)
-		} else {
-			out.le(bv, bv3)
-		}
-		bv.SetB(tmp.ToB() && bv.ToB())
+
+		bv.SetB(minPass && maxPass)
 		if opc == OC_ne {
 			bv.SetB(!bv.ToB())
 		}

@@ -6986,9 +6986,14 @@ func systemScriptInit(l *lua.LState) {
 			sys.debugDisplay = !sys.debugDisplay
 			return 0
 		}
-		// Make a copy of runOrder
-		sorted := make([]*Char, len(sys.charList.runOrder))
-		copy(sorted, sys.charList.runOrder)
+		// Ctrl+Shift+D behavior: cycle players in reverse order
+		var reverse bool
+		if !nilArg(l, 2) {
+			reverse = boolArg(l, 2)
+		}
+		// Make a copy of creationOrder
+		sorted := make([]*Char, len(sys.charList.creationOrder))
+		copy(sorted, sys.charList.creationOrder)
 		// Sort the copy by player number and ID
 		sort.Slice(sorted, func(i, j int) bool {
 			if sorted[i].playerNo != sorted[j].playerNo {
@@ -6999,18 +7004,35 @@ func systemScriptInit(l *lua.LState) {
 		// Find reference char
 		var nextChar *Char
 		if sys.debugDisplay {
-			// Search for the first character that comes after the current one
-			for _, c := range sorted {
-				isLaterPlayer := c.playerNo > sys.debugRef[0]
-				isSamePlayerNewerID := c.playerNo == sys.debugRef[0] && c.id > sys.debugLastID
-				if isLaterPlayer || isSamePlayerNewerID {
-					nextChar = c
-					break
+			if reverse {
+				// Search backwards
+				for i := len(sorted) - 1; i >= 0; i-- {
+					c := sorted[i]
+					isEarlierPlayer := c.playerNo < sys.debugRef[0]
+					isSamePlayerLowerID := c.playerNo == sys.debugRef[0] && c.id < sys.debugLastID
+					if isEarlierPlayer || isSamePlayerLowerID {
+						nextChar = c
+						break
+					}
+				}
+			} else {
+				// Search for the first character that comes after the current one
+				for _, c := range sorted {
+					isLaterPlayer := c.playerNo > sys.debugRef[0]
+					isSamePlayerHigherID := c.playerNo == sys.debugRef[0] && c.id > sys.debugLastID
+					if isLaterPlayer || isSamePlayerHigherID {
+						nextChar = c
+						break
+					}
 				}
 			}
 		} else if len(sorted) > 0 {
 			// If display was off, start at the beginning of the sorted list
-			nextChar = sorted[0]
+			if reverse {
+				nextChar = sorted[len(sorted)-1]
+			} else {
+				nextChar = sorted[0]
+			}
 		}
 		// Update debug reference or disable debug
 		if nextChar != nil {

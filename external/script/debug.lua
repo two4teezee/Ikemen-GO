@@ -3,8 +3,9 @@
 --;===========================================================
 --key, ctrl, alt, shift, pause, debug key, function
 addHotkey('c', true, false, false, true, false, 'toggleClsnDisplay()')
-addHotkey('d', true, false, false, true, false, 'toggleDebugDisplay()')
-addHotkey('d', false, false, true, true, false, 'toggleDebugDisplay(true)')
+addHotkey('d', true, false, false, true, false, 'toggleDebugDisplay(nil, false)')
+addHotkey('d', true, false, true, true, false, 'toggleDebugDisplay(nil, true)')
+addHotkey('d', false, false, true, true, false, 'toggleDebugDisplay(true, nil)')
 addHotkey('w', true, false, false, true, false, 'toggleWireframeDisplay()')
 addHotkey('s', true, false, false, true, true, 'changeSpeed()')
 addHotkey('KP_PLUS', true, false, false, true, true, 'changeSpeed(0.01)')

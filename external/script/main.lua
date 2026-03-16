@@ -574,7 +574,7 @@ function main.f_commandLine()
 		loadLifebar()
 	end
 	setLifebarElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
-	local frames = fightscreenvar("time.framespercount")
+	local frames = fightScreenVar("time.framespercount")
 	local t = {}
 	local t_assignedPals = {}
 	local flags = getCommandLineFlags()
@@ -753,7 +753,7 @@ function main.f_commandLine()
 	end
 	local winner = game()
 	if flags['-log'] ~= nil then
-		main.f_printTable(getGameStats().Matches[matchno()], flags['-log'])
+		main.f_printTable(getGameStats().Matches[matchNo()], flags['-log'])
 	end
 	os.exit()
 end
@@ -1572,8 +1572,8 @@ function main.f_default()
 	setHomeTeam(2) --http://mugenguild.com/forum/topics/ishometeam-triggers-169132.0.html
 	setLifebarElements(main.lifebar)
 	setMotifElements(main.motif)
-	setRoundTime(math.max(-1, main.roundTime * fightscreenvar("time.framespercount")))
-	setTimeFramesPerCount(fightscreenvar("time.framespercount"))
+	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
+	setTimeFramesPerCount(fightScreenVar("time.framespercount"))
 	setWinCount(1, 0)
 	setWinCount(2, 0)
 	textImgReset(motif.select_info.title.TextSpriteData)

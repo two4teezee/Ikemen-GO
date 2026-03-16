@@ -101,10 +101,10 @@ start.t_makeRoster.netplaysurvivalcoop = start.t_makeRoster.survival
 function start.f_makeRoster(t_ret)
 	t_ret = t_ret or {}
 	--prepare correct settings tables
-	if start.t_makeRoster[gamemode()] == nil then
-		panicError("\n" .. gamemode() .. " game mode unrecognized by start.f_makeRoster()\n")
+	if start.t_makeRoster[gameMode()] == nil then
+		panicError("\n" .. gameMode() .. " game mode unrecognized by start.f_makeRoster()\n")
 	end
-	local t, t_static = start.t_makeRoster[gamemode()]()
+	local t, t_static = start.t_makeRoster[gameMode()]()
 	--generate roster
 	local t_removable = main.f_tableCopy(t_static) --copy into editable order table
 	for i = 1, #t do --for each match number
@@ -175,10 +175,10 @@ start.t_aiRampData.netplaysurvivalcoop = start.t_aiRampData.survival
 
 -- generates AI ramping table
 function start.f_aiRamp(currentMatch)
-	if start.t_aiRampData[gamemode()] == nil then
-		panicError("\n" .. gamemode() .. " game mode unrecognized by start.f_aiRamp()\n")
+	if start.t_aiRampData[gameMode()] == nil then
+		panicError("\n" .. gameMode() .. " game mode unrecognized by start.f_aiRamp()\n")
 	end
-	local start_match, start_diff, end_match, end_diff = start.t_aiRampData[gamemode()]()
+	local start_match, start_diff, end_match, end_diff = start.t_aiRampData[gameMode()]()
 	local startAI = gameOption('Options.Difficulty') + start_diff
 	if startAI > 8 then
 		startAI = 8
@@ -228,16 +228,16 @@ function start.f_remapAI(ai)
 	--Offset
 	local offset = 0
 	if gameOption('Arcade.AI.Ramping') and main.aiRamp then
-		if t_aiRamp[matchno()] == nil then
-			start.f_aiRamp(matchno())
+		if t_aiRamp[matchNo()] == nil then
+			start.f_aiRamp(matchNo())
 		end
-		offset = t_aiRamp[matchno()] - gameOption('Options.Difficulty')
+		offset = t_aiRamp[matchNo()] - gameOption('Options.Difficulty')
 	end
 	local t_ex = {}
 	for side = 1, 2 do
 		if main.coop then
 			for k, v in ipairs(start.p[side].t_selCmd) do
-				if gamemode('versuscoop') then
+				if gameMode('versuscoop') then
 					remapInput(v.player, v.cmd)
 					setCom(v.player, 0)
 					t_ex[v.player] = true
@@ -250,7 +250,7 @@ function start.f_remapAI(ai)
 			end
 		end
 		if start.p[side].teamMode == 0 or start.p[side].teamMode == 2 then --Single or Turns
-			if (not main.cpuSide[side] and not main.coop) or start.challenger > 0 or gamemode('training') then
+			if (not main.cpuSide[side] and not main.coop) or start.challenger > 0 or gameMode('training') then
 				setCom(side, 0)
 			else
 				setCom(side, ai or start.f_difficulty(side, offset))
@@ -288,14 +288,14 @@ end
 function start.f_setRounds(roundTime, t_rounds)
 	-- disable winscreen if another match exists
 	local winscreen = main.motif.winscreen
-	if winscreen and main.makeRoster and start.t_roster[matchno() + 1] ~= nil then
+	if winscreen and main.makeRoster and start.t_roster[matchNo() + 1] ~= nil then
 		main.motif.winscreen = false
 	end
 	setMotifElements(main.motif)
 	main.motif.winscreen = winscreen
 	setLifebarElements(main.lifebar)
 	-- Round time
-	local frames = fightscreenvar("time.framespercount")
+	local frames = fightScreenVar("time.framespercount")
 	local p1FramesMul = 1
 	local p2FramesMul = 1
 	if start.p[1].teamMode == 3 then -- Tag
@@ -399,18 +399,18 @@ end
 
 -- Compute HUD timer/score to show at the beginning of the *next* match
 function start.f_prefightHUD()
-	-- "Next match index" is current matchno(); we want totals of already-finished matches.
-	local prev = math.max((matchno() or 1) - 1, 0)
+	-- "Next match index" is current matchNo(); we want totals of already-finished matches.
+	local prev = math.max((matchNo() or 1) - 1, 0)
 	local acc = start.f_accStats(prev)
 	local t_score = {acc.score.total[1], acc.score.total[2]}
 	local timer = acc.time.total
-	if start.challenger > 0 and gamemode('versus') then
+	if start.challenger > 0 and gameMode('versus') then
 		return 0, {0, 0}
 	end
 	-- emulate resetScore-on-loss behavior for the next match HUD
 	local gameStats = getGameStats()
 	local last = (gameStats and gameStats.Matches and gameStats.Matches[prev]) or nil
-	if last and main.resetScore and matchno() ~= -1 then
+	if last and main.resetScore and matchNo() ~= -1 then
 		if last.WinSide == 2 then
 			t_score[1] = acc.lose[1]
 		end
@@ -472,11 +472,11 @@ function start.f_setStage(num, assigned)
 	if not assigned then
 		local sel = start.p[2] and start.p[2].t_selected and start.p[2].t_selected[1]
 		local charData = sel and sel.ref and start.f_getCharData(sel.ref)
-		if charData and charData.stage and #charData.stage > 0 and not (gamemode('training') and gameOption('Config.TrainingStage')) then --stage assigned as character param
+		if charData and charData.stage and #charData.stage > 0 and not (gameMode('training') and gameOption('Config.TrainingStage')) then --stage assigned as character param
 			num = start.stageShuffleBag(charData.ref, charData.stage)
 		elseif charData and main.stageOrder and main.t_orderStages[charData.order] then --stage assigned as stage order param
 			num = start.stageShuffleBag(charData.order, main.t_orderStages[charData.order])
-		elseif gamemode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
+		elseif gameMode('training') and gameOption('Config.TrainingStage') ~= '' then --training stage
 			num = start.f_getStageRef(gameOption('Config.TrainingStage'))
 		else
 			num = start.stageShuffleBag('includeStage', main.t_includeStage[1])
@@ -656,7 +656,7 @@ end
 
 --returns player number
 function start.f_getPlayerNo(side, member)
-	if main.coop and not gamemode('versuscoop') then
+	if main.coop and not gameMode('versuscoop') then
 		return side + member - 1
 	end
 	if side == 1 then
@@ -770,7 +770,7 @@ function start.f_animGet(ref, side, member, params, velParams, loop, srcAnim)
 				end
 				-- Apply palette if needed
 				local sel = start.p[side].t_selected[member]
-				if usePal and not gamemode('netplayteamcoop') then
+				if usePal and not gameMode('netplayteamcoop') then
 					local sel = start.p[side].t_selected[member]
 					if sel and sel.ref then
 						a = start.loadPalettes(a, ref, sel.pal)
@@ -1335,15 +1335,15 @@ end
 
 --returns formatted record text table
 function start.f_getRecordText()
-	local text = motif.select_info.record.text[gamemode()]
+	local text = motif.select_info.record.text[gameMode()]
 	if text == nil then
 		return ""
 	end
 	local stats = jsonDecode('save/stats.json')
-	if stats.modes == nil or stats.modes[gamemode()] == nil or stats.modes[gamemode()].ranking == nil or stats.modes[gamemode()].ranking[1] == nil then
+	if stats.modes == nil or stats.modes[gameMode()] == nil or stats.modes[gameMode()].ranking == nil or stats.modes[gameMode()].ranking[1] == nil then
 		return ""
 	end
-	local t = stats.modes[gamemode()].ranking[1]
+	local t = stats.modes[gameMode()].ranking[1]
 	--time
 	text = start.f_clearTimeText(text, t.time)
 	--score
@@ -1557,15 +1557,15 @@ local function f_lifeRecovery(lifeMax, ratioLevel)
 		bonus = lifeMax * gameOption('Options.Ratio.Recovery.Bonus') / 100
 		base = lifeMax * gameOption('Options.Ratio.Recovery.Base') / 100
 	end
-	return base + main.f_round(timeremaining() / (timeremaining() + timeelapsed()) * bonus)
+	return base + main.f_round(timeRemaining() / (timeRemaining() + timeElapsed()) * bonus)
 end
 
 -- match persistence
 function start.f_matchPersistence()
 	-- checked only after at least 1 match
-	if matchno() >= 2 then
+	if matchNo() >= 2 then
 		local gameStats = getGameStats()
-		local roundStats = gameStats.Matches[matchno()-1].Rounds
+		local roundStats = gameStats.Matches[matchNo()-1].Rounds
 		-- set 'existed' flag (decides if var/fvar should be persistent between matches)
 		if roundStats then
 			for _, round in ipairs(roundStats) do
@@ -1665,7 +1665,7 @@ function start.f_game(lua)
 		end
 		modifyGameOption('Common.Lua', t)
 	end
-	if gamemode('training') then
+	if gameMode('training') then
 		menu.f_trainingReset()
 	end
 	local winner = -1
@@ -1738,19 +1738,19 @@ function start.f_selectMode()
 		--external script execution
 		assert(loadfile(path))()
 		--infinite matches flag detected
-		if main.makeRoster and start.t_roster[matchno()] ~= nil and start.t_roster[matchno()][1] == -1 then
-			table.remove(start.t_roster, matchno())
+		if main.makeRoster and start.t_roster[matchNo()] ~= nil and start.t_roster[matchNo()][1] == -1 then
+			table.remove(start.t_roster, matchNo())
 			start.t_roster = start.f_makeRoster(start.t_roster)
 			if main.aiRamp then
-				start.f_aiRamp(matchno())
+				start.f_aiRamp(matchNo())
 			end
 		--otherwise
 		else
-			if matchno() == -1 then --no more matches left
+			if matchNo() == -1 then --no more matches left
 				-- hiscore & stats handled in Go; returns (cleared, place)
-				local cleared, place = computeRanking(gamemode())
+				local cleared, place = computeRanking(gameMode())
 				if main.motif.hiscore and place > 0 then
-					main.f_hiscore(gamemode(), place)
+					main.f_hiscore(gameMode(), place)
 				end
 				--credits
 				if cleared and main.storyboard.credits and motif.end_credits.enabled and main.f_fileExists(motif.end_credits.storyboard) then
@@ -1894,7 +1894,7 @@ local function makeChallengerResumeSnapshot(pendingFightData, stageNo)
 		roster = main.f_tableCopy(start.t_roster),
 		availableChars = main.f_tableCopy(main.t_availableChars),
 		pendingFight = main.f_tableCopy(pendingFightData or {}),
-		matchNo = matchno(),
+		matchNo = matchNo(),
 		p1ConsecutiveWins = getConsecutiveWins(1),
 		p2ConsecutiveWins = getConsecutiveWins(2),
 		gameStatsJson = getGameStatsJson(),
@@ -2095,7 +2095,7 @@ function launchFight(data)
 		t.ai = data.ai or nil
 		t.vsscreen = main.f_arg(data.vsscreen, main.motif.versusscreen)
 		t.victoryscreen = main.f_arg(data.victoryscreen, main.motif.victoryscreen)
-		--t.frames = data.frames or fightscreenvar("time.framespercount")
+		--t.frames = data.frames or fightScreenVar("time.framespercount")
 		t.roundtime = data.time or nil
 		t.lua = data.lua or ''
 		t.stageNo = start.f_getStageRef(t.stage)
@@ -2214,7 +2214,7 @@ function launchFight(data)
 			start.p[2].t_selected = {}
 			start.p[2].t_selTemp = {}
 			printConsole("launchFight(): not enough P2 characters, skipping execution")
-			setMatchNo(matchno() + 1)
+			setMatchNo(matchNo() + 1)
 			return true --continue lua code execution
 		end
 	end
@@ -2274,7 +2274,7 @@ function launchFight(data)
 		elseif getWinnerTeam() == 1 or not t.continue then
 			start.p[2].t_selected = {}
 			start.p[2].t_selTemp = {}
-			setMatchNo(matchno() + 1)
+			setMatchNo(matchNo() + 1)
 			ok = true -- continue lua code execution
 			break
 		-- continue = no
@@ -2403,7 +2403,7 @@ local function tickScreenDelay(side)
 	if canSkip then
 		local owners = {}
 		local seen = {}
-		if main.coop and (side == 1 or gamemode('versuscoop')) then
+		if main.coop and (side == 1 or gameMode('versuscoop')) then
 			for _, v in ipairs(start.p[side].t_selCmd) do
 				if v.cmd ~= nil and not seen[v.cmd] then
 					table.insert(owners, v.cmd)
@@ -2447,15 +2447,15 @@ function start.f_selectScreen()
 	local stageTextData = motif.select_info.stage.active.TextSpriteData
 	-- generate team mode items table
 	for side = 1, 2 do
-		-- read display names for the current gamemode (or default)
+		-- read display names for the current gameMode (or default)
 		local params = motif.select_info.teammenu.itemname.default
-		if motif.select_info.teammenu.itemname[gamemode()] ~= nil then
-			params = motif.select_info.teammenu.itemname[gamemode()]
+		if motif.select_info.teammenu.itemname[gameMode()] ~= nil then
+			params = motif.select_info.teammenu.itemname[gameMode()]
 		end
-		-- read itemname_order for the current gamemode (or default)
+		-- read itemname_order for the current gameMode (or default)
 		local itemname_order = motif.select_info.teammenu.itemname_order.default
-		if motif.select_info.teammenu.itemname_order[gamemode()] ~= nil then
-			itemname_order = motif.select_info.teammenu.itemname_order[gamemode()]
+		if motif.select_info.teammenu.itemname_order[gameMode()] ~= nil then
+			itemname_order = motif.select_info.teammenu.itemname_order[gameMode()]
 		end
 		-- map itemname -> mode (kept from old defaults)
 		local modeByName = {
@@ -2552,7 +2552,7 @@ function start.f_selectScreen()
 				--for each player with active controls
 				for k, v in ipairs(start.p[side].t_selCmd) do
 					local member = main.f_tableLength(start.p[side].t_selected) + k
-					if main.coop and (side == 1 or gamemode('versuscoop')) then
+					if main.coop and (side == 1 or gameMode('versuscoop')) then
 						member = k
 					end
 					--member selection
@@ -2756,7 +2756,7 @@ function start.f_teamMenu(side, t)
 		local t_cmd = {}
 		if main.coop then
 			for i = 1, gameOption('Config.Players') do
-				if not gamemode('versuscoop') or (i - 1) % 2 + 1 == side then
+				if not gameMode('versuscoop') or (i - 1) % 2 + 1 == side then
 					table.insert(t_cmd, i)
 				end
 			end
@@ -2866,7 +2866,7 @@ function start.f_teamMenu(side, t)
 		local valueCfg = teammenu.value
 		local spacingX, spacingY = itemCfg.spacing[1], itemCfg.spacing[2]
 		local uppercase = itemCfg.uppercase
-		local gm = gamemode()
+		local gm = gameMode()
 		for i = 1, #t do
 			local x = (i - 1) * spacingX
 			local y = (i - 1) * spacingY
@@ -2977,9 +2977,9 @@ function start.f_teamMenu(side, t)
 	end
 	--t_selCmd table appending once team mode selection is finished
 	if start.p[side].teamEnd then
-		if main.coop and (side == 1 or gamemode('versuscoop')) then
+		if main.coop and (side == 1 or gameMode('versuscoop')) then
 			for i = 1, start.p[side].numChars do
-				if gamemode('versuscoop') then
+				if gameMode('versuscoop') then
 					if side == 1 then
 						table.insert(start.p[side].t_selCmd, {cmd = getRemapInput(i * 2 - 1), player = start.f_getPlayerNo(side, #start.p[side].t_selCmd + 1), selectState = 0})
 					else
@@ -3507,7 +3507,7 @@ function start.f_selectMenu(side, cmd, player, member, selectState)
 			if not start.p[1].teamEnd or not start.p[2].teamEnd or not start.p[1].selEnd or not start.p[2].selEnd then
 				timerSelect = motif.select_info.timer.displaytime
 			end
-			if main.coop and (side == 1 or gamemode('versuscoop')) then --remaining members are controlled by different players
+			if main.coop and (side == 1 or gameMode('versuscoop')) then --remaining members are controlled by different players
 				selectState = 4
 			elseif not start.p[side].selEnd then --next member controlled by this player should become selectable
 				selectState = 0
@@ -3606,7 +3606,7 @@ function start.f_selectVersus(active, t_orderSelect)
 		return true
 	end
 	textImgReset(motif.vs_screen.match.TextSpriteData)
-	textImgSetText(motif.vs_screen.match.TextSpriteData, string.format(motif.vs_screen.match.text, matchno()))
+	textImgSetText(motif.vs_screen.match.TextSpriteData, string.format(motif.vs_screen.match.text, matchNo()))
 	bgReset(motif.versusbgdef.BGDef)
 	main.f_fadeReset('fadein', motif.vs_screen)
 	local fadeOutStarted = false

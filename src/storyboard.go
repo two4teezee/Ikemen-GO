@@ -395,9 +395,6 @@ func (s *Storyboard) loadFiles() {
 				s.Fnt[i] = newFnt()
 			}
 
-			// Set font localcoord to the same as the storyboard
-			s.Fnt[i].localcoord = s.Info.Localcoord
-
 			// Populate extended properties from the loaded font
 			fnt.Type = s.Fnt[i].Type
 			fnt.Size = s.Fnt[i].Size

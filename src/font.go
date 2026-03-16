@@ -84,7 +84,6 @@ type Fnt struct {
 	lastPalBank int32
 	lastPalBase *uint32
 	paltexCache map[*uint32]Texture
-	localcoord  [2]int32 // Determined by the player/lifebar/motif that owns the font
 }
 
 func newFnt() *Fnt {
@@ -93,7 +92,6 @@ func newFnt() *Fnt {
 		BankType:    "palette",
 		lastPalBank: -1,
 		paltexCache: make(map[*uint32]Texture),
-		localcoord:  [2]int32{320, 240},
 	}
 }
 
@@ -710,6 +708,7 @@ type TextSprite struct {
 	fLength        float32
 	xvel, yvel     float32
 	localScale     float32
+	scaleRatio     float32 // Scale correction when different localcoords interact
 	offsetX        int32
 	layerno        int16
 	palfx          *PalFX
@@ -755,6 +754,7 @@ func (ts *TextSprite) loadDefaults() {
 		frgba:      [...]float32{1.0, 1.0, 1.0, 1.0},
 		removetime: 1,
 		localScale: 1,
+		scaleRatio: 1,
 		friction:   [2]float32{1.0, 1.0},
 		scaleInit:  [2]float32{1.0, 1.0},
 	}
@@ -799,6 +799,22 @@ func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 	ts.offsetX = -int32(math.Floor(float64(lx)/(v/320)-320) / 2)
 }
 
+func (ts *TextSprite) SetLocalcoordChar(lc [2]int32) {
+	if lc[0] <= 0 {
+		return
+	}
+
+	// Calculate aspect correction based on a 4:3 baseline
+	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
+	
+	// Apply scale with aspect correction
+	ts.localScale = (320.0 / float32(lc[0])) / aspectCorrection
+
+	// Negate font draw function offsets and shift coordinate origin to where the screen edge is, regardless of aspect ratio
+	extraScreen := (320.0 * aspectCorrection) - 320.0
+	ts.offsetX = -int32(extraScreen / 2)
+}
+
 func (ts *TextSprite) SetPos(x, y float32) {
 	ts.offsetInit[0] = x
 	ts.offsetInit[1] = y
@@ -814,8 +830,8 @@ func (ts *TextSprite) AddPos(x, y float32) {
 func (ts *TextSprite) SetScale(xscl, yscl float32) {
 	ts.scaleInit[0] = xscl
 	ts.scaleInit[1] = yscl
-	ts.xscl = xscl * ts.localScale
-	ts.yscl = yscl * ts.localScale
+	ts.xscl = xscl * ts.localScale * ts.scaleRatio
+	ts.yscl = yscl * ts.localScale * ts.scaleRatio
 }
 
 func (ts *TextSprite) SetWindow(window [4]float32) {
@@ -1264,18 +1280,11 @@ func (ts *TextSprite) Draw(ln int16) {
 		xshear := -ts.xshear
 		xsoffset := xshear * (float32(ts.fnt.offset[1]) * ts.yscl)
 
-		// Adjust draw scale to the font's original localcoord
-		// TODO: There's a minor issue here where for instance if a 4:3 motif is used in 16:9 the fonts will still be scaled to 16:9
-		assetscale := float32(sys.gameWidth) / float32(ts.fnt.localcoord[0])
-
-		// We only divide by localScale here because SetScale multiplies by it
-		assetscale /= ts.localScale
-
 		// Draw the visible line
 		if ts.fnt.Type == "truetype" {
-			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl*assetscale, ts.yscl*assetscale, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
+			ts.fnt.DrawTtf(line[:charsToShow], ts.x+ts.vel[0]+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl, ts.align, true, &ts.window, ts.frgba, float32(spacingXAdd))
 		} else {
-			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl*assetscale, ts.yscl*assetscale,
+			ts.fnt.DrawText(line[:charsToShow], ts.x+ts.vel[0]-xsoffset+phantomX, newY+ts.vel[1], ts.xscl, ts.yscl,
 				xshear, ts.rot, ts.projection, ts.fLength, ts.bank, ts.align, &ts.window, ts.palfx, ts.frgba[3], spacingXAdd)
 		}
 

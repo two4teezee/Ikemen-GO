@@ -12810,10 +12810,9 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	// We skip SetLocalcoord for char texts
-	// Text logic assumes a 4:3 layout, so we add a correction factor for widescreen
-	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
-	ts.localScale = (320.0 / float32(c.gi().localcoord[0])) / aspectCorrection // Not crun here
+	// Default to the same localcoord as the character that owns the code
+	ts.SetLocalcoordChar(c.gi().localcoord) // Not crun here
+	ts.scaleRatio = 1
 
 	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
 	var xscl, yscl float32 = 1, 1
@@ -12851,19 +12850,25 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
+					switch fflg {
+					case "f":
+						ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.lifebar.localcoord[0])
+					case "m":
+						ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.motif.Info.Localcoord[0])
+					default:
+						ts.scaleRatio = 1
+					}
 				} else {
 					fnt = -1
 				}
 			}
 		case text_localcoord:
-			var lcx, lcy float32
-			lcx = exp[0].evalF(c)
+			var lcx, lcy int32
+			lcx = exp[0].evalI(c)
 			if len(exp) > 1 {
-				lcy = exp[1].evalF(c)
+				lcy = exp[1].evalI(c)
 			}
-			if lcx > 0 && lcy > 0 {
-				ts.localScale = (320 / lcx) / aspectCorrection
-			}
+			ts.SetLocalcoordChar([2]int32{lcx, lcy})
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -13030,42 +13035,41 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case text_font:
-				// TODO: Modifying font source should also have the same localcoord fix as in the Text sctrl
 				fnt := int(exp[1].evalI(c))
 				fflg := exp[0].evalS()
 				fntList := crun.gi().fnt
+
 				switch fflg {
 				case "f":
 					fntList = sys.lifebar.fnt
 				case "m":
 					fntList = sys.motif.Fnt
 				}
+
 				if fnt >= 0 {
 					if f := fntList[fnt]; f != nil {
 						eachText(func(ts *TextSprite) {
 							ts.fnt = f
 							switch fflg {
 							case "f":
-								ts.SetLocalcoord(sys.lifebar.localcoord[0], sys.lifebar.localcoord[1])
+								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.lifebar.localcoord[0])
 							case "m":
-								ts.SetLocalcoord(sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1])
+								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.motif.Info.Localcoord[0])
 							default:
-								//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
+								ts.scaleRatio = 1
 							}
 						})
 					}
 				}
 			case text_localcoord:
-				var x, y float32
-				x = exp[0].evalF(c)
+				var lcx, lcy int32
+				lcx = exp[0].evalI(c)
 				if len(exp) > 1 {
-					y = exp[1].evalF(c)
+					lcy = exp[1].evalI(c)
 				}
-				if x > 0 && y > 0 {
-					eachText(func(ts *TextSprite) {
-						ts.localScale = x / 320
-					})
-				}
+				eachText(func(ts *TextSprite) {
+					ts.SetLocalcoordChar([2]int32{lcx, lcy})
+				})
 			case text_bank:
 				b := exp[0].evalI(c)
 				eachText(func(ts *TextSprite) {
@@ -13172,12 +13176,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_scale:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xscl = x * ts.localScale
+					ts.xscl = x * ts.localScale * ts.scaleRatio
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yscl = y * ts.localScale
+						ts.yscl = y * ts.localScale * ts.scaleRatio
 					})
 				}
 			case text_color:

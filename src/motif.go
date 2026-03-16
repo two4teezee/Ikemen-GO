@@ -2487,9 +2487,6 @@ func (m *Motif) loadFiles() {
 				m.Fnt[i] = newFnt()
 			}
 
-			// Set font localcoord to the same as the motif
-			m.Fnt[i].localcoord = sys.motif.Info.Localcoord
-
 			// Populate extended properties from the loaded font
 			fnt.Type = m.Fnt[i].Type
 			fnt.Size = m.Fnt[i].Size
@@ -2739,8 +2736,6 @@ func (m *Motif) drawLoading() {
 				fp.Offset = f.offset
 			}
 		}
-		// Set font localcoord to the same as the motif
-		m.Fnt[int(fontIdx)].localcoord = m.Info.Localcoord // Use the placeholder "m" data
 	}
 
 	// Build directly from the struct values so we don't need to populate everything.

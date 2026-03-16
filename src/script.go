@@ -931,8 +931,8 @@ func systemScriptInit(l *lua.LState) {
 		@tparam[opt=true] boolean keepLoop If `true`, keep the original loop timing.
 		  If `false` and the animation's `totaltime` equals `looptime`, convert it to an
 		  infinite loop (`totaltime = -1`, `looptime = 0`).
-		@treturn[1] Anim anim A new `Anim` userdata wrapping the preloaded animation.
-		@treturn[0] nil No value is returned if no matching animation exists.
+		@treturn Anim|nil anim A new `Anim` userdata wrapping the preloaded animation,
+		  or `nil` if no matching animation exists.
 		function animGetPreloadedCharData(charRef, group, number, keepLoop) end*/
 		if anim := sys.sel.GetChar(int(numArg(l, 1))).anims.get(int32(numArg(l, 2)), int32(numArg(l, 3))); anim != nil {
 			a := NewAnim(nil, "")
@@ -956,8 +956,8 @@ func systemScriptInit(l *lua.LState) {
 		@tparam[opt=true] boolean keepLoop If `true`, keep the original loop timing.
 		  If `false` and the animation's `totaltime` equals `looptime`, convert it to an
 		  infinite loop (`totaltime = -1`, `looptime = 0`).
-		@treturn[1] Anim anim A new `Anim` userdata wrapping the preloaded animation.
-		@treturn[0] nil No value is returned if no matching animation exists.
+		@treturn Anim|nil anim A new `Anim` userdata wrapping the preloaded animation,
+		  or `nil` if no matching animation exists.
 		function animGetPreloadedStageData(stageRef, group, number, keepLoop) end*/
 		if anim := sys.sel.GetStage(int(numArg(l, 1))).anims.get(int32(numArg(l, 2)), int32(numArg(l, 3))); anim != nil {
 			a := NewAnim(nil, "")
@@ -978,13 +978,13 @@ func systemScriptInit(l *lua.LState) {
 		@tparam[opt] uint16 group Explicit sprite group number.
 		@tparam[opt] uint16 number Explicit sprite number. These are only used when both
 		  `group` and `number` are provided; otherwise the animation's current sprite is used.
-		@treturn[1] table info Table with:
+		@treturn table|nil info Table with:
 		  - `Group` (uint16) sprite group number
 		  - `Number` (uint16) sprite number
 		  - `Size` (uint16[2]) `{width, height}`
 		  - `Offset` (int16[2]) `{x, y}`
-		  - `palidx` (int) palette index used for this sprite
-		@treturn[0] nil No value is returned if no sprite is available.
+		  - `palidx` (int) palette index used for this sprite,
+		  or `nil` if no sprite is available.
 		function animGetSpriteInfo(anim, group, number) end*/
 		a, ok := toUserData(l, 1).(*Anim)
 		if !ok {
@@ -2718,7 +2718,7 @@ func systemScriptInit(l *lua.LState) {
 		/*Execute a full match using the current configuration.
 		@function game
 		@treturn int32 winSide Winning side index (`1` or `2`), `0` for draw, `-1` if the game was ended externally.
-		@treturn[opt] int controllerNo 1-based controller index used for post-match menu control.
+		@treturn[opt] int controllerNo 1-based controller index of the challenger player interrupting `arcade` mode.
 		function game() end*/
 		sys.luaDiscardDrawQueue()
 		sys.gameRunning = true
@@ -2993,11 +2993,11 @@ func systemScriptInit(l *lua.LState) {
 		@function getCharAttachedInfo
 		@tparam string def Character identifier or `.def` path. If no extension is given,
 		  `"chars/<def>/<def>.def"` is assumed.
-		@treturn[1] table info A table:
+		@treturn table|nil info A table:
 		  - `name` (string) character display name (or internal name as fallback)
 		  - `def` (string) resolved `.def` path
-		  - `sound` (string) sound file path from the `[Files]` section
-		@treturn[0] nil No value is returned if the `.def` file cannot be resolved.
+		  - `sound` (string) sound file path from the `[Files]` section,
+		  or `nil` if the `.def` file cannot be resolved.
 		function getCharAttachedInfo(def) end*/
 		def := strArg(l, 1)
 		idx := strings.Index(def, "/")
@@ -3215,8 +3215,8 @@ func systemScriptInit(l *lua.LState) {
 		/*Get the value of a specific command-line flag.
 		@function getCommandLineValue
 		@tparam string flagName Exact flag key as stored in `sys.cmdFlags`
-		@treturn[1] string value Value associated with the flag.
-		@treturn[0] nil No value is returned if the flag is not present.
+		@treturn string|nil value Value associated with the flag,
+		  or `nil` if the flag is not present.
 		function getCommandLineValue(flagName) end*/
 		if _, ok := sys.cmdFlags[strArg(l, 1)]; !ok {
 			return 0
@@ -4586,9 +4586,8 @@ func systemScriptInit(l *lua.LState) {
 		/*Load a storyboard and set it as the current storyboard.
 		@function loadStoryboard
 		@tparam string defPath Storyboard def file path.
-		@treturn[1] table storyboard Storyboard configuration table on success.
-		@treturn[0] nil No value is returned if no path is given or loading fails
-		  (a warning is printed).
+		@treturn table|nil storyboard Storyboard configuration table on success,
+		  or `nil` if no path is given or loading fails (a warning is printed).
 		function loadStoryboard(defPath) end*/
 		if strArg(l, 1) == "" {
 			return 0

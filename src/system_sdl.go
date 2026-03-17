@@ -89,8 +89,9 @@ func (s *System) newWindow(w, h int) (*Window, error) {
 		} else if renderName == "OpenGL 3.3" {
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_PROFILE_MASK, sdl.GL_CONTEXT_PROFILE_CORE)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_MAJOR_VERSION, 3)
-			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 2)
+			sdl.GLSetAttribute(sdl.GL_CONTEXT_MINOR_VERSION, 3)
 			sdl.GLSetAttribute(sdl.GL_CONTEXT_FORWARD_COMPATIBLE_FLAG, 1)
+			sdl.GLSetAttribute(sdl.GL_DOUBLEBUFFER, 1)
 			// Only load debug context if we will use it, so we avoid useless overhead
 			if sys.cfg.Video.RendererDebugMode {
 				sdl.GLSetAttribute(sdl.GL_CONTEXT_FLAGS, sdl.GL_CONTEXT_DEBUG_FLAG)

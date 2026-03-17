@@ -496,13 +496,6 @@ func (ir *InputReader) LocalAnalogInput(in int) [6]int8 {
 func (ir *InputReader) SocdResolution(U, D, B, F bool) (bool, bool, bool, bool) {
 	method := sys.cfg.Input.SOCDResolution
 
-	// Neutral resolution is enforced during netplay
-	// Note: Since configuration does not work online yet, it's best if the forced setting matches the default config
-	// TODO: Figure out how to make local options work online
-	if sys.netConnection != nil || sys.replayFile != nil {
-		method = 4
-	}
-
 	// Resolve U and D conflicts based on SOCD resolution config
 	resolveUD := func(U, D bool) (bool, bool) {
 		// Check first direction held

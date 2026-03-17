@@ -148,6 +148,7 @@ func newCompiler() *Compiler {
 		"loadfile":             c.loadFile,
 		"loadstate":            c.loadState,
 		"mapadd":               c.mapAdd,
+		"mapreset":             c.mapReset,
 		"mapset":               c.mapSet,
 		"matchrestart":         c.matchRestart,
 		"modifybgctrl":         c.modifyBGCtrl,

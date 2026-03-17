@@ -3269,6 +3269,9 @@ func (c *Char) init(n int, idx int) {
 	// TODO: If we make maps persist between matches, they should be here as well
 	c.initCnsVar()
 
+	// Init the map array
+	c.mapReset("")
+
 	// Set controller to CPU if applicable
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
@@ -6504,7 +6507,6 @@ func (c *Char) newHelper() (h *Char) {
 	h.helperId = 0
 	h.ownpal = false
 	h.preserve = false
-	h.mapArray = make(map[string]float32)
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
@@ -9061,6 +9063,51 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 		}
 	}
 	return BytecodeFloat(Value)
+}
+
+// Used to init, fully reset or partially reset the map array
+func (c *Char) mapReset(exclude string) {
+	// Initialize if nil
+	if c.mapArray == nil {
+		c.mapArray = make(map[string]float32)
+	}
+
+	// Fast path for full reset
+	// Just remake the map and populate with defaults
+	if exclude == "" {
+		c.mapArray = make(map[string]float32)
+		for k, v := range c.mapDefault {
+			c.mapArray[k] = v
+		}
+		return
+	}
+
+	// Selective reset
+	excLow := strings.ToLower(exclude)
+
+	// Process existing keys
+	// Restore defaults or delete non-defaults
+	for k := range c.mapArray {
+		if strings.Contains(strings.ToLower(k), excLow) {
+			continue
+		}
+
+		if v, ok := c.mapDefault[k]; ok {
+			c.mapArray[k] = v
+		} else {
+			delete(c.mapArray, k)
+		}
+	}
+
+	// Restore missing defaults
+	// If a default exists but wasn't in mapArray and isn't excluded, bring it back
+	for k, v := range c.mapDefault {
+		if _, ok := c.mapArray[k]; !ok {
+			if !strings.Contains(strings.ToLower(k), excLow) {
+				c.mapArray[k] = v
+			}
+		}
+	}
 }
 
 func (c *Char) appendDialogue(s string, reset bool) {

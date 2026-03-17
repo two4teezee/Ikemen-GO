@@ -14608,6 +14608,32 @@ func (sc overrideClsn) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type mapReset StateControllerBase
+
+const (
+	mapReset_exclude byte = iota
+	mapReset_redirectid
+)
+
+func (sc mapReset) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), mapReset_redirectid, "MapReset")
+	if crun == nil {
+		return false
+	}
+
+	exclude := ""
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case mapReset_exclude:
+			exclude = exp[0].evalS()
+		}
+		return true
+	})
+
+	crun.mapReset(exclude)
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType

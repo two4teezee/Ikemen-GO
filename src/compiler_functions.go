@@ -4892,6 +4892,26 @@ func (c *Compiler) teamMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 	return *ret, err
 }
 
+func (c *Compiler) mapReset(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*mapReset)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			mapReset_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+		if err := c.stateParam(is, "exclude", false, func(data string) error {
+			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+				return Error("Exclude not enclosed in \"")
+			}
+			sc.add(mapReset_exclude, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
+			return nil
+		}); err != nil {
+			return err
+		}
+		return nil
+	})
+	return *ret, err
+}
+
 func (c *Compiler) matchRestart(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
 	ret, err := (*matchRestart)(sc), c.stateSec(is, func() error {
 		if err := c.paramValue(is, sc, "reload",

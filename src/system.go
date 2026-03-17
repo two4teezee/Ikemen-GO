@@ -3814,10 +3814,6 @@ func (s *System) SetupCharRoundStart() {
 					}
 				}
 				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
-				p[0].mapArray = make(map[string]float32)
-				for k, v := range p[0].mapDefault {
-					p[0].mapArray[k] = v
-				}
 				p[0].dialogue = []string{}
 				p[0].remapSpr = make(RemapPreset)
 			}

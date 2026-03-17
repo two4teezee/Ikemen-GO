@@ -1319,7 +1319,7 @@ end
 for i = #main.t_selGrid, motif.select_info.rows * motif.select_info.columns - 1 do
 	table.insert(main.t_selChars, {})
 	table.insert(main.t_selGrid, {['chars'] = {}, ['slot'] = 1})
-	addChar('dummyChar')
+	addChar('dummyslot') --Must match Select.AddChar() in system.go
 end
 for i = 1, #t_addExluded do
 	main.f_addChar(t_addExluded[i], true, true)

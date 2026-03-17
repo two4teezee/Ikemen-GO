@@ -4250,11 +4250,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 	defPathFromSelect := strings.TrimSpace(parts[0])
 	defPathFromSelect = filepath.ToSlash(defPathFromSelect)
 
-	tstr := fmt.Sprintf("Char: %v", defPathFromSelect)
-	defer func() {
-		sys.loadTime(tnow, tstr, false, false)
-	}()
-
+	// Early exits for known keywords
 	if strings.ToLower(defPathFromSelect) == "randomselect" {
 		sc.def, sc.name = "randomselect", "Random"
 		return nil
@@ -4263,6 +4259,19 @@ func (s *Select) AddChar(def string) *SelectChar {
 		sc.name = "dummyslot"
 		return nil
 	}
+
+	// Helper to set missing characters to dummy slots and (always) print a warning
+	useDummy := func(reason string) *SelectChar {
+		sc.name = "dummyslot"
+		fmt.Println(fmt.Sprintf("Char failed to load: %v (%s)", defPathFromSelect, reason))
+		return nil
+	}
+
+	// Print a message for every loaded character. Just muted at the moment
+	defer func() {
+		tstr := fmt.Sprintf("Char: %v", defPathFromSelect)
+		sys.loadTime(tnow, tstr, false, false)
+	}()
 
 	var finalDefPath string
 	isZipChar := strings.HasSuffix(strings.ToLower(defPathFromSelect), ".zip")
@@ -4286,9 +4295,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 		}
 
 		if actualZipPathOnDisk == "" {
-			sc.name = "dummyslot"
-			tstr = fmt.Sprintf("Char: %v (ZIP NOT FOUND)", defPathFromSelect)
-			return nil
+			return useDummy("ZIP NOT FOUND")
 		}
 
 		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
@@ -4302,9 +4309,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 			if FileExist(candidateLogicalPath2) != "" {
 				finalDefPath = candidateLogicalPath2
 			} else {
-				sc.name = "dummyslot"
-				tstr = fmt.Sprintf("Char: %v (DEF IN ZIP MISSING: %s or %s)", defPathFromSelect, defInZip1, defInZip2)
-				return nil
+				return useDummy(fmt.Sprintf("DEF IN ZIP MISSING: %s or %s", defInZip1, defInZip2))
 			}
 		}
 	} else {
@@ -4320,24 +4325,24 @@ func (s *Select) AddChar(def string) *SelectChar {
 
 		foundDiskPath := SearchFile(charDefPathGuess, []string{"chars/", "data/", ""})
 		if foundDiskPath == "" || !strings.HasSuffix(strings.ToLower(foundDiskPath), ".def") {
-			sc.name = "dummyslot"
-			tstr = fmt.Sprintf("Char: %v (DEF NOT FOUND)", defPathFromSelect)
-			return nil
+			return useDummy("DEF NOT FOUND")
 		}
 		finalDefPath = foundDiskPath
 	}
 
 	sc.def = finalDefPath
 	if sc.def == "" {
-		sc.name = "dummyslot"
-		return nil
+		return useDummy("EMPTY DEF PATH")
 	}
 
 	charDefContent, err := LoadText(sc.def)
 	if err != nil {
-		sc.name = "dummyslot"
-		tstr = fmt.Sprintf("Char: %v (DEF READ ERROR: %s)", defPathFromSelect, err.Error())
-		return nil
+		// Intercept simple "file not found" errors so the message isn't too long
+		if os.IsNotExist(err) {
+			return useDummy("DEF NOT FOUND")
+		}
+		// Print full message if it's an actual read error
+		return useDummy("DEF READ ERROR: " + err.Error())
 	}
 
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -4601,6 +4606,8 @@ func (s *Select) AddChar(def string) *SelectChar {
 func (s *Select) AddStage(def string) (*SelectStage, error) {
 	var tstr string
 	tnow := time.Now()
+
+	// Print a message for every loaded stage. Just muted at the moment
 	defer func() {
 		sys.loadTime(tnow, tstr, false, false)
 	}()

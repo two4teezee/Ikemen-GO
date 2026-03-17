@@ -3153,7 +3153,10 @@ function main.f_randomtest()
 		for side = 1, 2 do
 			setTeamMode(side, teamMode, numChars)
 			for i = 1, numChars do
-				setCom((side - 1) * numChars + i, 8)
+				local pn = (i - 1) * 2 + side
+				if pn <= 12 then
+					setCom(pn, 8)
+				end
 				local ch = main.t_randomChars[math.random(1, #main.t_randomChars)]
 				local pal = main.f_getUniquePalette(ch, palState)
 				selectChar(side, ch, pal)

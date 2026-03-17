@@ -1624,11 +1624,11 @@ func (s *System) outroState() int32 {
 }
 
 func (s *System) roundOver() bool {
-	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.over_time)
+	return s.intro < -(s.lifebar.ro.over_waittime + s.lifebar.ro.overTime())
 }
 
 func (s *System) roundStateTicks() int32 {
-	return s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.over_time
+	return s.intro + s.lifebar.ro.over_waittime + s.lifebar.ro.overTime()
 }
 
 // Check if the match consists of a single round
@@ -2806,6 +2806,53 @@ func (s *System) timeTotal() int32 {
 	return t
 }
 
+func (s *System) matchEndDialoguePending() bool {
+	if s.postMatchFlg || s.dialogueForce != 0 || s.motif.di.matchEndDone {
+		return false
+	}
+	if !s.motif.di.enabled || !s.motif.isDialogueSet() {
+		return false
+	}
+	if s.matchOver() {
+		return true
+	}
+	if s.finishType == FT_NotYet {
+		return false
+	}
+	if s.winTeam >= 0 {
+		return s.decisiveRound[s.winTeam]
+	}
+	// Draw-based match end is determined before draws is incremented for this round.
+	return s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
+		s.draws >= s.lifebar.ro.match_maxdrawgames[1]
+}
+
+func (s *System) shouldStartMatchEndDialogue() bool {
+	if !s.matchEndDialoguePending() || !s.matchOver() || s.postMatchFlg {
+		return false
+	}
+	if s.motif.di.active || s.motif.di.initialized {
+		return false
+	}
+	return s.intro+s.lifebar.ro.over_waittime+s.lifebar.ro.over_time <= 0
+}
+
+func (s *System) holdPostMatchForDialogue() bool {
+	if s.dialogueForce != 0 || s.postMatchFlg {
+		return false
+	}
+	if s.motif.di.active && s.motif.di.atMatchEnd {
+		return true
+	}
+	if s.shouldStartMatchEndDialogue() {
+		return true
+	}
+	if s.motif.di.matchEndDone && s.lifebar.ro.fadeOut.isActive() {
+		return true
+	}
+	return false
+}
+
 // Step sys.intro timer and execute related tasks
 func (s *System) stepRoundState() {
 	// Freeze round state if round animations cannot advance
@@ -2869,7 +2916,8 @@ func (s *System) stepRoundState() {
 	// Post round
 	if s.roundEnded() || s.roundEndDecision() {
 		rs4t := -s.lifebar.ro.over_waittime
-		fadeoutStart := rs4t - 2 - s.lifebar.ro.over_time + s.lifebar.ro.fadeOut.time
+		fadeoutStart := rs4t - 2 - s.lifebar.ro.overTime() + s.lifebar.ro.fadeOut.time
+		matchEndDialoguePending := s.matchEndDialoguePending()
 
 		s.intro--
 
@@ -2892,12 +2940,23 @@ func (s *System) stepRoundState() {
 		}
 
 		// Check if player skipped win pose time
-		if !s.winskipped && s.winposetime < 0 && s.anyButton() && !s.gsf(GSF_roundnotskip) {
+		if !s.winskipped && s.winposetime < 0 && s.anyButton() &&
+			!s.gsf(GSF_roundnotskip) && !matchEndDialoguePending {
 			s.intro = Min(s.intro, fadeoutStart)
 			s.winskipped = true
 		}
+		// Match-end dialogue takes priority over the round transition until it finishes.
+		if matchEndDialoguePending && !s.motif.di.active && !s.motif.di.matchEndDone {
+			if s.lifebar.ro.fadeOut.isActive() {
+				s.lifebar.ro.fadeOut.reset()
+			}
+		}
+
+		// Start the normal round fade only when no match-end dialogue is pending.
 		// If the user skipped winposes, don't let RoundNotOver swallow the single fadeoutStart tick.
-		if s.intro == fadeoutStart && (!s.gsf(GSF_roundnotover) || s.winskipped) &&
+		if !matchEndDialoguePending &&
+			s.intro == fadeoutStart &&
+			(!s.gsf(GSF_roundnotover) || s.winskipped) &&
 			!s.motif.di.active && !s.lifebar.ro.fadeOut.isActive() {
 			s.lifebar.ro.fadeOut.init(s.lifebar.ro.fadeOut, false)
 		}
@@ -2998,7 +3057,7 @@ func (s *System) stepRoundState() {
 			s.winwaittime--
 		}
 		// If the game can't proceed to the fadeout screen, we turn back the counter 1 tick
-		if !s.winskipped && s.gsf(GSF_roundnotover) && s.intro == fadeoutStart {
+		if !matchEndDialoguePending && !s.winskipped && s.gsf(GSF_roundnotover) && s.intro == fadeoutStart {
 			s.intro++
 		}
 	} else if s.intro < 0 {
@@ -3776,6 +3835,9 @@ func (s *System) SetupCharRoundStart() {
 
 func (s *System) runNextRound() bool {
 	if s.roundOver() && !s.fightLoopEnd {
+		if s.holdPostMatchForDialogue() {
+			return true
+		}
 		s.clearAllSound()
 		s.statsLog.nextRound()
 		s.scoreRounds = append(s.scoreRounds, [2]float32{s.lifebar.sc[0].scorePoints, s.lifebar.sc[1].scorePoints})

@@ -3068,7 +3068,6 @@ func readLifeBarRound(is IniSection,
 	ro.winType[WT_Clutch+WT_NumTypes] = readLbBgTextSnd("p2.clutch.", is, sff, at, 0, f)
 	ro.fadeIn = readLbFade("fadein.", is, sff, at)
 	ro.fadeOut = readLbFade("fadeout.", is, sff, at)
-	ro.over_time = Max(ro.fadeOut.time, ro.over_time)
 	is.ReadI32("shutter.time", &ro.shutter_time)
 	is.ReadI32("clutch.threshold", &ro.clutch_threshold)
 	var col [3]int32
@@ -3077,6 +3076,10 @@ func readLifeBarRound(is IniSection,
 	}
 	is.ReadI32("callfight.time", &ro.callfight_time)
 	return ro
+}
+
+func (ro *LifeBarRound) overTime() int32 {
+	return Max(ro.over_time, ro.fadeOut.time)
 }
 
 // Check is sys.intro timer should step
@@ -3755,9 +3758,9 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 	// Screen fading
 	if layerno == 2 {
-		if ro.fadeOut.isActive() {
+		if ro.fadeOut.shouldDraw() {
 			ro.fadeOut.draw()
-		} else if ro.fadeIn.isActive() {
+		} else if ro.fadeIn.shouldDraw() {
 			ro.fadeIn.draw()
 		} else if sys.clsnDisplay && sys.cfg.Debug.ClsnDarken {
 			ro.fadeIn.drawRect(sys.scrrect, 0, 0)

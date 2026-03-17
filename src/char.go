@@ -6565,33 +6565,6 @@ func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32, facing
 		h.helperId = 0
 	}
 
-	// Enforce minimum width constants
-	// Mugen does not actually do this. Instead, it secretly uses these limits when calculating player overlap for pushing
-	// But doing it this way is more transparent and causes less pollution in our code
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-		minwidth := 5.0 / h.localscl // TODO: Check if localscl is necessary
-		var changedAny bool
-		if h.size.standbox[0] > -minwidth {
-			h.size.standbox[0] = -minwidth
-			changedAny = true
-		}
-		if h.size.standbox[2] < minwidth {
-			h.size.standbox[2] = minwidth
-			changedAny = true
-		}
-		if h.size.airbox[0] > -minwidth {
-			h.size.airbox[0] = -minwidth
-			changedAny = true
-		}
-		if h.size.airbox[2] < minwidth {
-			h.size.airbox[2] = minwidth
-			changedAny = true
-		}
-		if changedAny {
-			sys.appendToConsole(h.warn() + fmt.Sprintf("clamped invalid width constants to %v", minwidth))
-		}
-	}
-
 	// Prepare newly created helper so it can be successfully run later via actionRun() in charList.action()
 	h.actionPrepare()
 }
@@ -13146,10 +13119,29 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
-		// X-axis check
-		// It looks like Mugen uses an undocumented minimum overlap of 10 or such
-		// There's no particularly good reason for us to do the same
+		// Clamp width
+		// Mugen secretly does this for some reason
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/3164
+		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			minwidth := 5.0 / c.localscl
+			if cbox[0] > -minwidth {
+				cbox[0] = -minwidth
+			}
+			if cbox[2] < minwidth {
+				cbox[2] = minwidth
+			}
+		}
+		if getter.stWgi().ikemenver[0] == 0 && getter.stWgi().ikemenver[1] == 0 {
+			minwidth := 5.0 / getter.localscl
+			if gbox[0] > -minwidth {
+				gbox[0] = -minwidth
+			}
+			if gbox[2] < minwidth {
+				gbox[2] = minwidth
+			}
+		}
+
+		// X-axis check
 		cposx := c.pos[0] * c.localscl
 		cxleft := cbox[0] * c.localscl
 		cxright := cbox[2] * c.localscl

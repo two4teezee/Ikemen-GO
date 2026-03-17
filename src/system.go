@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"log"
+	//"log"
 	"math"
 	"os"
 	"path"
@@ -62,7 +62,6 @@ var sys = System{
 	cam:                 *newCamera(),
 	mainThreadTask:      make(chan func(), 65536),
 	workpal:             make([]uint32, 256),
-	errLog:              log.New(NewLogWriter(), "", log.LstdFlags),
 	keyInput:            KeyUnknown,
 	saveState:           NewGameState(),
 	statePool:           NewGameStatePool(),
@@ -238,7 +237,6 @@ type System struct {
 	lifebarHide             bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
-	errLog                  *log.Logger
 	nomusic                 bool
 	workBe                  []BytecodeExp
 	keyInput                Key
@@ -376,8 +374,7 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	if strings.HasPrefix(renderName, "OpenGL") {
 		if ctx, err := s.window.GLCreateContext(); err != nil {
-			Logcat("GL Context Creation Failed: " + err.Error())
-			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
+			panic(fmt.Sprintf("Could not initialize context :( Reason? %s", err))
 		} else {
 			s.window.GLMakeCurrent(ctx)
 		}
@@ -498,7 +495,7 @@ func (s *System) init(w, h int32) *lua.LState {
 			stdin := bufio.NewScanner(os.Stdin)
 			for stdin.Scan() {
 				if err := stdin.Err(); err != nil {
-					s.errLog.Println(err.Error())
+					LogMessage(err.Error())
 					return
 				}
 				s.commandLine <- stdin.Text()
@@ -692,7 +689,7 @@ func (s *System) keepAlive() {
 			if ok {
 				loc = fmt.Sprintf("%s:%d", filepath.Base(file), line)
 			}
-			s.errLog.Printf("[keepAlive] #%d Δ=%.3fms total=%.3fs at %s",
+			LogMessage("[keepAlive] #%d Δ=%.3fms total=%.3fs at %s",
 				s.keepAliveCount,
 				float64(delta)/float64(time.Millisecond),
 				float64(total)/float64(time.Second),
@@ -1318,8 +1315,8 @@ func (s *System) uiEnsureCommandLists(total int) error {
 	for _, k := range def {
 		spec := defSpec
 		spec.Cmd = k
-		if err := s.uiRegisterCommand(k, spec); err != nil && s.errLog != nil {
-			s.errLog.Printf("uiSeedDefaultCommands: %q: %v", k, err)
+		if err := s.uiRegisterCommand(k, spec); err != nil {
+			LogMessage("uiSeedDefaultCommands: %q: %v", k, err)
 		}
 	}
 	// Trim if needed.
@@ -1737,7 +1734,7 @@ func (s *System) printBytecodeError(str string) {
 		s.appendToConsole(sys.workingChar.warn() + str)
 	} else if !sys.ignoreMostErrors {
 		// Print outside matches (compiling)
-		sys.errLog.Println(str)
+		LogMessage(str)
 	}
 }
 
@@ -3534,7 +3531,7 @@ func (s *System) runMatch() (reload bool) {
 
 	// Synchronize with external inputs (netplay, replays, etc)
 	if err := s.synchronize(); err != nil {
-		s.errLog.Println(err.Error())
+		LogMessage(err.Error())
 		s.esc = true
 	}
 	if s.netConnection != nil {
@@ -4263,7 +4260,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 	// Helper to set missing characters to dummy slots and (always) print a warning
 	useDummy := func(reason string) *SelectChar {
 		sc.name = "dummyslot"
-		fmt.Println(fmt.Sprintf("Char failed to load: %v (%s)", defPathFromSelect, reason))
+		LogMessage("Failed to add char: %v (%s)", defPathFromSelect, reason)
 		return nil
 	}
 
@@ -4295,7 +4292,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 		}
 
 		if actualZipPathOnDisk == "" {
-			return useDummy("ZIP NOT FOUND")
+			return useDummy("ZIP not found")
 		}
 
 		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
@@ -4309,7 +4306,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 			if FileExist(candidateLogicalPath2) != "" {
 				finalDefPath = candidateLogicalPath2
 			} else {
-				return useDummy(fmt.Sprintf("DEF IN ZIP MISSING: %s or %s", defInZip1, defInZip2))
+				return useDummy(fmt.Sprintf("DEF in ZIP missing: %s or %s", defInZip1, defInZip2))
 			}
 		}
 	} else {
@@ -4325,24 +4322,24 @@ func (s *Select) AddChar(def string) *SelectChar {
 
 		foundDiskPath := SearchFile(charDefPathGuess, []string{"chars/", "data/", ""})
 		if foundDiskPath == "" || !strings.HasSuffix(strings.ToLower(foundDiskPath), ".def") {
-			return useDummy("DEF NOT FOUND")
+			return useDummy("DEF not found")
 		}
 		finalDefPath = foundDiskPath
 	}
 
 	sc.def = finalDefPath
 	if sc.def == "" {
-		return useDummy("EMPTY DEF PATH")
+		return useDummy("Empty DEF path")
 	}
 
 	charDefContent, err := LoadText(sc.def)
 	if err != nil {
 		// Intercept simple "file not found" errors so the message isn't too long
 		if os.IsNotExist(err) {
-			return useDummy("DEF NOT FOUND")
+			return useDummy("DEF not found")
 		}
 		// Print full message if it's an actual read error
-		return useDummy("DEF READ ERROR: " + err.Error())
+		return useDummy("DEF read error: " + err.Error())
 	}
 
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -4637,8 +4634,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		}
 
 		if actualZipPathOnDisk == "" {
-			err := fmt.Errorf("stage zip not found: %s", defPathFromSelect)
-			sys.errLog.Printf("Failed to add stage, file not found: %v\n", defPathFromSelect)
+			err := fmt.Errorf("stage ZIP not found: %s", defPathFromSelect)
+			LogMessage("Failed to add stage. File not found: %v", defPathFromSelect)
 			return nil, err
 		}
 
@@ -4652,8 +4649,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 			if FileExist(candidateLogicalPath2) != "" {
 				finalDefPath = candidateLogicalPath2
 			} else {
-				err := fmt.Errorf("def file not found in zip: %s or %s", defInZip1, defInZip2)
-				sys.errLog.Printf("Failed to add stage, def file not found in %v: %v or %v\n", defPathFromSelect, defInZip1, defInZip2)
+				err := fmt.Errorf("DEF file not found in ZIP: %s or %s", defInZip1, defInZip2)
+				LogMessage("Failed to add stage. DEF file not found in %v: %v or %v", defPathFromSelect, defInZip1, defInZip2)
 				return nil, err
 			}
 		}
@@ -4665,7 +4662,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 			finalDefPath = file
 			return nil
 		}); err != nil {
-			sys.errLog.Printf("Failed to add stage, file not found: %v\n", def)
+			LogMessage("Failed to add stage. File not found: %v", def)
 			return nil, err
 		}
 	}
@@ -4681,7 +4678,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		lines = SplitAndTrim(str, "\n")
 		return nil
 	}); err != nil {
-		sys.errLog.Printf("Failed to add stage, file not found: %s: %v\n", finalDefPath, err)
+		LogMessage("Failed to add stage. File read error: %s: %v", finalDefPath, err)
 		return nil, err
 	}
 
@@ -5273,7 +5270,7 @@ func (l *Loader) load() {
 					removeSFFCache(ffx.sff.filename)
 				}
 				delete(sys.ffx, prefix)
-				//sys.errLog.Printf("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
+				//LogMessage("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
 			}
 		}
 		sys.loadMutex.Unlock()

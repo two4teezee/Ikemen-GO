@@ -3220,8 +3220,8 @@ func (c *Char) panic(msg string) {
 	if sys.workingState != st {
 		st = sys.workingState
 	}
-	sys.errLog.Panicf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
-		msg, c.name, sys.cgi[st.playerNo].def, st)
+	panic(fmt.Sprintf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
+		msg, c.name, sys.cgi[st.playerNo].def, st))
 }
 
 func (c *Char) init(n int, idx int) {
@@ -3473,7 +3473,7 @@ func (c *Char) load(def string) error {
 	}
 
 	if err := c.loadFx(def); err != nil {
-		sys.errLog.Printf("Error loading FX for %s: %v", def, err)
+		LogMessage("Error loading FX for %s: %v", def, err)
 	}
 
 	str, err := LoadText(def)
@@ -4008,7 +4008,7 @@ func (c *Char) load(def string) error {
 					h = spec.height
 				}
 				if fnt, err := loadFnt(filename, h); err != nil {
-					sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+					LogMessage("Failed to load %v (char font): %v", filename, err)
 					gi.fnt[i] = newFnt()
 				} else {
 					gi.fnt[i] = fnt
@@ -4262,12 +4262,12 @@ func (c *Char) loadFx(def string) error {
 
 						if found_path != "" {
 							if err := loadFightFx(found_path, false, false); err != nil {
-								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path, def, err)
+								LogMessage("Could not load CommonFX %s for char %s: %v", found_path, def, err)
 							} else {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
+							LogMessage("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
 						}
 					}
 				}
@@ -4511,7 +4511,7 @@ func (c *Char) parent(log bool) *Char {
 		if log {
 			sys.appendToConsole(c.warn() + "parent has already been destroyed")
 			if !sys.ignoreMostErrors {
-				sys.errLog.Println(c.name + " parent has already been destroyed")
+				LogMessage(c.name + " parent has already been destroyed")
 			}
 		}
 		return nil
@@ -6068,7 +6068,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 			} else {
 				str += fmt.Sprintf("P%v:", c.playerNo+1)
 			}
-			sys.errLog.Printf("%v%v,%v\n", str, g, n)
+			LogMessage("%v%v,%v", str, g, n)
 		}
 		return
 	}
@@ -6192,7 +6192,7 @@ func (c *Char) shouldFaceP2() bool {
 func (c *Char) stateChange1(no int32, pn int) bool {
 	if sys.changeStateNest >= MaxLoop {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("state machine stuck in loop (stopped after %v loops): %v -> %v -> %v", sys.changeStateNest, c.ss.prevno, c.ss.no, no))
-		sys.errLog.Printf("Maximum ChangeState loops: %v, %v, %v -> %v -> %v\n", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
+		LogMessage("Maximum ChangeState loops: %v, %v, %v -> %v -> %v", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
 		return false
 	}
 	var ctrlsps_backup []int32
@@ -6256,21 +6256,21 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 	if no < 0 {
 		sys.appendToConsole(c.warn() + "attempted to change to negative state")
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Attempted to change to negative state: P%v:%v\n", pn+1, no)
+			LogMessage("Attempted to change to negative state: P%v:%v", pn+1, no)
 		}
 	}
 	// Check if player is trying to change to a state number that exceeds the limit
 	if no >= math.MaxInt32 {
 		sys.appendToConsole(c.warn() + "changed to out of bounds state number")
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Changed to out of bounds state number: P%v:%v\n", pn+1, no)
+			LogMessage("Changed to out of bounds state number: P%v:%v", pn+1, no)
 		}
 	}
 	// Always attempt to change to the state we set to.
 	if c.ss.sb, ok = sys.cgi[pn].states[c.ss.no]; !ok {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid state %v (from state %v)", no, c.ss.prevno))
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Invalid state: P%v:%v\n", pn+1, no)
+			LogMessage("Invalid state: P%v:%v", pn+1, no)
 		}
 		c.ss.sb = *newStateBytecode(pn)
 		c.ss.sb.stateType, c.ss.sb.moveType, c.ss.sb.physics = ST_U, MT_U, ST_U
@@ -6987,7 +6987,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			} else {
 				str += fmt.Sprintf("P%v:", c.playerNo+1)
 			}
-			sys.errLog.Printf("%v%v\n", str, n)
+			LogMessage("%v%v", str, n)
 		}
 	}
 

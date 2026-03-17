@@ -2503,7 +2503,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 		// Handle resources within a ZIP file
 		zipReader, errOpen := zip.OpenReader(zipPath)
 		if errOpen != nil {
-			return nil, fmt.Errorf("failed to open zip archive '%s': %w", zipPath, errOpen)
+			return nil, fmt.Errorf("Failed to open ZIP archive '%s': %w", zipPath, errOpen)
 		}
 		defer zipReader.Close()
 
@@ -2512,7 +2512,7 @@ func loadglTFModel(filepath string) (*Model, error) {
 		// Open the GLB/glTF file from within the zip
 		glbFile, errOpen := fsys.Open(pathInZip)
 		if errOpen != nil {
-			return nil, fmt.Errorf("failed to open glb file '%s' in zip '%s': %w", pathInZip, zipPath, errOpen)
+			return nil, fmt.Errorf("Failed to open GLB file '%s' in ZIP '%s': %w", pathInZip, zipPath, errOpen)
 		}
 		defer glbFile.Close()
 

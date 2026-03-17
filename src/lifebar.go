@@ -227,7 +227,7 @@ func readLbText(pre string, is IniSection, str string, ln int16, f map[int]*Fnt,
 	is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
 		&txt.font[3], &txt.font[4], &txt.font[5], &txt.font[6], &txt.font[7])
 	if txt.font[0] >= 0 && getFont(f, txt.font[0]) == nil {
-		sys.errLog.Printf("Undefined font %v referenced by lifebar parameter: %v\n", txt.font[0], pre+"font")
+		LogMessage("Undefined font %v referenced by lifebar parameter: %v", txt.font[0], pre+"font")
 		txt.font[0] = -1
 	}
 	if _, ok := is[pre+"text"]; ok {
@@ -4553,7 +4553,7 @@ func loadLifebar(def string) (*Lifebar, error) {
 								h = spec.height
 							}
 							if fnt, err := loadFnt(filename, h); err != nil {
-								sys.errLog.Printf("failed to load %v (lifebar font%v): %v", filename, i, err)
+								LogMessage("Failed to load %v (lifebar font%v): %v", filename, i, err)
 								l.fnt[i] = newFnt()
 							} else {
 								l.fnt[i] = fnt

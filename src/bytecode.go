@@ -2898,7 +2898,7 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		constName := be.ReadPoolStringAt(i)
 		sys.bcStack.PushF(sys.stage.constants[constName])
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -3501,7 +3501,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushB(ok)
 		}
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -4179,7 +4179,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -4255,7 +4255,7 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 			sys.bcStack.Push(BytecodeUndefined())
 		}
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -14668,9 +14668,9 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 	sys.workingState = sb
 	changeState = sb.block.Run(c, sb.ctrlsps)
 	if len(sys.bcStack) != 0 {
-		sys.errLog.Println(sys.cgi[sb.playerNo].def)
+		LogMessage(sys.cgi[sb.playerNo].def)
 		for _, v := range sys.bcStack {
-			sys.errLog.Printf("%+v\n", v)
+			LogMessage("%+v", v)
 		}
 		c.panic("Bytecode stack not empty after execution")
 	}

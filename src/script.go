@@ -2701,7 +2701,7 @@ func systemScriptInit(l *lua.LState) {
 		filename := SearchFile(strArg(l, 1), []string{"font/", sys.motif.Def, "", "data/"})
 		fnt, err := loadFnt(filename, height)
 		if err != nil {
-			sys.errLog.Printf("failed to load %v (screenpack font): %v", filename, err)
+			LogMessage("Failed to load %v (screenpack font): %v", filename, err)
 			fnt = newFnt()
 		}
 		l.Push(newUserData(l, fnt))

@@ -7,7 +7,6 @@ import (
 	"embed" // Support for go:embed resources
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"runtime"
@@ -1141,7 +1140,7 @@ func (r *Renderer_VK) NewVulkanDevice(appInfo *vk.ApplicationInfo, window uintpt
 			instanceCreateInfo.EnabledLayerCount = uint32(len(vk_validationLayers))
 			instanceCreateInfo.PpEnabledLayerNames = vk_validationLayers
 		} else {
-			log.Println("Vulkan validation layers requested but not available")
+			LogMessage("Vulkan validation layers requested but not available")
 		}
 	}
 	var instance vk.Instance
@@ -1350,15 +1349,15 @@ func (r *Renderer_VK) PrintInfo() {
 	vk.GetPhysicalDeviceProperties(r.gpuDevices[r.gpuIndex], &gpuProperties)
 	gpuProperties.Deref()
 
-	log.Println("VULKAN PROPERTIES AND SURFACE CAPABILITES")
-	log.Println(vk.ToString(gpuProperties.DeviceName[:]))
-	log.Println(fmt.Sprintf("%x", gpuProperties.VendorID))
-	log.Println(r.physicalDeviceType(gpuProperties.DeviceType))
-	log.Println(len(r.gpuDevices))
-	log.Println(vk.Version(gpuProperties.ApiVersion))
-	log.Println(vk.Version(gpuProperties.DriverVersion))
+	LogMessage("VULKAN PROPERTIES AND SURFACE CAPABILITES")
+	LogMessage("%v", vk.ToString(gpuProperties.DeviceName[:]))
+	LogMessage("%v", fmt.Sprintf("%x", gpuProperties.VendorID))
+	LogMessage("%v", r.physicalDeviceType(gpuProperties.DeviceType))
+	LogMessage("%v", len(r.gpuDevices))
+	LogMessage("%v", vk.Version(gpuProperties.ApiVersion))
+	LogMessage("%v", vk.Version(gpuProperties.DriverVersion))
 
-	log.Println("VULKAN SUPPORTED DEVICE EXTENSIONS")
+	LogMessage("VULKAN SUPPORTED DEVICE EXTENSIONS")
 	var extensionCount uint32
 	var extensionProperties []vk.ExtensionProperties
 	vk.EnumerateDeviceExtensionProperties(r.gpuDevices[r.gpuIndex], "", &extensionCount, nil)
@@ -1366,7 +1365,7 @@ func (r *Renderer_VK) PrintInfo() {
 	vk.EnumerateDeviceExtensionProperties(r.gpuDevices[r.gpuIndex], "", &extensionCount, extensionProperties)
 	for i := range extensionProperties {
 		extensionProperties[i].Deref()
-		log.Println(vk.ToString(extensionProperties[i].ExtensionName[:]))
+		LogMessage("%v", vk.ToString(extensionProperties[i].ExtensionName[:]))
 	}
 }
 
@@ -4505,12 +4504,12 @@ func (r *Renderer_VK) Destroy() {
 		err = vk.Error(vk.GetPipelineCacheData(r.device, r.pipelineCache, &pipelineCacheSize, unsafe.Pointer(&pipelineCacheData[0])))
 		if err != nil {
 			err = fmt.Errorf("vk.GetPipelineCacheData failed with %s", err)
-			log.Println(err)
+			LogMessage("%v", err)
 		} else {
 			_ = os.MkdirAll("./cache/Vulkan", os.ModePerm)
 			err = os.WriteFile("./cache/Vulkan/pipeline_cache.bin", pipelineCacheData, 0644)
 			if err != nil {
-				log.Println("Failed to write pipeline cache to disk:", err)
+				LogMessage("Failed to write pipeline cache to disk:", err)
 			}
 		}
 	}
@@ -4662,17 +4661,17 @@ func (r *Renderer_VK) CreatePipelineCache() error {
 			pipelineCacheInfo.InitialDataSize = uint64(len(cacheData))
 			pipelineCacheInfo.PInitialData = unsafe.Pointer(&cacheData[0])
 		} else {
-			log.Println("Cannot read Vulkan pipeline cache file, a new one will be created")
+			LogMessage("Cannot read Vulkan pipeline cache file, a new one will be created")
 		}
 	} else {
-		log.Println("Cannot open Vulkan pipeline cache file, a new one will be created")
+		LogMessage("Cannot open Vulkan pipeline cache file, a new one will be created")
 	}
 	var cache vk.PipelineCache
 	err = vk.Error(vk.CreatePipelineCache(r.device, &pipelineCacheInfo, nil, &cache))
 	if err != nil {
-		log.Println("vk.CreatePipelineCache failed with %s", err)
+		LogMessage("vk.CreatePipelineCache failed with %s", err)
 		if pipelineCacheInfo.InitialDataSize > 0 {
-			log.Println("Creating an empty pipeline cache instead")
+			LogMessage("Creating an empty pipeline cache instead")
 			pipelineCacheInfo2 := vk.PipelineCacheCreateInfo{
 				SType: vk.StructureTypePipelineCacheCreateInfo,
 			}
@@ -4911,14 +4910,14 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 		vk.MaxUint64, r.semaphores[0], vk.NullFence, &r.swapchains[0].currentImageIndex)
 	if res != vk.Success {
 		if res == vk.ErrorOutOfDate || res == vk.Suboptimal {
-			log.Println("[INFO] recreate swapchain")
+			LogMessage("[INFO] recreate swapchain")
 			r.RecreateSwapchain()
 			res = vk.AcquireNextImage(r.device, r.swapchains[0].swapchain,
 				vk.MaxUint64, r.semaphores[0], vk.NullFence, &r.swapchains[0].currentImageIndex)
 			if res != vk.Success {
 				// Try continue execution if error is suboptimal
 				if res == vk.Suboptimal {
-					log.Println("[WARNING] vk.AcquireNextImage returned suboptimal after swapchain recreation")
+					LogMessage("[WARNING] vk.AcquireNextImage returned suboptimal after swapchain recreation")
 				} else {
 					err := fmt.Errorf("vk.AcquireNextImage failed with %s", vk.Error(res))
 					panic(err)
@@ -5264,7 +5263,7 @@ func (r *Renderer_VK) EndFrame() {
 	res := vk.QueuePresent(r.queue, &presentInfo)
 	if res != vk.Success {
 		if res == vk.ErrorOutOfDate || res == vk.Suboptimal {
-			log.Println("[INFO] recreate swapchain")
+			LogMessage("[INFO] recreate swapchain")
 			r.RecreateSwapchain()
 		} else {
 			err := fmt.Errorf("vk.QueuePresent failed with %s", vk.Error(res))
@@ -6020,7 +6019,7 @@ func (r *Renderer_VK) SetVertexData(values ...float32) {
 	}
 	if bufferIndex >= len(r.vertexBuffers) {
 		//allocate a new buffer
-		log.Println("[INFO] allocate new vertex buffer")
+		LogMessage("[INFO] allocate new vertex buffer")
 		var vertexBuffer VulkanBuffer
 		var vertexBufferMemory vk.DeviceMemory
 		var err error
@@ -6053,7 +6052,7 @@ func (r *Renderer_VK) SetVertexData2(cmd vk.CommandBuffer, values ...float32) {
 	}
 	if bufferIndex >= len(r.vertexBuffers) {
 		//allocate a new buffer
-		log.Println("[INFO] allocate new vertex buffer")
+		LogMessage("[INFO] allocate new vertex buffer")
 		var vertexBuffer VulkanBuffer
 		var vertexBufferMemory vk.DeviceMemory
 		var err error
@@ -7420,7 +7419,7 @@ func (r *Renderer_VK) CopyToStagingBuffer(size uint32, src []byte) vk.DeviceSize
 	}
 	n := vk.Memcopy(unsafe.Add(r.stagingBuffers[r.stagingBufferIndex].data, r.stagingBufferOffset), src)
 	if n != int(size) {
-		log.Println("[WARN] failed to copy image data")
+		LogMessage("[WARN] failed to copy image data")
 	}
 	ret := vk.DeviceSize(r.stagingBufferOffset)
 	//if size%16 > 0 {

@@ -128,7 +128,7 @@ func (sw *SwapSeeker) Swap(next beep.StreamSeeker) {
 
 	if ln := next.Len(); ln <= 0 { // guard against 0
 		// empty buffer, don't try to swap this
-		sys.errLog.Println("Empty BGM RAM swap buffer somehow. Aborting swap at the absolute last possible moment!")
+		LogMessage("Empty BGM RAM swap buffer somehow. Aborting swap at the absolute last possible moment!")
 		sw.mu.Unlock()
 		speaker.Unlock()
 		return
@@ -357,7 +357,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	f, err := OpenFile(bgm.filename)
 	if err != nil {
 		// sys.bgm = *newBgm() // removing this gets pause step playsnd to work correctly 100% of the time
-		sys.errLog.Printf("Failed to open bgm: %v", err)
+		LogMessage("Failed to open BGM: %v", err)
 		return
 	}
 	var format beep.Format
@@ -388,7 +388,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	}
 	if err != nil {
 		f.Close()
-		sys.errLog.Printf("Failed to load bgm: %v\n%v", bgm.filename, err)
+		LogMessage("Failed to load bgm: %v\n%v", bgm.filename, err)
 		return
 	}
 	lc := 0
@@ -443,7 +443,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 			isCancelled := func() bool {
 				select {
 				case <-ctx.Done():
-					sys.errLog.Println("New BGM queued up - skipping RAM swap for this BGM")
+					LogMessage("New BGM queued up - skipping RAM swap for this BGM")
 					return true
 				default:
 					// Continue
@@ -458,7 +458,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 
 			lf, err := OpenFile(bgm.filename)
 			if err != nil {
-				sys.errLog.Println(err)
+				LogMessage(err.Error())
 				return
 			}
 
@@ -482,13 +482,13 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 			case "midi":
 				sf, e := loadSoundFont(sys.cfg.Sound.SoundFont)
 				if e != nil {
-					sys.errLog.Println(e)
+					LogMessage(e.Error())
 					return
 				}
 				dec, _, err = midi.Decode(lf, sf, bgm.sampleRate)
 			}
 			if err != nil {
-				sys.errLog.Println(err)
+				LogMessage(err.Error())
 				return
 			}
 
@@ -556,7 +556,7 @@ func (bgm *Bgm) UpdateVolume() {
 	}
 	// TODO: Throw a debug warning if this triggers
 	if bgm.bgmVolume > sys.cfg.Sound.MaxBGMVolume {
-		sys.errLog.Printf("WARNING: BGM volume set beyond expected range (value: %v). Clamped to MaxBgmVolume", bgm.bgmVolume)
+		LogMessage("WARNING: BGM volume set beyond expected range (value: %v). Clamped to MaxBgmVolume", bgm.bgmVolume)
 		bgm.bgmVolume = sys.cfg.Sound.MaxBGMVolume
 	}
 
@@ -844,7 +844,7 @@ func LoadSndFiltered(filename string, keepItem func([2]int32) bool, max uint32) 
 			if !ok {
 				tmp, err := readSound(f, subFileLength)
 				if err != nil {
-					sys.errLog.Printf("%v sound %v,%v can't be read: %v\n", filename, num[0], num[1], err)
+					LogMessage("Sound %v,%v in %v can't be read: %v", num[0], num[1], filename, err)
 					if max > 0 {
 						return nil, err
 					}

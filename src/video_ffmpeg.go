@@ -166,7 +166,7 @@ func (bgv *bgVideo) Open(filename string, volume int, sm BgVideoScaleMode, sf Bg
 		if fg := buildFFFilterGraph(srcW, srcH, winW, winH, sm, sf); fg != "" {
 			if err := v.ApplyVideoFilterGraph(fg); err != nil {
 				// Don't fail playback if filter graph can't be applied; fall back to sws_scale path.
-				sys.errLog.Printf("video: ApplyVideoFilterGraph failed (%v) for graph '%s', using sws_scale fallback", err, fg)
+				LogMessage("Video: ApplyVideoFilterGraph failed (%v) for graph '%s', using sws_scale fallback", err, fg)
 			}
 		}
 	}

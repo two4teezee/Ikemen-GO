@@ -3044,9 +3044,9 @@ func (m *Motif) draw(layerno int16) {
 	}
 	// Screen fading
 	if layerno == 3 {
-		if m.fadeOut.isActive() {
+		if m.fadeOut.shouldDraw() {
 			m.fadeOut.draw()
-		} else if m.fadeIn.isActive() {
+		} else if m.fadeIn.shouldDraw() {
 			m.fadeIn.draw()
 		}
 	}
@@ -3115,12 +3115,13 @@ func (m *Motif) act() {
 
 		// Dialogue
 		// Normal start: right before "Fight" in round 1, or at match end.
-		normalStart := (sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time) ||
-			(sys.roundStateTicks() == sys.lifebar.ro.fadeOut.time && sys.matchOver())
+		introStart := sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time
+		matchEndStart := sys.shouldStartMatchEndDialogue()
+		normalStart := introStart || matchEndStart
 		// Forced start: ignore normal timing.
 		forcedStart := sys.dialogueForce != 0
 		if !m.di.initialized && (forcedStart || normalStart) && m.isDialogueSet() {
-			m.di.init(m)
+			m.di.init(m, matchEndStart && !forcedStart)
 		}
 	}
 }
@@ -3830,6 +3831,8 @@ type MotifDialogue struct {
 	wait              int
 	switchCounter     int
 	endCounter        int
+	atMatchEnd        bool
+	matchEndDone      bool
 }
 
 type FaceParams struct {
@@ -4094,6 +4097,8 @@ func (di *MotifDialogue) reset(m *Motif) {
 	di.activeSide = -1
 	di.talkingSide = 0
 	di.parsed = nil
+	di.atMatchEnd = false
+	di.matchEndDone = false
 
 	m.DialogueInfo.P1.Bg.AnimData.Reset()
 	m.DialogueInfo.P2.Bg.AnimData.Reset()
@@ -4227,13 +4232,19 @@ func (di *MotifDialogue) initDefaults(m *Motif) {
 	setSide(2, enemyPn)
 }
 
-func (di *MotifDialogue) init(m *Motif) {
+func (di *MotifDialogue) init(m *Motif, matchEnd bool) {
 	if !m.DialogueInfo.Enabled || !di.enabled {
 		di.initialized = true
 		return
 	}
 
 	di.reset(m)
+	di.atMatchEnd = matchEnd
+	// Match-end dialogue owns the transition into the post-match fade.
+	// If fade was already armed before we got here, cancel ongoing fadeout.
+	if matchEnd && sys.lifebar.ro.fadeOut.isActive() {
+		sys.lifebar.ro.fadeOut.reset()
+	}
 	if !sys.skipMotifScaling() {
 		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
 	}
@@ -4258,6 +4269,19 @@ func (di *MotifDialogue) init(m *Motif) {
 
 	di.active = true
 	di.initialized = true
+}
+
+func (di *MotifDialogue) finish(m *Motif) {
+	matchEnd := di.atMatchEnd
+	di.active = false
+	di.clear(m)
+	if matchEnd {
+		di.matchEndDone = true
+		di.atMatchEnd = false
+		if !sys.lifebar.ro.fadeOut.isActive() {
+			sys.lifebar.ro.fadeOut.init(sys.lifebar.ro.fadeOut, false)
+		}
+	}
 }
 
 // applyTokens checks and applies tokens at the current typed length in the text.
@@ -4604,15 +4628,13 @@ func (di *MotifDialogue) applyToken(m *Motif, line *DialogueParsedLine, token Di
 func (di *MotifDialogue) step(m *Motif) {
 	// If we have no lines, do nothing
 	if len(di.parsed) == 0 {
-		di.active = false
-		di.clear(m)
+		di.finish(m)
 		return
 	}
 
 	// If user presses "cancel", end the dialogue
 	if sys.uiRawInput(m.DialogueInfo.Cancel.Key, -1) {
-		di.active = false
-		di.clear(m)
+		di.finish(m)
 		return
 	}
 
@@ -4640,9 +4662,7 @@ func (di *MotifDialogue) step(m *Motif) {
 				// No more dialogue: make sure both portraits end in a neutral pose.
 				di.resetPortraitIdle(m.DialogueInfo.P1.Face.AnimData)
 				di.resetPortraitIdle(m.DialogueInfo.P2.Face.AnimData)
-				// Done
-				di.active = false
-				di.clear(m)
+				di.finish(m)
 				return
 			}
 		}

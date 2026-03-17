@@ -3270,7 +3270,8 @@ func (c *Char) init(n int, idx int) {
 	c.initCnsVar()
 
 	// Init the map array
-	c.mapReset("")
+	// Note: While loading a new character mapDefault isn't populated yet, so we also need this in load()
+	c.mapReset(nil)
 
 	// Set controller to CPU if applicable
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
@@ -3620,6 +3621,9 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
+
+	// Reset maps in order to upload the freshly loaded defaults
+	c.mapReset(nil)
 
 	// Set constants to defaults
 	c.initConstants()
@@ -9066,15 +9070,15 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 }
 
 // Used to init, fully reset or partially reset the map array
-func (c *Char) mapReset(exclude string) {
-	// Initialize if nil
+func (c *Char) mapReset(exclude []string) {
+	// Initialize mapArray if nil
 	if c.mapArray == nil {
 		c.mapArray = make(map[string]float32)
 	}
 
 	// Fast path for full reset
 	// Just remake the map and populate with defaults
-	if exclude == "" {
+	if len(exclude) == 0 {
 		c.mapArray = make(map[string]float32)
 		for k, v := range c.mapDefault {
 			c.mapArray[k] = v
@@ -9082,13 +9086,29 @@ func (c *Char) mapReset(exclude string) {
 		return
 	}
 
-	// Selective reset
-	excLow := strings.ToLower(exclude)
+	// Pre-process exclusions to lowercase
+	lowExcludes := make([]string, 0, len(exclude))
+	for _, s := range exclude {
+		if s != "" {
+			lowExcludes = append(lowExcludes, strings.ToLower(s))
+		}
+	}
+
+	// Helper to filter maps
+	isExcluded := func(kLow string) bool {
+		for _, s := range lowExcludes {
+			if strings.Contains(kLow, s) {
+				return true
+			}
+		}
+		return false
+	}
 
 	// Process existing keys
 	// Restore defaults or delete non-defaults
 	for k := range c.mapArray {
-		if strings.Contains(strings.ToLower(k), excLow) {
+		kLow := strings.ToLower(k)
+		if isExcluded(kLow) {
 			continue
 		}
 
@@ -9102,10 +9122,9 @@ func (c *Char) mapReset(exclude string) {
 	// Restore missing defaults
 	// If a default exists but wasn't in mapArray and isn't excluded, bring it back
 	for k, v := range c.mapDefault {
-		if _, ok := c.mapArray[k]; !ok {
-			if !strings.Contains(strings.ToLower(k), excLow) {
-				c.mapArray[k] = v
-			}
+		kLow := strings.ToLower(k)
+		if _, ok := c.mapArray[k]; !ok && !isExcluded(kLow) {
+			c.mapArray[k] = v
 		}
 	}
 }

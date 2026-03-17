@@ -4898,15 +4898,31 @@ func (c *Compiler) mapReset(is IniSection, sc *StateControllerBase, _ int8) (Sta
 			mapReset_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "exclude", false, func(data string) error {
+
+		addExclude := func(data string) error {
 			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 				return Error("Exclude not enclosed in \"")
 			}
 			sc.add(mapReset_exclude, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
 			return nil
+		}
+
+		// Exclude
+		if err := c.stateParam(is, "exclude", false, func(data string) error {
+			return addExclude(data)
 		}); err != nil {
 			return err
 		}
+		// Exclude2-8
+		for i := 2; i <= 8; i++ {
+			key := fmt.Sprintf("exclude%d", i)
+			if err := c.stateParam(is, key, false, func(data string) error {
+				return addExclude(data)
+			}); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 	return *ret, err

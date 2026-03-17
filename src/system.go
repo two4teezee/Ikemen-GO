@@ -4975,14 +4975,19 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	}
 
 	var p *Char
-	var cachestr = "New"
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
 	// Same character from a previous match
-	if sys.chars[pn] != nil && len(sys.chars[pn]) > 0 {
-		if sys.chars[pn][0].gi().def == cdef && sys.chars[pn][0].ocd().existed {
-			p = sys.chars[pn][0]
-			cachestr = "Cached" // Actually more like "same"
+	sameChar := sys.chars[pn] != nil && len(sys.chars[pn]) > 0 && sys.chars[pn][0].gi().def == cdef && sys.chars[pn][0].ocd().existed
+
+	if sameChar {
+		p = sys.chars[pn][0]
+
+		// Prepare success message
+		if attached {
+			tstr = fmt.Sprintf("Same attached char kept: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("Same char kept: %v", cdef)
 		}
 	}
 
@@ -5000,10 +5005,14 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 			p.guardPoints = sys.chars[pn][0].guardPoints // And why do these two persist?
 			p.dizzyPoints = sys.chars[pn][0].dizzyPoints
 		}
-	}
 
-	// Flag "existed" just in case
-	p.ocd().existed = true
+		// Prepare success message
+		if attached {
+			tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("New char loaded: %v", cdef)
+		}
+	}
 
 	// Set new character parameters
 	if attached {
@@ -5024,34 +5033,30 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.chars[pn][0] = p
 
 	// Load character
-	if l.err = p.load(cdef); l.err != nil {
-		sys.chars[pn] = nil
-		if attached {
-			tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
+	if !sameChar {
+		if l.err = p.load(cdef); l.err != nil {
+			sys.chars[pn] = nil
+			if attached {
+				tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
+			} else {
+				tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
+			}
+			return -1
 		}
-		return -1
-	}
 
-	// Compile character states
-	if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
-		sys.chars[pn] = nil
-		if attached {
-			tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+		// Compile character states
+		if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
+			sys.chars[pn] = nil
+			if attached {
+				tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
+			} else {
+				tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+			}
+			return -1
 		}
-		return -1
 	}
 
-	// Prepare success message
-	if attached {
-		tstr = fmt.Sprintf("%s attached char loaded: %v", cachestr, cdef)
-	} else {
-		tstr = fmt.Sprintf("%s char loaded: %v", cachestr, cdef)
-	}
-
+	// Setup selected palette
 	selectPalno := 1
 	if pal, ok := sys.sel.palOverwrite[pn]; ok && pal > 0 {
 		selectPalno = pal
@@ -5061,14 +5066,17 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	}
 	sys.cgi[pn].palno = int32(selectPalno)
 
+	// Prepare lifebar portraits and names for Turns mode
 	if !attached {
-		// Prepare lifebar portraits and names for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
 			nm := sys.lifebar.nm[sys.tmode[pn&1]][pn]
 			l.prepareTurnsFaces(pn, fa, nm, teamChars)
 		}
 	}
+
+	// Flag "existed" just in case	
+	sys.chars[pn][0].ocd().existed = true
 
 	return 1
 }

@@ -14621,11 +14621,13 @@ func (sc mapReset) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	exclude := ""
+	exclude := make([]string, 0, 8)
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case mapReset_exclude:
-			exclude = exp[0].evalS()
+			str := exp[0].evalS()
+			exclude = append(exclude, str)
 		}
 		return true
 	})

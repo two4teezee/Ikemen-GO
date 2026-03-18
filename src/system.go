@@ -1354,22 +1354,22 @@ func (s *System) uiEnsureCommandLists(total int) error {
 }
 
 func (s *System) netplay() bool {
-	return sys.rollback.session != nil || sys.netConnection != nil || sys.replayFile != nil
+	return s.rollback.session != nil || s.netConnection != nil || s.replayFile != nil
 }
 
 func (s *System) escExit() bool {
-	if sys.gameMode == "demo" || sys.netplay() {
-		if sys.uiRawInput([]string{"m"}, -1) || sys.esc {
-			if sys.netplay() {
-				sys.esc = true
+	if s.gameMode == "demo" || s.netplay() {
+		if s.uiRawInput([]string{"m"}, -1) || s.esc {
+			if s.netplay() {
+				s.esc = true
 			}
-			if sys.gameMode == "demo" {
+			if s.gameMode == "demo" {
 				return true
 			}
 		}
 	}
-	return sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" ||
-		(sys.motif.AttractMode.Enabled && sys.credits == 0))
+	return s.esc && (s.netplay() || !s.cfg.Config.EscOpensMenu || s.gameMode == "" ||
+		(s.motif.AttractMode.Enabled && s.credits == 0))
 }
 
 func (s *System) matchOver() bool {

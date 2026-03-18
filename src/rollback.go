@@ -184,9 +184,8 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 				rs.session.netTime++
 			}
 
-			if !rs.simulateFrame(s) {
-				return false
-			}
+			// Commit this frame to GGPO even if this frame exits gameplay.
+			keepRunning := rs.simulateFrame(s)
 
 			defer func() {
 				if re := recover(); re != nil {
@@ -201,6 +200,9 @@ func (rs *RollbackSystem) runFrame(s *System) bool {
 			err := rs.session.backend.AdvanceFrame(rs.session.LiveChecksum())
 			if err != nil {
 				panic(err)
+			}
+			if !keepRunning {
+				return false
 			}
 		}
 	}
@@ -715,9 +717,8 @@ func (r *RollbackSession) AdvanceFrame(flags int) {
 			r.RecordReplayFrame(r.netTime, sys.rollback.ggpoInputs, sys.rollback.ggpoAnalogInputs)
 			r.netTime++
 		}
-		if !sys.rollback.simulateFrame(&sys) {
-			return
-		}
+		// As in runFrame(): commit rollback re-simulated frames to GGPO even if this frame exits gameplay.
+		_ = sys.rollback.simulateFrame(&sys)
 		defer func() {
 			if re := recover(); re != nil {
 				if r.config.DesyncTest {

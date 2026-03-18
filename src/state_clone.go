@@ -480,6 +480,14 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		result.ro.fadeOut = l.ro.fadeOut.Clone(a)
 	}
 
+	// WinCount
+	for i := 0; i < len(l.wc); i++ {
+		if l.wc[i] != nil {
+			result.wc[i] = arena.New[LifeBarWinCount](a)
+			*result.wc[i] = *l.wc[i]
+		}
+	}
+
 	// Combo
 	for i := 0; i < len(l.co); i++ {
 		if l.co[i] != nil {
@@ -488,15 +496,17 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		}
 	}
 
+	// Score
+	for i := 0; i < len(l.sc); i++ {
+		if l.sc[i] != nil {
+			result.sc[i] = arena.New[LifeBarScore](a)
+			*result.sc[i] = *l.sc[i]
+		}
+	}
+
 	// We probably don't need a deep copy of these
 	/*
 		//UIT
-		for i := 0; i < len(l.sc); i++ {
-			if l.sc[i] != nil {
-				result.sc[i] = arena.New[LifeBarScore](a)
-				*result.sc[i] = *l.sc[i]
-			}
-		}
 		if l.ti != nil {
 			result.ti = arena.New[LifeBarTime](a)
 			*result.ti = *l.ti
@@ -504,11 +514,6 @@ func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
 		//
 
 		// Not UIT adding anyway
-		for i := 0; i < len(l.wc); i++ {
-			result.wc[i] = arena.New[LifeBarWinCount](a)
-			*result.wc[i] = *l.wc[i]
-		}
-
 		if l.ma != nil {
 			result.ma = arena.New[LifeBarMatch](a)
 			*result.ma = *l.ma
@@ -883,7 +888,7 @@ func (wi *MotifWin) Clone(a *arena.Arena) (result MotifWin) {
 	return
 }
 
-func (m *Motif) Clone(a *arena.Arena) (result Motif) {
+func (m *Motif) Clone(a *arena.Arena, postMatch bool) (result Motif) {
 	result = *m
 
 	// Fade state
@@ -899,17 +904,17 @@ func (m *Motif) Clone(a *arena.Arena) (result Motif) {
 
 	// Post-match-only motifs: don't waste time cloning them (and don't rollback-touch them)
 	// during a match when sys.postMatchFlg is false.
-	if sys.postMatchFlg {
+	if postMatch {
 		result.co = m.co.Clone(a)
 		//result.vi = m.vi.Clone(a)
 		result.hi = m.hi.Clone(a)
 		result.wi = m.wi.Clone(a)
 	} else {
 		// Keep current runtime values so rollback loads during a match won't affect them.
-		result.co = sys.motif.co
-		result.vi = sys.motif.vi
-		result.hi = sys.motif.hi
-		result.wi = sys.motif.wi
+		result.co = m.co
+		result.vi = m.vi
+		result.hi = m.hi
+		result.wi = m.wi
 	}
 
 	return

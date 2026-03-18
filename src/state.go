@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 func (cs Char) String() string {
@@ -110,6 +108,7 @@ type GameState struct {
 	randseed     int32
 	matchTime    int32
 	curRoundTime int32
+	persistRoundCount int32
 	curPlayTime  int32
 
 	chars      [MaxPlayerNo][]*Char
@@ -137,6 +136,7 @@ type GameState struct {
 	superendcmdbuftime int32
 	superplayerno      int
 	superbrightness    float32
+	superp2defmul      float32
 
 	envShake            EnvShake
 	specialFlag         GlobalSpecialFlag // UIT
@@ -150,6 +150,7 @@ type GameState struct {
 	gameWidth, gameHeight   int32 // UIT
 	widthScale, heightScale float32
 	gameEnd, frameSkip      bool
+	paused, frameStepFlag   bool
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32 // UIT
@@ -194,6 +195,7 @@ type GameState struct {
 	zoomPosYLag             float32
 	enableZoomtime          int32
 	zoomCameraBound         bool
+	zoomStageBound          bool
 	zoomPos                 [2]float32
 	finishType              FinishType // UIT
 	winwaittime             int32
@@ -240,8 +242,14 @@ type GameState struct {
 	playBgmFlg      bool
 
 	// Input
-	keyInput  sdl.Keycode
+	keyInput  Key
 	keyString string
+	lastInputController int
+	uiLastInputToken    string
+	uiConsumeInputFrame int32
+	uiRepeatToken       string
+	uiRepeatController  int
+	uiRepeatFrame       int32
 
 	// LifeBar
 	timerCount []int32
@@ -249,7 +257,9 @@ type GameState struct {
 	// Script
 	endMatch    bool
 	noSoundFlg  bool
+	fightLoopEnd bool
 	continueFlg bool
+	matchResetFlg bool
 
 	stageLoopNo int
 
@@ -294,7 +304,9 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.randseed = gs.randseed
 	sys.matchTime = gs.matchTime
 	sys.curRoundTime = gs.curRoundTime // UIT
+	sys.persistRoundCount = gs.persistRoundCount
 	sys.curPlayTime = gs.curPlayTime
+	sys.frameCounter = gs.frame
 
 	gs.loadCharData(a, gsp)
 	gs.loadProjectileData(a, gsp)
@@ -305,6 +317,7 @@ func (gs *GameState) LoadState(stateID int) {
 	gs.loadPauseData()
 	gs.loadSuperPauseData()
 
+	sys.postMatchFlg = gs.postMatchFlg
 	gs.loadPalFX(a)
 	sys.aiLevel = gs.aiLevel
 	sys.envShake = gs.envShake
@@ -352,6 +365,8 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.widthScale = gs.widthScale
 	sys.heightScale = gs.heightScale
 	sys.gameEnd = gs.gameEnd
+	sys.paused = gs.paused
+	sys.frameStepFlag = gs.frameStepFlag
 	sys.frameSkip = gs.frameSkip
 	sys.brightness = gs.brightness
 	sys.brightnessOld = gs.brightnessOld
@@ -377,6 +392,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.zoomPosYLag = gs.zoomPosYLag
 	sys.enableZoomtime = gs.enableZoomtime
 	sys.zoomCameraBound = gs.zoomCameraBound
+	sys.zoomStageBound = gs.zoomStageBound
 	sys.zoomPos = gs.zoomPos
 
 	sys.reloadCharSlot = gs.reloadCharSlot
@@ -421,7 +437,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.round = gs.round
 
 	sys.lifebar = gs.lifebar.Clone(a)
-	sys.motif = gs.motif.Clone(a)
+	sys.motif = gs.motif.Clone(a, gs.postMatchFlg)
 
 	// Storyboard: only rollback-touch it when it was actually running.
 	if gs.storyboard.active {
@@ -442,7 +458,6 @@ func (gs *GameState) LoadState(stateID int) {
 	copy(sys.timerRounds, gs.timerRounds)
 
 	sys.teamLeader = gs.teamLeader
-	sys.postMatchFlg = gs.postMatchFlg
 	sys.scoreStart = gs.scoreStart
 
 	sys.scoreRounds = arena.MakeSlice[[2]float32](a, len(gs.scoreRounds), len(gs.scoreRounds))
@@ -469,6 +484,12 @@ func (gs *GameState) LoadState(stateID int) {
 	//sys.keyState = gs.keyState
 	sys.keyInput = gs.keyInput
 	sys.keyString = gs.keyString
+	sys.lastInputController = gs.lastInputController
+	sys.uiLastInputToken = gs.uiLastInputToken
+	sys.uiConsumeInputFrame = gs.uiConsumeInputFrame
+	sys.uiRepeatToken = gs.uiRepeatToken
+	sys.uiRepeatController = gs.uiRepeatController
+	sys.uiRepeatFrame = gs.uiRepeatFrame
 
 	sys.timerCount = arena.MakeSlice[int32](a, len(gs.timerCount), len(gs.timerCount))
 	copy(sys.timerCount, gs.timerCount)
@@ -476,7 +497,9 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.endMatch = gs.endMatch
 
 	sys.noSoundFlg = gs.noSoundFlg
+	sys.fightLoopEnd = gs.fightLoopEnd
 	sys.continueFlg = gs.continueFlg
+	sys.matchResetFlg = gs.matchResetFlg
 	sys.stageLoopNo = gs.stageLoopNo
 
 	// gotta keep these pointers around because they are userdata
@@ -529,6 +552,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.randseed = sys.randseed
 	gs.matchTime = sys.matchTime
 	gs.curRoundTime = sys.curRoundTime
+	gs.persistRoundCount = sys.persistRoundCount
 	gs.curPlayTime = sys.curPlayTime
 
 	gs.saveCharData(a, gsp)
@@ -590,6 +614,8 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.widthScale = sys.widthScale
 	gs.heightScale = sys.heightScale
 	gs.gameEnd = sys.gameEnd
+	gs.paused = sys.paused
+	gs.frameStepFlag = sys.frameStepFlag
 	gs.frameSkip = sys.frameSkip
 	gs.brightness = sys.brightness
 	gs.brightnessOld = sys.brightnessOld
@@ -614,6 +640,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.zoomPosYLag = sys.zoomPosYLag
 	gs.enableZoomtime = sys.enableZoomtime
 	gs.zoomCameraBound = sys.zoomCameraBound
+	gs.zoomStageBound = sys.zoomStageBound
 	gs.zoomPos = sys.zoomPos
 
 	gs.reloadCharSlot = sys.reloadCharSlot
@@ -658,7 +685,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.round = sys.round
 
 	gs.lifebar = sys.lifebar.Clone(a)
-	gs.motif = sys.motif.Clone(a)
+	gs.motif = sys.motif.Clone(a, sys.postMatchFlg)
 
 	// Storyboard: only rollback-save while active.
 	if sys.storyboard.active {
@@ -696,6 +723,12 @@ func (gs *GameState) SaveState(stateID int) {
 
 	gs.keyInput = sys.keyInput
 	gs.keyString = sys.keyString
+	gs.lastInputController = sys.lastInputController
+	gs.uiLastInputToken = sys.uiLastInputToken
+	gs.uiConsumeInputFrame = sys.uiConsumeInputFrame
+	gs.uiRepeatToken = sys.uiRepeatToken
+	gs.uiRepeatController = sys.uiRepeatController
+	gs.uiRepeatFrame = sys.uiRepeatFrame
 
 	gs.timerCount = arena.MakeSlice[int32](a, len(sys.timerCount), len(sys.timerCount))
 	copy(gs.timerCount, sys.timerCount)
@@ -703,7 +736,9 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.endMatch = sys.endMatch
 
 	gs.noSoundFlg = sys.noSoundFlg
+	gs.fightLoopEnd = sys.fightLoopEnd
 	gs.continueFlg = sys.continueFlg
+	gs.matchResetFlg = sys.matchResetFlg
 	gs.stageLoopNo = sys.stageLoopNo
 
 	gs.commandLists = arena.MakeSlice[*CommandList](a, len(sys.commandLists), len(sys.commandLists))
@@ -784,6 +819,7 @@ func (gs *GameState) saveSuperPauseData() {
 	gs.superendcmdbuftime = sys.superendcmdbuftime
 	gs.superplayerno = sys.superplayerno
 	gs.superbrightness = sys.superbrightness
+	gs.superp2defmul = sys.superp2defmul
 }
 
 func (gs *GameState) saveExplodData(a *arena.Arena, gsp *GameStatePool) {
@@ -846,6 +882,7 @@ func (gs *GameState) loadSuperPauseData() {
 	sys.superendcmdbuftime = gs.superendcmdbuftime
 	sys.superplayerno = gs.superplayerno
 	sys.superbrightness = gs.superbrightness
+	sys.superp2defmul = gs.superp2defmul
 }
 
 func (gs *GameState) loadPauseData() {

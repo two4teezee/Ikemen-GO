@@ -105,11 +105,11 @@ type GameState struct {
 	frame int32
 
 	// Selective copy of the system struct
-	randseed     int32
-	matchTime    int32
-	curRoundTime int32
+	randseed          int32
+	matchTime         int32
+	curRoundTime      int32
 	persistRoundCount int32
-	curPlayTime  int32
+	curPlayTime       int32
 
 	chars      [MaxPlayerNo][]*Char
 	charData   [MaxPlayerNo][]Char
@@ -242,8 +242,8 @@ type GameState struct {
 	playBgmFlg      bool
 
 	// Input
-	keyInput  Key
-	keyString string
+	keyInput            Key
+	keyString           string
 	lastInputController int
 	uiLastInputToken    string
 	uiConsumeInputFrame int32
@@ -255,10 +255,10 @@ type GameState struct {
 	timerCount []int32
 
 	// Script
-	endMatch    bool
-	noSoundFlg  bool
-	fightLoopEnd bool
-	continueFlg bool
+	endMatch      bool
+	noSoundFlg    bool
+	fightLoopEnd  bool
+	continueFlg   bool
 	matchResetFlg bool
 
 	stageLoopNo int

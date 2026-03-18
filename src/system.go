@@ -68,9 +68,6 @@ var sys = System{
 	statePool:           NewGameStatePool(),
 	savePool:            NewGameStatePool(),
 	loadPool:            NewGameStatePool(),
-	luaStringVars:       make(map[string]string),
-	luaNumVars:          make(map[string]float32),
-	luaTables:           make([]*lua.LTable, 0),
 	commandLists:        make([]*CommandList, 0),
 	arenaSaveMap:        make(map[int]*arena.Arena),
 	arenaLoadMap:        make(map[int]*arena.Arena),
@@ -290,9 +287,6 @@ type System struct {
 	charVarsBackup     map[int]CharVarBackup
 
 	statePool       GameStatePool
-	luaStringVars   map[string]string
-	luaNumVars      map[string]float32
-	luaTables       []*lua.LTable
 	commandLists    []*CommandList
 	arenaSaveMap    map[int]*arena.Arena
 	arenaLoadMap    map[int]*arena.Arena

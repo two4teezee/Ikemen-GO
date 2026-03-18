@@ -1358,18 +1358,25 @@ func (s *System) netplay() bool {
 }
 
 func (s *System) escExit() bool {
-	if sys.gameMode == "demo" || sys.netplay() {
-		if sys.uiRawInput([]string{"m"}, -1) || sys.esc {
-			if sys.netplay() {
-				sys.esc = true
+	if s.gameMode == "demo" || s.netplay() {
+		pressed := false
+		switch {
+		case s.rollback.session != nil:
+			pressed = s.rollback.menuPressed() || s.esc
+		default:
+			pressed = s.uiRawInput([]string{"m"}, -1) || s.esc
+		}
+		if pressed {
+			if s.netplay() {
+				s.esc = true
 			}
-			if sys.gameMode == "demo" {
+			if s.gameMode == "demo" {
 				return true
 			}
 		}
 	}
-	return sys.esc && (sys.netplay() || !sys.cfg.Config.EscOpensMenu || sys.gameMode == "" ||
-		(sys.motif.AttractMode.Enabled && sys.credits == 0))
+	return s.esc && (s.netplay() || !s.cfg.Config.EscOpensMenu || s.gameMode == "" ||
+		(s.motif.AttractMode.Enabled && s.credits == 0))
 }
 
 func (s *System) matchOver() bool {

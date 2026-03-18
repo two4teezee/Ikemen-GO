@@ -288,6 +288,17 @@ func (rs *RollbackSystem) updateCamera(s *System) {
 	}
 }
 
+func (rs *RollbackSystem) menuPressed() bool {
+	if rs.session == nil {
+		return false
+	}
+	idx := rs.session.currentPlayer
+	if idx < 0 || idx >= len(rs.ggpoInputs) {
+		return false
+	}
+	return rs.ggpoInputs[idx]&IB_M != 0
+}
+
 func getAIInputs(player int) []byte {
 	var ib InputBits
 	ib.SetInputAI(player)

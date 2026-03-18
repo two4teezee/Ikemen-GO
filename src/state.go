@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
-	lua "github.com/yuin/gopher-lua"
 )
 
 func (cs Char) String() string {
@@ -259,7 +258,6 @@ type GameState struct {
 	preMatchTime  int32
 
 	commandLists []*CommandList
-	luaTables    []*lua.LTable
 
 	loopBreak    bool
 	loopContinue bool
@@ -485,8 +483,6 @@ func (gs *GameState) LoadState(stateID int) {
 	for i := 0; i < len(sys.commandLists); i++ {
 		gs.commandLists[i].CopyTo(sys.commandLists[i], a)
 	}
-
-	// sys.luaTables = gs.luaTables
 
 	sys.preMatchTime = gs.preMatchTime
 	sys.introSkipCall = gs.introSkipCall
@@ -715,10 +711,6 @@ func (gs *GameState) SaveState(stateID int) {
 		cl := sys.commandLists[i].Clone(a)
 		gs.commandLists[i] = &cl
 	}
-	gs.luaTables = arena.MakeSlice[*lua.LTable](a, len(sys.luaTables), len(sys.luaTables))
-	for i := 0; i < len(sys.luaTables); i++ {
-		gs.luaTables[i] = gs.cloneLuaTable(sys.luaTables[i])
-	}
 
 	gs.introSkipCall = sys.introSkipCall
 	gs.preMatchTime = sys.preMatchTime
@@ -732,20 +724,6 @@ func (gs *GameState) SaveState(stateID int) {
 	if sys.rollback.session == nil {
 		sys.appendToConsole(fmt.Sprintf("%v: Game state saved", sys.tickCount))
 	}
-}
-
-func (gs *GameState) cloneLuaTable(s *lua.LTable) *lua.LTable {
-	tbl := sys.luaLState.NewTable()
-	s.ForEach(func(key lua.LValue, value lua.LValue) {
-		switch value.Type() {
-		case lua.LTTable:
-			innerTbl := value.(*lua.LTable)
-			tbl.RawSet(key, gs.cloneLuaTable(innerTbl))
-		default:
-			tbl.RawSet(key, value)
-		}
-	})
-	return tbl
 }
 
 func (src *CommandList) CopyTo(dst *CommandList, a *arena.Arena) {

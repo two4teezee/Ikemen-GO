@@ -481,13 +481,13 @@ const (
 	OC_const_stage_constants
 )
 const (
-	OC_st_var OpCode = iota
-	OC_st_sysvar
+	OC_st_var OpCode = iota // OpCodes for var assignment with :=
 	OC_st_fvar
+	OC_st_sysvar
 	OC_st_sysfvar
-	OC_st_varadd
-	OC_st_sysvaradd
+	OC_st_varadd // These 4 are unused. Perhaps placeholders for eventual ++ and -- operators
 	OC_st_fvaradd
+	OC_st_sysvaradd
 	OC_st_sysfvaradd
 	OC_st_map
 )
@@ -2347,33 +2347,41 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 	opc := be[*i-1]
 	switch opc {
 	case OC_st_var:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.varSet(sys.bcStack.Top().ToI(), v)
-	case OC_st_sysvar:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.sysVarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.varSet(vno, val)
 	case OC_st_fvar:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.fvarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.fvarSet(vno, val)
+	case OC_st_sysvar:
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysVarSet(vno, val)
 	case OC_st_sysfvar:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.sysFvarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysFvarSet(vno, val)
 	case OC_st_varadd:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.varAdd(sys.bcStack.Top().ToI(), v)
-	case OC_st_sysvaradd:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.sysVarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.varAdd(vno, val)
 	case OC_st_fvaradd:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.fvarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.fvarAdd(vno, val)
+	case OC_st_sysvaradd:
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysVarAdd(vno, val)
 	case OC_st_sysfvaradd:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.sysFvarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysFvarAdd(vno, val)
 	case OC_st_map:
-		v := sys.bcStack.Pop().ToF()
+		val := sys.bcStack.Pop().ToF()
 		mapName := be.ReadPoolStringAt(i)
-		sys.bcStack.Push(c.mapSet(mapName, v, 0))
+		sys.bcStack.Push(c.mapSet(mapName, val, 0))
 	}
 }
 
@@ -4640,6 +4648,23 @@ func (scb StateControllerBase) run(c *Char, f func(byte, []BytecodeExp) bool) {
 			break
 		}
 	}
+}
+
+func (scb StateControllerBase) hasParam(paramID byte) bool {
+	for i := 0; i < len(scb); {
+		id := scb[i]
+		i++
+		n := scb[i]
+		i++
+		for m := 0; m < int(n); m++ {
+			l := *(*int32)(unsafe.Pointer(&scb[i]))
+			i += 4 + int(l)
+		}
+		if id == paramID {
+			return true
+		}
+	}
+	return false
 }
 
 func getRedirectedChar(c *Char, sc StateControllerBase, redirectID byte, scname string) *Char {
@@ -9084,7 +9109,10 @@ func (sc sprPriority) Run(c *Char, _ []int32) bool {
 type varSet StateControllerBase
 
 const (
-	varSet_ byte = iota
+	varSet_index byte = iota
+	varSet_sctrltype
+	varSet_value
+	varSet_varType
 	varSet_redirectid
 )
 
@@ -9094,13 +9122,29 @@ func (sc varSet) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
+	var index int32
+	var value BytecodeValue
+	var scType int32
+	var varType int32
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case varSet_:
-			exp[0].run(crun)
+		case varSet_index:
+			index = exp[0].evalI(c)
+		case varSet_value:
+			switch varType {
+			case 1, 3:
+				value = BytecodeFloat(exp[0].evalF(c))
+			default:
+				value = BytecodeInt(exp[0].evalI(c))
+			}
+		case varSet_sctrltype:
+			scType = exp[0].evalI(c)
+		case varSet_varType:
+			varType = exp[0].evalI(c)
 		}
 		return true
 	})
+	crun.cnsVarSet(index, value, scType, varType)
 	return false
 }
 
@@ -11714,9 +11758,9 @@ type mapSet StateControllerBase
 
 const (
 	mapSet_mapArray byte = iota
+	mapSet_sctrltype
 	mapSet_value
 	mapSet_redirectid
-	mapSet_type
 )
 
 func (sc mapSet) Run(c *Char, _ []int32) bool {
@@ -11734,7 +11778,7 @@ func (sc mapSet) Run(c *Char, _ []int32) bool {
 			s = exp[0].evalS()
 		case mapSet_value:
 			value = exp[0].evalF(c)
-		case mapSet_type:
+		case mapSet_sctrltype:
 			scType = exp[0].evalI(c)
 		}
 		return true

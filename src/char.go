@@ -7649,6 +7649,46 @@ func (c *Char) sysFvarGet(i int32) BytecodeValue {
 	return BytecodeFloat(0)
 }
 
+func (c *Char) cnsVarSet(i int32, value BytecodeValue, scType int32, varType int32) BytecodeValue {
+	// Determine variable owner
+	target := c
+	switch scType {
+	case 2, 3:
+		target = c.parent(true)
+	case 4, 5:
+		target = c.root(true)
+	}
+	if target == nil {
+		return BytecodeUndefined()
+	}
+
+	// Handle different sctrl types
+	add := scType == 1 || scType == 3 || scType == 5
+	switch varType {
+	case 0:
+		if add {
+			return target.varAdd(i, value.ToI())
+		}
+		return target.varSet(i, value.ToI())
+	case 1:
+		if add {
+			return target.fvarAdd(i, value.ToF())
+		}
+		return target.fvarSet(i, value.ToF())
+	case 2:
+		if add {
+			return target.sysVarAdd(i, value.ToI())
+		}
+		return target.sysVarSet(i, value.ToI())
+	case 3:
+		if add {
+			return target.sysFvarAdd(i, value.ToF())
+		}
+		return target.sysFvarSet(i, value.ToF())
+	}
+	return BytecodeUndefined()
+}
+
 func (c *Char) varSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
@@ -7656,7 +7696,7 @@ func (c *Char) varSet(i, v int32) BytecodeValue {
 	}
 
 	c.cnsvar[i] = v // Create or update the key
-	return BytecodeInt(v)
+	return BytecodeInt(v) // We also return the value because var assignment can be used in expressions
 }
 
 func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
@@ -9007,7 +9047,7 @@ func (c *Char) remapSpritePreset(preset string) {
 	}
 }
 
-// MapSet() sets a map to a specific value.
+// MapSet() sets a map to a specific value. Used for both sctrl and assignment forms
 func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	if s == "" {
 		return BytecodeUndefined()
@@ -9063,7 +9103,7 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 			}
 		}
 	}
-	return BytecodeFloat(Value)
+	return BytecodeFloat(Value) // We also return the value because map assignment can be used in expressions
 }
 
 // Used to init, fully reset or partially reset the map array

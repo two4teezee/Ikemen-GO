@@ -830,10 +830,12 @@ func (r *Renderer_GL33) Init() {
 			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY_ARB, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
 			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
+			gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 			gl.DrawBuffer(gl.NONE)
 			gl.ReadBuffer(gl.NONE)
+
 			if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-				LogMessage("Framebuffer creation failed: 0x%x", status)
+				LogMessage("Shadow framebuffer creation failed: 0x%x", status)
 			}
 		}
 		gl.GenFramebuffers(1, &r.fbo_env)
@@ -1341,7 +1343,7 @@ func (r *Renderer_GL33) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 
-	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
+	//gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0) // Handled in Init()
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
 	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)

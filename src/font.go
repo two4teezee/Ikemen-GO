@@ -799,20 +799,28 @@ func (ts *TextSprite) SetLocalcoord(lx, ly int32) {
 	ts.offsetX = -int32(math.Floor(float64(lx)/(v/320)-320) / 2)
 }
 
+// Like SetLocalcoord but for char texts, so scaling works more like characters
 func (ts *TextSprite) SetLocalcoordChar(lc [2]int32) {
 	if lc[0] <= 0 {
 		return
 	}
 
-	// Calculate aspect correction based on a 4:3 baseline
-	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
-	
-	// Apply scale with aspect correction
-	ts.localScale = (320.0 / float32(lc[0])) / aspectCorrection
+	gameW := float64(sys.gameWidth)
+	gameH := float64(sys.gameHeight)
+	localW := float64(lc[0])
 
-	// Negate font draw function offsets and shift coordinate origin to where the screen edge is, regardless of aspect ratio
-	extraScreen := (320.0 * aspectCorrection) - 320.0
-	ts.offsetX = -int32(extraScreen / 2)
+	v := gameW
+	if gameW*3 > gameH*4 {
+		v = gameH * 4 / 3
+	}
+
+	// Scale coordinate space so that localcoord width matches full screen width
+	ts.localScale = float32(gameW / localW)
+
+	// Shift coordinate origin to where the screen edge is, regardless of aspect ratio
+	// Note: offsetX is not in local scale
+	extraW := gameW - v
+	ts.offsetX = -int32(math.Floor((extraW) / 2))
 }
 
 func (ts *TextSprite) SetPos(x, y float32) {
@@ -830,8 +838,18 @@ func (ts *TextSprite) AddPos(x, y float32) {
 func (ts *TextSprite) SetScale(xscl, yscl float32) {
 	ts.scaleInit[0] = xscl
 	ts.scaleInit[1] = yscl
-	ts.xscl = xscl * ts.localScale * ts.scaleRatio
-	ts.yscl = yscl * ts.localScale * ts.scaleRatio
+	ts.xscl = xscl * ts.localScale
+	ts.yscl = yscl * ts.localScale
+}
+
+func (ts *TextSprite) ApplyScaleRatio() {
+	if ts.fnt == sys.debugFont.fnt {
+		ts.xscl *= sys.debugFont.xscl
+		ts.yscl *= sys.debugFont.yscl
+	} else {
+		ts.xscl *= ts.scaleRatio
+		ts.yscl *= ts.scaleRatio
+	}
 }
 
 func (ts *TextSprite) SetWindow(window [4]float32) {

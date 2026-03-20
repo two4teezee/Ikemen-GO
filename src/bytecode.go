@@ -12856,11 +12856,13 @@ func (sc text) Run(c *Char, _ []int32) bool {
 
 	// Default to the same localcoord as the character that owns the code
 	ts.SetLocalcoordChar(c.gi().localcoord) // Not crun here
-	ts.scaleRatio = 1
 
 	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
 	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
+
+	targetLcx := c.gi().localcoord[0]
+	sourceLcx := targetLcx
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -12890,17 +12892,16 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			case "m":
 				fntList = sys.motif.Fnt
 			}
-
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
 					switch fflg {
 					case "f":
-						ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.lifebar.localcoord[0])
+						sourceLcx = sys.lifebar.localcoord[0]
 					case "m":
-						ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.motif.Info.Localcoord[0])
+						sourceLcx = sys.motif.Info.Localcoord[0]
 					default:
-						ts.scaleRatio = 1
+						sourceLcx = targetLcx
 					}
 				} else {
 					fnt = -1
@@ -12912,6 +12913,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			if len(exp) > 1 {
 				lcy = exp[1].evalI(c)
 			}
+			targetLcx = lcx
 			ts.SetLocalcoordChar([2]int32{lcx, lcy})
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
@@ -12990,17 +12992,21 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return true
 	})
 
+	// Apply localcoord scale correction
+	// Must be placed before SetScale()
+	if fnt < 0 {
+		ts.fnt = sys.debugFont.fnt
+		ts.scaleRatio = 1
+	} else if sourceLcx > 0 {
+		ts.scaleRatio = float32(targetLcx) / float32(sourceLcx)
+	}
+
 	ts.SetPos(xpos, ypos)
 	ts.SetScale(xscl, yscl)
+	ts.ApplyScaleRatio()
 	ts.SetVelocity(xvel, yvel)
 	ts.SetMaxDist(xmaxdist, ymaxdist)
 	ts.SetAccel(xacc, yacc)
-
-	if fnt < 0 {
-		ts.fnt = sys.debugFont.fnt
-		ts.xscl *= sys.debugFont.xscl
-		ts.yscl *= sys.debugFont.yscl
-	}
 
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
@@ -13079,6 +13085,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case text_font:
+				// TODO: Needs same scaling fixes as plain Text
 				fnt := int(exp[1].evalI(c))
 				fflg := exp[0].evalS()
 				fntList := crun.gi().fnt
@@ -13106,6 +13113,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					}
 				}
 			case text_localcoord:
+				// TODO: Needs same scaling fixes as plain Text
 				var lcx, lcy int32
 				lcx = exp[0].evalI(c)
 				if len(exp) > 1 {

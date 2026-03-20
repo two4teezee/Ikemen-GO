@@ -4711,65 +4711,107 @@ func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 	err := c.stateSec(is, func() error {
 		assign := false
 		var mapParam, mapName, value string
+
 		if err := c.paramValue(is, sc, "redirectid",
 			mapSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "map", true, func(data string) error {
-			mapParam = data
-			// CNS: See if map parameter is ini-style or if it's an assign
-			ia := strings.Index(mapParam, "=")
-			if ia > 0 {
-				if strings.ToLower(SplitAndTrim(mapParam, "=")[0]) == "map" {
-					mapParam = strings.TrimSpace(mapParam[ia+1:])
-				} else {
-					mapParam = strings.TrimSpace(mapParam[3:])
-					assign = true
-				}
-			} else if !strings.HasPrefix(mapParam, "\"") {
-				return Error("Missing '='")
+
+		// map(x) = y syntax
+		var mapKeys []string
+		for k := range is {
+			trimmed := strings.TrimSpace(k)
+			lowered := strings.ToLower(trimmed)
+
+			if strings.HasPrefix(lowered, "map(") && strings.HasSuffix(trimmed, ")") {
+				mapKeys = append(mapKeys, k)
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
-		if len(mapParam) > 0 {
-			if assign {
-				if err := c.checkOpeningParenthesis(&mapParam); err != nil {
-					return err
-				}
-				mapName = c.token
-				c.token = c.tokenizer(&mapParam)
-				if err := c.checkClosingParenthesis(); err != nil {
-					return err
-				}
-				c.token = c.tokenizer(&mapParam)
-				if c.token == "=" || c.token == ":=" {
-					value = strings.TrimSpace(mapParam)
-				} else {
-					return Error("Invalid operator: " + c.token)
-				}
-			} else {
-				b := false
-				if err := c.stateParam(is, "value", false, func(data string) error {
-					b = true
-					value = data
-					return nil
-				}); err != nil {
-					return err
-				}
-				if b {
-					if len(mapParam) < 2 || mapParam[0] != '"' || mapParam[len(mapParam)-1] != '"' {
-						return Error("Not enclosed in \"")
+
+		// Unlike with vars, we will always crash here
+		if len(mapKeys) > 1 {
+			return Error("MapSet can only set one map at a time")
+		}
+
+		if len(mapKeys) == 1 {
+			mapKey := mapKeys[0]
+
+			mapName = strings.TrimSpace(mapKey[len("map(") : len(mapKey)-1])
+			value = is[mapKey]
+			delete(is, mapKey)
+
+			if mapName == "" {
+				return Error("Missing map name")
+			}
+			if value == "" {
+				return Error("Value parameter not specified")
+			}
+		}
+
+		// map = x, value = y syntax
+		if mapName == "" {
+			if err := c.stateParam(is, "map", false, func(data string) error {
+				mapParam = data
+
+				// CNS: See if map parameter is INI-style or if it's an assign
+				ia := strings.Index(mapParam, "=")
+				if ia > 0 {
+					if strings.ToLower(SplitAndTrim(mapParam, "=")[0]) == "map" {
+						mapParam = strings.TrimSpace(mapParam[ia+1:])
+					} else {
+						mapParam = strings.TrimSpace(mapParam[3:])
+						assign = true
 					}
-					mapName = mapParam[1 : len(mapParam)-1]
+				} else if !strings.HasPrefix(mapParam, "\"") {
+					return Error("Missing '='")
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+
+			if len(mapParam) > 0 {
+				if assign {
+					if err := c.checkOpeningParenthesis(&mapParam); err != nil {
+						return err
+					}
+					mapName = c.token
+					c.token = c.tokenizer(&mapParam)
+					if err := c.checkClosingParenthesis(); err != nil {
+						return err
+					}
+					c.token = c.tokenizer(&mapParam)
+					if c.token == "=" || c.token == ":=" {
+						value = strings.TrimSpace(mapParam)
+					} else {
+						return Error("Invalid operator: " + c.token)
+					}
+				} else {
+					b := false
+					if err := c.stateParam(is, "value", false, func(data string) error {
+						b = true
+						value = data
+						return nil
+					}); err != nil {
+						return err
+					}
+					if b {
+						if len(mapParam) < 2 || mapParam[0] != '"' || mapParam[len(mapParam)-1] != '"' {
+							return Error("Not enclosed in \"")
+						}
+						mapName = mapParam[1 : len(mapParam)-1]
+					}
 				}
 			}
-			if len(value) > 0 {
-				sc.add(mapSet_mapArray, sc.beToExp(BytecodeExp(mapName)))
-				c.scAdd(sc, mapSet_value, value, VT_Float, 1)
+		}
+
+		if len(mapName) > 0 && len(value) > 0 {
+			sc.add(mapSet_mapArray, sc.beToExp(BytecodeExp(mapName)))
+			if err := c.scAdd(sc, mapSet_value, value, VT_Float, 1); err != nil {
+				return err
 			}
 		}
+
 		return nil
 	})
 	return err

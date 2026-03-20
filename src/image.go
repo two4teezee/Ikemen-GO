@@ -1560,6 +1560,11 @@ func removeSFFCache(filename string) {
 
 // Find an already loaded SFF we can borrow. Replaces SFF caching
 func findActiveSff(filename string) *Sff {
+	// This would be clean, but it'd make multiple instances of the same character all do a full SFF reload
+	//if sys.reloadFlg {
+	//	return nil
+	//}
+
 	// Scan characters
 	for i := range sys.cgi {
 		if sys.cgi[i].sff != nil && sys.cgi[i].sff.filename == filename {

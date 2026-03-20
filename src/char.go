@@ -3423,12 +3423,6 @@ func (c *Char) ocd() *OverrideCharData {
 func (c *Char) load(def string) error {
 	gi := &sys.cgi[c.playerNo]
 
-	// Keep SFF if debug option is enabled and we're loading the same character in the same player number
-	keepsff := sys.cfg.Debug.KeepSpritesOnReload && def == gi.def
-	if !keepsff {
-		gi.sff = nil
-	}
-
 	// Reset global info
 	gi.def = def
 	gi.displayname, gi.lifebarname, gi.author = "", "", ""
@@ -3442,6 +3436,9 @@ func (c *Char) load(def string) error {
 		pal.keyMap = int32(i)
 		gi.palInfo[i] = pal
 	}
+
+	// We don't nil the SFF so that loadSff() can reuse it if the same character is selected/reloaded
+	//gi.sff = nil
 
 	// Reset DEF file maps
 	c.mapDefault = make(map[string]float32)

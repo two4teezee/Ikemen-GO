@@ -2457,29 +2457,34 @@ func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
 		if p.animNo >= 0 && !p.remflag {
-			remove := true
-			if p.hits < 0 {
-				// Remove behavior
-				if p.hits == -1 && p.remove {
-					if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
-						if p.hitanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
-							p.anim = a
-						}
+			remove := false
+
+			// Check hit or cancel triggers
+			if p.hits == -1 && p.remove {
+				// Remove after hit behavior
+				remove = true
+				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
+					if p.hitanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+						p.anim = a
 					}
 				}
+			} else if p.hits == -2 {
 				// Cancel behavior
-				if p.hits == -2 {
-					if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
-						if p.cancelanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
-							p.anim = a
-						}
+				remove = true
+				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
+					if p.cancelanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+						p.anim = a
 					}
 				}
-			} else if p.removetime == 0 ||
+			}
+
+			// If not removed by hit/cancel, check time and bounds
+			if !remove {
+				if p.removetime == 0 ||
 				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
 				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
 				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
@@ -2489,21 +2494,22 @@ func (p *Projectile) update() {
 				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
 				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
-					if p.remanim != -2 {
-						if p.remanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
-							p.anim = a
-							// In Mugen, if remanim is invalid the projectile will keep the current one
-							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+					
+					remove = true
+					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
+						if p.remanim != -2 {
+							if p.remanim == -1 {
+								p.anim = nil
+							} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+								p.anim = a
+								// In Mugen, if remanim is invalid the projectile will keep the current one
+								// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+							}
 						}
 					}
 				}
-				remove = true
-			} else {
-				remove = false
 			}
+
 			// Active to removing transition
 			if remove {
 				p.remflag = true
@@ -2526,7 +2532,8 @@ func (p *Projectile) update() {
 				//}
 			}
 		}
-		// Remove projectile
+
+		// Remove projectile once animation allows it
 		if p.remflag {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
@@ -2536,6 +2543,7 @@ func (p *Projectile) update() {
 			}
 		}
 	}
+
 	if p.paused() || p.hitpause > 0 || p.freezeflag {
 		p.setAllPos(p.pos)
 		// There's a minor issue here where a projectile will lag behind one frame relative to Mugen if created during a pause
@@ -2561,6 +2569,7 @@ func (p *Projectile) update() {
 			}
 		}
 	}
+
 	// Update Z scale
 	p.zScale = sys.updateZScale(p.pos[2], p.localscl)
 }

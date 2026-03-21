@@ -5075,7 +5075,7 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 		}
 	}
 
-	// Flag "existed" just in case	
+	// Flag "existed" just in case
 	sys.chars[pn][0].ocd().existed = true
 
 	return 1

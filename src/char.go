@@ -2300,7 +2300,7 @@ type ProjStatus int32
 
 const (
 	ProjActive ProjStatus = iota
-	ProjHit // Note: Only happens after all hits connect
+	ProjHit               // Note: Only happens after all hits connect
 	ProjCancel
 	ProjRem
 )
@@ -2490,16 +2490,16 @@ func (p *Projectile) update() {
 			// If not removed by hit/cancel, check time and bounds
 			if !remove {
 				if p.removetime == 0 ||
-				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
-				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
-				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
-				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
-				p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
-				p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
-				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
-				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
-				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-					
+					p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
+					p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
+					p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
+					p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
+					p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
+					p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
+					p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
+					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
+					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
+
 					remove = true
 					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
 						if p.remanim != -2 {
@@ -7695,7 +7695,7 @@ func (c *Char) varSet(i, v int32) BytecodeValue {
 		return BytecodeUndefined()
 	}
 
-	c.cnsvar[i] = v // Create or update the key
+	c.cnsvar[i] = v       // Create or update the key
 	return BytecodeInt(v) // We also return the value because var assignment can be used in expressions
 }
 

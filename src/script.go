@@ -2701,7 +2701,7 @@ func systemScriptInit(l *lua.LState) {
 		filename := SearchFile(strArg(l, 1), []string{"font/", sys.motif.Def, "", "data/"})
 		fnt, err := loadFnt(filename, height)
 		if err != nil {
-			sys.errLog.Printf("failed to load %v (screenpack font): %v", filename, err)
+			LogMessage("Failed to load %v (screenpack font): %v", filename, err)
 			fnt = newFnt()
 		}
 		l.Push(newUserData(l, fnt))
@@ -2831,19 +2831,19 @@ func systemScriptInit(l *lua.LState) {
 				// Match loop
 				if sys.runMatch() {
 					// Match is restarting
-					for i, b := range sys.reloadCharSlot {
-						if b {
-							//if !sys.cfg.Debug.KeepSpritesOnReload {
-							//	if s := sys.cgi[i].sff; s != nil {
-							//		removeSFFCache(s.filename)
-							//	}
-							//}
-							if sys.reloadPreserveVars[i] {
-								sys.saveCharVars(i)
-							}
-							sys.chars[i] = []*Char{}
-							sys.reloadCharSlot[i] = false
+					for i, reload := range sys.reloadCharSlot {
+						if !reload {
+							continue
 						}
+						if sys.cgi[i].sff != nil && !sys.cfg.Debug.KeepSpritesOnReload {
+							// removeSFFCache(sys.cgi[i].sff.filename)
+							sys.cgi[i].sff = nil
+						}
+						if sys.reloadPreserveVars[i] {
+							sys.saveCharVars(i)
+						}
+						sys.chars[i] = []*Char{}
+						sys.reloadCharSlot[i] = false
 					}
 					if sys.reloadStageFlg {
 						sys.stage = nil

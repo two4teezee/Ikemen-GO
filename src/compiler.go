@@ -148,6 +148,7 @@ func newCompiler() *Compiler {
 		"loadfile":             c.loadFile,
 		"loadstate":            c.loadState,
 		"mapadd":               c.mapAdd,
+		"mapreset":             c.mapReset,
 		"mapset":               c.mapSet,
 		"matchrestart":         c.matchRestart,
 		"modifybgctrl":         c.modifyBGCtrl,
@@ -1212,6 +1213,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 		return bv, nil
 	}
+
+	// Helper to determine whether vars are used as triggers or assignments
 	_var := func(sys, f bool) error {
 		_, err := c.oneArg(out, in, rd, true)
 		if err != nil {
@@ -1259,6 +1262,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(oc)
 		return nil
 	}
+
 	text := func() error {
 		i := strings.Index(*in, "\"")
 		if c.token != "\"" || i < 0 {
@@ -4774,6 +4778,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			return bvNone(), err
 		}
 		c.token = c.tokenizer(in)
+		// Map assignment with := operator
 		if c.token == ":=" {
 			c.token = c.tokenizer(in)
 			bv2, err := c.expEqne(&be2, in)
@@ -5647,20 +5652,27 @@ func (c *Compiler) parseSection(
 			c.i--
 			break
 		}
+
 		var name, data string
-		if len(line) >= 3 && strings.ToLower(line[:3]) == "var" {
-			name, data = "var", line
-		} else if len(line) >= 3 && strings.ToLower(line[:3]) == "map" {
-			name, data = "map", line
-		} else if len(line) >= 4 && strings.ToLower(line[:4]) == "fvar" {
-			name, data = "fvar", line
-		} else if len(line) >= 6 && strings.ToLower(line[:6]) == "sysvar" {
-			name, data = "sysvar", line
-		} else if len(line) >= 7 && strings.ToLower(line[:7]) == "sysfvar" {
-			name, data = "sysfvar", line
-		} else {
-			ia := strings.IndexAny(line, "= \t")
-			if ia > 0 {
+		lower := strings.ToLower(line)
+
+		// These exceptions allow these CNS parameters to be parsed with an expression inside them, such as var(1+1)
+		if i := strings.Index(lower, "("); i > 0 {
+			fn := strings.TrimSpace(lower[:i]) // Mugen tolerates "var ("
+			switch fn {
+			case "var", "fvar", "sysvar", "sysfvar", "map":
+				ia := strings.Index(line, "=")
+				if ia > 0 {
+					name = strings.ToLower(strings.TrimSpace(line[:ia]))
+					data = strings.TrimSpace(line[ia+1:])
+					break
+				}
+			}
+		}
+
+		// Normal parameters
+		if name == "" {
+			if ia := strings.IndexAny(line, "= \t"); ia > 0 {
 				name = strings.ToLower(line[:ia])
 				ia = strings.Index(line, "=")
 				if ia >= 0 {
@@ -5668,6 +5680,7 @@ func (c *Compiler) parseSection(
 				}
 			}
 		}
+
 		if len(name) > 0 {
 			_, ok := is[name]
 			if ok && (len(name) < 7 || name[:7] != "trigger") {
@@ -7427,7 +7440,8 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 	c.scan(line)
 	for {
 		switch c.token {
-		case "varset", "varadd", "parentvarset", "parentvaradd", "rootvarset", "rootvaradd":
+		// These are now also allowed in ZSS
+		//case "varset", "varadd", "parentvarset", "parentvaradd", "rootvarset", "rootvaradd":
 		// Break
 		case "", "[":
 			if !root {

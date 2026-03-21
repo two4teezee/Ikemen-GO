@@ -2980,7 +2980,7 @@ func ensureFontIndex(fnt map[int]*Fnt, indexByKey map[string]int, baseDef string
 	}
 	loaded, err := loadFnt(resolved, height)
 	if err != nil {
-		sys.errLog.Printf("Failed to load %v: %v", resolved, err)
+		LogMessage("Failed to load %v: %v", resolved, err)
 	}
 	if loaded == nil {
 		loaded = newFnt()

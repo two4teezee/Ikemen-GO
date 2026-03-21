@@ -1758,7 +1758,7 @@ func loadMotif(def string) (*Motif, error) {
 				}
 				value, dup := iniFirstValue(key)
 				if dup > 0 {
-					sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", sectionName, keyName, dup)
+					LogMessage("Duplicate key [%s] %s (%d duplicate(s) ignored)", sectionName, keyName, dup)
 				}
 
 				// Normalize spaces
@@ -2328,7 +2328,7 @@ func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) 
 				var err error
 				bgDef.Sff, err = loadSff(filename, false, true, false)
 				if err != nil {
-					sys.errLog.Printf("Failed to load %v: %v", filename, err)
+					LogMessage("Failed to load %v: %v", filename, err)
 				}
 			}
 			if bgDef.Sff == nil {
@@ -2341,7 +2341,7 @@ func (m *Motif) loadBgDefProperties(bgDef *BgDefProperties, bgname, spr string) 
 		var err error
 		bgDef.BGDef, err = loadBGDef(bgDef.Sff, m.Model, m.Def, bgname, bgDef.StartLayer)
 		if err != nil {
-			sys.errLog.Printf("Failed to load %v (%v): %v\n", bgname, m.Def, err.Error())
+			LogMessage("Failed to load %v (%v): %v", bgname, m.Def, err.Error())
 		}
 	}
 	if bgDef.BGDef == nil {
@@ -2356,7 +2356,7 @@ func (m *Motif) loadFiles() {
 			var err error
 			m.Sff, err = loadSff(filename, false, true, false)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 		}
 		if m.Sff == nil {
@@ -2371,7 +2371,7 @@ func (m *Motif) loadFiles() {
 			var err error
 			m.GlyphsSff, err = loadSff(filename, false, true, false)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 		}
 		if m.GlyphsSff == nil {
@@ -2386,7 +2386,7 @@ func (m *Motif) loadFiles() {
 			var err error
 			m.Model, err = loadglTFModel(filename)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 			sys.mainThreadTask <- func() {
 				gfx.SetModelVertexData(1, m.Model.vertexBuffer)
@@ -2459,7 +2459,7 @@ func (m *Motif) loadFiles() {
 			var err error
 			m.Snd, err = LoadSnd(filename)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 		}
 		if m.Snd == nil {
@@ -2479,16 +2479,13 @@ func (m *Motif) loadFiles() {
 				m.Fnt[i], err = loadFnt(filename, fnt.Height)
 				registerFontIndex(m.fntIndexByKey, filename, fnt.Height, i)
 				if err != nil {
-					sys.errLog.Printf("Failed to load %v: %v", filename, err)
+					LogMessage("Failed to load %v: %v", filename, err)
 				}
 			}
 
 			if m.Fnt[i] == nil {
 				m.Fnt[i] = newFnt()
 			}
-
-			// Set font localcoord to the same as the motif
-			m.Fnt[i].localcoord = sys.motif.Info.Localcoord
 
 			// Populate extended properties from the loaded font
 			fnt.Type = m.Fnt[i].Type
@@ -2725,7 +2722,7 @@ func (m *Motif) drawLoading() {
 			if fp, ok := m.Files.Font[key]; ok && fp != nil && fp.Font != "" {
 				f, err := loadFnt(fp.Font, fp.Height)
 				if err != nil {
-					sys.errLog.Printf("Failed to preload %v for loading screen (%s): %v", fp.Font, key, err)
+					LogMessage("Failed to preload %v for loading screen (%s): %v", fp.Font, key, err)
 				}
 				if f == nil {
 					f = newFnt()
@@ -2739,8 +2736,6 @@ func (m *Motif) drawLoading() {
 				fp.Offset = f.offset
 			}
 		}
-		// Set font localcoord to the same as the motif
-		m.Fnt[int(fontIdx)].localcoord = m.Info.Localcoord // Use the placeholder "m" data
 	}
 
 	// Build directly from the struct values so we don't need to populate everything.

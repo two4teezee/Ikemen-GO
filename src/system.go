@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"image"
 	"io"
-	"log"
+	//"log"
 	"math"
 	"os"
 	"path"
@@ -62,7 +62,6 @@ var sys = System{
 	cam:                 *newCamera(),
 	mainThreadTask:      make(chan func(), 65536),
 	workpal:             make([]uint32, 256),
-	errLog:              log.New(NewLogWriter(), "", log.LstdFlags),
 	keyInput:            KeyUnknown,
 	saveState:           NewGameState(),
 	statePool:           NewGameStatePool(),
@@ -238,7 +237,6 @@ type System struct {
 	lifebarHide             bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
-	errLog                  *log.Logger
 	nomusic                 bool
 	workBe                  []BytecodeExp
 	keyInput                Key
@@ -376,8 +374,7 @@ func (s *System) init(w, h int32) *lua.LState {
 
 	if strings.HasPrefix(renderName, "OpenGL") {
 		if ctx, err := s.window.GLCreateContext(); err != nil {
-			Logcat("GL Context Creation Failed: " + err.Error())
-			s.errLog.Fatalf("Could not initialize context :( Reason? %s", err)
+			panic(fmt.Sprintf("Could not initialize context :( Reason? %s", err))
 		} else {
 			s.window.GLMakeCurrent(ctx)
 		}
@@ -498,7 +495,7 @@ func (s *System) init(w, h int32) *lua.LState {
 			stdin := bufio.NewScanner(os.Stdin)
 			for stdin.Scan() {
 				if err := stdin.Err(); err != nil {
-					s.errLog.Println(err.Error())
+					LogMessage(err.Error())
 					return
 				}
 				s.commandLine <- stdin.Text()
@@ -692,7 +689,7 @@ func (s *System) keepAlive() {
 			if ok {
 				loc = fmt.Sprintf("%s:%d", filepath.Base(file), line)
 			}
-			s.errLog.Printf("[keepAlive] #%d Δ=%.3fms total=%.3fs at %s",
+			LogMessage("[keepAlive] #%d Δ=%.3fms total=%.3fs at %s",
 				s.keepAliveCount,
 				float64(delta)/float64(time.Millisecond),
 				float64(total)/float64(time.Second),
@@ -1318,8 +1315,8 @@ func (s *System) uiEnsureCommandLists(total int) error {
 	for _, k := range def {
 		spec := defSpec
 		spec.Cmd = k
-		if err := s.uiRegisterCommand(k, spec); err != nil && s.errLog != nil {
-			s.errLog.Printf("uiSeedDefaultCommands: %q: %v", k, err)
+		if err := s.uiRegisterCommand(k, spec); err != nil {
+			LogMessage("uiSeedDefaultCommands: %q: %v", k, err)
 		}
 	}
 	// Trim if needed.
@@ -1737,7 +1734,7 @@ func (s *System) printBytecodeError(str string) {
 		s.appendToConsole(sys.workingChar.warn() + str)
 	} else if !sys.ignoreMostErrors {
 		// Print outside matches (compiling)
-		sys.errLog.Println(str)
+		LogMessage(str)
 	}
 }
 
@@ -3534,7 +3531,7 @@ func (s *System) runMatch() (reload bool) {
 
 	// Synchronize with external inputs (netplay, replays, etc)
 	if err := s.synchronize(); err != nil {
-		s.errLog.Println(err.Error())
+		LogMessage(err.Error())
 		s.esc = true
 	}
 	if s.netConnection != nil {
@@ -3817,10 +3814,6 @@ func (s *System) SetupCharRoundStart() {
 					}
 				}
 				p[0].power = Clamp(p[0].power, 0, p[0].powerMax) // Because of previous partner in Turns mode
-				p[0].mapArray = make(map[string]float32)
-				for k, v := range p[0].mapDefault {
-					p[0].mapArray[k] = v
-				}
 				p[0].dialogue = []string{}
 				p[0].remapSpr = make(RemapPreset)
 			}
@@ -4250,11 +4243,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 	defPathFromSelect := strings.TrimSpace(parts[0])
 	defPathFromSelect = filepath.ToSlash(defPathFromSelect)
 
-	tstr := fmt.Sprintf("Char: %v", defPathFromSelect)
-	defer func() {
-		sys.loadTime(tnow, tstr, false, false)
-	}()
-
+	// Early exits for known keywords
 	if strings.ToLower(defPathFromSelect) == "randomselect" {
 		sc.def, sc.name = "randomselect", "Random"
 		return nil
@@ -4263,6 +4252,19 @@ func (s *Select) AddChar(def string) *SelectChar {
 		sc.name = "dummyslot"
 		return nil
 	}
+
+	// Helper to set missing characters to dummy slots and (always) print a warning
+	useDummy := func(reason string) *SelectChar {
+		sc.name = "dummyslot"
+		LogMessage("Failed to add char: %v (%s)", defPathFromSelect, reason)
+		return nil
+	}
+
+	// Print a message for every loaded character. Just muted at the moment
+	defer func() {
+		tstr := fmt.Sprintf("Char: %v", defPathFromSelect)
+		sys.loadTime(tnow, tstr, false, false)
+	}()
 
 	var finalDefPath string
 	isZipChar := strings.HasSuffix(strings.ToLower(defPathFromSelect), ".zip")
@@ -4286,9 +4288,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 		}
 
 		if actualZipPathOnDisk == "" {
-			sc.name = "dummyslot"
-			tstr = fmt.Sprintf("Char: %v (ZIP NOT FOUND)", defPathFromSelect)
-			return nil
+			return useDummy("ZIP not found")
 		}
 
 		defInZip1, defInZip2 := getDefaultDefPathInZip(actualZipPathOnDisk)
@@ -4302,9 +4302,7 @@ func (s *Select) AddChar(def string) *SelectChar {
 			if FileExist(candidateLogicalPath2) != "" {
 				finalDefPath = candidateLogicalPath2
 			} else {
-				sc.name = "dummyslot"
-				tstr = fmt.Sprintf("Char: %v (DEF IN ZIP MISSING: %s or %s)", defPathFromSelect, defInZip1, defInZip2)
-				return nil
+				return useDummy(fmt.Sprintf("DEF in ZIP missing: %s or %s", defInZip1, defInZip2))
 			}
 		}
 	} else {
@@ -4320,24 +4318,24 @@ func (s *Select) AddChar(def string) *SelectChar {
 
 		foundDiskPath := SearchFile(charDefPathGuess, []string{"chars/", "data/", ""})
 		if foundDiskPath == "" || !strings.HasSuffix(strings.ToLower(foundDiskPath), ".def") {
-			sc.name = "dummyslot"
-			tstr = fmt.Sprintf("Char: %v (DEF NOT FOUND)", defPathFromSelect)
-			return nil
+			return useDummy("DEF not found")
 		}
 		finalDefPath = foundDiskPath
 	}
 
 	sc.def = finalDefPath
 	if sc.def == "" {
-		sc.name = "dummyslot"
-		return nil
+		return useDummy("Empty DEF path")
 	}
 
 	charDefContent, err := LoadText(sc.def)
 	if err != nil {
-		sc.name = "dummyslot"
-		tstr = fmt.Sprintf("Char: %v (DEF READ ERROR: %s)", defPathFromSelect, err.Error())
-		return nil
+		// Intercept simple "file not found" errors so the message isn't too long
+		if os.IsNotExist(err) {
+			return useDummy("DEF not found")
+		}
+		// Print full message if it's an actual read error
+		return useDummy("DEF read error: " + err.Error())
 	}
 
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -4601,6 +4599,8 @@ func (s *Select) AddChar(def string) *SelectChar {
 func (s *Select) AddStage(def string) (*SelectStage, error) {
 	var tstr string
 	tnow := time.Now()
+
+	// Print a message for every loaded stage. Just muted at the moment
 	defer func() {
 		sys.loadTime(tnow, tstr, false, false)
 	}()
@@ -4630,8 +4630,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		}
 
 		if actualZipPathOnDisk == "" {
-			err := fmt.Errorf("stage zip not found: %s", defPathFromSelect)
-			sys.errLog.Printf("Failed to add stage, file not found: %v\n", defPathFromSelect)
+			err := fmt.Errorf("stage ZIP not found: %s", defPathFromSelect)
+			LogMessage("Failed to add stage. File not found: %v", defPathFromSelect)
 			return nil, err
 		}
 
@@ -4645,8 +4645,8 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 			if FileExist(candidateLogicalPath2) != "" {
 				finalDefPath = candidateLogicalPath2
 			} else {
-				err := fmt.Errorf("def file not found in zip: %s or %s", defInZip1, defInZip2)
-				sys.errLog.Printf("Failed to add stage, def file not found in %v: %v or %v\n", defPathFromSelect, defInZip1, defInZip2)
+				err := fmt.Errorf("DEF file not found in ZIP: %s or %s", defInZip1, defInZip2)
+				LogMessage("Failed to add stage. DEF file not found in %v: %v or %v", defPathFromSelect, defInZip1, defInZip2)
 				return nil, err
 			}
 		}
@@ -4658,7 +4658,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 			finalDefPath = file
 			return nil
 		}); err != nil {
-			sys.errLog.Printf("Failed to add stage, file not found: %v\n", def)
+			LogMessage("Failed to add stage. File not found: %v", def)
 			return nil, err
 		}
 	}
@@ -4674,7 +4674,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		lines = SplitAndTrim(str, "\n")
 		return nil
 	}); err != nil {
-		sys.errLog.Printf("Failed to add stage, file not found: %s: %v\n", finalDefPath, err)
+		LogMessage("Failed to add stage. File read error: %s: %v", finalDefPath, err)
 		return nil, err
 	}
 
@@ -4975,14 +4975,19 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	}
 
 	var p *Char
-	var cachestr = "New"
 	sys.workingChar = p // This should help compiler and bytecode stay consistent
 
 	// Same character from a previous match
-	if sys.chars[pn] != nil && len(sys.chars[pn]) > 0 {
-		if sys.chars[pn][0].gi().def == cdef && sys.chars[pn][0].ocd().existed {
-			p = sys.chars[pn][0]
-			cachestr = "Cached" // Actually more like "same"
+	sameChar := sys.chars[pn] != nil && len(sys.chars[pn]) > 0 && sys.chars[pn][0].gi().def == cdef && sys.chars[pn][0].ocd().existed
+
+	if sameChar {
+		p = sys.chars[pn][0]
+
+		// Prepare success message
+		if attached {
+			tstr = fmt.Sprintf("Same attached char kept: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("Same char kept: %v", cdef)
 		}
 	}
 
@@ -5000,10 +5005,14 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 			p.guardPoints = sys.chars[pn][0].guardPoints // And why do these two persist?
 			p.dizzyPoints = sys.chars[pn][0].dizzyPoints
 		}
-	}
 
-	// Flag "existed" just in case
-	p.ocd().existed = true
+		// Prepare success message
+		if attached {
+			tstr = fmt.Sprintf("New attached char loaded: %v", cdef)
+		} else {
+			tstr = fmt.Sprintf("New char loaded: %v", cdef)
+		}
+	}
 
 	// Set new character parameters
 	if attached {
@@ -5024,34 +5033,30 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	sys.chars[pn][0] = p
 
 	// Load character
-	if l.err = p.load(cdef); l.err != nil {
-		sys.chars[pn] = nil
-		if attached {
-			tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
+	if !sameChar {
+		if l.err = p.load(cdef); l.err != nil {
+			sys.chars[pn] = nil
+			if attached {
+				tstr = fmt.Sprintf("WARNING: Failed to load new attached char: %v", cdef)
+			} else {
+				tstr = fmt.Sprintf("WARNING: Failed to load new char: %v", cdef)
+			}
+			return -1
 		}
-		return -1
-	}
 
-	// Compile character states
-	if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
-		sys.chars[pn] = nil
-		if attached {
-			tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
-		} else {
-			tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+		// Compile character states
+		if sys.cgi[pn].states, l.err = newCompiler().Compile(p.playerNo, cdef, p.gi().constants); l.err != nil {
+			sys.chars[pn] = nil
+			if attached {
+				tstr = fmt.Sprintf("WARNING: Failed to compile new attached char states: %v", cdef)
+			} else {
+				tstr = fmt.Sprintf("WARNING: Failed to compile new char states: %v", cdef)
+			}
+			return -1
 		}
-		return -1
 	}
 
-	// Prepare success message
-	if attached {
-		tstr = fmt.Sprintf("%s attached char loaded: %v", cachestr, cdef)
-	} else {
-		tstr = fmt.Sprintf("%s char loaded: %v", cachestr, cdef)
-	}
-
+	// Setup selected palette
 	selectPalno := 1
 	if pal, ok := sys.sel.palOverwrite[pn]; ok && pal > 0 {
 		selectPalno = pal
@@ -5061,14 +5066,17 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 	}
 	sys.cgi[pn].palno = int32(selectPalno)
 
+	// Prepare lifebar portraits and names for Turns mode
 	if !attached {
-		// Prepare lifebar portraits and names for Turns mode
 		if pn < len(sys.lifebar.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
 			fa := sys.lifebar.fa[sys.tmode[pn&1]][pn]
 			nm := sys.lifebar.nm[sys.tmode[pn&1]][pn]
 			l.prepareTurnsFaces(pn, fa, nm, teamChars)
 		}
 	}
+
+	// Flag "existed" just in case	
+	sys.chars[pn][0].ocd().existed = true
 
 	return 1
 }
@@ -5266,7 +5274,7 @@ func (l *Loader) load() {
 					removeSFFCache(ffx.sff.filename)
 				}
 				delete(sys.ffx, prefix)
-				//sys.errLog.Printf("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
+				//LogMessage("Unloaded CommonFX: %s (prefix: %s)", ffx.fileName, prefix)
 			}
 		}
 		sys.loadMutex.Unlock()

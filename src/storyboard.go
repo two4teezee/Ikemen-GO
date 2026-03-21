@@ -233,7 +233,7 @@ func loadStoryboard(def string) (*Storyboard, error) {
 						if ptr, ok := keysToCheck[strings.ToLower(k.Name())]; ok {
 							v, dup := iniFirstValue(k)
 							if dup > 0 {
-								sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), k.Name(), dup)
+								LogMessage("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), k.Name(), dup)
 							}
 							*ptr = v
 							existing[strings.ToLower(k.Name())] = true
@@ -252,7 +252,7 @@ func loadStoryboard(def string) (*Storyboard, error) {
 					keyName := key.Name()
 					value, dup := iniFirstValue(key)
 					if dup > 0 {
-						sys.errLog.Printf("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), keyName, dup)
+						LogMessage("Duplicate key [%s] %s (%d duplicate(s) ignored)", section.Name(), keyName, dup)
 					}
 					fullKey := strings.ReplaceAll(sectionName, " ", "_") + "." + strings.ReplaceAll(keyName, " ", "_")
 					keyParts := parseQueryPath(fullKey)
@@ -325,7 +325,7 @@ func (s *Storyboard) loadFiles() {
 			var err error
 			s.Sff, err = loadSff(filename, false, true, false)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 		}
 		if s.Sff == nil {
@@ -339,7 +339,7 @@ func (s *Storyboard) loadFiles() {
 			var err error
 			s.Model, err = loadglTFModel(filename)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 			sys.mainThreadTask <- func() {
 				gfx.SetModelVertexData(1, s.Model.vertexBuffer)
@@ -355,7 +355,7 @@ func (s *Storyboard) loadFiles() {
 			var err error
 			scene.Bg.BGDef, err = loadBGDef(s.Sff, s.Model, s.Def, scene.Bg.Name, 0)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v (%v): %v\n", scene.Bg.Name, s.Def, err.Error())
+				LogMessage("Failed to load %v (%v): %v", scene.Bg.Name, s.Def, err.Error())
 			}
 		}
 		if scene.Bg.BGDef == nil {
@@ -369,7 +369,7 @@ func (s *Storyboard) loadFiles() {
 			var err error
 			s.Snd, err = LoadSnd(filename)
 			if err != nil {
-				sys.errLog.Printf("Failed to load %v: %v", filename, err)
+				LogMessage("Failed to load %v: %v", filename, err)
 			}
 		}
 		if s.Snd == nil {
@@ -388,15 +388,12 @@ func (s *Storyboard) loadFiles() {
 				s.Fnt[i], err = loadFnt(filename, fnt.Height)
 				registerFontIndex(s.fntIndexByKey, filename, fnt.Height, i)
 				if err != nil {
-					sys.errLog.Printf("Failed to load %v: %v", filename, err)
+					LogMessage("Failed to load %v: %v", filename, err)
 				}
 			}
 			if s.Fnt[i] == nil {
 				s.Fnt[i] = newFnt()
 			}
-
-			// Set font localcoord to the same as the storyboard
-			s.Fnt[i].localcoord = s.Info.Localcoord
 
 			// Populate extended properties from the loaded font
 			fnt.Type = s.Fnt[i].Type

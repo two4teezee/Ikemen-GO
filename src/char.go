@@ -2296,10 +2296,20 @@ func (e *Explod) trueFacing() float32 {
 	return e.facing * e.relativef
 }
 
+type ProjStatus int32
+
+const (
+	ProjActive ProjStatus = iota
+	ProjHit // Note: Only happens after all hits connect
+	ProjCancel
+	ProjRem
+)
+
 type Projectile struct {
 	playerno        int
-	hitdef          HitDef
 	id              int32
+	status          ProjStatus
+	hitdef          HitDef
 	animNo          int32
 	anim_ffx        string
 	hitanim         int32
@@ -2357,7 +2367,6 @@ type Projectile struct {
 	platformHeight  [2]float32
 	platformAngle   float32
 	platformFence   bool
-	remflag         bool
 	freezeflag      bool
 	contactflag     bool
 	time            int32
@@ -2432,12 +2441,8 @@ func (p *Projectile) setAllPos(pos [3]float32) {
 	p.interPos = pos
 }
 
-// This is used for numProj triggers
-func (p *Projectile) isCountable() bool {
-	if p.remflag || (p.hits < 0 && p.remove) {
-		return false
-	}
-	return true
+func (p *Projectile) isActive() bool {
+	return p.status == ProjActive
 }
 
 func (p *Projectile) paused() bool {
@@ -2456,30 +2461,35 @@ func (p *Projectile) paused() bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
-		if p.animNo >= 0 && !p.remflag {
-			remove := true
-			if p.hits < 0 {
-				// Remove behavior
-				if p.hits == -1 && p.remove {
-					if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
-						if p.hitanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
-							p.anim = a
-						}
+		if p.animNo >= 0 && p.isActive() {
+			remove := false
+
+			// Check hit or cancel triggers
+			if p.status == ProjHit && p.remove {
+				// Remove after hit behavior
+				remove = true
+				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
+					if p.hitanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+						p.anim = a
 					}
 				}
+			} else if p.status == ProjCancel {
 				// Cancel behavior
-				if p.hits == -2 {
-					if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
-						if p.cancelanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
-							p.anim = a
-						}
+				remove = true
+				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
+					if p.cancelanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+						p.anim = a
 					}
 				}
-			} else if p.removetime == 0 ||
+			}
+
+			// If not removed by hit/cancel, check time and bounds
+			if !remove {
+				if p.removetime == 0 ||
 				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
 				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
 				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
@@ -2489,24 +2499,25 @@ func (p *Projectile) update() {
 				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
 				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
 				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
-					if p.remanim != -2 {
-						if p.remanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
-							p.anim = a
-							// In Mugen, if remanim is invalid the projectile will keep the current one
-							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+					
+					remove = true
+					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
+						if p.remanim != -2 {
+							if p.remanim == -1 {
+								p.anim = nil
+							} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+								p.anim = a
+								// In Mugen, if remanim is invalid the projectile will keep the current one
+								// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+							}
 						}
 					}
 				}
-				remove = true
-			} else {
-				remove = false
 			}
+
 			// Active to removing transition
 			if remove {
-				p.remflag = true
+				p.status = ProjRem
 				if p.anim != nil {
 					p.anim.UpdateSprite()
 				}
@@ -2526,8 +2537,9 @@ func (p *Projectile) update() {
 				//}
 			}
 		}
-		// Remove projectile
-		if p.remflag {
+
+		// Remove projectile once animation allows it
+		if !p.isActive() {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
 			}
@@ -2536,6 +2548,7 @@ func (p *Projectile) update() {
 			}
 		}
 	}
+
 	if p.paused() || p.hitpause > 0 || p.freezeflag {
 		p.setAllPos(p.pos)
 		// There's a minor issue here where a projectile will lag behind one frame relative to Mugen if created during a pause
@@ -2561,13 +2574,15 @@ func (p *Projectile) update() {
 			}
 		}
 	}
+
 	// Update Z scale
 	p.zScale = sys.updateZScale(p.pos[2], p.localscl)
 }
 
 // Flag a projectile as cancelled
 func (p *Projectile) flagProjCancel() {
-	p.hits = -2
+	//p.hits = -2
+	p.status = ProjCancel
 	if p.playerno >= 0 && p.playerno < len(sys.cgi) {
 		if rgi := &sys.cgi[p.playerno]; rgi != nil {
 			rgi.pctype = PC_Cancel
@@ -2602,7 +2617,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 
 	// Skip if this projectile can't trade at all
 	// Projectiles can trade even if they are spawned with 0 hits
-	if p.hits < 0 || p.remflag {
+	if p.hits < 0 || !p.isActive() {
 		return
 	}
 
@@ -2630,7 +2645,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			pr := sys.projs[i][j]
 
 			// Skip if other projectile can't trade
-			if pr.remflag || pr.hits < 0 || pr.id < 0 {
+			if !pr.isActive() || pr.hits < 0 || pr.id < 0 {
 				continue
 			}
 
@@ -2689,7 +2704,8 @@ func (p *Projectile) tick() {
 		if p.hits >= 0 {
 			p.hits--
 			if p.hits <= 0 {
-				p.hits = -1
+				//p.hits = -1
+				p.status = ProjHit
 				p.hitpause = 0
 			}
 		}
@@ -3220,8 +3236,8 @@ func (c *Char) panic(msg string) {
 	if sys.workingState != st {
 		st = sys.workingState
 	}
-	sys.errLog.Panicf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
-		msg, c.name, sys.cgi[st.playerNo].def, st)
+	panic(fmt.Sprintf("%s\nChar name: %v\nState source: %v\nState dump: %+v\n",
+		msg, c.name, sys.cgi[st.playerNo].def, st))
 }
 
 func (c *Char) init(n int, idx int) {
@@ -3268,6 +3284,10 @@ func (c *Char) init(n int, idx int) {
 	// Initialize CNS variables
 	// TODO: If we make maps persist between matches, they should be here as well
 	c.initCnsVar()
+
+	// Init the map array
+	// Note: While loading a new character mapDefault isn't populated yet, so we also need this in load()
+	c.mapReset(nil)
 
 	// Set controller to CPU if applicable
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
@@ -3419,12 +3439,6 @@ func (c *Char) ocd() *OverrideCharData {
 func (c *Char) load(def string) error {
 	gi := &sys.cgi[c.playerNo]
 
-	// Keep SFF if debug option is enabled and we're loading the same character in the same player number
-	keepsff := sys.cfg.Debug.KeepSpritesOnReload && def == gi.def
-	if !keepsff {
-		gi.sff = nil
-	}
-
 	// Reset global info
 	gi.def = def
 	gi.displayname, gi.lifebarname, gi.author = "", "", ""
@@ -3438,6 +3452,9 @@ func (c *Char) load(def string) error {
 		pal.keyMap = int32(i)
 		gi.palInfo[i] = pal
 	}
+
+	// We don't nil the SFF so that loadSff() can reuse it if the same character is selected/reloaded
+	//gi.sff = nil
 
 	// Reset DEF file maps
 	c.mapDefault = make(map[string]float32)
@@ -3473,7 +3490,7 @@ func (c *Char) load(def string) error {
 	}
 
 	if err := c.loadFx(def); err != nil {
-		sys.errLog.Printf("Error loading FX for %s: %v", def, err)
+		LogMessage("Error loading FX for %s: %v", def, err)
 	}
 
 	str, err := LoadText(def)
@@ -3617,6 +3634,9 @@ func (c *Char) load(def string) error {
 			}
 		}
 	}
+
+	// Reset maps in order to upload the freshly loaded defaults
+	c.mapReset(nil)
 
 	// Set constants to defaults
 	c.initConstants()
@@ -4008,13 +4028,11 @@ func (c *Char) load(def string) error {
 					h = spec.height
 				}
 				if fnt, err := loadFnt(filename, h); err != nil {
-					sys.errLog.Printf("failed to load %v (char font): %v", filename, err)
+					LogMessage("Failed to load %v (char font): %v", filename, err)
 					gi.fnt[i] = newFnt()
 				} else {
 					gi.fnt[i] = fnt
 				}
-				// Set font localcoord to the same as the char
-				gi.fnt[i].localcoord = gi.localcoord
 			}
 			return nil
 		})
@@ -4264,12 +4282,12 @@ func (c *Char) loadFx(def string) error {
 
 						if found_path != "" {
 							if err := loadFightFx(found_path, false, false); err != nil {
-								sys.errLog.Printf("Could not load CommonFX %s for char %s: %v", found_path, def, err)
+								LogMessage("Could not load CommonFX %s for char %s: %v", found_path, def, err)
 							} else {
 								gi.fxPath = append(gi.fxPath, found_path)
 							}
 						} else {
-							sys.errLog.Printf("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
+							LogMessage("CommonFX file not found for char %s: %s (resolved to %s)", def, fx_path, resolved_path)
 						}
 					}
 				}
@@ -4513,7 +4531,7 @@ func (c *Char) parent(log bool) *Char {
 		if log {
 			sys.appendToConsole(c.warn() + "parent has already been destroyed")
 			if !sys.ignoreMostErrors {
-				sys.errLog.Println(c.name + " parent has already been destroyed")
+				LogMessage(c.name + " parent has already been destroyed")
 			}
 		}
 		return nil
@@ -5549,30 +5567,15 @@ func (c *Char) numPartner() int32 {
 }
 
 func (c *Char) numProj() int32 {
-	// Helpers cannot own projectiles
-	if c.helperIndex != 0 {
-		return 0
-	}
+	projs := c.getMultipleProjs(-1, -1, false)
+	total := int32(len(projs))
 
-	n := int32(0)
-
-	for _, p := range sys.projs[c.playerNo] {
-		if p.isCountable() {
-			n++
-		}
-	}
-
-	return n
+	return total
 }
 
 func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	if pid.IsUndefined() {
 		return BytecodeUndefined()
-	}
-
-	// Helpers cannot own projectiles
-	if c.helperIndex != 0 {
-		return BytecodeInt(0)
 	}
 
 	// Validate ID
@@ -5582,15 +5585,10 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 		id = 0
 	}
 
-	var n int32 = 0
+	projs := c.getMultipleProjs(id, -1, false)
+	total := int32(len(projs))
 
-	for _, p := range sys.projs[c.playerNo] {
-		if p.id == id && p.isCountable() {
-			n++
-		}
-	}
-
-	return BytecodeInt(n)
+	return BytecodeInt(total)
 }
 
 func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
@@ -6070,7 +6068,7 @@ func (c *Char) playSound(ffx string, lowpriority bool, loopCount int32, g, n, ch
 			} else {
 				str += fmt.Sprintf("P%v:", c.playerNo+1)
 			}
-			sys.errLog.Printf("%v%v,%v\n", str, g, n)
+			LogMessage("%v%v,%v", str, g, n)
 		}
 		return
 	}
@@ -6194,7 +6192,7 @@ func (c *Char) shouldFaceP2() bool {
 func (c *Char) stateChange1(no int32, pn int) bool {
 	if sys.changeStateNest >= MaxLoop {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("state machine stuck in loop (stopped after %v loops): %v -> %v -> %v", sys.changeStateNest, c.ss.prevno, c.ss.no, no))
-		sys.errLog.Printf("Maximum ChangeState loops: %v, %v, %v -> %v -> %v\n", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
+		LogMessage("Maximum ChangeState loops: %v, %v, %v -> %v -> %v", sys.changeStateNest, c.name, c.ss.prevno, c.ss.no, no)
 		return false
 	}
 	var ctrlsps_backup []int32
@@ -6258,21 +6256,21 @@ func (c *Char) stateChange1(no int32, pn int) bool {
 	if no < 0 {
 		sys.appendToConsole(c.warn() + "attempted to change to negative state")
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Attempted to change to negative state: P%v:%v\n", pn+1, no)
+			LogMessage("Attempted to change to negative state: P%v:%v", pn+1, no)
 		}
 	}
 	// Check if player is trying to change to a state number that exceeds the limit
 	if no >= math.MaxInt32 {
 		sys.appendToConsole(c.warn() + "changed to out of bounds state number")
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Changed to out of bounds state number: P%v:%v\n", pn+1, no)
+			LogMessage("Changed to out of bounds state number: P%v:%v", pn+1, no)
 		}
 	}
 	// Always attempt to change to the state we set to.
 	if c.ss.sb, ok = sys.cgi[pn].states[c.ss.no]; !ok {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid state %v (from state %v)", no, c.ss.prevno))
 		if !sys.ignoreMostErrors {
-			sys.errLog.Printf("Invalid state: P%v:%v\n", pn+1, no)
+			LogMessage("Invalid state: P%v:%v", pn+1, no)
 		}
 		c.ss.sb = *newStateBytecode(pn)
 		c.ss.sb.stateType, c.ss.sb.moveType, c.ss.sb.physics = ST_U, MT_U, ST_U
@@ -6506,7 +6504,6 @@ func (c *Char) newHelper() (h *Char) {
 	h.helperId = 0
 	h.ownpal = false
 	h.preserve = false
-	h.mapArray = make(map[string]float32)
 	h.remapSpr = make(RemapPreset)
 
 	// Copy some parent parameters
@@ -6565,33 +6562,6 @@ func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32, facing
 	if h.helperId < 0 {
 		sys.appendToConsole(h.warn() + fmt.Sprintf("has negative Helper ID"))
 		h.helperId = 0
-	}
-
-	// Enforce minimum width constants
-	// Mugen does not actually do this. Instead, it secretly uses these limits when calculating player overlap for pushing
-	// But doing it this way is more transparent and causes less pollution in our code
-	if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
-		minwidth := 5.0 / h.localscl // TODO: Check if localscl is necessary
-		var changedAny bool
-		if h.size.standbox[0] > -minwidth {
-			h.size.standbox[0] = -minwidth
-			changedAny = true
-		}
-		if h.size.standbox[2] < minwidth {
-			h.size.standbox[2] = minwidth
-			changedAny = true
-		}
-		if h.size.airbox[0] > -minwidth {
-			h.size.airbox[0] = -minwidth
-			changedAny = true
-		}
-		if h.size.airbox[2] < minwidth {
-			h.size.airbox[2] = minwidth
-			changedAny = true
-		}
-		if changedAny {
-			sys.appendToConsole(h.warn() + fmt.Sprintf("clamped invalid width constants to %v", minwidth))
-		}
 	}
 
 	// Prepare newly created helper so it can be successfully run later via actionRun() in charList.action()
@@ -6856,10 +6826,6 @@ func (c *Char) spawnText() *TextSprite {
 	// Init the text
 	ts.ownerid = c.id
 
-	// Negate font draw function offsets and shift coordinate origin to where the screen edge is, regardless of aspect ratio
-	extraScreen := (320 * float32(sys.gameWidth) / (float32(sys.gameHeight) * 4 / 3)) - 320
-	ts.offsetX = -int32(extraScreen / 2)
-
 	return ts
 }
 
@@ -7020,7 +6986,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			} else {
 				str += fmt.Sprintf("P%v:", c.playerNo+1)
 			}
-			sys.errLog.Printf("%v%v\n", str, n)
+			LogMessage("%v%v", str, n)
 		}
 	}
 
@@ -7284,14 +7250,18 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 }
 
 // Get multiple projectiles for ModifyProjectile, etc
-// TODO: The filtering logic here is different from numProj. It's probably best if they're the same
 func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
+	// Helpers cannot own projectiles
+	if c.helperIndex != 0 {
+		return nil
+	}
+
 	// No use searching if index is impossible
 	if len(sys.projs[c.playerNo]) > 0 && idx < len(sys.projs[c.playerNo]) {
 		// Filter projectiles with the specified ID
 		matchCount := 0
 		for _, p := range sys.projs[c.playerNo] {
-			if id < 0 || p.id == id {
+			if (id < 0 || p.id == id) && p.isActive() {
 				if idx >= 0 {
 					// Count the matches but only return one
 					if matchCount == idx {
@@ -7679,6 +7649,46 @@ func (c *Char) sysFvarGet(i int32) BytecodeValue {
 	return BytecodeFloat(0)
 }
 
+func (c *Char) cnsVarSet(i int32, value BytecodeValue, scType int32, varType int32) BytecodeValue {
+	// Determine variable owner
+	target := c
+	switch scType {
+	case 2, 3:
+		target = c.parent(true)
+	case 4, 5:
+		target = c.root(true)
+	}
+	if target == nil {
+		return BytecodeUndefined()
+	}
+
+	// Handle different sctrl types
+	add := scType == 1 || scType == 3 || scType == 5
+	switch varType {
+	case 0:
+		if add {
+			return target.varAdd(i, value.ToI())
+		}
+		return target.varSet(i, value.ToI())
+	case 1:
+		if add {
+			return target.fvarAdd(i, value.ToF())
+		}
+		return target.fvarSet(i, value.ToF())
+	case 2:
+		if add {
+			return target.sysVarAdd(i, value.ToI())
+		}
+		return target.sysVarSet(i, value.ToI())
+	case 3:
+		if add {
+			return target.sysFvarAdd(i, value.ToF())
+		}
+		return target.sysFvarSet(i, value.ToF())
+	}
+	return BytecodeUndefined()
+}
+
 func (c *Char) varSet(i, v int32) BytecodeValue {
 	if i < 0 {
 		sys.appendToConsole(c.warn() + fmt.Sprintf("var index %v must be positive", i))
@@ -7686,7 +7696,7 @@ func (c *Char) varSet(i, v int32) BytecodeValue {
 	}
 
 	c.cnsvar[i] = v // Create or update the key
-	return BytecodeInt(v)
+	return BytecodeInt(v) // We also return the value because var assignment can be used in expressions
 }
 
 func (c *Char) fvarSet(i int32, v float32) BytecodeValue {
@@ -9037,7 +9047,7 @@ func (c *Char) remapSpritePreset(preset string) {
 	}
 }
 
-// MapSet() sets a map to a specific value.
+// MapSet() sets a map to a specific value. Used for both sctrl and assignment forms
 func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 	if s == "" {
 		return BytecodeUndefined()
@@ -9093,100 +9103,67 @@ func (c *Char) mapSet(s string, Value float32, scType int32) BytecodeValue {
 			}
 		}
 	}
-	return BytecodeFloat(Value)
+	return BytecodeFloat(Value) // We also return the value because map assignment can be used in expressions
 }
 
-func (c *Char) appendLifebarAction(text string, fontno, fontbank, fontalign int32, fontcolor [4]int32, colorSet bool, palfx *PalFX, s_ffx, a_ffx string, snd, spr [2]int32, anim, time int32, timemul float32, top bool) {
-	if c.teamside == -1 {
-		return
+// Used to init, fully reset or partially reset the map array
+func (c *Char) mapReset(exclude []string) {
+	// Initialize mapArray if nil
+	if c.mapArray == nil {
+		c.mapArray = make(map[string]float32)
 	}
-	if _, ok := sys.lifebar.missing["[action]"]; ok { //"
+
+	// Fast path for full reset
+	// Just remake the map and populate with defaults
+	if len(exclude) == 0 {
+		c.mapArray = make(map[string]float32)
+		for k, v := range c.mapDefault {
+			c.mapArray[k] = v
+		}
 		return
 	}
 
-	// Play sound
-	if snd[0] != -1 && snd[1] != -1 {
-		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].snd != nil {
-			s := sys.ffx[s_ffx].snd.Get(snd) //Common FX
-			if s != nil {
-				sys.soundChannels.Play(s, snd[0], snd[1], 100, 0, 0, 0, 0)
+	// Pre-process exclusions to lowercase
+	lowExcludes := make([]string, 0, len(exclude))
+	for _, s := range exclude {
+		if s != "" {
+			lowExcludes = append(lowExcludes, strings.ToLower(s))
+		}
+	}
+
+	// Helper to filter maps
+	isExcluded := func(kLow string) bool {
+		for _, s := range lowExcludes {
+			if strings.Contains(kLow, s) {
+				return true
 			}
+		}
+		return false
+	}
+
+	// Process existing keys
+	// Restore defaults or delete non-defaults
+	for k := range c.mapArray {
+		kLow := strings.ToLower(k)
+		if isExcluded(kLow) {
+			continue
+		}
+
+		if v, ok := c.mapDefault[k]; ok {
+			c.mapArray[k] = v
 		} else {
-			sys.lifebar.snd.play(snd, 100, 0, 0, 0, 0)
+			delete(c.mapArray, k)
 		}
 	}
 
-	// If sound only, stop here
-	if anim == -1 && (spr[0] == -1 || spr[1] == -1) && text == "" {
-		return
-	}
-
-	teammsg := sys.lifebar.ac[c.teamside]
-
-	// If adding a new message while exceeding the maximum number allowed, make the oldest message go away faster
-	var count int32
-	for _, v := range teammsg.messages {
-		if !v.del {
-			count++
+	// Restore missing defaults
+	// If a default exists but wasn't in mapArray and isn't excluded, bring it back
+	for k, v := range c.mapDefault {
+		kLow := strings.ToLower(k)
+		if _, ok := c.mapArray[k]; !ok && !isExcluded(kLow) {
+			c.mapArray[k] = v
 		}
 	}
-	if count >= teammsg.max {
-		var oldest int
-		var oldesttimer int32
-		// Reset timer for last messages if "top"
-		for i := 0; i < len(teammsg.messages); i++ {
-			msg := teammsg.messages[i]
-			if !msg.del && msg.resttime > 0 && msg.agetimer > oldesttimer {
-				oldest = i
-				oldesttimer = msg.agetimer
-			}
-		}
-		if oldest < len(teammsg.messages) && teammsg.messages[oldest] != nil {
-			teammsg.messages[oldest].resttime = 0
-		}
-	}
-
-	// Use index 0 if "top", otherwise find the first free message slot
-	index := 0
-	if !top {
-		for k, v := range teammsg.messages {
-			if v.del {
-				teammsg.messages = removeLbMsg(teammsg.messages, k)
-				break
-			}
-			index++
-		}
-	}
-
-	// Get default display time from the lifebar
-	if time == -1 {
-		time = teammsg.displaytime
-	}
-
-	// Prepare contents of new message
-	msg := newLbMsg(text, int32(float32(time)*timemul), c.teamside, fontno, fontbank, fontalign, fontcolor, colorSet, palfx)
-	delete(teammsg.is, fmt.Sprintf("team%v.front.anim", c.teamside+1))
-	delete(teammsg.is, fmt.Sprintf("team%v.front.spr", c.teamside+1))
-
-	// Read animation
-	if anim != -1 {
-		teammsg.is[fmt.Sprintf("team%v.front.anim", c.teamside+1)] = fmt.Sprintf("%v", anim)
-	}
-	// Read sprite
-	if spr[0] != -1 && spr[1] != -1 {
-		teammsg.is[fmt.Sprintf("team%v.front.spr", c.teamside+1)] = fmt.Sprintf("%v,%v", spr[0], spr[1])
-	}
-	// Read background
-	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.animTable, 2)
-	// Read front
-	if a_ffx != "" && a_ffx != "s" { //Common FX
-		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.ffx[a_ffx].sff, sys.ffx[a_ffx].animTable, 2)
-	} else {
-		msg.front = ReadAnimLayout(fmt.Sprintf("team%v.front.", c.teamside+1), teammsg.is, sys.lifebar.sff, sys.lifebar.animTable, 2)
-	}
-
-	// Insert new message
-	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)
 }
 
 func (c *Char) appendDialogue(s string, reset bool) {
@@ -13245,10 +13222,29 @@ func (cl *CharList) pushDetection(getter *Char) {
 			continue
 		}
 
-		// X-axis check
-		// It looks like Mugen uses an undocumented minimum overlap of 10 or such
-		// There's no particularly good reason for us to do the same
+		// Clamp width
+		// Mugen secretly does this for some reason
 		// https://github.com/ikemen-engine/Ikemen-GO/issues/3164
+		if c.stWgi().ikemenver[0] == 0 && c.stWgi().ikemenver[1] == 0 {
+			minwidth := 5.0 / c.localscl
+			if cbox[0] > -minwidth {
+				cbox[0] = -minwidth
+			}
+			if cbox[2] < minwidth {
+				cbox[2] = minwidth
+			}
+		}
+		if getter.stWgi().ikemenver[0] == 0 && getter.stWgi().ikemenver[1] == 0 {
+			minwidth := 5.0 / getter.localscl
+			if gbox[0] > -minwidth {
+				gbox[0] = -minwidth
+			}
+			if gbox[2] < minwidth {
+				gbox[2] = minwidth
+			}
+		}
+
+		// X-axis check
 		cposx := c.pos[0] * c.localscl
 		cxleft := cbox[0] * c.localscl
 		cxright := cbox[2] * c.localscl

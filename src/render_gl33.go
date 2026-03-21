@@ -52,7 +52,7 @@ func (r *Renderer_GL33) newShaderProgram(vert, frag, geo, name string, crashWhen
 
 	// Debug
 	if r.debugMode {
-		fmt.Printf("[GL Debug] Linked shader '%s' as Program ID: %d\n", name, prog)
+		LogMessage("[GL Debug] Linked shader '%s' as Program ID: %d", name, prog)
 	}
 
 	return s, nil
@@ -69,7 +69,7 @@ func (s *ShaderProgram_GL33) RegisterAttributes(names ...string) {
 		s.attributes[name] = loc
 
 		if r.debugMode && loc == -1 {
-			fmt.Printf("[GL Debug] Shader %v: Attribute '%s' not found!\n", s.name, name)
+			LogMessage("[GL Debug] Shader %v: Attribute '%s' not found!", s.name, name)
 		}
 	}
 }
@@ -81,7 +81,7 @@ func (s *ShaderProgram_GL33) RegisterUniforms(names ...string) {
 		s.uniforms[name] = loc
 
 		if r.debugMode && loc == -1 {
-			fmt.Printf("[GL Debug] Shader %v: Uniform '%s' not found!\n", s.name, name)
+			LogMessage("[GL Debug] Shader %v: Uniform '%s' not found!", s.name, name)
 		}
 	}
 }
@@ -94,7 +94,7 @@ func (s *ShaderProgram_GL33) RegisterTextures(names ...string) {
 		s.textures[name] = len(s.textures)
 
 		if r.debugMode && loc == -1 {
-			fmt.Printf("[GL Debug] Shader %v: Texture uniform '%s' not found or optimized out!\n", s.name, name)
+			LogMessage("[GL Debug] Shader %v: Texture uniform '%s' not found or optimized out!", s.name, name)
 		}
 	}
 }
@@ -575,7 +575,7 @@ func (r *Renderer_GL33) InitModelShader() error {
 // Creates the default shaders, the framebuffer and enables MSAA.
 func (r *Renderer_GL33) Init() {
 	chk(gl.Init())
-	sys.errLog.Printf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
+	LogMessage("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
 
 	var maxSamples int32
 	gl.GetIntegerv(gl.MAX_SAMPLES, &maxSamples)
@@ -797,8 +797,7 @@ func (r *Renderer_GL33) Init() {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture, 0)
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 		if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-			sys.errLog.Printf("framebuffer create failed: 0x%x", status)
-			fmt.Printf("framebuffer create failed: 0x%x \n", status)
+			LogMessage("Framebuffer creation failed: 0x%x", status)
 		}
 		gl.GenFramebuffers(1, &r.fbo_f)
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_f)
@@ -831,10 +830,12 @@ func (r *Renderer_GL33) Init() {
 			gl.TexParameteri(gl.TEXTURE_CUBE_MAP_ARRAY_ARB, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
 
 			gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_shadow)
+			gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
 			gl.DrawBuffer(gl.NONE)
 			gl.ReadBuffer(gl.NONE)
+
 			if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-				sys.errLog.Printf("framebuffer create failed: 0x%x", status)
+				LogMessage("Shadow framebuffer creation failed: 0x%x", status)
 			}
 		}
 		gl.GenFramebuffers(1, &r.fbo_env)
@@ -873,7 +874,7 @@ func (r *Renderer_GL33) InitStateCache() {
 	gl.GetIntegerv(gl.MAX_TEXTURE_IMAGE_UNITS, &maxTex)
 
 	if r.debugMode {
-		fmt.Printf("[GL Debug] GPU supports up to %d textures\n", maxTex)
+		LogMessage("[GL Debug] GPU supports up to %d textures", maxTex)
 	}
 
 	// Initialize sprite texture cache
@@ -906,7 +907,7 @@ func (r *Renderer_GL33) EnableDebug() {
 			return
 		}
 
-		fmt.Printf("[GL Debug] %s\n", message)
+		LogMessage("[GL Debug] %s", message)
 
 		// Crash here so the log catches it
 		if severity == gl.DEBUG_SEVERITY_HIGH {
@@ -914,7 +915,7 @@ func (r *Renderer_GL33) EnableDebug() {
 		}
 	}, nil)
 
-	fmt.Printf("[GL Debug] Debug mode enabled\n")
+	LogMessage("[GL Debug] OpenGL debug mode enabled")
 }
 
 /*
@@ -936,7 +937,7 @@ func (r *Renderer_GL33) DebugCheckLeaks(nextprog uint32) {
 		}
 	}
 	if len(leaked) > 0 {
-		fmt.Printf("[GL Debug] Changing to program %d with attributes %v enabled in VAO %d.\n", nextprog, leaked, currentVAO)
+		LogMessage("[GL Debug] Changing to program %d with attributes %v enabled in VAO %d.", nextprog, leaked, currentVAO)
 	}
 }
 */
@@ -950,36 +951,36 @@ func (r *Renderer_GL33) DebugVerifyCache() {
 	var hwProg int32
 	gl.GetIntegerv(gl.CURRENT_PROGRAM, &hwProg)
 	if uint32(hwProg) != r.program {
-		fmt.Printf("[GL Cache Error] Program mismatch! Cache: %d, HW: %d\n", r.program, hwProg)
+		LogMessage("[GL Cache Error] Program mismatch! Cache: %d, HW: %d", r.program, hwProg)
 	}
 
 	if gl.IsEnabled(gl.DEPTH_TEST) != r.depthTest {
-		fmt.Printf("[GL Cache Error] DepthTest mismatch! Cache: %v, HW: %v\n", r.depthTest, !r.depthTest)
+		LogMessage("[GL Cache Error] DepthTest mismatch! Cache: %v, HW: %v", r.depthTest, !r.depthTest)
 	}
 
 	var depthMask bool
 	gl.GetBooleanv(gl.DEPTH_WRITEMASK, &depthMask)
 	if depthMask != r.depthMask {
-		fmt.Printf("[GL Cache Error] DepthMask mismatch! Cache: %v, HW: %v\n", r.depthMask, depthMask)
+		LogMessage("[GL Cache Error] DepthMask mismatch! Cache: %v, HW: %v", r.depthMask, depthMask)
 	}
 
 	// doubleSided = true means CULL_FACE is DISABLED
 	if (gl.IsEnabled(gl.CULL_FACE) == false) != r.doubleSided {
-		fmt.Printf("[GL Cache Error] DoubleSided mismatch! Cache: %v, HW: %v\n", r.doubleSided, !r.doubleSided)
+		LogMessage("[GL Cache Error] DoubleSided mismatch! Cache: %v, HW: %v", r.doubleSided, !r.doubleSided)
 	}
 
 	var frontFace int32
 	gl.GetIntegerv(gl.FRONT_FACE, &frontFace)
 	if (frontFace == gl.CW) != r.invertFrontFace {
-		fmt.Printf("[GL Cache Error] FrontFace mismatch! Cache: %v, HW: %v\n", r.invertFrontFace, frontFace == gl.CW)
+		LogMessage("[GL Cache Error] FrontFace mismatch! Cache: %v, HW: %v", r.invertFrontFace, frontFace == gl.CW)
 	}
 
 	if gl.IsEnabled(gl.BLEND) != r.blendEnabled {
-		fmt.Printf("[GL Cache Error] BlendEnabled mismatch! Cache: %v, HW: %v\n", r.blendEnabled, !r.blendEnabled)
+		LogMessage("[GL Cache Error] BlendEnabled mismatch! Cache: %v, HW: %v", r.blendEnabled, !r.blendEnabled)
 	}
 
 	if gl.IsEnabled(gl.SCISSOR_TEST) != r.scissorEnabled {
-		fmt.Printf("[GL Cache Error] ScissorEnabled mismatch! Cache: %v, HW: %v\n", r.scissorEnabled, !r.scissorEnabled)
+		LogMessage("[GL Cache Error] ScissorEnabled mismatch! Cache: %v, HW: %v", r.scissorEnabled, !r.scissorEnabled)
 	}
 
 	// We only care about these if the corresponding test is enabled.
@@ -989,10 +990,10 @@ func (r *Renderer_GL33) DebugVerifyCache() {
 		gl.GetIntegerv(gl.BLEND_SRC_RGB, &src)
 		gl.GetIntegerv(gl.BLEND_DST_RGB, &dst)
 		if uint32(eq) != r.MapBlendEquation(r.blendEquation) {
-			fmt.Printf("[GL Cache Error] BlendEquation mismatch!\n")
+			LogMessage("[GL Cache Error] BlendEquation mismatch!")
 		}
 		if uint32(src) != r.MapBlendFunction(r.blendSrc) || uint32(dst) != r.MapBlendFunction(r.blendDst) {
-			fmt.Printf("[GL Cache Error] BlendFunc mismatch!\n")
+			LogMessage("[GL Cache Error] BlendFunc mismatch!")
 		}
 	}
 
@@ -1000,7 +1001,7 @@ func (r *Renderer_GL33) DebugVerifyCache() {
 		var hwScissor [4]int32
 		gl.GetIntegerv(gl.SCISSOR_BOX, &hwScissor[0])
 		if hwScissor != r.scissorRect {
-			fmt.Printf("[GL Cache Error] ScissorRect mismatch! Cache: %v, HW: %v\n", r.scissorRect, hwScissor)
+			LogMessage("[GL Cache Error] ScissorRect mismatch! Cache: %v, HW: %v", r.scissorRect, hwScissor)
 		}
 	}
 
@@ -1018,7 +1019,7 @@ func (r *Renderer_GL33) DebugVerifyCache() {
 			var enabled int32
 			gl.GetVertexAttribiv(uint32(loc), gl.VERTEX_ATTRIB_ARRAY_ENABLED, &enabled)
 			if (enabled != 0) != flag {
-				fmt.Printf("[GL Cache Error] %s mismatch! Cache: %v, HW: %v\n", attrKey, flag, enabled != 0)
+				LogMessage("[GL Cache Error] %s mismatch! Cache: %v, HW: %v", attrKey, flag, enabled != 0)
 			}
 		}
 	}
@@ -1342,7 +1343,7 @@ func (r *Renderer_GL33) prepareShadowMapPipeline(bufferIndex uint32) {
 	gl.BindBuffer(gl.ARRAY_BUFFER, r.modelVertexBuffer[bufferIndex])
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, r.modelIndexBuffer[bufferIndex])
 
-	gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0)
+	//gl.FramebufferTexture(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, r.fbo_shadow_cube_texture, 0) // Handled in Init()
 	gl.Clear(gl.DEPTH_BUFFER_BIT)
 
 	r.SetActiveTexture0() // gl.ActiveTexture(gl.TEXTURE0)
@@ -1864,7 +1865,7 @@ func (r *Renderer_GL33) SetModelUniformI(name string, val int) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Model uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1875,7 +1876,7 @@ func (r *Renderer_GL33) SetModelUniformF(name string, values ...float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Model uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1886,7 +1887,7 @@ func (r *Renderer_GL33) SetModelUniformFv(name string, values []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Model uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1897,7 +1898,7 @@ func (r *Renderer_GL33) SetModelUniformMatrix(name string, value []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Model uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1908,7 +1909,7 @@ func (r *Renderer_GL33) SetModelUniformMatrix3(name string, value []float32) {
 	loc, ok := r.modelShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Model uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Model uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1919,7 +1920,7 @@ func (r *Renderer_GL33) SetShadowMapUniformI(name string, val int) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Shadow uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1930,7 +1931,7 @@ func (r *Renderer_GL33) SetShadowMapUniformF(name string, values ...float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Shadow uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1941,7 +1942,7 @@ func (r *Renderer_GL33) SetShadowMapUniformFv(name string, values []float32) {
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Shadow uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1952,7 +1953,7 @@ func (r *Renderer_GL33) SetShadowMapUniformMatrix(name string, value []float32) 
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Shadow uniform '%s' not registered", name)
 		}
 		return
 	}
@@ -1963,7 +1964,7 @@ func (r *Renderer_GL33) SetShadowMapUniformMatrix3(name string, value []float32)
 	loc, ok := r.shadowMapShader.uniforms[name]
 	if !ok || loc < 0 {
 		if r.debugMode {
-			fmt.Printf("[GL Debug] Shadow uniform '%s' not registered\n", name)
+			LogMessage("[GL Debug] Shadow uniform '%s' not registered", name)
 		}
 		return
 	}

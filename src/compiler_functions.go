@@ -2612,205 +2612,184 @@ func (c *Compiler) sprPriority(is IniSection, sc *StateControllerBase, _ int8) (
 	return *ret, err
 }
 
-func (c *Compiler) varSetSub(is IniSection,
-	sc *StateControllerBase, rd OpCode, oc OpCode) error {
-	b, v, fv := false, false, false
+// "v = x; value = y" syntax
+func (c *Compiler) varSetValueSub(is IniSection, sc *StateControllerBase, alreadyAssigned func() bool) (bool, error) {
 	var value string
+	hasValue := false
 	if err := c.stateParam(is, "value", false, func(data string) error {
-		b = true
+		hasValue = true
 		value = data
 		return nil
 	}); err != nil {
-		return err
+		return false, err
 	}
-	if b {
-		var ve BytecodeExp
-		if err := c.stateParam(is, "v", false, func(data string) (err error) {
-			v = true
-			ve, err = c.fullExpression(&data, VT_Int)
-			return
-		}); err != nil {
-			return err
+	if !hasValue {
+		return false, nil
+	}
+
+	var index string
+	varType := int32(0)
+	hasIndex := false
+
+	// Helper to select target variable and handle duplicate errors
+	setTargetVar := func(data string, t int32) error {
+		if hasIndex || alreadyAssigned() {
+			msg := fmt.Sprintf("VarSet in state %v can only set one variable at a time", c.stateNo)
+			if c.zssMode || !sys.ignoreMostErrors {
+				return Error(msg)
+			}
+			sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + ": " + msg)
 		}
-		if !v {
-			if err := c.stateParam(is, "fv", false, func(data string) (err error) {
-				fv = true
-				ve, err = c.fullExpression(&data, VT_Int)
-				return
-			}); err != nil {
-				return err
-			}
-		}
-		if v || fv {
-			if oc == OC_st_var {
-				if v {
-					oc = OC_st_var
-				} else {
-					oc = OC_st_fvar
-				}
-			} else {
-				if v {
-					oc = OC_st_varadd
-				} else {
-					oc = OC_st_fvaradd
-				}
-			}
-			var vt ValueType
-			if v {
-				vt = VT_Int
-			} else {
-				vt = VT_Float
-			}
-			in := value
-			be, err := c.fullExpression(&in, vt)
-			if err != nil {
-				return Error(value + "\n" + "value: " + err.Error())
-			}
-			ve.append(be...)
-			if rd != OC_rdreset {
-				var tmp BytecodeExp
-				tmp.appendI32Op(OC_nordrun, int32(len(ve)))
-				ve.append(OC_st_, oc)
-				ve = append(tmp, ve...)
-				tmp = nil
-				tmp.appendI32Op(rd, int32(len(ve)))
-				ve = append(tmp, ve...)
-			} else {
-				ve.append(OC_st_, oc)
-			}
-			sc.add(varSet_, sc.beToExp(ve))
-		}
+		hasIndex = true
+		index = data
+		varType = t
 		return nil
 	}
-	sys := false
-	set := func(data string) error {
-		data = strings.TrimSpace(data)
-		if data[0] != '(' {
-			return Error("Missing '('")
+
+	// Determine variable type and index
+	if err := c.stateParam(is, "v", false, func(d string) error { return setTargetVar(d, 0) }); err != nil {
+		return false, err
+	}
+	if err := c.stateParam(is, "fv", false, func(d string) error { return setTargetVar(d, 1) }); err != nil {
+		return false, err
+	}
+	if err := c.stateParam(is, "sysv", false, func(d string) error { return setTargetVar(d, 2) }); err != nil {
+		return false, err
+	}
+	if err := c.stateParam(is, "sysfv", false, func(d string) error { return setTargetVar(d, 3) }); err != nil {
+		return false, err
+	}
+
+	if !hasIndex {
+		msg := fmt.Sprintf("VarSet in state %v does not specify variable number", c.stateNo)
+		if c.zssMode || !sys.ignoreMostErrors {
+			return false, Error(msg)
 		}
-		var be BytecodeExp
-		c.token = c.tokenizer(&data)
-		bv, err := c.expValue(&be, &data, false)
+		sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + ": " + msg)
+		return true, nil
+	}
+
+	if err := c.scAdd(sc, varSet_index, index, VT_Int, 1); err != nil {
+		return false, err
+	}
+	sc.add(varSet_varType, sc.iToExp(varType))
+
+	vt := [...]ValueType{VT_Int, VT_Float, VT_Int, VT_Float}[varType]
+	if err := c.scAdd(sc, varSet_value, value, vt, 1); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+// "var(x) = y" syntax
+func (c *Compiler) parseVarSetTarget(name string) (varType int32, index BytecodeExp, ok bool, err error) {
+	trimmed := strings.TrimSpace(name)
+	lowered := strings.ToLower(trimmed)
+
+	type spec struct {
+		prefix  string
+		varType int32
+	}
+	for _, s := range []spec{
+		{"sysfvar", 3},
+		{"sysvar", 2},
+		{"fvar", 1},
+		{"var", 0},
+	} {
+		if !strings.HasPrefix(lowered, s.prefix) {
+			continue
+		}
+
+		rest := strings.TrimSpace(trimmed[len(s.prefix):])
+		if len(rest) < 2 || rest[0] != '(' || rest[len(rest)-1] != ')' {
+			continue
+		}
+
+		inner := strings.TrimSpace(rest[1 : len(rest)-1])
+		if inner == "" {
+			return 0, nil, false, Error("Missing variable index")
+		}
+
+		oldToken := c.token
+		defer func() {
+			c.token = oldToken
+		}()
+
+		// Parse the variable number as an expression
+		be, e := c.fullExpression(&inner, VT_Int)
+		if e != nil {
+			return 0, nil, false, e
+		}
+
+		return s.varType, be, true, nil
+	}
+
+	return 0, nil, false, nil
+}
+
+func (c *Compiler) varSetSub(is IniSection, sc *StateControllerBase, scType int32) error {
+	alreadyAssigned := func() bool {
+		return sc.hasParam(varSet_index) || sc.hasParam(varSet_varType)
+	}
+
+	handled, err := c.varSetValueSub(is, sc, alreadyAssigned)
+	if err != nil {
+		return err
+	}
+
+	var targetVars []string
+	for k := range is {
+		_, _, ok, err := c.parseVarSetTarget(k)
 		if err != nil {
 			return err
 		}
-		if !bv.IsNone() {
-			be.appendValue(bv)
+		if ok {
+			targetVars = append(targetVars, k)
 		}
-		if oc == OC_st_var {
-			if sys {
-				if v {
-					oc = OC_st_sysvar
-				} else {
-					oc = OC_st_sysfvar
-				}
-			} else {
-				if v {
-					oc = OC_st_var
-				} else {
-					oc = OC_st_fvar
-				}
+	}
+
+	for _, name := range targetVars {
+		if handled || alreadyAssigned() {
+			msg := fmt.Sprintf("VarSet in state %v can only set one variable at a time", c.stateNo)
+			if c.zssMode || !sys.ignoreMostErrors {
+				return Error(msg)
 			}
-		} else {
-			if sys {
-				if v {
-					oc = OC_st_sysvaradd
-				} else {
-					oc = OC_st_sysfvaradd
-				}
-			} else {
-				if v {
-					oc = OC_st_varadd
-				} else {
-					oc = OC_st_fvaradd
-				}
-			}
+			sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow + ": " + msg)
+			break
 		}
-		if len(c.token) == 0 || c.token[len(c.token)-1] != '=' {
-			idx := strings.Index(data, "=")
-			if idx < 0 {
-				return Error("Missing '='")
-			}
-			data = data[idx+1:]
-		}
-		var vt ValueType
-		if v {
-			vt = VT_Int
-		} else {
-			vt = VT_Float
-		}
-		ve := be
-		be, err = c.fullExpression(&data, vt)
+
+		varType, index, ok, err := c.parseVarSetTarget(name)
 		if err != nil {
 			return err
 		}
-		ve.append(be...)
-		if rd != OC_rdreset {
-			var tmp BytecodeExp
-			tmp.appendI32Op(OC_nordrun, int32(len(ve)))
-			ve.append(OC_st_, oc)
-			ve = append(tmp, ve...)
-			tmp = nil
-			tmp.appendI32Op(rd, int32(len(ve)))
-			ve = append(tmp, ve...)
-		} else {
-			ve.append(OC_st_, oc)
+		if !ok {
+			continue
 		}
-		sc.add(varSet_, sc.beToExp(ve))
-		return nil
-	}
-	if err := c.stateParam(is, "var", false, func(data string) error {
-		if data[0] != 'v' {
-			return Error(data[:3] + "'v' is not lowercase")
+
+		data := is[name]
+
+		sc.add(varSet_index, sc.beToExp(index))
+		sc.add(varSet_varType, sc.iToExp(varType))
+
+		vt := [...]ValueType{VT_Int, VT_Float, VT_Int, VT_Float}[varType]
+		if err := c.scAdd(sc, varSet_value, data, vt, 1); err != nil {
+			return err
 		}
-		b = true
-		v = true
-		return set(data[3:])
-	}); err != nil {
-		return err
+
+		delete(is, name)
+		handled = true
 	}
-	if b {
-		return nil
-	}
-	if err := c.stateParam(is, "fvar", false, func(data string) error {
-		if rd == OC_rdreset && data[0] != 'f' {
-			return Error(data[:4] + "'f' is not lowercase")
+
+	if handled {
+		if err := c.paramValue(is, sc, "redirectid", varSet_redirectid, VT_Int, 1, false); err != nil {
+			return err
 		}
-		b = true
-		fv = true
-		return set(data[4:])
-	}); err != nil {
-		return err
-	}
-	if b {
+		sc.add(varSet_sctrltype, sc.iToExp(scType))
 		return nil
 	}
-	if err := c.stateParam(is, "sysvar", false, func(data string) error {
-		if data[3] != 'v' {
-			return Error(data[:6] + "'v' is not lowercase")
-		}
-		b = true
-		v = true
-		sys = true
-		return set(data[6:])
-	}); err != nil {
-		return err
-	}
-	if b {
-		return nil
-	}
-	if err := c.stateParam(is, "sysfvar", false, func(data string) error {
-		b = true
-		fv = true
-		sys = true
-		return set(data[7:])
-	}); err != nil {
-		return err
-	}
-	if b {
-		return nil
-	}
-	return Error("Value parameter not specified")
+
+	return Error("Variable or value parameter not specified")
 }
 
 func (c *Compiler) varSet(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
@@ -2819,7 +2798,7 @@ func (c *Compiler) varSet(is IniSection, sc *StateControllerBase, _ int8) (State
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_rdreset, OC_st_var)
+		return c.varSetSub(is, sc, 0)
 	})
 	return *ret, err
 }
@@ -2830,7 +2809,7 @@ func (c *Compiler) varAdd(is IniSection, sc *StateControllerBase, _ int8) (State
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_rdreset, OC_st_varadd)
+		return c.varSetSub(is, sc, 1)
 	})
 	return *ret, err
 }
@@ -2841,7 +2820,7 @@ func (c *Compiler) parentVarSet(is IniSection, sc *StateControllerBase, _ int8) 
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_parent, OC_st_var)
+		return c.varSetSub(is, sc, 2)
 	})
 	return *ret, err
 }
@@ -2852,7 +2831,7 @@ func (c *Compiler) parentVarAdd(is IniSection, sc *StateControllerBase, _ int8) 
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_parent, OC_st_varadd)
+		return c.varSetSub(is, sc, 3)
 	})
 	return *ret, err
 }
@@ -2863,7 +2842,7 @@ func (c *Compiler) rootVarSet(is IniSection, sc *StateControllerBase, _ int8) (S
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_root, OC_st_var)
+		return c.varSetSub(is, sc, 4)
 	})
 	return *ret, err
 }
@@ -2874,7 +2853,7 @@ func (c *Compiler) rootVarAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 			varSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		return c.varSetSub(is, sc, OC_root, OC_st_varadd)
+		return c.varSetSub(is, sc, 5)
 	})
 	return *ret, err
 }
@@ -4727,70 +4706,112 @@ func (c *Compiler) loadState(is IniSection, sc *StateControllerBase, _ int8) (St
 	return *ret, err
 }
 
-// TODO: Remove boilderplate from the Map's Compiler.
+// TODO: Remove boilerplate from the Map's Compiler.
 func (c *Compiler) mapSetSub(is IniSection, sc *StateControllerBase) error {
 	err := c.stateSec(is, func() error {
 		assign := false
 		var mapParam, mapName, value string
+
 		if err := c.paramValue(is, sc, "redirectid",
 			mapSet_redirectid, VT_Int, 1, false); err != nil {
 			return err
 		}
-		if err := c.stateParam(is, "map", true, func(data string) error {
-			mapParam = data
-			// CNS: See if map parameter is ini-style or if it's an assign
-			ia := strings.Index(mapParam, "=")
-			if ia > 0 {
-				if strings.ToLower(SplitAndTrim(mapParam, "=")[0]) == "map" {
-					mapParam = strings.TrimSpace(mapParam[ia+1:])
-				} else {
-					mapParam = strings.TrimSpace(mapParam[3:])
-					assign = true
-				}
-			} else if !strings.HasPrefix(mapParam, "\"") {
-				return Error("Missing '='")
+
+		// map(x) = y syntax
+		var mapKeys []string
+		for k := range is {
+			trimmed := strings.TrimSpace(k)
+			lowered := strings.ToLower(trimmed)
+
+			if strings.HasPrefix(lowered, "map(") && strings.HasSuffix(trimmed, ")") {
+				mapKeys = append(mapKeys, k)
 			}
-			return nil
-		}); err != nil {
-			return err
 		}
-		if len(mapParam) > 0 {
-			if assign {
-				if err := c.checkOpeningParenthesis(&mapParam); err != nil {
-					return err
-				}
-				mapName = c.token
-				c.token = c.tokenizer(&mapParam)
-				if err := c.checkClosingParenthesis(); err != nil {
-					return err
-				}
-				c.token = c.tokenizer(&mapParam)
-				if c.token == "=" || c.token == ":=" {
-					value = strings.TrimSpace(mapParam)
-				} else {
-					return Error("Invalid operator: " + c.token)
-				}
-			} else {
-				b := false
-				if err := c.stateParam(is, "value", false, func(data string) error {
-					b = true
-					value = data
-					return nil
-				}); err != nil {
-					return err
-				}
-				if b {
-					if len(mapParam) < 2 || mapParam[0] != '"' || mapParam[len(mapParam)-1] != '"' {
-						return Error("Not enclosed in \"")
+
+		// Unlike with vars, we will always crash here
+		if len(mapKeys) > 1 {
+			return Error("MapSet can only set one map at a time")
+		}
+
+		if len(mapKeys) == 1 {
+			mapKey := mapKeys[0]
+
+			mapName = strings.TrimSpace(mapKey[len("map(") : len(mapKey)-1])
+			value = is[mapKey]
+			delete(is, mapKey)
+
+			if mapName == "" {
+				return Error("Missing map name")
+			}
+			if value == "" {
+				return Error("Value parameter not specified")
+			}
+		}
+
+		// map = x, value = y syntax
+		if mapName == "" {
+			if err := c.stateParam(is, "map", false, func(data string) error {
+				mapParam = data
+
+				// CNS: See if map parameter is INI-style or if it's an assign
+				ia := strings.Index(mapParam, "=")
+				if ia > 0 {
+					if strings.ToLower(SplitAndTrim(mapParam, "=")[0]) == "map" {
+						mapParam = strings.TrimSpace(mapParam[ia+1:])
+					} else {
+						mapParam = strings.TrimSpace(mapParam[3:])
+						assign = true
 					}
-					mapName = mapParam[1 : len(mapParam)-1]
+				} else if !strings.HasPrefix(mapParam, "\"") {
+					return Error("Missing '='")
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+
+			if len(mapParam) > 0 {
+				if assign {
+					if err := c.checkOpeningParenthesis(&mapParam); err != nil {
+						return err
+					}
+					mapName = c.token
+					c.token = c.tokenizer(&mapParam)
+					if err := c.checkClosingParenthesis(); err != nil {
+						return err
+					}
+					c.token = c.tokenizer(&mapParam)
+					if c.token == "=" || c.token == ":=" {
+						value = strings.TrimSpace(mapParam)
+					} else {
+						return Error("Invalid operator: " + c.token)
+					}
+				} else {
+					b := false
+					if err := c.stateParam(is, "value", false, func(data string) error {
+						b = true
+						value = data
+						return nil
+					}); err != nil {
+						return err
+					}
+					if b {
+						if len(mapParam) < 2 || mapParam[0] != '"' || mapParam[len(mapParam)-1] != '"' {
+							return Error("Not enclosed in \"")
+						}
+						mapName = mapParam[1 : len(mapParam)-1]
+					}
 				}
 			}
-			if len(value) > 0 {
-				sc.add(mapSet_mapArray, sc.beToExp(BytecodeExp(mapName)))
-				c.scAdd(sc, mapSet_value, value, VT_Float, 1)
+		}
+
+		if len(mapName) > 0 && len(value) > 0 {
+			sc.add(mapSet_mapArray, sc.beToExp(BytecodeExp(mapName)))
+			if err := c.scAdd(sc, mapSet_value, value, VT_Float, 1); err != nil {
+				return err
 			}
 		}
+
 		return nil
 	})
 	return err
@@ -4803,7 +4824,7 @@ func (c *Compiler) mapSet(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "0", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "0", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4815,7 +4836,7 @@ func (c *Compiler) mapAdd(is IniSection, sc *StateControllerBase, _ int8) (State
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "1", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "1", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4827,7 +4848,7 @@ func (c *Compiler) parentMapSet(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "2", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "2", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4839,7 +4860,7 @@ func (c *Compiler) parentMapAdd(is IniSection, sc *StateControllerBase, _ int8) 
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "3", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "3", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4851,7 +4872,7 @@ func (c *Compiler) rootMapSet(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "4", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "4", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4863,7 +4884,7 @@ func (c *Compiler) rootMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "5", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "5", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4875,7 +4896,7 @@ func (c *Compiler) teamMapSet(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "6", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "6", VT_Int, 1)
 
 	return *ret, err
 }
@@ -4887,8 +4908,44 @@ func (c *Compiler) teamMapAdd(is IniSection, sc *StateControllerBase, _ int8) (S
 		}
 		return nil
 	})
-	c.scAdd(sc, mapSet_type, "7", VT_Int, 1)
+	c.scAdd(sc, mapSet_sctrltype, "7", VT_Int, 1)
 
+	return *ret, err
+}
+
+func (c *Compiler) mapReset(is IniSection, sc *StateControllerBase, _ int8) (StateController, error) {
+	ret, err := (*mapReset)(sc), c.stateSec(is, func() error {
+		if err := c.paramValue(is, sc, "redirectid",
+			mapReset_redirectid, VT_Int, 1, false); err != nil {
+			return err
+		}
+
+		addExclude := func(data string) error {
+			if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
+				return Error("Exclude not enclosed in \"")
+			}
+			sc.add(mapReset_exclude, sc.beToExp(BytecodeExp(data[1:len(data)-1])))
+			return nil
+		}
+
+		// Exclude
+		if err := c.stateParam(is, "exclude", false, func(data string) error {
+			return addExclude(data)
+		}); err != nil {
+			return err
+		}
+		// Exclude2-8
+		for i := 2; i <= 8; i++ {
+			key := fmt.Sprintf("exclude%d", i)
+			if err := c.stateParam(is, key, false, func(data string) error {
+				return addExclude(data)
+			}); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 	return *ret, err
 }
 

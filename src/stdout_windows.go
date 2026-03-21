@@ -5,8 +5,6 @@ package main
 
 import (
 	"os"
-	//"fmt"
-	"log"
 	"runtime"
 	"syscall"
 )
@@ -29,8 +27,7 @@ func init() {
 	//}
 	os.Stdout = os.NewFile(uintptr(hout), "/dev/stdout")
 	os.Stderr = os.NewFile(uintptr(herr), "/dev/stderr")
-	log.SetOutput(os.Stderr)
-	log.Println("Ikemen, GO!")
-	log.Println(Version, BuildTime)
+	LogMessage("Ikemen, GO!")
+	LogMessage("Version: %v Build Time: %v", Version, BuildTime)
 	runtime.LockOSThread()
 }

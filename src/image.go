@@ -495,7 +495,7 @@ func NewTextureFromPalette(pal []uint32) Texture {
 
 	// Safely handle invalid palettes
 	if len(pal) == 0 {
-		sys.errLog.Printf("Invalid palette texture. Defaulting to none")
+		LogMessage("Invalid palette texture. Defaulting to none")
 		tx.SetData(nil)
 	} else {
 		tx.SetData(Pal32ToBytes(pal))
@@ -1560,6 +1560,11 @@ func removeSFFCache(filename string) {
 
 // Find an already loaded SFF we can borrow. Replaces SFF caching
 func findActiveSff(filename string) *Sff {
+	// This would be clean, but it'd make multiple instances of the same character all do a full SFF reload
+	//if sys.reloadFlg {
+	//	return nil
+	//}
+
 	// Scan characters
 	for i := range sys.cgi {
 		if sys.cgi[i].sff != nil && sys.cgi[i].sff.filename == filename {
@@ -1634,7 +1639,7 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 			if old, ok := uniquePals[[...]uint16{gn_[0], gn_[1]}]; ok {
 				idx = old
 				pal = s.palList.Get(old)
-				sys.errLog.Printf("%v duplicated palette: %v,%v (%v/%v)\n", filename, gn_[0], gn_[1], i+1, s.header.NumberOfPalettes)
+				LogMessage("%v duplicated palette: %v,%v (%v/%v)", filename, gn_[0], gn_[1], i+1, s.header.NumberOfPalettes)
 			} else if plSize == 0 {
 				idx = int(link)
 				pal = s.palList.Get(idx)

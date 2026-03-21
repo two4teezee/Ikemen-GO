@@ -185,7 +185,7 @@ func Atoi(str string) int32 {
 			n = n*10 + int64(a[i]-'0')
 			if n > 2147483647 {
 				sys.appendToConsole(fmt.Sprintf("WARNING: Atoi conversion outside int32 range: %v", a[:i+1]))
-				sys.errLog.Printf("Atoi conversion outside int32 range: %v\n", a[:i+1])
+				LogMessage("Atoi conversion outside int32 range: %v", a[:i+1])
 				if str[0] == '-' {
 					return IErr
 				}
@@ -418,7 +418,7 @@ func decodeShiftJIS(input string) string {
 
 	decodedBytes, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), bytes)
 	if err != nil {
-		sys.errLog.Printf("Warning: Failed to decode string as Shift_JIS, falling back to original. String: %s, Error: %v\n", input, err)
+		LogMessage("Warning: Failed to decode string as Shift_JIS, falling back to original. String: %s, Error: %v", input, err)
 		return input
 	}
 	return string(decodedBytes)
@@ -783,6 +783,14 @@ type Error string
 
 func (e Error) Error() string {
 	return string(e)
+}
+
+// Replaces sys.errLog print calls because those only worked on Windows if Ikemen was built with a paired terminal
+func LogMessage(format string, a ...any) {
+	//now := time.Now().Format("15:04:05")
+	msg := fmt.Sprintf(format, a...)
+	//fmt.Fprintf(os.Stderr, "[%s] %s\n", now, msg)
+	fmt.Fprintf(os.Stderr, "%s\n", msg)
 }
 
 type IniSection map[string]string

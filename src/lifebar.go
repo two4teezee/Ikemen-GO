@@ -227,7 +227,7 @@ func readLbText(pre string, is IniSection, str string, ln int16, f map[int]*Fnt,
 	is.ReadI32(pre+"font", &txt.font[0], &txt.font[1], &txt.font[2],
 		&txt.font[3], &txt.font[4], &txt.font[5], &txt.font[6], &txt.font[7])
 	if txt.font[0] >= 0 && getFont(f, txt.font[0]) == nil {
-		sys.errLog.Printf("Undefined font %v referenced by lifebar parameter: %v\n", txt.font[0], pre+"font")
+		LogMessage("Undefined font %v referenced by lifebar parameter: %v", txt.font[0], pre+"font")
 		txt.font[0] = -1
 	}
 	if _, ok := is[pre+"text"]; ok {
@@ -2546,17 +2546,14 @@ type LbMsg struct {
 	del          bool
 }
 
-func newLbMsg(text string, time int32, side int, fontNo, fontBank, fontAlign int32, fontColor [4]int32, fontColorSet bool, palfx *PalFX) *LbMsg {
+func newLbMsg(side int) *LbMsg {
 	return &LbMsg{
-		resttime:     time,
-		counterX:     sys.lifebar.ac[side].start_x * 2,
-		text:         text,
-		fontNo:       fontNo,
-		fontBank:     fontBank,
-		fontAlign:    fontAlign,
-		fontColor:    fontColor,
-		fontColorSet: fontColorSet,
-		palfx:        palfx,
+		resttime:  -1,
+		counterX:  sys.lifebar.ac[side].start_x * 2,
+		fontNo:    -1,
+		fontBank:  -1,
+		fontAlign: IErr, // Default to the font's
+		fontColor: [4]int32{255, 255, 255, 255},
 	}
 }
 
@@ -4556,13 +4553,11 @@ func loadLifebar(def string) (*Lifebar, error) {
 								h = spec.height
 							}
 							if fnt, err := loadFnt(filename, h); err != nil {
-								sys.errLog.Printf("failed to load %v (lifebar font%v): %v", filename, i, err)
+								LogMessage("Failed to load %v (lifebar font%v): %v", filename, i, err)
 								l.fnt[i] = newFnt()
 							} else {
 								l.fnt[i] = fnt
 							}
-							// Set font localcoord to the same as the lifebar
-							l.fnt[i].localcoord = l.localcoord
 							return nil
 						},
 					)
@@ -5504,4 +5499,116 @@ func (l *Lifebar) resolvePath() {
 		return
 	}
 	l.def = v
+}
+
+func (l *Lifebar) appendAction(c *Char, msg *LbMsg, s_ffx, a_ffx string, snd, spr [2]int32, anim int32, top bool) {
+	if c.teamside < 0 {
+		return
+	}
+	if _, ok := l.missing["[action]"]; ok {
+		return
+	}
+
+	// Play sound
+	if snd[0] != -1 && snd[1] != -1 {
+		if s_ffx != "" && s_ffx != "s" && sys.ffx[s_ffx] != nil && sys.ffx[s_ffx].snd != nil {
+			s := sys.ffx[s_ffx].snd.Get(snd) // Common FX
+			if s != nil {
+				sys.soundChannels.Play(s, snd[0], snd[1], 100, 0, 0, 0, 0)
+			}
+		} else {
+			l.snd.play(snd, 100, 0, 0, 0, 0)
+		}
+	}
+
+	// If sound only, we can stop here
+	if anim == -1 && (spr[0] == -1 || spr[1] == -1) && msg.text == "" {
+		return
+	}
+
+	// Select side of screen
+	teammsg := l.ac[c.teamside]
+
+	// If adding a new message while exceeding the maximum number allowed, make the oldest message go away faster
+	var count int32
+	for _, v := range teammsg.messages {
+		if !v.del {
+			count++
+		}
+	}
+	if count >= teammsg.max {
+		var oldest int
+		var oldesttimer int32
+		for i, msg := range teammsg.messages {
+			if !msg.del && msg.resttime > 0 && msg.agetimer > oldesttimer {
+				oldest = i
+				oldesttimer = msg.agetimer
+			}
+		}
+		if oldest < len(teammsg.messages) {
+			teammsg.messages[oldest].resttime = 0
+		}
+	}
+
+	// Use index 0 if "top", otherwise find the first free message slot
+	index := 0
+	if !top {
+		for k, v := range teammsg.messages {
+			if v.del {
+				teammsg.messages = removeLbMsg(teammsg.messages, k)
+				break
+			}
+			index++
+		}
+	}
+
+	// Layout logic
+	prefix := fmt.Sprintf("team%v.front.", c.teamside+1)
+	delete(teammsg.is, prefix+"anim")
+	delete(teammsg.is, prefix+"spr")
+
+	// Read animation
+	if anim != -1 {
+		teammsg.is[prefix+"anim"] = fmt.Sprintf("%v", anim)
+	}
+
+	// Read sprite
+	if spr[0] != -1 && spr[1] != -1 {
+		teammsg.is[prefix+"spr"] = fmt.Sprintf("%v,%v", spr[0], spr[1])
+	}
+
+	// Read background
+	msg.bg = ReadAnimLayout(fmt.Sprintf("team%v.bg.", c.teamside+1), teammsg.is, l.sff, l.animTable, 2)
+
+	// Default to lifebar assets
+	sff := l.sff
+	at := l.animTable
+	var alscale float32 = 1.0
+
+	// Use animation prefixes to change asset source
+	if a_ffx != "" {
+		if a_ffx == "s" {
+			// Use the character
+			sff = sys.cgi[c.playerNo].sff
+			at = sys.cgi[c.playerNo].animTable
+			alscale = float32(sys.lifebar.localcoord[0]) / float32(sys.chars[c.playerNo][0].localcoord)
+		} else if sys.ffx[a_ffx] != nil {
+			// Use common FX
+			fx := sys.ffx[a_ffx]
+			sff = fx.sff
+			at = fx.animTable
+			alscale = fx.fx_scale * float32(sys.lifebar.localcoord[0]) / float32(fx.localcoord[0])
+		}
+	}
+
+	msg.front = ReadAnimLayout(prefix, teammsg.is, sff, at, 2)
+
+	// Normalize localcoord scaling across different asset sources
+	if msg.front.anim != nil && alscale != 1.0 {
+		msg.front.anim.start_scale[0] *= alscale
+		msg.front.anim.start_scale[1] *= alscale
+	}
+
+	// Insert new message
+	teammsg.messages = insertLbMsg(teammsg.messages, msg, index)
 }

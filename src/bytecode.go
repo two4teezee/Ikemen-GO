@@ -481,13 +481,13 @@ const (
 	OC_const_stage_constants
 )
 const (
-	OC_st_var OpCode = iota
-	OC_st_sysvar
+	OC_st_var OpCode = iota // OpCodes for var assignment with :=
 	OC_st_fvar
+	OC_st_sysvar
 	OC_st_sysfvar
-	OC_st_varadd
-	OC_st_sysvaradd
+	OC_st_varadd // These 4 are unused. Perhaps placeholders for eventual ++ and -- operators
 	OC_st_fvaradd
+	OC_st_sysvaradd
 	OC_st_sysfvaradd
 	OC_st_map
 )
@@ -2347,33 +2347,41 @@ func (be BytecodeExp) run_st(c *Char, i *int) {
 	opc := be[*i-1]
 	switch opc {
 	case OC_st_var:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.varSet(sys.bcStack.Top().ToI(), v)
-	case OC_st_sysvar:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.sysVarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.varSet(vno, val)
 	case OC_st_fvar:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.fvarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.fvarSet(vno, val)
+	case OC_st_sysvar:
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysVarSet(vno, val)
 	case OC_st_sysfvar:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.sysFvarSet(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysFvarSet(vno, val)
 	case OC_st_varadd:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.varAdd(sys.bcStack.Top().ToI(), v)
-	case OC_st_sysvaradd:
-		v := sys.bcStack.Pop().ToI()
-		*sys.bcStack.Top() = c.sysVarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.varAdd(vno, val)
 	case OC_st_fvaradd:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.fvarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.fvarAdd(vno, val)
+	case OC_st_sysvaradd:
+		val := sys.bcStack.Pop().ToI()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysVarAdd(vno, val)
 	case OC_st_sysfvaradd:
-		v := sys.bcStack.Pop().ToF()
-		*sys.bcStack.Top() = c.sysFvarAdd(sys.bcStack.Top().ToI(), v)
+		val := sys.bcStack.Pop().ToF()
+		vno := sys.bcStack.Top().ToI()
+		*sys.bcStack.Top() = c.sysFvarAdd(vno, val)
 	case OC_st_map:
-		v := sys.bcStack.Pop().ToF()
+		val := sys.bcStack.Pop().ToF()
 		mapName := be.ReadPoolStringAt(i)
-		sys.bcStack.Push(c.mapSet(mapName, v, 0))
+		sys.bcStack.Push(c.mapSet(mapName, val, 0))
 	}
 }
 
@@ -2898,7 +2906,7 @@ func (be BytecodeExp) run_const(c *Char, i *int, oc *Char) {
 		constName := be.ReadPoolStringAt(i)
 		sys.bcStack.PushF(sys.stage.constants[constName])
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -3501,7 +3509,7 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 			sys.bcStack.PushB(ok)
 		}
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -4179,7 +4187,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -4255,7 +4263,7 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 			sys.bcStack.Push(BytecodeUndefined())
 		}
 	default:
-		sys.errLog.Printf("%v\n", be[*i-1])
+		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
 	}
 }
@@ -4640,6 +4648,23 @@ func (scb StateControllerBase) run(c *Char, f func(byte, []BytecodeExp) bool) {
 			break
 		}
 	}
+}
+
+func (scb StateControllerBase) hasParam(paramID byte) bool {
+	for i := 0; i < len(scb); {
+		id := scb[i]
+		i++
+		n := scb[i]
+		i++
+		for m := 0; m < int(n); m++ {
+			l := *(*int32)(unsafe.Pointer(&scb[i]))
+			i += 4 + int(l)
+		}
+		if id == paramID {
+			return true
+		}
+	}
+	return false
 }
 
 func getRedirectedChar(c *Char, sc StateControllerBase, redirectID byte, scname string) *Char {
@@ -9084,7 +9109,10 @@ func (sc sprPriority) Run(c *Char, _ []int32) bool {
 type varSet StateControllerBase
 
 const (
-	varSet_ byte = iota
+	varSet_index byte = iota
+	varSet_sctrltype
+	varSet_value
+	varSet_varType
 	varSet_redirectid
 )
 
@@ -9094,13 +9122,29 @@ func (sc varSet) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
+	var index int32
+	var value BytecodeValue
+	var scType int32
+	var varType int32
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
-		case varSet_:
-			exp[0].run(crun)
+		case varSet_index:
+			index = exp[0].evalI(c)
+		case varSet_value:
+			switch varType {
+			case 1, 3:
+				value = BytecodeFloat(exp[0].evalF(c))
+			default:
+				value = BytecodeInt(exp[0].evalI(c))
+			}
+		case varSet_sctrltype:
+			scType = exp[0].evalI(c)
+		case varSet_varType:
+			varType = exp[0].evalI(c)
 		}
 		return true
 	})
+	crun.cnsVarSet(index, value, scType, varType)
 	return false
 }
 
@@ -11572,19 +11616,17 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
+
 	var top bool
-	var text string
 	var timemul float32 = 1
-	var fontno int32 = -1
-	var fontbank int32 = -1
-	var fontalign int32 = IErr
-	fontcolor := [4]int32{255, 255, 255, 255}
-	var colorSet bool
-	var palfx *PalFX
-	var time, anim int32 = -1, -1
+	var anim int32 = -1
 	s_ffx, a_ffx := "", ""
 	spr := [2]int32{-1, 0}
 	snd := [2]int32{-1, 0}
+
+	// Initialize a text message with defaults
+	msg := newLbMsg(crun.teamside)
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case lifebarAction_top:
@@ -11592,7 +11634,20 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 		case lifebarAction_timemul:
 			timemul = exp[0].evalF(c)
 		case lifebarAction_time:
-			time = exp[0].evalI(c)
+			msg.resttime = exp[0].evalI(c)
+		case lifebarAction_text:
+			msg.text = exp[0].evalS()
+		case lifebarAction_fontno:
+			msg.fontNo = exp[0].evalI(c)
+		case lifebarAction_fontbank:
+			msg.fontBank = exp[0].evalI(c)
+		case lifebarAction_fontalign:
+			msg.fontAlign = exp[0].evalI(c)
+		case lifebarAction_fontcolor:
+			for i := 0; i < len(exp) && i < 4; i++ {
+				msg.fontColor[i] = exp[i].evalI(c)
+			}
+			msg.fontColorSet = true
 		case lifebarAction_anim:
 			a_ffx = exp[0].evalS()
 			anim = exp[1].evalI(c)
@@ -11608,106 +11663,25 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 			if len(exp) > 2 {
 				snd[1] = exp[2].evalI(c)
 			}
-		case lifebarAction_text:
-			text = exp[0].evalS()
-		case lifebarAction_fontno:
-			fontno = exp[0].evalI(c)
-		case lifebarAction_fontbank:
-			fontbank = exp[0].evalI(c)
-		case lifebarAction_fontalign:
-			fontalign = exp[0].evalI(c)
-		case lifebarAction_fontcolor:
-			fontcolor[0] = exp[0].evalI(c)
-			if len(exp) > 1 {
-				fontcolor[1] = exp[1].evalI(c)
-				if len(exp) > 2 {
-					fontcolor[2] = exp[2].evalI(c)
-					if len(exp) > 3 {
-						fontcolor[3] = exp[3].evalI(c)
-					}
-				}
-			}
-			colorSet = true
-		case lifebarAction_redirectid:
-			return true
 		default:
-			if palfx == nil {
-				palfx = newPalFX()
-				palfx.clear()
-				palfx.time = -1
-			}
-			switch paramID {
-			case palFX_time:
-				palfx.time = exp[0].evalI(c)
-			case palFX_color:
-				palfx.color = exp[0].evalF(c) / 256
-			case palFX_hue:
-				palfx.hue = exp[0].evalF(c) / 256
-			case palFX_add:
-				palfx.add[0] = exp[0].evalI(c)
-				palfx.add[1] = exp[1].evalI(c)
-				palfx.add[2] = exp[2].evalI(c)
-			case palFX_mul:
-				palfx.mul[0] = exp[0].evalI(c)
-				palfx.mul[1] = exp[1].evalI(c)
-				palfx.mul[2] = exp[2].evalI(c)
-			case palFX_sinadd:
-				var side int32 = 1
-				if len(exp) > 3 {
-					if exp[3].evalI(c) < 0 {
-						palfx.cycletime[0] = -exp[3].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[0] = exp[3].evalI(c)
-					}
+			if isPalFXParam(paramID) {
+				if msg.palfx == nil {
+					msg.palfx = newPalFX()
+					msg.palfx.clear()
+					msg.palfx.time = -1
 				}
-				palfx.sinadd[0] = exp[0].evalI(c) * side
-				palfx.sinadd[1] = exp[1].evalI(c) * side
-				palfx.sinadd[2] = exp[2].evalI(c) * side
-			case palFX_sinmul:
-				var side int32 = 1
-				if len(exp) > 3 {
-					if exp[3].evalI(c) < 0 {
-						palfx.cycletime[1] = -exp[3].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[1] = exp[3].evalI(c)
-					}
-				}
-				palfx.sinmul[0] = exp[0].evalI(c) * side
-				palfx.sinmul[1] = exp[1].evalI(c) * side
-				palfx.sinmul[2] = exp[2].evalI(c) * side
-			case palFX_sincolor:
-				var side int32 = 1
-				if len(exp) > 1 {
-					if exp[1].evalI(c) < 0 {
-						palfx.cycletime[2] = -exp[1].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[2] = exp[1].evalI(c)
-					}
-				}
-				palfx.sincolor = exp[0].evalI(c) * side
-			case palFX_sinhue:
-				var side int32 = 1
-				if len(exp) > 1 {
-					if exp[1].evalI(c) < 0 {
-						palfx.cycletime[3] = -exp[1].evalI(c)
-						side = -1
-					} else {
-						palfx.cycletime[3] = exp[1].evalI(c)
-					}
-				}
-				palfx.sinhue = exp[0].evalI(c) * side
-			case palFX_invertall:
-				palfx.invertall = exp[0].evalB(c)
-			case palFX_invertblend:
-				palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
+				palFX(sc).runSub(c, &msg.palfx.PalFXDef, paramID, exp)
 			}
 		}
 		return true
 	})
-	crun.appendLifebarAction(text, fontno, fontbank, fontalign, fontcolor, colorSet, palfx, s_ffx, a_ffx, snd, spr, anim, time, timemul, top)
+
+	if msg.resttime < 0 {
+		msg.resttime = sys.lifebar.ac[crun.teamside].displaytime
+	}
+	msg.resttime = int32(float32(msg.resttime) * timemul)
+
+	sys.lifebar.appendAction(crun, msg, s_ffx, a_ffx, snd, spr, anim, top)
 	return false
 }
 
@@ -11784,9 +11758,9 @@ type mapSet StateControllerBase
 
 const (
 	mapSet_mapArray byte = iota
+	mapSet_sctrltype
 	mapSet_value
 	mapSet_redirectid
-	mapSet_type
 )
 
 func (sc mapSet) Run(c *Char, _ []int32) bool {
@@ -11804,7 +11778,7 @@ func (sc mapSet) Run(c *Char, _ []int32) bool {
 			s = exp[0].evalS()
 		case mapSet_value:
 			value = exp[0].evalF(c)
-		case mapSet_type:
+		case mapSet_sctrltype:
 			scType = exp[0].evalI(c)
 		}
 		return true
@@ -12880,14 +12854,15 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		return false
 	}
 
-	// We skip SetLocalcoord for char texts
-	// Text logic assumes a 4:3 layout, so we add a correction factor for widescreen
-	aspectCorrection := (float32(sys.gameWidth) / float32(sys.gameHeight)) / (4.0 / 3.0)
-	ts.localScale = (320.0 / float32(c.gi().localcoord[0])) / aspectCorrection // Not crun here
+	// Default to the same localcoord as the character that owns the code
+	ts.SetLocalcoordChar(c.gi().localcoord) // Not crun here
 
 	var xpos, ypos, xvel, yvel, xmaxdist, ymaxdist, xacc, yacc float32 = 0, 0, 0, 0, 0, 0, 0, 0
 	var xscl, yscl float32 = 1, 1
 	var fnt int = -1
+
+	targetLcx := c.gi().localcoord[0]
+	sourceLcx := targetLcx
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -12917,23 +12892,29 @@ func (sc text) Run(c *Char, _ []int32) bool {
 			case "m":
 				fntList = sys.motif.Fnt
 			}
-
 			if fnt >= 0 {
 				if f := fntList[fnt]; f != nil {
 					ts.fnt = f
+					switch fflg {
+					case "f":
+						sourceLcx = sys.lifebar.localcoord[0]
+					case "m":
+						sourceLcx = sys.motif.Info.Localcoord[0]
+					default:
+						sourceLcx = targetLcx
+					}
 				} else {
 					fnt = -1
 				}
 			}
 		case text_localcoord:
-			var lcx, lcy float32
-			lcx = exp[0].evalF(c)
+			var lcx, lcy int32
+			lcx = exp[0].evalI(c)
 			if len(exp) > 1 {
-				lcy = exp[1].evalF(c)
+				lcy = exp[1].evalI(c)
 			}
-			if lcx > 0 && lcy > 0 {
-				ts.localScale = (320 / lcx) / aspectCorrection
-			}
+			targetLcx = lcx
+			ts.SetLocalcoordChar([2]int32{lcx, lcy})
 		case text_bank:
 			ts.bank = exp[0].evalI(c)
 		case text_align:
@@ -13004,103 +12985,33 @@ func (sc text) Run(c *Char, _ []int32) bool {
 		case text_redirectid:
 			return true // Already handled. Avoid default
 		default:
-			if applyTextPalFX(ts, paramID, exp, c) {
-				break
+			if isPalFXParam(paramID) {
+				palFX(sc).runSub(c, &ts.palfx.PalFXDef, paramID, exp)
 			}
 		}
 		return true
 	})
 
+	// Apply localcoord scale correction
+	// Must be placed before SetScale()
+	if fnt < 0 {
+		ts.fnt = sys.debugFont.fnt
+		ts.scaleRatio = 1
+	} else if sourceLcx > 0 {
+		ts.scaleRatio = float32(targetLcx) / float32(sourceLcx)
+	}
+
 	ts.SetPos(xpos, ypos)
 	ts.SetScale(xscl, yscl)
+	ts.ApplyScaleRatio()
 	ts.SetVelocity(xvel, yvel)
 	ts.SetMaxDist(xmaxdist, ymaxdist)
 	ts.SetAccel(xacc, yacc)
-
-	if fnt < 0 {
-		ts.fnt = sys.debugFont.fnt
-		ts.xscl *= sys.debugFont.xscl
-		ts.yscl *= sys.debugFont.yscl
-	}
 
 	if ts.text == "" {
 		ts.text = OldSprintf("%v", ts.params...)
 	}
 
-	return false
-}
-
-func applyTextPalFX(ts *TextSprite, paramID byte, exp []BytecodeExp, c *Char) bool {
-	switch paramID {
-	case palFX_time:
-		ts.palfx.time = exp[0].evalI(c)
-	case palFX_color:
-		ts.palfx.color = exp[0].evalF(c) / 256
-	case palFX_hue:
-		ts.palfx.hue = exp[0].evalF(c) / 256
-	case palFX_add:
-		ts.palfx.add[0] = exp[0].evalI(c)
-		ts.palfx.add[1] = exp[1].evalI(c)
-		ts.palfx.add[2] = exp[2].evalI(c)
-	case palFX_mul:
-		ts.palfx.mul[0] = exp[0].evalI(c)
-		ts.palfx.mul[1] = exp[1].evalI(c)
-		ts.palfx.mul[2] = exp[2].evalI(c)
-	case palFX_sinadd:
-		var side int32 = 1
-		if len(exp) > 3 {
-			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[0] = -exp[3].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[0] = exp[3].evalI(c)
-			}
-		}
-		ts.palfx.sinadd[0] = exp[0].evalI(c) * side
-		ts.palfx.sinadd[1] = exp[1].evalI(c) * side
-		ts.palfx.sinadd[2] = exp[2].evalI(c) * side
-	case palFX_sinmul:
-		var side int32 = 1
-		if len(exp) > 3 {
-			if exp[3].evalI(c) < 0 {
-				ts.palfx.cycletime[1] = -exp[3].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[1] = exp[3].evalI(c)
-			}
-		}
-		ts.palfx.sinmul[0] = exp[0].evalI(c) * side
-		ts.palfx.sinmul[1] = exp[1].evalI(c) * side
-		ts.palfx.sinmul[2] = exp[2].evalI(c) * side
-	case palFX_sincolor:
-		var side int32 = 1
-		if len(exp) > 1 {
-			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[2] = -exp[1].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[2] = exp[1].evalI(c)
-			}
-		}
-		ts.palfx.sincolor = exp[0].evalI(c) * side
-	case palFX_sinhue:
-		var side int32 = 1
-		if len(exp) > 1 {
-			if exp[1].evalI(c) < 0 {
-				ts.palfx.cycletime[3] = -exp[1].evalI(c)
-				side = -1
-			} else {
-				ts.palfx.cycletime[3] = exp[1].evalI(c)
-			}
-		}
-		ts.palfx.sinhue = exp[0].evalI(c) * side
-	case palFX_invertall:
-		ts.palfx.invertall = exp[0].evalB(c)
-	case palFX_invertblend:
-		ts.palfx.invertblend = Clamp(exp[0].evalI(c), -1, 2)
-	default:
-		return false
-	}
 	return false
 }
 
@@ -13174,42 +13085,43 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					})
 				}
 			case text_font:
-				// TODO: Modifying font source should also have the same localcoord fix as in the Text sctrl
+				// TODO: Needs same scaling fixes as plain Text
 				fnt := int(exp[1].evalI(c))
 				fflg := exp[0].evalS()
 				fntList := crun.gi().fnt
+
 				switch fflg {
 				case "f":
 					fntList = sys.lifebar.fnt
 				case "m":
 					fntList = sys.motif.Fnt
 				}
+
 				if fnt >= 0 {
 					if f := fntList[fnt]; f != nil {
 						eachText(func(ts *TextSprite) {
 							ts.fnt = f
 							switch fflg {
 							case "f":
-								ts.SetLocalcoord(sys.lifebar.localcoord[0], sys.lifebar.localcoord[1])
+								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.lifebar.localcoord[0])
 							case "m":
-								ts.SetLocalcoord(sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1])
+								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.motif.Info.Localcoord[0])
 							default:
-								//ts.SetLocalcoord(c.stWgi().localcoord[0], c.stWgi().localcoord[1])
+								ts.scaleRatio = 1
 							}
 						})
 					}
 				}
 			case text_localcoord:
-				var x, y float32
-				x = exp[0].evalF(c)
+				// TODO: Needs same scaling fixes as plain Text
+				var lcx, lcy int32
+				lcx = exp[0].evalI(c)
 				if len(exp) > 1 {
-					y = exp[1].evalF(c)
+					lcy = exp[1].evalI(c)
 				}
-				if x > 0 && y > 0 {
-					eachText(func(ts *TextSprite) {
-						ts.localScale = x / 320
-					})
-				}
+				eachText(func(ts *TextSprite) {
+					ts.SetLocalcoordChar([2]int32{lcx, lcy})
+				})
 			case text_bank:
 				b := exp[0].evalI(c)
 				eachText(func(ts *TextSprite) {
@@ -13316,12 +13228,12 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 			case text_scale:
 				x := exp[0].evalF(c)
 				eachText(func(ts *TextSprite) {
-					ts.xscl = x * ts.localScale
+					ts.xscl = x * ts.localScale * ts.scaleRatio
 				})
 				if len(exp) > 1 {
 					y := exp[1].evalF(c)
 					eachText(func(ts *TextSprite) {
-						ts.yscl = y * ts.localScale
+						ts.yscl = y * ts.localScale * ts.scaleRatio
 					})
 				}
 			case text_color:
@@ -13344,9 +13256,11 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 					ts.xshear = xs
 				})
 			default:
-				eachText(func(ts *TextSprite) {
-					applyTextPalFX(ts, paramID, exp, c)
-				})
+				if isPalFXParam(paramID) {
+					eachText(func(ts *TextSprite) {
+						palFX(sc).runSub(c, &ts.palfx.PalFXDef, paramID, exp)
+					})
+				}
 			}
 		}
 		return true
@@ -14746,6 +14660,34 @@ func (sc overrideClsn) Run(c *Char, _ []int32) bool {
 	return false
 }
 
+type mapReset StateControllerBase
+
+const (
+	mapReset_exclude byte = iota
+	mapReset_redirectid
+)
+
+func (sc mapReset) Run(c *Char, _ []int32) bool {
+	crun := getRedirectedChar(c, StateControllerBase(sc), mapReset_redirectid, "MapReset")
+	if crun == nil {
+		return false
+	}
+
+	exclude := make([]string, 0, 8)
+
+	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
+		switch paramID {
+		case mapReset_exclude:
+			str := exp[0].evalS()
+			exclude = append(exclude, str)
+		}
+		return true
+	})
+
+	crun.mapReset(exclude)
+	return false
+}
+
 // StateDef data struct
 type StateBytecode struct {
 	stateType StateType
@@ -14806,9 +14748,9 @@ func (sb *StateBytecode) run(c *Char) (changeState bool) {
 	sys.workingState = sb
 	changeState = sb.block.Run(c, sb.ctrlsps)
 	if len(sys.bcStack) != 0 {
-		sys.errLog.Println(sys.cgi[sb.playerNo].def)
+		LogMessage(sys.cgi[sb.playerNo].def)
 		for _, v := range sys.bcStack {
-			sys.errLog.Printf("%+v\n", v)
+			LogMessage("%+v", v)
 		}
 		c.panic("Bytecode stack not empty after execution")
 	}

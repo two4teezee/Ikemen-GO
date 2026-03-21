@@ -673,7 +673,7 @@ func (r *Renderer_GLES32) Init() {
 		return eglGetProcAddress(name)
 	}))
 	if runtime.GOOS != "android" {
-		sys.errLog.Printf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
+		LogMessage("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER)))
 	} else {
 		Logcat(fmt.Sprintf("Using OpenGL %v (%v)", gl.GoStr(gl.GetString(gl.VERSION)), gl.GoStr(gl.GetString(gl.RENDERER))))
 	}
@@ -890,8 +890,7 @@ func (r *Renderer_GLES32) Init() {
 		gl.FramebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D_MULTISAMPLE, r.fbo_texture, 0)
 		gl.FramebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, r.rbo_depth)
 		if status := gl.CheckFramebufferStatus(gl.FRAMEBUFFER); status != gl.FRAMEBUFFER_COMPLETE {
-			sys.errLog.Printf("framebuffer create failed: 0x%x", status)
-			fmt.Printf("framebuffer create failed: 0x%x \n", status)
+			LogMessage("Framebuffer creation failed: 0x%x", status)
 		}
 		gl.GenFramebuffers(1, &r.fbo_f)
 		gl.BindFramebuffer(gl.FRAMEBUFFER, r.fbo_f)

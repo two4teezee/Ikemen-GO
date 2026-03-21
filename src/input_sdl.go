@@ -261,7 +261,7 @@ func NewModifierKey(ctrl, alt, shift bool) (mod sdl.Keymod) {
 func (input *Input) UpdateGamepadMappings(path string) {
 	b, err := os.ReadFile(path)
 	if err != nil {
-		sys.errLog.Printf("%v", err)
+		LogMessage("%v", err)
 		return
 	}
 	lines := strings.Split(string(b), "\n")

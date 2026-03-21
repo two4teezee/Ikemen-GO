@@ -5567,30 +5567,15 @@ func (c *Char) numPartner() int32 {
 }
 
 func (c *Char) numProj() int32 {
-	// Helpers cannot own projectiles
-	if c.helperIndex != 0 {
-		return 0
-	}
+	projs := c.getMultipleProjs(-1, -1, false)
+	total := int32(len(projs))
 
-	n := int32(0)
-
-	for _, p := range sys.projs[c.playerNo] {
-		if !p.state_remove {
-			n++
-		}
-	}
-
-	return n
+	return total
 }
 
 func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	if pid.IsUndefined() {
 		return BytecodeUndefined()
-	}
-
-	// Helpers cannot own projectiles
-	if c.helperIndex != 0 {
-		return BytecodeInt(0)
 	}
 
 	// Validate ID
@@ -5600,15 +5585,10 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 		id = 0
 	}
 
-	var n int32 = 0
+	projs := c.getMultipleProjs(id, -1, false)
+	total := int32(len(projs))
 
-	for _, p := range sys.projs[c.playerNo] {
-		if p.id == id && !p.state_remove {
-			n++
-		}
-	}
-
-	return BytecodeInt(n)
+	return BytecodeInt(total)
 }
 
 func (c *Char) numTarget(hid BytecodeValue) BytecodeValue {
@@ -7270,8 +7250,12 @@ func (c *Char) projDrawPal(p *Projectile) [2]int32 {
 }
 
 // Get multiple projectiles for ModifyProjectile, etc
-// TODO: The filtering logic here is different from numProj. It's probably best if they're the same
 func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectile) {
+	// Helpers cannot own projectiles
+	if c.helperIndex != 0 {
+		return nil
+	}
+
 	// No use searching if index is impossible
 	if len(sys.projs[c.playerNo]) > 0 && idx < len(sys.projs[c.playerNo]) {
 		// Filter projectiles with the specified ID

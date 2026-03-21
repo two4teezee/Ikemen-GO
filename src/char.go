@@ -2296,10 +2296,20 @@ func (e *Explod) trueFacing() float32 {
 	return e.facing * e.relativef
 }
 
+type ProjStatus int32
+
+const (
+	ProjActive ProjStatus = iota
+	ProjHit // Note: Only happens after all hits connect
+	ProjCancel
+	ProjRem
+)
+
 type Projectile struct {
 	playerno        int
-	hitdef          HitDef
 	id              int32
+	status          ProjStatus
+	hitdef          HitDef
 	animNo          int32
 	anim_ffx        string
 	hitanim         int32
@@ -2357,7 +2367,6 @@ type Projectile struct {
 	platformHeight  [2]float32
 	platformAngle   float32
 	platformFence   bool
-	remflag         bool
 	freezeflag      bool
 	contactflag     bool
 	time            int32
@@ -2432,12 +2441,8 @@ func (p *Projectile) setAllPos(pos [3]float32) {
 	p.interPos = pos
 }
 
-// This is used for numProj triggers
-func (p *Projectile) isCountable() bool {
-	if p.remflag || (p.hits < 0 && p.remove) {
-		return false
-	}
-	return true
+func (p *Projectile) isActive() bool {
+	return p.status == ProjActive
 }
 
 func (p *Projectile) paused() bool {
@@ -2456,11 +2461,11 @@ func (p *Projectile) paused() bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
-		if p.animNo >= 0 && !p.remflag {
+		if p.animNo >= 0 && p.isActive() {
 			remove := false
 
 			// Check hit or cancel triggers
-			if p.hits == -1 && p.remove {
+			if p.status == ProjHit && p.remove {
 				// Remove after hit behavior
 				remove = true
 				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
@@ -2470,7 +2475,7 @@ func (p *Projectile) update() {
 						p.anim = a
 					}
 				}
-			} else if p.hits == -2 {
+			} else if p.status == ProjCancel {
 				// Cancel behavior
 				remove = true
 				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
@@ -2512,7 +2517,7 @@ func (p *Projectile) update() {
 
 			// Active to removing transition
 			if remove {
-				p.remflag = true
+				p.status = ProjRem
 				if p.anim != nil {
 					p.anim.UpdateSprite()
 				}
@@ -2534,7 +2539,7 @@ func (p *Projectile) update() {
 		}
 
 		// Remove projectile once animation allows it
-		if p.remflag {
+		if !p.isActive() {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
 			}
@@ -2576,7 +2581,8 @@ func (p *Projectile) update() {
 
 // Flag a projectile as cancelled
 func (p *Projectile) flagProjCancel() {
-	p.hits = -2
+	//p.hits = -2
+	p.status = ProjCancel
 	if p.playerno >= 0 && p.playerno < len(sys.cgi) {
 		if rgi := &sys.cgi[p.playerno]; rgi != nil {
 			rgi.pctype = PC_Cancel
@@ -2611,7 +2617,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 
 	// Skip if this projectile can't trade at all
 	// Projectiles can trade even if they are spawned with 0 hits
-	if p.hits < 0 || p.remflag {
+	if p.hits < 0 || !p.isActive() {
 		return
 	}
 
@@ -2639,7 +2645,7 @@ func (p *Projectile) tradeDetection(playerNo, index int) {
 			pr := sys.projs[i][j]
 
 			// Skip if other projectile can't trade
-			if pr.remflag || pr.hits < 0 || pr.id < 0 {
+			if !pr.isActive() || pr.hits < 0 || pr.id < 0 {
 				continue
 			}
 
@@ -2698,7 +2704,8 @@ func (p *Projectile) tick() {
 		if p.hits >= 0 {
 			p.hits--
 			if p.hits <= 0 {
-				p.hits = -1
+				//p.hits = -1
+				p.status = ProjHit
 				p.hitpause = 0
 			}
 		}
@@ -5568,7 +5575,7 @@ func (c *Char) numProj() int32 {
 	n := int32(0)
 
 	for _, p := range sys.projs[c.playerNo] {
-		if p.isCountable() {
+		if !p.state_remove {
 			n++
 		}
 	}
@@ -5596,7 +5603,7 @@ func (c *Char) numProjID(pid BytecodeValue) BytecodeValue {
 	var n int32 = 0
 
 	for _, p := range sys.projs[c.playerNo] {
-		if p.id == id && p.isCountable() {
+		if p.id == id && !p.state_remove {
 			n++
 		}
 	}
@@ -7270,7 +7277,7 @@ func (c *Char) getMultipleProjs(id int32, idx int, log bool) (projs []*Projectil
 		// Filter projectiles with the specified ID
 		matchCount := 0
 		for _, p := range sys.projs[c.playerNo] {
-			if id < 0 || p.id == id {
+			if (id < 0 || p.id == id) && p.isActive() {
 				if idx >= 0 {
 					// Count the matches but only return one
 					if matchCount == idx {

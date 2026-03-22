@@ -165,6 +165,7 @@ type GameState struct {
 	matchWins, wins         [2]int32   // UIT
 	roundsExisted           [2]int32
 	draws                   int32
+	maxDraws                [2]int32
 	effectiveLoss           [2]bool
 	tmode                   [2]TeamMode // UIT
 	numSimul, numTurns      [2]int32    // UIT
@@ -408,6 +409,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.wins = gs.wins
 	sys.roundsExisted = gs.roundsExisted
 	sys.draws = gs.draws
+	sys.maxDraws = gs.maxDraws
 	sys.effectiveLoss = gs.effectiveLoss
 	sys.tmode = gs.tmode
 	sys.numSimul = gs.numSimul
@@ -657,6 +659,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.wins = sys.wins
 	gs.roundsExisted = sys.roundsExisted
 	gs.draws = sys.draws
+	gs.maxDraws = sys.maxDraws
 	gs.effectiveLoss = sys.effectiveLoss
 	gs.tmode = sys.tmode
 	gs.numSimul = sys.numSimul

@@ -2749,7 +2749,7 @@ func systemScriptInit(l *lua.LState) {
 			winp := int32(0)
 			sys.debugRef = [2]int{}
 			sys.roundsExisted = [2]int32{}
-			sys.matchWins = [2]int32{}
+			//sys.matchWins = [2]int32{} // Now set directly by Lua so we don't need to reset it
 			sys.scoreRounds = [][2]float32{}
 
 			// Reset lifebars
@@ -2810,18 +2810,15 @@ func systemScriptInit(l *lua.LState) {
 				if sys.round == 1 {
 					// Update wins, reset stage
 					sys.endMatch = false
-					if sys.tmode[1] == TM_Turns {
-						sys.matchWins[0] = sys.numTurns[1]
-					} else {
-						sys.matchWins[0] = sys.lifebar.ro.match_wins[1]
-					}
-					if sys.tmode[0] == TM_Turns {
-						sys.matchWins[1] = sys.numTurns[0]
-					} else {
-						sys.matchWins[1] = sys.lifebar.ro.match_wins[0]
-					}
-					sys.teamLeader = [...]int{0, 1}
+					sys.teamLeader = [2]int{0, 1}
 					sys.stage.reset()
+					// Adjust matchWins for Turns mode
+					// TODO: Since we always do this, maybe setMatchWins() could handle it directly
+					for i := 0; i < 2; i++ {
+						if sys.tmode[i] == TM_Turns {
+							sys.matchWins[i^1] = sys.numTurns[i]
+						}
+					}
 				}
 
 				// Winning player index
@@ -6052,7 +6049,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.ro.match_maxdrawgames[tn-1] = int32(numArg(l, 2))
+		sys.maxDraws[tn-1] = int32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "setMatchNo", func(l *lua.LState) int {
@@ -6073,7 +6070,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.ro.match_wins[tn-1] = int32(numArg(l, 2))
+		sys.matchWins[tn-1] = int32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "setMotifElements", func(*lua.LState) int {

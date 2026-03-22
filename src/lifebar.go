@@ -2129,67 +2129,76 @@ func (wi *LifeBarWinIcon) clear() {
 }
 
 func (wi *LifeBarWinIcon) draw(layerno int16, f map[int]*Fnt, side int) {
-	bg0num := float64(sys.lifebar.ro.match_wins[^side&1])
-	if sys.tmode[^side&1] == TM_Turns {
-		bg0num = float64(sys.numTurns[^side&1])
-	}
-	for i := 0; i < int(math.Min(float64(wi.useiconupto), bg0num)); i++ {
+	bg0num := sys.matchWins[side&1]
+
+	// Already handled when sys.matchWins is defined
+	//if sys.tmode[^side&1] == TM_Turns {
+	//	bg0num = sys.numTurns[^side&1]
+	//}
+
+	iconLimit := Min(wi.useiconupto, bg0num)
+
+	for i := 0; i < int(iconLimit); i++ {
 		wi.bg0.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 	}
+
 	if len(wi.wins) > int(wi.useiconupto) {
+		// Use the generic win count icon if icon limit exceeded
 		if wi.counter.font[0] >= 0 && getFont(f, wi.counter.font[0]) != nil {
 			wi.counter.lay.DrawText(float32(wi.pos[0])+sys.lifebar.offsetX, float32(wi.pos[1]), sys.lifebar.scale,
 				layerno, strings.Replace(wi.counter.text, "%i", fmt.Sprintf("%v", len(wi.wins)), 1),
 				getFont(f, wi.counter.font[0]), wi.counter.font[1], wi.counter.font[2], wi.counter.palfx, wi.counter.frgba)
 		}
 	} else {
+		// Use the specific win type icons
 		i := 0
 		for ; i < wi.numWins; i++ {
-			wt, p, c := wi.wins[i], false, false
+			wt, pf, cl := wi.wins[i], false, false
 			if wt >= WT_PNormal && wt < WT_CNormal {
 				wt -= WT_PNormal
-				p = true
+				pf = true
 			} else if wt >= WT_CNormal {
 				wt -= WT_CNormal
-				c = true
+				cl = true
 			}
 			wi.icon[wt].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
-			if p {
+			if pf {
 				wi.icon[WT_Perfect].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			}
-			if c {
+			if cl {
 				wi.icon[WT_Clutch].Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 			}
 		}
 		if wi.added != nil {
-			wt, p, c := wi.wins[i], false, false
+			wt, pf, cl := wi.wins[i], false, false
 			if wi.addedP != nil {
 				wt -= WT_PNormal
-				p = true
+				pf = true
 			} else if wi.addedC != nil {
 				wt -= WT_CNormal
-				c = true
+				cl = true
 			}
 			wi.icon[wt].lay.DrawAnim(&wi.icon[wt].lay.window,
 				float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 				float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.added, nil)
-			if p {
+			if pf {
 				wi.icon[WT_Perfect].lay.DrawAnim(&wi.icon[WT_Perfect].lay.window,
 					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedP, nil)
 			}
-			if c {
+			if cl {
 				wi.icon[WT_Clutch].lay.DrawAnim(&wi.icon[WT_Clutch].lay.window,
 					float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 					float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), sys.lifebar.scale, 1, 1, layerno, wi.addedC, nil)
 			}
 		}
 	}
-	for i := 0; i < int(math.Min(float64(wi.useiconupto), bg0num)); i++ {
+
+	for i := 0; i < int(iconLimit); i++ {
 		wi.top.Draw(float32(wi.pos[0]+wi.iconoffset[0]*int32(i))+sys.lifebar.offsetX,
 			float32(wi.pos[1]+wi.iconoffset[1]*int32(i)), layerno, sys.lifebar.scale)
 	}
@@ -2765,8 +2774,8 @@ type ResultAnnouncement struct {
 type LifeBarRound struct {
 	snd                 *Snd
 	pos                 [2]int32
-	match_wins          [2]int32
-	match_maxdrawgames  [2]int32
+	//match_wins          [2]int32 // Handled by system
+	//match_maxdrawgames  [2]int32 // Handled by system
 	start_waittime      int32
 	round_time          int32
 	round_sndtime       int32
@@ -2839,8 +2848,8 @@ type LifeBarRound struct {
 func newLifeBarRound(snd *Snd) *LifeBarRound {
 	return &LifeBarRound{
 		snd:                snd,
-		match_wins:         [...]int32{2, 2},
-		match_maxdrawgames: [...]int32{1, 1},
+		//match_wins:         [...]int32{2, 2},
+		//match_maxdrawgames: [...]int32{1, 1},
 		start_waittime:     30,
 		ctrl_time:          30,
 		slow_time:          60,
@@ -2884,8 +2893,8 @@ func readLifeBarRound(is IniSection,
 	ro := newLifeBarRound(snd)
 
 	is.ReadI32("pos", &ro.pos[0], &ro.pos[1])
-	is.ReadI32("match.wins", &ro.match_wins[0], &ro.match_wins[1])
-	is.ReadI32("match.maxdrawgames", &ro.match_maxdrawgames[0], &ro.match_maxdrawgames[1])
+	//is.ReadI32("match.wins", &ro.match_wins[0], &ro.match_wins[1]) // Replaced by ingame options
+	//is.ReadI32("match.maxdrawgames", &ro.match_maxdrawgames[0], &ro.match_maxdrawgames[1]) // Replaced by ingame options
 	is.ReadI32("start.waittime", &ro.start_waittime)
 	if ro.start_waittime < 1 {
 		ro.start_waittime = 1
@@ -5041,8 +5050,8 @@ func (l *Lifebar) reloadLifebar() error {
 		return err
 	}
 	lb.ti.framespercount = l.ti.framespercount
-	lb.ro.match_maxdrawgames = l.ro.match_maxdrawgames
-	lb.ro.match_wins = l.ro.match_wins
+	//lb.ro.match_wins = l.ro.match_wins
+	//lb.ro.match_maxdrawgames = l.ro.match_maxdrawgames
 	lb.tr.active = l.tr.active
 	lb.sc[0].active = l.sc[0].active
 	lb.sc[1].active = l.sc[1].active

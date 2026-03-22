@@ -135,9 +135,10 @@ type System struct {
 	winTeam                 int
 	winType                 [2]WinType
 	winTrigger              [2]WinType
-	matchWins, wins         [2]int32
+	matchWins, wins         [2]int32 // Required wins, current wins
 	roundsExisted           [2]int32
 	draws                   int32
+	maxDraws                [2]int32
 	effectiveLoss           [2]bool
 	loader                  Loader
 	chars                   [MaxPlayerNo][]*Char
@@ -1635,7 +1636,7 @@ func (s *System) roundIsSingle() bool {
 }
 
 func (s *System) maxDrawsReached(team int) bool {
-	limit := s.lifebar.ro.match_maxdrawgames[team]
+	limit := s.maxDraws[team]
 	return limit >= 0 && s.draws >= limit
 }
 
@@ -2131,14 +2132,7 @@ func (s *System) resetRoundState() {
 
 	// Decisive round check
 	for i := range s.decisiveRound {
-		neededWins := s.lifebar.ro.match_wins[i]
-		// If enemy is in Turns, then we must win "team size" rounds
-		if s.tmode[1-i] == TM_Turns {
-			neededWins = s.numTurns[1-i]
-		}
-		if s.wins[i] >= neededWins-1 {
-			s.decisiveRound[i] = true
-		}
+		s.decisiveRound[i] = s.wins[i] >= s.matchWins[i]-1
 	}
 
 	var roundRef int32

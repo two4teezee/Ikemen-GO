@@ -647,20 +647,27 @@ function main.f_commandLine()
 			end
 		end
 	end
-	local t_framesMul = {1, 1}
+	--Ensure proper team modes and prepare time scaling
+	local t_framesMul = {1, 1} --Skip Options.Tag.TimeScaling here for simplicity
 	for i = 1, 2 do
 		if t_teamMode[i] == 0 and t_numChars[i] > 1 then
-			t_teamMode[i] = 1
+			t_teamMode[i] = 1 --Default to Simul if multiple characters
 		end
-		if t_teamMode[i] == 1 then --Simul
-			setMatchWins(i, t_matchWins.simul[i])
-		elseif t_teamMode[i] == 3 then --Tag
+		if t_teamMode[i] == 3 then --Tag
 			t_framesMul[i] = t_numChars[i]
-			setMatchWins(i, t_matchWins.tag[i])
-		else
-			setMatchWins(i, t_matchWins.single[i])
 		end
-		setMatchMaxDrawGames(i, t_matchWins.draw[i])
+	end
+	--Rounds to win. Determined by enemy team mode
+	for i = 1, 2 do
+		local enemy = 3 - i
+		if t_teamMode[enemy] == 1 then -- enemy Simul
+			setMatchWins(i, t_matchWins.simul[enemy])
+		elseif t_teamMode[enemy] == 3 then -- enemy Tag
+			setMatchWins(i, t_matchWins.tag[enemy])
+		else -- enemy Single
+			setMatchWins(i, t_matchWins.single[enemy])
+		end
+		setMatchMaxDrawGames(i, t_matchWins.draw[enemy])
 	end
 	frames = frames * math.max(t_framesMul[1], t_framesMul[2])
 	setTimeFramesPerCount(frames)

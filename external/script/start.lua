@@ -313,22 +313,23 @@ function start.f_setRounds(roundTime, t_rounds)
 	else --default round time
 		setRoundTime(math.max(-1, main.roundTime * frames))
 	end
-	--rounds to win
+	--Rounds to win. Determined by enemy team mode
 	for side = 1, 2 do
+		local enemy = 3 - side
 		if t_rounds[side] ~= nil then
 			setMatchWins(side, t_rounds[side])
 			setMatchMaxDrawGames(side, t_rounds[side])
 		else
-			if side == 2 and main.charparam.rounds and start.f_getCharData(start.p[2].t_selected[1].ref).rounds ~= nil then --round num assigned as character param
-				setMatchWins(side, start.f_getCharData(start.p[2].t_selected[1].ref).rounds)
-			elseif start.p[side].teamMode == 1 then --default rounds num (Simul)
-				setMatchWins(side, main.matchWins.simul[side])
-			elseif start.p[side].teamMode == 3 then --default rounds num (Tag)
-				setMatchWins(side, main.matchWins.tag[side])
+			if enemy == 2 and main.charparam.rounds and start.f_getCharData(start.p[2].t_selected[1].ref).rounds ~= nil then --round num assigned as character param
+				setMatchWins(1, start.f_getCharData(start.p[2].t_selected[1].ref).rounds)
+			elseif start.p[enemy].teamMode == 1 then --default rounds num (Simul)
+				setMatchWins(side, main.matchWins.simul[enemy])
+			elseif start.p[enemy].teamMode == 3 then --default rounds num (Tag)
+				setMatchWins(side, main.matchWins.tag[enemy])
 			else --default rounds num (Single)
-				setMatchWins(side, main.matchWins.single[side])
+				setMatchWins(side, main.matchWins.single[enemy])
 			end
-			setMatchMaxDrawGames(side, main.matchWins.draw[side])
+			setMatchMaxDrawGames(side, main.matchWins.draw[enemy])
 		end
 	end
 	--timer / score counter

@@ -1633,11 +1633,27 @@ func (s *System) roundIsSingle() bool {
 	return !s.sel.gameParams.PersistRounds && s.round == 1 && s.decisiveRound[0] && s.decisiveRound[1]
 }
 
+func (s *System) maxDrawsReached(team int) bool {
+	limit := s.lifebar.ro.match_maxdrawgames[team]
+	return limit >= 0 && s.draws >= limit
+}
+
 // This checks if a round is eligible for "Final Round" behavior, not if it's literally the final round
 // https://github.com/ikemen-engine/Ikemen-GO/issues/1659
 func (s *System) roundIsFinal() bool {
-	return !s.sel.gameParams.PersistRounds && s.round > 1 && s.decisiveRound[0] && s.decisiveRound[1] &&
-		(s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1])
+	if s.sel.gameParams.PersistRounds {
+		return false
+	}
+	// The first round is never already final
+	if s.round <= 1 {
+		return false
+	}
+	// Both teams must be on their decisive round
+	if !s.decisiveRound[0] || !s.decisiveRound[1] {
+		return false
+	}
+	// Both teams must have reached their maximum draw limits
+	return s.maxDrawsReached(0) && s.maxDrawsReached(1)
 }
 
 func (s *System) winnerTeam() int32 {
@@ -2821,8 +2837,7 @@ func (s *System) matchEndDialoguePending() bool {
 		return s.decisiveRound[s.winTeam]
 	}
 	// Draw-based match end is determined before draws is incremented for this round.
-	return s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-		s.draws >= s.lifebar.ro.match_maxdrawgames[1]
+	return s.maxDrawsReached(0) || s.maxDrawsReached(1) // TODO: Maybe this should be &&
 }
 
 func (s *System) shouldStartMatchEndDialogue() bool {
@@ -2923,8 +2938,7 @@ func (s *System) stepRoundState() {
 			// Consecutive wins counter
 			winner := [2]bool{s.effectiveLoss[1], s.effectiveLoss[0]}
 			if !winner[0] || !winner[1] ||
-				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-				s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns || s.maxDrawsReached(0) || s.maxDrawsReached(1) {
 				for i, win := range winner {
 					if win {
 						s.wins[i]++
@@ -3166,15 +3180,11 @@ func (s *System) roundEndDecision() bool {
 	// Effective loss check
 	// Accounts for max draws unlike plain win/lose logic. Used for round progression
 	if s.winTeam < 0 {
+		// TODO: Turns mode could have special handling for balancing team sizes here
+		// For instance only allow draws if both teams are the same size
+		// In the meantime treating everything the same is the most impartial
 		for i := 0; i < 2; i++ {
-			// TODO: Turns mode could have special handling for balancing team sizes here
-			// For instance only allow draws if both teams are the same size
-			// In the meantime treating everything the same is the most impartial
-			if s.draws >= s.lifebar.ro.match_maxdrawgames[i] {
-				s.effectiveLoss[i] = true
-			} else {
-				s.effectiveLoss[i] = false
-			}
+			s.effectiveLoss[i] = s.maxDrawsReached(i)
 		}
 	} else {
 		for i := range s.effectiveLoss {

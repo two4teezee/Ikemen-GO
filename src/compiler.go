@@ -1204,6 +1204,47 @@ func (c *Compiler) mathFunc(out *BytecodeExp, in *string, rd bool,
 	return
 }
 
+func (c *Compiler) readOldProjectileID(in *string, trname string, baseLen int, out *BytecodeExp) (string, error) {
+	base := trname[:baseLen]
+	suffix := trname[baseLen:]
+
+	// Documented suffix form: projcontact123
+	if len(suffix) > 0 {
+		for _, ch := range suffix {
+			if ch < '0' || ch > '9' {
+				return "", Error("Invalid projectile ID: " + suffix)
+			}
+		}
+		out.appendValue(BytecodeInt(Atoi(suffix)))
+		return base, nil
+	}
+
+	// Alternative undocumented form: projcontact(123)
+	// Unlike suffix form, we allow a full expression here
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1860
+	tok := c.tokenizer(in)
+	if tok != "(" {
+		if len(tok) > 0 {
+			*in = tok + " " + *in
+		}
+		out.appendValue(BytecodeInt(0))
+		return base, nil
+	}
+
+	c.token = c.tokenizer(in)
+
+	bv, err := c.expBoolOr(out, in)
+	if err != nil {
+		return "", err
+	}
+	out.appendValue(bv)
+
+	if err := c.checkClosingParenthesis(); err != nil {
+		return "", err
+	}
+	return base, nil
+}
+
 // rd means Redirect
 func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	rd bool) (BytecodeValue, error) {
@@ -5076,52 +5117,65 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 		return c.expValue(out, in, false)
 	default:
+		// Exceptions for the projectile triggers with (very) old syntax
+		// projHit123, projGuarded456, projContact789
+		// These will be converted internally to the newer Proj*Time trigger OpCodes
 		l := len(c.token)
-		if l >= 7 && c.token[:7] == "projhit" || l >= 11 &&
-			(c.token[:11] == "projguarded" || c.token[:11] == "projcontact") {
-			trname, opc, id := c.token, OC_projhittime, int32(0)
-			if trname[:7] == "projhit" {
-				id = Atoi(trname[7:])
-				trname = trname[:7]
+		if l >= 7 && c.token[:7] == "projhit" ||
+			l >= 11 && (c.token[:11] == "projguarded" || c.token[:11] == "projcontact") {
+			trname, opc := c.token, OC_projhittime
+			var idExp BytecodeExp
+			// Determine contact type OpCode and compile projectile ID
+			if strings.HasPrefix(trname, "projhit") {
+				var err error
+				trname, err = c.readOldProjectileID(in, trname, 7, &idExp)
+				if err != nil {
+					return bvNone(), err
+				}
 			} else {
-				id = Atoi(trname[11:])
-				trname = trname[:11]
+				var err error
+				trname, err = c.readOldProjectileID(in, trname, 11, &idExp)
+				if err != nil {
+					return bvNone(), err
+				}
 				if trname == "projguarded" {
 					opc = OC_projguardedtime
 				} else {
 					opc = OC_projcontacttime
 				}
 			}
+			// Legacy projectile triggers only support '=' operator in the first part
 			if not, err := c.checkEquality(in); err != nil {
 				return bvNone(), err
 			} else if not && !sys.ignoreMostErrors {
 				return bvNone(), Error(trname + " doesn't support '!='")
 			}
+			// Reject malformed comparisons like "projhit = -1"
 			if c.token == "-" {
 				return bvNone(), Error("'-' should not be used")
 			}
 			if n, err = c.integer2(in); err != nil {
 				return bvNone(), err
 			}
-			be1.appendValue(BytecodeInt(id))
-			if rd {
-				out.appendI32Op(OC_nordrun, int32(len(be1)))
+			// Mugen only allows 0 or 1 in the first comparison
+			if n != 0 && n != 1 && !sys.ignoreMostErrors {
+				return bvNone(), Error(trname + " must be compared against 0 or 1")
 			}
-			out.append(be1...)
+			// Build the underlying Proj*Time(id) expression
+			if rd && len(idExp) > 0 {
+				out.appendI32Op(OC_nordrun, int32(len(idExp)))
+			}
+			out.append(idExp...)
 			out.append(opc)
-			out.appendValue(BytecodeInt(0))
-			out.append(OC_eq)
-			be.append(OC_pop)
-			be.appendValue(BytecodeInt(0))
-			if err = c.evaluateComparison(&be, in, false); err != nil {
+			// Optional second legacy form: ProjContact[ID] = value, [oper] value2
+			if err = c.evaluateComparison(out, in, false); err != nil {
 				return bvNone(), err
 			}
-			out.append(OC_jz8, OpCode(len(be)))
-			out.append(be...)
+			// "= 0" negates the generated time comparison
 			if n == 0 {
 				out.append(OC_blnot)
 			}
-			return bv, nil
+			return bvNone(), nil
 		} else if len(c.token) >= 2 && c.token[0] == '$' && c.token != "$_" {
 			vi, ok := c.vars[c.token[1:]]
 			if !ok {
@@ -7592,6 +7646,8 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 
 // Compile a ZSS state
 func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src string, constants map[string]float32) error {
+	// ZSS states are compiled with a lower tolerance for mistakes
+	// TODO: Either merge this with our current c.zssMode checks or drop it
 	defer func(oime bool) {
 		sys.ignoreMostErrors = oime
 	}(sys.ignoreMostErrors)

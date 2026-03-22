@@ -194,6 +194,7 @@ options.t_itemname = {
 			--modifyGameOption('Config.TrainingChar', "")
 			--modifyGameOption('Config.TrainingStage', "")
 			modifyGameOption('Config.GamepadMappings', "external/gamecontrollerdb.txt")
+			--modifyGameOption('Config.LegacyTime', 0)
 			modifyGameOption('Debug.AllowDebugMode', true)
 			modifyGameOption('Debug.AllowDebugKeys', true)
 			--modifyGameOption('Debug.ClipboardRows', 2)

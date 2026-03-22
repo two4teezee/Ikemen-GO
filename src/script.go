@@ -6202,7 +6202,13 @@ func systemScriptInit(l *lua.LState) {
 		@function setRoundTime
 		@tparam int32 time Maximum round time.
 		function setRoundTime(time) end*/
-		sys.maxRoundTime = int32(numArg(l, 1))
+		t := int32(numArg(l, 1))
+		// Since legacy mode rounds down the timer, we must add an offset just under one count to compensate
+		// This is also how Mugen handles it
+		if t > 0 && sys.cfg.Config.LegacyTime {
+			t += sys.curFramesPerCount - 1
+		}
+		sys.maxRoundTime = t
 		return 0
 	})
 	luaRegister(l, "setTeamMode", func(*lua.LState) int {

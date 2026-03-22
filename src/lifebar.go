@@ -2246,7 +2246,11 @@ func (ti *LifeBarTime) draw(layerno int16, f map[int]*Fnt) {
 		var timeval int32 = -1
 		time := "o"
 		if sys.curRoundTime >= 0 {
-			timeval = int32(math.Ceil(float64(sys.curRoundTime) / float64(sys.curFramesPerCount)))
+			if sys.cfg.Config.LegacyTime {
+				timeval = sys.curRoundTime / sys.curFramesPerCount
+			} else {
+				timeval = int32(math.Ceil(float64(sys.curRoundTime) / float64(sys.curFramesPerCount)))
+			}
 			time = fmt.Sprintf("%v", timeval)
 		}
 		// Multiple fonts according to time remaining

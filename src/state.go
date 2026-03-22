@@ -154,6 +154,7 @@ type GameState struct {
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32 // UIT
+	curFramesPerCount       int32
 	match                   int32 // UIT
 	round                   int32 // UIT
 	intro                   int32
@@ -371,6 +372,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.brightness = gs.brightness
 	sys.brightnessOld = gs.brightnessOld
 	sys.maxRoundTime = gs.maxRoundTime
+	sys.curFramesPerCount = gs.curFramesPerCount
 
 	sys.changeStateNest = gs.changeStateNest
 
@@ -620,6 +622,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.brightness = sys.brightness
 	gs.brightnessOld = sys.brightnessOld
 	gs.maxRoundTime = sys.maxRoundTime
+	gs.curFramesPerCount = sys.curFramesPerCount
 
 	gs.changeStateNest = sys.changeStateNest
 

@@ -6251,7 +6251,7 @@ func systemScriptInit(l *lua.LState) {
 		@function setTimeFramesPerCount
 		@tparam int32 frames Frames per timer count.
 		function setTimeFramesPerCount(frames) end*/
-		sys.lifebar.ti.framespercount = int32(numArg(l, 1))
+		sys.curFramesPerCount = int32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setWinCount", func(*lua.LState) int {

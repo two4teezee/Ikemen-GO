@@ -98,6 +98,7 @@ type System struct {
 	brightness              float32
 	brightnessOld           float32
 	maxRoundTime            int32
+	curFramesPerCount       int32 // The mutatable value for the current match
 	debugFont               *TextSprite
 	debugDisplay            bool
 	debugRef                [2]int // player number, helper index

@@ -2200,7 +2200,7 @@ type LifeBarTime struct {
 	counter        map[int32]*LbText
 	bg             AnimLayout
 	top            AnimLayout
-	framespercount int32
+	framespercount int32 // The original value as read in fight.def
 	activeIdx      int32
 }
 
@@ -2241,12 +2241,12 @@ func (ti *LifeBarTime) bgDraw(layerno int16) {
 }
 
 func (ti *LifeBarTime) draw(layerno int16, f map[int]*Fnt) {
-	if ti.framespercount > 0 &&
+	if sys.curFramesPerCount > 0 &&
 		ti.counter[0].font[0] >= 0 && getFont(f, ti.counter[0].font[0]) != nil {
 		var timeval int32 = -1
 		time := "o"
 		if sys.curRoundTime >= 0 {
-			timeval = int32(math.Ceil(float64(sys.curRoundTime) / float64(ti.framespercount)))
+			timeval = int32(math.Ceil(float64(sys.curRoundTime) / float64(sys.curFramesPerCount)))
 			time = fmt.Sprintf("%v", timeval)
 		}
 		// Multiple fonts according to time remaining
@@ -3895,7 +3895,7 @@ func (tr *LifeBarTimer) bgDraw(layerno int16) {
 }
 
 func (tr *LifeBarTimer) draw(layerno int16, f map[int]*Fnt) {
-	if tr.active && sys.lifebar.ti.framespercount > 0 &&
+	if tr.active && sys.curFramesPerCount > 0 &&
 		tr.text.font[0] >= 0 && getFont(f, tr.text.font[0]) != nil {
 		text := tr.text.text
 		totalSec := float64(sys.timeTotal()) / 60

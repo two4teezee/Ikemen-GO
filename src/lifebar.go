@@ -2797,6 +2797,11 @@ type LifeBarRound struct {
 	ctrl_time           int32
 	ko_time             int32
 	ko_sndtime          int32
+	dko_time            int32
+	dko_sndtime         int32
+	to_time             int32
+	to_sndtime          int32
+	outroTimerSet       bool
 	ko, dko, to         AnimTextSnd
 	ko_top              AnimLayout
 	ko_bg               [32]AnimLayout
@@ -2934,6 +2939,8 @@ func readLifeBarRound(is IniSection,
 	if ro.ctrl_time < 1 {
 		ro.ctrl_time = 1
 	}
+
+	// KO
 	is.ReadI32("ko.time", &ro.ko_time)
 	ro.ko_sndtime = ro.ko_time
 	is.ReadI32("ko.sndtime", &ro.ko_sndtime)
@@ -2942,11 +2949,25 @@ func readLifeBarRound(is IniSection,
 	for i := range ro.ko_bg {
 		ro.ko_bg[i] = ReadAnimLayout(fmt.Sprintf("ko.bg%v.", i), is, sff, at, 2)
 	}
+
+	// Default new timers to KO timers
+	ro.dko_time = ro.ko_time
+	ro.dko_sndtime = ro.ko_sndtime
+	ro.to_time = ro.ko_time
+	ro.to_sndtime = ro.ko_sndtime
+
+	// Double KO
+	is.ReadI32("dko.time", &ro.dko_time)
+	is.ReadI32("dko.sndtime", &ro.dko_sndtime)
 	ro.dko = *ReadAnimTextSnd("dko.", is, sff, at, 1, f)
 	ro.dko_top = ReadAnimLayout("dko.top.", is, sff, at, 1)
 	for i := range ro.dko_bg {
 		ro.dko_bg[i] = ReadAnimLayout(fmt.Sprintf("dko.bg%v.", i), is, sff, at, 2)
 	}
+
+	// Time Over
+	is.ReadI32("to.time", &ro.to_time)
+	is.ReadI32("to.sndtime", &ro.to_sndtime)
 	ro.to = *ReadAnimTextSnd("to.", is, sff, at, 1, f)
 	ro.to_top = ReadAnimLayout("to.top.", is, sff, at, 1)
 	for i := range ro.to_bg {
@@ -3254,9 +3275,10 @@ func (ro *LifeBarRound) handleRoundIntro() {
 
 	endFightCall := func() {
 		ro.current = 2
-		ro.waitTimer[2], ro.waitSoundTimer[2], ro.drawTimer[2] = ro.ko_time, ro.ko_sndtime, 0
+		ro.waitTimer[2], ro.waitSoundTimer[2], ro.drawTimer[2] = ro.ko_time, ro.ko_sndtime, 0 // Just default to KO for now
 		ro.waitTimer[3], ro.waitSoundTimer[3], ro.drawTimer[3] = ro.win_time, ro.win_sndtime, 0
 		ro.fightCallOver = true
+		ro.outroTimerSet = false
 	}
 
 	// Skip fight call
@@ -3307,6 +3329,22 @@ func (ro *LifeBarRound) handleRoundIntro() {
 
 // Consists of KO screen and winner messages
 func (ro *LifeBarRound) handleRoundOutro() {
+	// Start timers according to finish type
+	if ro.current == 2 && !ro.outroTimerSet {
+		switch sys.finishType {
+		case FT_DKO:
+			ro.waitTimer[2] = ro.dko_time
+			ro.waitSoundTimer[2] = ro.dko_sndtime
+		case FT_TO, FT_TODraw:
+			ro.waitTimer[2] = ro.to_time
+			ro.waitSoundTimer[2] = ro.to_sndtime
+		default:
+			ro.waitTimer[2] = ro.ko_time
+			ro.waitSoundTimer[2] = ro.ko_sndtime
+		}
+		ro.outroTimerSet = true
+	}
+
 	if ro.timerActive {
 		if sys.matchTime-sys.timerCount[sys.round-1] > 0 {
 			sys.timerCount[sys.round-1] = sys.matchTime - sys.timerCount[sys.round-1]

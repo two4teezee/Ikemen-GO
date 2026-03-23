@@ -649,25 +649,27 @@ function main.f_commandLine()
 	end
 	--Ensure proper team modes and prepare time scaling
 	local t_framesMul = {1, 1} --Skip Options.Tag.TimeScaling here for simplicity
-	for i = 1, 2 do
-		if t_teamMode[i] == 0 and t_numChars[i] > 1 then
-			t_teamMode[i] = 1 --Default to Simul if multiple characters
+	for side = 1, 2 do
+		if t_teamMode[side] == 0 and t_numChars[side] > 1 then
+			t_teamMode[side] = 1 --Default to Simul if multiple characters
 		end
-		if t_teamMode[i] == 3 then --Tag
-			t_framesMul[i] = t_numChars[i]
+		if t_teamMode[side] == 3 then --Tag
+			t_framesMul[side] = t_numChars[side]
 		end
 	end
 	--Rounds to win. Determined by enemy team mode
-	for i = 1, 2 do
-		local enemy = 3 - i
-		if t_teamMode[enemy] == 1 then -- enemy Simul
-			setMatchWins(i, t_matchWins.simul[enemy])
-		elseif t_teamMode[enemy] == 3 then -- enemy Tag
-			setMatchWins(i, t_matchWins.tag[enemy])
-		else -- enemy Single
-			setMatchWins(i, t_matchWins.single[enemy])
+	for side = 1, 2 do
+		local enemy = 3 - side
+		if t_teamMode[enemy] == 1 then --Simul
+			setMatchWins(side, t_matchWins.simul[enemy])
+		elseif t_teamMode[enemy] == 2 then --Turns
+			setMatchWins(side, t_numChars[enemy])
+		elseif t_teamMode[enemy] == 3 then --Tag
+			setMatchWins(side, t_matchWins.tag[enemy])
+		else --Single
+			setMatchWins(side, t_matchWins.single[enemy])
 		end
-		setMatchMaxDrawGames(i, t_matchWins.draw[enemy])
+		setMatchMaxDrawGames(side, t_matchWins.draw[side])
 	end
 	frames = frames * math.max(t_framesMul[1], t_framesMul[2])
 	setTimeFramesPerCount(frames)

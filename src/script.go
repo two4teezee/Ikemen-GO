@@ -2812,13 +2812,14 @@ func systemScriptInit(l *lua.LState) {
 					sys.endMatch = false
 					sys.teamLeader = [2]int{0, 1}
 					sys.stage.reset()
+
 					// Adjust matchWins for Turns mode
-					// TODO: Since we always do this, maybe setMatchWins() could handle it directly
-					for i := 0; i < 2; i++ {
-						if sys.tmode[i] == TM_Turns {
-							sys.matchWins[i^1] = sys.numTurns[i]
-						}
-					}
+					// Let's trust that Lua already set this up correctly
+					//for i := 0; i < 2; i++ {
+					//	if sys.tmode[i] == TM_Turns {
+					//		sys.matchWins[i^1] = sys.numTurns[i]
+					//	}
+					//}
 				}
 
 				// Winning player index

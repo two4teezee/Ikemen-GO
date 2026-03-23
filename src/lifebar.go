@@ -4394,21 +4394,20 @@ func loadLifebar(def string) (*Lifebar, error) {
 	// Pre-scan [info] to initialize lifebar localcoord/scale before any FightFX load
 	pre := 0
 	for pre < len(lines) {
+		// If lifebar doesn't have localcoord assigned we're using screenpack localcoord
+		l.localcoord[0], l.localcoord[1] = sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1]
 		is, name, _ := ReadIniSection(lines, &pre)
 		if name == "info" {
-			// If lifebar doesn't have localcoord assigned we're using screenpack localcoord
-			if !is.ReadI32("localcoord", &l.localcoord[0], &l.localcoord[1]) {
-				l.localcoord[0], l.localcoord[1] = sys.motif.Info.Localcoord[0], sys.motif.Info.Localcoord[1]
-			}
-			l.setLifebarScale()
-			// Seed sys.lifebar with values used during loading (before the final assignment)
-			sys.lifebar.localcoord = l.localcoord
-			sys.lifebar.offsetX = l.offsetX
-			sys.lifebar.scale = l.scale
-			sys.lifebar.portraitScale = l.portraitScale
+			is.ReadI32("localcoord", &l.localcoord[0], &l.localcoord[1])
 			break
 		}
 	}
+	l.setLifebarScale()
+	// Seed sys.lifebar with values used during loading (before the final assignment)
+	sys.lifebar.localcoord = l.localcoord
+	sys.lifebar.offsetX = l.offsetX
+	sys.lifebar.scale = l.scale
+	sys.lifebar.portraitScale = l.portraitScale
 
 	// Load Common FX first
 	for _, key := range SortedKeys(sys.cfg.Common.Fx) {

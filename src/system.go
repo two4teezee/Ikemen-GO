@@ -1587,7 +1587,7 @@ func (s *System) introState() int32 {
 		}
 		// Round announcement
 		return 3
-	case s.lifebar.ro.waitTimer[1] == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time):
+	case s.lifebar.ro.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time):
 		// Fight called
 		return 4
 	default:

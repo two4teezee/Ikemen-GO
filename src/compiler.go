@@ -5661,9 +5661,26 @@ func (c *Compiler) parseSection(
 			fn := strings.TrimSpace(lower[:i]) // Mugen tolerates "var ("
 			switch fn {
 			case "var", "fvar", "sysvar", "sysfvar", "map":
-				ia := strings.Index(line, "=")
+				ia := -1
+				parenLevel := 0
+				for j, char := range line {
+					if char == '(' {
+						parenLevel++
+					} else if char == ')' {
+						parenLevel--
+					} else if char == '=' && parenLevel == 0 {
+						ia = j
+						break
+					}
+				}
 				if ia > 0 {
-					name = strings.ToLower(strings.TrimSpace(line[:ia]))
+					nameStr := strings.TrimSpace(line[:ia])
+
+					if strings.HasSuffix(nameStr, ":") {
+						nameStr = strings.TrimSpace(nameStr[:len(nameStr)-1])
+					}
+
+					name = strings.ToLower(nameStr)
 					data = strings.TrimSpace(line[ia+1:])
 					break
 				}

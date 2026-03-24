@@ -180,7 +180,21 @@ if getCommandLineValue("-speed") ~= nil then
 	end
 end
 if getCommandLineValue("-speedtest") ~= nil then
-	setGameSpeed(math.floor(60 * (gameOption('Debug.SpeedTest') - 1) / gameOption('Options.GameSpeedStep') + 0.5))
+	local target_speed = gameOption('Debug.SpeedTest')
+	local custom_speed = tonumber(getCommandLineValue("-speedtest"))
+	if custom_speed ~= nil and custom_speed > 0 then
+		target_speed = custom_speed
+	end
+
+	setGameSpeed(math.floor(60 * (target_speed - 1) / gameOption('Options.GameSpeedStep') + 0.5))
+end
+if getCommandLineValue("-framerate") ~= nil then
+	local target_framerate = gameOption('Video.Framerate')
+	custom_framerate = tonumber(getCommandLineValue("-framerate"))
+	if custom_framerate ~= nil and custom_framerate > 0 then
+		target_framerate = custom_framerate
+	end
+	modifyGameOption('Video.Framerate', target_framerate)
 end
 if getCommandLineValue("-nosound") ~= nil then
 	modifyGameOption('Sound.MasterVolume', 0)
@@ -1526,7 +1540,7 @@ function main.f_default()
 		draw = {gameOption('Options.Match.MaxDrawGames'), gameOption('Options.Match.MaxDrawGames')},
 		simul = {gameOption('Options.Simul.Match.Wins'), gameOption('Options.Simul.Match.Wins')},
 		single = {gameOption('Options.Match.Wins'), gameOption('Options.Match.Wins')},
-		tag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')},,
+		tag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')},
 	}
 	main.motif = { --which motif elements should be rendered
 		challenger = false,

@@ -180,6 +180,17 @@ func realMain() {
 	sys.cfg = *cfg
 	// Logcat("LOG: Config Loaded. System Script: " + sys.cfg.Config.System)
 
+	if port, ok := sys.cmdFlags["-debugapi"]; ok {
+		if sys.cfg.Debug.AllowDebugMode {
+			if port == "" || port == "true" {
+				port = "8080"
+			}
+			sys.debugApiServer = NewDebugApiServer(port)
+			fmt.Sprintf("Debug API server started on port %s\n", port)
+		} else {
+			fmt.Sprintf("Debug API not started because AllowDebugMode is false\n")
+		}
+	}
 	if sys.cfg.Debug.DumpLuaTables {
 		os.MkdirAll(filepath.Join(sys.baseDir, "debug"), permission)
 	}
@@ -239,7 +250,6 @@ func processCommandLine() {
 			"-nojoy":          true,
 			"-nomusic":        true,
 			"-nosound":        true,
-			"-speedtest":      true,
 		}
 		key := ""
 		player := 1

@@ -3344,18 +3344,22 @@ func (me *MotifMenu) step(m *Motif) {
 	me.counter++
 }
 
+// runLua executes the pause-menu Lua loop.
+func (me *MotifMenu) runLua(m *Motif) {
+	// Once closing has started, stop running the Lua menu loop so it can't keep drawing/flickering.
+	if me.endTimer != -1 {
+		return
+	}
+	if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
+	} else if !ok {
+		me.requestClose(m)
+	}
+}
+
 func (me *MotifMenu) draw(m *Motif, layerno int16) {
 	if layerno == 2 {
-		// Once closing has started, stop running the Lua menu loop so it can't keep drawing/flickering.
-		if me.endTimer != -1 {
-			return
-		}
-		if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
-			sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
-		} else if !ok {
-			// Lua requested to close the pause menu (menuRun returns main.pauseMenu).
-			me.requestClose(m)
-		}
+		me.runLua(m)
 	}
 }
 
@@ -3522,10 +3526,16 @@ func (co *MotifContinue) updateCreditsText(m *Motif) {
 	co.credits = sys.credits
 }
 
+func (co *MotifContinue) isEnabled() bool {
+	if sys.sel.gameParams != nil {
+		return sys.sel.gameParams.Continue
+	}
+	return co.enabled
+}
+
 func (co *MotifContinue) init(m *Motif) {
-	if (!m.ContinueScreen.Enabled || !co.enabled) ||
-		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
-		!sys.sel.gameParams.Continue {
+	if !m.ContinueScreen.Enabled || !co.isEnabled() ||
+		(sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) {
 		co.initialized = true
 		return
 	}
@@ -5999,10 +6009,17 @@ func (vi *MotifVictory) applyEntry(m *Motif, dst *PlayerVictoryProperties, e vic
 	}
 }
 
+func (vi *MotifVictory) isEnabled() bool {
+	if sys.sel.gameParams != nil {
+		return sys.sel.gameParams.VictoryScreen
+	}
+	return vi.enabled
+}
+
 func (vi *MotifVictory) init(m *Motif) {
-	if !m.VictoryScreen.Enabled || !vi.enabled || sys.winnerTeam() < 1 || (sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) ||
-		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) ||
-		!sys.sel.gameParams.VictoryScreen {
+	if !m.VictoryScreen.Enabled || !vi.isEnabled() || sys.winnerTeam() < 1 ||
+		(sys.winnerTeam() == 2 && !m.VictoryScreen.Cpu.Enabled) ||
+		((sys.gameMode == "versus" || sys.gameMode == "netplayversus") && !m.VictoryScreen.Vs.Enabled) {
 		vi.initialized = true
 		return
 	}
@@ -6477,9 +6494,16 @@ func (wi *MotifWin) reset(m *Motif) {
 	wi.resultsKey = ""
 }
 
+func (wi *MotifWin) isEnabled() bool {
+	if sys.sel.gameParams != nil {
+		return sys.sel.gameParams.WinScreen
+	}
+	return wi.winEnabled
+}
+
 // Initialize the MotifWin based on the current game mode
 func (wi *MotifWin) init(m *Motif) {
-	if (wi.winEnabled && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
+	if (wi.isEnabled() && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
 		(wi.loseEnabled && (sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1)) {
 		if err := sys.luaLState.DoString("hook.run('game.result_init')"); err != nil {
 			sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.result_init", err.Error())

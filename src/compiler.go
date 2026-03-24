@@ -5696,10 +5696,30 @@ func (c *Compiler) fullExpression(in *string, vt ValueType) (BytecodeExp, error)
 	return be, nil
 }
 
-func (c *Compiler) parseSection(
-	sctrl func(name, data string) error) (IniSection, bool, error) {
+func (c *Compiler) parseSection(sctrl func(name, data string) error) (IniSection, bool, error) {
 	is := NewIniSection()
 	_type, persistent, ignorehitpause := true, true, true
+
+	// Helper to find '=' only outside parentheses
+	findTopLevelEqual := func(s string) int {
+		uneven := 0
+		for i, r := range s {
+			switch r {
+			case '(':
+				uneven++
+			case ')':
+				if uneven > 0 {
+					uneven--
+				}
+			case '=':
+				if uneven == 0 {
+					return i
+				}
+			}
+		}
+		return -1
+	}
+
 	for ; c.i < len(c.lines); c.i++ {
 		line := strings.TrimSpace(strings.SplitN(c.lines[c.i], ";", 2)[0])
 		if len(line) > 0 && line[0] == '[' {
@@ -5715,11 +5735,10 @@ func (c *Compiler) parseSection(
 			fn := strings.TrimSpace(lower[:i]) // Mugen tolerates "var ("
 			switch fn {
 			case "var", "fvar", "sysvar", "sysfvar", "map":
-				ia := strings.Index(line, "=")
+				ia := findTopLevelEqual(line)
 				if ia > 0 {
 					name = strings.ToLower(strings.TrimSpace(line[:ia]))
 					data = strings.TrimSpace(line[ia+1:])
-					break
 				}
 			}
 		}

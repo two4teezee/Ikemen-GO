@@ -1002,9 +1002,9 @@ func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 		wrapTokenNewline
 	)
 	type wrapToken struct {
-		kind    wrapTokenKind
-		text    string // visible/raw text chunk (for newline this is "")
-		rawRunes int   // how many source runes this token consumes
+		kind     wrapTokenKind
+		text     string // visible/raw text chunk (for newline this is "")
+		rawRunes int    // how many source runes this token consumes
 	}
 
 	// Tokenize the RAW source text, preserving spaces and treating "\n" as a control token.

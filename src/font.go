@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"os"
 	"regexp"
@@ -962,58 +961,115 @@ func (ts *TextSprite) decodeEscapes(text string) string {
 	return strings.ReplaceAll(text, "\\n", "\n")
 }
 
-// splitNewlines breaks lines into words and inserts explicit "\n" tokens.
-func (ts *TextSprite) splitNewlines(text string) []string {
-	text = ts.decodeEscapes(text)
-	parts := strings.Split(text, "\n")
-	var result []string
-	for i, p := range parts {
-		tokens := strings.Fields(p)
-		if len(tokens) > 0 {
-			result = append(result, tokens...)
-		}
-		if i < len(parts)-1 {
-			// Insert a newline token to indicate forced line break
-			result = append(result, "\n")
-		}
-	}
-	return result
-}
-
 // wrapText wraps the fullLine text based on the typedLen and other parameters
 func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 	// If typedLen <= 0, nothing to display
 	if ts.fnt == nil || ts.window[2] <= 0 {
 		return
 	}
-
 	// If typing hasn't started yet, make sure nothing is shown.
 	if typedLen <= 0 {
 		ts.text = ""
 		return
 	}
 
-	// Return byte index of the first 'n' runes in s.
+	// Return byte index of the first n runes in s.
 	toByteIndex := func(s string, n int) int {
 		if n <= 0 {
 			return 0
 		}
+		count := 0
 		for idx := range s {
-			if n == 0 {
+			if count == n {
 				return idx
 			}
-			n--
-		}
-		// If we consumed exactly the number of runes or ran out, return len(s)
-		if n == 0 {
-			return len(s)
+			count++
 		}
 		return len(s)
+	}
+	runePrefix := func(s string, n int) string {
+		end := toByteIndex(s, n)
+		if end > len(s) {
+			end = len(s)
+		}
+		return s[:end]
+	}
+
+	type wrapTokenKind int
+	const (
+		wrapTokenWord wrapTokenKind = iota
+		wrapTokenSpaces
+		wrapTokenNewline
+	)
+	type wrapToken struct {
+		kind    wrapTokenKind
+		text    string // visible/raw text chunk (for newline this is "")
+		rawRunes int   // how many source runes this token consumes
+	}
+
+	// Tokenize the RAW source text, preserving spaces and treating "\n" as a control token.
+	tokenize := func(s string) []wrapToken {
+		var out []wrapToken
+		for i := 0; i < len(s); {
+			// Escaped newline sequence in source text.
+			if strings.HasPrefix(s[i:], "\\n") {
+				out = append(out, wrapToken{kind: wrapTokenNewline, rawRunes: 2})
+				i += 2
+				continue
+			}
+
+			r, size := utf8.DecodeRuneInString(s[i:])
+			switch r {
+			case '\n':
+				out = append(out, wrapToken{kind: wrapTokenNewline, rawRunes: 1})
+				i += size
+				continue
+			case ' ', '\t':
+				start := i
+				rawRunes := 0
+				for i < len(s) {
+					if strings.HasPrefix(s[i:], "\\n") {
+						break
+					}
+					rr, ss := utf8.DecodeRuneInString(s[i:])
+					if rr != ' ' && rr != '\t' {
+						break
+					}
+					i += ss
+					rawRunes++
+				}
+				out = append(out, wrapToken{
+					kind:     wrapTokenSpaces,
+					text:     s[start:i],
+					rawRunes: rawRunes,
+				})
+				continue
+			default:
+				start := i
+				rawRunes := 0
+				for i < len(s) {
+					if strings.HasPrefix(s[i:], "\\n") {
+						break
+					}
+					rr, ss := utf8.DecodeRuneInString(s[i:])
+					if rr == '\n' || rr == ' ' || rr == '\t' {
+						break
+					}
+					i += ss
+					rawRunes++
+				}
+				out = append(out, wrapToken{
+					kind:     wrapTokenWord,
+					text:     s[start:i],
+					rawRunes: rawRunes,
+				})
+			}
+		}
+		return out
 	}
 
 	// No wrapping: cut to typedLen, omit a trailing '\' before a pending "\n"
 	if !ts.textWrap {
-		// 'typedLen' is in RUNES; convert to byte index safely.
 		endByte := toByteIndex(fullLine, typedLen)
 		if endByte > len(fullLine) {
 			endByte = len(fullLine)
@@ -1027,125 +1083,117 @@ func (ts *TextSprite) wrapText(fullLine string, typedLen int) {
 		return
 	}
 
-	// Split the text into words, preserving newlines
-	words := ts.splitNewlines(fullLine)
+	spacingXAdd := int32(math.Round(float64(ts.textSpacing[0])))
+	lineLen := ts.getLineLength(true)
+
+	measureWidth := func(text string) int32 {
+		// Draw() expands tabs to four spaces, so width calculation must do the same.
+		text = strings.ReplaceAll(text, "\t", "    ")
+		return int32(math.Round(float64(ts.fnt.TextWidth(text, ts.bank, spacingXAdd)) * float64(ts.xscl)))
+	}
+
+	tokens := tokenize(fullLine)
 
 	var result strings.Builder
 	var currentLine strings.Builder
-	var currentLineWidth int32
-	if false {
-		fmt.Println(currentLineWidth) // dummy due to compiler error
+	remaining := typedLen
+
+	pendingSpaces := ""
+	pendingSpacesRunes := 0
+
+	flushPendingVisible := func() bool {
+		if pendingSpacesRunes <= 0 {
+			return true
+		}
+		show := pendingSpacesRunes
+		if remaining < show {
+			show = remaining
+		}
+		if show > 0 {
+			currentLine.WriteString(runePrefix(pendingSpaces, show))
+			remaining -= show
+		}
+		if show < pendingSpacesRunes {
+			return false
+		}
+		pendingSpaces = ""
+		pendingSpacesRunes = 0
+		return true
 	}
 
-	remainingChars := typedLen
-
-	// Determine the maximum line length based on alignment and window
-	lineLen := ts.getLineLength(true)
-
-	spacingXAdd := int32(math.Round(float64(ts.textSpacing[0])))
-
-	for _, w := range words {
-		if w == "\n" {
-			// Forced newline: commit currentLine to result and start a new line
-			result.WriteString(currentLine.String())
-			result.WriteString("\n")
-			currentLine.Reset()
-			currentLineWidth = 0
-			continue
-		}
-
-		// Determine the prefix (space) if not the first word in the line
-		spacePrefix := ""
-		if currentLine.Len() > 0 {
-			spacePrefix = " "
-		}
-
-		// Candidate word with prefix
-		candidate := spacePrefix + w
-
-		// Measure the width if we add this word to the current line
-		tentativeLine := currentLine.String() + candidate
-		tentativeWidth := int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank, spacingXAdd)) * float64(ts.xscl)))
-
-		if tentativeWidth > lineLen && currentLine.Len() > 0 {
-			// Current line is full; commit it and start a new line with the current word
-			result.WriteString(currentLine.String())
-			result.WriteString("\n")
-			currentLine.Reset()
-			currentLineWidth = 0
-			// Recalculate candidate without space prefix since it's a new line
-			candidate = w
-			tentativeLine = candidate
-			tentativeWidth = int32(math.Round(float64(ts.fnt.TextWidth(tentativeLine, ts.bank, spacingXAdd)) * float64(ts.xscl)))
-			if tentativeWidth > lineLen {
-				// Optionally handle long words by splitting them
-				// For simplicity, we'll commit the long word to a new line as is
-				currentLine.WriteString(candidate)
-				currentLineWidth = tentativeWidth
-				continue
-			}
-		}
-
-		// Now, add the candidate to the current line
-		currentLine.WriteString(candidate)
-		currentLineWidth = tentativeWidth
-
-		// Count runes in this word (spaces ignored); final rune limit is enforced later.
-		charsToAdd := utf8.RuneCountInString(w)
-		if remainingChars < charsToAdd {
-			charsToAdd = remainingChars
-		}
-
-		// Update remainingChars
-		remainingChars -= charsToAdd
-
-		// If no more characters to add, break
-		if remainingChars <= 0 {
+loop:
+	for _, tok := range tokens {
+		if remaining <= 0 {
 			break
 		}
-	}
 
-	// After processing all words, add any remaining text in currentLine to result
-	if currentLine.Len() > 0 {
-		result.WriteString(currentLine.String())
-	}
+		switch tok.kind {
+		case wrapTokenSpaces:
+			pendingSpaces += tok.text
+			pendingSpacesRunes += tok.rawRunes
 
-	// Final trimming: ensure we keep ONLY 'typedLen' RUNES across lines.
-	{
-		finalResult := ""
-		runesAdded := 0
-		lines := strings.Split(result.String(), "\n")
-		for i, line := range lines {
-			if runesAdded >= typedLen {
-				break
+		case wrapTokenNewline:
+			// Spaces before an explicit newline are real typed characters and must be preserved.
+			if !flushPendingVisible() {
+				break loop
 			}
-			lineRunes := 0
-			for range line {
-				lineRunes++
+			// Do not emit the line break until the whole control sequence is consumed.
+			if remaining < tok.rawRunes {
+				break loop
 			}
-			if runesAdded+lineRunes <= typedLen {
-				finalResult += line
-				runesAdded += lineRunes
-				if i < len(lines)-1 {
-					finalResult += "\n"
+
+			result.WriteString(currentLine.String())
+			result.WriteString("\n")
+			currentLine.Reset()
+			remaining -= tok.rawRunes
+
+		case wrapTokenWord:
+			// Decide line placement using the full word before drawing any part of it.
+			if currentLine.Len() > 0 {
+				candidate := currentLine.String() + pendingSpaces + tok.text
+				if measureWidth(candidate) > lineLen {
+					result.WriteString(currentLine.String())
+					result.WriteString("\n")
+					currentLine.Reset()
+
+					// Inter-word spaces consumed before a wrapped word remain invisible,
+					// but they still consume typing time from the source text.
+					if pendingSpacesRunes > 0 {
+						if remaining < pendingSpacesRunes {
+							break loop
+						}
+						remaining -= pendingSpacesRunes
+						pendingSpaces = ""
+						pendingSpacesRunes = 0
+					}
 				}
-			} else {
-				remaining := typedLen - runesAdded
-				endByte := toByteIndex(line, remaining)
-				if endByte > len(line) {
-					endByte = len(line)
-				}
-				finalResult += line[:endByte]
-				runesAdded = typedLen
-				break
+			}
+
+			if !flushPendingVisible() {
+				break loop
+			}
+
+			show := tok.rawRunes
+			if remaining < show {
+				show = remaining
+			}
+			if show > 0 {
+				currentLine.WriteString(runePrefix(tok.text, show))
+				remaining -= show
+			}
+			if show < tok.rawRunes {
+				break loop
 			}
 		}
-
-		// Remove the trailing newline if present
-		finalResult = strings.TrimRight(finalResult, "\n")
-		ts.text = finalResult
-		return
 	}
+
+	// Trailing spaces at end-of-text should be preserved.
+	if remaining > 0 && pendingSpacesRunes > 0 {
+		_ = flushPendingVisible()
+	}
+
+	result.WriteString(currentLine.String())
+	ts.text = strings.TrimRight(result.String(), "\n")
 }
 
 // StepTypewriter advances a "typewriter" cursor (typedLen / charDelayCounter / lineFullyRendered)

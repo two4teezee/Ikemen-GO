@@ -4,6 +4,7 @@ cd "$(dirname "$0")"
 case "$OSTYPE" in
 	darwin*)
 		# Prefer the .app if present right here
+		xattr -rd com.apple.quarantine "$(pwd)" 2>/dev/null || true
 		APPDIR="./I.K.E.M.E.N-Go.app"
 		if [ -d "$APPDIR" ]; then
 			xattr -d com.apple.quarantine "$APPDIR" 2>/dev/null || true

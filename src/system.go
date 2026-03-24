@@ -1602,8 +1602,10 @@ func (s *System) introState() int32 {
 		}
 		// Round announcement
 		return 3
-	case s.lifebar.ro.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time):
+	case s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time:
 		// Fight called
+		// Used to check both these conditions, but refactors revealed that was probably wrong
+		//s.lifebar.ro.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time)
 		return 4
 	default:
 		// Not applicable
@@ -1767,6 +1769,7 @@ func (s *System) luaDiscardDrawQueue() {
 
 // Print an error directly from bytecode.go
 // Printing from char.go is preferable, but not always possible
+// Most of them come from invalid math operations
 func (s *System) printBytecodeError(str string) {
 	if s.loader.state == LS_Complete && s.workingChar != nil {
 		// Print during matches

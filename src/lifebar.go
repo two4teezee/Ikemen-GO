@@ -2765,20 +2765,6 @@ func (ac *LifeBarAction) draw(layerno int16, f map[int]*Fnt, side int) {
 	}
 }
 
-type RoundCallTiming struct {
-	time       int32 // Original value
-	sndtime    int32 // Original value
-	animTimer  int32 // Controls animation delay
-	soundTimer int32 // Controls sound delay
-	animFrame  int32 // Current animation frame
-}
-
-func (t *RoundCallTiming) reset() {
-	t.animTimer = t.time
-	t.soundTimer = t.sndtime
-	t.animFrame = 0
-}
-
 type ResultAnnouncement struct {
 	text [2]AnimTextSnd
 	top  [2]AnimLayout
@@ -2788,10 +2774,11 @@ type ResultAnnouncement struct {
 type LifeBarRound struct {
 	snd                 *Snd
 	pos                 [2]int32
-	//match_wins          [2]int32 // Handled by system
-	//match_maxdrawgames  [2]int32 // Handled by system
 	start_waittime      int32
-	round_timing        RoundCallTiming
+	round_time          int32
+	round_sndtime       int32
+	roundDisplayTimer   int32
+	roundDisplayEnded   bool
 	round               [9]AnimTextSnd
 	round_default       AnimTextSnd
 	round_default_top   AnimLayout
@@ -2802,14 +2789,22 @@ type LifeBarRound struct {
 	round_final         AnimTextSnd
 	round_final_top     AnimLayout
 	round_final_bg      [32]AnimLayout
-	fight_timing        RoundCallTiming
+	fight_time          int32
+	fight_sndtime       int32
+	fightDisplayTimer   int32
+	fightDisplayEnded   bool
 	fight               AnimTextSnd
 	fight_top           AnimLayout
 	fight_bg            [32]AnimLayout
 	ctrl_time           int32
-	ko_timing           RoundCallTiming
-	dko_timing          RoundCallTiming
-	to_timing           RoundCallTiming
+	ko_time             int32
+	ko_sndtime          int32
+	koDisplayTimer      int32
+	koDisplayEnded      bool
+	dko_time            int32
+	dko_sndtime         int32
+	to_time             int32
+	to_sndtime          int32
 	ko, dko, to         AnimTextSnd
 	ko_top              AnimLayout
 	ko_bg               [32]AnimLayout
@@ -2825,7 +2820,10 @@ type LifeBarRound struct {
 	over_wintime        int32
 	over_forcewintime   int32
 	over_time           int32
-	win_timing          RoundCallTiming
+	win_time            int32
+	win_sndtime         int32
+	winDisplayTimer     int32
+	winDisplayEnded     bool
 	win                 [4]ResultAnnouncement
 	aiLose              [4]ResultAnnouncement
 	aiWin               [4]ResultAnnouncement
@@ -2835,10 +2833,6 @@ type LifeBarRound struct {
 	drawgame_top        AnimLayout
 	drawgame_bg         [32]AnimLayout
 	current             int32 // 0 pre-intro, 1 fight call, 2 fight call over (KO screen allowed)
-	roundCallOver       bool
-	fightCallOver       bool
-	koScreenOver        bool
-	winDisplayOver      bool
 	timerActive         bool
 	winType             [WT_NumTypes * 2]LbBgTextSnd
 	fadeIn              *Fade
@@ -2852,13 +2846,13 @@ type LifeBarRound struct {
 	triggerFightDisplay bool
 	triggerKODisplay    bool
 	triggerWinDisplay   bool
+	//match_wins          [2]int32 // Handled by system
+	//match_maxdrawgames  [2]int32 // Handled by system
 }
 
 func newLifeBarRound(snd *Snd) *LifeBarRound {
 	return &LifeBarRound{
 		snd:                snd,
-		//match_wins:         [...]int32{2, 2},
-		//match_maxdrawgames: [...]int32{1, 1},
 		start_waittime:     30,
 		ctrl_time:          30,
 		slow_time:          60,
@@ -2872,6 +2866,8 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		shutter_time:       15,
 		callfight_time:     60,
 		clutch_threshold:   10,
+		//match_wins:         [...]int32{2, 2},
+		//match_maxdrawgames: [...]int32{1, 1},
 	}
 }
 
@@ -2908,9 +2904,9 @@ func readLifeBarRound(is IniSection,
 	if ro.start_waittime < 1 {
 		ro.start_waittime = 1
 	}
-	is.ReadI32("round.time", &ro.round_timing.time)
-	ro.round_timing.sndtime = ro.round_timing.time
-	is.ReadI32("round.sndtime", &ro.round_timing.sndtime)
+	is.ReadI32("round.time", &ro.round_time)
+	ro.round_sndtime = ro.round_time
+	is.ReadI32("round.sndtime", &ro.round_sndtime)
 	for i := range ro.round {
 		ro.round[i] = *ReadAnimTextSnd(fmt.Sprintf("round%v.", i+1), is, sff, at, 2, f)
 	}
@@ -2931,9 +2927,9 @@ func readLifeBarRound(is IniSection,
 	for i := range ro.round_final_bg {
 		ro.round_final_bg[i] = ReadAnimLayout(fmt.Sprintf("round.final.bg%v.", i), is, sff, at, 2)
 	}
-	is.ReadI32("fight.time", &ro.fight_timing.time)
-	ro.fight_timing.sndtime = ro.fight_timing.time
-	is.ReadI32("fight.sndtime", &ro.fight_timing.sndtime)
+	is.ReadI32("fight.time", &ro.fight_time)
+	ro.fight_sndtime = ro.fight_time
+	is.ReadI32("fight.sndtime", &ro.fight_sndtime)
 	ro.fight = *ReadAnimTextSnd("fight.", is, sff, at, 2, f)
 	ro.fight_top = ReadAnimLayout("fight.top.", is, sff, at, 2)
 	for i := range ro.fight_bg {
@@ -2945,9 +2941,9 @@ func readLifeBarRound(is IniSection,
 	}
 
 	// KO
-	is.ReadI32("ko.time", &ro.ko_timing.time)
-	ro.ko_timing.sndtime = ro.ko_timing.time
-	is.ReadI32("ko.sndtime", &ro.ko_timing.sndtime)
+	is.ReadI32("ko.time", &ro.ko_time)
+	ro.ko_sndtime = ro.ko_time
+	is.ReadI32("ko.sndtime", &ro.ko_sndtime)
 	ro.ko = *ReadAnimTextSnd("ko.", is, sff, at, 1, f)
 	ro.ko_top = ReadAnimLayout("ko.top.", is, sff, at, 1)
 	for i := range ro.ko_bg {
@@ -2955,14 +2951,14 @@ func readLifeBarRound(is IniSection,
 	}
 
 	// Default new timers to KO timers
-	ro.dko_timing.time = ro.ko_timing.time
-	ro.dko_timing.sndtime = ro.ko_timing.sndtime
-	ro.to_timing.time = ro.ko_timing.time
-	ro.to_timing.sndtime = ro.ko_timing.sndtime
+	ro.dko_time = ro.ko_time
+	ro.dko_sndtime = ro.ko_sndtime
+	ro.to_time = ro.ko_time
+	ro.to_sndtime = ro.ko_sndtime
 
 	// Double KO
-	is.ReadI32("dko.time", &ro.dko_timing.time)
-	is.ReadI32("dko.sndtime", &ro.dko_timing.sndtime)
+	is.ReadI32("dko.time", &ro.dko_time)
+	is.ReadI32("dko.sndtime", &ro.dko_sndtime)
 	ro.dko = *ReadAnimTextSnd("dko.", is, sff, at, 1, f)
 	ro.dko_top = ReadAnimLayout("dko.top.", is, sff, at, 1)
 	for i := range ro.dko_bg {
@@ -2970,8 +2966,8 @@ func readLifeBarRound(is IniSection,
 	}
 
 	// Time Over
-	is.ReadI32("to.time", &ro.to_timing.time)
-	is.ReadI32("to.sndtime", &ro.to_timing.sndtime)
+	is.ReadI32("to.time", &ro.to_time)
+	is.ReadI32("to.sndtime", &ro.to_sndtime)
 	ro.to = *ReadAnimTextSnd("to.", is, sff, at, 1, f)
 	ro.to_top = ReadAnimLayout("to.top.", is, sff, at, 1)
 	for i := range ro.to_bg {
@@ -3008,9 +3004,9 @@ func readLifeBarRound(is IniSection,
 	if ro.over_time < 1 {
 		ro.over_time = 1
 	}
-	is.ReadI32("win.time", &ro.win_timing.time)
-	ro.win_timing.sndtime = ro.win_timing.time
-	is.ReadI32("win.sndtime", &ro.win_timing.sndtime)
+	is.ReadI32("win.time", &ro.win_time)
+	ro.win_sndtime = ro.win_time
+	is.ReadI32("win.sndtime", &ro.win_sndtime)
 
 	sectionExists := func(pre string) bool {
 		_, okT := is[pre+"text"]
@@ -3150,17 +3146,15 @@ func (ro *LifeBarRound) act() bool {
 	// Pre-intro
 	if sys.intro > ro.ctrl_time {
 		ro.current = 0
-		ro.round_timing.reset()
-		ro.fight_timing.animTimer = ro.callfight_time
-		ro.fight_timing.soundTimer = ro.fight_timing.sndtime
-		ro.fight_timing.animFrame = 0
+		ro.roundDisplayTimer = 0 // TODO: These "elapsed" resets are probably obsolete now
+		ro.fightDisplayTimer = 0
 	} else if (sys.intro >= 0 && !sys.tickNextFrame()) || sys.motif.di.active || ro.shutterTimer > 0 {
 		// Skip announcements during the middle of the round, "shuttertime" or dialogues
 		// Mugen ignores the "shuttertime" here, but that makes the round/fight announcement too abrupt
 		return false
 	} else {
 		// Intro
-		if !ro.roundCallOver || !ro.fightCallOver {
+		if !ro.roundDisplayEnded || !ro.fightDisplayEnded {
 			ro.handleRoundIntro()
 		}
 		// Outro
@@ -3189,25 +3183,24 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	// Previously skipping the char intros took us to the fight call, like Mugen
 	// Most games go to the round call instead so this was changed
 	//if sys.introSkipped && !sys.dialogueFlg {
-	//	ro.roundCallOver = true
+	//	ro.roundDisplayEnded = true
 	//	ro.callFight()
 	//	sys.introSkipped = false
 	//}
 
 	// Skip round call
 	if sys.gsf(GSF_skiprounddisplay) {
-		ro.roundCallOver = true
-		ro.fight_timing.animTimer = 0
+		ro.roundDisplayEnded = true
 	}
 
 	// Round call
-	if !ro.roundCallOver {
+	if !ro.roundDisplayEnded {
 		roundNum := sys.round
 		if sys.sel.gameParams.PersistRounds {
 			roundNum = sys.persistRoundCount
 		}
 		// Sounds
-		if ro.round_timing.soundTimer == 0 {
+		if ro.roundDisplayTimer == ro.round_sndtime {
 			if sys.roundIsSingle() && ro.round_single.snd[0] != -1 {
 				ro.snd.play(ro.round_single.snd, 100, 0, 0, 0, 0)
 			} else if sys.roundIsFinal() && ro.round_final.snd[0] != -1 {
@@ -3218,11 +3211,9 @@ func (ro *LifeBarRound) handleRoundIntro() {
 				ro.snd.play(ro.round_default.snd, 100, 0, 0, 0, 0)
 			}
 		}
-		ro.round_timing.soundTimer--
 		// Animations
-		if ro.round_timing.animTimer <= 0 {
+		if ro.roundDisplayTimer >= ro.round_time {
 			ro.triggerRoundDisplay = true
-			ro.round_timing.animFrame++
 			if sys.roundIsSingle() && ro.round_single.snd[0] != -1 {
 				if len(ro.round_single_top.anim.frames) > 0 {
 					ro.round_single_top.Action()
@@ -3240,7 +3231,8 @@ func (ro *LifeBarRound) handleRoundIntro() {
 						ro.round_default_bg[i].Action()
 					}
 				}
-				ro.roundCallOver = ro.round_single.End(ro.round_timing.animFrame, true) && ro.round_default.End(ro.round_timing.animFrame, true)
+				animTime := ro.roundDisplayTimer - ro.round_time + 1
+				ro.roundDisplayEnded = ro.round_single.End(animTime, true) && ro.round_default.End(animTime, true)
 			} else if sys.roundIsFinal() && ro.round_final.snd[0] != -1 {
 				if len(ro.round_final_top.anim.frames) > 0 {
 					ro.round_final_top.Action()
@@ -3258,7 +3250,8 @@ func (ro *LifeBarRound) handleRoundIntro() {
 						ro.round_default_bg[i].Action()
 					}
 				}
-				ro.roundCallOver = ro.round_final.End(ro.round_timing.animFrame, true) && ro.round_default.End(ro.round_timing.animFrame, true)
+				animTime := ro.roundDisplayTimer - ro.round_time + 1
+				ro.roundDisplayEnded = ro.round_final.End(animTime, true) && ro.round_default.End(animTime, true)
 			} else if int(roundNum) <= len(ro.round) {
 				ro.round_default_top.Action()
 				ro.round[roundNum-1].Action()
@@ -3266,27 +3259,29 @@ func (ro *LifeBarRound) handleRoundIntro() {
 				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
 					ro.round_default_bg[i].Action()
 				}
-				ro.roundCallOver = ro.round[roundNum-1].End(ro.round_timing.animFrame, true) && ro.round_default.End(ro.round_timing.animFrame, true)
+				animTime := ro.roundDisplayTimer - ro.round_time + 1
+				ro.roundDisplayEnded = ro.round[roundNum-1].End(animTime, true) && ro.round_default.End(animTime, true)
 			} else {
 				ro.round_default_top.Action()
 				ro.round_default.Action()
 				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
 					ro.round_default_bg[i].Action()
 				}
-				ro.roundCallOver = ro.round_default.End(ro.round_timing.animFrame, true)
+				animTime := ro.roundDisplayTimer - ro.round_time + 1
+				ro.roundDisplayEnded = ro.round_default.End(animTime, true)
 			}
 		}
-		ro.round_timing.animTimer--
+		ro.roundDisplayTimer++
 	}
 
 	endFightCall := func() {
 		ro.current = 2
-		ro.fightCallOver = true
+		ro.fightDisplayEnded = true
 	}
 
 	// Skip fight call
 	// Cannot be skipped unless round call is finished or also skipped
-	if ro.roundCallOver && sys.gsf(GSF_skipfightdisplay) {
+	if ro.roundDisplayEnded && sys.gsf(GSF_skipfightdisplay) {
 		endFightCall()
 		if sys.intro > 1 {
 			sys.intro = 1 // Skip ctrl waiting time
@@ -3294,38 +3289,35 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	}
 
 	// Fight call
-	if !ro.fightCallOver {
+	if !ro.fightDisplayEnded {
 		if ro.current == 0 {
-			if ro.fight_timing.animTimer == 0 {
-				// This used to be callFight()
+			if ro.roundDisplayEnded && ro.fightDisplayTimer >= ro.callfight_time {
 				ro.fight.Reset()
 				ro.fight_top.Reset()
 				ro.current = 1
-				ro.fight_timing.animTimer = ro.fight_timing.time
-				ro.fight_timing.soundTimer = ro.fight_timing.sndtime
-				ro.fight_timing.animFrame = 0
+				ro.fightDisplayTimer = 0
 				sys.timerCount = append(sys.timerCount, sys.matchTime)
 				ro.timerActive = true
+			} else {
+				ro.fightDisplayTimer++
 			}
-			ro.fight_timing.animTimer--
-		} else if !ro.fightCallOver {
-			if ro.fight_timing.soundTimer == 0 {
+		} else if !ro.fightDisplayEnded {
+			if ro.fightDisplayTimer == ro.fight_sndtime {
 				ro.snd.play(ro.fight.snd, 100, 0, 0, 0, 0)
 			}
-			ro.fight_timing.soundTimer--
-			if ro.fight_timing.animTimer <= 0 {
+			if ro.fightDisplayTimer >= ro.fight_time {
 				ro.triggerFightDisplay = true
-				ro.fight_timing.animFrame++
 				ro.fight_top.Action()
 				ro.fight.Action()
 				for i := len(ro.fight_bg) - 1; i >= 0; i-- {
 					ro.fight_bg[i].Action()
 				}
-				if ro.fight.End(ro.fight_timing.animFrame, true) && ro.fight_timing.soundTimer < 0 {
+				animTime := ro.fightDisplayTimer - ro.fight_time + 1
+				if ro.fight.End(animTime, true) && ro.fightDisplayTimer >= ro.fight_sndtime {
 					endFightCall()
 				}
 			}
-			ro.fight_timing.animTimer--
+			ro.fightDisplayTimer++
 		}
 	}
 }
@@ -3342,70 +3334,84 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		ro.timerActive = false
 	}
 
-	// Helper for stepping the timers for each finish screen
-	stepTimers := func(ats *AnimTextSnd, timing *RoundCallTiming, delay int32, name string) {
-		// Sound
-		if timing.soundTimer+delay == 0 {
+	stepCallTimers := func(ats *AnimTextSnd, elapsed, time, sndtime, delay int32, name string) {
+		// Play sound
+		if elapsed == sndtime+delay {
 			ro.snd.play(ats.snd, 100, 0, 0, 0, 0)
-			timing.soundTimer--
 		}
-		timing.soundTimer--
-		// Animations
-		if ats.End(timing.animFrame, false) {
-			timing.animTimer = 2
-		}
-		if timing.animTimer+delay <= 0 {
-			timing.animFrame++
-			ats.Action()
-			// Flag FightScreenState while anims are playing
-			if !ats.End(timing.animFrame, true) {
+		// Play animations
+		if elapsed >= time+delay {
+			frame := elapsed - (time + delay) + 1
+			active := !ats.End(frame, false)
+			if active {
+				ats.Action()
+				// Flag FightScreenState while anims are playing
+				switch name { // TODO: We only need a name string here because KO and Win announcements have different data types
+				case "ko": //&ro.ko, &ro.dko, &ro.to:
+					ro.triggerKODisplay = true
+				case "win": //&ro.win:
+					ro.triggerWinDisplay = true
+				default:
+					panic("Unknown string for stepCallTimers") // Ensure the string is correct while we still need one. Temporary
+				}
+			} else {
 				switch name {
 				case "ko":
-					ro.triggerKODisplay = true
+					ro.koDisplayEnded = true
 				case "win":
-					ro.triggerWinDisplay = true
+					ro.winDisplayEnded = true
 				}
 			}
 		}
-		timing.animTimer--
 	}
 
 	// Skip KO screen
 	if sys.gsf(GSF_skipkodisplay) {
-		ro.koScreenOver = true // Only used for skipping
+		ro.koDisplayEnded = true
 	}
 
 	// KO screen
-	if !ro.koScreenOver {
-		switch sys.finishType {
-		case FT_KO:
-			ro.ko_top.Action()
-			stepTimers(&ro.ko, &ro.ko_timing, 9, "ko")
-			for i := len(ro.ko_bg) - 1; i >= 0; i-- {
-				ro.ko_bg[i].Action()
-			}
-		case FT_DKO:
-			ro.dko_top.Action()
-			stepTimers(&ro.dko, &ro.dko_timing, 9, "ko")
-			for i := len(ro.dko_bg) - 1; i >= 0; i-- {
-				ro.dko_bg[i].Action()
-			}
-		default:
-			ro.to_top.Action()
-			stepTimers(&ro.to, &ro.to_timing, 0, "ko") // In Mugen there's no delay between the time over text and the sound
-			for i := len(ro.to_bg) - 1; i >= 0; i-- {
-				ro.to_bg[i].Action()
-			}
+	if !ro.koDisplayEnded {
+		var ats *AnimTextSnd
+		var top *AnimLayout
+		var bg *[32]AnimLayout
+		var time, sndtime int32
+
+		// Mugen deliberately delays these screens for some reason
+		// It's not even related to the over.hittime parameter
+		var delay int32
+		if sys.lifebar.ikemenver[0] == 0 && sys.lifebar.ikemenver[1] == 0 {
+			delay = 10
 		}
+
+		// Determine which finish screen and timers to use
+		switch sys.finishType {
+		case FT_DKO:
+			ats, top, bg = &ro.dko, &ro.dko_top, &ro.dko_bg
+			time, sndtime = ro.dko_time, ro.dko_sndtime
+		case FT_TO, FT_TODraw:
+			ats, top, bg = &ro.to, &ro.to_top, &ro.to_bg
+			time, sndtime = ro.to_time, ro.to_sndtime
+		default:
+			ats, top, bg = &ro.ko, &ro.ko_top, &ro.ko_bg
+			time, sndtime = ro.ko_time, ro.ko_sndtime
+		}
+
+		top.Action()
+		stepCallTimers(ats, ro.koDisplayTimer, time, sndtime, delay, "ko")
+		for i := len(bg) - 1; i >= 0; i-- {
+			bg[i].Action()
+		}
+		ro.koDisplayTimer++
 	}
 
 	// Skip winner announcement
 	if sys.gsf(GSF_skipwindisplay) {
-		ro.winDisplayOver = true // Only used for skipping
+		ro.winDisplayEnded = true
 	}
 
 	// Winner announcement
-	if !ro.winDisplayOver && sys.intro < -(ro.over_waittime) {
+	if !ro.winDisplayEnded && sys.intro < -(ro.over_waittime) {
 		wt := sys.winTeam
 		if wt < 0 {
 			wt = 0
@@ -3413,7 +3419,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		lt := wt ^ 1
 		if sys.finishType == FT_TODraw {
 			ro.drawgame_top.Action()
-			stepTimers(&ro.drawgame, &ro.win_timing, 0, "win")
+			stepCallTimers(&ro.drawgame, ro.winDisplayTimer, ro.win_time, ro.win_sndtime, 0, "win")
 			for i := len(ro.drawgame_bg) - 1; i >= 0; i-- {
 				ro.drawgame_bg[i].Action()
 			}
@@ -3433,7 +3439,6 @@ func (ro *LifeBarRound) handleRoundOutro() {
 			}
 			var res *ResultAnnouncement
 			activeTeam := wt
-			timerName := "win"
 
 			idxL := sys.numSimul[lt] - 1
 			if idxL < 0 {
@@ -3448,20 +3453,18 @@ func (ro *LifeBarRound) handleRoundOutro() {
 				// player lose vs ai opponent
 				activeTeam = lt
 				res = &ro.aiWin[idxL]
-				timerName = "aiWin"
 			} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
 				// player win vs ai opponent
 				res = &ro.aiLose[idxW]
-				timerName = "win"
 			} else {
 				// default win
 				res = &ro.win[idxW]
 			}
 			res.top[activeTeam].Action()
-			stepTimers(&res.text[activeTeam], &ro.win_timing, 0, timerName)
 			for i := len(res.bg[activeTeam]) - 1; i >= 0; i-- {
 				res.bg[activeTeam][i].Action()
 			}
+			stepCallTimers(&res.text[activeTeam], ro.winDisplayTimer, ro.win_time, ro.win_sndtime, 0, "win")
 		}
 		// Perfect and other special win types
 		if sys.winTeam >= 0 {
@@ -3479,6 +3482,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 			}
 			ro.winType[index+p2offset].step(ro.snd)
 		}
+		ro.winDisplayTimer++
 	}
 }
 
@@ -3537,14 +3541,14 @@ func (ro *LifeBarRound) reset() {
 	}
 
 	// Reset action timers
-	ro.round_timing.reset()
-	ro.fight_timing.reset()
-	ro.ko_timing.reset()
-	ro.dko_timing.reset()
-	ro.to_timing.reset()
-	ro.win_timing.reset()
-
-	ro.roundCallOver, ro.fightCallOver, ro.koScreenOver, ro.winDisplayOver = false, false, false, false
+	ro.roundDisplayTimer = 0
+	ro.fightDisplayTimer = 0
+	ro.koDisplayTimer = 0
+	ro.winDisplayTimer = 0
+	ro.roundDisplayEnded = false
+	ro.fightDisplayEnded = false
+	ro.koDisplayEnded = false
+	ro.winDisplayEnded = false
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
@@ -3553,7 +3557,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 	sys.brightness = 1.0
 
 	// Round call animations
-	if !ro.roundCallOver && ro.round_timing.animTimer < 0 && sys.intro <= ro.ctrl_time {
+	if !ro.roundDisplayEnded && ro.roundDisplayTimer >= ro.round_time && sys.intro <= ro.ctrl_time {
 
 		// Draw default round background
 		for i := range ro.round_default_bg {
@@ -3661,7 +3665,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 	}
 
 	// "Fight!" animations
-	if !ro.fightCallOver && ro.fight_timing.animTimer < 0 {
+	if !ro.fightDisplayEnded && ro.current == 1 && ro.fightDisplayTimer >= ro.fight_time {
 		for i := range ro.fight_bg {
 			ro.fight_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 		}
@@ -3671,39 +3675,39 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 	if ro.current == 2 {
 		// KO animations
-		if !ro.koScreenOver {
-			timing := &ro.ko_timing
+		if !ro.koDisplayEnded {
+			var ats *AnimTextSnd
+			var top *AnimLayout
+			var bg *[32]AnimLayout
+			var time int32
+
+			var delay int32
+			if sys.lifebar.ikemenver[0] == 0 && sys.lifebar.ikemenver[1] == 0 {
+				delay = 10
+			}
+
 			switch sys.finishType {
 			case FT_DKO:
-				timing = &ro.dko_timing
+				ats, top, bg = &ro.dko, &ro.dko_top, &ro.dko_bg
+				time = ro.dko_time
 			case FT_TO, FT_TODraw:
-				timing = &ro.to_timing
+				ats, top, bg = &ro.to, &ro.to_top, &ro.to_bg
+				time = ro.to_time
+			default:
+				ats, top, bg = &ro.ko, &ro.ko_top, &ro.ko_bg
+				time = ro.ko_time
 			}
-			if timing.animTimer < 0 {
-				switch sys.finishType {
-				case FT_KO:
-					for i := range ro.ko_bg {
-						ro.ko_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					}
-					ro.ko.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-					ro.ko_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-				case FT_DKO:
-					for i := range ro.dko_bg {
-						ro.dko_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					}
-					ro.dko.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-					ro.dko_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-				default:
-					for i := range ro.to_bg {
-						ro.to_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-					}
-					ro.to.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-					ro.to_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+
+			if ro.koDisplayTimer >= time+delay {
+				for i := range bg {
+					bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}
+				ats.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+				top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			}
 		}
 		// Winner announcement
-		if !ro.winDisplayOver && ro.win_timing.animTimer < 0 {
+		if !ro.winDisplayEnded && ro.winDisplayTimer >= ro.win_time {
 			wt := sys.winTeam
 			if wt < 0 {
 				wt = 0
@@ -4336,6 +4340,10 @@ type Lifebar struct {
 	author        string
 	authorLow     string
 	localcoord    [2]int32
+	ikemenver     [3]uint16
+	ikemenverF    float32
+	mugenver      [2]uint16
+	mugenverF     float32
 	offsetX       float32
 	offsetY       float32
 	scale         float32
@@ -4496,6 +4504,14 @@ func loadLifebar(def string) (*Lifebar, error) {
 			l.nameLow = strings.ToLower(l.name)
 			l.author, _, _ = is.getText("author")
 			l.authorLow = strings.ToLower(l.author)
+			// Read MugenVersion
+			if str, ok := is["mugenversion"]; ok {
+				l.mugenver, l.mugenverF = ParseMugenVersion(str)
+			}
+			// Read IkemenVersion
+			if str, ok := is["ikemenversion"]; ok {
+				l.ikemenver, l.ikemenverF = ParseIkemenVersion(str)
+			}
 			// Localcoord/scale already pre-initialized above to unblock early FightFX
 		case "files":
 			if filesflg {

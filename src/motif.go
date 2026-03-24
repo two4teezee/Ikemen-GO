@@ -3344,18 +3344,22 @@ func (me *MotifMenu) step(m *Motif) {
 	me.counter++
 }
 
+// runLua executes the pause-menu Lua loop.
+func (me *MotifMenu) runLua(m *Motif) {
+	// Once closing has started, stop running the Lua menu loop so it can't keep drawing/flickering.
+	if me.endTimer != -1 {
+		return
+	}
+	if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
+		sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
+	} else if !ok {
+		me.requestClose(m)
+	}
+}
+
 func (me *MotifMenu) draw(m *Motif, layerno int16) {
 	if layerno == 2 {
-		// Once closing has started, stop running the Lua menu loop so it can't keep drawing/flickering.
-		if me.endTimer != -1 {
-			return
-		}
-		if ok, err := ExecFunc(sys.luaLState, "menuRun"); err != nil {
-			sys.luaLState.RaiseError("Error executing Lua code: %v\n", err.Error())
-		} else if !ok {
-			// Lua requested to close the pause menu (menuRun returns main.pauseMenu).
-			me.requestClose(m)
-		}
+		me.runLua(m)
 	}
 }
 

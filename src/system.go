@@ -797,6 +797,12 @@ func (s *System) renderFrame() {
 			s.drawScale = s.cam.Scale
 		}
 		s.draw(dx, dy, dscl)
+	} else {
+		// Keep pause-menu logic responsive even when this render frame is skipped.
+		// Any queued draw ops are discarded below because this frame is not being rendered.
+		if s.motif.me.active {
+			s.motif.me.runLua(&s.motif)
+		}
 	}
 
 	if !s.frameSkip {

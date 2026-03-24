@@ -286,13 +286,6 @@ end
 
 --sets lifebar elements, round time, rounds to win
 function start.f_setRounds(roundTime, t_rounds)
-	-- disable winscreen if another match exists
-	local winscreen = main.motif.winscreen
-	if winscreen and main.makeRoster and start.t_roster[matchNo() + 1] ~= nil then
-		main.motif.winscreen = false
-	end
-	setMotifElements(main.motif)
-	main.motif.winscreen = winscreen
 	setLifebarElements(main.lifebar)
 	-- Round time
 	local frames = fightScreenVar("time.framespercount")
@@ -2093,7 +2086,7 @@ function launchFight(data)
 		t.musicParams = buildMusicParams(data)
 		t.stage = data.stage or ''
 		t.ai = data.ai or nil
-		t.vsscreen = main.f_arg(data.vsscreen, main.motif.versusscreen)
+		t.vsscreen = main.f_arg(data.vsscreen, main.motif.vsscreen)
 		t.victoryscreen = main.f_arg(data.victoryscreen, main.motif.victoryscreen)
 		--t.frames = data.frames or fightScreenVar("time.framespercount")
 		t.roundtime = data.time or nil
@@ -2239,15 +2232,18 @@ function launchFight(data)
 			challengerResume = makeChallengerResumeSnapshot(data, t.stageNo)
 		end
 		if not start.f_selectVersus(t.vsscreen, t.orderselect) then break end
-		start.f_selectLoading(t.musicParams)
-		local continueScreen = main.motif.continuescreen
-		local victoryScreen = main.motif.victoryscreen
-		main.motif.continuescreen = t.continue
-		main.motif.victoryscreen = t.victoryscreen
+		local winscreen = main.motif.winscreen
+		if winscreen and main.makeRoster and start.t_roster[matchNo() + 1] ~= nil then
+			winscreen = false
+		end
+		start.f_selectLoading{
+			musicParams = t.musicParams,
+			continue = t.continue,
+			victoryscreen = t.victoryscreen,
+			winscreen = winscreen,
+		}
 		hook.run("launchFight")
 		start.f_game(t.lua)
-		main.motif.continuescreen = continueScreen
-		main.motif.victoryscreen = victoryScreen
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		if start.exit or start.characterchange then
 			start.characterchange = false
@@ -2623,7 +2619,7 @@ function start.f_selectScreen()
 		for side = 1, 2 do
 			if #start.p[side].t_selTemp > 0 then
 				for i = 1, #start.p[side].t_selTemp do
-					if i <= motif.select_info['p' .. side].name.num or main.coop then
+					if i <= motif.select_info['p' .. side].name.num then
 						local name = ''
 						if motif.select_info['p' .. side].name.num == 1 then
 							name = start.f_getName(start.p[side].t_selTemp[#start.p[side].t_selTemp].ref, side)
@@ -3737,7 +3733,7 @@ function start.f_selectVersus(active, t_orderSelect)
 		--draw names
 		for side = 1, 2 do
 			for k, v in ipairs(main.f_remapTable(start.p[side].t_selTemp, start.t_orderRemap[side])) do
-				if k <= motif.vs_screen['p' .. side].name.num or main.coop then
+				if k <= motif.vs_screen['p' .. side].name.num then
 					textImgReset(motif.vs_screen['p' .. side].name.TextSpriteData)
 					textImgAddPos(
 						motif.vs_screen['p' .. side].name.TextSpriteData,
@@ -3770,7 +3766,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			textImgDraw(motif.vs_screen.stage.TextSpriteData)
 		end
 		--draw match counter
-		if main.motif.versusmatchno then
+		if main.motif.vsmatchno then
 			textImgDraw(motif.vs_screen.match.TextSpriteData)
 		end
 		--draw timer
@@ -3813,16 +3809,26 @@ function start.f_selectVersus(active, t_orderSelect)
 end
 
 --loading loop called after versus screen is finished
-function start.f_selectLoading(musicParams)
+function start.f_selectLoading(arg)
 	clearAllSound()
 	local parts = {}
-	if musicParams and musicParams ~= "" then
-		parts[#parts + 1] = musicParams
+	local t = {}
+	if type(arg) == "table" then
+		t = arg
+	elseif type(arg) == "string" then
+		t.musicParams = arg
+	end
+	if t.musicParams and t.musicParams ~= "" then
+		parts[#parts + 1] = t.musicParams
 	end
 	local function addParam(k, v)
 		if v == nil then return end
 		parts[#parts + 1] = k .. "=" .. tostring(v)
 	end
+	-- Post-match screens are match-scoped.
+	addParam("continue", t.continue)
+	addParam("victoryscreen", t.victoryscreen)
+	addParam("winscreen", t.winscreen)
 	addParam("charparam.ai", main.charparam.ai)
 	addParam("charparam.arcadepath", main.charparam.arcadepath)
 	addParam("charparam.music", main.charparam.music)

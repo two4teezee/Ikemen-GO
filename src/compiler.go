@@ -5674,13 +5674,7 @@ func (c *Compiler) parseSection(
 					}
 				}
 				if ia > 0 {
-					nameStr := strings.TrimSpace(line[:ia])
-
-					if strings.HasSuffix(nameStr, ":") {
-						nameStr = strings.TrimSpace(nameStr[:len(nameStr)-1])
-					}
-
-					name = strings.ToLower(nameStr)
+					name = strings.ToLower(strings.TrimSpace(line[:ia]))
 					data = strings.TrimSpace(line[ia+1:])
 					break
 				}

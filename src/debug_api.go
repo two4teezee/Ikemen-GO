@@ -413,7 +413,7 @@ func (s *DebugApiServer) applyCommand(sys *System, cmd DebugCommand) {
 				case "hitPauseTime":
 					c.hitPauseTime = int32(cmd.Value)
 				case "teamside":
-					c.teamside = int(cmd.Value)
+					c.teamside = int(cmd.Value - 1)
 				case "airJumpCount":
 					c.airJumpCount = int32(cmd.Value)
 				case "hitCount":
@@ -955,7 +955,7 @@ func (s *DebugApiServer) createDump(sys *System) map[string]interface{} {
 					props["Core"] = map[string]interface{}{
 						"stateno": c.ss.no, "life": c.life, "lifeMax": c.lifeMax, "power": c.getPower(), "powerMax": c.powerMax,
 						"statetype": st, "movetype": mt, "physics": ph, "dizzyPoints": c.dizzyPoints, "dizzyPointsMax": c.dizzyPointsMax,
-						"guardPoints": c.guardPoints, "guardPointsMax": c.guardPointsMax, "redLife": c.redLife, "teamside": c.teamside,
+						"guardPoints": c.guardPoints, "guardPointsMax": c.guardPointsMax, "redLife": c.redLife, "teamside": c.teamside + 1,
 						"ctrl": c.scf(SCF_ctrl), "standby": c.scf(SCF_standby),
 					}
 				case "Position":

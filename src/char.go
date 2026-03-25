@@ -841,7 +841,7 @@ func (hd *HitDef) finalizeParams(c *Char, proj *Projectile) {
 		hd.projid = proj.id           // TODO: Make this update if projID is modified
 	} else {
 		hd.isprojectile = false
-		hd.statePN = c.ss.sb.playerNo
+		hd.statePN = c.stateOwner().playerNo
 		hd.playerno = c.playerNo
 		hd.playerid = c.id
 	}
@@ -3400,7 +3400,7 @@ func (c *Char) gi() *CharGlobalInfo {
 
 // Return Char Global Info from the state owner
 func (c *Char) stOgi() *CharGlobalInfo {
-	return &sys.cgi[c.ss.sb.playerNo]
+	return c.stateOwner().gi()
 }
 
 // Return Char Global Info according to working state
@@ -3411,9 +3411,9 @@ func (c *Char) stOgi() *CharGlobalInfo {
 // Version checks should probably be refactored in the future, regardless
 func (c *Char) stWgi() *CharGlobalInfo {
 	if c.minus == 0 {
-		return &sys.cgi[c.ss.sb.playerNo]
+		return c.stOgi()
 	} else {
-		return &sys.cgi[c.playerNo]
+		return c.gi()
 	}
 }
 
@@ -4320,6 +4320,9 @@ func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, 
 	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal, false)
 
 	// If invalid
+	// In Mugen, when switching between different animation tables (e.g. ChangeAnim2) and the destination doesn't exist,
+	// the character will change into whatever animation is in the same index as the table it is changing from
+	// We don't do that at the moment
 	if a == nil {
 		return
 	}
@@ -4336,7 +4339,7 @@ func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, 
 		c.animPN = -1
 		c.spritePN = -1
 	} else {
-		c.animPN = animPlayerNo
+		c.animPN = animPlayerNo // In Mugen this changes even if the animation is invalid and doesn't change
 		c.spritePN = spritePlayerNo
 	}
 
@@ -4549,6 +4552,13 @@ func (c *Char) root(log bool) *Char {
 	}
 
 	return sys.chars[c.playerNo][0]
+}
+
+// Note: This always returns a root character in Ikemen
+// Mugen's debug text suggests the state owner can also be a helper there
+func (c *Char) stateOwner() *Char {
+	pn := c.ss.sb.playerNo
+	return sys.chars[pn][0]
 }
 
 func (c *Char) helperTrigger(id int32, idx int) *Char {
@@ -4895,14 +4905,28 @@ func (c *Char) animElemTime(elem int32) BytecodeValue {
 	return BytecodeUndefined()
 }
 
-func (c *Char) animExist(wc *Char, anim BytecodeValue) BytecodeValue {
+// This is another Mugen trigger that doesn't work as documented
+// It checks the character's current animation table and has nothing to do with state owners/custom states
+// In the same state, it can have different returns if one uses ChangeAnim or ChangeAnim2
+func (c *Char) animExist(anim BytecodeValue) BytecodeValue {
 	if anim.IsUndefined() {
 		return BytecodeUndefined()
 	}
-	if c != wc {
-		return c.selfAnimExist(anim)
+	// A direct way to check the current table would work better here
+	// Like having a pointer to the table under Animation
+	// But this trigger is so niche that maybe it doesn't matter
+	pn := c.animPN
+	if pn < 0 || pn >= len(sys.chars) || len(sys.chars[pn]) == 0 {
+		pn = c.playerNo
 	}
-	return sys.chars[c.ss.sb.playerNo][0].selfAnimExist(anim)
+	return BytecodeBool(sys.cgi[pn].animTable.get(anim.ToI()) != nil)
+}
+
+func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
+	}
+	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) animTime() int32 {
@@ -5759,13 +5783,6 @@ func (c *Char) screenHeight() float32 {
 
 func (c *Char) screenWidth() float32 {
 	return float32(c.stOgi().localcoord[0])
-}
-
-func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
-	if anim.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {

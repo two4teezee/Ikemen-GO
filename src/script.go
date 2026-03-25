@@ -3766,7 +3766,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerId
 		@treturn int32 playerId Player ID of the current state owner.
 		function getStateOwnerId() end*/
-		l.Push(lua.LNumber(sys.chars[sys.debugWC.ss.sb.playerNo][0].id))
+		l.Push(lua.LNumber(sys.debugWC.stateOwner().id))
 		return 1
 	})
 	luaRegister(l, "getStateOwnerName", func(*lua.LState) int {
@@ -3774,7 +3774,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerName
 		@treturn string name Name of the current state owner.
 		function getStateOwnerName() end*/
-		l.Push(lua.LString(sys.chars[sys.debugWC.ss.sb.playerNo][0].name))
+		l.Push(lua.LString(sys.debugWC.stateOwner().name))
 		return 1
 	})
 	luaRegister(l, "getStateOwnerPlayerNo", func(*lua.LState) int {
@@ -3782,7 +3782,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerPlayerNo
 		@treturn int playerNo 1-based player number of the current state owner.
 		function getStateOwnerPlayerNo() end*/
-		l.Push(lua.LNumber(sys.debugWC.ss.sb.playerNo + 1))
+		l.Push(lua.LNumber(sys.debugWC.stateOwner().playerNo + 1))
 		return 1
 	})
 	luaRegister(l, "getStoryboardScene", func(l *lua.LState) int {
@@ -7357,7 +7357,7 @@ func triggerRedirection(l *lua.LState) {
 	})
 	luaRegister(l, "stateOwner", func(*lua.LState) int {
 		ret := false
-		if c := sys.chars[sys.debugWC.ss.sb.playerNo][0]; c != nil {
+		if c := sys.debugWC.stateOwner(); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -7476,8 +7476,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "animExist", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.animExist(sys.debugWC,
-			BytecodeInt(int32(numArg(l, 1)))).ToB()))
+		l.Push(lua.LBool(sys.debugWC.animExist(BytecodeInt(int32(numArg(l, 1)))).ToB()))
 		return 1
 	})
 	luaRegister(l, "animLength", func(*lua.LState) int {

@@ -2461,7 +2461,7 @@ func (p *Projectile) paused() bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
-		if p.animNo >= 0 && p.isActive() {
+		if p.isActive() {
 			remove := false
 
 			// Check hit or cancel triggers
@@ -2470,6 +2470,7 @@ func (p *Projectile) update() {
 				remove = true
 				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 					if p.hitanim == -1 {
+						// Forcefully clear instead of reaching the fallback where invalid animation does nothing
 						p.anim = nil
 					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
 						p.anim = a
@@ -2502,14 +2503,12 @@ func (p *Projectile) update() {
 
 					remove = true
 					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
-						if p.remanim != -2 {
-							if p.remanim == -1 {
-								p.anim = nil
-							} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
-								p.anim = a
-								// In Mugen, if remanim is invalid the projectile will keep the current one
-								// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
-							}
+						if p.remanim == -1 {
+							p.anim = nil
+						} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+							p.anim = a
+							// In Mugen, if remanim is invalid the projectile will keep the current one
+							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
 						}
 					}
 				}
@@ -6927,7 +6926,7 @@ func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx
 // Calls getAnimSprite without the extra anim/sprite playerNo features
 // For projectiles essentially
 func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool) *Animation {
-	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, false)
+	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, fx)
 
 	return a
 }
@@ -7206,15 +7205,29 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
 
-	if p.animNo < -1 {
+	// Clamp negative animations
+	if p.animNo < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projanim: %v", p.animNo))
 		p.animNo = 0
+	}
+	if p.hitanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projhitanim: %v", p.hitanim))
+		p.hitanim = 0
+	}
+	if p.remanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projremanim: %v", p.remanim))
+		p.remanim = 0
+	}
+	if p.cancelanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projcancelanim: %v", p.cancelanim))
+		p.cancelanim = 0
 	}
 
 	// Get animation with sprite context
 	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
 
 	if p.anim == nil && c.anim != nil {
-		// Fallback: copy character's current animation
+		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim
 		p.anim.SetAnimElem(1, 0)

@@ -12598,8 +12598,7 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 	if crun == nil {
 		return false
 	}
-
-	var b bool
+	var play, stop bool
 	var bgm string
 	var loop, loopcount, volume, loopstart, loopend, startposition int = 1, -1, 100, 0, 0, 0
 	var freqmul float32 = 1.0
@@ -12621,16 +12620,19 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 			case MS_Motif:
 				bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount = sys.motif.Music.Read(src, sys.motif.Def)
 			}
-			b = bgm != ""
+			play = bgm != ""
 		case playBgm_bgm:
 			bgm = exp[0].evalS()
-			if bgm != "" {
+			if bgm == "" {
+				stop = true
+				play = false
+			} else {
 				bgm = SearchFile(bgm, []string{crun.gi().def, sys.stage.def, "", "sound/"})
+				play = bgm != ""
 			}
-			b = bgm != ""
 		case playBgm_volume:
 			volume = int(exp[0].evalI(c))
-			if !b {
+			if !play {
 				sys.bgm.bgmVolume = int(Min(int32(volume), int32(sys.cfg.Sound.MaxBGMVolume)))
 				sys.bgm.UpdateVolume()
 			}
@@ -12649,8 +12651,11 @@ func (sc playBgm) Run(c *Char, _ []int32) bool {
 		}
 		return true
 	})
-	if b {
+	if play {
 		sys.bgm.Open(bgm, loop, volume, loopstart, loopend, startposition, freqmul, loopcount)
+		sys.playBgmFlg = true
+	} else if stop {
+		sys.bgm.Stop()
 		sys.playBgmFlg = true
 	}
 	return false

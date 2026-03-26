@@ -2803,6 +2803,7 @@ type LifeBarRound struct {
 	koDisplayEnded      bool
 	dko_time            int32
 	dko_sndtime         int32
+	dko_showdraw        bool
 	to_time             int32
 	to_sndtime          int32
 	ko, dko, to         AnimTextSnd
@@ -2959,6 +2960,7 @@ func readLifeBarRound(is IniSection,
 	// Double KO
 	is.ReadI32("dko.time", &ro.dko_time)
 	is.ReadI32("dko.sndtime", &ro.dko_sndtime)
+	is.ReadBool("dko.showdraw", &ro.dko_showdraw)
 	ro.dko = *ReadAnimTextSnd("dko.", is, sff, at, 1, f)
 	ro.dko_top = ReadAnimLayout("dko.top.", is, sff, at, 1)
 	for i := range ro.dko_bg {
@@ -3417,7 +3419,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 			wt = 0
 		}
 		lt := wt ^ 1
-		if sys.finishType == FT_TODraw {
+		if sys.finishType == FT_TODraw || (sys.finishType == FT_DKO && ro.dko_showdraw) {
 			ro.drawgame_top.Action()
 			stepCallTimers(&ro.drawgame, ro.winDisplayTimer, ro.win_time, ro.win_sndtime, 0, "win")
 			for i := len(ro.drawgame_bg) - 1; i >= 0; i-- {
@@ -3713,7 +3715,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 				wt = 0
 			}
 			lt := wt ^ 1
-			if sys.finishType == FT_TODraw {
+			if sys.finishType == FT_TODraw || (sys.finishType == FT_DKO && ro.dko_showdraw) {
 				for i := range ro.drawgame_bg {
 					ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 				}

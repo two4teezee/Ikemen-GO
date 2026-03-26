@@ -2094,4 +2094,3 @@ func (s *Stage) modifyBGCtrl3d(id uint32, t, v [3]int32) {
 		}
 	}
 }
-

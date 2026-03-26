@@ -355,7 +355,7 @@ type InfoBoxProperties struct {
 	Title   TextProperties    `ini:"title"`
 	Text    TextProperties    `ini:"text"`
 	Overlay OverlayProperties `ini:"overlay"`
-	KeyCode string          `ini:"keycode"`
+	KeyCode string            `ini:"keycode"`
 }
 
 type CellOverrideProperties struct {
@@ -1044,7 +1044,7 @@ type OptionInfoProperties struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"cancel"`
 	TextInput TextInputProperties `ini:"textinput"`
-	KeyMenu struct {
+	KeyMenu   struct {
 		P1 struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
 			Playerno   TextProperties `ini:"playerno"`
@@ -1159,8 +1159,8 @@ type AttractModeProperties struct {
 	} `ini:"cancel"`
 	Credits struct {
 		TextProperties
-		Snd [2]int32 `ini:"snd" default:"-1,0"`
-		KeyCode string `ini:"keycode"`
+		Snd     [2]int32 `ini:"snd" default:"-1,0"`
+		KeyCode string   `ini:"keycode"`
 	} `ini:"credits"`
 	Options struct {
 		KeyCode string `ini:"keycode"`

@@ -3630,11 +3630,7 @@ func systemScriptInit(l *lua.LState) {
 		function getKeyText() end*/
 		s := ""
 		if sys.keyInput != KeyUnknown {
-			if sys.keyInput == KeyInsert {
-				s = sys.window.GetClipboardString()
-			} else {
-				s = sys.keyString
-			}
+			s = sys.keyString
 		}
 		l.Push(lua.LString(s))
 		return 1

@@ -3559,16 +3559,6 @@ end
 --;===========================================================
 --; VERSUS SCREEN / ORDER SELECTION
 --;===========================================================
-local function orderSkipPressed(done, t_orderSelect)
-	local p1Skip = not main.cpuSide[1] and getInput(1, motif.vs_screen.skip.key)
-	local p2Skip = not main.cpuSide[2] and getInput(2, motif.vs_screen.skip.key)
-	-- While order selection is still active, require both human sides to skip.
-	if not done and (t_orderSelect[1] or t_orderSelect[2]) and not main.cpuSide[1] and not main.cpuSide[2] then
-		return p1Skip and p2Skip
-	end
-	return p1Skip or p2Skip
-end
-
 function start.f_selectVersus(active, t_orderSelect)
 	start.t_orderRemap = {{}, {}}
 	for side = 1, 2 do
@@ -3617,13 +3607,33 @@ function start.f_selectVersus(active, t_orderSelect)
 	local timerActive = not done
 	local timerCount = 0
 	local escFlag = false
+	local doneKeyReady = done
 	local t_order = {{}, {}}
 	local t_icon = {false, false}
 	local selStageNo = getStageNo()
+	local function finishOrderSelection(side)
+		for member, v in ipairs(start.p[side].t_selected) do
+			if not v.loading then
+				table.insert(t_order[side], member)
+				selectChar(side, v.ref, v.pal)
+				v.loading = true
+			end
+		end
+		if #start.p[side].t_selected == #t_order[side] then
+			t_icon[side] = nil
+		end
+	end
 	while true do
 		local snd = false
 		-- for each team side member
 		for side = 1, 2 do
+			if not done and t_orderSelect[side] and not main.cpuSide[side] and getInput(side, motif.vs_screen.skip.key) then
+				finishOrderSelection(side)
+				if not snd then
+					sndPlay(motif.Snd, motif.vs_screen['p' .. side].value.snd[1], motif.vs_screen['p' .. side].value.snd[2])
+					snd = true
+				end
+			end
 			for k, v in ipairs(start.p[side].t_selected) do
 				local pn = 2 * (k - 1) + side
 				local pCfg = f_getMotifP(motif.vs_screen, pn, side)
@@ -3698,6 +3708,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			end
 			counter = motif.vs_screen.time - motif.vs_screen.done.time
 			done = true
+			doneKeyReady = false
 		end
 		counter = counter + 1
 		--draw clearcolor
@@ -3777,13 +3788,16 @@ function start.f_selectVersus(active, t_orderSelect)
 		bgDraw(motif.versusbgdef.BGDef, 1)
 		-- hook
 		hook.run("start.f_selectVersus")
+		-- done key
+		if done and not doneKeyReady and not getInput(-1, motif.vs_screen.done.key) then
+			doneKeyReady = true
+		end
 		--draw fadein / fadeout
 		for side = 1, 2 do
 			if not fadeOutStarted and (
 				-- Wait for order select to finish before vs_screen.time can end the screen.
 				(counter >= motif.vs_screen.time and (not (t_orderSelect[1] or t_orderSelect[2]) or done))
-				or orderSkipPressed(done, t_orderSelect)
-				or (done and getInput(side, motif.vs_screen.done.key))
+				or (done and doneKeyReady and getInput(side, motif.vs_screen.done.key))
 				) then
 				main.f_fadeReset('fadeout', motif.vs_screen)
 				fadeOutStarted = true

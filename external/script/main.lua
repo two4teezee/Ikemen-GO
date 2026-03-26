@@ -834,10 +834,14 @@ function main.f_drawInput(textData, text, sec, background, overlay, defaultInput
 			input = ''
 			break
 		end
-		if getKey('RETURN') then
+		if getKey(sec.textinput.confirm.keycode) then
 			break
-		elseif getKey('BACKSPACE') then
-			input = input:match('^(.-).?$')
+		elseif getKey(sec.textinput.trim.keycode) then
+			input = input:sub(2)
+		elseif getKey(sec.textinput.truncate.keycode) then
+			input = input:sub(1, -2)
+		elseif getKey(sec.textinput.paste.keycode) then
+			input = input .. getClipboardString()
 		else
 			input = input .. getKeyText()
 		end
@@ -1526,7 +1530,7 @@ function main.f_default()
 		draw = {gameOption('Options.Match.MaxDrawGames'), gameOption('Options.Match.MaxDrawGames')},
 		simul = {gameOption('Options.Simul.Match.Wins'), gameOption('Options.Simul.Match.Wins')},
 		single = {gameOption('Options.Match.Wins'), gameOption('Options.Match.Wins')},
-		tag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')},,
+		tag = {gameOption('Options.Tag.Match.Wins'), gameOption('Options.Tag.Match.Wins')},
 	}
 	main.motif = { --which motif elements should be rendered
 		challenger = false,
@@ -2377,7 +2381,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					if not bool_main or esc() then
 						break
 					end
-				elseif bool_f1 and (getKey('F1') or gameOption('Config.FirstRun')) then
+				elseif bool_f1 and (getKey(motif.infobox.keycode) or gameOption('Config.FirstRun')) then
 					if gameOption('Config.FirstRun') then
 						modifyGameOption('Config.FirstRun', false)
 						options.f_saveCfg(false)
@@ -2396,7 +2400,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 					main.f_fadeReset('fadeout', motif[main.group])
 					resetKey()
-				elseif bool_del and getKey('DELETE') then
+				elseif bool_del and getKey(motif[main.group].menu.item.delete.keycode) then
 					tbl.items = main.f_deleteIP(item, t)
 				elseif main.f_hiscoreDisplay(t[item].itemname) then
 					demoFrameCounter = 0
@@ -2647,7 +2651,7 @@ function main.f_renameReplay(item, t)
 	local newName = main.f_drawInput(
 		motif.title_info.textinput.TextSpriteData,
 		motif.title_info.textinput.text.replay,
-		motif.replay_info,
+		motif.title_info,
 		motif.replaybgdef,
 		motif.title_info.textinput.overlay.RectData,
 		oldName
@@ -2727,14 +2731,14 @@ function main.f_replay()
 			sndPlay(motif.Snd, motif.replay_info.cancel.snd[1], motif.replay_info.cancel.snd[2])
 			main.f_fadeReset('fadeout', motif.replay_info)
 			main.close = true
-		elseif getKey('DELETE') then
+		elseif getKey(motif.replay_info.menu.item.delete.keycode) then
 			t, item = main.f_deleteReplay(item, t)
 			local visibleItems = motif.replay_info.menu.window.visibleitems
 			if visibleItems == nil or visibleItems <= 0 then
 				visibleItems = #t
 			end
 			cursorPosY = math.max(1, math.min(cursorPosY, item, visibleItems))
-		elseif getKey('SPACE') then
+		elseif getKey(motif.replay_info.menu.item.rename.keycode) then
 			t, item = main.f_renameReplay(item, t)
 		elseif getInput(-1, motif[main.group].menu.done.key) then
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])

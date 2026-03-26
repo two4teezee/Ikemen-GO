@@ -303,6 +303,12 @@ type MenuProperties struct {
 			TextProperties
 			Active TextProperties `ini:"active"`
 		} `ini:"info"`
+		Delete struct { // only used by [Title Info], [Replay Info]
+			KeyCode string `ini:"keycode"`
+		} `ini:"delete"`
+		Rename struct { // only used by [Replay Info]
+			KeyCode string `ini:"keycode"`
+		} `ini:"rename"`
 	} `ini:"item"`
 	Window struct {
 		Margins struct {
@@ -349,6 +355,7 @@ type InfoBoxProperties struct {
 	Title   TextProperties    `ini:"title"`
 	Text    TextProperties    `ini:"text"`
 	Overlay OverlayProperties `ini:"overlay"`
+	KeyCode string          `ini:"keycode"`
 }
 
 type CellOverrideProperties struct {
@@ -625,6 +632,23 @@ type PlayerDialogueProperties struct {
 	Active AnimationProperties `ini:"active"`
 }
 
+type TextInputProperties struct {
+	TextMapProperties
+	Overlay OverlayProperties `ini:"overlay"`
+	Confirm struct {
+		KeyCode string `ini:"keycode"`
+	} `ini:"confirm"`
+	Trim struct {
+		KeyCode string `ini:"keycode"`
+	} `ini:"trim"`
+	Truncate struct {
+		KeyCode string `ini:"keycode"`
+	} `ini:"truncate"`
+	Paste struct {
+		KeyCode string `ini:"keycode"`
+	} `ini:"paste"`
+}
+
 type TitleInfoProperties struct {
 	FadeIn  FadeProperties `ini:"fadein"`
 	FadeOut FadeProperties `ini:"fadeout"`
@@ -652,10 +676,7 @@ type TitleInfoProperties struct {
 		TextMapProperties
 		Overlay OverlayProperties `ini:"overlay"`
 	} `ini:"connecting"`
-	TextInput struct {
-		TextMapProperties
-		Overlay OverlayProperties `ini:"overlay"`
-	} `ini:"textinput"`
+	TextInput TextInputProperties `ini:"textinput"`
 }
 
 type SelectInfoProperties struct {
@@ -1022,10 +1043,7 @@ type OptionInfoProperties struct {
 	Cancel struct {
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
 	} `ini:"cancel"`
-	TextInput struct {
-		TextMapProperties
-		Overlay OverlayProperties `ini:"overlay"`
-	} `ini:"textinput"`
+	TextInput TextInputProperties `ini:"textinput"`
 	KeyMenu struct {
 		P1 struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
@@ -1035,6 +1053,9 @@ type OptionInfoProperties struct {
 			MenuOffset [2]float32     `ini:"menuoffset"`
 			Playerno   TextProperties `ini:"playerno"`
 		} `ini:"p2"`
+		Unbind struct {
+			KeyCode string `ini:"keycode"`
+		} `ini:"unbind"`
 		MenuProperties
 	} `ini:"keymenu"`
 	Itemname map[string]string `ini:"itemname"` // not used by [Option Info]
@@ -1139,7 +1160,11 @@ type AttractModeProperties struct {
 	Credits struct {
 		TextProperties
 		Snd [2]int32 `ini:"snd" default:"-1,0"`
+		KeyCode string `ini:"keycode"`
 	} `ini:"credits"`
+	Options struct {
+		KeyCode string `ini:"keycode"`
+	} `ini:"options"`
 	Logo struct {
 		Storyboard string `ini:"storyboard" lookup:"def,,data/"`
 	} `ini:"logo"`
@@ -1163,9 +1188,6 @@ type AttractModeProperties struct {
 		} `ini:"press"`
 		Timer TimerProperties `ini:"timer"`
 	} `ini:"start"`
-	Options struct {
-		KeyCode string `ini:"keycode"`
-	} `ini:"options"`
 }
 
 type ChallengerInfoProperties struct {

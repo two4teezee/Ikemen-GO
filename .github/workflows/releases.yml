@@ -197,8 +197,7 @@ jobs:
           # Must exist BEFORE Android Docker Compose runs so it is visible in the bind-mounted workspace.
           FFMPEG_REV="${FFMPEG_REV:-release/7.1}"
 
-          SCREENPACK_LIC_MAIN="https://raw.githubusercontent.com/ikemen-engine/Ikemen-GO-Screenpack/main/LICENCE.txt"
-          SCREENPACK_LIC_MASTER="https://raw.githubusercontent.com/ikemen-engine/Ikemen-GO-Screenpack/master/LICENCE.txt"
+          SCREENPACK_LIC="https://raw.githubusercontent.com/ikemen-engine/Ikemen-GO-Screenpack/master/LICENCE.txt"
 
           FFMPEG_LGPL="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/COPYING.LGPLv2.1"
           FFMPEG_LICENSE_MD="https://raw.githubusercontent.com/FFmpeg/FFmpeg/${FFMPEG_REV}/LICENSE.md"
@@ -220,7 +219,7 @@ jobs:
             echo "-------------------------------------------"
             echo "Screenpack license from Ikemen-GO-Screenpack/LICENCE.txt:"
             echo
-            ( curl -fsSL "$SCREENPACK_LIC_MAIN" || curl -fsSL "$SCREENPACK_LIC_MASTER" )
+            curl -fsSL "$SCREENPACK_LIC"
             echo
             echo "Section 3: FFmpeg (LGPL v2.1) and Notices"
             echo "-----------------------------------------"

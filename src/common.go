@@ -516,6 +516,16 @@ func FileExist(filename string) string {
 // 'dirs' elements can be plain directory paths or logical paths to .def files (which might be inside zips).
 // 'file' is the filename to search (e.g., "kfm.sff").
 func SearchFile(file string, dirs []string) string {
+	file = strings.TrimSpace(file)
+	if sc := strings.Index(file, ";"); sc >= 0 {
+		file = strings.TrimSpace(file[:sc])
+	}
+	if len(file) >= 2 {
+		q := file[0]
+		if (q == '"' || q == '\'') && file[len(file)-1] == q {
+			file = file[1 : len(file)-1]
+		}
+	}
 	file = strings.Replace(file, "\\", "/", -1)
 	if file == "" {
 		return ""

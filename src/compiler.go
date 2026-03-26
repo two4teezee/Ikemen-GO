@@ -1394,6 +1394,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	var err error
 	switch c.token {
 	case "":
+		if sys.ignoreMostErrors {
+			return bvNone(), nil
+		}
 		return bvNone(), Error("Nothing assigned")
 	// Redirections without arguments
 	case "root", "parent", "p2", "stateowner":
@@ -5700,11 +5703,15 @@ func (c *Compiler) parseSection(sctrl func(name, data string) error) (IniSection
 	is := NewIniSection()
 	_type, persistent, ignorehitpause := true, true, true
 
+	// Placeholder var to toggle all the nonsense Mugen's compiler allowed
+	// Maybe this could be sys.ignoreMostErrors. Or something configurable
+	strict := false
+
 	// Helper to find '=' only outside parentheses
 	findTopLevelEqual := func(s string) int {
 		uneven := 0
-		for i, r := range s {
-			switch r {
+		for i := 0; i < len(s); i++ {
+			switch s[i] {
 			case '(':
 				uneven++
 			case ')':
@@ -5720,6 +5727,53 @@ func (c *Compiler) parseSection(sctrl func(name, data string) error) (IniSection
 		return -1
 	}
 
+	// Helper to parse var() and such parameters
+	// These exceptions allow these CNS parameters to be parsed with an expression inside them, such as var(1+1)
+	parseSpecialParamName := func(lhs string) (string, bool) {
+		lhs = strings.TrimSpace(lhs)
+		i := strings.Index(lhs, "(")
+		if i <= 0 {
+			return "", false
+		}
+
+		fn := lhs[:i]
+		if !strict {
+			fn = strings.TrimSpace(fn) // Mugen tolerates "var ("
+		}
+		switch strings.ToLower(fn) {
+		case "var", "fvar", "sysvar", "sysfvar", "map":
+		default:
+			return "", false
+		}
+
+		uneven := 0
+		end := -1
+		for j := i; j < len(lhs); j++ {
+			switch lhs[j] {
+			case '(':
+				uneven++
+			case ')':
+				uneven--
+				if uneven == 0 {
+					end = j
+					j = len(lhs)
+				}
+			}
+		}
+		if end < 0 {
+			return "", false
+		}
+
+		if strict {
+			// When strict, only "var(...)" is valid. No "var (...)" and no trailing garbage
+			if lhs[:i] != strings.TrimSpace(lhs[:i]) || end != len(lhs)-1 {
+				return "", false
+			}
+		}
+
+		return strings.ToLower(strings.TrimSpace(lhs[:end+1])), true
+	}
+
 	for ; c.i < len(c.lines); c.i++ {
 		line := strings.TrimSpace(strings.SplitN(c.lines[c.i], ";", 2)[0])
 		if len(line) > 0 && line[0] == '[' {
@@ -5728,28 +5782,43 @@ func (c *Compiler) parseSection(sctrl func(name, data string) error) (IniSection
 		}
 
 		var name, data string
-		lower := strings.ToLower(line)
 
-		// These exceptions allow these CNS parameters to be parsed with an expression inside them, such as var(1+1)
-		if i := strings.Index(lower, "("); i > 0 {
-			fn := strings.TrimSpace(lower[:i]) // Mugen tolerates "var ("
-			switch fn {
-			case "var", "fvar", "sysvar", "sysfvar", "map":
-				ia := findTopLevelEqual(line)
-				if ia > 0 {
-					name = strings.ToLower(strings.TrimSpace(line[:ia]))
-					data = strings.TrimSpace(line[ia+1:])
+		// A line requires '=' to be considered a parameter to begin with
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3438
+		// TODO: Using this method for all cases currently blocks syntax like "trigger1 (= 1" while Mugen doesn't
+		if ia := findTopLevelEqual(line); ia > 0 {
+			lhs := strings.TrimSpace(line[:ia])
+			data = strings.TrimSpace(line[ia+1:])
+
+			// Parse special cases like var()
+			if parsed, ok := parseSpecialParamName(lhs); ok {
+				name = parsed
+			} else if strings.Index(lhs, "(") >= 0 {
+				// Looks like a special parameter, but wasn't valid
+				if strict {
+					if sys.ignoreMostErrors {
+						continue
+					}
+					return nil, false, Error("Invalid parameter syntax: " + line)
 				}
 			}
-		}
 
-		// Normal parameters
-		if name == "" {
-			if ia := strings.IndexAny(line, "= \t"); ia > 0 {
-				name = strings.ToLower(line[:ia])
-				ia = strings.Index(line, "=")
-				if ia >= 0 {
-					data = strings.TrimSpace(line[ia+1:])
+			// Normal parameters
+			if name == "" {
+				if strict {
+					// If strict, only a single token is valid on the LHS
+					if strings.IndexAny(lhs, " \t") >= 0 {
+						if sys.ignoreMostErrors {
+							continue
+						}
+						return nil, false, Error("Invalid parameter syntax: " + line)
+					}
+					name = strings.ToLower(lhs)
+				} else {
+					if j := strings.IndexAny(lhs, " \t"); j >= 0 {
+						lhs = lhs[:j]
+					}
+					name = strings.ToLower(lhs)
 				}
 			}
 		}
@@ -5919,6 +5988,11 @@ func (c *Compiler) paramValue(is IniSection, sc *StateControllerBase,
 	found := false
 	if err := c.stateParam(is, paramname, false, func(data string) error {
 		found = true
+		// Mugen ignores empty parameters
+		if sys.ignoreMostErrors && !c.zssMode && len(strings.TrimSpace(data)) == 0 {
+			found = false
+			return nil
+		}
 		return c.scAdd(sc, id, data, vt, numArg)
 	}); err != nil {
 		return err

@@ -2731,6 +2731,7 @@ func (c *Compiler) varSetNewerSub(name string) (varType int32, index BytecodeExp
 		// Extract only the contents inside the parentheses
 		// Like Mugen, we do not require the rest of the string to end properly
 		// Meaning "var(x) gibberish = y" is valid
+		// TODO: This is now handled in parseSection() so may no logner be needed here
 		inner := strings.TrimSpace(rest[1:end])
 		if inner == "" {
 			return 0, nil, false, Error("Missing variable index")

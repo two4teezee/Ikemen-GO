@@ -2370,6 +2370,7 @@ type Projectile struct {
 	freezeflag      bool
 	contactflag     bool
 	time            int32
+	removeDone      bool
 }
 
 func newProjectile() *Projectile {
@@ -2391,6 +2392,7 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 
 	*p = Projectile{
 		id:              0,
+		status:          ProjActive,
 		playerno:        c.playerNo,
 		hitanim:         -1,
 		remanim:         IErr,
@@ -2461,13 +2463,29 @@ func (p *Projectile) paused() bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
-		if p.isActive() {
-			remove := false
+		// Check if timer has expired or boundaries were reached
+		if p.status == ProjActive {
+			if p.removetime == 0 ||
+				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
+				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
+				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
+				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
+				p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
+				p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
+				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
+				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
+				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
+				p.status = ProjRem
+			}
+		}
 
-			// Check hit or cancel triggers
-			if p.status == ProjHit && p.remove {
-				// Remove after hit behavior
-				remove = true
+		// Handle active to removing transition
+		if !p.removeDone {
+			remove := true
+			switch p.status {
+			case ProjActive:
+				remove = false
+			case ProjHit:
 				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 					if p.hitanim == -1 {
 						// Forcefully clear instead of reaching the fallback where invalid animation does nothing
@@ -2476,9 +2494,7 @@ func (p *Projectile) update() {
 						p.anim = a
 					}
 				}
-			} else if p.status == ProjCancel {
-				// Cancel behavior
-				remove = true
+			case ProjCancel:
 				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 					if p.cancelanim == -1 {
 						p.anim = nil
@@ -2486,49 +2502,31 @@ func (p *Projectile) update() {
 						p.anim = a
 					}
 				}
-			}
-
-			// If not removed by hit/cancel, check time and bounds
-			if !remove {
-				if p.removetime == 0 ||
-					p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
-					p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
-					p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
-					p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
-					p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
-					p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
-					p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
-					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
-					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-
-					remove = true
-					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
-						if p.remanim == -1 {
-							p.anim = nil
-						} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
-							p.anim = a
-							// In Mugen, if remanim is invalid the projectile will keep the current one
-							// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
-						}
+			case ProjRem:
+				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
+					if p.remanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+						p.anim = a
+						// In Mugen, if remanim is invalid the projectile will keep the current one
+						// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
 					}
 				}
 			}
 
 			// Active to removing transition
 			if remove {
-				p.status = ProjRem
+				p.removeDone = true
 				if p.anim != nil {
 					p.anim.UpdateSprite()
 				}
 				p.velocity = p.remvelocity
-				if p.facing == p.removefacing {
-					p.facing = p.removefacing
-				} else {
-					p.velocity[0] *= -1
-				}
 				p.accel = [3]float32{0, 0, 0}
 				p.velmul = [3]float32{1, 1, 1}
-				p.animNo = -1
+				if p.facing != p.removefacing {
+					p.velocity[0] *= -1
+				}
+				//p.animNo = -1 // Doesn't seem necessary now
 				// In Mugen, projectiles can hit even after their removetime expires
 				// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 				//if p.hits >= 0 {
@@ -2538,7 +2536,7 @@ func (p *Projectile) update() {
 		}
 
 		// Remove projectile once animation allows it
-		if !p.isActive() {
+		if p.status != ProjActive {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
 			}
@@ -2604,6 +2602,7 @@ func (p *Projectile) cancelHits(opp *Projectile) {
 		p.flagProjCancel()
 	}
 	// Set hitpause
+	// The surviving projectile has hitpause while the cancelled one doesn't
 	if p.hits > 0 {
 		p.hitpause = Max(0, p.hitdef.pausetime[0]) // -Btoi(c.gi().mugenver[0] == 0))
 	} else {
@@ -2702,10 +2701,11 @@ func (p *Projectile) tick() {
 		p.curmisstime = Max(0, p.misstime)
 		if p.hits >= 0 {
 			p.hits--
-			if p.hits <= 0 {
-				//p.hits = -1
+			// Disabling projRemove blocks this state transition
+			// The projectile will still be considered active for all effects and purposes
+			if p.hits <= 0 && p.remove {
 				p.status = ProjHit
-				p.hitpause = 0
+				//p.hitpause = 0 // This doesn't seem accurate to Mugen
 			}
 		}
 		p.hitdef.air_juggle = 0

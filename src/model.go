@@ -2212,7 +2212,9 @@ func (model *Model) draw(bufferIndex uint32, sceneNumber int, layerNumber int, d
 	if len(scene.lightNodes) > 0 && layerNumber == -1 && gfx.IsShadowEnabled() {
 		// Do it in another thread if possible
 		if gfx.NewWorkerThread() {
-			go model.drawShadow(bufferIndex, sceneNumber, offset)
+			SafeGo(func() {
+				model.drawShadow(bufferIndex, sceneNumber, offset)
+			})
 		} else {
 			model.drawShadow(bufferIndex, sceneNumber, offset)
 		}

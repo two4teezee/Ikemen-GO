@@ -600,8 +600,10 @@ func (nc *NetConnection) Synchronize() error {
 	nc.st = NS_Playing
 
 	// Start sending inputs to remote peer in a goroutine
+	sendBuf := &nc.buf[nc.locIn]
 	<-nc.sendEnd
-	go func(nb *NetBuffer) {
+	SafeGo(func() {
+		nb := sendBuf
 		defer func() {
 			nc.sendEnd <- true
 		}()
@@ -627,11 +629,13 @@ func (nc *NetConnection) Synchronize() error {
 		}
 		// Write termination signal to indicate no more input frames
 		nc.writeI16(-1)
-	}(&nc.buf[nc.locIn])
+	})
 
 	// Start receiving inputs from remote peer in a goroutine
+	recvBuf := &nc.buf[nc.remIn]
 	<-nc.recvEnd
-	go func(nb *NetBuffer) {
+	SafeGo(func() {
+		nb := recvBuf
 		defer func() {
 			nc.recvEnd <- true
 		}()
@@ -673,7 +677,7 @@ func (nc *NetConnection) Synchronize() error {
 				break
 			}
 		}
-	}(&nc.buf[nc.remIn])
+	})
 
 	// Update game state after synchronization
 	nc.Update()

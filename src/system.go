@@ -5393,7 +5393,9 @@ func (l *Loader) runTread() bool {
 		return false
 	}
 	l.state = LS_Loading
-	go l.load()
+	SafeGo(func() {
+		l.load()
+	})
 	return true
 }
 

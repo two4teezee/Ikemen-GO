@@ -4886,7 +4886,9 @@ func (r *Renderer_VK) BeginFrame(clearColor bool) {
 	vk.ResetFences(r.device, 1, r.fences[:1])
 	r.destroyResourceQueueIndex = (r.destroyResourceQueueIndex + 1) % 2
 	if len(r.destroyResourceQueues[r.destroyResourceQueueIndex]) > 0 {
-		go r.DestroyResources(len(r.destroyResourceQueues[r.destroyResourceQueueIndex]))
+		SafeGo(func() {
+			r.DestroyResources(len(r.destroyResourceQueues[r.destroyResourceQueueIndex]))
+		})
 	}
 	if len(r.usedCommands) > 0 {
 		if r.stagingBufferFences[0] {

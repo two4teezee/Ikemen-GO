@@ -7335,8 +7335,8 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 		n := exp[0].evalI(c)
 		if n < 0 || n > 2 {
 			// TODO: We should do this in more parameters
-			// This could also be more specific and use crun, but that's a minor issue
-			sys.appendToConsole(c.warn() + fmt.Sprintf("invalid HitDef teamside: %d", n))
+			// This could also be more specific and use crun, but right now adding that to runSub is more trouble than it's worth
+			sys.appendToConsole(c.warn() + fmt.Sprintf("invalid teamside: %d", n))
 		} else {
 			hd.teamside = int(n - 1)
 		}
@@ -8446,15 +8446,13 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				})
 			case hitDef_teamside:
 				v1 := exp[0].evalI(c)
-				eachProj(func(p *Projectile) {
-					if v1 > 2 {
-						p.hitdef.teamside = 2
-					} else if v1 < 0 {
-						p.hitdef.teamside = 0
-					} else {
-						p.hitdef.teamside = int(v1)
-					}
-				})
+				if v1 < 0 || v1 > 2 {
+					sys.appendToConsole(crun.warn() + fmt.Sprintf("invalid teamside: %d", v1))
+				} else {
+					eachProj(func(p *Projectile) {
+						p.hitdef.teamside = int(v1 - 1)
+					})
+				}
 			case hitDef_id:
 				v1 := Max(0, exp[0].evalI(c))
 				eachProj(func(p *Projectile) {

@@ -9442,6 +9442,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.parent(true), sys.debugWC).ToI()))
 		return 1
 	})
+	luaRegister(l, "parentExist", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.debugWC.parentExist()))
+		return 1
+	})
 	luaRegister(l, "pauseTime", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.pauseTimeTrigger()))
 		return 1
@@ -9993,7 +9997,7 @@ func triggerFunctions(l *lua.LState) {
 		// Handle returns
 		if bg != nil {
 			switch strings.ToLower(vname) {
-			case "anim":
+			case "actionno":
 				ln = lua.LNumber(bg.actionno)
 			case "delta.x":
 				ln = lua.LNumber(bg.delta[0])

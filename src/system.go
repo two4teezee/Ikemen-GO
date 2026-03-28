@@ -2455,6 +2455,10 @@ func (s *System) action() {
 	// Update: In Mugen, the state change to win pose happens before the character code runs. It's evidence this should be placed before charList.action()
 	s.stepRoundState()
 
+	// In version 0.99 this was moved to before sys.action() for undocumented reasons
+	// Moving it here preserves whatever behavior that implemented while not keeping the stage oddly outside the main loop
+	s.stage.action()
+
 	// Run "tick frame"
 	if s.tickFrame() {
 		// X axis player limits
@@ -3638,8 +3642,6 @@ func (s *System) runMatch() (reload bool) {
 			break
 		}
 
-		// TODO: These probably ought to be in action() as well
-		s.stage.action()
 		// Update game state
 		s.action()
 

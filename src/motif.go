@@ -6189,7 +6189,7 @@ func (vi *MotifVictory) step(m *Motif) {
 	// don't start processing the winquote until the global timer exceeds winquote.displaytime if it is set
 	// otherwise continue as normal
 	if (m.VictoryScreen.WinQuote.DisplayTime > 0 && vi.counter > m.VictoryScreen.WinQuote.DisplayTime) ||
-			(m.VictoryScreen.WinQuote.DisplayTime <= 0) {
+		(m.VictoryScreen.WinQuote.DisplayTime <= 0) {
 		// First press of Skip: fast-forward the text, but do NOT start fadeout yet.
 		if skipPressed && !prevLineFullyRendered {
 			totalRunes := utf8.RuneCountInString(vi.text)
@@ -6211,7 +6211,7 @@ func (vi *MotifVictory) step(m *Motif) {
 				float32(m.VictoryScreen.WinQuote.TextDelay),
 			)
 		}
-	} else if (m.VictoryScreen.WinQuote.DisplayTime > 0 && vi.counter > m.VictoryScreen.WinQuote.DisplayTime) {
+	} else if m.VictoryScreen.WinQuote.DisplayTime > 0 && vi.counter > m.VictoryScreen.WinQuote.DisplayTime {
 		vi.typedCnt = 0
 		vi.charDelayCounter = 0
 		vi.lineFullyRendered = false

@@ -71,7 +71,7 @@ if map(birdState) <= 0 {
 }
 
 # Update dizzy bird explods
-for i = 0; numExplod; 1 {
+for i = 0; numExplod-1; 1 {
 	let circleTime = ((gameTime % 90) + 22.5 * $i) / 45.0 * pi;
 	let circleHeight = cos($circleTime) * map(birdRadius) * 0.25;
 	let birdScale = (cos($circleTime) + 3) * 0.12 * ifElse($circleHeight < 0, -1, 1);

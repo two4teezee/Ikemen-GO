@@ -3961,13 +3961,13 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 	// FightScreenState
 	case OC_ex2_fightscreenstate_fightdisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.triggerFightDisplay)
+		sys.bcStack.PushB(sys.lifebar.ro.fightDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_kodisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.triggerKODisplay)
+		sys.bcStack.PushB(sys.lifebar.ro.koDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_rounddisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.triggerRoundDisplay)
+		sys.bcStack.PushB(sys.lifebar.ro.roundDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_windisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.triggerWinDisplay)
+		sys.bcStack.PushB(sys.lifebar.ro.winDisplayPhase == 1)
 	// MotifState
 	case OC_ex2_motifstate_challenger:
 		sys.bcStack.PushB(sys.motif.ch.active)

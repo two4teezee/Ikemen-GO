@@ -6992,7 +6992,7 @@ func (sc gameMakeAnim) Run(c *Char, _ []int32) bool {
 		case gameMakeAnim_anim:
 			e.anim_ffx = exp[0].evalS()
 			e.animNo = exp[1].evalI(c)
-			e.anim = crun.getSelfAnimSprite(e.animNo, e.anim_ffx, e.ownpal, true)
+			e.anim = crun.getSelfAnimSprite(e.animNo, e.anim_ffx, e.ownpal)
 		}
 		return true
 	})
@@ -8330,13 +8330,13 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				var v2 int32
 				v1 = exp[0].evalS()
 				if len(exp) > 1 {
-					v2 = Max(-1, exp[1].evalI(c))
+					v2 = exp[1].evalI(c)
 				}
 				eachProj(func(p *Projectile) {
 					if p.animNo != v2 || p.anim_ffx != v1 { // TODO: This isn't required for chars, so maybe it shouldn't be here either
-						p.anim_ffx = v1 // TODO: These two should only be updated if the new animation is valid
-						p.animNo = v2
-						p.anim = c.getAnim(p.animNo, p.anim_ffx, true) // need to change anim ref too
+						p.anim_ffx = v1
+						p.animNo = v2 // If animation is invalid the projectile will be destroyed, so we can update this either way
+						p.anim = crun.getAnim(p.animNo, p.anim_ffx) // need to change anim ref too
 					}
 				})
 			case projectile_supermovetime:
@@ -14500,7 +14500,7 @@ func (sc modifyShadow) Run(c *Char, _ []int32) bool {
 		case modifyShadow_anim:
 			ffx := exp[0].evalS()
 			animNo := exp[1].evalI(c)
-			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, false, "ModifyShadow")
+			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, "ModifyShadow")
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.shadowAnim = anim
@@ -14593,7 +14593,7 @@ func (sc modifyReflection) Run(c *Char, _ []int32) bool {
 		case modifyReflection_anim:
 			ffx := exp[0].evalS()
 			animNo := exp[1].evalI(c)
-			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, false, "ModifyReflection")
+			anim := c.getShadowReflectionSprite(animNo, animPN, spritePN, ffx, true, "ModifyReflection")
 			if anim != nil {
 				anim.Action() // Need to step for it to appear
 				crun.reflectAnim = anim

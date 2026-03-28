@@ -1857,8 +1857,13 @@ func (e *Explod) setAnim() {
 	}
 
 	// Get animation with sprite owner context
-	a := c.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal, true)
+	a := c.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal)
 	if a == nil {
+		if e.id < 0 {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("system explod called invalid action %v%v", strings.ToUpper(e.anim_ffx), e.animNo))
+		} else {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("explod with ID %v called invalid action %v%v", e.id, strings.ToUpper(e.anim_ffx), e.animNo))
+		}
 		return
 	}
 	e.anim = a
@@ -2490,26 +2495,32 @@ func (p *Projectile) update() {
 					if p.hitanim == -1 {
 						// Forcefully clear instead of reaching the fallback where invalid animation does nothing
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.hitanim_ffx), p.hitanim))
 					}
 				}
 			case ProjCancel:
 				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 					if p.cancelanim == -1 {
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.cancelanim_ffx), p.cancelanim))
 					}
 				}
 			case ProjRem:
 				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
 					if p.remanim == -1 {
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
 						// In Mugen, if remanim is invalid the projectile will keep the current one
 						// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.remanim_ffx), p.remanim))
 					}
 				}
 			}
@@ -4316,13 +4327,14 @@ func (c *Char) clearHitDef() {
 
 func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
 	// Get the animation
-	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal, false)
+	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal)
 
 	// If invalid
 	// In Mugen, when switching between different animation tables (e.g. ChangeAnim2) and the destination doesn't exist,
 	// the character will change into whatever animation is in the same index as the table it is changing from
 	// We don't do that at the moment
 	if a == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid action %v%v", strings.ToUpper(ffx), animNo))
 		return
 	}
 
@@ -6910,9 +6922,9 @@ func (c *Char) removeText(id, index int32) {
 }
 
 // Get animation and apply sprite owner properties to it
-func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool) *Animation {
+func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool) *Animation {
 	// Get raw animation
-	a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, fx)
+	a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx)
 	if a == nil {
 		return nil
 	}
@@ -6925,14 +6937,14 @@ func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx
 
 // Calls getAnimSprite without the extra anim/sprite playerNo features
 // For projectiles essentially
-func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool) *Animation {
-	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, fx)
+func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool) *Animation {
+	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal)
 
 	return a
 }
 
 // Calls getAnimSprite with playerNo checks for Shadows and Reflections
-func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool, scname string) *Animation {
+func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, scname string) *Animation {
 	// Validate AnimPlayerNo
 	if animPlayerNo < 0 {
 		animPlayerNo = c.playerNo
@@ -6948,11 +6960,11 @@ func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlaye
 		spritePlayerNo = c.playerNo
 	}
 
-	return c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, ownpal, fx)
+	return c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, ownpal)
 }
 
 // Same old getAnim, but now without the FFX scale adjustment
-func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
+func (c *Char) getAnim(n int32, ffx string) (a *Animation) {
 	// Return empty but valid animation
 	if n == -2 {
 		return &Animation{}
@@ -6980,6 +6992,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 		a = c.gi().animTable.get(n)
 	}
 
+	/*
 	// Log invalid animations
 	if a == nil {
 		if fx {
@@ -7005,6 +7018,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			LogMessage("%v%v", str, n)
 		}
 	}
+	*/
 
 	return
 }
@@ -7224,9 +7238,11 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	}
 
 	// Get animation with sprite context
-	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
+	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true)
 
 	if p.anim == nil && c.anim != nil {
+		// TODO: If Ikemenversion, the invalid animation probably ought to make explod disappear
+		sys.appendToConsole(c.warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
 		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim
@@ -10998,7 +11014,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 		if animNo >= 0 {
 			if e, i := c.spawnExplod(); e != nil {
-				//e.anim = c.getAnim(animNo, ffx, true)
+				//e.anim = c.getAnim(animNo, ffx)
 				e.animNo = animNo
 				e.anim_ffx = ffx
 				e.layerno = 1 // e.ontop = true

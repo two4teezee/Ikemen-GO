@@ -104,38 +104,38 @@ type GameState struct {
 
 	SystemStateVars
 
-	chars      [MaxPlayerNo][]*Char
-	charData   [MaxPlayerNo][]Char
-	projs      [MaxPlayerNo][]*Projectile
-	explods    [MaxPlayerNo][]*Explod
-	chartexts  [MaxPlayerNo][]*TextSprite
-	charList   CharList
+	chars     [MaxPlayerNo][]*Char
+	charData  [MaxPlayerNo][]Char
+	projs     [MaxPlayerNo][]*Projectile
+	explods   [MaxPlayerNo][]*Explod
+	chartexts [MaxPlayerNo][]*TextSprite
+	charList  CharList
 
-	allPalFX           *PalFX
-	bgPalFX            *PalFX
+	allPalFX *PalFX
+	bgPalFX  *PalFX
 
 	bcStack, bcVarStack BytecodeStack
 	bcVar               []BytecodeValue
 	workBe              []BytecodeExp
 
-	workpal         []uint32
-	keyConfig       []KeyConfig
-	joystickConfig  []KeyConfig
-	lifebar         Lifebar
-	motif           Motif
-	storyboard      Storyboard
-	cgi             [MaxPlayerNo]CharGlobalInfo
+	workpal        []uint32
+	keyConfig      []KeyConfig
+	joystickConfig []KeyConfig
+	lifebar        Lifebar
+	motif          Motif
+	storyboard     Storyboard
+	cgi            [MaxPlayerNo]CharGlobalInfo
 
 	//accel                   float32
 	//clsnDisplay             bool
 	//debugDisplay            bool
 
-	timerRounds   []int32
-	stage         *Stage
-	scoreRounds   [][2]float32
-	sel           Select
+	timerRounds []int32
+	stage       *Stage
+	scoreRounds [][2]float32
+	sel         Select
 	//stringPool      [MaxPlayerNo]StringPool // Only mutated while compiling
-	dialogueFlg     bool
+	dialogueFlg bool
 
 	// LifeBar
 	timerCount []int32

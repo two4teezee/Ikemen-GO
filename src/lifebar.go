@@ -2853,20 +2853,20 @@ type LifeBarRound struct {
 
 func newLifeBarRound(snd *Snd) *LifeBarRound {
 	return &LifeBarRound{
-		snd:                snd,
-		start_waittime:     30,
-		ctrl_time:          30,
-		slow_time:          60,
-		slow_fadetime:      45,
-		slow_speed:         0.25,
-		over_waittime:      45,
-		over_hittime:       10,
-		over_wintime:       45,
-		over_forcewintime:  900, // Hardcoded in Mugen
-		over_time:          210,
-		shutter_time:       15,
-		callfight_time:     60,
-		clutch_threshold:   10,
+		snd:               snd,
+		start_waittime:    30,
+		ctrl_time:         30,
+		slow_time:         60,
+		slow_fadetime:     45,
+		slow_speed:        0.25,
+		over_waittime:     45,
+		over_hittime:      10,
+		over_wintime:      45,
+		over_forcewintime: 900, // Hardcoded in Mugen
+		over_time:         210,
+		shutter_time:      15,
+		callfight_time:    60,
+		clutch_threshold:  10,
 		//match_wins:         [...]int32{2, 2},
 		//match_maxdrawgames: [...]int32{1, 1},
 	}

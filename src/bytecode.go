@@ -1345,11 +1345,12 @@ func (BytecodeExp) pow(v1 *BytecodeValue, v2 BytecodeValue, pn int) {
 			hb++
 		}
 		var i, bit, tmp int32 = 1, 0, i1
+
+		oldVersion := sys.cgi[pn].ikemenver[0] == 0 && sys.cgi[pn].ikemenver[1] == 0 && sys.cgi[pn].mugenver[0] != 1
+
 		for ; bit <= hb; bit++ {
-			var shift uint
-			if bit == hb || sys.cgi[pn].mugenver[0] == 1 {
-				shift = uint(bit)
-			} else {
+			shift := uint(bit)
+			if oldVersion && bit != hb {
 				shift = uint((hb - 1) - bit)
 			}
 			if i2&(1<<shift) != 0 {
@@ -1958,7 +1959,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			sys.bcStack.Push(BytecodeUndefined())
 			be.JumpToNext(&i)
 		case OC_stateowner:
-			if c = sys.chars[c.ss.sb.playerNo][0]; c != nil {
+			if c = c.stateOwner(); c != nil {
 				i += 4
 				continue
 			}
@@ -2008,7 +2009,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 			be.blnot(sys.bcStack.Top())
 		case OC_pow:
 			v2 := sys.bcStack.Pop()
-			be.pow(sys.bcStack.Top(), v2, sys.workingChar.ss.sb.playerNo)
+			be.pow(sys.bcStack.Top(), v2, sys.workingState.playerNo)
 		case OC_mul:
 			v2 := sys.bcStack.Pop()
 			be.mul(sys.bcStack.Top(), v2)
@@ -2119,7 +2120,7 @@ func (be BytecodeExp) run(c *Char) BytecodeValue {
 		case OC_animelemtime:
 			*sys.bcStack.Top() = c.animElemTime(sys.bcStack.Top().ToI())
 		case OC_animexist:
-			*sys.bcStack.Top() = c.animExist(sys.workingChar, *sys.bcStack.Top())
+			*sys.bcStack.Top() = c.animExist(*sys.bcStack.Top())
 		case OC_animtime:
 			sys.bcStack.PushI(c.animTime())
 		case OC_backedge:
@@ -4439,8 +4440,10 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 		}
 	}
 	// https://github.com/ikemen-engine/Ikemen-GO/issues/963
-	//sys.workingChar = c
-	sys.workingChar = sys.chars[c.ss.sb.playerNo][0]
+	//sys.workingChar = sys.chars[c.ss.sb.playerNo][0]
+	// Previously this was changed from c to state owner to fix the issue above
+	// But tricking the code like that made bytecode errors print from the wrong characters
+	sys.workingChar = c
 	if b.loopBlock {
 		if b.forLoop {
 			if b.forAssign {

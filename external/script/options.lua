@@ -139,7 +139,7 @@ options.t_itemname = {
 			modifyGameOption('Options.GameSpeed', 0)
 			--modifyGameOption('Options.GameSpeedStep', 5)
 			modifyGameOption('Options.Match.Wins', 2)
-			modifyGameOption('Options.Match.MaxDrawGames', -2) -- -2: match.maxdrawgames
+			modifyGameOption('Options.Match.MaxDrawGames', 1)
 			modifyGameOption('Options.Credits', 10)
 			modifyGameOption('Options.QuickContinue', false)
 			modifyGameOption('Options.AutoGuard', false)
@@ -194,6 +194,7 @@ options.t_itemname = {
 			--modifyGameOption('Config.TrainingChar', "")
 			--modifyGameOption('Config.TrainingStage', "")
 			modifyGameOption('Config.GamepadMappings', "external/gamecontrollerdb.txt")
+			--modifyGameOption('Config.LegacyTime', 0)
 			modifyGameOption('Debug.AllowDebugMode', true)
 			modifyGameOption('Debug.AllowDebugKeys', true)
 			--modifyGameOption('Debug.ClipboardRows', 2)
@@ -2182,7 +2183,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 		--other keyboard or gamepad key
 		if key ~= '' and key ~= 'nil' then
 			if key == '__UNBIND__' then
-				sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+				sndPlay(motif.Snd, motif.option_info.cancel.snd[1], motif.option_info.cancel.snd[2])
 				--decrease old button count
 				if t_keyList[joyNum][btn] ~= nil and t_keyList[joyNum][btn] > 1 then
 					t_keyList[joyNum][btn] = t_keyList[joyNum][btn] - 1
@@ -2194,7 +2195,7 @@ function options.f_keyCfg(cfgType, controller, bg, skipClear)
 				modifyGameOption(cfgType .. '_P' .. player .. '.' .. t[item].itemname, tostring(motif.option_info.menu.valuename.nokey))
 				options.modified = true
 			elseif cfgType == 'Keys' or (cfgType == 'Joystick' and key ~= 'nil') then
-				sndPlay(motif.Snd, motif.option_info.cursor.move.snd[1], motif.option_info.cursor.move.snd[2])
+				sndPlay(motif.Snd, motif.option_info.cursor.done.snd[1], motif.option_info.cursor.done.snd[2])
 				--decrease old button count
 				if t_keyList[joyNum][btn] ~= nil and t_keyList[joyNum][btn] > 1 then
 					t_keyList[joyNum][btn] = t_keyList[joyNum][btn] - 1

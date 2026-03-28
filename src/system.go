@@ -29,20 +29,140 @@ const (
 	MaxPlayerNo     = MaxSimul*2 + MaxAttachedChar
 )
 
+// The variables placed in this struct will be saved/loaded automatically by game states
+// Note: Still need to deep copy pointers etc like usual
+// TODO: Testing the changes and cleaning up
+type SystemStateVars struct {
+	randseed                int32
+	matchTime               int32
+	curRoundTime            int32
+	persistRoundCount       int32
+	curPlayTime             int32
+
+	aiInput                 [MaxPlayerNo]AiInput
+	ffbparams               [MaxPlayerNo]ForceFeedbackParams
+	inputRemap              [MaxPlayerNo]int
+	aiLevel                 [MaxPlayerNo]float32
+	cam                     Camera
+
+	pausetime               int32
+	pausebg                 bool
+	pauseendcmdbuftime      int32
+	pausetimebuffer         int32
+	pauseplayerno           int
+	supertimebuffer         int32
+	supertime               int32
+	superpausebg            bool
+	superendcmdbuftime      int32
+	superplayerno           int
+	superbrightness         float32
+
+	envShake    EnvShake
+	specialFlag GlobalSpecialFlag
+	envcol      [3]int32
+	envcol_time int32
+
+	scrrect                 [4]int32
+	gameWidth, gameHeight   int32
+	widthScale, heightScale float32
+	gameEnd, frameSkip      bool
+	paused, frameStepFlag   bool
+	brightness              float32
+	brightnessOld           float32
+	maxRoundTime            int32
+	curFramesPerCount       int32 // The mutatable value for the current match
+	match                   int32
+	round                   int32
+	intro                   int32
+	lastHitter              [2]int
+	winTeam                 int
+	winType                 [2]WinType
+	winTrigger              [2]WinType
+	matchWins, wins         [2]int32 // Required wins, current wins
+	roundsExisted           [2]int32
+	draws                   int32
+	maxDraws                [2]int32
+	effectiveLoss           [2]bool
+	tmode                   [2]TeamMode
+	numSimul, numTurns      [2]int32
+	esc                     bool
+	envcol_under            bool
+	lastCharId              int32
+	tickCount               int
+	oldTickCount            int
+	tickCountF              float32
+	lastTick                float32
+	nextAddTime             float32
+	oldNextAddTime          float32
+	screenleft              float32
+	screenright             float32
+	xmin, xmax              float32
+	zmin, zmax              float32
+	winskipped              bool
+	roundResetFlg           bool
+	roundResetMatchStart    bool
+	reloadFlg               bool
+	reloadStageFlg          bool
+	reloadLifebarFlg        bool
+	reloadCharSlot          [MaxPlayerNo]bool
+	turbo                   float32
+	drawScale               float32
+	zoomlag                 float32
+	zoomScale               float32
+	zoomPosXLag             float32
+	zoomPosYLag             float32
+	enableZoomtime          int32
+	zoomCameraBound         bool
+	zoomStageBound          bool
+	zoomPos                 [2]float32
+	finishType              FinishType
+	winwaittime             int32
+	slowtime                int32
+	changeStateNest         int32
+	nomusic                 bool
+	timerStart              int32
+	teamLeader              [2]int
+	postMatchFlg            bool
+	scoreStart              [2]float32
+	decisiveRound           [2]bool
+	gameMode                string
+
+	consecutiveWins    [2]int32
+	firstAttack        [3]int
+	home               int
+	stageLoop          bool
+	dialogueBarsFlg    bool
+	dialogueForce      int
+	playBgmFlg         bool
+
+	keyInput            Key
+	keyString           string
+	lastInputController int
+	uiLastInputToken    string
+	uiConsumeInputFrame int32
+	uiRepeatToken       string
+	uiRepeatController  int
+	uiRepeatFrame       int32
+
+	endMatch      bool
+	noSoundFlg    bool
+	fightLoopEnd  bool
+	continueFlg   bool
+	matchResetFlg bool
+	stageLoopNo   int
+	introSkipCall bool
+	preMatchTime  int32
+	loopBreak     bool
+	loopContinue  bool
+	winposetime   int32
+}
+
 // sys
 // The only instance of a System struct.
 // Do not create more than 1.
 var sys = System{
-	randseed:     int32(time.Now().UnixNano()),
-	scrrect:      [...]int32{0, 0, 320, 240},
-	gameWidth:    320,
-	gameHeight:   240,
-	widthScale:   1,
-	heightScale:  1,
-	brightness:   1,
-	maxRoundTime: -1,
-	soundMixer:   &beep.Mixer{},
-	bgm:          *newBgm(),
+	soundMixer: &beep.Mixer{},
+	bgm:        *newBgm(),
 	//soundChannels: newSoundChannels(16), // Lazy allocation in Request()
 	allPalFX: newPalFX(),
 	bgPalFX:  newPalFX(),
@@ -50,19 +170,13 @@ var sys = System{
 	//ffxRegexp:         "^(f)|^(s)|^(go)", // https://github.com/ikemen-engine/Ikemen-GO/issues/1620
 	sel:                 *newSelect(),
 	keyState:            make(map[Key]bool),
-	match:               1,
 	loader:              *newLoader(),
-	numSimul:            [...]int32{2, 2},
-	numTurns:            [...]int32{2, 2},
 	ignoreMostErrors:    true,
 	stageList:           make(map[int32]*Stage),
 	stageLocalcoords:    make(map[string][2]int32),
-	oldNextAddTime:      1,
 	commandLine:         make(chan string),
-	cam:                 *newCamera(),
 	mainThreadTask:      make(chan func(), 65536),
 	workpal:             make([]uint32, 256),
-	keyInput:            KeyUnknown,
 	saveState:           NewGameState(),
 	statePool:           NewGameStatePool(),
 	savePool:            NewGameStatePool(),
@@ -71,9 +185,25 @@ var sys = System{
 	arenaSaveMap:        make(map[int]*arena.Arena),
 	arenaLoadMap:        make(map[int]*arena.Arena),
 	debugAccel:          1, // TODO: We probably shouldn't rely on this being initialized to 1
-	lastInputController: -1,
-	uiRepeatController:  -1,
 	charVarsBackup:      make(map[int]CharVarBackup),
+	SystemStateVars: SystemStateVars{
+		randseed:            int32(time.Now().UnixNano()),
+		scrrect:             [...]int32{0, 0, 320, 240},
+		gameWidth:           320,
+		gameHeight:          240,
+		widthScale:          1,
+		heightScale:         1,
+		brightness:          1,
+		maxRoundTime:        -1,
+		match:               1,
+		numSimul:            [...]int32{2, 2},
+		numTurns:            [...]int32{2, 2},
+		oldNextAddTime:      1,
+		cam:                 *newCamera(),
+		keyInput:            KeyUnknown,
+		lastInputController: -1,
+		uiRepeatController:  -1,
+	},
 }
 
 type TeamMode int32
@@ -88,16 +218,10 @@ const (
 
 // System struct, holds most of the data that is accessed globally through the program.
 type System struct {
-	randseed                int32
-	scrrect                 [4]int32
-	gameWidth, gameHeight   int32
-	widthScale, heightScale float32
+	SystemStateVars
+
 	window                  *Window
-	gameEnd, frameSkip      bool
 	redrawWait              struct{ nextTime, lastDraw time.Time }
-	brightness              float32
-	brightnessOld           float32
-	maxRoundTime            int32
 	debugFont               *TextSprite
 	debugDisplay            bool
 	debugRef                [2]int // player number, helper index
@@ -117,106 +241,30 @@ type System struct {
 	keyState                map[Key]bool
 	netConnection           *NetConnection
 	replayFile              *ReplayFile
-	aiInput                 [MaxPlayerNo]AiInput
-	ffbparams               [MaxPlayerNo]ForceFeedbackParams
 	keyConfig               []KeyConfig
 	joystickConfig          []KeyConfig
-	aiLevel                 [MaxPlayerNo]float32
-	home                    int
-	matchTime               int32
-	match                   int32
-	persistRoundCount       int32
-	inputRemap              [MaxPlayerNo]int
-	round                   int32
-	intro                   int32
-	curRoundTime            int32
-	lastHitter              [2]int
-	winTeam                 int
-	winType                 [2]WinType
-	winTrigger              [2]WinType
-	matchWins, wins         [2]int32
-	roundsExisted           [2]int32
-	draws                   int32
-	effectiveLoss           [2]bool
 	loader                  Loader
 	chars                   [MaxPlayerNo][]*Char
 	charList                CharList
 	cgi                     [MaxPlayerNo]CharGlobalInfo
-	tmode                   [2]TeamMode
-	numSimul, numTurns      [2]int32
-	esc                     bool
 	loadMutex               sync.Mutex
 	ignoreMostErrors        bool
 	stringPool              [MaxPlayerNo]StringPool
 	bcStack, bcVarStack     BytecodeStack
 	bcVar                   []BytecodeValue
-	workingChar             *Char
-	workingState            *StateBytecode
-	specialFlag             GlobalSpecialFlag
-	envShake                EnvShake
-	pausetime               int32
-	pausetimebuffer         int32
-	pausebg                 bool
-	pauseendcmdbuftime      int32
-	pauseplayerno           int
-	supertime               int32
-	supertimebuffer         int32
-	superpausebg            bool
-	superendcmdbuftime      int32
-	superplayerno           int
-	superbrightness         float32
-	superp2defmul           float32
-	envcol                  [3]int32
-	envcol_time             int32
-	envcol_under            bool
+	workingChar             *Char // Char currently running its states
+	workingState            *StateBytecode // State currently running
 	stage                   *Stage
 	stageList               map[int32]*Stage
-	stageLoop               bool
-	stageLoopNo             int
 	stageLocalcoords        map[string][2]int32
 	wireframeDisplay        bool
-	lastCharId              int32
-	tickCount               int
-	oldTickCount            int
-	tickCountF              float32
-	lastTick                float32
-	nextAddTime             float32
-	oldNextAddTime          float32
-	screenleft              float32
-	screenright             float32
-	xmin, xmax              float32
-	zmin, zmax              float32
-	winskipped              bool
-	paused, frameStepFlag   bool
-	roundResetFlg           bool
-	roundResetMatchStart    bool
-	reloadFlg               bool
-	reloadStageFlg          bool
-	reloadLifebarFlg        bool
-	reloadCharSlot          [MaxPlayerNo]bool
 	shortcutScripts         map[ShortcutKey]*ShortcutScript
-	turbo                   float32
 	commandLine             chan string
-	drawScale               float32
-	zoomlag                 float32
-	zoomScale               float32
-	zoomPosXLag             float32
-	zoomPosYLag             float32
-	enableZoomtime          int32
-	zoomCameraBound         bool
-	zoomStageBound          bool
-	zoomPos                 [2]float32
 	debugWC                 *Char
-	cam                     Camera
-	finishType              FinishType
-	winwaittime             int32
-	slowtime                int32
-	winposetime             int32
 	projs                   [MaxPlayerNo][]*Projectile
 	explods                 [MaxPlayerNo][]*Explod
 	explodRunOrder          []*Explod
 	chartexts               [MaxPlayerNo][]*TextSprite // From Text sctrl
-	changeStateNest         int32
 	spriteList              DrawList
 	shadowList              ShadowList
 	reflectionList          ReflectionList
@@ -237,10 +285,7 @@ type System struct {
 	lifebarHide             bool
 	mainThreadTask          chan func()
 	workpal                 []uint32
-	nomusic                 bool
 	workBe                  []BytecodeExp
-	keyInput                Key
-	keyString               string
 	timerCount              []int32
 	cmdFlags                map[string]string
 	whitePalTex             Texture
@@ -251,36 +296,17 @@ type System struct {
 	msaa               int32
 	externalShaders    [][][]byte
 	windowMainIcon     []image.Image
-	gameMode           string
 	frameCounter       int32
-	preMatchTime       int32
 	captureNum         int
-	decisiveRound      [2]bool
-	timerStart         int32
 	timerRounds        []int32
-	curPlayTime        int32
-	scoreStart         [2]float32
 	scoreRounds        [][2]float32
 	statsLog           StatsLog
-	consecutiveWins    [2]int32
-	firstAttack        [3]int
-	teamLeader         [2]int
 	maxPowerMode       bool
 	debugClsnText      []DebugClsnText
 	consoleText        []string
 	luaLState          *lua.LState
 	statusLFunc        *lua.LFunction
 	listLFunc          []*lua.LFunction
-	introSkipCall      bool
-	endMatch           bool
-	continueFlg        bool
-	dialogueForce      int
-	dialogueBarsFlg    bool
-	noSoundFlg         bool
-	postMatchFlg       bool
-	playBgmFlg         bool
-	loopBreak          bool
-	loopContinue       bool
 	reloadPreserveVars [MaxPlayerNo]bool
 	charVarsBackup     map[int]CharVarBackup
 
@@ -298,10 +324,8 @@ type System struct {
 	loadStateFlag   bool
 
 	// Match loop variables
-	fightLoopEnd  bool
 	roundBackup   RoundStartBackup
 	matchBackup   RoundStartBackup
-	matchResetFlg bool
 
 	// for avg. FPS calculations
 	gameFPS          float32
@@ -320,14 +344,7 @@ type System struct {
 	luaDrawPreOps   []func()
 	luaDrawLayerOps [3][]func()
 
-	lastInputController int
-	uiLastInputToken    string
-	uiConsumeInputFrame int32
-
 	// UI repeat guard: avoid firing the same token multiple times in the same frame
-	uiRepeatToken      string
-	uiRepeatController int
-	uiRepeatFrame      int32
 
 	// UI command registry. Ensures new players get the full command set.
 	uiCommandRegistry map[string]CommandSpec
@@ -1585,8 +1602,10 @@ func (s *System) introState() int32 {
 		}
 		// Round announcement
 		return 3
-	case s.lifebar.ro.waitTimer[1] == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time):
+	case s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time:
 		// Fight called
+		// Used to check both these conditions, but refactors revealed that was probably wrong
+		//s.lifebar.ro.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.lifebar.ro.ctrl_time)
 		return 4
 	default:
 		// Not applicable
@@ -1633,11 +1652,27 @@ func (s *System) roundIsSingle() bool {
 	return !s.sel.gameParams.PersistRounds && s.round == 1 && s.decisiveRound[0] && s.decisiveRound[1]
 }
 
+func (s *System) maxDrawsReached(team int) bool {
+	limit := s.maxDraws[team]
+	return limit >= 0 && s.draws >= limit
+}
+
 // This checks if a round is eligible for "Final Round" behavior, not if it's literally the final round
 // https://github.com/ikemen-engine/Ikemen-GO/issues/1659
 func (s *System) roundIsFinal() bool {
-	return !s.sel.gameParams.PersistRounds && s.round > 1 && s.decisiveRound[0] && s.decisiveRound[1] &&
-		(s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1])
+	if s.sel.gameParams.PersistRounds {
+		return false
+	}
+	// The first round is never already final
+	if s.round <= 1 {
+		return false
+	}
+	// Both teams must be on their decisive round
+	if !s.decisiveRound[0] || !s.decisiveRound[1] {
+		return false
+	}
+	// Both teams must have reached their maximum draw limits
+	return s.maxDrawsReached(0) && s.maxDrawsReached(1)
 }
 
 func (s *System) winnerTeam() int32 {
@@ -1734,6 +1769,7 @@ func (s *System) luaDiscardDrawQueue() {
 
 // Print an error directly from bytecode.go
 // Printing from char.go is preferable, but not always possible
+// Most of them come from invalid math operations
 func (s *System) printBytecodeError(str string) {
 	if s.loader.state == LS_Complete && s.workingChar != nil {
 		// Print during matches
@@ -2114,14 +2150,7 @@ func (s *System) resetRoundState() {
 
 	// Decisive round check
 	for i := range s.decisiveRound {
-		neededWins := s.lifebar.ro.match_wins[i]
-		// If enemy is in Turns, then we must win "team size" rounds
-		if s.tmode[1-i] == TM_Turns {
-			neededWins = s.numTurns[1-i]
-		}
-		if s.wins[i] >= neededWins-1 {
-			s.decisiveRound[i] = true
-		}
+		s.decisiveRound[i] = s.wins[i] >= s.matchWins[i]-1
 	}
 
 	var roundRef int32
@@ -2821,8 +2850,7 @@ func (s *System) matchEndDialoguePending() bool {
 		return s.decisiveRound[s.winTeam]
 	}
 	// Draw-based match end is determined before draws is incremented for this round.
-	return s.draws >= s.lifebar.ro.match_maxdrawgames[0] ||
-		s.draws >= s.lifebar.ro.match_maxdrawgames[1]
+	return s.maxDrawsReached(0) || s.maxDrawsReached(1) // TODO: Maybe this should be &&
 }
 
 func (s *System) shouldStartMatchEndDialogue() bool {
@@ -2923,8 +2951,7 @@ func (s *System) stepRoundState() {
 			// Consecutive wins counter
 			winner := [2]bool{s.effectiveLoss[1], s.effectiveLoss[0]}
 			if !winner[0] || !winner[1] ||
-				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns ||
-				s.draws >= s.lifebar.ro.match_maxdrawgames[0] || s.draws >= s.lifebar.ro.match_maxdrawgames[1] {
+				s.tmode[0] == TM_Turns || s.tmode[1] == TM_Turns || s.maxDrawsReached(0) || s.maxDrawsReached(1) {
 				for i, win := range winner {
 					if win {
 						s.wins[i]++
@@ -3166,15 +3193,11 @@ func (s *System) roundEndDecision() bool {
 	// Effective loss check
 	// Accounts for max draws unlike plain win/lose logic. Used for round progression
 	if s.winTeam < 0 {
+		// TODO: Turns mode could have special handling for balancing team sizes here
+		// For instance only allow draws if both teams are the same size
+		// In the meantime treating everything the same is the most impartial
 		for i := 0; i < 2; i++ {
-			// TODO: Turns mode could have special handling for balancing team sizes here
-			// For instance only allow draws if both teams are the same size
-			// In the meantime treating everything the same is the most impartial
-			if s.draws >= s.lifebar.ro.match_maxdrawgames[i] {
-				s.effectiveLoss[i] = true
-			} else {
-				s.effectiveLoss[i] = false
-			}
+			s.effectiveLoss[i] = s.maxDrawsReached(i)
 		}
 	} else {
 		for i := range s.effectiveLoss {
@@ -5370,7 +5393,9 @@ func (l *Loader) runTread() bool {
 		return false
 	}
 	l.state = LS_Loading
-	go l.load()
+	SafeGo(func() {
+		l.load()
+	})
 	return true
 }
 

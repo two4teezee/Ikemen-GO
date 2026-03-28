@@ -430,7 +430,9 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 
 	// Handle the RAM swap in the background (only for looped BGM and only if the user enabled it)
 	if lc != 0 && sys.cfg.Sound.BGMRAMBuffer && bgm.format != "xmp" {
-		go func(ctx context.Context) {
+		// go func(ctx context.Context) {
+		// Changing this to SafeGo should be safe because ctx has already been captured above
+		SafeGo(func() {
 			// Call the cancel function when the goroutine exits
 			// to ensure cleanup.
 			defer func() {
@@ -524,7 +526,7 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 					}
 				}
 			}
-		}(ctx)
+		})
 	}
 }
 

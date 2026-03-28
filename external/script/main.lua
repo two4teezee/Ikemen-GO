@@ -647,20 +647,29 @@ function main.f_commandLine()
 			end
 		end
 	end
-	local t_framesMul = {1, 1}
-	for i = 1, 2 do
-		if t_teamMode[i] == 0 and t_numChars[i] > 1 then
-			t_teamMode[i] = 1
+	--Ensure proper team modes and prepare time scaling
+	local t_framesMul = {1, 1} --Skip Options.Tag.TimeScaling here for simplicity
+	for side = 1, 2 do
+		if t_teamMode[side] == 0 and t_numChars[side] > 1 then
+			t_teamMode[side] = 1 --Default to Simul if multiple characters
 		end
-		if t_teamMode[i] == 1 then --Simul
-			setMatchWins(i, t_matchWins.simul[i])
-		elseif t_teamMode[i] == 3 then --Tag
-			t_framesMul[i] = t_numChars[i]
-			setMatchWins(i, t_matchWins.tag[i])
-		else
-			setMatchWins(i, t_matchWins.single[i])
+		if t_teamMode[side] == 3 then --Tag
+			t_framesMul[side] = t_numChars[side]
 		end
-		setMatchMaxDrawGames(i, t_matchWins.draw[i])
+	end
+	--Rounds to win. Determined by enemy team mode
+	for side = 1, 2 do
+		local enemy = 3 - side
+		if t_teamMode[enemy] == 1 then --Simul
+			setMatchWins(side, t_matchWins.simul[enemy])
+		elseif t_teamMode[enemy] == 2 then --Turns
+			setMatchWins(side, t_numChars[enemy])
+		elseif t_teamMode[enemy] == 3 then --Tag
+			setMatchWins(side, t_matchWins.tag[enemy])
+		else --Single
+			setMatchWins(side, t_matchWins.single[enemy])
+		end
+		setMatchMaxDrawGames(side, t_matchWins.draw[side])
 	end
 	frames = frames * math.max(t_framesMul[1], t_framesMul[2])
 	setTimeFramesPerCount(frames)
@@ -1576,8 +1585,8 @@ function main.f_default()
 	setHomeTeam(2) --http://mugenguild.com/forum/topics/ishometeam-triggers-169132.0.html
 	setLifebarElements(main.lifebar)
 	setMotifElements(main.motif)
-	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
 	setTimeFramesPerCount(fightScreenVar("time.framespercount"))
+	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
 	setWinCount(1, 0)
 	setWinCount(2, 0)
 	textImgReset(motif.select_info.title.TextSpriteData)

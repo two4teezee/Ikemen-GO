@@ -6186,26 +6186,35 @@ func (vi *MotifVictory) step(m *Motif) {
 	m.VictoryScreen.P7.Face2.AnimData.Update(false)
 	m.VictoryScreen.P8.Face2.AnimData.Update(false)
 
-	// First press of Skip: fast-forward the text, but do NOT start fadeout yet.
-	if skipPressed && !prevLineFullyRendered {
-		totalRunes := utf8.RuneCountInString(vi.text)
-		vi.typedCnt = totalRunes
-		vi.lineFullyRendered = true
-		vi.charDelayCounter = 0
-		//fmt.Printf("[Victory] Skip pressed -> fast-forward winquote (totalRunes=%d)\n", totalRunes)
-	}
+	// don't start processing the winquote until the global timer exceeds winquote.displaytime if it is set
+	// otherwise continue as normal
+	if (m.VictoryScreen.WinQuote.DisplayTime > 0 && vi.counter > m.VictoryScreen.WinQuote.DisplayTime) ||
+			(m.VictoryScreen.WinQuote.DisplayTime <= 0) {
+		// First press of Skip: fast-forward the text, but do NOT start fadeout yet.
+		if skipPressed && !prevLineFullyRendered {
+			totalRunes := utf8.RuneCountInString(vi.text)
+			vi.typedCnt = totalRunes
+			vi.lineFullyRendered = true
+			vi.charDelayCounter = 0
+			//fmt.Printf("[Victory] Skip pressed -> fast-forward winquote (totalRunes=%d)\n", totalRunes)
+		}
 
-	// While we haven't finished typing the quote, keep revealing characters
-	// regardless of the global time limit. Fadeout will only start once the
-	// line is fully rendered (see logic below).
-	if !vi.lineFullyRendered {
-		StepTypewriter(
-			vi.text,
-			&vi.typedCnt,
-			&vi.charDelayCounter,
-			&vi.lineFullyRendered,
-			float32(m.VictoryScreen.WinQuote.TextDelay),
-		)
+		// While we haven't finished typing the quote, keep revealing characters
+		// regardless of the global time limit. Fadeout will only start once the
+		// line is fully rendered (see logic below).
+		if !vi.lineFullyRendered {
+			StepTypewriter(
+				vi.text,
+				&vi.typedCnt,
+				&vi.charDelayCounter,
+				&vi.lineFullyRendered,
+				float32(m.VictoryScreen.WinQuote.TextDelay),
+			)
+		}
+	} else if (m.VictoryScreen.WinQuote.DisplayTime > 0 && vi.counter > m.VictoryScreen.WinQuote.DisplayTime) {
+		vi.typedCnt = 0
+		vi.charDelayCounter = 0
+		vi.lineFullyRendered = false
 	}
 
 	// Clamp typedLen so it doesn't exceed the line length

@@ -89,6 +89,7 @@ appbundle:
 	mkdir -p I.K.E.M.E.N-Go.app
 	mkdir -p I.K.E.M.E.N-Go.app/Contents
 	mkdir -p I.K.E.M.E.N-Go.app/Contents/MacOS
+	mkdir -p I.K.E.M.E.N-Go.app/Contents/Frameworks
 	mkdir -p I.K.E.M.E.N-Go.app/Contents/Resources
 	# BINNAME can be a full path (e.g. bin/Ikemen_GO_MacOS) or just the filename.
 	cp $(BINNAME) I.K.E.M.E.N-Go.app/Contents/MacOS/$(notdir $(BINNAME))
@@ -96,6 +97,7 @@ appbundle:
 	cp ./build/bundle_run.sh I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/bundle_run.sh
 	chmod +x I.K.E.M.E.N-Go.app/Contents/MacOS/$(notdir $(BINNAME))
+	cp lib/*.dylib I.K.E.M.E.N-Go.app/Contents/Frameworks/ 2>/dev/null || true
 	mkdir -p build/icontmp/icon.iconset
 	cp external/icons/IkemenCylia_256.png build/icontmp/icon.iconset/icon_256x256.png
 	iconutil -c icns build/icontmp/icon.iconset -o build/icontmp/icon.icns

@@ -356,6 +356,10 @@ func (s *BGDef) Reset() {
 	s.bga.clear()
 	for i := range s.bg {
 		s.bg[i].reset()
+		if s.bg[i].video != nil {
+			s.bg[i].video.SetPlaying(false)
+			s.bg[i].video.Reset()
+		}
 	}
 	s.time = 0
 	s.lastTick = -1

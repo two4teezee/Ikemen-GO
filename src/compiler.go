@@ -1204,6 +1204,47 @@ func (c *Compiler) mathFunc(out *BytecodeExp, in *string, rd bool,
 	return
 }
 
+func (c *Compiler) readOldProjectileID(in *string, trname string, baseLen int, out *BytecodeExp) (string, error) {
+	base := trname[:baseLen]
+	suffix := trname[baseLen:]
+
+	// Documented suffix form: projcontact123
+	if len(suffix) > 0 {
+		for _, ch := range suffix {
+			if ch < '0' || ch > '9' {
+				return "", Error("Invalid projectile ID: " + suffix)
+			}
+		}
+		out.appendValue(BytecodeInt(Atoi(suffix)))
+		return base, nil
+	}
+
+	// Alternative undocumented form: projcontact(123)
+	// Unlike suffix form, we allow a full expression here
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1860
+	tok := c.tokenizer(in)
+	if tok != "(" {
+		if len(tok) > 0 {
+			*in = tok + " " + *in
+		}
+		out.appendValue(BytecodeInt(0))
+		return base, nil
+	}
+
+	c.token = c.tokenizer(in)
+
+	bv, err := c.expBoolOr(out, in)
+	if err != nil {
+		return "", err
+	}
+	out.appendValue(bv)
+
+	if err := c.checkClosingParenthesis(); err != nil {
+		return "", err
+	}
+	return base, nil
+}
+
 // rd means Redirect
 func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	rd bool) (BytecodeValue, error) {
@@ -1353,6 +1394,9 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	var err error
 	switch c.token {
 	case "":
+		if sys.ignoreMostErrors {
+			return bvNone(), nil
+		}
 		return bvNone(), Error("Nothing assigned")
 	// Redirections without arguments
 	case "root", "parent", "p2", "stateowner":
@@ -5076,52 +5120,65 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		c.token = c.tokenizer(in)
 		return c.expValue(out, in, false)
 	default:
+		// Exceptions for the projectile triggers with (very) old syntax
+		// projHit123, projGuarded456, projContact789
+		// These will be converted internally to the newer Proj*Time trigger OpCodes
 		l := len(c.token)
-		if l >= 7 && c.token[:7] == "projhit" || l >= 11 &&
-			(c.token[:11] == "projguarded" || c.token[:11] == "projcontact") {
-			trname, opc, id := c.token, OC_projhittime, int32(0)
-			if trname[:7] == "projhit" {
-				id = Atoi(trname[7:])
-				trname = trname[:7]
+		if l >= 7 && c.token[:7] == "projhit" ||
+			l >= 11 && (c.token[:11] == "projguarded" || c.token[:11] == "projcontact") {
+			trname, opc := c.token, OC_projhittime
+			var idExp BytecodeExp
+			// Determine contact type OpCode and compile projectile ID
+			if strings.HasPrefix(trname, "projhit") {
+				var err error
+				trname, err = c.readOldProjectileID(in, trname, 7, &idExp)
+				if err != nil {
+					return bvNone(), err
+				}
 			} else {
-				id = Atoi(trname[11:])
-				trname = trname[:11]
+				var err error
+				trname, err = c.readOldProjectileID(in, trname, 11, &idExp)
+				if err != nil {
+					return bvNone(), err
+				}
 				if trname == "projguarded" {
 					opc = OC_projguardedtime
 				} else {
 					opc = OC_projcontacttime
 				}
 			}
+			// Legacy projectile triggers only support '=' operator in the first part
 			if not, err := c.checkEquality(in); err != nil {
 				return bvNone(), err
 			} else if not && !sys.ignoreMostErrors {
 				return bvNone(), Error(trname + " doesn't support '!='")
 			}
+			// Reject malformed comparisons like "projhit = -1"
 			if c.token == "-" {
 				return bvNone(), Error("'-' should not be used")
 			}
 			if n, err = c.integer2(in); err != nil {
 				return bvNone(), err
 			}
-			be1.appendValue(BytecodeInt(id))
-			if rd {
-				out.appendI32Op(OC_nordrun, int32(len(be1)))
+			// Mugen only allows 0 or 1 in the first comparison
+			if n != 0 && n != 1 && !sys.ignoreMostErrors {
+				return bvNone(), Error(trname + " must be compared against 0 or 1")
 			}
-			out.append(be1...)
+			// Build the underlying Proj*Time(id) expression
+			if rd && len(idExp) > 0 {
+				out.appendI32Op(OC_nordrun, int32(len(idExp)))
+			}
+			out.append(idExp...)
 			out.append(opc)
-			out.appendValue(BytecodeInt(0))
-			out.append(OC_eq)
-			be.append(OC_pop)
-			be.appendValue(BytecodeInt(0))
-			if err = c.evaluateComparison(&be, in, false); err != nil {
+			// Optional second legacy form: ProjContact[ID] = value, [oper] value2
+			if err = c.evaluateComparison(out, in, false); err != nil {
 				return bvNone(), err
 			}
-			out.append(OC_jz8, OpCode(len(be)))
-			out.append(be...)
+			// "= 0" negates the generated time comparison
 			if n == 0 {
 				out.append(OC_blnot)
 			}
-			return bv, nil
+			return bvNone(), nil
 		} else if len(c.token) >= 2 && c.token[0] == '$' && c.token != "$_" {
 			vi, ok := c.vars[c.token[1:]]
 			if !ok {
@@ -5642,10 +5699,81 @@ func (c *Compiler) fullExpression(in *string, vt ValueType) (BytecodeExp, error)
 	return be, nil
 }
 
-func (c *Compiler) parseSection(
-	sctrl func(name, data string) error) (IniSection, bool, error) {
+func (c *Compiler) parseSection(sctrl func(name, data string) error) (IniSection, bool, error) {
 	is := NewIniSection()
 	_type, persistent, ignorehitpause := true, true, true
+
+	// Placeholder var to toggle all the nonsense Mugen's compiler allowed
+	// Maybe this could be sys.ignoreMostErrors. Or something configurable
+	strict := false
+
+	// Helper to find '=' only outside parentheses
+	findTopLevelEqual := func(s string) int {
+		uneven := 0
+		for i := 0; i < len(s); i++ {
+			switch s[i] {
+			case '(':
+				uneven++
+			case ')':
+				if uneven > 0 {
+					uneven--
+				}
+			case '=':
+				if uneven == 0 {
+					return i
+				}
+			}
+		}
+		return -1
+	}
+
+	// Helper to parse var() and such parameters
+	// These exceptions allow these CNS parameters to be parsed with an expression inside them, such as var(1+1)
+	parseSpecialParamName := func(lhs string) (string, bool) {
+		lhs = strings.TrimSpace(lhs)
+		i := strings.Index(lhs, "(")
+		if i <= 0 {
+			return "", false
+		}
+
+		fn := lhs[:i]
+		if !strict {
+			fn = strings.TrimSpace(fn) // Mugen tolerates "var ("
+		}
+		switch strings.ToLower(fn) {
+		case "var", "fvar", "sysvar", "sysfvar", "map":
+		default:
+			return "", false
+		}
+
+		uneven := 0
+		end := -1
+		for j := i; j < len(lhs); j++ {
+			switch lhs[j] {
+			case '(':
+				uneven++
+			case ')':
+				uneven--
+				if uneven == 0 {
+					end = j
+					j = len(lhs)
+				}
+			}
+		}
+		if end < 0 {
+			return "", false
+		}
+
+		if strict {
+			// When strict, only "var(...)" is valid. No "var (...)" and no trailing garbage
+			if lhs[:i] != strings.TrimSpace(lhs[:i]) || end != len(lhs)-1 {
+				return "", false
+			}
+		}
+
+		return strings.ToLower(strings.TrimSpace(lhs[:end+1])), true
+	}
+
 	for ; c.i < len(c.lines); c.i++ {
 		line := strings.TrimSpace(strings.SplitN(c.lines[c.i], ";", 2)[0])
 		if len(line) > 0 && line[0] == '[' {
@@ -5654,29 +5782,43 @@ func (c *Compiler) parseSection(
 		}
 
 		var name, data string
-		lower := strings.ToLower(line)
 
-		// These exceptions allow these CNS parameters to be parsed with an expression inside them, such as var(1+1)
-		if i := strings.Index(lower, "("); i > 0 {
-			fn := strings.TrimSpace(lower[:i]) // Mugen tolerates "var ("
-			switch fn {
-			case "var", "fvar", "sysvar", "sysfvar", "map":
-				ia := strings.Index(line, "=")
-				if ia > 0 {
-					name = strings.ToLower(strings.TrimSpace(line[:ia]))
-					data = strings.TrimSpace(line[ia+1:])
-					break
+		// A line requires '=' to be considered a parameter to begin with
+		// https://github.com/ikemen-engine/Ikemen-GO/issues/3438
+		// TODO: Using this method for all cases currently blocks syntax like "trigger1 (= 1" while Mugen doesn't
+		if ia := findTopLevelEqual(line); ia > 0 {
+			lhs := strings.TrimSpace(line[:ia])
+			data = strings.TrimSpace(line[ia+1:])
+
+			// Parse special cases like var()
+			if parsed, ok := parseSpecialParamName(lhs); ok {
+				name = parsed
+			} else if strings.Index(lhs, "(") >= 0 {
+				// Looks like a special parameter, but wasn't valid
+				if strict {
+					if sys.ignoreMostErrors {
+						continue
+					}
+					return nil, false, Error("Invalid parameter syntax: " + line)
 				}
 			}
-		}
 
-		// Normal parameters
-		if name == "" {
-			if ia := strings.IndexAny(line, "= \t"); ia > 0 {
-				name = strings.ToLower(line[:ia])
-				ia = strings.Index(line, "=")
-				if ia >= 0 {
-					data = strings.TrimSpace(line[ia+1:])
+			// Normal parameters
+			if name == "" {
+				if strict {
+					// If strict, only a single token is valid on the LHS
+					if strings.IndexAny(lhs, " \t") >= 0 {
+						if sys.ignoreMostErrors {
+							continue
+						}
+						return nil, false, Error("Invalid parameter syntax: " + line)
+					}
+					name = strings.ToLower(lhs)
+				} else {
+					if j := strings.IndexAny(lhs, " \t"); j >= 0 {
+						lhs = lhs[:j]
+					}
+					name = strings.ToLower(lhs)
 				}
 			}
 		}
@@ -5846,6 +5988,11 @@ func (c *Compiler) paramValue(is IniSection, sc *StateControllerBase,
 	found := false
 	if err := c.stateParam(is, paramname, false, func(data string) error {
 		found = true
+		// Mugen ignores empty parameters
+		if sys.ignoreMostErrors && !c.zssMode && len(strings.TrimSpace(data)) == 0 {
+			found = false
+			return nil
+		}
 		return c.scAdd(sc, id, data, vt, numArg)
 	}); err != nil {
 		return err
@@ -7592,6 +7739,8 @@ func (c *Compiler) stateBlock(line *string, bl *StateBlock, root bool,
 
 // Compile a ZSS state
 func (c *Compiler) stateCompileZ(states map[int32]StateBytecode, filename, src string, constants map[string]float32) error {
+	// ZSS states are compiled with a lower tolerance for mistakes
+	// TODO: Either merge this with our current c.zssMode checks or drop it
 	defer func(oime bool) {
 		sys.ignoreMostErrors = oime
 	}(sys.ignoreMostErrors)

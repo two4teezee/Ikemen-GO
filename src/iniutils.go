@@ -652,10 +652,15 @@ func setFieldValue(fieldVal reflect.Value, value interface{}, defTag string, key
 	}
 
 	// Empty INI value semantics:
-	// - Scalars: treat as "unset" (do not override whatever is already there, e.g. defaults)
+	// - Strings: treat as an explicit clear/override to ""
 	// - Arrays/Slices: treat as "clear" (override defaults with no entries)
+	// - Other scalars: treat as "unset" (do not override whatever is already there, e.g. defaults)
 	if trimmedValue == "" {
 		switch fieldVal.Kind() {
+		case reflect.String:
+			// An explicit blank string in the user INI must override earlier values
+			fieldVal.SetString("")
+			return nil
 		case reflect.Slice, reflect.Array:
 			// Explicitly clear list/array
 			setNil(fieldVal)

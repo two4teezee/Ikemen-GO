@@ -2613,7 +2613,7 @@ func (c *Compiler) sprPriority(is IniSection, sc *StateControllerBase, _ int8) (
 }
 
 // "v = x; value = y" syntax
-func (c *Compiler) varSetValueSub(is IniSection, sc *StateControllerBase, alreadyAssigned func() bool) (bool, error) {
+func (c *Compiler) varSetOlderSub(is IniSection, sc *StateControllerBase, alreadyAssigned func() bool) (bool, error) {
 	var value string
 	hasValue := false
 	if err := c.stateParam(is, "value", false, func(data string) error {
@@ -2682,8 +2682,8 @@ func (c *Compiler) varSetValueSub(is IniSection, sc *StateControllerBase, alread
 	return true, nil
 }
 
-// "var(x) = y" syntax
-func (c *Compiler) parseVarSetTarget(name string) (varType int32, index BytecodeExp, ok bool, err error) {
+// "var(x) = y" syntax. CNS only
+func (c *Compiler) varSetNewerSub(name string) (varType int32, index BytecodeExp, ok bool, err error) {
 	trimmed := strings.TrimSpace(name)
 	lowered := strings.ToLower(trimmed)
 
@@ -2701,16 +2701,43 @@ func (c *Compiler) parseVarSetTarget(name string) (varType int32, index Bytecode
 			continue
 		}
 
+		// After the prefix, we expect something that starts with '('
 		rest := strings.TrimSpace(trimmed[len(s.prefix):])
-		if len(rest) < 2 || rest[0] != '(' || rest[len(rest)-1] != ')' {
+		if len(rest) == 0 || rest[0] != '(' {
 			continue
 		}
 
-		inner := strings.TrimSpace(rest[1 : len(rest)-1])
+		// Find the matching closing ')'
+		depth := 0
+		end := -1
+		for i, r := range rest {
+			switch r {
+			case '(':
+				depth++
+			case ')':
+				depth--
+				if depth == 0 {
+					end = i
+					break
+				}
+			}
+		}
+
+		// No matching ')'
+		if end < 0 {
+			continue
+		}
+
+		// Extract only the contents inside the parentheses
+		// Like Mugen, we do not require the rest of the string to end properly
+		// Meaning "var(x) gibberish = y" is valid
+		// TODO: This is now handled in parseSection() so may no logner be needed here
+		inner := strings.TrimSpace(rest[1:end])
 		if inner == "" {
 			return 0, nil, false, Error("Missing variable index")
 		}
 
+		// Save and restore parser state because fullExpression() mutates c.token
 		oldToken := c.token
 		defer func() {
 			c.token = oldToken
@@ -2722,6 +2749,7 @@ func (c *Compiler) parseVarSetTarget(name string) (varType int32, index Bytecode
 			return 0, nil, false, e
 		}
 
+		// Mugen ignores everything between the closing ')' and the '='
 		return s.varType, be, true, nil
 	}
 
@@ -2733,14 +2761,14 @@ func (c *Compiler) varSetSub(is IniSection, sc *StateControllerBase, scType int3
 		return sc.hasParam(varSet_index) || sc.hasParam(varSet_varType)
 	}
 
-	handled, err := c.varSetValueSub(is, sc, alreadyAssigned)
+	handled, err := c.varSetOlderSub(is, sc, alreadyAssigned)
 	if err != nil {
 		return err
 	}
 
 	var targetVars []string
 	for k := range is {
-		_, _, ok, err := c.parseVarSetTarget(k)
+		_, _, ok, err := c.varSetNewerSub(k)
 		if err != nil {
 			return err
 		}
@@ -2759,7 +2787,7 @@ func (c *Compiler) varSetSub(is IniSection, sc *StateControllerBase, scType int3
 			break
 		}
 
-		varType, index, ok, err := c.parseVarSetTarget(name)
+		varType, index, ok, err := c.varSetNewerSub(name)
 		if err != nil {
 			return err
 		}

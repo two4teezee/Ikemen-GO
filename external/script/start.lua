@@ -286,13 +286,6 @@ end
 
 --sets lifebar elements, round time, rounds to win
 function start.f_setRounds(roundTime, t_rounds)
-	-- disable winscreen if another match exists
-	local winscreen = main.motif.winscreen
-	if winscreen and main.makeRoster and start.t_roster[matchNo() + 1] ~= nil then
-		main.motif.winscreen = false
-	end
-	setMotifElements(main.motif)
-	main.motif.winscreen = winscreen
 	setLifebarElements(main.lifebar)
 	-- Round time
 	local frames = fightScreenVar("time.framespercount")
@@ -320,23 +313,23 @@ function start.f_setRounds(roundTime, t_rounds)
 	else --default round time
 		setRoundTime(math.max(-1, main.roundTime * frames))
 	end
-	--rounds to win
+	--Rounds to win. Determined by enemy team mode
 	for side = 1, 2 do
-		if t_rounds[side] ~= nil then
+		local enemy = 3 - side
+		if start.p[enemy].teamMode == 2 then --Turns mode always uses team size
+			setMatchWins(side, start.p[enemy].numChars)
+		elseif t_rounds[side] ~= nil then --Use override if it exists
 			setMatchWins(side, t_rounds[side])
-			setMatchMaxDrawGames(side, t_rounds[side])
-		else
-			if side == 2 and main.charparam.rounds and start.f_getCharData(start.p[2].t_selected[1].ref).rounds ~= nil then --round num assigned as character param
-				setMatchWins(side, start.f_getCharData(start.p[2].t_selected[1].ref).rounds)
-			elseif start.p[side].teamMode == 1 then --default rounds num (Simul)
-				setMatchWins(side, main.matchWins.simul[side])
-			elseif start.p[side].teamMode == 3 then --default rounds num (Tag)
-				setMatchWins(side, main.matchWins.tag[side])
-			else --default rounds num (Single)
-				setMatchWins(side, main.matchWins.single[side])
-			end
-			setMatchMaxDrawGames(side, main.matchWins.draw[side])
+		elseif enemy == 2 and main.charparam.rounds and start.f_getCharData(start.p[2].t_selected[1].ref).rounds ~= nil then --round num assigned as character param
+			setMatchWins(side, start.f_getCharData(start.p[2].t_selected[1].ref).rounds)
+		elseif start.p[enemy].teamMode == 1 then --default rounds num (Simul)
+			setMatchWins(side, main.matchWins.simul[enemy])
+		elseif start.p[enemy].teamMode == 3 then --default rounds num (Tag)
+			setMatchWins(side, main.matchWins.tag[enemy])
+		else --default rounds num (Single)
+			setMatchWins(side, main.matchWins.single[enemy])
 		end
+		setMatchMaxDrawGames(side, main.matchWins.draw[side])
 	end
 	--timer / score counter
 	local timer, t_score = start.f_prefightHUD()
@@ -820,7 +813,7 @@ local function drawPortraitLayer(t_portraits, side, t, subname, last, dataField)
 	local lastIdx = #t_portraits
 	-- "next player replaces previous one" case
 	local paramsSide, params = getParams(side, lastIdx, t, subname)
-	if paramsSide.num == 1 and last and not main.coop then
+	if paramsSide.num == 1 and last then
 		local v = t_portraits[lastIdx]
 		local data = v[dataField]
 		if not v.skipCurrent and data ~= nil then
@@ -2093,7 +2086,7 @@ function launchFight(data)
 		t.musicParams = buildMusicParams(data)
 		t.stage = data.stage or ''
 		t.ai = data.ai or nil
-		t.vsscreen = main.f_arg(data.vsscreen, main.motif.versusscreen)
+		t.vsscreen = main.f_arg(data.vsscreen, main.motif.vsscreen)
 		t.victoryscreen = main.f_arg(data.victoryscreen, main.motif.victoryscreen)
 		--t.frames = data.frames or fightScreenVar("time.framespercount")
 		t.roundtime = data.time or nil
@@ -2239,15 +2232,18 @@ function launchFight(data)
 			challengerResume = makeChallengerResumeSnapshot(data, t.stageNo)
 		end
 		if not start.f_selectVersus(t.vsscreen, t.orderselect) then break end
-		start.f_selectLoading(t.musicParams)
-		local continueScreen = main.motif.continuescreen
-		local victoryScreen = main.motif.victoryscreen
-		main.motif.continuescreen = t.continue
-		main.motif.victoryscreen = t.victoryscreen
+		local winscreen = main.motif.winscreen
+		if winscreen and main.makeRoster and start.t_roster[matchNo() + 1] ~= nil then
+			winscreen = false
+		end
+		start.f_selectLoading{
+			musicParams = t.musicParams,
+			continue = t.continue,
+			victoryscreen = t.victoryscreen,
+			winscreen = winscreen,
+		}
 		hook.run("launchFight")
 		start.f_game(t.lua)
-		main.motif.continuescreen = continueScreen
-		main.motif.victoryscreen = victoryScreen
 		clearColor(motif.selectbgdef.bgclearcolor[1], motif.selectbgdef.bgclearcolor[2], motif.selectbgdef.bgclearcolor[3])
 		if start.exit or start.characterchange then
 			start.characterchange = false
@@ -2623,7 +2619,7 @@ function start.f_selectScreen()
 		for side = 1, 2 do
 			if #start.p[side].t_selTemp > 0 then
 				for i = 1, #start.p[side].t_selTemp do
-					if i <= motif.select_info['p' .. side].name.num or main.coop then
+					if i <= motif.select_info['p' .. side].name.num then
 						local name = ''
 						if motif.select_info['p' .. side].name.num == 1 then
 							name = start.f_getName(start.p[side].t_selTemp[#start.p[side].t_selTemp].ref, side)
@@ -3563,16 +3559,6 @@ end
 --;===========================================================
 --; VERSUS SCREEN / ORDER SELECTION
 --;===========================================================
-local function orderSkipPressed(done, t_orderSelect)
-	local p1Skip = not main.cpuSide[1] and getInput(1, motif.vs_screen.skip.key)
-	local p2Skip = not main.cpuSide[2] and getInput(2, motif.vs_screen.skip.key)
-	-- While order selection is still active, require both human sides to skip.
-	if not done and (t_orderSelect[1] or t_orderSelect[2]) and not main.cpuSide[1] and not main.cpuSide[2] then
-		return p1Skip and p2Skip
-	end
-	return p1Skip or p2Skip
-end
-
 function start.f_selectVersus(active, t_orderSelect)
 	start.t_orderRemap = {{}, {}}
 	for side = 1, 2 do
@@ -3621,13 +3607,33 @@ function start.f_selectVersus(active, t_orderSelect)
 	local timerActive = not done
 	local timerCount = 0
 	local escFlag = false
+	local doneKeyReady = done
 	local t_order = {{}, {}}
 	local t_icon = {false, false}
 	local selStageNo = getStageNo()
+	local function finishOrderSelection(side)
+		for member, v in ipairs(start.p[side].t_selected) do
+			if not v.loading then
+				table.insert(t_order[side], member)
+				selectChar(side, v.ref, v.pal)
+				v.loading = true
+			end
+		end
+		if #start.p[side].t_selected == #t_order[side] then
+			t_icon[side] = nil
+		end
+	end
 	while true do
 		local snd = false
 		-- for each team side member
 		for side = 1, 2 do
+			if not done and t_orderSelect[side] and not main.cpuSide[side] and getInput(side, motif.vs_screen.skip.key) then
+				finishOrderSelection(side)
+				if not snd then
+					sndPlay(motif.Snd, motif.vs_screen['p' .. side].value.snd[1], motif.vs_screen['p' .. side].value.snd[2])
+					snd = true
+				end
+			end
 			for k, v in ipairs(start.p[side].t_selected) do
 				local pn = 2 * (k - 1) + side
 				local pCfg = f_getMotifP(motif.vs_screen, pn, side)
@@ -3702,6 +3708,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			end
 			counter = motif.vs_screen.time - motif.vs_screen.done.time
 			done = true
+			doneKeyReady = false
 		end
 		counter = counter + 1
 		--draw clearcolor
@@ -3737,7 +3744,7 @@ function start.f_selectVersus(active, t_orderSelect)
 		--draw names
 		for side = 1, 2 do
 			for k, v in ipairs(main.f_remapTable(start.p[side].t_selTemp, start.t_orderRemap[side])) do
-				if k <= motif.vs_screen['p' .. side].name.num or main.coop then
+				if k <= motif.vs_screen['p' .. side].name.num then
 					textImgReset(motif.vs_screen['p' .. side].name.TextSpriteData)
 					textImgAddPos(
 						motif.vs_screen['p' .. side].name.TextSpriteData,
@@ -3770,7 +3777,7 @@ function start.f_selectVersus(active, t_orderSelect)
 			textImgDraw(motif.vs_screen.stage.TextSpriteData)
 		end
 		--draw match counter
-		if main.motif.versusmatchno then
+		if main.motif.vsmatchno then
 			textImgDraw(motif.vs_screen.match.TextSpriteData)
 		end
 		--draw timer
@@ -3781,13 +3788,16 @@ function start.f_selectVersus(active, t_orderSelect)
 		bgDraw(motif.versusbgdef.BGDef, 1)
 		-- hook
 		hook.run("start.f_selectVersus")
+		-- done key
+		if done and not doneKeyReady and not getInput(-1, motif.vs_screen.done.key) then
+			doneKeyReady = true
+		end
 		--draw fadein / fadeout
 		for side = 1, 2 do
 			if not fadeOutStarted and (
 				-- Wait for order select to finish before vs_screen.time can end the screen.
 				(counter >= motif.vs_screen.time and (not (t_orderSelect[1] or t_orderSelect[2]) or done))
-				or orderSkipPressed(done, t_orderSelect)
-				or (done and getInput(side, motif.vs_screen.done.key))
+				or (done and doneKeyReady and getInput(side, motif.vs_screen.done.key))
 				) then
 				main.f_fadeReset('fadeout', motif.vs_screen)
 				fadeOutStarted = true
@@ -3813,16 +3823,26 @@ function start.f_selectVersus(active, t_orderSelect)
 end
 
 --loading loop called after versus screen is finished
-function start.f_selectLoading(musicParams)
+function start.f_selectLoading(arg)
 	clearAllSound()
 	local parts = {}
-	if musicParams and musicParams ~= "" then
-		parts[#parts + 1] = musicParams
+	local t = {}
+	if type(arg) == "table" then
+		t = arg
+	elseif type(arg) == "string" then
+		t.musicParams = arg
+	end
+	if t.musicParams and t.musicParams ~= "" then
+		parts[#parts + 1] = t.musicParams
 	end
 	local function addParam(k, v)
 		if v == nil then return end
 		parts[#parts + 1] = k .. "=" .. tostring(v)
 	end
+	-- Post-match screens are match-scoped.
+	addParam("continue", t.continue)
+	addParam("victoryscreen", t.victoryscreen)
+	addParam("winscreen", t.winscreen)
 	addParam("charparam.ai", main.charparam.ai)
 	addParam("charparam.arcadepath", main.charparam.arcadepath)
 	addParam("charparam.music", main.charparam.music)

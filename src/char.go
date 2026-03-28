@@ -841,7 +841,7 @@ func (hd *HitDef) finalizeParams(c *Char, proj *Projectile) {
 		hd.projid = proj.id           // TODO: Make this update if projID is modified
 	} else {
 		hd.isprojectile = false
-		hd.statePN = c.ss.sb.playerNo
+		hd.statePN = c.stateOwner().playerNo
 		hd.playerno = c.playerNo
 		hd.playerid = c.id
 	}
@@ -2370,6 +2370,7 @@ type Projectile struct {
 	freezeflag      bool
 	contactflag     bool
 	time            int32
+	removeDone      bool
 }
 
 func newProjectile() *Projectile {
@@ -2391,6 +2392,7 @@ func (p *Projectile) initFromChar(c *Char) *Projectile {
 
 	*p = Projectile{
 		id:              0,
+		status:          ProjActive,
 		playerno:        c.playerNo,
 		hitanim:         -1,
 		remanim:         IErr,
@@ -2461,23 +2463,38 @@ func (p *Projectile) paused() bool {
 func (p *Projectile) update() {
 	// Check projectile removal conditions
 	if sys.tickFrame() && !p.paused() && p.hitpause == 0 {
-		if p.animNo >= 0 && p.isActive() {
-			remove := false
+		// Check if timer has expired or boundaries were reached
+		if p.status == ProjActive {
+			if p.removetime == 0 ||
+				p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
+				p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
+				p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
+				p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
+				p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
+				p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
+				p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
+				p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
+				p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
+				p.status = ProjRem
+			}
+		}
 
-			// Check hit or cancel triggers
-			if p.status == ProjHit && p.remove {
-				// Remove after hit behavior
-				remove = true
+		// Handle active to removing transition
+		if !p.removeDone {
+			remove := true
+			switch p.status {
+			case ProjActive:
+				remove = false
+			case ProjHit:
 				if p.hitanim != p.animNo || p.hitanim_ffx != p.anim_ffx {
 					if p.hitanim == -1 {
+						// Forcefully clear instead of reaching the fallback where invalid animation does nothing
 						p.anim = nil
 					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
 						p.anim = a
 					}
 				}
-			} else if p.status == ProjCancel {
-				// Cancel behavior
-				remove = true
+			case ProjCancel:
 				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 					if p.cancelanim == -1 {
 						p.anim = nil
@@ -2485,51 +2502,31 @@ func (p *Projectile) update() {
 						p.anim = a
 					}
 				}
-			}
-
-			// If not removed by hit/cancel, check time and bounds
-			if !remove {
-				if p.removetime == 0 ||
-					p.removetime <= -2 && (p.anim == nil || p.anim.loopend) ||
-					p.pos[0] < (sys.xmin-sys.screenleft)/p.localscl-float32(p.edgebound) ||
-					p.pos[0] > (sys.xmax+sys.screenright)/p.localscl+float32(p.edgebound) ||
-					p.velocity[0]*p.facing < 0 && p.pos[0] < sys.cam.XMin/p.localscl-float32(p.stagebound) ||
-					p.velocity[0]*p.facing > 0 && p.pos[0] > sys.cam.XMax/p.localscl+float32(p.stagebound) ||
-					p.velocity[1] > 0 && p.pos[1] > float32(p.heightbound[1]) ||
-					p.velocity[1] < 0 && p.pos[1] < float32(p.heightbound[0]) ||
-					p.pos[2] < (sys.zmin/p.localscl-float32(p.depthbound)) ||
-					p.pos[2] > (sys.zmax/p.localscl+float32(p.depthbound)) {
-
-					remove = true
-					if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
-						if p.remanim != -2 {
-							if p.remanim == -1 {
-								p.anim = nil
-							} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
-								p.anim = a
-								// In Mugen, if remanim is invalid the projectile will keep the current one
-								// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
-							}
-						}
+			case ProjRem:
+				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
+					if p.remanim == -1 {
+						p.anim = nil
+					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+						p.anim = a
+						// In Mugen, if remanim is invalid the projectile will keep the current one
+						// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
 					}
 				}
 			}
 
 			// Active to removing transition
 			if remove {
-				p.status = ProjRem
+				p.removeDone = true
 				if p.anim != nil {
 					p.anim.UpdateSprite()
 				}
 				p.velocity = p.remvelocity
-				if p.facing == p.removefacing {
-					p.facing = p.removefacing
-				} else {
-					p.velocity[0] *= -1
-				}
 				p.accel = [3]float32{0, 0, 0}
 				p.velmul = [3]float32{1, 1, 1}
-				p.animNo = -1
+				if p.facing != p.removefacing {
+					p.velocity[0] *= -1
+				}
+				//p.animNo = -1 // Doesn't seem necessary now
 				// In Mugen, projectiles can hit even after their removetime expires
 				// https://github.com/ikemen-engine/Ikemen-GO/issues/1362
 				//if p.hits >= 0 {
@@ -2539,7 +2536,7 @@ func (p *Projectile) update() {
 		}
 
 		// Remove projectile once animation allows it
-		if !p.isActive() {
+		if p.status != ProjActive {
 			if p.anim != nil && (p.anim.totaltime <= 0 || p.anim.AnimTime() == 0) {
 				p.anim = nil
 			}
@@ -2605,6 +2602,7 @@ func (p *Projectile) cancelHits(opp *Projectile) {
 		p.flagProjCancel()
 	}
 	// Set hitpause
+	// The surviving projectile has hitpause while the cancelled one doesn't
 	if p.hits > 0 {
 		p.hitpause = Max(0, p.hitdef.pausetime[0]) // -Btoi(c.gi().mugenver[0] == 0))
 	} else {
@@ -2703,10 +2701,11 @@ func (p *Projectile) tick() {
 		p.curmisstime = Max(0, p.misstime)
 		if p.hits >= 0 {
 			p.hits--
-			if p.hits <= 0 {
-				//p.hits = -1
+			// Disabling projRemove blocks this state transition
+			// The projectile will still be considered active for all effects and purposes
+			if p.hits <= 0 && p.remove {
 				p.status = ProjHit
-				p.hitpause = 0
+				//p.hitpause = 0 // This doesn't seem accurate to Mugen
 			}
 		}
 		p.hitdef.air_juggle = 0
@@ -3400,7 +3399,7 @@ func (c *Char) gi() *CharGlobalInfo {
 
 // Return Char Global Info from the state owner
 func (c *Char) stOgi() *CharGlobalInfo {
-	return &sys.cgi[c.ss.sb.playerNo]
+	return c.stateOwner().gi()
 }
 
 // Return Char Global Info according to working state
@@ -3411,9 +3410,9 @@ func (c *Char) stOgi() *CharGlobalInfo {
 // Version checks should probably be refactored in the future, regardless
 func (c *Char) stWgi() *CharGlobalInfo {
 	if c.minus == 0 {
-		return &sys.cgi[c.ss.sb.playerNo]
+		return c.stOgi()
 	} else {
-		return &sys.cgi[c.playerNo]
+		return c.gi()
 	}
 }
 
@@ -4320,6 +4319,9 @@ func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, 
 	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal, false)
 
 	// If invalid
+	// In Mugen, when switching between different animation tables (e.g. ChangeAnim2) and the destination doesn't exist,
+	// the character will change into whatever animation is in the same index as the table it is changing from
+	// We don't do that at the moment
 	if a == nil {
 		return
 	}
@@ -4336,7 +4338,7 @@ func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, 
 		c.animPN = -1
 		c.spritePN = -1
 	} else {
-		c.animPN = animPlayerNo
+		c.animPN = animPlayerNo // In Mugen this changes even if the animation is invalid and doesn't change
 		c.spritePN = spritePlayerNo
 	}
 
@@ -4549,6 +4551,13 @@ func (c *Char) root(log bool) *Char {
 	}
 
 	return sys.chars[c.playerNo][0]
+}
+
+// Note: This always returns a root character in Ikemen
+// Mugen's debug text suggests the state owner can also be a helper there
+func (c *Char) stateOwner() *Char {
+	pn := c.ss.sb.playerNo
+	return sys.chars[pn][0]
 }
 
 func (c *Char) helperTrigger(id int32, idx int) *Char {
@@ -4895,14 +4904,28 @@ func (c *Char) animElemTime(elem int32) BytecodeValue {
 	return BytecodeUndefined()
 }
 
-func (c *Char) animExist(wc *Char, anim BytecodeValue) BytecodeValue {
+// This is another Mugen trigger that doesn't work as documented
+// It checks the character's current animation table and has nothing to do with state owners/custom states
+// In the same state, it can have different returns if one uses ChangeAnim or ChangeAnim2
+func (c *Char) animExist(anim BytecodeValue) BytecodeValue {
 	if anim.IsUndefined() {
 		return BytecodeUndefined()
 	}
-	if c != wc {
-		return c.selfAnimExist(anim)
+	// A direct way to check the current table would work better here
+	// Like having a pointer to the table under Animation
+	// But this trigger is so niche that maybe it doesn't matter
+	pn := c.animPN
+	if pn < 0 || pn >= len(sys.chars) || len(sys.chars[pn]) == 0 {
+		pn = c.playerNo
 	}
-	return sys.chars[c.ss.sb.playerNo][0].selfAnimExist(anim)
+	return BytecodeBool(sys.cgi[pn].animTable.get(anim.ToI()) != nil)
+}
+
+func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
+	if anim.IsUndefined() {
+		return BytecodeUndefined()
+	}
+	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) animTime() int32 {
@@ -5759,13 +5782,6 @@ func (c *Char) screenHeight() float32 {
 
 func (c *Char) screenWidth() float32 {
 	return float32(c.stOgi().localcoord[0])
-}
-
-func (c *Char) selfAnimExist(anim BytecodeValue) BytecodeValue {
-	if anim.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	return BytecodeBool(c.gi().animTable.get(anim.ToI()) != nil)
 }
 
 func (c *Char) selfStatenoExist(stateno BytecodeValue) BytecodeValue {
@@ -6910,7 +6926,7 @@ func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx
 // Calls getAnimSprite without the extra anim/sprite playerNo features
 // For projectiles essentially
 func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool) *Animation {
-	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, false)
+	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, fx)
 
 	return a
 }
@@ -7189,15 +7205,29 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
 	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
 
-	if p.animNo < -1 {
+	// Clamp negative animations
+	if p.animNo < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projanim: %v", p.animNo))
 		p.animNo = 0
+	}
+	if p.hitanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projhitanim: %v", p.hitanim))
+		p.hitanim = 0
+	}
+	if p.remanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projremanim: %v", p.remanim))
+		p.remanim = 0
+	}
+	if p.cancelanim < -2 {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("Illegal projcancelanim: %v", p.cancelanim))
+		p.cancelanim = 0
 	}
 
 	// Get animation with sprite context
 	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
 
 	if p.anim == nil && c.anim != nil {
-		// Fallback: copy character's current animation
+		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim
 		p.anim.SetAnimElem(1, 0)

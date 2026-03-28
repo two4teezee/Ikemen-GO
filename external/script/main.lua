@@ -661,20 +661,29 @@ function main.f_commandLine()
 			end
 		end
 	end
-	local t_framesMul = {1, 1}
-	for i = 1, 2 do
-		if t_teamMode[i] == 0 and t_numChars[i] > 1 then
-			t_teamMode[i] = 1
+	--Ensure proper team modes and prepare time scaling
+	local t_framesMul = {1, 1} --Skip Options.Tag.TimeScaling here for simplicity
+	for side = 1, 2 do
+		if t_teamMode[side] == 0 and t_numChars[side] > 1 then
+			t_teamMode[side] = 1 --Default to Simul if multiple characters
 		end
-		if t_teamMode[i] == 1 then --Simul
-			setMatchWins(i, t_matchWins.simul[i])
-		elseif t_teamMode[i] == 3 then --Tag
-			t_framesMul[i] = t_numChars[i]
-			setMatchWins(i, t_matchWins.tag[i])
-		else
-			setMatchWins(i, t_matchWins.single[i])
+		if t_teamMode[side] == 3 then --Tag
+			t_framesMul[side] = t_numChars[side]
 		end
-		setMatchMaxDrawGames(i, t_matchWins.draw[i])
+	end
+	--Rounds to win. Determined by enemy team mode
+	for side = 1, 2 do
+		local enemy = 3 - side
+		if t_teamMode[enemy] == 1 then --Simul
+			setMatchWins(side, t_matchWins.simul[enemy])
+		elseif t_teamMode[enemy] == 2 then --Turns
+			setMatchWins(side, t_numChars[enemy])
+		elseif t_teamMode[enemy] == 3 then --Tag
+			setMatchWins(side, t_matchWins.tag[enemy])
+		else --Single
+			setMatchWins(side, t_matchWins.single[enemy])
+		end
+		setMatchMaxDrawGames(side, t_matchWins.draw[side])
 	end
 	frames = frames * math.max(t_framesMul[1], t_framesMul[2])
 	setTimeFramesPerCount(frames)
@@ -848,10 +857,14 @@ function main.f_drawInput(textData, text, sec, background, overlay, defaultInput
 			input = ''
 			break
 		end
-		if getKey('RETURN') then
+		if getKey(sec.textinput.confirm.keycode) then
 			break
-		elseif getKey('BACKSPACE') then
-			input = input:match('^(.-).?$')
+		elseif getKey(sec.textinput.trim.keycode) then
+			input = input:sub(2)
+		elseif getKey(sec.textinput.truncate.keycode) then
+			input = input:sub(1, -2)
+		elseif getKey(sec.textinput.paste.keycode) then
+			input = input .. getClipboardString()
 		else
 			input = input .. getKeyText()
 		end
@@ -1548,8 +1561,8 @@ function main.f_default()
 		demo = true,
 		dialogue = true,
 		hiscore = false,
-		versusscreen = false,
-		versusmatchno = false,
+		vsscreen = false,
+		vsmatchno = false,
 		victoryscreen = false,
 		winscreen = false,
 		losescreen = false,
@@ -1586,8 +1599,8 @@ function main.f_default()
 	setHomeTeam(2) --http://mugenguild.com/forum/topics/ishometeam-triggers-169132.0.html
 	setLifebarElements(main.lifebar)
 	setMotifElements(main.motif)
-	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
 	setTimeFramesPerCount(fightScreenVar("time.framespercount"))
+	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
 	setWinCount(1, 0)
 	setWinCount(2, 0)
 	textImgReset(motif.select_info.title.TextSpriteData)
@@ -1615,8 +1628,8 @@ main.t_itemname = {
 		main.motif.challenger = true
 		main.motif.continuescreen = true
 		main.motif.hiscore = true
-		main.motif.versusscreen = true
-		main.motif.versusmatchno = true
+		main.motif.vsscreen = true
+		main.motif.vsmatchno = true
 		main.motif.victoryscreen = true
 		main.motif.winscreen = true
 		main.orderSelect[1] = true
@@ -1684,7 +1697,7 @@ main.t_itemname = {
 	['freebattle'] = function()
 		--main.lifebar.p1score = true
 		--main.lifebar.p2ailevel = true
-		main.motif.versusscreen = true
+		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
@@ -1795,8 +1808,8 @@ main.t_itemname = {
 		--main.lifebar.p2ailevel = true
 		main.makeRoster = true
 		main.motif.continuescreen = true
-		main.motif.versusscreen = true
-		main.motif.versusmatchno = true
+		main.motif.vsscreen = true
+		main.motif.vsmatchno = true
 		main.motif.victoryscreen = true
 		main.motif.winscreen = true
 		main.numSimul = {2, 2}
@@ -1825,7 +1838,7 @@ main.t_itemname = {
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
-		main.motif.versusscreen = true
+		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
@@ -2023,8 +2036,8 @@ main.t_itemname = {
 		main.makeRoster = true
 		main.motif.continuescreen = true
 		main.motif.hiscore = true
-		main.motif.versusscreen = true
-		main.motif.versusmatchno = true
+		main.motif.vsscreen = true
+		main.motif.vsmatchno = true
 		main.motif.victoryscreen = true
 		main.motif.winscreen = true
 		main.numSimul = {2, math.min(4, gameOption('Config.Players'))}
@@ -2063,8 +2076,8 @@ main.t_itemname = {
 		main.makeRoster = true
 		main.motif.continuescreen = true
 		main.motif.hiscore = true
-		main.motif.versusscreen = true
-		main.motif.versusmatchno = true
+		main.motif.vsscreen = true
+		main.motif.vsmatchno = true
 		main.motif.winscreen = true
 		main.quickContinue = true
 		main.orderSelect[1] = true
@@ -2129,7 +2142,7 @@ main.t_itemname = {
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
-		main.motif.versusscreen = true
+		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
 		main.orderSelect[2] = true
@@ -2170,7 +2183,7 @@ main.t_itemname = {
 		main.cpuSide[2] = false
 		--main.lifebar.p1wincount = true
 		--main.lifebar.p2wincount = true
-		main.motif.versusscreen = true
+		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.numSimul = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
 		main.numTag = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
@@ -2191,7 +2204,7 @@ main.t_itemname = {
 		main.cpuSide[1] = true
 		--main.lifebar.p1ailevel = true
 		--main.lifebar.p2ailevel = true
-		main.motif.versusscreen = true
+		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.selectMenu[2] = true
 		main.stageMenu = true
@@ -2391,7 +2404,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					if not bool_main or esc() then
 						break
 					end
-				elseif bool_f1 and (getKey('F1') or gameOption('Config.FirstRun')) then
+				elseif bool_f1 and (getKey(motif.infobox.keycode) or gameOption('Config.FirstRun')) then
 					if gameOption('Config.FirstRun') then
 						modifyGameOption('Config.FirstRun', false)
 						options.f_saveCfg(false)
@@ -2410,7 +2423,7 @@ function main.f_createMenu(tbl, bool_bgreset, bool_main, bool_f1, bool_del)
 					sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])
 					main.f_fadeReset('fadeout', motif[main.group])
 					resetKey()
-				elseif bool_del and getKey('DELETE') then
+				elseif bool_del and getKey(motif[main.group].menu.item.delete.keycode) then
 					tbl.items = main.f_deleteIP(item, t)
 				elseif main.f_hiscoreDisplay(t[item].itemname) then
 					demoFrameCounter = 0
@@ -2661,7 +2674,7 @@ function main.f_renameReplay(item, t)
 	local newName = main.f_drawInput(
 		motif.title_info.textinput.TextSpriteData,
 		motif.title_info.textinput.text.replay,
-		motif.replay_info,
+		motif.title_info,
 		motif.replaybgdef,
 		motif.title_info.textinput.overlay.RectData,
 		oldName
@@ -2741,14 +2754,14 @@ function main.f_replay()
 			sndPlay(motif.Snd, motif.replay_info.cancel.snd[1], motif.replay_info.cancel.snd[2])
 			main.f_fadeReset('fadeout', motif.replay_info)
 			main.close = true
-		elseif getKey('DELETE') then
+		elseif getKey(motif.replay_info.menu.item.delete.keycode) then
 			t, item = main.f_deleteReplay(item, t)
 			local visibleItems = motif.replay_info.menu.window.visibleitems
 			if visibleItems == nil or visibleItems <= 0 then
 				visibleItems = #t
 			end
 			cursorPosY = math.max(1, math.min(cursorPosY, item, visibleItems))
-		elseif getKey('SPACE') then
+		elseif getKey(motif.replay_info.menu.item.rename.keycode) then
 			t, item = main.f_renameReplay(item, t)
 		elseif getInput(-1, motif[main.group].menu.done.key) then
 			sndPlay(motif.Snd, motif[main.group].cursor.done.snd.default[1], motif[main.group].cursor.done.snd.default[2])

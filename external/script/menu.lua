@@ -180,7 +180,7 @@ menu.t_itemname = {
 	end,
 	--Key Config
 	['keyboard'] = function(t, item, cursorPosY, moveTxt, sec)
-		if getInput(-1, sec.menu.done.key) --[[or getKey('F1')]] then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			options.f_keyCfgInit('Keys', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname
@@ -189,7 +189,7 @@ menu.t_itemname = {
 	end,
 	--Joystick Config
 	['gamepad'] = function(t, item, cursorPosY, moveTxt, sec)
-		if getInput(-1, sec.menu.done.key) --[[or getKey('F2')]] then
+		if getInput(-1, sec.menu.done.key) then
 			sndPlay(motif.Snd, sec.cursor.done.snd[1], sec.cursor.done.snd[2])
 			options.f_keyCfgInit('Joystick', t.submenu[t.items[item].itemname].title)
 			menu.itemname = t.items[item].itemname

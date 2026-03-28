@@ -2749,7 +2749,7 @@ func systemScriptInit(l *lua.LState) {
 			winp := int32(0)
 			sys.debugRef = [2]int{}
 			sys.roundsExisted = [2]int32{}
-			sys.matchWins = [2]int32{}
+			//sys.matchWins = [2]int32{} // Now set directly by Lua so we don't need to reset it
 			sys.scoreRounds = [][2]float32{}
 
 			// Reset lifebars
@@ -2810,18 +2810,16 @@ func systemScriptInit(l *lua.LState) {
 				if sys.round == 1 {
 					// Update wins, reset stage
 					sys.endMatch = false
-					if sys.tmode[1] == TM_Turns {
-						sys.matchWins[0] = sys.numTurns[1]
-					} else {
-						sys.matchWins[0] = sys.lifebar.ro.match_wins[1]
-					}
-					if sys.tmode[0] == TM_Turns {
-						sys.matchWins[1] = sys.numTurns[0]
-					} else {
-						sys.matchWins[1] = sys.lifebar.ro.match_wins[0]
-					}
-					sys.teamLeader = [...]int{0, 1}
+					sys.teamLeader = [2]int{0, 1}
 					sys.stage.reset()
+
+					// Adjust matchWins for Turns mode
+					// Let's trust that Lua already set this up correctly
+					//for i := 0; i < 2; i++ {
+					//	if sys.tmode[i] == TM_Turns {
+					//		sys.matchWins[i^1] = sys.numTurns[i]
+					//	}
+					//}
 				}
 
 				// Winning player index
@@ -3630,11 +3628,7 @@ func systemScriptInit(l *lua.LState) {
 		function getKeyText() end*/
 		s := ""
 		if sys.keyInput != KeyUnknown {
-			if sys.keyInput == KeyInsert {
-				s = sys.window.GetClipboardString()
-			} else {
-				s = sys.keyString
-			}
+			s = sys.keyString
 		}
 		l.Push(lua.LString(s))
 		return 1
@@ -3772,7 +3766,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerId
 		@treturn int32 playerId Player ID of the current state owner.
 		function getStateOwnerId() end*/
-		l.Push(lua.LNumber(sys.chars[sys.debugWC.ss.sb.playerNo][0].id))
+		l.Push(lua.LNumber(sys.debugWC.stateOwner().id))
 		return 1
 	})
 	luaRegister(l, "getStateOwnerName", func(*lua.LState) int {
@@ -3780,7 +3774,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerName
 		@treturn string name Name of the current state owner.
 		function getStateOwnerName() end*/
-		l.Push(lua.LString(sys.chars[sys.debugWC.ss.sb.playerNo][0].name))
+		l.Push(lua.LString(sys.debugWC.stateOwner().name))
 		return 1
 	})
 	luaRegister(l, "getStateOwnerPlayerNo", func(*lua.LState) int {
@@ -3788,7 +3782,7 @@ func systemScriptInit(l *lua.LState) {
 		@function getStateOwnerPlayerNo
 		@treturn int playerNo 1-based player number of the current state owner.
 		function getStateOwnerPlayerNo() end*/
-		l.Push(lua.LNumber(sys.debugWC.ss.sb.playerNo + 1))
+		l.Push(lua.LNumber(sys.debugWC.stateOwner().playerNo + 1))
 		return 1
 	})
 	luaRegister(l, "getStoryboardScene", func(l *lua.LState) int {
@@ -4561,9 +4555,9 @@ func systemScriptInit(l *lua.LState) {
 		}
 		// Always reset per-launch params; they must not leak across matches/modes.
 		if sys.sel.gameParams == nil {
-			sys.sel.gameParams = newGameParams()
+			sys.sel.gameParams = newGameParamsFromMotif(&sys.motif)
 		} else {
-			sys.sel.gameParams.Reset()
+			sys.sel.gameParams.ResetFromMotif(&sys.motif)
 		}
 		sys.sel.music = make(Music)
 		if !nilArg(l, 1) {
@@ -6056,7 +6050,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.ro.match_maxdrawgames[tn-1] = int32(numArg(l, 2))
+		sys.maxDraws[tn-1] = int32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "setMatchNo", func(l *lua.LState) int {
@@ -6077,7 +6071,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.ro.match_wins[tn-1] = int32(numArg(l, 2))
+		sys.matchWins[tn-1] = int32(numArg(l, 2))
 		return 0
 	})
 	luaRegister(l, "setMotifElements", func(*lua.LState) int {
@@ -6090,8 +6084,8 @@ func systemScriptInit(l *lua.LState) {
 		  - `dialogue` (boolean) dialogue system
 		  - `hiscore` (boolean) hiscore screen
 		  - `losescreen` (boolean) lose screen
-		  - `versusscreen` (boolean) versus screen
-		  - `versusmatchno` (boolean) versus screen match number
+		  - `vsscreen` (boolean) versus screen
+		  - `vsmatchno` (boolean) versus screen match number
 		  - `victoryscreen` (boolean) victory screen
 		  - `winscreen` (boolean) win screen
 		  - `menu` (boolean) main menu
@@ -6112,8 +6106,8 @@ func systemScriptInit(l *lua.LState) {
 					sys.motif.hi.enabled = lua.LVAsBool(value)
 				case "losescreen":
 					sys.motif.wi.loseEnabled = lua.LVAsBool(value)
-				case "versusscreen":
-				case "versusmatchno":
+				case "vsscreen":
+				case "vsmatchno":
 				case "victoryscreen":
 					sys.motif.vi.enabled = lua.LVAsBool(value)
 				case "winscreen":
@@ -6206,7 +6200,13 @@ func systemScriptInit(l *lua.LState) {
 		@function setRoundTime
 		@tparam int32 time Maximum round time.
 		function setRoundTime(time) end*/
-		sys.maxRoundTime = int32(numArg(l, 1))
+		t := int32(numArg(l, 1))
+		// Since legacy mode rounds down the timer, we must add an offset just under one count to compensate
+		// This is also how Mugen handles it
+		if t > 0 && sys.cfg.Config.LegacyTime {
+			t += sys.curFramesPerCount - 1
+		}
+		sys.maxRoundTime = t
 		return 0
 	})
 	luaRegister(l, "setTeamMode", func(*lua.LState) int {
@@ -6255,7 +6255,7 @@ func systemScriptInit(l *lua.LState) {
 		@function setTimeFramesPerCount
 		@tparam int32 frames Frames per timer count.
 		function setTimeFramesPerCount(frames) end*/
-		sys.lifebar.ti.framespercount = int32(numArg(l, 1))
+		sys.curFramesPerCount = int32(numArg(l, 1))
 		return 0
 	})
 	luaRegister(l, "setWinCount", func(*lua.LState) int {
@@ -7357,7 +7357,7 @@ func triggerRedirection(l *lua.LState) {
 	})
 	luaRegister(l, "stateOwner", func(*lua.LState) int {
 		ret := false
-		if c := sys.chars[sys.debugWC.ss.sb.playerNo][0]; c != nil {
+		if c := sys.debugWC.stateOwner(); c != nil {
 			sys.debugWC, ret = c, true
 		}
 		l.Push(lua.LBool(ret))
@@ -7476,8 +7476,7 @@ func triggerFunctions(l *lua.LState) {
 		return 1
 	})
 	luaRegister(l, "animExist", func(*lua.LState) int {
-		l.Push(lua.LBool(sys.debugWC.animExist(sys.debugWC,
-			BytecodeInt(int32(numArg(l, 1)))).ToB()))
+		l.Push(lua.LBool(sys.debugWC.animExist(BytecodeInt(int32(numArg(l, 1)))).ToB()))
 		return 1
 	})
 	luaRegister(l, "animLength", func(*lua.LState) int {

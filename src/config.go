@@ -143,6 +143,7 @@ type Config struct {
 		TrainingChar      string   `ini:"TrainingChar"`
 		TrainingStage     string   `ini:"TrainingStage"`
 		GamepadMappings   string   `ini:"GamepadMappings"`
+		LegacyTime        bool     `ini:"LegacyTime" sync:"host"`
 	} `ini:"Config"`
 	Debug struct {
 		AllowDebugMode      bool    `ini:"AllowDebugMode"`

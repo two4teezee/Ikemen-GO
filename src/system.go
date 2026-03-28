@@ -281,7 +281,7 @@ type System struct {
 	debugcsize          DebugClsn
 	debugch             DebugClsn
 	debugAccel          float32
-  debugApiServer      *DebugApiServer
+	debugApiServer      *DebugApiServer
 	clsnSpr             Sprite
 	clsnDisplay         bool
 	lifebarHide         bool

@@ -1530,6 +1530,7 @@ type Sff struct {
 	sprites  map[[2]uint16]*Sprite
 	palList  PaletteList
 	filename string
+	debugMissing map[[2]uint16]bool // Sprites not found by animations
 }
 
 func newSff() (s *Sff) {

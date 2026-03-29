@@ -2978,9 +2978,8 @@ func readLifeBarRound(is IniSection,
 		ro.slow_fadetime = ro.slow_time
 	}
 	is.ReadF32("slow.speed", &ro.slow_speed)
-	if ro.slow_speed > 1 {
-		ro.slow_speed = 1
-	}
+	// A speed over 1 defeats the purpose, 0 freezes the game, and negative is not safe
+	ro.slow_speed = Clamp(ro.slow_speed, 0.01, 1)
 	is.ReadI32("over.hittime", &ro.over_hittime)
 	if ro.over_hittime < 1 {
 		ro.over_hittime = 1

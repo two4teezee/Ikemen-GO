@@ -8984,7 +8984,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 	// TODO: Now that this actually works, we could make it optional via a new parameter
 	if srcDepth != dstDepth {
 		sys.appendToConsole(c.warn() + fmt.Sprintf(
-			" RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)",
+			"RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)",
 			src[0], src[1], srcDepth, dst[0], dst[1], dstDepth))
 		return
 	}
@@ -8996,16 +8996,15 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
-		plist.Remap(si, di)
-
-		// Remap palette 1, 1 in SFF v1
+		// For SFFv1, if remapping palette 1,1 remap whatever palette sprite 0,0 uses
 		if src[0] == 1 && src[1] == 1 && c.gi().sff.header.Version[0] == 1 {
 			if spr := c.gi().sff.GetSprite(0, 0); spr != nil {
-				plist.Remap(spr.palidx, di)
+				if spr.GetPal(&plist) != nil && spr.palidx >= 0 {
+					plist.Remap(spr.palidx, di)
+				}
 			}
-			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil {
-				plist.Remap(spr.palidx, di)
-			}
+		} else {
+			plist.Remap(si, di)
 		}
 
 		plist.SwapPalMap(&pfx.remap)

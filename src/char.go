@@ -5894,9 +5894,9 @@ func (c *Char) updateTeamOrder(team []int) {
 
 	// Update lifebar order within its bounds
 	side := c.playerNo & 1
-	for i := range sys.lifebar.order[side] {
+	for i := range sys.lifebar.teamOrder[side] {
 		if i < len(team) {
-			sys.lifebar.order[side][i] = team[i]
+			sys.lifebar.teamOrder[side][i] = team[i]
 		}
 	}
 }

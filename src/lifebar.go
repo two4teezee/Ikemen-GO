@@ -503,8 +503,8 @@ func readHealthBar(pre string, is IniSection, sff *Sff, at AnimationTable, f map
 	return hb
 }
 
-func (hb *HealthBar) step(ref int, hbr *HealthBar) {
-	refChar := sys.chars[ref][0]
+func (hb *HealthBar) step(charpn int, hbr *HealthBar) {
+	refChar := sys.chars[charpn][0]
 	var life float32 = float32(refChar.life) / float32(refChar.lifeMax)
 	var redVal int32 = refChar.redLife - refChar.life
 	var getHit bool = (refChar.receivedHits != 0 || refChar.ss.moveType == MT_H) && !refChar.scf(SCF_over_ko)
@@ -629,9 +629,9 @@ func (hb *HealthBar) bgDraw(layerno int16) {
 	hb.bg2.Draw(float32(hb.pos[0])+sys.lifebar.offsetX, float32(hb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
-func (hb *HealthBar) draw(layerno int16, ref int, hbr *HealthBar, f map[int]*Fnt) {
+func (hb *HealthBar) draw(layerno int16, charpn int, hbr *HealthBar, f map[int]*Fnt) {
 	// Get reference values
-	refChar := sys.chars[ref][0]
+	refChar := sys.chars[charpn][0]
 	life := float32(refChar.life) / float32(refChar.lifeMax)
 	redlife := float32(refChar.redLife) / float32(refChar.lifeMax)
 	redval := refChar.redLife - refChar.life
@@ -952,9 +952,9 @@ func resolvePBKey[T any](m map[int32]T, pbval int32, max int32) int32 {
 	return choice
 }
 
-func (pb *PowerBar) step(ref int, pbr *PowerBar, snd *Snd) {
+func (pb *PowerBar) step(charpn int, pbr *PowerBar, snd *Snd) {
 	// Get reference values
-	refChar := sys.chars[ref][0]
+	refChar := sys.chars[charpn][0]
 	pbval := refChar.getPower()
 	power := float32(pbval) / float32(refChar.powerMax)
 	level := pbval / 1000
@@ -1048,17 +1048,17 @@ func (pb *PowerBar) reset() {
 	pb.shift.anim.dstAlpha = 255
 }
 
-func (pb *PowerBar) bgDraw(layerno int16, ref int) {
-	pbval := sys.chars[ref][0].getPower()
-	refChar := sys.chars[ref][0]
+func (pb *PowerBar) bgDraw(layerno int16, charpn int) {
+	pbval := sys.chars[charpn][0].getPower()
+	refChar := sys.chars[charpn][0]
 	fv := resolvePBKey(pb.bg0, pbval, refChar.powerMax)
 	pb.bg0[fv].Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	pb.bg1.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 	pb.bg2.Draw(float32(pb.pos[0])+sys.lifebar.offsetX, float32(pb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
-func (pb *PowerBar) draw(layerno int16, ref int, pbr *PowerBar, f map[int]*Fnt) {
-	refChar := sys.chars[ref][0]
+func (pb *PowerBar) draw(layerno int16, charpn int, pbr *PowerBar, f map[int]*Fnt) {
+	refChar := sys.chars[charpn][0]
 	pbval := refChar.getPower()
 	power := float32(pbval) / float32(refChar.powerMax)
 	level := pbval / 1000
@@ -1224,8 +1224,8 @@ func readGuardBar(pre string, is IniSection,
 	return gb
 }
 
-func (gb *GuardBar) step(ref int, gbr *GuardBar, snd *Snd) {
-	refChar := sys.chars[ref][0]
+func (gb *GuardBar) step(charpn int, gbr *GuardBar, snd *Snd) {
+	refChar := sys.chars[charpn][0]
 	if !refChar.guardBreakEnabled() {
 		return
 	}
@@ -1305,13 +1305,13 @@ func (gb *GuardBar) bgDraw(layerno int16) {
 	gb.bg2.Draw(float32(gb.pos[0])+sys.lifebar.offsetX, float32(gb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
-func (gb *GuardBar) draw(layerno int16, ref int, gbr *GuardBar, f map[int]*Fnt) {
+func (gb *GuardBar) draw(layerno int16, charpn int, gbr *GuardBar, f map[int]*Fnt) {
 	// Handled in outer loop
 	//if !sys.lifebar.guardbar {
 	//	return
 	//}
 
-	refChar := sys.chars[ref][0]
+	refChar := sys.chars[charpn][0]
 	points := float32(refChar.guardPoints) / float32(refChar.guardPointsMax)
 	if gb.invertfill {
 		points = 1 - points
@@ -1469,8 +1469,8 @@ func readStunBar(pre string, is IniSection,
 	return sb
 }
 
-func (sb *StunBar) step(ref int, sbr *StunBar, snd *Snd) {
-	refChar := sys.chars[ref][0]
+func (sb *StunBar) step(charpn int, sbr *StunBar, snd *Snd) {
+	refChar := sys.chars[charpn][0]
 	if !refChar.dizzyEnabled() {
 		return
 	}
@@ -1548,13 +1548,13 @@ func (sb *StunBar) bgDraw(layerno int16) {
 	sb.bg2.Draw(float32(sb.pos[0])+sys.lifebar.offsetX, float32(sb.pos[1])+sys.lifebar.offsetY, layerno, sys.lifebar.scale)
 }
 
-func (sb *StunBar) draw(layerno int16, ref int, sbr *StunBar, f map[int]*Fnt) {
+func (sb *StunBar) draw(layerno int16, charpn int, sbr *StunBar, f map[int]*Fnt) {
 	// Handled in outer loop
 	//if !sys.lifebar.stunbar {
 	//	return
 	//}
 
-	refChar := sys.chars[ref][0]
+	refChar := sys.chars[charpn][0]
 	points := float32(refChar.dizzyPoints) / float32(refChar.dizzyPointsMax)
 	if sb.invertfill {
 		points = 1 - points
@@ -1735,8 +1735,8 @@ func readLifeBarFace(pre string, is IniSection, sff *Sff, at AnimationTable) *Li
 	return fa
 }
 
-func (fa *LifeBarFace) step(ref int, refFace *LifeBarFace) {
-	refChar := sys.chars[ref][0]
+func (fa *LifeBarFace) step(charpn int, refFace *LifeBarFace) {
+	refChar := sys.chars[charpn][0]
 	group, number := fa.face_spr[0], fa.face_spr[1]
 	if refChar != nil && refChar.anim != nil {
 		if mg, ok := refChar.anim.remap[group]; ok {
@@ -1747,11 +1747,12 @@ func (fa *LifeBarFace) step(ref int, refFace *LifeBarFace) {
 	}
 
 	// Update sprite only when necessary
+	refgi := sys.cgi[charpn]
 	if refFace.old_spr[0] != group || refFace.old_spr[1] != number ||
-		refFace.old_pal[0] != sys.cgi[ref].remappedpal[0] || refFace.old_pal[1] != sys.cgi[ref].remappedpal[1] {
-		refFace.face = sys.cgi[ref].sff.getOwnPalSprite(uint16(group), uint16(number), &sys.cgi[ref].palettedata.palList)
+		refFace.old_pal[0] != refgi.remappedpal[0] || refFace.old_pal[1] != refgi.remappedpal[1] {
+		refFace.face = refgi.sff.getOwnPalSprite(uint16(group), uint16(number), &refgi.palettedata.palList)
 		refFace.old_spr = [...]int32{group, number}
-		refFace.old_pal = [...]int32{sys.cgi[ref].remappedpal[0], sys.cgi[ref].remappedpal[1]}
+		refFace.old_pal = [...]int32{refgi.remappedpal[0], refgi.remappedpal[1]}
 	}
 
 	fa.bg.Action()
@@ -1794,8 +1795,8 @@ func (fa *LifeBarFace) bgDraw(layerno int16) {
 	fa.bg2.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
-	refChar := sys.chars[ref][0]
+func (fa *LifeBarFace) draw(layerno int16, charpn int, refFace *LifeBarFace) {
+	refChar := sys.chars[charpn][0]
 
 	if refFace.face != nil {
 		// Get player current PalFX if applicable
@@ -1816,7 +1817,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 				}
 			}
 			// Retrieve that palette
-			palList := &sys.cgi[ref].palettedata.palList
+			palList := &sys.cgi[charpn].palettedata.palList
 			charPal := palList.Get(palIdx)
 			// Update portrait palette and cache
 			refFace.face.Pal = charPal
@@ -1831,7 +1832,7 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 
 		// Draw the actual face sprite
 		fa.face_lay.DrawFaceSprite((float32(fa.pos[0])+sys.lifebar.offsetX)*sys.lifebar.scale, float32(fa.pos[1])*sys.lifebar.scale, layerno,
-			refFace.face, fa.face_pfx, sys.cgi[ref].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
+			refFace.face, fa.face_pfx, sys.cgi[charpn].portraitscale*sys.lifebar.portraitScale, &fa.face_lay.window)
 
 		// Draw KO layer
 		if !refChar.alive() {
@@ -1846,17 +1847,17 @@ func (fa *LifeBarFace) draw(layerno int16, ref int, refFace *LifeBarFace) {
 	fa.top.Draw(float32(fa.pos[0])+sys.lifebar.offsetX, float32(fa.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (fa *LifeBarFace) drawTeammates(layerno int16, ref int) {
+func (fa *LifeBarFace) drawTeammates(layerno int16, charpn int) {
 	if len(fa.teammate_face) == 0 {
 		return
 	}
 
 	// We could check this, but not checking it forces our code to be cleaner
-	//if sys.tmode[sys.chars[ref][0].teamside] != TM_Turns {
+	//if sys.tmode[sys.chars[charpn][0].teamside] != TM_Turns {
 	//	return
 	//}
 
-	refChar := sys.chars[ref][0]
+	refChar := sys.chars[charpn][0]
 
 	// Reset system brightness if player initiated SuperPause (cancel "darken" parameter)
 	oldBright := sys.brightness
@@ -1976,16 +1977,16 @@ func (nm *LifeBarName) bgDraw(layerno int16) {
 	nm.bg.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (nm *LifeBarName) draw(layerno int16, ref int, f map[int]*Fnt, side int) {
+func (nm *LifeBarName) draw(layerno int16, charpn int, f map[int]*Fnt, side int) {
 	if nm.name.font[0] >= 0 && getFont(f, nm.name.font[0]) != nil {
 		nm.name.lay.DrawText((float32(nm.pos[0]) + sys.lifebar.offsetX), float32(nm.pos[1]), sys.lifebar.scale, layerno,
-			sys.cgi[ref].lifebarname, getFont(f, nm.name.font[0]), nm.name.font[1], nm.name.font[2], nm.name.palfx, nm.name.frgba)
+			sys.cgi[charpn].lifebarname, getFont(f, nm.name.font[0]), nm.name.font[1], nm.name.font[2], nm.name.palfx, nm.name.frgba)
 	}
 
 	nm.top.Draw(float32(nm.pos[0])+sys.lifebar.offsetX, float32(nm.pos[1]), layerno, sys.lifebar.scale)
 }
 
-func (nm *LifeBarName) drawTeammates(layerno int16, ref int, f map[int]*Fnt, side int) {
+func (nm *LifeBarName) drawTeammates(layerno int16, charpn int, f map[int]*Fnt, side int) {
 	if len(nm.teammate_name_strings) == 0 {
 		return
 	}
@@ -4346,8 +4347,8 @@ type Lifebar struct {
 	sff           *Sff
 	snd           *Snd
 	fnt           map[int]*Fnt
-	ref           [2]int
-	order         [2][]int
+	curLayout     [2]int // Which layout each team is currently using. Single, Simul 3P, etc
+	teamOrder     [2][]int // Player order on each team. Because it can vary in Tag
 	hb            [8][]*HealthBar
 	pb            [8][]*PowerBar
 	gb            [8][]*GuardBar
@@ -5133,19 +5134,19 @@ func (l *Lifebar) step() {
 		// Team order swapping moved to dedicated Tag functions
 		for ti, tm := range sys.tmode {
 			if tm == TM_Tag {
-				for i, v := range l.order[ti] {
+				for i, v := range l.teamOrder[ti] {
 					if sys.teamLeader[sys.chars[v][0].teamside] == sys.chars[v][0].playerNo && sys.chars[v][0].alive() {
 						if i != 0 {
-							if i == len(l.order[ti])-1 {
-								l.order[ti] = sliceMoveInt(l.order[ti], i, 0)
+							if i == len(l.teamOrder[ti])-1 {
+								l.teamOrder[ti] = sliceMoveInt(l.teamOrder[ti], i, 0)
 							} else {
-								last := len(l.order[ti]) - 1
+								last := len(l.teamOrder[ti]) - 1
 								for n := last; n > 0; n-- {
-									if !sys.chars[l.order[ti][n]][0].alive() {
+									if !sys.chars[l.teamOrder[ti][n]][0].alive() {
 										last -= 1
 									}
 								}
-								l.order[ti] = sliceMoveInt(l.order[ti], 0, last)
+								l.teamOrder[ti] = sliceMoveInt(l.teamOrder[ti], 0, last)
 							}
 						}
 						break
@@ -5155,19 +5156,21 @@ func (l *Lifebar) step() {
 		}
 	*/
 	for ti := range sys.tmode {
-		for i, v := range l.order[ti] {
+		layout := l.curLayout[ti]
+		for i, charpn := range l.teamOrder[ti] {
+			index := i*2+ti
 			// HealthBar
-			l.hb[l.ref[ti]][i*2+ti].step(v, l.hb[l.ref[ti]][v])
+			l.hb[layout][index].step(charpn, l.hb[layout][charpn])
 			// PowerBar
-			l.pb[l.ref[ti]][i*2+ti].step(v, l.pb[l.ref[ti]][v], l.snd)
+			l.pb[layout][index].step(charpn, l.pb[layout][charpn], l.snd)
 			// GuardBar
-			l.gb[l.ref[ti]][i*2+ti].step(v, l.gb[l.ref[ti]][v], l.snd)
+			l.gb[layout][index].step(charpn, l.gb[layout][charpn], l.snd)
 			// StunBar
-			l.sb[l.ref[ti]][i*2+ti].step(v, l.sb[l.ref[ti]][v], l.snd)
+			l.sb[layout][index].step(charpn, l.sb[layout][charpn], l.snd)
 			// LifeBarFace
-			l.fa[l.ref[ti]][i*2+ti].step(v, l.fa[l.ref[ti]][v])
+			l.fa[layout][index].step(charpn, l.fa[layout][charpn])
 			// LifeBarName
-			l.nm[l.ref[ti]][i*2+ti].step()
+			l.nm[layout][index].step()
 		}
 	}
 	// LifeBarWinIcon
@@ -5204,7 +5207,7 @@ func (l *Lifebar) step() {
 	}
 	// LifeBarAction
 	for i := range l.ac {
-		l.ac[i].step(l.order[i][0])
+		l.ac[i].step(l.teamOrder[i][0])
 	}
 	// LifeBarRatio
 	for ti, tm := range sys.tmode {
@@ -5241,44 +5244,45 @@ func (l *Lifebar) step() {
 func (l *Lifebar) reset() {
 	var num [2]int
 
-	// Update team mode reference for each player
+	// Update team mode layout for each player
 	for ti, tm := range sys.tmode {
-		l.ref[ti] = int(tm)
+		l.curLayout[ti] = int(tm)
 		if tm == TM_Simul {
 			if sys.numSimul[ti] == 3 {
-				l.ref[ti] = 4 // Simul_3P (6)
+				l.curLayout[ti] = 4 // Simul_3P (6)
 			} else if sys.numSimul[ti] >= 4 {
-				l.ref[ti] = 5 // Simul_4P (8)
+				l.curLayout[ti] = 5 // Simul_4P (8)
 			} else {
-				l.ref[ti] = 1 // Simul (8)
+				l.curLayout[ti] = 1 // Simul (8)
 			}
 		} else if tm == TM_Tag {
 			if sys.numSimul[ti] == 3 {
-				l.ref[ti] = 6 // Tag_3P (6)
+				l.curLayout[ti] = 6 // Tag_3P (6)
 			} else if sys.numSimul[ti] >= 4 {
-				l.ref[ti] = 7 // Tag_4P (8)
+				l.curLayout[ti] = 7 // Tag_4P (8)
 			} else {
-				l.ref[ti] = 3 // Tag (8)
+				l.curLayout[ti] = 3 // Tag (8)
 			}
 		} else if tm == TM_Turns {
-			l.ref[ti] = 2 // Turns (2)
+			l.curLayout[ti] = 2 // Turns (2)
 		} else {
-			l.ref[ti] = 0 // Single (2)
+			l.curLayout[ti] = 0 // Single (2)
 		}
 
 		// Set maximum number of lifebars
 		if tm == TM_Simul || tm == TM_Tag {
 			num[ti] = int(math.Min(8, float64(sys.numSimul[ti])*2))
 		} else {
-			num[ti] = len(l.hb[l.ref[ti]])
+			num[ti] = len(l.hb[l.curLayout[ti]])
 		}
 
-		l.order[ti] = []int{}
+		l.teamOrder[ti] = []int{}
 		for i := ti; i < num[ti]; i += 2 {
-			l.order[ti] = append(l.order[ti], i)
+			l.teamOrder[ti] = append(l.teamOrder[ti], i)
 		}
 	}
 
+	// Reset lifebar elements
 	for i := range l.hb {
 		for j := range l.hb[i] {
 			l.hb[i][j].reset()
@@ -5317,7 +5321,7 @@ func (l *Lifebar) reset() {
 		l.co[i].reset()
 	}
 	for i := range l.ac {
-		l.ac[i].reset(l.order[i][0])
+		l.ac[i].reset(l.teamOrder[i][0])
 	}
 	l.ro.reset()
 	for i := range l.ra {
@@ -5346,18 +5350,19 @@ func (l *Lifebar) draw(layerno int16) {
 	if !sys.lifebarHide && l.active && !sys.dialogueBarsFlg && (!sys.motif.me.active || !sys.motif.PauseMenu["pause_menu"].HideBars) {
 		// Helper to run a function for each active player's bars
 		// We will iterate backwards so that player 1 is drawn last and on top
-		forEach := func(fn func(side, slot, pno, index int)) {
+		forEach := func(fn func(side, layout, slot, barpn, charpn int)) {
 			// Iterate player slots globally, back to front
 			// We iterate slots first so that the order becomes P8-...-P1 instead of P8-P6-P4-P2-P7-P5-P3-P1
 			for slot := MaxSimul - 1; slot >= 0; slot-- {
-				// Iterate each team within the slot
+				// Process that slot for each team
 				for side := len(sys.tmode) - 1; side >= 0; side-- {
-					if slot >= len(l.order[side]) {
+					if slot >= len(l.teamOrder[side]) {
 						continue
 					}
-					pno := l.order[side][slot]
-					index := slot*2 + side
-					fn(side, slot, pno, index)
+					layout := l.curLayout[side]
+					barpn := slot*2 + side
+					charpn := l.teamOrder[side][slot]
+					fn(side, layout, slot, barpn, charpn)
 				}
 			}
 		}
@@ -5366,26 +5371,27 @@ func (l *Lifebar) draw(layerno int16) {
 			// HealthBar backgrounds
 			// We split backgrounds and bars for the sake of backward compatibility
 			// https://github.com/ikemen-engine/Ikemen-GO/issues/3461
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nolifebardisplay) {
 					return
 				}
-				l.hb[l.ref[side]][index].bgDraw(layerno)
+				l.hb[layout][barpn].bgDraw(layerno)
 			})
 
 			// HealthBar bars
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nolifebardisplay) {
 					return
 				}
-				l.hb[l.ref[side]][index].draw(layerno, pno, l.hb[l.ref[side]][pno], l.fnt)
+				// Use the definition at [layout][barpn] and the runtime values (combo damage etc) stored at [layout][charpn]
+				l.hb[layout][barpn].draw(layerno, charpn, l.hb[layout][charpn], l.fnt)
 			})
 
 			// PowerBar backgrounds
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nopowerbardisplay) {
 					return
 				}
@@ -5394,12 +5400,12 @@ func (l *Lifebar) draw(layerno int16) {
 				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
 					return
 				}
-				l.pb[l.ref[side]][index].bgDraw(layerno, index)
+				l.pb[layout][barpn].bgDraw(layerno, barpn)
 			})
 
 			// PowerBar bars
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nopowerbardisplay) {
 					return
 				}
@@ -5408,59 +5414,57 @@ func (l *Lifebar) draw(layerno int16) {
 				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
 					return
 				}
-				l.pb[l.ref[side]][index].draw(layerno, pno, l.pb[l.ref[side]][pno], l.fnt)
+				l.pb[layout][barpn].draw(layerno, charpn, l.pb[layout][charpn], l.fnt)
 			})
 
 			// GuardBar
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if !c.guardBreakEnabled() || c.asf(ASF_noguardbardisplay) {
 					return
 				}
-				l.gb[l.ref[side]][index].bgDraw(layerno)
-				l.gb[l.ref[side]][index].draw(layerno, pno, l.gb[l.ref[side]][pno], l.fnt)
+				l.gb[layout][barpn].bgDraw(layerno)
+				l.gb[layout][barpn].draw(layerno, charpn, l.gb[layout][charpn], l.fnt)
 			})
 
 			// StunBar
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if !c.dizzyEnabled() || c.asf(ASF_nostunbardisplay) {
 					return
 				}
-				l.sb[l.ref[side]][index].bgDraw(layerno)
-				l.sb[l.ref[side]][index].draw(layerno, pno, l.sb[l.ref[side]][pno], l.fnt)
+				l.sb[layout][barpn].bgDraw(layerno)
+				l.sb[layout][barpn].draw(layerno, charpn, l.sb[layout][charpn], l.fnt)
 			})
 
 			// LifeBarFace
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nofacedisplay) {
 					return
 				}
 				// Draw Turns teammates from the first bar only
-				ref := l.ref[side]
-				if slot == 0 && len(l.fa[ref]) > 0 {
-					l.fa[ref][side].drawTeammates(layerno, pno)
+				if slot == 0 && len(l.fa[layout]) > 0 {
+					l.fa[layout][side].drawTeammates(layerno, charpn)
 				}
 				// Draw active players
-				l.fa[ref][index].bgDraw(layerno)
-				l.fa[ref][index].draw(layerno, pno, l.fa[ref][pno])
+				l.fa[layout][barpn].bgDraw(layerno)
+				l.fa[layout][barpn].draw(layerno, charpn, l.fa[layout][charpn])
 			})
 
 			// LifeBarName
-			forEach(func(side, slot, pno, index int) {
-				c := sys.chars[pno][0]
+			forEach(func(side, layout, slot, barpn, charpn int) {
+				c := sys.chars[charpn][0]
 				if c.asf(ASF_nonamedisplay) {
 					return
 				}
 				// Draw Turns teammates from the first bar only
-				ref := l.ref[side]
-				if slot == 0 && len(l.nm[ref]) > 0 {
-					l.nm[ref][side].drawTeammates(layerno, pno, l.fnt, side)
+				if slot == 0 && len(l.nm[layout]) > 0 {
+					l.nm[layout][side].drawTeammates(layerno, charpn, l.fnt, side)
 				}
 				// Draw active players
-				l.nm[ref][index].bgDraw(layerno)
-				l.nm[ref][index].draw(layerno, pno, l.fnt, side)
+				l.nm[layout][barpn].bgDraw(layerno)
+				l.nm[layout][barpn].draw(layerno, charpn, l.fnt, side)
 			})
 
 			// LifeBarRatio

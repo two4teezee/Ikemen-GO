@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"image"
 	"io"
-
 	//"log"
 	"math"
 	"os"
@@ -281,7 +280,6 @@ type System struct {
 	debugcsize          DebugClsn
 	debugch             DebugClsn
 	debugAccel          float32
-	debugApiServer      *DebugApiServer
 	clsnSpr             Sprite
 	clsnDisplay         bool
 	lifebarHide         bool
@@ -3612,9 +3610,6 @@ func (s *System) runMatch() (reload bool) {
 					s.luaLState.RaiseError("Error executing Lua code: %s\n%v", v.Script, err.Error())
 				}
 			}
-		}
-		if s.debugApiServer != nil {
-			s.debugApiServer.UpdateAndDump(s)
 		}
 
 		// Save/load state

@@ -430,20 +430,21 @@ func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale f
 			}
 
 			newLeft, newRight := oldLeft, oldRight
+			logicScale := 60.0 / float32(sys.gameLogicSpeed())
 			if !c.roundstart {
 				diff := float32(sys.gameWidth) / 3200
 				for i := 0; i < 3; i++ {
-					newLeft = newLeft + (targetLeft-newLeft)*0.05*sys.turbo*c.tensionvel
-					newRight = newRight + (targetRight-newRight)*0.05*sys.turbo*c.tensionvel
+					newLeft = newLeft + (targetLeft-newLeft)*0.05*logicScale*c.tensionvel
+					newRight = newRight + (targetRight-newRight)*0.05*logicScale*c.tensionvel
 					diffLeft := targetLeft - newLeft
 					diffRight := targetRight - newRight
 
-					if Abs(diffLeft) <= diff*sys.turbo*c.tensionvel {
+					if Abs(diffLeft) <= diff*logicScale*c.tensionvel {
 						newLeft = targetLeft
 					} else if diffLeft > 0 {
-						newLeft += diff * sys.turbo * c.tensionvel
+						newLeft += diff * logicScale * c.tensionvel
 					} else {
-						newLeft -= diff * sys.turbo * c.tensionvel
+						newLeft -= diff * logicScale * c.tensionvel
 					}
 					if newLeft-oldLeft > 0 && newLeft-oldLeft < c.rightestvel {
 						newLeft = Min(oldLeft+c.rightestvel, targetLeft)
@@ -451,12 +452,12 @@ func (c *Camera) action(x, y, scale float32, pause bool) (newX, newY, newScale f
 						newLeft = Max(oldLeft+c.leftestvel, targetLeft)
 					}
 
-					if Abs(diffRight) <= diff*sys.turbo*c.tensionvel {
+					if Abs(diffRight) <= diff*logicScale*c.tensionvel {
 						newRight = targetRight
 					} else if diffRight > 0 {
-						newRight += diff * sys.turbo * c.tensionvel
+						newRight += diff * logicScale * c.tensionvel
 					} else {
-						newRight -= diff * sys.turbo * c.tensionvel
+						newRight -= diff * logicScale * c.tensionvel
 					}
 					if newRight-oldRight > 0 && newRight-oldRight < c.rightestvel {
 						newRight = Min(oldRight+c.rightestvel, targetRight)

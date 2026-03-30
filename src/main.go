@@ -239,7 +239,6 @@ func processCommandLine() {
 			"-nojoy":          true,
 			"-nomusic":        true,
 			"-nosound":        true,
-			"-speedtest":      true,
 		}
 		key := ""
 		player := 1

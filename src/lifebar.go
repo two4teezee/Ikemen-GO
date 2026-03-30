@@ -5341,147 +5341,196 @@ func (l *Lifebar) draw(layerno int16) {
 		return
 	}
 	if !sys.lifebarHide && l.active && !sys.dialogueBarsFlg && (!sys.motif.me.active || !sys.motif.PauseMenu["pause_menu"].HideBars) {
+		// Helper to run a function for each active player's bars
+		// We will iterate backwards so that player 1 is drawn last and on top
+		forEach := func(fn func(side, slot, pno, index int)) {
+			// Iterate player slots globally, back to front
+			// We iterate slots first so that the order becomes P8-...-P1 instead of P8-P6-P4-P2-P7-P5-P3-P1
+			for slot := MaxSimul - 1; slot >= 0; slot-- {
+				// Iterate each team within the slot
+				for side := len(sys.tmode) - 1; side >= 0; side-- {
+					if slot >= len(l.order[side]) {
+						continue
+					}
+					pno := l.order[side][slot]
+					index := slot*2 + side
+					fn(side, slot, pno, index)
+				}
+			}
+		}
+
 		if !sys.gsf(GSF_nobardisplay) && l.bars {
-			// HealthBar
-			// We will iterate all of these backwards so that player 1 is drawn last and on top
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				for i, v := range l.order[ti] {
-					index := i*2 + ti
-					if !sys.chars[v][0].asf(ASF_nolifebardisplay) {
-						l.hb[l.ref[ti]][index].bgDraw(layerno)
-						l.hb[l.ref[ti]][index].draw(layerno, v, l.hb[l.ref[ti]][v], l.fnt)
-					}
+			// HealthBar backgrounds
+			// We split backgrounds and bars for the sake of backward compatibility
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/3461
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nolifebardisplay) {
+					return
 				}
-			}
-			// PowerBar
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				tm := sys.tmode[ti]
-				for i, v := range l.order[ti] {
-					index := i*2 + ti
-					if sys.cfg.Options.Team.PowerShare && (tm == TM_Simul || tm == TM_Tag) {
-						// Draw player 1 or 2 bars
-						if i == 0 && !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
-							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
-							l.pb[l.ref[ti]][index].draw(layerno, index, l.pb[l.ref[ti]][index], l.fnt)
-						}
-					} else {
-						// Draw everyone's bars
-						if !sys.chars[v][0].asf(ASF_nopowerbardisplay) {
-							l.pb[l.ref[ti]][index].bgDraw(layerno, index)
-							l.pb[l.ref[ti]][index].draw(layerno, v, l.pb[l.ref[ti]][v], l.fnt)
-						}
-					}
+				l.hb[l.ref[side]][index].bgDraw(layerno)
+			})
+
+			// HealthBar bars
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nolifebardisplay) {
+					return
 				}
-			}
+				l.hb[l.ref[side]][index].draw(layerno, pno, l.hb[l.ref[side]][pno], l.fnt)
+			})
+
+			// PowerBar backgrounds
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nopowerbardisplay) {
+					return
+				}
+				// If sharing is enabled, draw only the first bar
+				tm := sys.tmode[side]
+				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
+					return
+				}
+				l.pb[l.ref[side]][index].bgDraw(layerno, index)
+			})
+
+			// PowerBar bars
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nopowerbardisplay) {
+					return
+				}
+				// If sharing is enabled, draw only the first bar
+				tm := sys.tmode[side]
+				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
+					return
+				}
+				l.pb[l.ref[side]][index].draw(layerno, pno, l.pb[l.ref[side]][pno], l.fnt)
+			})
+
 			// GuardBar
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				for i, v := range l.order[ti] {
-					index := i*2 + ti
-					if sys.chars[v][0].guardBreakEnabled() && !sys.chars[v][0].asf(ASF_noguardbardisplay) {
-						l.gb[l.ref[ti]][index].bgDraw(layerno)
-						l.gb[l.ref[ti]][index].draw(layerno, v, l.gb[l.ref[ti]][v], l.fnt)
-					}
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if !c.guardBreakEnabled() || c.asf(ASF_noguardbardisplay) {
+					return
 				}
-			}
+				l.gb[l.ref[side]][index].bgDraw(layerno)
+				l.gb[l.ref[side]][index].draw(layerno, pno, l.gb[l.ref[side]][pno], l.fnt)
+			})
+
 			// StunBar
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				for i, v := range l.order[ti] {
-					index := i*2 + ti
-					if sys.chars[v][0].dizzyEnabled() && !sys.chars[v][0].asf(ASF_nostunbardisplay) {
-						l.sb[l.ref[ti]][index].bgDraw(layerno)
-						l.sb[l.ref[ti]][index].draw(layerno, v, l.sb[l.ref[ti]][v], l.fnt)
-					}
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if !c.dizzyEnabled() || c.asf(ASF_nostunbardisplay) {
+					return
 				}
-			}
+				l.sb[l.ref[side]][index].bgDraw(layerno)
+				l.sb[l.ref[side]][index].draw(layerno, pno, l.sb[l.ref[side]][pno], l.fnt)
+			})
+
 			// LifeBarFace
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				for i, v := range l.order[ti] {
-					if !sys.chars[v][0].asf(ASF_nofacedisplay) {
-						// Draw Turns teammates from the first bar only
-						if i == 0 && len(l.fa[l.ref[ti]]) > 0 {
-							l.fa[l.ref[ti]][ti].drawTeammates(layerno, v)
-						}
-						// Draw active players
-						index := i*2 + ti
-						l.fa[l.ref[ti]][index].bgDraw(layerno)
-						l.fa[l.ref[ti]][index].draw(layerno, v, l.fa[l.ref[ti]][v])
-					}
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nofacedisplay) {
+					return
 				}
-			}
+				// Draw Turns teammates from the first bar only
+				ref := l.ref[side]
+				if slot == 0 && len(l.fa[ref]) > 0 {
+					l.fa[ref][side].drawTeammates(layerno, pno)
+				}
+				// Draw active players
+				l.fa[ref][index].bgDraw(layerno)
+				l.fa[ref][index].draw(layerno, pno, l.fa[ref][pno])
+			})
+
 			// LifeBarName
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				for i, v := range l.order[ti] {
-					if !sys.chars[v][0].asf(ASF_nonamedisplay) {
-						// Draw Turns teammates from the first bar only
-						if i == 0 && len(l.nm[l.ref[ti]]) > 0 {
-							l.nm[l.ref[ti]][ti].drawTeammates(layerno, v, l.fnt, ti)
-						}
-						// Draw active players
-						index := i*2 + ti
-						l.nm[l.ref[ti]][index].bgDraw(layerno)
-						l.nm[l.ref[ti]][index].draw(layerno, v, l.fnt, ti)
+			forEach(func(side, slot, pno, index int) {
+				c := sys.chars[pno][0]
+				if c.asf(ASF_nonamedisplay) {
+					return
+				}
+				// Draw Turns teammates from the first bar only
+				ref := l.ref[side]
+				if slot == 0 && len(l.nm[ref]) > 0 {
+					l.nm[ref][side].drawTeammates(layerno, pno, l.fnt, side)
+				}
+				// Draw active players
+				l.nm[ref][index].bgDraw(layerno)
+				l.nm[ref][index].draw(layerno, pno, l.fnt, side)
+			})
+
+			// LifeBarRatio
+			for side := len(sys.tmode) - 1; side >= 0; side-- {
+				if sys.tmode[side] == TM_Turns {
+					rl := sys.chars[side][0].ocd().ratioLevel
+					if rl > 0 && !sys.chars[side][0].asf(ASF_nofacedisplay) {
+						l.ra[side].bgDraw(layerno)
+						l.ra[side].draw(layerno, rl-1)
 					}
 				}
 			}
+
 			// LifeBarTime
 			l.ti.bgDraw(layerno)
 			l.ti.draw(layerno, l.fnt)
+
 			// LifeBarWinIcon
+			// These are only one per team, so we don't use forEach()
 			for i := len(l.wi) - 1; i >= 0; i-- {
 				if !sys.chars[i][0].asf(ASF_nowinicondisplay) {
 					l.wi[i].draw(layerno, l.fnt, i)
 				}
 			}
-			// LifeBarRatio
-			for ti := len(sys.tmode) - 1; ti >= 0; ti-- {
-				tm := sys.tmode[ti]
-				if tm == TM_Turns {
-					if rl := sys.chars[ti][0].ocd().ratioLevel; rl > 0 && !sys.chars[ti][0].asf(ASF_nofacedisplay) {
-						l.ra[ti].bgDraw(layerno)
-						l.ra[ti].draw(layerno, rl-1)
-					}
-				}
-			}
+
 			// LifeBarTimer
 			l.tr.bgDraw(layerno)
 			l.tr.draw(layerno, l.fnt)
+
 			// LifeBarScore
 			for i := len(l.sc) - 1; i >= 0; i-- {
 				l.sc[i].bgDraw(layerno)
 				l.sc[i].draw(layerno, l.fnt, i)
 			}
+
 			// LifeBarMatch
 			l.ma.bgDraw(layerno)
 			l.ma.draw(layerno, l.fnt)
+
 			// LifeBarAiLevel
 			for i := len(l.ai) - 1; i >= 0; i-- {
 				l.ai[i].bgDraw(layerno)
 				l.ai[i].draw(layerno, l.fnt, sys.aiLevel[sys.chars[i][0].playerNo])
 			}
+
 			// LifeBarWinCount
 			for i := len(l.wc) - 1; i >= 0; i-- {
 				l.wc[i].bgDraw(layerno)
 				l.wc[i].draw(layerno, l.fnt, i)
 			}
 		}
+
 		// LifeBarCombo
 		for i := len(l.co) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nocombodisplay) {
 				l.co[i].draw(layerno, l.fnt, i)
 			}
 		}
+
 		// LifeBarAction
 		for i := len(l.ac) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nolifebaraction) {
 				l.ac[i].draw(layerno, l.fnt, i)
 			}
 		}
+
 		// LifeBarMode
 		if _, ok := l.mo[sys.gameMode]; ok {
 			l.mo[sys.gameMode].bgDraw(layerno)
 			l.mo[sys.gameMode].draw(layerno, l.fnt)
 		}
 	}
+
 	if l.active {
 		// LifeBarRound
 		l.ro.draw(layerno, l.fnt)

@@ -3286,16 +3286,19 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	// Fight call
 	if ro.fightDisplayPhase < 2 { // A bit redundant but matches the other screens
 		if ro.fightDisplayPhase == 0 {
-			// Handle delay between Round and Fight (callfight.time)
-			if ro.roundDisplayPhase == 2 && ro.fightDisplayTimer >= ro.callfight_time {
-				ro.fight.Reset()
-				ro.fight_top.Reset()
-				ro.fightDisplayPhase = 1
-				ro.fightDisplayTimer = 0 // Reset timer so we can reuse it for the actual Fight display
-				sys.timerCount = append(sys.timerCount, sys.matchTime)
-				ro.timerActive = true
-			} else {
-				ro.fightDisplayTimer++
+			// Handle delay between Round and Fight
+			// Fight will start "callfight.time" frames after Round has started
+			if ro.roundDisplayPhase > 0 {
+				if ro.fightDisplayTimer >= ro.callfight_time {
+					ro.fight.Reset()
+					ro.fight_top.Reset()
+					ro.fightDisplayPhase = 1
+					ro.fightDisplayTimer = 0 // Reset timer so we can reuse it for the actual Fight display
+					sys.timerCount = append(sys.timerCount, sys.matchTime)
+					ro.timerActive = true
+				} else {
+					ro.fightDisplayTimer++
+				}
 			}
 		} else if ro.fightDisplayPhase == 1 {
 			// Active phase

@@ -2385,7 +2385,7 @@ func (s *System) runIntroSkip() {
 	}
 
 	// If too late to skip intros
-	if s.intro <= s.lifebar.ro.ctrl_time || s.lifebar.ro.current >= 1 {
+	if s.intro <= s.lifebar.ro.ctrl_time || s.lifebar.ro.roundDisplayPhase >= 1 { // Latter is probably redundant
 		return
 	}
 

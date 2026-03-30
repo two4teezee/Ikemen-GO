@@ -8134,13 +8134,13 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "fightScreenState", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "fightdisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.triggerFightDisplay))
+			l.Push(lua.LBool(sys.lifebar.ro.fightDisplayPhase == 1))
 		case "kodisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.triggerKODisplay))
+			l.Push(lua.LBool(sys.lifebar.ro.koDisplayPhase == 1))
 		case "rounddisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.triggerFightDisplay))
+			l.Push(lua.LBool(sys.lifebar.ro.roundDisplayPhase == 1))
 		case "windisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.triggerWinDisplay))
+			l.Push(lua.LBool(sys.lifebar.ro.winDisplayPhase == 1))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

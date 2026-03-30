@@ -2778,7 +2778,7 @@ type LifeBarRound struct {
 	round_time          int32
 	round_sndtime       int32
 	roundDisplayTimer   int32
-	roundDisplayEnded   bool
+	roundDisplayPhase   int32
 	round               [9]AnimTextSnd
 	round_default       AnimTextSnd
 	round_default_top   AnimLayout
@@ -2792,7 +2792,7 @@ type LifeBarRound struct {
 	fight_time          int32
 	fight_sndtime       int32
 	fightDisplayTimer   int32
-	fightDisplayEnded   bool
+	fightDisplayPhase   int32
 	fight               AnimTextSnd
 	fight_top           AnimLayout
 	fight_bg            [32]AnimLayout
@@ -2800,7 +2800,7 @@ type LifeBarRound struct {
 	ko_time             int32
 	ko_sndtime          int32
 	koDisplayTimer      int32
-	koDisplayEnded      bool
+	koDisplayPhase      int32
 	dko_time            int32
 	dko_sndtime         int32
 	dko_showdraw        bool
@@ -2824,7 +2824,7 @@ type LifeBarRound struct {
 	win_time            int32
 	win_sndtime         int32
 	winDisplayTimer     int32
-	winDisplayEnded     bool
+	winDisplayPhase     int32
 	win                 [4]ResultAnnouncement
 	aiLose              [4]ResultAnnouncement
 	aiWin               [4]ResultAnnouncement
@@ -2833,7 +2833,6 @@ type LifeBarRound struct {
 	drawgame            AnimTextSnd
 	drawgame_top        AnimLayout
 	drawgame_bg         [32]AnimLayout
-	current             int32 // 0 pre-intro, 1 fight call, 2 fight call over (KO screen allowed)
 	timerActive         bool
 	winType             [WT_NumTypes * 2]LbBgTextSnd
 	fadeIn              *Fade
@@ -2843,10 +2842,6 @@ type LifeBarRound struct {
 	shutter_col         uint32
 	callfight_time      int32
 	clutch_threshold    int32
-	triggerRoundDisplay bool // FightScreenState trigger
-	triggerFightDisplay bool
-	triggerKODisplay    bool
-	triggerWinDisplay   bool
 	//match_wins          [2]int32 // Handled by system
 	//match_maxdrawgames  [2]int32 // Handled by system
 }
@@ -2865,7 +2860,7 @@ func newLifeBarRound(snd *Snd) *LifeBarRound {
 		over_forcewintime: 900, // Hardcoded in Mugen
 		over_time:         210,
 		shutter_time:      15,
-		callfight_time:    60,
+		callfight_time:    60, // Hardcoded in Mugen
 		clutch_threshold:  10,
 		//match_wins:         [...]int32{2, 2},
 		//match_maxdrawgames: [...]int32{1, 1},
@@ -3117,13 +3112,6 @@ func (ro *LifeBarRound) overTime() int32 {
 
 // Check is sys.intro timer should step
 func (ro *LifeBarRound) act() bool {
-	// Reset FightScreenState trigger flags
-	// This method is easier and more accurate than computing the times again for the trigger
-	ro.triggerRoundDisplay = false
-	ro.triggerFightDisplay = false
-	ro.triggerKODisplay = false
-	ro.triggerWinDisplay = false
-
 	// Early exits
 	if (sys.paused && !sys.frameStepFlag) || sys.gsf(GSF_roundfreeze) {
 		return false
@@ -3147,8 +3135,10 @@ func (ro *LifeBarRound) act() bool {
 
 	// Pre-intro
 	if sys.intro > ro.ctrl_time {
-		ro.current = 0
-		ro.roundDisplayTimer = 0 // TODO: These "elapsed" resets are probably obsolete now
+		// TODO: These resets are probably obsolete now
+		ro.roundDisplayPhase = 0
+		ro.fightDisplayPhase = 0
+		ro.roundDisplayTimer = 0
 		ro.fightDisplayTimer = 0
 	} else if (sys.intro >= 0 && !sys.tickNextFrame()) || sys.motif.di.active || ro.shutterTimer > 0 {
 		// Skip announcements during the middle of the round, "shuttertime" or dialogues
@@ -3156,14 +3146,14 @@ func (ro *LifeBarRound) act() bool {
 		return false
 	} else {
 		// Intro
-		if !ro.roundDisplayEnded || !ro.fightDisplayEnded {
+		if ro.roundDisplayPhase < 2 || ro.fightDisplayPhase < 2 {
 			ro.handleRoundIntro()
 		}
 		// Outro
-		if ro.current == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
+		if ro.fightDisplayPhase == 2 && sys.intro < 0 && (sys.finishType != FT_NotYet || sys.curRoundTime == 0) {
 			ro.handleRoundOutro()
 		} else {
-			return ro.current > 0
+			return ro.fightDisplayPhase > 0
 		}
 	}
 	return sys.tickNextFrame()
@@ -3185,18 +3175,18 @@ func (ro *LifeBarRound) handleRoundIntro() {
 	// Previously skipping the char intros took us to the fight call, like Mugen
 	// Most games go to the round call instead so this was changed
 	//if sys.introSkipped && !sys.dialogueFlg {
-	//	ro.roundDisplayEnded = true
+	//	ro.roundDisplayPhase = 2
 	//	ro.callFight()
 	//	sys.introSkipped = false
 	//}
 
 	// Skip round call
 	if sys.gsf(GSF_skiprounddisplay) {
-		ro.roundDisplayEnded = true
+		ro.roundDisplayPhase = 2
 	}
 
 	// Round call
-	if !ro.roundDisplayEnded {
+	if ro.roundDisplayPhase < 2 {
 		roundNum := sys.round
 		if sys.sel.gameParams.PersistRounds {
 			roundNum = sys.persistRoundCount
@@ -3215,100 +3205,105 @@ func (ro *LifeBarRound) handleRoundIntro() {
 		}
 		// Animations
 		if ro.roundDisplayTimer >= ro.round_time {
-			ro.triggerRoundDisplay = true
+			ro.roundDisplayPhase = 1
+			animTime := ro.roundDisplayTimer - ro.round_time + 1 // Because animations start on frame 1 rather than 0
 			if sys.roundIsSingle() && ro.round_single.snd[0] != -1 {
-				if len(ro.round_single_top.anim.frames) > 0 {
-					ro.round_single_top.Action()
+				if ro.round_single.End(animTime, true) && ro.round_default.End(animTime, true) {
+					ro.roundDisplayPhase = 2
 				} else {
-					ro.round_default_top.Action()
-				}
-				ro.round_single.Action()
-				ro.round_default.Action()
-				if len(ro.round_single_bg[0].anim.frames) > 0 {
-					for i := len(ro.round_single_bg) - 1; i >= 0; i-- {
-						ro.round_single_bg[i].Action()
+					if len(ro.round_single_top.anim.frames) > 0 {
+						ro.round_single_top.Action()
+					} else {
+						ro.round_default_top.Action()
 					}
-				} else {
-					for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-						ro.round_default_bg[i].Action()
+					ro.round_single.Action()
+					ro.round_default.Action()
+					if len(ro.round_single_bg[0].anim.frames) > 0 {
+						for i := len(ro.round_single_bg) - 1; i >= 0; i-- {
+							ro.round_single_bg[i].Action()
+						}
+					} else {
+						for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+							ro.round_default_bg[i].Action()
+						}
 					}
 				}
-				animTime := ro.roundDisplayTimer - ro.round_time + 1
-				ro.roundDisplayEnded = ro.round_single.End(animTime, true) && ro.round_default.End(animTime, true)
 			} else if sys.roundIsFinal() && ro.round_final.snd[0] != -1 {
-				if len(ro.round_final_top.anim.frames) > 0 {
-					ro.round_final_top.Action()
+				if ro.round_final.End(animTime, true) && ro.round_default.End(animTime, true) {
+					ro.roundDisplayPhase = 2
+				} else {
+					if len(ro.round_final_top.anim.frames) > 0 {
+						ro.round_final_top.Action()
+					} else {
+						ro.round_default_top.Action()
+					}
+					ro.round_final.Action()
+					ro.round_default.Action()
+					if len(ro.round_final_bg[0].anim.frames) > 0 {
+						for i := len(ro.round_final_bg) - 1; i >= 0; i-- {
+							ro.round_final_bg[i].Action()
+						}
+					} else {
+						for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+							ro.round_default_bg[i].Action()
+						}
+					}
+				}
+			} else if int(roundNum) <= len(ro.round) {
+				if ro.round[roundNum-1].End(animTime, true) && ro.round_default.End(animTime, true) {
+					ro.roundDisplayPhase = 2
 				} else {
 					ro.round_default_top.Action()
-				}
-				ro.round_final.Action()
-				ro.round_default.Action()
-				if len(ro.round_final_bg[0].anim.frames) > 0 {
-					for i := len(ro.round_final_bg) - 1; i >= 0; i-- {
-						ro.round_final_bg[i].Action()
-					}
-				} else {
+					ro.round[roundNum-1].Action()
+					ro.round_default.Action()
 					for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
 						ro.round_default_bg[i].Action()
 					}
 				}
-				animTime := ro.roundDisplayTimer - ro.round_time + 1
-				ro.roundDisplayEnded = ro.round_final.End(animTime, true) && ro.round_default.End(animTime, true)
-			} else if int(roundNum) <= len(ro.round) {
-				ro.round_default_top.Action()
-				ro.round[roundNum-1].Action()
-				ro.round_default.Action()
-				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-					ro.round_default_bg[i].Action()
-				}
-				animTime := ro.roundDisplayTimer - ro.round_time + 1
-				ro.roundDisplayEnded = ro.round[roundNum-1].End(animTime, true) && ro.round_default.End(animTime, true)
 			} else {
-				ro.round_default_top.Action()
-				ro.round_default.Action()
-				for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
-					ro.round_default_bg[i].Action()
+				if ro.round_default.End(animTime, true) {
+					ro.roundDisplayPhase = 2
+				} else {
+					ro.round_default_top.Action()
+					ro.round_default.Action()
+					for i := len(ro.round_default_bg) - 1; i >= 0; i-- {
+						ro.round_default_bg[i].Action()
+					}
 				}
-				animTime := ro.roundDisplayTimer - ro.round_time + 1
-				ro.roundDisplayEnded = ro.round_default.End(animTime, true)
 			}
 		}
 		ro.roundDisplayTimer++
 	}
 
-	endFightCall := func() {
-		ro.current = 2
-		ro.fightDisplayEnded = true
-	}
-
 	// Skip fight call
 	// Cannot be skipped unless round call is finished or also skipped
-	if ro.roundDisplayEnded && sys.gsf(GSF_skipfightdisplay) {
-		endFightCall()
+	if ro.roundDisplayPhase == 2 && sys.gsf(GSF_skipfightdisplay) {
+		ro.fightDisplayPhase = 2
 		if sys.intro > 1 {
 			sys.intro = 1 // Skip ctrl waiting time
 		}
 	}
 
 	// Fight call
-	if !ro.fightDisplayEnded {
-		if ro.current == 0 {
-			if ro.roundDisplayEnded && ro.fightDisplayTimer >= ro.callfight_time {
+	if ro.fightDisplayPhase < 2 { // A bit redundant but matches the other screens
+		if ro.fightDisplayPhase == 0 {
+			// Handle delay between Round and Fight (callfight.time)
+			if ro.roundDisplayPhase == 2 && ro.fightDisplayTimer >= ro.callfight_time {
 				ro.fight.Reset()
 				ro.fight_top.Reset()
-				ro.current = 1
-				ro.fightDisplayTimer = 0
+				ro.fightDisplayPhase = 1
+				ro.fightDisplayTimer = 0 // Reset timer so we can reuse it for the actual Fight display
 				sys.timerCount = append(sys.timerCount, sys.matchTime)
 				ro.timerActive = true
 			} else {
 				ro.fightDisplayTimer++
 			}
-		} else if !ro.fightDisplayEnded {
+		} else if ro.fightDisplayPhase == 1 {
+			// Active phase
 			if ro.fightDisplayTimer == ro.fight_sndtime {
 				ro.snd.play(ro.fight.snd, 100, 0, 0, 0, 0)
 			}
 			if ro.fightDisplayTimer >= ro.fight_time {
-				ro.triggerFightDisplay = true
 				ro.fight_top.Action()
 				ro.fight.Action()
 				for i := len(ro.fight_bg) - 1; i >= 0; i-- {
@@ -3316,7 +3311,7 @@ func (ro *LifeBarRound) handleRoundIntro() {
 				}
 				animTime := ro.fightDisplayTimer - ro.fight_time + 1
 				if ro.fight.End(animTime, true) && ro.fightDisplayTimer >= ro.fight_sndtime {
-					endFightCall()
+					ro.fightDisplayPhase = 2
 				}
 			}
 			ro.fightDisplayTimer++
@@ -3343,25 +3338,22 @@ func (ro *LifeBarRound) handleRoundOutro() {
 		}
 		// Play animations
 		if elapsed >= time+delay {
-			frame := elapsed - (time + delay) + 1
-			active := !ats.End(frame, false)
-			if active {
-				ats.Action()
-				// Flag FightScreenState while anims are playing
+			animTime := elapsed - (time + delay) + 1
+
+			if ats.End(animTime, false) {
 				switch name { // TODO: We only need a name string here because KO and Win announcements have different data types
-				case "ko": //&ro.ko, &ro.dko, &ro.to:
-					ro.triggerKODisplay = true
-				case "win": //&ro.win:
-					ro.triggerWinDisplay = true
-				default:
-					panic("Unknown string for stepCallTimers") // Ensure the string is correct while we still need one. Temporary
+				case "ko":
+					ro.koDisplayPhase = 2
+				case "win":
+					ro.winDisplayPhase = 2
 				}
 			} else {
+				ats.Action()
 				switch name {
 				case "ko":
-					ro.koDisplayEnded = true
+					ro.koDisplayPhase = 1
 				case "win":
-					ro.winDisplayEnded = true
+					ro.winDisplayPhase = 1
 				}
 			}
 		}
@@ -3369,11 +3361,11 @@ func (ro *LifeBarRound) handleRoundOutro() {
 
 	// Skip KO screen
 	if sys.gsf(GSF_skipkodisplay) {
-		ro.koDisplayEnded = true
+		ro.koDisplayPhase = 2
 	}
 
 	// KO screen
-	if !ro.koDisplayEnded {
+	if ro.koDisplayPhase < 2 {
 		var ats *AnimTextSnd
 		var top *AnimLayout
 		var bg *[32]AnimLayout
@@ -3381,6 +3373,7 @@ func (ro *LifeBarRound) handleRoundOutro() {
 
 		// Mugen deliberately delays these screens for some reason
 		// It's not even related to the over.hittime parameter
+		// This is probably always unwanted, but we'll limit it to "mugenversion" for now
 		var delay int32
 		if sys.lifebar.ikemenver[0] == 0 && sys.lifebar.ikemenver[1] == 0 {
 			delay = 10
@@ -3409,11 +3402,11 @@ func (ro *LifeBarRound) handleRoundOutro() {
 
 	// Skip winner announcement
 	if sys.gsf(GSF_skipwindisplay) {
-		ro.winDisplayEnded = true
+		ro.winDisplayPhase = 2
 	}
 
 	// Winner announcement
-	if !ro.winDisplayEnded && sys.intro < -(ro.over_waittime) {
+	if ro.winDisplayPhase < 2 && sys.intro < -(ro.over_waittime) {
 		wt := sys.winTeam
 		if wt < 0 {
 			wt = 0
@@ -3489,7 +3482,6 @@ func (ro *LifeBarRound) handleRoundOutro() {
 }
 
 func (ro *LifeBarRound) reset() {
-	ro.current = 0
 	ro.shutterTimer = 0
 	ro.fadeOut.reset()
 	ro.fadeIn.init(ro.fadeIn, true)
@@ -3547,10 +3539,10 @@ func (ro *LifeBarRound) reset() {
 	ro.fightDisplayTimer = 0
 	ro.koDisplayTimer = 0
 	ro.winDisplayTimer = 0
-	ro.roundDisplayEnded = false
-	ro.fightDisplayEnded = false
-	ro.koDisplayEnded = false
-	ro.winDisplayEnded = false
+	ro.roundDisplayPhase = 0
+	ro.fightDisplayPhase = 0
+	ro.koDisplayPhase = 0
+	ro.winDisplayPhase = 0
 }
 
 func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
@@ -3559,8 +3551,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 	sys.brightness = 1.0
 
 	// Round call animations
-	if !ro.roundDisplayEnded && ro.roundDisplayTimer >= ro.round_time && sys.intro <= ro.ctrl_time {
-
+	if ro.roundDisplayPhase == 1 {
 		// Draw default round background
 		for i := range ro.round_default_bg {
 			ro.round_default_bg[i].Draw(
@@ -3667,7 +3658,7 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 	}
 
 	// "Fight!" animations
-	if !ro.fightDisplayEnded && ro.current == 1 && ro.fightDisplayTimer >= ro.fight_time {
+	if ro.fightDisplayPhase == 1 {
 		for i := range ro.fight_bg {
 			ro.fight_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 		}
@@ -3675,141 +3666,140 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 		ro.fight_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 	}
 
-	if ro.current == 2 {
-		// KO animations
-		if !ro.koDisplayEnded {
-			var ats *AnimTextSnd
-			var top *AnimLayout
-			var bg *[32]AnimLayout
-			var time int32
+	// KO animations
+	if ro.koDisplayPhase == 1 {
+		var ats *AnimTextSnd
+		var top *AnimLayout
+		var bg *[32]AnimLayout
+		var time int32
 
-			var delay int32
-			if sys.lifebar.ikemenver[0] == 0 && sys.lifebar.ikemenver[1] == 0 {
-				delay = 10
-			}
-
-			switch sys.finishType {
-			case FT_DKO:
-				ats, top, bg = &ro.dko, &ro.dko_top, &ro.dko_bg
-				time = ro.dko_time
-			case FT_TO, FT_TODraw:
-				ats, top, bg = &ro.to, &ro.to_top, &ro.to_bg
-				time = ro.to_time
-			default:
-				ats, top, bg = &ro.ko, &ro.ko_top, &ro.ko_bg
-				time = ro.ko_time
-			}
-
-			if ro.koDisplayTimer >= time+delay {
-				for i := range bg {
-					bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-				}
-				ats.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-				top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-			}
+		var delay int32
+		if sys.lifebar.ikemenver[0] == 0 && sys.lifebar.ikemenver[1] == 0 {
+			delay = 10
 		}
-		// Winner announcement
-		if !ro.winDisplayEnded && ro.winDisplayTimer >= ro.win_time {
-			wt := sys.winTeam
-			if wt < 0 {
-				wt = 0
+
+		switch sys.finishType {
+		case FT_DKO:
+			ats, top, bg = &ro.dko, &ro.dko_top, &ro.dko_bg
+			time = ro.dko_time
+		case FT_TO, FT_TODraw:
+			ats, top, bg = &ro.to, &ro.to_top, &ro.to_bg
+			time = ro.to_time
+		default:
+			ats, top, bg = &ro.ko, &ro.ko_top, &ro.ko_bg
+			time = ro.ko_time
+		}
+
+		if ro.koDisplayTimer >= time+delay {
+			for i := range bg {
+				bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			}
-			lt := wt ^ 1
-			if sys.finishType == FT_TODraw || (sys.finishType == FT_DKO && ro.dko_showdraw) {
-				for i := range ro.drawgame_bg {
-					ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+			ats.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+			top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+		}
+	}
+
+	// Winner announcement
+	if ro.winDisplayPhase == 1 {
+		wt := sys.winTeam
+		if wt < 0 {
+			wt = 0
+		}
+		lt := wt ^ 1
+		if sys.finishType == FT_TODraw || (sys.finishType == FT_DKO && ro.dko_showdraw) {
+			for i := range ro.drawgame_bg {
+				ro.drawgame_bg[i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+			}
+			ro.drawgame.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+			ro.drawgame_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+		} else if sys.winTeam >= 0 {
+			isPlayerWin, isAiWin := false, false
+			for i := wt; i < len(sys.chars); i += 2 {
+				if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+					isPlayerWin = true
+					break
 				}
-				ro.drawgame.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-				ro.drawgame_top.Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-			} else if sys.winTeam >= 0 {
-				isPlayerWin, isAiWin := false, false
-				for i := wt; i < len(sys.chars); i += 2 {
-					if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
-						isPlayerWin = true
-						break
+			}
+			for i := lt; i < len(sys.chars); i += 2 {
+				if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
+					isAiWin = true
+					break
+				}
+			}
+			var res *ResultAnnouncement
+			activeTeam := wt
+
+			idxL := sys.numSimul[lt] - 1
+			if idxL < 0 {
+				idxL = 0
+			}
+
+			idxW := sys.numSimul[wt] - 1
+			if idxW < 0 {
+				idxW = 0
+			}
+
+			if isAiWin && !isPlayerWin && ro.aiWinExists[lt][idxL] {
+				// player lose vs ai opponent
+				activeTeam = lt
+				res = &ro.aiWin[idxL]
+			} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
+				// player win vs ai opponent
+				res = &ro.aiLose[idxW]
+			} else {
+				// default win
+				res = &ro.win[idxW]
+			}
+			// BGs
+			for i := range res.bg[activeTeam] {
+				res.bg[activeTeam][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+			}
+			// Text
+			oldTxt := res.text[activeTeam].text.text
+			var args []interface{}
+			for i := activeTeam; i < len(sys.chars); i += 2 {
+				if len(sys.chars[i]) > 0 {
+					if strings.Contains(oldTxt, "%d") {
+						args = append(args, i+1) // playerNum
+					}
+					if strings.Contains(oldTxt, "%s") {
+						args = append(args, sys.cgi[i].displayname)
 					}
 				}
-				for i := lt; i < len(sys.chars); i += 2 {
-					if len(sys.chars[i]) > 0 && sys.aiLevel[i] == 0 {
-						isAiWin = true
-						break
-					}
-				}
-				var res *ResultAnnouncement
-				activeTeam := wt
-
-				idxL := sys.numSimul[lt] - 1
-				if idxL < 0 {
-					idxL = 0
-				}
-
-				idxW := sys.numSimul[wt] - 1
-				if idxW < 0 {
-					idxW = 0
-				}
-
-				if isAiWin && !isPlayerWin && ro.aiWinExists[lt][idxL] {
-					// player lose vs ai opponent
-					activeTeam = lt
-					res = &ro.aiWin[idxL]
-				} else if !isAiWin && isPlayerWin && ro.aiLoseExists[wt][idxW] {
-					// player win vs ai opponent
-					res = &ro.aiLose[idxW]
-				} else {
-					// default win
-					res = &ro.win[idxW]
-				}
-				// BGs
-				for i := range res.bg[activeTeam] {
-					res.bg[activeTeam][i].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
-				}
-				// Text
-				oldTxt := res.text[activeTeam].text.text
-				var args []interface{}
-				for i := activeTeam; i < len(sys.chars); i += 2 {
-					if len(sys.chars[i]) > 0 {
-						if strings.Contains(oldTxt, "%d") {
-							args = append(args, i+1) // playerNum
-						}
-						if strings.Contains(oldTxt, "%s") {
-							args = append(args, sys.cgi[i].displayname)
-						}
-					}
-				}
-				if len(args) > 0 {
-					res.text[activeTeam].text.text = OldSprintf(oldTxt, args...)
-				}
-				res.text[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
-				res.text[activeTeam].text.text = oldTxt
-				// Top
-				res.top[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
 			}
-			// Perfect and other special win types
-			if sys.winTeam >= 0 {
-				index := sys.winType[sys.winTeam]
-				clutch, perfect := false, false
-
-				if index >= WT_CNormal {
-					clutch = true
-					index -= (WT_CNormal - WT_Normal)
-				} else if index >= WT_PNormal {
-					perfect = true
-					index -= (WT_PNormal - WT_Normal)
-				}
-				p2offset := WinType(0)
-				if sys.winTeam == 1 {
-					p2offset = WT_NumTypes
-				}
-				if clutch {
-					ro.winType[WT_Clutch+p2offset].bgDraw(layerno)
-					ro.winType[WT_Clutch+p2offset].draw(layerno, f)
-				} else if perfect {
-					ro.winType[WT_Perfect+p2offset].bgDraw(layerno)
-					ro.winType[WT_Perfect+p2offset].draw(layerno, f)
-				}
-				ro.winType[index+p2offset].bgDraw(layerno)
-				ro.winType[index+p2offset].draw(layerno, f)
+			if len(args) > 0 {
+				res.text[activeTeam].text.text = OldSprintf(oldTxt, args...)
 			}
+			res.text[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, f, sys.lifebar.scale)
+			res.text[activeTeam].text.text = oldTxt
+			// Top
+			res.top[activeTeam].Draw(float32(ro.pos[0])+sys.lifebar.offsetX, float32(ro.pos[1]), layerno, sys.lifebar.scale)
+		}
+		// Perfect and other special win types
+		if sys.winTeam >= 0 {
+			index := sys.winType[sys.winTeam]
+			clutch, perfect := false, false
+
+			if index >= WT_CNormal {
+				clutch = true
+				index -= (WT_CNormal - WT_Normal)
+			} else if index >= WT_PNormal {
+				perfect = true
+				index -= (WT_PNormal - WT_Normal)
+			}
+			p2offset := WinType(0)
+			if sys.winTeam == 1 {
+				p2offset = WT_NumTypes
+			}
+			if clutch {
+				ro.winType[WT_Clutch+p2offset].bgDraw(layerno)
+				ro.winType[WT_Clutch+p2offset].draw(layerno, f)
+			} else if perfect {
+				ro.winType[WT_Perfect+p2offset].bgDraw(layerno)
+				ro.winType[WT_Perfect+p2offset].draw(layerno, f)
+			}
+			ro.winType[index+p2offset].bgDraw(layerno)
+			ro.winType[index+p2offset].draw(layerno, f)
 		}
 	}
 

@@ -3552,32 +3552,32 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.indexTrigger())
 	case OC_ex2_fightscreenvar_info_author:
 		authStr := be.ReadPoolStringAt(i)
-		sys.bcStack.PushB(sys.lifebar.authorLow == authStr)
+		sys.bcStack.PushB(sys.fightScreen.authorLow == authStr)
 	case OC_ex2_fightscreenvar_info_localcoord_x:
-		sys.bcStack.PushI(sys.lifebar.localcoord[0])
+		sys.bcStack.PushI(sys.fightScreen.localcoord[0])
 	case OC_ex2_fightscreenvar_info_localcoord_y:
-		sys.bcStack.PushI(sys.lifebar.localcoord[1])
+		sys.bcStack.PushI(sys.fightScreen.localcoord[1])
 	case OC_ex2_fightscreenvar_info_name:
 		nameStr := be.ReadPoolStringAt(i)
-		sys.bcStack.PushB(sys.lifebar.nameLow == nameStr)
+		sys.bcStack.PushB(sys.fightScreen.nameLow == nameStr)
 	case OC_ex2_fightscreenvar_round_ctrl_time:
-		sys.bcStack.PushI(sys.lifebar.ro.ctrl_time)
+		sys.bcStack.PushI(sys.fightScreen.ro.ctrl_time)
 	case OC_ex2_fightscreenvar_round_over_hittime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_hittime)
+		sys.bcStack.PushI(sys.fightScreen.ro.over_hittime)
 	case OC_ex2_fightscreenvar_round_over_time:
-		sys.bcStack.PushI(sys.lifebar.ro.over_time)
+		sys.bcStack.PushI(sys.fightScreen.ro.over_time)
 	case OC_ex2_fightscreenvar_round_over_waittime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_waittime)
+		sys.bcStack.PushI(sys.fightScreen.ro.over_waittime)
 	case OC_ex2_fightscreenvar_round_over_wintime:
-		sys.bcStack.PushI(sys.lifebar.ro.over_wintime)
+		sys.bcStack.PushI(sys.fightScreen.ro.over_wintime)
 	case OC_ex2_fightscreenvar_round_slow_time:
-		sys.bcStack.PushI(sys.lifebar.ro.slow_time)
+		sys.bcStack.PushI(sys.fightScreen.ro.slow_time)
 	case OC_ex2_fightscreenvar_round_start_waittime:
-		sys.bcStack.PushI(sys.lifebar.ro.start_waittime)
+		sys.bcStack.PushI(sys.fightScreen.ro.start_waittime)
 	case OC_ex2_fightscreenvar_round_callfight_time:
-		sys.bcStack.PushI(sys.lifebar.ro.callfight_time)
+		sys.bcStack.PushI(sys.fightScreen.ro.callfight_time)
 	case OC_ex2_fightscreenvar_time_framespercount:
-		sys.bcStack.PushI(sys.lifebar.ti.framespercount)
+		sys.bcStack.PushI(sys.fightScreen.ti.framespercount)
 	case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
@@ -3987,13 +3987,13 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 	// FightScreenState
 	case OC_ex2_fightscreenstate_fightdisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.fightDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.ro.fightDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_kodisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.koDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.ro.koDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_rounddisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.roundDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.ro.roundDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_windisplay:
-		sys.bcStack.PushB(sys.lifebar.ro.winDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.ro.winDisplayPhase == 1)
 	// MotifState
 	case OC_ex2_motifstate_challenger:
 		sys.bcStack.PushB(sys.motif.ch.active)
@@ -11706,7 +11706,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	snd := [2]int32{-1, 0}
 
 	// Initialize a text message with defaults
-	msg := newLbMsg(crun.teamside)
+	msg := newFSMsg(crun.teamside)
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -11758,11 +11758,11 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	})
 
 	if msg.resttime < 0 {
-		msg.resttime = sys.lifebar.ac[crun.teamside].displaytime
+		msg.resttime = sys.fightScreen.ac[crun.teamside].displaytime
 	}
 	msg.resttime = int32(float32(msg.resttime) * timemul)
 
-	sys.lifebar.appendAction(crun, msg, s_ffx, a_ffx, snd, spr, anim, top)
+	sys.fightScreen.appendAction(crun, msg, s_ffx, a_ffx, snd, spr, anim, top)
 	return false
 }
 
@@ -12974,7 +12974,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 
 			switch fflg {
 			case "f":
-				fntList = sys.lifebar.fnt
+				fntList = sys.fightScreen.fnt
 			case "m":
 				fntList = sys.motif.Fnt
 			}
@@ -12983,7 +12983,7 @@ func (sc text) Run(c *Char, _ []int32) bool {
 					ts.fnt = f
 					switch fflg {
 					case "f":
-						sourceLcx = sys.lifebar.localcoord[0]
+						sourceLcx = sys.fightScreen.localcoord[0]
 					case "m":
 						sourceLcx = sys.motif.Info.Localcoord[0]
 					default:
@@ -13178,7 +13178,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 
 				switch fflg {
 				case "f":
-					fntList = sys.lifebar.fnt
+					fntList = sys.fightScreen.fnt
 				case "m":
 					fntList = sys.motif.Fnt
 				}
@@ -13189,7 +13189,7 @@ func (sc modifyText) Run(c *Char, _ []int32) bool {
 							ts.fnt = f
 							switch fflg {
 							case "f":
-								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.lifebar.localcoord[0])
+								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.fightScreen.localcoord[0])
 							case "m":
 								ts.scaleRatio = float32(c.gi().localcoord[0]) / float32(sys.motif.Info.Localcoord[0])
 							default:

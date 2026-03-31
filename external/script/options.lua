@@ -257,7 +257,7 @@ options.t_itemname = {
 			--modifyGameOption('Input.UiRepeatDelay', 30)
 			--modifyGameOption('Input.UiRepeatRate', 4)
 
-			loadLifebar(motif.files.fight)
+			loadFightScreen(motif.files.fight)
 			setPlayers()
 			for _, v in ipairs(options.t_vardisplayPointers) do
 				v.vardisplay = options.f_vardisplay(v.itemname)

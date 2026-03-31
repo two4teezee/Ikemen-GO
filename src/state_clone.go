@@ -468,141 +468,141 @@ func (cl *CommandList) Clone(a *arena.Arena) (result CommandList) {
 	return
 }
 
-func (l *Lifebar) Clone(a *arena.Arena) (result Lifebar) {
-	result = *l
+func (fs *FightScreen) Clone(a *arena.Arena) (result FightScreen) {
+	result = *fs
 
 	// Round
-	if l.ro != nil {
-		result.ro = &LifeBarRound{} // Shallow copy
-		*result.ro = *l.ro
+	if fs.ro != nil {
+		result.ro = &FightScreenRound{} // Shallow copy
+		*result.ro = *fs.ro
 		// Fade state
-		result.ro.fadeIn = l.ro.fadeIn.Clone(a)
-		result.ro.fadeOut = l.ro.fadeOut.Clone(a)
+		result.ro.fadeIn = fs.ro.fadeIn.Clone(a)
+		result.ro.fadeOut = fs.ro.fadeOut.Clone(a)
 	}
 
 	// WinCount
-	for i := 0; i < len(l.wc); i++ {
-		if l.wc[i] != nil {
-			result.wc[i] = arena.New[LifeBarWinCount](a)
-			*result.wc[i] = *l.wc[i]
+	for i := 0; i < len(fs.wc); i++ {
+		if fs.wc[i] != nil {
+			result.wc[i] = arena.New[FightScreenWinCount](a)
+			*result.wc[i] = *fs.wc[i]
 		}
 	}
 
 	// Combo
-	for i := 0; i < len(l.co); i++ {
-		if l.co[i] != nil {
-			result.co[i] = arena.New[LifeBarCombo](a)
-			*result.co[i] = *l.co[i]
+	for i := 0; i < len(fs.co); i++ {
+		if fs.co[i] != nil {
+			result.co[i] = arena.New[FightScreenCombo](a)
+			*result.co[i] = *fs.co[i]
 		}
 	}
 
 	// Score
-	for i := 0; i < len(l.sc); i++ {
-		if l.sc[i] != nil {
-			result.sc[i] = arena.New[LifeBarScore](a)
-			*result.sc[i] = *l.sc[i]
+	for i := 0; i < len(fs.sc); i++ {
+		if fs.sc[i] != nil {
+			result.sc[i] = arena.New[FightScreenScore](a)
+			*result.sc[i] = *fs.sc[i]
 		}
 	}
 
 	// We probably don't need a deep copy of these
 	/*
 		//UIT
-		if l.ti != nil {
-			result.ti = arena.New[LifeBarTime](a)
-			*result.ti = *l.ti
+		if fs.ti != nil {
+			result.ti = arena.New[FightScreenTime](a)
+			*result.ti = *fs.ti
 		}
 		//
 
 		// Not UIT adding anyway
-		if l.ma != nil {
-			result.ma = arena.New[LifeBarMatch](a)
-			*result.ma = *l.ma
+		if fs.ma != nil {
+			result.ma = arena.New[FightScreenMatch](a)
+			*result.ma = *fs.ma
 		}
 
-		for i := 0; i < len(l.ai); i++ {
-			result.ai[i] = arena.New[LifeBarAiLevel](a)
-			*result.ai[i] = *l.ai[i]
+		for i := 0; i < len(fs.ai); i++ {
+			result.ai[i] = arena.New[FightScreenAiLevel](a)
+			*result.ai[i] = *fs.ai[i]
 		}
 
-		if l.tr != nil {
-			result.tr = arena.New[LifeBarTimer](a)
-			*result.tr = *l.tr
+		if fs.tr != nil {
+			result.tr = arena.New[FightScreenTimer](a)
+			*result.tr = *fs.tr
 		}
 		//
 
 		// Order
 		for i := range result.order {
-			result.order[i] = arena.MakeSlice[int](a, len(l.order[i]), len(l.order[i]))
-			copy(result.order[i], l.order[i])
+			result.order[i] = arena.MakeSlice[int](a, len(fs.order[i]), len(fs.order[i]))
+			copy(result.order[i], fs.order[i])
 		}
 
 		// HealthBar
 		for i := range result.hb {
-			result.hb[i] = arena.MakeSlice[*HealthBar](a, len(l.hb[i]), len(l.hb[i]))
-			for j := 0; j < len(l.hb[i]); j++ {
+			result.hb[i] = arena.MakeSlice[*HealthBar](a, len(fs.hb[i]), len(fs.hb[i]))
+			for j := 0; j < len(fs.hb[i]); j++ {
 				result.hb[i][j] = arena.New[HealthBar](a)
-				*result.hb[i][j] = *l.hb[i][j]
+				*result.hb[i][j] = *fs.hb[i][j]
 			}
 		}
 
 		// PowerBar
 		for i := range result.pb {
-			result.pb[i] = arena.MakeSlice[*PowerBar](a, len(l.pb[i]), len(l.pb[i]))
-			for j := 0; j < len(l.pb[i]); j++ {
+			result.pb[i] = arena.MakeSlice[*PowerBar](a, len(fs.pb[i]), len(fs.pb[i]))
+			for j := 0; j < len(fs.pb[i]); j++ {
 				result.pb[i][j] = arena.New[PowerBar](a)
-				*result.pb[i][j] = *l.pb[i][j]
+				*result.pb[i][j] = *fs.pb[i][j]
 			}
 		}
 
 		// GuardBar
 		for i := range result.gb {
-			result.gb[i] = arena.MakeSlice[*GuardBar](a, len(l.gb[i]), len(l.gb[i]))
-			for j := 0; j < len(l.gb[i]); j++ {
+			result.gb[i] = arena.MakeSlice[*GuardBar](a, len(fs.gb[i]), len(fs.gb[i]))
+			for j := 0; j < len(fs.gb[i]); j++ {
 				result.gb[i][j] = arena.New[GuardBar](a)
-				*result.gb[i][j] = *l.gb[i][j]
+				*result.gb[i][j] = *fs.gb[i][j]
 			}
 		}
 
 		// StunBar
 		for i := range result.sb {
-			result.sb[i] = arena.MakeSlice[*StunBar](a, len(l.sb[i]), len(l.sb[i]))
-			for j := 0; j < len(l.sb[i]); j++ {
+			result.sb[i] = arena.MakeSlice[*StunBar](a, len(fs.sb[i]), len(fs.sb[i]))
+			for j := 0; j < len(fs.sb[i]); j++ {
 				result.sb[i][j] = arena.New[StunBar](a)
-				*result.sb[i][j] = *l.sb[i][j]
+				*result.sb[i][j] = *fs.sb[i][j]
 			}
 		}
 
 		// Face
 		for i := range result.fa {
-			result.fa[i] = arena.MakeSlice[*LifeBarFace](a, len(l.fa[i]), len(l.fa[i]))
-			for j := 0; j < len(l.fa[i]); j++ {
-				result.fa[i][j] = arena.New[LifeBarFace](a)
-				*result.fa[i][j] = *l.fa[i][j]
+			result.fa[i] = arena.MakeSlice[*FightScreenFace](a, len(fs.fa[i]), len(fs.fa[i]))
+			for j := 0; j < len(fs.fa[i]); j++ {
+				result.fa[i][j] = arena.New[FightScreenFace](a)
+				*result.fa[i][j] = *fs.fa[i][j]
 			}
 		}
 
 		// Name
 		for i := range result.nm {
-			result.nm[i] = arena.MakeSlice[*LifeBarName](a, len(l.nm[i]), len(l.nm[i]))
-			for j := 0; j < len(l.nm[i]); j++ {
-				result.nm[i][j] = arena.New[LifeBarName](a)
-				*result.nm[i][j] = *l.nm[i][j]
+			result.nm[i] = arena.MakeSlice[*FightScreenName](a, len(fs.nm[i]), len(fs.nm[i]))
+			for j := 0; j < len(fs.nm[i]); j++ {
+				result.nm[i][j] = arena.New[FightScreenName](a)
+				*result.nm[i][j] = *fs.nm[i][j]
 			}
 		}
 	*/
 
 	// Action
 	for i := range result.ac {
-		if l.ac[i] != nil {
-			result.ac[i] = arena.New[LifeBarAction](a)
+		if fs.ac[i] != nil {
+			result.ac[i] = arena.New[FightScreenAction](a)
 
-			*result.ac[i] = *l.ac[i]
+			*result.ac[i] = *fs.ac[i]
 
-			if l.ac[i].messages != nil {
-				result.ac[i].messages = arena.MakeSlice[*LbMsg](a, len(l.ac[i].messages), len(l.ac[i].messages))
-				for j := 0; j < len(l.ac[i].messages); j++ {
-					result.ac[i].messages[j] = arena.New[LbMsg](a)
-					*result.ac[i].messages[j] = *l.ac[i].messages[j]
+			if fs.ac[i].messages != nil {
+				result.ac[i].messages = arena.MakeSlice[*FSMsg](a, len(fs.ac[i].messages), len(fs.ac[i].messages))
+				for j := 0; j < len(fs.ac[i].messages); j++ {
+					result.ac[i].messages[j] = arena.New[FSMsg](a)
+					*result.ac[i].messages[j] = *fs.ac[i].messages[j]
 				}
 			}
 		}

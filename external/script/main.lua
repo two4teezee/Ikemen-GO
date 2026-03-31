@@ -585,9 +585,9 @@ function main.f_commandLine()
 	}
 	local roundTime = gameOption('Options.Time')
 	if getCommandLineValue("-loadmotif") == nil then
-		loadLifebar()
+		loadFightScreen()
 	end
-	setLifebarElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
+	setFightScreenElements({guardbar = gameOption('Options.GuardBreak'), stunbar = gameOption('Options.Dizzy'), redlifebar = gameOption('Options.RedLife')})
 	local frames = fightScreenVar("time.framespercount")
 	local t = {}
 	local t_assignedPals = {}
@@ -794,7 +794,7 @@ main.t_unlockLua = {chars = {}, stages = {}, modes = {}}
 motif = loadMotif()
 if gameOption('Debug.DumpLuaTables') then main.f_printTable(motif, "debug/loadMotif.txt") end
 
-loadLifebar()
+loadFightScreen()
 main.f_loadingRefresh()
 
 local function showSessionWarning()
@@ -1531,7 +1531,7 @@ function main.f_default()
 	main.exitSelect = false --if "clearing" the mode (matchno == -1) should go back to main menu
 	main.forceChar = {nil, nil} --predefined P1/P2 characters
 	main.forceRosterSize = false --if roster size should be enforced even if there are not enough characters to fill it (not used but may be useful for external modules)
-	main.lifebar = { --which lifebar elements should be rendered (these defaults are overwritten by fight.def, depending on game mode)
+	main.fightscreen = { --which fight screen elements should be rendered (these defaults are overwritten by fight.def, depending on game mode)
 		active = true,
 		bars = true,
 		match = false,
@@ -1574,7 +1574,7 @@ function main.f_default()
 	main.orderSelect = {false, false} --if versus screen order selection should be active
 	main.persistLife = false --if life should be maintained after match
 	main.persistMusic = false --if the music that was playing previously should be stopped at the start of the match
-	main.persistRounds = false --if lifebar should use consecutive wins for round numbers
+	main.persistRounds = false --if fight screen should use consecutive wins for round numbers
 	main.quickContinue = false --if by default continuing should skip player selection
 	main.rankingCondition = false --if winning (clearing) whole mode is needed for rankings to be saved
 	main.resetScore = false --if loosing should set score for the next match to lose count
@@ -1597,7 +1597,7 @@ function main.f_default()
 	setConsecutiveWins(2, 0)
 	setGameMode('')
 	setHomeTeam(2) --http://mugenguild.com/forum/topics/ishometeam-triggers-169132.0.html
-	setLifebarElements(main.lifebar)
+	setFightScreenElements(main.fightscreen)
 	setMotifElements(main.motif)
 	setTimeFramesPerCount(fightScreenVar("time.framespercount"))
 	setRoundTime(math.max(-1, main.roundTime * fightScreenVar("time.framespercount")))
@@ -1622,8 +1622,8 @@ main.t_itemname = {
 		main.charparam.stage = true
 		main.charparam.time = true
 		main.exitSelect = true
-		--main.lifebar.p1score = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1score = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.challenger = true
 		main.motif.continuescreen = true
@@ -1695,8 +1695,8 @@ main.t_itemname = {
 	end,
 	--FREE BATTLE (QUICK VS)
 	['freebattle'] = function()
-		--main.lifebar.p1score = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1score = true
+		--main.fightscreen.p2ailevel = true
 		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
@@ -1763,8 +1763,8 @@ main.t_itemname = {
 		main.coop = true
 		main.elimination = true
 		main.exitSelect = true
-		--main.lifebar.match = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.match = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.losescreen = true
 		main.motif.winscreen = true
@@ -1804,8 +1804,8 @@ main.t_itemname = {
 		main.charparam.time = true
 		main.coop = true
 		main.exitSelect = true
-		--main.lifebar.p1score = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1score = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.continuescreen = true
 		main.motif.vsscreen = true
@@ -1836,8 +1836,8 @@ main.t_itemname = {
 	--NETPLAY VERSUS
 	['netplayversus'] = function()
 		main.cpuSide[2] = false
-		--main.lifebar.p1wincount = true
-		--main.lifebar.p2wincount = true
+		--main.fightscreen.p1wincount = true
+		--main.fightscreen.p2wincount = true
 		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
@@ -1942,8 +1942,8 @@ main.t_itemname = {
 		main.dropDefeated = true
 		main.elimination = true
 		main.exitSelect = true
-		--main.lifebar.match = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.match = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.hiscore = true
 		main.motif.losescreen = true
@@ -1989,8 +1989,8 @@ main.t_itemname = {
 		main.coop = true
 		main.elimination = true
 		main.exitSelect = true
-		--main.lifebar.match = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.match = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.hiscore = true
 		main.motif.winscreen = true
@@ -2031,8 +2031,8 @@ main.t_itemname = {
 		main.charparam.time = true
 		main.coop = true
 		main.exitSelect = true
-		--main.lifebar.p1score = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1score = true
+		--main.fightscreen.p2ailevel = true
 		main.makeRoster = true
 		main.motif.continuescreen = true
 		main.motif.hiscore = true
@@ -2071,8 +2071,8 @@ main.t_itemname = {
 		main.charparam.stage = true
 		main.charparam.time = true
 		main.exitSelect = true
-		--main.lifebar.p2ailevel = true
-		--main.lifebar.timer = true
+		--main.fightscreen.p2ailevel = true
+		--main.fightscreen.timer = true
 		main.makeRoster = true
 		main.motif.continuescreen = true
 		main.motif.hiscore = true
@@ -2109,8 +2109,8 @@ main.t_itemname = {
 		if main.t_charDef[gameOption('Config.TrainingChar'):lower()] ~= nil then
 			main.forceChar[2] = {main.t_charDef[gameOption('Config.TrainingChar'):lower()]}
 		end
-		--main.lifebar.p1score = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1score = true
+		--main.fightscreen.p2ailevel = true
 		main.roundTime = -1
 		main.selectMenu[2] = true
 		if gameOption('Config.TrainingStage') == '' then
@@ -2140,8 +2140,8 @@ main.t_itemname = {
 	--VS MODE / TEAM VERSUS
 	['versus'] = function(t, item)
 		main.cpuSide[2] = false
-		--main.lifebar.p1wincount = true
-		--main.lifebar.p2wincount = true
+		--main.fightscreen.p1wincount = true
+		--main.fightscreen.p2wincount = true
 		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.orderSelect[1] = true
@@ -2181,8 +2181,8 @@ main.t_itemname = {
 	['versuscoop'] = function()
 		main.coop = true
 		main.cpuSide[2] = false
-		--main.lifebar.p1wincount = true
-		--main.lifebar.p2wincount = true
+		--main.fightscreen.p1wincount = true
+		--main.fightscreen.p2wincount = true
 		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.numSimul = {2, math.min(4, math.max(2, math.ceil(gameOption('Config.Players') / 2)))}
@@ -2202,8 +2202,8 @@ main.t_itemname = {
 	--WATCH
 	['watch'] = function()
 		main.cpuSide[1] = true
-		--main.lifebar.p1ailevel = true
-		--main.lifebar.p2ailevel = true
+		--main.fightscreen.p1ailevel = true
+		--main.fightscreen.p2ailevel = true
 		main.motif.vsscreen = true
 		main.motif.victoryscreen = true
 		main.selectMenu[2] = true
@@ -3127,7 +3127,7 @@ end
 function main.f_demoStart()
 	main.f_default()
 	local palState = {}
-	setLifebarElements({bars = motif.demo_mode.fight.bars.display})
+	setFightScreenElements({bars = motif.demo_mode.fight.bars.display})
 	setGameMode('demo')
 	for side = 1, 2 do
 		setTeamMode(side, 0, 1)

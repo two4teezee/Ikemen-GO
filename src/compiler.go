@@ -8058,7 +8058,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	}
 	for _, key := range SortedKeys(sys.cfg.Common.Cmd) {
 		for _, v := range sys.cfg.Common.Cmd[key] {
-			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -8235,7 +8235,7 @@ func (c *Compiler) Compile(pn int, def string, constants map[string]float32) (ma
 	// Compile common states
 	for _, key := range SortedKeys(sys.cfg.Common.States) {
 		for _, v := range sys.cfg.Common.States[key] {
-			if err := c.stateCompile(states, v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"},
+			if err := c.stateCompile(states, v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"},
 				false, constants); err != nil {
 				return nil, err
 			}

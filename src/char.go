@@ -3654,7 +3654,7 @@ func (c *Char) load(def string) error {
 	// Load common constants
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
-			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"}, func(filename string) error {
 				str, err = LoadText(filename)
 				if err != nil {
 					return err
@@ -3993,7 +3993,7 @@ func (c *Char) load(def string) error {
 	// Append common animations
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
-			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -5004,7 +5004,7 @@ func (c *Char) comboCount() int32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.lifebar.co[c.teamside].combo
+	return sys.fightScreen.co[c.teamside].combo
 }
 
 func (c *Char) command(pn, i int) bool {
@@ -5894,9 +5894,9 @@ func (c *Char) updateTeamOrder(team []int) {
 
 	// Update lifebar order within its bounds
 	side := c.playerNo & 1
-	for i := range sys.lifebar.teamOrder[side] {
+	for i := range sys.fightScreen.teamOrder[side] {
 		if i < len(team) {
-			sys.lifebar.teamOrder[side][i] = team[i]
+			sys.fightScreen.teamOrder[side][i] = team[i]
 		}
 	}
 }
@@ -7170,7 +7170,7 @@ func (c *Char) hitAdd(h int32) {
 			if t := sys.playerID(tid); t != nil {
 				t.receivedHits += h
 				if c.teamside != -1 {
-					sys.lifebar.co[c.teamside].combo += h
+					sys.fightScreen.co[c.teamside].combo += h
 				}
 			}
 		}
@@ -7180,7 +7180,7 @@ func (c *Char) hitAdd(h int32) {
 			if len(p) > 0 && c.teamside == ^i&1 {
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
 					p[0].receivedHits += h
-					sys.lifebar.co[c.teamside].combo += h
+					sys.fightScreen.co[c.teamside].combo += h
 				}
 			}
 		}
@@ -8488,14 +8488,14 @@ func (c *Char) score() float32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.lifebar.sc[c.teamside].scorePoints
+	return sys.fightScreen.sc[c.teamside].scorePoints
 }
 
 func (c *Char) scoreAdd(val float32) {
 	if val == 0 || c.teamside == -1 || c.asf(ASF_noscore) {
 		return
 	}
-	sys.lifebar.sc[c.teamside].scorePoints += val
+	sys.fightScreen.sc[c.teamside].scorePoints += val
 }
 
 func (c *Char) scoreTotal() float32 {
@@ -8520,7 +8520,7 @@ func (c *Char) consecutiveWins() int32 {
 }
 
 func (c *Char) dizzyEnabled() bool {
-	return sys.lifebar.stunbar
+	return sys.fightScreen.stunbar
 	/*
 		switch sys.tmode[c.playerNo&1] {
 		case TM_Single:
@@ -8538,7 +8538,7 @@ func (c *Char) dizzyEnabled() bool {
 }
 
 func (c *Char) guardBreakEnabled() bool {
-	return sys.lifebar.guardbar
+	return sys.fightScreen.guardbar
 	/*
 		switch sys.tmode[c.playerNo&1] {
 		case TM_Single:
@@ -8556,7 +8556,7 @@ func (c *Char) guardBreakEnabled() bool {
 }
 
 func (c *Char) redLifeEnabled() bool {
-	return sys.lifebar.redlifebar
+	return sys.fightScreen.redlifebar
 	/*
 			switch sys.tmode[c.playerNo&1] {
 			case TM_Single:
@@ -8859,7 +8859,7 @@ func (c *Char) inputWait() bool {
 		return true
 	}
 	// If after round "over.waittime" and the win poses have not started
-	if sys.intro <= -sys.lifebar.ro.over_waittime && sys.winposetime >= 0 {
+	if sys.intro <= -sys.fightScreen.ro.over_waittime && sys.winposetime >= 0 {
 		return true
 	}
 	return false
@@ -10952,7 +10952,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
 			if c.teamside != -1 {
-				sys.lifebar.co[c.teamside].combo += hd.numhits
+				sys.fightScreen.co[c.teamside].combo += hd.numhits
 			}
 		}
 		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
@@ -11224,7 +11224,7 @@ func (c *Char) actionPrepare() {
 					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "") // Start guarding
 					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.Ub > 0 &&
-						(!(sys.intro < 0 && sys.intro > -sys.lifebar.ro.over_waittime) || c.asf(ASF_postroundinput)) {
+						(!(sys.intro < 0 && sys.intro > -sys.fightScreen.ro.over_waittime) || c.asf(ASF_postroundinput)) {
 						if c.ss.no != 40 {
 							c.changeState(40, -1, -1, "") // Jump
 						}

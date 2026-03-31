@@ -77,12 +77,8 @@ func (fa *Fade) draw() {
 	}
 }
 
-func (fa *Fade) shouldDraw() bool {
-	return fa != nil && fa.active && fa.timeRemaining >= 0 && fa.time > 0
-}
-
 func (fa *Fade) isActive() bool {
-	return fa != nil && fa.active && fa.timeRemaining > 0
+	return fa != nil && fa.active && fa.timeRemaining >= 0 && fa.time > 0
 }
 
 // Policies for starting a new fade when a fade-in might be active.

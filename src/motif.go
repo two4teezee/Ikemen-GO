@@ -3061,9 +3061,9 @@ func (m *Motif) draw(layerno int16) {
 	}
 	// Screen fading
 	if layerno == 3 {
-		if m.fadeOut.shouldDraw() {
+		if m.fadeOut.isActive() {
 			m.fadeOut.draw()
-		} else if m.fadeIn.shouldDraw() {
+		} else if m.fadeIn.isActive() {
 			m.fadeIn.draw()
 		}
 	}
@@ -3818,7 +3818,7 @@ func (de *MotifDemo) step(m *Motif) {
 	if de.endTimer == -1 {
 		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && sys.uiRawInput(m.DemoMode.Cancel.Key, -1))
 		if de.counter == m.DemoMode.Fight.EndTime || cancel {
-			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, cancel, m.fadePolicy)
+			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, false, m.fadePolicy)
 			de.endTimer = de.counter + sys.lifebar.ro.fadeOut.timeRemaining
 		}
 	}

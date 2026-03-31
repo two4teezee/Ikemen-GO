@@ -3512,6 +3512,7 @@ type MotifContinue struct {
 	initialized bool
 	counter     int32
 	endTimer    int32
+	waitTimer   int32
 	showEndAnim bool
 	credits     int32
 	yesSide     bool
@@ -3527,6 +3528,7 @@ func (co *MotifContinue) reset(m *Motif) {
 	co.yesSide = true
 	co.selected = false
 	co.endTimer = -1
+	co.waitTimer = 0
 	co.showEndAnim = false
 	if !sys.skipMotifScaling() {
 		sys.applyFightAspect()
@@ -3615,6 +3617,7 @@ func (co *MotifContinue) init(m *Motif) {
 	co.active = true
 	co.initialized = true
 	co.showEndAnim = false
+	co.waitTimer = 0
 }
 
 func (co *MotifContinue) processSelection(m *Motif, continueSelected bool) {
@@ -3634,8 +3637,8 @@ func (co *MotifContinue) processSelection(m *Motif, continueSelected bool) {
 			[4][]int32{cs.P1.No.State, cs.P3.No.State, cs.P5.No.State, cs.P7.No.State},
 		)
 	}
-	startFadeOut(m.ContinueScreen.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
-	co.endTimer = co.counter + m.fadeOut.timeRemaining
+	co.waitTimer = -1
+	co.endTimer = -1
 	co.selected = true
 }
 
@@ -3688,6 +3691,26 @@ func (co *MotifContinue) step(m *Motif) {
 		co.counter >= m.ContinueScreen.Counter.EndTime {
 		startFadeOut(m.ContinueScreen.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
 		co.endTimer = co.counter + m.fadeOut.timeRemaining
+	}
+
+	// Wait for the triggered done anim to finish before starting fadeout.
+	if co.selected && !co.showEndAnim && co.endTimer == -1 {
+		if co.waitTimer < 0 {
+			var wait int32
+			for _, p := range sys.chars {
+				if len(p) == 0 || p[0].anim == nil {
+					continue
+				}
+				wait = Max(wait, p[0].anim.GetLength())
+			}
+			co.waitTimer = Clamp(wait, int32(0), int32(120))
+		}
+		if co.waitTimer > 0 {
+			co.waitTimer--
+		} else {
+			startFadeOut(m.ContinueScreen.FadeOut.FadeData, m.fadeOut, false, m.fadePolicy)
+			co.endTimer = co.counter + m.fadeOut.timeRemaining
+		}
 	}
 
 	if !co.selected {

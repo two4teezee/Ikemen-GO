@@ -302,10 +302,11 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 				break
 			}
 			(*i)++
-			for n := int32(0); n < size && *i < len(lines); n++ {
+			for n := int32(0); n < size && *i < len(lines); {
 				line := strings.ToLower(strings.TrimSpace(
 					strings.SplitN(lines[*i], ";", 2)[0]))
 				if len(line) == 0 {
+					(*i)++
 					continue
 				}
 				if len(line) < 4 || line[:4] != "clsn" {
@@ -328,6 +329,7 @@ func ReadAnimation(sff *Sff, pal *PaletteList, lines []string, i *int) *Animatio
 				}
 				clsn[n][0], clsn[n][1], clsn[n][2], clsn[n][3] =
 					float32(l), float32(t), float32(r), float32(b)
+				n++
 				(*i)++
 			}
 			(*i)--

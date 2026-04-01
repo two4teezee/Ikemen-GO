@@ -3808,9 +3808,9 @@ func (ro *LifeBarRound) draw(layerno int16, f map[int]*Fnt) {
 
 	// Screen fading
 	if layerno == 2 {
-		if ro.fadeOut.shouldDraw() {
+		if ro.fadeOut.isActive() {
 			ro.fadeOut.draw()
-		} else if ro.fadeIn.shouldDraw() {
+		} else if ro.fadeIn.isActive() {
 			ro.fadeIn.draw()
 		} else if sys.clsnDisplay && sys.cfg.Debug.ClsnDarken {
 			ro.fadeIn.drawRect(sys.scrrect, 0, 0)

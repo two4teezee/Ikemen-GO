@@ -3088,7 +3088,7 @@ function main.f_demo()
 		return
 	end
 	demoFrameCounter = 0
-	main.f_fadeReset('fadeout', motif.demo_mode)
+	main.f_fadeReset('fadeout', motif[main.group])
 	main.menu.f = main.t_itemname.demo()
 end
 
@@ -3160,7 +3160,7 @@ function main.f_demoStart()
 			playBgm({source = "motif.title", interrupt = true})
 		end
 	end
-	main.f_fadeReset('fadein', motif.demo_mode)
+	main.f_fadeReset('fadein', motif[main.group])
 end
 
 --randomtest

@@ -468,6 +468,26 @@ func (a *Animation) AnimElemNo(time int32) int32 {
 	return int32(len(a.frames))
 }
 
+func (a *Animation) GetLength() int32 {
+	if a == nil || len(a.frames) == 0 {
+		return 0
+	}
+	var length int32
+	for _, f := range a.frames {
+		var t int32
+		switch {
+		case f.Time == -1: // Special case: infinite frame, count as 1 tick
+			t = 1
+		case f.Time > 0: // Normal positive duration
+			t = f.Time
+		default: // Time <= 0 (except -1) doesn't contribute
+			t = 0
+		}
+		length += t
+	}
+	return length
+}
+
 func (a *Animation) curFrame() *AnimFrame {
 	return &a.frames[a.curelem]
 }
@@ -2202,23 +2222,10 @@ func (a *Anim) Reset() {
 }
 
 func (a *Anim) GetLength() int32 {
-	if a == nil || a.anim == nil || len(a.anim.frames) == 0 {
+	if a == nil || a.anim == nil {
 		return 0
 	}
-	var length int32
-	for _, f := range a.anim.frames {
-		var t int32
-		switch {
-		case f.Time == -1: // Special case: infinite frame, count as 1 tick
-			t = 1
-		case f.Time > 0: //Normal positive duration
-			t = f.Time
-		default: // Time <= 0 (except -1) doesn't contribute
-			t = 0
-		}
-		length += t
-	}
-	return length
+	return a.anim.GetLength()
 }
 
 type PreloadedAnims map[[2]int32]*Animation

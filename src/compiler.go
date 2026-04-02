@@ -1208,40 +1208,43 @@ func (c *Compiler) readOldProjectileID(in *string, trname string, baseLen int, o
 	base := trname[:baseLen]
 	suffix := trname[baseLen:]
 
-	// Documented suffix form: projcontact123
+	invalid := func(msg string) (string, error) {
+		// Print error but proceed with ID 0
+		if sys.ignoreMostErrors {
+			sys.appendToConsole("WARNING: " + sys.cgi[c.playerNo].nameLow +
+				fmt.Sprintf(": %v in state %v ", msg, c.stateNo))
+			out.appendValue(BytecodeInt(0))
+			return base, nil
+		}
+		// Otherwise just crash
+		return "", Error(msg)
+	}
+
+	// Only a fully numeric suffix is treated as an ID. Everything else falls back to an ID of 0
 	if len(suffix) > 0 {
 		for _, ch := range suffix {
 			if ch < '0' || ch > '9' {
-				return "", Error("Invalid projectile ID: " + suffix)
+				return invalid("Invalid projectile ID: " + suffix)
 			}
 		}
 		out.appendValue(BytecodeInt(Atoi(suffix)))
 		return base, nil
 	}
 
-	// Alternative undocumented form: projcontact(123)
-	// Unlike suffix form, we allow a full expression here
-	// https://github.com/ikemen-engine/Ikemen-GO/issues/1860
+	// Peek next token and put it back so it isn’t consumed
 	tok := c.tokenizer(in)
-	if tok != "(" {
-		if len(tok) > 0 {
-			*in = tok + " " + *in
-		}
-		out.appendValue(BytecodeInt(0))
-		return base, nil
+	if len(tok) > 0 {
+		// Add space to avoid merging tokens when putting it back
+		*in = tok + " " + *in
 	}
 
-	c.token = c.tokenizer(in)
-
-	bv, err := c.expBoolOr(out, in)
-	if err != nil {
-		return "", err
+	// Turns out using parentheses around the ID isn't valid either. It's just also considered gibberish and evaluated as 0
+	// https://github.com/ikemen-engine/Ikemen-GO/issues/1860
+	if tok == "(" {
+		return invalid("Projectile ID cannot have parentheses")
 	}
-	out.appendValue(bv)
 
-	if err := c.checkClosingParenthesis(); err != nil {
-		return "", err
-	}
+	out.appendValue(BytecodeInt(0))
 	return base, nil
 }
 

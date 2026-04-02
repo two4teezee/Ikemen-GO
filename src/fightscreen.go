@@ -2301,14 +2301,13 @@ type FightScreenCombo struct {
 	hidespeed      float32
 	separator      string
 	places         int32
-	curhit, oldhit int32
-	curdmg, olddmg int32
-	curpct, oldpct float32
+	truehits       int32
+	shownhits      int32
+	showndmg       int32
+	shownpct       float32
 	resttime       int32
 	counterX       float32
 	shaketime      int32
-	combo          int32
-	tracker        int32
 	autoalign      bool
 }
 
@@ -2369,20 +2368,16 @@ func readFightScreenCombo(pre string, is IniSection,
 	return co
 }
 
-func (co *FightScreenCombo) step(combo, damage int32, percentage float32, dizzy bool) {
+func (co *FightScreenCombo) step(hits, damage int32, percentage float32, dizzy bool) {
 	co.bg.Action()
 	co.top.Action()
 
-	// Update team combo tracker
-	if combo > 0 {
-		combo = co.combo
-	} else {
-		co.combo = 0
-	}
+	// Always save combo tally result for access by triggers
+	co.truehits = hits
 
 	if co.resttime > 0 {
 		co.counterX -= co.counterX / co.showspeed
-	} else if combo < 2 {
+	} else if co.truehits < 2 {
 		co.counterX -= sys.fightScreen.fnt_scale * co.hidespeed * float32(sys.fightScreen.localcoord[0]) / 320
 		if co.counterX < co.start_x*2 {
 			co.counterX = co.start_x * 2
@@ -2398,32 +2393,31 @@ func (co *FightScreenCombo) step(combo, damage int32, percentage float32, dizzy 
 	}
 
 	// Update if number of hits or total damage change
-	if combo >= 2 {
-		if co.oldhit != combo || co.olddmg != damage {
+	if co.truehits >= 2 && (co.shownhits != co.truehits || co.showndmg != damage) {
+		// Reset visuals when hits changed
+		if co.shownhits != co.truehits {
+			if co.counter_shake {
+				co.shaketime = co.counter_time
+			}
 			for i := range co.counter {
 				co.counter[i].resetTxtPfx()
 			}
 			for i := range co.text {
 				co.text[i].resetTxtPfx()
 			}
-			co.curhit = combo
-			co.curdmg = damage
-			co.curpct = percentage
-			co.resttime = co.displaytime
-			co.tracker = co.combo
-			if co.counter_shake && co.oldhit != combo {
-				co.shaketime = co.counter_time
-			}
 		}
+		// Time resets if either hits or damage changed
+		co.resttime = co.displaytime
+		// Update state
+		co.shownhits = co.truehits
+		co.showndmg = damage
+		co.shownpct = percentage
 	}
-	co.oldhit = combo
-	co.olddmg = damage
-	co.oldpct = percentage
 
 	// Multiple counter fonts
 	var cv int32
 	for k := range co.counter {
-		if k > cv && co.tracker >= k {
+		if k > cv && co.shownhits >= k {
 			cv = k
 		}
 	}
@@ -2431,7 +2425,7 @@ func (co *FightScreenCombo) step(combo, damage int32, percentage float32, dizzy 
 	// Multiple text fonts
 	var tv int32
 	for k := range co.text {
-		if k > tv && co.tracker >= k {
+		if k > tv && co.shownhits >= k {
 			tv = k
 		}
 	}
@@ -2445,11 +2439,11 @@ func (co *FightScreenCombo) step(combo, damage int32, percentage float32, dizzy 
 func (co *FightScreenCombo) reset() {
 	co.bg.Reset()
 	co.top.Reset()
-	co.curhit, co.oldhit = 0, 0
-	co.curdmg, co.olddmg = 0, 0
-	co.curpct, co.oldpct = 0, 0
+	co.truehits = 0
+	co.shownhits = 0
+	co.showndmg = 0
+	co.shownpct = 0
 	co.resttime = 0
-	co.combo = 0
 	co.counterX = co.start_x * 2
 	co.shaketime = 0
 }
@@ -2462,7 +2456,7 @@ func (co *FightScreenCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 	// Multiple counter fonts according to combo hits
 	var cv int32
 	for k := range co.counter {
-		if k > cv && co.tracker >= k {
+		if k > cv && co.shownhits >= k {
 			cv = k
 		}
 	}
@@ -2470,12 +2464,12 @@ func (co *FightScreenCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 	// Multiple text fonts according to combo hits
 	var tv int32
 	for k := range co.text {
-		if k > tv && co.tracker >= k {
+		if k > tv && co.shownhits >= k {
 			tv = k
 		}
 	}
 
-	counter := strings.Replace(co.counter[cv].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
+	counter := strings.Replace(co.counter[cv].text, "%i", fmt.Sprintf("%v", co.shownhits), 1)
 	x := float32(co.pos[0])
 	if side == 0 {
 		if co.start_x <= 0 {
@@ -2495,10 +2489,10 @@ func (co *FightScreenCombo) draw(layerno int16, f map[int]*Fnt, side int) {
 	co.bg.Draw(x+sys.fightScreen.offsetX, float32(co.pos[1]), layerno, sys.fightScreen.scale)
 	var length float32
 	if co.text[tv].font[0] >= 0 && getFont(f, co.text[tv].font[0]) != nil {
-		text := strings.Replace(co.text[tv].text, "%i", fmt.Sprintf("%v", co.curhit), 1)
-		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.curdmg), 1)
+		text := strings.Replace(co.text[tv].text, "%i", fmt.Sprintf("%v", co.shownhits), 1)
+		text = strings.Replace(text, "%d", fmt.Sprintf("%v", co.showndmg), 1)
 		// Truncate the percentage to avoid rounding to 100% unless the enemy is defeated
-		truncatedPct := math.Floor(float64(co.curpct)*math.Pow10(int(co.places))) / math.Pow10(int(co.places))
+		truncatedPct := math.Floor(float64(co.shownpct)*math.Pow10(int(co.places))) / math.Pow10(int(co.places))
 		// Split float value
 		s := strings.Split(fmt.Sprintf("%.[2]*[1]f", truncatedPct, co.places), ".")
 		// Decimal separator
@@ -5182,7 +5176,8 @@ func (fs *FightScreen) step() {
 	// FightScreenCombo
 	cb, cd, cp, dz := [2]int32{}, [2]int32{}, [2]float32{}, [2]bool{}
 	targets := [2]int32{}
-	for _, ch := range sys.chars { // Iterate through all players to see the combo status of each team
+	// Iterate through all players to see the combo status of each team
+	for _, ch := range sys.chars {
 		for _, c := range ch {
 			if c.receivedHits > 0 && (c.teamside == 0 || c.teamside == 1) && (c.alive() || !c.scf(SCF_over_ko)) { // If alive or not alive but not in state 5150 yet
 				side := 1 - c.teamside

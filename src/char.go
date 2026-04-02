@@ -5004,7 +5004,7 @@ func (c *Char) comboCount() int32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.fightScreen.combos[c.teamside].combo
+	return sys.fightScreen.combos[c.teamside].truehits
 }
 
 func (c *Char) command(pn, i int) bool {
@@ -7163,24 +7163,32 @@ func (c *Char) hitAdd(h int32) {
 	if h == 0 {
 		return
 	}
+
+	// Add to char-side counters
 	c.hitCount += h
 	c.uniqHitCount += h
+
+	// Add to enemy so it's reflected in the combo total
 	if len(c.targets) > 0 {
+		// Increase hits in the most recent target only
+		// Previously, Ikemen increased hits in every target, but Mugen doesn't do this correction and we can't assume that's what the user wants
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
 				t.receivedHits += h
-				if c.teamside != -1 {
-					sys.fightScreen.combos[c.teamside].combo += h
-				}
+				break
+				//if c.teamside != -1 {
+				//	sys.fightScreen.combos[c.teamside].truehits += h
+				//}
 			}
 		}
 	} else if c.teamside != -1 {
 		// In Mugen, HitAdd can increase combo count even without targets
 		for i, p := range sys.chars {
 			if len(p) > 0 && c.teamside == ^i&1 {
+				// This is a bit of a workaround for backward compatibility only
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
 					p[0].receivedHits += h
-					sys.fightScreen.combos[c.teamside].combo += h
+					//sys.fightScreen.combos[c.teamside].truehits += h
 				}
 			}
 		}
@@ -10951,9 +10959,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if (ghvset || getter.csf(CSF_gethit)) && getter.hoverIdx < 0 &&
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
-			if c.teamside != -1 {
-				sys.fightScreen.combos[c.teamside].combo += hd.numhits
-			}
+			// receivedHits is the only source of truth
+			//if c.teamside != -1 {
+			//	sys.fightScreen.combos[c.teamside].truehits += hd.numhits
+			//}
 		}
 		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
 			c.scoreAdd(hd.score[0])

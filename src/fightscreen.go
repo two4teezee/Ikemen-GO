@@ -2563,7 +2563,7 @@ type FSMsg struct {
 func newFSMsg(side int) *FSMsg {
 	return &FSMsg{
 		resttime:  -1,
-		counterX:  sys.fightScreen.ac[side].start_x * 2,
+		counterX:  sys.fightScreen.actions[side].start_x * 2,
 		fontNo:    -1,
 		fontBank:  -1,
 		fontAlign: IErr, // Default to the font's
@@ -4349,24 +4349,24 @@ type FightScreen struct {
 	fnt           map[int]*Fnt
 	curLayout     [2]int // Which layout each team is currently using. Single, Simul 3P, etc
 	teamOrder     [2][]int // Player order on each team. Because it can vary in Tag
-	lb            [8][]*LifeBar
-	pb            [8][]*PowerBar
-	gb            [8][]*GuardBar
-	sb            [8][]*StunBar
-	fa            [8][]*FightScreenFace
-	nm            [8][]*FightScreenName
-	wi            [2]*FightScreenWinIcon
-	ti            *FightScreenTime
-	co            [2]*FightScreenCombo
-	ac            [2]*FightScreenAction
-	ro            *FightScreenRound
-	ra            [2]*FightScreenRatio
-	tr            *FightScreenTimer
-	sc            [2]*FightScreenScore
-	ma            *FightScreenMatch
-	ai            [2]*FightScreenAiLevel
-	wc            [2]*FightScreenWinCount
-	mo            map[string]*FightScreenMode
+	lifeBars      [8][]*LifeBar
+	powerBars     [8][]*PowerBar
+	guardBars     [8][]*GuardBar
+	stunBars      [8][]*StunBar
+	faces         [8][]*FightScreenFace
+	names         [8][]*FightScreenName
+	winIcons      [2]*FightScreenWinIcon
+	time          *FightScreenTime // The normal round time
+	combos        [2]*FightScreenCombo
+	actions       [2]*FightScreenAction
+	round         *FightScreenRound
+	ratios        [2]*FightScreenRatio
+	timer         *FightScreenTimer // For Time Attack and such
+	scores        [2]*FightScreenScore
+	match         *FightScreenMatch
+	aiLevels      [2]*FightScreenAiLevel
+	winCounts     [2]*FightScreenWinCount
+	modes         map[string]*FightScreenMode
 	missing       map[string]int
 	active        bool
 	bars          bool
@@ -4394,22 +4394,22 @@ func loadFightScreen(def string) (*FightScreen, error) {
 		portraitScale: 1,
 		sff:           &Sff{},
 		snd:           &Snd{},
-		lb: [...][]*LifeBar{make([]*LifeBar, 2), make([]*LifeBar, 8),
+		lifeBars: [...][]*LifeBar{make([]*LifeBar, 2), make([]*LifeBar, 8),
 			make([]*LifeBar, 2), make([]*LifeBar, 8), make([]*LifeBar, 6),
 			make([]*LifeBar, 8), make([]*LifeBar, 6), make([]*LifeBar, 8)},
-		pb: [...][]*PowerBar{make([]*PowerBar, 2), make([]*PowerBar, 8),
+		powerBars: [...][]*PowerBar{make([]*PowerBar, 2), make([]*PowerBar, 8),
 			make([]*PowerBar, 2), make([]*PowerBar, 8), make([]*PowerBar, 6),
 			make([]*PowerBar, 8), make([]*PowerBar, 6), make([]*PowerBar, 8)},
-		gb: [...][]*GuardBar{make([]*GuardBar, 2), make([]*GuardBar, 8),
+		guardBars: [...][]*GuardBar{make([]*GuardBar, 2), make([]*GuardBar, 8),
 			make([]*GuardBar, 2), make([]*GuardBar, 8), make([]*GuardBar, 6),
 			make([]*GuardBar, 8), make([]*GuardBar, 6), make([]*GuardBar, 8)},
-		sb: [...][]*StunBar{make([]*StunBar, 2), make([]*StunBar, 8),
+		stunBars: [...][]*StunBar{make([]*StunBar, 2), make([]*StunBar, 8),
 			make([]*StunBar, 2), make([]*StunBar, 8), make([]*StunBar, 6),
 			make([]*StunBar, 8), make([]*StunBar, 6), make([]*StunBar, 8)},
-		fa: [...][]*FightScreenFace{make([]*FightScreenFace, 2), make([]*FightScreenFace, 8),
+		faces: [...][]*FightScreenFace{make([]*FightScreenFace, 2), make([]*FightScreenFace, 8),
 			make([]*FightScreenFace, 2), make([]*FightScreenFace, 8), make([]*FightScreenFace, 6),
 			make([]*FightScreenFace, 8), make([]*FightScreenFace, 6), make([]*FightScreenFace, 8)},
-		nm: [...][]*FightScreenName{make([]*FightScreenName, 2), make([]*FightScreenName, 8),
+		names: [...][]*FightScreenName{make([]*FightScreenName, 2), make([]*FightScreenName, 8),
 			make([]*FightScreenName, 2), make([]*FightScreenName, 8), make([]*FightScreenName, 6),
 			make([]*FightScreenName, 8), make([]*FightScreenName, 6), make([]*FightScreenName, 8)},
 		active:    true,
@@ -4633,91 +4633,91 @@ func loadFightScreen(def string) (*FightScreen, error) {
 		case "fightfx":
 			is.ReadF32("scale", &ffx.fx_scale)
 		case "lifebar":
-			if fs.lb[0][0] == nil {
-				fs.lb[0][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.lifeBars[0][0] == nil {
+				fs.lifeBars[0][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.lb[0][1] == nil {
-				fs.lb[0][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.lifeBars[0][1] == nil {
+				fs.lifeBars[0][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "powerbar":
-			if fs.pb[0][0] == nil {
-				fs.pb[0][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.powerBars[0][0] == nil {
+				fs.powerBars[0][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.pb[0][1] == nil {
-				fs.pb[0][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.powerBars[0][1] == nil {
+				fs.powerBars[0][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "guardbar":
-			if fs.gb[0][0] == nil {
-				fs.gb[0][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.guardBars[0][0] == nil {
+				fs.guardBars[0][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.gb[0][1] == nil {
-				fs.gb[0][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.guardBars[0][1] == nil {
+				fs.guardBars[0][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "stunbar":
-			if fs.sb[0][0] == nil {
-				fs.sb[0][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.stunBars[0][0] == nil {
+				fs.stunBars[0][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.sb[0][1] == nil {
-				fs.sb[0][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.stunBars[0][1] == nil {
+				fs.stunBars[0][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "face":
-			if fs.fa[0][0] == nil {
-				fs.fa[0][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
+			if fs.faces[0][0] == nil {
+				fs.faces[0][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
 			}
-			if fs.fa[0][1] == nil {
-				fs.fa[0][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
+			if fs.faces[0][1] == nil {
+				fs.faces[0][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
 			}
 		case "name":
-			if fs.nm[0][0] == nil {
-				fs.nm[0][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.names[0][0] == nil {
+				fs.names[0][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.nm[0][1] == nil {
-				fs.nm[0][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.names[0][1] == nil {
+				fs.names[0][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "turns ":
 			subname = strings.ToLower(subname)
 			switch {
 			case len(subname) >= 7 && subname[:7] == "lifebar":
-				if fs.lb[2][0] == nil {
-					fs.lb[2][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[2][0] == nil {
+					fs.lifeBars[2][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[2][1] == nil {
-					fs.lb[2][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[2][1] == nil {
+					fs.lifeBars[2][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 			case len(subname) >= 8 && subname[:8] == "powerbar":
-				if fs.pb[2][0] == nil {
-					fs.pb[2][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[2][0] == nil {
+					fs.powerBars[2][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[2][1] == nil {
-					fs.pb[2][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[2][1] == nil {
+					fs.powerBars[2][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 			case len(subname) >= 8 && subname[:8] == "guardbar":
-				if fs.gb[2][0] == nil {
-					fs.gb[2][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[2][0] == nil {
+					fs.guardBars[2][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[2][1] == nil {
-					fs.gb[2][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[2][1] == nil {
+					fs.guardBars[2][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 			case len(subname) >= 7 && subname[:7] == "stunbar":
-				if fs.sb[2][0] == nil {
-					fs.sb[2][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[2][0] == nil {
+					fs.stunBars[2][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[2][1] == nil {
-					fs.sb[2][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[2][1] == nil {
+					fs.stunBars[2][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 			case len(subname) >= 4 && subname[:4] == "face":
-				if fs.fa[2][0] == nil {
-					fs.fa[2][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
+				if fs.faces[2][0] == nil {
+					fs.faces[2][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[2][1] == nil {
-					fs.fa[2][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
+				if fs.faces[2][1] == nil {
+					fs.faces[2][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
 				}
 			case len(subname) >= 4 && subname[:4] == "name":
-				if fs.nm[2][0] == nil {
-					fs.nm[2][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[2][0] == nil {
+					fs.names[2][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[2][1] == nil {
-					fs.nm[2][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[2][1] == nil {
+					fs.names[2][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 			}
 		case "simul ", "simul_3p ", "simul_4p ", "tag ", "tag_3p ", "tag_4p ":
@@ -4737,244 +4737,244 @@ func loadFightScreen(def string) (*FightScreen, error) {
 			subname = strings.ToLower(subname)
 			switch {
 			case len(subname) >= 7 && subname[:7] == "lifebar":
-				if fs.lb[i][0] == nil {
-					fs.lb[i][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][0] == nil {
+					fs.lifeBars[i][0] = readLifeBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[i][1] == nil {
-					fs.lb[i][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][1] == nil {
+					fs.lifeBars[i][1] = readLifeBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[i][2] == nil {
-					fs.lb[i][2] = readLifeBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][2] == nil {
+					fs.lifeBars[i][2] = readLifeBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[i][3] == nil {
-					fs.lb[i][3] = readLifeBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][3] == nil {
+					fs.lifeBars[i][3] = readLifeBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[i][4] == nil {
-					fs.lb[i][4] = readLifeBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][4] == nil {
+					fs.lifeBars[i][4] = readLifeBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.lb[i][5] == nil {
-					fs.lb[i][5] = readLifeBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.lifeBars[i][5] == nil {
+					fs.lifeBars[i][5] = readLifeBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 				if i != 4 && i != 6 {
-					if fs.lb[i][6] == nil {
-						fs.lb[i][6] = readLifeBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.lifeBars[i][6] == nil {
+						fs.lifeBars[i][6] = readLifeBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
 					}
-					if fs.lb[i][7] == nil {
-						fs.lb[i][7] = readLifeBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.lifeBars[i][7] == nil {
+						fs.lifeBars[i][7] = readLifeBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
 					}
 				}
 			case len(subname) >= 8 && subname[:8] == "powerbar":
-				if fs.pb[i][0] == nil {
-					fs.pb[i][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][0] == nil {
+					fs.powerBars[i][0] = readPowerBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[i][1] == nil {
-					fs.pb[i][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][1] == nil {
+					fs.powerBars[i][1] = readPowerBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[i][2] == nil {
-					fs.pb[i][2] = readPowerBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][2] == nil {
+					fs.powerBars[i][2] = readPowerBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[i][3] == nil {
-					fs.pb[i][3] = readPowerBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][3] == nil {
+					fs.powerBars[i][3] = readPowerBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[i][4] == nil {
-					fs.pb[i][4] = readPowerBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][4] == nil {
+					fs.powerBars[i][4] = readPowerBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.pb[i][5] == nil {
-					fs.pb[i][5] = readPowerBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.powerBars[i][5] == nil {
+					fs.powerBars[i][5] = readPowerBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 				if i != 4 && i != 6 {
-					if fs.pb[i][6] == nil {
-						fs.pb[i][6] = readPowerBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.powerBars[i][6] == nil {
+						fs.powerBars[i][6] = readPowerBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
 					}
-					if fs.pb[i][7] == nil {
-						fs.pb[i][7] = readPowerBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.powerBars[i][7] == nil {
+						fs.powerBars[i][7] = readPowerBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
 					}
 				}
 			case len(subname) >= 8 && subname[:8] == "guardbar":
-				if fs.gb[i][0] == nil {
-					fs.gb[i][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][0] == nil {
+					fs.guardBars[i][0] = readGuardBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[i][1] == nil {
-					fs.gb[i][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][1] == nil {
+					fs.guardBars[i][1] = readGuardBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[i][2] == nil {
-					fs.gb[i][2] = readGuardBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][2] == nil {
+					fs.guardBars[i][2] = readGuardBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[i][3] == nil {
-					fs.gb[i][3] = readGuardBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][3] == nil {
+					fs.guardBars[i][3] = readGuardBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[i][4] == nil {
-					fs.gb[i][4] = readGuardBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][4] == nil {
+					fs.guardBars[i][4] = readGuardBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.gb[i][5] == nil {
-					fs.gb[i][5] = readGuardBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.guardBars[i][5] == nil {
+					fs.guardBars[i][5] = readGuardBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 				if i != 4 && i != 6 {
-					if fs.gb[i][6] == nil {
-						fs.gb[i][6] = readGuardBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.guardBars[i][6] == nil {
+						fs.guardBars[i][6] = readGuardBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
 					}
-					if fs.gb[i][7] == nil {
-						fs.gb[i][7] = readGuardBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.guardBars[i][7] == nil {
+						fs.guardBars[i][7] = readGuardBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
 					}
 				}
 			case len(subname) >= 7 && subname[:7] == "stunbar":
-				if fs.sb[i][0] == nil {
-					fs.sb[i][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][0] == nil {
+					fs.stunBars[i][0] = readStunBar("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[i][1] == nil {
-					fs.sb[i][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][1] == nil {
+					fs.stunBars[i][1] = readStunBar("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[i][2] == nil {
-					fs.sb[i][2] = readStunBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][2] == nil {
+					fs.stunBars[i][2] = readStunBar("p3.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[i][3] == nil {
-					fs.sb[i][3] = readStunBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][3] == nil {
+					fs.stunBars[i][3] = readStunBar("p4.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[i][4] == nil {
-					fs.sb[i][4] = readStunBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][4] == nil {
+					fs.stunBars[i][4] = readStunBar("p5.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.sb[i][5] == nil {
-					fs.sb[i][5] = readStunBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.stunBars[i][5] == nil {
+					fs.stunBars[i][5] = readStunBar("p6.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 				if i != 4 && i != 6 {
-					if fs.sb[i][6] == nil {
-						fs.sb[i][6] = readStunBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.stunBars[i][6] == nil {
+						fs.stunBars[i][6] = readStunBar("p7.", is, fs.sff, fs.animTable, fs.fnt)
 					}
-					if fs.sb[i][7] == nil {
-						fs.sb[i][7] = readStunBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.stunBars[i][7] == nil {
+						fs.stunBars[i][7] = readStunBar("p8.", is, fs.sff, fs.animTable, fs.fnt)
 					}
 				}
 			case len(subname) >= 4 && subname[:4] == "face":
-				if fs.fa[i][0] == nil {
-					fs.fa[i][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
+				if fs.faces[i][0] == nil {
+					fs.faces[i][0] = readFightScreenFace("p1.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[i][1] == nil {
-					fs.fa[i][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
+				if fs.faces[i][1] == nil {
+					fs.faces[i][1] = readFightScreenFace("p2.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[i][2] == nil {
-					fs.fa[i][2] = readFightScreenFace("p3.", is, fs.sff, fs.animTable)
+				if fs.faces[i][2] == nil {
+					fs.faces[i][2] = readFightScreenFace("p3.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[i][3] == nil {
-					fs.fa[i][3] = readFightScreenFace("p4.", is, fs.sff, fs.animTable)
+				if fs.faces[i][3] == nil {
+					fs.faces[i][3] = readFightScreenFace("p4.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[i][4] == nil {
-					fs.fa[i][4] = readFightScreenFace("p5.", is, fs.sff, fs.animTable)
+				if fs.faces[i][4] == nil {
+					fs.faces[i][4] = readFightScreenFace("p5.", is, fs.sff, fs.animTable)
 				}
-				if fs.fa[i][5] == nil {
-					fs.fa[i][5] = readFightScreenFace("p6.", is, fs.sff, fs.animTable)
+				if fs.faces[i][5] == nil {
+					fs.faces[i][5] = readFightScreenFace("p6.", is, fs.sff, fs.animTable)
 				}
 				if i != 4 && i != 6 {
-					if fs.fa[i][6] == nil {
-						fs.fa[i][6] = readFightScreenFace("p7.", is, fs.sff, fs.animTable)
+					if fs.faces[i][6] == nil {
+						fs.faces[i][6] = readFightScreenFace("p7.", is, fs.sff, fs.animTable)
 					}
-					if fs.fa[i][7] == nil {
-						fs.fa[i][7] = readFightScreenFace("p8.", is, fs.sff, fs.animTable)
+					if fs.faces[i][7] == nil {
+						fs.faces[i][7] = readFightScreenFace("p8.", is, fs.sff, fs.animTable)
 					}
 				}
 			case len(subname) >= 4 && subname[:4] == "name":
-				if fs.nm[i][0] == nil {
-					fs.nm[i][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][0] == nil {
+					fs.names[i][0] = readFightScreenName("p1.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[i][1] == nil {
-					fs.nm[i][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][1] == nil {
+					fs.names[i][1] = readFightScreenName("p2.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[i][2] == nil {
-					fs.nm[i][2] = readFightScreenName("p3.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][2] == nil {
+					fs.names[i][2] = readFightScreenName("p3.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[i][3] == nil {
-					fs.nm[i][3] = readFightScreenName("p4.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][3] == nil {
+					fs.names[i][3] = readFightScreenName("p4.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[i][4] == nil {
-					fs.nm[i][4] = readFightScreenName("p5.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][4] == nil {
+					fs.names[i][4] = readFightScreenName("p5.", is, fs.sff, fs.animTable, fs.fnt)
 				}
-				if fs.nm[i][5] == nil {
-					fs.nm[i][5] = readFightScreenName("p6.", is, fs.sff, fs.animTable, fs.fnt)
+				if fs.names[i][5] == nil {
+					fs.names[i][5] = readFightScreenName("p6.", is, fs.sff, fs.animTable, fs.fnt)
 				}
 				if i != 4 && i != 6 {
-					if fs.nm[i][6] == nil {
-						fs.nm[i][6] = readFightScreenName("p7.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.names[i][6] == nil {
+						fs.names[i][6] = readFightScreenName("p7.", is, fs.sff, fs.animTable, fs.fnt)
 					}
-					if fs.nm[i][7] == nil {
-						fs.nm[i][7] = readFightScreenName("p8.", is, fs.sff, fs.animTable, fs.fnt)
+					if fs.names[i][7] == nil {
+						fs.names[i][7] = readFightScreenName("p8.", is, fs.sff, fs.animTable, fs.fnt)
 					}
 				}
 			}
 		case "winicon":
-			if fs.wi[0] == nil {
-				fs.wi[0] = readFightScreenWinIcon("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.winIcons[0] == nil {
+				fs.winIcons[0] = readFightScreenWinIcon("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.wi[1] == nil {
-				fs.wi[1] = readFightScreenWinIcon("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.winIcons[1] == nil {
+				fs.winIcons[1] = readFightScreenWinIcon("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "time":
-			if fs.ti == nil {
-				fs.ti = readFightScreenTime(is, fs.sff, fs.animTable, fs.fnt)
+			if fs.time == nil {
+				fs.time = readFightScreenTime(is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "combo":
-			if fs.co[0] == nil {
+			if fs.combos[0] == nil {
 				if _, ok := is["team1.pos"]; ok {
-					fs.co[0] = readFightScreenCombo("team1.", is, fs.sff, fs.animTable, fs.fnt, 0)
+					fs.combos[0] = readFightScreenCombo("team1.", is, fs.sff, fs.animTable, fs.fnt, 0)
 				} else {
-					fs.co[0] = readFightScreenCombo("", is, fs.sff, fs.animTable, fs.fnt, 0)
+					fs.combos[0] = readFightScreenCombo("", is, fs.sff, fs.animTable, fs.fnt, 0)
 				}
 			}
-			if fs.co[1] == nil {
+			if fs.combos[1] == nil {
 				if _, ok := is["team2.pos"]; ok {
-					fs.co[1] = readFightScreenCombo("team2.", is, fs.sff, fs.animTable, fs.fnt, 1)
+					fs.combos[1] = readFightScreenCombo("team2.", is, fs.sff, fs.animTable, fs.fnt, 1)
 				} else {
-					fs.co[1] = readFightScreenCombo("", is, fs.sff, fs.animTable, fs.fnt, 1)
+					fs.combos[1] = readFightScreenCombo("", is, fs.sff, fs.animTable, fs.fnt, 1)
 				}
 			}
 		case "action":
-			if fs.ac[0] == nil {
-				fs.ac[0] = readFightScreenAction("team1.", is, fs.fnt)
+			if fs.actions[0] == nil {
+				fs.actions[0] = readFightScreenAction("team1.", is, fs.fnt)
 			}
-			if fs.ac[1] == nil {
-				fs.ac[1] = readFightScreenAction("team2.", is, fs.fnt)
+			if fs.actions[1] == nil {
+				fs.actions[1] = readFightScreenAction("team2.", is, fs.fnt)
 			}
 		case "round":
-			if fs.ro == nil {
-				fs.ro = readFightScreenRound(is, fs.sff, fs.animTable, fs.snd, fs.fnt)
+			if fs.round == nil {
+				fs.round = readFightScreenRound(is, fs.sff, fs.animTable, fs.snd, fs.fnt)
 			}
 		case "ratio":
-			if fs.ra[0] == nil {
-				fs.ra[0] = readFightScreenRatio("p1.", is, fs.sff, fs.animTable)
+			if fs.ratios[0] == nil {
+				fs.ratios[0] = readFightScreenRatio("p1.", is, fs.sff, fs.animTable)
 			}
-			if fs.ra[1] == nil {
-				fs.ra[1] = readFightScreenRatio("p2.", is, fs.sff, fs.animTable)
+			if fs.ratios[1] == nil {
+				fs.ratios[1] = readFightScreenRatio("p2.", is, fs.sff, fs.animTable)
 			}
 		case "timer":
-			if fs.tr == nil {
-				fs.tr = readFightScreenTimer(is, fs.sff, fs.animTable, fs.fnt)
+			if fs.timer == nil {
+				fs.timer = readFightScreenTimer(is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "score":
-			if fs.sc[0] == nil {
-				fs.sc[0] = readFightScreenScore("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.scores[0] == nil {
+				fs.scores[0] = readFightScreenScore("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.sc[1] == nil {
-				fs.sc[1] = readFightScreenScore("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.scores[1] == nil {
+				fs.scores[1] = readFightScreenScore("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "match":
-			if fs.ma == nil {
-				fs.ma = readFightScreenMatch(is, fs.sff, fs.animTable, fs.fnt)
+			if fs.match == nil {
+				fs.match = readFightScreenMatch(is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "ailevel":
-			if fs.ai[0] == nil {
-				fs.ai[0] = readFightScreenAiLevel("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.aiLevels[0] == nil {
+				fs.aiLevels[0] = readFightScreenAiLevel("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.ai[1] == nil {
-				fs.ai[1] = readFightScreenAiLevel("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.aiLevels[1] == nil {
+				fs.aiLevels[1] = readFightScreenAiLevel("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "wincount":
-			if fs.wc[0] == nil {
-				fs.wc[0] = readFightScreenWinCount("p1.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.winCounts[0] == nil {
+				fs.winCounts[0] = readFightScreenWinCount("p1.", is, fs.sff, fs.animTable, fs.fnt)
 			}
-			if fs.wc[1] == nil {
-				fs.wc[1] = readFightScreenWinCount("p2.", is, fs.sff, fs.animTable, fs.fnt)
+			if fs.winCounts[1] == nil {
+				fs.winCounts[1] = readFightScreenWinCount("p2.", is, fs.sff, fs.animTable, fs.fnt)
 			}
 		case "mode":
-			if fs.mo == nil {
-				fs.mo = readFightScreenMode(is, fs.sff, fs.animTable, fs.fnt)
+			if fs.modes == nil {
+				fs.modes = readFightScreenMode(is, fs.sff, fs.animTable, fs.fnt)
 			}
 		}
 	}
@@ -4995,82 +4995,82 @@ func loadFightScreen(def string) (*FightScreen, error) {
 	sort.Strings(keys)
 	for _, k := range keys {
 		if strings.Contains(k, " lifebar") {
-			for i := 3; i < len(fs.lb); i++ {
+			for i := 3; i < len(fs.lifeBars); i++ {
 				if i == fs.missing[k] {
-					for j := 0; j < len(fs.lb[i]); j++ {
+					for j := 0; j < len(fs.lifeBars[i]); j++ {
 						if i == 6 || i == 7 {
-							fs.lb[i][j] = fs.lb[3][j]
+							fs.lifeBars[i][j] = fs.lifeBars[3][j]
 						} else {
-							fs.lb[i][j] = fs.lb[1][j]
+							fs.lifeBars[i][j] = fs.lifeBars[1][j]
 						}
 					}
 				}
 			}
 		} else if strings.Contains(k, " powerbar") {
-			for i := 1; i < len(fs.pb); i++ {
+			for i := 1; i < len(fs.powerBars); i++ {
 				if i == fs.missing[k] {
 					for j := 0; j < 2; j++ {
 						switch i {
 						case 4, 5:
-							fs.pb[i][j] = fs.pb[1][j]
+							fs.powerBars[i][j] = fs.powerBars[1][j]
 						case 6, 7:
-							fs.pb[i][j] = fs.pb[3][j]
+							fs.powerBars[i][j] = fs.powerBars[3][j]
 						default:
-							fs.pb[i][j] = fs.pb[0][j]
+							fs.powerBars[i][j] = fs.powerBars[0][j]
 						}
 					}
 				}
 			}
 		} else if strings.Contains(k, " guardbar") {
-			for i := 1; i < len(fs.gb); i++ {
+			for i := 1; i < len(fs.guardBars); i++ {
 				if i == fs.missing[k] {
 					for j := 0; j < 2; j++ {
 						switch i {
 						case 4, 5:
-							fs.gb[i][j] = fs.gb[1][j]
+							fs.guardBars[i][j] = fs.guardBars[1][j]
 						case 6, 7:
-							fs.gb[i][j] = fs.gb[3][j]
+							fs.guardBars[i][j] = fs.guardBars[3][j]
 						default:
-							fs.gb[i][j] = fs.gb[0][j]
+							fs.guardBars[i][j] = fs.guardBars[0][j]
 						}
 					}
 				}
 			}
 		} else if strings.Contains(k, " stunbar") {
-			for i := 1; i < len(fs.sb); i++ {
+			for i := 1; i < len(fs.stunBars); i++ {
 				if i == fs.missing[k] {
 					for j := 0; j < 2; j++ {
 						switch i {
 						case 4, 5:
-							fs.sb[i][j] = fs.sb[1][j]
+							fs.stunBars[i][j] = fs.stunBars[1][j]
 						case 6, 7:
-							fs.sb[i][j] = fs.sb[3][j]
+							fs.stunBars[i][j] = fs.stunBars[3][j]
 						default:
-							fs.sb[i][j] = fs.sb[0][j]
+							fs.stunBars[i][j] = fs.stunBars[0][j]
 						}
 					}
 				}
 			}
 		} else if strings.Contains(k, " face") {
-			for i := 3; i < len(fs.fa); i++ {
+			for i := 3; i < len(fs.faces); i++ {
 				if i == fs.missing[k] {
-					for j := 0; j < len(fs.fa[i]); j++ {
+					for j := 0; j < len(fs.faces[i]); j++ {
 						if i == 6 || i == 7 {
-							fs.fa[i][j] = fs.fa[3][j]
+							fs.faces[i][j] = fs.faces[3][j]
 						} else {
-							fs.fa[i][j] = fs.fa[1][j]
+							fs.faces[i][j] = fs.faces[1][j]
 						}
 					}
 				}
 			}
 		} else if strings.Contains(k, " name") {
-			for i := 3; i < len(fs.nm); i++ {
+			for i := 3; i < len(fs.names); i++ {
 				if i == fs.missing[k] {
-					for j := 0; j < len(fs.nm[i]); j++ {
+					for j := 0; j < len(fs.names[i]); j++ {
 						if i == 6 || i == 7 {
-							fs.nm[i][j] = fs.nm[3][j]
+							fs.names[i][j] = fs.names[3][j]
 						} else {
-							fs.nm[i][j] = fs.nm[1][j]
+							fs.names[i][j] = fs.names[1][j]
 						}
 					}
 				}
@@ -5089,8 +5089,8 @@ func loadFightScreen(def string) (*FightScreen, error) {
 			for _, i := range teamModeIndices {
 				if i < len(fs.lb) {
 					// Replace with Single lifebars
-					fs.lb[i][0] = fs.lb[0][0]
-					fs.lb[i][1] = fs.lb[0][1]
+					fs.lifeBars[i][0] = fs.lifeBars[0][0]
+					fs.lifeBars[i][1] = fs.lifeBars[0][1]
 				}
 			}
 		}
@@ -5104,17 +5104,17 @@ func (fs *FightScreen) reload() error {
 	if err != nil {
 		return err
 	}
-	fs.ti.framespercount = fs.ti.framespercount
-	//fs.ro.match_wins = fs.ro.match_wins
-	//fs.ro.match_maxdrawgames = fs.ro.match_maxdrawgames
-	fs.tr.active = fs.tr.active
-	fs.sc[0].active = fs.sc[0].active
-	fs.sc[1].active = fs.sc[1].active
-	fs.ma.active = fs.ma.active
-	fs.ai[0].active = fs.ai[0].active
-	fs.ai[1].active = fs.ai[1].active
-	fs.wc[0].active = fs.wc[0].active
-	fs.wc[1].active = fs.wc[1].active
+	fs.time.framespercount = fs.time.framespercount
+	//fs.round.match_wins = fs.round.match_wins
+	//fs.round.match_maxdrawgames = fs.round.match_maxdrawgames
+	fs.timer.active = fs.timer.active
+	fs.scores[0].active = fs.scores[0].active
+	fs.scores[1].active = fs.scores[1].active
+	fs.match.active = fs.match.active
+	fs.aiLevels[0].active = fs.aiLevels[0].active
+	fs.aiLevels[1].active = fs.aiLevels[1].active
+	fs.winCounts[0].active = fs.winCounts[0].active
+	fs.winCounts[1].active = fs.winCounts[1].active
 	fs.active = fs.active
 	fs.bars = fs.bars
 	fs.mode = fs.mode
@@ -5160,25 +5160,25 @@ func (fs *FightScreen) step() {
 		for i, charpn := range fs.teamOrder[ti] {
 			index := i*2+ti
 			// LifeBar
-			fs.lb[layout][index].step(charpn, fs.lb[layout][charpn])
+			fs.lifeBars[layout][index].step(charpn, fs.lifeBars[layout][charpn])
 			// PowerBar
-			fs.pb[layout][index].step(charpn, fs.pb[layout][charpn], fs.snd)
+			fs.powerBars[layout][index].step(charpn, fs.powerBars[layout][charpn], fs.snd)
 			// GuardBar
-			fs.gb[layout][index].step(charpn, fs.gb[layout][charpn], fs.snd)
+			fs.guardBars[layout][index].step(charpn, fs.guardBars[layout][charpn], fs.snd)
 			// StunBar
-			fs.sb[layout][index].step(charpn, fs.sb[layout][charpn], fs.snd)
+			fs.stunBars[layout][index].step(charpn, fs.stunBars[layout][charpn], fs.snd)
 			// FightScreenFace
-			fs.fa[layout][index].step(charpn, fs.fa[layout][charpn])
+			fs.faces[layout][index].step(charpn, fs.faces[layout][charpn])
 			// FightScreenName
-			fs.nm[layout][index].step()
+			fs.names[layout][index].step()
 		}
 	}
 	// FightScreenWinIcon
-	for i := range fs.wi {
-		fs.wi[i].step(sys.wins[i])
+	for i := range fs.winIcons {
+		fs.winIcons[i].step(sys.wins[i])
 	}
 	// FightScreenTime
-	fs.ti.step()
+	fs.time.step()
 	// FightScreenCombo
 	cb, cd, cp, dz := [2]int32{}, [2]int32{}, [2]float32{}, [2]bool{}
 	targets := [2]int32{}
@@ -5202,41 +5202,41 @@ func (fs *FightScreen) step() {
 			cp[side] /= float32(targets[side]) // Divide damage percentage by number of valid enemies
 		}
 	}
-	for i := range fs.co {
-		fs.co[i].step(cb[i], cd[i], cp[i], dz[i]) // Combo hits, combo damage, combo damage percentage, dizzy flag
+	for i := range fs.combos {
+		fs.combos[i].step(cb[i], cd[i], cp[i], dz[i]) // Combo hits, combo damage, combo damage percentage, dizzy flag
 	}
 	// FightScreenAction
-	for i := range fs.ac {
-		fs.ac[i].step(fs.teamOrder[i][0])
+	for i := range fs.actions {
+		fs.actions[i].step(fs.teamOrder[i][0])
 	}
 	// FightScreenRatio
 	for ti, tm := range sys.tmode {
 		if tm == TM_Turns {
 			rl := sys.chars[ti][0].ocd().ratioLevel
 			if rl > 0 {
-				fs.ra[ti].step(rl - 1)
+				fs.ratios[ti].step(rl - 1)
 			}
 		}
 	}
 	// FightScreenTimer
-	fs.tr.step()
+	fs.timer.step()
 	// FightScreenScore
-	for i := range fs.sc {
-		fs.sc[i].step()
+	for i := range fs.scores {
+		fs.scores[i].step()
 	}
 	// FightScreenMatch
-	fs.ma.step()
+	fs.match.step()
 	// FightScreenAiLevel
-	for i := range fs.ai {
-		fs.ai[i].step()
+	for i := range fs.aiLevels {
+		fs.aiLevels[i].step()
 	}
 	// FightScreenWinCount
-	for i := range fs.wc {
-		fs.wc[i].step()
+	for i := range fs.winCounts {
+		fs.winCounts[i].step()
 	}
 	// FightScreenMode
-	if _, ok := fs.mo[sys.gameMode]; ok {
-		fs.mo[sys.gameMode].step()
+	if _, ok := fs.modes[sys.gameMode]; ok {
+		fs.modes[sys.gameMode].step()
 	}
 }
 
@@ -5273,7 +5273,7 @@ func (fs *FightScreen) reset() {
 		if tm == TM_Simul || tm == TM_Tag {
 			num[ti] = int(math.Min(8, float64(sys.numSimul[ti])*2))
 		} else {
-			num[ti] = len(fs.lb[fs.curLayout[ti]])
+			num[ti] = len(fs.lifeBars[fs.curLayout[ti]])
 		}
 
 		fs.teamOrder[ti] = []int{}
@@ -5283,63 +5283,63 @@ func (fs *FightScreen) reset() {
 	}
 
 	// Reset fight screen elements
-	for i := range fs.lb {
-		for j := range fs.lb[i] {
-			fs.lb[i][j].reset()
+	for i := range fs.lifeBars {
+		for j := range fs.lifeBars[i] {
+			fs.lifeBars[i][j].reset()
 		}
 	}
-	for i := range fs.pb {
-		for j := range fs.pb[i] {
-			fs.pb[i][j].reset()
+	for i := range fs.powerBars {
+		for j := range fs.powerBars[i] {
+			fs.powerBars[i][j].reset()
 		}
 	}
-	for i := range fs.gb {
-		for j := range fs.gb[i] {
-			fs.gb[i][j].reset()
+	for i := range fs.guardBars {
+		for j := range fs.guardBars[i] {
+			fs.guardBars[i][j].reset()
 		}
 	}
-	for i := range fs.sb {
-		for j := range fs.sb[i] {
-			fs.sb[i][j].reset()
+	for i := range fs.stunBars {
+		for j := range fs.stunBars[i] {
+			fs.stunBars[i][j].reset()
 		}
 	}
-	for i := range fs.fa {
-		for j := range fs.fa[i] {
-			fs.fa[i][j].reset()
+	for i := range fs.faces {
+		for j := range fs.faces[i] {
+			fs.faces[i][j].reset()
 		}
 	}
-	for i := range fs.nm {
-		for j := range fs.nm[i] {
-			fs.nm[i][j].reset()
+	for i := range fs.names {
+		for j := range fs.names[i] {
+			fs.names[i][j].reset()
 		}
 	}
-	for i := range fs.wi {
-		fs.wi[i].reset()
+	for i := range fs.winIcons {
+		fs.winIcons[i].reset()
 	}
-	fs.ti.reset()
-	for i := range fs.co {
-		fs.co[i].reset()
+	fs.time.reset()
+	for i := range fs.combos {
+		fs.combos[i].reset()
 	}
-	for i := range fs.ac {
-		fs.ac[i].reset(fs.teamOrder[i][0])
+	for i := range fs.actions {
+		fs.actions[i].reset(fs.teamOrder[i][0])
 	}
-	fs.ro.reset()
-	for i := range fs.ra {
-		fs.ra[i].reset()
+	fs.round.reset()
+	for i := range fs.ratios {
+		fs.ratios[i].reset()
 	}
-	fs.tr.reset()
-	for i := range fs.sc {
-		fs.sc[i].reset()
+	fs.timer.reset()
+	for i := range fs.scores {
+		fs.scores[i].reset()
 	}
-	fs.ma.reset()
-	for i := range fs.ai {
-		fs.ai[i].reset()
+	fs.match.reset()
+	for i := range fs.aiLevels {
+		fs.aiLevels[i].reset()
 	}
-	for i := range fs.wc {
-		fs.wc[i].reset()
+	for i := range fs.winCounts {
+		fs.winCounts[i].reset()
 	}
-	if _, ok := fs.mo[sys.gameMode]; ok {
-		fs.mo[sys.gameMode].reset()
+	if _, ok := fs.modes[sys.gameMode]; ok {
+		fs.modes[sys.gameMode].reset()
 	}
 }
 
@@ -5375,7 +5375,7 @@ func (fs *FightScreen) draw(layerno int16) {
 				if c.asf(ASF_nolifebardisplay) {
 					return
 				}
-				fs.lb[layout][barpn].bgDraw(layerno)
+				fs.lifeBars[layout][barpn].bgDraw(layerno)
 			})
 
 			// LifeBar bars
@@ -5385,7 +5385,7 @@ func (fs *FightScreen) draw(layerno int16) {
 					return
 				}
 				// Use the definition at [layout][barpn] and the runtime values (combo damage etc) stored at [layout][charpn]
-				fs.lb[layout][barpn].draw(layerno, charpn, fs.lb[layout][charpn], fs.fnt)
+				fs.lifeBars[layout][barpn].draw(layerno, charpn, fs.lifeBars[layout][charpn], fs.fnt)
 			})
 
 			// PowerBar backgrounds
@@ -5399,7 +5399,7 @@ func (fs *FightScreen) draw(layerno int16) {
 				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
 					return
 				}
-				fs.pb[layout][barpn].bgDraw(layerno, barpn)
+				fs.powerBars[layout][barpn].bgDraw(layerno, barpn)
 			})
 
 			// PowerBar bars
@@ -5413,7 +5413,7 @@ func (fs *FightScreen) draw(layerno int16) {
 				if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
 					return
 				}
-				fs.pb[layout][barpn].draw(layerno, charpn, fs.pb[layout][charpn], fs.fnt)
+				fs.powerBars[layout][barpn].draw(layerno, charpn, fs.powerBars[layout][charpn], fs.fnt)
 			})
 
 			// GuardBar
@@ -5422,8 +5422,8 @@ func (fs *FightScreen) draw(layerno int16) {
 				if !c.guardBreakEnabled() || c.asf(ASF_noguardbardisplay) {
 					return
 				}
-				fs.gb[layout][barpn].bgDraw(layerno)
-				fs.gb[layout][barpn].draw(layerno, charpn, fs.gb[layout][charpn], fs.fnt)
+				fs.guardBars[layout][barpn].bgDraw(layerno)
+				fs.guardBars[layout][barpn].draw(layerno, charpn, fs.guardBars[layout][charpn], fs.fnt)
 			})
 
 			// StunBar
@@ -5432,8 +5432,8 @@ func (fs *FightScreen) draw(layerno int16) {
 				if !c.dizzyEnabled() || c.asf(ASF_nostunbardisplay) {
 					return
 				}
-				fs.sb[layout][barpn].bgDraw(layerno)
-				fs.sb[layout][barpn].draw(layerno, charpn, fs.sb[layout][charpn], fs.fnt)
+				fs.stunBars[layout][barpn].bgDraw(layerno)
+				fs.stunBars[layout][barpn].draw(layerno, charpn, fs.stunBars[layout][charpn], fs.fnt)
 			})
 
 			// FightScreenFace
@@ -5443,12 +5443,12 @@ func (fs *FightScreen) draw(layerno int16) {
 					return
 				}
 				// Draw Turns teammates from the first bar only
-				if slot == 0 && len(fs.fa[layout]) > 0 {
-					fs.fa[layout][side].drawTeammates(layerno, charpn)
+				if slot == 0 && len(fs.faces[layout]) > 0 {
+					fs.faces[layout][side].drawTeammates(layerno, charpn)
 				}
 				// Draw active players
-				fs.fa[layout][barpn].bgDraw(layerno)
-				fs.fa[layout][barpn].draw(layerno, charpn, fs.fa[layout][charpn])
+				fs.faces[layout][barpn].bgDraw(layerno)
+				fs.faces[layout][barpn].draw(layerno, charpn, fs.faces[layout][charpn])
 			})
 
 			// FightScreenName
@@ -5458,12 +5458,12 @@ func (fs *FightScreen) draw(layerno int16) {
 					return
 				}
 				// Draw Turns teammates from the first bar only
-				if slot == 0 && len(fs.nm[layout]) > 0 {
-					fs.nm[layout][side].drawTeammates(layerno, charpn, fs.fnt, side)
+				if slot == 0 && len(fs.names[layout]) > 0 {
+					fs.names[layout][side].drawTeammates(layerno, charpn, fs.fnt, side)
 				}
 				// Draw active players
-				fs.nm[layout][barpn].bgDraw(layerno)
-				fs.nm[layout][barpn].draw(layerno, charpn, fs.fnt, side)
+				fs.names[layout][barpn].bgDraw(layerno)
+				fs.names[layout][barpn].draw(layerno, charpn, fs.fnt, side)
 			})
 
 			// FightScreenRatio
@@ -5471,75 +5471,75 @@ func (fs *FightScreen) draw(layerno int16) {
 				if sys.tmode[side] == TM_Turns {
 					rl := sys.chars[side][0].ocd().ratioLevel
 					if rl > 0 && !sys.chars[side][0].asf(ASF_nofacedisplay) {
-						fs.ra[side].bgDraw(layerno)
-						fs.ra[side].draw(layerno, rl-1)
+						fs.ratios[side].bgDraw(layerno)
+						fs.ratios[side].draw(layerno, rl-1)
 					}
 				}
 			}
 
 			// FightScreenTime
-			fs.ti.bgDraw(layerno)
-			fs.ti.draw(layerno, fs.fnt)
+			fs.time.bgDraw(layerno)
+			fs.time.draw(layerno, fs.fnt)
 
 			// FightScreenWinIcon
 			// These are only one per team, so we don't use forEach()
-			for i := len(fs.wi) - 1; i >= 0; i-- {
+			for i := len(fs.winIcons) - 1; i >= 0; i-- {
 				if !sys.chars[i][0].asf(ASF_nowinicondisplay) {
-					fs.wi[i].draw(layerno, fs.fnt, i)
+					fs.winIcons[i].draw(layerno, fs.fnt, i)
 				}
 			}
 
 			// FightScreenTimer
-			fs.tr.bgDraw(layerno)
-			fs.tr.draw(layerno, fs.fnt)
+			fs.timer.bgDraw(layerno)
+			fs.timer.draw(layerno, fs.fnt)
 
 			// FightScreenScore
-			for i := len(fs.sc) - 1; i >= 0; i-- {
-				fs.sc[i].bgDraw(layerno)
-				fs.sc[i].draw(layerno, fs.fnt, i)
+			for i := len(fs.scores) - 1; i >= 0; i-- {
+				fs.scores[i].bgDraw(layerno)
+				fs.scores[i].draw(layerno, fs.fnt, i)
 			}
 
 			// FightScreenMatch
-			fs.ma.bgDraw(layerno)
-			fs.ma.draw(layerno, fs.fnt)
+			fs.match.bgDraw(layerno)
+			fs.match.draw(layerno, fs.fnt)
 
 			// FightScreenAiLevel
-			for i := len(fs.ai) - 1; i >= 0; i-- {
-				fs.ai[i].bgDraw(layerno)
-				fs.ai[i].draw(layerno, fs.fnt, sys.aiLevel[sys.chars[i][0].playerNo])
+			for i := len(fs.aiLevels) - 1; i >= 0; i-- {
+				fs.aiLevels[i].bgDraw(layerno)
+				fs.aiLevels[i].draw(layerno, fs.fnt, sys.aiLevel[sys.chars[i][0].playerNo])
 			}
 
 			// FightScreenWinCount
-			for i := len(fs.wc) - 1; i >= 0; i-- {
-				fs.wc[i].bgDraw(layerno)
-				fs.wc[i].draw(layerno, fs.fnt, i)
+			for i := len(fs.winCounts) - 1; i >= 0; i-- {
+				fs.winCounts[i].bgDraw(layerno)
+				fs.winCounts[i].draw(layerno, fs.fnt, i)
 			}
 		}
 
 		// FightScreenCombo
-		for i := len(fs.co) - 1; i >= 0; i-- {
+		for i := len(fs.combos) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nocombodisplay) {
-				fs.co[i].draw(layerno, fs.fnt, i)
+				fs.combos[i].draw(layerno, fs.fnt, i)
 			}
 		}
 
 		// FightScreenAction
-		for i := len(fs.ac) - 1; i >= 0; i-- {
+		for i := len(fs.actions) - 1; i >= 0; i-- {
 			if !sys.chars[i][0].asf(ASF_nolifebaraction) {
-				fs.ac[i].draw(layerno, fs.fnt, i)
+				fs.actions[i].draw(layerno, fs.fnt, i)
 			}
 		}
 
 		// FightScreenMode
-		if _, ok := fs.mo[sys.gameMode]; ok {
-			fs.mo[sys.gameMode].bgDraw(layerno)
-			fs.mo[sys.gameMode].draw(layerno, fs.fnt)
+		if _, ok := fs.modes[sys.gameMode]; ok {
+			fs.modes[sys.gameMode].bgDraw(layerno)
+			fs.modes[sys.gameMode].draw(layerno, fs.fnt)
 		}
 	}
 
 	if fs.active {
 		// FightScreenRound
-		fs.ro.draw(layerno, fs.fnt)
+		fs.round.draw(layerno, fs.fnt)
 	}
 }
 
@@ -5645,7 +5645,7 @@ func (fs *FightScreen) appendAction(c *Char, msg *FSMsg, s_ffx, a_ffx string, sn
 	}
 
 	// Select side of screen
-	teammsg := fs.ac[c.teamside]
+	teammsg := fs.actions[c.teamside]
 
 	// If adding a new message while exceeding the maximum number allowed, make the oldest message go away faster
 	var count int32

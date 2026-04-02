@@ -1545,12 +1545,12 @@ func (s *System) screenWidth() float32 {
 }
 
 func (s *System) roundEnded() bool {
-	return s.intro < -s.fightScreen.ro.over_hittime
+	return s.intro < -s.fightScreen.round.over_hittime
 }
 
 // Characters cannot hurt each other between fight screen timers over.hittime and over.waittime
 func (s *System) roundNoDamage() bool {
-	return sys.intro < 0 && sys.intro <= -sys.fightScreen.ro.over_hittime && sys.intro >= -sys.fightScreen.ro.over_waittime
+	return sys.intro < 0 && sys.intro <= -sys.fightScreen.round.over_hittime && sys.intro >= -sys.fightScreen.round.over_waittime
 }
 
 // Gametime is the sum of the match time and the screenpack time
@@ -1572,15 +1572,15 @@ func (s *System) gameTime() int32 {
 // That causes more harm than good and is not clearly stated in the documentation, so Ikemen changes it
 func (s *System) roundState() int32 {
 	switch {
-	case sys.intro > sys.fightScreen.ro.ctrl_time+1 || sys.postMatchFlg:
+	case sys.intro > sys.fightScreen.round.ctrl_time+1 || sys.postMatchFlg:
 		return 0
-	//case sys.fightScreen.ro.current == 0:
+	//case sys.fightScreen.round.current == 0:
 	case sys.intro > 0:
 		return 1
 	//case sys.intro >= 0 || sys.finishType == FT_NotYet:
 	case sys.intro == 0 || sys.finishType == FT_NotYet:
 		return 2
-	case sys.intro < -sys.fightScreen.ro.over_waittime:
+	case sys.intro < -sys.fightScreen.round.over_waittime:
 		return 4
 	default:
 		return 3
@@ -1589,23 +1589,23 @@ func (s *System) roundState() int32 {
 
 func (s *System) introState() int32 {
 	switch {
-	case s.intro > s.fightScreen.ro.ctrl_time+1:
+	case s.intro > s.fightScreen.round.ctrl_time+1:
 		// Pre-intro [RoundState = 0]
 		return 1
-	case (s.motif.di.active && s.dialogueForce == 0) || s.intro == s.fightScreen.ro.ctrl_time+1:
+	case (s.motif.di.active && s.dialogueForce == 0) || s.intro == s.fightScreen.round.ctrl_time+1:
 		// Player intros [RoundState = 1]
 		return 2
-	case s.intro == s.fightScreen.ro.ctrl_time:
+	case s.intro == s.fightScreen.round.ctrl_time:
 		// Dialogue detection (s.motif.di.active is detectable 1 frame later)
 		if s.motif.isDialogueSet() {
 			return 2
 		}
 		// Round announcement
 		return 3
-	case s.intro > 0 && s.intro < s.fightScreen.ro.ctrl_time:
+	case s.intro > 0 && s.intro < s.fightScreen.round.ctrl_time:
 		// Fight called
 		// Used to check both these conditions, but refactors revealed that was probably wrong
-		//s.fightScreen.ro.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.fightScreen.ro.ctrl_time)
+		//s.fightScreen.round.fight_timing.animTimer == -1 || (s.intro > 0 && s.intro < s.fightScreen.round.ctrl_time)
 		return 4
 	default:
 		// Not applicable
@@ -1624,10 +1624,10 @@ func (s *System) outroState() int32 {
 	case s.winposetime <= 0:
 		// Player win states
 		return 4
-	case sys.intro <= -sys.fightScreen.ro.over_waittime && sys.winposetime > 0:
+	case sys.intro <= -sys.fightScreen.round.over_waittime && sys.winposetime > 0:
 		// Players lose control, but the round has not yet entered win states
 		return 3
-	case s.intro < -s.fightScreen.ro.over_hittime || sys.fightScreen.ro.over_hittime == 1:
+	case s.intro < -s.fightScreen.round.over_hittime || sys.fightScreen.round.over_hittime == 1:
 		// Players still have control, but the match outcome can no longer be changed
 		return 2
 	case s.intro < 0:
@@ -1640,11 +1640,11 @@ func (s *System) outroState() int32 {
 }
 
 func (s *System) roundOver() bool {
-	return s.intro < -(s.fightScreen.ro.over_waittime + s.fightScreen.ro.overTime())
+	return s.intro < -(s.fightScreen.round.over_waittime + s.fightScreen.round.overTime())
 }
 
 func (s *System) roundStateTicks() int32 {
-	return s.intro + s.fightScreen.ro.over_waittime + s.fightScreen.ro.overTime()
+	return s.intro + s.fightScreen.round.over_waittime + s.fightScreen.round.overTime()
 }
 
 // Check if the match consists of a single round
@@ -2137,11 +2137,11 @@ func (s *System) resetRoundState() {
 	s.winTrigger = [...]WinType{WT_Normal, WT_Normal}
 	s.effectiveLoss = [2]bool{false, false}
 	s.lastHitter = [2]int{-1, -1}
-	s.slowtime = s.fightScreen.ro.slow_time
-	s.winposetime = s.fightScreen.ro.over_wintime
-	s.winwaittime = s.fightScreen.ro.over_waittime + s.fightScreen.ro.over_forcewintime
+	s.slowtime = s.fightScreen.round.slow_time
+	s.winposetime = s.fightScreen.round.over_wintime
+	s.winwaittime = s.fightScreen.round.over_waittime + s.fightScreen.round.over_forcewintime
 	s.winskipped = false
-	s.intro = s.fightScreen.ro.start_waittime + s.fightScreen.ro.ctrl_time + 1
+	s.intro = s.fightScreen.round.start_waittime + s.fightScreen.round.ctrl_time + 1
 	s.curRoundTime = s.maxRoundTime
 	s.curPlayTime = 0
 	// Mugen resets the starting ID between matches but not between rounds
@@ -2385,19 +2385,19 @@ func (s *System) runIntroSkip() {
 	}
 
 	// If too late to skip intros
-	if s.intro <= s.fightScreen.ro.ctrl_time || s.fightScreen.ro.roundDisplayPhase >= 1 { // Latter is probably redundant
+	if s.intro <= s.fightScreen.round.ctrl_time || s.fightScreen.round.roundDisplayPhase >= 1 { // Latter is probably redundant
 		return
 	}
 
 	// Start shutter effect on button press
-	if s.fightScreen.ro.shutterTimer == 0 && s.anyButton() {
-		s.fightScreen.ro.shutterTimer = s.fightScreen.ro.shutter_time * 2 // Open + close time
+	if s.fightScreen.round.shutterTimer == 0 && s.anyButton() {
+		s.fightScreen.round.shutterTimer = s.fightScreen.round.shutter_time * 2 // Open + close time
 	}
 
 	// Skip intros when signal from shutter animation arrives
 	if s.introSkipCall {
 		s.introSkipCall = false
-		s.intro = s.fightScreen.ro.ctrl_time
+		s.intro = s.fightScreen.round.ctrl_time
 
 		// SkipRoundDisplay and SkipFightDisplay flags must be preserved during intro skip frame
 		kept := (s.specialFlag & GSF_skiprounddisplay) | (s.specialFlag & GSF_skipfightdisplay)
@@ -2568,8 +2568,8 @@ func (s *System) action() {
 		// KO slowdown
 		if st := s.getSlowtime(); st > 0 {
 			if !s.gsf(GSF_nokoslow) {
-				base := s.fightScreen.ro.slow_speed
-				fade := s.fightScreen.ro.slow_fadetime
+				base := s.fightScreen.round.slow_speed
+				fade := s.fightScreen.round.slow_fadetime
 				spd *= base
 				if st < fade {
 					ratio := float32(fade-st) / float32(fade)
@@ -2827,7 +2827,7 @@ func (s *System) timeTotal() int32 {
 	for _, v := range s.timerRounds {
 		t += v
 	}
-	if s.fightScreen.ro.timerActive {
+	if s.fightScreen.round.timerActive {
 		t += s.timeElapsed()
 	}
 	return t
@@ -2860,7 +2860,7 @@ func (s *System) shouldStartMatchEndDialogue() bool {
 	if s.motif.di.active || s.motif.di.initialized {
 		return false
 	}
-	return s.intro+s.fightScreen.ro.over_waittime+s.fightScreen.ro.over_time <= 0
+	return s.intro+s.fightScreen.round.over_waittime+s.fightScreen.round.over_time <= 0
 }
 
 func (s *System) holdPostMatchForDialogue() bool {
@@ -2873,7 +2873,7 @@ func (s *System) holdPostMatchForDialogue() bool {
 	if s.shouldStartMatchEndDialogue() {
 		return true
 	}
-	if s.motif.di.matchEndDone && s.fightScreen.ro.fadeOut.isActive() {
+	if s.motif.di.matchEndDone && s.fightScreen.round.fadeOut.isActive() {
 		return true
 	}
 	return false
@@ -2882,12 +2882,12 @@ func (s *System) holdPostMatchForDialogue() bool {
 // Step sys.intro timer and execute related tasks
 func (s *System) stepRoundState() {
 	// Freeze round state if round animations cannot advance
-	if !s.fightScreen.ro.act() {
+	if !s.fightScreen.round.act() {
 		return
 	}
 
 	// Fading
-	if !(s.fightScreen.ro.fadeOut.isActive() || s.fightScreen.ro.fadeIn.isActive()) {
+	if !(s.fightScreen.round.fadeOut.isActive() || s.fightScreen.round.fadeIn.isActive()) {
 		if s.motif.fadeOut.isActive() {
 			s.motif.fadeOut.step()
 		} else if s.motif.fadeIn.isActive() {
@@ -2896,13 +2896,13 @@ func (s *System) stepRoundState() {
 	}
 
 	// Intros
-	if s.intro > s.fightScreen.ro.ctrl_time {
+	if s.intro > s.fightScreen.round.ctrl_time {
 		s.intro--
-		if s.gsf(GSF_intro) && s.intro <= s.fightScreen.ro.ctrl_time {
-			s.intro = s.fightScreen.ro.ctrl_time + 1
+		if s.gsf(GSF_intro) && s.intro <= s.fightScreen.round.ctrl_time {
+			s.intro = s.fightScreen.round.ctrl_time + 1
 		}
 	} else if s.intro > 0 {
-		if s.intro == s.fightScreen.ro.ctrl_time {
+		if s.intro == s.fightScreen.round.ctrl_time {
 			for _, p := range s.chars {
 				if len(p) > 0 {
 					if p[0].activelyFighting() && !p[0].asf(ASF_nointroreset) {
@@ -2941,13 +2941,13 @@ func (s *System) stepRoundState() {
 
 	// Post round
 	if s.roundEnded() || s.roundEndDecision() {
-		rs4t := -s.fightScreen.ro.over_waittime
-		fadeoutStart := rs4t - 2 - s.fightScreen.ro.overTime() + s.fightScreen.ro.fadeOut.time
+		rs4t := -s.fightScreen.round.over_waittime
+		fadeoutStart := rs4t - 2 - s.fightScreen.round.overTime() + s.fightScreen.round.fadeOut.time
 		matchEndDialoguePending := s.matchEndDialoguePending()
 
 		s.intro--
 
-		if s.intro == -s.fightScreen.ro.over_hittime && s.finishType != FT_NotYet {
+		if s.intro == -s.fightScreen.round.over_hittime && s.finishType != FT_NotYet {
 			// Consecutive wins counter
 			winner := [2]bool{s.effectiveLoss[1], s.effectiveLoss[0]}
 			if !winner[0] || !winner[1] ||
@@ -2972,8 +2972,8 @@ func (s *System) stepRoundState() {
 		}
 		// Match-end dialogue takes priority over the round transition until it finishes.
 		if matchEndDialoguePending && !s.motif.di.active && !s.motif.di.matchEndDone {
-			if s.fightScreen.ro.fadeOut.isActive() {
-				s.fightScreen.ro.fadeOut.reset()
+			if s.fightScreen.round.fadeOut.isActive() {
+				s.fightScreen.round.fadeOut.reset()
 			}
 		}
 
@@ -2982,8 +2982,8 @@ func (s *System) stepRoundState() {
 		if !matchEndDialoguePending &&
 			s.intro == fadeoutStart &&
 			(!s.gsf(GSF_roundnotover) || s.winskipped) &&
-			!s.motif.di.active && !s.fightScreen.ro.fadeOut.isActive() {
-			s.fightScreen.ro.fadeOut.init(s.fightScreen.ro.fadeOut, false)
+			!s.motif.di.active && !s.fightScreen.round.fadeOut.isActive() {
+			s.fightScreen.round.fadeOut.init(s.fightScreen.round.fadeOut, false)
 		}
 
 		// Before win poses
@@ -3033,15 +3033,15 @@ func (s *System) stepRoundState() {
 			if winner[0] || winner[1] {
 				for i, win := range winner {
 					if win {
-						s.fightScreen.wi[i].add(s.winType[i])
+						s.fightScreen.winIcons[i].add(s.winType[i])
 						if s.matchOver() {
 							// In a draw game both players go back to 0 wins
 							if winner[0] == winner[1] {
-								s.fightScreen.wc[0].wins = 0
-								s.fightScreen.wc[1].wins = 0
+								s.fightScreen.winCounts[0].wins = 0
+								s.fightScreen.winCounts[1].wins = 0
 							} else {
 								if s.wins[i] >= s.matchWins[i] {
-									s.fightScreen.wc[i].wins++
+									s.fightScreen.winCounts[i].wins++
 								}
 							}
 						}
@@ -3106,7 +3106,7 @@ func (s *System) roundEndDecision() bool {
 	}
 
 	checkClutch := func(team int) bool {
-		clutchRatio := float32(s.fightScreen.ro.clutch_threshold) / 100.0
+		clutchRatio := float32(s.fightScreen.round.clutch_threshold) / 100.0
 		for i := team; i < MaxSimul*2; i += 2 {
 			if len(s.chars[i]) > 0 {
 				char := s.chars[i][0]
@@ -3698,7 +3698,7 @@ func (s *System) runMatch() (reload bool) {
 			break
 		}
 
-		if s.endMatch && !s.fightScreen.ro.fadeOut.isActive() {
+		if s.endMatch && !s.fightScreen.round.fadeOut.isActive() {
 			break
 		}
 
@@ -3857,7 +3857,7 @@ func (s *System) runNextRound() bool {
 		}
 		s.clearAllSound()
 		s.statsLog.nextRound()
-		s.scoreRounds = append(s.scoreRounds, [2]float32{s.fightScreen.sc[0].scorePoints, s.fightScreen.sc[1].scorePoints})
+		s.scoreRounds = append(s.scoreRounds, [2]float32{s.fightScreen.scores[0].scorePoints, s.fightScreen.scores[1].scorePoints})
 
 		if !s.matchOver() &&
 			!(s.tmode[0] == TM_Turns && s.effectiveLoss[0]) &&
@@ -5097,9 +5097,9 @@ func (l *Loader) loadCharacter(pn int, attached bool) int {
 
 	// Prepare fight screen portraits and names for Turns mode
 	if !attached {
-		if pn < len(sys.fightScreen.fa[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
-			fa := sys.fightScreen.fa[sys.tmode[pn&1]][pn]
-			nm := sys.fightScreen.nm[sys.tmode[pn&1]][pn]
+		if pn < len(sys.fightScreen.faces[sys.tmode[pn&1]]) && sys.tmode[pn&1] == TM_Turns && sys.round == 1 {
+			fa := sys.fightScreen.faces[sys.tmode[pn&1]][pn]
+			nm := sys.fightScreen.names[sys.tmode[pn&1]][pn]
 			l.prepareTurnsFaces(pn, fa, nm, teamChars)
 		}
 	}

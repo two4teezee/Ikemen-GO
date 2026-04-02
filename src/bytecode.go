@@ -3561,23 +3561,23 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		nameStr := be.ReadPoolStringAt(i)
 		sys.bcStack.PushB(sys.fightScreen.nameLow == nameStr)
 	case OC_ex2_fightscreenvar_round_ctrl_time:
-		sys.bcStack.PushI(sys.fightScreen.ro.ctrl_time)
+		sys.bcStack.PushI(sys.fightScreen.round.ctrl_time)
 	case OC_ex2_fightscreenvar_round_over_hittime:
-		sys.bcStack.PushI(sys.fightScreen.ro.over_hittime)
+		sys.bcStack.PushI(sys.fightScreen.round.over_hittime)
 	case OC_ex2_fightscreenvar_round_over_time:
-		sys.bcStack.PushI(sys.fightScreen.ro.over_time)
+		sys.bcStack.PushI(sys.fightScreen.round.over_time)
 	case OC_ex2_fightscreenvar_round_over_waittime:
-		sys.bcStack.PushI(sys.fightScreen.ro.over_waittime)
+		sys.bcStack.PushI(sys.fightScreen.round.over_waittime)
 	case OC_ex2_fightscreenvar_round_over_wintime:
-		sys.bcStack.PushI(sys.fightScreen.ro.over_wintime)
+		sys.bcStack.PushI(sys.fightScreen.round.over_wintime)
 	case OC_ex2_fightscreenvar_round_slow_time:
-		sys.bcStack.PushI(sys.fightScreen.ro.slow_time)
+		sys.bcStack.PushI(sys.fightScreen.round.slow_time)
 	case OC_ex2_fightscreenvar_round_start_waittime:
-		sys.bcStack.PushI(sys.fightScreen.ro.start_waittime)
+		sys.bcStack.PushI(sys.fightScreen.round.start_waittime)
 	case OC_ex2_fightscreenvar_round_callfight_time:
-		sys.bcStack.PushI(sys.fightScreen.ro.callfight_time)
+		sys.bcStack.PushI(sys.fightScreen.round.callfight_time)
 	case OC_ex2_fightscreenvar_time_framespercount:
-		sys.bcStack.PushI(sys.fightScreen.ti.framespercount)
+		sys.bcStack.PushI(sys.fightScreen.time.framespercount)
 	case OC_ex2_groundlevel:
 		sys.bcStack.PushF(c.groundLevel * (c.localscl / oc.localscl))
 	case OC_ex2_layerno:
@@ -3987,13 +3987,13 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		}
 	// FightScreenState
 	case OC_ex2_fightscreenstate_fightdisplay:
-		sys.bcStack.PushB(sys.fightScreen.ro.fightDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.round.fightDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_kodisplay:
-		sys.bcStack.PushB(sys.fightScreen.ro.koDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.round.koDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_rounddisplay:
-		sys.bcStack.PushB(sys.fightScreen.ro.roundDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.round.roundDisplayPhase == 1)
 	case OC_ex2_fightscreenstate_windisplay:
-		sys.bcStack.PushB(sys.fightScreen.ro.winDisplayPhase == 1)
+		sys.bcStack.PushB(sys.fightScreen.round.winDisplayPhase == 1)
 	// MotifState
 	case OC_ex2_motifstate_challenger:
 		sys.bcStack.PushB(sys.motif.ch.active)
@@ -11758,7 +11758,7 @@ func (sc lifebarAction) Run(c *Char, _ []int32) bool {
 	})
 
 	if msg.resttime < 0 {
-		msg.resttime = sys.fightScreen.ac[crun.teamside].displaytime
+		msg.resttime = sys.fightScreen.actions[crun.teamside].displaytime
 	}
 	msg.resttime = int32(float32(msg.resttime) * timemul)
 

@@ -472,35 +472,35 @@ func (fs *FightScreen) Clone(a *arena.Arena) (result FightScreen) {
 	result = *fs
 
 	// Round
-	if fs.ro != nil {
-		result.ro = &FightScreenRound{} // Shallow copy
-		*result.ro = *fs.ro
+	if fs.round != nil {
+		result.round = &FightScreenRound{} // Shallow copy
+		*result.round = *fs.round
 		// Fade state
-		result.ro.fadeIn = fs.ro.fadeIn.Clone(a)
-		result.ro.fadeOut = fs.ro.fadeOut.Clone(a)
+		result.round.fadeIn = fs.round.fadeIn.Clone(a)
+		result.round.fadeOut = fs.round.fadeOut.Clone(a)
 	}
 
 	// WinCount
-	for i := 0; i < len(fs.wc); i++ {
-		if fs.wc[i] != nil {
-			result.wc[i] = arena.New[FightScreenWinCount](a)
-			*result.wc[i] = *fs.wc[i]
+	for i := 0; i < len(fs.winCounts); i++ {
+		if fs.winCounts[i] != nil {
+			result.winCounts[i] = arena.New[FightScreenWinCount](a)
+			*result.winCounts[i] = *fs.winCounts[i]
 		}
 	}
 
 	// Combo
-	for i := 0; i < len(fs.co); i++ {
-		if fs.co[i] != nil {
-			result.co[i] = arena.New[FightScreenCombo](a)
-			*result.co[i] = *fs.co[i]
+	for i := 0; i < len(fs.combos); i++ {
+		if fs.combos[i] != nil {
+			result.combos[i] = arena.New[FightScreenCombo](a)
+			*result.combos[i] = *fs.combos[i]
 		}
 	}
 
 	// Score
-	for i := 0; i < len(fs.sc); i++ {
-		if fs.sc[i] != nil {
-			result.sc[i] = arena.New[FightScreenScore](a)
-			*result.sc[i] = *fs.sc[i]
+	for i := 0; i < len(fs.scores); i++ {
+		if fs.scores[i] != nil {
+			result.scores[i] = arena.New[FightScreenScore](a)
+			*result.scores[i] = *fs.scores[i]
 		}
 	}
 
@@ -520,8 +520,8 @@ func (fs *FightScreen) Clone(a *arena.Arena) (result FightScreen) {
 		}
 
 		for i := 0; i < len(fs.ai); i++ {
-			result.ai[i] = arena.New[FightScreenAiLevel](a)
-			*result.ai[i] = *fs.ai[i]
+			result.aiLevels[i] = arena.New[FightScreenAiLevel](a)
+			*result.aiLevels[i] = *fs.aiLevels[i]
 		}
 
 		if fs.tr != nil {
@@ -574,35 +574,35 @@ func (fs *FightScreen) Clone(a *arena.Arena) (result FightScreen) {
 
 		// Face
 		for i := range result.fa {
-			result.fa[i] = arena.MakeSlice[*FightScreenFace](a, len(fs.fa[i]), len(fs.fa[i]))
-			for j := 0; j < len(fs.fa[i]); j++ {
-				result.fa[i][j] = arena.New[FightScreenFace](a)
-				*result.fa[i][j] = *fs.fa[i][j]
+			result.faces[i] = arena.MakeSlice[*FightScreenFace](a, len(fs.faces[i]), len(fs.faces[i]))
+			for j := 0; j < len(fs.faces[i]); j++ {
+				result.faces[i][j] = arena.New[FightScreenFace](a)
+				*result.faces[i][j] = *fs.faces[i][j]
 			}
 		}
 
 		// Name
 		for i := range result.nm {
-			result.nm[i] = arena.MakeSlice[*FightScreenName](a, len(fs.nm[i]), len(fs.nm[i]))
-			for j := 0; j < len(fs.nm[i]); j++ {
-				result.nm[i][j] = arena.New[FightScreenName](a)
-				*result.nm[i][j] = *fs.nm[i][j]
+			result.names[i] = arena.MakeSlice[*FightScreenName](a, len(fs.names[i]), len(fs.names[i]))
+			for j := 0; j < len(fs.names[i]); j++ {
+				result.names[i][j] = arena.New[FightScreenName](a)
+				*result.names[i][j] = *fs.names[i][j]
 			}
 		}
 	*/
 
 	// Action
-	for i := range result.ac {
-		if fs.ac[i] != nil {
-			result.ac[i] = arena.New[FightScreenAction](a)
+	for i := range result.actions {
+		if fs.actions[i] != nil {
+			result.actions[i] = arena.New[FightScreenAction](a)
 
-			*result.ac[i] = *fs.ac[i]
+			*result.actions[i] = *fs.actions[i]
 
-			if fs.ac[i].messages != nil {
-				result.ac[i].messages = arena.MakeSlice[*FSMsg](a, len(fs.ac[i].messages), len(fs.ac[i].messages))
-				for j := 0; j < len(fs.ac[i].messages); j++ {
-					result.ac[i].messages[j] = arena.New[FSMsg](a)
-					*result.ac[i].messages[j] = *fs.ac[i].messages[j]
+			if fs.actions[i].messages != nil {
+				result.actions[i].messages = arena.MakeSlice[*FSMsg](a, len(fs.actions[i].messages), len(fs.actions[i].messages))
+				for j := 0; j < len(fs.actions[i].messages); j++ {
+					result.actions[i].messages[j] = arena.New[FSMsg](a)
+					*result.actions[i].messages[j] = *fs.actions[i].messages[j]
 				}
 			}
 		}

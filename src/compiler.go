@@ -2821,59 +2821,111 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		isFlag := false
 		switch param {
 		case "guard.dist.depth.bottom":
-			opc = OC_ex2_hitdefvar_guard_dist_depth_bottom
+			opc = OC_ex3_hitdefvar_guard_dist_depth_bottom
 		case "guard.dist.depth.top":
-			opc = OC_ex2_hitdefvar_guard_dist_depth_top
+			opc = OC_ex3_hitdefvar_guard_dist_depth_top
 		case "guard.dist.height.bottom":
-			opc = OC_ex2_hitdefvar_guard_dist_height_bottom
+			opc = OC_ex3_hitdefvar_guard_dist_height_bottom
 		case "guard.dist.height.top":
-			opc = OC_ex2_hitdefvar_guard_dist_height_top
+			opc = OC_ex3_hitdefvar_guard_dist_height_top
 		case "guard.dist.width.back":
-			opc = OC_ex2_hitdefvar_guard_dist_width_back
+			opc = OC_ex3_hitdefvar_guard_dist_width_back
 		case "guard.dist.width.front":
-			opc = OC_ex2_hitdefvar_guard_dist_width_front
+			opc = OC_ex3_hitdefvar_guard_dist_width_front
 		case "guard.pausetime":
-			opc = OC_ex2_hitdefvar_guard_pausetime
+			opc = OC_ex3_hitdefvar_guard_pausetime
 		case "guard.shaketime":
-			opc = OC_ex2_hitdefvar_guard_shaketime
+			opc = OC_ex3_hitdefvar_guard_shaketime
 		case "guard.sparkno":
-			opc = OC_ex2_hitdefvar_guard_sparkno
+			opc = OC_ex3_hitdefvar_guard_sparkno
 		case "guarddamage":
-			opc = OC_ex2_hitdefvar_guarddamage
+			opc = OC_ex3_hitdefvar_guarddamage
 		case "guardflag":
-			opc = OC_ex2_hitdefvar_guardflag
+			opc = OC_ex3_hitdefvar_guardflag
 			isFlag = true
 		case "guardsound.group":
-			opc = OC_ex2_hitdefvar_guardsound_group
+			opc = OC_ex3_hitdefvar_guardsound_group
 		case "guardsound.number":
-			opc = OC_ex2_hitdefvar_guardsound_number
+			opc = OC_ex3_hitdefvar_guardsound_number
 		case "hitdamage":
-			opc = OC_ex2_hitdefvar_hitdamage
+			opc = OC_ex3_hitdefvar_hitdamage
 		case "hitflag":
-			opc = OC_ex2_hitdefvar_hitflag
+			opc = OC_ex3_hitdefvar_hitflag
 			isFlag = true
 		case "hitsound.group":
-			opc = OC_ex2_hitdefvar_hitsound_group
+			opc = OC_ex3_hitdefvar_hitsound_group
 		case "hitsound.number":
-			opc = OC_ex2_hitdefvar_hitsound_number
+			opc = OC_ex3_hitdefvar_hitsound_number
 		case "id":
-			opc = OC_ex2_hitdefvar_id
+			opc = OC_ex3_hitdefvar_id
 		case "p1stateno":
-			opc = OC_ex2_hitdefvar_p1stateno
+			opc = OC_ex3_hitdefvar_p1stateno
 		case "p2stateno":
-			opc = OC_ex2_hitdefvar_p2stateno
+			opc = OC_ex3_hitdefvar_p2stateno
 		case "pausetime":
-			opc = OC_ex2_hitdefvar_pausetime
+			opc = OC_ex3_hitdefvar_pausetime
 		case "priority":
-			opc = OC_ex2_hitdefvar_priority
+			opc = OC_ex3_hitdefvar_priority
 		case "shaketime":
-			opc = OC_ex2_hitdefvar_shaketime
+			opc = OC_ex3_hitdefvar_shaketime
 		case "sparkno":
-			opc = OC_ex2_hitdefvar_sparkno
+			opc = OC_ex3_hitdefvar_sparkno
 		case "sparkx":
-			opc = OC_ex2_hitdefvar_sparkx
+			opc = OC_ex3_hitdefvar_sparkx
 		case "sparky":
-			opc = OC_ex2_hitdefvar_sparky
+			opc = OC_ex3_hitdefvar_sparky
+		case "xaccel":
+			opc = OC_ex3_hitdefvar_xaccel
+		case "yaccel":
+			opc = OC_ex3_hitdefvar_yaccel
+		case "zaccel":
+			opc = OC_ex3_hitdefvar_zaccel
+		case "ground.velocity.x":
+			opc = OC_ex3_hitdefvar_ground_velocity_x
+		case "ground.velocity.y":
+			opc = OC_ex3_hitdefvar_ground_velocity_y
+		case "ground.velocity.z":
+			opc = OC_ex3_hitdefvar_ground_velocity_z
+		case "air.velocity.x":
+			opc = OC_ex3_hitdefvar_air_velocity_x
+		case "air.velocity.y":
+			opc = OC_ex3_hitdefvar_air_velocity_y
+		case "air.velocity.z":
+			opc = OC_ex3_hitdefvar_air_velocity_z
+		case "down.velocity.x":
+			opc = OC_ex3_hitdefvar_down_velocity_x
+		case "down.velocity.y":
+			opc = OC_ex3_hitdefvar_down_velocity_y
+		case "down.velocity.z":
+			opc = OC_ex3_hitdefvar_down_velocity_z
+		case "guard.velocity.x":
+			opc = OC_ex3_hitdefvar_guard_velocity_x
+		case "guard.velocity.y":
+			opc = OC_ex3_hitdefvar_guard_velocity_y
+		case "guard.velocity.z":
+			opc = OC_ex3_hitdefvar_guard_velocity_z
+		case "airguard.velocity.x":
+			opc = OC_ex3_hitdefvar_airguard_velocity_x
+		case "airguard.velocity.y":
+			opc = OC_ex3_hitdefvar_airguard_velocity_y
+		case "airguard.velocity.z":
+			opc = OC_ex3_hitdefvar_airguard_velocity_z
+		case "ground.cornerpush.veloff":
+			opc = OC_ex3_hitdefvar_ground_cornerpush_veloff
+		case "air.cornerpush.veloff":
+			opc = OC_ex3_hitdefvar_air_cornerpush_veloff
+		case "down.cornerpush.veloff":
+			opc = OC_ex3_hitdefvar_down_cornerpush_veloff
+		case "guard.cornerpush.veloff":
+			opc = OC_ex3_hitdefvar_guard_cornerpush_veloff
+		case "airguard.cornerpush.veloff":
+			opc = OC_ex3_hitdefvar_airguard_cornerpush_veloff
+		case "fall.xvelocity":
+			opc = OC_ex3_hitdefvar_fall_xvelocity
+		case "fall.yvelocity":
+			opc = OC_ex3_hitdefvar_fall_yvelocity
+		case "fall.zvelocity":
+			opc = OC_ex3_hitdefvar_fall_zvelocity
 		default:
 			return bvNone(), Error("Invalid HitDefVar argument: " + c.token)
 		}
@@ -2882,7 +2934,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				if flg, err := flagSub(); err != nil {
 					return err
 				} else {
-					out.append(OC_ex2_)
+					out.append(OC_ex3_)
 					out.appendI32Op(opc, flg)
 					return nil
 				}
@@ -2890,7 +2942,7 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), err
 			}
 		} else {
-			out.append(OC_ex2_)
+			out.append(OC_ex3_)
 			out.append(opc)
 		}
 	case "hitfall":

@@ -8589,46 +8589,110 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "hitDefVar", func(*lua.LState) int {
 		c := sys.debugWC
 		switch strings.ToLower(strArg(l, 1)) {
-		case "guardflag":
-			l.Push(flagLStr(c.hitdef.guardflag))
-		case "hitflag":
-			l.Push(flagLStr(c.hitdef.hitflag))
-		case "hitdamage":
-			l.Push(lua.LNumber(c.hitdef.hitdamage))
-		case "guarddamage":
-			l.Push(lua.LNumber(c.hitdef.guarddamage))
-		case "p1stateno":
-			l.Push(lua.LNumber(c.hitdef.p1stateno))
-		case "p2stateno":
-			l.Push(lua.LNumber(c.hitdef.p2stateno))
-		case "priority":
-			l.Push(lua.LNumber(c.hitdef.priority))
-		case "id":
-			l.Push(lua.LNumber(c.hitdef.id))
-		case "sparkno":
-			l.Push(lua.LNumber(c.hitdef.sparkno))
-		case "guard.sparkno":
-			l.Push(lua.LNumber(c.hitdef.guard_sparkno))
-		case "sparkx":
-			l.Push(lua.LNumber(c.hitdef.sparkxy[0]))
-		case "sparky":
-			l.Push(lua.LNumber(c.hitdef.sparkxy[1]))
-		case "pausetime":
-			l.Push(lua.LNumber(c.hitdef.pausetime[0]))
+		case "guard.dist.width.back":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_x[1]))
+		case "guard.dist.width.front":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_x[0]))
+		case "guard.dist.height.bottom":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_y[1]))
+		case "guard.dist.height.top":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_y[0]))
+		case "guard.dist.depth.bottom":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_z[1]))
+		case "guard.dist.depth.top":
+			l.Push(lua.LNumber(c.hitdef.guard_dist_z[0]))
 		case "guard.pausetime":
 			l.Push(lua.LNumber(c.hitdef.guard_pausetime[0]))
-		case "shaketime":
-			l.Push(lua.LNumber(c.hitdef.pausetime[1]))
 		case "guard.shaketime":
 			l.Push(lua.LNumber(c.hitdef.guard_pausetime[1]))
-		case "hitsound.group":
-			l.Push(lua.LNumber(c.hitdef.hitsound[0]))
-		case "hitsound.number":
-			l.Push(lua.LNumber(c.hitdef.hitsound[1]))
+		case "guard.sparkno":
+			l.Push(lua.LNumber(c.hitdef.guard_sparkno))
+		case "guarddamage":
+			l.Push(lua.LNumber(c.hitdef.guarddamage))
+		case "guardflag":
+			l.Push(flagLStr(c.hitdef.guardflag))
 		case "guardsound.group":
 			l.Push(lua.LNumber(c.hitdef.guardsound[0]))
 		case "guardsound.number":
 			l.Push(lua.LNumber(c.hitdef.guardsound[1]))
+		case "hitdamage":
+			l.Push(lua.LNumber(c.hitdef.hitdamage))
+		case "hitflag":
+			l.Push(flagLStr(c.hitdef.hitflag))
+		case "hitsound.group":
+			l.Push(lua.LNumber(c.hitdef.hitsound[0]))
+		case "hitsound.number":
+			l.Push(lua.LNumber(c.hitdef.hitsound[1]))
+		case "id":
+			l.Push(lua.LNumber(c.hitdef.id))
+		case "p1stateno":
+			l.Push(lua.LNumber(c.hitdef.p1stateno))
+		case "p2stateno":
+			l.Push(lua.LNumber(c.hitdef.p2stateno))
+		case "pausetime":
+			l.Push(lua.LNumber(c.hitdef.pausetime[0]))
+		case "priority":
+			l.Push(lua.LNumber(c.hitdef.priority))
+		case "shaketime":
+			l.Push(lua.LNumber(c.hitdef.pausetime[1]))
+		case "sparkno":
+			l.Push(lua.LNumber(c.hitdef.sparkno))
+		case "sparkx":
+			l.Push(lua.LNumber(c.hitdef.sparkxy[0]))
+		case "sparky":
+			l.Push(lua.LNumber(c.hitdef.sparkxy[1]))
+		case "xaccel":
+			l.Push(lua.LNumber(c.hitdef.xaccel))
+		case "yaccel":
+			l.Push(lua.LNumber(c.hitdef.yaccel))
+		case "zaccel":
+			l.Push(lua.LNumber(c.hitdef.zaccel))
+		case "ground.velocity.x":
+			l.Push(lua.LNumber(c.hitdef.ground_velocity[0]))
+		case "ground.velocity.y":
+			l.Push(lua.LNumber(c.hitdef.ground_velocity[1]))
+		case "ground.velocity.z":
+			l.Push(lua.LNumber(c.hitdef.ground_velocity[2]))
+		case "air.velocity.x":
+			l.Push(lua.LNumber(c.hitdef.air_velocity[0]))
+		case "air.velocity.y":
+			l.Push(lua.LNumber(c.hitdef.air_velocity[1]))
+		case "air.velocity.z":
+			l.Push(lua.LNumber(c.hitdef.air_velocity[2]))
+		case "down.velocity.x":
+			l.Push(lua.LNumber(c.hitdef.down_velocity[0]))
+		case "down.velocity.y":
+			l.Push(lua.LNumber(c.hitdef.down_velocity[1]))
+		case "down.velocity.z":
+			l.Push(lua.LNumber(c.hitdef.down_velocity[2]))
+		case "guard.velocity.x":
+			l.Push(lua.LNumber(c.hitdef.guard_velocity[0]))
+		case "guard.velocity.y":
+			l.Push(lua.LNumber(c.hitdef.guard_velocity[1]))
+		case "guard.velocity.z":
+			l.Push(lua.LNumber(c.hitdef.guard_velocity[2]))
+		case "airguard.velocity.x":
+			l.Push(lua.LNumber(c.hitdef.airguard_velocity[0]))
+		case "airguard.velocity.y":
+			l.Push(lua.LNumber(c.hitdef.airguard_velocity[1]))
+		case "airguard.velocity.z":
+			l.Push(lua.LNumber(c.hitdef.airguard_velocity[2]))
+		case "ground.cornerpush.veloff":
+			l.Push(lua.LNumber(c.hitdef.ground_cornerpush_veloff))
+		case "air.cornerpush.veloff":
+			l.Push(lua.LNumber(c.hitdef.air_cornerpush_veloff))
+		case "down.cornerpush.veloff":
+			l.Push(lua.LNumber(c.hitdef.down_cornerpush_veloff))
+		case "guard.cornerpush.veloff":
+			l.Push(lua.LNumber(c.hitdef.guard_cornerpush_veloff))
+		case "airguard.cornerpush.veloff":
+			l.Push(lua.LNumber(c.hitdef.airguard_cornerpush_veloff))
+		case "fall.xvelocity":
+			l.Push(lua.LNumber(c.hitdef.fall_xvelocity))
+		case "fall.yvelocity":
+			l.Push(lua.LNumber(c.hitdef.fall_yvelocity))
+		case "fall.zvelocity":
+			l.Push(lua.LNumber(c.hitdef.fall_zvelocity))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

@@ -1208,6 +1208,7 @@ func (c *Compiler) readOldProjectileID(in *string, trname string, baseLen int, o
 	base := trname[:baseLen]
 	suffix := trname[baseLen:]
 
+	// Helper to process errors
 	invalid := func(msg string) (string, error) {
 		// Print error but proceed with ID 0
 		if sys.ignoreMostErrors {
@@ -1246,6 +1247,24 @@ func (c *Compiler) readOldProjectileID(in *string, trname string, baseLen int, o
 
 	out.appendValue(BytecodeInt(0))
 	return base, nil
+}
+
+// For the first half of "x = y, > z" legacy triggers
+func (c *Compiler) parseOldAnimElemStyle(in *string, name string) (int32, error) {
+	if not, err := c.checkEquality(in); err != nil {
+		return 0, err
+	} else if not && !sys.ignoreMostErrors {
+		// These triggers only support '=' operator in the first part
+		return 0, Error(name + " doesn't support '!=' operator")
+	}
+	if c.token == "-" {
+		return 0, Error(name + " doesn't support '-' operator")
+	}
+	n, err := c.integer2(in)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 // rd means Redirect
@@ -1391,7 +1410,6 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	}
 	var be1, be2, be3 BytecodeExp
 	var bv1, bv2, bv3 BytecodeValue
-	var n int32
 	var be BytecodeExp
 	var opc OpCode
 	var err error
@@ -3966,21 +3984,15 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 	case "winhyper":
 		out.append(OC_ex_, OC_ex_winhyper)
 	case "animelem":
-		if not, err := c.checkEquality(in); err != nil {
-			return bvNone(), err
-		} else if not && !sys.ignoreMostErrors {
-			return bvNone(), Error("AnimElem doesn't support '!='")
-		}
-		if c.token == "-" {
-			return bvNone(), Error("'-' should not be used")
-		}
-		if n, err = c.integer2(in); err != nil {
+		n, err := c.parseOldAnimElemStyle(in, "AnimElem")
+		if err != nil {
 			return bvNone(), err
 		}
 		if n <= 0 {
 			return bvNone(), Error("AnimElem must be greater than 0")
 		}
 		be1.appendValue(BytecodeInt(n))
+		// TODO: This probably has the same redirection issue old projectile triggers had
 		if rd {
 			out.appendI32Op(OC_nordrun, int32(len(be1)))
 		}
@@ -3993,15 +4005,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		out.append(be...)
 		return bv, nil
 	case "timemod":
-		if not, err := c.checkEquality(in); err != nil {
-			return bvNone(), err
-		} else if not && !sys.ignoreMostErrors {
-			return bvNone(), Error("TimeMod doesn't support '!='")
-		}
-		if c.token == "-" {
-			return bvNone(), Error("'-' should not be used")
-		}
-		if n, err = c.integer2(in); err != nil {
+		n, err := c.parseOldAnimElemStyle(in, "TimeMod")
+		if err != nil {
 			return bvNone(), err
 		}
 		if n <= 0 {
@@ -5179,8 +5184,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		// projHit123, projGuarded456, projContact789
 		// These will be converted internally to the newer Proj*Time trigger OpCodes
 		l := len(c.token)
-		if l >= 7 && c.token[:7] == "projhit" ||
-			l >= 11 && (c.token[:11] == "projguarded" || c.token[:11] == "projcontact") {
+		if (l >= 7 && c.token[:7] == "projhit") ||
+			(l >= 11 && (c.token[:11] == "projguarded" || c.token[:11] == "projcontact")) {
 			trname, opc := c.token, OC_projhittime
 			var idExp BytecodeExp
 			// Determine contact type OpCode and compile projectile ID
@@ -5202,17 +5207,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 					opc = OC_projcontacttime
 				}
 			}
-			// Legacy projectile triggers only support '=' operator in the first part
-			if not, err := c.checkEquality(in); err != nil {
-				return bvNone(), err
-			} else if not && !sys.ignoreMostErrors {
-				return bvNone(), Error(trname + " doesn't support '!='")
-			}
-			// Reject malformed comparisons like "projhit = -1"
-			if c.token == "-" {
-				return bvNone(), Error("'-' should not be used")
-			}
-			if n, err = c.integer2(in); err != nil {
+			n, err := c.parseOldAnimElemStyle(in, trname)
+			if err != nil {
 				return bvNone(), err
 			}
 			// Mugen only allows 0 or 1 in the first comparison
@@ -5220,19 +5216,24 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 				return bvNone(), Error(trname + " must be compared against 0 or 1")
 			}
 			// Build the underlying Proj*Time(id) expression
-			if rd && len(idExp) > 0 {
-				out.appendI32Op(OC_nordrun, int32(len(idExp)))
-			}
-			out.append(idExp...)
-			out.append(opc)
-			// Optional second legacy form: ProjContact[ID] = value, [oper] value2
-			if err = c.evaluateComparison(out, in, false); err != nil {
+			// Build it as a single block to prevent the first '=' from interrupting the current redirection
+			// https://github.com/ikemen-engine/Ikemen-GO/issues/2123
+			var oldblock BytecodeExp
+			oldblock.append(idExp...)
+			oldblock.append(opc)
+			// Optional second form: ProjContact[ID] = value, [oper] value2
+			if err = c.evaluateComparison(&oldblock, in, false); err != nil {
 				return bvNone(), err
 			}
 			// "= 0" negates the generated time comparison
 			if n == 0 {
-				out.append(OC_blnot)
+				oldblock.append(OC_blnot)
 			}
+			// If we're inside a redirect, force the whole expression to execute in the redirected context
+			if rd {
+				out.appendI32Op(OC_run, int32(len(oldblock)))
+			}
+			out.append(oldblock...)
 			return bvNone(), nil
 		} else if len(c.token) >= 2 && c.token[0] == '$' && c.token != "$_" {
 			vi, ok := c.vars[c.token[1:]]

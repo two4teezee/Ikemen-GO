@@ -5052,10 +5052,10 @@ func (hi *MotifHiscore) makeRowTextSprite(tpl *TextSprite, x, y float32, text st
 }
 
 func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs, noOverlay bool) {
-	//if !m.HiscoreInfo.Enabled || !hi.enabled {
-	//	hi.initialized = true
-	//	return
-	//}
+	if !m.HiscoreInfo.Enabled || !hi.enabled {
+		hi.initialized = true
+		return
+	}
 
 	if err := sys.luaLState.DoString("hook.run('game.hiscore_init')"); err != nil {
 		sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.hiscore_init", err.Error())
@@ -6557,8 +6557,11 @@ func (wi *MotifWin) isEnabled() bool {
 
 // Initialize the MotifWin based on the current game mode
 func (wi *MotifWin) init(m *Motif) {
-	if (wi.isEnabled() && sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1) ||
-		(wi.loseEnabled && (sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1)) {
+	won := sys.winnerTeam() != 0 && sys.winnerTeam() != int32(sys.home)+1
+	lostOrDraw := sys.winnerTeam() == 0 || sys.winnerTeam() == int32(sys.home)+1
+	hasModeResults := resultsScreenForMode(sys.gameMode) != nil
+
+	if (wi.isEnabled() && won) || ((wi.loseEnabled || hasModeResults) && lostOrDraw) {
 		if err := sys.luaLState.DoString("hook.run('game.result_init')"); err != nil {
 			sys.luaLState.RaiseError("Error executing Lua hook: %s\n%v", "game.result_init", err.Error())
 		}

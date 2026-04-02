@@ -902,32 +902,6 @@ const (
 	OC_ex2_projvar_velmul_x
 	OC_ex2_projvar_velmul_y
 	OC_ex2_projvar_velmul_z
-	OC_ex2_hitdefvar_guard_dist_depth_bottom
-	OC_ex2_hitdefvar_guard_dist_depth_top
-	OC_ex2_hitdefvar_guard_dist_height_bottom
-	OC_ex2_hitdefvar_guard_dist_height_top
-	OC_ex2_hitdefvar_guard_dist_width_back
-	OC_ex2_hitdefvar_guard_dist_width_front
-	OC_ex2_hitdefvar_guard_pausetime
-	OC_ex2_hitdefvar_guard_shaketime
-	OC_ex2_hitdefvar_guard_sparkno
-	OC_ex2_hitdefvar_guarddamage
-	OC_ex2_hitdefvar_guardflag
-	OC_ex2_hitdefvar_guardsound_group
-	OC_ex2_hitdefvar_guardsound_number
-	OC_ex2_hitdefvar_hitdamage
-	OC_ex2_hitdefvar_hitflag
-	OC_ex2_hitdefvar_hitsound_group
-	OC_ex2_hitdefvar_hitsound_number
-	OC_ex2_hitdefvar_id
-	OC_ex2_hitdefvar_p1stateno
-	OC_ex2_hitdefvar_p2stateno
-	OC_ex2_hitdefvar_pausetime
-	OC_ex2_hitdefvar_priority
-	OC_ex2_hitdefvar_shaketime
-	OC_ex2_hitdefvar_sparkno
-	OC_ex2_hitdefvar_sparkx
-	OC_ex2_hitdefvar_sparky
 	OC_ex2_hitbyattr
 	OC_ex2_soundvar_group
 	OC_ex2_soundvar_number
@@ -1014,6 +988,58 @@ const (
 	OC_ex3_spritevar_width
 	OC_ex3_spritevar_xoffset
 	OC_ex3_spritevar_yoffset
+	OC_ex3_hitdefvar_guard_dist_depth_bottom
+	OC_ex3_hitdefvar_guard_dist_depth_top
+	OC_ex3_hitdefvar_guard_dist_height_bottom
+	OC_ex3_hitdefvar_guard_dist_height_top
+	OC_ex3_hitdefvar_guard_dist_width_back
+	OC_ex3_hitdefvar_guard_dist_width_front
+	OC_ex3_hitdefvar_guard_pausetime
+	OC_ex3_hitdefvar_guard_shaketime
+	OC_ex3_hitdefvar_guard_sparkno
+	OC_ex3_hitdefvar_guarddamage
+	OC_ex3_hitdefvar_guardflag
+	OC_ex3_hitdefvar_guardsound_group
+	OC_ex3_hitdefvar_guardsound_number
+	OC_ex3_hitdefvar_hitdamage
+	OC_ex3_hitdefvar_hitflag
+	OC_ex3_hitdefvar_hitsound_group
+	OC_ex3_hitdefvar_hitsound_number
+	OC_ex3_hitdefvar_id
+	OC_ex3_hitdefvar_p1stateno
+	OC_ex3_hitdefvar_p2stateno
+	OC_ex3_hitdefvar_pausetime
+	OC_ex3_hitdefvar_priority
+	OC_ex3_hitdefvar_shaketime
+	OC_ex3_hitdefvar_sparkno
+	OC_ex3_hitdefvar_sparkx
+	OC_ex3_hitdefvar_sparky
+	OC_ex3_hitdefvar_xaccel
+	OC_ex3_hitdefvar_yaccel
+	OC_ex3_hitdefvar_zaccel
+	OC_ex3_hitdefvar_ground_velocity_x
+	OC_ex3_hitdefvar_ground_velocity_y
+	OC_ex3_hitdefvar_ground_velocity_z
+	OC_ex3_hitdefvar_air_velocity_x
+	OC_ex3_hitdefvar_air_velocity_y
+	OC_ex3_hitdefvar_air_velocity_z
+	OC_ex3_hitdefvar_down_velocity_x
+	OC_ex3_hitdefvar_down_velocity_y
+	OC_ex3_hitdefvar_down_velocity_z
+	OC_ex3_hitdefvar_guard_velocity_x
+	OC_ex3_hitdefvar_guard_velocity_y
+	OC_ex3_hitdefvar_guard_velocity_z
+	OC_ex3_hitdefvar_airguard_velocity_x
+	OC_ex3_hitdefvar_airguard_velocity_y
+	OC_ex3_hitdefvar_airguard_velocity_z
+	OC_ex3_hitdefvar_ground_cornerpush_veloff
+	OC_ex3_hitdefvar_air_cornerpush_veloff
+	OC_ex3_hitdefvar_down_cornerpush_veloff
+	OC_ex3_hitdefvar_guard_cornerpush_veloff
+	OC_ex3_hitdefvar_airguard_cornerpush_veloff
+	OC_ex3_hitdefvar_fall_xvelocity
+	OC_ex3_hitdefvar_fall_yvelocity
+	OC_ex3_hitdefvar_fall_zvelocity
 )
 
 type StringPool struct {
@@ -4014,65 +4040,6 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(sys.sel.gameParams.PersistLife)
 	case OC_ex2_gamevar_persistmusic:
 		sys.bcStack.PushB(sys.sel.gameParams.PersistMusic)
-	// HitDefVar
-	case OC_ex2_hitdefvar_guard_dist_width_back:
-		sys.bcStack.PushF(c.hitdef.guard_dist_x[1] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_dist_width_front:
-		sys.bcStack.PushF(c.hitdef.guard_dist_x[0] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_dist_height_bottom:
-		sys.bcStack.PushF(c.hitdef.guard_dist_y[1] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_dist_height_top:
-		sys.bcStack.PushF(c.hitdef.guard_dist_y[0] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_dist_depth_bottom:
-		sys.bcStack.PushF(c.hitdef.guard_dist_z[1] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_dist_depth_top:
-		sys.bcStack.PushF(c.hitdef.guard_dist_z[0] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_guard_pausetime:
-		sys.bcStack.PushI(c.hitdef.guard_pausetime[0])
-	case OC_ex2_hitdefvar_guard_shaketime:
-		sys.bcStack.PushI(c.hitdef.guard_pausetime[1])
-	case OC_ex2_hitdefvar_guard_sparkno:
-		sys.bcStack.PushI(c.hitdef.guard_sparkno)
-	case OC_ex2_hitdefvar_guarddamage:
-		sys.bcStack.PushI(c.hitdef.guarddamage)
-	case OC_ex2_hitdefvar_guardflag:
-		attr := be.ReadIntAt(i)
-		sys.bcStack.PushB(
-			c.hitdef.guardflag&attr != 0,
-		)
-	case OC_ex2_hitdefvar_guardsound_group:
-		sys.bcStack.PushI(c.hitdef.guardsound[0])
-	case OC_ex2_hitdefvar_guardsound_number:
-		sys.bcStack.PushI(c.hitdef.guardsound[1])
-	case OC_ex2_hitdefvar_hitdamage:
-		sys.bcStack.PushI(c.hitdef.hitdamage)
-	case OC_ex2_hitdefvar_hitflag:
-		attr := be.ReadIntAt(i)
-		sys.bcStack.PushB(
-			c.hitdef.hitflag&attr != 0,
-		)
-	case OC_ex2_hitdefvar_hitsound_group:
-		sys.bcStack.PushI(c.hitdef.hitsound[0])
-	case OC_ex2_hitdefvar_hitsound_number:
-		sys.bcStack.PushI(c.hitdef.hitsound[1])
-	case OC_ex2_hitdefvar_id:
-		sys.bcStack.PushI(c.hitdef.id)
-	case OC_ex2_hitdefvar_p1stateno:
-		sys.bcStack.PushI(c.hitdef.p1stateno)
-	case OC_ex2_hitdefvar_p2stateno:
-		sys.bcStack.PushI(c.hitdef.p2stateno)
-	case OC_ex2_hitdefvar_pausetime:
-		sys.bcStack.PushI(c.hitdef.pausetime[0])
-	case OC_ex2_hitdefvar_priority:
-		sys.bcStack.PushI(c.hitdef.priority)
-	case OC_ex2_hitdefvar_shaketime:
-		sys.bcStack.PushI(c.hitdef.pausetime[1])
-	case OC_ex2_hitdefvar_sparkno:
-		sys.bcStack.PushI(c.hitdef.sparkno)
-	case OC_ex2_hitdefvar_sparkx:
-		sys.bcStack.PushF(c.hitdef.sparkxy[0] * (c.localscl / oc.localscl))
-	case OC_ex2_hitdefvar_sparky:
-		sys.bcStack.PushF(c.hitdef.sparkxy[1] * (c.localscl / oc.localscl))
 	// HitByAttr
 	case OC_ex2_hitbyattr:
 		attr := be.ReadIntAt(i)
@@ -4209,6 +4176,117 @@ func (be BytecodeExp) run_ex3(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushF(c.analogAxes[4])
 	case OC_ex3_analog_righttrigger:
 		sys.bcStack.PushF(c.analogAxes[5])
+	// HitDefVar
+	case OC_ex3_hitdefvar_guard_dist_width_back:
+		sys.bcStack.PushF(c.hitdef.guard_dist_x[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_dist_width_front:
+		sys.bcStack.PushF(c.hitdef.guard_dist_x[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_dist_height_bottom:
+		sys.bcStack.PushF(c.hitdef.guard_dist_y[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_dist_height_top:
+		sys.bcStack.PushF(c.hitdef.guard_dist_y[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_dist_depth_bottom:
+		sys.bcStack.PushF(c.hitdef.guard_dist_z[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_dist_depth_top:
+		sys.bcStack.PushF(c.hitdef.guard_dist_z[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_pausetime:
+		sys.bcStack.PushI(c.hitdef.guard_pausetime[0])
+	case OC_ex3_hitdefvar_guard_shaketime:
+		sys.bcStack.PushI(c.hitdef.guard_pausetime[1])
+	case OC_ex3_hitdefvar_guard_sparkno:
+		sys.bcStack.PushI(c.hitdef.guard_sparkno)
+	case OC_ex3_hitdefvar_guarddamage:
+		sys.bcStack.PushI(c.hitdef.guarddamage)
+	case OC_ex3_hitdefvar_guardflag:
+		attr := be.ReadIntAt(i)
+		sys.bcStack.PushB(
+			c.hitdef.guardflag&attr != 0,
+		)
+	case OC_ex3_hitdefvar_guardsound_group:
+		sys.bcStack.PushI(c.hitdef.guardsound[0])
+	case OC_ex3_hitdefvar_guardsound_number:
+		sys.bcStack.PushI(c.hitdef.guardsound[1])
+	case OC_ex3_hitdefvar_hitdamage:
+		sys.bcStack.PushI(c.hitdef.hitdamage)
+	case OC_ex3_hitdefvar_hitflag:
+		attr := be.ReadIntAt(i)
+		sys.bcStack.PushB(
+			c.hitdef.hitflag&attr != 0,
+		)
+	case OC_ex3_hitdefvar_hitsound_group:
+		sys.bcStack.PushI(c.hitdef.hitsound[0])
+	case OC_ex3_hitdefvar_hitsound_number:
+		sys.bcStack.PushI(c.hitdef.hitsound[1])
+	case OC_ex3_hitdefvar_id:
+		sys.bcStack.PushI(c.hitdef.id)
+	case OC_ex3_hitdefvar_p1stateno:
+		sys.bcStack.PushI(c.hitdef.p1stateno)
+	case OC_ex3_hitdefvar_p2stateno:
+		sys.bcStack.PushI(c.hitdef.p2stateno)
+	case OC_ex3_hitdefvar_pausetime:
+		sys.bcStack.PushI(c.hitdef.pausetime[0])
+	case OC_ex3_hitdefvar_priority:
+		sys.bcStack.PushI(c.hitdef.priority)
+	case OC_ex3_hitdefvar_shaketime:
+		sys.bcStack.PushI(c.hitdef.pausetime[1])
+	case OC_ex3_hitdefvar_sparkno:
+		sys.bcStack.PushI(c.hitdef.sparkno)
+	case OC_ex3_hitdefvar_sparkx:
+		sys.bcStack.PushF(c.hitdef.sparkxy[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_sparky:
+		sys.bcStack.PushF(c.hitdef.sparkxy[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_xaccel:
+		sys.bcStack.PushF(c.hitdef.xaccel * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_yaccel:
+		sys.bcStack.PushF(c.hitdef.yaccel * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_zaccel:
+		sys.bcStack.PushF(c.hitdef.zaccel * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_ground_velocity_x:
+		sys.bcStack.PushF(c.hitdef.ground_velocity[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_ground_velocity_y:
+		sys.bcStack.PushF(c.hitdef.ground_velocity[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_ground_velocity_z:
+		sys.bcStack.PushF(c.hitdef.ground_velocity[2] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_air_velocity_x:
+		sys.bcStack.PushF(c.hitdef.air_velocity[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_air_velocity_y:
+		sys.bcStack.PushF(c.hitdef.air_velocity[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_air_velocity_z:
+		sys.bcStack.PushF(c.hitdef.air_velocity[2] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_down_velocity_x:
+		sys.bcStack.PushF(c.hitdef.down_velocity[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_down_velocity_y:
+		sys.bcStack.PushF(c.hitdef.down_velocity[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_down_velocity_z:
+		sys.bcStack.PushF(c.hitdef.down_velocity[2] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_velocity_x:
+		sys.bcStack.PushF(c.hitdef.guard_velocity[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_velocity_y:
+		sys.bcStack.PushF(c.hitdef.guard_velocity[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_velocity_z:
+		sys.bcStack.PushF(c.hitdef.guard_velocity[2] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_airguard_velocity_x:
+		sys.bcStack.PushF(c.hitdef.airguard_velocity[0] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_airguard_velocity_y:
+		sys.bcStack.PushF(c.hitdef.airguard_velocity[1] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_airguard_velocity_z:
+		sys.bcStack.PushF(c.hitdef.airguard_velocity[2] * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_ground_cornerpush_veloff:
+		sys.bcStack.PushF(c.hitdef.ground_cornerpush_veloff * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_air_cornerpush_veloff:
+		sys.bcStack.PushF(c.hitdef.air_cornerpush_veloff * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_down_cornerpush_veloff:
+		sys.bcStack.PushF(c.hitdef.down_cornerpush_veloff * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_guard_cornerpush_veloff:
+		sys.bcStack.PushF(c.hitdef.guard_cornerpush_veloff * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_airguard_cornerpush_veloff:
+		sys.bcStack.PushF(c.hitdef.airguard_cornerpush_veloff * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_fall_xvelocity:
+		sys.bcStack.PushF(c.hitdef.fall_xvelocity * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_fall_yvelocity:
+		sys.bcStack.PushF(c.hitdef.fall_yvelocity * (c.localscl / oc.localscl))
+	case OC_ex3_hitdefvar_fall_zvelocity:
+		sys.bcStack.PushF(c.hitdef.fall_zvelocity * (c.localscl / oc.localscl))
 	// HelperVar
 	case OC_ex3_helpervar_clsnproxy, OC_ex3_helpervar_id, OC_ex3_helpervar_helpertype,
 		OC_ex3_helpervar_keyctrl, OC_ex3_helpervar_ownclsnscale, OC_ex3_helpervar_ownpal,

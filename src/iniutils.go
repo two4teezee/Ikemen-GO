@@ -2087,6 +2087,8 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 		a.anim = animData
 	} else if hasSpr {
 		a = NewAnim(sffPtr, fmt.Sprintf("%d,%d, 0,0, -1", spr[0], spr[1]))
+		//a.anim.SetAnimElem(1, 0)
+		a.anim.UpdateSprite()
 	} else {
 		a = NewAnim(nil, "")
 		a.anim = nil

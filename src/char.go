@@ -3292,7 +3292,6 @@ func (c *Char) init(n int, idx int) {
 	}
 
 	// Initialize CNS variables
-	// TODO: If we make maps persist between matches, they should be here as well
 	c.initCnsVar()
 
 	// Init the map array
@@ -3303,6 +3302,12 @@ func (c *Char) init(n int, idx int) {
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
 	}
+
+	// Default localcoord
+	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
+	c.localscl = 320 / c.localcoord
+
+	// This first pass only initializes state to safe defaults. Will run again later after the character is fully set up
 	c.clearState()
 }
 
@@ -3466,13 +3471,11 @@ func (c *Char) load(def string) error {
 	// We don't nil the SFF so that loadSff() can reuse it if the same character is selected/reloaded
 	//gi.sff = nil
 
-	// Reset DEF file maps
-	c.mapDefault = make(map[string]float32)
-
 	// Default localcoord
 	gi.localcoord = [2]int32{320, 240}
-	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
-	c.localscl = 320 / c.localcoord
+
+	// Reset DEF file maps
+	c.mapDefault = make(map[string]float32)
 
 	// Helper to resolve paths relative to the .def file's logical location
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -6538,6 +6541,8 @@ func (c *Char) newHelper() (h *Char) {
 	h.parentId = c.id
 	h.controller = c.controller
 	h.teamside = c.teamside
+	h.localcoord = c.localcoord // These two are needed for clearState()
+	h.localscl = c.localscl
 	h.size = c.size
 	h.life, h.lifeMax = c.lifeMax, c.lifeMax
 	h.powerMax = c.powerMax
@@ -6554,7 +6559,7 @@ func (c *Char) newHelper() (h *Char) {
 
 // Init helper after reading the bytecode parameters
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32, facing int32, rp [2]int32, extmap bool) {
-	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
+	p := c.helperPos(pt, [3]float32{x, y, z}, facing, &h.facing, h.localscl, false)
 	h.setPosX(p[0], true)
 	h.setPosY(p[1], true)
 	h.setPosZ(p[2], true)
@@ -7224,8 +7229,8 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	}
 
 	// Set starting position
-	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
-	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
+	pos := c.helperPos(pt, [3]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
+	p.setAllPos([3]float32{pos[0], pos[1], pos[2]})
 
 	// Clamp negative animations
 	if p.animNo < -2 {

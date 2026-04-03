@@ -5052,7 +5052,8 @@ func (hi *MotifHiscore) makeRowTextSprite(tpl *TextSprite, x, y float32, text st
 }
 
 func (hi *MotifHiscore) init(m *Motif, mode string, place, endTime int32, noFade, noBgs, noOverlay bool) {
-	if !m.HiscoreInfo.Enabled || !hi.enabled {
+	//if !m.HiscoreInfo.Enabled || !hi.enabled {
+	if !m.HiscoreInfo.Enabled {
 		hi.initialized = true
 		return
 	}

@@ -5094,29 +5094,29 @@ func loadFightScreen(def string) (*FightScreen, error) {
 }
 
 func (fs *FightScreen) reload() error {
-	fs, err := loadFightScreen(fs.def)
+	new, err := loadFightScreen(fs.def)
 	if err != nil {
 		return err
 	}
-	fs.time.framespercount = fs.time.framespercount
-	//fs.round.match_wins = fs.round.match_wins
-	//fs.round.match_maxdrawgames = fs.round.match_maxdrawgames
-	fs.timer.active = fs.timer.active
-	fs.scores[0].active = fs.scores[0].active
-	fs.scores[1].active = fs.scores[1].active
-	fs.match.active = fs.match.active
-	fs.aiLevels[0].active = fs.aiLevels[0].active
-	fs.aiLevels[1].active = fs.aiLevels[1].active
-	fs.winCounts[0].active = fs.winCounts[0].active
-	fs.winCounts[1].active = fs.winCounts[1].active
-	fs.active = fs.active
-	fs.bars = fs.bars
-	fs.mode = fs.mode
-	fs.redlifebar = fs.redlifebar
-	fs.guardbar = fs.guardbar
-	fs.stunbar = fs.stunbar
-	//fs.fx_scale = fs.fx_scale
-	sys.fightScreen = *fs
+	new.time.framespercount = fs.time.framespercount
+	//new.round.match_wins = fs.round.match_wins
+	//new.round.match_maxdrawgames = fs.round.match_maxdrawgames
+	new.timer.active = fs.timer.active
+	new.scores[0].active = fs.scores[0].active
+	new.scores[1].active = fs.scores[1].active
+	new.match.active = fs.match.active
+	new.aiLevels[0].active = fs.aiLevels[0].active
+	new.aiLevels[1].active = fs.aiLevels[1].active
+	new.winCounts[0].active = fs.winCounts[0].active
+	new.winCounts[1].active = fs.winCounts[1].active
+	new.active = fs.active
+	new.bars = fs.bars
+	new.mode = fs.mode
+	new.redlifebar = fs.redlifebar
+	new.guardbar = fs.guardbar
+	new.stunbar = fs.stunbar
+	//new.fx_scale = fs.fx_scale
+	sys.fightScreen = *new
 	return nil
 }
 

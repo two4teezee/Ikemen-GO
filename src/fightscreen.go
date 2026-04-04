@@ -3150,7 +3150,9 @@ func (ro *FightScreenRound) act() bool {
 			return ro.fightDisplayPhase > 0
 		}
 	}
-	return sys.tickNextFrame()
+	// Because round state should step before characters, this should be tickFrame()
+	//return sys.tickNextFrame()
+	return sys.tickFrame()
 }
 
 /*

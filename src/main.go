@@ -265,7 +265,7 @@ func processCommandLine() {
 -h -?                   Help
 -log <logfile>          Records match data to <logfile>
 -r <path>               Loads motif <path>. eg. -r motifdir or -r motifdir/system.def
--lifebar <path>         Loads lifebar <path>. eg. -lifebar data/fight.def
+-fight <path>           Loads fight screen <path>. eg. -fight data/fight.def
 -storyboard <path>      Loads storyboard <path>. eg. -storyboard chars/kfm/intro.def
 -windowed               Starts in windowed mode (disables fullscreen)
 -width <num>            Sets game width

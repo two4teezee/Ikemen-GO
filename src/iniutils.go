@@ -2081,13 +2081,16 @@ func SetAnim(obj interface{}, fVal, structVal, parent reflect.Value, sffOverride
 	}
 
 	// animNew
-	a := NewAnim(sffPtr, fmt.Sprintf("%d,%d, 0,0, -1", spr[0], spr[1]))
+	var a *Anim
 	if animData, exists := animMap[anim]; exists {
+		a = NewAnim(nil, "")
 		a.anim = animData
 	} else if hasSpr {
+		a = NewAnim(sffPtr, fmt.Sprintf("%d,%d, 0,0, -1", spr[0], spr[1]))
 		//a.anim.SetAnimElem(1, 0)
 		a.anim.UpdateSprite()
 	} else {
+		a = NewAnim(nil, "")
 		a.anim = nil
 	}
 	// animSetLocalcoord
@@ -2671,7 +2674,13 @@ func PopulateDataPointers(obj interface{}, rootLocalcoord [2]int32) {
 				// If it's *Anim
 				if kind == reflect.Ptr && fVal.Type().AssignableTo(animPtrType) {
 					if fVal.IsNil() && fVal.CanSet() {
-						SetAnim(obj, fVal, v, parent, effectiveSffForThisStruct)
+						curType := v.Type()
+						animCharPreloadType := reflect.TypeOf(AnimationCharPreloadProperties{})
+						animStagePreloadType := reflect.TypeOf(AnimationStagePreloadProperties{})
+						// Skip these or we'll end up trying to draw them from the motif SFF
+						if curType != animCharPreloadType && curType != animStagePreloadType {
+							SetAnim(obj, fVal, v, parent, effectiveSffForThisStruct)
+						}
 					}
 					continue
 				}

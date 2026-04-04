@@ -1857,8 +1857,13 @@ func (e *Explod) setAnim() {
 	}
 
 	// Get animation with sprite owner context
-	a := c.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal, true)
+	a := c.getAnimSprite(e.animNo, e.animPN, e.spritePN, e.anim_ffx, e.ownpal)
 	if a == nil {
+		if e.id < 0 {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("system explod called invalid action %v%v", strings.ToUpper(e.anim_ffx), e.animNo))
+		} else {
+			sys.appendToConsole(c.warn() + fmt.Sprintf("explod with ID %v called invalid action %v%v", e.id, strings.ToUpper(e.anim_ffx), e.animNo))
+		}
 		return
 	}
 	e.anim = a
@@ -2490,26 +2495,32 @@ func (p *Projectile) update() {
 					if p.hitanim == -1 {
 						// Forcefully clear instead of reaching the fallback where invalid animation does nothing
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.hitanim, p.hitanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.hitanim_ffx), p.hitanim))
 					}
 				}
 			case ProjCancel:
 				if p.cancelanim != p.animNo || p.cancelanim_ffx != p.anim_ffx {
 					if p.cancelanim == -1 {
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.cancelanim, p.cancelanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.cancelanim_ffx), p.cancelanim))
 					}
 				}
 			case ProjRem:
 				if p.remanim != p.animNo || p.remanim_ffx != p.anim_ffx {
 					if p.remanim == -1 {
 						p.anim = nil
-					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true, true); a != nil {
+					} else if a := p.owner().getSelfAnimSprite(p.remanim, p.remanim_ffx, true); a != nil {
 						p.anim = a
+					} else {
 						// In Mugen, if remanim is invalid the projectile will keep the current one
 						// https://github.com/ikemen-engine/Ikemen-GO/issues/2584
+						sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.remanim_ffx), p.remanim))
 					}
 				}
 			}
@@ -3281,7 +3292,6 @@ func (c *Char) init(n int, idx int) {
 	}
 
 	// Initialize CNS variables
-	// TODO: If we make maps persist between matches, they should be here as well
 	c.initCnsVar()
 
 	// Init the map array
@@ -3292,6 +3302,12 @@ func (c *Char) init(n int, idx int) {
 	if n >= 0 && n < len(sys.aiLevel) && sys.aiLevel[n] != 0 {
 		c.controller ^= -1
 	}
+
+	// Default localcoord
+	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
+	c.localscl = 320 / c.localcoord
+
+	// This first pass only initializes state to safe defaults. Will run again later after the character is fully set up
 	c.clearState()
 }
 
@@ -3455,13 +3471,11 @@ func (c *Char) load(def string) error {
 	// We don't nil the SFF so that loadSff() can reuse it if the same character is selected/reloaded
 	//gi.sff = nil
 
-	// Reset DEF file maps
-	c.mapDefault = make(map[string]float32)
-
 	// Default localcoord
 	gi.localcoord = [2]int32{320, 240}
-	c.localcoord = 320 / (float32(sys.gameWidth) / 320)
-	c.localscl = 320 / c.localcoord
+
+	// Reset DEF file maps
+	c.mapDefault = make(map[string]float32)
 
 	// Helper to resolve paths relative to the .def file's logical location
 	resolvePathRelativeToDef := func(pathInDefFile string) string {
@@ -3643,7 +3657,7 @@ func (c *Char) load(def string) error {
 	// Load common constants
 	for _, key := range SortedKeys(sys.cfg.Common.Const) {
 		for _, v := range sys.cfg.Common.Const[key] {
-			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"}, func(filename string) error {
 				str, err = LoadText(filename)
 				if err != nil {
 					return err
@@ -3982,7 +3996,7 @@ func (c *Char) load(def string) error {
 	// Append common animations
 	for _, key := range SortedKeys(sys.cfg.Common.Air) {
 		for _, v := range sys.cfg.Common.Air[key] {
-			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.lifebar.def, "", "data/"}, func(filename string) error {
+			if err := LoadFile(&v, []string{def, sys.motif.Def, sys.fightScreen.def, "", "data/"}, func(filename string) error {
 				txt, err := LoadText(filename)
 				if err != nil {
 					return err
@@ -4316,13 +4330,14 @@ func (c *Char) clearHitDef() {
 
 func (c *Char) changeAnimEx(animNo int32, animPlayerNo int, spritePlayerNo int, ffx string) {
 	// Get the animation
-	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal, false)
+	a := c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, c.ownpal)
 
 	// If invalid
 	// In Mugen, when switching between different animation tables (e.g. ChangeAnim2) and the destination doesn't exist,
 	// the character will change into whatever animation is in the same index as the table it is changing from
 	// We don't do that at the moment
 	if a == nil {
+		sys.appendToConsole(c.warn() + fmt.Sprintf("attempted to change to invalid action %v%v", strings.ToUpper(ffx), animNo))
 		return
 	}
 
@@ -4992,7 +5007,7 @@ func (c *Char) comboCount() int32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.lifebar.co[c.teamside].combo
+	return sys.fightScreen.combos[c.teamside].truehits
 }
 
 func (c *Char) command(pn, i int) bool {
@@ -5882,9 +5897,9 @@ func (c *Char) updateTeamOrder(team []int) {
 
 	// Update lifebar order within its bounds
 	side := c.playerNo & 1
-	for i := range sys.lifebar.order[side] {
+	for i := range sys.fightScreen.teamOrder[side] {
 		if i < len(team) {
-			sys.lifebar.order[side][i] = team[i]
+			sys.fightScreen.teamOrder[side][i] = team[i]
 		}
 	}
 }
@@ -6526,6 +6541,8 @@ func (c *Char) newHelper() (h *Char) {
 	h.parentId = c.id
 	h.controller = c.controller
 	h.teamside = c.teamside
+	h.localcoord = c.localcoord // These two are needed for clearState()
+	h.localscl = c.localscl
 	h.size = c.size
 	h.life, h.lifeMax = c.lifeMax, c.lifeMax
 	h.powerMax = c.powerMax
@@ -6542,7 +6559,7 @@ func (c *Char) newHelper() (h *Char) {
 
 // Init helper after reading the bytecode parameters
 func (c *Char) helperInit(h *Char, st int32, pt PosType, x, y, z float32, facing int32, rp [2]int32, extmap bool) {
-	p := c.helperPos(pt, [...]float32{x, y, z}, facing, &h.facing, h.localscl, false)
+	p := c.helperPos(pt, [3]float32{x, y, z}, facing, &h.facing, h.localscl, false)
 	h.setPosX(p[0], true)
 	h.setPosY(p[1], true)
 	h.setPosZ(p[2], true)
@@ -6910,9 +6927,9 @@ func (c *Char) removeText(id, index int32) {
 }
 
 // Get animation and apply sprite owner properties to it
-func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool) *Animation {
+func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool) *Animation {
 	// Get raw animation
-	a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx, fx)
+	a := sys.chars[animPlayerNo][0].getAnim(animNo, ffx)
 	if a == nil {
 		return nil
 	}
@@ -6925,14 +6942,14 @@ func (c *Char) getAnimSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx
 
 // Calls getAnimSprite without the extra anim/sprite playerNo features
 // For projectiles essentially
-func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool, fx bool) *Animation {
-	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal, fx)
+func (c *Char) getSelfAnimSprite(animNo int32, ffx string, ownpal bool) *Animation {
+	a := c.getAnimSprite(animNo, c.playerNo, c.playerNo, ffx, ownpal)
 
 	return a
 }
 
 // Calls getAnimSprite with playerNo checks for Shadows and Reflections
-func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, fx bool, scname string) *Animation {
+func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlayerNo int, ffx string, ownpal bool, scname string) *Animation {
 	// Validate AnimPlayerNo
 	if animPlayerNo < 0 {
 		animPlayerNo = c.playerNo
@@ -6948,11 +6965,11 @@ func (c *Char) getShadowReflectionSprite(animNo int32, animPlayerNo, spritePlaye
 		spritePlayerNo = c.playerNo
 	}
 
-	return c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, ownpal, fx)
+	return c.getAnimSprite(animNo, animPlayerNo, spritePlayerNo, ffx, ownpal)
 }
 
 // Same old getAnim, but now without the FFX scale adjustment
-func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
+func (c *Char) getAnim(n int32, ffx string) (a *Animation) {
 	// Return empty but valid animation
 	if n == -2 {
 		return &Animation{}
@@ -6980,6 +6997,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 		a = c.gi().animTable.get(n)
 	}
 
+	/*
 	// Log invalid animations
 	if a == nil {
 		if fx {
@@ -7005,6 +7023,7 @@ func (c *Char) getAnim(n int32, ffx string, fx bool) (a *Animation) {
 			LogMessage("%v%v", str, n)
 		}
 	}
+	*/
 
 	return
 }
@@ -7149,24 +7168,32 @@ func (c *Char) hitAdd(h int32) {
 	if h == 0 {
 		return
 	}
+
+	// Add to char-side counters
 	c.hitCount += h
 	c.uniqHitCount += h
+
+	// Add to enemy so it's reflected in the combo total
 	if len(c.targets) > 0 {
+		// Increase hits in the most recent target only
+		// Previously, Ikemen increased hits in every target, but Mugen doesn't do this correction and we can't assume that's what the user wants
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
 				t.receivedHits += h
-				if c.teamside != -1 {
-					sys.lifebar.co[c.teamside].combo += h
-				}
+				break
+				//if c.teamside != -1 {
+				//	sys.fightScreen.combos[c.teamside].truehits += h
+				//}
 			}
 		}
 	} else if c.teamside != -1 {
 		// In Mugen, HitAdd can increase combo count even without targets
 		for i, p := range sys.chars {
 			if len(p) > 0 && c.teamside == ^i&1 {
+				// This is a bit of a workaround for backward compatibility only
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
 					p[0].receivedHits += h
-					sys.lifebar.co[c.teamside].combo += h
+					//sys.fightScreen.combos[c.teamside].truehits += h
 				}
 			}
 		}
@@ -7202,8 +7229,8 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	}
 
 	// Set starting position
-	pos := c.helperPos(pt, [...]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
-	p.setAllPos([...]float32{pos[0], pos[1], pos[2]})
+	pos := c.helperPos(pt, [3]float32{offx, offy, offz}, 1, &p.facing, p.localscl, true)
+	p.setAllPos([3]float32{pos[0], pos[1], pos[2]})
 
 	// Clamp negative animations
 	if p.animNo < -2 {
@@ -7224,9 +7251,11 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	}
 
 	// Get animation with sprite context
-	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true, true)
+	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true)
 
 	if p.anim == nil && c.anim != nil {
+		// TODO: If Ikemenversion, the invalid animation probably ought to make explod disappear
+		sys.appendToConsole(c.warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
 		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim
@@ -8472,14 +8501,14 @@ func (c *Char) score() float32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.lifebar.sc[c.teamside].scorePoints
+	return sys.fightScreen.scores[c.teamside].scorePoints
 }
 
 func (c *Char) scoreAdd(val float32) {
 	if val == 0 || c.teamside == -1 || c.asf(ASF_noscore) {
 		return
 	}
-	sys.lifebar.sc[c.teamside].scorePoints += val
+	sys.fightScreen.scores[c.teamside].scorePoints += val
 }
 
 func (c *Char) scoreTotal() float32 {
@@ -8504,7 +8533,7 @@ func (c *Char) consecutiveWins() int32 {
 }
 
 func (c *Char) dizzyEnabled() bool {
-	return sys.lifebar.stunbar
+	return sys.fightScreen.stunbar
 	/*
 		switch sys.tmode[c.playerNo&1] {
 		case TM_Single:
@@ -8522,7 +8551,7 @@ func (c *Char) dizzyEnabled() bool {
 }
 
 func (c *Char) guardBreakEnabled() bool {
-	return sys.lifebar.guardbar
+	return sys.fightScreen.guardbar
 	/*
 		switch sys.tmode[c.playerNo&1] {
 		case TM_Single:
@@ -8540,7 +8569,7 @@ func (c *Char) guardBreakEnabled() bool {
 }
 
 func (c *Char) redLifeEnabled() bool {
-	return sys.lifebar.redlifebar
+	return sys.fightScreen.redlifebar
 	/*
 			switch sys.tmode[c.playerNo&1] {
 			case TM_Single:
@@ -8843,7 +8872,7 @@ func (c *Char) inputWait() bool {
 		return true
 	}
 	// If after round "over.waittime" and the win poses have not started
-	if sys.intro <= -sys.lifebar.ro.over_waittime && sys.winposetime >= 0 {
+	if sys.intro <= -sys.fightScreen.round.over_waittime && sys.winposetime >= 0 {
 		return true
 	}
 	return false
@@ -8968,7 +8997,7 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 	// TODO: Now that this actually works, we could make it optional via a new parameter
 	if srcDepth != dstDepth {
 		sys.appendToConsole(c.warn() + fmt.Sprintf(
-			" RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)",
+			"RemapPal color depth mismatch: %v,%v (%d colors) -> %v,%v (%d colors)",
 			src[0], src[1], srcDepth, dst[0], dst[1], dstDepth))
 		return
 	}
@@ -8980,16 +9009,15 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
-		plist.Remap(si, di)
-
-		// Remap palette 1, 1 in SFF v1
+		// For SFFv1, if remapping palette 1,1 remap whatever palette sprite 0,0 uses
 		if src[0] == 1 && src[1] == 1 && c.gi().sff.header.Version[0] == 1 {
 			if spr := c.gi().sff.GetSprite(0, 0); spr != nil {
-				plist.Remap(spr.palidx, di)
+				if spr.GetPal(&plist) != nil && spr.palidx >= 0 {
+					plist.Remap(spr.palidx, di)
+				}
 			}
-			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil {
-				plist.Remap(spr.palidx, di)
-			}
+		} else {
+			plist.Remap(si, di)
 		}
 
 		plist.SwapPalMap(&pfx.remap)
@@ -10936,9 +10964,10 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if (ghvset || getter.csf(CSF_gethit)) && getter.hoverIdx < 0 &&
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
-			if c.teamside != -1 {
-				sys.lifebar.co[c.teamside].combo += hd.numhits
-			}
+			// receivedHits is the only source of truth
+			//if c.teamside != -1 {
+			//	sys.fightScreen.combos[c.teamside].truehits += hd.numhits
+			//}
 		}
 		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
 			c.scoreAdd(hd.score[0])
@@ -10998,7 +11027,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 
 		if animNo >= 0 {
 			if e, i := c.spawnExplod(); e != nil {
-				//e.anim = c.getAnim(animNo, ffx, true)
+				//e.anim = c.getAnim(animNo, ffx)
 				e.animNo = animNo
 				e.anim_ffx = ffx
 				e.layerno = 1 // e.ontop = true
@@ -11209,7 +11238,7 @@ func (c *Char) actionPrepare() {
 					if c.scf(SCF_guard) && c.inguarddist && !c.inGuardState() && c.ss.stateType != ST_L && c.cmd[0].Buffer.Bb > 0 {
 						c.changeState(120, -1, -1, "") // Start guarding
 					} else if !c.asf(ASF_nojump) && c.ss.stateType == ST_S && c.cmd[0].Buffer.Ub > 0 &&
-						(!(sys.intro < 0 && sys.intro > -sys.lifebar.ro.over_waittime) || c.asf(ASF_postroundinput)) {
+						(!(sys.intro < 0 && sys.intro > -sys.fightScreen.round.over_waittime) || c.asf(ASF_postroundinput)) {
 						if c.ss.no != 40 {
 							c.changeState(40, -1, -1, "") // Jump
 						}

@@ -2753,8 +2753,8 @@ func systemScriptInit(l *lua.LState) {
 			sys.scoreRounds = [][2]float32{}
 
 			// Reset lifebars
-			for i := range sys.lifebar.wi {
-				sys.lifebar.wi[i].clear()
+			for i := range sys.fightScreen.winIcons {
+				sys.fightScreen.winIcons[i].clear()
 			}
 
 			sys.draws = 0
@@ -2846,8 +2846,8 @@ func systemScriptInit(l *lua.LState) {
 					if sys.reloadStageFlg {
 						sys.stage = nil
 					}
-					if sys.reloadLifebarFlg {
-						if err := sys.lifebar.reloadLifebar(); err != nil {
+					if sys.reloadFightScreenFlg {
+						if err := sys.fightScreen.reload(); err != nil {
 							l.RaiseError(err.Error())
 						}
 					}
@@ -2904,8 +2904,8 @@ func systemScriptInit(l *lua.LState) {
 					if sys.tmode[i] == TM_Turns && sys.effectiveLoss[i] {
 						sys.roundsExisted[i] = 0
 						// Increment number of lifebar KO portraits to render
-						sys.lifebar.fa[TM_Turns][i].numko++
-						sys.lifebar.nm[TM_Turns][i].numko++
+						sys.fightScreen.faces[TM_Turns][i].numko++
+						sys.fightScreen.names[TM_Turns][i].numko++
 					}
 				}
 
@@ -4035,20 +4035,20 @@ func systemScriptInit(l *lua.LState) {
 		l.Push(iniToLuaTable(l, iniFile))
 		return 1
 	})
-	luaRegister(l, "loadLifebar", func(l *lua.LState) int {
-		/*Load the lifebar definition.
-		@function loadLifebar
-		@tparam[opt] string defPath Lifebar def file path. If empty or omitted, uses default.
-		function loadLifebar(defPath) end*/
+	luaRegister(l, "loadFightScreen", func(l *lua.LState) int {
+		/*Load the fight screen definition.
+		@function loadFightScreen
+		@tparam[opt] string defPath FightScreen def file path. If empty or omitted, uses default.
+		function loadFightScreen(defPath) end*/
 		def := ""
 		if !nilArg(l, 1) {
 			def = strArg(l, 1)
 		}
-		lb, err := loadLifebar(def)
+		fs, err := loadFightScreen(def)
 		if err != nil {
-			l.RaiseError("\nCan't load lifebar %v: %v\n", def, err.Error())
+			l.RaiseError("\nCan't load fight screen %v: %v\n", def, err.Error())
 		}
-		sys.lifebar = *lb
+		sys.fightScreen = *fs
 		return 0
 	})
 	luaRegister(l, "loadMotif", func(l *lua.LState) int {
@@ -5342,7 +5342,7 @@ func systemScriptInit(l *lua.LState) {
 		return 0
 	})
 	luaRegister(l, "reload", func(*lua.LState) int {
-		/*Schedule reloading of characters, stage and lifebar.
+		/*Schedule reloading of characters, stage and fight screen.
 		@function reload
 		function reload() end*/
 		sys.reloadFlg = true
@@ -5350,7 +5350,7 @@ func systemScriptInit(l *lua.LState) {
 			sys.reloadCharSlot[i] = true
 		}
 		sys.reloadStageFlg = true
-		sys.reloadLifebarFlg = true
+		sys.reloadFightScreenFlg = true
 		return 0
 	})
 	luaRegister(l, "remapInput", func(l *lua.LState) int {
@@ -5461,7 +5461,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.sc[tn-1].scorePoints = 0
+		sys.fightScreen.scores[tn-1].scorePoints = 0
 		return 0
 	})
 	luaRegister(l, "resetTokenGuard", func(*lua.LState) int {
@@ -5938,9 +5938,9 @@ func systemScriptInit(l *lua.LState) {
 		}
 		return 0
 	})
-	luaRegister(l, "setLifebarElements", func(*lua.LState) int {
-		/*Force enable/disable of lifebar elements.
-		@function setLifebarElements
+	luaRegister(l, "setFightScreenElements", func(*lua.LState) int {
+		/*Force enable/disable of fight screen elements.
+		@function setFightScreenElements
 		@tparam table elements Table of boolean flags (keys are case-insensitive):
 		  - `active` (boolean) enable lifebar drawing
 		  - `bars` (boolean) main life bars
@@ -5954,41 +5954,41 @@ func systemScriptInit(l *lua.LState) {
 		  - `redlifebar` (boolean) red life bar
 		  - `stunbar` (boolean) stun bar
 		  - `timer` (boolean) round timer
-		function setLifebarElements(elements) end*/
+		function setFightScreenElements(elements) end*/
 		tableArg(l, 1).ForEach(func(key, value lua.LValue) {
 			switch k := key.(type) {
 			case lua.LString:
 				switch strings.ToLower(string(k)) {
 				case "active": // enabled by default
-					sys.lifebar.active = lua.LVAsBool(value)
+					sys.fightScreen.active = lua.LVAsBool(value)
 				case "bars": // enabled by default
-					sys.lifebar.bars = lua.LVAsBool(value)
+					sys.fightScreen.bars = lua.LVAsBool(value)
 				case "guardbar": // enabled depending on config.ini
-					sys.lifebar.guardbar = lua.LVAsBool(value)
+					sys.fightScreen.guardbar = lua.LVAsBool(value)
 				case "hidebars": // enabled depending on [Dialogue Info] motif settings
-					sys.lifebar.hidebars = lua.LVAsBool(value)
+					sys.fightScreen.hidebars = lua.LVAsBool(value)
 				case "match":
-					sys.lifebar.ma.active = lua.LVAsBool(value)
+					sys.fightScreen.match.active = lua.LVAsBool(value)
 				case "mode": // enabled by default
-					sys.lifebar.mode = lua.LVAsBool(value)
+					sys.fightScreen.mode = lua.LVAsBool(value)
 				case "p1ailevel":
-					sys.lifebar.ai[0].active = lua.LVAsBool(value)
+					sys.fightScreen.aiLevels[0].active = lua.LVAsBool(value)
 				case "p1score":
-					sys.lifebar.sc[0].active = lua.LVAsBool(value)
+					sys.fightScreen.scores[0].active = lua.LVAsBool(value)
 				case "p1wincount":
-					sys.lifebar.wc[0].active = lua.LVAsBool(value)
+					sys.fightScreen.winCounts[0].active = lua.LVAsBool(value)
 				case "p2ailevel":
-					sys.lifebar.ai[1].active = lua.LVAsBool(value)
+					sys.fightScreen.aiLevels[1].active = lua.LVAsBool(value)
 				case "p2score":
-					sys.lifebar.sc[1].active = lua.LVAsBool(value)
+					sys.fightScreen.scores[1].active = lua.LVAsBool(value)
 				case "p2wincount":
-					sys.lifebar.wc[1].active = lua.LVAsBool(value)
+					sys.fightScreen.winCounts[1].active = lua.LVAsBool(value)
 				case "redlifebar": // enabled depending on config.ini
-					sys.lifebar.redlifebar = lua.LVAsBool(value)
+					sys.fightScreen.redlifebar = lua.LVAsBool(value)
 				case "stunbar": // enabled depending on config.ini
-					sys.lifebar.stunbar = lua.LVAsBool(value)
+					sys.fightScreen.stunbar = lua.LVAsBool(value)
 				case "timer":
-					sys.lifebar.tr.active = lua.LVAsBool(value)
+					sys.fightScreen.timer.active = lua.LVAsBool(value)
 				default:
 					l.RaiseError("\nInvalid table key: %v\n", k)
 				}
@@ -5997,46 +5997,46 @@ func systemScriptInit(l *lua.LState) {
 			}
 		})
 		// elements enabled via fight.def, depending on game mode
-		if _, ok := sys.lifebar.ma.enabled[sys.gameMode]; ok {
-			sys.lifebar.ma.active = sys.lifebar.ma.enabled[sys.gameMode]
+		if _, ok := sys.fightScreen.match.enabled[sys.gameMode]; ok {
+			sys.fightScreen.match.active = sys.fightScreen.match.enabled[sys.gameMode]
 		}
-		for _, v := range sys.lifebar.ai {
+		for _, v := range sys.fightScreen.aiLevels {
 			if _, ok := v.enabled[sys.gameMode]; ok {
 				v.active = v.enabled[sys.gameMode]
 			}
 		}
-		for _, v := range sys.lifebar.sc {
+		for _, v := range sys.fightScreen.scores {
 			if _, ok := v.enabled[sys.gameMode]; ok {
 				v.active = v.enabled[sys.gameMode]
 			}
 		}
-		for _, v := range sys.lifebar.wc {
+		for _, v := range sys.fightScreen.winCounts {
 			if _, ok := v.enabled[sys.gameMode]; ok {
 				v.active = v.enabled[sys.gameMode]
 			}
 		}
-		if _, ok := sys.lifebar.tr.enabled[sys.gameMode]; ok {
-			sys.lifebar.tr.active = sys.lifebar.tr.enabled[sys.gameMode]
+		if _, ok := sys.fightScreen.timer.enabled[sys.gameMode]; ok {
+			sys.fightScreen.timer.active = sys.fightScreen.timer.enabled[sys.gameMode]
 		}
 		return 0
 	})
-	luaRegister(l, "setLifebarScore", func(*lua.LState) int {
-		/*Set initial lifebar scores for both teams.
-		@function setLifebarScore
+	luaRegister(l, "setFightScreenScore", func(*lua.LState) int {
+		/*Set initial fight screen scores for both teams.
+		@function setFightScreenScore
 		@tparam float32 p1Score Starting score for team 1.
 		@tparam[opt] float32 p2Score Starting score for team 2 (defaults to 0 if omitted).
-		function setLifebarScore(p1Score, p2Score) end*/
+		function setFightScreenScore(p1Score, p2Score) end*/
 		sys.scoreStart[0] = float32(numArg(l, 1))
 		if !nilArg(l, 2) {
 			sys.scoreStart[1] = float32(numArg(l, 2))
 		}
 		return 0
 	})
-	luaRegister(l, "setLifebarTimer", func(*lua.LState) int {
-		/*Set initial round timer value displayed on the lifebar.
-		@function setLifebarTimer
+	luaRegister(l, "setFightScreenTimer", func(*lua.LState) int {
+		/*Set initial round timer value displayed on the fight screen.
+		@function setFightScreenTimer
 		@tparam int32 time Initial timer value.
-		function setLifebarTimer(time) end*/
+		function setFightScreenTimer(time) end*/
 		sys.timerStart = int32(numArg(l, 1))
 		return 0
 	})
@@ -6268,7 +6268,7 @@ func systemScriptInit(l *lua.LState) {
 		if tn < 1 || tn > 2 {
 			l.RaiseError("\nInvalid team side: %v\n", tn)
 		}
-		sys.lifebar.wc[tn-1].wins = int32(numArg(l, 2))
+		sys.fightScreen.winCounts[tn-1].wins = int32(numArg(l, 2))
 		return 0
 	})
 	//luaRegister(l, "sffCacheDelete", func(l *lua.LState) int {
@@ -8134,13 +8134,13 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "fightScreenState", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "fightdisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.fightDisplayPhase == 1))
+			l.Push(lua.LBool(sys.fightScreen.round.fightDisplayPhase == 1))
 		case "kodisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.koDisplayPhase == 1))
+			l.Push(lua.LBool(sys.fightScreen.round.koDisplayPhase == 1))
 		case "rounddisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.roundDisplayPhase == 1))
+			l.Push(lua.LBool(sys.fightScreen.round.roundDisplayPhase == 1))
 		case "windisplay":
-			l.Push(lua.LBool(sys.lifebar.ro.winDisplayPhase == 1))
+			l.Push(lua.LBool(sys.fightScreen.round.winDisplayPhase == 1))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}
@@ -8149,31 +8149,31 @@ func triggerFunctions(l *lua.LState) {
 	luaRegister(l, "fightScreenVar", func(*lua.LState) int {
 		switch strings.ToLower(strArg(l, 1)) {
 		case "info.name":
-			l.Push(lua.LString(sys.lifebar.name))
+			l.Push(lua.LString(sys.fightScreen.name))
 		case "info.localcoord.x":
-			l.Push(lua.LNumber(sys.lifebar.localcoord[0]))
+			l.Push(lua.LNumber(sys.fightScreen.localcoord[0]))
 		case "info.localcoord.y":
-			l.Push(lua.LNumber(sys.lifebar.localcoord[1]))
+			l.Push(lua.LNumber(sys.fightScreen.localcoord[1]))
 		case "info.author":
-			l.Push(lua.LString(sys.lifebar.author))
+			l.Push(lua.LString(sys.fightScreen.author))
 		case "round.ctrl.time":
-			l.Push(lua.LNumber(sys.lifebar.ro.ctrl_time))
+			l.Push(lua.LNumber(sys.fightScreen.round.ctrl_time))
 		case "round.over.hittime":
-			l.Push(lua.LNumber(sys.lifebar.ro.over_hittime))
+			l.Push(lua.LNumber(sys.fightScreen.round.over_hittime))
 		case "round.over.time":
-			l.Push(lua.LNumber(sys.lifebar.ro.over_time))
+			l.Push(lua.LNumber(sys.fightScreen.round.over_time))
 		case "round.over.waittime":
-			l.Push(lua.LNumber(sys.lifebar.ro.over_waittime))
+			l.Push(lua.LNumber(sys.fightScreen.round.over_waittime))
 		case "round.over.wintime":
-			l.Push(lua.LNumber(sys.lifebar.ro.over_wintime))
+			l.Push(lua.LNumber(sys.fightScreen.round.over_wintime))
 		case "round.slow.time":
-			l.Push(lua.LNumber(sys.lifebar.ro.slow_time))
+			l.Push(lua.LNumber(sys.fightScreen.round.slow_time))
 		case "round.start.waittime":
-			l.Push(lua.LNumber(sys.lifebar.ro.start_waittime))
+			l.Push(lua.LNumber(sys.fightScreen.round.start_waittime))
 		case "round.callfight.time":
-			l.Push(lua.LNumber(sys.lifebar.ro.callfight_time))
+			l.Push(lua.LNumber(sys.fightScreen.round.callfight_time))
 		case "time.framespercount":
-			l.Push(lua.LNumber(sys.lifebar.ti.framespercount))
+			l.Push(lua.LNumber(sys.fightScreen.time.framespercount))
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

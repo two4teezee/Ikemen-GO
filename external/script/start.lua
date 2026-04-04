@@ -286,7 +286,7 @@ end
 
 --sets lifebar elements, round time, rounds to win
 function start.f_setRounds(roundTime, t_rounds)
-	setLifebarElements(main.lifebar)
+	setFightScreenElements(main.fightscreen)
 	-- Round time
 	local frames = fightScreenVar("time.framespercount")
 	local p1FramesMul = 1
@@ -333,8 +333,8 @@ function start.f_setRounds(roundTime, t_rounds)
 	end
 	--timer / score counter
 	local timer, t_score = start.f_prefightHUD()
-	setLifebarTimer(timer)
-	setLifebarScore(t_score[1], t_score[2])
+	setFightScreenTimer(timer)
+	setFightScreenScore(t_score[1], t_score[2])
 end
 
 local function f_listCharRefs(t)

@@ -3132,7 +3132,7 @@ func (m *Motif) act() {
 
 		// Dialogue
 		// Normal start: right before "Fight" in round 1, or at match end.
-		introStart := sys.round == 1 && sys.intro == sys.lifebar.ro.ctrl_time
+		introStart := sys.round == 1 && sys.intro == sys.fightScreen.round.ctrl_time
 		matchEndStart := sys.shouldStartMatchEndDialogue()
 		normalStart := introStart || matchEndStart
 		// Forced start: ignore normal timing.
@@ -3428,8 +3428,8 @@ func (ch *MotifChallenger) init(m *Motif) {
 		sys.credits--
 	}
 
-	ch.lifebarActive = sys.lifebar.active
-	sys.lifebar.active = false
+	ch.lifebarActive = sys.fightScreen.active
+	sys.fightScreen.active = false
 
 	m.ChallengerBgDef.BGDef.Reset()
 	m.ChallengerInfo.Bg.AnimData.Reset()
@@ -3473,7 +3473,7 @@ func (ch *MotifChallenger) step(m *Motif) {
 			m.fadeOut.reset()
 		}
 		ch.active = false
-		sys.lifebar.active = ch.lifebarActive
+		sys.fightScreen.active = ch.lifebarActive
 		sys.endMatch = true
 		return
 	}
@@ -3831,7 +3831,7 @@ func (de *MotifDemo) init(m *Motif) {
 	de.counter = 0
 
 	// Override lifebar fading
-	m.DemoMode.FadeIn.FadeData.init(sys.lifebar.ro.fadeIn, true)
+	m.DemoMode.FadeIn.FadeData.init(sys.fightScreen.round.fadeIn, true)
 
 	de.active = true
 	de.initialized = true
@@ -3841,15 +3841,15 @@ func (de *MotifDemo) step(m *Motif) {
 	if de.endTimer == -1 {
 		cancel := (m.AttractMode.Enabled && sys.credits > 0) || (!m.AttractMode.Enabled && sys.uiRawInput(m.DemoMode.Cancel.Key, -1))
 		if de.counter == m.DemoMode.Fight.EndTime || cancel {
-			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.lifebar.ro.fadeOut, false, m.fadePolicy)
-			de.endTimer = de.counter + sys.lifebar.ro.fadeOut.timeRemaining
+			startFadeOut(m.DemoMode.FadeOut.FadeData, sys.fightScreen.round.fadeOut, false, m.fadePolicy)
+			de.endTimer = de.counter + sys.fightScreen.round.fadeOut.timeRemaining
 		}
 	}
 
 	// Check if the sequence has ended
 	if de.endTimer != -1 && de.counter >= de.endTimer {
-		if sys.lifebar.ro.fadeOut != nil {
-			sys.lifebar.ro.fadeOut.reset()
+		if sys.fightScreen.round.fadeOut != nil {
+			sys.fightScreen.round.fadeOut.reset()
 		}
 		de.active = false
 		sys.endMatch = true
@@ -4292,8 +4292,8 @@ func (di *MotifDialogue) init(m *Motif, matchEnd bool) {
 	di.atMatchEnd = matchEnd
 	// Match-end dialogue owns the transition into the post-match fade.
 	// If fade was already armed before we got here, cancel ongoing fadeout.
-	if matchEnd && sys.lifebar.ro.fadeOut.isActive() {
-		sys.lifebar.ro.fadeOut.reset()
+	if matchEnd && sys.fightScreen.round.fadeOut.isActive() {
+		sys.fightScreen.round.fadeOut.reset()
 	}
 	if !sys.skipMotifScaling() {
 		sys.setGameSize(sys.scrrect[2], sys.scrrect[3])
@@ -4328,8 +4328,8 @@ func (di *MotifDialogue) finish(m *Motif) {
 	if matchEnd {
 		di.matchEndDone = true
 		di.atMatchEnd = false
-		if !sys.lifebar.ro.fadeOut.isActive() {
-			sys.lifebar.ro.fadeOut.init(sys.lifebar.ro.fadeOut, false)
+		if !sys.fightScreen.round.fadeOut.isActive() {
+			sys.fightScreen.round.fadeOut.init(sys.fightScreen.round.fadeOut, false)
 		}
 	}
 }

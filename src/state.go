@@ -121,7 +121,7 @@ type GameState struct {
 	workpal        []uint32
 	keyConfig      []KeyConfig
 	joystickConfig []KeyConfig
-	lifebar        Lifebar
+	fightScreen    FightScreen
 	motif          Motif
 	storyboard     Storyboard
 	cgi            [MaxPlayerNo]CharGlobalInfo
@@ -137,7 +137,7 @@ type GameState struct {
 	//stringPool      [MaxPlayerNo]StringPool // Only mutated while compiling
 	dialogueFlg bool
 
-	// LifeBar
+	// FightScreen
 	timerCount []int32
 
 	commandLists []*CommandList
@@ -205,7 +205,7 @@ func (gs *GameState) LoadState(stateID int) {
 	sys.workpal = make([]uint32, len(gs.workpal)) //arena.MakeSlice[uint32](a, len(gs.workpal), len(gs.workpal))
 	copy(sys.workpal, gs.workpal)
 
-	sys.lifebar = gs.lifebar.Clone(a)
+	sys.fightScreen = gs.fightScreen.Clone(a)
 	sys.motif = gs.motif.Clone(a, gs.postMatchFlg)
 
 	// Storyboard: only rollback-touch it when it was actually running.
@@ -315,7 +315,7 @@ func (gs *GameState) SaveState(stateID int) {
 	gs.workpal = make([]uint32, len(sys.workpal)) //arena.MakeSlice[uint32](a, len(sys.workpal), len(sys.workpal))
 	copy(gs.workpal, sys.workpal)
 
-	gs.lifebar = sys.lifebar.Clone(a)
+	gs.fightScreen = sys.fightScreen.Clone(a)
 	gs.motif = sys.motif.Clone(a, sys.postMatchFlg)
 
 	// Storyboard: only rollback-save while active.

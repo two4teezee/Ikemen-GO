@@ -1057,14 +1057,14 @@ func (l *Layout) Read(pre string, is IniSection) {
 	}
 }
 
-// Calculates the lifebar window local coordinates into real screen pixels,
+// Calculates the fight screen window local coordinates into real screen pixels,
 // taking the FightAspect ratio into account
 func (l *Layout) calcLBRect(window [4]int32) [4]int32 {
 	if window[2] == sys.scrrect[2] && window[3] == sys.scrrect[3] {
 		return sys.scrrect
 	}
 
-	baseScale := float32(sys.scrrect[2]) / float32(sys.lifebar.localcoord[0])
+	baseScale := float32(sys.scrrect[2]) / float32(sys.fightScreen.localcoord[0])
 	screenAspect := float32(sys.scrrect[2]) / float32(sys.scrrect[3])
 	fightAspect := sys.getFightAspect()
 	correction := fightAspect / screenAspect
@@ -1087,10 +1087,10 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 		}
 		// TODO: test "phantom pixel"
 		if l.facing < 0 {
-			x += sys.lifebar.fnt_scale * sys.lifebar.scale
+			x += sys.fightScreen.fnt_scale * sys.fightScreen.scale
 		}
 		if l.vfacing < 0 {
-			y += sys.lifebar.fnt_scale * sys.lifebar.scale
+			y += sys.fightScreen.fnt_scale * sys.fightScreen.scale
 		}
 		if s.coldepth <= 8 && s.PalTex == nil {
 			s.PalTex = s.CachePalTex(s.Pal)
@@ -1099,7 +1099,7 @@ func (l *Layout) DrawFaceSprite(x, y float32, ln int16, s *Sprite, fx *PalFX, fs
 		xshear := -l.xshear
 		xsoffset := xshear * (float32(s.Offset[1]) * l.scale[1] * fscale)
 
-		s.Draw(x+l.offset[0]*sys.lifebar.scale-xsoffset, y+l.offset[1]*sys.lifebar.scale,
+		s.Draw(x+l.offset[0]*sys.fightScreen.scale-xsoffset, y+l.offset[1]*sys.fightScreen.scale,
 			l.scale[0]*float32(l.facing)*fscale, l.scale[1]*float32(l.vfacing)*fscale,
 			xshear, l.rot, int32(l.projection), l.fLength, fx, drawwindow)
 	}
@@ -1123,10 +1123,10 @@ func (l *Layout) DrawAnim(r *[4]int32, x, y, scl, xscl, yscl float32, ln int16, 
 		}
 		// TODO: test "phantom pixel"
 		if l.facing < 0 {
-			x += sys.lifebar.fnt_scale
+			x += sys.fightScreen.fnt_scale
 		}
 		if l.vfacing < 0 {
-			y += sys.lifebar.fnt_scale
+			y += sys.fightScreen.fnt_scale
 		}
 		// Xshear offset correction
 		xshear := -l.xshear
@@ -1150,18 +1150,18 @@ func (l *Layout) DrawText(x, y, scl float32, ln int16,
 		}
 		// TODO: test "phantom pixel"
 		if l.facing < 0 {
-			x += sys.lifebar.fnt_scale
+			x += sys.fightScreen.fnt_scale
 		}
 		if l.vfacing < 0 {
-			y += sys.lifebar.fnt_scale
+			y += sys.fightScreen.fnt_scale
 		}
 		// Xshear offset correction
 		xshear := -l.xshear
 		xsoffset := xshear * (float32(f.offset[1]) * l.scale[1] * scl)
 
 		f.Print(text, (x+l.offset[0]-xsoffset)*scl, (y+l.offset[1])*scl,
-			l.scale[0]*sys.lifebar.fnt_scale*float32(l.facing)*scl,
-			l.scale[1]*sys.lifebar.fnt_scale*float32(l.vfacing)*scl, xshear, l.rot,
+			l.scale[0]*sys.fightScreen.fnt_scale*float32(l.facing)*scl,
+			l.scale[1]*sys.fightScreen.fnt_scale*float32(l.vfacing)*scl, xshear, l.rot,
 			int32(l.projection), l.fLength, b, a, drawwindow, palfx, frgba)
 	}
 }
@@ -1296,7 +1296,7 @@ func ReadPalFX(pre string, is IniSection, pfx *PalFX) int32 {
 
 type AnimTextSnd struct {
 	snd         [2]int32
-	text        LbText
+	text        FSText
 	animLayout  AnimLayout
 	displaytime int32
 	cnt         int32
@@ -1321,7 +1321,7 @@ func ReadAnimTextSnd(pre string, is IniSection,
 func (ats *AnimTextSnd) Read(pre string, is IniSection, at AnimationTable,
 	ln int16, f map[int]*Fnt) {
 	is.ReadI32(pre+"snd", &ats.snd[0], &ats.snd[1])
-	ats.text = *readLbText(pre, is, "", ln, f, 0)
+	ats.text = *readFSText(pre, is, "", ln, f, 0)
 	ats.animLayout.lay = *newLayout(ln)
 	ats.animLayout.Read(pre, is, at, ln)
 	is.ReadI32(pre+"displaytime", &ats.displaytime)
@@ -1357,8 +1357,8 @@ func (ats *AnimTextSnd) Draw(x, y float32, layerno int16, f map[int]*Fnt, scale 
 			if ff == nil {
 				break
 			}
-			lineH := float32(ff.Size[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale +
-				float32(ff.Spacing[1])*ats.text.lay.scale[1]*sys.lifebar.fnt_scale
+			lineH := float32(ff.Size[1])*ats.text.lay.scale[1]*sys.fightScreen.fnt_scale +
+				float32(ff.Spacing[1])*ats.text.lay.scale[1]*sys.fightScreen.fnt_scale
 			ats.text.lay.DrawText(x, y+float32(k)*lineH,
 				scale, layerno, v, ff, ats.text.font[1], ats.text.font[2], ats.text.palfx, ats.text.frgba)
 		}
@@ -1372,7 +1372,7 @@ func (ats *AnimTextSnd) NoSound() bool {
 // Check if Draw() function is worth calling
 func (ats *AnimTextSnd) HasDrawable() bool {
 	hasAnim := ats.animLayout.anim != nil && len(ats.animLayout.anim.frames) > 0
-	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0 && getFont(sys.lifebar.fnt, ats.text.font[0]) != nil
+	hasText := ats.text.font[0] >= 0 && len(ats.text.text) > 0 && getFont(sys.fightScreen.fnt, ats.text.font[0]) != nil
 
 	return hasAnim || hasText
 }

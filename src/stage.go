@@ -279,6 +279,8 @@ func readBackGround(is IniSection, link *backGround,
 			if a := at.get(bg.actionno); a != nil {
 				bg.anim = a
 				hasAnim = true
+			} else {
+				return nil, Error(fmt.Sprint("Missing action: %d", bg.actionno))
 			}
 		}
 		if hasAnim {
@@ -290,6 +292,7 @@ func readBackGround(is IniSection, link *backGround,
 			if is.readI32ForStage("spriteno", &g, &n) {
 				bg.anim.frames = []AnimFrame{*newAnimFrame()}
 				bg.anim.frames[0].Group, bg.anim.frames[0].Number = g, n
+				// To return an error for a missing sprite we'd need to read the SFF, which would slow this down
 			}
 			if is.ReadI32("mask", &tmp) {
 				if tmp != 0 {

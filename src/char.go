@@ -6998,31 +6998,31 @@ func (c *Char) getAnim(n int32, ffx string) (a *Animation) {
 	}
 
 	/*
-	// Log invalid animations
-	if a == nil {
-		if fx {
-			if current_ffx != "" && current_ffx != "s" {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("called invalid action %v %v", strings.ToUpper(ffx), n))
+		// Log invalid animations
+		if a == nil {
+			if fx {
+				if current_ffx != "" && current_ffx != "s" {
+					sys.appendToConsole(c.warn() + fmt.Sprintf("called invalid action %v %v", strings.ToUpper(ffx), n))
+				} else {
+					sys.appendToConsole(c.warn() + fmt.Sprintf("called invalid action %v", n))
+				}
 			} else {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("called invalid action %v", n))
+				if current_ffx != "" && current_ffx != "s" {
+					sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid action %v %v", strings.ToUpper(ffx), n))
+				} else {
+					sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid action %v", n))
+				}
 			}
-		} else {
-			if current_ffx != "" && current_ffx != "s" {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid action %v %v", strings.ToUpper(ffx), n))
-			} else {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("changed to invalid action %v", n))
+			if !sys.ignoreMostErrors {
+				str := "Invalid action: "
+				if current_ffx != "" && current_ffx != "s" {
+					str += strings.ToUpper(current_ffx) + ":"
+				} else {
+					str += fmt.Sprintf("P%v:", c.playerNo+1)
+				}
+				LogMessage("%v%v", str, n)
 			}
 		}
-		if !sys.ignoreMostErrors {
-			str := "Invalid action: "
-			if current_ffx != "" && current_ffx != "s" {
-				str += strings.ToUpper(current_ffx) + ":"
-			} else {
-				str += fmt.Sprintf("P%v:", c.playerNo+1)
-			}
-			LogMessage("%v%v", str, n)
-		}
-	}
 	*/
 
 	return

@@ -1526,10 +1526,10 @@ func (sh *SffHeader) Read(r io.Reader, lofs *uint32, tofs *uint32) error {
 }
 
 type Sff struct {
-	header   SffHeader
-	sprites  map[[2]uint16]*Sprite
-	palList  PaletteList
-	filename string
+	header       SffHeader
+	sprites      map[[2]uint16]*Sprite
+	palList      PaletteList
+	filename     string
 	debugMissing map[[2]uint16]bool // Sprites not found by animations
 }
 

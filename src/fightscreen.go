@@ -2287,28 +2287,28 @@ func (ti *FightScreenTime) draw(layerno int16, f map[int]*Fnt) {
 }
 
 type FightScreenCombo struct {
-	pos            [2]int32
-	start_x        float32
-	counter        map[int32]*FSText
-	counter_shake  bool
-	counter_time   int32
-	counter_mult   float32
-	text           map[int32]*FSText
-	bg             AnimLayout
-	top            AnimLayout
-	displaytime    int32
-	showspeed      float32
-	hidespeed      float32
-	separator      string
-	places         int32
-	truehits       int32
-	shownhits      int32
-	showndmg       int32
-	shownpct       float32
-	resttime       int32
-	counterX       float32
-	shaketime      int32
-	autoalign      bool
+	pos           [2]int32
+	start_x       float32
+	counter       map[int32]*FSText
+	counter_shake bool
+	counter_time  int32
+	counter_mult  float32
+	text          map[int32]*FSText
+	bg            AnimLayout
+	top           AnimLayout
+	displaytime   int32
+	showspeed     float32
+	hidespeed     float32
+	separator     string
+	places        int32
+	truehits      int32
+	shownhits     int32
+	showndmg      int32
+	shownpct      float32
+	resttime      int32
+	counterX      float32
+	shaketime     int32
+	autoalign     bool
 }
 
 func newFightScreenCombo() *FightScreenCombo {
@@ -2767,76 +2767,76 @@ type ResultAnnouncement struct {
 }
 
 type FightScreenRound struct {
-	snd                 *Snd
-	pos                 [2]int32
-	start_waittime      int32
-	round_time          int32
-	round_sndtime       int32
-	roundDisplayTimer   int32
-	roundDisplayPhase   int32
-	round               [9]AnimTextSnd
-	round_default       AnimTextSnd
-	round_default_top   AnimLayout
-	round_default_bg    [32]AnimLayout
-	round_single        AnimTextSnd
-	round_single_top    AnimLayout
-	round_single_bg     [32]AnimLayout
-	round_final         AnimTextSnd
-	round_final_top     AnimLayout
-	round_final_bg      [32]AnimLayout
-	fight_time          int32
-	fight_sndtime       int32
-	fightDisplayTimer   int32
-	fightDisplayPhase   int32
-	fight               AnimTextSnd
-	fight_top           AnimLayout
-	fight_bg            [32]AnimLayout
-	ctrl_time           int32
-	ko_time             int32
-	ko_sndtime          int32
-	koDisplayTimer      int32
-	koDisplayPhase      int32
-	dko_time            int32
-	dko_sndtime         int32
-	dko_showdraw        bool
-	to_time             int32
-	to_sndtime          int32
-	ko, dko, to         AnimTextSnd
-	ko_top              AnimLayout
-	ko_bg               [32]AnimLayout
-	dko_top             AnimLayout
-	dko_bg              [32]AnimLayout
-	to_top              AnimLayout
-	to_bg               [32]AnimLayout
-	slow_time           int32
-	slow_fadetime       int32
-	slow_speed          float32
-	over_waittime       int32
-	over_hittime        int32
-	over_wintime        int32
-	over_forcewintime   int32
-	over_time           int32
-	win_time            int32
-	win_sndtime         int32
-	winDisplayTimer     int32
-	winDisplayPhase     int32
-	win                 [4]ResultAnnouncement
-	aiLose              [4]ResultAnnouncement
-	aiWin               [4]ResultAnnouncement
-	aiWinExists         [2][4]bool
-	aiLoseExists        [2][4]bool
-	drawgame            AnimTextSnd
-	drawgame_top        AnimLayout
-	drawgame_bg         [32]AnimLayout
-	timerActive         bool
-	winType             [WT_NumTypes * 2]FSBgTextSnd
-	fadeIn              *Fade
-	fadeOut             *Fade
-	shutterTimer        int32
-	shutter_time        int32
-	shutter_col         uint32
-	callfight_time      int32
-	clutch_threshold    int32
+	snd               *Snd
+	pos               [2]int32
+	start_waittime    int32
+	round_time        int32
+	round_sndtime     int32
+	roundDisplayTimer int32
+	roundDisplayPhase int32
+	round             [9]AnimTextSnd
+	round_default     AnimTextSnd
+	round_default_top AnimLayout
+	round_default_bg  [32]AnimLayout
+	round_single      AnimTextSnd
+	round_single_top  AnimLayout
+	round_single_bg   [32]AnimLayout
+	round_final       AnimTextSnd
+	round_final_top   AnimLayout
+	round_final_bg    [32]AnimLayout
+	fight_time        int32
+	fight_sndtime     int32
+	fightDisplayTimer int32
+	fightDisplayPhase int32
+	fight             AnimTextSnd
+	fight_top         AnimLayout
+	fight_bg          [32]AnimLayout
+	ctrl_time         int32
+	ko_time           int32
+	ko_sndtime        int32
+	koDisplayTimer    int32
+	koDisplayPhase    int32
+	dko_time          int32
+	dko_sndtime       int32
+	dko_showdraw      bool
+	to_time           int32
+	to_sndtime        int32
+	ko, dko, to       AnimTextSnd
+	ko_top            AnimLayout
+	ko_bg             [32]AnimLayout
+	dko_top           AnimLayout
+	dko_bg            [32]AnimLayout
+	to_top            AnimLayout
+	to_bg             [32]AnimLayout
+	slow_time         int32
+	slow_fadetime     int32
+	slow_speed        float32
+	over_waittime     int32
+	over_hittime      int32
+	over_wintime      int32
+	over_forcewintime int32
+	over_time         int32
+	win_time          int32
+	win_sndtime       int32
+	winDisplayTimer   int32
+	winDisplayPhase   int32
+	win               [4]ResultAnnouncement
+	aiLose            [4]ResultAnnouncement
+	aiWin             [4]ResultAnnouncement
+	aiWinExists       [2][4]bool
+	aiLoseExists      [2][4]bool
+	drawgame          AnimTextSnd
+	drawgame_top      AnimLayout
+	drawgame_bg       [32]AnimLayout
+	timerActive       bool
+	winType           [WT_NumTypes * 2]FSBgTextSnd
+	fadeIn            *Fade
+	fadeOut           *Fade
+	shutterTimer      int32
+	shutter_time      int32
+	shutter_col       uint32
+	callfight_time    int32
+	clutch_threshold  int32
 	//match_wins          [2]int32 // Handled by system
 	//match_maxdrawgames  [2]int32 // Handled by system
 }
@@ -4341,7 +4341,7 @@ type FightScreen struct {
 	sff           *Sff
 	snd           *Snd
 	fnt           map[int]*Fnt
-	curLayout     [2]int // Which layout each team is currently using. Single, Simul 3P, etc
+	curLayout     [2]int   // Which layout each team is currently using. Single, Simul 3P, etc
 	teamOrder     [2][]int // Player order on each team. Because it can vary in Tag
 	lifeBars      [8][]*LifeBar
 	powerBars     [8][]*PowerBar
@@ -5152,7 +5152,7 @@ func (fs *FightScreen) step() {
 	for ti := range sys.tmode {
 		layout := fs.curLayout[ti]
 		for i, charpn := range fs.teamOrder[ti] {
-			index := i*2+ti
+			index := i*2 + ti
 			// LifeBar
 			fs.lifeBars[layout][index].step(charpn, fs.lifeBars[layout][charpn])
 			// PowerBar

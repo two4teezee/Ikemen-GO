@@ -8335,7 +8335,7 @@ func (sc modifyProjectile) Run(c *Char, _ []int32) bool {
 				eachProj(func(p *Projectile) {
 					if p.animNo != v2 || p.anim_ffx != v1 { // TODO: This isn't required for chars, so maybe it shouldn't be here either
 						p.anim_ffx = v1
-						p.animNo = v2 // If animation is invalid the projectile will be destroyed, so we can update this either way
+						p.animNo = v2                               // If animation is invalid the projectile will be destroyed, so we can update this either way
 						p.anim = crun.getAnim(p.animNo, p.anim_ffx) // need to change anim ref too
 					}
 				})

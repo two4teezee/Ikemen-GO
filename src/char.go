@@ -4556,6 +4556,10 @@ func (c *Char) parent(log bool) *Char {
 	return p
 }
 
+func (c *Char) parentExist() bool {
+	return c.parent(false) != nil
+}
+
 func (c *Char) root(log bool) *Char {
 	if c.helperIndex == 0 {
 		if log {

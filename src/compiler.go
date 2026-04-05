@@ -309,6 +309,7 @@ var triggerMap = map[string]int{
 	"p4name":            1,
 	"palno":             1,
 	"parentdist":        1,
+	"parentexist":       1,
 	"pi":                1,
 	"playeridexist":     1,
 	"pos":               1,
@@ -4067,6 +4068,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 		default:
 			return bvNone(), Error("Invalid ParentDist argument: " + c.token)
 		}
+	case "parentexist":
+		out.append(OC_ex2_, OC_ex2_parentexist)
 	case "pi":
 		bv = BytecodeFloat(float32(math.Pi))
 	case "e":

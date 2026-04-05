@@ -967,6 +967,7 @@ const (
 	OC_ex2_defencemul
 	OC_ex2_guardcount
 	OC_ex2_airjumpcount
+	OC_ex2_parentexist
 )
 const (
 	OC_ex3_analog_leftx OpCode = iota
@@ -4154,6 +4155,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.guardCount)
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
+	case OC_ex2_parentexist:
+		sys.bcStack.PushB(c.parentExist())
 	default:
 		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")

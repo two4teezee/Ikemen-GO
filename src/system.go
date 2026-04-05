@@ -107,14 +107,13 @@ type SystemStateVars struct {
 	reloadCharSlot          [MaxPlayerNo]bool
 	turbo                   float32
 	drawScale               float32
-	zoomlag                 float32
+	zoomLag                 float32
 	zoomScale               float32
-	zoomPosXLag             float32
-	zoomPosYLag             float32
 	enableZoomtime          int32
 	zoomCameraBound         bool
 	zoomStageBound          bool
-	zoomPos                 [2]float32
+	zoomPos                 [2]float32 // Defined parameters
+	zoomPosCur              [2]float32 // Current values with lag
 	finishType              FinishType
 	winwaittime             int32
 	slowtime                int32
@@ -782,49 +781,56 @@ func (s *System) renderFrame() {
 	if !s.frameSkip {
 		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
 		dx, dy, dscl := x, y, scl
+
+		// Apply Zoom sctrl
 		if s.enableZoomtime > 0 {
+			// Apply lag
 			if !s.debugPaused() {
-				s.zoomPosXLag += ((s.zoomPos[0] - s.zoomPosXLag) * (1 - s.zoomlag))
-				s.zoomPosYLag += ((s.zoomPos[1] - s.zoomPosYLag) * (1 - s.zoomlag))
-				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomlag) * s.zoomScale * scl
+				for i := 0; i < 2; i++ {
+					s.zoomPosCur[i] += (s.zoomPos[i] - s.zoomPosCur[i]) * (1 - s.zoomLag)
+				}
+				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomLag) * s.zoomScale * scl
 			}
+			// Apply position limits
 			if s.zoomStageBound {
 				dscl = Max(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
 				if s.zoomCameraBound {
 					zoomedViewWidth := float32(s.gameWidth) / s.drawScale
 					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
 					maxCamX := x + (s.cam.halfWidth/scl - zoomedViewWidth/2)
-					intermediateTargetX := x + s.zoomPosXLag/scl
+					intermediateTargetX := x + s.zoomPosCur[0]/scl
 					dx = Clamp(intermediateTargetX, minCamX, maxCamX)
 				} else {
-					dx = x + s.zoomPosXLag/scl
+					dx = x + s.zoomPosCur[0]/scl
 				}
 				dx = s.cam.XBound(dscl, dx)
 			} else {
 				dscl = s.drawScale / s.cam.BaseScale()
-				dx = x + s.zoomPosXLag/scl
+				dx = x + s.zoomPosCur[0]/scl
 			}
-			dy = y + s.zoomPosYLag/scl
+			dy = y + s.zoomPosCur[1]/scl
 		} else {
-			s.zoomlag = 0
-			s.zoomPosXLag = 0
-			s.zoomPosYLag = 0
+			// Reset zoom
+			s.zoomLag = 0
 			s.zoomScale = 1
 			s.zoomPos = [2]float32{0, 0}
+			s.zoomPosCur = [2]float32{0, 0}
 			s.drawScale = s.cam.Scale
 		}
+
+		// Do the actual drawing
 		s.draw(dx, dy, dscl)
+	}
+
+	// Lua
+	if !s.frameSkip {
+		s.luaFlushDrawQueue()
 	} else {
 		// Keep pause-menu logic responsive even when this render frame is skipped.
 		// Any queued draw ops are discarded below because this frame is not being rendered.
 		if s.motif.me.active {
 			s.motif.me.runLua(&s.motif)
 		}
-	}
-
-	if !s.frameSkip {
-		s.luaFlushDrawQueue()
-	} else {
 		// On skipped frames, discard queued draws to avoid buildup.
 		s.luaDiscardDrawQueue()
 	}

@@ -10367,11 +10367,11 @@ func triggerFunctions(l *lua.LState) {
 		case "scale":
 			ln = lua.LNumber(sys.drawScale)
 		case "pos.x":
-			ln = lua.LNumber(sys.zoomPosXLag)
+			ln = lua.LNumber(sys.zoomPosCur[0])
 		case "pos.y":
-			ln = lua.LNumber(sys.zoomPosYLag)
+			ln = lua.LNumber(sys.zoomPosCur[1])
 		case "lag":
-			ln = lua.LNumber(sys.zoomlag)
+			ln = lua.LNumber(sys.zoomLag)
 		case "time":
 			ln = lua.LNumber(sys.enableZoomtime)
 		default:

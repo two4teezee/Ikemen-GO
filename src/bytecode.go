@@ -4138,11 +4138,11 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_zoomvar_scale:
 		sys.bcStack.PushF(sys.drawScale)
 	case OC_ex2_zoomvar_pos_x:
-		sys.bcStack.PushF(sys.zoomPosXLag)
+		sys.bcStack.PushF(sys.zoomPosCur[0])
 	case OC_ex2_zoomvar_pos_y:
-		sys.bcStack.PushF(sys.zoomPosYLag)
+		sys.bcStack.PushF(sys.zoomPosCur[1])
 	case OC_ex2_zoomvar_lag:
-		sys.bcStack.PushF(sys.zoomlag)
+		sys.bcStack.PushF(sys.zoomLag)
 	case OC_ex2_zoomvar_time:
 		sys.bcStack.PushI(sys.enableZoomtime)
 	case OC_ex2_projclsnoverlap:
@@ -11246,8 +11246,12 @@ const (
 )
 
 func (sc zoom) Run(c *Char, _ []int32) bool {
+	// Defaults
 	pos := [2]float32{0, 0}
 	t := int32(1)
+	scl := float32(1)
+	lag := float32(0)
+
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
 		case zoom_pos:
@@ -11256,23 +11260,35 @@ func (sc zoom) Run(c *Char, _ []int32) bool {
 				pos[1] = exp[1].evalF(c) * c.localscl
 			}
 		case zoom_scale:
-			sys.zoomScale = exp[0].evalF(c)
+			scl = exp[0].evalF(c)
+			if scl <= 0 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom scale value: %v", scl))
+				scl = 1
+			}
 		case zoom_camerabound:
 			sys.zoomCameraBound = exp[0].evalB(c)
 		case zoom_stagebound:
 			sys.zoomStageBound = exp[0].evalB(c)
 		case zoom_lag:
-			sys.zoomlag = exp[0].evalF(c)
+			lag = exp[0].evalF(c)
+			if lag < 0 || lag > 1 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("clamped invalid Zoom lag value: %v", lag))
+				lag = Clamp(lag, 0, 1)
+			}
 		case zoom_time:
 			t = exp[0].evalI(c)
 		}
 		return true
 	})
+
 	// This old calculation is both less accurate to Mugen and less intuitive to work with
 	// sys.zoomPos[0] = sys.zoomScale * pos[0]
 	sys.zoomPos[0] = pos[0]
 	sys.zoomPos[1] = pos[1]
+	sys.zoomScale = scl
+	sys.zoomLag = lag
 	sys.enableZoomtime = t
+
 	return false
 }
 

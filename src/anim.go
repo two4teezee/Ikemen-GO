@@ -603,9 +603,9 @@ func (a *Animation) UpdateSprite() {
 				group, number = mn[0], mn[1]
 			}
 		}
-        //Mugen used int16 instead of uint16 by mistake, so this serves as a workaround that will please both past and future characters
+        //Mugen only nulls out -1, other negatives wrap around
 		if group != -1 && number != -1 {
-			    a.spr = a.sff.GetSprite(uint16(0+group), uint16(0+number))
+			    a.spr = a.sff.GetSprite(uint16(group), uint16(number))
 			if a.spr == nil {
 				// Log missing sprites
 				// We will save the history in the SFF itself so that each sprite is only mentioned once

@@ -1864,7 +1864,6 @@ func (e *Explod) setAnim() {
 		} else {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("explod with ID %v called invalid action %v%v", e.id, strings.ToUpper(e.anim_ffx), e.animNo))
 		}
-		return
 	}
 	e.anim = a
 
@@ -7254,8 +7253,8 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true)
 
 	if p.anim == nil && c.anim != nil {
-		// TODO: If Ikemenversion, the invalid animation probably ought to make explod disappear
-		sys.appendToConsole(c.warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
+		// TODO: If Ikemenversion, the invalid animation probably ought to make the projectile disappear
+		sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
 		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim

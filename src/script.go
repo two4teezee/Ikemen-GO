@@ -10365,15 +10365,17 @@ func triggerFunctions(l *lua.LState) {
 		var ln lua.LNumber
 		switch strings.ToLower(strArg(l, 1)) {
 		case "scale":
-			ln = lua.LNumber(sys.drawScale)
+			ln = lua.LNumber(sys.zoom.curScale)
 		case "pos.x":
-			ln = lua.LNumber(sys.zoomPosCur[0])
+			ln = lua.LNumber(sys.zoom.curPos[0])
 		case "pos.y":
-			ln = lua.LNumber(sys.zoomPosCur[1])
+			ln = lua.LNumber(sys.zoom.curPos[1])
 		case "lag":
-			ln = lua.LNumber(sys.zoomLag)
+			ln = lua.LNumber(sys.zoom.lag)
+		case "endlag":
+			ln = lua.LNumber(sys.zoom.endLag)
 		case "time":
-			ln = lua.LNumber(sys.enableZoomtime)
+			ln = lua.LNumber(sys.zoom.time)
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

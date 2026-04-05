@@ -106,14 +106,7 @@ type SystemStateVars struct {
 	reloadFightScreenFlg    bool
 	reloadCharSlot          [MaxPlayerNo]bool
 	turbo                   float32
-	drawScale               float32
-	zoomLag                 float32
-	zoomScale               float32
-	enableZoomtime          int32
-	zoomCameraBound         bool
-	zoomStageBound          bool
-	zoomPos                 [2]float32 // Defined parameters
-	zoomPosCur              [2]float32 // Current values with lag
+	zoom                    ZoomEffect
 	finishType              FinishType
 	winwaittime             int32
 	slowtime                int32
@@ -780,45 +773,7 @@ func (s *System) await(fps int) bool {
 func (s *System) renderFrame() {
 	if !s.frameSkip {
 		x, y, scl := s.cam.Pos[0], s.cam.Pos[1], s.cam.Scale/s.cam.BaseScale()
-		dx, dy, dscl := x, y, scl
-
-		// Apply Zoom sctrl
-		if s.enableZoomtime > 0 {
-			// Apply lag
-			if !s.debugPaused() {
-				for i := 0; i < 2; i++ {
-					s.zoomPosCur[i] += (s.zoomPos[i] - s.zoomPosCur[i]) * (1 - s.zoomLag)
-				}
-				s.drawScale = s.drawScale / (s.drawScale + (s.zoomScale*scl-s.drawScale)*s.zoomLag) * s.zoomScale * scl
-			}
-			// Apply position limits
-			if s.zoomStageBound {
-				dscl = Max(s.cam.MinScale, s.drawScale/s.cam.BaseScale())
-				if s.zoomCameraBound {
-					zoomedViewWidth := float32(s.gameWidth) / s.drawScale
-					minCamX := x - (s.cam.halfWidth/scl - zoomedViewWidth/2)
-					maxCamX := x + (s.cam.halfWidth/scl - zoomedViewWidth/2)
-					intermediateTargetX := x + s.zoomPosCur[0]/scl
-					dx = Clamp(intermediateTargetX, minCamX, maxCamX)
-				} else {
-					dx = x + s.zoomPosCur[0]/scl
-				}
-				dx = s.cam.XBound(dscl, dx)
-			} else {
-				dscl = s.drawScale / s.cam.BaseScale()
-				dx = x + s.zoomPosCur[0]/scl
-			}
-			dy = y + s.zoomPosCur[1]/scl
-		} else {
-			// Reset zoom
-			s.zoomLag = 0
-			s.zoomScale = 1
-			s.zoomPos = [2]float32{0, 0}
-			s.zoomPosCur = [2]float32{0, 0}
-			s.drawScale = s.cam.Scale
-		}
-
-		// Do the actual drawing
+		dx, dy, dscl := s.zoom.apply(x, y, scl)
 		s.draw(dx, dy, dscl)
 	}
 
@@ -2008,6 +1963,7 @@ func (s *System) resetGblEffect() {
 	s.allPalFX.clear()
 	s.bgPalFX.clear()
 	s.envShake.clear()
+	s.zoom.reset()
 	s.pausetime, s.pausetimebuffer = 0, 0
 	s.supertime, s.supertimebuffer = 0, 0
 	s.envcol_time = 0
@@ -2488,12 +2444,7 @@ func (s *System) action() {
 		if s.envcol_time > 0 {
 			s.envcol_time--
 		}
-		if s.enableZoomtime > 0 {
-			s.enableZoomtime--
-		} else {
-			s.zoomCameraBound = true
-			s.zoomStageBound = true
-		}
+		s.zoom.update()
 		if s.supertime > 0 {
 			s.supertime--
 		} else if s.pausetime > 0 {
@@ -5468,6 +5419,127 @@ func (es *EnvShake) getOffset() [2]float32 {
 			offset * float32(math.Cos(float64(-es.dir)))}
 	}
 	return [2]float32{0, 0}
+}
+
+type ZoomEffect struct {
+	active      bool
+	time        int32
+	lag         float32
+	endLag      float32
+	scale       float32
+	curScale    float32
+	pos         [2]float32 // Defined parameters
+	curPos      [2]float32 // Current values with lag
+	cameraBound bool
+	stageBound  bool
+}
+
+func (z *ZoomEffect) reset() {
+	z.active = false
+	z.time = 0
+	z.pos = [2]float32{0, 0}
+	z.curPos = [2]float32{0, 0}
+	z.scale = 1
+	z.curScale = 1
+	z.lag = 0
+	z.endLag = 0
+	z.cameraBound = true
+	z.stageBound = true
+}
+
+// Step the zoom variables
+func (z *ZoomEffect) update() {
+	if !z.active {
+		return
+	}
+
+	// Active phase target
+	targetPos := z.pos
+	targetScale := z.scale
+	lag := z.lag
+
+	// Release phase target
+	if z.time <= 0 {
+		targetPos = [2]float32{0, 0}
+		targetScale = 1
+		lag = z.endLag
+	}
+
+	// Manage timer
+	if z.time > 0 {
+		z.time--
+	}
+
+	// Threshold for snapping to target
+	const eps = 0.001
+
+	// Apply smoothing
+	if lag == 0 {
+		// Fast path for no lag
+		z.curPos = targetPos
+		z.curScale = targetScale
+	} else if lag < 1 {
+		// Position
+		for i := 0; i < 2; i++ {
+			if Abs(z.curPos[i]-targetPos[i]) < eps {
+				z.curPos[i] = targetPos[i]
+			} else {
+				z.curPos[i] += (targetPos[i] - z.curPos[i]) * (1 - lag)
+			}
+		}
+
+		// Scale
+		if Abs(z.curScale-targetScale) < eps {
+			z.curScale = targetScale
+		} else {
+			z.curScale += (targetScale - z.curScale) * (1 - lag)
+		}
+	}
+	// lag >= 1 freezes current zoom state. Maybe that shouldn't be allowed either?
+
+	// Finish release
+	if z.time <= 0 {
+		if Abs(z.curPos[0]) < eps &&
+			Abs(z.curPos[1]) < eps &&
+			Abs(z.curScale-1) < eps {
+			z.reset()
+		}
+	}
+}
+
+// Apply current zoom to sys.draw() parameters
+func (z *ZoomEffect) apply(x, y, scl float32) (dx, dy, dscl float32) {
+	dx, dy, dscl = x, y, scl
+
+	if !z.active {
+		return
+	}
+
+	finalScale := z.curScale * scl
+
+	// Apply position limits
+	if z.stageBound {
+		dscl = Max(sys.cam.MinScale, finalScale/sys.cam.BaseScale())
+
+		if z.cameraBound {
+			zoomedViewWidth := float32(sys.gameWidth) / finalScale
+			minCamX := x - (sys.cam.halfWidth/scl - zoomedViewWidth/2)
+			maxCamX := x + (sys.cam.halfWidth/scl - zoomedViewWidth/2)
+			intermediateTargetX := x + z.curPos[0]/scl
+			dx = Clamp(intermediateTargetX, minCamX, maxCamX)
+		} else {
+			dx = x + z.curPos[0]/scl
+		}
+
+		dx = sys.cam.XBound(dscl, dx)
+	} else {
+		dscl = finalScale / sys.cam.BaseScale()
+		dx = x + z.curPos[0]/scl
+	}
+
+	dy = y + z.curPos[1]/scl
+
+	return
 }
 
 type CharVarBackup struct {

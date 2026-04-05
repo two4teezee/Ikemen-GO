@@ -962,6 +962,7 @@ const (
 	OC_ex2_zoomvar_pos_x
 	OC_ex2_zoomvar_pos_y
 	OC_ex2_zoomvar_lag
+	OC_ex2_zoomvar_endlag
 	OC_ex2_zoomvar_time
 	OC_ex2_projclsnoverlap
 	OC_ex2_attackmul
@@ -4136,15 +4137,17 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_xshear:
 		sys.bcStack.PushF(c.xshear)
 	case OC_ex2_zoomvar_scale:
-		sys.bcStack.PushF(sys.drawScale)
+		sys.bcStack.PushF(sys.zoom.curScale)
 	case OC_ex2_zoomvar_pos_x:
-		sys.bcStack.PushF(sys.zoomPosCur[0])
+		sys.bcStack.PushF(sys.zoom.curPos[0] / oc.localscl)
 	case OC_ex2_zoomvar_pos_y:
-		sys.bcStack.PushF(sys.zoomPosCur[1])
+		sys.bcStack.PushF(sys.zoom.curPos[1] / oc.localscl)
 	case OC_ex2_zoomvar_lag:
-		sys.bcStack.PushF(sys.zoomLag)
+		sys.bcStack.PushF(sys.zoom.lag)
+	case OC_ex2_zoomvar_endlag:
+		sys.bcStack.PushF(sys.zoom.endLag)
 	case OC_ex2_zoomvar_time:
-		sys.bcStack.PushI(sys.enableZoomtime)
+		sys.bcStack.PushI(sys.zoom.time)
 	case OC_ex2_projclsnoverlap:
 		boxType := sys.bcStack.Pop().ToI()
 		targetID := sys.bcStack.Pop().ToI()
@@ -11240,8 +11243,9 @@ const (
 	zoom_pos byte = iota
 	zoom_scale
 	zoom_lag
-	zoom_camerabound
+	zoom_endlag
 	zoom_time
+	zoom_camerabound
 	zoom_stagebound
 )
 
@@ -11251,6 +11255,7 @@ func (sc zoom) Run(c *Char, _ []int32) bool {
 	t := int32(1)
 	scl := float32(1)
 	lag := float32(0)
+	endlag := float32(0)
 
 	StateControllerBase(sc).run(c, func(paramID byte, exp []BytecodeExp) bool {
 		switch paramID {
@@ -11265,29 +11270,38 @@ func (sc zoom) Run(c *Char, _ []int32) bool {
 				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom scale value: %v", scl))
 				scl = 1
 			}
-		case zoom_camerabound:
-			sys.zoomCameraBound = exp[0].evalB(c)
-		case zoom_stagebound:
-			sys.zoomStageBound = exp[0].evalB(c)
 		case zoom_lag:
 			lag = exp[0].evalF(c)
 			if lag < 0 || lag > 1 {
 				sys.appendToConsole(c.warn() + fmt.Sprintf("clamped invalid Zoom lag value: %v", lag))
-				lag = Clamp(lag, 0, 1)
+				lag = Clamp(lag, float32(0), float32(1))
+			}
+		case zoom_endlag:
+			endlag = exp[0].evalF(c)
+			if endlag < 0 || endlag > 1 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("clamped invalid Zoom endlag value: %v", endlag))
+				endlag = Clamp(endlag, float32(0), float32(1))
 			}
 		case zoom_time:
 			t = exp[0].evalI(c)
+		case zoom_camerabound:
+			sys.zoom.cameraBound = exp[0].evalB(c)
+		case zoom_stagebound:
+			sys.zoom.stageBound = exp[0].evalB(c)
 		}
 		return true
 	})
 
 	// This old calculation is both less accurate to Mugen and less intuitive to work with
-	// sys.zoomPos[0] = sys.zoomScale * pos[0]
-	sys.zoomPos[0] = pos[0]
-	sys.zoomPos[1] = pos[1]
-	sys.zoomScale = scl
-	sys.zoomLag = lag
-	sys.enableZoomtime = t
+	// sys.zoom.pos[0] = sys.zoom.scale * pos[0]
+	sys.zoom.pos = pos
+	sys.zoom.scale = scl
+	sys.zoom.lag = lag
+	sys.zoom.endLag = endlag
+	sys.zoom.time = t
+	sys.zoom.active = true
+
+	// "Current" values are not reset, for the sake of continuity between effects
 
 	return false
 }

@@ -2219,8 +2219,8 @@ func (s *System) resetRoundState() {
 		// Select anim 0
 		firstAnim := int32(0)
 		// Default to first anim in .AIR if 0 was not found
-		if p[0].gi().animTable[0] == nil {
-			for k := range p[0].gi().animTable {
+		if p[0].gi().animTable.anims[0] == nil {
+			for k := range p[0].gi().animTable.anims {
 				firstAnim = k
 				break
 			}
@@ -4508,7 +4508,8 @@ func (s *Select) AddChar(def string) *SelectChar {
 				return err
 			}
 			lines, lnidx := SplitAndTrim(str, "\n"), 0
-			at := ReadAnimationTable(tempSff, &tempSff.palList, lines, &lnidx) // SFF here is temporary
+			// We disable logging here or else preloading will print the errors of all characters in the select screen
+			at := ReadAnimationTable(sc.def, tempSff, &tempSff.palList, lines, &lnidx, false)
 			for v_anim := range s.charAnimPreload {
 				if animation := at.get(v_anim); animation != nil {
 					sc.anims.addAnim(animation, v_anim)
@@ -4768,7 +4769,7 @@ func (s *Select) AddStage(def string) (*SelectStage, error) {
 		sff := newSff()
 		// preload animations
 		atidx := 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &atidx)
+		at := ReadAnimationTable(finalDefPath, sff, &sff.palList, lines, &atidx, false)
 		for v := range s.stageAnimPreload {
 			if anim := at.get(v); anim != nil {
 				ss.anims.addAnim(anim, v)

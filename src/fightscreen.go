@@ -154,7 +154,7 @@ func loadFightFx(def string, isGlobal bool, isMainThread bool) error {
 							return err
 						}
 						lines, i := SplitAndTrim(str, "\n"), 0
-						ffx.animTable = ReadAnimationTable(ffx.sff, &ffx.sff.palList, lines, &i)
+						ffx.animTable = ReadAnimationTable(filename, ffx.sff, &ffx.sff.palList, lines, &i, true)
 						return nil
 					}); err != nil {
 					return err
@@ -2890,7 +2890,7 @@ func readLbFade(pre string, is IniSection, sff *Sff, at AnimationTable) *Fade {
 	fp.animData.SetPos(0, 0)   // TODO: use fp.animData.Reset() instead
 	fp.animData.SetScale(1, 1) // TODO: use fp.animData.Reset() instead
 	//fp.animData.Reset() // TODO: comment out pos and scale adjustments
-	if animData, exists := at[anim]; exists {
+	if animData, exists := at.anims[anim]; exists {
 		fp.animData.anim = animData
 	} else {
 		fp.animData.anim = nil
@@ -4457,7 +4457,7 @@ func loadFightScreen(def string) (*FightScreen, error) {
 	}
 
 	lines, lnidx := SplitAndTrim(str, "\n"), 0
-	fs.animTable = ReadAnimationTable(fs.sff, &fs.sff.palList, lines, &lnidx)
+	fs.animTable = ReadAnimationTable(def, fs.sff, &fs.sff.palList, lines, &lnidx, true)
 	lnidx = 0
 	filesflg := true
 
@@ -4561,7 +4561,7 @@ func loadFightScreen(def string) (*FightScreen, error) {
 							return err
 						}
 						lines, i := SplitAndTrim(str, "\n"), 0
-						ffx.animTable = ReadAnimationTable(ffx.sff, &ffx.sff.palList, lines, &i)
+						ffx.animTable = ReadAnimationTable(filename, ffx.sff, &ffx.sff.palList, lines, &i, true)
 						return nil
 					}); err != nil {
 					return nil, err

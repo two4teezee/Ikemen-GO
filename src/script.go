@@ -3924,17 +3924,17 @@ func systemScriptInit(l *lua.LState) {
 			return 0
 		}
 		lines, i := SplitAndTrim(NormalizeNewlines(raw), "\n"), 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
+		at := ReadAnimationTable(def, sff, &sff.palList, lines, &i, true)
 		// Build Lua table with NUMERIC keys (so it prints like [110] => userdata ...)
 		tbl := l.NewTable()
 		// Deterministic iteration order
-		keys := make([]int, 0, len(at))
-		for k := range at {
+		keys := make([]int, 0, len(at.anims))
+		for k := range at.anims {
 			keys = append(keys, int(k))
 		}
 		sort.Ints(keys)
 		for _, ki := range keys {
-			anim := at[int32(ki)]
+			anim := at.anims[int32(ki)]
 			if anim == nil {
 				continue
 			}

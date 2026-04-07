@@ -4291,6 +4291,10 @@ func (s *Select) AddChar(def string) *SelectChar {
 		sc.name = "dummyslot"
 		return nil
 	}
+	if strings.ToLower(defPathFromSelect) == "skipslot" {
+		sc.name = "skipslot"
+		return nil
+	}
 
 	// Helper to set missing characters to dummy slots and (always) print a warning
 	useDummy := func(reason string) *SelectChar {

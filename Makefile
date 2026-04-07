@@ -15,6 +15,7 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/compiler_functions.go \
 	src/config.go \
 	src/dllsearch_windows.go \
+	src/fightscreen.go \
 	src/font.go \
 	src/font_gl33.go \
 	src/font_gles32.go \
@@ -24,7 +25,6 @@ srcFiles=src/resources/defaultConfig.ini \
 	src/iniutils.go \
 	src/input.go \
 	src/input_sdl.go \
-	src/lifebar.go \
 	src/main.go \
 	src/motif.go \
 	src/music.go \

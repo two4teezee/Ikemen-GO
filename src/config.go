@@ -251,7 +251,7 @@ func loadConfig(def string) (*Config, error) {
 		//AllowNestedValues: true,
 		UnparseableSections:        []string{},
 		AllowPythonMultilineValues: false,
-		PreserveSurroundedQuote: false,
+		PreserveSurroundedQuote:    false,
 		//KeyValueDelimiters: "=:",
 		//KeyValueDelimiterOnWrite: "=",
 		//ChildSectionDelimiter: ".",

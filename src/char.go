@@ -9008,15 +9008,18 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
-		// For SFFv1, if remapping palette 1,1 remap whatever palette sprite 0,0 uses
+		// Always remap the requested source palette
+		plist.Remap(si, di)
+
+		// For SFFv1, remapping 1,1 should also remap whatever palettes sprites 0,0 and 9000,0 use
+		// TODO: Because 9000,0 is not hardcoded in Ikemen, this might create trouble for custom portraits
 		if src[0] == 1 && src[1] == 1 && c.gi().sff.header.Version[0] == 1 {
 			if spr := c.gi().sff.GetSprite(0, 0); spr != nil {
-				if spr.GetPal(&plist) != nil && spr.palidx >= 0 {
-					plist.Remap(spr.palidx, di)
-				}
+				plist.Remap(spr.palidx, di)
 			}
-		} else {
-			plist.Remap(si, di)
+			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil {
+				plist.Remap(spr.palidx, di)
+			}
 		}
 
 		plist.SwapPalMap(&pfx.remap)

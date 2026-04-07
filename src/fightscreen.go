@@ -1750,9 +1750,9 @@ func (fa *FightScreenFace) step(charpn int, refFace *FightScreenFace) {
 	refgi := sys.cgi[charpn]
 	if refFace.old_spr[0] != group || refFace.old_spr[1] != number ||
 		refFace.old_pal[0] != refgi.remappedpal[0] || refFace.old_pal[1] != refgi.remappedpal[1] {
-		refFace.face = refgi.sff.getOwnPalSprite(uint16(group), uint16(number), &refgi.palettedata.palList)
-		refFace.old_spr = [...]int32{group, number}
-		refFace.old_pal = [...]int32{refgi.remappedpal[0], refgi.remappedpal[1]}
+		refFace.face = refgi.sff.cloneSpriteWithPal(uint16(group), uint16(number), &refgi.palettedata.palList)
+		refFace.old_spr = [2]int32{group, number}
+		refFace.old_pal = [2]int32{refgi.remappedpal[0], refgi.remappedpal[1]}
 	}
 
 	fa.bg.Action()

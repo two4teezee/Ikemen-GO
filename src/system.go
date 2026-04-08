@@ -2514,9 +2514,9 @@ func (s *System) action() {
 	// It should be placed between "tick frame" and "tick next frame"
 	s.charUpdate()
 
-	// Update lifebars
-	// This must happen before hit detection for accurate display
-	// Allows a combo to still end if a character is hit in the same frame where it exits movetype H
+	// Update the fight screen
+	// Lifebar and combo must update after character states but before hit detection for accurate detection
+	// So that it allows a combo to still end if a character is hit in the same frame where it exits movetype H
 	s.fightScreen.step()
 
 	if s.tickNextFrame() {

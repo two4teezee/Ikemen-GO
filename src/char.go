@@ -5006,7 +5006,7 @@ func (c *Char) comboCount() int32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.fightScreen.combos[c.teamside].truehits
+	return sys.fightScreen.combos[c.teamside].trueHits
 }
 
 func (c *Char) command(pn, i int) bool {
@@ -7179,10 +7179,8 @@ func (c *Char) hitAdd(h int32) {
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
 				t.receivedHits += h
+				c.addComboHits(h)
 				break
-				//if c.teamside != -1 {
-				//	sys.fightScreen.combos[c.teamside].truehits += h
-				//}
 			}
 		}
 	} else if c.teamside != -1 {
@@ -7192,11 +7190,20 @@ func (c *Char) hitAdd(h int32) {
 				// This is a bit of a workaround for backward compatibility only
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
 					p[0].receivedHits += h
-					//sys.fightScreen.combos[c.teamside].truehits += h
+					c.addComboHits(h)
 				}
 			}
 		}
 	}
+}
+
+// We track the combo separately from the enemy's received hits
+// So that if partners take turns doing hits to different enemies the combo still adds up
+func (c *Char) addComboHits(n int32) {
+	if c.teamside != 0 && c.teamside != 1 {
+		return
+	}
+	sys.fightScreen.combos[c.teamside].trueHits += n
 }
 
 // Always appends to preserve insertion order
@@ -10966,10 +10973,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if (ghvset || getter.csf(CSF_gethit)) && getter.hoverIdx < 0 &&
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
-			// receivedHits is the only source of truth
-			//if c.teamside != -1 {
-			//	sys.fightScreen.combos[c.teamside].truehits += hd.numhits
-			//}
+			c.addComboHits(hd.numhits)
 		}
 		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
 			c.scoreAdd(hd.score[0])

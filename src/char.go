@@ -1864,7 +1864,6 @@ func (e *Explod) setAnim() {
 		} else {
 			sys.appendToConsole(c.warn() + fmt.Sprintf("explod with ID %v called invalid action %v%v", e.id, strings.ToUpper(e.anim_ffx), e.animNo))
 		}
-		return
 	}
 	e.anim = a
 
@@ -5007,7 +5006,7 @@ func (c *Char) comboCount() int32 {
 	if c.teamside == -1 {
 		return 0
 	}
-	return sys.fightScreen.combos[c.teamside].truehits
+	return sys.fightScreen.combos[c.teamside].trueHits
 }
 
 func (c *Char) command(pn, i int) bool {
@@ -7180,10 +7179,8 @@ func (c *Char) hitAdd(h int32) {
 		for _, tid := range c.targets {
 			if t := sys.playerID(tid); t != nil {
 				t.receivedHits += h
+				c.addComboHits(h)
 				break
-				//if c.teamside != -1 {
-				//	sys.fightScreen.combos[c.teamside].truehits += h
-				//}
 			}
 		}
 	} else if c.teamside != -1 {
@@ -7193,11 +7190,20 @@ func (c *Char) hitAdd(h int32) {
 				// This is a bit of a workaround for backward compatibility only
 				if p[0].receivedHits != 0 || p[0].ss.moveType == MT_H {
 					p[0].receivedHits += h
-					//sys.fightScreen.combos[c.teamside].truehits += h
+					c.addComboHits(h)
 				}
 			}
 		}
 	}
+}
+
+// We track the combo separately from the enemy's received hits
+// So that if partners take turns doing hits to different enemies the combo still adds up
+func (c *Char) addComboHits(n int32) {
+	if c.teamside != 0 && c.teamside != 1 {
+		return
+	}
+	sys.fightScreen.combos[c.teamside].trueHits += n
 }
 
 // Always appends to preserve insertion order
@@ -7254,8 +7260,8 @@ func (c *Char) commitProjectile(p *Projectile, pt PosType, offx, offy, offz floa
 	p.anim = c.getSelfAnimSprite(p.animNo, p.anim_ffx, true)
 
 	if p.anim == nil && c.anim != nil {
-		// TODO: If Ikemenversion, the invalid animation probably ought to make explod disappear
-		sys.appendToConsole(c.warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
+		// TODO: If Ikemenversion, the invalid animation probably ought to make the projectile disappear
+		sys.appendToConsole(p.owner().warn() + fmt.Sprintf("projectile with ID %v called invalid action %v%v", p.id, strings.ToUpper(p.anim_ffx), p.animNo))
 		// The Mugen fallback is to copy the character's current animation
 		p.anim = &Animation{}
 		*p.anim = *c.anim
@@ -9009,15 +9015,18 @@ func (c *Char) remapPal(pfx *PalFX, src [2]int32, dst [2]int32) {
 
 	// Perform palette remap
 	if plist.SwapPalMap(&pfx.remap) {
-		// For SFFv1, if remapping palette 1,1 remap whatever palette sprite 0,0 uses
+		// Always remap the requested source palette
+		plist.Remap(si, di)
+
+		// For SFFv1, remapping 1,1 should also remap whatever palettes sprites 0,0 and 9000,0 use
+		// TODO: Because 9000,0 is not hardcoded in Ikemen, this might create trouble for custom portraits
 		if src[0] == 1 && src[1] == 1 && c.gi().sff.header.Version[0] == 1 {
 			if spr := c.gi().sff.GetSprite(0, 0); spr != nil {
-				if spr.GetPal(&plist) != nil && spr.palidx >= 0 {
-					plist.Remap(spr.palidx, di)
-				}
+				plist.Remap(spr.palidx, di)
 			}
-		} else {
-			plist.Remap(si, di)
+			if spr := c.gi().sff.GetSprite(9000, 0); spr != nil {
+				plist.Remap(spr.palidx, di)
+			}
 		}
 
 		plist.SwapPalMap(&pfx.remap)
@@ -10964,10 +10973,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		if (ghvset || getter.csf(CSF_gethit)) && getter.hoverIdx < 0 &&
 			!(c.hitdef.air_type == HT_None && getter.ss.stateType == ST_A || getter.ss.stateType != ST_A && c.hitdef.ground_type == HT_None) {
 			getter.receivedHits += hd.numhits
-			// receivedHits is the only source of truth
-			//if c.teamside != -1 {
-			//	sys.fightScreen.combos[c.teamside].truehits += hd.numhits
-			//}
+			c.addComboHits(hd.numhits)
 		}
 		if !math.IsNaN(float64(hd.score[0])) && !c.asf(ASF_noscore) {
 			c.scoreAdd(hd.score[0])

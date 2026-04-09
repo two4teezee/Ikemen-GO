@@ -823,12 +823,20 @@ func newSprite() *Sprite {
 
 func (s *Sprite) shareCopy(src *Sprite) {
 	s.Pal = src.Pal
-	s.Tex = src.Tex
 	s.Size = src.Size
+
+	// Copy palette index if it's not defined yet
 	if s.palidx < 0 {
 		s.palidx = src.palidx
 	}
 	s.coldepth = src.coldepth
+
+	// We must defer copying the texture during the main thread
+	// Otherwise we can end up copying a nil texture over the good one or other race condition bugs
+	sys.mainThreadTask <- func() {
+		s.Tex = src.Tex
+	}
+
 	//s.paltemp = src.paltemp
 	//s.PalTex = src.PalTex
 }
@@ -1689,9 +1697,10 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 		if size == 0 {
 			if int(indexOfPrevious) < i {
 				dst, src := spriteList[i], spriteList[int(indexOfPrevious)]
-				sys.mainThreadTask <- func() {
+				// Moved to shareCopy() itself
+				//sys.mainThreadTask <- func() {
 					dst.shareCopy(src)
-				}
+				//}
 			} else {
 				spriteList[i].palidx = 0 // index out of range
 			}
@@ -1860,7 +1869,11 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 				base := int(indexOfPrevious)
 				copyPal := func(srcIdx int) {
 					dst, src := spriteList[i], spriteList[srcIdx]
-					sys.mainThreadTask <- func() { dst.shareCopy(src) }
+					// Since loadSff() works incorrectly with this condition, maybe having it here wasn't ideal either
+					// Preload caching tests also needed this copy to be instant
+					//sys.mainThreadTask <- func() {
+						dst.shareCopy(src)
+					//}
 					if spriteList[srcIdx].palidx < 0 || int(spriteList[srcIdx].palidx) >= len(pl.paletteMap) {
 						spriteList[i].palidx = 0
 					} else {
@@ -2091,7 +2104,8 @@ func (s *Sff) GetSprite(g, n uint16) *Sprite {
 	return s.sprites[[2]uint16{g, n}]
 }
 
-func (s *Sff) getOwnPalSprite(g, n uint16, pl *PaletteList) *Sprite {
+// Creates a copy of the sprite and its palette and returns a pointer to it
+func (s *Sff) cloneSpriteWithPal(g, n uint16, pl *PaletteList) *Sprite {
 	sys.runMainThreadTask() // Generate texture
 	sp := s.GetSprite(g, n)
 	if sp == nil {

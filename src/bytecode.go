@@ -10097,18 +10097,20 @@ func (sc superPause) Run(c *Char, _ []int32) bool {
 	})
 
 	// Add super FX
-	if e, i := c.spawnExplod(); e != nil {
-		e.animNo = fx_anim
-		e.anim_ffx = fx_ffx
-		e.layerno = 1
-		e.ownpal = true
-		e.removetime = -2
-		e.pausemovetime = -1
-		e.supermovetime = -1
-		e.postype = PT_P1
-		e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
-		e.setPos(c)
-		c.commitExplod(i)
+	if fx_anim >= 0 {
+		if e, i := c.spawnExplod(); e != nil {
+			e.animNo = fx_anim
+			e.anim_ffx = fx_ffx
+			e.layerno = 1
+			e.ownpal = true
+			e.removetime = -2
+			e.pausemovetime = -1
+			e.supermovetime = -1
+			e.postype = PT_P1
+			e.relativePos = [3]float32{fx_pos[0], fx_pos[1], fx_pos[2]}
+			e.setPos(c)
+			c.commitExplod(i)
+		}
 	}
 
 	crun.setSuperPauseTime(t, mt, uh, p2defmul)

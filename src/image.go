@@ -1699,7 +1699,7 @@ func loadSff(filename string, char bool, isMainThread bool, isActPal bool) (*Sff
 				dst, src := spriteList[i], spriteList[int(indexOfPrevious)]
 				// Moved to shareCopy() itself
 				//sys.mainThreadTask <- func() {
-					dst.shareCopy(src)
+				dst.shareCopy(src)
 				//}
 			} else {
 				spriteList[i].palidx = 0 // index out of range
@@ -1872,7 +1872,7 @@ func preloadSff(filename string, char bool, preloadSpr map[[2]uint16]bool) (*Sff
 					// Since loadSff() works incorrectly with this condition, maybe having it here wasn't ideal either
 					// Preload caching tests also needed this copy to be instant
 					//sys.mainThreadTask <- func() {
-						dst.shareCopy(src)
+					dst.shareCopy(src)
 					//}
 					if spriteList[srcIdx].palidx < 0 || int(spriteList[srcIdx].palidx) >= len(pl.paletteMap) {
 						spriteList[i].palidx = 0

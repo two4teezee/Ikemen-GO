@@ -5710,48 +5710,40 @@ func (c *Char) pauseTimeTrigger() int32 {
 	return p
 }
 
-func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
+func (c *Char) projTimeTrigger(pid BytecodeValue, match func(ProjContact) bool) BytecodeValue {
 	if pid.IsUndefined() {
 		return BytecodeUndefined()
 	}
+	gi := c.gi()
 	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Cancel || c.helperIndex > 0 {
+	if c.helperIndex > 0 || (id > 0 && id != gi.pcid) || !match(gi.pctype) {
 		return BytecodeInt(-1)
 	}
-	return BytecodeInt(c.gi().pctime)
+	return BytecodeInt(gi.pctime)
+}
+
+func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Cancel
+	})
 }
 
 func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype == PC_Cancel || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc != PC_Cancel
+	})
 }
 
 func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Guarded || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Guarded
+	})
 }
 
 func (c *Char) projHitTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Hit || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Hit
+	})
 }
 
 func (c *Char) reversalDefAttr(attr int32) bool {

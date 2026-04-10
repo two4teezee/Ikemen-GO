@@ -8401,6 +8401,8 @@ func triggerFunctions(l *lua.LState) {
 			lv = lua.LNumber(c.ghv.playerid)
 		case "playerno":
 			lv = lua.LNumber(c.ghv.playerno + 1)
+		case "teamside":
+			lv = lua.LNumber(c.ghv.teamside + 1)
 		case "redlife":
 			lv = lua.LNumber(c.ghv.redlife)
 		case "score":

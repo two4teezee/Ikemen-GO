@@ -2722,6 +2722,8 @@ func (c *Compiler) expValue(out *BytecodeExp, in *string,
 			opc = OC_ex_gethitvar_projid
 		case "guardko":
 			opc = OC_ex_gethitvar_guardko
+		case "teamside":
+			opc = OC_ex_gethitvar_teamside
 		default:
 			return bvNone(), Error("Invalid GetHitVar argument: " + c.token)
 		}

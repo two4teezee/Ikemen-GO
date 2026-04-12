@@ -5352,94 +5352,113 @@ func (fs *FightScreen) draw(layerno int16) {
 	pauseHide := sys.motif.me.active && sys.motif.PauseMenu["pause_menu"].HideBars
 
 	if !sys.lifebarHide && fs.active && !sys.dialogueBarsFlg && !pauseHide {
-		// Helper to run a function for each active player's bars for one side
-		forEachMember := func(side int, leaderontop bool, fn func(layout, slot, barpn, charpn int)) {
-			layout := fs.curLayout[side]
-
-			slotStart, slotEnd, slotStep := 0, MaxSimul, 1
+		// Helper to determine whether to iterate elements forward or backward (drawing order)
+		iterationOrder := func(leaderontop bool) (int, int, int) {
 			if leaderontop {
-				slotStart, slotEnd, slotStep = MaxSimul-1, -1, -1
+				return MaxSimul - 1, -1, -1
 			}
-
-			for slot := slotStart; slot != slotEnd; slot += slotStep {
-				if slot >= len(fs.teamOrder[side]) {
-					continue
-				}
-				barpn := slot*2 + side
-				charpn := fs.teamOrder[side][slot]
-				fn(layout, slot, barpn, charpn)
-			}
+			return 0, MaxSimul, 1
 		}
 
 		if !sys.gsf(GSF_nobardisplay) && fs.bars {
 			// LifeBar
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.lifeBars[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.lifeBars[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if c.asf(ASF_nolifebardisplay) {
-						return
+						continue
 					}
 					fs.lifeBars[layout][barpn].bgDraw(layerno)
 					fs.lifeBars[layout][barpn].draw(layerno, charpn, fs.lifeBars[layout][charpn], fs.fnt)
-				})
+				}
 			}
 
 			// PowerBar
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.powerBars[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.powerBars[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if c.asf(ASF_nopowerbardisplay) {
-						return
+						continue
 					}
 					tm := sys.tmode[side]
 					if slot != 0 && (tm == TM_Simul || tm == TM_Tag) && sys.cfg.Options.Team.PowerShare {
-						return
+						continue
 					}
 					fs.powerBars[layout][barpn].bgDraw(layerno, barpn)
 					fs.powerBars[layout][barpn].draw(layerno, charpn, fs.powerBars[layout][charpn], fs.fnt)
-				})
+				}
 			}
 
 			// GuardBar
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.guardBars[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.guardBars[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if !c.guardBreakEnabled() || c.asf(ASF_noguardbardisplay) {
-						return
+						continue
 					}
 					fs.guardBars[layout][barpn].bgDraw(layerno)
 					fs.guardBars[layout][barpn].draw(layerno, charpn, fs.guardBars[layout][charpn], fs.fnt)
-				})
+				}
 			}
 
 			// StunBar
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.stunBars[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.stunBars[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if !c.dizzyEnabled() || c.asf(ASF_nostunbardisplay) {
-						return
+						continue
 					}
 					fs.stunBars[layout][barpn].bgDraw(layerno)
 					fs.stunBars[layout][barpn].draw(layerno, charpn, fs.stunBars[layout][charpn], fs.fnt)
-				})
+				}
 			}
 
 			// Face
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.faces[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.faces[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if c.asf(ASF_nofacedisplay) {
-						return
+						continue
 					}
 					// Draw Turns teammates from the first bar only
 					if slot == 0 {
@@ -5447,17 +5466,23 @@ func (fs *FightScreen) draw(layerno int16) {
 					}
 					fs.faces[layout][barpn].bgDraw(layerno)
 					fs.faces[layout][barpn].draw(layerno, charpn, fs.faces[layout][charpn])
-				})
+				}
 			}
 
 			// Name
 			for side := 0; side < len(sys.tmode); side++ {
 				layout := fs.curLayout[side]
-				leaderontop := fs.names[layout][side].leaderontop
-				forEachMember(side, leaderontop, func(layout, slot, barpn, charpn int) {
+				slotStart, slotEnd, slotStep := iterationOrder(fs.names[layout][side].leaderontop)
+
+				for slot := slotStart; slot != slotEnd; slot += slotStep {
+					if slot >= len(fs.teamOrder[side]) {
+						continue
+					}
+					barpn := slot*2 + side
+					charpn := fs.teamOrder[side][slot]
 					c := sys.chars[charpn][0]
 					if c.asf(ASF_nonamedisplay) {
-						return
+						continue
 					}
 					// Draw Turns teammates from the first bar only
 					if slot == 0 {
@@ -5465,7 +5490,7 @@ func (fs *FightScreen) draw(layerno int16) {
 					}
 					fs.names[layout][barpn].bgDraw(layerno)
 					fs.names[layout][barpn].draw(layerno, charpn, fs.fnt, side)
-				})
+				}
 			}
 
 			// Ratio

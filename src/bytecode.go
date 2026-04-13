@@ -574,6 +574,7 @@ const (
 	OC_ex_gethitvar_playerid
 	OC_ex_gethitvar_playerno
 	OC_ex_gethitvar_projid
+	OC_ex_gethitvar_teamside
 	OC_ex_gethitvar_redlife
 	OC_ex_gethitvar_score
 	OC_ex_gethitvar_hitdamage
@@ -967,6 +968,7 @@ const (
 	OC_ex2_defencemul
 	OC_ex2_guardcount
 	OC_ex2_airjumpcount
+	OC_ex2_parentexist
 )
 const (
 	OC_ex3_analog_leftx OpCode = iota
@@ -3196,6 +3198,8 @@ func (be BytecodeExp) run_ex(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushB(c.ghv.keepstate)
 	case OC_ex_gethitvar_guardko:
 		sys.bcStack.PushB(c.ghv.guardko)
+	case OC_ex_gethitvar_teamside:
+		sys.bcStack.PushI(int32(c.ghv.teamside) + 1)
 	case OC_ex_ailevelf:
 		if c.asf(ASF_noailevel) {
 			sys.bcStack.PushI(0)
@@ -4154,6 +4158,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 		sys.bcStack.PushI(c.guardCount)
 	case OC_ex2_airjumpcount:
 		sys.bcStack.PushI(c.airJumpCount)
+	case OC_ex2_parentexist:
+		sys.bcStack.PushB(c.parentExist())
 	default:
 		LogMessage("%v", be[*i-1])
 		c.panic("Invalid bytecode OpCode encountered")
@@ -7327,12 +7333,12 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 		hd.affectteam = exp[0].evalI(c)
 	case hitDef_teamside:
 		n := exp[0].evalI(c)
-		if n > 2 {
-			hd.teamside = 2
-		} else if n < 0 {
-			hd.teamside = 0
+		if n < 0 || n > 2 {
+			// TODO: We should do this in more parameters
+			// This could also be more specific and use crun, but that's a minor issue
+			sys.appendToConsole(c.warn() + fmt.Sprintf("invalid HitDef teamside: %d", n))
 		} else {
-			hd.teamside = int(n)
+			hd.teamside = int(n-1)
 		}
 	case hitDef_id:
 		hd.id = Max(0, exp[0].evalI(c))
@@ -14052,11 +14058,13 @@ const (
 	getHitVarSet_hitcount
 	getHitVarSet_hitshaketime
 	getHitVarSet_hittime
-	getHitVarSet_id
+	getHitVarSet_playerid
 	getHitVarSet_playerno
+	getHitVarSet_projid
 	getHitVarSet_redlife
 	getHitVarSet_slidetime
 	getHitVarSet_standfriction
+	getHitVarSet_teamside
 	getHitVarSet_xvel
 	getHitVarSet_yvel
 	getHitVarSet_zvel
@@ -14140,16 +14148,20 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 			crun.ghv.hittime = exp[0].evalI(c)
 		case getHitVarSet_hitshaketime:
 			crun.ghv.hitshaketime = exp[0].evalI(c)
-		case getHitVarSet_id:
+		case getHitVarSet_playerid:
 			crun.ghv.playerid = exp[0].evalI(c)
 		case getHitVarSet_playerno:
-			crun.ghv.playerno = int(exp[0].evalI(c))
+			crun.ghv.playerno = int(exp[0].evalI(c))-1
+		case getHitVarSet_projid:
+			crun.ghv.projid = exp[0].evalI(c)
 		case getHitVarSet_redlife:
 			crun.ghv.redlife = exp[0].evalI(c)
 		case getHitVarSet_slidetime:
 			crun.ghv.slidetime = exp[0].evalI(c)
 		case getHitVarSet_standfriction:
 			crun.ghv.standfriction = exp[0].evalF(c)
+		case getHitVarSet_teamside:
+			crun.ghv.teamside = int(exp[0].evalI(c))-1
 		case getHitVarSet_xvel:
 			crun.ghv.xvel = exp[0].evalF(c) * redirscale
 		case getHitVarSet_yvel:

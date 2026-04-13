@@ -706,7 +706,7 @@ func (hd *HitDef) reset(c *Char, proj *Projectile) {
 		hitflag:            int32(HF_H | HF_L | HF_A | HF_F),
 		guardflag:          0,
 		affectteam:         1,
-		teamside:           -1,
+		teamside:           -2,
 		animtype:           RA_Light,
 		air_animtype:       RA_Unknown,
 		priority:           4,
@@ -976,8 +976,8 @@ func (hd *HitDef) finalizeParams(c *Char, proj *Projectile) {
 		hd.maxdist[2], hd.mindist[2] = hd.snap[2], hd.snap[2]
 	}
 
-	if hd.teamside == -1 {
-		hd.teamside = c.teamside + 1
+	if hd.teamside < -1 || hd.teamside > 1 {
+		hd.teamside = c.teamside
 	}
 
 	if hd.p2clsncheck < 0 {
@@ -1110,6 +1110,7 @@ type GetHitVar struct {
 	keepstate           bool
 	standfriction       float32
 	crouchfriction      float32
+	teamside            int
 }
 
 // This is called every time the char gets hit
@@ -1133,6 +1134,7 @@ func (ghv *GetHitVar) reset(c *Char) {
 		playerno:       -2, // Because it returns with +1
 		playerid:       -1,
 		projid:         -1,
+		teamside:       -2, // See playerno
 		fall_animtype:  RA_Unknown,
 		fall_xvelocity: float32(math.NaN()),
 		fall_yvelocity: -4.5 / originLs,
@@ -4556,6 +4558,10 @@ func (c *Char) parent(log bool) *Char {
 	return p
 }
 
+func (c *Char) parentExist() bool {
+	return c.parent(false) != nil
+}
+
 func (c *Char) root(log bool) *Char {
 	if c.helperIndex == 0 {
 		if log {
@@ -5706,48 +5712,40 @@ func (c *Char) pauseTimeTrigger() int32 {
 	return p
 }
 
-func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
+func (c *Char) projTimeTrigger(pid BytecodeValue, match func(ProjContact) bool) BytecodeValue {
 	if pid.IsUndefined() {
 		return BytecodeUndefined()
 	}
+	gi := c.gi()
 	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Cancel || c.helperIndex > 0 {
+	if c.helperIndex > 0 || (id > 0 && id != gi.pcid) || !match(gi.pctype) {
 		return BytecodeInt(-1)
 	}
-	return BytecodeInt(c.gi().pctime)
+	return BytecodeInt(gi.pctime)
+}
+
+func (c *Char) projCancelTime(pid BytecodeValue) BytecodeValue {
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Cancel
+	})
 }
 
 func (c *Char) projContactTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype == PC_Cancel || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc != PC_Cancel
+	})
 }
 
 func (c *Char) projGuardedTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Guarded || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Guarded
+	})
 }
 
 func (c *Char) projHitTime(pid BytecodeValue) BytecodeValue {
-	if pid.IsUndefined() {
-		return BytecodeUndefined()
-	}
-	id := pid.ToI()
-	if (id > 0 && id != c.gi().pcid) || c.gi().pctype != PC_Hit || c.helperIndex > 0 {
-		return BytecodeInt(-1)
-	}
-	return BytecodeInt(c.gi().pctime)
+	return c.projTimeTrigger(pid, func(pc ProjContact) bool {
+		return pc == PC_Hit
+	})
 }
 
 func (c *Char) reversalDefAttr(attr int32) bool {
@@ -10522,6 +10520,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 		getter.ghv.hitid = hd.id
 		getter.ghv.playerno = hd.playerno
 		getter.ghv.playerid = hd.playerid
+		getter.ghv.teamside = hd.teamside
 		getter.ghv.projid = hd.projid
 		getter.ghv.keepstate = hd.KeepState
 		getter.ghv.groundtype = hd.ground_type
@@ -10589,6 +10588,7 @@ func (c *Char) hitResultCheck(getter *Char, proj *Projectile) (hitResult int32) 
 			ghv.hitid = hd.id
 			ghv.playerno = hd.playerno
 			ghv.playerid = hd.playerid
+			ghv.teamside = hd.teamside
 			ghv.projid = hd.projid
 			ghv.xaccel = hd.xaccel * scaleratio * -byf
 			ghv.yaccel = hd.yaccel * scaleratio
@@ -12855,9 +12855,8 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 			continue
 		}
 
-		if c.atktmp != 0 && c.id != getter.id && (c.hitdef.affectteam == 0 ||
-			((getter.teamside != c.hitdef.teamside-1) == (c.hitdef.affectteam > 0) && c.hitdef.teamside >= 0) ||
-			((getter.teamside != c.teamside) == (c.hitdef.affectteam > 0) && c.hitdef.teamside < 0)) {
+		if c.atktmp != 0 && c.id != getter.id &&
+			(c.hitdef.affectteam == 0 || (getter.teamside != c.hitdef.teamside) == (c.hitdef.affectteam > 0)) {
 
 			// Guard distance check
 			// Mugen uses < checks so that 0 does not trigger proximity guard at 0 distance
@@ -12984,6 +12983,7 @@ func (cl *CharList) hitDetectionPlayer(getter *Char) {
 								getter.ghv.hitid = c.hitdef.id
 								getter.ghv.playerno = c.playerNo
 								getter.ghv.playerid = c.id
+								getter.ghv.teamside = c.hitdef.teamside
 								getter.fallTime = 0
 
 								// Fall flag
@@ -13094,15 +13094,15 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 
 			// In Mugen, projectiles couldn't hit their root even with the proper affectteam
 			if i == getter.playerNo && getter.helperIndex == 0 &&
-				(getter.teamside == p.hitdef.teamside-1) && !p.platform {
+				(getter.teamside == p.hitdef.teamside) && !p.platform {
 				continue
 			}
 
 			// Teamside check
 			// Since the teamside parameter is new to Ikemen, we can make that one allow the projectile to hit the root
 			if p.hitdef.affectteam != 0 &&
-				((getter.teamside != p.hitdef.teamside-1) != (p.hitdef.affectteam > 0) ||
-					(getter.teamside == p.hitdef.teamside-1) != (p.hitdef.affectteam < 0)) {
+				((getter.teamside != p.hitdef.teamside) != (p.hitdef.affectteam > 0) ||
+					(getter.teamside == p.hitdef.teamside) != (p.hitdef.affectteam < 0)) {
 				continue
 			}
 
@@ -13174,7 +13174,7 @@ func (cl *CharList) hitDetectionProjectile(getter *Char) {
 
 			// Cancel a projectile with hitflag P
 			if getter.atktmp != 0 && (getter.hitdef.affectteam == 0 ||
-				(p.hitdef.teamside-1 != getter.teamside) == (getter.hitdef.affectteam > 0)) &&
+				(p.hitdef.teamside != getter.teamside) == (getter.hitdef.affectteam > 0)) &&
 				getter.hitdef.hitflag&int32(HF_P) != 0 &&
 				getter.projClsnCheck(p, 1, 2) &&
 				sys.zAxisOverlap(getter.pos[2], getter.hitdef.attack_depth[0], getter.hitdef.attack_depth[1], getter.localscl,

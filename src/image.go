@@ -184,7 +184,7 @@ func (pf *PalFX) getFinalPalFx(blendMode TransType, alpha [2]int32) (neg bool, g
 	neg = p.eInvertall
 	grayscale = 1 - p.eColor
 	invblend = p.eInvertblend
-	hue = -(p.eHue * 180.0) * (math.Pi / 180.0)
+	hue = p.eHue
 
 	// Determine if we use negative color math based on blendMode
 	useNeg := blendMode == TT_sub && p.eAllowNeg
@@ -248,7 +248,7 @@ func (pf *PalFX) sinHueshift(color *float32) {
 		}
 		sin := math.Sin(st / float64(pf.cycletime[3]))
 
-		(*color) += float32(sin * (float64(pf.sinhue) / 256.0))
+		(*color) += float32(sin * (float64(pf.sinhue) / 512.0))
 
 	}
 }

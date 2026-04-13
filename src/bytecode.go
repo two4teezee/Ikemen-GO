@@ -7338,7 +7338,7 @@ func (sc hitDef) runSub(c *Char, hd *HitDef, paramID byte, exp []BytecodeExp) {
 			// This could also be more specific and use crun, but that's a minor issue
 			sys.appendToConsole(c.warn() + fmt.Sprintf("invalid HitDef teamside: %d", n))
 		} else {
-			hd.teamside = int(n-1)
+			hd.teamside = int(n - 1)
 		}
 	case hitDef_id:
 		hd.id = Max(0, exp[0].evalI(c))
@@ -14151,7 +14151,7 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 		case getHitVarSet_playerid:
 			crun.ghv.playerid = exp[0].evalI(c)
 		case getHitVarSet_playerno:
-			crun.ghv.playerno = int(exp[0].evalI(c))-1
+			crun.ghv.playerno = int(exp[0].evalI(c)) - 1
 		case getHitVarSet_projid:
 			crun.ghv.projid = exp[0].evalI(c)
 		case getHitVarSet_redlife:
@@ -14161,7 +14161,7 @@ func (sc getHitVarSet) Run(c *Char, _ []int32) bool {
 		case getHitVarSet_standfriction:
 			crun.ghv.standfriction = exp[0].evalF(c)
 		case getHitVarSet_teamside:
-			crun.ghv.teamside = int(exp[0].evalI(c))-1
+			crun.ghv.teamside = int(exp[0].evalI(c)) - 1
 		case getHitVarSet_xvel:
 			crun.ghv.xvel = exp[0].evalF(c) * redirscale
 		case getHitVarSet_yvel:

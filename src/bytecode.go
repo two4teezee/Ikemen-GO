@@ -5839,7 +5839,7 @@ func (sc palFX) runSub(c *Char, pfd *PalFXDef, paramID byte, exp []BytecodeExp) 
 	case palFX_color:
 		pfd.color = exp[0].evalF(c) / 256
 	case palFX_hue:
-		pfd.hue = exp[0].evalF(c) / 256
+		pfd.hue = exp[0].evalF(c) / 512
 	case palFX_add:
 		pfd.add[0] = exp[0].evalI(c)
 		pfd.add[1] = exp[1].evalI(c)
@@ -6390,7 +6390,7 @@ func (sc explod) parseInterpolation(c *Char, e *Explod, paramID byte, exp []Byte
 	case explod_interpolation_pfx_color:
 		pfd.icolor[0] = exp[0].evalF(c) / 256
 	case explod_interpolation_pfx_hue:
-		pfd.ihue[0] = exp[0].evalF(c) / 256
+		pfd.ihue[0] = exp[0].evalF(c) / 512
 	default:
 	}
 	return true

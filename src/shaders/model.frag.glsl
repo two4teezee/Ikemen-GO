@@ -471,14 +471,28 @@ vec3 pbr(vec3 worldSpacePos,vec3 v,vec3 n,vec3 albedo,float metallic,float rough
 	return color;
 }
 
-// Hue shift using unrolled matrix for GLES stability
+vec3 rgb2hsv(vec3 c)
+{
+    vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+    vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+    vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+
+    float d = q.x - min(q.w, q.y);
+    float e = 1.0e-10;
+    return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 hsv2rgb(vec3 c)
+{
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+}
+
 vec3 hue_shift(vec3 color, float dhue) {
-	float s = sin(dhue);
-	float c = cos(dhue);
-	vec3 row1 = vec3(0.167444, 0.329213, -0.496657);
-	vec3 row2 = vec3(-0.327948, 0.035669, 0.292279);
-	vec3 row3 = vec3(1.250268, -1.047561, -0.202707);
-	return (color * c) + (color * s) * vec3(dot(row1, color), dot(row2, color), dot(row3, color)) + dot(vec3(0.299, 0.587, 0.114), color) * (1.0 - c);
+	vec3 colorhsv = rgb2hsv(color);
+	colorhsv.x = mod(colorhsv.x+dhue, 1.0);
+	return hsv2rgb(colorhsv);
 }
 
 void main(void) {
@@ -529,34 +543,32 @@ void main(void) {
 		discard;
 	}
 
-	vec3 c_linear = FragColor.rgb;
+	// Gamma Correction (Required for Vulkan path rendering to an sRGB target)
+	// This happens *before* all PalFX operations, in an attempt to get results from PalFX equivalent to performing the same operations in an actual image editor.
+	vec3 c_straight = pow(FragColor.rgb, vec3(1.0/2.2));
 	float alpha = FragColor.a;
 
-	// Un-premultiply to get True Linear Color
+	// Un-premultiply to get straight-alpha color
 	if (alpha > 0.0) {
-		c_linear /= alpha;
-		c_linear = clamp(c_linear, 0.0, 1.0);
+		c_straight /= alpha;
+		c_straight = clamp(c_straight, 0.0, 1.0);
 	}
 	
-	// Apply PalFX (All math in True Linear space)
+	// Apply PalFX
 	if (hue != 0.0) {
-		c_linear = hue_shift(c_linear, hue);           
+		c_straight = hue_shift(c_straight, hue);
 	}
 	
-	// INVERSION FIX: Correctly applied on linear, un-premultiplied color
+	// INVERSION FIX: Correctly applied on un-premultiplied color
 	if (neg != 0) {
-		c_linear = vec3(1.0) - c_linear; 
+		c_straight = vec3(1.0) - c_straight; 
 	}
 	
 	// Grayscale / Add / Mult
-	c_linear = mix(c_linear, vec3((c_linear.r + c_linear.g + c_linear.b) / 3.0), gray) + add;
-	c_linear *= mult;
-	c_linear = clamp(c_linear, 0.0, 1.0);
+	c_straight = mix(c_straight, vec3((c_straight.r + c_straight.g + c_straight.b) / 3.0), gray) + add;
+	c_straight *= mult;
+	c_straight = clamp(c_straight, 0.0, 1.0);
 
 	// Re-premultiply alpha
-	FragColor.rgb = c_linear * alpha;
-
-	// Final Gamma Correction (Required for Vulkan path rendering to an sRGB target)
-	// This happens *after* all linear operations and re-premultiplication.
-	FragColor.rgb = pow(c_linear, vec3(1.0/2.2));
+	FragColor.rgb = c_straight * alpha;
 }

@@ -1367,7 +1367,7 @@ func (ai *AfterImage) setPalColor(color int32) {
 
 func (ai *AfterImage) setPalHueShift(huesh int32) {
 	if len(ai.palfx) > 0 {
-		ai.palfx[0].eHue = (float32(Clamp(huesh, -256, 256)) / 256)
+		ai.palfx[0].eHue = (float32(Clamp(huesh, -256, 256)) / 512)
 	}
 }
 

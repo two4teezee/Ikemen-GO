@@ -2821,10 +2821,8 @@ function main.f_unlock(permanent)
 				panicError("\nmain.t_unlockLua." .. group .. "[" .. k .. "]\n" ..
 					"Invalid Lua code: \n" .. v .. "\n" .. tostring(err) .. "\n")
 			end
-			print('return ' .. v)
 			setfenv(func, env)
 			local bool = func()
-			print(bool)
 			if type(bool) == 'boolean' then
 				if group == 'chars' then
 					if main.f_unlockChar(k, bool, false) then

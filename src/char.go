@@ -681,7 +681,7 @@ type HitDef struct {
 	StandFriction              float32
 	CrouchFriction             float32
 	KeepState                  bool
-	MissOnReversalDef          int32
+	IgnoreReversalDef          int32
 }
 
 func (hd *HitDef) reset(c *Char, proj *Projectile) {
@@ -806,7 +806,7 @@ func (hd *HitDef) reset(c *Char, proj *Projectile) {
 		StandFriction:       float32(math.NaN()),
 		CrouchFriction:      float32(math.NaN()),
 		KeepState:           false,
-		MissOnReversalDef:   0,
+		IgnoreReversalDef:   0,
 
 		reversal_guardflag:     IErr,
 		reversal_guardflag_not: IErr,
@@ -10151,7 +10151,7 @@ func (c *Char) attrCheck(getter *Char, ghd *HitDef, gstyp StateType) bool {
 
 	// ReversalDef vs HitDef attributes check
 	if ghd.reversal_attr > 0 {
-		if c.hitdef.MissOnReversalDef > 0 {
+		if c.hitdef.IgnoreReversalDef > 0 {
 			return false
 		}
 		// Check HitDef validity

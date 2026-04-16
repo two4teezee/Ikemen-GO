@@ -3970,7 +3970,7 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 			case OC_ex2_projvar_supermovetime:
 				sys.bcStack.PushI(p.supermovetime)
 			case OC_ex2_projvar_teamside:
-				sys.bcStack.PushI(int32(p.hitdef.teamside))
+				sys.bcStack.PushI(int32(p.hitdef.teamside) + 1)
 			case OC_ex2_projvar_time:
 				sys.bcStack.PushI(p.time)
 			case OC_ex2_projvar_vel_x:

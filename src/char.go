@@ -11730,13 +11730,17 @@ func (c *Char) track() {
 			charleft := c.interPos[0]*c.localscl + edgeleft*c.localscl
 			charright := c.interPos[0]*c.localscl + edgeright*c.localscl
 			canmove := c.acttmp > 0 && !c.csf(CSF_posfreeze) && (c.bindTime == 0 || math.IsNaN(float64(c.bindPos[0])))
-
+			bindToCharacter := sys.playerID(c.bindToId)
 			if charleft < sys.cam.leftest {
 				sys.cam.leftest = charleft
 				if canmove {
 					sys.cam.leftestvel = c.vel[0] * c.localscl * c.facing
 				} else {
-					sys.cam.leftestvel = 0
+					if bindToCharacter != nil {
+						sys.cam.leftestvel = bindToCharacter.vel[0] * bindToCharacter.localscl * bindToCharacter.facing
+					} else {
+						sys.cam.leftestvel = 0
+					}
 				}
 			}
 			if charright > sys.cam.rightest {
@@ -11744,7 +11748,11 @@ func (c *Char) track() {
 				if canmove {
 					sys.cam.rightestvel = c.vel[0] * c.localscl * c.facing
 				} else {
-					sys.cam.rightestvel = 0
+					if bindToCharacter != nil {
+						sys.cam.rightestvel = bindToCharacter.vel[0] * bindToCharacter.localscl * bindToCharacter.facing
+					} else {
+						sys.cam.rightestvel = 0
+					}
 				}
 			}
 		}

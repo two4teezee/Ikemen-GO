@@ -1069,7 +1069,7 @@ type AnimationTable struct {
 
 func NewAnimationTable() AnimationTable {
 	return AnimationTable{
-		anims:    make(map[int32]*Animation),
+		anims: make(map[int32]*Animation),
 	}
 }
 

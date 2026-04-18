@@ -404,33 +404,33 @@ func calcBarFillRect(pos int32, range_ [2]int32, offset, scale, screenScale, mid
 }
 
 type LifeBar struct {
-	pos        [2]int32
-	range_x    [2]int32
-	range_y    [2]int32
-	bg0        AnimLayout
-	bg1        AnimLayout
-	bg2        AnimLayout
-	top        AnimLayout
-	mid        AnimLayout
-	red        map[int32]*AnimLayout
-	front      map[float32]*AnimLayout
-	shift      AnimLayout
-	warn       AnimLayout
-	warn_range [2]int32
-	value      map[int32]*FSText
-	red_value  map[int32]*FSText
-	toplife    float32
-	oldlife    float32
-	midlife    float32
-	midlifeMin float32
-	mlifetime  int32
-	mid_shift  bool
-	mid_freeze bool
-	mid_delay  int32
-	mid_mult   float32
-	mid_steps  float32
-	gethit     bool
-	scalefill  bool
+	pos         [2]int32
+	range_x     [2]int32
+	range_y     [2]int32
+	bg0         AnimLayout
+	bg1         AnimLayout
+	bg2         AnimLayout
+	top         AnimLayout
+	mid         AnimLayout
+	red         map[int32]*AnimLayout
+	front       map[float32]*AnimLayout
+	shift       AnimLayout
+	warn        AnimLayout
+	warn_range  [2]int32
+	value       map[int32]*FSText
+	red_value   map[int32]*FSText
+	toplife     float32
+	oldlife     float32
+	midlife     float32
+	midlifeMin  float32
+	mlifetime   int32
+	mid_shift   bool
+	mid_freeze  bool
+	mid_delay   int32
+	mid_mult    float32
+	mid_steps   float32
+	gethit      bool
+	scalefill   bool
 	leaderontop bool
 }
 

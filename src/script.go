@@ -3924,17 +3924,17 @@ func systemScriptInit(l *lua.LState) {
 			return 0
 		}
 		lines, i := SplitAndTrim(NormalizeNewlines(raw), "\n"), 0
-		at := ReadAnimationTable(sff, &sff.palList, lines, &i)
+		at := ReadAnimationTable(def, sff, &sff.palList, lines, &i, true)
 		// Build Lua table with NUMERIC keys (so it prints like [110] => userdata ...)
 		tbl := l.NewTable()
 		// Deterministic iteration order
-		keys := make([]int, 0, len(at))
-		for k := range at {
+		keys := make([]int, 0, len(at.anims))
+		for k := range at.anims {
 			keys = append(keys, int(k))
 		}
 		sort.Ints(keys)
 		for _, ki := range keys {
-			anim := at[int32(ki)]
+			anim := at.anims[int32(ki)]
 			if anim == nil {
 				continue
 			}
@@ -9442,6 +9442,10 @@ func triggerFunctions(l *lua.LState) {
 		l.Push(lua.LNumber(sys.debugWC.rdDistZ(sys.debugWC.parent(true), sys.debugWC).ToI()))
 		return 1
 	})
+	luaRegister(l, "parentExist", func(*lua.LState) int {
+		l.Push(lua.LBool(sys.debugWC.parentExist()))
+		return 1
+	})
 	luaRegister(l, "pauseTime", func(*lua.LState) int {
 		l.Push(lua.LNumber(sys.debugWC.pauseTimeTrigger()))
 		return 1
@@ -9993,7 +9997,7 @@ func triggerFunctions(l *lua.LState) {
 		// Handle returns
 		if bg != nil {
 			switch strings.ToLower(vname) {
-			case "anim":
+			case "actionno":
 				ln = lua.LNumber(bg.actionno)
 			case "delta.x":
 				ln = lua.LNumber(bg.delta[0])
@@ -10361,15 +10365,17 @@ func triggerFunctions(l *lua.LState) {
 		var ln lua.LNumber
 		switch strings.ToLower(strArg(l, 1)) {
 		case "scale":
-			ln = lua.LNumber(sys.drawScale)
+			ln = lua.LNumber(sys.zoom.curScale)
 		case "pos.x":
-			ln = lua.LNumber(sys.zoomPosXLag)
+			ln = lua.LNumber(sys.zoom.curPos[0])
 		case "pos.y":
-			ln = lua.LNumber(sys.zoomPosYLag)
+			ln = lua.LNumber(sys.zoom.curPos[1])
 		case "lag":
-			ln = lua.LNumber(sys.zoomlag)
+			ln = lua.LNumber(sys.zoom.lag)
+		case "endlag":
+			ln = lua.LNumber(sys.zoom.endLag)
 		case "time":
-			ln = lua.LNumber(sys.enableZoomtime)
+			ln = lua.LNumber(sys.zoom.time)
 		default:
 			l.RaiseError("\nInvalid argument: %v\n", strArg(l, 1))
 		}

@@ -11265,22 +11265,25 @@ func (sc zoom) Run(c *Char, _ []int32) bool {
 				pos[1] = exp[1].evalF(c) * c.localscl
 			}
 		case zoom_scale:
-			scl = exp[0].evalF(c)
-			if scl <= 0 {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom scale value: %v", scl))
-				scl = 1
+			v := exp[0].evalF(c)
+			if v <= 0 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom scale value: %v", v))
+			} else {
+				scl = v
 			}
 		case zoom_lag:
-			lag = exp[0].evalF(c)
-			if lag < 0 || lag > 1 {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("clamped invalid Zoom lag value: %v", lag))
-				lag = Clamp(lag, float32(0), float32(1))
+			v := exp[0].evalF(c)
+			if v < 0 || v > 1 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom lag value: %v", v))
+			} else {
+				lag = v
 			}
 		case zoom_endlag:
-			endlag = exp[0].evalF(c)
-			if endlag < 0 || endlag > 1 {
-				sys.appendToConsole(c.warn() + fmt.Sprintf("clamped invalid Zoom endlag value: %v", endlag))
-				endlag = Clamp(endlag, float32(0), float32(1))
+			v := exp[0].evalF(c)
+			if v < 0 || v > 1 {
+				sys.appendToConsole(c.warn() + fmt.Sprintf("invalid Zoom endlag value: %v", v))
+			} else {
+				endlag = v
 			}
 		case zoom_time:
 			t = exp[0].evalI(c)
@@ -11294,6 +11297,7 @@ func (sc zoom) Run(c *Char, _ []int32) bool {
 
 	// This old calculation is both less accurate to Mugen and less intuitive to work with
 	// sys.zoom.pos[0] = sys.zoom.scale * pos[0]
+
 	sys.zoom.pos = pos
 	sys.zoom.scale = scl
 	sys.zoom.lag = lag

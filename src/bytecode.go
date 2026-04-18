@@ -4532,6 +4532,18 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 	// But tricking the code like that made bytecode errors print from the wrong characters
 	sys.workingChar = c
 	if b.loopBlock {
+		// Helper to validate loop range
+		forLoopInRange := func() bool {
+			if b.forIncrement > 0 {
+				return b.forBegin <= b.forEnd
+			}
+			if b.forIncrement < 0 {
+				return b.forBegin >= b.forEnd
+			}
+			// Increment of 0 is allowed
+			return true
+		}
+
 		if b.forLoop {
 			if b.forAssign {
 				// Initial assign to control variable
@@ -4540,8 +4552,15 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 			} else {
 				b.forBegin = b.forExpression[0].evalI(c)
 			}
-			b.forEnd, b.forIncrement = b.forExpression[1].evalI(c), b.forExpression[2].evalI(c)
+			b.forEnd = b.forExpression[1].evalI(c)
+			b.forIncrement = b.forExpression[2].evalI(c)
+			// Validate initial loop range
+			// If the starting value is already outside the valid range, do not run the loop at all
+			if !forLoopInRange() {
+				return false
+			}
 		}
+
 		// Start loop
 		loopCount := 0
 		interrupt := false
@@ -4579,17 +4598,13 @@ func (b StateBlock) Run(c *Char, ps []int32) (changeState bool) {
 			}
 			// Decide if for loop should be stopped
 			if b.forLoop {
-				// Update loop count
+				// Update loop variable
 				if b.forAssign {
 					b.forBegin = sys.bcVar[b.forCtrlVar.vari].ToI() + b.forIncrement
 				} else {
 					b.forBegin += b.forIncrement
 				}
-				if b.forIncrement > 0 {
-					if b.forBegin > b.forEnd {
-						interrupt = true
-					}
-				} else if b.forBegin < b.forEnd {
+				if !forLoopInRange() {
 					interrupt = true
 				}
 				// Update control variable if loop should keep going

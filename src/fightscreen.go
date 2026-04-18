@@ -5777,3 +5777,14 @@ func (fs *FightScreen) appendAction(c *Char, msg *FSMsg, s_ffx, a_ffx string, sn
 	// Insert new message
 	teammsg.messages = insertFSMsg(teammsg.messages, msg, index)
 }
+
+// We track the combo separately from each player's received hits
+// So that if partners take turns doing hits to different enemies the combo still adds up
+// Only some games do this so we don't strictly need to do it. But it is also harmless. Maybe make it an option
+// TODO: Combo damage should probably also stack like this, either way
+func (fs *FightScreen) addComboHits(side int, n int32) {
+	if side < 0 || side >= len(fs.combos) {
+		return
+	}
+	fs.combos[side].trueHits += n
+}

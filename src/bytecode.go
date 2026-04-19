@@ -4448,7 +4448,8 @@ type callFunction struct {
 
 func (cf callFunction) Run(c *Char, _ []int32) (changeState bool) {
 	// Check if the function exists
-	bf, ok := c.gi().callFuncs[cf.name]
+	// We use the functions from whatever player owns the current working state
+	bf, ok := sys.cgi[sys.workingState.playerNo].callFuncs[cf.name]
 
 	// If undefined, treat as no-op and log error
 	if !ok {

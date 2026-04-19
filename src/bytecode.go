@@ -829,6 +829,7 @@ const (
 	OC_ex2_explodvar_animplayerno
 	OC_ex2_explodvar_animtime
 	OC_ex2_explodvar_spriteplayerno
+	OC_ex2_explodvar_bindid
 	OC_ex2_explodvar_bindtime
 	OC_ex2_explodvar_drawpal_group
 	OC_ex2_explodvar_drawpal_index
@@ -3798,6 +3799,8 @@ func (be BytecodeExp) run_ex2(c *Char, i *int, oc *Char) {
 	case OC_ex2_explodvar_layerno:
 		fallthrough
 	case OC_ex2_explodvar_id:
+		fallthrough
+	case OC_ex2_explodvar_bindid:
 		fallthrough
 	case OC_ex2_explodvar_bindtime:
 		fallthrough

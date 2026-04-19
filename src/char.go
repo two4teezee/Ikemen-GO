@@ -5457,6 +5457,8 @@ func (c *Char) explodVar(eid BytecodeValue, idx BytecodeValue, vtype OpCode) Byt
 			v = BytecodeInt(e.anim.AnimTime())
 		case OC_ex2_explodvar_spriteplayerno:
 			v = BytecodeInt(int32(e.spritePN) + 1)
+		case OC_ex2_explodvar_bindid:
+			v = BytecodeInt(e.bindId)
 		case OC_ex2_explodvar_bindtime:
 			v = BytecodeInt(e.bindtime)
 		case OC_ex2_explodvar_drawpal_group:

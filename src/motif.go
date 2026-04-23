@@ -3471,7 +3471,7 @@ func (ch *MotifChallenger) step(m *Motif) {
 	sys.setGSF(GSF_nomusic)
 	sys.setGSF(GSF_timerfreeze)
 	if ch.counter == m.ChallengerInfo.Pause.Time {
-		sys.pausetime = m.ChallengerInfo.Time + m.ChallengerInfo.FadeOut.Time
+		sys.pausetime = m.ChallengerInfo.Time + m.ChallengerInfo.FadeOut.FadeData.duration()
 	}
 	if ch.counter == m.ChallengerInfo.Snd.Time {
 		m.Snd.play(m.ChallengerInfo.Snd.Snd, 100, 0, 0, 0, 0)
@@ -6712,7 +6712,7 @@ func (wi *MotifWin) initResultsVariant(m *Motif, sectionName string) bool {
 	wi.soundsEnabled = rs.Sounds.Enabled
 	wi.keyCancel = rs.Cancel.Key
 	wi.time = rs.Show.Time
-	wi.fadeOutTime = rs.FadeOut.Time
+	wi.fadeOutTime = rs.FadeOut.FadeData.duration()
 	wi.fadeIn = rs.FadeIn.FadeData
 	wi.fadeOut = rs.FadeOut.FadeData
 	return true
@@ -6739,7 +6739,7 @@ func (wi *MotifWin) initWinScreen(m *Motif) bool {
 
 	wi.keyCancel = m.WinScreen.Cancel.Key
 	wi.time = m.WinScreen.Pose.Time
-	wi.fadeOutTime = m.WinScreen.FadeOut.Time
+	wi.fadeOutTime = m.WinScreen.FadeOut.FadeData.duration()
 	wi.fadeIn = m.WinScreen.FadeIn.FadeData
 	wi.fadeOut = m.WinScreen.FadeOut.FadeData
 	return true

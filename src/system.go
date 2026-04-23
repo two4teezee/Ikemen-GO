@@ -2129,6 +2129,7 @@ func (s *System) clearPlayerAssets(pn int, forceDestroy bool) {
 
 func (s *System) resetRoundState() {
 	s.roundBackup.Restore()
+	newMatchMusic := s.round == 1 && !s.roundResetFlg
 
 	if s.sel.gameParams.PersistRounds && !s.roundResetFlg {
 		s.persistRoundCount++
@@ -2212,6 +2213,11 @@ func (s *System) resetRoundState() {
 		s.stage.reset()
 	}
 	s.cam.ResetZoomdelay()
+	if newMatchMusic {
+		s.stage.music.ClearSelection()
+		s.stage.si().music.ClearSelection()
+		s.sel.music.ClearSelection()
+	}
 
 	// Reset characters
 	for i, p := range s.chars {
@@ -2242,6 +2248,9 @@ func (s *System) resetRoundState() {
 		}
 		s.cgi[i].clearPCTime()
 
+		if newMatchMusic {
+			p[0].si().music.ClearSelection()
+		}
 		// Reset music map
 		s.cgi[i].music = make(Music)
 		// Append stage def file music parameters

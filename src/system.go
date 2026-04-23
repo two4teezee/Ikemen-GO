@@ -2969,7 +2969,8 @@ func (s *System) stepRoundState() {
 	// Post round
 	if s.roundEnded() || s.roundEndDecision() {
 		rs4t := -s.fightScreen.round.over_waittime
-		fadeoutStart := rs4t - 2 - s.fightScreen.round.overTime() + s.fightScreen.round.fadeOut.time
+		fadeOutDuration := s.fightScreen.round.fadeOut.duration()
+		fadeoutStart := rs4t - 2 - s.fightScreen.round.overTime() + fadeOutDuration
 		matchEndDialoguePending := s.matchEndDialoguePending()
 
 		s.intro--

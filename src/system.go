@@ -350,6 +350,11 @@ type System struct {
 	sessionWarning  string
 }
 
+type drawAspectState struct {
+	gameWidth, gameHeight   int32
+	widthScale, heightScale float32
+}
+
 // Check if the application is running inside a macOS app bundle
 func isRunningInsideAppBundle(exePath string) bool {
 	// Check if we're on Darwin and the executable path contains .app (macOS application bundle)
@@ -660,6 +665,53 @@ func (s *System) applyFightAspect() {
 	// Scale to fit current screen size
 	s.widthScale = float32(s.scrrect[2]) / float32(s.gameWidth)
 	s.heightScale = float32(s.scrrect[3]) / float32(s.gameHeight)
+}
+
+func (s *System) captureAspectState() drawAspectState {
+	return drawAspectState{
+		gameWidth:   s.gameWidth,
+		gameHeight:  s.gameHeight,
+		widthScale:  s.widthScale,
+		heightScale: s.heightScale,
+	}
+}
+
+func (s *System) restoreAspectState(st drawAspectState) {
+	s.gameWidth = st.gameWidth
+	s.gameHeight = st.gameHeight
+	s.widthScale = st.widthScale
+	s.heightScale = st.heightScale
+}
+
+func (s *System) wrapDrawWithAspectState(fn func()) func() {
+	if fn == nil {
+		return nil
+	}
+	st := s.captureAspectState()
+	return func() {
+		prev := s.captureAspectState()
+		s.restoreAspectState(st)
+		defer s.restoreAspectState(prev)
+		fn()
+	}
+}
+
+func (s *System) shouldPersistMotifAspect() bool {
+	return s.cfg.Video.KeepAspect && !s.skipMotifScaling()
+}
+
+func (s *System) enterMotifAspect() {
+	if !s.shouldPersistMotifAspect() {
+		return
+	}
+	s.setGameSize(s.scrrect[2], s.scrrect[3])
+}
+
+func (s *System) leaveMotifAspect() {
+	if !s.shouldPersistMotifAspect() {
+		return
+	}
+	s.applyFightAspect()
 }
 
 func (s *System) eventUpdate() bool {
@@ -1689,12 +1741,14 @@ func (s *System) luaQueuePreDraw(fn func()) {
 	if fn == nil {
 		return
 	}
+	fn = s.wrapDrawWithAspectState(fn)
 	s.luaDrawPreOps = append(s.luaDrawPreOps, fn)
 }
 func (s *System) luaQueueLayerDraw(layer int, fn func()) {
 	if fn == nil {
 		return
 	}
+	fn = s.wrapDrawWithAspectState(fn)
 	// Negative layers behave like a "pre" pass (e.g. clearColor).
 	if layer < 0 {
 		s.luaQueuePreDraw(fn)

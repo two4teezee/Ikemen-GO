@@ -220,6 +220,7 @@ type System struct {
 	debugLastID         int32
 	soundMixer          *beep.Mixer
 	bgm                 Bgm
+	pauseVolumeApplied  bool
 	soundChannels       SoundChannels // System sounds. Lifebars etc
 	charSoundChannels   [MaxPlayerNo]SoundChannels
 	allPalFX            *PalFX
@@ -923,18 +924,26 @@ func (s *System) tickSound() {
 	// Always pause if noMusic flag set, pause master volume is 0, or freqmul is 0.
 	s.bgm.SetPaused(s.nomusic || (s.paused && s.cfg.Sound.PauseMasterVolume == 0) || (s.bgm.freqmul == 0))
 
-	// Set BGM volume if paused
-	if s.paused && s.bgm.volRestore == 0 {
-		s.bgm.volRestore = s.bgm.bgmVolume
-		s.bgm.bgmVolume = int(s.cfg.Sound.PauseMasterVolume * s.bgm.bgmVolume / 100.0)
-		s.bgm.UpdateVolume()
+	if s.paused {
+		// Apply BGM pause volume once per pause, even when the original BGM volume is 0.
+		// volRestore cannot be used as the latch because 0 is a valid volume and also
+		// the default value when no BGM is playing.
+		if !s.pauseVolumeApplied {
+			s.bgm.volRestore = s.bgm.bgmVolume
+			s.bgm.bgmVolume = int(s.cfg.Sound.PauseMasterVolume * s.bgm.bgmVolume / 100.0)
+			s.bgm.UpdateVolume()
+			s.pauseVolumeApplied = true
+		}
+
+		// Run every paused tick so sounds started while paused are also softened.
 		s.softenAllSound()
-	} else if !s.paused && s.bgm.volRestore > 0 {
+	} else if s.pauseVolumeApplied {
 		// Restore all volume
 		s.bgm.bgmVolume = s.bgm.volRestore
 		s.bgm.volRestore = 0
 		s.bgm.UpdateVolume()
 		s.restoreAllVolume()
+		s.pauseVolumeApplied = false
 	}
 }
 
@@ -2044,10 +2053,11 @@ func (s *System) softenAllSound() {
 			ch := &s.charSoundChannels[i][j]
 
 			// Temporarily store the volume so it can be recalled later.
-			if ch.IsPlaying() && ch.sfx != nil && ch.ctrl != nil {
+			if ch.IsPlaying() && ch.sfx != nil && ch.ctrl != nil && !ch.pauseVolumeApplied {
 				ch.volResume = ch.sfx.volume
 				softVolume := ch.sfx.volume * (float32(s.cfg.Sound.PauseMasterVolume) / 100.0)
 				ch.SetVolume(softVolume)
+				ch.pauseVolumeApplied = true
 
 				// Pause if pause master volume is 0
 				if s.cfg.Sound.PauseMasterVolume == 0 {
@@ -2065,8 +2075,9 @@ func (s *System) restoreAllVolume() {
 			ch := &s.charSoundChannels[i][j]
 
 			// Restore the volume we had.
-			if ch.sfx != nil && ch.ctrl != nil {
+			if ch.sfx != nil && ch.ctrl != nil && ch.pauseVolumeApplied {
 				ch.SetVolume(ch.volResume)
+				ch.pauseVolumeApplied = false
 
 				// Unpause only those whose freqmul > 0
 				if ch.ctrl.Paused && ch.sfx.freqmul > 0 {

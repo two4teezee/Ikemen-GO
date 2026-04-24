@@ -423,6 +423,11 @@ func (bgm *Bgm) Open(filename string, loop, bgmVolume, bgmLoopStart, bgmLoopEnd,
 	resampler := beep.Resample(Clamp(sys.cfg.Sound.AudioResampleQuality, 1, 16), bgm.sampleRate, dstFreq, bgm.volctrl)
 	bgm.ctrl = &beep.Ctrl{Streamer: resampler}
 	bgm.volRestore = 0 // need this to prevent paused BGM volume from overwriting the new BGM volume
+	if sys.paused && sys.pauseVolumeApplied {
+		// A new BGM can start while the game is already paused.
+		bgm.volRestore = bgm.bgmVolume
+		bgm.bgmVolume = int(sys.cfg.Sound.PauseMasterVolume * bgm.bgmVolume / 100.0)
+	}
 	bgm.UpdateVolume()
 	bgm.streamer.Seek(startPosition)
 	speaker.Play(bgm.ctrl)
@@ -636,6 +641,11 @@ func (bgm *Bgm) OpenFromStreamer(stream beep.Streamer, srcSampleRate beep.Sample
 	resampler := beep.Resample(Clamp(sys.cfg.Sound.AudioResampleQuality, 1, 16), bgm.sampleRate, dstFreq, bgm.volctrl)
 	bgm.ctrl = &beep.Ctrl{Streamer: resampler}
 	bgm.volRestore = 0
+	if sys.paused && sys.pauseVolumeApplied {
+		// A video-backed BGM can also be attached while pause is active.
+		bgm.volRestore = bgm.bgmVolume
+		bgm.bgmVolume = int(sys.cfg.Sound.PauseMasterVolume * bgm.bgmVolume / 100.0)
+	}
 	bgm.UpdateVolume()
 	speaker.Play(bgm.ctrl)
 }
@@ -954,6 +964,7 @@ type SoundChannel struct {
 	number            int32
 	timeStamp         int32
 	volResume         float32 // For pausing/unpausing
+	pauseVolumeApplied bool
 }
 
 // The old Stop() plus more
@@ -976,6 +987,9 @@ func (s *SoundChannel) Reset() {
 	s.group = -1
 	s.number = -1
 	s.timeStamp = -1
+
+	s.volResume = 0
+	s.pauseVolumeApplied = false
 }
 
 func (s *SoundChannel) Play(sound *Sound, group, number, loop int32, freqmul float32, loopStart, loopEnd, startPosition int) {

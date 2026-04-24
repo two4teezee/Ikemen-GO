@@ -952,18 +952,18 @@ func (s *SoundEffect) Err() error {
 // SoundChannel
 
 type SoundChannel struct {
-	streamer          beep.StreamSeeker
-	sfx               *SoundEffect
-	ctrl              *beep.Ctrl
-	sound             *Sound
-	playerID          int32
-	channelNo         int32 // Logical channel assigned by char code
-	stopOnGetHit      bool
-	stopOnChangeState bool
-	group             int32
-	number            int32
-	timeStamp         int32
-	volResume         float32 // For pausing/unpausing
+	streamer           beep.StreamSeeker
+	sfx                *SoundEffect
+	ctrl               *beep.Ctrl
+	sound              *Sound
+	playerID           int32
+	channelNo          int32 // Logical channel assigned by char code
+	stopOnGetHit       bool
+	stopOnChangeState  bool
+	group              int32
+	number             int32
+	timeStamp          int32
+	volResume          float32 // For pausing/unpausing
 	pauseVolumeApplied bool
 }
 
